@@ -6,6 +6,12 @@
 > Reemplaza, donde se contradicen, a `docs/diseno-ai-step-v2.md` (§1, §2.4, §3, §8, §10-A/C/D),
 > `docs/diseno-automations-galeria-v2.md` (§3: el catálogo) y `docs/diseno-mako-en-whatsapp-unificado.md`
 > (la sección «MaKo en WhatsApp» de la barra y el «＋ Nuevo mensaje»).
+>
+> **Revisado el mismo día (~20:25 UTC) en el worktree `C:/dev/wt-undecima`** (rama `undecima`, HEAD `dd293c86`:
+> origin/main con el CRON «Pagos» de la pasarela, `67b7695d` + `eb514e3c` + `1e85eb62`). Lo que eso cambió está en
+> §1.8 a §1.11; el resto se volvió a contrastar con el código del worktree y sigue valiendo. Re-medido a las
+> 20:22 UTC (transacción read only, `scratchpad/wf-undecima/arquitecto/vivas-pago.mts`): las mismas 10 filas vivas
+> con los mismos `updated_at`, ninguna fila (ni archivada) del CRON «Pagos» ni del evento «Entra un pago», y 0 cobros.
 
 ## 0. La regla que gobierna todo
 
@@ -38,7 +44,7 @@ Esto va a la cosecha (`docs/hallazgos-chatbot.md`). Los relevos se contrastaron 
 que no se cita acá se verificó y está bien.
 
 1. **La lista `disparadores` le GANA a la columna, no al revés.** El relevo de flujos dijo que en #238 «manda la
-   columna (entrega_actual)». `vistasPorDisparador` (`lib/disparadores.ts:690`) usa
+   columna (entrega_actual)». `vistasPorDisparador` (`lib/disparadores.ts:728` en el worktree) usa
    `sec.disparadores?.length ? sec.disparadores : disparadoresDe(sec)`.
    - La lista de #238 dice `etapa_actual@lead`, funnel 1. Prendida, mandaría «¡Felicidades por completar la
      clase!» a cada lead de «Lead entrante».
@@ -81,6 +87,29 @@ que no se cita acá se verificó y está bien.
      seguir resolviéndolas.
    - Se OCULTAN (no se ofrecen; Publicar las rechaza) y se borran en un commit de limpieza DESPUÉS de
      `--aplicar` (§8.7).
+8. **El CRON «Pagos» trajo un QUINTO Evento de MaKo con `{{mensaje_mako}}`.** `pago_recibido` → aviso
+   `pago-recibido` (`textoDelCodigo`), plantilla `mako-pago` = `{{mensaje_mako}}`. Lo emite `avisarPagoRecibido`
+   (`lib/cobros.ts`) con un texto armado: quién pagó, cuánto, por qué pasarela, el concepto, si es renovación o
+   prueba y, en una venta de MaKo, cómo quedó el alta.
+   - El punto 4 vale también acá. El emisor pasa además `datos` atómicos, por el mismo camino que la cobranza
+     (`emitirDelCatalogo(…, { datos })`): `pago_monto`, `pago_concepto`, `pago_pasarela`, `pago_tipo`,
+     `pago_modo` y `pago_alta` (§5). La regla de AGENTS.md «Un cobro pasa por `lib/cobros.ts`» no cambia: sólo
+     cambia lo que el aviso lleva.
+   - `mako-pago` conserva su id y se reescribe con esos datos (§7).
+   - El resto del CRON «Pagos» se integra sin tocarse: `TRIGGER_PAGO`, `EVENTOS_PAGO`, la clase `pagos` (7º botón,
+     grilla 4+3), `esClaseDeEventos`, 'pago' en `EventoNutricion` y `TRIGGERS_POR_EVENTO`, `EstadoCanales.pagos`,
+     `enrolarPorPago` (`lib/pago-entrante.ts`). M1 cambia sólo la rama 'agenda_nueva' de `enrolarPorEvento`.
+   - Medido: 0 filas del CRON «Pagos» o del evento `pago_recibido` (ni archivadas) y 0 cobros. Si al aplicar
+     aparece una, el script de flujos la reescribe en el lugar con la plantilla nueva (§8.5).
+9. **`TRIGGERS_DEL_EMISOR` incluye `TRIGGER_AVISO_MAKO`** (`lib/disparadores.ts:88`). La limpieza decía «borrar
+   `TRIGGERS_DEL_EMISOR`»: eso apagaría los Eventos de MaKo que se quedan (cobranza, charla y pago). Se saca SÓLO
+   `TRIGGER_RECORDATORIO` de ese conjunto (§8.7).
+10. **La migración es la 0257** (o la siguiente libre al commitear): en el worktree está `0255_cobros_pasarela.sql`
+    y en el clon `0256_offer_funnel.sql` de Offer. Se mira `ls supabase/migrations` en los dos.
+11. **Ocultar `{{mensaje_mako}}` del «{ }» va en la ola 3, no en la 1.** Lo fijan tests que también fijan la barra
+    y la galería (`tests/automations-mako-en-whatsapp.test.ts`, test 5; `tests/aviso-evento.test.ts`), y va con el
+    paquete que rehace las plantillas que hoy lo usan. La función pura que Publicar usará para rechazarlo
+    (`problemasDeTokens`) nace en la ola 1; se enchufa en la 3. Hasta la limpieza, el motor lo sigue RESOLVIENDO.
 
 ## 2. Los 13 puntos y las tres decisiones (qué queda)
 
@@ -108,10 +137,12 @@ que no se cita acá se verificó y está bien.
   «Crear con IA» y el script de prod.
 
 ### Punto 4 · Fuera `{{mensaje_mako}}`
-- No es un dato: es el aviso entero que armaba el webhook.
+- No es un dato: es el aviso entero que armaba el código del emisor. Lo usan el webhook de agenda
+  (`lead_agendo`), la charla (`lead_contesta`), los 30 min antes de la reunión (`reunion_pronto`) y, desde el CRON
+  «Pagos», la pasarela (`pago_recibido`).
 - El catálogo deja de ofrecerlo y Publicar lo rechaza.
-- El aviso pasa a ser una tarjeta «MaKo en WhatsApp» con datos citables: los de siempre, más «Próxima reunión» y
-  «Lo que contestó al agendar».
+- Cada aviso pasa a una tarjeta «MaKo en WhatsApp» con datos citables: los de siempre, más «Próxima reunión»,
+  «Lo que contestó al agendar», «Lo que escribió» (la charla) y los del pago.
 - Mientras exista una fila viva que lo use, el motor lo sigue resolviendo (compatibilidad de lectura); se borra
   después del script (§8.7).
 
@@ -155,28 +186,47 @@ Para que el motor lo corra igual o mejor que el emisor de hoy hacen falta M1-M6 
   tutorial · Están siempre en este menú.».
 
 ### Punto 10 · Plantillas: una por categoría
-Son 12 plantillas, en orden de embudo:
+Son 13 plantillas, en orden de embudo:
 
-| # | Plantilla | CRON |
-|---|---|---|
-| 1 | Un Lead Entró | etapa |
-| 2 | **Un Lead Agendó Llamada** | etapa |
-| 3 | Un Lead No Asistió | etapa |
-| 4 | Un Lead Tuvo la Reunión | etapa |
-| 5 | Un Lead Confirmó la Compra | etapa |
-| 6 | Un Cliente Empezó | etapa de entrega |
-| 7 | Una Cuota Venció | Evento de MaKo |
-| 8 | Un Lead Te Escribió | Evento de MaKo |
-| 9 | Te Escribieron por Instagram | Instagram, 5 eventos |
-| 10 | Te Escribieron por Messenger | Messenger, 4 eventos |
-| 11 | Te Escribieron por Email | Recibes un email |
-| 12 | Alguien Se Suscribió | newsletter |
+| # | id | Plantilla | CRON |
+|---|---|---|---|
+| 1 | `lead-entro` | Un Lead Entró | etapa |
+| 2 | `lead-agendo` | **Un Lead Agendó Llamada** | etapa |
+| 3 | `lead-no-asistio` | Un Lead No Asistió | etapa |
+| 4 | `lead-tuvo-reunion` | Un Lead Tuvo la Reunión | etapa |
+| 5 | `lead-confirmo-compra` | Un Lead Confirmó la Compra | etapa |
+| 6 | `cliente-empezo` | Un Cliente Empezó | etapa de entrega |
+| 7 | `mako-cobranza` | Una Cuota Venció | Evento de MaKo `cuota_vencida` |
+| 8 | `mako-pago` | Entró un Pago | Evento de MaKo `pago_recibido` |
+| 9 | `mako-charla` | Un Lead Te Escribió | Evento de MaKo `lead_contesta` |
+| 10 | `instagram-te-escribieron` | Te Escribieron por Instagram | Instagram, 5 eventos |
+| 11 | `messenger-te-escribieron` | Te Escribieron por Messenger | Messenger, 4 eventos |
+| 12 | `email-recibido` | Te Escribieron por Email | Recibes un email |
+| 13 | `email-newsletter` | Alguien Se Suscribió | newsletter |
 
-- Cada una lleva UN AI Step con objetivo y la tarjeta «MaKo en WhatsApp» donde el equipo tiene que actuar.
-- De las 28 de hoy, conservan su id `mako-cobranza`, `mako-charla` y `email-newsletter`. Las otras 25 quedan como
-  un mapa de reemplazos (id viejo → nuevo, o «retirada»). Crear con un id viejo contesta 400 y nombra la nueva;
-  nunca crea otra cosa en silencio.
+- Cada una lleva UN AI Step con objetivo (salvo las de Evento de MaKo, Instagram, Messenger y Email, donde el AI
+  Step no corre) y la tarjeta «MaKo en WhatsApp» donde el equipo tiene que actuar.
+- De las 29 de hoy (las 28 de la décima más `mako-pago` del CRON «Pagos»), conservan su id `mako-cobranza`,
+  `mako-pago`, `mako-charla` y `email-newsletter`. Las otras 25 quedan como un mapa de reemplazos (id viejo → nuevo,
+  o «retirada»):
+
+  | Viejo | Nuevo |
+  |---|---|
+  | `bienvenida-sin-agenda`, `ultimo-intento` | `lead-entro` |
+  | `recordatorio-reunion`, `agendo-preparar`, `agendo-confirmar`, `email-recordatorio-reunion`, `mako-agendado`, `mako-reunion` | `lead-agendo` |
+  | `no-asistio` | `lead-no-asistio` |
+  | `seguimiento-reunion`, `reactivar-sin-cierre` | `lead-tuvo-reunion` |
+  | `pago-pendiente` | `lead-confirmo-compra` |
+  | `cliente-bienvenida`, `pedir-testimonio` | `cliente-empezo` |
+  | `ig-comentario-dm`, `ig-historia-dm`, `ig-bienvenida-dm`, `ig-ref-dm`, `ig-en-vivo-dm` | `instagram-te-escribieron` |
+  | `ms-bienvenida`, `ms-qr`, `ms-ref`, `ms-comentario` | `messenger-te-escribieron` |
+  | `email-respuesta-auto` | `email-recibido` |
+  | `felicitacion-clase` | retirada |
+
+- Crear con un id viejo contesta 400 y nombra la nueva; nunca crea otra cosa en silencio.
 - `felicitacion-clase` se retira: «cada vez que avanza» es falso con el unique de inscripciones.
+- El CRON «Pagos» no tiene plantilla propia (no la tenía antes de esta tanda). Una «Un Pago No Pasó» queda como
+  decisión (§9, 34).
 
 ### Punto 11 · Un AI Step por objetivo
 - UNA tarjeta con objetivo y escenarios adentro: hasta 10 más «Lo demás». El tope es uno por medio en cada
@@ -234,8 +284,17 @@ Son 12 plantillas, en orden de embudo:
 
 ## 3. Los flujos de producción: ANTES y DESPUÉS (tarjeta por tarjeta)
 
-Medido el 11/10/2026 a las 17:50 UTC. Son 83 automatizaciones, 10 sin archivar. Ids viejos en su índice; los
-nuevos al final. Sólo el script del último paquete escribe, en SIMULACRO por defecto (§8).
+Medido el 11/10/2026 a las 17:50 UTC y otra vez a las 20:22 UTC (igual). Son 83 automatizaciones, 10 sin
+archivar. Ids viejos en su índice; los nuevos al final. Sólo el script del último paquete escribe, en SIMULACRO por
+defecto (§8).
+
+Los `updated_at` que el script usa para el compare-and-set (se vuelven a leer al aplicar): #198
+`2026-10-11T15:20:50.165Z`, #213 `2026-10-11T15:20:50.413Z` (y `disparadores_rev` 1), #228
+`2026-10-10T17:26:28.167Z`, #238 `2026-10-11T06:32:14.213Z`, #239 `2026-10-11T15:17:01.910Z`, #209
+`2026-10-08T15:20:02.947Z`, #210 `2026-10-08T15:20:03.656Z`, #223 `2026-10-10T14:29:32.513Z`, #224
+`2026-10-10T16:09:00.574Z`, #240 `2026-10-11T15:17:04.451Z`. Una fila viva que no esté en esta tabla FRENA el script,
+salvo una de un Evento de MaKo con `{{mensaje_mako}}` (p. ej. una «Aviso de pago recibido» creada después del
+relevo), que se reescribe en el lugar con la plantilla nueva de su evento.
 
 ### ws1 · Mauricio Bustos (cliente)
 
@@ -364,7 +423,8 @@ Sin esto, «Un Lead Agendó Llamada» manda PEOR que #213 + #228 + #239.
   - algún disparador `etapa_actual` es de una etapa de tipo `reunion`;
   - hay un DELAY «antes de la reunión».
 
-  Reemplaza a `preparaUnaReunion(trigger)` en todos sus usos:
+  Reemplaza a `preparaUnaReunion(trigger)` en todos sus usos (`lib/nutricion.ts`, `lib/nutricion-desenlace.ts`;
+  `preparaUnaReunion` queda exportada como la parte «por trigger» de la regla):
   - `reunion_at` al inscribir;
   - el reuso al reagendar (Martín, 06/10: «también con reunión nueva»);
   - «la reunión ya pasó»;
@@ -415,9 +475,23 @@ Sin esto, «Un Lead Agendó Llamada» manda PEOR que #213 + #228 + #239.
   `reunionFuturaMs` delega en la laxa, que además deja de contar las canceladas.
 - **`lead_respuestas_agenda`** «Lo que contestó al agendar»: la última fila de `lead_respuestas`, un renglón por
   respuesta. Es lo único del aviso de Cal.com que no se podía citar.
-- **`lead_escribio`** «Lo que escribió»: alcance 'evento', sólo para `lead_contesta`.
-- **`mensaje_mako`**: oculto y nunca ofrecido. Se resuelve sólo para filas vivas que lo tengan, hasta la
-  limpieza (§8.7).
+- **`lead_escribio`** «Lo que escribió»: alcance nuevo 'escrito' (`ContextoDatos.conEscrito`), sólo para
+  `lead_contesta`. Lo pasan sus emisores en `datos` (`lib/chat-agent-handoff.ts` y los de `lib/nutricion.ts`).
+- **Los datos del pago** (grupo «Pagos», alcance nuevo 'pago', `ContextoDatos.conPago`, sólo `pago_recibido`, al
+  equipo). Los pasa `avisarPagoRecibido` (`lib/cobros.ts`) en `datos`, por código y nunca por un modelo (es plata):
+
+  | Dato | Ejemplo | Sale de |
+  |---|---|---|
+  | `pago_monto` | «US$ 2.300» | `formatoMonto(monto, moneda)` del pago (la renovación trae el suyo) |
+  | `pago_concepto` | «Mentoría» | `cobro.concepto` |
+  | `pago_pasarela` | «Stripe» | `NOMBRE_PASARELA[cobro.proveedor]` |
+  | `pago_tipo` | «Primer pago» / «Renovación» | `renovacion` |
+  | `pago_modo` | «Prueba» o vacío | `cobro.modo === 'prueba'`; vacío en un pago real (su renglón se va) |
+  | `pago_alta` | «Cuenta creada» / «Ya tenía cuenta» / «El alta falló» | `lineaDelAlta`, sólo en una venta de MaKo; vacío fuera |
+
+- Cada alcance es UNA rama en positivo de `alcanzaPara` (como 'cuota'): un alcance nuevo no se cuela en otro evento.
+- **`mensaje_mako`**: oculto y nunca ofrecido (desde la ola 3, §1.11). Se resuelve sólo para filas vivas que lo
+  tengan, hasta la limpieza (§8.7).
 - **Una forma de hora**: «10:00 a. m.» también en `lead_hora_r1/r2` y en `hora`. Ninguna fila viva los usa.
 - **Renglón opcional** (`sinRenglonesVacios`): un renglón que nombra un dato DEL CATÁLOGO sin valor se va
   entero. Lo desconocido queda crudo y Publicar no lo deja pasar.
@@ -481,7 +555,7 @@ Sin esto, «Un Lead Agendó Llamada» manda PEOR que #213 + #228 + #239.
 
 ## 7. Plantillas (la galería)
 
-El catálogo de 12 está en el punto 10. Contrato de cada plantilla:
+El catálogo de 13 está en el punto 10. Contrato de cada plantilla:
 
 - `problemasDeForma` vacío y `problemasDeTokens` vacío.
 - UN AI Step con objetivo y 2 o más escenarios del catálogo `ESCENARIOS_TIPICOS`.
@@ -504,8 +578,16 @@ El catálogo de 12 está en el punto 10. Contrato de cada plantilla:
   - AI Step «Que llegue a la reunión».
   - Los textos usan los datos «Próxima reunión».
 - Fuera de la galería y del selector del CRON: la plantilla `recordatorio-reunion` (el CRON del emisor) y los
-  eventos de MaKo `lead_agendo` y `reunion_pronto`. Los hace «Un Lead Agendó Llamada». Quedan `cuota_vencida` y
-  `lead_contesta`.
+  eventos de MaKo `lead_agendo` y `reunion_pronto`. Los hace «Un Lead Agendó Llamada». Quedan `cuota_vencida`,
+  `lead_contesta` y `pago_recibido`.
+  - Los dos que se van siguen en `EVENTOS_MAKO` con una marca `retirado` (no se ofrecen) hasta la limpieza: sin
+    ellos, `eventoDeFila` devolvería null para #239/#240 entre el deploy y el script.
+- Las tres de Evento de MaKo, con datos citables:
+  - `mako-charla`: «💬 {{nombre_completo}} te escribió y no le contesté.⏎«{{lead_escribio}}»⏎👉 {{link_lead}}».
+  - `mako-pago`: «💰 *Entró un pago*: {{nombre_completo}} pagó *{{pago_monto}}* por {{pago_pasarela}}
+    ({{pago_concepto}}).⏎{{pago_tipo}} · {{pago_modo}}⏎{{pago_alta}}⏎👉 {{link_lead}}» (el texto final lo ajusta el
+    paquete; los datos son éstos).
+  - `mako-cobranza`: la de hoy (ya usa datos de la cuota).
 - API: `listar_plantillas_automatizaciones` (lectura) y `crear_automatizacion_desde_plantilla` (confirmación
   'chat', admin, sin 'http').
 
@@ -514,15 +596,19 @@ El catálogo de 12 está en el punto 10. Contrato de cada plantilla:
 1. **Decisiones de Martín** (§9). Lo que tenga un default recomendado se implementa con ese default y se puede
    dar vuelta.
 2. **Antes o junto con el deploy:**
-   - Migración `0256_setting_audios_voz_mako.sql`: el CHECK de `setting_audios.origen` suma 'voz_mako'. Se
-     aplica con `scripts/apply-migration.mjs`.
-   - Sin ella, generar la voz falla ruidoso con 23514; no se pierde nada ni se cobra, porque el insert va
-     después del TTS.
-   - No hay otra migración: zona, email, AI Step y flujos usan columnas que ya existen.
+   - Migración `0257_setting_audios_voz_mako.sql` (o la siguiente libre: `ls supabase/migrations` en el worktree Y
+     en el clon; la 0255 es de la pasarela y la 0256 de Offer): el CHECK de `setting_audios.origen` suma
+     'voz_mako'. Se aplica con `scripts/apply-migration.mjs`. Su cabecera dice el orden: ANTES o JUNTO con el
+     deploy.
+   - Sin ella, generar la voz falla ruidoso con 23514; y SÍ se cobra: el insert va después del TTS
+     (≤700 caracteres por intento; `crearAudio` borra el binario subido). Por eso va antes o junto con el deploy.
+   - No hay otra migración: zona, email, AI Step, pagos y flujos usan columnas que ya existen.
 3. **Secretos** (Martín): pagar la factura abierta de ElevenLabs (US$6; la cuenta está `past_due`) y cargar
    `MAKO_ELEVENLABS_API_KEY` en Vercel Production y en `.env.local`.
    - Sin esto, «Generar la voz de MaKo» falla con su motivo y sin reintentar. Todo lo demás anda.
-4. **Commit y push** del código de las cuatro olas. Verificar `vercel ls` → Ready: pushear no es desplegar.
+4. **Commit y push** del código de las cuatro olas, desde el worktree (`git push origin undecima:main` tras
+   rebasear). Después del commit, el cierre regenera `docs/api-mako.md` y `tests/api-mako-http.snapshot.txt`
+   (`node --import tsx scripts/generar-api-doc.mjs`). Verificar `vercel ls` → Ready: pushear no es desplegar.
 5. **Scripts de datos.** Todos corren primero en SIMULACRO; leen con service role filtrando `workspace_id`;
    dejan un respaldo releído y comparado en `backups/`; escriben con compare-and-set sobre `updated_at` y jsonb
    como objeto.
@@ -536,45 +622,61 @@ El catálogo de 12 está en el punto 10. Contrato de cada plantilla:
       - El simulacro imprime cada flujo antes y después en palabras, y qué pasa con cada inscripción viva.
       - Con `--aplicar`: respaldo `backups/undecima-flujos-<ts>.json` (filas, inscripciones y marcas), releído.
       - Orden en el ws1: medir → #213 → re-armar 201/202 → archivar #228 y #239 (misma corrida) → #198 → #238.
-      - Después ws13 (fila nueva + pre-siembra → archivar #240, #223, #224), ws4 (#209, #210 pausadas), y
-        releer y comprobar.
+      - Después ws13 (fila nueva + pre-siembra → archivar #240, #223, #224), ws4 (#209, #210 pausadas), toda fila
+        viva de un Evento de MaKo con `{{mensaje_mako}}` que no esté en §3 (se reescribe con la plantilla nueva de su
+        evento), y releer y comprobar.
+      - `--restaurar=<respaldo>` vuelve atrás desde el respaldo, también en simulacro por defecto.
 6. **Volver atrás:**
    - restaurar el respaldo: `archivada_at` null en #228/#239/#240 y los `pasos` viejos. El emisor y el webhook
      los vuelven a leer en el acto;
    - las marcas compartidas evitan el doble envío;
    - volver a un deploy anterior DESPUÉS de aplicar es destructivo: el código viejo no conoce
      objetivo/audio/ejemplos del nodo, el primer guardado los borra y el lienzo viejo parte el AI Step.
-7. **Limpieza (commit aparte, DESPUÉS de `--aplicar` y con la medición «0 filas vivas»):**
-   - borrar la compatibilidad de `{{mensaje_mako}}`: la inyección en `lib/flujos.ts`, `CLAVE_MENSAJE_MAKO`, el
-     alcance 'mensaje' y los subtipos `lead_agendo`/`reunion_pronto` de `SubtipoMako`;
-   - borrar el emisor del recordatorio: `lib/reunion-recordatorio.ts` y su cron, `VARIABLES`, `textoDelToque`,
-     `problemaDelTexto`, lo que quede de `lib/recordatorio-automatizacion.ts`, la rama de `lib/nutricion.ts:851`,
-     `esRecordatorio` en `SecuenciaPerfil.tsx` y `TRIGGERS_DEL_EMISOR`;
+7. **Limpieza (commit aparte, DESPUÉS de `--aplicar` y con la medición «0 filas vivas» que los usen):**
+   - borrar la compatibilidad de `{{mensaje_mako}}`: la inyección en `emitirTarjetaDelEvento` (`lib/flujos.ts`),
+     `CLAVE_MENSAJE_MAKO`, el alcance 'mensaje', `conMensaje`, el `texto` que los emisores siguen pasando por
+     compatibilidad (webhooks de agenda, charla, `avisarPagoRecibido`), y los subtipos `lead_agendo`/`reunion_pronto`
+     de `SubtipoMako` y `EVENTOS_MAKO`;
+   - borrar el emisor del recordatorio: `lib/reunion-recordatorio.ts` y su cron (`vercel.json`,
+     `app/api/cron/reunion-recordatorio/route.ts`), `VARIABLES`, `textoDelToque`, `problemaDelTexto`, lo que quede
+     de `lib/recordatorio-automatizacion.ts` (`DATOS_RECORDATORIO`, `EJEMPLOS_RECORDATORIO`, `TRIGGER_RECORDATORIO`),
+     la rama del recordatorio en `FlujoLienzo.tsx` (`EditorMensaje`), `PanelProbar.tsx` y `MakoRedacta.tsx`,
+     `esRecordatorio`/`frenoDelRecordatorio` en `SecuenciaPerfil.tsx`, y `TRIGGER_RECORDATORIO` de
+     `TRIGGERS_DEL_EMISOR` — **sólo ése: `TRIGGER_AVISO_MAKO` se queda** (§1.9). Las marcas
+     `mako.recordatorio-lead.*` y `claveToque` se quedan: las usa el carril del motor (M3);
    - la fila de feed duplicada de `reunion-nuevo-agendado` del webhook (decisión).
 
 ### Paquetes y olas (dueño de archivo: dos paquetes de la misma ola nunca tocan el mismo archivo)
 
-| Ola | Paquete | Qué |
-|---|---|---|
-| 1 | `w1-aistep-modelo` | modelo del AI Step, `juntarPasosIA`, libertad, catálogo de escenarios, IA de armar/ensayo, lienzo |
-| 1 | `w1-datos-catalogo` | catálogo, «Próxima reunión», renglón opcional, validación de tokens (puro), `proximaReunion` |
-| 1 | `w1-zona` | zona única, detección, backfill |
-| 1 | `w1-email` | remitente positivo, key de la plataforma, UI de email |
-| 1 | `w1-mako-envio` | tarjeta «MaKo en WhatsApp» por partes, envío al grupo, Voz de MaKo, mig 0256 |
-| 1 | `w1-lista-ui` | filetes, barra unida, menú, Renombrar |
-| 2 | `w2-motor-reuniones` | M1, M1-b, M2, M3, M4, M6 |
-| 2 | `w2-aistep-editor` | editor del AI Step, ensayo, API del AI Step, DTO |
-| 2 | `w2-mako-editor` | editor de la tarjeta MaKo = el de WhatsApp, ✦ para el equipo |
-| 3 | `w3-motor-integracion` | el motor adopta AI Step, datos, zona y email |
-| 3 | `w3-datos-editores` | `CampoConDatos`, el «{ }» completo, fuera el catálogo del recordatorio |
-| 3 | `w3-plantillas` | las 12 plantillas, `problemasDeForma`, «Crear con IA», API de plantillas |
-| 4 | `w4-flujos-prod` | el script que rehace prod, scripts viejos neutralizados, alias muertos |
+Un archivo aparece en UNA fila por ola. Los tests van con su archivo dueño (lista exacta en cada encargo).
+
+| Ola | Paquete | Qué | Archivos que son SUYOS en esa ola |
+|---|---|---|---|
+| 1 | `w1-aistep-modelo` | modelo del AI Step, `juntarPasosIA`, libertad, catálogo de escenarios, la tarjeta | `lib/flujo-grafo.ts`, `lib/ai-step-libertad.ts`*, `lib/ai-step-escenarios.ts`*, `lib/nutricion-grafo-motor.ts` (saneo del AI Step), `lib/flujo-conversacion.ts`, `lib/flujo-edicion.ts`, `lib/flujo-legado.ts`, `lib/paso-ia-convertir.ts`, `lib/lienzo-grafo.ts`, `lib/ai-step-voz.ts`, `lib/ai-step-migrar.ts`, `scripts/ai-step-v2.mts`, `lib/plantillas-automatizaciones.ts` (sólo `aiStep`), `app/automations/FlujoLienzo.tsx` (sólo el montaje del AI Step), `app/automations/EditorPasoIA.tsx` (sólo la tarjeta y «＋ Otro») |
+| 1 | `w1-datos-catalogo` | catálogo, «Próxima reunión», respuestas, pago, «Lo que escribió», renglón opcional, `problemasDeTokens` (puro), `proximaReunion` | `lib/variables-aviso.ts`, `lib/variables-del-lead.ts`, `lib/variables-resolver.ts`, `lib/nutricion-reinscripcion.ts`, `lib/curso-mensajes-texto.ts`, `lib/recordatorio-lead.ts`, `lib/respuestas-agenda.ts`*, `lib/calcom.ts`, `lib/tokens-del-flujo.ts`*, `lib/aviso-evento.ts`, `lib/disparadores.ts`, `lib/cobros.ts` (sólo el aviso), `lib/chat-agent-handoff.ts` |
+| 1 | `w1-zona` | zona única, detección, backfill | `lib/zona-negocio-reglas.ts`*, `lib/timezone.ts`, `app/_components/ZonaDelNegocio.tsx`*, `app/_components/zona-actions.ts`*, `app/layout.tsx`, `app/configuraciones/horario-actions.ts`, `app/configuraciones/HorarioEnvioPanel.tsx`, `lib/api-mako/areas/equipo.{run,def}.ts`, `lib/api-mako/areas/contenido.helpers.ts`, `lib/api-mako/areas/email.helpers.ts`, `lib/avisos-programados.ts`, `lib/lineas-vigilante.ts`, `lib/reunion-auto.ts`, `lib/acento-workspace.ts`, `scripts/zona-negocio-backfill.mts`* |
+| 1 | `w1-email` | remitente positivo, key de la plataforma, UI de email | `lib/email-remitente.ts`, `lib/resend.ts`, `lib/resend-remitente.ts`, `lib/email-marketing.ts`, `lib/prueba-paso.ts`, `lib/integraciones.ts`, `lib/credenciales.ts`, `lib/medios-automatizacion.ts`, `lib/disparadores-canales.ts`, `lib/api-mako/areas/email.run.ts`, `app/api/{email/dominio,compartir,integraciones/credencial,metodo,onboarding}/route.ts`, `app/automations/EditorEmailGmail.tsx`, `app/automations/PanelProbar.tsx`, `scripts/undecima-email-remitente.mts`* |
+| 1 | `w1-mako-envio` | tarjeta «MaKo en WhatsApp» por partes, envío al grupo, Voz de MaKo, mig 0257 | `lib/mako-tarjeta.ts`*, `lib/mako-tarjeta-envio.ts`*, `lib/voz-mako-reglas.ts`*, `lib/voz-mako.ts`*, `app/api/automations/voz-mako/route.ts`*, `supabase/migrations/0257_setting_audios_voz_mako.sql`*, `scripts/voz-mako-agregar.mts`*, `lib/api-mako/areas/chatbot.{def,run}.ts`, `lib/avisos.ts`, `lib/mako-grupo.ts`, `lib/mako-chat.ts`, `lib/elevenlabs.ts`, `lib/setting-audios.ts`, `lib/mensaje-partes.ts` |
+| 1 | `w1-lista-ui` | filetes, barra unida, menú, Renombrar | `app/_ui/Tabs.tsx`, `app/automations/{ConfiguracionesBoton,SimuladorWhatsApp,ChatAgentApp,SecuenciaPerfil,RecorridoAutomations}.tsx`, `app/automations/recorrido-automations.ts`, `lib/setting-estrategia.ts`, `lib/setting-secuencias.ts`, `app/api/chat-agent/secuencias/route.ts` |
+| 2 | `w2-motor-reuniones` | M1, M1-b, M2, M3, M4, M6 | `lib/nutricion.ts`, `lib/nutricion-familias.ts`, `lib/nutricion-grafo-motor.ts`, `lib/nutricion-reinscripcion.ts`, `lib/nutricion-desenlace.ts`, `lib/nutricion-etapa.ts`, `lib/leads.ts`, `lib/recordatorio-lead.ts`, `app/api/webhooks/{calendly,calcom}/route.ts` |
+| 2 | `w2-aistep-editor` | editor del AI Step, armar, ensayo, «Crear con IA», API del AI Step, DTO | `app/automations/{EditorPasoIA,ModalEnsayoAIStep,ChatAgentApp}.tsx`, `app/automations/recorrido-automations.ts`, `lib/ai-step-armar.ts`, `lib/ai-step-ensayo.ts`, `app/api/automations/ai-step/{armar,ensayo}/route.ts`, `lib/flujo-ia.ts`, `lib/paso-ia-convertir.ts`, `lib/prompt-registry.ts`, `lib/setting-simulador.ts`, `lib/api-mako/areas/chatbot.{def,run}.ts` |
+| 2 | `w2-mako-editor` | editor de la tarjeta MaKo = el de WhatsApp, ✦ para el equipo, partes en el evento | `app/automations/{FlujoLienzo,EditorMensajeWhatsApp,MakoRedacta}.tsx`, `lib/mako-redacta.ts`, `app/api/chat-agent/redactar/route.ts`, `lib/flujo-conversacion.ts`, `lib/flujo-edicion.ts`, `lib/aviso-evento.ts`, `lib/flujos.ts`, `lib/flujos-tipos.ts`, `lib/mako-tarjeta.ts` |
+| 3 | `w3-motor-integracion` | el motor adopta AI Step, datos, zona y email; Publicar valida datos | `lib/nutricion.ts`, `lib/nutricion-grafo-motor.ts`, `lib/variables-resolver.ts`, `app/api/cron/nutricion-tick/route.ts`, `lib/flujo-conversacion.ts`, `lib/setting-estrategia.ts`, `lib/flujos.ts` |
+| 3 | `w3-datos-editores` | `CampoConDatos`, el «{ }» con el dato elegido, «Probar» con los datos nuevos | `app/_components/CampoConDatos.tsx`*, `app/_components/SelectorDatos.tsx`, `app/whatsapp/_shared/ComposerWhatsApp.tsx`, `app/automations/{EditorMensajeWhatsApp,FlujoLienzo,EditorMensajeSocial,EditorEmailGmail,PanelProbar}.tsx`, `app/agencia/FlujoAviso.tsx`, `app/_ui/EditorRico.tsx`, `lib/simulador-grafo.ts` |
+| 3 | `w3-plantillas` | las 13 plantillas, `problemasDeForma`, «Crear con IA», API de plantillas, ocultar `{{mensaje_mako}}` | `lib/plantillas-automatizaciones.ts`, `lib/plantilla-crear.ts`, `lib/flujo-forma.ts`*, `lib/ai-step-objetivos.ts`, `app/automations/{GaleriaPlantillas,ChatAgentApp}.tsx`, `lib/flujo-ia.ts`, `lib/prompt-registry.ts`, `lib/api-mako/areas/chatbot.{def,run}.ts`, `lib/disparadores.ts`, `lib/variables-aviso.ts`, `lib/avisos-catalogo.ts` |
+| 4 | `w4-flujos-prod` | el script que rehace prod, scripts viejos neutralizados, alias muertos | `lib/undecima-flujos-plan.ts`*, `scripts/undecima-flujos.mts`*, `scripts/{mudanza-nuevo-agendado,novena-tanda-ws1,migrar-cron-de-antes}.mts`, y los llamadores de los alias `@deprecated` |
+
+`*` = archivo nuevo.
 
 Reglas de la transición entre olas:
-- Un paquete deja el árbol compilando. Si cambia una interfaz que consume un archivo de una ola posterior, deja
-  el nombre viejo como `@deprecated` y avisa; el alias lo borra `w4-flujos-prod`.
-- Nadie regenera `docs/api-mako.md` ni el snapshot: lo hace el cierre, con cuidado, porque hay cambios ajenos
-  sin commitear en `lib/api-mako/`.
+- Un paquete deja el árbol compilando (`node scripts/typecheck-lock.mjs`). Si cambia una interfaz que consume un
+  archivo que no es suyo, deja el nombre viejo como `@deprecated` y avisa; el alias lo borra `w4-flujos-prod`. El
+  caso grande: `separarPasosIA` pasa a ser un alias de `juntarPasosIA` en la ola 1, así `lib/nutricion.ts` y
+  `SecuenciaPerfil.tsx` juntan desde ya sin tocarse.
+- Si un cambio rompe un test de otro paquete de la misma ola, no se edita: se anota (test, aserción, porqué) y lo
+  arregla el cierre de la ola, que corre el typecheck y los tests tocados por la ola.
+- Nadie regenera `docs/api-mako.md` ni el snapshot: lo hace el cierre después del commit (el `--check` compara
+  contra HEAD). Ninguna operación nueva lleva `'http'`.
 - Nadie escribe `docs/hallazgos-*`, `AGENTS.md` ni la bitácora: cada paquete devuelve sus hallazgos y el cierre
   cosecha.
 
@@ -657,7 +759,7 @@ Cada una va con la recomendada primero y cómo se da vuelta.
 31. El dato se ve azul con un espejo, como el token `{{clave}}`, no como un chip con su rótulo: el rótulo
     descuadra el cursor.
 32. **Plantillas:**
-    - las 12 de §7;
+    - las 13 de §2 punto 10 (las 12 de antes más «Entró un Pago», que ya existía como `mako-pago`);
     - `felicitacion-clase` se retira;
     - del selector del CRON salen «Un lead agenda» y «Falta media hora»;
     - opcional (no se implementa sin su sí): preseleccionar la etapa por su tipo.
@@ -665,6 +767,17 @@ Cada una va con la recomendada primero y cómo se da vuelta.
     - el menú es un botón cuadrado con ícono, antes del buscador;
     - el recorrido pierde dos pasos;
     - los 2 separadores internos de «Límites» se quedan.
+
+**Pagos (lo que trajo el CRON «Pagos»)**
+
+34. **Sin plantilla del CRON «Pagos»** en esta tanda, como lo dejó la sesión de la pasarela. Opcional (no se
+    implementa sin su sí): «Un Pago No Pasó» = CRON «Pagos» › «Se rechaza un pago» → WhatsApp al lead con
+    `{{link_pago}}` + «MaKo en WhatsApp» «Pago rechazado». Ojo: «Se aprueba un pago» corre UNA vez por lead (unique),
+    así que una bienvenida al pagar no sirve para las renovaciones; el aviso de cada pago lo da el evento.
+35. **«Entró un Pago» sigue siendo un Evento de MaKo** (`pago_recibido`), no una tarjeta dentro de un flujo del CRON
+    «Pagos»: el evento sale con CADA pago (también las renovaciones) y un flujo del CRON, una vez por lead.
+36. **Los datos del pago** (§5): monto, concepto, pasarela, tipo (primer pago / renovación), modo (prueba) y el alta
+    de MaKo. El texto de la plantilla los cita; se pierde la firma «— MaKo», como en el resto.
 
 ## 10. Lo que queda SIN HACER (con su archivo)
 
@@ -680,3 +793,10 @@ Cada una va con la recomendada primero y cómo se da vuelta.
 - No medido: que Evolution 2.3.7 mande un mp3 por `sendWhatsAppAudio` a un @g.us. La primera prueba va en el
   ws3, nunca en el ws1.
 - No medido: que la cuenta de la plataforma pueda hablar con «David» (cuesta caracteres).
+- EN COLA, después de esta tanda (`docs/relevo/chatbot.md`): Automations configura y consume el Dashboard (un Evento
+  de MaKo «El AI Analyst terminó», las acciones del Dashboard en ⚡ Acción). Nace con la regla de esta tanda: datos
+  atómicos citables, nunca un texto armado por el código (`lib/disparadores.ts`, `lib/avisos-catalogo.ts`,
+  `lib/plantillas-automatizaciones.ts`).
+- `scripts/ai-step-unico.mts` (el que el relevo de AI Step proponía para juntar lo guardado) NO se hace: medido, sólo
+  #198 y #213 tienen AI Step y las reescribe el script de flujos; todo lo demás lo junta `juntarPasosIA` al abrir y
+  al guardar.

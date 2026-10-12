@@ -49,7 +49,7 @@ import { BotonBorrar } from '@/app/_ui/BotonBorrar';
 import { NuevoPlaceholder } from './NuevoPlaceholder';
 import { CRON_DEFAULT } from '@/app/_components/EditorCron';
 import {
-  CLASES_DISPARADOR, claseDeDisparador, eventosDe, triggerDeCanal, esClaseDeEventos, borradorDeClase, conDisparo, disparoActualDe, esDelEmisor, esEventoDeAntes,
+  CLASES_DISPARADOR, claseDeDisparador, eventosOfrecidos, triggerDeCanal, esClaseDeEventos, borradorDeClase, conDisparo, disparoActualDe, esDelEmisor, esEventoDeAntes,
   disparadoresDe, sanearDisparadores, firmaLista, nuevoIdDisparador, problemaDeDisparador, textoDeDisparador,
   valoresQuien, quienTrasTocar, valorEtiqueta, conValorEtiqueta, alternarIgnorar, textoQuien, VALOR_GRUPO,
   VALOR_ETIQUETA_AGREGADA, VALOR_ETIQUETA_QUITADA, TEXTO_ETIQUETA_AGREGADA, TEXTO_ETIQUETA_QUITADA, TEXTO_GRUPO,
@@ -337,7 +337,7 @@ export function EventosDeCanal({ clase, d, estado, onElegir, disabled }: {
       )}
       {conectarEmail && <ConectarMedio medio="email" onCerrar={() => setConectarEmail(false)} />}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
-        {eventosDe(clase).map((ev) => {
+        {eventosOfrecidos(clase, d.subtipo).map((ev) => {
           const elegido = d.subtipo === ev.subtipo;
           const apagado = !!ev.apagado || !conectado;
           return (

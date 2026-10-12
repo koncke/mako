@@ -18,11 +18,15 @@
 //     (la destila MaKo de lo que hay, POST /api/mako/voz `destilar`) o escribirla a mano (`save`).
 //   · «MaKo lo adapta a cada persona» (el `tipo: 'ia'` del paso, que antes era el botón ✦ del título)
 //     vive acá, como una casilla: con un solo ✦ en la cabecera no hay dos botones que digan «MaKo».
+//   · UNDÉCIMA TANDA: en «MaKo en WhatsApp» (`datos` = el contexto de la tarjeta, destino 'equipo') escribe el
+//     aviso al EQUIPO, y si propone una nota de voz es para la Voz de MaKo (el editor la genera). Sin la voz del
+//     negocio: la ruta no la lee ni pide configurarla.
 
 import { useState, type CSSProperties } from 'react';
 import { Spinner } from '@/app/_ui';
 import { GRAMATICA } from '@/lib/mako-gramatica';
 import { BotonDictar } from '@/app/plan/board/CrearTareaModal';
+import type { DatosRedacta } from '@/lib/mako-redacta';
 
 const SANS = "'Geist', sans-serif";
 /** La ruta corta a los 90 s (`maxDuration`); el navegador espera un poco más y no para siempre. */
@@ -38,8 +42,12 @@ const btnMako: CSSProperties = { ...btn, border: '1px solid var(--mako-border)',
 export type PropuestaRedacta = { mensajes: string[]; audio: string | null; nota: string | null; sinVoz: boolean };
 
 export function MakoRedacta({ contexto, permiteAudio, adaptar, onPropuesta, onCerrar, deshabilitado, datos = 'motor' }: {
-  /** Qué datos resuelve quien manda (lib/mako-redacta.ts, `PedidoRedacta.datos`): el recordatorio tiene los suyos. */
-  datos?: 'motor' | 'recordatorio';
+  /**
+   * Qué datos resuelve quien manda (lib/mako-redacta.ts, `DatosRedacta`): el recordatorio tiene los suyos, y la
+   * tarjeta «MaKo en WhatsApp» manda SU contexto (destino 'equipo', undécima tanda): MaKo escribe el aviso al
+   * EQUIPO, con los datos para actuar y sin la voz del negocio.
+   */
+  datos?: DatosRedacta;
   /** Lo que el mensaje ya dice y lo de la automatización (el disparador, el objetivo). */
   contexto: { actual: string; disparador?: string; objetivo?: string | null; gancho?: string | null };
   /** ¿Se puede proponer una nota de voz? (el no oficial). */

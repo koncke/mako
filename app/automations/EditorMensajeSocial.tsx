@@ -31,6 +31,7 @@ import { PopoverWA, MenuWA, type OpcionMenuWA } from '../whatsapp/_shared/Compos
 import { IconClip, IconDoc } from '../whatsapp/_shared/composer-icons';
 import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import { ArbolDeDatos } from '@/app/_components/SelectorDatos';
+import { CampoConDatos, type CampoConDatosHandle } from '@/app/_components/CampoConDatos';
 import { subirConProgreso } from '../customer-success/curso/subir-video';
 import { partesDeLaBarra, enviarALista, mismoPaso, datosDelLead } from './EditorMensajeWhatsApp';
 import { aplicarVariables } from '@/lib/template-vars';
@@ -99,6 +100,8 @@ export function EditorMensajeSocial({ paso, canal, onChange, negocio, adjuntos, 
   useAlConectarMedio(() => { cacheCuenta.delete(`${ws ?? ''}|${canal}`); setVueltaCuenta((v) => v + 1); });
   const { toast, show, clear } = useToast();
   const area = useRef<HTMLTextAreaElement | null>(null);
+  /** Los `{{datos}}` azules y clickeables de la barra (undécima tanda, punto 7). */
+  const campoDatos = useRef<CampoConDatosHandle | null>(null);
   const inputArchivo = useRef<HTMLInputElement>(null);
   const pasoVivo = useRef(paso);
   useEffect(() => { pasoVivo.current = paso; }, [paso]);
@@ -345,12 +348,14 @@ export function EditorMensajeSocial({ paso, canal, onChange, negocio, adjuntos, 
         <button type="button" ref={setBtnClip} disabled={ocupado} title="Adjuntar" aria-label="Adjuntar" aria-expanded={abierto === 'clip'}
           onClick={() => setAbierto((a) => (a === 'clip' ? null : 'clip'))} style={iconoBarra}><IconClip /></button>
         <button type="button" ref={setBtnDatos} disabled={ocupado} title="Insertar un dato" aria-label="Insertar un dato" aria-expanded={abierto === 'datos'}
-          onClick={() => setAbierto((a) => (a === 'datos' ? null : 'datos'))}
+          onClick={() => { if (abierto !== 'datos' && campoDatos.current?.abrirDatoEnCursor()) return; setAbierto((a) => (a === 'datos' ? null : 'datos')); }}
           style={{ ...iconoBarra, fontSize: 13, fontWeight: 600, fontFamily: "'Geist Mono', monospace", color: abierto === 'datos' ? 'var(--primary)' : 'var(--dim)' }}>{'{ }'}</button>
+        <CampoConDatos ref={campoDatos} datos={datos} onValor={escribir} estiloCaja={{ flex: 1, minWidth: 0 }}>
         <textarea ref={area} value={barra} rows={1} disabled={ocupado} aria-label={`Mensaje de ${nombreCanal}`}
           placeholder={adjunto != null ? 'Agrega un texto (opcional)' : 'Mensaje…'}
           onChange={(e) => escribir(e.target.value)} onKeyDown={onTecla}
           style={{ flex: 1, minWidth: 0, resize: 'none', border: 'none', outline: 'none', background: 'transparent', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: 14, lineHeight: 1.4, padding: '7px 4px', maxHeight: 120, fieldSizing: 'content' } as CSSProperties} />
+        </CampoConDatos>
         <button type="button" onClick={enviar} disabled={ocupado || (!barra.trim() && adjunto == null)} title="Enviar" aria-label="Enviar"
           style={{ ...iconoBarra, color: canal === 'instagram' ? '#5B51D8' : '#0084FF', opacity: (!barra.trim() && adjunto == null) ? 0.4 : 1 }}><IconEnviar /></button>
       </div>

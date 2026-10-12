@@ -379,8 +379,13 @@ test('crear sobre una que ya tiene tarjetas: el 409 trae lo guardado y la caja s
 test('el ejemplo de crear se traduce entero y pasa validarGrafo y validarIA', () => {
   const ctx = ctxBase();
   const r = deIA(ejemploDe(CREAR_IA_SYSTEM_TEMPLATE), ctx, rndDe());
+  // UNDÉCIMA (w2-aistep-editor): sin puente. El ejemplo trae el "objetivo" de "si_responde" y el AI Step que arma la IA
+  // se publica tal cual (lo que el prompt enseña pasa las dos capas). Rotura (arnés wf-undecima/w2-aistep-editor/
+  // roturas.cjs, 100 tests del paquete): `deIA` sin pasarle el objetivo al conversor → 6 / 100, éste entre ellos.
   assert.deepEqual(validarGrafo(r.pasos), []);
   assert.deepEqual(validarIA(r.pasos, ctx), []);
-  // AI Step v2 (décima tanda): el «MaKo contesta» de «Si responde» se pliega adentro de su tarjeta AI Step: 7 → 6.
+  assert.equal(r.pasos.find((p) => p.paso_ia === true)?.objetivo, 'Que agende una llamada');
+  // AI Step v2 (décima tanda): el «MaKo contesta» de «Si responde» se pliega adentro de su tarjeta AI Step: 7 → 6
+  // (undécima: UNA tarjeta AI Step con los casos adentro).
   assert.equal(r.pasos.length, 6);
 });

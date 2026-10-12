@@ -1,7 +1,7 @@
 'use client';
 
 // =============================================================================
-// ModalEnsayoAIStep — «Ensayar objeciones» de un AI Step: un modal central grande (AI Step v2, décima tanda)
+// ModalEnsayoAIStep — «Ensayar» un AI Step: un modal central grande (AI Step v2, décima tanda; uno por objetivo, undécima)
 // =============================================================================
 // Pedido de Martín (11/10/2026, FEEDBACK AI STEP 4): «la IA de MaKo que simula hacerte objeciones y tienes
 // que responder... el modal debería reflejar el chat de WhatsApp... Y que pueda comenzar a responder allí
@@ -11,11 +11,14 @@
 //   · DÓNDE: un modal centrado, `min(1040px, 94vw) × min(720px, 90vh)`: el panel lateral y «Probar» son chicos
 //     para un chat. Izquierda, el chat con la piel del medio (`ChatHilo`, con su composer: también se contesta
 //     con audio, que se transcribe). Derecha, el objetivo, las 4 objeciones con su avance y el modo.
-//   · «Respondes tú»: MaKo hace de LEAD (la ruta /api/automations/ai-step/ensayo, `action: 'lead'`) y la
-//     persona contesta. «Responde MaKo»: contesta el redactor con la config del caso (`action: 'mako'`), y su
-//     última respuesta se puede CORREGIR: lo que escribas pasa a ser tu respuesta.
-//   · «Guardar respuestas» deja los pares (lead → tu respuesta) como `ejemplos` del caso POR LA EDICIÓN DEL
-//     FLUJO (`onGuardar`: borrador → Publicar), no en un setting aparte (§10-F).
+//   · UNDÉCIMA TANDA (docs/diseno-undecima-tanda.md §6): el ensayo es del AI STEP ENTERO. Las objeciones salen del
+//     objetivo y de todos sus escenarios (`ai`), y «Responde MaKo» contesta como el motor y como «Probar»: la ruta
+//     clasifica el mensaje del lead contra los escenarios de los pasos del lienzo (`pasos`) y redacta con el elegido
+//     (o con «Lo demás»). Una línea del sistema dice qué escenario eligió; si sólo avisa, MaKo no contesta y el turno
+//     pasa a la persona.
+//   · «Respondes tú» y «Corregir» son el entrenamiento: «Guardar respuestas» deja los pares (lead → tu respuesta)
+//     como `ejemplos` del AI STEP por la edición del flujo (`onGuardar`: borrador → Publicar), no en un setting aparte
+//     ni en un escenario (§10-F).
 //   · No le manda nada a nadie y no gasta Claude.
 //
 // ⚠️ Lo monta el editor en un portal al `body`: el panel del lienzo vive adentro de contenedores con
@@ -25,20 +28,21 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties } from 're
 import { Modal, Button } from '@/app/_ui';
 import { ChatHilo, type HiloMsg } from '@/app/whatsapp/_shared/ChatHilo';
 import { inpLienzo } from '@/app/_components/Lienzo';
-import { ejemplosDeCharla, OBJECIONES_ENSAYO } from '@/lib/ai-step-ensayo';
-import type { CasoRespuesta, EjemploCaso, MedioAIStep } from '@/lib/flujo-grafo';
+import { ejemplosDeCharla, OBJECIONES_ENSAYO, type AIStepDelEnsayo, type LineaEnsayo } from '@/lib/ai-step-ensayo';
+import type { EjemploCaso, MedioAIStep, PasoGrafo } from '@/lib/flujo-grafo';
 
 const SANS = "'Geist', sans-serif";
 
-type Linea = { id: string; de: 'lead' | 'tu' | 'mako'; texto: string };
+type Linea = LineaEnsayo & { id: string };
 type Prep = { primer: string; objeciones: string[] };
 type Desenlace = 'positivo' | 'negativo' | 'abierto' | null;
 
 let seq = 0;
 const nid = () => `e${Date.now().toString(36)}${(seq++).toString(36)}`;
 
-/** El historial como lo entiende la ruta: lo de MaKo y lo tuyo son «el negocio». */
-const historialDe = (h: readonly Linea[]) => h.map((l) => ({ de: l.de === 'lead' ? 'lead' as const : 'negocio' as const, texto: l.texto }));
+/** El historial como lo entiende la ruta: lo de MaKo y lo tuyo son «el negocio»; lo del sistema no va. */
+const historialDe = (h: readonly Linea[]) => h.filter((l) => l.de !== 'sistema')
+  .map((l) => ({ de: l.de === 'lead' ? 'lead' as const : 'negocio' as const, texto: l.texto }));
 
 async function aBase64(b: Blob): Promise<string> {
   const buf = new Uint8Array(await b.arrayBuffer());
@@ -47,13 +51,16 @@ async function aBase64(b: Blob): Promise<string> {
   return btoa(s);
 }
 
-export function ModalEnsayoAIStep({ caso, medio, secuenciaId, onCerrar, onGuardar }: {
-  caso: CasoRespuesta;
+export function ModalEnsayoAIStep({ ai, pasos, medio, secuenciaId, onCerrar, onGuardar }: {
+  /** El AI Step: su objetivo y sus escenarios (las objeciones salen de los dos). */
+  ai: AIStepDelEnsayo;
+  /** Los pasos del lienzo (sin publicar): con ellos «Responde MaKo» clasifica y contesta como el motor. */
+  pasos: readonly PasoGrafo[];
   medio: MedioAIStep;
   /** La automatización (el redactor lee su estrategia para «Responde MaKo»). Sin ella, sólo «Respondes tú». */
   secuenciaId: number | null;
   onCerrar: () => void;
-  /** Los ejemplos que quedan del ensayo (la pantalla los suma al caso). */
+  /** Los ejemplos que quedan del ensayo (la pantalla los suma al AI Step). */
   onGuardar: (ejemplos: EjemploCaso[]) => void;
 }) {
   const [prep, setPrep] = useState<Prep | null>(null);
@@ -72,10 +79,12 @@ export function ModalEnsayoAIStep({ caso, medio, secuenciaId, onCerrar, onGuarda
   const cerrarRef = useRef(onCerrar);
   useEffect(() => { cerrarRef.current = onCerrar; });
   const cerrar = useCallback(() => cerrarRef.current(), []);
+  // Los pasos más nuevos del lienzo (lo que se edita mientras el modal está abierto también cuenta).
+  const pasosRef = useRef(pasos);
+  useEffect(() => { pasosRef.current = pasos; });
 
-  const cuerpoCaso = { titulo: caso.titulo, cuando: caso.cualquiera ? '' : caso.cuando, objetivo: caso.objetivo ?? '' };
   const pedir = async (body: Record<string, unknown>) => {
-    const r = await fetch('/api/automations/ai-step/ensayo', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...body, medio, caso: cuerpoCaso }) });
+    const r = await fetch('/api/automations/ai-step/ensayo', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...body, medio, ai }) });
     const j = await r.json().catch(() => null);
     if (!j?.ok) throw new Error(j?.error ?? 'No respondió. Vuelve a intentarlo.');
     return j;
@@ -97,17 +106,26 @@ export function ModalEnsayoAIStep({ caso, medio, secuenciaId, onCerrar, onGuarda
     finally { if (vivo.current) setEscribe(null); }
   };
 
-  /** «Responde MaKo»: contesta el redactor con la config del caso, y el lead sigue. */
+  /**
+   * «Responde MaKo»: la ruta clasifica el último mensaje del lead contra los escenarios del lienzo y redacta con el
+   * elegido, como el motor. Una línea del sistema dice cuál eligió; si sólo avisa, MaKo no contesta y responde la
+   * persona (el entrenamiento).
+   */
   const turnoMako = async (p: Prep) => {
     if (secuenciaId == null) return;
     setEscribe('mako'); setErr(null);
+    let contesto = false;
     try {
-      const j = await pedir({ action: 'mako', secuenciaId, historial: historialDe(hiloRef.current), caso: { ...cuerpoCaso, responder: caso.responder ?? '', ejemplos: caso.ejemplos ?? [], ...(caso.audio ? { audio: caso.audio } : {}) } });
+      const j = await pedir({ action: 'mako', secuenciaId, pasos: pasosRef.current, historial: historialDe(hiloRef.current) });
       if (!vivo.current) return;
-      poner([...hiloRef.current, { id: nid(), de: 'mako', texto: String(j.respuesta ?? '') }]);
-    } catch (e) { if (vivo.current) setErr(e instanceof Error ? e.message : 'No respondió.'); return; }
+      const escenario = typeof j.escenario === 'string' && j.escenario ? j.escenario : null;
+      const h: Linea[] = [...hiloRef.current, ...(escenario ? [{ id: nid(), de: 'sistema' as const, texto: `«${escenario}»` }] : [])];
+      if (typeof j.respuesta === 'string' && j.respuesta) { h.push({ id: nid(), de: 'mako', texto: j.respuesta }); contesto = true; }
+      else { h.push({ id: nid(), de: 'sistema', texto: 'Te avisa' }); setModo('tu'); }
+      poner(h);
+    } catch (e) { if (vivo.current) { setErr(e instanceof Error ? e.message : 'No respondió.'); setModo('tu'); } return; }
     finally { if (vivo.current) setEscribe(null); }
-    await turnoLead(p);
+    if (contesto) await turnoLead(p);
   };
 
   // Al abrir: las objeciones y el primer mensaje del lead.
@@ -123,7 +141,7 @@ export function ModalEnsayoAIStep({ caso, medio, secuenciaId, onCerrar, onGuarda
       } catch (e) { if (!cancelado && vivo.current) setErr(e instanceof Error ? e.message : 'No se pudo preparar.'); }
     })();
     return () => { cancelado = true; };
-    // Una vez al abrir: el caso no cambia mientras el modal está abierto.
+    // Una vez al abrir: el objetivo y los escenarios no cambian mientras el modal está abierto.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -148,13 +166,15 @@ export function ModalEnsayoAIStep({ caso, medio, secuenciaId, onCerrar, onGuarda
   };
 
   // El avance de las objeciones: la `i` la plantea el lead después de la respuesta `i` del negocio.
-  const respuestas = hilo.filter((l) => l.de !== 'lead').length;
+  const respuestas = hilo.filter((l) => l.de === 'tu' || l.de === 'mako').length;
   const estadoObjecion = (i: number): 'pendiente' | 'ahora' | 'hecha' => (respuestas >= i + 2 ? 'hecha' : respuestas === i + 1 ? 'ahora' : 'pendiente');
   const ejemplos = ejemplosDeCharla(hilo);
-  const ultimaMako = [...hilo].reverse().find((l) => l.de !== 'lead');
+  const ultimaMako = [...hilo].reverse().find((l) => l.de === 'tu' || l.de === 'mako');
   const puedeCorregir = ultimaMako?.de === 'mako' && !escribe;
 
-  const mensajes: HiloMsg[] = hilo.map((l) => ({ id: l.id, fromMe: l.de !== 'lead', texto: l.texto, ...(l.de === 'mako' ? { ia: true } : {}) }));
+  const mensajes: HiloMsg[] = hilo.map((l) => (l.de === 'sistema'
+    ? { id: l.id, fromMe: false, tipo: 'sistema', texto: l.texto }
+    : { id: l.id, fromMe: l.de !== 'lead', texto: l.texto, ...(l.de === 'mako' ? { ia: true } : {}) }));
   const chip = (activo: boolean): CSSProperties => ({
     flex: 1, padding: '7px 10px', borderRadius: 9, border: `1px solid ${activo ? 'var(--primary)' : 'var(--border)'}`,
     background: activo ? 'var(--primary-bg)' : 'var(--surface)', color: activo ? 'var(--primary-strong)' : 'var(--ink)',
@@ -162,7 +182,7 @@ export function ModalEnsayoAIStep({ caso, medio, secuenciaId, onCerrar, onGuarda
   });
 
   return (
-    <Modal titulo={`Ensayo · ${caso.titulo || 'AI Step'}`} onCerrar={cerrar} ancho={1040} alto="min(720px, 90vh)"
+    <Modal titulo="Ensayo" onCerrar={cerrar} ancho={1040} alto="min(720px, 90vh)"
       pie={(
         <>
           <Button variant="tertiary" onClick={cerrar}>Cerrar</Button>
@@ -184,7 +204,7 @@ export function ModalEnsayoAIStep({ caso, medio, secuenciaId, onCerrar, onGuarda
         <div style={{ flex: '2 1 280px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div>
             <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '.06em' }}>Objetivo</div>
-            <div style={{ fontSize: 13.5, color: caso.objetivo ? 'var(--ink)' : 'var(--faint)', lineHeight: 1.45, marginTop: 4 }}>{caso.objetivo || 'Sin objetivo'}</div>
+            <div style={{ fontSize: 13.5, color: ai.objetivo ? 'var(--ink)' : 'var(--faint)', lineHeight: 1.45, marginTop: 4 }}>{ai.objetivo || 'Sin objetivo'}</div>
           </div>
           <div>
             <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '.06em' }}>Objeciones</div>

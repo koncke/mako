@@ -18,6 +18,7 @@
 // =============================================================================
 
 import { direccionDe } from './curso-invitar-canales';
+import { esDominioDeMako, NO_ES_TUYO } from './email-remitente';
 
 export type DominioResend = { name?: string | null; status?: string | null };
 
@@ -37,6 +38,8 @@ export function problemaDelRemitente(remitente: string | null | undefined, domin
   if (dom === 'resend.dev' || dom.endsWith('.resend.dev')) {
     return 'Ese es el remitente de prueba de Resend: solo te entrega a ti. Usa un correo de tu dominio.';
   }
+  // El de MaKo no es de nadie (undécima tanda): `guardarCredencial` no lo guarda, y se dice ANTES de guardar.
+  if (esDominioDeMako(dom)) return NO_ES_TUYO;
   const suyo = dominios.find((d) => {
     const n = String(d.name ?? '').trim().toLowerCase();
     return !!n && (dom === n || dom.endsWith(`.${n}`));

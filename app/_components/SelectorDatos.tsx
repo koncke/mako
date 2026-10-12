@@ -23,10 +23,10 @@
 // de Configuraciones › Notificaciones, app/agencia/FlujoAviso.tsx), en el asunto y el cuerpo del email
 // (app/automations/EditorEmailGmail.tsx) y en el de Instagram / Messenger (app/automations/EditorMensajeSocial.tsx).
 // El editor de marcas de /mensajes (app/agencia/EditorMensaje.tsx) se fue: lo reemplazó el de WhatsApp.
-// La tarjeta MAKO del lienzo del Chatbot (app/automations/FlujoLienzo.tsx, `EditorMako`) usa el mismo
-// editor del grupo, pero todavía le pasa una lista plana (`DATOS_MAKO`): el árbol le llega cuando
-// pase `datos={datosOfrecidos({ destino: 'equipo', conLead: true })}` (después de que el motor de esa
-// tarjeta resuelva el catálogo, `textoDelAviso`). `SelectorDatos` (el botón suelto) no lo monta nadie.
+// La tarjeta MAKO del lienzo de Automations (app/automations/FlujoLienzo.tsx, `EditorMako`) le pasa el árbol del
+// contexto con que Publicar la valida (`contextoDeTarjeta`). Y desde la undécima tanda también lo abre el campo
+// mismo al tocar un `{{dato}}` (app/_components/CampoConDatos.tsx), con `seleccionado`. `SelectorDatos` (el
+// botón suelto) no lo monta nadie.
 //
 // Lo que dibuja, y por qué así:
 //   · CADA GRUPO ES UNA RAMA con su ícono, su nombre y cuántos datos tiene; se abre y se cierra.
@@ -40,11 +40,27 @@
 //     serializador del editor rico (lib/variables-aviso.ts).
 //   · LO QUE NO SE PUEDE RESOLVER NO LLEGA ACÁ: el filtro es del catálogo (`datosOfrecidos`), no de
 //     esta pieza. Una segunda implementación de la regla de alcance sería la que se queda vieja.
+//   · LA SUB-RAMA (undécima tanda, punto 6: «Próxima reunión» adentro de «Reuniones»): la dice el catálogo
+//     (`ramasDelGrupo`), y se abre y se cierra como una rama.
+//   · EL DATO ELEGIDO (undécima tanda, punto 7: «si los clickeo que salte el desplegable con el dato que elegí y
+//     que se pueda cambiar allí mismo por otro dato»): `seleccionado` abre SU rama, lo marca con ✓ y lo trae a la
+//     vista. Lo pasa el campo que se tocó (app/_components/CampoConDatos.tsx).
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode, type Ref } from 'react';
 import { Icon } from './icons';
 import { PopoverWA } from '../whatsapp/_shared/ComposerWhatsApp';
-import { buscarDatos, type GrupoDatos } from '@/lib/variables-aviso';
+import { buscarDatos, ramasDelGrupo, type GrupoDatos } from '@/lib/variables-aviso';
+
+/** La rama (y la sub-rama) donde está la clave, o null si no está en el árbol. Pura (test). */
+export function ramaDelDato(grupos: readonly GrupoDatos[], clave: string | null | undefined): { grupo: string; rama: string | null } | null {
+  const k = (clave ?? '').toLowerCase();
+  if (!k) return null;
+  for (const g of grupos) {
+    const d = g.items.find((x) => x.key === k);
+    if (d) return { grupo: g.key, rama: d.rama ?? null };
+  }
+  return null;
+}
 
 const SANS = "'Geist', sans-serif";
 const caja: CSSProperties = {
@@ -58,10 +74,10 @@ const fila: CSSProperties = {
 };
 
 /** Una hoja: el rótulo y, debajo, el valor de ejemplo. `rama` = el grupo, en los resultados de la búsqueda. */
-function Dato({ label, ejemplo, rama, icono, activo, onElegir }: { label: string; ejemplo: string; rama?: string; icono?: string; activo?: boolean; onElegir: () => void }) {
+function Dato({ label, ejemplo, rama, icono, activo, marcado, refBoton, onElegir }: { label: string; ejemplo: string; rama?: string; icono?: string; activo?: boolean; marcado?: boolean; refBoton?: Ref<HTMLButtonElement>; onElegir: () => void }) {
   return (
-    <button type="button" role="menuitem" className="mk-dato" onClick={onElegir}
-      style={{ ...fila, padding: '7px 10px 7px 12px', background: activo ? 'var(--surface-2)' : 'transparent' }}>
+    <button type="button" role="menuitem" className="mk-dato" onClick={onElegir} ref={refBoton} aria-current={marcado || undefined}
+      style={{ ...fila, padding: '7px 10px 7px 12px', background: activo || marcado ? 'var(--surface-2)' : 'transparent' }}>
       {icono && <span aria-hidden style={{ flex: 'none', display: 'inline-flex', color: 'var(--faint)' }}><Icon name={icono} size={15} /></span>}
       <span style={{ flex: 1, minWidth: 0 }}>
         <span style={{ display: 'block', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -69,29 +85,46 @@ function Dato({ label, ejemplo, rama, icono, activo, onElegir }: { label: string
         </span>
         <span style={{ display: 'block', fontSize: 12, color: 'var(--dim)', marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ejemplo.split('\n')[0]}</span>
       </span>
+      {marcado && <span aria-hidden style={{ flex: 'none', color: 'var(--primary)', fontWeight: 700 }}>✓</span>}
     </button>
   );
 }
 
 /** El panel: el buscador y el árbol. Sin botón: para adentro de un popover que ya existe. */
-export function ArbolDeDatos({ grupos, onElegir, vacio = 'Nada que coincida.' }: {
+export function ArbolDeDatos({ grupos, onElegir, seleccionado, vacio = 'Nada que coincida.' }: {
   /** Lo que ESTE mensaje puede resolver, ya agrupado (`datosOfrecidos`, lib/variables-aviso.ts). */
   grupos: GrupoDatos[];
   /** La clave elegida; el editor escribe `{{clave}}` donde estaba el cursor. */
   onElegir: (key: string) => void;
+  /** El dato que ya está en el texto (el `{{clave}}` que se tocó): su rama abierta, con ✓ y a la vista. */
+  seleccionado?: string | null;
   vacio?: string;
 }) {
   const [q, setQ] = useState('');
-  // Abierta de entrada: la primera rama (casi siempre «Lead», lo que más se usa).
-  const [abierta, setAbierta] = useState<string | null>(grupos[0]?.key ?? null);
+  const elegido = ramaDelDato(grupos, seleccionado);
+  // Abierta de entrada: la del dato elegido; sin él, la primera (casi siempre «Lead», lo que más se usa).
+  const [abierta, setAbierta] = useState<string | null>(elegido?.grupo ?? grupos[0]?.key ?? null);
+  /** Las sub-ramas CERRADAS (`grupo:rama`): de entrada, todas abiertas. */
+  const [subCerradas, setSubCerradas] = useState<ReadonlySet<string>>(() => new Set());
   const [cursor, setCursor] = useState(0);
   const buscador = useRef<HTMLInputElement | null>(null);
+  const botonElegido = useRef<HTMLButtonElement | null>(null);
   const resultados = useMemo(() => buscarDatos(grupos, q), [grupos, q]);
   const buscando = q.trim().length > 0;
+  const claveElegida = elegido ? (seleccionado ?? '').toLowerCase() : null;
 
-  // El foco al buscador al abrir. Con `rAF`: el popover se ubica en su primer layout.
-  useEffect(() => { const id = requestAnimationFrame(() => buscador.current?.focus()); return () => cancelAnimationFrame(id); }, []);
+  // El foco al buscador al abrir. Con `rAF`: el popover se ubica en su primer layout. Y el dato elegido, a la vista
+  // (el árbol scrollea: con 50 datos, el de abajo de «Reuniones» queda fuera).
+  useEffect(() => {
+    const id = requestAnimationFrame(() => { buscador.current?.focus(); botonElegido.current?.scrollIntoView?.({ block: 'nearest' }); });
+    return () => cancelAnimationFrame(id);
+  }, []);
   useEffect(() => { setCursor(0); }, [q]);
+  const alternarSub = (k: string) => setSubCerradas((s) => { const n = new Set(s); if (n.has(k)) n.delete(k); else n.add(k); return n; });
+  const hoja = (d: GrupoDatos['items'][number]) => (
+    <Dato key={d.key} label={d.label} ejemplo={d.ejemplo} marcado={d.key === claveElegida}
+      refBoton={d.key === claveElegida ? botonElegido : undefined} onElegir={() => onElegir(d.key)} />
+  );
 
   const tecla = (e: KeyboardEvent<HTMLInputElement>) => {
     if (!buscando || !resultados.length) return;
@@ -114,7 +147,8 @@ export function ArbolDeDatos({ grupos, onElegir, vacio = 'Nada que coincida.' }:
         {buscando ? (
           resultados.length
             ? resultados.map((r, i) => (
-              <Dato key={r.dato.key} label={r.dato.label} ejemplo={r.dato.ejemplo} rama={r.grupo.titulo} icono={r.grupo.icono} activo={i === cursor} onElegir={() => onElegir(r.dato.key)} />
+              <Dato key={r.dato.key} label={r.dato.label} ejemplo={r.dato.ejemplo} rama={r.dato.rama ? `${r.grupo.titulo} › ${r.dato.rama}` : r.grupo.titulo} icono={r.grupo.icono}
+                activo={i === cursor} marcado={r.dato.key === claveElegida} onElegir={() => onElegir(r.dato.key)} />
             ))
             : <div style={{ padding: '10px 12px', color: 'var(--faint)', fontSize: 13 }}>{vacio}</div>
         ) : grupos.map((g) => {
@@ -129,7 +163,25 @@ export function ArbolDeDatos({ grupos, onElegir, vacio = 'Nada que coincida.' }:
               </button>
               {on && (
                 <div role="group" aria-label={g.titulo} style={{ marginLeft: 18, paddingLeft: 6, borderLeft: '1px solid var(--border)' }}>
-                  {g.items.map((d) => <Dato key={d.key} label={d.label} ejemplo={d.ejemplo} onElegir={() => onElegir(d.key)} />)}
+                  {ramasDelGrupo(g.items).map((r) => {
+                    if (r.rama == null) return r.items.map(hoja);
+                    const k = `${g.key}:${r.rama}`;
+                    const sub = !subCerradas.has(k);
+                    return (
+                      <div key={k}>
+                        <button type="button" className="mk-dato" aria-expanded={sub} onClick={() => alternarSub(k)} style={{ ...fila, padding: '7px 10px', fontWeight: 600 }}>
+                          <span style={{ flex: 1, minWidth: 0 }}>{r.rama}</span>
+                          <span style={{ flex: 'none', fontSize: 12, color: 'var(--faint)', fontWeight: 500 }}>{r.items.length}</span>
+                          <span aria-hidden style={{ flex: 'none', display: 'inline-flex', color: 'var(--faint)', transform: sub ? 'rotate(90deg)' : 'none', transition: 'transform .12s' }}>›</span>
+                        </button>
+                        {sub && (
+                          <div role="group" aria-label={r.rama} style={{ marginLeft: 12, paddingLeft: 6, borderLeft: '1px solid var(--border)' }}>
+                            {r.items.map(hoja)}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>

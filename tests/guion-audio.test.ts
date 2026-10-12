@@ -280,7 +280,8 @@ test('el motor usa el `textoDelPaso` que tiene test, no una copia propia', () =>
   const motor = sinComentarios(leer('lib/nutricion.ts'));
   assert.doesNotMatch(motor, /function textoDelPaso\(/, 'una segunda copia vuelve a sortear en los audios');
   assert.match(motor, /import \{[^}]*\btextoDelPaso\b[^}]*\} from '@\/lib\/nutricion-canal';/);
-  assert.match(motor, /const cuerpoNO = aplicarVariables\(textoDelPaso\(paso\), varsNO\);/);
+  // Undécima tanda (punto 6): con `textoConDatos`, la misma regla de todo envío (el renglón opcional).
+  assert.match(motor, /const cuerpoNO = textoConDatos\(textoDelPaso\(paso\), varsNO\);/);
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

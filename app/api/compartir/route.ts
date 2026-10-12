@@ -30,7 +30,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSesionAdmin, getUsuarioActual } from '@/lib/auth';
 import { hashGravatar } from '@/lib/gravatar';
-import { sendEmail, remitenteEsSandbox, resendConfigurado } from '@/lib/resend';
+import { sendEmail, correoDeMakoListo } from '@/lib/resend';
 import { REMITENTE_MAKO, EMAIL_MAKO } from '@/lib/app-url';
 import { escapeHtml } from '@/lib/email-html';
 import { getCapaActual, getRolWsEfectivo, getWorkspace, getWorkspaceActual, runWithWorkspace, wsSuperAdmin } from '@/lib/workspace';
@@ -247,15 +247,11 @@ export async function GET(req: NextRequest) {
 async function responderLista(conInvitados: Array<Record<string, unknown>>) {
   // Preflight del correo: que la UI AVISE antes de invitar, en vez de dejar
   // que la persona escriba tres mails y recién ahí ver el error de Resend.
-  // ⚠️ EL PREFLIGHT SE MIDE EN EL WORKSPACE QUE VA A FIRMAR, que es la PLATAFORMA y no
-  // el cliente que el admin tenga abierto en la pestaña. Antes preguntaba por el actual
-  // —`resendConfigurado()` y `remitenteEsSandbox()` resuelven el del contexto— así que
-  // contestaba por otra cuenta: es la regla de la casa de que el preflight tiene que
-  // mirar LO QUE SE VA A USAR. (Vale igual para el informe: su mail también lo firma MaKo.)
-  const correo = await runWithWorkspace(await wsSuperAdmin(), async () => {
-    const [hayKey, sandbox] = await Promise.all([resendConfigurado(), remitenteEsSandbox()]);
-    return { listo: hayKey && !sandbox, remitente: EMAIL_MAKO };
-  });
+  // ⚠️ EL PREFLIGHT MIDE LO QUE SE VA A USAR: el mail lo firma MaKo (`from: REMITENTE_MAKO`), que sale por
+  // la key de la PLATAFORMA (lib/resend.ts). Preguntar `remitenteEsSandbox()` mide el remitente de un NEGOCIO
+  // —el de la plataforma no tiene— y le decía al admin que el mail no llegaba mientras sí salía (undécima
+  // tanda). `correoDeMakoListo` mira la key de la plataforma y `EMAIL_MAKO`. (Vale igual para el informe.)
+  const correo = { listo: await correoDeMakoListo(), remitente: EMAIL_MAKO };
   return NextResponse.json({ ok: true, shares: conInvitados, correo });
 }
 

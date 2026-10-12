@@ -20,9 +20,14 @@ import assert from 'node:assert/strict';
 import {
   deIA, deIAEdicion, validarIA, aIA, ordenDeRevelado, conEtiquetasReales, disparadorReal, refsSinResolver,
   userDeCrear, leyendoTexto, leyendoDe, limpiarTexto, erroresNuevos, LISTA_BLANCA_IA,
-  CREAR_IA_SYSTEM_TEMPLATE, EDITAR_IA_SYSTEM_TEMPLATE, type CtxIA, type PasoIA,
+  CREAR_IA_SYSTEM_TEMPLATE, EDITAR_IA_SYSTEM_TEMPLATE, objetivoDeIA, plantillaParaPedido, ejemploDePlantilla, entraEnGroq,
+  PALABRAS_PLANTILLA, TOPE_TARJETAS_IA, TECHO_GROQ_IA, CARACTERES_POR_TOKEN_IA, SALIDA_DEL_TOPE_IA, SALIDA_MIN_IA,
+  type CtxIA, type PasoIA,
 } from '../lib/flujo-ia';
-import { validarGrafo, padreDe, claseDe, ID_INICIO, raicesSalida, raizRespuesta, descendientes, type PasoGrafo } from '../lib/flujo-grafo';
+import { readFileSync } from 'node:fs';
+import { PLANTILLAS, plantillaPorId, pasosDePlantilla } from '../lib/plantillas-automatizaciones';
+import { esTarjetaTalCual } from '../lib/mako-tarjeta';
+import { validarGrafo, padreDe, claseDe, ID_INICIO, raicesSalida, raizRespuesta, descendientes, TOPE_OBJETIVO, type PasoGrafo } from '../lib/flujo-grafo';
 import { porId } from '../lib/api-mako/registro';
 import { esAccion } from '../lib/api-mako/tipos';
 import { marcasDeVoseo } from '../lib/puestas-data';
@@ -59,13 +64,16 @@ const EJEMPLO = {
     { id: 't3', tipo: 'condicion', ramas: [{ si: [{ campo: 'agendo' }], sigue: 't4' }], si_no: 't5' },
     { id: 't4', tipo: 'accion', operacion: 'avisar_al_equipo', datos: { mensaje: 'Agendó después de la bienvenida' } },
     { id: 't5', tipo: 'etiqueta', poner: 'Seguimiento' },
-    { id: 'r1', tipo: 'si_responde', casos: [{ titulo: 'Quiere agendar', cuando: 'Pide un horario', sigue: 'r2' }], otra_cosa: null },
+    { id: 'r1', tipo: 'si_responde', objetivo: 'Que agende una llamada', casos: [{ titulo: 'Quiere agendar', cuando: 'Pide un horario', sigue: 'r2' }], otra_cosa: null },
     { id: 'r2', tipo: 'mensaje', canal: 'whatsapp', ia: true, texto: 'Ofrécele dos horarios de esta semana.' },
   ],
 };
 
 const porClase = (pasos: readonly PasoGrafo[], c: string) => pasos.filter((p) => claseDe(p) === c) as PasoIA[];
 const mensajes = (pasos: readonly PasoGrafo[]) => porClase(pasos, 'mensaje');
+// (El puente de la ola 1 de la undécima —tolerar «falta el objetivo» del AI Step que armó la IA— se fue con la ola 2:
+// la tarjeta `si_responde` trae su "objetivo" y `deIA` se lo pone al AI Step. Lo fija el test «el objetivo de
+// "si_responde"» de abajo.)
 const ok = (pasos: readonly PasoGrafo[], ctx: CtxIA) => {
   assert.deepEqual(validarGrafo(pasos), [], 'validarGrafo');
   assert.deepEqual(validarIA(pasos, ctx), [], 'validarIA');
@@ -90,10 +98,46 @@ test('crear: el ejemplo del prompt se traduce entero y pasa las dos capas', () =
   const [avisar, etiqueta] = porClase(r.pasos, 'accion');
   assert.equal(cond.ramas![0].siguiente, avisar.id);
   assert.equal(cond.si_no, etiqueta.id);
-  assert.deepEqual(avisar.accion, { operacion: 'avisar_al_equipo', params: { leadId: 'evento', mensaje: 'Agendó después de la bienvenida' } });
+  // UNDÉCIMA TANDA: «MaKo en WhatsApp» nace con su LISTA (sale tal cual, como la que arma el lienzo).
+  assert.deepEqual(avisar.accion, { operacion: 'avisar_al_equipo', params: { leadId: 'evento', mensaje: 'Agendó después de la bienvenida', partes: [{ tipo: 'texto', cuerpo: 'Agendó después de la bienvenida' }] } });
   // La etiqueta que no existe se CREA por nombre (un ref negativo), nunca un id inventado.
   assert.deepEqual(r.etiquetasNuevas, [{ ref: -1, nombre: 'Seguimiento' }]);
   assert.deepEqual(etiqueta.accion, { operacion: 'poner_etiqueta_lead', params: { leadId: 'evento', etiquetaId: -1 } });
+});
+
+// UNDÉCIMA TANDA (w2-aistep-editor): «Crear con IA» arma UN AI Step con su OBJETIVO (docs/diseno-undecima-tanda.md §6).
+// La tarjeta `si_responde` del contrato trae "objetivo"; `deIA` lo limpia (`objetivoDeIA`: sin links ni variables, en un
+// renglón, hasta 300) y se lo pone al AI Step al plegarlo (`respuestaAPasoIA(…, { objetivo })`). Sin él, Publicar no
+// deja pasar el AI Step, y `validarIA` lo dice con la palabra del modelo para el reintento («corrige esto»): el error de
+// `validarGrafo` nombra un id interno que el modelo no conoce.
+// ROTURAS (11/10/2026, arnés wf-undecima/w2-aistep-editor/roturas.cjs sobre los seis archivos del paquete, 100 tests,
+// base 100 / 0): `deIA` no le pasa el objetivo al conversor → 6 / 100 (5 acá —éste, el ejemplo del prompt, «Si responde»
+// no tiene padre, los links y validarIA— y 1 en flujo-ia-arreglos); el conversor ignora `op.objetivo` → 6 / 100 (los
+// mismos); el objetivo sin `limpiarTexto` → 1 / 100; `validarIA` no lo pide → 1 / 100. Todas cazadas.
+test('el objetivo de "si_responde": el AI Step lo lleva, limpio y hasta 300; sin él, validarIA lo pide con su palabra', () => {
+  const ctx = ctxBase();
+  const r = deIA(EJEMPLO, ctx, rndDe());
+  const ia = porClase(r.pasos, 'respuesta')[0];
+  assert.equal(ia.paso_ia, true);
+  assert.equal(ia.objetivo, 'Que agende una llamada');
+  // Limpio: sin links (con su aviso), en un renglón, con tope.
+  const conR1 = (cambio: Record<string, unknown>) => ({ ...EJEMPLO, tarjetas: EJEMPLO.tarjetas.map((t) => (t.id === 'r1' ? { ...t, ...cambio } : t)) });
+  const sucio = deIA(conR1({ objetivo: `Que agende\n  en https://cal.com/x {{precio}} ${'y'.repeat(400)}` }), ctx, rndDe());
+  const o = porClase(sucio.pasos, 'respuesta')[0].objetivo ?? '';
+  assert.ok(o.startsWith('Que agende en') && o.length <= TOPE_OBJETIVO && !/https?:|\n|\{/.test(o), o);
+  assert.ok(sucio.avisos.some((a) => a.includes('Borré un link')), sucio.avisos.join(' | '));
+  // Sin objetivo: el AI Step queda sin él; Publicar lo frena y validarIA lo dice (para el reintento).
+  const sin = deIA(conR1({ objetivo: undefined }), ctx, rndDe());
+  assert.equal(porClase(sin.pasos, 'respuesta')[0].objetivo, undefined);
+  assert.deepEqual(validarIA(sin.pasos, ctx), ['la tarjeta «si_responde» no tiene "objetivo"']);
+  assert.ok(validarGrafo(sin.pasos).some((e) => e.startsWith('falta el objetivo de la tarjeta')));
+  // El prompt lo pide y su ejemplo lo trae (las dos capas leen el mismo contrato).
+  assert.match(CREAR_IA_SYSTEM_TEMPLATE, /"objetivo": qué tiene que lograr la charla, en una frase\./);
+  assert.match(CREAR_IA_SYSTEM_TEMPLATE, /\{"id": "r1", "tipo": "si_responde", "objetivo": "Que agende una llamada",/);
+  // Editar: el modelo LEE el objetivo del AI Step que ya está.
+  assert.equal(aIA(r.pasos).tarjetas.find((t) => t.tipo === 'si_responde')!.objetivo, 'Que agende una llamada');
+  // Con varias «Si responde» (se juntan en la primera), el primer objetivo que no está vacío.
+  assert.equal(objetivoDeIA([undefined, '', '  Que   vuelva  ', 'Otro'], []), 'Que vuelva');
 });
 
 // rotura 3 (un `sigue` puede apuntar a «Si responde»): 1 fallo. rotura 4 (el «MaKo contesta»
@@ -104,8 +148,8 @@ test('«Si responde» no tiene padre: cuelga del CRON, y una flecha que la apunt
   const resp = porClase(r.pasos, 'respuesta')[0];
   assert.equal(padreDe(r.pasos, resp.id!), null);
   assert.equal(raizRespuesta(r.pasos), resp.id);
-  // AI Step v2 (décima tanda): «Crear con IA» pliega «Si responde» a AI Step, UNA tarjeta por caso, y el «MaKo
-  // contesta» queda ADENTRO del caso (sin tarjeta hija). Nace a revisar: sin `sola`.
+  // «Crear con IA» pliega «Si responde» a UN AI Step (undécima: los casos adentro), y el «MaKo contesta» queda ADENTRO
+  // del caso (sin tarjeta hija). Nace a revisar: sin `sola`.
   assert.equal(resp.paso_ia, true);
   assert.equal(resp.casos!.length, 1);
   assert.equal(resp.casos![0].siguiente, null);
@@ -164,15 +208,144 @@ test('una acción fuera de la lista blanca se saca y su padre se conecta a lo qu
 });
 
 // rotura 25 (dejar las variables en los datos de una acción): 1 fallo. La forma, otra vez de Groq:
-// «El lead {{nombre}} ya agendó» en el aviso al equipo (una acción no completa variables).
-test('los datos de una acción no llevan variables: se borran y queda el aviso', () => {
+// «El lead {{nombre}} ya agendó» en el aviso al equipo.
+// ⚠️ UNDÉCIMA TANDA: el MENSAJE de «MaKo en WhatsApp» SÍ completa sus datos (`textoDelAviso` resuelve el catálogo para el
+// equipo), así que ahí quedan los del equipo y se va lo que no existe; el resto de los datos de una acción, como siempre.
+test('los datos de una acción no llevan variables, salvo el mensaje del aviso al equipo, que lleva los SUYOS', () => {
   const ctx = ctxBase();
   const r = deIA({ inicio: 't1', tarjetas: [
-    { id: 't1', tipo: 'accion', operacion: 'avisar_al_equipo', datos: { titulo: 'Agendó', mensaje: 'El lead {{nombre}} ya agendó [la llamada].' } },
+    { id: 't1', tipo: 'accion', operacion: 'avisar_al_equipo', datos: { titulo: 'Agendó {{nombre}}', mensaje: 'El lead {{nombre_completo}} ya agendó [la llamada]. {{cupon}}\n👉 {{link_lead}}' } },
   ] }, ctx, rndDe());
   ok(r.pasos, ctx);
-  assert.deepEqual((porClase(r.pasos, 'accion')[0].accion as { params: unknown }).params, { leadId: 'evento', titulo: 'Agendó', mensaje: 'El lead ya agendó.' });
+  const params = (porClase(r.pasos, 'accion')[0].accion as { params: Record<string, unknown> }).params;
+  assert.equal(params.titulo, 'Agendó', 'el título no completa datos');
+  assert.equal(params.mensaje, 'El lead {{nombre_completo}} ya agendó.\n👉 {{link_lead}}');
+  assert.ok(esTarjetaTalCual(params), 'el aviso nace sin su lista (saldría envuelto, como uno de antes)');
   assert.ok(r.avisos.some((a) => a.includes('variable de una acción')));
+  assert.ok(r.avisos.some((a) => a.includes('variable que no existe')));
+  // Y un mensaje al LEAD no lleva los del equipo.
+  const al = deIA({ inicio: 't1', tarjetas: [{ id: 't1', tipo: 'mensaje', texto: 'Hola {{nombre}}, tu ficha: {{link_lead}}' }] }, ctx, rndDe());
+  assert.equal(mensajes(al.pasos)[0].cuerpo, 'Hola {{nombre}}, tu ficha:');
+});
+
+// ── UNDÉCIMA TANDA (w3-plantillas): las piezas de hoy en «Crear con IA» ─────────────────────────────────────────────
+// ROTURAS (11/10/2026, arnés wf-undecima/w3-plantillas/roturas.cjs, una por vez y restaurada de memoria con sha1 igual;
+// base de este archivo 28 / 0, restaurado 28 / 0): al lado de cada test.
+
+// R15: `filaDe` vuelve a aceptar sólo las nueve de antes → 26 / 2 (éste y el del ejemplo de la plantilla).
+test('las condiciones del CATÁLOGO: «Próxima reunión en», «Tiene reunión agendada», «Asistió a la reunión»; las retiradas y las de lista no', () => {
+  const ctx = ctxBase();
+  const r = deIA({ inicio: 't1', tarjetas: [
+    { id: 't1', tipo: 'condicion', ramas: [
+      { si: [{ campo: 'reunion_en', op: '<=', valor: 720 }, { campo: 'tiene_telefono' }], sigue: 't2' },
+      { si: [{ campo: 'reunion agendada' }], sigue: 't3' },
+      { si: [{ campo: 'asistio_reunion', no: true }, { campo: 'r1_pendiente' }, { campo: 'estado_lead', valor: 'frio' }], sigue: 't3' },
+    ] },
+    { id: 't2', tipo: 'mensaje', texto: 'Hola {{nombre}}, nos vemos {{reunion_cuando}} a las {{reunion_hora}}' },
+    { id: 't3', tipo: 'mensaje', texto: 'Hola {{nombre}}' },
+  ] }, ctx, rndDe());
+  ok(r.pasos, ctx);
+  const c = porClase(r.pasos, 'condicion')[0];
+  assert.deepEqual(c.ramas!.map((x) => x.filas.map((f) => ({ ...f, union: undefined }))), [
+    [{ campo: 'reunion_en', op: 'menor_igual', valor: 720, union: undefined }, { campo: 'tiene_telefono', union: undefined }],
+    [{ campo: 'reunion_agendada', union: undefined }],
+    [{ campo: 'asistio_reunion', no: true, union: undefined }],
+  ]);
+  // Los datos de la reunión, detrás de «Próxima reunión», quedan.
+  assert.match(mensajes(r.pasos)[0].cuerpo, /\{\{reunion_cuando\}\} a las \{\{reunion_hora\}\}/);
+  assert.ok(r.avisos.some((a) => a.includes('se elige en el lienzo')), 'la de lista no se dijo');
+});
+
+// R14: `validarIA` sin `datosDeReunionSinMirarla` → 27 / 1 (éste).
+test('un dato de la reunión sin mirar la reunión antes no pasa la revisión (el modelo lo corrige)', () => {
+  const ctx = ctxBase();
+  const r = deIA({ inicio: 't1', tarjetas: [
+    { id: 't1', tipo: 'esperar', horas: 2, sigue: 't2' },
+    { id: 't2', tipo: 'mensaje', texto: 'Hola {{nombre}}, nos vemos {{reunion_cuando}}' },
+  ] }, ctx, rndDe());
+  assert.ok(validarIA(r.pasos, ctx).some((e) => e.includes('dato de la reunión')), validarIA(r.pasos, ctx).join(' | '));
+  const bien = deIA({ inicio: 't1', tarjetas: [
+    { id: 't1', tipo: 'esperar', horas: 2, antes_de_reunion: true, sigue: 't2' },
+    { id: 't2', tipo: 'mensaje', texto: 'Hola {{nombre}}, empezamos {{reunion_faltan}}' },
+  ] }, ctx, rndDe());
+  ok(bien.pasos, ctx);
+});
+
+test('lo que armó FUERA de lo de hoy (dos CONDITION pegadas) se dice en los avisos', () => {
+  const ctx = ctxBase();
+  const r = deIA({ inicio: 't1', tarjetas: [
+    { id: 't1', tipo: 'condicion', ramas: [{ si: [{ campo: 'agendo', no: true }], sigue: 't2' }] },
+    { id: 't2', tipo: 'condicion', ramas: [{ si: [{ campo: 'tiene_telefono' }], sigue: 't3' }] },
+    { id: 't3', tipo: 'mensaje', texto: 'Hola {{nombre}}' },
+  ] }, ctx, rndDe());
+  assert.ok(r.avisos.some((a) => a.includes('Dos CONDITION seguidas')), r.avisos.join(' | '));
+});
+
+/**
+ * LA PLANTILLA DE LA CATEGORÍA DEL PEDIDO, con frases como las escribe (o las dicta) Martín. A MANO. `null` = el ejemplo de
+ * siempre: un Evento de MaKo, Instagram o el email entrante no los arma «Crear con IA» (su CRON no se elige acá).
+ */
+const PEDIDOS: ReadonlyArray<readonly [string, string | null]> = [
+  ['Mako, créame una automatización que le escriba a los que no vinieron a la reunión', 'lead-no-asistio'],
+  ['creame una automatizacion para los leads nuevos que les mande un audio de bienvenida', 'lead-entro'],
+  ['hola mako necesito que me armes una automatizacion que cuando alguien deja sus datos en la landing le escriba por whatsapp y si no contesta en dos dias le mande un email', 'lead-entro'],
+  ['Quiero una automatización que me avise en el grupo cuando alguien agenda', 'lead-agendo'],
+  ['Armame los recordatorios de la reunión: un día antes, una hora antes y 15 minutos antes', 'lead-agendo'],
+  ['Créame una automatización para los que tuvieron la llamada y no compraron', 'lead-tuvo-reunion'],
+  ['una automatizacion para los que confirmaron la compra y no pagaron', 'lead-confirmo-compra'],
+  ['Crea una automatización de bienvenida para los clientes que compraron el programa y pídeles un testimonio', 'cliente-empezo'],
+  ['Armame la bienvenida al newsletter para los que se suscriben', 'email-newsletter'],
+  ['¿Me puedes crear una automatización para cobrar las cuotas vencidas?', null],
+  ['Armame un flujo que salude por DM a quien comenta en Instagram', null],
+];
+
+// R16: `PALABRAS_PLANTILLA` con «agend» primero → 27 / 1 (éste: los que no vinieron a la reunión iban a «agendó»).
+test('plantillaParaPedido: la categoría del pedido, como lo escribe Martín; sin coincidencia, el ejemplo de siempre', () => {
+  for (const [pedido, id] of PEDIDOS) assert.equal(plantillaParaPedido(pedido)?.id ?? null, id, pedido);
+  // Cada id de la tabla de palabras es una plantilla que existe, con CRON de etapa o etiqueta (las que la IA puede armar).
+  for (const [id] of PALABRAS_PLANTILLA) {
+    const p = plantillaPorId(id);
+    assert.ok(p && p.cron.pide, `«${id}» no es una plantilla que «Crear con IA» pueda armar`);
+  }
+});
+
+test('el ejemplo de la plantilla va en el pedido (con el MISMO aIA de editar, sin el AI Step) y se traduce con las dos capas', () => {
+  const ctx = ctxBase();
+  const user = userDeCrear(ctx, { perfil: 'Mentorías', voz: null, pedido: 'Quiero que me avise cuando alguien agenda y le recuerde la reunión' });
+  const p = plantillaPorId('lead-agendo')!;
+  assert.ok(user.includes(`«${p.nombre}»`), 'el pedido no lleva la plantilla de su categoría');
+  const ej = ejemploDePlantilla(p);
+  assert.ok(user.includes(JSON.stringify(ej)));
+  assert.deepEqual(ej.inicio, ['la_r', 'la_p', 'la_m']);
+  assert.ok(!ej.tarjetas.some((t) => t.tipo === 'si_responde'), 'el ejemplo lleva el AI Step (su forma la enseña el system)');
+  // Lo que enseña se traduce y pasa las dos capas (el modelo lo copia con sus textos).
+  const r = deIA({ ...ej, disparador: null }, ctx, rndDe());
+  ok(r.pasos, ctx);
+  assert.equal(porClase(r.pasos, 'accion').filter((x) => esTarjetaTalCual((x.accion as { params: Record<string, unknown> }).params)).length, 3, 'los tres avisos al equipo');
+  // Sin categoría, el de siempre (el del system): el pedido no lleva ninguna.
+  assert.doesNotMatch(userDeCrear(ctx, { perfil: '', voz: null, pedido: 'algo raro' }), /LA DE ESA CATEGORÍA/);
+});
+
+// R13: `userDeCrear` sin `entraEnGroq` (la plantilla siempre) → 27 / 1 (éste), y tests/crear-ia-tercera 13 / 1 (el negocio
+// grande deja a Groq afuera de la cascada).
+test('la plantilla va sólo si Groq sigue entrando con la salida del tope; la cuenta es la de lib/ai-cheap.ts', () => {
+  // Los dos números copiados (ai-cheap es server-only): si cambian allá, esto cae.
+  const AI_CHEAP = readFileSync(new URL('../lib/ai-cheap.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+  assert.equal(Number(/const TECHO_ENTRADA[^=]*= \{\n\s*groq: ([\d_]+),/.exec(AI_CHEAP)?.[1].replace(/_/g, '')), TECHO_GROQ_IA);
+  assert.equal(Number(/export const tokensAprox = \(texto: string\): number => Math\.ceil\(texto\.length \/ ([\d.]+)\);/.exec(AI_CHEAP)?.[1]), CARACTERES_POR_TOKEN_IA);
+  // El tope de tarjetas pide más salida que el mínimo, y la plantilla más grande entra en el tope.
+  assert.ok(SALIDA_DEL_TOPE_IA >= SALIDA_MIN_IA);
+  assert.ok(Math.max(...PLANTILLAS.map((x) => pasosDePlantilla(x).length)) <= TOPE_TARJETAS_IA, 'una plantilla tiene más tarjetas que las que se le piden al modelo');
+  // Un pedido que ya no deja lugar: va el de siempre, sin la plantilla.
+  const ctx = ctxBase();
+  const largo = { perfil: 'x'.repeat(1800), voz: 'y'.repeat(1200), pedido: 'Quiero los recordatorios de la reunión' };
+  const conCtxGrande = ctxBase({ audios: Array.from({ length: 40 }, (_, i) => ({ id: i + 1, titulo: `Audio ${i}`, transcript: 'z'.repeat(200) })) });
+  assert.doesNotMatch(userDeCrear(conCtxGrande, largo), /LA DE ESA CATEGORÍA/);
+  assert.ok(!entraEnGroq(CREAR_IA_SYSTEM_TEMPLATE, userDeCrear(conCtxGrande, largo) + JSON.stringify(ejemploDePlantilla(plantillaPorId('lead-agendo')!))));
+  assert.match(userDeCrear(ctx, { perfil: 'Mentorías', voz: null, pedido: largo.pedido }), /LA DE ESA CATEGORÍA/);
+  // Cada ejemplo de la galería, solo, entra con un negocio chico.
+  for (const x of PLANTILLAS) assert.ok(entraEnGroq(CREAR_IA_SYSTEM_TEMPLATE, JSON.stringify(ejemploDePlantilla(x))), x.id);
+  for (const x of PLANTILLAS) assert.ok(!ejemploDePlantilla(x).tarjetas.some((t) => t.tipo === 'si_responde'), `${x.id}: el ejemplo lleva el AI Step`);
 });
 
 // rotura 8 (comparar el nombre de la etiqueta sin normalizar tildes y mayúsculas): 4 fallos.

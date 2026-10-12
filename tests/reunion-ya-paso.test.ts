@@ -56,7 +56,8 @@ test('el motor pregunta por la reunión también cuando el paso NO está anclado
   // Probado rompiéndolo (08/10/2026): `anclada` sin la espera del flujo → 1 falla (3/1).
   assert.match(
     MOTOR,
-    /if \(anclada \|\| preparaUnaReunion\(sec\.trigger_tipo\)\) \{\s*if \(reunionFuturaMs\(lead\) == null\)/,
+    // Undécima tanda (M2): «prepara una reunión» mira la automatización entera (`preparaReunion(sec)`).
+    /if \(anclada \|\| preparaReunion\(sec\)\) \{\s*if \(reunionFuturaMs\(lead\) == null\)/,
     'procesarEnvios volvió a mirar solo `paso.ancla`: la post-agenda vuelve a mandar tarde',
   );
   assert.match(MOTOR, /const anclada = paso\.ancla === 'reunion' \|\| minAntes != null;/);
@@ -72,8 +73,10 @@ test('y cerrar por reunión pasada NO deja la inscripción para mañana', () => 
   // + 700 caracteres, y desde el 06/10/2026 (#789) esa cadena aparece antes en el archivo —el
   // reuso de inscripciones también pregunta si la secuencia prepara una reunión—: el guard
   // pasó a mirar otra función y falló sobre un motor sano.
-  const ini = MOTOR.indexOf('if (anclada || preparaUnaReunion(sec.trigger_tipo))');
-  const fin = MOTOR.indexOf('if (anclada) {', ini);
+  // Undécima tanda: la condición es `preparaReunion(sec)` (M2) y el bloque que le sigue es el del carril del
+  // recordatorio (`let carril: {`), que reemplazó al re-anclado.
+  const ini = MOTOR.indexOf('if (anclada || preparaReunion(sec))');
+  const fin = MOTOR.indexOf('let carril: {', ini);
   assert.ok(ini >= 0 && fin > ini, 'no encontré el bloque de «la reunión ya pasó» en procesarEnvios');
   const trozo = MOTOR.slice(ini, fin);
   assert.ok(trozo.length < 1500, `el bloque mide ${trozo.length}: está mirando otra cosa`);

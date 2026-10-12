@@ -44,7 +44,7 @@ import { getRolWsEfectivo, getWorkspaceActual, getWorkspace, getTenantDb } from 
 import {
   getSettingData, guardarEstrategia, crearSecuenciaDesdeEtapa, crearSecuenciaVacia, probarSecuencia,
   muestraParaCriterio, muestraATexto, productosConEtapas, setDisparadorEtapa, setDisparadorEntrega, renombrarSecuencia, setCronSecuencia,
-  setTriggerSecuencia, setEmojiSecuencia, TriggerInvalidoError,
+  setTriggerSecuencia, setEmojiSecuencia, TriggerInvalidoError, SecuenciaNoExisteError,
   SETTING_GANCHO_TEMPLATE, SETTING_PREGUNTAS_TEMPLATE, SETTING_CRITERIO_TEMPLATE,
 } from '@/lib/setting-secuencias';
 import { parseEstrategia, parseCriterio, OBJETIVOS } from '@/lib/setting-estrategia';
@@ -266,11 +266,19 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // El NOMBRE, que se edita tocándolo en el lienzo (mismo gesto que en /mensajes).
+    // El NOMBRE, que se edita tocándolo en el lienzo (mismo gesto que en /mensajes) y con «Renombrar» del «⋯» de la
+    // lista (undécima tanda, punto 5). Un id que no es de este negocio o está archivado contesta 404: antes
+    // contestaba «ok» sin cambiar nada.
     if (body.action === 'nombre') {
       const id = Number(body.secuenciaId);
       if (!Number.isFinite(id)) return Response.json({ ok: false, error: 'secuenciaId inválido' }, { status: 400 });
-      await renombrarSecuencia(id, String(body.nombre ?? ''));
+      try {
+        await renombrarSecuencia(id, String(body.nombre ?? ''));
+      } catch (e) {
+        if (e instanceof SecuenciaNoExisteError) return Response.json({ ok: false, error: 'No existe' }, { status: 404 });
+        if (e instanceof TriggerInvalidoError) return Response.json({ ok: false, error: e.message }, { status: 400 });
+        throw e;
+      }
       return Response.json({ ok: true });
     }
 

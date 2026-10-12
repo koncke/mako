@@ -18,6 +18,7 @@ import sharp from 'sharp';
 import { getSetting, getSettingEstricto, setSetting } from './settings';
 import { runWithWorkspace, OWNER_WS } from './workspace';
 import { leerResultadoParticipante, jidCanonico } from './participantes-grupo';
+import { detalleEvolution, enviarPartesPorEv, type EnvioPartes, type EvFn, type PartePreparada } from './mako-tarjeta';
 
 const BASE = (process.env.EVOLUTION_BASE_URL || '').replace(/\/$/, '');
 const KEY = process.env.EVOLUTION_API_KEY || '';
@@ -537,14 +538,9 @@ export async function enviarAGrupoJid(jid: string, texto: string, delayMs?: numb
 
 export type EnvioGrupo = { ok: true; id: string } | { ok: false; error: string };
 
-/** Saca el mensaje útil del body de error de Evolution (viene anidado y variado). */
-function detalleEv(body: unknown): string {
-  if (typeof body === 'string') return body.slice(0, 200);
-  const b = (body ?? {}) as { response?: { message?: unknown }; message?: unknown; error?: unknown };
-  const m = b.response?.message ?? b.message ?? b.error ?? body;
-  const txt = Array.isArray(m) ? m.join(' · ') : typeof m === 'string' ? m : JSON.stringify(m);
-  return (txt || 'sin detalle').slice(0, 200);
-}
+/** Saca el mensaje útil del body de error de Evolution (viene anidado y variado). Vive en lib/mako-tarjeta.ts
+ *  (puro): lo usa también el envío por partes. */
+const detalleEv = detalleEvolution;
 
 /** Manda un texto al grupo de MaKo del workspace (para el ruteo de avisos). */
 export async function enviarAlGrupoMaKo(ws: number, texto: string): Promise<EnvioGrupo> {
@@ -561,6 +557,33 @@ export async function enviarAlGrupoMaKo(ws: number, texto: string): Promise<Envi
   if (!r.ok) return { ok: false, error: `Evolution ${r.status} en ${instancia}: ${detalleEv(r.body)}` };
   const id = (r.body as { key?: { id?: string } })?.key?.id ?? '';
   return { ok: true, id };
+}
+
+/**
+ * MANDA VARIAS PARTES (texto, nota de voz, archivo) AL GRUPO DE MAKO DEL WORKSPACE, en orden y por la línea
+ * de MaKo (`instanciaVoz`). Es el envío de la tarjeta «MaKo en WhatsApp» por partes (undécima tanda,
+ * lib/mako-tarjeta.ts): las partes llegan PREPARADAS (los datos resueltos y los binarios ya bajados).
+ *
+ * ⚠️ Las funciones de Evolution para LEADS no sirven acá (lib/evolution.ts): le sacan al número todo lo que
+ * no es dígito —un JID de grupo deja de serlo— y salen por la línea del NEGOCIO, no por la de MaKo.
+ * ⚠️ Una parte salió sólo con su `key.id`, y corta en la primera que falla (`enviarPartesPorEv`).
+ *
+ * `d.ev` se inyecta en el test; en producción es el `ev` de este archivo.
+ */
+export async function enviarPartesAlGrupoMaKo(
+  ws: number, partes: readonly PartePreparada[], d: { ev?: EvFn; esperar?: (ms: number) => Promise<void> } = {},
+): Promise<EnvioPartes> {
+  const jid = await getGrupoJidMaKo(ws);
+  if (!jid) return { ok: false, salieron: 0, ids: [], error: 'el workspace no tiene grupo de MaKo todavía' };
+  return enviarPartesAJid(jid, partes, d);
+}
+
+/** Lo mismo, a un JID cualquiera (el chat de MaKo de /agencia manda un audio o un archivo suelto por acá). */
+export async function enviarPartesAJid(
+  jid: string, partes: readonly PartePreparada[], d: { ev?: EvFn; esperar?: (ms: number) => Promise<void>; delayMs?: number } = {},
+): Promise<EnvioPartes> {
+  if (!d.ev && !grupoConfigurado()) return { ok: false, salieron: 0, ids: [], error: 'Evolution no configurado' };
+  return enviarPartesPorEv(jid, partes, { ev: d.ev ?? ev, instancia: await instanciaVoz(), esperar: d.esperar, delayMs: d.delayMs });
 }
 
 /**

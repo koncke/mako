@@ -279,7 +279,8 @@ test('lienzo-6: Publicar ABRE la tarjeta culpable, y el lienzo la abre una vez p
   // Tercera tanda: la forma y lo vacío los arma `frenoDelFlujo` (el mismo que frena «Probar»), con
   // el error legible y la tarjeta a abrir (lo fija tests/flujo-conversacion.test.ts).
   assert.match(pub, /if \(freno\) \{ frenar\(freno\.error, freno\.tarjeta\); return; \}/);
-  assert.match(pub, /frenar\(e \? errorLegible\(e, pasos\) : 'No se pudo publicar\.', e \? tarjetaDelError\(e, pasos\) : null\)/, 'el error del server tampoco abre nada');
+  // (Undécima tanda: primero la tarjeta que el server CONTESTA —un dato que no existe—, si no la que nombra el error.)
+  assert.match(pub, /const tarjeta = typeof rp\.tarjeta === 'string' && rp\.tarjeta \? rp\.tarjeta : e \? tarjetaDelError\(e, pasos\) : null;\s*frenar\(e \? errorLegible\(e, pasos\) : 'No se pudo publicar\.', tarjeta\)/, 'el error del server tampoco abre nada');
   assert.match(PERFIL, /<FlujoLienzo[\s\S]*?foco=\{foco\}/);
   assert.match(LIENZO_FLUJO, /if \(foco && foco\.vez !== focoVisto\) \{ setFocoVisto\(foco\.vez\); setSel\(foco\.id\); \}/);
 });

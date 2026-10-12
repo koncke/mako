@@ -41,8 +41,9 @@ const KEYS_COPIABLES = [
   'mako.fase.general', 'mako.fase.comercial', 'mako.fase.marketing', 'mako.fase.crm', 'mako.fase.closing',
   // Objetivos del tablero (la FECHA no: ver abajo)
   'objetivo_cash_usd', 'objetivo_cierres',
-  // Plantillas de avisos (catálogo, no envíos) + huso horario
-  'mako.plantillas.store', 'mako.timezone',
+  // Plantillas de avisos (catálogo, no envíos). La zona horaria NO (undécima tanda): la del dueño no es la
+  // del cliente; la del cliente se detecta de la ubicación de SUS usuarios (lib/timezone.ts, fijarZonaDelNegocio).
+  'mako.plantillas.store',
 ] as const;
 
 /** Lo que una tabla ya copiada le deja a las que vienen después (hoy: el mapa de etiquetas). */

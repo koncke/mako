@@ -65,7 +65,9 @@ test('⚠️ LA LISTA DEL LIENZO: ids exactos del registro, acciones de UN lead,
     assert.ok(d, `«${a.id}» no existe en el registro: el catálogo la tiraría en silencio`);
     assert.equal(d!.tipo, 'accion', a.id);
     assert.ok(d!.parametros.some((p) => p.nombre === 'leadId'), `«${a.id}» no es sobre un lead: no tiene sentido corriendo sola en un flujo`);
-    assert.ok(!d!.parametros.some((p) => p.tipo === 'object' || p.tipo === 'object[]'), `«${a.id}» pide JSON a mano`);
+    // Las de FUERA_DEL_SELECTOR no se editan con el formulario genérico: «MaKo en WhatsApp» tiene su
+    // propio editor (el de WhatsApp, undécima tanda), así que sus `partes` (object[]) no las escribe nadie a mano.
+    if (!FUERA_DEL_SELECTOR.has(a.id)) assert.ok(!d!.parametros.some((p) => p.tipo === 'object' || p.tipo === 'object[]'), `«${a.id}» pide JSON a mano`);
     // «las de plata NO»: ni dinero ni IA, que corren y gastan en cada lead que pasa.
     assert.ok(d!.costo !== 'dinero' && d!.costo !== 'ia', `«${a.id}» cuesta (${d!.costo})`);
     assert.ok((GRUPOS_ACCION as readonly string[]).includes(a.grupo), a.id);
@@ -218,7 +220,7 @@ test('lo que llena el flujo existe en el registro, y el reparto no lo dibuja', (
   const r = repartoDelFormulario(aviso.parametros, aviso.pideLead, new Set(Object.keys(LLENA_EL_FLUJO.avisar_al_equipo)));
   assert.equal(r.lead?.nombre, 'leadId');
   assert.deepEqual(r.obligatorios.map((p) => p.nombre), ['mensaje']);
-  assert.deepEqual(r.opcionales.map((p) => p.nombre), ['titulo'], '«respuesta» la pone el motor');
+  assert.deepEqual(r.opcionales.map((p) => p.nombre), ['titulo', 'partes'], '«respuesta» la pone el motor');
   assert.equal(r.plegar, true);
 });
 

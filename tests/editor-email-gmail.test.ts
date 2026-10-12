@@ -33,6 +33,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { EditorEmailGmail, paramsDeVista, nombreDelRemitente, avisoDelRemitente, htmlLegible, AVISO_REEMPLAZA } from '../app/automations/EditorEmailGmail';
 import { renderEmailHtml } from '../lib/email-html';
+import { SIN_EMAIL_PROPIO } from '../lib/email-remitente';
 import { sanearHtmlEmail } from '../lib/email-html-seguro';
 
 const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
@@ -194,8 +195,10 @@ test('el De: los vinculados de la ruta, lo elegido con la función del MOTOR, y 
   assert.match(GMAIL, /\{ key: '__vincular', label: vinculados\.length \? 'Vincular nuevo' : 'Vincular tu email', icono: <IconMas \/>, onElegir: \(\) => setVincular\(true\) \}/);
   // Sin leer todavía, el De dice «…»; nunca inventa un remitente.
   assert.match(dibujar(), /class="mk-gmail-de-txt"[^>]*>…</);
-  assert.equal(avisoDelRemitente({ sandbox: true, envioHabilitado: true }), 'No sale · dominio sin verificar', 'con el sandbox no sale aunque esté prendido');
-  assert.equal(avisoDelRemitente({ sandbox: true, envioHabilitado: false }), 'No sale · dominio sin verificar', 'el sandbox gana: prenderlo no lo arregla');
+  // Undécima tanda: sin remitente propio el chip dice SIN_EMAIL_PROPIO (lib/email-remitente.ts), la misma
+  // constante que frena el envío; el email de MaKo en un cliente llega acá como el sandbox.
+  assert.equal(avisoDelRemitente({ sandbox: true, envioHabilitado: true }), SIN_EMAIL_PROPIO, 'con el sandbox no sale aunque esté prendido');
+  assert.equal(avisoDelRemitente({ sandbox: true, envioHabilitado: false }), SIN_EMAIL_PROPIO, 'el sandbox gana: prenderlo no lo arregla');
   assert.equal(avisoDelRemitente({ sandbox: false, envioHabilitado: false }), 'Email apagado');
   assert.equal(avisoDelRemitente({ sandbox: false, envioHabilitado: true }), null);
   assert.equal(avisoDelRemitente(null), null, 'sin leer el remitente no se inventa un aviso');

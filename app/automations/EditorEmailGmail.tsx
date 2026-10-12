@@ -48,6 +48,11 @@
 //     árbol de la casa (`ArbolDeDatos`) con `datosOfrecidos({ destino: 'lead', conLead: true })`, que
 //     es lo que el envío pasa por `datosParaElLead` (lib/nutricion.ts). Lo que no conoce queda literal.
 //
+// LOS DATOS AZULES Y CLICKEABLES (undécima tanda, punto 7): el asunto y la caja HTML los pintan con el espejo de
+// `CampoConDatos` (app/_components/CampoConDatos.tsx) y el cuerpo rico con la decoración `DatosResaltados`
+// (app/_ui/EditorRico.tsx). Tocar uno abre el «{ }» con ESE dato elegido y elegir otro lo cambia ahí mismo; con el
+// cursor adentro de uno, el «{ }» también. En rojo, lo que el envío de un email al lead no resuelve.
+//
 // El De: los remitentes vinculados salen de GET /api/email/dominio (hoy uno por workspace: ver la
 // cabecera de lib/email-remitente.ts). «Vincular nuevo» abre EL MISMO flujo de conectar el dominio que
 // la tab /email (`DominioSetup`), en un modal y cargado a demanda: un segundo flujo sería la segunda
@@ -77,9 +82,10 @@ import { textoDeHtmlEmail, aplicarVariablesHtml, sanearHtmlEmail } from '@/lib/e
 import { aplicarVariables } from '@/lib/template-vars';
 import { datosOfrecidos } from '@/lib/variables-aviso';
 import { ArbolDeDatos } from '@/app/_components/SelectorDatos';
+import { CampoConDatos, fueraDelContexto, type CampoConDatosHandle } from '@/app/_components/CampoConDatos';
 import {
   remitentesVinculados, opcionesDeRemitente, remitenteDelPaso, partesDeRemitente, firmaDelPie,
-  esRemitenteDeMako, remitenteDeMakoAjeno, AVISO_EMAIL_DE_MAKO,
+  esRemitenteDeMako, SIN_EMAIL_PROPIO,
 } from '@/lib/email-remitente';
 import type { DomState } from '../email/EmailApp';
 
@@ -117,13 +123,16 @@ const MONO = "'Geist Mono', monospace";
 
 /** Un botón de la barra del editor rico, con el tipo que declara el editor (sin importarlo estático). */
 type BotonBarra = NonNullable<ComponentProps<typeof EditorRicoPerezoso>['botonesExtra']>[number];
+/** Los `{{datos}}` azules del cuerpo rico (`DatosResaltados`), con los tipos del editor (sin importarlo estático). */
+type DatosDelEditor = NonNullable<ComponentProps<typeof EditorRicoPerezoso>['datos']>;
+type DatoDelEditor = Parameters<DatosDelEditor['onDato']>[0];
 
 /**
  * Lo que el editor usa de GET /api/email/dominio, ya leído. `dom` es la respuesta entera, para el modal.
- * `deMako`: el remitente del negocio es un email de MaKo y el negocio no es la plataforma (décima tanda,
- * EMAIL 1): no se ofrece, y el chip del «De» lo dice.
+ * Desde la undécima tanda, `sandbox` = «el negocio no tiene remitente propio»: la ruta devuelve el sandbox
+ * también con el email de MaKo en un cliente (`remitenteDelNegocio`, lib/email-remitente.ts).
  */
-type EstadoRemitente = { remitente: string; sandbox: boolean; envioHabilitado: boolean; vinculados: string[]; dom: DomState; deMako?: boolean };
+type EstadoRemitente = { remitente: string; sandbox: boolean; envioHabilitado: boolean; vinculados: string[]; dom: DomState };
 
 // El remitente se pide UNA vez por pestaña y cliente (5 min): la ruta le pregunta a Resend en vivo, y
 // el editor se monta cada vez que se toca una tarjeta de email.
@@ -138,7 +147,6 @@ function estadoDe(d: DomState): EstadoRemitente {
     envioHabilitado: d.envioHabilitado === true,
     vinculados: remitentesVinculados(d),
     dom: d,
-    deMako: remitenteDeMakoAjeno(d),
   };
 }
 
@@ -161,14 +169,13 @@ export function nombreDelRemitente(remitente: string): string {
 }
 
 /**
- * Qué avisa el chip del De, o nada. El email de MaKo primero (décima tanda, EMAIL 1: «No permitas enviar
- * emails con los email de MaKo, ellos deben poner sus propios email»), después el sandbox: con él no sale
- * aunque el envío esté prendido.
+ * Qué avisa el chip del De, o nada. Sin remitente propio (el sandbox, que desde la undécima tanda es también el
+ * email de MaKo en un cliente) no sale aunque el envío esté prendido: `SIN_EMAIL_PROPIO`, el mismo texto con el
+ * que `sendEmail` se niega.
  */
-export function avisoDelRemitente(e: Pick<EstadoRemitente, 'sandbox' | 'envioHabilitado' | 'deMako'> | null): string | null {
+export function avisoDelRemitente(e: Pick<EstadoRemitente, 'sandbox' | 'envioHabilitado'> | null): string | null {
   if (!e) return null;
-  if (e.deMako) return AVISO_EMAIL_DE_MAKO;
-  if (e.sandbox) return 'No sale · dominio sin verificar';
+  if (e.sandbox) return SIN_EMAIL_PROPIO;
   if (!e.envioHabilitado) return 'Email apagado';
   return null;
 }
@@ -345,6 +352,9 @@ export function VincularRemitente({ inicial, reemplaza, onCerrar, onDominio }: {
 
 type Abierto = 'datos-asunto' | 'datos-cuerpo' | 'emoji' | 'de' | null;
 
+/** El rojo de un email al LEAD: lo que el envío no resuelve (la pregunta de Publicar, `contextoDeTarjeta`). */
+const FUERA_EMAIL = fueraDelContexto({ destino: 'lead', conLead: true });
+
 export function EditorEmailGmail({ asunto, cuerpo, cuerpoHtml, remitente, onChange, negocio, deshabilitado }: EditorEmailGmailProps) {
   const ws = useWs();
   const clave = String(ws ?? '');
@@ -366,6 +376,17 @@ export function EditorEmailGmail({ asunto, cuerpo, cuerpoHtml, remitente, onChan
   const campoAsunto = useRef<HTMLInputElement>(null);
   const campoHtml = useRef<HTMLTextAreaElement>(null);
   const cajaCuerpo = useRef<HTMLDivElement>(null);
+  /** Los `{{datos}}` azules y clickeables del asunto y de la caja HTML (punto 7). */
+  const datosAsunto = useRef<CampoConDatosHandle | null>(null);
+  const datosHtml = useRef<CampoConDatosHandle | null>(null);
+  /** El dato del cuerpo rico que se tocó (su «{ }» abierto con él elegido), y el que tiene el cursor adentro. */
+  const [datoRico, setDatoRico] = useState<DatoDelEditor | null>(null);
+  const datoEnCursorRico = useRef<DatoDelEditor | null>(null);
+  const [datosRico] = useState<DatosDelEditor>(() => ({
+    fuera: FUERA_EMAIL,
+    onDato: (d) => { setAbierto(null); setDatoRico(d); },
+    alCursor: (d) => { datoEnCursorRico.current = d; },
+  }));
 
   // La copia propia del cuerpo, para cuando quien monta no pasa `cuerpoHtml` (y para abrir un email de
   // antes). Se re-siembra sólo si el TEXTO cambió desde afuera (un deshacer del lienzo); lo que escribe
@@ -453,6 +474,8 @@ export function EditorEmailGmail({ asunto, cuerpo, cuerpoHtml, remitente, onChan
   };
 
   const abrirEn = (tipo: Exclude<Abierto, null>, el: HTMLElement | null) => {
+    // Con el cursor ADENTRO de un dato del cuerpo rico, su «{ }» lo abre con ESE dato elegido (punto 7).
+    if (tipo === 'datos-cuerpo' && modo === 'visual' && abierto !== tipo && datoEnCursorRico.current) { setDatoRico(datoEnCursorRico.current); return; }
     setAncla(el);
     setAbierto((a) => (a === tipo ? null : tipo));
   };
@@ -497,23 +520,25 @@ export function EditorEmailGmail({ asunto, cuerpo, cuerpoHtml, remitente, onChan
             <span style={{ color: 'var(--ink)' }}>El lead</span>
           </div>
           <div className="mk-gmail-fila">
+            <CampoConDatos ref={datosAsunto} datos={datos} fuera={FUERA_EMAIL} onValor={(v) => onChange({ asunto: v })} estiloCaja={{ flex: 1 }}>
             <input ref={campoAsunto} value={asunto} placeholder="Asunto" aria-label="Asunto" disabled={deshabilitado}
               onChange={(e) => onChange({ asunto: e.target.value })} style={{ fontWeight: 600 }} />
+            </CampoConDatos>
             <button type="button" ref={setBtnDatosAsunto} className="mk-gmail-boton" onMouseDown={sinRobarFoco} disabled={deshabilitado}
               title="Insertar un dato" aria-label="Insertar un dato en el asunto" aria-expanded={abierto === 'datos-asunto'}
-              onClick={() => abrirEn('datos-asunto', btnDatosAsunto)} style={{ fontFamily: MONO }}>{'{ }'}</button>
+              onClick={() => { if (abierto !== 'datos-asunto' && datosAsunto.current?.abrirDatoEnCursor()) return; abrirEn('datos-asunto', btnDatosAsunto); }} style={{ fontFamily: MONO }}>{'{ }'}</button>
           </div>
           {/* El editor rico se ESCONDE en el modo HTML, no se desmonta: así no pierde su deshacer. */}
           <div ref={cajaCuerpo} className="mk-gmail-cuerpo" style={modo === 'html' ? { display: 'none' } : undefined}>
             <EditorRicoPerezoso valor={modo === 'html' ? congelado : valorHtml} onCambio={alCambiarCuerpo} urlDeAdjunto={sinAdjuntos}
-              placeholder="Escribe el email" etiqueta="Cuerpo del email" minAlto={120} soloLectura={deshabilitado} botonesExtra={botonesBarra} />
+              placeholder="Escribe el email" etiqueta="Cuerpo del email" minAlto={120} soloLectura={deshabilitado} botonesExtra={botonesBarra} datos={datosRico} />
           </div>
           {modo === 'html' && (
             <div className="mk-gmail-cuerpo">
               <div className="mk-gmail-barra" role="toolbar" aria-label="Formato">
                 <button type="button" className="mk-gmail-boton" onMouseDown={sinRobarFoco} disabled={deshabilitado}
                   title="Insertar un dato" aria-label="Insertar un dato" aria-expanded={abierto === 'datos-cuerpo'}
-                  onClick={(e) => abrirEn('datos-cuerpo', e.currentTarget)} style={iconoMono}>{'{ }'}</button>
+                  onClick={(e) => { if (abierto !== 'datos-cuerpo' && datosHtml.current?.abrirDatoEnCursor()) return; abrirEn('datos-cuerpo', e.currentTarget); }} style={iconoMono}>{'{ }'}</button>
                 <button type="button" className="mk-gmail-boton" onMouseDown={sinRobarFoco} disabled={deshabilitado}
                   title="Emojis" aria-label="Emojis" aria-expanded={abierto === 'emoji'}
                   onClick={(e) => abrirEn('emoji', e.currentTarget)}><IconSmiley /></button>
@@ -521,8 +546,10 @@ export function EditorEmailGmail({ asunto, cuerpo, cuerpoHtml, remitente, onChan
                 <button type="button" className="mk-gmail-boton" onMouseDown={sinRobarFoco} aria-pressed="true"
                   title="Volver al editor" aria-label="Volver al editor" onClick={salirHtml} style={iconoMono}>{'</>'}</button>
               </div>
+              <CampoConDatos ref={datosHtml} datos={datos} fuera={FUERA_EMAIL} onValor={alCambiarCrudo} estiloCaja={{ flex: '1 0 auto' }}>
               <textarea ref={campoHtml} className="mk-gmail-html" value={crudo} readOnly={deshabilitado} spellCheck={false}
                 aria-label="HTML del email" onChange={(e) => alCambiarCrudo(e.target.value)} />
+              </CampoConDatos>
             </div>
           )}
         </div>
@@ -546,6 +573,12 @@ export function EditorEmailGmail({ asunto, cuerpo, cuerpoHtml, remitente, onChan
       {abierto === 'datos-cuerpo' && (
         <PopoverWA ancla={ancla} etiqueta="Datos" onCerrar={() => setAbierto(null)}>
           <ArbolDeDatos grupos={datos} onElegir={(k) => { insertarEnCuerpo(`{{${k}}}`); setAbierto(null); }} />
+        </PopoverWA>
+      )}
+      {/* Un dato del cuerpo rico que se tocó: el mismo árbol, con ESE dato elegido; elegir otro lo cambia ahí. */}
+      {datoRico && (
+        <PopoverWA ancla={datoRico.ancla} etiqueta="Datos" onCerrar={() => setDatoRico(null)}>
+          <ArbolDeDatos grupos={datos} seleccionado={datoRico.key} onElegir={(k) => { datoRico.reemplazar(k); setDatoRico(null); }} />
         </PopoverWA>
       )}
       {abierto === 'emoji' && (

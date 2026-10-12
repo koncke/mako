@@ -77,7 +77,8 @@ export async function PATCH(req: NextRequest) {
     const msg = err instanceof Error ? err.message : String(err);
     // Lo que no es un flujo válido es un error del que guarda, no del servidor: 400, con el
     // primer motivo, que es lo que la pantalla muestra.
-    if (err instanceof PasosInvalidosError) return Response.json({ ok: false, error: msg }, { status: 400 });
+    // Con la TARJETA culpable cuando el error es de una (los datos que no existen, undécima tanda): el lienzo la abre.
+    if (err instanceof PasosInvalidosError) return Response.json({ ok: false, error: msg, ...(err.tarjeta ? { tarjeta: err.tarjeta } : {}) }, { status: 400 });
     console.error(`[api:whatsapp/secuencias PATCH] ${msg}`);
     return Response.json({ ok: false, error: msg }, { status: 500 });
   }

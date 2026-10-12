@@ -21,7 +21,10 @@ import { readFileSync, readdirSync } from 'node:fs';
 import {
   sanearRemitente, direccionDe, dominioDe, esRemitenteSandbox, remitenteDelPaso, remitentesVinculados,
   opcionesDeRemitente, remitenteAGuardar, firmaDelPie, partesDeRemitente,
+  remitenteDelNegocio, problemaDeRemitenteGuardado, SIN_EMAIL_PROPIO, POR_QUE_SIN_EMAIL, NO_ES_TUYO,
+  type HechosRemitente,
 } from '../lib/email-remitente';
+import { MOTIVO_MEDIO } from '../lib/medios-automatizacion';
 import { renderEmailHtml } from '../lib/email-html';
 import { paramsDeVista, nombreDelRemitente } from '../app/automations/EditorEmailGmail';
 import { remitenteVisible } from '../app/automations/PanelProbar';
@@ -198,8 +201,9 @@ test('el motor manda con el remitente del paso (si es del dominio) y firma con e
   assert.match(llamada, /^const r = await sendEmail\(\{\s*to: lead\.email,\s*\.\.\.\(fromPaso \? \{ from: fromPaso \} : \{\}\),/, 'el From del paso no llega a sendEmail');
   assert.match(llamada, /fromName: firmaDelPie\(negocio\),/, 'la firma del pie no es el negocio');
   // El `remitente` que compara es el del WORKSPACE (getEmailFrom), el mismo que decide el sandbox.
-  // (Décima tanda, EMAIL 1: la tupla suma `remitenteDeMako` al final; lo fija tests/decima-remitente-mako.test.ts.)
-  assert.match(MOTOR, /const \[waOn, emailOn, sandbox, remitente, lineasEvo, remitenteDeMako\] = await Promise\.all\(\[\s*envioWhatsappHabilitado\(\),\s*envioEmailHabilitado\(\),\s*remitenteEsSandbox\(\),\s*getEmailFrom\(\),/);
+  // (Décima tanda, EMAIL 1: la tupla suma `remitenteDeMako` al final; la undécima la deja muerta y la ola 3 la saca:
+  // por eso es opcional acá. Lo que sigue fijo es que `remitente` sea `getEmailFrom()`.)
+  assert.match(MOTOR, /const \[waOn, emailOn, sandbox, remitente, lineasEvo(, remitenteDeMako)?\] = await Promise\.all\(\[\s*envioWhatsappHabilitado\(\),\s*envioEmailHabilitado\(\),\s*remitenteEsSandbox\(\),\s*getEmailFrom\(\),/);
   assert.doesNotMatch(MOTOR, /displayNameDe\(/, 'volvió la firma con el nombre visible del remitente');
 });
 
@@ -211,7 +215,92 @@ test('setSecuenciaPasos guarda el remitente SÓLO en un email, y lo conserva si 
   assert.match(limpio, /\.\.\.remitenteDelGuardado\(p, flujo, i, comun\.canal\),/, 'el paso se reconstruye sin el remitente: se borraría en cada guardado');
 });
 
+// ── Undécima tanda: EL REMITENTE DEL NEGOCIO, POR UNA REGLA POSITIVA ─────────────────────────────
+// Decisión 3 de la décima, literal de Martín: «Quitale a Mauricio que pueda mandar email con MaKo. Nadie
+// debería poder.» Los casos son los MEDIDOS el 11/10/2026 (scripts/undecima-email-remitente.mts, simulacro):
+// el ws1 con «MaKo <equipo@hola-mako.com>» y sin `resend_domain`; ws10 y ws11 con su propia cuenta de Resend;
+// ws1 y ws4 con la key de la PLATAFORMA en su fila (la del ws4, una copia).
+
+const NADA: HechosRemitente = { resendFrom: null, resendDominio: null, credFrom: null, keyPropia: false, plataforma: false };
+const con = (h: Partial<HechosRemitente>): HechosRemitente => ({ ...NADA, ...h });
+
+test('remitenteDelNegocio: los workspaces medidos, hoy y después del script', () => {
+  // ws1 HOY: el de MaKo, sin dominio reclamado, con la key de la plataforma (keyPropia false).
+  assert.deepEqual(remitenteDelNegocio(con({ resendFrom: 'MaKo <equipo@hola-mako.com>' })), { puede: false, motivo: 'de-mako' });
+  // ws1 después de scripts/undecima-email-remitente.mts (`resend_from` = '').
+  assert.deepEqual(remitenteDelNegocio(con({ resendFrom: '' })), { puede: false, motivo: 'sin-remitente' });
+  assert.deepEqual(remitenteDelNegocio(NADA), { puede: false, motivo: 'sin-remitente' });
+  // ws10: su cuenta, su remitente.
+  assert.deepEqual(remitenteDelNegocio(con({ credFrom: 'leandro@contacto.leandrotejado.com', keyPropia: true })),
+    { puede: true, from: 'leandro@contacto.leandrotejado.com', via: 'cuenta-propia' });
+  // ws11: su cuenta, y además un `resend_domain` sin `resend_from` (no estorba).
+  assert.deepEqual(remitenteDelNegocio(con({ resendDominio: 'leilafittipaldi.com', credFrom: 'hola@leilafittipaldi.com', keyPropia: true })),
+    { puede: true, from: 'hola@leilafittipaldi.com', via: 'cuenta-propia' });
+  // Estilo ws4: la key de la PLATAFORMA (copiada) con un FROM ajeno no es una cuenta propia.
+  assert.deepEqual(remitenteDelNegocio(con({ credFrom: 'Ventas <ventas@valle.mx>', keyPropia: false })), { puede: false, motivo: 'sin-cuenta-propia' });
+});
+
+test('remitenteDelNegocio: vía DOMINIO, sólo el dominio que ESE workspace reclamó', () => {
+  assert.deepEqual(remitenteDelNegocio(con({ resendFrom: 'Valle <Hola@Valle.MX>', resendDominio: 'valle.mx' })),
+    { puede: true, from: 'Valle <hola@valle.mx>', via: 'dominio' }, 'sale saneado');
+  assert.equal(remitenteDelNegocio(con({ resendFrom: 'Valle <hola@valle.mx>', resendDominio: 'VALLE.mx' })).puede, true, 'el dominio sin mayúsculas');
+  assert.deepEqual(remitenteDelNegocio(con({ resendFrom: 'Valle <hola@valle.mx>', resendDominio: 'otro.mx' })), { puede: false, motivo: 'otro-dominio' });
+  assert.deepEqual(remitenteDelNegocio(con({ resendFrom: 'Valle <hola@valle.mx>' })), { puede: false, motivo: 'otro-dominio' }, 'sin dominio reclamado');
+  assert.deepEqual(remitenteDelNegocio(con({ resendFrom: 'a@mail.valle.mx', resendDominio: 'valle.mx' })), { puede: false, motivo: 'otro-dominio' }, 'un subdominio no es el dominio');
+  assert.deepEqual(remitenteDelNegocio(con({ resendFrom: 'basura', resendDominio: 'valle.mx' })), { puede: false, motivo: 'sin-remitente' });
+  assert.deepEqual(remitenteDelNegocio(con({ resendFrom: 'Ana <a@valle.mx>\r\nBcc: x@y.com', resendDominio: 'valle.mx' })), { puede: false, motivo: 'sin-remitente' }, 'inyección de encabezados');
+});
+
+test('remitenteDelNegocio: el de MaKo, sólo la plataforma y sólo si lo reclamó; el sandbox, nunca', () => {
+  const mako = { resendFrom: 'MaKo <equipo@hola-mako.com>', resendDominio: 'hola-mako.com' };
+  assert.deepEqual(remitenteDelNegocio(con({ ...mako, plataforma: true })), { puede: true, from: 'MaKo <equipo@hola-mako.com>', via: 'dominio' });
+  assert.deepEqual(remitenteDelNegocio(con({ ...mako, plataforma: false })), { puede: false, motivo: 'de-mako' }, 'un cliente con el dominio de MaKo reclamado');
+  assert.deepEqual(remitenteDelNegocio(con({ resendFrom: 'MaKo <equipo@hola-mako.com>', plataforma: true })), { puede: false, motivo: 'otro-dominio' }, 'la plataforma sin reclamarlo (hoy)');
+  assert.deepEqual(remitenteDelNegocio(con({ resendFrom: 'x@send.hola-mako.com', resendDominio: 'send.hola-mako.com' })), { puede: false, motivo: 'de-mako' }, 'un subdominio de MaKo');
+  assert.deepEqual(remitenteDelNegocio(con({ resendFrom: 'x@makodigital.app', resendDominio: 'makodigital.app' })), { puede: false, motivo: 'de-mako' });
+  assert.deepEqual(remitenteDelNegocio(con({ resendFrom: 'onboarding@resend.dev', resendDominio: 'resend.dev' })), { puede: false, motivo: 'sandbox' });
+  assert.deepEqual(remitenteDelNegocio(con({ credFrom: 'onboarding@resend.dev', keyPropia: true })), { puede: false, motivo: 'sandbox' });
+  // Una credencial con el de MaKo, aun con key propia y aun en la plataforma: nunca.
+  assert.deepEqual(remitenteDelNegocio(con({ credFrom: 'MaKo <equipo@hola-mako.com>', keyPropia: true })), { puede: false, motivo: 'de-mako' });
+  assert.deepEqual(remitenteDelNegocio(con({ credFrom: 'MaKo <equipo@hola-mako.com>', keyPropia: true, plataforma: true })), { puede: false, motivo: 'de-mako' });
+  // Un dominio parecido no es de MaKo.
+  assert.equal(remitenteDelNegocio(con({ resendFrom: 'a@hola-makos.com', resendDominio: 'hola-makos.com' })).puede, true);
+});
+
+test('remitenteDelNegocio: primero el dominio; si no pasa, la cuenta propia; el motivo es el de la primera', () => {
+  // El ws1 con el de MaKo, si un día carga su cuenta: sale por la suya.
+  assert.deepEqual(remitenteDelNegocio(con({ resendFrom: 'MaKo <equipo@hola-mako.com>', credFrom: 'hola@valle.mx', keyPropia: true })),
+    { puede: true, from: 'hola@valle.mx', via: 'cuenta-propia' });
+  assert.equal((remitenteDelNegocio(con({ resendFrom: 'Valle <hola@valle.mx>', resendDominio: 'valle.mx', credFrom: 'otra@otra.mx', keyPropia: true })) as { via?: string }).via, 'dominio');
+  assert.deepEqual(remitenteDelNegocio(con({ resendFrom: 'MaKo <equipo@hola-mako.com>', credFrom: 'hola@valle.mx', keyPropia: false })), { puede: false, motivo: 'de-mako' });
+});
+
+test('problemaDeRemitenteGuardado: el remitente de MaKo no se guarda como credencial, en ningún workspace', () => {
+  assert.equal(problemaDeRemitenteGuardado('MaKo <equipo@hola-mako.com>'), NO_ES_TUYO);
+  assert.equal(problemaDeRemitenteGuardado('ventas@send.hola-mako.com'), NO_ES_TUYO);
+  assert.equal(problemaDeRemitenteGuardado('x@makodigital.app'), NO_ES_TUYO);
+  assert.equal(problemaDeRemitenteGuardado('a@hola-mako.com, b@valle.mx'), NO_ES_TUYO, 'ilegible como remitente, pero con una dirección de MaKo adentro');
+  assert.equal(problemaDeRemitenteGuardado('Valle <hola@valle.mx>'), null);
+  assert.equal(problemaDeRemitenteGuardado('a@hola-makos.com'), null, 'un dominio parecido no');
+  assert.equal(problemaDeRemitenteGuardado(''), null);
+  assert.equal(problemaDeRemitenteGuardado(null), null);
+});
+
+test('los textos: cortos, en tú, y el del envío es el mismo que el del medio', () => {
+  assert.equal(SIN_EMAIL_PROPIO, 'Conecta tu email');
+  assert.equal(MOTIVO_MEDIO.email, SIN_EMAIL_PROPIO, '`medioDelError` reconoce el error de `sendEmail` por este texto');
+  for (const t of [SIN_EMAIL_PROPIO, POR_QUE_SIN_EMAIL, NO_ES_TUYO]) {
+    assert.ok(t.split(/\s+/).length <= 10, `«${t}» es largo`);
+    assert.doesNotMatch(t, /\b(conectá|usá|poné|tenés|podés)\b/i, `«${t}» está en voseo`);
+  }
+});
+
 // ── Roturas ──────────────────────────────────────────────────────────────────────────────────
+// 11/10/2026, undécima tanda (arnés `romper.mjs` de wf-undecima/w1-email: una por vez, restaurada de memoria con
+// md5 igual; corre este archivo + undecima-email-propio + decima-remitente-mako + resend-remitente, base 49/0):
+//   R1. (a) sin exigir que el dominio sea el `resend_domain` del workspace → 47/2 (vía DOMINIO; el de MaKo)
+//   R2. (b) sin exigir la key propia                                      → 47/2 (los medidos; primero el dominio)
+//   R8. (a) sin exigir la plataforma para el dominio de MaKo              → 45/4 (tres acá y el corte de la décima)
 // 09/10/2026, arnés romper-email.mjs del scratchpad: una rotura por vez sobre el archivo real,
 // restaurada de MEMORIA, corriendo este archivo + editor-email-gmail + editor-rico-botones-extra
 // (base: 26 pass / 0 fail). Las que tocan este archivo:

@@ -19,8 +19,7 @@
 
 import 'server-only';
 import { getTenantDb } from '@/lib/workspace';
-import { getSetting, getSettingEstricto } from '@/lib/settings';
-import { KEY_TIMEZONE, esTzValida } from '@/lib/timezone';
+import { getSettingEstricto } from '@/lib/settings';
 import { getEmailFrom, emailConectado, remitenteEsSandbox, resendConfigurado, getResendDomain, type ResendDnsRecord } from '@/lib/resend';
 import { envioEmailHabilitado } from '@/lib/envio-flags';
 
@@ -73,13 +72,6 @@ export async function estadoEmail(): Promise<EstadoEmail> {
  *  lectura tira, en vez de contestar «no hay dominio». */
 export async function dominioIdDelWorkspace(): Promise<string | null> {
   return (await getSettingEstricto('resend_domain_id'))?.trim() || null;
-}
-
-/** La zona horaria GUARDADA del negocio, o null. Solo lee: tzDeWorkspace() la
- *  averigua y la ESCRIBE cuando falta, y preparar() no puede escribir. */
-export async function tzGuardada(): Promise<string | null> {
-  const tz = (await getSetting(KEY_TIMEZONE))?.trim();
-  return tz && esTzValida(tz) ? tz : null;
 }
 
 /** Lo que empieza a salir de verdad al prender el envío real de email. Cuenta lo

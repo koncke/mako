@@ -20,7 +20,7 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSesionAdmin, getUsuarioActual } from '@/lib/auth';
-import { auditarCredencial, credDelCliente, credWs, eliminarCredencial, estadoCampo, guardarCredencial, IdentificadorOcupadoError, KeyDePlataformaError } from '@/lib/credenciales';
+import { auditarCredencial, credDelCliente, credWs, eliminarCredencial, estadoCampo, guardarCredencial, IdentificadorOcupadoError, KeyDePlataformaError, RemitenteNoPropioError } from '@/lib/credenciales';
 import { CLAVE_PASARELA, descubrirPasarela } from '@/lib/cobros-conexion';
 import { esPasarela, NOMBRE_PASARELA } from '@/lib/cobros-tipos';
 import { getRolWsEfectivo, getWorkspaceActual, OWNER_WS, wsSuperAdmin } from '@/lib/workspace';
@@ -299,6 +299,12 @@ export async function POST(req: NextRequest) {
           if (e instanceof KeyDePlataformaError) {
             await auditarCredencial(ctx.ws, env, 'guardar', ctx.autor, { permitido: false, motivo: 'pegó la key de plataforma como BYOK' });
             return NextResponse.json({ ok: false, error: e.message }, { status: 409 });
+          }
+          // El remitente de MaKo como `RESEND_FROM` (undécima tanda: «Nadie debería poder»). Mismo trato:
+          // se audita el intento y se contesta con el motivo.
+          if (e instanceof RemitenteNoPropioError) {
+            await auditarCredencial(ctx.ws, env, 'guardar', ctx.autor, { permitido: false, motivo: 'remitente de un dominio de MaKo' });
+            return NextResponse.json({ ok: false, error: e.message }, { status: 400 });
           }
           throw e;
         }

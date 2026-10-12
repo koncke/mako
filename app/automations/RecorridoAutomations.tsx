@@ -4,31 +4,28 @@
 // RecorridoAutomations — el recorrido guiado de la tab, montado como el de CURSO
 // =============================================================================
 // Los pasos y dónde está cada objetivo viven en ./recorrido-automations.ts (datos puros, con test).
-// Acá queda lo que sólo puede vivir en el navegador: el gancho de «ya lo vio», el «?» y el recorrido,
-// más `marcar` corriendo MIENTRAS está abierto (ver la cabecera de ./recorrido-automations.ts).
+// Acá queda lo que sólo puede vivir en el navegador: el gancho de «ya lo vio» y el recorrido, más `marcar`
+// corriendo MIENTRAS está abierto (ver la cabecera de ./recorrido-automations.ts).
 //
-// Lo monta ./ChatAgentApp.tsx en tres lugares, y nada más:
+// Lo monta ./ChatAgentApp.tsx en dos lugares, y nada más:
 //   const recorrido = useRecorridoAutomations(<¿un admin, con la lista y su lienzo a la vista?>);   (antes de los return)
-//   <AyudaAutomations onClick={recorrido.reabrir} />          (en el renglón de la lista y en el cartel vacío)
 //   <RecorridoAutomations abierto={recorrido.abierto} onCerrar={recorrido.onCerrar} />   (en el <main>)
+// Y se vuelve a ver con «Tutorial» del menú de antes del buscador (`MenuAutomations`, ./ConfiguracionesBoton.tsx,
+// con `onTutorial={recorrido.reabrir}`). El «?» de al lado de Configuraciones (`AyudaAutomations`) se fue en la
+// undécima tanda (punto 9: «que los botones de "Configuraciones" y "Tutorial" estén en otro botón desplegable»).
 //
 // ⚠️ SE ABRE SOLO CUANDO SE VE LA PANTALLA LLENA (la lista con un lienzo), no con el cartel de «Todavía
 //    no hay automatizaciones». «Todos arrancan vacíos»: abierto ahí, mostraría tres pasos y quedaría
 //    VISTO, y el del lienzo no saldría nunca solo. Con la primera automatización (en blanco o de una
-//    plantilla) sale entero; antes, el «?» del cartel vacío muestra lo que hay.
+//    plantilla) sale entero; antes, «Tutorial» del menú del cartel vacío muestra lo que hay.
 
 import { useLayoutEffect, useRef } from 'react';
-import { BotonRecorrido, Recorrido, useRecorrido, type MotivoCierreRecorrido } from '@/app/_ui/Recorrido';
-import { OBJETIVO_AYUDA, PASOS_AUTOMATIONS, RECORRIDO_AUTOMATIONS, marcar, soltar, type ElementoMarcable } from './recorrido-automations';
+import { Recorrido, useRecorrido, type MotivoCierreRecorrido } from '@/app/_ui/Recorrido';
+import { PASOS_AUTOMATIONS, RECORRIDO_AUTOMATIONS, marcar, soltar, type ElementoMarcable } from './recorrido-automations';
 
 /** «¿Ya lo vio?» por persona, igual que CURSO. `autoabrir` = la primera vez se abre solo. */
 export function useRecorridoAutomations(autoabrir: boolean) {
   return useRecorrido(RECORRIDO_AUTOMATIONS, { autoabrir });
-}
-
-/** El «?»: el último paso lo señala («Vuelve a verla»). */
-export function AyudaAutomations({ onClick }: { onClick: () => void }) {
-  return <BotonRecorrido objetivo={OBJETIVO_AYUDA} titulo="Ver la guía de Automations" onClick={onClick} />;
 }
 
 export function RecorridoAutomations({ abierto, onCerrar }: {

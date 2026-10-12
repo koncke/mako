@@ -4900,7 +4900,7 @@ curl -L \
 
 ### `GET /api/v1/email/ajustes/remitente` — Remitente actual del email
 
-Con qué nombre y dirección salen los emails del negocio («De:») y si ese remitente es el sandbox de Resend, que solo entrega al dueño de la cuenta. Úsala para confirmar la firma antes de un envío o para explicar por qué un mail no le llega a nadie. No pide parámetros.
+Con qué nombre y dirección salen los emails del negocio («De:») y si el negocio tiene remitente PROPIO (`propio`; sin él no sale nada y `sandbox` es true: el email de MaKo no es el de un negocio). La `nota` dice por qué. Úsala para confirmar la firma antes de un envío o para explicar por qué un mail no le llega a nadie. No pide parámetros.
 
 - **Ruta por operación:** `GET /api/v1/email/remitente_email`
 - **Token detallado:** permiso `email=read` (Solo lectura en «Email»)
@@ -5331,7 +5331,7 @@ curl -L \
 
 ### `GET /api/v1/chatbot/secuencias/{secuenciaId}` — Ficha de una secuencia
 
-Todo sobre UNA secuencia de mensajes: sus pasos (canal, horas de espera, tipo texto, audio o archivo, condición, texto y cantidad de variantes; en una secuencia con ramas, también cada tarjeta de control —condición, espera, «Si responde», «Ir a»— con su id y a qué tarjeta sigue), su estrategia (objetivo, gancho, preguntas, criterio de calificación, escenarios previstos, desenlace, modo) y sus métricas de los últimos 30 días. Úsala cuando pregunten qué hace una secuencia paso a paso o cómo le va. Pide antes el secuenciaId con listar_secuencias_nutricion.
+Todo sobre UNA secuencia de mensajes: sus pasos (canal, horas de espera, tipo texto, audio o archivo, condición, texto y cantidad de variantes; en una secuencia con ramas, también cada tarjeta de control —condición, espera, «Si responde», «Ir a»— con su id y a qué tarjeta sigue, y el AI Step con su objetivo y cada escenario con su libertad), su estrategia (objetivo, gancho, preguntas, criterio de calificación, escenarios previstos, desenlace, modo) y sus métricas de los últimos 30 días. Úsala cuando pregunten qué hace una secuencia paso a paso o cómo le va. Pide antes el secuenciaId con listar_secuencias_nutricion.
 
 - **Ruta por operación:** `GET /api/v1/chatbot/ficha_secuencia_mensajes`
 - **Token detallado:** permiso `chatbot=read` (Solo lectura en «Chatbot y secuencias»)
@@ -5772,7 +5772,7 @@ curl -L \
 
 ### `POST /api/v1/chatbot/avisos-equipo` — Avisar al equipo
 
-PROPONE mandar un aviso al grupo de WhatsApp del negocio (y al feed de la app) para que una persona se ocupe: «este lead escribió algo que hay que contestar», «llámalo». No le escribe al lead. Si pasas leadId, el aviso lleva su nombre, su teléfono y el link a su ficha, y no se repite para el mismo lead en 12 horas; con respuesta, lleva además lo que escribió el lead y no se repite para esa misma respuesta. Úsala desde una automatización cuando el caso lo tiene que ver una persona.
+PROPONE mandar un aviso al grupo de WhatsApp del negocio (y al feed de la app) para que una persona se ocupe: «este lead escribió algo que hay que contestar», «llámalo». No le escribe al lead. Si pasas leadId, el aviso lleva su nombre, su teléfono y el link a su ficha, y no se repite para el mismo lead en 12 horas; con respuesta, lleva además lo que escribió el lead y no se repite para esa misma respuesta. Con partes, el aviso son esos mensajes en orden (textos, notas de voz con la Voz de MaKo y archivos de la biblioteca); desde una automatización salen tal cual, sin título ni firma. Úsala desde una automatización cuando el caso lo tiene que ver una persona.
 
 - **Ruta por operación:** `POST /api/v1/chatbot/avisar_al_equipo`
 - **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Chatbot y secuencias»)
@@ -5788,7 +5788,13 @@ PROPONE mandar un aviso al grupo de WhatsApp del negocio (y al feed de la app) p
 | --- | --- | --- | --- |
 | `leadId` | number | no | opcional: el lead del que se avisa (de buscar_leads). En una automatización, el del evento. |
 | `titulo` | string | no | opcional: el título corto del aviso. |
-| `mensaje` | string | sí | lo que tiene que saber el equipo, en una o dos frases. |
+| `mensaje` | string | sí | lo que tiene que saber el equipo, en una o dos frases. Con partes, el resumen que se ve en la app (los textos unidos). |
+| `partes` | object[] | no | opcional: el aviso como varios mensajes, en orden (hasta 6). Una nota de voz tiene que ser la Voz de MaKo (no un audio del negocio); un archivo, de la biblioteca de archivos del chatbot. |
+| `partes.tipo` | string (texto \\| audio \\| media) | sí | texto, nota de voz (audio exige audio_id) o archivo (media exige media_id; el cuerpo es su pie). |
+| `partes.cuerpo` | string | no | el texto del mensaje, o el pie del archivo. Admite los datos {{…}} del aviso al equipo. |
+| `partes.audio_id` | number | no | id de un audio de la Voz de MaKo de este negocio, sólo si tipo es audio. |
+| `partes.media_id` | number | no | id del archivo de la biblioteca de archivos del chatbot, sólo si tipo es media. |
+| `partes.pausa_s` | number | no | opcional: segundos de espera antes de este mensaje (desde el segundo; hasta 10). |
 | `respuesta` | string | no | opcional: lo que escribió el lead, textual. Va en el aviso, y el aviso no se repite para esa misma respuesta (en vez de para el mismo lead). |
 
 ```bash
@@ -5917,14 +5923,14 @@ curl -L \
 
 ### `POST /api/v1/chatbot/secuencias/{secuenciaId}/escenarios` — Agregar un caso previsto
 
-PROPONE agregar a una secuencia un caso previsto (qué puede contestar el lead y cómo responderle) y devuelve un link para revisarlo. Un mensaje del lead que no encaja en ningún caso hace que MaKo no conteste y avise. Si ya hay un caso con el mismo título, lo reemplaza. Si la secuencia tiene la tarjeta «Si responde», el caso entra ahí como una rama nueva con un «MaKo contesta» que usa tu guía; si no, la secuencia tiene que tener estrategia guardada. Máximo 30 casos. Un caso que salió de un hand-off se enseña resolviendo ese hand-off (solo por WhatsApp o en la app).
+PROPONE agregar a una secuencia un caso previsto (qué puede contestar el lead y cómo responderle) y devuelve un link para revisarlo. Un mensaje del lead que no encaja en ningún caso hace que MaKo no conteste y avise. Si ya hay un caso con el mismo título, lo reemplaza. Si la automatización tiene un AI Step, el caso entra ADENTRO como un escenario más de su objetivo (hasta 10): sale solo si contestaSolo y no habla de plata; si no, queda para aprobar; sin cómo responder, sólo te avisa. Si tiene la tarjeta «Si responde» de siempre, entra como una rama nueva con un «MaKo contesta» que usa tu guía (máximo 30); si no tiene ninguna, la secuencia tiene que tener estrategia guardada. Un caso que salió de un hand-off se enseña resolviendo ese hand-off (solo por WhatsApp o en la app).
 
 - **Ruta por operación:** `POST /api/v1/chatbot/agregar_escenario_secuencia`
 - **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Chatbot y secuencias»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
-- **Escribe:** agrega un escenario a nutricion_secuencias.estrategia.escenarios
+- **Escribe:** agrega el escenario al AI Step (o a «Si responde») de nutricion_secuencias.pasos, o a estrategia.escenarios si no tiene ninguno
 - **Reversible:** sí
 - **Costo:** gratis
 - **Solo el administrador del workspace.**
@@ -10348,7 +10354,7 @@ curl -L \
 
 ### `GET /api/v1/equipo/negocio/zona-horaria` — Zona horaria del negocio
 
-La zona horaria IANA con la que MaKo calcula «hoy», las reuniones y los avisos de este negocio, y la hora local actual en ella. Si nunca se fijó, lo dice (`fijada: false`) y devuelve la que se usa mientras tanto: MaKo intenta averiguarla sola al calendarizar. Úsala antes de proponer horarios o de fijar_zona_horaria_workspace. Los reportes del cron siguen anclados a Tijuana.
+La zona horaria IANA con la que MaKo calcula «hoy», las reuniones, el horario de oficina y los avisos de este negocio, la hora local actual en ella y de dónde salió (`origen`: persona, navegador, ip, calendario, meta, telefono o legado). Se detecta de la ubicación del equipo del negocio; lo que elige una persona gana. Si nunca se fijó, lo dice (`fijada: false`) y devuelve la que se usa mientras tanto (America/Tijuana). Úsala antes de proponer horarios o de fijar_zona_horaria_workspace. Los reportes del cron siguen anclados a Tijuana.
 
 - **Ruta por operación:** `GET /api/v1/equipo/ver_zona_horaria_workspace`
 - **Token detallado:** permiso `equipo=read` (Solo lectura en «Cuenta, equipo y notificaciones»)
@@ -10454,14 +10460,14 @@ curl -L \
 
 ### `PUT /api/v1/equipo/negocio/zona-horaria` — Fijar la zona horaria del negocio
 
-PROPONE fijar la zona horaria IANA con la que MaKo calcula «hoy», las reuniones y los avisos de este negocio (queda pendiente hasta el «sí»). Úsala cuando las horas le aparecen en otra zona (un negocio en Cancún, en Buenos Aires, en Madrid). Revisa antes ver_zona_horaria_workspace. No cambia los reportes del cron, que siguen en hora de Tijuana.
+PROPONE fijar la zona horaria IANA con la que MaKo calcula «hoy», las reuniones, el horario de oficina y los avisos de este negocio (queda pendiente hasta el «sí»). Queda como elegida por una persona: ninguna detección por ubicación la vuelve a cambiar. Úsala cuando las horas le aparecen en otra zona (un negocio en Cancún, en Buenos Aires, en Madrid). Revisa antes ver_zona_horaria_workspace. No cambia los reportes del cron, que siguen en hora de Tijuana.
 
 - **Ruta por operación:** `POST /api/v1/equipo/fijar_zona_horaria_workspace`
 - **Token detallado:** permiso `equipo=write` (Lectura y escritura en «Cuenta, equipo y notificaciones»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
-- **Escribe:** app_settings mako.timezone del negocio
+- **Escribe:** app_settings mako.timezone y mako.timezone.origen del negocio
 - **Reversible:** sí
 - **Costo:** gratis
 - **Solo el administrador del workspace.**

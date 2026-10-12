@@ -27,8 +27,9 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import {
-  canalesDeInvitacion, ofreceWhatsapp, remitenteDeLaInvitacion, direccionDe, fraseWhatsapp, tieneTelefono,
+  canalesDeInvitacion, ofreceWhatsapp, invitacionDeVeredicto, direccionDe, fraseWhatsapp, tieneTelefono,
 } from '../lib/curso-invitar-canales';
+import { remitenteDelNegocio } from '../lib/email-remitente';
 import { textoInvitacionWhatsapp } from '../lib/invitacion-aviso';
 import { marcasDeVoseo } from '../lib/puestas-data';
 
@@ -48,7 +49,15 @@ const bloque = (src: string, firma: string, hasta: string) => {
 
 // ── El remitente ──────────────────────────────────────────────────────────────
 
-const SIN = { resendFrom: null, resendDominio: null, credFrom: null, credKeyPropia: false, dominioMako: 'hola-mako.com' };
+// Undécima tanda: la invitación usa la MISMA puerta que `sendEmail` (`remitenteDelNegocio`, lib/email-remitente.ts)
+// y `invitacionDeVeredicto` la pasa a la invitación. Los casos de siempre se corren por ese camino. Probado
+// rompiéndolo (11/10/2026, wf-undecima/enchufador/roturas.cjs): un veredicto que no puede, tomado por «negocio» →
+// 11 / 3 (base 14 / 0); la invitación leyendo credenciales por su cuenta → 21 / 1 (con undecima-email-propio, base 22 / 0).
+type Hechos = { resendFrom: string | null; resendDominio: string | null; credFrom: string | null; credKeyPropia: boolean };
+const remitenteDeLaInvitacion = (h: Hechos) => invitacionDeVeredicto(remitenteDelNegocio({
+  resendFrom: h.resendFrom, resendDominio: h.resendDominio, credFrom: h.credFrom, keyPropia: h.credKeyPropia, plataforma: false,
+}));
+const SIN: Hechos = { resendFrom: null, resendDominio: null, credFrom: null, credKeyPropia: false };
 
 test('el remitente sale del workspace del ALUMNO: con DOS negocios, cada uno firma con el suyo', () => {
   // AGENTS.md: «con UN solo valor configurado no se puede saber si lo leés del lugar correcto».
@@ -76,10 +85,15 @@ test('la credencial cuenta SÓLO con la key PROPIA del cliente (la de la platafo
   // Y el server las lee DEL CLIENTE, con el ws del parámetro como PRIMERA línea (lib/invitaciones.ts).
   const inv = sinComentarios(leer('lib/invitaciones.ts'));
   const rem = bloque(inv, 'async function remitenteDelNegocio(', 'async function enviarDelNegocio(');
-  assert.match(rem, /runWithWorkspace\(ws, async \(\) => \{/);
-  assert.match(rem, /credDelCliente\('RESEND_FROM', ws\)/);
-  assert.match(rem, /credDelCliente\('RESEND_API_KEY', ws\)/);
-  assert.doesNotMatch(rem, /credWs\(/, 'credWs le da al ws1 —un cliente— las credenciales de la plataforma');
+  // Undécima: la lectura es la de `sendEmail` (lib/resend.ts lee `credDelCliente` y compara la key con la de la
+  // plataforma), adentro del workspace del alumno.
+  assert.match(rem, /runWithWorkspace\(ws, async \(\) => invitacionDeVeredicto\(await remitenteDelNegocioActual\(\)\)\)/);
+  assert.doesNotMatch(rem, /credWs\(|credDelCliente\(/, 'una lectura propia de credenciales: la regla es la de sendEmail');
+  const resend = sinComentarios(leer('lib/resend.ts'));
+  const actual = bloque(resend, 'export async function remitenteDelNegocioActual(', '\n}\n');
+  assert.match(actual, /credDelCliente\('RESEND_FROM'\)/);
+  assert.match(actual, /credDelCliente\('RESEND_API_KEY'\)/);
+  assert.doesNotMatch(actual, /credWs\(/, 'credWs le da al ws1 —un cliente— las credenciales de la plataforma');
   const mail = bloque(inv, 'export async function invitarAlCursoPorEmail(', 'export async function invitarLiderPorEmail(');
   // El cuerpo arranca después del `}> {` que cierra el tipo de retorno (que trae su propio `{`).
   const primera = mail.slice(mail.indexOf('}> {') + 4).trim().split('\n')[0];

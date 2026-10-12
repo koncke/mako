@@ -110,7 +110,9 @@ test('sin canales, el Recurrente al grupo sale igual, y no inscribe a la cohorte
 test('la tarjeta MAKO EN WHATSAPP resuelve el catálogo entero, para el EQUIPO y en el workspace del ctx', () => {
   const run = sinComentarios(leer('lib/api-mako/areas/chatbot.run.ts'));
   const t = bloque(run, 'async function textoDelAviso(', '\n}\n');
-  assert.match(t, /await conVariables\(t, \{ ws, leadId: lead\?\.id \?\? null, leadNombre: lead\?\.nombreCrudo \?\? null, destino: 'equipo' \}, base\);/);
+  // Undécima tanda (§5): los valores del catálogo y la MISMA función de todo envío (`textoConDatos`, el renglón opcional).
+  assert.match(t, /await valoresDeVariables\(\{ ws, leadId: lead\?\.id \?\? null, leadNombre: lead\?\.nombreCrudo \?\? null, destino: 'equipo' \}, t, base\)/);
+  assert.match(t, /textoConDatos\(t, /);
   assert.doesNotMatch(t, /getWorkspaceActual|wsEnContexto/, 'el workspace del aviso sale del ctx: un flujo corre en un cron');
 });
 
@@ -123,7 +125,9 @@ test('«Probar» resuelve los datos nuevos con sus ejemplos; el nombre del negoc
   assert.equal(textoDeEjemplo('Hola {{nombre}}', null), 'Hola Luis');
   // El negocio: el real, o crudo (nunca el del ejemplo).
   assert.equal(textoDeEjemplo('De {{negocio}}', 'Valle Sur'), 'De Valle Sur');
-  assert.equal(textoDeEjemplo('De {{negocio}}', null), 'De {{negocio}}', 'un nombre de negocio inventado se leería como el del cliente');
+  // Undécima tanda: «Probar» resuelve con `textoConDatos`, la misma función del envío. Sin nombre de negocio el
+  // renglón se va entero (el renglón opcional); nunca sale uno inventado.
+  assert.equal(textoDeEjemplo('De {{negocio}}', null), '', 'un nombre de negocio inventado se leería como el del cliente');
   assert.equal(datosDeEjemplo({ nombre: 'Ana' }).negocio, undefined);
   assert.equal(correoDeEjemplo({ asunto: 'Tu etapa: {{lead_etapa}}', cuerpo: 'x' }).asunto, `Tu etapa: ${ej.lead_etapa}`);
   // Y la prueba REAL usa la misma función.

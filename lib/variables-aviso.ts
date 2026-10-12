@@ -97,9 +97,17 @@ export function tramosConVariables(linea: string): Array<{ txt: string; esVar: b
  *   · `cuota`     — la cuota de la que habla el aviso: la trae el emisor en `datos`.
  *   · `cobro`     — su cobro PENDIENTE más nuevo de Stripe o Mercado Pago (`cobros`, mig 0255): el
  *                   link de pago. De la tabla, nunca de la pasarela.
+ *   · `proxima`   — su PRÓXIMA reunión (undécima tanda, 11/10/2026): la fila, la zona del negocio y el momento
+ *                   de mandar (`proximaReunion` estricta, lib/nutricion-reinscripcion.ts). Se lee con la ficha.
+ *   · `respuestas`— lo que contestó al agendar: la ÚLTIMA fila de `lead_respuestas` (una lectura aparte).
+ *   · `pago`      — el pago del que habla el aviso «Entró un pago»: lo trae el emisor en `datos`
+ *                   (`avisarPagoRecibido`, lib/cobros.ts), por código, como la cuota. Ojo: NO es `pagos` (sus
+ *                   cuotas del CRM) ni `cobro` (su link pendiente).
+ *   · `escrito`   — lo que el lead escribió y MaKo no contestó: lo trae el emisor en `datos` (la charla).
  */
 export type FuenteDato = 'nombre' | 'ficha' | 'zona' | 'producto' | 'etiquetas' | 'pagos' | 'curso'
-  | 'perfil' | 'lead_magnet' | 'momento' | 'negocio' | 'links' | 'evento' | 'cuota' | 'cobro';
+  | 'perfil' | 'lead_magnet' | 'momento' | 'negocio' | 'links' | 'evento' | 'cuota' | 'cobro'
+  | 'proxima' | 'respuestas' | 'pago' | 'escrito';
 
 /** A quién le llega el mensaje: al lead (las automatizaciones) o al equipo (MaKo en WhatsApp). */
 export type DestinoMensaje = 'lead' | 'equipo';
@@ -120,10 +128,19 @@ export type VariableAviso = {
    *               hay lectura extra, y por eso puede estar acá.
    * · `mensaje` — necesita el TEXTO que arma el código del aviso (11/10/2026: un evento de MaKo cuyo
    *               aviso es `textoDelCodigo`). Lo pone el emisor (`ejecutarPaso`, lib/flujos.ts).
+   * · `pago`    — necesita el PAGO del que habla el aviso (sólo el evento `pago_recibido`): lo pasa el emisor
+   *               en `datos`, por código (es plata).
+   * · `escrito` — necesita lo que el lead ESCRIBIÓ (sólo el evento `lead_contesta`): lo pasa el emisor.
    */
-  alcance: 'siempre' | 'lead' | 'cuota' | 'mensaje';
+  alcance: 'siempre' | 'lead' | 'cuota' | 'mensaje' | 'pago' | 'escrito';
   /** En qué grupo (rama del árbol) lo muestra el selector. El orden lo fija `GRUPOS_VARIABLES`. */
   grupo: GrupoVariable;
+  /**
+   * Una SUB-RAMA dentro del grupo (undécima tanda: «Próxima reunión» adentro de «Reuniones»). Sin esto, el dato
+   * cuelga directo del grupo. Es dato: lo dibuja el selector (app/_components/SelectorDatos.tsx) y lo encuentra
+   * la búsqueda (`buscarDatos`).
+   */
+  rama?: string;
   /** De qué entidad sale (ver `FuenteDato`). */
   fuente: FuenteDato;
   /** Sólo para mensajes a este destino. Sin esto, para los dos. */
@@ -200,8 +217,15 @@ export const VARIABLES_AVISO: VariableAviso[] = [
   { key: 'empresa', label: 'Empresa', ejemplo: 'Inmobiliaria del Valle', alcance: 'lead', grupo: 'lead', fuente: 'ficha' },
   { key: 'lead_web', label: 'Web', ejemplo: 'inmobiliariadelvalle.com', alcance: 'lead', grupo: 'lead', fuente: 'ficha' },
   { key: 'lead_alta', label: 'Cuándo entró', ejemplo: '02/10', alcance: 'lead', grupo: 'lead', fuente: 'ficha', formato: 'fecha' },
+  // LO QUE ESCRIBIÓ (undécima tanda, 11/10/2026, punto 4): el mensaje del lead que MaKo no contestó, en el evento
+  // «Un lead contesta» (`ContextoDatos.conEscrito`). Es lo que el aviso de la charla pegaba adentro de
+  // `{{mensaje_mako}}`; ahora es un dato que se cita. Al equipo: al lead no se le repite lo que dijo.
+  { key: 'lead_escribio', label: 'Lo que escribió', ejemplo: '¿Puedo cambiar la hora de la reunión?', alcance: 'escrito', grupo: 'lead', fuente: 'escrito', soloPara: 'equipo' },
   // Lo que arma MaKo: sólo en un evento de MaKo con texto del código (`ContextoDatos.conMensaje`).
-  { key: CLAVE_MENSAJE_MAKO, label: 'Lo que arma MaKo', ejemplo: '⏰ En 30 min tienes la R1 con Laura Gil.', alcance: 'mensaje', grupo: 'lead', fuente: 'evento', soloPara: 'equipo' },
+  // ⚠️ UNDÉCIMA TANDA (11/10/2026, punto 4: «ese dato NO existe... No es trackeable»): OCULTO. No se ofrece en ningún
+  // «{ }» y Publicar lo rechaza (`RETIRADOS`, lib/tokens-del-flujo.ts); se sigue RESOLVIENDO para las filas vivas que lo
+  // tienen (#239, #240) hasta la limpieza, después del script de la ola 4 (docs/diseno-undecima-tanda.md §8.7).
+  { key: CLAVE_MENSAJE_MAKO, label: 'Lo que arma MaKo', ejemplo: '⏰ En 30 min tienes la R1 con Laura Gil.', alcance: 'mensaje', grupo: 'lead', fuente: 'evento', soloPara: 'equipo', oculta: true },
   // Los nombres viejos de los avisos: se resuelven, no se ofrecen (ya están arriba).
   { key: 'lead_nombre', label: 'Nombre completo', ejemplo: 'Sofía Contreras', alcance: 'lead', grupo: 'lead', fuente: 'nombre', oculta: true },
   { key: 'lead_empresa', label: 'Empresa', ejemplo: 'Inmobiliaria del Valle', alcance: 'lead', grupo: 'lead', fuente: 'ficha', oculta: true },
@@ -218,12 +242,23 @@ export const VARIABLES_AVISO: VariableAviso[] = [
   { key: 'link_lead', label: 'Link a su ficha', ejemplo: '/crm/2498/resumen', alcance: 'lead', grupo: 'crm', fuente: 'evento', soloPara: 'equipo' },
 
   // ── Reuniones.
+  //    «PRÓXIMA REUNIÓN» (undécima tanda, 11/10/2026, puntos 4, 6 y 8): la que viene, sea la 1ª o la 2ª. Es lo que
+  //    dicen un recordatorio y el aviso «Nuevo agendado», que hasta hoy salían de un emisor aparte con su catálogo
+  //    de CINCO («el desplegable de datos solo me muestra 5 opciones… Eso está mal»). Salen de
+  //    `proximaReunion(…, { estricta: true })` (lib/nutricion-reinscripcion.ts), la MISMA reunión que ancla el
+  //    DELAY «antes de la reunión»: hora puesta, fecha en pie que coincide y sin asistencia. Sin una así, ninguno
+  //    tiene valor y su renglón se va (`sinRenglonesVacios`). «Cuánto falta» se calcula AL MANDAR.
+  { key: 'reunion_cuando', label: 'Cuándo es', ejemplo: 'mañana', alcance: 'lead', grupo: 'reuniones', rama: 'Próxima reunión', fuente: 'proxima' },
+  { key: 'reunion_hora', label: 'Hora', ejemplo: '10:00 a. m.', alcance: 'lead', grupo: 'reuniones', rama: 'Próxima reunión', fuente: 'proxima' },
+  { key: 'reunion_faltan', label: 'Cuánto falta', ejemplo: 'en 1 hora', alcance: 'lead', grupo: 'reuniones', rama: 'Próxima reunión', fuente: 'proxima' },
+  { key: 'reunion_link', label: 'Link para entrar', ejemplo: 'https://meet.google.com/abc-defg-hij', alcance: 'lead', grupo: 'reuniones', rama: 'Próxima reunión', fuente: 'proxima' },
+  { key: 'reunion_cual', label: 'Qué reunión', ejemplo: '1ª reunión', alcance: 'lead', grupo: 'reuniones', rama: 'Próxima reunión', fuente: 'proxima' },
   { key: 'lead_fecha_agenda', label: 'Cuándo agendó', ejemplo: '12/10', alcance: 'lead', grupo: 'reuniones', fuente: 'ficha', formato: 'fecha' },
   { key: 'lead_fecha_r1', label: 'Fecha de la 1ª reunión', ejemplo: '14/10', alcance: 'lead', grupo: 'reuniones', fuente: 'ficha', formato: 'fecha' },
-  { key: 'lead_hora_r1', label: 'Hora de la 1ª reunión', ejemplo: '17:30', alcance: 'lead', grupo: 'reuniones', fuente: 'zona' },
+  { key: 'lead_hora_r1', label: 'Hora de la 1ª reunión', ejemplo: '5:30 p. m.', alcance: 'lead', grupo: 'reuniones', fuente: 'zona' },
   { key: 'lead_link_r1', label: 'Link de la 1ª reunión', ejemplo: 'https://meet.google.com/abc-defg-hij', alcance: 'lead', grupo: 'reuniones', fuente: 'ficha' },
   { key: 'lead_fecha_r2', label: 'Fecha de la 2ª reunión', ejemplo: '21/10', alcance: 'lead', grupo: 'reuniones', fuente: 'ficha', formato: 'fecha' },
-  { key: 'lead_hora_r2', label: 'Hora de la 2ª reunión', ejemplo: '18:00', alcance: 'lead', grupo: 'reuniones', fuente: 'zona' },
+  { key: 'lead_hora_r2', label: 'Hora de la 2ª reunión', ejemplo: '6:00 p. m.', alcance: 'lead', grupo: 'reuniones', fuente: 'zona' },
   { key: 'lead_link_r2', label: 'Link de la 2ª reunión', ejemplo: 'https://meet.google.com/klm-nopq-rst', alcance: 'lead', grupo: 'reuniones', fuente: 'ficha' },
   { key: 'lead_asistio_r1', label: '¿Asistió a la 1ª?', ejemplo: 'sí', alcance: 'lead', grupo: 'reuniones', fuente: 'ficha', formato: 'si_no', soloPara: 'equipo' },
   { key: 'lead_asistio_r2', label: '¿Asistió a la 2ª?', ejemplo: 'no', alcance: 'lead', grupo: 'reuniones', fuente: 'ficha', formato: 'si_no', soloPara: 'equipo' },
@@ -256,6 +291,17 @@ export const VARIABLES_AVISO: VariableAviso[] = [
   { key: 'cuota_monto', label: 'Monto de esta cuota', ejemplo: 'US$ 1.700', alcance: 'cuota', grupo: 'pagos', fuente: 'cuota', formato: 'plata' },
   { key: 'cuota_vence', label: 'Cuándo vence esta cuota', ejemplo: '10/10', alcance: 'cuota', grupo: 'pagos', fuente: 'cuota', formato: 'fecha' },
   { key: 'cuota_dias', label: 'Hace cuánto venció (o en cuánto vence)', ejemplo: '3 días', alcance: 'cuota', grupo: 'pagos', fuente: 'cuota' },
+  // EL PAGO de «Entró un pago» (undécima tanda, 11/10/2026, punto 4 sobre el evento `pago_recibido`): lo que el
+  // aviso pegaba adentro de `{{mensaje_mako}}`, en datos que se citan. Los pasa `avisarPagoRecibido`
+  // (lib/cobros.ts) en `datos`, armados por `valoresDelPago` (lib/variables-del-lead.ts): por CÓDIGO, es plata.
+  // Al equipo. «Prueba» sólo en un cobro de prueba, y el alta sólo en una venta de MaKo: si no, no tienen valor y
+  // su renglón se va.
+  { key: 'pago_monto', label: 'Monto del pago', ejemplo: 'US$ 2.300', alcance: 'pago', grupo: 'pagos', fuente: 'pago', soloPara: 'equipo', formato: 'plata' },
+  { key: 'pago_concepto', label: 'Qué pagó', ejemplo: 'Mentoría 1:1', alcance: 'pago', grupo: 'pagos', fuente: 'pago', soloPara: 'equipo' },
+  { key: 'pago_pasarela', label: 'Por dónde pagó', ejemplo: 'Stripe', alcance: 'pago', grupo: 'pagos', fuente: 'pago', soloPara: 'equipo' },
+  { key: 'pago_tipo', label: 'Primer pago o renovación', ejemplo: 'Primer pago', alcance: 'pago', grupo: 'pagos', fuente: 'pago', soloPara: 'equipo' },
+  { key: 'pago_modo', label: 'Pago de prueba', ejemplo: 'Prueba', alcance: 'pago', grupo: 'pagos', fuente: 'pago', soloPara: 'equipo' },
+  { key: 'pago_alta', label: 'Su cuenta de MaKo', ejemplo: 'Cuenta creada', alcance: 'pago', grupo: 'pagos', fuente: 'pago', soloPara: 'equipo' },
 
   // ── Campaña: de dónde vino. Son nombres internos (de la campaña, del anuncio): para el equipo.
   { key: 'lead_origen', label: 'Por dónde entró', ejemplo: 'instant_form', alcance: 'lead', grupo: 'campana', fuente: 'ficha', soloPara: 'equipo' },
@@ -277,6 +323,11 @@ export const VARIABLES_AVISO: VariableAviso[] = [
   // Las preguntas PROPIAS de un formulario de Meta (las que no son nombre, email, teléfono ni
   // empresa), una por renglón. Sale de `leads.meta_field_data` con `resumenRespuestas`.
   { key: 'lead_formulario', label: 'Todo lo que contestó en Meta', ejemplo: '• ¿Qué tipo de propiedad buscas vender?: Una casa\n• ¿En qué zona está?: Palermo', alcance: 'lead', grupo: 'formulario', fuente: 'ficha' },
+  // Lo que contestó al AGENDAR (undécima tanda, 11/10/2026): la última fila de `lead_respuestas` (Calendly y
+  // Cal.com), un renglón por respuesta con los MISMOS topes que el aviso de Cal.com (`renglonesDeRespuestas`,
+  // lib/respuestas-agenda.ts). Era lo único del aviso «Nuevo agendado» que no se podía citar. Al equipo: el rótulo
+  // va abreviado y lo que no entra dice «+N en el resumen», que es la ficha del CRM.
+  { key: 'lead_respuestas_agenda', label: 'Lo que contestó al agendar', ejemplo: '• Hace cuánto que está en el rubro: 5 años\n• Tiene equipo: Sí', alcance: 'lead', grupo: 'formulario', fuente: 'respuestas', soloPara: 'equipo' },
 
   // ── Curso: el de su producto, con las MISMAS reglas que el portal (`claseCompleta`).
   { key: 'curso_avance', label: 'Clases completadas', ejemplo: '4 de 12', alcance: 'lead', grupo: 'curso', fuente: 'curso' },
@@ -302,7 +353,7 @@ export const VARIABLES_AVISO: VariableAviso[] = [
   // ── Fecha y hora, en la zona del negocio. Se calculan.
   { key: 'fecha', label: 'La fecha de hoy', ejemplo: '30/09', alcance: 'siempre', grupo: 'momento', fuente: 'momento', formato: 'fecha' },
   { key: 'dia_semana', label: 'El día de la semana', ejemplo: 'martes', alcance: 'siempre', grupo: 'momento', fuente: 'momento' },
-  { key: 'hora', label: 'La hora', ejemplo: '09:00', alcance: 'siempre', grupo: 'momento', fuente: 'momento' },
+  { key: 'hora', label: 'La hora', ejemplo: '9:00 a. m.', alcance: 'siempre', grupo: 'momento', fuente: 'momento' },
 
   // ── Links a una pantalla de MaKo: una constante más la base. Son del EQUIPO (un lead no entra
   //    al CRM del negocio), y evitan pegar media pantalla adentro de un WhatsApp.
@@ -349,7 +400,7 @@ export function fuentesQueNombra(texto: string): Set<FuenteDato> {
  */
 export function necesitaFichaDelLead(texto: string): boolean {
   const f = fuentesQueNombra(texto);
-  return f.has('ficha') || f.has('zona') || f.has('producto') || f.has('curso');
+  return f.has('ficha') || f.has('zona') || f.has('producto') || f.has('curso') || f.has('proxima');
 }
 
 /** Las rutas de los links, sin la base. Se arma en el server, que sabe la base. */
@@ -364,9 +415,13 @@ export const RUTA_DE_LINK: Readonly<Record<string, string>> = {
 
 /**
  * Para qué mensaje se arma el selector. Sin `destino`, el equipo (los avisos de siempre). `conMensaje`: el
- * mensaje tiene el texto que arma el código del aviso (`{{mensaje_mako}}`, sólo un evento de MaKo).
+ * mensaje tiene el texto que arma el código del aviso (`{{mensaje_mako}}`, sólo un evento de MaKo). `conPago`:
+ * el pago del aviso «Entró un pago». `conEscrito`: lo que el lead escribió (la charla). Es el MISMO contexto con
+ * el que el motor resuelve y Publicar valida (`tokensFueraDe`).
  */
-export type ContextoDatos = { conLead: boolean; conCuota?: boolean; conMensaje?: boolean; destino?: DestinoMensaje };
+export type ContextoDatos = {
+  conLead: boolean; conCuota?: boolean; conMensaje?: boolean; conPago?: boolean; conEscrito?: boolean; destino?: DestinoMensaje;
+};
 
 /** ¿Este dato vale para un mensaje a este destino? (las claves `oculta` se resuelven igual). */
 export const valePara = (v: VariableAviso, destino: DestinoMensaje): boolean => !v.soloPara || v.soloPara === destino;
@@ -388,6 +443,8 @@ function alcanzaPara(a: VariableAviso['alcance'], opts: ContextoDatos): boolean 
   if (a === 'lead') return opts.conLead;
   if (a === 'cuota') return opts.conCuota === true;
   if (a === 'mensaje') return opts.conMensaje === true;
+  if (a === 'pago') return opts.conPago === true;
+  if (a === 'escrito') return opts.conEscrito === true;
   return false;
 }
 
@@ -430,6 +487,22 @@ export function variablesPorGrupo(opts: ContextoDatos): GrupoDatos[] {
 }
 
 /**
+ * Las SUB-RAMAS de un grupo (`VariableAviso.rama`, undécima tanda: «Próxima reunión» adentro de «Reuniones»), en
+ * el orden en que aparecen; `rama: null` = los datos que cuelgan directo del grupo. Pura, para que el selector
+ * (app/_components/SelectorDatos.tsx) dibuje la sub-rama sin decidir nada por su cuenta.
+ */
+export function ramasDelGrupo(items: readonly VariableAviso[]): Array<{ rama: string | null; items: VariableAviso[] }> {
+  const out: Array<{ rama: string | null; items: VariableAviso[] }> = [];
+  for (const v of items) {
+    const rama = v.rama ?? null;
+    const r = out.find((x) => x.rama === rama);
+    if (r) r.items.push(v);
+    else out.push({ rama, items: [v] });
+  }
+  return out;
+}
+
+/**
  * La BÚSQUEDA del selector: los datos cuyo rótulo, ejemplo, token o grupo contienen lo tipeado,
  * sin importar tildes ni mayúsculas, en el orden del árbol. Vive acá (puro) para que el test la
  * EJECUTE: buscar «saldo» tiene que encontrar «Cuánto le falta pagar», y la palabra que uno tiene
@@ -442,7 +515,7 @@ export function buscarDatos(grupos: readonly GrupoDatos[], q: string): Array<{ g
   const out: Array<{ grupo: GrupoDatos; dato: VariableAviso }> = [];
   for (const g of grupos) {
     for (const d of g.items) {
-      const pajar = norm(`${d.label} ${d.ejemplo} ${d.key} ${g.titulo}`);
+      const pajar = norm(`${d.label} ${d.ejemplo} ${d.key} ${g.titulo} ${d.rama ?? ''}`);
       if (palabras.every((p) => pajar.includes(p))) out.push({ grupo: g, dato: d });
     }
   }
@@ -471,4 +544,86 @@ export function valoresDeEjemplo(): Record<string, string> {
   const out: Record<string, string> = {};
   for (const v of VARIABLES_AVISO) out[v.key] = v.ejemplo;
   return out;
+}
+
+// ── Los tokens de un texto: dónde están, cuáles no se pueden resolver y qué renglón se va ───────────────
+// Undécima tanda (11/10/2026). Puras, para que el editor (punto 7: «los datos, al momento de EDITAR, también se
+// deben marcar en azul y ser clickeables… y que se pueda cambiar allí mismo por otro dato»), Publicar
+// (`problemasDeTokens`, lib/tokens-del-flujo.ts) y el motor pregunten lo MISMO y con el mismo molde
+// (`RE_VARIABLE`), que es el que pinta la burbuja.
+
+/** Un token de un texto: `[ini, fin)` en el texto tal cual, y su clave en minúsculas (sin las llaves). */
+export type TokenEnTexto = { ini: number; fin: number; key: string };
+
+/** Los tokens de un texto, en orden, con sus offsets (para pintarlos y para reemplazar uno con un clic). */
+export function tokensDe(texto: string): TokenEnTexto[] {
+  if (typeof texto !== 'string' || !texto.includes('{{')) return [];
+  const out: TokenEnTexto[] = [];
+  for (const m of texto.matchAll(RE_VARIABLE)) {
+    const ini = m.index ?? 0;
+    out.push({ ini, fin: ini + m[0].length, key: m[0].slice(2, -2).toLowerCase() });
+  }
+  return out;
+}
+
+/**
+ * Pone `{{key}}` en `[ini, fin)` (el token que se tocó) y dice dónde queda el cursor: lo mismo que
+ * `insertarEnCursor` (app/whatsapp/_shared/ComposerWhatsApp.tsx) con el token como texto. Los offsets fuera de
+ * rango se recortan al texto, así un clic sobre un texto que cambió no rompe nada.
+ */
+export function reemplazarToken(texto: string, ini: number, fin: number, key: string): { valor: string; cursor: number } {
+  const t = typeof texto === 'string' ? texto : '';
+  const n = t.length;
+  const a = Number.isFinite(ini) ? Math.max(0, Math.min(n, ini)) : n;
+  const b = Number.isFinite(fin) ? Math.max(a, Math.min(n, fin)) : a;
+  const token = `{{${key}}}`;
+  return { valor: t.slice(0, a) + token + t.slice(b), cursor: a + token.length };
+}
+
+/**
+ * Los tokens de este texto que ESTE mensaje no puede resolver (`{{clave}}`, sin repetir, en orden): los que no
+ * son del catálogo y los que no valen para su destino o su alcance. Los `oculta` (nombres viejos) valen si valen
+ * para el destino y el alcance: se resuelven igual. Es la pregunta de Publicar (`problemasDeTokens`) y la del
+ * rojo del editor, con el MISMO contexto con el que el selector ofrece (`variablesPara`).
+ */
+export function tokensFueraDe(texto: string, ctx: ContextoDatos): string[] {
+  const destino = ctx.destino ?? 'equipo';
+  const out: string[] = [];
+  const vistos = new Set<string>();
+  for (const t of tokensDe(texto)) {
+    if (vistos.has(t.key)) continue;
+    vistos.add(t.key);
+    const d = POR_CLAVE.get(t.key);
+    if (!d || !valePara(d, destino) || !alcanzaPara(d.alcance, ctx)) out.push(`{{${t.key}}}`);
+  }
+  return out;
+}
+
+/**
+ * EL RENGLÓN OPCIONAL: un renglón que nombra un dato DEL CATÁLOGO sin valor para este lead se va ENTERO.
+ * «📱 {{lead_telefono}}» de un lead sin teléfono no sale; «Para entrar: {{reunion_link}}» de una reunión sin link,
+ * tampoco (medido el 11/10/2026: sin esta regla, 52 de 55 recordatorios del ws1 saldrían con el link crudo).
+ *
+ * ⚠️ LO DESCONOCIDO NO SE TOCA: un renglón con un token que no es del catálogo se queda entero y el token sale
+ * CRUDO (crudo se nota; Publicar ya lo frena con `problemasDeTokens`). Borrarlo escondería el error.
+ *
+ * ⚠️ «SIN VALOR» = LA CLAVE NO ESTÁ EN `valores`. Una clave puesta en '' es un valor (vacío) que alguien decidió:
+ * es lo que pone el motor en `nombre` o `empresa` de un lead que no los tiene (`valoresVariablesLead`,
+ * lib/template-vars.ts), y borrar por eso «Hola {{nombre}}, te recuerdo tu reunión…» se comería el mensaje
+ * entero. El resolvedor ya deja afuera lo que está en null (`valoresDelLead`) y lo que el emisor pasa vacío.
+ *
+ * Sólo texto: el HTML del email no se recorta (queda anotado en docs/diseno-undecima-tanda.md §10).
+ */
+export function sinRenglonesVacios(texto: string, valores: Record<string, string>): string {
+  if (typeof texto !== 'string') return '';
+  if (!texto.includes('{{')) return texto;
+  const tiene = (k: string) => Object.prototype.hasOwnProperty.call(valores, k);
+  return texto.split('\n').filter((renglon) => {
+    let falta = false;
+    for (const t of tokensDe(renglon)) {
+      if (!POR_CLAVE.has(t.key)) return true;   // desconocido: el renglón se queda, con el token crudo
+      if (!tiene(t.key)) falta = true;
+    }
+    return !falta;
+  }).join('\n');
 }

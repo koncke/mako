@@ -23,15 +23,19 @@ export const TOPE_TEXTO_AUDIO = 700;
  * ¿UN AI STEP CONTESTA EN AUDIO CON UNA VOZ QUE NO HAY? (§1: «que la voz exista no es puro: va en el freno async
  * de Publicar»). `voces`: si hay clon propio y los voiceId de las otras. El motivo, corto (va al lado de Publicar),
  * o null. Sólo los que escuchan por WhatsApp (el audio no sale por otro medio) y contestan.
+ *
+ * UNDÉCIMA TANDA: el audio es del NODO (UN AI Step por objetivo, `audio` en la tarjeta). Un caso de antes que traía el
+ * suyo (sin juntar todavía) se sigue leyendo: es lo mismo que mira la expansión (`datosDeCaso`, nodo y si no el caso).
  */
 export function vozQueFalta(pasos: readonly PasoGrafo[], voces: { propia: boolean; otras: readonly string[] }): string | null {
   for (const p of pasos) {
     if (!esPasoIA(p) || p.suelta === true || medioDe(p) !== 'whatsapp') continue;
     for (const c of p.casos ?? []) {
-      if (!c.audio || !contestaElCaso(c)) continue;
-      const propia = c.audio.voz === 'propia';
-      if (propia ? !voces.propia : !voces.otras.includes(c.audio.voz)) {
-        return `«${(c.titulo ?? '').trim() || 'Un caso'}» contesta en audio y ${propia ? 'todavía no clonaste tu voz' : 'esa voz ya no está'}`;
+      const audio = p.audio ?? c.audio;
+      if (!audio || !contestaElCaso(c)) continue;
+      const propia = audio.voz === 'propia';
+      if (propia ? !voces.propia : !voces.otras.includes(audio.voz)) {
+        return `El AI Step contesta en audio y ${propia ? 'todavía no clonaste tu voz' : 'esa voz ya no está'}`;
       }
     }
   }

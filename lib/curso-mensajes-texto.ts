@@ -83,6 +83,21 @@ export function horaDe(fecha: Date, tz: string): string {
   return `${h12}:${String(p.min).padStart(2, '0')} ${p.h < 12 ? 'a. m.' : 'p. m.'}`;
 }
 
+/**
+ * «en 52 minutos», «en 1 hora»: lo que falta AL SALIR, no lo que faltaba al programarse.
+ *
+ * Vivía en lib/recordatorio-lead.ts (que lo re-exporta). Se mudó acá, al lado de `cuandoEs` y `horaDe`, en la
+ * undécima tanda (11/10/2026): es el dato `{{reunion_faltan}}` del «{ }» (lib/variables-del-lead.ts), y las
+ * tres formas de decir una reunión tienen que vivir juntas.
+ */
+export function faltanTexto(minutos: number): string {
+  const m = Math.max(0, Math.round(minutos));
+  if (m < 1) return 'ahora';
+  if (m < 60) return `en ${m} ${m === 1 ? 'minuto' : 'minutos'}`;
+  const h = Math.round(m / 60);
+  return `en ${h} ${h === 1 ? 'hora' : 'horas'}`;
+}
+
 // ── CUÁNDO toca cada mensaje de una llamada ──────────────────────────────────
 // El cron corre cada hora. Las ventanas son anchas a propósito: una corrida que falla, o una
 // hora fuera de horario, no pierde el mensaje — lo toma la corrida siguiente. Lo que impide

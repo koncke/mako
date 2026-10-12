@@ -264,7 +264,8 @@ test('⚠️ el ＋ de un puerto inserta EN ese puerto, y lo que colgaba pasa a 
   const mk = insertarDesdeLienzo(pasos, 'c', 'r1', 'mako', rndDe(5));
   assert.equal(nodoPorId(mk.pasos, 'c')!.ramas![0].siguiente, mk.id);
   assert.equal(nodoPorId(mk.pasos, mk.id)!.siguiente, 'm1');
-  assert.deepEqual(nodoPorId(mk.pasos, mk.id)!.accion, { operacion: 'avisar_al_equipo', params: { leadId: 'evento', mensaje: '' } });
+  // Undécima tanda: nace por PARTES (vacía; Publicar la frena hasta que alguien la escriba).
+  assert.deepEqual(nodoPorId(mk.pasos, mk.id)!.accion, { operacion: 'avisar_al_equipo', params: { leadId: 'evento', partes: [] } });
   // El orden queda renumerado (lo lee `orden`, las métricas por paso).
   assert.deepEqual(r.pasos.map((p) => p.orden), r.pasos.map((_, i) => i + 1));
 });
@@ -326,7 +327,8 @@ test('⚠️ Publicar VALIDA antes de mandar, y el error nombra la tarjeta como 
   // (Integración: el freno recibe además lo que le falta a cada «⚡ Acción» según su formulario.)
   // (Desde el 10/10/2026 va por `frenoDeEsta`, que es `frenoDelFlujo` más la regla del recordatorio, y desde el
   // 11/10/2026 la del evento de MaKo: `frenoDelEvento`, lo que el emisor de ese evento sabe correr.)
-  assert.match(perfil, /const frenoDeEsta = useCallback\(\s*\(ps: typeof pasos\) => frenoDelFlujo\(ps, faltanEnAccion\)\s*\?\? \(esRecordatorio \? frenoDelRecordatorio\(ps\) : esEvento \? frenoDelEvento\(ps, eventoMako\) : null\),/);
+  // (Undécima tanda: y los DATOS, con la MISMA `problemasDeTokens` que `setSecuenciaPasos`, con el CRON y el evento.)
+  assert.match(perfil, /const frenoDeEsta = useCallback\(\s*\(ps: typeof pasos\) => frenoDelFlujo\(ps, faltanEnAccion, problemasDeTokens\(ps, disparo\.trigger_tipo, eventoMako \?\? undefined\)\)\s*\?\? \(esRecordatorio \? frenoDelRecordatorio\(ps\) : esEvento \? frenoDelEvento\(ps, eventoMako\) : null\),/);
   const valida = pub.indexOf('frenoDeEsta(pasos)');
   assert.ok(valida >= 0 && valida < pub.indexOf("fetch('/api/whatsapp/secuencias'"), 'se manda sin validar');
   assert.match(pub, /const freno = frenoDeEsta\(pasos\);\s*if \(freno\) \{ frenar\(freno\.error, freno\.tarjeta\); return; \}/);

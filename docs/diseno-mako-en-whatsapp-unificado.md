@@ -122,6 +122,10 @@ los `datos` completos; al dormirse, la corrida guarda los estables. El corte al 
 
 ## 3. La lista y el lienzo (B)
 
+> ⚠️ **Desde la undécima tanda (11/10/2026) la lista ya NO se parte** en «Chatbot / MaKo en WhatsApp»: es una sola
+> barra con filtros, sin `partirLista`, sin «＋ Nuevo mensaje» ni secciones en la galería, y Configuraciones y Tutorial
+> van en un menú antes del buscador (`MenuAutomations`). Lo de abajo describe la décima.
+
 - **La lista** (app/automations/SimuladorWhatsApp.tsx): `partirLista(secuencias)` (exportada, pura) → `{ chatbot, mako }` por
   `trigger_tipo === TRIGGER_AVISO_MAKO`. «MaKo en WhatsApp» dibuja `mako` con el MISMO `ItemLista` (:912), el MISMO «⋯»
   (`opcionesDeFila(j.activa)`, :153: Activar/Pausar, Duplicar, Copiar flujo, Eliminar), las MISMAS acciones (`accionFila` y `eliminar`,

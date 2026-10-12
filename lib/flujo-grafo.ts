@@ -147,10 +147,24 @@
 //     escuchan). «Si responde» de los de siempre sigue siendo uno y no se mezcla con AI Step.
 //   · EL MOTOR SIGUE VIENDO UNA: `expandirPasoIA(pasos, { medio })` junta las del medio en la primera y
 //     deja a las demás inertes EN SU ÍNDICE (los índices no se corren). Lo viejo (N casos) se lee igual:
-//     cada caso cuenta como una tarjeta. `separarPasosIA` lo parte (el lienzo, `setSecuenciaPasos`, el script).
+//     cada caso cuenta como una tarjeta. (Lo partía `separarPasosIA`; desde la undécima JUNTA `juntarPasosIA`.)
 //   · CAMPOS NUEVOS del caso (`objetivo`, `cualquiera`, `no_contesta`, `hasta`, `audio`, `ejemplos`) y del
 //     nodo (`medio`), todos opcionales y por `camposDelFlujo`/`sanearCaso`. El tono y el aviso de «Otra
 //     cosa» se LEEN y no se escriben más.
+//
+// ── UNDÉCIMA TANDA (11/10/2026): UN AI STEP POR OBJETIVO (docs/diseno-undecima-tanda.md §2 y §6) ─────
+// Martín: «Toda la cantidad de tarjetas de "AI Step" deberían ser una sola... Si justamente es el mismo
+// objetivo, solo son diferentes objeciones o escenarios». Y «El "Hasta" siempre es atado al objetivo. Y el
+// "Te avisa cada vez" ya es uno de los 3 botones». Lo de la décima (una tarjeta por caso) se DA VUELTA:
+//   · UNA TARJETA POR MEDIO (`TOPE_AI_STEP_POR_MEDIO` = 1), con el OBJETIVO en la tarjeta (`objetivo`,
+//     obligatorio para Publicar), la voz (`audio`) y lo del ensayo (`ejemplos`), y hasta
+//     `TOPE_ESCENARIOS_AI_STEP` escenarios adentro (los casos) más «Lo demás» (el caso `cualquiera`).
+//   · LA LIBERTAD es una por escenario (lib/ai-step-libertad.ts) y el AVISO AL GRUPO se DERIVA de ella
+//     (`avisaElCaso`): `avisar` y `hasta` del caso se van, `instrucciones` y `otra_aviso` del nodo también.
+//     Quedan en los TIPOS como @deprecated porque los lee `juntarPasosIA` (y archivos de otros paquetes).
+//   · `juntarPasosIA` es LA PUERTA PARA LO VIEJO (al abrir, al guardar y en la API): junta las tarjetas del
+//     medio en la primera, sube al nodo lo que era del caso y SACA del array a las demás. El motor no se
+//     reescribe: `expandirPasoIA` ya juntaba; ahora toma objetivo, voz y ejemplos del nodo.
 // =============================================================================
 
 // El catálogo de condiciones importa sólo TIPOS de acá: el ciclo no existe en runtime.
@@ -163,6 +177,10 @@ import { segundosDeMinutos, textoDuracion } from './espera-duracion';
 
 // Sólo el TIPO de una parte de un mensaje (cuarta tanda, punto 15): `import type` se borra al compilar.
 import type { ParteMensaje } from './mensaje-partes';
+// La LIBERTAD de un escenario del AI Step (undécima tanda). Puro: de acá importa sólo tipos (sin ciclo en runtime).
+import { contestaElCaso, avisaElCaso, libertadDeCaso, libertadesPermitidas, conLibertad } from './ai-step-libertad';
+// `contestaElCaso` vivía acá: se re-exporta para los que ya la importaban de este módulo.
+export { contestaElCaso };
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────────
 
@@ -248,21 +266,24 @@ export type CasoRespuesta = {
   responder?: string;
   /** Sale sola. Ausente o false = queda para revisar (lo que era `revisar: true`, el default de siempre). */
   sola?: boolean;
-  /** Te avisa al grupo con el título del caso (lo que era la tarjeta «MaKo en WhatsApp» debajo). */
+  /**
+   * @deprecated Undécima tanda: el aviso al grupo se DERIVA de la libertad (`avisaElCaso`, lib/ai-step-libertad.ts).
+   * Sólo lo lee `juntarPasosIA` (para decir lo que cambia); el saneo no lo escribe más.
+   */
   avisar?: boolean;
-  // ── AI STEP v2 (décima tanda, docs/diseno-ai-step-v2.md §1): UN caso por tarjeta. Todos opcionales y
-  //    ausente = lo de antes, así lo guardado sigue leyéndose igual. Pasan por `sanearCaso`. ──
-  /** Qué tiene que lograr (≤ `TOPE_OBJETIVO`). Ausente = el de la automatización. NO frena Publicar (§10-A). */
+  // ── AI STEP v2 (décima tanda, docs/diseno-ai-step-v2.md §1). Desde la undécima, lo que es del OBJETIVO
+  //    (objetivo, voz, ejemplos) vive en el NODO; acá queda @deprecated para leer lo de antes. ──
+  /** @deprecated Undécima tanda: el objetivo es del AI Step (`PasoGrafo.objetivo`). Lo sube `juntarPasosIA`. */
   objetivo?: string;
-  /** «Cualquier respuesta»: entra con todo lo que no encaja en otro AI Step del medio. `cuando` no se lee. */
+  /** «Lo demás» (lo que era «Cualquier respuesta»): entra con todo lo que no encaja en otro escenario. `cuando` no se lee. */
   cualquiera?: boolean;
   /** «Sólo te avisa»: no contesta aunque `responder` tenga texto (se guarda para cuando vuelva a contestar). */
   no_contesta?: boolean;
-  /** Hasta cuándo contesta: 'una' = después de la primera respuesta, la charla pasa a una persona. */
+  /** @deprecated Undécima tanda: «Hasta» siempre es el objetivo. Sólo lo lee `juntarPasosIA` (y lo saca). */
   hasta?: 'una';
-  /** Contesta con una nota de voz: `'propia'` (el clon VIGENTE al mandar) o el voiceId de otra voz. */
+  /** @deprecated Undécima tanda: la voz es del AI Step (`PasoGrafo.audio`). Lo sube `juntarPasosIA`. */
   audio?: { voz: string };
-  /** Cómo contestó la persona en el ensayo (≤ `TOPE_EJEMPLOS`): ejemplos para el redactor. */
+  /** @deprecated Undécima tanda: los ejemplos son del AI Step (`PasoGrafo.ejemplos`). Lo sube `juntarPasosIA`. */
   ejemplos?: EjemploCaso[];
 };
 
@@ -285,6 +306,7 @@ export type DatosCasoIA = {
   objetivo?: string;
   ejemplos?: EjemploCaso[];
   audio?: { voz: string };
+  /** @deprecated Undécima tanda: la expansión ya no lo arma («Hasta» siempre es el objetivo). Lo lee lib/nutricion.ts. */
   hasta?: 'una';
 };
 
@@ -340,15 +362,26 @@ export type PasoGrafo = {
    */
   paso_ia?: true;
   /**
-   * Sólo AI Step: el tono general, que se suma a la guía de cada caso. Desde v2 (décima tanda) se LEE y no
-   * se escribe más: `separarPasosIA` lo pliega adentro de cada `responder` (el bloque «TU TONO» de la guía
-   * de voz lo reemplaza). Queda en una tarjeta sólo si plegarlo no entraba en `TOPE_RESPONDER`.
+   * @deprecated Sólo AI Step: el tono general, que se suma a la guía de cada caso. Desde v2 (décima tanda) se LEE y
+   * no se escribe más: `juntarPasosIA` lo pliega adentro de cada `responder` (el bloque «TU TONO» de la guía de voz
+   * lo reemplaza). Queda en la tarjeta sólo si plegarlo no entraba en `TOPE_RESPONDER`.
    */
   instrucciones?: string;
-  /** Sólo AI Step: el aviso al equipo de «Otra cosa». Vacío = `AVISO_OTRA_COSA`. Se LEE (el primero no vacío del medio). */
+  /**
+   * @deprecated Sólo AI Step: el aviso al equipo de «Otra cosa». Vacío = `AVISO_OTRA_COSA`. La expansión lo sigue
+   * LEYENDO (lo de antes sin juntar); `juntarPasosIA` lo saca («Lo demás» avisa con el texto de siempre).
+   */
   otra_aviso?: string;
   /** Sólo AI Step v2: por dónde escucha y contesta (`medioDe`). Ausente = WhatsApp. */
   medio?: MedioAIStep;
+  // ── Sólo AI Step, UNDÉCIMA TANDA: lo del OBJETIVO vive en la tarjeta (una por objetivo). Pasan por
+  //    `camposDelFlujo` (la quinta puerta) y la expansión se los da a cada escenario (`datosDeCaso`). ──
+  /** Qué tiene que lograr (≤ `TOPE_OBJETIVO`). OBLIGATORIO para Publicar: «Hasta» siempre es el objetivo. */
+  objetivo?: string;
+  /** Contesta con una nota de voz (sólo WhatsApp): `'propia'` (el clon VIGENTE al mandar) o el voiceId de otra voz. */
+  audio?: { voz: string };
+  /** Cómo contestó la persona en el ensayo (≤ `TOPE_EJEMPLOS`): ejemplos para el redactor. */
+  ejemplos?: EjemploCaso[];
   /** Sólo en la EXPANSIÓN (nunca se guarda): los datos del caso para el redactor (`DatosCasoIA`). */
   ia?: DatosCasoIA;
   /** condicion: «si no» · respuesta: «otra cosa». */
@@ -1089,23 +1122,19 @@ function erroresDeForma(pasos: readonly PasoGrafo[], publicar: boolean): string[
       if (pt.destino && !existe.has(pt.destino)) err.push(`la tarjeta ${ids[i]} sigue en ${pt.destino}, que no existe`);
     }
   });
-  // ⚠️ AI STEP v2 (décima tanda): VARIOS AI STEP SÍ, pero «Si responde» de los de siempre sigue siendo UNO
-  // y no se mezcla con AI Step (las dos formas escuchan el mismo mensaje: el motor no sabría cuál contesta).
-  // Hasta `TOPE_AI_STEP_POR_MEDIO` por medio (la expansión los junta en uno: `expandirPasoIA`).
+  // «Si responde» de los de siempre sigue siendo UNO y no se mezcla con AI Step (las dos formas escuchan el
+  // mismo mensaje: el motor no sabría cuál contesta).
+  // ⚠️ UNDÉCIMA TANDA: UN AI STEP POR MEDIO (`TOPE_AI_STEP_POR_MEDIO`). Al guardar cuentan los que ESCUCHAN (lo
+  // viejo de varios lo junta `juntarPasosIA` antes de llegar acá; uno suelto al lado es un borrador que se
+  // arregla en el lienzo). Al publicar, todos los del medio: uno suelto tampoco se publica.
   const ias = pasos.filter((p) => p && esPasoIA(p));
   const clasicas = respuestas - ias.length;
   if (clasicas > 1) err.push('hay más de una tarjeta «Si responde»');
   if (clasicas > 0 && ias.length > 0) err.push('un AI Step no va con un «Si responde»');
   for (const m of MEDIOS_AI_STEP) {
-    if (ias.filter((p) => medioDe(p) === m).length > TOPE_AI_STEP_POR_MEDIO) err.push(`hay más de ${TOPE_AI_STEP_POR_MEDIO} AI Step de ${ROTULO_MEDIO[m]}`);
-  }
-  // Al publicar: como mucho UN «Cualquier respuesta» por medio (es «lo que no encaja en otro»: con dos, la
-  // expansión tomaría el primero y el segundo no contestaría nunca). Sólo los que ESCUCHAN (no sueltos).
-  if (publicar) {
-    for (const m of MEDIOS_AI_STEP) {
-      const cualquiera = ias.filter((p) => p.suelta !== true && medioDe(p) === m && (p.casos ?? []).some((x) => x.cualquiera === true));
-      if (cualquiera.length > 1) err.push(`hay dos AI Step con «${ROTULO_CUALQUIERA}» en ${ROTULO_MEDIO[m]}`);
-    }
+    const delMedio = ias.filter((p) => medioDe(p) === m);
+    const escuchan = delMedio.filter((p) => p.suelta !== true).length;
+    if (escuchan > TOPE_AI_STEP_POR_MEDIO || (publicar && delMedio.length > TOPE_AI_STEP_POR_MEDIO)) err.push(`hay más de un AI Step de ${ROTULO_MEDIO[m]}`);
   }
   // ⚠️ SEXTA TANDA: VARIAS FLECHAS PUEDEN LLEGAR A UNA TARJETA. Hasta la quinta, «la tarjeta X cuelga
   // de N lugares (para juntar ramas se usa «Ir a»)» era un error, y era lo que hacía que «poner más de
@@ -1609,6 +1638,7 @@ export type EscenarioDeGrafo = {
   objetivo?: string;
   ejemplos?: EjemploCaso[];
   audio?: { voz: string };
+  /** @deprecated Undécima tanda: la expansión ya no lo arma. Lo sigue leyendo lib/nutricion.ts (siempre ausente). */
   hasta?: 'una';
 };
 
@@ -1636,7 +1666,11 @@ export function escenariosDeRespuesta(pasosIn: readonly PasoGrafo[], op: { medio
   });
 }
 
-/** Lo de un caso v2 que el redactor usa (`DatosCasoIA` → los campos opcionales del escenario), sin vacíos. */
+/**
+ * Lo de un escenario que el redactor usa (`DatosCasoIA` → los campos opcionales del escenario), sin vacíos. Desde la
+ * undécima el objetivo, la voz y los ejemplos son del AI STEP (la expansión se los pone a cada escenario) y `hasta`
+ * no lo arma nadie: se sigue copiando si llega (lo lee lib/nutricion.ts), pero llega siempre ausente.
+ */
 export function extrasDeCaso(d: DatosCasoIA | null | undefined): Pick<EscenarioDeGrafo, 'objetivo' | 'ejemplos' | 'audio' | 'hasta'> {
   if (!d) return {};
   return {
@@ -2092,15 +2126,23 @@ export const TOPE_OTRA_AVISO = 1000;
 export const TOPE_OBJETIVO = 300;
 export const TOPE_EJEMPLOS = 6;
 export const TOPE_EJEMPLO = 500;
-/** Cuántas tarjetas AI Step por medio en una automatización (la expansión las junta en una: hasta 10 casos). */
-export const TOPE_AI_STEP_POR_MEDIO = 10;
+/**
+ * Cuántas tarjetas AI Step por medio en una automatización. UNDÉCIMA TANDA: UNA (Martín: «Toda la cantidad de
+ * tarjetas de "AI Step" deberían ser una sola... Si justamente es el mismo objetivo, solo son diferentes objeciones
+ * o escenarios»). En la décima eran 10, una por caso; lo guardado así lo junta `juntarPasosIA`.
+ */
+export const TOPE_AI_STEP_POR_MEDIO = 1;
+/** Cuántos escenarios lleva un AI Step, sin contar «Lo demás» (undécima tanda, decisión §9.16). */
+export const TOPE_ESCENARIOS_AI_STEP = 10;
 /** El nombre de un caso: lo que muestra la tarjeta en negrita y el título del aviso. */
 export const TOPE_TITULO_CASO = 40;
 
-/** Cómo se nombra cada medio en una frase («2 AI Step de WhatsApp»). */
+/** Cómo se nombra cada medio en una frase («un AI Step de WhatsApp»). */
 export const ROTULO_MEDIO: Readonly<Record<MedioAIStep, string>> = { whatsapp: 'WhatsApp', instagram: 'Instagram', messenger: 'Messenger' };
-/** La opción de «Cuándo entra» que toma todo lo que no encaja en otro AI Step del medio. */
+/** El nombre con el que la décima creaba el caso `cualquiera` (lo de antes lo sigue diciendo). */
 export const ROTULO_CUALQUIERA = 'Cualquier respuesta';
+/** La última fila de los escenarios (undécima tanda): el caso `cualquiera`, o sin él «Sólo te avisa». */
+export const ROTULO_LO_DEMAS = 'Lo demás';
 
 /**
  * LOS IDS DE LA EXPANSIÓN, derivados del nodo y del caso: DETERMINÍSTICOS (expandir dos veces, o el
@@ -2145,19 +2187,18 @@ export function escuchaPor(pasos: readonly PasoGrafo[], medio: MedioAIStep = 'wh
 }
 
 /**
- * ¿SE PUEDE SUMAR UN AI STEP de este medio? (AI Step v2, décima tanda: una tarjeta por caso). No si hay un
- * «Si responde» de los de siempre (no se mezclan) ni si el medio ya tiene `TOPE_AI_STEP_POR_MEDIO`. La
- * misma regla que `validarParaGuardar`: ofrecerla sería un borrador que no se guarda. La leen el ＋ y el
- * click derecho (lib/flujo-conversacion.ts) y las ediciones (lib/flujo-edicion.ts).
+ * ¿SE PUEDE SUMAR UN AI STEP de este medio? No si hay un «Si responde» de los de siempre (no se mezclan) ni si el
+ * medio ya tiene uno (UNDÉCIMA TANDA: `TOPE_AI_STEP_POR_MEDIO` = 1; cuenta también uno suelto). La misma regla que
+ * Publicar: ofrecerla sería una tarjeta que no se publica. La leen el ＋ y el click derecho
+ * (lib/flujo-conversacion.ts) y las ediciones (lib/flujo-edicion.ts: crear, duplicar, conectar).
  */
 export function puedeSumarAIStep(pasos: readonly PasoGrafo[], medio: MedioAIStep = 'whatsapp'): boolean {
   if (pasos.some((p) => p && claseDe(p) === 'respuesta' && !esPasoIA(p))) return false;
   return pasos.filter((p) => p && esPasoIA(p) && medioDe(p) === medio).length < TOPE_AI_STEP_POR_MEDIO;
 }
 
-/** ¿Este caso CONTESTA? Tiene cómo responder y no es «Sólo te avisa». La MISMA regla para expandir, dibujar y frenar. */
-export const contestaElCaso = (c: Pick<CasoRespuesta, 'responder' | 'no_contesta'>): boolean =>
-  !!(c.responder ?? '').trim() && c.no_contesta !== true;
+// (`contestaElCaso` —¿este caso CONTESTA?— vive en lib/ai-step-libertad.ts desde la undécima, con la libertad que
+// lee: este módulo la re-exporta arriba.)
 
 /** Los campos que todo paso tiene (lo de `RELLENO_CONTROL` del motor), para las tarjetas de la expansión. */
 const RELLENO_EXPANSION = { canal: 'whatsapp', delay_horas: 0, asunto: null, cuerpo: '', template_wa: null } as const;
@@ -2171,24 +2212,38 @@ function avisoAlEquipo<P extends PasoGrafo>(id: string, params: { titulo?: strin
   } as unknown as P;
 }
 
-/** Lo que viaja del caso a su «MaKo contesta» (`DatosCasoIA`). El audio, sólo por WhatsApp (§5). */
-function datosDeCaso(c: CasoRespuesta, medio: MedioAIStep): DatosCasoIA {
+/**
+ * Lo que viaja del escenario a su «MaKo contesta» (`DatosCasoIA`). UNDÉCIMA TANDA: el objetivo, los ejemplos y la
+ * voz son del AI STEP (`nodo`); sin valor en el nodo, el del caso (lo de antes sin juntar, para que el motor lo
+ * siga contestando igual hasta que se guarde). La voz, sólo por WhatsApp (§5). `hasta` ya no viaja: «Hasta» es
+ * siempre el objetivo.
+ */
+function datosDeCaso(c: CasoRespuesta, medio: MedioAIStep, nodo: Pick<PasoGrafo, 'objetivo' | 'audio' | 'ejemplos'>): DatosCasoIA {
+  const objetivo = (nodo.objetivo ?? '').trim() || (c.objetivo ?? '').trim();
+  const ejemplos = nodo.ejemplos?.length ? nodo.ejemplos : c.ejemplos;
+  const audio = nodo.audio ?? c.audio;
   return {
     titulo: c.titulo, cuando: c.cuando, medio,
-    ...((c.objetivo ?? '').trim() ? { objetivo: (c.objetivo ?? '').trim() } : {}),
-    ...(c.ejemplos?.length ? { ejemplos: c.ejemplos } : {}),
-    ...(c.audio && medio === 'whatsapp' ? { audio: c.audio } : {}),
-    ...(c.hasta === 'una' ? { hasta: 'una' as const } : {}),
+    ...(objetivo ? { objetivo } : {}),
+    ...(ejemplos?.length ? { ejemplos } : {}),
+    ...(audio && medio === 'whatsapp' ? { audio } : {}),
   };
+}
+
+/** Lo que sólo significa en un AI Step: fuera de la expansión no viaja (el nodo expandido es un «Si responde»). */
+function sinLoDelAIStep<P extends PasoGrafo>(q: P): P {
+  delete q.paso_ia;
+  delete q.instrucciones;
+  delete q.otra_aviso;
+  delete q.objetivo;
+  delete q.audio;
+  delete q.ejemplos;
+  return q;
 }
 
 /** Un AI Step que ya no escucha en la expansión: en su índice, sin casos y suelto (inerte para todos). */
 function inerte<P extends PasoGrafo>(p: P): P {
-  const q = { ...p, casos: [], si_no: null, suelta: true } as P;
-  delete q.paso_ia;
-  delete q.instrucciones;
-  delete q.otra_aviso;
-  return q;
+  return sinLoDelAIStep({ ...p, casos: [], si_no: null, suelta: true } as P);
 }
 
 /**
@@ -2197,17 +2252,20 @@ function inerte<P extends PasoGrafo>(p: P): P {
  * otra vez no hace nada. Un flujo sin AI Step vuelve igual (una copia del array).
  *
  *   · Junta los AI Step NO sueltos del `medio` (ausente = WhatsApp) en el PRIMERO del array, con un caso
- *     por caso de cada tarjeta (una tarjeta v1 de N casos cuenta como N: lo publicado antes de separar
- *     sigue contestando igual). Los demás AI Step —los del medio que se juntaron, los de otro medio y los
+ *     por caso de cada tarjeta (lo de la décima, una tarjeta por caso, se sigue leyendo igual hasta que se
+ *     guarde junto: `juntarPasosIA`). Los demás AI Step —los del medio que se juntaron, los de otro medio y los
  *     sueltos— quedan EN SU ÍNDICE, sin casos y sueltos (`inerte`): `raizRespuesta` los saltea. NO se sacan
  *     del array: `responderConGrafo` escribe `paso_actual` con el índice EXPANDIDO al retomar con «Ir a».
  *     Sin AI Step del medio, no queda ninguno que escuche: la automatización no contesta por ahí.
  *   · Por cada caso, al FINAL del array (no corre el índice de nadie), con ids de SU tarjeta:
  *       – si contesta (`contestaElCaso`): un mensaje de WhatsApp no oficial `tipo: 'ia'` —el «MaKo
- *         contesta» de siempre— con la guía de cuerpo, `revisar = !sola` y `ia` (lo que el redactor usa);
- *       – si avisa: una acción «avisar al equipo» con el título del caso, DESPUÉS del mensaje (o sola).
- *   · `cualquiera` NO es un caso del clasificador: es el destino de «Otra cosa» (`si_no`). Sin uno, «Otra
- *     cosa» es el aviso de siempre con el primer `otra_aviso` no vacío del medio (o `AVISO_OTRA_COSA`).
+ *         contesta» de siempre— con la guía de cuerpo, `revisar = !sola` y `ia` (lo que el redactor usa: el
+ *         objetivo, la voz y los ejemplos del AI Step, `datosDeCaso`);
+ *       – si avisa (UNDÉCIMA: se DERIVA de la libertad, `avisaElCaso`: todo lo que no sale solo): una acción
+ *         «avisar al equipo» con el título del caso, DESPUÉS del mensaje (o sola).
+ *   · `cualquiera` («Lo demás») NO es un caso del clasificador: es el destino de «Otra cosa» (`si_no`). Sin uno,
+ *     «Otra cosa» es el aviso de siempre (`AVISO_OTRA_COSA`, o el `otra_aviso` de lo de antes) y la charla pasa a
+ *     una persona.
  *
  * Lo que la lee: el motor (`responderConGrafo`, lib/nutricion.ts), «Probar» (lib/simulador-grafo.ts) y
  * `escenariosDeRespuesta`. NUNCA lo que se GUARDA ni lo que se DIBUJA: eso es la forma compacta.
@@ -2233,19 +2291,19 @@ export function expandirPasoIA<P extends PasoGrafo>(pasos: readonly P[], op: { m
       const id = idsCasos[k];
       const guia = contestaElCaso(c) ? guiaDeCaso(p, c) : '';
       const contesta = guia ? idRespuestaDeCaso(tarjeta, id) : null;
-      const aviso = c.avisar === true ? idAvisoDeCaso(tarjeta, id) : null;
+      const aviso = avisaElCaso(c) ? idAvisoDeCaso(tarjeta, id) : null;
       if (contesta) {
         extra.push({
           ...RELLENO_EXPANSION, proveedor: 'no_oficial', id: contesta, tipo: 'ia', cuerpo: guia,
-          revisar: c.sola !== true, siguiente: aviso, ia: datosDeCaso(c, medio),
+          revisar: c.sola !== true, siguiente: aviso, ia: datosDeCaso(c, medio, p),
         } as unknown as P);
       }
-      // El aviso de un «Cualquier respuesta» que NO contesta dice lo que es: algo que MaKo no sabe contestar.
+      // El aviso de un «Lo demás» que NO contesta dice lo que es: algo que MaKo no sabe contestar.
       const mensaje = c.cualquiera === true && !contesta ? (otraAviso || AVISO_OTRA_COSA) : AVISO_DE_CASO;
       if (aviso) extra.push(avisoAlEquipo<P>(aviso, { titulo: c.titulo, mensaje }));
       const destino = contesta ?? aviso;
       if (c.cualquiera === true) {
-        // El primero gana (`validarGrafo` no deja publicar dos por medio).
+        // El primero gana (Publicar no deja dos: `erroresDelPasoIA`).
         if (siNo === undefined) siNo = destino;
         return;
       }
@@ -2265,114 +2323,291 @@ export function expandirPasoIA<P extends PasoGrafo>(pasos: readonly P[], op: { m
   const out = pasos.map((p, i) => {
     if (!esPasoIA(p)) return p;
     if (i !== primero) return inerte(p);
-    const q = { ...p, casos, si_no: siNo ?? null };
-    delete q.paso_ia;
-    delete q.instrucciones;
-    delete q.otra_aviso;
-    return q;
+    return sinLoDelAIStep({ ...p, casos, si_no: siNo ?? null });
   });
   return [...out, ...extra];
 }
 
 /**
- * Lo que impide guardar o publicar un AI Step, en su forma COMPACTA. Los motivos nombran la tarjeta por su
- * id («la tarjeta X», que `errorLegible` vuelve «AI STEP» y `tarjetaDelError` abre) y el caso por su
- * nombre: son cortos porque van al lado de Publicar (el porqué, acá).
+ * Lo que impide guardar o publicar UN AI Step, en su forma COMPACTA (lo de todo el flujo —uno por medio, no
+ * mezclado con un «Si responde»— lo mira `erroresDeForma`). Los motivos nombran la tarjeta por su id («la tarjeta
+ * X», que `errorLegible` vuelve «AI STEP» y `tarjetaDelError` abre) y el escenario por su nombre: son cortos
+ * porque van al lado de Publicar (el porqué, acá).
  *   · Al guardar: un caso con `siguiente` o un «Otra cosa» con flecha. En un AI Step lo de debajo va
  *     ADENTRO del caso; una tarjeta colgada la pisaría la expansión, y el lead recibiría otra cosa que
  *     lo que se dibuja. Lo escribe sólo quien arma `pasos` a mano (la API); el lienzo no lo ofrece.
- *   · Al publicar (v2): UN caso por tarjeta (la API y el lienzo separan antes: `separarPasosIA`), con
- *     nombre, «cuándo» salvo «Cualquier respuesta», y que haga algo (contestar o avisar): un caso que no
- *     hace nada se come la respuesta en silencio. Y el audio, sólo por WhatsApp. El OBJETIVO no frena (§10-A).
+ *   · Al publicar (UNDÉCIMA TANDA, docs/diseno-undecima-tanda.md §6):
+ *       – el OBJETIVO (Martín: «El "Hasta" siempre es atado al objetivo»: sin objetivo no hay hasta dónde);
+ *       – hasta `TOPE_ESCENARIOS_AI_STEP` escenarios y UN «Lo demás» (con dos, la expansión toma el primero);
+ *       – cada escenario con nombre y «cuándo» (lo que lee el clasificador); «Lo demás» no los necesita;
+ *       – nombres que NO se repiten: el clasificador elige por POSICIÓN en una lista «título — cuándo»
+ *         (lib/chat-agent-handoff.ts), y dos iguales se leen como el mismo;
+ *       – una libertad que el escenario puede tener (`libertadesPermitidas`: nunca «Sola» con plata ni en «Lo
+ *         demás»): la que la pantalla deshabilita, Publicar no la deja pasar desde la API;
+ *       – la voz, sólo por WhatsApp.
+ *     Se fue «tiene más de un caso» (era la forma de la décima) y «no contesta ni avisa» (un escenario sin
+ *     respuesta es «Sólo te avisa»).
  */
-function erroresDelPasoIA(p: PasoGrafo, id: string, publicar: boolean): string[] {
+export function erroresDelPasoIA(p: PasoGrafo, id: string, publicar: boolean): string[] {
   const err: string[] = [];
-  if ((p.casos ?? []).some((x) => x.siguiente) || p.si_no) err.push(`debajo de la tarjeta ${id} no van tarjetas`);
-  if (!publicar) return err;
   const casos = p.casos ?? [];
-  if (casos.length !== 1) err.push(casos.length ? `la tarjeta ${id} tiene más de un caso` : `la tarjeta ${id} no tiene caso`);
+  if (casos.some((x) => x.siguiente) || p.si_no) err.push(`debajo de la tarjeta ${id} no van tarjetas`);
+  if (!publicar) return err;
+  if (!(p.objetivo ?? '').trim()) err.push(`falta el objetivo de la tarjeta ${id}`);
+  const escenarios = casos.filter((x) => x.cualquiera !== true);
+  if (escenarios.length > TOPE_ESCENARIOS_AI_STEP) err.push(`la tarjeta ${id} tiene más de ${TOPE_ESCENARIOS_AI_STEP} escenarios`);
+  if (casos.length - escenarios.length > 1) err.push(`la tarjeta ${id} tiene dos «${ROTULO_LO_DEMAS}»`);
+  const vistos = new Set<string>();
   for (const x of casos) {
     const t = (x.titulo ?? '').trim();
     const falta = faltaEnCaso(x);
-    if (falta === 'nombre') err.push(`la tarjeta ${id} tiene un caso sin nombre`);
+    if (falta === 'nombre') err.push(`la tarjeta ${id} tiene un escenario sin nombre`);
     else if (falta === 'cuando') err.push(`en la tarjeta ${id}, «${t}» no dice cuándo`);
-    else if (falta === 'que_hace') err.push(`en la tarjeta ${id}, «${t}» no contesta ni avisa`);
+    if (t && x.cualquiera !== true) {
+      const k = t.toLowerCase();
+      if (vistos.has(k)) err.push(`en la tarjeta ${id}, «${t}» está dos veces`);
+      vistos.add(k);
+    }
+    if (!libertadesPermitidas(x).includes(libertadDeCaso(x))) err.push(`en la tarjeta ${id}, «${x.cualquiera === true ? ROTULO_LO_DEMAS : t}» no puede salir sola`);
     if (x.audio && medioDe(p) !== 'whatsapp') err.push(`en la tarjeta ${id}, el audio sale sólo por WhatsApp`);
   }
-  return err;
+  if (p.audio && medioDe(p) !== 'whatsapp') err.push(`en la tarjeta ${id}, el audio sale sólo por WhatsApp`);
+  return [...new Set(err)];
 }
 
 /**
- * LO PRIMERO QUE LE FALTA A UN CASO DE UN AI STEP para publicar, o null. UNA función para el freno de
- * Publicar (`erroresDelPasoIA`) y para lo que se marca en rojo en la tarjeta y en su editor: con dos
- * copias, la tarjeta diría «completo» de algo que Publicar frena. «Cuándo» no se pide con «Cualquier
- * respuesta»; «Sólo te avisa» (`no_contesta`) necesita el aviso prendido.
+ * LO PRIMERO QUE LE FALTA A UN ESCENARIO DE UN AI STEP para publicar, o null. UNA función para el freno de
+ * Publicar (`erroresDelPasoIA`) y para lo que se marca en rojo en la tarjeta y en su editor: con dos copias, la
+ * tarjeta diría «completo» de algo que Publicar frena. «Lo demás» (`cualquiera`) no necesita nombre ni «cuándo».
+ * UNDÉCIMA TANDA: ya no puede faltar «qué hace» (un escenario sin respuesta es «Sólo te avisa»).
  */
-export function faltaEnCaso(c: Pick<CasoRespuesta, 'titulo' | 'cuando' | 'responder' | 'avisar' | 'cualquiera' | 'no_contesta'>): 'nombre' | 'cuando' | 'que_hace' | null {
+export function faltaEnCaso(c: Pick<CasoRespuesta, 'titulo' | 'cuando' | 'cualquiera'>): 'nombre' | 'cuando' | null {
+  if (c.cualquiera === true) return null;
   if (!(c.titulo ?? '').trim()) return 'nombre';
-  if (c.cualquiera !== true && !(c.cuando ?? '').trim()) return 'cuando';
-  if (!contestaElCaso(c) && c.avisar !== true) return 'que_hace';
+  if (!(c.cuando ?? '').trim()) return 'cuando';
   return null;
 }
 
-/**
- * UNA PUERTA PARA LO VIEJO (AI Step v2, §1 y §8): parte cada AI Step de N casos en N TARJETAS de un caso.
- * PURA. La aplican el lienzo al abrir (como `quitarIrA`), `setSecuenciaPasos` al escribir (la API, «Crear
- * con IA», «Pasar a AI Step»), y scripts/ai-step-v2.mts sobre lo guardado.
- *
- *   · La PRIMERA tarjeta conserva el id del nodo y su primer caso; las nuevas van AL FINAL del array (no
- *     corren el índice de nadie: `paso_actual`), con ids nuevos que no chocan con el flujo ni con `evitar`
- *     (los de la historia: `nodo_actual`, `hilos`, `nodo_id`). Heredan el medio.
- *   · EL TONO SE PLIEGA adentro de cada `responder` como hoy lo pega `guiaDeCaso` («Tono: …\n…»): el
- *     redactor recibe el MISMO texto. Si no entra en `TOPE_RESPONDER`, esa tarjeta CONSERVA `instrucciones`
- *     (`guiaDeCaso` lo sigue pegando: nada se corta) y el caso sale en `noEntra` (el script frena esa fila).
- *   · `otra_aviso` queda en la primera (la expansión lee el primero no vacío del medio).
- *   · Un AI Step SIN casos («Otra cosa → te aviso», la #198) = una tarjeta «Cualquier respuesta» + «Sólo
- *     te avisa»: el mismo aviso y la misma charla que pasa a una persona.
- */
-export function separarPasosIA<P extends PasoGrafo>(
-  pasos: readonly P[], rnd: () => number = Math.random, op: { evitar?: Iterable<string> } = {},
-): { pasos: P[]; cambio: boolean; noEntra: string[] } {
-  const noEntra: string[] = [];
-  const nuevas: P[] = [];
-  const usados: PasoGrafo[] = [...pasos, ...[...(op.evitar ?? [])].map((id) => ({ id }))];
-  const idNuevo = (): string => { const id = nuevoId([...usados, ...nuevas], rnd); usados.push({ id }); return id; };
-  let cambio = false;
-  const out = pasos.map((p) => {
-    if (!esPasoIA(p)) return p;
-    const casos = p.casos ?? [];
-    const tono = (p.instrucciones ?? '').trim();
-    if (casos.length === 1 && !tono) return p;
-    cambio = true;
-    // Cada caso, con el tono plegado (o la tarjeta conservándolo si no entra).
-    const plegar = (c: CasoRespuesta): { caso: CasoRespuesta; tono?: string } => {
-      const r = (c.responder ?? '').trim();
-      if (!tono || !r) return { caso: c };
-      const junto = `${ROTULO_TONO}${tono}\n${r}`;
-      if (junto.length > TOPE_RESPONDER) { noEntra.push((c.titulo ?? '').trim() || c.id); return { caso: c, tono }; }
-      return { caso: { ...c, responder: junto } };
-    };
-    const base = { ...p } as P;
-    delete base.instrucciones;
-    if (!casos.length) {
-      const q = { ...base, casos: [{ id: idNuevo(), titulo: ROTULO_CUALQUIERA, cuando: '', siguiente: null, cualquiera: true, no_contesta: true, avisar: true }] } as P;
-      return q;
-    }
-    const [primero, ...resto] = casos.map(plegar);
-    for (const x of resto) {
-      const { otra_aviso: _o, ...sinOtra } = base as P & { otra_aviso?: string };
-      void _o;
-      nuevas.push({
-        ...sinOtra, id: idNuevo(), casos: [x.caso], si_no: null, orden: undefined,
-        ...(x.tono ? { instrucciones: x.tono } : {}),
-      } as unknown as P);
-    }
-    return { ...base, casos: [primero.caso], ...(primero.tono ? { instrucciones: primero.tono } : {}) } as P;
-  });
-  // `orden` lo vuelve a poner quien renumera: una tarjeta nueva sin él no se queda con el de la original.
-  for (const q of nuevas) delete (q as { orden?: number }).orden;
-  return { pasos: cambio ? [...out, ...nuevas] : [...pasos], cambio, noEntra };
+// ── juntarPasosIA: LA PUERTA PARA LO VIEJO (undécima tanda) ─────────────────────────────────────────
+
+/** Lo que devuelve `juntarPasosIA`. */
+export type JuntaPasosIA<P> = {
+  pasos: P[];
+  /** Hubo algo que juntar, subir, plegar o sacar (quien guarda renumera `orden`). */
+  cambio: boolean;
+  /** Valores DISTINTOS de lo que sube al AI Step (objetivo, voz, ejemplos): quedó el primero. */
+  conflictos: string[];
+  /** Lo que se fue y cambia lo que pasa («una respuesta», el aviso de una «Sola», el texto de «Otra cosa», un tono que no entra…). */
+  perdidos: string[];
+};
+
+/** JSON con las claves ordenadas: dos valores iguales dan el mismo texto aunque las claves vengan en otro orden. */
+function estable(v: unknown): string {
+  return JSON.stringify(v, (_k, x: unknown) => (x && typeof x === 'object' && !Array.isArray(x)
+    ? Object.fromEntries(Object.keys(x as object).sort().map((k) => [k, (x as Record<string, unknown>)[k]]))
+    : x)) ?? '';
 }
+
+/** Un escenario sin lo que la undécima sacó del caso (lo lee sólo `juntarPasosIA`). */
+function sinCamposViejos(c: CasoRespuesta): CasoRespuesta {
+  const { objetivo: _o, audio: _a, ejemplos: _e, hasta: _h, avisar: _v, ...resto } = c;
+  void _o; void _a; void _e; void _h; void _v;
+  return resto;
+}
+
+/**
+ * TODA FLECHA QUE IBA A UNA TARJETA QUITADA va a la que queda (`mapa`: quitada → la que queda): `siguiente`, las
+ * flechas en paralelo, las ramas, «Si no», los casos y el destino de un «Ir a». Lo que no cambia queda el MISMO
+ * objeto. A un AI Step no le llega ninguna flecha (Publicar lo frena), pero una que llegara a una quitada quedaría
+ * colgando de una tarjeta que no existe: así sigue diciendo el mismo error, y no otro.
+ */
+function reapuntarFlechas<P extends PasoGrafo>(pasos: readonly P[], mapa: ReadonlyMap<string, string>): P[] {
+  if (!mapa.size) return [...pasos];
+  const a = (d: string | null | undefined): string | null | undefined => (d != null && mapa.has(d) ? mapa.get(d)! : d);
+  const toca = (d: string | null | undefined): boolean => d != null && mapa.has(d);
+  const lista = (l: readonly string[], propio: string): string[] => [...new Set(l.map((d) => a(d) ?? d))].filter((d) => d !== propio);
+  return pasos.map((p, i) => {
+    const propio = idDe(p, i);
+    let q: P | null = null;
+    const copia = (): P => (q ??= { ...p });
+    if (toca(p.siguiente)) copia().siguiente = a(p.siguiente) ?? null;
+    if (Array.isArray(p.paralelos) && p.paralelos.some(toca)) copia().paralelos = lista(p.paralelos, propio);
+    if (toca(p.si_no)) copia().si_no = a(p.si_no) ?? null;
+    if (Array.isArray(p.paralelos_si_no) && p.paralelos_si_no.some(toca)) copia().paralelos_si_no = lista(p.paralelos_si_no, propio);
+    if (p.ramas?.some((r) => toca(r.siguiente) || (Array.isArray(r.paralelos) && r.paralelos.some(toca)))) {
+      copia().ramas = p.ramas.map((r) => ({
+        ...r, siguiente: a(r.siguiente) ?? null,
+        ...(Array.isArray(r.paralelos) ? { paralelos: lista(r.paralelos, propio) } : {}),
+      }));
+    }
+    if (p.casos?.some((c) => toca(c.siguiente))) copia().casos = p.casos.map((c) => (toca(c.siguiente) ? { ...c, siguiente: a(c.siguiente) ?? null } : c));
+    if (p.destino && 'nodo' in p.destino && toca(p.destino.nodo)) copia().destino = { nodo: mapa.get(p.destino.nodo)! };
+    return q ?? p;
+  });
+}
+
+/** Lo que se va juntando de cada medio: los avisos de `juntarPasosIA` y los escenarios cuyo tono no entró. */
+type AcumJunta = { conflictos: string[]; perdidos: string[]; noEntra: string[] };
+
+/**
+ * EL PRIMERO NO VACÍO de lo que sube al AI Step, en el orden tarjeta → sus casos. Los DISTINTOS van a `conflictos`
+ * (`nombre`: cómo se dice en el aviso).
+ */
+function primeroDe<T>(valores: ReadonlyArray<T | null | undefined>, nombre: string, decir: (v: T) => string, acc: AcumJunta): T | undefined {
+  const distintos = new Map<string, T>();
+  for (const v of valores) if (v != null) { const k = estable(v); if (!distintos.has(k)) distintos.set(k, v); }
+  const lista = [...distintos.values()];
+  if (lista.length > 1) acc.conflictos.push(`${nombre}: ${lista.map(decir).join(' / ')}`);
+  return lista[0];
+}
+
+/**
+ * EL AI STEP JUNTO de las tarjetas `idx` (todas del mismo medio y escuchando, en el orden del array): el primero
+ * con todos los escenarios, lo del objetivo en el nodo, el tono plegado y sin lo de antes. Ver `juntarPasosIA`.
+ */
+function nodoJunto<P extends PasoGrafo>(pasos: readonly P[], idx: readonly number[], acc: AcumJunta): P {
+  const tarjetas = idx.map((i) => ({ p: pasos[i], id: idDe(pasos[i], i) }));
+  const nodo = { ...tarjetas[0].p } as P;
+  const t = (c: CasoRespuesta): string => (c.titulo ?? '').trim() || ROTULO_LO_DEMAS;
+
+  // 1. Lo del OBJETIVO sube al nodo: el de la tarjeta y si no el de sus casos, en orden.
+  const deTodos = <T>(deNodo: (p: P) => T | null | undefined, deCaso: (c: CasoRespuesta) => T | null | undefined): Array<T | null | undefined> =>
+    tarjetas.flatMap(({ p }) => [deNodo(p), ...(p.casos ?? []).map(deCaso)]);
+  const texto = (s: string | undefined): string | null => ((s ?? '').trim() || null);
+  const objetivo = primeroDe(deTodos((p) => texto(p.objetivo), (c) => texto(c.objetivo)), 'el objetivo', (v) => `«${v}»`, acc);
+  const audio = primeroDe(deTodos((p) => p.audio ?? null, (c) => c.audio ?? null), 'la voz', (v) => `«${v.voz}»`, acc);
+  const ejemplos = primeroDe(deTodos((p) => (p.ejemplos?.length ? p.ejemplos : null), (c) => (c.ejemplos?.length ? c.ejemplos : null)),
+    'los ejemplos del ensayo', (v) => `${v.length}`, acc);
+
+  // 2. El TONO (`instrucciones`) se pliega adentro de cada respuesta, como lo pegaba `guiaDeCaso`. Si en un
+  //    escenario no entra (TOPE_RESPONDER): con UN mismo tono en todas las tarjetas, el nodo lo conserva y no se
+  //    pliega nada (contesta igual); con tonos distintos, se pliega lo que entra y lo que no pierde el tono.
+  const tonos = tarjetas.map(({ p }) => (p.instrucciones ?? '').trim());
+  const plegado = (tono: string, r: string): string => `${ROTULO_TONO}${tono}\n${r}`;
+  const noCabe = (tono: string, c: CasoRespuesta): boolean => {
+    const r = (c.responder ?? '').trim();
+    return !!tono && !!r && plegado(tono, r).length > TOPE_RESPONDER;
+  };
+  const algunoNoCabe = tarjetas.some(({ p }, k) => (p.casos ?? []).some((c) => noCabe(tonos[k], c)));
+  const conservar = algunoNoCabe && tonos.every((x) => x === tonos[0]) ? tonos[0] : '';
+
+  // 3. «Otra cosa» con su texto de antes: se va (`AVISO_OTRA_COSA`, «Lo demás: Sólo te avisa»).
+  const otraAviso = tarjetas.map(({ p }) => (p.otra_aviso ?? '').trim()).find(Boolean) ?? '';
+  if (otraAviso && otraAviso !== AVISO_OTRA_COSA) acc.perdidos.push(`«Otra cosa» avisaba «${otraAviso.slice(0, 60)}»: ahora avisa «${AVISO_OTRA_COSA}»`);
+
+  // 4. Los escenarios, tarjeta → caso, con el id que el clasificador ya devolvía (el de `idsDeCasos` de su tarjeta,
+  //    desempatado como en la expansión).
+  const escenarios: CasoRespuesta[] = [];
+  let loDemas: CasoRespuesta | null | undefined;
+  const usados = new Set<string>();
+  tarjetas.forEach(({ p, id: tarjeta }, k) => {
+    const ids = idsDeCasos(tarjeta, p.casos ?? []);
+    (p.casos ?? []).forEach((c0, j) => {
+      let c: CasoRespuesta = { ...c0, id: ids[j] };
+      if (c.hasta === 'una') acc.perdidos.push(`«${t(c)}»: contestaba una vez; ahora hasta lograr el objetivo`);
+      if (c.avisar === true && libertadDeCaso(c) === 'sola') acc.perdidos.push(`«${t(c)}»: sale sola y ya no te avisa`);
+      const r = (c.responder ?? '').trim();
+      if (tonos[k] && r && !conservar) {
+        if (noCabe(tonos[k], c)) { acc.noEntra.push(t(c)); acc.perdidos.push(`«${t(c)}»: el tono no entra en la respuesta y se pierde`); }
+        else c = { ...c, responder: plegado(tonos[k], r) };
+      } else if (conservar && noCabe(conservar, c)) {
+        acc.noEntra.push(t(c));
+        acc.perdidos.push(`«${t(c)}»: el tono no entra en la respuesta (queda en la tarjeta)`);
+      }
+      c = sinCamposViejos(c);
+      // Una libertad que el escenario no puede tener (plata, «Lo demás») baja a la que sí: lo mismo que el
+      // desplegable deshabilita y Publicar frena.
+      const permitidas = libertadesPermitidas(c);
+      const lib = libertadDeCaso(c);
+      if (!permitidas.includes(lib)) {
+        const baja = permitidas.includes('aprueba') ? 'aprueba' : 'avisa';
+        c = conLibertad(c, baja);
+        acc.perdidos.push(`«${t(c)}»: no puede salir sola; queda ${baja === 'aprueba' ? 'para aprobar' : 'en sólo te avisa'}`);
+      }
+      if (c.cualquiera === true) {
+        // «Lo demás»: el PRIMERO del medio es el que contestaba (la expansión toma ése). «Sólo te avisa» es el
+        // default y se representa de UNA forma: sin el caso.
+        if (loDemas !== undefined) { acc.perdidos.push(`«${t(c)}»: había dos «${ROTULO_LO_DEMAS}»; queda el primero`); return; }
+        if (libertadDeCaso(c) === 'avisa') {
+          loDemas = null;
+          if ((c.responder ?? '').trim()) acc.perdidos.push(`«${t(c)}»: guardaba una respuesta que no mandaba; se va`);
+          return;
+        }
+        loDemas = c;
+        return;
+      }
+      let unico = c.id;
+      for (let n = 2; usados.has(unico); n++) unico = `${c.id}_${n}`;
+      usados.add(unico);
+      escenarios.push(unico === c.id ? c : { ...c, id: unico });
+    });
+  });
+
+  nodo.casos = loDemas ? [...escenarios, loDemas] : escenarios;
+  if (objetivo) nodo.objetivo = objetivo; else delete nodo.objetivo;
+  if (audio) nodo.audio = audio; else delete nodo.audio;
+  if (ejemplos) nodo.ejemplos = ejemplos.slice(0, TOPE_EJEMPLOS); else delete nodo.ejemplos;
+  if (conservar) nodo.instrucciones = conservar; else delete nodo.instrucciones;
+  delete nodo.otra_aviso;
+  return nodo;
+}
+
+/**
+ * LA PUERTA PARA LO VIEJO (UNDÉCIMA TANDA, docs/diseno-undecima-tanda.md §2 punto 11 y §6): UN AI STEP POR MEDIO.
+ * PURA e IDEMPOTENTE. La aplican el lienzo al abrir (`abrirFlujo`, como `quitarIrA`), `setSecuenciaPasos` al
+ * escribir (`grafoAGuardar`: la API, «Crear con IA», «Pasar a AI Step») y el borrador al abrirse (SecuenciaPerfil.tsx).
+ *
+ *   · POR MEDIO (ausente = WhatsApp): los AI Step que ESCUCHAN se juntan en el PRIMERO del array, que conserva su
+ *     id, los ids de los casos (los que el clasificador ya devolvía) y el orden tarjeta → caso. Las demás tarjetas
+ *     SE SACAN del array (corre el índice de lo que venía después: con #213 las tres quitadas eran las últimas) y
+ *     toda flecha que les llegaba va a la que queda. Las SUELTAS no se tocan.
+ *   · Lo del OBJETIVO sube al nodo (objetivo, voz, ejemplos): el primero no vacío; los distintos, a `conflictos`.
+ *   · El TONO se pliega adentro de cada respuesta (el mismo texto que pegaba `guiaDeCaso`); si no entra, el nodo
+ *     lo conserva (o se pierde, con tonos distintos) y se dice en `perdidos`.
+ *   · Se van `hasta`, `avisar` (el aviso se deriva de la libertad) y `otra_aviso`; lo que eso cambie, a `perdidos`.
+ *     Un «Lo demás» que sólo avisa se va (es el default), uno repetido también, y una libertad que el escenario no
+ *     puede tener baja a la que sí (`libertadesPermitidas`).
+ *
+ * Lo que el clasificador ve (`escenariosDeRespuesta`: nombre, cuándo, guía, «sale sola») no cambia. Con #213
+ * (cuatro tarjetas de un caso) cambian sólo los ids de la expansión de las tres que se pliegan.
+ */
+export function juntarPasosIA<P extends PasoGrafo>(pasos: readonly P[]): JuntaPasosIA<P> {
+  const r = juntar(pasos);
+  return { pasos: r.pasos, cambio: r.cambio, conflictos: r.conflictos, perdidos: r.perdidos };
+}
+
+function juntar<P extends PasoGrafo>(pasosIn: readonly P[]): JuntaPasosIA<P> & { noEntra: string[] } {
+  const acc: AcumJunta = { conflictos: [], perdidos: [], noEntra: [] };
+  if (!pasosIn.some((p) => esPasoIA(p))) return { pasos: [...pasosIn], cambio: false, ...acc };
+  const escuchan = (ps: readonly P[], m: MedioAIStep): number[] =>
+    ps.map((_, i) => i).filter((i) => esPasoIA(ps[i]) && ps[i].suelta !== true && medioDe(ps[i]) === m);
+  // Si hay que SACAR tarjetas, sobre el flujo normalizado: un paso sin id (`o<i>`) o sin `siguiente` explícito
+  // («el de abajo del array») cambiaría de identidad o de salida al correrse el array.
+  const quita = MEDIOS_AI_STEP.some((m) => escuchan(pasosIn, m).length > 1);
+  const pasos = quita ? normalizar(pasosIn) : pasosIn;
+  const quitar = new Set<number>();
+  const mapa = new Map<string, string>();
+  const nuevos = new Map<number, P>();
+  for (const m of MEDIOS_AI_STEP) {
+    const idx = escuchan(pasos, m);
+    if (!idx.length) continue;
+    const queda = idDe(pasos[idx[0]], idx[0]);
+    for (const k of idx.slice(1)) { quitar.add(k); mapa.set(idDe(pasos[k], k), queda); }
+    nuevos.set(idx[0], nodoJunto(pasos, idx, acc));
+  }
+  const out = reapuntarFlechas(pasos.map((p, i) => nuevos.get(i) ?? p).filter((_, i) => !quitar.has(i)), mapa);
+  // Ninguna flecha queda colgando de una tarjeta quitada (por construcción; si pasara, se dice).
+  for (let i = 0; i < out.length; i++) {
+    const d = out[i].destino;
+    const colgadas = [...puertosDe(out, i).map((pt) => pt.destino), d && 'nodo' in d ? d.nodo : null].filter((x): x is string => !!x && mapa.has(x));
+    for (const x of colgadas) acc.perdidos.push(`una flecha seguía en ${x}, que se juntó`);
+  }
+  const cambio = quitar.size > 0 || [...nuevos].some(([i, q]) => estable(q) !== estable(pasosIn[i]));
+  return { pasos: cambio ? out : [...pasosIn], cambio, ...acc };
+}
+
+// (El alias `separarPasosIA` de la décima —«una tarjeta por caso»— se BORRÓ en la ola 4 de la undécima: todos sus
+// llamadores llaman a `juntarPasosIA`.)
 
 // ── Textos que dibuja la tarjeta (cortos: AGENTS.md, el texto que se DIBUJA) ────────
 

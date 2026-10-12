@@ -120,7 +120,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'remitente_email', area: 'email', tipo: 'lectura',
     titulo: 'Remitente actual del email',
-    descripcion: 'Con qué nombre y dirección salen los emails del negocio («De:») y si ese remitente es el sandbox de Resend, que solo entrega al dueño de la cuenta. Úsala para confirmar la firma antes de un envío o para explicar por qué un mail no le llega a nadie. No pide parámetros.',
+    descripcion: 'Con qué nombre y dirección salen los emails del negocio («De:») y si el negocio tiene remitente PROPIO (`propio`; sin él no sale nada y `sandbox` es true: el email de MaKo no es el de un negocio). La `nota` dice por qué. Úsala para confirmar la firma antes de un envío o para explicar por qué un mail no le llega a nadie. No pide parámetros.',
     parametros: [], salida: 'json', canales: CANALES_TODOS, costo: 'gratis', gating: TAB,
   },
   {

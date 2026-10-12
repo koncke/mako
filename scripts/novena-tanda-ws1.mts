@@ -80,6 +80,14 @@
 // se puede escribir y releer, NO se escribe nada.
 // =============================================================================
 
+// ⛔ RETIRADO EN LA UNDÉCIMA TANDA (11/10/2026, ola 4). #213 ya es «Un Lead Agendó Llamada» con el CRON «Agenda R1» y
+// UN AI Step (scripts/undecima-flujos.mts, docs/diseno-undecima-tanda.md §3). Correr esto le volvería a poner los dos
+// CRON «(de antes)» (`agendado_primer_contacto` / `agendado_ya_contactado`) y el nombre de la novena. Queda el código
+// como registro de lo que se hizo el 10/10 (y su respaldo).
+/** Sale sin leer ni escribir. Devuelve `void` (no `never`) a propósito: el resto queda como registro y compila. */
+function retirado(motivo: string): void { console.error(motivo); process.exit(1); }
+retirado('Retirado en la undécima: #213 ya es «Un Lead Agendó Llamada» (scripts/undecima-flujos.mts). No se vuelve a correr: le volvería a poner los CRON «(de antes)».');
+
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { config } from 'dotenv';
 import type { PasoGrafo } from '../lib/flujo-grafo';

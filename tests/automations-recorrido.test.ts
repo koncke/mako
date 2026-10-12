@@ -9,8 +9,12 @@
 // ⚠️ UN PASO CUYO OBJETIVO NO SE ENCUENTRA SE SALTEA EN SILENCIO (lib/recorridos.ts). Acá los objetivos no
 //    los escribe la pantalla: los pone `marcar` buscando lo que la pantalla YA dibuja (un `data-*`, un
 //    `aria-label`, el título de una tarjeta). Por eso el test que más vale es «lo que se busca existe en el
-//    fuente del archivo que lo dibuja»: si otra pista renombra `data-nuevo-mensaje`, el recorrido queda más
-//    corto y nada lo dice — salvo este test.
+//    fuente del archivo que lo dibuja»: si otra pista renombra `chb-nueva`, el recorrido queda más corto y
+//    nada lo dice — salvo este test.
+//
+// UNDÉCIMA TANDA (11/10/2026, punto 9): se fueron los pasos «MaKo en WhatsApp» y «Configuraciones», y el «?»
+// (`AyudaAutomations`): el último paso señala el menú de Configuraciones y Tutorial (`MenuAutomations`, con su
+// `data-recorrido` escrito a mano), y «Tutorial» es el que vuelve a abrirlo.
 //
 // ── Roturas (11/10/2026, scratchpad/general8-romper.mjs: una por vez, restaurada de MEMORIA + md5) ──
 // Sin romper: 12 pass / 0 fail. Cada rotura tumbó SU test:
@@ -21,6 +25,13 @@
 //   · `marcar` deja que un elemento sirva a dos objetivos          → 10 / 2 «…no sirve a dos» y «decide con la foto entera»
 //   · ChatAgentApp sin `!galeria` en el autoabrir                   → 11 / 1 «ChatAgentApp lo monta como CURSO»
 //   · al cerrar no se llama a `soltar`                              → 11 / 1 «RecorridoAutomations: …suelta al cerrar»
+// Undécima tanda (11/10/2026, arnés wf-undecima/w1-lista-ui/romper.mjs). Base 12 / 0, restaurado 12 / 0:
+//   · T1 lo que se busca de «＋ Nueva» renombrado (`button.chb-nueva-x`)  → 11 / 1 «lo que se busca existe en el fuente»
+//     (ANTES del arreglo de `loQuePide` daba 12 / 0: la clase pegada a la etiqueta no se pedía)
+//   · R7 el menú sin su `data-recorrido`                                → 11 / 1 «RecorridoAutomations: …»
+//   · T2 el cartel vacío sin el menú                                    → 11 / 1 «ChatAgentApp lo monta como CURSO»
+//   · T3 ChatAgentApp sin `!galeria` en el autoabrir                    → 11 / 1 «ChatAgentApp lo monta como CURSO»
+//   · T4 vuelve el paso «Configuraciones»                               → 10 / 2 «explica lo que se pidió» y «nada de más»
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -49,17 +60,21 @@ test('la clave es propia y válida, y los objetivos llevan «au-» (el «ayuda»
   for (const o of objetivos()) assert.match(o, /^au-[a-z0-9-]+$/, `«${o}» sin el prefijo de la tab`);
 });
 
-test('explica lo que se pidió, en el orden de la pantalla, y termina en el «?»', () => {
+test('explica lo que se pidió, en el orden de la pantalla, y termina en el menú de Configuraciones y Tutorial', () => {
   const o = objetivos();
-  const pedidos = ['au-lista', 'au-nueva', 'au-mako', 'au-configuraciones', 'au-cron', 'au-mas', 'au-condicion', 'au-delay',
+  const pedidos = ['au-lista', 'au-nueva', 'au-cron', 'au-mas', 'au-condicion', 'au-delay',
     'au-ai-step', 'au-probar', 'au-publicar', 'au-activar', OBJETIVO_AYUDA];
   for (const x of pedidos) assert.ok(o.includes(x), `al recorrido le falta «${x}»`);
+  // Undécima tanda (punto 9): sin «MaKo en WhatsApp» (la lista es una sola) ni «Configuraciones» (está en el menú).
+  for (const x of ['au-mako', 'au-configuraciones']) assert.ok(!o.includes(x), `volvió «${x}»`);
   // La lista (de arriba abajo), el lienzo, «Probar» arriba a la derecha, «Publicar» y «Activar» abajo.
   const i = (x: string) => o.indexOf(x);
-  assert.ok(i('au-lista') < i('au-nueva') && i('au-nueva') < i('au-mako') && i('au-mako') < i('au-configuraciones'));
-  assert.ok(i('au-configuraciones') < i('au-cron') && i('au-cron') < i('au-mas') && i('au-mas') < i('au-condicion'));
+  assert.ok(i('au-lista') < i('au-nueva') && i('au-nueva') < i('au-cron'));
+  assert.ok(i('au-cron') < i('au-mas') && i('au-mas') < i('au-condicion'));
   assert.ok(i('au-ai-step') < i('au-probar') && i('au-probar') < i('au-publicar') && i('au-publicar') < i('au-activar'));
   assert.equal(o.at(-1), OBJETIVO_AYUDA, 'cómo volver a verla es lo que queda al cerrarla');
+  const ultimo = PASOS_AUTOMATIONS.at(-1)!;
+  assert.deepEqual([ultimo.titulo, ultimo.texto], ['Configuraciones y tutorial', 'Están siempre en este menú.']);
   // Sin CONDITION, DELAY ni AI Step en el flujo sus pasos se saltean: el del ＋ es el único que dice que existen.
   assert.match(PASOS_AUTOMATIONS.find((p) => p.objetivo === 'au-mas')!.texto, /CONDITION.*DELAY.*AI Step/);
 });
@@ -81,10 +96,10 @@ test('textos de pantalla: cortos, de TÚ y sin pasos repetidos', () => {
   }
 });
 
-test('cada paso tiene dónde buscarlo (salvo el «?», que se marca solo), y nada de más', () => {
+test('cada paso tiene dónde buscarlo (salvo el menú, que se marca solo), y nada de más', () => {
   const o = objetivos();
   for (const x of o) {
-    if (x === OBJETIVO_AYUDA) { assert.ok(!(x in DONDE), 'el «?» lo marca BotonRecorrido, no `marcar`'); continue; }
+    if (x === OBJETIVO_AYUDA) { assert.ok(!(x in DONDE), 'el menú lo marca MenuAutomations a mano, no `marcar`'); continue; }
     assert.ok(DONDE[x]?.length, `«${x}» no tiene dónde buscarse: su paso no saldría nunca`);
     assert.ok(DONDE[x].some((b) => !b.futuro), `«${x}» sólo se busca en algo que todavía no existe`);
   }
@@ -102,7 +117,11 @@ function loQuePide(b: Buscar): string[] {
     if (m[1].startsWith('data-')) out.push(m[1]);
     if (m[2] === '=') out.push(m[3]);
   }
-  for (const m of b.css.matchAll(/(?<![\w-])\.([a-z][a-z0-9-]*)/g)) out.push(m[1]);
+  // Las clases, también pegadas a una etiqueta (`button.chb-nueva`). ⚠️ Hasta la undécima tanda el regex exigía que el
+  // punto NO siguiera a una letra (`(?<![\w-])`), así que la clase de `button.chb-nueva` nunca se pedía: la custodiaba
+  // sólo el `:not([data-nuevo-mensaje])` de al lado, y al irse ése el renglón quedó sin nadie (rotura T1, medida).
+  // Los valores entre comillas se vacían antes: un punto adentro de un `title` no es una clase.
+  for (const m of b.css.replace(/"[^"]*"/g, '""').matchAll(/\.([a-z][a-z0-9-]*)/g)) out.push(m[1]);
   if (b.texto != null) out.push(b.texto);
   return out;
 }
@@ -255,22 +274,22 @@ test('soltar saca sólo lo suyo, y un selector que el navegador no entiende no r
 
 // ── El montaje ───────────────────────────────────────────────────────────────
 
-test('ChatAgentApp lo monta como CURSO: el gancho antes de los return, el «?» en los dos lugares y la capa en el <main>', () => {
+test('ChatAgentApp lo monta como CURSO: el gancho antes de los return, «Tutorial» del menú en los dos lugares y la capa en el <main>', () => {
   const app = sinComentarios(leer('app/automations/ChatAgentApp.tsx'));
-  assert.match(app, /import \{ AyudaAutomations, RecorridoAutomations, useRecorridoAutomations \} from '\.\/RecorridoAutomations';/);
+  assert.match(app, /import \{ RecorridoAutomations, useRecorridoAutomations \} from '\.\/RecorridoAutomations';/);
   const gancho = app.indexOf('const recorrido = useRecorridoAutomations(rolAdmin && enOnboarding === false && visibles !== null && visibles.length > 0 && creando === null && !galeria);');
   // Solo, a quien arma (un admin, como `puedeEditar` en CURSO) y con la pantalla llena: ni el cartel vacío
   // («Todos arrancan vacíos»: quedaría VISTO con tres pasos), ni la galería encima, ni mientras se crea una.
   assert.ok(gancho > 0, 'el autoabrir cambió: ¿a quién y cuándo se abre solo?');
   const primerReturn = app.indexOf('if (enOnboarding === null) {');
   assert.ok(primerReturn > 0 && gancho < primerReturn, 'el gancho va ANTES de los return (AGENTS.md: ningún hook detrás de un return)');
-  // El «?»: en el renglón de la lista (al lado del horario) y en el cartel vacío.
-  assert.equal((app.match(/<AyudaAutomations onClick=\{recorrido\.reabrir\} \/>/g) ?? []).length, 2);
-  const horario = app.slice(app.indexOf('horario={('), app.indexOf('</span>', app.indexOf('horario={(')));
-  // (Desde la décima tanda, GENERAL 4, al lado de «Configuraciones», que reemplazó al botón del horario.)
-  assert.match(horario, /<ConfiguracionesBoton \/>\s*<AyudaAutomations onClick=\{recorrido\.reabrir\} \/>/);
+  // «Tutorial» del menú (undécima tanda, punto 9: era el «?» de al lado de Configuraciones): antes del buscador de
+  // la lista y en el cartel vacío.
+  assert.equal((app.match(/<MenuAutomations onTutorial=\{recorrido\.reabrir\} \/>/g) ?? []).length, 2);
+  assert.match(app, /menu=\{<MenuAutomations onTutorial=\{recorrido\.reabrir\} \/>\}/);
   const vacio = app.slice(app.indexOf('Todavía no hay automatizaciones.'), app.indexOf('{errCrear && <span role="alert"'));
-  assert.match(vacio, /<AyudaAutomations onClick=\{recorrido\.reabrir\} \/>/);
+  assert.match(vacio, /<MenuAutomations onTutorial=\{recorrido\.reabrir\} \/>/);
+  assert.doesNotMatch(app, /AyudaAutomations/, 'volvió el «?»');
   // La capa, una vez y adentro del <main> de la pantalla llena (no en el del QR ni en el del cargando).
   const llena = app.slice(app.indexOf("<main style={{ flex: 1, minWidth: 0, height: '100vh'"));
   assert.equal((app.match(/<RecorridoAutomations /g) ?? []).length, 1);
@@ -280,7 +299,9 @@ test('ChatAgentApp lo monta como CURSO: el gancho antes de los return, el «?» 
 test('RecorridoAutomations: marca sólo mientras está abierto, busca en su <main> y suelta al cerrar', () => {
   const src = sinComentarios(leer('app/automations/RecorridoAutomations.tsx'));
   assert.match(src, /return useRecorrido\(RECORRIDO_AUTOMATIONS, \{ autoabrir \}\);/);
-  assert.match(src, /<BotonRecorrido objetivo=\{OBJETIVO_AYUDA\}/, 'sin `objetivo`, el último paso no tiene a qué señalar');
+  // El último paso señala el menú (undécima tanda): su `data-recorrido` lo escribe A MANO MenuAutomations.
+  assert.doesNotMatch(src, /BotonRecorrido|AyudaAutomations/, 'volvió el «?»');
+  assert.match(sinComentarios(leer('app/automations/ConfiguracionesBoton.tsx')), /<span data-recorrido=\{OBJETIVO_AYUDA\}/, 'sin el `data-recorrido`, el último paso no tiene a qué señalar');
   assert.match(src, /useLayoutEffect\(\(\) => \{\s*if \(!abierto\) return;/);
   assert.match(src, /ancla\.current\?\.closest\('main'\)/);
   // Sólo `childList`: las marcas son atributos, y mirándolos se observaría a sí mismo.

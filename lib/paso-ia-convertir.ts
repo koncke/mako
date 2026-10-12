@@ -8,12 +8,16 @@
 // sin cambiar lo que hace.
 //
 // Se pliega un caso cuyo subárbol es exactamente una de estas tres formas (las que arman la galería, el
-// conversor de las secuencias de antes y «＋ o» del editor):
-//   · [«MaKo contesta»]                         → responder = su cuerpo, sola = `revisar === false`;
-//   · [«MaKo contesta» → «avisar al equipo»]    → lo mismo, y avisar;
-//   · [«avisar al equipo»]                      → sólo avisar (no contesta: la charla pasa a una persona).
-// Un caso sin nada debajo se pliega a un caso que no hace nada (Publicar lo marca: «no contesta ni avisa»).
-// Y «Otra cosa» que es un «avisar al equipo» se pliega a `otra_aviso`; sin «Otra cosa», el aviso de siempre.
+// conversor de las secuencias de antes y «＋ o» del editor). UNDÉCIMA TANDA: la LIBERTAD sale de la forma
+// (`camposDeLibertad`, lib/ai-step-libertad.ts) y el aviso al grupo se deriva de ella:
+//   · [«MaKo contesta» que sale solo]              → responder = su cuerpo, «Sola»;
+//   · [«MaKo contesta» a revisar]                  → responder = su cuerpo, «Para aprobar»;
+//   · [«MaKo contesta» → «avisar al equipo»]       → «Para aprobar» (también si salía solo: «Sola» no avisa, y
+//                                                    una persona ve lo que avisaba; §7, «sola + te aviso»);
+//   · [«avisar al equipo»] o nada debajo           → «Sólo te avisa» (no contesta: la charla pasa a una persona).
+// Una libertad que el escenario no puede tener (plata) baja a «Para aprobar»: lo hace `juntarPasosIA` al final (la
+// MISMA puerta que todo lo de antes; una copia acá no la cazaba ninguna rotura: medido, quedaba muerta).
+// «Otra cosa» que es un «avisar al equipo» se va: «Lo demás» avisa con el texto de siempre (`AVISO_OTRA_COSA`).
 //
 // ⚠️ TODO O NADA. Si UN caso tiene algo que no entra (una condición, una espera, un audio, un texto fijo,
 // varios mensajes, una tarjeta a la que se llega también por otro lado, un «Ir a» que salta ahí), no se
@@ -21,27 +25,31 @@
 //
 // ⚠️ LO QUE SE PIERDE AL PLEGAR UN AVISO: su texto propio. El aviso de un caso del AI Step lleva el título
 // del caso y lo que escribió el lead (`expandirPasoIA`); el `mensaje` que tuviera la tarjeta de antes no
-// tiene dónde vivir en el caso. El de «Otra cosa», sí: es `otra_aviso`.
+// tiene dónde vivir en el caso. Desde la undécima tampoco el de «Otra cosa» (`otra_aviso` se fue).
 //
 // Conserva el id del nodo y los ids de los casos (el clasificador devuelve el id del caso, y el motor
-// deriva de ahí los de la expansión); las tarjetas plegadas se van del array.
+// deriva de ahí los de la expansión); las tarjetas plegadas se van del array. Queda UN AI Step. Su OBJETIVO lo pone quien
+// convierte (`op.objetivo`: «Crear con IA» lo trae en la tarjeta `si_responde`, lib/flujo-ia.ts); sin él, Publicar lo
+// pide y la tarjeta dice «Falta el objetivo» (el botón «Pasar a AI Step» del lienzo no lo sabe: lo escribe la persona).
 // =============================================================================
 
 import {
   type PasoGrafo, type CasoRespuesta,
-  claseDe, esPasoIA, indicePorId, nodoPorId, normalizar, padresDe, separarPasosIA, OP_AVISO_EQUIPO, AVISO_OTRA_COSA,
+  claseDe, esPasoIA, indicePorId, nodoPorId, normalizar, padresDe, juntarPasosIA, OP_AVISO_EQUIPO, TOPE_OBJETIVO,
 } from './flujo-grafo';
+import { conLibertad, type Libertad } from './ai-step-libertad';
 
 export type ConversionPasoIA<P> = { pasos: P[] } | { error: string };
 
-/** Lo de adentro de un caso plegado. */
-type Adentro = Pick<CasoRespuesta, 'responder' | 'sola' | 'avisar'>;
+/** Lo de adentro de un caso plegado: su respuesta y la libertad que sale de la forma. */
+type Adentro = { responder?: string; libertad: Libertad };
 
 /**
  * Pasa el «Si responde» `idRespuesta` (o el único que haya) a un AI Step. `{ error }` con un motivo corto
- * —va a la pantalla— si no hay, si ya lo es, o si algo no se puede plegar.
+ * —va a la pantalla— si no hay, si ya lo es, o si algo no se puede plegar. `op.objetivo`: el del AI Step (sin espacios
+ * de más, hasta `TOPE_OBJETIVO`); vacío o ausente, queda sin objetivo.
  */
-export function respuestaAPasoIA<P extends PasoGrafo>(pasosIn: readonly P[], idRespuesta?: string): ConversionPasoIA<P> {
+export function respuestaAPasoIA<P extends PasoGrafo>(pasosIn: readonly P[], idRespuesta?: string, op: { objetivo?: string } = {}): ConversionPasoIA<P> {
   const base = normalizar(pasosIn);
   const i = idRespuesta ? indicePorId(base, idRespuesta) : base.findIndex((p) => claseDe(p) === 'respuesta');
   const r = i >= 0 ? base[i] : null;
@@ -69,47 +77,44 @@ export function respuestaAPasoIA<P extends PasoGrafo>(pasosIn: readonly P[], idR
 
   /** Lo que cuelga de un caso, plegado; null = no entra. */
   const plegar = (desde: string, primero: string | null): Adentro | null => {
-    if (!primero) return {};
+    if (!primero) return { libertad: 'avisa' };
     const n = nodoPorId(base, primero);
     if (!n || !soloDesde(primero, desde)) return null;
-    if (esAviso(n)) { quitar.add(primero); return { avisar: true }; }
+    if (esAviso(n)) { quitar.add(primero); return { libertad: 'avisa' }; }
     if (!esContesta(n)) return null;
-    const adentro: Adentro = {
-      ...((n.cuerpo ?? '').trim() ? { responder: (n.cuerpo ?? '').trim() } : {}),
-      ...(n.revisar === false ? { sola: true } : {}),
-    };
+    const responder = (n.cuerpo ?? '').trim();
+    let libertad: Libertad = n.revisar === false ? 'sola' : 'aprueba';
     const sigue = n.siguiente ?? null;
     if (sigue) {
       const a = nodoPorId(base, sigue);
       if (!esAviso(a) || !soloDesde(sigue, primero)) return null;
       quitar.add(sigue);
-      adentro.avisar = true;
+      libertad = 'aprueba';
     }
     quitar.add(primero);
-    return adentro;
+    return { ...(responder ? { responder } : {}), libertad: responder ? libertad : 'avisa' };
   };
 
   const casos: CasoRespuesta[] = [];
   for (const c of r.casos ?? []) {
     const adentro = plegar(r.id!, c.siguiente ?? null);
     if (!adentro) return { error: `«${c.titulo.trim() || 'Un caso'}» tiene tarjetas que no entran en un AI Step` };
-    casos.push({ id: c.id, titulo: c.titulo, cuando: c.cuando, siguiente: null, ...adentro });
+    const escenario: CasoRespuesta = { id: c.id, titulo: c.titulo, cuando: c.cuando, siguiente: null, ...(adentro.responder ? { responder: adentro.responder } : {}) };
+    // La libertad de la forma (la que el escenario no puede tener, la baja `juntarPasosIA` abajo).
+    casos.push(conLibertad(escenario, adentro.libertad));
   }
 
-  // «Otra cosa»: un aviso que termina ahí, o nada (el aviso de siempre).
-  let otra: string | null = null;
+  // «Otra cosa»: un aviso que termina ahí, o nada. Las dos son «Lo demás: Sólo te avisa» (el default: sin caso).
   if (r.si_no) {
     const n = nodoPorId(base, r.si_no);
     if (!n || !esAviso(n) || !soloDesde(r.si_no, r.id!)) return { error: '«Otra cosa» no es un aviso' };
-    const m = (n.accion as { params?: { mensaje?: unknown } } | null | undefined)?.params?.mensaje;
-    const texto = typeof m === 'string' ? m.trim() : '';
-    if (texto && texto !== AVISO_OTRA_COSA) otra = texto;
     quitar.add(r.si_no);
   }
 
-  const ia = { ...r, paso_ia: true as const, casos, si_no: null, ...(otra ? { otra_aviso: otra } : {}) } as P;
+  const objetivo = (op.objetivo ?? '').replace(/\s+/g, ' ').trim().slice(0, TOPE_OBJETIVO);
+  const ia = { ...r, paso_ia: true as const, casos, si_no: null, ...(objetivo ? { objetivo } : {}) } as P;
   const out = base.filter((q) => !quitar.has(q.id!)).map((q) => (q.id === r.id ? ia : q));
-  // AI STEP v2 (décima tanda): UNA TARJETA POR CASO. El primero se queda con el id del nodo; los demás van al
-  // final del array (`separarPasosIA`), y un «Si responde» sin casos queda «Cualquier respuesta» + «Sólo te avisa».
-  return { pasos: normalizar(separarPasosIA(normalizar(out)).pasos) };
+  // UNDÉCIMA TANDA: UN AI Step con todos los escenarios adentro (`juntarPasosIA` deja la forma de hoy: sin campos
+  // de antes). Un «Si responde» sin casos queda un AI Step sin escenarios: «Lo demás: Sólo te avisa».
+  return { pasos: normalizar(juntarPasosIA(normalizar(out)).pasos) };
 }

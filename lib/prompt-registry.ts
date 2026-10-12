@@ -471,23 +471,24 @@ export const REGISTRY: Group[] = [
         label: 'Crear una automatización con IA (system)', kind: 'system', dynamic: true,
         variables: [], scope: 'static-only', sensitive: false,
         default: CREAR_IA_SYSTEM_TEMPLATE,
-        context: 'La caja «Generar con IA» de una automatización nueva: el modelo devuelve el flujo como un JSON propio con NOMBRES, y el código lo traduce y lo repara (lib/flujo-ia.ts → deIA). No borres la forma del JSON ni las reglas duras: el código saca lo que no las cumple y, si queda roto, prueba otro proveedor. No le pidas links ni ids: los pone el código, y el disparador va por su clave corta (d1, d2…). No le agregues «ir_a»: la IA no arma saltos (el código los saca). No lo alargues: cada token de más le resta salida a Groq y lo deja afuera de la cascada. Y no lo pases a voseo: los mensajes le llegan al cliente del negocio.',
+        context: 'La caja «Generar con IA» de una automatización nueva: el modelo devuelve el flujo como un JSON propio con NOMBRES, y el código lo traduce y lo repara (lib/flujo-ia.ts → deIA). No borres la forma del JSON ni las reglas duras: el código saca lo que no las cumple y, si queda roto, prueba otro proveedor. No le pidas links ni ids: los pone el código, y el disparador va por su clave corta (d1, d2…). No le agregues «ir_a»: la IA no arma saltos (el código los saca). No borres el "objetivo" de "si_responde": es el del AI Step que arma el código (lib/flujo-ia.ts → objetivoDeIA), y sin él no se publica. No borres la regla 8 (una automatización por categoría: recordatorios con antes_de_reunion, el aviso al equipo con avisar_al_equipo y UN si_responde) ni los datos que permite la regla 2: los de la reunión sólo detrás de una espera antes de la reunión o de la condición reunion_en (el código los rechaza en otro lado), y los del equipo sólo en avisar_al_equipo. El ejemplo de la categoría del pedido (la plantilla de la galería) viaja en el mensaje user, no aquí. No lo alargues: cada token de más le resta salida a Groq y lo deja afuera de la cascada. Y no lo pases a voseo: los mensajes le llegan al cliente del negocio.',
       },
-      // AI Step v2 (décima tanda, docs/diseno-ai-step-v2.md §7): «✦ Armar el resto» y las objeciones del ensayo.
-      // Un slot (`medio`); el objetivo, el negocio y el caso van en el mensaje user (un override no los pierde).
+      // El AI Step (décima tanda; uno por objetivo desde la undécima, docs/diseno-undecima-tanda.md §6): «✦ Armar» y
+      // las objeciones del ensayo. Un slot (`medio`); el objetivo, el negocio, los escenarios y el catálogo van en el
+      // mensaje user (un override no los pierde).
       {
         key: 'automations.ai_step.armar', source: 'override',
-        label: 'AI Step — armar el resto desde el objetivo (system)', kind: 'system', dynamic: true,
+        label: 'AI Step — armar los escenarios desde el objetivo (system)', kind: 'system', dynamic: true,
         variables: [v('medio', 'por dónde contesta la tarjeta: WhatsApp, Instagram o Messenger')], scope: 'static-only', sensitive: false,
         default: ARMAR_AI_STEP_SYSTEM_TEMPLATE,
-        context: '«✦ Armar el resto» del primer paso de un AI Step: con el objetivo, el modelo propone el nombre, cuándo entra, cómo responder y la libertad, como un JSON. El código lo repara (lib/ai-step-armar.ts → repararArmado): nunca «sola» si habla de plata, «Cualquier respuesta» sólo si no la tiene otra tarjeta. No borres la forma del JSON. Y no lo pases a voseo: lo que escribe le llega al cliente del negocio.',
+        context: '«✦ Armar» y «✦ Otro con MaKo» de un AI Step: con el objetivo, el modelo arma los escenarios (de 2 a 6, o uno más) con su nombre, cuándo entra, cómo responder y su libertad, y qué pasa con «Lo demás», como un JSON {"escenarios":[…],"lo_demas":…}. El código lo repara (lib/ai-step-armar.ts → repararArmado): nombres que no se repiten, «cuándo» obligatorio, nunca «sola» si habla de plata ni en «Lo demás», hasta 10. No borres la forma del JSON. Y no lo pases a voseo: lo que escribe le llega al cliente del negocio.',
       },
       {
         key: 'automations.ai_step.objeciones', source: 'override',
         label: 'AI Step — las objeciones del ensayo (system)', kind: 'system', dynamic: true,
         variables: [v('medio', 'por dónde le escribe el lead: WhatsApp, Instagram o Messenger')], scope: 'static-only', sensitive: false,
         default: OBJECIONES_SYSTEM_TEMPLATE,
-        context: 'El ensayo de objeciones de un AI Step: el modelo propone el primer mensaje del lead y 4 objeciones de ESTE negocio, como un JSON (lib/ai-step-ensayo.ts → leerObjeciones). Después MaKo hace de lead con el prompt del ensayo de siempre (setting.ensayo). No borres la forma del JSON.',
+        context: 'El ensayo de objeciones de un AI Step: con el objetivo y TODOS sus escenarios, el modelo propone el primer mensaje del lead y 4 objeciones de ESTE negocio, como un JSON (lib/ai-step-ensayo.ts → leerObjeciones). Después MaKo hace de lead con el prompt del ensayo de siempre (setting.ensayo). No borres la forma del JSON.',
       },
       // El Dashboard (11/10/2026). SIN slots: el catálogo y lo que muestran los gráficos viajan en el
       // mensaje user, así un override guardado no pierde un conjunto nuevo.

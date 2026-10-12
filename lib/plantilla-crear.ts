@@ -22,22 +22,20 @@
 //   · SI LOS PASOS FALLAN, SE BORRA. Una automatización con el nombre de la plantilla y sin sus
 //     tarjetas dice ser algo que no es. Recién creada no tiene inscripciones ni envíos: borrarla no
 //     se lleva nada.
-//   · UN CRON FIJO (`cron.fijo`, el recordatorio de la reunión, 10/10/2026) NACE EN LA FILA, no por
-//     `guardarDisparadores`: `setSecuenciaPasos` lee el `trigger_tipo` de la fila para saber si tiene que
-//     exigir la forma que el emisor del recordatorio sabe mandar, así que tiene que estar ANTES de los
-//     pasos. Y un negocio tiene UNO: con dos, el emisor manda la primera activa por cada minuto y la
-//     lista muestra dos recordatorios sin decir cuál sale. Si ya lo tiene (sin archivar), no se crea nada.
 //   · UN EVENTO DE MaKo (`cron.fijo: TRIGGER_AVISO_MAKO`, «MaKo en WhatsApp», 11/10/2026) NACE EN LA FILA con
 //     su lista de CRON puesta (`disparadores: [{ trigger_tipo: 'aviso_mako', subtipo: <evento> }]`), en el
 //     MISMO insert y antes de los pasos: `setSecuenciaPasos` lee el evento para frenar lo que su emisor no sabe
 //     mandar (`frenoDelEvento`), y sin él la fila quedaría «Elige el evento» y no saldría nunca. Por la lista de
 //     CRON (`guardarDisparadores`) no puede: un CRON del emisor no se cambia (`problemaDeCambio`). Y de un
-//     evento se permiten VARIAS: «uno por negocio» es sólo del recordatorio (dos filas del mismo evento salen
-//     las dos, como dos automatizaciones del mismo CRON).
-//   · EL EVENTO DE UN CANAL (`cron.fijo` Instagram, Messenger o «Recibes un email», décima tanda, 11/10/2026:
-//     docs/diseno-automations-galeria-v2.md §3) NACE EN LA FILA igual que el de MaKo, con su lista de CRON puesta
-//     (`subtipo` = el evento). A diferencia del de MaKo, NO es del emisor: el CRON se cambia después como cualquiera.
-//     Va en la fila y no por `guardarDisparadores` porque no hay nada que elegir: es la plantilla la que lo trae.
+//     evento se permiten VARIAS (dos filas del mismo evento salen las dos, como dos automatizaciones del mismo CRON).
+//   · LOS EVENTOS DE UN CANAL (`cron.fijo` Instagram, Messenger, «Recibes un email» o «Pagos»; undécima tanda: TODOS
+//     los de la categoría en la MISMA fila, un disparador por evento, `disparadoresDePlantilla`) NACEN EN LA FILA
+//     igual que el de MaKo. A diferencia del de MaKo, NO son del emisor: el CRON se cambia después como cualquiera.
+//     Van en la fila y no por `guardarDisparadores` porque no hay nada que elegir: es la plantilla la que los trae.
+//   · UN ID DE ANTES (undécima tanda, punto 10: «uno que incluya toda la categoría»): las 25 plantillas que eran
+//     pedacitos de una categoría (`PLANTILLAS_REEMPLAZADAS`) contestan 400 nombrando la que las reemplaza. NUNCA se
+//     crea la nueva en silencio: quien pidió la vieja (una pantalla en caché, la API) tiene que saber qué va a crear.
+//     «Ya la tienes» se fue con el recordatorio: ya no es una plantilla (vive en «Un Lead Agendó Llamada»).
 //   · «SE LE PUSO [UNA ETIQUETA]» (`cron.pide: 'etiqueta'`, la bienvenida al newsletter): la etiqueta es del
 //     negocio y la elige la pantalla; entra por `guardarDisparadores` como una etapa (`disparadorDeEleccion`). Sin
 //     elegir, nace con el CRON a elegir.
@@ -47,14 +45,13 @@
 // una base de mentira. La ruta enchufa los de verdad.
 
 import {
-  plantillaPorId, pasosDePlantilla, nombreLibre, disparadorDeEleccion,
+  plantillaPorId, plantillaQueLaReemplaza, pasosDePlantilla, nombreLibre, disparadorDeEleccion, disparadoresDePlantilla,
   type PlantillaAutomatizacion, type PideCron,
 } from './plantillas-automatizaciones';
-import { TRIGGER_AVISO_MAKO, TRIGGER_INSTAGRAM, TRIGGER_MESSENGER, TRIGGER_EMAIL_RECIBIDO, type Disparador } from './disparadores';
-import { TRIGGER_RECORDATORIO } from './recordatorio-automatizacion';
+import type { Disparador } from './disparadores';
 import { emojiDeSecuencia } from './flujo-conversacion';
 
-/** Lo que pidió no es una plantilla de la galería, o la etapa no es del kanban que pide: es del que pide (400). */
+/** Lo que pidió no es una plantilla de la galería (o es una de antes), o la etapa no es del kanban que pide: es del que pide (400). */
 export class PlantillaInvalidaError extends Error {
   constructor(m: string) { super(m); this.name = 'PlantillaInvalidaError'; }
 }
@@ -106,18 +103,25 @@ const claveNueva = (p: PlantillaAutomatizacion) => `plantilla-${p.id}-${Date.now
  */
 export function filaDePlantilla(p: PlantillaAutomatizacion, clave: string, nombre: string): Record<string, unknown> {
   const fila: Record<string, unknown> = { clave, nombre, etapa: 'manual', trigger_tipo: p.cron.fijo ?? 'manual', activa: false, pasos: [], emoji: emojiDeSecuencia(p.emoji) };
-  // El evento de MaKo o de un canal: CUÁL evento va en la lista de CRON (mig 0241), y nace con ella (ver la cabecera).
-  if (p.cron.fijo && CON_EVENTO.has(p.cron.fijo) && p.cron.evento) fila.disparadores = [{ id: 'd1', trigger_tipo: p.cron.fijo, subtipo: p.cron.evento }];
+  // El evento de MaKo, o los eventos de un canal (uno por disparador): van en la lista de CRON (mig 0241), y nace con
+  // ella (ver la cabecera). Como objeto, nunca como string: es jsonb.
+  const fijos: Disparador[] = disparadoresDePlantilla(p);
+  if (fijos.length) fila.disparadores = fijos;
   return fila;
 }
 
-/** Los CRON fijos que traen CUÁL evento (el `subtipo`): el de MaKo y los de un canal. El recordatorio, no. */
-const CON_EVENTO: ReadonlySet<string> = new Set([TRIGGER_AVISO_MAKO, TRIGGER_INSTAGRAM, TRIGGER_MESSENGER, TRIGGER_EMAIL_RECIBIDO]);
+/** El motivo de un id de antes: nombra la que lo reemplaza (o dice que se retiró). null = no es un id de antes. */
+export function motivoDePlantillaVieja(id: unknown): string | null {
+  const v = plantillaQueLaReemplaza(id);
+  if (!v) return null;
+  return v.reemplazo ? `Esa plantilla ahora es «${v.reemplazo.nombre}».` : 'Esa plantilla se retiró.';
+}
 
 /** Crea la automatización de la plantilla `plantillaId`. Devuelve la creada, o tira con el motivo. */
 export async function crearDesdePlantilla(plantillaId: unknown, deps: DepsPlantilla, o: { disparador?: unknown } = {}): Promise<CreadaDesdePlantilla> {
   const p = plantillaPorId(plantillaId);
-  if (!p) throw new PlantillaInvalidaError('Esa plantilla no existe.');
+  // Un id de antes NUNCA crea otra cosa en silencio: contesta nombrando la que lo reemplaza.
+  if (!p) throw new PlantillaInvalidaError(motivoDePlantillaVieja(plantillaId) ?? 'Esa plantilla no existe.');
   // Lo elegido se entiende ANTES de crear nada: una etapa de otro kanban es un error de quien pide, y una
   // plantilla con el CRON fijo (sin `pide`) no se arranca en ninguna etapa.
   const pidio = o.disparador != null && o.disparador !== '';
@@ -126,10 +130,6 @@ export async function crearDesdePlantilla(plantillaId: unknown, deps: DepsPlanti
 
   const { data: vivas, error: errNombres } = await deps.db.from('nutricion_secuencias').select('nombre, trigger_tipo').is('archivada_at', null);
   if (errNombres) throw new Error(`crearDesdePlantilla: ${errNombres.message}`);
-  // «Ya la tienes» es SÓLO del recordatorio: de un evento de MaKo se permiten varias (ver la cabecera).
-  if (p.cron.fijo === TRIGGER_RECORDATORIO && (vivas ?? []).some((r) => r.trigger_tipo === TRIGGER_RECORDATORIO)) {
-    throw new PlantillaInvalidaError('Ya la tienes en tu lista.');
-  }
   const nombre = nombreLibre(p.nombre, (vivas ?? []).map((r) => String(r.nombre ?? '')));
 
   const fila = filaDePlantilla(p, (deps.clave ?? (() => claveNueva(p)))(), nombre);

@@ -27,16 +27,15 @@
 import 'server-only';
 
 import { linkApp } from './app-url';
-import { RUTA_DE_LINK, RE_VARIABLE, resolverVariables, fuentesQueNombra, type DestinoMensaje, type FuenteDato } from './variables-aviso';
-import { tzDeWorkspace, KEY_TIMEZONE } from './timezone';
+import { RUTA_DE_LINK, RE_VARIABLE, fuentesQueNombra, type DestinoMensaje, type FuenteDato } from './variables-aviso';
+import { zonaDelNegocio } from './timezone';
 import { getWorkspace, runWithWorkspace, getTenantDb } from './workspace';
-import { getSetting } from './settings';
-import { zonaDelMotor } from './nutricion-grafo-motor';
 import { etapaVigenteDe } from './funnel-etapas';
 import { nombreVisible } from './lead-funnel-reglas';
 import {
   valoresDelLead, valoresDelNombre, valoresConZona, valoresDelProducto, valoresDeEtiquetas, valoresDePagos,
   valoresDelCurso, valoresDelPerfil, valoresDelLeadMagnet, valoresDelMomento, valoresDelCobro,
+  valoresDeLaProximaReunion, valoresDeRespuestasAgenda, textoConDatos,
 } from './variables-del-lead';
 import type { Lead } from './leads';
 
@@ -57,13 +56,16 @@ async function intentar(que: string, fn: () => Promise<Record<string, string>>):
 }
 
 /**
- * La zona con la que se dicen la fecha y las horas. Al EQUIPO, la de `tzDeWorkspace` (lo de siempre
- * de los avisos); al LEAD —el camino del motor— la que usa el motor, sin salir a la red
- * (`zonaDelMotor`): un envío no puede esperar a que se averigüe una zona.
+ * La zona con la que se dicen la fecha y las horas: la del NEGOCIO (`zonaDelNegocio`, lib/timezone.ts: una lectura
+ * con memo, sin salir a la red), la MISMA para el lead y para el equipo, y la misma del horario de envío del motor.
+ *
+ * ⚠️ MIRABA EL DESTINO (hasta la undécima tanda). Al equipo, `tzDeWorkspace` (sin zona: Tijuana); al lead, la del
+ * motor (sin zona: Ciudad de México). Un «Nuevo agendado» al grupo y el recordatorio al lead decían DOS horas
+ * distintas para la misma reunión: la condición para que el recordatorio viva en el mismo flujo que el aviso
+ * (docs/diseno-undecima-tanda.md §5, «La zona de toda hora citada es `zonaDelNegocio(ws)`, sin importar el destino»).
  */
-async function zonaPara(ws: number, destino: DestinoMensaje): Promise<string> {
-  if (destino === 'equipo') return tzDeWorkspace(ws);
-  return zonaDelMotor(await runWithWorkspace(ws, () => getSetting(KEY_TIMEZONE)).catch(() => null));
+async function zonaPara(ws: number): Promise<string> {
+  return zonaDelNegocio(ws);
 }
 
 /**
@@ -154,7 +156,8 @@ export async function valoresDeVariables(ctx: CtxVariables, texto?: string, dato
     for (const [k, ruta] of Object.entries(RUTA_DE_LINK)) out[k] = linkApp(ruta, ctx.ws);
     if (ctx.leadId) out.link_lead = linkApp(`/crm/${ctx.leadId}/resumen`, ctx.ws);
   }
-  const zona = pide('momento') || pide('zona') ? await zonaPara(ctx.ws, destino).catch(() => null) : null;
+  // La zona la piden la fecha/hora de ahora, la hora de sus reuniones y la PRÓXIMA reunión (cuándo es, a qué hora).
+  const zona = pide('momento') || pide('zona') || pide('proxima') ? await zonaPara(ctx.ws).catch(() => null) : null;
   // Sin zona no se inventa una hora: los tokens del momento quedan crudos.
   if (zona && pide('momento')) Object.assign(out, valoresDelMomento(Date.now(), zona));
   if (pide('negocio')) {
@@ -168,13 +171,16 @@ export async function valoresDeVariables(ctx: CtxVariables, texto?: string, dato
   if (f && f.size) {
     await runWithWorkspace(ctx.ws, async () => {
       const lecturas: Array<Promise<Record<string, string>>> = [];
-      if (ctx.leadId && (f.has('ficha') || f.has('zona') || f.has('producto') || f.has('curso'))) {
+      if (ctx.leadId && (f.has('ficha') || f.has('zona') || f.has('producto') || f.has('curso') || f.has('proxima'))) {
         lecturas.push(intentar('la ficha del lead', async () => {
           const { getLead } = await import('./leads');
           const l = await getLead(ctx.leadId!);
           if (!l) return {};
           const r: Record<string, string> = { ...valoresDelLead(l) };
           if (zona && f.has('zona')) Object.assign(r, valoresConZona(l, zona));
+          // La PRÓXIMA reunión, de la MISMA fila y con la regla ESTRICTA (`proximaReunion`): la que ancla el DELAY
+          // «antes de la reunión». «Cuánto falta» se calcula ahora, al mandar. Sin zona, no se inventa nada.
+          if (zona && f.has('proxima')) Object.assign(r, valoresDeLaProximaReunion(l, zona, Date.now()));
           if (f.has('producto')) Object.assign(r, await intentar('el producto del lead', () => valoresDeSuProducto(l)));
           if (f.has('curso')) Object.assign(r, await intentar('el curso del lead', () => valoresDeSuCurso(l, ctx.ws, destino)));
           return r;
@@ -213,6 +219,17 @@ export async function valoresDeVariables(ctx: CtxVariables, texto?: string, dato
           return valoresDelLeadMagnet(await getEntregables());
         }));
       }
+      // Lo que contestó al AGENDAR (undécima tanda): la última fila de `lead_respuestas` de ESTE lead, UNA lectura
+      // por el cliente del inquilino (adentro de `runWithWorkspace(ctx.ws)`). Si falla, `intentar` lo deja afuera.
+      if (ctx.leadId && f.has('respuestas')) {
+        lecturas.push(intentar('lo que contestó al agendar', async () => {
+          const db = await getTenantDb();
+          const { data, error } = await db.from('lead_respuestas').select('respuestas')
+            .eq('lead_id', ctx.leadId!).order('created_at', { ascending: false }).limit(1);
+          if (error) throw new Error(error.message);
+          return valoresDeRespuestasAgenda((data ?? []) as Array<{ respuestas: unknown }>);
+        }));
+      }
       for (const r of await Promise.all(lecturas)) Object.assign(out, r);
     });
   }
@@ -229,10 +246,16 @@ export async function valoresDeVariables(ctx: CtxVariables, texto?: string, dato
   return out;
 }
 
-/** El texto con los datos puestos. Azúcar sobre las dos de arriba. */
+/**
+ * El texto con los datos puestos. Azúcar sobre las dos de arriba, con LA regla de todo envío (`textoConDatos`,
+ * lib/variables-del-lead.ts): primero se va el renglón que nombra un dato sin valor, después se ponen los datos. La
+ * usan la tarjeta «MaKo en WhatsApp» de un flujo y de un evento (lib/flujos.ts, la ⚡ Acción), las plantillas de los
+ * avisos y el drenador de los programados. Era `resolverVariables` sin el renglón opcional: «📱 {{lead_telefono}}»
+ * de un lead sin teléfono llegaba con el token crudo al grupo.
+ */
 export async function conVariables(texto: string, ctx: CtxVariables, datos?: Record<string, string>): Promise<string> {
   if (!texto.includes('{{')) return texto;   // el 99% de los avisos, sin una sola lectura
-  return resolverVariables(texto, await valoresDeVariables(ctx, texto, datos));
+  return textoConDatos(texto, await valoresDeVariables(ctx, texto, datos));
 }
 
 /**

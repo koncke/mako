@@ -152,7 +152,8 @@ test('el modelo recibe el cuerpo CRUDO y las variables se aplican a lo que devue
   assert.match(def, /if \(paso\.tipo !== 'ia'\) return \{ texto: cuerpoNO, autor: 'fijo' \}/);
   assert.match(def, /await import\('@\/lib\/paso-ia'\)/, 'import estático = ciclo con nutricion-generator');
   assert.match(def, /escribirPasoIA\(\{ cuerpo: paso\.cuerpo,/, 'con el texto ya resuelto, la validación no puede ver si perdió un placeholder');
-  assert.match(def, /aplicarVariables\(r\.texto, varsNO\)/);
+  // Undécima tanda (punto 6): `textoConDatos`, la misma regla de todo envío (el renglón opcional).
+  assert.match(def, /textoConDatos\(r\.texto, varsNO\)/);
   assert.match(def, /\{ texto: cuerpoNO, autor: 'fallback', motivo: r\.motivo \}/);
 });
 

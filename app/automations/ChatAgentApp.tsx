@@ -22,10 +22,11 @@ import { Icon } from '@/app/_components/icons';
 // en vez del que está mirando.
 import Link, { useRouter } from '@/app/_ui/Link';
 import { SimuladorWhatsApp, listaConCreando, type AbrirSecuencia, type Creando } from './SimuladorWhatsApp';
-// «Configuraciones» (décima tanda, GENERAL 4): el horario de oficina y los límites, en un modal. Reemplaza al
-// botón del horario (HorarioLista) en los mismos dos lugares.
-import { ConfiguracionesBoton } from './ConfiguracionesBoton';
-import { GaleriaPlantillas, type CreadaGaleria, type CreadaConIAGaleria, type SeccionGaleria } from './GaleriaPlantillas';
+// EL MENÚ ANTES DEL BUSCADOR (undécima tanda, punto 9): «Configuraciones» (el horario de oficina y los límites,
+// en un modal: décima tanda, GENERAL 4) y «Tutorial» (el recorrido), en un desplegable. Reemplaza al botón
+// «Configuraciones» y al «?» del recorrido, en los mismos dos lugares (la lista y el cartel vacío).
+import { MenuAutomations } from './ConfiguracionesBoton';
+import { GaleriaPlantillas, type CreadaGaleria, type CreadaConIAGaleria } from './GaleriaPlantillas';
 import { leerCopia, firmaDeCopia } from '@/lib/flujo-copia';
 import { resumenAvisos } from '@/lib/flujo-ia-cliente';
 // (Acá se importaba lib/chatbot-mensajes-mako.ts: el endpoint de Notificaciones y el link `?aviso=` de los
@@ -43,8 +44,9 @@ import type { CronAviso } from '@/lib/cron-aviso';
 // La misma pieza que /whatsapp: el QR, su sondeo y la recuperación de una sesión caída.
 import { EvolutionConnect } from '../whatsapp/EvolutionConnect';
 import { abreEnQR, marcarWhatsappAlCargar, puertaAlRecargar, type OnboardingChatbot } from '@/lib/chatbot-puerta';
-// El recorrido guiado de la tab (décima tanda, GENERAL 8), montado como el de CURSO.
-import { AyudaAutomations, RecorridoAutomations, useRecorridoAutomations } from './RecorridoAutomations';
+// El recorrido guiado de la tab (décima tanda, GENERAL 8), montado como el de CURSO. Se vuelve a ver con
+// «Tutorial» del menú (`MenuAutomations`).
+import { RecorridoAutomations, useRecorridoAutomations } from './RecorridoAutomations';
 
 /** Cuánto se conserva la URL firmada de un audio ya cargado: la firma dura 12 h (lib/setting-audios.ts). */
 const URL_AUDIO_VIGENTE_MS = 10 * 3_600_000;
@@ -110,13 +112,15 @@ export type PasoSecuenciaDto = {
  * Lo que un paso suma para ser un NODO de un flujo con ramas (lib/flujo-grafo.ts, pedido de
  * Martín del 08/10/2026, punto 9). Todo opcional: una secuencia de antes no trae nada.
  * `tipo: 'media'` es un archivo o una imagen de la biblioteca (`media_id`, por referencia).
- * El AI Step (novena tanda) suma `paso_ia`, el tono (`instrucciones`) y el aviso de «Otra cosa»
- * (`otra_aviso`), y un «Si responde» soltado del CRON lleva `suelta`: viajaban igual sin declararse
- * (JavaScript no borra lo que TypeScript no declara), pero el lienzo tenía que castear para editarlos.
+ * El AI Step (novena tanda) suma `paso_ia`, y un «Si responde» soltado del CRON lleva `suelta`: viajaban igual sin
+ * declararse (JavaScript no borra lo que TypeScript no declara), pero el lienzo tenía que castear para editarlos.
+ * UNDÉCIMA TANDA (un AI Step por objetivo): lo del objetivo es de la TARJETA (`objetivo`, la voz `audio` y los
+ * `ejemplos` del ensayo), y se fueron el tono (`instrucciones`) y el aviso de «Otra cosa» (`otra_aviso`), que ya no
+ * edita ni lee nadie en la pantalla (los pliega `juntarPasosIA` al abrir).
  */
 export type CamposDelFlujo = Pick<PasoGrafo, 'id' | 'siguiente' | 'nodo' | 'espera' | 'ramas' | 'casos' | 'si_no' | 'destino' | 'revisar' | 'media_id'
-  // AI Step v2 (décima tanda): el MEDIO de la tarjeta (los campos nuevos del caso viajan en `casos`).
-  | 'paso_ia' | 'instrucciones' | 'otra_aviso' | 'suelta' | 'medio'>;
+  // AI Step: el MEDIO (décima) y lo del OBJETIVO (undécima). Lo de cada escenario viaja en `casos`.
+  | 'paso_ia' | 'suelta' | 'medio' | 'objetivo' | 'audio' | 'ejemplos'>;
 export type AudioSetting = { id: number; titulo: string; media_mime: string; duracion_s: number | null; transcript: string | null; url: string | null };
 export type SecuenciaDto = {
   id: number; clave: string; nombre: string; etapa: string; trigger_tipo: string;
@@ -248,9 +252,10 @@ function ChatAgentInner() {
   const [errCrear, setErrCrear] = useState<string | null>(null);
   /**
    * «＋ Nueva» abre la GALERÍA (10/10/2026: «hagamos la galería de las más comunes»): en blanco o desde una plantilla.
-   * `seccion: 'mako'` = la abrió «＋ Nuevo mensaje» y va a la sección «MaKo en WhatsApp» (11/10/2026).
+   * (Hasta la undécima tanda llevaba una `seccion`: «＋ Nuevo mensaje» la abría en «MaKo en WhatsApp». Se fue con
+   * ese botón, punto 9: la lista es una sola y las plantillas de MaKo se encuentran con el filtro de la galería.)
    */
-  const [galeria, setGaleria] = useState<false | { seccion?: SeccionGaleria }>(false);
+  const [galeria, setGaleria] = useState(false);
   /**
    * El onboarding de esta tab es UNA pregunta: ¿hay un WhatsApp vinculado?
    *
@@ -405,11 +410,8 @@ function ChatAgentInner() {
       await load();
     } catch { setErrCrear('Sin conexión — prueba de nuevo.'); } finally { setCreando(null); creandoNueva.current = false; }
   };
-  /**
-   * «＋ Nueva»: la galería. «Lienzo en blanco» es `crearNueva`, la de siempre (la galería no tiene su propia copia).
-   * «＋ Nuevo mensaje» la abre con el filtro «MaKo en WhatsApp» puesto (`seccion: 'mako'`).
-   */
-  const abrirGaleria = (seccion?: SeccionGaleria) => { setErrCrear(null); setGaleria({ seccion }); };
+  /** «＋ Nueva»: la galería. «Lienzo en blanco» es `crearNueva`, la de siempre (la galería no tiene su propia copia). */
+  const abrirGaleria = () => { setErrCrear(null); setGaleria(true); };
   /**
    * LA QUE ARMÓ MaKo DESDE «PÍDESELO A MaKo» (décima tanda, punto 6): ya está GUARDADA y pausada (la fila nació al
    * guardar, lib/flujo-ia-crear.ts). Se cierra el modal, se trae la lista y se abre; el aviso que más importa («Elige
@@ -720,11 +722,10 @@ function ChatAgentInner() {
           Todavía no hay automatizaciones.
           {rolAdmin && (
             <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              {/* EL MENÚ TAMBIÉN ACÁ, antes de «＋ Nueva» como en la lista va antes del buscador (punto 9): sin ninguna
+                  automatización la lista no se dibuja, y un negocio nuevo no tenía dónde poner el horario «allí mismo». */}
+              <MenuAutomations onTutorial={recorrido.reabrir} />
               <button onClick={() => abrirGaleria()} style={btnDark}>＋ Nueva</button>
-              {/* CONFIGURACIONES TAMBIÉN ACÁ (era el horario): sin ninguna automatización la lista no se dibuja,
-                  y un negocio nuevo no tenía dónde ponerlo «allí mismo». */}
-              <ConfiguracionesBoton />
-              <AyudaAutomations onClick={recorrido.reabrir} />
               {errCrear && <span role="alert" style={{ fontSize: 13, color: 'var(--bad)' }}>{errCrear}</span>}
             </div>
           )}
@@ -742,17 +743,11 @@ function ChatAgentInner() {
           onNueva={abrirGaleria} errorNueva={errCrear} onReload={() => void load()}
           abrir={abrirSec} onElegida={escribirSec}
           handoffs={sinCaso}
-          /* CONFIGURACIONES, ahí mismo en la lista (décima tanda, GENERAL 4; era el botón del horario, 10/10/2026:
-             «haz que se pueda configurar allí mismo, sin redirigir»): un modal con el horario de oficina y los
-             límites. El admin edita; el resto ve. Va como nodo y no adentro de la lista: ver `horario` en
+          /* EL MENÚ, antes del buscador de la lista (undécima tanda, punto 9): «Configuraciones» (el horario de
+             oficina y los límites, en un modal: el admin edita, el resto ve) y «Tutorial» (el recorrido). Son de la
+             tab entera, no de una automatización. Va como NODO y no adentro de la lista: ver `menu` en
              SimuladorWhatsApp (las acciones arrastran `server-only`). */
-          horario={(
-            // El «?» del recorrido va al lado del horario: los dos son de la tab entera, no de una automatización.
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-              <ConfiguracionesBoton />
-              <AyudaAutomations onClick={recorrido.reabrir} />
-            </span>
-          )}
+          menu={<MenuAutomations onTutorial={recorrido.reabrir} />}
           /* ⚠️ ACÁ IBA EL PIE DE LA LISTA, «N etapas sin secuencia · Armar una», y salió el 10/10/2026
              (restos de versiones anteriores). Venía del modelo de UNA secuencia por etapa de
              nutrición, contaba sólo el primer CRON de cada automatización (ni `etapas` ni la lista de
@@ -764,13 +759,11 @@ function ChatAgentInner() {
 
       {/* LA GALERÍA de «＋ Nueva» (sólo un admin crea). «Lienzo en blanco» es la vacía de siempre. */}
       {galeria && rolAdmin && (
-        <GaleriaPlantillas productos={productos} onCerrar={() => setGaleria(false)} seccion={galeria.seccion}
+        <GaleriaPlantillas productos={productos} onCerrar={() => setGaleria(false)}
           onBlanco={() => { setGaleria(false); void crearNueva(); }}
           onPegar={(t) => { setGaleria(false); void crearDesdeCopia(t); }}
           onCreada={(r) => void alCrearDePlantilla(r)}
-          onCreadaIA={(r) => void alCrearConIA(r)}
-          // El recordatorio de la reunión es UNO por negocio: si ya está en la lista, su plantilla se dibuja apagada.
-          triggersVivos={(secuencias ?? []).map((s) => s.trigger_tipo)} />
+          onCreadaIA={(r) => void alCrearConIA(r)} />
       )}
 
       {/* «COPIASTE UN FLUJO»: arriba al centro, sobre el lienzo, hasta que se conteste. */}

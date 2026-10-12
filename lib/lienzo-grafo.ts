@@ -915,6 +915,10 @@ export const ALTO_EDITOR_CONTROL: Readonly<Partial<Record<TipoNodo, number>>> = 
   // 152), el más alto abierto —«Cómo responde»: la guía de 4 renglones ~96, «Responde con» 30, la voz 36, «Tu
   // forma de escribir» 26 y el chip de ejemplos 26, con sus rótulos y 8 de aire: ~290— y «＋ Otro AI Step» (30),
   // con 8 entre bloques → ~510. 540 deja entrar el más alto sin scroll; lo que no entra scrollea adentro.
+  // UNDÉCIMA TANDA (UN AI Step por objetivo): «＋ Otro AI Step» se fue; el panel de CUATRO pasos (objetivo,
+  // escenarios, responde con, ensayar) lo rehace la ola 2 con este mismo alto por tipo —nunca por contenido: diez
+  // escenarios scrollean adentro—. La TARJETA del lienzo es otra cosa: alto fijo, `altoPasoIA`
+  // (lib/flujo-conversacion.ts), con sus renglones exactos.
   'paso-ia': 540,
 };
 const ALTO_EDITOR_CONTROL_OTRO = 320;

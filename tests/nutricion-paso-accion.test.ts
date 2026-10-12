@@ -173,7 +173,8 @@ const MOTOR = sinComentarios(leer('lib/nutricion.ts'));
 // Medido el 09/10/2026 sin comentarios: 39.984 con las esperas cortas de la quinta tanda, 40.583 con
 // la rama del mensaje de VARIAS partes (cuarta tanda, punto 15), y 42.457 con las dos juntas.
 // Si se pasa, que se mire qué creció antes de subirlo.
-const PROC = bloque(MOTOR, 'export async function procesarEnvios(', '\nexport async function pausarPorRespuesta(', 48_000);
+// (Undécima tanda: el carril del recordatorio y lo de una respuesta, M3 y M4, sumaron ~7.000 al motor.)
+const PROC = bloque(MOTOR, 'export async function procesarEnvios(', '\nexport async function pausarPorRespuesta(', 56_000);
 // Hasta la primera guarda que es sólo del mensaje que sigue a la rama (`canalOn`). Perezoso:
 // si la rama se mueve de lugar, que caigan los tests que la miran, no el archivo entero.
 const rama = (): string => bloque(PROC, 'if (esPasoAccion(paso)) {', 'const canalOn = ', 4_000);
@@ -187,7 +188,8 @@ test('⚠️ el motor corre el paso con `correrPasoAccion` → `ejecutarDesdeFlu
   const reclamo = bloque(rama(), 'reclamar: () => escribir(insc, {', 'ejecutar:', 1_500);
   assert.match(reclamo, /\{ modo: 'cas'/, 'el reclamo de la acción tiene que comparar lo leído');
   const cas = bloque(PROC, 'const moverConCas = async (', '\n  };', 1_200);
-  assert.match(cas, /\.eq\('id', insc\.id\)\.eq\('estado', 'activa'\)\.eq\('paso_actual', insc\.paso_actual\)/);
+  // (Undécima tanda, M4: contra el estado LEÍDO —'activa', o 'respondio' con el carril del recordatorio vivo—.)
+  assert.match(cas, /\.eq\('id', insc\.id\)\.eq\('estado', estadoLeido\(insc\)\)\.eq\('paso_actual', insc\.paso_actual\)/);
   // Desde el 08/10/2026 (flujo con ramas) avanza al SIGUIENTE DEL NODO, no al de abajo en el
   // array, escribe `nodo_actual` y el reclamo compara también el nodo: dos corridas que leyeron
   // la misma fila no pueden reclamarla las dos aunque `paso_actual` coincida.
@@ -217,14 +219,16 @@ test('⚠️ la acción va DESPUÉS de las guardas de la inscripción y ANTES de
   // Después: lo que es de la inscripción entera (reunión pasada, residuo, antigüedad, condiciones).
   // (08/10/2026: «anclada» suma la espera «antes de la reunión» del flujo al `ancla` de siempre, y
   // «el primero» es `esPrimerPaso`, que con ramas no es el índice 0.)
-  for (const antes of ['if (anclada || preparaUnaReunion(sec.trigger_tipo))', 'if (esPrimerPaso(sec.pasos, insc.paso_actual) && topeAntig != null', "if (paso.requiere === 'respondio') {"]) {
+  for (const antes of ['if (anclada || preparaReunion(sec))', 'if (esPrimerPaso(sec.pasos, insc.paso_actual) && topeAntig != null', "if (paso.requiere === 'respondio') {"]) {
     const j = PROC.indexOf(antes);
     assert.ok(j > 0 && j < i, `la acción tiene que respetar «${antes}»`);
   }
   // Antes: lo que es del MENSAJE. El anti-ban de 20 h frenaría «mover a Contactado» por el
   // mensaje que acaba de salir; el canal apagado y el [relleno] no le dicen nada a una acción.
   // (08/10/2026, segunda tanda: el freno de 20 h es `frenadoPorAntiBan`, por canal y con lo de la corrida.)
-  for (const despues of ['pasoConRelleno(paso)', 'const canalApagado', 'frenadoPorAntiBan(insc.lead_id', 'residuoEnCorrida >= RESIDUO_POR_CORRIDA']) {
+  // (Undécima tanda: el carril del recordatorio mira el [relleno] ANTES, para no reclamar un toque que no puede
+  // salir; la guarda del MENSAJE es la de `if (!opts?.simularApagados && pasoConRelleno(paso))`.)
+  for (const despues of ['if (!opts?.simularApagados && pasoConRelleno(paso))', 'const canalApagado', 'frenadoPorAntiBan(insc.lead_id', 'residuoEnCorrida >= RESIDUO_POR_CORRIDA']) {
     const j = PROC.indexOf(despues);
     assert.ok(j > i, `la acción quedó detrás de «${despues}», que es una guarda del mensaje`);
   }
@@ -236,7 +240,8 @@ test('el cupo de mensajes no frena a las acciones: con el tope cumplido el motor
   assert.match(PROC, /const conAcciones = secuencias\.filter\(\(s\) => s\.pasos\.some\(esPasoAccion\)\)\.map\(\(s\) => s\.id\);/);
   // Desde la segunda tanda (08/10/2026, decisión 5) el cupo es de WHATSAPP: con él cumplido siguen
   // las acciones y, mientras quede su propio tope, los emails (`sinTopeWa`, `sigueSinCupoWa`).
-  assert.match(PROC, /const sinTopeWa = \[\.\.\.new Set\(\[\.\.\.conAcciones, \.\.\.\(presupuestoEmail > 0 \? conEmail : \[\]\)\]\)\];/);
+  // (Undécima tanda, M3 e: y el carril del recordatorio, que no frenan los topes.)
+  assert.match(PROC, /const sinTopeWa = \[\.\.\.new Set\(\[\.\.\.conAcciones, \.\.\.conCarril, \.\.\.\(presupuestoEmail > 0 \? conEmail : \[\]\)\]\)\];/);
   assert.match(PROC, /if \(presupuesto <= 0 && !sinTopeWa\.length\) return \{ \.\.\.res, saltado: 'tope-diario' \};/, 'sin acciones ni emails, el corte de siempre');
   assert.match(PROC, /while \(\(!cupoLleno\(\) \|\| sinTopeWa\.length > 0\) && rondas < 6\)/);
   assert.match(PROC, /if \(cupoLleno\(\)\) q = q\.in\('secuencia_id', sinTopeWa\);/);
@@ -244,8 +249,11 @@ test('el cupo de mensajes no frena a las acciones: con el tope cumplido el motor
   // Con el cupo lleno un MENSAJE se deja sin tocar (era un `break`), una acción sigue. Desde el
   // 08/10/2026 se mira el nodo LEÍDO (`indiceActual`) y otra vez el que quedó después de resolver
   // las tarjetas de control: una condición puede llevar a un mensaje o a una acción.
-  assert.match(PROC, /if \(cupoLleno\(\) && !\(pasoLeido && sigueSinCupoWa\(pasoLeido\)\)\) continue;/);
-  assert.match(PROC, /if \(cupoLleno\(\) && !sigueSinCupoWa\(destino\)\) continue;/);
+  // (Undécima tanda: por su LUGAR en el flujo, `sigueSinCupo`, que suma el carril a `sigueSinCupoWa`.)
+  // (Y lo que se deja, si la fila tiene el carril pendiente, se aplaza para no taparlo: `aplazarSiTapa`.)
+  assert.match(PROC, /if \(cupoLleno\(\) && !\(pasoLeido && sec && sigueSinCupo\(sec\.pasos, idxLeido\)\)\) \{ if \(sec\) await aplazarSiTapa\(insc, sec\); continue; \}/);
+  assert.match(PROC, /if \(cupoLleno\(\) && !sigueSinCupo\(sec\.pasos, r\.idx\)\) \{ await aplazarSiTapa\(insc, sec\); continue; \}/);
+  assert.match(PROC, /!!pasos\[idx\] && \(sigueSinCupoWa\(pasos\[idx\]\) \|\| esHiloDelCarril\(pasos, idx\)\)/);
   // Y la ventana horaria vale para todo: el corte sigue ANTES de mirar nada.
   assert.ok(PROC.indexOf("saltado: 'fuera-de-ventana-horaria'") < PROC.indexOf('const conAcciones'));
 });

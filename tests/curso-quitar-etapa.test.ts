@@ -157,7 +157,8 @@ test('lo que BLOQUEA las secuencias es una inscripción CERRADA, y la red del cr
   // movimiento silencioso le escribe al cliente en la próxima corrida.
   const ai = bloque(NUTRI, 'async function aInscribir(', '\n}\n');
   assert.match(ai, /const pendientes = candidatos\.filter\(\(id\) => !conFila\.has\(id\)\);/);
-  assert.match(NUTRI, /const reusaInscripciones = \(s: Pick<Secuencia, 'trigger_tipo' \| 'pasos'>\): boolean =>\s*preparaUnaReunion\(s\.trigger_tipo\) && s\.pasos\.length > 0;/);
+  // Undécima tanda (M2): «prepara una reunión» mira la automatización ENTERA (`preparaReunion`).
+  assert.match(NUTRI, /const reusaInscripciones = \(s: Pick<Secuencia, 'trigger_tipo' \| 'pasos' \| 'etapa' \| 'etapas' \| 'disparadores'>\): boolean =>\s*preparaReunion\(s\) && s\.pasos\.length > 0;/);
 });
 
 // ── Probado ROMPIÉNDOLO (08/10/2026) ──────────────────────────────────────────

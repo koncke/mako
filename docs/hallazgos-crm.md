@@ -7949,3 +7949,26 @@ qué nombraba cada «producto», porque en el código la misma palabra apuntaba 
 
 **Vive en:** `lib/funnels.ts` · `lib/setting-secuencias.ts` · `lib/flujo-conversacion.ts` ·
 `app/crm/CrmToolbar.tsx`. *Chat CRM, 2026-10-11, sin multi-agente (la guardia de RAM lo frenó).*
+
+## La fecha de una reunión cargada en la ficha no pasa por `updateLead` (11/10/2026)
+
+Lo encontró la undécima tanda de Automations al hacer que una reunión cargada a mano inscriba al instante en el flujo de
+su etapa (M1-b, `docs/diseno-undecima-tanda.md`). El motor y su porqué, en [hallazgos-chatbot.md](hallazgos-chatbot.md).
+
+- **⚠️ El lugar obvio era el equivocado.** «Inscribir cuando cambia la etapa derivada» en `updateLead` no cubría el caso
+  para el que existe: la fecha de la ficha se guarda por `saveLeadMeta` (un UPDATE directo), y `updateLead` sólo ve la
+  asistencia y el estado.
+- **Un guardado de varios pasos pasa por etapas derivadas intermedias.** `completeStageMoveAction`
+  (`app/crm/actions.ts`) guarda la fecha, después la asistencia y recién al final el override: con «cualquier cambio de
+  la derivada», un «no asistió» camino a «No Show» inscribía en lo de 'noshow_r1', que el barrido nunca alcanza.
+- **Regla:** se inscribe sólo HACIA una etapa de tipo reunión (`entraAEtapaDeReunion`), desde `updateLead`,
+  `saveLeadMeta` y `setMeetingManual` (al final, con `disparoDeEtapa: false` en su `updateLead`). Y al reservar una R1
+  desde el webhook, un override de «no agendó» puesto a mano (lead/nutri/reactivación/no-show) se limpia en el mismo
+  update y queda auditado como «Etapa» por MaKo (`limpiaEtapaAlReservar`): sin eso, ~7 % de las agendas del ws1 no
+  entraban al flujo. Una R2 no toca nada.
+
+**SIN HACER:** una reserva de R2 no dispara el evento al instante (`app/api/webhooks/{calendly,calcom}/route.ts`, rama
+j2): entra por el barrido de la hora.
+
+**Vive en:** `lib/leads.ts` (`enrolarPorEtapaDerivada`, `auditarEtapaDeLaReserva`) · `lib/nutricion-etapa.ts` ·
+`lib/nutricion-familias.ts` · *2026-10-11 undécima tanda (w2-motor-reuniones)*

@@ -12,7 +12,8 @@
 
 import 'server-only';
 import { crearNotificacion, type NotifSeveridad } from './notificaciones';
-import { enviarAlGrupoSuperAdmin, enviarAlGrupoMaKo, getGrupoJidMaKo, getGrupoSuperAdminJid } from './mako-grupo';
+import { enviarAlGrupoSuperAdmin, enviarAlGrupoMaKo, enviarPartesAlGrupoMaKo, getGrupoJidMaKo, getGrupoSuperAdminJid } from './mako-grupo';
+import { partesConRotulo, textoDePreparadas, type PartePreparada } from './mako-tarjeta';
 import { reclamarEspaciado, salioReciente } from './espaciado';
 import { frecuenciaEfectiva } from './disparador-mensaje';
 import { estadoAviso, resumenAvisosActivo, type EstadoAviso } from './perfil';
@@ -85,6 +86,15 @@ export type EmitirAvisoInput = {
    * (`estadoAviso`) ni se abre una insistencia: el interruptor de esos avisos es la automatización.
    */
   estado?: EstadoAviso;
+  /**
+   * LA TARJETA «MaKo en WhatsApp» POR PARTES (undécima tanda, lib/mako-tarjeta.ts): al grupo del negocio
+   * salen ESTAS partes (texto, nota de voz, archivo), en orden, en vez de `texto`. Ya vienen preparadas:
+   * los datos resueltos y los binarios bajados. `texto` sigue siendo lo que leen el feed, el push y el email.
+   * Sólo al grupo del CLIENTE: un aviso `alDueno` sale como texto.
+   */
+  partes?: readonly PartePreparada[];
+  /** `false`: sin el rótulo de barras del grupo (`encabezadoAviso`). La tarjeta tal cual sale como se ve. */
+  rotulo?: false;
 };
 
 // `wa:false` con `waError` = el aviso NO llegó a WhatsApp (línea desconectada, grupo
@@ -238,7 +248,10 @@ export async function emitirAviso(a: EmitirAvisoInput): Promise<EmitirAvisoResul
     // Idempotente a propósito: si un call-site ya lo trae (una plantilla que el
     // dueño editó a mano copiando el formato), no se duplica.
     const encabezado = encabezadoAviso(a.tipo);
-    const texto = a.texto.trimStart().startsWith('━━') ? a.texto : `${encabezado}\n${a.texto}`;
+    // `rotulo: false` (la tarjeta «MaKo en WhatsApp» tal cual): lo que se ve en la tarjeta es lo que llega.
+    const texto = a.rotulo === false || a.texto.trimStart().startsWith('━━') ? a.texto : `${encabezado}\n${a.texto}`;
+    // Por PARTES (la tarjeta por partes): el rótulo, si va, pegado a la primera. Al grupo del dueño, texto.
+    const salida = a.partes?.length && a.alDueno !== true ? partesConRotulo(a.partes, a.rotulo === false ? null : encabezado) : null;
     // ⚠️ EL PUSH AL TELÉFONO (MaKo Mobile) VA ACÁ, y el lugar es parte del contrato: DESPUÉS
     // del interruptor (un aviso apagado no suena), del espaciado (el «cada cuánto» del negocio
     // vale también para el teléfono) y de la cola del resumen (lo que el negocio pidió juntar
@@ -252,10 +265,24 @@ export async function emitirAviso(a: EmitirAvisoInput): Promise<EmitirAvisoResul
     // capricho: el de WhatsApp puede tardar (abre sesión, resuelve el grupo) y el correo
     // no depende de él — si la línea está caída, el aviso igual sale por mail.
     const email = canal.email ? await enviarAvisoPorEmail(a, texto) : false;
+    // ⚠️ Por partes, una parte salió sólo con su `key.id` y corta en la primera que falla: `salieron` dice
+    // cuántas le llegaron al grupo, y el historial guarda ésas (no las que no salieron).
+    const porPartes = canal.wa && salida ? await enviarPartesAlGrupoMaKo(ws, salida) : null;
     const env = canal.wa
-      ? (a.alDueno === true ? await enviarAlGrupoSuperAdmin(texto) : await enviarAlGrupoMaKo(ws, texto))
+      ? (a.alDueno === true ? await enviarAlGrupoSuperAdmin(texto)
+        : porPartes ? (porPartes.ok ? { ok: true as const, id: porPartes.ids[porPartes.ids.length - 1] ?? '' } : { ok: false as const, error: porPartes.error ?? 'no salió' })
+          : await enviarAlGrupoMaKo(ws, texto))
       : { ok: false as const, id: undefined, error: undefined };
     if (canal.wa && !env.ok) console.error(`[avisos] ${a.tipo}: NO salió por WhatsApp (ws ${ws}) — ${env.error}`);
+    // Lo que el grupo VIO: el texto, o las partes que salieron (sin las que no).
+    const textoTurno = porPartes && salida ? textoDePreparadas(salida.slice(0, porPartes.salieron)) : texto;
+    if (porPartes && !porPartes.ok && porPartes.salieron > 0) {
+      const jidParcial = await getGrupoJidMaKo(ws);
+      if (jidParcial) {
+        const { guardarTurno } = await import('./mako-doer-conv');
+        await guardarTurno(ws, jidParcial, 'assistant', textoTurno, porPartes.ids[porPartes.ids.length - 1]).catch(() => {});
+      }
+    }
     // El aviso queda EN LA CONVERSACIÓN del grupo. Sin esto, MaKo manda una pregunta
     // ("saqué 97 compromisos, ¿los cargo?") y no le queda ningún registro: cuando el
     // dueño contesta "sí, cargalo", el doer no sabe a qué le dijo que sí y se agarra
@@ -266,8 +293,8 @@ export async function emitirAviso(a: EmitirAvisoInput): Promise<EmitirAvisoResul
       const jid = a.alDueno === true ? await getGrupoSuperAdminJid() : await getGrupoJidMaKo(ws);
       // Se guarda el texto QUE SE MANDÓ (con rótulo), no el pelado: el historial
       // del doer tiene que ser lo que el dueño ve en el chat, o el modelo razona
-      // sobre un mensaje que nadie leyó.
-      if (jid) await guardarTurno(ws, jid, 'assistant', texto, env.id).catch(() => {});
+      // sobre un mensaje que nadie leyó. Por partes, los textos de las partes.
+      if (jid) await guardarTurno(ws, jid, 'assistant', textoTurno, env.id).catch(() => {});
 
       // ¿ESTE AVISO INSISTE? Si el cliente lo configuró en Configuraciones ›
       // Notificaciones, además de salir queda una insistencia abierta: vuelve cada N
@@ -388,7 +415,9 @@ async function enviarPushAviso(wsLector: number, a: EmitirAvisoInput): Promise<N
       titulo: a.titulo,
       cuerpo: a.texto,
       ruta: a.link ?? '/m/inbox',
-      tag: `aviso:${a.tipo}${a.dedupKey ? `:${a.dedupKey}` : ''}`,
+      // La tarjeta por partes no tiene `dedupKey` (sale tal cual, una por tarjeta y por lead): sin algo propio
+      // en el tag, cada aviso suyo reemplazaría al anterior en el teléfono.
+      tag: `aviso:${a.tipo}${a.dedupKey ? `:${a.dedupKey}` : a.partes?.length ? `:${a.lead?.id ?? ''}:${Date.now().toString(36)}` : ''}`,
       ttl: 6 * 3600,
       urgencia: a.semaforo === 'rojo' ? 'high' : 'normal',
       // Un aviso habla del negocio entero (adeudo de Meta, cuotas con montos, reportes): en

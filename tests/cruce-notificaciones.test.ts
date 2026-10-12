@@ -102,8 +102,13 @@ test('el mail de «te compartieron material» lo firma la PLATAFORMA, no el clie
 
   // ⚠️ Y el preflight mide LO QUE SE VA A USAR. Preguntar `remitenteEsSandbox()` sobre el
   // workspace en curso es verificar otra cosa y creerse cubierto.
-  const pre = bloque(src, 'const correo = await runWithWorkspace', 'return NextResponse.json({ ok: true, shares: conInvitados, correo })');
-  assert.match(pre, /resendConfigurado\(\)/, 'el preflight sigue mirando si hay key');
+  // Undécima tanda: el mail lo firma MaKo y sale por la key de la PLATAFORMA (lib/resend.ts), así que el
+  // preflight pregunta `correoDeMakoListo()`. El de antes medía el remitente de NEGOCIO del ws9, que no tiene:
+  // decía que el mail no llegaba y sí salía. Probado rompiéndolo (wf-undecima/enchufador/roturas.cjs): volver a
+  // sumar `remitenteEsSandbox()` al preflight → 5 / 1 (base 6 / 0).
+  const pre = bloque(src, 'const correo = { listo: await correoDeMakoListo(), remitente: EMAIL_MAKO };', 'return NextResponse.json({ ok: true, shares: conInvitados, correo })');
+  assert.match(pre, /correoDeMakoListo\(\)/, 'el preflight mira la key y el remitente de la plataforma');
+  assert.doesNotMatch(pre, /remitenteEsSandbox/, 'el preflight volvió a medir el remitente de un negocio');
   assert.match(pre, /remitente: EMAIL_MAKO/, 'lo que la pantalla muestra como remitente es el de la plataforma');
 });
 

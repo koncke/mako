@@ -38,7 +38,7 @@ import { emitirDelCatalogo } from './avisos';
 import { listarUsuarios } from './usuarios';
 import { emailsConCuenta, repartoDeTarea, cuantasSonMias, resumenDelReparto } from './reunion-reparto';
 import { wsEnContexto, getWorkspace } from './workspace';
-import { tzDeWorkspace } from './timezone';
+import { zonaDelNegocio } from './timezone';
 import { fechaHoraEnTz } from './date-utils';
 import { listPlanBoard } from './plan-board';
 import { listCategorias } from './todo';
@@ -556,7 +556,7 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
   // resume todas, con la fecha y hora de cada una, y el total es exactamente el que
   // va a ver en la pantalla: SOLO las tareas propias.
   if (hechas.length) {
-    const tz = await tzDeWorkspace(ws).catch(() => 'America/Tijuana');
+    const tz = await zonaDelNegocio(ws);
     const aviso = await emitirDelCatalogo('reunion-tareas-al-plan', { ws, texto: textoAviso(hechas, tz) });
     if (aviso.wa) out.avisados += 1;
     else { out.sinAviso += 1; out.avisoError = aviso.waError ?? 'no se pudo mandar el WhatsApp'; }

@@ -79,12 +79,11 @@ export async function getProgramado(avisoId: string): Promise<Programado | null>
 /**
  * Agenda (o reprograma) un mensaje. `null` lo desagenda.
  *
- * ⚠️ LA ZONA SE RESUELVE ACÁ Y SE CONGELA EN LA FILA. `tzDeWorkspace` puede salir a
- * la red (Cal.com, Google Calendar) con una carrera de 4 s y, si no llega, devuelve
- * `America/Tijuana` sin guardarla. Resolverla en cada tick del cron sería pagar eso
- * 6 veces por tick (los seis workspaces activos sin `mako.timezone`) y, peor, dejar
- * que el horario de un mensaje se mueva solo el día que la averiguación conteste otra
- * cosa. Se resuelve una vez, se guarda, y la pantalla la MUESTRA.
+ * ⚠️ LA ZONA SE RESUELVE ACÁ Y SE CONGELA EN LA FILA. Hasta el 11/10/2026 `tzDeWorkspace`
+ * salía a la red (Cal.com, Google Calendar) con una carrera de 4 s; hoy es LA lectura de la
+ * zona del negocio (lib/timezone.ts: una consulta, nunca tira). Se sigue congelando: que el
+ * horario de un mensaje no se mueva solo el día que alguien cambie o se detecte la zona sin
+ * reagendarlo. Se resuelve una vez, se guarda, y la pantalla la MUESTRA.
  */
 export async function setProgramado(avisoId: string, cron: unknown): Promise<Programado | null> {
   const db = await getTenantDb();
@@ -99,7 +98,7 @@ export async function setProgramado(avisoId: string, cron: unknown): Promise<Pro
   // drenador mandaría—, no el borrador que la persona tenga abierto.
   const motivo = motivoNoAgendable((await getPlantilla(avisoId))?.ejemplo, ejemploDeFabrica(avisoId));
   if (motivo) throw new NoAgendable(motivo);
-  const tz = await tzDeWorkspace(ws).catch(() => 'America/Tijuana');
+  const tz = await tzDeWorkspace(ws);
   const ahora = new Date();
   // El ancla de la PRIMERA vez es ahora: no hay ocurrencia anterior de la que colgarse.
   const proxima = proximaOcurrencia(limpio, ahora, tz, ahora);

@@ -38,8 +38,8 @@
 // =============================================================================
 
 import 'server-only';
-import { getTenantDb, getWorkspace, wsSuperAdmin } from './workspace';
-import { firmaDelPie, remitenteDelPaso, esRemitenteDeMako, AVISO_EMAIL_DE_MAKO } from './email-remitente';
+import { getTenantDb, getWorkspace } from './workspace';
+import { firmaDelPie, remitenteDelPaso, direccionDe, SIN_EMAIL_PROPIO } from './email-remitente';
 import { getSupabaseServer } from './supabase';
 import { buscarUsuarioPorEmail } from './usuarios';
 import { enviarYEspejar, enviarAudioYEspejar, enviarMediaYEspejar } from './evolution-envio';
@@ -98,23 +98,18 @@ export async function enviarPasoDePrueba(p: {
   if (!sec) return { ok: false, error: 'Esa automatización no existe' };
   const linea = lineaDePrueba(p.emisor, (sec as { instance_name?: string | null }).instance_name);
 
+  // SIN REMITENTE PROPIO NO SALE (undécima tanda, decisión 3 de la décima: «Quitale a Mauricio que pueda mandar
+  // email con MaKo. Nadie debería poder.»). `getEmailFrom` devuelve el remitente que pasa `remitenteDelNegocio`
+  // (lib/email-remitente.ts) o el sandbox: el email de MaKo en un cliente (el ws1) ya llega acá como el sandbox,
+  // sin una rama propia. Es la misma puerta que pregunta `sendEmail`.
   if (mensaje.canal === 'email' && await remitenteEsSandbox()) {
-    return { ok: false, error: 'Verifica tu dominio para mandar emails' };
-  }
-  // EL EMAIL DE MaKo NO ES EL DEL NEGOCIO (décima tanda, EMAIL 1: «No permitas enviar emails con los email de
-  // MaKo, ellos deben poner sus propios email»). Ni el pedido ni, sin pedido, el del negocio (el ws1 tiene el de
-  // MaKo): sólo la PLATAFORMA manda con él. Si no se puede saber si es la plataforma, no lo es.
-  if (mensaje.canal === 'email') {
-    const pedido = p.emisor?.remitente;
-    const deMako = pedido ? esRemitenteDeMako(pedido) : esRemitenteDeMako(await getEmailFrom());
-    if (deMako && !(await wsSuperAdmin().then((w) => w === p.ws).catch(() => false))) return { ok: false, error: AVISO_EMAIL_DE_MAKO };
+    return { ok: false, error: SIN_EMAIL_PROPIO };
   }
   // El remitente pedido: sólo uno del dominio del negocio. Si ya no lo es, se dice (nunca sale por otro).
+  // El MISMO que el del negocio sale sin `from` (con el suyo): así la plataforma, si un día reclama el dominio
+  // de MaKo en /email, puede elegirlo (`remitenteDelPaso` no devuelve nunca uno de MaKo).
   let from: string | undefined;
-  // Un remitente de MaKo que llegó hasta acá es la PLATAFORMA eligiendo el suyo (a cualquier otro lo frena el
-  // chequeo de arriba): sale sin `from`, con el del negocio. `remitenteDelPaso` ya no devuelve nunca uno de MaKo,
-  // y sin esta excepción le contestaría «ya no es de tu negocio» al único que sí puede usarlo.
-  if (mensaje.canal === 'email' && p.emisor?.remitente && !esRemitenteDeMako(p.emisor.remitente)) {
+  if (mensaje.canal === 'email' && p.emisor?.remitente && direccionDe(p.emisor.remitente) !== direccionDe(await getEmailFrom())) {
     const usable = remitenteDelPaso(p.emisor.remitente, await getEmailFrom());
     if (!usable) return { ok: false, error: 'Ese remitente ya no es de tu negocio' };
     from = usable;

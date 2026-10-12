@@ -25,15 +25,21 @@ import { MONO } from './tokens';
 
 export type Tab = { id: string; label: string; badge?: number };
 
-export function Tabs({ tabs, activa, onCambio, extra }: {
+export function Tabs({ tabs, activa, onCambio, extra, sinLinea }: {
   tabs: Tab[];
   activa: string;
   onCambio: (id: string) => void;
   /** Algo alineado a la derecha de la fila (una acción, un estado). */
   extra?: ReactNode;
+  /**
+   * Sin el filete de abajo de la fila: queda sólo el subrayado azul de la activa. Para una caja que ya
+   * apagó los suyos (el Modal con `sinFiletes`): éste quedaba suelto, 17 px debajo del azul por el padding
+   * del cuerpo (undécima tanda, punto 1: «elimina el divider de abajo del título»). Sin la prop, igual que siempre.
+   */
+  sinLinea?: boolean;
 }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, borderBottom: '1px solid var(--border)', marginBottom: 'var(--sect-gap)' }}>
+    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, borderBottom: sinLinea ? 'none' : '1px solid var(--border)', marginBottom: 'var(--sect-gap)' }}>
       {/* flexWrap, no scroll: en pantalla angosta la fila baja de renglón y se
           siguen viendo todos los destinos. */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 2, flex: 1, minWidth: 0 }}>

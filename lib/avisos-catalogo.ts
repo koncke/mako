@@ -773,8 +773,10 @@ Escríbele hoy o agenda una sesión.`,
     prioridad: 'alta', semaforo: 'na', requiereRespuesta: false, yaImplementado: 'si',
     // Los cuatro emisores (Calendly y Cal.com, R1 y R2) arman su texto: el de Cal.com con el teléfono y lo
     // completado («un único WhatsApp», Código Inmobiliario). Desde el 11/10/2026 es un EVENTO de MaKo
-    // (`lead_agendo`, lib/disparadores.ts): sin esta marca la fila no ofrecería «Lo que arma MaKo» y su
-    // plantilla (`mako-agendado`, `{{mensaje_mako}}`) no pasaría el freno de Publicar.
+    // (`lead_agendo`, lib/disparadores.ts), RETIRADO desde la undécima tanda: el aviso de nuevo agendado es una
+    // tarjeta «MaKo en WhatsApp» de «Un Lead Agendó Llamada», con datos citables (`{{reunion_cuando}}`,
+    // `{{lead_respuestas_agenda}}`…). La marca queda SÓLO para las filas vivas con `{{mensaje_mako}}` (#239, #240)
+    // hasta la limpieza (docs/diseno-undecima-tanda.md §8.7).
     textoDelCodigo: true,
     disparador: 'Webhook de Calendly (invitee.created) o de Cal.com (BOOKING_CREATED): un lead reserva una reunión.',
     // Decía «la ficha ya quedó armada en el CRM» y no daba el link: mandaba a
@@ -1005,8 +1007,9 @@ https://hola-mako.com/plan — MaKo`,
     prioridad: 'baja', semaforo: 'na', requiereRespuesta: false, yaImplementado: 'si',
     // Desde el 11/10/2026 lo emite la pasarela (lib/cobros.ts, aplicarPagoAprobado) cuando Stripe o Mercado Pago
     // confirman un cobro creado en MaKo, y es un EVENTO de MaKo (`pago_recibido`, lib/disparadores.ts): sale por la
-    // automatización «Aviso de pago recibido» que el negocio agrega de la galería (`mako-pago`). El texto lo arma el
-    // código (`textoDelCodigo`), con la pasarela, el concepto y el link a la ficha.
+    // automatización «Entró un Pago» que el negocio agrega de la galería (`mako-pago`). Undécima tanda: la tarjeta cita
+    // los DATOS del pago que pasa `avisarPagoRecibido` (`{{pago_monto}}`, `{{pago_pasarela}}`, `{{pago_concepto}}`…).
+    // El texto armado por el código (`textoDelCodigo`) queda sólo para una fila con `{{mensaje_mako}}` hasta la limpieza.
     textoDelCodigo: true,
     disparador: 'Stripe o Mercado Pago confirman un pago de un link de cobro creado en MaKo.',
     ejemplo: `💰 *Entró un pago*: Grupo Delta pagó *US$ 2.300* por Stripe (Mentoría).

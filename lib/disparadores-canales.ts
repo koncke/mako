@@ -29,6 +29,7 @@
 import 'server-only';
 import { credWs } from './credenciales';
 import { emailConectado } from './resend';
+import { SIN_EMAIL_PROPIO } from './email-remitente';
 import type { EstadoCanal, EstadoCanales } from './disparadores';
 import { pasarelasConectadas } from './cobros';
 import { NOMBRE_PASARELA } from './cobros-tipos';
@@ -46,7 +47,7 @@ const real = (v: string | null): v is string => !!v && !v.startsWith('PENDING');
 
 const MOTIVO_FACEBOOK = 'Conecta tu página de Facebook';
 const MOTIVO_INSTAGRAM = 'Conecta tu Instagram';
-const MOTIVO_EMAIL = 'Conecta tu email';
+const MOTIVO_EMAIL = SIN_EMAIL_PROPIO;
 const MOTIVO_PAGOS = 'Conecta Stripe o Mercado Pago';
 const MOTIVO_NO_SE = 'No pude comprobarlo';
 

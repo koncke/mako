@@ -33,7 +33,8 @@ import { registrarCobroDeProveedor, desmarcarCobroDeProveedor } from './pagos';
 import { hoyEnWorkspace } from './timezone';
 import { capaDef, type CapaId } from './capas';
 import { darDeAltaCliente, esCapaVendible } from './alta-cliente';
-import { COLS_COBRO, NOMBRE_PASARELA, cobroDeFila, esTokenCobro, type Cobro, type EstadoCobro, type Pasarela, type TipoCobro } from './cobros-tipos';
+import { COLS_COBRO, NOMBRE_PASARELA, cobroDeFila, esTokenCobro, type Cobro, type EstadoAlta, type EstadoCobro, type Pasarela, type TipoCobro } from './cobros-tipos';
+import { valoresDelPago } from './variables-del-lead';
 import {
   decidirCobro, esRenovacion, idemBaja, idemCobro, idemReembolso, mesesTranscurridos, montoUsdDeLaCuota,
   montoUsdDelCobro, pasaAPagado, textoPagoRegistrado, urlPorVencer, ESTADOS_QUE_PASAN_A_PAGADO,
@@ -450,24 +451,39 @@ async function avisarPagoRecibido(c: Cobro, p: { proveedorPagoId: string; renova
     const prueba = c.modo === 'prueba' ? ' — es un pago de PRUEBA' : '';
     const que = p.renovacion ? `renovó *${c.concepto}*` : `pagó *${formatoMonto(p.monto, p.moneda)}*`;
     const detalle = p.renovacion ? ` (${formatoMonto(p.monto, p.moneda)})` : ` (${c.concepto})`;
-    const cuenta = await lineaDelAlta(c);
+    // UNA lectura del alta para las dos salidas: el renglón del texto de siempre y el dato `{{pago_alta}}`.
+    const alta = await estadoDelAlta(c);
+    const cuenta = lineaDelAlta(c, alta);
     await emitirDelCatalogo('pago-recibido', {
       ws: c.workspace_id,
       dedupTtlMin: 4320,
       dedupKey: `${c.proveedor}:${p.proveedorPagoId}`,
+      // El texto de siempre se queda por compatibilidad (`{{mensaje_mako}}` de las filas vivas, hasta la limpieza:
+      // docs/diseno-undecima-tanda.md §8.7). Lo que se CITA son los datos de abajo.
       texto: `💰 *Entró un pago*: ${nombre} ${que} por ${NOMBRE_PASARELA[c.proveedor]}${detalle}${prueba}.${cuenta}\n\n👉 Mira su ficha:\n${linkResumenLead(c.lead_id, c.workspace_id)}\n\n— MaKo`,
       lead: { id: c.lead_id, nombre },
+      // LOS DATOS DEL PAGO (undécima tanda, 11/10/2026, punto 4): `{{pago_monto}}`, `{{pago_concepto}}`… por
+      // CÓDIGO, como la cobranza pasa los de la cuota. Un monto que pasa por un modelo deja de ser exacto.
+      datos: valoresDelPago({
+        monto: p.monto, moneda: p.moneda, concepto: c.concepto, proveedor: c.proveedor,
+        renovacion: p.renovacion, modo: c.modo, alta,
+      }),
     });
   } catch (e) {
     console.error(`[cobros] no pude avisar el pago del cobro ${c.id}:`, e instanceof Error ? e.message : String(e));
   }
 }
 
-/** En una venta de MaKo, cómo quedó el alta (para el aviso al super admin). */
-async function lineaDelAlta(c: Cobro): Promise<string> {
-  if (!c.alta_capa) return '';
+/** En una venta de MaKo, cómo quedó el alta (relee el cobro: el alta corre al lado del pago). null fuera de una venta de MaKo. */
+async function estadoDelAlta(c: Cobro): Promise<EstadoAlta | null> {
+  if (!c.alta_capa) return null;
   const fresco = await getCobro(c.workspace_id, c.id).catch(() => null);
-  const estado = fresco?.alta_estado ?? c.alta_estado;
+  return fresco?.alta_estado ?? c.alta_estado;
+}
+
+/** En una venta de MaKo, cómo quedó el alta (para el aviso al super admin), con lo que leyó `estadoDelAlta`. */
+function lineaDelAlta(c: Cobro, estado: EstadoAlta | null): string {
+  if (!c.alta_capa) return '';
   if (estado === 'hecha') return ` Su cuenta de MaKo (plan ${capaDef(c.alta_capa).nombre}) ya está creada y le llegó el acceso.`;
   if (estado === 'ya_tenia_cuenta') return ' Ese email ya tenía una cuenta de MaKo: el plan NO se cambió solo, revísalo en /admin/cobros.';
   if (estado === 'error') return ' ⚠️ El alta de su cuenta falló: revísalo en /admin/cobros.';

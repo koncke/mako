@@ -9,7 +9,12 @@
 // se abre SOLO la primera vez (por persona, `/api/recorridos`) y se vuelve a ver con el «?». Un paso
 // cuyo objetivo no está EN PANTALLA se saltea solo (lib/recorridos.ts): se escribe UNA vez para la
 // pantalla llena y se adapta a la que hay (sin CONDITION en el flujo, no hay paso de CONDITION; sin
-// automatizaciones, sólo «＋ Nueva», Configuraciones y el «?»).
+// automatizaciones, sólo «＋ Nueva» y el menú de Configuraciones y Tutorial).
+//
+// UNDÉCIMA TANDA (11/10/2026, punto 9: «en la sidebar elimines la separación con "MaKo en WhatsApp"... Y que
+// los botones de "Configuraciones" y "Tutorial" estén en otro botón desplegable... antes de la barra de
+// busqueda»): se fueron los pasos «MaKo en WhatsApp» y «Configuraciones». El último señala el menú
+// (`MenuAutomations`, ./ConfiguracionesBoton.tsx), que lleva su `data-recorrido` escrito a mano.
 //
 // LA DIFERENCIA CON CURSO ES QUIÉN PONE EL `data-recorrido`. Allá cada control lo trae escrito. Acá los
 // controles viven en archivos que en esta tanda tocan otras pistas (la lista, el lienzo, el CRON,
@@ -33,24 +38,24 @@ import { ID_ENTRADA, TITULO } from '@/lib/flujo-conversacion';
 
 export const RECORRIDO_AUTOMATIONS = 'automations';
 
-/** El «?»: lo marca `BotonRecorrido` (su prop `objetivo`), no `marcar`. */
+/**
+ * El menú de «Configuraciones» y «Tutorial», antes del buscador: lo marca A MANO el `<span>` de
+ * `MenuAutomations` (./ConfiguracionesBoton.tsx), no `marcar` (un elemento no puede ser objetivo de dos pasos).
+ * El valor no cambia desde que era el «?»: es una marca, no la clave de «ya lo vio».
+ */
 export const OBJETIVO_AYUDA = 'au-ayuda';
 
 /**
  * Los pasos, en el orden en que se recorre la pantalla: la lista flotante de la izquierda (de arriba
  * abajo), el lienzo (el CRON, el ＋ y las tarjetas que haya), «Probar» arriba a la derecha, «Publicar» y
- * «Activar» abajo a la derecha, y el «?» al final: cómo volver a verla es lo que queda al cerrarla.
+ * «Activar» abajo a la derecha, y el menú al final: cómo volver a verla es lo que queda al cerrarla.
  */
 export const PASOS_AUTOMATIONS: PasoRecorrido[] = [
   { objetivo: 'au-lista', titulo: 'Tus automatizaciones', texto: 'Elige una para abrir su lienzo.', lado: 'derecha' },
   // La galería (décima tanda, NUEVA AUTOMATIZACIÓN 3): la primera opción es siempre el lienzo en blanco.
   { objetivo: 'au-nueva', titulo: 'Nueva automatización', texto: 'Empieza en blanco o desde una plantilla.', lado: 'derecha' },
-  // Desde el 11/10/2026 son automatizaciones con el CRON «Evento de MaKo» (docs/diseno-mako-en-whatsapp-
-  // unificado.md): «se arman como las demás» es la regla de Martín (un mensaje de MaKo es IDÉNTICO).
-  { objetivo: 'au-mako', titulo: 'MaKo en WhatsApp', texto: 'Los avisos de MaKo a tu grupo de WhatsApp. Se arman como las demás.', lado: 'derecha' },
-  // GENERAL 4 (docs/diseno-automations-configuraciones.md): «Configuraciones» REEMPLAZÓ al botón del
-  // horario, en el mismo lugar (app/automations/ConfiguracionesBoton.tsx, 11/10/2026).
-  { objetivo: 'au-configuraciones', titulo: 'Configuraciones', texto: 'El horario de envío y los límites de mensajes.', lado: 'derecha' },
+  // (Acá iban «MaKo en WhatsApp» y «Configuraciones». Se fueron en la undécima tanda, punto 9: la lista es una
+  // sola —los avisos de MaKo los separa el filtro— y Configuraciones vive en el menú del último paso.)
   { objetivo: 'au-cron', titulo: 'El CRON', texto: 'Lo que la dispara. Haz clic para elegirlo.' },
   // El círculo de cada salida (Lienzo.tsx: «Clic: agregar · Arrastrar: conectar»). Nombra CONDITION,
   // DELAY y AI Step porque sus pasos propios sólo aparecen si el flujo ya tiene esas tarjetas: en uno
@@ -58,13 +63,13 @@ export const PASOS_AUTOMATIONS: PasoRecorrido[] = [
   { objetivo: 'au-mas', titulo: 'Agrega con el ＋', texto: 'Mensajes, CONDITION, DELAY o un AI Step. Arrástralo para conectar.', lado: 'derecha' },
   { objetivo: 'au-condicion', titulo: 'CONDITION', texto: 'Elige el camino según el lead o lo que conteste.' },
   { objetivo: 'au-delay', titulo: 'DELAY', texto: 'Espera un tiempo antes de seguir.' },
-  // AI Step v2 (docs/diseno-ai-step-v2.md): un caso por tarjeta, y lo primero es su OBJETIVO.
-  { objetivo: 'au-ai-step', titulo: 'AI Step', texto: 'MaKo contesta cuando el lead escribe, con el objetivo que le des.' },
+  // AI Step (undécima tanda, docs/diseno-undecima-tanda.md §6): UNO por objetivo, con sus escenarios adentro.
+  { objetivo: 'au-ai-step', titulo: 'AI Step', texto: 'Un objetivo y sus escenarios. MaKo contesta cuando el lead escribe.' },
   { objetivo: 'au-probar', titulo: 'Probar', texto: 'Simúlala como el lead o envíate una prueba real.', lado: 'abajo' },
   // «Volver a lo publicado» se va en esta tanda (GENERAL 5: «para eso ya tenemos el CTRL Z»).
   { objetivo: 'au-publicar', titulo: 'Publicar', texto: 'Lo que cambies sale recién al publicar. Ctrl+Z deshace.', lado: 'arriba' },
   { objetivo: 'au-activar', titulo: 'Activar', texto: 'Prende o pausa sus envíos.', lado: 'arriba' },
-  { objetivo: OBJETIVO_AYUDA, titulo: 'Vuelve a verla', texto: 'Esta guía está siempre en el ?.', lado: 'derecha' },
+  { objetivo: OBJETIVO_AYUDA, titulo: 'Configuraciones y tutorial', texto: 'Están siempre en este menú.', lado: 'derecha' },
 ];
 
 // ── Dónde está cada objetivo ─────────────────────────────────────────────────
@@ -78,8 +83,8 @@ export const PASOS_AUTOMATIONS: PasoRecorrido[] = [
  *          más). Es lo único que distingue una tarjeta de otra: todas son `[data-nodo]`.
  *   vive   dónde lo dibuja la pantalla. No lo usa `marcar`: lo lee el test, que comprueba que lo que se
  *          busca siga existiendo en esos archivos.
- *   futuro lo que todavía no existe en el fuente (el botón de Configuraciones, que arma otra pista): el
- *          test no lo exige, pero exige que el objetivo tenga además un renglón que SÍ existe.
+ *   futuro lo que todavía no existe en el fuente (algo que arma otra pista): el test no lo exige, pero
+ *          exige que el objetivo tenga además un renglón que SÍ existe.
  */
 export type Buscar = { css: string; texto?: string; vive: readonly string[]; futuro?: true };
 
@@ -88,7 +93,6 @@ const TAB = 'app/automations/ChatAgentApp.tsx';
 const LIENZO = 'app/_components/Lienzo.tsx';
 const PERFIL = 'app/automations/SecuenciaPerfil.tsx';
 const TITULOS = 'lib/flujo-conversacion.ts';
-const CONFIG = 'app/automations/ConfiguracionesBoton.tsx';
 
 /**
  * Para cada objetivo, sus formas de encontrarlo EN ORDEN: gana la primera que encuentre algo visible.
@@ -98,19 +102,10 @@ const CONFIG = 'app/automations/ConfiguracionesBoton.tsx';
 export const DONDE: Readonly<Record<string, readonly Buscar[]>> = {
   'au-lista': [{ css: 'aside[aria-label="Tus automatizaciones"]', vive: [LISTA] }],
   'au-nueva': [
-    { css: 'button.chb-nueva:not([data-nuevo-mensaje])', vive: [LISTA] },
+    // Una sola «Nueva automatización» desde la undécima tanda (se fue «＋ Nuevo mensaje»).
+    { css: 'button.chb-nueva', vive: [LISTA] },
     // Sin ninguna automatización la lista no se dibuja: el «＋ Nueva» del cartel vacío.
     { css: 'button', texto: '＋ Nueva', vive: [TAB] },
-  ],
-  'au-mako': [
-    { css: 'button[data-nuevo-mensaje]', vive: [LISTA] },
-    // Quien no es admin no tiene «＋ Nuevo mensaje»: el rótulo de la sección.
-    { css: '[data-grupo-mensajes-mako]', vive: [LISTA] },
-  ],
-  'au-configuraciones': [
-    { css: '[data-configuraciones]', vive: [CONFIG] },
-    { css: 'button[title="Configuraciones"]', vive: [CONFIG] },
-    { css: 'button', texto: 'Configuraciones', vive: [CONFIG] },
   ],
   'au-cron': [{ css: `[data-nodo="${ID_ENTRADA}"]`, vive: [LIENZO, 'lib/flujo-grafo.ts'] }],
   'au-mas': [

@@ -29,6 +29,8 @@ import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { EditorEtiqueta } from '../app/automations/EditorEtiqueta';
+import { EditorMensajeWhatsApp, type EditorMensajeWhatsAppProps } from '../app/automations/EditorMensajeWhatsApp';
+import type { AudioSetting, PasoSecuenciaDto } from '../app/automations/ChatAgentApp';
 import { ALTO_CAMPO_GRANDE, campoGrande, botonGrande } from '../app/_components/Lienzo';
 
 const leer = (r: string): string => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
@@ -127,11 +129,51 @@ test('GO TO y MAKO: el destino grande; el mensaje llena el panel', () => {
   // SEXTA TANDA (punto 12): GO TO ya no elige destino; el botón que lo pasa a flecha es el campo grande.
   assert.match(ir, /style=\{\{ \.\.\.botonGrande, width: '100%'/);
   // ⚠️ SEXTA TANDA (MaKo en WhatsApp 2: «debe ser lo mismo que el editable de WhatsApp»): el editor MAKO
-  // es el de WhatsApp en modo grupo (`EditorMensajeGrupo`), que llena el panel como el de un mensaje (su
-  // raíz es `flex: 1 1 auto` y el chat se queda con lo que sobra: tests/editor-mensaje-whatsapp.test.ts).
-  const mako = bloque(FLUJO, 'function EditorMako(', '\n}\n', 3_200);
-  assert.match(mako, /<EditorMensajeGrupo texto=\{m\.mensaje\} onTexto=\{poner\}/, 'el editor MAKO no es el de WhatsApp');
-  assert.doesNotMatch(mako, /<textarea|inpLienzo/, 'volvió el editor viejo de la tarjeta MAKO');
+  // es el de WhatsApp, que llena el panel como el de un mensaje (su raíz es `flex: 1 1 auto` y el chat se
+  // queda con lo que sobra: tests/editor-mensaje-whatsapp.test.ts).
+  // ⚠️ UNDÉCIMA TANDA (decisión 2 de la décima: «agregale esas opciones. Pero en audios… la voz de MaKo»): ya no el
+  // «modo grupo» de UN texto (`EditorMensajeGrupo`, que quedó para /mensajes) sino EL MISMO `EditorMensajeWhatsApp`,
+  // con la Voz de MaKo (`vozMako`), archivos, varios mensajes y ✦. Lo que se dibuja está en el test de abajo.
+  const mako = bloque(FLUJO, 'function EditorMako(', '\n}\n', 4_000);
+  assert.match(mako, /<EditorMensajeWhatsApp\n\s*paso=\{dto\} autor="MaKo" vozMako /, 'el editor MAKO no es el de WhatsApp con la voz de MaKo');
+  assert.doesNotMatch(mako, /<EditorMensajeGrupo|<textarea|inpLienzo/, 'volvió el editor viejo de la tarjeta MAKO');
+});
+
+// ── «MaKo en WhatsApp» = el editor de WhatsApp con la Voz de MaKo (undécima tanda) ─────────────────────────
+// Lo que se DIBUJA con `vozMako`: sin micrófono aunque quien monta pida audio (sería grabar la voz del dueño), con
+// el clip (archivos y la Voz de MaKo), la burbuja firmada por MaKo, y sin «↻ variantes». Lo que el clip ofrece se mira
+// en la fuente (el menú es un popover: no se dibuja cerrado).
+// PROBADO ROMPIÉNDOLO (11/10/2026, arnés scratchpad/wf-undecima/w2-mako-editor/romper.mjs; ver el pie).
+test('«MaKo en WhatsApp»: sin micrófono ni «Audios guardados» aunque se pida audio; con clip, la Voz de MaKo y firmado por MaKo', () => {
+  const paso = { orden: 3, id: 'mk1', canal: 'whatsapp', delay_horas: 0, asunto: null, cuerpo: 'Nuevo agendado: {{nombre_completo}}', template_wa: null, proveedor: 'no_oficial', tipo: 'texto', variantes: ['Otra forma'] } as PasoSecuenciaDto;
+  const audio: AudioSetting = { id: 7, titulo: 'Bienvenida del dueño', media_mime: 'audio/mpeg', duracion_s: 42, transcript: null, url: 'https://x/a.mp3' };
+  const dibujar = (p: Partial<EditorMensajeWhatsAppProps>) => renderToStaticMarkup(createElement(EditorMensajeWhatsApp, {
+    paso, onChange: () => {}, audios: [audio], adjuntos: [], autor: 'MaKo', ...p,
+  }));
+  const conVoz = dibujar({ vozMako: true });   // `permiteAudio` por defecto es true: la voz de MaKo lo apaga igual
+  assert.ok(!conVoz.includes('Grabar nota de voz'), 'con la voz de MaKo se puede grabar con el micrófono (la voz del dueño)');
+  assert.ok(conVoz.includes('aria-label="Adjuntar archivo"'), 'sin el clip no hay archivos ni Voz de MaKo');
+  assert.ok(conVoz.includes('>MaKo<'), 'la burbuja no la firma MaKo');
+  assert.ok(!conVoz.includes('Otras formas de decirlo'), 'el aviso no sortea variantes');
+  // Sin `vozMako`, el mismo editor con audio sí graba (la rotura de arriba no es del editor entero).
+  assert.ok(dibujar({}).includes('Grabar nota de voz'));
+  const ed = sinComentarios(leer('app/automations/EditorMensajeWhatsApp.tsx'));
+  assert.match(ed, /const permiteAudio = pidenAudio && !vozMako;/);
+  assert.match(ed, /if \(permiteAudio\) \{\n\s*menuClip\.push\(\{\n\s*key: 'audios', label: 'Audios guardados'/, '«Audios guardados» salió de debajo de `permiteAudio`');
+  assert.match(ed, /if \(vozMako\) \{\n\s*menuClip\.push\(\{ key: 'voz-mako', label: 'Voz de MaKo', icono: <IconMic \/>, onElegir: \(\) => \{ setAdjunto\(null\); setModoVoz\(true\);/);
+  // La ➤ con el chip genera la voz (no manda el texto), por la ruta de la voz, con su regla antes y sin reintentar.
+  assert.match(bloque(ed, 'const enviar = () => {', '\n  };', 1_200), /if \(modoVoz\) \{ void generarVoz\(barra, editando, limpiarBarra\); return; \}/);
+  const gen = bloque(ed, 'async function generarVoz(', '\n  }\n', 2_400);
+  assert.match(gen, /const t = textoParaVozMaKo\(texto\);\n\s*if \(!t\.ok\) \{ avisar\(t\.error\); return; \}/);
+  assert.match(gen, /fetch\('\/api\/automations\/voz-mako', \{\n\s*method: 'POST'/);
+  assert.match(gen, /signal: AbortSignal\.timeout\(ESPERA_VOZ_MAKO_MS\)/);
+  assert.match(gen, /setFase\('Generando la voz…'\);/);
+  assert.match(gen, /if \(!j\?\.ok \|\| !j\.audio\) \{ avisar\(j\?\.error \|\| 'No salió la voz de MaKo\.'\); return; \}/, 'el error no dice su motivo');
+  assert.equal((gen.match(/fetch\(/g) ?? []).length, 1, 'un clic, UN pedido: no se reintenta');
+  assert.doesNotMatch(gen, /onAudioNuevo/, 'la voz de MaKo entra a «Audios guardados» del negocio');
+  // La sugerencia del ✦: «Generar con la voz de MaKo», no «Grabar».
+  assert.match(ed, /\{vozMako \? 'Generar con la voz de MaKo' : 'Grabar con este guion'\}/);
+  assert.match(ed, /if \(vozMako\) \{\n\s*void generarVoz\(g, null,/);
 });
 
 test('⚠️ ningún editor de control deja media caja vacía con un `maxWidth` propio (AGENTS.md)', () => {
@@ -165,3 +207,10 @@ test('⚠️ ningún editor de control deja media caja vacía con un `maxWidth` 
 //   B24. vuelve «Sigue a la hora en punto» a la frase del DELAY          → 50 / 1 (acá)
 //   B26. el campo vacío del TAG sin el borde punteado (romper-uno.mjs, con editor-etiqueta;
 //        base 16 / 0)                                                    → 15 / 1 (acá)
+//
+// UNDÉCIMA TANDA (11/10/2026, w2-mako-editor: «MaKo en WhatsApp» = el editor de WhatsApp con la Voz de MaKo). Arnés
+// scratchpad/wf-undecima/w2-mako-editor/romper.mjs, una por vez y restaurada con md5. Base 9 / 0. Restaurado: 9 / 0.
+//   V1. `vozMako` deja grabar con el micrófono (`const permiteAudio = pidenAudio;`)            → 8 / 1 (acá)
+//   V2. la ➤ con el chip «Voz de MaKo» manda el texto en vez de generar la voz                → 8 / 1 (acá)
+//   V3. EditorMako monta el editor sin `vozMako`                                              → 8 / 1 (acá) y 9 / 1 en
+//       tests/lienzo-tercera-tanda.test.ts

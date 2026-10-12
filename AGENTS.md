@@ -1073,6 +1073,33 @@ CLIENTE después — un aviso que el dueño tenía apagado moría para todos sus
 interruptor de cada uno decorativo para ese camino. No da error: el aviso no sale, que es
 indistinguible de «no pasó nada que avisar».
 
+# El remitente de un NEGOCIO nunca es MaKo, y lo que firma MaKo sale por la key de MaKo
+
+Decisión de Martín (11/10/2026): «Quítale a Mauricio que pueda mandar email con MaKo. Nadie debería poder.» El porqué
+y lo medido, en `docs/hallazgos-comunicacion.md` → «Undécima tanda».
+
+- **El remitente de un negocio sale de UNA puerta positiva**, `remitenteDelNegocio` (`lib/email-remitente.ts`), leída
+  por `remitenteDelNegocioActual` (`lib/resend.ts`): su dominio verificado o su propia cuenta de Resend, nunca un dominio
+  de MaKo ni el sandbox. Sin remitente propio, `sendEmail` se niega. No se agregan ramas «si es de MaKo» en una pantalla.
+- **«Habla MaKo» ⟺ `from === REMITENTE_MAKO`**, explícito en la llamada, y sale siempre por `keyDeLaPlataforma()`.
+- **Un preflight mide lo que se va a usar:** `getEmailFrom`/`emailConectado` para un mail del negocio,
+  `correoDeMakoListo()` para uno que firma MaKo.
+- **La key de la plataforma tiene dos copias** (la env y la fila del ws1): «es de la plataforma» se pregunta con
+  `esDeLaPlataforma`, que mira las dos.
+
+# La zona del negocio sale de UNA función, y no hay un segundo default
+
+El repo tuvo dos (Tijuana en las pantallas, Ciudad de México en el motor) y el ws1 recibió mensajes una hora antes de su
+horario. El detalle, en `docs/hallazgos-infra.md` → «Una zona, un default, una lectura».
+
+- **Se lee con `zonaDelNegocio(ws)`** (o `zonaDeLoGuardado(valor)` si ya se leyó el setting en lote), y con
+  `zonaDelNegocioEstricta(ws)` cuando la zona DECIDE algo (una ventana, un período). Nunca `zona || 'America/…'` ni una
+  zona elegida según el destinatario: el default es UNO, `ZONA_POR_DEFECTO` (`lib/zona-negocio-reglas.ts`).
+- **Leer no escribe.** Averiguar la zona por las integraciones es otra función (`inferirZonaDesdeIntegraciones`), y
+  escribe una sola: `fijarZonaDelNegocio`, con su origen.
+- **Dos zonas se comparan después de `zonaCanonica`**: Cal.com y Chrome contestan alias (`America/Buenos_Aires`) y Node
+  24 devuelve el nombre viejo de ICU.
+
 # Una herramienta de laboratorio montada en el layout raíz es una herramienta EN PRODUCCIÓN
 
 Si algo vive en `app/layout.tsx`, se lo come **todo el mundo**. Y si además arranca desde
@@ -7501,6 +7528,21 @@ mig 0228). Lo que eso exige al escribir código nuevo:
   «Próxima reunión en ≤ 720 h» después de CADA espera por tiempo, antes de lo que habla de la reunión.
   Y «Agendó» es «tiene una reunión cargada», pasada o futura: a quien faltó a una, también.
 
+**Y desde la undécima tanda (11/10/2026), un flujo se ARMA con las piezas que existen hoy, y nada se inventa.** Lo
+pidió Martín varias veces, con enojo («no quiero NADA fuera de lo que ya configuramos»):
+
+- **CRON = una etapa del embudo** (o un Evento de MaKo vigente, `EVENTOS_MAKO_OFRECIDOS`); **CONDITION = filas del
+  catálogo, VARIAS en una tarjeta**; nunca CONDITION → CONDITION ni CONDITION → DELAY → CONDITION, ni un CRON «(de
+  antes)», ni un dato que no se puede citar. `problemasDeForma` (`lib/flujo-forma.ts`) es la vara de la galería, de
+  «Crear con IA» y de todo script de datos.
+- **Un flujo por categoría:** los recordatorios son DELAY «antes de la reunión» dentro del mismo flujo (el carril del
+  motor) y el aviso al equipo es una tarjeta «MaKo en WhatsApp» dentro del mismo flujo. Las plantillas, igual.
+- **UN AI Step por medio y por objetivo** (`juntarPasosIA`); los casos son escenarios adentro, y objetivo, audio y
+  ejemplos viven en el NODO. Un campo que se muda del caso al nodo se SUBE en el saneo (`camposDelFlujo`), y se buscan
+  sus atajos (un `if (!c.audio) return null` antes de la regla pura la deja sin efecto).
+- **Lo de prod se REHACE con esas piezas por script** (simulacro, respaldo releído, compare-and-set); lo viejo se
+  archiva, nunca se borra. Qué dispara una fila lo dice `disparadoresDe(fila)`, nunca el jsonb crudo de `disparadores`.
+
 # Un TIPO DE NODO nuevo son CINCO puertas; un CAMPO del nodo es UNA rama
 
 Cuando a un paso del lienzo le falta una capacidad —que el mensaje lo escriba la IA, que
@@ -7568,6 +7610,14 @@ puestas.** No da error, y lo que se rompe es la única cosa que el editor promet
 - **Y lo que el motor no puede resolver, el selector no lo OFRECE** (ya es regla de la
   casa). Un token escrito a mano que llega literal al cliente es el mismo bug por la otra
   puerta.
+
+**Y desde la undécima tanda (11/10/2026) el catálogo de datos citables es UNO** (`lib/variables-aviso.ts`) **y el motor
+resuelve todo lo que el «{ }» ofrece.** Un dato que no se puede rastrear —`{{mensaje_mako}}`, un texto que arma el
+código— no se ofrece ni se publica: `problemasDeTokens` (`lib/tokens-del-flujo.ts`) frena en `setSecuenciaPasos` y en el
+lienzo, y el rojo del editor es la misma pregunta (`fueraDelContexto`). Un emisor nuevo pasa datos atómicos (`datos:`),
+nunca un texto armado. Todo envío resuelve con `textoConDatos`: un dato sin valor borra su renglón, así que **un dato
+opcional va en su propio renglón**. Y un token prohibido se busca con el regex del motor (con `\s*` entre las llaves),
+no con `tokensDe`.
 
 # Apoyar algo sobre el borde de un lienzo son CUATRO lugares, y el encuadre es el que no se ve
 

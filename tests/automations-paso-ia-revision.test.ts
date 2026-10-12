@@ -6,6 +6,8 @@
 //
 //   1. «Enseñar un caso» sin guía a un AI Step se aceptaba al PROPONER y moría al EJECUTAR
 //      (`agregarCasoAlGrafo`, lib/nutricion-grafo-motor.ts): ahora frena en `preparar()`.
+//      ⚠️ UNDÉCIMA TANDA: un escenario sin respuesta es «Sólo te avisa» (válido), así que ya no hay nada que frenar:
+//      entra ADENTRO del AI Step, como cualquier otro (tests 1 y 2, reescritos).
 //   2. Dos casos con el mismo id: el segundo contestaba con la guía del primero (la expansión deriva del id
 //      las tarjetas de cada caso). `idsDeCasos` (lib/flujo-grafo.ts) los desempata en `normalizar` y en
 //      `expandirPasoIA`.
@@ -30,8 +32,9 @@ import { join } from 'node:path';
 import {
   type PasoGrafo, type CasoRespuesta,
   expandirPasoIA, escenariosDeRespuesta, validarGrafo, normalizar, nodoPorId, idsDeCasos, guiaDeCaso, faltaEnCaso,
-  idRespuestaDeCaso, TOPE_GUIA, TOPE_RESPONDER, TOPE_INSTRUCCIONES, separarPasosIA,
+  idRespuestaDeCaso, TOPE_GUIA, TOPE_RESPONDER, TOPE_INSTRUCCIONES, juntarPasosIA,
 } from '../lib/flujo-grafo';
+import { libertadDeCaso } from '../lib/ai-step-libertad';
 import { camposDelFlujo, agregarCasoAlGrafo } from '../lib/nutricion-grafo-motor';
 import { enviosDePasos } from '../lib/chatbot-lista-filtro';
 import type { PasoSecuenciaDto } from '../app/automations/ChatAgentApp';
@@ -63,18 +66,15 @@ const conIA = (casos: CasoRespuesta[], o: Partial<PasoGrafo> = {}): PasoGrafo[] 
 
 // ── 1. «Enseñar un caso» a un AI Step: frena al proponer, no al ejecutar ───────────
 
-test('un caso NUEVO sin «cómo responder» en un AI Step se rechaza en `agregarCasoAlGrafo` (antes moría al guardar)', () => {
-  const pasos = conIA([caso('A', { titulo: 'Precio', cuando: 'pregunta el precio', responder: 'En la llamada' })]);
+test('UNDÉCIMA: un caso NUEVO sin «cómo responder» entra ADENTRO del AI Step como «Sólo te avisa» (ya no hay «no contesta ni avisa»)', () => {
+  const pasos = conIA([caso('A', { titulo: 'Precio', cuando: 'pregunta el precio', responder: 'En la llamada' })], { objetivo: 'Que agende' });
   const r = agregarCasoAlGrafo(pasos, { titulo: 'Horario', cuando: 'pregunta el horario', comoResponder: '   ' }, rndDe());
-  assert.ok('error' in r, 'se aceptó un caso que no contesta ni avisa');
-  assert.match(r.error, /cómo responder/);
-  // El porqué: el mismo caso, colgado a mano, es lo que `setSecuenciaPasos` rechazaba en `ejecutar`.
-  const colgado = conIA([...pasos[1].casos!, caso('n1', { titulo: 'Horario', cuando: 'pregunta el horario' })]);
-  assert.equal(faltaEnCaso(colgado[1].casos![1]), 'que_hace');
-  assert.ok(validarGrafo(normalizar(colgado)).some((e) => /no contesta ni avisa/.test(e)), 'el caso colgado ya no lo frena Publicar');
-  // Y re-enseñar sin guía uno que YA estaba vacío (un borrador a medio armar) tampoco lo deja pasar.
-  const vacio = agregarCasoAlGrafo(colgado, { titulo: 'horario', cuando: 'otra vez', comoResponder: '' }, rndDe());
-  assert.ok('error' in vacio, 'se aceptó re-enseñar un caso que sigue sin contestar ni avisar');
+  assert.ok('pasos' in r, 'se rechazó un escenario que sólo avisa');
+  const horario = nodoPorId(r.pasos, 'R')!.casos!.find((c) => c.titulo === 'Horario')!;
+  assert.equal(libertadDeCaso(horario), 'avisa');
+  // Y se publica: el mismo escenario colgado a mano ya no lo frena Publicar.
+  assert.equal(faltaEnCaso(horario), null);
+  assert.deepEqual(validarGrafo(normalizar(r.pasos)), []);
 });
 
 test('con guía entra; y un caso que YA contesta o avisa se puede re-enseñar sin guía (conserva lo suyo)', () => {
@@ -84,20 +84,22 @@ test('con guía entra; y un caso que YA contesta o avisa se puede re-enseñar si
   ]);
   const nuevo = agregarCasoAlGrafo(pasos, { titulo: 'Horario', cuando: 'pregunta el horario', comoResponder: 'De 9 a 18' }, rndDe());
   assert.ok('pasos' in nuevo);
-  // AI Step v2: el caso nuevo es una TARJETA nueva (al final del array), no un caso más de R.
-  assert.equal(nuevo.pasos.at(-1)!.casos![0].responder, 'De 9 a 18');
-  // Mismo título, sin guía: conserva su `responder` (y `sola` se reescribe con lo enseñado: ausente = a revisar).
+  // UNDÉCIMA: el caso nuevo es un escenario MÁS de R (no una tarjeta nueva).
+  assert.equal(nuevo.pasos.length, pasos.length);
+  assert.equal(nodoPorId(nuevo.pasos, 'R')!.casos!.at(-1)!.responder, 'De 9 a 18');
+  // Mismo título, sin guía: conserva su `responder` y su libertad; sólo cambia el «cuándo».
   const precio = agregarCasoAlGrafo(pasos, { titulo: 'precio', cuando: 'otra vez el precio', comoResponder: '' }, rndDe());
   assert.ok('pasos' in precio, 'un caso que ya contesta no se pudo re-enseñar sin guía');
   const a = nodoPorId(precio.pasos, 'R')!.casos!.find((c) => c.id === 'A')!;
   assert.equal(a.responder, 'En la llamada');
   assert.equal(a.cuando, 'otra vez el precio');
-  assert.equal(a.sola, undefined);
+  assert.equal(a.sola, true);
   // Un caso que sólo avisa sigue avisando: re-enseñarlo sin guía tampoco lo deja sin qué hacer.
   const enojo = agregarCasoAlGrafo(pasos, { titulo: 'Se enoja', cuando: 'insulta', comoResponder: '' }, rndDe());
   assert.ok('pasos' in enojo, 'un caso que avisa no se pudo re-enseñar sin guía');
-  // (R tiene dos casos —forma v1—: se publica separado, una tarjeta por caso.)
-  assert.deepEqual(validarGrafo(separarPasosIA(enojo.pasos, rndDe()).pasos), []);
+  assert.equal(libertadDeCaso(nodoPorId(enojo.pasos, 'R')!.casos!.find((c) => c.id === 'C')), 'avisa');
+  // Junto (el «Precio» que salía sola baja a «Para aprobar») y con objetivo, se publica.
+  assert.deepEqual(validarGrafo(juntarPasosIA(enojo.pasos.map((p) => (p.id === 'R' ? { ...p, objetivo: 'Que agende' } : p))).pasos), []);
 });
 
 test('la forma de siempre no cambia: ahí un caso sin guía sigue colgando un «MaKo contesta»', () => {
@@ -207,28 +209,59 @@ test('una automatización cuyo único mensaje al lead es su AI Step pasa «Whats
 
 // ── 7. La ficha que lee MaKo muestra el AI Step ────────────────────────────────────
 
-test('`ficha_secuencia_mensajes` suma al AI Step su marca, su tono, su «Otra cosa» y cada caso con lo que hace', () => {
+// UNDÉCIMA (w2-aistep-editor): la ficha dice el AI Step de HOY —uno por medio, un objetivo y sus escenarios con su
+// LIBERTAD (la MISMA función que la tarjeta y el motor, `libertadDeCaso`), «Lo demás» aparte— y lo lee JUNTO
+// (`juntarPasosIA`, la puerta para lo viejo). Lo de antes (tono, «Otra cosa» con texto, `hasta`, `avisar`) ya no se dice.
+test('`ficha_secuencia_mensajes` lee lo JUNTO y dice del AI Step su objetivo y cada escenario con su libertad', () => {
   const run = fuente('lib/api-mako/areas/chatbot.run.ts');
   const ficha = bloque(run, '  ficha_secuencia_mensajes: {', '\n  },\n');
-  const control = bloque(ficha, 'pasos: s.pasos.map((p, i) => esNodoDeControl(p) ? ({', '}) : esPasoAccion(p) ? ({', 1200);
+  assert.match(ficha, /const pasos = juntarPasosIA\(s\.pasos\)\.pasos;/, 'la ficha muestra las tarjetas de antes sin juntar');
+  const junta = 'const pasos = juntarPasosIA(s.pasos).pasos;';
+  assert.doesNotMatch(ficha.slice(ficha.indexOf(junta) + junta.length), /s\.pasos/, 'una parte de la ficha lee lo guardado sin juntar');
+  const control = bloque(ficha, 'pasos: pasos.map((p, i) => esNodoDeControl(p) ? ({', '}) : esPasoAccion(p) ? ({', 1200);
   assert.match(control, /\.\.\.\(esPasoIA\(p\) \? fichaPasoIA\(p\) : \{\}\),\n\s*$/, 'la ficha muestra un «Si responde» con casos que no contestan nada');
-  const f = bloque(run, 'function fichaPasoIA(p: PasoSecuencia) {', '\n}\n', 800);
-  for (const campo of ["paso_ia: true as const,", "instrucciones: p.instrucciones ?? null,", "otra_aviso: p.otra_aviso ?? null,"]) {
+  assert.match(control, /casos: esPasoIA\(p\) \? undefined : p\.casos \?\? null,/, 'el AI Step repite sus escenarios crudos (sin su libertad)');
+  const f = bloque(run, 'function fichaPasoIA(p: PasoGrafo) {', '\n}\n', 900);
+  for (const campo of ["paso_ia: true as const,", "objetivo: (p.objetivo ?? '').trim() || null,", 'medio: medioDe(p),', "ejemplos: (p.ejemplos ?? []).length,", 'lo_demas: libertadDeLoDemas(casos),']) {
     assert.ok(f.includes(campo), `falta ${campo}`);
   }
-  assert.match(f, /responder: c\.responder \?\? null, sola: c\.sola === true, avisar: c\.avisar === true,/);
+  assert.match(f, /escenarios: casos\.filter\(\(c\) => c\.cualquiera !== true\)\.map\(\(c\) => \(\{\n\s+id: c\.id, titulo: c\.titulo, cuando: c\.cuando, responder: \(c\.responder \?\? ''\)\.trim\(\) \|\| null, libertad: libertadDeCaso\(c\),/);
+  for (const viejo of ['instrucciones', 'otra_aviso', 'avisar', 'hasta', 'no_contesta']) assert.ok(!f.includes(viejo), `la ficha todavía dice «${viejo}»`);
+  // La nota que lee el modelo: uno por medio, objetivo y escenarios (no «UNA tarjeta por caso»).
+  assert.ok(ficha.includes('UN AI Step por medio, con un objetivo y sus escenarios adentro'));
+  assert.ok(!ficha.includes('UNA tarjeta por caso'));
+});
+
+// UNDÉCIMA (w2-aistep-editor): enseñar un caso por la API (agregar_escenario_secuencia, resolver_handoff) entra ADENTRO
+// del AI Step sobre lo JUNTO, y lo que se escribe pasa por `setSecuenciaPasos`.
+test('agregar_escenario_secuencia y resolver_handoff suman el escenario adentro del AI Step, sobre lo junto', () => {
+  const run = fuente('lib/api-mako/areas/chatbot.run.ts');
+  const agregar = bloque(run, '  agregar_escenario_secuencia: {', '\n  resolver_handoff: {', 5000);
+  assert.match(agregar, /const pasos = juntarPasosIA\(s\.pasos\)\.pasos;\n\s+if \(raizRespuesta\(pasos\) != null\) \{\n\s+const r = agregarCasoAlGrafo\(pasos, escenario\);/);
+  assert.match(agregar, /const r = agregarCasoAlGrafo\(pasos, payload\.escenario as EscenarioSecuencia\);[\s\S]*?await setSecuenciaPasos\(id, r\.pasos\);/);
+  assert.doesNotMatch(agregar, /agregarCasoAlGrafo\(s\.pasos/, 'agrega sobre lo guardado sin juntar');
+  const handoff = bloque(run, '  resolver_handoff: {', '\n  archivar_secuencia: {', 5000);
+  assert.match(handoff, /juntarPasosIA\(s\.pasos as PasoSecuencia\[\]\)\.pasos/);
+  // El resumen dice la libertad con la que QUEDA (un «contesta solo» que habla de plata queda para aprobar).
+  assert.match(bloque(run, 'function dondeEntra(', '\n}\n', 900), /ROTULO_LIBERTAD\[libertadDeCaso\(c\)\]/);
 });
 
 // ── 8. El DTO del lienzo declara el AI Step ────────────────────────────────────────
 
 // Lo fija el TYPECHECK: si `CamposDelFlujo` (app/automations/ChatAgentApp.tsx) pierde una de estas claves, esta
 // línea no compila (y tampoco el editor del AI Step en FlujoLienzo, que ya no castea).
-type ClavesDelPasoIA = Extract<keyof PasoSecuenciaDto, 'paso_ia' | 'instrucciones' | 'otra_aviso' | 'suelta'>;
-const CLAVES_DEL_PASO_IA: Record<ClavesDelPasoIA, true> = { paso_ia: true, instrucciones: true, otra_aviso: true, suelta: true };
+// UNDÉCIMA (w2-aistep-editor): lo del OBJETIVO es de la tarjeta (`objetivo`, `audio`, `ejemplos`) y se fueron el tono
+// y el aviso de «Otra cosa» (`instrucciones`, `otra_aviso`), que ya no edita ni lee nadie en la pantalla.
+type ClavesDelPasoIA = Extract<keyof PasoSecuenciaDto, 'paso_ia' | 'suelta' | 'medio' | 'objetivo' | 'audio' | 'ejemplos'>;
+const CLAVES_DEL_PASO_IA: Record<ClavesDelPasoIA, true> = { paso_ia: true, suelta: true, medio: true, objetivo: true, audio: true, ejemplos: true };
+/** Lo que el DTO ya NO declara: si vuelve una, el tipo deja de ser `never`, la condición da `false` y esta línea no compila. */
+type ClavesQueSeFueron = Extract<keyof PasoSecuenciaDto, 'instrucciones' | 'otra_aviso'>;
+const SE_FUERON: [ClavesQueSeFueron] extends [never] ? true : false = true;
 
 test('el lienzo edita el AI Step sobre el DTO, sin castear a `PasoGrafo`', () => {
-  assert.equal(Object.keys(CLAVES_DEL_PASO_IA).length, 4);
-  // AI Step v2: el bloque suma «＋ Otro AI Step» (crea otra tarjeta del medio y la abre): mide más.
+  assert.equal(Object.keys(CLAVES_DEL_PASO_IA).length, 6);
+  assert.equal(SE_FUERON, true);
+  // (AI Step v2 sumaba «＋ Otro AI Step» en el bloque; la undécima lo sacó: uno por medio.)
   const ia = bloque(fuente('app/automations/FlujoLienzo.tsx'), 'if (esPasoIA(paso)) {', "return <EditorRespuesta", 1000);
   // El tipo explícito NO es un cast: sin él, TypeScript infiere el paso del PARCHE (`PasoIAEditable`).
   assert.match(ia, /pr\.onPasos\(\(prev\) => cambiarNodo<PasoSecuenciaDto>\(prev, id, patch\), apilar\);/);
@@ -252,6 +285,14 @@ test('el lienzo edita el AI Step sobre el DTO, sin castear a `PasoGrafo`', () =>
 //   · R17, del TIPO (tsc sólo sobre este archivo): `CamposDelFlujo` sin 'otra_aviso' → TS2353 en
 //     `CLAVES_DEL_PASO_IA`. ⚠️ FlujoLienzo compila igual sin esa clave (`Partial<…>` es un tipo «débil»: le
 //     alcanza con que `casos` coincida), así que la línea de tipo de acá es la única red.
+// UNDÉCIMA (11/10/2026, w1-aistep-modelo; arnés wf-undecima/w1-aistep-modelo/roturas.cjs, base 12 / 0): R1 y R2 rompían el
+// freno de «no contesta ni avisa», que se fue (un escenario sin respuesta es «Sólo te avisa»). Sus reemplazos:
+//   · U1 enseñar sin guía vuelve a rechazarse: 10 / 2 · U2 re-enseñar sin guía le reescribe la libertad: 11 / 1
+// UNDÉCIMA, LA API DEL AI STEP (11/10/2026, w2-aistep-editor; arnés wf-undecima/w2-aistep-editor/roturas.cjs sobre los
+// seis archivos del paquete, 100 tests, base 100 / 0): la ficha lee lo guardado SIN juntar → 1 / 100 · la ficha vuelve
+// a decir el tono (`instrucciones`) → 1 / 100 · `agregar_escenario_secuencia` agrega sin juntar → 1 / 100. Los tres caen
+// en los tests 7 de acá. La línea de TIPO del DTO (`SE_FUERON`, `CLAVES_DEL_PASO_IA`) la caza `tsc`, no el runner: no se
+// midió rompiéndola (el typecheck entero tarda y pide turno); la de la ola 1 (R17) se midió igual y daba TS2353.
 // Y `guardarRespaldo` se EJECUTÓ aparte (scratchpad `arreglo-respaldo-prueba.mjs`, la función real transpilada
 // con esbuild, sobre filas falsas): un respaldo bueno pasa; los pasos como texto, otro `updated_at` y otro
 // workspace tiran. El simulacro del script (sin escribir) imprime dónde quedaría.

@@ -32,6 +32,8 @@
 //  11. eliminar una tarjeta vuelve a ser `borrarNodo`                               -> 12 / 1
 //  12. sin la suelta marcada                                                        -> 12 / 1
 //  13. la lista sin la división «Chatbot»                                           -> 12 / 1
+//      (undécima tanda: el test 13 se dio vuelta —la lista es UNA—; re-medido con la rotura «la lista vuelve a
+//      partirse, con su rótulo»                                                     -> 12 / 1)
 // Segunda pasada (09/10/2026, parte «flujo»: los íconos del «⋯» por nombre del set). Base 13 / 0:
 //  14. «Eliminar» con un ícono que no es la papelera (`cerrar`)                     -> 12 / 1
 //  15. una opción con un `data:` propio en vez de un nombre del set                 -> 12 / 1
@@ -53,7 +55,7 @@ import { fijarPosicion, conPosiciones } from '../lib/lienzo-posiciones';
 import { ID_INICIO } from '../lib/flujo-grafo';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { SimuladorWhatsApp, ROTULO_CHATBOT, ROTULO_MENSAJES_MAKO, opcionesDeFila } from '../app/automations/SimuladorWhatsApp';
+import { SimuladorWhatsApp, opcionesDeFila } from '../app/automations/SimuladorWhatsApp';
 import { esIconoMenu } from '../app/_ui/iconos-menu';
 import type { SecuenciaDto } from '../app/automations/ChatAgentApp';
 
@@ -229,7 +231,10 @@ test('⚠️ el chrome: el ✦ de MaKo al lado del título, «Activar» al lado 
   assert.match(PERFIL, /onPublicar=\{rolAdmin \? \(\) => void publicar\(\) : undefined\}/);
 });
 
-test('⚠️ la lista lleva DOS divisiones: «Chatbot» arriba y «MaKo en WhatsApp» (punto 3), y el «⋯» con íconos', () => {
+// ⚠️ CAMBIADO POR LA UNDÉCIMA TANDA (11/10/2026, punto 9): «elimines la separación con "MaKo en WhatsApp" que sea todo
+// una misma sidebar para todo, sin dividir, para eso ya tenemos filtros. Y arriba también elimina la palabra
+// "Chatbot"». Este test fijaba las DOS divisiones de la sexta tanda (punto 3); ahora fija que la lista es UNA.
+test('⚠️ la lista es UNA, sin «Chatbot» ni «MaKo en WhatsApp» (undécima tanda, punto 9), y el «⋯» con íconos', () => {
   const secuencia = {
     id: 7, clave: 'bienvenida', nombre: 'Bienvenida', etapa: 'nuevo', trigger_tipo: 'etapa',
     activa: true, pasos: [], inscriptos: 0, enviados: 0, estrategia: null, metricas: {},
@@ -244,13 +249,10 @@ test('⚠️ la lista lleva DOS divisiones: «Chatbot» arriba y «MaKo en Whats
     rolAdmin: true, audios: [], canalCaido: false, onAudioNuevo: () => {}, onNueva: () => {}, onReload: () => {},
     productos: [], disparadores: [], tz: null,
   } as Parameters<typeof SimuladorWhatsApp>[0]));
-  assert.equal(ROTULO_CHATBOT, 'Chatbot');
-  assert.equal(ROTULO_MENSAJES_MAKO, 'MaKo en WhatsApp', 'el título es «MaKo en WhatsApp», no sólo MaKo (se confunde con la IA)');
-  const iChatbot = html.indexOf(`>${ROTULO_CHATBOT}</div>`);
   const iSec = html.indexOf('>Bienvenida</span>');
-  const iMako = html.indexOf(`>${ROTULO_MENSAJES_MAKO}</div>`);
   const iAviso = html.indexOf('>Cobranza de cuotas vencidas</span>');
-  assert.ok(iChatbot >= 0 && iChatbot < iSec && iSec < iMako && iMako < iAviso, 'las divisiones no van en orden: Chatbot, sus automatizaciones, MaKo en WhatsApp, sus mensajes');
+  assert.ok(iSec > 0 && iSec < iAviso, 'la lista no va en el orden del server');
+  assert.doesNotMatch(html, />Chatbot<|>MaKo en WhatsApp<|data-grupo-|data-nuevo-mensaje/, 'volvió una división de la lista');
   // Segunda pasada: los íconos del «⋯» son NOMBRES del set de la casa (app/_ui/iconos-menu.tsx), no
   // `data:` propios; y «borrar» es rojo SIEMPRE porque lo pinta `IconoMenu`, no la fila.
   for (const activa of [true, false]) {

@@ -23,6 +23,8 @@
 // gana y `seguro` pasa a true. Un dato inferido que se presenta como declarado es
 // exactamente cómo se cuela un error que nadie audita.
 
+import { zonaCanonica } from './zona-negocio-reglas';
+
 /**
  * Las variedades que el generador sabe pedirle al modelo.
  *
@@ -324,8 +326,23 @@ const POR_ZONA: Record<string, AcentoId> = {
  * acento cuesta más de lo que resuelve.
  */
 export function acentoDeZona(zona: string | undefined | null): AcentoId | null {
-  const z = (zona ?? "").trim();
-  return z && POR_ZONA[z] ? POR_ZONA[z] : null;
+  return porZona(zona);
+}
+
+/**
+ * La fila de `POR_ZONA` de una zona, tal cual o CANONIZADA (`zonaCanonica`, lib/zona-negocio-reglas.ts).
+ *
+ * ⚠️ UN ALIAS NO ES OTRO PAÍS. Cal.com contesta `America/Buenos_Aires` y así quedó guardada la zona del ws13
+ * (y es lo que reporta Chrome en Argentina): la tabla conoce `America/Argentina/Buenos_Aires`, así que el ws13
+ * resolvía 'latam' en vez de 'ar' (medido el 11/10/2026). Primero el texto tal cual (`America/Argentina/Cordoba`
+ * tiene fila propia), después la canónica.
+ */
+function porZona(zona: string | undefined | null): AcentoId | null {
+  const z = (zona ?? '').trim();
+  if (!z) return null;
+  if (POR_ZONA[z]) return POR_ZONA[z];
+  const c = zonaCanonica(z);
+  return c && POR_ZONA[c] ? POR_ZONA[c] : null;
 }
 
 /**
@@ -423,8 +440,8 @@ export function resolverAcento(
     return armar(d as AcentoId, origenGuardado === 'sugerido-zona' ? 'zona-horaria' : 'declarado', m);
   }
 
-  const z = (zona ?? '').trim();
-  if (z && POR_ZONA[z]) return armar(POR_ZONA[z], 'zona-horaria', m);
+  const porLaZona = porZona(zona);
+  if (porLaZona) return armar(porLaZona, 'zona-horaria', m);
 
   // Ni declarado ni reconocido: el neutro, y marcado como lo que es.
   return armar('latam', 'default', m);

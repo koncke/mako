@@ -34,7 +34,7 @@ import { normalizarEtapas, etapasDe, TRIGGER_ETAPA, TRIGGER_ENTREGA, TRIGGER_ETI
 import { valorDisparo, valoresDisparo, valoresTrasTocar, valorDeVarios, disparoDeValor, type DisparoActual } from './flujo-conversacion';
 import { claseDe, idDe, puertosDe, raicesSalida, indicePorId, type PasoGrafo } from './flujo-grafo';
 import { OP_AVISAR } from './flujo-legado';
-import { partesExplicitas } from './mensaje-partes';
+import { partesExplicitas, sanearPartes } from './mensaje-partes';
 import { TRIGGER_RECORDATORIO } from './recordatorio-automatizacion';
 
 // ── Los tipos de disparador nuevos ──────────────────────────────────────────────────────────────
@@ -200,21 +200,47 @@ export type SubtipoMako = 'reunion_pronto' | 'lead_contesta' | 'cuota_vencida' |
  *
  * `trae`: lo que el código que lo emite tiene en la mano. `mensaje` = el texto que arma (lo que sale con
  * `{{mensaje_mako}}`); `cuota` = los datos de la cuota (`{{cuota_monto}}`…). El lead, los tres.
+ * Undécima tanda (11/10/2026, punto 4: `{{mensaje_mako}}` «NO existe… No es trackeable»): `pago` = los datos del
+ * pago (`{{pago_monto}}`…, los pasa `avisarPagoRecibido`); `escrito` = lo que escribió el lead
+ * (`{{lead_escribio}}`, la charla). `mensaje` se queda en los dos hasta la limpieza (docs/diseno-undecima-tanda.md §8.7).
+ *
+ * `retirado` (undécima tanda, punto 8: «Debería estar todo en un mismo flujo de "Agendó reunión"»): el evento ya no se
+ * OFRECE a una fila nueva (`EVENTOS_MAKO_OFRECIDOS`, la galería): el aviso de nuevo agendado y el de la media hora antes
+ * son tarjetas «MaKo en WhatsApp» de «Un Lead Agendó Llamada». SIGUE en la tabla hasta la limpieza (§8.7): sin él,
+ * `eventoDeFila` devolvería null para las filas vivas (#239, #240) entre el deploy y el script de la ola 4, y sus avisos
+ * dejarían de salir. Ni `apagado`: eso las frenaría al guardar.
  */
-export type EventoMako = EventoCanal & { subtipo: SubtipoMako; aviso: string; trae: ReadonlyArray<'lead' | 'mensaje' | 'cuota'> };
+export type EventoMako = EventoCanal & { subtipo: SubtipoMako; aviso: string; trae: ReadonlyArray<'lead' | 'mensaje' | 'cuota' | 'pago' | 'escrito'>; retirado?: true };
 export const EVENTOS_MAKO: readonly EventoMako[] = [
-  { subtipo: 'reunion_pronto', aviso: 'reunion-recordatorio', label: 'Falta media hora para una reunión', trae: ['lead', 'mensaje'] },
-  { subtipo: 'lead_contesta', aviso: 'wa-mensaje-entrante', label: 'Un lead contesta y MaKo no le respondió', trae: ['lead', 'mensaje'] },
+  { subtipo: 'reunion_pronto', aviso: 'reunion-recordatorio', label: 'Falta media hora para una reunión', trae: ['lead', 'mensaje'], retirado: true },
+  { subtipo: 'lead_contesta', aviso: 'wa-mensaje-entrante', label: 'Un lead contesta y MaKo no le respondió', trae: ['lead', 'escrito', 'mensaje'] },
   { subtipo: 'cuota_vencida', aviso: 'cuota-vencida', label: 'Una cuota vence sin cobrarse', trae: ['lead', 'cuota'] },
   // GENERAL 7 de la décima tanda (11/10/2026), textual: «Vuelve a poner la automatización que avisa que se agendó un
   // nuevo lead en Mauricio y Código». El aviso nunca se dejó de mandar (sale de los webhooks de Calendly y Cal.com);
   // lo que no se veía era la AUTOMATIZACIÓN. Desde acá sale sólo por la fila de este evento (docs/diseno-automations-
   // galeria-v2.md §5), y la mudanza de ws1 y ws13 la crea antes del deploy (scripts/mudanza-nuevo-agendado.mts).
-  { subtipo: 'lead_agendo', aviso: 'reunion-nuevo-agendado', label: 'Un lead agenda una reunión', trae: ['lead', 'mensaje'] },
+  { subtipo: 'lead_agendo', aviso: 'reunion-nuevo-agendado', label: 'Un lead agenda una reunión', trae: ['lead', 'mensaje'], retirado: true },
   // La pasarela de pagos (11/10/2026): el aviso «Entró un pago» lo arma lib/cobros.ts cuando Stripe o Mercado Pago
   // confirman un cobro creado en MaKo. Al equipo (el grupo de MaKo), no al lead: al lead le escribe el CRON «Pagos».
-  { subtipo: 'pago_recibido', aviso: 'pago-recibido', label: 'Entra un pago', trae: ['lead', 'mensaje'] },
+  { subtipo: 'pago_recibido', aviso: 'pago-recibido', label: 'Entra un pago', trae: ['lead', 'pago', 'mensaje'] },
 ];
+
+/**
+ * LOS EVENTOS DE MaKo QUE SE OFRECEN a una fila nueva: sin los `retirado` (la cobranza, la charla y el pago). Los
+ * retirados se siguen LEYENDO (`eventosDe('mako')`, `eventoDeFila`) hasta la limpieza.
+ */
+export const EVENTOS_MAKO_OFRECIDOS: readonly EventoMako[] = EVENTOS_MAKO.filter((e) => !e.retirado);
+
+/**
+ * LOS EVENTOS QUE OFRECE EL SELECTOR DEL CRON (app/automations/EditorDisparadores.tsx): los de la clase, y en «Evento
+ * de MaKo» sólo `EVENTOS_MAKO_OFRECIDOS` (undécima tanda: «Un lead agenda» y «Falta media hora» son tarjetas de «Un
+ * Lead Agendó Llamada»). El que la fila YA tiene se sigue viendo elegido (una fila viva de antes, hasta el script);
+ * cambiarlo a un retirado lo frena igual `problemaDeCambio`.
+ */
+export function eventosOfrecidos(clase: ClaseDisparador | 'otro' | null, elegido: unknown): readonly EventoCanal[] {
+  if (clase !== 'mako') return eventosDe(clase);
+  return EVENTOS_MAKO.filter((e) => EVENTOS_MAKO_OFRECIDOS.includes(e) || e.subtipo === elegido);
+}
 
 /** Los eventos de una clase de canal (vacío para las demás). */
 export function eventosDe(clase: ClaseDisparador | 'otro' | null): readonly EventoCanal[] {
@@ -644,8 +670,14 @@ export function problemaDeCambio(previos: readonly Disparador[], lista: readonly
     return igual ? null : MOTIVO_CRON_FIJO;
   }
   const deNada = previos.every((d) => d.trigger_tipo === 'manual' && !d.cron);
-  return deNada ? null : MOTIVO_CRON_FIJO;
+  if (!deNada) return MOTIVO_CRON_FIJO;
+  // Undécima tanda: una fila NUEVA (pegar, duplicar) no nace con un Evento de MaKo retirado. La que ya lo tiene sigue
+  // (arriba: sin cambios, se guarda igual) hasta la limpieza.
+  return ahora.some((d) => d.trigger_tipo === TRIGGER_AVISO_MAKO && EVENTOS_MAKO.some((e) => e.retirado && e.subtipo === d.subtipo)) ? MOTIVO_EVENTO_RETIRADO : null;
 }
+
+/** Lo que contesta poner en una fila nueva un Evento de MaKo retirado (`EventoMako.retirado`). */
+export const MOTIVO_EVENTO_RETIRADO = 'Ese evento se retiró: va en «Un Lead Agendó Llamada»';
 
 // ── Cuándo dispara un evento ────────────────────────────────────────────────────────────────────
 
@@ -911,7 +943,8 @@ export function iconoDeDisparador(d: Pick<Disparador, 'trigger_tipo' | 'cron'>):
  * que la automatización dice, recorriendo la salida desde el CRON:
  *   · una tarjeta WHATSAPP de texto (o «MaKo lo adapta», con su texto base) → su texto, y de un
  *     mensaje de varias partes, las partes de texto (y el pie de un archivo);
- *   · una tarjeta MAKO (`avisar_al_equipo`) → su mensaje;
+ *   · una tarjeta MAKO (`avisar_al_equipo`) → sus partes de texto y los pies de sus archivos (o su
+ *     mensaje, si es de antes y no tiene partes);
  *   · un DELAY no se espera (sale todo junto): el grupo no tiene una corrida que esperar;
  *   · una CONDITION, «Si responde» o un «Ir a» CORTAN ese camino: no hay un lead sobre el cual
  *     decidir, y elegir una rama por él sería inventar;
@@ -942,8 +975,23 @@ export function textosParaElGrupo(pasos: readonly PasoGrafo[]): string[] {
     }
     if (clase === 'accion') {
       const a = p.accion as { operacion?: unknown; params?: Record<string, unknown> } | null | undefined;
-      const m = a?.operacion === OP_AVISAR && typeof a.params?.mensaje === 'string' ? a.params.mensaje.trim() : '';
-      if (m) out.push(m);
+      if (a?.operacion === OP_AVISAR) {
+        // Undécima tanda: la tarjeta «MaKo en WhatsApp» va por PARTES (`params.partes`; lib/mako-tarjeta.ts,
+        // `partesDeMako`). Salen sus textos y los pies de sus archivos, como en una tarjeta WhatsApp; el espejo
+        // `mensaje` sólo en una de antes, sin partes (si no, una que es sólo la Voz de MaKo mandaba al grupo el
+        // texto «🎤 Nota de voz de MaKo»). Se sanea acá con `sanearPartes`: importar lib/mako-tarjeta.ts cerraría
+        // un ciclo (→ nutricion-grafo-motor → zona-negocio-reglas → este archivo).
+        const crudas = a.params?.partes;
+        if (Array.isArray(crudas)) {
+          for (const pt of sanearPartes(crudas)) {
+            if (pt.tipo === 'texto' && pt.cuerpo.trim()) out.push(pt.cuerpo.trim());
+            if (pt.tipo === 'media' && pt.cuerpo?.trim()) out.push(pt.cuerpo.trim());
+          }
+        } else {
+          const m = typeof a.params?.mensaje === 'string' ? a.params.mensaje.trim() : '';
+          if (m) out.push(m);
+        }
+      }
     }
     for (const pu of puertosDe(pasos, i)) recorrer(pu.destino, profundidad + 1);
   };

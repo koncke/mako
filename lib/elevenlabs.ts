@@ -343,19 +343,49 @@ export async function decirConVoz(
   const linea = op.tope != null ? crudo : crudo.slice(0, 400);
   if (!linea) return { ok: false, motivo: 'nuestra', error: 'No hay ninguna línea que decir.' };
 
-  const r = await pedir(
-    `/text-to-speech/${encodeURIComponent(voiceId)}?output_format=${FORMATO_STS}`,
-    {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        text: linea,
-        model_id: MODELO_TTS,
-        voice_settings: AJUSTES_STS,
-      }),
-    },
-    key,
-  );
+  return ttsConKey(key, voiceId, linea, AJUSTES_STS, MODELO_TTS, FORMATO_STS);
+}
+
+/** Los ajustes de voz que acepta el text-to-speech (los del VSL usan los cinco: lib/voz-mako-reglas.ts). */
+export type AjustesVoz = {
+  stability: number; similarity_boost: number; style?: number; use_speaker_boost?: boolean; speed?: number;
+};
+
+/**
+ * EL TEXT-TO-SPEECH DE BAJO NIVEL, CON LA KEY QUE LE PASAN. No resuelve ninguna key: quien llama decide de
+ * quién es la cuenta que paga. `decirConVoz` le pasa la del cliente (`elevenKey`, BYOK); la Voz de MaKo
+ * (lib/voz-mako.ts) la de la plataforma, que vive en otra env a propósito (`MAKO_ELEVENLABS_API_KEY`).
+ *
+ * UNA llamada, sin reintentos: lo que gasta plata se reintenta sólo cuando la persona vuelve a apretar.
+ * Un 200 que no parece audio es un fallo (el error viene adentro del cuerpo).
+ */
+export async function ttsConKey(
+  key: string,
+  voiceId: string,
+  texto: string,
+  ajustes: AjustesVoz,
+  modelo: string,
+  formato: string,
+): Promise<Salida<{ mp3: Buffer }>> {
+  if (!key) return { ok: false, motivo: 'sin_key', error: 'Falta la key de ElevenLabs.' };
+  if (!voiceId) return { ok: false, motivo: 'voz_muerta', error: 'Falta la voz.' };
+  const linea = (texto || '').trim();
+  if (!linea) return { ok: false, motivo: 'nuestra', error: 'No hay ninguna línea que decir.' };
+  let r: Response;
+  try {
+    r = await pedir(
+      `/text-to-speech/${encodeURIComponent(voiceId)}?output_format=${encodeURIComponent(formato)}`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ text: linea, model_id: modelo, voice_settings: ajustes }),
+        signal: AbortSignal.timeout(45_000),
+      },
+      key,
+    );
+  } catch (e) {
+    return { ok: false, motivo: 'proveedor', error: `ElevenLabs no contestó: ${e instanceof Error ? e.message : String(e)}`.slice(0, 200) };
+  }
   if (!r.ok) return { ok: false, ...clasificar(r.status, await r.text()) };
 
   const buf = Buffer.from(await r.arrayBuffer());

@@ -45,9 +45,13 @@ import { insertarDesdeLienzo } from '@/lib/flujo-conversacion';
 // El editor del paso «⚡ Acción» es UNO para los dos lienzos (este y el de /mensajes).
 import { EditorAccionMako, useTitulosAcciones, type ValorAccion } from '@/app/_components/EditorAccionMako';
 import {
-  EditorMensajeWhatsApp, EditorMensajeGrupo, CabeceraWhatsApp, CabeceraMakoEnWhatsApp, horaDeAhora,
+  EditorMensajeWhatsApp, CabeceraWhatsApp, CabeceraMakoEnWhatsApp, horaDeAhora,
   type EditorMensajeWhatsAppProps,
 } from './EditorMensajeWhatsApp';
+// La tarjeta «MaKo en WhatsApp» POR PARTES (undécima tanda): su editor es el de WhatsApp sobre ESTE DTO.
+import { pasoDeMako, paramsDeMako, type CambioDeMako } from '@/lib/mako-tarjeta';
+// El contexto de los datos de una tarjeta: el MISMO con que Publicar los valida.
+import { contextoDeTarjeta } from '@/lib/tokens-del-flujo';
 import { EditorEmailGmail } from './EditorEmailGmail';
 import { NuevoPlaceholder } from './NuevoPlaceholder';
 import { EditorEtiqueta } from './EditorEtiqueta';
@@ -67,16 +71,15 @@ import { esPasoAccion } from '@/lib/nutricion-paso-accion';
 import { proveedorDelPaso } from '@/lib/nutricion-canal';
 import { TRIGGER_RECORDATORIO, DATOS_RECORDATORIO } from '@/lib/recordatorio-automatizacion';
 import { aplicarVariables } from '@/lib/template-vars';
-import { datosOfrecidos } from '@/lib/variables-aviso';
-import { datosDelEvento } from '@/lib/aviso-evento';
+import { datosOfrecidos, type ContextoDatos } from '@/lib/variables-aviso';
 import type { AdjuntoDto } from '@/lib/setting-adjuntos-reglas';
 import {
-  claseDe, idDe, borrarNodo, condicionARespuesta, raizRespuesta, esPasoIA, TOPE_CASOS,
+  claseDe, idDe, indicePorId, borrarNodo, condicionARespuesta, raizRespuesta, esPasoIA, TOPE_CASOS,
   type Espera, type NombresParaTexto,
 } from '@/lib/flujo-grafo';
 import {
   grafoDeSecuencia, opcionesDelMas, opcionesSueltas, nombreDeTarjeta, agregarRama, quitarRama, agregarCaso, quitarCaso, cambiarNodo,
-  revisarHeredado, cambioApila, nombreEtiqueta, vistaDeArchivo, etiquetaDeAccion, esMako, makoDeAccion, errorLegible,
+  revisarHeredado, cambioApila, nombreEtiqueta, vistaDeArchivo, etiquetaDeAccion, esMako, errorLegible,
   ID_ENTRADA, tarjetasIncompletas, PARTES_EN_TARJETA, RENGLONES_CON_DOS, SEP_BURBUJAS_TARJETA, ALTO_MAS_PARTES, ALTO_PALOMITAS,
   MARCO_MAIL, RENGLON_ASUNTO, RENGLON_PREHEADER, RENGLON_CUERPO_MAIL, SEP_MAIL, RENGLONES_EMAIL, RENGLON_MAS_PARTES, altoDeMensaje,
   MARCO_DISPARO, RENGLON_DISPARO, SEP_DISPARO, ALTO_NUEVO_DISPARO, burbujasDeTarjeta,
@@ -99,7 +102,7 @@ import { VistaMensajeSocial } from './VistaMensajeSocial';
 import { EditorMensajeSocial } from './EditorMensajeSocial';
 // El ícono de cada CRON de la tarjeta (sexta tanda, CRON 10): el de su clase, como en el panel.
 import { IconoDisparador } from './IconosDisparador';
-import type { ClaseDisparador, SubtipoMako } from '@/lib/disparadores';
+import { TRIGGER_AVISO_MAKO, type ClaseDisparador, type SubtipoMako } from '@/lib/disparadores';
 // El chip «Sin conectar» de una tarjeta (décima tanda, GENERAL 6) y el modal que conecta ahí mismo.
 import { ConectarMedio, useEstadoMedios } from './ConectarMedio';
 import { chipDeTarjeta, lineaDePaso, mediosQueUsa, MOTIVO_MEDIO, type Medio } from '@/lib/medios-automatizacion';
@@ -678,11 +681,12 @@ export function FlujoLienzo({
       )}
       // LA CABECERA DEL PANEL DE UN WHATSAPP (sexta tanda, WhatsApp 2 y 3): el logo, el NÚMERO de ese
       // mensaje en lugar de la palabra «WhatsApp» y el ✦ de MaKo al lado (`CabeceraWhatsApp`). La de una
-      // tarjeta MAKO dice «MaKo en WhatsApp» (MaKo en WhatsApp 1). Las demás, la de siempre del lienzo
+      // tarjeta MAKO dice «MaKo en WhatsApp» (MaKo en WhatsApp 1), con su ✦ desde la undécima tanda (la MISMA
+      // clave que su editor: `pasoDeMako` conserva el id y el orden). Las demás, la de siempre del lienzo
       // (`tituloEditor` ausente). Se decide con la tarjeta ABIERTA: el lienzo sólo pinta una cabecera.
       tituloEditor={cabeceraDe(sel ? pasoDe(sel) : null, rolAdmin) ? (n) => {
         const paso = pasoDe(n.id);
-        if (paso && esMako(paso)) return <CabeceraMakoEnWhatsApp />;
+        if (paso && esMako(paso)) return <CabeceraMakoEnWhatsApp paso={pasoDeMako(paso)} deshabilitado={busy} />;
         if (!paso) return null;
         // `linea` es un campo del paso (`PasoSecuenciaDto`): sin cast.
         return (
@@ -995,7 +999,7 @@ function EditorDeNodo(pr: PropsEditor) {
       // La etiqueta es una ⚡ Acción dibujada como lo que hace (decisión 8): tiene su propio editor.
       if (etiquetaDeAccion(paso)) return <EditorEtiquetaLienzo paso={paso} id={id} busy={pr.busy} cambiar={cambiar} />;
       // La tarjeta MAKO (tercera tanda, decisión 11): el aviso al grupo del negocio, con su editor.
-      if (esMako(paso)) return <EditorMako key={`mako-${id}`} paso={paso} busy={pr.busy} cambiar={cambiar} evento={pr.eventoMako ?? null} />;
+      if (esMako(paso)) return <EditorMako key={`mako-${id}`} {...pr} paso={paso} id={id} />;
       return <EditorAccion paso={paso} id={id} busy={pr.busy} cambiar={cambiar} />;
     // La `key` va por tarjeta: el editor recuerda la unidad elegida (`useState` sembrado de props).
     case 'esperar': return <EditorEspera key={`espera-${id}`} espera={paso.espera} busy={pr.busy} cambiar={cambiar} />;
@@ -1019,20 +1023,12 @@ function EditorDeNodo(pr: PropsEditor) {
       );
     }
     case 'respuesta': {
-      // EL AI STEP (novena tanda; v2 en la décima): la misma clase, con SU caso adentro y su propio editor de cinco
-      // pasos. Sus campos (`paso_ia`, el medio, los del caso) están en `PasoSecuenciaDto` (`CamposDelFlujo`, en
-      // ChatAgentApp), así que el cambio va por `cambiarNodo` sobre el DTO, sin castear.
-      // «＋ Otro AI Step» (v2: una tarjeta por caso): otra del mismo medio, colgada del CRON, y se abre.
+      // EL AI STEP (novena tanda; una por objetivo desde la undécima): la misma clase, con su objetivo y sus
+      // escenarios adentro, y su propio editor. Sus campos (`paso_ia`, el medio, el objetivo, los casos) van por
+      // `cambiarNodo` sobre el DTO. «＋ Otro AI Step» se fue (undécima: UN AI Step por medio).
       if (esPasoIA(paso)) {
         const cambiarIA: CambioPasoIA = (patch, apilar) => pr.onPasos((prev) => cambiarNodo<PasoSecuenciaDto>(prev, id, patch), apilar);
-        const otro = () => {
-          const r = crearSuelta(pr.pasos, 'ai_step');
-          if (!r.id) return;
-          const medio = paso.medio;
-          pr.onPasos(() => (medio ? r.pasos.map((q) => (q.id === r.id ? { ...q, medio } : q)) : r.pasos), true);
-          pr.onAbrir(r.id);
-        };
-        return <EditorPasoIA key={`ia-${id}`} id={id} paso={paso} pasos={pr.pasos} busy={pr.busy} cambiar={cambiarIA} onOtro={otro} secuenciaId={pr.secuenciaId ?? null} onError={pr.onError} />;
+        return <EditorPasoIA key={`ia-${id}`} id={id} paso={paso} pasos={pr.pasos} busy={pr.busy} cambiar={cambiarIA} secuenciaId={pr.secuenciaId ?? null} onError={pr.onError} />;
       }
       return <EditorRespuesta {...pr} paso={paso} id={id} cambiar={cambiar} />;
     }
@@ -1093,47 +1089,6 @@ function EditorEtiquetaLienzo(p: { paso: PasoSecuenciaDto; id: string; busy: boo
 
 type Cambiar = (patch: Partial<PasoSecuenciaDto>, apilar: boolean) => void;
 
-/**
- * LOS DATOS QUE SE PUEDEN PONER EN LA TARJETA MAKO (sexta tanda, MaKo en WhatsApp 4: «falta muchísimos
- * datos posibles que enviar en el botón de {}... Como datos de campaña, del second brain, de lo que
- * sea... y siempre como arbol»). Es el catálogo de lo que un mensaje AL EQUIPO sobre UN lead puede
- * resolver (`datosOfrecidos`, lib/variables-aviso.ts: al equipo sí le llegan el link al CRM, la etapa,
- * la campaña), con el MISMO contrato con que lo resuelve el aviso (`conVariables`, destino 'equipo').
- * Hasta la segunda pasada eran los 4 datos del motor (`VARIABLES_LEAD`).
- *
- * Va como ÁRBOL al «{ }» del mismo editor de WhatsApp en modo grupo (`EditorMensajeGrupo`, prop `datos`):
- * un `SelectorDatos` aparte dejaba DOS «{ }» en el mismo editor.
- */
-const GRUPOS_MAKO = datosOfrecidos({ destino: 'equipo', conLead: true });
-
-/**
- * LA TARJETA MAKO («MaKo en WhatsApp»): el mensaje que MaKo le manda al GRUPO de WhatsApp del negocio
- * (tercera tanda, decisión 11). Sigue siendo la ⚡ Acción `avisar_al_equipo` sobre el lead del EVENTO:
- * el aviso ya lleva su nombre, su teléfono y el link a su ficha, y no se repite para el mismo lead en
- * 12 h (lib/api-mako/areas/chatbot.run.ts).
- *
- * ⚠️ SEXTA TANDA (MaKo en WhatsApp 2: «El editable de MaKo en WhatsApp debe ser lo mismo que el
- *    editable de WhatsApp. La misma interfaz»): es el MISMO editor de WhatsApp en modo grupo
- *    (`EditorMensajeGrupo`): el chat con la burbuja de MaKo, emojis y «{ }». Sin audio ni archivos: el
- *    aviso al grupo es UN texto. El «Título (opcional)» salió de la pantalla —en WhatsApp un mensaje no
- *    tiene título— y el que ya estaba guardado se conserva tal cual (`params` viaja entero).
- *
- * Tipear no apila (el Ctrl+Z del texto es del navegador). La `key` va por tarjeta.
- */
-function EditorMako({ paso, busy, cambiar, evento }: { paso: PasoSecuenciaDto; busy: boolean; cambiar: Cambiar; evento: SubtipoMako | null }) {
-  const m = makoDeAccion(paso) ?? { mensaje: '', titulo: '' };
-  // EN UNA FILA DE EVENTO (11/10/2026) el «{ }» ofrece lo que ESE evento trae (`datosDelEvento`: el lead, «Lo que
-  // arma MaKo» si el código arma el texto, la cuota si es la cobranza), no los de un lead de una automatización.
-  // Ofrecer de más es prometer un dato que sale crudo (AGENTS.md, el catálogo de variables).
-  const datos = useMemo(() => (evento ? datosOfrecidos(datosDelEvento(evento)) : GRUPOS_MAKO), [evento]);
-  const params = paso.accion?.params ?? {};
-  const poner = (mensaje: string) => {
-    const sig: Record<string, unknown> = { ...params, leadId: params.leadId ?? LEAD_DEL_EVENTO, mensaje };
-    cambiar({ accion: { operacion: paso.accion?.operacion ?? '', params: sig } }, false);
-  };
-  return <EditorMensajeGrupo texto={m.mensaje} onTexto={poner} datos={datos} deshabilitado={busy} />;
-}
-
 function SoloLectura({ nodo, paso }: { nodo: NodoFlujo; paso: PasoSecuenciaDto | null }) {
   const txt: CSSProperties = { fontSize: 12.5, color: 'var(--ink)', lineHeight: 1.5, whiteSpace: 'pre-wrap' };
   if (paso && claseDe(paso) === 'mensaje') return <div style={txt}>{paso.cuerpo || 'Sin escribir'}</div>;
@@ -1163,6 +1118,11 @@ function EditorMensaje({ paso, id, cambiar, pasos, audios, negocio, envioAutoSec
   // (lib/recordatorio-automatizacion.ts). Ni audio, ni archivos, ni «Revisar» (sale siempre), y el «{ }» con
   // sus datos y no los del motor.
   const recordatorio = triggerTipo === TRIGGER_RECORDATORIO;
+  // EL «{ }» Y EL ROJO DE LA BARRA (undécima tanda, puntos 6 y 7) salen del contexto con que Publicar valida ESTA
+  // tarjeta (`contextoDeTarjeta`): el árbol entero al lead por el no oficial, los datos de siempre por el oficial.
+  const firmaCtx = JSON.stringify(recordatorio ? null : contextoDeTarjeta(paso, { trigger_tipo: triggerTipo ?? '' }));
+  const tarjeta = useMemo(() => JSON.parse(firmaCtx) as ReturnType<typeof contextoDeTarjeta>, [firmaCtx]);
+  const datosTarjeta = useMemo(() => (tarjeta?.tipo === 'catalogo' ? datosOfrecidos(tarjeta.datos) : undefined), [tarjeta]);
   const modoIA = (on: boolean) => {
     // El tipo cambia ACÁ (un cambio que se deshace) y la guía la abre quien monta. Las dos
     // cosas idempotentes: el composer puede mandar también `{ tipo }` por `onChange`.
@@ -1195,6 +1155,8 @@ function EditorMensaje({ paso, id, cambiar, pasos, audios, negocio, envioAutoSec
       permiteAudio={noOficial && !recordatorio}
       permiteAdjuntos={noOficial && !recordatorio}
       variables={recordatorio ? DATOS_RECORDATORIO.map((d) => ({ ...d })) : undefined}
+      datos={datosTarjeta}
+      contexto={tarjeta?.tipo === 'catalogo' ? tarjeta.datos : tarjeta?.tipo}
       redactaCon={recordatorio ? 'recordatorio' : undefined}
       // Minutos entre dos mensajes (WhatsApp 2): la tarjeta se parte con una espera en el medio.
       onPartirConEspera={noOficial && !recordatorio ? (i, m) => onPasos((prev) => { const r = partirConEspera(prev, id, i, m); return r.ok ? r.pasos : prev; }, true) : undefined}
@@ -1205,6 +1167,63 @@ function EditorMensaje({ paso, id, cambiar, pasos, audios, negocio, envioAutoSec
       revisarHeredado={revisarHeredado(pasos, id, envioAutoSecuencia)}
       negocio={negocio}
       placeholder={paso.tipo === 'ia' ? 'Cómo responder' : undefined}
+    />
+  );
+}
+
+/**
+ * EL CONTEXTO DE LOS DATOS DE UNA TARJETA MAKO en un flujo de lead: el aviso al EQUIPO sobre UN lead (al equipo sí le
+ * llegan el link al CRM, la etapa, la campaña). Es lo que contesta `contextoDeTarjeta` para una tarjeta MAKO de una
+ * automatización de siempre; queda acá sólo por si no contestara (no pasa: la tarjeta es MAKO).
+ */
+const CONTEXTO_MAKO: ContextoDatos = { destino: 'equipo', conLead: true };
+
+/**
+ * LA TARJETA MAKO («MaKo en WhatsApp»): el mensaje que MaKo le manda al GRUPO de WhatsApp del negocio
+ * (tercera tanda, decisión 11). Sigue siendo la ⚡ Acción `avisar_al_equipo` sobre el lead del EVENTO.
+ *
+ * ⚠️ UNDÉCIMA TANDA (decisión 2 de la décima, textual: «Si, agregale esas opciones. Pero en audios, que se pueda
+ *    configurar con ElevenLabs que salga la voz de MaKo. La que usamos para crear los VSL de la landing.»): es EL
+ *    MISMO editor que un WhatsApp (`EditorMensajeWhatsApp`), no el «modo grupo» de un solo texto (`EditorMensajeGrupo`
+ *    quedó para /mensajes): archivos de la biblioteca, varios mensajes, pausas, minutos (la tarjeta se parte con un
+ *    DELAY, `partirConEspera`), el ✦ (escribe para el EQUIPO) y, de audio, SÓLO la Voz de MaKo (`vozMako`: sin
+ *    micrófono ni «Audios guardados», que serían la voz del dueño). El editor ve la tarjeta como un mensaje
+ *    (`pasoDeMako`: con su id y su orden REALES, así el borrador de la barra y el ✦ son de ESTA tarjeta) y lo que
+ *    cambia vuelve a sus `params` por `paramsDeMako`: `partes` siempre explícita (sale TAL CUAL, lo que se ve es lo que
+ *    llega: sin «🟡 título», sin «— MaKo», sin el nombre · teléfono · link que agregaba el aviso) y `mensaje` su espejo.
+ * ⚠️ EL CAMBIO SE APLICA SOBRE LA TARJETA DE AHORA, adentro del updater (`onPasos(prev => …)`), no sobre los `params`
+ *    del render: el editor manda dos cambios en el mismo tick (al salir, lo de la barra y después el audio) y el
+ *    segundo pisaba al primero.
+ * ⚠️ LOS DATOS («{ }» y el ✦) SALEN DEL CONTEXTO CON QUE PUBLICAR LOS VALIDA (`contextoDeTarjeta`,
+ *    lib/tokens-del-flujo.ts): el equipo y el lead en un flujo de lead; sin lead en un Recurrente que es sólo el grupo;
+ *    en una fila de EVENTO, lo que ese evento trae (`datosDelEvento`). Ofrecer de más es prometer un dato que sale crudo.
+ *
+ * Tipear no apila (el Ctrl+Z del texto es del navegador); borrar, adjuntar o sumar la voz, sí (`cambioApila`). La
+ * `key` va por tarjeta.
+ */
+function EditorMako({ paso, id, busy, onPasos, eventoMako, triggerTipo, adjuntos, onAdjuntoNuevo, onError, disparador, paraGuion, negocio }: PropsEditor & { paso: PasoSecuenciaDto; id: string }) {
+  const trigger = eventoMako ? TRIGGER_AVISO_MAKO : (triggerTipo ?? '');
+  const ctx = contextoDeTarjeta(paso, { trigger_tipo: trigger, subtipo: eventoMako ?? undefined });
+  // Por su firma: la tarjeta cambia en cada tecla y su contexto no (el «{ }» no se rearma por tipear).
+  const firmaCtx = JSON.stringify(ctx?.tipo === 'catalogo' ? ctx.datos : CONTEXTO_MAKO);
+  const contexto = useMemo(() => JSON.parse(firmaCtx) as ContextoDatos, [firmaCtx]);
+  const datos = useMemo(() => datosOfrecidos(contexto), [contexto]);
+  const dto = useMemo(() => pasoDeMako(paso), [paso]);
+  const cambiarMako = (patch: Partial<PasoSecuenciaDto>) => onPasos((prev) => {
+    const i = indicePorId(prev, id);
+    const accion = i >= 0 ? prev[i].accion : null;
+    if (!accion) return prev;
+    const params = accion.params ?? {};
+    const sig = paramsDeMako({ ...params, leadId: params.leadId ?? LEAD_DEL_EVENTO }, patch as unknown as CambioDeMako);
+    return cambiarNodo(prev, id, { accion: { operacion: accion.operacion ?? '', params: sig } });
+  }, cambioApila(patch, dto));
+  return (
+    <EditorMensajeWhatsApp
+      paso={dto} autor="MaKo" vozMako placeholder="Mensaje para tu equipo"
+      audios={[]} permiteAudio={false} permiteAdjuntos adjuntos={adjuntos} onAdjuntoNuevo={onAdjuntoNuevo}
+      datos={datos} redactaCon={contexto} permiteIA paraGuion={paraGuion} disparador={disparador} negocio={negocio}
+      onPartirConEspera={(i, m) => onPasos((prev) => { const r = partirConEspera(prev, id, i, m); return r.ok ? r.pasos : prev; }, true)}
+      onChange={cambiarMako} onError={onError} deshabilitado={busy}
     />
   );
 }

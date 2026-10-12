@@ -28,7 +28,7 @@ import {
 } from '@/lib/resend';
 import { envioEmailHabilitado, setEnvioEmail } from '@/lib/envio-flags';
 import { EMAIL_MAKO } from '@/lib/app-url';
-import { esDominioDeMako } from '@/lib/email-remitente';
+import { esDominioDeMako, NO_ES_TUYO } from '@/lib/email-remitente';
 
 export const dynamic = 'force-dynamic';
 
@@ -82,10 +82,12 @@ async function esPlataforma(ws: number): Promise<boolean> {
   try { return ws === await wsSuperAdmin(); } catch { return false; }
 }
 
-/** El dominio de MaKo, en un negocio que no es la plataforma: no se conecta ni se usa de remitente. */
-const NO_ES_TUYO = 'Ese dominio es de MaKo. Usa el de tu negocio.';
+// El dominio de MaKo, en un negocio que no es la plataforma, no se conecta ni se usa de remitente: `NO_ES_TUYO`
+// (lib/email-remitente.ts, el MISMO texto que `guardarCredencial` y el ping de /integraciones).
 
 async function estadoActual(ws: number): Promise<Record<string, unknown>> {
+  // `remitente` y `sandbox` salen del veredicto (`remitenteDelNegocio`, undécima tanda): el que pasó, o el sandbox si
+  // ninguno pasó —nunca más el email de MaKo en un cliente—. `sandbox` ES «sin remitente propio».
   const [dominio, dominioId, remitente, conectado, envio, sandbox, keyOk] = await Promise.all([
     getSetting('resend_domain'),
     getSetting('resend_domain_id'),

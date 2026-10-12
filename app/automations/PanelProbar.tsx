@@ -97,7 +97,7 @@ import { Button, Toast, useToast } from '@/app/_ui';
 import { ConectarMedio, useEstadoMedios } from './ConectarMedio';
 import { estadoDe, type Medio } from '@/lib/medios-automatizacion';
 import { opcionesDeSalida, valorDeSalida, RUTA_LINEAS, type LineaWa } from './SalidaWhatsApp';
-import { remitentesVinculados, partesDeRemitente, remitenteDeMakoAjeno, AVISO_EMAIL_DE_MAKO } from '@/lib/email-remitente';
+import { remitentesVinculados, partesDeRemitente, SIN_EMAIL_PROPIO } from '@/lib/email-remitente';
 import type { DomState } from '../email/EmailApp';
 import { useTitulosAcciones } from '@/app/_components/EditorAccionMako';
 import { renderEmailHtml } from '@/lib/email-html';
@@ -196,13 +196,19 @@ export function canalDelPaso(p: { canal?: string | null }): CanalProbar {
 /**
  * LOS DATOS DE EJEMPLO DE UNA FILA DE «MaKo EN WHATSAPP» (11/10/2026): con qué se prueba lo que ESE evento trae
  * (`datosDelEvento`, lib/aviso-evento.ts). «Lo que arma MaKo» (`{{mensaje_mako}}`) es el `ejemplo` del aviso en el
- * catálogo —una muestra de lo que llega—, y los de la cuota, los `ejemplo` del catálogo de datos. El lead es el de
- * ejemplo de siempre (`textoDeEjemplo`). Un evento que no existe no trae nada.
+ * catálogo —una muestra de lo que llega—, y los datos del evento (la cuota; desde la undécima tanda, el pago y «Lo
+ * que escribió»), los `ejemplo` del catálogo de datos. El lead es el de ejemplo de siempre (`textoDeEjemplo`). Un
+ * evento que no existe no trae nada. `{{mensaje_mako}}` se queda hasta la limpieza (docs/diseno-undecima-tanda.md §8.7).
  */
 export function ejemplosDelEvento(sub: unknown): Record<string, string> {
   const ctx = datosDelEvento(sub);
   const out: Record<string, string> = {};
-  if (ctx.conCuota) for (const v of VARIABLES_AVISO) if (v.alcance === 'cuota') out[v.key] = v.ejemplo;
+  // Lo que ESE evento trae, por alcance del catálogo (una rama por alcance, como `alcanzaPara`).
+  const trae = new Set<string>();
+  if (ctx.conCuota) trae.add('cuota');
+  if (ctx.conPago) trae.add('pago');
+  if (ctx.conEscrito) trae.add('escrito');
+  for (const v of VARIABLES_AVISO) if (trae.has(v.alcance)) out[v.key] = v.ejemplo;
   if (ctx.conMensaje) {
     const cat = CATALOGO_AVISOS.find((c) => c.id === avisoDeEvento(sub));
     if (cat) out[CLAVE_MENSAJE_MAKO] = cat.ejemplo;
@@ -1311,8 +1317,9 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
             puedeProbarNuevo={esEmail ? !!nuevoEmail.trim() : !!numero.trim()}
             emisor={{
               opciones: opcionesEmisor, elegido: emisorVisible, onElegir: setEmisor, onVincular: abrirVincular,
-              // El email de MaKo no es el del negocio (EMAIL 1): no se ofrece, y se dice por qué.
-              motivoVacio: canal === 'email' && dom && dom !== 'error' && remitenteDeMakoAjeno(dom) ? AVISO_EMAIL_DE_MAKO : undefined,
+              // Sin remitente propio (el sandbox; desde la undécima, también el email de MaKo en un cliente) no hay
+              // emisor que ofrecer, y se dice con el MISMO texto con el que `sendEmail` se niega.
+              motivoVacio: canal === 'email' && dom && dom !== 'error' && dom.sandbox === true ? SIN_EMAIL_PROPIO : undefined,
             }}
           />
         </PopoverWA>

@@ -34,7 +34,7 @@ import { getSettingEstricto, setSetting } from './settings';
 import { listarWorkspaces, runWithWorkspace, wsSuperAdmin } from './workspace';
 import { emitirDelCatalogo } from './avisos';
 import { linkApp } from './app-url';
-import { tzDeWorkspace } from './timezone';
+import { zonaDelNegocio } from './timezone';
 import {
   decidirLinea, textoCaida, textoVolvio, lineaLegible, keyDesde, keyAvisado, DEDUP_LINEA_MIN,
   type DecisionLinea, type MarcasLinea,
@@ -143,7 +143,7 @@ async function vigilarUna(f: FilaLinea): Promise<ResultadoLinea> {
     if (decision.que !== 'avisar') return base;
 
     const motivo = await motivoCaida(linea, TOPE_MOTIVO_MS).catch(() => null);
-    const tz = await tzDeWorkspace(ws).catch(() => 'America/Tijuana');
+    const tz = await zonaDelNegocio(ws);
     const texto = textoCaida({
       motivo, desde: marcas.desde, linea: lineaLegible(f), tz,
       link: linkApp(`/whatsapp?canal=no-oficial&linea=${encodeURIComponent(linea)}`, ws),

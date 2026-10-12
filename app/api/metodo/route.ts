@@ -10,7 +10,7 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSesionAdmin } from '@/lib/auth';
-import { eliminarCredencial, estadoCampo, guardarCredencial } from '@/lib/credenciales';
+import { eliminarCredencial, estadoCampo, guardarCredencial, RemitenteNoPropioError } from '@/lib/credenciales';
 import { getWorkspaceActual, OWNER_WS } from '@/lib/workspace';
 import { ENVS_METODO, SERVICIOS_METODO, servicioMetodo } from '@/lib/metodo-catalogo';
 
@@ -82,7 +82,13 @@ export async function POST(req: NextRequest) {
         // La sesión legacy trae el email de una cookie no firmada (editable) →
         // no lo usamos como atribución; guardamos el sub en su lugar.
         const autor = sesion.legacy ? sesion.sub : (sesion.email || sesion.sub);
-        await guardarCredencial(ws, env, v, servicio.key, autor);
+        try {
+          await guardarCredencial(ws, env, v, servicio.key, autor);
+        } catch (e) {
+          // El remitente de MaKo como `RESEND_FROM` (undécima tanda): es un dato del usuario, no un 500.
+          if (e instanceof RemitenteNoPropioError) return NextResponse.json({ ok: false, error: e.message }, { status: 400 });
+          throw e;
+        }
         guardadas++;
       }
       return NextResponse.json({ ok: true, guardadas, servicios: await estadoServicios(ws) });

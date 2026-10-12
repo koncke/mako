@@ -9,15 +9,20 @@
 // de "MaKo en WhatsApp" cambia todo, y NO debería... debe ser IDENTICO.»
 //
 // Lo que fija este archivo (el emisor y el motor, la parte A, los fija tests/aviso-evento.test.ts):
-//   1. La lista: «MaKo en WhatsApp» son las filas con el CRON «Evento de MaKo» (`partirLista`), con la MISMA fila y el
-//      MISMO «⋯» (cuatro opciones, Duplicar y Copiar flujo incluidos). `opcionesDeMensaje` ya no existe.
+//   1. La lista: las filas con el CRON «Evento de MaKo» van en la MISMA lista, con la MISMA fila y el MISMO «⋯»
+//      (Renombrar, Duplicar y Copiar flujo incluidos). `opcionesDeMensaje` ya no existe. Desde la undécima tanda
+//      (punto 9: «que sea todo una misma sidebar para todo, sin dividir, para eso ya tenemos filtros») no hay
+//      división: se fueron `partirLista`, los rótulos y «＋ Nuevo mensaje».
 //   2. Nada en app/automations importa la lista vieja (MensajeMakoLienzo, TemplateDetalleModal, chatbot-mensajes-mako).
-//   3. «＋ Nuevo mensaje» abre la galería con el filtro «MaKo en WhatsApp»; las plantillas de MaKo (cuatro desde la décima
-//      tanda) van mezcladas con las del Chatbot, con la misma tarjeta.
-//   4. Las tres plantillas se pueden publicar (`validarGrafo`, `frenoDelFlujo`, `frenoDelEvento`), la cobranza trae
-//      los textos de antes LITERALES, y de un evento se crean varias (el recordatorio sigue siendo uno).
-//   5. Lo que se depreca: `{{mensaje_mako}}` sólo con `conMensaje`, la lista vieja fuera de `listarPlantillas`, MaKo no
-//      los prende, Notificaciones sin la lista de mensajes, el reporte semanal del super admin.
+//   3. «＋ Nueva» abre la galería sin sección (se fue «＋ Nuevo mensaje»); las plantillas de MaKo van mezcladas con las
+//      del Chatbot, con la misma tarjeta.
+//   4. Las tres plantillas de Evento de MaKo (undécima tanda: la cobranza, el pago y la charla; el nuevo agendado y la
+//      media hora antes son tarjetas de «Un Lead Agendó Llamada») se pueden publicar (`validarGrafo`, `frenoDelFlujo`,
+//      `frenoDelEvento`), citan DATOS (nunca «Lo que arma MaKo»), la cobranza trae los textos de antes LITERALES, y de un
+//      evento se crean varias.
+//   5. Lo que se depreca: `{{mensaje_mako}}` no se ofrece en ningún «{ }» (se sigue resolviendo para las filas vivas), la
+//      lista vieja fuera de `listarPlantillas`, MaKo no los prende, Notificaciones sin la lista de mensajes, el reporte
+//      semanal del super admin.
 //   6. Con un CRON del emisor no hay «＋ Nuevo CRON» ni «←» (dibujado).
 //
 // PROBADO ROMPIÉNDOLO: ver `ROTURAS` al pie.
@@ -29,17 +34,18 @@ import { execFileSync } from 'node:child_process';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import * as Lista from '../app/automations/SimuladorWhatsApp';
-import { SimuladorWhatsApp, partirLista, opcionesDeFila, ROTULO_CHATBOT, ROTULO_MENSAJES_MAKO } from '../app/automations/SimuladorWhatsApp';
-import { GaleriaPlantillas, yaLaTiene, BLANCO } from '../app/automations/GaleriaPlantillas';
+import { SimuladorWhatsApp, opcionesDeFila } from '../app/automations/SimuladorWhatsApp';
+import { GaleriaPlantillas, BLANCO } from '../app/automations/GaleriaPlantillas';
 import { EditorDisparadores } from '../app/automations/EditorDisparadores';
 import { ejemplosDelEvento } from '../app/automations/PanelProbar';
 import type { SecuenciaDto } from '../app/automations/ChatAgentApp';
-import { PLANTILLAS, plantillaPorId, pasosDePlantilla, esPlantillaMako } from '../lib/plantillas-automatizaciones';
+import { PLANTILLAS, plantillaPorId, pasosDePlantilla, esPlantillaMako, ROTULO_MENSAJES_MAKO } from '../lib/plantillas-automatizaciones';
 import { crearDesdePlantilla, PlantillaInvalidaError, type DbPlantilla } from '../lib/plantilla-crear';
 import { validarGrafo, normalizar } from '../lib/flujo-grafo';
 import { frenoDelFlujo } from '../lib/flujo-conversacion';
 import { frenoDelEvento, datosDelEvento, AVISOS_POR_EVENTO } from '../lib/aviso-evento';
-import { TRIGGER_AVISO_MAKO, EVENTOS_MAKO, type Disparador } from '../lib/disparadores';
+import { TRIGGER_AVISO_MAKO, EVENTOS_MAKO, EVENTOS_MAKO_OFRECIDOS, type Disparador } from '../lib/disparadores';
+import { tokensDe } from '../lib/variables-aviso';
 import { TRIGGER_RECORDATORIO } from '../lib/recordatorio-automatizacion';
 import { variablesPara, CLAVE_MENSAJE_MAKO } from '../lib/variables-aviso';
 import { AVISOS_DEL_CLIENTE, AVISOS_SOLO_SUPERADMIN, CATALOGO_AVISOS } from '../lib/avisos-catalogo';
@@ -78,40 +84,40 @@ const dibujarLista = (secuencias: SecuenciaDto[], extra: Record<string, unknown>
 
 // ── 1. La lista ──────────────────────────────────────────────────────────────────
 
-test('1. `partirLista`: «MaKo en WhatsApp» son las filas del CRON «Evento de MaKo», y el resto (el recordatorio incluido) es «Chatbot», en orden', () => {
-  const { chatbot, mako } = partirLista([BIENVENIDA, COBRANZA, RECORDATORIO]);
-  assert.deepEqual(chatbot.map((j) => j.id), [7, 9]);
-  assert.deepEqual(mako.map((j) => j.id), [8]);
-  assert.deepEqual(partirLista([]), { chatbot: [], mako: [] });
+// ⚠️ UNDÉCIMA TANDA (11/10/2026, punto 9): «Te pido que en la sidebar elimines la separación con "MaKo en WhatsApp" que
+// sea todo una misma sidebar para todo, sin dividir, para eso ya tenemos filtros. Y arriba también elimina la palabra
+// "Chatbot"». Hasta acá estos tests fijaban la división (`partirLista`, los rótulos y «＋ Nuevo mensaje»); ahora fijan
+// que NO esté. Las de MaKo se ven con el filtro «Al WhatsApp de MaKo» (tests/chatbot-lista-filtro.test.ts).
+test('1. la lista es UNA: sin `partirLista` ni rótulos, y la fila del evento va en el orden del server', () => {
+  for (const k of ['partirLista', 'ROTULO_CHATBOT', 'ROTULO_MENSAJES_MAKO']) assert.equal(k in Lista, false, `volvió «${k}»`);
 });
 
-test('1. dibujada: «Chatbot» con sus filas, después «MaKo en WhatsApp» con «＋ Nuevo mensaje» y SUS filas, con el MISMO «⋯»', () => {
+test('1. dibujada: una lista, sin «Chatbot», «MaKo en WhatsApp» ni «＋ Nuevo mensaje», con el MISMO «⋯» en cada fila', () => {
   const html = dibujarLista([BIENVENIDA, COBRANZA, RECORDATORIO]);
-  const iChatbot = html.indexOf(`>${ROTULO_CHATBOT}</div>`);
   const iBienvenida = html.indexOf('>Bienvenida</span>');
-  const iRecordatorio = html.indexOf('>Recordatorio de la reunión</span>');
-  const iMako = html.indexOf(`>${ROTULO_MENSAJES_MAKO}</div>`);
-  const iNuevo = html.indexOf('data-nuevo-mensaje');
   const iCobranza = html.indexOf('>Cobranza de cuotas vencidas</span>');
-  assert.ok(iChatbot >= 0 && iChatbot < iBienvenida && iBienvenida < iMako && iRecordatorio < iMako, 'una automatización del Chatbot quedó bajo «MaKo en WhatsApp»');
-  assert.ok(iMako < iNuevo && iNuevo < iCobranza, 'la fila del evento no va bajo «MaKo en WhatsApp», después de «＋ Nuevo mensaje»');
+  const iRecordatorio = html.indexOf('>Recordatorio de la reunión</span>');
+  assert.ok(iBienvenida > 0 && iBienvenida < iCobranza && iCobranza < iRecordatorio, 'la fila del evento se movió del orden del server');
+  assert.doesNotMatch(html, />Chatbot<|data-grupo-mensajes-mako|data-nuevo-mensaje|>Nuevo mensaje</, 'volvió la división');
+  assert.doesNotMatch(html, new RegExp(`>${ROTULO_MENSAJES_MAKO}</div>`));
   // El MISMO «⋯» que una automatización: el botón de la casa, en las tres filas.
   for (const n of ['Bienvenida', 'Recordatorio de la reunión', 'Cobranza de cuotas vencidas']) {
     assert.ok(html.includes(`aria-label="Opciones de ${n}"`), `«${n}» sin su «⋯»`);
   }
-  // Un setter las ve como cualquier automatización (sin «⋯» ni «＋», como en el Chatbot).
+  // Un setter las ve como cualquier automatización (sin «⋯» ni «＋»).
   const setter = dibujarLista([BIENVENIDA, COBRANZA], { rolAdmin: false });
   assert.ok(setter.includes('>Cobranza de cuotas vencidas</span>'), 'un setter no ve la fila del evento');
   assert.doesNotMatch(setter, /data-nuevo-mensaje|aria-label="Opciones de /);
 });
 
-test('1. el «⋯» de una fila de «MaKo en WhatsApp» es `opcionesDeFila`: los cuatro, y `opcionesDeMensaje` ya no existe', () => {
-  assert.deepEqual(opcionesDeFila(true).map((o) => o.value), ['activa', 'duplicar', 'copiar', 'eliminar']);
+test('1. el «⋯» de una fila de «MaKo en WhatsApp» es `opcionesDeFila`, y `opcionesDeMensaje` ya no existe', () => {
+  // «Renombrar» desde la undécima tanda (punto 5), en todas las filas.
+  assert.deepEqual(opcionesDeFila(true).map((o) => o.value), ['activa', 'renombrar', 'duplicar', 'copiar', 'eliminar']);
   assert.equal('opcionesDeMensaje' in Lista, false, 'volvió el «⋯» recortado de los mensajes de antes');
-  // Una sola fila para las dos divisiones: la misma función dibuja las dos.
+  // Una sola fila para todas: la misma función dibuja la lista entera.
   const src = fuente('app/automations/SimuladorWhatsApp.tsx');
-  assert.match(src, /\{divisiones\.chatbot\.map\(filaDeLista\)\}/);
-  assert.match(src, /\{divisiones\.mako\.map\(filaDeLista\)\}/);
+  assert.match(src, /\{lista\.map\(filaDeLista\)\}/);
+  assert.doesNotMatch(src, /divisiones\./);
   // Con «Descartar cambios» cuando tiene algo sin publicar (décima tanda, general 5): el mismo punto ámbar del nombre.
   assert.match(bloque(src, 'const filaDeLista = (j: SecuenciaDto) => {', '\n  };\n'), /options=\{opcionesDeFila\(j\.activa, sinPublicarDe\(j, j\.id === selId && sinPublicar\)\)\}\n\s+onChange=\{\(v\) => void accionFila\(j, v\)\}/);
 });
@@ -141,33 +147,33 @@ const galeria = (extra: Record<string, unknown> = {}) => renderToStaticMarkup(cr
 /** Las plantillas dibujadas, en el orden de la grilla. */
 const dibujadas = (html: string) => [...html.matchAll(/data-plantilla="([^"]+)"/g)].map((m) => m[1]);
 
-test('3. «＋ Nuevo mensaje» abre la galería en la sección «MaKo en WhatsApp», por la MISMA puerta que «＋ Nueva»', () => {
+// ⚠️ UNDÉCIMA TANDA (punto 9): «＋ Nuevo mensaje» se fue con la división de la lista. La galería se abre SIEMPRE por la
+// puerta de «＋ Nueva», sin sección; las de MaKo se encuentran con el filtro de la galería (el `seccion` que
+// GaleriaPlantillas todavía acepta lo borra el paquete de las plantillas, w3-plantillas).
+test('3. una sola puerta a la galería: «＋ Nueva», sin sección; «＋ Nuevo mensaje» se fue', () => {
   const lista = fuente('app/automations/SimuladorWhatsApp.tsx');
-  assert.match(lista, /onClick=\{\(\) => nueva\('mako'\)\} className="chb-nueva" data-nuevo-mensaje/);
-  // La puerta pregunta por lo no publicado y lleva la sección hasta quien monta.
-  const nueva = bloque(lista, 'const nueva = (seccion?: SeccionGaleria) => {', '\n  };\n');
-  assert.match(nueva, /if \(sinPublicar\) \{ setPendiente\(\{ ir: 'nueva', seccion \}\); return; \}\n\s+onNueva\(seccion\);/);
-  assert.match(lista, /if \(p\.ir === 'nueva'\) onNueva\(p\.seccion\);/);
+  assert.doesNotMatch(lista, /data-nuevo-mensaje|nueva\('mako'\)|SeccionGaleria/, 'volvió «＋ Nuevo mensaje»');
+  // La puerta pregunta por lo no publicado y abre la galería, sin sección.
+  const nueva = bloque(lista, 'const nueva = () => {', '\n  };\n');
+  assert.match(nueva, /if \(sinPublicar\) \{ setPendiente\(\{ ir: 'nueva' \}\); return; \}\n\s+onNueva\(\);/);
+  assert.match(lista, /if \(p\.ir === 'nueva'\) onNueva\(\);/);
   const app = fuente('app/automations/ChatAgentApp.tsx');
-  assert.match(app, /const abrirGaleria = \(seccion\?: SeccionGaleria\) => \{ setErrCrear\(null\); setGaleria\(\{ seccion \}\); \};/);
+  assert.match(app, /const abrirGaleria = \(\) => \{ setErrCrear\(null\); setGaleria\(true\); \};/);
   assert.match(app, /onNueva=\{abrirGaleria\}/);
-  assert.match(app, /<GaleriaPlantillas productos=\{productos\} onCerrar=\{\(\) => setGaleria\(false\)\} seccion=\{galeria\.seccion\}/);
-  // ⚠️ DESDE LA DÉCIMA TANDA (11/10/2026, docs/diseno-automations-galeria-v2.md §1) YA NO LLEVA CON SCROLL a una sección:
-  // abre con el FILTRO Canal = «MaKo en WhatsApp» puesto. Lo que se ve: «Lienzo en blanco» y sólo las de MaKo.
-  const gal = fuente('app/automations/GaleriaPlantillas.tsx');
-  assert.match(gal, /useState<string\[\]>\(\(\) => filtroDeSeccion\(p\.seccion\)\)/);
-  assert.doesNotMatch(gal, /scrollIntoView|CADA_MS|INTENTOS_MAX/, 'volvió el scroll a la sección');
-  const html = galeria({ seccion: 'mako' });
-  assert.deepEqual(dibujadas(html).sort(), PLANTILLAS.filter(esPlantillaMako).map((p) => p.id).sort(), 'con «＋ Nuevo mensaje» no se ven sólo las de MaKo');
+  assert.match(app, /<GaleriaPlantillas productos=\{productos\} onCerrar=\{\(\) => setGaleria\(false\)\}\s+onBlanco=/);
+  assert.doesNotMatch(app, /seccion/, 'la tab le sigue pasando una sección a la galería');
+  // «Lienzo en blanco» sigue primera.
+  const html = galeria();
   assert.ok(html.indexOf('data-empezar="blanco"') > 0 && html.indexOf('data-empezar="blanco"') < html.indexOf('data-plantilla='), '«Lienzo en blanco» no va primera');
 });
 
 // Décima tanda: sin rótulos de sección, las de «MaKo en WhatsApp» van MEZCLADAS con las del Chatbot, con la MISMA tarjeta.
-test('3. las cinco de «MaKo en WhatsApp» van mezcladas con las del Chatbot, con la misma tarjeta y sin rótulos', () => {
+// UNDÉCIMA TANDA (punto 10, una plantilla por categoría): las de Evento de MaKo son TRES. El nuevo agendado y la media hora
+// antes ya no son plantillas aparte: son tarjetas «MaKo en WhatsApp» de «Un Lead Agendó Llamada».
+test('3. las tres de Evento de MaKo van mezcladas con las demás, con la misma tarjeta y sin rótulos', () => {
   const html = galeria();
   const mako = PLANTILLAS.filter(esPlantillaMako);
-  // La quinta, «Aviso de pago recibido» (11/10/2026, la pasarela de pagos).
-  assert.deepEqual(mako.map((p) => p.id).sort(), ['mako-agendado', 'mako-charla', 'mako-cobranza', 'mako-pago', 'mako-reunion']);
+  assert.deepEqual(mako.map((p) => p.id).sort(), ['mako-charla', 'mako-cobranza', 'mako-pago']);
   assert.deepEqual(dibujadas(html), PLANTILLAS.map((p) => p.id), 'no se dibujan todas, en el orden del catálogo');
   for (const p of PLANTILLAS) assert.match(html, new RegExp(`<button type="button" class="gal-tarjeta" data-plantilla="${p.id}"`), `«${p.id}» con otra tarjeta`);
   // Ni la sección aparte, ni los rótulos de antes, ni la sección de los «eliminados».
@@ -188,18 +194,23 @@ test('4. las tres se pueden publicar: `validarGrafo`, `frenoDelFlujo` y lo que s
   for (const p of PLANTILLAS.filter(esPlantillaMako)) {
     assert.equal(p.cron.fijo, TRIGGER_AVISO_MAKO);
     const evento = p.cron.fijo === TRIGGER_AVISO_MAKO ? p.cron.evento : null;
-    assert.ok(EVENTOS_MAKO.some((e) => e.subtipo === evento), `${p.id}: evento «${evento}»`);
+    // De los que se OFRECEN (los retirados siguen en la tabla, sólo para las filas vivas hasta la limpieza).
+    assert.ok(EVENTOS_MAKO_OFRECIDOS.some((e) => e.subtipo === evento), `${p.id}: evento «${evento}»`);
     const pasos = normalizar(pasosDePlantilla(p));
     assert.deepEqual(validarGrafo(pasos), [], `${p.id}: no se publica`);
     assert.equal(frenoDelFlujo(pasos, faltanEnAccion), null, `${p.id}: el lienzo frena Publicar`);
     assert.equal(frenoDelEvento(pasos, evento), null, `${p.id}: el emisor de «${evento}» no la sabe correr`);
   }
-  // Las dos cuyo texto arma el código dicen «Lo que arma MaKo» y nada más: sale EXACTAMENTE el texto de antes.
-  // El nuevo agendado (décima tanda) también: el texto lo arman los webhooks de la agenda.
-  for (const id of ['mako-reunion', 'mako-charla', 'mako-agendado']) {
-    const p = plantillaPorId(id)!;
-    assert.deepEqual(p.pasos.map((x) => x.accion?.params.mensaje), [`{{${CLAVE_MENSAJE_MAKO}}}`], `${id}: no es «Lo que arma MaKo»`);
+  // UNDÉCIMA TANDA (punto 4: «ese dato NO existe... No es trackeable»): NINGUNA dice «Lo que arma MaKo»; citan los datos
+  // que trae su evento (el pago, lo que escribió el lead), a la vista.
+  for (const p of PLANTILLAS.filter(esPlantillaMako)) {
+    for (const x of p.pasos) assert.doesNotMatch(String(x.accion?.params.mensaje ?? ''), new RegExp(CLAVE_MENSAJE_MAKO), `${p.id}/${x.id}: «Lo que arma MaKo»`);
   }
+  const claves = (id: string) => plantillaPorId(id)!.pasos.flatMap((x) => tokensDe(String(x.accion?.params.mensaje ?? '')).map((t) => t.key));
+  for (const k of ['pago_monto', 'pago_pasarela', 'pago_concepto', 'pago_tipo', 'pago_modo', 'pago_alta', 'link_lead']) assert.ok(claves('mako-pago').includes(k), `mako-pago sin {{${k}}}`);
+  for (const k of ['nombre_completo', 'lead_escribio', 'link_lead']) assert.ok(claves('mako-charla').includes(k), `mako-charla sin {{${k}}}`);
+  // Y los retirados ya no tienen plantilla.
+  for (const e of EVENTOS_MAKO.filter((x) => x.retirado)) assert.ok(!PLANTILLAS.some((p) => p.cron.fijo === TRIGGER_AVISO_MAKO && p.cron.evento === e.subtipo), e.subtipo);
 });
 
 test('4. la cobranza trae la cadencia de antes con los textos LITERALES: entrada, 48 h, recordatorio, 72 h, último', () => {
@@ -244,36 +255,36 @@ test('4. crear una de evento: nace APAGADA con su CRON en la fila (evento inclui
   assert.equal(crones.length, 0, 'el CRON del evento no va por la lista de CRON (no se cambia)');
 });
 
-test('4. de un evento se crean VARIAS (salen todas); el recordatorio sigue siendo UNO por negocio', async () => {
+test('4. de un evento se crean VARIAS (salen todas), y la galería no apaga ninguna', async () => {
   // Ya hay una de cobranza: se crea otra, con un número en el nombre.
-  const yaHay = baseDeMentira([{ nombre: 'Cobranza de cuotas vencidas', trigger_tipo: TRIGGER_AVISO_MAKO }]);
+  const yaHay = baseDeMentira([{ nombre: 'Una Cuota Venció', trigger_tipo: TRIGGER_AVISO_MAKO }]);
   const otra = await crearDesdePlantilla('mako-cobranza', { db: yaHay.db, setPasos: async () => {}, setDisparadores: async () => {} });
-  assert.equal(otra.nombre, 'Cobranza de cuotas vencidas 2');
+  assert.equal(otra.nombre, 'Una Cuota Venció 2');
   assert.ok(yaHay.llamadas.some((l) => l.op === 'insert'), 'no se creó la segunda del mismo evento');
-  // Y la galería no la apaga.
-  assert.equal(yaLaTiene(plantillaPorId('mako-cobranza')!, [TRIGGER_AVISO_MAKO]), false);
-  const html = galeria({ triggersVivos: [TRIGGER_AVISO_MAKO, TRIGGER_RECORDATORIO] });
+  // Y la galería no la apaga («Ya la tienes» era del recordatorio, que ya no es una plantilla).
+  const html = galeria();
   const tarjeta = (id: string) => html.match(new RegExp(`<button[^>]*data-plantilla="${id}"[^>]*>`))?.[0] ?? '';
-  for (const p of PLANTILLAS.filter(esPlantillaMako)) assert.doesNotMatch(tarjeta(p.id), /disabled/, `«${p.id}» se apagó con «Ya la tienes»`);
-  assert.match(tarjeta('recordatorio-reunion'), /disabled/, 'el recordatorio que ya tiene se puede elegir otra vez');
-  // El recordatorio, uno.
-  const conRecordatorio = baseDeMentira([{ nombre: 'Mi recordatorio', trigger_tipo: TRIGGER_RECORDATORIO }]);
+  for (const p of PLANTILLAS) assert.doesNotMatch(tarjeta(p.id), /disabled/, `«${p.id}» se dibuja apagada`);
+  // El recordatorio de antes: un id viejo, que nombra la de su categoría y no crea nada.
+  const viejo = baseDeMentira();
   await assert.rejects(
-    crearDesdePlantilla('recordatorio-reunion', { db: conRecordatorio.db, setPasos: async () => {}, setDisparadores: async () => {} }),
-    (e: unknown) => e instanceof PlantillaInvalidaError && /Ya la tienes/.test(e.message),
+    crearDesdePlantilla('recordatorio-reunion', { db: viejo.db, setPasos: async () => {}, setDisparadores: async () => {} }),
+    (e: unknown) => e instanceof PlantillaInvalidaError && /Un Lead Agendó Llamada/.test(e.message),
   );
+  assert.equal(viejo.llamadas.length, 0);
 });
 
 // ── 5. Lo que se depreca ─────────────────────────────────────────────────────────
 
-test('5. «Lo que arma MaKo» (`{{mensaje_mako}}`) se ofrece SÓLO con `conMensaje`: las dos que arma el código, no la cobranza', () => {
+// UNDÉCIMA TANDA (punto 4, docs/diseno-undecima-tanda.md §1.11): «Lo que arma MaKo» NO se ofrece en NINGÚN «{ }», ni
+// siquiera con el texto del código (`conMensaje`). Se sigue RESOLVIENDO para las filas vivas que lo tienen (#239, #240)
+// hasta la limpieza: «Probar» lo dibuja con el ejemplo del aviso.
+test('5. «Lo que arma MaKo» (`{{mensaje_mako}}`) ya no se ofrece en ningún «{ }»; se sigue resolviendo para lo vivo', () => {
   const con = (ctx: Parameters<typeof variablesPara>[0]) => variablesPara(ctx).some((v) => v.key === CLAVE_MENSAJE_MAKO);
   assert.equal(con({ conLead: true, destino: 'equipo' }), false, 'se ofrece en una automatización de las de siempre');
   assert.equal(con({ conLead: true, conCuota: true, destino: 'equipo' }), false);
-  assert.equal(con({ conLead: true, conMensaje: true, destino: 'equipo' }), true);
-  assert.equal(con(datosDelEvento('reunion_pronto')), true);
-  assert.equal(con(datosDelEvento('lead_contesta')), true);
-  assert.equal(con(datosDelEvento('cuota_vencida')), false, 'la cobranza manda la plantilla, no un texto armado');
+  assert.equal(con({ conLead: true, conMensaje: true, destino: 'equipo' }), false, 'se ofrece con el texto del código');
+  for (const e of EVENTOS_MAKO) assert.equal(con(datosDelEvento(e.subtipo)), false, `se ofrece en «${e.subtipo}»`);
   // «Probar» lo dibuja con el ejemplo del aviso, y la cobranza con los datos de la cuota.
   assert.equal(ejemplosDelEvento('reunion_pronto')[CLAVE_MENSAJE_MAKO], CATALOGO_AVISOS.find((c) => c.id === 'reunion-recordatorio')!.ejemplo);
   assert.equal(ejemplosDelEvento('cuota_vencida').cuota_monto, 'US$ 1.700');
@@ -363,9 +374,13 @@ test('6. con un CRON del emisor no hay «＋ Nuevo CRON» ni «←»: dice lo qu
 // ROTURAS (11/10/2026), una por vez, con un arnés (scratchpad `b-roturas.mjs`) que rompe, corre ESTE archivo y
 // restaura DE MEMORIA (nunca con git checkout), comprobando con md5 el archivo byte a byte igual.
 // Base: 17 pass / 0 fail; al final, igual. Las de este archivo (pass / fail):
-//   · R1 las filas de evento en «Chatbot» (`partirLista` no las separa)       → 15 / 2 (las dos de la lista)
+//   · R1 (undécima tanda, re-medido con wf-undecima/w1-lista-ui/romper.mjs: base 17 / 0) la lista vuelve a partirse
+//     (las de evento abajo, con su rótulo)                                      → 15 / 2 (las dos de la lista)
+//   · R1b (undécima) `opcionesDeFila` sin «Renombrar»                           → 16 / 1 (el «⋯»)
+//   · R1c (undécima) «Nueva» sin preguntar por lo no publicado                  → 16 / 1 (una sola puerta)
 //   · R2 una coma menos en «Sigue sin cobrarse»                                → 16 / 1 (los textos literales)
 //   · R3 `yaLaTiene` también para un evento                                    → 16 / 1 (se crean varias)
+//     (undécima tanda: `yaLaTiene` se fue con el recordatorio como plantilla; el test fija que NINGUNA se apague)
 //   · R4 el panel del CRON ofrece «＋ Nuevo CRON» con uno del emisor           → 16 / 1 (el CRON del emisor)
 //   · R5 `listarPlantillas` vuelve a listar los tres eventos                   → 16 / 1 (lo que se depreca)
 //   · R6 la fila de un evento nace sin su CRON (sin `disparadores`)            → 16 / 1 (crear una de evento)

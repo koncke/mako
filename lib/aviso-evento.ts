@@ -33,6 +33,8 @@ import { OP_AVISAR } from './flujo-legado';
 import { DELAY_MAX_HORAS, QUE_ENVEJECEN } from './flujo-pasos';
 import { CLAVE_MENSAJE_MAKO, type ContextoDatos } from './variables-aviso';
 import { textoLoArmaElCodigo, type AvisoCatalogo } from './avisos-catalogo';
+// Puro: la tarjeta «MaKo en WhatsApp» por partes (undécima tanda). Qué partes tiene y si sale tal cual.
+import { esTarjetaTalCual, partesDeMako, textoDePartes } from './mako-tarjeta';
 
 // ── Qué aviso es qué evento ─────────────────────────────────────────────────────────────────────
 
@@ -59,12 +61,17 @@ const conMensaje = (ev: EventoMako): boolean => ev.trae.includes('mensaje') && t
 /**
  * LOS DATOS DEL «{ }» EN UNA FILA DE EVENTO: el lead siempre (lo traen los tres desde el 11/10/2026), la cuota
  * en la cobranza y «Lo que arma MaKo» en los dos cuyo texto lo arma el código. Al EQUIPO (es su grupo). Lo
- * usa el lienzo (`EditorMako`) en vez de los datos de siempre.
+ * usa el lienzo (`EditorMako`) en vez de los datos de siempre. Desde la undécima tanda, además, el PAGO en
+ * «Entra un pago» y lo que ESCRIBIÓ el lead en la charla (`trae`, lib/disparadores.ts). Es el mismo contexto
+ * con el que Publicar valida (`problemasDeTokens`, lib/tokens-del-flujo.ts).
  */
 export function datosDelEvento(sub: unknown): ContextoDatos {
   const ev = porSubtipo(sub);
   if (!ev) return { conLead: false, destino: 'equipo' };
-  return { conLead: ev.trae.includes('lead'), conCuota: ev.trae.includes('cuota'), conMensaje: conMensaje(ev), destino: 'equipo' };
+  return {
+    conLead: ev.trae.includes('lead'), conCuota: ev.trae.includes('cuota'), conMensaje: conMensaje(ev),
+    conPago: ev.trae.includes('pago'), conEscrito: ev.trae.includes('escrito'), destino: 'equipo',
+  };
 }
 
 // ── Las tarjetas, traducidas al runner de los flujos ────────────────────────────────────────────
@@ -110,7 +117,8 @@ export const MOTIVO_EVENTO = {
  * LAS TARJETAS DE UNA FILA DE EVENTO, EN LOS PASOS DEL RUNNER DE LOS FLUJOS (`Paso`, lib/flujos-tipos.ts), o
  * qué le falta. Recorre UNA fila desde la raíz de la salida (`raicesSalida`), como el recordatorio
  * (`toquesDeLaAutomatizacion`, lib/recordatorio-automatizacion.ts):
- *   · «MaKo en WhatsApp» (`avisar_al_equipo`) → `{ tipo: 'mensaje', canal: 'aviso_dueno', texto }`;
+ *   · «MaKo en WhatsApp» (`avisar_al_equipo`) → `{ tipo: 'mensaje', canal: 'aviso_dueno', texto }`, y con su lista
+ *     (`params.partes`, la tarjeta TAL CUAL de la undécima) además `partes`;
  *   · DELAY por tiempo → `{ tipo: 'esperar', horas }`, hasta 30 días (`DELAY_MAX_HORAS`);
  *   · CONDITION de UNA rama, con «Si no» vacío → `{ tipo: 'condicion', rama }`: se cumple, sigue; no, termina.
  * Todo lo demás se rechaza con su tarjeta (`MOTIVO_EVENTO`): el runner no le escribe al lead, no corre una
@@ -151,18 +159,26 @@ export function pasosDelEvento(pasosIn: readonly PasoGrafo[], evento: unknown): 
     const clase = claseDe(p);
     if (clase === 'accion') {
       const params = (p.accion as { params?: Record<string, unknown> } | null)?.params;
-      const texto = typeof params?.mensaje === 'string' ? params.mensaje.trim() : '';
-      if (!texto) return mal(MOTIVO_EVENTO.makoVacia, cur);
-      if (RE_MENSAJE_MAKO.test(texto) && !conMensaje(ev)) return mal(MOTIVO_EVENTO.sinMensaje, cur);
-      if (huboDelay && RE_QUE_ENVEJECE.test(texto)) return mal(MOTIVO_EVENTO.envejece, cur);
+      // ⚠️ UNDÉCIMA TANDA (decisión 2 de la décima): la tarjeta puede guardar su lista (`params.partes`, la misma que
+      // un WhatsApp: textos, la Voz de MaKo, archivos). Con ella sale TAL CUAL y POR PARTES (`emitirTarjetaDelEvento`,
+      // lib/flujos.ts); `texto` es su espejo (el feed). Vacía —sin ninguna parte— sigue siendo `makoVacia`. Lo que se
+      // revisa abajo es TODO lo escrito (cada texto y cada pie), no el espejo, que se recorta.
+      const talCual = esTarjetaTalCual(params);
+      const lista = partesDeMako(params);
+      if (!lista.length) return mal(MOTIVO_EVENTO.makoVacia, cur);
+      const texto = talCual ? textoDePartes(lista) : String(params?.mensaje ?? '').trim();
+      const escrito = talCual ? lista.flatMap((x) => (x.tipo === 'audio' ? [] : [x.cuerpo ?? ''])).join('\n') : texto;
+      if (RE_MENSAJE_MAKO.test(escrito) && !conMensaje(ev)) return mal(MOTIVO_EVENTO.sinMensaje, cur);
+      if (huboDelay && RE_QUE_ENVEJECE.test(escrito)) return mal(MOTIVO_EVENTO.envejece, cur);
       // ⚠️ «LO QUE ARMA MAKO» TAMBIÉN ES UNA FOTO (revisión del 11/10/2026). Es un mensaje entero redactado por el
       // código en el momento del evento («⏰ En 30 min tienes la R1…»), y viaja dormido en la corrida (`ctx.texto`):
       // después de un DELAY de una hora salía tal cual, con la reunión ya empezada. No es un dato que se pueda
       // recalcular al despertar (lo arma el llamador, no la corrida), así que no va después de un DELAY en NINGÚN
       // evento: la charla («No le preparé respuesta…») también puede haber dejado de ser cierta. Un recordatorio
       // posterior se escribe con los datos estables («{{lead_nombre}}», «{{link_lead}}»).
-      if (huboDelay && RE_MENSAJE_MAKO.test(texto)) return mal(MOTIVO_EVENTO.mensajeViejo, cur);
-      pasos.push({ tipo: 'mensaje', canal: 'aviso_dueno', texto });
+      if (huboDelay && RE_MENSAJE_MAKO.test(escrito)) return mal(MOTIVO_EVENTO.mensajeViejo, cur);
+      // La de ANTES (sin lista) sale EXACTAMENTE como hasta hoy: el paso no lleva `partes`.
+      pasos.push(talCual ? { tipo: 'mensaje', canal: 'aviso_dueno', texto, partes: lista } : { tipo: 'mensaje', canal: 'aviso_dueno', texto });
       huella.push(`${cur}:mensaje`);
       makos += 1;
       cur = siguienteDe(pasosIn, i);

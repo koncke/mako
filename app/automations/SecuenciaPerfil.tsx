@@ -26,6 +26,7 @@ import { usePilaDeshacer } from '@/app/_ui/usePilaDeshacer';
 import { EditorDisparadores, useDisparadores, useTextoDisparador, type SecuenciaConDisparadores } from './EditorDisparadores';
 import { disparoActualDe, iconoDeDisparador, esDelEmisor, EVENTOS_MAKO, TRIGGER_AVISO_MAKO } from '@/lib/disparadores';
 import { frenoDelEvento } from '@/lib/aviso-evento';
+import { problemasDeTokens } from '@/lib/tokens-del-flujo';
 import type { AudioSetting, SecuenciaDto, Opcion, PasoSecuenciaDto, ProductoOpcion } from './ChatAgentApp';
 import { FlujoLienzo, type CambioPasos, type EtiquetaLienzo, type SeccionEtapas } from './FlujoLienzo';
 import { usePosicionesLienzo } from './usePosicionesLienzo';
@@ -40,8 +41,8 @@ import { useFaltanEnAcciones } from '@/app/_components/EditorAccionMako';
 import { esPasoAccion } from '@/lib/nutricion-paso-accion';
 import { franjaIA, BARRA_IA_ANCHO } from '@/lib/crear-ia-lugar';
 import { resumenAvisos, edicionVigente } from '@/lib/flujo-ia-cliente';
-import type { Objetivo } from '@/lib/setting-estrategia';
-import { normalizar, esNodoMensaje, separarPasosIA } from '@/lib/flujo-grafo';
+import { TOPE_NOMBRE_SECUENCIA, nombreParaGuardar, type Objetivo } from '@/lib/setting-estrategia';
+import { normalizar, esNodoMensaje, juntarPasosIA } from '@/lib/flujo-grafo';
 import { eliminar } from '@/lib/flujo-edicion';
 import { MakoLogo } from '@/app/_components/MakoBrand';
 import type { Muelles } from '@/lib/lienzo-grafo';
@@ -68,8 +69,9 @@ async function api(body: unknown): Promise<{ ok: boolean; error?: string }> {
 const EMOJI_OBJ: Record<Objetivo, string> = { agendar: '📅', preparar: '🎯', reactivar: '🧲', cualificar: '❓', confirmar_pago: '💳' };
 
 /** El tope del nombre: con 40 entran los seis vigentes (el más largo mide 39) y en la lista
- *  de la izquierda se lee entero (punto 3: «con un máximo de caracteres para los títulos»). */
-const NOMBRE_MAX = 40;
+ *  de la izquierda se lee entero (punto 3: «con un máximo de caracteres para los títulos»).
+ *  Es el de la lib desde la undécima tanda: el mismo que el server y «Renombrar» de la lista. */
+const NOMBRE_MAX = TOPE_NOMBRE_SECUENCIA;
 
 /** Las tarjetas del chrome FLOTANTE: fondo propio para leerse sobre la cuadrícula del
  *  lienzo, y el mismo radio que el resto de la casa. Copiado de TemplateDetalleModal a
@@ -253,8 +255,8 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
       idDeClave: (clave) => secuencias.find((s) => s.clave === clave)?.id ?? null,
       nombreDeSecuencia: (id) => secuencias.find((s) => s.id === id)?.nombre ?? null,
     });
-    // Un borrador de antes del AI Step v2 también se abre con una tarjeta por caso (`separarPasosIA`, como `abrirFlujo`).
-    const borrador = secuencia.borrador?.pasos?.length ? renumerar(normalizar(separarPasosIA(normalizar(secuencia.borrador.pasos)).pasos)) : null;
+    // Un borrador de antes se abre con UN AI Step por medio (`juntarPasosIA`, la puerta para lo viejo, como `abrirFlujo`).
+    const borrador = secuencia.borrador?.pasos?.length ? renumerar(normalizar(juntarPasosIA(normalizar(secuencia.borrador.pasos)).pasos)) : null;
     // `abierto`: lo publicado tal como el lienzo lo abriría sin borrador («Descartar cambios» vuelve ahí).
     const abierto = renumerar(r.pasos);
     return { ...r, pasos: borrador ?? abierto, abierto, publicado: JSON.stringify(renumerar(normalizar(ordenados))) };
@@ -375,10 +377,18 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
    *  caller es lo que lo vuelve a sembrar al cambiar de secuencia. */
   const [nombre, setNombre] = useState(secuencia.nombre);
   const [editandoNombre, setEditandoNombre] = useState(false);
+  /**
+   * ⚠️ Y SE RE-SIEMBRA AL DIBUJAR cuando la prop cambia y no se está editando (undécima tanda, punto 5). Con
+   * «Renombrar» del «⋯» de la lista la automatización ABIERTA cambia de nombre sin remontarse (mismo `key`): sin
+   * esto el título seguía diciendo el viejo, y un clic + blur en él lo volvía a ESCRIBIR. Al dibujar y no en un
+   * efecto: un efecto pintaría primero el viejo.
+   */
+  const [nombreVisto, setNombreVisto] = useState(secuencia.nombre);
+  if (!editandoNombre && nombreVisto !== secuencia.nombre) { setNombreVisto(secuencia.nombre); setNombre(secuencia.nombre); }
   const guardarNombre = async () => {
     setEditandoNombre(false);
-    const t = nombre.trim().slice(0, NOMBRE_MAX);
-    if (!t || t === secuencia.nombre) { setNombre(secuencia.nombre); return; }
+    const t = nombreParaGuardar(secuencia.nombre, nombre);
+    if (!t) { setNombre(secuencia.nombre); return; }
     const j = await api({ action: 'nombre', secuenciaId: secuencia.id, nombre: t });
     if (!j.ok) { setErr(j.error ?? 'No se pudo cambiar el nombre'); setNombre(secuencia.nombre); return; }
     setErr(null);
@@ -572,10 +582,12 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
   const esEvento = disparo.trigger_tipo === TRIGGER_AVISO_MAKO;
   /** CUÁL evento (el `subtipo` de su CRON), sólo si es uno que existe. null = una automatización de las de siempre. */
   const eventoMako = esEvento ? (EVENTOS_MAKO.find((e) => e.subtipo === crons.primero?.subtipo)?.subtipo ?? null) : null;
+  // Los DATOS (undécima tanda, punto 4): un `{{dato}}` que esa tarjeta no puede mandar (o {{mensaje_mako}}) frena acá
+  // con la MISMA `problemasDeTokens` que el server (`setSecuenciaPasos`), con el CRON y el evento de la fila.
   const frenoDeEsta = useCallback(
-    (ps: typeof pasos) => frenoDelFlujo(ps, faltanEnAccion)
+    (ps: typeof pasos) => frenoDelFlujo(ps, faltanEnAccion, problemasDeTokens(ps, disparo.trigger_tipo, eventoMako ?? undefined))
       ?? (esRecordatorio ? frenoDelRecordatorio(ps) : esEvento ? frenoDelEvento(ps, eventoMako) : null),
-    [faltanEnAccion, esRecordatorio, esEvento, eventoMako],
+    [faltanEnAccion, esRecordatorio, esEvento, eventoMako, disparo.trigger_tipo],
   );
   // Identidad FIJA (sólo usa setters): viaja en `EdicionLocal` y un `frenar` nuevo por render
   // re-dispararía el efecto que la manda en cada tecla.
@@ -622,7 +634,9 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
         // Un 409 trae el `medio` (GENERAL 6): se abre «Conectar» ahí mismo en vez de señalar una tarjeta.
         const medio = rp.medio ? medioDelError(e) : null;
         if (medio) { setErr(e); setConectarMedio(medio); setBusy(null); return; }
-        frenar(e ? errorLegible(e, pasos) : 'No se pudo publicar.', e ? tarjetaDelError(e, pasos) : null);
+        // La tarjeta: la que dice el server (`tarjeta`, un dato que no existe) o la que nombra el error.
+        const tarjeta = typeof rp.tarjeta === 'string' && rp.tarjeta ? rp.tarjeta : e ? tarjetaDelError(e, pasos) : null;
+        frenar(e ? errorLegible(e, pasos) : 'No se pudo publicar.', tarjeta);
         setBusy(null); return;
       }
     } catch { borrador.noPublicado(); setErr('Sin conexión — prueba de nuevo.'); setBusy(null); return; }

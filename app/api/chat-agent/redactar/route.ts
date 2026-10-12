@@ -1,7 +1,9 @@
 // =============================================================================
 // API: el ✦ de MaKo que ayuda a escribir un WhatsApp del lienzo (sexta tanda del Chatbot, WhatsApp 3)
 // =============================================================================
-// POST { pedido, actual, disparador, objetivo, gancho, permiteAudio }
+// POST { pedido, actual, disparador, objetivo, gancho, permiteAudio, datos }
+//   `datos`: 'motor' (al lead), 'recordatorio', o el contexto de la tarjeta (`ContextoDatos`, lib/variables-aviso.ts);
+//   con destino 'equipo' es el aviso de «MaKo en WhatsApp» (undécima tanda): otro prompt, sin la voz del negocio.
 //   → { ok: true, mensajes: string[], audio: string | null, nota: string | null, leido: string[], sinVoz: boolean, descartes: string[] }
 //   → { ok: false, error, link? }
 //
@@ -31,7 +33,10 @@ import { ejecutarOperacion } from '@/lib/api-mako/ejecutar';
 import { canalKeyDe } from '@/lib/api-mako/canal';
 import type { Ctx } from '@/lib/api-mako/tipos';
 import { FEATURE_GUION_AUDIO } from '@/lib/guion-audio';
-import { LECTURAS_REDACTA, pedidoDeRedacta, redactaSystem, userDeRedacta, revisarRedacta, type PropuestaRedacta } from '@/lib/mako-redacta';
+import {
+  lecturasDeRedacta, esParaElEquipo, pedidoDeRedacta, redactaSystem, userDeRedacta, revisarRedacta,
+  type LECTURAS_REDACTA, type PropuestaRedacta,
+} from '@/lib/mako-redacta';
 
 export const dynamic = 'force-dynamic';
 /** La cascada gratis tarda de 3 a 30 s; con la red de plataforma, un poco más. El cliente corta a 95 s. */
@@ -42,9 +47,9 @@ const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 const MOTIVO = 'Escribir un WhatsApp del lienzo con el ✦ de MaKo';
 
 /** Lo que el registro devolvió, en texto, recortado a su tope. */
-async function leer(ctx: Ctx): Promise<{ leido: Array<{ rotulo: string; texto: string }> }> {
+async function leer(ctx: Ctx, lecturas: typeof LECTURAS_REDACTA): Promise<{ leido: Array<{ rotulo: string; texto: string }> }> {
   const leido: Array<{ rotulo: string; texto: string }> = [];
-  const rs = await Promise.all(LECTURAS_REDACTA.map(async (l) => {
+  const rs = await Promise.all(lecturas.map(async (l) => {
     try {
       const r = await ejecutarOperacion(l.id, l.input ?? {}, ctx, 'json');
       return r.ok && r.tipo === 'lectura' && r.resultado.trim() ? { rotulo: l.rotulo, texto: r.resultado.trim().slice(0, l.tope) } : null;
@@ -76,7 +81,13 @@ export async function POST(req: NextRequest) {
   // pisaba. «No pude leer» no es un valor (AGENTS.md): `hayVozGuiaEstricto` tira, el `.catch` lo vuelve
   // `null` y sólo un `false` medido ofrece configurar. Esta lectura sólo decide eso: la voz que llega al
   // prompt sale del registro (`guia_voz_negocio`, en LECTURAS_REDACTA).
-  const [{ leido }, hayVoz] = await Promise.all([leer(ctx), hayVozGuiaEstricto().catch(() => null)]);
+  // ⚠️ EL AVISO AL EQUIPO (undécima tanda, «MaKo en WhatsApp») lo escribe MaKo, no el dueño: no lee la voz del
+  // negocio (`lecturasDeRedacta`) ni ofrece configurarla (no se pregunta: `true`).
+  const equipo = esParaElEquipo(p.datos);
+  const [{ leido }, hayVoz] = await Promise.all([
+    leer(ctx, lecturasDeRedacta(p.datos)),
+    equipo ? Promise.resolve(true) : hayVozGuiaEstricto().catch(() => null),
+  ]);
   const system = redactaSystem(p.datos);
   const user = userDeRedacta(p, leido);
   // Lo que se le dio a leer: de acá pueden salir los links que un mensaje nombra.

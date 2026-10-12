@@ -15,7 +15,8 @@
 //   · WhatsApp — la línea de la automatización (`instance_name`; null = la de por default) con
 //     `estado = 'conectado'` y número. Sólo el NO OFICIAL (Evolution): el oficial (una plantilla de Meta) no
 //     pasa por una línea nuestra y no se mide acá.
-//   · Email — key de Resend y un remitente que no es el sandbox NI de MaKo (`emailConectado`, lib/resend.ts).
+//   · Email — key de Resend y un remitente PROPIO del negocio (`emailConectado`, lib/resend.ts: el que pasa
+//     `remitenteDelNegocio`, lib/email-remitente.ts).
 //   · Instagram / Messenger (un paso que MANDA) — Zernio y una cuenta de esa plataforma.
 //
 // ⚠️ `conectado: null` («NO PUDE COMPROBARLO») AVISA Y NO FRENA: conectar no lo arregla (AGENTS.md, «una
@@ -29,6 +30,7 @@
 import { claseDe, esPasoIA, medioDe, type PasoGrafo } from './flujo-grafo';
 import { proveedorDelPaso } from './nutricion-canal';
 import { esCanalSocial } from './canal-social';
+import { SIN_EMAIL_PROPIO } from './email-remitente';
 
 export type Medio = 'whatsapp' | 'email' | 'instagram' | 'messenger';
 /** En el orden en que se dicen («Conecta tu WhatsApp» antes que «Conecta tu email»). */
@@ -50,7 +52,9 @@ export type EstadoMedios = {
 /** Lo que se le dice a quien tiene que conectarlo. Corto: va en un chip, en un botón y en un 409. */
 export const MOTIVO_MEDIO: Record<Medio, string> = {
   whatsapp: 'Conecta tu WhatsApp',
-  email: 'Conecta tu email',
+  // El MISMO texto con el que `sendEmail` se niega sin remitente propio (lib/email-remitente.ts): así
+  // `medioDelError` reconoce el error del envío como «falta conectar el email».
+  email: SIN_EMAIL_PROPIO,
   instagram: 'Conecta tu Instagram',
   messenger: 'Conecta tu Messenger',
 };

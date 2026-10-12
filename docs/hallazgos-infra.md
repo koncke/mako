@@ -2259,7 +2259,7 @@ por defecto»: llega a un Tijuana que parece dato. Para distinguirlo hay que lee
 `setTimezoneWorkspace` tienen call-sites, p. ej. `lib/api-mako/acciones.ts:171`.)
 *2026-09-16 api-mako-areas*
 
-**16/09/2026: leer la zona la ESCRIBE.** `tzDeWorkspace`
+**16/09/2026: leer la zona la ESCRIBE** (hasta el 11/10/2026: ver «Una zona, un default, una lectura», abajo). `tzDeWorkspace`
 (`lib/timezone.ts:39-43`) lee `mako.timezone` y, si no está, llama a `resolverYGuardarTz`
 (:55), que averigua la zona (Cal.com → Google Calendar → teléfono) y la GUARDA; si no llega
 en 4 s devuelve el default sin guardarlo (:59-72). O sea que una lectura —un resumen, una
@@ -2278,7 +2278,8 @@ algo que se supone de solo lectura tiene que saberlo: el runner de contenido de 
   el trimestre (`quarterActual`, `lib/objectives.ts:79`)— se calcula con otra zona, y cerca
   de la medianoche el valor cae en el día vecino sin que nada lo diga. Para algo que decide
   (cerrar un período, marcar un vencimiento) la zona se lee con una variante que tire.
-  **Esa variante no existe todavía.**
+  **Esa variante no existe todavía.** (Existe desde el 11/10/2026: `zonaDelNegocioEstricta`; ver «Una zona, un
+  default, una lectura», abajo.)
 - **Y los guiones calculan el día sin zona.** `fechaGuion`/`diaGuion`
   (`lib/guion-estado.ts:77-91`) usan la zona del proceso: la del navegador en la tab, UTC
   en el server. La API usa la del negocio (`diaEnTz`, `contenido.helpers.ts:220`), así que
@@ -2323,6 +2324,51 @@ call-sites**. No es display: son bordes de día que deciden cohortes y disparos,
 regla de arriba (escritura y lectura juntas).
 
 **Vive en:** lib/date-utils.ts, anotado en lib/timezone.ts:47
+
+### Una zona, un default, una lectura (11/10/2026, undécima tanda)
+
+**Síntoma:** el envío #22 del ws1 (Baja California, horario 9-21) salió a las 08:00 de Tijuana, y Configuraciones ›
+Horario le mostraba «Ciudad de México» mientras el resto de la app decía Tijuana.
+
+**Causa:** DOS defaults. `TZ_DEFAULT = Tijuana` en las pantallas y `ZONA_SIN_CONFIGURAR = Ciudad de México` en el motor,
+puesto como «prudente» («no mover cuándo les sale todo»). ⚠️ El default prudente ERA el bug, no una protección. Y
+`zonaPara` (`lib/variables-resolver.ts`) elegía la zona según el DESTINO: al equipo Tijuana, al lead Ciudad de México,
+así que el «Nuevo agendado» y el recordatorio de la misma reunión decían dos horas distintas.
+
+**Por qué nacieron dos:** `tzDeWorkspace` era una lectura con efectos (averiguaba por la red hasta 4 s y GUARDABA, ver
+arriba). Tres módulos de la API reimplementaron una lectura sin escritura, y el motor puso su propio default para no
+pagar 4 s por tick.
+
+**Regla:** UN default (`ZONA_POR_DEFECTO`, Tijuana) y UNA lectura para el motor, el tick, las pantallas, la API y el
+resolvedor: `zonaDeLoGuardado` (pura) / `zonaDelNegocio(ws)`, y `zonaDelNegocioEstricta(ws)` para lo que decide (la
+variante que tira, que la entrada del 16/09 echaba en falta). Las lecturas son puras; averiguar es otra función, explícita,
+que no guarda (`inferirZonaDesdeIntegraciones`). Escribe UNA sola: `fijarZonaDelNegocio` (compare-and-set sobre
+`updated_at`, con su origen en `mako.timezone.origen`). Ninguna zona se elige por destino.
+
+- **⚠️ Toda comparación de zonas por texto pasa por `zonaCanonica`.** Lo obvio (equivocado): «el ws13 tiene zona
+  argentina, así que su acento es `ar`». Tenía `America/Buenos_Aires` (el alias que contestan Cal.com y Chrome) y
+  `POR_ZONA` sólo conocía `America/Argentina/Buenos_Aires`: resolvía 'latam'. Trampa del entorno: en Node 24
+  `resolvedOptions().timeZone` devuelve el id ICU, que es el nombre VIEJO (`Asia/Kolkata` → `Asia/Calcutta`), así que no
+  sirve de forma canónica: se mapea a la zona de `ZONAS_POR_PAIS`.
+- **`decidirZona` tiene tres salidas, no dos** (escribir / sellar / nada). Con «mismo reloj → nada», el primer viaje de
+  Mauricio a Ciudad de México con el origen en 'meta' (el backfill) habría movido la hora de todo el negocio. Un
+  navegador que CONFIRMA la zona la sella sin cambiarla. El origen guarda su `tz`: si la zona ya es otra (un deploy viejo,
+  `clonar-config`, una edición a mano), el origen queda huérfano y cuenta como «sin origen».
+- **El selector de zona sólo se veía con el horario de oficina PRENDIDO**, y el default es apagado: la zona de todo el
+  negocio no se podía ver ni cambiar. Ahora está en la misma fila, siempre.
+- La detección va por el navegador de un admin PROPIO del negocio, en producción y una vez por pestaña (nunca el super
+  admin mirando con `?ws=`); para los demás, sólo llena un vacío con las integraciones del cliente.
+
+**SIN HACER:** `scripts/zona-negocio-backfill.mts --aplicar` (simulacro del 11/10: ws1 y ws4 → Tijuana por Meta, ws11 →
+Cancún, ws13 canonizado a `America/Argentina/Buenos_Aires`, ws9/10/14/15 sólo el origen 'legado'), y no tiene
+`--restaurar` (volver atrás es a mano con el respaldo). `lib/offer-pdf.ts:54` tiene su propio default de Ciudad de México
+(área Offer; declarado como PENDIENTE en `tests/zona-negocio.test.ts`). Las zonas de protocolo siguen como estaban
+(`isoToFechaTijuana`, `TZ_FECHA_AGENDA`, `parseFechaJunta`, `crm-auto`, los reportes). La detección no corre al cambiar de
+cliente con `?ws=` en la misma pestaña (`app/_components/ZonaDelNegocio.tsx`; inofensivo, el backfill cubre el vacío).
+
+**Vive en:** `lib/zona-negocio-reglas.ts` · `lib/timezone.ts` · `app/_components/zona-actions.ts` ·
+`app/configuraciones/HorarioEnvioPanel.tsx` · `lib/acento-workspace.ts` · `scripts/zona-negocio-backfill.mts` ·
+*2026-10-11 undécima tanda (w1-zona y w3-motor-integracion)*
 
 ---
 

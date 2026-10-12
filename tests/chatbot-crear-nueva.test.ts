@@ -82,9 +82,11 @@ test('el pie de antes («N etapas sin secuencia · Armar una») no vuelve, ni su
 test('la puerta pregunta por lo no publicado ANTES de crear', () => {
   // Sin DOM no se puede prender `sinPublicar` (lo emite el lienzo en un efecto): se fija el fuente.
   const src = sinComentarios(leer('app/automations/SimuladorWhatsApp.tsx'));
-  // Desde el 11/10/2026 la puerta lleva la sección de la galería («＋ Nuevo mensaje» abre en «MaKo en WhatsApp»).
-  assert.match(src, /const nueva = \(seccion\?: SeccionGaleria\) => \{\n {4}if \(sinPublicar\) \{ setPendiente\(\{ ir: 'nueva', seccion \}\); return; \}\n {4}onNueva\(seccion\);\n {2}\};/);
-  assert.match(src, /if \(p\.ir === 'nueva'\) onNueva\(p\.seccion\);/);
+  // (Del 11/10/2026 a la undécima tanda la puerta llevaba la sección de la galería, por «＋ Nuevo mensaje». Se fue
+  // con ese botón, punto 9: una sola lista. Rotura N1 de wf-undecima/w1-lista-ui/romper.mjs, la puerta sin preguntar:
+  // base 7 / 0 → 6 / 1.)
+  assert.match(src, /const nueva = \(\) => \{\n {4}if \(sinPublicar\) \{ setPendiente\(\{ ir: 'nueva' \}\); return; \}\n {4}onNueva\(\);\n {2}\};/);
+  assert.match(src, /if \(p\.ir === 'nueva'\) onNueva\(\);/);
   // El «＋ Nueva» de la lista recibe ESA puerta, no `onNueva`.
   assert.match(src, /onClick=\{\(\) => nueva\(\)\}/);
 });
@@ -124,8 +126,8 @@ test('el estado vacío dibuja el fallo de crear al lado de su botón', () => {
 
 test('«＋ Nueva» abre la galería, y «Lienzo en blanco» crea la vacía de siempre', () => {
   const src = sinComentarios(leer('app/automations/ChatAgentApp.tsx'));
-  assert.match(src, /const abrirGaleria = \(seccion\?: SeccionGaleria\) => \{ setErrCrear\(null\); setGaleria\(\{ seccion \}\); \};/);
-  assert.match(src, /\{galeria && rolAdmin && \(\s*<GaleriaPlantillas productos=\{productos\} onCerrar=\{\(\) => setGaleria\(false\)\} seccion=\{galeria\.seccion\}\s*onBlanco=\{\(\) => \{ setGaleria\(false\); void crearNueva\(\); \}\}/, 'la galería no está montada, o «Lienzo en blanco» no crea la vacía');
+  assert.match(src, /const abrirGaleria = \(\) => \{ setErrCrear\(null\); setGaleria\(true\); \};/);
+  assert.match(src, /\{galeria && rolAdmin && \(\s*<GaleriaPlantillas productos=\{productos\} onCerrar=\{\(\) => setGaleria\(false\)\}\s*onBlanco=\{\(\) => \{ setGaleria\(false\); void crearNueva\(\); \}\}/, 'la galería no está montada, o «Lienzo en blanco» no crea la vacía');
   // «Pídeselo a MaKo» (décima tanda): la que armó MaKo también se abre DESPUÉS de traer la lista.
   assert.match(src, /onCreadaIA=\{\(r\) => void alCrearConIA\(r\)\}/);
   assert.match(src, /const alCrearConIA = async \(r: CreadaConIAGaleria\) => \{\n {4}setGaleria\(false\);\n[^\n]*\n {4}await load\(\);\n {4}setAbrirSec\(\{ id: r\.secuenciaId \}\);/);

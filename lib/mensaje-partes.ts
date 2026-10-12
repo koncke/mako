@@ -138,6 +138,8 @@ export type PasoConPartes = {
   partes?: unknown;
   /** La línea de ESTA tarjeta (`lineaDelPaso`). */
   linea?: unknown;
+  /** La ⚡ Acción del paso. Sólo se mira la tarjeta «MaKo en WhatsApp» (`pasoUsaAudio`, `pasoUsaArchivo`). */
+  accion?: unknown;
 };
 
 const idPositivo = (v: unknown): number | null => {
@@ -218,18 +220,35 @@ export const partesDe = (p: PasoConPartes): ParteMensaje[] => partesExplicitas(p
 // que nadie lo viera (`enviarPartesDelPaso` baja todo antes de mandar y no manda nada). Se pregunta
 // por las partes y por los campos de siempre (la primera, y lo de antes).
 
-/** ¿Este paso usa el audio `id`, en cualquiera de sus partes? */
+/**
+ * LAS PARTES DE UNA TARJETA «MaKo en WhatsApp» (undécima tanda): la ⚡ Acción `avisar_al_equipo` guarda la
+ * MISMA lista en `accion.params.partes` (lib/mako-tarjeta.ts). Sin mirarla, la Voz de MaKo o el archivo
+ * de esa tarjeta se podían borrar y el aviso fallaba en cada lead. El literal es el de `OP_AVISAR`
+ * (lib/flujo-legado.ts; tests/mako-tarjeta.test.ts lo fija): importar lib/mako-tarjeta.ts sería un ciclo.
+ */
+const OP_TARJETA_MAKO = 'avisar_al_equipo';
+function partesDeAccionMako(p: PasoConPartes): unknown[] {
+  const a = p.accion as { operacion?: unknown; params?: { partes?: unknown } | null } | null | undefined;
+  if (!a || typeof a !== 'object' || a.operacion !== OP_TARJETA_MAKO) return [];
+  return Array.isArray(a.params?.partes) ? a.params.partes : [];
+}
+
+/** ¿Alguna parte de la lista es del `tipo` y usa el `id` en `campo`? */
+const listaUsa = (lista: unknown, tipo: 'audio' | 'media', campo: 'audio_id' | 'media_id', id: number): boolean =>
+  Array.isArray(lista) && lista.some((x) => !!x && typeof x === 'object' && (x as { tipo?: unknown }).tipo === tipo && Number((x as Record<string, unknown>)[campo]) === id);
+
+/** ¿Este paso usa el audio `id`, en cualquiera de sus partes (también las de una tarjeta MaKo)? */
 export function pasoUsaAudio(p: PasoConPartes | null | undefined, id: number): boolean {
   if (!p || typeof p !== 'object') return false;
   if (Number(p.audio_id) === id) return true;
-  return Array.isArray(p.partes) && p.partes.some((x) => !!x && typeof x === 'object' && (x as { tipo?: unknown }).tipo === 'audio' && Number((x as { audio_id?: unknown }).audio_id) === id);
+  return listaUsa(p.partes, 'audio', 'audio_id', id) || listaUsa(partesDeAccionMako(p), 'audio', 'audio_id', id);
 }
 
-/** ¿Este paso usa el archivo `id` de la biblioteca, en cualquiera de sus partes? */
+/** ¿Este paso usa el archivo `id` de la biblioteca, en cualquiera de sus partes (también las de una tarjeta MaKo)? */
 export function pasoUsaArchivo(p: PasoConPartes | null | undefined, id: number): boolean {
   if (!p || typeof p !== 'object') return false;
   if (Number(p.media_id) === id) return true;
-  return Array.isArray(p.partes) && p.partes.some((x) => !!x && typeof x === 'object' && (x as { tipo?: unknown }).tipo === 'media' && Number((x as { media_id?: unknown }).media_id) === id);
+  return listaUsa(p.partes, 'media', 'media_id', id) || listaUsa(partesDeAccionMako(p), 'media', 'media_id', id);
 }
 
 /** Los pasos (crudos, de la fila) que usan el audio `id`. */

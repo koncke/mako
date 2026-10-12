@@ -8,9 +8,17 @@
 //     que viaja al redactor (`DatosCasoIA` → `extrasDeCaso`);
 //   · la puerta para lo viejo (`separarPasosIA`) y el plan de la migración (`planDeFila`, lib/ai-step-migrar.ts);
 //   · las reglas (`validarGrafo`, `faltaEnCaso`), el saneo (`camposDelFlujo`, la quinta puerta);
-//   · lo puro de la IA y la voz: `repararArmado`, `leerObjeciones`, `escenarioDeCaso`, `ejemplosDeCharla`,
-//     `partirTextoParaVoz`, el bloque del redactor (`bloqueEscenario`) y la tabla de objetivos;
+//   · lo puro del ensayo y la voz: `leerObjeciones`, `escenarioDeAIStep`, `ejemplosDeCharla`,
+//     `partirTextoParaVoz` y el bloque del redactor (`bloqueEscenario`). (El armado y la tabla de objetivos de la
+//     décima se fueron en el cierre de la undécima: tests/ai-step-armar.test.ts cubre el armado de hoy.);
 //   · el cableado del motor (lib/nutricion.ts es `server-only`): se fija leyendo el fuente sin comentarios.
+//
+// ⚠️ UNDÉCIMA TANDA (11/10/2026, docs/diseno-undecima-tanda.md §2 puntos 11-13): «Toda la cantidad de tarjetas de
+// "AI Step" deberían ser una sola». Lo de este archivo que fijaba la forma de la décima se DIO VUELTA y se reescribió
+// acá mismo: `separarPasosIA` es un alias que JUNTA, `planDeFila` y el script se retiraron, Publicar pide el objetivo
+// y UN AI Step por medio, el saneo sube lo del objetivo a la tarjeta, «enseñar un caso» suma adentro, duplicar no
+// y la voz se dice del AI Step. La expansión de varias tarjetas SIGUE (lo guardado así contesta igual hasta que se
+// junte), y lo puro de la IA, el ensayo y la voz no cambió. Lo nuevo se prueba en tests/ai-step-unico.test.ts.
 //
 // PROBADO ROMPIÉNDOLO: ver `ROTURAS` al pie.
 
@@ -20,22 +28,19 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   type PasoGrafo, type CasoRespuesta,
-  expandirPasoIA, escenariosDeRespuesta, separarPasosIA, validarGrafo, validarParaGuardar, faltaEnCaso, escuchaPor,
+  expandirPasoIA, escenariosDeRespuesta, juntarPasosIA, validarGrafo, validarParaGuardar, faltaEnCaso, escuchaPor,
   nodoPorId, raizRespuesta, raicesRespuesta, tarjetasSueltas, puedeSumarAIStep, esPasoIA, idDe,
-  idRespuestaDeCaso, idAvisoDeCaso, idOtraCosa, AVISO_OTRA_COSA, AVISO_DE_CASO, TOPE_RESPONDER, TOPE_AI_STEP_POR_MEDIO,
-  ROTULO_CUALQUIERA,
+  idRespuestaDeCaso, idAvisoDeCaso, idOtraCosa, AVISO_OTRA_COSA, AVISO_DE_CASO, TOPE_RESPONDER,
 } from '../lib/flujo-grafo';
 import { camposDelFlujo, agregarCasoAlGrafo } from '../lib/nutricion-grafo-motor';
-import { planDeFila, loQueContesta } from '../lib/ai-step-migrar';
-import { objetivoDeCaso, OBJETIVO_PRECIO } from '../lib/ai-step-objetivos';
-import { repararArmado } from '../lib/ai-step-armar';
-import { leerObjeciones, escenarioDeCaso, ejemplosDeCharla } from '../lib/ai-step-ensayo';
+import { loQueContesta } from '../lib/ai-step-migrar';
+import { leerObjeciones, escenarioDeAIStep, ejemplosDeCharla } from '../lib/ai-step-ensayo';
 import { partirTextoParaVoz, vozQueFalta, TOPE_TEXTO_AUDIO } from '../lib/ai-step-voz';
 import { bloqueEscenario as bloqueRedactor, REGLA_NOTA_DE_VOZ } from '../lib/setter-conversacion';
 import { bloqueEscenario as bloqueLead } from '../lib/chat-agent-escenarios';
 import { grafoDeSecuencia, ID_ENTRADA, opcionesDelMas, type PasoParaGrafo } from '../lib/flujo-conversacion';
-import { duplicar } from '../lib/flujo-edicion';
-import { firmaPublicado } from '../lib/secuencia-borrador';
+import { duplicar, MOTIVO } from '../lib/flujo-edicion';
+import { libertadDeCaso } from '../lib/ai-step-libertad';
 
 const RAIZ = join(import.meta.dirname, '..');
 const leer = (p: string): string => readFileSync(join(RAIZ, p), 'utf8').replace(/\r\n/g, '\n');
@@ -55,7 +60,7 @@ const caso = (id: string, o: Partial<CasoRespuesta> = {}): CasoRespuesta => ({ i
 /** Una tarjeta AI Step v2: un caso. */
 const tarjeta = (id: string, c: CasoRespuesta, o: Partial<PasoGrafo> = {}): PasoGrafo => ({ ...msg({ cuerpo: '' }), id, nodo: 'respuesta', paso_ia: true, casos: [c], si_no: null, ...o });
 
-/** Una automatización v2: su salida (m1) y tres AI Step de WhatsApp —contesta solo, cualquiera que sólo avisa— y uno de Instagram. */
+/** Una automatización v2 (la forma de la décima): su salida (m1) y tres AI Step de WhatsApp —contesta solo, cualquiera que sólo avisa— y uno de Instagram. */
 const v2 = (): PasoGrafo[] => [
   msg({ id: 'm1', cuerpo: 'Hola', siguiente: null }),
   tarjeta('A', caso('ca', { titulo: 'Precio', cuando: 'pregunta el precio', responder: 'En la llamada', objetivo: 'Que agende sin cifras', ejemplos: [{ lead: 'cuánto?', tu: 'lo vemos en la llamada' }], hasta: 'una' })),
@@ -64,7 +69,7 @@ const v2 = (): PasoGrafo[] => [
   tarjeta('Q', caso('cq', { titulo: 'Lo demás', cuando: '', cualquiera: true, no_contesta: true, responder: 'guardado', avisar: true }), { otra_aviso: 'Revísalo' }),
 ];
 
-// ── La expansión: varias tarjetas del medio en una ──────────────────────────────────
+// ── La expansión: varias tarjetas del medio en una (lo guardado en la forma de la décima, hasta que se junte) ──
 
 test('expandir JUNTA las tarjetas del medio en la primera, deja las demás inertes EN SU ÍNDICE y deriva los ids de cada tarjeta', () => {
   const pasos = v2();
@@ -86,10 +91,10 @@ test('expandir JUNTA las tarjetas del medio en la primera, deja las demás inert
   assert.deepEqual(expandirPasoIA(g, { medio: 'whatsapp' }), g);
 });
 
-test('lo del caso VIAJA al redactor: objetivo, ejemplos, audio (sólo WhatsApp) y «1 vez»', () => {
+test('lo del caso de antes (sin juntar) VIAJA al redactor: objetivo, ejemplos y audio (sólo WhatsApp); «1 vez» ya NO (undécima)', () => {
   const esc = escenariosDeRespuesta(v2(), { medio: 'whatsapp' });
   assert.deepEqual(esc.map((e) => [e.titulo, e.objetivo ?? null, e.ejemplos?.length ?? 0, e.audio?.voz ?? null, e.hasta ?? null, e.contestaSolo === true]), [
-    ['Precio', 'Que agende sin cifras', 1, null, 'una', false],
+    ['Precio', 'Que agende sin cifras', 1, null, null, false],
     ['Confirma', null, 0, 'propia', null, true],
   ]);
   // Por Instagram, la de Instagram (sin audio aunque lo dijera).
@@ -105,13 +110,13 @@ test('sin AI Step del medio la automatización NO contesta por ahí; sin «Cualq
   const g = expandirPasoIA(sinQ);
   assert.equal(nodoPorId(g, 'A')!.si_no, idOtraCosa('A'));
   assert.equal((nodoPorId(g, idOtraCosa('A'))!.accion as { params: { mensaje: string } }).params.mensaje, AVISO_OTRA_COSA);
-  assert.equal((nodoPorId(g, idAvisoDeCaso('A', 'ca')) ?? null), null);
-  assert.equal(AVISO_DE_CASO.length > 0, true);
+  // UNDÉCIMA: «Para aprobar» AVISA siempre (se deriva de la libertad, §9.15); en la décima hacía falta `avisar`.
+  assert.equal((nodoPorId(g, idAvisoDeCaso('A', 'ca'))!.accion as { params: { mensaje: string } }).params.mensaje, AVISO_DE_CASO);
 });
 
-// ── La puerta para lo viejo: separar ────────────────────────────────────────────────
+// ── La puerta para lo viejo: desde la undécima, JUNTAR (`juntarPasosIA`; el alias `separarPasosIA` se borró en la ola 4) ──
 
-/** Un AI Step v1: tres casos y un tono, en el medio del array (la 202 de la #213 está en `o1`). */
+/** Un AI Step v1 (novena): tres casos y un tono, en el medio del array (la 202 de la #213 está en `o1`). */
 const v1 = (): PasoGrafo[] => [
   msg({ id: 'o0', siguiente: 'o1' }),
   msg({ id: 'o1', siguiente: null }),
@@ -122,143 +127,117 @@ const v1 = (): PasoGrafo[] => [
   ] },
 ];
 
-test('separar: N casos en N tarjetas, la primera conserva el id y su caso, las nuevas AL FINAL, el tono plegado — y contesta IGUAL', () => {
-  const s = separarPasosIA(v1(), rndDe());
+test('la puerta para lo viejo JUNTA (undécima): un AI Step v1 queda UNO, con el tono plegado y sin `otra_aviso` — contesta igual salvo el texto de «Otra cosa», que se dice', () => {
+  const s = juntarPasosIA(v1());
+  const j = s;
   assert.equal(s.cambio, true);
-  assert.deepEqual(s.noEntra, []);
-  assert.deepEqual(s.pasos.slice(0, 3).map((p) => p.id), ['o0', 'o1', 'R'], 'corrió el índice de lo que estaba');
-  assert.equal(s.pasos.length, 5);
-  assert.deepEqual(s.pasos.slice(2).map((p) => p.casos!.map((c) => c.id)), [['A'], ['B'], ['C']]);
-  assert.ok(s.pasos.slice(2).every((p) => esPasoIA(p) && p.instrucciones === undefined));
-  assert.equal(s.pasos[2].casos![0].responder, 'Tono: Cercano\nAgradece');
-  assert.equal(s.pasos[2].otra_aviso, 'Mira');
-  assert.equal(s.pasos[3].otra_aviso, undefined);
-  // LA EQUIVALENCIA: los mismos casos, guía, «sale sola» y «Otra cosa».
-  assert.equal(loQueContesta(s.pasos), loQueContesta(v1()));
-  assert.deepEqual(validarGrafo(s.pasos), []);
-  // Idempotente: ya separado, no cambia.
-  assert.equal(separarPasosIA(s.pasos, rndDe()).cambio, false);
+  assert.deepEqual(s.perdidos.filter((x) => x.includes('no entra')), []);
+  assert.deepEqual(s.pasos.map((p) => p.id), ['o0', 'o1', 'R'], 'corrió o partió algo');
+  const r = s.pasos[2];
+  assert.deepEqual(r.casos!.map((c) => c.id), ['A', 'B', 'C']);
+  assert.deepEqual([r.instrucciones, r.otra_aviso], [undefined, undefined]);
+  assert.equal(r.casos![0].responder, 'Tono: Cercano\nAgradece');
+  assert.deepEqual(r.casos!.map((c) => libertadDeCaso(c)), ['sola', 'aprueba', 'avisa']);
+  // LO QUE CONTESTA: los mismos casos, guía y «sale sola»; «Otra cosa» avisa con el texto de siempre (y se dice).
+  const sinOtra = (x: string) => x.replace(/"otra":\{[^}]*\}/g, '');
+  assert.equal(sinOtra(loQueContesta(s.pasos)), sinOtra(loQueContesta(v1())));
+  assert.deepEqual(j.perdidos, [`«Otra cosa» avisaba «Mira»: ahora avisa «${AVISO_OTRA_COSA}»`]);
+  // Con objetivo se publica; idempotente.
+  assert.deepEqual(validarGrafo(s.pasos.map((p) => (esPasoIA(p) ? { ...p, objetivo: 'Que agende' } : p))), []);
+  assert.equal(juntarPasosIA(s.pasos).cambio, false);
 });
 
-test('separar: un tono que no entra NO se corta (la tarjeta lo conserva y se avisa); sin casos = «Cualquier respuesta» que sólo avisa', () => {
-  const largo = v1().map((p) => (p.id === 'R' ? { ...p, instrucciones: 'x'.repeat(900), casos: [caso('A', { responder: 'y'.repeat(TOPE_RESPONDER - 100) })] } : p));
-  const s = separarPasosIA(largo, rndDe());
-  assert.deepEqual(s.noEntra, ['Caso A']);
+test('juntar: un tono que no entra NO se corta (la tarjeta lo conserva y se avisa); sin casos = un AI Step sin escenarios («Lo demás: Sólo te avisa»)', () => {
+  const largo = v1().map((p) => (p.id === 'R' ? { ...p, otra_aviso: undefined, instrucciones: 'x'.repeat(900), casos: [caso('A', { responder: 'y'.repeat(TOPE_RESPONDER - 100) })] } : p));
+  const s = juntarPasosIA(largo);
+  assert.deepEqual(s.perdidos.filter((x) => x.includes('no entra')), ['«Caso A»: el tono no entra en la respuesta (queda en la tarjeta)']);
   assert.equal(s.pasos[2].instrucciones, 'x'.repeat(900));
   assert.equal(s.pasos[2].casos![0].responder, 'y'.repeat(TOPE_RESPONDER - 100));
-  const vacio = separarPasosIA(v1().map((p) => (p.id === 'R' ? { ...p, casos: [] } : p)), rndDe());
-  const c = vacio.pasos[2].casos![0];
-  assert.deepEqual([c.titulo, c.cualquiera, c.no_contesta, c.avisar], [ROTULO_CUALQUIERA, true, true, true]);
-  assert.equal(loQueContesta(vacio.pasos), loQueContesta(v1().map((p) => (p.id === 'R' ? { ...p, casos: [] } : p))));
+  assert.equal(loQueContesta(s.pasos), loQueContesta(largo));
+  const vacio = juntarPasosIA(v1().map((p) => (p.id === 'R' ? { ...p, otra_aviso: undefined, casos: [] } : p)));
+  assert.deepEqual(vacio.pasos[2].casos, []);
+  assert.equal(loQueContesta(vacio.pasos), loQueContesta(v1().map((p) => (p.id === 'R' ? { ...p, otra_aviso: undefined, casos: [] } : p))));
 });
 
-test('el plan de la migración: SIN objetivos (sólo sugeridos), la inscripción en su tarjeta, el borrador re-firmado; un tono que no entra FRENA', () => {
-  const fila = { pasos: v1(), trigger_tipo: 'agendado_primer_contacto', pasos_borrador: { pasos: v1(), base: firmaPublicado(v1()), guardado_at: '2026-10-10T00:00:00Z' } };
-  // El borrador tiene que DIFERIR de lo publicado para ser vigente.
-  (fila.pasos_borrador.pasos[0] as PasoGrafo).cuerpo = 'hola cambiado';
-  const p = planDeFila(fila, { rnd: rndDe(), evitar: new Set(['nzzzzzz']), inscs: [{ id: 202, paso_actual: 1, nodo_actual: 'o1' }] });
-  assert.deepEqual(p.frenos, []);
-  assert.equal(p.cambia, true);
-  // REVISIÓN DEL 11/10/2026: el objetivo viaja al redactor, así que la migración NO lo escribe (§10-A): la tabla de
-  // §8.4 queda como sugerencia impresa. Antes ponía los dos de abajo y la #213 contestaba otra cosa.
-  const obj = p.pasos.filter((x) => esPasoIA(x)).map((x) => [x.casos![0].titulo, x.casos![0].objetivo ?? null]);
-  assert.deepEqual(obj, [['Confirma', null], ['Pregunta el precio', null], ['Puede no calificar', null]]);
-  assert.deepEqual(p.sugeridos, [{ titulo: 'Confirma', objetivo: 'Que confirme que viene a la reunión' }, { titulo: 'Pregunta el precio', objetivo: OBJETIVO_PRECIO.despues }]);
-  assert.ok(p.borrador, 'no convirtió el borrador vigente');
-  assert.equal(p.borrador!.base, firmaPublicado(p.pasos));
-  assert.ok(p.borrador!.pasos.filter((x) => esPasoIA(x)).every((x) => x.casos!.length === 1));
-  // Un nombre que no está en la tabla: sin objetivo, listado, no frena.
-  const otro = planDeFila({ pasos: v1().map((x) => (x.id === 'R' ? { ...x, casos: [caso('A', { titulo: 'Algo raro', responder: 'x' }), caso('B', { titulo: 'Confirma', responder: 'y' })] } : x)), trigger_tipo: 'etapa_actual' }, { rnd: rndDe(), evitar: new Set(), inscs: [] });
-  assert.deepEqual(otro.sinObjetivo, ['Algo raro']);
-  assert.deepEqual(otro.frenos, []);
-  // Un tono que no entra: freno.
-  const largo = planDeFila({ pasos: v1().map((x) => (x.id === 'R' ? { ...x, instrucciones: 'x'.repeat(900), casos: [caso('A', { responder: 'y'.repeat(TOPE_RESPONDER - 50) }), caso('B', { responder: 'z' })] } : x)), trigger_tipo: 'x' }, { rnd: rndDe(), evitar: new Set(), inscs: [] });
-  assert.ok(largo.frenos.some((f) => f.includes('pasan el tope')), largo.frenos.join(' | '));
-  // Ya en la forma v2 (sin objetivo): nada que hacer — un caso sin objetivo NO es motivo para migrar.
-  assert.equal(planDeFila({ pasos: p.pasos, trigger_tipo: 'agendado_primer_contacto' }, { rnd: rndDe(), evitar: new Set(), inscs: [] }).cambia, false);
+test('la migración de la décima se RETIRÓ: el script sale sin escribir y lib/ai-step-migrar.ts sólo compara', () => {
+  const script = sinComentarios(leer('scripts/ai-step-v2.mts'));
+  assert.match(script, /Retirado en la undécima: la forma vigente es UN AI Step por medio \(juntarPasosIA\)\. No se vuelve a correr\./);
+  assert.match(script, /process\.exit\(1\);/);
+  assert.doesNotMatch(script, /import|createClient|update\(/, 'el script retirado todavía lee o escribe');
+  const mig = sinComentarios(leer('lib/ai-step-migrar.ts'));
+  assert.deepEqual([...mig.matchAll(/^export (?:function|const|type) (\w+)/gm)].map((m) => m[1]), ['estable', 'loQueContesta']);
 });
 
 // ── Las reglas y el saneo ───────────────────────────────────────────────────────────────
 
-test('Publicar: un caso por tarjeta, un «Cualquier respuesta» por medio, audio sólo por WhatsApp; el objetivo NO frena', () => {
-  assert.deepEqual(validarGrafo(v2()), []);
-  assert.deepEqual(validarGrafo(v2().map((p) => (p.id === 'A' ? { ...p, casos: [...p.casos!, caso('x', { responder: 'y' })] } : p))), ['la tarjeta A tiene más de un caso']);
-  const dosQ = [...v2(), tarjeta('Q2', caso('q2', { titulo: 'Otra', cuando: '', cualquiera: true, responder: 'x' }))];
-  assert.ok(validarGrafo(dosQ).includes(`hay dos AI Step con «${ROTULO_CUALQUIERA}» en WhatsApp`), validarGrafo(dosQ).join(' | '));
-  // Uno suelto no cuenta (no escucha).
-  assert.ok(!validarGrafo(dosQ.map((p) => (p.id === 'Q2' ? { ...p, suelta: true } : p))).some((e) => e.startsWith('hay dos AI Step')));
-  const audioIG = v2().map((p) => (p.id === 'I' ? { ...p, casos: [{ ...p.casos![0], audio: { voz: 'propia' } }] } : p));
+test('Publicar (undécima): UN AI Step por medio y con objetivo; lo de la décima no se publica hasta juntarlo; la voz sólo por WhatsApp', () => {
+  const err = validarGrafo(v2());
+  assert.ok(err.includes('hay más de un AI Step de WhatsApp'), err.join(' | '));
+  assert.ok(err.includes('falta el objetivo de la tarjeta B'), err.join(' | '));
+  // Junto, con objetivo (el del caso de A sube a la tarjeta), se publica.
+  const j = juntarPasosIA(v2());
+  assert.deepEqual(validarGrafo(j.pasos.map((p) => (p.id === 'I' ? { ...p, objetivo: 'IG' } : p))), []);
+  assert.equal(nodoPorId(j.pasos, 'A')!.objetivo, 'Que agende sin cifras');
+  // La voz por Instagram (en la tarjeta o en un caso de antes) no.
+  const audioIG = j.pasos.map((p) => (p.id === 'I' ? { ...p, objetivo: 'IG', audio: { voz: 'propia' } } : p));
   assert.ok(validarGrafo(audioIG).includes('en la tarjeta I, el audio sale sólo por WhatsApp'));
-  assert.deepEqual(validarGrafo(v2().map((p) => (p.id === 'A' ? { ...p, casos: [{ ...p.casos![0], objetivo: undefined }] } : p))), [], 'el objetivo frenó');
-  // «Cualquier respuesta» no pide cuándo; «Sólo te avisa» pide el aviso.
-  assert.equal(faltaEnCaso({ titulo: 'x', cuando: '', cualquiera: true, responder: 'y' }), null);
-  assert.equal(faltaEnCaso({ titulo: 'x', cuando: 'z', responder: 'y', no_contesta: true }), 'que_hace');
-  // No se mezcla con un «Si responde» de los de siempre; hasta 10 por medio.
+  // «Lo demás» no pide nombre ni cuándo; un escenario sin respuesta es «Sólo te avisa» (ya no hay «qué hace»).
+  assert.equal(faltaEnCaso({ titulo: '', cuando: '', cualquiera: true }), null);
+  assert.equal(faltaEnCaso({ titulo: 'x', cuando: 'z' }), null);
+  assert.equal(faltaEnCaso({ titulo: 'x', cuando: '' }), 'cuando');
+  // No se mezcla con un «Si responde» de los de siempre; UNO por medio.
   assert.ok(validarParaGuardar([...v2(), { ...msg(), id: 'S', nodo: 'respuesta', casos: [], si_no: null }]).includes('un AI Step no va con un «Si responde»'));
-  const muchos = [msg({ id: 'm1', siguiente: null }), ...Array.from({ length: TOPE_AI_STEP_POR_MEDIO + 1 }, (_, k) => tarjeta(`t${k}`, caso(`c${k}`, { responder: 'x' })))];
-  assert.ok(validarParaGuardar(muchos).includes(`hay más de ${TOPE_AI_STEP_POR_MEDIO} AI Step de WhatsApp`));
-  assert.equal(puedeSumarAIStep(muchos.slice(0, -1)), false);
-  assert.equal(puedeSumarAIStep(v2()), true);
+  assert.equal(puedeSumarAIStep(j.pasos), false);
+  assert.equal(puedeSumarAIStep(j.pasos, 'messenger'), true);
   // Todas las que escuchan son raíces: ninguna es «suelta».
   assert.deepEqual(raicesRespuesta(v2()), ['A', 'B', 'I', 'Q']);
-  assert.deepEqual(tarjetasSueltas(v2()), []);
+  assert.deepEqual(raicesRespuesta(j.pasos), ['A', 'I']);
+  assert.deepEqual(tarjetasSueltas(j.pasos), []);
 });
 
-test('el saneo (`camposDelFlujo`, la quinta puerta) CONSERVA el medio y lo nuevo del caso, y descarta lo que no sirve', () => {
+test('el saneo (`camposDelFlujo`, la quinta puerta) CONSERVA el medio, sube lo del objetivo a la tarjeta y el caso guarda sólo lo suyo', () => {
   const f = camposDelFlujo({
     id: 'X', nodo: 'respuesta', paso_ia: true, medio: 'instagram', si_no: null,
     casos: [{ id: 'c', titulo: 't', cuando: 'w', siguiente: null, responder: 'r', objetivo: '  Que agende  ', cualquiera: true, no_contesta: true, hasta: 'una',
       audio: { voz: 'propia' }, ejemplos: [{ lead: 'a', tu: 'b' }, { lead: '', tu: 'c' }, 'basura'] }],
   });
   assert.equal(f.medio, 'instagram');
-  assert.deepEqual(f.casos![0], { id: 'c', titulo: 't', cuando: 'w', siguiente: null, responder: 'r', objetivo: 'Que agende', cualquiera: true, no_contesta: true, hasta: 'una', audio: { voz: 'propia' }, ejemplos: [{ lead: 'a', tu: 'b' }] });
-  // WhatsApp no se escribe (ausente = WhatsApp); una voz que no es un id, tampoco; un `hasta` desconocido, tampoco.
-  const g = camposDelFlujo({ id: 'X', nodo: 'respuesta', paso_ia: true, medio: 'whatsapp', casos: [{ id: 'c', titulo: 't', cuando: 'w', audio: { voz: '<script>' }, hasta: 'siempre' }] });
+  assert.deepEqual(f.casos![0], { id: 'c', titulo: 't', cuando: 'w', siguiente: null, responder: 'r', cualquiera: true, no_contesta: true });
+  assert.deepEqual([f.objetivo, f.audio, f.ejemplos], ['Que agende', { voz: 'propia' }, [{ lead: 'a', tu: 'b' }]]);
+  // WhatsApp no se escribe (ausente = WhatsApp); una voz que no es un id, tampoco.
+  const g = camposDelFlujo({ id: 'X', nodo: 'respuesta', paso_ia: true, medio: 'whatsapp', audio: { voz: '<script>' }, casos: [{ id: 'c', titulo: 't', cuando: 'w', audio: { voz: '<script>' }, hasta: 'siempre' }] });
   assert.equal(g.medio, undefined);
-  assert.equal(g.casos![0].audio, undefined);
+  assert.equal(g.audio, undefined);
   assert.equal(g.casos![0].hasta, undefined);
 });
 
-test('enseñar un caso nuevo crea una TARJETA (del medio), duplicar una AI Step la deja suelta y sin «Cualquier respuesta»', () => {
+test('enseñar un caso lo suma ADENTRO del AI Step (undécima); duplicar un AI Step ya no se puede (uno por medio)', () => {
   const r = agregarCasoAlGrafo(v2(), { titulo: 'Horario', cuando: 'pregunta el horario', comoResponder: 'De 9 a 18' }, rndDe());
   assert.ok('pasos' in r);
-  const nueva = r.pasos.at(-1)!;
-  assert.ok(esPasoIA(nueva));
-  assert.deepEqual(nueva.casos!.map((c) => c.titulo), ['Horario']);
+  assert.equal(r.pasos.length, v2().length, 'creó una tarjeta');
+  assert.deepEqual(nodoPorId(r.pasos, 'A')!.casos!.map((c) => c.titulo), ['Precio', 'Horario']);
   const d = duplicar(v2(), 'Q', rndDe());
-  assert.ok(d.ok && d.id);
-  const copia = nodoPorId(d.pasos, d.id!)!;
-  assert.equal(copia.suelta, true);
-  assert.equal(copia.casos![0].cualquiera, undefined);
-  assert.equal(d.pasos.at(-1)!.id, d.id, 'la copia corrió el índice de alguien');
+  assert.deepEqual([d.ok, !d.ok && d.motivo], [false, MOTIVO.topeAIStep]);
 });
 
-test('el lienzo: una flecha del CRON por cada AI Step que escucha, y el ＋ ofrece otro', () => {
+test('el lienzo: una flecha del CRON por cada AI Step que escucha (lo de antes se ve hasta que se abre junto), y el ＋ ya no ofrece otro', () => {
   const g = grafoDeSecuencia(v2() as PasoParaGrafo[], { disparador: 'Llega' });
   for (const id of ['A', 'B', 'I', 'Q']) assert.ok(g.aristas.some((a) => a.desde === ID_ENTRADA && a.hasta === id), id);
-  assert.ok(opcionesDelMas(v2(), 'm1', false).some((o) => o.value === 'ai_step'));
+  assert.ok(!opcionesDelMas(v2(), 'm1', false).some((o) => o.value === 'ai_step'));
   assert.ok(g.nodos.filter((n) => n.tipo === 'paso-ia').every((n) => n.alto === g.nodos.find((x) => x.id === 'A')!.alto), 'el alto no es fijo');
   assert.ok(v2().every((p, i) => idDe(p, i)));
 });
 
 // ── La IA, el ensayo y la voz (lo puro) ───────────────────────────────────────────────
 
-test('armar el resto: nunca «Sola» si habla de plata, «Cualquier respuesta» sólo si no la tiene otro, sin nombre no sirve', () => {
-  const sin = { titulos: ['Confirma'], hayCualquiera: false };
-  assert.deepEqual(repararArmado({ titulo: 'Pregunta el precio', cuando: 'pregunta cuánto cuesta', responder: 'Dile que en la llamada', libertad: 'sola' }, sin),
-    { titulo: 'Pregunta el precio', cuando: 'pregunta cuánto cuesta', responder: 'Dile que en la llamada' });
-  assert.equal(repararArmado({ titulo: 'Confirma', cuando: 'dice que sí', responder: 'Agradece', libertad: 'sola' }, sin)!.titulo, 'Confirma 2');
-  assert.equal(repararArmado({ titulo: 'Agenda', cuando: 'quiere', responder: 'Ok', libertad: 'sola' }, sin)!.sola, true);
-  assert.deepEqual(repararArmado({ titulo: 'Lo demás', cualquiera: true, responder: '' , libertad: 'avisa' }, sin), { titulo: 'Lo demás', cuando: '', responder: '', cualquiera: true, no_contesta: true, avisar: true });
-  assert.equal(repararArmado({ titulo: 'Lo demás', cualquiera: true, cuando: '', responder: 'x' }, { titulos: [], hayCualquiera: true }), null, 'sin «cuándo» y sin poder ser «Cualquier respuesta» no sirve');
-  assert.equal(repararArmado({ cuando: 'x' }, sin), null);
-});
+// «Armar el resto» (el contrato de la décima: un caso por vez con `titulos`/`hayCualquiera`) se fue en la undécima: el
+// armado devuelve { escenarios, lo_demas } y lo cubre tests/ai-step-armar.test.ts.
 
 test('el ensayo: objeciones saneadas, un escenario SIN audio (no le miente al modelo) y los ejemplos son lead → tu respuesta', () => {
   assert.equal(leerObjeciones({ primer: 'hola', objeciones: ['una'] }), null, 'con una sola objeción no hay ensayo');
   const ob = leerObjeciones({ primer: ' cuánto sale? ', objeciones: ['Es caro', 'es caro', 'No tiene tiempo', 'Duda del resultado', 'Quiere pensarlo', 'Otra más'] })!;
   assert.deepEqual(ob, { primer: 'cuánto sale?', objeciones: ['Es caro', 'No tiene tiempo', 'Duda del resultado', 'Quiere pensarlo'] });
-  const esc = escenarioDeCaso({ titulo: 'Precio', cuando: 'pregunta el precio', objetivo: 'Que agende' }, ob, 'whatsapp');
+  const esc = escenarioDeAIStep({ objetivo: 'Que agende', escenarios: [{ titulo: 'Precio', cuando: 'pregunta el precio' }] }, ob, 'whatsapp');
   assert.equal(esc.evolucion.length, ob.objeciones.length + 2);
   const bloque = bloqueLead(esc, 0, '');
   assert.doesNotMatch(bloque, /nota de voz/, 'le dijo al modelo que el negocio mandó un audio');
@@ -278,23 +257,24 @@ test('la voz: dice el texto sin links ni emojis (los links van debajo), y el red
   assert.match(b, /<ejemplos>\nLEAD: a\nNEGOCIO: b\n<\/ejemplos>/);
   assert.ok(b.includes(REGLA_NOTA_DE_VOZ));
   assert.ok(!bloqueRedactor({ titulo: 'x', cuando: 'y', comoResponder: 'z' }).includes(REGLA_NOTA_DE_VOZ));
-  // El freno de Publicar/Activar: «Tu voz» sin clon, u otra voz que ya no está (sólo si el caso contesta).
+  // El freno de Publicar/Activar: «Tu voz» sin clon, u otra voz que ya no está (sólo si contesta). UNDÉCIMA: la voz
+  // es del AI Step (la de un caso de antes, sin juntar, también cuenta).
   assert.equal(vozQueFalta(v2(), { propia: true, otras: [] }), null);
-  assert.equal(vozQueFalta(v2(), { propia: false, otras: [] }), '«Confirma» contesta en audio y todavía no clonaste tu voz');
-  const otraVoz = v2().map((p) => (p.id === 'B' ? { ...p, casos: [{ ...p.casos![0], audio: { voz: 'abc12345XYZ' } }] } : p));
-  assert.equal(vozQueFalta(otraVoz, { propia: true, otras: ['otra9999'] }), '«Confirma» contesta en audio y esa voz ya no está');
+  assert.equal(vozQueFalta(v2(), { propia: false, otras: [] }), 'El AI Step contesta en audio y todavía no clonaste tu voz');
+  const otraVoz = v2().map((p) => (p.id === 'B' ? { ...p, casos: [{ ...p.casos![0], audio: undefined }], audio: { voz: 'abc12345XYZ' } } : p));
+  assert.equal(vozQueFalta(otraVoz, { propia: true, otras: ['otra9999'] }), 'El AI Step contesta en audio y esa voz ya no está');
   assert.equal(vozQueFalta(v2().map((p) => (p.id === 'B' ? { ...p, suelta: true } : p)), { propia: false, otras: [] }), null, 'una suelta no escucha');
   const nut = sinComentarios(leer('lib/nutricion.ts'));
   assert.match(fn(nut, 'export async function validarActivacion('), /const sinVoz = await vozDeAIStepQueFalta\(/);
+  // El atajo del freno async mira la voz del NODO (undécima) además de la de un caso de antes: con sólo la del caso,
+  // un AI Step de hoy en audio con «Tu voz» sin clon se publicaba. Probado rompiéndolo (cierre de la ola 3,
+  // wf-undecima/enchufador): sin `p.audio ||` → 12 / 1 (base 13 / 0).
+  assert.match(fn(nut, 'export async function vozDeAIStepQueFalta('), /if \(!pasos\.some\(\(p\) => p && \(p\.audio \|\| \(p\.casos \?\? \[\]\)\.some\(\(c\) => c && c\.audio\)\)\)\) return null;/);
   assert.match(sinComentarios(leer('app/api/whatsapp/secuencias/route.ts')), /const sinVoz = await vozDeAIStepQueFalta\(body\.pasos as PasoSecuencia\[\]\)[\s\S]{0,120}if \(sinVoz\) return Response\.json\(/);
 });
 
-test('los objetivos de lo que ya existía salen de UNA tabla (§8.4), por nombre y sin acentos', () => {
-  assert.deepEqual(objetivoDeCaso('Quiere cambiar el dia', { postAgenda: true }), { objetivo: 'Que proponga otro día y horario' });
-  assert.deepEqual(objetivoDeCaso('Pregunta el precio', { postAgenda: false }), { objetivo: OBJETIVO_PRECIO.antes });
-  assert.deepEqual(objetivoDeCaso('Puede no calificar', { postAgenda: true }), { objetivo: null });
-  assert.equal(objetivoDeCaso('Algo que no está', { postAgenda: true }), null);
-});
+// La tabla de objetivos por caso de la décima (lib/ai-step-objetivos.ts) se borró en el cierre de la undécima: el
+// objetivo es del AI Step (lo pone la persona, la plantilla o scripts/undecima-flujos.mts), no de cada caso.
 
 // ── El cableado del motor (lib/nutricion.ts es `server-only`) ──────────────────────────
 
@@ -309,7 +289,8 @@ test('el motor: contesta por el MEDIO, le pasa lo del caso al redactor, y sin el
   const red = fn(nut, 'async function redactarRespuesta(');
   assert.match(red, /if \(sugerida && lead\?\.telefono && clas\.escenario\.audio\) \{\s*const r = await notaDeVozDeRespuesta\(/);
   assert.match(red, /if \(!sinAudio && borradorOk && borradorId != null/, 'sin el audio salía sola igual');
-  assert.match(red, /const unaVez = !cierre && borradorOk && clas\.escenario\.hasta === 'una';/);
+  // Undécima tanda (punto 13): «Hasta» siempre es el objetivo. El corte «contestó una vez» se fue del redactor.
+  assert.doesNotMatch(red, /unaVez|hasta === 'una'/, 'volvió el «Hasta: una respuesta»');
   // El tope de la voz: con `tope` no se corta, se rechaza.
   const ev = sinComentarios(leer('lib/elevenlabs.ts'));
   assert.match(fn(ev, 'export async function decirConVoz('), /if \(op\.tope != null && crudo\.length > op\.tope\) return \{ ok: false/);
@@ -327,3 +308,9 @@ test('el motor: contesta por el MEDIO, le pasa lo del caso al redactor, y sin el
 //   R3 `separarPasosIA` con las nuevas AL PRINCIPIO (corre el índice de todos)    → 13 / 2
 //   R4 la voz que falla y la respuesta SALE SOLA igual (en texto, sin que nadie la mire) → 14 / 1
 //   R5 dos «Cualquier respuesta» del mismo medio que se publican                  → 14 / 1
+// UNDÉCIMA (11/10/2026, w1-aistep-modelo, mismo arnés de wf-undecima/w1-aistep-modelo/roturas.cjs). Base: 15 / 0.
+//   R2, R3 y R5 rompían cosas que ya no existen (el saneo del objetivo del caso, `separarPasosIA` partiendo, dos
+//   «Cualquier respuesta» en dos tarjetas). Lo que las reemplaza:
+//   U1 `camposDelFlujo` sin subir el objetivo del caso al nodo                      → 14 / 1 (y ai-step-unico 11 / 1)
+//   U2 el alias `separarPasosIA` vuelve a NO juntar (devuelve lo mismo)            → 13 / 2 (y ai-step-unico 11 / 1)
+//   U3 `vozQueFalta` sin leer el audio del NODO                                   → 14 / 1 (sólo lo caza este archivo)

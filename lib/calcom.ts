@@ -29,6 +29,11 @@
 
 import crypto from 'node:crypto';
 import { mismoEventType, type TipoJunta } from './calendly';
+// El renglón de cada respuesta (rótulo corto, valor cortado) vive en un módulo puro desde la undécima tanda
+// (11/10/2026): lo usan este aviso y el dato `{{lead_respuestas_agenda}}`. Se re-exportan para los que ya los
+// importaban de acá.
+import { recortar, renglonesDeRespuestas } from './respuestas-agenda';
+export { TOPE_AVISO, rotuloCorto } from './respuestas-agenda';
 
 /** Base y headers de la API v2. La v1 está apagada desde el 8/4/2026. */
 export const CALCOM_API = {
@@ -225,17 +230,7 @@ const ROTULO_DE_SISTEMA: Record<string, string> = {
  */
 const TOPE_RESPUESTAS = { cuantas: 30, rotulo: 200, valor: 500 } as const;
 
-/**
- * Corta a `n` unidades UTF-16 sin dejar MEDIO emoji al final.
- *
- * ⚠️ `slice` cuenta unidades UTF-16, no caracteres: un emoji son dos (un par sustituto), y cortar
- * entre las dos deja un sustituto alto suelto. `JSON.stringify` lo saca como «\ud83d» y Postgres
- * rechaza ese jsonb ENTERO («invalid input syntax for type json», medido el 09/10/2026 contra prod
- * en una transacción read only; el par completo pasa). Como `saveLeadRespuestas` guarda el set de
- * una reserva en UN insert, una sola respuesta mal cortada tiraba TODAS las de esa reserva, y si el
- * emoji caía en el RÓTULO —que es fijo por formulario— las de todas las reservas de ese event type.
- */
-const recortar = (s: string, n: number): string => s.slice(0, n).replace(/[\uD800-\uDBFF]$/, '');
+// `recortar` (cortar sin dejar medio emoji, y por qué importa para el jsonb) vive en lib/respuestas-agenda.ts.
 
 /** El valor de un campo como UNA línea de texto, o null si quedó vacío. */
 function textoDeValor(v: unknown): string | null {
@@ -385,54 +380,19 @@ export function preguntasDeReserva(respuestas: RespuestaReserva[]): Array<{ ques
 // El aviso «Nuevo agendado»
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Topes del aviso. Es un WhatsApp al grupo del negocio que se lee en el celular: un renglón por
- * respuesta, con el rótulo ABREVIADO (los del formulario de ws13 llegan a 230 caracteres: «Valoramos
- * mucho nuestro tiempo tanto como el suyo, si selecciona un dia…») y el valor cortado. Lo completo
- * queda en el RESUMEN del lead (/crm/<id>/resumen), que es adonde lleva el link del final: desde el
- * 09/10/2026 esa pantalla lee `lead_respuestas` (`respuestasDelResumen`, lib/lead-respuestas.ts);
- * antes sólo leía las columnas respuesta_* de Calendly, y para un lead de Cal.com «Lo que contestó
- * al agendar» no salía nunca.
- */
-export const TOPE_AVISO = { respuestas: 6, rotulo: 40, valor: 60 } as const;
-
-/** Corta en el último espacio antes del tope y marca el corte con «…». */
-function cortar(s: string, tope: number): string {
-  if (s.length <= tope) return s;
-  // `recortar` y no `slice`: sin un espacio después de la mitad, el corte cae donde cae y puede
-  // partir un emoji (el aviso saldría con un «�» suelto delante del «…»).
-  const dentro = recortar(s, tope - 1);
-  const espacio = dentro.lastIndexOf(' ');
-  return (espacio > tope / 2 ? dentro.slice(0, espacio) : dentro).replace(/[\s,;:.-]+$/, '') + '…';
-}
-
-/**
- * El rótulo de una respuesta, abreviado para un renglón: hasta la primera pausa (una coma, un
- * punto, el signo de pregunta), sin el «Tu»/«Su» del principio y con un tope de largo.
- * «¿Hace cuánto que formas parte del rubro inmobiliario?» → «Hace cuánto que formas parte del rubro…».
- */
-export function rotuloCorto(rotulo: string): string {
-  let r = rotulo.replace(/\s+/g, ' ').trim().replace(/^[¿¡?!.,;:\s]+/, '');
-  const pausa = r.search(/[,;.:?!(]/);
-  if (pausa > 0) r = r.slice(0, pausa);
-  r = r.trim().replace(/^(tu|tus|su|sus)\s+(?=\S)/i, '');
-  r = cortar(r, TOPE_AVISO.rotulo);
-  return r ? r.charAt(0).toUpperCase() + r.slice(1) : 'Respuesta';
-}
+// Los topes del aviso (`TOPE_AVISO`), el rótulo corto (`rotuloCorto`) y el corte del valor viven en
+// lib/respuestas-agenda.ts desde el 11/10/2026: el dato `{{lead_respuestas_agenda}}` arma los MISMOS renglones.
 
 /**
  * Lo que va DESPUÉS de la línea de la reunión: el contacto en un renglón y un renglón por
- * respuesta. Vacío si no hay nada que decir (una reserva sin teléfono, sin email y sin formulario
- * deja el aviso como era).
+ * respuesta (`renglonesDeRespuestas`). Vacío si no hay nada que decir (una reserva sin teléfono, sin
+ * email y sin formulario deja el aviso como era).
  */
 export function detalleDelAviso(d: { telefono: string | null; email: string | null; respuestas: RespuestaReserva[] }): string[] {
   const lineas: string[] = [];
   const contacto = [d.telefono ? `📱 ${d.telefono}` : null, d.email ? `✉️ ${d.email}` : null].filter((x): x is string => !!x);
   if (contacto.length) lineas.push(contacto.join(' · '));
-  const visibles = d.respuestas.slice(0, TOPE_AVISO.respuestas);
-  for (const r of visibles) lineas.push(`• ${rotuloCorto(r.rotulo)}: ${cortar(r.valor, TOPE_AVISO.valor)}`);
-  const resto = d.respuestas.length - visibles.length;
-  if (resto > 0) lineas.push(`• +${resto} en el resumen`);
+  lineas.push(...renglonesDeRespuestas(d.respuestas));
   return lineas;
 }
 

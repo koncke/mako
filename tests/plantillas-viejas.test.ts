@@ -102,8 +102,10 @@ const IDS_COBRANZA = [...new Set([...leer('lib/cobranza.ts').matchAll(/avisoId: 
 
 // ── 1. El texto que se ofrece para editar es el que sale ─────────────────────────────
 // ⚠️ Desde el 11/10/2026 `AVISOS_DEL_CLIENTE` está vacía: los que cruza este test son los EVENTOS de MaKo
-// (`AVISOS_POR_EVENTO`), cuya marca `textoDelCodigo` decide si su fila ofrece «Lo que arma MaKo»
-// (`{{mensaje_mako}}`, lib/aviso-evento.ts), y el reporte semanal, que lo sigue armando el código.
+// (`AVISOS_POR_EVENTO`), cuya marca `textoDelCodigo` decide si su emisor pasa el texto armado (`{{mensaje_mako}}`,
+// lib/aviso-evento.ts), y el reporte semanal, que lo sigue armando el código. Undécima tanda: ese texto ya NO se ofrece en
+// ningún «{ }» (es el aviso entero pegado en un token); se sigue resolviendo para las filas vivas hasta la limpieza, así
+// que la marca y este cruce se quedan hasta entonces (docs/diseno-undecima-tanda.md §8.7).
 const CRUZADOS = [...new Set([...AVISOS_DEL_CLIENTE, ...AVISOS_POR_EVENTO, 'reporte-semanal'])];
 test('1. el texto que arma el código (`textoDelCodigo`) es el que sale, cruzado contra sus emisores', () => {
   assert.ok(EMISORES.size > 20, `se leyeron ${EMISORES.size} avisos emitidos: el barrido quedó viejo`);

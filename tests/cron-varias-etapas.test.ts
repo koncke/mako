@@ -124,7 +124,8 @@ test('⚠️ no se duplica: quien ya tiene fila de la secuencia no se vuelve a i
   // secuencia de etapa no REUSA filas (`reusaInscripciones` es sólo de la familia que prepara una
   // reunión). El barrido deja afuera a quien tiene fila (`aInscribir`) y el evento la saltea.
   const src = sinComentarios(leer('lib/nutricion.ts'));
-  assert.match(src, /const reusaInscripciones = \(s: Pick<Secuencia, 'trigger_tipo' \| 'pasos'>\): boolean =>\n {2}preparaUnaReunion\(s\.trigger_tipo\) && s\.pasos\.length > 0;/);
+  // Undécima tanda (M2): «prepara una reunión» mira la automatización ENTERA (`preparaReunion`, lib/nutricion-familias.ts).
+  assert.match(src, /const reusaInscripciones = \(s: Pick<Secuencia, 'trigger_tipo' \| 'pasos' \| 'etapa' \| 'etapas' \| 'disparadores'>\): boolean =>\n {2}preparaReunion\(s\) && s\.pasos\.length > 0;/);
   const alta = funcion(src, 'async function aInscribir(');
   assert.match(alta, /const pendientes = candidatos\.filter\(\(id\) => !conFila\.has\(id\)\);/);
   const evento = funcion(src, 'export async function enrolarPorEvento(');

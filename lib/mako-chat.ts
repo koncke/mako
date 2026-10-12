@@ -7,7 +7,7 @@
 // (no del workspace), y manda con la voz de MaKo. Best-effort: nunca lanza.
 
 import 'server-only';
-import { instanciaVoz, enviarAGrupoJid, KEY_GRUPO_SUPERADMIN, KEY_GRUPO_JID } from './mako-grupo';
+import { instanciaVoz, enviarAGrupoJid, enviarPartesAJid, KEY_GRUPO_SUPERADMIN, KEY_GRUPO_JID } from './mako-grupo';
 import { getSupabaseServer } from './supabase';
 import { leerResultados, esAdminEn, jidCanonico, type ParticipanteCrudo } from './participantes-grupo';
 
@@ -364,26 +364,27 @@ export async function enviarGrupoMaKo(jid: string, texto: string): Promise<{ ok:
 
 const soloB64 = (s: string) => (s.includes(',') ? s.split(',').pop()! : s);
 
-/** Manda media (imagen/video/documento) a un grupo desde la voz de MaKo. */
+/**
+ * Manda media (imagen/video/documento) a un grupo desde la voz de MaKo.
+ *
+ * ⚠️ DELEGA EN `enviarPartesAJid` (undécima tanda): el mismo envío que la tarjeta «MaKo en WhatsApp» por
+ * partes. Hasta acá miraba sólo el HTTP (`r != null`), y un 201 sin `key.id` se contaba como enviado.
+ */
 export async function enviarMediaGrupoMaKo(
   jid: string, media: { base64: string; mimetype: string; fileName?: string; tipo: 'image' | 'video' | 'document' }, caption?: string,
 ): Promise<{ ok: boolean; error?: string }> {
   if (!esGrupo(jid)) return { ok: false, error: 'jid no es un grupo' };
-  const inst = await instanciaVoz();
-  const media64 = soloB64(media.base64);
-  const body: Record<string, unknown> = { number: jid, mediatype: media.tipo, mimetype: media.mimetype, media: media64, delay: 500 };
-  if (media.fileName) body.fileName = media.fileName;
-  if (caption) body.caption = caption;
-  const r = await ev(`/message/sendMedia/${inst}`, { method: 'POST', body: JSON.stringify(body) });
-  return r != null ? { ok: true } : { ok: false, error: 'no se pudo enviar la media' };
+  const r = await enviarPartesAJid(jid, [{
+    tipo: 'media', base64: soloB64(media.base64),
+    media: { tipo: media.tipo, mimetype: media.mimetype, ...(media.fileName ? { fileName: media.fileName } : {}) },
+    ...(caption ? { caption } : {}),
+  }], { delayMs: 500 });
+  return r.ok ? { ok: true } : { ok: false, error: r.error ?? 'no se pudo enviar la media' };
 }
 
-/** Manda una nota de voz (PTT) a un grupo desde la voz de MaKo. */
+/** Manda una nota de voz (PTT) a un grupo desde la voz de MaKo. Delega en `enviarPartesAJid` (ver arriba). */
 export async function enviarAudioGrupoMaKo(jid: string, base64: string): Promise<{ ok: boolean; error?: string }> {
   if (!esGrupo(jid)) return { ok: false, error: 'jid no es un grupo' };
-  const inst = await instanciaVoz();
-  const r = await ev(`/message/sendWhatsAppAudio/${inst}`, {
-    method: 'POST', body: JSON.stringify({ number: jid, audio: soloB64(base64), delay: 500, encoding: true }),
-  });
-  return r != null ? { ok: true } : { ok: false, error: 'no se pudo enviar el audio' };
+  const r = await enviarPartesAJid(jid, [{ tipo: 'audio', base64: soloB64(base64), mime: 'audio/ogg' }], { delayMs: 500 });
+  return r.ok ? { ok: true } : { ok: false, error: r.error ?? 'no se pudo enviar el audio' };
 }

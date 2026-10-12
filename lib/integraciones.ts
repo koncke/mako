@@ -8,8 +8,8 @@
 
 import 'server-only';
 import { credWs } from './credenciales';
-import { remitenteEsSandbox, remitenteEsDeMako } from './resend';
-import { AVISO_EMAIL_DE_MAKO } from './email-remitente';
+import { emailConectado } from './resend';
+import { POR_QUE_SIN_EMAIL } from './email-remitente';
 import { landingRecibioEventos, LANDING_VENTANA_DIAS } from './landing-token';
 import { googleCalendarConectado, googleCalendarDueno } from './google-calendar';
 import { capaDef } from './capas';
@@ -182,31 +182,19 @@ export async function getIntegraciones(): Promise<Integracion[]> {
       const ok = d.global ? envGlobalReal(k) : Boolean(await credWs(k));
       if (!ok) faltan.push(k);
     }
-    // ⚠️ EMAIL CON LA KEY Y SIN REMITENTE NO ESTÁ CONECTADO, aunque la key sea lo único que pide
-    // para abrir /email (por eso el remitente sigue `opcional` en el catálogo, ver `sinEsto`). Sin
-    // remitente los correos salen de onboarding@resend.dev y sólo le llegan al dueño de la cuenta
-    // de Resend; la tarjeta decía «Conectada» al lado de un campo vacío (Customer Success, audio
-    // del 08/10/2026, punto 15). Medido ese día: el ws4 tiene su key y ningún remitente.
-    // Es una lectura para DIBUJAR: si el setting no se pudo leer cae al sandbox y dice «falta»,
-    // que se corrige solo en la próxima carga; no decide ningún envío.
-    if (d.key === 'email' && !faltan.length && await remitenteEsSandbox().catch(() => false)) {
+    // ⚠️ EMAIL CON LA KEY Y SIN REMITENTE PROPIO NO ESTÁ CONECTADO, aunque la key sea lo único que pide
+    // para abrir /email (por eso el remitente sigue `opcional` en el catálogo, ver `sinEsto`). La tarjeta
+    // decía «Conectada» al lado de un campo vacío (Customer Success, audio del 08/10/2026, punto 15: el ws4
+    // tiene su key y ningún remitente), y después con el email de MaKo como remitente de un cliente (el ws1).
+    // UNA rama, POSITIVA (undécima tanda): `emailConectado` (lib/resend.ts) = key Y un remitente que pasa
+    // `remitenteDelNegocio`; lo que no pasa —sin remitente, el sandbox, el de MaKo, otro dominio— dice lo mismo.
+    // Es una lectura para DIBUJAR: si no se pudo leer, dice «falta», que se corrige solo en la próxima carga;
+    // no decide ningún envío.
+    if (d.key === 'email' && !faltan.length && !(await emailConectado().catch(() => false))) {
       return {
         key: d.key, nombre: d.nombre, categoria: d.categoria, descripcion: d.descripcion,
         estado: 'falta' as EstadoIntegracion,
-        detalle: 'Falta el remitente: tus correos solo te llegan a ti.',
-        tieneDetalle: d.tieneDetalle,
-        ...delMetodo(d.key),
-      };
-    }
-    // ⚠️ Y CON EL EMAIL DE MaKo TAMPOCO (décima tanda, EMAIL 1, 11/10/2026: «No permitas enviar emails con los
-    // email de MaKo, ellos deben poner sus propios email»). `sendEmail` y el motor ya no mandan con él fuera de
-    // la plataforma (lib/resend.ts), así que «Conectada» sería mentira. Medido ese día: es el ws1, que heredó
-    // «MaKo <equipo@hola-mako.com>» como remitente. Lectura para DIBUJAR, igual que la de arriba.
-    if (d.key === 'email' && !faltan.length && await remitenteEsDeMako().catch(() => false)) {
-      return {
-        key: d.key, nombre: d.nombre, categoria: d.categoria, descripcion: d.descripcion,
-        estado: 'falta' as EstadoIntegracion,
-        detalle: `${AVISO_EMAIL_DE_MAKO}.`,
+        detalle: POR_QUE_SIN_EMAIL,
         tieneDetalle: d.tieneDetalle,
         ...delMetodo(d.key),
       };

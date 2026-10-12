@@ -145,9 +145,11 @@ test('«Nueva» tiene su animación al pasar el cursor (el ＋ gira), quieta con
 // ── Los tres puntos (decisión 6) ─────────────────────────────────────────────────
 
 test('cada fila tiene su «⋯» (el menú de la casa): Activar o Pausar, Duplicar y Eliminar', () => {
-  // «Copiar flujo» desde el 10/10/2026 (copiar y pegar flujos, lib/flujo-copia.ts).
-  assert.deepEqual(opcionesDeFila(true).map((o) => o.label), ['Pausar', 'Duplicar', 'Copiar flujo', 'Eliminar']);
-  assert.deepEqual(opcionesDeFila(false).map((o) => o.label), ['Activar', 'Duplicar', 'Copiar flujo', 'Eliminar']);
+  // «Copiar flujo» desde el 10/10/2026 (copiar y pegar flujos, lib/flujo-copia.ts); «Renombrar» desde la undécima
+  // tanda (punto 5: «Quiero que en los 3 puntos exista la opción de renombrar»), segunda. Rotura (11/10/2026,
+  // wf-undecima/w1-lista-ui/romper.mjs R3, `opcionesDeFila` sin «Renombrar»): base 10 / 0 → 9 / 1.
+  assert.deepEqual(opcionesDeFila(true).map((o) => o.label), ['Pausar', 'Renombrar', 'Duplicar', 'Copiar flujo', 'Eliminar']);
+  assert.deepEqual(opcionesDeFila(false).map((o) => o.label), ['Activar', 'Renombrar', 'Duplicar', 'Copiar flujo', 'Eliminar']);
   const html = dibujar([SECUENCIA]);
   assert.match(html, /aria-label="Opciones de Bienvenida"/);
   // Su columna PROPIA, al lado del botón que abre: no tapa el nombre (y un botón no va adentro de otro).

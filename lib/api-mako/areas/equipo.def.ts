@@ -70,7 +70,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_zona_horaria_workspace', area: 'equipo', tipo: 'lectura',
     titulo: 'Zona horaria del negocio',
-    descripcion: 'La zona horaria IANA con la que MaKo calcula «hoy», las reuniones y los avisos de este negocio, y la hora local actual en ella. Si nunca se fijó, lo dice (`fijada: false`) y devuelve la que se usa mientras tanto: MaKo intenta averiguarla sola al calendarizar. Úsala antes de proponer horarios o de fijar_zona_horaria_workspace. Los reportes del cron siguen anclados a Tijuana.',
+    descripcion: 'La zona horaria IANA con la que MaKo calcula «hoy», las reuniones, el horario de oficina y los avisos de este negocio, la hora local actual en ella y de dónde salió (`origen`: persona, navegador, ip, calendario, meta, telefono o legado). Se detecta de la ubicación del equipo del negocio; lo que elige una persona gana. Si nunca se fijó, lo dice (`fijada: false`) y devuelve la que se usa mientras tanto (America/Tijuana). Úsala antes de proponer horarios o de fijar_zona_horaria_workspace. Los reportes del cron siguen anclados a Tijuana.',
     parametros: [],
     salida: 'json', canales: TODOS, costo: 'gratis',
   },
@@ -165,8 +165,8 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'fijar_zona_horaria_workspace', area: 'equipo', tipo: 'accion', confirmacion: 'chat', reversible: true,
     titulo: 'Fijar la zona horaria del negocio',
-    descripcion: 'PROPONE fijar la zona horaria IANA con la que MaKo calcula «hoy», las reuniones y los avisos de este negocio (queda pendiente hasta el «sí»). Úsala cuando las horas le aparecen en otra zona (un negocio en Cancún, en Buenos Aires, en Madrid). Revisa antes ver_zona_horaria_workspace. No cambia los reportes del cron, que siguen en hora de Tijuana.',
-    escribe: 'app_settings mako.timezone del negocio',
+    descripcion: 'PROPONE fijar la zona horaria IANA con la que MaKo calcula «hoy», las reuniones, el horario de oficina y los avisos de este negocio (queda pendiente hasta el «sí»). Queda como elegida por una persona: ninguna detección por ubicación la vuelve a cambiar. Úsala cuando las horas le aparecen en otra zona (un negocio en Cancún, en Buenos Aires, en Madrid). Revisa antes ver_zona_horaria_workspace. No cambia los reportes del cron, que siguen en hora de Tijuana.',
+    escribe: 'app_settings mako.timezone y mako.timezone.origen del negocio',
     parametros: [
       { nombre: 'timezone', tipo: 'string', max: 60, obligatorio: true, descripcion: 'zona IANA válida, por ejemplo America/Cancun o America/Argentina/Buenos_Aires.' },
     ],

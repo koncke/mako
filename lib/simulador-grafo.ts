@@ -65,8 +65,9 @@ import {
 const recorrido = <P extends PasoGrafo>(pasos: readonly P[]): P[] => expandirPasoIA(pasos);
 import { legadoAGrafo, tieneLegado, type EstrategiaLegada } from './flujo-legado';
 import { TRIGGER_ETAPA, TRIGGER_ENTREGA, TRIGGER_ETIQUETA } from './nutricion-etapa';
-import { aplicarVariables, valoresVariablesLead, VARIABLES_LEAD } from './template-vars';
+import { valoresVariablesLead, VARIABLES_LEAD } from './template-vars';
 import { valoresDeEjemplo } from './variables-aviso';
+import { textoConDatos } from './variables-del-lead';
 // El HTML de un email (parte C de la tercera tanda): puro y sin `server-only`, como este módulo.
 import { aplicarVariablesHtml, sanearHtmlEmail, htmlEmailVacio, TOPE_HTML_EMAIL } from './email-html-seguro';
 // El remitente de la prueba real (sexta tanda): puro y sin imports, como este módulo.
@@ -307,10 +308,16 @@ export function datosDeEjemplo(lead: { nombre?: string | null; empresa?: string 
 
 /**
  * El texto tal como le llegaría al lead de ejemplo. Lo desconocido queda CRUDO, como en el motor. `extra`: los
- * datos propios de quien manda (el recordatorio de la reunión: `EJEMPLOS_RECORDATORIO`), que pisan a los del motor.
+ * datos propios de quien manda (el recordatorio de la reunión: `EJEMPLOS_RECORDATORIO`; los de un evento de MaKo),
+ * que pisan a los del motor.
+ *
+ * ⚠️ CON `textoConDatos` (lib/variables-del-lead.ts, undécima tanda), LA MISMA FUNCIÓN QUE EL ENVÍO: un renglón que
+ * nombra un dato del catálogo SIN valor se va entero (`sinRenglonesVacios`). Con `aplicarVariables` sola, «Probar»
+ * mostraba ese renglón con el token crudo y el lead no lo recibía. El ejemplo que más se nota: `{{negocio}}` sin el
+ * nombre del negocio (no se inventa uno: ver `datosDeEjemplo`) se lleva su renglón, como en el envío.
  */
 export function textoDeEjemplo(texto: string, negocio?: string | null, extra?: Record<string, string>): string {
-  return aplicarVariables(texto ?? '', { ...datosDeEjemplo(LEAD_DE_EJEMPLO, negocio), ...(extra ?? {}) });
+  return textoConDatos(texto ?? '', { ...datosDeEjemplo(LEAD_DE_EJEMPLO, negocio), ...(extra ?? {}) });
 }
 
 /**

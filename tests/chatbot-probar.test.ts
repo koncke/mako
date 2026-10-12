@@ -75,7 +75,9 @@ test('la lista muestra SÓLO el nombre, entero en dos renglones, y busca por nom
   assert.doesNotMatch(lista, /slice\(0, 42\)|estrategia\?\.gancho|pasosQueLlegan/);
   // El buscador busca por lo que se ve.
   assert.match(lista, /\(!q \|\| j\.nombre\.toLowerCase\(\)\.includes\(q\)\)/);
-  assert.match(lista, /export const TOPE_NOMBRE = 40;/);
+  // Desde la undécima el tope es el de la lib (un solo número); el 40 lo ejecuta
+  // tests/automations-undecima-ui.test.ts (a).
+  assert.match(lista, /export const TOPE_NOMBRE = TOPE_NOMBRE_SECUENCIA;/);
 });
 
 // ── El recordatorio, una automatización más (10/10/2026) ─────────────────────────

@@ -22,8 +22,8 @@
 //   3. La grilla: «Lienzo en blanco» PRIMERA SIEMPRE (ningún texto ni filtro la saca), «Pegar lo copiado» si hay algo
 //      copiado, y las plantillas que pasan el filtro — las del Chatbot y las de «MaKo en WhatsApp» MEZCLADAS, con la
 //      misma tarjeta. Sin resultados: «Lienzo en blanco» y una línea.
-//   · «＋ Nuevo mensaje» de la lista (`seccion="mako"`) ya no lleva con scroll: abre con el filtro Canal = «MaKo en
-//     WhatsApp» puesto (`filtroDeSeccion`).
+//   · Undécima tanda (punto 9): la barra es UNA y la galería se abre siempre por «＋ Nueva», sin filtro puesto (se
+//     fueron `seccion`, `filtroDeSeccion` y «Ya la tienes» del recordatorio, que ya no es una plantilla).
 //   ⛔ Se fueron «¿Qué la dispara?» (los seis botones del CRON, `ElegirClase`) y su consumidor (`arranque`, que abría el
 //   CRON de la recién creada en ese tipo), los rótulos de sección y el scroll a la sección de MaKo.
 //
@@ -49,12 +49,11 @@ import { Dropdown } from '@/app/components/Dropdown';
 import { Icon } from '@/app/_components/icons';
 import {
   PLANTILLAS, seccionesParaCron, seccionesDeEtiquetas, rotuloDeEleccion, filtrarPlantillas, filtroDeValores, alternarFiltroGaleria,
-  gruposDelFiltroGaleria, filtroDeSeccion,
+  gruposDelFiltroGaleria,
   type PlantillaAutomatizacion, type PideCron, type EtiquetaParaPlantilla,
 } from '@/lib/plantillas-automatizaciones';
 import type { ProductoParaDisparo } from '@/lib/flujo-conversacion';
 import { leerCopia } from '@/lib/flujo-copia';
-import { TRIGGER_RECORDATORIO } from '@/lib/recordatorio-automatizacion';
 import { useEtiquetasTodas } from '@/app/_components/etiquetas-cliente';
 import { CrearConIA, type ListoCrearIA } from './CrearConIA';
 import { CSS_NUEVO } from './NuevoPlaceholder';
@@ -85,29 +84,14 @@ export const BLANCO = { nombre: 'Lienzo en blanco', linea: 'Empieza de cero.' } 
 export const PLACEHOLDER_BUSCAR = 'Buscar plantillas';
 /** Lo que se lee cuando ninguna plantilla pasa el filtro (queda «Lienzo en blanco»). */
 export const SIN_RESULTADOS = 'Ninguna plantilla con eso';
-/** A qué filtro se abre la galería: `mako` = «MaKo en WhatsApp» (el «＋ Nuevo mensaje» de la lista). */
-export type SeccionGaleria = 'mako';
 
 /**
  * ¿Al elegirla hay que preguntar la etapa (o la etiqueta)? Sólo si arranca en una y hay para ofrecer: si no, nace con
- * el CRON a elegir. Una con el CRON fijo (el recordatorio, un evento) no pregunta nada.
+ * el CRON a elegir. Una con el CRON fijo (un evento de MaKo o de un canal) no pregunta nada.
  */
 export function preguntaEtapa(p: PlantillaAutomatizacion, productos: readonly ProductoParaDisparo[], etiquetas: readonly EtiquetaParaPlantilla[] = []): boolean {
   if (!p.cron.pide) return false;
   return (p.cron.pide === 'etiqueta' ? seccionesDeEtiquetas(etiquetas) : seccionesParaCron(p.cron.pide, productos)).length > 0;
-}
-
-/** Lo que dice la tarjeta de una plantilla de CRON fijo que el negocio ya tiene. */
-export const YA_LA_TIENES = 'Ya la tienes en tu lista.';
-
-/**
- * ¿El negocio ya tiene esta plantilla? Sólo cuenta para el RECORDATORIO de la reunión, que es UNO por negocio
- * (con dos, su emisor manda la primera activa y la lista no dice cuál). De un evento de MaKo se permiten varias
- * (11/10/2026: salen todas), así que su CRON fijo no las apaga. El server lo vuelve a mirar
- * (`crearDesdePlantilla`): esto es para no ofrecer un clic que va a contestar que no.
- */
-export function yaLaTiene(p: PlantillaAutomatizacion, triggersVivos: readonly string[]): boolean {
-  return p.cron.fijo === TRIGGER_RECORDATORIO && triggersVivos.includes(TRIGGER_RECORDATORIO);
 }
 
 /**
@@ -142,8 +126,6 @@ const LINEA: CSSProperties = { fontSize: 13, color: 'var(--dim)', lineHeight: 1.
 export function GaleriaPlantillas(p: {
   /** Los productos con sus etapas (los mismos que lee el editor del CRON). */
   productos: readonly ProductoParaDisparo[];
-  /** El `trigger_tipo` de las automatizaciones de la lista (sin archivar): apaga la plantilla de CRON fijo que ya tiene. */
-  triggersVivos?: readonly string[];
   onCerrar: () => void;
   /** «Lienzo en blanco»: quien monta crea la vacía de «＋ Nueva». */
   onBlanco: () => void;
@@ -153,8 +135,6 @@ export function GaleriaPlantillas(p: {
   onCreada: (r: CreadaGaleria) => void;
   /** La que creó MaKo desde «Pídeselo a MaKo» (ya guardada y pausada): quien monta la abre. */
   onCreadaIA?: (r: CreadaConIAGaleria) => void;
-  /** Abrir con un filtro puesto (`mako` = Canal «MaKo en WhatsApp»). Ausente = sin filtro. */
-  seccion?: SeccionGaleria;
 }) {
   // LO COPIADO, si hay (copiar flujo, 10/10/2026: «al momento de crear un nuevo flujo que te aparezca la
   // opción de pegar»). Leer el portapapeles puede pedir permiso: si no lo dan, la opción no aparece.
@@ -173,8 +153,8 @@ export function GaleriaPlantillas(p: {
   // Las etiquetas del negocio: las pide «Bienvenida al newsletter» (arranca con «Se le puso [una etiqueta]»).
   const etiquetas: EtiquetaParaPlantilla[] = useEtiquetasTodas() ?? [];
   const [texto, setTexto] = useState('');
-  /** El filtro (`canal:…`, `objetivo:…`). «＋ Nuevo mensaje» abre con Canal = «MaKo en WhatsApp» puesto. */
-  const [filtros, setFiltros] = useState<string[]>(() => filtroDeSeccion(p.seccion));
+  /** El filtro (`canal:…`, `objetivo:…`). Abre sin filtro. */
+  const [filtros, setFiltros] = useState<string[]>([]);
   const [elegida, setElegida] = useState<PlantillaAutomatizacion | null>(null);
   const [valor, setValor] = useState('');
   const [creando, setCreando] = useState<string | null>(null);
@@ -254,20 +234,17 @@ export function GaleriaPlantillas(p: {
 
   // ── 1. La galería ──
   const ocupado = creando != null || conMaKo;
-  /** La tarjeta de una plantilla: la MISMA para las del Chatbot y las de «MaKo en WhatsApp». */
-  const tarjeta = (pl: PlantillaAutomatizacion) => {
-    const tiene = yaLaTiene(pl, p.triggersVivos ?? []);
-    return (
-      <button key={pl.id} type="button" className="gal-tarjeta" data-plantilla={pl.id} data-ya-la-tiene={tiene || undefined}
-        disabled={tiene || (ocupado && creando !== pl.id)} aria-busy={creando === pl.id || undefined}
-        onClick={() => elegir(pl)}>
-        <span aria-hidden style={{ fontSize: 28, lineHeight: 1 }}>{pl.emoji}</span>
-        <span style={NOMBRE}>{pl.nombre}</span>
-        <span style={LINEA}>{tiene ? YA_LA_TIENES : pl.linea}</span>
-        {creando === pl.id && <span className="mk-spin" style={{ width: 14, height: 14, marginTop: 'auto' }} aria-label="Creando" />}
-      </button>
-    );
-  };
+  /** La tarjeta de una plantilla: la MISMA para todas. */
+  const tarjeta = (pl: PlantillaAutomatizacion) => (
+    <button key={pl.id} type="button" className="gal-tarjeta" data-plantilla={pl.id}
+      disabled={ocupado && creando !== pl.id} aria-busy={creando === pl.id || undefined}
+      onClick={() => elegir(pl)}>
+      <span aria-hidden style={{ fontSize: 28, lineHeight: 1 }}>{pl.emoji}</span>
+      <span style={NOMBRE}>{pl.nombre}</span>
+      <span style={LINEA}>{pl.linea}</span>
+      {creando === pl.id && <span className="mk-spin" style={{ width: 14, height: 14, marginTop: 'auto' }} aria-label="Creando" />}
+    </button>
+  );
   const nFiltros = filtros.length;
   const grupos = gruposDelFiltroGaleria().map((g) => ({ ...g, options: g.options.map((o) => ({ ...o, icono: ICONO_FILTRO[o.value] })) }));
   const rotuloFiltro = nFiltros ? grupos.flatMap((g) => g.options).filter((o) => filtros.includes(o.value)).map((o) => o.label).join(' · ') : 'Filtrar';

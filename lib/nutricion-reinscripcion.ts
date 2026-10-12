@@ -25,6 +25,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { leerPorPaginas } from './supabase-paginado';
 import { enTandas } from './ids-con-filas';
+import { fechaCoincide, isoCanonico, limpiarLink, type CualReunion } from './recordatorio-lead';
 
 // ── La reunión del lead ──────────────────────────────────────────────────────
 // Vivía adentro de lib/nutricion.ts, que arrastra todo el runtime de Next: ni un test ni el
@@ -45,13 +46,78 @@ export function parseFechaJunta(x: string): number {
   return Date.parse(/^\d{4}-\d{2}-\d{2}$/.test(x) ? `${x}T12:00:00${OFFSET_MX}` : x);
 }
 
-/** Timestamp (ms) de la próxima reunión FUTURA del lead, o null si no tiene. */
+/** La fila del lead con lo que hace falta para decir cuál es su próxima reunión (todo opcional: `JuntasLead` y más). */
+export type FilaReunion = JuntasLead & {
+  asistio_j1?: boolean | null; asistio_j2?: boolean | null;
+  /** `junta_X_url` (mig 0204): el link para entrar. El tipo `Lead` no lo declara; `getLead` (select *) sí lo trae. */
+  junta_1_url?: string | null; junta_2_url?: string | null;
+};
+
+/** La próxima reunión de un lead: cuál, cuándo, si tiene HORA de verdad y su link para entrar. */
+export type ProximaReunion = { cual: CualReunion; inicioMs: number; conHora: boolean; link: string | null };
+
+/**
+ * LA PRÓXIMA REUNIÓN DEL LEAD, o null. UNA función para «la reunión del dato» y «la de la espera»
+ * (undécima tanda, 11/10/2026, docs/diseno-undecima-tanda.md §1.5): los datos «Próxima reunión»
+ * (`{{reunion_cuando}}`, `{{reunion_hora}}`…, lib/variables-del-lead.ts) y el ancla del DELAY «antes de la
+ * reunión» tienen que hablar de la MISMA. Con dos reglas, el recordatorio de las 10:00 diría la hora de otra.
+ *
+ * Dos reglas, y cuál se usa es una decisión del que llama:
+ *
+ *  · ESTRICTA (`{ estricta: true }`) = la del emisor del recordatorio de hoy (`toquesVencidos`,
+ *    lib/recordatorio-lead.ts): la HORA puesta (`junta_X_at`), la FECHA en pie (`fecha_junta_X`: una
+ *    cancelación la pone en null) que COINCIDE con esa hora (`fechaCoincide`: la hora vieja tras editar la
+ *    fecha a mano no cuenta; con `tz`, también la fecha escrita en la zona del negocio), sin asistencia
+ *    marcada, y futura. ⚠️ Una fecha SIN hora no es una próxima reunión para esta regla: en el ws1 hay 74
+ *    leads así (medido el 11/10/2026), y la laxa les inventa las 12:00 de México — un «1 h antes» saldría a
+ *    las 11:00 de una hora que nadie cargó.
+ *  · LAXA (`{ estricta: false }`) = la de `reunionFuturaMs` de siempre: `junta_X_at ?? fecha_junta_X` (una
+ *    fecha sola = mediodía de México, `parseFechaJunta`), futura. Lo único que cambió: una reunión CANCELADA
+ *    (`junta_X_at` puesta y `fecha_junta_X` LEÍDA en null) ya no cuenta. ⚠️ Es `=== null`, no «falsy»: un
+ *    objeto que no trae la fecha (`undefined`) no afirma que se canceló, y se sigue leyendo como antes.
+ *
+ * Si las dos son futuras, la más próxima (empate: la R1). `link` = el `junta_X_url` de ESA reunión, limpio
+ * (`limpiarLink`: sólo un https). Pura.
+ */
+export function proximaReunion(
+  l: FilaReunion | null | undefined,
+  ahoraMs: number,
+  o: { estricta: boolean; tz?: string | null },
+): ProximaReunion | null {
+  if (!l) return null;
+  const juntas: Array<[CualReunion, string | null | undefined, string | null | undefined, boolean | null | undefined, string | null | undefined]> = [
+    ['R1', l.junta_1_at, l.fecha_junta_1, l.asistio_j1, l.junta_1_url],
+    ['R2', l.junta_2_at, l.fecha_junta_2, l.asistio_j2, l.junta_2_url],
+  ];
+  let mejor: ProximaReunion | null = null;
+  for (const [cual, at, fecha, asistio, url] of juntas) {
+    let ms: number;
+    let conHora: boolean;
+    if (o.estricta) {
+      if (!at || !fecha || asistio != null) continue;
+      const inicio = isoCanonico(at);
+      if (!inicio || !fechaCoincide(fecha, inicio, o.tz)) continue;
+      ms = Date.parse(inicio);
+      conHora = true;
+    } else {
+      if (at && fecha === null) continue;   // cancelada: la hora quedó, la fecha no
+      const x = at ?? fecha;
+      if (!x) continue;
+      ms = parseFechaJunta(x);
+      conHora = !!at;
+    }
+    if (!Number.isFinite(ms) || ms <= ahoraMs) continue;
+    if (!mejor || ms < mejor.inicioMs) mejor = { cual, inicioMs: ms, conHora, link: limpiarLink(url) };
+  }
+  return mejor;
+}
+
+/**
+ * Timestamp (ms) de la próxima reunión FUTURA del lead, o null si no tiene. Es la regla LAXA de
+ * `proximaReunion` (y desde el 11/10/2026 una reunión cancelada ya no cuenta).
+ */
 export function reunionFuturaMs(juntas: JuntasLead | null | undefined, ahoraMs: number = Date.now()): number | null {
-  const candidatos = [juntas?.junta_1_at ?? juntas?.fecha_junta_1, juntas?.junta_2_at ?? juntas?.fecha_junta_2]
-    .filter((x): x is string => Boolean(x))
-    .map(parseFechaJunta)
-    .filter((ms) => Number.isFinite(ms) && ms > ahoraMs);
-  return candidatos.length ? Math.min(...candidatos) : null;
+  return proximaReunion(juntas, ahoraMs, { estricta: false })?.inicioMs ?? null;
 }
 
 /**
@@ -112,10 +178,24 @@ export function diaDeReunion(ms: number): string {
  */
 export const ESTADOS_TERMINADOS: readonly string[] = ['completada', 'no_responde'];
 
+/**
+ * ¿De esta inscripción sólo queda vivo el CARRIL DEL RECORDATORIO? (Undécima tanda, M4.) El lead contestó
+ * ('respondio') y lo único que sigue son los recordatorios de su reunión (con próximo envío: `pausarPorRespuesta`
+ * se lo saca a todo lo demás, lib/nutricion.ts). El desenlace la espera (`desenlaceEsperaAlCarril`,
+ * lib/nutricion-grafo-motor.ts), y para el REUSO cuenta como TERMINADA: una reserva de OTRA reunión vuelve a armar
+ * el flujo entero —el aviso al equipo, la preparación y los recordatorios de la nueva—. Sin esto, quien contestaba
+ * y después reagendaba se quedaba sin el «Nuevo agendado» (hoy #239 avisa cada reserva). Pura.
+ */
+export function soloQuedaElCarril(f: { estado: string; proximo_envio_at?: string | null }): boolean {
+  return f.estado === 'respondio' && f.proximo_envio_at != null;
+}
+
 /** Lo que la decisión necesita de la fila vieja. */
 export type FilaPrevia = {
   estado: string;
   desenlace: string | null;
+  /** Con 'respondio', si el carril del recordatorio sigue vivo (`soloQuedaElCarril`). Ausente = no se leyó. */
+  proximo_envio_at?: string | null;
   /**
    * La reunión que preparaba (mig 0205): se anota al inscribir y se re-anota en cada paso que
    * el motor procesa, así que es la del ÚLTIMO paso que salió — si el lead reprogramó a mitad
@@ -170,7 +250,8 @@ export function inscripcionReusable(p: {
 }): VeredictoReuso {
   if (p.reunionNuevaMs == null || !Number.isFinite(p.reunionNuevaMs)) return { reusable: false, porque: 'sin_reunion_futura' };
   if (p.fila.estado === 'cancelada' || p.fila.desenlace === 'cancelado') return { reusable: false, porque: 'cancelada' };
-  if (!ESTADOS_TERMINADOS.includes(p.fila.estado)) return { reusable: false, porque: 'no_termino' };
+  // (Una a la que sólo le queda el carril del recordatorio cuenta como terminada: `soloQuedaElCarril`.)
+  if (!ESTADOS_TERMINADOS.includes(p.fila.estado) && !soloQuedaElCarril(p.fila)) return { reusable: false, porque: 'no_termino' };
 
   const antes = p.fila.reunion_at ? Date.parse(p.fila.reunion_at) : NaN;
   if (Number.isFinite(antes)) {

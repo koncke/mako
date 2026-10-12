@@ -147,6 +147,21 @@ test('⚠️ la key de ElevenLabs es la DEL CLIENTE, y nunca cae al entorno', ()
   assert.match(lineas[0], /ELEVENLABS_API_KEY/);
 });
 
+test('⚠️ el text-to-speech de bajo nivel (`ttsConKey`) NO resuelve ninguna key: quien llama decide quién paga', () => {
+  // Undécima tanda (11/10/2026): la Voz de MaKo (lib/voz-mako.ts) habla con la key de la PLATAFORMA, en su env
+  // propia, y la voz clonada con la del CLIENTE. Las dos usan el mismo text-to-speech, así que éste no puede
+  // elegir la key: si lo hiciera, una de las dos le cobraría a la cuenta equivocada.
+  // Rotura (11/10/2026): `ttsConKey` resolviendo con `elevenKey()` → 1 rojo (éste).
+  const src = sinComentarios(readFileSync(join(RAIZ, 'lib/elevenlabs.ts'), 'utf8').replace(/\r\n/g, '\n'));
+  const i = src.indexOf('export async function ttsConKey(');
+  assert.ok(i >= 0, 'desapareció ttsConKey');
+  const tts = src.slice(i, src.indexOf('\n}\n', i));
+  assert.doesNotMatch(tts, /elevenKey\(|credDelCliente\(|credWs\(|process\.env/, 'ttsConKey resuelve una key por su cuenta');
+  const decir = src.slice(src.indexOf('export async function decirConVoz('), i);
+  assert.match(decir, /const key = await elevenKey\(\);/, 'decirConVoz dejó de usar la key del cliente');
+  assert.match(decir, /return ttsConKey\(key, voiceId, linea, AJUSTES_STS, MODELO_TTS, FORMATO_STS\);/);
+});
+
 test('la key de ElevenLabs no se siembra sola en el workspace de nadie', () => {
   // ⚠️ LA GUARDA QUE MÁS CUESTA VER. Borrar la fila de un cliente no dura: el
   // boot corre `migrarEnvACredenciales`, que RELLENA HUECOS desde el entorno, y

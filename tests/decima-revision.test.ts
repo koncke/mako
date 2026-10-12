@@ -7,6 +7,10 @@
 //      objetivo VIAJA al redactor: con --aplicar, la #213 del ws1 (activa, dos casos que salen solos) contestaba
 //      otra cosa, y el freno (`loQueContesta`) no lo veía porque no comparaba el objetivo. Ahora no se escribe
 //      (§10-A, la tabla queda como sugerencia) y el freno compara todo lo que el redactor recibe.
+//      ⚠️ UNDÉCIMA TANDA: la migración que partía se RETIRÓ (`planDeFila` ya no existe; UN AI Step por objetivo). Lo
+//      que este punto cuidaba sigue valiendo para la puerta nueva, `juntarPasosIA`: juntar la #213 no le inventa un
+//      objetivo (el de la #213 lo pone, sabiendo que cambia lo que se contesta, el script de la ola 4) y el freno
+//      (`loQueContesta`) sigue viendo el objetivo. Los dos tests del punto 1 se reescribieron sobre `juntarPasosIA`.
 //   2. «Contesta sola» medía el horario de oficina en la zona del motor (Ciudad de México sin `mako.timezone`)
 //      mientras su 9 a 21 de siempre iba en `tzActual` (Tijuana): en el ws1 la ventana se corría una hora.
 //   3. `limitesParaGuardar` validaba el rango también de lo de FÁBRICA: con un env fuera de rango (lo respeta
@@ -20,8 +24,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { type PasoGrafo, type CasoRespuesta, esPasoIA, escenariosDeRespuesta } from '../lib/flujo-grafo';
-import { planDeFila, loQueContesta } from '../lib/ai-step-migrar';
+import { type PasoGrafo, type CasoRespuesta, esPasoIA, escenariosDeRespuesta, juntarPasosIA } from '../lib/flujo-grafo';
+import { loQueContesta } from '../lib/ai-step-migrar';
 import { dentroDelHorario, HORARIO_SUGERIDO } from '../lib/horario-envio';
 import { limitesDeFabrica, limitesParaGuardar, conLimite } from '../lib/limites-envio';
 import { clasificarIntencion, esPedidoAutomatizacion } from '../lib/mako-intencion';
@@ -34,7 +38,6 @@ const sinComentarios = (s: string): string => s.replace(/^[ \t]*\/\/.*$/gm, '').
 
 const msg = (o: Partial<PasoGrafo> = {}): PasoGrafo => ({ canal: 'whatsapp', proveedor: 'no_oficial', delay_horas: 0, asunto: null, cuerpo: 'hola', template_wa: null, ...o });
 const caso = (id: string, o: Partial<CasoRespuesta> = {}): CasoRespuesta => ({ id, titulo: `Caso ${id}`, cuando: `cuando ${id}`, siguiente: null, ...o });
-const rndDe = () => { let k = 0; return () => ((k++ * 7919) % 100_000) / 100_000 + 0.00001; };
 
 /** La forma de la #213 (ws1, activa): un AI Step v1 con los 4 casos del respaldo de la novena, dos que salen solos. */
 const como213 = (): PasoGrafo[] => [
@@ -48,30 +51,31 @@ const como213 = (): PasoGrafo[] => [
   ] },
 ];
 
-test('1. la migración de la #213 NO le pone objetivo a ningún caso (los sugiere) y no frena', () => {
-  const p = planDeFila({ pasos: como213(), trigger_tipo: 'agendado_primer_contacto' }, { rnd: rndDe(), evitar: new Set(), inscs: [{ id: 202, paso_actual: 1, nodo_actual: 'o1' }] });
-  assert.deepEqual(p.frenos, []);
-  assert.equal(p.cambia, true, 'la separación en 4 tarjetas sigue');
-  const ias = p.pasos.filter((x) => esPasoIA(x));
-  assert.equal(ias.length, 4);
-  assert.ok(ias.every((x) => !(x.casos![0].objetivo ?? '').trim()), 'la migración escribió un objetivo: el redactor contestaría otra cosa');
+test('1. (undécima) juntar la #213 NO le inventa un objetivo: UN AI Step, los 4 escenarios, y el redactor contesta igual', () => {
+  const j = juntarPasosIA(como213());
+  assert.deepEqual([j.conflictos, j.perdidos], [[], []]);
+  const ias = j.pasos.filter((x) => esPasoIA(x));
+  assert.equal(ias.length, 1);
+  assert.deepEqual(ias[0].casos!.map((c) => c.id), ['A', 'B', 'C', 'D']);
+  assert.ok(!(ias[0].objetivo ?? '').trim() && ias[0].casos!.every((c) => !(c.objetivo ?? '').trim()), 'juntar escribió un objetivo: el redactor contestaría otra cosa');
   // Lo que ve el redactor, por el camino del motor (`escenariosDeRespuesta` sobre lo expandido): ningún objetivo.
-  assert.ok(escenariosDeRespuesta(p.pasos, { medio: 'whatsapp' }).every((e) => e.objetivo === undefined));
-  assert.deepEqual(p.sugeridos.map((s) => s.titulo), ['Confirma o ya vio el video', 'Pregunta el precio', 'Pregunta por la reunión', 'Quiere cambiar el día']);
+  assert.ok(escenariosDeRespuesta(j.pasos, { medio: 'whatsapp' }).every((e) => e.objetivo === undefined));
+  assert.equal(loQueContesta(j.pasos), loQueContesta(como213()), 'juntar cambió lo que se contesta');
 });
 
-test('1. el freno ve el objetivo: un objetivo nuevo en un caso CAMBIA lo que se contesta', () => {
-  const p = planDeFila({ pasos: como213(), trigger_tipo: 'agendado_primer_contacto' }, { rnd: rndDe(), evitar: new Set(), inscs: [] });
-  const conObjetivo = p.pasos.map((x) => (esPasoIA(x) && x.casos![0].id === 'A'
-    ? { ...x, casos: [{ ...x.casos![0], objetivo: 'Que confirme que viene a la reunión' }] }
-    : x));
-  assert.notEqual(loQueContesta(conObjetivo), loQueContesta(p.pasos), '`loQueContesta` no compara el objetivo: el freno no lo ve');
-  assert.equal(loQueContesta(p.pasos), loQueContesta(como213()), 'separar sin objetivos cambió lo que se contesta');
+test('1. el freno ve el objetivo: un objetivo en el AI Step CAMBIA lo que se contesta', () => {
+  const j = juntarPasosIA(como213());
+  const conObjetivo = j.pasos.map((x) => (esPasoIA(x) ? { ...x, objetivo: 'Que confirme que viene a la reunión' } : x));
+  assert.notEqual(loQueContesta(conObjetivo), loQueContesta(j.pasos), '`loQueContesta` no compara el objetivo: el freno no lo ve');
 });
 
 // ── 2. «Contesta sola»: el horario de oficina en la zona de siempre ─────────────────────────
 
 test('2. la ventana de «Contesta sola» se mide con `tz` (tzActual), no con la zona del motor', () => {
+  // UNDÉCIMA TANDA (11/10/2026), revisado: desde la decisión 4 de la décima la zona del motor (`zonaDeLaVentana`) y
+  // `tzActual` son la MISMA lectura con el MISMO default (Tijuana), así que el bug de Ciudad de México ya no puede
+  // volver por acá. El test se queda por lo que todavía distingue: «Contesta sola» mide con `tzActual`, que NUNCA
+  // tira, y no con la ventana del motor, que con la zona ilegible corta la corrida entera ('zona-ilegible').
   const nut = leer('lib/nutricion.ts');
   const i = nut.indexOf('4.5) ¿SALE SOLA?');
   const j = nut.indexOf('const enAudio = ', i);
@@ -80,7 +84,7 @@ test('2. la ventana de «Contesta sola» se mide con `tz` (tzActual), no con la 
   assert.ok(bloque.length < 4000, `el recorte mide ${bloque.length}: está mirando otra cosa`);
   assert.match(bloque, /tzActual\(\)\.catch\(\(\) => TZ_DEFAULT\),/);
   assert.match(bloque, /enHorario: horario \? dentroDelHorario\(Date\.now\(\), tz, horario\) : undefined,/);
-  assert.doesNotMatch(bloque, /dentroDeVentana\(/, 'volvió la zona del motor (Ciudad de México) a «Contesta sola»');
+  assert.doesNotMatch(bloque, /dentroDeVentana\(|zonaDeLaVentana\(/, 'volvió la ventana del motor a «Contesta sola»');
 });
 
 test('2. por qué importa: con 9 a 21, Tijuana y Ciudad de México dan distinto la misma noche y la misma mañana', () => {
@@ -130,3 +134,5 @@ test('4. «reunión sobre el flujo…» y «flujo de caja» no son un pedido de 
 //   R4 `limitesParaGuardar` valida el rango antes de comparar con lo de fábrica        → 5 / 1 (configuraciones sigue 16 / 0)
 //   R5 el clasificador sin el corte de «otro objeto» ni el de «flujo de caja»          → 5 / 1 (automatizacion-whatsapp sigue 5 / 0)
 // Lo que las roturas dicen de los tests de al lado: R2, R4 y R5 sólo los caza ESTE archivo.
+// UNDÉCIMA (11/10/2026, w1-aistep-modelo): R1 rompía `convertir` (se borró con la migración que partía). Su reemplazo:
+//   U1 `juntarPasosIA` sube un objetivo de la tabla §8.4 al AI Step que no tiene                 → 4 / 2 (y ai-step-v2 13 / 2, ai-step-unico 11 / 1)

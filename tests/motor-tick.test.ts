@@ -54,7 +54,12 @@ test('qué negocios corre: los ACTIVOS con algo fresco, y los que abrieron su ho
 test('⚠️ la ruta: barata cuando no hay nada, y el motor con el turno, sobre lo fresco y con el cupo de la hora', () => {
   const ruta = sinComentarios(leer('app/api/cron/nutricion-tick/route.ts'));
   // La primera consulta es UNA para todos los negocios, sobre la ventana fresca.
-  assert.match(ruta, /\.from\('nutricion_inscripciones'\)\s*\.select\('workspace_id'\)\.eq\('estado', 'activa'\)\s*\.gte\('proximo_envio_at', desde\)\.lte\('proximo_envio_at', ahoraIso\)/);
+  // Undécima tanda (M4): también las 'respondio' con el carril del recordatorio vivo, como `inscripcionesVencidas`.
+  // Probado rompiéndolo (11/10/2026, wf-undecima/enchufador/roturas.cjs): `ESTADOS_QUE_SE_MUEVEN = ['activa']` → 5 / 1 (base 6 / 0).
+  assert.match(ruta, /\.from\('nutricion_inscripciones'\)\s*\.select\('workspace_id'\)\.in\('estado', ESTADOS_QUE_SE_MUEVEN\)\s*\.gte\('proximo_envio_at', desde\)\.lte\('proximo_envio_at', ahoraIso\)/);
+  assert.match(ruta, /const ESTADOS_QUE_SE_MUEVEN = \['activa', 'respondio'\];/);
+  assert.match(ruta, /\.select\('workspace_id'\)\.in\('estado', ESTADOS_QUE_SE_MUEVEN\)\.lte\('proximo_envio_at', ahoraIso\)\.in\('workspace_id', abiertos\)/, 'al abrir el horario tampoco ve las «respondio» con carril');
+  assert.match(sinComentarios(leer('lib/nutricion.ts')), /q\.in\('estado', \['activa', 'respondio'\]\)\.lte\('proximo_envio_at', ahora\)/, 'el tick y el motor leen filas distintas');
   // Sin nada, sale ANTES de leer los workspaces (el caso de casi todos los minutos).
   const sale = ruta.indexOf("if (!conVencidoFresco.length && !abrieronConVencido.length) return Response.json({ ok: true, negocios: 0 });");
   assert.ok(sale > 0, 'sin nada vencido, el tick sigue de largo');
@@ -62,8 +67,12 @@ test('⚠️ la ruta: barata cuando no hay nada, y el motor con el turno, sobre 
   // El motor, con el turno del negocio tomado (dos corridas a la vez mandan dos veces).
   assert.match(ruta, /runWithWorkspace\(ws, \(\) => conTurnoDelMotor\(ws, async \(\) => \{/);
   assert.match(ruta, /procesarEnvios\(\{ esperarHastaMs, cupoPorHora: true, \.\.\.\(motivo === 'vencio' \? \{ vencidasDesde: desde \} : \{\}\) \}\)/);
-  // El horario que acaba de abrir: con la MISMA función que lo decide, y la zona del motor.
-  assert.match(ruta, /acabaDeAbrir\(ahora, zonaDelMotor\(zonaDe\.get\(ws\) \?\? null\), h, VENTANA_FRESCA_MIN\)/);
+  // El horario que acaba de abrir: con la MISMA función que lo decide, y LA regla de la zona (undécima tanda:
+  // `zonaDeLoGuardado`, la de las pantallas; sin zona, Tijuana). Era `zonaDelMotor`, que sin zona caía a Ciudad de
+  // México. Se conserva la lectura EN LOTE de las zonas (una consulta para todos los negocios con horario).
+  assert.match(ruta, /acabaDeAbrir\(ahora, zonaDeLoGuardado\(zonaDe\.get\(ws\)\), h, VENTANA_FRESCA_MIN\)/);
+  assert.match(ruta, /\.eq\('key', KEY_TIMEZONE\)\.in\('workspace_id', \[\.\.\.conHorario\.keys\(\)\]\);/, 'la zona volvió a leerse por negocio');
+  assert.doesNotMatch(ruta, /zonaDelMotor|ZONA_SIN_CONFIGURAR|Mexico_City/);
   // No inscribe por cohorte ni evalúa desenlaces: eso es de la corrida de cada hora.
   assert.doesNotMatch(ruta, /comprometerInscripciones|evaluarDesenlaces/);
   // Auth de la casa (lib/cron-auth.ts), no otra copia local.

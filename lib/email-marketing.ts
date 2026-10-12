@@ -14,8 +14,8 @@ import { getSupabaseServer } from '@/lib/supabase';
 import { leerTodo, leerPorPaginas, type ConsultaPaginada } from '@/lib/supabase-paginado';
 import type { PasoSecuencia } from '@/lib/nutricion';
 import { valoresVariablesLead, aplicarVariables } from '@/lib/template-vars';
-import { sendEmail, renderEmailHtml, buildUnsubscribeUrl, remitenteEsSandbox, remitenteEsDeMako } from '@/lib/resend';
-import { firmaDelPie } from '@/lib/email-remitente';
+import { sendEmail, renderEmailHtml, buildUnsubscribeUrl, remitenteEsSandbox } from '@/lib/resend';
+import { firmaDelPie, SIN_EMAIL_PROPIO, POR_QUE_SIN_EMAIL } from '@/lib/email-remitente';
 import { getWorkspace, getWorkspaceActual } from '@/lib/workspace';
 import { envioEmailHabilitado } from '@/lib/envio-flags';
 import { enTandas } from '@/lib/ids-con-filas';
@@ -724,17 +724,14 @@ export async function enviarBroadcast(id: number): Promise<ResultadoBroadcast> {
   if (b.estado === 'enviado') return vacio('el broadcast ya fue enviado');
 
   // Flag de envío real DEL WORKSPACE + preflight de remitente: si el envío está
-  // activo pero el remitente sigue siendo sandbox, no mandamos (Resend
-  // rechazaría a terceros). No marcamos enviado.
+  // activo pero el negocio no tiene remitente propio, no mandamos. No marcamos enviado.
+  // ⚠️ Desde la undécima tanda «sandbox» = «sin remitente propio»: `getEmailFrom` (lib/resend.ts) devuelve el
+  // sandbox también con el email de MaKo en un cliente (el ws1). Sin este corte, `sendEmail` se negaría con
+  // cada destinatario y quedaría anotado como un fallo, o sea como ya intentado, que es lo que el reanudable
+  // saltea: conectar después el dominio propio no les mandaba el broadcast.
   const emailOn = await envioEmailHabilitado();
   if (emailOn && (await remitenteEsSandbox())) {
-    return vacio('remitente sandbox: verifica tu dominio de envío antes de enviar');
-  }
-  // Y el email de MaKo tampoco (décima tanda, EMAIL 1): `sendEmail` se niega a mandar con él, y sin este corte
-  // cada destinatario quedaba anotado como un fallo — o sea como ya intentado, que es lo que el reanudable
-  // saltea: conectar después el dominio propio no les mandaba el broadcast.
-  if (emailOn && (await remitenteEsDeMako())) {
-    return vacio('el remitente es el email de MaKo: conecta tu propio email antes de enviar');
+    return vacio(`${SIN_EMAIL_PROPIO}. ${POR_QUE_SIN_EMAIL}`);
   }
 
   const todos = await leadsDeSegmento(b.segmento);

@@ -35,7 +35,8 @@ import { envioEmailHabilitado, envioWhatsappHabilitado } from '@/lib/envio-flags
 import { ESPERA_CORRIDA_HASTA_MS, VENTANA_FRESCA_MIN, desdeFresco } from '@/lib/espera-duracion';
 import { KEY_HORARIO_ENVIO, horarioVigente, acabaDeAbrir } from '@/lib/horario-envio';
 import { KEY_TIMEZONE } from '@/lib/timezone';
-import { zonaDelMotor } from '@/lib/nutricion-grafo-motor';
+// LA regla de lectura de la zona (undécima tanda): la misma del motor y las pantallas; sin zona, `ZONA_POR_DEFECTO`.
+import { zonaDeLoGuardado } from '@/lib/zona-negocio-reglas';
 import { negociosDelTick, correSinCanales, type MotivoTick } from '@/lib/motor-tick';
 import { conTurnoDelMotor } from '@/lib/motor-turno';
 
@@ -43,7 +44,9 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
 type Fila = { workspace_id: number | string | null };
-const idsDe = (filas: readonly Fila[] | null): number[] =>
+/** Las filas que el motor mueve: las mismas que lee `inscripcionesVencidas` (lib/nutricion.ts). */
+const ESTADOS_QUE_SE_MUEVEN = ['activa', 'respondio'];
+const idsDe =(filas: readonly Fila[] | null): number[] =>
   [...new Set((filas ?? []).map((f) => Number(f.workspace_id)).filter((n) => Number.isFinite(n) && n > 0))];
 
 export async function GET(request: NextRequest) {
@@ -59,8 +62,11 @@ export async function GET(request: NextRequest) {
     // 1. Lo que venció hace poco, en TODOS los negocios (índice `estado, proximo_envio_at`, 0034).
     //    ⚠️ Topea en 1000 filas (PostgREST): con más, algún negocio puede quedar para el minuto
     //    siguiente o para la corrida de la hora. No se pierde nada: la fila sigue vencida.
+    //    Y las 'respondio' (undécima tanda, M4): el lead contestó pero el carril del recordatorio sigue vivo;
+    //    `pausarPorRespuesta` les deja el próximo envío SÓLO a ésas, así que una 'respondio' vencida es del carril.
+    //    Sin esto el «1 h antes» de quien contestó salía sólo si la corrida de cada hora caía en la tolerancia.
     const { data: frescas, error: eFrescas } = await db.from('nutricion_inscripciones')
-      .select('workspace_id').eq('estado', 'activa')
+      .select('workspace_id').in('estado', ESTADOS_QUE_SE_MUEVEN)
       .gte('proximo_envio_at', desde).lte('proximo_envio_at', ahoraIso).limit(1000);
     if (eFrescas) throw new Error(`vencidas: ${eFrescas.message}`);
     const conVencidoFresco = idsDe(frescas as Fila[]);
@@ -80,11 +86,11 @@ export async function GET(request: NextRequest) {
       if (eZ) throw new Error(`zonas: ${eZ.message}`);
       const zonaDe = new Map(((zonas ?? []) as Array<{ workspace_id: number | string; value: string }>).map((z) => [Number(z.workspace_id), z.value]));
       const abiertos = [...conHorario.entries()]
-        .filter(([ws, h]) => acabaDeAbrir(ahora, zonaDelMotor(zonaDe.get(ws) ?? null), h, VENTANA_FRESCA_MIN))
+        .filter(([ws, h]) => acabaDeAbrir(ahora, zonaDeLoGuardado(zonaDe.get(ws)), h, VENTANA_FRESCA_MIN))
         .map(([ws]) => ws);
       if (abiertos.length) {
         const { data: viejas, error: eV } = await db.from('nutricion_inscripciones')
-          .select('workspace_id').eq('estado', 'activa').lte('proximo_envio_at', ahoraIso).in('workspace_id', abiertos).limit(1000);
+          .select('workspace_id').in('estado', ESTADOS_QUE_SE_MUEVEN).lte('proximo_envio_at', ahoraIso).in('workspace_id', abiertos).limit(1000);
         if (eV) throw new Error(`vencidas al abrir: ${eV.message}`);
         abrieronConVencido = idsDe(viejas as Fila[]);
       }

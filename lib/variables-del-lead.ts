@@ -17,9 +17,17 @@
 import type { Lead } from './leads';
 import type { Pago } from './pagos';
 import type { Clase, Progreso } from './curso';
+import type { EstadoAlta, Pasarela } from './cobros-tipos';
 // Puros y sin `server-only`, igual que este módulo: el test los sigue pudiendo importar.
 import { resumenRespuestas } from './meta-leads-campos';
 import { claseCompleta } from './curso-bloqueo';
+import { cuandoEs, horaDe, faltanTexto } from './curso-mensajes-texto';
+import { proximaReunion, type FilaReunion } from './nutricion-reinscripcion';
+import { renglonesDeRespuestas, cortar } from './respuestas-agenda';
+import { formatoMonto } from './pasarela-moneda';
+import { NOMBRE_PASARELA } from './cobros-tipos';
+import { sinRenglonesVacios } from './variables-aviso';
+import { aplicarVariables } from './template-vars';
 
 /** `1500` → `US$ 1.500`. Sin decimales: un aviso no es un recibo. */
 export const plata = (n: number): string => `US$ ${Math.round(n).toLocaleString('es-AR')}`;
@@ -124,14 +132,18 @@ export function valoresDelLead(l: Lead): Record<string, string> {
   return out;
 }
 
-/** «17:30»: la hora de pared de un instante en una zona. `null` = el instante o la zona no se entienden. */
+/**
+ * «5:30 p. m.»: la hora de pared de un instante en una zona. `null` = el instante o la zona no se entienden.
+ *
+ * ⚠️ UNA FORMA DE HORA (undécima tanda, 11/10/2026): la de `horaDe` (lib/curso-mensajes-texto.ts), la misma que
+ * `{{reunion_hora}}` y el recordatorio de siempre. Antes decía «17:30» y el recordatorio «5:30 p. m.»: dos
+ * formas de la misma reunión en dos mensajes del mismo flujo. Medido: ninguna fila viva usaba la de antes.
+ */
 export function horaEnZona(iso: string | null | undefined, tz: string): string | null {
   if (!iso) return null;
   const t = Date.parse(iso);
   if (!Number.isFinite(t)) return null;
-  try {
-    return new Intl.DateTimeFormat('es-MX', { timeZone: tz, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(t));
-  } catch { return null; }
+  try { return horaDe(new Date(t), tz); } catch { return null; }
 }
 
 /**
@@ -258,7 +270,10 @@ export function valoresDelLeadMagnet(entregables: ReadonlyArray<{ nombre?: strin
 
 const DIAS_SEMANA = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 
-/** La fecha, el día y la hora de AHORA, en la zona del negocio. Una zona que no se entiende no inventa nada. */
+/**
+ * La fecha, el día y la hora de AHORA, en la zona del negocio. Una zona que no se entiende no inventa nada. La
+ * hora, con la forma de todas («9:00 a. m.», `horaDe`).
+ */
 export function valoresDelMomento(ahoraMs: number, tz: string): Record<string, string> {
   try {
     const partes = new Intl.DateTimeFormat('en-US', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', weekday: 'short', hourCycle: 'h23' })
@@ -267,8 +282,109 @@ export function valoresDelMomento(ahoraMs: number, tz: string): Record<string, s
     const dia = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(de('weekday'));
     return {
       fecha: `${de('day')}/${de('month')}`,
-      hora: `${de('hour')}:${de('minute')}`,
+      hora: horaDe(new Date(ahoraMs), tz),
       ...(dia >= 0 ? { dia_semana: DIAS_SEMANA[dia]! } : {}),
     };
   } catch { return {}; }
+}
+
+// ── Undécima tanda (11/10/2026): los datos que reemplazan a «{{mensaje_mako}}» ────────────────────────────
+// Martín, punto 4: «En el mensaje dice "{{Mensaje de MaKo}}", ese dato NO existe... No es trackeable». Lo que el
+// código de cada aviso pegaba en un solo token (la reunión, lo que contestó al agendar, lo que escribió, el pago)
+// pasa a datos que se citan uno por uno. Cada uno sale de UNA función de acá, con test.
+
+/**
+ * LA PRÓXIMA REUNIÓN, en los datos «Próxima reunión» del «{ }»: cuál («1ª reunión»), cuándo («mañana», por día
+ * de calendario en la zona del negocio: `cuandoEs`), la hora («10:00 a. m.», `horaDe`), cuánto falta («en 1
+ * hora», `faltanTexto`, AL MANDAR: `ahoraMs` es el momento del envío) y el link para entrar.
+ *
+ * Sale de `proximaReunion(…, { estricta: true })` (lib/nutricion-reinscripcion.ts): la MISMA reunión que ancla
+ * el DELAY «antes de la reunión». Sin una reunión así (sin hora, cancelada, con la asistencia marcada, pasada),
+ * NADA: sus renglones se van (`sinRenglonesVacios`). Una hora nunca se inventa de una fecha sola.
+ */
+export function valoresDeLaProximaReunion(l: FilaReunion | null | undefined, tz: string, ahoraMs: number): Record<string, string> {
+  const p = proximaReunion(l, ahoraMs, { estricta: true, tz });
+  if (!p) return {};
+  try {
+    const inicio = new Date(p.inicioMs);
+    const out: Record<string, string> = {
+      reunion_cual: p.cual === 'R1' ? '1ª reunión' : '2ª reunión',
+      reunion_cuando: cuandoEs(inicio, new Date(ahoraMs), tz),
+      reunion_faltan: faltanTexto((p.inicioMs - ahoraMs) / 60_000),
+    };
+    if (p.conHora) out.reunion_hora = horaDe(inicio, tz);
+    if (p.link) out.reunion_link = p.link;
+    return out;
+  } catch { return {}; }   // una zona que no se entiende no inventa un día ni una hora
+}
+
+/**
+ * LO QUE CONTESTÓ AL AGENDAR: la ÚLTIMA fila de `lead_respuestas` (las filas vienen de la más nueva a la más
+ * vieja: el resolvedor lee `.order('created_at', { ascending: false }).limit(1)`), un renglón por respuesta con
+ * la MISMA forma que el aviso de Cal.com (`renglonesDeRespuestas`). Sin respuestas con texto, nada.
+ */
+export function valoresDeRespuestasAgenda(filas: ReadonlyArray<{ respuestas: unknown }>): Record<string, string> {
+  const crudas = filas[0]?.respuestas;
+  if (!Array.isArray(crudas)) return {};
+  const rs = crudas
+    .map((x) => (x && typeof x === 'object' ? x as { q?: unknown; a?: unknown } : {}))
+    .filter((x): x is { q: string; a: string } => typeof x.q === 'string' && typeof x.a === 'string' && !!x.q.trim() && !!x.a.trim())
+    .map((x) => ({ rotulo: x.q, valor: x.a.replace(/\s+/g, ' ').trim() }));
+  const lineas = renglonesDeRespuestas(rs);
+  return lineas.length ? { lead_respuestas_agenda: lineas.join('\n') } : {};
+}
+
+/** Cuánto de lo que escribió el lead entra en el aviso: lo mismo que el aviso de la charla de siempre. */
+export const TOPE_ESCRITO = 220;
+
+/** LO QUE ESCRIBIÓ el lead (el evento «Un lead contesta»): el texto, cortado en una palabra si es largo. */
+export function valoresDeLoEscrito(texto: string | null | undefined): Record<string, string> {
+  const t = String(texto ?? '').trim();
+  return t ? { lead_escribio: cortar(t, TOPE_ESCRITO) } : {};
+}
+
+/** Lo que `avisarPagoRecibido` (lib/cobros.ts) tiene en la mano del pago que entró. */
+export type PagoDelAviso = {
+  monto: number;
+  moneda: string;
+  concepto: string | null;
+  proveedor: Pasarela;
+  renovacion: boolean;
+  /** `cobros.modo`: 'prueba' o 'real'. */
+  modo: string | null;
+  /** Cómo quedó el alta en una venta de MaKo (la lectura de `lineaDelAlta`); null fuera de una venta de MaKo. */
+  alta: EstadoAlta | null;
+};
+
+/**
+ * LOS DATOS DEL PAGO (el evento «Entra un pago»). POR CÓDIGO y nunca por un modelo: es plata, y un monto que pasa
+ * por un LLM deja de ser exacto. El monto con `formatoMonto` y su moneda (la renovación trae el suyo), igual que
+ * el texto del aviso de siempre. Sin valor no entra (y su renglón se va): `pago_modo` en un pago REAL, `pago_alta`
+ * fuera de una venta de MaKo o con el alta todavía pendiente.
+ */
+export function valoresDelPago(p: PagoDelAviso): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (Number.isFinite(p.monto) && p.moneda) out.pago_monto = formatoMonto(p.monto, p.moneda);
+  const concepto = (p.concepto ?? '').trim();
+  if (concepto) out.pago_concepto = concepto;
+  const pasarela = NOMBRE_PASARELA[p.proveedor];
+  if (pasarela) out.pago_pasarela = pasarela;
+  out.pago_tipo = p.renovacion ? 'Renovación' : 'Primer pago';
+  if (p.modo === 'prueba') out.pago_modo = 'Prueba';
+  const alta = p.alta === 'hecha' ? 'Cuenta creada' : p.alta === 'ya_tenia_cuenta' ? 'Ya tenía cuenta' : p.alta === 'error' ? 'El alta falló' : null;
+  if (alta) out.pago_alta = alta;
+  return out;
+}
+
+/**
+ * EL TEXTO CON SUS DATOS, para TODO envío (el motor, el aviso al equipo, los eventos de MaKo y «Probar»):
+ * primero se van los renglones con un dato sin valor (`sinRenglonesVacios`), después se ponen los datos
+ * (`aplicarVariables`, lib/template-vars.ts: la sustitución del motor, que además entiende `{{ clave }}` y la
+ * llave sola de los mensajes guardados de antes).
+ *
+ * ⚠️ VIVE ACÁ Y NO EN lib/variables-aviso.ts a propósito: aquel módulo NO se cuelga de la regex de la nutrición
+ * (tests/variables-aviso.test.ts, «NO reusa `aplicarVariables`»).
+ */
+export function textoConDatos(texto: string, vars: Record<string, string>): string {
+  return aplicarVariables(sinRenglonesVacios(texto, vars), vars);
 }

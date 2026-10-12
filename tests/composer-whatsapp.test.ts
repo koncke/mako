@@ -32,6 +32,7 @@ import { accionDeTecla, insertarEnCursor, ubicarPopover, ComposerWhatsApp } from
 import { crearGrabadorVoz } from '../app/whatsapp/_shared/VoiceRecorder';
 import { ChatHilo, seguirEntradas, vistosIniciales, contenidoDeMensaje, type HiloMsg } from '../app/whatsapp/_shared/ChatHilo';
 import { BurbujaHilo } from '../app/whatsapp/_shared/BurbujaHilo';
+import { datosOfrecidos } from '../lib/variables-aviso';
 
 const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -98,6 +99,22 @@ test('editar: sin flecha de enviar, con el mic al costado aunque haya texto', ()
   assert.ok(!enviar.includes('aria-label="Grabar nota de voz"'), 'con texto, la flecha reemplaza al mic');
   const vacio = renderToStaticMarkup(createElement(ComposerWhatsApp, { modo: 'enviar', valor: '  ', onValor: () => {}, onEnviar: () => {}, onAudio: () => {} }));
   assert.ok(vacio.includes('aria-label="Grabar nota de voz"'));
+});
+
+// ── Los datos azules al editar (undécima tanda, punto 7) ─────────────────────────────────────────
+// La barra con `datos` (los editores de las automatizaciones) pinta cada `{{dato}}` con el espejo de CampoConDatos
+// (tests/campo-con-datos.test.ts lo ejecuta entero); sin `datos` (los chats de /whatsapp), el campo es el de siempre.
+// PROBADO ROMPIÉNDOLO (11/10/2026): el composer sin pasarle `datos` a CampoConDatos → 14 pases / 1 fallo (éste), y
+// 1 más en tests/campo-con-datos (el CABLEADO).
+test('con `datos`, el campo pinta sus {{datos}}; sin ellos, el campo de siempre (los chats de /whatsapp)', () => {
+  const base = { modo: 'enviar' as const, valor: 'Hola {{nombre}}', onValor: () => {}, onEnviar: () => {} };
+  const con = renderToStaticMarkup(createElement(ComposerWhatsApp, { ...base, datos: datosOfrecidos({ destino: 'lead', conLead: true }) }));
+  assert.match(con, /<div data-campo-datos=""/);
+  assert.match(con, /<span data-dato="nombre" data-ini="5" data-fin="15" style="color:var\(--primary-strong\)">\{\{nombre\}\}<\/span>/);
+  assert.ok(con.includes('>Hola {{nombre}}</textarea>'), 'el texto del campo cambió');
+  const sin = renderToStaticMarkup(createElement(ComposerWhatsApp, base));
+  assert.ok(!sin.includes('data-campo-datos') && !sin.includes('data-dato'), 'el chat de /whatsapp no tiene datos que pintar');
+  assert.match(sin, /<textarea[^>]*style="flex:1;min-width:0;[^"]*color:var\(--ink\)/, 'el campo del chat dejó de ser el de siempre');
 });
 
 // ── El grabador ──────────────────────────────────────────────────────────────────────────────

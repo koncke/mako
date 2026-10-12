@@ -23,8 +23,9 @@ import { renderPrompt } from './prompt-render';
 import { contenidoNoConfiable } from './prompt-render-pure';
 import type { EscenarioSecuencia } from './setting-estrategia';
 import type { PasoSecuencia } from './nutricion';
-import { raizRespuesta } from './flujo-grafo';
+import { raizRespuesta, juntarPasosIA } from './flujo-grafo';
 import { agregarCasoAlGrafo } from './nutricion-grafo-motor';
+import { valoresDeLoEscrito } from './variables-del-lead';
 
 export const HANDOFF_SYSTEM_TEMPLATE = `Eres MaKo y decides UNA sola cosa: si el mensaje de un lead encaja en alguno de los casos que este negocio ya sabe manejar.
 
@@ -137,6 +138,9 @@ export async function registrarHandoff(input: {
       ws: ws ?? undefined,
       // El lead (11/10/2026): lo nombran las automatizaciones del evento y lo mira su CONDITION.
       lead: { id: input.leadId, nombre: input.leadNombre ?? null },
+      // LO QUE ESCRIBIÓ, como dato que se cita (`{{lead_escribio}}`, undécima tanda: `{{mensaje_mako}}` «NO existe»).
+      // El texto de abajo se queda hasta la limpieza (docs/diseno-undecima-tanda.md §8.7).
+      datos: valoresDeLoEscrito(input.mensaje),
       texto: [
         `🖐 *${quien} escribió algo que no tengo previsto.*`,
         // Con los nombres de la tab (restos de versiones anteriores, 10/10/2026): «Automatización» y la
@@ -211,7 +215,9 @@ export async function resolverHandoff(id: number, escenario: EscenarioSecuencia)
       // el caso y, colgando de él, un «MaKo contesta» con la guía. Sumarlo a
       // `estrategia.escenarios` sería escribirlo donde ya nadie lo lee — el clasificador de esa
       // secuencia lee los casos de la tarjeta. Se guarda por `setSecuenciaPasos`, que valida.
-      const r = agregarCasoAlGrafo(pasos, escenario);
+      // Sobre lo JUNTO (undécima tanda): en un flujo viejo de varias tarjetas AI Step, «mismo nombre = mismo
+      // escenario» mira TODOS los escenarios, como el preparar de la API (`agregar_escenario_secuencia`).
+      const r = agregarCasoAlGrafo(juntarPasosIA(pasos).pasos, escenario);
       if ('error' in r) throw new Error(`No se pudo enseñar el caso: ${r.error}.`);
       const { setSecuenciaPasos } = await import('./nutricion');
       await setSecuenciaPasos(h.secuencia_id, r.pasos);

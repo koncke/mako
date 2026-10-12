@@ -582,7 +582,8 @@ test('«MaKo en WhatsApp»: el MISMO editor, UN texto, con «{ }», sin mic ni c
   assert.ok(html.includes('>MaKo<'), 'la burbuja no la firma MaKo');
   assert.ok(renderToStaticMarkup(createElement(CabeceraMakoEnWhatsApp)).includes('MaKo en WhatsApp'));
   const flujo = sinComentarios(leer('app/automations/FlujoLienzo.tsx'));
-  assert.match(flujo, /if \(paso && esMako\(paso\)\) return <CabeceraMakoEnWhatsApp \/>;/);
+  // Undécima tanda: la cabecera recibe la tarjeta (en la forma del editor) para dibujar el ✦ de esa tarjeta.
+  assert.match(flujo, /if \(paso && esMako\(paso\)\) return <CabeceraMakoEnWhatsApp paso=\{pasoDeMako\(paso\)\} deshabilitado=\{busy\} \/>;/);
   assert.match(bloque(flujo, 'function cabeceraDe(', '\n}\n', 800), /if \(claseDe\(paso\) === 'accion'\) return esMako\(paso\);/);
 });
 

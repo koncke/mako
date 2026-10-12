@@ -35,6 +35,8 @@ import { abrirCorrida, avanzar, cerrarCorrida } from './flujo-corridas';
 import { reclamarEspaciado } from './espaciado';
 import { AVISOS_POR_EVENTO, ESTADO_EVENTO, filaDeIdCorrida, pasosParaRetomar, type FilaParaRetomar } from './aviso-evento';
 import { CLAVE_MENSAJE_MAKO } from './variables-aviso';
+import { textoDePreparadas, type PartePreparada } from './mako-tarjeta';
+import type { ParteMensaje } from './mensaje-partes';
 import type { HechosLead } from './flujo-grafo';
 
 export type CtxFlujo = {
@@ -345,9 +347,12 @@ async function ejecutarPaso(flujoId: string, paso: Paso, ws: number, ctx: CtxFlu
       // Medido en producción ese día: cero corridas (`flujo_corridas` vacía), así que no le cambia un
       // mensaje a nadie. Un paso SIN texto sigue como antes (lo redacta MaKo con el contexto).
       const propio = (paso.texto ?? '').trim();
-      // La tarjeta «MaKo en WhatsApp» de un EVENTO DE MAKO sale como el aviso de siempre (ver la función).
-      if (ctx.aviso) { await emitirTarjetaDelEvento(flujoId, propio, ws, ctx, ctx.aviso); return; }
+      // La tarjeta «MaKo en WhatsApp» de un EVENTO DE MAKO sale como el aviso de siempre (ver la función), y con su
+      // lista (undécima tanda), por partes y tal cual.
+      if (ctx.aviso) { await emitirTarjetaDelEvento(flujoId, { texto: propio, partes: paso.partes }, ws, ctx, ctx.aviso); return; }
       const contexto = [ctx.leadNombre && `Lead: ${ctx.leadNombre}`, ctx.reunion && `Reunión: ${ctx.reunion}`, ctx.texto].filter(Boolean).join(' · ');
+      // `conVariables` pone los datos con LA regla de todo envío (`textoConDatos`, undécima tanda): el renglón que nombra
+      // un dato sin valor se va entero; lo que no es del catálogo queda crudo (y Publicar ya no lo deja pasar).
       const texto = propio
         ? await conVariables(propio, { ws, leadId: ctx.leadId ?? null, leadNombre: ctx.leadNombre ?? null }, ctx.datos).catch(() => propio)
         : await generarMensajeAviso(flujoId, contexto, { leadId: ctx.leadId, leadNombre: ctx.leadNombre }, ctx.datos).catch(() => '');
@@ -418,18 +423,55 @@ async function ejecutarPaso(flujoId: string, paso: Paso, ws: number, ctx: CtxFlu
 }
 
 /**
+ * El nombre humano de un aviso, sin ir a la base: el del catálogo, o el id. Es lo que
+ * firma la fila que deja la acción («MaKo · automatización «nombre»») y lo que dice la
+ * línea de fallo. Un aviso propio del negocio (o renombrado) cae al id: leer su título
+ * sería otra ida al store por cada paso, y el id ya identifica cuál fue.
+ * (Va pegado a `ejecutarPaso`, antes de la tarjeta de un evento: tests/flujo-aviso-accion.test.ts mide la rama de la
+ * acción hasta acá.)
+ */
+function nombreDelAviso(flujoId: string): string {
+  return CATALOGO_AVISOS.find((c) => c.id === flujoId)?.titulo ?? flujoId;
+}
+
+/**
  * ⚠️ LA TARJETA «MaKo en WhatsApp» DE UN EVENTO DE MAKO (11/10/2026, lib/aviso-evento.ts) SALE POR
  * `emitirAviso`, como el aviso de siempre: su `tipo` es el id del aviso (el rótulo, el feed y el turno del doer,
  * igual que hoy), sin dedup propio (lo reclamó el emisor UNA vez por evento, y la segunda fila del mismo evento
  * no la frena la primera) y con `ESTADO_EVENTO` (no lee el store ni abre una insistencia). `{{mensaje_mako}}` es
  * el texto que armó el código del aviso: con él, sale EXACTAMENTE lo de siempre. Por `enviarAlGrupoMaKo` sería
  * una línea suelta, sin rótulo y sin que el doer sepa a qué le contestan.
+ *
+ * ⚠️ CON SU LISTA (undécima tanda, decisión 2 de la décima: `partes`, lib/aviso-evento.ts `pasosDelEvento`) la
+ * tarjeta sale TAL CUAL y POR PARTES, como desde un flujo (`armarAvisoDeTarjeta`, lib/mako-tarjeta.ts): sin el
+ * rótulo de barras (`rotulo: false`), con los textos resueltos con los MISMOS datos de arriba y TODOS los binarios
+ * bajados antes de mandar nada (`prepararPartesGrupo`): si falta la nota de voz o el archivo no sale una tarjeta a
+ * medias. Y como en el registro (`problemaDePartesGrupo`), un audio que no es la Voz de MaKo no sale: sería la voz
+ * del dueño en el grupo, suplantándolo. Sin lista, el texto de siempre.
  */
-async function emitirTarjetaDelEvento(flujoId: string, propio: string, ws: number, ctx: CtxFlujo, aviso: { id: string; titulo: string }): Promise<void> {
-  if (!propio) return;
+async function emitirTarjetaDelEvento(
+  flujoId: string, tarjeta: { texto: string; partes?: ParteMensaje[] }, ws: number, ctx: CtxFlujo, aviso: { id: string; titulo: string },
+): Promise<void> {
+  // ⚠️ `{{mensaje_mako}}` SE SIGUE INYECTANDO hasta la limpieza (docs/diseno-undecima-tanda.md §8.7): #239 y #240 lo usan
+  // hasta que el script de flujos las archive. Ya no se ofrece ni se publica (`problemasDeTokens`, lib/tokens-del-flujo.ts).
+  // Los datos van con el renglón opcional (`conVariables` → `textoConDatos`): «📱 {{lead_telefono}}» sin teléfono no sale.
   const datos = { ...(ctx.datos ?? {}), ...(ctx.texto ? { [CLAVE_MENSAJE_MAKO]: ctx.texto } : {}) };
-  const texto = await conVariables(propio, { ws, leadId: ctx.leadId ?? null, leadNombre: ctx.leadNombre ?? null }, datos).catch(() => propio);
-  if (!texto.trim()) return;
+  const resolver = (t: string) => conVariables(t, { ws, leadId: ctx.leadId ?? null, leadNombre: ctx.leadNombre ?? null }, datos).catch(() => t);
+  let partes: PartePreparada[] | null = null;
+  let texto: string;
+  if (tarjeta.partes?.length) {
+    const { prepararPartesGrupo, problemaDePartesGrupo } = await import('./mako-tarjeta-envio');
+    const ajena = await problemaDePartesGrupo(tarjeta.partes);
+    if (ajena) { console.error(`[flujos] ${flujoId}: el aviso «${aviso.id}» no salió — ${ajena}`); return; }
+    const p = await prepararPartesGrupo(tarjeta.partes, resolver);
+    if (!p.ok) { console.error(`[flujos] ${flujoId}: el aviso «${aviso.id}» no salió — ${p.error}`); return; }
+    partes = p.partes;
+    texto = textoDePreparadas(partes);
+  } else {
+    if (!tarjeta.texto) return;
+    texto = await resolver(tarjeta.texto);
+    if (!texto.trim()) return;
+  }
   const cat = CATALOGO_AVISOS.find((c) => c.id === aviso.id);
   const { emitirAviso } = await import('./avisos');
   const r = await emitirAviso({
@@ -437,16 +479,8 @@ async function emitirTarjetaDelEvento(flujoId: string, propio: string, ws: numbe
     categoria: cat?.categoria, semaforo: cat?.semaforo, ws,
     ...(ctx.leadId ? { lead: { id: ctx.leadId, nombre: ctx.leadNombre ?? null } } : {}),
     estado: ESTADO_EVENTO,
+    ...(partes ? { partes, rotulo: false as const } : {}),
   });
   if (!r.ok) console.error(`[flujos] ${flujoId}: el aviso «${aviso.id}» no salió`);
-}
-
-/**
- * El nombre humano de un aviso, sin ir a la base: el del catálogo, o el id. Es lo que
- * firma la fila que deja la acción («MaKo · automatización «nombre»») y lo que dice la
- * línea de fallo. Un aviso propio del negocio (o renombrado) cae al id: leer su título
- * sería otra ida al store por cada paso, y el id ya identifica cuál fue.
- */
-function nombreDelAviso(flujoId: string): string {
-  return CATALOGO_AVISOS.find((c) => c.id === flujoId)?.titulo ?? flujoId;
+  else if (partes && !r.wa && r.waError) console.error(`[flujos] ${flujoId}: el aviso «${aviso.id}» no salió al grupo — ${r.waError}`);
 }

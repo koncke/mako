@@ -13,7 +13,8 @@ import { TituloTab } from './_components/TituloTab';
 import { WsFetch } from './_components/WsFetch';
 import { TemaCandidato } from './_components/TemaCandidato';
 import { PuenteEnlace } from './video-generator/PuenteEnlace';
-import { getSesionAdmin } from '@/lib/auth';
+import { ZonaDelNegocio } from './_components/ZonaDelNegocio';
+import { getSesionAdmin, getUsuarioActual } from '@/lib/auth';
 import { APP_BASE_URL } from '@/lib/app-url';
 import { WsProvider } from './_ui/Link';
 import { DesvioMovil } from './_components/DesvioMovil';
@@ -101,6 +102,9 @@ export default async function RootLayout({
   // escribe el navegador y no sabe de sesiones: cualquier cliente que abra la app en un
   // browser donde alguien probó paletas se lleva el tema puesto.
   const esAdmin = !!(await getSesionAdmin());
+  // La sesión (cacheada por request: `getSesionAdmin` ya la pidió) decide si se monta la detección de la zona del
+  // negocio. La vieja compartida no es una persona: no detecta nada.
+  const sesion = await getUsuarioActual();
   // MaKo Mobile: un TELÉFONO no ve el escritorio (lib/movil-desvio.ts). Lo decide el server
   // (UA + la cookie de «Versión completa»); <DesvioMovil> tapa la pantalla desde el primer
   // pintado y lleva a /m, o dice que esa pantalla se usa en la computadora.
@@ -148,6 +152,9 @@ export default async function RootLayout({
             que correr ANTES del primer pintado o la app parpadea del tema viejo
             al nuevo en cada navegación. No pinta nada cuando no hay tema. */}
         {esAdmin && <TemaCandidato />}
+        {/* La zona del negocio sale de la ubicación de SUS admins (decisión 4 de la décima, 11/10/2026). No pinta
+            nada; quién cuenta como admin propio lo decide el server (app/_components/zona-actions.ts). */}
+        {sesion && !sesion.legacy && <ZonaDelNegocio />}
         {/* El `?ws=` de la pestaña, leído UNA vez acá y repartido por contexto: es
             lo que hace que <Link> y router.push no te saquen del cliente que estás
             mirando.

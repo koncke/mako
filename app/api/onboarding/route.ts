@@ -15,7 +15,7 @@ import { getCapaActual, getWorkspaceActual, getWorkspace, getRolWsEfectivo, OWNE
 import { capaDef, esPasoOnboarding, esPostergable, type PasoOnboarding } from '@/lib/capas';
 import { enviarCodigoVerificacion, verificarCodigoContacto, getEstadoVerificacionContacto } from '@/lib/mako-grupo';
 import { SERVICIOS_METODO, servicioMetodo, ENVS_METODO } from '@/lib/metodo-catalogo';
-import { credWs, estadoCampo, guardarCredencial, IdentificadorOcupadoError, integracionConectada } from '@/lib/credenciales';
+import { credWs, estadoCampo, guardarCredencial, IdentificadorOcupadoError, RemitenteNoPropioError, integracionConectada } from '@/lib/credenciales';
 import { verificarServicio } from '@/lib/metodo-verificar';
 import { getSetting, setSetting } from '@/lib/settings';
 // DEFAULT en los tres usos: el onboarding configura el funnel DEL NEGOCIO.
@@ -204,7 +204,13 @@ export async function POST(req: NextRequest) {
         for (const campo of servicio.campos) {
           const v = valores[campo.env];
           if (typeof v !== 'string' || !v.trim() || !ENVS_METODO.has(campo.env)) continue;
-          await guardarCredencial(ws, campo.env, v.trim(), servicio.key, quien);
+          try {
+            await guardarCredencial(ws, campo.env, v.trim(), servicio.key, quien);
+          } catch (e) {
+            // El remitente de MaKo como `RESEND_FROM` (undécima tanda): es un dato del usuario, no un 500.
+            if (e instanceof RemitenteNoPropioError) return NextResponse.json({ ok: false, error: e.message }, { status: 400 });
+            throw e;
+          }
           guardados++;
         }
         return NextResponse.json({ ok: true, guardados, conectada: await integracionConectada(servicio.key) });
@@ -424,8 +430,10 @@ export async function POST(req: NextRequest) {
               await guardarCredencial(ws, campo.env, valor, s.key, quien);
               algo = true;
             } catch (e) {
-              // Credencial de ruteo ya reclamada por ws1 → se salta, no es fatal.
-              if (!(e instanceof IdentificadorOcupadoError)) throw e;
+              // Credencial de ruteo ya reclamada por ws1 → se salta, no es fatal. Y el remitente de MaKo
+              // (`credWs` le da al ws1 el `RESEND_FROM` del env de la plataforma) tampoco se copia: ningún
+              // negocio lo guarda (undécima tanda).
+              if (!(e instanceof IdentificadorOcupadoError) && !(e instanceof RemitenteNoPropioError)) throw e;
             }
           }
           if (algo && (await integracionConectada(s.key))) conectados.push(s.key);

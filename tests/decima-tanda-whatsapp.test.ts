@@ -19,8 +19,8 @@ import { alTocarEditar, listaAlSalir, sugerenciaTras, type SugerenciaMaKo } from
 import { firmaDelMensaje, borradorAGuardar, borradorALeer, vozALeer, VIDA_BORRADOR_MS } from '../lib/borrador-barra';
 import { crearSesionVoz, crearGrabadorVoz, TROZO_MS } from '../app/whatsapp/_shared/VoiceRecorder';
 import {
-  esRemitenteDeMako, esDominioDeMako, remitentesVinculados, remitenteDelPaso, remitenteAGuardar, remitenteDeMakoAjeno,
-  AVISO_EMAIL_DE_MAKO, DOMINIOS_MAKO, dominioDe,
+  esRemitenteDeMako, esDominioDeMako, remitentesVinculados, remitenteDelPaso, remitenteAGuardar, remitenteDelNegocio,
+  SIN_EMAIL_PROPIO, DOMINIOS_MAKO, dominioDe,
 } from '../lib/email-remitente';
 import { avisoDelRemitente } from '../app/automations/EditorEmailGmail';
 import { lineaDeEnvio, CANALES_PROBAR } from '../app/automations/PanelProbar';
@@ -219,26 +219,34 @@ test('Email 1: el email de MaKo no es el de un cliente (salvo la plataforma)', (
   assert.equal(esRemitenteDeMako('Ana <ana@valle.mx>'), false);
   const ws1 = { remitente: 'MaKo <equipo@hola-mako.com>', sandbox: false };
   assert.deepEqual(remitentesVinculados(ws1), [], 'el «De» del ws1 ofrecía el email de MaKo');
-  assert.equal(remitenteDeMakoAjeno(ws1), true);
+  // Undécima tanda: la regla es POSITIVA (remitenteDelNegocio). El de MaKo en un cliente no pasa; en la
+  // plataforma, con su dominio reclamado, sí.
+  const hechos = { resendFrom: ws1.remitente, resendDominio: null, credFrom: null, keyPropia: false, plataforma: false };
+  assert.deepEqual(remitenteDelNegocio(hechos), { puede: false, motivo: 'de-mako' });
   assert.deepEqual(remitentesVinculados({ ...ws1, plataforma: true }), ['MaKo <equipo@hola-mako.com>'], 'la plataforma sí lo usa: es el suyo');
-  assert.equal(remitenteDeMakoAjeno({ ...ws1, plataforma: true }), false);
+  assert.equal(remitenteDelNegocio({ ...hechos, plataforma: true, resendDominio: 'hola-mako.com' }).puede, true);
   assert.equal(remitenteDelPaso('Ventas <ventas@hola-mako.com>', 'MaKo <equipo@hola-mako.com>'), null, 'un paso no elige otro email de MaKo');
   // Ni el del workspace mismo (segunda pasada): con `from` explícito el ws1 se salteaba el corte de `sendEmail`.
   // Sin `from` sale el mismo para la plataforma (tests/decima-remitente-mako.test.ts).
   assert.equal(remitenteDelPaso('MaKo <equipo@hola-mako.com>', 'MaKo <equipo@hola-mako.com>'), null, 'un paso no lleva NUNCA un email de MaKo');
   assert.equal(remitenteAGuardar('Ventas <ventas@hola-mako.com>', undefined), null, 'no se guarda en un paso');
   assert.equal(remitenteAGuardar(undefined, 'MaKo <equipo@hola-mako.com>'), null);
-  assert.equal(avisoDelRemitente({ sandbox: false, envioHabilitado: true, deMako: true }), AVISO_EMAIL_DE_MAKO, 'el «De» lo dice');
+  // El de MaKo en un cliente llega como el sandbox: el «De» dice lo mismo que frena el envío.
+  assert.equal(avisoDelRemitente({ sandbox: true, envioHabilitado: true }), SIN_EMAIL_PROPIO, 'el «De» lo dice');
   // El server: la ruta del dominio no lo conecta ni arma un remitente con él, y la prueba de verdad no sale.
   const ruta = sinComentarios(leer('app/api/email/dominio/route.ts'));
   assert.equal((ruta.match(/if \(esDominioDeMako\(dominio\) && !\(await esPlataforma\(g\.ws\)\)\) return Response\.json\(\{ ok: false, error: NO_ES_TUYO \}, \{ status: 403 \}\);/g) ?? []).length, 2,
     'crear y remitente, los dos');
   assert.match(ruta, /plataforma,\n\s*\};/, 'el «De» no sabe si es la plataforma');
   const prueba = sinComentarios(leer('lib/prueba-paso.ts'));
-  const iMako = prueba.indexOf('const deMako = pedido ? esRemitenteDeMako(pedido) : esRemitenteDeMako(await getEmailFrom());');
+  // Undécima: una sola puerta positiva. Sin remitente propio (el de MaKo en un cliente llega como el
+  // sandbox) no sale, sin rama «de MaKo» ni excepción del super admin. Probado rompiéndolo
+  // (wf-undecima/enchufador/roturas-e11.cjs): el freno DESPUÉS de reclamar el tope → 8 / 1 (base 9 / 0).
+  const iSin = prueba.indexOf("if (mensaje.canal === 'email' && await remitenteEsSandbox()) {");
   const iCupo = prueba.indexOf('hayLugar = await reclamarCupoPrueba(');
-  assert.ok(iMako > 0 && iMako < iCupo, 'el chequeo va antes del tope (un pedido rechazado no gasta un lugar)');
-  assert.match(prueba, /if \(deMako && !\(await wsSuperAdmin\(\)\.then\(\(w\) => w === p\.ws\)\.catch\(\(\) => false\)\)\) return \{ ok: false, error: AVISO_EMAIL_DE_MAKO \};/);
+  assert.ok(iSin > 0 && iSin < iCupo, 'el chequeo va antes del tope (un pedido rechazado no gasta un lugar)');
+  assert.match(prueba, /if \(mensaje\.canal === 'email' && await remitenteEsSandbox\(\)\) \{\n\s+return \{ ok: false, error: SIN_EMAIL_PROPIO \};/);
+  assert.doesNotMatch(prueba, /const deMako|wsSuperAdmin/, 'volvió la rama «de MaKo» de la décima');
 });
 
 // ── Probar 1 y 2 ──────────────────────────────────────────────────────────────────────────────

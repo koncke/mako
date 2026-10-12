@@ -15,7 +15,8 @@
 //     el guardado que rechaza (nunca recorta) y guarda sólo lo que difiere;
 //   · el motor lee los límites UNA vez por corrida, ESTRICTO, y los usa en los cuatro topes y en el freno;
 //   · el setter: el tope y el horario por parámetro, y su call site los lee (el horario de oficina si está prendido);
-//   · la pantalla: el botón en los dos lugares, el Modal con `onCerrar` fijo, los dos paneles montados.
+//   · la pantalla: el menú en los dos lugares (desde la undécima tanda, antes del buscador), el Modal con
+//     `onCerrar` fijo, los dos paneles montados.
 //
 // PROBADO ROMPIÉNDOLO: ver `ROTURAS` al pie.
 
@@ -204,24 +205,29 @@ test('el call site del setter lee el tope y el horario; con algo ilegible no sal
 
 // ── La pantalla ───────────────────────────────────────────────────────────────────────────
 
-test('ChatAgentApp monta «Configuraciones» en los dos lugares del horario, y el horario de antes se fue', () => {
+// ⚠️ UNDÉCIMA TANDA (11/10/2026, punto 9: «que los botones de "Configuraciones" y "Tutorial" estén en otro botón
+// desplegable al inicio de la barra de busqueda»): el botón «Configuraciones» y el «?» del recorrido pasaron a ser
+// UN menú (`MenuAutomations`), en los mismos dos lugares. El modal es el mismo, sin filetes (punto 1). Lo nuevo de la
+// undécima lo fija tests/automations-undecima-ui.test.ts.
+test('ChatAgentApp monta el menú de Configuraciones en los dos lugares del horario, y el horario de antes se fue', () => {
   const app = fuente('app/automations/ChatAgentApp.tsx');
-  assert.match(app, /import \{ ConfiguracionesBoton \} from '\.\/ConfiguracionesBoton';/);
-  assert.equal(app.split('<ConfiguracionesBoton />').length - 1, 2, 'uno en la lista y uno en el cartel vacío');
-  const horario = bloque(app, 'horario={(', '</span>');
-  assert.match(horario, /<ConfiguracionesBoton \/>/, 'la tab no le pasa Configuraciones a la lista');
+  assert.match(app, /import \{ MenuAutomations \} from '\.\/ConfiguracionesBoton';/);
+  assert.equal(app.split('<MenuAutomations onTutorial={recorrido.reabrir} />').length - 1, 2, 'uno en la lista y uno en el cartel vacío');
+  assert.match(app, /menu=\{<MenuAutomations onTutorial=\{recorrido\.reabrir\} \/>\}/, 'la tab no le pasa el menú a la lista');
   const cartel = bloque(app, 'Todavía no hay automatizaciones.', '<SimuladorWhatsApp');
-  assert.match(cartel, /<button [^\n]*>＋ Nueva<\/button>\s*\{\}\s*<ConfiguracionesBoton \/>/, 'el cartel vacío no tiene Configuraciones al lado de «＋ Nueva»');
-  assert.doesNotMatch(app, /HorarioLista/);
+  assert.match(cartel, /\{\}\s*<MenuAutomations onTutorial=\{recorrido\.reabrir\} \/>\s*<button [^\n]*>＋ Nueva<\/button>/, 'el cartel vacío no tiene el menú antes de «＋ Nueva»');
+  assert.doesNotMatch(app, /HorarioLista|<ConfiguracionesBoton|horario=\{/);
   for (const r of ['app/automations/HorarioLista.tsx', 'app/automations/HorarioBoton.tsx']) assert.equal(existsSync(new URL(`../${r}`, import.meta.url)), false, `${r} volvió`);
 });
 
-test('el botón: un Modal con dos pestañas, `onCerrar` fijo que no cierra con un guardado en vuelo, por portal', () => {
+test('el modal: dos pestañas, `onCerrar` fijo que no cierra con un guardado en vuelo, por portal', () => {
   const src = fuente('app/automations/ConfiguracionesBoton.tsx');
-  assert.match(src, /<button type="button" data-configuraciones className="chb-config" title="Configuraciones" aria-haspopup="dialog"/);
-  assert.match(src, /<span>Configuraciones<\/span>/);
-  assert.match(src, /const cerrar = useCerrarEstable\(\(\) => setAbierto\(false\), ocupado\);/, 'el Modal recibe una flecha nueva por render, o cierra con el guardado en vuelo');
-  assert.match(src, /<Modal titulo="Configuraciones" onCerrar=\{cerrar\} ancho=\{600\} alto="[^"]+">/, 'el modal salta de alto al cambiar de pestaña');
+  // «Configuraciones» es una opción del menú (con su ícono), no un botón propio.
+  assert.match(src, /\{ value: 'configuraciones', label: 'Configuraciones', icono: 'configurar' \}/);
+  assert.match(src, /if \(v === 'configuraciones'\) setAbierto\(true\);/);
+  assert.match(src, /const cerrar = useCerrarEstable\(onCerrar, ocupado\);/, 'el Modal recibe una flecha nueva por render, o cierra con el guardado en vuelo');
+  assert.match(src, /const cerrar = useCallback\(\(\) => setAbierto\(false\), \[\]\);/, 'el menú le pasa al modal una flecha nueva por render');
+  assert.match(src, /<Modal titulo="Configuraciones" onCerrar=\{cerrar\} ancho=\{600\} alto="[^"]+" sinFiletes>/, 'el modal salta de alto al cambiar de pestaña');
   assert.match(src, /createPortal\(\s*<Modal /);
   assert.match(src, /import \{ HorarioEnvioPanel \} from '@\/app\/configuraciones\/HorarioEnvioPanel';/, 'no es el MISMO editor del horario');
   // Los dos MONTADOS: la pestaña sólo esconde (desmontar tiraba el guardado de su respiro).
@@ -231,9 +237,9 @@ test('el botón: un Modal con dos pestañas, `onCerrar` fijo que no cierra con u
   for (const r of ['app/automations/ConfiguracionesBoton.tsx', 'app/automations/LimitesEnvioPanel.tsx']) {
     assert.doesNotMatch(fuente(r), /href=|<Link\b|router\.(push|replace)|window\.location|['"`]\/configuraciones/, `${r} manda a otro lado`);
   }
-  // El `style` del botón no pisa lo que cambia el hover (va en la clase).
-  const estilo = bloque(src, "onClick={() => setAbierto(true)}", '}}>');
-  assert.doesNotMatch(estilo, /\b(background|color|border|borderColor):/, 'el style en línea le gana al :hover');
+  // El botón del menú no lleva fondo en línea (le ganaría al hover del Dropdown).
+  const estilo = bloque(src, 'buttonStyle={{', '}}');
+  assert.doesNotMatch(estilo, /\bbackground:/, 'el style en línea le gana al :hover');
 });
 
 test('el panel de límites: se guarda solo, avisa «sucio» antes del return, y la lista no importa las acciones', () => {
@@ -253,7 +259,8 @@ test('el panel de límites: se guarda solo, avisa «sucio» antes del return, y 
   // En un 'use server' sólo funciones async exportadas (AGENTS.md).
   for (const m of sinComentarios(acciones).matchAll(/^export\s+(\S+)\s+(\S+)/gm)) assert.equal(`${m[1]} ${m[2]}`, 'async function', `exporta «${m[0]}»`);
   assert.match(acciones, /if \(rol !== 'admin'\) return \{ ok: false, error: 'Solo un admin puede cambiar los límites\.' \};/);
-  for (const r of ['app/automations/SimuladorWhatsApp.tsx']) assert.doesNotMatch(fuente(r), /ConfiguracionesBoton|limites-actions|horario-actions/, `${r} arrastraría server-only a los tests`);
+  // (Desde la undécima tanda también los nombres nuevos: el menú y el modal viven en ConfiguracionesBoton.tsx.)
+  for (const r of ['app/automations/SimuladorWhatsApp.tsx']) assert.doesNotMatch(fuente(r), /ConfiguracionesBoton|MenuAutomations|ConfiguracionesModal|limites-actions|horario-actions/, `${r} arrastraría server-only a los tests`);
 });
 
 test('el panel del horario avisa si hay un guardado en vuelo ANTES de todo return (lo usa el modal)', () => {
@@ -263,7 +270,8 @@ test('el panel del horario avisa si hay un guardado en vuelo ANTES de todo retur
   assert.ok(iEfecto > 0 && iReturn > iEfecto);
 });
 
-test('la lista dibuja lo que le pasa la tab en el renglón de «Chatbot», arriba de «＋ Nueva»', () => {
+// Undécima tanda, punto 9: el renglón de «Chatbot» se fue, y el menú va ANTES del buscador.
+test('la lista dibuja el menú que le pasa la tab antes del buscador, arriba de «＋ Nueva»', () => {
   const secuencia = {
     id: 7, clave: 'bienvenida', nombre: 'Bienvenida', etapa: 'nuevo', trigger_tipo: 'etapa',
     activa: true, pasos: [], inscriptos: 0, enviados: 0, estrategia: null, metricas: {},
@@ -272,12 +280,13 @@ test('la lista dibuja lo que le pasa la tab en el renglón de «Chatbot», arrib
     secuencias: [secuencia], objetivos: [], etiquetaEtapa: (k: string) => k, negocio: 'Mi negocio',
     rolAdmin: true, audios: [], canalCaido: false, onAudioNuevo: () => {}, onNueva: () => {}, onReload: () => {},
     productos: [], disparadores: [], tz: null,
-    horario: createElement('span', { 'data-prueba-config': '' }, 'C'),
+    menu: createElement('span', { 'data-prueba-config': '' }, 'C'),
   } as Parameters<typeof SimuladorWhatsApp>[0]));
-  const iRotulo = html.indexOf('>Chatbot</div>');
   const iConfig = html.indexOf('data-prueba-config');
+  const iBuscar = html.indexOf('aria-label="Buscar por nombre"');
   const iNueva = html.indexOf('>Nueva automatización</span>');
-  assert.ok(iRotulo >= 0 && iConfig > iRotulo && iConfig < iNueva, 'Configuraciones no va en el renglón de «Chatbot», arriba de «＋ Nueva»');
+  assert.ok(iConfig >= 0 && iConfig < iBuscar && iBuscar < iNueva, 'el menú no va antes del buscador, arriba de «＋ Nueva»');
+  assert.doesNotMatch(html, />Chatbot</, 'volvió el renglón de «Chatbot»');
 });
 
 // ── ROTURAS (11/10/2026) ──────────────────────────────────────────────────────────────────
@@ -288,4 +297,11 @@ test('la lista dibuja lo que le pasa la tab en el renglón de «Chatbot», arrib
 //   R3. el setter ignora el tope del negocio (`const tope = TOPE_RESPUESTAS_SOLAS_24H`)      → 15 / 1
 //   R4. cambiar de pestaña DESMONTA Límites (tiraba el guardado de su respiro)               → 15 / 1
 //   R5. `useCerrarEstable` sin `ocupado`: el modal cierra con un guardado en vuelo          → 15 / 1
+// Undécima tanda (11/10/2026, el menú y el modal sin filetes; arnés wf-undecima/w1-lista-ui/romper.mjs). Base 16 / 0:
+//   C1. el modal con `useCerrarEstable(onCerrar)` sin `ocupado`                              → 15 / 1
+//   C2. el menú le pasa al modal una flecha nueva por render                                → 15 / 1
+//   C3. el menú va DESPUÉS del buscador                                                     → 15 / 1
+//   C4. cambiar de pestaña DESMONTA Límites                                                 → 15 / 1
+//   R5'. el modal sin `sinFiletes`                                                          → 15 / 1
+//   T2. el cartel vacío sin el menú                                                         → 15 / 1
 // Restaurado: 16 / 0.

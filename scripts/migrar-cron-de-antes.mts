@@ -34,6 +34,14 @@
 // (la primera corrida del simulacro, 11/10/2026, acusó 12 leads «sólo con la regla de antes» que no existían).
 // =============================================================================
 
+// ⛔ RETIRADO EN LA UNDÉCIMA TANDA (11/10/2026, ola 4). Los CRON «(de antes)» de producción no pasan a «Cualquier
+// etapa»: se rehacen con una ETAPA y una CONDITION con las filas del catálogo (Martín, punto 2: «la automatización
+// debería apuntar a la etapa de "Lead Entrante" y en CONDITIONS configurar que no agendó»), en
+// scripts/undecima-flujos.mts (docs/diseno-undecima-tanda.md §3). Ni el simulacro corre: su propuesta es la de antes.
+/** Sale sin leer ni escribir. Devuelve `void` (no `never`) a propósito: el resto queda como registro y compila. */
+function retirado(motivo: string): void { console.error(motivo); process.exit(1); }
+retirado('Retirado en la undécima: los CRON «(de antes)» los rehace scripts/undecima-flujos.mts (una etapa y una CONDITION). --aplicar se niega y el simulacro no corre: no se vuelve a usar.');
+
 import { config } from 'dotenv';
 
 const arg = (n: string): string | null => {

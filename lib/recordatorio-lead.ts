@@ -39,8 +39,12 @@
 // (`linkDeReunion`) y el webhook de Cal.com (`linkDeReunionCalcom`).
 // =============================================================================
 
-import { cuandoEs, horaDe, primerNombreDe } from './curso-mensajes-texto';
+import { cuandoEs, horaDe, primerNombreDe, faltanTexto } from './curso-mensajes-texto';
 import { partesEn } from './cron-aviso';
+
+// `faltanTexto` se mudó a lib/curso-mensajes-texto.ts (undécima tanda, 11/10/2026: es también el dato
+// `{{reunion_faltan}}`). Se re-exporta: el emisor y los tests lo importan de acá.
+export { faltanTexto };
 
 /** Los minutos antes de la reunión en que sale cada toque: 24 h, 1 h y 15 min. */
 export const TOQUES = [1440, 60, 15] as const;
@@ -107,6 +111,18 @@ export function isoCanonico(iso: string): string | null {
 
 export function claveToque(leadId: number, cual: CualReunion, inicioIso: string, min: number): string {
   return `mako.recordatorio-lead.${leadId}.${cual}.${isoCanonico(inicioIso) ?? inicioIso}.${min}`;
+}
+
+/**
+ * La marca de un toque del CARRIL DEL RECORDATORIO del motor (undécima tanda, M3: el DELAY «N antes de la
+ * reunión» de una automatización). Para un WhatsApp es EXACTAMENTE `claveToque`: la misma marca que el emisor
+ * de hoy (`mandarRecordatoriosAlLead`), así no sale dos veces mientras convivan #228 y el flujo nuevo, y una
+ * reagenda cambia el ISO y vuelve a armar los toques. Otro canal lleva el suyo al final: un email «24 h antes»
+ * no le puede quitar el lugar al WhatsApp del mismo minuto.
+ */
+export function claveDelCarril(leadId: number, cual: CualReunion, inicioIso: string, min: number, canal: string | null | undefined): string {
+  const base = claveToque(leadId, cual, inicioIso, min);
+  return !canal || canal === 'whatsapp' ? base : `${base}.${canal}`;
 }
 
 /**
@@ -289,8 +305,12 @@ export function juntaACancelar(
 
 // ── El link ─────────────────────────────────────────────────────────────────
 
-/** Sólo un https: lo que se manda al lead no puede ser un `javascript:` ni un texto suelto. */
-function limpiarLink(v: unknown): string | null {
+/**
+ * Sólo un https: lo que se manda al lead no puede ser un `javascript:` ni un texto suelto. Exportada desde la
+ * undécima tanda: el link de la próxima reunión (`proximaReunion`, lib/nutricion-reinscripcion.ts, que da el
+ * dato `{{reunion_link}}`) pasa por la MISMA limpieza que el del recordatorio.
+ */
+export function limpiarLink(v: unknown): string | null {
   if (typeof v !== 'string') return null;
   const s = v.trim();
   if (!/^https:\/\/\S+$/i.test(s) || s.length > 500) return null;
@@ -393,15 +413,6 @@ export function problemaDelTexto(texto: string): string | null {
   if (t.trim().length > TOPE_TEXTO) return `Máximo ${TOPE_TEXTO} caracteres.`;
   const malas = variablesDesconocidas(t);
   return malas.length ? `No existe: ${malas.map((m) => `{{${m}}}`).join(', ')}` : null;
-}
-
-/** «en 52 minutos», «en 1 hora»: lo que falta AL SALIR, no lo que faltaba al programarse. */
-export function faltanTexto(minutos: number): string {
-  const m = Math.max(0, Math.round(minutos));
-  if (m < 1) return 'ahora';
-  if (m < 60) return `en ${m} ${m === 1 ? 'minuto' : 'minutos'}`;
-  const h = Math.round(m / 60);
-  return `en ${h} ${h === 1 ? 'hora' : 'horas'}`;
 }
 
 /**

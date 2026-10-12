@@ -116,6 +116,53 @@ export function secuenciasDeEtapa<T extends SecuenciaDeEtapa>(
   ));
 }
 
+/**
+ * LAS SECUENCIAS DE UN EVENTO QUE TRAE UNA ETAPA (el movimiento explícito, 'etapa', y desde la undécima tanda la
+ * RESERVA, 'agenda_nueva'): las de `etapa_actual` sólo si son de ESA etapa y de su embudo (`secuenciasDeEtapa`),
+ * y las demás tal cual (las de la familia `agendado_*` de la reserva).
+ *
+ * ⚠️ M1 (docs/diseno-undecima-tanda.md §4). Una reserva de Calendly o Cal.com cambia la etapa DERIVADA del lead
+ * («Agenda R1» sale de la fecha) sin escribir `pipeline_stage`, y el evento de la reserva sólo miraba los
+ * triggers de antes: «Un Lead Agendó Llamada», colgado de la etapa, entraba por el barrido de la hora (medido el
+ * 11/10/2026 en #213: 2592 y 2593 entraron así; 2636, al instante, por el trigger de antes). La etapa que se le
+ * pasa es la EFECTIVA del lead (`pipelineStageOf`) y el embudo, el suyo: la MISMA pregunta que el movimiento.
+ * Pura: el ámbito de cada una ya viene resuelto.
+ */
+export function deLaEtapaYLasDemas<T extends SecuenciaDeEtapa>(
+  secuencias: readonly T[],
+  etapa: string | null | undefined,
+  leadFunnelId: number | string | null | undefined,
+): T[] {
+  return [
+    ...secuencias.filter((s) => s.trigger_tipo !== TRIGGER_ETAPA),
+    ...secuenciasDeEtapa(secuencias, etapa, leadFunnelId),
+  ];
+}
+
+/**
+ * Las etapas puestas A MANO que dicen «todavía no tiene reunión» (undécima tanda, M6). La regla T2 del CRM
+ * (lib/crm-auto-plan.ts) deja en `nutri` a quien no agendó en 2 días, y después en `reactivacion`; un no-show
+ * de la R1 queda en `noshow` o `noshow_r1`. El embudo ya declara la salida de cada una a «Agenda R1»
+ * (lib/pipeline.ts: «Agendó R1», «Agenda tardío», «Reagenda R1»).
+ */
+export const ETAPAS_SIN_REUNION: readonly string[] = ['lead', 'nutri', 'reactivacion', 'noshow', 'noshow_r1'];
+
+/**
+ * ¿Una reserva de R1 LIMPIA la etapa puesta a mano? (M6.) Sí si el override es de «todavía no tiene reunión» y,
+ * sin él, el lead quedaría en «Agenda R1» (`derivadaDespues === 'agenda'`: la etapa que la reserva acaba de
+ * dejar derivada). Sin esto la reserva no movía al lead: `pipelineStageOf` devuelve el override, y el único que
+ * lo limpiaba era `setMeetingManual`. Medido el 11/10/2026: 4 de 54 leads del ws1 con R1 en 90 días reservaron
+ * 2 días o más después de entrar; con el CRON en «Agenda R1» se quedaban sin aviso, preparación ni recordatorios.
+ *
+ * Un override que no es de esa lista (Ganado, Perdido, Facturando…) NO se toca: lo puso alguien a propósito. Y
+ * si la derivada no es «Agenda R1» (un lead perdido, o una R2 por delante) tampoco: limpiar sería moverlo a otra
+ * parte que la que la reserva dice. Pura.
+ */
+export function limpiaEtapaAlReservar(override: string | null | undefined, derivadaDespues: string): boolean {
+  const k = (override ?? '').trim();
+  return !!k && ETAPAS_SIN_REUNION.includes(k) && derivadaDespues === 'agenda';
+}
+
 /** El trigger que se cuelga de una etapa de la ENTREGA de un servicio. */
 export const TRIGGER_ENTREGA = 'entrega_actual';
 

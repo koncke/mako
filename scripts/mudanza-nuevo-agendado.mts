@@ -25,6 +25,15 @@
 // del negocio, su store) y comprueba la plantilla con las funciones puras que usa Publicar.
 // =============================================================================
 
+// ⛔ RETIRADO EN LA UNDÉCIMA TANDA (11/10/2026, ola 4). «Aviso de nuevo agendado» ya no es una fila aparte: es la
+// tarjeta «MaKo en WhatsApp» u11aviso de «Un Lead Agendó Llamada», con datos citables (Martín, punto 8: «Debería estar
+// todo en un mismo flujo»; punto 4: «{{Mensaje de MaKo}}, ese dato NO existe»). Correr esto RECREARÍA la fila del evento
+// `lead_agendo` con {{mensaje_mako}} si no encuentra una viva —y #239/#240 se archivan— y la PRENDERÍA: el aviso saldría
+// dos veces. Lo de hoy lo hace scripts/undecima-flujos.mts (docs/diseno-undecima-tanda.md §3).
+/** Sale sin leer ni escribir. Devuelve `void` (no `never`) a propósito: el resto queda como registro y compila. */
+function retirado(motivo: string): void { console.error(motivo); process.exit(1); }
+retirado('Retirado en la undécima: el aviso de nuevo agendado vive en «Un Lead Agendó Llamada» (scripts/undecima-flujos.mts). No se vuelve a correr: recrearía el aviso con {{mensaje_mako}} y lo prendería.');
+
 import { config } from 'dotenv';
 
 const arg = (n: string): string | null => {
