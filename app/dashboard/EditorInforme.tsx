@@ -254,7 +254,7 @@ function nuevoElementoEn(t: TipoElemento, componentes: Componente[], dueno: Graf
 
 export function EditorInforme({
   inicial, datosIniciales, lecturaFallo, hoy, hojaInicial, versionInicial = null,
-  hojaAgregada = null, aviso = null, soloLectura = false, llamadaInicial = null, compartido = null,
+  hojaAgregada = null, aviso = null, soloLectura = false, llamadaInicial = null, compartido = null, sinPaginas = false,
 }: {
   inicial: Tablero;
   datosIniciales: Record<string, DatosGrafico>;
@@ -278,6 +278,11 @@ export function EditorInforme({
   llamadaInicial?: number | null;
   /** El link compartido (sin sesión): se mira y se exporta; lo que se lee va por la ruta del link. */
   compartido?: Compartido | null;
+  /**
+   * La persona nunca guardó un informe: la pantalla arranca EN BLANCO con «Crear una página», y lo primero que
+   * crea es su única página (el inicial que viene en `inicial` no se muestra ni se guarda).
+   */
+  sinPaginas?: boolean;
 }) {
   // El informe del primer render: el que vino, más la hoja que pidió el link si no estaba.
   const [arranque] = useState<Tablero>(() => conHojaAgregada(inicial, hojaAgregada));
@@ -291,6 +296,7 @@ export function EditorInforme({
   const [menu, setMenu] = useState<Menu>(null);
   const [modalDatos, setModalDatos] = useState(false);
   const [nuevaHoja, setNuevaHoja] = useState(false);
+  const [enBlanco, setEnBlanco] = useState(sinPaginas && !soloLectura && !compartido);
   const [analista, setAnalista] = useState(false);
   const [detalle, setDetalle] = useState<{ id: string; sel: SelDetalle } | null>(null);
   const [vista, setVista] = useState<VistaValores>({});
@@ -351,7 +357,8 @@ export function EditorInforme({
   // En un link compartido no hay guía: quien entra no tiene sesión (`soloLocal`: no le pregunta nada al
   // server) y el ⋮ es sólo Exportar.
   const conGuia = !compartido;
-  const recorrido = useRecorrido(RECORRIDO_DASHBOARD, { autoabrir: conGuia && !editando && !capaAbierta, soloLocal: !conGuia });
+  // En blanco no se abre sola: lo que la guía señala (el título, los filtros, los gráficos) todavía no existe.
+  const recorrido = useRecorrido(RECORRIDO_DASHBOARD, { autoabrir: conGuia && !enBlanco && !editando && !capaAbierta, soloLocal: !conGuia });
   const recorridoEdicion = useRecorrido(RECORRIDO_DASHBOARD_EDICION, { autoabrir: conGuia && editando && !recorrido.abierto && !capaAbierta, soloLocal: !conGuia });
   const enRecorrido = recorrido.abierto || recorridoEdicion.abierto;
 
@@ -555,11 +562,13 @@ export function EditorInforme({
     const t = tableroRef.current;
     if (t.hojas.length >= MAX_HOJAS) { show('Máximo de hojas'); return; }
     const nueva: Hoja = t.hojas.some((x) => x.id === h.id) ? { ...h, id: nuevoId() } : h;
-    mutar((tt) => ({ ...tt, hojas: [...tt.hojas, nueva] }));
+    // En blanco, la que se crea es la ÚNICA: el inicial que viajaba por dentro no se guarda.
+    mutar((tt) => ({ ...tt, hojas: enBlanco ? [nueva] : [...tt.hojas, nueva] }));
+    setEnBlanco(false);
     setNuevaHoja(false);
     irAHoja(nueva.id);
     if (aviso) show(aviso);
-  }, [mutar, irAHoja, show]);
+  }, [mutar, irAHoja, show, enBlanco]);
   const duplicarHoja = (id: string) => {
     const h = tablero.hojas.find((x) => x.id === id);
     if (!h || tablero.hojas.length >= MAX_HOJAS) return;
@@ -985,6 +994,18 @@ export function EditorInforme({
   };
 
   const gDetalle = detalle ? hoja.componentes.find((c) => c.id === detalle.id) : undefined;
+
+  if (enBlanco) {
+    return (
+      <div className="lk lk-app">
+        <div className="lk-en-blanco">
+          <p>Todavía no hay páginas</p>
+          <button type="button" className="lk-pill lk-pill--azul" onClick={() => setNuevaHoja(true)} disabled={!guardable}>＋ Crear una página</button>
+        </div>
+        {nuevaHoja && <NuevaHoja onCerrar={cerrarNuevaHoja} onCrear={crearHoja} enBlanco="Página 1" />}
+      </div>
+    );
+  }
 
   return (
     <div className={`lk lk-app${editando ? ' lk--editando' : ''}${imprimiendo ? ' lk--imprimir' : ''}${conectando ? ' lk--conectando' : ''}`}>

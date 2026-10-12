@@ -76,6 +76,10 @@ export default async function Page({ searchParams }: { searchParams: Promise<Bus
   let hoja: Hoja;
   let agregar: Hoja | null = null;
   let lleno = false;
+  // Quien nunca guardó un informe arranca SIN páginas (12/10/2026, Martín: «si es un usuario que nunca creó una
+  // página en dashboard, que no le salga ninguna página, que le salga todo en blanco abajo con la opción de crear
+  // una»). El inicial queda sólo por dentro (la pantalla lee `hojas[0]`) y no se le muestra.
+  let sinPaginas = false;
   const enMemoria = informeDeRol(rol);
   if (enMemoria) {
     tablero = enMemoria;
@@ -89,8 +93,18 @@ export default async function Page({ searchParams }: { searchParams: Promise<Bus
     agregar = destino.agregar;
     lleno = !!destino.lleno;
     hoja = agregar ?? tablero.hojas.find((h) => h.id === destino.hojaId) ?? tablero.hojas[0];
+    if (lectura.estado === 'inicial') {
+      // Si llegó pidiendo una (`?hoja=`, las rutas viejas de los Analysts), ésa es su primera y ÚNICA página, y se
+      // guarda al abrir como cualquier hoja agregada. Si no pidió nada, la pantalla en blanco.
+      const pedidaHoja = pedida ? (agregar ?? tablero.hojas.find((h) => h.id === destino.hojaId) ?? null) : null;
+      if (pedidaHoja) { tablero = { ...tablero, hojas: [] }; agregar = pedidaHoja; hoja = pedidaHoja; lleno = false; }
+      else sinPaginas = true;
+    }
   }
-  const { graficos, bloques } = pedidosDeHoja(hoja, {}, hoy, 0, ocultosPorPlegado(hoja.componentes, plegadasDeEntrada(hoja.componentes)));
+  const pedidos0 = pedidosDeHoja(hoja, {}, hoy, 0, ocultosPorPlegado(hoja.componentes, plegadasDeEntrada(hoja.componentes)));
+  // En blanco no se dibuja ningún gráfico: no se lee nada.
+  const graficos = sinPaginas ? [] : pedidos0.graficos;
+  const bloques = sinPaginas ? [] : pedidos0.bloques;
   // El período va TAL CUAL: el corte en hoy (y la fecha que mira hacia adelante) lo decide `datosDeGraficos`
   // (contrato v5, «el corte en hoy en UN lugar»). La firma sale del período que pidió el gráfico.
   const [datos, datosBloque] = await Promise.all([
@@ -118,6 +132,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Bus
         aviso={lleno ? 'Máximo de hojas' : null}
         soloLectura={!!unica}
         llamadaInicial={llamada}
+        sinPaginas={sinPaginas}
       />
     </Pagina>
   );

@@ -154,7 +154,7 @@ test('TODOS los pasos señalan un data-recorrido que alguien pone en app/dashboa
 const EDITOR = sinComentarios(leer('app/dashboard/EditorInforme.tsx'));
 
 test('el de mirar se abre mirando, el de editar al editar, nunca los dos juntos, la guía del ⋮ abre la del lugar, y en un link no hay guía', () => {
-  assert.match(EDITOR, /const recorrido = useRecorrido\(RECORRIDO_DASHBOARD, \{ autoabrir: conGuia && !editando && !capaAbierta, soloLocal: !conGuia \}\);/);
+  assert.match(EDITOR, /const recorrido = useRecorrido\(RECORRIDO_DASHBOARD, \{ autoabrir: conGuia && !enBlanco && !editando && !capaAbierta, soloLocal: !conGuia \}\);/);
   assert.match(EDITOR, /const recorridoEdicion = useRecorrido\(RECORRIDO_DASHBOARD_EDICION, \{ autoabrir: conGuia && editando && !recorrido\.abierto && !capaAbierta, soloLocal: !conGuia \}\);/);
   // En un link compartido no hay sesión ni guía (`soloLocal`: no le pregunta nada a /api/recorridos).
   assert.match(EDITOR, /const conGuia = !compartido;/);
