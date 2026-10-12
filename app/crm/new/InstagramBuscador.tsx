@@ -79,7 +79,7 @@ function Foto({ perfil, size, rota, onRota }: { perfil: PerfilIg; size: number; 
   return <Avatar name={perfil.nombre ?? perfil.usuario} size={size} />;
 }
 
-export function InstagramBuscador({ valor, onElegir, onTexto }: {
+export function InstagramBuscador({ valor, onElegir, onTexto, textoInicial }: {
   valor: PerfilIg | null;
   onElegir: (p: PerfilIg | null) => void;
   /**
@@ -87,8 +87,13 @@ export function InstagramBuscador({ valor, onElegir, onTexto }: {
    * perder un @ tipeado y no elegido de la lista (`instagramDelAlta`, app/crm/campo-inline.ts).
    */
   onTexto?: (texto: string) => void;
+  /**
+   * Lo que el campo trae escrito al MONTARSE: el borrador del alta (app/crm/new/borrador-alta.ts).
+   * Se lee una sola vez; para cambiarlo después, quien monta cambia la `key`.
+   */
+  textoInicial?: string;
 }) {
-  const [texto, setTexto] = useState('');
+  const [texto, setTexto] = useState(textoInicial ?? '');
   const [resp, setResp] = useState<Respuesta | null>(null);
   const [abierto, setAbierto] = useState(false);
   const [activo, setActivo] = useState(0);

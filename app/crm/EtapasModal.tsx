@@ -20,7 +20,9 @@
 //    lógica de eso»: el pie quedó para lo único que va abajo a la izquierda, eliminar.
 //  · SIN líneas divisorias. «Quedan mal».
 //  · SIN el bloque de las cuatro terminales. «Si quieren cambiar el nombre ya lo pueden
-//    hacer en los 3 puntos de la columna».
+//    hacer en los 3 puntos de la columna». ⚠️ REVERTIDO el 12/10/2026 (segundo feedback, punto 9):
+//    «Pon todas las etapas directamente, incluso ganado y las de descartado... Solo que Ganado y
+//    las de descartado no se deberían poder editar mucho». Vuelven, sólo con el nombre (`filaQuieta`).
 //  · SIN FRICCIÓN cuando no hay nada que perder. «Si intento eliminar una columna que NO
 //    tiene ningún lead, no debería haber nada de fricción. Solo que me salte el pop-up de
 //    deshacer». Con leads adentro, ahí sí un diálogo — y un diálogo, no un recuadro abajo.
@@ -188,7 +190,7 @@ export function EtapasModal({ funnelId, nombre, abrirEntradas, semilla, onCerrar
    * dice qué etapas hay; lo que decide si «Eliminar producto» se ofrece y por dónde entra
    * la gente llega del server, porque el tablero no lo sabe.
    */
-  semilla?: { etapas: EtapaDelFunnel[]; fijas: EtapaDelFunnel[] } | null;
+  semilla?: { etapas: EtapaDelFunnel[]; fijas: EtapaDelFunnel[]; nutricionEtapas?: EtapaDelFunnel[] } | null;
   onCerrar: () => void;
 }) {
   const router = useRouter();
@@ -224,6 +226,11 @@ export function EtapasModal({ funnelId, nombre, abrirEntradas, semilla, onCerrar
   // El orden que se está arrastrando gana sobre lo del server, y lo del server sobre la
   // semilla. Nunca al revés: la semilla es una foto de cuando se abrió.
   const etapas = ordenLocal ?? emb?.etapas ?? semilla?.etapas ?? [];
+  // Las otras dos familias del tablero (segundo feedback del 12/10/2026, punto 9: «Pon todas las
+  // etapas directamente, incluso ganado y las de descartado... Solo que Ganado y las de descartado
+  // no se deberían poder editar mucho»). Mismo orden de precedencia que `etapas`.
+  const nutricionEtapas = emb?.nutricionEtapas ?? semilla?.nutricionEtapas ?? [];
+  const fijas = emb?.fijas ?? semilla?.fijas ?? [];
   /** ¿Hay algo que listar? Con semilla, sí desde el primer frame. */
   const hayLista = !!emb || !!semilla;
   /**
@@ -509,6 +516,68 @@ export function EtapasModal({ funnelId, nombre, abrirEntradas, semilla, onCerrar
     });
   };
 
+  // ── quitar una nutrición (segundo feedback del 12/10/2026, punto 9) ─────────────────────
+  // Una columna de nutrición NO es una etapa del pipeline: es el destino de una transición que
+  // deriva el recorrido (`generateFunnel`). Quitarla es APAGAR esa nutrición —la op `nutricion`,
+  // con TODOS sus ids: «Reactivación» sale de dos etapas—, y el deshacer la vuelve a prender.
+  // Con leads adentro pregunta, igual que quitar una etapa: el default seguro es la fricción.
+  const nutricionDe = (key: string) =>
+    emb?.nutriciones.find((n) => n.activa && n.ids.some((id) => id.split('>')[1] === key)) ?? null;
+  const quitarNutricion = (e: EtapaDelFunnel) => {
+    const nut = nutricionDe(e.key);
+    if (!nut) return;
+    const [id, ...tambien] = nut.ids;
+    const hacer = () => aplicar({ op: 'nutricion', id, activa: false, tambien }, () => {
+      show(`Quitada «${e.label}»`, () => aplicar({ op: 'nutricion', id, activa: true, tambien }));
+    });
+    const n = extras?.conteos[e.key];
+    if (n === 0) { hacer(); return; }
+    setConfirmar({
+      titulo: `Quitar «${e.label}»`,
+      cuerpo: n == null
+        ? 'No se pudo contar cuántos leads tiene. Los que estén ahí no se borran: quedan fuera del funnel hasta que los muevas.'
+        : `Sus ${n} ${n === 1 ? 'lead queda' : 'leads quedan'} fuera del funnel hasta que los muevas. No se borran.`,
+      boton: 'Quitar la nutrición',
+      hacer,
+    });
+  };
+
+  /**
+   * Una fila de las etapas que NO son del recorrido: las de nutrición y las cuatro fijas.
+   * «Ganado y las de descartado no se deberían poder editar mucho»: sólo el nombre. Las de
+   * nutrición además se quitan (si el recorrido las deriva). Ni tipo, ni flechas, ni arrastre:
+   * su lugar lo decide el recorrido.
+   */
+  const filaQuieta = (e: EtapaDelFunnel, rotulo: string, onQuitar?: () => void) => (
+    <div key={e.key} style={{ ...caja }}>
+      <div style={{ ...fila }}>
+        <span style={{ width: 9, height: 9, flex: 'none', borderRadius: '50%', background: e.dot }} />
+        {renombrando === e.key ? (
+          <input
+            autoFocus defaultValue={e.label} maxLength={MAX_LABEL_ETAPA}
+            onBlur={(ev) => guardarNombreEtapa(e, ev.target.value)}
+            onKeyDown={(ev) => {
+              if (ev.key === 'Enter') (ev.target as HTMLInputElement).blur();
+              if (ev.key === 'Escape') setRenombrando(null);
+            }}
+            style={{ flex: 1, minWidth: 0, fontFamily: SANS, fontWeight: 600, fontSize: 14, color: 'var(--ink)', background: 'var(--surface)', border: '1px solid var(--primary)', borderRadius: 7, padding: '4px 8px', outline: 'none' }}
+          />
+        ) : (
+          <>
+            <button type="button" onClick={() => setRenombrando(e.key)} title={`Cambiar el nombre de ${e.label}`}
+              style={{ flex: 'none', maxWidth: '70%', textAlign: 'left', fontFamily: SANS, fontWeight: 600, fontSize: 14, color: 'var(--ink)', background: 'none', border: 'none', padding: '4px 0', cursor: 'text', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+            >{e.label}</button>
+            <span style={{ flex: 1 }} />
+          </>
+        )}
+        <span style={{ flex: 'none', fontSize: 12, fontWeight: 600, color: 'var(--dim)', padding: '0 4px' }}>{rotulo}</span>
+        {onQuitar && (
+          <AccionFila etiqueta={`Quitar ${e.label}`} disabled={trabajando} onClick={onQuitar}><CerrarIcon /></AccionFila>
+        )}
+      </div>
+    </div>
+  );
+
   // ── eliminar el producto ───────────────────────────────────────────────────────────
   const archivar = (conAviso: boolean) => {
     if (funnelId == null || !emb) return;
@@ -784,14 +853,28 @@ export function EtapasModal({ funnelId, nombre, abrirEntradas, semilla, onCerrar
                   mínimo que me pida el nombre de la nueva etapa». */}
               <NuevaEtapa disabled={trabajando} onCrear={(label) => aplicar({ op: 'agregar', label })} />
             </div>
+
+            {/* LAS OTRAS ETAPAS DEL TABLERO (segundo feedback del 12/10/2026, punto 9): «En la
+                edición de las etapas faltan las etapas de nutrición que hoy ya tengo en el
+                funnel... Pon todas las etapas directamente, incluso ganado y las de descartado».
+                Van debajo del recorrido y en el orden de las bandas del tablero: nutrición, y
+                después Ganado y las de descarte, que sólo cambian de nombre. Afuera de la lista
+                de arriba a propósito: ésa se arrastra, y éstas no tienen lugar que elegir. */}
+            {(nutricionEtapas.length > 0 || fijas.length > 0) && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 14 }}>
+                {nutricionEtapas.map((e) => filaQuieta(e, 'Nutrición', nutricionDe(e.key) ? () => quitarNutricion(e) : undefined))}
+                {fijas.map((e) => filaQuieta(e, e.key === 'ganado' ? 'Ganado' : 'Descartado'))}
+              </div>
+            )}
           </>
         )}
 
         {/* ⚠️ ACÁ ESTUVIERON LAS SUBTABS «Nutrición» (las nutriciones que deriva el recorrido,
             con su ✕ y su «Agregar») y «Etiquetas» (el CRUD de app/crm/EditorEtiquetas.tsx)
             hasta el 12/10/2026: «Elimina las tabs de "Nutrición" y "Etiqueta"». Una nutrición
-            ahora se MARCA en la etapa (el desplegable de tipo). La op `nutricion` del server y
-            `emb.nutriciones` siguen escritas, sin pantalla que las use. */}
+            ahora se MARCA en la etapa (el desplegable de tipo). Las columnas de nutrición que el
+            recorrido deriva volvieron a la lista el mismo día (punto 9 del segundo feedback), con
+            su ✕ por la op `nutricion` (`quitarNutricion`). */}
         {error && (
           <div style={{ marginTop: 12, borderRadius: 10, padding: '10px 14px', fontSize: 13.5, fontWeight: 600, background: 'var(--bad-bg)', color: 'var(--bad)' }}>{error}</div>
         )}

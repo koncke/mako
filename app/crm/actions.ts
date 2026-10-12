@@ -2787,6 +2787,8 @@ export type EmbudoEnDetalle = {
   etapas: EtapaDelFunnel[];
   /** Las cuatro que están en todo embudo: sólo se renombran. */
   fijas: EtapaDelFunnel[];
+  /** Las columnas de nutrición que el recorrido deriva y están puestas: se renombran y se quitan. */
+  nutricionEtapas: EtapaDelFunnel[];
   nutriciones: NutricionDelFunnel[];
   /** Cómo ENTRA la gente a este embudo. `[]` = no declarado, y nunca afirma nada. */
   entradas: EntradaId[];
@@ -2843,7 +2845,7 @@ export async function embudoEnDetalleAction(funnelId?: number): Promise<{ ok: tr
     // el pipeline GENÉRICO, y dibujarlo le diría a la persona que su embudo es otro.
     if (cfg.origen === 'error') return { ok: false, error: 'No se pudieron leer las etapas. Vuelve a intentarlo.' };
 
-    const { propias, fijas } = etapasVisibles(cfg.stages);
+    const { propias, fijas, nutricion } = etapasVisibles(cfg.stages);
 
     // Las nutriciones POSIBLES de este pipeline, puestas o no.
     const sup = new Set(cfg.suppressed);
@@ -2923,6 +2925,7 @@ export async function embudoEnDetalleAction(funnelId?: number): Promise<{ ok: tr
         esDefault: cfg.esDefault,
         etapas: propias,
         fijas,
+        nutricionEtapas: nutricion,
         nutriciones,
         // ⚠️ `origen` manda sobre `entradas`: con la fila sin declarar, `filaAFunnel` las
         // devuelve vacías aunque el pipeline caiga al default. Acá se pasa tal cual — la

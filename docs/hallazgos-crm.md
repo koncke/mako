@@ -8236,3 +8236,46 @@ su tema, y los de piezas compartidas, en su documento (ver «Lo que vive en otro
 `app/crm/lead-view/CampoEditable.tsx` (`TelefonoEditable`) · `lib/paises.ts` (`splitTelefono`) ·
 `app/api/crm/instagram-buscar/route.ts` · `lib/instagram-buscar.ts` · `tests/crm-ficha-campos-12-10.test.ts` ·
 `tests/instagram-buscar.test.ts` · *2026-10-12 corrida crm-feedback-12-10 (segunda revisión)*
+
+## El segundo feedback del 12/10: el editor de etapas, las etiquetas y el número de lead (12/10/2026)
+
+Pedido de Martín (12/10/2026, 10:30), once puntos sobre lo que se había publicado esa mañana. Lo que no se ve
+en el código:
+
+- **Una columna de nutrición NO es una etapa del pipeline: quitarla es APAGAR la nutrición.** El editor de
+  etapas listaba sólo el recorrido (`etapasVisibles().propias`), y las columnas de la banda Nutrición del
+  tablero no existían ahí: «faltan las etapas de nutrición que hoy ya tengo en el funnel». Son el destino de
+  una transición que deriva `generateFunnel`, así que su ✕ va por la op `nutricion` con TODOS los ids de esa
+  nutrición (`quitarNutricion`, app/crm/EtapasModal.tsx), nunca por `eliminar`, que el server rechaza para lo
+  que no es del pipeline. Renombrarlas sí va por `renombrar`: lo que no es del pipeline cae en `labels`.
+- **Las fijas (Ganado y las tres de descarte) volvieron al editor, sólo con el nombre.** El 29/09 Martín las
+  había sacado («ya lo pueden hacer en los 3 puntos de la columna») y el 12/10 las pidió de vuelta: «Pon
+  todas las etapas directamente, incluso ganado y las de descartado... no se deberían poder editar mucho».
+  El comentario de cabecera del modal dice las dos fechas, para que nadie las vuelva a sacar leyendo sólo
+  la primera.
+- **El desplegable de etiquetas de la ficha EXCLUYE las que el lead ya tiene, así que justo ésas no se
+  podían editar.** Los tres puntos por etiqueta (`editable` en `SelectorEtiqueta`) listan también las
+  puestas, APAGADAS («Ya la tiene»): el `Dropdown` de la casa deja las `acciones` de un renglón vivas aunque
+  el renglón esté `disabled`, que es lo que permite editar sin poder elegirla dos veces.
+- **El borrador del alta repite la trampa de los filtros guardados: restaurar y guardar corren en el mismo
+  commit**, y el guardado de ese momento ve los campos vacíos. Sin el salto de la primera corrida
+  (`primeraVez`, app/crm/new/NewLeadForm.tsx) borraba el borrador que se acababa de leer. Va sólo en el
+  modal: la ruta /crm/new navega al crear, y un borrador borrado al enviar se perdería si el server rechaza.
+- **El número de lead sigue siendo el id global (decisión del 12/10, se le delegó: «decidelo tú»).** El id
+  vive en las URLs (`/crm/2646`), en los links de los avisos, en la API de MaKo y en la búsqueda por
+  «#2646»; un número por negocio sería un SEGUNDO identificador, y «#12» en la búsqueda pasaría a ser
+  ambiguo entre el id y el número. Es lo que hacen los CRM grandes (HubSpot, Pipedrive y Salesforce
+  numeran el registro globalmente); la numeración por cuenta es de documentos (facturas, tickets).
+
+**SIN HACER:**
+- El buscador de Instagram no encontró `@martin.koncke` (captura de Martín). Sin medir por qué: lo probable
+  es que la app de Meta todavía no tenga `instagram_basic` / `pages_read_engagement`, o que la cuenta no sea
+  de empresa o creador (Business Discovery no ve cuentas personales). Y la fuente para buscar por nombre,
+  sin elegir (Martín pidió investigar alternativas gratis a Brave). Las dos quedaron para después, a pedido.
+- El editor de etiquetas de la ficha no tiene el vínculo a una etapa ni la etiqueta del WhatsApp: siguen en
+  `app/crm/EditorEtiquetas.tsx`, sin montar.
+
+**Vive en:** `app/crm/EtapasModal.tsx` (`filaQuieta`, `quitarNutricion`) · `lib/pipeline.ts`
+(`etapasVisibles().nutricion`) · `app/_components/etiquetas-cliente.tsx` (`editable`) ·
+`app/_components/EditarEtiqueta.tsx` · `app/crm/new/borrador-alta.ts` · `app/crm/ReunionesProximas.tsx` ·
+`tests/crm-segundo-feedback-12-10.test.ts` · *2026-10-12, chat «CRM» (claude3), sin agentes*

@@ -141,8 +141,9 @@ test('el alta son CUATRO campos: nombre, email, teléfono con banderas e Instagr
   // El teléfono con el país primero, y lo que viaja es la lada unida al número.
   assert.match(nf, /<TelefonoConPais lada=\{lada\} numero=\{numero\}/);
   assert.match(nf, /const telefono = numero\.replace\(\/\\D\/g, ''\) \? unirTelefono\(lada, numero\) : '';/);
-  // Instagram: el buscador del contrato, y se guarda el USUARIO.
-  assert.match(nf, /<InstagramBuscador valor=\{perfil\} onElegir=\{setPerfil\} onTexto=\{setIgEscrito\} \/>/);
+  // Instagram: el buscador del contrato, y se guarda el USUARIO. Desde el segundo feedback del
+  // 12/10 (punto 2) arranca con lo escrito en el borrador (`key` + `textoInicial`).
+  assert.match(nf, /<InstagramBuscador key=\{igKey\} textoInicial=\{igInicial\} valor=\{perfil\} onElegir=\{setPerfil\} onTexto=\{setIgEscrito\} \/>/);
   assert.match(nf, /<input type="hidden" name="instagram" value=\{instagramDelAlta\(perfil\?\.usuario, igEscrito\)\} \/>/);
 });
 

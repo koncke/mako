@@ -26,8 +26,9 @@
 // abajo de todo, en la MISMA fila que «Traer de otro funnel» («que esté alineado abajo del todo,
 // donde está el botón de "Traer de otro funnel"»).
 
-import { useCallback, useState, useTransition, type CSSProperties, type ReactNode } from 'react';
-import Link from '@/app/_ui/Link';
+import { useCallback, useEffect, useRef, useState, useTransition, type CSSProperties, type ReactNode } from 'react';
+import Link, { useWs } from '@/app/_ui/Link';
+import { claveBorradorAlta, hayBorrador, leerBorradorAlta, type BorradorAlta } from './borrador-alta';
 import { TelefonoConPais } from '@/app/_components/TelefonoConPais';
 import { DIAL_DEFAULT, unirTelefono } from '@/lib/paises';
 import { useFocoInicial } from '@/app/customer-success/curso/dialogo-foco';
@@ -102,6 +103,54 @@ export function NewLeadForm({ enModal }: {
   const refCaja = useCallback((el: HTMLFormElement | null) => setCaja(el), []);
   useFocoInicial(ID_NOMBRE);
 
+  // ── EL BORRADOR (segundo feedback del 12/10/2026, punto 2) ─────────────────────────────
+  // «Si le doy a nuevo lead siempre debería quedar el borrador, por más que salga del modal o
+  // incluso de refrescar la pagina». Sólo en el MODAL del tablero: la ruta /crm/new navega al
+  // crear, y un borrador que se borra al enviar se perdería si el server rechaza el alta.
+  // Nombre y email pasaron a ser controlados por esto: para guardarlos hay que tenerlos.
+  const [nombre, setNombre] = useState('');
+  const [email, setEmail] = useState('');
+  const ws = useWs();
+  const clave = claveBorradorAlta(ws);
+  // El buscador de Instagram lee su texto UNA vez, al montarse: después de restaurar se le
+  // cambia la key para que arranque con lo guardado.
+  const [igKey, setIgKey] = useState(0);
+  const [igInicial, setIgInicial] = useState('');
+  const borrador: BorradorAlta = { nombre, email, lada, numero, ig: igEscrito, perfil };
+  // Restaurar va en un efecto y no en el `useState` inicial: la ruta /crm/new se dibuja en el
+  // server, y leer `localStorage` en el primer render no coincidiría con ese HTML.
+  useEffect(() => {
+    if (!enModal) return;
+    let b: BorradorAlta | null = null;
+    try { b = leerBorradorAlta(window.localStorage.getItem(clave)); } catch { /* sin almacenamiento: arranca vacío */ }
+    if (!b) return;
+    setNombre(b.nombre); setEmail(b.email); setNumero(b.numero); setPerfil(b.perfil);
+    if (b.lada) setLada(b.lada);
+    setIgEscrito(b.ig); setIgInicial(b.ig); setIgKey((k) => k + 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- se restaura UNA vez, al abrir
+  }, []);
+  // ⚠️ GUARDAR SE SALTEA LA PRIMERA CORRIDA. Restaurar y guardar corren en el mismo commit, y
+  // el guardado de ese momento todavía ve los campos VACÍOS: sin el salto, borraba el borrador
+  // que el efecto de arriba acababa de leer (la misma trampa de los filtros guardados del CRM).
+  const primeraVez = useRef(true);
+  useEffect(() => {
+    if (!enModal) return;
+    if (primeraVez.current) { primeraVez.current = false; return; }
+    try {
+      if (hayBorrador(borrador)) window.localStorage.setItem(clave, JSON.stringify(borrador));
+      else window.localStorage.removeItem(clave);
+    } catch { /* sin almacenamiento: el alta sigue andando, sin borrador */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `borrador` es la suma de estos
+  }, [nombre, email, lada, numero, igEscrito, perfil, clave]);
+  /** El alta terminó (creado o agregado al que ya estaba): el borrador ya no es de nadie. */
+  const olvidarBorrador = () => { try { window.localStorage.removeItem(clave); } catch { /* nada */ } };
+  const vaciar = () => {
+    setNombre(''); setEmail(''); setNumero(''); setLada(DIAL_DEFAULT); setPerfil(null);
+    setIgEscrito(''); setIgInicial(''); setIgKey((k) => k + 1);
+    setErr(null); setChoque(null); setPendiente(null);
+    olvidarBorrador();
+  };
+
   /** La validación de acá es la MISMA que la del server, y corre antes para no
    *  perder lo tipeado en un viaje. El server la repite: este chequeo es
    *  comodidad, no la guarda. */
@@ -136,6 +185,7 @@ export function NewLeadForm({ enModal }: {
             setPendiente(r.coincidencias.length ? fd : null);
             return;
           }
+          olvidarBorrador();
           enModal.onCreado(r.id);
         });
       }}
@@ -144,11 +194,12 @@ export function NewLeadForm({ enModal }: {
         : { ...card, display: 'flex', flexDirection: 'column', gap: 16 }}
     >
       <Field label="Nombre" required>
-        <input id={ID_NOMBRE} type="text" name="nombre" required autoFocus style={field} />
+        <input id={ID_NOMBRE} type="text" name="nombre" required autoFocus style={field}
+          value={nombre} onChange={(e) => setNombre(e.target.value)} />
       </Field>
 
       <Field label="Email" hint="Al menos uno: email o teléfono.">
-        <input type="email" name="email" style={field} />
+        <input type="email" name="email" style={field} value={email} onChange={(e) => setEmail(e.target.value)} />
       </Field>
 
       {/* ⚠️ GRUPO Y NO <label>: adentro hay DOS controles (el país y el número), y un <label>
@@ -161,7 +212,7 @@ export function NewLeadForm({ enModal }: {
       </Field>
 
       <Field label="Instagram" grupo>
-        <InstagramBuscador valor={perfil} onElegir={setPerfil} onTexto={setIgEscrito} />
+        <InstagramBuscador key={igKey} textoInicial={igInicial} valor={perfil} onElegir={setPerfil} onTexto={setIgEscrito} />
         <input type="hidden" name="instagram" value={instagramDelAlta(perfil?.usuario, igEscrito)} />
       </Field>
 
@@ -203,6 +254,7 @@ export function NewLeadForm({ enModal }: {
                           if (!q.ok) throw new Error(q.error);
                         }
                         : undefined;
+                      olvidarBorrador();
                       if (enModal.onAgregado) enModal.onAgregado(c.id, deshacer);
                       else enModal.onCreado(c.id);
                     })}
@@ -222,6 +274,7 @@ export function NewLeadForm({ enModal }: {
                   // lo pide una persona que ya vio la lista de arriba.
                   const r = await crearLeadEnTableroAction(pendiente, enModal.funnelId ?? null, true);
                   if ('error' in r) { setErr(r.error); return; }
+                  olvidarBorrador();
                   enModal.onCreado(r.id);
                 });
               }}
@@ -249,6 +302,14 @@ export function NewLeadForm({ enModal }: {
           <button type="button" onClick={enModal.onTraer}
             style={{ background: 'none', border: 'none', padding: 0, color: 'var(--primary)', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>
             Traer de otro funnel
+          </button>
+        )}
+        {/* Con un borrador guardado, la salida para empezar de cero (si no, sólo se borra
+            vaciando los campos de a uno). */}
+        {enModal && hayBorrador(borrador) && (
+          <button type="button" onClick={vaciar}
+            style={{ background: 'none', border: 'none', padding: 0, color: 'var(--dim)', fontFamily: SANS, fontSize: 13.5, cursor: 'pointer' }}>
+            Vaciar
           </button>
         )}
         <span style={{ flex: 1 }} />

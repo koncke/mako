@@ -18,6 +18,7 @@
 
 import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { Dropdown } from '@/app/components/Dropdown';
+import { EditarEtiqueta } from '@/app/_components/EditarEtiqueta';
 import type { Etiqueta } from '@/lib/etiquetas';
 
 export type { Etiqueta };
@@ -174,12 +175,17 @@ export function ChipEtiqueta({ e, onSacar, ocupado, chico }: { e: Pick<Etiqueta,
 
 const NUEVA = '__nueva__';
 
+/** Los tres puntos de las opciones de una etiqueta (en fila, como los del tablero). */
+function TresPuntos() {
+  return <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden><circle cx="5" cy="12" r="1.9" /><circle cx="12" cy="12" r="1.9" /><circle cx="19" cy="12" r="1.9" /></svg>;
+}
+
 /**
  * Elegir una etiqueta de un desplegable, con «+ Nueva» al final (el molde de ManyChat: «Add Tag» →
  * una existente o crear una). Crear abre un campo de una línea en el lugar; Enter crea y elige.
  * `excluir` saca de la lista las que ya están puestas.
  */
-export function SelectorEtiqueta({ value, onElegir, excluir, placeholder = 'Etiqueta', width, disabled, ariaLabel, buttonStyle, accion = false, icono }: {
+export function SelectorEtiqueta({ value, onElegir, excluir, placeholder = 'Etiqueta', width, disabled, ariaLabel, buttonStyle, accion = false, icono, editable = false }: {
   value: number | null;
   onElegir: (e: Etiqueta) => void;
   excluir?: ReadonlySet<number>;
@@ -191,12 +197,22 @@ export function SelectorEtiqueta({ value, onElegir, excluir, placeholder = 'Etiq
   /** Un desplegable de ACCIÓN («Agregar etiqueta»): no refleja lo elegido. */
   accion?: boolean;
   icono?: ReactNode;
+  /**
+   * Cada etiqueta lleva sus TRES PUNTOS: renombrar, cambiar el color o archivar (`EditarEtiqueta`).
+   * Pedido de Martín (12/10/2026, segundo feedback del CRM, punto 8): «para eso están las etiquetas
+   * dentro del detail de un lead, ahí en ese desplegable debe tener los 3 puntos de opciones en cada
+   * etiqueta». Opt-in: el selector de la condición de un flujo o del paso «⚡ Acción» no los quiere.
+   */
+  editable?: boolean;
 }) {
   const { etiquetas, error } = useEtiquetas();
   const [creando, setCreando] = useState(false);
   const [nombre, setNombre] = useState('');
   const [fallo, setFallo] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState(false);
+  const [editando, setEditando] = useState<Etiqueta | null>(null);
+  // `onCerrar` de identidad FIJA para el Modal del editor (AGENTS.md).
+  const cerrarEditor = useCallback(() => setEditando(null), []);
 
   // ⚠️ EL VALOR ELEGIDO SE NOMBRA AUNQUE YA NO SE PUEDA ELEGIR (revisión del 08/10/2026,
   // etiquetas-6/datos-5). La lista son las VIVAS: un paso «⚡ Acción» que apunta a una etiqueta
@@ -209,7 +225,19 @@ export function SelectorEtiqueta({ value, onElegir, excluir, placeholder = 'Etiq
     ...(fuera && deFuera !== undefined
       ? [{ value: String(value), label: deFuera ? nombreConEstado(deFuera) : 'Una etiqueta que ya no está', color: deFuera?.color, disabled: true }]
       : []),
-    ...lista.map((e) => ({ value: String(e.id), label: `${e.emoji ? `${e.emoji} ` : ''}${e.nombre}`, color: e.color })),
+    ...lista.map((e) => ({
+      value: String(e.id), label: `${e.emoji ? `${e.emoji} ` : ''}${e.nombre}`, color: e.color,
+      // `cierra`: el editor es un modal, y el menú vive en un portal ENCIMA de todo (la nota de
+      // `DropdownAccion.cierra`).
+      ...(editable ? { acciones: [{ icono: <TresPuntos />, title: `Opciones de ${e.nombre}`, cierra: true, onClick: () => setEditando(e) }] } : null),
+    })),
+    // Con los tres puntos, las que ya están puestas TAMBIÉN se listan —apagadas, sin poder elegirse
+    // otra vez— para que se puedan editar desde el mismo lugar. Sin esto, la etiqueta que el lead ya
+    // tiene (justo la que uno mira) era la única sin opciones.
+    ...(editable ? (etiquetas ?? []).filter((e) => excluir?.has(e.id)).map((e) => ({
+      value: String(e.id), label: `${e.emoji ? `${e.emoji} ` : ''}${e.nombre}`, color: e.color, sub: 'Ya la tiene', disabled: true,
+      acciones: [{ icono: <TresPuntos />, title: `Opciones de ${e.nombre}`, cierra: true, onClick: () => setEditando(e) }],
+    })) : []),
     { value: NUEVA, label: 'Nueva', crear: true },
   ];
 
@@ -267,6 +295,7 @@ export function SelectorEtiqueta({ value, onElegir, excluir, placeholder = 'Etiq
         }}
       />
       {error && <span role="alert" style={{ fontSize: 12, color: 'var(--bad)' }}>{error}</span>}
+      {editando && <EditarEtiqueta etiqueta={editando} onCerrar={cerrarEditor} onCambio={avisarCambioEtiquetas} />}
     </span>
   );
 }

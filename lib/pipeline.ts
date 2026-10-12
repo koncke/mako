@@ -860,7 +860,7 @@ export type EtapaVisible = {
  * abre mostrando una lista distinta de la que llega medio segundo después — que se lee
  * como que la app parpadea y cambia sola.
  */
-export function etapasVisibles(stages: Stage[]): { propias: EtapaVisible[]; fijas: EtapaVisible[] } {
+export function etapasVisibles(stages: Stage[]): { propias: EtapaVisible[]; fijas: EtapaVisible[]; nutricion: EtapaVisible[] } {
   const visibles = stages.filter((st) => st.band === 'pipeline' || esTerminal(st.key));
   const uno = (st: Stage): EtapaVisible => ({
     key: st.key,
@@ -876,6 +876,10 @@ export function etapasVisibles(stages: Stage[]): { propias: EtapaVisible[]; fija
   return {
     propias: visibles.filter((st) => !esTerminal(st.key)).map(uno),
     fijas: visibles.filter((st) => esTerminal(st.key)).map(uno),
+    // Las columnas de la banda Nutrición (las que el recorrido deriva y están puestas). El pop-up de
+    // etapas las lista desde el segundo feedback del 12/10/2026: «faltan las etapas de nutrición que
+    // hoy ya tengo en el funnel... Pon todas las etapas directamente».
+    nutricion: stages.filter((st) => st.band === 'nutricion' && !esTerminal(st.key)).map(uno),
   };
 }
 /**

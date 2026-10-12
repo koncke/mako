@@ -120,6 +120,7 @@ import { motivoCorto, chipsFaltantes } from './worklist-fila';
 import { Modal } from '@/app/_ui/Modal';
 import { BotonBorrar } from '@/app/_ui/BotonBorrar';
 import { NewLeadForm } from './new/NewLeadForm';
+import { BotonReuniones } from './ReunionesProximas';
 import { AccionesLoteLeads } from './AccionesLoteLeads';
 
 const MONO = "'Geist Mono', monospace";
@@ -1801,8 +1802,8 @@ export function CrmBoard({
   // Las etapas que esta pantalla YA dibujó, con el mismo mapeo que usa el server. Es lo
   // que hace que el pop-up abra pintado en vez de con el giro.
   const semillaEtapas = useMemo(() => {
-    const { propias, fijas } = etapasVisibles(stages);
-    return { etapas: propias, fijas };
+    const { propias, fijas, nutricion } = etapasVisibles(stages);
+    return { etapas: propias, fijas, nutricionEtapas: nutricion };
   }, [stages]);
   // Y si la URL lo pidio, se abre solo al entrar. Una sola vez: despues es estado de la
   // pantalla, no de la URL — reabrirlo en cada render lo volveria imposible de cerrar.
@@ -2633,6 +2634,55 @@ export function CrmBoard({
     <main className="crm-hover" style={{ flex: 1, minWidth: 0, padding: '16px 44px 60px', display: 'flex', flexDirection: 'column' }}>
       <CrmToolbarStyles />
 
+      {/* LA BARRA — UNA fila: funnel · vista · buscar · filtrar ····· + Nuevo lead · ⋯
+          (puntos 22-26 del 12/10/2026). El funnel a la izquierda del todo, con su cubo (24);
+          «Activo · Nutrición · Descartado» adentro de «Filtrar» (25); el «⋯» a la derecha del
+          todo, después de «+ Nuevo lead» (26).
+          nowrap + flex:'none' en cada control + UN solo elástico. Nada de
+          marginLeft:'auto' acá: al envolver deja un hueco del ancho de la fila. */}
+      {/* ⚠️ UNA BANDA, DE BORDE A BORDE Y ARRIBA DE TODO (segundo feedback del 12/10/2026, punto 3:
+          «Deja la topbar más gruesa y mejor si se puede diferenciar sutilmente del resto»). Se come
+          el padding del <main> con márgenes negativos (16 arriba, 44 a los costados, los MISMOS
+          números que el padding del <main> de arriba: si cambia uno, cambia el otro) y lleva fondo de
+          superficie con un filete abajo. Va ANTES de los avisos (error, importación, agenda): con
+          ellos arriba, el margen negativo la montaba sobre el aviso. El esqueleto
+          (app/crm/loading.tsx) dibuja la misma banda. */}
+      <div className="crm-tb" style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'nowrap', minWidth: 0, margin: '-16px -44px 18px', padding: '14px 44px', background: 'var(--surface)', borderBottom: '1px solid var(--border)', boxShadow: '0 1px 2px rgba(18,21,27,.04)' }}>
+        {vista !== 'pendientes' && <SelectorFunnel funnels={funnels} activo={funnelActivo} onEditarEtapas={(id, nombre) => setEtapasDe({ id, nombre })} />}
+        <VistaSelector vista={vista} onVista={cambiarVista} pendientes={marcarPending} />
+        {/* Buscar, filtrar y el conteo describen la LISTA de leads. En "Pendientes" no
+            hay lista de leads sino un worklist con su propia lógica: dejarlos ahí era
+            ofrecer controles que no hacían nada. */}
+        {vista !== 'pendientes' && <>
+          <Buscador value={search} onChange={setSearch} />
+          <CrmFilterMenu
+            stages={stages}
+            etapas={stageFilter} setEtapas={setStageFilter}
+            origenes={originOptions} origen={originFilter} setOrigen={setOriginFilter}
+            listas={listasFiltro}
+            orden={ordenFiltro}
+            // Las bandas son una propiedad del KANBAN (qué columnas se ven): sólo viajan en
+            // esa vista, como «Ordenar». Eran tres botones sueltos en esta fila (punto 25).
+            bandas={vista === 'kanban' ? {
+              activas: activeBands,
+              alternar: toggleBand,
+              conteo: (band) => filtered.filter((l) => (stages.find((s) => s.key === effStage(l))?.band ?? 'pipeline') === band).length,
+              prenderTodas: () => setActiveBands(new Set(KANBAN_BANDS)),
+            } : undefined}
+            abierto={filtroAbierto} setAbierto={setFiltroAbierto}
+          />
+        </>}
+        {/* Las reuniones cercanas: después de «Filtrar», y sólo si hay alguna (punto 1 del
+            segundo feedback del 12/10/2026). En cualquier vista, como lo era la sección. */}
+        <BotonReuniones juntas={juntas} onAbrir={(id) => { const l = leads.find((x) => x.id === id); if (l) openDetail(l); }} />
+        <span className="crm-tb-elastico" style={{ flex: 1 }} />
+        {/* El pill del CRM automático vive como renglón del menú de `AccionesHeader` (ver su
+            comentario en CrmToolbar). */}
+        <AccionesHeader
+          onImportar={() => setImportar(true)} onExportar={() => setExportar(true)} onNuevo={() => setNuevoLead({ etapa: null })}
+          onEditarEtapas={() => setEtapasDe({ id: funnelActivo, nombre: nombreDeFunnel(funnelActivo) })} />
+      </div>
+
       {/* ⛔ SIN HEADER DESDE EL 12/10/2026. Era el ícono del CRM y un «CRM» de 46 px a la
           izquierda, con «+ Nuevo lead» y el «⋯» a la derecha. Martín: «Elimina el título de la
           tab "CRM" con el emoji» (punto 22) y «Sube la topbar del todo» (23). El nombre de la
@@ -2682,73 +2732,10 @@ export function CrmBoard({
         </button>
       )}
 
-      {/* TUS JUNTAS */}
-      {juntas.length > 0 && (
-        <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 13, padding: '13px 16px', marginBottom: 14 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 10 }}>
-            <h2 style={{ fontFamily: MONO, fontWeight: 600, fontSize: 11.5, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--dim)', margin: 0 }}>Tus reuniones</h2>
-            <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 999, background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--dim)' }}>{juntas.length}</span>
-          </div>
-          <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 2 }}>
-            {juntas.map((j) => (
-              <div key={j.id} style={{ flex: 'none', width: 288, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '11px 13px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
-                  <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 600, letterSpacing: '.05em', textTransform: 'uppercase', padding: '3px 8px', borderRadius: 6, background: 'var(--ink)', color: 'var(--on-ink)' }}>{j.when}</span>
-                  {j.warn && <span style={{ fontSize: 11, color: 'var(--bad)', background: 'var(--bad-bg)', padding: '3px 7px', borderRadius: 6 }}>⚠ {j.warnText}</span>}
-                </div>
-                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
-                  <span style={{ fontWeight: 600, fontSize: 14.5, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{j.name}</span>
-                  <span
-                    onClick={() => { const l = leads.find((x) => x.id === j.leadId); if (l) openDetail(l); }}
-                    style={{ flex: 'none', fontSize: 12, fontWeight: 600, color: 'var(--primary)', textDecoration: 'none', cursor: 'pointer' }}
-                  >Abrir →</span>
-                </div>
-                <div style={{ fontSize: 12, color: 'var(--dim)' }}><span style={{ color: 'var(--dim)' }}>Quiere:</span> {j.goal}</div>
-                <div style={{ fontSize: 11.5, color: 'var(--dim)', fontVariantNumeric: 'tabular-nums' }}>☎ {j.phone}</div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* LA BARRA — UNA fila: funnel · vista · buscar · filtrar ····· + Nuevo lead · ⋯
-          (puntos 22-26 del 12/10/2026). El funnel a la izquierda del todo, con su cubo (24);
-          «Activo · Nutrición · Descartado» adentro de «Filtrar» (25); el «⋯» a la derecha del
-          todo, después de «+ Nuevo lead» (26).
-          nowrap + flex:'none' en cada control + UN solo elástico. Nada de
-          marginLeft:'auto' acá: al envolver deja un hueco del ancho de la fila. */}
-      <div className="crm-tb" style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'nowrap', minWidth: 0, marginBottom: 16 }}>
-        {vista !== 'pendientes' && <SelectorFunnel funnels={funnels} activo={funnelActivo} onEditarEtapas={(id, nombre) => setEtapasDe({ id, nombre })} />}
-        <VistaSelector vista={vista} onVista={cambiarVista} pendientes={marcarPending} />
-        {/* Buscar, filtrar y el conteo describen la LISTA de leads. En "Pendientes" no
-            hay lista de leads sino un worklist con su propia lógica: dejarlos ahí era
-            ofrecer controles que no hacían nada. */}
-        {vista !== 'pendientes' && <>
-          <Buscador value={search} onChange={setSearch} />
-          <CrmFilterMenu
-            stages={stages}
-            etapas={stageFilter} setEtapas={setStageFilter}
-            origenes={originOptions} origen={originFilter} setOrigen={setOriginFilter}
-            listas={listasFiltro}
-            orden={ordenFiltro}
-            // Las bandas son una propiedad del KANBAN (qué columnas se ven): sólo viajan en
-            // esa vista, como «Ordenar». Eran tres botones sueltos en esta fila (punto 25).
-            bandas={vista === 'kanban' ? {
-              activas: activeBands,
-              alternar: toggleBand,
-              conteo: (band) => filtered.filter((l) => (stages.find((s) => s.key === effStage(l))?.band ?? 'pipeline') === band).length,
-              prenderTodas: () => setActiveBands(new Set(KANBAN_BANDS)),
-            } : undefined}
-            abierto={filtroAbierto} setAbierto={setFiltroAbierto}
-          />
-        </>}
-        <span className="crm-tb-elastico" style={{ flex: 1 }} />
-        {/* El pill del CRM automático vive como renglón del menú de `AccionesHeader` (ver su
-            comentario en CrmToolbar). */}
-        <AccionesHeader
-          onImportar={() => setImportar(true)} onExportar={() => setExportar(true)} onNuevo={() => setNuevoLead({ etapa: null })}
-          onEditarEtapas={() => setEtapasDe({ id: funnelActivo, nombre: nombreDeFunnel(funnelActivo) })} />
-      </div>
+      {/* ⛔ SIN LA SECCIÓN «TUS REUNIONES» DESDE EL 12/10/2026 (segundo feedback, punto 1). Era una
+          caja del ancho de la pantalla, arriba de la barra, que empujaba el tablero hacia abajo
+          con cada reunión cercana. Ahora es el botón de calendario que late después de «Filtrar»
+          (`BotonReuniones`, ReunionesProximas.tsx), y lo que mostraba vive en su pop-up. */}
 
       {/* Sin fila de chips debajo de la barra: «No debe salir los chips de abajo del filtro y
           el botón de "limpiar" si para eso ya está la notificacion en filtros» (Martín,
