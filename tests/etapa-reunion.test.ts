@@ -88,18 +88,27 @@ test('la action lo decide del lado del server, con la misma regla', () => {
   assert.ok(j > 0, 'falta la op tipo en editarEtapaAction');
   const ramaTipo = src.slice(j, src.indexOf("} else if (op.op === 'agregar') {", j));
   assert.match(ramaTipo, /if \(!TIPOS_ETAPA\.includes\(op\.tipo\)\) return \{ ok: false/, 'un tipo inventado se guardaría');
-  assert.match(ramaTipo, /if \(!puedeSerReunion\(st\)\) return \{ ok: false/, 'la entrada, el pago y el cierre perderían su tipo');
-  assert.match(ramaTipo, /conTipo\(x, op\.tipo\)/);
+  // Desde el sexto feedback del 12/10/2026 el tipo decide la BANDA: lo resuelve `cambiarTipo`
+  // (lib/etapa-banda.ts), que valida con `puedeTenerTipo` (la entrada, el cierre y las terminales no
+  // llevan tipo; el pago sí, y conserva el suyo). Su comportamiento se prueba en
+  // tests/crm-etapas-banda-12-10.test.ts.
+  assert.match(ramaTipo, /const r = cambiarTipo\(\{ pipeline, suppressed: actual\.suppressed, labels, ordenNutricion: ordenAhora \}, op\.key, op\.tipo, at\);/);
+  assert.match(ramaTipo, /if \(!r\.ok\) return r;/);
+  assert.match(sinComentarios(leer('lib/etapa-banda.ts')), /if \(!puedeTenerTipo\(enPipeline\)\) return \{ ok: false/, 'la entrada y el cierre perderían su lugar');
 });
 
 test('la pantalla pregunta antes de correr una reunión de número, y muestra el tipo sólo donde se puede', () => {
   const src = sinComentarios(leer('app/crm/EtapasModal.tsx'));
-  assert.match(src, /\{puedeSerReunion\(e\) && \(\s*<SelectorTipo/);
+  // Desde el sexto feedback del 12/10/2026 el desplegable va en TODAS (también Facturando y las de
+  // nutrición): `puedeTenerTipo`, no `puedeSerReunion`.
+  assert.match(src, /\{puedeTenerTipo\(e\) && \(\s*<SelectorTipo/);
+  assert.match(src, /<SelectorTipo etapa=\{e\.label\} tipo="nutricion"/, 'las nutriciones no tienen el desplegable');
   assert.doesNotMatch(src, /<BotonReunion/, 'volvió el botón «Reunión» suelto');
   const f = src.slice(src.indexOf('const elegirTipo'), src.indexOf('const quitarEtapa'));
-  assert.ok(f.length > 100 && f.length < 1500, `el recorte mide ${f.length}: está mirando otra cosa`);
-  assert.match(f, /cambioDeReuniones\(etapas, e\.key, es\)/);
-  assert.match(f, /aplicar\(\{ op: 'tipo', key: e\.key, tipo \}\)/);
+  assert.ok(f.length > 100 && f.length < 2600, `el recorte mide ${f.length}: está mirando otra cosa`);
+  // Las reuniones se cuentan sobre la lista como QUEDARÍA (con la etapa que entra del recorrido en su lugar).
+  assert.match(f, /cambioDeReuniones\(lista, e\.key, es\)/);
+  assert.match(f, /aplicar\(\{ op: 'tipo', key: e\.key, tipo, \.\.\.\(at != null \? \{ at \} : null\) \}/);
   assert.match(f, /if \(!c\.corridas\.length\) \{ hacer\(\); return; \}/, 'sin nada que se corra, se marca sin fricción');
   assert.match(f, /setConfirmar\(/, 'si una reunión se corre de número, se pregunta');
 });
@@ -187,18 +196,25 @@ test('tipoDeEtapa y conTipo: Reunión es el kind; Etapa y Nutrición, un paso co
   assert.equal(puedeSerReunion(conTipo<E>({ key: 'st0', kind: 'paso' }, 'nutricion')), true);
 });
 
-test('⚠️ marcar Nutrición NO cambia transiciones ni reuniones: para todo lo que lee `kind` es un paso', () => {
-  // El embudo de plantilla con una etapa de paso: marcarla Nutrición deja el funnel IDÉNTICO.
+// ⚠️ HASTA EL 12/10/2026 ESTA GUARDA DECÍA LO CONTRARIO: «marcar Nutrición NO cambia transiciones ni
+// reuniones». Martín lo dio vuelta en el sexto feedback de ese día: «si se coloca "Etapa" se desplaza
+// automáticamente hacia arriba, y viceversa». Una etapa marcada Nutrición SALE del recorrido.
+test('marcar Nutrición SACA la etapa del recorrido: queda guardada con su marca y se dibuja en la banda', () => {
   const base: Stage[] = EMBUDO.map((e) => ({ ...e, dot: '#2F6DDB', tone: 'info' } as Stage));
   const conNut = base.map((e) => (e.key === 'st1' ? conTipo(e, 'nutricion') : e));
-  assert.deepEqual(generateFunnel(conNut).transitions, generateFunnel(base).transitions, 'cambiaron las transiciones');
-  assert.deepEqual(reunionesDe(conNut), reunionesDe(base), 'cambiaron las reuniones');
+  const sinElla = base.filter((e) => e.key !== 'st1');
+  assert.deepEqual(generateFunnel(conNut).transitions, generateFunnel(sinElla).transitions, 'la nutrición siguió en el recorrido');
+  assert.deepEqual(reunionesDe(conNut), reunionesDe(sinElla), 'cambiaron las reuniones');
+  const col = generateFunnel(conNut).stages.find((s) => s.key === 'st1');
+  assert.deepEqual([col?.band, col?.kind], ['nutricion', 'paso'], 'no se dibuja en la banda Nutrición');
   // Y la marca SOBREVIVE al guardado: lo que se escribe es `mergeFunnelData` y lo que se lee,
   // `filaAFunnel` (que pasa por `sanearPipeline`). Ida y vuelta por JSON, como la base.
   const guardado = JSON.parse(JSON.stringify(mergeFunnelData({}, conNut, [])));
   const leido = filaAFunnel({ id: 1, nombre: 'X', canal: null, data: guardado, declarado: true });
   assert.equal(leido.pipeline.find((s) => s.key === 'st1')?.marcadaComo, 'nutricion', 'el guardado la borró');
-  assert.equal(etapasVisibles(leido.stages).propias.find((s) => s.key === 'st1')?.marcadaComo, 'nutricion', 'el pop-up no la recibe');
+  const vis = etapasVisibles(leido.stages);
+  assert.equal(vis.nutricion.find((s) => s.key === 'st1')?.marcadaComo, 'nutricion', 'el pop-up no la recibe entre las nutriciones');
+  assert.ok(!vis.propias.some((s) => s.key === 'st1'), 'el pop-up la sigue listando entre las etapas');
 });
 
 test('reunionPorNombre: al crear o renombrar, el nombre la marca sola — salvo que corra otra reunión', () => {

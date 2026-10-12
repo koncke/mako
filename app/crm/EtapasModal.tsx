@@ -51,7 +51,7 @@
 //    cambiarse... Lo que cambio se queda». Se guardaba sólo en el `onBlur`, y cerrar con la ✕,
 //    Escape o un clic afuera desmontaba el campo sin que el `blur` llegara.
 
-import { Fragment, useCallback, useEffect, useRef, useState, useTransition, type CSSProperties, type DragEvent as DragReact } from 'react';
+import { useCallback, useEffect, useRef, useState, useTransition, type CSSProperties, type DragEvent as DragReact, type ReactNode } from 'react';
 import { useRouter, useWs } from '@/app/_ui/Link';
 import { conWs } from '@/lib/ws-tab';
 import { Modal } from '@/app/_ui/Modal';
@@ -61,7 +61,8 @@ import { Dropdown } from '@/app/components/Dropdown';
 import type { NombreIconoMenu } from '@/app/_ui/iconos-menu';
 import { MAX_LABEL_ETAPA, ENTRADAS, TIPOS_FUNNEL, tipoDeFunnel, fechaFijaDelEvento, type EntradaId } from '@/lib/pipeline';
 import type { CanalId } from '@/lib/fase-diagnostico';
-import { puedeSerReunion, cambioDeReuniones, reunionSinLugar, tipoDeEtapa, tieneEtapaDeReunion, TIPOS_ETAPA, type TipoEtapa } from '@/lib/etapa-reunion';
+import { puedeTenerTipo, cambioDeReuniones, reunionSinLugar, tipoDeEtapa, tieneEtapaDeReunion, TIPOS_ETAPA, type TipoEtapa } from '@/lib/etapa-reunion';
+import { LogoMeta } from '@/app/_components/ServicioVisual';
 import {
   editarEtapaAction, embudoEnDetalleAction, renombrarEmbudoAction, archivarEmbudoAction,
   restaurarEmbudoAction, extrasDelEmbudoAction, declararEntradasAction,
@@ -81,6 +82,32 @@ const SANS = "'Geist', sans-serif";
  * (sin `border`: el anillo no le suma alto a la caja), y más alto que una fila de la tabla de campañas.
  */
 const SOMBRA_TARJETA = '0 0 0 1px var(--border-strong), 0 2px 6px rgba(18,21,27,.07)';
+/**
+ * El alto de una tarjeta, UNO para todas (sexto feedback del 12/10/2026: «El placeholder de "Nueva etapa"
+ * debería ser igual de grande que... el alto de las tarjetas»). Lo usan la fila de una etapa, el
+ * «+ Agregar etapa», el campo que se abre al crear y las opciones del tipo de funnel.
+ */
+const ALTO_TARJETA = 54;
+/**
+ * La caja GRIS de cada sección del editor: el tipo de funnel, sus campañas y las etapas (sexto feedback:
+ * «todas las etapas encierralas en un contenedor del mismo gris»). Una sola, para que las tres se lean
+ * hermanas.
+ */
+const CAJA_SECCION: CSSProperties = { borderRadius: 12, background: 'var(--surface-2)', padding: 12, marginBottom: 12 };
+
+/**
+ * La cabecera de una sección: lo que va antes (la flecha de volver), el ícono y el título. La misma en
+ * «Tipo de funnel», «Asignar campañas» y «Editar etapas» (sexto feedback del 12/10/2026, puntos 7 y 8).
+ */
+function CabeceraSeccion({ antes, icono, titulo }: { antes?: ReactNode; icono: ReactNode; titulo: string }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, minHeight: 30, marginBottom: 10 }}>
+      {antes}
+      <span style={{ display: 'inline-flex', flex: 'none', color: 'var(--ink)' }}>{icono}</span>
+      <span style={{ fontFamily: SANS, fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{titulo}</span>
+    </div>
+  );
+}
 // La marca del arrastre SUMA su raya a la sombra: si la pisara, la tarjeta destino perdería el borde.
 const MARCA: CSSProperties = { boxShadow: `inset 0 3px 0 0 var(--primary), ${SOMBRA_TARJETA}` };
 const MARCA_FIN: CSSProperties = { boxShadow: `inset 0 -3px 0 0 var(--primary), ${SOMBRA_TARJETA}` };
@@ -335,7 +362,12 @@ export function EtapasModal({ funnelId, nombre, semilla, onCerrar }: {
   /** De qué lista es lo que se agarró: cada una se reordena sólo dentro de sí. */
   const grupoAgarrado = useRef<Grupo | null>(null);
   const copia = useRef<HTMLElement | null>(null);
-  const medios = useRef<number[]>([]);
+  /**
+   * Los puntos medios de las filas de LAS DOS listas y el de Ganado, que es el límite entre ellas: desde
+   * el sexto feedback del 12/10/2026 una etapa se suelta en la otra lista y cambia de tipo («si arrastro
+   * debería cambiar ese desplegable»).
+   */
+  const medios = useRef<{ propias: number[]; nutricion: number[]; limite: number | null }>({ propias: [], nutricion: [], limite: null });
   const lista = useRef<HTMLDivElement | null>(null);
   const [ins, setIns] = useState<{ g: Grupo; i: number } | null>(null);
   const [arrastrando, setArrastrando] = useState<string | null>(null);
@@ -343,7 +375,7 @@ export function EtapasModal({ funnelId, nombre, semilla, onCerrar }: {
   const limpiarDrag = () => {
     setIns(null);
     setArrastrando(null);
-    medios.current = [];
+    medios.current = { propias: [], nutricion: [], limite: null };
     agarrada.current = null;
     grupoAgarrado.current = null;
     copia.current?.remove();
@@ -362,8 +394,10 @@ export function EtapasModal({ funnelId, nombre, semilla, onCerrar }: {
       e.dataTransfer.setDragImage(vacio, 0, 0);
     } catch { /* si no deja, queda la del navegador */ }
 
-    medios.current = [...(lista.current?.querySelectorAll<HTMLElement>(`[data-etapa="${grupo}"]`) ?? [])]
-      .map((f) => { const r = f.getBoundingClientRect(); return r.top + r.height / 2; });
+    const medio = (f: Element) => { const r = f.getBoundingClientRect(); return r.top + r.height / 2; };
+    const deGrupo = (g: Grupo) => [...(lista.current?.querySelectorAll<HTMLElement>(`[data-etapa="${g}"]`) ?? [])].map(medio);
+    const limite = lista.current?.querySelector('[data-limite]');
+    medios.current = { propias: deGrupo('propias'), nutricion: deGrupo('nutricion'), limite: limite ? medio(limite) : null };
     grupoAgarrado.current = grupo;
 
     const r = fila.getBoundingClientRect();
@@ -503,16 +537,48 @@ export function EtapasModal({ funnelId, nombre, semilla, onCerrar }: {
     };
   }, [soltarNombre]);
 
+  /** Mueve la fila a la otra lista en el acto (optimista); el server confirma y `cargar()` resincroniza. */
+  const mudar = (e: EtapaDelFunnel, hacia: Grupo, at?: number) => {
+    const p = etapas.filter((x) => x.key !== e.key);
+    const n = nutricionEtapas.filter((x) => x.key !== e.key);
+    if (hacia === 'nutricion') {
+      const i = Math.max(0, Math.min(at ?? 0, n.length));
+      setNutriLocal([...n.slice(0, i), { ...e, marcadaComo: 'nutricion' }, ...n.slice(i)]);
+      setOrdenLocal(p);
+    } else {
+      const i = Math.max(pisoDelOrden, Math.min(at ?? p.length, p.length));
+      setOrdenLocal([...p.slice(0, i), { ...e, marcadaComo: undefined }, ...p.slice(i)]);
+      setNutriLocal(n);
+    }
+  };
+
   // ── el TIPO de una etapa: Etapa / Reunión / Nutrición ────────────────────────────────
   // ⚠️ PREGUNTA SÓLO SI UNA REUNIÓN QUE YA EXISTE CAMBIA DE NÚMERO. La fecha del lead va por
   // ORDEN de las reuniones (lib/etapa-reunion.ts, `cambioDeReuniones`): marcar una etapa que
   // va antes de otra reunión la corre al segundo lugar, y las fechas ya cargadas se verían en
   // otra etapa. Pasar de Reunión a Nutrición o a Etapa la desmarca, y eso también corre a las
   // de después. Entre Etapa y Nutrición no cambia ninguna reunión: se guarda sin fricción.
-  const elegirTipo = (e: EtapaDelFunnel, tipo: TipoEtapa) => {
+  //
+  // ⚠️ Y DESDE EL SEXTO FEEDBACK DEL 12/10/2026 EL TIPO DECIDE LA LISTA: «si se coloca "Etapa" se desplaza
+  // automáticamente hacia arriba, y viceversa». `desde` es la lista donde está la fila y `at` dónde cae en
+  // la otra (lo manda el arrastre; sin él, lo más cerca de la otra lista). La fila se muda en el acto
+  // (optimista) y el toast lo dice con su deshacer, que la devuelve a su tipo y a su lugar.
+  const elegirTipo = (e: EtapaDelFunnel, tipo: TipoEtapa, desde: Grupo = 'propias', at?: number) => {
+    const hacia: Grupo = tipo === 'nutricion' ? 'nutricion' : 'propias';
+    const previo: TipoEtapa = desde === 'nutricion' ? 'nutricion' : tipoDeEtapa(e);
+    const lugarPrevio = (desde === 'nutricion' ? nutricionEtapas : etapas).findIndex((x) => x.key === e.key);
+    // Las reuniones se cuentan sobre la lista COMO QUEDARÍA: con la etapa entrando al recorrido en su lugar.
+    const sinEsta = etapas.filter((x) => x.key !== e.key);
+    const pos = Math.max(pisoDelOrden, Math.min(at ?? sinEsta.length, sinEsta.length));
+    const lista = desde === 'nutricion' ? [...sinEsta.slice(0, pos), { ...e, kind: 'paso' }, ...sinEsta.slice(pos)] : etapas;
     const es = tipo === 'reunion';
-    const c = cambioDeReuniones(etapas, e.key, es);
-    const hacer = () => aplicar({ op: 'tipo', key: e.key, tipo });
+    const c = cambioDeReuniones(lista, e.key, es);
+    const hacer = () => {
+      if (desde !== hacia) mudar(e, hacia, at);
+      aplicar({ op: 'tipo', key: e.key, tipo, ...(at != null ? { at } : null) }, () => {
+        if (desde !== hacia) show(hacia === 'nutricion' ? 'Pasó a Nutrición' : 'Pasó a etapas', () => aplicar({ op: 'tipo', key: e.key, tipo: previo, at: lugarPrevio }));
+      });
+    };
     if (!c.corridas.length) { hacer(); return; }
     setConfirmar({
       titulo: es ? `«${e.label}» es una reunión` : `«${e.label}» deja de ser reunión`,
@@ -606,40 +672,59 @@ export function EtapasModal({ funnelId, nombre, semilla, onCerrar }: {
    * descartado"… que esas etapas simplemente no tengan nada, pero quiero que el contenedor se
    * diferencie». La caja va sin relleno y con el borde punteado: se lee como «esto no se mueve».
    */
+  //
+  // Desde el sexto feedback del 12/10/2026 encima de Ganado va el «+» que agrega una etapa al final del
+  // recorrido, y encima del primer descarte el que agrega una nutrición al final de la banda. Ganado
+  // lleva `data-limite`: su medio es la frontera entre las dos listas cuando se arrastra.
   const filaFija = (e: EtapaDelFunnel) => (
-    <div key={e.key} style={{ ...caja, background: 'transparent', boxShadow: 'none', border: '1px dashed var(--border-strong)' }}>
-      <div style={{ ...fila }}>
-        <Asa quieta />
-        <span style={{ width: 9, height: 9, flex: 'none', borderRadius: '50%', background: e.dot }} />
-        {nombreEditable(e)}
+    <div key={e.key} style={{ position: 'relative' }}>
+      {e.key === 'ganado' ? (
+        <HuecoAgregar disabled={trabajando} oculto={arrastrando != null}
+          onCrear={(label) => aplicar({ op: 'agregar', label, ...(etapas.length ? { despuesDe: etapas[etapas.length - 1].key } : null) })} />
+      ) : e.key === primerDescarte ? (
+        <HuecoAgregar disabled={trabajando} oculto={arrastrando != null}
+          onCrear={(label) => aplicar({ op: 'agregar', label, nutricionEn: nutricionEtapas.length })} />
+      ) : null}
+      <div data-limite={e.key === 'ganado' ? '' : undefined}
+        style={{ ...caja, background: 'transparent', boxShadow: 'none', border: '1px dashed var(--border-strong)' }}>
+        <div style={{ ...fila }}>
+          <Asa quieta />
+          <span style={{ width: 9, height: 9, flex: 'none', borderRadius: '50%', background: e.dot }} />
+          {nombreEditable(e)}
+        </div>
       </div>
     </div>
   );
+  /** El primer descarte: encima de él va el «+» que agrega una nutrición al final de la banda. */
+  const primerDescarte = fijas.find((x) => x.key !== 'ganado')?.key;
 
   /**
-   * Una etapa de NUTRICIÓN, editable como cualquier otra (12/10/2026): se arrastra entre las de su
-   * banda, se renombra con un clic en el nombre y se quita con el tacho. La pastilla dice que es una
-   * nutrición: su tipo lo decide el recorrido, no se elige.
+   * Una etapa de NUTRICIÓN, editable como cualquier otra (12/10/2026): se arrastra, se renombra con un
+   * clic en el nombre y se quita con el tacho. Desde el sexto feedback lleva el MISMO desplegable de tipo
+   * que las demás («Todos deberían ser lo mismo, sin excepciones»): elegir Etapa o Reunión la sube al
+   * recorrido. Y el tacho depende de dónde vive: una nutrición PROPIA (la que alguien marcó, guardada en
+   * el pipeline) se quita como una etapa; una que deriva el recorrido, apagando lo que llega a ella.
    */
   const filaNutricion = (e: EtapaDelFunnel, i: number) => (
-    <div key={e.key} style={{
-      ...caja,
-      outline: arrastrando === e.key ? '1px solid var(--border-strong)' : 'none',
-      ...marcaDe('nutricion', i, nutricionEtapas.length),
-    }}>
-      <div data-etapa="nutricion" draggable
-        onDragStart={(ev) => agarrar(ev, e.key, 'nutricion')}
-        onDragEnd={limpiarDrag}
-        style={{ ...fila, cursor: 'grab' }}>
-        <Asa />
-        <span style={{ width: 9, height: 9, flex: 'none', borderRadius: '50%', background: e.dot }} />
-        {nombreEditable(e)}
-        <span title="Esta etapa la arma el recorrido"
-          style={{ flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 6, height: 28, padding: '0 11px', borderRadius: 999, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 12.5, fontWeight: 600 }}>
-          <IconoMenu nombre="repetir" size={13} />
-          Nutrición
-        </span>
-        {tacho(e, () => quitarNutricion(e))}
+    <div key={e.key} style={{ position: 'relative' }}>
+      <HuecoAgregar disabled={trabajando} oculto={arrastrando != null}
+        onCrear={(label) => aplicar({ op: 'agregar', label, nutricionEn: i })} />
+      <div style={{
+        ...caja,
+        outline: arrastrando === e.key ? '1px solid var(--border-strong)' : 'none',
+        ...marcaDe('nutricion', i, nutricionEtapas.length),
+      }}>
+        <div data-etapa="nutricion" draggable
+          onDragStart={(ev) => agarrar(ev, e.key, 'nutricion')}
+          onDragEnd={limpiarDrag}
+          style={{ ...fila, cursor: 'grab' }}>
+          <Asa />
+          <span style={{ width: 9, height: 9, flex: 'none', borderRadius: '50%', background: e.dot }} />
+          {nombreEditable(e)}
+          <SelectorTipo etapa={e.label} tipo="nutricion" porNombre={false} sinLugar={false} disabled={trabajando}
+            onElegir={(t) => elegirTipo(e, t, 'nutricion')} />
+          {tacho(e, () => (e.marcadaComo === 'nutricion' ? quitarEtapa(e) : quitarNutricion(e)))}
+        </div>
       </div>
     </div>
   );
@@ -690,7 +775,7 @@ export function EtapasModal({ funnelId, nombre, semilla, onCerrar }: {
   const caja: CSSProperties = { borderRadius: 12, background: 'var(--surface)', boxShadow: SOMBRA_TARJETA, overflow: 'hidden' };
   /** La fila va TRANSPARENTE: el fondo lo pone la caja, o volveríamos a tener dos. */
   const fila: CSSProperties = {
-    display: 'flex', alignItems: 'center', gap: 10, minHeight: 34, padding: '12px 12px 12px 12px',
+    display: 'flex', alignItems: 'center', gap: 10, minHeight: ALTO_TARJETA, padding: '12px 12px 12px 12px',
   };
 
   return (
@@ -778,15 +863,29 @@ export function EtapasModal({ funnelId, nombre, semilla, onCerrar }: {
               />
             )}
 
+            {/* LAS ETAPAS EN UNA CAJA GRIS con su cabecera (sexto feedback del 12/10/2026, puntos 6 y 8:
+                «todas las etapas encierralas en un contenedor del mismo gris» y «que diga "Editar etapas"
+                y que tenga el logo del kanban»). */}
+            <div style={CAJA_SECCION}>
+            <CabeceraSeccion icono={<IconoMenu nombre="etapa" size={15} />} titulo="Editar etapas" />
             <div ref={lista} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
               onDragOver={(e) => {
-                const g = grupoAgarrado.current;
-                if (!agarrada.current || !g) return;
+                if (!agarrada.current || !grupoAgarrado.current) return;
                 e.preventDefault();
                 e.dataTransfer.dropEffect = 'move';
+                // El DESTINO puede ser la otra lista (sexto feedback del 12/10/2026: «si arrastro debería
+                // cambiar ese desplegable»): arriba del medio de Ganado se suelta entre las etapas, abajo
+                // entre las nutriciones.
                 const m = medios.current;
-                let idx = m.length;
-                for (let i = 0; i < m.length; i++) { if (e.clientY < m[i]) { idx = i; break; } }
+                let g: Grupo = 'propias';
+                let idx = m.propias.length;
+                const iP = m.propias.findIndex((y) => e.clientY < y);
+                if (iP >= 0) idx = iP;
+                else if (m.limite != null && e.clientY >= m.limite) {
+                  g = 'nutricion';
+                  const iN = m.nutricion.findIndex((y) => e.clientY < y);
+                  idx = iN >= 0 ? iN : m.nutricion.length;
+                }
                 // La marca nunca se dibuja por encima de la entrada: prometer un destino
                 // que el drop va a corregir es peor que no dibujarla.
                 if (g === 'propias' && idx < pisoDelOrden) idx = pisoDelOrden;
@@ -798,11 +897,18 @@ export function EtapasModal({ funnelId, nombre, semilla, onCerrar }: {
                 e.preventDefault();
                 const key = e.dataTransfer.getData('text/plain') || agarrada.current;
                 const g = grupoAgarrado.current;
-                const destino = ins?.g === g && ins ? ins.i : (g === 'nutricion' ? nutricionEtapas.length : etapas.length);
+                const hacia = ins?.g ?? g;
+                const destino = ins ? ins.i : (hacia === 'nutricion' ? nutricionEtapas.length : etapas.length);
                 limpiarDrag();
-                if (!key) return;
-                if (g === 'nutricion') soltarNutricion(key, destino);
-                else soltarEn(key, destino);
+                if (!key || !g) return;
+                if (hacia === g) {
+                  if (g === 'nutricion') soltarNutricion(key, destino);
+                  else soltarEn(key, destino);
+                  return;
+                }
+                // Cambió de lista: cambia el tipo (y el desplegable con él), en el lugar donde se soltó.
+                const fila = (g === 'nutricion' ? nutricionEtapas : etapas).find((x) => x.key === key);
+                if (fila) elegirTipo(fila, hacia === 'nutricion' ? 'nutricion' : 'etapa', g, destino);
               }}
               onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setIns(null); }}
             >
@@ -814,7 +920,14 @@ export function EtapasModal({ funnelId, nombre, semilla, onCerrar }: {
                 onCrear={(label) => aplicar({ op: 'agregar', label, ...(etapas[iEntrada] ? { despuesDe: etapas[iEntrada].key } : null) })} />
 
               {etapas.map((e, i) => (
-              <Fragment key={e.key}>
+              <div key={e.key} style={{ position: 'relative' }}>
+                {/* El «+» ENTRE dos etapas (sexto feedback del 12/10/2026: «Si arrastro el cursor entre
+                    medio de etapas debería aparecer un botón de "+" para agregar una etapa ahí en el
+                    medio»). Encima de la entrada no: nada va antes de ella, y arriba ya está «+ Agregar». */}
+                {i > 0 && (
+                  <HuecoAgregar disabled={trabajando} oculto={arrastrando != null}
+                    onCrear={(label) => aplicar({ op: 'agregar', label, despuesDe: etapas[i - 1].key })} />
+                )}
                 {/* ⚠️ EL RADIO, EL FONDO, LA MARCA DEL ARRASTRE Y EL BORDE DEL NODO AGARRADO VIVEN
                     ACÁ, en el envoltorio. Y `data-etapa` / `draggable` se quedan ADENTRO, en la fila:
                     los puntos medios del drop salen de `querySelectorAll('[data-etapa="propias"]')`. */}
@@ -836,9 +949,11 @@ export function EtapasModal({ funnelId, nombre, semilla, onCerrar }: {
                         «Campañas de Meta» — el tipo de funnel y sus campañas viven arriba. No se mueve
                         y no se quita: sin ella el embudo no tiene por dónde entrar. */}
                     {!esEntrada(e) && (<>
-                      {/* Sólo las que pueden ser reunión tienen tipo: la entrada, el pago y el
-                          cierre ya tienen el suyo (`puedeSerReunion`, y la action lo repite). */}
-                      {puedeSerReunion(e) && (
+                      {/* El desplegable va en TODAS (sexto feedback del 12/10/2026: «Facturando y las etapas
+                          de nutrición no tienen el desplegable... Todos deberían ser lo mismo, sin
+                          excepciones»). La entrada no llega acá; el cierre y las terminales son las fijas.
+                          El pago conserva su tipo al pasar por Etapa o Nutrición (`conTipo`). */}
+                      {puedeTenerTipo(e) && (
                         <SelectorTipo etapa={e.label} tipo={tipoDeEtapa(e)}
                           porNombre={!e.marcadaComo && tipoDeEtapa(e) === 'etapa' && tieneEtapaDeReunion([e])}
                           sinLugar={reunionSinLugar(etapas, e.key)} disabled={trabajando}
@@ -848,7 +963,7 @@ export function EtapasModal({ funnelId, nombre, semilla, onCerrar }: {
                     </>)}
                   </div>
                 </div>
-              </Fragment>
+              </div>
               ))}
 
               {/* LAS OTRAS ETAPAS DEL TABLERO, EN LA MISMA LISTA Y EN EL ORDEN DEL TABLERO: el recorrido
@@ -859,6 +974,7 @@ export function EtapasModal({ funnelId, nombre, semilla, onCerrar }: {
               {fijas.filter((e) => e.key === 'ganado').map((e) => filaFija(e))}
               {nutricionEtapas.map((e, i) => filaNutricion(e, i))}
               {fijas.filter((e) => e.key !== 'ganado').map((e) => filaFija(e))}
+            </div>
             </div>
           </>
         )}
@@ -977,19 +1093,17 @@ function SeccionFunnel({ entradas, evento, canal, funnelId, funnelIdCampanas, no
   /** Guardar el evento (al salir de un campo): sólo si ya hay un tipo, que es lo que lleva. */
   const guardarEvento = (o?: { dias?: number[] }) => { if (sel.length && !guardando) void guardar(sel, eventoDe(o), sel); };
 
-  const caja: CSSProperties = { borderRadius: 12, background: 'var(--surface-2)', padding: 12, marginBottom: 12 };
-
   if (paso === 'campanas' && tipo?.anuncios) {
     return (
-      <div style={caja}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+      <div style={CAJA_SECCION}>
+        {/* «En lugar del texto "Anuncios a Landing", que ahí diga "Asignar campañas" y que tenga el logo
+            de Meta, no el logo del mundo» (sexto feedback del 12/10/2026, punto 7). */}
+        <CabeceraSeccion icono={<LogoMeta size={16} />} titulo="Asignar campañas" antes={(
           <button type="button" onClick={() => setPaso('tipo')} aria-label="Cambiar el tipo de funnel" title="Cambiar el tipo de funnel"
             style={{ width: 30, height: 30, flex: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', cursor: 'pointer' }}>
             <svg aria-hidden width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
           </button>
-          <IconoMenu nombre={ICONO_TIPO[tipo.id]} size={15} />
-          <span style={{ fontFamily: SANS, fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{tipo.label}</span>
-        </div>
+        )} />
         <CampanasModal enLinea funnelId={funnelIdCampanas} nombreProducto={nombreProducto} />
       </div>
     );
@@ -997,30 +1111,39 @@ function SeccionFunnel({ entradas, evento, canal, funnelId, funnelIdCampanas, no
 
   // Lo ya declarado que no es un tipo se muestra ELEGIDO, al final (la regla del `<select>`).
   const fuera = tipo ? [] : sel.filter((x) => !TIPOS_FUNNEL.some((t) => t.entrada === x));
-  const pastilla = (on: boolean): CSSProperties => ({
-    display: 'inline-flex', alignItems: 'center', gap: 7, height: 34, padding: '0 13px', borderRadius: 999,
-    fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: guardando ? 'default' : 'pointer',
-    border: '1px solid ' + (on ? 'var(--primary)' : 'var(--border-strong)'),
-    background: on ? 'var(--primary-weak)' : 'var(--surface)',
-    color: on ? 'var(--primary)' : 'var(--ink)',
+  // ⚠️ UNA LISTA DE TARJETAS, como las etapas (sexto feedback del 12/10/2026, punto 9: «que el paso
+  // anterior donde se selecciona el tipo de funnel, que sea igual en diseño, tipo lista, no botones»). La
+  // elegida va con el anillo azul y su tilde; las de anuncios llevan la flecha a sus campañas.
+  const opcion = (on: boolean): CSSProperties => ({
+    display: 'flex', alignItems: 'center', gap: 10, width: '100%', minHeight: ALTO_TARJETA, padding: '12px',
+    borderRadius: 12, border: 'none', textAlign: 'left',
+    background: 'var(--surface)', boxShadow: on ? '0 0 0 1.5px var(--primary), 0 2px 6px rgba(18,21,27,.07)' : SOMBRA_TARJETA,
+    fontFamily: SANS, fontSize: 14, fontWeight: 600, color: on ? 'var(--primary)' : 'var(--ink)',
+    cursor: guardando ? 'default' : 'pointer',
   });
 
   return (
-    <div style={caja}>
-      <span style={{ display: 'block', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, color: 'var(--dim)', marginBottom: 8 }}>Tipo de funnel</span>
-      <div role="radiogroup" aria-label="Tipo de funnel" style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+    <div style={CAJA_SECCION}>
+      <CabeceraSeccion icono={<IconoMenu nombre="filtro" size={15} />} titulo="Tipo de funnel" />
+      <div role="radiogroup" aria-label="Tipo de funnel" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {TIPOS_FUNNEL.map((t) => {
           const on = tipo?.id === t.id;
           return (
             <button key={t.id} type="button" role="radio" aria-checked={on} disabled={guardando}
-              onClick={() => void elegir(t)} style={pastilla(on)}>
-              <IconoMenu nombre={ICONO_TIPO[t.id]} size={14} />
-              {t.label}
+              onClick={() => void elegir(t)} style={opcion(on)}>
+              <span style={{ display: 'inline-flex', flex: 'none', color: on ? 'var(--primary)' : 'var(--dim)' }}><IconoMenu nombre={ICONO_TIPO[t.id]} size={16} /></span>
+              <span style={{ flex: 1, minWidth: 0 }}>{t.label}</span>
+              {on && <span style={{ display: 'inline-flex', flex: 'none', color: 'var(--primary)' }}><IconoMenu nombre="check" size={16} /></span>}
+              {t.anuncios && (
+                <span aria-hidden style={{ display: 'inline-flex', flex: 'none', color: 'var(--faint)' }}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg>
+                </span>
+              )}
             </button>
           );
         })}
         {fuera.map((x) => ENTRADAS[x]).filter(Boolean).map((e) => (
-          <span key={e.id} role="radio" aria-checked style={{ ...pastilla(true), cursor: 'default' }}>{e.label}</span>
+          <span key={e.id} role="radio" aria-checked style={{ ...opcion(true), cursor: 'default' }}>{e.label}</span>
         ))}
       </div>
 
@@ -1075,8 +1198,14 @@ function SeccionFunnel({ entradas, evento, canal, funnelId, funnelIdCampanas, no
  * Antes creaba una «Nueva etapa» sin preguntar y había que renombrarla después — dos pasos
  * para lo que es uno, y mientras tanto una columna con un nombre que no significa nada.
  */
-function NuevaEtapa({ disabled, onCrear }: { disabled?: boolean; onCrear: (label: string) => void }) {
-  const [abierto, setAbierto] = useState(false);
+function NuevaEtapa({ disabled, onCrear, abiertaDeEntrada, onCerrar }: {
+  disabled?: boolean; onCrear: (label: string) => void;
+  /** Nace con el campo abierto: la abre el «+» del medio (`HuecoAgregar`), que ya es el clic de agregar. */
+  abiertaDeEntrada?: boolean;
+  /** Avisa al cerrar el campo (con o sin nombre), para que el «+» del medio vuelva a ser un «+». */
+  onCerrar?: () => void;
+}) {
+  const [abierto, setAbierto] = useState(!!abiertaDeEntrada);
   const [hover, setHover] = useState(false);
   const [txt, setTxt] = useState('');
 
@@ -1085,11 +1214,12 @@ function NuevaEtapa({ disabled, onCrear }: { disabled?: boolean; onCrear: (label
     setTxt('');
     setAbierto(false);
     if (guardar && v) onCrear(v);
+    onCerrar?.();
   };
 
   if (abierto) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minHeight: 34, padding: '12px', borderRadius: 12, background: 'var(--surface)', boxShadow: SOMBRA_TARJETA }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minHeight: ALTO_TARJETA, padding: '12px', borderRadius: 12, background: 'var(--surface)', boxShadow: SOMBRA_TARJETA }}>
         {/* Hueco, no gris: el color lo elige el server al crearla (`colorParaNueva`), y un punto
             gris acá era justo lo que se reportó: «el circulito al lado de la etapa aparece en gris». */}
         <span aria-hidden style={{ width: 9, height: 9, flex: 'none', borderRadius: '50%', border: '1.5px dashed var(--border-strong)', boxSizing: 'border-box' }} />
@@ -1112,7 +1242,9 @@ function NuevaEtapa({ disabled, onCrear }: { disabled?: boolean; onCrear: (label
       onClick={() => setAbierto(true)}
       onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
       style={{
-        marginTop: 2, padding: '10px 12px', borderRadius: 10,
+        // Del ALTO de las tarjetas (sexto feedback del 12/10/2026): un botón más bajo que lo que crea se
+        // lee como otra cosa.
+        display: 'flex', alignItems: 'center', minHeight: ALTO_TARJETA, padding: '0 12px', borderRadius: 12,
         border: '1px dashed ' + (hover ? 'var(--primary)' : 'var(--border-strong)'),
         background: hover ? 'var(--primary-weak)' : 'none',
         color: hover ? 'var(--primary)' : 'var(--dim)',
@@ -1123,5 +1255,43 @@ function NuevaEtapa({ disabled, onCrear }: { disabled?: boolean; onCrear: (label
     >
       + Agregar etapa
     </button>
+  );
+}
+
+/**
+ * El «+» ENTRE dos tarjetas (sexto feedback del 12/10/2026: «Si arrastro el cursor entre medio de etapas
+ * debería aparecer un botón de "+" para agregar una etapa ahí en el medio»).
+ *
+ * Una franja ABSOLUTA sobre el hueco de 8 px entre dos tarjetas (y un poco de cada una, para que se pueda
+ * apuntar): con el cursor encima aparece una línea y el «+»; con un clic, el campo del nombre en ese
+ * lugar. ⚠️ No es un elemento del flujo: uno de alto cero entre dos tarjetas sumaría otro hueco de la
+ * lista y las separaría el doble. Va adentro del envoltorio de la tarjeta de ABAJO, que es relativo.
+ * ⚠️ El botón está siempre montado (invisible): un control que aparece sólo con el mouse no se alcanza
+ * con el teclado. Y mientras se arrastra no existe, o la franja se lleva el `dragover` de la lista.
+ */
+function HuecoAgregar({ disabled, oculto, onCrear }: { disabled?: boolean; oculto?: boolean; onCrear: (label: string) => void }) {
+  const [abierto, setAbierto] = useState(false);
+  const [encima, setEncima] = useState(false);
+  if (abierto) {
+    return (
+      <div style={{ marginBottom: 8 }}>
+        <NuevaEtapa abiertaDeEntrada disabled={disabled} onCrear={onCrear} onCerrar={() => { setAbierto(false); setEncima(false); }} />
+      </div>
+    );
+  }
+  if (oculto) return null;
+  return (
+    <div data-nodrag onMouseEnter={() => setEncima(true)} onMouseLeave={() => setEncima(false)}
+      style={{ position: 'absolute', left: 0, right: 0, top: -14, height: 20, zIndex: 3, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <span aria-hidden style={{ position: 'absolute', left: 14, right: 14, top: 9, height: 2, borderRadius: 2, background: 'var(--primary)', opacity: encima ? 0.45 : 0, transition: 'opacity .12s' }} />
+      <button type="button" disabled={disabled} onClick={() => setAbierto(true)}
+        onFocus={() => setEncima(true)} onBlur={() => setEncima(false)}
+        aria-label="Agregar una etapa aquí" title="Agregar una etapa aquí"
+        style={{
+          position: 'relative', width: 22, height: 22, flex: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          borderRadius: '50%', border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 16, fontWeight: 700, lineHeight: 1,
+          cursor: disabled ? 'default' : 'pointer', opacity: encima ? 1 : 0, transition: 'opacity .12s',
+        }}>+</button>
+    </div>
   );
 }

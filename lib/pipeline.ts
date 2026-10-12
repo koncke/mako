@@ -529,7 +529,38 @@ const NUTRI_EXTRA: Record<string, Stage> = {
  * que mire `labels` primero.
  */
 export function labelDeCatalogo(key: string): string | undefined {
-  return (DEFAULT_STAGES.find((s) => s.key === key) ?? NUTRI_EXTRA[key])?.label;
+  return etapaDeCatalogo(key)?.label;
+}
+
+/** La etapa de CATÁLOGO de una clave (nombre, color y banda de fábrica), o undefined si es propia. */
+export function etapaDeCatalogo(key: string): Stage | undefined {
+  return DEFAULT_STAGES.find((s) => s.key === key) ?? NUTRI_EXTRA[key];
+}
+
+/**
+ * ¿Esta etapa del pipeline es una NUTRICIÓN PROPIA? Es la que el negocio marcó «Nutrición» en el
+ * desplegable de tipo (`marcadaComo`).
+ *
+ * ⚠️ DESDE EL 12/10/2026 (sexto feedback) ESA MARCA LA SACA DEL RECORRIDO: «si se coloca "Etapa" se
+ * desplaza automáticamente hacia arriba, y viceversa». Antes era una marca que no cambiaba nada y la
+ * etapa seguía siendo un paso del recorrido. Ahora `generateFunnel` no la encadena (ningún «Avanza»
+ * entra ni sale de ella) y la dibuja en la banda Nutrición, como «Nutrición - Manual».
+ *
+ * ⚠️ SIGUE GUARDADA EN EL PIPELINE, a propósito. Hay ~10 caminos que guardan `data.pipeline` tal
+ * cual lo leyeron (el onboarding, la API de MaKo, cada op del editor): con la etapa en otra clave del
+ * jsonb, el primero que guardara sin conocerla la borraría. Quien quiera el RECORRIDO pide
+ * `recorridoDe`.
+ *
+ * La entrada, el cierre, una reunión y las terminales nunca lo son (no pueden llevar la marca).
+ */
+export function esNutricionPropia(s: Pick<Stage, 'key' | 'kind' | 'marcadaComo'>): boolean {
+  return s.marcadaComo === 'nutricion' && s.kind !== 'entrada' && s.kind !== 'cierre' && s.kind !== 'reunion'
+    && !(TERMINALES as readonly string[]).includes(s.key);
+}
+
+/** El RECORRIDO del pipeline: sus etapas sin las nutriciones propias (`esNutricionPropia`). */
+export function recorridoDe<T extends Pick<Stage, 'key' | 'kind' | 'marcadaComo'>>(pipeline: readonly T[]): T[] {
+  return pipeline.filter((s) => !esNutricionPropia(s));
 }
 export function generateFunnel(pipeline: Stage[], suppressed: string[] = [], labels: Record<string, string> = {}): { stages: Stage[]; transitions: FunnelTransition[] } {
   const sup = new Set(suppressed);
@@ -542,7 +573,12 @@ export function generateFunnel(pipeline: Stage[], suppressed: string[] = [], lab
 
   // Con su color derivado si no tiene uno (`conColores`): lo que se COLOCA es lo que dibujan el
   // tablero y la ficha; el pipeline crudo, el que se guarda, sigue intacto.
-  conColores(pipeline).forEach((p) => place(p, 'pipeline'));
+  // ⚠️ LAS NUTRICIONES PROPIAS NO SON DEL RECORRIDO (`esNutricionPropia`): se colocan en la banda
+  // Nutrición más abajo y no se encadenan. Con el pipeline entero, «Avanza» pasaría por ellas.
+  const coloreado = conColores(pipeline);
+  const recorrido = recorridoDe(coloreado);
+  const nutriPropias = coloreado.filter(esNutricionPropia);
+  recorrido.forEach((p) => place(p, 'pipeline'));
   // ⚠️ `ganado` SIEMPRE, igual que las tres de abajo. `place` deduplica por clave, así que
   // con el pipeline normal —que la trae— esto no hace nada; y al funnel al que le falte
   // (porque alguien la borró cuando se podía) se la devuelve al FINAL, que es donde va un
@@ -555,12 +591,16 @@ export function generateFunnel(pipeline: Stage[], suppressed: string[] = [], lab
   // poder editar, incluso si las quiero eliminar todas»). No sale de ninguna transición, así que
   // su marca en `suppressed` es `*>manual` (`idNutricionFija`).
   const manualDef = lib('manual'); if (manualDef && !sup.has(idNutricionFija('manual'))) place(manualDef, 'nutricion');
+  // Las nutriciones PROPIAS, al lado de «Manual»: como ella, no salen de ninguna transición (se
+  // mueve a mano). Con `kind: 'paso'` en la columna: lo que vive guardado (p. ej. `'pago'`) es para
+  // devolverla igual al recorrido, y en la banda no tiene que pedir los datos de un pago.
+  nutriPropias.forEach((p) => place({ ...p, kind: 'paso' }, 'nutricion'));
 
   // Keys de las reuniones, en orden. `reunionesDe` (no `etapasDeReunion`): acá NO
   // se cae al funnel por defecto — un pipeline sin reuniones no tiene ninguna, y
   // heredar 'agenda'/'agendaj2' le inventaría a este funnel un firstMeeting y sus
   // transiciones de recuperación.
-  const meetings = reunionesDe(pipeline);
+  const meetings = reunionesDe(recorrido);
   const firstMeeting = meetings[0];
   const asist = (mKey: string, attended: boolean): Partial<FunnelTransition> => {
     const slot = slotPorIndice(meetings.indexOf(mKey));
@@ -576,8 +616,8 @@ export function generateFunnel(pipeline: Stage[], suppressed: string[] = [], lab
     if (recover) transitions.push({ from: nutriKey, to: recover.to, label: recover.label, category: 'avanza', trigger: 'agenda' });
   };
 
-  pipeline.forEach((p, i) => {
-    const next = pipeline[i + 1];
+  recorrido.forEach((p, i) => {
+    const next = recorrido[i + 1];
     if (next) {
       // Disparador del avance: entrar a una reunión = agenda (o tiempo si viene
       // de un grupo/evento de fecha fija); salir de una reunión = asistencia;
@@ -1318,8 +1358,11 @@ export function conTerminales(pipeline: Stage[]): Stage[] {
  * a medio armar se guarda igual y lo que falta queda a la vista. Un editor que se niega a
  * guardar deja al cliente sin salida en la pantalla donde configura su negocio.
  */
-export function problemasDePipeline(pipeline: Stage[]): string[] {
+export function problemasDePipeline(guardado: Stage[]): string[] {
   const out: string[] = [];
+  // El RECORRIDO: una nutrición propia (`esNutricionPropia`) vive guardada en el pipeline pero no es un
+  // paso, y no puede contar como «lo que viene después del cierre».
+  const pipeline = recorridoDe(guardado);
   if (!pipeline.length) return out;
 
   // ⚠️ LA FALTA DE `ganado` NO SE CAZABA, y es el agujero más caro de los cinco: sin ella

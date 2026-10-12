@@ -37,6 +37,20 @@ export function puedeSerReunion(e: EtapaConTipo): boolean {
   return e.kind == null || e.kind === 'paso' || e.kind === 'reunion';
 }
 
+/**
+ * ¿Esta etapa lleva el desplegable de tipo (Etapa / Reunión / Nutrición)?
+ *
+ * Desde el 12/10/2026 (sexto feedback): «Revisa que Facturando y las etapas de nutrición no tienen el
+ * desplegable... Todos deberían ser lo mismo, sin excepciones». Más ancha que `puedeSerReunion`: el
+ * PAGO y un GRUPO también lo llevan (su tipo propio se conserva al pasar por Etapa o Nutrición, ver
+ * `conTipo`). Quedan afuera sólo la entrada (por donde llega el lead), el cierre y las terminales,
+ * que no se mueven de su lugar.
+ */
+export function puedeTenerTipo(e: EtapaConTipo): boolean {
+  if ((TERMINALES as readonly string[]).includes(e.key)) return false;
+  return e.kind !== 'entrada' && e.kind !== 'cierre';
+}
+
 /** El tipo con el que queda la etapa: apagada vuelve a ser un paso, como una etapa nueva. */
 export const tipoAlMarcar = (es: boolean): 'reunion' | 'paso' => (es ? 'reunion' : 'paso');
 
@@ -147,9 +161,14 @@ export function tipoDeEtapa(e: EtapaConTipo): TipoEtapa {
 export function conTipo<T extends EtapaConTipo>(e: T, tipo: TipoEtapa): T {
   const sinMarca: EtapaConTipo = { ...e };
   delete sinMarca.marcadaComo;
+  // ⚠️ EL PAGO Y EL GRUPO CONSERVAN SU TIPO al pasar por Etapa o Nutrición (12/10/2026: Facturando
+  // también lleva el desplegable). Un arrastre de «Facturando» a la banda Nutrición y de vuelta no
+  // puede dejarla como un paso cualquiera: perdería «No paga aún» y lo que pide al mover un lead.
+  // Sólo «Reunión» se lo cambia, porque es lo que se eligió.
+  const propio = e.kind === 'pago' || e.kind === 'grupo' ? e.kind : tipoAlMarcar(false);
   const out: EtapaConTipo = tipo === 'reunion'
     ? { ...sinMarca, kind: tipoAlMarcar(true) }
-    : { ...sinMarca, kind: tipoAlMarcar(false), marcadaComo: tipo };
+    : { ...sinMarca, kind: propio, marcadaComo: tipo };
   return out as T;
 }
 

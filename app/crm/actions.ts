@@ -69,6 +69,7 @@ import { type EntradaId, type EventoFunnel, generateFunnel, labelDeCatalogo,
   conTerminales, esTerminal, etapaDeGanado, problemasDePipeline, ETAPAS_SIN_SECUENCIA, MAX_LABEL_ETAPA, DEFAULT_STAGES, deriveStageKey, stageMeta, terminalEstadoFor, withLayout, MAKO_SETTER, type Stage, type StageBand, type StageDerivable,
   colorParaNueva, CHIP, DOT_SIN_COLOR, type StageTone } from '@/lib/pipeline';
 import { puedeSerReunion, conTipo, reunionPorNombre, TIPOS_ETAPA, type TipoEtapa } from '@/lib/etapa-reunion';
+import { armarPipeline, cambiarTipo, ordenConClave } from '@/lib/etapa-banda';
 import { puedeTenerPlazo, sanearPlazo, PLAZO_MAX_DIAS } from '@/lib/lead-quieto';
 import {
   CAMPOS_LEAD, COLUMNAS_POR_CAMPO, PREGUNTAS_FORM, SIN_ASIGNAR,
@@ -90,7 +91,7 @@ import { marcarExistentes } from './importar-server';
 import { stepsForStage, funnelReqInfo, type StageReqValues } from '@/lib/stage-requirements';
 import { esSinCobro, type VentaTipo } from '@/lib/venta-tipo';
 import { encuentroGrabable } from '@/lib/encuentro-ws';
-import { parseEntradas, parseEvento, etapasVisibles, idsParaQuitarNutricion, type EtapaVisible } from '@/lib/pipeline';
+import { parseEntradas, parseEvento, etapasVisibles, idsParaQuitarNutricion, esNutricionPropia, recorridoDe, type EtapaVisible } from '@/lib/pipeline';
 import { canalEfectivo, type CanalId } from '@/lib/fase-diagnostico';
 import { getDiagnosticoFase } from '@/lib/fase-store';
 import { alinearEtapaVista } from '@/lib/etapa-historial';
@@ -3117,7 +3118,12 @@ export type OpEtapa =
    * posición.
    */
   | { op: 'insertar'; etapa: EtapaQuitada; at: number }
-  | { op: 'agregar'; despuesDe?: string; label?: string }
+  | { op: 'agregar'; despuesDe?: string; label?: string;
+      /**
+       * Crearla como NUTRICIÓN, en esa posición de la banda (el «+» entre dos nutriciones, sexto
+       * feedback del 12/10/2026). Queda guardada en el pipeline con la marca (`esNutricionPropia`).
+       */
+      nutricionEn?: number }
   /**
    * Marcar (o desmarcar) una etapa como REUNIÓN: `kind: 'reunion'`, lo único que la marca
    * (lib/etapa-reunion.ts). Apagada vuelve a `'paso'`, como una etapa nueva.
@@ -3132,7 +3138,14 @@ export type OpEtapa =
    * (lib/etapa-reunion.ts): Reunión es `kind: 'reunion'`; Nutrición y Etapa son `kind: 'paso'` con
    * `marcadaComo`, así que marcar Nutrición no cambia transiciones, reuniones ni automatizaciones.
    */
-  | { op: 'tipo'; key: string; tipo: TipoEtapa }
+  | { op: 'tipo'; key: string; tipo: TipoEtapa;
+      /**
+       * Dónde cae en su lista de DESTINO cuando el tipo la cambia de banda: el índice en la lista de
+       * etapas para Etapa/Reunión, en la banda Nutrición para Nutrición. Lo manda el arrastre de una
+       * banda a la otra; sin él (el desplegable), cae lo más cerca de la otra banda. Ver
+       * lib/etapa-banda.ts.
+       */
+      at?: number }
   /**
    * El PLAZO de una etapa, en días (#800): si un lead pasa más que eso sin moverse, MaKo le
    * avisa al dueño (lib/lead-quieto.ts). `dias: null` lo saca. Vive en
@@ -3403,13 +3416,26 @@ export async function editarEtapaAction(op: OpEtapa, funnelId?: number): Promise
       // y desmarcarla la deja como «Etapa» elegida a mano (el nombre deja de contar).
       pipeline = pipeline.map((x) => (x.key === op.key ? conTipo(x, op.es ? 'reunion' : 'etapa') : x));
     } else if (op.op === 'tipo') {
-      // La misma guarda que `reunion`, del lado del server: sólo las etapas que pueden ser reunión
-      // tienen tipo, y un tipo que no existe no se guarda (`op` lo escribe quien quiera).
+      // ⚠️ DESDE EL 12/10/2026 EL TIPO DECIDE LA BANDA (sexto feedback: «si se coloca "Etapa" se
+      // desplaza automáticamente hacia arriba, y viceversa»). Lo decide `cambiarTipo` (lib/etapa-banda.ts,
+      // puro y con test), que además valida la etapa: la entrada, el cierre y las terminales no llevan
+      // tipo (`puedeTenerTipo`), y una clave que no es de este funnel se rechaza. Un tipo que no existe
+      // tampoco se guarda: `op` lo escribe quien quiera.
       if (!TIPOS_ETAPA.includes(op.tipo)) return { ok: false, error: 'Ese tipo de etapa no existe.' };
-      const st = pipeline.find((x) => x.key === op.key);
-      if (!st) return { ok: false, error: 'Esa etapa la pone MaKo al final del funnel: no lleva tipo.' };
-      if (!puedeSerReunion(st)) return { ok: false, error: 'Esa etapa no lleva tipo.' };
-      pipeline = pipeline.map((x) => (x.key === op.key ? conTipo(x, op.tipo) : x));
+      const at = typeof op.at === 'number' && Number.isFinite(op.at) ? op.at : undefined;
+      const ordenAhora = actual.stages.filter((x) => x.band === 'nutricion').map((x) => x.key);
+      const r = cambiarTipo({ pipeline, suppressed: actual.suppressed, labels, ordenNutricion: ordenAhora }, op.key, op.tipo, at);
+      if (!r.ok) return r;
+      // Guarda TODO lo que el cambio de banda toca: el pipeline, las transiciones apagadas (una nutrición
+      // de catálogo que sube apaga las suyas), los nombres y el orden de la banda.
+      const conGanadoT = conTerminales(r.estado.pipeline);
+      const extraT = { labels: r.estado.labels, ordenNutricion: r.estado.ordenNutricion };
+      if (funnelId != null) await saveFunnelDe(funnelId, conGanadoT, r.estado.suppressed, extraT);
+      else await saveFunnelDefault(conGanadoT, r.estado.suppressed, extraT);
+      bust(TAG.pipeline, TAG.leads);
+      revalidatePath('/crm');
+      revalidatePath('/funnel');
+      return { ok: true };
     } else if (op.op === 'agregar') {
       // La clave se acuña acá, en el server, y se comprueba contra el pipeline real: si se
       // eligiera en el navegador, dos pestañas abiertas acuñan la misma y la segunda pisa a
@@ -3418,6 +3444,20 @@ export async function editarEtapaAction(op: OpEtapa, funnelId?: number): Promise
       let key = 'st0';
       while (pipeline.some((st) => st.key === key)) { n += 1; key = 'st' + n; }
       const label = (op.label ?? 'Nueva etapa').trim().replace(/\s+/g, ' ').slice(0, MAX_LABEL_ETAPA) || 'Nueva etapa';
+      // Una NUTRICIÓN nueva (el «+» entre dos nutriciones): nace con la marca, se guarda antes del
+      // cierre (`armarPipeline`) y cae en esa posición de la banda.
+      if (typeof op.nutricionEn === 'number' && Number.isFinite(op.nutricionEn)) {
+        const nueva = conTipo({ key, label, ...colorParaNueva(pipeline, pipeline.length), kind: 'paso' } as Stage, 'nutricion');
+        const plN = armarPipeline(recorridoDe(pipeline), [...pipeline.filter(esNutricionPropia), nueva]);
+        const ordenAhoraN = actual.stages.filter((x) => x.band === 'nutricion').map((x) => x.key);
+        const orden = ordenConClave({ pipeline: plN, suppressed: actual.suppressed, labels, ordenNutricion: ordenAhoraN }, key, op.nutricionEn);
+        const conGanadoN = conTerminales(plN);
+        if (funnelId != null) await saveFunnelDe(funnelId, conGanadoN, actual.suppressed, { labels, ordenNutricion: orden });
+        else await saveFunnelDefault(conGanadoN, actual.suppressed, { labels, ordenNutricion: orden });
+        bust(TAG.pipeline, TAG.leads);
+        revalidatePath('/crm');
+        return { ok: true };
+      }
       // Se mete DESPUÉS de la etapa desde cuyo menú se pidió; sin referencia, antes del
       // cierre, que es donde una etapa nueva tiene sentido (el cierre va último).
       const iRef = op.despuesDe ? pipeline.findIndex((st) => st.key === op.despuesDe) : -1;

@@ -308,7 +308,10 @@ export function CampanasModal({ funnelId, nombreProducto, anidada = false, enLin
     ] },
   ];
   const nFiltros = (filtroEstado ? 1 : 0) + (filtroAsig ? 1 : 0);
-  const mias = asignadas.filter((a) => a.funnelId === funnelId).length;
+  // El fondo de la barra de arriba (buscar, filtro, lote y nombres de columna): en línea es el GRIS de la
+  // caja del editor del funnel, no blanco (sexto feedback del 12/10/2026: «tienen el fondo blanco cuando
+  // el resto es de fondo un poco gris»). Opaco igual: es pegajosa y las filas pasan por debajo.
+  const fondo = enLinea ? 'var(--surface-2)' : 'var(--surface)';
 
   const celdaEstado = (e: string | null): ReactNode => {
     if (e == null) {
@@ -386,7 +389,7 @@ export function CampanasModal({ funnelId, nombreProducto, anidada = false, enLin
       <div className="crm-hover" style={{ padding: 0, minWidth: 560 }}>
         {/* La barra, la de lote y la cabecera viajan juntas y quedan pegadas arriba: el
             cuerpo del modal es el que scrollea, así que el sticky se posiciona contra él. */}
-        <div style={{ position: 'sticky', top: 0, zIndex: 2, background: 'var(--surface)', paddingTop: 2 }}>
+        <div style={{ position: 'sticky', top: 0, zIndex: 2, background: fondo, paddingTop: 2 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', paddingBottom: 12 }}>
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar campaña, conjunto o id"
               aria-label="Buscar campaña"
@@ -402,7 +405,7 @@ export function CampanasModal({ funnelId, nombreProducto, anidada = false, enLin
                 style={{
                   position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 7, height: 38, padding: '0 14px',
                   borderRadius: 10, border: `1px solid ${nFiltros ? 'var(--primary-weak)' : 'var(--border-strong)'}`,
-                  background: filtrando ? 'var(--surface-2)' : 'var(--surface)', color: nFiltros ? 'var(--primary)' : 'var(--dim)',
+                  background: filtrando ? 'var(--surface)' : 'transparent', color: nFiltros ? 'var(--primary)' : 'var(--dim)',
                   fontFamily: SANS, fontSize: 14, fontWeight: 500, cursor: 'pointer', whiteSpace: 'nowrap',
                 }}>
                 <IconoMenu nombre="filtro" size={15} />Filtrar
@@ -453,7 +456,7 @@ export function CampanasModal({ funnelId, nombreProducto, anidada = false, enLin
           {elegidos.length > 0 && (
             <div style={{
               display: 'flex', alignItems: 'center', gap: 10, padding: '7px 12px', marginBottom: 10,
-              background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 12,
+              background: fondo, border: '1px solid var(--border-strong)', borderRadius: 12,
             }}>
               <input type="checkbox" checked readOnly onClick={() => setSel(new Set())}
                 title="Quitar la selección" aria-label={`${elegidos.length} seleccionadas. Quitar la selección`} style={CASILLA} />
@@ -514,12 +517,8 @@ export function CampanasModal({ funnelId, nombreProducto, anidada = false, enLin
               : <p style={vacio()}>Esta cuenta no tiene campañas.</p>
         )}
         {estado && estado.campanas.length > 0 && filas.length === 0 && <p style={vacio()}>Ninguna con esos filtros.</p>}
-
-        {estado && estado.campanas.length > 0 && (
-          <p style={{ margin: '12px 0 0', fontFamily: SANS, fontSize: 12.5, color: 'var(--faint)' }}>
-            {mias ? `${mias} ${mias === 1 ? 'asignada' : 'asignadas'} a ${nombreProducto}` : `Ninguna asignada a ${nombreProducto}`}
-          </p>
-        )}
+        {/* ⚠️ ACÁ IBA «N asignadas a <funnel>» hasta el 12/10/2026 (sexto feedback: «Elimina el texto "2
+            asignadas a VSL FUNNEL"»). Cuáles están en este funnel lo dice la columna «Funnel» de cada fila. */}
       </div>
 
       {pide && (
