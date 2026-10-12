@@ -1,5 +1,13 @@
 # Relevo: Automations (ex /chatbot) y las secuencias
 
+> **EN CURSO (12/10/2026 ~02:10, `claude3`): la DUODÉCIMA tanda** (feedback de una prueba con Fiesta Music; extractos en el
+> último hito de la bitácora): Crear con IA respeta el canal y el catálogo (nada inventado), un chat de MaKo por automatización
+> con historial y preguntas con opciones, MaKo edita tarjetas existentes, condiciones de Instagram, Zernio desde la tarjeta,
+> filtros de canal, botón ✦, aviso de Probar, sin onboarding al entrar; más tutoriales de conexión cortos y el clic en
+> «Operate». Workflow `wf_ec999673-272` en el worktree `C:/dev/wt-undecima`; si se corta: resumeFromRunId con su script.
+> Repartido: Landing Generator (presentación en vez de landing, la tira de imágenes). Sin dueño: migrar cursos desde
+> Skool/Hotmart. Ya en main (dbe5d1ec): Customer Success como familia propia y el «Ej.:» de los campos de clave.
+>
 > **HECHA (11/10/2026 ~22:50, `claude3`): la UNDÉCIMA tanda, `a29af1a9`, pusheada desde el worktree `C:/dev/wt-undecima`.**
 > Mig 0257 aplicada antes del deploy. Lo aprendido: `docs/hallazgos-chatbot.md` → «Undécima tanda». **Datos APLICADOS el
 > 12/10 ~02:00 UTC, con el simulacro leído y releídos de la base:** zona (ws1 y ws4 Tijuana, ws11 Cancún, ws13 canonizado;
