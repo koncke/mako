@@ -1,6 +1,7 @@
 import { mediaTimeToSeconds, roundMediaTime } from "@/app/video-editor/_opencut/wasm";
 import { getElementLocalTime } from "@/app/video-editor/_opencut/animation";
 import { aplicarGanchosVisual } from "./ganchos-ce";
+import { acotarFuente, fueraDeVentana } from "@/app/video-editor/_opencut/transiciones/escena";
 import { TICKS_PER_SECOND } from "@/app/video-editor/_opencut/wasm";
 import { resolveEffectParamsAtTime } from "@/app/video-editor/_opencut/animation/effect-param-channel";
 import { resolveGraphicParamsAtTime } from "@/app/video-editor/_opencut/animation/graphic-param-channel";
@@ -156,7 +157,9 @@ function resolveVisualState({
 	sourceHeight: number;
 }): ResolvedVisualNodeState | null {
 	const clipTime = context.time - params.timeOffset;
-	if (clipTime < 0 || clipTime >= params.duration) {
+	// Con una transición el clip se ve también un poco antes o después de su
+	// tramo (transiciones/escena.ts); sin ella, `fueraDeVentana` es el chequeo de siempre.
+	if (fueraDeVentana(params, clipTime)) {
 		return null;
 	}
 
@@ -178,11 +181,12 @@ function resolveVisualState({
 		}),
 	};
 	// Animaciones de entrada/salida, reflejo, transiciones: ver ganchos-ce.ts.
-	const { transform, opacity } = aplicarGanchosVisual(conKeyframes, {
+	const { transform, opacity, pases } = aplicarGanchosVisual(conKeyframes, {
 		params: params.paramsElemento ?? {},
 		elementoId: params.elementoId,
 		localTime: localTime / TICKS_PER_SECOND,
 		duration: params.duration / TICKS_PER_SECOND,
+		tiempoClip: clipTime / TICKS_PER_SECOND,
 		lienzo: { width: context.renderer.width, height: context.renderer.height },
 	});
 	const containScale = Math.min(
@@ -196,17 +200,19 @@ function resolveVisualState({
 		Math.abs(sourceHeight * containScale * transform.scaleY),
 	);
 
+	const pasesDelClip = resolveEffectPassGroups({
+		effects: params.effects,
+		animations: params.animations,
+		localTime,
+		width: effectWidth,
+		height: effectHeight,
+	});
 	return {
 		localTime,
 		transform,
 		opacity,
-		effectPasses: resolveEffectPassGroups({
-			effects: params.effects,
-			animations: params.animations,
-			localTime,
-			width: effectWidth,
-			height: effectHeight,
-		}),
+		// Los pases de los ganchos (una transición) van DESPUÉS de los del clip.
+		effectPasses: pases && pases.length > 0 ? [...pasesDelClip, pases] : pasesDelClip,
 	};
 }
 
@@ -218,18 +224,28 @@ async function resolveVideoNode({
 	context: ResolveContext;
 }): Promise<ResolvedVisualSourceNodeState | null> {
 	const clipTime = context.time - node.params.timeOffset;
-	if (clipTime < 0 || clipTime >= node.params.duration) {
+	if (fueraDeVentana(node.params, clipTime)) {
 		return null;
 	}
 
-	const sourceTimeTicks =
+	const fuenteEn = (t: number) =>
 		node.params.trimStart +
 		getSourceTimeAtClipTime({
-			clipTime,
+			clipTime: t,
 			retime: node.params.retime,
 			// La curva de velocidad está en el 0–1 del clip (retime/resolve.ts).
 			clipDuration: node.params.duration,
 		});
+	let sourceTimeTicks = fuenteEn(clipTime);
+	if (clipTime < 0 || clipTime >= node.params.duration) {
+		// Fuera del tramo (una transición): lo recortado del medio, y si no hay,
+		// el primer o el último cuadro (transiciones/escena.ts).
+		sourceTimeTicks = acotarFuente({
+			tiempo: sourceTimeTicks,
+			fin: fuenteEn(node.params.duration) + node.params.trimEnd,
+			tps: TICKS_PER_SECOND,
+		});
+	}
 	const frame = await videoCache.getFrameAt({
 		mediaId: node.params.mediaId,
 		file: node.params.file,

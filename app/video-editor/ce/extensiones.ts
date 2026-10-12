@@ -16,5 +16,10 @@ import '../_opencut/components/editor/panels/assets/registro';
 import '../_opencut/commands/timeline/element/operaciones-clip';
 import '../_opencut/effects/registro-ce';
 import '../_opencut/subtitles/registro';
+import '../_opencut/animaciones/registro';
+import '../_opencut/text/registro';
+import '../_opencut/fondo/registro';
+import '../_opencut/transiciones/registro';
+import '../_opencut/audio/registro';
 
 export {};

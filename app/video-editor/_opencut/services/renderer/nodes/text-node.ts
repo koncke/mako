@@ -2,7 +2,8 @@ import { BaseNode } from "./base-node";
 import type { TextElement } from "@/app/video-editor/_opencut/timeline";
 import type { EffectPass } from "@/app/video-editor/_opencut/effects/types";
 import type { BlendMode, Transform } from "@/app/video-editor/_opencut/rendering";
-import { drawMeasuredTextLayout } from "@/app/video-editor/_opencut/text/primitives";
+// Trazo, sombra, opacidad del fondo y «Máquina de escribir» de CapCut (paquete de texto).
+import { dibujarTextoCe } from "@/app/video-editor/_opencut/text/dibujar";
 import type { MeasuredTextElement } from "@/app/video-editor/_opencut/text/measure-element";
 
 export type TextNodeParams = TextElement & {
@@ -48,11 +49,10 @@ export function renderTextToContext({
 		ctx.rotate((resolved.transform.rotate * Math.PI) / 180);
 	}
 
-	drawMeasuredTextLayout({
+	dibujarTextoCe({
 		ctx,
-		layout: resolved.measuredText,
+		medido: resolved.measuredText,
 		textColor: resolved.textColor,
-		background: resolved.measuredText.resolvedBackground,
 		backgroundColor: resolved.backgroundColor,
 		textBaseline: baseline,
 	});

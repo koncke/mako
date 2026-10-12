@@ -4,8 +4,10 @@
 // esquina de arriba que se arrastra hacia adentro; la rampa queda sombreada.
 // Escribe `audio.fundidoEntrada` / `audio.fundidoSalida` (SEGUNDOS) en los
 // params del clip: el contrato con el paquete de audio (J), que los declara en
-// params/extra y los aplica al mezclar. Si J todavía no está, el valor igual se
-// guarda y se dibuja; sólo no suena.
+// params/extra/audio.ts y los aplica en la reproducción y en el export
+// (audio/claves.ts → puntosFundido / factorFundido). Se LEEN con su
+// `leerFundidos`, que no deja que se superpongan: con un acotado propio, un clip
+// recortado después dibujaba una rampa que no era la que sonaba.
 //
 // ⚠️ `timeline.previewElements` REEMPLAZA `params` entero (hace `{...element,
 // ...cambio}`), no lo mezcla: el cambio lleva TODOS los params, o el arrastre
@@ -16,14 +18,11 @@ import { useEditor } from "@/app/video-editor/_opencut/editor/use-editor";
 import type { AudioElement } from "@/app/video-editor/_opencut/timeline";
 import { TICKS_PER_SECOND } from "@/app/video-editor/_opencut/wasm";
 import { cn } from "@/app/video-editor/_opencut/utils/ui";
-
-export const PARAM_FUNDIDO_ENTRADA = "audio.fundidoEntrada";
-export const PARAM_FUNDIDO_SALIDA = "audio.fundidoSalida";
-
-function leer(element: AudioElement, clave: string): number {
-	const v = element.params[clave];
-	return typeof v === "number" && Number.isFinite(v) ? Math.max(0, v) : 0;
-}
+import {
+	FUNDIDO_ENTRADA as PARAM_FUNDIDO_ENTRADA,
+	FUNDIDO_SALIDA as PARAM_FUNDIDO_SALIDA,
+	leerFundidos,
+} from "@/app/video-editor/_opencut/audio/claves";
 
 export function FundidosAudio({
 	element,
@@ -39,8 +38,7 @@ export function FundidosAudio({
 }) {
 	const editor = useEditor();
 	const duracion = element.duration / TICKS_PER_SECOND;
-	const entrada = Math.min(leer(element, PARAM_FUNDIDO_ENTRADA), duracion);
-	const salida = Math.min(leer(element, PARAM_FUNDIDO_SALIDA), duracion);
+	const { entrada, salida } = leerFundidos(element.params, duracion);
 	const [arrastrando, setArrastrando] = useState<"entrada" | "salida" | null>(null);
 	const cambio = useRef(false);
 

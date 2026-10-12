@@ -20,6 +20,29 @@ import {
 	Input,
 	type WrappedAudioBuffer,
 } from "mediabunny";
+import {
+	claveProcesado,
+	leerFundidos,
+	puntosFundido,
+	tieneFundidos,
+} from "@/app/video-editor/_opencut/audio/claves";
+import { procesarClip } from "@/app/video-editor/_opencut/audio/cadena";
+
+// Lo que suma el paquete de audio (J) a la reproducción de OpenCut:
+//
+// · FUNDIDOS: cada clip con «Aparición/Desaparición progresiva» suena a través
+//   de un GainNode propio («envolvente») con rampas lineales entre los puntos de
+//   `puntosFundido`, la MISMA cuenta que hace la mezcla del export muestra a
+//   muestra (media/audio.ts). Vale para los dos caminos (por trozos y preparado).
+// · PROCESADO: reducir el ruido y el modificador de voz obligan a preparar el
+//   clip entero (`procesarClip`, audio/cadena.ts, también la del export).
+// · CACHÉS: un cambio cualquiera en la línea de tiempo (mover un texto) ya no
+//   tira lo decodificado ni lo procesado: las claves dicen qué sirve, y lo que
+//   ningún clip usa se poda al reproducir. Procesar la voz de un clip de un
+//   minuto tarda; rehacerlo en cada cambio dejaba la reproducción muda un rato.
+// · VISTA PREVIA: mientras se arrastra (volumen, un fundido, una perilla) la
+//   línea notifica cada movimiento; reiniciar el audio en cada uno se oía como
+//   un tartamudeo. Se espera a que se confirme.
 
 export class AudioManager {
 	private audioContext: AudioContext | null = null;
@@ -40,6 +63,9 @@ export class AudioManager {
 	private queuedSources = new Set<AudioBufferSourceNode>();
 	private preparedClipBuffers = new Map<string, Promise<AudioBuffer | null>>();
 	private decodedBuffers = new Map<string, Promise<AudioBuffer | null>>();
+	/** El GainNode de los fundidos de cada clip, en esta sesión de reproducción. */
+	private envolventes = new Map<string, GainNode>();
+	private prepararTimer: number | null = null;
 	private playbackSessionId = 0;
 	private lastIsPlaying = false;
 	private lastVolume = 1;
@@ -58,6 +84,9 @@ export class AudioManager {
 	}
 
 	dispose(): void {
+		if (this.prepararTimer !== null && typeof window !== "undefined") {
+			window.clearTimeout(this.prepararTimer);
+		}
 		this.stopPlayback();
 		for (const unsub of this.unsubscribers) {
 			unsub();
@@ -109,11 +138,15 @@ export class AudioManager {
 	};
 
 	private handleTimelineChange = (): void => {
+		// Durante una vista previa (arrastrar) no se reinicia: llega la
+		// confirmación y ahí sí (ver la cabecera).
+		if (this.editor.timeline.isPreviewActive()) return;
 		this.disposeSinks();
-		this.preparedClipBuffers.clear();
-		this.decodedBuffers.clear();
 
-		if (!this.editor.playback.getIsPlaying()) return;
+		if (!this.editor.playback.getIsPlaying()) {
+			this.programarPreparacion();
+			return;
+		}
 
 		void this.startPlayback({
 			time: this.editor.playback.getCurrentTime() / TICKS_PER_SECOND,
@@ -166,6 +199,7 @@ export class AudioManager {
 
 		this.clips = await collectAudioClips({ tracks, mediaAssets });
 		if (!this.editor.playback.getIsPlaying()) return;
+		this.podarCaches();
 
 		this.playbackStartTime = time;
 		this.playbackStartContextTime = audioContext.currentTime;
@@ -229,6 +263,55 @@ export class AudioManager {
 			source.disconnect();
 		}
 		this.queuedSources.clear();
+
+		for (const envolvente of this.envolventes.values()) envolvente.disconnect();
+		this.envolventes.clear();
+	}
+
+	/**
+	 * A dónde se conecta el sonido de un clip: su envolvente de fundidos, o el
+	 * master si no tiene. Hay UNA envolvente por clip y sesión, programada desde
+	 * el instante del clip en que empieza a sonar. Si el clip se vuelve a
+	 * programar en la misma sesión (el re-sincronizado de `runClipIterator`
+	 * cuando sube la compensación de latencia), se reprograma: las rampas viejas
+	 * quedaban corridas lo que se corrió el audio.
+	 */
+	private destinoDelClip({
+		audioContext,
+		clip,
+		desdeLocal,
+	}: {
+		audioContext: AudioContext;
+		clip: AudioClipSource;
+		desdeLocal: number;
+	}): AudioNode {
+		const master = this.masterGain ?? audioContext.destination;
+		const fundidos = leerFundidos(clip.timelineElement.params, clip.duration);
+		if (!tieneFundidos(fundidos)) return master;
+		let envolvente = this.envolventes.get(clip.id);
+		if (envolvente) {
+			envolvente.gain.cancelScheduledValues(0);
+		} else {
+			envolvente = audioContext.createGain();
+			envolvente.connect(master);
+			this.envolventes.set(clip.id, envolvente);
+		}
+		const aContexto = (local: number) =>
+			this.playbackStartContextTime +
+			this.playbackLatencyCompensationSeconds +
+			(clip.startTime + local - this.playbackStartTime);
+		// Desde lo que va a sonar primero: el instante pedido o, si preparar el
+		// clip tardó y ese instante ya pasó, el de AHORA. Así todos los puntos
+		// quedan en el futuro y el factor de partida es el exacto.
+		const ahoraLocal = audioContext.currentTime - aContexto(0);
+		const desde = Math.max(0, desdeLocal, ahoraLocal);
+		const [primero, ...resto] = puntosFundido(desde, clip.duration, fundidos);
+		if (!primero) return envolvente;
+		envolvente.gain.setValueAtTime(primero.factor, aContexto(primero.t));
+		for (const punto of resto) {
+			envolvente.gain.linearRampToValueAtTime(punto.factor, aContexto(punto.t));
+		}
+		return envolvente;
 	}
 
 	private async runClipIterator({
@@ -268,6 +351,11 @@ export class AudioManager {
 		const iterator = sink.buffers(sourceStartTime);
 		this.clipIterators.set(clip.id, iterator);
 		let consecutiveDroppedBufferCount = 0;
+		const destino = this.destinoDelClip({
+			audioContext,
+			clip,
+			desdeLocal: iteratorStartTime - clip.startTime,
+		});
 
 		for await (const { buffer, timestamp } of iterator) {
 			if (!this.editor.playback.getIsPlaying()) return;
@@ -289,7 +377,7 @@ export class AudioManager {
 			const clipGain = audioContext.createGain();
 			clipGain.gain.value = clip.volume;
 			node.connect(clipGain);
-			clipGain.connect(this.masterGain ?? audioContext.destination);
+			clipGain.connect(destino);
 
 			const startTimestamp =
 				this.playbackStartContextTime +
@@ -381,7 +469,13 @@ export class AudioManager {
 		node.buffer = buffer;
 		const clipGain = audioContext.createGain();
 		node.connect(clipGain);
-		clipGain.connect(this.masterGain ?? audioContext.destination);
+		clipGain.connect(
+			this.destinoDelClip({
+				audioContext,
+				clip,
+				desdeLocal: effectiveStartTime - clipStart,
+			}),
+		);
 
 		const startTimestamp =
 			this.playbackStartContextTime +
@@ -461,6 +555,7 @@ export class AudioManager {
 	}): boolean {
 		return (
 			this.hasCurveRetime({ clip }) ||
+			claveProcesado(clip.timelineElement.params) !== null ||
 			hasAnimatedVolume({ element: clip.timelineElement }) ||
 			shouldMaintainPitch({
 				rate: clip.retime?.rate ?? 1,
@@ -522,14 +617,16 @@ export class AudioManager {
 	}: {
 		clip: AudioClipSource;
 	}): string {
+		// Sin el id ni el inicio del clip (OpenCut los ponía): el búfer está en el
+		// tiempo DEL CLIP y no depende de dónde cae. Con ellos, mover un clip con
+		// modificador de voz lo volvía a procesar y quedaba mudo mientras tanto.
 		return JSON.stringify({
-			id: clip.id,
 			sourceKey: clip.sourceKey,
-			startTime: clip.startTime,
 			duration: clip.duration,
 			trimStart: clip.trimStart,
 			trimEnd: clip.trimEnd,
 			retime: clip.retime ?? null,
+			procesado: claveProcesado(clip.timelineElement.params),
 		});
 	}
 
@@ -555,7 +652,7 @@ export class AudioManager {
 				return null;
 			}
 
-			return await renderRetimedBuffer({
+			const enSuTiempo = await renderRetimedBuffer({
 				audioContext,
 				sourceBuffer: decodedBuffer,
 				trimStart: clip.trimStart,
@@ -563,7 +660,17 @@ export class AudioManager {
 				retime: clip.retime,
 				maintainPitch: clip.retime?.maintainPitch === true,
 			});
-		})();
+			return await procesarClip({
+				buffer: enSuTiempo,
+				params: clip.timelineElement.params,
+			});
+		})().catch((error) => {
+			// Que un clip que no se pudo procesar no tumbe la reproducción: queda
+			// mudo y se reintenta con el próximo cambio (la caché lo suelta).
+			console.warn("[audio] no se pudo preparar el clip", error);
+			this.preparedClipBuffers.delete(cacheKey);
+			return null;
+		});
 
 		this.preparedClipBuffers.set(cacheKey, promise);
 		return promise;
@@ -666,6 +773,62 @@ export class AudioManager {
 			return null;
 		} finally {
 			input.dispose();
+		}
+	}
+
+	/** Suelta lo decodificado y lo preparado que ya no usa ningún clip. */
+	private podarCaches(clips: AudioClipSource[] = this.clips): void {
+		const claves = new Set(clips.map((clip) => this.buildPreparedClipCacheKey({ clip })));
+		for (const clave of [...this.preparedClipBuffers.keys()]) {
+			if (!claves.has(clave)) this.preparedClipBuffers.delete(clave);
+		}
+		const fuentes = new Set(
+			clips
+				.filter((clip) => this.shouldUsePreparedClipBuffer({ clip }))
+				.map((clip) => clip.sourceKey),
+		);
+		for (const clave of [...this.decodedBuffers.keys()]) {
+			if (!fuentes.has(clave)) this.decodedBuffers.delete(clave);
+		}
+	}
+
+	/**
+	 * Con la reproducción parada, procesa de antemano los clips con voz o sin
+	 * ruido que cambiaron: al darle play ya están listos. Espera a que se dejen
+	 * de tocar las perillas.
+	 */
+	private programarPreparacion(): void {
+		if (typeof window === "undefined") return;
+		if (this.prepararTimer !== null) window.clearTimeout(this.prepararTimer);
+		this.prepararTimer = window.setTimeout(() => {
+			this.prepararTimer = null;
+			void this.prepararProcesados();
+		}, 600);
+	}
+
+	private async prepararProcesados(): Promise<void> {
+		const escena = this.editor.scenes.getActiveSceneOrNull();
+		if (!escena || this.editor.playback.getIsPlaying()) return;
+		const tracks = escena.tracks;
+		const conProceso = [...tracks.overlay, tracks.main, ...tracks.audio].some((track) =>
+			track.elements.some(
+				(element) =>
+					(element.type === "audio" || element.type === "video") &&
+					claveProcesado(element.params) !== null,
+			),
+		);
+		if (!conProceso) return;
+		const clips = await collectAudioClips({
+			tracks,
+			mediaAssets: this.editor.media.getAssets(),
+		});
+		// Lo de una perilla anterior ya no sirve: sin podar acá, mover el Tono
+		// cinco veces dejaría cinco copias del clip procesado en memoria.
+		if (!this.editor.playback.getIsPlaying()) this.podarCaches(clips);
+		for (const clip of clips) {
+			if (this.editor.playback.getIsPlaying()) return;
+			if (clip.muted || claveProcesado(clip.timelineElement.params) === null) continue;
+			await this.getPreparedClipBuffer({ clip });
 		}
 	}
 

@@ -3,9 +3,25 @@ import { DEFAULTS } from "@/app/video-editor/_opencut/timeline/defaults";
 import type { TextElement } from "@/app/video-editor/_opencut/timeline";
 import type { TextBackground } from "@/app/video-editor/_opencut/text/background";
 import { resolveNumberAtTime } from "@/app/video-editor/_opencut/animation/values";
+import { TICKS_PER_SECOND } from "@/app/video-editor/_opencut/wasm";
+import {
+	revelacionTexto,
+	type RevelacionTexto,
+} from "@/app/video-editor/_opencut/animaciones/calcular";
 import {
 	getTextVisualRect,
+	setCanvasLetterSpacing,
+	type TextCanvasContext,
 } from "./layout";
+import { letrasEnArco, recuadroArco, type LetraEnArco } from "./curva";
+import { cuantizarRevelado } from "./revelado";
+import {
+	aplicarMayusculas,
+	leerEstiloTexto,
+	leerMayusculas,
+	sobresaleTrazo,
+	type EstiloTexto,
+} from "./estilo";
 import {
 	measureTextLayout,
 	type MeasuredTextLayout,
@@ -27,6 +43,12 @@ export interface ResolvedTextBackground extends TextBackground {
 export interface MeasuredTextElement extends MeasuredTextLayout {
 	resolvedBackground: ResolvedTextBackground;
 	visualRect: { left: number; top: number; width: number; height: number };
+	/** Trazo, sombra y opacidad del fondo de CapCut (./estilo.ts). */
+	estilo: EstiloTexto;
+	/** «Máquina de escribir» / «Palabra por palabra» en este instante; `null` = entero. */
+	revelado: RevelacionTexto | null;
+	/** «Curva»: cada letra de cada renglón en su lugar del arco; `null` = recto (./curva.ts). */
+	arco: LetraEnArco[][] | null;
 }
 
 let textMeasurementContext:
@@ -73,7 +95,14 @@ export function measureTextElement({
 	localTime: number;
 	ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 }): MeasuredTextElement {
-	const text = buildTextLayoutParamsFromElement({ element });
+	const base = buildTextLayoutParamsFromElement({ element });
+	// «May./min.» se mide como se ve. No va en buildTextLayoutParamsFromElement:
+	// el editor de texto sobre el reproductor (text-edit-overlay) edita ESE
+	// contenido, y lo guardaría en mayúsculas.
+	const text = {
+		...base,
+		content: aplicarMayusculas(base.content, leerMayusculas(element.params)),
+	};
 	const measuredLayout = measureTextLayout({
 		text,
 		canvasHeight,
@@ -115,18 +144,73 @@ export function measureTextElement({
 		}),
 	};
 
-	const visualRect = getTextVisualRect({
+	const conFondo = getTextVisualRect({
 		textAlign: text.textAlign,
 		block: measuredLayout.block,
 		background: resolvedBackground,
 		fontSizeRatio: measuredLayout.fontSizeRatio,
 	});
+	const estilo = leerEstiloTexto(element.params);
+	const arco = estilo.curva ? medirArco(ctx, measuredLayout, estilo.curva.fuerza) : null;
+	// Curvado, el recuadro es el de las letras en el arco (sin fondo: un texto
+	// con fondo no se curva).
+	const recuadro = (arco && recuadroArco(arco, measuredLayout.lineHeightPx)) || conFondo;
+	// El recuadro de selección abarca el trazo de afuera (la sombra y el brillo
+	// no: en CapCut tampoco agrandan el recuadro).
+	const borde = sobresaleTrazo(estilo, measuredLayout.scaledFontSize);
+	const visualRect =
+		borde > 0
+			? {
+					left: recuadro.left - borde,
+					top: recuadro.top - borde,
+					width: recuadro.width + borde * 2,
+					height: recuadro.height + borde * 2,
+				}
+			: recuadro;
 
 	return {
 		...measuredLayout,
 		resolvedBackground,
 		visualRect,
+		estilo,
+		revelado: cuantizarRevelado(
+			measuredLayout.lines,
+			revelacionTexto(element.params, localTime / TICKS_PER_SECOND, element.duration / TICKS_PER_SECOND),
+		),
+		arco,
 	};
+}
+
+/**
+ * Mide cada letra sola (sin el espaciado de canvas, que se suma aparte entre
+ * letras) y las pone en el arco. Un ancho por letra distinta: un subtítulo
+ * largo repite muchas.
+ */
+function medirArco(ctx: TextCanvasContext, layout: MeasuredTextLayout, fuerza: number): LetraEnArco[][] | null {
+	ctx.save();
+	ctx.font = layout.fontString;
+	setCanvasLetterSpacing({ ctx, letterSpacingPx: 0 });
+	const anchos = new Map<string, number>();
+	const anchoLetra = (letra: string) => {
+		let w = anchos.get(letra);
+		if (w === undefined) {
+			w = ctx.measureText(letra).width;
+			anchos.set(letra, w);
+		}
+		return w;
+	};
+	try {
+		return letrasEnArco({
+			lineas: layout.lines,
+			ys: layout.lines.map((_, i) => i * layout.lineHeightPx - layout.block.visualCenterOffset),
+			alineacion: layout.textAlign,
+			fuerza,
+			espaciado: layout.letterSpacing,
+			anchoLetra,
+		});
+	} finally {
+		ctx.restore();
+	}
 }
 
 export function buildTextLayoutParamsFromElement({
@@ -138,7 +222,7 @@ export function buildTextLayoutParamsFromElement({
 		content: readStringParam({
 			params: element.params,
 			key: "content",
-			fallback: "Default text",
+			fallback: "Texto predeterminado",
 		}),
 		fontSize: readNumberParam({
 			params: element.params,

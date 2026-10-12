@@ -7,6 +7,7 @@ import { videoCache } from "@/app/video-editor/_opencut/services/video-cache/ser
 import { waveformCache } from "@/app/video-editor/_opencut/services/waveform-cache/service";
 import { hasMediaId } from "@/app/video-editor/_opencut/timeline/element-utils";
 import type { SceneTracks } from "@/app/video-editor/_opencut/timeline";
+import { claveDecodificadorTransicion } from "@/app/video-editor/_opencut/transiciones/claves";
 
 export class RemoveMediaAssetCommand extends Command {
 	private savedAssets: MediaAsset[] | null = null;
@@ -51,6 +52,8 @@ export class RemoveMediaAssetCommand extends Command {
 		}
 
 		videoCache.clearVideo({ mediaId: this.assetId });
+		// El segundo decodificador que usan dos clips del medio con una transición.
+		videoCache.clearVideo({ mediaId: claveDecodificadorTransicion(this.assetId) });
 		waveformCache.clearSource({
 			sourceKey: buildWaveformSourceKey({
 				kind: "media",

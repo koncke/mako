@@ -44,6 +44,7 @@ import { dividirTextoEnSubtitulos } from "@/app/video-editor/_opencut/transcript
 import { maxCaracteresPara } from "@/app/video-editor/_opencut/transcription/caption-defaults";
 import { EXTENSIONES_SUBTITULOS, parseSubtitleFile } from "../parse";
 import { PLANTILLAS_SUBTITULO, paramsDePlantilla, plantillaPorId, type PlantillaSubtitulo } from "../estilos";
+import { pxTrazo } from "@/app/video-editor/_opencut/text/estilo";
 import { usePreferenciasSubtitulos, useTrabajoSubtitulos } from "../estado";
 import { cancelarGeneracion, generarSubtitulos } from "../generar";
 import { aplicarEstiloASubtitulos, insertarSubtitulos, lienzoDe, subtitulosDe } from "../insert";
@@ -273,6 +274,11 @@ function MiniaturaPlantilla({
 					background: plantilla.fondo?.color,
 					borderRadius: plantilla.fondo ? `${Math.round(plantilla.fondo.radio / 8)}px` : undefined,
 					padding: plantilla.fondo ? "2px 6px" : undefined,
+					// El trazo «Fuera» del render: el doble de ancho, detrás del relleno.
+					WebkitTextStroke: plantilla.trazo
+						? `${(pxTrazo(plantilla.trazo.grosor, 13 * escala) * 2).toFixed(1)}px ${plantilla.trazo.color}`
+						: undefined,
+					paintOrder: plantilla.trazo ? "stroke fill" : undefined,
 				}}
 			>
 				Subtítulos

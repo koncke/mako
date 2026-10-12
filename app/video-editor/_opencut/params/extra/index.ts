@@ -20,10 +20,15 @@ import type { ElementParamDefinition } from "@/app/video-editor/_opencut/params/
 import { paramsReflejo } from "./reflejo";
 import { paramsRecorte } from "./recorte";
 import { paramsSubtitulos } from "./subtitulos";
+import { paramsFondo } from "./fondo";
+import { paramsAudio } from "./audio";
+import { paramsAnimaciones } from "./animaciones";
+import { paramsTexto } from "./texto";
+import { paramsTransiciones } from "./transiciones";
 
 type ParamsPorTipo = Partial<Record<ElementType, ElementParamDefinition[]>>;
 
-const FUENTES: ParamsPorTipo[] = [paramsReflejo, paramsRecorte, paramsSubtitulos];
+const FUENTES: ParamsPorTipo[] = [paramsReflejo, paramsRecorte, paramsSubtitulos, paramsFondo, paramsAudio, paramsAnimaciones, paramsTexto, paramsTransiciones];
 
 export function paramsExtra(tipo: ElementType): ElementParamDefinition[] {
 	return FUENTES.flatMap((f) => f[tipo] ?? []);

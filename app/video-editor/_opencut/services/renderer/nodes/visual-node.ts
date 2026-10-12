@@ -4,6 +4,7 @@ import type { Effect, EffectPass } from "@/app/video-editor/_opencut/effects/typ
 import type { Mask } from "@/app/video-editor/_opencut/masks/types";
 import type { BlendMode, Transform } from "@/app/video-editor/_opencut/rendering";
 import type { RetimeConfig, VisualElement } from "@/app/video-editor/_opencut/timeline";
+import type { VentanaCe } from "@/app/video-editor/_opencut/transiciones/escena";
 
 export interface VisualNodeParams {
 	duration: number;
@@ -20,6 +21,12 @@ export interface VisualNodeParams {
 	/** `element.params` del elemento de origen: lo leen los ganchos de ganchos-ce.ts. */
 	paramsElemento?: ParamValues;
 	elementoId?: string;
+	/**
+	 * Transiciones (transiciones/escena.ts): el clip se dibuja también `antes`
+	 * ticks antes de empezar y `despues` ticks después de terminar, con el
+	 * material recortado del medio o congelado en su primer/último cuadro.
+	 */
+	ventanaCe?: VentanaCe;
 }
 
 export interface ResolvedVisualNodeState {

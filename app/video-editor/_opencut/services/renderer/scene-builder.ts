@@ -17,6 +17,8 @@ import {
 	readBlendModeFromParams,
 	readOpacityFromParams,
 } from "@/app/video-editor/_opencut/rendering";
+import { TICKS_PER_SECOND } from "@/app/video-editor/_opencut/wasm";
+import { transicionesDePista } from "@/app/video-editor/_opencut/transiciones/escena";
 
 const PREVIEW_MAX_IMAGE_SIZE = 2048;
 
@@ -45,6 +47,9 @@ function buildTrackNodes({
 
 	for (const track of tracks) {
 		const elements = getVisibleSortedElements({ track });
+		// Las transiciones de CapCut (transiciones/escena.ts), sólo en pistas de video.
+		const transiciones =
+			track.type === "video" ? transicionesDePista(elements, TICKS_PER_SECOND) : null;
 
 		for (const element of elements) {
 			if (element.type === "effect") {
@@ -65,11 +70,15 @@ function buildTrackNodes({
 				if (!mediaAsset?.file || !mediaAsset?.url) {
 					continue;
 				}
+				// Si tiene una transición a un lado: se dibuja de más, el gancho lee
+				// los params con `__tr.*` y, si comparte medio con el vecino, pide los
+				// cuadros a otro decodificador (`mediaId` es sólo la clave del videoCache).
+				const tr = transiciones?.get(element.id);
 
 				if (element.type === "video" && mediaAsset.type === "video") {
 					nodes.push(
 						new VideoNode({
-							mediaId: mediaAsset.id,
+							mediaId: tr?.claveDecodificador ?? mediaAsset.id,
 							url: mediaAsset.url,
 							file: mediaAsset.file,
 							duration: element.duration,
@@ -81,10 +90,11 @@ function buildTrackNodes({
 							animations: element.animations,
 							opacity: readOpacityFromParams({ params: element.params }),
 							blendMode: readBlendModeFromParams({ params: element.params }),
-							paramsElemento: element.params,
+							paramsElemento: tr?.params ?? element.params,
 							elementoId: element.id,
 							effects: element.effects ?? [],
 							masks: element.masks ?? [],
+							ventanaCe: tr?.ventana,
 						}),
 					);
 				}
@@ -100,10 +110,11 @@ function buildTrackNodes({
 							animations: element.animations,
 							opacity: readOpacityFromParams({ params: element.params }),
 							blendMode: readBlendModeFromParams({ params: element.params }),
-							paramsElemento: element.params,
+							paramsElemento: tr?.params ?? element.params,
 							elementoId: element.id,
 							effects: element.effects ?? [],
 							masks: element.masks ?? [],
+							ventanaCe: tr?.ventana,
 							...(isPreview && {
 								maxSourceSize: PREVIEW_MAX_IMAGE_SIZE,
 							}),

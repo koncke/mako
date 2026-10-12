@@ -5,7 +5,9 @@ export type SnapPointType =
 	| "element-end"
 	| "playhead"
 	| "bookmark"
-	| "keyframe";
+	| "keyframe"
+	// Los ritmos marcados de un clip de audio (paquete J, audio/ritmos.ts).
+	| "ritmo";
 
 export interface SnapPoint {
 	time: MediaTime;

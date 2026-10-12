@@ -117,6 +117,7 @@
   --cc-clip-audio: #0e3058;
   --cc-clip-audio-wave: #0e81b3;
   --cc-clip-audio-name: #274569;
+  --cc-beat: #f7c948;         /* puntos de ritmo bajo el clip de audio (sin medir: amarillo de CapCut a ojo) */
   --cc-clip-sticker: #a8622a;
   --cc-clip-effect: #6a4bb0;
   --cc-clip-filter: #4e4fb3;

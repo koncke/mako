@@ -31,7 +31,17 @@ import { aplicarPasesCe, esPaseCe } from "./pases-ce";
 
 // ── 1. Gancho visual ─────────────────────────────────────────────────────────
 
-export type EstadoVisual = { transform: Transform; opacity: number };
+export type EstadoVisual = {
+	transform: Transform;
+	opacity: number;
+	/**
+	 * Pases `ce-*` de UNA entrada que el gancho le suma a la capa, después de los
+	 * efectos del clip (las transiciones: una máscara de alfa, un desenfoque, un
+	 * fundido a un color). Un gancho que arma el estado de nuevo conserva los que
+	 * ya traía (`{ ...estado, transform }`).
+	 */
+	pases?: EffectPass[];
+};
 
 export type ContextoVisual = {
 	/** `element.params` del elemento (vacío para nodos que no vienen de uno). */
@@ -40,6 +50,12 @@ export type ContextoVisual = {
 	/** Segundos desde el inicio del clip y duración del clip, en segundos. */
 	localTime: number;
 	duration: number;
+	/**
+	 * Segundos desde el inicio del clip SIN acotar (`localTime` va de 0 a la
+	 * duración): durante una transición el clip se dibuja también un poco antes de
+	 * empezar (negativo) o después de terminar (más que `duration`).
+	 */
+	tiempoClip?: number;
 	/** Tamaño del lienzo del proyecto. */
 	lienzo: { width: number; height: number };
 };
@@ -83,6 +99,14 @@ export type ContextoFuente = ContextoVisual & { tipo: "video" | "image" | "stick
 type GanchoFuente = {
 	id: string;
 	orden: number;
+	/**
+	 * Opcional: lo que el gancho necesita listo ANTES de este cuadro (un modelo
+	 * que se baja, como el de quitar el fondo). El render lo ESPERA, así el primer
+	 * cuadro de un export ya sale con el gancho aplicado en vez de salir crudo
+	 * mientras carga. Devuelve una promesa sólo si hay algo que esperar (lo común
+	 * es `undefined`: no cuesta nada por cuadro), y nunca la rechaza.
+	 */
+	preparar?: (ctx: ContextoFuente) => Promise<void> | void;
 	/** Devuelve `null` si no tiene nada que hacer con este cuadro (lo común). */
 	aplicar: (fuente: FuenteVisual, ctx: ContextoFuente) => FuenteVisual | null;
 };
@@ -91,6 +115,28 @@ const ganchosFuente = new Map<string, GanchoFuente>();
 
 export function registrarGanchoFuente(gancho: GanchoFuente): void {
 	ganchosFuente.set(gancho.id, gancho);
+}
+
+/**
+ * Lo que hay que esperar antes de `aplicarGanchosFuente` para este cuadro, o
+ * `null` si no hay nada (sin promesa, para no sumar una microtarea por capa y
+ * por cuadro). El que llama hace `const e = prepararGanchosFuente(ctx); if (e) await e;`.
+ */
+export function prepararGanchosFuente(ctx: ContextoFuente): Promise<void> | null {
+	let esperas: Promise<void>[] | null = null;
+	for (const g of ganchosFuente.values()) {
+		if (!g.preparar) continue;
+		try {
+			const espera = g.preparar(ctx);
+			if (espera) (esperas ??= []).push(espera);
+		} catch (error) {
+			console.error(`[ganchos-ce] el gancho de fuente «${g.id}» falló al prepararse`, error);
+		}
+	}
+	if (!esperas) return null;
+	// Un gancho que no pudo prepararse sigue sin él (su `aplicar` devuelve null):
+	// el cuadro no se pierde por eso.
+	return Promise.allSettled(esperas).then(() => undefined);
 }
 
 export function aplicarGanchosFuente(fuente: FuenteVisual, ctx: ContextoFuente): FuenteVisual {

@@ -18,6 +18,8 @@ export interface TextDragData extends BaseDragData {
 	content: string;
 	/** Duración al soltarlo (la biblioteca de CapCut agrega el texto de 3 s). Sin ella, la de siempre. */
 	duration?: MediaTime;
+	/** El estilo de la tarjeta («Efectos de texto», «Plantilla de texto», un predefinido). */
+	params?: ParamValues;
 }
 
 export interface StickerDragData extends BaseDragData {
@@ -39,9 +41,17 @@ export interface EffectDragData extends BaseDragData {
 	params?: ParamValues;
 }
 
+/** Una transición de la biblioteca (transiciones/): no crea un elemento, se pone en
+ *  el CORTE entre dos clips pegados (el más cercano del clip donde se suelta). */
+export interface TransicionDragData extends BaseDragData {
+	type: "transicion";
+	transicionId: string;
+}
+
 export type TimelineDragData =
 	| MediaDragData
 	| TextDragData
 	| StickerDragData
 	| GraphicDragData
-	| EffectDragData;
+	| EffectDragData
+	| TransicionDragData;

@@ -1,6 +1,7 @@
 import type { SceneTracks } from "@/app/video-editor/_opencut/timeline";
 import type { SnapPoint } from "@/app/video-editor/_opencut/timeline/snapping";
-import { addMediaTime } from "@/app/video-editor/_opencut/wasm";
+import { TICKS_PER_SECOND, addMediaTime, roundMediaTime } from "@/app/video-editor/_opencut/wasm";
+import { ritmosEnClip } from "@/app/video-editor/_opencut/audio/ritmos";
 
 export function getElementEdgeSnapPoints({
 	tracks,
@@ -32,6 +33,19 @@ export function getElementEdgeSnapPoints({
 					trackId: track.id,
 				},
 			);
+
+			// Los ritmos de un audio también imantan, como en CapCut: para
+			// cortar o encajar un clip justo en el golpe.
+			if (element.type === "audio") {
+				for (const t of ritmosEnClip(element)) {
+					snapPoints.push({
+						time: roundMediaTime({ time: element.startTime + t * TICKS_PER_SECOND }),
+						type: "ritmo",
+						elementId: element.id,
+						trackId: track.id,
+					});
+				}
+			}
 		}
 	}
 

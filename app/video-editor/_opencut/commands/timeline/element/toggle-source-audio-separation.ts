@@ -4,6 +4,7 @@ import {
 	buildSeparatedAudioElement,
 	canExtractSourceAudio,
 	isSourceAudioSeparated,
+	sinAudioExtraido,
 } from "@/app/video-editor/_opencut/timeline/audio-separation";
 import {
 	applyPlacement,
@@ -50,9 +51,11 @@ export class ToggleSourceAudioSeparationCommand extends Command {
 		const videoElement: VideoElement = sourceElement;
 
 		if (isSourceAudioSeparated({ element: videoElement })) {
+			// «Recuperar audio»: el sonido vuelve al video y el extraído se va
+			// (si no, suenan los dos; ver `sinAudioExtraido`).
 			editor.timeline.updateTracks(
 				updateSourceAudioEnabled({
-					tracks: this.savedState,
+					tracks: sinAudioExtraido({ tracks: this.savedState, videoId: videoElement.id }),
 					trackId: this.params.trackId,
 					elementId: this.params.elementId,
 					isSourceAudioEnabled: true,

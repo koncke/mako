@@ -6,9 +6,10 @@
 //   el compositor la vuelve a encajar en el lienzo como a cualquier fuente: igual
 //   que en CapCut, lo recortado se agranda hasta llenar lo que llenaba el clip.
 // · Reflejar (gancho VISUAL): escala negativa en X (o Y). El compositor la lee
-//   como volteo (frame-descriptor: `flipX: scaledWidth < 0`). Corre ÚLTIMO
-//   (orden 1000): una animación que acote la escala a un mínimo positivo
-//   (MIN_TRANSFORM_SCALE) se comería el signo si corriera después.
+//   como volteo (frame-descriptor: `flipX: scaledWidth < 0`). Corre después de
+//   las animaciones (orden 1000): una que acote la escala a un mínimo positivo
+//   (MIN_TRANSFORM_SCALE) se comería el signo si corriera después. Detrás sólo
+//   van las transiciones (1100), que leen ese signo y no lo tocan.
 //
 // Lo importa commands/timeline/element/operaciones-clip.tsx (y ese, ce/extensiones.ts).
 

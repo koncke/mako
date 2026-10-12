@@ -12,16 +12,17 @@
 // relleno del fondo, relativo al `fontSize`; con números fijos un subtítulo
 // vertical (1080×1920) salía casi el doble de grande que uno horizontal.
 //
-// ⚠️ Sin contorno ni sombra: el motor de texto (services/renderer/nodes/
-// text-node.ts) sólo dibuja relleno y fondo. Por eso el estilo por defecto
-// lleva FONDO (legible sobre cualquier video). Cuando el paquete de texto sume
-// contorno/sombra como parámetros, entran acá como claves más de una plantilla.
+// El contorno es el «Trazo» del paquete de texto (params/extra/texto.ts). Una
+// plantilla escribe SIEMPRE el trazo, la sombra y el brillo (apagados si no los
+// usa): si no, elegir «Clásico» sobre un subtítulo al que le pusieron «Neón»
+// desde Texto › Efectos le dejaba el halo.
 //
 // Los colores de las plantillas son CONTENIDO (lo que se escribe en el
 // subtítulo), no estilo de la pantalla: por eso van en hex.
 
 import type { ParamValue } from "@/app/video-editor/_opencut/params";
 import { FONT_SIZE_SCALE_REFERENCE } from "@/app/video-editor/_opencut/text/typography";
+import { TEXTO } from "@/app/video-editor/_opencut/params/extra/texto";
 
 export type Lienzo = { width: number; height: number };
 
@@ -43,6 +44,8 @@ export type PlantillaSubtitulo = {
 		x: number;
 		y: number;
 	};
+	/** El «Trazo» (por fuera de la letra), con el grosor en la escala 0–100 de la pantalla. */
+	trazo?: { color: string; grosor: number };
 };
 
 export const PLANTILLAS_SUBTITULO: PlantillaSubtitulo[] = [
@@ -124,6 +127,22 @@ export const PLANTILLAS_SUBTITULO: PlantillaSubtitulo[] = [
 		fondo: { color: "rgba(0, 0, 0, 0.55)", radio: 10, x: 0.3, y: 0.06 },
 	},
 	{
+		id: "contorno",
+		nombre: "Contorno",
+		fuente: "Montserrat",
+		negrita: true,
+		color: "#ffffff",
+		trazo: { color: "#000000", grosor: 30 },
+	},
+	{
+		id: "amarillo-contorno",
+		nombre: "Amarillo con contorno",
+		fuente: "Montserrat",
+		negrita: true,
+		color: "#ffe14d",
+		trazo: { color: "#000000", grosor: 30 },
+	},
+	{
 		id: "solo-texto",
 		nombre: "Solo texto",
 		fuente: "Montserrat",
@@ -167,7 +186,15 @@ export function paramsDePlantilla(
 		letterSpacing: plantilla.espaciado ?? 0,
 		lineHeight: 1.2,
 		"background.enabled": Boolean(plantilla.fondo),
+		[TEXTO.trazoActivo]: Boolean(plantilla.trazo),
+		[TEXTO.sombraActiva]: false,
+		[TEXTO.brilloActivo]: false,
 	};
+	if (plantilla.trazo) {
+		params[TEXTO.trazoColor] = plantilla.trazo.color;
+		params[TEXTO.trazoGrosor] = plantilla.trazo.grosor;
+		params[TEXTO.trazoPosicion] = "fuera";
+	}
 	if (plantilla.fondo) {
 		params["background.color"] = plantilla.fondo.color;
 		params["background.cornerRadius"] = plantilla.fondo.radio;

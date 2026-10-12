@@ -35,6 +35,7 @@ import type { TimelineDragData } from "@/app/video-editor/_opencut/timeline/drag
 import type { MediaAsset } from "@/app/video-editor/_opencut/media/types";
 import type { ProcessedMediaAsset } from "@/app/video-editor/_opencut/media/processing";
 import { roundFrameTime, type MediaTime } from "@/app/video-editor/_opencut/wasm";
+import { soltarTransicion } from "@/app/video-editor/_opencut/transiciones/acciones";
 
 // --- Config ---
 
@@ -103,6 +104,9 @@ function elementTypeFromDrag({
 			return "effect";
 		case "media":
 			return dragData.mediaType;
+		// Una transición cae sobre un clip de video (no crea elemento): ver executeAssetDrop.
+		case "transicion":
+			return "video";
 	}
 }
 
@@ -113,6 +117,7 @@ function getTargetElementTypesForDrag({
 }): string[] | undefined {
 	if (dragData.type === "effect") return dragData.targetElementTypes;
 	if (dragData.type === "media") return dragData.targetElementTypes;
+	if (dragData.type === "transicion") return ["video", "image"];
 	return undefined;
 }
 
@@ -234,6 +239,14 @@ export class DragDropController {
 		target.xPosition = fps
 			? roundFrameTime({ time: target.xPosition, fps })
 			: target.xPosition;
+
+		// Una transición sólo cae sobre un clip: en un hueco no hay línea de
+		// inserción (no crea una pista) y el puntero dice que ahí no va.
+		if (dragData.type === "transicion" && !target.targetElement) {
+			this.setOver({ dropTarget: null, elementType });
+			event.dataTransfer.dropEffect = "none";
+			return;
+		}
 
 		this.setOver({ dropTarget: target, elementType });
 		event.dataTransfer.dropEffect = "copy";
@@ -380,6 +393,13 @@ export class DragDropController {
 			case "media":
 				this.executeMediaDrop({ target, dragData });
 				return;
+			case "transicion":
+				soltarTransicion({
+					tracks: this.config.getSceneTracks(),
+					target,
+					transicionId: dragData.transicionId,
+				});
+				return;
 		}
 	}
 
@@ -394,7 +414,8 @@ export class DragDropController {
 			raw: {
 				name: dragData.name ?? "",
 				...(dragData.duration ? { duration: dragData.duration } : {}),
-				params: { content: dragData.content ?? "" },
+				// El estilo de la tarjeta (paquete de texto) va debajo del contenido.
+				params: { ...(dragData.params ?? {}), content: dragData.content ?? "" },
 			},
 			startTime: target.xPosition,
 		});

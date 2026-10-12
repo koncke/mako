@@ -50,6 +50,7 @@ export function hasAnimatedVolume({
 }
 
 import { TICKS_PER_SECOND } from "@/app/video-editor/_opencut/wasm";
+import { gananciaNormalizacion } from "@/app/video-editor/_opencut/audio/claves";
 
 export function resolveEffectiveAudioGain({
 	element,
@@ -71,7 +72,10 @@ export function resolveEffectiveAudioGain({
 		localTime: Math.round(localTime * TICKS_PER_SECOND),
 	});
 
-	return dBToLinear(resolvedDb);
+	// «Normalizar la intensidad» (paquete J) es una ganancia fija del clip: va
+	// acá para que la oigan la reproducción, el export y la forma de onda sin
+	// que cada uno la sume aparte. Fuera del tope de ±dB del volumen a propósito.
+	return dBToLinear(resolvedDb) * gananciaNormalizacion(element.params);
 }
 
 export function buildWaveformGainSamples({

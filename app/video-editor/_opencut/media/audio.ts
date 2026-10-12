@@ -25,6 +25,13 @@ import {
 	computeRmsBuckets,
 	type SampleBucket,
 } from "@/app/video-editor/_opencut/media/waveform-summary";
+import {
+	claveProcesado,
+	factorFundido,
+	leerFundidos,
+	tieneFundidos,
+} from "@/app/video-editor/_opencut/audio/claves";
+import { procesarClip } from "@/app/video-editor/_opencut/audio/cadena";
 
 const MAX_AUDIO_CHANNELS = 2;
 const EXPORT_SAMPLE_RATE = 44100;
@@ -144,13 +151,24 @@ export async function collectAudioElements({
 }: {
 	tracks: SceneTracks;
 	mediaAssets: MediaAsset[];
-	audioContext: AudioContext;
+	audioContext: BaseAudioContext;
 }): Promise<CollectedAudioElement[]> {
 	const candidates = collectAudibleCandidates({ tracks, mediaAssets });
 	const mediaMap = new Map<string, MediaAsset>(
 		mediaAssets.map((media) => [media.id, media]),
 	);
 	const pendingElements: Array<Promise<CollectedAudioElement | null>> = [];
+	// Un archivo se decodifica UNA vez aunque esté partido en veinte clips: cada
+	// decodificación de un video largo son cientos de MB y segundos de espera.
+	const porArchivo = new Map<string, Promise<AudioBuffer | null>>();
+	const decodificar = (asset: MediaAsset) => {
+		let pendiente = porArchivo.get(asset.id);
+		if (!pendiente) {
+			pendiente = resolveAudioBufferForAsset({ asset, audioContext });
+			porArchivo.set(asset.id, pendiente);
+		}
+		return pendiente;
+	};
 
 	for (const { element, mediaAsset } of candidates) {
 		if (element.type === "audio") {
@@ -159,6 +177,7 @@ export async function collectAudioElements({
 					element,
 					mediaMap,
 					audioContext,
+					decodificar,
 				}).then((audioBuffer) => {
 					if (!audioBuffer) return null;
 					return {
@@ -185,10 +204,7 @@ export async function collectAudioElements({
 			if (!mediaAsset || !mediaSupportsAudio({ media: mediaAsset })) continue;
 
 			pendingElements.push(
-				resolveAudioBufferForAsset({
-					asset: mediaAsset,
-					audioContext,
-				}).then((audioBuffer) => {
+				decodificar(mediaAsset).then((audioBuffer) => {
 					if (!audioBuffer) return null;
 					return {
 						timelineElement: element,
@@ -222,16 +238,18 @@ async function resolveAudioBufferForElement({
 	element,
 	mediaMap,
 	audioContext,
+	decodificar,
 }: {
 	element: AudioElement;
 	mediaMap: Map<string, MediaAsset>;
-	audioContext: AudioContext;
+	audioContext: BaseAudioContext;
+	decodificar: (asset: MediaAsset) => Promise<AudioBuffer | null>;
 }): Promise<AudioBuffer | null> {
 	try {
 		if (element.sourceType === "upload") {
 			const asset = mediaMap.get(element.mediaId);
 			if (!asset) return null;
-			return await resolveAudioBufferForAsset({ asset, audioContext });
+			return await decodificar(asset);
 		}
 
 		if (element.buffer) return element.buffer;
@@ -254,7 +272,7 @@ async function resolveAudioBufferForAsset({
 	audioContext,
 }: {
 	asset: MediaAsset;
-	audioContext: AudioContext;
+	audioContext: BaseAudioContext;
 }): Promise<AudioBuffer | null> {
 	if (asset.type === "audio") {
 		try {
@@ -421,15 +439,17 @@ async function fetchLibraryAudioClip({
 			type: "audio/mpeg",
 		});
 
+		// En SEGUNDOS, como los clips de archivo (collectMediaAudioClip): venía en
+		// ticks y el audio-manager programaba la música de biblioteca fuera de lugar.
 		return {
 			timelineElement: element,
 			id: element.id,
 			sourceKey: element.id,
 			file,
-			startTime: element.startTime,
-			duration: element.duration,
-			trimStart: element.trimStart,
-			trimEnd: element.trimEnd,
+			startTime: element.startTime / TICKS_PER_SECOND,
+			duration: element.duration / TICKS_PER_SECOND,
+			trimStart: element.trimStart / TICKS_PER_SECOND,
+			trimEnd: element.trimEnd / TICKS_PER_SECOND,
 			volume,
 			muted,
 			retime: element.retime,
@@ -637,9 +657,12 @@ export async function createTimelineAudioBuffer({
 	mediaAssets: MediaAsset[];
 	duration: number;
 	sampleRate?: number;
-	audioContext?: AudioContext;
+	audioContext?: BaseAudioContext;
 }): Promise<AudioBuffer | null> {
-	const context = audioContext ?? createAudioContext({ sampleRate });
+	// Un contexto SIN CONEXIÓN alcanza para decodificar y crear búferes, y no
+	// queda vivo: el `AudioContext` que se creaba acá no se cerraba nunca, y
+	// Chrome topea los contextos vivos (uno más por cada export).
+	const context = audioContext ?? new OfflineAudioContext(2, 1, sampleRate);
 
 	const audioElements = await collectAudioElements({
 		tracks,
@@ -661,19 +684,27 @@ export async function createTimelineAudioBuffer({
 	for (const element of audioElements) {
 		if (element.muted) continue;
 
-		const renderedBuffer = shouldMaintainPitch({
+		// Reducir el ruido y el modificador de voz procesan el clip ENTERO ya en
+		// su tiempo, con la misma función que la reproducción (audio/cadena.ts).
+		const params = element.timelineElement.params;
+		const procesar = claveProcesado(params) !== null;
+		const conservarTono = shouldMaintainPitch({
 			rate: element.retime?.rate ?? 1,
 			maintainPitch: element.retime?.maintainPitch,
-		})
-			? await renderRetimedBuffer({
-					audioContext: context,
-					sourceBuffer: element.buffer,
-					trimStart: element.trimStart,
-					clipDuration: element.duration,
-					retime: element.retime,
-					maintainPitch: true,
-				})
-			: undefined;
+		});
+		const enSuTiempo =
+			conservarTono || procesar
+				? await renderRetimedBuffer({
+						audioContext: context,
+						sourceBuffer: element.buffer,
+						trimStart: element.trimStart,
+						clipDuration: element.duration,
+						retime: element.retime,
+						maintainPitch: conservarTono,
+					})
+				: undefined;
+		const renderedBuffer =
+			enSuTiempo && procesar ? await procesarClip({ buffer: enSuTiempo, params }) : enSuTiempo;
 
 		mixAudioChannels({
 			element,
@@ -836,6 +867,11 @@ function mixAudioChannels({
 
 	const outputStartSample = Math.floor(startTime * sampleRate);
 	const renderedLength = Math.ceil(elementDuration * sampleRate);
+	// «Aparición/Desaparición progresiva» (audio/claves.ts): la misma rampa
+	// lineal que programa la reproducción.
+	const fundidos = leerFundidos(element.timelineElement.params, elementDuration);
+	const conFundidos = tieneFundidos(fundidos);
+	const volumenAnimado = hasAnimatedVolume({ element: element.timelineElement });
 
 	const outputChannels = 2;
 	for (let channel = 0; channel < outputChannels; channel++) {
@@ -863,12 +899,15 @@ function mixAudioChannels({
 			const lowerIndex = Math.floor(sourceIndex);
 			const upperIndex = Math.min(sourceData.length - 1, lowerIndex + 1);
 			const fraction = sourceIndex - lowerIndex;
-			const gain = hasAnimatedVolume({ element: element.timelineElement })
+			const volumen = volumenAnimado
 				? resolveEffectiveAudioGain({
 						element: element.timelineElement,
 						localTime: clipTime,
 					})
 				: element.volume;
+			const gain = conFundidos
+				? volumen * factorFundido(clipTime, elementDuration, fundidos)
+				: volumen;
 			outputData[outputIndex] +=
 				(sourceData[lowerIndex] * (1 - fraction) +
 					sourceData[upperIndex] * fraction) *

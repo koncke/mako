@@ -97,6 +97,11 @@ import {
 } from "./expanded-layout";
 import { TiraMiniaturas } from "./tira-miniaturas";
 import { FundidosAudio } from "./fundidos-audio";
+import { RitmosClip } from "@/app/video-editor/_opencut/audio/components/ritmos-clip";
+import { abrirTransicion } from "@/app/video-editor/_opencut/transiciones/acciones";
+import { idTransicion, transicionVigente } from "@/app/video-editor/_opencut/transiciones/reglas";
+import { transicionPorId } from "@/app/video-editor/_opencut/transiciones/catalogo";
+import { FranjasAnimacion } from "@/app/video-editor/_opencut/animaciones/components/franjas-animacion";
 
 const KEYFRAME_INDICATOR_MIN_WIDTH_PX = 40;
 /** Entre dos clips pegados queda 1 px de cada lado, como el filo oscuro de CapCut. */
@@ -204,9 +209,14 @@ function formatoDuracion(ticks: number, fps: number): string {
 	return `${dos(h)}:${dos(m)}:${dos(s)}:${dos(f)}`;
 }
 
-function tieneTransicion(element: TimelineElementType): boolean {
-	const id = element.params["transicion.id"];
-	return typeof id === "string" && id.length > 0;
+/**
+ * ⧓ sobre el corte: la MISMA regla con la que la escena dibuja la transición
+ * (transiciones/reglas.ts: pista de video, clip pegado a la derecha que no está
+ * oculto, ≤1 tick) y un id que el catálogo conoce. Con una regla propia se veía
+ * un ⧓ sobre un corte que no tenía transición (el vecino oculto, o un id viejo).
+ */
+function tieneTransicion(track: TimelineTrack, element: TimelineElementType): boolean {
+	return transicionVigente(track, element) && transicionPorId(idTransicion(element)) !== null;
 }
 
 interface TimelineElementProps {
@@ -351,13 +361,8 @@ export function TimelineElement({
 	const bloqueada = track.locked === true;
 	const divide = modoCursor === "dividir" && !bloqueada;
 
-	// ⧓: el clip de la izquierda de un corte tiene transición y hay un clip pegado.
-	const siguientePegado = track.elements.some(
-		(otro) =>
-			otro.id !== element.id &&
-			Math.abs(otro.startTime - (element.startTime + element.duration)) <= 1,
-	);
-	const marcadorTransicion = tieneTransicion(element) && siguientePegado;
+	// ⧓: el clip de la izquierda de un corte tiene una transición que rige.
+	const marcadorTransicion = tieneTransicion(track, element);
 
 	/** Tiempo de la línea bajo el mouse, ajustado al cuadro (para dividir). */
 	const tiempoBajoMouse = (event: React.MouseEvent): MediaTime | null => {
@@ -454,6 +459,12 @@ export function TimelineElement({
 							onResizeStart={onResizeStart}
 							isDropTarget={isDropTarget}
 						/>
+						{/* El tramo de la Entrada / Salida / Combinado (animaciones/components/franjas-animacion.tsx). */}
+						<FranjasAnimacion
+							element={renderElement}
+							pixelsPerSecond={timelinePixelsPerSecond}
+							alto={baseTrackHeight}
+						/>
 						{isSelected && (
 							<div
 								className="pointer-events-none absolute inset-x-0 top-0 overflow-hidden"
@@ -479,10 +490,9 @@ export function TimelineElement({
 						)}
 						{marcadorTransicion && (
 							<MarcadorTransicion
+								// Elige el clip y abre su pestaña «Transición» (paquete G).
 								onClick={() =>
-									editor.selection.setSelectedElements({
-										elements: [{ trackId: track.id, elementId: element.id }],
-									})
+									abrirTransicion(editor, { trackId: track.id, elementId: element.id })
 								}
 								alto={baseTrackHeight}
 							/>
@@ -1177,6 +1187,8 @@ function AudioElementContent({
 					/>
 				)}
 				<AudioVolumeLine element={element} trackId={trackId} />
+				{/* Los ritmos marcados (paquete J, audio/components/ritmos-clip.tsx). */}
+				<RitmosClip element={element} pixelsPerSecond={pixelsPerSecond} />
 			</div>
 			<FundidosAudio
 				element={element}
@@ -1205,10 +1217,17 @@ function EffectsButton({
 		});
 		// Las pestañas las registra el paquete de color (effects/registro-ce.ts):
 		// «Efectos» lista filtros y efectos del clip; si sólo tiene ajuste o croma,
-		// lo que hay para tocar está en «Ajustar».
+		// lo que hay para tocar está en «Ajustar». Si es sólo el croma, en Video ›
+		// «Eliminar fondo» (fondo/registro.tsx, SUBPESTANA_ELIMINAR_FONDO).
+		const soloCroma = (element.effects ?? []).every((e) => e.type === "croma");
 		setActiveTab({
 			elementType: element.type,
-			tabId: efectosListables(element.effects).length > 0 ? "efectos-clip" : "ajustar-basico",
+			tabId:
+				efectosListables(element.effects).length > 0
+					? "efectos-clip"
+					: soloCroma
+						? "video-eliminar-fondo"
+						: "ajustar-basico",
 		});
 	};
 

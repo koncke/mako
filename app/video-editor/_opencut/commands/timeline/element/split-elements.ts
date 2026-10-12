@@ -5,6 +5,9 @@ import {
 } from "@/app/video-editor/_opencut/commands/base-command";
 import type { SceneTracks, TimelineElement } from "@/app/video-editor/_opencut/timeline";
 import { generateUUID } from "@/app/video-editor/_opencut/utils/id";
+import { sinTransicion } from "@/app/video-editor/_opencut/transiciones/reglas";
+import { sinEntrada, sinSalida } from "@/app/video-editor/_opencut/animaciones/reglas";
+import { sinFundidoEntrada, sinFundidoSalida } from "@/app/video-editor/_opencut/audio/claves";
 import { EditorCore } from "@/app/video-editor/_opencut/core";
 import { isRetimableElement } from "@/app/video-editor/_opencut/timeline";
 import { splitAnimationsAtTime } from "@/app/video-editor/_opencut/animation";
@@ -141,6 +144,15 @@ export class SplitElementsCommand extends Command {
 					b: leftSourceSpan,
 				});
 
+				// Con las dos mitades, la transición (`transicion.*`) es del borde derecho
+				// ORIGINAL, que queda en la mitad derecha: la izquierda no la lleva, o
+				// aparecería en el corte nuevo (transiciones/reglas.ts). Con «Borrar a la
+				// derecha» la mitad que queda la conserva, como al recortar el final.
+				// Y la animación: la Entrada queda en la izquierda y la Salida en la
+				// derecha (animaciones/reglas.ts).
+				// Los fundidos de audio, igual (audio/claves.ts).
+				const leftParams = sinFundidoSalida(sinSalida(sinTransicion(element.params)));
+
 				// Las dos mitades conservan el nombre, como en CapCut (OpenCut le sumaba
 				// «(left)»/«(right)», que se leía en inglés sobre el clip de un efecto).
 				if (this.retainSide === "left") {
@@ -179,6 +191,7 @@ export class SplitElementsCommand extends Command {
 					splitResult = [
 						{
 							...element,
+							params: leftParams,
 							duration: leftVisibleDuration,
 							trimEnd: leftTrimEnd,
 							animations: leftAnimations,
@@ -187,6 +200,7 @@ export class SplitElementsCommand extends Command {
 						{
 							...element,
 							id: secondElementId,
+							params: sinFundidoEntrada(sinEntrada(element.params)),
 							startTime: this.splitTime,
 							duration: rightVisibleDuration,
 							trimStart: rightTrimStart,

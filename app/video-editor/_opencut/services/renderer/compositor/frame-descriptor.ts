@@ -7,7 +7,12 @@ import { createCanvasSurface } from "../canvas-utils";
 import { BlurBackgroundNode } from "../nodes/blur-background-node";
 import { ColorNode } from "../nodes/color-node";
 import { EffectLayerNode } from "../nodes/effect-layer-node";
-import { aplicarGanchosFuente, preaplicarPasesCe } from "../ganchos-ce";
+import {
+	aplicarGanchosFuente,
+	prepararGanchosFuente,
+	preaplicarPasesCe,
+	type ContextoFuente,
+} from "../ganchos-ce";
 import { esPaseCe } from "../pases-ce";
 import { envolverDibujo, firmaPases, repartirPasesCe, separarPasesCe } from "./repartir-ce";
 import type { EffectPass } from "@/app/video-editor/_opencut/effects/types";
@@ -259,17 +264,19 @@ async function collectVisualSourceNode({
 	// Recorte, quitar fondo, filtros, ajustes y croma: ver ganchos-ce.ts.
 	const tipoFuente =
 		node instanceof GraphicNode ? "graphic" : node instanceof StickerNode ? "sticker" : node instanceof ImageNode ? "image" : "video";
-	const ganchada = aplicarGanchosFuente(
-		{ source, width: sourceWidth, height: sourceHeight },
-		{
-			tipo: tipoFuente,
-			params: node.params.paramsElemento ?? {},
-			elementoId: node.params.elementoId,
-			localTime: node.resolved.localTime / TICKS_PER_SECOND,
-			duration: node.params.duration / TICKS_PER_SECOND,
-			lienzo: { width: renderer.width, height: renderer.height },
-		},
-	);
+	const ctxFuente: ContextoFuente = {
+		tipo: tipoFuente,
+		params: node.params.paramsElemento ?? {},
+		elementoId: node.params.elementoId,
+		localTime: node.resolved.localTime / TICKS_PER_SECOND,
+		duration: node.params.duration / TICKS_PER_SECOND,
+		lienzo: { width: renderer.width, height: renderer.height },
+	};
+	// Un gancho que primero tiene que cargar algo (el modelo de quitar el fondo)
+	// se espera acá: el reproductor y el export pasan por este mismo punto.
+	const espera = prepararGanchosFuente(ctxFuente);
+	if (espera) await espera;
+	const ganchada = aplicarGanchosFuente({ source, width: sourceWidth, height: sourceHeight }, ctxFuente);
 	const conPases = preaplicarPasesCe(ganchada, node.resolved.effectPasses);
 	const fuenteFinal = conPases.fuente;
 
