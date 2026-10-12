@@ -64,6 +64,8 @@ import { EmbudoEntradas } from './EmbudoEntradas';
 import { CampanasDelProducto } from './CampanasDelProducto';
 import { CerrarIcon, LapizIcon } from './iconos';
 import { MoverPartido } from './MoverPartido';
+import { CampanasModal } from './CampanasModal';
+import { IconoMenu } from '@/app/_ui/iconos-menu';
 
 const SANS = "'Geist', sans-serif";
 
@@ -203,6 +205,11 @@ export function EtapasModal({ funnelId, nombre, abrirEntradas, semilla, onCerrar
   const [confirmar, setConfirmar] = useState<{ titulo: string; cuerpo: string; boton: string; hacer: () => void } | null>(null);
   const [entradasAbierto, setEntradasAbierto] = useState(abrirEntradas === true);
   const [ordenLocal, setOrdenLocal] = useState<EtapaDelFunnel[] | null>(null);
+  // Las campañas de Meta de este funnel (pedido del 12/10/2026: «Dentro del editor de funnel,
+  // agrega un desplegable para asignar campañas, el mismo que tenemos en los 3 puntos de "Leads
+  // entrantes"»). Es el MISMO CampanasModal que abre el «···» de la columna de entrada, anidado.
+  const [campanas, setCampanas] = useState(false);
+  const cerrarCampanas = useCallback(() => { setCampanas(false); router.refresh(); }, [router]);
   const [trabajando, startTrabajo] = useTransition();
 
   const cargar = useCallback(async () => {
@@ -570,7 +577,14 @@ export function EtapasModal({ funnelId, nombre, abrirEntradas, semilla, onCerrar
             <span style={{ flex: 1 }} />
           </>
         )}
-        <span style={{ flex: 'none', fontSize: 12, fontWeight: 600, color: 'var(--dim)', padding: '0 4px' }}>{rotulo}</span>
+        {/* El tipo, con la MISMA pastilla que el desplegable de las etapas del recorrido (tercer feedback del
+            12/10/2026, punto 1: «las etapas de nutrición deberían ser editables como cualquier otra etapa»). No
+            se despliega: su tipo lo decide el recorrido. Lo que sí se edita es el nombre (un clic) y quitarla. */}
+        <span title={rotulo === 'Nutrición' ? 'Esta etapa la arma el recorrido: se renombra con un clic en el nombre y se quita con la ✕' : 'Esta etapa está en todos los funnels: sólo se le cambia el nombre'}
+          style={{ flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 7, height: 32, padding: '0 14px', borderRadius: 999, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13, fontWeight: 600 }}>
+          <IconoMenu nombre={rotulo === 'Nutrición' ? 'repetir' : 'etapa'} size={14} />
+          {rotulo}
+        </span>
         {onQuitar && (
           <AccionFila etiqueta={`Quitar ${e.label}`} disabled={trabajando} onClick={onQuitar}><CerrarIcon /></AccionFila>
         )}
@@ -776,7 +790,13 @@ export function EtapasModal({ funnelId, nombre, abrirEntradas, semilla, onCerrar
                         ya no, porque abajo viven las campañas: ver `onGuardado`.) Y la
                         etiqueta cambia con el ícono: `AccionFila` usa el mismo string para el
                         `aria-label` y el `title`, y una ✕ que dice «Configurar» miente. */}
-                    {esEntrada(e) ? (
+                    {esEntrada(e) ? (<>
+                      <button type="button" data-nodrag disabled={trabajando} onClick={() => setCampanas(true)}
+                        title="Asignar campañas de Meta a este funnel"
+                        style={{ flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 7, height: 32, padding: '0 12px', borderRadius: 999, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                        <IconoMenu nombre="anuncio" size={14} />
+                        Campañas de Meta
+                      </button>
                       <AccionFila
                         etiqueta={entradasAbierto
                           ? `Cerrar cómo entra la gente a ${e.label}`
@@ -784,7 +804,7 @@ export function EtapasModal({ funnelId, nombre, abrirEntradas, semilla, onCerrar
                         disabled={trabajando} onClick={() => setEntradasAbierto((v) => !v)}>
                         {entradasAbierto ? <CerrarIcon /> : <LapizIcon />}
                       </AccionFila>
-                    ) : (<>
+                    </>) : (<>
                       {/* Sólo las que pueden ser reunión tienen tipo: la entrada, el pago y el
                           cierre ya tienen el suyo (`puedeSerReunion`, y la action lo repite). */}
                       {puedeSerReunion(e) && (
@@ -852,20 +872,18 @@ export function EtapasModal({ funnelId, nombre, abrirEntradas, semilla, onCerrar
               {/* «Agregar etapa si le paso el cursor debería reaccionar y al apretarle como
                   mínimo que me pida el nombre de la nueva etapa». */}
               <NuevaEtapa disabled={trabajando} onCrear={(label) => aplicar({ op: 'agregar', label })} />
-            </div>
 
-            {/* LAS OTRAS ETAPAS DEL TABLERO (segundo feedback del 12/10/2026, punto 9): «En la
-                edición de las etapas faltan las etapas de nutrición que hoy ya tengo en el
-                funnel... Pon todas las etapas directamente, incluso ganado y las de descartado».
-                Van debajo del recorrido y en el orden de las bandas del tablero: nutrición, y
-                después Ganado y las de descarte, que sólo cambian de nombre. Afuera de la lista
-                de arriba a propósito: ésa se arrastra, y éstas no tienen lugar que elegir. */}
-            {(nutricionEtapas.length > 0 || fijas.length > 0) && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 14 }}>
-                {nutricionEtapas.map((e) => filaQuieta(e, 'Nutrición', nutricionDe(e.key) ? () => quitarNutricion(e) : undefined))}
-                {fijas.map((e) => filaQuieta(e, e.key === 'ganado' ? 'Ganado' : 'Descartado'))}
-              </div>
-            )}
+              {/* LAS OTRAS ETAPAS DEL TABLERO, EN LA MISMA LISTA Y EN EL ORDEN DEL TABLERO (12/10/2026).
+                  Segundo feedback, punto 9: «Pon todas las etapas directamente, incluso ganado y las de
+                  descartado». Tercero, punto 1: «No separes las secciones en 2 partes, que este todo junto,
+                  y en el orden correcto». El orden es el de las bandas del tablero: el recorrido termina en
+                  Ganado, después la banda Nutrición y al final las de descarte. Ganado y las de descarte
+                  sólo cambian de nombre; las de nutrición también se quitan (apagando esa nutrición). No se
+                  arrastran: su lugar lo decide el recorrido, y sin `data-etapa` no cuentan para el drop. */}
+              {fijas.filter((e) => e.key === 'ganado').map((e) => filaQuieta(e, 'Ganado'))}
+              {nutricionEtapas.map((e) => filaQuieta(e, 'Nutrición', nutricionDe(e.key) ? () => quitarNutricion(e) : undefined))}
+              {fijas.filter((e) => e.key !== 'ganado').map((e) => filaQuieta(e, 'Descartado'))}
+            </div>
           </>
         )}
 
@@ -891,6 +909,14 @@ export function EtapasModal({ funnelId, nombre, abrirEntradas, semilla, onCerrar
           onCancel={() => setConfirmar(null)}
           onConfirm={() => { const f = confirmar.hacer; setConfirmar(null); f(); }}
         />
+      )}
+      {campanas && (
+        <CampanasModal
+          // El principal va como `null`, igual que desde el tablero (ver CrmBoard).
+          funnelId={emb?.esDefault || funnelId == null ? null : funnelId}
+          nombreProducto={emb?.nombre ?? nombre}
+          anidada
+          onCerrar={cerrarCampanas} />
       )}
       <Toast state={toast} onClose={clear} />
     </>

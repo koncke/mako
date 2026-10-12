@@ -30,7 +30,7 @@ import { InfoPrincipalCard } from './lead-view/InfoPrincipalCard';
 import { CabeceraLead } from './lead-view/CabeceraLead';
 import { FunnelYEtapa, useProductosDeLaFicha } from './lead-view/ProductoDelLead';
 import { AnalystDelLead } from './lead-view/AnalystDelLead';
-import { ANCHO_FICHA_LEAD, ALTO_CHAT_EN_EL_POPUP } from './lead-view/ficha-medidas';
+import { ANCHO_FICHA_LEAD, ALTO_CHAT_EN_EL_POPUP, ALTO_FICHA_LEAD, MARGEN_FICHA_LEAD } from './lead-view/ficha-medidas';
 import { BotonBorrar } from '@/app/_ui/BotonBorrar';
 import { AuditHistory } from './lead-view/AuditHistory';
 import { ComportamientoCard } from './lead-view/ComportamientoCard';
@@ -285,12 +285,12 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
 
   return (
     <FichaCambioProvider value={releer}>
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(18,21,27,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'clamp(16px,4vw,48px) clamp(10px,3vw,20px)' }}>
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(18,21,27,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: `${MARGEN_FICHA_LEAD}px clamp(10px,3vw,20px)` }}>
       {/* ⚠️ MÁS ANCHO (punto 14 del 12/10/2026: «bastante más ancho, para aprovechar más el
           espacio»): eran 760. El número vive en lead-view/ficha-medidas.ts, que también lee el
           esqueleto de carga. Sin `aria-labelledby`: el nombre ahora es un campo editable, y un
           diálogo no se nombra con un campo. */}
-      <div ref={panelRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={lead.nombre || 'Lead'} onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: ANCHO_FICHA_LEAD, maxHeight: 'calc(100dvh - clamp(32px,8vw,96px))', display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 70px rgba(18,21,27,.35)', overflow: 'hidden', outline: 'none' }}>
+      <div ref={panelRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={lead.nombre || 'Lead'} onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: ANCHO_FICHA_LEAD, height: ALTO_FICHA_LEAD, maxHeight: ALTO_FICHA_LEAD, display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 70px rgba(18,21,27,.35)', overflow: 'hidden', outline: 'none' }}>
 
         {/* ⚠️ LA CABECERA ES LA MISMA PIEZA QUE LA DE LA RUTA (lead-view/CabeceraLead.tsx): la
             portada con la cara del lead cruzándola (punto 11), el nombre que se edita con un clic,

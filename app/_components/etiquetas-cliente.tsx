@@ -19,6 +19,7 @@
 import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { Dropdown } from '@/app/components/Dropdown';
 import { EditarEtiqueta } from '@/app/_components/EditarEtiqueta';
+import { IconoMenu } from '@/app/_ui/iconos-menu';
 import type { Etiqueta } from '@/lib/etiquetas';
 
 export type { Etiqueta };
@@ -175,9 +176,13 @@ export function ChipEtiqueta({ e, onSacar, ocupado, chico }: { e: Pick<Etiqueta,
 
 const NUEVA = '__nueva__';
 
-/** Los tres puntos de las opciones de una etiqueta (en fila, como los del tablero). */
-function TresPuntos() {
-  return <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden><circle cx="5" cy="12" r="1.9" /><circle cx="12" cy="12" r="1.9" /><circle cx="19" cy="12" r="1.9" /></svg>;
+/**
+ * El lápiz que abre las opciones de una etiqueta (renombrar, color, archivar). Eran tres puntos;
+ * Martín, 12/10/2026 (tercer feedback del CRM, punto 6): «cambia el botón de tres puntos por un
+ * lapiz en las etiquetas».
+ */
+function Lapiz() {
+  return <IconoMenu nombre="editar" size={15} />;
 }
 
 /**
@@ -198,7 +203,7 @@ export function SelectorEtiqueta({ value, onElegir, excluir, placeholder = 'Etiq
   accion?: boolean;
   icono?: ReactNode;
   /**
-   * Cada etiqueta lleva sus TRES PUNTOS: renombrar, cambiar el color o archivar (`EditarEtiqueta`).
+   * Cada etiqueta lleva su LÁPIZ (eran tres puntos): renombrar, cambiar el color o archivar (`EditarEtiqueta`).
    * Pedido de Martín (12/10/2026, segundo feedback del CRM, punto 8): «para eso están las etiquetas
    * dentro del detail de un lead, ahí en ese desplegable debe tener los 3 puntos de opciones en cada
    * etiqueta». Opt-in: el selector de la condición de un flujo o del paso «⚡ Acción» no los quiere.
@@ -229,14 +234,14 @@ export function SelectorEtiqueta({ value, onElegir, excluir, placeholder = 'Etiq
       value: String(e.id), label: `${e.emoji ? `${e.emoji} ` : ''}${e.nombre}`, color: e.color,
       // `cierra`: el editor es un modal, y el menú vive en un portal ENCIMA de todo (la nota de
       // `DropdownAccion.cierra`).
-      ...(editable ? { acciones: [{ icono: <TresPuntos />, title: `Opciones de ${e.nombre}`, cierra: true, onClick: () => setEditando(e) }] } : null),
+      ...(editable ? { acciones: [{ icono: <Lapiz />, title: `Opciones de ${e.nombre}`, cierra: true, onClick: () => setEditando(e) }] } : null),
     })),
-    // Con los tres puntos, las que ya están puestas TAMBIÉN se listan —apagadas, sin poder elegirse
+    // Con el lápiz, las que ya están puestas TAMBIÉN se listan —apagadas (más opacas, sin subtítulo), sin poder elegirse
     // otra vez— para que se puedan editar desde el mismo lugar. Sin esto, la etiqueta que el lead ya
     // tiene (justo la que uno mira) era la única sin opciones.
     ...(editable ? (etiquetas ?? []).filter((e) => excluir?.has(e.id)).map((e) => ({
-      value: String(e.id), label: `${e.emoji ? `${e.emoji} ` : ''}${e.nombre}`, color: e.color, sub: 'Ya la tiene', disabled: true,
-      acciones: [{ icono: <TresPuntos />, title: `Opciones de ${e.nombre}`, cierra: true, onClick: () => setEditando(e) }],
+      value: String(e.id), label: `${e.emoji ? `${e.emoji} ` : ''}${e.nombre}`, color: e.color, disabled: true,
+      acciones: [{ icono: <Lapiz />, title: `Opciones de ${e.nombre}`, cierra: true, onClick: () => setEditando(e) }],
     })) : []),
     { value: NUEVA, label: 'Nueva', crear: true },
   ];
@@ -268,7 +273,7 @@ export function SelectorEtiqueta({ value, onElegir, excluir, placeholder = 'Etiq
             onChange={(ev) => setNombre(ev.target.value)}
             onKeyDown={(ev) => { if (ev.key === 'Enter') { ev.preventDefault(); void crear(); } if (ev.key === 'Escape') { ev.stopPropagation(); setCreando(false); } }}
             style={{ height: 32, padding: '0 10px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13, width: typeof width === 'number' ? Math.max(140, width - 70) : 160 }} />
-          <button type="button" className="mk-icon-btn" onClick={() => void crear()} disabled={ocupado || !nombre.trim()} style={{ height: 32, padding: '0 10px', fontSize: 12.5, fontWeight: 600 }}>Crear</button>
+          <button type="button" className="mk-icon-btn" onClick={() => void crear()} disabled={ocupado || !nombre.trim()} aria-label="Crear la etiqueta" title="Crear la etiqueta" style={{ height: 32, width: 32, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><IconoMenu nombre="check" size={16} /></button>
           <button type="button" className="mk-icon-btn" onClick={() => { setCreando(false); setFallo(null); }} aria-label="Cancelar" style={{ height: 32, width: 32 }}>×</button>
         </span>
         {fallo && <span role="alert" style={{ fontSize: 12, color: 'var(--bad)' }}>{fallo}</span>}

@@ -29,8 +29,8 @@ export default function CargandoCrm() {
       {/* SIN HEADER desde el 12/10/2026 (puntos 22-23): el título «CRM» se fue y la barra sube
           arriba del todo, con 16 de aire y no 34. La barra: funnel · vista · buscar · filtrar
           ····· + Nuevo lead · ⋯ (las bandas viven adentro de «Filtrar»). Desde el segundo feedback
-          del 12/10 es una BANDA de borde a borde (punto 3): los mismos márgenes y el mismo fondo. */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '-16px -44px 18px', padding: '14px 44px', background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
+          del 12/10 es un CONTENEDOR del ancho del kanban, redondeado: la misma caja que dibuja CrmBoard. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, padding: '12px 14px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16 }}>
         <Skeleton w={190} h={40} radius={10} />
         <Skeleton w={96} h={40} radius={11} />
         <Skeleton w={260} h={40} radius={10} />

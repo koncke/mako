@@ -2640,14 +2640,14 @@ export function CrmBoard({
           todo, después de «+ Nuevo lead» (26).
           nowrap + flex:'none' en cada control + UN solo elástico. Nada de
           marginLeft:'auto' acá: al envolver deja un hueco del ancho de la fila. */}
-      {/* ⚠️ UNA BANDA, DE BORDE A BORDE Y ARRIBA DE TODO (segundo feedback del 12/10/2026, punto 3:
-          «Deja la topbar más gruesa y mejor si se puede diferenciar sutilmente del resto»). Se come
-          el padding del <main> con márgenes negativos (16 arriba, 44 a los costados, los MISMOS
-          números que el padding del <main> de arriba: si cambia uno, cambia el otro) y lleva fondo de
-          superficie con un filete abajo. Va ANTES de los avisos (error, importación, agenda): con
-          ellos arriba, el margen negativo la montaba sobre el aviso. El esqueleto
-          (app/crm/loading.tsx) dibuja la misma banda. */}
-      <div className="crm-tb" style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'nowrap', minWidth: 0, margin: '-16px -44px 18px', padding: '14px 44px', background: 'var(--surface)', borderBottom: '1px solid var(--border)', boxShadow: '0 1px 2px rgba(18,21,27,.04)' }}>
+      {/* ⚠️ UN CONTENEDOR DEL ANCHO DEL KANBAN (tercer feedback del 12/10/2026, punto 5: «que no esté
+          a todo el ancho de la pagina, sino al mismo ancho del kanban, y que tenga los bordes
+          redondeados... Y que no esté pegado arriba, que sea basicamente como un contenedor y atrás el
+          color del bg igual que el resto»). Fue una banda de borde a borde por unas horas (segundo
+          feedback, punto 3: «más gruesa y que se diferencie»): queda lo grueso —el padding— y lo que la
+          diferencia es la caja, no el ancho. Va ANTES de los avisos. El esqueleto (app/crm/loading.tsx)
+          dibuja la misma caja. */}
+      <div className="crm-tb" style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'nowrap', minWidth: 0, marginBottom: 16, padding: '12px 14px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 1px 2px rgba(18,21,27,.04)' }}>
         {vista !== 'pendientes' && <SelectorFunnel funnels={funnels} activo={funnelActivo} onEditarEtapas={(id, nombre) => setEtapasDe({ id, nombre })} />}
         <VistaSelector vista={vista} onVista={cambiarVista} pendientes={marcarPending} />
         {/* Buscar, filtrar y el conteo describen la LISTA de leads. En "Pendientes" no

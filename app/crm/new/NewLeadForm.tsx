@@ -28,7 +28,7 @@
 
 import { useCallback, useEffect, useRef, useState, useTransition, type CSSProperties, type ReactNode } from 'react';
 import Link, { useWs } from '@/app/_ui/Link';
-import { claveBorradorAlta, hayBorrador, leerBorradorAlta, type BorradorAlta } from './borrador-alta';
+import { claveBorradorAlta, claveLadaAlta, hayBorrador, ladaInicial, leerBorradorAlta, type BorradorAlta } from './borrador-alta';
 import { TelefonoConPais } from '@/app/_components/TelefonoConPais';
 import { DIAL_DEFAULT, unirTelefono } from '@/lib/paises';
 import { useFocoInicial } from '@/app/customer-success/curso/dialogo-foco';
@@ -119,13 +119,30 @@ export function NewLeadForm({ enModal }: {
   const borrador: BorradorAlta = { nombre, email, lada, numero, ig: igEscrito, perfil };
   // Restaurar va en un efecto y no en el `useState` inicial: la ruta /crm/new se dibuja en el
   // server, y leer `localStorage` en el primer render no coincidiría con ese HTML.
+  // La lada abre con la del borrador, si no con la última ELEGIDA, si no con la del país de la
+  // zona del navegador (tercer feedback del 12/10, punto 2: `ladaInicial` en borrador-alta.ts).
+  const claveLada = claveLadaAlta(ws);
+  const ladaPorDefecto = (borradorLada?: string | null): string => {
+    let preferida: string | null = null;
+    let zona: string | null = null;
+    try { preferida = window.localStorage.getItem(claveLada); } catch { /* sin almacenamiento */ }
+    try { zona = Intl.DateTimeFormat().resolvedOptions().timeZone || null; } catch { /* sin Intl */ }
+    return ladaInicial({ borrador: borradorLada, preferida, zona });
+  };
+  /** La persona ELIGIÓ un país: eso es la preferencia. Hidratar no escribe (AGENTS.md → «Un
+   *  control que hidrata un dato guardado no escribe si la persona no tocó nada»). */
+  const elegirLada = (l: string) => {
+    setLada(l);
+    try { window.localStorage.setItem(claveLada, l); } catch { /* sin almacenamiento: no se recuerda */ }
+  };
   useEffect(() => {
-    if (!enModal) return;
     let b: BorradorAlta | null = null;
-    try { b = leerBorradorAlta(window.localStorage.getItem(clave)); } catch { /* sin almacenamiento: arranca vacío */ }
+    if (enModal) {
+      try { b = leerBorradorAlta(window.localStorage.getItem(clave)); } catch { /* sin almacenamiento: arranca vacío */ }
+    }
+    setLada(ladaPorDefecto(b?.lada));
     if (!b) return;
     setNombre(b.nombre); setEmail(b.email); setNumero(b.numero); setPerfil(b.perfil);
-    if (b.lada) setLada(b.lada);
     setIgEscrito(b.ig); setIgInicial(b.ig); setIgKey((k) => k + 1);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- se restaura UNA vez, al abrir
   }, []);
@@ -145,7 +162,7 @@ export function NewLeadForm({ enModal }: {
   /** El alta terminó (creado o agregado al que ya estaba): el borrador ya no es de nadie. */
   const olvidarBorrador = () => { try { window.localStorage.removeItem(clave); } catch { /* nada */ } };
   const vaciar = () => {
-    setNombre(''); setEmail(''); setNumero(''); setLada(DIAL_DEFAULT); setPerfil(null);
+    setNombre(''); setEmail(''); setNumero(''); setLada(ladaPorDefecto()); setPerfil(null);
     setIgEscrito(''); setIgInicial(''); setIgKey((k) => k + 1);
     setErr(null); setChoque(null); setPendiente(null);
     olvidarBorrador();
@@ -206,7 +223,7 @@ export function NewLeadForm({ enModal }: {
           le reenvía el clic de su texto al PRIMERO — o sea que tocar «Teléfono» abría el
           desplegable de países. El número viaja en un campo oculto, ya unido a su lada. */}
       <Field label="Teléfono" grupo>
-        <TelefonoConPais lada={lada} numero={numero} onLada={setLada} onNumero={setNumero}
+        <TelefonoConPais lada={lada} numero={numero} onLada={elegirLada} onNumero={setNumero}
           inputStyle={field} portalTo={enModal ? caja : undefined} />
         <input type="hidden" name="telefono" value={telefono} />
       </Field>
