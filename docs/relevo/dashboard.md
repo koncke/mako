@@ -33,6 +33,24 @@ quien no tiene informe: falta aplicarle lo mismo.
 
 ## Lo que falta
 
+0. **LO PRIMERO — «¿Qué vas a crear hoy?» en lugar de «Pídeselo a MaKo», y copiar un dashboard con un token.**
+   Pedido de Martín (12/10, textual, por el chat Chatbot): «pasale la sección de "¿Qué vamos a hacer hoy?" al chat
+   de graphics para que lo implemente tal cual en lo que se tiene hoy de "Pídeselo a MaKo". Tiene que ser
+   funcional, es decir, que los dashboards también deberían poder copiarse y enviarse con ese token». No se
+   empezó (la cuenta 3 estaba al 97% semanal). Lo que ya existe en main desde `14e06b45`:
+   - La caja compartida: `app/landing-generator/CajaPedido.tsx` (título, placeholder animado, «+», micrófono,
+     enviar). La montan `app/landing-generator/CajaCrear.tsx` y `app/automations/CrearConIA.tsx`. Va en lugar
+     de «Pídeselo a MaKo» de `app/dashboard/NuevaHoja.tsx`.
+   - El «+» de Automations: «Subir archivo o imagen» (`app/automations/archivo-pedido-cliente.ts`,
+     `app/api/chat-agent/secuencias/archivo/route.ts`, que lee con `lib/archivo-a-texto.ts`) y «Pegar un flujo».
+   - El token: «Copiar flujo» crea `MAKO-FLUJO-…` en la tabla `flujo_copias` (mig 0265, con
+     `workspace_origen`, RLS + revoke); pegarlo muestra «Flujo copiado: <nombre>» y lo crea en este negocio.
+     Código: `app/automations/copia-flujo-cliente.ts`, `lib/flujo-copia.ts`, `lib/flujo-copia-negocio.ts`, las
+     acciones `copiar_flujo`/`leer_copia` de `app/api/chat-agent/secuencias/route.ts`. Para el Dashboard: el
+     mismo patrón con prefijo propio (`MAKO-DASH-…`) y la misma tabla generalizada o una propia (a decidir). Ojo:
+     una hoja copiada a OTRO negocio lleva sólo la definición (gráficos, filtros, textos), nunca datos ni
+     personas, y los filtros fijos sobre valores del negocio de origen (un closer, una campaña) no valen allá.
+   - `app/_ui/BotonMako.tsx` ahora dibuja el logo de MaKo, y eso cambió también los botones de MaKo del Dashboard.
 1. **Borrar el código muerto de los bloques** (ya no se dibuja ninguno): la lista exacta de qué está muerto y qué
    hay que mudar está en `docs/hallazgos-graficos.md` → «Lo que quedó sin hacer», primer punto.
 2. **Avisarle al chat «Chatbot»** el estado final del área Dashboard de la API (lo espera para cablear ⚡ Acción):
