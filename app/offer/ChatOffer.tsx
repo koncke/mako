@@ -43,7 +43,8 @@
 // derecha, y sin la marca la esquina de los avisos los tapa (AGENTS.md).
 
 import { useMemo, useRef, useState, useSyncExternalStore, type ChangeEvent, type DragEvent, type ReactNode } from 'react';
-import { Button } from '@/app/_ui';
+import { Button, Spinner } from '@/app/_ui';
+import { IconoMenu } from '@/app/_ui/iconos-menu';
 import { useWs } from '@/app/_ui/Link';
 import { Markdown } from '@/app/_components/Markdown';
 import { MakoStar } from '@/app/_components/MakoBrand';
@@ -59,7 +60,8 @@ import { conWs } from '@/lib/ws-tab';
 import type { AdjuntoVista, OfferMensaje, OfferSesionVista } from '@/lib/offer-marco';
 import { AvatarMako } from './AvatarMako';
 import { ChipArchivo } from './ChipArchivo';
-import { esOpcionArmar, horaDe, ticksDe } from './ayudas';
+import { esOpcionArmar, horaDe, nombrePdfVersion, pdfDeMensaje, ticksDe } from './ayudas';
+import { descargarPdf, mensajeDeError } from './offer-api';
 
 /** El acento de la tarjeta y la burbuja del dueño: tokens que existen en claro Y en oscuro. */
 const ACENTO = 'var(--primary)';
@@ -83,6 +85,33 @@ function Adjuntos({ lista }: { lista: AdjuntoVista[] }) {
   );
 }
 
+/**
+ * El PDF de una versión de la oferta, como un documento de WhatsApp adentro de la burbuja de MaKo: el
+ * ícono, el nombre y, al tocarlo, baja ESA versión. Baja por `fetch` (offer-api → descargarPdf) para que
+ * un error del servidor se diga en el chat y no se descargue un JSON con nombre de PDF.
+ */
+export function DocumentoPdf({ sesionId, version, onError }: { sesionId: number; version: number; onError: (m: string) => void }) {
+  const [bajando, setBajando] = useState(false);
+  const bajar = async () => {
+    if (bajando) return;
+    setBajando(true);
+    try { await descargarPdf(sesionId, version); } catch (e) { onError(mensajeDeError(e)); } finally { setBajando(false); }
+  };
+  return (
+    <button type="button" className="of-doc" onClick={() => void bajar()} disabled={bajando} aria-busy={bajando || undefined}
+      title="Descargar el PDF" aria-label={`Descargar el PDF de tu oferta, versión ${version}`}>
+      <span className="of-doc__icono" aria-hidden>PDF</span>
+      <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <span className="of-doc__nombre">{nombrePdfVersion(version)}</span>
+        <span className="of-doc__meta">PDF</span>
+      </span>
+      <span aria-hidden style={{ flex: 'none', display: 'inline-flex', color: 'var(--dim)' }}>
+        {bajando ? <Spinner size={16} /> : <IconoMenu nombre="descargar" size={18} />}
+      </span>
+    </button>
+  );
+}
+
 /** La fila de un mensaje de MaKo: su foto y, al lado, la burbuja. */
 function FilaMako({ animar = false, children }: { animar?: boolean; children: ReactNode }) {
   return (
@@ -96,7 +125,7 @@ function FilaMako({ animar = false, children }: { animar?: boolean; children: Re
 export type AudioEnEspera = { url: string; secs: number };
 
 export function ChatOffer({
-  sesion, pendiente, respondiendo, fuente, opcionArmar, opcionesHabilitadas, onOpcion, onReintentar,
+  sesion, pendiente, respondiendo, fuente, opcionArmar, opcionActualizar, opcionesHabilitadas, onOpcion, onReintentar,
   texto, onTexto, onEnviar, ocupado, vista, onArchivos, onAudio, audioEnEspera, onReenviarAudio, onDescartarAudio,
   error, onError,
 }: {
@@ -108,6 +137,8 @@ export function ChatOffer({
   fuente: string;
   /** El texto de la opción que arma la oferta (lib/offer-reglas.ts → OPCION_ARMAR). */
   opcionArmar: string;
+  /** El de actualizar el PDF (ayudas.ts → ACTUALIZAR_PDF): si MaKo lo ofrece, también arma y va en dorado. */
+  opcionActualizar: string;
   /** Falso mientras se lee un archivo o MaKo contesta: un toque ahí mandaría a medias. */
   opcionesHabilitadas: boolean;
   /** El índice de la opción en `opciones` del último mensaje (el ORIGINAL: el de una pregunta del diagnóstico). */
@@ -185,12 +216,16 @@ export function ChatOffer({
     if (!m) return null;
     const hora = horaDe(h.fecha);
     if (m.de === 'mako') {
+      // Después de cada armado, MaKo manda el PDF de esa versión (`pdf`) con la propuesta de pulirla: el
+      // documento arriba y el texto debajo, como un archivo de WhatsApp con su pie.
+      const pdf = pdfDeMensaje(m);
       return (
         <FilaMako>
           <BurbujaHilo saliente={false} hora={hora} maxAncho="88%"
             contenido={m.audio?.url ? { audio: { url: conWs(m.audio.url, ws), transcript: m.texto.trim() || null, duracion_s: m.audio.secs } } : {}}
             vacio={(
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {pdf && <DocumentoPdf sesionId={sesion.id} version={pdf.version} onError={onError} />}
                 {m.texto.trim() && <div style={TEXTO_BURBUJA}><Markdown text={m.texto} /></div>}
                 {!!m.adjuntos?.length && <Adjuntos lista={m.adjuntos} />}
               </div>
@@ -244,7 +279,7 @@ export function ChatOffer({
       {opciones.length > 0 && (
         <div role="group" aria-label="Respuestas rápidas" style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
           {opciones.map(({ t, idx }) => {
-            const armar = !ultimo?.pregunta && esOpcionArmar(t, opcionArmar) && sesion.puedeConcluir;
+            const armar = !ultimo?.pregunta && (esOpcionArmar(t, opcionArmar) || esOpcionArmar(t, opcionActualizar)) && sesion.puedeConcluir;
             return (
               <button key={`${idx}-${t}`} type="button" className={`of-pill${armar ? ' of-pill--mako' : ''}`}
                 disabled={!opcionesHabilitadas} onClick={() => onOpcion(idx)}>

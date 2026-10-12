@@ -237,51 +237,40 @@ luego de analizar los cursos que hablan de OFFER, así lo puedo revisar».
   (busca `.ts` antes que `.tsx` y el disco no distingue mayúsculas) y al `.tsx` en Linux. Se renombró a
   `ListaPendientes.tsx`. Dos archivos que difieren sólo en la mayúscula no conviven en una carpeta.
 
-### El marco contra el código (cruce del 11/10/2026, contra HEAD)
+### El marco contra el código: el cruce del 11/10 y las 13 decisiones del 12/10
 
-Lo que el código de Offer todavía no aplica del marco escrito. En pantalla es una tarjeta de decisión por
-tema en la pestaña «A definir» (`app/admin/offer-playbook/pendientes.ts`); acá, el dónde. Cuando se
-arregle uno, se saca de los dos. ⚠️ Los archivo:línea son de HEAD ANTES de la v2: la v2 corrió
-`lib/offer-reglas.ts` (por ejemplo, «lista para vender» quedó en las líneas 1081-1083).
+El 11/10 un agente cruzó el marco escrito contra lo que corría en HEAD y encontró 13 cosas que el código
+no aplicaba (la peor: el filtro de cifras dejaba pasar números inventados en el PDF). Fueron las tarjetas
+de «A definir» del Playbook, y Martín las contestó el 12/10 (textual en la bitácora de Products & Offers;
+el resumen, en la memoria `offer-decisiones-a-definir`). Quedaron aplicadas ese mismo día; la pestaña las
+muestra en «Decididas». Lo que no se deduce del código:
 
-1. **Cifras inventadas.** El filtro es todo o nada por pieza (`lib/offer-reglas.ts:565-577`): con
-   cualquier dato en Prueba o Bonos, todas sus cifras pasan; Bonos se llena sola con los NOMBRES de los
-   bonos cargados (`:267`, `:281`); el valor total, la frase, los escenarios y la ecuación no se revisan
-   (`:546-550`). El PDF puede decir «27 clientes duplicaron sus ventas» sin que nadie lo dijera. Es lo
-   que el marco más prohíbe (§5).
-2. **Preguntas que faltan.** La guía tiene 13 de las 39 del §3 (`lib/offer-marco.ts:306-320`): no
-   pregunta el valor anual del resultado (#32, la que destraba D7), costo y capacidad (#30, #23), la
-   primera semana (#22) ni el % cobrado al firmar (#27). El campo `destraba` de cada dimensión no llega
-   a la IA (`:74`, `:291`).
-3. **Piezas mínimas.** El código pide 5 sin Prueba (`lib/offer-marco.ts:41-53`) y un «sin dato» cuenta
-   (`:265-267`); el §3 marca como mínimas «cuántos pagaron» y «cuántos lograron el resultado». Decide
-   Martín.
-4. **Anclas sin números.** D1 (75+), D6 (márgenes) y D7 (valor 5-10×, 50-75% al firmar) llegan a la IA
-   sin los números del §4, y sin las señales de alerta (`lib/offer-marco.ts:81`, `:104-111`). Con «la
-   mayor parte al firmar», cobrar el 100% saca nota alta; para el marco es señal de precio barato.
-5. **D1 o D2 en 3 o menos.** El marco rehace la oferta desde ahí; el código sólo avisa
-   (`lib/offer-reglas.ts:488-491`) y la oferta sale completa. Decide Martín.
-6. **«Lista para vender» sin el Check final** de Contreras (`lib/offer-reglas.ts:483-485`): puede decir
-   «lista» con Precio y cobro en 5.
-7. **Garantía.** El texto de la IA dice «sin casos» (`lib/offer-marco.ts:297`, `lib/offer-ia.ts:174`) y
-   el marco dice «con menos de 10 a 15 casos» (§7.1).
-8. **Alertas que faltan:** margen bajo 60%, dónde se corta el embudo y cuándo subir el precio. Sólo
-   existen foco y D1/D2 bajos (`app/api/offer/route.ts:150`); el tipo anuncia una alerta del embudo que
-   no existe (`lib/offer-marco.ts:187`).
-9. **Alerta de foco:** sin la facturación salta recién con 6 (`lib/offer-reglas.ts:516`), no está
-   medida contra negocios reales, y la IA que pone la nota de Foco no la ve (se calcula después).
-10. **Supuestos:** la sección 20 sólo lista los «[completar]» (`lib/offer-reglas.ts:575`, `:590-626`);
-    no separa lo que propuso MaKo de lo que dijo el dueño del negocio. Decide Martín.
-11. **Reglas de cierre que no llegan al prompt** (cuotas con 50% inicial, valor de 4-5× el precio,
-    bonos con su porqué, LTV:CAC): el texto del marco que lee la IA es un resumen (`lib/offer-marco.ts:269-303`).
-12. **Reglas que sólo cumple el prompt** (duración 90-180 días, precio desde 1.000 USD, garantía nunca
-    incondicional, nombres del método como propuesta): con la cascada gratis, un modelo chico puede
-    saltarse alguna sin aviso.
-13. **Topes flojos:** acepta 6 fases, ningún bono y ningún nombre del método (`lib/offer-reglas.ts:648`,
-    `:654`, `:670`).
+- **Guardar una pieza REEMPLAZA su texto entero.** Por eso cada pregunta nueva (valor anual, costo,
+  primera semana, % al firmar, escalera, otras ofertas, cuántos pagaron) tiene su propia pieza: anotar el
+  valor anual en «Resultado» borraba el resultado. Quedaron 20 piezas y 7 mínimas; el riel las agrupa por
+  tema (`GRUPOS_PIEZAS` en app/offer/PiezasRail.tsx), y una pieza nueva sin grupo cae en «Más».
+- **Las cifras se comparan por VALOR** (`claveCifra`: «1.500», «1500», «1,5 mil» y «1.5k» son lo mismo),
+  y un rótulo («Fase 1»), un año o un plazo («en 90 días») no pasan a «[completar]»: eso lo propone MaKo y
+  va a «Lo que propuso MaKo». Las cifras escritas con letras («tres clientes») NO se revisan.
+- **`calcularDiagnostico` sólo pasa el control final si recibe las piezas**: la pestaña Criterio calcula
+  sólo con notas. La ruta siempre las pasa, y un test lo exige.
+- **El PDF de cada versión entra al chat en la MISMA escritura que la versión** (`mensajePdf` dentro del
+  CAS de 'generar'): no hay versión sin su mensaje ni mensaje duplicado por un reintento. «Así está bien» lo
+  contesta el código, sin gastar IA. El PDF se pide por versión (`/api/offer/pdf?id=&v=`; una que no existe
+  es 404, nunca cae a otra).
+- **La garantía (decisión 3, B) no cambió en el código: cambió el marco** (§7.1 y §9.2). Un test fija que
+  ningún texto que lee la IA diga «10 a 15 casos».
 
-El 14º era del marco y ya se arregló: decía que el total es «el promedio» (0-10) y el código lo muestra
-sobre 100 (promedio × 10).
+Lo que no quedó del todo:
+- **La pregunta de «otras ofertas» depende del orden de la guía y de una regla del prompt**, no de código:
+  una IA gratis puede saltarla, y entonces el foco usa sólo lo cargado en MaKo.
+- **El margen y el % cobrado al firmar se leen del texto libre** con una heurística (`montosDe`): cada
+  aviso dice los números que usó, para que el dueño vea si se leyó bien. La duración se lee del primer «N
+  días/semanas/meses» del formato.
+- **Una duración fuera de 90-180 días o un precio bajo 1.000 USD se AVISAN**, no se corrigen: corregirlos
+  sería inventar.
+- **Un prompt guardado desde /configuraciones con la plantilla vieja no trae `{{alertas}}` ni
+  `propuestoPorMako`**: lo determinista se aplica igual, pero los avisos no le llegan a la IA.
 
 ## Lo que quedó SIN hacer
 

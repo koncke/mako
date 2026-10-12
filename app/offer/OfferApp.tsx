@@ -59,7 +59,7 @@ import { SelectorFunnel } from './SelectorFunnel';
 import { leerAdjuntos } from './adjuntos-envio';
 import { arbolSeguro, arbolVacio, conSesionEnArbol, leerValor } from './arbol';
 import {
-  TOPE_MENSAJE, bienvenidaDe, esOpcionArmar, linksDe, pasoTrasFalloDeOferta, quedoGuardado, reemplaza,
+  ACTUALIZAR_PDF, TOPE_MENSAJE, bienvenidaDe, esOpcionArmar, etiquetaArmar, linksDe, pasoTrasFalloDeOferta, quedoGuardado, reemplaza,
   resumenDe, vistaDeEntrada, type AvisoGuardado, type VistaOffer,
 } from './ayudas';
 import { CSS_OFFER } from './estilos';
@@ -125,7 +125,7 @@ async function aMp3(blob: Blob): Promise<Blob> {
   }
 }
 
-export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar }: {
+export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar, opcionActualizar = ACTUALIZAR_PDF }: {
   arbolInicial: ArbolOffer;
   /** La conversación más reciente, abierta. null = la bienvenida. */
   sesionInicial: OfferSesionVista | null;
@@ -133,6 +133,11 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar 
   arbolFallo: boolean;
   /** La respuesta rápida que dispara la generación (lib/offer-reglas.ts → OPCION_ARMAR). */
   opcionArmar: string;
+  /**
+   * El botón de armar cuando ya hay una versión («Actualizar el PDF»). Default de la pantalla hasta que el
+   * motor tenga su constante (ayudas.ts → ACTUALIZAR_PDF); si MaKo lo ofrece como respuesta rápida, también arma.
+   */
+  opcionActualizar?: string;
 }) {
   const [arbol, setArbol] = useState<ArbolOffer>(arbolInicial);
   const [sesion, setSesion] = useState<OfferSesionVista | null>(sesionInicial);
@@ -585,7 +590,7 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar 
     if (!s || ultimo?.de !== 'mako') return;
     const op = (ultimo.opciones ?? [])[idx]?.trim();
     if (!op) return;
-    if (!ultimo.pregunta && esOpcionArmar(op, opcionArmar) && s.puedeConcluir) { void armar(); return; }
+    if (!ultimo.pregunta && (esOpcionArmar(op, opcionArmar) || esOpcionArmar(op, opcionActualizar)) && s.puedeConcluir) { void armar(); return; }
     if (!puedeMandar) return;
     // (Los archivos ya no viajan con una respuesta rápida: con archivos juntados, la vista previa tapa el
     // chat y sus opciones; se mandan con su propio Enviar.)
@@ -680,6 +685,7 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar 
   const acciones: AccionesPiezas = {
     puedeConcluir,
     hayConclusion: !!conclusion,
+    etiquetaArmar: etiquetaArmar(!!conclusion, opcionArmar, opcionActualizar),
     ocupado,
     onArmar: () => void armar(),
     onVer: verOferta,
@@ -788,6 +794,7 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar 
               respondiendo={respondiendo}
               fuente={fuente}
               opcionArmar={opcionArmar}
+              opcionActualizar={opcionActualizar}
               opcionesHabilitadas={puedeMandar}
               onOpcion={elegirOpcion}
               onReintentar={sinContestar ? () => void reintentarRespuesta() : null}

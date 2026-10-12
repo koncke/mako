@@ -36,6 +36,8 @@ const pieza = (valor: string, fuente: 'negocio' | 'chat' | 'doc' = 'chat') => ({
 const MINIMAS: PiezasSabidas = {
   cliente: pieza('Coaches'), problema: pieza('Sin clientes'), resultado: pieza('10 clientes en 90 días'),
   entregables: pieza('12 sesiones'), precio: pieza('2.500 USD'),
+  // Desde el 12/10/2026 también son mínimas cuántos pagaron y cuántos lograron el resultado.
+  ventas: pieza('8 personas'), prueba: pieza('sin dato: no lleva la cuenta'),
 };
 
 // ── El árbol ─────────────────────────────────────────────────────────────────

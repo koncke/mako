@@ -147,6 +147,7 @@ Los grupos están ordenados por prioridad: se pregunta de arriba hacia abajo.
 **A. Punto de partida**
 1. **[doc] [mín]** ¿Qué vendes hoy? → inventario de lo que se vende.
 2. Si vendes más de una cosa, ¿cuál te deja más dinero? → foco de la fase 1.
+   - **[siempre]** ¿Vendes otras ofertas además de esta, aunque no las tengas cargadas en MaKo? → cuántas ofertas empuja de verdad, para el aviso de foco (decisión de Martín, 12/10/2026: lo cargado en MaKo no alcanza para saberlo).
 3. **[mín]** ¿Cuántas personas ya pagaron esta oferta tal como está hoy? → si está validada o es una hipótesis (en high ticket hacen falta de 3 a 5 ventas).
 
 **B. Cliente ideal**
@@ -214,6 +215,7 @@ Los grupos están ordenados por prioridad: se pregunta de arriba hacia abajo.
 **K. Siguiente escalón (fase 2)**
 
 39. Cuando tu cliente logra el resultado, ¿qué necesita después? → upsell o renovación.
+   - ¿Qué le vendes ANTES de esta oferta (una entrada más barata) y qué DESPUÉS (upsell, continuidad)? → la escalera de valor (pedido de Martín, 12/10/2026).
 
 ---
 
@@ -221,7 +223,7 @@ Los grupos están ordenados por prioridad: se pregunta de arriba hacia abajo.
 
 **Cómo se lee**
 - Cada dimensión se puntúa de 0 a 10. La nota total es el promedio de las nueve llevado a 100 (promedio × 10): con todo en 7, la oferta saca 70/100. Todas pesan lo mismo.
-- **El orden importa.** D1, D2 y D3 se apoyan una en la otra: si el cliente ideal está mal, todo lo que viene después se degrada (*NTPVS* de Razzetti, *capas de negocio* de Carrizo). El **cuello de botella** es la dimensión más baja; si hay empate, gana la que está más arriba. Si D1 o D2 sacan 3 o menos, MaKo rehace la oferta desde ahí antes de opinar sobre el precio o los bonos.
+- **El orden importa.** D1, D2 y D3 se apoyan una en la otra: si el cliente ideal está mal, todo lo que viene después se degrada (*NTPVS* de Razzetti, *capas de negocio* de Carrizo). El **cuello de botella** es la dimensión más baja; si hay empate, gana la que está más arriba. Si D1 o D2 sacan 3 o menos, MaKo entrega la oferta completa pero con el **precio y los bonos marcados como provisionales**, y en el mismo chat propone pulirla empezando por ahí; cada versión pulida vuelve como un PDF nuevo, las veces que haga falta (decisión de Martín, 12/10/2026).
 - **Lista para salir a vender:** ninguna dimensión por debajo de 5, y D1, D2 y D4 en 7 o más: cliente, promesa y certeza son lo que la llamada no puede arreglar. Antes de entregarla, MaKo pasa además el *Check final* de Contreras: dolor urgente, transformación medible, entregables concretos, garantía fuerte y precio por valor.
 - Si hay datos del embudo, antes de culpar a la oferta MaKo dice dónde se corta (ver §9.5).
 
@@ -335,7 +337,7 @@ Es el documento que MaKo entrega en pantalla y en PDF, en este orden.
 | 17 | Números | Margen bruto, ventas por mes necesarias, llamadas necesarias, % cobrado al firmar esperado, LTV:CAC | Si la oferta da la cuenta | Proyecciones (SYK, Carrizo), matemática (Razzetti), CFA (Hormozi) |
 | 18 | Cómo validarla | Meta de ventas, qué medir, cuándo subir el precio | El plan de las próximas semanas | Validación de oferta (Carrizo), Planificación de validación (Contreras) |
 | 19 | Siguiente escalón | Próximo problema del cliente, posible oferta, cuándo ofrecerla | La fase 2, solo anotada | Money Model (Hormozi), Upsell (Carrizo) |
-| 20 | Supuestos y datos a completar | Qué propuso MaKo y qué dijo el dueño; campos marcados «[completar]» | Que nada inventado pase por un hecho | Regla de MaKo |
+| 20 | Supuestos y datos a completar | Una lista al final con lo que propuso MaKo, separada de lo que dijo el dueño; y los campos marcados «[completar]» | Que nada inventado pase por un hecho | Regla de MaKo |
 
 **Reglas al generar**
 - MaKo **nunca inventa** testimonios, cifras de casos, valores de bonos ni cupos. Si faltan, el campo queda como «[completar]» y aparece en la sección 20.
@@ -442,7 +444,7 @@ Reglas que comparten todos los autores:
 | Sin garantía | Las ventas son finales | Servicios de muy alto nivel, o cuando no hay un método probado (es mejor no prometer que prometer en falso) |
 | Combinada | Una corta sin preguntas más una condicional fuerte | Para subir la certeza cuando ya hay casos |
 
-Si el negocio tiene menos de 10 a 15 casos, MaKo propone una garantía condicional por acciones, por entregable o por escalón, y no una devolución de dinero fuerte (Molina).
+Sin casos, MaKo propone una garantía condicional por acciones, por entregable o por escalón. Con casos del mismo cliente, puede proponer una condicional fuerte, con nombre y atada a hitos. **Criterio de MaKo (Martín, 12/10/2026):** no se exigen los 10 a 15 casos que pide Molina — «nadie dijo que no la pudiesen pagar».
 
 ### 7.2 Bonos
 Reglas:
@@ -508,7 +510,7 @@ Otros que también se repiten: la jerga del experto («ceguera del experto»), d
 
 ### 9.2 Garantía: siempre, solo si la piden o solo con prueba
 - **Qué dicen.** Contreras: no es obligatoria, pero sube las ventas «como mínimo un 50%». Razzetti, Otálora y Fernández: ofrecerla siempre. Molina: solo con un método claro y 10 a 15 casos; si no, llega «una ola de reembolsos». Growing (Nievas): solo si el cliente la pide para cerrar, y «trabajo gratis hasta que lo logres» suena a duda. Jiguera: es la guinda, no la base.
-- **MaKo.** Toda oferta lleva **alguna** forma de pasar el riesgo al vendedor, pero la forma depende de la prueba que haya. Sin casos: garantía por acciones o por entregable (si cumpliste y no llegaste, seguimos gratis). Con casos: condicional fuerte, con nombre y atada a hitos. Nunca incondicional en high ticket, y nunca doble devolución sin margen para pagarla.
+- **MaKo.** Toda oferta lleva **alguna** forma de pasar el riesgo al vendedor, pero la forma depende de la prueba que haya. Sin casos: garantía por acciones o por entregable (si cumpliste y no llegaste, seguimos gratis). Con casos (sin un mínimo de cantidad: decisión de Martín, 12/10/2026): condicional fuerte, con nombre y atada a hitos. Nunca incondicional en high ticket, y nunca doble devolución sin margen para pagarla.
 - **Por qué.** El cliente high ticket compra certeza, y una garantía que el negocio no puede pagar es un riesgo financiero y legal.
 
 ### 9.3 Precio de entrada: empezar bajo y subir, o caro desde el primer día

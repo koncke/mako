@@ -208,6 +208,15 @@ export const BITACORA: Hito[] = [
       'app/whatsapp/_shared/ChatHilo.tsx — varios adjuntos en los chats de WhatsApp',
     ],
   },
+  {
+    fecha: '12 oct', hora: '05:48', chat: 'Offer: chat con IA, diagnóstico y PDF', cuenta: 'claude3', actor: 'martin', tipo: 'prompt',
+    titulo: 'Las 13 tarjetas de «A definir», contestadas',
+    pedido: '1. A\n2. A\n3. B, nadie dijo que no la pudiesen pagar...\n4. A\n5. A, y también falta lo de escalera de valor...\n6. A, y siempre debe preguntar si tiene más ofertas... Para poder determianr si tiene muchas ofertas solo que no las analizó en MaKo.\n7. A\n8. A\n9. A\n10. A\n11. A\n12. C, y sería bueno que MaKo en el mismo chat te proponga pulir la oferta, y que cuando se haya pulido te re-envie el PDF las veces que sea necesario con la versión final...\n13. A',
+    puntos: [
+      '1 cifras inventadas: arreglar · 2 «lista» con el control final · 3 garantía: se queda como está (con casos ya puede ser fuerte; «nadie dijo que no la pudiesen pagar») · 4 notas con los números del marco · 5 las cuatro preguntas, y además la escalera de valor · 6 los avisos (margen, dónde se cortan las ventas, cuándo subir el precio), y preguntar SIEMPRE si vende otras ofertas aunque no estén en MaKo · 7 foco desde 3 ofertas · 8 reglas de cobro a la IA · 9 topes de las listas.',
+      '10 el PDF separa en una lista al final lo que propuso MaKo · 11 la prueba (cuántos pagaron y cuántos lograron el resultado) pasa a mínima, con el «no sé» como supuesto · 12 con cliente o promesa en 3 o menos se entrega todo con precio y bonos PROVISIONALES, y MaKo propone pulir la oferta en el mismo chat y reenvía el PDF de cada versión las veces que haga falta · 13 MaKo revisa en código las reglas que hoy sólo dependen de la IA.',
+    ],
+  },
 ];
 
 export const PARTES: Parte[] = [

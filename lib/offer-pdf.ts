@@ -17,7 +17,7 @@
 // paleta y el PDF queda viejo.
 // =============================================================================
 
-import { DIMENSIONES, MARCA_COMPLETAR, dimensionLabel, type ConclusionOferta, type PropuestaOferta } from './offer-marco';
+import { DIMENSIONES, MARCA_COMPLETAR, PUNTOS_CONTROL, dimensionLabel, type ConclusionOferta, type PropuestaOferta, type PuntoControl } from './offer-marco';
 import { CANALES, dimensionDeFase, faseDef, repartoTexto, type Diagnostico } from './fase-diagnostico';
 import { PdfDoc } from './pdf-escritor';
 
@@ -121,6 +121,9 @@ export function pdfDeOferta(c: ConclusionOferta, meta: MetaPdfOferta): Uint8Arra
   doc.textoEn(xEstado, yp + 28, estado, { tam: 12, fuente: 'Helvetica-Bold', color: lista ? C.bien : C.ojo });
   doc.barra(xEstado, yp + 40, W - (xEstado - X) - 18, 8, c.calculo.total / 100, lista ? C.bien : colorNota(Math.round(c.calculo.total / 10)));
   doc.y = yp + altoPanel + 22;
+  // El control final del marco (tarjeta «lista», 12/10/2026): si no está lista, qué punto falta.
+  const faltan = (c.calculo.controlFinal ?? []).filter((x) => !x.ok);
+  if (faltan.length) caja(doc, 'Para estar lista para vender falta', faltan.map((x) => `${etiquetaPunto(x.punto)}: ${x.porque}`), C.ojoFondo, C.ojo);
 
   // ── El diagnóstico del NEGOCIO (v2) ────────────────────────────────────────
   // Va ANTES del de la oferta a propósito: la fase dice qué le toca al negocio, y la regla 7 del marco
@@ -168,9 +171,15 @@ export function pdfDeOferta(c: ConclusionOferta, meta: MetaPdfOferta): Uint8Arra
   // ── La oferta nueva ────────────────────────────────────────────────────────
   doc.y += 8;
   seccion(doc, 'Tu oferta nueva');
+  // Precio y bonos provisionales (tarjeta «rehacer», 12/10/2026): dependen de arreglar el cliente o la promesa.
+  if (c.provisional) caja(doc, 'Precio y bonos provisionales', [c.provisional.motivo], C.ojoFondo, C.ojo);
+  if (p.avisos?.length) caja(doc, 'Revísalo antes de usarla', p.avisos, C.ojoFondo, C.ojo);
   if (p.completar.length) caja(doc, `${p.completar.length} ${p.completar.length === 1 ? 'dato para completar' : 'datos para completar'}`, p.completar, C.ojoFondo, C.ojo);
 
-  for (const [titulo, cuerpo] of seccionesPropuesta(p)) {
+  const provisional = new Set(c.provisional?.partes ?? []);
+  for (const [tituloBase, cuerpo] of seccionesPropuesta(p)) {
+    const titulo = (tituloBase === 'Bonos' && provisional.has('bonos')) || (tituloBase === 'Inversión' && provisional.has('precio'))
+      ? `${tituloBase} (provisional)` : tituloBase;
     if (!cuerpo.length) continue;
     doc.texto(titulo, { tam: 11.5, fuente: 'Helvetica-Bold', conSiguiente: 16, despues: 2 });
     for (const b of cuerpo) {
@@ -190,8 +199,29 @@ export function pdfDeOferta(c: ConclusionOferta, meta: MetaPdfOferta): Uint8Arra
     doc.y += 10;
   }
 
+  // Al final, separado de «Datos a completar» (tarjeta «supuestos», 12/10/2026: «A, en una lista al final»):
+  // lo que propuso MaKo y el dueño no dijo, y lo que el dueño dijo que no sabe.
+  const propuesto = p.propuestoPorMako ?? [];
+  const supuestos = p.supuestos ?? [];
+  if (propuesto.length || supuestos.length) {
+    doc.y += 4;
+    seccion(doc, 'Lo que propuso MaKo');
+    if (propuesto.length) {
+      doc.texto('Esto no lo dijiste tú: lo propuso MaKo. Revísalo antes de usarlo como propio.', { tam: 9.5, color: C.dim, interlinea: 1.35, despues: 6 });
+      for (const x of propuesto) vineta(doc, `${x.seccion}: ${x.que}`, C.azul);
+      doc.y += 6;
+    }
+    if (supuestos.length) {
+      doc.texto('Supuestos (lo que no sabías)', { tam: 10.5, fuente: 'Helvetica-Bold', conSiguiente: 14, despues: 2 });
+      for (const x of supuestos) vineta(doc, x, C.tenue);
+      doc.y += 6;
+    }
+  }
+
   return doc.bytes();
 }
+
+const etiquetaPunto = (k: PuntoControl): string => PUNTOS_CONTROL.find((x) => x.punto === k)?.label ?? k;
 
 /** Cuántas cosas de «todavía no» entran: la sección es contexto, no un segundo informe. */
 const MAX_NO_HACER = 3;

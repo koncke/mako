@@ -9,8 +9,8 @@
 
 import { familiaDeArchivo } from '@/lib/formatos-archivo';
 import {
-  MARCA_COMPLETAR, PIEZAS,
-  type FuentePieza, type OfferMensaje, type OfferSesionResumen, type OfferSesionVista, type PiezaKey, type PiezasSabidas, type VariableValor,
+  MARCA_COMPLETAR, PIEZAS, PUNTOS_CONTROL,
+  type FuentePieza, type PuntoControl, type OfferMensaje, type OfferSesionResumen, type OfferSesionVista, type PiezaKey, type PiezasSabidas, type VariableValor,
 } from '@/lib/offer-marco';
 import type { NombreIconoMenu } from '@/app/_ui/iconos-menu';
 
@@ -81,6 +81,19 @@ const normal = (s: string): string =>
  */
 export function esOpcionArmar(op: string, opcionArmar: string): boolean {
   return !!opcionArmar && normal(op) === normal(opcionArmar);
+}
+
+/**
+ * El rótulo del botón de armar cuando ya hay una versión (12/10/2026): volver a armar es sacar el PDF
+ * pulido, no «armar» de cero. ⚠️ ES EL DEFAULT DE LA PANTALLA mientras el motor no tenga su constante:
+ * page.tsx le pasa a OfferApp `opcionActualizar` y, el día que lib/offer-reglas.ts la exporte, la pasa de
+ * ahí y este texto deja de usarse (una cosa, un lugar).
+ */
+export const ACTUALIZAR_PDF = 'Actualizar el PDF';
+
+/** Lo que dice el botón de armar: sin versión, «Armar mi oferta»; con una, el de actualizar. */
+export function etiquetaArmar(hayVersion: boolean, opcionArmar: string, opcionActualizar: string): string {
+  return hayVersion && opcionActualizar.trim() ? opcionActualizar : opcionArmar;
 }
 
 // ── Las sesiones ─────────────────────────────────────────────────────────────
@@ -223,6 +236,105 @@ export function linksDe(texto: string, max = 3): string[] {
     if (out.length >= max) break;
   }
   return out;
+}
+
+// ── El PDF en el chat ────────────────────────────────────────────────────────
+// Pedido de Martín (12/10/2026): «sería bueno que MaKo en el mismo chat te proponga pulir la oferta, y
+// que cuando se haya pulido te re-envie el PDF las veces que sea necesario con la versión final». Después
+// de cada 'generar' el servidor agrega al chat un mensaje de MaKo con `pdf: { version }`; la pantalla lo
+// dibuja como un documento de WhatsApp que baja ESA versión (cada mensaje, la suya: la v1 sigue bajando la
+// v1 aunque ya exista la v3).
+
+/**
+ * El PDF que viaja en un mensaje de MaKo, o null. A la defensiva: lo escribe el servidor, pero los
+ * mensajes de antes no lo traen y una versión que no es un entero positivo no baja nada.
+ */
+export function pdfDeMensaje(m: object | null | undefined): { version: number } | null {
+  const pdf = (m as { pdf?: unknown } | null | undefined)?.pdf;
+  if (!pdf || typeof pdf !== 'object') return null;
+  const v = (pdf as { version?: unknown }).version;
+  return typeof v === 'number' && Number.isInteger(v) && v > 0 ? { version: v } : null;
+}
+
+/**
+ * La ruta del PDF de una conversación: sin `v`, la versión vigente (el botón de la Conclusión); con `v`,
+ * esa versión (el documento de un mensaje). El `?ws=` lo pega el parche de WsFetch al `fetch`.
+ */
+export function urlPdf(sesionId: number, version?: number | null): string {
+  const v = typeof version === 'number' && Number.isInteger(version) && version > 0 ? `&v=${version}` : '';
+  return `/api/offer/pdf?id=${sesionId}${v}`;
+}
+
+/** Lo que dice el documento del chat (el nombre del archivo lo pone el servidor al bajarlo). */
+export const nombrePdfVersion = (version: number): string => `Tu oferta · versión ${version}`;
+
+// ── Lo que la Conclusión marca aparte ────────────────────────────────────────
+
+const textoLimpio = (x: unknown): string => (typeof x === 'string' ? x.trim() : '');
+
+/** Las partes que salen PROVISIONALES (con Cliente ideal o Promesa en 3 o menos) y por qué. */
+export type Provisional = { partes: Array<'precio' | 'bonos'>; motivo: string };
+
+/**
+ * La marca de provisional de una conclusión, saneada (viene de un modelo pasado por el motor: se lee a la
+ * defensiva). null = nada provisional. Una parte desconocida se ignora; sin partes válidas no hay marca.
+ */
+export function provisionalDe(c: object | null | undefined): Provisional | null {
+  const p = (c as { provisional?: unknown } | null | undefined)?.provisional;
+  if (!p || typeof p !== 'object') return null;
+  const crudas = (p as { partes?: unknown }).partes;
+  const partes = (Array.isArray(crudas) ? crudas : []).filter((x): x is 'precio' | 'bonos' => x === 'precio' || x === 'bonos');
+  const unicas = partes.filter((x, i) => partes.indexOf(x) === i);
+  if (!unicas.length) return null;
+  return { partes: unicas, motivo: textoLimpio((p as { motivo?: unknown }).motivo) };
+}
+
+/** La sección de la oferta nueva que dibuja cada parte provisional (el precio vive en «Inversión»). */
+export const SECCION_DE_PARTE: Record<Provisional['partes'][number], string> = { precio: 'inversion', bonos: 'bonos' };
+
+/** ¿Esta sección de la oferta nueva va marcada como provisional? */
+export function esSeccionProvisional(key: string, prov: Provisional | null): boolean {
+  return !!prov && prov.partes.some((p) => SECCION_DE_PARTE[p] === key);
+}
+
+/** «Lo que propuso MaKo»: lo que MaKo puso de su cosecha (no lo dijo el dueño), saneado y sin vacíos. */
+export function propuestoPorMakoDe(p: object | null | undefined): Array<{ seccion: string; que: string }> {
+  const xs = (p as { propuestoPorMako?: unknown } | null | undefined)?.propuestoPorMako;
+  if (!Array.isArray(xs)) return [];
+  return xs
+    .map((x) => ({ seccion: textoLimpio((x as { seccion?: unknown } | null)?.seccion), que: textoLimpio((x as { que?: unknown } | null)?.que) }))
+    .filter((x) => x.que);
+}
+
+/** Un punto del control final de «lista para vender» como se DIBUJA: su nombre para el dueño, si pasa y qué falta. */
+export type PuntoVisible = { punto: PuntoControl; label: string; ok: boolean; porque: string };
+
+/**
+ * El control final de una conclusión (`calculo.controlFinal`, el «Check final» que calcula el motor),
+ * saneado y en el ORDEN del marco (`PUNTOS_CONTROL`, de donde sale también el nombre que ve el dueño: no se
+ * escribe acá). Un punto desconocido no se dibuja; `ok` sólo con un `true` explícito (un punto que no dice
+ * si pasa, no pasa: afirmar «lista» de más es el error caro). Las conclusiones de antes no lo traen: [].
+ */
+export function controlFinalDe(calculo: object | null | undefined): PuntoVisible[] {
+  const xs = (calculo as { controlFinal?: unknown } | null | undefined)?.controlFinal;
+  if (!Array.isArray(xs)) return [];
+  const out: PuntoVisible[] = [];
+  for (const def of PUNTOS_CONTROL) {
+    const x = xs.find((y) => (y as { punto?: unknown } | null)?.punto === def.punto) as { ok?: unknown; porque?: unknown } | undefined;
+    if (x) out.push({ punto: def.punto, label: def.label, ok: x.ok === true, porque: textoLimpio(x.porque) });
+  }
+  return out;
+}
+
+/**
+ * Lo que dice el chip del héroe. Lista → «Lista para vender». Si no, y el motor dijo qué falta (control
+ * final), cuántas cosas faltan: es lo que hay que hacer. Sin control final (las conclusiones de antes),
+ * lo de siempre: la dimensión que más frena.
+ */
+export function textoDeEstado(e: { lista: boolean; faltan: number; cuello: string }): string {
+  if (e.lista) return 'Lista para vender';
+  if (e.faltan > 0) return e.faltan === 1 ? 'Le falta 1 cosa para venderla' : `Le faltan ${e.faltan} cosas para venderla`;
+  return `Lo que más frena: ${e.cuello}`;
 }
 
 // (El chip de «Leyendo… / Listo» de arriba de la barra se fue el 11/10/2026: elegir un archivo ya no lo

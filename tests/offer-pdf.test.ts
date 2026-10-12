@@ -199,3 +199,44 @@ test('el documento junta los descartes de todo lo que dibujó', () => {
   d.textoRico([{ t: 'tres ★' }]);
   assert.deepEqual(d.descartes.sort(), ['★', '😀'].sort());
 });
+
+// «A definir» (12/10/2026): lo que falta para estar lista (tarjeta «lista»), precio y bonos provisionales
+// (tarjeta «rehacer»), los avisos de las reglas (tarjeta «reglas-ia») y, AL FINAL y separado de los datos a
+// completar, lo que propuso MaKo y los supuestos (tarjeta «supuestos»). Sin esos campos (las conclusiones
+// anteriores) no aparece nada de eso.
+// rotura (sin la caja del control final): 1 fallo, 10 pases (base en verde: 11 de 11). rotura (sin marcar la sección de bonos como provisional):
+// 1 fallo, 10 pases (base en verde: 11 de 11). rotura (sin la sección «Lo que propuso MaKo»): 1 fallo, 10 pases (base en verde: 11 de 11).
+test('el PDF: lo que falta para estar lista, lo provisional, los avisos y lo que propuso MaKo al final', async () => {
+  const c = ejemplo();
+  c.calculo = {
+    ...c.calculo,
+    controlFinal: [
+      { punto: 'dolor', ok: true, porque: 'El problema está claro y la promesa lo ataca.' },
+      { punto: 'precio', ok: false, porque: 'Precio y cobro saca 4: el precio no se justifica con el valor del resultado.' },
+    ],
+  };
+  c.provisional = { partes: ['precio', 'bonos'], motivo: 'Cliente ideal saca 3: el precio y los bonos dependen de arreglar eso primero.' };
+  c.propuesta = {
+    ...c.propuesta,
+    avisos: ['El programa dura 84 días según el formato: el marco pide de 90 a 180 días, con un resultado definido.'],
+    propuestoPorMako: [{ seccion: 'Inversión', que: 'Precio: 1.200 USD' }, { seccion: 'Método', que: 'Nombres: Plato en 3 pasos' }],
+    supuestos: ['Prueba: no lleva la cuenta'],
+  };
+  const plano = (await leerPdf(pdfDeOferta(c, { negocio: 'X', titulo: 'Y', fecha: new Date() }))).texto.replace(/\s+/g, ' ');
+  assert.match(plano, /Para estar lista para vender falta/);
+  assert.match(plano, /Precio por valor: Precio y cobro saca 4/);
+  assert.doesNotMatch(plano, /Dolor urgente:/, 'sólo los puntos que fallan');
+  assert.match(plano, /Precio y bonos provisionales/);
+  assert.match(plano, /Bonos \(provisional\)/);
+  assert.match(plano, /Inversión \(provisional\)/);
+  assert.match(plano, /Revísalo antes de usarla/);
+  assert.match(plano, /84 días/);
+  assert.match(plano, /Lo que propuso MaKo/);
+  assert.match(plano, /Inversión: Precio: 1\.200 USD/);
+  assert.match(plano, /Supuestos \(lo que no sabías\)/);
+  assert.match(plano, /Prueba: no lleva la cuenta/);
+  assert.ok(plano.indexOf('Siguiente escalón') < plano.indexOf('Lo que propuso MaKo'), 'va al final');
+  assert.ok(plano.indexOf('datos para completar') < plano.indexOf('Lo que propuso MaKo'), 'separado de los datos a completar');
+  const antes = (await leerPdf(pdfDeOferta(ejemplo(), { negocio: 'X', titulo: 'Y', fecha: new Date() }))).texto;
+  for (const x of ['Para estar lista', 'provisional', 'Revísalo antes', 'Lo que propuso MaKo']) assert.ok(!antes.includes(x), `una conclusión vieja no trae «${x}»`);
+});

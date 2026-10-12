@@ -45,7 +45,7 @@ import { getDiagnosticoFase } from './fase-store';
 import { CANALES, esCanal, faseContextoTexto, type CanalId, type Diagnostico } from './fase-diagnostico';
 import { analisisNegocio } from './analisis-negocio';
 import { analisisAMarkdown } from './analisis-modelo';
-import { estadoDiagnostico, faseVigenteDe, recortar, semillaDePiezas, semillaDeProducto, type MensajeGuardado } from './offer-reglas';
+import { estadoDiagnostico, faseVigenteDe, recortar, semillaDePiezas, semillaDeProducto, type MensajeGuardado, type TasasEmbudo } from './offer-reglas';
 import type { PiezasSabidas } from './offer-marco';
 import { resolverOfertaPrincipal, type Oferta } from './oferta-modelo';
 import type { Producto } from './productos';
@@ -64,6 +64,11 @@ export type ContextoOffer = {
   texto: string;
   /** El embudo de los últimos 90 días en markdown, o '' (si no se pidió o no hay datos). */
   embudo: string;
+  /**
+   * Las tasas del mismo embudo, como NÚMEROS, para los avisos de dónde se cortan las ventas y de cuándo
+   * subir el precio (lib/offer-reglas.ts → `alertasEmbudo`, `alertasPrecio`). null si no se pidió o falló.
+   */
+  tasasEmbudo: TasasEmbudo | null;
   /** Lo que ya se sabe de cada pieza, sacado de la oferta PRINCIPAL que el negocio cargó (la v1). */
   semilla: PiezasSabidas;
   /**
@@ -138,7 +143,7 @@ export async function contextoOffer(opts: {
   mensajes?: Array<Pick<MensajeGuardado, 'de' | 'pregunta' | 'respuesta' | 'opciones'>>;
 } = {}): Promise<ContextoOffer> {
   const conFunnel = opts.funnelId != null;
-  const [perfil, panorama, answers, ofertas, productos, fase, embudoMd, funnels, ligasFunnel, ligasProducto, avatares, razones] = await Promise.all([
+  const [perfil, panorama, answers, ofertas, productos, fase, analisis, funnels, ligasFunnel, ligasProducto, avatares, razones] = await Promise.all([
     perfilNegocioTexto().catch(logFallo('el perfil del negocio')),
     getPanorama().catch(logFallo('el panorama del Archivero')),
     getAnswers().catch(logFallo('las respuestas del onboarding')),
@@ -146,7 +151,7 @@ export async function contextoOffer(opts: {
     listProductos(true).catch(logFallo('los productos activos')),
     getDiagnosticoFase().catch(logFallo('el diagnóstico de fase')),
     opts.conEmbudo
-      ? analisisNegocio({ desde: haceDias(89), hasta: null }).then(analisisAMarkdown).catch(logFallo('el embudo de los últimos 90 días'))
+      ? analisisNegocio({ desde: haceDias(89), hasta: null }).catch(logFallo('el embudo de los últimos 90 días'))
       : Promise.resolve(null),
     leerFunnels().catch(logFallo('los funnels')),
     conFunnel ? ofertasDeFunnels().catch(logFallo('las ofertas de cada funnel')) : Promise.resolve(null),
@@ -155,6 +160,14 @@ export async function contextoOffer(opts: {
     getRazones().catch(logFallo('las razones de compra')),
   ]);
   const principal = await ofertaPrincipal(answers ?? {}).catch(logFallo('la oferta principal'));
+  let embudoMd: string | null = null;
+  try { embudoMd = analisis ? analisisAMarkdown(analisis) : null; } catch (e) { logFallo('el embudo en texto')(e); }
+  const tasasEmbudo: TasasEmbudo | null = analisis
+    ? {
+      show: analisis.tasas.show_rate, cierreCalificados: analisis.tasas.tasa_cierre_sobre_calificados,
+      cierreAsistencias: analisis.tasas.tasa_cierre_sobre_asistencias, asistieron: analisis.calificacion.asistieron ?? 0,
+    }
+    : null;
 
   const todasOfertas = ofertas ?? [];
   const listaOfertas = todasOfertas.filter((o) => o.activa);
@@ -226,6 +239,7 @@ export async function contextoOffer(opts: {
   return {
     texto: recortar(bloques.join('\n\n'), TOPE_CONTEXTO),
     embudo: embudoMd?.trim() ? recortar(embudoMd.trim(), TOPE_EMBUDO) : '',
+    tasasEmbudo,
     semilla,
     semillaSesion,
     foco: { productosActivos: listaProductos.length, ofertasActivas: listaOfertas.length, bandaFacturacion: banda },

@@ -17,6 +17,13 @@
 //   · Lo que el dueño NUNCA dio no se afirma (`aplicarReglasPropuesta`): urgencia, cifras de prueba y
 //     valores de bonos quedan «[completar]».
 //
+// 12/10/2026 (las 13 respuestas de Martín a «A definir» del Offer Playbook): también deciden el CÓDIGO
+//   · las cifras, POR CIFRA y no por pieza (`filtrarCifras`), y lo que propuso MaKo (`propuestoPorMako`);
+//   · el control final del marco antes de decir «lista» (`controlFinal`) y los avisos que la IA lee antes
+//     de poner las notas (`avisosAntesDelDiagnostico`: foco desde 3 ofertas, margen, embudo, precio);
+//   · los topes de las listas, las reglas que antes dependían del prompt (duración, precio, garantía,
+//     nombres del método) y la oferta provisional con su PDF en el chat (`provisionalDe`, `mensajePdf`).
+//
 // Las keys de piezas y dimensiones, los tipos y el marco viven en lib/offer-marco.ts (no se tocan
 // desde acá: es el contrato que comparten la pantalla, el PDF y este motor).
 //
@@ -34,12 +41,12 @@ import { parseJsonObject } from './json-del-modelo';
 import { urgenciaUsable, type UrgenciaTipo } from './oferta-modelo';
 import { CANALES, PREGUNTAS, VOLUMEN_POR_CANAL, diagnosticar, type CanalId, type Diagnostico } from './fase-diagnostico';
 import {
-  DIMENSION_IDS, DIMENSIONES_CRITICAS, MARCA_COMPLETAR, PIEZAS, PREGUNTAS_GUIA,
+  DIMENSION_IDS, DIMENSIONES_CRITICAS, MARCA_COMPLETAR, PIEZAS, PIEZA_KEYS, PREGUNTAS_GUIA,
   dimensionLabel, esDimensionId, esPiezaKey, faltanMinimas, piezaLabel,
   type AdjuntoVista, type ArbolOffer, type BonoPropuesto, type CalculoDiagnostico, type CambioPropuesto, type DiagnosticoOferta,
   type DimensionId, type EcuacionFila, type Entregable, type FaseRuta, type FuentePieza, type ModoSesion,
   type NotaDimension, type OfferMensaje, type OfferSesionResumen, type PiezaKey, type PiezaSabida, type PiezasSabidas,
-  type PropuestaOferta, type VariableValor,
+  type PropuestaOferta, type PuntoControlFinal, type VariableValor,
 } from './offer-marco';
 
 // ── Topes ────────────────────────────────────────────────────────────────────
@@ -246,6 +253,7 @@ export function sanearMensajes(raw: unknown): MensajeGuardado[] {
     const opciones = Array.isArray(o.opciones) ? o.opciones.filter((x): x is string => typeof x === 'string' && !!x.trim()) : [];
     const pregunta = de === 'mako' ? sanearPregunta(o.pregunta) : undefined;
     const respuesta = de === 'yo' ? sanearRespuesta(o.respuesta) : undefined;
+    const pdf = de === 'mako' ? sanearPdf(o.pdf) : undefined;
     out.push({
       id: o.id, de, texto: t, at: typeof o.at === 'string' ? o.at : '',
       ...(opciones.length ? { opciones } : {}),
@@ -253,9 +261,17 @@ export function sanearMensajes(raw: unknown): MensajeGuardado[] {
       ...(audio ? { audio } : {}),
       ...(pregunta ? { pregunta } : {}),
       ...(respuesta ? { respuesta } : {}),
+      ...(pdf ? { pdf } : {}),
     });
   }
   return out;
+}
+
+/** El PDF de una versión, en un mensaje de MaKo: sólo una versión entera y positiva. */
+function sanearPdf(raw: unknown): MensajeGuardado['pdf'] {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const v = (raw as { version?: unknown }).version;
+  return typeof v === 'number' && Number.isInteger(v) && v > 0 ? { version: v } : undefined;
 }
 
 /** Un documento leído, como se guarda en `offer_sesiones.documentos` (con su texto). */
@@ -1019,7 +1035,16 @@ function notaEntera(v: unknown): number | null {
   return Math.round(n);
 }
 
-/** El JSON del diagnóstico, o null. Exige las 9 dimensiones (una vez cada una) y de 1 a 3 cambios. */
+/** Cuántos cambios lleva el diagnóstico (tarjeta «topes», 12/10/2026): tres, ni más ni menos. */
+export const N_CAMBIOS = 3;
+
+/**
+ * El JSON del diagnóstico, o null. Exige las 9 dimensiones (una vez cada una) y al menos un cambio.
+ *
+ * Los cambios son TRES (§5 del marco): más de tres se cortan; con uno o dos, los que faltan quedan
+ * «[completar]» a la vista. Se completan en vez de rechazar el diagnóstico porque rechazarlo quema la
+ * cascada gratis por algo que no cambia ninguna nota.
+ */
 export function parseDiagnostico(raw: unknown): DiagnosticoOferta | null {
   const o = aObjeto(raw);
   if (!o || !Array.isArray(o.dimensiones)) return null;
@@ -1042,8 +1067,11 @@ export function parseDiagnostico(raw: unknown): DiagnosticoOferta | null {
       return { titulo: texto(x.titulo, 160), porque: texto(x.porque, 400), hipotesis: texto(x.hipotesis, 400) };
     })
     .filter((c) => c.titulo)
-    .slice(0, 3);
+    .slice(0, N_CAMBIOS);
   if (!cambios.length) return null;
+  while (cambios.length < N_CAMBIOS) {
+    cambios.push({ titulo: `${MARCA_COMPLETAR} otro cambio con impacto`, porque: '', hipotesis: '' });
+  }
   return {
     dimensiones: DIMENSION_IDS.map((id) => porId.get(id) as NotaDimension),
     tesis,
@@ -1052,18 +1080,225 @@ export function parseDiagnostico(raw: unknown): DiagnosticoOferta | null {
   };
 }
 
+/** Un número en un texto, con su escala: «3.000», «3,000», «2,5», «10k», «10 mil», «1,5 millones», «40%». */
+const CIFRA_ESCALA = /\d+(?:[.,]\d+)*(?:\s?(?:k|mil|millones|mill[oó]n)(?![a-záéíóúñ]))?(?:\s?%)?/gi;
+
+/**
+ * El valor de una cifra como CLAVE comparable: «3.000», «3,000» y «3000» dan «3000»; «2,5» y «2.5» dan
+ * «2.5»; «10k» y «10 mil» dan «10000». Un separador seguido de exactamente tres dígitos es de miles (la
+ * forma de escribir montos en español y en inglés); con uno o dos, es decimal.
+ */
+export function claveCifra(token: string): string | null {
+  const t = token.toLowerCase().trim().replace(/\s?%$/, '');
+  const m = t.match(/^(\d+(?:[.,]\d+)*)(?:\s?(k|mil|millones|mill[oó]n))?$/);
+  if (!m) return null;
+  const num = m[1];
+  let valor: number;
+  if (/^\d{1,3}(?:[.,]\d{3})+$/.test(num)) valor = Number(num.replace(/[.,]/g, ''));
+  else if (/^\d+[.,]\d{1,2}$/.test(num)) valor = Number(num.replace(',', '.'));
+  else valor = Number(num.replace(/[.,]/g, ''));
+  if (!Number.isFinite(valor)) return null;
+  const escala = m[2] === 'k' || m[2] === 'mil' ? 1_000 : m[2] ? 1_000_000 : 1;
+  return String(Math.round(valor * escala * 100) / 100);
+}
+
+/** Todas las cifras de unos textos, como claves (`claveCifra`). Es «lo que dio el negocio». */
+export function cifrasDelNegocio(textos: Array<string | null | undefined>): Set<string> {
+  const out = new Set<string>();
+  for (const t of textos) {
+    for (const m of (t ?? '').matchAll(CIFRA_ESCALA)) {
+      const k = claveCifra(m[0]);
+      if (k) out.add(k);
+    }
+  }
+  return out;
+}
+
+/** Lo que viene DESPUÉS de una cifra y la hace un plazo o una parte de la estructura, no un resultado. */
+const UNIDAD_PLAZO = /^\s*(?:d[ií]as?|semanas?|mes(?:es)?|años?|horas?|minutos?|pasos?|fases?|etapas?|pilares?|m[oó]dulos?|sesi[oó]n(?:es)?|bonos?|niveles?|partes?|pagos?|cuotas?)(?![a-záéíóúñ])/i;
+/** Lo que viene ANTES de una cifra y la hace un rótulo («Fase 1», «Paso 2», «Caso 3»), nunca un resultado. */
+const ROTULO_ANTES = /(?:fase|paso|etapa|nivel|bono|m[oó]dulo|sesi[oó]n|caso|semana|mes|d[ií]a|versi[oó]n)\s*$/i;
+/** Un año («de 2026»): no es una cifra del negocio. */
+const ES_ANIO = /^20[2-3]\d$/;
+
+/**
+ * Pasa a «[completar]» toda cifra de `texto` que NO esté en `permitidas` (tarjeta «cifras», decisión de
+ * Martín del 12/10/2026: «A»). Por CIFRA, no por pieza: antes, con cualquier dato en Prueba, todas sus
+ * cifras pasaban, y «27 clientes duplicaron sus ventas» podía salir sin que nadie lo dijera.
+ *
+ *  · Nunca son cifras del negocio: un rótulo («Fase 1», «Caso 2») y un año.
+ *  · Con `plazos`, tampoco lo que va seguido de un plazo o de una parte de la estructura («en 90 días»,
+ *    «3 pasos»): eso lo PROPONE MaKo a sabiendas y va a «Lo que propuso MaKo», no a «[completar]». Se usa
+ *    en la frase, los mensajes, los escenarios y la ecuación, donde lo que se revisa son las cifras de
+ *    RESULTADOS. En la prueba, los bonos, el valor y los cupos se revisa todo.
+ * Lo que NO ve: las cifras escritas con letras («tres clientes») — esa mitad queda en el prompt.
+ */
+export function filtrarCifras(texto: string, permitidas: Set<string>, opts: { plazos?: boolean } = {}): string {
+  if (!texto || texto === MARCA_COMPLETAR) return texto;
+  return texto.replace(CIFRA_ESCALA, (m: string, offset: number, todo: string) => {
+    const k = claveCifra(m);
+    if (!k || permitidas.has(k)) return m;
+    if (ES_ANIO.test(m.trim())) return m;
+    if (ROTULO_ANTES.test(todo.slice(0, offset))) return m;
+    if (opts.plazos && UNIDAD_PLAZO.test(todo.slice(offset + m.length))) return m;
+    return MARCA_COMPLETAR;
+  });
+}
+
+/** ¿Tiene alguna cifra que no está en `permitidas`? (sin mirar rótulos ni años) */
+const tieneCifraAjena = (texto: string, permitidas: Set<string>): boolean =>
+  filtrarCifras(texto, permitidas) !== texto;
+
+// ── Lo que se mide de las piezas (montos, porcentajes, cantidad de ofertas) ─────
+
+export type Monto = { monto: number; moneda: 'USD' | 'MXN' | 'EUR' | null; texto: string };
+
+const monedaDe = (t: string): Monto['moneda'] =>
+  /\b(?:usd|us\$|d[oó]lar(?:es)?)\b/i.test(t) ? 'USD'
+    : /\b(?:mxn|pesos?)\b/i.test(t) ? 'MXN'
+      : /\beur\b|€|euros?\b/i.test(t) ? 'EUR' : null;
+
+/**
+ * Los montos de una pieza de texto libre: las cifras que no son un porcentaje, un plazo, una parte de la
+ * estructura ni una cantidad de clientes. Es una lectura de HEURÍSTICA sobre lo que escribió el dueño: por
+ * eso todo aviso que sale de acá dice los números que usó, para que el dueño vea si se leyó bien.
+ */
+function montosDe(valor: string | null | undefined): Monto[] {
+  const t = (valor ?? '').trim();
+  if (!t || esSinDato(t)) return [];
+  const moneda = monedaDe(t);
+  const out: Monto[] = [];
+  for (const m of t.matchAll(CIFRA_ESCALA)) {
+    const despues = t.slice((m.index ?? 0) + m[0].length);
+    if (m[0].includes('%') || UNIDAD_PLAZO.test(despues) || /^\s*(?:clientes?|personas?|alumnos?|pacientes?|a la vez|por mes|al mes)\b/i.test(despues)) continue;
+    const k = claveCifra(m[0]);
+    if (!k) continue;
+    out.push({ monto: Number(k), moneda, texto: m[0].trim() });
+  }
+  return out;
+}
+
+/** El precio de la pieza: el monto MÁS ALTO (en «2.500 USD o 2 pagos de 1.300» es 2.500). */
+export function precioDe(valor: string | null | undefined): Monto | null {
+  const xs = montosDe(valor);
+  return xs.length ? xs.reduce((a, b) => (b.monto > a.monto ? b : a)) : null;
+}
+
+/** El costo de atender a un cliente: el PRIMER monto de la pieza (lo que viene después suele ser la capacidad). */
+export function costoDe(valor: string | null | undefined): Monto | null {
+  return montosDe(valor)[0] ?? null;
+}
+
+/** El % cobrado al firmar que dijo el dueño, o null: «50%», «la mitad», «todo de contado». */
+export function porcentajeAlFirmar(valor: string | null | undefined): number | null {
+  const t = (valor ?? '').trim();
+  if (!t || esSinDato(t)) return null;
+  const p = t.match(/(\d{1,3})\s?%/);
+  if (p) {
+    const n = Number(p[1]);
+    return n >= 0 && n <= 100 ? n : null;
+  }
+  const n = normalizar(t);
+  if (/\b(?:todo|completo|de contado|pago unico|un solo pago|al contado|100)\b/.test(n)) return 100;
+  if (/\bla mitad\b/.test(n)) return 50;
+  return null;
+}
+
+const NUMEROS_EN_LETRAS: Record<string, number> = { una: 1, uno: 1, un: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10 };
+
+/**
+ * Cuántas ofertas vende el dueño ADEMÁS de ésta, según la pieza `otras` (tarjeta «alertas»: la pregunta que
+ * MaKo hace siempre). El turno la anota empezando por el número («0», «2: un curso y una mentoría»). null si
+ * no la contestó o no se entiende: un dato que no se lee no cuenta para el aviso de foco.
+ */
+export function ofertasDeclaradas(valor: string | null | undefined): number | null {
+  const t = (valor ?? '').trim();
+  if (!t || esSinDato(t)) return null;
+  const d = t.match(/\d+/);
+  if (d) return Number(d[0]);
+  const n = normalizar(t);
+  if (/^(?:no|ninguna|ninguno|nada)\b|\bsolo (?:esta|esa|una)\b|\bunicamente esta\b|\bnada mas\b/.test(n)) return 0;
+  const w = n.match(/\b(una|uno|un|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)\b/);
+  return w ? NUMEROS_EN_LETRAS[w[1]] : null;
+}
+
+/** ¿El resultado tiene número y plazo? «10 clientes en 90 días» sí; «duplicar ventas en 3 meses» también. */
+export function resultadoMedible(valor: string | null | undefined): boolean {
+  const t = (valor ?? '').trim();
+  if (!t || esSinDato(t)) return false;
+  const plazo = /\d+\s*(?:d[ií]as?|semanas?|mes(?:es)?|años?)(?![a-záéíóúñ])|\b(?:una?|dos|tres|seis|doce)\s+(?:semanas?|mes(?:es)?|años?)\b/i;
+  const m = t.match(plazo);
+  if (!m) return false;
+  const sinPlazo = t.replace(m[0], ' ');
+  return /\d/.test(sinPlazo) || /\b(?:duplic|triplic|el doble|la mitad|el triple)/i.test(sinPlazo);
+}
+
+// ── El cálculo ───────────────────────────────────────────────────────────────
+
+const pct = (x: number): string => `${Math.round(x * 100)}%`;
+const fmtMonto = (m: Monto): string => `${m.texto}${m.moneda && !/[a-z$€]/i.test(m.texto) ? ` ${m.moneda}` : ''}`;
+
+/**
+ * El «Check final» de Contreras (§4 del marco), DETERMINISTA (tarjeta «lista», decisión de Martín del
+ * 12/10/2026: «A»). Antes «lista para vender» miraba sólo las notas, y con ese «lista» el negocio sale a
+ * gastar en anuncios.
+ *
+ *  · dolor urgente: el problema anotado (no «sin dato») y la promesa (D2) en 7 o más;
+ *  · resultado medible: la pieza resultado con número y plazo (`resultadoMedible`);
+ *  · entregables concretos: anotados y la entrega sostenible (D6, «productizada») en 7 o más;
+ *  · garantía fuerte: anotada y la certeza (D4) en 7 o más;
+ *  · precio por valor: Precio y cobro (D7) en 7 o más.
+ */
+export function controlFinal(notas: Map<DimensionId, number>, piezas: PiezasSabidas): PuntoControlFinal[] {
+  const n = (id: DimensionId) => notas.get(id) ?? 0;
+  const resultado = piezas.resultado?.valor ?? '';
+  return [
+    {
+      punto: 'dolor',
+      ok: tieneDato(piezas, 'problema') && n('D2') >= 7,
+      porque: !tieneDato(piezas, 'problema') ? 'Falta el dolor: qué le pasa a tu cliente cuando decide buscarte.'
+        : n('D2') >= 7 ? 'El problema está claro y la promesa lo ataca.' : `La promesa saca ${n('D2')}: el dolor no se ve urgente o el resultado no se entiende.`,
+    },
+    {
+      punto: 'resultado',
+      ok: resultadoMedible(resultado),
+      porque: resultadoMedible(resultado) ? 'El resultado tiene número y plazo.'
+        : tieneDato(piezas, 'resultado') ? `El resultado no tiene número y plazo: «${recortar(colapsar(resultado), 90)}».` : 'Falta el resultado, con número y plazo.',
+    },
+    {
+      punto: 'entregables',
+      ok: tieneDato(piezas, 'entregables') && n('D6') >= 7,
+      porque: !tieneDato(piezas, 'entregables') ? 'Faltan los entregables: qué recibe exactamente el cliente.'
+        : n('D6') >= 7 ? 'Los entregables son concretos.' : `La entrega sostenible saca ${n('D6')}: los entregables, la duración o el soporte no están fijos.`,
+    },
+    {
+      punto: 'garantia',
+      ok: tieneDato(piezas, 'garantia') && n('D4') >= 7,
+      porque: !tieneDato(piezas, 'garantia') ? 'No tiene garantía.'
+        : n('D4') >= 7 ? 'La garantía es fuerte y hay casos que la respaldan.' : `La certeza saca ${n('D4')}: la garantía no es fuerte o faltan casos que la respalden.`,
+    },
+    {
+      punto: 'precio',
+      ok: n('D7') >= 7,
+      porque: n('D7') >= 7 ? 'El precio sale del valor.' : `Precio y cobro saca ${n('D7')}: el precio no se justifica con el valor del resultado.`,
+    },
+  ];
+}
+
 /**
  * Lo que se calcula sobre las notas. Nunca lo escribe el modelo.
  *
  *  · total: el promedio × 10, redondeado (0-100).
  *  · cuello: la dimensión más baja; con empate, la que está más ARRIBA en el orden (D1 antes que D2):
  *    el marco dice que D1, D2 y D3 se apoyan una en la otra, así que lo de arriba se arregla primero.
- *  · lista: ninguna por debajo de 5, y cliente, promesa y certeza (D1, D2, D4) en 7 o más.
+ *  · lista: ninguna por debajo de 5, cliente, promesa y certeza (D1, D2, D4) en 7 o más y, con las
+ *    piezas, el control final en ok. Sin piezas no hay control (la pestaña Criterio del Playbook calcula
+ *    sólo con notas): la ruta las pasa SIEMPRE, y tests/offer-ia-cableado.test.ts lo fija.
  *  · alertas: la de foco (si la hay), las de D1/D2 en 3 o menos, y las que mande el que llama.
  */
 export function calcularDiagnostico(
   dims: NotaDimension[],
-  extras: { foco?: string | null; otras?: Array<string | null | undefined> } = {},
+  extras: { foco?: string | null; otras?: Array<string | null | undefined>; piezas?: PiezasSabidas } = {},
 ): CalculoDiagnostico {
   const notas = new Map<DimensionId, number>();
   for (const d of dims) if (esDimensionId(d.id) && !notas.has(d.id)) notas.set(d.id, d.nota);
@@ -1078,17 +1313,19 @@ export function calcularDiagnostico(
     const n = notas.get(id);
     if (n != null && n < min) { min = n; cuello = id; }
   }
-  const lista = presentes.length === DIMENSION_IDS.length
+  const porNotas = presentes.length === DIMENSION_IDS.length
     && presentes.every((id) => (notas.get(id) as number) >= 5)
     && DIMENSIONES_CRITICAS.every((id) => (notas.get(id) ?? 0) >= 7);
+  const control = extras.piezas ? controlFinal(notas, extras.piezas) : undefined;
+  const lista = porNotas && (!control || control.every((c) => c.ok));
   const alertas: string[] = [];
   if (extras.foco?.trim()) alertas.push(extras.foco.trim());
   for (const id of ['D1', 'D2'] as const) {
     const n = notas.get(id);
-    if (n != null && n <= 3) alertas.push(`${dimensionLabel(id)} saca ${n}: conviene rehacer la oferta desde ahí antes de tocar el precio o los bonos.`);
+    if (n != null && n <= 3) alertas.push(`${dimensionLabel(id)} saca ${n}: el precio y los bonos de la oferta nueva quedan provisionales hasta arreglarlo.`);
   }
   for (const a of extras.otras ?? []) if (a?.trim()) alertas.push(a.trim());
-  return { total, cuello, lista, alertas: [...new Set(alertas)] };
+  return { total, cuello, lista, alertas: [...new Set(alertas)], ...(control ? { controlFinal: control } : {}) };
 }
 
 /**
@@ -1096,27 +1333,167 @@ export function calcularDiagnostico(
  * productos… Fase 1: un anuncio ganador para una oferta».
  *
  * `bandaFacturacion` es la respuesta 0 del diagnóstico de fase (lib/fase-diagnostico.ts,
- * `Diagnostico.respuestas[0]`): 0 = $0-3.000, 1 = $3.000-10.000, 2-4 = más. null = no lo contestó.
+ * `Diagnostico.respuestas[0]`): 0 = $0-3.000, 1 = $3.000-10.000, 2-4 = 10.000 o más. null = no lo contestó.
  *
- * ⚠️ EL UMBRAL ES UN PROXY Y NO ESTÁ MEDIDO (AGENTS.md «Un umbral es un proxy, y el proxy hay que
- * MEDIRLO contra los datos reales»): banda ≤ 1 y más de 2 productos u ofertas activas, o banda
- * desconocida y más de 5. Lo propuso el orquestador el 11/10/2026 a partir de la frase de arriba; no
- * se corrió contra los productos y ofertas reales de los negocios. Antes de confiar en él, contar
- * cuántos negocios activos lo disparan y mirar a mano tres: un catálogo de «productos» puede tener
- * variantes de precio de UNA oferta, y eso no es falta de foco.
+ * 12/10/2026 (tarjeta «foco», decisión de Martín: «A»): sale desde TRES ofertas también con la facturación
+ * desconocida (antes, con 6: el marco dice que con 3 ya es mala nota); con 10.000 o más al mes no sale.
+ * Y el conteo suma las ofertas que el dueño dijo que vende aunque no estén cargadas en MaKo
+ * (`otrasDeclaradas`, la pieza `otras`: ésta más las otras).
+ *
+ * ⚠️ EL UMBRAL ES UN PROXY Y NO ESTÁ MEDIDO contra los negocios reales: un catálogo de «productos» puede
+ * tener variantes de precio de UNA oferta, y eso no es falta de foco. Por eso la pregunta de las otras
+ * ofertas: lo que dice el dueño es mejor dato que lo que está cargado.
  */
-export function alertaFoco(p: { productosActivos: number; ofertasActivas: number; bandaFacturacion: number | null }): string | null {
+export function alertaFoco(p: { productosActivos: number; ofertasActivas: number; bandaFacturacion: number | null; otrasDeclaradas?: number | null }): string | null {
   const prods = Math.max(0, Math.floor(Number(p.productosActivos) || 0));
   const ofs = Math.max(0, Math.floor(Number(p.ofertasActivas) || 0));
-  const n = Math.max(prods, ofs);
+  const decl = typeof p.otrasDeclaradas === 'number' && p.otrasDeclaradas >= 0 ? Math.floor(p.otrasDeclaradas) + 1 : 0;
+  const n = Math.max(prods, ofs, decl);
   const b = p.bandaFacturacion;
   const conocida = typeof b === 'number' && Number.isInteger(b) && b >= 0 && b <= 4;
-  const dispara = conocida ? (b as number) <= 1 && n > 2 : n > 5;
-  if (!dispara) return null;
-  const que = prods >= ofs ? `${prods} productos activos` : `${ofs} ofertas activas`;
+  if (conocida && (b as number) >= 2) return null;
+  if (n < 3) return null;
+  const que = decl >= prods && decl >= ofs ? `Vendes ${decl} ofertas (contando las que no están cargadas en MaKo)`
+    : prods >= ofs ? `Tienes ${prods} productos activos` : `Tienes ${ofs} ofertas activas`;
   // El monto se dice en la MISMA unidad de la pregunta que el dueño contestó («$0 – $3.000»).
   const factura = !conocida ? '' : b === 0 ? ' y tu negocio factura menos de $3.000 al mes' : ' y tu negocio factura menos de $10.000 al mes';
-  return `Tienes ${que}${factura}: en la fase 1 conviene empujar una sola oferta hasta tener un anuncio ganador.`;
+  return `${que}${factura}: en la fase 1 conviene empujar una sola oferta hasta tener un anuncio ganador.`;
+}
+
+/**
+ * El margen bruto con el precio y el costo que dio el dueño (tarjeta «alertas»): por debajo de 60%, aviso
+ * (el objetivo es 80%, §6.1). Sólo con los dos montos leídos y en la misma moneda; el aviso dice los
+ * números que usó.
+ */
+export function alertaMargen(piezas: PiezasSabidas): string | null {
+  const precio = precioDe(piezas.precio?.valor);
+  const costo = costoDe(piezas.costo?.valor);
+  if (!precio || !costo || precio.monto <= 0) return null;
+  if (precio.moneda && costo.moneda && precio.moneda !== costo.moneda) return null;
+  const margen = (precio.monto - costo.monto) / precio.monto;
+  if (margen >= 0.6) return null;
+  return `Con un precio de ${fmtMonto(precio)} y un costo de ${fmtMonto(costo)} por cliente, el margen bruto queda en ${pct(Math.max(0, margen))}: por debajo de 60% (el objetivo es 80%).`;
+}
+
+/** Las tasas del embudo que se usan para los avisos (salen de lib/analisis-negocio.ts). */
+export type TasasEmbudo = { show: number | null; cierreCalificados: number | null; cierreAsistencias: number | null; asistieron: number };
+
+/** Con menos asistencias que esto, una tasa es ruido. */
+export const MIN_ASISTENCIAS_EMBUDO = 10;
+
+/**
+ * Dónde se cortan las ventas, contra los rangos del §6.4 (asistencia 60-80%, cierre 25-40% de las
+ * llamadas calificadas): «la oferta es lo último que se corrige». Sin datos suficientes, nada.
+ */
+export function alertasEmbudo(t: TasasEmbudo | null | undefined): string[] {
+  if (!t || t.asistieron < MIN_ASISTENCIAS_EMBUDO) return [];
+  const out: string[] = [];
+  if (t.show != null && t.show < 0.6) {
+    out.push(`Asiste el ${pct(t.show)} de los que agendan: por debajo de 60% (lo sano es de 60% a 80%). Las ventas se cortan antes de la llamada: antes de cambiar la oferta, revisa cómo se confirman las agendas.`);
+  }
+  const cierre = t.cierreCalificados ?? t.cierreAsistencias;
+  if (cierre != null && cierre < 0.25) {
+    out.push(`Cierras el ${pct(cierre)} de las llamadas: por debajo de 25% (lo sano es de 25% a 40%). Las ventas se cortan en la llamada: antes de cambiar la oferta, revisa el cierre.`);
+  }
+  return out;
+}
+
+/**
+ * Cuándo subir (o no tocar) el precio, con las señales del §6.2: el % cobrado al firmar que dijo el dueño
+ * y el cierre del embudo. Cada aviso dice el número que lo dispara.
+ */
+export function alertasPrecio(p: { cobro: number | null; tasas?: TasasEmbudo | null }): string[] {
+  const out: string[] = [];
+  if (p.cobro != null && p.cobro > 75) {
+    out.push(`Te pagan el ${p.cobro}% al firmar: más de 75% es señal de que el precio está barato. Súbelo por escalones (entre 250 y 1.000 USD, o un 20%, cada 3 a 5 ventas sin fricción).`);
+  } else if (p.cobro != null && p.cobro < 50) {
+    out.push(`Te pagan el ${p.cobro}% al firmar: menos de la mitad. Antes de tocar el precio, revisa el cliente ideal y el valor.`);
+  }
+  const t = p.tasas;
+  if (t && t.asistieron >= MIN_ASISTENCIAS_EMBUDO && t.cierreCalificados != null && t.cierreCalificados > 0.3) {
+    out.push(`Cierras el ${pct(t.cierreCalificados)} de las llamadas calificadas: más de 30% es señal de que hay margen para subir el precio.`);
+  }
+  return out;
+}
+
+/**
+ * Todos los avisos que el CÓDIGO calcula antes del diagnóstico, en orden: foco, margen, embudo, precio. Los
+ * lee la IA que pone las notas (tarjeta «foco»: «se calcula ANTES del diagnóstico») y quedan en el cálculo.
+ */
+export function avisosAntesDelDiagnostico(p: {
+  foco: { productosActivos: number; ofertasActivas: number; bandaFacturacion: number | null };
+  piezas: PiezasSabidas; tasas?: TasasEmbudo | null;
+}): { foco: string | null; otras: string[] } {
+  const foco = alertaFoco({ ...p.foco, otrasDeclaradas: ofertasDeclaradas(p.piezas.otras?.valor) });
+  const margen = alertaMargen(p.piezas);
+  return {
+    foco,
+    otras: [...(margen ? [margen] : []), ...alertasEmbudo(p.tasas), ...alertasPrecio({ cobro: porcentajeAlFirmar(p.piezas.cobro?.valor), tasas: p.tasas })],
+  };
+}
+
+// ── La oferta provisional y el PDF en el chat (tarjeta «rehacer») ─────────────
+
+export const OPCION_PULIR = 'Pulir la oferta';
+export const OPCION_ASI_ESTA_BIEN = 'Así está bien';
+
+/**
+ * Con el Cliente ideal o la Promesa en 3 o menos, la oferta sale completa pero con el precio y los bonos
+ * PROVISIONALES (decisión de Martín del 12/10/2026, tarjeta «rehacer»: «C»). null si no aplica.
+ */
+export function provisionalDe(d: Pick<DiagnosticoOferta, 'dimensiones'>): { partes: Array<'precio' | 'bonos'>; motivo: string } | null {
+  const bajas = d.dimensiones.filter((x) => (x.id === 'D1' || x.id === 'D2') && x.nota <= 3);
+  if (!bajas.length) return null;
+  const que = bajas.map((x) => `${dimensionLabel(x.id)} saca ${x.nota}`).join(' y ');
+  return { partes: ['precio', 'bonos'], motivo: `${que}: el precio y los bonos dependen de arreglar eso primero.` };
+}
+
+/**
+ * El mensaje de MaKo con el PDF de una versión (pedido de Martín, 12/10/2026: «que MaKo en el mismo chat te
+ * proponga pulir la oferta, y que cuando se haya pulido te re-envíe el PDF las veces que sea necesario»).
+ * Lo agrega el servidor después de cada «generar». Propone empezar por lo provisional; si no hay, por el
+ * cuello de botella; si está lista, ofrece pulirla igual.
+ */
+export function mensajePdf(p: {
+  version: number; dimensiones: NotaDimension[]; cuello: DimensionId; lista: boolean; id: string; at: string;
+}): MensajeSinAudio {
+  const bajas = p.dimensiones.filter((x) => (x.id === 'D1' || x.id === 'D2') && x.nota <= 3);
+  const empezar = bajas.length
+    ? `Empezaría por ${bajas.map((x) => `«${dimensionLabel(x.id)}»`).join(' y ')}: el precio y los bonos de esta versión son provisionales hasta arreglarlo.`
+    : p.lista ? 'Está lista para vender; si quieres, la pulimos igual.'
+      : `Empezaría por «${dimensionLabel(p.cuello)}», que es lo que más la frena.`;
+  return {
+    id: p.id, de: 'mako', at: p.at,
+    texto: `Aquí está la versión ${p.version} de tu oferta, en PDF. ¿La pulimos? ${empezar}`,
+    opciones: [OPCION_PULIR, OPCION_ASI_ESTA_BIEN],
+    pdf: { version: p.version },
+  };
+}
+
+/**
+ * La conclusión de una versión, para GET /api/offer/pdf?id=&v=. Sin versión, la más alta. Una versión que
+ * la sesión no tiene es null: nunca se cae a otra (bajar la v2 cuando se pidió la v1 es entregar un
+ * documento que dice otra cosa con el nombre del que se pidió).
+ */
+export function conclusionDeVersion<T extends { version: number }>(conclusiones: readonly T[], version: number | null): T | null {
+  if (!conclusiones.length) return null;
+  if (version == null) return conclusiones.reduce((a, b) => (b.version > a.version ? b : a));
+  return conclusiones.find((c) => c.version === version) ?? null;
+}
+
+/**
+ * Lo que MaKo contesta SIN IA. Hoy, uno: «Así está bien» después de un PDF (no hay nada que preguntar y
+ * pagar un modelo por un «perfecto» no le compra nada al dueño). null = contesta la IA.
+ */
+export function respuestaSinIA(mensajes: Array<Pick<MensajeGuardado, 'de' | 'pdf'>>, texto: string, p: { id: string; at: string }): MensajeSinAudio | null {
+  if (normalizar(texto) !== normalizar(OPCION_ASI_ESTA_BIEN)) return null;
+  const ultimoMako = [...mensajes].reverse().find((m) => m.de === 'mako');
+  if (!ultimoMako?.pdf) return null;
+  return {
+    id: p.id, de: 'mako', at: p.at,
+    texto: `Perfecto: la versión ${ultimoMako.pdf.version} es la final. Puedes guardarla como tu oferta, o volver a pulirla cuando quieras.`,
+    opciones: [OPCION_PULIR],
+  };
 }
 
 // ── La propuesta ─────────────────────────────────────────────────────────────
@@ -1140,37 +1517,158 @@ const sub = (o: Record<string, unknown>, k: string): Record<string, unknown> => 
 /** Lo que queda en la urgencia cuando el dueño nunca dio una razón real para decidir hoy. */
 export const URGENCIA_SIN_DATO = `${MARCA_COMPLETAR} Una razón real para decidir hoy: una cohorte con fecha de inicio, cupos según cuántos clientes puedes atender a la vez o una subida de precio anunciada.`;
 
-/**
- * Una cifra: dígitos con sus separadores y un % pegado. Lo que NO ve: las cifras escritas con letras
- * («tres clientes»). Una regex no distingue «tres» de una palabra cualquiera sin una lista, y una lista
- * de números en palabras se come «una» y «uno» como artículos: esa mitad queda en el prompt.
- */
-const CIFRA = /\d+(?:[.,]\d+)*(?:\s?%)?/g;
+/** Lo que queda en el valor total cuando trae una cifra que el negocio no dio. */
+export const VALOR_TOTAL_SIN_DATO = `${MARCA_COMPLETAR} la suma del valor de cada entregable y bono (de 4 a 5 veces el precio o más).`;
+
+/** Los topes de las listas del marco (tarjeta «topes», 12/10/2026). */
+export const TOPES_PROPUESTA = { fasesMin: 3, fasesMax: 5, bonosMin: 1, bonosMax: 3, nombresMin: 2, nombresMax: 3 } as const;
+
+/** La duración del programa en días, del primer «N días / semanas / meses / años» de un texto. */
+export function duracionEnDias(texto: string): number | null {
+  const m = (texto ?? '').match(/(\d+)\s*(d[ií]as?|semanas?|mes(?:es)?|años?)(?![a-záéíóúñ])/i);
+  if (!m) return null;
+  const n = Number(m[1]);
+  const u = m[2].toLowerCase();
+  return u.startsWith('d') ? n : u.startsWith('s') ? n * 7 : u.startsWith('m') ? n * 30 : n * 365;
+}
+
+/** El contexto con el que se revisa la propuesta: de dónde salen las cifras que SÍ dio el negocio, y su nombre. */
+export type ContextoReglas = {
+  /** Los textos del negocio además de las piezas: los mensajes del dueño, los documentos y el contexto cargado. */
+  fuentes?: Array<string | null | undefined>;
+  /** El nombre del negocio: ningún nombre del método puede llevarlo (§2.5). */
+  negocio?: string;
+};
+
+const PROPUESTA_SUFIJO = '(propuesta)';
+const NOMBRE_METODO_SIN_DATO = `${MARCA_COMPLETAR} otro nombre descriptivo ${PROPUESTA_SUFIJO}`;
 
 /**
  * Las reglas del marco que el código puede verificar sobre la propuesta (la segunda capa).
  *
- *  1. URGENCIA: si el dueño nunca la dio, queda «[completar]» con cómo armar una real. Cualquier otra
- *     cosa que haya escrito el modelo es inventada por construcción: no salió del dueño.
- *  2. PRUEBA: sin pieza de prueba, toda cifra de «prueba» pasa a «[completar]». La frase queda
- *     («[completar] clientes lograron…») para que se vea QUÉ falta, no sólo que falta algo.
- *  3. BONOS: sin pieza de bonos, el valor de cada bono con dígitos pasa a «[completar]».
- *  4. COMPLETAR: todo campo con la marca queda listado, sin duplicar. Lo arma el código y no el modelo:
- *     el que sabe qué quedó marcado es el que lo marcó.
+ *  1. URGENCIA: si el dueño nunca la dio, queda «[completar]» con cómo armar una real. Si la dio, sus cupos
+ *     y fechas se revisan por cifra.
+ *  2. CIFRAS (tarjeta «cifras», 12/10/2026): por CIFRA, contra lo que dio el negocio (las piezas, lo que
+ *     escribió el dueño, sus documentos y lo que tenía cargado). En la prueba, los valores de los bonos, el
+ *     valor total, el stack de «cómo decirlo» y los cupos se revisa toda cifra; en la frase, los mensajes,
+ *     los escenarios y la ecuación, las de resultados (un plazo o la cantidad de pasos los propone MaKo).
+ *  3. REGLAS QUE ANTES DEPENDÍAN DE LA IA (tarjeta «reglas-ia»): los nombres del método llevan
+ *     «(propuesta)» y nunca el nombre del negocio ni el de la oferta (se corrige); una garantía
+ *     incondicional pierde sus condiciones y se marca; la duración fuera de 90 a 180 días y el precio por
+ *     debajo de 1.000 USD se avisan (no se pueden corregir sin inventar).
+ *  4. LO QUE PROPUSO MaKo (tarjeta «supuestos»): lo que dijo el modelo más lo que el código sabe con certeza
+ *     (el precio con cifras que el negocio no dio, la garantía y los bonos que el dueño no tenía, los
+ *     nombres del método, las fases y los plazos de la frase).
+ *  5. SUPUESTOS: lo que el dueño dijo que no sabe («sin dato»), a la vista.
+ *  6. COMPLETAR: todo campo con la marca queda listado, sin duplicar. Lo arma el código y no el modelo.
  *
  * «sin dato: …» cuenta como que el dueño NO lo dio (`tieneDato`).
  */
-export function aplicarReglasPropuesta(p: PropuestaOferta, piezas: PiezasSabidas): PropuestaOferta {
+export function aplicarReglasPropuesta(p: PropuestaOferta, piezas: PiezasSabidas, ctx: ContextoReglas = {}): PropuestaOferta {
+  const deLasPiezas = PIEZA_KEYS.filter((k) => tieneDato(piezas, k)).map((k) => piezas[k]?.valor);
+  const permitidas = cifrasDelNegocio([...deLasPiezas, ...(ctx.fuentes ?? [])]);
+  const conPropuesta = new Set([...permitidas, ...cifrasDelNegocio([p.inversion.precio, p.inversion.contado, p.inversion.plan])]);
+  const res = (t: string) => filtrarCifras(t, permitidas, { plazos: true });
+  const estricto = (t: string) => filtrarCifras(t, permitidas);
+  const avisos: string[] = [];
+
   const out: PropuestaOferta = {
     ...p,
-    bonos: p.bonos.map((b) => ({ ...b })),
+    frase: res(p.frase),
+    mensajes: { corto: res(p.mensajes.corto), largo: res(p.mensajes.largo), entrada: res(p.mensajes.entrada) },
+    prueba: estricto(p.prueba),
+    bonos: p.bonos.map((b) => ({ ...b, valor: tieneCifraAjena(b.valor, permitidas) ? MARCA_COMPLETAR : b.valor })),
+    inversion: {
+      ...p.inversion,
+      valorTotal: tieneCifraAjena(p.inversion.valorTotal, permitidas) ? VALOR_TOTAL_SIN_DATO : p.inversion.valorTotal,
+      comoDecirlo: filtrarCifras(p.inversion.comoDecirlo, conPropuesta),
+    },
+    urgencia: tieneDato(piezas, 'urgencia') ? estricto(p.urgencia) : URGENCIA_SIN_DATO,
+    escenarios: { mejor: res(p.escenarios.mejor), peor: res(p.escenarios.peor) },
+    ecuacion: p.ecuacion.map((f) => ({ ...f, antes: res(f.antes), despues: res(f.despues) })),
+    mecanismo: { ...p.mecanismo, nombres: [...p.mecanismo.nombres] },
+    garantia: { ...p.garantia },
   };
-  if (!tieneDato(piezas, 'urgencia')) out.urgencia = URGENCIA_SIN_DATO;
-  if (!tieneDato(piezas, 'prueba')) out.prueba = out.prueba.replace(CIFRA, MARCA_COMPLETAR);
-  if (!tieneDato(piezas, 'bonos')) {
-    out.bonos = out.bonos.map((b) => (/\d/.test(b.valor) ? { ...b, valor: MARCA_COMPLETAR } : b));
+
+  // Los nombres del método: propuestas, sin el nombre del negocio ni el de la oferta.
+  const prohibidos = [ctx.negocio, out.nombre].map((x) => normalizar(x ?? '')).filter((x) => x.length >= 3);
+  out.mecanismo.nombres = out.mecanismo.nombres.map((nm) => {
+    if (nm.includes(MARCA_COMPLETAR)) return nm;
+    const n = normalizar(nm.replace(/\(propuesta\)/i, ''));
+    if (prohibidos.some((x) => n === x || n.includes(x))) return NOMBRE_METODO_SIN_DATO;
+    return /\(propuesta\)\s*$/i.test(nm) ? nm : `${nm} ${PROPUESTA_SUFIJO}`;
+  });
+
+  // La garantía nunca incondicional en high ticket: se le sacan las condiciones y se marca.
+  const textoGarantia = `${out.garantia.nombre} ${out.garantia.condiciones} ${out.garantia.siNoCumple}`;
+  if (/incondicional|sin (?:hacer )?preguntas|sin condiciones/i.test(textoGarantia)) {
+    out.garantia.condiciones = `${MARCA_COMPLETAR} lo que el cliente tiene que cumplir para reclamarla (asistir, hacer las tareas)`;
+    if (/incondicional/i.test(out.garantia.nombre)) out.garantia.nombre = `${MARCA_COMPLETAR} el nombre de la garantía`;
+    avisos.push('La garantía que escribió la IA era incondicional: en high ticket va atada a que el cliente cumpla el método. Completa sus condiciones.');
   }
+
+  // La duración del programa (90 a 180 días) y el precio de lista (desde 1.000 USD): se avisan.
+  const dias = duracionEnDias(out.formato);
+  if (dias != null && (dias < 90 || dias > 180)) {
+    avisos.push(`El programa dura ${dias} días según el formato: el marco pide de 90 a 180 días, con un resultado definido.`);
+  }
+  const precio = out.inversion.precio.includes(MARCA_COMPLETAR) ? null : precioDe(out.inversion.precio);
+  if (precio && precio.monto < 1_000 && precio.moneda !== 'EUR') {
+    avisos.push(`El precio de lista (${fmtMonto(precio)}) está por debajo de 1.000 USD, el piso del high ticket.`);
+  }
+
+  out.propuestoPorMako = propuestoPorMako(out, piezas, permitidas, p.propuestoPorMako ?? []);
+  out.supuestos = PIEZAS
+    .filter((x) => esSinDato(piezas[x.key]?.valor ?? ''))
+    .map((x) => {
+      const dijo = colapsar((piezas[x.key]?.valor ?? '').replace(/^\s*sin dato\s*:?\s*/i, ''));
+      return `${x.label}: ${dijo ? recortar(dijo, 140) : 'no lo sabía'}`;
+    });
+  out.avisos = avisos;
   out.completar = listaCompletar(out);
+  return out;
+}
+
+/** Cuánto entra en «Lo que propuso MaKo». */
+const MAX_PROPUESTO = 14;
+
+/**
+ * Lo que MaKo propuso y el negocio no dijo: primero lo que el código sabe con certeza, después lo que dijo
+ * el modelo (sin repetir).
+ */
+function propuestoPorMako(
+  p: PropuestaOferta, piezas: PiezasSabidas, permitidas: Set<string>, delModelo: Array<{ seccion: string; que: string }>,
+): Array<{ seccion: string; que: string }> {
+  const seguros: Array<{ seccion: string; que: string }> = [];
+  if (!p.inversion.precio.includes(MARCA_COMPLETAR) && tieneCifraAjena(p.inversion.precio, permitidas)) {
+    seguros.push({ seccion: 'Inversión', que: `Precio: ${recortar(p.inversion.precio, 160)}` });
+  }
+  if (!tieneDato(piezas, 'garantia') && !p.garantia.nombre.includes(MARCA_COMPLETAR)) {
+    seguros.push({ seccion: 'Garantía', que: recortar(`${p.garantia.nombre}: ${p.garantia.condiciones}`, 200) });
+  }
+  const nombres = p.mecanismo.nombres.filter((n) => !n.includes(MARCA_COMPLETAR));
+  if (nombres.length) seguros.push({ seccion: 'Método', que: `Nombres: ${nombres.map((n) => n.replace(/\s*\(propuesta\)\s*$/i, '')).join(' · ')}` });
+  const fases = p.ruta.filter((f) => !f.fase.includes(MARCA_COMPLETAR));
+  if (fases.length) seguros.push({ seccion: 'Ruta', que: `${fases.length} ${fases.length === 1 ? 'fase' : 'fases'}: ${fases.map((f) => f.fase).join(' · ')}` });
+  if (!tieneDato(piezas, 'bonos')) {
+    for (const b of p.bonos) if (!b.nombre.includes(MARCA_COMPLETAR)) seguros.push({ seccion: 'Bonos', que: b.nombre });
+  }
+  const plazos = [...p.frase.matchAll(/(\d+(?:[.,]\d+)*)\s*(d[ií]as?|semanas?|mes(?:es)?|años?)(?![a-záéíóúñ])/gi)]
+    .filter((m) => { const k = claveCifra(m[1]); return !!k && !permitidas.has(k); });
+  for (const m of plazos) seguros.push({ seccion: 'La frase', que: `Plazo: ${m[0]}` });
+
+  const out: Array<{ seccion: string; que: string }> = [];
+  const vistas = new Set<string>();
+  for (const x of [...seguros, ...delModelo]) {
+    const seccion = recortar(colapsar(x.seccion), 60);
+    const que = recortar(colapsar(x.que), 240);
+    if (!que) continue;
+    const k = normalizar(que);
+    if (vistas.has(k)) continue;
+    vistas.add(k);
+    out.push({ seccion: seccion || 'Oferta', que });
+    if (out.length >= MAX_PROPUESTO) break;
+  }
   return out;
 }
 
@@ -1227,10 +1725,11 @@ export function listaCompletar(p: PropuestaOferta): string[] {
  * El JSON de la propuesta, ya con la segunda capa aplicada, o null si no sirve.
  *
  * Exige el nombre y la frase (sin eso no hay oferta que mostrar); todo otro texto que falte queda
- * «[completar]» a la vista. Los topes de las listas son los del marco: 3 a 5 fases (hasta 6 por si el
- * modelo agrega una), hasta 3 bonos, 2 o 3 nombres para el método.
+ * «[completar]» a la vista. Los topes de las listas son los del marco (tarjeta «topes», 12/10/2026): de 3 a
+ * 5 fases (se corta a 5; con menos de 3, las que faltan quedan «[completar]»), de 1 a 3 bonos (sin bonos,
+ * uno «[completar]») y 2 o 3 nombres para el método (con menos, los que faltan quedan «[completar]»).
  */
-export function parsePropuesta(raw: unknown, piezas: PiezasSabidas): PropuestaOferta | null {
+export function parsePropuesta(raw: unknown, piezas: PiezasSabidas, ctx: ContextoReglas = {}): PropuestaOferta | null {
   const o = aObjeto(raw);
   if (!o) return null;
   const nombre = texto(o.nombre, 120);
@@ -1243,15 +1742,22 @@ export function parsePropuesta(raw: unknown, piezas: PiezasSabidas): PropuestaOf
   const ga = sub(o, 'garantia');
   const inv = sub(o, 'inversion');
   const esc = sub(o, 'escenarios');
-  const ruta: FaseRuta[] = objetos(o.ruta, 6)
+  const T = TOPES_PROPUESTA;
+  const ruta: FaseRuta[] = objetos(o.ruta, 12)
     .map((f) => ({ fase: texto(f.fase, 120), objetivo: campo(f.objetivo, 300), hito: campo(f.hito, 300) }))
-    .filter((f) => f.fase);
+    .filter((f) => f.fase)
+    .slice(0, T.fasesMax);
+  while (ruta.length < T.fasesMin) ruta.push({ fase: `${MARCA_COMPLETAR} Fase ${ruta.length + 1}`, objetivo: MARCA_COMPLETAR, hito: MARCA_COMPLETAR });
   const incluye: Entregable[] = objetos(o.incluye, 12)
     .map((e) => ({ nombre: texto(e.nombre, 160), beneficio: campo(e.beneficio, 300) }))
     .filter((e) => e.nombre);
-  const bonos: BonoPropuesto[] = objetos(o.bonos, 3)
+  const bonos: BonoPropuesto[] = objetos(o.bonos, 12)
     .map((b) => ({ nombre: texto(b.nombre, 160), objecion: campo(b.objecion, 300), valor: campo(b.valor, 120) }))
-    .filter((b) => b.nombre);
+    .filter((b) => b.nombre)
+    .slice(0, T.bonosMax);
+  if (bonos.length < T.bonosMin) bonos.push({ nombre: `${MARCA_COMPLETAR} un bono que ataque una objeción concreta`, objecion: MARCA_COMPLETAR, valor: MARCA_COMPLETAR });
+  const nombres = lista(me.nombres, T.nombresMax, 120);
+  while (nombres.length < T.nombresMin) nombres.push(NOMBRE_METODO_SIN_DATO);
   // Una fila por variable (la primera que venga), y sólo las cuatro de la ecuación de valor.
   const ecuacion: EcuacionFila[] = [];
   for (const f of objetos(o.ecuacion, 8)) {
@@ -1259,13 +1765,16 @@ export function parsePropuesta(raw: unknown, piezas: PiezasSabidas): PropuestaOf
     if (!VARIABLES.includes(variable) || ecuacion.some((e) => e.variable === variable)) continue;
     ecuacion.push({ variable, antes: campo(f.antes, 300), despues: campo(f.despues, 300) });
   }
+  const propuesto = objetos(o.propuestoPorMako, 20)
+    .map((x) => ({ seccion: texto(x.seccion, 60), que: texto(x.que, 240) }))
+    .filter((x) => x.que);
   const base: PropuestaOferta = {
     nombre,
     frase,
     mensajes: { corto: campo(m.corto, 120), largo: campo(m.largo, 600), entrada: campo(m.entrada, 300) },
     paraQuien: { perfil: campo(pq.perfil, 600), minimo: campo(pq.minimo, 400), noEs: campo(pq.noEs, 400) },
     problema: { hoy: campo(pr.hoy, 600), despues: campo(pr.despues, 600), obstaculos: lista(pr.obstaculos, 6), yaProbo: campo(pr.yaProbo, 500) },
-    mecanismo: { nombres: lista(me.nombres, 3, 120), pasos: lista(me.pasos, 8), distinto: campo(me.distinto, 600) },
+    mecanismo: { nombres, pasos: lista(me.pasos, 8), distinto: campo(me.distinto, 600) },
     ruta,
     incluye,
     formato: campo(o.formato, 600),
@@ -1280,8 +1789,9 @@ export function parsePropuesta(raw: unknown, piezas: PiezasSabidas): PropuestaOf
     validar: lista(o.validar, 8),
     siguiente: campo(o.siguiente, 500),
     completar: [],
+    propuestoPorMako: propuesto,
   };
-  return aplicarReglasPropuesta(base, piezas);
+  return aplicarReglasPropuesta(base, piezas, ctx);
 }
 
 // ── «Guardar como oferta» ────────────────────────────────────────────────────

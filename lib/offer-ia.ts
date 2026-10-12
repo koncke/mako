@@ -39,12 +39,12 @@ import { overrideDeFeature } from './model-registry';
 import { renderPrompt, contenidoNoConfiable } from './prompt-render';
 import { wsSuperAdmin } from './workspace';
 import {
-  DIMENSION_IDS, MARCO_OFERTA_TEXTO, dimensionLabel,
+  DIMENSION_IDS, MARCO_OFERTA_TEXTO, PIEZAS_MINIMAS, dimensionLabel, piezaLabel,
   type CalculoDiagnostico, type DiagnosticoOferta, type PiezasSabidas, type PropuestaOferta,
 } from './offer-marco';
 import {
   conversacionParaPrompt, documentosParaPrompt, guiaParaPrompt, parseDiagnostico, parsePropuesta, parseTurno,
-  parseTurnoConDiagnostico, piezasParaPrompt, validadorConRespaldo, type DocParaPrompt, type MensajeParaPrompt, type TurnoOffer,
+  parseTurnoConDiagnostico, piezasParaPrompt, validadorConRespaldo, type ContextoReglas, type DocParaPrompt, type MensajeParaPrompt, type TurnoOffer,
 } from './offer-reglas';
 
 /** El tag de gasto y la fila de /modelos-ia (lib/model-catalogo.ts). NO es 'ofertas' (ése es el paso del onboarding). */
@@ -91,12 +91,14 @@ CÓMO CONVERSAS (no negociable):
 {{guia}}
 6. "opciones": si la pregunta se contesta eligiendo, propone hasta 4 respuestas CERRADAS, cortas (60 caracteres como máximo) y a medida de ESTE negocio, con sus palabras y sus rangos reales, nunca genéricas. El dueño siempre puede escribir lo suyo. Si la pregunta es abierta, [].
 7. LO QUE FALTA SE CONSTRUYE: si el dueño no tiene una pieza (nunca pensó una garantía, no tiene bonos, no tiene claro a quién le vende), no la des por perdida: constrúyela con él con preguntas CERRADAS de a una, con opciones a medida de su negocio (por ejemplo, tres garantías que encajan con lo que vende). Para el cliente, parte de los AVATARES del contexto si los hay; si no hay o son difusos, constrúyelo preguntando a qué se dedica, qué tamaño tiene y qué le duele.
-8. "piezas": sólo lo NUEVO que aprendiste en este turno (del último mensaje, de los documentos o del contexto), con la key de la pieza y en una o dos frases con las palabras del dueño. Lo que ya estaba anotado y no cambió no se repite. Si después de ofrecerle opciones el dueño sigue sin saber o no quiere definirla, anota en esa pieza "sin dato: " seguido de lo que dijo, y pasa a otra.
-9. "listo": true cuando ya están las 5 piezas mínimas (cliente, problema, resultado, entregables, precio). Ese turno dice en una frase «Ya tengo lo necesario para armar tu oferta»; el dueño puede seguir afinando las piezas que faltan si quiere.
+8. "piezas": sólo lo NUEVO que aprendiste en este turno (del último mensaje, de los documentos o del contexto), con la key de la pieza y en una o dos frases con las palabras del dueño. Lo que ya estaba anotado y no cambió no se repite. Si después de ofrecerle opciones el dueño sigue sin saber o no quiere definirla, anota en esa pieza "sin dato: " seguido de lo que dijo, y pasa a otra. La pieza "otras" empieza SIEMPRE por el número de ofertas que vende además de ésta («0», «2: un curso grabado y una mentoría»).
+9. "listo": true cuando ya están las ${PIEZAS_MINIMAS.length} piezas mínimas (${PIEZAS_MINIMAS.map((k) => piezaLabel(k).toLowerCase()).join(', ')}). Ese turno dice en una frase «Ya tengo lo necesario para armar tu oferta»; el dueño puede seguir afinando las piezas que faltan si quiere.
 10. EL DIAGNÓSTICO DEL NEGOCIO: en «DIAGNÓSTICO» te paso, si la hay, la próxima pregunta de un diagnóstico cerrado con sus 5 opciones originales. Si dice OBLIGATORIA, tu pregunta de este turno ES ésa. Si dice OPCIONAL, hazla cuando te parezca natural (ya entendiste lo básico de la oferta, o el dueño no tiene documentos). Para hacerla devuelve "diagnostico": {"texto": "la pregunta adaptada a ESTE negocio, una sola, con su signo de pregunta", "opciones": ["las 5 respuestas"]}. Las 5 opciones dicen LO MISMO que las originales, en el MISMO orden, con las palabras de este negocio, y conservan los números y rangos tal cual (no los cambies ni los redondees). En ese turno "respuesta" es un puente corto sin pregunta (o vacío) y "opciones" []. Si no la haces, "diagnostico": null.
 11. Si «DIAGNÓSTICO» dice que QUEDÓ ABIERTA una pregunta y el último mensaje del dueño la contesta con sus palabras, devuelve en "diagnostico_respuesta" el número de la opción original (0 a 4). Si no la contesta, null.
 12. Nunca le digas al dueño en qué fase está su negocio, cuál es su cuello de botella ni qué significan sus respuestas del diagnóstico: eso va en el informe final, no en el chat.
 13. No des notas, diagnóstico ni la oferta armada en el chat, y no inventes datos.
+14. SIEMPRE, temprano (en tus primeras preguntas): pregunta si vende otras ofertas además de ésta, aunque no estén cargadas en MaKo. No la saltes porque el contexto muestre una sola oferta: lo cargado en MaKo no alcanza para saberlo.
+15. Si el último mensaje de MaKo trae el PDF de una versión y el dueño eligió «Pulir la oferta», pulan juntos lo que ese mensaje propone primero (lo provisional o lo que más la frena), una pregunta por mensaje; cuando esté, el dueño vuelve a tocar «Armar mi oferta» y sale la versión siguiente.
 
 ${SEGURIDAD}
 
@@ -139,10 +141,11 @@ REGLAS:
 2. "porque": una o dos frases que CITAN lo que dijo el dueño (entre «comillas») o dicen con todas las letras que no lo mencionó. Una pieza anotada como «sin dato» baja la nota de su dimensión, y lo dices.
 3. "mejora": qué la sube, en una frase concreta para ESTE negocio.
 4. "tesis": la lectura entera en UNA frase. Si hay datos del embudo, la tesis dice primero dónde se corta el embudo (volumen, asistencia, cierre u oferta) antes de culpar a la oferta: la oferta es lo último que se corrige.
-5. "fuerte": lo mejor que ya tiene la oferta, en una frase.
-6. "cambios": de 1 a 3, del que más impacto tiene al que menos. Cada uno es una HIPÓTESIS para probar en Experiments, nunca una verdad: "hipotesis" se escribe «Si …, entonces …» y dice qué número se movería.
-7. No calcules el total ni el cuello de botella: los calcula el sistema con tus notas.
-8. No inventes datos que el dueño no dio.
+5. En «AVISOS» van los que ya calculó el sistema con los datos del negocio (foco, margen, dónde se cortan las ventas, cuándo subir el precio). Úsalos al poner las notas: el de foco pesa en D9, el de margen en D6 y los de precio y cobro en D7. No los contradigas ni inventes otros números.
+6. "fuerte": lo mejor que ya tiene la oferta, en una frase.
+7. "cambios": exactamente 3, del que más impacto tiene al que menos. Cada uno es una HIPÓTESIS para probar en Experiments, nunca una verdad: "hipotesis" se escribe «Si …, entonces …» y dice qué número se movería.
+8. No calcules el total ni el cuello de botella: los calcula el sistema con tus notas.
+9. No inventes datos que el dueño no dio.
 
 ${SEGURIDAD}
 
@@ -157,6 +160,9 @@ export const OFFER_DIAGNOSTICO_USER_TEMPLATE = `LO QUE EL NEGOCIO YA TENÍA CARG
 DATOS DEL EMBUDO (últimos 90 días):
 {{embudo}}
 
+AVISOS QUE YA CALCULÓ EL SISTEMA:
+{{alertas}}
+
 LAS PIEZAS QUE SE SABEN:
 {{piezas}}
 
@@ -170,7 +176,7 @@ Diagnostica la oferta actual. Devuelve SOLO el JSON con las 9 dimensiones, "tesi
 
 // ── La propuesta ─────────────────────────────────────────────────────────────
 
-const FORMA_PROPUESTA = '{"nombre":"","frase":"","mensajes":{"corto":"","largo":"","entrada":""},"paraQuien":{"perfil":"","minimo":"","noEs":""},"problema":{"hoy":"","despues":"","obstaculos":[""],"yaProbo":""},"mecanismo":{"nombres":[""],"pasos":[""],"distinto":""},"ruta":[{"fase":"","objetivo":"","hito":""}],"incluye":[{"nombre":"","beneficio":""}],"formato":"","prueba":"","garantia":{"nombre":"","condiciones":"","plazo":"","siNoCumple":""},"bonos":[{"nombre":"","objecion":"","valor":""}],"inversion":{"valorTotal":"","precio":"","contado":"","plan":"","comoDecirlo":""},"urgencia":"","escenarios":{"mejor":"","peor":""},"ecuacion":[{"variable":"resultado","antes":"","despues":""},{"variable":"probabilidad","antes":"","despues":""},{"variable":"tiempo","antes":"","despues":""},{"variable":"esfuerzo","antes":"","despues":""}],"numeros":[""],"validar":[""],"siguiente":""}';
+const FORMA_PROPUESTA = '{"nombre":"","frase":"","mensajes":{"corto":"","largo":"","entrada":""},"paraQuien":{"perfil":"","minimo":"","noEs":""},"problema":{"hoy":"","despues":"","obstaculos":[""],"yaProbo":""},"mecanismo":{"nombres":[""],"pasos":[""],"distinto":""},"ruta":[{"fase":"","objetivo":"","hito":""}],"incluye":[{"nombre":"","beneficio":""}],"formato":"","prueba":"","garantia":{"nombre":"","condiciones":"","plazo":"","siNoCumple":""},"bonos":[{"nombre":"","objecion":"","valor":""}],"inversion":{"valorTotal":"","precio":"","contado":"","plan":"","comoDecirlo":""},"urgencia":"","escenarios":{"mejor":"","peor":""},"ecuacion":[{"variable":"resultado","antes":"","despues":""},{"variable":"probabilidad","antes":"","despues":""},{"variable":"tiempo","antes":"","despues":""},{"variable":"esfuerzo","antes":"","despues":""}],"numeros":[""],"validar":[""],"siguiente":"","propuestoPorMako":[{"seccion":"","que":""}]}';
 
 export const OFFER_PROPUESTA_SYSTEM_TEMPLATE = `Eres MaKo, el estratega de ofertas de un negocio de alto ticket. Tu tarea: escribir la OFERTA NUEVA del dueño, sección por sección, con el marco, lo que contó y el diagnóstico de su oferta actual (ataca primero el cuello de botella y los cambios propuestos).
 
@@ -184,13 +190,14 @@ REGLAS AL GENERAR:
 4. "mecanismo": "nombres" son 2 o 3 nombres DESCRIPTIVOS que terminan en «(propuesta)», nunca el nombre de la empresa ni siglas; "pasos" de 3 a 6; "distinto" dice por qué falló lo que el cliente probó antes.
 5. "ruta": de 3 a 5 fases con objetivo e hito; la primera trae un resultado en la primera semana. La duración total va de 90 a 180 días.
 6. "garantia": condicional a que el cliente cumpla (asistir, hacer las tareas), con nombre y plazo; sin casos, por acciones o por entregable. Nunca incondicional en high ticket.
-7. "bonos": de 1 a 3, cada uno ataca una objeción concreta; "valor" sólo si el dueño lo dio, si no "[completar]".
-8. "inversion": un solo precio de lista (el del plan) y el contado como ahorro; cuotas que nunca duran más que el programa. No bajes el precio de una oferta que ya se vende; una oferta nueva arranca en precio de primera camada dentro del high ticket (desde 1.000 USD).
+7. "bonos": de 1 a 3, cada uno ataca una objeción concreta y dice por qué se da ("objecion"); "valor" sólo si el dueño lo dio, con de dónde sale (lo que costó crearlo o el precio al que ya se vendió); si no, "[completar]".
+8. "inversion": un solo precio de lista (el del plan) y el contado como ahorro. Cuotas con al menos el 50% al inicio: primero 2 pagos (hoy y a 30 días), después 3; nunca más largas que el programa. "valorTotal" suma el valor de cada entregable y bono, de 4 a 5 veces el precio o más, sólo con valores que dio el dueño; si no, "[completar]". No bajes el precio de una oferta que ya se vende; una oferta nueva arranca en precio de primera camada dentro del high ticket (desde 1.000 USD). Si el diagnóstico dice que el cliente ideal o la promesa sacan 3 o menos, el precio y los bonos son PROVISIONALES: dilo en "comoDecirlo".
 9. "urgencia": sólo una razón REAL que el dueño dio (una cohorte con fecha, cupos según su capacidad, una subida de precio anunciada). Si no la dio, "[completar]" y cómo armar una real.
 10. "ecuacion": las cuatro variables (resultado, probabilidad, tiempo, esfuerzo), antes y después.
-11. "numeros": margen bruto, ventas por mes necesarias, llamadas necesarias y % cobrado al firmar esperado, con la cuenta a la vista; lo que falte, "[completar]".
+11. "numeros": margen bruto, ventas por mes necesarias, llamadas necesarias, % cobrado al firmar esperado y LTV:CAC (mínimo 3 a 1), con la cuenta a la vista; lo que falte, "[completar]".
 12. "validar": la meta de ventas, qué medir y cuándo subir el precio (la versión 1 es una hipótesis hasta tener de 3 a 5 ventas).
-13. "siguiente": el próximo problema del cliente y la oferta de la fase 2, sólo anotada.
+13. "siguiente": el siguiente escalón: el próximo problema del cliente y lo que vende antes y después de esta oferta (la pieza "escalera", si la dio), sólo anotado.
+14. "propuestoPorMako": todo lo que TÚ propusiste y el dueño no dijo (un precio, un plazo, la cantidad de fases, una garantía, los bonos, los nombres del método, una urgencia), cada uno con su sección y en una frase. Lo que dijo el dueño no va ahí.
 
 ${SEGURIDAD}
 
@@ -374,14 +381,22 @@ export async function turnoOffer(p: {
   });
 }
 
+/**
+ * El diagnóstico. `alertas` son los avisos que el CÓDIGO calculó ANTES (lib/offer-reglas.ts →
+ * `avisosAntesDelDiagnostico`: foco, margen, embudo, precio): la IA que pone la nota de Foco tiene que ver
+ * el de foco (tarjeta «foco», 12/10/2026). Van SIN `contenidoNoConfiable`, como el bloque del diagnóstico
+ * de fase del turno: los escribe el código, no el dueño.
+ */
 export async function diagnosticoOffer(p: {
   mensajes: MensajeParaPrompt[]; piezas: PiezasSabidas; docs: DocParaPrompt[]; contexto: string; embudo: string; inicio: number;
+  alertas: string[];
 }): Promise<ResultadoIA<DiagnosticoOferta>> {
   const b = bloquesComunes(p);
   const system = await renderPrompt('offer.diagnostico.system', OFFER_DIAGNOSTICO_SYSTEM_TEMPLATE, { marco: b.marco });
   const user = await renderPrompt('offer.diagnostico.user', OFFER_DIAGNOSTICO_USER_TEMPLATE, {
     contexto: b.contexto,
     embudo: p.embudo.trim() ? contenidoNoConfiable(p.embudo, 'embudo') : '(no hay datos del embudo)',
+    alertas: p.alertas.length ? p.alertas.map((a) => `- ${a}`).join('\n') : '(ninguno)',
     piezas: b.piezas, documentos: b.documentos, conversacion: b.conversacion,
   });
   return pedir({
@@ -401,12 +416,20 @@ function diagnosticoParaPrompt(d: DiagnosticoOferta, c: CalculoDiagnostico): str
     'Cambios propuestos (hipótesis):',
     ...d.cambios.map((x, i) => `${i + 1}. ${x.titulo}. ${x.porque} ${x.hipotesis}`.trim()),
     ...(c.alertas.length ? ['Alertas:', ...c.alertas.map((a) => `- ${a}`)] : []),
+    ...((c.controlFinal ?? []).some((x) => !x.ok)
+      ? ['Lo que le falta para estar lista (control final):', ...(c.controlFinal ?? []).filter((x) => !x.ok).map((x) => `- ${x.porque}`)]
+      : []),
   ].filter(Boolean).join('\n');
 }
 
+/**
+ * La oferta nueva. `reglas` es de dónde salen las cifras que SÍ dio el negocio (los mensajes del dueño, sus
+ * documentos y el contexto cargado) y su nombre: el parse revisa cada cifra contra eso (tarjeta «cifras») y
+ * los nombres del método contra el nombre del negocio (tarjeta «reglas-ia»).
+ */
 export async function propuestaOffer(p: {
   mensajes: MensajeParaPrompt[]; piezas: PiezasSabidas; docs: DocParaPrompt[]; contexto: string;
-  diagnostico: DiagnosticoOferta; calculo: CalculoDiagnostico; inicio: number;
+  diagnostico: DiagnosticoOferta; calculo: CalculoDiagnostico; inicio: number; reglas: ContextoReglas;
 }): Promise<ResultadoIA<PropuestaOferta>> {
   const b = bloquesComunes(p);
   const system = await renderPrompt('offer.propuesta.system', OFFER_PROPUESTA_SYSTEM_TEMPLATE, { marco: b.marco });
@@ -420,6 +443,6 @@ export async function propuestaOffer(p: {
   return pedir({
     system, user, maxTokens: 10_000, timeoutMs: 150_000, esfuerzo: 'medium',
     hastaMs: p.inicio + 215_000, hastaRedMs: p.inicio + 288_000,
-    motivo: 'Offer: armar la oferta nueva', tema: 'armar tu oferta', parse: (raw) => parsePropuesta(raw, p.piezas),
+    motivo: 'Offer: armar la oferta nueva', tema: 'armar tu oferta', parse: (raw) => parsePropuesta(raw, p.piezas, p.reglas),
   });
 }

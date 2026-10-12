@@ -37,6 +37,23 @@ export const CSS_OFFER = `
 .of-pill--mako { border-color: var(--mako-border); background: var(--mako-bg); color: var(--mako-ink); }
 .of-pill--mako:hover:not(:disabled) { border-color: var(--mako); background: var(--mako-bg); color: var(--mako-ink); }
 
+.of-doc {
+  width: 100%; min-width: 220px; max-width: 340px; display: flex; align-items: center; gap: 12px;
+  padding: 10px 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface-2);
+  color: var(--ink); font: inherit; text-align: left; cursor: pointer;
+  transition: background .14s ease, border-color .14s ease;
+}
+.of-doc:hover:not(:disabled) { border-color: var(--border-strong); background: var(--surface); }
+.of-doc:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.of-doc:disabled { cursor: progress; }
+.of-doc__icono {
+  flex: none; width: 38px; height: 46px; border-radius: 6px; background: var(--bad-bg); color: var(--bad);
+  border: 1px solid var(--bad); display: inline-flex; align-items: flex-end; justify-content: center;
+  padding-bottom: 6px; font-size: 10.5px; font-weight: 800; letter-spacing: .04em;
+}
+.of-doc__nombre { font-size: var(--fs-md); font-weight: 600; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.of-doc__meta { font-size: var(--fs-meta); color: var(--faint); }
+
 .of-reintento { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; padding: 8px 12px; border-radius: 12px; background: var(--warn-bg); color: var(--warn); font-size: 13.5px; }
 
 .of-quitar {
@@ -87,6 +104,12 @@ export const CSS_OFFER = `
   display: inline-flex; align-items: center; padding: 1px 9px; margin: 0 2px; border-radius: 999px;
   background: var(--warn-bg); color: var(--warn); border: 1px solid var(--warn-fill);
   font-size: .86em; font-weight: 600; line-height: 1.5; white-space: nowrap; vertical-align: baseline;
+}
+
+.of-provisional {
+  display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 999px;
+  background: var(--warn-bg); color: var(--warn); border: 1px solid var(--warn-fill);
+  font-size: var(--fs-meta); font-weight: 700; letter-spacing: .04em; text-transform: uppercase; white-space: nowrap;
 }
 
 .of-riel { display: flex; }

@@ -37,7 +37,7 @@ import {
   esCriterioDeMako, tabDeParam, SECCIONES_DE_TAB, BLOQUES_CRITERIO, BLOQUE_FUENTES, TABS_PLAYBOOK, TAB_INICIAL,
   type TabDelMarco,
 } from '../app/admin/offer-playbook/secciones';
-import { A_DEFINIR, ORDEN_TIPOS } from '../app/admin/offer-playbook/pendientes';
+import { A_DEFINIR, DECIDIDAS, ORDEN_TIPOS, TODAS } from '../app/admin/offer-playbook/pendientes';
 import { mapaDeTemas, nombreCorto, idAutor } from '../app/admin/offer-playbook/mapa-autores';
 import { LISTA_PARA_VENDER } from '../app/admin/offer-playbook/EnElCodigo';
 import { ListaPendientes } from '../app/admin/offer-playbook/ListaPendientes';
@@ -280,15 +280,23 @@ test('las cursivas que MarkdownDoc no entiende no se dibujan con los asteriscos'
 // ── A definir ────────────────────────────────────────────────────────────────
 
 test('A definir: cada tarjeta con todos sus campos, corta y sin jerga; la primera, las cifras inventadas', () => {
-  assert.ok(A_DEFINIR.length > 0);
-  assert.equal(A_DEFINIR[0].clave, 'cifras');
-  assert.deepEqual(A_DEFINIR.map((p) => p.n), A_DEFINIR.map((_, i) => i + 1), 'la numeración no es correlativa');
+  // La estructura se mira sobre TODAS (las que faltan decidir y las decididas): el número de una tarjeta
+  // es el de siempre, para que «3 B» siga queriendo decir lo mismo después de contestarla.
+  assert.ok(TODAS.length > 0);
+  assert.equal(TODAS[0].clave, 'cifras');
+  assert.deepEqual(TODAS.map((p) => p.n), TODAS.map((_, i) => i + 1), 'la numeración no es correlativa');
   // Agrupadas: primero un tipo entero y después el otro, en el orden de ORDEN_TIPOS.
-  const tipos = A_DEFINIR.map((p) => p.tipo).filter((t, i, xs) => xs[i - 1] !== t);
+  const tipos = TODAS.map((p) => p.tipo).filter((t, i, xs) => xs[i - 1] !== t);
   assert.deepEqual(tipos, ORDEN_TIPOS.filter((t) => tipos.includes(t)), `los grupos se mezclan: ${tipos}`);
-  assert.equal(new Set(A_DEFINIR.map((p) => p.clave)).size, A_DEFINIR.length);
+  assert.equal(new Set(TODAS.map((p) => p.clave)).size, TODAS.length);
+  // Lo que falta decidir y lo decidido se reparten TODAS, sin repetir ni perder ninguna.
+  assert.equal(A_DEFINIR.length + DECIDIDAS.length, TODAS.length);
+  for (const p of DECIDIDAS) {
+    assert.ok(p.opciones.some((o) => o.letra === p.decidido!.letra), `${p.clave}: la respuesta ${p.decidido!.letra} no es una de sus opciones`);
+    assert.match(p.decidido!.fecha, /^\d{2}\/\d{2}\/\d{4}$/);
+  }
   const JERGA = /\bD[1-9]\b|§|\.tsx?\b|\blib\/|\bapp\/|\bprompt\b|\bpipeline\b|\bjson\b/i;
-  for (const p of A_DEFINIR) {
+  for (const p of TODAS) {
     const techo: Array<[string, string, number]> = [
       ['titulo', p.titulo, 40], ['hoy', p.hoy, 240], ['pregunta', p.pregunta, 70], ['porque', p.porque, 100],
       ...p.opciones.flatMap((o) => [[`opción ${o.letra}`, o.texto, 40], [`consecuencia ${o.letra}`, o.consecuencia, 110]] as Array<[string, string, number]>),
@@ -307,7 +315,12 @@ test('A definir: cada tarjeta con todos sus campos, corta y sin jerga; la primer
   }
   const crudo = dibujar('definir');
   const html = plano(crudo);
-  assert.match(html, /Responde en el chat con el número y la letra/);
+  if (A_DEFINIR.length) assert.match(html, /Responde en el chat con el número y la letra/);
+  else assert.match(html, /Nada por definir/);
+  // Cada decidida, en la tabla «Decididas» con su número de siempre, su título y la letra que eligió.
+  for (const p of DECIDIDAS) {
+    assert.ok(crudo.includes(`<td>${p.n}</td><td>${p.titulo}</td><td><strong>${p.decidido!.letra}</strong>`), `${p.clave}: no está en «Decididas»`);
+  }
   for (const p of A_DEFINIR) {
     assert.ok(crudo.includes(`id="pendiente-${p.clave}"`), `falta la tarjeta ${p.clave}`);
     assert.match(crudo, new RegExp(`id="pendiente-${p.clave}"[\\s\\S]*?Mi recomendación</span><strong>${p.recomiendo}\\.</strong>`),

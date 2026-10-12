@@ -14,15 +14,13 @@
 // =============================================================================
 
 import { EmptyState } from '@/app/_ui';
-import { A_DEFINIR, ORDEN_TIPOS, ROTULO_TIPO, type Pendiente, type TipoPendiente } from './pendientes';
+import { A_DEFINIR, DECIDIDAS, ORDEN_TIPOS, ROTULO_TIPO, type Numerada, type TipoPendiente } from './pendientes';
 
 /** Lo que pide cada grupo, en dos palabras. */
 const PIDE: Readonly<Record<TipoPendiente, string>> = {
   correccion: 'Sí o no',
   decision: 'Tu criterio',
 };
-
-type Numerada = Pendiente & { n: number };
 
 const rango = (xs: readonly Numerada[]) =>
   xs.length === 1 ? `${xs[0].n}` : `${xs[0].n}–${xs[xs.length - 1].n}`;
@@ -62,8 +60,39 @@ function Tarjeta({ p }: { p: Numerada }) {
   );
 }
 
+/** Lo que ya contestaste: el número de siempre, tu respuesta y si ya está aplicado. */
+function Decididas() {
+  if (!DECIDIDAS.length) return null;
+  return (
+    <section id="decididas" className="opb-sec">
+      <h2 className="opb-h">Decididas <span className="opb-h__n">{DECIDIDAS.length}</span></h2>
+      <div className="mk-scroll-x opb-marco">
+        <table className="opb-tabla">
+          <thead>
+            <tr><th scope="col">#</th><th scope="col">Tema</th><th scope="col">Tu respuesta</th><th scope="col">Estado</th></tr>
+          </thead>
+          <tbody>
+            {DECIDIDAS.map((p) => {
+              const d = p.decidido!;
+              const op = p.opciones.find((o) => o.letra === d.letra);
+              return (
+                <tr key={p.clave}>
+                  <td>{p.n}</td>
+                  <td>{p.titulo}</td>
+                  <td><strong>{d.letra}</strong> · {op?.texto ?? ''}{d.nota ? <span className="opb-tenue"> — {d.nota}</span> : null}</td>
+                  <td>{d.hecho ? 'Aplicada' : 'En curso'}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
 export function ListaPendientes() {
-  if (!A_DEFINIR.length) return <EmptyState titulo="Nada por definir" />;
+  if (!A_DEFINIR.length) return <><EmptyState titulo="Nada por definir" /><Decididas /></>;
   const grupos = ORDEN_TIPOS
     .map((tipo) => ({ tipo, items: A_DEFINIR.filter((p) => p.tipo === tipo) }))
     .filter((g) => g.items.length > 0);
@@ -91,6 +120,7 @@ export function ListaPendientes() {
           </div>
         </section>
       ))}
+      <Decididas />
     </>
   );
 }

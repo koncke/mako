@@ -27,6 +27,8 @@
 // Revisión adversarial (11/10/2026, arnés romper-revision.mjs): la base en verde (11 de 11); 25 roturas más
 // sobre la ruta, lib/offer-ia.ts, lib/offer-contexto.ts y lib/offer-sesiones.ts, las 25 cazadas con «1 fallo,
 // 10 pases» (cada una nombrada arriba de su test).
+// «A definir» (12/10/2026, arnés romper-a-definir.mjs): la base en verde (13 de 13); 6 roturas más sobre la
+// ruta, lib/offer-ia.ts y GET /api/offer/pdf, las 6 cazadas con «1 fallo, 12 pases».
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -82,7 +84,7 @@ test('offer-ia va por la cascada GRATIS de las keys del cliente y la red de plat
   for (const k of ['json: true', 'provs', 'modelos', 'validar', 'erroresOut: errores', 'timeoutMs', 'esfuerzo', 'hastaMs']) {
     assert.ok(cascada.includes(k), `la cascada no pasa ${k}`);
   }
-  for (const [fn, parse] of [['turnoOffer', 'parse: obligatorio ? parseTurnoConDiagnostico : parseTurno'], ['diagnosticoOffer', 'parse: parseDiagnostico'], ['propuestaOffer', 'parsePropuesta(raw, p.piezas)']]) {
+  for (const [fn, parse] of [['turnoOffer', 'parse: obligatorio ? parseTurnoConDiagnostico : parseTurno'], ['diagnosticoOffer', 'parse: parseDiagnostico'], ['propuestaOffer', 'parsePropuesta(raw, p.piezas, p.reglas)']]) {
     const i = IA.indexOf(`export async function ${fn}(`);
     assert.ok(i > 0, `no está ${fn}`);
     const cuerpo = IA.slice(i, IA.indexOf('\n}\n', i));
@@ -394,4 +396,56 @@ test('offer_sesiones está en los DOS registros de inquilino', () => {
   assert.match(sql, /enable row level security/);
   assert.match(sql, /revoke all on offer_sesiones from anon, authenticated;/);
   assert.match(sql, /ORDEN DE DESPLIEGUE: \*\*ANTES o JUNTO\*\*/);
+});
+
+// ── Las 13 respuestas de Martín a «A definir» (12/10/2026): el cableado ──────
+// Lo puro está en tests/offer-a-definir.test.ts. Acá, lo que sólo se ve leyendo el fuente: que la ruta
+// calcule los avisos ANTES de la IA y le pase las piezas al cálculo, que «generar» agregue el PDF al chat en
+// el mismo CAS, que «Así está bien» no pague una IA y que GET /api/offer/pdf no caiga a otra versión.
+// rotura (los avisos calculados DESPUÉS del diagnóstico): 1 fallo, 12 pases. rotura (el cálculo sin las piezas): 1 fallo, 12 pases.
+// rotura (el PDF agregado al chat FUERA del CAS de la conclusión): 1 fallo, 12 pases. rotura (la propuesta sin las fuentes
+// de las cifras): 1 fallo, 12 pases. rotura (la ruta del PDF cayendo a la última versión): 1 fallo, 12 pases.
+test('«A definir»: avisos antes de la IA, el control final con las piezas, el PDF de cada versión en el chat y por versión', () => {
+  const diag = RUTA.slice(RUTA.indexOf("case 'diagnosticar':"), RUTA.indexOf("case 'generar':"));
+  const iAvisos = diag.indexOf('avisosAntesDelDiagnostico(');
+  assert.ok(iAvisos > 0 && iAvisos < diag.indexOf('await diagnosticoOffer('), 'los avisos van ANTES de la IA (la de Foco tiene que verlos)');
+  assert.match(diag, /alertas: \[\.\.\.\(avisos\.foco \? \[avisos\.foco\] : \[\]\), \.\.\.avisos\.otras\],/);
+  assert.match(diag, /calcularDiagnostico\(ia\.valor\.dimensiones, \{ foco: avisos\.foco, otras: avisos\.otras, piezas: fila\.piezas \}\)/);
+  assert.doesNotMatch(RUTA, /alertaFoco\(/, 'el foco sale de avisosAntesDelDiagnostico (con las otras ofertas)');
+  // La IA del diagnóstico lee los avisos (sin envolverlos: los escribe el código).
+  const dIA = IA.slice(IA.indexOf('export async function diagnosticoOffer('), IA.indexOf('function diagnosticoParaPrompt('));
+  assert.match(dIA, /alertas: p\.alertas\.length \? p\.alertas\.map\(\(a\) => `- \$\{a\}`\)\.join\('\\n'\) : '\(ninguno\)',/);
+  assert.match(IA, /AVISOS QUE YA CALCULÓ EL SISTEMA:\n\{\{alertas\}\}/);
+  // Generar: las fuentes de las cifras y el nombre del negocio; lo provisional; el PDF en el MISMO CAS.
+  const gen = funcion(RUTA, 'generar');
+  assert.match(gen, /reglas: \{ fuentes, negocio \}/);
+  assert.match(gen, /\.\.\.fila\.mensajes\.filter\(\(m\) => m\.de === 'yo'\)\.map\(\(m\) => m\.texto\),/);
+  assert.match(gen, /const provisional = provisionalDe\(borrador\.diagnostico\);/);
+  const cas = gen.slice(gen.indexOf('actualizarSesion(id, (f) => {'), gen.indexOf("await marcar('of_conclusion')"));
+  assert.match(cas, /\.\.\.\(provisional \? \{ provisional \} : \{\}\),/);
+  assert.match(cas, /const conPdf = mensajePdf\(\{/);
+  assert.match(cas, /conclusiones: \[\.\.\.f\.conclusiones, conclusion\], mensajes: \[\.\.\.f\.mensajes, conPdf\],/);
+  // «Así está bien» lo contesta el código, antes de llamar a la IA.
+  const tur = funcion(RUTA, 'turno');
+  const iSinIA = tur.indexOf('respuestaSinIA(conMensaje.mensajes, texto,');
+  assert.ok(iSinIA > 0 && iSinIA < tur.indexOf('return responder('), 'sin IA y antes de responder');
+  // GET /api/offer/pdf?id=&v=: la versión pedida o la última; nunca otra.
+  const PDF = sinComentarios(leer('app/api/offer/pdf/route.ts'));
+  assert.match(PDF, /if \(version != null && \(!Number\.isInteger\(version\) \|\| version <= 0\)\) return Response\.json\(/);
+  assert.match(PDF, /const conclusion = conclusionDeVersion\(fila\.conclusiones, version\);\n\s*if \(!conclusion\) return Response\.json\(\{ ok: false, error: `Esta oferta no tiene la versión \$\{version\}\.` \}, \{ status: 404 \}\);/);
+  assert.match(PDF, /pdfDeOferta\(conclusion, /);
+});
+
+// rotura (la regla 14 del turno, la de las otras ofertas, sacada del prompt): 1 fallo, 12 pases.
+test('«A definir»: ningún texto que lee la IA exige los 10 a 15 casos, y el turno pregunta SIEMPRE por las otras ofertas', () => {
+  const grupoOffer = REG.slice(REG.indexOf("group: 'Offer (MaKo conversa"), REG.indexOf('// ── Vista resuelta para la UI'));
+  for (const [nombre, src] of [['lib/offer-ia.ts', IA], ['el grupo Offer del registro', grupoOffer]] as const) {
+    assert.doesNotMatch(src, /10\s*(?:a|-|–)\s*15\s*casos/i, `${nombre} dice «10 a 15 casos»`);
+  }
+  const turno = IA.slice(IA.indexOf('export const OFFER_TURNO_SYSTEM_TEMPLATE'), IA.indexOf('export const OFFER_TURNO_USER_TEMPLATE'));
+  assert.match(turno, /14\. SIEMPRE, temprano \(en tus primeras preguntas\): pregunta si vende otras ofertas además de ésta/);
+  assert.match(turno, /La pieza "otras" empieza SIEMPRE por el número de ofertas/);
+  // Las mínimas del prompt salen del catálogo, no de una lista escrita a mano.
+  assert.match(turno, /\$\{PIEZAS_MINIMAS\.length\} piezas mínimas/);
+  assert.doesNotMatch(turno, /las 5 piezas mínimas/);
 });

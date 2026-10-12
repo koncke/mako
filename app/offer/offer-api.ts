@@ -15,7 +15,7 @@
 // app/_components/WsFetch.tsx a toda llamada a /api; la subida va a Supabase
 // Storage, que no lo necesita (y el parche no la toca).
 
-import { nombreDeDescarga } from './ayudas';
+import { nombreDeDescarga, urlPdf } from './ayudas';
 import type { OfferSesionVista } from '@/lib/offer-marco';
 
 /**
@@ -130,11 +130,15 @@ export async function subirArchivo(f: File, mime: string): Promise<string> {
  * Content-Disposition (es el único que sabe cómo se llama la oferta), y la URL
  * del blob se revoca DIFERIDA: en la misma vuelta Safari cancela la descarga
  * (molde: app/second-brain/ExportarCerebro.tsx).
+ *
+ * Con `version`, ESA versión (el documento que MaKo manda en el chat después de cada armado); sin ella,
+ * la vigente. Va por `fetch` y no por un link: si el servidor contesta un error (403, 404), se dice en
+ * la pantalla en vez de bajar un JSON con nombre de PDF.
  */
-export async function descargarPdf(sesionId: number): Promise<void> {
+export async function descargarPdf(sesionId: number, version?: number | null): Promise<void> {
   let r: Response;
   try {
-    r = await fetch(`/api/offer/pdf?id=${sesionId}`, { signal: AbortSignal.timeout(TOPE.pdf) });
+    r = await fetch(urlPdf(sesionId, version), { signal: AbortSignal.timeout(TOPE.pdf) });
   } catch (e) {
     throw new Error(esCorte(e) ? 'El PDF tardó demasiado. Prueba de nuevo.' : 'Sin conexión. Prueba de nuevo.');
   }
@@ -152,7 +156,7 @@ export async function descargarPdf(sesionId: number): Promise<void> {
   } catch (e) {
     throw new Error(esCorte(e) ? 'El PDF tardó demasiado. Prueba de nuevo.' : 'No se pudo descargar el PDF.');
   }
-  const nombre = nombreDeDescarga(r.headers.get('content-disposition'), `oferta-${sesionId}.pdf`);
+  const nombre = nombreDeDescarga(r.headers.get('content-disposition'), `oferta-${sesionId}${version ? `-v${version}` : ''}.pdf`);
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;

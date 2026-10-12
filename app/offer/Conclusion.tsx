@@ -33,7 +33,11 @@ import {
   DIMENSIONES, dimensionLabel,
   type CalculoDiagnostico, type ConclusionOferta, type DiagnosticoOferta, type NotaDimension, type OfferSesionVista, type PropuestaOferta,
 } from '@/lib/offer-marco';
-import { anchoDeNota, guardadaVisible, partirCompletar, tiene, tonoDeNota, VARIABLE_LABEL, type AvisoGuardado } from './ayudas';
+import {
+  anchoDeNota, controlFinalDe, esSeccionProvisional, guardadaVisible, partirCompletar, propuestoPorMakoDe, provisionalDe, textoDeEstado, tiene,
+  tonoDeNota, VARIABLE_LABEL,
+  type AvisoGuardado, type Provisional, type PuntoVisible,
+} from './ayudas';
 import { descargarPdf, mensajeDeError } from './offer-api';
 
 const LECTURA = 880;
@@ -81,17 +85,31 @@ function Lista({ etiqueta, items, numerada = false }: { etiqueta?: string; items
   );
 }
 
-/** Una tarjeta desplegable de la oferta nueva. */
-function Plegable({ titulo, inicial, children }: { titulo: string; inicial: boolean; children: ReactNode }) {
+/**
+ * Una tarjeta desplegable de la oferta nueva. Con `provisional` (el motivo, puede venir vacío) la sección
+ * lleva la marca en el título —se ve aunque esté plegada— y el motivo en una línea arriba del contenido.
+ */
+function Plegable({ titulo, inicial, provisional, children }: { titulo: string; inicial: boolean; provisional?: string | null; children: ReactNode }) {
   const [abierto, setAbierto] = useState(inicial);
   const id = useId();
+  const marcada = provisional != null;
   return (
-    <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16 }}>
+    <section style={{ background: 'var(--surface)', border: `1px solid ${marcada ? 'var(--warn-fill)' : 'var(--border)'}`, borderRadius: 16 }}>
       <button type="button" className="of-plegable" aria-expanded={abierto} aria-controls={id} onClick={() => setAbierto((v) => !v)}>
-        <span style={{ flex: 1, fontSize: 'var(--fs-card)', fontWeight: 700 }}>{titulo}</span>
+        <span style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 'var(--fs-card)', fontWeight: 700 }}>{titulo}</span>
+          {marcada && <span className="of-provisional">Provisional</span>}
+        </span>
         <span className="of-plegable__flecha" aria-hidden><Icon name="chevron" size={18} /></span>
       </button>
-      {abierto && <div id={id} style={{ padding: '0 20px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>{children}</div>}
+      {abierto && (
+        <div id={id} style={{ padding: '0 20px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {marcada && tiene(provisional) && (
+            <p style={{ margin: 0, fontSize: 'var(--fs-sm)', lineHeight: 1.45, color: 'var(--warn)' }}>{provisional}</p>
+          )}
+          {children}
+        </div>
+      )}
     </section>
   );
 }
@@ -122,15 +140,39 @@ function Anillo({ total }: { total: number }) {
 
 function ChipEstado({ calculo }: { calculo: CalculoDiagnostico }) {
   const t = TONO[calculo.lista ? 'good' : 'warn'];
+  // Sin lista, el chip dice CUÁNTO falta (el control final del motor) y el detalle va en el Diagnóstico.
+  const faltan = controlFinalDe(calculo).filter((x) => !x.ok).length;
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 999, maxWidth: 260,
       background: t.bg, color: t.ink, border: `1px solid ${t.border}`, fontSize: 'var(--fs-sm)', fontWeight: 600, lineHeight: 1.3, textAlign: 'center',
     }}>
-      {calculo.lista
-        ? <><IconoMenu nombre="check" size={14} />Lista para vender</>
-        : <>Lo que más frena: {dimensionLabel(calculo.cuello)}</>}
+      {calculo.lista && <IconoMenu nombre="check" size={14} />}
+      {textoDeEstado({ lista: !!calculo.lista, faltan, cuello: dimensionLabel(calculo.cuello) })}
     </span>
+  );
+}
+
+/**
+ * «Qué falta para venderla»: los puntos del control final que NO pasan, con su porqué. Sólo cuando la oferta
+ * no está lista; arriba del diagnóstico, porque es lo que hay que hacer antes de salir a vender.
+ */
+function QueFalta({ puntos }: { puntos: PuntoVisible[] }) {
+  return (
+    <section aria-label="Qué falta para venderla" style={{ padding: '14px 18px 16px', borderRadius: 14, background: 'var(--warn-bg)', border: '1px solid var(--warn-fill)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ ...ETIQUETA, color: 'var(--warn)' }}>Qué falta para venderla</div>
+      <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {puntos.map((x, i) => (
+          <li key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+            <span aria-hidden style={{ flex: 'none', marginTop: 2, display: 'flex', color: 'var(--warn)' }}><IconoMenu nombre="avisar" size={16} /></span>
+            <span style={{ minWidth: 0, fontSize: 'var(--fs-md)', lineHeight: 1.5, color: 'var(--ink)' }}>
+              <strong>{x.label}</strong>
+              {x.porque && <span style={{ color: 'var(--dim)' }}> — <T v={x.porque} /></span>}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
@@ -265,6 +307,7 @@ function VistaDiagnostico({ d, calculo }: { d: DiagnosticoOferta; calculo: Calcu
   const notas = lista(d?.dimensiones);
   const cambios = lista(d?.cambios).filter((c) => c && tiene(txt(c.titulo)));
   const alertas = lista(calculo?.alertas).map(txt).filter(tiene);
+  const faltan = calculo?.lista ? [] : controlFinalDe(calculo).filter((x) => !x.ok);
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       {tiene(txt(d?.tesis)) && (
@@ -272,6 +315,8 @@ function VistaDiagnostico({ d, calculo }: { d: DiagnosticoOferta; calculo: Calcu
           <T v={d.tesis} />
         </p>
       )}
+
+      {faltan.length > 0 && <QueFalta puntos={faltan} />}
 
       {/* Las 9 dimensiones en el ORDEN del marco (DIMENSIONES), no en el que las
           devolvió el modelo: así dos diagnósticos se comparan renglón por renglón. */}
@@ -495,14 +540,51 @@ function seccionesDe(p: PropuestaOferta): Seccion[] {
   return s.filter((x) => x.hay).map(({ key, titulo, contenido }) => ({ key, titulo, contenido }));
 }
 
-function VistaOferta({ p }: { p: PropuestaOferta }) {
+/**
+ * «Lo que propuso MaKo»: lo que MaKo puso de su cosecha y el dueño no dijo. Va al final y APARTE de los
+ * datos a completar: lo uno es una propuesta para revisar, lo otro un hueco que sólo el dueño llena.
+ */
+function PropuestoPorMako({ items }: { items: Array<{ seccion: string; que: string }> }) {
+  return (
+    <section aria-label="Lo que propuso MaKo" style={{ marginTop: 8, padding: '16px 20px 18px', borderRadius: 16, background: 'var(--mako-bg)', border: '1px solid var(--mako-border)', display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span aria-hidden style={{ display: 'flex' }}><MakoStar size={16} animate={false} /></span>
+        <h3 style={{ margin: 0, fontSize: 'var(--fs-card)', fontWeight: 700, color: 'var(--ink)' }}>Lo que propuso MaKo</h3>
+      </div>
+      <ul style={{ margin: 0, paddingLeft: 22, display: 'flex', flexDirection: 'column', gap: 6, fontSize: 'var(--fs-md)', lineHeight: 1.5, color: 'var(--ink)' }}>
+        {items.map((x, i) => (
+          <li key={i}>
+            {x.seccion && <strong>{x.seccion}: </strong>}
+            <T v={x.que} />
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+export function VistaOferta({ p, provisional }: { p: PropuestaOferta; provisional: Provisional | null }) {
   const completar = lista(p?.completar).map(txt).filter(tiene);
   const secciones = p ? seccionesDe(p) : [];
+  const propuesto = propuestoPorMakoDe(p);
+  // Lo que arma el CÓDIGO del motor (12/10/2026): las reglas del marco que la propuesta no cumple (`avisos`,
+  // el PDF las pone antes de la oferta) y lo que el dueño dijo que no sabe (`supuestos`, a la vista).
+  const avisos = lista(p?.avisos).map(txt).filter(tiene);
+  const supuestos = lista(p?.supuestos).map(txt).filter(tiene);
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {avisos.map((a, i) => <Banner key={i} tono="warn" alcance="local">{a}</Banner>)}
       {completar.length > 0 && <CajaCompletar items={completar} />}
-      {/* Las tres primeras abiertas: es lo que se lee de entrada. El resto, a un clic. */}
-      {secciones.map((s, i) => <Plegable key={s.key} titulo={s.titulo} inicial={i < 3}>{s.contenido}</Plegable>)}
+      {supuestos.length > 0 && <Plegable titulo="Supuestos" inicial={false}><Lista items={supuestos} /></Plegable>}
+      {/* Las tres primeras abiertas: es lo que se lee de entrada. El resto, a un clic. El precio y los
+          bonos van marcados PROVISIONALES cuando el motor lo dice (Cliente ideal o Promesa en 3 o menos). */}
+      {secciones.map((s, i) => (
+        <Plegable key={s.key} titulo={s.titulo} inicial={i < 3}
+          provisional={esSeccionProvisional(s.key, provisional) ? provisional?.motivo ?? '' : null}>
+          {s.contenido}
+        </Plegable>
+      ))}
+      {propuesto.length > 0 && <PropuestoPorMako items={propuesto} />}
     </div>
   );
 }
@@ -551,7 +633,7 @@ export function Conclusion({ sesion, conclusion, onSeguir, onGuardar }: {
         <div role="tabpanel" id={`${id}-panel`} aria-labelledby={`${id}-tab-${pestana}`}>
           {pestana === 'diagnostico'
             ? <VistaDiagnostico d={conclusion.diagnostico} calculo={conclusion.calculo} />
-            : <VistaOferta p={conclusion.propuesta} />}
+            : <VistaOferta p={conclusion.propuesta} provisional={provisionalDe(conclusion)} />}
         </div>
       </div>
     </div>

@@ -230,11 +230,44 @@ const DECISIONES: readonly Omit<Pendiente, 'tipo'>[] = [
   },
 ];
 
-/** La lista que se dibuja, numerada por su posición: correcciones y después decisiones. */
-export const A_DEFINIR: ReadonlyArray<Pendiente & { n: number }> = [
+/**
+ * Lo que Martín ya contestó. Una tarjeta contestada sale de «A definir» y pasa a «Decididas», con su
+ * número de siempre (para que «3 B» siga queriendo decir lo mismo) y si ya está aplicada.
+ * `hecho: false` = decidida y en curso; `true` = aplicada (en el código, o en el marco si la respuesta
+ * fue dejarlo como está).
+ */
+export type Decision = { letra: LetraOpcion; fecha: string; nota?: string; hecho: boolean };
+
+const DECIDIDO: Readonly<Record<string, Decision>> = {
+  // 12/10/2026, 05:48 UTC (bitácora de Products & Offers): las 13, de una.
+  cifras: { letra: 'A', fecha: '12/10/2026', hecho: true },
+  lista: { letra: 'A', fecha: '12/10/2026', hecho: true },
+  garantia: { letra: 'B', fecha: '12/10/2026', nota: 'Nadie dijo que no la pudiesen pagar.', hecho: true },
+  anclas: { letra: 'A', fecha: '12/10/2026', hecho: true },
+  preguntas: { letra: 'A', fecha: '12/10/2026', nota: 'Y además la escalera de valor.', hecho: true },
+  alertas: { letra: 'A', fecha: '12/10/2026', nota: 'Y preguntar siempre si vende otras ofertas, aunque no estén en MaKo.', hecho: true },
+  foco: { letra: 'A', fecha: '12/10/2026', hecho: true },
+  cobro: { letra: 'A', fecha: '12/10/2026', hecho: true },
+  topes: { letra: 'A', fecha: '12/10/2026', hecho: true },
+  supuestos: { letra: 'A', fecha: '12/10/2026', hecho: true },
+  minimas: { letra: 'A', fecha: '12/10/2026', hecho: true },
+  rehacer: { letra: 'C', fecha: '12/10/2026', nota: 'Y que MaKo proponga pulir la oferta en el mismo chat y reenvíe el PDF de cada versión.', hecho: true },
+  'reglas-ia': { letra: 'A', fecha: '12/10/2026', hecho: true },
+};
+
+export type Numerada = Pendiente & { n: number; decidido: Decision | null };
+
+/** TODAS las tarjetas, numeradas por su posición: correcciones y después decisiones. */
+export const TODAS: readonly Numerada[] = [
   ...CORRECCIONES.map((p) => ({ ...p, tipo: 'correccion' as const })),
   ...DECISIONES.map((p) => ({ ...p, tipo: 'decision' as const })),
-].map((p, i) => ({ ...p, n: i + 1 }));
+].map((p, i) => ({ ...p, n: i + 1, decidido: DECIDIDO[p.clave] ?? null }));
+
+/** Lo que falta decidir: es lo que se dibuja como tarjetas y lo que cuenta el número de la pestaña. */
+export const A_DEFINIR: readonly Numerada[] = TODAS.filter((p) => !p.decidido);
+
+/** Lo que ya contestó, con su respuesta y si ya está aplicado. */
+export const DECIDIDAS: readonly Numerada[] = TODAS.filter((p) => !!p.decidido);
 
 /** El orden de los grupos en pantalla (el mismo que el de la numeración). */
 export const ORDEN_TIPOS: readonly TipoPendiente[] = ['correccion', 'decision'];

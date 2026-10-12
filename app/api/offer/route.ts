@@ -27,7 +27,8 @@
 //                                                   respuesta = { preguntaId, idx } al tocar una opción de una
 //                                                   pregunta del diagnóstico.
 //   · 'diagnosticar'   { sesionId }              → { ok: true }  (deja el diagnóstico en el borrador)
-//   · 'generar'        { sesionId }              → { sesion }  (versión nueva de la conclusión)
+//   · 'generar'        { sesionId }              → { sesion }  (versión nueva de la conclusión, y en el chat un
+//                                                   mensaje de MaKo con el PDF de esa versión: `pdf: { version }`)
 //   · 'guardar-oferta' { sesionId }              → { ofertaId, sesion, aviso?, avisoReintentable? }  (fila
 //                                                   NUEVA de `ofertas`, ligada al funnel de la conversación.
 //                                                   `aviso` = no se pudo ligar; `avisoReintentable` dice si
@@ -68,17 +69,17 @@ import { cambiarSettingSi, getSettingEstricto } from '@/lib/settings';
 import type { Diagnostico } from '@/lib/fase-diagnostico';
 import { MARCA_COMPLETAR, faltanMinimas, type ConclusionOferta } from '@/lib/offer-marco';
 import {
-  MAX_DOCS_SESION, TOPE_TEXTO_DOC, adjuntoDe, alertaFoco, calcularDiagnostico, canalParaElNegocio, conRespuestaInferida,
+  MAX_DOCS_SESION, TOPE_TEXTO_DOC, adjuntoDe, avisosAntesDelDiagnostico, calcularDiagnostico, canalParaElNegocio, conRespuestaInferida,
   diagnosticoFaltante, diagnosticoParaPrompt, docsDeLaConversacion, estadoDiagnostico, faltanTexto, faseDeSetting,
-  faseVigenteDe, linkParaLeer, mensajeDeMako, mergePiezas, planDiagnostico, primerMensaje, primerMensajeFunnel, recortar,
-  repartirTranscripcion, respuestaDiagnostico,
+  faseVigenteDe, linkParaLeer, mensajeDeMako, mensajePdf, mergePiezas, planDiagnostico, primerMensaje, primerMensajeFunnel, provisionalDe, recortar,
+  repartirTranscripcion, respuestaDiagnostico, respuestaSinIA,
   type AudioGuardado, type DocumentoGuardado, type MensajeGuardado,
 } from '@/lib/offer-reglas';
 import { contextoOffer, type ContextoOffer } from '@/lib/offer-contexto';
 import { FEATURE_OFFER, diagnosticoOffer, propuestaOffer, turnoOffer } from '@/lib/offer-ia';
 import {
   ConflictoCAS, ErrorOffer, TITULO_DEFAULT, actualizarSesion, arbolOffer, audiosDe, borrarSesion, crearSesion, guardarComoOferta,
-  leerFila, sesionVaciaDe, vistaSesion, type FilaOffer,
+  leerFila, nombreNegocioOffer, sesionVaciaDe, vistaSesion, type FilaOffer,
 } from '@/lib/offer-sesiones';
 
 export const dynamic = 'force-dynamic';
@@ -243,9 +244,19 @@ export async function POST(req: NextRequest) {
           if (faltanMinimas(fila.piezas).length) return no(409, `Antes de armar la oferta falta: ${faltanTexto(fila.piezas)}. Sigue la conversación con MaKo.`);
           const ctx = await contextoOffer({ conEmbudo: true, funnelId: fila.funnelId, ofertaBaseId: fila.ofertaBaseId, mensajes: fila.mensajes });
           await asegurarFaseGuardada(fila, ctx);
-          const ia = await diagnosticoOffer({ mensajes: fila.mensajes, piezas: fila.piezas, docs: docsDeLaConversacion(fila.documentos, fila.mensajes), contexto: ctx.texto, embudo: ctx.embudo, inicio });
+          // Los avisos del CÓDIGO van ANTES de la IA: la que pone la nota de Foco tiene que ver el de foco
+          // (tarjeta «foco», 12/10/2026), y los de margen, embudo y precio pesan en D6 y D7. La banda de
+          // facturación sale del diagnóstico de fase que VALE ahora (releído después de asegurarlo).
+          const faseAhora = faseVigenteDe(ctx);
+          const banda = faseAhora && Number.isInteger(faseAhora.respuestas?.[0]) ? faseAhora.respuestas[0] : ctx.foco.bandaFacturacion;
+          const avisos = avisosAntesDelDiagnostico({ foco: { ...ctx.foco, bandaFacturacion: banda }, piezas: fila.piezas, tasas: ctx.tasasEmbudo });
+          const ia = await diagnosticoOffer({
+            mensajes: fila.mensajes, piezas: fila.piezas, docs: docsDeLaConversacion(fila.documentos, fila.mensajes), contexto: ctx.texto, embudo: ctx.embudo, inicio,
+            alertas: [...(avisos.foco ? [avisos.foco] : []), ...avisos.otras],
+          });
           if (!ia.ok) return no(502, ia.error);
-          const calculo = calcularDiagnostico(ia.valor.dimensiones, { foco: alertaFoco(ctx.foco) });
+          // Con las PIEZAS: sin ellas no hay control final, y «lista para vender» volvería a mirar sólo las notas.
+          const calculo = calcularDiagnostico(ia.valor.dimensiones, { foco: avisos.foco, otras: avisos.otras, piezas: fila.piezas });
           const at = new Date().toISOString();
           await actualizarSesion(id, (f) => {
             // Si el dueño escribió mientras MaKo diagnosticaba, este diagnóstico ya no describe la conversación.
@@ -560,6 +571,17 @@ async function turno(ws: number, body: Record<string, unknown>, inicio: number):
   });
   if (primero.era) await marcar('of_contar');
 
+  // «Así está bien» después del PDF de una versión: lo contesta el CÓDIGO (no hay nada que preguntar, y
+  // pagar un modelo por un «perfecto» no le compra nada al dueño).
+  const sinIA = !audio && !docIds.length ? respuestaSinIA(conMensaje.mensajes, texto, { id: randomUUID(), at: new Date().toISOString() }) : null;
+  if (sinIA) {
+    const final = await actualizarSesion(sesionId, (f) => {
+      const u = f.mensajes[f.mensajes.length - 1];
+      return u && u.de === 'yo' ? { mensajes: [...f.mensajes, sinIA] } : null;
+    });
+    return ok({ sesion: await vistaSesion(final) });
+  }
+
   return responder({ sesionId, fila: conMensaje, ctx, nuevos: docAudio.creado ? [...docIds, docAudio.id] : docIds, inicio });
 }
 
@@ -641,30 +663,52 @@ async function generar(body: Record<string, unknown>, inicio: number): Promise<R
   // silencio).
   const fase = faseVigenteDe(ctx);
   const faltante = fase ? null : diagnosticoFaltante(estadoDiagnostico(fila.mensajes, { canal: ctx.canal, yaGuardado: !!ctx.faseGuardada }));
+  // Las cifras que SÍ dio el negocio salen de lo que escribió el dueño, sus documentos y lo que tenía cargado
+  // (las piezas las suma el parse): toda otra cifra de resultados, de prueba, de bonos o de valor pasa a
+  // «[completar]» (tarjeta «cifras», 12/10/2026). El nombre del negocio no puede ir en el del método.
+  const fuentes = [
+    ...fila.mensajes.filter((m) => m.de === 'yo').map((m) => m.texto),
+    ...fila.documentos.map((d) => d.texto),
+    ctx.texto,
+  ];
+  const negocio = await nombreNegocioOffer().catch(() => '');
   const ia = await propuestaOffer({
     mensajes: fila.mensajes, piezas: fila.piezas, docs: docsDeLaConversacion(fila.documentos, fila.mensajes), contexto: ctx.texto,
-    diagnostico: borrador.diagnostico, calculo: borrador.calculo, inicio,
+    diagnostico: borrador.diagnostico, calculo: borrador.calculo, inicio, reglas: { fuentes, negocio },
   });
   if (!ia.ok) return no(502, ia.error);
   const nombre = ia.valor.nombre.trim();
+  // Con el cliente ideal o la promesa en 3 o menos, precio y bonos salen PROVISIONALES (tarjeta «rehacer»: C).
+  const provisional = provisionalDe(borrador.diagnostico);
   const final = await actualizarSesion(id, (f) => {
     if (!f.borrador || f.borrador.at !== borrador.at) {
       throw new ErrorOffer('La conversación cambió mientras MaKo armaba la oferta. Vuelve a tocar «Armar mi oferta».', 409);
     }
     const version = f.conclusiones.reduce((max, c) => Math.max(max, c.version), 0) + 1;
+    const at = new Date().toISOString();
     const conclusion: ConclusionOferta = {
       diagnostico: borrador.diagnostico,
       calculo: borrador.calculo,
       propuesta: ia.valor,
       version,
-      at: new Date().toISOString(),
+      at,
       modelo: borrador.modelo === ia.modelo ? ia.modelo : `diagnóstico: ${borrador.modelo} · oferta: ${ia.modelo}`,
       fase,
       ...(faltante ? { diagnosticoFaltante: faltante } : {}),
+      ...(provisional ? { provisional } : {}),
     };
+    // El PDF de ESTA versión vuelve al chat, con la propuesta de pulirla (pedido de Martín, 12/10/2026). Lo
+    // agrega el CÓDIGO en el mismo CAS que la conclusión: no hay una versión sin su mensaje ni al revés.
+    const conPdf = mensajePdf({
+      version, dimensiones: borrador.diagnostico.dimensiones, cuello: borrador.calculo.cuello, lista: borrador.calculo.lista,
+      id: randomUUID(), at,
+    });
     // La conversación toma el nombre de la oferta la primera vez, si nadie la renombró a mano.
     const titulo = f.titulo === TITULO_DEFAULT && nombre && !nombre.includes(MARCA_COMPLETAR) ? nombre.slice(0, 80) : undefined;
-    return { conclusiones: [...f.conclusiones, conclusion], estado: 'concluida', borrador: null, ...(titulo ? { titulo } : {}) };
+    return {
+      conclusiones: [...f.conclusiones, conclusion], mensajes: [...f.mensajes, conPdf],
+      estado: 'concluida', borrador: null, ...(titulo ? { titulo } : {}),
+    };
   });
   await marcar('of_conclusion');
   return ok({ sesion: await vistaSesion(final) });

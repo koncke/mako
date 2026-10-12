@@ -9,6 +9,9 @@
 // ⚠️ PROBADO ROMPIENDO LO QUE PERSIGUE (11/10/2026, arnés romper-offer.mjs en el scratchpad de la sesión:
 // rompe UNA cosa de lib/offer-reglas.ts, corre este archivo y restaura DE MEMORIA). La base, en verde
 // (15 de 15) antes de cada rotura; las 21 roturas cazadas, cada una con su número al lado de su test.
+// 12/10/2026 («A definir»): las roturas de la urgencia, la prueba, los bonos y el foco se re-anclaron al código
+// nuevo (las reglas pasaron a ir por cifra) y vuelven a dar lo mismo que dice cada comentario. Las dos del
+// turno (`unaSolaPregunta`) quedaron sin ancla desde la v2: el parse se reescribió y no se volvieron a correr.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -21,13 +24,15 @@ import { MARCA_COMPLETAR, PREGUNTAS_GUIA, type NotaDimension, type OfferMensaje,
 
 const AT = '2026-10-11T12:00:00.000Z';
 const pieza = (valor: string, fuente: 'negocio' | 'chat' | 'doc' = 'chat') => ({ valor, fuente, at: AT });
-/** Las cinco mínimas con algo anotado. */
+/** Las mínimas con algo anotado (desde el 12/10/2026 son siete: también cuántos pagaron y cuántos lograron el resultado). */
 const MINIMAS: PiezasSabidas = {
   cliente: pieza('Coaches de salud que facturan 3.000 USD al mes'),
   problema: pieza('No consiguen clientes constantes'),
   resultado: pieza('10 clientes nuevos en 90 días'),
   entregables: pieza('12 sesiones grupales y plantillas'),
   precio: pieza('2.500 USD en dos pagos'),
+  ventas: pieza('8 personas pagaron'),
+  prueba: pieza('sin dato: no lleva la cuenta'),
 };
 
 // rotura (sacar `unaSolaPregunta` de parseTurno): 1 fallo, 14 pases. rotura (tope de opción 60 → 600): 1 fallo, 14 pases.
@@ -113,7 +118,7 @@ test('el primer mensaje: dos frases, UNA pregunta (la primera de la guía que fa
   assert.equal((vacio.texto.match(/\?/g) ?? []).length, 1);
 
   // Con lo que el negocio ya cargó: dice que lo leyó, y la pregunta salta lo anotado (incluido «sin dato»).
-  const conNegocio = primerMensaje({ entregables: pieza('Mentoría', 'negocio'), prueba: pieza('sin dato: ninguno') }, { at: AT });
+  const conNegocio = primerMensaje({ entregables: pieza('Mentoría', 'negocio'), otras: pieza('sin dato: no quiso decir') }, { at: AT });
   assert.match(conNegocio.texto, /^Ya leí lo que tengo de tu negocio/);
   assert.ok(conNegocio.texto.endsWith(PREGUNTAS_GUIA[2].pregunta), conNegocio.texto);
 
@@ -166,13 +171,16 @@ test('el cálculo: total = promedio × 10, cuello con empate a la de más arriba
 });
 
 // rotura (alertaFoco con banda ≤ 2): 1 fallo, 14 pases.
-test('la alerta de foco: negocio chico con más de 2 productos u ofertas, o banda desconocida con más de 5', () => {
+// 12/10/2026 (tarjeta «foco»): con la facturación desconocida sale desde 3 (antes, desde 6). Sus roturas, en
+// tests/offer-a-definir.test.ts.
+test('la alerta de foco: negocio chico (o sin facturación conocida) con 3 o más productos u ofertas', () => {
   assert.match(alertaFoco({ productosActivos: 3, ofertasActivas: 1, bandaFacturacion: 0 }) ?? '', /^Tienes 3 productos activos y tu negocio factura menos de \$3\.000 al mes/);
   assert.match(alertaFoco({ productosActivos: 1, ofertasActivas: 4, bandaFacturacion: 1 }) ?? '', /^Tienes 4 ofertas activas y tu negocio factura menos de \$10\.000/);
   assert.equal(alertaFoco({ productosActivos: 2, ofertasActivas: 2, bandaFacturacion: 1 }), null);
   assert.equal(alertaFoco({ productosActivos: 20, ofertasActivas: 3, bandaFacturacion: 2 }), null);
   assert.match(alertaFoco({ productosActivos: 6, ofertasActivas: 0, bandaFacturacion: null }) ?? '', /^Tienes 6 productos activos: en la fase 1/);
-  assert.equal(alertaFoco({ productosActivos: 5, ofertasActivas: 5, bandaFacturacion: null }), null);
+  assert.match(alertaFoco({ productosActivos: 3, ofertasActivas: 3, bandaFacturacion: null }) ?? '', /^Tienes 3 productos activos: en la fase 1/);
+  assert.equal(alertaFoco({ productosActivos: 2, ofertasActivas: 2, bandaFacturacion: null }), null);
 });
 
 const propuestaCruda = (over: Record<string, unknown> = {}) => ({
@@ -213,14 +221,17 @@ test('la propuesta no afirma lo que el dueño no dio: urgencia, cifras de prueba
   assert.ok(!sinNada.completar.includes('Esto lo escribe el modelo y se ignora'));
   assert.equal(new Set(sinNada.completar).size, sinNada.completar.length);
 
-  // Con las piezas dadas, lo que escribió el modelo queda.
-  const conTodo = parsePropuesta(propuestaCruda(), {
-    ...MINIMAS, urgencia: pieza('Cohorte que arranca el 3/11'), prueba: pieza('37 clínicas, 15 pacientes promedio'), bonos: pieza('Guion de llamada'),
-  });
+  // Con lo que dio el negocio (las piezas y lo que escribió), lo que escribió el modelo queda — cifra por cifra.
+  const tres = [{ fase: 'Arranque', objetivo: 'Primer paciente', hito: 'Semana 1' }, { fase: 'Sistema', objetivo: 'Agenda', hito: 'Mes 1' }, { fase: 'Escala', objetivo: 'Llena', hito: 'Mes 3' }];
+  const conTodo = parsePropuesta(propuestaCruda({ ruta: tres, mecanismo: { nombres: ['Método Agenda Llena (propuesta)', 'Ruta del Paciente (propuesta)'], pasos: ['Uno', 'Dos', 'Tres'], distinto: 'No depende de anuncios' } }), {
+    ...MINIMAS, urgencia: pieza('Cohorte que arranca el 3/11, con 5 cupos'), prueba: pieza('37 clínicas, 15 pacientes promedio, 40% más de ingresos'),
+    bonos: pieza('Guion de llamada (lo vendo a 500 USD)'),
+  }, { fuentes: ['Los que entran suman 20 pacientes. El programa completo vale 9.000 USD.'] });
   assert.ok(conTodo);
   assert.equal(conTodo.urgencia, 'Solo 5 cupos esta semana');
-  assert.match(conTodo.prueba, /^37 clínicas/);
+  assert.match(conTodo.prueba, /^37 clínicas sumaron 15 pacientes promedio y un 40% más/);
   assert.equal(conTodo.bonos[0].valor, '500 USD');
+  assert.equal(conTodo.inversion.valorTotal, '9.000 USD');
   assert.deepEqual(conTodo.completar, []);
 
   // «sin dato» cuenta como que NO lo dio.
@@ -235,7 +246,9 @@ test('la propuesta sin nombre o sin frase no sirve, y lo que falta queda «[comp
   assert.ok(corta);
   assert.equal(corta.garantia.plazo, MARCA_COMPLETAR);
   assert.ok(corta.completar.includes('Garantía: plazo'));
-  assert.deepEqual(corta.ruta, []);
+  // Sin ruta, las tres fases del mínimo del marco quedan «[completar]» (tarjeta «topes», 12/10/2026).
+  assert.equal(corta.ruta.length, 3);
+  assert.ok(corta.ruta.every((f) => f.fase.startsWith(MARCA_COMPLETAR)));
 });
 
 // rotura (escribir en la fila los campos con «[completar]»): 1 fallo, 14 pases.
