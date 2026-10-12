@@ -8336,3 +8336,22 @@ al lead a una columna que no se dibuja. El rojo previo de `tests/mover-etapa-val
 **Vive en:** `app/crm/EtapasModal.tsx` (`SeccionFunnel`, `filaNutricion`, `filaFija`) · `lib/pipeline.ts`
 (`TIPOS_FUNNEL`, `idsParaQuitarNutricion`, `ordenarNutricion`) · `lib/funnel-fila.ts` · `app/crm/actions.ts` ·
 `app/crm/CampanasModal.tsx` · `tests/crm-funnel-editor-12-10.test.ts` · *2026-10-12, chat «CRM» (claude3), sin agentes*
+
+## Las campañas del editor del funnel: cinco a la vista, y el «todas» tilda lo que se ve (12/10/2026)
+
+Pedido de Martín (12/10/2026, 14:10): «Asignar a este funnel», el ícono de filtro de siempre, cinco campañas con
+«Ver más», y las etapas en tarjetas para que no se confundan con la tabla. Lo que no se ve en el código:
+
+- **Cortar a cinco cambia qué tilda la casilla de «todas».** El mapa `visibles` se armaba con `filas` (todas las que
+  pasan el filtro); con el corte, tildar «todas» se habría llevado las escondidas detrás del «Ver más» y el lote las
+  habría asignado sin que nadie las viera. Se arma con `filasVistas`, lo mismo que la tabla dibuja.
+- **La marca del arrastre pisaba el borde de la tarjeta.** `MARCA` era un `boxShadow` y la tarjeta nueva dibuja su
+  anillo con `boxShadow` (sin `border`, que le suma alto): la tarjeta destino perdía el borde mientras se arrastraba.
+  La marca SUMA su raya a `SOMBRA_TARJETA`.
+- **Un filtro sin «Todos»:** cada opción se prende y se apaga con un clic; sin nada prendido se ven todas.
+
+**SIN HACER:** el punto 3 del mismo pedido (el tipo Etapa/Reunión/Nutrición en las nutriciones y el pasaje entre
+bandas): el plan está en docs/relevo/crm.md §0. Y el lote ya no ofrece «Sin asignar» (se quita de a una).
+
+**Vive en:** `app/crm/CampanasModal.tsx` · `app/crm/EtapasModal.tsx` (`SOMBRA_TARJETA`, `MARCA`) ·
+`tests/crm-campanas-tarjetas-12-10.test.ts` · *2026-10-12, chat «CRM» (claude3), sin agentes*

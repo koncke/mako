@@ -1966,4 +1966,31 @@ export const BITACORA: Hito[] = [
       'app/crm/CampanasModal.tsx — la tabla en línea',
     ],
   },
+  {
+    fecha: '12 oct', hora: '14:10', chat: 'CRM', cuenta: 'claude3',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Campañas: «Asignar a este funnel», el filtro de siempre y cinco con «Ver más»; etapas en tarjetas; el tipo también en las nutriciones',
+    pedido: '1. Elimina el desplegable de "asignar a funnel", si estoy editando un funnel siempre se asigna a ese que estoy parado... En su lugar un botón de "Asignar a este funnel" Y elimina los 2 filtros de las campañas, en su lugar pon el ícono de filtro de siempre y obvio no va el filtro de "todos los funnels".\n2. Que las campañas sean pocas, unas 5 las que se muestren, y el botón abajo de "ver más" que ya tenemos en varios lugares...\n3. El desplegable de las etapas que dice "Etapa, reunión, nutrición" también lo debería tener los de nutrición... Y si se coloca "Etapa" se desplaza automáticamente hacia arriba, y viceversa. Es decir, también si arrastro debería cambiar ese desplegable.\n4. No hagas tan parecido la lista de etapas a la lista de camapañs, sino se confunde... Haz algo diferente las etapas, tal vez que sean tarjetas más gordas.',
+    puntos: [
+      'Sobre lo publicado del editor del funnel (f6abbff9), con la cuenta al 97% semanal.',
+    ],
+  },
+  {
+    fecha: '12 oct', hora: '14:29', chat: 'CRM', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La tabla de campañas asigna al funnel abierto, filtra con el ícono de siempre y muestra cinco; las etapas son tarjetas',
+    puntos: [
+      'Con lo tildado aparece «Asignar a este funnel»: sin desplegable de funnels, por el mismo camino de antes (la previa y su pregunta).',
+      'Los dos desplegables de filtro son UN botón «Filtrar» con el ícono de siempre: Estado y Funnel, sin «Todos»; cada opción se prende y se apaga.',
+      'Se ven cinco campañas y el «Ver más» de la casa (useVerMas). La casilla de «todas» tilda sólo las que se ven.',
+      'Las etapas son tarjetas: fondo blanco, anillo y sombra, más altas. Ganado y descartes siguen punteados.',
+      '**Sin hacer:** el tipo Etapa/Reunión/Nutrición en las nutriciones y el pasaje entre bandas (punto 3): cambia el modelo y quedó en el relevo con su plan.',
+    ],
+    commits: [{ sha: '8ed12c64', msg: 'CRM: campañas con «Asignar a este funnel», el filtro de siempre y cinco con «Ver más»; las etapas son tarjetas', lineas: 197, archivos: 4 }],
+    archivos: [
+      'app/crm/CampanasModal.tsx — el botón del lote, el filtro, useVerMas',
+      'app/crm/EtapasModal.tsx — SOMBRA_TARJETA, la caja y la fila',
+      'tests/crm-campanas-tarjetas-12-10.test.ts',
+    ],
+  },
 ];

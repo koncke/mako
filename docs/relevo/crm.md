@@ -6,7 +6,36 @@ el briefing anterior (`b5f7fb55`, 10/10 17:10) con todo verificado contra el ár
 **Rutas de esta área:** `app/crm/**`, `lib/leads.ts`, `lib/funnel*.ts`, `lib/crm*.ts`,
 `lib/lead-*.ts`, `lib/campana-*.ts`, `lib/etiquetas*.ts`, `lib/pipeline.ts`.
 
-## 0. Al 12/10/2026, 13:40 (chat «CRM», cuenta `claude3`, al 96% semanal)
+## 0. Al 12/10/2026, 14:40 (chat «CRM», cuenta `claude3`, al 97% semanal)
+
+### ✅ Quinto feedback del 12/10 (14:10), puntos 1, 2 y 4: HECHOS en `8ed12c64`
+
+En la tabla de campañas del editor del funnel: con lo tildado, «Asignar a este funnel» (sin desplegable); los dos
+filtros son un botón «Filtrar» con el ícono de siempre (Estado y Funnel, sin «Todos»); se ven cinco y el «Ver más»
+de la casa. Las etapas son tarjetas (fondo blanco, anillo, sombra, más altas). Sin mirar en el navegador.
+
+**Ojo:** el lote ya no ofrece «Sin asignar». Quitar una campaña sigue de a una, en su columna «Funnel».
+
+### ⛔ SIN HACER: el punto 3 (cambia el modelo; no lo arranqué al 97%)
+
+Textual: «El desplegable de las etapas que dice "Etapa, reunión, nutrición" también lo debería tener los de
+nutrición... Y si se coloca "Etapa" se desplaza automáticamente hacia arriba, y viceversa. Es decir, también si
+arrastro debería cambiar ese desplegable.» El plan:
+
+- **La UI** (`app/crm/EtapasModal.tsx`): `SelectorTipo` también en `filaNutricion`. El `onDrop` de la lista decide
+  por el grupo DESTINO (hoy `grupoAgarrado` lo limita al suyo) y soltar en la otra banda es cambiar el tipo.
+- **Nutrición → Etapa/Reunión:** una nutrición DERIVADA se inserta como paso del pipeline y se apagan sus ids
+  derivados (`idsParaQuitarNutricion`); una propia sale de `data.nutricionesPropias` y entra al pipeline.
+- **Etapa → Nutrición:** sale del pipeline y entra a un `data.nutricionesPropias` NUEVO, que `generateFunnel`
+  coloca en la banda nutrición como hoy coloca `manual` (lib/pipeline.ts). Lo lee `filaAFunnel` (lib/funnel-fila.ts)
+  y lo conserva `mergeFunnelData`. Si la clave es una nutrición conocida, se des-suprime en vez de crearla.
+- **La clave de la etapa no cambia**, así que sus leads siguen en su columna. Entrada, pago y cierre quedan afuera
+  (`puedeSerReunion`).
+- **El server:** una op nueva en `OpEtapa` (`app/crm/actions.ts`), con su deshacer; y el test con su rotura.
+
+**Siguen sin hacer** (§0-a): notas como los chats de MaKo y «A revisar» en el desplegable; y que «Marcar nutrición
+manual» se apague cuando el funnel quitó esa etapa (§0-a1).
+## 0-a1. Al 12/10/2026, 13:40 (chat «CRM», cuenta `claude3`, al 96% semanal)
 
 ### ✅ El editor del funnel (cuarto feedback del 12/10): HECHO en `53cf309f`
 
