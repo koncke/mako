@@ -1,15 +1,18 @@
 # Relevo: Automations (ex /chatbot) y las secuencias
 
 > **HECHA (11/10/2026 ~22:50, `claude3`): la UNDÉCIMA tanda, `a29af1a9`, pusheada desde el worktree `C:/dev/wt-undecima`.**
-> Mig 0257 aplicada antes del deploy. Lo aprendido: `docs/hallazgos-chatbot.md` → «Undécima tanda». Datos, en este orden y
-> con el simulacro leído: `scripts/zona-negocio-backfill.mts` (ws1 y ws4 Tijuana, ws11 Cancún, ws13 canonizado),
-> `scripts/undecima-email-remitente.mts` (el resend_from del ws1 a vacío), `scripts/undecima-flujos.mts` (antes del 12/10
-> 17:00 UTC, cuando sale el primer recordatorio de la inscripción 201; ⚠️ la inscripción 203 del lead 2645 espera en
-> `nz7zsf8`, la condición que desaparece: aplicar DESPUÉS de que el motor la procese, ~02:36 UTC, o remapearla a
-> `n2199q6`). `scripts/voz-mako-agregar.mts` frena hasta que Martín pague ElevenLabs (US$6, past_due) y cargue
-> `MAKO_ELEVENLABS_API_KEY`. Después de --aplicar, la limpieza del §8.7 en commit aparte. Las 36 decisiones con la
-> recomendada primero: `docs/diseno-undecima-tanda.md` §9. El clon de OneDrive sigue sin poder ponerse al día con
-> origin/main (trabajo ajeno sin commitear): se trabaja en worktrees.
+> Mig 0257 aplicada antes del deploy. Lo aprendido: `docs/hallazgos-chatbot.md` → «Undécima tanda». **Datos APLICADOS el
+> 12/10 ~02:00 UTC, con el simulacro leído y releídos de la base:** zona (ws1 y ws4 Tijuana, ws11 Cancún, ws13 canonizado;
+> respaldo `backups/zona-negocio-2026-10-12T01-55-55-263Z.json`), remitente del ws1 a vacío, y los flujos: ws1 #198 «Un Lead
+> Entró» y #213 «Un Lead Agendó Llamada» (prendidas, un AI Step c/u), #238 sólo su CRON; archivadas #228, #239, #240, #223,
+> #224; ws13 #241 «Un Lead Agendó Llamada» (sólo el aviso, prendida, 9 leads de «Pre R1» pre-sembrados); ws4 #209 y #210
+> rehechas y pausadas. Inscripciones 201 y 202: recordatorios el 12/10 y el 19/10 17:00 UTC. La 203 (lead 2645) estaba en
+> `nz7zsf8`, la condición que se juntó: se REMAPEÓ a mano a `n2199q6` (compare-and-set) con su mismo horario (02:36 UTC).
+> Respaldo de los flujos en `backups/undecima-flujos-*.json` (del worktree). **Falta:** `scripts/voz-mako-agregar.mts` (frena
+> hasta que Martín pague ElevenLabs, US$6 past_due, y cargue `MAKO_ELEVENLABS_API_KEY`; el voice_id de «David» sin
+> verificar), y la limpieza del §8.7 en commit aparte (ya hay 0 filas vivas con {{mensaje_mako}} o el recordatorio viejo).
+> Las 36 decisiones con la recomendada primero: `docs/diseno-undecima-tanda.md` §9. El clon de OneDrive sigue sin poder
+> ponerse al día con origin/main (trabajo ajeno sin commitear): se trabaja en worktrees.
 > **EN COLA:** la tarea del Dashboard (abajo) — ⚠️ Graphics avisó (11/10 ~22:55) que empieza la v5 del Dashboard (los
 > «Bloques de MaKo» se van y cambian las operaciones del área): pedirle el estado ANTES de cablear selectores en ⚡ Acción.
 >
