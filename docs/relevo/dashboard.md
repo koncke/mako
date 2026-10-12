@@ -15,8 +15,10 @@ lenta y el mapa de calor en vivo.
 - Commits locales de `wt-v5` (detached sobre `d290cb4e`): `b93efc9c` (el pedido + el contrato), `bae3a460` (ola 1:
   modelo, datos y dibujo; todavía NO compila — Elemento.tsx, Galeria.tsx y tests/graficos-elementos los corrige la
   ola 2).
-- Ola 2 (topbar/filtros, edición, IA y entidades, mapa de calor) corriendo: workflow `wf_3cbec006-67d`. Ola 3
-  (plantillas, Analysts, roles; API de MaKo y link compartido) después.
+- Ola 2 (topbar/filtros, edición, IA y entidades, mapa de calor) commiteada: `5fe0c356` (typecheck 0).
+- Ola 3 (plantillas sin bloques, VSL/CS/Chat Analyst, roles, API de MaKo y link) A MEDIAS: `e86a0006` (WIP, cortada por
+  el límite de sesión; puede no compilar). La continúa la segunda corrida del script del scratchpad `ola3-v5.js`.
+- Uso semanal de la cuenta 3 al 80% el 12/10 ~06:45: si pasa el 85%, se cierra (relevo, nada a medias se pushea).
 - Lo de Topbar de Looker + Compartir ya está en producción (`12160c59`, deploy Ready el 11/10 18:49).
 
 **Si el chat se corta:** `cd wt-v5`, `git log --oneline -3`, leer `docs/relevo/dashboard-v5.md`, y los reportes de
