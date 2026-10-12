@@ -20,6 +20,7 @@
 // =============================================================================
 
 import 'server-only';
+import { limpiarParaBase } from './texto-para-base';
 import { getTenantDb, getWorkspaceActual, getWorkspace } from './workspace';
 import { seedOfertaDesdeBrief, upsertOferta, borrarOferta, listarOfertas, ofertasDeFunnels, ligarOfertaAFunnel } from './ofertas';
 import { leerTodo } from './supabase-paginado';
@@ -360,7 +361,9 @@ export async function crearSesion(inicial: {
   funnelId?: number | null; ofertaBaseId?: number | null;
 }): Promise<FilaOffer> {
   const db = await getTenantDb();
-  const { data, error } = await db.from(TABLA).insert({
+  // limpiarParaBase: un carácter que Postgres no acepta en un jsonb (el NUL de un PDF) tira la fila
+  // entera; ver lib/texto-para-base.ts.
+  const { data, error } = await db.from(TABLA).insert(limpiarParaBase({
     titulo: TITULO_DEFAULT,
     estado: 'conversando',
     piezas: inicial.piezas,
@@ -369,7 +372,7 @@ export async function crearSesion(inicial: {
     creado_por: inicial.creadoPor ?? null,
     funnel_id: inicial.funnelId ?? null,
     oferta_base_id: inicial.ofertaBaseId ?? null,
-  }).select(COLS);
+  })).select(COLS);
   if (error) throw fallo('crear la conversación de Offer', error.message);
   const fila = ((data ?? []) as unknown as Array<Record<string, unknown>>)[0];
   if (!fila) throw new Error('crear la conversación de Offer: la base no devolvió la fila.');
@@ -391,7 +394,7 @@ export async function actualizarSesion(id: number, cambio: (f: FilaOffer) => Cam
     if (!c) return actual;
     const db = await getTenantDb();
     const { data, error } = await db.from(TABLA)
-      .update({ ...aColumnas(c), updated_at: new Date().toISOString() })
+      .update(limpiarParaBase({ ...aColumnas(c), updated_at: new Date().toISOString() }))
       .eq('id', id)
       .eq('updated_at', actual.updatedAt)
       .select(COLS);

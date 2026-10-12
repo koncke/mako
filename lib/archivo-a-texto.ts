@@ -1,4 +1,5 @@
 import 'server-only';
+import { textoParaBase } from './texto-para-base';
 
 // =============================================================================
 // archivo-a-texto — un archivo entra, texto sale (sin importar el formato)
@@ -46,7 +47,17 @@ export type LecturaArchivo = { texto: string; warning?: string; via: 'texto' | '
  */
 export type OpcionesLectura = { feature?: string; motivo?: string };
 
+/**
+ * El texto sale limpio de lo que la base no acepta guardar (el NUL de un PDF, un sustituto suelto):
+ * todos los que leen un archivo lo guardan después en un `text` o un `jsonb`, y uno de esos caracteres
+ * tira el guardado entero («unsupported Unicode escape sequence»). Ver lib/texto-para-base.ts.
+ */
 export async function archivoATexto(file: File, opts: OpcionesLectura = {}): Promise<LecturaArchivo> {
+  const lectura = await leerArchivo(file, opts);
+  return { ...lectura, texto: textoParaBase(lectura.texto) };
+}
+
+async function leerArchivo(file: File, opts: OpcionesLectura): Promise<LecturaArchivo> {
   const name = (file.name || '').toLowerCase();
   const mime = file.type || '';
   const featureVision = opts.feature || 'Importar al plan';
