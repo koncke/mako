@@ -1,5 +1,26 @@
 # Relevo: Automations (ex /chatbot) y las secuencias
 
+> **ESTADO AL CIERRE (12/10/2026 ~12:00 hora AR, `claude3` al 95 % semanal: no se arrancó nada más).** Todo lo hecho está
+> en main y desplegado: undécima (a29af1a9 + datos aplicados), duodécima (f9308753), decimotercera (9295305e), y la barra
+> (Offer en Sales Machine, «pronto» y Content Machine sólo super admin, Customer Success familia propia y al final). Se
+> trabaja en el worktree `C:/dev/wt-undecima` (rama `undecima`; push con `git push origin undecima:main` tras rebasear):
+> el clon de OneDrive no se puede poner al día con origin (trabajo ajeno sin commitear).
+> **PENDIENTE, en este orden:**
+> 1. **Plazos de etapa del CRM → plantilla de Automations** (pedido de Martín reenviado por el chat CRM, 12/10: «Si, pasa
+>    a una automatización eso de los plazos... Y ponlo como template en automations. Dile esto al chat de "Chatbot" que lo
+>    haga el.»): CRON = entra a una etapa, DELAY de N días, CONDITION «sigue en esa etapa», ⚡ Acción mover de etapa y/o
+>    «MaKo en WhatsApp» al equipo. Vivos sin pantalla: `funnels.data.umbrales.porEtapa`, `lib/lead-quieto-aviso.ts` (reglas
+>    en `lib/lead-quieto.ts`), la op `plazo` de `editarEtapaAction` (app/crm/actions.ts, sin call site), lectores T2/T6 de
+>    `lib/crm-auto-plan.ts` y `lib/crm-movil.ts`. Qué hacer con los plazos ya guardados: decidir con Martín.
+> 2. **Lo que dejó abierto la decimotercera:** crear con MaKo sobre una fila con tarjetas publicadas y el borrador vacío da
+>    409 en el chat; el ↻ de Probar no revisa los medios sin conectar.
+> 3. **Dashboard en Automations** (abajo, en cola): la API del Dashboard ya está en su v5 final (6e709bc3, Graphics).
+> 4. **Grupos de WhatsApp** (abajo, en cola).
+> 5. **Lo que espera a Martín:** pagar ElevenLabs (US$6 past_due) y cargar `MAKO_ELEVENLABS_API_KEY` (Voz de MaKo; el
+>    voice_id de «David» sin verificar); cargar `ZERNIO_API_KEY` y `ZERNIO_WEBHOOK_SECRET` en Vercel prod (hoy no están).
+> 6. La limpieza §8.7 de la undécima (commit aparte; ya hay 0 filas vivas con {{mensaje_mako}} o el recordatorio viejo).
+> 7. Sin dueño: migrar cursos desde Skool/Hotmart (feedback de Fiesta Music).
+>
 > **HECHA, SIN PUSH (12/10/2026, `claude3`, un agente solo): la DECIMOTERCERA tanda** (8 puntos con capturas; pedido literal
 > en el último hito de la bitácora). Worktree `C:/dev/wt-undecima` (rama `undecima`). Lo aprendido:
 > `docs/hallazgos-chatbot.md` → «Decimotercera tanda» (y en hallazgos-ui, el campo que mide cero adentro de un Modal):
