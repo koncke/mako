@@ -16,3 +16,13 @@ export function horaCorta(momento: number | string | Date): string {
   if (Number.isNaN(d.getTime())) return '';
   return new Intl.DateTimeFormat('es', { hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
 }
+
+/**
+ * Las iniciales de un avatar de /m: «Ana María Pérez» → «AP» (la primera y la última
+ * palabra), «Sofía» → «SO», y sin nombre, la inicial del email. Nunca vacío: «·».
+ */
+export function inicialesM(nombre: string | null | undefined, email?: string | null): string {
+  const partes = (nombre ?? '').trim().split(/\s+/).filter(Boolean);
+  const ini = partes.length > 1 ? partes[0][0] + partes[partes.length - 1][0] : partes[0]?.slice(0, 2) ?? '';
+  return (ini || (email ?? '').trim()[0] || '·').toUpperCase();
+}

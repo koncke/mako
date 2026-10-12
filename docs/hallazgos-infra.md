@@ -5411,6 +5411,11 @@ ahí. (El Dashboard tomó la 0247.)
 - **Un `tsc` con TS6053** («File not found», porque otra sesión borró un archivo del glob en medio de la
   corrida) no calcula los diagnósticos semánticos: la salida muestra sólo esos errores y parece que todo lo
   demás compila. Se repite. `scripts/typecheck-lock.mjs` podría detectarlo.
+- **Y al revés: cuando sale BIEN tampoco dice nada.** `tsc` corre con `stdio: 'inherit'` y sin errores no
+  imprime una línea; lo único que se ve, si hubo que esperar, es «espero mi turno…». Cinco de los doce
+  agentes de MaKo Mobile v2 (11/10) se preguntaron si la corrida se había cortado. El veredicto es el
+  código de salida (`> archivo 2>&1; echo exit=$?`) más la cuenta de «error TS»; con exit 0, salida vacía
+  es cero errores.
 
 **Vive en:** `scripts/typecheck-lock.mjs`.
 
@@ -5439,3 +5444,34 @@ ajena pasa por `textoParaBase` (o `limpiarParaBase` para una fila entera) antes 
 `archivoATexto`, así que lo heredan Offer, los importadores del Plan y del CRM, los guiones, el doer de WhatsApp y el chat de MaKo; un
 lector nuevo que no pase por ahí (una página web, un CSV leído a mano) lo tiene que llamar.
 **Vive en:** `lib/texto-para-base.ts`, `lib/archivo-a-texto.ts`, `lib/offer-sesiones.ts`. · *2026-10-11 Offer*
+
+## Los guards que enumeran con `git ls-files` no ven lo nuevo y revientan con lo borrado (11/10/2026)
+
+**Síntoma:** el detector de voseo, la frontera `use client`, el tacho y los tokens `--fs` daban VERDE sobre
+pantallas nuevas de /m sin haberlas leído; y 18 guards fallaban con `ENOENT` sobre
+`app/m/crm/BuscadorCrm.tsx`, un archivo que ya no existe.
+
+**Causa:** enumeran con `git ls-files`, que lista el ÍNDICE: un archivo sin `git add` no existe para
+ellos, y uno borrado del disco sin stagear la baja sigue listado y el `readFileSync` tira.
+
+**Regla:** antes de correr los guards con archivos nuevos, `git add -N` (intent-to-add, no stagea
+contenido). Para no tocar el índice que commitea otro (y para sacar los borrados sin stagear la baja):
+una COPIA del índice —`cp "$(git rev-parse --git-path index)" <scratch>/index.tmp`, y sobre ella
+`GIT_INDEX_FILE=<scratch>/index.tmp git add -N <nuevos>` y `git rm --cached <borrados>`— y los tests
+con esa variable exportada (los hijos de node la heredan). Un rojo `ENOENT` en un guard de ls-files se
+mira primero con `git status` de esa ruta. · *2026-10-11, MaKo Mobile v2 (integración)*
+
+## En Git Bash, `grep` no ve los CR: un archivo CRLF «no tiene» `\r` (11/10/2026)
+
+**Síntoma:** `grep -c $'\r' app/m/dashboard/modelo.ts` dio **0**, y `sed -n | od -c` mostraba líneas
+terminadas en `\n`; el arnés de roturas igual decía «NO ESTÁ» al buscar una línea con `\n` al final.
+
+**Causa:** las herramientas de MSYS leen en modo texto y se comen el `\r` antes de mostrar o contar. El
+archivo SÍ era CRLF (`file` dice «with CRLF line terminators»; `od -c` sobre el archivo crudo, no sobre
+`sed`, muestra `\r \n`). Y del lado opuesto: Python con `open(p)` por defecto convierte CRLF a `\n`
+al leer, y escribir con `newline=''` deja el archivo entero en LF.
+
+**Regla:** el fin de línea se mide con `file`, con `git ls-files --eol` (los rastreados) o leyendo
+BYTES; nunca con grep/sed de Git Bash. Al editar con Python: leer con `newline=''`, guardar si había
+`\r\n`, trabajar en `\n` y volver a escribir con el mismo fin de línea. Un buscar-y-reemplazar de
+varias líneas se escribe sin el `\n` final o normalizando antes. · *2026-10-11, MaKo Mobile v2*

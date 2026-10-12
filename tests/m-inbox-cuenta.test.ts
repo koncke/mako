@@ -8,15 +8,20 @@
 //   · vistaAvisos devolviendo 'activar' para 'bloqueado': 1 fallo.
 //   · tiposParaRol sin filtrar para no-admin: 1 fallo.
 //   · el guard de la página sin `maxDuration = 300`: 1 fallo.
+// Y en la integración v2 (base 10 / 0, scratchpad/integ/romper.py):
+//   · `resumenAvisos` sin mirar el interruptor general: 9 / 1.
+//   · `resumenAvisos` contando como apagado lo que nunca se tocó: 9 / 1.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import {
-  armarPayload, esEditable, fraseDeFallas, fraseHeroe, minutosRestantes, rielDeVence, rotulosDe, yaNoPendiente,
+  armarPayload, esEditable, fraseDeFallas, minutosRestantes, rielDeVence, rotulosDe, yaNoPendiente,
 } from '../app/m/inbox/inbox-ui';
-import { comoDesbloquear, ofertaInstalar, tiposParaRol, toastDePrueba, vistaAvisos } from '../app/m/cuenta/cuenta-ui';
+import {
+  comoDesbloquear, ofertaInstalar, resumenAvisos, segundaAvisos, tiposParaRol, toastDeActivar, toastDePrueba, vistaAvisos,
+} from '../app/m/cuenta/cuenta-ui';
 
 const leer = (rel: string) => readFileSync(path.join(__dirname, '..', rel), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -81,14 +86,12 @@ test('lo que vence se cuenta en el reloj del teléfono y «Vencida» se dice', (
   assert.equal(rielDeVence(minutosRestantes(undefined, ahora)), null);
 });
 
-test('las fallas de lectura se DICEN, y el héroe no inventa un número sobre una falla', () => {
+// (v2: el título-frase «Te esperan 2 decisiones» ya no existe —el título es el nombre y el número
+// va en el segmentado—, así que sus aserciones se fueron con la función.)
+test('las fallas de lectura se DICEN', () => {
   assert.equal(fraseDeFallas(['accion']), 'No pude leer las propuestas de MaKo.');
   assert.equal(fraseDeFallas(['pendiente', 'confirmacion']), 'No pude leer las acciones de MaKo y los cambios del CRM.');
   assert.equal(fraseDeFallas([]), null);
-  assert.equal(fraseHeroe(2, false), 'Te esperan 2 decisiones');
-  assert.equal(fraseHeroe(1, false), 'Te espera 1 decisión');
-  assert.equal(fraseHeroe(3, true), null);
-  assert.equal(fraseHeroe(0, false), null);
 });
 
 test('avisos en este teléfono: cada estado ofrece UNA cosa', () => {
@@ -123,4 +126,20 @@ test('la página del Inbox declara su techo, y el permiso de avisos se pide dent
   for (const f of ['app/m/inbox/InboxM.tsx', 'app/m/cuenta/CuentaM.tsx', 'app/m/cuenta/instalar/PasosInstalar.tsx']) {
     assert.doesNotMatch(sinComentarios(leer(f)), /from 'next\/(link|navigation)'/, f);
   }
+});
+
+// v2 (integración, 11/10/2026): la fila «Avisos en este teléfono» y «Qué te avisa».
+test('avisos: la segunda línea sólo cuando hay algo que hacer, y «Qué te avisa» cuenta lo que se VE', () => {
+  assert.equal(segundaAvisos('bloqueado'), 'Bloqueados en el teléfono');
+  assert.equal(segundaAvisos('instalar-ios'), 'Primero instala MaKo');
+  assert.equal(segundaAvisos('activo'), null, 'prendido no lleva segunda línea');
+  assert.equal(toastDeActivar('sin-claves'), 'Avisos no disponibles');
+  assert.equal(toastDeActivar('cualquier-otro'), 'No se pudo activar');
+  const tipos = [{ id: 'a' }, { id: 'b' }, { id: 'c' }];
+  assert.equal(resumenAvisos({ activo: false, items: {} }, tipos), 'Ninguno', 'el interruptor general apagado manda');
+  assert.equal(resumenAvisos({ activo: true, items: {} }, tipos), 'Todos', 'lo no tocado está prendido');
+  assert.equal(resumenAvisos({ activo: true, items: { b: false } }, tipos), '2 de 3');
+  assert.equal(resumenAvisos({ activo: true, items: { a: false, b: false, c: false } }, tipos), 'Ninguno');
+  // Lo de admin no se cuenta para quien no lo ve: el total es el de SU lista.
+  assert.equal(resumenAvisos({ activo: true, items: { x: false } }, tipos), 'Todos');
 });

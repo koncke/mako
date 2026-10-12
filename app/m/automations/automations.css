@@ -1,0 +1,37 @@
+/* =============================================================================
+   /m/automations — lo propio de la pantalla (el shell es app/m/m.css)
+   =============================================================================
+   Todo con el prefijo .m-auto-*: Next deja la hoja cargada al salir de la ruta, y una clase sin
+   prefijo le cambiaría otra pantalla. Sólo tokens de app/globals.css. Anatomía del prototipo
+   (docs/prototipos/mako-mobile-v2.html: la lista de #auto y el sheet `t-automatizacion`, su .subt).
+   Un h3/p con margen va con [data-m] delante: `[data-m] :is(h1,h2,h3,p)` le gana a una clase sola. */
+
+/* La lista sola (sin las dos divisiones), pegada debajo del título grande. */
+.m-auto-lista { padding-top: 4px; }
+
+/* ── El sheet de una automatización ──────────────────────────────────────── */
+[data-m] .m-auto-subt {
+  margin: 22px 4px 10px;
+  font-size: var(--fs-md); font-weight: 600; line-height: 1.3; color: var(--ink);
+}
+[data-m] .m-auto-subt:first-child { margin-top: 0; }
+
+/* Una automatización sin tarjetas todavía. */
+[data-m] .m-auto-nada {
+  margin: 0 4px;
+  font-size: var(--fs-sm); line-height: 1.4; color: var(--dim);
+}
+
+/* Lo que no salió (publicar, descartar): el punto rojo y el texto en tinta (el rojo como texto no
+   pasa AA a este tamaño). */
+[data-m] .m-auto-error {
+  display: flex; gap: 8px; align-items: baseline; margin: 0 4px 12px;
+  font-size: var(--fs-sm); line-height: 1.4; color: var(--ink); text-align: left;
+}
+[data-m] .m-auto-error::before {
+  content: ''; flex: none; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--bad); transform: translateY(-1px);
+}
+
+/* Mientras se lee (loading.tsx): la forma de la lista. */
+.m-auto-skel { padding-top: 4px; }

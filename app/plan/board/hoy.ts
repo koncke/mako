@@ -40,8 +40,12 @@ export type ItemPlan = {
    *  de la base, y un id en pantalla es jerga. */
   num?: number;
   titulo: string;
-  /** El primer proyecto de la tarea que existe en el tablero, o null (sin proyecto). */
-  proyecto: { nombre: string; emoji: string } | null;
+  /**
+   * El primer proyecto de la tarea que existe en el tablero, o null (sin proyecto). `color` es el
+   * del proyecto en el tablero (el punto de la fila en el teléfono: app/m/plan/formato.ts →
+   * colorProyecto, que sólo acepta un hex).
+   */
+  proyecto: { nombre: string; emoji: string; color: string } | null;
   /** `YYYY-MM-DD` o null. */
   deadline: string | null;
   cuando: Cuando;
@@ -142,7 +146,7 @@ export function hoyDelTablero(e: EntradaHoy): HoyDelTablero {
       id: t.id,
       ...(conNum && Number.isFinite(t.num) && t.num > 0 ? { num: t.num } : {}),
       titulo: t.title,
-      proyecto: p ? { nombre: p.name, emoji: p.emoji } : null,
+      proyecto: p ? { nombre: p.name, emoji: p.emoji, color: p.color } : null,
       deadline: dl,
       cuando: cuandoDe(t, hoy),
       banda: prioFromScore(t.score),

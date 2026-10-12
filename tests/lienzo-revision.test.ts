@@ -214,7 +214,10 @@ test('costuras-11: el lienzo pide las archivadas y las nombra «(archivada)», s
   assert.equal(nodo(g, 'c').puertos![0].rotulo, 'Tiene «Cualificado (archivada)»');
   // Sexta tanda (varios CRON): lo que dice cada CRON lo arma `useTextoDisparador` (EditorDisparadores).
   // Verificado con `nombreEtiqueta: null` ahí (09/10/2026, cuatro archivos, base 71 / 0): 70 / 1.
-  assert.match(leer('../app/automations/EditorDisparadores.tsx'), /nombreEtiqueta: nombreEtiqueta\(p\.etiquetas, d\.etiqueta_id \?\? null\),/);
+  // Desde el 11/10/2026 el hook llama a `deSiempreDisparador` (lib/disparadores.ts), la misma regla que
+  // usa el teléfono: el guard mira ahí, y que el hook la llame.
+  assert.match(leer('../lib/disparadores.ts'), /nombreEtiqueta: nombreEtiqueta\(n\.etiquetas, d\.etiqueta_id \?\? null\),/);
+  assert.match(leer('../app/automations/EditorDisparadores.tsx'), /deSiempreDisparador\(d, nombres, todas\)/);
   // (Con la tercera tanda el objeto suma `catalogo` y va en varios renglones: el `\s*` lo tolera.)
   assert.match(LIENZO_FLUJO, /const nombres: NombresParaTexto = \{\s*etiqueta: \(id\) => nombreEtiqueta\(etiquetas, id\)/);
 });

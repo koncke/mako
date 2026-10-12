@@ -395,6 +395,10 @@
   --touch: 44px;
   --card-pad: 18px;
   --sect-gap: 16px;
+  /* Sólo de /m (v2): el TÍTULO GRANDE nativo de cada pantalla. 26 px (--fs-page) se lee
+     «página web»; iOS usa 34. 32 entra «Customer Success» en una línea a 390 px. No va en
+     el @media de arriba: el escritorio no tiene título grande (tests/movil-shell lo sabe). */
+  --m-titulo: 32px;
 }
 
 @theme inline {

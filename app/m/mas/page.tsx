@@ -1,0 +1,77 @@
+// =============================================================================
+// /m/mas — More: la lista agrupada estilo Ajustes (docs/diseno-mako-mobile-v2.md, «La barra inferior»)
+// =============================================================================
+//   1. Tu cuenta (avatar, nombre, negocio) → /m/cuenta
+//   2. Dashboard · Ads Manager · Customer Success · Automations
+//   3. Video Generator · Landing Generator
+//   4. MaKo (el chat), con el logo real como ícono
+//   5. Versión de computadora
+//
+// Lo que el rol no ve, NO aparece (`gruposMas` → `puedeVerKey`, la misma regla del Sidebar
+// y del guard de cada sección). Lo que subió a la barra (porque el rol no ve CRM o Plan) no
+// se repite aquí. More lo ve cualquiera con sesión: `requireMovil()` sin navKey.
+// =============================================================================
+
+import './mas.css';
+import { requireMovil } from '@/lib/movil-guard';
+import { getWorkspace } from '@/lib/workspace';
+import { gruposMas } from '@/lib/movil-rutas';
+import { MakoLogo } from '@/app/_components/MakoBrand';
+import { FilaM } from '../_ui/FilaM';
+import { AvatarM, ListaM } from '../_ui/Piezas';
+import { RUTA_CUENTA } from '../_ui/cabecera';
+import { contarBadges } from '../badges';
+import { FilaVersionComputadora } from './VersionComputadora';
+
+export const dynamic = 'force-dynamic';
+
+export default async function MasPagina() {
+  const ctx = await requireMovil();
+  const grupos = gruposMas(ctx.rol, ctx.capa);
+  const [negocio, badges] = await Promise.all([
+    ctx.impersonando
+      ? Promise.resolve(ctx.clienteNombre)
+      : ctx.ws != null
+        ? getWorkspace(ctx.ws).then((w) => w?.nombre?.trim() || null).catch(() => null)
+        : Promise.resolve(null),
+    contarBadges({ rol: ctx.rol, capa: ctx.capa, ws: ctx.ws }, grupos.flat().map((s) => s.id)),
+  ]);
+  const nombre = (ctx.sesion.nombre ?? '').trim();
+
+  return (
+    <>
+      <ListaM>
+        <FilaM
+          leading={<AvatarM nombre={nombre} email={ctx.sesion.email} tam="lg" />}
+          titulo={nombre || ctx.sesion.email}
+          segunda={negocio ?? undefined}
+          href={RUTA_CUENTA}
+        />
+      </ListaM>
+
+      {grupos.map((g) => (
+        <ListaM key={g[0].id}>
+          {g.map((s) => (
+            <FilaM
+              key={s.id}
+              navegacion
+              // MaKo lleva el logo REAL (MakoLogo), no el ícono del set; es el único lugar
+              // además de Today donde aparece.
+              leading={s.id === 'mako' ? <span className="m-mas-logo" aria-hidden><MakoLogo size={32} animate={false} /></span> : undefined}
+              icono={s.id === 'mako' ? undefined : s.icon}
+              titulo={s.label}
+              riel={badges[s.id] ? <span className="m-num">{badges[s.id]}</span> : undefined}
+              href={s.href}
+            />
+          ))}
+        </ListaM>
+      ))}
+
+      <div className="m-mas-compu">
+        <ListaM>
+          <FilaVersionComputadora />
+        </ListaM>
+      </div>
+    </>
+  );
+}

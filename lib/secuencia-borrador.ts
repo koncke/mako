@@ -36,6 +36,15 @@
 // que la firma de lo que el lienzo mandó a publicar no es la de lo que quedó guardado. Después de
 // publicar, la pestaña toma la base nueva de la respuesta de `descartar-borrador`.
 //
+// ⚠️ PUBLICAR Y DESCARTAR DESDE UNA FOTO TAMBIÉN PIDEN LO QUE VIERON (MaKo Mobile, 12/10/2026). El teléfono
+// (/m/automations) no edita: publica o descarta el borrador TAL COMO LO LEYÓ, y la pantalla puede llevar
+// horas abierta. Sin precondición, «Publicar» mandaba el borrador v1 encima de un v2 que la computadora
+// ya había publicado (y empezaba a salir a los leads), y el descarte de después borraba el v2 guardado sin
+// rastro. Ahora el que escribe desde una foto manda `visto` = { base, guardado_at } (la huella de lo
+// publicado y CUÁL borrador había) y el server no escribe nada si ya no es así: `comprobarVisto`, 409
+// `desactualizado` en las dos rutas. Es OPCIONAL: el lienzo de escritorio publica lo que tiene en memoria
+// (lo suyo, editado en esa pestaña) y no lo manda.
+//
 // SIN `server-only`: recibe la base por parámetro (como lib/secuencia-posiciones.ts), para que el
 // test pruebe la columna que falta con una base falsa.
 
@@ -119,7 +128,7 @@ export type DbBorrador = {
   from(tabla: 'nutricion_secuencias'): {
     select(cols: string): {
       is(col: string, v: null): Resp<Array<{ id: number; pasos: unknown; pasos_borrador: unknown }>>;
-      eq(col: string, v: number): { maybeSingle(): Resp<{ id: number; pasos: unknown }> };
+      eq(col: string, v: number): { maybeSingle(): Resp<{ id: number; pasos: unknown; pasos_borrador?: unknown }> };
     };
     update(fila: Record<string, unknown>): { eq(col: string, v: number): { select(cols: string): Resp<Array<{ id: number; pasos?: unknown }>> } };
   };
@@ -188,6 +197,48 @@ export async function guardarBorradorSecuencia(db: DbBorrador, secuenciaId: numb
 }
 
 /**
+ * LO QUE UNA PANTALLA VIO (ver la cabecera): la huella de lo publicado (`base`, la de `getSettingData`) y
+ * CUÁL borrador había (`guardado_at` de la columna; null = ninguno). `base` puede faltar SÓLO donde lo
+ * publicado cambió a propósito: el descarte que sigue a un Publicar, que ya movió la base.
+ */
+export type VistoBorrador = { base?: string; guardado_at: string | null };
+
+/** Lo que llega por HTTP como `visto`, o null si no tiene la forma (y entonces no se escribe: no se sabe qué vio). */
+export function leerVisto(x: unknown): VistoBorrador | null {
+  if (!x || typeof x !== 'object' || Array.isArray(x)) return null;
+  const o = x as Record<string, unknown>;
+  if (!('guardado_at' in o) || (o.guardado_at !== null && typeof o.guardado_at !== 'string')) return null;
+  if (o.base !== undefined && typeof o.base !== 'string') return null;
+  return { guardado_at: o.guardado_at as string | null, ...(typeof o.base === 'string' ? { base: o.base } : {}) };
+}
+
+/**
+ * ¿La fila sigue siendo la que se vio? Lo publicado con la misma huella y el MISMO borrador en la columna
+ * (por su `guardado_at`, crudo: cualquier guardado de otra pestaña lo cambia, y un descarte lo deja null).
+ */
+export function sigueComoSeVio(fila: { pasos: unknown; pasos_borrador: unknown }, visto: VistoBorrador): boolean {
+  if (visto.base !== undefined && firmaPublicado(fila.pasos) !== visto.base) return false;
+  return (leerBorrador(fila.pasos_borrador)?.guardado_at ?? null) === visto.guardado_at;
+}
+
+/**
+ * La precondición de quien escribe desde una foto (Publicar y Descartar del teléfono): lee la fila y dice
+ * si sigue como se vio. `visto` sin la forma es `desactualizado` (no se escribe a ciegas). Lee y después
+ * escribe, como `guardarBorradorSecuencia`: lo que queda abierto son los milisegundos entre las dos.
+ */
+export async function comprobarVisto(db: DbBorrador, secuenciaId: number, visto: unknown): Promise<{ ok: true } | { ok: false; motivo: 'desactualizado' | 'no_existe' | 'sin_columna' }> {
+  const v = leerVisto(visto);
+  if (!v) return { ok: false, motivo: 'desactualizado' };
+  const { data, error } = await db.from('nutricion_secuencias').select('id, pasos, pasos_borrador').eq('id', secuenciaId).maybeSingle();
+  if (error) {
+    if (esColumnaInexistente(error)) return { ok: false, motivo: 'sin_columna' };
+    throw new Error(`comprobarVisto: ${error.message ?? error.code}`);
+  }
+  if (!data) return { ok: false, motivo: 'no_existe' };
+  return sigueComoSeVio({ pasos: data.pasos, pasos_borrador: data.pasos_borrador ?? null }, v) ? { ok: true } : { ok: false, motivo: 'desactualizado' };
+}
+
+/**
  * Descarta el borrador (al publicar, «Volver a lo publicado», «Descartar cambios»). Sin la columna, no hay
  * nada que descartar.
  *
@@ -195,8 +246,15 @@ export async function guardarBorradorSecuencia(db: DbBorrador, secuenciaId: numb
  * toma DESPUÉS DE PUBLICAR para seguir guardando borradores encima de lo suyo (ver la cabecera: el
  * navegador no puede calcularla). Las otras dos no la toman: no publicaron nada, y adoptarla dejaría a
  * una pestaña con lo publicado viejo guardando sobre lo nuevo.
+ *
+ * Con `visto` (el teléfono), descarta SÓLO si la fila sigue como se vio (`comprobarVisto`): si no, no borra
+ * nada y vuelve `desactualizado`. Sin `visto` (el lienzo de escritorio), como siempre.
  */
-export async function descartarBorradorSecuencia(db: DbBorrador, secuenciaId: number): Promise<{ ok: true; base: string } | { ok: false; motivo: 'sin_columna' | 'no_existe' }> {
+export async function descartarBorradorSecuencia(db: DbBorrador, secuenciaId: number, visto?: unknown): Promise<{ ok: true; base: string } | { ok: false; motivo: 'sin_columna' | 'no_existe' | 'desactualizado' }> {
+  if (visto !== undefined) {
+    const c = await comprobarVisto(db, secuenciaId, visto);
+    if (!c.ok) return c;
+  }
   const { data, error } = await db.from('nutricion_secuencias').update({ pasos_borrador: null }).eq('id', secuenciaId).select('id, pasos');
   if (error) {
     if (esColumnaInexistente(error)) return { ok: false, motivo: 'sin_columna' };

@@ -1,11 +1,12 @@
 // =============================================================================
-// /m/crm/[id]/chat — el hilo de WhatsApp del lead, por la línea del negocio
+// /m/crm/[id]/chat — el WhatsApp del lead, por la línea del negocio (v2)
 // =============================================================================
-// Los últimos 40 mensajes del espejo (wa_mensajes) para ESE chat y ESA línea, y un
-// composer de texto que contesta por la misma línea. Sin audio en esta tanda. Si el
-// lead nunca escribió por la línea no oficial, se ofrece wa.me como segunda opción
-// —y se dice: abre el WhatsApp del TELÉFONO, no la línea del negocio, y esa charla
-// no queda en MaKo—.
+// Pantalla de TRABAJO (sin título grande, el nombre en la barra y sin la barra de abajo): se
+// llega desde «WhatsApp» en la ficha. Los últimos 40 mensajes del espejo (wa_mensajes) para
+// ESE chat y ESA línea, en burbujas claras como el prototipo (las suyas en --surface, las
+// propias en --primary-bg), y un composer de texto que contesta por la misma línea. Sin audio
+// en esta tanda. Si el lead nunca escribió por la línea no oficial, se ofrece wa.me —y se
+// dice: abre el WhatsApp del TELÉFONO, no la línea del negocio, y esa charla no queda en MaKo—.
 // =============================================================================
 
 import '../../crm.css';
@@ -24,17 +25,17 @@ const hora = (iso: string, tz: string) =>
 function Mensajes({ h }: { h: HiloM }) {
   let ultimoDia = '';
   return (
-    <div className="mc-hilo" aria-live="polite">
+    <div className="m-crm-hilo" aria-live="polite">
       {h.mensajes.map((m) => {
         const d = m.cuando ? dia(m.cuando, h.tz) : '';
         const corte = d && d !== ultimoDia;
         if (d) ultimoDia = d;
         return (
           <div key={m.id} style={{ display: 'contents' }}>
-            {corte && <span className="mc-dia">{d}</span>}
-            <div className={`mc-burbuja ${m.deMi ? 'mc-burbuja--yo' : 'mc-burbuja--ella'}${m.sinTexto ? ' mc-burbuja--sin' : ''}`}>
+            {corte && <span className="m-crm-hilo__dia">{d}</span>}
+            <div className={`m-crm-burbuja ${m.deMi ? 'm-crm-burbuja--mia' : 'm-crm-burbuja--suya'}${m.sinTexto ? ' m-crm-burbuja--sin' : ''}`}>
               {m.texto}
-              {m.cuando && <span className="mc-burbuja__hora">{hora(m.cuando, h.tz)}</span>}
+              {m.cuando && <span className="m-crm-burbuja__hora">{hora(m.cuando, h.tz)}</span>}
             </div>
           </div>
         );
@@ -60,7 +61,7 @@ export default async function ChatLeadMovil({ params }: { params: Promise<{ id: 
 
   return (
     <>
-      <CabeceraM titulo={h.nombre} padre={{ href: `/m/crm/${h.leadId}`, label: 'Ficha' }} />
+      <CabeceraM titulo={h.nombre} trabajo padre={{ href: `/m/crm/${h.leadId}`, label: 'Ficha' }} />
       {h.chat ? (
         <>
           {h.mensajes.length ? <Mensajes h={h} /> : <VacioM frase="Todavía no hay mensajes en este chat." />}
@@ -68,7 +69,7 @@ export default async function ChatLeadMovil({ params }: { params: Promise<{ id: 
         </>
       ) : (
         <VacioM
-          frase={h.waMe ? 'No escribió a la línea del negocio. WhatsApp de tu teléfono no queda en MaKo.' : 'El lead no tiene un número de WhatsApp.'}
+          frase={h.waMe ? 'No escribió a la línea del negocio. El WhatsApp de tu teléfono no queda en MaKo.' : 'El lead no tiene un número de WhatsApp.'}
           accion={h.waMe ? { rotulo: 'Abrir WhatsApp de mi teléfono', href: h.waMe } : undefined}
         />
       )}

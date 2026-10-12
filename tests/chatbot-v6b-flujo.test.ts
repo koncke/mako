@@ -373,8 +373,10 @@ test('el lienzo guarda el borrador SÓLO si lo leyó, lo abre si hay, y lo desca
   assert.match(sp, /useBorradorSecuencia\(secuencia\.id, \{\s*puedeGuardar: rolAdmin && secuencia\.borrador !== undefined,/);
   assert.match(sp, /useEffect\(\(\) => \{ borrador\.cambio\(pasos\); \}, \[pasos\]\);/);
   // Undécima tanda (w4-flujos-prod): un borrador de antes abre con UN AI Step por medio (`juntarPasosIA`; el alias
-  // `separarPasosIA` se borró).
-  assert.match(sp, /secuencia\.borrador\?\.pasos\?\.length \? renumerar\(normalizar\(juntarPasosIA\(normalizar\(secuencia\.borrador\.pasos\)\)\.pasos\)\) : null/);
+  // `separarPasosIA` se borró). Desde el 11/10/2026 la cadena vive en `borradorAlAbrir` (lib/flujo-conversacion.ts),
+  // la MISMA que usa el teléfono (app/m/automations): el lienzo la llama.
+  assert.match(sp, /secuencia\.borrador\?\.pasos\?\.length \? borradorAlAbrir\(secuencia\.borrador\.pasos\) : null/);
+  assert.match(codigo('lib/flujo-conversacion.ts'), /export function borradorAlAbrir<P extends PasoGrafo>\(pasos: readonly P\[\]\): P\[\] \{\s*return renumerar\(normalizar\(juntarPasosIA\(normalizar\(pasos\)\)\.pasos\)\);/);
   assert.doesNotMatch(sp, /separarPasosIA/, 'volvió el alias borrado');
   // Publicar: la compuerta ANTES del PATCH, abierta en las dos salidas que fallan, y la base nueva después.
   const publicar = tramo(sp, 'const publicar = async () => {', 'if (convertida && limpiar)');

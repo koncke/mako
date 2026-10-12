@@ -7673,7 +7673,8 @@ caso que prueba algo.**
 # MaKo Mobile (/m): lo que gobierna una pantalla nueva del teléfono
 
 La app del teléfono vive en `app/m/` y se monta DENTRO del layout raíz (no hay route groups). Las decisiones
-están en [docs/diseno-mako-mobile.md](docs/diseno-mako-mobile.md); lo que costó, en
+técnicas están en [docs/diseno-mako-mobile.md](docs/diseno-mako-mobile.md), lo visual (v2) en
+[docs/diseno-mako-mobile-v2.md](docs/diseno-mako-mobile-v2.md) con su prototipo, y lo que costó en
 [docs/hallazgos-mobile.md](docs/hallazgos-mobile.md).
 
 - **«¿Es móvil?» se pregunta con `esRutaMovil` (`lib/movil-rutas.ts`), nunca con `startsWith('/m')`**: eso
@@ -7684,7 +7685,26 @@ están en [docs/diseno-mako-mobile.md](docs/diseno-mako-mobile.md); lo que cost�
   nuevo declara la key de `nav.ts` que refleja; no hay segunda tabla de permisos.
 - **Un link de escritorio que va al teléfono pasa por `rutaMovil`/`rutaMovilOHome`**, y uno que SALE (un push) por
   `linkApp` — salvo al workspace de plataforma, que va sin `?ws=` (para un admin global es impersonación).
-- **Primitivas de `app/m/_ui`** (FilaM, SheetM, PantallaM, useToastM…), nunca `Pagina`, `Modal`, `Tooltip` ni
-  `.mk-btn--sm` (son de escritorio). Sólo `var(--token)`; el header es oscuro siempre (`black-translucent`).
-- **MaKo Mobile se prende con UN interruptor, `MOVIL_ACTIVO` (lib/movil-desvio.ts)**: el reparto de /inicio y el desvío de las pantallas de escritorio en un teléfono (<DesvioMovil>). Salió apagado
-  porque ninguna pantalla se pudo renderizar antes del deploy.
+- **Primitivas de `app/m/_ui`** (el contrato en `app/m/_ui/LEEME.md`: ListaM, FilaM, FilaDatoM, SeccionM, SheetM,
+  PieM, PieFijoM, SegmentadoM, InterruptorM, CasillaM, PildoraM, ComputadoraM, TarjetaDecision, useToastM…), nunca
+  `Pagina`, `Modal`, `Tooltip` ni `.mk-btn--sm` (son de escritorio). Si dos pantallas dibujan la misma pieza, es una
+  primitiva (la casilla de Today y de Plan eran dos). Sólo `var(--token)`. **Claro por defecto**: el header va en `--bg`
+  con `statusBarStyle: 'default'`; el oscuro, sólo si la persona lo elige. El título grande lo pone el shell (el nombre
+  de la sección): ni títulos-frase, ni «Actualizado», ni nada flotando al lado.
+- **Una sección de More se agrega en UN lugar, `SECCIONES_MAS` (lib/movil-rutas.ts)**, con la key de nav.ts que la
+  gatea; de ahí salen More, la barra del rol (si le falta un destino, sube la primera de More), la cabecera, el
+  título de la pestaña (lib/titulo-tab.ts) y el desvío. Su `page.tsx` llama a `requireMovil({ navKey })` con esa
+  misma key, y su `loading.tsx`, si lo tiene, va en `LOADING_PERMITIDOS` (tests/layout-sin-suspense.test.ts).
+- **Lo que una pantalla de /m reusa de escritorio no puede vivir en un módulo `'use client'`**: el server no lo puede
+  llamar y el cliente se lleva la pantalla entera al bundle. Se muda a lib o a un módulo puro y escritorio lo
+  re-exporta (`tomas-estado.ts`, `deSiempreDisparador`, `borradorAlAbrir`); nunca una copia en /m.
+- **Las clases CSS de una pantalla llevan el nombre ENTERO de su carpeta** (`.m-crm-*`, `.m-cuenta-*`): Next deja la
+  hoja cargada al salir de la ruta, y dos prefijos abreviados iguales se pisan entre pantallas.
+- **Desde /m, una pantalla de escritorio se abre escribiendo la cookie de vista de escritorio y navegando con
+  `conWs`** (como «Versión de computadora»): un link pelado lo devuelve el desvío a /m.
+- **MaKo Mobile se prende con UN interruptor, `MOVIL_ACTIVO` (lib/movil-desvio.ts)**: el reparto de /inicio y el
+  desvío de las pantallas de escritorio en un teléfono (<DesvioMovil>). Está PRENDIDO desde el 11/10/2026 (Martín:
+  «a cualquiera que entre desde mobile le debe salir este diseño»). Con él prendido, **cada ruta que se suma a
+  `rutaMovil` se mira contra los redirects de `requireMovil`** (el admin sin cliente armaba un bucle
+  /customer-success → /m/cs → /inicio), **lo público no se tapa nunca** (`esPublica`), y la página de una sección
+  mapeada sale en el MISMO deploy que el mapa: los Web Push ya abren esa ruta.

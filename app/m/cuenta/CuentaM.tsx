@@ -3,42 +3,49 @@
 // =============================================================================
 // /m/cuenta — quién eres, los avisos de este teléfono, el tema y las salidas
 // =============================================================================
+// v2 (docs/prototipos/mako-mobile-v2.html, «Cuenta»): listas agrupadas estilo Ajustes, sin
+// frases de más. En orden: tu cuenta · (viendo a un cliente) · avisos de este teléfono ·
+// Apariencia (Claro | Oscuro) · Cerrar sesión. Se llega desde la primera fila de More, y vuelve
+// a More (cabecera.ts). «Versión de computadora» NO se repite acá: vive una sola vez, en More
+// (app/m/mas/VersionComputadora.tsx), como en el prototipo.
+//
 // ⚠️ EL PERMISO DE NOTIFICACIONES SE PIDE DENTRO DEL TOQUE, nunca al cargar:
-// `activarAvisos()` es la PRIMERA llamada del onClick (lib/push-cliente.ts pide el
+// `activarAvisos()` es la PRIMERA llamada del handler (lib/push-cliente.ts pide el
 // permiso antes de su primer await). iOS lo exige, y un permiso pedido al cargar es
-// un veto de la casa.
+// un veto de la casa. El interruptor llega acá sincrónico (InterruptorM → onCambio).
 //
 // ⚠️ TODO LO QUE DEPENDE DEL TELÉFONO SE LEE DESPUÉS DE MONTAR (`useEffect`): el
 // server no sabe si es un iPhone, si está instalada ni qué permiso hay. Pintarlo en
 // el primer render sería un desfase de hidratación — y peor, una fila que cambia de
-// opinión al segundo.
+// opinión al segundo. Mientras tanto el interruptor está quieto y apagado.
 //
 // ⚠️ «VIENDO A UN CLIENTE» ES LA ÚNICA SALIDA: en /m no hay banner de impersonación
 // (el cromo de escritorio está apagado) y la pill del header trae acá. Si esta
 // pantalla no la dibuja, no hay salida (AGENTS.md, «si la única salida vive adentro
 // de una pantalla condicional, no hay salida»).
+//
+// Las dos salidas (la de la vista y cerrar sesión) son las primitivas de app/m/_ui
+// (SalirDeLaVista, CerrarSesion): la lógica vive UNA vez ahí. Acá se dibujan como filas de
+// la lista con la CSS de esta carpeta (.m-cuenta-boton).
 // =============================================================================
 
 import { useEffect, useState, useSyncExternalStore } from 'react';
-import { Button, ButtonLink } from '@/app/_ui/Button';
-import { Switch } from '@/app/_ui/Toggle';
-import { useWs } from '@/app/_ui/Link';
 import { aplicarModo } from '@/app/_components/InterruptorModo';
 import { ATTR_MODO } from '@/lib/temas-candidatos';
-import { conWs } from '@/lib/ws-tab';
 import { haptico } from '@/lib/haptico';
-import { cookieVistaEscritorio } from '@/lib/movil-dispositivo';
 import { esIOS, estaInstalada, pedirInstalacion, puedeOfrecerInstalacion, suscribirInstalacion } from '@/lib/movil-instalar';
 import { activarAvisos, desactivarAvisos, estadoSuscripcion, probar, type EstadoAvisos } from '@/lib/push-cliente';
-import { PUSH_SOLO_ADMINS, PUSH_TIPOS, type NotifPush } from '@/lib/notif-catalogo';
-import { FilaM, SeccionM, SalirDeLaVista, CerrarSesion, useToastM, useConexion } from '../_ui';
-import { comoDesbloquear, ofertaInstalar, tiposParaRol, toastDePrueba, vistaAvisos } from './cuenta-ui';
+import { PUSH_SOLO_ADMINS, PUSH_TIPOS, type AvisoWaDef, type NotifPush } from '@/lib/notif-catalogo';
+import {
+  AvatarM, CerrarSesion, FilaM, InterruptorM, ListaM, SalirDeLaVista, SegmentadoM, SheetM, useConexion, useToastM,
+} from '../_ui';
+import {
+  comoDesbloquear, ofertaInstalar, resumenAvisos, segundaAvisos, tiposParaRol, toastDeActivar, toastDePrueba, vistaAvisos,
+} from './cuenta-ui';
 
 export type DatosCuenta = {
   nombre: string;
   email: string;
-  rol: string;
-  negocio: string | null;
   /** Viendo a un cliente (super admin o agencia): su nombre y por dónde se sale. */
   vista: { cliente: string; salida: string; modoAgencia: boolean } | null;
   push: NotifPush;
@@ -48,41 +55,35 @@ export type DatosCuenta = {
 };
 
 export function CuentaM({ datos }: { datos: DatosCuenta }) {
-  const ws = useWs();
-  const versionCompleta = () => {
-    document.cookie = cookieVistaEscritorio();
-    window.location.href = conWs('/inicio', ws);
-  };
-
   return (
-    <>
-      <SeccionM titulo="Tu cuenta">
-        <div className="m-lista">
-          <FilaM
-            titulo={datos.nombre || datos.email}
-            // El email va en la segunda línea, entero: en el riel se cortaba a «martinkoncke@gm…».
-            segunda={[datos.nombre ? datos.email : null, [datos.rol, datos.negocio].filter(Boolean).join(' en ')].filter(Boolean).join(' · ')}
-          />
-        </div>
-        {datos.vista && (
-          <div className="mc-vista">
-            <p className="mc-frase">Estás viendo la cuenta de {datos.vista.cliente}.</p>
-            <SalirDeLaVista salida={datos.vista.salida} modoAgencia={datos.vista.modoAgencia} variante="secondary" rotulo={`Salir de ${datos.vista.cliente}`} />
+    <div className="m-cuenta">
+      <ListaM>
+        <FilaM
+          leading={<AvatarM nombre={datos.nombre} email={datos.email} />}
+          titulo={datos.nombre || datos.email}
+          segunda={datos.nombre ? datos.email : undefined}
+        />
+      </ListaM>
+
+      {datos.vista && (
+        <ListaM>
+          <FilaM navegacion titulo={`Viendo a ${datos.vista.cliente}`} />
+          <div className="m-cuenta-boton m-cuenta-boton--azul">
+            <SalirDeLaVista salida={datos.vista.salida} modoAgencia={datos.vista.modoAgencia}
+              variante="tertiary" rotulo={`Salir de ${datos.vista.cliente}`} />
           </div>
-        )}
-      </SeccionM>
+        </ListaM>
+      )}
 
       <AvisosTelefono push={datos.push} guardable={datos.guardable} esAdmin={datos.esAdmin} />
 
-      <SeccionM titulo="Apariencia">
-        <ModoOscuro />
-      </SeccionM>
+      <h2 className="m-cuenta-subt">Apariencia</h2>
+      <Apariencia />
 
-      <div className="mc-salidas">
-        <Button variant="secondary" size="md" full onClick={versionCompleta}>Abrir la versión completa</Button>
-        <CerrarSesion />
-      </div>
-    </>
+      <ListaM>
+        <div className="m-cuenta-boton"><CerrarSesion variante="tertiary" /></div>
+      </ListaM>
+    </div>
   );
 }
 
@@ -96,7 +97,8 @@ function AvisosTelefono({ push, guardable, esAdmin }: { push: NotifPush; guardab
   const [estado, setEstado] = useState<EstadoAvisos | null>(null);
   const [plat, setPlat] = useState<Plataforma | null>(null);
   const [ocupado, setOcupado] = useState<'activar' | 'probar' | 'apagar' | 'instalar' | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [prefs, setPrefs] = useState<NotifPush>(push);
+  const [hojaTipos, setHojaTipos] = useState(false);
   const puedePedir = useSyncExternalStore(suscribirInstalacion, puedeOfrecerInstalacion, () => false);
 
   useEffect(() => {
@@ -106,12 +108,12 @@ function AvisosTelefono({ push, guardable, esAdmin }: { push: NotifPush; guardab
 
   const vista = vistaAvisos(estado);
   const instalar = plat ? ofertaInstalar({ ...plat, puedePedir }) : null;
+  const tipos = tiposParaRol(PUSH_TIPOS, PUSH_SOLO_ADMINS, esAdmin);
 
   // ⚠️ Primera línea del handler: el permiso se pide DENTRO del gesto.
   const activar = () => {
     const pedido = activarAvisos();
     setOcupado('activar');
-    setError(null);
     pedido.then((r) => {
       if (r.ok) { haptico('success'); toast('Avisos activados'); setEstado('activo'); return; }
       if (r.estado === 'bloqueado' || r.estado === 'instalar-primero' || r.estado === 'no-soportado' || r.estado === 'apagado') {
@@ -119,16 +121,9 @@ function AvisosTelefono({ push, guardable, esAdmin }: { push: NotifPush; guardab
         return;
       }
       haptico('error');
-      setError(r.estado === 'sin-claves' ? 'Los avisos no están disponibles todavía.'
-        : r.estado === 'sin-cuenta' ? 'Esta sesión no tiene cuenta propia.'
-        : 'No se pudo activar. Reintenta en un momento.');
-    }).catch(() => setError('No se pudo activar. Reintenta en un momento.'))
+      toast(toastDeActivar(r.estado));
+    }).catch(() => toast('No se pudo activar'))
       .finally(() => setOcupado(null));
-  };
-
-  const probarAviso = async () => {
-    setOcupado('probar');
-    try { toast(toastDePrueba(await probar())); } finally { setOcupado(null); }
   };
 
   const apagar = async () => {
@@ -139,6 +134,11 @@ function AvisosTelefono({ push, guardable, esAdmin }: { push: NotifPush; guardab
     } finally { setOcupado(null); }
   };
 
+  const probarAviso = async () => {
+    setOcupado('probar');
+    try { toast(toastDePrueba(await probar())); } finally { setOcupado(null); }
+  };
+
   const instalarAndroid = async () => {
     setOcupado('instalar');
     try {
@@ -147,70 +147,7 @@ function AvisosTelefono({ push, guardable, esAdmin }: { push: NotifPush; guardab
     } finally { setOcupado(null); }
   };
 
-  return (
-    <SeccionM titulo="Avisos en este teléfono">
-      {instalar === 'pasos-ios' && (
-        <div className="mc-bloque">
-          <p className="mc-frase">En iPhone, los avisos llegan con MaKo en tu pantalla de inicio.</p>
-          <ButtonLink href="/m/cuenta/instalar" variant="primary" size="lg" full>Instalar MaKo</ButtonLink>
-        </div>
-      )}
-      {instalar === 'boton' && (
-        <div className="mc-bloque">
-          <Button variant={vista === 'activo' ? 'secondary' : 'primary'} size="md" full
-            loading={ocupado === 'instalar'} onClick={instalarAndroid}>
-            Instalar MaKo
-          </Button>
-        </div>
-      )}
-
-      {vista === 'cargando' && <p className="mc-frase mc-dim" aria-busy="true">Revisando este teléfono…</p>}
-
-      {vista === 'no-soportado' && instalar == null && (
-        <p className="mc-frase">Este navegador no recibe avisos.</p>
-      )}
-
-      {vista === 'bloqueado' && (
-        <div className="mc-bloque">
-          <p className="mc-frase">Los avisos están bloqueados en este teléfono.</p>
-          <p className="mc-frase mc-dim">{comoDesbloquear(!!plat?.ios, !!plat?.instalada)}</p>
-        </div>
-      )}
-
-      {vista === 'activar' && (
-        <div className="mc-bloque">
-          <p className="mc-frase">Te aviso cuando algo espera tu decisión.</p>
-          {error && <p className="mc-error" role="alert">{error}</p>}
-          <Button variant="primary" size="lg" full loading={ocupado === 'activar'} disabled={!enLinea} onClick={activar}>
-            Activar avisos
-          </Button>
-          {!enLinea && <p className="mc-frase mc-dim">Sin conexión.</p>}
-        </div>
-      )}
-
-      {vista === 'activo' && (
-        <>
-          <Preferencias inicial={push} guardable={guardable} esAdmin={esAdmin} />
-          <div className="mc-bloque">
-            <Button variant="secondary" size="md" full loading={ocupado === 'probar'} disabled={!enLinea || ocupado != null} onClick={probarAviso}>
-              Probar aviso
-            </Button>
-            <Button variant="tertiary" size="md" full loading={ocupado === 'apagar'} disabled={ocupado != null} onClick={apagar}>
-              Apagar avisos en este teléfono
-            </Button>
-          </div>
-        </>
-      )}
-    </SeccionM>
-  );
-}
-
-/** Qué avisos le llegan a ESTA persona (en todos sus teléfonos): /api/perfil/notif-push. */
-function Preferencias({ inicial, guardable, esAdmin }: { inicial: NotifPush; guardable: boolean; esAdmin: boolean }) {
-  const toast = useToastM();
-  const [prefs, setPrefs] = useState<NotifPush>(inicial);
-  const tipos = tiposParaRol(PUSH_TIPOS, PUSH_SOLO_ADMINS, esAdmin);
-
+  /** Qué avisos le llegan a ESTA persona (en todos sus teléfonos): /api/perfil/notif-push. */
   const guardar = async (nuevo: NotifPush) => {
     const antes = prefs;
     setPrefs(nuevo);
@@ -227,27 +164,80 @@ function Preferencias({ inicial, guardable, esAdmin }: { inicial: NotifPush; gua
     }
   };
 
-  if (!guardable) return <p className="mc-frase mc-dim">Esta sesión no guarda preferencias.</p>;
+  // El interruptor: prendido si este teléfono está suscripto (o se está activando). Quieto
+  // mientras se revisa el teléfono y cuando sólo se destraba afuera (instalar, ajustes).
+  const prendido = vista === 'activo' || ocupado === 'activar';
+  const quieto = ocupado != null
+    || vista === 'cargando' || vista === 'instalar-ios' || vista === 'no-soportado' || vista === 'bloqueado'
+    || (vista === 'activar' && !enLinea);
+  const spinner = (cual: typeof ocupado) => (ocupado === cual ? <span className="mk-spin" aria-hidden /> : undefined);
 
   return (
-    <div className="mc-prefs">
-      <Switch
-        checked={prefs.activo}
-        onChange={(v) => guardar({ ...prefs, activo: v })}
-        label="Recibir avisos"
-      />
+    <>
+      <ListaM>
+        <FilaM
+          navegacion
+          titulo="Avisos en este teléfono"
+          segunda={segundaAvisos(vista) ?? undefined}
+          control={(
+            <InterruptorM
+              etiqueta="Avisos en este teléfono"
+              activo={prendido}
+              deshabilitado={quieto}
+              onCambio={(v) => { if (v) activar(); else void apagar(); }}
+            />
+          )}
+        />
+        {instalar === 'pasos-ios' && (
+          <FilaM navegacion titulo="Instalar MaKo" href="/m/cuenta/instalar" />
+        )}
+        {instalar === 'boton' && (
+          <FilaM navegacion titulo="Instalar MaKo" chevron={false} riel={spinner('instalar')}
+            deshabilitada={ocupado != null} onClick={() => void instalarAndroid()} />
+        )}
+        {vista === 'activo' && (guardable ? (
+          <FilaM navegacion titulo="Qué te avisa" riel={resumenAvisos(prefs, tipos)} onClick={() => setHojaTipos(true)} />
+        ) : (
+          <FilaM navegacion titulo="Qué te avisa" riel="No disponible" />
+        ))}
+        {vista === 'activo' && (
+          <FilaM navegacion titulo="Probar aviso" chevron={false} riel={spinner('probar')}
+            deshabilitada={!enLinea || ocupado != null} onClick={() => void probarAviso()} />
+        )}
+      </ListaM>
+      {vista === 'bloqueado' && <p className="m-cuenta-nota">{comoDesbloquear(!!plat?.ios, !!plat?.instalada)}</p>}
+
+      {guardable && (
+        <SheetM abierto={hojaTipos} onCerrar={() => setHojaTipos(false)} titulo="Qué te avisa" id="avisos" snap="alto">
+          <TiposDeAviso prefs={prefs} tipos={tipos} onGuardar={(p) => void guardar(p)} />
+        </SheetM>
+      )}
+    </>
+  );
+}
+
+/** El maestro (de la PERSONA, en todos sus teléfonos) y, debajo, cada tipo por separado. */
+function TiposDeAviso({ prefs, tipos, onGuardar }: {
+  prefs: NotifPush;
+  tipos: readonly AvisoWaDef[];
+  onGuardar: (p: NotifPush) => void;
+}) {
+  return (
+    <div className="m-cuenta-tipos">
+      <ListaM>
+        <FilaM navegacion titulo="Recibir avisos"
+          control={<InterruptorM etiqueta="Recibir avisos" activo={prefs.activo} onCambio={(v) => onGuardar({ ...prefs, activo: v })} />} />
+      </ListaM>
       {prefs.activo && (
-        <ul className="mc-tipos">
+        <ListaM etiqueta="Tipos de aviso">
           {tipos.map((t) => (
-            <li key={t.id}>
-              <Switch
-                checked={prefs.items[t.id] !== false}
-                onChange={(v) => guardar({ ...prefs, items: { ...prefs.items, [t.id]: v } })}
-                label={t.titulo}
-              />
-            </li>
+            <FilaM key={t.id} navegacion titulo={t.titulo}
+              control={(
+                <InterruptorM etiqueta={t.titulo} activo={prefs.items[t.id] !== false}
+                  onCambio={(v) => onGuardar({ ...prefs, items: { ...prefs.items, [t.id]: v } })} />
+              )} />
           ))}
-        </ul>
+        </ListaM>
       )}
     </div>
   );
@@ -256,11 +246,11 @@ function Preferencias({ inicial, guardable, esAdmin }: { inicial: NotifPush; gua
 // ── Claro / oscuro ───────────────────────────────────────────────────────────
 
 /**
- * La MISMA preferencia que el escritorio (`aplicarModo`, la que usa InterruptorModo):
- * se recuerda en el navegador y vale para las dos vistas. El botón de escritorio no se
- * monta tal cual porque está pintado para el fondo oscuro de la barra lateral.
+ * La MISMA preferencia que el escritorio (`aplicarModo`, la que usa InterruptorModo): se
+ * recuerda en el navegador y el shell de /m la sigue (claro por defecto; oscuro sólo si se
+ * eligió). El botón de escritorio no se monta tal cual: está pintado para la barra lateral.
  */
-function ModoOscuro() {
+function Apariencia() {
   const [oscuro, setOscuro] = useState(false);
   useEffect(() => {
     const sync = () => setOscuro(document.documentElement.getAttribute(ATTR_MODO) === 'oscuro');
@@ -268,5 +258,12 @@ function ModoOscuro() {
     window.addEventListener('mako-modo', sync);
     return () => window.removeEventListener('mako-modo', sync);
   }, []);
-  return <Switch checked={oscuro} onChange={(v) => aplicarModo(v)} label="Modo oscuro" />;
+  return (
+    <SegmentadoM
+      etiqueta="Apariencia"
+      valor={oscuro ? 'oscuro' : 'claro'}
+      onCambio={(v) => aplicarModo(v === 'oscuro')}
+      opciones={[{ id: 'claro', label: 'Claro' }, { id: 'oscuro', label: 'Oscuro' }]}
+    />
+  );
 }

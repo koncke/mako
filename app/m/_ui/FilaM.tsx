@@ -3,16 +3,20 @@
 // =============================================================================
 // FilaM — la fila de toda lista de /m (la anatomía de .mk-fila, a medida de un dedo)
 // =============================================================================
-//   [leading]  título (2 líneas) + pill  ............  riel  [›]
-//              segunda línea en prosa (2 líneas)
+//   [avatar o ícono]  nombre (2 líneas) ........................  riel  [›]
+//                     una línea, en gris
+//                     (píldora de estado)
 //
-// min 64 px de alto, 14×16 de padding, filete con inset de 16 que pone la fila
-// de ABAJO. Feedback en `:active` con el velo (en táctil no hay hover). El
-// chevron va SÓLO si la fila abre algo: una flecha que no lleva a ningún lado es
-// una promesa que no se cumple.
+// v2 (docs/diseno-mako-mobile-v2.md, «Tarjetas, listas y estados»): va adentro de una LISTA
+// AGRUPADA (<ListaM>: caja --surface, borde, radio 14). Mínimo 60 px de alto, el filete de
+// 1 px lo pone la fila de ABAJO y arranca donde arranca el TEXTO (después del avatar o del
+// ícono, como Ajustes de iPhone). Feedback en `:active` con el velo (en táctil no hay hover).
+// El chevron va SÓLO si la fila abre algo: una flecha que no lleva a ningún lado es una
+// promesa que no se cumple.
 //
-// Las filas van adentro de un contenedor `.m-lista` (se come el gutter: el
-// filete y el velo van de borde a borde, como en cualquier bandeja).
+// Atajos: `avatar="Camila Rivas"` (iniciales, 40 px), `icono="graphics"` (baldosa de 32),
+// `navegacion` (el nombre en 500: filas de More, de actividad). `control` pone a la derecha un
+// interruptor (<InterruptorM>): la fila deja de ser un solo botón y lo que abre es el texto.
 //
 // SWIPE (opcional): UNA acción por lado, siempre la misma para ese tipo de lista,
 // y SIEMPRE con un botón equivalente a la vista (en la fila o en su detalle): un
@@ -32,6 +36,7 @@ import Link from '@/app/_ui/Link';
 import { Icon } from '@/app/_components/icons';
 import { haptico } from '@/lib/haptico';
 import { decidirSwipe, ejeDelGesto, rubberband, UMBRAL_SWIPE, velocidadDe, type Muestra } from './gestos';
+import { AvatarM, IconoM } from './Piezas';
 
 export type AccionSwipe = {
   /** 1-2 palabras: «Hecha», «Más tarde». */
@@ -45,14 +50,22 @@ export type AccionSwipe = {
 
 export type FilaMProps = {
   titulo: ReactNode;
-  /** La segunda línea, en PROSA (nunca etiqueta: valor). */
+  /** UNA línea en gris (se corta con «…»). Si dice lo mismo en todas las filas, sobra. */
   segunda?: ReactNode;
-  /** Al lado del título: un `.mk-pill` (estado). */
+  /** Debajo de la segunda línea: una <PildoraM> (estado). */
   pill?: ReactNode;
-  /** A la izquierda: la chispa de MaKo (16), un avatar (36) o un check (24 dentro de 44). */
+  /** A la izquierda, lo que sea (la estrella de MaKo, un check de 44, una hora grande). */
   leading?: ReactNode;
-  /** A la derecha: una hora o un %, corto. */
+  /** Atajo de `leading`: el avatar de iniciales de este nombre (40 px). */
+  avatar?: string;
+  /** Atajo de `leading`: un ícono de `app/_components/icons.tsx` en su baldosa de 32. */
+  icono?: string;
+  /** El nombre en 500 en vez de 600: filas de navegación (More, actividad). */
+  navegacion?: boolean;
+  /** A la derecha: una hora, un conteo o un %, corto. */
   riel?: ReactNode;
+  /** A la derecha de todo: un <InterruptorM>. Con control, lo que abre (href/onClick) es el texto. */
+  control?: ReactNode;
   /** Abre otra pantalla. */
   href?: string;
   /** Abre algo en el lugar (un sheet). */
@@ -82,7 +95,8 @@ function FondoSwipe({ lado, accion, refFondo }: { lado: 'derecha' | 'izquierda';
 
 export function FilaM(p: FilaMProps) {
   const abre = !!(p.href || p.onClick) && !p.deshabilitada;
-  const chevron = p.chevron ?? abre;
+  // Con un interruptor al lado, sin chevron (como Ajustes): el control ya ocupa la derecha.
+  const chevron = p.chevron ?? (abre && p.control == null);
   const conSwipe = !p.deshabilitada && !!(p.swipeDerecha || p.swipeIzquierda);
 
   const filaRef = useRef<HTMLElement | null>(null);
@@ -174,22 +188,40 @@ export function FilaM(p: FilaMProps) {
     </span>
   );
 
-  const contenido = (
+  const lead = p.leading ?? (p.avatar != null ? <AvatarM nombre={p.avatar} /> : p.icono ? <IconoM nombre={p.icono} /> : null);
+  const cuerpo = (
     <>
-      {p.leading != null && <span className="m-fila__lead">{p.leading}</span>}
+      {lead != null && <span className="m-fila__lead">{lead}</span>}
       <span className="m-fila__txt">
-        <span className="m-fila__l1">
-          <span className="m-fila__t">{p.titulo}</span>
-          {p.pill}
-        </span>
+        <span className={p.navegacion ? 'm-fila__t m-fila__t--nav' : 'm-fila__t'}>{p.titulo}</span>
         {p.segunda != null && <span className="m-fila__c">{p.segunda}</span>}
+        {p.pill != null && <span className="m-fila__pill">{p.pill}</span>}
       </span>
       {p.riel != null && <span className="m-fila__riel">{p.riel}</span>}
       {chevron && <span className="m-fila__ir" aria-hidden><Icon name="chevron" size={18} /></span>}
-      {barra}
     </>
   );
 
+  // Con un interruptor, la fila NO es un botón (un botón adentro de otro no existe): es un
+  // div con el texto como zona que abre y el control a la derecha.
+  if (p.control != null) {
+    const zona = p.href && !p.deshabilitada
+      ? <Link href={p.href} className="m-fila__abre m-fila--toca" aria-label={p.etiqueta}>{cuerpo}</Link>
+      : p.onClick
+        ? <button type="button" className="m-fila__abre m-fila--toca" onClick={p.onClick} disabled={p.deshabilitada} aria-label={p.etiqueta}>{cuerpo}</button>
+        : <span className="m-fila__abre">{cuerpo}</span>;
+    return (
+      <div className="m-fila-envoltorio">
+        <div className="m-fila m-fila--control" aria-disabled={p.deshabilitada || undefined}>
+          {zona}
+          <span className="m-fila__control">{p.control}</span>
+          {barra}
+        </div>
+      </div>
+    );
+  }
+
+  const contenido = <>{cuerpo}{barra}</>;
   const clase = `m-fila${abre ? ' m-fila--toca' : ''}${conSwipe ? ' m-fila--swipe' : ''}`;
   const gestos = conSwipe ? {
     onPointerDown: alBajar,

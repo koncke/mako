@@ -42,7 +42,7 @@ import { aFila, plano } from '@/lib/bandeja-filas';
 import type { RolMovil } from '@/lib/movil-rutas';
 import {
   complejidadDe, consecuenciaDeshacer, etiquetaDeOrigen, lineasDeCambios, lineasDelPayload, opcionesDeConfirmacion,
-  ordenarItems, resumenDeBorrador, sumarConteos, tiposVisibles, tituloDeBorrador,
+  detalleDeBorrador, detalleDeLeads, ordenarItems, resumenDeBorrador, sumarConteos, tiposVisibles, tituloDeBorrador,
   type ItemDecision, type TipoDecision,
 } from '@/lib/inbox-movil-reglas';
 
@@ -127,7 +127,7 @@ function leadADecision(prop: Propuesta): ItemDecision {
     resumen: n > 1 ? `${n} contactos para revisar` : 'Contacto para revisar',
     creadaAt: prop.createdAt, origen: etiquetaDeOrigen(prop.origen),
     linkEscritorio: rutaDePropuesta('lead', prop.id),
-    detalle: [],
+    detalle: detalleDeLeads(prop.datos),
   };
 }
 
@@ -138,7 +138,7 @@ function borradorADecision(b: Borrador): ItemDecision {
     resumen: resumenDeBorrador(b),
     creadaAt: b.createdAt, origen: etiquetaDeOrigen(b.origen),
     linkEscritorio: `/plan/revisar/${encodeURIComponent(b.id)}`,
-    detalle: [],
+    detalle: detalleDeBorrador(b),
   };
 }
 

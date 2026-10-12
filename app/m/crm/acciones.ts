@@ -18,6 +18,8 @@
 //      después: «Nota guardada» sólo si la nota está.
 //   5. refresh(): las de escritorio revalidan /crm, no la pantalla del teléfono.
 //
+// v2 (11/10/2026): + porEtapaAction, el filtro por etapa de la lista (lee app/m/crm/datos.ts).
+//
 // Agendar NO pasa por aquí: el sheet llama directo a reagendarReunionAction,
 // duracionReunionAction, huecosR2Action, reservarR2Action y linkDeAgendaAction
 // (app/crm), y la página que lo monta declara maxDuration = 60.
@@ -35,6 +37,7 @@ import { productosDelLead, etapasDeProducto, moverEtapaEnProducto } from '@/lib/
 import { idDelFunnelDefault } from '@/lib/funnels';
 import { etapaVigenteDe } from '@/lib/funnel-etapas';
 import { buscarLeads, notasDeLead } from '@/lib/crm-movil';
+import { porEtapa, type PorEtapaM } from './datos';
 import { comoLite, seMueveEnElTelefono, MIN_BUSQUEDA, type EtapaM, type FilaLeadM } from './reglas';
 import { addLeadNoteAction, setLeadStageAction, undoStageMoveAction } from '@/app/crm/actions';
 
@@ -68,6 +71,23 @@ export async function buscarLeadsAction(q: string): Promise<{ ok: true; filas: F
   } catch (e) {
     console.error(`[m/crm] buscar: ${e instanceof Error ? e.message : String(e)}`);
     return { ok: false, error: 'No pude buscar' };
+  }
+}
+
+/**
+ * El filtro por etapa (el sheet «Ver por etapa»): cuántos leads dibuja cada columna del tablero
+ * del negocio y, si se elige una, sus primeros leads. Lee el tablero entero en el server; al
+ * teléfono viajan los conteos y ~40 filas.
+ */
+export async function porEtapaAction(key: string | null): Promise<({ ok: true } & PorEtapaM) | { ok: false; error: string }> {
+  const no = await noPuede();
+  if (no) return { ok: false, error: no };
+  const k = typeof key === 'string' && key.trim() ? key.trim().slice(0, 80) : null;
+  try {
+    return { ok: true, ...(await porEtapa(k)) };
+  } catch (e) {
+    console.error(`[m/crm] por etapa: ${e instanceof Error ? e.message : String(e)}`);
+    return { ok: false, error: 'No pude leer las etapas' };
   }
 }
 

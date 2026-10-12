@@ -1,0 +1,155 @@
+/* =============================================================================
+   /m/video — lo propio de Video Generator (el shell es app/m/m.css)
+   =============================================================================
+   Todo con el prefijo .m-video-*: Next deja la hoja cargada al salir de la ruta. Sólo tokens de
+   app/globals.css. Anatomía del prototipo (docs/prototipos/mako-mobile-v2.html: .miniv,
+   .escenario, .player, .tira, .toma, .panel-toma, .linea). Un h2/p con margen va con [data-m]
+   delante: `[data-m] :is(h1,h2,h3,p)` le gana a una clase sola.
+
+   ⚠️ LO QUE VA ENCIMA DE UN VIDEO VA EN BLANCO LITERAL, no con un token: el video es oscuro en
+   cualquier tema, y `--on-sidebar` en la paleta Nord clara es casi negro. El fondo del video es
+   `#000`, como el de escritorio (PasoTomas.tsx). */
+
+/* ── La lista ───────────────────────────────────────────────────────────── */
+/* La miniatura 9:16 de una fila (46×82). El ícono queda debajo: si el video no pinta su primer
+   cuadro (iOS sin póster), se ve el ícono y no un hueco. */
+.m-video-mini {
+  position: relative; flex: none; display: grid; place-items: center;
+  width: 46px; height: 82px; border-radius: 8px; overflow: hidden;
+  background: var(--sidebar-2); color: var(--sidebar-text);
+}
+.m-video-mini :is(img, video) {
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none;
+}
+/* El punto rojo de «Una toma no salió»: el color va en la marca, el texto queda en gris. */
+.m-video-punto {
+  display: inline-block; width: 7px; height: 7px; margin-right: 6px; vertical-align: 1px;
+  border-radius: 50%; background: var(--bad);
+}
+
+/* El anuncio terminado, en su sheet. */
+.m-video-sheet { display: flex; justify-content: center; padding: 4px 0 8px; }
+
+/* ── El reproductor ─────────────────────────────────────────────────────── */
+.m-video-player {
+  position: relative; flex: none; overflow: hidden;
+  height: min(377px, 52dvh); aspect-ratio: 9 / 16;
+  border-radius: 14px; background: #000;
+}
+.m-video-player--sheet { height: min(320px, 46dvh); }
+.m-video-player video { display: block; width: 100%; height: 100%; object-fit: cover; }
+.m-video-player__toque {
+  position: absolute; inset: 0; z-index: 1; display: grid; place-items: center;
+  width: 100%; padding: 0; border: 0; background: none; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.m-video-player__toque:focus-visible { outline: none; box-shadow: inset 0 0 0 3px var(--primary); }
+.m-video-player__play {
+  display: grid; place-items: center; width: 56px; height: 56px; border-radius: 999px;
+  background: var(--scrim); color: #fff;
+  transition: transform var(--dur-press) var(--ease-out);
+}
+.m-video-player__toque:active .m-video-player__play { transform: scale(.94); }
+.m-video-player__falla {
+  padding: 6px 12px; border-radius: 999px; background: var(--scrim-oscuro); color: #fff;
+  font-size: var(--fs-meta); font-weight: 600;
+}
+.m-video-player__marca {
+  position: absolute; z-index: 2; top: 10px; left: 10px; pointer-events: none;
+  padding: 3px 8px; border-radius: 999px; background: var(--scrim-oscuro); color: #fff;
+  font-size: 12px; font-weight: 600; line-height: 1.35;
+}
+.m-video-player__prog {
+  position: absolute; z-index: 2; left: 12px; right: 12px; bottom: 16px; pointer-events: none;
+  height: 3px; border-radius: 3px; overflow: hidden; background: rgba(255, 255, 255, .3);
+}
+.m-video-player__prog i { display: block; height: 100%; background: #fff; }
+
+/* Una toma sin video (sin filmar, filmándose o que no salió): lo que va a decir, en grande. */
+.m-video-player--vacio {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  padding: 40px 18px 20px; text-align: center;
+  background: var(--sidebar-2); color: var(--sidebar-text);
+}
+.m-video-player__linea {
+  color: var(--on-sidebar); font-size: 15px; font-weight: 600; line-height: 1.35; text-wrap: balance;
+  display: -webkit-box; -webkit-line-clamp: 7; -webkit-box-orient: vertical; overflow: hidden;
+}
+.m-video-player__x {
+  display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%;
+  background: var(--bad); color: #fff;
+}
+
+/* ── El editor ──────────────────────────────────────────────────────────── */
+/* El escenario oscuro a todo el ancho de la pantalla (sale del gutter de .m-contenido). */
+.m-video-escenario {
+  margin-inline: calc(50% - 50vw);
+  padding: 16px 0 14px;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  background: var(--sidebar);
+}
+.m-video-dur {
+  min-height: 1.4em; color: var(--sidebar-text);
+  font-size: var(--fs-meta); font-variant-numeric: tabular-nums;
+}
+
+/* La tira de tomas: contenido que se desliza de lado (no navegación), con imán suave. */
+.m-video-tira {
+  display: flex; gap: 8px; overflow-x: auto;
+  margin-inline: calc(-1 * var(--m-gutter));
+  padding: 14px var(--m-gutter) 6px;
+  scroll-snap-type: x proximity; scroll-padding-inline: var(--m-gutter);
+  overscroll-behavior-x: contain; scrollbar-width: none;
+}
+.m-video-tira::-webkit-scrollbar { display: none; }
+.m-video-toma {
+  flex: none; width: 58px; scroll-snap-align: start;
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  padding: 0; border: 0; background: none; cursor: pointer;
+  font: inherit; font-size: 12px; font-weight: 600; line-height: 1.2;
+  color: var(--dim); font-variant-numeric: tabular-nums;
+  -webkit-tap-highlight-color: transparent;
+}
+.m-video-toma[aria-pressed="true"] { color: var(--ink); }
+.m-video-toma:focus-visible { outline: none; }
+.m-video-toma__cuadro {
+  position: relative; display: block; overflow: hidden;
+  width: 58px; height: 103px; border-radius: 9px;
+  background: var(--sidebar-2);
+  outline: 3px solid transparent; outline-offset: 2px;
+  transition: outline-color .15s ease, transform var(--dur-press) var(--ease-out);
+}
+.m-video-toma:active .m-video-toma__cuadro { transform: scale(.96); }
+.m-video-toma[aria-pressed="true"] .m-video-toma__cuadro { outline-color: var(--primary); }
+.m-video-toma:focus-visible .m-video-toma__cuadro { outline-color: var(--primary-strong); }
+.m-video-toma__cuadro video { display: block; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+.m-video-toma__est {
+  position: absolute; z-index: 2; top: 6px; right: 6px;
+  display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%;
+  color: #fff;
+}
+.m-video-toma[data-estado="filmada"] .m-video-toma__est { background: var(--scrim-oscuro); }
+.m-video-toma[data-estado="fallada"] .m-video-toma__est { background: var(--bad); }
+/* Filmándose: el cuadro velado y el giro arriba a la derecha. */
+.m-video-toma[data-estado="generando"] .m-video-toma__cuadro::after {
+  content: ''; position: absolute; inset: 0; z-index: 1; background: var(--scrim);
+}
+
+/* La toma elegida: nombre + estado, por qué, y lo que dice. */
+.m-video-panel { display: flex; flex-direction: column; gap: 12px; padding-top: 10px; }
+.m-video-panel__cab { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+[data-m] .m-video-panel__cab h2 {
+  font-size: var(--fs-sect); font-weight: 600; letter-spacing: -0.012em; line-height: 1.25; color: var(--ink);
+}
+[data-m] .m-video-motivo { font-size: var(--fs-md); line-height: 1.45; color: var(--dim); }
+[data-m] .m-video-linea {
+  padding: 14px 16px; border-radius: var(--r-lg);
+  background: var(--surface); border: 1px solid var(--border);
+  font-size: 18px; line-height: 1.45; font-weight: 500; color: var(--ink);
+  overflow-wrap: anywhere;
+}
+[data-m] .m-video-linea--vacia { color: var(--dim); }
+
+@media (prefers-reduced-motion: reduce) {
+  .m-video-toma__cuadro, .m-video-player__play { transition: none; }
+}

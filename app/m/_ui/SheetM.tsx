@@ -7,9 +7,12 @@
 // vez: abrir una REEMPLAZA a la que estaba (nunca apiladas, Budiu/NN/g).
 //
 //   [ grabber ]
-//   Título ........................ Cerrar
-//   cuerpo (scroll propio, overscroll contain)
-//   pie fijo: la advertencia pegada arriba del botón primario, y la salida debajo
+//   Título ............................ (✕)
+//   cuerpo (scroll propio, overscroll contain; fondo --bg para que las <ListaM> se lean)
+//   pie fijo: la advertencia pegada arriba del botón primario, y la salida debajo (<PieM>)
+//
+// v2: radio 18 arriba, fondo --bg, el cierre es una ✕ en un círculo (36 dibujado, 44 de
+// toque) con `rotuloCerrar` como nombre accesible.
 //
 // Gestos (app/m/_ui/gestos.ts): se arrastra 1:1 desde el grabber o la cabecera,
 // o desde el cuerpo cuando está arriba de todo y se tira hacia abajo. Pasado el
@@ -37,6 +40,7 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type PointerEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { shadow } from '@/app/_ui/tokens';
+import { Icon } from '@/app/_components/icons';
 import { destinoDelSheet, ejeDelGesto, HISTERESIS, rubberband, velocidadDe, type Muestra, type SnapSheet } from './gestos';
 
 type Snap = 'medio' | 'alto';
@@ -47,7 +51,7 @@ export type SheetMProps = {
   onCerrar: () => void;
   titulo: string;
   children?: ReactNode;
-  /** El pie fijo: la advertencia + el botón primario + la salida, apilados. */
+  /** El pie fijo: la advertencia + el botón primario + la salida, apilados (<PieM>). */
   pie?: ReactNode;
   /** Dónde abre. «medio» = 55% de la pantalla; «alto» = casi toda. */
   snap?: Snap;
@@ -57,6 +61,7 @@ export type SheetMProps = {
   ocupado?: boolean;
   /** El nombre en la URL (`?sheet=agendar`). Uno por tipo de hoja. */
   id?: string;
+  /** El nombre accesible de la ✕ (se dibuja la ✕, no el texto). */
   rotuloCerrar?: string;
 };
 
@@ -422,7 +427,9 @@ export function SheetM({
         </div>
         <div className="m-sheet__cab" {...gestos}>
           <h2 className="m-sheet__titulo" id={tituloId}>{titulo}</h2>
-          <button type="button" className="m-sheet__cerrar" onClick={pedirCierre} disabled={ocupado}>{rotuloCerrar}</button>
+          <button type="button" className="m-sheet__cerrar" onClick={pedirCierre} disabled={ocupado} aria-label={rotuloCerrar}>
+            <span className="m-sheet__cerrar-circulo" aria-hidden><Icon name="x" size={16} /></span>
+          </button>
         </div>
         <div ref={cuerpo} className="m-sheet__cuerpo">{children}</div>
         {pie != null && <div ref={pieRef} className="m-sheet__pie">{pie}</div>}

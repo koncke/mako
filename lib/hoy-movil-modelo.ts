@@ -1,5 +1,5 @@
 // =============================================================================
-// «Today» de MaKo Mobile — lo PURO: qué se pide por rol, la frase héroe, las horas
+// «Today» de MaKo Mobile — lo PURO: qué se pide por rol, qué cuenta como bloqueo, las horas
 // =============================================================================
 // SIN `server-only` a propósito: lo importan los tests y los componentes cliente de
 // app/m/hoy. Las lecturas viven en lib/hoy-movil.ts (server-only).
@@ -15,13 +15,12 @@
 // y aun así su Today no es el Pulso: por eso se nombra la capa acá y no se deriva de
 // `puedeVerKey('general')` solo.
 //
-// ⚠️ LA FRASE HÉROE NUNCA DICE «TODO BIEN» SOBRE LO QUE NO SE LEYÓ (#165). Una lectura
-// caída, o un negocio sin fuentes de datos, cambian la frase; el cero de algo que no se
-// pudo contar no es un cero.
+// ⚠️ EL CERO DE ALGO QUE NO SE PUDO CONTAR NO ES UN CERO (#165): `sumaDe` devuelve null si
+// una bandeja no se leyó. (La v2 borró la frase héroe, la lámpara y las alertas de la v1 —
+// fraseHeroe, textoLampara, alertasRestantes, diasQueQuedan—: Today ya no las dibuja.)
 // =============================================================================
 
 import { puedeVerKey, type RolMovil } from './movil-rutas';
-import type { EstadoFuentes, EstadoLampara, AlertaGeneral } from './vista-general-modelo';
 import type { TipoDecision } from './inbox-movil-reglas';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -76,78 +75,7 @@ export function sumaDe(porTipo: Partial<Record<TipoDecision, number | null>>, ti
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// La frase héroe: el número va ADENTRO
-// ─────────────────────────────────────────────────────────────────────────────
-
-export type SegmentoHeroe = { texto: string; numero?: true };
-
-export type EntradaHeroe = {
-  /** null = no aplica o no se pudo leer (cuenta en `fallas` si no se pudo). */
-  aprobaciones: number | null;
-  revisiones: number | null;
-  llamadas: number | null;
-  urgentes: number | null;
-  tareas: number | null;
-  leads: number | null;
-  /** Sólo con el Pulso: qué se sabe de las fuentes de datos. null = no hay Pulso. */
-  fuentes: EstadoFuentes | null;
-  /** Cuántas lecturas pedidas se cayeron. */
-  fallas: number;
-};
-
-const plural = (n: number, uno: string, varios: string) => (n === 1 ? uno : varios);
-
-/**
- * «Te esperan 2 aprobaciones y 3 llamadas» / «Hoy no tienes nada urgente».
- * Devuelve segmentos para que la pantalla ponga el número en negrita sin re-parsear.
- */
-export function fraseHeroe(e: EntradaHeroe): SegmentoHeroe[] {
-  const partes: Array<{ n: number; txt: string }> = [];
-  const suma = (n: number | null, uno: string, varios: string) => {
-    if (n != null && n > 0) partes.push({ n, txt: `${n} ${plural(n, uno, varios)}` });
-  };
-  suma(e.aprobaciones, 'aprobación', 'aprobaciones');
-  suma(e.llamadas, 'llamada', 'llamadas');
-  suma(e.urgentes, 'alerta urgente', 'alertas urgentes');
-  suma(e.leads, 'lead por decidir', 'leads por decidir');
-  suma(e.tareas, 'tarea para hoy', 'tareas para hoy');
-  suma(e.revisiones, 'cosa para revisar', 'cosas para revisar');
-
-  if (partes.length) {
-    const visibles = partes.slice(0, 3);
-    const verbo = visibles.length > 1 || visibles[0].n > 1 ? 'Te esperan ' : 'Te espera ';
-    const out: SegmentoHeroe[] = [{ texto: verbo }];
-    visibles.forEach((p, i) => {
-      if (i > 0) out.push({ texto: i === visibles.length - 1 ? ' y ' : ', ' });
-      out.push({ texto: p.txt, numero: true });
-    });
-    return out;
-  }
-  // Sin nada contado: el «todo tranquilo» sólo si se leyó TODO y hay datos para opinar.
-  if (e.fallas > 0) return [{ texto: 'No pude leer todo lo de hoy' }];
-  if (e.fuentes === 'sin-leer') return [{ texto: 'No pude leer tus datos' }];
-  if (e.fuentes === 'sin-datos') return [{ texto: 'Aún no hay datos de tu negocio' }];
-  return [{ texto: 'Hoy no tienes nada urgente' }];
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// La lámpara, en palabras (el color nunca va solo)
-// ─────────────────────────────────────────────────────────────────────────────
-
-export function textoLampara(l: { estado: EstadoLampara; urgentes: number; vigilar: number }, fuentes: EstadoFuentes): string {
-  if (l.estado === 'apagado') return fuentes === 'sin-leer' ? 'No pude leer tus datos' : 'Sin datos todavía';
-  if (l.estado === 'rojo') return `${l.urgentes} ${plural(l.urgentes, 'urgente', 'urgentes')}`;
-  if (l.estado === 'ambar') return l.vigilar > 0 ? `${l.vigilar} para vigilar` : 'Para vigilar';
-  return 'Todo en orden';
-}
-
-/** Las alertas que quedan debajo del titular: sin la que ya es LA acción, y sin las verdes. */
-export function alertasRestantes(alertas: readonly AlertaGeneral[], alertaIdx: number | null): AlertaGeneral[] {
-  return alertas.filter((a, i) => i !== alertaIdx && a.nivel !== 'verde');
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Horas y días
+// Horas
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** «10:00» en la zona del NEGOCIO (no la del teléfono). null si el instante no se lee. */
@@ -160,12 +88,4 @@ export function horaEnZona(iso: string | null | undefined, tz: string): string |
   } catch {
     return null;
   }
-}
-
-/** Días que quedan hasta `hasta` (inclusive), desde `hoy`. Nunca negativo. */
-export function diasQueQuedan(hoy: string, hasta: string): number {
-  const a = Date.parse(`${hoy}T00:00:00Z`);
-  const b = Date.parse(`${hasta}T00:00:00Z`);
-  if (Number.isNaN(a) || Number.isNaN(b)) return 0;
-  return Math.max(0, Math.round((b - a) / 86_400_000) + 1);
 }

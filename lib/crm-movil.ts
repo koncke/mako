@@ -1,18 +1,19 @@
 // =============================================================================
 // MaKo Mobile — el CRM en el teléfono (lecturas del server)
 // =============================================================================
-// Lo leen app/m/crm/page.tsx (el «Hoy» del CRM), app/m/crm/[id]/page.tsx (la ficha
-// en lectura), app/m/crm/[id]/chat/page.tsx (el hilo de WhatsApp) y la acción del
-// buscador. NO HAY UNA SEGUNDA IMPLEMENTACIÓN: cada pieza reusa la lectura que ya
-// usa el escritorio (getJuntasProximas, getPendientesDeMarcar, getResumenLead,
-// productosDelLead, chatEmpresaPorUltimos10, listLeads + coincideBusqueda). Lo
-// único propio es el RECORTE: al teléfono viajan ~20 filas compactas, nunca la
-// cartera (~1.500 leads × ~45 columnas).
+// Lo leen app/m/crm/datos.ts (las reuniones de hoy de la lista y la ficha),
+// app/m/crm/[id]/chat/page.tsx (el hilo de WhatsApp) y las acciones del buscador y de las
+// notas. NO HAY UNA SEGUNDA IMPLEMENTACIÓN: cada pieza reusa la lectura que ya usa el
+// escritorio (getJuntasProximas, getResumenLead, productosDelLead, chatEmpresaPorUltimos10,
+// listLeads + coincideBusqueda). Lo único propio es el RECORTE: al teléfono viajan ~20 filas
+// compactas, nunca la cartera (~1.500 leads × ~45 columnas).
 //
-// Tres trampas que gobiernan este archivo (docs/hallazgos-crm.md, relevo del CRM):
-//  · `getPendientesDeMarcar` ESCRIBE aunque parezca una lectura (adjunta Fathom con
-//    throttle y cierra el historial de etapas derivadas). Es la misma lectura que
-//    hace /crm en cada apertura y está cacheada; no se llama en ningún otro lado aquí.
+// v2 (11/10/2026): se borró el «Hoy del CRM» de la v1 (hoyDelCrm, esperanDecision, quietos).
+// La lista v2 tiene tres grupos (Hoy, Por responder, Nuevos) y ya no llama a
+// `getPendientesDeMarcar`, que ESCRIBE aunque parezca una lectura (adjunta Fathom y cierra el
+// historial de etapas derivadas): abrir /m/crm ya no escribe nada.
+//
+// Dos trampas que gobiernan este archivo (docs/hallazgos-crm.md, relevo del CRM):
 //  · `getJuntasProximas` no trae la HORA: se completa con `junta_N_at` en UNA lectura
 //    por ids, acotada a los leads de hoy y mañana.
 //  · «No pude leer» y «no hay nada» son dos respuestas: cada sección vuelve `null`
@@ -21,22 +22,17 @@
 
 import 'server-only';
 import { getTenantDb, getWorkspaceActual } from './workspace';
-import { tzDeWorkspace, TZ_DEFAULT, hoyEnWorkspace } from './timezone';
-import { getJuntasProximas, getPendientesDeMarcar } from './queries';
+import { hoyEnWorkspace } from './timezone';
+import { getJuntasProximas } from './queries';
 import { listLeads, getLeadAudit, faltantesDeLead, type Lead } from './leads';
 import { getResumenLead } from './lead-resumen';
 import { productosDelLead, etapasDeProducto } from './lead-funnel';
-import { listarFunnels, funnelsConUmbrales } from './funnels';
+import { listarFunnels } from './funnels';
 import { nombreVisible } from './lead-funnel-reglas';
 import { getUltimoInsightGenerado } from './lead-insights';
 import { chatEmpresaPorUltimos10, ultimos10 } from './api-mako/areas/whatsapp.helpers';
 import { numeroCanonico } from './contacto-lead';
-import { pipelineStageOf } from './pipeline';
 import { etapaVigenteDe } from './funnel-etapas';
-import { leerTodo } from './supabase-paginado';
-import { CAMPO_ETAPA } from './etapa-historial';
-import { entradaALaEtapa, leadsQuietos, plazosValidos, relojDesde, type EnEtapa } from './lead-quieto';
-import { slotDeReunion } from './funnel-etapas';
 import { permisoCalendarioGoogle } from './google-calendar';
 import { credWs, integracionConectada } from './credenciales';
 import { puedeAgendarR2 } from '@/app/crm/agendar-r2';
@@ -47,26 +43,11 @@ import {
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
-// ── Hoy del CRM ───────────────────────────────────────────────────────────────
+// ── Reuniones de hoy (y mañana) ───────────────────────────────────────────────
 
 export type ReunionM = { leadId: number; nombre: string; cual: 'R1' | 'R2'; dia: 'hoy' | 'mañana'; hora: string | null };
-export type EsperaM = { leadId: number; nombre: string; frase: string };
-export type QuietoM = { leadId: number; nombre: string; etapa: string; plazo: number };
 
-export type HoyCrm = {
-  tz: string;
-  hoy: string;
-  leidoEn: string;
-  /** null = no se pudo leer (distinto de una lista vacía). */
-  reuniones: ReunionM[] | null;
-  esperan: EsperaM[] | null;
-  quietos: QuietoM[] | null;
-};
-
-/** Hasta cuántas filas de cada sección viajan al teléfono. Lo demás está en la computadora. */
-const TOPE_SECCION = 12;
-
-async function reunionesDeHoy(hoy: string, tz: string): Promise<ReunionM[]> {
+export async function reunionesDeHoy(hoy: string, tz: string): Promise<ReunionM[]> {
   const juntas = await getJuntasProximas(hoy, 2);
   if (!juntas.length) return [];
   // La HORA: getJuntasProximas no la expone. Una lectura por ids, sólo de estos leads.
@@ -87,106 +68,6 @@ async function reunionesDeHoy(hoy: string, tz: string): Promise<ReunionM[]> {
     });
   // Hoy primero, y dentro del día por hora (las sin hora al final del día).
   return out.sort((a, b) => (a.dia === b.dia ? (a.hora ?? '99').localeCompare(b.hora ?? '99') : a.dia === 'hoy' ? -1 : 1));
-}
-
-async function esperanDecision(hoy: string): Promise<EsperaM[]> {
-  const { items } = await getPendientesDeMarcar(hoy);
-  // R = la reunión pasó y falta decidir · M = la nutrición manual venció. Lo demás son
-  // datos sueltos que se completan en la computadora.
-  const vistos = new Set<number>();
-  const out: EsperaM[] = [];
-  for (const it of items) {
-    if ((it.tipo !== 'R' && it.tipo !== 'M') || vistos.has(it.lead_id)) continue;
-    vistos.add(it.lead_id);
-    out.push({ leadId: it.lead_id, nombre: it.lead_nombre?.trim() || 'Sin nombre', frase: it.mensaje });
-  }
-  return out;
-}
-
-type FilaQuieta = {
-  id: number; nombre: string | null; funnel_id: number | null; estado_lead: string | null; pipeline_stage: string | null;
-  fecha_agenda: string | null; fecha_junta_1: string | null; fecha_junta_2: string | null; junta_1_at: string | null;
-  junta_2_at: string | null; asistio_j1: boolean | null; asistio_j2: boolean | null; nutricion_realizada: boolean | null;
-  etapa_vista: string | null; created_at: string | null;
-};
-const COLS_QUIETO = 'id, nombre, funnel_id, estado_lead, pipeline_stage, fecha_agenda, fecha_junta_1, fecha_junta_2, junta_1_at, junta_2_at, asistio_j1, asistio_j2, nutricion_realizada, etapa_vista, created_at';
-
-/**
- * Los leads que pasaron el plazo que el dueño le puso a su etapa (lib/lead-quieto.ts).
- *
- * ⚠️ ES LA LECTURA DEL AVISO (lib/lead-quieto-aviso.ts → quietosDelWorkspace) SÓLO PARA LA
- * CASA: ese lector es privado y vive en un archivo de otra área. Reusa todas sus piezas
- * puras (plazosValidos, entradaALaEtapa, relojDesde, leadsQuietos) y deja afuera los
- * productos agregados. Deuda: extraer de allá un `itemsEnEtapa()` que llamen los dos.
- * Sin un solo plazo configurado no lee ni un lead.
- */
-async function quietos(ahoraMs: number): Promise<QuietoM[]> {
-  const funnels = await funnelsConUmbrales();
-  if (!funnels) throw new Error('No pude leer los funnels.');
-  const plazos = new Map<number, Record<string, number>>();
-  const etiquetas = new Map<number, Map<string, string>>();
-  const etapasDe = new Map<number, (typeof funnels)[number]['cfg']['stages']>();
-  let idDefault: number | null = null;
-  for (const f of funnels) {
-    if (f.esDefault) idDefault = f.id;
-    etiquetas.set(f.id, new Map(f.cfg.stages.map((s) => [s.key, s.label])));
-    etapasDe.set(f.id, f.cfg.stages);
-    const v = plazosValidos(f.umbrales?.porEtapa, f.cfg.stages);
-    if (Object.keys(v.plazos).length) plazos.set(f.id, v.plazos);
-  }
-  if (!plazos.size) return [];
-  const plazoDe = (fid: number, etapa: string) => plazos.get(fid)?.[etapa] ?? null;
-
-  const db = await getTenantDb();
-  const abiertos = await leerTodo<FilaQuieta>(db, 'leads', COLS_QUIETO, { orden: 'id', eq: { estado_lead: 'abierto' } });
-  const candidatos: Array<{ l: FilaQuieta; funnelId: number; etapa: string }> = [];
-  for (const l of abiertos) {
-    const funnelId = l.funnel_id != null ? Number(l.funnel_id) : idDefault;
-    if (funnelId == null) continue;
-    const etapa = pipelineStageOf(l as unknown as Parameters<typeof pipelineStageOf>[0]);
-    if (plazoDe(funnelId, etapa)) candidatos.push({ l, funnelId, etapa });
-  }
-  if (!candidatos.length) return [];
-
-  const ultima = new Map<number, { valor: string | null; at: string }>();
-  const ids = candidatos.map((c) => Number(c.l.id));
-  for (let i = 0; i < ids.length; i += 200) {
-    const filas = await leerTodo<{ id: number; lead_id: number; valor_nuevo: string | null; created_at: string }>(
-      db, 'lead_audit', 'id, lead_id, valor_nuevo, created_at', {
-        orden: [{ col: 'created_at', asc: false }, { col: 'id', asc: false }],
-        filtros: (q) => q.eq('campo', CAMPO_ETAPA).in('lead_id', ids.slice(i, i + 200)),
-      },
-    );
-    for (const f of filas) if (!ultima.has(Number(f.lead_id))) ultima.set(Number(f.lead_id), { valor: f.valor_nuevo, at: f.created_at });
-  }
-
-  const items: EnEtapa[] = candidatos.map(({ l, funnelId, etapa }) => {
-    const slot = slotDeReunion(etapasDe.get(funnelId), etapa);
-    const reunion = !slot ? null : slot.cual === 'r1' ? (l.junta_1_at ?? l.fecha_junta_1 ?? l.fecha_agenda) : (l.junta_2_at ?? l.fecha_junta_2);
-    return {
-      leadId: Number(l.id), nombre: l.nombre?.trim() || 'Sin nombre', funnelId, etapa,
-      desde: relojDesde(entradaALaEtapa({ etapa, etapaVista: l.etapa_vista, ultimaEtapa: ultima.get(Number(l.id)), creadoEn: l.created_at }), reunion),
-    };
-  });
-  return leadsQuietos(items, plazoDe, ahoraMs).map((q) => ({
-    leadId: q.leadId, nombre: q.nombre, etapa: etiquetas.get(q.funnelId)?.get(q.etapa) ?? q.etapa, plazo: q.plazo,
-  }));
-}
-
-/** El «Hoy» del CRM: tres secciones, cada una con su propio fallo. Nunca tira. */
-export async function hoyDelCrm(): Promise<HoyCrm> {
-  const ws = await getWorkspaceActual();
-  const [tz, hoy] = await Promise.all([
-    ws != null ? tzDeWorkspace(ws).catch(() => TZ_DEFAULT) : Promise.resolve(TZ_DEFAULT),
-    hoyEnWorkspace(),
-  ]);
-  const ahora = Date.now();
-  const [r, e, q] = await Promise.allSettled([reunionesDeHoy(hoy, tz), esperanDecision(hoy), quietos(ahora)]);
-  for (const [n, x] of [['reuniones', r], ['esperan', e], ['quietos', q]] as const) {
-    if (x.status === 'rejected') console.error(`[crm-movil] ${n}: ${msg(x.reason)}`);
-  }
-  const vale = <T,>(x: PromiseSettledResult<T[]>) => (x.status === 'fulfilled' ? x.value.slice(0, TOPE_SECCION) : null);
-  return { tz, hoy, leidoEn: new Date(ahora).toISOString(), reuniones: vale(r), esperan: vale(e), quietos: vale(q) };
 }
 
 // ── Buscador ──────────────────────────────────────────────────────────────────
@@ -382,7 +263,7 @@ export type HiloM = {
 export const MENSAJES_HILO = 40;
 
 /** Rótulo de un mensaje sin texto (nota de voz, foto, archivo): nunca una burbuja vacía. */
-function rotuloSinTexto(tipo: string | null): string {
+export function rotuloSinTexto(tipo: string | null): string {
   switch (tipo) {
     case 'audio': return 'Nota de voz';
     case 'image': case 'imagen': return 'Foto';

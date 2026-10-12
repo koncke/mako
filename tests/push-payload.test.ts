@@ -75,7 +75,11 @@ test('el link sale por linkApp, con el workspace DESTINO y la pantalla MÓVIL', 
   assert.equal(armarPayloadPush({ tipo: 'mako-pendiente', titulo: 'x', cuerpo: 'x', ruta: '/mako/pendientes' }, 1).url, `${APP_BASE_URL}/m/inbox?ws=1`);
   assert.equal(armarPayloadPush({ tipo: 'x', titulo: 'x', cuerpo: 'x' }, 1).url, `${APP_BASE_URL}/m/hoy?ws=1`);
   // Una pantalla que no va al teléfono cae en la home, nunca en una de escritorio.
-  assert.equal(armarPayloadPush({ tipo: 'x', titulo: 'x', cuerpo: 'x', ruta: '/ads-manager' }, 1).url, `${APP_BASE_URL}/m/hoy?ws=1`);
+  assert.equal(armarPayloadPush({ tipo: 'x', titulo: 'x', cuerpo: 'x', ruta: '/whatsapp' }, 1).url, `${APP_BASE_URL}/m/hoy?ws=1`);
+  // v2 (11/10/2026): Ads Manager SÍ tiene pantalla en el teléfono (More → Ads Manager).
+  assert.equal(armarPayloadPush({ tipo: 'x', titulo: 'x', cuerpo: 'x', ruta: '/ads-manager' }, 1).url, `${APP_BASE_URL}/m/ads?ws=1`);
+  // Un aviso sin link propio abre la pestaña Avisos del Inbox: la query de una ruta /m viaja.
+  assert.equal(armarPayloadPush({ tipo: 'x', titulo: 'x', cuerpo: 'x', ruta: '/m/inbox?vista=avisos' }, 1).url, `${APP_BASE_URL}/m/inbox?vista=avisos&ws=1`);
 });
 
 test('el tag: el que se pide, o el tipo; sin espacios y corto', () => {

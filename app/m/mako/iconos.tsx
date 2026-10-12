@@ -2,9 +2,10 @@
 // /m/mako — los íconos del composer que el set de la casa todavía no tiene
 // =============================================================================
 // Mismo trazo que `Icon` (app/_components/icons.tsx): 24×24, stroke 1.85, currentColor.
-// ⚠️ Son seis y deberían vivir en el set (`PATHS` de icons.tsx): ese archivo no era de
-// esta tanda. Cuando se muden, esto se borra y los llamados pasan a `<Icon name=…>`.
-// Lo que el set ya tiene (mic, trash, x, chats, mako) se usa desde ahí.
+// ⚠️ Son seis y deberían vivir en el set (`PATHS` de icons.tsx): ese archivo no es de esta
+// pantalla. Cuando se muden, esto se borra y los llamados pasan a `<Icon name=…>`. Lo que el set
+// ya tiene (mic, trash, x, chats, mako, check, play, pausa) se usa desde ahí.
+// Se llama IconoChat y no IconoM: IconoM es la baldosa de app/m/_ui.
 // =============================================================================
 
 import type { ReactNode } from 'react';
@@ -18,11 +19,13 @@ const PATHS: Record<string, ReactNode> = {
   candado: <><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></>,
 };
 
-export function IconoM({ nombre, size = 22 }: { nombre: keyof typeof PATHS | string; size?: number }) {
+export type NombreIconoChat = 'mas' | 'enviar' | 'camara' | 'foto' | 'archivo' | 'candado';
+
+export function IconoChat({ nombre, size = 22 }: { nombre: NombreIconoChat; size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.85}
       strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ flex: 'none' }}>
-      {PATHS[nombre] ?? null}
+      {PATHS[nombre]}
     </svg>
   );
 }

@@ -16,21 +16,30 @@
 // =============================================================================
 
 import { esRutaMovil, rutaMovil } from './movil-rutas';
+import { esPublica } from './rutas-publicas';
 
 /**
  * EL INTERRUPTOR de MaKo Mobile: si un teléfono entra solo a /m (por /inicio) y si las pantallas
- * de escritorio se le tapan (<DesvioMovil> en el layout raíz). APAGADO: Martín vio /m el 11/10/2026
- * y la rechazó («No se ve para nada como lo que es MaKo, se ve bastante feo»; modo oscuro por
- * defecto, ícono de MaKo equivocado y al centro, demasiado texto). Se prende después del rediseño.
+ * de escritorio se le tapan (<DesvioMovil> en el layout raíz).
+ *
+ * PRENDIDO el 11/10/2026 con la v2 (docs/diseno-mako-mobile-v2.md). Martín, a las 21:54: «Entré
+ * desde mi celular a la web de MaKo y no se ven los cambios... No solamente tienes que hacerlo
+ * como "app" sino a cualquiera que entre desde mobile le debe salir este diseño.» O sea: no
+ * alcanza con la app instalada; CUALQUIER teléfono que abra MaKo ve /m.
+ *
+ * Historia: salió apagado (v1, 11/10 a la tarde) porque ninguna pantalla se había podido ver en un
+ * navegador, y siguió apagado cuando Martín rechazó la v1 («No se ve para nada como lo que es
+ * MaKo»: oscuro por defecto, el ícono equivocado y al centro, demasiado texto).
  */
-export const MOVIL_ACTIVO = false;
+export const MOVIL_ACTIVO = true;
 
 export type Desvio = { tipo: 'nada' } | { tipo: 'ir'; destino: string } | { tipo: 'computadora' };
 
 /**
- * Pantallas que se abren igual en el teléfono aunque no sean de /m: el login, el wizard del
- * onboarding (al que manda /m/configurar), las legales, la ventana de prueba del Pixel y lo
- * que se comparte con alguien de afuera. Prefijos con barra: «/login» no atrapa «/logins».
+ * Pantallas que se abren igual en el teléfono aunque no sean de /m (además de las públicas, que no
+ * se tapan nunca): el login, el wizard del onboarding (al que manda /m/configurar), las legales, el
+ * alumno del curso, la ventana de prueba del Pixel, lo que se comparte con alguien de afuera y la
+ * API. Prefijos con barra: «/login» no atrapa «/logins».
  */
 const SE_ABREN_IGUAL = [
   '/login', '/logout', '/onboarding', '/privacidad', '/terminos', '/compartido', '/mi-curso',
@@ -42,8 +51,26 @@ const empieza = (p: string, base: string) => p === base || p.startsWith(base + '
 export function decidirDesvio(pathname: string | null | undefined, search = ''): Desvio {
   const p = (pathname ?? '').replace(/\/+$/, '') || '/';
   if (p === '/' || esRutaMovil(p)) return { tipo: 'nada' };
+  // ⚠️ LO PÚBLICO NO SE TAPA NUNCA (lib/rutas-publicas.ts): lo abre un VISITANTE sin cuenta de
+  // MaKo —el comprador que vuelve de pagar (/pagar/<token>/listo), los reembolsos, una landing
+  // publicada (/l/…)— y `prefiereMovil` sólo mira el teléfono, no la sesión. Sin esto, el cliente
+  // de un negocio que paga desde el celular leía «Esta pantalla se usa en la computadora».
+  if (esPublica(p)) return { tipo: 'nada' };
   if (SE_ABREN_IGUAL.some((b) => empieza(p, b))) return { tipo: 'nada' };
   const destino = rutaMovil(search ? `${p}?${search.replace(/^\?/, '')}` : p);
   if (destino) return { tipo: 'ir', destino };
   return { tipo: 'computadora' };
+}
+
+/**
+ * ¿Se desvía ESTE request? El interruptor, un teléfono sin «Versión completa», y que /m tenga algo
+ * que mostrar.
+ *
+ * ⚠️ EL ADMIN GLOBAL SIN CLIENTE NO SE DESVÍA: /m es la app de UN negocio. `requireMovil` lo manda
+ * a /inicio, y /inicio lo manda a /customer-success; con el desvío prendido, /customer-success iba
+ * a /m/cs, que volvía a /inicio: un BUCLE de redirecciones en el teléfono de Martín. Sin cliente
+ * elegido ve su panel de escritorio; con uno (`?ws=`), ve /m de ese negocio.
+ */
+export function seDesvia(p: { activo: boolean; telefono: boolean; adminSinCliente: boolean }): boolean {
+  return p.activo && p.telefono && !p.adminSinCliente;
 }

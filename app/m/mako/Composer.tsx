@@ -29,8 +29,8 @@ import { useVoiceRecorder } from '@/app/whatsapp/_shared/VoiceRecorder';
 import { ACCEPT_ADJUNTOS_CHAT, ERROR_ADJUNTO } from '@/lib/mako-adjuntos';
 import { haptico } from '@/lib/haptico';
 import { esIOS } from '@/lib/movil-instalar';
-import { SheetM } from '../_ui';
-import { IconoM } from './iconos';
+import { FilaM, ListaM, SheetM } from '../_ui';
+import { IconoChat, type NombreIconoChat } from './iconos';
 import { achicarImagen } from './subir';
 import {
   ESPERA_MANTENER_MS, TOPE_NOTA_S, comoHabilitarMic, duracion, esMicBloqueado, gestoDelMic,
@@ -43,6 +43,12 @@ export type Envio = { texto: string; adjuntos: AdjuntoM[]; voz?: { url: string; 
 type Modo = 'quieto' | 'manteniendo' | 'bloqueado';
 
 const ACCEPT_FOTOS = 'image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif';
+
+const OPCIONES_ADJUNTAR: ReadonlyArray<{ id: 'camara' | 'fotos' | 'archivo'; label: string; icono: NombreIconoChat }> = [
+  { id: 'camara', label: 'Cámara', icono: 'camara' },
+  { id: 'fotos', label: 'Fotos', icono: 'foto' },
+  { id: 'archivo', label: 'Archivo', icono: 'archivo' },
+];
 
 let n = 0;
 const nuevoId = () => `adj-${++n}`;
@@ -254,70 +260,71 @@ export function Composer({ enLinea, ocupado, onEnviar, onAltura }: {
   return (
     <div
       ref={raiz}
-      className="mm-composer"
+      className="m-mako-composer"
       data-enfocado={enfocado || undefined}
+      data-teclado={teclado ? '' : undefined}
       data-m-sin-barra={enfocado || grabando ? '' : undefined}
       style={teclado ? { transform: `translateY(${-teclado}px)` } : undefined}
     >
       {micBloqueado && (
-        <p className="mm-composer__aviso" role="status">
+        <p className="m-mako-composer__aviso" role="status">
           Micrófono bloqueado. {comoHabilitarMic(ios)}
         </p>
       )}
-      {error && <p className="mm-composer__error" role="alert">{error}</p>}
-      {!enLinea && <p className="mm-composer__aviso" role="status">Sin conexión: no se puede enviar.</p>}
+      {error && <p className="m-mako-composer__error" role="alert">{error}</p>}
+      {!enLinea && <p className="m-mako-composer__aviso" role="status">Sin conexión: no se puede enviar.</p>}
 
       {(adjuntos.length > 0 || procesando > 0) && (
-        <ul className="mm-adjuntos" aria-label="Archivos para enviar">
+        <ul className="m-mako-adjuntos-lista" aria-label="Archivos para enviar">
           {adjuntos.map((a) => (
-            <li key={a.id} className="mm-adjunto">
+            <li key={a.id} className="m-mako-adjunto">
               {a.thumb
                 ? <img src={a.thumb} alt="" />
-                : <span className="mm-adjunto__doc"><IconoM nombre="archivo" size={22} /><span>{a.nombre}</span></span>}
-              <button type="button" className="mm-adjunto__quitar" aria-label={`Quitar ${a.nombre}`} onClick={() => quitar(a.id)}>
+                : <span className="m-mako-adjunto__doc"><IconoChat nombre="archivo" size={22} /><span>{a.nombre}</span></span>}
+              <button type="button" className="m-mako-adjunto__quitar" aria-label={`Quitar ${a.nombre}`} onClick={() => quitar(a.id)}>
                 <Icon name="x" size={14} />
               </button>
             </li>
           ))}
-          {procesando > 0 && <li className="mm-adjunto mm-adjunto--cargando" aria-label="Preparando el archivo"><span className="mk-spin" /></li>}
+          {procesando > 0 && <li className="m-mako-adjunto" aria-label="Preparando el archivo"><span className="mk-spin" /></li>}
         </ul>
       )}
 
-      <div className="mm-composer__fila">
+      <div className="m-mako-composer__fila">
         {modo === 'bloqueado' ? (
           <>
-            <button type="button" className="mm-circulo" aria-label="Descartar la nota de voz" onClick={() => { nota.stop(true); setModo('quieto'); }}>
+            <button type="button" className="m-mako-circulo" aria-label="Descartar la nota de voz" onClick={() => { nota.stop(true); setModo('quieto'); }}>
               <Icon name="trash" size={22} />
             </button>
-            <div className="mm-grabando" aria-live="polite">
-              <span className="mm-grabando__punto" aria-hidden />
-              <span className="mm-grabando__tiempo">{duracion(nota.secs)}</span>
-              {restante != null && <span className="mm-grabando__resta">quedan {restante} s</span>}
+            <div className="m-mako-grabando" aria-live="polite">
+              <span className="m-mako-grabando__punto" aria-hidden />
+              <span className="m-mako-grabando__tiempo">{duracion(nota.secs)}</span>
+              {restante != null && <span className="m-mako-grabando__resta">quedan {restante} s</span>}
             </div>
             <Button variant="primary" size="md" onClick={() => { nota.stop(false); setModo('quieto'); }}>Enviar audio</Button>
           </>
         ) : (
           <>
             {modo === 'manteniendo' ? (
-              <div className="mm-grabando mm-grabando--mantener" aria-live="polite">
-                <span className="mm-grabando__punto" aria-hidden />
-                <span className="mm-grabando__tiempo">{duracion(nota.secs)}</span>
+              <div className="m-mako-grabando" aria-live="polite">
+                <span className="m-mako-grabando__punto" aria-hidden />
+                <span className="m-mako-grabando__tiempo">{duracion(nota.secs)}</span>
                 {restante != null
-                  ? <span className="mm-grabando__resta">quedan {restante} s</span>
-                  : <span className="mm-grabando__cancelar" style={{ transform: `translateX(${Math.max(-60, arrastre.dx / 2)}px)` }}>‹ Desliza para cancelar</span>}
+                  ? <span className="m-mako-grabando__resta">quedan {restante} s</span>
+                  : <span className="m-mako-grabando__cancelar" style={{ transform: `translateX(${Math.max(-60, arrastre.dx / 2)}px)` }}>‹ Desliza para cancelar</span>}
               </div>
             ) : (
               <>
-                <button type="button" className="mm-circulo" aria-label="Adjuntar una foto o un archivo"
+                <button type="button" className="m-mako-circulo" aria-label="Adjuntar una foto o un archivo"
                   disabled={!enLinea || adjuntos.length >= 4} onClick={() => setHojaAdjuntar(true)}>
-                  <IconoM nombre="mas" size={22} />
+                  <IconoChat nombre="mas" size={22} />
                 </button>
                 <textarea
                   ref={campo}
-                  className="mm-campo"
+                  className="m-mako-campo"
                   rows={1}
                   aria-label="Mensaje para MaKo"
-                  placeholder={transcribiendo ? 'Transcribiendo…' : dictar.escuchando ? 'Te escucho…' : 'Escribe a MaKo'}
+                  placeholder={transcribiendo ? 'Transcribiendo…' : dictar.escuchando ? 'Te escucho…' : 'Escríbele a MaKo'}
                   value={texto}
                   enterKeyHint="send"
                   onChange={(e) => { setTexto(e.target.value); ajustarAlto(); }}
@@ -332,24 +339,24 @@ export function Composer({ enLinea, ocupado, onEnviar, onAltura }: {
               </>
             )}
             {verEnviar ? (
-              <button type="button" className="mm-circulo mm-circulo--enviar" aria-label="Enviar a MaKo"
+              <button type="button" className="m-mako-circulo m-mako-circulo--enviar" aria-label="Enviar a MaKo"
                 disabled={!puedeEnviar}
                 // Que el toque no le saque el foco al campo: el teclado queda abierto.
                 onPointerDown={(e) => e.preventDefault()}
                 onClick={enviar}>
-                <IconoM nombre="enviar" size={22} />
+                <IconoChat nombre="enviar" size={22} />
               </button>
             ) : (
-              <span className="mm-mic-caja">
+              <span className="m-mako-mic-caja">
                 {modo === 'manteniendo' && (
-                  <span className="mm-candado" style={{ transform: `translateY(${Math.max(-40, arrastre.dy / 2)}px)` }} aria-hidden>
-                    <IconoM nombre="candado" size={20} />
-                    <span className="mm-candado__flecha">⌃</span>
+                  <span className="m-mako-candado" style={{ transform: `translateY(${Math.max(-40, arrastre.dy / 2)}px)` }} aria-hidden>
+                    <IconoChat nombre="candado" size={20} />
+                    <span className="m-mako-candado__flecha">⌃</span>
                   </span>
                 )}
                 <button
                   type="button"
-                  className="mm-circulo mm-mic"
+                  className="m-mako-circulo m-mako-mic"
                   data-estado={modo === 'manteniendo' ? 'mantener' : dictar.escuchando ? 'escucha' : transcribiendo || dictar.subiendo ? 'trabaja' : undefined}
                   aria-label={dictar.escuchando ? 'Terminar de dictar' : 'Dictar; mantén para una nota de voz'}
                   aria-pressed={dictar.escuchando}
@@ -364,7 +371,7 @@ export function Composer({ enLinea, ocupado, onEnviar, onAltura }: {
                   {transcribiendo || dictar.subiendo
                     ? <span className="mk-spin" aria-hidden />
                     : dictar.escuchando && !dictar.enVivo
-                      ? <span className="mm-mic__segs">{duracion(dictar.segundos)}</span>
+                      ? <span className="m-mako-mic__segs">{duracion(dictar.segundos)}</span>
                       : <Icon name="mic" size={22} />}
                 </button>
               </span>
@@ -378,11 +385,13 @@ export function Composer({ enLinea, ocupado, onEnviar, onAltura }: {
       <input ref={inArchivo} type="file" accept={ACCEPT_ADJUNTOS_CHAT} multiple hidden onChange={alElegir} />
 
       <SheetM abierto={hojaAdjuntar} onCerrar={() => setHojaAdjuntar(false)} titulo="Adjuntar" id="adjuntar" snap="medio">
-        <div className="mm-opciones">
-          <button type="button" className="mm-opcion" onClick={() => elegir('camara')}><IconoM nombre="camara" /> Cámara</button>
-          <button type="button" className="mm-opcion" onClick={() => elegir('fotos')}><IconoM nombre="foto" /> Fotos</button>
-          <button type="button" className="mm-opcion" onClick={() => elegir('archivo')}><IconoM nombre="archivo" /> Archivo</button>
-        </div>
+        <ListaM>
+          {OPCIONES_ADJUNTAR.map((o) => (
+            <FilaM key={o.id} navegacion chevron={false} titulo={o.label}
+              leading={<span className="m-mako-opcion-ico"><IconoChat nombre={o.icono} size={18} /></span>}
+              onClick={() => elegir(o.id)} />
+          ))}
+        </ListaM>
       </SheetM>
     </div>
   );

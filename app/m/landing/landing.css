@@ -1,0 +1,32 @@
+/* =============================================================================
+   /m/landing — lo propio de Landing Generator en el teléfono (el shell es app/m/m.css)
+   =============================================================================
+   Todo con el prefijo .m-landing-*: Next deja la hoja cargada al salir de la ruta. Sólo tokens
+   de app/globals.css. Anatomía del prototipo (docs/prototipos/mako-mobile-v2.html: .pagina,
+   .secc). Lo de ADENTRO de cada sección es la hoja de la landing (CSS_CONTENIDO, .gm-*), que
+   la página pone en un <style>: aquí sólo se toca el marco y el radio de la tarjeta. */
+
+/* La línea de números mientras se mide (la fila no salta de alto cuando llega). */
+.m-landing-skel { display: block; width: 168px; max-width: 70%; height: 12px; margin: 4px 0 3px; border-radius: 6px; }
+
+/* La página: una columna de secciones en una caja de la casa, 14 px debajo de la barra. Sin
+   margen a los lados: el contenido de /m ya tiene el gutter de 16. */
+.m-landing-sola { padding-top: 14px; }
+.m-landing-pagina {
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  background: var(--surface);
+  /* La landing tiene sus colores propios: el tema claro/oscuro de MaKo no la tiñe. */
+  isolation: isolate;
+}
+.m-landing-secc + .m-landing-secc { border-top: 1px solid var(--border); }
+
+/* Cada sección es una raíz .gm-doc (con su tema) de ancho completo. Sin el radio de tarjeta: en
+   la columna las secciones van pegadas, como en el prototipo. La variable se pisa EN la tarjeta
+   (no en .gm-doc, que la trae en línea con el tema) y la heredan su fondo y su imagen. */
+.m-landing-secc .gm-doc .gm-tarjeta { --gm-radio-tarjeta: 0px; }
+.m-landing-secc .gm-doc { display: block; }
+
+/* Mientras se abre: el marco con el alto de una portada. */
+.m-landing-pagina--cargando { height: 62vh; border: 0; }

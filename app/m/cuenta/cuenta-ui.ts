@@ -12,6 +12,10 @@
 //   · activo → qué avisos llegan + «Probar aviso».
 // La instalación en Android es OTRA fila, independiente: Chrome deja recibir push
 // sin instalar, así que «Instalar MaKo» no bloquea los avisos.
+//
+// v2: todo eso es UNA fila con interruptor («Avisos en este teléfono», como en el prototipo) y,
+// según el estado, una segunda línea corta, la fila «Instalar MaKo», «Qué te avisa» (un sheet con
+// los tipos) y «Probar aviso». Cómo se destraba un permiso negado va debajo de la lista.
 // =============================================================================
 
 import type { EstadoAvisos } from '@/lib/push-cliente';
@@ -48,11 +52,31 @@ export function tiposParaRol<T extends Pick<AvisoWaDef, 'id'>>(tipos: readonly T
   return esAdmin ? [...tipos] : tipos.filter((t) => !soloAdmins.has(t.id));
 }
 
-/** El rol, como lo lee una persona (sin jerga). */
-export function rolLegible(rol: 'admin' | 'closer' | 'setter' | null | undefined): string {
-  if (rol === 'closer') return 'Closer';
-  if (rol === 'setter') return 'Setter';
-  return 'Administrador';
+/**
+ * La segunda línea de la fila «Avisos en este teléfono» cuando el interruptor no se puede tocar:
+ * dice POR QUÉ, corto. `null` = el interruptor dice todo (apagado, activo, revisando).
+ */
+export function segundaAvisos(vista: VistaAvisos): string | null {
+  if (vista === 'instalar-ios') return 'Primero instala MaKo';
+  if (vista === 'no-soportado') return 'Este navegador no los recibe';
+  if (vista === 'bloqueado') return 'Bloqueados en el teléfono';
+  return null;
+}
+
+/** El toast cuando activar no se pudo y no es un estado del teléfono (3-4 palabras). */
+export function toastDeActivar(estado: string): string {
+  if (estado === 'sin-claves') return 'Avisos no disponibles';
+  if (estado === 'sin-cuenta') return 'Sesión sin cuenta propia';
+  return 'No se pudo activar';
+}
+
+/** Lo que dice el riel de «Qué te avisa»: «Ninguno», «Todos» o «12 de 20» (de lo que esta persona ve). */
+export function resumenAvisos(prefs: { activo: boolean; items: Record<string, boolean> }, tipos: readonly Pick<AvisoWaDef, 'id'>[]): string {
+  if (!prefs.activo) return 'Ninguno';
+  const prendidos = tipos.filter((t) => prefs.items[t.id] !== false).length;
+  if (prendidos === 0) return 'Ninguno';
+  if (prendidos === tipos.length) return 'Todos';
+  return `${prendidos} de ${tipos.length}`;
 }
 
 /** El resultado de «Probar aviso», en 3-4 palabras para el toast. */

@@ -95,7 +95,7 @@ test('el ítem es compacto: sin detalle ni historial, con la banda del Kanban y 
   const r = hoyDelTablero({ ...tablero(), hoy: HOY, ahora: AHORA, tablero: 'dueno' });
   const v1 = r.hoy.find((x) => x.id === 'v1')!;
   assert.deepEqual(Object.keys(v1).sort(), ['banda', 'cuando', 'deadline', 'esInstancia', 'id', 'linkEscritorio', 'num', 'proyecto', 'titulo', 'vencida']);
-  assert.deepEqual(v1.proyecto, { nombre: 'Proyecto p2', emoji: '🧭' });
+  assert.deepEqual(v1.proyecto, { nombre: 'Proyecto p2', emoji: '🧭', color: '#2F6FED' });
   assert.equal(v1.banda, 'baja');
   assert.equal(v1.cuando, 'hoy');
   assert.equal(v1.linkEscritorio, '/plan?tarea=v1');

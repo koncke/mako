@@ -203,9 +203,12 @@ Medido leyendo el código el 11/10/2026 (tres lectores):
   tomas → montaje). El CapCut existe en la rama `video-editor` (worktree `C:/dev/wt-video-editor`),
   **sin mergear**. La versión reducida de arriba se apoya en lo que está en `main` (`PasoTomas.tsx`,
   sus estados y sus costos), que es lo que el teléfono puede hacer de verdad.
-- **El editor tipo Gamma tampoco está en `main`**: vive en el worktree `wt-gamma` (rama
-  `gamma-editor`). En `main`, `/landing-generator` es el generador viejo. Las imágenes por Google Flow
-  todavía no existen. Su IA corre en Gemini gratis: no hay costo que mostrar.
+- ~~**El editor tipo Gamma tampoco está en `main`**~~ ⚠️ **FALSO, corregido en la implementación
+  (11/10, noche):** el editor tipo Gamma SÍ está en `main` (commit `c27d4f82`: `landing_docs`,
+  app/landing-generator/[id], lib/editor-landing, con `listar`/`abrir`/`analitica`/`publicar`), y la
+  versión reducida del teléfono se apoya en él. Lo que sí no existe: las imágenes por Google Flow. Su IA
+  corre en Gemini gratis: no hay costo que mostrar. (La trampa, en hallazgos-mobile: antes de recortar
+  un alcance por un relevo, `git log -- <carpeta>` sobre `main`.)
 - **Filmar desde el teléfono depende del Chrome de la computadora**: la cola se arma en el server,
   pero la que filma es la extensión. Sin ese Chrome abierto, el teléfono encola y nada se mueve. No
   verificado.
@@ -238,14 +241,34 @@ es el mismo archivo sin `<!doctype>`/`<head>`/`<body>`. ⚠️ No se miró en un
 tuvo los 5 GB libres que exige la regla para levantar Chrome; se validó la sintaxis del script y el
 balance de etiquetas.
 
-## Antes de implementar, tres preguntas
+## Antes de implementar, tres preguntas — y lo que se decidió sin respuesta
+
+Martín no las contestó: el 11/10 a las 21:54 pidió implementarla y que «a cualquiera que entre desde
+mobile le debe salir este diseño». Se implementó esa noche con la opción CONSERVADORA de cada una
+(se cambia cuando él conteste; cada pantalla dice qué quedó afuera en «En la computadora»):
 
 1. **Video y Landing: ¿se hacen sobre lo que está en `main` o se espera a mergear el CapCut
    (`video-editor`) y el Gamma (`wt-gamma`)?** El prototipo usa lo de `main`; si se mergean primero, la
    versión reducida cambia de base.
+   → **DECIDIDO POR DEFAULT: sobre lo que hay en `main`.** Video = el historial de planes y sus tomas
+   (`PasoTomas`); Landing = el editor tipo Gamma, que ya estaba en `main` (ver arriba).
 2. **¿Se puede gastar créditos de Flow desde el teléfono** («Filmar de nuevo cuesta 12 créditos»),
    sabiendo que sólo filma si el Chrome con la extensión está abierto en la computadora? Si la
    respuesta es no, el teléfono sólo mira, cambia el texto y descarga.
+   → **DECIDIDO POR DEFAULT: NO gasta.** En Video se mira, se ve el anuncio entero y se descarga; «Crear
+   mi anuncio», «Filmar de nuevo» y «Cambiar lo que dice» quedan en la fila «… · En la computadora»
+   (cambiar el texto sin poder refilmar no sirve, y el historial se escribe sin lock).
 3. **Ads Manager en el teléfono, ¿sólo lo que ya existe** (prender/pausar, presupuesto, ver por qué no
    entrega) **o quieres que MaKo proponga cambios** (pausar lo que gasta sin agendas, subir lo que
    rinde) para aprobar en el Inbox? Lo segundo no existe en escritorio y es trabajo de producto.
+   → **DECIDIDO POR DEFAULT: sólo lo que ya existe** (prender/pausar con Deshacer, presupuesto diario,
+   por qué no entrega y el botón a Meta). Sin propuestas de MaKo, y sin «Conclusiones con MaKo»
+   porque /m/mako no acepta un mensaje inicial.
+
+**Otras desviaciones del prototipo, medidas al implementar** (el detalle, en hallazgos-mobile):
+«Hoy» en Ads Manager pasó a «Ayer» (la pauta por campaña llega una vez por día, con el día anterior);
+tocar una sección de una landing no abre su sheet de edición (sería un segundo editor); «Probar en mi
+WhatsApp» no está (el Probar de escritorio es un simulador, no un envío único); Prioridades en Plan
+lista las 5 TAREAS de escritorio, no proyectos; Customer Success no dibuja «Sin clientes en esta
+etapa.» (Martín lo sacó del kanban el 05/10); la tarjeta de Today no lleva la estrella (un conteo no
+dice quién propuso); la cuenta se titula «Perfil», como en escritorio.

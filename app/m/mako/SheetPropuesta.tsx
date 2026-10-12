@@ -16,7 +16,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/app/_ui/Button';
 import { haptico } from '@/lib/haptico';
-import { SheetM, useConexion, useToastM } from '../_ui';
+import { PieM, SheetM, useConexion, useToastM } from '../_ui';
 import { confirmarEnChatAction, cancelarEnChatAction } from './acciones';
 import { SALIDA_PROPUESTA, rotuloPrimario, trasTarjeta, type EstadoPropuesta, type ItemHilo } from './chat-ui';
 
@@ -75,37 +75,35 @@ export function SheetPropuesta({ item, sessionId, onCerrar, onEstado }: {
   const vence = Date.parse(t.venceAt);
   const vencida = ahora != null && Number.isFinite(vence) && vence < ahora && abierta;
 
+  // El pie: la consecuencia en tinta pegada arriba del primario, y la salida con objeto debajo.
+  // Ya resuelta (o vencida), sólo lo que pasó; sin nada que decir, sin pie.
+  const cierre = vencida ? 'Venció: ya no se puede ejecutar.' : (it.nota ?? frase ?? '');
   const pie = abierta && !vencida ? (
-    <>
-      {frase && <p className="mm-pie__error" role="alert">{frase}</p>}
-      {!enLinea && <p className="mm-pie__aviso" role="status">Sin conexión: no se puede aprobar.</p>}
-      <p className="mm-pie__consecuencia">{t.consecuencia ?? 'MaKo lo ejecuta en cuanto confirmes.'}</p>
+    <PieM consecuencia={t.consecuencia ?? 'MaKo lo ejecuta en cuanto confirmes.'}>
+      {frase && <p className="m-mako-pie-nota" role="alert">{frase}</p>}
+      {!enLinea && <p className="m-mako-pie-nota m-mako-pie-nota--gris" role="status">Sin conexión: no se puede aprobar.</p>}
       <Button variant="primary" size="lg" full loading={enviando === 'confirmar'}
         disabled={!enLinea || enviando === 'cancelar'} onClick={() => correr('confirmar')}>
         {rotuloPrimario(t)}
       </Button>
-      <Button variant="tertiary" size="md" full loading={enviando === 'cancelar'}
+      <Button variant="tertiary" size="lg" full loading={enviando === 'cancelar'}
         disabled={!enLinea || enviando === 'confirmar'} onClick={() => correr('cancelar')}>
         {SALIDA_PROPUESTA}
       </Button>
-    </>
-  ) : (
-    <p className="mm-pie__consecuencia">
-      {vencida ? 'Venció: ya no se puede ejecutar.' : it.nota ?? frase ?? ''}
-    </p>
-  );
+    </PieM>
+  ) : cierre ? <PieM consecuencia={cierre} /> : undefined;
 
   return (
     <SheetM abierto={item != null} onCerrar={onCerrar} titulo={t.titulo} id="propuesta" snap="alto" ocupado={enviando != null} pie={pie}>
-      <div className="mm-detalle">
-        <p className="mm-detalle__resumen">{t.resumen}</p>
-        {abierta && t.vence && <p className="mm-detalle__meta">Vence {t.vence}</p>}
+      <div className="m-mako-detalle">
+        <p className="m-mako-detalle__resumen">{t.resumen}</p>
+        {abierta && t.vence && <p className="m-mako-detalle__vence">Vence {t.vence}</p>}
         {t.detalle.length > 0 && (
           <>
-            <h3 className="mm-detalle__sub">Lo que se va a ejecutar</h3>
-            <dl className="mm-lineas">
+            <h3 className="m-mako-subt">Lo que se ejecuta</h3>
+            <dl className="m-lista m-mako-lineas">
               {t.detalle.map((l, i) => (
-                <div key={i} className="mm-linea"><dt>{l.rotulo}</dt><dd>{l.valor}</dd></div>
+                <div key={i} className="m-mako-linea"><dt>{l.rotulo}</dt><dd>{l.valor}</dd></div>
               ))}
             </dl>
           </>

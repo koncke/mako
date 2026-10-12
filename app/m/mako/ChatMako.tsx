@@ -18,6 +18,11 @@
 // Las sesiones son de ESTA persona (el route compara la clave en cada lectura). «Nuevo
 // chat» no crea nada hasta el primer mensaje: una sesión vacía por cada toque llenaría la
 // lista de chats sin título.
+//
+// v2 (docs/prototipos/mako-mobile-v2.html, «MaKo»): pantalla de TRABAJO dentro de More (sin
+// barra, «‹ More» y «MaKo» en la barra de arriba: lo pone cabecera.ts). Burbuja tuya azul llena,
+// la de MaKo en --surface con borde. Sin hora debajo de cada burbuja y sin la estrella en cada
+// mensaje: la estrella dorada va SÓLO en lo que MaKo propone (las filas de decisión del hilo).
 // =============================================================================
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -27,7 +32,9 @@ import { Icon } from '@/app/_components/icons';
 import { conWs } from '@/lib/ws-tab';
 import { GRAMATICA } from '@/lib/mako-gramatica';
 import type { MensajeChat, RespuestaTurno, SesionChat, TarjetaPendiente } from '@/lib/mako-turno-app-reglas';
-import { CabeceraM, FilaM, SheetM, SkeletonFilas, VacioM, ErrorM, useConexion, horaCorta } from '../_ui';
+import {
+  CabeceraM, FilaM, ListaM, PieM, PildoraM, SheetM, SkeletonFilas, VacioM, ErrorM, useConexion, horaCorta,
+} from '../_ui';
 import { Composer, type Envio } from './Composer';
 import { SheetPropuesta } from './SheetPropuesta';
 import { postConProgreso } from './subir';
@@ -213,16 +220,16 @@ export function ChatMako({ sesionesIniciales, inicial }: { sesionesIniciales: Se
   const vacio = !cargando && !errorCarga && items.length === 0;
 
   return (
-    <div className="mm-chat" style={{ paddingBottom: altoComposer + 16 }}>
+    <div className="m-mako" style={{ paddingBottom: altoComposer + 16 }}>
       <CabeceraM accion={accion} />
 
       {cargando ? <SkeletonFilas filas={4} />
         : errorCarga ? <ErrorM frase={errorCarga} onReintentar={sesion ? () => void abrir(sesion.id) : undefined} />
-        : vacio ? <VacioM frase="Pregúntale a MaKo por tus leads, tu agenda o tu plan." />
+        : vacio ? <VacioM frase="Pregúntale por tus leads, tu agenda o tu plan." />
         : (
-          <ol className="mm-hilo" aria-label="Conversación con MaKo">
-            {items.map((x, i) => (
-              <Item key={x.id} x={x} anterior={items[i - 1]}
+          <ol className="m-mako-hilo" aria-label="Conversación con MaKo">
+            {items.map((x) => (
+              <Item key={x.id} x={x}
                 onAbrir={(id) => setAbierta(id)}
                 onReintentar={reintentar}
                 onRecargar={sesion ? () => void abrir(sesion.id) : undefined} />
@@ -236,18 +243,23 @@ export function ChatMako({ sesionesIniciales, inicial }: { sesionesIniciales: Se
       <SheetPropuesta item={propuestaAbierta} sessionId={sesion?.id ?? null} onCerrar={() => setAbierta(null)} onEstado={alEstado} />
 
       <SheetM abierto={hojaChats} onCerrar={() => setHojaChats(false)} titulo="Tus chats" id="chats" snap="medio"
-        pie={<Button variant="primary" size="lg" full onClick={nuevoChat}>Nuevo chat</Button>}>
+        pie={<PieM><Button variant="primary" size="lg" full onClick={nuevoChat}>Nuevo chat</Button></PieM>}>
         {sesiones.length === 0
-          ? <p className="mm-nota">Todavía no hay chats.</p>
+          ? <VacioM frase="Todavía no hay chats." />
           : (
-            <div className="m-lista">
-              {sesiones.map((s) => (
-                <FilaM key={s.id} titulo={s.titulo?.trim() || 'Chat sin título'}
-                  riel={<CuandoCorto iso={s.updatedAt} />}
-                  pill={s.id === sesion?.id ? <span className="mk-pill">Abierto</span> : undefined}
-                  onClick={() => void abrir(s.id)} />
-              ))}
-            </div>
+            <ListaM>
+              {sesiones.map((s) => {
+                const nombre = s.titulo?.trim() || 'Chat sin título';
+                const actual = s.id === sesion?.id;
+                return (
+                  <FilaM key={s.id} navegacion chevron={false}
+                    titulo={nombre}
+                    etiqueta={actual ? `${nombre}, abierto` : undefined}
+                    riel={<span className="m-mako-riel"><CuandoCorto iso={s.updatedAt} />{actual && <Icon name="check" size={18} />}</span>}
+                    onClick={() => void abrir(s.id)} />
+                );
+              })}
+            </ListaM>
           )}
       </SheetM>
     </div>
@@ -256,71 +268,69 @@ export function ChatMako({ sesionesIniciales, inicial }: { sesionesIniciales: Se
 
 // ── Las piezas del hilo ──────────────────────────────────────────────────────
 
-function Item({ x, anterior, onAbrir, onReintentar, onRecargar }: {
+/** La estrella de MaKo: sólo en lo que MaKo propone (no en cada mensaje suyo). */
+const MARCA_MAKO = <span className="m-mako-marca" aria-hidden><Icon name="mako" size={18} /></span>;
+
+function Item({ x, onAbrir, onReintentar, onRecargar }: {
   x: ItemHilo;
-  anterior: ItemHilo | undefined;
   onAbrir: (id: string) => void;
   onReintentar: (id: string) => void;
   onRecargar?: () => void;
 }) {
   if (x.k === 'msg') {
     const tuyo = x.role === 'user';
-    // La chispa va en el PRIMER mensaje de un grupo de MaKo.
-    const antesMako = (anterior?.k === 'msg' && anterior.role === 'assistant') || (anterior?.k === 'aviso' && anterior.tono === 'mako');
-    const primeroDeMako = !tuyo && !antesMako;
     return (
-      <li className={`mm-burbuja ${tuyo ? 'mm-burbuja--tuya' : 'mm-burbuja--mako'}`} data-estado={x.estado}>
-        {primeroDeMako && <span className="mm-chispa" aria-hidden><Icon name="mako" size={20} /></span>}
-        <div className="mm-burbuja__caja">
+      <li className={`m-mako-msg ${tuyo ? 'm-mako-msg--yo' : 'm-mako-msg--mk'}`} data-estado={x.estado}>
+        <div className="m-mako-burbuja">
           {x.voz && <NotaDeVoz url={x.voz.url} secs={x.voz.secs} />}
           {x.adjuntos && x.adjuntos.length > 0 && (
-            <p className="mm-burbuja__adjuntos">{x.adjuntos.join(' · ')}</p>
+            <p className="m-mako-adjuntos">{x.adjuntos.join(' · ')}</p>
           )}
-          {x.texto && <div className={x.voz ? 'mm-burbuja__transcripcion' : 'mm-burbuja__texto'}>{tuyo ? x.texto : conNegritas(x.texto)}</div>}
+          {x.texto && <div className={x.voz ? 'm-mako-transcripcion' : 'm-mako-texto'}>{tuyo ? x.texto : conNegritas(x.texto)}</div>}
         </div>
-        {x.estado === 'enviando' ? null
-          : x.estado === 'error' ? (
-            <p className="mm-burbuja__falla" role="alert">
-              {x.error} <button type="button" onClick={() => onReintentar(x.id)}>Reintentar el envío</button>
-            </p>
-          ) : x.estado === 'incierto' ? (
-            <p className="mm-burbuja__falla" role="alert">
-              {x.error ?? ERROR_INCIERTO} {onRecargar && <button type="button" onClick={onRecargar}>Recargar el chat</button>}
-            </p>
-          ) : x.at ? <span className="mm-burbuja__hora"><HoraLocal iso={x.at} /></span> : null}
+        {x.estado === 'error' ? (
+          <p className="m-mako-falla" role="alert">
+            {x.error} <button type="button" onClick={() => onReintentar(x.id)}>Reintentar el envío</button>
+          </p>
+        ) : x.estado === 'incierto' ? (
+          <p className="m-mako-falla" role="alert">
+            {x.error ?? ERROR_INCIERTO} {onRecargar && <button type="button" onClick={onRecargar}>Recargar el chat</button>}
+          </p>
+        ) : null}
       </li>
     );
   }
   if (x.k === 'aviso') {
     return x.tono === 'plataforma'
-      ? <li className="mm-aviso" role="status">{x.texto}</li>
+      ? <li className="m-mako-aviso" role="status">{x.texto}</li>
       : (
-        <li className="mm-burbuja mm-burbuja--mako">
-          <div className="mm-burbuja__caja"><div className="mm-burbuja__texto">{conNegritas(x.texto)}</div></div>
+        <li className="m-mako-msg m-mako-msg--mk">
+          <div className="m-mako-burbuja"><div className="m-mako-texto">{conNegritas(x.texto)}</div></div>
         </li>
       );
   }
   if (x.k === 'pantalla') {
     return (
-      <li className="mm-fila-hilo">
-        <div className="m-lista">
-          <FilaM titulo={x.p.titulo} segunda="Se revisa en Inbox" href={x.p.href} />
-        </div>
+      <li className="m-mako-fila">
+        <ListaM>
+          <FilaM leading={MARCA_MAKO} titulo={x.p.titulo} segunda="Se revisa en Inbox" href={x.p.href} />
+        </ListaM>
       </li>
     );
   }
   const pill = PILL_PROPUESTA[x.estado];
   return (
-    <li className="mm-fila-hilo">
-      <div className="m-lista">
+    <li className="m-mako-fila">
+      <ListaM>
         <FilaM
+          leading={MARCA_MAKO}
           titulo={x.t.resumen}
           segunda={x.estado === 'pendiente' ? (x.t.consecuencia ?? x.t.titulo) : x.t.titulo}
-          pill={<span className={`mk-pill mm-pill--${pill.tono}`}>{pill.texto}</span>}
+          pill={<PildoraM tono={pill.tono}>{pill.texto}</PildoraM>}
           enCurso={x.estado === 'aplicando' ? true : undefined}
           onClick={() => onAbrir(x.id)}
         />
-      </div>
+      </ListaM>
     </li>
   );
 }
@@ -329,15 +339,15 @@ function Trabajando({ t, segs }: { t: Trabajo; segs: number }) {
   const rotulo = t.fase === 'subiendo'
     ? `Subiendo ${t.fuente} · ${Math.round(t.pct * 100)}%`
     : `${GRAMATICA.analizando.rotulo} · ${t.fuente}`;
+  const viva = !(t.fase === 'subiendo' && t.pct >= 1);
   return (
-    <li className="mm-trabajo" role="status" aria-live="polite">
-      <span className="mm-chispa" aria-hidden><Icon name="mako" size={20} /></span>
-      <div className="mm-trabajo__caja">
-        <span className="mm-trabajo__rotulo">{rotulo}</span>
+    <li className="m-mako-msg m-mako-msg--mk" role="status" aria-live="polite">
+      <div className="m-mako-burbuja m-mako-trabajo">
+        <span className="m-mako-trabajo__rotulo">{rotulo}</span>
         {t.fase === 'revisando' && segs >= AVISO_LENTO_S && (
-          <span className="mm-trabajo__lento">Puede tardar un par de minutos · {segs} s</span>
+          <span className="m-mako-trabajo__lento">Puede tardar un par de minutos · {segs} s</span>
         )}
-        <span className={`mk-fila__barra${t.fase === 'subiendo' && t.pct >= 1 ? '' : ' mk-fila__barra--viva'}`} aria-hidden>
+        <span className={`m-mako-trabajo__barra${viva ? ' m-mako-trabajo__barra--viva' : ''}`} aria-hidden>
           <i style={{ width: t.fase === 'subiendo' ? `${Math.round(t.pct * 100)}%` : '40%' }} />
         </span>
       </div>
@@ -349,26 +359,18 @@ function NotaDeVoz({ url, secs }: { url: string; secs: number }) {
   const audio = useRef<HTMLAudioElement>(null);
   const [sonando, setSonando] = useState(false);
   return (
-    <div className="mm-voz">
-      <button type="button" className="mm-voz__play" aria-label={sonando ? 'Pausar la nota de voz' : 'Escuchar la nota de voz'}
+    <div className="m-mako-voz">
+      <button type="button" className="m-mako-voz__play" aria-label={sonando ? 'Pausar la nota de voz' : 'Escuchar la nota de voz'}
         onClick={() => { const a = audio.current; if (!a) return; if (a.paused) void a.play(); else a.pause(); }}>
         <Icon name={sonando ? 'pausa' : 'play'} size={18} />
       </button>
-      <span className="mm-voz__dur">{duracion(secs)}</span>
+      <span className="m-mako-voz__dur">{duracion(secs)}</span>
       <audio ref={audio} src={url} preload="metadata" onPlay={() => setSonando(true)} onPause={() => setSonando(false)} onEnded={() => setSonando(false)} />
     </div>
   );
 }
 
-/** La hora de un mensaje, en el reloj del teléfono (se calcula después de hidratar). */
-function HoraLocal({ iso }: { iso: string }) {
-  const [txt, setTxt] = useState('');
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { const t = Date.parse(iso); if (Number.isFinite(t)) setTxt(horaCorta(t)); }, [iso]);
-  return <>{txt}</>;
-}
-
-/** «14:20» si es de hoy, «12 oct» si no. */
+/** «14:20» si es de hoy, «12 oct» si no (en el reloj del teléfono: se calcula después de hidratar). */
 function CuandoCorto({ iso }: { iso: string }) {
   const [txt, setTxt] = useState('');
   useEffect(() => {

@@ -42,13 +42,13 @@ import { esPasoAccion } from '@/lib/nutricion-paso-accion';
 import { franjaIA, BARRA_IA_ANCHO } from '@/lib/crear-ia-lugar';
 import { resumenAvisos, edicionVigente } from '@/lib/flujo-ia-cliente';
 import { TOPE_NOMBRE_SECUENCIA, nombreParaGuardar, type Objetivo } from '@/lib/setting-estrategia';
-import { normalizar, esNodoMensaje, juntarPasosIA } from '@/lib/flujo-grafo';
+import { normalizar, esNodoMensaje } from '@/lib/flujo-grafo';
 import { eliminar } from '@/lib/flujo-edicion';
 import { MakoLogo } from '@/app/_components/MakoBrand';
 import type { Muelles } from '@/lib/lienzo-grafo';
 import { abrirFlujo } from '@/lib/flujo-legado';
 import {
-  insertarDesdeLienzo, renumerar, errorLegible, tarjetaDelError, estrategiaConLimpieza,
+  insertarDesdeLienzo, renumerar, borradorAlAbrir, errorLegible, tarjetaDelError, estrategiaConLimpieza,
   disparoDeValor, canalesParaProbar, frenoDelFlujo,
   type QueAgregar,
 } from '@/lib/flujo-conversacion';
@@ -255,8 +255,9 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
       idDeClave: (clave) => secuencias.find((s) => s.clave === clave)?.id ?? null,
       nombreDeSecuencia: (id) => secuencias.find((s) => s.id === id)?.nombre ?? null,
     });
-    // Un borrador de antes se abre con UN AI Step por medio (`juntarPasosIA`, la puerta para lo viejo, como `abrirFlujo`).
-    const borrador = secuencia.borrador?.pasos?.length ? renumerar(normalizar(juntarPasosIA(normalizar(secuencia.borrador.pasos)).pasos)) : null;
+    // Un borrador de antes se abre con UN AI Step por medio: `borradorAlAbrir` (lib/flujo-conversacion.ts), la MISMA
+    // cadena que usa el teléfono (app/m/automations), con `juntarPasosIA` como `abrirFlujo`.
+    const borrador = secuencia.borrador?.pasos?.length ? borradorAlAbrir(secuencia.borrador.pasos) : null;
     // `abierto`: lo publicado tal como el lienzo lo abriría sin borrador («Descartar cambios» vuelve ahí).
     const abierto = renumerar(r.pasos);
     return { ...r, pasos: borrador ?? abierto, abierto, publicado: JSON.stringify(renumerar(normalizar(ordenados))) };

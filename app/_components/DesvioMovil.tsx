@@ -60,7 +60,9 @@ export function DesvioMovil({ telefono }: { telefono: boolean }) {
 
   return (
     <div style={cubierta} role="dialog" aria-modal="true" aria-labelledby="desvio-titulo">
-      <div style={{ color: 'var(--mako-ink)' }}><Icon name="mako" size={44} /></div>
+      {/* La computadora, no la chispa: v2 (11/10/2026) — el logo de MaKo va sólo en Today y en More
+          (Martín: «Ese no es el icono de MaKo»), y esto dice DÓNDE se usa la pantalla. */}
+      <div style={{ color: 'var(--dim)' }}><Icon name="computadora" size={44} /></div>
       <h1 id="desvio-titulo" style={{ fontSize: 26, fontWeight: 600, lineHeight: 1.2, letterSpacing: '-0.015em', margin: 0 }}>
         Esta pantalla se usa en la computadora.
       </h1>

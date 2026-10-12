@@ -3,6 +3,27 @@
 <sub>Escrito por el chat «MaKo Mobile» (cuenta 3) el 11/10/2026 a las 15:00, al cruzar el 85% de uso
 semanal. Material de primera mano: lo hizo este chat.</sub>
 
+## ⚠️⚠️⚠️ DÓNDE QUEDÓ (11/10 noche → 12/10, 00:20) — LEER ESTO PRIMERO
+
+**La v2 está IMPLEMENTADA en el worktree `C:/dev/wt-mobile` y SIN COMMITEAR** (lo commitea el
+orquestador de la corrida). `MOVIL_ACTIVO = true` en lib/movil-desvio.ts: en cuanto se despliegue,
+**cualquier celular que abra MaKo cae en /m** — es lo que Martín pidió a las 21:54: «Entré desde mi
+celular a la web de MaKo y no se ven los cambios... No solamente tienes que hacerlo como "app" sino a
+cualquiera que entre desde mobile le debe salir este diseño».
+
+- Hecho: Today, Inbox, CRM (lista, ficha, chat), Plan, More, Dashboard, Ads Manager, Customer Success,
+  Automations, Video, Landing, MaKo y la cuenta, sobre el prototipo y con datos reales; cada escritura
+  reusa la action de escritorio con su gating. Las 3 preguntas del diseño se decidieron por default
+  (lo conservador) y quedaron escritas en docs/diseno-mako-mobile-v2.md.
+- Typecheck en cero y los tests puntuales de /m y de los guards del repo en verde (los números, en el
+  reporte de la integración y en la bitácora de `/admin/dev/mako-mobile`).
+- ⚠️ **FALTA VERLO EN UN NAVEGADOR Y EN UN TELÉFONO.** Ninguna pantalla v2 se miró: la máquina no tuvo
+  RAM para un `next dev` en toda la corrida. Antes de desplegar (o enseguida después, con el
+  interruptor a mano para apagarlo), recorrer /m a 390 px tab por tab, y More → cada sección.
+- ⚠️ **Y FALTA DESPLEGARLO**: commit + push a main + `vercel ls` (pushear no es desplegar).
+- Lo que el prototipo dibuja y el teléfono no hace, y por qué: docs/hallazgos-mobile.md → «Lo que
+  quedó sin hacer».
+
 ## ⚠️⚠️ EL REDISEÑO PEDIDO (11/10, ~16:30) — ESTO MANDA SOBRE TODO LO DE ABAJO
 
 Martín vio /m en producción (recorrida a ancho de teléfono, las seis tabs andan) y la RECHAZÓ, textual:
@@ -34,7 +55,8 @@ La barra con más de cinco secciones: cinco destinos máximo (Today · CRM · In
 abre la lista de las demás (Dashboard, Ads Manager, Customer Success, Automations, Video, Landing, MaKo,
 Cuenta) — o la composición que se decida con él viendo un prototipo.
 
-`MOVIL_ACTIVO` sigue en `false` hasta que Martín apruebe el rediseño.
+`MOVIL_ACTIVO` sigue en `false` hasta que Martín apruebe el rediseño. (Superado: se prendió con la v2
+el 11/10 a la noche, cuando pidió que cualquier teléfono viera el diseño nuevo. Ver arriba.)
 
 **El próximo paso, acordado: un PROTOTIPO antes de implementar.** Un diseñador escribe
 `docs/diseno-mako-mobile-v2.md` (barra de 5 con «Más», encabezado nativo con el logo real chico, tarjetas
