@@ -257,9 +257,11 @@ test('Probar 1: al salir la prueba de verdad, un aviso corto con dónde mirar, U
   for (const c of Object.values(CANALES_PROBAR)) assert.ok(c.enviado.split(/\s+/).length <= 5, `«${c.enviado}» es largo para un toast`);
   const panel = sinComentarios(leer('app/automations/PanelProbar.tsx'));
   const mandar = panel.slice(panel.indexOf('const mandarReal = ('), panel.indexOf('const mostrarParte = ('));
-  assert.match(mandar, /\} else if \(primero && run\.current === r0\) mostrarAviso\(CANALES_PROBAR\[c\.canal\]\.enviado, undefined, 'good'\);/,
+  // Duodécima tanda (§2.8): el aviso lo pide `onEnviado` SIN el gate del recorrido, y el toast vive en la lista
+  // (SimuladorWhatsApp). Lo fija entero tests/automations-duodecima-entrada.test.ts.
+  assert.match(mandar, /\} else if \(primero\) \{\n\s+const texto = CANALES_PROBAR\[c\.canal\]\.enviado;\n\s+onEnviado\?\.\(texto\);/,
     'el aviso va con el PRIMERO que sale, si salió');
-  assert.match(panel, /<Toast state=\{avisoEnviado\} onClose=\{cerrarAviso\} \/>/);
+  assert.match(sinComentarios(leer('app/automations/SimuladorWhatsApp.tsx')), /<Toast state=\{avisoEnviado\} onClose=\{cerrarAviso\} \/>/);
 });
 
 test('Probar 2: «De → Para» envuelve; la flecha va pegada al destino', () => {

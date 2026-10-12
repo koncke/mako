@@ -34,9 +34,12 @@ import {
 import { motivoDeErroresCascada } from '../lib/ia-mensajes';
 import { accionDelFlujo } from '../lib/editor-acciones';
 import { seccionesDisparo } from '../lib/flujo-conversacion';
+import { opcionesCronIA } from '../lib/disparadores';
+import { catalogosDe, etapasDeCondicion } from '../lib/condiciones-catalogos';
 import { porId } from '../lib/api-mako/registro';
 import { marcasDeVoseo } from '../lib/puestas-data';
-import { CrearConIA, EJEMPLOS } from '../app/automations/CrearConIA';
+import { EJEMPLOS, TITULO_GALERIA_IA } from '../app/automations/CrearConIA';
+import { ChatMako } from '../app/automations/ChatMako';
 
 const RAIZ = join(import.meta.dirname, '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
@@ -143,6 +146,15 @@ const tokens = (s: string) => Math.ceil(s.length / DIVISOR);
  * 4 productos: 105 disparadores y ~3.430 tokens de prompt (~3.570 de salida bajo el techo). Roturas
  * re-medidas con el calibre nuevo (arnés que restaura de memoria): sin el tope del perfil y la voz,
  * 13 pass / 1 fail; DISPARADORES en una línea por opción con el valor interno, 12 / 2.
+ *
+ * ⚠️ RECALIBRADO EN LA DUODÉCIMA TANDA (12/10/2026). `ctxGrande` es ahora lo que arma `armarContexto`: el CRON de
+ * `opcionesCronIA` con los CUATRO canales conectados (Instagram, Messenger, Email y Pagos, más «se agrega / se quita
+ * etiqueta»: 120 opciones, y el bloque ya no se corta en 80) y el catálogo de condiciones (`catalogoCondicion`). Medido
+ * (scratchpad wf-duodecima/ia-crear/medir.mts, `tokensAprox`): con el calibre de antes y el código de antes, ~3.793 tokens
+ * (ya entonces sin lugar para la plantilla: `entraEnGroq` pide ≤ 3.700); con todo lo que se sumó y sin pagarlo, ~4.448
+ * (Groq afuera de la cascada); pagado (sin las FILAS del system, sin el bloque ETAPAS que repetía las líneas «Etapa · X»
+ * de DISPARADORES, las condiciones de los dos ámbitos una sola vez y las ETIQUETAS que ya están en DISPARADORES), ~3.953.
+ * Roturas, una por vez con el arnés wf-duodecima/ia-crear/romper.mjs (restaura de memoria, sha1 igual): ver el test.
  */
 function ctxGrande(): { ctx: CtxIA; perfil: string; voz: string } {
   const etapas = Array.from({ length: 14 }, (_, i) => ({ value: `etapa_${i}`, label: `Etapa número ${i + 1}` }));
@@ -153,11 +165,10 @@ function ctxGrande(): { ctx: CtxIA; perfil: string; voz: string } {
     { funnelId: 8, productoId: 15, nombre: 'Programa de liderazgo', etapas, etapasEntrega: etapas.slice(0, 6) },
   ];
   const etiquetas = Array.from({ length: 20 }, (_, i) => ({ id: i + 1, nombre: `Etiqueta ${i + 1}`, archivada_at: null }));
-  const disparadores = disparadoresParaIA(seccionesDisparo({
-    disparadores: [], productos, etiquetas, actual: { trigger_tipo: 'manual' }, textoActual: 'manual',
-  }));
+  const disparadores = disparadoresParaIA(opcionesCronIA({ productos, etiquetas, conectados: { instagram: true, messenger: true, email: true, pagos: true } }));
+  const catalogoCondicion = catalogosDe({ etapas: etapasDeCondicion(productos), productos, remotos: { cursos: [], posts: [], campanas: ['Campaña de otoño'], reuniones: [] } });
   const ctx: CtxIA = {
-    etiquetas: etiquetas.map((e) => ({ id: e.id, nombre: e.nombre })), productos, disparadores,
+    etiquetas: etiquetas.map((e) => ({ id: e.id, nombre: e.nombre })), productos, disparadores, catalogoCondicion,
     audios: Array.from({ length: 8 }, (_, k) => ({ id: k + 1, titulo: `Audio ${k + 1}`, transcript: 'Hola, te cuento cómo trabajamos y qué vas a lograr en las primeras semanas del programa. '.repeat(3) })),
     archivos: [], acciones,
     links: { agenda: { url: 'https://cal.com/x', para: 'el link para que agende la llamada' }, video: { url: 'https://v.com/x', para: 'el video que conviene ver antes de hablar' } },
@@ -167,10 +178,15 @@ function ctxGrande(): { ctx: CtxIA; perfil: string; voz: string } {
 
 // rotura (sacar el tope del perfil y de la voz en bloquesDeContexto): 1 fallo. rotura (DISPARADORES
 // vuelve a una línea por opción con el valor interno): 1 fallo.
+// DUODÉCIMA TANDA, con el calibre nuevo (romper.mjs, base de este archivo 14 / 0): volver el bloque ETAPAS → 13 / 1;
+// las condiciones de los dos ámbitos repetidas en cada línea → 13 / 1; las ETIQUETAS repetidas aunque estén en
+// DISPARADORES → 13 / 1; las FILAS escritas a mano de vuelta en el system → 13 / 1. Todas caen acá.
 test('con todo en el tope, el pedido deja salida para un flujo bajo el techo de Groq', () => {
   assert.ok(TECHO_GROQ > 0 && DIVISOR > 0, 'no pude leer la cuenta de lib/ai-cheap.ts');
   const { ctx, perfil, voz } = ctxGrande();
-  assert.ok(ctx.disparadores.length >= 100, `son ${ctx.disparadores.length}`);
+  assert.ok(ctx.disparadores.length >= 120, `son ${ctx.disparadores.length}`);
+  // Sin el tope de 80: las opciones del final (los eventos de los canales) le llegan al modelo.
+  assert.match(bloqueDisparadores(ctx.disparadores), /d120 /);
   const user = userDeCrear(ctx, { perfil, voz, pedido: 'Recuperar a quien dejó sus datos y no agendó, con un WhatsApp al día y un email a los dos días.' });
   const prompt = tokens(CREAR_IA_SYSTEM_TEMPLATE) + tokens(user);
   // El calibre: cerca del borde. Si el prompt baja mucho (otro cambio del CRON), las roturas dejan de
@@ -232,23 +248,32 @@ test('los dos prompts: sin «ir_a», el disparador por clave, y en español neut
   assert.match(CREAR_IA_SYSTEM_TEMPLATE, /"disparador": "d1"/);
 });
 
-// ── 5. La caja ───────────────────────────────────────────────────────────────────
+// ── 5. La caja (desde la duodécima tanda, el CHAT de MaKo: app/automations/ChatMako.tsx) ─────────────────────
+// ⚠️ DUODÉCIMA TANDA (12/10/2026): la caja de CrearConIA.tsx pasó a ser ChatMako.tsx (galería y lienzo) y su lector del
+// stream, app/automations/stream-ia.ts. Lo que fijaba esta sección sigue valiendo y se fija AHÍ: el placeholder que se
+// escribe solo y para al tocarlo, el micrófono del Plan, la capa del lienzo con su teclado y el error con su link. El
+// modo 'crear' (la caja del lienzo vacío, que no se dibujaba desde la décima) se fue: se dibuja la galería.
+// Roturas re-medidas con el arnés scratchpad/wf-duodecima/chat-ui/romper.mjs: ver al lado de cada test.
 
-const CAJA = sinComentarios(leer('app/automations/CrearConIA.tsx'));
-const dibujar = (props: Partial<Parameters<typeof CrearConIA>[0]> = {}) => renderToStaticMarkup(createElement(CrearConIA, {
-  modo: 'crear', secuenciaId: 7, onListo: () => {}, ...props,
-} as Parameters<typeof CrearConIA>[0]));
+const CAJA = sinComentarios(leer('app/automations/ChatMako.tsx'));
+const LECTOR = sinComentarios(leer('app/automations/stream-ia.ts'));
+const dibujar = (props: Partial<Parameters<typeof ChatMako>[0]> = {}) => renderToStaticMarkup(createElement(ChatMako, {
+  modo: 'galeria', onListo: () => {}, ...props,
+} as Parameters<typeof ChatMako>[0]));
 
 // rotura (volver a dibujar los `ejemplos` como chips): 1 fallo. Desde la integración la prop ya no
 // existe: lo que se fija es que no vuelvan ni ella ni la cadena que los armaba con nombres de etapas
 // (ChatAgentApp → SimuladorWhatsApp → SecuenciaPerfil → CrearConIA).
-test('dibujada: «Generar con IA», el primer ejemplo genérico en el placeholder y sin los ejemplos de props', () => {
+// Duodécima (romper.mjs, base 14 / 0): el placeholder sin el ejemplo (siempre PLACEHOLDER_QUIETO) → 12 / 2 (éste y el
+// del placeholder que para).
+test('dibujada: «Pídeselo a MaKo», el primer ejemplo genérico en el placeholder y sin los ejemplos de props', () => {
   const html = dibujar();
-  assert.match(html, />Generar con IA</);
+  assert.match(html, new RegExp(`>${TITULO_GALERIA_IA}<`));
   assert.doesNotMatch(html, /¿Qué quieres que haga\?/);
   assert.match(html, new RegExp(`placeholder="${EJEMPLOS[0]}"`));
   assert.doesNotMatch(html, /Nutrición No Show/);
   assert.doesNotMatch(CAJA, /ejemplos\?:/, 'volvió la prop `ejemplos`');
+  assert.doesNotMatch(sinComentarios(leer('app/automations/CrearConIA.tsx')), /ejemplos\?:/, 'volvió la prop `ejemplos`');
   for (const f of ['app/automations/ChatAgentApp.tsx', 'app/automations/SimuladorWhatsApp.tsx', 'app/automations/SecuenciaPerfil.tsx']) {
     assert.doesNotMatch(sinComentarios(leer(f)), /ejemplosIA/, `${f}: volvió la cadena de los ejemplos con nombres de etapas`);
   }
@@ -266,28 +291,33 @@ test('los ejemplos son genéricos: ni etapas, ni productos, ni nombres, y en tú
 });
 
 // rotura (la animación vuelve cuando se vacía el campo: `!pedido` sin `!tocada`): 1 fallo.
+// Duodécima (romper.mjs): `!texto` sin `!tocada` → 13 / 1 (éste).
 test('el placeholder para del todo al tocar la caja, y no vuelve', () => {
   // Desde la décima tanda también en la galería («Pídeselo a MaKo»): el placeholder se escribe en todo lo que no es editar.
-  assert.match(CAJA, /useEjemploQueSeEscribe\(p\.modo !== 'editar' && !tocada && !pedido\)/);
+  assert.match(CAJA, /useEjemploQueSeEscribe\(p\.modo !== 'editar' && !tocada && !texto\)/);
   assert.match(CAJA, /onPointerDownCapture=\{parar\}/);
   assert.match(CAJA, /onFocusCapture=\{parar\}/);
   assert.doesNotMatch(CAJA, /setTocada\(false\)/, 'nada la vuelve a prender');
-  assert.match(CAJA, /placeholder=\{tocada \? PLACEHOLDER_QUIETO : ejemplo\}/);
+  assert.match(CAJA, /\(tocada \? PLACEHOLDER_QUIETO : ejemplo\)/);
+  assert.match(CAJA, /placeholder=\{placeholder\}/);
 });
 
 // rotura (la capa adentro del componente, sin portal): 1 fallo.
-test('mientras crea: una capa fija sobre toda la pantalla (portal al body), que también corta el teclado', () => {
-  assert.match(CAJA, /return typeof document !== 'undefined' \? createPortal\(tarjeta, document\.body\) : tarjeta;/);
+// Duodécima (romper.mjs): la capa sin portal → 13 / 1; Cancelar sin `abort()` en el lector → 13 / 1 (éste las dos).
+test('mientras crea en el lienzo: una capa fija sobre toda la pantalla (portal al body), que también corta el teclado', () => {
+  assert.match(CAJA, /const capa = tarjeta && \(typeof document !== 'undefined' \? createPortal\(tarjeta, document\.body\) : tarjeta\);/);
   assert.match(CAJA, /capa: \{\n\s+position: 'fixed', inset: 0, zIndex: 125,/);
   assert.match(CAJA, /document\.addEventListener\('keydown', alTeclado, true\);/);
   assert.match(CAJA, /e\.stopImmediatePropagation\(\);/);
   // Y Cancelar corta el pedido de verdad (AbortController), no sólo la pantalla.
-  assert.match(CAJA, /const cancelar = \(\) => \{\n\s+ctrl\.current\?\.abort\(\);/);
+  assert.match(LECTOR, /const cancelar = useCallback\(\(\) => \{\n\s+const c = ctrl\.current;\n\s+ctrl\.current = null;\n\s+c\?\.abort\(\);/);
 });
 
 // rotura (el error sin el link): 1 fallo.
+// Duodécima (romper.mjs): el lector sin `link` → 13 / 1 (éste).
 test('el error trae el link a donde se arregla', () => {
-  assert.match(CAJA, /if \(ev\.t === 'error'\) \{ setEstado\(\{ t: 'quieto', error: ev\.error \|\| 'No se pudo', link: ev\.link \}\); return true; \}/);
+  assert.match(LECTOR, /if \(ev\.t === 'error'\) return \{ t: 'error', error: ev\.error \|\| 'No se pudo', \.\.\.\(ev\.link \? \{ link: ev\.link \} : \{\}\) \};/);
+  assert.match(CAJA, /if \(fin\.t === 'error'\) \{ deshacer\(\{ texto: fin\.error, \.\.\.\(fin\.link \? \{ link: fin\.link \} : \{\}\) \}\); return; \}/);
   const ruta = sinComentarios(leer('app/api/chat-agent/secuencias/ia/route.ts'));
   assert.match(ruta, /send\(\{ t: 'error', error: g\.error, \.\.\.\(g\.link \? \{ link: g\.link \} : \{\}\) \}\);/);
 });

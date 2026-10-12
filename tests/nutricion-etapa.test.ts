@@ -16,6 +16,7 @@ import { ambitoDeSecuencia, leadEnAmbito } from '../lib/nutricion-ambito';
 import { clientesEnEtapa } from '../app/customer-success/pertenencia';
 import type { EtapaEntrega } from '../lib/servicio-etapas';
 import { seccionesDisparo } from '../lib/flujo-conversacion';
+import { etapasDeCondicion } from '../lib/condiciones-catalogos';
 import { readFileSync } from 'node:fs';
 
 const TODOS = ambitoDeSecuencia(null, null);          // la secuencia no declara embudo
@@ -413,7 +414,10 @@ test('el editor de secuencias ofrece también los servicios SIN embudo', () => {
   assert.ok(!secs.some((s) => s.options.some((o) => o.value.startsWith('venta:'))), 'un funnelId null sería la opción «null»');
   assert.ok(secs.some((s) => s.options.some((o) => o.value === 'entrega:11:kick')));
   const perfil = readFileSync(new URL('../app/automations/SecuenciaPerfil.tsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
-  assert.match(perfil, /const etapasCond: SeccionEtapas\[\] = productos\.flatMap\(\(pr\) => \(pr\.funnelId == null \|\| !pr\.etapas\.length \? \[\] : \[\{/, 'la condición «Está en la etapa» listaría un producto sin embudo');
+  // Duodécima tanda: el armado vive en `etapasDeCondicion` (lib/condiciones-catalogos.ts), la MISMA que ve la IA; se EJECUTA.
+  // Roto sacando el `pr.funnelId == null` de `etapasDeCondicion` (12/10): 26 / 1, cae éste (y lo mismo con el lienzo de vuelta a su copia).
+  assert.match(perfil, /const etapasCond: SeccionEtapas\[\] = etapasDeCondicion\(productos\);/, 'el lienzo volvió a una copia del armado');
+  assert.deepEqual(etapasDeCondicion([{ funnelId: null, nombre: 'Servicio', etapas: [{ value: 'kick', label: 'Kickoff' }] }]), [], 'la condición «Está en la etapa» listaría un producto sin embudo');
 });
 
 // PROBADO ROMPIÉNDOLO (06/10/2026). Baseline del archivo: 24 pass / 0 fail. Cada rotura, de a una

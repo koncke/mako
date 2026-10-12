@@ -1,12 +1,44 @@
 # Relevo: Automations (ex /chatbot) y las secuencias
 
-> **EN CURSO (12/10/2026 ~02:10, `claude3`): la DUODÉCIMA tanda** (feedback de una prueba con Fiesta Music; extractos en el
-> último hito de la bitácora): Crear con IA respeta el canal y el catálogo (nada inventado), un chat de MaKo por automatización
-> con historial y preguntas con opciones, MaKo edita tarjetas existentes, condiciones de Instagram, Zernio desde la tarjeta,
-> filtros de canal, botón ✦, aviso de Probar, sin onboarding al entrar; más tutoriales de conexión cortos y el clic en
-> «Operate». Workflow `wf_ec999673-272` en el worktree `C:/dev/wt-undecima`; si se corta: resumeFromRunId con su script.
-> Repartido: Landing Generator (presentación en vez de landing, la tira de imágenes). Sin dueño: migrar cursos desde
-> Skool/Hotmart. Ya en main (dbe5d1ec): Customer Success como familia propia y el «Ej.:» de los campos de clave.
+> **HECHA, SIN PUSH (12/10/2026 ~08:00, `claude3`): la DUODÉCIMA tanda** (feedback de la prueba con Fiesta Music; el
+> pedido, en el último hito de la bitácora). Worktree `C:/dev/wt-undecima` (rama `undecima`), corrida `wf_ec999673-272`.
+> Diseño: `docs/diseno-duodecima-tanda.md`. Lo aprendido: `docs/hallazgos-chatbot.md` → «Duodécima tanda» (y en
+> hallazgos-ui y hallazgos-integraciones, lo de la barra y los tutoriales). Crear con IA respeta el canal y el catálogo,
+> un chat de MaKo por automatización (en `app_settings`, sin migración) con preguntas con opciones, MaKo edita (cambiar y
+> quitar), condiciones de Instagram, Zernio desde el CRON, el filtro de canales, el ✦, el aviso de Probar y la tab sin la
+> puerta del QR. Fuera de Automations: el clic en Operate y los tutoriales cortos. **Sin migraciones ni datos** (lo de
+> ws10 es una prueba del cliente: #243 archivada, #244 y #245 pausadas, 0 inscripciones; se arreglan con MaKo después).
+>
+> **Antes del push:**
+> 1. Medir en Vercel prod `ZERNIO_API_KEY` y `ZERNIO_WEBHOOK_SECRET` (`vercel env ls`). Sin la primera, todo negocio sin
+>    key propia ve el campo de la key en el modal; sin la segunda, el webhook no se registra (queda sólo en el log).
+> 2. Martín mira los tutoriales de Meta, Resend, Cal.com y Fathom (`lib/metodo-catalogo.ts`).
+> 3. origin/main avanzó 34 commits desde `e58ff6c9` (a `2a9b0777`): toca 7 archivos de la tanda (Sidebar, la ruta de Publicar, ChatAgentApp,
+>    EditorDisparadores, SecuenciaPerfil, `lib/disparadores.ts`, `lib/prompt-registry.ts`), AGENTS.md, el índice de
+>    hallazgos y este relevo (borró el bloque «EN CURSO»). El merge va a mano. Suite al cierre: 8414 / 3 rojos de HEAD,
+>    ajenos (`confirm-encima-de-modales` ya está verde en main; `mover-etapa-validacion` y `plan-filtro-cliente`, no).
+>
+> **Pendiente, con su archivo, en los hallazgos:** el freno del medio al cambiar el CRON de una activa; el 401/402 de la
+> key propia; la key de Zernio guardada sin verificar. (`ctx.disparadorActual`, `sembrarPrimero` y el `aviso` de
+> Publicar quedaron enchufados al cierre.)
+>
+> **Decisiones para Martín** (§5 del diseño, se tomó la recomendada):
+> - el chat en `app_settings` (la otra: la mig 0258);
+> - sin el respaldo flash-lite (un 429 con Groq caído termina en «no pude»);
+> - la pregunta de canal sólo con una señal social débil, y un tope de 2 rondas con «Elige tú» siempre;
+> - «Te sigue» en vivo (quien sólo comentó cae en «si no»), y «Tiene Instagram» = tenemos su conversación por Instagram;
+> - «Instagram conectado» lo dice Zernio también en el CRON (ws 1, 9 y 15 pasan a «Sin conectar»), y Zernio se conecta
+>   desde el CRON (sin key propia, cobra desde la 3.ª cuenta);
+> - el ✦ con recuadro claro de 44 y el logo de 32;
+> - el QR salta solo una vez por visita (WhatsApp, Instagram y Messenger); el lienzo y el recorrido con 0
+>   automatizaciones;
+> - el aviso de Probar sale aunque se cierre Probar; el CRON que propone una edición se guarda al tocarlo;
+> - lo que no existe se saca con aviso o se reintenta; un flujo social va sin «Si responde» ni AI Step;
+> - tutoriales de 3 a 5 pasos (se borró la ayuda de `META_ACCESS_TOKEN`); renombrar con MaKo no entra.
+>
+> Y dos que tomaron los paquetes: «Omitir» del recorrido apaga su reapertura (`ChatAgentApp.tsx`), y el click derecho
+> «crear suelta» también hace saltar el QR (`FlujoLienzo.tsx`). Repartido: Landing Generator (presentación en vez de
+> landing, la tira de imágenes). Sin dueño: migrar cursos desde Skool/Hotmart.
 >
 > **HECHA (11/10/2026 ~22:50, `claude3`): la UNDÉCIMA tanda, `a29af1a9`, pusheada desde el worktree `C:/dev/wt-undecima`.**
 > Mig 0257 aplicada antes del deploy. Lo aprendido: `docs/hallazgos-chatbot.md` → «Undécima tanda». **Datos APLICADOS el

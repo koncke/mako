@@ -112,11 +112,18 @@ export function panelStyle(open: boolean): CSSProperties {
  * El movimiento vive en `.mk-marca` y solo pasa al pasar el cursor: la insignia
  * se levanta apenas y la palabra se enciende. Nada permanente, que es la regla
  * del documento para los destellos de marca.
+ *
+ * ⚠️ EL LINK MIDE LO QUE MIDE EL LOGO, y el aire de abajo es MARGEN, no padding (12/10/2026, la
+ * prueba con Fiesta Music: «cuando alguien da clic en Operate... se lo lleva a General»). Tenía
+ * `padding-bottom: 20px` y, como hijo de una columna flex, se estiraba a todo el ancho: los 20 px
+ * entre el logo y el rótulo OPERATE eran link a /general, y un clic «un poco arriba» de OPERATE
+ * cambiaba de pantalla. Con `alignSelf` deja de estirarse y con `marginBottom` el aire no es
+ * clicable. El dibujo no cambia: 2 + 18 = los 20 de antes. Lo fija tests/barra-clic-operate.test.ts.
  */
 export function Marca({ open }: { open: boolean }) {
   return (
     <Link href="/general" className="mk-marca" title="Ir a General"
-      style={{ display: 'flex', alignItems: 'center', gap: 9, padding: open ? '2px 6px 20px' : '2px 0 20px', justifyContent: open ? 'flex-start' : 'center', flex: 'none', textDecoration: 'none' }}>
+      style={{ display: 'flex', alignItems: 'center', gap: 9, padding: open ? '2px 6px 2px' : '2px 0 2px', marginBottom: 18, alignSelf: open ? 'flex-start' : 'center', justifyContent: open ? 'flex-start' : 'center', flex: 'none', textDecoration: 'none' }}>
       <span className="mk-marca__logo" style={{ display: 'flex', flex: 'none' }}><MakoLogo size={32} /></span>
       {open && (
         <span className="mk-marca__word" style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.025em', lineHeight: 1 }}>
@@ -261,6 +268,10 @@ export function Familia({ f, primera, open, pathname, abiertaEsta, contadorFamil
           display: 'flex', alignItems: 'center', gap: 9, width: '100%',
           justifyContent: open ? 'flex-start' : 'center',
           padding: open ? '0 2px 7px' : '0 0 7px',
+          // Sin esto, durante los 200 ms en que la barra se abre o se pliega, un rótulo de dos
+          // palabras («Customer Success») baja de renglón y la barra salta 16 a 32 px: el clic
+          // que iba a OPERATE cae en otra cosa. Lo fija tests/barra-clic-operate.test.ts.
+          whiteSpace: 'nowrap',
           border: 'none', background: 'transparent', cursor: 'pointer',
           fontFamily: MONO, fontSize: 12, letterSpacing: '.17em',
           textTransform: 'uppercase', fontWeight: 700,

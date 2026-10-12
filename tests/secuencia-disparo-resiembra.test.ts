@@ -122,5 +122,7 @@ test('lo que recibe «Probar» y el catálogo de condiciones sale del PRIMERO de
   assert.match(cuerpo, /const disparo = disparoActualDe\(crons\.primero\);/);
   assert.match(cuerpo, /trigger_tipo: disparo\.trigger_tipo/);
   // Lo que eligió «Crear con IA» se pinta en el primero (el server ya lo guardó).
-  assert.match(cuerpo, /crons\.sembrarPrimero\(disparoDeValor\(puesto, disparo\)\)/);
+  // Duodécima tanda: entero, con `disparadorDeValorIA` (un evento de Instagram lleva su subtipo).
+  assert.match(cuerpo, /crons\.sembrarPrimero\(puesto\)/);
+  assert.match(cuerpo, /disparadorDeValorIA\(r\.disparador\)\[0\]/);
 });

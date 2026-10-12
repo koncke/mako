@@ -301,7 +301,7 @@ EL PREFIJO ES OBLIGATORIO y sale de UNA pregunta: ¿esto se CONSTRUYE, se EJECUT
  * `app/`. El test `plan-proyectos-catalogo.test.ts` verifica que la lista siga siendo
  * exactamente la de nav.ts, así que el día que se agregue una quinta familia, falla.
  */
-export const FAMILIAS_SIDEBAR = ['Operate', 'Analyze', 'Sales Machine', 'Content Machine'] as const;
+export const FAMILIAS_SIDEBAR = ['Operate', 'Customer Success', 'Analyze', 'Sales Machine', 'Content Machine'] as const;
 
 /** Un verbo de hacer al principio = es el título de una TAREA, no el nombre de una tab. */
 const VERBO_DE_TAREA =

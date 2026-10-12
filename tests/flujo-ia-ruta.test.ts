@@ -70,7 +70,8 @@ test('la salida se dimensiona con la MISMA cuenta que usa la cascada para saltea
   assert.doesNotMatch(RUTA, /maxTokens: 6000/);
 });
 
-// rotura 3 (crear etiquetas antes de mirar la cancelación): 1 fallo.
+// rotura 3 (crear etiquetas antes de mirar la cancelación): 1 fallo. Duodécima tanda (ia-preguntas-ruta/romper.mjs, base
+// 34 / 0 con crear-ia-preguntas y flujo-ia-crear): la ruta sin `respuestas, historial, via` → 31 / 3, éste entre ellos.
 test('un pedido cancelado no escribe nada: se mira la señal ANTES de crear etiquetas y guardar', () => {
   // Editar (la ruta): la señal antes de las etiquetas.
   const i = RUTA_SOLA.indexOf('if (req.signal.aborted) return;');
@@ -83,7 +84,7 @@ test('un pedido cancelado no escribe nada: se mira la señal ANTES de crear etiq
   const c = CORE.indexOf('await deps.insertar(');
   const d = CORE.indexOf('await deps.guardarPasos(');
   assert.ok(a > 0 && b > a && c > b && d > c, `crear: señal ${a} · etiquetas ${b} · fila ${c} · guardar ${d}`);
-  assert.match(RUTA_SOLA, /crearFlujoConIA\(\{ ws, pedido, secuenciaId, inicio, plazoMs: PLAZO_MODELO_MS, signal: req\.signal, alFase: send \}\)/);
+  assert.match(RUTA_SOLA, /crearFlujoConIA\(\{ ws, pedido, secuenciaId, inicio, plazoMs: PLAZO_MODELO_MS, signal: req\.signal, alFase: send, respuestas, historial, via: 'app' \}\)/);
 });
 
 // rotura 4 (crear sin exigir la vacía): 1 fallo.
@@ -133,20 +134,29 @@ test('crear vacía: sin pasos de relleno, pausada y con el disparador que no ins
   assert.match(ruta, /return Response\.json\(\{ ok: true, secuenciaId: r\.id, nombre: r\.nombre \}\);/);
 });
 
+/**
+ * «LA CAJA» DE MaKo. Desde la duodécima tanda (12/10/2026, §2.5) es UN chat para la galería y el lienzo: lo que se dibuja
+ * vive en app/automations/ChatMako.tsx y el pedido (el fetch, el tope y Cancelar) en app/automations/stream-ia.ts;
+ * CrearConIA.tsx lo monta. Los guards leen las tres juntas (la que no esté, vacía).
+ */
+const CAJA = () => ['app/automations/CrearConIA.tsx', 'app/automations/ChatMako.tsx', 'app/automations/stream-ia.ts']
+  .map((r) => { try { return sinComentarios(leer(r)); } catch { return ''; } }).join('\n');
+
 // rotura 9 (el fetch sin signal): 1 fallo. rotura 10 (un tope del cliente menor que el de la ruta): 1 fallo.
 test('la caja: el fetch lleva signal con el tope de la ruta + margen, y Cancelar corta', () => {
-  const src = sinComentarios(leer('app/automations/CrearConIA.tsx'));
+  const src = CAJA();
   assert.match(src, /signal: c\.signal,/);
   const tope = Number(/const TOPE_CLIENTE_MS = ([\d_]+);/.exec(src)?.[1].replace(/_/g, ''));
   const max = Number(/export const maxDuration = (\d+);/.exec(RUTA)?.[1]) * 1000;
   assert.ok(tope > max, `el cliente corta a ${tope} ms y la ruta a ${max} ms`);
   assert.match(src, /setTimeout\(\(\) => c\.abort\(\), TOPE_CLIENTE_MS\)/);
-  assert.match(funcion(src, 'const cancelar = () => {'), /ctrl\.current\?\.abort\(\);/);
+  // Cancelar corta el pedido en curso (el `AbortController` de `ctrl`).
+  assert.match(src, /const cancelar = (?:useCallback\()?\(\) => \{[^}]*?(?:ctrl\.current\?\.abort\(\)|const c = ctrl\.current;[^}]*c\?\.abort\(\));/);
 });
 
 // rotura 11 (un rótulo propio en vez de GRAMATICA.analizando): 1 fallo.
 test('la caja: el estado de MaKo sale de GRAMATICA, sin <select> nativo', () => {
-  const src = sinComentarios(leer('app/automations/CrearConIA.tsx'));
+  const src = CAJA();
   assert.match(src, /GRAMATICA\.analizando\.rotulo/);
   assert.doesNotMatch(src, /'Revisando'|"Revisando"|>Revisando</);
   assert.doesNotMatch(src, /<select\b/);

@@ -105,7 +105,7 @@ import { IconoDisparador } from './IconosDisparador';
 import { TRIGGER_AVISO_MAKO, type ClaseDisparador, type SubtipoMako } from '@/lib/disparadores';
 // El chip «Sin conectar» de una tarjeta (décima tanda, GENERAL 6) y el modal que conecta ahí mismo.
 import { ConectarMedio, useEstadoMedios } from './ConectarMedio';
-import { chipDeTarjeta, lineaDePaso, mediosQueUsa, MOTIVO_MEDIO, type Medio } from '@/lib/medios-automatizacion';
+import { chipDeTarjeta, lineaDePaso, medioAConectarAlCrear, mediosQueUsa, MOTIVO_MEDIO, type Medio } from '@/lib/medios-automatizacion';
 
 const SANS = "'Geist', sans-serif";
 
@@ -127,6 +127,13 @@ export type ParaGuion = EditorMensajeWhatsAppProps['paraGuion'];
  * está (AGENTS.md, «No pude leer» es un tercer estado).
  */
 type Biblioteca = { estado: 'ok'; lista: AdjuntoDto[] } | { estado: 'error' } | null;
+
+/**
+ * Los medios cuyo «Conectar» ya SALTÓ solo en esta visita (duodécima tanda, §2.12): salta UNA vez por medio.
+ * Vive en el MÓDULO y no en un ref: el lienzo se remonta al cambiar de automatización, y un ref lo volvía a
+ * ofrecer en cada una (lo mismo que `guiaOfrecida`, SecuenciaPerfil.tsx). Con un F5 se vuelve a ofrecer.
+ */
+const conectarOfrecido = new Set<Medio>();
 
 export function FlujoLienzo({
   pasos, disparador, secuencias, audios, negocio, rolAdmin, busy, envioAutoSecuencia,
@@ -200,8 +207,9 @@ export function FlujoLienzo({
   /**
    * La tarjeta que hay que ABRIR, la pide quien publica cuando un error la frena (revisión,
    * lienzo-6). `vez` cambia en cada pedido: el mismo error dos veces la vuelve a abrir.
+   * `id: null` CIERRA la que esté abierta (el ✦ del título, duodécima tanda: `abrirMako`).
    */
-  foco?: { id: string; vez: number } | null;
+  foco?: { id: string | null; vez: number } | null;
   /** Cuántas respuestas de esta automatización esperan a una persona (ver `grafoDeSecuencia`). */
   pendientesOtraCosa?: number;
   onPasos: CambioPasos;
@@ -272,6 +280,26 @@ export function FlujoLienzo({
   const usaMedios = useMemo(() => mediosQueUsa(pasos), [pasos]);
   const medios = useEstadoMedios(usaMedios);
   const [conectarMedio, setConectarMedio] = useState<{ medio: Medio; linea: string | null } | null>(null);
+  /**
+   * EL QR SALTA AL CREAR (duodécima tanda, §2.12: «cuando creás un paso que requiera WhatsApp y te diga que tu
+   * WhatsApp no está conectado, ahí que salte el QR»). Crear una tarjeta deja su id acá; el efecto lo resuelve
+   * cuando llega la lectura de SU medio (`medios` es undefined mientras se lee: la tarjeta nueva puede sumar
+   * un medio y cambiar la consulta) con `medioAConectarAlCrear`, la MISMA regla que el chip y el freno de
+   * Publicar, y abre el modal del chip. Si se cierra, queda el chip.
+   */
+  const pedirConectar = useRef<string | null>(null);
+  useEffect(() => {
+    const id = pedirConectar.current;
+    if (!id || medios === undefined) return;
+    pedirConectar.current = null;
+    const paso = pasos.find((p, i) => idDe(p, i) === id);
+    const pide = rolAdmin && paso ? medioAConectarAlCrear(paso, medios, linea?.actual ?? null, conectarOfrecido) : null;
+    if (!pide) return;
+    conectarOfrecido.add(pide.medio);
+    setConectarMedio(pide);
+    // Lo dispara la lectura o el flujo; el rol y la línea se leen al momento (el id ya se consumió).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [medios, pasos]);
   /**
    * LAS TARJETAS QUE YA SE ABRIERON Y SE CERRARON (10/10/2026, condición 4: «Si cierro una condición, como
    * cualquier cosa, sin completar, debe remarcarse con rojo para identificar donde falta»). Una recién
@@ -373,6 +401,7 @@ export function FlujoLienzo({
     onPasos(() => r.pasos, true);
     ponerEn(r.id, punto.x, punto.y);
     setSel(r.id);
+    pedirConectar.current = r.id;
   };
   const duplicarTarjeta = (id: string) => {
     const r = duplicar(pasos, id);
@@ -428,6 +457,7 @@ export function FlujoLienzo({
     onPasos(() => r2.pasos, true);
     ponerEn(r2.id, punto.x, punto.y - Y_ENTRADA);
     setSel(r2.id);
+    pedirConectar.current = r2.id;
   };
   /**
    * COPIAR (Ctrl+C, el click derecho): las tarjetas, con sus flechas ENTRE ellas, dónde estaba cada una
@@ -606,7 +636,7 @@ export function FlujoLienzo({
          en la punta: el árbol la pondría al lado de donde estaba antes la de origen, lejos de ella. */
       onAgregarTras={editable ? ((id, que, puerto, punto, enElPunto) => {
         const nuevo = onAgregar!(id, puerto, que as QueAgregar);
-        if (nuevo) setSel(nuevo);
+        if (nuevo) { setSel(nuevo); pedirConectar.current = nuevo; }
         // Soltada la flecha en el vacío (general 14), la tarjeta nace DONDE se soltó.
         if (nuevo && punto && (enElPunto || posiciones?.[id])) ponerEn(nuevo, punto.x, punto.y - Y_ENTRADA);
       }) : undefined}

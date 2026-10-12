@@ -31,6 +31,7 @@ import { validarGrafo, padreDe, claseDe, ID_INICIO, raicesSalida, raizRespuesta,
 import { porId } from '../lib/api-mako/registro';
 import { esAccion } from '../lib/api-mako/tipos';
 import { marcasDeVoseo } from '../lib/puestas-data';
+import { catalogosDe, etapasDeCondicion } from '../lib/condiciones-catalogos';
 
 const acciones = LISTA_BLANCA_IA.map((id) => {
   const d = porId(id);
@@ -39,19 +40,28 @@ const acciones = LISTA_BLANCA_IA.map((id) => {
 });
 
 const URL_AGENDA = 'https://cal.com/negocio/llamada';
+const PRODUCTOS = [
+  { funnelId: 3, productoId: null, nombre: 'Mentoría', esDefault: true, etapas: [{ value: 'nuevo', label: 'Nuevo' }, { value: 'agendado', label: 'Agendado' }], etapasEntrega: [] },
+  { funnelId: 5, productoId: 11, nombre: 'Curso', etapas: [{ value: 'interesado', label: 'Interesado' }], etapasEntrega: [] },
+];
 const ctxBase = (o: Partial<CtxIA> = {}): CtxIA => ({
   etiquetas: [{ id: 7, nombre: 'Cualificado' }, { id: 9, nombre: 'Viejo', archivada: true }],
-  productos: [
-    { funnelId: 3, productoId: null, nombre: 'Mentoría', esDefault: true, etapas: [{ value: 'nuevo', label: 'Nuevo' }, { value: 'agendado', label: 'Agendado' }] },
-    { funnelId: 5, productoId: 11, nombre: 'Curso', etapas: [{ value: 'interesado', label: 'Interesado' }] },
-  ],
+  productos: PRODUCTOS,
   disparadores: [{ value: 'trigger:instant_form_sin_agenda', label: 'Formulario sin agenda' }],
   audios: [{ id: 21, titulo: 'Bienvenida', transcript: 'Hola, soy yo' }],
   archivos: [],
   acciones,
   links: { agenda: { url: URL_AGENDA, para: 'agendar una llamada' } },
+  // Duodécima tanda: el MISMO catálogo con que el editor arma el desplegable de condiciones (`armarContexto`).
+  catalogoCondicion: catalogosDe({ etapas: etapasDeCondicion(PRODUCTOS), productos: PRODUCTOS, remotos: null }),
   ...o,
 });
+/**
+ * Un CRON de adquisición (el que trae `ctxBase`). DUODÉCIMA TANDA: sin CRON valen sólo las condiciones que el desplegable
+ * ofrece con LOS DOS ámbitos (`idsDeCondiciones('sin_cron')`), así que «Agendó» y «Próxima reunión en» se van: los tests
+ * de condiciones de adquisición eligen éste.
+ */
+const CRON_VENTA = 'trigger:instant_form_sin_agenda';
 
 /** Un generador determinista para `nuevoId`. */
 const rndDe = () => { let k = 0; return () => ((k++ * 0.137) % 1); };
@@ -235,7 +245,7 @@ test('los datos de una acción no llevan variables, salvo el mensaje del aviso a
 // R15: `filaDe` vuelve a aceptar sólo las nueve de antes → 26 / 2 (éste y el del ejemplo de la plantilla).
 test('las condiciones del CATÁLOGO: «Próxima reunión en», «Tiene reunión agendada», «Asistió a la reunión»; las retiradas y las de lista no', () => {
   const ctx = ctxBase();
-  const r = deIA({ inicio: 't1', tarjetas: [
+  const r = deIA({ disparador: CRON_VENTA, inicio: 't1', tarjetas: [
     { id: 't1', tipo: 'condicion', ramas: [
       { si: [{ campo: 'reunion_en', op: '<=', valor: 720 }, { campo: 'tiene_telefono' }], sigue: 't2' },
       { si: [{ campo: 'reunion agendada' }], sigue: 't3' },
@@ -253,7 +263,10 @@ test('las condiciones del CATÁLOGO: «Próxima reunión en», «Tiene reunión 
   ]);
   // Los datos de la reunión, detrás de «Próxima reunión», quedan.
   assert.match(mensajes(r.pasos)[0].cuerpo, /\{\{reunion_cuando\}\} a las \{\{reunion_hora\}\}/);
-  assert.ok(r.avisos.some((a) => a.includes('se elige en el lienzo')), 'la de lista no se dijo');
+  // Duodécima tanda: una de lista se elige por su NOMBRE EXACTO entre sus opciones («frio» no es un estado del lead), y
+  // una retirada no está en el desplegable: las dos se van con su aviso.
+  assert.ok(r.avisos.includes('Saqué «Estado del lead»: «frio» no es una opción'), r.avisos.join(' | '));
+  assert.ok(r.avisos.includes('Saqué «R1 agendada a futuro»: no está en tus condiciones'), r.avisos.join(' | '));
 });
 
 // R14: `validarIA` sin `datosDeReunionSinMirarla` → 27 / 1 (éste).
@@ -273,7 +286,7 @@ test('un dato de la reunión sin mirar la reunión antes no pasa la revisión (e
 
 test('lo que armó FUERA de lo de hoy (dos CONDITION pegadas) se dice en los avisos', () => {
   const ctx = ctxBase();
-  const r = deIA({ inicio: 't1', tarjetas: [
+  const r = deIA({ disparador: CRON_VENTA, inicio: 't1', tarjetas: [
     { id: 't1', tipo: 'condicion', ramas: [{ si: [{ campo: 'agendo', no: true }], sigue: 't2' }] },
     { id: 't2', tipo: 'condicion', ramas: [{ si: [{ campo: 'tiene_telefono' }], sigue: 't3' }] },
     { id: 't3', tipo: 'mensaje', texto: 'Hola {{nombre}}' },
@@ -296,7 +309,12 @@ const PEDIDOS: ReadonlyArray<readonly [string, string | null]> = [
   ['Crea una automatización de bienvenida para los clientes que compraron el programa y pídeles un testimonio', 'cliente-empezo'],
   ['Armame la bienvenida al newsletter para los que se suscriben', 'email-newsletter'],
   ['¿Me puedes crear una automatización para cobrar las cuotas vencidas?', null],
-  ['Armame un flujo que salude por DM a quien comenta en Instagram', null],
+  // Duodécima tanda: Instagram y Messenger van primero (un DM arranca con un CRON de su canal), con las palabras de
+  // `canalDelPedido`; «historia» sola no es Instagram.
+  ['Armame un flujo que salude por DM a quien comenta en Instagram', 'instagram-te-escribieron'],
+  ['Quiero que cuando alguien comente mi reel le llegue el link por DM', 'instagram-te-escribieron'],
+  ['Saluda a quien me escribe por Messenger', 'messenger-te-escribieron'],
+  ['Cuéntale la historia de mi negocio a los leads nuevos', 'lead-entro'],
 ];
 
 // R16: `PALABRAS_PLANTILLA` con «agend» primero → 27 / 1 (éste: los que no vinieron a la reunión iban a «agendó»).
@@ -305,7 +323,8 @@ test('plantillaParaPedido: la categoría del pedido, como lo escribe Martín; si
   // Cada id de la tabla de palabras es una plantilla que existe, con CRON de etapa o etiqueta (las que la IA puede armar).
   for (const [id] of PALABRAS_PLANTILLA) {
     const p = plantillaPorId(id);
-    assert.ok(p && p.cron.pide, `«${id}» no es una plantilla que «Crear con IA» pueda armar`);
+    // Duodécima tanda: también las de Instagram y Messenger (su CRON fijo es un evento que `opcionesCronIA` ofrece).
+    assert.ok(p && (p.cron.pide || p.cron.fijo === 'instagram' || p.cron.fijo === 'messenger'), `«${id}» no es una plantilla que «Crear con IA» pueda armar`);
   }
 });
 
@@ -319,7 +338,7 @@ test('el ejemplo de la plantilla va en el pedido (con el MISMO aIA de editar, si
   assert.deepEqual(ej.inicio, ['la_r', 'la_p', 'la_m']);
   assert.ok(!ej.tarjetas.some((t) => t.tipo === 'si_responde'), 'el ejemplo lleva el AI Step (su forma la enseña el system)');
   // Lo que enseña se traduce y pasa las dos capas (el modelo lo copia con sus textos).
-  const r = deIA({ ...ej, disparador: null }, ctx, rndDe());
+  const r = deIA({ ...ej, disparador: CRON_VENTA }, ctx, rndDe());
   ok(r.pasos, ctx);
   assert.equal(porClase(r.pasos, 'accion').filter((x) => esTarjetaTalCual((x.accion as { params: Record<string, unknown> }).params)).length, 3, 'los tres avisos al equipo');
   // Sin categoría, el de siempre (el del system): el pedido no lleva ninguna.
@@ -373,7 +392,7 @@ test('una etiqueta se resuelve por NOMBRE normalizado; nunca con un id inventado
 // rotura 10 (una condición sin ramas válidas se deja en vez de reemplazarla por su «si no»): 1 fallo.
 test('una etapa sin coincidencia saca la fila; la condición que queda sin ramas pasa a su «si no»', () => {
   const ctx = ctxBase();
-  const r = deIA({ inicio: 't1', tarjetas: [
+  const r = deIA({ disparador: CRON_VENTA, inicio: 't1', tarjetas: [
     { id: 't1', tipo: 'condicion', ramas: [{ si: [{ campo: 'etapa', etapa: 'Inexistente' }], sigue: 't2' }], si_no: 't3' },
     { id: 't2', tipo: 'mensaje', texto: 'Nunca' },
     { id: 't3', tipo: 'mensaje', texto: 'Siempre' },
@@ -384,7 +403,7 @@ test('una etapa sin coincidencia saca la fila; la condición que queda sin ramas
   assert.ok(r.avisos.some((a) => a.includes('Inexistente')));
 
   // Por rótulo y por producto: la clave y el embudo (null = la casa del lead, el principal).
-  const r2 = deIA({ inicio: 't1', tarjetas: [
+  const r2 = deIA({ disparador: CRON_VENTA, inicio: 't1', tarjetas: [
     { id: 't1', tipo: 'condicion', ramas: [{ si: [{ campo: 'etapa', etapa: 'Agendado' }], sigue: 't2' }, { si: [{ campo: 'etapa', etapa: 'interesado', producto: 'curso' }], sigue: 't3' }] },
     { id: 't2', tipo: 'mensaje', texto: 'A' }, { id: 't3', tipo: 'mensaje', texto: 'B' },
   ] }, ctx, rndDe());
@@ -463,7 +482,7 @@ test('Crear con IA no arma «Ir a»: el que pide el modelo se saca, y un segundo
   assert.ok(pedido.avisos.some((a) => a.includes('«Ir a»')), pedido.avisos.join(' | '));
 
   // Dos ramas que apuntan a la misma tarjeta: queda en la primera, la otra salida vacía, y sin salto.
-  const dosPadres = deIA({ inicio: 't1', tarjetas: [
+  const dosPadres = deIA({ disparador: CRON_VENTA, inicio: 't1', tarjetas: [
     { id: 't1', tipo: 'condicion', ramas: [{ si: [{ campo: 'agendo' }], sigue: 't2' }], si_no: 't2' },
     { id: 't2', tipo: 'mensaje', texto: 'Para todos' },
   ] }, ctx, rndDe());
@@ -574,16 +593,18 @@ test('validarIA rechaza lo que una reparación hubiera dejado pasar', () => {
 
 // rotura 21 (conEtiquetasReales no cambia la fila de la condición): 1 fallo. rotura 24 (elegir las
 // etiquetas nuevas sin mirar el disparador ya resuelto, el bug que tenía el WIP): 1 fallo.
+// Duodécima tanda: el disparador se resuelve PRIMERO (de él sale el ámbito de las condiciones), así que la etiqueta del
+// CRON es la -1 y la de las tarjetas la -2. Lo que se fija es lo mismo: las dos se crean y ninguna queda sin su id real.
 test('las etiquetas nuevas se cambian por el id real recién al guardar', () => {
   const ctx = ctxBase();
   const r = deIA({ inicio: 't1', disparador: 'etiqueta:Lista', tarjetas: [
     { id: 't1', tipo: 'condicion', ramas: [{ si: [{ campo: 'etiqueta', etiqueta: 'Seguimiento' }], sigue: 't2' }] },
     { id: 't2', tipo: 'etiqueta', poner: 'Seguimiento' },
   ] }, ctx, rndDe());
-  assert.deepEqual(r.etiquetasNuevas.map((n) => n.nombre), ['Seguimiento', 'Lista']);
-  assert.equal(r.disparador, 'etiqueta:-2');
-  assert.deepEqual(refsSinResolver(r.pasos), [-1]);
-  const ids = new Map([[-1, 40], [-2, 41]]);
+  assert.deepEqual(r.etiquetasNuevas.map((n) => n.nombre), ['Lista', 'Seguimiento']);
+  assert.equal(r.disparador, 'etiqueta:-1');
+  assert.deepEqual(refsSinResolver(r.pasos), [-2]);
+  const ids = new Map([[-2, 40], [-1, 41]]);
   const reales = conEtiquetasReales(r.pasos, ids);
   assert.deepEqual(refsSinResolver(reales), []);
   assert.equal(porClase(reales, 'condicion')[0].ramas![0].filas[0].valor, 40);

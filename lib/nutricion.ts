@@ -115,8 +115,10 @@ import {
 } from '@/lib/mensaje-partes';
 // Instagram y Messenger por Zernio (sexta tanda, parte «canales»): el canal de un paso al guardarlo y
 // UNA rama del envío (`enviarPasoSocial`). Lo demás del motor no cambia.
-import { esCanalSocial, canalAGuardar, type CanalSocial } from '@/lib/canal-social';
-import { enviarPasoSocial } from '@/lib/canal-zernio';
+// Y desde la duodécima tanda, las condiciones de Instagram y Messenger: la conversación que cuenta y
+// «¿te sigue?», leídas por lote en `hechosDelCatalogo` (`conversacionesDeLeads`, `siguenEnInstagram`).
+import { esCanalSocial, canalAGuardar, conversacionDeFila, type CanalSocial, type ConversacionesPorLead } from '@/lib/canal-social';
+import { enviarPasoSocial, conversacionesDeLeads, siguenEnInstagram } from '@/lib/canal-zernio';
 import { partesDe } from '@/lib/mensaje-partes';
 // El TURNO del motor por negocio (sexta tanda): lo toman las dos rutas del cron y, desde la
 // revisión de esa tanda, también la vía rápida de un lead (`viaRapidaConTurno`).
@@ -554,10 +556,18 @@ export async function validarActivacion(id: number): Promise<void> {
   // configure»). Acá y no en `setSecuenciaPasos`: guardar no es publicar (la galería, duplicar y los scripts
   // crean un borrador sin el medio). Por acá pasan todos los que prenden: la pantalla, /email y MaKo.
   // «No pude comprobarlo» no frena (lib/medios-automatizacion.ts).
-  const { medioSinConectar } = await import('@/lib/disparadores-canales');
+  // Y EL MEDIO DEL CRON (duodécima tanda, §2.11): un CRON de Instagram con tarjetas de WhatsApp se activaba sin Instagram.
+  const { medioSinConectar, disparadoresDeSecuencia, asegurarAvisosSociales, SIN_MEDIOS } = await import('@/lib/disparadores-canales');
   const linea = (data as { instance_name?: string | null } | null)?.instance_name ?? null;
-  const falta = await medioSinConectar(Array.isArray(guardados) ? (guardados as PasoSecuencia[]) : [], linea).catch(() => null);
-  if (falta) throw new PasosInvalidosError(`No se activó: ${falta.error}.`);
+  const disparadores = await disparadoresDeSecuencia(id).catch(() => null);
+  const medios = await medioSinConectar(Array.isArray(guardados) ? (guardados as PasoSecuencia[]) : [], linea, disparadores).catch(() => SIN_MEDIOS);
+  if (medios.falta) throw new PasosInvalidosError(`No se activó: ${medios.falta.error}.`);
+  // QUE ZERNIO LE AVISE A MAKO: con Instagram o Messenger conectado, el webhook (idempotente). Una falla no frena:
+  // queda en el log. También corre cuando MaKo PROPONE activar: registrar el webhook de algo conectado no daña.
+  if (medios.sociales.length) {
+    const ws = await getWorkspaceActual().catch(() => null);
+    if (ws != null) await asegurarAvisosSociales(ws, medios.sociales);
+  }
   // Y LA VOZ de un AI Step que contesta en audio (AI Step v2, §1): sin ella no hay audio que mandar.
   const sinVoz = await vozDeAIStepQueFalta(Array.isArray(guardados) ? (guardados as PasoSecuencia[]) : []).catch(() => null);
   if (sinVoz) throw new PasosInvalidosError(`No se activó: ${sinVoz}.`);
@@ -2720,7 +2730,10 @@ async function leadIdsDe(
  *   · el curso con `progresoDeClientes` (el progreso EFECTIVO) y `claseCompleta` (la regla del
  *     portal), resumido por `resumenCursoDeAlumno`;
  *   · la etapa de entrega con `clientesEnEtapaDeEntrega` (la cohorte del kanban: sin fila = la
- *     primera etapa), una vez por etapa que el flujo nombra.
+ *     primera etapa), una vez por etapa que el flujo nombra;
+ *   · Instagram y Messenger con `conversacionesDeLeads` (la MISMA fila que mira el envío) y «te sigue»
+ *     EN VIVO con `siguenEnInstagram`, sólo por quien escribió por DM (duodécima tanda). Una falla
+ *     pasajera de Zernio tira como cualquier otra lectura: la inscripción queda para la próxima corrida.
  * Cualquier otro error TIRA: decidir una rama sin el dato es mandarle al lead lo que no le toca.
  */
 const FUENTES_DE_ANTES: ReadonlySet<Fuente> = new Set<Fuente>(['lead', 'etiquetas', 'productos', 'contacto', 'respondio']);
@@ -2997,10 +3010,19 @@ async function hechosDelCatalogo(
     return m;
   };
   const leerHoy = async (): Promise<string> => (pide('pagos') ? hoyEnTz(await tzActual()) : '');
+  // Duodécima tanda: la conversación que cuenta por lead y canal, y «¿te sigue?» sobre ésa (sólo a quien
+  // escribió). El workspace va EXPLÍCITO a Zernio: es el de la corrida, el mismo que scopea `getTenantDb`.
+  const leerSocial = async (): Promise<ConversacionesPorLead | null> => (pide('social') || pide('sigue') ? conversacionesDeLeads(ids) : null);
+  const leerSigue = async (s: ConversacionesPorLead | null): Promise<Map<number, boolean | null> | null> => {
+    if (!pide('sigue') || !s) return null;
+    const ws = await getWorkspaceActual();
+    if (ws == null) throw new Error('condición «Te sigue en Instagram»: sin workspace en la corrida');
+    return siguenEnInstagram(ws, s);
+  };
 
-  const [vsl, clics, respuestas, pagos, curso, acceso, comunidad, entrega, cs, hoy, reuniones] = await Promise.all([
+  const [vsl, clics, respuestas, pagos, curso, acceso, comunidad, entrega, cs, hoy, reuniones, [social, sigue]] = await Promise.all([
     leerVsl(), leerClics(), leerRespuestas(), leerPagos(), leerCurso(), leerAcceso(), leerComunidad(), leerEntrega(), leerCs(), leerHoy(),
-    leerReuniones(),
+    leerReuniones(), leerSocial().then(async (s) => [s, await leerSigue(s)] as const),
   ]);
 
   return (f, ahoraMs) => {
@@ -3044,6 +3066,12 @@ async function hechosDelCatalogo(
     }
     if (entrega) c.entrega = new Set([...entrega].filter(([, leads]) => leads.has(f.id)).map(([k]) => k));
     if (cs) c.estadoCliente = cs.get(f.id) ?? 'activo';
+    if (social) {
+      const s = social.get(f.id);
+      c.social = { instagram: s?.instagram ? conversacionDeFila(s.instagram) : null, messenger: s?.messenger ? conversacionDeFila(s.messenger) : null };
+    }
+    // Quien no escribió no se consultó: «no sé», nunca «no te sigue».
+    if (sigue) c.sigueInstagram = sigue.get(f.id) ?? null;
     return c;
   };
 }

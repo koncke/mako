@@ -25,6 +25,9 @@
 //     franja; el dibujado sigue verde porque compara contra la misma `franjaIA`);
 //   · la caja montada con `&& !tarjetaAbierta` en vez de esconderla con `display`: 1 fallo, 7 pases;
 //   · el Lienzo encuadrando con `h` entero (sin `- reservaAbajo`): 1 fallo, 7 pases.
+// DUODÉCIMA TANDA (12/10/2026): la barra pasó a ser el chat de MaKo. Re-probado con scratchpad/wf-duodecima/chat-ui/
+// romper.mjs (base 8 / 0): el chat sin su tope de 45% → 7 / 1; sin esconderse con una tarjeta abierta → 7 / 1; el chat
+// con un ancho propio en vez del de la franja → 7 / 1.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -100,10 +103,14 @@ test('la franja sale de los muelles: lista a la izquierda, `derAbajo` a la derec
   assert.deepEqual(franjaIA(null, { izq: 100, der: 50 }), { left: 112, right: 62, bottom: 64 });
 });
 
-test('los anchos de la franja son los que dibuja CrearConIA', () => {
-  const src = sinComentarios(leer('app/automations/CrearConIA.tsx'));
-  assert.match(src, new RegExp(`caja: \\{\\n\\s+width: 'min\\(${CAJA_IA_ANCHO}px, 100%\\)'`));
-  assert.match(src, new RegExp(`barraWrap: \\{[^}]*width: 'min\\(${BARRA_IA_ANCHO}px, 100%\\)'`));
+// ⚠️ DUODÉCIMA TANDA (12/10/2026): la barra pasó a ser el CHAT de MaKo (app/automations/ChatMako.tsx), que mide el
+// ancho de quien lo monta (`width: '100%'`). El ancho de la franja lo pone SecuenciaPerfil con `BARRA_IA_ANCHO`; la caja
+// de crear (`CAJA_IA_ANCHO`) ya no la dibuja nadie (su modo `crear` se fue con CrearConIA.tsx).
+test('el ancho de la franja es el que dibuja el chat de MaKo (BARRA_IA_ANCHO, puesto por SecuenciaPerfil)', () => {
+  const chat = sinComentarios(leer('app/automations/ChatMako.tsx'));
+  assert.match(chat, /cajaLienzo: \{\n\s+width: '100%',/);
+  const perfil = sinComentarios(leer('app/automations/SecuenciaPerfil.tsx'));
+  assert.match(perfil, /<div style=\{\{ pointerEvents: 'auto', width: `min\(\$\{BARRA_IA_ANCHO\}px, 100%\)`/);
 });
 
 const SEC = {
@@ -127,13 +134,14 @@ test('dibujada: una automatización vacía NO dibuja la caja de crear (vive en e
   assert.ok(CAJA_IA_ANCHO > 0 && franjaIA(m).bottom > 0);
 });
 
-test('la barra de editar se ESCONDE con una tarjeta abierta, sin desmontar CrearConIA (y la caja de crear no se monta)', () => {
+// Duodécima tanda: la barra es el chat de MaKo, en el MISMO lugar, con un alto máximo de ~45% del lienzo.
+test('el chat de editar se ESCONDE con una tarjeta abierta, sin desmontarse (y la caja de crear no se monta)', () => {
   const src = sinComentarios(leer('app/automations/SecuenciaPerfil.tsx'));
   // Décima tanda: el lienzo vacío no monta la caja de crear (ni reserva lugar para ella).
-  assert.doesNotMatch(src, /<CrearConIA modo="crear"/, 'volvió la caja de crear al lienzo vacío');
+  assert.doesNotMatch(src, /<CrearConIA /, 'volvió la caja de CrearConIA al lienzo');
   assert.doesNotMatch(src, /RESERVA_ABAJO_CREAR/);
-  const editar = src.match(/\{rolAdmin && editandoIA && pasos\.length > 0 && \(\n\s+<div data-crear-ia="editar" style=\{\{ position: 'absolute', \.\.\.franja, display: tarjetaAbierta \? 'none' : 'flex', justifyContent: 'center', pointerEvents: 'none', zIndex: 4 \}\}>\n\s+<div style=\{\{ pointerEvents: 'auto', width: `min\(\$\{BARRA_IA_ANCHO\}px, 100%\)` \}\}>\n\s+<CrearConIA modo="editar"/);
-  assert.ok(editar, 'la barra de editar no está montada como se espera');
+  const editar = src.match(/\{rolAdmin && editandoIA && pasos\.length > 0 && \(\n\s+<div data-crear-ia="editar" style=\{\{ position: 'absolute', \.\.\.franja, maxHeight: '45%', display: tarjetaAbierta \? 'none' : 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', pointerEvents: 'none', zIndex: 4 \}\}>\n\s+<div style=\{\{ pointerEvents: 'auto', width: `min\(\$\{BARRA_IA_ANCHO\}px, 100%\)`, minHeight: 0, display: 'flex', flexDirection: 'column' \}\}>\n\s+<ChatMako modo="editar"/);
+  assert.ok(editar, 'el chat de editar no está montado como se espera');
   assert.match(src, /onTarjetaAbierta=\{setTarjetaAbierta\}/);
 });
 

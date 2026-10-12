@@ -30,7 +30,9 @@ import {
 } from '../lib/chatbot-lista-filtro';
 import { SimuladorWhatsApp, filaDeSecuencia } from '../app/automations/SimuladorWhatsApp';
 import type { SecuenciaDto } from '../app/automations/ChatAgentApp';
-import type { PasoGrafo } from '../lib/flujo-grafo';
+import type { CasoRespuesta, PasoGrafo } from '../lib/flujo-grafo';
+import { MEDIOS } from '../lib/medios-automatizacion';
+import { logoSocialSvg } from '../lib/canal-social';
 
 const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -64,6 +66,50 @@ test('lo que NO manda nada no cuenta, aunque traiga `canal`: las tarjetas de con
   ];
   assert.deepEqual(enviosDePasos(control), []);
   assert.deepEqual(enviosDePasos([]), []);
+});
+
+// ── Duodécima tanda (§2.9): el canal es el MEDIO del motor ──────────────────────
+// Roto a propósito el 12/10/2026, una rotura por vez sobre lib/chatbot-lista-filtro.ts (base 14 / 0):
+//   L1. el mensaje vuelve a contar sólo 'whatsapp' | 'email' (sin `canalAGuardar`)        → 13 / 1
+//   L2. el AI Step se expande una sola vez, sin su medio (`expandirPasoIA(pasos)`)         → 13 / 1
+//   L3. «Canal» vuelve a WhatsApp y Email a mano (sin recorrer `MEDIOS`)                   → 12 / 2
+//   L4. Instagram con el ícono 'whatsapp' en vez de su logo                               → 13 / 1
+// Restaurado: 14 / 0.
+
+const ig = (cuerpo = 'hola'): PasoGrafo => ({ canal: 'instagram', cuerpo });
+const ms = (cuerpo = 'hola'): PasoGrafo => ({ canal: 'messenger', cuerpo });
+const caso = (id: string, o: Partial<CasoRespuesta> = {}): CasoRespuesta => ({ id, titulo: `Caso ${id}`, cuando: `cuando ${id}`, siguiente: null, ...o });
+/** Un AI Step con un escenario que contesta, por `medio` (ausente = WhatsApp). */
+const aiStep = (id: string, medio?: 'instagram' | 'messenger'): PasoGrafo => ({
+  canal: 'whatsapp', proveedor: 'no_oficial', delay_horas: 0, asunto: null, cuerpo: '', template_wa: null,
+  id, nodo: 'respuesta', paso_ia: true, si_no: null, objetivo: 'Que agende', ...(medio ? { medio } : {}),
+  casos: [caso(`${id}A`, { titulo: 'Precio', cuando: 'pregunta el precio', responder: 'En la llamada' })],
+});
+
+const FILA_DE = (envios: FilaFiltrable['envios']): FilaFiltrable => ({ activa: true, emoji: '📅', envios });
+
+test('una tarjeta de Instagram o Messenger cuenta por SU canal: el de `canalAGuardar`, con el que el motor la guarda y la manda', () => {
+  assert.deepEqual(enviosDePasos([ig()]), [{ canal: 'instagram', destino: 'clientes' }]);
+  assert.deepEqual(enviosDePasos([ms()]), [{ canal: 'messenger', destino: 'clientes' }]);
+  // Un «email» de audio sale por WhatsApp (`canalAGuardar`): el filtro dice por dónde sale de verdad.
+  assert.deepEqual(enviosDePasos([{ canal: 'email', tipo: 'audio', cuerpo: '' }]), [{ canal: 'whatsapp', destino: 'clientes' }]);
+  const fila = FILA_DE(enviosDePasos([ig(), mako()]));
+  assert.equal(pasaFiltroLista(fila, [VALOR.instagram]), true);
+  assert.equal(pasaFiltroLista(fila, [VALOR.instagram, VALOR.clientes]), true);
+  assert.equal(pasaFiltroLista(fila, [VALOR.messenger]), false);
+  assert.equal(pasaFiltroLista(fila, [VALOR.whatsapp, VALOR.clientes]), false, 'el aviso al grupo no es un WhatsApp al lead');
+});
+
+test('el AI Step cuenta su «MaKo contesta» por SU medio (`medioDe`) y sus avisos al grupo por WhatsApp', () => {
+  // Expandido sin el medio, un AI Step de Instagram no contaba NADA (`expandirPasoIA` expande sólo WhatsApp).
+  assert.deepEqual(enviosDePasos([aiStep('R', 'instagram')]), [{ canal: 'instagram', destino: 'clientes' }, { canal: 'whatsapp', destino: 'mako' }]);
+  assert.deepEqual(enviosDePasos([aiStep('R', 'messenger')]), [{ canal: 'messenger', destino: 'clientes' }, { canal: 'whatsapp', destino: 'mako' }]);
+  // El de siempre (sin `medio`) sigue siendo WhatsApp.
+  assert.deepEqual(enviosDePasos([aiStep('R')]), [{ canal: 'whatsapp', destino: 'clientes' }, { canal: 'whatsapp', destino: 'mako' }]);
+  // Uno por medio en el mismo flujo: cada uno por el suyo, en el orden de `MEDIOS`.
+  assert.deepEqual(enviosDePasos([aiStep('R', 'instagram'), aiStep('S')]), [
+    { canal: 'whatsapp', destino: 'clientes' }, { canal: 'whatsapp', destino: 'mako' }, { canal: 'instagram', destino: 'clientes' },
+  ]);
 });
 
 // (Acá iba el test de `enviosDeAviso` / `filaDeMensaje`: la fila de un Mensaje de MaKo de los de antes. Se fue el
@@ -130,13 +176,27 @@ test('tres secciones, en el orden del pedido: Emojis (los que se ven), Estado y 
   // Los emojis que HAY, en el orden en que aparecen, con cuántas filas tiene cada uno.
   assert.deepEqual(s[0].options.map((o) => o.label), ['📅 · 2', '🎯 · 1', '⏰ · 1']);
   assert.deepEqual(s[1].options.map((o) => o.label), ['Activas · 2', 'Pausadas · 1']);
-  assert.deepEqual(s[2].options.map((o) => o.label), ['WhatsApp · 3', 'Email · 1', 'A clientes · 4', 'Al WhatsApp de MaKo · 1']);
+  // Los MEDIOS en su orden (duodécima tanda: Instagram y Messenger también, con 0 si no hay), después a quién.
+  assert.deepEqual(s[2].options.map((o) => o.label), ['WhatsApp · 3', 'Email · 1', 'Instagram · 0', 'Messenger · 0', 'A clientes · 4', 'Al WhatsApp de MaKo · 1']);
   // La línea: SÓLO arriba de «A clientes» (separa por dónde de a quién).
-  assert.deepEqual(s[2].options.map((o) => Boolean(o.lineaArriba)), [false, false, true, false]);
+  assert.deepEqual(s[2].options.map((o) => Boolean(o.lineaArriba)), [false, false, false, false, true, false]);
   // Sin «Todas» como opción ni «Quitar filtro» como renglón: eso es el pie.
   assert.ok(!s.some((g) => g.options.some((o) => /Todas|Quitar/.test(o.label))));
   // Un emoji marcado que ya no está en ninguna fila se sigue ofreciendo (con 0), para poder sacarlo.
   assert.ok(seccionesDelFiltro(FILAS, [VALOR.emoji('🧲')])[0].options.some((o) => o.label === '🧲 · 0'));
+});
+
+test('«Canal» sale de recorrer `MEDIOS` (un medio nuevo aparece solo), con los íconos y los rótulos de cada uno', () => {
+  const canal = seccionesDelFiltro([FILA_DE([{ canal: 'instagram', destino: 'clientes' }]), FILA_DE([{ canal: 'messenger', destino: 'clientes' }])], [])[2];
+  assert.deepEqual(canal.options.map((o) => o.value), [...MEDIOS.map(VALOR.canal), VALOR.clientes, VALOR.mako]);
+  assert.deepEqual(canal.options.slice(0, 4).map((o) => o.label), ['WhatsApp · 0', 'Email · 0', 'Instagram · 1', 'Messenger · 1']);
+  // WhatsApp y Email, del set de la casa; los sociales, su logo (`data:` SVG, que el Dropdown dibuja como <img>).
+  assert.deepEqual(canal.options.slice(0, 4).map((o) => o.icono), ['whatsapp', 'email', logoSocialSvg('instagram'), logoSocialSvg('messenger')]);
+  assert.match(String(canal.options[2].icono), /^data:image\/svg\+xml/);
+  // Lo que dice la raíz con uno marcado.
+  assert.equal(seccionesDelFiltro([], [VALOR.instagram])[2].resumen, 'Instagram');
+  assert.equal(seccionesDelFiltro([], [VALOR.messenger])[2].resumen, 'Messenger');
+  assert.equal(seccionesDelFiltro([], [VALOR.instagram, VALOR.clientes])[2].resumen, '2 elegidos');
 });
 
 test('en la raíz cada sección dice lo que tiene puesto, como el filtro del Plan: «Todos», lo marcado o cuántos', () => {

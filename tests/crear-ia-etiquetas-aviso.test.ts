@@ -14,6 +14,8 @@
 //
 // PROBADO ROMPIÉNDOLO (09/10/2026): sin la línea en `alListoIA` dio 1 fallo y 2 pases; moviéndola
 // adentro de la rama `crear` (el modo editar sin aviso) dio 1 fallo y 2 pases.
+// Duodécima tanda (12/10/2026): el fin de los modos es ahora guardar el CRON (`crons.guardar`); sacar esa línea
+// (scratchpad/wf-duodecima/chat-ui/romper.mjs, R9) → 2 pases / 1 fallo.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -39,8 +41,9 @@ test('alListoIA anuncia las etiquetas nuevas en los DOS modos, antes de revelar 
   const cuerpo = alListoIA();
   const aviso = cuerpo.indexOf('if (r.etiquetasNuevas.length) avisarCambioEtiquetas();');
   assert.ok(aviso >= 0, 'alListoIA no llama a avisarCambioEtiquetas');
-  // Después de que cierra el if/else de los modos (el `setEditandoIA(false)` es lo último del else).
-  const finModos = cuerpo.indexOf('setEditandoIA(false);\n    }');
+  // Después de que cierra el if/else de los modos. Desde la duodécima tanda lo último del else es guardar el CRON que
+  // eligió la persona (`crons.guardar`): el chat queda abierto, ya no hay `setEditandoIA(false)`.
+  const finModos = cuerpo.indexOf('if (r.disparadores?.length) crons.guardar(r.disparadores);');
   assert.ok(finModos >= 0 && aviso > finModos, 'el aviso quedó adentro de una sola rama de los modos');
   assert.ok(aviso < cuerpo.indexOf('setRevelarIA('), 'el aviso va antes del revelado');
 });

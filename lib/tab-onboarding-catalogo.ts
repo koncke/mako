@@ -120,13 +120,22 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
     key: 'setting',
     titulo: 'Configuración de Automations',
     nombre: 'Automations',
-    // ⚠️ UN SOLO PASO, Y ES EL QR. La tab dejó de ser un wizard: es el lienzo donde se
-    // dibujan las secuencias, y lo único que hay que tener antes es la línea vinculada
-    // (Martín, 05/10: «esa pestaña ya no requeriría un onboarding al menos que no tengas
-    // vinculado WhatsApp todavía; lo único que tiene que salir es el QR»).
+    // ⚠️ UN SOLO PASO, «Tu WhatsApp», Y YA NO ES UNA PUERTA DE LA TAB (duodécima tanda, 12/10/2026).
+    // Desde el 05/10 la tab, sin línea vinculada, ERA el QR (Martín: «lo único que tiene que salir
+    // es el QR»). En la prueba con Fiesta Music eso fue lo primero que vio el cliente, y Martín lo dio
+    // vuelta: «hoy hay un onboarding dentro de la tab que debería quitarse... vos entrás en la tab por
+    // primera vez y tenés que ver el lienzo y tiene que salir el tutorial, y cuando creás un paso que
+    // requiera WhatsApp... ahí que salte el QR». Hoy /automations abre SIEMPRE en el lienzo (con su
+    // recorrido) y el QR salta al crear una tarjeta que lo necesita, o desde el aviso rojo de la línea
+    // (app/automations/ConectarMedio.tsx).
+    //
+    // EL PASO SIGUE ACÁ, igual que antes: lo leen el onboarding GLOBAL (estos pasos no cambian), lo
+    // que MaKo sabe del negocio y el orden de «Tu forma de escribir». Lo marcan el aviso rojo al
+    // vincular y la tab al cargar con la línea ya conectada (`marcarWhatsappAlCargar`,
+    // lib/chatbot-puerta.ts). Que esté pendiente ya no esconde el lienzo.
     //
     // Dónde fue a parar cada paso viejo, para que nadie lo busque:
-    //  · «Verificación» — la pantalla del QR detecta sola cuando engancha.
+    //  · «Verificación» — el QR (`EvolutionConnect`, en el modal de cada medio) detecta solo cuando engancha.
     //  · «Tus audios» — el editor graba el audio DE CADA PASO (`PasoAudioControl`).
     //  · «Ensayo» — el simulador vive adentro de la tab.
     //  · «Tus secuencias» — Publicar y Activar están en el lienzo.

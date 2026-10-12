@@ -49,17 +49,18 @@ import { TOPE_FILAS, TOPE_CASOS, ROTULO_RESPUESTA, unionDe, rotuloSiNoDeRespuest
 import {
   condicionPorId, seccionesDeCondiciones, arbolDeOpciones, esArbol, filaNueva, deValorOpcion, valorOpcion, problemaDeFila,
   nombreDeValor, nombresCatalogoDe, cuotaDeFila, SIMBOLO_OP, TOPE_CUOTA, TOPE_REUNIONES, SECCION_RESPUESTA,
-  type AmbitoDisparo, type CatalogosCondicion, type CursoCondicion, type DefCondicion, type ProductoCondicion,
-  type ReunionesDeEmbudo, type SeccionOpciones, type NivelArbol,
+  type AmbitoDisparo, type CatalogosCondicion, type DefCondicion, type ProductoCondicion,
+  type SeccionOpciones, type NivelArbol,
 } from '@/lib/condiciones-catalogo';
+// Duodécima tanda (12/10/2026): el catálogo se arma en UNA función que usan este editor y «Crear con IA»
+// (lib/condiciones-catalogos.ts). Se re-exporta para el lienzo y «Probar», que la importan de acá.
+import { catalogosDe, type CatalogosRemotos, type EtapasDeProducto } from '@/lib/condiciones-catalogos';
+export { catalogosDe, type CatalogosRemotos };
 
 const SANS = "'Geist', sans-serif";
 
 /** El id de la fila de la condición que escucha las respuestas (lib/condiciones-catalogo.ts). */
 const ID_RESPUESTA = 'respuesta_trata_de';
-
-/** Las etapas de venta de UN producto (la forma de `SeccionEtapas` de FlujoLienzo). */
-type EtapasDeProducto = { title: string; funnelId: number; options: Array<{ value: string; label: string }> };
 
 /** La condición que ESCUCHA LAS RESPUESTAS (el nodo `respuesta`): sus casos y cómo se editan. */
 export type EdicionRespuesta = {
@@ -103,12 +104,6 @@ export type EditorCondicionProps = {
   onPasarARespuesta?: () => void;
 };
 
-/** Lo que trae GET /api/chat-agent/condiciones. `reuniones` en null = no se pudo leer. */
-export type CatalogosRemotos = {
-  cursos: CursoCondicion[]; posts: Array<{ id: number; titulo: string }>; campanas: string[];
-  reuniones?: ReunionesDeEmbudo[] | null;
-};
-
 // ── Los catálogos de la base, leídos UNA vez por página ───────────────────────────
 // «No pude leer» es un tercer estado (AGENTS.md): con el GET caído, las condiciones que los
 // necesitan NO se ofrecen (no hay con qué completarlas), pero una fila ya puesta se sigue dibujando.
@@ -143,15 +138,6 @@ export function useCatalogosCondicion(activo = true): CatalogosRemotos | null {
     return () => { vivo = false; };
   }, [activo]);
   return cat;
-}
-
-/** Los catálogos juntos, en la forma que piden las funciones del catálogo. */
-export function catalogosDe(p: { etapas: EtapasDeProducto[]; productos: ProductoCondicion[]; remotos: CatalogosRemotos | null }): CatalogosCondicion {
-  return {
-    etapas: p.etapas, productos: p.productos, cursos: p.remotos?.cursos, posts: p.remotos?.posts, campanas: p.remotos?.campanas,
-    // undefined = todavía no llegó; null = no se pudo leer. Las dos dejan el selector apagado.
-    reuniones: p.remotos ? p.remotos.reuniones ?? null : undefined,
-  };
 }
 
 // ── Las piezas de la cara ─────────────────────────────────────────────────────────

@@ -171,7 +171,9 @@ function camposCalendly(): Array<{ env: string; label: string; opcional: boolean
 /** Los pasos del tutorial del SERVICIO (una línea, un string). */
 function pasosCalendly(): string[] {
   const pasos = [...BLOQUE_CALENDLY.matchAll(/^ {8}'((?:[^'\\]|\\.)+)',$/gm)].map((m) => m[1]);
-  assert.ok(pasos.length > 10, `esperaba el tutorial de Calendly y leí ${pasos.length} pasos: el extractor quedó viejo`);
+  // Un piso contra un extractor roto, no un conteo: desde el 12/10/2026 un tutorial son 3 a 5 pasos
+  // (tests/tutoriales-legibles.test.ts). Antes decía «más de 10», y el de Calendly tenía 17.
+  assert.ok(pasos.length >= 3, `esperaba el tutorial de Calendly y leí ${pasos.length} pasos: el extractor quedó viejo`);
   return pasos;
 }
 

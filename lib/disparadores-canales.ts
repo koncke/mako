@@ -6,18 +6,18 @@
 // conectado». Un evento de un canal que no puede llegar es una automatización que no arranca nunca,
 // sin un error: por eso la pantalla pregunta antes de ofrecerlo.
 //
-// ⚠️ ES UNA LECTURA, Y «NO PUDE LEER» NO ES «NO ESTÁ»: `conectado: null` cuando la consulta (o Meta)
+// ⚠️ ES UNA LECTURA, Y «NO PUDE LEER» NO ES «NO ESTÁ»: `conectado: null` cuando la consulta (o Zernio)
 // falla. La pantalla lo dice así y tampoco ofrece los eventos, pero no le dice al dueño que conecte
 // algo que puede estar perfectamente conectado.
 //
-// Las tres preguntas, y lo que contestan HOY (09/10/2026):
-//   · Messenger: la PÁGINA de Facebook conectada (`META_PAGE_ID` + `META_PAGE_ACCESS_TOKEN`, las que
-//     escribe `guardarConexionMeta`). Es la condición necesaria; que los eventos lleguen depende además
-//     del webhook de Messenger, que es de la parte «canales».
-//   · Instagram: la página conectada Y una cuenta de Instagram profesional vinculada a ella
-//     (`instagram_business_account`, Graph). Instagram se había sacado del producto el 06/10/2026
-//     (tests/sin-instagram.test.ts) y vuelve por pedido de Martín (CRON puntos 2 y 6); la conexión por
-//     la app de Meta está en verificación.
+// Las preguntas, y lo que contestan HOY (12/10/2026):
+//   · Instagram y Messenger: ZERNIO configurado y una cuenta de esa plataforma (`estadoMedios`, más abajo: la
+//     MISMA lectura que la tarjeta, «Probar» y Publicar, con tope de 8 s). Los eventos de los dos llegan SÓLO por
+//     el webhook de Zernio (app/api/webhooks/zernio/route.ts).
+//     ⚠️ HASTA LA DUODÉCIMA TANDA ESTO MIRABA LA PÁGINA DE FACEBOOK (Graph: `META_PAGE_ID` y la cuenta de
+//     Instagram vinculada a la página). Eran DOS verdades de «conectado»: el CRON decía «conectado» a un negocio
+//     con página y sin Zernio, que no recibe un solo evento (ws 1, 9 y 15), y la tarjeta decía «Sin cuenta». El
+//     CRON y la tarjeta abren además el MISMO modal (`ConectarMedio`). docs/diseno-duodecima-tanda.md §2.11.
 //   · Email: el remitente PROPIO del negocio conectado (`emailConectado`, lib/resend.ts). Recibir un
 //     email necesita además el buzón de entrada, que es de la parte «canales».
 //   · Pagos (11/10/2026): Stripe o Mercado Pago conectados en ESTE workspace (`pasarelasConectadas`,
@@ -27,66 +27,35 @@
 // esta función es el lugar donde se suma — no una segunda lectura en otra pantalla.
 
 import 'server-only';
-import { credWs } from './credenciales';
 import { emailConectado } from './resend';
 import { SIN_EMAIL_PROPIO } from './email-remitente';
-import type { EstadoCanal, EstadoCanales } from './disparadores';
+import { disparadoresDe, type Disparador, type EstadoCanal, type EstadoCanales, type FilaDisparadores } from './disparadores';
 import { pasarelasConectadas } from './cobros';
 import { NOMBRE_PASARELA } from './cobros-tipos';
 import { getTenantDb, getWorkspaceActual } from './workspace';
 import { listarLineas, type LineaRow } from './evolution';
 import { lineaPorDefault } from './lineas-whatsapp';
-import { cuentasConectadas, zernioConfigurado } from './zernio';
+import { asegurarWebhook, cuentasConectadas, zernioConfigurado } from './zernio';
+import { esColumnaInexistente } from './nutricion-grafo-motor';
 import { plataformaDe } from './canal-social';
 import type { PasoGrafo } from './flujo-grafo';
-import { MOTIVO_MEDIO, faltantes, frenoDeMedios, mediosQueUsa, usosDeMedios, type EstadoMedio, type EstadoMedios, type Medio } from './medios-automatizacion';
+import {
+  MOTIVO_MEDIO, avisoSinWebhook, faltantes, frenoDeMedios, mediosQueUsa, socialesConectados, usosDeMedios,
+  type CronDeMedio, type EstadoMedio, type EstadoMedios, type Medio,
+} from './medios-automatizacion';
 
-const GRAPH = 'https://graph.facebook.com';
-const ver = () => process.env.META_API_VERSION || 'v24.0';
-const real = (v: string | null): v is string => !!v && !v.startsWith('PENDING');
-
-const MOTIVO_FACEBOOK = 'Conecta tu página de Facebook';
-const MOTIVO_INSTAGRAM = 'Conecta tu Instagram';
 const MOTIVO_EMAIL = SIN_EMAIL_PROPIO;
 const MOTIVO_PAGOS = 'Conecta Stripe o Mercado Pago';
 const MOTIVO_NO_SE = 'No pude comprobarlo';
 
-/** La cuenta de Instagram profesional de la página, o null si no tiene. Tira si Meta no contesta. */
-async function instagramDeLaPagina(pagina: string, token: string): Promise<string | null> {
-  const url = new URL(`${GRAPH}/${ver()}/${pagina}`);
-  url.searchParams.set('fields', 'instagram_business_account{id,username}');
-  url.searchParams.set('access_token', token);
-  const r = await fetch(url, { signal: AbortSignal.timeout(6000), cache: 'no-store' });
-  const j = (await r.json().catch(() => null)) as { error?: { message?: string }; instagram_business_account?: { id?: string; username?: string } } | null;
-  // Meta manda el fallo ADENTRO de un 200 (AGENTS.md): se mira `error` antes que el dato.
-  if (!r.ok || !j || j.error) throw new Error(j?.error?.message ?? `HTTP ${r.status}`);
-  const ig = j.instagram_business_account;
-  return ig?.id ? (ig.username ? `@${ig.username}` : ig.id) : null;
-}
-
 export async function estadoCanalesDisparo(): Promise<EstadoCanales> {
-  let messenger: EstadoCanal;
-  let instagram: EstadoCanal;
-  let pagina: string | null = null;
-  let token: string | null = null;
-  try {
-    [pagina, token] = await Promise.all([credWs('META_PAGE_ID'), credWs('META_PAGE_ACCESS_TOKEN')]);
-    messenger = real(pagina) && real(token) ? { conectado: true, cuenta: null } : { conectado: false, motivo: MOTIVO_FACEBOOK };
-  } catch (e) {
-    console.error('[disparadores-canales] la página de Facebook:', e instanceof Error ? e.message : String(e));
-    messenger = { conectado: null, motivo: MOTIVO_NO_SE };
-  }
-  if (messenger.conectado !== true || !real(pagina) || !real(token)) {
-    instagram = messenger.conectado === null ? { conectado: null, motivo: MOTIVO_NO_SE } : { conectado: false, motivo: MOTIVO_INSTAGRAM };
-  } else {
-    try {
-      const cuenta = await instagramDeLaPagina(pagina, token);
-      instagram = cuenta ? { conectado: true, cuenta } : { conectado: false, motivo: MOTIVO_INSTAGRAM };
-    } catch (e) {
-      console.error('[disparadores-canales] Instagram de la página:', e instanceof Error ? e.message : String(e));
-      instagram = { conectado: null, motivo: MOTIVO_NO_SE };
-    }
-  }
+  // Instagram y Messenger: Zernio, por la MISMA función que la tarjeta y Publicar (ver la cabecera). Arranca
+  // primero y se espera al final: el tope de 8 s de Zernio corre junto con el email y los pagos.
+  // `estadoMedios` no tira (lo que falla queda en «no pude comprobarlo»); el `catch` es por las dudas.
+  const sociales = estadoMedios(['instagram', 'messenger']).catch((e: unknown) => {
+    console.error('[disparadores-canales] Zernio:', e instanceof Error ? e.message : String(e));
+    return {} as EstadoMedios;
+  });
   let email: EstadoCanal;
   try {
     email = (await emailConectado()) ? { conectado: true } : { conectado: false, motivo: MOTIVO_EMAIL };
@@ -104,6 +73,9 @@ export async function estadoCanalesDisparo(): Promise<EstadoCanales> {
     console.error('[disparadores-canales] las pasarelas de pago:', e instanceof Error ? e.message : String(e));
     pagos = { conectado: null, motivo: MOTIVO_NO_SE };
   }
+  const medios = await sociales;
+  const instagram: EstadoCanal = medios.instagram ?? { conectado: null, motivo: MOTIVO_NO_SE };
+  const messenger: EstadoCanal = medios.messenger ?? { conectado: null, motivo: MOTIVO_NO_SE };
   return { instagram, messenger, email, pagos };
 }
 
@@ -153,14 +125,74 @@ export async function estadoMedios(usa: readonly Medio[]): Promise<EstadoMedios>
   return out;
 }
 
+/** Lo que Publicar y Activar miran de los medios. */
+export type MediosAlPublicar = {
+  /** El primer medio que se SABE sin conectar, con el texto de siempre. null = nada que frenar (incluido «no pude»). */
+  falta: { medio: Medio; error: string } | null;
+  /** Instagram y Messenger que usa (una tarjeta o el CRON) y están CONECTADOS: los que necesitan el webhook de Zernio. */
+  sociales: Medio[];
+};
+/** Lo que vale cuando no se pudo mirar: «no pude comprobarlo» no frena. */
+export const SIN_MEDIOS: MediosAlPublicar = { falta: null, sociales: [] };
+
 /**
- * LO QUE FRENA PUBLICAR Y ACTIVAR: el primer medio que usan estos pasos y se SABE sin conectar, con la
- * línea de la automatización. `null` = nada que frenar (incluido «no pude comprobarlo»).
+ * LO QUE FRENA PUBLICAR Y ACTIVAR: el primer medio que usan estos pasos O SU CRON y se SABE sin conectar, con la
+ * línea de la automatización. `falta: null` = nada que frenar (incluido «no pude comprobarlo»).
+ *
+ * ⚠️ EL CRON CUENTA (duodécima tanda, §2.11): sin `disparadores`, un CRON de Instagram con tarjetas de WhatsApp se
+ * publicaba y se activaba sin Instagram conectado, y no arrancaba nunca, sin un error. Se mide UNA vez: lo mismo dice
+ * qué frena y qué sociales están conectados (`asegurarAvisosSociales`, abajo).
  */
-export async function medioSinConectar(pasos: readonly PasoGrafo[], linea: string | null): Promise<{ medio: Medio; error: string } | null> {
-  const usa = mediosQueUsa(pasos);
-  if (!usa.length) return null;
-  return frenoDeMedios(faltantes(usosDeMedios(pasos, linea), await estadoMedios(usa)));
+export async function medioSinConectar(
+  pasos: readonly PasoGrafo[], linea: string | null, disparadores?: readonly CronDeMedio[] | null,
+): Promise<MediosAlPublicar> {
+  const usa = mediosQueUsa(pasos, disparadores);
+  if (!usa.length) return { falta: null, sociales: [] };
+  const estado = await estadoMedios(usa);
+  return { falta: frenoDeMedios(faltantes(usosDeMedios(pasos, linea, disparadores), estado)), sociales: socialesConectados(usa, estado) };
+}
+
+/**
+ * QUE ZERNIO LE AVISE A MAKO al publicar o activar algo que usa Instagram o Messenger conectado (duodécima tanda,
+ * §2.11). `asegurarWebhook` (lib/zernio.ts) es idempotente.
+ *
+ * ⚠️ HASTA ACÁ EL WEBHOOK SE REGISTRABA SÓLO CON EL `estado` DE /api/zernio (el modal de conectar) con una cuenta:
+ * medido el 12/10/2026, ws10, 11 y 13 tenían `webhook_ok=false` y 0 eventos. Sin webhook no llega ningún DM ni
+ * ningún evento del CRON, y no da error.
+ *
+ * ⚠️ UNA FALLA NO FRENA: se loguea y vuelve el aviso corto (`avisoSinWebhook`); null = salió o no hacía falta. Sin
+ * `ZERNIO_WEBHOOK_SECRET` en la plataforma queda sólo el log: el negocio no lo puede arreglar. Con tope de 8 s,
+ * como la lectura de Zernio. El ws, explícito.
+ */
+export async function asegurarAvisosSociales(ws: number, sociales: readonly Medio[]): Promise<string | null> {
+  if (!sociales.length) return null;
+  try {
+    const r = await conTope(asegurarWebhook(ws), 8000);
+    if (r === 'sin_secreto') console.error(`[disparadores-canales] webhook de Zernio ws${ws}: falta ZERNIO_WEBHOOK_SECRET`);
+    return null;
+  } catch (e) {
+    console.error(`[disparadores-canales] webhook de Zernio ws${ws}:`, e instanceof Error ? e.message : String(e));
+    return avisoSinWebhook(sociales);
+  }
+}
+
+const COLS_CRON = 'trigger_tipo, etapa, etapas, funnel_id, producto_id, etiqueta_id, cron, cron_proxima_at';
+
+/**
+ * Los CRON de una automatización (`disparadoresDe`, la MISMA lista que lee la pantalla), para Publicar y Activar.
+ * Sin la columna `disparadores` (mig 0241 sin aplicar), la de las columnas. Tira si no se puede leer.
+ */
+export async function disparadoresDeSecuencia(id: number): Promise<Disparador[]> {
+  const db = await getTenantDb();
+  const con = await db.from('nutricion_secuencias').select(`${COLS_CRON}, disparadores`).eq('id', id).maybeSingle();
+  let fila = con.data as FilaDisparadores | null;
+  if (con.error) {
+    if (!esColumnaInexistente(con.error)) throw new Error(`disparadoresDeSecuencia: ${con.error.message}`);
+    const sin = await db.from('nutricion_secuencias').select(COLS_CRON).eq('id', id).maybeSingle();
+    if (sin.error) throw new Error(`disparadoresDeSecuencia: ${sin.error.message}`);
+    fila = sin.data as FilaDisparadores | null;
+  }
+  return fila ? disparadoresDe(fila) : [];
 }
 
 /** La línea de una automatización (`instance_name`; null = la de por default). Tira si no se puede leer. */

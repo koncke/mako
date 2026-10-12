@@ -212,10 +212,11 @@ test('el call site del setter lee el tope y el horario; con algo ilegible no sal
 test('ChatAgentApp monta el menú de Configuraciones en los dos lugares del horario, y el horario de antes se fue', () => {
   const app = fuente('app/automations/ChatAgentApp.tsx');
   assert.match(app, /import \{ MenuAutomations \} from '\.\/ConfiguracionesBoton';/);
-  assert.equal(app.split('<MenuAutomations onTutorial={recorrido.reabrir} />').length - 1, 2, 'uno en la lista y uno en el cartel vacío');
+  // Duodécima tanda (decisión 11): el cartel vacío se fue y la lista se dibuja también sin automatizaciones, así
+  // que el menú vive en UN lugar, el de la lista.
+  assert.equal(app.split('<MenuAutomations onTutorial={recorrido.reabrir} />').length - 1, 1, 'uno, en la lista');
   assert.match(app, /menu=\{<MenuAutomations onTutorial=\{recorrido\.reabrir\} \/>\}/, 'la tab no le pasa el menú a la lista');
-  const cartel = bloque(app, 'Todavía no hay automatizaciones.', '<SimuladorWhatsApp');
-  assert.match(cartel, /\{\}\s*<MenuAutomations onTutorial=\{recorrido\.reabrir\} \/>\s*<button [^\n]*>＋ Nueva<\/button>/, 'el cartel vacío no tiene el menú antes de «＋ Nueva»');
+  assert.doesNotMatch(app, /Todavía no hay automatizaciones/, 'volvió el cartel vacío');
   assert.doesNotMatch(app, /HorarioLista|<ConfiguracionesBoton|horario=\{/);
   for (const r of ['app/automations/HorarioLista.tsx', 'app/automations/HorarioBoton.tsx']) assert.equal(existsSync(new URL(`../${r}`, import.meta.url)), false, `${r} volvió`);
 });

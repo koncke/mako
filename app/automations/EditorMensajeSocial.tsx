@@ -20,8 +20,11 @@
 //   · Un archivo de cualquier tipo: Instagram toma foto, video o PDF (`problemaDeAdjunto`).
 //
 // ARRIBA, LA CUENTA DESDE LA QUE SALE (como el número de salida del de WhatsApp), con «Conectar» si
-// no hay ninguna (POST /api/zernio). ⚠️ NADA DE ACÁ PUBLICA: `onChange` es un cambio LOCAL; lo único
-// que escribe en el server es la biblioteca de archivos (un archivo nuevo), igual que el de WhatsApp.
+// no hay ninguna (POST /api/zernio). Duodécima tanda (§2.11): «Conectar» también SIN ZERNIO y con la key mala (el
+// modal abre en el campo «API key de Zernio»); con la cuenta de Zernio pausada, el link de pago. Lo que contestó la
+// ruta lo lee `leerZernio` (ConectarMedio.tsx), la misma que el modal.
+// ⚠️ NADA DE ACÁ PUBLICA: `onChange` es un cambio LOCAL; lo único que escribe en el server es la biblioteca de
+// archivos (un archivo nuevo), igual que el de WhatsApp. (La key de Zernio la guarda el modal, no este editor.)
 
 import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
 import type { PasoSecuenciaDto } from './ChatAgentApp';
@@ -42,7 +45,7 @@ import { IDENTIDAD_SOCIAL, NOMBRE_CANAL, problemaDeAdjunto, plataformaDe, TOPE_T
 import { BurbujaSocial, ArchivoSocial, CabeceraSocial, LogoSocial } from './social-ui';
 // «Conectar» AHÍ MISMO (décima tanda, GENERAL 6): el OAuth de Zernio en una ventana emergente y el sondeo de la
 // cuenta, en el modal de la tab (antes se abría una pestaña nueva y el editor no se enteraba de la vuelta).
-import { ConectarMedio, useAlConectarMedio } from './ConectarMedio';
+import { ConectarMedio, useAlConectarMedio, leerZernio, pideKeyZernio, type EstadoZernio, type RespuestaZernio } from './ConectarMedio';
 
 export type EditorMensajeSocialProps = {
   paso: PasoSecuenciaDto;
@@ -57,8 +60,8 @@ export type EditorMensajeSocialProps = {
   onError?: (m: string) => void;
 };
 
-/** Lo que dice la cuenta de salida (POST /api/zernio). `null` = todavía no llegó. */
-type Cuenta = { estado: 'ok'; cuentas: Array<{ id: string; usuario: string; nombre: string }> } | { estado: 'sin_zernio' } | { estado: 'error'; error: string };
+/** Lo que dice la cuenta de salida (POST /api/zernio, leído por `leerZernio`). `null` = todavía no llegó. */
+type Cuenta = EstadoZernio;
 
 /** El borrador de la barra por tarjeta (como el de WhatsApp): tocar otra no lo tira. */
 const borradores = new Map<string, string>();
@@ -124,9 +127,10 @@ export function EditorMensajeSocial({ paso, canal, onChange, negocio, adjuntos, 
     let vivo = true;
     fetch('/api/zernio', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'estado', plataforma: plataformaDe(canal) }), signal: AbortSignal.timeout(65_000) })
       .then((r) => r.json())
-      .then((j: { ok?: boolean; configurado?: boolean; cuentas?: Array<{ id: string; usuario: string; nombre: string }>; error?: string }) => {
-        const v: Cuenta = !j?.ok ? { estado: 'error', error: j?.error ?? 'Zernio no contestó' } : j.configurado === false ? { estado: 'sin_zernio' } : { estado: 'ok', cuentas: j.cuentas ?? [] };
-        if (v.estado !== 'error') cacheCuenta.set(clave, { t: Date.now(), v });
+      .then((j: RespuestaZernio | null) => {
+        const v: Cuenta = leerZernio(j);
+        // Sólo lo que no se arregla solo: la key mala o la cuenta pausada se vuelven a pedir en la próxima visita.
+        if (v.estado === 'ok' || v.estado === 'sin_zernio') cacheCuenta.set(clave, { t: Date.now(), v });
         if (vivo) setCuenta(v);
       })
       .catch(() => { if (vivo) setCuenta({ estado: 'error', error: 'Sin conexión' }); });
@@ -278,17 +282,25 @@ export function EditorMensajeSocial({ paso, canal, onChange, negocio, adjuntos, 
 
   // ── La cuenta, arriba (como el número de salida del WhatsApp) ──
   const usuario = cuenta?.estado === 'ok' ? cuenta.cuentas[0] : null;
+  // «Conectar» sin cuenta, sin Zernio y con la key mala: el modal resuelve las tres ahí mismo.
+  const puedeConectar = cuenta != null && ((cuenta.estado === 'ok' && !usuario) || pideKeyZernio(cuenta));
   const filaCuenta = (
     <CabeceraSocial canal={canal}
-      nombre={usuario ? `@${usuario.usuario}` : cuenta === null ? 'Cargando…' : cuenta.estado === 'sin_zernio' ? 'Sin Zernio' : cuenta.estado === 'error' ? cuenta.error : `Sin cuenta de ${nombreCanal}`}
+      nombre={usuario ? `@${usuario.usuario}` : cuenta === null ? 'Cargando…' : cuenta.estado === 'sin_zernio' ? 'Sin Zernio' : cuenta.estado === 'ok' ? `Sin cuenta de ${nombreCanal}` : cuenta.error}
       detalle={usuario && usuario.nombre !== usuario.usuario ? usuario.nombre : undefined}
       derecha={(
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-          {cuenta?.estado === 'ok' && !usuario && (
-            <button type="button" onClick={() => setConectando(true)} disabled={conectando || ocupado} aria-haspopup="dialog"
+          {puedeConectar && (
+            <button type="button" data-conectar-social onClick={() => setConectando(true)} disabled={conectando || ocupado} aria-haspopup="dialog"
               style={{ height: 28, padding: '0 12px', borderRadius: 14, border: 'none', background: ident.burbuja, color: '#fff', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
               Conectar
             </button>
+          )}
+          {cuenta?.estado === 'pausada' && cuenta.pago && (
+            <a href={cuenta.pago} target="_blank" rel="noopener noreferrer" data-zernio-pago
+              style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--primary)', textDecoration: 'none' }}>
+              Pagar
+            </a>
           )}
           <LogoSocial canal={canal} size={22} />
         </span>
@@ -374,7 +386,7 @@ export function EditorMensajeSocial({ paso, canal, onChange, negocio, adjuntos, 
         </PopoverWA>
       )}
       <Toast state={toast} onClose={clear} />
-      {conectando && <ConectarMedio medio={canal} onCerrar={() => setConectando(false)} onConectado={() => setConectando(false)} />}
+      {conectando && <ConectarMedio medio={canal} zernio={cuenta} onCerrar={() => setConectando(false)} onConectado={() => setConectando(false)} />}
     </div>
   );
 }

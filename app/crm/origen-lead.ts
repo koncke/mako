@@ -35,6 +35,11 @@ export type OrigenLeadId =
   | 'carga_manual'   // alguien lo tipeó: /crm/new, el modal del tablero, Customer Success
   | 'importacion'    // entró en un archivo (la lista en frío)
   | 'chat_whatsapp'  // se creó desde una conversación del inbox
+  // Los dos de Zernio (sexta tanda, 09/10/2026): `crearLeadDe` (lib/zernio-entrante.ts) escribe
+  // `origen_lead: e.canal`, el canal del evento. Hasta la duodécima tanda (12/10/2026) el catálogo no los
+  // conocía, y la tarjeta y el filtro decían «Sin origen» de un lead que llegó por Instagram.
+  | 'instagram'      // escribió, comentó o tocó un link de Instagram
+  | 'messenger'      // lo mismo por Messenger (la página de Facebook)
   // ⚠️ Y EL OCTAVO, que no es un canal de venta: lo crea la PRUEBA del Pixel
   // (app/integraciones/prueba-lead-actions.ts) para que la grabación de esa
   // prueba se pueda ver en el único lugar donde existe el reproductor, que es la
@@ -66,6 +71,8 @@ export const ORIGEN_LEAD: Record<OrigenLeadId, OrigenLeadDef> = {
   carga_manual: { id: 'carga_manual', lista: 'Cargado a mano' },
   importacion: { id: 'importacion', lista: 'Importado' },
   chat_whatsapp: { id: 'chat_whatsapp', lista: 'WhatsApp' },
+  instagram: { id: 'instagram', lista: 'Instagram' },
+  messenger: { id: 'messenger', lista: 'Messenger' },
   prueba: { id: 'prueba', lista: 'Prueba del Pixel' },
 };
 

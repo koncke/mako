@@ -19,6 +19,9 @@
 // ⚠️ La rotura 5 ya no aplica: la cuarta tanda (punto 7) DEVOLVIÓ «＋ y» / «＋ o», cada uno con la unión
 // de su fila. Los dos tests que cambió la cuarta tanda (lo que se ofrece de las reuniones y el editor)
 // se rompieron con el arnés de tests/condiciones-cuarta.test.ts (roturas 16 y 17).
+// Duodécima tanda (12/10/2026): las dos listas de secciones suman «Instagram y Messenger»; con la sección
+// al final de adquisición, 18 / 1 acá (rotura 12 de tests/condiciones-instagram.test.ts). La ruta del
+// catálogo mudó su lectura a lib/condiciones-catalogo-datos.ts y el test la lee ahí.
 //
 // Correr: node --import tsx --test tests/condiciones-catalogo.test.ts
 import { test } from 'node:test';
@@ -108,8 +111,9 @@ const ids = (s: ReturnType<typeof seccionesDeCondiciones>) => new Set(s.flatMap(
 test('con un CRON de ADQUISICIÓN se ofrece el CRM y nada de Customer Success; con uno de ENTREGA, al revés', () => {
   const adq = seccionesDeCondiciones('adquisicion', CAT);
   const ent = seccionesDeCondiciones('entrega', CAT);
-  assert.deepEqual(adq.map((s) => s.title), ['Información del lead', 'Origen y tracking', 'Etapa y pipeline', 'Agenda y llamadas', 'Pagos', 'Mensajes', 'Etiquetas']);
-  assert.deepEqual(ent.map((s) => s.title), ['Curso y avance', 'Comunidad', 'Tareas del curso', 'Pagos del cliente', 'Etapa de entrega', 'Mensajes', 'Etiquetas', 'Información del lead']);
+  // Duodécima tanda: «Instagram y Messenger» va después de «Mensajes», con los dos CRON (tests/condiciones-instagram.test.ts).
+  assert.deepEqual(adq.map((s) => s.title), ['Información del lead', 'Origen y tracking', 'Etapa y pipeline', 'Agenda y llamadas', 'Pagos', 'Mensajes', 'Instagram y Messenger', 'Etiquetas']);
+  assert.deepEqual(ent.map((s) => s.title), ['Curso y avance', 'Comunidad', 'Tareas del curso', 'Pagos del cliente', 'Etapa de entrega', 'Mensajes', 'Instagram y Messenger', 'Etiquetas', 'Información del lead']);
   const a = ids(adq);
   const e = ids(ent);
   for (const c of CONDICIONES) {
@@ -319,8 +323,12 @@ test('el editor: «＋ Condición» la primera, «＋ y» / «＋ o» las demás
 });
 
 test('la ruta del catálogo lee lo mismo que el motor: sin papelera ni hilos de clase', () => {
-  const src = sinComentarios(leer('../app/api/chat-agent/condiciones/route.ts'));
+  // Duodécima tanda: la LECTURA se mudó a lib/condiciones-catalogo-datos.ts (`catalogosRemotos`, que usa
+  // también el contexto de Crear con IA); la ruta queda con el permiso y la respuesta.
+  const ruta = sinComentarios(leer('../app/api/chat-agent/condiciones/route.ts'));
+  const src = sinComentarios(leer('../lib/condiciones-catalogo-datos.ts'));
+  assert.match(ruta, /catalogosRemotos\(\)/);
   assert.match(src, /'curso_clases'[\s\S]{0,200}is\('borrada_at', null\)/);
   assert.match(src, /from\('comunidad_posts'\)[\s\S]{0,120}is\('clase_id', null\)/);
-  assert.match(src, /rol !== 'admin'/);
+  assert.match(ruta, /rol !== 'admin'/);
 });

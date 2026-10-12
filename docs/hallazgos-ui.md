@@ -3610,3 +3610,41 @@ Pedido de Martín del 12/10 (punto 5 del feedback del CRM): el teléfono con el 
 **Vive en:** `app/_components/TelefonoConPais.tsx` · `lib/paises.ts` (`numeroTecleado`, `splitTelefono`,
 `unirTelefono`) · `tests/crm-tablero-alta-12-10.test.ts` · *2026-10-12 corrida crm-feedback-12-10 (frente B y segunda
 revisión)*
+
+## Un clic en OPERATE llevaba a General: el aire de un link es zona de clic (12/10/2026)
+
+**Síntoma** (Martín, la prueba con Fiesta Music): «cuando alguien da clic en Operate... se lo lleva a General».
+⚠️ **El diagnóstico obvio era el equivocado.** El botón de la familia no navega: el clic nunca le llegaba. Lo recibía el
+LINK DE LA MARCA, que está arriba.
+
+- **El padding es zona de clic.** `Marca` tenía `padding: '2px 6px 20px'` y, como hijo de una columna flex, se estiraba a
+  todo el ancho (`align-items: stretch` por defecto). Los 20 px entre el logo y el rótulo OPERATE, en todo el ancho de la
+  barra, eran un link a /general.
+- **La barra saltaba mientras se abre.** `.mk-seccion` iba sin `nowrap`. Durante los 200 ms de la animación, un rótulo de
+  dos palabras («Customer Success», «Sales Machine») baja de renglón y todo salta 16 a 32 px: el clic que iba a un rótulo
+  cae en otra cosa.
+
+**La regla:**
+- El aire que separa un link de lo que tiene abajo es MARGEN, no padding.
+- Un link dentro de una columna flex lleva `alignSelf`, o mide lo que mide la columna.
+- Los rótulos de una barra que anima su ancho llevan `whiteSpace: 'nowrap'`.
+
+El arreglo no cambia nada visible (padding 2 + `marginBottom: 18` = los 20 de antes) y no bloquea clics durante la
+animación. `BarraPreview` (/admin/ui) lo hereda.
+
+**Vive en:** `app/_components/Sidebar.tsx` (`Marca`, `Familia`) · `tests/barra-clic-operate.test.ts` (renderiza los
+reales con `renderToStaticMarkup`; con el padding de 20, 1 fallo; sin el `nowrap`, 1 fallo).
+
+## Un `position: fixed` adentro de una capa con `z-index` es un fixed atrapado (12/10/2026)
+
+El aviso «Enviado · revisa tu WhatsApp» de Probar (Automations) existía desde la décima, y Martín lo reportó como que
+faltaba. El `Toast` es `position: fixed; z-index: 600`, pero vivía DENTRO del muelle de Probar (`position` + `zIndex: 3`).
+Un z-index sólo compite dentro de su contexto de apilamiento: quedaba debajo de la barra de MaKo (z 4) y de Publicar
+(57). `getComputedStyle` lo da perfecto y no hay ningún error.
+
+**La regla:** un aviso lo dibuja quien sigue montado, fuera de cualquier ancestro con `position` + `z-index`. Y un aviso
+de algo que YA pasó (salió un mensaje) no se ata a la vida del panel que lo pidió. Ojo también con el tope: `useToast`
+corta en 3,2 s sin `onUndo` (`Math.min(ms, 3200)`).
+
+**Vive en:** `app/automations/SimuladorWhatsApp.tsx` (el `<Toast>` en la raíz) · `app/automations/PanelProbar.tsx`
+(`onEnviado`) · `app/_ui/Toast.tsx`. El resto, en [hallazgos-chatbot.md](hallazgos-chatbot.md) → «Duodécima tanda».

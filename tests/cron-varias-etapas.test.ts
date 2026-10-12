@@ -30,6 +30,7 @@ import {
 import {
   deIA, hablaDeAlumno, disparadorDelPedido, disparadoresParaIA, bloqueDisparadores, CREAR_IA_SYSTEM_TEMPLATE, type CtxIA,
 } from '../lib/flujo-ia';
+import { disparadorDeValorIA } from '../lib/disparadores';
 
 const RAIZ = join(import.meta.dirname, '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
@@ -315,7 +316,15 @@ test('el prompt dice la regla (la primera capa) y la ruta le pasa el pedido y la
   // lib/flujo-ia-crear.ts, que llama también la API de MaKo («Pídeselo a MaKo» por WhatsApp).
   const ruta = sinComentarios(leer('app/api/chat-agent/secuencias/ia/route.ts') + '\n' + leer('lib/flujo-ia-crear.ts'));
   assert.match(ruta, /numerosPermitidos: numerosEn\(`\$\{perfil\}\\n\$\{pedido\}`\),\n\s*pedido,/);
-  assert.match(ruta, /etapas: Array\.isArray\(pedidoTrigger\.etapas\) \? \(pedidoTrigger\.etapas as unknown\[\]\)\.map\(String\) : null,/);
+  // ⚠️ DUODÉCIMA TANDA (12/10/2026): la ruta ya no arma `etapas` a mano para `setTriggerSecuencia` (que dejaba en NULL
+  // la lista `disparadores` de la 0241): guarda por la MISMA puerta que la pantalla, y las varias etapas viajan en el
+  // valor (`venta:5:nuevo,agendado`). Se fija la puerta y se EJECUTA el valor.
+  assert.match(ruta, /const lista = disparadorDeValorIA\(valor\);/);
+  assert.match(ruta, /await guardarDisparadores\(id, lista\);/);
+  assert.doesNotMatch(ruta, /setTriggerSecuencia\(/, 'volvió la puerta vieja del CRON de la IA');
+  const [d] = disparadorDeValorIA('venta:5:nuevo,agendado');
+  assert.deepEqual(d?.etapas, ['nuevo', 'agendado'], 'el CRON de la IA perdió las varias etapas');
+  assert.equal(disparadorDeValorIA('entrega:9:onb,kick')[0]?.etapas?.length, 2);
 });
 
 // PROBADO ROMPIÉNDOLO (09/10/2026, cuarta tanda; arnés en el scratchpad de la sesión, romper.mjs, que
@@ -343,3 +352,7 @@ test('el prompt dice la regla (la primera capa) y la ruta le pasa el pedido y la
 // SEXTA TANDA (09/10/2026, el desplegable mudado a EditorDisparadores.tsx). Corriendo este archivo +
 // flujo-conversacion + flujo-ia-arreglos + lienzo-revision: baseline 71 / 0. Que tocar una etapa la
 // REEMPLACE en vez de sumarla (`onChange` directo a `disparoDeValor`) → 70 / 1, cae el de arriba.
+// DUODÉCIMA TANDA (12/10/2026, la puerta del CRON de la IA). Este archivo solo: 19 / 0 en el worktree (en el espejo
+// del arnés, sin supabase/, 18 / 1: cae el de la 0230, que lee la migración). Una rotura por vez, en el espejo:
+//   21. `ponerDisparador` vuelve a `setTriggerSecuencia` → 17 / 2 (cae «el prompt dice la regla…»).
+//   22. `disparadorDeValorIA` pierde las varias etapas → 17 / 2 (el mismo).

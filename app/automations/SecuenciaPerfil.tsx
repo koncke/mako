@@ -24,23 +24,25 @@ import { usePilaDeshacer } from '@/app/_ui/usePilaDeshacer';
 // LOS CRON (sexta tanda: varios por automatización, y la primera pantalla con Producto / Recurrente /
 // Etiqueta / Instagram / Messenger / Email). El panel, su estado y lo que dice cada uno viven allá.
 import { EditorDisparadores, useDisparadores, useTextoDisparador, type SecuenciaConDisparadores } from './EditorDisparadores';
-import { disparoActualDe, iconoDeDisparador, esDelEmisor, EVENTOS_MAKO, TRIGGER_AVISO_MAKO } from '@/lib/disparadores';
+import { disparoActualDe, disparadorDeValorIA, iconoDeDisparador, esDelEmisor, EVENTOS_MAKO, TRIGGER_AVISO_MAKO } from '@/lib/disparadores';
 import { frenoDelEvento } from '@/lib/aviso-evento';
 import { problemasDeTokens } from '@/lib/tokens-del-flujo';
 import type { AudioSetting, SecuenciaDto, Opcion, PasoSecuenciaDto, ProductoOpcion } from './ChatAgentApp';
 import { FlujoLienzo, type CambioPasos, type EtiquetaLienzo, type SeccionEtapas } from './FlujoLienzo';
+import { etapasDeCondicion } from '@/lib/condiciones-catalogos';
 import { usePosicionesLienzo } from './usePosicionesLienzo';
 import { useBorradorSecuencia, ERROR_DESACTUALIZADO } from './useBorradorSecuencia';
 import { Dropdown } from '@/app/components/Dropdown';
 import { useEtiquetasTodas, avisarCambioEtiquetas } from '@/app/_components/etiquetas-cliente';
-import { CrearConIA, type ListoCrearIA } from './CrearConIA';
+import type { ListoCrearIA } from './CrearConIA';
+import { ChatMako } from './ChatMako';
 import { BotonPila } from './BotonPila';
 import { TRIGGER_RECORDATORIO, frenoDelRecordatorio } from '@/lib/recordatorio-automatizacion';
 import { CANALES_PROBAR, type CanalProbar } from './PanelProbar';
 import { useFaltanEnAcciones } from '@/app/_components/EditorAccionMako';
 import { esPasoAccion } from '@/lib/nutricion-paso-accion';
 import { franjaIA, BARRA_IA_ANCHO } from '@/lib/crear-ia-lugar';
-import { resumenAvisos, edicionVigente } from '@/lib/flujo-ia-cliente';
+import { resumenAvisos, edicionVigente, edicionTocaPasos } from '@/lib/flujo-ia-cliente';
 import { TOPE_NOMBRE_SECUENCIA, nombreParaGuardar, type Objetivo } from '@/lib/setting-estrategia';
 import { normalizar, esNodoMensaje } from '@/lib/flujo-grafo';
 import { eliminar } from '@/lib/flujo-edicion';
@@ -48,8 +50,7 @@ import { MakoLogo } from '@/app/_components/MakoBrand';
 import type { Muelles } from '@/lib/lienzo-grafo';
 import { abrirFlujo } from '@/lib/flujo-legado';
 import {
-  insertarDesdeLienzo, renumerar, borradorAlAbrir, errorLegible, tarjetaDelError, estrategiaConLimpieza,
-  disparoDeValor, canalesParaProbar, frenoDelFlujo,
+  insertarDesdeLienzo, renumerar, borradorAlAbrir, errorLegible, tarjetaDelError, estrategiaConLimpieza, disparoDeValor, canalesParaProbar, frenoDelFlujo,
   type QueAgregar,
 } from '@/lib/flujo-conversacion';
 import { EmojiPickerMini } from '@/app/plan/board/EmojiPicker';
@@ -92,17 +93,23 @@ const tarjetaChrome: CSSProperties = {
  * `MakoLogo` dibuja el recuadro negro con la chispa dorada SOLA y centrada; el `BotonMako` de la casa
  * (app/_ui/BotonMako.tsx) lleva `MakoStar`, que suma el punto chico arriba a la derecha. El lado es el alto
  * del título (`ALTO_ACCION`), así los dos miden lo mismo en la misma fila. Encendido (la barra abierta), el
- * aro dorado de siempre, con el radio del logo (13 de 48).
+ * aro dorado de siempre.
+ *
+ * ⚠️ CON LA CARA DEL TÍTULO (duodécima tanda, §2.7; Martín: «ese botón está más grande que el de al lado»). Ya
+ * medía 44, igual que el título: lo que se veía más grande era el bloque negro macizo al lado de tarjetas claras.
+ * Ahora es un recuadro `tarjetaChrome` (la superficie clara, el borde de 1 px, el radio y la sombra del título y
+ * de «Probar») con el logo de `LADO_LOGO` adentro, centrado.
  */
+const LADO_LOGO = 32;
 export function BotonLogoMako({ onClick, title, encendido = false, lado }: { onClick: () => void; title: string; encendido?: boolean; lado: number }) {
   return (
     <button type="button" data-no-pan data-boton-logo-mako onClick={onClick} aria-pressed={encendido} title={title} aria-label={title}
       style={{
-        flex: 'none', width: lado, height: lado, padding: 0, border: 'none', background: 'transparent', cursor: 'pointer',
+        ...tarjetaChrome, flex: 'none', width: lado, height: lado, padding: 0, cursor: 'pointer',
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box',
-        borderRadius: Math.round((lado * 13) / 48), boxShadow: encendido ? '0 0 0 2px var(--mako)' : '0 1px 2px rgba(0,0,0,.18)',
+        boxShadow: encendido ? `0 0 0 2px var(--mako), ${tarjetaChrome.boxShadow}` : tarjetaChrome.boxShadow,
       }}>
-      <MakoLogo size={lado} animate={false} />
+      <MakoLogo size={Math.min(LADO_LOGO, lado)} animate={false} />
     </button>
   );
 }
@@ -138,7 +145,13 @@ export type EdicionLocal = {
 /** Lo que devuelve `frenoDelFlujo`: el error legible y la tarjeta a abrir. */
 export type FrenoDelFlujo = NonNullable<ReturnType<typeof frenoDelFlujo>>;
 
-export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, negocio, canalCaido, tz, insetIzq, onAudioNuevo, secuencias, productos, disparadores, onProbar, probarAbierto = false, onCerrarProbar, onCambio, onCambioLocal, insetDer, handoffs, muelles, revelar, onSinPublicar, descartarBorrador, onAccionTodo }: {
+export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, negocio, canalCaido, tz, insetIzq, onAudioNuevo, secuencias, productos, disparadores, onProbar, probarAbierto = false, onCerrarProbar, onCambio, onCambioLocal, insetDer, handoffs, muelles, revelar, onSinPublicar, descartarBorrador, onAccionTodo, makoAlAbrir = false }: {
+  /**
+   * ABRIR CON EL CHAT DE MaKo ABIERTO (duodécima tanda, §2.5 y §3.6): la recién creada con «Pídeselo a MaKo» y el link
+   * `?sec=<id>&mako=1` (también el de la API). Se mira el FLANCO (false → true), también con el lienzo ya montado, y
+   * abre por `abrirMako`, la del ✦.
+   */
+  makoAlAbrir?: boolean;
   // (Acá iban `arranque` y `onArranqueUsado`: la recién creada con un tipo de CRON elegido en «¿Qué la dispara?» del
   // modal abría su CRON en ese tipo. Se fueron con esos botones en la décima tanda, 11/10/2026.)
   /** Lo de la AUTOMATIZACIÓN ENTERA desde el click derecho del CRON (copiar, duplicar, eliminar): lo hace la lista. */
@@ -478,16 +491,27 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
       // El disparador que quedó puesto (revisión, 09/10/2026): `disparo` se siembra al montar, y sin
       // esto la tarjeta CRON seguía diciendo el de antes («manual») hasta recargar.
       // Con varios CRON (sexta tanda), la IA pone el PRIMERO: los demás siguen como estaban.
-      const puesto = r.disparador;
-      if (puesto) crons.sembrarPrimero(disparoDeValor(puesto, disparo));
+      // Duodécima tanda: con `disparadorDeValorIA`, lo MISMO que guardó el server (`ponerDisparador`). `disparoDeValor`
+      // no entiende `instagram:dm`, `pago:aprobado` ni `etiqueta_agregada` y la tarjeta seguía con el de antes.
+      const puesto = r.disparador ? disparadorDeValorIA(r.disparador)[0] : undefined;
+      if (puesto) crons.sembrarPrimero(puesto);
       onCambio();
     } else {
-      // ⚠️ SI EL LIENZO CAMBIÓ MIENTRAS LA IA TRABAJABA, NO SE PISA (revisión, 09/10/2026): el
-      // resultado se armó sobre la foto que se mandó, y aplicarlo borraba la corrección del medio.
-      if (!edicionVigente(r.base, pasos)) { setErr('Cambiaste el flujo: pídelo de nuevo'); return false; }
-      fotoAntes();
-      setPasos(nuevos);
-      setEditandoIA(false);
+      // Las tarjetas van al BORRADOR, como un cambio a mano (con Publicar de por medio). Salvo la respuesta a «¿Cambio
+      // qué la dispara?» (duodécima tanda, §3.4): vuelve con los pasos tal cual y no se toca el lienzo (`edicionTocaPasos`).
+      if (edicionTocaPasos(r)) {
+        // ⚠️ SI EL LIENZO CAMBIÓ MIENTRAS LA IA TRABAJABA, NO SE PISA (revisión, 09/10/2026): el
+        // resultado se armó sobre la foto que se mandó, y aplicarlo borraba la corrección del medio.
+        if (!edicionVigente(r.base, pasos)) { setErr('Cambiaste el flujo: pídelo de nuevo'); return false; }
+        fotoAntes();
+        setPasos(nuevos);
+      }
+      // ⚠️ EL CRON QUE ELIGIÓ LA PERSONA SE GUARDA YA (duodécima tanda, §2.6, decisión 13), por la MISMA acción del panel
+      // del CRON (`crons.guardar` → POST `action: 'disparadores'`, EditorDisparadores.tsx), que lo pinta en la tarjeta y
+      // relee la lista. No va al borrador. Llega sólo porque la persona tocó una opción o lo pidió. Una lista vacía (o
+      // null) NO se guarda: dejaría la automatización sin CRON.
+      if (r.disparadores?.length) crons.guardar(r.disparadores);
+      // El chat queda ABIERTO: ahí está el resumen, los avisos y, si hay, la pregunta del CRON.
     }
     // ⚠️ LAS ETIQUETAS QUE CREÓ LA IA SE ANUNCIAN, EN LOS DOS MODOS (revisión de la segunda tanda,
     // 09/10/2026). La ruta las crea en el SERVER, así que el selector «＋ Nueva» —que sí avisa— no
@@ -501,8 +525,9 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
     if (n) flashOk(n === 1 ? '1 etiqueta nueva' : `${n} etiquetas nuevas`);
     // ⚠️ EL AVISO QUE MÁS IMPORTA, NO EL PRIMERO QUE SALIÓ (revisión, 09/10/2026): «Elige qué la
     // dispara» o «va sin link» quedaban detrás de cualquier otro y no se veían nunca.
+    // Al editar, los avisos van en el último mensaje de MaKo del chat (duodécima tanda): repetirlos acá es ruido.
     const res = resumenAvisos(r.avisos);
-    if (res) { setErr(res.texto); setAvisosIA(res); }
+    if (res && r.modo === 'crear') { setErr(res.texto); setAvisosIA(res); }
     return true;
   };
 
@@ -564,7 +589,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
    * sólo no alcanzaba: nombraba «Mensaje 4» y ninguna tarjeta lleva número. `vez` cambia en
    * cada pedido, así el mismo error dos veces la vuelve a abrir.
    */
-  const [foco, setFoco] = useState<{ id: string; vez: number } | null>(null);
+  const [foco, setFoco] = useState<{ id: string | null; vez: number } | null>(null);
   /**
    * Lo que le falta a cada «⚡ Acción» según su formulario (el monto al mover a Ganado, el motivo de una
    * baja): lo frena `frenoDelFlujo` en Publicar y en Probar. Se pide sólo si hay una acción.
@@ -597,6 +622,31 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
     if (tarjeta) setFoco((f) => ({ id: tarjeta, vez: (f?.vez ?? 0) + 1 }));
   }, []);
   /**
+   * EL ✦ DEL TÍTULO (duodécima tanda, §2.7; Martín, 12/10/2026: «se aprieta el botón de MaKo cuando está abierta
+   * cualquier tarjeta y la tarjeta debería cerrarse; no debería permanecer abierta y no hacer nada»). Con una
+   * tarjeta abierta la CIERRA (`foco` con id null) y ABRE a MaKo, nunca alterna: la barra estaba abierta pero
+   * escondida debajo del panel, y el clic la apagaba sin que se viera nada. Sin tarjeta abierta, alterna.
+   * ⚠️ UNA sola función: el chat de MaKo (ola 2) abre por acá.
+   */
+  const abrirMako = () => {
+    if (tarjetaAbierta) {
+      setFoco((f) => ({ id: null, vez: (f?.vez ?? 0) + 1 }));
+      setEditandoIA(true);
+      return;
+    }
+    setEditandoIA((v) => !v);
+  };
+  /**
+   * ABIERTO AL ENTRAR (`makoAlAbrir`, §3.6): en el flanco (false → true) abre por `abrirMako`, y sólo si está cerrado
+   * (abrirMako sin tarjeta alterna). Se ajusta AL DIBUJAR, no en un efecto: un efecto pintaría primero el lienzo sin
+   * el chat.
+   */
+  const [makoPedido, setMakoPedido] = useState(false);
+  if (makoAlAbrir !== makoPedido) {
+    setMakoPedido(makoAlAbrir);
+    if (makoAlAbrir && !editandoIA) abrirMako();
+  }
+  /**
    * EL FRENO DE LO QUE SE VE, para el panel de «Probar» (séptima tanda): la MISMA `frenoDelFlujo` que
    * frenan Publicar y el botón «Probar» de abajo. El panel lo mira antes de cada rearranque (ver
    * `EdicionLocal.freno`).
@@ -620,6 +670,8 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
     const freno = frenoDeEsta(pasos);
     if (freno) { frenar(freno.error, freno.tarjeta); return; }
     setBusy('save');
+    /** Publicó, pero algo no salió (los avisos de Instagram o Messenger: `asegurarAvisosSociales`). No frena: se dice. */
+    let aviso: string | null = null;
     // ⚠️ PUBLICAR CAMBIA LA BASE DEL BORRADOR (revisión, 10/10/2026): lo que salga de su respiro mientras
     // el PATCH viaja espera, o saldría con la base vieja y el server diría que otro publicó.
     borrador.antesDePublicar();
@@ -640,6 +692,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
         frenar(e ? errorLegible(e, pasos) : 'No se pudo publicar.', tarjeta);
         setBusy(null); return;
       }
+      aviso = typeof rp.aviso === 'string' && rp.aviso ? rp.aviso : null;
     } catch { borrador.noPublicado(); setErr('Sin conexión — prueba de nuevo.'); setBusy(null); return; }
     setPublicado(JSON.stringify(pasos));
     setVisto(JSON.stringify(pasos));
@@ -663,6 +716,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
     setConvertida(false);
     setLimpiar(false);
     flashOk('Publicado ✓'); onCambio();
+    if (aviso) setErr(aviso);
     setBusy(null);
   };
 
@@ -805,10 +859,11 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
   const filasCron = crons.lista.map((d) => ({ id: d.id, texto: textosCron.texto(d), icono: iconoDeDisparador(d) }));
   // Cerrar el panel olvida qué CRON estaba abierto: el próximo clic en la tarjeta abre el primero.
   useEffect(() => { if (!tarjetaAbierta) setCronAbierto(null); }, [tarjetaAbierta]);
-  /** Las etapas de VENTA de cada producto con embudo, para la fila «Está en la etapa». */
-  const etapasCond: SeccionEtapas[] = productos.flatMap((pr) => (pr.funnelId == null || !pr.etapas.length ? [] : [{
-    title: productos.length > 1 ? pr.nombre : 'Etapas', funnelId: pr.funnelId, options: pr.etapas,
-  }]));
+  /**
+   * Las etapas de VENTA de cada producto con embudo, para la fila «Está en la etapa». Con `etapasDeCondicion`, la MISMA
+   * que arma lo que ve «Crear con IA» (`armarContexto`, lib/flujo-ia-crear.ts): con dos copias, una se queda vieja.
+   */
+  const etapasCond: SeccionEtapas[] = etapasDeCondicion(productos);
 
   // ── Lo que lee «Probar» ──
   // Sin estrategia, «Probar» prueba sin estrategia: la limpieza de null es null (lienzo-8).
@@ -872,16 +927,18 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
 
           ⚠️ CON UNA TARJETA ABIERTA SE ESCONDEN, SIN DESMONTARSE: el panel del nodo abre en esa
           misma franja y quedaban encima de sus botones (el emoji y el 🔗 del editor tipo Gmail).
-          Desmontar `CrearConIA` cortaría un pedido en vuelo de hasta un minuto. */}
+          Desmontar el chat cortaría un pedido en vuelo de hasta cinco minutos. */}
       {/* ⛔ LA CAJA «GENERAR CON IA» DEL LIENZO VACÍO SE FUE (décima tanda, 11/10/2026; docs/diseno-automations-galeria-v2.md
           §1, «decisión tomada, a confirmar»): pedirle a MaKo vive en el modal «Nueva automatización» («Pídeselo a MaKo»), y
-          «Lienzo en blanco» con una caja de IA abajo es el botón doble que ya se sacó una vez. Si Martín la quiere de vuelta,
-          es volver a montar `<CrearConIA modo="crear" secuenciaId={secuencia.id} onListo={alListoIA} />` con
-          `pasos.length === 0` en esta franja (y `reservaAbajo={RESERVA_ABAJO_CREAR}` en el lienzo): el modo sigue vivo. */}
+          «Lienzo en blanco» con una caja de IA abajo es el botón doble que ya se sacó una vez. Su modo `crear` se fue en la
+          duodécima con la caja (CrearConIA.tsx pasó a ser ChatMako.tsx): si Martín la quiere de vuelta, es el chat en modo
+          galería con `secuenciaId` en esta franja (y `reservaAbajo={RESERVA_ABAJO_CREAR}` en el lienzo). */}
+      {/* EL CHAT DE MaKo (duodécima tanda, §2.5): reemplaza a la barra «Pídele un cambio», en el MISMO lugar, con el hilo
+          encima del composer y un alto máximo de ~45% del lienzo (crece hacia arriba desde la franja; el hilo scrollea). */}
       {rolAdmin && editandoIA && pasos.length > 0 && (
-        <div data-crear-ia="editar" style={{ position: 'absolute', ...franja, display: tarjetaAbierta ? 'none' : 'flex', justifyContent: 'center', pointerEvents: 'none', zIndex: 4 }}>
-          <div style={{ pointerEvents: 'auto', width: `min(${BARRA_IA_ANCHO}px, 100%)` }}>
-            <CrearConIA modo="editar" secuenciaId={secuencia.id} pasos={pasos} onListo={alListoIA} />
+        <div data-crear-ia="editar" style={{ position: 'absolute', ...franja, maxHeight: '45%', display: tarjetaAbierta ? 'none' : 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', pointerEvents: 'none', zIndex: 4 }}>
+          <div style={{ pointerEvents: 'auto', width: `min(${BARRA_IA_ANCHO}px, 100%)`, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+            <ChatMako modo="editar" secuenciaId={secuencia.id} pasos={pasos} onListo={alListoIA} onCerrar={() => setEditandoIA(false)} />
           </div>
         </div>
       )}
@@ -950,7 +1007,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
                 chiquita arriba»). El `BotonMako` de la casa lleva `MakoStar`, que dibuja la chispa CON el punto
                 chico de arriba; el logo es la chispa sola, centrada en su recuadro negro. */}
             {rolAdmin && pasos.length > 0 && (
-              <BotonLogoMako lado={ALTO_ACCION} encendido={editandoIA} onClick={() => setEditandoIA((v) => !v)} title="Pedirle un cambio a MaKo" />
+              <BotonLogoMako lado={ALTO_ACCION} encendido={editandoIA} onClick={abrirMako} title="Pedirle un cambio a MaKo" />
             )}
 
             {/* ⚠️ «PROBAR» A LA DERECHA DEL TODO, separado de Activar (punto 10: «el botón de

@@ -378,12 +378,19 @@ test('el motor lee el orden de los embudos NOMBRADOS y el número de cada cuota,
   assert.match(src, /cuotas: estadoDeCuotas\(suyas, hoy\)/);
 });
 
+// Duodécima tanda (12/10/2026): la LECTURA se mudó a lib/condiciones-catalogo-datos.ts (`catalogosRemotos`), que usan
+// la ruta y «Crear con IA». Las reglas se miran donde viven; la ruta contesta lo que devuelve.
+// Probado rompiéndolo (12/10/2026, en un espejo): sacar el `.catch` de las reuniones en lib/condiciones-catalogo-datos.ts
+// → 21 pass / 1 fail (base 22 / 0), cae éste.
 test('la ruta del catálogo suma las reuniones APARTE: si fallan, null y lo demás sigue', () => {
-  const src = sinComentarios(leer('../app/api/chat-agent/condiciones/route.ts'));
-  assert.match(src, /reunionesPorEmbudo\(\)\.catch\(\(e: unknown\) => \{[\s\S]{0,200}?return null; \}\)/);
-  assert.match(src, /if \(cfg\.origen === 'error'\) return null;/);
-  assert.match(src, /return reunionesParaEditor\(embudos\);/);
-  assert.match(src, /Response\.json\(\{ ok: true, cursos, posts, campanas, reuniones \}\)/);
+  const datos = sinComentarios(leer('../lib/condiciones-catalogo-datos.ts'));
+  assert.match(datos, /reunionesPorEmbudo\(\)\.catch\(\(e: unknown\) => \{[\s\S]{0,200}?return null; \}\)/);
+  assert.match(datos, /if \(cfg\.origen === 'error'\) return null;/);
+  assert.match(datos, /return reunionesParaEditor\(embudos\);/);
+  assert.match(datos, /return \{ cursos, posts, campanas, reuniones \};/);
+  const ruta = sinComentarios(leer('../app/api/chat-agent/condiciones/route.ts'));
+  assert.match(ruta, /const \{ cursos, posts, campanas, reuniones \} = await catalogosRemotos\(\);/);
+  assert.match(ruta, /Response\.json\(\{ ok: true, cursos, posts, campanas, reuniones \}\)/);
 });
 
 test('el editor: el selector de reuniones (varios, vacío = cualquiera) y la cuota opcional', () => {

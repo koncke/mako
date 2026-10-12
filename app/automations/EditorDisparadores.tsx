@@ -40,7 +40,9 @@ import { useWs } from '@/app/_ui/Link';
 import { conWs } from '@/lib/ws-tab';
 // «Conectar» AHÍ MISMO (décima tanda, GENERAL 6): el email en el modal de la tab; y conectar algo vacía la
 // lectura de los canales de la visita (`canalesDeLaVisita`), o el CRON seguiría diciendo «Conecta tu…».
+// Duodécima tanda (§2.11): Instagram y Messenger también, con el MISMO modal que la tarjeta (Zernio).
 import { ConectarMedio, avisarMedioConectado, useAlConectarMedio } from './ConectarMedio';
+import type { Medio } from '@/lib/medios-automatizacion';
 import { botonGrande } from '@/app/_components/Lienzo';
 import { EditorRecurrente } from './EditorRecurrente';
 import { IconoDisparador, IconoEvento } from './IconosDisparador';
@@ -58,7 +60,7 @@ import {
 } from '@/lib/disparadores';
 import {
   pasosDisparo, valorDisparo, valoresDisparo, valoresTrasTocar, valorDeVarios, disparoDeValor, rotuloDisparo,
-  nombreEtiqueta, PASO_PRODUCTOS, type DisparoActual, type SeccionDisparo,
+  nombreEtiqueta, PASO_PRODUCTOS, type DisparoActual, type SeccionDisparo, detalleDisparador,
 } from '@/lib/flujo-conversacion';
 import { scrollParaVer } from '@/lib/lienzo-grafo';
 import type { CronAviso } from '@/lib/cron-aviso';
@@ -154,8 +156,11 @@ export function useDisparadores(secuencia: SecuenciaConDisparadores, o: { onCamb
     const t = setTimeout(() => { pendiente.current = null; void mandar(body); }, RESPIRO_DISPARO_MS);
     pendiente.current = { t, body };
   };
-  /** Lo que eligió «Crear con IA» para el primero (ya guardado en el server): sólo se pinta. */
-  const sembrarPrimero = (a: DisparoActual) => setLista((l) => (l.length ? [conDisparo(l[0], a), ...l.slice(1)] : l));
+  /**
+   * Lo que eligió «Crear con IA» para el primero (ya guardado en el server, `disparadorDeValorIA`): sólo se pinta. Entero
+   * (duodécima tanda): un evento de Instagram o de pago lleva su `subtipo`, que un `DisparoActual` no tiene.
+   */
+  const sembrarPrimero = (d: Disparador) => setLista((l) => (l.length ? [{ ...d, id: l[0].id }, ...l.slice(1)] : [d]));
   return { lista, guardar, sembrarPrimero, primero: lista[0] ?? disparadoresDeSecuencia(secuencia)[0] };
 }
 
@@ -258,7 +263,7 @@ export function ElegirClase({ onElegir, disabled, actual }: { onElegir: (c: Clas
   );
 }
 
-/** ¿Están conectados los canales? Se pregunta UNA vez por visita y sólo al abrir uno (le pregunta a Meta). */
+/** ¿Están conectados los canales? Se pregunta UNA vez por visita y sólo al abrir uno (le pregunta a Zernio). */
 let canalesDeLaVisita: Promise<EstadoCanales | null> | null = null;
 function useEstadoCanales(activo: boolean): EstadoCanales | null | undefined {
   const [estado, setEstado] = useState<EstadoCanales | null | undefined>(undefined);
@@ -278,9 +283,13 @@ function useEstadoCanales(activo: boolean): EstadoCanales | null | undefined {
 }
 
 /**
- * La página de Facebook (lo que ESCUCHA un CRON de Instagram o Messenger) se conecta con Meta en
- * /integraciones, que no cabe en un modal: se abre en una VENTANA EMERGENTE —la pestaña de Automations sigue
- * ahí— y al cerrarla se vuelve a preguntar. Con el `?ws=` (AGENTS.md: un `window.open` también navega).
+ * SÓLO PAGOS: Stripe o Mercado Pago se conectan en /integraciones, que no cabe en un modal: se abre en una
+ * VENTANA EMERGENTE —la pestaña de Automations sigue ahí— y al cerrarla se vuelve a preguntar. Con el `?ws=`
+ * (AGENTS.md: un `window.open` también navega).
+ *
+ * ⚠️ HASTA LA DUODÉCIMA TANDA ACÁ SE CONECTABAN TAMBIÉN INSTAGRAM Y MESSENGER (la página de Facebook): el CRON
+ * medía Graph y la tarjeta Zernio, dos verdades de «conectado». Los eventos llegan SÓLO por Zernio
+ * (lib/disparadores-canales.ts), así que el CRON abre el modal de la tarjeta (`ConectarMedio`).
  */
 function abrirIntegraciones(ws: number | null) {
   const v = window.open(conWs('/integraciones', ws), 'mako-integraciones', 'width=1100,height=820');
@@ -304,24 +313,29 @@ export function EventosDeCanal({ clase, d, estado, onElegir, disabled }: {
   const conectado = canal?.conectado === true;
   const motivo = cargando ? null : estado === null ? 'No pude comprobarlo' : (!conectado ? (canal?.motivo ?? 'Sin conectar') : null);
   const ws = useWs();
-  /** El modal del email abierto (ConectarMedio). */
-  const [conectarEmail, setConectarEmail] = useState(false);
+  /** El modal abierto (ConectarMedio): el email, Instagram o Messenger. */
+  const [conectar, setConectar] = useState<Medio | null>(null);
   const boton: CSSProperties = { border: 'none', background: 'none', padding: 0, font: 'inherit', color: 'var(--primary)', fontWeight: 600, cursor: 'pointer' };
+  // Instagram y Messenger ofrecen «Conectar» también con «no pude comprobarlo» del canal: con Zernio eso es casi
+  // siempre la key mala o la cuenta pausada, y el modal lo dice y lo resuelve ahí mismo (el campo de la key, el
+  // link de pago). Sin la lectura entera (`estado === null`) no hay canal: no se ofrece.
+  const social = clase === 'instagram' || clase === 'messenger';
+  const ofrecerConectar = canal?.conectado === false || (social && canal?.conectado === null);
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       {motivo && (
         <div role="status" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: 'var(--warn)', fontFamily: SANS }}>
           <span>{motivo}</span>
-          {/* «CONECTAR» SIN SALIR DE LA PESTAÑA (décima tanda, GENERAL 6): eran dos links a /email y a
-              /integraciones. El email, en el modal de la tab; la página de Facebook, en una ventana emergente
-              (el `href` queda para el clic del medio, con el `?ws=`). */}
-          {canal?.conectado === false && (clase === 'email'
-            ? <button type="button" data-conectar-canal="email" aria-haspopup="dialog" onClick={() => setConectarEmail(true)} style={boton}>Conectar</button>
-            : <a href={conWs('/integraciones', ws)} data-conectar-canal={clase} target="_blank" rel="noopener"
-              onClick={(e) => { e.preventDefault(); abrirIntegraciones(ws); }} style={{ color: 'var(--primary)', fontWeight: 600 }}>Conectar</a>)}
+          {/* «CONECTAR» SIN SALIR DE LA PESTAÑA (décima tanda, GENERAL 6; duodécima, §2.11): el email, Instagram y
+              Messenger, en el modal de la tab (el MISMO de la tarjeta); los pagos, en una ventana emergente con
+              /integraciones (el `href` queda para el clic del medio, con el `?ws=`). */}
+          {ofrecerConectar && (clase === 'pagos'
+            ? <a href={conWs('/integraciones', ws)} data-conectar-canal={clase} target="_blank" rel="noopener"
+              onClick={(e) => { e.preventDefault(); abrirIntegraciones(ws); }} style={{ color: 'var(--primary)', fontWeight: 600 }}>Conectar</a>
+            : <button type="button" data-conectar-canal={clase} aria-haspopup="dialog" onClick={() => setConectar(clase)} style={boton}>Conectar</button>)}
         </div>
       )}
-      {conectarEmail && <ConectarMedio medio="email" onCerrar={() => setConectarEmail(false)} />}
+      {conectar && <ConectarMedio medio={conectar} onCerrar={() => setConectar(null)} onConectado={() => setConectar(null)} />}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
         {eventosOfrecidos(clase, d.subtipo).map((ev) => {
           const elegido = d.subtipo === ev.subtipo;

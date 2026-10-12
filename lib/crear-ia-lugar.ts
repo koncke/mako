@@ -17,15 +17,18 @@
 // (`RESERVA_ABAJO_CREAR`, la prop `reservaAbajo` del Lienzo). Mientras hay una tarjeta abierta las dos
 // se esconden (sin desmontarse: un pedido en vuelo dura hasta un minuto) — eso lo decide quien monta.
 //
+// Duodécima tanda (12/10/2026): CrearConIA.tsx pasó a ser el chat de MaKo (app/automations/ChatMako.tsx), que va en
+// el lugar de la barra, con su ancho (`BARRA_IA_ANCHO`). La caja del lienzo vacío ya no se dibuja (décima tanda).
+//
 // ⚠️ PURO Y SIN `server-only`: los números los leen el componente y el test, que mide contra
 // `encuadreInicial` y `muelles` de verdad que la caja no tape el CRON ni la lista.
 // =============================================================================
 
 import { PANEL_MARGEN, ZOOM_ALTO, type Muelles } from './lienzo-grafo';
 
-/** El ancho de la caja de crear (`S.caja` de CrearConIA: `min(520px, 100%)`). */
+/** El ancho de la caja de crear del lienzo vacío (`min(520px, 100%)`; ya no se dibuja, la mide el test). */
 export const CAJA_IA_ANCHO = 520;
-/** El ancho de la barra de editar (`S.barraWrap` de CrearConIA: `min(460px, 100%)`). */
+/** El ancho del chat de MaKo en el lienzo (el envoltorio de ChatMako en SecuenciaPerfil: `min(460px, 100%)`). */
 export const BARRA_IA_ANCHO = 460;
 /**
  * El alto que se le reserva a la caja de crear. Medido sobre el componente: ~280 con dos ejemplos;

@@ -113,24 +113,28 @@ test('el fallo de crear NO va a `error` (el de la carga): va a su propio estado'
   assert.match(c, /setErrCrear\(/);
 });
 
-test('el estado vacío dibuja el fallo de crear al lado de su botón', () => {
+// ⚠️ DUODÉCIMA TANDA (12/10/2026, decisión 11): el cartel «Todavía no hay automatizaciones», con su «＋ Nueva» y su
+// fallo, se fue. Con la lista vacía se monta igual la lista, que trae «＋ Nueva automatización» y dibuja el fallo de
+// crear (`errorNueva`) pegado a ese botón. Lo que se fija acá es que el fallo llegue a la lista también VACÍA.
+test('la lista vacía dibuja el fallo de crear al lado de su botón', () => {
   const src = sinComentarios(leer('app/automations/ChatAgentApp.tsx'));
-  const ini = src.indexOf('Todavía no hay automatizaciones.');
-  assert.ok(ini >= 0);
-  const bloque = src.slice(ini, src.indexOf('</div>\n      )}', ini));
+  assert.doesNotMatch(src, /Todavía no hay automatizaciones/, 'volvió el cartel vacío');
+  // La lista se monta con la lista vacía (sólo un error de carga la saca), con «＋ Nueva» y su fallo.
+  assert.match(src, /\{visibles !== null && !error && \(\s*<SimuladorWhatsApp/);
   // «＋ Nueva» abre la galería (10/10/2026); «En blanco» de la galería es `crearNueva`, la de siempre.
-  assert.match(bloque, /onClick=\{\(\) => abrirGaleria\(\)\}/);
-  assert.match(bloque, /\{errCrear && <span role="alert"/);
-  assert.match(src, /onNueva=\{abrirGaleria\}/);
+  assert.match(src, /onNueva=\{abrirGaleria\} errorNueva=\{errCrear\}/);
+  const lista = sinComentarios(leer('app/automations/SimuladorWhatsApp.tsx'));
+  assert.match(lista, /\{rolAdmin && errorNueva && <div role="alert"/);
 });
 
 test('«＋ Nueva» abre la galería, y «Lienzo en blanco» crea la vacía de siempre', () => {
   const src = sinComentarios(leer('app/automations/ChatAgentApp.tsx'));
   assert.match(src, /const abrirGaleria = \(\) => \{ setErrCrear\(null\); setGaleria\(true\); \};/);
   assert.match(src, /\{galeria && rolAdmin && \(\s*<GaleriaPlantillas productos=\{productos\} onCerrar=\{\(\) => setGaleria\(false\)\}\s*onBlanco=\{\(\) => \{ setGaleria\(false\); void crearNueva\(\); \}\}/, 'la galería no está montada, o «Lienzo en blanco» no crea la vacía');
-  // «Pídeselo a MaKo» (décima tanda): la que armó MaKo también se abre DESPUÉS de traer la lista.
+  // «Pídeselo a MaKo» (décima tanda): la que armó MaKo también se abre DESPUÉS de traer la lista, y desde la duodécima
+  // con el chat de MaKo abierto (`mako: true`, §3.6; lo fija también tests/automations-chat-mako.test.ts).
   assert.match(src, /onCreadaIA=\{\(r\) => void alCrearConIA\(r\)\}/);
-  assert.match(src, /const alCrearConIA = async \(r: CreadaConIAGaleria\) => \{\n {4}setGaleria\(false\);\n[^\n]*\n {4}await load\(\);\n {4}setAbrirSec\(\{ id: r\.secuenciaId \}\);/);
+  assert.match(src, /const alCrearConIA = async \(r: CreadaConIAGaleria\) => \{\n {4}setGaleria\(false\);\n[^\n]*\n {4}await load\(\);\n {4}setAbrirSec\(\{ id: r\.secuenciaId, mako: true \}\);/);
   // La creada desde una plantilla se abre DESPUÉS de traer la lista (antes no está para elegirla).
   assert.match(src, /await load\(\);\n {4}setAbrirSec\(\{ id: r\.secuenciaId \}\);/);
 });

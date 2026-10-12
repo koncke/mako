@@ -65,12 +65,13 @@ function deps(o: {
     ponerDisparador: async (id, valor) => { anota('cron', id, valor); if (o.triggerTira) throw o.triggerTira; },
     motivoDeDisparador: (e) => (e instanceof MotivoCron ? e.message : null),
     renombrar: async (id, nombre) => { anota('renombrar', id, nombre); return nombre || null; },
+    guardarChat: async (id, mensajes) => { anota('chat', id, mensajes.length); },
   };
   return { d, ll, ops: () => ll.map((x) => x.op) };
 }
 class MotivoPasos extends Error {}
 class MotivoCron extends Error {}
-const ESCRITURAS = new Set(['etiquetas', 'insertar', 'borrar', 'pausar', 'guardar', 'cron', 'renombrar']);
+const ESCRITURAS = new Set(['etiquetas', 'insertar', 'borrar', 'pausar', 'guardar', 'cron', 'renombrar', 'chat']);
 const escribio = (ops: string[]) => ops.filter((x) => ESCRITURAS.has(x));
 
 // ── 1. Lo que falla no escribe ───────────────────────────────────────────────────
@@ -88,19 +89,20 @@ test('cancelado MIENTRAS el modelo escribe: no se escribe NADA y vuelve `cancela
   const { d, ops } = deps({ alGenerar: () => c.abort() });
   const r = await crearConIA({ ws: 3, pedido: 'Dar la bienvenida', signal: c.signal }, d);
   assert.equal(r.ok, false);
-  assert.equal(!r.ok && r.cancelado, true);
+  assert.equal(!r.ok && 'cancelado' in r && r.cancelado, true);
   assert.deepEqual(escribio(ops()), [], `escribió: ${ops().join(', ')}`);
 });
 
 // ── 2. Sin id: la fila nace al guardar ───────────────────────────────────────────
 
-test('sin id: etiquetas → fila (con el nombre) → pasos → CRON, en ese orden; sin pausar ni renombrar (nace así)', async () => {
+// DUODÉCIMA TANDA (§2.5): al NACER la fila se vuelca el chat con MaKo, DESPUÉS del CRON (con id lo escribe la ruta).
+test('sin id: etiquetas → fila (con el nombre) → pasos → CRON → chat, en ese orden; sin pausar ni renombrar (nace así)', async () => {
   const fases: string[] = [];
   const { d, ll, ops } = deps({ etiquetasNuevas: [{ ref: -1, nombre: 'Interesado' }] });
   const r = await crearConIA({ ws: 3, pedido: 'Dar la bienvenida', alFase: (f: FaseCrearIA) => { fases.push(f.fase); } }, d);
   assert.ok(r.ok, JSON.stringify(r));
   assert.deepEqual(fases, ['contexto', 'modelo', 'revision']);
-  assert.deepEqual(escribio(ops()), ['etiquetas', 'insertar', 'guardar', 'cron']);
+  assert.deepEqual(escribio(ops()), ['etiquetas', 'insertar', 'guardar', 'cron', 'chat']);
   assert.ok(ops().indexOf('generar') < ops().indexOf('etiquetas'), 'escribió antes de que el modelo contestara');
   assert.deepEqual(ll.find((x) => x.op === 'insertar')!.args, ['Bienvenida a nuevos'], 'la fila no nace con el nombre propuesto');
   assert.deepEqual(ll.find((x) => x.op === 'cron')!.args, [500, 'venta:3:nuevo']);
@@ -139,6 +141,28 @@ test('el CRON: uno que el negocio no tiene es un AVISO (la automatización queda
   assert.ok(!c.ops().includes('cron'));
 });
 
+// DUODÉCIMA TANDA (12/10/2026, docs/diseno-duodecima-tanda.md §2.1 y §2.3): la revisión de crear (`traducir`) lleva el
+// PERFIL —«Ya procesamos tu pago en Stripe» en un negocio sin Stripe es una herramienta inventada— y el CRON que eligió el
+// modelo (`validarIA(…, r.disparador)`): un DM con un CRON de etapa no sale nunca, Meta no deja escribir primero.
+// Roturas (romper.mjs del scratchpad wf-duodecima/ia-crear, base de este archivo 9 / 0): `traducir` sin `perfil` → 8 / 1
+// (éste); `traducir` sin `r.disparador` → 8 / 1 (éste).
+test('la revisión de crear conoce el PERFIL y el CRON que eligió el modelo', async () => {
+  const errores: string[][] = [];
+  const con = (obj: Record<string, unknown>, perfil = 'Vendo cursos.') => ({
+    ...deps().d,
+    contexto: async () => ({ ctx: CTX, perfil, voz: null }),
+    generar: async (p: Parameters<DepsCrearIA['generar']>[0]) => { const tr = p.traducir(obj); errores.push(tr.errores); return { r: tr.r }; },
+  });
+  const stripe = { ...DEL_MODELO, tarjetas: [{ id: 't1', tipo: 'mensaje', texto: 'Ya procesamos tu pago en Stripe.' }] };
+  await crearConIA({ ws: 3, pedido: 'Bienvenida' }, con(stripe));
+  assert.ok(errores[0].some((e) => e.includes('«Stripe»')), errores[0].join(' | '));
+  await crearConIA({ ws: 3, pedido: 'Bienvenida' }, con(stripe, 'Vendo cursos y cobro con Stripe.'));
+  assert.deepEqual(errores[1], [], 'nombrada en el perfil, vale');
+  // Un DM con el CRON de etapa del modelo (`venta:3:nuevo`).
+  await crearConIA({ ws: 3, pedido: 'Bienvenida' }, con({ ...DEL_MODELO, tarjetas: [{ id: 't1', tipo: 'mensaje', canal: 'instagram', texto: 'Hola' }] }));
+  assert.ok(errores[2].some((e) => /disparador de Instagram/.test(e)), errores[2].join(' | '));
+});
+
 // ── 3. Con id (la caja del lienzo vacío, que hoy no se dibuja) ────────────────────
 
 test('con id: tiene que seguir VACÍA (si no, no se pisa), se PAUSA antes de escribir y se renombra con lo propuesto', async () => {
@@ -160,7 +184,7 @@ test('con id: tiene que seguir VACÍA (si no, no se pisa), se PAUSA antes de esc
 
 test('la ruta y la API llaman a la MISMA función (`crearFlujoConIA`), y la API va sin http, por chat y sólo para un admin', () => {
   const ruta = sinComentarios(leer('app/api/chat-agent/secuencias/ia/route.ts'));
-  assert.match(ruta, /const r = await crearFlujoConIA\(\{ ws, pedido, secuenciaId, inicio, plazoMs: PLAZO_MODELO_MS, signal: req\.signal, alFase: send \}\);/);
+  assert.match(ruta, /const r = await crearFlujoConIA\(\{ ws, pedido, secuenciaId, inicio, plazoMs: PLAZO_MODELO_MS, signal: req\.signal, alFase: send, respuestas, historial, via: 'app' \}\);/);
   assert.doesNotMatch(ruta, /crearSecuenciaVacia|setSecuenciaPasos|setTriggerSecuencia/, 'la ruta volvió a crear por su cuenta');
   const lib = sinComentarios(leer('lib/flujo-ia-crear.ts'));
   assert.match(lib, /^import 'server-only';/m);
@@ -171,13 +195,15 @@ test('la ruta y la API llaman a la MISMA función (`crearFlujoConIA`), y la API 
   assert.deepEqual([...def.canales].sort(), ['app', 'whatsapp'], 'sale por HTTP: tarda minutos y /api/v1 corta a 60 s');
   assert.equal(def.costo, 'gratis');
   assert.equal(def.gating?.rolMinimo, 'admin');
-  assert.deepEqual(def.parametros.map((p) => [p.nombre, p.obligatorio]), [['pedido', true]]);
+  // Duodécima tanda (§2.4): las respuestas a las preguntas de MaKo, opcionales.
+  assert.deepEqual(def.parametros.map((p) => [p.nombre, !!p.obligatorio]), [['pedido', true], ['canal', false], ['producto', false], ['evento', false]]);
   // La vieja se retiró: con las dos, el doer podía crear el esqueleto lineal de antes.
   assert.equal(porId('crear_secuencia_mensajes') ?? null, null);
   const run = sinComentarios(leer('lib/api-mako/areas/chatbot.run.ts'));
   const op = run.slice(run.indexOf('crear_automatizacion_con_ia: {'), run.indexOf('cambiar_espera_paso: {'));
-  assert.ok(op.length > 200 && op.length < 4000, `el recorte mide ${op.length}`);
-  assert.match(op, /const r = await crearFlujoConIA\(\{ ws: ctx\.ws, pedido: String\(payload\.pedido \?\? ''\), plazoMs: 170_000 \}\);/);
+  // Duodécima tanda: `preparar` suma las preguntas (§2.4), y el recorte llega a ~4.600.
+  assert.ok(op.length > 200 && op.length < 6000, `el recorte mide ${op.length}`);
+  assert.match(op, /const r = await crearFlujoConIA\(\{ ws: ctx\.ws, pedido: String\(payload\.pedido \?\? ''\), plazoMs: 170_000, respuestas: sanearRespuestas\(payload\.respuestas\), via \}\);/);
 });
 
 // Rotura sugerida por el diseño (§7): sacar el chequeo del flujo.
@@ -191,9 +217,10 @@ test('la API: un flujo no la corre (preparar lo rechaza y el lienzo no la ofrece
   const flujoTs = sinComentarios(leer('lib/api-mako/flujo.ts'));
   assert.match(flujoTs, /export const NO_EN_FLUJOS: ReadonlySet<string> = new Set\(\['crear_automatizacion_con_ia'\]\);/);
   assert.match(flujoTs, /visible\(d, vista\) && !NO_EN_FLUJOS\.has\(d\.id\)/);
-  // El link: `linkApp` con `?sec=` (lleva el `?ws=`), por `paraLaPersona` — nunca por el modelo (el `resumen`).
+  // El link: `linkApp` con `?sec=` y `&mako=1` (abre el chat de MaKo; lleva el `?ws=`), por `paraLaPersona` — nunca por
+  // el modelo (el `resumen`).
   const ejecutar = op.slice(op.indexOf('ejecutar:'));
-  assert.match(ejecutar, /const link = linkApp\(`\/automations\?sec=\$\{r\.secuenciaId\}`, ctx\.ws\);/);
+  assert.match(ejecutar, /const link = linkApp\(`\/automations\?sec=\$\{r\.secuenciaId\}&mako=1`, ctx\.ws\);/);
   assert.match(ejecutar, /paraLaPersona: `[^`]*\$\{link\}`/);
   assert.doesNotMatch(ejecutar.slice(ejecutar.indexOf('resumen:'), ejecutar.indexOf('paraLaPersona:')), /\$\{link\}/, 'el link viaja en el resumen (lo lee el modelo)');
   assert.match(ejecutar, /datos: \{ secuenciaId: r\.secuenciaId \}/);
@@ -205,3 +232,7 @@ test('la API: un flujo no la corre (preparar lo rechaza y el lienzo no la ofrece
 //       falla, el cancelado, el orden sin id y el borrado de la fila nueva)
 //   R2. sin `if (desdeUnFlujo(ctx)) return { error: … }` en `preparar` (lib/api-mako/areas/chatbot.run.ts) → 7 / 1 (un flujo
 //       no la corre)
+// DUODÉCIMA TANDA (12/10/2026; arnés scratchpad/wf-duodecima/ia-preguntas-ruta/romper.mjs, junto con crear-ia-preguntas y
+// flujo-ia-ruta: base 34 / 0). El chat del core también con id → 32 / 2 («con id» cae acá); el chat ANTES del CRON →
+// 31 / 3 (los dos órdenes de acá); la ruta sin `respuestas, historial, via` → 31 / 3 (la MISMA función cae acá); el link
+// de la API sin `&mako=1` → 33 / 1 (el link, acá).

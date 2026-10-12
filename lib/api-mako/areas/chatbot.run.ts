@@ -45,7 +45,9 @@ import {
 } from '@/lib/plantillas-automatizaciones';
 import { crearDesdePlantilla, motivoDePlantillaVieja, PlantillaInvalidaError, type DbPlantilla } from '@/lib/plantilla-crear';
 import { listarEtiquetas } from '@/lib/etiquetas';
-import { crearFlujoConIA, hayIAParaCrear } from '@/lib/flujo-ia-crear';
+import { crearFlujoConIA, hayIAParaCrear, armarContexto } from '@/lib/flujo-ia-crear';
+import { preguntaAntes, preguntaParaWhatsApp, respuestaDeTexto, sanearRespuestas } from '@/lib/flujo-ia-preguntas';
+import { TOPE_RONDAS, type RespuestaMako } from '@/lib/automatizacion-chat';
 import { falloDeIA } from '@/lib/flujo-ia';
 import { parseEstrategia, OBJETIVOS, type Estrategia, type EscenarioSecuencia } from '@/lib/setting-estrategia';
 import { huecosDeSecuencias, archivarSecuencias } from '@/lib/secuencias-huecos';
@@ -540,15 +542,33 @@ export const RUNNERS: Runners = {
         const f = falloDeIA([], false);
         return { error: f.error, ...(f.link ? { paraLaPersona: `${f.error} Conéctala aquí 👉 ${linkApp(f.link, ctx.ws)}` } : {}) };
       }
-      return { payload: { pedido }, resumen: `Crear con IA: «${pedido.length > 120 ? `${pedido.slice(0, 119)}…` : pedido}» (nace pausada)` };
+      // DUODÉCIMA TANDA (docs/diseno-duodecima-tanda.md §2.4): las MISMAS preguntas que la pantalla (`preguntaAntes`),
+      // con el MISMO contexto que va a usar crear (`armarContexto`: sólo lee), sin escribir. Si falta un dato decisivo,
+      // vuelve la pregunta numerada para que el doer la haga en el grupo; la respuesta llega en `canal`, `producto` o
+      // `evento` (el número, el nombre o «Elige tú»; otra cosa va como texto al pedido).
+      const { ctx: cx } = await armarContexto(ctx.ws, pedido);
+      const respuestas: RespuestaMako[] = [];
+      for (let ronda = 0; ronda < TOPE_RONDAS; ronda++) {
+        const p = preguntaAntes(pedido, cx, respuestas);
+        if (!p) break;
+        const dado = str(input, p.sobre);
+        if (!dado) return { error: preguntaParaWhatsApp(p), faltan: [p.sobre] };
+        respuestas.push(respuestaDeTexto(p, dado));
+      }
+      return { payload: { pedido, respuestas }, resumen: `Crear con IA: «${pedido.length > 120 ? `${pedido.slice(0, 119)}…` : pedido}» (nace pausada)` };
     },
     ejecutar: async (payload, ctx) => {
-      // 170 s: el turno del doer corre en un `after()` con `maxDuration` 300 y ya gastó lo suyo.
-      const r = await crearFlujoConIA({ ws: ctx.ws, pedido: String(payload.pedido ?? ''), plazoMs: 170_000 });
+      // 170 s: el turno del doer corre en un `after()` con `maxDuration` 300 y ya gastó lo suyo. El chat de la fila nueva
+      // dice por dónde llegó el pedido (`via`).
+      const via = ctx.canal === 'whatsapp' ? 'whatsapp' : 'app';
+      const r = await crearFlujoConIA({ ws: ctx.ws, pedido: String(payload.pedido ?? ''), plazoMs: 170_000, respuestas: sanearRespuestas(payload.respuestas), via });
+      // Algo cambió entre proponer y confirmar (o preguntó el modelo): la pregunta vuelve a la persona, numerada.
+      if (!r.ok && 'pregunta' in r) return { ok: false, resumen: preguntaParaWhatsApp(r.pregunta) };
       if (!r.ok) return { ok: false, resumen: r.error, ...(r.link ? { paraLaPersona: `${r.error} 👉 ${linkApp(r.link, ctx.ws)}` } : {}) };
       // ⚠️ EL LINK LO ESCRIBE EL CÓDIGO y va por `paraLaPersona` (AGENTS.md: un id que pasa por un modelo deja de ser
-      // exacto). `/automations?sec=<id>` abre el lienzo de esa automatización, y `linkApp` le pega el `?ws=`.
-      const link = linkApp(`/automations?sec=${r.secuenciaId}`, ctx.ws);
+      // exacto). `/automations?sec=<id>&mako=1` abre el lienzo de esa automatización CON el chat de MaKo abierto (§2.5),
+      // y `linkApp` le pega el `?ws=`.
+      const link = linkApp(`/automations?sec=${r.secuenciaId}&mako=1`, ctx.ws);
       const falta = r.disparador ? '' : ' Le falta elegir qué la dispara.';
       return {
         ok: true,

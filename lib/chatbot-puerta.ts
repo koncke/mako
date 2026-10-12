@@ -1,6 +1,9 @@
 // =============================================================================
-// chatbot-puerta — qué abre /automations, y cuándo «Tu forma de escribir» es la primera vez
+// chatbot-puerta — cuándo se rellena «Tu WhatsApp», y cuándo «Tu forma de escribir» es la primera vez
 // =============================================================================
+// (Hasta el 12/10/2026 decidía además qué abría /automations: el QR o el lienzo. La puerta del QR se fue en la
+// duodécima tanda; ver abajo.)
+//
 // Tarea #745 del plan (06/10/2026). Las dos preguntas se contestaban con un TILDE del
 // onboarding guardado una vez y nunca vuelto a comparar con el dato:
 //
@@ -22,48 +25,21 @@
 /** Lo que contestó el onboarding de la tab, ya traducido. */
 export type OnboardingChatbot = 'hecho' | 'pendiente' | 'sin_permiso' | 'no_se_pudo';
 
-/**
- * ¿/automations abre en el QR (vincular el WhatsApp) en vez del lienzo?
- *
- * `canal` es el estado de la línea que manda el GET de secuencias (lib/evolution:
- * 'conectado' / 'sin_vincular' / 'desconectado' / 'conectando'; 'desconocido' si no se
- * pudo preguntar).
- *
- * ⚠️ UNA LÍNEA CAÍDA NO CAMBIA: con 'desconectado' sigue mandando el tilde, como hoy. Ahí
- * el lienzo muestra el aviso rojo de «volver a conectarlo» y no se le esconde el editor a
- * quien tiene secuencias armadas; decidir otra cosa es otra tarjeta.
- */
-export function abreEnQR(p: { onboarding: OnboardingChatbot; canal: string }): boolean {
-  // El setter no vincula nada: su pantalla es el lienzo, siempre.
-  if (p.onboarding === 'sin_permiso') return false;
-  if (p.canal === 'sin_vincular') return true;
-  if (p.canal === 'conectado') return false;
-  // Sin dato de la línea, decide el tilde. «No se pudo saber» abre el QR: es reversible
-  // (se vincula o se sigue de largo), y el lienzo afirmaría que está todo listo.
-  return p.onboarding !== 'hecho';
-}
-
-/**
- * La puerta en un `load()` que NO es el primero (revisión del 06/10/2026).
- *
- * `load()` corre otra vez cada vez que se guarda algo (asignar un audio, publicar). Con la
- * puerta recalculada en cada uno, una lectura de la línea que justo daba 'conectando' o
- * 'desconocido' —o un corte de red— sacaba al dueño del lienzo a mitad de una edición y lo
- * mandaba al QR. Una vez que el lienzo está a la vista, sólo lo cambia un 'sin_vincular'
- * COMPROBADO: es la única lectura que dice que no hay número.
- */
-export function puertaAlRecargar(p: { actual: boolean | null; calculada: boolean; canal: string }): boolean {
-  if (p.actual === false && p.canal !== 'sin_vincular') return false;
-  return p.calculada;
-}
+// ⛔ ACÁ VIVÍAN `abreEnQR` (¿/automations abre en el QR en vez del lienzo?) y `puertaAlRecargar` (la puerta en un
+// recargue, que sólo cambiaba con un 'sin_vincular' comprobado). Se fueron el 12/10/2026 con la puerta del QR
+// (duodécima tanda, §2.12): la tab ya no tiene onboarding. Martín, en la prueba con Fiesta Music: «Leandro entró a la
+// tab y lo primero que le pidió es conectar WhatsApp; vos entrás en la tab por primera vez y tenés que ver el lienzo
+// y tiene que salir el tutorial». El QR salta cuando una tarjeta lo necesita (`medioAConectarAlCrear`,
+// lib/medios-automatizacion.ts) o desde el aviso rojo de la línea (`ConectarMedio`). La regla de #745 —EL DATO GANA
+// AL TILDE— sigue en las dos funciones de abajo.
 
 /**
  * ¿Hay que marcar el paso «Tu WhatsApp» porque la línea YA está conectada?
  *
- * Quien vinculó por /whatsapp, o antes de que /automations marcara el paso, quedó con la
- * línea conectada y el tilde pendiente. La puerta ya no lo mira, pero sí lo mira el orden
+ * Quien vinculó por /whatsapp, o desde una tarjeta de /automations, quedó con la línea
+ * conectada y el tilde pendiente. La tab ya no lo mira, pero sí lo mira el orden
  * del onboarding: «Tu forma de escribir» contestaba «falta completar Tu WhatsApp» al
- * terminarla. Se rellena al cargar, con el mismo POST que usa el QR.
+ * terminarla. Se rellena al cargar, con el mismo POST que usa el aviso rojo de la línea.
  */
 export function marcarWhatsappAlCargar(p: { onboarding: OnboardingChatbot; canal: string }): boolean {
   return p.onboarding === 'pendiente' && p.canal === 'conectado';

@@ -201,11 +201,11 @@ test('(g) el menú: las dos opciones con su ícono, el `data-recorrido` del últ
   assert.equal(OBJETIVO_AYUDA, 'au-ayuda');
   // El botón de antes y su CSS se fueron.
   assert.doesNotMatch(src, /data-configuraciones|chb-config|CSS_CONFIG/);
-  // La tab lo monta en los dos lugares (antes del buscador y antes de «＋ Nueva» del cartel vacío), con el recorrido.
+  // La tab lo monta antes del buscador, con el recorrido. (Hasta la duodécima tanda, también antes de «＋ Nueva» del
+  // cartel vacío: el cartel se fue y la lista se dibuja también sin automatizaciones.)
   const app = fuente('app/automations/ChatAgentApp.tsx');
-  assert.equal(app.split('<MenuAutomations onTutorial={recorrido.reabrir} />').length - 1, 2);
+  assert.equal(app.split('<MenuAutomations onTutorial={recorrido.reabrir} />').length - 1, 1);
   assert.match(app, /menu=\{<MenuAutomations onTutorial=\{recorrido\.reabrir\} \/>\}/);
-  assert.match(tramo(app, 'Todavía no hay automatizaciones.', '<SimuladorWhatsApp', 2500), /<MenuAutomations onTutorial=\{recorrido\.reabrir\} \/>\s*<button onClick=\{\(\) => abrirGaleria\(\)\} style=\{btnDark\}>＋ Nueva<\/button>/);
   // ⚠️ La lista no lo importa: arrastraría `server-only` y los tests que la dibujan caerían AL IMPORTAR.
   assert.doesNotMatch(fuente('app/automations/SimuladorWhatsApp.tsx'), /ConfiguracionesBoton|MenuAutomations|ConfiguracionesModal/);
 });

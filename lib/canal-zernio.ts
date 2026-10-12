@@ -12,11 +12,21 @@
 //   · a quien COMENTÓ se le contesta UNA vez, por privado, dentro de los 7 días, y sólo con texto;
 //   · lo que manda es la respuesta de Zernio, no el reloj de acá (`esLimiteDeMeta`): si Meta dice que
 //     no, es terminal y el hilo se cierra con su motivo, sin reintentar.
+//
+// DUODÉCIMA TANDA (12/10/2026): las condiciones de Instagram y Messenger leen de acá, por lote
+// (`conversacionesDeLeads` y `siguenEnInstagram`, que llama `hechosDelCatalogo` de lib/nutricion.ts). La
+// fila que cuenta la elige la MISMA regla que usa el envío (`conversacionQueCuenta`, lib/canal-social.ts).
 
 import 'server-only';
 import { getTenantDb } from './workspace';
-import { enviarDm, responderComentario, esLimiteDeMeta, ZernioError } from './zernio';
-import { decidirSalida, plataformaDe, problemaDeAdjunto, tipoAdjuntoZernio, NOMBRE_CANAL, type CanalSocial, type ConversacionSocial } from './canal-social';
+import { enviarDm, responderComentario, esLimiteDeMeta, estadosDeSeguimiento, ZernioError } from './zernio';
+import {
+  decidirSalida, plataformaDe, problemaDeAdjunto, tipoAdjuntoZernio, NOMBRE_CANAL, COLS_CONVERSACION_SOCIAL,
+  conversacionQueCuenta, conversacionDeFila, conversacionesPorLead, pedidoDeSeguimiento,
+  type CanalSocial, type ConversacionesPorLead, type FilaConversacionSocial,
+} from './canal-social';
+import { leerTodo, type ConsultaPaginada } from './supabase-paginado';
+import { enTandas } from './ids-con-filas';
 import { aplicarVariables } from './template-vars';
 import { PAUSA_ENTRE_PARTES_MS, type ParteMensaje } from './mensaje-partes';
 import { getAdjunto, urlsDeAdjuntos } from './setting-adjuntos';
@@ -37,47 +47,54 @@ export type ResultadoSocial = {
   nota?: string;
 };
 
-type FilaConversacion = {
-  id: number;
-  zernio_conversation_id: string | null;
-  zernio_account_id: string | null;
-  igsid: string | null;
-  username: string | null;
-  ventana_expira_at: string | null;
-  comentario_id: string | null;
-  comentario_post_id: string | null;
-  comentario_at: string | null;
-  comentario_respondido_at: string | null;
-  ultimo_mensaje_at: string | null;
-};
-
-const COLS = 'id, zernio_conversation_id, zernio_account_id, igsid, username, ventana_expira_at, comentario_id, comentario_post_id, comentario_at, comentario_respondido_at, ultimo_mensaje_at';
-
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 const dormir = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
- * LA CONVERSACIÓN DEL LEAD EN ESE CANAL. Con varias (dos cuentas de Instagram), la del último
- * mensaje. `undefined` = no se pudo leer, que NO es «no tiene» (AGENTS.md: «No pude leer» es un
- * tercer estado): con la base caída se reintenta, nunca se cierra el hilo.
+ * LA CONVERSACIÓN DEL LEAD EN ESE CANAL. Con varias (dos cuentas de Instagram), la que elige
+ * `conversacionQueCuenta`: la misma regla que miran las condiciones. `undefined` = no se pudo leer, que
+ * NO es «no tiene» (AGENTS.md: «No pude leer» es un tercer estado): con la base caída se reintenta,
+ * nunca se cierra el hilo.
  */
-async function conversacionDe(leadId: number, canal: CanalSocial): Promise<FilaConversacion | null | undefined> {
+async function conversacionDe(leadId: number, canal: CanalSocial): Promise<FilaConversacionSocial | null | undefined> {
   const db = await getTenantDb();
-  const { data, error } = await db.from('ig_conversaciones').select(COLS)
-    .eq('lead_id', leadId).eq('plataforma', plataformaDe(canal))
-    .order('ultimo_mensaje_at', { ascending: false, nullsFirst: false }).limit(1);
+  const { data, error } = await db.from('ig_conversaciones').select(COLS_CONVERSACION_SOCIAL)
+    .eq('lead_id', leadId).eq('plataforma', plataformaDe(canal));
   if (error) {
     console.error(`[canal-zernio] conversación del lead ${leadId} (${canal}): ${error.message}`);
     return undefined;
   }
-  return ((data ?? []) as FilaConversacion[])[0] ?? null;
+  return conversacionQueCuenta((data ?? []) as FilaConversacionSocial[]);
 }
 
-const aConversacion = (f: FilaConversacion): ConversacionSocial => ({
-  conversacionId: f.zernio_conversation_id, cuentaId: f.zernio_account_id, ventanaExpiraAt: f.ventana_expira_at,
-  comentarioId: f.comentario_id, comentarioPostId: f.comentario_post_id, comentarioAt: f.comentario_at,
-  comentarioRespondidoAt: f.comentario_respondido_at,
-});
+/**
+ * LAS CONVERSACIONES DE UN LOTE DE LEADS, por lead y canal (las condiciones de Instagram y Messenger).
+ * UNA lectura por tanda de leads, nunca una por lead. Un error TIRA: decidir «no tiene Instagram» con
+ * la base caída es mandarle al lead la rama que no le toca.
+ */
+export async function conversacionesDeLeads(leadIds: readonly number[]): Promise<ConversacionesPorLead> {
+  const db = await getTenantDb();
+  const filas: FilaConversacionSocial[] = [];
+  for (const tanda of enTandas([...new Set(leadIds)], 200)) {
+    filas.push(...await leerTodo<FilaConversacionSocial>(db, 'ig_conversaciones', COLS_CONVERSACION_SOCIAL, {
+      orden: 'id', filtros: (q) => q.in('lead_id', tanda) as ConsultaPaginada,
+    }));
+  }
+  return conversacionesPorLead(filas);
+}
+
+/**
+ * «¿TE SIGUE EN INSTAGRAM?» por lead, para los que ESCRIBIERON por DM (`pedidoDeSeguimiento`). El que
+ * no escribió no se consulta y no está en el mapa: su condición dice «no sé». Una falla pasajera de
+ * Zernio TIRA (`estadosDeSeguimiento`).
+ */
+export async function siguenEnInstagram(ws: number, conversaciones: ConversacionesPorLead): Promise<Map<number, boolean | null>> {
+  const pedidos = [...conversaciones].flatMap(([leadId, c]) => {
+    const p = pedidoDeSeguimiento(c.instagram);
+    return p ? [{ leadId, ...p }] : [];
+  });
+  return estadosDeSeguimiento(ws, pedidos);
+}
 
 /**
  * MANDA UN PASO de Instagram o Messenger. Nunca tira: todo fallo vuelve en el resultado, con
@@ -102,7 +119,7 @@ export async function enviarPasoSocial(input: {
   const fila = await conversacionDe(leadId, canal);
   if (fila === undefined) return { ok: false, salieron: desde, textos: [], destino: null, error: `no pude leer la conversación de ${nombre}`, backoffHoras: 4 };
   const destino = fila ? (fila.username ? `@${fila.username}` : fila.igsid) : null;
-  const salida = decidirSalida(fila ? aConversacion(fila) : null, Date.now(), canal);
+  const salida = decidirSalida(fila ? conversacionDeFila(fila) : null, Date.now(), canal);
   if (salida.via === null) return { ok: false, salieron: desde, textos: [], destino, error: salida.motivo, terminal: salida.terminal, backoffHoras: 24 };
   if (!partes.length) return { ok: false, salieron: 0, textos: [], destino, error: 'el mensaje está vacío', backoffHoras: 24 };
 

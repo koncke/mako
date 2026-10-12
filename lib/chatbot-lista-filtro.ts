@@ -28,11 +28,16 @@
 
 import type { DropdownGroup, DropdownOption } from '@/app/components/Dropdown';
 import { alternarValor } from '@/app/components/dropdown-varios';
-import { claseDe, expandirPasoIA, type PasoGrafo } from './flujo-grafo';
+import { claseDe, esPasoIA, expandirPasoIA, medioDe, type MedioAIStep, type PasoGrafo } from './flujo-grafo';
 import { OP_AVISAR } from './flujo-legado';
+import { canalAGuardar, esCanalSocial, logoSocialSvg, NOMBRE_CANAL } from './canal-social';
+import { MEDIOS, type Medio } from './medios-automatizacion';
 
-/** Por dónde sale un mensaje. */
-export type CanalEnvio = 'whatsapp' | 'email';
+/**
+ * Por dónde sale un mensaje: un MEDIO, el mismo tipo que la tarjeta, Publicar y el motor (duodécima tanda, §2.9).
+ * Hasta el 12/10/2026 era `'whatsapp' | 'email'` y una tarjeta de Instagram o Messenger no pasaba ningún canal.
+ */
+export type CanalEnvio = Medio;
 /**
  * A quién le escribe: al LEAD («A clientes») o al grupo del negocio con MaKo («Al WhatsApp de MaKo»:
  * la tarjeta MAKO, que es la ⚡ Acción `avisar_al_equipo`). Los dos que pidió Martín. (Hasta el
@@ -57,32 +62,45 @@ const sinRepetir = (es: Envio[]): Envio[] => {
   return es.filter((e) => { const k = `${e.canal}:${e.destino}`; if (vistos.has(k)) return false; vistos.add(k); return true; });
 };
 
+const esAvisoAlGrupo = (p: PasoGrafo): boolean =>
+  claseDe(p) === 'accion' && (p.accion as { operacion?: unknown } | null | undefined)?.operacion === OP_AVISAR;
+
 /**
  * Los envíos de una automatización, DERIVADOS de sus pasos.
  *
  * · Un MENSAJE (la clase la decide `claseDe`, la misma que leen el motor y el lienzo) le escribe
- *   al lead por su `canal`.
+ *   al lead por `canalAGuardar(canal, tipo)`: el canal con el que el MOTOR lo guarda y lo manda (un email de
+ *   audio sale por WhatsApp; Instagram y Messenger, por su canal).
  * · La tarjeta MAKO (⚡ Acción `avisar_al_equipo`, `OP_AVISAR`) le escribe al grupo del negocio
  *   por WhatsApp.
  * · Lo demás (esperas, condiciones, «Si responde», «Ir a», las otras acciones, el CRON) no manda
  *   nada: «Si responde» bifurca y los mensajes que siguen son tarjetas propias, que ya cuentan.
  *
  * ⚠️ UN AI STEP SE CUENTA EXPANDIDO (`expandirPasoIA`, novena tanda): lo que manda —el «MaKo contesta» de
- * cada caso, por el WhatsApp no oficial, y el aviso al equipo de los casos que avisan y de «Otra cosa»—
- * vive ADENTRO de la tarjeta, no en tarjetas propias. Leído compacto, una automatización cuyo único
- * mensaje al lead es su AI Step no pasaba «WhatsApp» ni «A clientes». Es lo mismo que recorren el motor
- * y «Probar».
+ * cada caso y el aviso al equipo de los casos que avisan y de «Otra cosa»— vive ADENTRO de la tarjeta, no en
+ * tarjetas propias. Leído compacto, una automatización cuyo único mensaje al lead es su AI Step no pasaba ningún
+ * canal ni «A clientes». Es lo mismo que recorren el motor y «Probar».
+ *
+ * ⚠️ Y SE EXPANDE POR SU MEDIO (duodécima tanda): `expandirPasoIA` expande SÓLO los AI Step del medio que se le
+ * pide (WhatsApp si no se dice). Expandido una sola vez, un AI Step de Instagram no contaba nada: su «MaKo
+ * contesta» es por Instagram (`medioDe`), y sus avisos, al grupo por WhatsApp. Por eso se toma el medio de cada
+ * AI Step ANTES de expandir, y se expande una vez por medio.
  */
 export function enviosDePasos(pasos: readonly PasoGrafo[]): Envio[] {
   const out: Envio[] = [];
-  for (const p of expandirPasoIA(pasos)) {
+  for (const p of pasos) {
     if (!p || typeof p !== 'object') continue;
-    const c = claseDe(p);
-    if (c === 'mensaje') {
-      if (p.canal === 'whatsapp' || p.canal === 'email') out.push({ canal: p.canal, destino: 'clientes' });
-    } else if (c === 'accion') {
-      const op = (p.accion as { operacion?: unknown } | null | undefined)?.operacion;
-      if (op === OP_AVISAR) out.push({ canal: 'whatsapp', destino: 'mako' });
+    if (claseDe(p) === 'mensaje') out.push({ canal: canalAGuardar(p.canal, p.tipo), destino: 'clientes' });
+    else if (esAvisoAlGrupo(p)) out.push({ canal: 'whatsapp', destino: 'mako' });
+  }
+  const mediosIA = new Set<Medio>();
+  for (const p of pasos) if (p && typeof p === 'object' && esPasoIA(p)) mediosIA.add(medioDe(p));
+  for (const medio of MEDIOS.filter((m): m is MedioAIStep => mediosIA.has(m))) {
+    // Lo que agrega la expansión va DESPUÉS de los pasos (`[...out, ...extra]`): sólo eso es del AI Step.
+    for (const p of expandirPasoIA(pasos, { medio }).slice(pasos.length)) {
+      if (!p || typeof p !== 'object') continue;
+      if (claseDe(p) === 'mensaje') out.push({ canal: medio, destino: 'clientes' });
+      else if (esAvisoAlGrupo(p)) out.push({ canal: 'whatsapp', destino: 'mako' });
     }
   }
   return sinRepetir(out);
@@ -98,10 +116,17 @@ export function enviosDePasos(pasos: readonly PasoGrafo[]): Envio[] {
 /** Los valores del desplegable (`varios` del Dropdown): una sección y su opción, en un string. */
 export const VALOR = {
   activas: 'estado:activas', pausadas: 'estado:pausadas',
-  whatsapp: 'canal:whatsapp', email: 'canal:email',
+  whatsapp: 'canal:whatsapp', email: 'canal:email', instagram: 'canal:instagram', messenger: 'canal:messenger',
   clientes: 'destino:clientes', mako: 'destino:mako',
+  /** El de cualquier medio: así un medio nuevo de `MEDIOS` aparece solo en el filtro. */
+  canal: (m: Medio) => `canal:${m}`,
   emoji: (e: string) => `emoji:${e}`,
 } as const;
+
+/** Cómo se llama cada medio en el filtro: los sociales, por `NOMBRE_CANAL` (el de la tarjeta). */
+const NOMBRE_MEDIO: Record<Medio, string> = { whatsapp: 'WhatsApp', email: 'Email', ...NOMBRE_CANAL };
+/** El ícono: WhatsApp y Email, del set de la casa; Instagram y Messenger, su logo (`data:` SVG, el del ＋ del lienzo). */
+const iconoMedio = (m: Medio): DropdownOption['icono'] => (esCanalSocial(m) ? logoSocialSvg(m) : m);
 
 type FiltroLeido = { emojis: Set<string>; estados: Set<string>; canales: Set<string>; destinos: Set<string> };
 
@@ -163,7 +188,8 @@ export const SECCION = { emojis: 'Emojis', estado: 'Estado', canal: 'Canal' } as
  *   tiene cada uno. Uno marcado que ya no está en ninguna fila se sigue ofreciendo (con 0): si el
  *   menú escondiera lo que está filtrando, la pantalla mentiría sobre por qué la lista está vacía.
  * · «Estado»: Activas y Pausadas.
- * · «Canal»: WhatsApp y Email, una línea, A clientes y Al WhatsApp de MaKo.
+ * · «Canal»: los MEDIOS (WhatsApp, Email, Instagram, Messenger, en el orden de `MEDIOS`), una línea, A clientes y
+ *   Al WhatsApp de MaKo.
  *
  * Los conteos van sobre TODAS las filas (no sobre las que deja el buscador): dicen cuántas hay de
  * cada una, que es lo que ayuda a decidir si vale la pena marcarla.
@@ -187,8 +213,7 @@ export function seccionesDelFiltro(filas: readonly FilaFiltrable[], valores: rea
     { value: VALOR.pausadas, label: `Pausadas · ${cuantas((x) => x.activa === false)}`, icono: 'pausar' },
   ];
   const opCanal: DropdownOption[] = [
-    { value: VALOR.whatsapp, label: `WhatsApp · ${cuantas(conCanal('whatsapp'))}`, icono: 'whatsapp' },
-    { value: VALOR.email, label: `Email · ${cuantas(conCanal('email'))}`, icono: 'email' },
+    ...MEDIOS.map((m): DropdownOption => ({ value: VALOR.canal(m), label: `${NOMBRE_MEDIO[m]} · ${cuantas(conCanal(m))}`, icono: iconoMedio(m) })),
     // La línea va ARRIBA de «A clientes»: separa «por dónde» de «a quién».
     { value: VALOR.clientes, label: `A clientes · ${cuantas(conDestino('clientes'))}`, lineaArriba: true, icono: 'cliente' },
     { value: VALOR.mako, label: `Al WhatsApp de MaKo · ${cuantas(conDestino('mako'))}`, icono: 'mako' },
@@ -196,7 +221,8 @@ export function seccionesDelFiltro(filas: readonly FilaFiltrable[], valores: rea
 
   const ROTULO: Record<string, string> = {
     [VALOR.activas]: 'Activas', [VALOR.pausadas]: 'Pausadas',
-    [VALOR.whatsapp]: 'WhatsApp', [VALOR.email]: 'Email', [VALOR.clientes]: 'A clientes', [VALOR.mako]: 'Al WhatsApp de MaKo',
+    ...Object.fromEntries(MEDIOS.map((m) => [VALOR.canal(m), NOMBRE_MEDIO[m]])),
+    [VALOR.clientes]: 'A clientes', [VALOR.mako]: 'Al WhatsApp de MaKo',
   };
   /** Lo que dice la sección en la raíz: «Todos», lo marcado, o cuántos. Como el filtro del Plan. */
   const resumen = (ops: DropdownOption[], todos: string, emoji = false): string => {

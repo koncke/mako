@@ -92,7 +92,7 @@
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
 import { ChatHilo, type HiloMsg } from '../whatsapp/_shared/ChatHilo';
-import { Button, Toast, useToast } from '@/app/_ui';
+import { Button } from '@/app/_ui';
 // «Conectar» y «Vincular nuevo» (décima tanda, GENERAL 6): el modal de cada medio, uno solo para toda la tab.
 import { ConectarMedio, useEstadoMedios } from './ConectarMedio';
 import { estadoDe, type Medio } from '@/lib/medios-automatizacion';
@@ -614,7 +614,7 @@ async function blobABase64(b: Blob): Promise<string> {
   return btoa(bin);
 }
 
-export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, rolAdmin, etiquetaEtapa, canal, onCerrar, style, productos }: {
+export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, rolAdmin, etiquetaEtapa, canal, onCerrar, style, productos, onEnviado }: {
   /** La automatización GUARDADA: su id, su línea y, si el lienzo todavía no mandó nada, sus pasos. */
   secuencia: SecuenciaDto;
   /** Lo que el lienzo tiene SIN publicar (`onCambioLocal`). Es lo que se prueba. */
@@ -634,6 +634,12 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
    * («Está en el embudo de «Mentoría»», no «un producto»), como la tarjeta del lienzo.
    */
   productos?: ProductoOpcion[];
+  /**
+   * Salió DE VERDAD el primer mensaje de esta prueba (WhatsApp o email): `texto` es el aviso corto de su canal
+   * (`CANALES_PROBAR[canal].enviado`). Lo dibuja quien monta, FUERA del panel: tiene que verse aunque Probar ya se
+   * haya cerrado (duodécima tanda, §2.8). Instagram y Messenger no mandan nada de verdad: nunca avisan.
+   */
+  onEnviado?: (texto: string) => void;
 }) {
   const propia = edicion && edicion.secuenciaId === secuencia.id ? edicion : null;
   const pasosVivos = propia?.pasos ?? secuencia.pasos;
@@ -671,8 +677,10 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
   /** La prueba DE VERDAD de este recorrido, y su destino (precargado, NO se guarda). */
   const [real, setReal] = useState(false);
   const [destino, setDestino] = useState('');
-  /** El aviso de que la prueba de verdad salió («Enviado · revisa tu bandeja»): el toast de la casa. */
-  const { toast: avisoEnviado, show: mostrarAviso, clear: cerrarAviso } = useToast();
+  // ⛔ ACÁ VIVÍA EL TOAST DE «Enviado · revisa tu WhatsApp» (décima tanda, «Probar» 1), y no se veía (duodécima,
+  // §1.8): vivía DENTRO del panel, en su capa de z 3, debajo de la barra de MaKo (z 4) y de Publicar (57), y se perdía
+  // al cerrar Probar o tocar ↻ durante los ~14 s del primer envío. Ahora avisa `onEnviado` y el toast es de la lista
+  // (SimuladorWhatsApp), que sigue montada.
 
   // Nombres que las píldoras necesitan: las etiquetas, los títulos de las acciones y los archivos
   // de la biblioteca. Se piden sólo si el flujo los usa.
@@ -890,7 +898,15 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
         if (run.current === r0) sistema(`No salió · ${j.error ?? 'error'}`, 'bad');
       // EL AVISO DE QUE SALIÓ («Probar» 1, décima tanda): UNO por prueba, con el PRIMERO que sale de verdad (si el
       // primero falla, `yaSalioUno` vuelve a false y el aviso lo da el siguiente que salga).
-      } else if (primero && run.current === r0) mostrarAviso(CANALES_PROBAR[c.canal].enviado, undefined, 'good');
+      // ⚠️ SIN EL GATE DEL RECORRIDO (duodécima tanda, §2.8, decisión 12): el mensaje SALIÓ de verdad, aunque se
+      // haya tocado ↻ o cerrado Probar en los ~14 s que tarda el primero. Martín: «lo que falta en el probar es un
+      // aviso... de que ya se envió y que revise sus chats». El toast lo dibuja quien monta (`onEnviado`).
+      } else if (primero) {
+        const texto = CANALES_PROBAR[c.canal].enviado;
+        onEnviado?.(texto);
+        // Y si la MISMA prueba sigue viva, queda además en el hilo (en la bandeja, en su renglón).
+        if (run.current === r0) sistema(texto, 'ok', true);
+      }
     });
   };
 
@@ -1344,7 +1360,6 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
           <span role="status" style={{ fontSize: 12.5, color: aviso.tono === 'bad' ? 'var(--bad)' : 'var(--dim)', ...recorte }}>{aviso.texto}</span>
         </div>
       )}
-      <Toast state={avisoEnviado} onClose={cerrarAviso} />
     </section>
   );
 }

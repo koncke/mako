@@ -112,8 +112,9 @@ test('crearNueva pone la fila y la abre ANTES de pedirle nada al server; el id r
   // de antes, `hayAvisos`. Hoy un mensaje de «MaKo en WhatsApp» es una automatización: viene en `visibles`.)
   const app = APP();
   assert.match(app, /const visibles = secuencias === null \? null : listaConCreando\(secuencias, creando\);/);
-  assert.match(app, /\{visibles !== null && visibles\.length === 0 && !error && \(/);
-  assert.match(app, /\{visibles !== null && visibles\.length > 0 && \(\n\s+<SimuladorWhatsApp\n\s+secuencias=\{visibles\}/);
+  // Duodécima tanda (decisión 11): sin el cartel vacío, la lista se monta UNA vez, también con cero (era una rama por
+  // `visibles.length`; la sacó el paquete de la entrada y este test quedó fijando la de antes).
+  assert.match(app, /\{visibles !== null && !error && \(\n\s+<SimuladorWhatsApp\n\s+secuencias=\{visibles\}/);
 });
 
 test('la selección SIGUE a la fila cuando toma su id real (por su clave), y si falla vuelve la de antes', () => {

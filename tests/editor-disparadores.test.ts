@@ -102,7 +102,7 @@ const ESTADO = (conectado: boolean | null): EstadoCanales => ({
   email: { conectado, motivo: conectado ? undefined : 'Sin conectar' },
   pagos: { conectado, motivo: conectado ? undefined : 'Sin conectar' },
 });
-const eventos = (clase: 'instagram' | 'messenger' | 'email', estado: EstadoCanales | null | undefined, d: Partial<Disparador> = {}) =>
+const eventos = (clase: 'instagram' | 'messenger' | 'email' | 'pagos', estado: EstadoCanales | null | undefined, d: Partial<Disparador> = {}) =>
   renderToStaticMarkup(createElement(EventosDeCanal, { clase, d: { id: 'd1', trigger_tipo: 'manual', ...d } as Disparador, estado, onElegir: () => {} }));
 
 test('Instagram conectado: los seis eventos de ManyChat, y SÓLO el del anuncio apagado («Todavía no»)', () => {
@@ -114,14 +114,27 @@ test('Instagram conectado: los seis eventos de ManyChat, y SÓLO el del anuncio 
   assert.doesNotMatch(html, /Sin conectar/);
 });
 
-test('sin conectar: TODOS apagados, con el motivo y «Conectar» ahí mismo (Messenger e Instagram, /integraciones en una ventana; el email, el modal)', () => {
+// ⚠️ DUODÉCIMA TANDA (§2.11): Instagram y Messenger se conectan en EL MISMO modal que la tarjeta (`ConectarMedio`,
+// Zernio), no en /integraciones (la página de Facebook, que no hace llegar ningún evento). Sólo Pagos sigue yendo a
+// /integraciones en una ventana. Roto a propósito el 12/10/2026 (el «Conectar» de Instagram y Messenger de vuelta
+// al link a /integraciones): 9 pass / 1 fail; restaurado: 10 / 0.
+test('sin conectar: TODOS apagados, con el motivo y «Conectar» ahí mismo (Instagram, Messenger y el email, el modal; los pagos, /integraciones)', () => {
   const ig = eventos('instagram', ESTADO(false));
   assert.equal(botonesApagados(ig), 6);
   assert.match(ig, /Sin conectar/);
-  assert.match(ig, /href="\/integraciones"/);
+  assert.match(ig, /<button type="button" data-conectar-canal="instagram" aria-haspopup="dialog"[^>]*>Conectar<\/button>/);
+  assert.doesNotMatch(ig, /href="\/integraciones"/, 'Instagram volvió a mandar a la página de Facebook');
   const ms = eventos('messenger', ESTADO(false));
-  assert.equal(botonesApagados(ms), cuantos(ms, /<button/g));
-  assert.match(ms, /href="\/integraciones"/);
+  // Los seis eventos de Messenger apagados; el único botón prendido es «Conectar».
+  assert.equal(botonesApagados(ms), cuantos(ms, /<button/g) - 1);
+  assert.match(ms, /<button type="button" data-conectar-canal="messenger" aria-haspopup="dialog"[^>]*>Conectar<\/button>/);
+  assert.doesNotMatch(ms, /href="\/integraciones"/, 'Messenger volvió a mandar a la página de Facebook');
+  // Los pagos: Stripe o Mercado Pago no caben en un modal (siguen en /integraciones, en una ventana).
+  assert.match(eventos('pagos', ESTADO(false)), /<a href="\/integraciones" data-conectar-canal="pagos"/);
+  // Con Zernio, «no pude comprobarlo» del canal es casi siempre la key mala o la cuenta pausada: el modal lo
+  // resuelve, así que Instagram ofrece «Conectar» también ahí (el email y los pagos no).
+  assert.match(eventos('instagram', ESTADO(null)), /data-conectar-canal="instagram"/);
+  assert.doesNotMatch(eventos('email', ESTADO(null)), /data-conectar-canal/);
   const em = eventos('email', ESTADO(false));
   assert.equal(botonesApagados(em), 1);
   assert.match(em, /Recibes un email/);
@@ -189,6 +202,7 @@ test('quien NO es admin mira: una fila por CRON con su texto, sin los botones ni
 //    7. los eventos prendidos con el canal sin conectar → 9 / 1.   8. el anuncio de Instagram prendido → 9 / 1.
 //    9. «no pude comprobarlo» sin motivo → 9 / 1.   10. el evento ELEGIDO también apagado → 9 / 1.
 //   11. el email linkeando a /integraciones → 9 / 1.   12. un solo día por semana → 9 / 1.
+//   (12/10/2026) 11b. Instagram y Messenger de vuelta al link a /integraciones → 9 / 1.
 //   13. sin la zona del país → 9 / 1.   14. «A quién» sin el grupo → 9 / 1.
 //   15. `textoCohorte` sin traducir → 8 / 2.   16. los días pasados elegibles → 9 / 1.
 //   17. la semana arrancando el domingo → 9 / 1.   18. el setter sin el pie → 9 / 1.

@@ -17,14 +17,27 @@
 //
 // ⚠️ PURO Y SIN `server-only`, a propósito: todo lo que toca la base o un modelo entra por `DepsCrearIA`, así
 // tests/flujo-ia-crear.test.ts lo EJECUTA con dependencias de mentira (que la IA falle o se cancele no escribe nada).
+//
+// DUODÉCIMA TANDA (12/10/2026, docs/diseno-duodecima-tanda.md §2.4 y §2.5):
+//   · ANTES del modelo, `preguntaAntes` (lib/flujo-ia-preguntas.ts): si falta un dato decisivo (canal, producto, evento),
+//     vuelve `{ ok: false, pregunta }` SIN ESCRIBIR NADA. Lo contestado lo impone el código (`aplicarRespuestas`).
+//   · El modelo también puede preguntar (`{"pregunta":…}`): `traducir` la valida con `preguntaDeIA`, y si no sirve es un
+//     error para el reintento («no preguntes: elige tú»).
+//   · AL NACER LA FILA se vuelca el chat (el historial de la galería, el turno de la persona y lo que dijo MaKo, con los
+//     avisos). Si el chat no se guarda, es un aviso: la automatización ya está creada.
 // =============================================================================
 
 import { validarGrafo, type PasoGrafo } from './flujo-grafo';
 import {
   deIA, validarIA, userDeCrear, leyendoDe, leyendoTexto, conEtiquetasReales, refsSinResolver, disparadorReal, ordenDeRevelado,
+  ambitoDeValor,
   type CtxIA, type EventoIA, type ResultadoIA, type FalloIA, type EtiquetaNueva,
 } from './flujo-ia';
 import { ordenarAvisos } from './flujo-ia-cliente';
+import {
+  preguntaAntes, preguntaDeIA, aplicarRespuestas, sanearRespuestas, turnoDelUsuario, mensajeChat, textoDeCreada,
+} from './flujo-ia-preguntas';
+import { sanearChat, type MensajeChatMako, type PreguntaMako, type RespuestaMako } from './automatizacion-chat';
 
 /** Lo que tiene el modelo para contestar, si quien llama no dice otra cosa (la ruta: 300 s de función). */
 export const PLAZO_CREAR_MS = 220_000;
@@ -44,6 +57,12 @@ export type OptsCrearIA = {
   /** Cancelar: se mira ANTES de escribir nada (después de la revisión ya no). */
   signal?: AbortSignal;
   alFase?: (f: FaseCrearIA) => void;
+  /** Lo que la persona ya contestó a las preguntas de MaKo (§2.4). Lo impone el código. */
+  respuestas?: RespuestaMako[];
+  /** El chat de la galería (antes de crear vive en el cliente): se vuelca al chat de la fila AL NACER. */
+  historial?: MensajeChatMako[];
+  /** Por dónde llegó el pedido (el chat lo dice): la app o el grupo de WhatsApp (la API de MaKo). */
+  via?: 'app' | 'whatsapp';
 };
 
 export type CreadaConIA = {
@@ -59,9 +78,13 @@ export type CreadaConIA = {
   /** El valor del CRON que quedó PUESTO, o null. */
   disparador: string | null;
 };
-export type ResultadoCrearIA = CreadaConIA | { ok: false; error: string; link?: string; cancelado?: true };
+/** MaKo pregunta en vez de crear (§2.4): no se escribió NADA. */
+export type PreguntaCrearIA = { ok: false; pregunta: PreguntaMako };
+export type ResultadoCrearIA = CreadaConIA | PreguntaCrearIA | { ok: false; error: string; link?: string; cancelado?: true };
 
-type Traducido = { r: ResultadoIA; errores: string[] };
+/** Lo que sale de `traducir`: el flujo, o —si el modelo preguntó y la pregunta sirve— la pregunta (con el flujo vacío). */
+export type ResultadoConPregunta = ResultadoIA & { pregunta?: PreguntaMako };
+type Traducido = { r: ResultadoConPregunta; errores: string[] };
 
 export type DepsCrearIA = {
   /** Lo que el negocio tiene configurado (`armarContexto`). */
@@ -69,7 +92,7 @@ export type DepsCrearIA = {
   /** El system prompt de crear (editable en /configuraciones). */
   system: () => Promise<string>;
   /** La cascada gratis con sus tres escalones (`generar`). */
-  generar: (p: { system: string; user: string; hastaMs: number; traducir: (obj: Record<string, unknown>) => Traducido }) => Promise<{ r: ResultadoIA } | FalloIA>;
+  generar: (p: { system: string; user: string; hastaMs: number; traducir: (obj: Record<string, unknown>) => Traducido }) => Promise<{ r: ResultadoConPregunta } | FalloIA>;
   crearEtiquetas: (nuevas: EtiquetaNueva[]) => Promise<{ ids: Map<number, number>; creadas: Array<{ id: number; nombre: string }> }>;
   /** Los pasos guardados de una fila y su nombre (null = no existe en este negocio). */
   filaDe: (id: number) => Promise<{ pasos: PasoGrafo[]; nombre: string } | null>;
@@ -85,7 +108,15 @@ export type DepsCrearIA = {
   motivoDeDisparador: (e: unknown) => string | null;
   /** Renombra con el nombre propuesto; devuelve el que quedó, o null si no había nada que poner. */
   renombrar: (id: number, nombre: string) => Promise<string | null>;
+  /** Suma mensajes al chat de la fila (`agregarAlChat`, lib/automatizacion-chat-db.ts). Si tira, es un aviso. */
+  guardarChat: (id: number, mensajes: MensajeChatMako[]) => Promise<void>;
 };
+
+/** El aviso cuando el chat de una fila nueva no se pudo guardar (la automatización sí quedó). */
+export const AVISO_SIN_CHAT = 'No pude guardar el chat con MaKo';
+
+/** El resultado vacío de un `traducir` que trae la pregunta del modelo en vez del flujo. */
+const SIN_FLUJO: ResultadoIA = { pasos: [], etiquetasNuevas: [], avisos: [], nombre: null, disparador: null };
 
 /** El aviso del CRON sin elegir (la pantalla lo muestra al final: `ordenarAvisos`). */
 export const AVISO_SIN_CRON = 'Elige qué la dispara en el CRON';
@@ -97,16 +128,37 @@ export const AVISO_SIN_CRON = 'Elige qué la dispara en el CRON';
  */
 export async function crearConIA(o: OptsCrearIA, deps: DepsCrearIA): Promise<ResultadoCrearIA> {
   const inicio = o.inicio ?? Date.now();
-  const { ctx, perfil, voz } = await deps.contexto(o.pedido);
-  const leyendo = leyendoDe(ctx, perfil);
+  const leido = await deps.contexto(o.pedido);
+  const { perfil, voz } = leido;
+  const leyendo = leyendoDe(leido.ctx, perfil);
   o.alFase?.({ t: 'fase', fase: 'contexto', leyendo, texto: leyendoTexto(leyendo) });
 
+  // DUODÉCIMA TANDA (§2.4): ¿falta un dato DECISIVO? Se pregunta ANTES del modelo, con opciones del catálogo, y no se
+  // escribe nada. Lo que ya contestó lo impone el código: el canal, el producto (filtra el CRON) o el CRON mismo.
+  const respuestas = sanearRespuestas(o.respuestas ?? []);
+  const antes = preguntaAntes(o.pedido, leido.ctx, respuestas);
+  if (antes) return { ok: false, pregunta: antes };
+  const { ctx, pedido, disparadorForzado } = aplicarRespuestas(leido.ctx, o.pedido, respuestas);
+
   const system = await deps.system();
-  const user = userDeCrear(ctx, { perfil, voz, pedido: o.pedido });
+  const user = userDeCrear(ctx, { perfil, voz, pedido });
+  // DUODÉCIMA TANDA: la revisión conoce el PERFIL (una herramienta que no está ni ahí ni en el pedido es inventada) y el
+  // CRON que eligió el modelo (las condiciones de su ámbito y las reglas de un DM: `validarIA(…, r.disparador)`).
+  const ctxV: CtxIA = { ...ctx, perfil };
+  // El CRON que eligió la persona se le pone al objeto del modelo ANTES de `deIA` (su clave `d<n>`): de él salen las
+  // condiciones que valen y el canal de los mensajes. Y después se fuerza el valor, por si la segunda capa lo movió.
+  const iForzado = disparadorForzado ? ctx.disparadores.findIndex((d) => d.value === disparadorForzado) : -1;
+  const claveForzada = iForzado >= 0 ? `d${iForzado + 1}` : null;
   const traducir = (obj: Record<string, unknown>): Traducido => {
-    const r = deIA(obj, ctx);
-    const errores = [...validarIA(r.pasos, ctx), ...validarGrafo(r.pasos)];
+    // El modelo preguntó en vez de armar: si la pregunta sirve, ésa es la respuesta (sin flujo).
+    const q = preguntaDeIA(obj, ctxV, respuestas.length, disparadorForzado ? ambitoDeValor(disparadorForzado) : 'cualquiera');
+    if (q && 'pregunta' in q) return { r: { ...SIN_FLUJO, pregunta: q.pregunta }, errores: [] };
+    const deIAr = deIA(claveForzada ? { ...obj, disparador: claveForzada } : obj, ctxV);
+    const r: ResultadoIA = disparadorForzado ? { ...deIAr, disparador: disparadorForzado } : deIAr;
+    const errores = [...validarIA(r.pasos, ctxV, undefined, r.disparador), ...validarGrafo(r.pasos)];
     if (!r.pasos.some((x) => !x.nodo)) errores.unshift('el flujo quedó sin ningún mensaje ni acción');
+    // Una pregunta que no sirve, sin flujo al lado: que el reintento elija.
+    if (q && 'error' in q && !r.pasos.length) errores.unshift(q.error);
     return { r, errores };
   };
 
@@ -114,6 +166,8 @@ export async function crearConIA(o: OptsCrearIA, deps: DepsCrearIA): Promise<Res
   const g = await deps.generar({ system, user, hastaMs: inicio + (o.plazoMs ?? PLAZO_CREAR_MS), traducir });
   if ('error' in g) return { ok: false, error: g.error, ...(g.link ? { link: g.link } : {}) };
   const r = g.r;
+  // El modelo preguntó (una pregunta que pasó `preguntaDeIA`): no se escribe nada.
+  if (r.pregunta) return { ok: false, pregunta: r.pregunta };
   o.alFase?.({ t: 'fase', fase: 'revision', reparadas: r.avisos.length });
 
   // Cancelado mientras el modelo escribía: no queda NADA escrito (ni etiquetas, ni la fila).
@@ -177,8 +231,28 @@ export async function crearConIA(o: OptsCrearIA, deps: DepsCrearIA): Promise<Res
 
   // Lo que quedó GUARDADO, no lo que se mandó: el lienzo tiene que dibujar lo mismo que va a leer el motor.
   const guardado = (await deps.filaDe(id))?.pasos ?? pasos;
+  const orden = ordenDeRevelado(guardado);
+
+  // EL CHAT, AL NACER LA FILA (§2.5): el historial de la galería, el turno de la persona y lo que dijo MaKo, con los
+  // avisos. Con id lo escribe la ruta (el turno al empezar y el cierre al terminar). Si falla, la automatización ya
+  // está: es un aviso, nunca un error.
+  if (nueva) {
+    const via = o.via ?? 'app';
+    const historial = sanearChat({ v: 1, mensajes: o.historial ?? [] }).mensajes;
+    const turno = turnoDelUsuario(o.pedido, respuestas, historial, via);
+    const ordenados = ordenarAvisos(avisos);
+    const final = mensajeChat('mako', textoDeCreada(nombre), via, {
+      avisos: ordenados, cambios: { cambiadas: 0, quitadas: 0, agregadas: Math.max(0, orden.length - 1) },
+    });
+    try {
+      await deps.guardarChat(id, [...historial, ...(turno ? [turno] : []), final]);
+    } catch {
+      avisos.push(AVISO_SIN_CHAT);
+    }
+  }
+
   return {
-    ok: true, secuenciaId: id, nombre, pasos: guardado, orden: ordenDeRevelado(guardado),
+    ok: true, secuenciaId: id, nombre, pasos: guardado, orden,
     avisos: ordenarAvisos(avisos), etiquetasNuevas: creadas, disparador: puesto,
   };
 }

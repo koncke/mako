@@ -20,7 +20,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   MEDIOS, MOTIVO_MEDIO, medioDePaso, mediosQueUsa, usosDeMedios, lineaDePaso, estadoDe, faltantes, frenoDeMedios,
-  chipDeTarjeta, medioDelError, consultaDeMedios, mediosDeConsulta, type EstadoMedios,
+  chipDeTarjeta, medioDelError, consultaDeMedios, mediosDeConsulta, medioAConectarAlCrear, MEDIOS_QUE_SALTAN, type EstadoMedios, type Medio,
 } from '../lib/medios-automatizacion';
 import type { PasoGrafo } from '../lib/flujo-grafo';
 
@@ -106,6 +106,30 @@ test('el chip de la tarjeta: «Sin conectar» (frena) o «Sin comprobar» (avisa
   assert.equal(chipDeTarjeta(MAKO, e, null), null);
 });
 
+test('el QR que salta al crear (duodécima tanda) sigue la MISMA regla que el chip: sólo lo que frena', () => {
+  // Cada tarjeta contra cada lectura: salta ⇔ el chip frena, el medio es de los que saltan y no se ofreció ya.
+  const lecturas: Array<EstadoMedios | null | undefined> = [
+    null, undefined, {},
+    { whatsapp: { porDefecto: NO('whatsapp'), lineas: { mako_ws1: SI } }, email: NO('email'), instagram: NO('instagram'), messenger: NOSE },
+    { whatsapp: { porDefecto: NOSE, lineas: {} }, email: SI, instagram: SI, messenger: NO('messenger') },
+    { whatsapp: { porDefecto: SI, lineas: { mako_ws1_b: NO('whatsapp') } } },
+  ];
+  let saltos = 0;
+  for (const e of lecturas) for (const p of [WA, OFICIAL, EMAIL, IG, MS, RESPUESTA, RESPUESTA_IG, MAKO, ESPERA, OTRA_LINEA]) {
+    for (const ya of [new Set<Medio>(), new Set<Medio>(MEDIOS)]) {
+      const chip = chipDeTarjeta(p, e, null);
+      const espera = chip?.frena === true && MEDIOS_QUE_SALTAN.has(chip.medio) && !ya.has(chip.medio);
+      const r = medioAConectarAlCrear(p, e, null, ya);
+      assert.equal(r != null, espera, `${(p as { id: string }).id} con ${JSON.stringify(e)}`);
+      if (r) { saltos++; assert.equal(r.medio, chip!.medio); }
+    }
+  }
+  // 5 con la 4.ª lectura (WA, IG, los dos «Si responde» y la otra línea; el email y el Messenger «no sé», no), 1 con
+  // la 5.ª (Messenger) y 1 con la 6.ª (la otra línea). Ninguno con todo ya ofrecido.
+  assert.equal(saltos, 7, 'cambió cuántas veces salta en la grilla');
+  assert.deepEqual([...MEDIOS_QUE_SALTAN].sort(), ['instagram', 'messenger', 'whatsapp']);
+});
+
 test('el error de Publicar/Activar dice el medio, y la consulta al server viaja sólo con medios conocidos', () => {
   assert.equal(medioDelError('Conecta tu WhatsApp'), 'whatsapp');
   assert.equal(medioDelError('No se activó: Conecta tu email.'), 'email');
@@ -121,10 +145,11 @@ test('el error de Publicar/Activar dice el medio, y la consulta al server viaja 
 test('Publicar: 409 con el medio ANTES de guardar; GUARDAR (setSecuenciaPasos) no lo mira', () => {
   const ruta = fuente('app/api/whatsapp/secuencias/route.ts');
   const patch = bloque(ruta, 'if (Array.isArray(body.pasos)) {', 'if (typeof body.activa');
-  const i409 = patch.indexOf('if (falta) return Response.json({ ok: false, error: falta.error, medio: falta.medio }, { status: 409 });');
+  const i409 = patch.indexOf('if (medios.falta) return Response.json({ ok: false, error: medios.falta.error, medio: medios.falta.medio }, { status: 409 });');
   const iGuarda = patch.indexOf('await setSecuenciaPasos(id, body.pasos as PasoSecuencia[]);');
   assert.ok(i409 > 0 && iGuarda > i409, 'Publicar guarda un flujo con el medio sin conectar');
-  assert.match(patch, /const falta = await medioSinConectar\(body\.pasos as PasoSecuencia\[\], linea\)\.catch\(\(\) => null\);/, '«no pude comprobarlo» no frena');
+  // Duodécima tanda: con el CRON (tests/publicar-cron-social.test.ts), y «no pude comprobarlo» sigue sin frenar.
+  assert.match(patch, /const medios = await medioSinConectar\(body\.pasos as PasoSecuencia\[\], linea, disparadores\)\.catch\(\(\) => SIN_MEDIOS\);/, '«no pude comprobarlo» no frena');
   assert.match(patch, /: await lineaDeSecuencia\(id\)\.catch\(\(\) => null\);/, 'el medio no se mide con la línea de la automatización');
   const nutri = fuente('lib/nutricion.ts');
   const guardar = bloque(nutri, 'export async function setSecuenciaPasos(', '\nasync function filasCohorte<T>(');
@@ -136,10 +161,10 @@ test('Activar: `validarActivacion` frena un medio sin conectar, después de las 
   const val = bloque(nutri, 'export async function validarActivacion(', '\nexport async function setSecuenciaActiva(');
   assert.match(val, /\.select\('pasos, instance_name'\)/);
   const iReglas = val.indexOf('{ soloValidar: true }');
-  const iMedio = val.indexOf("const { medioSinConectar } = await import('@/lib/disparadores-canales');");
+  const iMedio = val.indexOf("const { medioSinConectar, disparadoresDeSecuencia, asegurarAvisosSociales, SIN_MEDIOS } = await import('@/lib/disparadores-canales');");
   assert.ok(iReglas > 0 && iMedio > iReglas);
-  assert.match(val, /if \(falta\) throw new PasosInvalidosError\(`No se activó: \$\{falta\.error\}\.`\);/);
-  assert.match(val, /medioSinConectar\([\s\S]{0,120}?, linea\)\.catch\(\(\) => null\)/);
+  assert.match(val, /if \(medios\.falta\) throw new PasosInvalidosError\(`No se activó: \$\{medios\.falta\.error\}\.`\);/);
+  assert.match(val, /medioSinConectar\([\s\S]{0,120}?, linea, disparadores\)\.catch\(\(\) => SIN_MEDIOS\)/);
 });
 
 test('la medición: WhatsApp = la fila conectada CON número; sólo se mide lo que se pide; GET ?medios=', () => {
@@ -203,3 +228,10 @@ test('la tarjeta lleva el chip y Probar dice «Conectar»', () => {
 //   M4. sin las líneas leídas, una línea desconocida da «sin conectar»                        → 11 / 1
 //   M5. conectar no vacía `canalesDeLaVisita` (el CRON seguía diciendo «Conecta tu…»)       → 11 / 1
 // Restaurado: 12 / 0.
+// Duodécima tanda (12/10/2026; ahora 13 tests acá), arnés scratchpad/wf-duodecima/ui-boton-qr/romper.mjs sobre este
+// archivo, tests/automations-duodecima-boton.test.ts y el de la décima (base 36 / 0): «salta con cualquier chip,
+// también "no pude comprobarlo"» (R3), «ignora lo ya ofrecido» (R4) y «el email salta» (R5) → 34 / 2 cada una, y uno de
+// los dos caídos es «el QR que salta al crear… la MISMA regla que el chip». Restaurado: 36 / 0.
+// Duodécima tanda, ig-publicar (12/10/2026; `medioSinConectar` devuelve { falta, sociales } y recibe el CRON), arnés
+// scratchpad/wf-duodecima/ig-publicar/romper.mjs: la ruta o Activar sin la lista del CRON → 12 / 1 cada una (base 13 / 0).
+// Lo que hace el CRON lo fija tests/publicar-cron-social.test.ts.

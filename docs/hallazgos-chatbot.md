@@ -3864,3 +3864,184 @@ El diseño, en `docs/diseno-undecima-tanda.md`. Diez paquetes en cuatro olas, un
 _11/10/2026 — cierre de la undécima: typecheck limpio; suite entera 8190 tests: 8186 pasan, 3 fallan (de MaKo Mobile,
 ya en HEAD: `confirm-encima-de-modales`, `mover-etapa-validacion`, `plan-filtro-cliente`), 1 skip. El cuarto rojo era de
 la corrida (un «acá» en el `context` de `chatbot.crear-ia.system`) y lo arregló el cierre._
+
+## Duodécima tanda (12/10/2026, claude3): Crear con IA respeta el canal y el catálogo, el chat de MaKo, Instagram
+
+El pedido, textual, en `app/admin/dev/chatbot/bitacora.ts` (12/10, 01:50): la prueba con Fiesta Music (ws10). El diseño,
+en `docs/diseno-duodecima-tanda.md`. Once paquetes en dos olas y la cosecha (corrida `wf_ec999673-272`, worktree
+`C:/dev/wt-undecima`). Lo que no se ve en el diff:
+
+**Crear con IA: lo que el modelo ve y lo que puede devolver**
+
+- ⚠️ **El diagnóstico obvio era el equivocado: las etapas de Entrega SÍ le llegaban al modelo**, y en vivo
+  (`productosConEtapas`). Lo que NO le llegaba eran las clases del CRON que se sumaron después (Instagram, Messenger,
+  Email, Pagos, «se agrega / se quita etiqueta»): `armarContexto` armaba las opciones con `seccionesDisparo`. Y las
+  condiciones no se filtraban por ámbito. El «Onboarding» de ws10 está en dos productos (39 y 10): faltaba una PREGUNTA,
+  no opciones. Regla: el modelo ve lo que arma el desplegable (`opcionesCronIA`, con `eventosParaIA` = `eventosOfrecidos`
+  sin los apagados), y una clase nueva entra sola si está en `CLASES_DISPARADOR` y `eventosDe`. **Vive en:**
+  `lib/disparadores.ts`, `lib/flujo-ia-crear.ts`.
+- **El canal lo perdía el CÓDIGO, no el modelo** («le dije Instagram y lo hizo por WhatsApp», #243). `nodoDe` convertía
+  en WhatsApp todo lo que no fuera email, sin aviso, y `PasoIA.canal` sólo admitía esos dos. Ahora el canal del pedido lo
+  decide `canalDelPedido`: gana la palabra FUERTE por el orden de `PALABRAS_CANAL`, no por la posición en el texto, y
+  «historia» sola NO es Instagram («la historia de mi negocio»). `validarIA` frena WhatsApp al lead en un flujo social, un
+  DM con un CRON de otro canal, un DM bajo «Si responde» y uno después de más de 24 h. Un flujo social va sin «Si responde»
+  ni AI Step, porque el AI Step contesta por WhatsApp (`asistirRespuesta` sin `medio`). **Vive en:** `lib/flujo-ia.ts`.
+- **#243 y #245 los escribió gemini-flash-lite, no Groq.** `pasada` llamaba a la cascada sin `sinRespaldoDeModelo`, y
+  `modelosAProbar` suma los respaldos del MISMO proveedor antes de pasar al siguiente. La pasada y la reparación del JSON
+  van con `sinRespaldoDeModelo: true`, y editar lleva su propio `motivo`.
+- **El CRON de la IA entraba por otra puerta** (`setTriggerSecuencia`, sólo las columnas), y la lista `disparadores` de la
+  0241 quedaba en NULL. Ahora entra por `guardarDisparadores(id, disparadorDeValorIA(valor))`, la de la pantalla. Las
+  columnas no tienen `subtipo`: el evento vive sólo en la lista, y el 409 y editar la leen (ver «El enchufe»).
+- **«Pagó» con un CRON de entrega, y unas «cuotas» que nadie pidió.** Las FILAS escritas a mano del system eran todas de
+  adquisición, `filaDe` nunca llamaba a `seOfrece(def, ámbito)`, y la fila «Pagó» dibuja sola «Cuota [Cualquiera]». Ahora
+  vale sólo lo que da `seccionesDeCondiciones(ámbito, catálogo)` con el catálogo del editor (`catalogosDe`, mudado a
+  `lib/condiciones-catalogos.ts`). El ámbito sale de resolver el CRON PRIMERO: `entrega:` es entrega, y sin CRON vale la
+  intersección. Una condición de lista se elige por NOMBRE EXACTO o se va con aviso, nunca «la más parecida». ⚠️ Un `deIA`
+  sin disparador ahora saca «Agendó» o «Está en la etapa», y sin `catalogoCondicion` no se ofrece «Está en la etapa». Una
+  herramienta que no está en el perfil ni en el pedido («Ya procesamos tu pago en Stripe») es un error para el reintento.
+- ⚠️ **El presupuesto de Groq: el diseño medía mal.** Pedía que `entraEnGroq` siguiera en true con `ctxGrande`, y ya era
+  false en HEAD (~3.793 > 3.700). Ahí manda el techo de la cascada: prompt + 3.000 ≤ 7.000. Para pagar lo nuevo se sacaron
+  las filas del system, el bloque «ETAPAS» (repetía DISPARADORES) y las etiquetas ya listadas: quedan 47 tokens de aire.
+  **Quien sume algo al prompt de crear lo paga** (`tests/crear-ia-tercera.test.ts`). En editar, el bloque DISPARADORES
+  entero pesa ~862 tokens y deja a Groq afuera (~4.293): va sólo si el pedido habla del CRON (`RX_PIDE_CRON`; «cuando»
+  suelto no alcanza). Y `bloqueDisparadores` ya no corta en 80 sin decirlo: las opciones nuevas iban al final, y eran
+  justo las que se perdían.
+
+**Editar: cambiar, quitar y volver a poner**
+
+- **«Esa tarjeta no puede abrir otro camino a la vez»: editar sólo AGREGABA.** El system decía «NUNCA cambias ni
+  borras», y «cambia WhatsApp por Instagram» colgó en paralelo una COPIA por WhatsApp (#245). Ahora el orden es quitar
+  (`borrarNodo`, el del lienzo), cambiar (conserva el id), el canal POR CÓDIGO (`cambioDeCanal`) y agregar. Una copia de
+  un mensaje que ya existe (misma huella) no se agrega en un cambio de canal. **Vive en:** `lib/flujo-ia.ts`
+  (`deIAEdicion`).
+- ⚠️ **Volver a pasar una tarjeta GUARDADA por `nodoDe` la rompe**, y era lo obvio. `aIA` recorta a 300 con «…»,
+  `limpiarTexto` borra las URL (el link de agenda) y un monto que puso una persona sale como «inventado». El parche es por
+  CLASE: lo que no nombra queda como estaba. Un cambio que deja la tarjeta incompleta la deja como estaba, con aviso.
+- **La revisión de editar descuenta lo que ya estaba mal** en esas tarjetas (un link o un voseo de la persona): si
+  frenara, el reintento no podría arreglarlo nunca. La excepción es «un mensaje al lead va por WhatsApp» en un flujo
+  social. En editar, «un DM sólo con un CRON de su canal» no es un error: es la pregunta «¿Cambio qué la dispara?», y la
+  respuesta se guarda por `action:'disparadores'`, fuera del borrador.
+
+**Las preguntas y el chat de MaKo**
+
+- **MaKo pregunta SÓLO canal, evento o producto** (`preguntaAntes`, `lib/flujo-ia-preguntas.ts`), y la respuesta la
+  impone el CÓDIGO (`aplicarRespuestas`), nunca el modelo. WhatsApp cuenta siempre como conectado. El producto filtra los
+  kanbans de los otros productos: así `entregaNombrada` encuentra un solo «Onboarding» (el test lo ejecuta con el ws10
+  medido). El CRON forzado entra ANTES de `deIA`: pisarlo al final no alcanza, porque el ámbito de las condiciones y el
+  canal de los DM ya se resolvieron con el del modelo.
+- ⚠️ **`cambiarSettingSi` con un valor largo no llega a la base** (medido). Compara con `.eq('value', esperado)` y
+  PostgREST pone ese filtro en la URL: con 6 KB da 200, con 8 a 12 KB «fetch failed», con 16 a 32 KB 400 y con 64 KB 414.
+  El chat habría dejado de guardarse desde ~30 mensajes, sin un error. «Es el compare-and-set de la casa» vale para
+  valores CORTOS: el chat compara `updated_at` ([hallazgos-infra.md](hallazgos-infra.md)). **Vive en:** `lib/settings.ts`,
+  `lib/automatizacion-chat-db.ts`.
+- **Cada turno re-POSTea el pedido ORIGINAL con las respuestas acumuladas.** La ronda abierta se reconstruye del chat
+  guardado (`rondaAbierta`, `lib/flujo-ia-cliente.ts`), y un mensaje de MaKo sin pregunta, o una pregunta con `cambios`,
+  la CIERRA. Editar manda el historial de ANTES del turno: `respuestaDelCron` («Elige tú» = la primera opción) y
+  `turnoDelUsuario` lo leen del body, no del chat guardado. Con el turno al final, el turno no se guardaba.
+- **El chat de editar se cerraba por código** (`alListoIA` terminaba con `setEditandoIA(false)`): el resumen, los avisos
+  y la pregunta del CRON no se veían nunca. Y `escribirSec` borra `mako=1`, o se pegaba a la automatización siguiente.
+
+**Instagram y Messenger**
+
+- **Dos verdades de «Instagram conectado».** El CRON medía la PÁGINA de Facebook (Graph); la tarjeta, Probar y Publicar
+  miden Zernio, que es por donde llegan los eventos. Queda una, `estadoMedios` (`lib/disparadores-canales.ts`), y el CRON
+  abre el mismo `ConectarMedio`. Los ws 1, 9 y 15 (página sin Zernio) ven «Sin conectar», que es lo cierto. ⚠️
+  `estadoMedios` traga el `ZernioError` y da `conectado: null`. Con Zernio, ese «no pude» es casi siempre una key mala o
+  una cuenta pausada: por eso el CRON ofrece «Conectar» también con null.
+- **El 402 de Zernio se perdía en el `catch` de la RUTA** (`app/api/zernio/route.ts`). El encargo citaba la línea 256 de
+  una ruta de 60 líneas: era `asegurarWebhook`, en `lib/zernio.ts`. Ahora un 401 da `motivo:'key'` y un 402 da `pausada`
+  con `billingUrl`. Pero un 401 o un 402 con la key de la PLATAFORMA es de MaKo: ese link de pago no se le muestra a un
+  cliente (`usaCuentaPropia`), y un link de un tercero que va a un `href` se valida https.
+- **El webhook de Zernio sólo se registraba al abrir el modal** (el POST `estado`): ws10, 11 y 13 tenían
+  `webhook_ok=false` y 0 eventos. Ahora lo aseguran Publicar y Activar (`asegurarAvisosSociales`, 8 s), sólo con
+  Instagram o Messenger usados y conectados, y una falla no frena. Ojo: `validarActivacion` corre también cuando MaKo
+  PROPONE activar.
+- **Publicar y Activar no miraban el CRON:** un CRON de Instagram con tarjetas de WhatsApp se activaba sin Instagram.
+  `mediosQueUsa` y `usosDeMedios` reciben los `disparadores` guardados en la fila, porque el CRON no viaja en el body.
+- **«Te sigue» sólo se sabe de quien ya ESCRIBIÓ por DM** (regla de Meta). Un 200 de Zernio no es «sé»: trae
+  `isFollower: null` y un `unavailableReason`, y `error` es una falla de Meta DENTRO de un 200. Los 400, 403, 404, 410 y
+  422 son «no sé» y no tiran: si tiraran, la inscripción se trabaría para siempre. Tiran la red, el timeout, 408, 409,
+  425, 429 y 5xx. «Se le puede escribir» y el envío eligen la conversación con la MISMA función pura
+  (`conversacionQueCuenta`, `lib/canal-social.ts`). **Vive en:** `lib/canal-zernio.ts`, `lib/zernio.ts`.
+- **Un guard que barre literales no ve las variables:** el `createLead({ origen_lead: e.canal })` de Zernio dejaba a esos
+  leads «Sin origen», y `tests/crm-origen-lead.test.ts` no lo veía. La ficha (`app/crm/lead-view/OrigenCard.tsx`) no
+  tenía su renglón hasta la cosecha.
+- **El filtro de canales de la lista:** `expandirPasoIA(pasos)` expande sólo los AI Step de WhatsApp. Quien cuente lo
+  que manda un AI Step le pasa SU medio, y las opciones salen de `MEDIOS` (`lib/chatbot-lista-filtro.ts`).
+
+**La pantalla**
+
+- **El ✦ «no hace nada» con una tarjeta abierta:** el clic alternaba `editandoIA` con la barra en `display: none`.
+  `abrirMako()` cierra la tarjeta con `foco` en `id: null` (no hace falta otra prop) y abre el chat. Y «está más grande
+  que el de al lado» era falso al medir (44 y 44): pesaba el bloque negro junto a tarjetas claras. Ahora usa la cara de
+  `tarjetaChrome`.
+- **El aviso de Probar existía y no se veía**, y lo obvio era «falta el aviso». El primer POST tarda ~14 s, el toast dura
+  3,2 s, el gate de la prueba lo mataba al tocar ↻ o cerrar, y vivía dentro de la capa de Probar:
+  [hallazgos-ui.md](hallazgos-ui.md) → «un fixed atrapado». Un aviso de algo que YA pasó no se ata a la vida del panel que
+  lo pidió.
+- **El QR salta solo al crear una tarjeta que lo necesita** (`medioAConectarAlCrear`, `lib/medios-automatizacion.ts`),
+  colgado de `chipDeTarjeta().frena` y nunca de «no está conectado», que incluye el «no sé». ⚠️ `useEstadoMedios`
+  devuelve `undefined` MIENTRAS lee, y la primera tarjeta de WhatsApp cambia la consulta: el efecto espera
+  `medios !== undefined`, porque el handler del ＋ todavía no lo sabe.
+- **Sin la puerta del QR, la tab abre más rápido:** el spinner esperaba tres GET en fila, y ahora sólo la lista.
+
+**El enchufe (lo que ningún paquete conectaba)**
+
+- **Editar no sabía qué CRON tenía la automatización:** la ruta no ponía `ctx.disparadorActual`, así que «cambia WhatsApp
+  por Instagram» preguntaba «¿Cambio qué la dispara?» aunque ya fuera de Instagram, y las condiciones valían con
+  cualquier ámbito. ⚠️ El arreglo obvio (armarlo desde las columnas con `valorDisparo`) era el equivocado: da
+  `trigger:instagram`, que no es ninguna opción del CRON de la IA (`instagram:dm`), y `userDeEditar` no encuentra el
+  CRON ACTUAL. El evento vive sólo en la LISTA (mig 0241). Ahora: `disparadoresDeSecuencia` (la lectura de Publicar) y
+  `valorIADeDisparador` (`lib/disparadores.ts`), el inverso EJECUTADO de `disparadorDeValorIA`. Lo usa también el 409
+  de crear. **Regla:** el valor que la IA ve y el que se lee de un CRON guardado salen de las dos funciones de ida y
+  vuelta, nunca de las columnas.
+- **Publicar escribía `aviso` y la pantalla no lo leía** («Los avisos de Instagram no se activaron»): ahora va después
+  de «Publicado ✓» (`SecuenciaPerfil.tsx`, `publicar`).
+- **Las etapas de «Está en la etapa» tenían dos armados:** el lienzo (`etapasCond`) y lo que ve la IA
+  (`etapasDeCondicion`). El lienzo usa ahora la función, y el test la ejecuta.
+- La tarjeta CRON se siembra con `disparadorDeValorIA` (`sembrarPrimero` recibe el `Disparador` entero). Hoy esa rama
+  de `alListoIA` no se alcanza (crear vive en la galería, que recarga la lista), pero ya no miente si vuelve.
+
+**Herramientas**
+
+- Probar rompiendo se hace en un ESPEJO (copia de `lib/`, `app/` y `tests/` con `node_modules` enlazado), y así las
+  otras sesiones del worktree nunca ven un archivo roto. Un arnés que busca texto con `\n` en un archivo CRLF dice «no
+  encontré».
+- `typecheck-lock.mjs` «corre igual» después de 5 minutos sin RAM: con siete paquetes en paralelo, eso es la caída del
+  11/10.
+- `ResultadoEdicion` (`Omit<…> & { disparador?: … }`) ya no cumple `R extends ResultadoIA`: `generar` y `pasada` pasaron
+  a `<R extends { avisos: string[] }>`.
+- **Un guard que se queda vacío no falla:** `indexOf('await setTriggerSecuencia(')` daba -1 y `ok > -1` pasaba siempre
+  (`tests/flujo-ia-arreglos.test.ts`). Al renombrar una puerta, se grepean los tests que la buscan por nombre.
+
+**SIN HACER (con su archivo):**
+- `app/automations/SecuenciaPerfil.tsx`: lo que crea la IA (`alListoIA`) no hace saltar el QR.
+- `lib/disparadores-guardar.ts`: cambiar el CRON de una automatización YA ACTIVA no pasa por el freno del medio, y la API
+  de MaKo y la IA no tienen otro.
+- `lib/disparadores-canales.ts` (`estadoMedios`): un 401 o un 402 de la key propia queda «Sin comprobar» y no frena. Y
+  `EstadoCanal` (`lib/disparadores.ts`) no trae un código: con «sin Zernio», el primer clic abre y cierra la ventana
+  emergente antes de mostrar el campo de la key.
+- `app/automations/ConectarMedio.tsx` (`guardarKeyZernio`) guarda la key sin verificarla: el `verificar` de Zernio dice
+  «respondió 402» de una cuenta pausada.
+- `lib/flujo-ia.ts`:
+  - un pedido explícito del CRON en un negocio grande deja a Groq afuera (`userDeEditar`);
+  - `cambioDeCanal` es una heurística (`RX_CAMBIO_CANAL`);
+  - no se puede sacar una rama, ni cambiar los casos de un «Si responde» o los escenarios de un AI Step;
+  - «Avance del curso» se saca (`filaDelCatalogo`).
+- `lib/flujo-ia-preguntas.ts`: «mándale un DM» no pregunta el evento (a propósito), y dos embudos con producto que
+  comparten «Nuevo» preguntan el producto.
+- `app/automations/ChatMako.tsx` y `SimuladorWhatsApp.tsx` (`makoPara`):
+  - el mensaje de MaKo del `listo` no comparte id con el guardado;
+  - una automatización en blanco no tiene chat;
+  - `?sec=X&mako=1` dos veces sobre la misma no lo reabre.
+- `app/automations/ChatAgentApp.tsx` (`vioVacio`): la reapertura del recorrido puede pisarse con el chat que se abre al
+  crear. Y el aviso de Probar sigue en 3,2 s (`app/_ui/Toast.tsx`).
+- `lib/canal-zernio.ts`: «Te sigue» se consulta en vivo, una llamada por lead (de a 4, con 8 s de tope). Con cientos de
+  leads parados, la alternativa es la mig 0258 (decisión 5). No se midió en prod: no hay ningún DM real.
+- Antes del push: medir `ZERNIO_API_KEY` y `ZERNIO_WEBHOOK_SECRET` en Vercel prod. Lo visual lo mira Martín.
+
+_12/10/2026 — cierre de la duodécima: typecheck sin errores de la tanda (quedan 2 de `lib/editor-landing`: `html-to-image` y `pptxgenjs` están en package.json pero no en el `node_modules` enlazado del clon). Suite entera, 8413 tests: 8409 pasan, 3 fallan y 1 se salta. Los 3 son los de antes, ya en HEAD y de otras áreas (`confirm-encima-de-modales`, `mover-etapa-validacion`, `plan-filtro-cliente`). La primera corrida dio 7 rojos: 3 eran cruces entre paquetes de la tanda (la ficha del origen, la puerta del CRON en `cron-varias-etapas` y el ＋ en `nutricion-paso-accion`) y 1 venía de `dbe5d1ec` (la quinta familia de la barra no llegó a `lib/plan-proyectos-catalogo.ts`). Los 4 quedaron arreglados._
+
+_12/10/2026 — enchufe del cierre (el CRON que se edita, el 409, el aviso de Publicar, la siembra del CRON, las etapas de la condición): typecheck con los mismos 2 de entorno; suite entera 8418 tests, 8413 pasan, 4 fallan y 1 se salta. Los 3 de antes más `ads-video-procesando` (un tiempo bajo carga: solo da 10 / 0). Roturas en un espejo: 9 de 9 cazadas (`tests/automations-duodecima-enchufes.test.ts`, al pie)._
+
+_12/10/2026 — cierre final de la duodécima: typecheck entero en 0 errores (los 2 de `lib/editor-landing` se fueron: otra sesión instaló `html-to-image` y `pptxgenjs` en el `node_modules` compartido). Suite entera, 8418 tests: 8414 pasan, 3 fallan y 1 se salta. Los 3 son de HEAD y de otras áreas, y la tanda no toca ningún archivo que lean: `confirm-encima-de-modales` (ya arreglado en origin/main, `DesvioMovil.tsx`), `mover-etapa-validacion` y `plan-filtro-cliente` (los dos siguen rojos en origin/main `2a9b0777`: ni el test ni lo que leen cambiaron). `ads-video-procesando` pasó: lo del enchufe era carga._

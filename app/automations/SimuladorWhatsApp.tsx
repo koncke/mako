@@ -54,10 +54,17 @@
 //   · Punto 5, textual: «Quiero que en los 3 puntos exista la opción de renombrar.» → `opcionesDeFila` la trae
 //     segunda; se edita EN la fila (Enter o salir guardan, Escape cancela, sin cambio no escribe), optimista y con
 //     vuelta atrás, por la puerta de siempre (`action: 'nombre'`, que contesta 404 si no tocó ninguna fila).
+//
+// ── DUODÉCIMA TANDA (12/10/2026): SE MONTA TAMBIÉN VACÍA, Y EL AVISO DE PROBAR ES DE ACÁ ──
+//   · Con cero automatizaciones la tab ya no dibuja un cartel: monta esto, con la lista («＋ Nueva automatización»,
+//     el menú) y la cuadrícula vacía. «Ninguna coincide» sale sólo con un filtro o una búsqueda.
+//   · «Enviado · revisa tu WhatsApp» lo pide PanelProbar (`onEnviado`) y el <Toast> vive en la raíz, fuera de la capa
+//     de Probar: ver `avisoEnviado`.
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Dropdown } from '../components/Dropdown';
 import { Confirm } from '@/app/_ui/Confirm';
+import { Toast, useToast } from '@/app/_ui/Toast';
 import type { NombreIconoMenu } from '@/app/_ui/iconos-menu';
 import { SecuenciaPerfil, type EdicionLocal } from './SecuenciaPerfil';
 import { PanelProbar, type CanalProbar } from './PanelProbar';
@@ -251,14 +258,19 @@ const CSS_LISTA = `
 
 /** La caja del lienzo: de borde a borde, estirando con flex (la del recordatorio, la automatización o un mensaje). */
 const ESTILO_LIENZO: CSSProperties = { flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column' };
+/** La cuadrícula de puntos del lienzo sin tarjetas: la del «Creando…» y la de la lista vacía (duodécima tanda). */
+const CUADRICULA: CSSProperties = { backgroundImage: 'radial-gradient(var(--border) 1px, transparent 1px)', backgroundSize: '22px 22px' };
 // (Acá iba `ROTULO_GRUPO`, el estilo de los rótulos «Chatbot» y «MaKo en WhatsApp». Se fue con ellos: punto 9.)
 
 /**
  * Un pedido de abrir el LIENZO de una automatización desde afuera (el link del aviso,
  * `/automations?sec=<id>`). Es un objeto y no un número a propósito: cada pedido es uno NUEVO, así
  * que el mismo id dos veces seguidas (dos avisos de la misma secuencia) vuelve a abrirla.
+ *
+ * `mako: true` (duodécima tanda, §3.6): abre con el CHAT DE MaKo abierto — la recién creada con «Pídeselo a MaKo» y el
+ * link `?sec=<id>&mako=1`. Llega al lienzo como `makoAlAbrir`.
  */
-export type AbrirSecuencia = { id: number };
+export type AbrirSecuencia = { id: number; mako?: true };
 // (Acá vivía `AbrirAviso`, el pedido de abrir un Mensaje de MaKo desde el link de Notificaciones,
 // `/automations?aviso=<id>`. Se fue el 11/10/2026 con esos mensajes: un mensaje de MaKo se abre con `?sec=`.)
 
@@ -353,6 +365,14 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
   }, [selId, onElegida]);
   /** El panel de «Probar» abierto, y de qué canal. El lienzo NO se desmonta: se prueba lo que se edita. */
   const [probando, setProbando] = useState<CanalProbar | null>(null);
+  /** La que se pidió abrir con el chat de MaKo abierto (`abrir.mako`, duodécima tanda §3.6): su lienzo lo abre. */
+  const [makoPara, setMakoPara] = useState<number | null>(null);
+  /**
+   * EL AVISO DE QUE LA PRUEBA DE VERDAD SALIÓ («Enviado · revisa tu WhatsApp»), duodécima tanda, §2.8. Lo pide
+   * PanelProbar (`onEnviado`) y se dibuja ACÁ, en la raíz y fuera de la capa de «Probar» (z 3): vivía adentro del
+   * panel, debajo de la barra de MaKo y de Publicar, y se iba al cerrar Probar durante los ~14 s del primer envío.
+   */
+  const { toast: avisoEnviado, show: mostrarAviso, clear: cerrarAviso } = useToast();
   /** Lo que el lienzo tiene sin publicar (`onCambioLocal`): es lo que prueba el panel. */
   const [edicion, setEdicion] = useState<EdicionLocal | null>(null);
   const sel = typeof selId === 'number' ? secuencias.find((j) => j.id === selId) : undefined;
@@ -386,6 +406,8 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
    */
   const cambiarA = (id: number) => {
     setSelId(id); setProbando(null); setEdicion(null);
+    // El chat abierto al entrar es de la que se pidió abrir así: elegir otra lo olvida (el pedido lo vuelve a poner).
+    setMakoPara(null);
     // Desde acá la URL dice la elegida (`onElegida`, décima tanda): una elección de verdad, no la primera de la lista.
     eligio.current = true;
     // Abrir la fila que se está creando recuerda de dónde se vino (si el server falla, se vuelve).
@@ -622,6 +644,8 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
   if (abrir && abrir !== abrirVisto && secuencias.some((j) => j.id === abrir.id)) {
     setAbrirVisto(abrir);
     elegir(abrir.id);
+    // Con `mako: true`, ESA abre con el chat de MaKo abierto (va DESPUÉS de elegir: `cambiarA` lo limpia).
+    setMakoPara(abrir.mako ? abrir.id : null);
   }
 
   // `editorAbierto: true`: lo que se reparte es el muelle que el editor ocupa CUANDO se abre (el
@@ -683,17 +707,18 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
           `MensajeMakoLienzo`). */}
       <div style={ESTILO_LIENZO}>
         {!sel ? (
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--faint)', fontSize: 14 }}>
-            Elige una automatización
-          </div>
+          /* SIN NINGUNA AUTOMATIZACIÓN, LA CUADRÍCULA VACÍA (duodécima tanda, decisión 11). Era «Elige una
+             automatización» sobre un fondo liso, y antes la tab ni llegaba acá (el cartel «Todavía no hay
+             automatizaciones»). Martín: «vos entrás en la tab por primera vez y tenés que ver el lienzo». Es la
+             misma cuadrícula del «Creando…» de abajo, sin texto: la lista de al lado ya dice «＋ Nueva». */
+          <div data-lienzo-vacio style={{ flex: 1, minHeight: 0, ...CUADRICULA }} />
         ) : creandoSel ? (
           /* «NUEVA» AL INSTANTE (decisión 7): el lienzo ya está abierto, con su cuadrícula, y lo
              que tarda —el server creando la fila— se ve ACÁ adentro. El lienzo de verdad se monta
              cuando la fila tiene su id real (no hay a dónde guardar antes). */
           <div aria-busy="true" style={{
             flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-            paddingLeft: m.insets.izq, color: 'var(--dim)', fontSize: 13.5,
-            backgroundImage: 'radial-gradient(var(--border) 1px, transparent 1px)', backgroundSize: '22px 22px',
+            paddingLeft: m.insets.izq, color: 'var(--dim)', fontSize: 13.5, ...CUADRICULA,
           }}>
             <span className="mk-spin" style={{ width: 18, height: 18 }} aria-hidden />
             Creando…
@@ -729,6 +754,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
             probarAbierto={probarVisible} onCerrarProbar={() => setProbando(null)}
             onCambioLocal={recibirEdicion}
             onAccionTodo={rolAdmin ? (a) => void accionFila(sel, a) : undefined}
+            makoAlAbrir={makoPara === sel.id}
             onCambio={onReload} />
         )}
       </div>
@@ -774,7 +800,9 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
             </button>
           )}
           {rolAdmin && errorNueva && <div role="alert" style={{ padding: '0 12px 8px', fontSize: 12.5, color: 'var(--bad)' }}>{errorNueva}</div>}
-          {lista.length === 0 && <div style={{ padding: 16, color: 'var(--faint)', fontSize: 13 }}>Ninguna coincide</div>}
+          {/* Sólo con algo que filtre: con la lista VACÍA de verdad (un negocio nuevo, duodécima tanda) no hay nada
+              que «no coincida», y «＋ Nueva automatización» de arriba ya dice qué hacer. */}
+          {lista.length === 0 && (q !== '' || filtros.length > 0) && <div style={{ padding: 16, color: 'var(--faint)', fontSize: 13 }}>Ninguna coincide</div>}
           {/* UNA lista, en el orden del server, con la MISMA fila para todas (`filaDeLista`). */}
           {lista.map(filaDeLista)}
         </div>
@@ -795,9 +823,14 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
             secuencia={sel} edicion={edicion} secuencias={secuencias} audios={audios} negocio={negocio} productos={productos}
             rolAdmin={rolAdmin} etiquetaEtapa={etiquetaEtapa} onCerrar={() => setProbando(null)}
             style={{ width: '100%', height: '100%' }}
+            onEnviado={(t) => mostrarAviso(t, undefined, 'good')}
           />
         </div>
       )}
+
+      {/* EL AVISO DE «PROBAR» (duodécima tanda, §2.8): en la raíz y FUERA de la capa de arriba (z 3). Así queda encima
+          de la barra de MaKo (z 4) y de Publicar (57), y sigue aunque Probar se cierre: el mensaje ya salió. */}
+      <Toast state={avisoEnviado} onClose={cerrarAviso} />
 
       {/* Lo no publicado se pregunta ANTES de perderlo (decisión 15). La consecuencia, pegada al
           botón: el texto que se dibuja es corto (AGENTS.md). */}

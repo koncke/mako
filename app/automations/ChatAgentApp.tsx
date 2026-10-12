@@ -18,13 +18,14 @@
 import { Suspense, useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Icon } from '@/app/_components/icons';
-// next/link NO: perdería el ?ws= y mandaría al super admin a SU propio WhatsApp
-// en vez del que está mirando.
-import Link, { useRouter } from '@/app/_ui/Link';
+// El router de la casa y no el de next: conserva el ?ws= (el super admin mirando OTRO negocio). (El link a
+// /whatsapp del aviso rojo se fue en la duodécima tanda: el QR se abre acá mismo.)
+import { useRouter } from '@/app/_ui/Link';
 import { SimuladorWhatsApp, listaConCreando, type AbrirSecuencia, type Creando } from './SimuladorWhatsApp';
 // EL MENÚ ANTES DEL BUSCADOR (undécima tanda, punto 9): «Configuraciones» (el horario de oficina y los límites,
 // en un modal: décima tanda, GENERAL 4) y «Tutorial» (el recorrido), en un desplegable. Reemplaza al botón
-// «Configuraciones» y al «?» del recorrido, en los mismos dos lugares (la lista y el cartel vacío).
+// «Configuraciones» y al «?» del recorrido. Desde la duodécima vive en UN lugar, la lista: el cartel vacío se fue
+// (la lista se dibuja también sin ninguna automatización).
 import { MenuAutomations } from './ConfiguracionesBoton';
 import { GaleriaPlantillas, type CreadaGaleria, type CreadaConIAGaleria } from './GaleriaPlantillas';
 import { leerCopia, firmaDeCopia } from '@/lib/flujo-copia';
@@ -41,17 +42,22 @@ import type { CronAviso } from '@/lib/cron-aviso';
 //     y «Otra cosa» es el hand-off. `resolverHandoff` y su acción en /api/chat-agent/secuencias
 //     se quedan: los usa MaKo (`resolver_handoff`).
 //   · El recordatorio de la reunión es una automatización más (lib/recordatorio-automatizacion.ts).
-// La misma pieza que /whatsapp: el QR, su sondeo y la recuperación de una sesión caída.
-import { EvolutionConnect } from '../whatsapp/EvolutionConnect';
-import { abreEnQR, marcarWhatsappAlCargar, puertaAlRecargar, type OnboardingChatbot } from '@/lib/chatbot-puerta';
+// ⛔ ACÁ SE IMPORTABAN `EvolutionConnect` (el QR que ERA la tab sin línea) y `abreEnQR`/`puertaAlRecargar`. Se fueron
+// el 12/10/2026 (duodécima tanda, §2.12), con Martín, textual: «hoy hay un onboarding dentro de la tab que debería
+// quitarse... vos entrás en la tab por primera vez y tenés que ver el lienzo y tiene que salir el tutorial, y cuando
+// creás un paso que requiera WhatsApp... ahí que salte el QR. Que no haya ninguna fricción». El QR es el modal de
+// cada medio (`ConectarMedio`): lo abren la tarjeta, Probar, Publicar, el CRON y el aviso rojo de abajo.
+import { marcarWhatsappAlCargar, type OnboardingChatbot } from '@/lib/chatbot-puerta';
+import { ConectarMedio } from './ConectarMedio';
 // El recorrido guiado de la tab (décima tanda, GENERAL 8), montado como el de CURSO. Se vuelve a ver con
 // «Tutorial» del menú (`MenuAutomations`).
 import { RecorridoAutomations, useRecorridoAutomations } from './RecorridoAutomations';
+import { PASOS_DEL_LIENZO } from './recorrido-automations';
 
 /** Cuánto se conserva la URL firmada de un audio ya cargado: la firma dura 12 h (lib/setting-audios.ts). */
 const URL_AUDIO_VIGENTE_MS = 10 * 3_600_000;
 
-/** El POST que marca «Tu WhatsApp» en el onboarding de la tab (lo usan el QR y el relleno al cargar). */
+/** El POST que marca «Tu WhatsApp» en el onboarding de la tab (lo usan el aviso rojo al vincular y el relleno al cargar). */
 const marcarPasoWhatsapp = () => fetch('/api/chat-agent/onboarding', {
   method: 'POST', headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({ action: 'paso', paso: 'wa_no_oficial', tab: 'setting' }),
@@ -206,6 +212,9 @@ const btnDark: CSSProperties = { padding: '10px 18px', borderRadius: 11, border:
 // (lib/chat-agent-handoff.ts) dice «súmalo como «Su respuesta trata de…»» con este link, y el wizard
 // de 9 pasos no tiene «Si responde»: es la tarjeta del lienzo. Y el lienzo ES hoy el editor de
 // los mensajes, que es lo que el link de MaKo («Ver los 5 mensajes») prometía.
+//
+// `&mako=1` (duodécima tanda, docs/diseno-duodecima-tanda.md §3.6) la abre con el CHAT DE MaKo abierto: es el link de
+// la que se pidió por WhatsApp. Elegir otra automatización lo saca de la URL (`escribirSec`).
 export function ChatAgentApp() {
   // `useSearchParams` exige un boundary de Suspense, igual que en /whatsapp.
   return (
@@ -257,18 +266,14 @@ function ChatAgentInner() {
    */
   const [galeria, setGaleria] = useState(false);
   /**
-   * El onboarding de esta tab es UNA pregunta: ¿hay un WhatsApp vinculado?
-   *
-   * Eran once pasos y un wizard de 1.800 líneas. Martín (05/10): «esa pestaña ya no
-   * requeriría un onboarding, al menos que no tengas vinculado WhatsApp todavía; lo único
-   * que tiene que salir es el QR». Lo demás encontró su casa en la propia tab —el audio se
-   * graba en cada paso del lienzo, el ensayo es el simulador, aprobar es Publicar— y el
-   * oficial salió del producto (#832).
-   *
-   * `null` = todavía no se sabe: ni el QR ni la tab, porque dibujar una y reemplazarla
-   * medio segundo después es el flash que hace sentir la app rota.
+   * ⛔ LA TAB YA NO TIENE ONBOARDING (duodécima tanda, 12/10/2026). Hasta acá vivía `enOnboarding`: sin una línea
+   * vinculada, la tab ERA el QR (Martín, 05/10: «lo único que tiene que salir es el QR»). En la prueba con Fiesta Music
+   * eso fue lo primero que vio el cliente, y Martín lo dio vuelta: al entrar se ve el lienzo y el recorrido, también
+   * con cero automatizaciones, y el QR salta cuando una tarjeta lo necesita (`medioAConectarAlCrear`, FlujoLienzo).
+   * «¿Ya cargó?» es `secuencias !== null`: mientras tanto, el spinner de «Abriendo Automations…».
    */
-  const [enOnboarding, setEnOnboarding] = useState<boolean | null>(null);
+  /** El modal del QR que abre el aviso rojo de la línea (`ConectarMedio`), sin salir de la tab. */
+  const [conectarWa, setConectarWa] = useState(false);
   // Estado del WhatsApp del negocio. Arranca en 'desconocido' a propósito: hasta
   // que la API conteste, la pantalla no afirma que esta conectado NI que no.
   const [canal, setCanal] = useState<{ estado: string; desde: string | null; desvinculado?: boolean }>({ estado: 'desconocido', desde: null });
@@ -290,15 +295,17 @@ function ChatAgentInner() {
   /** Cuándo se firmó la URL que se está mostrando de cada audio (ver el merge de abajo). */
   const firmaAudio = useRef(new Map<number, number>());
 
+  /** El paso «Tu WhatsApp» ya no hace falta mirarlo en esta visita: está hecho, no es admin, o se acaba de marcar. */
+  const pasoWaResuelto = useRef(false);
   const load = useCallback(async () => {
-    // El estado de la línea, para la puerta del QR (#745): se decide abajo, con el onboarding.
+    // El estado de la línea, para rellenar el paso «Tu WhatsApp» (#745): ver abajo.
     let estadoCanal = 'desconocido';
     let errorCarga: string | null = null;
     try {
       const r = await fetch('/api/chat-agent/secuencias', { cache: 'no-store' });
       const j = await r.json();
-      // ⚠️ SIN `return`: cortar acá dejaba la pantalla en «Abriendo Automations…» para siempre,
-      // porque la puerta se decide más abajo. Con el error puesto, la pantalla lo muestra.
+      // ⚠️ SIN `return`: con el error puesto (y `secuencias` en `[]`), la pantalla sale del
+      // «Abriendo Automations…» y lo muestra. Cortar acá la dejaba girando para siempre.
       if (!j.ok) { errorCarga = j.error || 'No se pudieron cargar las automatizaciones.'; throw new Error(errorCarga ?? ''); }
       const lista = j.secuencias as SecuenciaDto[];
       setSecuencias(lista); setRolAdmin(Boolean(j.rolAdmin));
@@ -340,33 +347,24 @@ function ChatAgentInner() {
         });
       }
     } catch { /* sin audios */ }
-    // ¿La tab arranca en su onboarding? (403 del setter → la ve normal)
-    try {
-      const ro = await fetch('/api/chat-agent/onboarding?tab=setting', { cache: 'no-store' });
-      const jo = await ro.json();
-      // ⚠️ Un 403 (el setter, que no es admin) SÍ ve la tab normal — es su caso
-      // legítimo y por eso el fallback es `false`. Cualquier OTRA falla, no: si
-      // no se pudo saber si el onboarding está completo, mostrar el dashboard es
-      // afirmar que sí lo está. Es la misma regla que el paso del WhatsApp
-      // oficial: «no pudimos preguntarlo» no es «está listo».
-      const onboarding: OnboardingChatbot = jo.ok
-        ? (jo.estado?.status === 'done' ? 'hecho' : 'pendiente')
-        : (ro.status === 403 ? 'sin_permiso' : 'no_se_pudo');
-      // ⚠️ EL ESTADO DE LA LÍNEA GANA AL TILDE (#745). El tilde de «Tu WhatsApp» se
-      // guardaba una vez y nadie lo volvía a comparar: el ws9 lo tiene desde el 05/08 con
-      // cero líneas, y veía el lienzo sin número. La regla vive en lib/chatbot-puerta.ts.
-      // Y una vez a la vista el lienzo, un recargue no lo cambia salvo un 'sin_vincular'.
-      const calculada = abreEnQR({ onboarding, canal: estadoCanal });
-      setEnOnboarding((actual) => puertaAlRecargar({ actual, calculada, canal: estadoCanal }));
-      // La línea ya conectada con el paso pendiente (vinculó por /whatsapp): se marca, o
-      // «Tu forma de escribir» contesta «falta completar Tu WhatsApp» al terminarla.
-      if (marcarWhatsappAlCargar({ onboarding, canal: estadoCanal })) void marcarPasoWhatsapp().catch(() => {});
-    } catch (e) {
-      // Sin red tampoco se afirma que está listo: se muestra el onboarding, que
-      // es reversible (se sigue de largo), en vez del dashboard, que no lo es.
-      // Salvo que el lienzo ya esté a la vista: un corte de red no saca a nadie de una edición.
-      console.error('[chatbot] no se pudo leer el estado del onboarding:', e);
-      setEnOnboarding((actual) => puertaAlRecargar({ actual, calculada: true, canal: estadoCanal }));
+    // EL ONBOARDING YA NO DECIDE NADA DE ESTA PANTALLA (duodécima tanda): se lee SÓLO para rellenar el paso «Tu
+    // WhatsApp» del onboarding global, que todavía lo leen lo que MaKo sabe del negocio y el orden de «Tu forma de
+    // escribir». La línea ya conectada con el paso pendiente (vinculó por /whatsapp o desde una tarjeta) se marca, o
+    // «Tu forma de escribir» contesta «falta completar Tu WhatsApp» al terminarla. Va DESPUÉS de dibujar la lista:
+    // nada espera esta lectura. Y una vez resuelto no se vuelve a preguntar en cada recargue.
+    if (!pasoWaResuelto.current) {
+      try {
+        const ro = await fetch('/api/chat-agent/onboarding?tab=setting', { cache: 'no-store' });
+        const jo = await ro.json();
+        const onboarding: OnboardingChatbot = jo.ok
+          ? (jo.estado?.status === 'done' ? 'hecho' : 'pendiente')
+          : (ro.status === 403 ? 'sin_permiso' : 'no_se_pudo');
+        if (onboarding === 'hecho' || onboarding === 'sin_permiso') pasoWaResuelto.current = true;
+        if (marcarWhatsappAlCargar({ onboarding, canal: estadoCanal })) {
+          pasoWaResuelto.current = true;
+          void marcarPasoWhatsapp().catch(() => {});
+        }
+      } catch { /* sin red: no se marca nada; se vuelve a mirar en el próximo recargue */ }
     }
   }, []);
   useEffect(() => { void load(); }, [load]);
@@ -417,11 +415,13 @@ function ChatAgentInner() {
    * guardar, lib/flujo-ia-crear.ts). Se cierra el modal, se trae la lista y se abre; el aviso que más importa («Elige
    * qué la dispara en el CRON») queda pegado al botón, como el de una plantilla.
    */
+  // ⚠️ SE ABRE CON EL CHAT DE MaKo ABIERTO (duodécima tanda, §2.5 y §3.6, `mako: true`): ahí está lo que se le pidió
+  // y lo que contestó, y el próximo cambio se pide en el mismo hilo.
   const alCrearConIA = async (r: CreadaConIAGaleria) => {
     setGaleria(false);
     setErrCrear(resumenAvisos(r.avisos)?.texto ?? null);
     await load();
-    setAbrirSec({ id: r.secuenciaId });
+    setAbrirSec({ id: r.secuenciaId, mako: true });
   };
   /**
    * CREAR DESDE LO COPIADO (copiar flujo, 10/10/2026): el aviso al entrar a la tab y «Pegar lo copiado» del
@@ -479,11 +479,32 @@ function ChatAgentInner() {
   const visibles = secuencias === null ? null : listaConCreando(secuencias, creando);
   /**
    * EL RECORRIDO DE LA TAB (décima tanda, GENERAL 8: «tal como lo tenemos en el tutorial de "CURSO"»),
-   * ./RecorridoAutomations.tsx. Se abre solo, a quien arma (un admin, como el de CURSO), la primera vez que ve la
-   * lista con su lienzo: nunca con el cartel vacío, con la galería encima ni mientras se crea una. El «?» es de
-   * todos. Va antes de los `return` de abajo (AGENTS.md: ningún hook detrás de un return).
+   * ./RecorridoAutomations.tsx. Se abre solo, a quien arma (un admin, como el de CURSO), la primera vez que entra:
+   * apenas cargó, sin error, sin la galería encima y sin una creándose. Va antes de los `return` de abajo (AGENTS.md:
+   * ningún hook detrás de un return).
+   *
+   * ⚠️ TAMBIÉN CON CERO AUTOMATIZACIONES (duodécima tanda, decisión 11, revierte la de la décima). Martín: «vos entrás
+   * en la tab por primera vez y tenés que ver el lienzo y tiene que salir el tutorial». La décima lo esperaba a la
+   * pantalla llena porque, abierto en el cartel vacío, quedaba VISTO con tres pasos y el del lienzo no salía nunca.
+   * Eso lo resuelve `vioVacio` (abajo): si en la MISMA visita aparece el primer lienzo, se reabre UNA vez desde el CRON.
    */
-  const recorrido = useRecorridoAutomations(rolAdmin && enOnboarding === false && visibles !== null && visibles.length > 0 && creando === null && !galeria);
+  const recorrido = useRecorridoAutomations(rolAdmin && visibles !== null && !error && creando === null && !galeria);
+  /** Se mostró el recorrido con la lista vacía en esta visita: el primer lienzo lo reabre con lo que faltó. */
+  const vioVacio = useRef(false);
+  /** El recorrido muestra sólo los pasos del lienzo (desde el CRON): la reapertura de `vioVacio`. */
+  const [soloLienzo, setSoloLienzo] = useState(false);
+  const vacia = visibles !== null && visibles.length === 0;
+  const conLienzo = visibles !== null && visibles.length > 0 && creando === null && !galeria;
+  useEffect(() => {
+    if (recorrido.abierto && vacia) vioVacio.current = true;
+  }, [recorrido.abierto, vacia]);
+  const { abierto: recorridoAbierto, reabrir: reabrirRecorrido } = recorrido;
+  useEffect(() => {
+    if (!vioVacio.current || !conLienzo || recorridoAbierto) return;
+    vioVacio.current = false;
+    setSoloLienzo(true);
+    reabrirRecorrido();
+  }, [conLienzo, recorridoAbierto, reabrirRecorrido]);
 
   // ── El ancla del deep link ────────────────────────────────────────────────
   // Se aplica UNA sola vez. Sin el ref, cada render volvería a forzar la sub-tab
@@ -502,6 +523,8 @@ function ChatAgentInner() {
     const q = new URLSearchParams(params.toString());
     if (q.get('sec') === String(id)) return;
     q.set('sec', String(id));
+    // `mako=1` es del link que ABRE (§3.6): pegado a otra automatización, el ancla le abriría el chat a ésa.
+    q.delete('mako');
     router.replace(`/automations?${q.toString()}`, { scroll: false });
   }, [params, router]);
   const anclaAplicada = useRef(false);
@@ -533,8 +556,10 @@ function ChatAgentInner() {
     const hallada = Number.isInteger(n) && n > 0
       ? secuencias.find((s) => s.id === n)
       : secuencias.find((s) => s.clave === sec);
-    // Un objeto NUEVO por pedido: el mismo id en un segundo aviso vuelve a abrirla.
-    if (hallada) setAbrirSec({ id: hallada.id });
+    // Un objeto NUEVO por pedido: el mismo id en un segundo aviso vuelve a abrirla. Con `&mako=1` (duodécima tanda,
+    // §3.6; es también el link que arma la API de MaKo) abre con el chat de MaKo abierto.
+    const conMako = params.get('mako') === '1';
+    if (hallada) setAbrirSec(conMako ? { id: hallada.id, mako: true } : { id: hallada.id });
     anclaAplicada.current = true;
   }, [params, secuencias]);
 
@@ -547,14 +572,14 @@ function ChatAgentInner() {
     [etapas],
   );
 
-  // Mientras no sabemos si va el onboarding o la tab, NO se pinta ninguna de
-  // las dos: mostrar la tab y reemplazarla medio segundo después por el wizard
-  // es un flash que hace sentir la app rota.
+  // Mientras no cargó la lista, NO se pinta la tab: dibujarla vacía y llenarla medio segundo
+  // después es un flash que hace sentir la app rota. «¿Ya cargó?» es `secuencias !== null` (un
+  // error también la deja en `[]`, y la pantalla lo dice).
   // OJO con `height: '100vh'` en este main: es hijo de una columna flex, y
   // `flex: 1` implica `flex-basis: 0%`, que ANULA el height. El main colapsa a
   // la altura del spinner y el `alignItems: center` no tiene nada que centrar →
   // loader diminuto pegado al techo. Va `minHeight`, que sí manda.
-  if (enOnboarding === null) {
+  if (secuencias === null) {
     return (
       <main style={{ flex: 1, minWidth: 0, minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14 }}>
         <style>{'@keyframes mako-spin{to{transform:rotate(360deg)}}'}</style>
@@ -564,36 +589,9 @@ function ChatAgentInner() {
     );
   }
 
-  // Sin línea vinculada, la tab ES el QR: ocupa la pantalla en vez de abrir un pop-up sobre
-  // un lienzo que todavía no puede mandar nada. `EvolutionConnect` es la misma pieza que usa
-  // /whatsapp —ahí viven el sondeo, el QR y la recuperación de una sesión caída— y en modo
-  // `inline` se dibuja sola y desaparece en cuanto engancha.
-  //
-  // (Hasta el 11/10/2026 el link `?aviso=<id>` de Notificaciones pasaba por encima del QR: era el único lugar
-  // donde se editaba un Mensaje de MaKo. Esos mensajes son hoy automatizaciones de esta lista, y el link se fue.)
-  if (enOnboarding) {
-    return (
-      <main style={{ flex: 1, minWidth: 0, minHeight: '100vh', display: 'flex', flexDirection: 'column', padding: '30px 36px 24px', gap: 16 }}>
-        <div>
-          <h1 style={{ fontWeight: 600, fontSize: 34, letterSpacing: '-0.025em', margin: 0, color: 'var(--ink)' }}>Automations</h1>
-          <p style={{ fontSize: 14, color: 'var(--dim)', margin: '6px 0 0' }}>Vincula tu WhatsApp para armar tus automatizaciones.</p>
-        </div>
-        <EvolutionConnect inline onEstado={(e) => {
-          if (e !== 'conectado') return;
-          // El canal se da por conectado EN EL ACTO: si no, el lienzo abría con el aviso rojo
-          // de «todavía no vinculaste tu WhatsApp» hasta que volviera el `load()`.
-          setCanal({ estado: 'conectado', desde: null });
-          setEnOnboarding(false);
-          // Vincular desde ACÁ también marca el paso (#745): antes sólo cambiaba el estado
-          // local, y lo demás que lee el tilde (lo que MaKo sabe del negocio, «¿está listo?»)
-          // seguía diciendo «falta Tu WhatsApp» sobre un número conectado. En paralelo con el
-          // recargue: si falla, el lienzo abre igual (la puerta mira la línea, no el tilde).
-          void marcarPasoWhatsapp().catch(() => {});
-          void load();
-        }} />
-      </main>
-    );
-  }
+  // ⛔ ACÁ IBA LA PUERTA DEL QR (`if (enOnboarding) {…<EvolutionConnect inline>…}`): sin línea vinculada, la tab
+  // ERA el QR. Se fue el 12/10/2026 (duodécima tanda, §2.12): al entrar se ve el lienzo y el recorrido, y el QR
+  // salta cuando una tarjeta lo necesita, o desde el aviso rojo de la línea (`ConectarMedio`, abajo).
 
   /** Prende el envío real de WhatsApp (#328). Lo valida el server: exige un número conectado. */
   async function prenderEnvio() {
@@ -687,8 +685,21 @@ function ChatAgentInner() {
               )
             )}
           </div>
-          <Link href="/whatsapp" style={{ ...btnDark, textDecoration: 'none', whiteSpace: 'nowrap' }}>Volver a conectarlo</Link>
+          {/* EL QR AHÍ MISMO (duodécima tanda, §2.12): era un link a /whatsapp, que sacaba de la tab. Es el MISMO
+              modal que el chip «Sin conectar» de la tarjeta (`ConectarMedio`): la línea por default, que se reconecta
+              si se cayó. Al quedar conectada, el aviso se va sin esperar al recargue, y se marca el paso (#745). */}
+          <button type="button" onClick={() => setConectarWa(true)} style={{ ...btnDark, whiteSpace: 'nowrap' }}>
+            {canal.estado === 'sin_vincular' ? 'Vincular WhatsApp' : 'Volver a conectarlo'}
+          </button>
         </div>
+      )}
+      {conectarWa && (
+        <ConectarMedio medio="whatsapp" onCerrar={() => setConectarWa(false)} onConectado={() => {
+          setConectarWa(false);
+          setCanal({ estado: 'conectado', desde: null });
+          void marcarPasoWhatsapp().catch(() => {});
+          void load();
+        }} />
       )}
 
       {/* EL ENVÍO APAGADO CON LAS SECUENCIAS EN VERDE (#328). Es un interruptor aparte de
@@ -716,28 +727,15 @@ function ChatAgentInner() {
         <div style={{ flex: 'none', background: 'var(--bad-bg)', border: '1px solid var(--bad)', borderRadius: 12, padding: '12px 16px', margin: '0 24px 12px', color: 'var(--bad)', fontSize: '13.5px' }}>{error}</div>
       )}
 
-      {secuencias === null && !error && <div style={{ color: 'var(--dim)', fontSize: '14px' }}>Cargando automatizaciones…</div>}
-
-      {visibles !== null && visibles.length === 0 && !error && (
-        <div style={{ background: 'var(--surface)', border: '1px dashed var(--border-strong)', borderRadius: 14, padding: '28px 24px', color: 'var(--dim)', fontSize: '14px' }}>
-          Todavía no hay automatizaciones.
-          {rolAdmin && (
-            <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-              {/* EL MENÚ TAMBIÉN ACÁ, antes de «＋ Nueva» como en la lista va antes del buscador (punto 9): sin ninguna
-                  automatización la lista no se dibuja, y un negocio nuevo no tenía dónde poner el horario «allí mismo». */}
-              <MenuAutomations onTutorial={recorrido.reabrir} />
-              <button onClick={() => abrirGaleria()} style={btnDark}>＋ Nueva</button>
-              {errCrear && <span role="alert" style={{ fontSize: 13, color: 'var(--bad)' }}>{errCrear}</span>}
-            </div>
-          )}
-        </div>
-      )}
-
+      {/* ⛔ ACÁ IBA EL CARTEL «Todavía no hay automatizaciones», con el menú y su «＋ Nueva». Se fue el 12/10/2026
+          (duodécima tanda, decisión 11): con cero automatizaciones se ve igual el lienzo (la cuadrícula vacía) y la
+          lista, que ya trae «＋ Nueva automatización», el menú y el fallo de crear (`errorNueva`). Un negocio nuevo ve
+          la MISMA pantalla que va a usar, y el recorrido la recorre. */}
 
       {/* EL QUE ESTIRA, Y PEGADO A LOS BORDES. Todo lo de arriba es `flex: none` con su
           propio padding; esto se lleva el alto que sobra y llega hasta el borde de la
-          tab, que es lo que significa «que ocupe TODA la tab». */}
-      {visibles !== null && visibles.length > 0 && (
+          tab, que es lo que significa «que ocupe TODA la tab». También con la lista VACÍA. */}
+      {visibles !== null && !error && (
         <SimuladorWhatsApp
           secuencias={visibles} objetivos={objetivos} etiquetaEtapa={etiquetaEtapa} productos={productos} disparadores={disparadores}
           negocio={negocio} rolAdmin={rolAdmin} audios={audios} canalCaido={canalCaido} tz={tz} onAudioNuevo={(a) => setAudios((prev) => [a, ...prev.filter((x) => x.id !== a.id)])}
@@ -780,15 +778,11 @@ function ChatAgentInner() {
         </div>
       )}
 
-      {/* EL RECORRIDO (GENERAL 8): su capa y sus marcas. Va adentro del <main>: busca lo que señala acá adentro. */}
-      <RecorridoAutomations abierto={recorrido.abierto} onCerrar={recorrido.onCerrar} />
+      {/* EL RECORRIDO (GENERAL 8): su capa y sus marcas. Va adentro del <main>: busca lo que señala acá adentro.
+          Con `soloLienzo` (la reapertura de `vioVacio`), sólo los pasos del lienzo; al cerrarse vuelve a ser entero.
+          «Omitir» (o Escape) es la persona diciendo que no lo quiere ver: ahí el primer lienzo NO lo reabre. */}
+      <RecorridoAutomations abierto={recorrido.abierto} pasos={soloLienzo ? PASOS_DEL_LIENZO : undefined}
+        onCerrar={(motivo) => { if (motivo === 'omitido') vioVacio.current = false; setSoloLienzo(false); recorrido.onCerrar(motivo); }} />
     </main>
   );
 }
-
-/**
- * Primera pantalla del Chatbot cuando no hay NADA configurado: en vez de
- * empujar los 11 pasos, se pregunta por dónde arrancar. Cada opción es un
- * recorrido real (lib/tab-onboarding-state.ts) y comparten los pasos, así que
- * elegir "solo WhatsApp" hoy y "todo" mañana no repite lo ya hecho.
- */

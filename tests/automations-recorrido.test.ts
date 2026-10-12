@@ -274,26 +274,26 @@ test('soltar saca sólo lo suyo, y un selector que el navegador no entiende no r
 
 // ── El montaje ───────────────────────────────────────────────────────────────
 
-test('ChatAgentApp lo monta como CURSO: el gancho antes de los return, «Tutorial» del menú en los dos lugares y la capa en el <main>', () => {
+test('ChatAgentApp lo monta como CURSO: el gancho antes de los return, «Tutorial» del menú de la lista y la capa en el <main>', () => {
   const app = sinComentarios(leer('app/automations/ChatAgentApp.tsx'));
   assert.match(app, /import \{ RecorridoAutomations, useRecorridoAutomations \} from '\.\/RecorridoAutomations';/);
-  const gancho = app.indexOf('const recorrido = useRecorridoAutomations(rolAdmin && enOnboarding === false && visibles !== null && visibles.length > 0 && creando === null && !galeria);');
-  // Solo, a quien arma (un admin, como `puedeEditar` en CURSO) y con la pantalla llena: ni el cartel vacío
-  // («Todos arrancan vacíos»: quedaría VISTO con tres pasos), ni la galería encima, ni mientras se crea una.
+  const gancho = app.indexOf('const recorrido = useRecorridoAutomations(rolAdmin && visibles !== null && !error && creando === null && !galeria);');
+  // Solo, a quien arma (un admin, como `puedeEditar` en CURSO), apenas cargó y sin error, ni con la galería encima
+  // ni mientras se crea una. DESDE LA DUODÉCIMA TAMBIÉN CON CERO AUTOMATIZACIONES (decisión 11): lo del lienzo lo
+  // cubre la reapertura de `vioVacio` (tests/automations-duodecima-entrada.test.ts).
   assert.ok(gancho > 0, 'el autoabrir cambió: ¿a quién y cuándo se abre solo?');
-  const primerReturn = app.indexOf('if (enOnboarding === null) {');
+  const primerReturn = app.indexOf('if (secuencias === null) {');
   assert.ok(primerReturn > 0 && gancho < primerReturn, 'el gancho va ANTES de los return (AGENTS.md: ningún hook detrás de un return)');
   // «Tutorial» del menú (undécima tanda, punto 9: era el «?» de al lado de Configuraciones): antes del buscador de
-  // la lista y en el cartel vacío.
-  assert.equal((app.match(/<MenuAutomations onTutorial=\{recorrido\.reabrir\} \/>/g) ?? []).length, 2);
+  // la lista. Desde la duodécima, en UN lugar: el cartel vacío se fue.
+  assert.equal((app.match(/<MenuAutomations onTutorial=\{recorrido\.reabrir\} \/>/g) ?? []).length, 1);
   assert.match(app, /menu=\{<MenuAutomations onTutorial=\{recorrido\.reabrir\} \/>\}/);
-  const vacio = app.slice(app.indexOf('Todavía no hay automatizaciones.'), app.indexOf('{errCrear && <span role="alert"'));
-  assert.match(vacio, /<MenuAutomations onTutorial=\{recorrido\.reabrir\} \/>/);
+  assert.doesNotMatch(app, /Todavía no hay automatizaciones/, 'volvió el cartel vacío');
   assert.doesNotMatch(app, /AyudaAutomations/, 'volvió el «?»');
-  // La capa, una vez y adentro del <main> de la pantalla llena (no en el del QR ni en el del cargando).
+  // La capa, una vez y adentro del <main> de la pantalla llena (no en el del cargando).
   const llena = app.slice(app.indexOf("<main style={{ flex: 1, minWidth: 0, height: '100vh'"));
   assert.equal((app.match(/<RecorridoAutomations /g) ?? []).length, 1);
-  assert.match(llena, /<RecorridoAutomations abierto=\{recorrido\.abierto\} onCerrar=\{recorrido\.onCerrar\} \/>\s*<\/main>/);
+  assert.match(llena, /<RecorridoAutomations abierto=\{recorrido\.abierto\} pasos=\{soloLienzo \? PASOS_DEL_LIENZO : undefined\}\s+onCerrar=\{\(motivo\) => \{ [^\n]*setSoloLienzo\(false\); recorrido\.onCerrar\(motivo\); \}\} \/>\s*<\/main>/);
 });
 
 test('RecorridoAutomations: marca sólo mientras está abierto, busca en su <main> y suelta al cerrar', () => {
@@ -308,5 +308,7 @@ test('RecorridoAutomations: marca sólo mientras está abierto, busca en su <mai
   assert.match(src, /mo\.observe\(raiz, \{ childList: true, subtree: true \}\);/);
   assert.match(src, /return \(\) => \{ mo\.disconnect\(\); if \(cuadro\) cancelAnimationFrame\(cuadro\); soltar\(puestas\); \};/);
   assert.match(src, /\}, \[abierto\]\);/);
-  assert.match(src, /<Recorrido id=\{RECORRIDO_AUTOMATIONS\} pasos=\{PASOS_AUTOMATIONS\} abierto=\{abierto\} onCerrar=\{onCerrar\} \/>/);
+  // Los pasos llegan por prop (duodécima tanda): ausente, todos; la reapertura del primer lienzo, los del lienzo.
+  assert.match(src, /export function RecorridoAutomations\(\{ abierto, onCerrar, pasos = PASOS_AUTOMATIONS \}/);
+  assert.match(src, /<Recorrido id=\{RECORRIDO_AUTOMATIONS\} pasos=\{pasos\} abierto=\{abierto\} onCerrar=\{onCerrar\} \/>/);
 });

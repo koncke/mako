@@ -5,6 +5,8 @@
 // para poder enviar mensajes por allí»). El de antes (commit 8d16c6ff^) hablaba de posts, de la
 // bandeja y de las automatizaciones de comentarios de Zernio; éste sólo lo que el CANAL necesita:
 // la cuenta, las cuentas conectadas, el webhook, mandar un DM y la respuesta privada a un comentario.
+// Y desde la duodécima tanda (12/10/2026), «¿te sigue?» (`estadoDeSeguimiento`), que lee el motor para
+// la condición «Te sigue en Instagram».
 //
 // Zernio (https://zernio.com/api/v1, auth bearer) envuelve las APIs de Instagram y de Facebook de
 // Meta. Un error se tira TIPADO (`ZernioError`, con el envelope del body); Zernio ya reintenta
@@ -31,6 +33,7 @@ import { upsertRouting } from './webhook-routing';
 import { linkApp } from './app-url';
 import { webhookDeLaCuenta } from './zernio-firma';
 import { profileDeLaCuenta } from './zernio-profile';
+import { seguimientoDe, seguimientoNoSe, conTope, CONCURRENCIA_SEGUIMIENTO } from './canal-social';
 
 const ZERNIO_BASE = 'https://zernio.com/api/v1';
 
@@ -103,11 +106,11 @@ export async function usaCuentaPropia(ws: number): Promise<boolean> {
   return (await credWsEstricta('ZERNIO_API_KEY', ws)) != null;
 }
 
-async function zFetch<T>(apiKey: string, path: string, init?: RequestInit & { headers?: Record<string, string> }): Promise<T> {
+async function zFetch<T>(apiKey: string, path: string, init?: RequestInit & { headers?: Record<string, string> }, timeoutMs = 20_000): Promise<T> {
   const res = await fetch(`${ZERNIO_BASE}${path}`, {
     ...init,
     headers: { authorization: `Bearer ${apiKey}`, 'content-type': 'application/json', ...(init?.headers ?? {}) },
-    signal: AbortSignal.timeout(20_000),
+    signal: AbortSignal.timeout(timeoutMs),
   });
   const text = await res.text();
   let body: unknown = null;
@@ -327,6 +330,65 @@ export async function responderComentario(ws: number, input: { accountId: string
     body: JSON.stringify({ accountId: input.accountId, message: input.texto }),
   });
   return { messageId: r.messageId ?? null };
+}
+
+// ── «¿Te sigue?» (duodécima tanda) ─────────────────────────────────────────────
+
+/** Cuánto se espera UN «¿te sigue?»: corre adentro del motor, por lead que escribió. */
+const TIMEOUT_SEGUIMIENTO_MS = 8_000;
+
+/**
+ * La key para LEER el seguimiento: la propia del negocio (lectura ESTRICTA: «no pude leer las
+ * credenciales» tira, nunca se contesta «no tiene Zernio»), si no la de la plataforma, como `cfg`.
+ * null = el negocio no tiene Zernio, y nadie se sabe.
+ */
+async function keyDeSeguimiento(ws: number): Promise<string | null> {
+  return (await credWsEstricta('ZERNIO_API_KEY', ws)) ?? (await envCred('ZERNIO_API_KEY'));
+}
+
+/** Un GET /accounts/{id}/follow-status/{igsid}, sin pasar por alto la caché de Zernio (`refresh=false`). */
+async function consultarSeguimiento(apiKey: string, accountId: string, igsid: string): Promise<boolean | null> {
+  const r = await zFetch<unknown>(apiKey, `/accounts/${encodeURIComponent(accountId)}/follow-status/${encodeURIComponent(igsid)}?refresh=false`, undefined, TIMEOUT_SEGUIMIENTO_MS);
+  return seguimientoDe(r);
+}
+
+/**
+ * «¿ESTA PERSONA SIGUE A LA CUENTA DE INSTAGRAM?» (GET /v1/accounts/{accountId}/follow-status/{igsid},
+ * docs.zernio.com/accounts/get-instagram-follow-status). true / false sólo cuando Meta lo confirma;
+ * `null` = no se sabe: sin Zernio, con cualquier `unavailableReason`, o con un 4xx definitivo de su
+ * cuenta (401, 402, 404: `seguimientoNoSe`). Lo pasajero (red, tiempo, 429, 5xx) TIRA.
+ *
+ * ⚠️ Meta contesta SÓLO por quien ya le escribió a la cuenta por DM: preguntar por quien sólo comentó
+ * es gastar un pedido en un «consent_required». Quien llama filtra antes (`pedidoDeSeguimiento`).
+ */
+export async function estadoDeSeguimiento(ws: number, accountId: string, igsid: string): Promise<boolean | null> {
+  return (await estadosDeSeguimiento(ws, [{ leadId: 0, accountId, igsid }])).get(0) ?? null;
+}
+
+/**
+ * «¿Te sigue?» para un LOTE, de a `CONCURRENCIA_SEGUIMIENTO` a la vez y con la key leída UNA vez. Un 401
+ * o un 402 es de la CUENTA (key revocada, plan vencido): los que faltan no se consultan y dan «no sé».
+ */
+export async function estadosDeSeguimiento(
+  ws: number,
+  pedidos: ReadonlyArray<{ leadId: number; accountId: string; igsid: string }>,
+): Promise<Map<number, boolean | null>> {
+  const out = new Map<number, boolean | null>();
+  if (!pedidos.length) return out;
+  const apiKey = await keyDeSeguimiento(ws);
+  if (!apiKey) return out;
+  let cuentaCaida = false;
+  await conTope(pedidos, CONCURRENCIA_SEGUIMIENTO, async (p) => {
+    if (cuentaCaida) { out.set(p.leadId, null); return; }
+    try {
+      out.set(p.leadId, await consultarSeguimiento(apiKey, p.accountId, p.igsid));
+    } catch (e) {
+      if (!(e instanceof ZernioError) || !seguimientoNoSe(e.status)) throw e;
+      if (e.status === 401 || e.status === 402) cuentaCaida = true;
+      out.set(p.leadId, null);
+    }
+  });
+  return out;
 }
 
 /**

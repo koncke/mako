@@ -64,12 +64,23 @@
 //   · Punto 1 de «CONDITION»: «primero selecciono el módulo y ahí me aparecen las clases de ese
 //     módulo... Esto para TODO». Los catálogos con jerarquía se ofrecen como un ÁRBOL
 //     (`arbolDeOpciones`): curso → módulo → clase, producto → etapa, embudo → reunión.
+//
+// ── DUODÉCIMA TANDA (12/10/2026): INSTAGRAM Y MESSENGER ───────────────────────────────
+//   · «Tiene Instagram / Messenger» = tenemos SU CONVERSACIÓN por ese canal (una fila en
+//     `ig_conversaciones`), no «tiene cuenta»: de quien nunca nos escribió ni comentó no se sabe nada.
+//   · «Se le puede escribir por …» es `decidirSalida(...).via !== null` (lib/canal-social.ts), la MISMA
+//     función con la que el motor decide si el DM sale, sobre la MISMA fila (`conversacionQueCuenta`).
+//   · «Te sigue en Instagram» se consulta EN VIVO a Zernio (sin migración), y sólo por quien escribió por
+//     DM: Meta no contesta por nadie más. Todo lo demás es «no sé» (`null`), que no se cumple ni negado:
+//     quien sólo comentó cae en la rama «si no», y es una regla de Meta, no una falla.
 // =============================================================================
 
 import type { FilaCondicion, HechosLead } from './flujo-grafo';
 // Puro y compartido (lo importa también app/crm/CrmBoard.tsx): el mapeo índice → lugar de la ficha
 // vive ahí UNA vez (tests/reunion-slot-fuente-unica.test.ts).
 import { slotPorIndice } from './funnel-etapas';
+// Puro: la regla de «¿le sale el DM?» es la del envío (lib/canal-zernio.ts), no una copia.
+import { decidirSalida, type CanalSocial, type ConversacionSocial } from './canal-social';
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────────
 
@@ -80,7 +91,7 @@ export type AmbitoDisparo = 'adquisicion' | 'entrega';
 
 export type SeccionCondicion =
   | 'Información del lead' | 'Origen y tracking' | 'Etapa y pipeline' | 'Agenda y llamadas' | 'Pagos'
-  | 'Mensajes' | 'Etiquetas'
+  | 'Mensajes' | 'Instagram y Messenger' | 'Etiquetas'
   | 'Curso y avance' | 'Comunidad' | 'Tareas del curso' | 'Pagos del cliente' | 'Etapa de entrega'
   | 'Respuesta';
 
@@ -89,8 +100,8 @@ export const SECCION_RESPUESTA: SeccionCondicion = 'Respuesta';
 
 /** El orden de las secciones en el desplegable, por ámbito. */
 export const SECCIONES: Record<AmbitoDisparo, readonly SeccionCondicion[]> = {
-  adquisicion: ['Información del lead', 'Origen y tracking', 'Etapa y pipeline', 'Agenda y llamadas', 'Pagos', 'Mensajes', 'Etiquetas'],
-  entrega: ['Curso y avance', 'Comunidad', 'Tareas del curso', 'Pagos del cliente', 'Etapa de entrega', 'Mensajes', 'Etiquetas', 'Información del lead'],
+  adquisicion: ['Información del lead', 'Origen y tracking', 'Etapa y pipeline', 'Agenda y llamadas', 'Pagos', 'Mensajes', 'Instagram y Messenger', 'Etiquetas'],
+  entrega: ['Curso y avance', 'Comunidad', 'Tareas del curso', 'Pagos del cliente', 'Etapa de entrega', 'Mensajes', 'Instagram y Messenger', 'Etiquetas', 'Información del lead'],
 };
 
 /**
@@ -112,7 +123,9 @@ export type Fuente =
   | 'comunidad'   // comunidad_posts (sin los hilos de clase) + comunidad_comentarios
   | 'entrega'     // la etapa del kanban de entrega (`clientesEnEtapaDeEntrega`)
   | 'cs'          // cs_clientes.estado
-  | 'reuniones';  // el ORDEN de las reuniones de los embudos que nombran las filas (`reunionesDe`)
+  | 'reuniones'   // el ORDEN de las reuniones de los embudos que nombran las filas (`reunionesDe`)
+  | 'social'      // ig_conversaciones: la conversación que cuenta, por lead y canal (`conversacionesDeLeads`)
+  | 'sigue';      // «¿te sigue?» EN VIVO a Zernio, sólo por quien escribió por DM (`siguenEnInstagram`)
 
 /** Los catálogos de los que sale el valor de una condición de lista. */
 export type CatalogoValor =
@@ -227,6 +240,13 @@ export type HechosCatalogo = {
   entrega?: ReadonlySet<string>;
   /** Sin fila en cs_clientes = 'activo'. */
   estadoCliente?: string;
+  /**
+   * La conversación que cuenta en cada canal (`conversacionQueCuenta`). Leída, los DOS canales están:
+   * `null` = no tenemos conversación por ahí. El bloque ausente = no se leyó (todo «no sé»).
+   */
+  social?: Partial<Record<CanalSocial, ConversacionSocial | null>>;
+  /** «¿Te sigue en Instagram?»: true / false sólo si Meta lo confirmó; `null` = no sé. Ausente = no se leyó. */
+  sigueInstagram?: boolean | null;
 };
 
 // ── Ayudas de evaluación ──────────────────────────────────────────────────────────
@@ -394,6 +414,21 @@ export function normalizarTexto(s: string): string {
 
 const UMBRAL_VSL = 50;   // el mismo que `UMBRAL_VSL_PCT` (lib/nutricion.ts): «vio el VSL»
 
+/** «Tiene Instagram / Messenger»: hay una conversación suya por ese canal. Sin la fuente leída, «no sé». */
+function tieneConversacion(h: HechosLead, canal: CanalSocial): boolean | null {
+  const s = h.catalogo?.social;
+  return s ? s[canal] != null : null;
+}
+
+/**
+ * «Se le puede escribir por …»: la MISMA pregunta que hace el envío antes de mandar un DM
+ * (`decidirSalida`, lib/canal-zernio.ts), ahora. Sin conversación es «no» (no hay por dónde), no «no sé».
+ */
+function puedeEscribirle(h: HechosLead, canal: CanalSocial): boolean | null {
+  const s = h.catalogo?.social;
+  return s ? decidirSalida(s[canal] ?? null, h.ahoraMs, canal).via !== null : null;
+}
+
 // ── EL CATÁLOGO ───────────────────────────────────────────────────────────────────
 
 const LEGADO = { t: 'legado' } as const;
@@ -403,6 +438,15 @@ export const CONDICIONES: readonly DefCondicion[] = [
   // ── Información del lead ──
   { id: 'tiene_telefono', seccion: 'Información del lead', ambito: 'ambos', rotulo: ['Tiene WhatsApp', 'Sin WhatsApp'], negable: true, valor: LEGADO, fuentes: ['lead'] },
   { id: 'tiene_email', seccion: 'Información del lead', ambito: 'ambos', rotulo: ['Tiene email', 'Sin email'], negable: true, valor: LEGADO, fuentes: ['lead'] },
+  // Duodécima tanda: tenemos su conversación por ese canal (una fila de `ig_conversaciones`).
+  {
+    id: 'tiene_instagram', seccion: 'Información del lead', ambito: 'ambos', rotulo: ['Tiene Instagram', 'Sin Instagram'], negable: true, valor: NINGUNO, fuentes: ['social'],
+    evaluar: (_f, h) => tieneConversacion(h, 'instagram'),
+  },
+  {
+    id: 'tiene_messenger', seccion: 'Información del lead', ambito: 'ambos', rotulo: ['Tiene Messenger', 'Sin Messenger'], negable: true, valor: NINGUNO, fuentes: ['social'],
+    evaluar: (_f, h) => tieneConversacion(h, 'messenger'),
+  },
   {
     id: 'email_baja', seccion: 'Información del lead', ambito: 'ambos', rotulo: ['Dado de baja del email', 'Recibe email'], negable: true, valor: NINGUNO, fuentes: ['lead'],
     evaluar: (_f, h) => (L(h) ? L(h)!.emailBaja : null),
@@ -559,6 +603,21 @@ export const CONDICIONES: readonly DefCondicion[] = [
   { id: 'ya_contactado', seccion: 'Mensajes', ambito: 'ambos', rotulo: ['Ya le escribiste', 'Nunca le escribiste'], negable: true, valor: LEGADO, fuentes: ['contacto'] },
   { id: 'respondio', seccion: 'Mensajes', ambito: 'ambos', rotulo: ['Te escribió alguna vez', 'Nunca te escribió'], negable: true, valor: LEGADO, fuentes: ['respondio'] },
 
+  // ── Instagram y Messenger (duodécima tanda) ──
+  {
+    id: 'puede_escribir_instagram', seccion: 'Instagram y Messenger', ambito: 'ambos', rotulo: ['Se le puede escribir por Instagram', 'No se le puede escribir por Instagram'], negable: true, valor: NINGUNO, fuentes: ['social'],
+    evaluar: (_f, h) => puedeEscribirle(h, 'instagram'),
+  },
+  {
+    id: 'puede_escribir_messenger', seccion: 'Instagram y Messenger', ambito: 'ambos', rotulo: ['Se le puede escribir por Messenger', 'No se le puede escribir por Messenger'], negable: true, valor: NINGUNO, fuentes: ['social'],
+    evaluar: (_f, h) => puedeEscribirle(h, 'messenger'),
+  },
+  {
+    // `social` también: `sigue` consulta sólo a quien tiene conversación de Instagram, y ésa sale de ahí.
+    id: 'sigue_instagram', seccion: 'Instagram y Messenger', ambito: 'ambos', rotulo: ['Te sigue en Instagram', 'No te sigue en Instagram'], negable: true, valor: NINGUNO, fuentes: ['social', 'sigue'],
+    evaluar: (_f, h) => tri(h.catalogo?.sigueInstagram),
+  },
+
   // ── Etiquetas ──
   { id: 'etiqueta', seccion: 'Etiquetas', ambito: 'ambos', rotulo: ['Tiene la etiqueta', 'No tiene la etiqueta'], negable: true, valor: LEGADO, fuentes: ['etiquetas'] },
 
@@ -658,6 +717,9 @@ export const OPCIONES_FIJAS: Partial<Record<CatalogoValor, ReadonlyArray<{ value
     { value: 'calendly', label: 'Calendly' },
     { value: 'calcom', label: 'Cal.com' },
     { value: 'chat_whatsapp', label: 'WhatsApp' },
+    // Duodécima tanda: los que escribe `createLead` desde un evento de Zernio (`origen_lead: e.canal`, lib/zernio-entrante.ts).
+    { value: 'instagram', label: 'Instagram' },
+    { value: 'messenger', label: 'Messenger' },
     { value: 'manual', label: 'Carga manual' },
   ],
   estado_lead: [

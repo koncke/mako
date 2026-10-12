@@ -62,6 +62,10 @@ function labelOrigen(origen: string | null): { texto: string; color: string } {
     case 'carga_manual': return { texto: 'Lo cargaste a mano', color: 'var(--dim)' };
     case 'importacion': return { texto: 'Importado de un archivo', color: 'var(--dim)' };
     case 'chat_whatsapp': return { texto: 'Escribió por WhatsApp', color: 'var(--good)' };
+    // Los crea Zernio (`createLead({ origen_lead: e.canal })`, lib/zernio-entrante.ts): un DM, un comentario o un
+    // link. «Llegó», no «escribió»: con un comentario no escribió nada (duodécima tanda, 12/10/2026).
+    case 'instagram': return { texto: 'Llegó por Instagram', color: 'var(--good)' };
+    case 'messenger': return { texto: 'Llegó por Messenger', color: 'var(--good)' };
     // ⚠️ EL DEFAULT YA NO AFIRMA NADA. Decía «Orgánico / manual», que son dos hechos
     // del negocio —llegó solo, o lo cargamos nosotros— sobre una columna vacía, de la
     // que no se sabe ninguno de los dos. Con las cuatro altas estampando, acá sólo

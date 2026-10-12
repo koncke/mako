@@ -708,3 +708,48 @@ MaKo solo (y su `whsec_` vuelve SÓLO al crearlo: si ya hay uno nuestro, se borr
 
 _11/10/2026 — pasarela de pagos; `tests/cobros-conexion.test.ts` (7, probado con 5 roturas) y
 `tests/pasarela-sin-env.test.ts`._
+
+## Los tutoriales de conexión: el guard estaba ciego, y un tutorial son 3 a 5 pasos (12/10/2026)
+
+**Síntoma** (Martín, la prueba con Fiesta Music): «los tutoriales para conectar APIs están muy largos». Medido: 55
+tutoriales con 648 pasos. El de Meta tenía 29 pasos, y 41 de sus 46 notas pasaban de 120 caracteres (la más larga, 393).
+
+### El guard que debía frenarlo leía cero líneas
+
+`tests/tutoriales-legibles.test.ts` («cada paso hace UNA cosa») buscaba los pasos con `^ {6}'`, y los pasos están a 8
+espacios. Además miraba sólo los servicios, nunca `AYUDA_CAMPO`. Leía 0 líneas y pasaba en verde. Con el extractor
+corregido, sobre el catálogo viejo marcaba 6 pasos de Meta con 3 o 4 verbos (el relevo había medido 2: miraba sólo los
+servicios).
+
+**La regla:** todo extractor de un guard lleva un PISO (`assert.ok(leidos.length > N)`), así falla si lee cero. Y un
+guard nuevo se prueba también sobre el texto VIEJO: si lo deja pasar, no mide nada.
+
+### El formato
+
+La regla vive en [AGENTS.md](../AGENTS.md), junto a «La regla del tutorial de un campo». Lo que no dice ahí:
+- Las explicaciones se fueron a propósito: qué es una API key o un webhook, los planes gratis de Resend y OpenRouter, el
+  portugués de Panda y los menús en inglés de Google.
+- Las trampas quedaron DENTRO del paso: «se ve UNA vez», «Nunca», «Full access», `rk_live_`, `APP_USR-`, «Public Key no
+  sirve», «NO COMERCIAL» y «Never expires».
+- Se borró `AYUDA_CAMPO.META_ACCESS_TOKEN`, que repetía el tutorial del servicio paso por paso: su «?» cae al tutorial.
+- Quedaron 54 tutoriales con 250 pasos.
+
+### Una mentira que el acortado destapó
+
+El tutorial de Cal.com decía «Opcional — "Tipo de evento de R1"», y el campo es OBLIGATORIO: rutea el webhook. Es el
+mismo error que tuvo Calendly el 04/10, y su guard (`tests/calendly-sin-tipos.test.ts`) mira sólo Calendly. Quedó
+corregido en el texto, sin guard.
+
+**Lo que quedó SIN hacer:**
+- Martín mira Meta, Resend, Cal.com y Fathom antes del push. Lo que se cayó al acortar: en Meta, «tienes que ser
+  administrador del portafolio comercial»; en Stripe, «la verificación que te pide» y `rk_test_`; en Fathom, «External
+  Recordings»; en Calendly, los planes pagos.
+- El guard de «opcional» para `calcom`.
+- Sin medir: `pasoExterno.porque` y `pasoExterno.donde` (el `porque` de Fathom tiene ~150), `sinEsto` y las `SLIDES` de
+  `app/integraciones/IntegracionesBoard.tsx`.
+
+**Vive en:** `lib/metodo-catalogo.ts` · `tests/tutoriales-legibles.test.ts` · `tests/calendly-sin-tipos.test.ts`.
+
+_12/10/2026 — duodécima tanda, paquete «fuera»: `tests/tutoriales-legibles.test.ts`, 6 tests. Con el catálogo viejo, 4
+fallos; un paso con 4 verbos, un sexto paso, un paso partido con `+`, una nota de 121, el «Para qué sirve» de vuelta y el
+extractor a 6 espacios dan 1 fallo cada uno._

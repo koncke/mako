@@ -36,6 +36,8 @@
 //       → 1 FALLO, 6 pases («la lista LEE origen_lead…»)
 //   · se agrega un id al catálogo ('feria') sin renglón en la ficha
 //       → 1 FALLO, 6 pases (el mismo test que el case borrado: mira los dos lados)
+//   · (12/10/2026, duodécima; base 8 / 0) se le saca a la ficha el `case 'instagram'` que entró con
+//     Zernio → 1 FALLO, 7 pases («la ficha tiene un renglón por cada valor…»)
 //
 // ⚠️ Y la primera corrida de este archivo falló por SU PROPIA medición, no por el
 // código: el regex que lee el valor de `origen_lead` no cortaba en `}`, así que en el
@@ -49,6 +51,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ORIGEN_LEAD, SIN_ORIGEN_LISTA, origenLista, type OrigenLeadId } from '../app/crm/origen-lead';
+import { CANALES_SOCIALES, NOMBRE_CANAL } from '../lib/canal-social';
 
 const raiz = (p: string) => join(import.meta.dirname, '..', p);
 const leer = (p: string) => readFileSync(raiz(p), 'utf8');
@@ -205,6 +208,23 @@ test('el rótulo de fila entra en una celda: una lista no es una ficha', () => {
   for (const [id, def] of Object.entries(ORIGEN_LEAD)) {
     assert.ok(def.lista.length <= 24, `el rótulo de '${id}' mide ${def.lista.length}: no entra en la tarjeta`);
     assert.equal(def.id, id, `la clave '${id}' y su id no coinciden`);
+  }
+});
+
+// DUODÉCIMA TANDA (12/10/2026). El alta de Zernio (`crearLeadDe`, lib/zernio-entrante.ts) escribe
+// `origen_lead: e.canal` —una variable, no una cadena—, así que el barrido de abajo no la veía, y el
+// catálogo no conocía 'instagram' ni 'messenger': la tarjeta y el filtro decían «Sin origen» de un lead
+// que llegó por Instagram. PROBADO ROMPIÉNDOLO (12/10/2026), restaurando de memoria. Con todo puesto el
+// archivo da 7 pass / 1 fail: el de la ficha, hasta que labelOrigen (app/crm/lead-view/OrigenCard.tsx, fuera
+// de este paquete) tenga los cases 'instagram' y 'messenger' — probado en memoria: con ellos, 8 / 0.
+//   · sin `instagram` en ORIGEN_LEAD           -> 6 / 2 (éste, y el de la ficha)
+//   · Messenger rotulado «Facebook»            -> 6 / 2 (éste, y el de la ficha)
+test('los canales de Zernio (Instagram y Messenger) son orígenes del catálogo, con su nombre', () => {
+  assert.match(soloCodigo(leer('lib/zernio-entrante.ts')), /origen_lead: e\.canal,/,
+    'el alta de Zernio dejó de escribir el canal del evento: revisa este test');
+  for (const canal of CANALES_SOCIALES) {
+    assert.ok(canal in ORIGEN_LEAD, `el alta de Zernio escribe '${canal}' y el catálogo no lo tiene`);
+    assert.equal(origenLista(canal), NOMBRE_CANAL[canal]);
   }
 });
 

@@ -8,19 +8,22 @@
 // corriendo MIENTRAS está abierto (ver la cabecera de ./recorrido-automations.ts).
 //
 // Lo monta ./ChatAgentApp.tsx en dos lugares, y nada más:
-//   const recorrido = useRecorridoAutomations(<¿un admin, con la lista y su lienzo a la vista?>);   (antes de los return)
-//   <RecorridoAutomations abierto={recorrido.abierto} onCerrar={recorrido.onCerrar} />   (en el <main>)
+//   const recorrido = useRecorridoAutomations(<¿un admin, y ya cargó la lista?>);   (antes de los return)
+//   <RecorridoAutomations abierto={recorrido.abierto} pasos={…} onCerrar={…recorrido.onCerrar} />   (en el <main>)
 // Y se vuelve a ver con «Tutorial» del menú de antes del buscador (`MenuAutomations`, ./ConfiguracionesBoton.tsx,
 // con `onTutorial={recorrido.reabrir}`). El «?» de al lado de Configuraciones (`AyudaAutomations`) se fue en la
 // undécima tanda (punto 9: «que los botones de "Configuraciones" y "Tutorial" estén en otro botón desplegable»).
 //
-// ⚠️ SE ABRE SOLO CUANDO SE VE LA PANTALLA LLENA (la lista con un lienzo), no con el cartel de «Todavía
-//    no hay automatizaciones». «Todos arrancan vacíos»: abierto ahí, mostraría tres pasos y quedaría
-//    VISTO, y el del lienzo no saldría nunca solo. Con la primera automatización (en blanco o de una
-//    plantilla) sale entero; antes, «Tutorial» del menú del cartel vacío muestra lo que hay.
+// ⚠️ SE ABRE SOLO APENAS CARGA, TAMBIÉN CON CERO AUTOMATIZACIONES (duodécima tanda, decisión 11: «vos entrás en
+//    la tab por primera vez y tenés que ver el lienzo y tiene que salir el tutorial»). Hasta la undécima esperaba
+//    la pantalla llena: con el cartel de «Todavía no hay automatizaciones» mostraba tres pasos y quedaba VISTO, y el
+//    del lienzo no salía nunca solo. El cartel se fue (la lista y la cuadrícula se ven vacías), y lo del lienzo lo
+//    cubre `pasos`: si en la MISMA visita aparece el primer lienzo, ChatAgentApp lo reabre UNA vez con
+//    `PASOS_DEL_LIENZO` (desde el CRON). Sin `pasos`, el entero.
 
 import { useLayoutEffect, useRef } from 'react';
 import { Recorrido, useRecorrido, type MotivoCierreRecorrido } from '@/app/_ui/Recorrido';
+import type { PasoRecorrido } from '@/lib/recorridos';
 import { PASOS_AUTOMATIONS, RECORRIDO_AUTOMATIONS, marcar, soltar, type ElementoMarcable } from './recorrido-automations';
 
 /** «¿Ya lo vio?» por persona, igual que CURSO. `autoabrir` = la primera vez se abre solo. */
@@ -28,9 +31,11 @@ export function useRecorridoAutomations(autoabrir: boolean) {
   return useRecorrido(RECORRIDO_AUTOMATIONS, { autoabrir });
 }
 
-export function RecorridoAutomations({ abierto, onCerrar }: {
+export function RecorridoAutomations({ abierto, onCerrar, pasos = PASOS_AUTOMATIONS }: {
   abierto: boolean;
   onCerrar: (motivo: MotivoCierreRecorrido) => void;
+  /** Qué pasos muestra. Ausente = todos; la reapertura del primer lienzo pasa `PASOS_DEL_LIENZO`. */
+  pasos?: PasoRecorrido[];
 }) {
   /** Un nodo propio adentro del <main> de la tab: de ahí sale dónde buscar (`closest('main')`). */
   const ancla = useRef<HTMLSpanElement>(null);
@@ -56,7 +61,7 @@ export function RecorridoAutomations({ abierto, onCerrar }: {
     <>
       {/* `hidden`: no ocupa lugar en la columna flex de la tab. */}
       <span ref={ancla} hidden />
-      <Recorrido id={RECORRIDO_AUTOMATIONS} pasos={PASOS_AUTOMATIONS} abierto={abierto} onCerrar={onCerrar} />
+      <Recorrido id={RECORRIDO_AUTOMATIONS} pasos={pasos} abierto={abierto} onCerrar={onCerrar} />
     </>
   );
 }

@@ -2179,6 +2179,19 @@ del campo contesta **«que pongo ACA»**, que es la pregunta de quien tiene el c
 adentro del input. Si los cuatro campos abren el mismo texto de 20 pasos, tres de esos
 cuatro estan contestando otra cosa.
 
+**Y un tutorial son 3 a 5 pasos de una línea** (12/10/2026; Martín: «los tutoriales para conectar APIs están muy
+largos»). Vale para `tutorial.pasos` y para `AYUDA_CAMPO[*].pasos` (`lib/metodo-catalogo.ts`):
+- cada paso tiene 120 caracteres o menos (una lista técnica después del último «:» no cuenta) y 2 verbos de acción o
+  menos;
+- el del servicio no repite «Para qué sirve», que ya lo dice `paraQue`, y el del campo empieza por él;
+- la trampa que rompe la conexión va DENTRO del paso («se ve UNA vez», el vencimiento «Nunca», el prefijo de la clave),
+  no en un paso aparte;
+- una nota de campo tiene 120 caracteres o menos, y un `ojo`, 2 ítems;
+- acortar es CONDENSAR los pasos que ya están, que nombran pantallas reales: nunca se suma un paso ni una pantalla.
+
+Lo fija `tests/tutoriales-legibles.test.ts`. Su extractor lleva un piso: buscaba 6 espacios, los pasos están a 8, y
+pasaba en verde leyendo cero líneas.
+
 # Un cobro pasa por `lib/cobros.ts`, y la clave de una pasarela se lee con `credDelCliente`
 
 La pasarela de pagos (Stripe y Mercado Pago, 11/10/2026) tiene UN escritor de lo que importa: `lib/cobros.ts`
@@ -7586,6 +7599,28 @@ pidió Martín varias veces, con enojo («no quiero NADA fuera de lo que ya conf
   sus atajos (un `if (!c.audio) return null` antes de la regla pura la deja sin efecto).
 - **Lo de prod se REHACE con esas piezas por script** (simulacro, respaldo releído, compare-and-set); lo viejo se
   archiva, nunca se borra. Qué dispara una fila lo dice `disparadoresDe(fila)`, nunca el jsonb crudo de `disparadores`.
+
+**Y desde la duodécima tanda (12/10/2026), lo que la IA ve y devuelve es lo que la pantalla ofrece.** Lo pidió Martín
+después de una prueba con un cliente («siempre tiene que seleccionar las cosas que existen dentro del desplegable»):
+
+- **El catálogo que ve la IA, y lo que puede devolver, sale de la MISMA función que usa la pantalla:** el desplegable del
+  CRON (`opcionesCronIA`, `lib/disparadores.ts`), `seccionesDeCondiciones(ámbito, catalogosDe(…))`
+  (`lib/condiciones-catalogo.ts`, `lib/condiciones-catalogos.ts`) y `MENU_MAS` para los canales. El código revalida todo
+  (`deIA`, `validarIA`) y saca lo que no existe con un aviso corto; nunca lo reemplaza por «lo más parecido». Una clase
+  nueva del CRON le llega sola a la IA si entra en `CLASES_DISPARADOR` y `eventosDe`. Una lista escrita a mano en el
+  prompt es una segunda verdad: la de «Pagó» era toda de adquisición.
+- **Todo CRON se guarda por `guardarDisparadores`**, también el de la IA (`disparadorDeValorIA(valor)`):
+  `setTriggerSecuencia` escribe sólo las columnas y deja en NULL la lista de la 0241. Y el CRON guardado se le dice a la
+  IA con el inverso, `valorIADeDisparador` sobre la LISTA (`disparadoresDeSecuencia`): las columnas no tienen el evento
+  (`trigger:instagram` no es ninguna opción) y editar terminaba preguntando qué la dispara.
+- **El canal de un mensaje que ya existe lo cambia el CÓDIGO, en el mismo id** (`cambioDeCanal`), y una tarjeta guardada
+  no vuelve a pasar entera por `nodoDe`: el parche es por clase (si no, pierde el link, el final del texto y el monto).
+- **Lo que se sume al prompt de Crear con IA se paga sacando otra cosa:** quedan ~47 tokens de aire antes de que Groq
+  salga de la cascada, sin un error (`tests/crear-ia-tercera.test.ts`).
+- **Un compare-and-set sobre un valor que puede pasar de ~4 KB no compara el valor.** `cambiarSettingSi` lo pone en la URL
+  de PostgREST (con 64 KB, 414): se compara `updated_at` o una revisión (`lib/automatizacion-chat-db.ts`).
+- **«Conectado» de un canal es por donde llegan y salen sus eventos, medido por UNA función** (`estadoMedios`), y lo que
+  frena Publicar y Activar mira las tarjetas Y el CRON guardado en la fila.
 
 # Un TIPO DE NODO nuevo son CINCO puertas; un CAMPO del nodo es UNA rama
 

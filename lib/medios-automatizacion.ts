@@ -19,6 +19,11 @@
 //     `remitenteDelNegocio`, lib/email-remitente.ts).
 //   · Instagram / Messenger (un paso que MANDA) — Zernio y una cuenta de esa plataforma.
 //
+// ⚠️ EL CRON TAMBIÉN USA UN MEDIO (duodécima tanda, docs/diseno-duodecima-tanda.md §2.11). Un CRON de Instagram o de
+// Messenger llega SÓLO por el webhook de Zernio: con tarjetas de WhatsApp y sin Instagram conectado, la automatización
+// se publicaba y se ACTIVABA y no arrancaba nunca, sin un error. Publicar y Activar pasan la lista de CRON
+// (`mediosQueUsa(pasos, disparadores)`); la tarjeta no la pasa: su chip es de ELLA (el del CRON lo pinta su editor).
+//
 // ⚠️ `conectado: null` («NO PUDE COMPROBARLO») AVISA Y NO FRENA: conectar no lo arregla (AGENTS.md, «una
 // guarda bloquea sólo lo que se arregla haciendo lo que ella pide»).
 //
@@ -31,6 +36,7 @@ import { claseDe, esPasoIA, medioDe, type PasoGrafo } from './flujo-grafo';
 import { proveedorDelPaso } from './nutricion-canal';
 import { esCanalSocial } from './canal-social';
 import { SIN_EMAIL_PROPIO } from './email-remitente';
+import { claseDeDisparador, type Disparador } from './disparadores';
 
 export type Medio = 'whatsapp' | 'email' | 'instagram' | 'messenger';
 /** En el orden en que se dicen («Conecta tu WhatsApp» antes que «Conecta tu email»). */
@@ -92,12 +98,33 @@ export function medioDePaso(p: PasoGrafo): Medio | null {
   return null;
 }
 
-/** Los medios que usa un flujo, sin repetir y en el orden de `MEDIOS`. */
-export function mediosQueUsa(pasos: readonly PasoGrafo[] | null | undefined): Medio[] {
+/** Lo que hace falta de un CRON para saber su medio (la lista `disparadores`, lib/disparadores.ts). */
+export type CronDeMedio = Pick<Disparador, 'trigger_tipo' | 'cron'>;
+
+/**
+ * El medio por el que LLEGA un CRON, o null. Instagram y Messenger, por la MISMA función que dibuja el editor del
+ * CRON (`claseDeDisparador`). El email recibido y los pagos no son medios de esta lista: el buzón de entrada no
+ * existe y los pagos tienen su propio aviso (lib/cobros.ts).
+ */
+export function medioDeDisparador(d: CronDeMedio | null | undefined): Medio | null {
+  if (!d || typeof d !== 'object' || typeof d.trigger_tipo !== 'string') return null;
+  const c = claseDeDisparador(d);
+  return c === 'instagram' || c === 'messenger' ? c : null;
+}
+
+/**
+ * Los medios que usa un flujo, sin repetir y en el orden de `MEDIOS`. Con `disparadores` (Publicar y Activar),
+ * también el del CRON.
+ */
+export function mediosQueUsa(pasos: readonly PasoGrafo[] | null | undefined, disparadores?: readonly CronDeMedio[] | null): Medio[] {
   const usa = new Set<Medio>();
   for (const p of pasos ?? []) {
     if (!p || typeof p !== 'object') continue;
     const m = medioDePaso(p);
+    if (m) usa.add(m);
+  }
+  for (const d of disparadores ?? []) {
+    const m = medioDeDisparador(d);
     if (m) usa.add(m);
   }
   return MEDIOS.filter((m) => usa.has(m));
@@ -132,8 +159,10 @@ export function lineaDePaso(p: PasoGrafo, lineaAutomatizacion: string | null | u
 /** Un medio que usa el flujo, con la línea (sólo WhatsApp). */
 export type UsoMedio = { medio: Medio; linea: string | null };
 
-/** Lo que usa el flujo, por medio y por línea, sin repetir y en el orden de `MEDIOS`. */
-export function usosDeMedios(pasos: readonly PasoGrafo[] | null | undefined, lineaAutomatizacion: string | null | undefined): UsoMedio[] {
+/** Lo que usa el flujo, por medio y por línea, sin repetir y en el orden de `MEDIOS`. Con `disparadores`, el CRON. */
+export function usosDeMedios(
+  pasos: readonly PasoGrafo[] | null | undefined, lineaAutomatizacion: string | null | undefined, disparadores?: readonly CronDeMedio[] | null,
+): UsoMedio[] {
   const vistos = new Map<string, UsoMedio>();
   for (const p of pasos ?? []) {
     if (!p || typeof p !== 'object') continue;
@@ -141,6 +170,10 @@ export function usosDeMedios(pasos: readonly PasoGrafo[] | null | undefined, lin
     if (!m) continue;
     const linea = m === 'whatsapp' ? lineaDePaso(p, lineaAutomatizacion) : null;
     vistos.set(`${m}|${linea ?? ''}`, { medio: m, linea });
+  }
+  for (const d of disparadores ?? []) {
+    const m = medioDeDisparador(d);
+    if (m) vistos.set(`${m}|`, { medio: m, linea: null });
   }
   return [...vistos.values()].sort((a, b) => MEDIOS.indexOf(a.medio) - MEDIOS.indexOf(b.medio));
 }
@@ -164,6 +197,20 @@ export function frenoDeMedios(faltan: readonly Faltante[]): { medio: Medio; erro
   return f ? { medio: f.medio, error: MOTIVO_MEDIO[f.medio] } : null;
 }
 
+/**
+ * Los medios de Zernio (Instagram, Messenger) que el flujo usa y están CONECTADOS: los que necesitan que Zernio le
+ * avise a MaKo (`asegurarAvisosSociales`, lib/disparadores-canales.ts). «No pude comprobarlo» no cuenta.
+ */
+export function socialesConectados(usa: readonly Medio[], estado: EstadoMedios | null | undefined): Medio[] {
+  return usa.filter((m) => esCanalSocial(m) && estado?.[m]?.conectado === true);
+}
+
+/** El aviso corto cuando el webhook de Zernio no quedó: publicar salió igual. */
+export function avisoSinWebhook(sociales: readonly Medio[]): string | null {
+  const nombres = sociales.filter(esCanalSocial).map((m) => (m === 'instagram' ? 'Instagram' : 'Messenger'));
+  return nombres.length ? `Los avisos de ${nombres.join(' y ')} no se activaron` : null;
+}
+
 /** El medio de un error de Publicar/Activar («Conecta tu WhatsApp» → 'whatsapp'), para abrir «Conectar». */
 export function medioDelError(texto: string | null | undefined): Medio | null {
   if (!texto) return null;
@@ -178,6 +225,29 @@ export function chipDeTarjeta(p: PasoGrafo, estado: EstadoMedios | null | undefi
   const e = estadoDe(estado, m, m === 'whatsapp' ? lineaDePaso(p, lineaAutomatizacion) : null);
   if (!e || e.conectado === true) return null;
   return { texto: e.conectado === false ? CHIP_SIN_CONECTAR : CHIP_NO_SE, medio: m, frena: e.conectado === false };
+}
+
+/**
+ * Los medios cuyo «Conectar» SALTA SOLO al crear una tarjeta (duodécima tanda, decisión 10): WhatsApp (el QR),
+ * Instagram y Messenger. El email no: su chip queda, y conectarlo es un dominio con DNS, no un clic.
+ */
+export const MEDIOS_QUE_SALTAN: ReadonlySet<Medio> = new Set<Medio>(['whatsapp', 'instagram', 'messenger']);
+
+/**
+ * EL QR SALTA AL CREAR (duodécima tanda, §2.12; Martín, 12/10/2026: «cuando creás un paso que requiera WhatsApp y
+ * te diga que tu WhatsApp no está conectado, ahí que salte el QR. Que no haya ninguna fricción»).
+ *
+ * Salta SÓLO si la tarjeta recién creada frena Publicar: `chipDeTarjeta(...).frena`, la MISMA regla del chip
+ * «Sin conectar» y de `frenoDeMedios`. Así nunca salta con «no pude comprobarlo» (`conectado: null`) ni sin la
+ * lectura (`estado` null). `ofrecidos` = los medios que ya saltaron en esta visita: salta UNA vez por medio.
+ * Devuelve lo que abre el modal del chip (`ConectarMedio`): el medio y, en WhatsApp, la línea de ese paso.
+ */
+export function medioAConectarAlCrear(
+  paso: PasoGrafo, estado: EstadoMedios | null | undefined, lineaAutomatizacion: string | null | undefined, ofrecidos: ReadonlySet<Medio>,
+): UsoMedio | null {
+  const chip = chipDeTarjeta(paso, estado, lineaAutomatizacion);
+  if (chip?.frena !== true || !MEDIOS_QUE_SALTAN.has(chip.medio) || ofrecidos.has(chip.medio)) return null;
+  return { medio: chip.medio, linea: chip.medio === 'whatsapp' ? lineaDePaso(paso, lineaAutomatizacion) : null };
 }
 
 /**

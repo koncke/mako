@@ -4,6 +4,8 @@
 // GET   → todas las secuencias (activas y pausadas) + inscriptos/enviados.
 // PATCH → activar/pausar una secuencia, sus pasos o su línea. Body: { id, activa?, pasos?, linea? }.
 //         Con `pasos` (Publicar), un medio sin conectar contesta 409 { error: 'Conecta tu WhatsApp', medio }.
+//         El medio de las tarjetas Y el del CRON (un CRON de Instagram necesita Instagram). Con Instagram o
+//         Messenger conectado, asegura el webhook de Zernio; si falla, publica igual y vuelve `aviso`.
 //         Los pasos llevan los campos del flujo con ramas (id, siguiente, nodo, espera, ramas,
 //         casos, si_no, destino, revisar, media_id): `setSecuenciaPasos` los sanea, normaliza y
 //         valida (`validarGrafo`). Un flujo que no se puede guardar contesta 400 con el motivo.
@@ -13,9 +15,9 @@
 
 import type { NextRequest } from 'next/server';
 import { getSecuenciasConStats, setSecuenciaActiva, setSecuenciaPasos, setSecuenciaLinea, vozDeAIStepQueFalta, PasosInvalidosError, type PasoSecuencia } from '@/lib/nutricion';
-import { getRolWsEfectivo, getTenantDb } from '@/lib/workspace';
+import { getRolWsEfectivo, getTenantDb, getWorkspaceActual } from '@/lib/workspace';
 import { envioWhatsappHabilitado, envioEmailHabilitado } from '@/lib/envio-flags';
-import { lineaDeSecuencia, medioSinConectar } from '@/lib/disparadores-canales';
+import { asegurarAvisosSociales, disparadoresDeSecuencia, lineaDeSecuencia, medioSinConectar, SIN_MEDIOS } from '@/lib/disparadores-canales';
 import { comprobarVisto, type DbBorrador } from '@/lib/secuencia-borrador';
 
 export const dynamic = 'force-dynamic';
@@ -53,6 +55,7 @@ export async function PATCH(req: NextRequest) {
   if (!Number.isFinite(id)) {
     return Response.json({ ok: false, error: 'id inválido' }, { status: 400 });
   }
+  let aviso: string | null = null;
   try {
     if (Array.isArray(body.pasos)) {
       // ⚠️ PUBLICAR DESDE UNA FOTO (MaKo Mobile, 12/10/2026): el teléfono publica el borrador TAL COMO LO
@@ -70,12 +73,20 @@ export async function PATCH(req: NextRequest) {
       const linea = 'linea' in body
         ? (typeof body.linea === 'string' && body.linea.trim() ? body.linea.trim() : null)
         : await lineaDeSecuencia(id).catch(() => null);
-      const falta = await medioSinConectar(body.pasos as PasoSecuencia[], linea).catch(() => null);
-      if (falta) return Response.json({ ok: false, error: falta.error, medio: falta.medio }, { status: 409 });
+      // Y EL DEL CRON (duodécima tanda, §2.11): un CRON de Instagram con tarjetas de WhatsApp necesita Instagram.
+      // La lista guardada: el CRON se guarda al tocarlo, no va en el borrador.
+      const disparadores = await disparadoresDeSecuencia(id).catch(() => null);
+      const medios = await medioSinConectar(body.pasos as PasoSecuencia[], linea, disparadores).catch(() => SIN_MEDIOS);
+      if (medios.falta) return Response.json({ ok: false, error: medios.falta.error, medio: medios.falta.medio }, { status: 409 });
       // Y la voz de un AI Step que contesta en audio (AI Step v2, §1). «No pude comprobarlo» no frena.
       const sinVoz = await vozDeAIStepQueFalta(body.pasos as PasoSecuencia[]).catch(() => null);
       if (sinVoz) return Response.json({ ok: false, error: `No se guardó: ${sinVoz}.` }, { status: 400 });
       await setSecuenciaPasos(id, body.pasos as PasoSecuencia[]);
+      // QUE ZERNIO LE AVISE A MAKO (§2.11): con Instagram o Messenger conectado, el webhook. Una falla no frena.
+      if (medios.sociales.length) {
+        const ws = await getWorkspaceActual();
+        if (ws != null) aviso = await asegurarAvisosSociales(ws, medios.sociales);
+      }
     }
     if (typeof body.activa === 'boolean') {
       await setSecuenciaActiva(id, body.activa);
@@ -84,7 +95,7 @@ export async function PATCH(req: NextRequest) {
     if ('linea' in body) {
       await setSecuenciaLinea(id, typeof body.linea === 'string' && body.linea.trim() ? body.linea.trim() : null);
     }
-    return Response.json({ ok: true });
+    return Response.json(aviso ? { ok: true, aviso } : { ok: true });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     // Lo que no es un flujo válido es un error del que guarda, no del servidor: 400, con el

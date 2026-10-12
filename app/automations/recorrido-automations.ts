@@ -9,7 +9,8 @@
 // se abre SOLO la primera vez (por persona, `/api/recorridos`) y se vuelve a ver con el «?». Un paso
 // cuyo objetivo no está EN PANTALLA se saltea solo (lib/recorridos.ts): se escribe UNA vez para la
 // pantalla llena y se adapta a la que hay (sin CONDITION en el flujo, no hay paso de CONDITION; sin
-// automatizaciones, sólo «＋ Nueva» y el menú de Configuraciones y Tutorial).
+// automatizaciones, sólo la lista, «＋ Nueva» y el menú de Configuraciones y Tutorial: después, el primer lienzo
+// de la visita lo reabre con `PASOS_DEL_LIENZO`).
 //
 // UNDÉCIMA TANDA (11/10/2026, punto 9: «en la sidebar elimines la separación con "MaKo en WhatsApp"... Y que
 // los botones de "Configuraciones" y "Tutorial" estén en otro botón desplegable... antes de la barra de
@@ -72,6 +73,14 @@ export const PASOS_AUTOMATIONS: PasoRecorrido[] = [
   { objetivo: OBJETIVO_AYUDA, titulo: 'Configuraciones y tutorial', texto: 'Están siempre en este menú.', lado: 'derecha' },
 ];
 
+/**
+ * LOS PASOS DEL LIENZO, desde el CRON hasta el final (duodécima tanda, decisión 11). El recorrido se abre solo
+ * también con CERO automatizaciones, y ahí sólo encuentra la lista, «＋ Nueva» y el menú: queda VISTO sin haber
+ * mostrado el lienzo. Si en la MISMA visita aparece el primer lienzo, ChatAgentApp lo reabre UNA vez con éstos
+ * (`vioVacio`), sin repetir los de la lista que ya vio.
+ */
+export const PASOS_DEL_LIENZO: PasoRecorrido[] = PASOS_AUTOMATIONS.slice(PASOS_AUTOMATIONS.findIndex((p) => p.objetivo === 'au-cron'));
+
 // ── Dónde está cada objetivo ─────────────────────────────────────────────────
 
 /**
@@ -89,7 +98,6 @@ export const PASOS_AUTOMATIONS: PasoRecorrido[] = [
 export type Buscar = { css: string; texto?: string; vive: readonly string[]; futuro?: true };
 
 const LISTA = 'app/automations/SimuladorWhatsApp.tsx';
-const TAB = 'app/automations/ChatAgentApp.tsx';
 const LIENZO = 'app/_components/Lienzo.tsx';
 const PERFIL = 'app/automations/SecuenciaPerfil.tsx';
 const TITULOS = 'lib/flujo-conversacion.ts';
@@ -102,10 +110,9 @@ const TITULOS = 'lib/flujo-conversacion.ts';
 export const DONDE: Readonly<Record<string, readonly Buscar[]>> = {
   'au-lista': [{ css: 'aside[aria-label="Tus automatizaciones"]', vive: [LISTA] }],
   'au-nueva': [
-    // Una sola «Nueva automatización» desde la undécima tanda (se fue «＋ Nuevo mensaje»).
+    // Una sola «Nueva automatización» desde la undécima tanda (se fue «＋ Nuevo mensaje»). (Hasta la duodécima había
+    // una segunda forma, el «＋ Nueva» del cartel vacío de la tab: el cartel se fue y la lista se dibuja también vacía.)
     { css: 'button.chb-nueva', vive: [LISTA] },
-    // Sin ninguna automatización la lista no se dibuja: el «＋ Nueva» del cartel vacío.
-    { css: 'button', texto: '＋ Nueva', vive: [TAB] },
   ],
   'au-cron': [{ css: `[data-nodo="${ID_ENTRADA}"]`, vive: [LIENZO, 'lib/flujo-grafo.ts'] }],
   'au-mas': [

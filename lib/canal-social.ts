@@ -102,6 +102,140 @@ export function decidirSalida(c: ConversacionSocial | null, ahoraMs: number, can
 /** Hasta cuándo se le puede escribir después de un mensaje suyo que llegó en `iso`. */
 export const ventanaDesde = (iso: string): string => new Date(ms(iso) + VENTANA_META_MS).toISOString();
 
+// ── La conversación del lead, como la leen el envío y las condiciones ─────────────
+// Duodécima tanda (12/10/2026): las condiciones de Instagram y Messenger («Tiene Instagram», «Se le puede
+// escribir por Instagram», «Te sigue en Instagram», lib/condiciones-catalogo.ts) miran la MISMA fila que
+// mira el envío (lib/canal-zernio.ts). Por eso la regla de cuál fila cuenta vive acá, una vez: si cada
+// lado eligiera la suya, la condición diría «se le puede escribir» sobre una conversación y el DM saldría
+// (o no) por otra.
+
+/** Las columnas de `ig_conversaciones` que leen el envío y las condiciones. */
+export const COLS_CONVERSACION_SOCIAL = 'id, lead_id, plataforma, zernio_conversation_id, zernio_account_id, igsid, username, ventana_expira_at, comentario_id, comentario_post_id, comentario_at, comentario_respondido_at, ultimo_mensaje_at';
+
+/** Una fila de `ig_conversaciones` (mig 0242): la persona en UNA plataforma y UNA cuenta. */
+export type FilaConversacionSocial = {
+  id: number;
+  lead_id?: number | string | null;
+  plataforma?: string | null;
+  zernio_conversation_id: string | null;
+  zernio_account_id: string | null;
+  igsid: string | null;
+  username: string | null;
+  ventana_expira_at: string | null;
+  comentario_id: string | null;
+  comentario_post_id: string | null;
+  comentario_at: string | null;
+  comentario_respondido_at: string | null;
+  ultimo_mensaje_at: string | null;
+};
+
+/**
+ * LA CONVERSACIÓN QUE CUENTA cuando el lead tiene varias en un canal (dos cuentas de Instagram): la del
+ * último mensaje más reciente, y la que nunca tuvo un mensaje (sólo comentó) va al final. Es el
+ * `order('ultimo_mensaje_at', { ascending: false, nullsFirst: false }).limit(1)` de antes, con un
+ * desempate que la base no daba: a igual fecha, la fila más nueva (id mayor).
+ */
+export function conversacionQueCuenta<T extends Pick<FilaConversacionSocial, 'id' | 'ultimo_mensaje_at'>>(filas: readonly T[]): T | null {
+  let mejor: T | null = null;
+  let mejorMs = -Infinity;
+  for (const f of filas) {
+    const t = ms(f.ultimo_mensaje_at);
+    const fMs = Number.isFinite(t) ? t : -Infinity;
+    if (!mejor || fMs > mejorMs || (fMs === mejorMs && Number(f.id) > Number(mejor.id))) { mejor = f; mejorMs = fMs; }
+  }
+  return mejor;
+}
+
+/** Lo que `decidirSalida` necesita de la fila. */
+export const conversacionDeFila = (f: FilaConversacionSocial): ConversacionSocial => ({
+  conversacionId: f.zernio_conversation_id, cuentaId: f.zernio_account_id, ventanaExpiraAt: f.ventana_expira_at,
+  comentarioId: f.comentario_id, comentarioPostId: f.comentario_post_id, comentarioAt: f.comentario_at,
+  comentarioRespondidoAt: f.comentario_respondido_at,
+});
+
+/** Por lead, la conversación que cuenta en cada canal. Un canal sin fila no está. */
+export type ConversacionesPorLead = Map<number, Partial<Record<CanalSocial, FilaConversacionSocial>>>;
+
+/** Las filas leídas por lote → por lead y canal, con `conversacionQueCuenta`. Una fila sin lead o de otra plataforma no cuenta. */
+export function conversacionesPorLead(filas: readonly FilaConversacionSocial[]): ConversacionesPorLead {
+  const grupos = new Map<string, FilaConversacionSocial[]>();
+  for (const f of filas) {
+    const lead = Number(f.lead_id);
+    const canal = canalDePlataforma(f.plataforma);
+    if (f.lead_id == null || !Number.isInteger(lead) || lead <= 0 || !canal) continue;
+    const k = `${lead}:${canal}`;
+    const g = grupos.get(k) ?? [];
+    g.push(f);
+    grupos.set(k, g);
+  }
+  const out: ConversacionesPorLead = new Map();
+  for (const [k, g] of grupos) {
+    const [lead, canal] = k.split(':') as [string, CanalSocial];
+    const f = conversacionQueCuenta(g);
+    if (!f) continue;
+    const m = out.get(Number(lead)) ?? {};
+    m[canal] = f;
+    out.set(Number(lead), m);
+  }
+  return out;
+}
+
+// ── «Te sigue en Instagram» (duodécima tanda) ─────────────────────────────────────
+// Zernio lo contesta en GET /v1/accounts/{accountId}/follow-status/{igsid} (docs.zernio.com/accounts/
+// get-instagram-follow-status, leída el 12/10/2026): 200 con `isFollower` (true, false o null) y
+// `unavailableReason` (`consent_required` = nunca le escribió a la cuenta, `dm_access_disabled`,
+// `not_messageable`, `error` = una falla pasajera de Meta). Meta contesta SÓLO por quien ya escribió por
+// DM: a quien sólo comentó no se le pregunta, y su condición dice «no sé».
+
+/** Cuántos «¿te sigue?» van a Zernio a la vez. */
+export const CONCURRENCIA_SEGUIMIENTO = 4;
+
+/** A quién se le pregunta: sólo a quien ESCRIBIÓ (con conversación, cuenta y su id de Instagram). */
+export function pedidoDeSeguimiento(f: FilaConversacionSocial | null | undefined): { accountId: string; igsid: string } | null {
+  const conv = (f?.zernio_conversation_id ?? '').trim();
+  const accountId = (f?.zernio_account_id ?? '').trim();
+  const igsid = (f?.igsid ?? '').trim();
+  return conv && accountId && igsid ? { accountId, igsid } : null;
+}
+
+/**
+ * La respuesta de Zernio en «sí / no / no sé». true o false SÓLO cuando Meta lo confirma: cualquier
+ * `unavailableReason` (también `error`, que ya vino en un 200) o un `isFollower` que no es booleano es
+ * «no sé». `followerCount` e `isVerified` no se leen: la doc los muestra en un ejemplo, no los define.
+ */
+export function seguimientoDe(r: unknown): boolean | null {
+  if (!r || typeof r !== 'object' || Array.isArray(r)) return null;
+  const o = r as { isFollower?: unknown; unavailableReason?: unknown };
+  if (o.unavailableReason != null && o.unavailableReason !== '') return null;
+  return typeof o.isFollower === 'boolean' ? o.isFollower : null;
+}
+
+/**
+ * ¿Este status de Zernio es un «no sé» definitivo? La cuenta sin permiso o sin pago (401, 402), o un
+ * pedido que no existe (400, 403, 404): reintentar no lo arregla, y tirar trabaría la inscripción en
+ * cada corrida. Lo pasajero —408, 409, 425, 429 y todo 5xx, más la red y el tiempo, que ni llegan a
+ * status— TIRA, como toda lectura del motor: la inscripción queda para la próxima corrida.
+ */
+export function seguimientoNoSe(status: number): boolean {
+  return status >= 400 && status < 500 && status !== 408 && status !== 409 && status !== 425 && status !== 429;
+}
+
+/**
+ * `fn` sobre cada elemento, con `tope` a la vez como mucho. Si una tira, no arranca ninguna más y la
+ * promesa tira (las que estaban en vuelo terminan solas).
+ */
+export async function conTope<T>(items: readonly T[], tope: number, fn: (x: T) => Promise<void>): Promise<void> {
+  let i = 0;
+  let cortado = false;
+  const trabajador = async (): Promise<void> => {
+    while (!cortado && i < items.length) {
+      const x = items[i++];
+      try { await fn(x); } catch (e) { cortado = true; throw e; }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.max(1, Math.min(Math.floor(tope) || 1, items.length)) }, trabajador));
+}
+
 // ── Qué se puede mandar ──────────────────────────────────────────────────────────
 
 /**

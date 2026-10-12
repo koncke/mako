@@ -243,7 +243,8 @@ test('lienzo-5: tocar la automatización ya elegida no suelta lo que se está pr
 test('costuras-5: el link `?sec=` abre el LIENZO de esa automatización, no el wizard', () => {
   const app = APP();
   const ancla = app.slice(app.indexOf("const sec = params.get('sec');"), app.indexOf('const etiquetaEtapa = useCallback('));
-  assert.match(ancla, /if \(hallada\) setAbrirSec\(\{ id: hallada\.id \}\);/);
+  // Duodécima tanda (§3.6): con `&mako=1` la abre con el chat de MaKo abierto; sin él, como siempre.
+  assert.match(ancla, /if \(hallada\) setAbrirSec\(conMako \? \{ id: hallada\.id, mako: true \} : \{ id: hallada\.id \}\);/);
   assert.doesNotMatch(ancla, /setWizard\(/, 'el link volvió a abrir el wizard');
   assert.match(app, /abrir=\{abrirSec\}/);
   // La lista lo aplica eligiendo esa automatización (el lienzo se monta con su key).

@@ -363,7 +363,9 @@ test('el lienzo ofrece «⚡ Acción», la edita con el editor compartido y la a
   assert.match(editor, /<EditorAccionMako\s+key=\{`accion-\$\{id\}-\$\{previa\}`\}/, 'sin la key, lo escrito para una acción se ve en la siguiente');
   assert.match(editor, /onCambio=\{\(v: ValorAccion\) => cambiar\(\{ accion: \{ operacion: v\.operacion \?\? '', params: v\.params \?\? \{\} \} \}, \(v\.operacion \?\? ''\) !== previa\)\}/);
   // La tarjeta nueva abre su panel (la acción nace SIN ELEGIR y así no se puede publicar).
-  assert.match(lienzo, /const nuevo = onAgregar!\(id, puerto, que as QueAgregar\);\s*if \(nuevo\) setSel\(nuevo\);/);
+  // Desde la duodécima (12/10/2026) el mismo `if` además pide el QR (`pedirConectar`): va entre llaves.
+  // Roto dejando sólo `pedirConectar.current = nuevo` (sin `setSel`): 15 / 1, cae éste (base 16 / 0).
+  assert.match(lienzo, /const nuevo = onAgregar!\(id, puerto, que as QueAgregar\);\s*if \(nuevo\) \{?\s*setSel\(nuevo\);/);
   const nueva = nodoNuevo('accion', []);
   assert.deepEqual(nueva.accion, { operacion: '', params: {} });
   assert.equal(nueva.delay_horas, 0);

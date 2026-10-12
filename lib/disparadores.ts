@@ -32,8 +32,7 @@
 import { sanearCron, textoCron, proximaOcurrencia, type CronAviso } from './cron-aviso';
 import { normalizarEtapas, etapasDe, TRIGGER_ETAPA, TRIGGER_ENTREGA, TRIGGER_ETIQUETA } from './nutricion-etapa';
 import {
-  valorDisparo, valoresDisparo, valoresTrasTocar, valorDeVarios, disparoDeValor, detalleDisparador, nombreEtiqueta,
-  type DisparoActual, type EtiquetaParaDisparo,
+  valorDisparo, valoresDisparo, valoresTrasTocar, valorDeVarios, disparoDeValor, detalleDisparador, nombreEtiqueta, type DisparoActual, type EtiquetaParaDisparo, seccionesDisparo, pedidoDisparo, type OpcionDisparo, type ProductoParaDisparo,
 } from './flujo-conversacion';
 import { claseDe, idDe, puertosDe, raicesSalida, indicePorId, type PasoGrafo } from './flujo-grafo';
 import { OP_AVISAR } from './flujo-legado';
@@ -990,6 +989,113 @@ export function textoDelDisparador(d: Disparador, n: NombresDisparo): string {
 /** La clave del ícono de cada fila (la dibuja `IconoDisparador`, app/automations/IconosDisparador.tsx). */
 export function iconoDeDisparador(d: Pick<Disparador, 'trigger_tipo' | 'cron'>): ClaseDisparador | 'otro' {
   return claseDeDisparador(d) ?? 'otro';
+}
+
+// ── El CRON que ve «Crear con IA» (duodécima tanda) ─────────────────────────────────────────────
+// docs/diseno-duodecima-tanda.md §2.2 y §3.1. Hasta el 12/10/2026 la IA veía sólo los kanbans y «Se le puso «X»»
+// (`seccionesDisparo`): las clases que se sumaron después al CRON (Instagram, Messenger, Email, Pagos, «se agrega /
+// se quita etiqueta») no le llegaban, y guardaba con `setTriggerSecuencia`, que escribe sólo las columnas (la lista
+// de la 0241 quedaba en NULL: #243 y #245 de ws10). Ahora ve lo MISMO que ofrece el desplegable, con las MISMAS
+// funciones, y lo que elige se guarda por la MISMA puerta que la pantalla (`guardarDisparadores`).
+
+/** ¿Está conectado cada canal? Lo mide el servidor (`estadoCanalesDisparo`); «no pude saber» es `false` acá. */
+export type CanalesConectadosIA = Readonly<Record<ClaseDeEventos, boolean>>;
+
+/** Lo que entra a `opcionesCronIA`: lo mismo que el desplegable del CRON, más qué canales están conectados. */
+export type EntradaCronIA = {
+  productos: readonly ProductoParaDisparo[];
+  etiquetas: readonly EtiquetaParaDisparo[];
+  conectados: CanalesConectadosIA;
+};
+
+/** El título de la sección de cada clase: el rótulo de su botón en la primera pantalla del CRON. */
+const tituloDeClase = (clase: ClaseDisparador): string => CLASES_DISPARADOR.find((c) => c.clase === clase)?.label ?? clase;
+
+/** Las clases de eventos, en el orden de la primera pantalla del CRON. */
+const CLASES_DE_EVENTOS: readonly ClaseDeEventos[] = CLASES_DISPARADOR.map((c) => c.clase).filter(esClaseDeEventos);
+
+/**
+ * LOS EVENTOS DE UNA CLASE QUE LA IA PUEDE ELEGIR: los que ofrece el selector del CRON (`eventosOfrecidos`) SIN los
+ * apagados (un evento apagado no se puede guardar: `problemaDeDisparador`). La usan `opcionesCronIA` (lo que ve el
+ * modelo) y `disparadorDeValorIA` (lo que se guarda): con dos listas, una se queda vieja.
+ */
+export function eventosParaIA(clase: ClaseDeEventos): readonly EventoCanal[] {
+  return eventosOfrecidos(clase, null).filter((e) => !e.apagado);
+}
+
+/** El valor de un evento para la IA (§3.1): `instagram:dm`, `messenger:qr`, `email_recibido:recibido`, `pago:aprobado`. */
+export const valorEventoIA = (clase: ClaseDeEventos, subtipo: string): string => `${triggerDeCanal(clase)}:${subtipo}`;
+
+/** El prefijo de un valor de evento → su clase (el `trigger_tipo` de cada clase de canal). */
+const CLASE_DEL_PREFIJO: ReadonlyMap<string, ClaseDeEventos> = new Map(CLASES_DE_EVENTOS.map((c) => [triggerDeCanal(c), c]));
+
+/**
+ * LO QUE VE «CREAR CON IA» DEL CRON, en secciones `{ title, options }` (las aplana `disparadoresParaIA`, lib/flujo-ia.ts):
+ *   · los kanbans y «Se le puso «X»», con `seccionesDisparo` (el mismo armado que lee el desplegable);
+ *   · «Etiqueta»: «Se agrega etiqueta a un lead» y «Se elimina etiqueta a un lead» (`etiqueta_agregada` /
+ *     `etiqueta_quitada`), con los rótulos de la pantalla del CRON;
+ *   · «Instagram», «Messenger», «Email» y «Pagos», cada una SÓLO si su canal está conectado, con `eventosParaIA`.
+ * Afuera quedan el Recurrente (pide un horario, que la IA no elige) y `manual` (no inscribe a nadie).
+ */
+export function opcionesCronIA(e: EntradaCronIA): Array<{ title: string; options: OpcionDisparo[] }> {
+  const out = seccionesDisparo({ disparadores: [], productos: e.productos, etiquetas: e.etiquetas, actual: { trigger_tipo: 'manual' }, textoActual: '' });
+  out.push({
+    title: tituloDeClase('etiqueta'),
+    options: [
+      { value: TRIGGER_ETIQUETA_AGREGADA, label: TEXTO_ETIQUETA_AGREGADA },
+      { value: TRIGGER_ETIQUETA_QUITADA, label: TEXTO_ETIQUETA_QUITADA },
+    ],
+  });
+  for (const clase of CLASES_DE_EVENTOS) {
+    if (e.conectados[clase] !== true) continue;
+    const options = eventosParaIA(clase).map((ev) => ({ value: valorEventoIA(clase, ev.subtipo), label: ev.label }));
+    if (options.length) out.push({ title: tituloDeClase(clase), options });
+  }
+  return out;
+}
+
+/**
+ * EL CRON DE UN VALOR DE LA IA (§3.1), listo para `guardarDisparadores` (la puerta de la pantalla):
+ *   · `venta:…`, `entrega:…` y `etiqueta:<id>` → `pedidoDisparo` + `conDisparo` (los del desplegable de siempre);
+ *   · `instagram:<subtipo>`, `messenger:<subtipo>`, `email_recibido:recibido` y `pago:<subtipo>` → `{ trigger_tipo,
+ *     subtipo }`, sólo con un evento de `eventosParaIA`;
+ *   · `etiqueta_agregada` / `etiqueta_quitada` → `{ trigger_tipo }`.
+ * Lo que no entiende, o lo que la pantalla no dejaría guardar (`problemaDeDisparadores`), → `[]`. Nunca «lo más
+ * parecido».
+ */
+export function disparadorDeValorIA(valor: string, id = 'd1'): Disparador[] {
+  const v = typeof valor === 'string' ? valor.trim() : '';
+  const i = v.indexOf(':');
+  const prefijo = i > 0 ? v.slice(0, i) : v;
+  let d: Disparador | null = null;
+  if (v === TRIGGER_ETIQUETA_AGREGADA || v === TRIGGER_ETIQUETA_QUITADA) {
+    d = { id, trigger_tipo: v };
+  } else if (prefijo === 'venta' || prefijo === 'entrega' || prefijo === 'etiqueta') {
+    // El embudo de una etapa de venta va SIEMPRE (`seccionesDisparo` lo pone): sin él, `pedidoDisparo` deja
+    // `funnel_id` en null, que al guardar es «esa etapa en CUALQUIER embudo».
+    const conEmbudo = prefijo !== 'venta' || /^venta:[1-9]\d*:/.test(v);
+    if (conEmbudo && pedidoDisparo(v, 0)) d = conDisparo({ id, trigger_tipo: 'manual' }, disparoDeValor(v, { trigger_tipo: 'manual' }));
+  } else if (i > 0) {
+    const clase = CLASE_DEL_PREFIJO.get(prefijo);
+    const subtipo = v.slice(i + 1);
+    if (clase && eventosParaIA(clase).some((ev) => ev.subtipo === subtipo)) d = { id, trigger_tipo: triggerDeCanal(clase), subtipo };
+  }
+  if (!d) return [];
+  const lista = sanearDisparadores([d]);
+  return lista.length === 1 && problemaDeDisparadores(lista) == null ? lista : [];
+}
+
+/**
+ * AL REVÉS: EL VALOR DE LA IA DE UN CRON GUARDADO (el que se edita, y el 409 de crear). Un evento de canal con su subtipo
+ * da `instagram:dm` (el de `opcionesCronIA`, no `trigger:instagram`: el subtipo vive sólo en la lista de la 0241); «se
+ * agrega / se quita etiqueta», su `trigger_tipo`; lo demás, `valorDisparo` (el del desplegable de siempre).
+ * `disparadorDeValorIA(valorIADeDisparador(d))` vuelve a dar `d` para todo lo que la IA puede elegir.
+ */
+export function valorIADeDisparador(d: Disparador): string {
+  const clase = claseDeDisparador(d);
+  if (esClaseDeEventos(clase) && d.subtipo) return valorEventoIA(clase, d.subtipo);
+  if (d.trigger_tipo === TRIGGER_ETIQUETA_AGREGADA || d.trigger_tipo === TRIGGER_ETIQUETA_QUITADA) return d.trigger_tipo;
+  return valorDisparo(disparoActualDe(d));
 }
 
 // ── El Recurrente al grupo de MaKo: qué sale ────────────────────────────────────────────────────

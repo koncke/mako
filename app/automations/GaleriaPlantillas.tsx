@@ -15,8 +15,9 @@
 // "Lienzo en blanco"», «Agrega una barra de busqueda y filtro para buscar plantillas. No importa la busqueda o filtro,
 // la primera siempre "Lienzo en blanco"» y «La opción de "Pideselo a MaKo"... allí mismo ya debería poder escribir y
 // grabar audio». De arriba abajo, sin rótulos de sección (queda sólo el título del Modal):
-//   1. «Pídeselo a MaKo»: la caja de Crear con IA en `modo: 'galeria'` (app/automations/CrearConIA.tsx), con el
-//      micrófono de siempre. La fila nace AL GUARDAR (lib/flujo-ia-crear.ts): cancelar no deja nada.
+//   1. «Pídeselo a MaKo»: el chat de MaKo en `modo: 'galeria'` (app/automations/ChatMako.tsx; hasta la duodécima tanda,
+//      la caja de CrearConIA.tsx), con el micrófono de siempre. La fila nace AL GUARDAR (lib/flujo-ia-crear.ts):
+//      cancelar no deja nada.
 //   2. El buscador y el filtro (Canal y Objetivo) en una fila. Lo que filtra es puro y con test
 //      (`filtrarPlantillas`, `alternarFiltroGaleria`).
 //   3. La grilla: «Lienzo en blanco» PRIMERA SIEMPRE (ningún texto ni filtro la saca), «Pegar lo copiado» si hay algo
@@ -55,7 +56,8 @@ import {
 import type { ProductoParaDisparo } from '@/lib/flujo-conversacion';
 import { leerCopia } from '@/lib/flujo-copia';
 import { useEtiquetasTodas } from '@/app/_components/etiquetas-cliente';
-import { CrearConIA, type ListoCrearIA } from './CrearConIA';
+import type { ListoCrearIA } from './CrearConIA';
+import { ChatMako } from './ChatMako';
 import { CSS_NUEVO } from './NuevoPlaceholder';
 import { IconoDisparador } from './IconosDisparador';
 
@@ -257,9 +259,11 @@ export function GaleriaPlantillas(p: {
       <style>{CSS}</style>
       <style>{CSS_NUEVO}</style>
       <div data-galeria-paso="lista" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        {/* 1. «Pídeselo a MaKo», a lo ancho: escribir o dictar, y la crea (punto 6). */}
+        {/* 1. «Pídeselo a MaKo», a lo ancho: escribir o dictar, y la crea (punto 6). Desde la duodécima tanda es el CHAT
+            (./ChatMako.tsx): si le falta un dato decisivo, pregunta con botones acá mismo, y el hilo viaja entero en cada
+            turno hasta que la fila nace (ahí el server lo guarda como su chat). */}
         <div data-galeria-ia>
-          <CrearConIA modo="galeria" onListo={alListoIA} onOcupado={setConMaKo} deshabilitado={creando != null} />
+          <ChatMako modo="galeria" onListo={alListoIA} onOcupado={setConMaKo} deshabilitado={creando != null} />
         </div>
 
         {/* 2. El buscador y el filtro, en una fila (punto 5). */}

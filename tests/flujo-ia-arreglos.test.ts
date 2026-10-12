@@ -206,8 +206,9 @@ test('un rótulo que coincide con varias opciones no elige ninguna: queda «elí
   // Con el producto en el rótulo, el rótulo pelado ya no coincide con nada: tampoco elige.
   const d = disparadoresParaIA(seccionesDosProductos());
   assert.equal(deIA({ disparador: 'Llega a «Agendado»', inicio: 't1', tarjetas: [{ id: 't1', tipo: 'mensaje', texto: 'Hola' }] }, ctxBase({ disparadores: d }), rndDe()).disparador, null);
-  // Y la ruta aplana con la función, no a mano.
-  assert.match(rutaIA(), /disparadoresParaIA\(seccionesDisparo\(\{/);
+  // Y la ruta aplana con la función, no a mano. Duodécima tanda: lo que aplana es `opcionesCronIA` (lib/disparadores.ts),
+  // el desplegable del CRON con las clases nuevas (Instagram, Messenger, Email, Pagos, «se agrega / se quita etiqueta»).
+  assert.match(rutaIA(), /disparadoresParaIA\(opcionesCronIA\(\{/);
 });
 
 // ── Un `monto` inventado por el modelo se guardaba sin ninguna capa ──
@@ -270,11 +271,15 @@ test('crear: se PAUSA antes de escribir los pasos, y después de mirar la cancel
 
 // ── «hasta 1 min» en la espera, cuando la ruta puede tardar ~5 min ──
 // rotura (volver a «hasta 1 min»): 1 fallo de 17, cae éste.
+// DUODÉCIMA TANDA (ola 2): la caja es el chat de MaKo (app/automations/ChatMako.tsx) y el stream vive en stream-ia.ts:
+// estos tests siguen a lo mismo donde está ahora.
+const CHAT = () => sinComentarios(leer('app/automations/ChatMako.tsx'));
+const STREAM = () => sinComentarios(leer('app/automations/stream-ia.ts'));
 test('la espera dice el tope REAL: sale de TOPE_CLIENTE_MS y no es menor que el de la ruta', () => {
-  const src = sinComentarios(leer('app/automations/CrearConIA.tsx'));
+  const src = CHAT();
   assert.doesNotMatch(src, /hasta 1 min/);
   assert.match(src, /hasta \{Math\.round\(TOPE_CLIENTE_MS \/ 60_000\)\} min/);
-  const tope = Number(/const TOPE_CLIENTE_MS = ([\d_]+);/.exec(src)?.[1].replace(/_/g, ''));
+  const tope = Number(/export const TOPE_CLIENTE_MS = ([\d_]+);/.exec(STREAM())?.[1].replace(/_/g, ''));
   const max = Number(/export const maxDuration = (\d+);/.exec(leer('app/api/chat-agent/secuencias/ia/route.ts'))?.[1]);
   assert.ok(Math.round(tope / 60_000) >= max / 60, `dice ${Math.round(tope / 60_000)} min y la ruta corta a ${max} s`);
 });
@@ -321,12 +326,12 @@ test('edicionVigente: si el lienzo cambió desde que se mandó, el resultado no 
 
 // rotura (CrearConIA llama a `p.onListo` del clic en vez del ref): 2 fallos de 25, éste y el de las etiquetas.
 test('editar: la caja devuelve la foto que mandó y la pantalla la compara antes de aplicar', () => {
-  const caja = sinComentarios(leer('app/automations/CrearConIA.tsx'));
+  const caja = CHAT();
   assert.match(caja, /const base = p\.modo === 'editar' \? p\.pasos : undefined;/);
-  assert.match(caja, /\.\.\.\(base \? \{ pasos: base \} : \{\}\)/);
+  assert.match(caja, /secuenciaId: p\.secuenciaId, pasos: base/);
   assert.doesNotMatch(caja, /\bp\.onListo\(/, 'el onListo del clic cierra sobre el lienzo viejo');
   assert.match(caja, /useEffect\(\(\) => \{ onListoRef\.current = p\.onListo; \}\);/);
-  assert.match(caja, /disparador: ev\.disparador \?\? null, base,/);
+  assert.match(caja, /disparador: l\.disparador \?\? null, base,/);
   const perfil = sinComentarios(leer('app/automations/SecuenciaPerfil.tsx'));
   const i = perfil.indexOf('if (!edicionVigente(r.base, pasos))');
   assert.ok(i > 0 && i < perfil.indexOf('fotoAntes();', i), 'se compara ANTES de la foto y de aplicar');
@@ -335,32 +340,40 @@ test('editar: la caja devuelve la foto que mandó y la pantalla la compara antes
 // ── Las etiquetas que crea la IA se veían como «Una etiqueta que ya no está» hasta recargar ──
 // rotura (sin avisarCambioEtiquetas en el `listo`): 1 fallo de 25, cae éste.
 test('al terminar con etiquetas nuevas, la caja avisa a las listas ANTES de entregar el flujo', () => {
-  const caja = sinComentarios(leer('app/automations/CrearConIA.tsx'));
+  const caja = CHAT();
   assert.match(caja, /import \{ avisarCambioEtiquetas \} from '@\/app\/_components\/etiquetas-cliente';/);
-  const listo = caja.slice(caja.indexOf("if (ev.t === 'listo') {"), caja.indexOf("if (ev.t === 'error')"));
-  const aviso = listo.indexOf('if (ev.etiquetasNuevas.length) avisarCambioEtiquetas();');
+  const listo = caja.slice(caja.indexOf('const l = fin.listo;'));
+  const aviso = listo.indexOf('if (l.etiquetasNuevas.length) avisarCambioEtiquetas();');
   assert.ok(aviso > 0 && aviso < listo.indexOf('onListoRef.current('), 'el aviso va antes de onListo');
 });
 
 // rotura (la pantalla no siembra el disparador puesto): 1 fallo de 25, cae éste.
+// rotura (12/10/2026: `puesto = valor` ANTES de `await deps.ponerDisparador`): 24 / 1, cae éste.
 test('crear: el disparador que quedó PUESTO viaja en `listo` y la tarjeta CRON lo dibuja sin recargar', () => {
   const ruta = rutaIA();
   const ok = ruta.indexOf('puesto = valor;');
-  assert.ok(ok > ruta.indexOf('await setTriggerSecuencia(') && ok < ruta.indexOf('} catch (e) {', ok), 'sólo si setTriggerSecuencia no tiró');
+  // Duodécima tanda: el CRON lo pone `deps.ponerDisparador` (guarda por `guardarDisparadores`). Con el nombre viejo
+  // esta línea quedó VACÍA (indexOf -1 y `ok > -1` pasa siempre): se exige que la puerta exista.
+  const pone = ruta.indexOf('await deps.ponerDisparador(id, valor);');
+  assert.ok(pone > 0 && ok > pone && ok < ruta.indexOf('} catch (e) {', ok), 'sólo si ponerDisparador no tiró');
   // El core lo devuelve (`disparador: puesto`) y la ruta lo manda en `listo` (décima tanda).
   assert.match(ruta, /etiquetasNuevas: creadas, disparador: puesto,\n\s*\};/);
   assert.match(ruta, /etiquetasNuevas: r\.etiquetasNuevas, disparador: r\.disparador \}\);/);
   const perfil = sinComentarios(leer('app/automations/SecuenciaPerfil.tsx'));
   // Sexta tanda (varios CRON): lo puesto se pinta en el PRIMERO de la lista (`useDisparadores`).
   // Verificado sacando el `sembrarPrimero` (09/10/2026, cuatro archivos, base 71 / 0): 70 / 1, cae éste.
-  assert.match(perfil, /if \(puesto\) crons\.sembrarPrimero\(disparoDeValor\(puesto, disparo\)\);/);
+  // Duodécima tanda: se siembra con `disparadorDeValorIA` (lo MISMO que guardó el server), no con `disparoDeValor`, que
+  // no entiende `instagram:dm`. Roto volviendo a `disparoDeValor(puesto, disparo)` (12/10): 24 / 1, cae éste.
+  assert.match(perfil, /const puesto = r\.disparador \? disparadorDeValorIA\(r\.disparador\)\[0\] : undefined;\n\s*if \(puesto\) crons\.sembrarPrimero\(puesto\);/);
 });
 
 // ── Cancelar en «Revisando el flujo» dejaba la automatización guardada y la pantalla sin salida ──
 // rotura (Cancelar también en 'revision'): 1 fallo de 25, cae éste.
 test('la caja no ofrece Cancelar en «Revisando el flujo»: el server ya no lo respeta', () => {
-  const caja = sinComentarios(leer('app/automations/CrearConIA.tsx'));
-  assert.match(caja, /\{estado\.fase !== 'revision' && <Button variant="tertiary" size="sm" onClick=\{cancelar\}>Cancelar<\/Button>\}/);
+  const caja = CHAT();
+  assert.match(caja, /\{estado\.fase !== 'revision' && <Button variant="tertiary" size="sm" onClick=\{(?:onC|c)ancelar\}>Cancelar<\/Button>\}/);
+  // Y el Escape tampoco cancela en esa fase.
+  assert.match(caja, /e\.key === 'Escape' && fase !== 'revision'/);
 });
 
 // rotura (la caja ignora el `guardado` del 409): 1 fallo de 25, cae éste.
@@ -369,11 +382,16 @@ test('crear sobre una que ya tiene tarjetas: el 409 trae lo guardado y la caja s
   const i = ruta.indexOf("if (modo === 'crear' && guardados.length) {");
   const bloque = ruta.slice(i, ruta.indexOf('{ status: 409 }', i));
   assert.match(bloque, /pasos: guardados, nombre: String\(s\.nombre \?\? ''\), orden: ordenDeRevelado\(guardados\),/);
-  assert.match(bloque, /disparador: valorDisparo\(\{/);
-  const caja = sinComentarios(leer('app/automations/CrearConIA.tsx'));
-  const j = caja.indexOf("if (p.modo === 'crear' && res.status === 409 && g && Array.isArray(g.pasos) && g.pasos.length) {");
-  assert.ok(j > 0, 'falta el camino del 409 con lo guardado');
-  assert.match(caja.slice(j, j + 600), /onListoRef\.current\(\{\n\s*modo: 'crear', secuenciaId: p\.secuenciaId, pasos: g\.pasos,/);
+  // Duodécima tanda: el CRON del 409 sale de la LISTA (`cronGuardado`, con el subtipo de un evento) y las columnas quedan
+  // de respaldo. Roto volviendo a sólo las columnas (12/10): 24 / 1, cae éste.
+  assert.match(bloque, /const actual = await cronGuardado\(\);/);
+  assert.match(bloque, /disparador: actual \?\? valorDisparo\(\{/);
+  // Duodécima: el chat crea SIN `secuenciaId` (la fila nace al guardar), así que ese 409 no le llega; el stream igual
+  // conserva lo guardado del error por si otra pantalla crea sobre una fila.
+  const caja = CHAT();
+  assert.match(caja, /modo: p\.modo === 'galeria' \? 'crear' : 'editar'/);
+  assert.match(caja, /\.\.\.\(p\.modo === 'editar' \? \{ secuenciaId: p\.secuenciaId, pasos: base \} : \{ historial: hilo \}\)/);
+  assert.match(STREAM(), /\.\.\.\(j\?\.guardado \? \{ guardado: j\.guardado \} : \{\}\)/);
 });
 
 test('el ejemplo de crear se traduce entero y pasa validarGrafo y validarIA', () => {

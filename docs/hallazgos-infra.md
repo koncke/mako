@@ -5556,3 +5556,17 @@ POST https://api.vercel.com/v13/deployments?teamId=team_gitDpmLwk04T4OJoujoS9Qbq
 Build de 2,5 min y alias a `hola-mako.com`. **La regla:** después de un push se mira el ESTADO del deploy (no sólo que
 exista); con `git_info_fail` se redespliega por la API con el sha de `origin/main` — el de ese momento, no el propio,
 para no pisar lo que otra sesión haya pusheado después. **Vive en:** `.env.local` (VERCEL_API_TOKEN) · *2026-10-12 Graphics*
+
+## `cambiarSettingSi` con un valor largo no llega a la base: el filtro va en la URL (12/10/2026)
+
+`cambiarSettingSi(clave, esperado, nuevo)` compara con `.eq('value', esperado)`, y PostgREST pone ese filtro en la
+URL del PATCH. Medido en prod, sólo lectura, contra un ws que no existe: con 6 KB contesta 200, con 8 a 12 KB «fetch
+failed», con 16 a 32 KB 400 y con 64 KB 414. No hay error del lado de quien escribe que diga «el valor es largo»: se
+lee como una caída de red. El chat de MaKo (un JSON que crece) habría dejado de guardarse desde ~30 mensajes.
+
+**Regla:** `cambiarSettingSi` es el compare-and-set de la casa SÓLO para valores cortos. Si el valor puede pasar de
+~4 KB, se compara `updated_at` (pasado tal cual a `.eq`, encuentra la fila: 5 de 5) y se escribe uno estrictamente
+posterior al leído, o una revisión. La primera escritura (esperado `null`) sí puede ir por `cambiarSettingSi`.
+
+**Vive en:** `lib/settings.ts` · `lib/automatizacion-chat-db.ts` (el que ya lo esquiva) · *2026-10-12 duodécima
+tanda de Automations*
