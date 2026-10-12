@@ -243,6 +243,16 @@ otros. Deberíamos hacer una auditoría para que esto no pase en ningún lugar»
 Un cruce no se trata como bug de UI: es ciberseguridad, y el arreglo viene con el barrido
 de todos los lugares donde el mismo patrón puede repetirse.
 
+### ⚠️ Una caché en memoria del server es de TODOS los inquilinos del proceso (12/10/2026)
+
+El buscador de Instagram del alta de un lead guardaba en `globalThis` lo que Meta contestó de un @ con una clave SIN
+workspace, y la leía antes de mirar si el negocio tenía conexión de Meta: un cliente veía a quién había buscado otro en
+los últimos 10 minutos, con datos leídos con el token de ese otro. El caso, la regla (el `ws` va en la clave cuando el
+valor sale de una credencial o un dato de un cliente) y el barrido de las demás cachés en memoria, en
+[hallazgos-crm.md](hallazgos-crm.md) → «La segunda revisión del 12/10».
+
+**Vive en:** `app/api/crm/instagram-buscar/route.ts`
+
 ### ⚠️ `getTenantDb()` sobre una tabla que no está en TENANT_TABLES no filtra NADA (y no avisa)
 
 El proxy es fail-open: `if (!TENANT_TABLES.has(table)) return builder` (lib/workspace.ts:179).

@@ -19,7 +19,7 @@ import { usePathname } from 'next/navigation';
 import Link, { useRouter, useWs } from '@/app/_ui/Link';
 import { Button } from '@/app/_ui/Button';
 import { Icon } from './icons';
-import { decidirDesvio } from '@/lib/movil-desvio';
+import { decidirDesvio, destinoMovil } from '@/lib/movil-desvio';
 import { cookieVistaEscritorio } from '@/lib/movil-dispositivo';
 import { HOME_MOVIL } from '@/lib/movil-rutas';
 import { conWs } from '@/lib/ws-tab';
@@ -32,7 +32,11 @@ const cubierta: React.CSSProperties = {
   gap: 16,
 };
 
-export function DesvioMovil({ telefono }: { telefono: boolean }) {
+export function DesvioMovil({ telefono, wsPropio = null }: {
+  telefono: boolean;
+  /** El admin global SIN cliente va a /m de SU negocio (lo resuelve el layout: `wsSuperAdmin`). */
+  wsPropio?: number | null;
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const ws = useWs();
@@ -43,8 +47,8 @@ export function DesvioMovil({ telefono }: { telefono: boolean }) {
     // La query sólo se conoce en el navegador (useSearchParams pediría un Suspense en el
     // layout raíz, que está prohibido): se vuelve a decidir con ella.
     const d = decidirDesvio(window.location.pathname, window.location.search);
-    if (d.tipo === 'ir') router.replace(d.destino);
-  }, [telefono, pathname, router]);
+    if (d.tipo === 'ir') router.replace(destinoMovil(d.destino, ws, wsPropio));
+  }, [telefono, pathname, router, ws, wsPropio]);
 
   if (desvio.tipo === 'nada') return null;
 
@@ -53,7 +57,7 @@ export function DesvioMovil({ telefono }: { telefono: boolean }) {
     // (sin él, la cubierta sería una pantalla vacía sin forma de seguir).
     return (
       <div style={{ ...cubierta, alignItems: 'center' }} aria-busy="true">
-        <Link href={desvio.destino} style={{ fontSize: 18, fontWeight: 600, color: 'var(--primary)', padding: 12 }}>Abrir MaKo Mobile</Link>
+        <Link href={destinoMovil(desvio.destino, ws, wsPropio)} style={{ fontSize: 18, fontWeight: 600, color: 'var(--primary)', padding: 12 }}>Abrir MaKo Mobile</Link>
       </div>
     );
   }
@@ -67,7 +71,7 @@ export function DesvioMovil({ telefono }: { telefono: boolean }) {
         Esta pantalla se usa en la computadora.
       </h1>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 8 }}>
-        <Button variant="primary" size="lg" full onClick={() => router.replace(HOME_MOVIL)}>
+        <Button variant="primary" size="lg" full onClick={() => router.replace(destinoMovil(HOME_MOVIL, ws, wsPropio))}>
           Ir a MaKo Mobile
         </Button>
         <Button

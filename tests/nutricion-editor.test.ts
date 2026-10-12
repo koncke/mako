@@ -93,8 +93,8 @@ test('⚠️ una nutrición es UNA fila aunque salga de dos etapas, y apagarla l
   assert.match(ac, /activa: ts\.some\(\(t\) => !sup\.has/, 'con un id encendido la fila tiene que decir que corre');
   // Y el toggle los escribe todos: `tambien` es lo que lleva los ids hermanos al server.
   assert.match(ac, /tambien\?: string\[\]/, 'la op de nutrición dejó de aceptar los ids hermanos');
-  assert.match(leer('app/crm/EtapasModal.tsx'), /op: 'nutricion', id: n\.id, tambien: n\.ids/,
-    'el pop-up volvió a apagar una sola arista');
+  // ⚠️ Desde el 12/10/2026 el pop-up ya no tiene la subtab que llamaba a esta op (ver el test de
+  // abajo): la op y la lista quedan escritas en el server, sin pantalla.
 });
 
 test('⚠️ el nombre de la etapa sale de `cfg.stages` PRIMERO, o la lista muestra `st0`', () => {
@@ -108,20 +108,24 @@ test('⚠️ el nombre de la etapa sale de `cfg.stages` PRIMERO, o la lista mues
   assert.match(ac, /deStages\.get\(k\) \?\? cfg\.labels\[k\]/, '`cfg.stages` dejó de ir primero');
 });
 
-test('⚠️ la subtab de nutrición se puede EDITAR: quitar y agregar', () => {
-  // «Faltan muchas cosas en esa vista, no hay opción de agregar, de eliminar, etc…»
-  const md = leer('app/crm/EtapasModal.tsx');
-  assert.match(md, /const quitarNutricion = /, 'se fue el ✕ de cada nutrición');
-  assert.match(md, /function NuevaNutricion\(/, 'se fue el «Agregar nutrición»');
-  // El segundo renglón es el pedido: de qué depende que se dispare.
-  assert.match(md, /Sale de «\{n\.desdeLabel\}» · \{n\.porque\}/, 'se fue el «de qué depende»');
-  // ⚠️ Y NO es un desplegable: Martín dijo «obligatoriamente». De dónde sale una nutrición
-  // lo decide la FORMA del recorrido, no una elección — un selector ahí prometería poder
-  // cambiar un hecho. Lo dinámico es el NOMBRE, que sale de la clave de la etapa.
-  const sub = md.slice(md.indexOf("{emb && sub === 'nutricion' && ("));
-  assert.ok(!/<select/.test(sub.slice(0, 3000)), 'el origen de una nutrición se volvió elegible');
-  // Y lo APAGADO no se dibuja en la lista: se ofrece para volver a poner.
-  assert.match(md, /emb\.nutriciones\.filter\(\(n\) => n\.activa\)/, 'volvieron las casillas apagadas a la lista');
+// ⚠️ HASTA EL 12/10/2026 ACÁ HABÍA UN TEST DE LA SUBTAB «Nutrición» del pop-up de etapas (quitar,
+// agregar, «Sale de X · por qué»). Martín la sacó en el feedback de ese día: «Elimina las tabs de
+// "Nutrición" y "Etiqueta"... las nutriciones deben tomarse como una etapa más... un desplegable
+// para marcar "Reunión, Nutrición"». El test se dio vuelta: ahora fija que la subtab NO vuelva y
+// que la nutrición sea un TIPO de la etapa.
+//
+// Probado rompiéndolo (12/10/2026; el archivo entero da 8 / 0): vuelve la fila de subtabs → 7 / 1;
+// se monta otra vez `EditorEtiquetas` en el pop-up → 7 / 1; el desplegable de tipo pierde
+// «Nutrición» → 7 / 1.
+test('⚠️ el pop-up de etapas ya no tiene subtabs: la nutrición es un TIPO de la etapa', () => {
+  const sinComentarios = (s: string) => s.replace(/\r\n/g, '\n').replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+  const md = sinComentarios(leer('app/crm/EtapasModal.tsx'));
+  assert.doesNotMatch(md, /\['nutricion', 'Nutrición'\]|sub === 'nutricion'|setSub\(/, 'volvió la fila de subtabs');
+  assert.doesNotMatch(md, /<EditorEtiquetas|function NuevaNutricion\(/, 'volvió una subtab vieja');
+  // El tipo, con sus tres opciones, en el orden del desplegable.
+  assert.match(leer('lib/etapa-reunion.ts'), /TIPOS_ETAPA: readonly TipoEtapa\[\] = \['etapa', 'reunion', 'nutricion'\]/,
+    'el desplegable de tipo perdió una opción');
+  assert.match(md, /nutricion: \{ label: 'Nutrición', icono: '[a-z-]+' \}/, 'la opción Nutrición perdió su rótulo o su ícono');
 });
 
 test('⚠️ crear un producto calcula sus apagadas en el CHOKE POINT, no en cada llamador', () => {

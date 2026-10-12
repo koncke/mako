@@ -8,8 +8,8 @@
 // un `loading.tsx` el router no tiene con qué reemplazar la pantalla vieja.
 //
 // ⚠️ LAS MEDIDAS SON LAS DE `CrmBoard`, no aproximadas a ojo: el padding
-// `34px 44px 60px`, el título de `clamp(30px, 6vw, 46px)` con `lineHeight: 1`, la
-// fila de toolbar de 38px y las columnas de 282px con `borderTop: 3px`. Un
+// `16px 44px 60px` (sin título desde el 12/10/2026), la fila de la barra de 40px y
+// las columnas de 282px con `borderTop: 3px`. Un
 // esqueleto más chico o más grande que lo que llega hace un salto que se nota más
 // que un spinner, y entonces cuesta más de lo que ahorra.
 //
@@ -25,27 +25,18 @@ const COLUMNAS = [4, 3, 5, 2, 3];
 
 export default function CargandoCrm() {
   return (
-    <main aria-busy="true" aria-label="Cargando el CRM" style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px', display: 'flex', flexDirection: 'column' }}>
-      {/* HEADER — ícono + título a la izquierda, acciones a la derecha. */}
-      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20, marginBottom: 22 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <Skeleton w={34} h={34} radius={9} />
-          <Skeleton w={104} h={46} radius={10} />
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <Skeleton w={132} h={34} radius={999} />
-          <Skeleton w={118} h={34} radius={10} />
-        </div>
-      </header>
-
-      {/* TOOLBAR — vista · buscar · filtrar ····· bandas · producto. */}
+    <main aria-busy="true" aria-label="Cargando el CRM" style={{ flex: 1, minWidth: 0, padding: '16px 44px 60px', display: 'flex', flexDirection: 'column' }}>
+      {/* SIN HEADER desde el 12/10/2026 (puntos 22-23): el título «CRM» se fue y la barra sube
+          arriba del todo, con 16 de aire y no 34. La barra: funnel · vista · buscar · filtrar
+          ····· + Nuevo lead · ⋯ (las bandas viven adentro de «Filtrar»). */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-        <Skeleton w={190} h={38} radius={10} />
-        <Skeleton w={260} h={38} radius={10} />
-        <Skeleton w={104} h={38} radius={10} />
+        <Skeleton w={190} h={40} radius={10} />
+        <Skeleton w={96} h={40} radius={11} />
+        <Skeleton w={260} h={40} radius={10} />
+        <Skeleton w={104} h={40} radius={10} />
         <span style={{ flex: 1 }} />
-        <Skeleton w={150} h={38} radius={10} />
-        <Skeleton w={190} h={38} radius={10} />
+        <Skeleton w={136} h={40} radius={10} />
+        <Skeleton w={40} h={40} radius={10} />
       </div>
 
       {/* KANBAN — mismas columnas de 282, mismo gap, mismo maxHeight. */}

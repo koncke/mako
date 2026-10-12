@@ -27,22 +27,116 @@
 // de verdad: `updateLead` fuerza «calificado» a null si no asistió a R1, así que
 // marcarlo ahí guardaría y volvería solo al valor anterior.
 
-import { useRef, useState, useTransition, type CSSProperties } from 'react';
+import { useCallback, useEffect, useRef, useState, useTransition, type CSSProperties, type MouseEvent, type ReactNode } from 'react';
 import Link from '@/app/_ui/Link';
 import { useRefrescarFicha } from './ficha-cambio';
 import { EditableInline } from '@/app/_components/EditableInline';
+import { TelefonoConPais } from '@/app/_components/TelefonoConPais';
 import { Toast, useToast } from '@/app/_ui/Toast';
 import { Dropdown } from '@/app/components/Dropdown';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
+import { splitTelefono } from '@/lib/paises';
 import { guardarCampoLeadAction } from '../actions';
 import { opcionesEquipo } from '../equipo-opciones';
 import { esMaKo, MAKO_STAR_URI } from '../mako-setter';
 import { ChipTri } from './chip-tri';
-import { FATHOM_URL, type CampoInline, type ValorInline } from '../campo-inline';
+import { FATHOM_URL, INGRESO_MAX_USD, montoDeTexto, telefonoAGuardar, usuarioInstagram, type CampoInline, type ValorInline } from '../campo-inline';
 import type { MiembroEquipo } from '../actions';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
+
+// ── La tarjeta del campo: un clic en CUALQUIER parte abre la edición ─────────
+//
+// Pedido de Martín (12/10/2026, punto 7), textual: «En el detalle del lead, solo puedo cambiarle
+// la info si le doy click al guion "---" que esta en los campos... Si le doy click a la tarjeta
+// debería ya saltarme el cuadro de texto, y debe ser más grande... Basicamente como el ancho de
+// esa tarjeta.»
+//
+// ⚠️ EL DIAGNÓSTICO: el campo de texto (`EditableInline`) es un `inline-block` que mide lo que
+// dice. Vacío dice «—»: un blanco de 10 px adentro de una tarjeta de 300. Y la fecha y la persona
+// son un botón del tamaño de su texto. Todo lo demás de la tarjeta era aire muerto.
+//
+// La cura son dos cosas, y viven acá para que valgan en TODAS las tarjetas que usan estas piezas
+// (Información principal, Reuniones, Motivo, Plazo, Calificación) y no en una:
+//   1. `CajaCampo` — el recuadro de UN campo. Un clic en cualquier punto que no sea ya un control
+//      (copiar, WhatsApp, un link) abre el campo de adentro: pone el cursor en el texto, abre el
+//      calendario, el desplegable o el sí/no. Cada pieza marca su disparador con `data-campo-abrir`.
+//   2. Adentro de una `CajaCampo`, el texto y la caja de edición ocupan el ANCHO de la tarjeta,
+//      y al editar se ve el recuadro (el `outline`, que no mueve el layout).
+//
+// ⚠️ UN CLIC QUE LLEGA POR UN PORTAL NO CUENTA. El menú del desplegable y el toast se dibujan en
+// `document.body`, pero React hace burbujear su clic por el árbol de COMPONENTES hasta acá: sin el
+// `contains`, elegir una opción del menú volvía a abrirlo.
+//
+// ⚠️ ES UN COMPONENTE, NO UN ESTILO EXPORTADO: las tarjetas que la montan (MotivoYPlazoCard,
+// ReunionesCard, CalificacionCard) no son 'use client', y un VALOR importado de un 'use client'
+// llega al server como una referencia de cliente, no como el objeto (AGENTS.md, la frontera).
+
+const INTERACTIVO = 'button, a, input, select, textarea, label, [contenteditable="true"], [role="group"], [role="listbox"], [role="option"], [data-no-abre]';
+
+const CSS_CAJA = `
+.campo-caja{ cursor:pointer; }
+.campo-caja .edin{ display:block; width:100%; box-sizing:border-box; }
+.campo-caja .edin:focus, .campo-caja .edin:focus-visible{ box-shadow:none; outline:1.5px solid var(--primary); outline-offset:5px; border-radius:6px; background:var(--surface); }
+.campo-caja input.campo-ancho{ width:100%; box-sizing:border-box; }
+`;
+
+/** Abre el campo de adentro de una caja: el texto recibe el cursor al final; lo demás, su clic. */
+function abrirCampoEn(caja: HTMLElement): void {
+  const el = caja.querySelector<HTMLElement>('[data-campo-abrir], [contenteditable="true"]');
+  if (!el) return;
+  if (el.isContentEditable) {
+    el.focus();
+    const sel = window.getSelection();
+    const r = document.createRange();
+    r.selectNodeContents(el);
+    r.collapse(false);
+    sel?.removeAllRanges();
+    sel?.addRange(r);
+    return;
+  }
+  if (el.matches('button')) { el.click(); return; }
+  el.querySelector<HTMLElement>('button')?.click();
+}
+
+/**
+ * El recuadro de UN campo de la ficha. Un clic en cualquier parte abre la edición (punto 7).
+ * `style` es el recuadro de quien la monta (cada tarjeta tiene el suyo).
+ */
+export function CajaCampo({ children, style }: { children: ReactNode; style?: CSSProperties }) {
+  /**
+   * ⚠️ ¿El campo ya estaba ABIERTO cuando bajó el dedo? Entonces este clic es para SALIR: el
+   * `pointerdown` le quita el foco (y el campo guarda y se cierra), y si el `click` que sigue lo
+   * volviera a abrir, no habría forma de terminar de editar tocando la propia tarjeta. Se mira en
+   * el `pointerdown`, antes de que el campo se cierre.
+   */
+  const estabaAbierto = useRef(false);
+  const alBajar = (e: MouseEvent<HTMLDivElement>) => {
+    const caja = e.currentTarget;
+    const a = document.activeElement as HTMLElement | null;
+    const escribiendo = !!a && caja.contains(a)
+      && (a.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) || !!a.closest('[role="group"]'));
+    estabaAbierto.current = escribiendo || !!caja.querySelector('[aria-expanded="true"], [data-campo-editando]');
+  };
+  const alTocar = (e: MouseEvent<HTMLDivElement>) => {
+    const caja = e.currentTarget;
+    const t = e.target as HTMLElement | null;
+    const salir = estabaAbierto.current;
+    estabaAbierto.current = false;
+    if (!t || !caja.contains(t)) return;   // vino por un portal (menú, toast)
+    const hit = t.closest(INTERACTIVO);
+    if (hit && caja.contains(hit)) return;  // ya es un control: hace lo suyo
+    if (salir) return;                      // era para cerrar el que estaba abierto
+    abrirCampoEn(caja);
+  };
+  return (
+    <div className="campo-caja" onPointerDownCapture={alBajar} onClick={alTocar} style={style}>
+      <style dangerouslySetInnerHTML={{ __html: CSS_CAJA }} />
+      {children}
+    </div>
+  );
+}
 
 /** El botón que ES el valor: sin borde, sin fondo, sin padding. Se saca la CAJA, no la señal. */
 const disparador: CSSProperties = {
@@ -145,10 +239,13 @@ export function FechaEditable({ leadId, campo, valor, fallback = null, titulo, v
               e.currentTarget.blur();
             }
           }}
+          // `campo-ancho`: adentro de una `CajaCampo` ocupa el ancho de la tarjeta (punto 7); suelta
+          // (al lado del título de una reunión) mide lo suyo, como siempre.
+          className="campo-ancho"
           style={{ ...estilo, fontFamily: MONO, fontSize: 12.5, color: 'var(--ink)', background: 'var(--surface)', border: '1px solid var(--primary)', borderRadius: 7, padding: '2px 6px', outline: 'none' }}
         />
       ) : (
-        <button type="button" title={titulo} onClick={() => setAbierto(true)} style={{ ...disparador, ...estilo }}>{texto}</button>
+        <button type="button" data-campo-abrir title={titulo} onClick={() => setAbierto(true)} style={{ ...disparador, ...estilo }}>{texto}</button>
       )}
       <Toast state={toast} onClose={clear} />
     </>
@@ -208,7 +305,7 @@ export function TriEditable({ leadId, campo, valor, si, no, titulo, bloqueado = 
           ))}
         </span>
       ) : (
-        <button type="button" title={titulo} onClick={() => setAbierto(true)} style={disparador}>
+        <button type="button" data-campo-abrir title={titulo} onClick={() => setAbierto(true)} style={disparador}>
           <ChipTri valor={valor} si={si} no={no} />
         </button>
       )}
@@ -357,15 +454,235 @@ export function PersonaEditable({ leadId, campo, valor, equipo, hint }: {
 
   return (
     <>
-      <Dropdown
-        value={actual}
-        options={opcionesEquipo(equipo, actual)}
-        onChange={(v) => { if (v !== actual) guardar(v || null, valor); }}
-        placeholder={hint || '—'}
-        ariaLabel={campo === 'closer' ? 'Closer asignado' : 'Setter asignado'}
-        buttonStyle={{ border: 0, background: 'none', padding: 0, borderRadius: 4, fontSize: 14, fontWeight: 600, fontFamily: SANS, color: actual ? 'var(--ink)' : 'var(--faint)', maxWidth: '100%' }}
+      {/* `data-campo-abrir` en un envoltorio: el botón lo dibuja el Dropdown y no se le puede marcar.
+          `CajaCampo` busca el primer botón de adentro. */}
+      <span data-campo-abrir style={{ display: 'inline-block', maxWidth: '100%' }}>
+        <Dropdown
+          value={actual}
+          options={opcionesEquipo(equipo, actual)}
+          onChange={(v) => { if (v !== actual) guardar(v || null, valor); }}
+          placeholder={hint || '—'}
+          ariaLabel={campo === 'closer' ? 'Closer asignado' : 'Setter asignado'}
+          buttonStyle={{ border: 0, background: 'none', padding: 0, borderRadius: 4, fontSize: 14, fontWeight: 600, fontFamily: SANS, color: actual ? 'var(--ink)' : 'var(--faint)', maxWidth: '100%' }}
+        />
+      </span>
+      <Toast state={toast} onClose={clear} />
+    </>
+  );
+}
+
+// ── Monto (el ingreso estimado) ──────────────────────────────────────────────
+
+const fmtUsd = (n: number) => `$${n.toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
+
+/**
+ * Un monto en USD que se corrige en el lugar: el ingreso ESTIMADO del lead (punto 21 del
+ * 12/10/2026, mig 0258). Se lee formateado («$1,500»); el clic abre una caja numérica del ancho de
+ * la tarjeta con el número pelado.
+ *
+ * ⚠️ SE VALIDA ANTES DE PEDIR NADA (con la MISMA `montoDeTexto` que usa el server en
+ * `valorDeCampo`): en producción el mensaje de un error de server action no llega a la pantalla, y
+ * «1.5k» guardado como nada se leería como que el campo no anda. Vaciarlo es legítimo: borra el
+ * estimado, que no es lo mismo que $0.
+ */
+export function MontoEditable({ leadId, campo, valor, titulo, vacio = '—', estilo }: {
+  leadId: number;
+  campo: Extract<CampoInline, 'ingreso_estimado'>;
+  valor: number | null;
+  titulo: string;
+  vacio?: string;
+  estilo?: CSSProperties;
+}) {
+  const { guardar, toast, clear, show } = useGuardarCampo(leadId, campo);
+  const [abierto, setAbierto] = useState(false);
+  const cancelado = useRef(false);
+
+  const cerrarGuardando = (t: string) => {
+    setAbierto(false);
+    if (cancelado.current) { cancelado.current = false; return; }
+    const s = t.trim();
+    if (!s) { if (valor != null) guardar(null, valor); return; }
+    const n = montoDeTexto(s);
+    if (n == null || n < 0 || n > INGRESO_MAX_USD) { show('Monto no válido', undefined, 'bad'); return; }
+    const redondo = Math.round(n * 100) / 100;
+    if (redondo === valor) return;
+    guardar(redondo, valor);
+  };
+
+  return (
+    <>
+      {abierto ? (
+        <input
+          autoFocus
+          inputMode="decimal"
+          defaultValue={valor != null ? String(valor) : ''}
+          placeholder="1500"
+          aria-label={titulo}
+          className="campo-ancho"
+          onBlur={(e) => cerrarGuardando(e.currentTarget.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); return; }
+            if (e.key === 'Escape') {
+              // El mismo freno que la fecha: sin el `stopImmediate`, cancelar cierra la ficha.
+              e.stopPropagation();
+              e.nativeEvent.stopImmediatePropagation();
+              e.preventDefault();
+              cancelado.current = true;
+              e.currentTarget.blur();
+            }
+          }}
+          style={{ ...estilo, fontFamily: SANS, color: 'var(--ink)', background: 'var(--surface)', border: '1px solid var(--primary)', borderRadius: 7, padding: '3px 8px', outline: 'none' }}
+        />
+      ) : (
+        <button type="button" data-campo-abrir title={titulo} onClick={() => setAbierto(true)} style={{ ...disparador, ...estilo, color: valor != null ? 'var(--ink)' : 'var(--faint)' }}>
+          {valor != null ? fmtUsd(valor) : vacio}
+        </button>
+      )}
+      <Toast state={toast} onClose={clear} />
+    </>
+  );
+}
+
+// ── Instagram ────────────────────────────────────────────────────────────────
+
+/**
+ * El usuario de Instagram del lead (punto 28, mig 0258), corregible en el lugar. Se lee con la @;
+ * se acepta la @, el usuario pelado o el link del perfil, y se guarda normalizado
+ * (`usuarioInstagram`, la MISMA regla del alta y del server).
+ *
+ * ⚠️ UN USUARIO QUE NO ES UN USUARIO SE RECHAZA ACÁ y el campo VUELVE a lo que tenía: el texto
+ * editable ya se dio por confirmado al salir (`EditableInline`), así que sin el remonte quedaría
+ * escrito algo que no se guardó.
+ */
+export function InstagramEditable({ leadId, valor, titulo = 'Usuario de Instagram' }: {
+  leadId: number;
+  valor: string | null;
+  titulo?: string;
+}) {
+  const { guardar, toast, clear, show } = useGuardarCampo(leadId, 'instagram');
+  const [vuelta, setVuelta] = useState(0);
+  const actual = usuarioInstagram(valor);
+  return (
+    <>
+      <EditableInline
+        key={vuelta}
+        valor={actual ? `@${actual}` : ''}
+        onGuardar={(v) => {
+          const s = v.trim();
+          if (!s) { if (actual) guardar(null, valor); return; }
+          const u = usuarioInstagram(s);
+          if (!u) { show('Usuario no válido', undefined, 'bad'); setVuelta((n) => n + 1); return; }
+          if (u === actual) { setVuelta((n) => n + 1); return; }
+          guardar(u, valor);
+        }}
+        placeholder="—"
+        titulo={titulo}
+        maxLargo={200}
       />
       <Toast state={toast} onClose={clear} />
     </>
+  );
+}
+
+// ── Teléfono, con el país primero ────────────────────────────────────────────
+
+/**
+ * El teléfono de la ficha, con el desplegable de país y banderas ANTES del número.
+ *
+ * Pedido de Martín (12/10/2026, punto 5): «siempre en todos lados que pida telefono, primero tiene
+ * que ir la numeración que ya tenemos con las banderas, el desplegable». La pieza es la de la casa
+ * (`TelefonoConPais`), con el separador de la casa (`splitTelefono`).
+ *
+ * ⚠️ EL VALOR QUE SE GUARDA NO CAMBIA DE FORMATO, y por eso dos reglas:
+ *   · Si los DÍGITOS no cambiaron, no se escribe nada. Un teléfono guardado como lo mandó Calendly
+ *     («+52 1 55 5555 5555») se abre partido en lada y número; cerrarlo sin tocarlo no puede
+ *     reescribirlo con otro formato ni dejar una línea en el historial.
+ *   · Si cambiaron, salen los dígitos de lada + número, que es lo que la pieza emite en todos lados
+ *     y lo que el server ya normaliza (`telefono_normalizado`, el match de WhatsApp). Vaciar el
+ *     número es borrar el teléfono. La regla es `telefonoAGuardar` (app/crm/campo-inline.ts).
+ *
+ * Guarda con Enter o al salir de la caja (un clic afuera); Escape descarta. El menú de países se
+ * dibuja ADENTRO de la caja (`portalTo`): si se fuera a `document.body`, elegir un país contaría
+ * como un clic afuera y guardaría a medio escribir.
+ */
+export function TelefonoEditable({ valor, onGuardar, titulo = 'Edita el teléfono' }: {
+  valor: string | null;
+  /** Lo que se guarda: los dígitos, o '' para borrarlo. Lo llama sólo si los dígitos cambiaron. */
+  onGuardar: (v: string) => void;
+  titulo?: string;
+}) {
+  const [abierto, setAbierto] = useState(false);
+  const [lada, setLada] = useState('');
+  const [numero, setNumero] = useState('');
+  // Cómo se ABRIÓ: cerrar con la misma lada y el mismo número no escribe nada (`telefonoAGuardar`).
+  const inicial = useRef({ lada: '', resto: '' });
+  const caja = useRef<HTMLDivElement | null>(null);
+  const [nodo, setNodo] = useState<HTMLDivElement | null>(null);
+  // Estable: un ref en línea es una función nueva por render, y con un `setNodo` adentro React
+  // lo llamaría con null y con el nodo en cada commit.
+  const refCaja = useCallback((el: HTMLDivElement | null) => { caja.current = el; setNodo(el); }, []);
+
+  const abrir = () => {
+    const p = splitTelefono(valor ?? '');
+    inicial.current = p;
+    setLada(p.lada);
+    setNumero(p.resto);
+    setAbierto(true);
+  };
+
+  // Lo último escrito, para el clic afuera (el listener vive mientras está abierto).
+  const ultimo = useRef({ lada, numero });
+  ultimo.current = { lada, numero };
+
+  const cerrar = (guardarlo: boolean) => {
+    setAbierto(false);
+    if (!guardarlo) return;
+    const { lada: l, numero: n } = ultimo.current;
+    // La regla (y su test) en app/crm/campo-inline.ts: null = los dígitos no cambiaron.
+    const v = telefonoAGuardar(valor, l, n, inicial.current);
+    if (v != null) onGuardar(v);
+  };
+  const cerrarRef = useRef(cerrar);
+  cerrarRef.current = cerrar;
+
+  useEffect(() => {
+    if (!abierto) return;
+    const fuera = (e: PointerEvent) => {
+      const t = e.target as Node | null;
+      if (t && caja.current?.contains(t)) return;
+      cerrarRef.current(true);
+    };
+    // En captura: el clic afuera puede caer en un control que frena la propagación.
+    document.addEventListener('pointerdown', fuera, true);
+    return () => document.removeEventListener('pointerdown', fuera, true);
+  }, [abierto]);
+
+  if (!abierto) {
+    return (
+      <button type="button" data-campo-abrir title={titulo} onClick={abrir}
+        style={{ ...disparador, display: 'block', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: valor ? 'var(--ink)' : 'var(--faint)' }}>
+        {valor || '—'}
+      </button>
+    );
+  }
+  return (
+    <div
+      ref={refCaja}
+      data-campo-editando
+      style={{ position: 'relative', width: '100%' }}
+      onKeyDown={(e) => {
+        if (e.key !== 'Escape') return;
+        e.stopPropagation();
+        e.nativeEvent.stopImmediatePropagation();
+        e.preventDefault();
+        cerrar(false);
+      }}
+    >
+      <TelefonoConPais
+        lada={lada} numero={numero} onLada={setLada} onNumero={setNumero}
+        onEnter={() => cerrar(true)} autoFocus portalTo={nodo} anchoLada={112}
+        inputStyle={{ fontFamily: SANS, fontSize: 14, fontWeight: 600, color: 'var(--ink)', background: 'var(--surface)', border: '1px solid var(--primary)', borderRadius: 8, padding: '6px 10px', outline: 'none' }}
+      />
+    </div>
   );
 }

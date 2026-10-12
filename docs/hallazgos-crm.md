@@ -2653,6 +2653,10 @@ llamadores. **Van linkeadas, no copiadas** (una entrada, un lugar):
 | `getComputedStyle` con la pane oculta, z-index y pila de modales, `WizardShell` | [hallazgos-ui.md](hallazgos-ui.md) §1 y §2 |
 | MaKo moviendo etapas | [hallazgos-ia.md](hallazgos-ia.md) |
 | El desenlace de las nutriciones | [hallazgos-comunicacion.md](hallazgos-comunicacion.md) |
+| **Un número pegado con su «+código» quedaba con DOS códigos, y avisar lada y número en el mismo evento pisa la lada.** El selector de país del alta, la ficha y otros cinco montajes (12/10/2026) | [hallazgos-ui.md](hallazgos-ui.md) → «Un control que parte un dato en dos…» |
+| **Un observador que reescribe lo que observa compara contra lo que el navegador DEVUELVE.** El título «MaKo - CRM» y el bucle infinito con `/reportes-` (12/10/2026) | [hallazgos-ui.md](hallazgos-ui.md) → «Un observador que reescribe…» |
+| **MaKo Analyst de la ficha es el turno del teléfono prestado**: el contexto del lead va por turno y no se guarda, y la privacidad del chat es un PREFIJO (12/10/2026) | [hallazgos-mobile.md](hallazgos-mobile.md) → «El turno del teléfono, prestado a la ficha del lead» |
+| La nota desde /m sigue recortando a 4000 en silencio al crearla (12/10/2026) | [hallazgos-mobile.md](hallazgos-mobile.md) → «Lo que quedó sin hacer» |
 
 ---
 
@@ -7673,6 +7677,10 @@ cumple la action, porque `op` es el argumento de una server action.
 - Corregir el orden de los datos cuando una reunión se corre de número: hoy sólo se avisa, y
   la fecha queda en el lugar de su número viejo.
 
+**Desde el 12/10/2026** el botón es un desplegable de tipo (Etapa / Reunión / Nutrición) y el NOMBRE marca solo una
+etapa como reunión. Lo que eso enseñó —la marca aparte, la llamada que no pasó, y la etapa desmarcada antes del 12/10 que
+se volvía a marcar— está en «El tipo de una etapa es una MARCA aparte…», más abajo.
+
 _09/10/2026, cuenta 2, sin subagentes. Commit `adf1ca3d`._
 
 ---
@@ -7972,3 +7980,259 @@ j2): entra por el barrido de la hora.
 
 **Vive en:** `lib/leads.ts` (`enrolarPorEtapaDerivada`, `auditarEtapaDeLaReserva`) · `lib/nutricion-etapa.ts` ·
 `lib/nutricion-familias.ts` · *2026-10-11 undécima tanda (w2-motor-reuniones)*
+
+## La cabecera de la ficha: un árbol, la portada y las pestañas que dependen del funnel (12/10/2026)
+
+Feedback de Martín del 12/10 (puntos 9, 11-14, 16, 18, 19). Las dos puertas de la ficha montan ahora UNA cabecera
+(`CabeceraLead`, sobre `CabeceraDetalle`) y UNA pestaña de MaKo Analyst (`AnalystDelLead`).
+
+- **El árbol funnel › etapa pinta la casa con las etapas y la etapa de la PANTALLA, no las del server.** La respuesta de
+  `productosDeLaFichaAction` es una foto que sólo se relee tras agregar/quitar/mover en un agregado: después de mover la
+  casa con el wizard, su `etapa` queda vieja. `funnelsDelArbol` reemplaza la casa por lo de la pantalla (que sí se relee).
+  Sin respuesta del server el árbol tiene SÓLO la casa: «Agregar» en un funnel donde no se sabe si está afirmaría algo.
+- **«El funnel del lead tiene una campaña» se compara con el del negocio como `null` en las DOS puntas** (mapa
+  `meta.campanas` y `leads.funnel_id`), traduciendo el id real del del negocio a `null` por si alguna fila vieja lo trae.
+  Y se lee ESTRICTO: con la base caída la pestaña Tracking SE DIBUJA (la tolerante devolvía `[]` = «sin campaña» para todos).
+- **Un `max-height` no alcanza para un sticky: el que scrollea tiene que TENER alto.** En el pop-up es el cuerpo
+  (`flex: 1; minHeight: 0`) y la cabecera queda afuera de él; en la ruta scrollea el documento (sin `overflow` en ningún
+  ancestro) y la cabecera con portada se va con el scroll a propósito: la ruta se abre desde un WhatsApp, en un teléfono.
+
+**SIN HACER:**
+- `Lead` (lib/leads.ts) no declara `portada`, `portada_y` ni `avatar_y` aunque `getLead` las trae: la cabecera las
+  declara aparte (`LeadConCara`, app/crm/lead-view/CabeceraLead.tsx). Moverlas al tipo cuando nadie más lo esté tocando.
+- `CabeceraDetalle` tiñe la fila con `${color}12`, y `colorDe` devuelve `hsl(...)`: donde el color sale de ahí (la ficha
+  de un cliente de la plataforma y ahora la del lead) el CSS queda inválido y la fila sale sin tinte. Leído en el código,
+  no medido en pantalla (app/_components/CabeceraDetalle.tsx, `FilaDetalle`; el del tablero usa el color del proyecto).
+- «¿Era calificado?» (`CalificacionCard`) vive en Tracking y en Reuniones: en un funnel sin campaña y sin etapa de
+  reunión ya no se ve en ninguna pestaña. Decisión de Martín si hace falta en el Resumen.
+- El esqueleto de carga del pop-up (app/crm/LeadEditModal.tsx) sigue sin portada: salta al abrir. (El ancho ya sale
+  de `ANCHO_FICHA_LEAD`, app/crm/lead-view/ficha-medidas.ts: lo cambió el frente B en la misma corrida.)
+
+**Vive en:** `app/crm/lead-view/CabeceraLead.tsx` · `app/crm/lead-view/arbol-funnels.ts` ·
+`app/crm/lead-view/ProductoDelLead.tsx` · `lib/tracking-ficha.ts` · `lib/tracking-ficha-server.ts` ·
+`app/crm/lead-cabecera-actions.ts` · *2026-10-12 corrida crm-feedback-12-10 (frente C-cabecera-y-marco)*
+
+## Lo que se edita ADENTRO de la ficha: la tarjeta abre el campo, el teléfono con país, notas e ingreso estimado (12/10/2026)
+
+Feedback de Martín del 12/10 (puntos 5, 7, 15, 17, 21 y 28).
+
+- **«Sólo puedo cambiarla si le doy click al —»: el campo medía lo que decía.** `EditableInline` es un `inline-block` y,
+  vacío, dice «—»: un blanco de 10 px en una tarjeta de 300; la fecha y la persona eran un botón del tamaño de su texto.
+  La cura es `CajaCampo` (CampoEditable.tsx): un clic en cualquier punto que no sea ya un control abre el campo de
+  adentro (cada pieza marca su disparador con `data-campo-abrir`) y, adentro de ella, el texto ocupa el ancho. Tres
+  trampas: (1) un clic que llega por un PORTAL (el menú del `Dropdown`, el toast) burbujea por el árbol de React hasta la
+  tarjeta aunque no esté en su DOM: sin `caja.contains(target)`, elegir una opción reabría el desplegable; (2) el clic que
+  SALE de la edición (el `pointerdown` le saca el foco, el `click` la reabría): se mira en el `pointerdown` si había un
+  campo abierto; (3) un pop-up que vive adentro de la tarjeta (el del WhatsApp no oficial) lleva `data-no-abre`.
+- **Es un COMPONENTE y no un estilo exportado**: Reuniones, Motivo/Plazo y Calificación no son `'use client'`, y un valor
+  importado de un `'use client'` llega al server como una referencia de cliente.
+- **El teléfono con el país primero no puede cambiar el formato guardado.** Lo de Calendly está como vino («+52 1 55…»);
+  `telefonoAGuardar` (campo-inline.ts) no escribe ni deja línea en el historial si la persona no cambió nada. ⚠️ Comparar
+  DÍGITOS, que era lo que hacía esta versión, NO alcanzaba: un número guardado sin código de país volvía con «52»
+  adelante con sólo abrir y cerrar la tarjeta. El caso y la regla, en «Partir un valor guardado…» de la revisión, abajo.
+- **El ingreso estimado NO es una venta**: columna aparte (`ingreso_estimado`, mig 0258) por `saveLeadMeta`, nunca por
+  `updateLead` (que aplica monto ⇔ cerro y avisa a Meta) ni en `monto_cierre_usd`, que es lo que cuenta Revenue.
+- **Una nota es una fila de `lead_audit` (`campo = 'Nota'`), no de una tabla propia.** Editar/borrar (notas-actions.ts)
+  lleva `campo = 'Nota'` en el WHERE (sin él, un id cualquiera del historial se reescribe desde el navegador); la versión
+  original queda en `valor_anterior`, y borrar deja «Nota borrada» sin el texto.
+- **Sin «Guardar y completar después», cerrar «Completar datos» guarda** si la persona contestó algo; abrir y cerrar sin
+  tocar no escribe. Al MOVER de etapa el botón sigue: ahí guardar es mover.
+- **Dos trampas al probar los tests rompiéndolos.** (a) Un sacador de comentarios ingenuo (`/\/\*[\s\S]*?\*\//`) se come
+  código desde un `accept=".pdf,image/*"`: StageMoveDialog perdía su `const enResumen` y el guard daba rojo sobre código
+  sano; un bloque se reconoce cuando abre un renglón o un `{`. (b) El arnés que rompe y RESTAURA con
+  `texto.replace(roto, original)` interpretó el `` $` `` de un template literal del original como «todo lo anterior» y
+  duplicó media `campo-inline.ts` (16 KB → 23 KB) al restaurar. El reemplazo va como función también en un arnés.
+
+**SIN HACER:**
+- La migración 0258 se aplicó a prod el 12/10 ANTES del push (verificado: el `select` de las dos columnas responde). Lo que enseña el orden: sin ella no se caía sólo el tablero: `LISTA_COLS`
+  (lib/leads.ts) la pide, `leerTodo` (lib/supabase-paginado.ts) TIRA ante el error de PostgREST, y con él `listLeads` y
+  `listLeadsDeFunnel` — el cron de Fathom (lib/fathom-auto.ts:108), las herramientas de MaKo (lib/mako-tools.ts), /m
+  (lib/crm-movil.ts) y la API de MaKo (lib/api-mako/areas/crm.helpers.ts). El alta sí sobrevive: `createLead` nombra
+  `instagram` sólo cuando trae valor. (La segunda revisión lo descartó como defecto —el orden ya está escrito en la
+  cabecera de la migración—, pero el alcance es lo que tiene que saber quien integra.)
+- Los guards que barren con `git ls-files` no ven los archivos nuevos hasta el `git add`. La revisión les hizo
+  `git add -N` a los 23 nuevos de la corrida y volvió a correr los barredores (ver la sección siguiente).
+- «Una nota la cambia quien la escribió, o un admin» es una decisión de esta corrida, no un pedido: si Martín quiere que
+  cualquiera la toque, es una línea en `notaQueSePuedeTocar`.
+- Editar o borrar una nota no tiene «Deshacer» en el toast (el historial sí lo registra).
+- Los sí/no del encabezado de cada reunión no tienen `CajaCampo`: comparten la fila con la fecha y el título.
+
+**Vive en:** `app/crm/lead-view/CampoEditable.tsx` · `app/crm/lead-view/InfoPrincipalCard.tsx` ·
+`app/crm/lead-view/NotasCard.tsx` · `app/crm/notas-actions.ts` · `app/crm/campo-inline.ts` · `app/crm/StageMoveDialog.tsx`
+· `app/crm/crm-map.ts` · `lib/leads.ts` · `supabase/migrations/0258_lead_ingreso_e_instagram.sql` ·
+*2026-10-12 corrida crm-feedback-12-10 (frente D-campos-notas-datos)*
+
+## La revisión de lo invisible del feedback del 12/10: lo que no se veía y perdía datos (12/10/2026)
+
+Revisor de la corrida (datos, servidor, permisos, envíos) sobre los seis frentes. Lo que encontró y la regla que deja:
+
+- **Un buscador que sólo entrega lo ELEGIDO pierde lo ESCRITO.** En el alta, tipear «@martinkoncke» y apretar «Crear
+  lead» sin tocar «Usar @martinkoncke» creaba el lead SIN Instagram, sin un aviso: el campo se veía lleno y no viajaba
+  (el componente no emite input, a propósito, y el alta mandaba sólo `perfil?.usuario`). Ahora el buscador avisa lo
+  escrito (`onTexto`) y el alta manda `instagramDelAlta(elegido, escrito)` (app/crm/campo-inline.ts), con la MISMA
+  regla que el server (`usuarioInstagram`): un nombre no es un usuario y no se manda. La regla: un campo con lista de
+  sugerencias manda también lo escrito cuando es un valor válido.
+- **Un cambio que el server hace SOLO se avisa en TODAS las puertas que llaman la action, no en la pantalla que se
+  estaba mirando.** `reunionPorNombre` vive en `editarEtapaAction`, y a esa action la llaman el pop-up de etapas (que lo
+  decía con su «Deshacer») y el «···» de la columna del tablero, que ignoraba `reunionSola`: renombrar una columna
+  «Llamada» le cambiaba el tipo en silencio — y con eso dónde se guardan las fechas de reunión de sus leads. Se busca con
+  `grep` del nombre de la ACTION. Arreglado en `opEtapa` (app/crm/CrmBoard.tsx), con su guard.
+- **Partir un valor guardado en un control estructurado y volver a unirlo NO es neutro.** En los teléfonos del
+  workspace (app/configuraciones/TelefonosPanel.tsx) editar sólo la etiqueta reescribía «+52 686 399 6369» como
+  «+52 6863996369», y uno guardado sin código de país que no empieza con ninguno (un «044…») volvía con «+52» adelante:
+  OTROS dígitos y otro `numero_norm`. Si la lada y el número son los que salieron de partirlo, viaja el original. La
+  pregunta para cualquier control que hidrata un dato guardado: ¿qué manda si nadie lo toca?
+  ⚠️ **Y la ficha NO lo hacía, aunque esta misma revisión la dio por buena** (lo cazó la segunda revisión).
+  `telefonoAGuardar` comparaba DÍGITOS, y `splitTelefono` (lib/paises.ts), cuando ninguna lada coincide, devuelve la lada
+  por defecto (+52) con TODOS los dígitos como resto: la partición INVENTA dígitos. Un lead con `telefono = '2233550684'`
+  (alta vieja de texto libre, o CSV) quedaba `522233550684` con sólo abrir la tarjeta «Teléfono» y hacer clic afuera —
+  también con la ✕ de la ficha—: escribía `telefono` y `telefono_normalizado`, dejaba una línea «Teléfono» en el
+  historial y el toast «Guardado», y desde ahí el WhatsApp no oficial (`EnviarNoOficial`) salía a un número mexicano.
+  Nadie lo nota porque el match por los últimos 10 dígitos lo sigue encontrando. Medido igual con «044 686 399 6369»,
+  «3764 67-3479», «0223 155 123456» y «8112345678». Y el test de la ficha probaba sólo números que YA empezaban con una
+  lada: el caso que rompe es el que no. Ahora el editor guarda la PARTICIÓN con la que abrió (`inicial`, un ref en
+  `TelefonoEditable`) y, si la lada y los dígitos son ésos, no escribe. **La comparación es contra lo que se le MOSTRÓ a
+  la persona, no contra una normalización de lo guardado: la normalización también inventa.** Por lo mismo la celda del
+  teléfono en la revisión de la importación (`TablaRevisionLeads`) quedó como texto libre, a propósito. Y la otra mitad
+  —un número PEGADO con su «+código» que quedaba con dos códigos— vive en la pieza compartida: ver «Lo que vive en otro
+  documento».
+- **Los barredores que leen `git ls-files` dieron verde en los seis frentes porque no veían los 23 archivos nuevos.**
+  Con `git add -N`, el guard de voseo cazó un «acá» en el `title` del total de las columnas (app/crm/total-columna.ts).
+  El `add -N` va ANTES de correr los barredores, no al integrar.
+- **El typecheck de un worktree con `node_modules` enlazado al clon da rojos que no son del cambio.** Dos `TS2307`
+  (`html-to-image` y `pptxgenjs`, en lib/editor-landing/) porque el clon está atrasado y su `node_modules` no tiene
+  dependencias que el `package.json` del worktree ya declara. Antes de leer un «Cannot find module» ahí:
+  `ls node_modules/<paquete>`.
+- **El buscador de Instagram por NOMBRE hoy no anda, y no por un bug** (lo midió el frente F): la Custom Search JSON API
+  de Google está cerrada a clientes nuevos y se apaga el 1/1/2027, y las claves `GOOGLE_CSE_KEY`/`GOOGLE_CSE_CX` del
+  workspace de plataforma no existen. Queda Meta Business Discovery: sólo por el @ exacto y sólo cuentas de empresa o
+  creador, con la conexión de Meta del negocio. Sin esas dos cosas la lista dice «Sin resultados» y deja el @ a mano.
+
+**SIN HACER:**
+- Quitar una columna desde su «···» cuenta los leads sobre `filtered` (lo que el filtro deja a la vista), no sobre la
+  cartera: con un filtro puesto, una columna con leads escondidos se va sin el «¿seguro?» (app/crm/CrmBoard.tsx,
+  `quitarColumna`). Es de antes de esta corrida.
+- Lo que dejó anotado el frente A (de segunda mano, no medido acá): `EditorEtiquetas` sin pantalla (renombrar, color y
+  archivar sólo por API); los plazos ya guardados siguen avisando (lib/lead-quieto-aviso.ts) sin dónde verlos ni
+  sacarlos; el filtro «Nutrición» del tablero no lee `marcadaComo`; el buscador de etiquetas con más de 7 esconde
+  «＋ Nueva» (app/_components/etiquetas-cliente.tsx).
+- Dos reglas para «¿es un usuario de Instagram?»: `usuarioInstagram` (app/crm/campo-inline.ts) y `usuarioDeTexto`
+  (lib/instagram-buscar.ts). Difieren en un usuario sin letras ni números («___»). Juntarlas en una.
+- El número 0258 choca con un 0258 local de otro worktree sin pushear (`wt-gamma`): se dejó, porque el repo ya tolera
+  números repetidos (0024, 0025, 0128…) y lo que ordena es el nombre del archivo, no el número.
+
+**Vive en:** `app/crm/new/NewLeadForm.tsx` · `app/crm/new/InstagramBuscador.tsx` · `app/crm/campo-inline.ts` ·
+`app/crm/CrmBoard.tsx` · `app/configuraciones/TelefonosPanel.tsx` · `app/crm/total-columna.ts` ·
+`app/api/crm/instagram-buscar/route.ts` · *2026-10-12 corrida crm-feedback-12-10 (revisor)*
+
+## El tipo de una etapa es una MARCA aparte, y el nombre sólo puede sugerir reunión cuando PASA a decirlo (12/10/2026)
+
+Feedback de Martín del 12/10 (puntos 3, 4, 8 y 13): el botón «Reunión» del pop-up de etapas pasó a ser un desplegable
+Etapa / Reunión / Nutrición; se fueron las subtabs Nutrición y Etiquetas y la pastilla «Plazo»; y una etapa que se crea
+o se renombra con nombre de reunión queda marcada sola, con un toast y «Deshacer». Lo que hay que saber antes de tocarlo:
+
+- **Nutrición NO es un `kind`: es `marcadaComo` (lib/pipeline.ts).** `kind` lo leen ~40 archivos —`generateFunnel`
+  deriva las transiciones, `reunionesDe` el lugar de las fechas, los requisitos, el CRM automático, la API de MaKo— y un
+  valor que ninguno conoce cae en el `default` de cada uno, cada uno a su manera. Con la marca, una etapa «Nutrición»
+  sigue siendo `kind: 'paso'` para todos ellos. `marcadaComo: 'etapa'` significa «la persona dijo que NO es reunión»: el
+  nombre deja de contar. La marca sobrevive porque `sanearPipeline` conserva la etapa entera y cada op la copia con un
+  spread; el «Deshacer» de quitar una etapa la perdía (volvía como «Etapa») hasta que `tone` y `marcadaComo` viajaron en
+  `EtapaQuitada` (app/crm/actions.ts).
+- ⚠️ **Lo que habla de una llamada que NO pasó no es una reunión, y la lista de palabras lo olvidó** (segunda revisión).
+  «llamada» está en `PALABRAS_REUNION`, así que «No contestó la llamada», «Llamada perdida», «No atendió la llamada»,
+  «Reagendar llamada» y «Sin respuesta a la llamada» se marcaban solas. Creada después de la R1, una de ésas ERA la R2:
+  con la R1 completa, mover a Facturando pasaba de no pedir nada (nivel 2) a pedir `fechaJ2` y `asistenciaR2` (nivel 4);
+  «Datos sin marcar» marcaba todos los leads de Facturando y Ganado; un movimiento con `requisitos: 'validar'`
+  (lib/mako-confirmaciones.ts) tiraba `RequisitosFaltantesError`; `generateFunnel` sumaba las nutriciones
+  `st0>noshow_r2` y `st0>nocompro`, que nacen prendidas; y el CRM automático podía mover leads a «No Show R2». El único
+  aviso era el toast de 5 s. Ahora `NO_ES_REUNION` excluye «no contest/atend/respond», «perdido/a», «sin respuesta»,
+  «re-agend» y «volver a». **Regla:** una palabra nueva en `PALABRAS_REUNION` se prueba contra sus negaciones («no …»,
+  «… perdida», «reagendar …») antes de sumarla. Marcar de más no es cosmético: mueve requisitos, nutriciones y el motor.
+- ⚠️ **«Sin marca» no quiere decir «nadie decidió»: los datos de antes de la marca no tenían cómo decirlo** (segunda
+  revisión). La marca automática se saltea las etapas con `marcadaComo`, porque lo elegido a mano le gana al nombre. Pero
+  la op vieja `reunion` con `es: false` (del 09/10 al 12/10) guardaba `kind: 'paso'` SIN marca, porque la marca no
+  existía: un negocio que desmarcó «Agenda R2» porque no hace segunda reunión, al renombrarla «Agenda R2 (no usamos)», la
+  veía volver a ser la R2 —con su lugar de fechas, sus requisitos y su nutrición de no-show—, revirtiendo en silencio una
+  decisión explícita. El diagnóstico obvio («si no tiene marca, nadie eligió») era el equivocado. Ahora
+  `reunionPorNombre(etapas, key, labelAnterior)` marca sólo si el nombre PASA a decir reunión: si el de antes ya lo decía,
+  alguien ya tuvo la oportunidad de decidir. **Regla:** un campo nuevo que registra una DECISIÓN no existe en las filas
+  viejas; antes de leer su ausencia como «no decidió», preguntá qué escribía el camino de antes.
+- **Por el nombre cuentan sólo las etapas del recorrido** (`tieneEtapaDeReunion`, que decide si la ficha dibuja la
+  pestaña Reuniones). Las nutriciones GENERADAS no traen `kind`, así que `puedeSerReunion` las deja pasar, y una se llama
+  «Reunión excepcional» (la que `generateFunnel` agrega a todo embudo con etapa de pago): sin el corte por banda,
+  cualquier embudo con un pago abría la pestaña sin tener una sola reunión.
+- **Una op que no se conoce se RECHAZA.** El último `else` de `editarEtapaAction` era el `agregar`: cualquier op que
+  llegara de una pestaña con el bundle viejo —o de un pedido armado a mano— agregaba una «Nueva etapa». Por lo mismo la op
+  vieja `reunion` sigue viva en el server: una pestaña abierta antes del deploy todavía la manda.
+- **El color de las etapas viejas se DERIVA al leer y no se escribe** (`conColores`, adentro de `generateFunnel`): dejan
+  de verse grises en todos los tableros sin migración y sin tocar `funnels.data`; el pipeline crudo, el que se guarda, no
+  pasa por ahí. Una etapa nueva nace con un color que no use otra (`colorParaNueva`), mirado contra los colores
+  EFECTIVOS y no contra los guardados.
+
+**SIN HACER:**
+- Las nutriciones que genera `generateFunnel` (`st0>noshow_r2`, `st0>nocompro`, …) nacen prendidas y, desde que se fue
+  la subtab Nutrición, no hay pantalla para apagarlas: la op `nutricion` de `editarEtapaAction` sigue en el server sin
+  call site (app/crm/actions.ts).
+- Las etapas desmarcadas con la op vieja (09/10 al 12/10) siguen sin marca. Ya no se re-marcan al renombrar, pero
+  `tieneEtapaDeReunion` las sigue contando por el nombre para la pestaña Reuniones (sólo dibuja una pestaña; no mueve
+  datos). Un backfill que les ponga `marcadaComo: 'etapa'` NO se puede hacer a ciegas: «paso sin marca con nombre de
+  reunión» también es la etapa vieja que nadie tocó nunca y que el punto 13 quiere contar como reunión.
+
+**Vive en:** `lib/etapa-reunion.ts` (`PALABRAS_REUNION`, `NO_ES_REUNION`, `reunionPorNombre`, `tieneEtapaDeReunion`,
+`conTipo`) · `lib/pipeline.ts` (`marcadaComo`, `conColores`, `colorParaNueva`) · `app/crm/actions.ts`
+(`editarEtapaAction`, `marcarSiPareceReunion`) · `app/crm/EtapasModal.tsx` · `lib/lead-quieto-aviso.ts` (cabecera: qué
+quedó del plazo) · `tests/etapa-reunion.test.ts` · `tests/etapas-color-nombre.test.ts` · *2026-10-12 corrida
+crm-feedback-12-10 (frente A-etapas y segunda revisión)*
+
+## La segunda revisión del 12/10: lo que se perdía o se filtraba sin un error (12/10/2026)
+
+Segunda pasada sobre datos, servidor, permisos, envíos y costo, después del primer revisor. Nueve hallazgos, los nueve
+reales y arreglados. Acá van los de código del CRM; los de etapas y el teléfono de la ficha están integrados arriba, en
+su tema, y los de piezas compartidas, en su documento (ver «Lo que vive en otro documento»).
+
+- **Un tope que RECORTA en un camino y no existe en el otro pierde texto, y lo pierde al EDITAR.** Crear una nota no
+  tenía tope y editarla hacía `slice(0, 4000)`: una nota dictada de 5000 caracteres entraba entera, alguien le corregía
+  una letra, y al guardar se perdía la cola con el toast «Nota guardada». La ficha, Customer Success, /m y MaKo leen
+  `valor_nuevo`; el texto entero sólo quedaba en `valor_anterior`. Ahora `TOPE_NOTA` (app/crm/notas-reglas.ts, un módulo
+  sin `'use server'` porque un archivo de server actions no exporta constantes) es UNO para el alta y la edición, y los
+  dos RECHAZAN. ⚠️ `maxLength` en la caja no alcanza: frena lo que se TIPEA, no lo que entra por código, y el dictado
+  (`BotonDictar`) escribe el valor por código; el freno de verdad es el del server. Es la regla de AGENTS.md («Un tope se
+  aplica ANTES…»: el tope es una constante compartida) rota por un camino nuevo.
+- **Una fecha que queda ESCRITA para siempre se formatea en la zona del negocio, como la pinta la pantalla.** «Nota
+  borrada» dejaba en `lead_audit` «escrita el DD/MM/AAAA» con `getUTCDate`/`getUTCMonth`: una nota de las 18:30 en
+  Tijuana (01:30 UTC del día siguiente) quedaba registrada un día después del que mostraba la tarjeta. Ahora
+  `fechaDeNota(iso, tz)` con `tzActual()`, que es `zonaDelNegocio`. Un rastro de auditoría que contradice lo que se vio
+  es peor que no tenerlo.
+- ⚠️ **Una caché en `globalThis` es de TODOS los inquilinos del proceso.** El buscador de Instagram guardaba lo que Meta
+  contestó de un @ como `m:<usuario>`, sin el workspace, y lo leía ANTES de mirar si este negocio tiene conexión de Meta.
+  Un negocio sin Meta que escribía «@juan.prospecto» recibía el perfil si otro cliente lo había buscado en los 10 minutos
+  anteriores: se filtraba la prospección de otro inquilino, y con datos leídos con SU token. Ahora `m:<ws>:<usuario>`.
+  **Regla:** si el valor sale de una credencial o un dato de UN cliente, el `ws` va en la clave; una clave global sólo
+  vale cuando la fuente es de la plataforma y la respuesta sería idéntica para cualquiera (la de Google, `g:<texto>`, que
+  existe por la cuota). Barrido del 12/10 (las `new Map` a nivel de módulo de lib/ y app/): las demás que guardan algo
+  leído con credenciales de un cliente —lib/meta-desgloses.ts, lib/moneda-meta.ts, lib/panda.ts,
+  lib/youtube-analytics.ts, lib/timezone.ts, lib/crm-auto.ts— van por ws, y lib/meta-ads-create.ts por página + cuenta;
+  el resto son throttles, formatos, cachés del navegador o lecturas de algo público (lib/pixel-servido.ts por la URL de
+  la página, lib/imagenes-stock.ts por el texto).
+- **Un freno que se arma DESPUÉS de la llamada que tiene que frenar no frena nada.** La pausa `mx:<ws>` («se deja de
+  preguntar un rato y queda UNA línea en el log») sólo se alcanzaba si la primera llamada —la cuenta de Instagram de la
+  página— salía bien. Pero un token vencido (190) o un permiso que falta (10, 200: lo esperable mientras los permisos de
+  la app MaKo estén pendientes) fallan justo en ESA llamada: cada búsqueda (cada pausa de 500 ms) volvía a pegarle a
+  Graph y escribía una línea. Y los códigos de límite (4, 17, 32, 613, 80001, 80002) caían en `error`, que no se cachea.
+  El 17 es por TOKEN: insistir alarga el bloqueo del mismo token con el que el cliente pauta. Ahora el motivo viaja con
+  el error (`motivoDeErrorGraph`, lib/instagram-buscar.ts) y el catch de la llamada previa también pausa ante
+  `sin-permiso` y `limite`. **Regla:** un circuito que corta por motivo se arma en TODOS los catch que ven el motivo,
+  empezando por el de la llamada preliminar.
+
+**SIN HACER:**
+- Tres clasificadores distintos de «Meta está limitando», con listas distintas: `esLimite` en lib/instagram-buscar.ts
+  (4, 17, 32, 613, 80001, 80002), `MetaRateLimitError` en lib/meta-ads.ts (sólo el 17 con subcódigo 4) y el regex de
+  lib/onboarding-extract.ts:137 (4, 17, 613). Una cosa, un lugar: juntarlos (el de Ads es de su área).
+- La nota desde el teléfono sigue recortando a 4000 en silencio al crearla: vive en app/m/crm/acciones.ts y está anotada
+  en [hallazgos-mobile.md](hallazgos-mobile.md).
+
+**Vive en:** `app/crm/notas-reglas.ts` · `app/crm/notas-actions.ts` · `app/crm/actions.ts` (`addLeadNoteAction`) ·
+`app/crm/lead-view/NotasCard.tsx` · `app/crm/campo-inline.ts` (`telefonoAGuardar`) ·
+`app/crm/lead-view/CampoEditable.tsx` (`TelefonoEditable`) · `lib/paises.ts` (`splitTelefono`) ·
+`app/api/crm/instagram-buscar/route.ts` · `lib/instagram-buscar.ts` · `tests/crm-ficha-campos-12-10.test.ts` ·
+`tests/instagram-buscar.test.ts` · *2026-10-12 corrida crm-feedback-12-10 (segunda revisión)*

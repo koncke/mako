@@ -17,12 +17,25 @@ export type LeadTabDef = {
   badge?: number;
 };
 
-export function LeadTabs({ tabs, initial, onChange, actions }: {
+export function LeadTabs({ tabs, initial, onChange, actions, fija }: {
   tabs: LeadTabDef[];
   initial?: string;
   onChange?: (key: string) => void;
   /** Contenido extra a la derecha de la fila de tabs (ej. botón Editar). */
   actions?: ReactNode;
+  /**
+   * LA FILA DE PESTAÑAS QUEDA PEGADA ARRIBA al scrollear, con el fondo de quien la contiene.
+   *
+   * Pedido de Martín (12/10/2026, punto 16): «Cuando hago scroll por el modal, las tabs de arriba
+   * deben acompañar el scroll. Deben permanecer fijas, como todo lo que esta arriba».
+   *
+   * ⚠️ UN STICKY SE PEGA A SU ANCESTRO QUE SCROLLEA, y ese ancestro tiene que TENER ALTO (AGENTS.md:
+   * un `overflow-y: auto` sin alto crece con su contenido y no scrollea nunca). En el pop-up es el
+   * cuerpo de la ficha (`flex: 1; minHeight: 0; overflowY: auto` adentro de un panel con alto
+   * topeado); en la ruta /crm/[id], el documento. Por eso esta fila no puede vivir adentro de nada
+   * con `overflow`: la raíz de LeadTabs no lleva ninguno.
+   */
+  fija?: { fondo: string };
 }) {
   const initKey = initial && tabs.some((t) => t.key === initial) ? initial : tabs[0]?.key ?? '';
   const [tab, setTab] = useState<string>(initKey);
@@ -48,7 +61,10 @@ export function LeadTabs({ tabs, initial, onChange, actions }: {
           ni una pista de que existían. Una barra de navegación no esconde
           destinos detrás de un gesto: si no entran, se ven en dos renglones.
           Las acciones (el dropdown de etapa) siguen en la misma línea. */}
-      <div style={{ borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 12 }}>
+      <div style={{
+        borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 12,
+        ...(fija ? { position: 'sticky' as const, top: 0, zIndex: 5, background: fija.fondo, paddingTop: 6 } : {}),
+      }}>
         <div role="tablist" style={{ display: 'flex', flexWrap: 'wrap', minWidth: 0, flex: 1 }}>
         {tabs.map((t) => {
           const active = tab === t.key;

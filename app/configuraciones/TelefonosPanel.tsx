@@ -13,6 +13,8 @@
 
 import { useEffect, useState, type CSSProperties } from 'react';
 import { Dropdown } from '@/app/components/Dropdown';
+import { TelefonoConPais } from '@/app/_components/TelefonoConPais';
+import { DIAL_DEFAULT, splitTelefono } from '@/lib/paises';
 import { ConfirmDialog } from '../_components/ChatItemMenu';
 import { getTelefonosAction, saveTelefonoAction, deleteTelefonoAction, type WsTelefono, type FuenteTelefono, type TelefonosData } from './telefonos-actions';
 
@@ -39,7 +41,30 @@ const fuenteTone: Record<FuenteTelefono, { bg: string; fg: string }> = {
   personal: { bg: 'var(--surface-2)', fg: 'var(--dim)' },
 };
 
-type Editable = { id?: number; numero: string; etiqueta: string; fuente: FuenteTelefono; setters: string[] };
+/**
+ * El número que se edita, con la LADA aparte: el país va primero, con banderas (punto 5 del
+ * 12/10/2026, «en todos lados que se configure telefono es así»).
+ *
+ * ⚠️ LO QUE SE GUARDA NO CAMBIA DE FORMA: `numero` sale como «+52 686 399 6369» (la lada, un
+ * espacio y lo escrito), que es lo que el ejemplo del campo enseñaba a escribir y lo que la
+ * lista muestra tal cual; `numero_norm` lo saca el server de los dígitos, igual que antes.
+ */
+type Editable = { id?: number; lada: string; numero: string; etiqueta: string; fuente: FuenteTelefono; setters: string[]; original?: string };
+/**
+ * ⚠️ UN NÚMERO QUE NO SE TOCÓ SALE COMO ESTABA (revisión del 12/10/2026). Al editar uno guardado, el
+ * selector lo parte en país y número (`splitTelefono`) y el número queda en dígitos: cambiarle sólo la
+ * etiqueta lo reescribía de «+52 686 399 6369» a «+52 6863996369», y uno guardado sin lada que no
+ * empieza con ningún código de país (un «044…») volvía con «+52» adelante — o sea con OTROS dígitos y
+ * otro `numero_norm`, sin que nadie lo pidiera. Si la lada y el número son los que salieron de
+ * partirlo, viaja el original.
+ */
+const numeroAGuardar = (d: Editable) => {
+  if (d.original != null) {
+    const antes = splitTelefono(d.original);
+    if (antes.lada === d.lada && antes.resto === d.numero) return d.original;
+  }
+  return d.numero.replace(/\D/g, '') ? `${d.lada} ${d.numero.trim()}` : '';
+};
 
 export function TelefonosPanel() {
   const [data, setData] = useState<TelefonosData | null>(null);
@@ -50,14 +75,17 @@ export function TelefonosPanel() {
   const cargar = () => { getTelefonosAction().then(setData).catch(() => setData({ telefonos: [], equipo: [] })); };
   useEffect(() => { cargar(); }, []);
 
-  const nuevo = () => setDraft({ numero: '', etiqueta: '', fuente: 'personal', setters: [] });
-  const editar = (t: WsTelefono) => setDraft({ id: t.id, numero: t.numero, etiqueta: t.etiqueta ?? '', fuente: t.fuente, setters: t.setters });
+  const nuevo = () => setDraft({ lada: DIAL_DEFAULT, numero: '', etiqueta: '', fuente: 'personal', setters: [] });
+  const editar = (t: WsTelefono) => {
+    const { lada, resto } = splitTelefono(t.numero);
+    setDraft({ id: t.id, lada, numero: resto, etiqueta: t.etiqueta ?? '', fuente: t.fuente, setters: t.setters, original: t.numero });
+  };
 
   const guardar = async () => {
-    if (!draft || !draft.numero.trim()) return;
+    if (!draft || !numeroAGuardar(draft)) return;
     setBusy(true);
     try {
-      await saveTelefonoAction({ id: draft.id ?? null, numero: draft.numero, etiqueta: draft.etiqueta, fuente: draft.fuente, setters: draft.setters });
+      await saveTelefonoAction({ id: draft.id ?? null, numero: numeroAGuardar(draft), etiqueta: draft.etiqueta, fuente: draft.fuente, setters: draft.setters });
       setDraft(null);
       cargar();
     } finally { setBusy(false); }
@@ -107,10 +135,13 @@ export function TelefonosPanel() {
           {draft ? (
             <div style={{ ...card, borderColor: 'var(--primary)' }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
-                <label style={{ display: 'block' }}>
+                {/* Un <div> y no un <label>: adentro hay dos controles, y el <label> le mandaría el
+                    clic de «Número» al desplegable de países. */}
+                <div>
                   <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink)', display: 'block', marginBottom: 5 }}>Número</span>
-                  <input style={input} value={draft.numero} onChange={(e) => setDraft({ ...draft, numero: e.target.value })} placeholder="+52 686 399 6369" autoFocus />
-                </label>
+                  <TelefonoConPais lada={draft.lada} numero={draft.numero} inputStyle={input} placeholder="686 399 6369" autoFocus anchoLada={112}
+                    onLada={(v) => setDraft({ ...draft, lada: v })} onNumero={(v) => setDraft({ ...draft, numero: v })} />
+                </div>
                 <label style={{ display: 'block' }}>
                   <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink)', display: 'block', marginBottom: 5 }}>Etiqueta (opcional)</span>
                   <input style={input} value={draft.etiqueta} onChange={(e) => setDraft({ ...draft, etiqueta: e.target.value })} placeholder="Ej: Línea de Ana" />
@@ -145,7 +176,7 @@ export function TelefonosPanel() {
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
                 <button style={ghostBtn} onClick={() => setDraft(null)}>Cancelar</button>
-                <button style={{ ...primaryBtn, opacity: !draft.numero.trim() || busy ? 0.5 : 1 }} disabled={!draft.numero.trim() || busy} onClick={guardar}>{busy ? 'Guardando…' : 'Guardar número'}</button>
+                <button style={{ ...primaryBtn, opacity: !numeroAGuardar(draft) || busy ? 0.5 : 1 }} disabled={!numeroAGuardar(draft) || busy} onClick={guardar}>{busy ? 'Guardando…' : 'Guardar número'}</button>
               </div>
             </div>
           ) : (

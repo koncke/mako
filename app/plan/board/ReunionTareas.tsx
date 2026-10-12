@@ -18,6 +18,8 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { SvcIcon } from '../../_components/ServicioVisual';
+import { TelefonoConPais } from '../../_components/TelefonoConPais';
+import { splitTelefono, unirTelefono } from '@/lib/paises';
 import { type Label, type Prio } from './types';
 import { DetalleDoc } from './DetalleDoc';
 
@@ -867,8 +869,14 @@ function PanelPersona({ nombre, dest, cargandoDest, motivoSinDest, items, labels
   const [wa, setWa] = useState(true);
   const [mail, setMail] = useState(true);
   // El número que tenemos guardado se puede pisar a mano (null = todavía no lo tocó).
-  const [telManual, setTelManual] = useState<string | null>(null);
-  const telefono = telManual ?? dest?.telefono ?? '';
+  // ⚠️ Con el PAÍS PRIMERO, con banderas (punto 5 del feedback del CRM, 12/10/2026: «en todos
+  // lados que se configure telefono es así»). Lo que viaja no cambia de forma: los dígitos con
+  // el código de país (`unirTelefono`), lo que el ejemplo de este campo pedía escribir a mano.
+  const [telManual, setTelManual] = useState<{ lada: string; numero: string } | null>(null);
+  const telVisto = telManual ?? (() => { const p = splitTelefono(dest?.telefono ?? ''); return { lada: p.lada, numero: p.resto }; })();
+  const telefono = telManual
+    ? (telManual.numero.replace(/\D/g, '') ? unirTelefono(telManual.lada, telManual.numero) : '')
+    : (dest?.telefono ?? '');
   // Idem el email: si no lo sabemos (persona sin cuenta, o cargada a mano), se pide.
   const [mailManual, setMailManual] = useState<string | null>(null);
   const emailDest = (mailManual ?? dest?.email ?? emailConocido ?? '').trim();
@@ -1026,8 +1034,9 @@ function PanelPersona({ nombre, dest, cargandoDest, motivoSinDest, items, labels
           )}
           <Check on={wa} set={setWa} label="WhatsApp" />
           {wa && (
-            <input value={telefono} onChange={(e) => setTelManual(e.target.value)} placeholder="Número con código de país (ej. 5215512345678)"
-              style={{ padding: '8px 11px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13, outline: 'none', fontFamily: SANS }} />
+            <TelefonoConPais lada={telVisto.lada} numero={telVisto.numero} anchoLada={112} placeholder="1 55 1234 5678"
+              onLada={(v) => setTelManual({ ...telVisto, lada: v })} onNumero={(v) => setTelManual({ ...telVisto, numero: v })}
+              inputStyle={{ padding: '8px 11px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13, outline: 'none', fontFamily: SANS }} />
           )}
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
             <button type="button" onClick={() => setAbrirEnvio(false)} style={ghost}>Cancelar</button>

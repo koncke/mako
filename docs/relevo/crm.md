@@ -6,7 +6,69 @@ el briefing anterior (`b5f7fb55`, 10/10 17:10) con todo verificado contra el ár
 **Rutas de esta área:** `app/crm/**`, `lib/leads.ts`, `lib/funnel*.ts`, `lib/crm*.ts`,
 `lib/lead-*.ts`, `lib/campana-*.ts`, `lib/etiquetas*.ts`, `lib/pipeline.ts`.
 
-## 0. Al 11/10/2026 18:00 (chat «CRM», cuenta `claude3`, cortado al 85% semanal)
+## 0. Al 12/10/2026 (chat «CRM», cuenta `claude3`, cortado al 86% semanal)
+
+### ✅ El feedback del 12/10 (28 puntos): HECHO en `bdcee029`
+
+Martín mandó 28 puntos entre las 02:08 y las 02:24 (textuales en la bitácora del área,
+`app/admin/dev/crm/bitacora.ts`). Se hicieron en seis frentes con archivos disjuntos (etapas;
+tablero, alta y teléfono; cabecera de la ficha; campos de la ficha; MaKo Analyst; Instagram)
+más dos revisiones de lo invisible: una de un agente y otra de cinco lentes con tres escépticos
+por hallazgo. La segunda confirmó y arregló 9 cosas que perdían o filtraban datos sin un
+error. Lo aprendido está en `docs/hallazgos-crm.md` (secciones del 12/10), `hallazgos-ui.md` y
+`hallazgos-mobile.md`, y las reglas nuevas en AGENTS.md («Una caché en memoria del server es
+de TODOS los inquilinos», «Un control que hidrata un dato guardado no escribe si la persona no
+tocó nada»).
+**Verificado con:** typecheck (0 errores en lo tocado; los 2 TS2307 de `html-to-image` y
+`pptxgenjs` son del `node_modules` del clon) y la suite entera. **NADA se miró en el
+navegador**: lo visual lo revisa Martín.
+**La migración `0258_lead_ingreso_e_instagram.sql`** (dos columnas nullable en `leads`) se
+aplicó a prod ANTES del push: el `select` del tablero las pide, y sin ellas el CRM de todos los
+workspaces abre vacío.
+
+### Lo que decide Martín (nada de esto está hecho)
+
+1. **El buscador de Instagram por NOMBRE no tiene fuente.** La Custom Search JSON API de
+   Google está cerrada a clientes nuevos y se apaga el 1/1/2027. Hoy anda por @ exacto (Meta
+   Business Discovery: sólo cuentas de empresa o creador, y cuando la app «MaKo» tenga
+   `instagram_basic`, `instagram_manage_insights` y `pages_read_engagement`) y por el nombre
+   pegado (`anaperez`, `ana.perez`, `ana_perez`). Opciones: Brave Search (plan gratis), Serper.dev
+   (Google, pago por búsqueda) o ninguna. El código lee `GOOGLE_CSE_KEY` / `GOOGLE_CSE_CX` del
+   workspace de plataforma (`lib/instagram-buscar.ts`): cambiar de fuente es tocar ese archivo.
+2. **Las bandas Activo / Nutrición / Descartado ocultas ahora se GUARDAN** con los demás filtros
+   (`app/crm/filtros-guardados.ts`). Revierte su «siempre activos» del 27/09, por su regla del
+   10/10 de que los filtros persisten. Confirmar.
+3. **¿Número de lead por negocio (#1, #2…)?** Hoy el id es global (`leads_id_seq`): no hay
+   mezcla, pero ws9 ve #2472.
+4. **«¿Era calificado?» desaparece** en un funnel sin campaña y sin etapa de reunión (las
+   pestañas Tracking y Reuniones dependen del funnel).
+5. **Las etiquetas no tienen pantalla para renombrar, cambiar color o archivar**
+   (`app/crm/EditorEtiquetas.tsx` quedó sin montar al sacar la pestaña): ¿dónde va?
+6. **Los plazos viejos de etapa siguen avisando** sin un lugar donde verlos
+   (`lib/lead-quieto-aviso.ts`): ¿se borran?
+7. **Una nota la edita o la borra su autor o un admin**: lo decidió el frente, no él.
+8. Siguen sin respuesta desde el 11/10: los tres arreglos de la §3 y la decisión 1 de la §5.
+
+### Lo que quedó sin hacer (técnico)
+
+- **Las nutriciones generadas no tienen pantalla para apagarlas**: se sacó la subtab Nutrición
+  y `generateFunnel` sigue sumando las de `st0>noshow_r2` y `st0>nocompro` cuando aparece una
+  segunda reunión.
+- **`quitarColumna` cuenta los leads sobre lo que deja ver el filtro**: con un filtro puesto, una
+  columna con leads escondidos se borra sin el «¿seguro?» (`app/crm/CrmBoard.tsx`). Es de antes.
+- **La nota desde el teléfono sigue recortando a 4000 en silencio** (`app/m/crm/acciones.ts:80`):
+  la regla nueva (`TOPE_NOTA`, rechazar en vez de recortar) no la ve.
+- **«confírmalo en Inbox»** sale ahora también en la ficha de escritorio, donde Inbox no existe
+  (`lib/mako-turno-app-reglas.ts:272-278`).
+- **Dos reglas para «es un usuario de Instagram»**: `usuarioInstagram` (app/crm/campo-inline.ts)
+  y `usuarioDeTexto` (lib/instagram-buscar.ts). Difieren en casos raros («___»).
+- **El buscador de etiquetas con más de 7 esconde «＋ Nueva»** (`app/_components/etiquetas-cliente.tsx`).
+- **La causa del título de /crm es una hipótesis**: `TituloTab` ahora vigila el `<head>` y repone
+  «MaKo - CRM», pero nadie midió quién lo pisaba (se sospecha del `loading.tsx` de /crm).
+- **Tres clasificadores distintos de «Meta está limitando»** en el repo; el del buscador ahora
+  pausa con los códigos 4, 17, 32, 613, 80001 y 80002.
+
+## 0-bis. Al 11/10/2026 18:00 (chat «CRM», cuenta `claude3`, cortado al 85% semanal)
 
 **Medido contra el árbol, no copiado de abajo.** Desde este relevo (10/10 20:48) nadie
 trabajó el CRM: los commits que tocan sus rutas son de OTRAS áreas y de pasada

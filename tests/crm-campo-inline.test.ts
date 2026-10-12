@@ -99,9 +99,10 @@ test('cada campo declara su gesto, y los cinco gestos están cubiertos', () => {
   assert.deepEqual(Object.keys(VIA_INLINE).sort(), Object.keys(GESTO_INLINE).sort());
   // Eran TRES hasta el 05/10/2026. Los dos nuevos son los que terminaron de vaciar el
   // botón «Editar lead →»: el motivo de salida (texto) y los links de Fathom (enlace).
+  // Y los dos del 12/10/2026 (mig 0258): el ingreso estimado (monto) y el Instagram (usuario).
   assert.deepEqual(
     new Set(Object.values(GESTO_INLINE)),
-    new Set(['fecha', 'tri', 'persona', 'texto', 'enlace']),
+    new Set(['fecha', 'tri', 'persona', 'texto', 'enlace', 'monto', 'instagram']),
   );
 });
 
@@ -113,7 +114,8 @@ test('los QUINCE campos del formulario están en el catálogo (menos los que ya 
   for (const c of ['fecha_agenda', 'motivo_perdida', 'nutricion_manual_deadline', 'fathom_r1', 'fathom_r2']) {
     assert.equal(esCampoInline(c), true, `${c} tiene que editarse en la ficha`);
   }
-  assert.equal(Object.keys(VIA_INLINE).length, 13);
+  // 13 + los dos de la mig 0258 (ingreso estimado e Instagram, 12/10/2026).
+  assert.equal(Object.keys(VIA_INLINE).length, 15);
 });
 
 // ── 2b · Los dos gestos nuevos ───────────────────────────────────────────────
@@ -303,7 +305,10 @@ test('BORRAR LEAD no se fue con el botón: está en las DOS fichas, con su confi
     // ConfirmDialog, así que un `assert.match(f, /Borrar lead/)` pasa en verde con el
     // botón renombrado. Verificado rompiéndolo: con el rótulo cambiado a «Quitar», la
     // versión floja daba 35/0 y ésta da 34/1.
-    assert.match(f, />Borrar lead<\/button>/, `${ruta}: el botón de borrar no dice qué hace`);
+    // Desde el 12/10/2026 es el tacho rojo de la casa con su texto (punto 12: «Ahí debería estar el
+    // botón de "Borrar lead" y en rojo»), así que el rótulo viaja en `texto=` y no entre etiquetas.
+    // Verificado rompiéndolo (12/10/2026): con el texto cambiado a «Quitar» en el modal, 1 fallo.
+    assert.match(f, /<BotonBorrar texto="Borrar lead"/, `${ruta}: el botón de borrar no dice qué hace (o dejó de ser el tacho rojo)`);
     assert.match(f, new RegExp(accion), `${ruta}: tiene que llamar a ${accion}`);
     // La confirmación NOMBRA la consecuencia, pegada al botón (regla de la casa).
     assert.match(f, /No se puede deshacer/, `${ruta}: la confirmación no nombra la consecuencia`);

@@ -259,5 +259,7 @@ test('los textos que se ven ya no mandan a conectar Chatwoot', () => {
 
 test('el número nuevo de un teléfono del workspace no nace como Chatwoot', () => {
   const panel = sinComentarios(leer('app/configuraciones/TelefonosPanel.tsx'));
-  assert.match(panel, /const nuevo = \(\) => setDraft\(\{ numero: '', etiqueta: '', fuente: 'personal', setters: \[\] \}\);/);
+  // Desde el 12/10/2026 el número lleva la lada aparte (el selector con banderas, punto 5 del
+  // feedback del CRM): lo que este test cuida —que nace como «personal»— no cambió.
+  assert.match(panel, /const nuevo = \(\) => setDraft\(\{ lada: DIAL_DEFAULT, numero: '', etiqueta: '', fuente: 'personal', setters: \[\] \}\);/);
 });

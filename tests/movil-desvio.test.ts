@@ -8,14 +8,16 @@
 // Integración v2 (11/10/2026, con MOVIL_ACTIVO prendido; base 9 / 0), de a una y restaurando
 // (scratchpad/integ/romper.py):
 //   · sin el `esPublica` (lo público se tapaba: el comprador que vuelve de pagar)   → 8 / 1
-//   · `seDesvia` sin mirar `adminSinCliente` (el bucle del admin sin cliente)       → 8 / 1
-//   · el layout raíz sin pasarle `adminSinCliente` a `seDesvia`                     → 8 / 1
-//   · /inicio repartiendo a los teléfonos ANTES de sacar al admin sin cliente       → 8 / 1
+// 12/10/2026: el admin sin cliente ya NO queda afuera (era Martín y veía el escritorio): va a /m de SU
+// negocio. Roto de a uno: destinoMovil sin el workspace propio, el layout sin wsPropio, el guard
+// redirigiendo a /inicio, y /inicio mandándolo a /customer-success en el teléfono. Medido (base 9 / 0):
+//   · el guard de vuelta a redirect('/inicio')                                     → 8 / 1
+//   · destinoMovil devolviendo el destino sin el workspace propio                  → 8 / 1
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { decidirDesvio, seDesvia, MOVIL_ACTIVO } from '../lib/movil-desvio';
+import { decidirDesvio, destinoMovil, seDesvia, MOVIL_ACTIVO } from '../lib/movil-desvio';
 
 const leer = (rel: string) => readFileSync(join(__dirname, '..', rel), 'utf8').replace(/\r\n/g, '\n')
   .replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -74,15 +76,23 @@ test('el interruptor está PRENDIDO (Martín, 11/10 21:54: «a cualquiera que en
   assert.equal(MOVIL_ACTIVO, true);
 });
 
-test('el admin global SIN cliente no se desvía: sería un bucle /customer-success → /m/cs → /inicio', () => {
-  assert.equal(seDesvia({ activo: true, telefono: true, adminSinCliente: false }), true);
-  assert.equal(seDesvia({ activo: true, telefono: true, adminSinCliente: true }), false);
-  assert.equal(seDesvia({ activo: true, telefono: false, adminSinCliente: false }), false);
-  assert.equal(seDesvia({ activo: false, telefono: true, adminSinCliente: false }), false);
-  // El layout raíz se lo pasa, y /inicio saca al admin sin cliente ANTES de repartir teléfonos.
-  assert.match(leer('app/layout.tsx'), /seDesvia\(\{[\s\S]*adminSinCliente:[^\n]*getWorkspaceActual\(\)/);
-  const inicio = leer('app/inicio/page.tsx');
-  const admin = inicio.indexOf("redirect('/customer-success')");
-  const movil = inicio.indexOf('prefiereMovil()');
-  assert.ok(admin > 0 && movil > admin, 'el admin sin cliente sale antes del reparto a /m');
+test('el admin global SIN cliente SÍ se desvía, a SU negocio (Martín, 12/10: «me sale todo igual»)', () => {
+  assert.equal(seDesvia({ activo: true, telefono: true }), true);
+  assert.equal(seDesvia({ activo: true, telefono: false }), false);
+  assert.equal(seDesvia({ activo: false, telefono: true }), false);
+  // Sin pestaña, el destino lleva el workspace propio; con una, el router de app/_ui/Link ya la lleva.
+  assert.equal(destinoMovil('/m/plan', null, 9), '/m/plan?ws=9');
+  assert.equal(destinoMovil('/m/plan', 13, 9), '/m/plan');
+  assert.equal(destinoMovil('/m/plan', null, null), '/m/plan');
+  // El layout le pasa el workspace propio al desvío SÓLO al admin sin cliente.
+  // (Texto literal, sin regex: son líneas de código con paréntesis y signos de pregunta.)
+  const layout = leer('app/layout.tsx');
+  assert.ok(layout.includes('wsPropioMovil = telefono && esAdmin && (await getWorkspaceActual()) == null ? await wsSuperAdmin() : null'), 'el layout no resuelve el workspace propio');
+  assert.ok(layout.includes('<DesvioMovil telefono={telefono} wsPropio={wsPropioMovil} />'), 'el layout no se lo pasa al desvío');
+  // El bucle se corta en la raíz: el guard de /m ya no lo manda a /inicio sino a su negocio.
+  const guard = leer('lib/movil-guard.ts');
+  assert.ok(guard.includes("if (ctx.ws == null && ctx.sesion.rol === 'admin') redirect(conWs(HOME_MOVIL, await wsSuperAdmin()));"), 'el guard no manda al admin sin cliente a su negocio');
+  assert.ok(!guard.includes("redirect('/inicio')"), 'volvió el rebote a /inicio: con el desvío prendido, un bucle');
+  // Y /inicio, en un teléfono, lo manda a /m (no a /customer-success, que el desvío taparía).
+  assert.ok(leer('app/inicio/page.tsx').includes("if (ws == null) redirect(telefono ? '/m' : '/customer-success');"), '/inicio no reparte al teléfono');
 });

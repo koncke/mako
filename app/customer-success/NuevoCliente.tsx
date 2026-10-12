@@ -22,6 +22,8 @@ import { useState } from 'react';
 // donde vive la misma decisión, y el que se queda viejo.
 import { WizardShell, wizardInput } from '@/app/_components/WizardShell';
 import { Checkbox } from '@/app/_ui';
+import { TelefonoConPais } from '@/app/_components/TelefonoConPais';
+import { DIAL_DEFAULT, unirTelefono } from '@/lib/paises';
 import { crearClienteAction } from './actions';
 
 type Paso = 0 | 1 | 2;
@@ -45,7 +47,13 @@ export function NuevoCliente({ onCerrar, onCreado }: {
   const [nombre, setNombre] = useState('');
   const [empresa, setEmpresa] = useState('');
   const [email, setEmail] = useState('');
-  const [telefono, setTelefono] = useState('');
+  // ⚠️ EL TELÉFONO CON EL PAÍS PRIMERO (punto 5 del 12/10/2026: «en todos lados que pida telefono,
+  // primero tiene que ir la numeración que ya tenemos con las banderas»). Va al server como los
+  // dígitos con su código de país (`unirTelefono`), igual que el alta de un lead del CRM: este alta
+  // también crea un lead, y sin lada su WhatsApp no matcheaba con nada.
+  const [telLada, setTelLada] = useState(DIAL_DEFAULT);
+  const [telNumero, setTelNumero] = useState('');
+  const telefono = telNumero.replace(/\D/g, '') ? unirTelefono(telLada, telNumero) : '';
   // Un becado o bonificado (#747). Va en el paso de confirmar y no en uno propio: la
   // mayoría paga, y una pantalla más para todos sería fricción para el caso raro.
   const [sinCobro, setSinCobro] = useState(false);
@@ -111,8 +119,8 @@ export function NuevoCliente({ onCerrar, onCreado }: {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <input autoFocus value={email} onChange={(e) => setEmail(e.target.value)}
             placeholder="Email" type="email" style={wizardInput} aria-label="Email" />
-          <input value={telefono} onChange={(e) => setTelefono(e.target.value)}
-            placeholder="Teléfono" type="tel" style={wizardInput} aria-label="Teléfono" />
+          <TelefonoConPais lada={telLada} numero={telNumero} onLada={setTelLada} onNumero={setTelNumero}
+            inputStyle={wizardInput} placeholder="Teléfono" anchoLada={112} />
         </div>
       )}
 
@@ -123,7 +131,7 @@ export function NuevoCliente({ onCerrar, onCreado }: {
           <Fila k="Nombre" v={nombre.trim()} />
           {empresa.trim() && <Fila k="Empresa" v={empresa.trim()} />}
           {email.trim() && <Fila k="Email" v={email.trim()} />}
-          {telefono.trim() && <Fila k="Teléfono" v={telefono.trim()} />}
+          {telefono && <Fila k="Teléfono" v={`${telLada} ${telNumero.trim()}`} />}
           <Checkbox checked={sinCobro} onChange={setSinCobro} label="Sin cobro" hint="Becado o bonificado." />
           <p style={{ margin: '6px 0 0', fontSize: 13, lineHeight: 1.5, color: 'var(--dim)' }}>
             Se carga también en el CRM, con la venta marcada como ganada{sinCobro ? ', sin cobro' : ''}.

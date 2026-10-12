@@ -158,11 +158,17 @@ function etiquetas(fuente: string, desde: string): string[] {
   return [...fuente.slice(i).matchAll(/label: '([^']+)'/g)].map((m) => m[1]);
 }
 
-test('Análisis va pegado a Historial, en las DOS fichas', () => {
+test('MaKo Analyst (ex «Análisis») va pegado a Historial, en las DOS fichas', () => {
   // «Que análisis esté previo al historial» (27/09/2026). Las dos contestan «qué
   // pasó con esta persona» —una lo interpreta, la otra lo registra— y Pagos, que
   // contesta otra cosa, estaba en el medio.
-  const esperado = ['Resumen', 'Tracking', 'Reuniones', 'Pagos', 'Análisis', 'Historial'];
+  //
+  // ⚠️ Y DESDE EL 12/10/2026 SE LLAMA «MaKo Analyst» (punto 19: «Cambia el nombre de la tab
+  // "Análisis" por "MaKo Analyst"»). El ORDEN no cambió. Tracking, Reuniones y Pagos son
+  // condicionales (`...(cond ? [{ label }] : [])`) pero su `label:` sigue escrito en este orden,
+  // que es lo que esto lee. Verificado rompiéndolo (12/10/2026): con «Análisis» de vuelta en el
+  // modal, 1 fallo / 8 pases.
+  const esperado = ['Resumen', 'Tracking', 'Reuniones', 'Pagos', 'MaKo Analyst', 'Historial'];
 
   const modal = etiquetas(leer('../app/crm/LeadSheet.tsx'), 'tabs={[').slice(0, 6);
   assert.deepEqual(modal, esperado, 'el modal (LeadSheet)');
@@ -172,6 +178,12 @@ test('Análisis va pegado a Historial, en las DOS fichas', () => {
 
   // Verificado rompiéndolo: devolviendo Análisis antes de Pagos en el modal,
   // 1 fallo; en la página, otro.
+
+  // La `key` NO cambió con el rótulo: viaja en los links (`?tab=insights`), y renombrarla dejaría
+  // esos links abriendo la primera pestaña sin decir nada.
+  for (const ruta of ['../app/crm/LeadSheet.tsx', '../app/crm/[id]/page.tsx']) {
+    assert.match(leer(ruta), /key: 'insights', label: 'MaKo Analyst'/, `${ruta}: la key de la pestaña cambió`);
+  }
 });
 
 test('las DOS fichas hablan el mismo idioma y muestran lo mismo', () => {
@@ -236,14 +248,25 @@ test('el selector de producto llega al borde, alineado con «+ Nuevo lead»', ()
   assert.ok(/width=\{190\}/.test(bloque), 'el ancho va en el Dropdown, que es quien dibuja el botón');
   assert.ok(!/minWidth: 190/.test(bloque), 'el minWidth del envoltorio es lo que dejaba el hueco');
 
-  // Y tiene que seguir siendo el ÚLTIMO de su fila: si algo se agrega después,
-  // el que queda pegado al borde es ese otro.
-  const board = leer('../app/crm/CrmBoard.tsx');
-  const fila = board.slice(board.indexOf('className="crm-tb"'));
-  const cierre = fila.indexOf('</div>');
-  const ultimo = fila.slice(0, cierre).lastIndexOf('<Selector');
-  const bandas = fila.slice(0, cierre).lastIndexOf('<BandasToggle');
-  assert.ok(ultimo > bandas, 'el selector va después de las bandas: es el último control de la fila');
+  // ⚠️ CAMBIÓ EL 12/10/2026 (puntos 24 y 26): «Que el desplegable de FUNNELS esté a la izquierda
+  // del todo, previo a los botones de "Kanban/tabla". Y que siempre tenga el ícono del cubo» y
+  // «Que los 3 puntos estén a la derecha del todo, no antes de "Nuevo lead"». Ya no hay header: la
+  // fila es funnel · vista · buscar · filtrar ····· + Nuevo lead · ⋯. Antes este test pedía que el
+  // selector fuera el ÚLTIMO, después de los tres botones de las bandas (que se fueron al menú de
+  // «Filtrar»), y con eso pasaba en vacío: `lastIndexOf` de algo que ya no existe da -1.
+  const board = leer('../app/crm/CrmBoard.tsx').replace(/\r\n/g, '\n');
+  const ini = board.indexOf('className="crm-tb"');
+  const fila = board.slice(ini, board.indexOf('\n      </div>', ini));
+  const orden = ['<SelectorFunnel', '<VistaSelector', '<Buscador', '<CrmFilterMenu', '<AccionesHeader'].map((x) => fila.indexOf(x));
+  assert.ok(orden.every((i) => i > 0), `falta un control de la fila: ${orden.join(', ')}`);
+  assert.deepEqual([...orden].sort((a, b) => a - b), orden, 'el orden de la fila es funnel · vista · buscar · filtrar · acciones');
+  // El cubo: el ícono fijo del desplegable, el `producto` del set de los menús.
+  assert.match(bloque, /icono=\{<IconoMenu nombre="producto" size=\{15\} \/>\}/, 'el desplegable de funnels perdió el cubo');
+  // Y adentro de las acciones, «+ Nuevo lead» primero y el «⋯» al final.
+  const acc = tb.slice(tb.indexOf('export function AccionesHeader'), tb.indexOf('export function VistaSelector'));
+  assert.ok(acc.indexOf('+ Nuevo lead') > 0 && acc.indexOf('+ Nuevo lead') < acc.indexOf('<KebabIcon />'), 'el «⋯» va a la derecha del todo, después de «+ Nuevo lead»');
+  //   ROTO A PROPÓSITO (2026-10-12), con el arnés que restaura de memoria: con el selector de vuelta
+  //   al final de la fila (después de las acciones), el archivo pasó de 9 / 0 a 8 / 1. Restaurado: 9 / 0.
 });
 
 test('«Nuevo producto» es la salida para CREAR: apagada, y se enciende al pasar el cursor', () => {

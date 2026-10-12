@@ -39,10 +39,13 @@ export type CampoInline =
   | 'motivo_perdida'
   | 'nutricion_manual_deadline'
   | 'fathom_r1'
-  | 'fathom_r2';
+  | 'fathom_r2'
+  // Mig 0258 (12/10/2026): los dos datos nuevos de «Información principal».
+  | 'ingreso_estimado'
+  | 'instagram';
 
-/** Lo que la pantalla manda: texto de un `<input type="date">`, tri-estado o nombre. */
-export type ValorInline = string | boolean | null;
+/** Lo que la pantalla manda: texto de un `<input type="date">`, tri-estado, nombre o un monto. */
+export type ValorInline = string | number | boolean | null;
 
 /**
  * Por dónde se escribe cada campo. NO es un detalle de implementación:
@@ -76,6 +79,11 @@ export const VIA_INLINE: Record<CampoInline, 'lead' | 'meta' | 'fathom'> = {
   nutricion_manual_deadline: 'meta',
   fathom_r1: 'fathom',
   fathom_r2: 'fathom',
+  // ⚠️ El ingreso estimado va por el camino CORTO a propósito: NO es una venta. `updateLead`
+  // aplica las invariantes del desenlace (monto ⇔ cerro) y dispara Meta; un estimado no
+  // decide nada de eso, y no puede tocar `monto_cierre_usd`, que es lo que cuenta Revenue.
+  ingreso_estimado: 'meta',
+  instagram: 'meta',
 };
 
 /**
@@ -89,7 +97,7 @@ export const VIA_INLINE: Record<CampoInline, 'lead' | 'meta' | 'fathom'> = {
  * El contacto (nombre, empresa, email, teléfono) NO pasa por acá: ya se edita con
  * `EditableInline` en `InfoPrincipalCard`, que es el molde de esta casa.
  */
-export const GESTO_INLINE: Record<CampoInline, 'fecha' | 'tri' | 'persona' | 'texto' | 'enlace'> = {
+export const GESTO_INLINE: Record<CampoInline, 'fecha' | 'tri' | 'persona' | 'texto' | 'enlace' | 'monto' | 'instagram'> = {
   fecha_agenda: 'fecha',
   fecha_junta_1: 'fecha',
   fecha_junta_2: 'fecha',
@@ -103,7 +111,120 @@ export const GESTO_INLINE: Record<CampoInline, 'fecha' | 'tri' | 'persona' | 'te
   nutricion_manual_deadline: 'fecha',
   fathom_r1: 'enlace',
   fathom_r2: 'enlace',
+  //  · `monto`     → un número en USD, ≥ 0 (`montoDeTexto`): el click abre una caja numérica.
+  //  · `instagram` → un usuario, sin la @ (`usuarioInstagram`): acepta el @, el usuario o el link.
+  ingreso_estimado: 'monto',
+  instagram: 'instagram',
 };
+
+/** El techo de un ingreso estimado, en USD. Un número así es un dedo de más, no un lead. */
+export const INGRESO_MAX_USD = 1_000_000_000;
+
+/**
+ * Un monto escrito por una persona, a número. `null` = no se entiende.
+ *
+ * Acepta lo que se escribe de verdad: `1500`, `1,500`, `1.500`, `$1,500.50`, `US$ 2000`,
+ * `1500,5`. La única ambigüedad real es el punto (o la coma) seguido de EXACTAMENTE tres
+ * dígitos: `1.500` es mil quinientos en México y uno y medio en Estados Unidos. Se lee como
+ * miles, porque un ingreso estimado con tres decimales no lo escribe nadie y mil quinientos
+ * dólares sí.
+ */
+export function montoDeTexto(t: string): number | null {
+  let s = t.replace(/us\$|usd|\$|\s/gi, '');
+  if (!s) return null;
+  if (!/^[0-9.,]+$/.test(s)) return null;
+  const tienePunto = s.includes('.');
+  const tieneComa = s.includes(',');
+  if (tienePunto && tieneComa) {
+    // El que va ÚLTIMO es el decimal; el otro, de miles.
+    const dec = s.lastIndexOf('.') > s.lastIndexOf(',') ? '.' : ',';
+    const miles = dec === '.' ? ',' : '.';
+    s = s.split(miles).join('').replace(dec, '.');
+  } else if (tienePunto || tieneComa) {
+    const sep = tienePunto ? '.' : ',';
+    s = new RegExp(`^\\d{1,3}(\\${sep}\\d{3})+$`).test(s) ? s.split(sep).join('') : s.replace(sep, '.');
+  }
+  if (!/^\d+(\.\d+)?$/.test(s)) return null;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** Las rutas de instagram.com que NO son un perfil: un link así no nombra a nadie. */
+const RUTAS_NO_PERFIL = new Set(['p', 'reel', 'reels', 'tv', 'explore', 'stories', 'accounts', 'direct', 'about', 'legal', 'developer']);
+
+/**
+ * El usuario de Instagram, como lo guarda `leads.instagram`: sin la @, en minúsculas.
+ * `null` = no es un usuario.
+ *
+ * Acepta las tres formas en que llega: `@martinkoncke`, `martinkoncke` y el link del perfil
+ * (`https://www.instagram.com/martinkoncke/?igsh=…`). Un link a un post o a un reel NO es un
+ * perfil y no se acepta: guardaría `p` como usuario y el link de la ficha abriría la nada.
+ * Las reglas de un usuario son las de Instagram: hasta 30 letras, números, puntos y guiones
+ * bajos. Instagram no distingue mayúsculas, así que se guarda en minúsculas y dos altas del
+ * mismo perfil escrito distinto no se ven como dos personas.
+ *
+ * ⚠️ LA USA TAMBIÉN EL ALTA (el buscador de Instagram de «Nuevo lead»): un valor, una regla.
+ */
+export function usuarioInstagram(t: string | null | undefined): string | null {
+  let s = (t ?? '').trim();
+  if (!s) return null;
+  const link = s.match(/^(?:https?:\/\/)?(?:www\.|m\.)?instagram\.com\/([^/?#]+)/i);
+  if (link) {
+    if (RUTAS_NO_PERFIL.has(link[1].toLowerCase())) return null;
+    s = link[1];
+  }
+  s = s.replace(/^@+/, '').toLowerCase();
+  return /^[a-z0-9._]{1,30}$/.test(s) ? s : null;
+}
+
+/**
+ * Qué se guarda al cerrar el teléfono de la ficha (el editor con el país primero, punto 5 del
+ * 12/10/2026). `null` = NO se escribe nada; `''` = se borra el teléfono; si no, los dígitos.
+ *
+ * ⚠️ EL FORMATO GUARDADO NO CAMBIA SI EL NÚMERO NO CAMBIÓ. Lo que llegó de Calendly o de un
+ * formulario está guardado como vino («+52 1 55 5555 5555»); abrirlo, verlo partido en país y
+ * número, y cerrarlo, no puede reescribirlo con otro formato ni dejar una línea en el historial.
+ * Se comparan DÍGITOS, que es también la llave del match (`telefono_normalizado`).
+ * Si cambió, sale lo que la pieza de la casa emite en todos lados: `lada + número` en dígitos
+ * (`unirTelefono`, lib/paises.ts) — se escribe acá a mano para que este módulo siga sin imports de
+ * valores y lo puedan cargar el test y el navegador.
+ *
+ * ⚠️ Y LO QUE SE ABRIÓ Y NO SE TOCÓ TAMPOCO SE ESCRIBE (revisión del 12/10/2026). Un teléfono guardado
+ * SIN código de país («2233550684», del alta vieja de texto libre o de un CSV) no matchea ninguna
+ * lada: `splitTelefono` lo abre como +52 y el número entero, y comparar dígitos daba «cambió»
+ * (522233550684 ≠ 2233550684). Cerrar la ficha sin tocar nada le pegaba un +52 en silencio, con su
+ * línea en el historial, y el WhatsApp salía a México. `inicial` es la partición con la que se ABRIÓ
+ * el editor: si la lada y los dígitos siguen siendo ésos, no se escribe nada.
+ */
+export function telefonoAGuardar(
+  antes: string | null | undefined, lada: string, numero: string, inicial?: { lada: string; resto: string },
+): string | null {
+  const digitosAntes = (antes ?? '').replace(/\D/g, '');
+  const local = numero.replace(/\D/g, '');
+  if (inicial && lada === inicial.lada && local === inicial.resto.replace(/\D/g, '')) return null;
+  const nuevo = local ? `${lada}${local}`.replace(/\D/g, '') : '';
+  return nuevo === digitosAntes ? null : nuevo;
+}
+
+/** El link al perfil, para el botón de la ficha. */
+export function linkInstagram(usuario: string | null | undefined): string | null {
+  const u = usuarioInstagram(usuario);
+  return u ? `https://www.instagram.com/${u}/` : null;
+}
+
+/**
+ * Qué Instagram manda el ALTA de un lead (app/crm/new/NewLeadForm.tsx): el perfil ELEGIDO en el
+ * buscador y, si no se eligió ninguno, lo ESCRITO en él cuando es un usuario (`usuarioInstagram`).
+ * `''` = nada que guardar.
+ *
+ * ⚠️ LO ESCRITO NO SE PIERDE EN SILENCIO (revisión del 12/10/2026). El buscador sólo entregaba lo
+ * elegido de su lista, y quien tipeaba «@martinkoncke» y apretaba «Crear lead» sin tocar «Usar
+ * @martinkoncke» creaba el lead SIN Instagram, sin un aviso: el campo se veía lleno y no viajaba.
+ * Un nombre («Martin Koncke») no es un usuario y no se manda: no hay a qué perfil apuntarlo.
+ */
+export function instagramDelAlta(elegido: string | null | undefined, escrito: string | null | undefined): string {
+  return usuarioInstagram(elegido) ?? usuarioInstagram(escrito) ?? '';
+}
 
 export function esCampoInline(campo: string): campo is CampoInline {
   return Object.prototype.hasOwnProperty.call(VIA_INLINE, campo);
@@ -140,14 +261,30 @@ export const ETIQUETA_FATHOM: Record<'fathom_r1' | 'fathom_r2', string> = {
  * tipo y sube como un 500 sin nombre; un `calificado: 'si'` entraría como truthy
  * y mandaría un evento a Meta por un dato que nadie marcó.
  */
-export function valorDeCampo(campo: CampoInline, v: ValorInline): string | boolean | null {
+export function valorDeCampo(campo: CampoInline, v: ValorInline): string | number | boolean | null {
   const gesto = GESTO_INLINE[campo];
   if (gesto === 'tri') {
     if (v === true || v === false || v === null) return v;
     throw new Error(`"${campo}" solo acepta sí, no o sin marcar.`);
   }
   if (typeof v === 'boolean') throw new Error(`"${campo}" no es un sí/no.`);
+  if (gesto === 'monto') {
+    // Vaciarlo es legítimo: «ya no sé cuánto vale» es un dato, y no es lo mismo que 0.
+    if (v === null || (typeof v === 'string' && !v.trim())) return null;
+    const n = typeof v === 'number' ? v : montoDeTexto(v);
+    if (n == null || !Number.isFinite(n) || n < 0) throw new Error('Escribe un monto en dólares (por ejemplo, 1500).');
+    if (n > INGRESO_MAX_USD) throw new Error('Ese monto es demasiado grande.');
+    // Centavos como mucho: un `numeric` guarda lo que le den, y 1500.333333 no lo escribió nadie.
+    return Math.round(n * 100) / 100;
+  }
+  if (typeof v === 'number') throw new Error(`"${campo}" no es un número.`);
   const s = (v ?? '').trim();
+  if (gesto === 'instagram') {
+    if (!s) return null;
+    const u = usuarioInstagram(s);
+    if (!u) throw new Error('Escribe un usuario de Instagram (por ejemplo, @usuario).');
+    return u;
+  }
   if (gesto === 'fecha') {
     // ⚠️ LA FECHA LÍMITE DE LA NUTRICIÓN MANUAL NO PUEDE QUEDAR VACÍA, y es la
     // única validación de campo que el formulario tenía de verdad («Para

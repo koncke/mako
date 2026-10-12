@@ -54,6 +54,8 @@ import dynamic from 'next/dynamic';
 import { Button, Checkbox, Field, Input, Modal, Spinner, Tabs, TextField } from '@/app/_ui';
 import { useRouter, useWs } from '@/app/_ui/Link';
 import { emailUtilizable } from '@/lib/agencia-altas';
+import { TelefonoConPais } from '@/app/_components/TelefonoConPais';
+import { splitTelefono, unirTelefono } from '@/lib/paises';
 import { clientesSinInvitar, type AccesoDeFila, type ClienteSinInvitar } from '../curso-ficha-lectura';
 import { invitarClientesAction, invitarNuevoAlumnoAction, opcionesDeInvitarAction, productosDeLosAccesosAction } from './invitar-actions';
 import { ofreceWhatsapp, tieneTelefono, type CanalInvitacion } from '@/lib/curso-invitar-canales';
@@ -343,6 +345,19 @@ function Nuevo({ productoId, ocupado, ocupar, hecho, wa, borrador, setBorrador }
   const idNombre = useId();
   const { nombre, email, telefono, empresa, sinCobro } = borrador;
   const poner = (campo: 'nombre' | 'email' | 'telefono' | 'empresa', v: string) => setBorrador((n) => ({ ...n, [campo]: v }));
+  // ⚠️ EL TELÉFONO CON EL PAÍS PRIMERO (punto 5 del 12/10/2026: «en todos lados que pida telefono,
+  // primero tiene que ir la numeración que ya tenemos con las banderas»). La lada y el número viven
+  // acá mientras se escribe (derivarlos del borrador en cada render tiraría la lada elegida con el
+  // número vacío); al borrador y al server va `unirTelefono`: los dígitos con su código de país,
+  // como el alta de un lead del CRM. Sin lada, el WhatsApp de la invitación no tenía a dónde ir.
+  const [tel, setTel] = useState(() => { const p = splitTelefono(telefono); return { lada: p.lada, numero: p.resto }; });
+  // Al invitar el borrador se vacía: el número escrito se va con él.
+  useEffect(() => { if (!telefono) setTel((t) => (t.numero ? { ...t, numero: '' } : t)); }, [telefono]);
+  const cambiarTel = (t: { lada: string; numero: string }) => {
+    setTel(t);
+    poner('telefono', t.numero.replace(/\D/g, '') ? unirTelefono(t.lada, t.numero) : '');
+    setDuplicados(null);
+  };
   /** «También por WhatsApp»: apagada por default (item 21); se ofrece con un teléfono escrito. */
   const [porWhatsapp, setPorWhatsapp] = useState(false);
   const ofreceWa = !!wa && ofreceWhatsapp({ lineaConectada: wa.lineaConectada, envioPrendido: wa.envioPrendido, conTelefono: tieneTelefono(telefono) });
@@ -441,8 +456,13 @@ function Nuevo({ productoId, ocupado, ocupar, hecho, wa, borrador, setBorrador }
         onChange={(e) => { poner('email', e.target.value); setDuplicados(null); }} />
       {/* Punto 11 del audio: el teléfono NO es obligatorio (el mail es lo que invita). Sin él se pierde
           el WhatsApp: la casilla de abajo no aparece y después no le llega nada por ahí. */}
-      <TextField label="Teléfono" type="tel" value={telefono} disabled={ocupado} hint="Opcional. Sin él, sólo por correo."
-        onChange={(e) => { poner('telefono', e.target.value); setDuplicados(null); }} />
+      <Field label="Teléfono" hint="Opcional. Sin él, sólo por correo.">
+        <div aria-disabled={ocupado || undefined} style={ocupado ? { pointerEvents: 'none', opacity: 0.6 } : undefined}>
+          <TelefonoConPais lada={tel.lada} numero={tel.numero} anchoLada={112}
+            onLada={(v) => cambiarTel({ ...tel, lada: v })} onNumero={(v) => cambiarTel({ ...tel, numero: v })}
+            inputStyle={{ width: '100%', minHeight: 'var(--touch)', padding: '10px 12px', borderRadius: 'var(--r-md)', border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: 'inherit', fontSize: 14, outline: 'none', boxSizing: 'border-box' }} />
+        </div>
+      </Field>
       <TextField label="Empresa" value={empresa} disabled={ocupado} onChange={(e) => poner('empresa', e.target.value)} />
       <Checkbox checked={sinCobro} onChange={(v) => setBorrador((n) => ({ ...n, sinCobro: v }))} label="Sin cobro" hint="Becado o bonificado." disabled={ocupado} />
       {ofreceWa && (

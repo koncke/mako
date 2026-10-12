@@ -28,6 +28,20 @@
 //  · El input del nombre abre SÓLO desde el texto, no desde toda la fila.
 //  · «Cómo entran» dejó de ser una subtab: es un desplegable de acá, y una pregunta del
 //    alta de producto.
+//
+// ── Lo que cambió con el feedback del 12/10/2026, con el pedido al lado ──────────────────
+//  · SIN SUBTABS. «Elimina las tabs de "Nutrición" y "Etiqueta"... Las etiquetas no se
+//    configuran allí, eso en cada lead se le debe poder poner una etiqueta. Y las nutriciones
+//    deben tomarse como una etapa más». Queda sólo la lista de etapas, sin fila de pastillas.
+//    (El CRUD de etiquetas, app/crm/EditorEtiquetas.tsx, quedó sin pantalla que lo monte;
+//    crearlas sigue en «+ Etiqueta» de la ficha del lead.)
+//  · EL BOTÓN «Reunión» ES UN DESPLEGABLE DE TIPO: «un desplegable para marcar "Reunión,
+//    Nutrición"». Etapa / Reunión / Nutrición, con `conTipo` (lib/etapa-reunion.ts).
+//  · SIN «Plazo». «Elimina lo de "Ponerle un plazo", para eso ya tenemos la tab de
+//    "Automations"». Lo que quedó del plazo, en la cabecera de lib/lead-quieto-aviso.ts.
+//  · EL NOMBRE DEL FUNNEL SE GUARDA SIEMPRE. «Si lo cambié y cierro la tab, debería
+//    cambiarse... Lo que cambio se queda». Se guardaba sólo en el `onBlur`, y cerrar con la ✕,
+//    Escape o un clic afuera desmontaba el campo sin que el `blur` llegara.
 
 import { Fragment, useCallback, useEffect, useRef, useState, useTransition, type CSSProperties, type DragEvent as DragReact } from 'react';
 import { useRouter, useWs } from '@/app/_ui/Link';
@@ -35,19 +49,19 @@ import { conWs } from '@/lib/ws-tab';
 import { Modal } from '@/app/_ui/Modal';
 import { Confirm } from '@/app/_ui/Confirm';
 import { Toast, useToast } from '@/app/_ui/Toast';
+import { Dropdown } from '@/app/components/Dropdown';
+import type { NombreIconoMenu } from '@/app/_ui/iconos-menu';
 import { MAX_LABEL_ETAPA } from '@/lib/pipeline';
-import { puedeSerReunion, cambioDeReuniones, reunionSinLugar } from '@/lib/etapa-reunion';
-import { puedeTenerPlazo, sanearPlazo, PLAZO_MAX_DIAS } from '@/lib/lead-quieto';
+import { puedeSerReunion, cambioDeReuniones, reunionSinLugar, tipoDeEtapa, tieneEtapaDeReunion, TIPOS_ETAPA, type TipoEtapa } from '@/lib/etapa-reunion';
 import {
   editarEtapaAction, embudoEnDetalleAction, renombrarEmbudoAction, archivarEmbudoAction,
   restaurarEmbudoAction, extrasDelEmbudoAction,
-  type EmbudoEnDetalle, type EtapaDelFunnel, type NutricionDelFunnel, type OpEtapa, type DeshacerEtapa, type ExtrasDelEmbudo,
+  type EmbudoEnDetalle, type EtapaDelFunnel, type OpEtapa, type DeshacerEtapa, type ExtrasDelEmbudo,
 } from './actions';
 import { EmbudoEntradas } from './EmbudoEntradas';
 import { CampanasDelProducto } from './CampanasDelProducto';
 import { CerrarIcon, LapizIcon } from './iconos';
 import { MoverPartido } from './MoverPartido';
-import { EditorEtiquetas } from './EditorEtiquetas';
 
 const SANS = "'Geist', sans-serif";
 
@@ -72,96 +86,59 @@ function AccionFila({ etiqueta, onClick, disabled, children }: {
 }
 
 
+/** Cómo se llama y con qué ícono se dibuja cada tipo en el desplegable (un tipo de cosa lleva ícono). */
+const TIPO_VISTA: Record<TipoEtapa, { label: string; icono: NombreIconoMenu }> = {
+  etapa: { label: 'Etapa', icono: 'etapa' },
+  reunion: { label: 'Reunión', icono: 'calendario' },
+  nutricion: { label: 'Nutrición', icono: 'repetir' },
+};
+const OPCIONES_TIPO = TIPOS_ETAPA.map((t) => ({ value: t, label: TIPO_VISTA[t].label, icono: TIPO_VISTA[t].icono }));
+
 /**
- * «Es una reunión», por etapa. Prendido = `kind: 'reunion'` (lib/etapa-reunion.ts): es lo que
- * leen los requisitos de etapa, los dos lugares de fecha del lead y la condición «Asistió / No
- * asistió» del Chatbot. Lo pidió Martín el 09/10/2026: «debería poder seleccionarse qué etapas
- * hacen referencia a una REUNIÓN».
+ * El TIPO de una etapa: Etapa / Reunión / Nutrición.
+ *
+ * Era el botón «Reunión» (09/10/2026: «debería poder seleccionarse qué etapas hacen referencia a
+ * una REUNIÓN») y desde el 12/10/2026 es un desplegable: «De última, un botón para marcarla como
+ * "Nutrición", que sea un desplegable para marcar "Reunión, Nutrición"». Reunión es
+ * `kind: 'reunion'` —lo que leen los requisitos de etapa, los dos lugares de fecha del lead y
+ * «Asistió / No asistió» de Automations—; Nutrición es una marca aparte que no cambia nada de eso
+ * (`conTipo`, lib/etapa-reunion.ts).
  *
  * La tercera reunión en adelante lleva «Sin fecha»: la tabla `leads` guarda fecha y asistencia
  * de DOS (`slotPorIndice`), y una tercera marcada no tiene dónde. El porqué va en el `title`,
  * no en la pantalla.
  */
-function BotonReunion({ etapa, activa, sinLugar, disabled, onClick }: {
-  etapa: string; activa: boolean; sinLugar: boolean; disabled?: boolean; onClick: () => void;
+function SelectorTipo({ etapa, tipo, porNombre, sinLugar, disabled, onElegir }: {
+  etapa: string; tipo: TipoEtapa;
+  /**
+   * Nadie le eligió tipo y su NOMBRE dice reunión («Llamada», «R2»): la ficha la cuenta como
+   * reunión para la pestaña «Reuniones» (`tieneEtapaDeReunion`) aunque acá diga «Etapa». Elegir
+   * «Etapa» igual se guarda —es decir «no, no es una reunión»—, y el porqué va en el `title`.
+   */
+  porNombre: boolean;
+  sinLugar: boolean; disabled?: boolean; onElegir: (t: TipoEtapa) => void;
 }) {
   return (
-    <span data-nodrag style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flex: 'none' }}>
-      {activa && sinLugar && (
+    <span data-nodrag title={porNombre ? 'Por su nombre, la ficha la cuenta como reunión. Elige «Etapa» si no lo es.' : undefined}
+      style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flex: 'none' }}>
+      {tipo === 'reunion' && sinLugar && (
         <span title="Se guardan la fecha y la asistencia de dos reuniones: esta tercera no tiene dónde."
           style={{ fontFamily: SANS, fontSize: 11, color: 'var(--warn)' }}>Sin fecha</span>
       )}
-      <button
-        type="button" onClick={onClick} disabled={disabled} aria-pressed={activa}
-        title={activa ? `${etapa} es una reunión. Toca para desmarcarla.` : `Marcar ${etapa} como reunión`}
-        style={{
-          flex: 'none', height: 24, padding: '0 9px', borderRadius: 999, fontFamily: SANS, fontSize: 12, fontWeight: 600,
-          border: `1px solid ${activa ? 'var(--primary)' : 'var(--border-strong)'}`,
-          background: activa ? 'var(--primary-weak)' : 'transparent',
-          color: activa ? 'var(--primary)' : 'var(--dim)',
-          cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.45 : 1,
-        }}
-      >Reunión</button>
+      <Dropdown value={tipo} options={OPCIONES_TIPO} search={false} disabled={disabled} width={132}
+        ariaLabel={`Tipo de ${etapa}`} align="right"
+        buttonStyle={{ height: 28, padding: '0 9px', borderRadius: 999, fontSize: 12.5, gap: 6 }}
+        // El desplegable avisa aunque se toque el que ya estaba: el mismo valor no escribe nada,
+        // salvo «Etapa» sobre una que cuenta como reunión por el nombre (ver `porNombre`).
+        onChange={(v) => { if (v !== tipo || porNombre) onElegir(v as TipoEtapa); }} />
     </span>
   );
 }
 
-/**
- * El PLAZO de una etapa (#800): si un lead pasa más días que esto ahí, MaKo le avisa al dueño
- * (lib/lead-quieto.ts). Vacío = sin plazo.
- *
- * ⚠️ SE DIBUJA SÓLO CON LO QUE CONTESTÓ EL SERVER (`emb.plazos`), nunca con la semilla del
- * tablero: un «Plazo» vacío pintado antes de saberlo le diría a quien ya puso uno que no tiene.
- *
- * El texto de la pastilla es el dato («5 días»); para qué sirve va en el `title`, no en la
- * pantalla.
- */
-function PlazoEtapa({ etapa, dias, disabled, onGuardar }: {
-  etapa: string; dias: number | null; disabled?: boolean; onGuardar: (dias: number | null) => void;
-}) {
-  const [editando, setEditando] = useState(false);
-  const guardar = (crudo: string) => {
-    setEditando(false);
-    const limpio = crudo.trim();
-    const nuevo = limpio === '' ? null : sanearPlazo(limpio);
-    // Un número fuera de rango no borra el plazo que había: se ignora, como un Escape.
-    if (limpio !== '' && nuevo == null) return;
-    if (nuevo === dias) return;
-    onGuardar(nuevo);
-  };
-  if (editando) {
-    return (
-      <span data-nodrag style={{ display: 'inline-flex', alignItems: 'center', gap: 5, flex: 'none' }}>
-        <input
-          autoFocus type="number" min={1} max={PLAZO_MAX_DIAS} defaultValue={dias ?? ''} aria-label={`Plazo de ${etapa}, en días`}
-          onBlur={(ev) => guardar(ev.target.value)}
-          onKeyDown={(ev) => {
-            if (ev.key === 'Enter') (ev.target as HTMLInputElement).blur();
-            if (ev.key === 'Escape') setEditando(false);
-          }}
-          style={{ width: 56, height: 24, fontFamily: SANS, fontSize: 12, color: 'var(--ink)', background: 'var(--surface)', border: '1px solid var(--primary)', borderRadius: 7, padding: '0 6px', outline: 'none' }}
-        />
-        <span style={{ fontFamily: SANS, fontSize: 12, color: 'var(--dim)' }}>días</span>
-      </span>
-    );
-  }
-  const activo = dias != null;
-  return (
-    <button
-      type="button" data-nodrag onClick={() => setEditando(true)} disabled={disabled}
-      title={activo
-        ? `Si un lead pasa más de ${dias} ${dias === 1 ? 'día' : 'días'} en ${etapa}, MaKo te avisa. Toca para cambiarlo.`
-        : `Ponerle un plazo a ${etapa}: si un lead pasa más días ahí, MaKo te avisa.`}
-      style={{
-        flex: 'none', height: 24, padding: '0 9px', borderRadius: 999, fontFamily: SANS, fontSize: 12, fontWeight: 600,
-        border: `1px solid ${activo ? 'var(--primary)' : 'var(--border-strong)'}`,
-        background: activo ? 'var(--primary-weak)' : 'transparent',
-        color: activo ? 'var(--primary)' : 'var(--dim)',
-        cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.45 : 1,
-      }}
-    >{activo ? `${dias} ${dias === 1 ? 'día' : 'días'}` : 'Plazo'}</button>
-  );
-}
+// ⚠️ ACÁ ESTUVO `PlazoEtapa`, la pastilla «Plazo» de cada etapa (#800), hasta el 12/10/2026:
+// «Elimina lo de "Ponerle un plazo", para eso ya tenemos la tab de "Automations"... se configura
+// allí, como una automatización que se lo pase a otra etapa». Lo que quedó del plazo (la op
+// `plazo` del server, el aviso y los plazos ya guardados), en la cabecera de lib/lead-quieto-aviso.ts.
 
 /** El loader. Nunca la palabra «Cargando…»: un texto no dice que algo está pasando. */
 function Cargando() {
@@ -177,10 +154,13 @@ function Cargando() {
   );
 }
 
-// La tercera, Etiquetas (mig 0224): el CRUD de las etiquetas del CRM vive acá, donde el CRM edita
-// sus etapas, porque una etiqueta se VINCULA a una etapa. Son del negocio, no del producto: la
-// misma lista desde cualquier producto (app/crm/EditorEtiquetas.tsx).
-type Sub = 'etapas' | 'nutricion' | 'etiquetas';
+/**
+ * El respiro del guardado del nombre del funnel mientras se escribe. No es lo que garantiza que
+ * se guarde —eso lo hace cerrar, que manda lo pendiente—: es la red para lo que no pasa por
+ * cerrar (cambiar de pestaña, cerrar el navegador). Largo a propósito: el nombre es único por
+ * negocio, y guardar cada pausa corta chocaría contra otro funnel a mitad de una palabra.
+ */
+const RESPIRO_NOMBRE_MS = 1200;
 
 export function EtapasModal({ funnelId, nombre, abrirEntradas, semilla, onCerrar }: {
   /** El embudo que se edita. `null`/`undefined` = el del negocio. */
@@ -205,8 +185,8 @@ export function EtapasModal({ funnelId, nombre, abrirEntradas, semilla, onCerrar
    * que ya estaba en pantalla, arriba, dibujada como columnas del tablero.
    *
    * ⚠️ Y NO REEMPLAZA A LA LECTURA: el server sigue contestando y pisa esto. La semilla
-   * dice qué etapas hay; lo que decide si «Eliminar producto» se ofrece, qué nutriciones
-   * tiene y por dónde entra la gente llega del server, porque el tablero no lo sabe.
+   * dice qué etapas hay; lo que decide si «Eliminar producto» se ofrece y por dónde entra
+   * la gente llega del server, porque el tablero no lo sabe.
    */
   semilla?: { etapas: EtapaDelFunnel[]; fijas: EtapaDelFunnel[] } | null;
   onCerrar: () => void;
@@ -214,7 +194,6 @@ export function EtapasModal({ funnelId, nombre, abrirEntradas, semilla, onCerrar
   const router = useRouter();
   const ws = useWs();
   const { toast, show, clear } = useToast();
-  const [sub, setSub] = useState<Sub>('etapas');
   const [emb, setEmb] = useState<EmbudoEnDetalle | null>(null);
   const [extras, setExtras] = useState<ExtrasDelEmbudo | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -280,6 +259,11 @@ export function EtapasModal({ funnelId, nombre, abrirEntradas, semilla, onCerrar
       // El tablero de atrás se refresca en CADA cambio: sus columnas se leen en el server,
       // y sin esto quien renombra una etapa y mira detrás del pop-up ve el nombre viejo.
       router.refresh();
+      // ⚠️ SI QUEDÓ REUNIÓN SOLA, SE DICE (punto 13 del 12/10/2026: el nombre «Llamada» o «R2» la
+      // marca al crear o renombrar). Un cambio de tipo que nadie eligió no puede pasar callado, y
+      // el deshacer la deja como «Etapa» elegida a mano: el nombre ya no la vuelve a marcar.
+      const sola = r.reunionSola;
+      if (sola) show('Quedó como reunión', () => aplicar({ op: 'tipo', key: sola, tipo: 'etapa' }));
       onListo?.(r.deshacer);
     });
   };
@@ -388,33 +372,114 @@ export function EtapasModal({ funnelId, nombre, abrirEntradas, semilla, onCerrar
     aplicar({ op: 'renombrar', key: e.key, label: limpio });
   };
 
-  const guardarNombreEmbudo = (valor: string) => {
-    const limpio = valor.trim();
-    if (!emb || !limpio || limpio === emb.nombre) return;
-    startTrabajo(async () => {
-      const r = await renombrarEmbudoAction(funnelId ?? null, limpio);
-      if (!r.ok) { setError(r.error); return; }
-      setError(null);
-      await cargar();
-      router.refresh();
-    });
-  };
+  // ── el nombre del funnel (punto 1 del feedback del 12/10/2026) ──────────────────────────
+  // «Si lo cambié y cierro la tab, debería cambiarse. Porque hoy en día tengo que darle un click
+  // afuera del modal de escribir pero dentro del modal, es contraintuitivo. Lo que cambio se
+  // queda.» Se guardaba sólo en el `onBlur` del título, y cerrar con la ✕, con Escape o con un
+  // clic afuera desmonta el campo: el `blur` no llega y lo escrito se perdía.
+  //
+  // Ahora lo escrito se guarda POR TRES CAMINOS, y cualquiera alcanza: al cerrar (`cerrar`
+  // manda lo pendiente antes de irse), al salir del campo, y con un respiro mientras se escribe
+  // (la red para lo que no pasa por cerrar: cambiar de pestaña o cerrar el navegador).
+  //
+  // ⚠️ TODO VIVE EN REFS Y `cerrar` TIENE IDENTIDAD FIJA, y no es prolijidad: el efecto de foco
+  // de `Modal` depende de `onCerrar`, y con una flecha nueva por render (el campo ahora es
+  // controlado: un render por tecla) devolvería el foco atrás con cada letra — la regla de
+  // AGENTS.md «Todo `<Modal>` recibe un `onCerrar` de identidad FIJA».
+  const [nombreTxt, setNombreTxt] = useState<string | null>(null);
+  const nombreRef = useRef({
+    /** Lo que el server tiene (o lo último que se le mandó): contra esto se decide si escribir. */
+    base: nombre,
+    /** Lo escrito que todavía no salió. */
+    pendiente: null as string | null,
+    reloj: null as ReturnType<typeof setTimeout> | null,
+    /** Se guardó un nombre y el tablero de atrás todavía no se refrescó. */
+    sucio: false,
+    /** El pop-up ya se cerró: lo que conteste el server no tiene dónde dibujarse. */
+    cerrado: false,
+  });
+  const ctx = useRef({ router, funnelId, onCerrar, setError });
+  useEffect(() => { ctx.current = { router, funnelId, onCerrar, setError }; });
+  // Mientras nadie escribió, la base es lo que contestó el server.
+  useEffect(() => { if (emb && nombreTxt == null) nombreRef.current.base = emb.nombre; }, [emb, nombreTxt]);
 
   /**
-   * El plazo de la etapa: un número, null (sin plazo), o undefined = NO SE DIBUJA el campo
-   * (el server todavía no contestó, no pudo leerlos, o la etapa no lleva plazo).
+   * Guarda el nombre. `refrescar`: al terminar, el tablero de atrás se vuelve a leer. Con el
+   * respiro mientras se escribe va en false —un render del tablero entero por pausa— y queda
+   * `sucio` para el próximo `soltarNombre`; ya cerrado el pop-up, se refresca siempre.
    */
-  const plazoDe = (e: EtapaDelFunnel): number | null | undefined =>
-    emb?.plazos == null || !puedeTenerPlazo(e) ? undefined : (emb.plazos[e.key] ?? null);
+  const mandarNombre = useCallback((valor: string, refrescar: boolean) => {
+    const n = nombreRef.current;
+    const limpio = valor.trim().replace(/\s+/g, ' ');
+    // Vacío no se guarda (un funnel necesita nombre) y lo mismo tampoco.
+    if (!limpio || limpio === n.base) return;
+    const previo = n.base;
+    n.base = limpio;
+    void renombrarEmbudoAction(ctx.current.funnelId ?? null, limpio)
+      .then((r) => {
+        if (!r.ok) { n.base = previo; if (!n.cerrado) ctx.current.setError(r.error); return; }
+        if (!n.cerrado) ctx.current.setError(null);
+        if (refrescar || n.cerrado) { n.sucio = false; ctx.current.router.refresh(); } else n.sucio = true;
+      })
+      .catch(() => { n.base = previo; });
+  }, []);
 
-  // ── marcar una etapa como reunión ───────────────────────────────────────────────────
+  /** Manda YA lo pendiente (al salir del campo, al cerrar, al esconder la pestaña). */
+  const soltarNombre = useCallback(() => {
+    const n = nombreRef.current;
+    if (n.reloj) { clearTimeout(n.reloj); n.reloj = null; }
+    const v = n.pendiente;
+    n.pendiente = null;
+    if (v != null) mandarNombre(v, true);
+    // Lo que ya había guardado el respiro y el tablero todavía no vio.
+    if (n.sucio) { n.sucio = false; ctx.current.router.refresh(); }
+  }, [mandarNombre]);
+
+  const escribirNombre = (v: string) => {
+    setNombreTxt(v);
+    const n = nombreRef.current;
+    n.pendiente = v;
+    if (n.reloj) clearTimeout(n.reloj);
+    n.reloj = setTimeout(() => {
+      n.reloj = null;
+      const p = n.pendiente;
+      n.pendiente = null;
+      if (p != null) mandarNombre(p, false);
+    }, RESPIRO_NOMBRE_MS);
+  };
+
+  /** Cerrar (la ✕, Escape, un clic afuera): primero sale lo escrito. */
+  const cerrar = useCallback(() => {
+    nombreRef.current.cerrado = true;
+    soltarNombre();
+    ctx.current.onCerrar();
+  }, [soltarNombre]);
+
+  // Y si el pop-up se desmonta por otro camino (eliminar el funnel, el tablero que lo cierra),
+  // tampoco se pierde. `cerrado` vuelve a false al montar: el doble montaje de desarrollo lo
+  // dejaría puesto y los errores dejarían de verse.
+  useEffect(() => {
+    const n = nombreRef.current;
+    n.cerrado = false;
+    const alOcultar = () => { if (document.visibilityState === 'hidden') soltarNombre(); };
+    document.addEventListener('visibilitychange', alOcultar);
+    return () => {
+      document.removeEventListener('visibilitychange', alOcultar);
+      n.cerrado = true;
+      soltarNombre();
+    };
+  }, [soltarNombre]);
+
+  // ── el TIPO de una etapa: Etapa / Reunión / Nutrición ────────────────────────────────
   // ⚠️ PREGUNTA SÓLO SI UNA REUNIÓN QUE YA EXISTE CAMBIA DE NÚMERO. La fecha del lead va por
   // ORDEN de las reuniones (lib/etapa-reunion.ts, `cambioDeReuniones`): marcar una etapa que
   // va antes de otra reunión la corre al segundo lugar, y las fechas ya cargadas se verían en
-  // otra etapa. Si nada se corre, se marca sin fricción.
-  const marcarReunion = (e: EtapaDelFunnel, es: boolean) => {
+  // otra etapa. Pasar de Reunión a Nutrición o a Etapa la desmarca, y eso también corre a las
+  // de después. Entre Etapa y Nutrición no cambia ninguna reunión: se guarda sin fricción.
+  const elegirTipo = (e: EtapaDelFunnel, tipo: TipoEtapa) => {
+    const es = tipo === 'reunion';
     const c = cambioDeReuniones(etapas, e.key, es);
-    const hacer = () => aplicar({ op: 'reunion', key: e.key, es });
+    const hacer = () => aplicar({ op: 'tipo', key: e.key, tipo });
     if (!c.corridas.length) { hacer(); return; }
     setConfirmar({
       titulo: es ? `«${e.label}» es una reunión` : `«${e.label}» deja de ser reunión`,
@@ -489,22 +554,6 @@ export function EtapasModal({ funnelId, nombre, abrirEntradas, semilla, onCerrar
    */
   const caja: CSSProperties = { borderRadius: 10, background: 'var(--surface-2)', overflow: 'hidden' };
   /** La fila va TRANSPARENTE: el fondo lo pone la caja, o volveríamos a tener dos. */
-  /**
-   * Quitar una nutrición.
-   *
-   * ⚠️ NO PREGUNTA POR LOS LEADS, a diferencia de quitar una etapa, y no es un descuido:
-   * el conteo por etapa sale de `deriveStageKey`, que es un switch cerrado sobre las
-   * columnas del lead y **nunca devuelve** `nopaga`, `nocompro` ni `reactivacion` — a esas
-   * columnas se llega por `pipeline_stage`. O sea que el contador diría 0 para siempre, y
-   * un «¿seguro?» que siempre contesta que no hay nadie es peor que no preguntar: enseña a
-   * apretar sin leer. Se deshace con el toast, que acá alcanza porque apagarla no borra
-   * leads: los que estén parados ahí se siguen viendo en la primera columna.
-   */
-  const quitarNutricion = (n: NutricionDelFunnel) => {
-    aplicar({ op: 'nutricion', id: n.id, tambien: n.ids, activa: false }, () => {
-      show(`Quitada «${n.nombre}»`, () => aplicar({ op: 'nutricion', id: n.id, tambien: n.ids, activa: true }));
-    });
-  };
   const fila: CSSProperties = {
     display: 'flex', alignItems: 'center', gap: 8, padding: '7px 8px 7px 11px',
   };
@@ -516,12 +565,18 @@ export function EtapasModal({ funnelId, nombre, abrirEntradas, semilla, onCerrar
           // El título es un CAMPO: «Junto con editar el nombre del funnel/producto».
           // Ojo: si el embudo tiene producto principal, esto renombra el PRODUCTO — la
           // pantalla muestra ese nombre, así que tocar el otro no se vería.
+          // ⚠️ CONTROLADO, no `defaultValue` + `key`: con la `key` atada al nombre del server, el
+          // campo se remontaba al llegar la lectura y se llevaba lo que se estaba escribiendo.
           <input
-            defaultValue={emb?.nombre ?? nombre}
-            key={emb?.nombre ?? nombre}
+            value={nombreTxt ?? emb?.nombre ?? nombre}
             maxLength={60}
             aria-label="Nombre del funnel"
-            onBlur={(e) => guardarNombreEmbudo(e.target.value)}
+            onChange={(e) => escribirNombre(e.target.value)}
+            onBlur={(e) => {
+              soltarNombre();
+              // Vacío no se guarda: el campo vuelve a mostrar el nombre que tiene.
+              if (!e.target.value.trim()) setNombreTxt(nombreRef.current.base);
+            }}
             onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
             style={{
               width: '100%', fontFamily: SANS, fontWeight: 600, fontSize: 21, letterSpacing: '-0.01em',
@@ -533,14 +588,15 @@ export function EtapasModal({ funnelId, nombre, abrirEntradas, semilla, onCerrar
           />
         }
         ancho={760}
-        // El alto es un NÚMERO y no un tope: las dos subtabs miden cosas distintas, y una
-        // caja que se achica según lo que tenga adentro ya se reportó dos veces.
+        // El alto es un NÚMERO y no un tope: abrir «cómo entra la gente» cambia lo que hay
+        // adentro, y una caja que se achica según lo que tenga ya se reportó dos veces.
         alto="min(85vh, 620px)"
         // El cuerpo ya es una lista de filas con su propio fondo: cada filete de la caja
         // es una raya más sobre una pantalla llena de bordes. Se pidió dos veces.
         sinFiletes
         etiqueta={`Editar el funnel ${emb?.nombre ?? nombre}`}
-        onCerrar={onCerrar}
+        // `cerrar` y no `onCerrar`: manda primero el nombre que se estaba escribiendo.
+        onCerrar={cerrar}
         pie={
           // ⚠️ UN SOLO BOTÓN DE CERRAR (la ✕ de arriba). Acá abajo va sólo eliminar, a la
           // izquierda y como TEXTO rojo — no como botón.
@@ -554,23 +610,11 @@ export function EtapasModal({ funnelId, nombre, abrirEntradas, semilla, onCerrar
           ) : undefined
         }
       >
-        {/* Las dos subtabs. Cortadas por PREGUNTA: por dónde pasa un lead, y qué se le
-            manda cuando se enfría. */}
-        <div style={{ display: 'inline-flex', background: 'var(--surface-2)', borderRadius: 999, padding: 3, marginBottom: 18 }}>
-          {([['etapas', 'Etapas'], ['nutricion', 'Nutrición'], ['etiquetas', 'Etiquetas']] as Array<[Sub, string]>).map(([k, txt]) => (
-            <button key={k} type="button" onClick={() => setSub(k)}
-              style={{
-                border: 'none', background: sub === k ? 'var(--surface)' : 'transparent',
-                color: sub === k ? 'var(--ink)' : 'var(--dim)', fontWeight: sub === k ? 600 : 500,
-                fontSize: 13.5, padding: '7px 16px', borderRadius: 999, cursor: 'pointer', fontFamily: SANS,
-                boxShadow: sub === k ? '0 1px 2px rgba(18,21,27,.08)' : 'none',
-              }}>{txt}</button>
-          ))}
-        </div>
+        {/* ⚠️ SIN FILA DE SUBTABS (12/10/2026): «Elimina las tabs de "Nutrición" y
+            "Etiqueta"». Con una sola, la fila de pastillas no elige nada. */}
+        {!hayLista && !error && <Cargando />}
 
-        {!hayLista && !error && sub !== 'etiquetas' && <Cargando />}
-
-        {hayLista && sub === 'etapas' && (
+        {hayLista && (
           <>
             {/* Los avisos de embudo roto. AVISAN, no bloquean: guardar nunca se bloquea.
                 Van arriba porque debajo de la lista ya nadie los lee. */}
@@ -663,10 +707,6 @@ export function EtapasModal({ funnelId, nombre, abrirEntradas, semilla, onCerrar
                         ya no, porque abajo viven las campañas: ver `onGuardado`.) Y la
                         etiqueta cambia con el ícono: `AccionFila` usa el mismo string para el
                         `aria-label` y el `title`, y una ✕ que dice «Configurar» miente. */}
-                    {plazoDe(e) !== undefined && (
-                      <PlazoEtapa etapa={e.label} dias={plazoDe(e) ?? null} disabled={trabajando}
-                        onGuardar={(dias) => aplicar({ op: 'plazo', key: e.key, dias })} />
-                    )}
                     {esEntrada(e) ? (
                       <AccionFila
                         etiqueta={entradasAbierto
@@ -676,10 +716,13 @@ export function EtapasModal({ funnelId, nombre, abrirEntradas, semilla, onCerrar
                         {entradasAbierto ? <CerrarIcon /> : <LapizIcon />}
                       </AccionFila>
                     ) : (<>
+                      {/* Sólo las que pueden ser reunión tienen tipo: la entrada, el pago y el
+                          cierre ya tienen el suyo (`puedeSerReunion`, y la action lo repite). */}
                       {puedeSerReunion(e) && (
-                        <BotonReunion etapa={e.label} activa={e.kind === 'reunion'}
+                        <SelectorTipo etapa={e.label} tipo={tipoDeEtapa(e)}
+                          porNombre={!e.marcadaComo && tipoDeEtapa(e) === 'etapa' && tieneEtapaDeReunion([e])}
                           sinLugar={reunionSinLugar(etapas, e.key)} disabled={trabajando}
-                          onClick={() => marcarReunion(e, e.kind !== 'reunion')} />
+                          onElegir={(t) => elegirTipo(e, t)} />
                       )}
                       {/* Las condiciones son las de siempre: nada sube por encima de la entrada
                           (`pisoDelOrden`) y la última no baja. Lo nuevo es que las dos viven en
@@ -744,52 +787,11 @@ export function EtapasModal({ funnelId, nombre, abrirEntradas, semilla, onCerrar
           </>
         )}
 
-        {/* ⚠️ LA SUBTAB DE NUTRICIÓN, con el molde de la de Etapas: una fila por
-            nutrición, su ✕ para quitarla y un «Agregar» al pie. Lo que la hace distinta
-            es el SEGUNDO RENGLÓN, que es el pedido: «hay que agregarle de qué depende que
-            se dispare esa nutrición… la de No show tiene obligatoriamente que el lead
-            venga de Agenda R1».
-
-            ⚠️ Y «Sale de X» ES TEXTO, NO UN DESPLEGABLE. Martín dijo «obligatoriamente»:
-            de dónde sale una nutrición lo decide la FORMA del recorrido, no una elección.
-            Un selector ahí prometería poder cambiar un hecho. Lo que sí es dinámico es el
-            NOMBRE: sale de la clave de la etapa, así que renombrar «Agenda R1» a «R1»
-            mueve esta lista sola. */}
-        {sub === 'nutricion' && !emb && !error && <Cargando />}
-        {emb && sub === 'nutricion' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            {emb.nutriciones.length === 0 ? (
-              <p style={{ fontSize: 13.5, color: 'var(--dim)', margin: 0, lineHeight: 1.55 }}>
-                Las nutriciones salen de las etapas. Agrega una reunión o un pago y aparecen solas.
-              </p>
-            ) : emb.nutriciones.filter((n) => n.activa).map((n) => (
-              <div key={n.id} style={fila}>
-                <span style={{ flex: 1, minWidth: 0, fontFamily: SANS }}>
-                  <span style={{ display: 'block', fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{n.nombre}</span>
-                  <span style={{ display: 'block', fontSize: 12.5, color: 'var(--dim)', marginTop: 2 }}>
-                    Sale de «{n.desdeLabel}» · {n.porque}
-                  </span>
-                </span>
-                {/* ⚠️ SE APAGA LA FILA, NO LA LISTA. `trabajando` es global: deshabilitar
-                    todas al tocar una deja la pantalla muerta mientras se guarda. */}
-                <AccionFila etiqueta={`Quitar ${n.nombre}`} disabled={trabajando}
-                  onClick={() => quitarNutricion(n)}>
-                  <CerrarIcon />
-                </AccionFila>
-              </div>
-            ))}
-
-            {/* Lo apagado NO se dibuja en la lista: se ofrece para volver a poner. Una
-                casilla desmarcada entre las puestas obliga a leer cinco filas para saber
-                cuáles corren. */}
-            <NuevaNutricion
-              apagadas={emb.nutriciones.filter((n) => !n.activa)}
-              disabled={trabajando}
-              onPoner={(n) => aplicar({ op: 'nutricion', id: n.id, tambien: n.ids, activa: true })}
-            />
-          </div>
-        )}
-        {sub === 'etiquetas' && <EditorEtiquetas />}
+        {/* ⚠️ ACÁ ESTUVIERON LAS SUBTABS «Nutrición» (las nutriciones que deriva el recorrido,
+            con su ✕ y su «Agregar») y «Etiquetas» (el CRUD de app/crm/EditorEtiquetas.tsx)
+            hasta el 12/10/2026: «Elimina las tabs de "Nutrición" y "Etiqueta"». Una nutrición
+            ahora se MARCA en la etapa (el desplegable de tipo). La op `nutricion` del server y
+            `emb.nutriciones` siguen escritas, sin pantalla que las use. */}
         {error && (
           <div style={{ marginTop: 12, borderRadius: 10, padding: '10px 14px', fontSize: 13.5, fontWeight: 600, background: 'var(--bad-bg)', color: 'var(--bad)' }}>{error}</div>
         )}
@@ -833,7 +835,9 @@ function NuevaEtapa({ disabled, onCrear }: { disabled?: boolean; onCrear: (label
   if (abierto) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 8px 7px 11px', borderRadius: 10, background: 'var(--surface-2)' }}>
-        <span style={{ width: 9, height: 9, flex: 'none', borderRadius: '50%', background: '#5B6472' }} />
+        {/* Hueco, no gris: el color lo elige el server al crearla (`colorParaNueva`), y un punto
+            gris acá era justo lo que se reportó: «el circulito al lado de la etapa aparece en gris». */}
+        <span aria-hidden style={{ width: 9, height: 9, flex: 'none', borderRadius: '50%', border: '1.5px dashed var(--border-strong)', boxSizing: 'border-box' }} />
         <input
           autoFocus value={txt} maxLength={MAX_LABEL_ETAPA} placeholder="¿Cómo se llama?"
           onChange={(e) => setTxt(e.target.value)}
@@ -864,66 +868,5 @@ function NuevaEtapa({ disabled, onCrear }: { disabled?: boolean; onCrear: (label
     >
       + Agregar etapa
     </button>
-  );
-}
-
-/**
- * «Agregar nutrición»: las que el recorrido PERMITE y hoy están apagadas.
- *
- * ⚠️ NO DEJA INVENTAR UNA, y la línea de abajo lo explica en vez de esconderlo. Una
- * nutrición se dispara porque el motor reconoce la etapa donde está el lead, y esas claves
- * son un catálogo cerrado: una nutrición declarada sobre una clave inventada matchearía
- * CERO leads para siempre, sin error y sin log — o sea, una pantalla que promete un mensaje
- * que no sale. Lo que sí destraba crear más es agregar la ETAPA de la que salen, que es lo
- * que dice el texto.
- */
-function NuevaNutricion({ apagadas, disabled, onPoner }: {
-  apagadas: NutricionDelFunnel[];
-  disabled?: boolean;
-  onPoner: (n: NutricionDelFunnel) => void;
-}) {
-  const [abierto, setAbierto] = useState(false);
-
-  if (!abierto) {
-    return (
-      <button type="button" onClick={() => setAbierto(true)} disabled={disabled}
-        style={{
-          marginTop: 6, padding: '10px 12px', borderRadius: 10, textAlign: 'left',
-          border: '1px dashed var(--border-strong)', background: 'none', color: 'var(--dim)',
-          fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: disabled ? 'default' : 'pointer',
-        }}>
-        ＋ Agregar nutrición
-      </button>
-    );
-  }
-
-  return (
-    <div style={{ marginTop: 6, padding: '11px 12px', borderRadius: 10, background: 'var(--surface-2)' }}>
-      {apagadas.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginBottom: 10 }}>
-          {apagadas.map((n) => (
-            <button key={n.id} type="button" disabled={disabled}
-              onClick={() => { onPoner(n); setAbierto(false); }}
-              style={{
-                display: 'block', width: '100%', textAlign: 'left', padding: '9px 12px',
-                borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)',
-                fontFamily: SANS, cursor: disabled ? 'default' : 'pointer',
-              }}>
-              <span style={{ display: 'block', fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>{n.nombre}</span>
-              <span style={{ display: 'block', fontSize: 12.5, color: 'var(--dim)', marginTop: 2 }}>
-                Sale de «{n.desdeLabel}» · {n.porque}
-              </span>
-            </button>
-          ))}
-        </div>
-      )}
-      <p style={{ margin: 0, fontFamily: SANS, fontSize: 12.5, color: 'var(--faint)', lineHeight: 1.5 }}>
-        Las nutriciones salen de las etapas. Agrega una reunión o un pago en «Etapas» y aparece la suya.
-      </p>
-      <button type="button" onClick={() => setAbierto(false)}
-        style={{ marginTop: 9, background: 'none', border: 'none', padding: 0, color: 'var(--dim)', fontFamily: SANS, fontSize: 13, cursor: 'pointer' }}>
-        Cancelar
-      </button>
-    </div>
   );
 }

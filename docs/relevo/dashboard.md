@@ -4,7 +4,7 @@
 
 ## Dónde está
 
-**La v5 está terminada y pusheada** (el feedback de 24 puntos del 11/10 a la noche, textual en
+**La v5 está terminada, pusheada y EN PRODUCCIÓN** (el feedback de 24 puntos del 11/10 a la noche, textual en
 `app/admin/dev/dashboard/bitacora.ts`): sin «Bloques de MaKo» (los 17 del informe de Mauricio se migran solos al
 abrirlo, en el saneo), un solo «Filtro» + búsqueda tipo Ctrl+F, pop-ups configurables, «Conclusiones de MaKo»
 (IA gratis), sección/desplegable, conectores, gráficos gordos, mapa de cualquier país, hojas VSL/CS/Chat Analyst
@@ -16,6 +16,8 @@ mapa de calor en vivo.
   (`plan-proyectos-catalogo`: falta la familia «Customer Success» en el catálogo; `plan-filtro-cliente` y
   `mover-etapa-validacion`), build verde, la migración del informe de Mauricio en memoria sin fallas (sólo
   lectura), y humo en Chrome (ws9): sin errores, sin bloques, las tres rutas viejas redirigen.
+- El deploy del push quedó en Error (`git_info_fail`, también el push anterior de Offer); se destrabó por la API
+  con el token del dueño (`dpl_5HDXDD7frUZhkegSssbp1TSpWyqn`, Ready 12/10 08:28). Cómo: `docs/hallazgos-infra.md`.
 - Migraciones 0260 (`dashboard_ia_elementos`), 0261 (`retencion_vsl_resumen`) y 0262 (ubicación de las visitas)
   **aplicadas en prod** antes del push.
 - Lo aprendido: `docs/hallazgos-graficos.md` → «La v5» (y api-mako, landing, infra, mobile).

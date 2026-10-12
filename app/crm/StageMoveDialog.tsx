@@ -25,6 +25,8 @@ import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
 import { esMaKo, MAKO_STAR_URI } from './mako-setter';
 import { motivosDeSalida, motivoFinalDe } from './motivos-salida';
 import { WizardShell } from '@/app/_components/WizardShell';
+import { TelefonoConPais } from '@/app/_components/TelefonoConPais';
+import { splitTelefono, unirTelefono } from '@/lib/paises';
 
 
 const SANS = "'Geist', sans-serif";
@@ -241,7 +243,17 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
   const [setter, setSetter] = useState(lead.setter ?? soloUno);
   const [closer, setCloser] = useState(lead.closer ?? soloUno);
   const [empresa, setEmpresa] = useState(lead.empresa ?? '');
-  const [telefono, setTelefono] = useState(lead.telefono ?? '');
+  // ⚠️ EL TELÉFONO SE PIDE CON EL PAÍS PRIMERO (punto 5 del 12/10/2026: «siempre en todos lados
+  // que pida telefono, primero tiene que ir la numeración que ya tenemos con las banderas»).
+  // Se separa el que haya con `splitTelefono` y viaja `unirTelefono(lada, número)`: los dígitos
+  // con su lada, lo mismo que guarda la ficha al editarlo en el lugar. El server
+  // (`saveLeadMeta`) lo guarda tal cual y saca `telefono_normalizado` de los dígitos.
+  const [telLada, setTelLada] = useState(() => splitTelefono(lead.telefono ?? '').lada);
+  const [telNumero, setTelNumero] = useState(() => splitTelefono(lead.telefono ?? '').resto);
+  const telefono = telNumero.replace(/\D/g, '') ? unirTelefono(telLada, telNumero) : '';
+  // El nodo del paso, para que el desplegable de países se abra adentro del pop-up
+  // (la nota de `portalTo` en TelefonoConPais).
+  const [cajaTel, setCajaTel] = useState<HTMLDivElement | null>(null);
   // Deal Details + documentos + Calendly R2 (pasada única de "Solucionar").
   const [dealServicio, setDealServicio] = useState('');
   const [dealPromesa, setDealPromesa] = useState('');
@@ -454,8 +466,18 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
     if (autoOferta && (autoReporte !== null || filtrados.some((id) => (AUTO_RESOLUBLES as string[]).includes(id)))) {
       filtrados.unshift('auto');
     }
+    // ⚠️ «CONFIRMAR DATOS» SÓLO SI HAY MÁS DE UN PASO (Martín, 12/10/2026, punto 15: «solo si son más
+    // de 1 paso debe saltar la última tab para "confirmar datos", sino, no es necesario»). En
+    // «Completar datos» (el «Solucionar →» de la ficha y del tablero), con UNA sola pregunta el
+    // resumen repetía la respuesta que se acaba de dar: ese paso se vuelve el último y su botón
+    // es «Guardar». Con cero preguntas el resumen se queda, porque es lo único que hay para ver.
+    // Al MOVER de etapa no se toca: ahí el último paso confirma un movimiento, que es otra decisión.
+    if (completarDatos) {
+      const preguntas = filtrados.filter((id) => id !== 'resumen');
+      if (preguntas.length === 1) return preguntas;
+    }
     return filtrados;
-  }, [requeridos, esCierre, lead.fechaJ1, lead.fechaJ2, lead.dealServicioOk, lead.dealPromesaOk, lead.dealFiscalOk, lead.dealObligacionesOk, huboR1, huboR2, asistioJ1, asistioJ2, autoOferta, resueltos, autoReporte, ventaTipo]);
+  }, [requeridos, esCierre, lead.fechaJ1, lead.fechaJ2, lead.dealServicioOk, lead.dealPromesaOk, lead.dealFiscalOk, lead.dealObligacionesOk, huboR1, huboR2, asistioJ1, asistioJ2, autoOferta, resueltos, autoReporte, ventaTipo, completarDatos]);
 
   // Índice actual + historial REAL de pasos visitados (para que Atrás vuelva
   // al paso anterior visitado, no al índice-1 cuando hubo saltos).
@@ -1055,7 +1077,12 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       break;
     case 'telefono':
       pregunta = '¿Cuál es el teléfono de contacto?';
-      cuerpo = <input value={telefono} onChange={(e) => setTelefono(e.target.value)} placeholder="+52 …" type="tel" autoFocus style={{ ...compInput, maxWidth: 320, margin: '0 auto', textAlign: 'left' }} />;
+      cuerpo = (
+        <div ref={setCajaTel} style={{ width: '100%', maxWidth: 360, margin: '0 auto' }}>
+          <TelefonoConPais lada={telLada} numero={telNumero} onLada={setTelLada} onNumero={setTelNumero}
+            inputStyle={{ ...compInput, textAlign: 'left' }} portalTo={cajaTel} autoFocus />
+        </div>
+      );
       break;
     case 'dealAuto':
       pregunta = '¿Completamos el cierre con el contrato?';
@@ -1189,7 +1216,9 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       if (pide('setter')) filas.push(['Setter', setter.trim() || '—']);
       if (pide('closer')) filas.push(['Closer', closer.trim() || '—']);
       if (pide('empresa')) filas.push(['Empresa', empresa.trim() || '—']);
-      if (pide('telefono')) filas.push(['Teléfono', telefono.trim() || '—']);
+      // Con la lada separada, como en Notificaciones: un número de corrido es uno en el que nadie
+      // nota que la lada está mal.
+      if (pide('telefono')) filas.push(['Teléfono', telefono ? `${telLada} ${telNumero.trim()}` : '—']);
       pregunta = filas.length ? 'Revisa y confirma' : 'Confirma el movimiento';
       cuerpo = filas.length ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
@@ -1205,6 +1234,27 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
   }
 
   const enResumen = paso === 'resumen';
+  // El último paso es el que confirma. Casi siempre es el resumen; en «Completar datos» con UNA
+  // sola pregunta, es esa pregunta (ver el final de `pasos`).
+  const enUltimo = enResumen || paso === pasos[pasos.length - 1];
+
+  /**
+   * ⚠️ CERRAR GUARDA, EN «COMPLETAR DATOS» (Martín, 12/10/2026, punto 15): «que no salga el botón de
+   * "Guardar y completar después", elimina ese botón, por defecto ya guarda». El botón era la salida
+   * que guardaba lo contestado desde cualquier paso; sin él, cerrar con la ✕, Escape o un clic
+   * afuera tiene que hacer lo mismo, o lo contestado se pierde y vuelve la trampa que el botón vino a
+   * sacar («un paso que exige respuesta sin otra salida»).
+   *
+   * Guarda sólo si la persona CONTESTÓ algo (avanzó un paso o tocó el cuerpo de uno): abrir y cerrar
+   * sin tocar nada no escribe, y lo que la búsqueda automática encontró sin que nadie lo mirara
+   * tampoco. «Cancelar» del primer paso sigue descartando: es la salida que lo dice.
+   * Al MOVER de etapa, el botón sigue y cerrar sigue sin guardar: ahí guardar es mover.
+   */
+  const tocado = useRef(false);
+  const cerrar = () => {
+    if (completarDatos && !pending && (tocado.current || visitados.length > 0)) { confirmar(); return; }
+    onClose();
+  };
   // Mientras MaKo lee el contrato / busca en Calendly / confirma con el server qué
   // datos exige la etapa, se bloquea todo (no avanzar, no volver, no cerrar) y se
   // muestra un loader que tapa el pop-up. La consulta de requisitos entra acá a
@@ -1238,7 +1288,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       pregunta={pregunta}
       sub={sub || undefined}
       puedeAvanzar={respondido}
-      enUltimo={enResumen}
+      enUltimo={enUltimo}
       confirmLabel={completarDatos ? 'Guardar' : 'Confirmar y mover'}
       pending={pending}
       // La salida desde CUALQUIER paso (08-T22): guarda lo que ya se contestó y
@@ -1246,7 +1296,8 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       // todo lo contestado — y un paso que exige respuesta sin otra salida es la
       // trampa que hacía abandonar el CRM. Los pasos sin responder viajan vacíos
       // y no pisan nada: cada paso existe porque ese dato falta.
-      extraFooter={!enResumen ? (
+      // ⚠️ En «Completar datos» ya no va (punto 15, 12/10/2026): ahí cerrar guarda (`cerrar`).
+      extraFooter={!enUltimo && !completarDatos ? (
         <button type="button" onClick={confirmar} disabled={pending}
           style={{ padding: '11px 4px', border: 'none', background: 'none', color: 'var(--dim)', fontSize: 13.5, fontWeight: 600, cursor: pending ? 'default' : 'pointer', fontFamily: SANS, textDecoration: 'underline', textUnderlineOffset: 3, opacity: pending ? 0.5 : 1 }}>
           Guardar y completar después
@@ -1257,10 +1308,14 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       onAtras={atras}
       onSiguiente={avanzar}
       onConfirmar={confirmar}
-      onClose={onClose}
+      onClose={cerrar}
       ancho={640}
     >
-      {cuerpo}
+      {/* Lo que la persona toca en el cuerpo de un paso cuenta como contestado (`tocado`): es lo
+          que decide si cerrar guarda. `display: contents` para no meter una caja en el layout. */}
+      <div style={{ display: 'contents' }} onInputCapture={() => { tocado.current = true; }} onClickCapture={() => { tocado.current = true; }}>
+        {cuerpo}
+      </div>
       {/* Aviso de datos que el server reclamó: en español, con los campos que
           faltan y con la salida al paso que los resuelve. Nunca un cartel
           rojo de "Server Components render" que no dice ni qué ni cómo.

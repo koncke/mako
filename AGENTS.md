@@ -1799,6 +1799,14 @@ dos mitades que faltaban:
 borraban además los deadlines vencidos hace 6+ días: derivar primero habría inventado un
 trimestre a partir de una fecha que el mismo script estaba por declarar muerta.
 
+⚠️ **Y el reverso: un campo nuevo que registra una DECISIÓN no existe en las filas viejas, y
+su ausencia no es «nadie decidió».** Medido el 12/10/2026: `marcadaComo` (lo que la persona
+elige en el tipo de una etapa del CRM) no existía cuando la op vieja desmarcaba una reunión,
+así que «sin marca» se leyó como «nadie eligió» y renombrar la etapa la volvía a marcar sola,
+revirtiendo una decisión explícita. Antes de leer la ausencia del campo nuevo, preguntá qué
+escribía el camino de antes. Y lo que se marca solo se dispara cuando el dato CAMBIA a lo que
+lo justifica (`reunionPorNombre` con el nombre anterior, lib/etapa-reunion.ts).
+
 # Un `<select>` cuyo `value` no está entre sus `<option>` no muestra nada — y el primer click lo borra
 
 No es un error ni un warning: el control queda mostrando la PRIMERA opción (típicamente
@@ -1877,6 +1885,42 @@ que lo había incorporado, así que nadie iba a ir a buscarlo.
   «lo tiramos nosotros».
 - **Y si entró a medias, el mensaje lo dice.** «Le sumé contexto» sobre una ampliación
   truncada es la misma mentira, más difícil de ver.
+- ⚠️ **En un texto que escribe una PERSONA, el tope RECHAZA, no recorta, y es el MISMO en
+  todos los caminos que lo escriben** (crear, editar, /m, la API). Medido el 12/10/2026: crear
+  una nota del CRM no tenía tope y editarla hacía `slice(0, 4000)`, así que corregirle una
+  letra a una nota dictada de 5000 caracteres le borraba la cola con el toast «Nota
+  guardada». Y `maxLength` no es el freno: frena lo que se tipea, no lo que entra por código
+  (el dictado). Molde: `TOPE_NOTA` en app/crm/notas-reglas.ts.
+
+# Una caché en memoria del server es de TODOS los inquilinos del proceso
+
+Un `Map` en `globalThis` (o de módulo) lo comparten todos los workspaces que atiende esa
+instancia. Si el valor sale de la credencial o de un dato de UN cliente —lo que contestó su
+Meta, su Calendly, su base—, **el `ws` va en la clave**, y la caché se lee DESPUÉS de decidir
+que este negocio puede preguntarle a esa fuente (tiene la conexión, no está en pausa). Una
+clave global sólo vale cuando la fuente es de la plataforma y la respuesta sería idéntica para
+cualquiera.
+
+Medido el 12/10/2026: el buscador de Instagram del alta guardaba `m:<usuario>`, y un negocio
+sin Meta recibía el perfil que otro cliente había buscado diez minutos antes, leído con el
+token de ese otro: la prospección de un inquilino filtrada a otro. El caso, en
+docs/hallazgos-crm.md → «La segunda revisión del 12/10».
+
+# Un control que hidrata un dato guardado no escribe si la persona no tocó nada
+
+Partir un valor guardado en un control estructurado (lada + número, fecha + hora, monto +
+moneda) y volver a unirlo NO es neutro: la partición también inventa (`splitTelefono` pone
++52 cuando ninguna lada coincide). Lo que decide si se escribe es si la persona cambió algo de
+lo que se le MOSTRÓ —la partición con la que abrió—, no una comparación contra una
+normalización de lo guardado. Medido el 12/10/2026: el teléfono de la ficha del lead se
+reescribía con «52» con sólo abrirlo y cerrarlo, y desde ahí el WhatsApp salía a un número
+mexicano.
+
+- **Una pieza compartida que emite dos callbacks por un solo gesto** (`onLada`, `onNumero`)
+  no puede suponer que el padre los funde con `setX(prev => …)`: cuatro montajes de
+  `TelefonoConPais` guardaban las dos mitades en un objeto con spread, y la segunda llamada
+  pisaba la lada nueva con la vieja. O emite uno con las dos mitades, o los encadena por
+  props. Los casos, en docs/hallazgos-crm.md y docs/hallazgos-ui.md.
 
 # Mover una acción a un lugar más accesible cambia sus supuestos de FRECUENCIA
 

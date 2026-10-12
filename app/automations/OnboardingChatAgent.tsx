@@ -38,6 +38,8 @@
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { WizardShell } from '@/app/_components/WizardShell';
+import { TelefonoConPais } from '@/app/_components/TelefonoConPais';
+import { DIAL_DEFAULT, unirTelefono } from '@/lib/paises';
 import { PanelMarketing } from '@/app/_components/PanelMarketing';
 import { ChatHilo, type HiloMsg } from '../whatsapp/_shared/ChatHilo';
 import { SeccionCard, parsearSecciones } from '../components/SeccionCard';
@@ -286,7 +288,13 @@ export function OnboardingChatAgent({ onListo, tab = 'setting', soloPaso }: { on
   // recién vinculado por QR); solo se pide si no hay ninguno.
   const [destino, setDestino] = useState<string | null>(null);
   const [pideNumero, setPideNumero] = useState(false);
-  const [telefono, setTelefono] = useState('');
+  // ⚠️ EL PAÍS VA PRIMERO, con banderas (punto 5 del 12/10/2026: «siempre en todos lados que pida
+  // telefono, primero tiene que ir la numeración que ya tenemos con las banderas»). Al server le
+  // llegan los MISMOS dígitos con el código de país que antes se escribían a mano (el ejemplo
+  // decía «52 55 1234 5678»): la ruta de la prueba les saca todo lo que no es un dígito.
+  const [telLada, setTelLada] = useState(DIAL_DEFAULT);
+  const [telNumero, setTelNumero] = useState('');
+  const telefono = telNumero.replace(/\D/g, '') ? unirTelefono(telLada, telNumero) : '';
   const [codigoEnviado, setCodigoEnviado] = useState(false);
   const [verificado, setVerificado] = useState(false);
 
@@ -1154,14 +1162,12 @@ export function OnboardingChatAgent({ onListo, tab = 'setting', soloPaso }: { on
             <>
               {pideNumero && (
                 <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 7, textAlign: 'left' }}>
-                  <label style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)' }}>
+                  <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)' }}>
                     ¿A qué número lo enviamos?
-                  </label>
-                  <input
-                    value={telefono} autoFocus inputMode="tel" placeholder="52 55 1234 5678"
-                    onChange={(e) => setTelefono(e.target.value.replace(/[^\d+ ]/g, ''))}
-                    style={{ ...inp, textAlign: 'center', letterSpacing: '.04em' }}
-                  />
+                  </span>
+                  <TelefonoConPais lada={telLada} numero={telNumero} onLada={setTelLada} onNumero={setTelNumero}
+                    onEnter={() => { if (!busy && telefono.length >= 8) void enviarCodigo(); }}
+                    inputStyle={{ ...inp, letterSpacing: '.04em' }} placeholder="55 1234 5678" autoFocus anchoLada={112} />
                 </div>
               )}
               <button onClick={() => void enviarCodigo()} disabled={busy || (pideNumero && telefono.replace(/\D/g, '').length < 8)}

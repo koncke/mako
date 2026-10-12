@@ -27,9 +27,9 @@
 // de su contexto de apilado. Es `position: fixed`, así que el `overflow` del
 // modal no lo recorta.
 
-import { useMemo, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, type CSSProperties } from 'react';
 import { Dropdown } from '../components/Dropdown';
-import { PAISES, flagUrl } from '@/lib/paises';
+import { PAISES, flagUrl, numeroTecleado } from '@/lib/paises';
 
 /**
  * Las opciones del selector, UNA POR LADA.
@@ -75,6 +75,20 @@ export function TelefonoConPais({
 }) {
   const opciones = useMemo(opcionesPorLada, []);
 
+  // ⚠️ UN NÚMERO QUE LLEGA CON SU «+código» CAMBIA LAS DOS COSAS, Y NO EN EL MISMO EVENTO (revisión
+  // del 12/10/2026). Varios padres guardan lada y número en UN objeto con un spread sobre el estado
+  // del render (`setDraft({ ...draft, lada })`, TelefonosPanel; `cambiarTel({ ...tel, … })`): llamar a
+  // `onLada` y `onNumero` seguidos hace que el segundo pise al primero con la lada vieja. Así que la
+  // lada va primero y el número espera acá a que la lada nueva vuelva por props — con el `onNumero`
+  // de ESE render, que ya la tiene.
+  const pendiente = useRef<{ lada: string; numero: string } | null>(null);
+  useEffect(() => {
+    const p = pendiente.current;
+    if (!p || p.lada !== lada) return;
+    pendiente.current = null;
+    onNumero(p.numero);
+  }, [lada, onNumero]);
+
   return (
     <div style={{ display: 'flex', gap: 8 }}>
       {/* Bandera como IMAGEN vía el prop avatar: los emoji de bandera en Windows
@@ -91,10 +105,16 @@ export function TelefonoConPais({
         autoFocus={autoFocus}
         aria-label="Número sin el código de país"
         // Se dejan espacios y guiones para que pueda escribirlo como lo lee; los
-        // dígitos se extraen al guardar. Lo que NO se deja es otro `+`: el país
-        // ya lo eligió al lado, y dos códigos de país es el error que este
-        // componente vino a hacer imposible.
-        onChange={(e) => onNumero(e.target.value.replace(/[^\d\s-]/g, ''))}
+        // dígitos se extraen al guardar. Un `+` al principio es el código de país
+        // y se muda al selector (`numeroTecleado`, lib/paises.ts): dejarlo adentro
+        // del número son dos códigos de país, el error que este componente vino a
+        // hacer imposible.
+        onChange={(e) => {
+          pendiente.current = null;
+          const r = numeroTecleado(e.target.value);
+          if (r.lada && r.lada !== lada) { pendiente.current = { lada: r.lada, numero: r.numero }; onLada(r.lada); return; }
+          onNumero(r.numero);
+        }}
         onKeyDown={(e) => { if (e.key === 'Enter' && onEnter) { e.preventDefault(); onEnter(); } }}
       />
     </div>

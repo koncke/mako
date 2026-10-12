@@ -7,11 +7,17 @@
 // que el usuario elija qué nombres ponerles y si están vinculadas a etapas del CRM... esas mismas
 // etiquetas que se asignan en MaKo, se pongan en esas ambas plataformas».
 //
-// Vive como la TERCERA subtab de app/crm/EtapasModal.tsx —el lugar donde el CRM edita sus
-// etapas— y no como un modal encima: un modal sobre otro necesita que el de abajo se declare
-// `contenedor` (AGENTS.md, la pila de modales), y acá no hay nada que ganar con dos capas. Las
-// etiquetas son del NEGOCIO, no del producto: la misma lista se ve desde cualquier producto, y
-// el vínculo a una etapa nombra su producto.
+// ⚠️ HOY NO LO MONTA NINGUNA PANTALLA (12/10/2026). Vivía como la TERCERA subtab de
+// app/crm/EtapasModal.tsx, y Martín la sacó: «Elimina las tabs de "Nutrición" y "Etiqueta"...
+// Las etiquetas no se configuran allí, eso en cada lead se le debe poder poner una etiqueta».
+// Crear una sigue en «+ Etiqueta» de la ficha (`SelectorEtiqueta`, «＋ Nueva»); lo que se quedó
+// sin pantalla es lo demás de este CRUD: renombrar, el color, el vínculo con una etapa, la de
+// WhatsApp y archivar. Dónde va (si va) lo decide Martín: no se monta en otro lado por iniciativa
+// propia. Mientras tanto MaKo lo sigue haciendo por la API (`editar_etiqueta` y
+// `archivar_etiqueta`, lib/api-mako/areas/crm.def.ts).
+//
+// Las etiquetas son del NEGOCIO, no del producto: la misma lista se ve desde cualquier producto,
+// y el vínculo a una etapa nombra su producto.
 //
 // El molde del CRUD es app/_comunidad/EditorCategorias.tsx: cada cambio se guarda en el acto y
 // lo que vuelve del server es lo que se dibuja. Nunca se BORRA una etiqueta: se archiva (lo que

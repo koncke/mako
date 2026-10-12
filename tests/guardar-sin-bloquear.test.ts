@@ -119,9 +119,18 @@ test('CABLEADO: soltar una card no abre el wizard de datos', () => {
 
 test('CABLEADO: el wizard de datos tiene una salida que guarda lo contestado', () => {
   const dialog = leer('../app/crm/StageMoveDialog.tsx');
-  assert.ok(/extraFooter=\{!enResumen \? \(\s*<button type="button" onClick=\{confirmar\}/.test(dialog),
-    'falta «Guardar y completar después» en los pasos del wizard');
+  // Al MOVER de etapa, la salida sigue siendo el botón. En «Completar datos» (el «Solucionar →») ya
+  // no va (Martín, 12/10/2026, punto 15: «elimina ese botón, por defecto ya guarda»): ahí la salida
+  // que guarda es CERRAR — la ✕, Escape o un clic afuera pasan por `cerrar`, que confirma si la
+  // persona contestó algo. Sin una de las dos, lo contestado se pierde al salir.
+  // Verificado rompiéndolo (12/10/2026): con `onClose={onClose}` en vez de `cerrar`, 1 fallo; con
+  // el botón sin la condición `!completarDatos`, 1 fallo.
+  assert.ok(/extraFooter=\{!enUltimo && !completarDatos \? \(\s*<button type="button" onClick=\{confirmar\}/.test(dialog),
+    'falta «Guardar y completar después» en los pasos del wizard (al mover), o volvió a «Completar datos»');
   assert.ok(dialog.includes('Guardar y completar después'));
+  assert.match(dialog, /onClose=\{cerrar\}/, 'cerrar el wizard tiene que pasar por `cerrar`');
+  assert.match(dialog, /const cerrar = \(\) => \{\s*if \(completarDatos && !pending && \(tocado\.current \|\| visitados\.length > 0\)\) \{ confirmar\(\); return; \}\s*onClose\(\);/,
+    'en «Completar datos», cerrar con algo contestado tiene que guardar');
 });
 
 test('CABLEADO: las cards incompletas no titilan', () => {

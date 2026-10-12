@@ -100,9 +100,16 @@ test('la foto: lo elegido gana, después WhatsApp (con el ?ws=) y después el em
 });
 
 test('la cara va en la CABECERA de las dos puertas, y la tarjeta ya no dibuja otra', () => {
+  // Desde el 12/10/2026 la cabecera de las dos puertas es UNA pieza (lead-view/CabeceraLead.tsx,
+  // la portada con la cara cruzándola: punto 11), y la cadena de la foto entra por
+  // `useCaraDelLead` (lead-view/CaraDelLead.tsx). Verificado rompiéndolo (12/10/2026): sin
+  // `fotoEmail` en la cabecera del modal, 1 fallo.
   for (const f of ['app/crm/LeadSheet.tsx', 'app/crm/[id]/LeadDetailBody.tsx']) {
-    assert.match(sinComentarios(leer(f)), /<CaraDelLead nombre=/, `${f} no dibuja la cara`);
+    assert.match(sinComentarios(leer(f)), /<CabeceraLead\s+lead=\{lead\}\s+fotoEmail=\{fotoEmail\}/, `${f} no dibuja la cara`);
   }
+  const cab = sinComentarios(leer('app/crm/lead-view/CabeceraLead.tsx'));
+  assert.match(cab, /useCaraDelLead\(\{\s*telefono: lead\.telefono, fotoEmail, fotoGuardada: lead\.foto_auto_url,/, 'la cabecera no usa la cadena de la foto');
+  assert.match(cab, /icono=\{icono\} foto=\{foto\}/, 'y lo que devuelve la cadena es lo que dibuja la marca');
   assert.doesNotMatch(sinComentarios(leer('app/crm/lead-view/InfoPrincipalCard.tsx')), /LeadFoto/);
   // La foto del email sale armada del server en las dos puertas.
   assert.match(sinComentarios(leer('app/crm/actions.ts')), /const fotoEmail = lead\.email\?\.trim\(\) \? urlGravatar\(lead\.email, 160\) : null;/);
@@ -119,9 +126,12 @@ test('la cara va en la CABECERA de las dos puertas, y la tarjeta ya no dibuja ot
 // `foto: productos` en el pop-up, cae (1 fallo, 17 pases; medido el 06/10/2026).
 test('el pop-up tiene el desplegable de producto, y las dos puertas muestran el nombre del PRODUCTO', () => {
   const sheet = sinComentarios(leer('app/crm/LeadSheet.tsx'));
-  assert.match(sheet, /<ProductoDelLead ficha=\{fichaProd\} rotulo=\{false\} \/>/);
+  // ⚠️ Desde el 12/10/2026 producto y etapa son UN desplegable en árbol (punto 9: «Que sea solo 1
+  // desplegable de "PROSPECCIÓN" que es el funnel, y que sea un desplegable tipo arbol»): el
+  // funnel adentro tiene sus etapas. Lo que se ofrece lo fija tests/lead-funnel-ficha.test.ts.
+  assert.match(sheet, /<FunnelYEtapa ficha=\{fichaProd\}[^>]*ariaLabel="Cambiar etapa o funnel"/, 'el desplegable del funnel y su etapa, uno solo');
+  assert.doesNotMatch(sheet, /<ProductoDelLead|<EtapaEnProducto|ariaLabel="Cambiar etapa"/, 'volvieron los dos desplegables');
   assert.match(sheet, /useProductosDeLaFicha\(\{\s*leadId: lead\.id, casa: lead\.funnel_id, foto: productos,/, 'el desplegable se dibuja al toque con los productos que la ficha ya tiene');
-  assert.ok(sheet.indexOf('<ProductoDelLead') < sheet.indexOf('ariaLabel="Cambiar etapa"'), 'el producto va ANTES de la etapa');
   for (const f of ['app/crm/actions.ts', 'app/crm/[id]/page.tsx']) {
     // Con `nombreVisible` (lib/lead-funnel-reglas.ts) desde el 08/10/2026: la regla era una
     // copia en 11 lugares y ahora es una función, ejecutada en tests/inbox-agregar-al-crm.test.ts.
@@ -139,11 +149,17 @@ test('el aviso de datos sin marcar es siempre el mismo: sin «Reactivar»', () =
 });
 
 // ── 6b. Los desplegables a la DERECHA ─────────────────────────────────────────
-// PROBADO ROMPIÉNDOLO: sin el `marginLeft: 'auto'`, cae.
-test('en la ruta, el bloque del nombre cede y la columna de producto/etapa queda a la derecha', () => {
-  const b = sinComentarios(leer('app/crm/[id]/LeadDetailBody.tsx'));
-  assert.match(b, /flex: '1 1 320px'/);
-  assert.match(b, /alignItems: 'flex-end', gap: 8, flex: 'none', marginLeft: 'auto'/);
+// Desde el 12/10/2026 la cabecera de las dos puertas es `CabeceraLead`, y la columna de la derecha
+// (el funnel arriba, «N sin marcar» debajo) es su `.cl-acc`: pegada a la derecha con `margin-left:
+// auto` y sin ceder (`flex:none`); el que cede es el texto (`.cd-txt`, CabeceraDetalle).
+// PROBADO ROMPIÉNDOLO (12/10/2026): sin el `margin-left:auto` de `.cl-acc`, cae (1 fallo).
+test('en las dos puertas, el bloque del nombre cede y la columna del funnel queda a la derecha', () => {
+  const cab = leer('app/crm/lead-view/CabeceraLead.tsx');
+  assert.match(cab, /\.cl-acc\{ display:flex; flex-direction:column; align-items:flex-end; gap:8px; flex:none; margin-left:auto; \}/);
+  assert.match(sinComentarios(cab), /acciones=\{acciones \? <div className="cl-acc">\{acciones\}<\/div> : undefined\}/);
+  for (const f of ['app/crm/LeadSheet.tsx', 'app/crm/[id]/LeadDetailBody.tsx']) {
+    assert.match(sinComentarios(leer(f)), /acciones=\{\s*<>\s*<FunnelYEtapa /, `${f}: el desplegable no va en la columna de la derecha`);
+  }
 });
 
 // ── Sin emoji en la pantalla ───────────────────────────────────────────────────
@@ -162,6 +178,8 @@ test('las pantallas de la ficha y de las campañas no tienen emoji (íconos o na
     'app/crm/LeadSheet.tsx', 'app/crm/[id]/page.tsx', 'app/crm/[id]/LeadDetailBody.tsx',
     'app/crm/lead-view/InfoPrincipalCard.tsx', 'app/crm/lead-view/DatosSinMarcarCard.tsx',
     'app/crm/lead-view/CaraDelLead.tsx', 'app/crm/CampanasModal.tsx', 'app/crm/CampanasDelProducto.tsx',
+    // La cabecera y el desplegable en árbol (12/10/2026).
+    'app/crm/lead-view/CabeceraLead.tsx', 'app/crm/lead-view/ProductoDelLead.tsx', 'app/crm/lead-view/AnalystDelLead.tsx',
   ];
   const malos = archivos.map((f) => ({ f, e: emojiDe(leer(f)) })).filter((x) => x.e).map((x) => `${x.f}: ${x.e!.join(' ')}`);
   assert.deepEqual(malos, []);
@@ -225,17 +243,22 @@ test('el cron escribe en `foto_auto_url` —nunca en la cara elegida— y está 
   const cron = JSON.parse(leer('vercel.json')).crons as { path: string }[];
   assert.ok(cron.some((c) => c.path === '/api/cron/fotos-contacto'), 'sin la entrada en vercel.json el cron no corre nunca');
   assert.ok(existsSync('supabase/migrations/0195_lead_foto_guardada.sql'));
-  for (const f of ['app/crm/LeadSheet.tsx', 'app/crm/[id]/LeadDetailBody.tsx']) {
-    assert.match(sinComentarios(leer(f)), /fotoGuardada=\{lead\.foto_auto_url\}/, `${f} no pasa la foto guardada`);
-  }
+  // Desde el 12/10/2026 la cara la dibuja UNA cabecera para las dos puertas (lead-view/CabeceraLead.tsx).
+  assert.match(sinComentarios(leer('app/crm/lead-view/CabeceraLead.tsx')), /fotoGuardada: lead\.foto_auto_url/, 'la cabecera no pasa la foto guardada');
 });
 
-// ── La cabecera del pop-up: una fila de controles, no una columna amontonada ────
-// PROBADO ROMPIÉNDOLO: con el rótulo de vuelta (`rotulo` sin `{false}`), cae (2 fallos, 16 pases:
-// éste y el del desplegable de arriba; 06/10/2026, con la prop nueva `ficha`).
-test('el pop-up pone producto y etapa en UNA fila debajo de la cabecera, con el aviso a la derecha', () => {
+// ── La cabecera del pop-up: el funnel ARRIBA del aviso, a la derecha ────────────
+// Hasta el 12/10/2026 era una fila de controles debajo de la cabecera (producto, etapa y el aviso a
+// la derecha). Martín (punto 9): «Que sea solo 1 desplegable de "PROSPECCIÓN"... Y que ese
+// desplegable esté arriba de donde hoy está "1 sin marcar"». El desplegable va primero en la columna
+// de la derecha y el aviso debajo; el ícono del cubo lo pone el desplegable.
+// PROBADO ROMPIÉNDOLO (12/10/2026): con el aviso antes del desplegable en el pop-up caen 2 acá (éste y
+// el de la columna de la derecha, que pide el desplegable primero) y 1 en tests/crm-ficha-y-selector.
+test('el pop-up pone el funnel arriba y el aviso debajo, en la columna de la derecha de la cabecera', () => {
   const s = sinComentarios(leer('app/crm/LeadSheet.tsx'));
-  assert.match(s, /<ProductoDelLead ficha=\{fichaProd\} rotulo=\{false\} \/>/, 'el producto va con su ícono, sin la palabra suelta');
-  assert.match(s, /<span style=\{\{ marginLeft: 'auto' \}\}>\s*<DatosSinMarcarCard/, 'el aviso va a la derecha de la fila');
-  assert.doesNotMatch(s, /flexDirection: 'column', alignItems: 'flex-end', gap: 8 \}\}>\s*<button onClick=\{onClose\}/, 'volvió la columna apilada');
+  const iDrop = s.indexOf('<FunnelYEtapa');
+  const iAviso = s.indexOf('<DatosSinMarcarCard');
+  assert.ok(iDrop >= 0 && iAviso > iDrop, 'el desplegable va ARRIBA del aviso');
+  assert.match(sinComentarios(leer('app/crm/lead-view/ProductoDelLead.tsx')), /icono=\{<span title="Funnel"[^>]*><IconoProducto \/><\/span>\}/, 'el desplegable lleva el ícono del cubo');
+  assert.doesNotMatch(s, /<button onClick=\{onClose\}/, 'volvió el botón de cerrar propio: la cruz va sobre la portada');
 });

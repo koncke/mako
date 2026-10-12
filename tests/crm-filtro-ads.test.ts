@@ -14,7 +14,7 @@ import { readFileSync } from 'node:fs';
 import { mapaDeAnuncios, origenAds, opcionesDeFiltro, arbolDeAnuncios, pasaFiltroAnuncio, SIN_ORIGEN_ADS } from '../lib/campana-atribucion';
 import { alternarGrupo, alternarHijo, conGrupoAbierto } from '../app/crm/arbol-seleccion';
 import { lugarDelPanel, ANCHO_PANEL, MARGEN_VENTANA } from '../app/crm/filtro-panel';
-import { claveFiltros, escribirFiltros, leerFiltros, SIN_FILTROS } from '../app/crm/filtros-guardados';
+import { bandasOcultas, claveFiltros, escribirFiltros, leerFiltros, SIN_FILTROS } from '../app/crm/filtros-guardados';
 import { canalDeLead } from '../app/crm/origen-lead';
 
 const CAMP = '120000000000000001';
@@ -330,7 +330,7 @@ test('sin fila de chips debajo del filtro: el número sobre «Filtrar» y «Limp
 // «Si refresco o me voy de pestaña y vuelvo, se deben mantener siempre los filtros» (Martín,
 // 10/10/2026).
 test('los filtros guardados: ida y vuelta, por cliente y embudo, y lo ajeno no entra', () => {
-  const f = { etapas: ['nuevo', 'ganado'], origenes: ['Landing'], campanas: ['A'], anuncios: ['a1'], orden: 'llegada' as const };
+  const f = { etapas: ['nuevo', 'ganado'], origenes: ['Landing'], campanas: ['A'], anuncios: ['a1'], orden: 'llegada' as const, ocultas: ['salidas' as const] };
   assert.deepEqual(leerFiltros(escribirFiltros(f), new Set(['nuevo', 'ganado'])), f);
   // Una etapa que ya no existe en el embudo no vuelve: dejaría el tablero vacío sin casilla.
   assert.deepEqual(leerFiltros(escribirFiltros(f), new Set(['nuevo'])).etapas, ['nuevo']);
@@ -342,6 +342,43 @@ test('los filtros guardados: ida y vuelta, por cliente y embudo, y lo ajeno no e
   // Una clave por cliente y por embudo.
   assert.equal(new Set([claveFiltros(null, null), claveFiltros(13, null), claveFiltros(13, 7), claveFiltros(14, 7)]).size, 4);
   //   ROTO A PROPÓSITO (2026-10-10): con las etapas que ya no existen volviendo, pass 20 / fail 1.
+});
+
+// «Que los botones de "Activo, nutrición, descartado" sean un desplegable dentro de filtros»
+// (Martín, 12/10/2026, punto 25). Desde ahí se guardan como los demás filtros: las APAGADAS.
+test('las bandas apagadas del Kanban se guardan, y lo guardado nunca deja el tablero sin columnas', () => {
+  // Un guardado de antes de este campo (o roto) no trae `ocultas`: se lee como «las tres a la vista».
+  assert.deepEqual(leerFiltros(JSON.stringify({ etapas: [] }), new Set()).ocultas, []);
+  assert.deepEqual(leerFiltros(JSON.stringify({ ocultas: 'nutricion' }), new Set()).ocultas, []);
+  // Sólo bandas que existen, sin repetir.
+  assert.deepEqual(leerFiltros(JSON.stringify({ ocultas: ['nutricion', 'otra', 'nutricion', 3] }), new Set()).ocultas, ['nutricion']);
+  // Las TRES apagadas dejarían el tablero sin una columna: se prenden todas.
+  assert.deepEqual(bandasOcultas(['pipeline', 'nutricion', 'salidas']), []);
+  assert.deepEqual(bandasOcultas(['pipeline', 'salidas']), ['pipeline', 'salidas']);
+  assert.deepEqual(SIN_FILTROS.ocultas, [], 'sin nada guardado, las tres a la vista');
+  // Y el tablero las restaura y las guarda en el MISMO bloque que el resto de los filtros.
+  const b = sinComentarios(readFileSync('app/crm/CrmBoard.tsx', 'utf8'));
+  assert.match(b, /setActiveBands\(new Set\(KANBAN_BANDS\.filter\(\(b\) => !f\.ocultas\.includes\(b\)\)\)\);/, 'no se restauran');
+  assert.match(b, /ocultas: BANDAS_KANBAN\.filter\(\(b\) => !activeBands\.has\(b\)\),/, 'no se guardan');
+  //   ROTO A PROPÓSITO (2026-10-12), contra una base de 23 / 0: con `bandasOcultas` devolviendo las
+  //   tres sin cortar, pass 22 / fail 1; sin el `setActiveBands` de la restauración, pass 22 / fail 1.
+});
+
+test('«Activo · Nutrición · Descartado» viven adentro de «Filtrar», cuentan en su número y «Limpiar» las prende', () => {
+  const t = sinComentarios(readFileSync('app/crm/CrmToolbar.tsx', 'utf8'));
+  const b = sinComentarios(readFileSync('app/crm/CrmBoard.tsx', 'utf8'));
+  // Los tres botones sueltos de la barra se fueron.
+  assert.doesNotMatch(t + b, /BandasToggle/, 'volvieron los botones sueltos');
+  // Una categoría del menú, primera, sólo en el kanban (como «Ordenar»).
+  assert.match(t, /key: 'banda' as const, label: 'Estado'/);
+  assert.match(b, /bandas=\{vista === 'kanban' \? \{/);
+  // Cada banda apagada suma al número, y «Limpiar filtros» las vuelve a prender.
+  assert.match(t, /const n = bandasApagadas \+ etapas\.size/);
+  assert.match(t, /const limpiar = \(\) => \{ bandas\?\.prenderTodas\(\);/);
+  // La última prendida no se apaga (la regla es del tablero: `toggleBand`).
+  assert.match(b, /if \(prev\.has\(band\) && prev\.size === 1\) return prev;/);
+  //   ROTO A PROPÓSITO (2026-10-12), contra una base de 23 / 0: sin `bandasApagadas` en el número,
+  //   pass 22 / fail 1; con `limpiar` sin prender las bandas, pass 22 / fail 1. Restaurado: 23 / 0.
 });
 
 test('el tablero restaura al entrar y guarda después, sin pisar lo guardado con los filtros vacíos', () => {

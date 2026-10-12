@@ -115,7 +115,9 @@ test('el control de Tracking escribe por el camino que avisa a Meta', () => {
   // El MISMO control que la tarjeta de Reuniones: `TriEditable` ya rutea por
   // `guardarCampoLeadAction` → `updateLead`, que es el único que manda el evento.
   assert.match(card, /campo="calificado"/, 'escribe la columna calificado');
-  assert.match(card, /import \{ TriEditable \} from '\.\/CampoEditable'/, 'reusa el control de la ficha');
+  // Desde el 12/10/2026 importa además `CajaCampo` (la tarjeta entera abre el sí/no, punto 7):
+  // lo que se fija es que el control venga de la ficha, no la forma exacta del import.
+  assert.match(card, /import \{[^}]*\bTriEditable\b[^}]*\} from '\.\/CampoEditable'/, 'reusa el control de la ficha');
   // Una escritura propia sería un segundo camino: la pantalla diría que sí y Meta no
   // se enteraría, que es exactamente lo que Martín preguntó el mismo día.
   assert.ok(!/from '\.\.\/actions'/.test(card), 'no llama a ninguna action por su cuenta');

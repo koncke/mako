@@ -66,9 +66,10 @@ import { getFunnelDefault, getFunnelDe, getPipelineStagesDefault, getPipelineSta
   renombrarFunnel, archivarFunnel, restaurarFunnel, listarFunnelsArchivados, eliminarFunnelDefinitivo,
   productosPorFunnel, idDelFunnelDefault, leerFunnels, umbralesDe } from '@/lib/funnels';
 import { type EntradaId, type EventoFunnel, generateFunnel, labelDeCatalogo,
-  conTerminales, esTerminal, etapaDeGanado, problemasDePipeline, ETAPAS_SIN_SECUENCIA, MAX_LABEL_ETAPA, DEFAULT_STAGES, deriveStageKey, stageMeta, terminalEstadoFor, withLayout, MAKO_SETTER, type Stage, type StageBand, type StageDerivable } from '@/lib/pipeline';
-import { puedeSerReunion, tipoAlMarcar } from '@/lib/etapa-reunion';
-import { puedeTenerPlazo, sanearPlazo, plazosValidos, PLAZO_MAX_DIAS } from '@/lib/lead-quieto';
+  conTerminales, esTerminal, etapaDeGanado, problemasDePipeline, ETAPAS_SIN_SECUENCIA, MAX_LABEL_ETAPA, DEFAULT_STAGES, deriveStageKey, stageMeta, terminalEstadoFor, withLayout, MAKO_SETTER, type Stage, type StageBand, type StageDerivable,
+  colorParaNueva, CHIP, DOT_SIN_COLOR, type StageTone } from '@/lib/pipeline';
+import { puedeSerReunion, conTipo, reunionPorNombre, TIPOS_ETAPA, type TipoEtapa } from '@/lib/etapa-reunion';
+import { puedeTenerPlazo, sanearPlazo, PLAZO_MAX_DIAS } from '@/lib/lead-quieto';
 import {
   CAMPOS_LEAD, COLUMNAS_POR_CAMPO, PREGUNTAS_FORM, SIN_ASIGNAR,
   alcanceLegible, esColumnaDerivada, filtrosLegibles, incluyeLegible, rangoDePeriodo,
@@ -79,6 +80,8 @@ import { leadsAMarkdown, type LeadDoc } from './leads-markdown';
 import { MAX_FILAS_IMPORT, MAX_MONTO_IMPORT, MOTIVO_DECIDIBLE, destinoDe, entra, entraGanado, type FilaImport } from './leads-importar';
 import { ORIGEN_LEAD, origenLista } from './origen-lead';
 import { VIA_INLINE, esCampoInline, montoEnRiesgo, ponerLinkFathom, valorDeCampo, type ValorInline } from './campo-inline';
+// El usuario de Instagram del ALTA (punto 28) se normaliza con la MISMA regla que el de la ficha.
+import { usuarioInstagram } from './campo-inline';
 // Qué grabación es de la R2: la MISMA función que reparte los análisis entre los
 // dos bloques de la ficha. Con una copia acá, el link caería en un bloque y su
 // análisis en el otro.
@@ -144,9 +147,11 @@ import { getCampaignNameMap, resolverNombreCampana, getAdNameMap, resolverNombre
 import { savePlanPagos, saveLeadPlanManual, marcarPago, getPagosByLead, type PlanPagos, type Pago } from '@/lib/pagos';
 import { faltaComprobante } from '@/lib/pago-comprobante';
 import { senalesDeCobroAction } from './[id]/cobros-actions';
+import { verTrackingDeLead } from '@/lib/tracking-ficha-server';
 import { crearProductoConFunnel } from '@/lib/producto-con-funnel';
 import { urlGravatar } from '@/lib/gravatar';
 import { type VisitasMap } from './crm-map';
+import { TOPE_NOTA } from './notas-reglas';
 
 /** Análisis de llamadas (Closing Analyst) matcheados a este lead. */
 export type LeadInsightRow = {
@@ -229,6 +234,12 @@ export type LeadFullData = {
    * /crm/[id] (`senalesDeCobroAction`), para que las dos puertas de la ficha no difieran.
    */
   cobro: { pasarelaConectada: boolean; hayCobros: boolean };
+  /**
+   * ¿La ficha dibuja la pestaña «Tracking»? Sólo si el funnel del lead tiene una campaña de Meta
+   * asignada (punto 18 del 12/10/2026). La MISMA lectura que la ruta /crm/[id]
+   * (lib/tracking-ficha-server.ts); con la lectura caída, `true`.
+   */
+  verTracking: boolean;
 };
 
 /**
@@ -239,6 +250,9 @@ export type LeadFullData = {
 export async function getLeadFullAction(id: number): Promise<LeadFullData | null> {
   const lead = await getLead(id);
   if (!lead) return null;
+  // La pestaña «Tracking» (punto 18): arranca acá para correr en paralelo con todo lo de abajo, y
+  // no tira nunca (lib/tracking-ficha-server.ts).
+  const verTrackingP = verTrackingDeLead(lead.funnel_id);
   const [vslEng, pagos, campMap, adMap, stagesRaw, visitasMap, insights, tracking, videos, pixelPuesto] = await Promise.all([
     getVslEngagement(lead.visitor_id).catch(() => ({ plays: 0, max_pct: null, sin_datos: true, porVideo: [] }) as VslEngagement),
     getPagosByLead(lead.id).catch(() => [] as Pago[]),
@@ -286,7 +300,7 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   // y es el mismo en todos los workspaces (mismo criterio que el selector del tablero).
   const productos = funnels.map((f) => ({ id: f.id, nombre: nombreVisible(f), esDefault: f.esDefault }));
   const fotoEmail = lead.email?.trim() ? urlGravatar(lead.email, 160) : null;
-  return { lead, stages, pagos, vslEng, videos, replay, campana, adNombre, adId: adIdCand, visitas, insights, tracking, pixelPuesto, respuestas, respuestasForm: respuestasPropias(lead.meta_field_data), insightGen, faltantesInsight, faltantes, equipo, closerDetectado, productos, fotoEmail, cobro };
+  return { lead, stages, pagos, vslEng, videos, replay, campana, adNombre, adId: adIdCand, visitas, insights, tracking, pixelPuesto, respuestas, respuestasForm: respuestasPropias(lead.meta_field_data), insightGen, faltantesInsight, faltantes, equipo, closerDetectado, productos, fotoEmail, cobro, verTracking: await verTrackingP };
 }
 
 /** Cuota explícita del plan (modelo simple: monto + fecha). */
@@ -733,10 +747,19 @@ async function altaDeLead(formData: FormData, funnelId?: number | null, permitir
   const created = await createLead({
     nombre,
     email: emptyToNullable(formData.get('email')),
+    // ⚠️ El form manda los DÍGITOS con la lada (`unirTelefono`, del selector con banderas del
+    // punto 5); `createLead` lo guarda tal cual y saca `telefono_normalizado` de los dígitos.
     telefono: emptyToNullable(formData.get('telefono')),
+    // ⚠️ EMPRESA Y LAS DOS FECHAS YA NO VIENEN del alta (puntos 6 y 27 del 12/10/2026: «solo
+    // nombre, email y teléfono, que el resto se pueda configurar dentro»): se cargan en la
+    // ficha. Se siguen leyendo por si un form viejo cacheado en una pestaña las manda; sin
+    // ellas son null, que es lo que eran vacías.
     empresa: emptyToNullable(formData.get('empresa')),
     fecha_agenda: emptyToNullable(formData.get('fecha_agenda')),
     fecha_junta_1: emptyToNullable(formData.get('fecha_junta_1')),
+    // El usuario de Instagram que se eligió en el buscador (punto 28), sin la @ y con la
+    // misma regla que la ficha (`usuarioInstagram`). Lo que no es un usuario no se guarda.
+    instagram: usuarioInstagram(emptyToNull(formData.get('instagram'))),
     // ⚠️ El lead nace en el tablero DESDE EL QUE SE LO CREÓ. Sin esto se iba al funnel
     // del negocio y desaparecía de la pantalla donde se acababa de cargar.
     funnel_id: funnelId ?? null,
@@ -2263,7 +2286,8 @@ export async function guardarCampoLeadAction(id: number, campo: string, valor: V
       fathom_links: ponerLinkFathom(links, campo as 'fathom_r1' | 'fathom_r2', v as string | null, etiquetaEsR2),
     });
   } else if (via === 'meta') {
-    await saveLeadMeta(id, { [campo]: v as string | null });
+    // `v` ya es del tipo de la columna (`valorDeCampo`): texto, o el NÚMERO del ingreso estimado.
+    await saveLeadMeta(id, { [campo]: v } as LeadMetaInput);
   } else {
     await updateLead(id, { [campo]: v } as Parameters<typeof updateLead>[1]);
     // ⚠️ RESCATE DEL MONTO. Hasta el 06/10/2026 `updateLead` forzaba monto/fecha de
@@ -2343,11 +2367,19 @@ const REVERTIBLES = new Set([
   'Fecha de agendamiento', 'Closer', 'Setter', 'Monto de cierre', 'Motivo',
   'Confirmación de pago', 'Deadline de nutrición manual',
   'Nombre', 'Email', 'Teléfono', 'Empresa', 'Web',
+  // Los dos de la mig 0258 (punto 21 y 28 del 12/10/2026): columna 1:1, por `saveLeadMeta`.
+  'Ingreso estimado', 'Instagram',
   // La plata de una suscripción (AUDIT_FIELDS, lib/leads.ts). Se revierten con un update
   // directo de su columna en los DOS switch de abajo, como el deadline: `updateLead` no las
   // conoce. ⚠️ Revierten el importe, no el tipo de venta, igual que «Monto de cierre».
   CAMPO_SUS_MONTO, CAMPO_SUS_MESES,
 ]);
+
+/** El ingreso estimado del historial (texto de `auditVal`) de vuelta a número. Sin exportar: es 'use server'. */
+function ingresoDelHistorial(v: string | null): number | null {
+  const n = v == null ? NaN : parseFloat(v);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
 
 /** El valor del historial (texto de `auditVal`) de vuelta a la columna de la suscripción. */
 function columnaSuscripcion(campo: string, v: string | null): Record<string, number | null> {
@@ -2425,6 +2457,9 @@ export async function getLeadNotasAction(id: number): Promise<LeadAuditRowFull[]
 export async function addLeadNoteAction(id: number, texto: string): Promise<void> {
   const t = texto.trim();
   if (!t) return;
+  // ⚠️ EL MISMO TOPE QUE LA EDICIÓN, Y SE RECHAZA (revisión del 12/10/2026): sin tope acá, una nota
+  // dictada más larga entraba entera y la edición la recortaba al corregirle una letra.
+  if (t.length > TOPE_NOTA) throw new Error('La nota es demasiado larga.');
   await logLeadEvent(id, 'Nota', t, await autorActual());
   bust(TAG.leads);
   revalidatePath(`/crm/${id}`);
@@ -2468,6 +2503,8 @@ export async function revertAuditChangeAction(auditId: number, leadId: number): 
     case 'Teléfono': await saveLeadMeta(leadId, { telefono: v }); break;
     case 'Empresa': await saveLeadMeta(leadId, { empresa: v }); break;
     case 'Web': await saveLeadMeta(leadId, { web: v }); break;
+    case 'Ingreso estimado': await saveLeadMeta(leadId, { ingreso_estimado: ingresoDelHistorial(v) }); break;
+    case 'Instagram': await saveLeadMeta(leadId, { instagram: v }); break;
     case 'Deadline de nutrición manual': {
       const { error } = await (await getTenantDb()).from('leads').update({ nutricion_manual_deadline: v }).eq('id', leadId);
       if (error) throw new Error(error.message);
@@ -2543,6 +2580,8 @@ export async function revertMoveAction(leadId: number, createdAt: string): Promi
       case 'Teléfono': meta.telefono = v; break;
       case 'Empresa': meta.empresa = v; break;
       case 'Web': meta.web = v; break;
+      case 'Ingreso estimado': meta.ingreso_estimado = ingresoDelHistorial(v); break;
+      case 'Instagram': meta.instagram = v; break;
       case 'Deadline de nutrición manual': deadline = { set: true, value: v }; break;
       case CAMPO_SUS_MONTO: case CAMPO_SUS_MESES: suscripcion = { ...suscripcion, ...columnaSuscripcion(r.campo, v) }; break;
     }
@@ -2769,11 +2808,11 @@ export type EmbudoEnDetalle = {
    * descalificar a alguien.
    */
   problemas: string[];
-  /**
-   * El plazo de cada etapa en días (#800), sólo los válidos. null = no se pudo leer: la
-   * pantalla no dibuja el campo, porque un vacío afirmaría «sin plazo» sobre algo que no vio.
-   */
-  plazos: Record<string, number> | null;
+  // ⚠️ ACÁ ESTUVO `plazos` (el plazo de cada etapa, #800) hasta el 12/10/2026. Se fue con la
+  // pastilla «Plazo» del pop-up (punto 4 del feedback: «Elimina lo de "Ponerle un plazo", para
+  // eso ya tenemos la tab de "Automations"»): sin quien lo dibuje, era una lectura de más en cada
+  // apertura. Lo que quedó del plazo (la op `plazo`, el aviso y quién más lee los plazos ya
+  // guardados), en la cabecera de lib/lead-quieto-aviso.ts.
 };
 
 /**
@@ -2891,10 +2930,6 @@ export async function embudoEnDetalleAction(funnelId?: number): Promise<{ ok: tr
         problemas: problemasDePipeline(cfg.pipeline),
         entradas: cfg.entradas,
         evento: cfg.evento,
-        plazos: await (async () => {
-          const u = await umbralesDe(funnelId ?? null);
-          return u == null ? null : plazosValidos(u.porEtapa, cfg.stages).plazos;
-        })(),
       },
     };
   } catch (e) {
@@ -3078,13 +3113,23 @@ export type OpEtapa =
    * los leads afuera, que es peor que no deshacer. Acá vuelve la MISMA clave, en la MISMA
    * posición.
    */
-  | { op: 'insertar'; etapa: { key: string; label: string; dot?: string; kind?: string }; at: number }
+  | { op: 'insertar'; etapa: EtapaQuitada; at: number }
   | { op: 'agregar'; despuesDe?: string; label?: string }
   /**
    * Marcar (o desmarcar) una etapa como REUNIÓN: `kind: 'reunion'`, lo único que la marca
    * (lib/etapa-reunion.ts). Apagada vuelve a `'paso'`, como una etapa nueva.
+   *
+   * ⚠️ DESDE EL 12/10/2026 EL POP-UP MANDA `tipo` (abajo), no ésta. Queda por una pestaña abierta
+   * con el bundle de antes: sin la rama, su `reunion` caería al final del `if` y se rechazaría.
    */
   | { op: 'reunion'; key: string; es: boolean }
+  /**
+   * El TIPO de una etapa: Etapa / Reunión / Nutrición (punto 3 del feedback del 12/10/2026: el
+   * botón «Reunión» pasó a ser un desplegable y la subtab «Nutrición» se fue). Lo aplica `conTipo`
+   * (lib/etapa-reunion.ts): Reunión es `kind: 'reunion'`; Nutrición y Etapa son `kind: 'paso'` con
+   * `marcadaComo`, así que marcar Nutrición no cambia transiciones, reuniones ni automatizaciones.
+   */
+  | { op: 'tipo'; key: string; tipo: TipoEtapa }
   /**
    * El PLAZO de una etapa, en días (#800): si un lead pasa más que eso sin moverse, MaKo le
    * avisa al dueño (lib/lead-quieto.ts). `dias: null` lo saca. Vive en
@@ -3129,15 +3174,42 @@ export type OpEtapa =
    */
   | { op: 'reordenar'; keys: string[] };
 
-/** Lo que hace falta para DESHACER un quitado: la etapa entera y dónde estaba. */
-export type DeshacerEtapa = { etapa: { key: string; label: string; dot?: string; kind?: string }; at: number };
+/**
+ * Una etapa quitada, como vuelve con «Deshacer».
+ *
+ * ⚠️ `tone` y `marcadaComo` VIAJAN desde el 12/10/2026: sin ellos, deshacer devolvía la etapa con
+ * el punto de su color y el chip gris (`tone: 'neutral'`), y una «Nutrición» volvía como «Etapa».
+ */
+export type EtapaQuitada = { key: string; label: string; dot?: string; tone?: string; kind?: string; marcadaComo?: string };
 
-export async function editarEtapaAction(op: OpEtapa, funnelId?: number): Promise<{ ok: true; deshacer?: DeshacerEtapa } | { ok: false; error: string }> {
+/** Lo que hace falta para DESHACER un quitado: la etapa entera y dónde estaba. */
+export type DeshacerEtapa = { etapa: EtapaQuitada; at: number };
+
+export async function editarEtapaAction(op: OpEtapa, funnelId?: number): Promise<{ ok: true; deshacer?: DeshacerEtapa;
+  /**
+   * La etapa que se acaba de crear o renombrar quedó marcada como Reunión SOLA, por su nombre
+   * (`reunionPorNombre`, punto 13 del feedback del 12/10/2026). La pantalla lo dice en un toast
+   * con «Deshacer»: un cambio de tipo que nadie pidió no puede pasar callado. Es la CLAVE de la
+   * etapa (la de una recién creada la acuña el server), para que el deshacer sepa a cuál volver.
+   */
+  reunionSola?: string } | { ok: false; error: string }> {
   if ((await getRolWsEfectivo()) !== 'admin') return { ok: false, error: 'Solo el administrador del workspace puede editar el funnel.' };
   // ⚠️ FUERA DEL `try`, a propósito: declarado adentro, el `return` de abajo no lo puede
   // nombrar. Es la misma trampa de scope que ya costó cobrarle dos veces a un cliente en el
   // puente a Flow, y acá lo que se perdería es el deshacer de una etapa borrada.
   let deshacer: DeshacerEtapa | undefined;
+  // Fuera del `try` por la misma razón que `deshacer`.
+  let reunionSola: string | undefined;
+  /**
+   * La marca de Reunión por el NOMBRE, al crear o renombrar (punto 13 del feedback del 12/10/2026).
+   * Decide `reunionPorNombre` (lib/etapa-reunion.ts) sobre el pipeline YA con el nombre nuevo, y en
+   * el server: así vale igual para el pop-up y para los tres puntos de la columna del tablero.
+   */
+  const marcarSiPareceReunion = (pl: Stage[], key: string, labelAnterior?: string): Stage[] => {
+    if (!reunionPorNombre(pl, key, labelAnterior)) return pl;
+    reunionSola = key;
+    return pl.map((x) => (x.key === key ? conTipo(x, 'reunion') : x));
+  };
   try {
     const actual = funnelId != null ? await getFunnelDe(funnelId) : await getFunnelDefault();
     // ⚠️ El mismo guard que `declararEntradasAction`: con la lectura en ERROR lo que se lee
@@ -3152,7 +3224,8 @@ export async function editarEtapaAction(op: OpEtapa, funnelId?: number): Promise
       const label = op.label.trim().replace(/\s+/g, ' ').slice(0, MAX_LABEL_ETAPA);
       if (!label) return { ok: false, error: 'El nombre no puede quedar vacío.' };
       const enPipeline = pipeline.some((st) => st.key === op.key);
-      if (enPipeline) pipeline = pipeline.map((st) => (st.key === op.key ? { ...st, label } : st));
+      // Con el nombre de ANTES: renombrar marca sola sólo si el nombre PASA a decir reunión.
+      if (enPipeline) pipeline = marcarSiPareceReunion(pipeline.map((st) => (st.key === op.key ? { ...st, label } : st)), op.key, pipeline.find((st) => st.key === op.key)?.label);
       else labels = { ...labels, [op.key]: label };
     } else if (op.op === 'eliminar') {
       // Las cuatro terminales no se borran en ningún funnel: es la decisión de Martín, y
@@ -3172,7 +3245,8 @@ export async function editarEtapaAction(op: OpEtapa, funnelId?: number): Promise
       // me salte el pop-up de deshacer». Sin esto, deshacer tendría que acuñar una clave nueva.
       const iQuita = pipeline.findIndex((st) => st.key === op.key);
       const quitada = pipeline[iQuita];
-      deshacer = { etapa: { key: quitada.key, label: quitada.label, dot: quitada.dot, kind: quitada.kind }, at: iQuita };
+      deshacer = { etapa: { key: quitada.key, label: quitada.label, dot: quitada.dot, tone: quitada.tone, kind: quitada.kind,
+        ...(quitada.marcadaComo ? { marcadaComo: quitada.marcadaComo } : null) }, at: iQuita };
       pipeline = pipeline.filter((st) => st.key !== op.key);
     } else if (op.op === 'reordenar') {
       // Las claves que el navegador mandó, en su orden, y SÓLO las que existen.
@@ -3197,7 +3271,12 @@ export async function editarEtapaAction(op: OpEtapa, funnelId?: number): Promise
       // El deshacer de un quitado. Si la clave ya volvió por otro lado, no se duplica.
       if (pipeline.some((st) => st.key === op.etapa.key)) return { ok: true };
       const vuelveLabel = op.etapa.label.trim().slice(0, MAX_LABEL_ETAPA) || 'Etapa';
-      const vuelve = { key: op.etapa.key, label: vuelveLabel, dot: op.etapa.dot ?? '#5B6472', tone: 'neutral', kind: op.etapa.kind ?? 'paso' } as Stage;
+      // `tone` y `marcadaComo` vienen del navegador: se aceptan sólo los que existen. Sin `dot`
+      // vuelve sin color y la lectura le deriva uno (`conColores`), como a cualquier etapa vieja.
+      const tono = op.etapa.tone && Object.prototype.hasOwnProperty.call(CHIP, op.etapa.tone) ? (op.etapa.tone as StageTone) : 'neutral';
+      const marca = op.etapa.marcadaComo === 'etapa' || op.etapa.marcadaComo === 'nutricion' ? op.etapa.marcadaComo : undefined;
+      const vuelve = { key: op.etapa.key, label: vuelveLabel, dot: op.etapa.dot ?? DOT_SIN_COLOR, tone: tono, kind: op.etapa.kind ?? 'paso',
+        ...(marca ? { marcadaComo: marca } : null) } as Stage;
       // Nunca por delante de la entrada: si la etapa se quitó de ahí, volvió de otro lado.
       const piso = pipeline.findIndex((st) => st.kind === 'entrada') + 1;
       const at = Math.max(piso, Math.min(op.at, pipeline.length));
@@ -3278,8 +3357,18 @@ export async function editarEtapaAction(op: OpEtapa, funnelId?: number): Promise
       const st = pipeline.find((x) => x.key === op.key);
       if (!st) return { ok: false, error: 'Esa etapa la pone MaKo al final del funnel: no puede ser una reunión.' };
       if (!puedeSerReunion(st)) return { ok: false, error: 'Esa etapa no puede ser una reunión.' };
-      pipeline = pipeline.map((x) => (x.key === op.key ? ({ ...x, kind: tipoAlMarcar(op.es) } as Stage) : x));
-    } else {
+      // Con `conTipo` y no con un `kind` suelto: marcarla Reunión le saca la marca de Nutrición,
+      // y desmarcarla la deja como «Etapa» elegida a mano (el nombre deja de contar).
+      pipeline = pipeline.map((x) => (x.key === op.key ? conTipo(x, op.es ? 'reunion' : 'etapa') : x));
+    } else if (op.op === 'tipo') {
+      // La misma guarda que `reunion`, del lado del server: sólo las etapas que pueden ser reunión
+      // tienen tipo, y un tipo que no existe no se guarda (`op` lo escribe quien quiera).
+      if (!TIPOS_ETAPA.includes(op.tipo)) return { ok: false, error: 'Ese tipo de etapa no existe.' };
+      const st = pipeline.find((x) => x.key === op.key);
+      if (!st) return { ok: false, error: 'Esa etapa la pone MaKo al final del funnel: no lleva tipo.' };
+      if (!puedeSerReunion(st)) return { ok: false, error: 'Esa etapa no lleva tipo.' };
+      pipeline = pipeline.map((x) => (x.key === op.key ? conTipo(x, op.tipo) : x));
+    } else if (op.op === 'agregar') {
       // La clave se acuña acá, en el server, y se comprueba contra el pipeline real: si se
       // eligiera en el navegador, dos pestañas abiertas acuñan la misma y la segunda pisa a
       // la primera sin que nada falle.
@@ -3287,14 +3376,23 @@ export async function editarEtapaAction(op: OpEtapa, funnelId?: number): Promise
       let key = 'st0';
       while (pipeline.some((st) => st.key === key)) { n += 1; key = 'st' + n; }
       const label = (op.label ?? 'Nueva etapa').trim().replace(/\s+/g, ' ').slice(0, MAX_LABEL_ETAPA) || 'Nueva etapa';
-      const nueva = { key, label, dot: '#5B6472', tone: 'neutral', kind: 'paso' } as Stage;
       // Se mete DESPUÉS de la etapa desde cuyo menú se pidió; sin referencia, antes del
       // cierre, que es donde una etapa nueva tiene sentido (el cierre va último).
       const iRef = op.despuesDe ? pipeline.findIndex((st) => st.key === op.despuesDe) : -1;
       const iCierre = pipeline.findIndex((st) => st.kind === 'cierre');
       const iEntrada = pipeline.findIndex((st) => st.kind === 'entrada');
       const at = Math.max(iEntrada + 1, iRef >= 0 ? iRef + 1 : (iCierre >= 0 ? iCierre : pipeline.length));
-      pipeline = [...pipeline.slice(0, at), nueva, ...pipeline.slice(at)];
+      // ⚠️ NACE CON COLOR (punto 8 del feedback del 12/10/2026): «todas las nuevas etapas que creo…
+      // el circulito al lado de la etapa aparece en gris». Nacía con el gris de relleno y el tono
+      // `neutral`; ahora con uno de la paleta que no use otra etapa, y si están todos, distinto de
+      // sus dos vecinas (`colorParaNueva`, lib/pipeline.ts).
+      const nueva = { key, label, ...colorParaNueva(pipeline, at), kind: 'paso' } as Stage;
+      pipeline = marcarSiPareceReunion([...pipeline.slice(0, at), nueva, ...pipeline.slice(at)], key);
+    } else {
+      // ⚠️ UNA OPERACIÓN QUE NO SE CONOCE SE RECHAZA. Hasta el 12/10/2026 este `else` era el
+      // `agregar`, así que cualquier op nueva que llegara de una pestaña vieja —o de un pedido
+      // armado a mano— agregaba una «Nueva etapa» al embudo sin que nadie la pidiera.
+      return { ok: false, error: 'Esa operación no existe.' };
     }
 
     const conGanado = conTerminales(pipeline);
@@ -3306,7 +3404,7 @@ export async function editarEtapaAction(op: OpEtapa, funnelId?: number): Promise
   bust(TAG.pipeline, TAG.leads);
   revalidatePath('/crm');
   revalidatePath('/funnel');
-  return { ok: true, deshacer };
+  return { ok: true, deshacer, ...(reunionSola ? { reunionSola } : null) };
 }
 /**
  * Declara CÓMO ENTRA la gente a este negocio (y, si corresponde, dónde y cuándo

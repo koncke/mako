@@ -194,8 +194,20 @@ test('la operación «plazo» se decide en el server y conserva las otras claves
   assert.match(rama, /if \(u == null\) return \{ ok: false/, 'sin poder leer, no se escribe encima');
 });
 
-test('el pop-up dibuja el plazo sólo con lo que contestó el server', () => {
+// ⚠️ HASTA EL 12/10/2026 ACÁ SE FIJABA CÓMO EL POP-UP DE ETAPAS DIBUJABA EL PLAZO. La pastilla se
+// fue con el punto 4 del feedback de ese día: «Elimina lo de "Ponerle un plazo", para eso ya
+// tenemos la tab de "Automations"». El test se dio vuelta: que no vuelva a ofrecerse, y que el
+// pop-up no pague la lectura de un dato que no dibuja. El backend (la op `plazo`, el aviso) queda
+// —lo fijan los tests de arriba— y lo que quedó, en la cabecera de lib/lead-quieto-aviso.ts.
+//
+// Probado rompiéndolo (12/10/2026; el archivo entero da 15 / 0): vuelve `plazoDe` al pop-up → 14 / 1;
+// el detalle del embudo vuelve a leer los plazos (`plazosValidos` en `embudoEnDetalleAction`) → 14 / 1.
+test('el pop-up de etapas ya no ofrece plazo, ni lee los plazos para dibujarlo', () => {
   const src = sinComentarios(leer('../app/crm/EtapasModal.tsx'));
-  assert.match(src, /emb\?\.plazos == null \|\| !puedeTenerPlazo\(e\) \? undefined/, 'antes de saberlo no afirma «sin plazo»');
-  assert.match(src, /\{plazoDe\(e\) !== undefined && \(/);
+  assert.doesNotMatch(src, /PlazoEtapa|plazoDe\(|op: 'plazo'/, 'volvió la pastilla «Plazo»');
+  const ac = sinComentarios(leer('../app/crm/actions.ts'));
+  const ini = ac.indexOf('export async function embudoEnDetalleAction');
+  const fin = ac.indexOf('export type ExtrasDelEmbudo', ini);
+  assert.ok(ini > 0 && fin > ini, 'existe el detalle del embudo');
+  assert.doesNotMatch(ac.slice(ini, fin), /plazosValidos|umbralesDe/, 'el detalle volvió a leer los plazos que nadie dibuja');
 });

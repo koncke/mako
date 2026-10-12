@@ -21,7 +21,7 @@ import { WsProvider } from './_ui/Link';
 import { DesvioMovil } from './_components/DesvioMovil';
 import { prefiereMovil } from '@/lib/movil-guard';
 import { MOVIL_ACTIVO, seDesvia } from '@/lib/movil-desvio';
-import { getWorkspaceActual } from '@/lib/workspace';
+import { getWorkspaceActual, wsSuperAdmin } from '@/lib/workspace';
 
 // Título por defecto de las pantallas internas — es lo que se lee en la pestaña
 // del navegador, al lado del favicon. El producto es MaKo: acá decía "Marketing
@@ -114,15 +114,12 @@ export default async function RootLayout({
   // MaKo Mobile: un TELÉFONO no ve el escritorio (lib/movil-desvio.ts). Lo decide el server
   // (UA + la cookie de «Versión completa»); <DesvioMovil> tapa la pantalla desde el primer
   // pintado y lleva a /m, o dice que esa pantalla se usa en la computadora.
-  // ⚠️ El admin global SIN cliente no se desvía (`seDesvia`): /m lo mandaría a /inicio y /inicio a
-  // /customer-success, que el desvío volvería a mandar a /m/cs — un bucle. El workspace sólo se
-  // pregunta en un teléfono: la computadora no paga esa lectura.
+  // ⚠️ El admin global SIN cliente también va a /m, a SU negocio (`wsPropioMovil`, el workspace de
+  // plataforma): hasta el 12/10 se lo dejaba en el escritorio y era Martín (lib/movil-desvio.ts →
+  // `seDesvia`). El workspace sólo se pregunta en un teléfono: la computadora no paga esa lectura.
   const esTelefono = MOVIL_ACTIVO && (await prefiereMovil());
-  const telefono = seDesvia({
-    activo: MOVIL_ACTIVO,
-    telefono: esTelefono,
-    adminSinCliente: esTelefono && esAdmin && (await getWorkspaceActual()) == null,
-  });
+  const telefono = seDesvia({ activo: MOVIL_ACTIVO, telefono: esTelefono });
+  const wsPropioMovil = telefono && esAdmin && (await getWorkspaceActual()) == null ? await wsSuperAdmin() : null;
   return (
     <html lang="es" className="h-full antialiased">
       <body>
@@ -194,7 +191,7 @@ export default async function RootLayout({
             que no esté en su lista: envuelve la página en un Suspense y la vuelve a
             esconder. */}
         <WsProvider>
-        <DesvioMovil telefono={telefono} />
+        <DesvioMovil telefono={telefono} wsPropio={wsPropioMovil} />
         <NotificationsProvider>
           <div style={rootStyle}>
             {/* Sidebar usa useSearchParams (propaga el filtro de fecha). Su Suspense
