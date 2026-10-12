@@ -3,6 +3,31 @@
 <sub>Escrito por el chat «MaKo Mobile» (cuenta 3) el 11/10/2026 a las 15:00, al cruzar el 85% de uso
 semanal. Material de primera mano: lo hizo este chat.</sub>
 
+## ⚠️⚠️⚠️⚠️⚠️ 12/10, 09:26 — LO PRÓXIMO: LAS MISMAS RUTAS (pedido de Martín, NO hecho)
+
+Martín, textual, mirando /m/hoy en su celular: «de igual manera esta mal porque se ve muy chiquito todo,
+no como una app de celular... Y sobre todo lo que esta mal es que funcione por rutas, eso no debe ser
+así... Las rutas deben ser las mismas, solo debe detectar si estoy en mobile». Y: «hay cosas que no
+funcionan, como el CRM...» (sin detalle todavía).
+
+- **Lo «muy chiquito»** de sus dos capturas (/general de la cuenta de Mauricio y /m/hoy) es Chrome en
+  «Sitio para computadoras»: las dos se dibujan a ~980 px de ancho (la barra lateral ocupa ¼ de la
+  pantalla; la columna de /m queda al medio), y la meta `width=device-width` de /m SÍ está en producción.
+  En ese modo Chrome también manda un UA de escritorio, así que `prefiereMovil` dice que no — con
+  cualquier cuenta. Él contestó «No estaba tildado, ahí me saltó el problema»: confirmar en
+  Configuración → Configuración de sitios → «Sitio para computadoras» (el global) y la excepción de
+  hola-mako.com.
+- **LAS MISMAS RUTAS (decisión suya, no se rediscute):** el teléfono abre /crm, /general, /plan… con las
+  MISMAS URLs que la computadora, y se ve la versión móvil. Plan: en `proxy.ts`, un pedido de página de
+  un teléfono (UA + sin la cookie de «Versión completa», lo mismo que `prefiereMovil`) cuya ruta tiene
+  equivalente (`rutaMovil`) se REESCRIBE (`NextResponse.rewrite`, no redirect) a la página de /m; y todo
+  href de /m pasa a apuntar a la ruta de escritorio (una función inversa de `rutaMovil`, en
+  lib/movil-rutas.ts, y los `href` de DESTINOS_MOVIL / SECCIONES_MAS y de cada pantalla). /m/* queda
+  sólo como la carpeta interna. Ojo: el proxy es el choke point de seguridad (AGENTS.md) — el rewrite va
+  DESPUÉS de los chequeos de sesión y nunca para /api ni lo público; y `DesvioMovil` deja de navegar
+  (la cubierta «se usa en la computadora» sigue para las rutas sin equivalente).
+- Se frenó al 90 % de uso semanal de la cuenta 3: no se arrancó.
+
 ## ⚠️⚠️⚠️⚠️ 12/10, mañana: Martín seguía viendo el escritorio en el celular — ARREGLADO
 
 «No aún no veo la versión mobile, me sale todo igual...». Causa: la integración había dejado FUERA del
