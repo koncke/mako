@@ -1483,4 +1483,14 @@ FEEDBACK PROBAR:
       "Llegó con la cuenta al 91 % semanal: se anotó y se dejó para la próxima ventana (o la otra cuenta), salvo lo chico.",
     ],
   },
+  {
+    fecha: "12 oct", hora: "13:20", chat: "chatbot", cuenta: "claude3",
+    actor: "martin", tipo: "prompt",
+    titulo: "Decimoquinta tanda: el título de la caja, los botones pegados en Instagram, el logo de MaKo, conectar sólo al publicar y el flujo copiado como token",
+    pedido: "1. Agrega el \"¿Qué vas a crear hoy?\", tal cual como en la imagen que te pasé.\n2. En el editor de Instagram el logo de basura y lapiz están muy separados del mensaje, lo mismo te habia pasado en WhatsApp, solucionalo.\n3. Pon la estrella de MaKo dentro de los editores de mensajes, porque pusiste una estrella que no es el logo, que es más chica y tiene una segunda estrella arriba, pon la estrella de MaKo.\n4. Si creo una tarjeta de lo que sea y no lo tengo conectado, que en ningún momento de la edición del flujo se me interrumpa saltando el desplegable de conectar X cosa... Solo cuando le intente a dar publicar, probar o manualmente me vaya a conectarlo...\n5. Elimina las opciones de \"Publicar, acomodar y centrar\" en el desplegable cuando le doy click derecho.\n6. En la animación del placeholder de \"¿Qué vas a crear hoy?\", si le doy click y me salgo o al final no escribo nada, debería seguir esa animación.\n7. Y en el botón de \"+\" en esa sección, no tiene sentido las opciones de lienzo en blanco y plantilla, si para eso ya tenemos eso abajo, ahí se debería poder cargar archivos o imagenes para que la IA lo interprete y cree flujo a raiz de eso... Y también ahí una opción para pegar el flujo que copié o me pasaron con el botón de \"Copiar flujo\".\n8. Me gustaría que al momento de copiar un flujo se cree como un ID o Token para que los usuarios se pasen ese token, y al momento de pegar eso por ejemplo en el input de texto, en lugar de ver el token debería decir \"Flujo copiado: NOMBRE DEL FLUJO\"...",
+    puntos: [
+      "La «imagen» del punto 1 es la caja del Landing Generator: el título grande «¿Qué vas a crear hoy?» y debajo la tarjeta blanca con el placeholder que se escribe solo, el «+» azul, el chip «Plan», el micrófono y el botón de enviar.",
+      "Quedó en docs/hallazgos-chatbot.md («Decimoquinta tanda») y en tests/automations-decimoquinta.test.ts. El token necesita la migración 0265 (flujo_copias): sin ella «Copiar flujo» copia el texto entero de antes.",
+    ],
+  },
 ];

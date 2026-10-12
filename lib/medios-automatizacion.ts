@@ -247,28 +247,11 @@ export function chipDeTarjeta(p: PasoGrafo, estado: EstadoMedios | null | undefi
   return { texto: e.conectado === false ? CHIP_SIN_CONECTAR : CHIP_NO_SE, medio: m, frena: e.conectado === false };
 }
 
-/**
- * Los medios cuyo «Conectar» SALTA SOLO al crear una tarjeta (duodécima tanda, decisión 10): WhatsApp (el QR),
- * Instagram y Messenger. El email no: su chip queda, y conectarlo es un dominio con DNS, no un clic.
- */
-export const MEDIOS_QUE_SALTAN: ReadonlySet<Medio> = new Set<Medio>(['whatsapp', 'instagram', 'messenger']);
-
-/**
- * EL QR SALTA AL CREAR (duodécima tanda, §2.12; Martín, 12/10/2026: «cuando creás un paso que requiera WhatsApp y
- * te diga que tu WhatsApp no está conectado, ahí que salte el QR. Que no haya ninguna fricción»).
- *
- * Salta SÓLO si la tarjeta recién creada frena Publicar: `chipDeTarjeta(...).frena`, la MISMA regla del chip
- * «Sin conectar» y de `frenoDeMedios`. Así nunca salta con «no pude comprobarlo» (`conectado: null`) ni sin la
- * lectura (`estado` null). `ofrecidos` = los medios que ya saltaron en esta visita: salta UNA vez por medio.
- * Devuelve lo que abre el modal del chip (`ConectarMedio`): el medio y, en WhatsApp, la línea de ese paso.
- */
-export function medioAConectarAlCrear(
-  paso: PasoGrafo, estado: EstadoMedios | null | undefined, lineaAutomatizacion: string | null | undefined, ofrecidos: ReadonlySet<Medio>,
-): UsoMedio | null {
-  const chip = chipDeTarjeta(paso, estado, lineaAutomatizacion);
-  if (chip?.frena !== true || !MEDIOS_QUE_SALTAN.has(chip.medio) || ofrecidos.has(chip.medio)) return null;
-  return { medio: chip.medio, linea: chip.medio === 'whatsapp' ? lineaDePaso(paso, lineaAutomatizacion) : null };
-}
+// ⛔ ACÁ VIVÍAN `MEDIOS_QUE_SALTAN` Y `medioAConectarAlCrear` (duodécima tanda, §2.12: el QR que saltaba solo al crear
+// una tarjeta de un medio sin conectar). Se fueron en la decimoquinta (12/10/2026, punto 4), Martín, textual: «que en
+// ningún momento de la edición del flujo se me interrumpa saltando el desplegable de conectar X cosa... Solo cuando le
+// intente a dar publicar, probar o manualmente me vaya a conectarlo». El modal lo abren el chip «Sin conectar»
+// (`chipDeTarjeta`), Publicar, Probar y Activar (`medioDelError`, `frenoDeMedios`). Si vuelve, es una decisión nueva.
 
 /**
  * Lo que se le pregunta al server: los medios del flujo, para no medir lo que no usa (Zernio y Meta tardan).

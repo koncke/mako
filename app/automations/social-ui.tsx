@@ -47,15 +47,22 @@ export function SimbolosSociales() {
 }
 
 /** Una burbuja como en Instagram / Messenger: la del negocio con el degradé de la app, la de la persona gris. */
-export function BurbujaSocial({ canal, saliente = true, children, compacta, lineas, style }: {
+export function BurbujaSocial({ canal, saliente = true, children, compacta, lineas, style, maxAncho }: {
   canal: CanalSocial; saliente?: boolean; children: ReactNode; compacta?: boolean;
   /** Recorta a N renglones con «…» (la tarjeta del lienzo). */
   lineas?: number;
   style?: CSSProperties;
+  /**
+   * El tope de ancho (default: 78% en la conversación, 100% en la compacta). El EDITOR pasa `100%`: ahí el tope lo pone
+   * la FILA, con el lápiz y el tacho pegados (`maxAncho` de BurbujaHilo, el mismo arreglo del WhatsApp). Decimoquinta
+   * tanda, punto 2, Martín: «En el editor de Instagram el logo de basura y lapiz están muy separados del mensaje, lo mismo
+   * te habia pasado en WhatsApp»: un 78% de una caja que se ajusta a la burbuja deja un hueco de un cuarto de fila.
+   */
+  maxAncho?: string;
 }) {
   const id = IDENTIDAD_SOCIAL[canal];
   const caja: CSSProperties = {
-    maxWidth: compacta ? '100%' : '78%', minWidth: 0, boxSizing: 'border-box',
+    maxWidth: maxAncho ?? (compacta ? '100%' : '78%'), minWidth: 0, boxSizing: 'border-box',
     padding: compacta ? '7px 11px' : '9px 14px',
     // Instagram redondea parejo; Messenger achica la esquina del lado de quien escribe.
     borderRadius: canal === 'instagram' ? 20 : saliente ? '18px 18px 5px 18px' : '18px 18px 18px 5px',
@@ -71,7 +78,7 @@ export function BurbujaSocial({ canal, saliente = true, children, compacta, line
 }
 
 /** Un archivo adentro de la conversación: la foto, o el nombre del documento con su ícono. */
-export function ArchivoSocial({ canal, url, mime, nombre, compacta, saliente = true }: { canal: CanalSocial; url: string | null; mime: string | null; nombre: string | null; compacta?: boolean; saliente?: boolean }) {
+export function ArchivoSocial({ canal, url, mime, nombre, compacta, saliente = true, maxAncho }: { canal: CanalSocial; url: string | null; mime: string | null; nombre: string | null; compacta?: boolean; saliente?: boolean; maxAncho?: string }) {
   const esImagen = (mime ?? '').startsWith('image/');
   const esVideo = (mime ?? '').startsWith('video/');
   if (url && esImagen) {
@@ -80,7 +87,7 @@ export function ArchivoSocial({ canal, url, mime, nombre, compacta, saliente = t
   }
   if (url && esVideo && !compacta) return <video src={url} controls style={{ maxWidth: 220, maxHeight: 260, borderRadius: 16, display: 'block' }} />;
   return (
-    <BurbujaSocial canal={canal} saliente={saliente} compacta={compacta}>
+    <BurbujaSocial canal={canal} saliente={saliente} compacta={compacta} maxAncho={maxAncho}>
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 600 }}>
         <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden><path d="M6 2h8l6 6v14H6z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" /><path d="M14 2v6h6" fill="none" stroke="currentColor" strokeWidth="1.8" /></svg>
         {nombre?.trim() || (esVideo ? 'Video' : 'Archivo')}

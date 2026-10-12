@@ -295,8 +295,9 @@ test('la barra vieja («Pídele un cambio» + «Agregar») ya no se monta: en su
   const galeria = sinComentarios(leer('app/automations/GaleriaPlantillas.tsx'));
   assert.doesNotMatch(galeria, /<CrearConIA\b|<ChatMako\b/);
   // Decimotercera (punto 2): la galería sólo PIDE; la fila nace en la tab y MaKo trabaja en su lienzo.
-  // Decimocuarta (punto 2): con el «+» de la caja del Landing Generator, que ofrece lo de esta pantalla (`accionesMas`).
-  assert.match(galeria, /<BarraPideselo onPedido=\{\(t\) => props\.current\.onPedirAMako\?\.\(t\)\} deshabilitado=\{creando != null\} inicial=\{p\.pedidoInicial\}\s+acciones=\{accionesMas\(!!\(copiado && p\.onPegar\)\)\} onAccion=\{alMas\} \/>/);
+  // Decimoquinta (puntos 7 y 8): el «+» es de la caja (subir un archivo, pegar un flujo); un flujo pegado se crea con
+  // «Pegar lo copiado» de la galería (`onPegar`).
+  assert.match(galeria, /<BarraPideselo onPedido=\{\(t\) => props\.current\.onPedirAMako\?\.\(t\)\} deshabilitado=\{creando != null\} inicial=\{p\.pedidoInicial\}\s+onFlujo=\{p\.onPegar \? \(t\) => props\.current\.onPegar\?\.\(t\) : undefined\} \/>/);
   // CrearConIA.tsx ya no es un componente: quedan sus exportaciones compartidas.
   const caja = sinComentarios(leer('app/automations/CrearConIA.tsx'));
   assert.doesNotMatch(caja, /export function CrearConIA\b/);

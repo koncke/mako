@@ -70,7 +70,8 @@ import { SecuenciaPerfil, type EdicionLocal } from './SecuenciaPerfil';
 import { PanelProbar, type CanalProbar } from './PanelProbar';
 import { FiltroLista, LADO_FILTRO } from './FiltroLista';
 import { disparadoresDeSecuencia, type SecuenciaConDisparadores } from './EditorDisparadores';
-import { copiaDeFlujo, textoDeCopia, type PasoCopiado } from '@/lib/flujo-copia';
+import { copiaDeFlujo, type PasoCopiado } from '@/lib/flujo-copia';
+import { copiarAlPortapapeles, textoParaCopiar } from './copia-flujo-cliente';
 import type { ProductoOpcion } from './ChatAgentApp';
 import type { AudioSetting, SecuenciaDto, Opcion } from './ChatAgentApp';
 import { TOPE_NOMBRE_SECUENCIA, nombreParaGuardar, type Objetivo } from '@/lib/setting-estrategia';
@@ -533,6 +534,9 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
    * COPIAR EL FLUJO ENTERO al portapapeles: lo que el lienzo abre (el borrador, si hay; si no, lo
    * publicado), dónde estaba cada tarjeta, sus CRON y el guion de cada audio (del otro lado el audio no
    * existe y queda como texto: decisión de Martín, «Pegar y marcar en rojo»).
+   * DECIMOQUINTA TANDA (punto 8): al portapapeles va un TOKEN corto («MAKO-FLUJO-…»), no el JSON: el server guarda la
+   * copia (`textoParaCopiar`, ./copia-flujo-cliente.ts) y pegarlo dice «Flujo copiado: <nombre>». Si el server no
+   * guarda, se copia el texto entero de siempre.
    */
   const copiarFlujo = async (j: SecuenciaDto) => {
     const guiones: Record<string, string> = {};
@@ -542,7 +546,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
       posiciones: j.posiciones ?? null, disparadores: disparadoresDeSecuencia(j as SecuenciaConDisparadores), guiones,
     });
     try {
-      await navigator.clipboard.writeText(textoDeCopia(copia));
+      await copiarAlPortapapeles(textoParaCopiar(copia, j.id));
       setCopiada(j.id);
       setTimeout(() => setCopiada((c) => (c === j.id ? null : c)), 2500);
     } catch {

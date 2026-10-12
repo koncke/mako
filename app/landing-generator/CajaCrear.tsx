@@ -15,7 +15,8 @@
 // Qué tiene, de arriba abajo (relevo gamma-ui §3, la caja de Gamma 5):
 //   · el título grande y la caja blanca (el formato que a Martín le gustó);
 //   · adentro, el pedido con el ejemplo que se ESCRIBE SOLO (`useEjemploQueSeEscribe`, el de
-//     «Nueva automatización»: para del todo al primer toque y no vuelve);
+//     «Nueva automatización»: para mientras la caja tiene el foco y vuelve si se sale sin escribir —decimoquinta
+//     tanda de Automations, punto 6—);
 //   · la fila de abajo: «+» (Importar archivo o URL · Usar plantilla · y, en una landing, Del
 //     generador anterior: los borradores de landing_drafts, `DialogoBorradores` de
 //     MiniaturaLanding.tsx, que el Panel sacó de su fila de botones), Plan | Express, el
@@ -39,7 +40,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter, useWs } from '@/app/_ui/Link';
-import { CajaPedido, CSS_CAJA_PEDIDO } from './CajaPedido';
+import { CajaPedido, CSS_CAJA_PEDIDO, TITULO_CAJA } from './CajaPedido';
 import { tarjetasDe, type JsonNodo } from '@/lib/editor-landing/doc';
 import { formatoDe } from '@/lib/editor-landing/api-tipos';
 import { temaPorId } from '@/lib/editor-landing/temas';
@@ -68,8 +69,6 @@ export default function CajaCrear({ tipoInicial = 'landing' }: PropsCajaCrear) {
   const [tipo, setTipo] = useState<TipoCrear>(tipoInicial);
   const [pedido, setPedido] = useState('');
   const [modo, setModo] = useState<'plan' | 'express'>('plan');
-  /** El ejemplo ya no se mueve: alguien tocó la caja. No vuelve. */
-  const [tocada, setTocada] = useState(false);
   const [menuMas, setMenuMas] = useState<HTMLElement | null>(null);
   const [error, setError] = useState<string | null>(null);
   /** La plantilla que se está creando (una a la vez: un doble clic no crea dos). */
@@ -95,8 +94,6 @@ export default function CajaCrear({ tipoInicial = 'landing' }: PropsCajaCrear) {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setMuestras((x) => ({ ...x, [tipo]: m }));
   }, [tipo, muestras]);
-
-  const parar = () => { if (!tocada) setTocada(true); };
 
   const enviar = () => {
     const p = pedido.trim();
@@ -144,20 +141,20 @@ export default function CajaCrear({ tipoInicial = 'landing' }: PropsCajaCrear) {
   return (
     <section className="gp-cc" aria-label="Crear">
       <style dangerouslySetInnerHTML={{ __html: CSS_TIPO + CSS_CAJA_PEDIDO + CSS_CAJA }} />
-      <h1 className="gp-cc-titulo">¿Qué vas a crear hoy?</h1>
 
       {/* LA CAJA ES CajaPedido.tsx, la MISMA del modal «Nueva automatización» de /automations (decimocuarta tanda): el
           campo con el ejemplo que se escribe solo (vuelve a empezar con la lista del tipo nuevo: `reinicio`), el
-          micrófono y el ↑. Lo de esta puerta es el «+» y «Plan | Express». */}
+          micrófono y el ↑. Lo de esta puerta es el «+» y «Plan | Express». El título también es de la caja (decimoquinta
+          tanda de Automations: va en las dos puertas), y el ejemplo vuelve a moverse si se sale sin escribir (punto 6). */}
       <CajaPedido
+        titulo={{ texto: TITULO_CAJA, nivel: 1 }}
         reinicio={tipo}
         ejemplos={EJEMPLOS_CAJA[tipo]}
         valor={pedido}
-        animar={!tocada && !pedido}
+        animar
         placeholderQuieto={PLACEHOLDER_QUIETO}
         etiqueta="Qué quieres crear"
-        onValor={(v) => { setPedido(v); parar(); }}
-        onTocar={parar}
+        onValor={setPedido}
         onEnviar={enviar}
         onError={setError}
         antes={(
@@ -239,7 +236,6 @@ export default function CajaCrear({ tipoInicial = 'landing' }: PropsCajaCrear) {
 /** Lo de la página alrededor de la caja (tokens de CSS_GP): el título, el error y las plantillas. La caja trae su hoja (CSS_CAJA_PEDIDO). */
 const CSS_CAJA = `
 .gp .gp-cc { display: flex; flex-direction: column; align-items: center; gap: 16px; width: 100%; margin: 8px 0 28px; }
-.gp .gp-cc-titulo { margin: 0; text-align: center; font-size: 34px; font-weight: 600; line-height: 1.15; letter-spacing: -0.02em; color: var(--gp-titulo); }
 .gp .gp-cc-error { max-width: 720px; margin: -6px 0 0; }
 
 .gp .gp-cc-plantillas { display: flex; flex-direction: column; gap: 12px; width: 100%; margin-top: 8px; scroll-margin-top: 16px; }
@@ -258,7 +254,6 @@ const CSS_CAJA = `
 .gp .gp-cc-desc { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 12.5px; line-height: 1.4; color: var(--gp-tenue); }
 
 @media (max-width: 760px) {
-  .gp .gp-cc-titulo { font-size: 28px; }
   .gp .gp-cc-grilla { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
 }
 `;

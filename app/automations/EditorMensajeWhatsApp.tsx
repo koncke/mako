@@ -296,8 +296,9 @@ export function usePanelMako(clave: string): boolean {
 /** El ✦ de MaKo: abre (o cierra) el panel que ayuda a escribir ESTE mensaje. */
 export function BotonMakoWhatsApp({ clave, adaptando, deshabilitado }: { clave: string; adaptando?: boolean; deshabilitado?: boolean }) {
   const abierto = usePanelMako(clave);
-  // El botón de MaKo de la casa (app/_ui/BotonMako.tsx): negro y con el recuadro estándar. Era una
-  // píldora con el logo adentro (10/10/2026: «tiene el botón de MaKo super redondeado, eso está mal»).
+  // El botón de MaKo de la casa (app/_ui/BotonMako.tsx): desde la decimoquinta tanda (punto 3) ES EL LOGO de MaKo, el
+  // mismo del botón de la cabecera, no la estrella chica con el punto arriba. Era una píldora con el logo adentro
+  // (10/10/2026: «tiene el botón de MaKo super redondeado, eso está mal»).
   return (
     <BotonMako lado={32} encendido={abierto || !!adaptando} deshabilitado={deshabilitado}
       title={adaptando ? 'MaKo lo adapta a cada persona' : 'Que MaKo te ayude a escribirlo'}

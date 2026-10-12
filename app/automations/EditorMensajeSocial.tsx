@@ -288,16 +288,21 @@ export function EditorMensajeSocial({ paso, canal, onChange, negocio, adjuntos, 
     if (p.tipo === 'media') {
       const adj = archivoDe(p.media_id);
       return (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-          <ArchivoSocial canal={canal} url={adj?.url ?? null} mime={adj?.media_mime ?? null} nombre={adj?.nombre_archivo ?? adj?.titulo ?? (biblioteca === null ? 'Cargando…' : 'Archivo')} />
-          {p.cuerpo?.trim() && <BurbujaSocial canal={canal}>{conNegocio(p.cuerpo)}</BurbujaSocial>}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, minWidth: 0, maxWidth: '100%' }}>
+          <ArchivoSocial canal={canal} maxAncho="100%" url={adj?.url ?? null} mime={adj?.media_mime ?? null} nombre={adj?.nombre_archivo ?? adj?.titulo ?? (biblioteca === null ? 'Cargando…' : 'Archivo')} />
+          {p.cuerpo?.trim() && <BurbujaSocial canal={canal} maxAncho="100%">{conNegocio(p.cuerpo)}</BurbujaSocial>}
         </div>
       );
     }
     if (p.tipo === 'audio') return <span style={{ fontSize: 12.5, color: 'var(--warn)' }}>Nota de voz: no sale por {nombreCanal}</span>;
-    return <BurbujaSocial canal={canal}>{conNegocio(p.cuerpo)}</BurbujaSocial>;
+    return <BurbujaSocial canal={canal} maxAncho="100%">{conNegocio(p.cuerpo)}</BurbujaSocial>;
   };
 
+  // ⚠️ EL LÁPIZ Y EL TACHO VAN PEGADOS A LA BURBUJA (decimoquinta tanda, punto 2: «En el editor de Instagram el logo de
+  // basura y lapiz están muy separados del mensaje, lo mismo te habia pasado en WhatsApp»). El MISMO arreglo del WhatsApp
+  // (`filaDeBurbuja`, EditorMensajeWhatsApp.tsx): la burbuja va al 100% (`maxAncho`) y el tope lo pone la caja de la fila
+  // (`flex: 0 1 auto` y el ancho menos los botones). Con el 78% de BurbujaSocial, la caja se ajustaba a la burbuja y la
+  // burbuja se encogía al 78% de eso: el hueco quedaba entre los botones y el mensaje.
   const vista = partes.length ? partes.map((p, i) => (
     <div key={i} data-parte={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6, alignSelf: 'stretch', minWidth: 0 }}>
       <div style={{ display: 'flex', gap: 4, flex: 'none' }}>
@@ -306,7 +311,7 @@ export function EditorMensajeSocial({ paso, canal, onChange, negocio, adjuntos, 
         <button type="button" disabled={ocupado} onClick={() => borrar(i)} title="Borrar" aria-label={`Borrar el mensaje ${i + 1}`}
           style={{ ...accionBurbuja, color: 'var(--bad)', borderColor: 'var(--bad)' }}><IconoBorrar size={16} /></button>
       </div>
-      <div style={{ minWidth: 0, display: 'flex', justifyContent: 'flex-end', borderRadius: 20, outline: editando === i ? '2px solid var(--primary)' : 'none', outlineOffset: 2 }}>
+      <div style={{ flex: '0 1 auto', minWidth: 0, maxWidth: 'calc(100% - 70px)', display: 'flex', justifyContent: 'flex-end', borderRadius: 20, outline: editando === i ? '2px solid var(--primary)' : 'none', outlineOffset: 2 }}>
         {burbujaDe(p)}
       </div>
     </div>

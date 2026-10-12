@@ -288,3 +288,64 @@ export function referenciasDe(pasos: readonly PasoCopiado[]): boolean {
 
 /** El id del CRON de una copia entera (para quien la crea: el nodo de inicio viaja con sus flechas). */
 export const ID_CRON_COPIA = ID_INICIO;
+
+// ── EL TOKEN (decimoquinta tanda, 12/10/2026, punto 8) ──────────────────────────────────────────
+// Martín, textual: «Me gustaría que al momento de copiar un flujo se cree como un ID o Token para que los usuarios se
+// pasen ese token, y al momento de pegar eso por ejemplo en el input de texto, en lugar de ver el token debería decir
+// "Flujo copiado: NOMBRE DEL FLUJO"...». «Copiar flujo» (el «⋯» de la lista y el click derecho del CRON) ya no pone el
+// JSON entero en el portapapeles: el server guarda la copia (tabla `flujo_copias`, mig 0265, lib/flujo-copia-negocio.ts)
+// y devuelve un TOKEN corto, que es lo que se copia y se pasa por WhatsApp. Pegarlo —en la caja de «Nueva automatización»,
+// con «Pegar un flujo» del «+», en el aviso al entrar o con Ctrl+V en un lienzo— lo resuelve el server.
+//   · Copiar TARJETAS sueltas (Ctrl+C en el lienzo) sigue siendo el texto entero: es de una pestaña a otra, al momento.
+//   · El texto entero de antes SE SIGUE LEYENDO en todos lados (`leerCopia`): hay copias circulando, y es lo que copia
+//     el botón si falta la tabla.
+
+/** El comienzo de todo token (dice qué es, también en un WhatsApp). */
+export const PREFIJO_TOKEN = 'MAKO-FLUJO-';
+/** Crockford base 32: sin I, L, O ni U (no se confunden al dictarlo ni al copiarlo a mano). 32 letras = 5 bits cada una. */
+const ALFABETO_TOKEN = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+/** Las letras al azar del token: 10 × 5 = 50 bits. */
+export const LARGO_TOKEN = 10;
+const RE_TOKEN = new RegExp(`${PREFIJO_TOKEN}([0-9A-HJKMNP-TV-Z]{${LARGO_TOKEN}})(?![0-9A-Z])`, 'i');
+
+/**
+ * Un token desde bytes al azar (el server le pasa `randomBytes(LARGO_TOKEN)`). `& 31` sobre un byte parejo es parejo
+ * (256 es múltiplo de 32). Pura para el test; con menos bytes de los que hacen falta, tira.
+ */
+export function tokenDeBytes(bytes: ArrayLike<number>): string {
+  if (bytes.length < LARGO_TOKEN) throw new Error(`tokenDeBytes: hacen falta ${LARGO_TOKEN} bytes`);
+  let s = PREFIJO_TOKEN;
+  for (let i = 0; i < LARGO_TOKEN; i++) s += ALFABETO_TOKEN[bytes[i] & 31];
+  return s;
+}
+
+/** El token que hay en un texto (pegado solo o en una frase: «te paso el flujo: MAKO-FLUJO-…»), normalizado. Si no, null. */
+export function tokenDeTexto(texto: unknown): string | null {
+  if (typeof texto !== 'string' || texto.length > TOPE_TEXTO) return null;
+  const m = RE_TOKEN.exec(texto);
+  return m ? `${PREFIJO_TOKEN}${m[1].toUpperCase()}` : null;
+}
+
+/**
+ * LO PEGADO EN LA CAJA (`onValor`): ¿trae un flujo de MaKo? Un token (sale del texto: lo demás queda escrito) o una copia
+ * entera de las de antes (el texto entero es la copia). `copia` es lo que se manda al server (`crear_desde_copia`).
+ */
+export function copiaPegada(texto: string): { copia: string; resto: string } | null {
+  const token = tokenDeTexto(texto);
+  if (token) {
+    const resto = texto.replace(new RegExp(RE_TOKEN.source, 'ig'), ' ').replace(/[ \t]{2,}/g, ' ').trim();
+    return { copia: token, resto };
+  }
+  return leerCopia(texto) ? { copia: texto, resto: '' } : null;
+}
+
+/** Lo que se dice de una copia sin abrirla: su nombre (o cuántas tarjetas), si es un flujo entero, y cuántas tarjetas. */
+export type ResumenCopia = { nombre: string; que: CopiaFlujo['que']; tarjetas: number };
+
+export function resumenDeCopia(c: CopiaFlujo): ResumenCopia {
+  const tarjetas = c.pasos.filter((p) => claseDe(p) !== 'inicio').length;
+  return { nombre: c.nombre ?? (tarjetas === 1 ? 'una tarjeta' : `${tarjetas} tarjetas`), que: c.que, tarjetas };
+}
+
+/** Lo que dice la caja en lugar del token (punto 8: «Flujo copiado: NOMBRE DEL FLUJO»). */
+export const rotuloFlujoPegado = (nombre: string): string => `Flujo copiado: ${nombre}`;

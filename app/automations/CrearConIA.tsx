@@ -25,12 +25,18 @@
 // DECIMOCUARTA TANDA (12/10/2026): `BarraPideselo` es la caja del Landing Generator (app/landing-generator/CajaPedido.tsx),
 // que escribe `EJEMPLOS` con `useEjemploQueSeEscribe`. Sin «Nace pausada».
 //
+// DECIMOQUINTA TANDA (12/10/2026): el ejemplo ya no para PARA SIEMPRE al primer toque: para mientras la caja tiene el
+// foco y vuelve si se sale sin escribir (punto 6, lo decide CajaPedido). Y el «+» de la caja sube un archivo o una
+// imagen para que MaKo arme el flujo de eso (punto 7): `pedidoConArchivo` arma el pedido y `ACCEPT_ARCHIVO_FLUJO` dice
+// qué se puede subir.
+//
 // TERCERA TANDA (09/10/2026, «Por otro lado», puntos 2 a 6, y la decisión 17 del diseño), lo que sigue valiendo en el
 // chat: el input minimalista con el micrófono del Plan (`BotonDictar`), el placeholder que escribe y borra ejemplos
 // genéricos y para del todo al primer toque, y la creación que oscurece el resto (en el lienzo) con Cancelar.
 // =============================================================================
 
 import { useEffect, useState } from 'react';
+import { EXT_POR_FAMILIA } from '@/lib/formatos-archivo';
 import type { ListoIA } from '@/lib/flujo-ia';
 import type { ExtrasEdicionIA } from '@/lib/automatizacion-chat';
 import type { PasoGrafo } from '@/lib/flujo-grafo';
@@ -82,8 +88,10 @@ const MS_QUIETA = 1900;
 
 /**
  * El ejemplo que se escribe y se borra. Arranca con el primero COMPLETO (el HTML del server y el del
- * cliente coinciden) y, con `activo` en false, deja de moverse para siempre: el primer toque a la caja
- * lo apaga y no vuelve (punto 5: «al darle click debe parar la animación completamente»). Con
+ * cliente coinciden). Con `activo` en false se QUEDA donde está; si vuelve a true, sigue desde ahí. Quién lo
+ * apaga lo decide quien lo usa: la caja de «¿Qué vas a crear hoy?» mientras tiene el foco o algo escrito
+ * (decimoquinta tanda, punto 6: «si le doy click y me salgo o al final no escribo nada, debería seguir esa
+ * animación», `seMueveElEjemplo` de CajaPedido.tsx); el AI Step, al primer toque. Con
  * `prefers-reduced-motion` no se mueve nunca.
  */
 // Exportado (AI Step v2, décima tanda): el «¿Qué tiene que lograr?» del AI Step escribe sus propios ejemplos
@@ -121,4 +129,36 @@ export function useEjemploQueSeEscribe(activo: boolean, ejemplos: readonly strin
   }, [activo, quieto, i, largo, borrando, ejemplos]);
 
   return ejemplos[i % ejemplos.length].slice(0, largo);
+}
+
+// ── Un archivo o una imagen como pedido (decimoquinta tanda, punto 7) ────────────────────────────
+
+/**
+ * Lo que entra al pedido de MaKo: el tope de la ruta (app/api/chat-agent/secuencias/ia/route.ts, `slice(0, 2000)`) y
+ * del prompt (`userDeCrear`, lib/flujo-ia.ts). Un pedido más largo se corta ahí sin avisar: se recorta ACÁ, a la vista.
+ */
+export const TOPE_PEDIDO_MAKO = 2_000;
+
+/** El pedido cuando sólo se subió el archivo, sin escribir nada. */
+export const PEDIDO_SOLO_ARCHIVO = 'Arma la automatización con lo que dice este archivo.';
+
+/**
+ * Qué se puede subir con «Subir archivo o imagen»: documentos, planillas, presentaciones y capturas (las familias de
+ * lib/formatos-archivo.ts que se leen como texto o por visión). Sin audio ni video: para hablarle a MaKo está el
+ * micrófono de la caja.
+ */
+export const ACCEPT_ARCHIVO_FLUJO = (['texto', 'docx', 'pdf', 'xlsx', 'pptx', 'opendocument', 'imagen'] as const)
+  .flatMap((f) => EXT_POR_FAMILIA[f].map((e) => `.${e}`)).join(',');
+
+/**
+ * EL PEDIDO CON UN ARCHIVO: lo escrito (o `PEDIDO_SOLO_ARCHIVO`) y, abajo, lo que dice el archivo, todo dentro de
+ * `TOPE_PEDIDO_MAKO`. Lo escrito manda: va primero y entero (hasta un tercio del tope); el archivo llena el resto y, si
+ * no entra, termina en «…». Pura y exportada para el test.
+ */
+export function pedidoConArchivo(escrito: string, archivo: { nombre: string; texto: string }, tope = TOPE_PEDIDO_MAKO): string {
+  const pedido = (escrito.trim() || PEDIDO_SOLO_ARCHIVO).slice(0, Math.floor(tope / 3));
+  const cabeza = `${pedido}\n\nEl archivo «${archivo.nombre.trim().slice(0, 80) || 'sin nombre'}»:\n`;
+  const lugar = Math.max(0, tope - cabeza.length);
+  const texto = archivo.texto.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+  return cabeza + (texto.length > lugar ? `${texto.slice(0, Math.max(0, lugar - 1))}…` : texto);
 }

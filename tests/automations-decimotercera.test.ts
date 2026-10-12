@@ -66,9 +66,9 @@ test('punto 1: el modal se pinta con display:none en su PRIMER render; la barra 
   const caja = fuente('app/landing-generator/CajaPedido.tsx');
   assert.match(caja, /if \(!t\.scrollHeight\) return;\n\s+t\.style\.height = `\$\{Math\.min\(t\.scrollHeight, 168\)\}px`;/);
   assert.match(caja, /\.gp \.gp-cc-entrada \{ display: block; width: 100%; min-height: 64px;/);
-  assert.match(CHAT, /<CajaPedido valor=\{texto\}/);
+  assert.match(CHAT, /<CajaPedido titulo=\{\{ texto: TITULO_CAJA, nivel: 2 \}\} valor=\{texto\}/);
   assert.doesNotMatch(CHAT, /t\.style\.height = `\$\{Math\.min\(t\.scrollHeight, 132\)\}px`/, 'volvió la medida sin el borde');
-  // El ejemplo se escribe en el placeholder (y para del todo al tocar: tests/crear-ia-tercera.test.ts).
+  // El ejemplo se escribe en el placeholder (para con el foco y vuelve al salir sin escribir: tests/crear-ia-tercera.test.ts).
   const html = renderToStaticMarkup(createElement(BarraPideselo, { onPedido: () => {} }));
   assert.match(html, /<textarea[^>]*placeholder="Confirmar la reunión un día antes y avisarme si no contesta"/);
   assert.match(html, /aria-label="Qué tiene que hacer la automatización"/, 'el lector de pantalla oye el ejemplo que cambia');

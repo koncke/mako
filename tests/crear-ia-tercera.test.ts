@@ -289,9 +289,8 @@ test('dibujada: la caja del Landing Generator, el primer ejemplo genérico en el
   assert.match(html, /aria-label="Dictar el pedido"/);
   assert.match(html, /<button type="submit" class="gp-cc-enviar" aria-label="Enviar" disabled=""/);
   assert.match(sinComentarios(leer('app/landing-generator/CajaPedido.tsx')), /import \{ BotonDictar \} from '@\/app\/plan\/board\/CrearTareaModal';/);
-  // Sin acciones no hay «+»; con acciones, el «+» de la casa (el desplegable) con lo que pasa quien monta.
-  assert.doesNotMatch(html, /aria-label="Agregar"/);
-  assert.match(dibujar({ acciones: [{ value: 'blanco', label: 'Lienzo en blanco' }], onAccion: () => {} }), /aria-label="Agregar"/);
+  // DECIMOQUINTA (punto 7): el «+» es de la caja, siempre (subir un archivo o una imagen; pegar un flujo, si se puede crear).
+  assert.match(html, /aria-label="Agregar"/);
   assert.doesNotMatch(html, />✦</, 'volvió la estrella de texto');
   // Lo escrito que volvió (la fila no se pudo crear): está en la barra, y el ejemplo no se mueve.
   const devuelto = dibujar({ inicial: 'Avisarme cuando alguien agenda' });
@@ -307,18 +306,19 @@ test('los ejemplos son genéricos: ni etapas, ni productos, ni nombres, y en tú
   }
 });
 
-// rotura (la animación vuelve cuando se vacía el campo: `!pedido` sin `!tocada`): 1 fallo.
-// Duodécima (romper.mjs): `!texto` sin `!tocada` → 13 / 1 (éste).
-test('el placeholder para del todo al tocar la caja, y no vuelve', () => {
-  // Desde la décima tanda en la galería («Pídeselo a MaKo»); desde la decimotercera, en `BarraPideselo`.
-  // Decimocuarta: la caja es `CajaPedido`; el ejemplo se mueve con `animar` y el primer toque (`onTocar`) lo para.
-  assert.match(CAJA, /ejemplos=\{EJEMPLOS\} animar=\{!tocada && !texto\} placeholderQuieto=\{PLACEHOLDER_QUIETO\}/);
-  assert.match(CAJA, /onTocar=\{parar\}/);
-  assert.doesNotMatch(CAJA, /setTocada\(false\)/, 'nada la vuelve a prender');
+// ⚠️ DECIMOQUINTA TANDA (12/10/2026, punto 6) DIO VUELTA ESTE TEST. Hasta la decimocuarta el ejemplo paraba PARA SIEMPRE
+// al primer toque (punto 5 de la tercera: «al darle click debe parar la animación completamente»). Martín, ahora: «si le
+// doy click y me salgo o al final no escribo nada, debería seguir esa animación». Para mientras la caja tiene el foco o
+// algo escrito, y VUELVE al salir sin escribir. Lo decide la caja (`seMueveElEjemplo`), no cada puerta (`tocada` se fue).
+// La regla ejecutada y el cableado, en tests/automations-decimoquinta.test.ts; acá, que las puertas ya no la apagan.
+test('el placeholder para mientras la caja tiene el foco, y vuelve si se sale sin escribir', () => {
+  assert.match(CAJA, /ejemplos=\{EJEMPLOS\} animar=\{!archivo\} placeholderQuieto=\{archivo \? PLACEHOLDER_ARCHIVO : PLACEHOLDER_QUIETO\}/);
+  assert.doesNotMatch(CAJA, /tocada|onTocar/, 'volvió el «para siempre» de la puerta');
+  assert.doesNotMatch(sinComentarios(leer('app/landing-generator/CajaCrear.tsx')), /tocada|onTocar/, 'la landing lo sigue apagando para siempre');
   const pedido = sinComentarios(leer('app/landing-generator/CajaPedido.tsx'));
-  assert.match(pedido, /const ejemplo = useEjemploQueSeEscribe\(animar, ejemplos\);/);
-  assert.match(pedido, /placeholder=\{animar \? ejemplo : placeholderQuieto\}/);
-  assert.match(pedido, /onPointerDown=\{onTocar\}\n\s+onFocus=\{onTocar\}/);
+  assert.match(pedido, /const ejemplo = useEjemploQueSeEscribe\(mover, ejemplos\);/);
+  assert.match(pedido, /placeholder=\{mover \? ejemplo : placeholderQuieto\}/);
+  assert.match(pedido, /mover=\{seMueveElEjemplo\(p\.animar, foco, p\.valor\)\}/);
 });
 
 // rotura (la capa adentro del componente, sin portal): 1 fallo.

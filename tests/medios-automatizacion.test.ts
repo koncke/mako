@@ -20,7 +20,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   MEDIOS, MOTIVO_MEDIO, medioDePaso, mediosQueUsa, usosDeMedios, lineaDePaso, estadoDe, faltantes, frenoDeMedios,
-  chipDeTarjeta, medioDelError, consultaDeMedios, mediosDeConsulta, medioAConectarAlCrear, MEDIOS_QUE_SALTAN, type EstadoMedios, type Medio,
+  chipDeTarjeta, medioDelError, consultaDeMedios, mediosDeConsulta, type EstadoMedios, type Medio,
 } from '../lib/medios-automatizacion';
 import type { PasoGrafo } from '../lib/flujo-grafo';
 
@@ -104,30 +104,6 @@ test('el chip de la tarjeta: «Sin conectar» (frena) o «Sin comprobar» (avisa
   assert.deepEqual(chipDeTarjeta(EMAIL, e, null), { texto: 'Sin comprobar', medio: 'email', frena: false });
   assert.equal(chipDeTarjeta(IG, e, null), null, 'no medido: sin chip');
   assert.equal(chipDeTarjeta(MAKO, e, null), null);
-});
-
-test('el QR que salta al crear (duodécima tanda) sigue la MISMA regla que el chip: sólo lo que frena', () => {
-  // Cada tarjeta contra cada lectura: salta ⇔ el chip frena, el medio es de los que saltan y no se ofreció ya.
-  const lecturas: Array<EstadoMedios | null | undefined> = [
-    null, undefined, {},
-    { whatsapp: { porDefecto: NO('whatsapp'), lineas: { mako_ws1: SI } }, email: NO('email'), instagram: NO('instagram'), messenger: NOSE },
-    { whatsapp: { porDefecto: NOSE, lineas: {} }, email: SI, instagram: SI, messenger: NO('messenger') },
-    { whatsapp: { porDefecto: SI, lineas: { mako_ws1_b: NO('whatsapp') } } },
-  ];
-  let saltos = 0;
-  for (const e of lecturas) for (const p of [WA, OFICIAL, EMAIL, IG, MS, RESPUESTA, RESPUESTA_IG, MAKO, ESPERA, OTRA_LINEA]) {
-    for (const ya of [new Set<Medio>(), new Set<Medio>(MEDIOS)]) {
-      const chip = chipDeTarjeta(p, e, null);
-      const espera = chip?.frena === true && MEDIOS_QUE_SALTAN.has(chip.medio) && !ya.has(chip.medio);
-      const r = medioAConectarAlCrear(p, e, null, ya);
-      assert.equal(r != null, espera, `${(p as { id: string }).id} con ${JSON.stringify(e)}`);
-      if (r) { saltos++; assert.equal(r.medio, chip!.medio); }
-    }
-  }
-  // 5 con la 4.ª lectura (WA, IG, los dos «Si responde» y la otra línea; el email y el Messenger «no sé», no), 1 con
-  // la 5.ª (Messenger) y 1 con la 6.ª (la otra línea). Ninguno con todo ya ofrecido.
-  assert.equal(saltos, 7, 'cambió cuántas veces salta en la grilla');
-  assert.deepEqual([...MEDIOS_QUE_SALTAN].sort(), ['instagram', 'messenger', 'whatsapp']);
 });
 
 test('el error de Publicar/Activar dice el medio, y la consulta al server viaja sólo con medios conocidos', () => {

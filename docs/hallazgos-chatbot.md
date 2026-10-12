@@ -4167,3 +4167,62 @@ otra» adentro, sin «Conectar», sin «Sin Zernio» ni el logo de la derecha) y
 - Lo visual (la caja, el chat al costado, la cabecera de Instagram) no se miró en el navegador: lo mira Martín.
 
 _12/10/2026 — cierre de la decimocuarta: typecheck en 0 errores. Áreas tocadas: 1044 / 1044 (82 archivos). Suite entera, 9066 tests: 3 rojos de la tanda (guards de la forma vieja en `medios-automatizacion` y `plantillas-automatizaciones`), ya arreglados. Quedan 3 rojos de HEAD, los mismos de la decimotercera y de otras áreas: `mover-etapa-validacion`, `plan-filtro-cliente` y `plan-proyectos-catalogo`. Roturas: 10 de 10 cazadas (`tests/automations-decimocuarta.test.ts`, al pie)._
+
+## Decimoquinta tanda (12/10/2026)
+
+El pedido (Martín, 12/10, 13:20; textual en la bitácora): el título «¿Qué vas a crear hoy?» en la caja; el lápiz y el tacho
+pegados a la burbuja en el editor de Instagram; el logo de MaKo (no la estrella chica) en los editores; que el modal de
+conectar no salte mientras se edita; sin «Publicar», «Acomodar» ni «Centrar» en el click derecho; que el ejemplo de la caja
+vuelva si se sale sin escribir; el «+» de la caja para subir un archivo o una imagen y pegar un flujo; y «Copiar flujo» como
+un TOKEN que al pegarse dice «Flujo copiado: <nombre>». Un agente solo, en `C:/dev/wt-undecima`.
+
+- **El título era de la página, no de la caja.** Vivía en `CajaCrear.tsx` (un `<h1>` suelto), así que el modal de
+  Automations recibió la caja sin él. Ahora es `titulo` de `CajaPedido` (`TITULO_CAJA`; h1 en la landing, h2 en el modal)
+  y su hoja va en `CSS_CAJA_PEDIDO`; afuera de la landing toma `--gp-titulo` de `CSS_TOKENS_CASA`. **Regla:** lo que se ve
+  en «la imagen» de una pieza compartida vive EN la pieza, no en una de las puertas.
+- ⚠️ **El hueco entre los botones y la burbuja de Instagram: el diagnóstico obvio («el `gap` de la fila») era el
+  equivocado.** `BurbujaSocial` lleva `max-width: 78%` y su caja se ajusta a la burbuja: el 78% se resuelve contra ESA
+  caja y la burbuja se encoge, dejando el hueco adentro de la caja, entre los botones y el mensaje. Es la trampa que el
+  WhatsApp ya había resuelto en la sexta (`BurbujaHilo` `maxAncho`), pero el editor social tiene su propia burbuja y no la
+  heredó. Ahora `BurbujaSocial`/`ArchivoSocial` aceptan `maxAncho` y el editor pasa `100%`, con la caja de la fila de
+  WhatsApp (`flex: 0 1 auto`, `calc(100% - 70px)`). **Regla:** una burbuja en una fila con botones va al 100%; el tope lo
+  pone la fila.
+- **«La estrella que no es el logo» era `BotonMako`:** dibujaba `MakoStar` (la chispa al 45% del lado y el punto chico
+  arriba: «una segunda estrella arriba»), y la cabecera usaba `MakoLogo`. Ahora `BotonMako` ES `MakoLogo` (la chispa sola),
+  así que cambian también los botones de MaKo del Dashboard (`NuevaHoja`, `PanelAnalista`): es la regla de la décima («el
+  logo de MaKo, que es una estrella en el centro, sin la estrella chiquita arriba»). **Regla:** un botón de MaKo es el
+  logo; `MakoStar` queda para marcas chicas en texto.
+- **Conectar sólo cuando se pide.** Se fue lo de la duodécima §2.12 (`pedirConectar` en FlujoLienzo y
+  `medioAConectarAlCrear` / `MEDIOS_QUE_SALTAN` en lib/medios-automatizacion.ts): Martín dio vuelta su propio pedido («que
+  salte el QR»). El modal lo abren el chip «Sin conectar», Publicar, Probar, Activar y «Conectar otra». **Regla:** nada se
+  abre solo mientras se edita un flujo.
+- **El click derecho:** «Centrar» lo sumaba `Lienzo.tsx` a TODO fondo (también al lienzo de la agencia) y «Publicar» /
+  «Acomodar» los sumaba FlujoLienzo. Se fueron los tres; Centrar sigue en el zoom (⤢) y Acomodar al lado del deshacer.
+- ⚠️ **El ejemplo que no volvía no era el hook.** `useEjemploQueSeEscribe` ya pausaba y retomaba; el «para siempre» era el
+  `tocada` de CADA puerta (la caja de Automations y la de la landing), una decisión de la tercera tanda («al darle click
+  debe parar la animación completamente»). Ahora lo decide la caja (`seMueveElEjemplo(animar, foco, valor)`): se mueve sin
+  el foco de la caja y vacía; el foco es el del `<form>` (con `relatedTarget`: el micrófono y el «+» también cuentan).
+- **El «+» con archivo:** POST `/api/chat-agent/secuencias/archivo` (multipart, sólo admin) lee con `archivoATexto` (una
+  imagen o un PDF escaneado, por visión; el gasto a `chatbot-crear-ia`). ⚠️ La ruta de MaKo corta el pedido a 2000 en
+  silencio (`body.pedido.trim().slice(0, 2000)`): pegar el archivo DESPUÉS de lo escrito lo perdía. `pedidoConArchivo`
+  pone lo escrito primero y recorta el archivo a la vista («…»). ⚠️ ChatMako.tsx y CrearConIA.tsx no pueden tener un
+  `method: 'POST'` (el test del único lector del stream): la subida vive en `archivo-pedido-cliente.ts`.
+- **El token** (`MAKO-FLUJO-` + 10 de Crockford, `tokenDeBytes` / `tokenDeTexto`, lib/flujo-copia.ts): la tabla
+  `flujo_copias` (mig 0265) tiene `workspace_origen`, NO `workspace_id`: con `workspace_id` iría a `TENANT_TABLES`,
+  `getTenantDb` la acotaría y el token no se leería desde otro negocio, que es para lo que existe. Sin la tabla, supabase-js
+  contesta `PGRST205` (medido en prod, sólo lectura, antes de aplicarla): la ruta da 503 con `falta` y el botón copia el
+  texto entero de antes. Pegar un token (la caja, «Pegar un flujo», el aviso al entrar, la galería, Ctrl+V en un lienzo)
+  pasa por `resolverCopia`, y lo guardado vuelve a pasar por `leerCopia`. ⚠️ Safari pierde el permiso del clic si se
+  espera un `fetch` antes de `writeText`: el token va con `ClipboardItem` y una promesa (`copiarAlPortapapeles`).
+
+**SIN HACER (con su archivo):**
+- `supabase/migrations/0265_flujo_copias.sql`: escrita, NO aplicada (la aplica la sesión principal antes del deploy).
+- `lib/flujo-copia-negocio.ts`: los tokens no vencen ni se pueden revocar (no hay pantalla para listar o borrar copias).
+- `app/automations/ChatMako.tsx` (`hiloDeChat`): un pedido con archivo se ve entero en el chat de MaKo (hasta 2000
+  caracteres), sin resumirlo a «📎 archivo».
+- `app/automations/ChatMako.tsx` (`BarraPideselo`): soltar o pegar una imagen en la caja no la sube (sólo el «+»).
+- `app/automations/FlujoLienzo.tsx`: copiar TARJETAS (Ctrl+C) sigue copiando el texto entero, no un token.
+- `app/agencia/FlujoAviso.tsx`: el click derecho del lienzo de la agencia conserva su «Acomodar» (no se pidió).
+- Lo visual (el título en el modal, los chips, el logo en los editores) no se miró en el navegador: lo mira Martín.
+
+_12/10/2026 — cierre de la decimoquinta: typecheck en 0 errores. Áreas tocadas: 1640 / 1640 (119 archivos). Roturas: 10 de 10 cazadas (`tests/automations-decimoquinta.test.ts`, al pie)._

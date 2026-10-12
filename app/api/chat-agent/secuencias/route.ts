@@ -7,8 +7,11 @@
 //        { action:'crear', etapa, nombre }                → secuencia nueva (wizard paso 1)
 //        { action:'crear_vacia', nombre? }                → automatización VACÍA y pausada → { secuenciaId, nombre }
 //        { action:'crear_desde_copia', copia }            → una automatización APAGADA con lo copiado (lib/flujo-copia.ts)
-//                                                          → { secuenciaId, nombre, aviso? }
-//        { action:'limpiar_copia', copia }                → lo pegado con Ctrl+V, sin lo que no existe acá → { pasos }
+//                                                          → { secuenciaId, nombre, aviso? }  (`copia`: el texto o un TOKEN)
+//        { action:'limpiar_copia', copia }                → lo pegado con Ctrl+V, sin lo que no existe acá → { pasos, copia }
+//        { action:'copiar_flujo', copia, secuenciaId? }   → guarda la copia de un flujo entero → { token, nombre }
+//                                                          (503 `falta` sin la mig 0265: el botón copia el texto entero)
+//        { action:'leer_copia', copia }                   → qué es lo pegado (texto o token) → { nombre, que, tarjetas }
 //        { action:'crear_desde_plantilla', plantilla, disparador? }
 //                                                          → una de la GALERÍA (lib/plantillas-automatizaciones.ts),
 //                                                            APAGADA → { secuenciaId, nombre, pide, aviso? }
@@ -80,8 +83,8 @@ import { mediosDeConsulta } from '@/lib/medios-automatizacion';
 // LA GALERÍA (10/10/2026): crear una automatización desde una plantilla. Los pasos van por
 // `setSecuenciaPasos` y el CRON por `guardarDisparadores`, las puertas de siempre (lib/plantilla-crear.ts).
 import { crearDesdePlantilla, PlantillaInvalidaError, type DbPlantilla } from '@/lib/plantilla-crear';
-import { leerCopia } from '@/lib/flujo-copia';
-import { crearDesdeCopia, limpiarCopia } from '@/lib/flujo-copia-negocio';
+import { leerCopia, resumenDeCopia } from '@/lib/flujo-copia';
+import { crearDesdeCopia, limpiarCopia, guardarCopiaConToken, resolverCopia, FaltaTablaCopiasError } from '@/lib/flujo-copia-negocio';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
@@ -219,7 +222,7 @@ export async function POST(req: NextRequest) {
     visto?: unknown;
     /** `crear_desde_plantilla`: el id de la plantilla y la etapa elegida (opcional). */
     plantilla?: unknown; disparador?: unknown;
-    /** `crear_desde_copia` / `limpiar_copia`: el TEXTO del portapapeles (lib/flujo-copia.ts). */
+    /** `crear_desde_copia` / `limpiar_copia` / `leer_copia`: el TEXTO del portapapeles o un token; `copiar_flujo`: la copia entera (lib/flujo-copia.ts). */
     copia?: unknown;
   };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
@@ -404,10 +407,36 @@ export async function POST(req: NextRequest) {
      *   · `limpiar_copia`: lo pegado con Ctrl+V en el lienzo, sin lo que no existe en este negocio. No
      *     escribe nada: el lienzo lo suma a lo que se ve y se publica como cualquier cambio.
      */
-    if (body.action === 'crear_desde_copia' || body.action === 'limpiar_copia') {
+    /**
+     * EL TOKEN (decimoquinta tanda, punto 8: «que al momento de copiar un flujo se cree como un ID o Token para que los
+     * usuarios se pasen ese token»). `copia` puede ser el texto entero o un token (`resolverCopia`, que lee la tabla
+     * `flujo_copias` de CUALQUIER negocio: para eso es el token). Sin la tabla, 503 con `falta`, que dice cuál.
+     *   · `copiar_flujo`: guarda la copia de un flujo ENTERO de ESTE negocio y contesta su token.
+     *   · `leer_copia`: qué es lo pegado, sin crear nada (la caja dice «Flujo copiado: <nombre>», el aviso al entrar).
+     */
+    if (body.action === 'copiar_flujo') {
       const copia = leerCopia(body.copia);
-      if (!copia) return Response.json({ ok: false, error: 'Eso no es un flujo copiado de MaKo.' }, { status: 400 });
-      if (body.action === 'limpiar_copia') return Response.json({ ok: true, pasos: await limpiarCopia(copia) });
+      if (!copia || copia.que !== 'flujo') return Response.json({ ok: false, error: 'Eso no es un flujo de MaKo.' }, { status: 400 });
+      const sid = Number(body.secuenciaId);
+      try {
+        const token = await guardarCopiaConToken(copia, { ws, secuenciaId: Number.isInteger(sid) && sid > 0 ? sid : null });
+        return Response.json({ ok: true, token, nombre: copia.nombre ?? '' });
+      } catch (e) {
+        if (e instanceof FaltaTablaCopiasError) return Response.json({ ok: false, falta: 'flujo_copias', error: e.message }, { status: 503 });
+        throw e;
+      }
+    }
+    if (body.action === 'leer_copia' || body.action === 'crear_desde_copia' || body.action === 'limpiar_copia') {
+      let copia;
+      try {
+        copia = await resolverCopia(body.copia);
+      } catch (e) {
+        if (e instanceof FaltaTablaCopiasError) return Response.json({ ok: false, falta: 'flujo_copias', error: e.message }, { status: 503 });
+        throw e;
+      }
+      if (!copia) return Response.json({ ok: false, error: 'No encontré ese flujo.' }, { status: 404 });
+      if (body.action === 'leer_copia') return Response.json({ ok: true, ...resumenDeCopia(copia) });
+      if (body.action === 'limpiar_copia') return Response.json({ ok: true, pasos: await limpiarCopia(copia), copia });
       try {
         const r = await crearDesdeCopia(copia);
         return Response.json({ ok: true, secuenciaId: r.id, nombre: r.nombre, ...(r.aviso ? { aviso: r.aviso } : {}) });

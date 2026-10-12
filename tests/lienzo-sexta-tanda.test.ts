@@ -229,7 +229,9 @@ test('⚠️ el chrome: el ✦ de MaKo al lado del título, «Activar» al lado 
   assert.doesNotMatch(herramientas, /Pedirle un cambio a MaKo/, 'el ✦ volvió a la fila del zoom');
   const pie = tramo(PERFIL, 'pie={(', 'editorEntrada={(', 4_000);
   assert.ok(pie.indexOf('>Activar<') >= 0 && pie.indexOf('>Activar<') < pie.indexOf("'Publicar'"), '«Activar» no está al lado de «Publicar»');
-  assert.match(PERFIL, /onPublicar=\{rolAdmin \? \(\) => void publicar\(\) : undefined\}/);
+  // ⛔ «Publicar» ya no va en el click derecho del lienzo (decimoquinta tanda, punto 5: «Elimina las opciones de
+  // "Publicar, acomodar y centrar" en el desplegable cuando le doy click derecho»): tests/automations-decimoquinta.test.ts.
+  assert.doesNotMatch(PERFIL, /onPublicar=/);
 });
 
 // ⚠️ CAMBIADO POR LA UNDÉCIMA TANDA (11/10/2026, punto 9): «elimines la separación con "MaKo en WhatsApp" que sea todo

@@ -183,8 +183,10 @@ export function Lienzo({
   onQuitarFlecha?: (a: AristaFlujo) => void;
   /**
    * EL CLICK DERECHO (sexta tanda, punto 2): las opciones en el fondo del lienzo —`punto` es dónde se
-   * hizo, en coordenadas del GRAFO (ahí nace una tarjeta suelta)— y en una tarjeta. El lienzo suma
-   * «Centrar» al del fondo. Sin ninguno de los dos, el click derecho es el del navegador (/mensajes).
+   * hizo, en coordenadas del GRAFO (ahí nace una tarjeta suelta)— y en una tarjeta. Sin ninguno de los dos, el
+   * click derecho es el del navegador (/mensajes).
+   * ⛔ «Centrar» ya no se suma al del fondo (decimoquinta tanda de Automations, 12/10/2026, punto 5: «Elimina las
+   * opciones de "Publicar, acomodar y centrar" en el desplegable cuando le doy click derecho»): vive en el zoom (⤢).
    */
   menuLienzo?: (punto: { x: number; y: number }) => ItemMenuLienzo[];
   menuNodo?: (id: string) => ItemMenuLienzo[];
@@ -657,7 +659,7 @@ export function Lienzo({
     const id = pildora ?? t.closest('[data-nodo]')?.getAttribute('data-nodo') ?? null;
     const items = id
       ? (menuNodo?.(id) ?? [])
-      : [...(menuLienzo?.(aGrafo(e.clientX, e.clientY)) ?? []), { id: 'centrar', label: 'Centrar', icono: <IconoCentrar />, grupo: 99, onElegir: () => encuadrar(true) }];
+      : (menuLienzo?.(aGrafo(e.clientX, e.clientY)) ?? []);
     if (!items.length) return;
     e.preventDefault();
     setFantasma(null);
@@ -1763,15 +1765,6 @@ const estiloPapelera: CSSProperties = {
   border: '1px solid var(--border-strong)', background: 'var(--surface)', cursor: 'pointer',
   display: 'inline-flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 3px rgba(0,0,0,.12)',
 };
-
-/** «Centrar»: el marco con sus cuatro esquinas. */
-export function IconoCentrar({ tam = 16 }: { tam?: number }) {
-  return (
-    <svg width={tam} height={tam} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" /><circle cx="12" cy="12" r="2.2" />
-    </svg>
-  );
-}
 
 /**
  * «ACOMODAR» (sexta tanda, punto 14: «pon un botón de ícono para "acomodar" todas las tarjetas»):

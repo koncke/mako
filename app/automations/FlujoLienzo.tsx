@@ -95,7 +95,7 @@ import { etiquetasDelPaso, paramsConEtiquetas } from '@/lib/editor-acciones';
 import { ALTO_PRINCIPAL } from '@/app/components/dropdown-reglas';
 import type { NombreIconoMenu } from '@/app/_ui/iconos-menu';
 import { conPosiciones, moverRelativo, fijarPosicion, congelarPosiciones, fijarVarias, type Posiciones } from '@/lib/lienzo-posiciones';
-import { leerCopia, copiaDeTarjetas, pegarTarjetas, referenciasDe, textoDeCopia, type PasoCopiado } from '@/lib/flujo-copia';
+import { leerCopia, copiaDeTarjetas, pegarTarjetas, referenciasDe, textoDeCopia, tokenDeTexto, type PasoCopiado } from '@/lib/flujo-copia';
 import type { AudioSetting, PasoSecuenciaDto, ProductoOpcion } from './ChatAgentApp';
 // Instagram y Messenger (sexta tanda, parte «canales»): su tarjeta y su editor viven aparte.
 import { esCanalSocial } from '@/lib/canal-social';
@@ -106,7 +106,7 @@ import { IconoDisparador } from './IconosDisparador';
 import { TRIGGER_AVISO_MAKO, type ClaseDisparador, type SubtipoMako } from '@/lib/disparadores';
 // El chip «Sin conectar» de una tarjeta (décima tanda, GENERAL 6) y el modal que conecta ahí mismo.
 import { ConectarMedio, useEstadoMedios } from './ConectarMedio';
-import { chipDeTarjeta, lineaDePaso, medioAConectarAlCrear, mediosQueUsa, MOTIVO_MEDIO, type Medio } from '@/lib/medios-automatizacion';
+import { chipDeTarjeta, lineaDePaso, mediosQueUsa, MOTIVO_MEDIO, type Medio } from '@/lib/medios-automatizacion';
 
 const SANS = "'Geist', sans-serif";
 
@@ -129,20 +129,13 @@ export type ParaGuion = EditorMensajeWhatsAppProps['paraGuion'];
  */
 type Biblioteca = { estado: 'ok'; lista: AdjuntoDto[] } | { estado: 'error' } | null;
 
-/**
- * Los medios cuyo «Conectar» ya SALTÓ solo en esta visita (duodécima tanda, §2.12): salta UNA vez por medio.
- * Vive en el MÓDULO y no en un ref: el lienzo se remonta al cambiar de automatización, y un ref lo volvía a
- * ofrecer en cada una (lo mismo que `guiaOfrecida`, SecuenciaPerfil.tsx). Con un F5 se vuelve a ofrecer.
- */
-const conectarOfrecido = new Set<Medio>();
-
 export function FlujoLienzo({
   pasos, disparador, secuencias, audios, negocio, rolAdmin, busy, envioAutoSecuencia,
   etiquetas, etapas, paraGuion, foco, pendientesOtraCosa,
   onPasos, onAgregar, onBorrar, onAudioNuevo, onError, onModoIA,
   chrome, herramientas, pie, editorEntrada, insetIzq, insetDer, muelles, revelar,
   onTarjetaAbierta, reservaAbajo, triggerTipo, eventoMako, productos, posiciones, onPosiciones, linea,
-  disparadores, onNuevoDisparador, onAbrirDisparador, onPublicar, puedePublicar = false, accionesTodo, secuenciaId,
+  disparadores, onNuevoDisparador, onAbrirDisparador, accionesTodo, secuenciaId,
 }: {
   /**
    * LA AUTOMATIZACIÓN que se edita (AI Step v2, décima tanda): el ensayo de un AI Step deja contestar a MaKo con
@@ -166,10 +159,6 @@ export function FlujoLienzo({
   onNuevoDisparador?: () => void;
   /** Tocar la cajita de un disparador: abre el editor del CRON en ese disparador. */
   onAbrirDisparador?: (id: string) => void;
-  /** «Publicar» desde el click derecho del lienzo (sexta tanda, punto 2: «guardar, etc...»). */
-  onPublicar?: () => void;
-  /** Hay algo que publicar: si no, la opción va apagada (como el botón). */
-  puedePublicar?: boolean;
   /**
    * EL NÚMERO DE SALIDA de la automatización y su guardado (cuarta tanda, punto 15): el mismo del
    * selector del CRON, en el editor de cada mensaje de WhatsApp. Sin esto, la fila no se dibuja.
@@ -281,26 +270,12 @@ export function FlujoLienzo({
   const usaMedios = useMemo(() => mediosQueUsa(pasos), [pasos]);
   const medios = useEstadoMedios(usaMedios);
   const [conectarMedio, setConectarMedio] = useState<{ medio: Medio; linea: string | null } | null>(null);
-  /**
-   * EL QR SALTA AL CREAR (duodécima tanda, §2.12: «cuando creás un paso que requiera WhatsApp y te diga que tu
-   * WhatsApp no está conectado, ahí que salte el QR»). Crear una tarjeta deja su id acá; el efecto lo resuelve
-   * cuando llega la lectura de SU medio (`medios` es undefined mientras se lee: la tarjeta nueva puede sumar
-   * un medio y cambiar la consulta) con `medioAConectarAlCrear`, la MISMA regla que el chip y el freno de
-   * Publicar, y abre el modal del chip. Si se cierra, queda el chip.
-   */
-  const pedirConectar = useRef<string | null>(null);
-  useEffect(() => {
-    const id = pedirConectar.current;
-    if (!id || medios === undefined) return;
-    pedirConectar.current = null;
-    const paso = pasos.find((p, i) => idDe(p, i) === id);
-    const pide = rolAdmin && paso ? medioAConectarAlCrear(paso, medios, linea?.actual ?? null, conectarOfrecido) : null;
-    if (!pide) return;
-    conectarOfrecido.add(pide.medio);
-    setConectarMedio(pide);
-    // Lo dispara la lectura o el flujo; el rol y la línea se leen al momento (el id ya se consumió).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [medios, pasos]);
+  // ⛔ EL QR YA NO SALTA AL CREAR (decimoquinta tanda, 12/10/2026, punto 4). La duodécima (§2.12) abría este modal
+  // solo, una vez por visita y por medio, al crear una tarjeta de un medio sin conectar (`pedirConectar` +
+  // `medioAConectarAlCrear`). Martín, textual: «Si creo una tarjeta de lo que sea y no lo tengo conectado, que en
+  // ningún momento de la edición del flujo se me interrumpa saltando el desplegable de conectar X cosa... Solo cuando
+  // le intente a dar publicar, probar o manualmente me vaya a conectarlo». Acá lo abre SÓLO el chip «Sin conectar» de
+  // la tarjeta (un toque de la persona); Publicar, Probar y Activar lo abren desde SecuenciaPerfil.
   /**
    * LAS TARJETAS QUE YA SE ABRIERON Y SE CERRARON (10/10/2026, condición 4: «Si cierro una condición, como
    * cualquier cosa, sin completar, debe remarcarse con rojo para identificar donde falta»). Una recién
@@ -402,7 +377,6 @@ export function FlujoLienzo({
     onPasos(() => r.pasos, true);
     ponerEn(r.id, punto.x, punto.y);
     setSel(r.id);
-    pedirConectar.current = r.id;
   };
   const duplicarTarjeta = (id: string) => {
     const r = duplicar(pasos, id);
@@ -458,7 +432,6 @@ export function FlujoLienzo({
     onPasos(() => r2.pasos, true);
     ponerEn(r2.id, punto.x, punto.y - Y_ENTRADA);
     setSel(r2.id);
-    pedirConectar.current = r2.id;
   };
   /**
    * COPIAR (Ctrl+C, el click derecho): las tarjetas, con sus flechas ENTRE ellas, dónde estaba cada una
@@ -484,19 +457,25 @@ export function FlujoLienzo({
    * PEGAR (Ctrl+V): las tarjetas copiadas —de este flujo, de otro o de otro negocio— entran SUELTAS, con
    * ids nuevos, alrededor de donde está el cursor, y quedan elegidas. Lo que no existe en este negocio lo
    * saca el server (`limpiar_copia`: decisión de Martín, «Pegar y marcar en rojo»).
+   * DECIMOQUINTA TANDA (punto 8): un TOKEN de «Copiar flujo» también se pega acá. La copia la tiene el server: la misma
+   * `limpiar_copia` la devuelve (`copia`) junto con sus tarjetas limpias.
    */
   const pegarTexto = async (texto: string, punto: { x: number; y: number }) => {
-    const copia = leerCopia(texto);
-    if (!copia || !editable) return;
-    let entrantes = copia.pasos;
-    if (referenciasDe(entrantes)) {
+    let copia = leerCopia(texto);
+    const token = copia ? null : tokenDeTexto(texto);
+    if ((!copia && !token) || !editable) return;
+    let entrantes = copia?.pasos ?? [];
+    if (token || referenciasDe(entrantes)) {
       try {
-        const r = await fetch('/api/chat-agent/secuencias', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'limpiar_copia', copia: texto }), signal: AbortSignal.timeout(30_000) });
-        const j = await r.json().catch(() => null) as { ok?: boolean; pasos?: PasoCopiado[]; error?: string } | null;
+        const r = await fetch('/api/chat-agent/secuencias', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'limpiar_copia', copia: token ?? texto }), signal: AbortSignal.timeout(30_000) });
+        const j = await r.json().catch(() => null) as { ok?: boolean; pasos?: PasoCopiado[]; copia?: unknown; error?: string } | null;
         if (!j?.ok || !Array.isArray(j.pasos)) { onError(j?.error ?? 'No se pudo pegar'); return; }
+        if (!copia) copia = leerCopia(JSON.stringify(j.copia ?? null));
+        if (!copia) { onError('No se pudo pegar'); return; }
         entrantes = j.pasos;
       } catch { onError('No se pudo pegar'); return; }
     }
+    if (!copia) return;
     const r = pegarTarjetas(pasos, { ...copia, pasos: entrantes });
     if (!r.ids.length) return;
     // Dónde va cada una: lo que traía la copia de tarjetas, o el dibujo del flujo copiado (uno entero).
@@ -538,15 +517,15 @@ export function FlujoLienzo({
     avisar('Acomodado', () => onPosiciones(antes));
   };
   const iconoMenu = (src?: string) => (src ? <img src={src} alt="" width={18} height={18} style={{ display: 'block' }} /> : undefined);
-  /** EL CLICK DERECHO EN EL FONDO (punto 2): crear cada tipo de tarjeta EN ese punto, Publicar y Acomodar. */
-  const menuLienzo = editable ? (punto: { x: number; y: number }): ItemMenuLienzo[] => [
-    ...opcionesSueltas(pasos).map((o) => ({
-      id: `crear-${o.value}`, label: o.label, grupo: o.grupo, icono: iconoMenu(o.icono),
-      onElegir: () => crearSueltaEn(o.value as QueAgregar, punto),
-    })),
-    ...(onPublicar ? [{ id: 'publicar', label: 'Publicar', grupo: 90, icono: <Icon name="check" size={16} />, deshabilitado: !puedePublicar || busy, onElegir: onPublicar }] : []),
-    ...(onPosiciones ? [{ id: 'acomodar', label: 'Acomodar', grupo: 90, icono: <IconoAcomodar />, deshabilitado: !hayPosiciones, onElegir: acomodar }] : []),
-  ] : undefined;
+  /**
+   * EL CLICK DERECHO EN EL FONDO (punto 2): crear cada tipo de tarjeta EN ese punto. ⛔ Sin «Publicar» ni «Acomodar»
+   * (decimoquinta tanda, punto 5: «Elimina las opciones de "Publicar, acomodar y centrar" en el desplegable cuando le
+   * doy click derecho»): Publicar está abajo a la derecha y Acomodar al lado del deshacer.
+   */
+  const menuLienzo = editable ? (punto: { x: number; y: number }): ItemMenuLienzo[] => opcionesSueltas(pasos).map((o) => ({
+    id: `crear-${o.value}`, label: o.label, grupo: o.grupo, icono: iconoMenu(o.icono),
+    onElegir: () => crearSueltaEn(o.value as QueAgregar, punto),
+  })) : undefined;
   /** EL CLICK DERECHO EN UNA TARJETA (punto 2): duplicar, desconectar (le saca lo que le llega) y eliminar. */
   const menuNodo = editable ? (id: string): ItemMenuLienzo[] => {
     // Con el LAZO: lo que se hace es con TODAS las elegidas.
@@ -637,7 +616,7 @@ export function FlujoLienzo({
          en la punta: el árbol la pondría al lado de donde estaba antes la de origen, lejos de ella. */
       onAgregarTras={editable ? ((id, que, puerto, punto, enElPunto) => {
         const nuevo = onAgregar!(id, puerto, que as QueAgregar);
-        if (nuevo) { setSel(nuevo); pedirConectar.current = nuevo; }
+        if (nuevo) setSel(nuevo);
         // Soltada la flecha en el vacío (general 14), la tarjeta nace DONDE se soltó.
         if (nuevo && punto && (enElPunto || posiciones?.[id])) ponerEn(nuevo, punto.x, punto.y - Y_ENTRADA);
       }) : undefined}

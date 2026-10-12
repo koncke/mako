@@ -29,8 +29,8 @@ export type OnboardingChatbot = 'hecho' | 'pendiente' | 'sin_permiso' | 'no_se_p
 // recargue, que sólo cambiaba con un 'sin_vincular' comprobado). Se fueron el 12/10/2026 con la puerta del QR
 // (duodécima tanda, §2.12): la tab ya no tiene onboarding. Martín, en la prueba con Fiesta Music: «Leandro entró a la
 // tab y lo primero que le pidió es conectar WhatsApp; vos entrás en la tab por primera vez y tenés que ver el lienzo
-// y tiene que salir el tutorial». El QR salta cuando una tarjeta lo necesita (`medioAConectarAlCrear`,
-// lib/medios-automatizacion.ts) o desde el aviso rojo de la línea (`ConectarMedio`). La regla de #745 —EL DATO GANA
+// y tiene que salir el tutorial». El QR lo abren el chip «Sin conectar» de una tarjeta, Publicar, Probar y Activar
+// (desde la decimoquinta tanda ya no salta solo al crear) o el aviso rojo de la línea (`ConectarMedio`). La regla de #745 —EL DATO GANA
 // AL TILDE— sigue en las dos funciones de abajo.
 
 /**

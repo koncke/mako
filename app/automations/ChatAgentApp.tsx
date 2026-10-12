@@ -28,7 +28,8 @@ import { SimuladorWhatsApp, listaConCreando, type AbrirSecuencia, type Creando }
 // (la lista se dibuja también sin ninguna automatización).
 import { MenuAutomations } from './ConfiguracionesBoton';
 import { GaleriaPlantillas, type CreadaGaleria } from './GaleriaPlantillas';
-import { leerCopia, firmaDeCopia } from '@/lib/flujo-copia';
+import { leerCopia, firmaDeCopia, tokenDeTexto } from '@/lib/flujo-copia';
+import { resumenDePegado } from './copia-flujo-cliente';
 // (Acá se importaba lib/chatbot-mensajes-mako.ts: el endpoint de Notificaciones y el link `?aviso=` de los
 // Mensajes de MaKo de antes. Se fue el 11/10/2026: «MaKo en WhatsApp» son automatizaciones de esta misma lista,
 // con el CRON «Evento de MaKo» — docs/diseno-mako-en-whatsapp-unificado.md.)
@@ -279,7 +280,8 @@ function ChatAgentInner() {
    * ⛔ LA TAB YA NO TIENE ONBOARDING (duodécima tanda, 12/10/2026). Hasta acá vivía `enOnboarding`: sin una línea
    * vinculada, la tab ERA el QR (Martín, 05/10: «lo único que tiene que salir es el QR»). En la prueba con Fiesta Music
    * eso fue lo primero que vio el cliente, y Martín lo dio vuelta: al entrar se ve el lienzo y el recorrido, también
-   * con cero automatizaciones, y el QR salta cuando una tarjeta lo necesita (`medioAConectarAlCrear`, FlujoLienzo).
+   * con cero automatizaciones. El QR lo abren el chip «Sin conectar» de una tarjeta, Publicar, Probar y Activar (desde la
+   * decimoquinta tanda ya no salta solo al crear una tarjeta).
    * «¿Ya cargó?» es `secuencias !== null`: mientras tanto, el spinner de «Abriendo Automations…».
    */
   /** El modal del QR que abre el aviso rojo de la línea (`ConectarMedio`), sin salir de la tab. */
@@ -467,13 +469,16 @@ function ChatAgentInner() {
     if (!rolAdmin) return;
     const mirar = () => {
       if (typeof navigator === 'undefined' || !navigator.clipboard?.readText || document.visibilityState !== 'visible') return;
-      navigator.clipboard.readText().then((t) => {
-        const c = leerCopia(t);
-        if (!c || c.que !== 'flujo') return;
+      navigator.clipboard.readText().then(async (t) => {
+        // Un TOKEN (decimoquinta tanda, punto 8) o el texto entero de antes; lo demás del portapapeles no se mira.
+        if (!tokenDeTexto(t) && !leerCopia(t)) return;
         const firma = firmaDeCopia(t);
         let vista = false;
         try { vista = localStorage.getItem('mako.copia-ofrecida') === firma; } catch { /* sin storage */ }
-        if (!vista) setOfrecerCopia({ texto: t, nombre: c.nombre ?? 'Automatización', firma });
+        if (vista) return;
+        // El nombre del token lo sabe el server (una vez por token y pestaña: `resumenDePegado`).
+        const r = await resumenDePegado(t);
+        if (r?.que === 'flujo') setOfrecerCopia({ texto: t, nombre: r.nombre, firma });
       }).catch(() => { /* sin permiso o sin foco: no se ofrece */ });
     };
     mirar();

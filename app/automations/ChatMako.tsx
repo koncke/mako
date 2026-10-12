@@ -51,14 +51,17 @@ import { transcribirNota } from '@/app/_components/useDictar';
 import { ChatHilo, type HiloMsg } from '@/app/whatsapp/_shared/ChatHilo';
 import { BurbujaHilo } from '@/app/whatsapp/_shared/BurbujaHilo';
 import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
-import { CajaPedido, CSS_CAJA_PEDIDO, CSS_TOKENS_CASA } from '@/app/landing-generator/CajaPedido';
+import { CajaPedido, ChipCaja, CSS_CAJA_PEDIDO, CSS_TOKENS_CASA, TITULO_CAJA } from '@/app/landing-generator/CajaPedido';
 import { Ico } from '@/app/landing-generator/Ico';
 import { GRAMATICA } from '@/lib/mako-gramatica';
 import { sanearChat, type MensajeChatMako, type PreguntaMako, type RespuestaMako } from '@/lib/automatizacion-chat';
 import { ordenarAvisos, rondaAbierta, respuestaMako, textoDeCreada, ELIGE_TU, OTRA_COSA, type EleccionMako, type RondaMako } from '@/lib/flujo-ia-cliente';
 import type { PasoGrafo } from '@/lib/flujo-grafo';
 import { useStreamIA, RUTA_IA, TOPE_CLIENTE_MS, TEXTO_FASE, ORDEN_FASES, type EstadoIA, type ListoStreamIA } from './stream-ia';
-import { EJEMPLOS, PLACEHOLDER_QUIETO, type ListoCrearIA } from './CrearConIA';
+import { EJEMPLOS, PLACEHOLDER_QUIETO, ACCEPT_ARCHIVO_FLUJO, pedidoConArchivo, type ListoCrearIA } from './CrearConIA';
+import { leerArchivoParaPedido } from './archivo-pedido-cliente';
+import { copiaPegada, rotuloFlujoPegado } from '@/lib/flujo-copia';
+import { resumenDePegado } from './copia-flujo-cliente';
 import { useEscucharChatMako } from './chat-mako-eventos';
 
 /** Los colores de MaKo sobre el hilo de WhatsApp (punto 6: «Solo cambiale unos colores»). */
@@ -486,13 +489,52 @@ function TextoConLink({ texto, link }: { texto: string; link?: string }) {
 
 // ── «Pídeselo a MaKo»: la caja del modal «Nueva automatización» ─────────────────────────────────────
 
+/** El «+» de la caja (decimoquinta tanda, punto 7): subir un archivo o una imagen, y pegar un flujo. */
+export const MAS_ARCHIVO = 'archivo';
+export const MAS_PEGAR = 'pegar';
+
 /**
- * LA CAJA DE «PÍDESELO A MaKo» (décima tanda, punto 6; decimotercera, puntos 1, 2 y 4; DECIMOCUARTA, puntos 1 y 2).
- * Martín, 12/10/2026, con la captura de la caja «¿Qué vas a crear hoy?» del Landing Generator: «Vuelve a crear el modal de
- * "pideselo a MaKo" y que se vea exactamente igual que en la captura... Ya lo tenemos en landing generator, copialo» y
- * «elimina el texto de "Nace pausada"». ES ESA CAJA (`CajaPedido`, app/landing-generator/CajaPedido.tsx), no una copia:
- * la tarjeta blanca, el ejemplo que se escribe solo (`EJEMPLOS`, que para del todo al primer toque), el «+» azul con lo
- * que ofrece quien monta (`acciones`), el micrófono de la casa (dicta en el campo; se lee antes de mandar) y el ↑.
+ * EL «+» DE LA CAJA (decimoquinta tanda, punto 7). Martín, textual: «en el botón de "+" en esa sección, no tiene sentido
+ * las opciones de lienzo en blanco y plantilla, si para eso ya tenemos eso abajo, ahí se debería poder cargar archivos o
+ * imagenes para que la IA lo interprete y cree flujo a raiz de eso... Y también ahí una opción para pegar el flujo que
+ * copié o me pasaron con el botón de "Copiar flujo"». «Pegar un flujo» sólo si quien monta puede crearlo (`onFlujo`).
+ * Pura y exportada para el test.
+ */
+export function accionesMas(conPegar: boolean): DropdownOption[] {
+  return [
+    { value: MAS_ARCHIVO, label: 'Subir archivo o imagen', icono: 'subir' },
+    ...(conPegar ? [{ value: MAS_PEGAR, label: 'Pegar un flujo', icono: 'copiar' as const }] : []),
+  ];
+}
+
+/** Lo que dice la caja cuando lo pegado no es un flujo (o el token no existe). */
+export const NO_ES_FLUJO = 'No encontré ese flujo.';
+/** «Pegar un flujo» sin un flujo en el portapapeles. */
+export const SIN_FLUJO_COPIADO = 'No hay un flujo copiado.';
+/** «Pegar un flujo» sin permiso para leer el portapapeles. */
+export const PEGALO_A_MANO = 'Pega el flujo en la caja (Ctrl+V).';
+/** El placeholder con un archivo adjunto (el ejemplo no se mueve: el pedido ya es el archivo). */
+export const PLACEHOLDER_ARCHIVO = 'Qué hacer con el archivo (opcional)';
+
+/** El archivo de la caja: leyéndose, leído (con su texto) o que no se pudo leer. */
+type ArchivoCaja = { nombre: string; imagen: boolean } & ({ estado: 'leyendo' } | { estado: 'listo'; texto: string } | { estado: 'error' });
+
+/**
+ * LA CAJA DE «PÍDESELO A MaKo» (décima tanda, punto 6; decimotercera, puntos 1, 2 y 4; decimocuarta, puntos 1 y 2;
+ * DECIMOQUINTA, puntos 1, 6, 7 y 8). Martín, 12/10/2026, con la captura de la caja «¿Qué vas a crear hoy?» del Landing
+ * Generator: «Vuelve a crear el modal de "pideselo a MaKo" y que se vea exactamente igual que en la captura... Ya lo
+ * tenemos en landing generator, copialo» y «elimina el texto de "Nace pausada"». ES ESA CAJA (`CajaPedido`,
+ * app/landing-generator/CajaPedido.tsx), no una copia: el título «¿Qué vas a crear hoy?» (decimoquinta, punto 1), la
+ * tarjeta blanca, el ejemplo que se escribe solo (`EJEMPLOS`: para mientras la caja tiene el foco y vuelve si se sale
+ * sin escribir, punto 6), el «+» azul, el micrófono de la casa (dicta en el campo; se lee antes de mandar) y el ↑.
+ *
+ * El «+» (decimoquinta, punto 7, `accionesMas`):
+ *   · «Subir archivo o imagen»: lo lee el server con el lector de la casa (`archivoATexto`; una imagen, por visión) y
+ *     queda como chip arriba del campo. Al enviar, va al pedido con lo escrito (`pedidoConArchivo`, ./CrearConIA.tsx).
+ *   · «Pegar un flujo»: lee el portapapeles. Lo mismo que pegar con Ctrl+V en el campo.
+ * UN FLUJO PEGADO (decimoquinta, punto 8: «en lugar de ver el token debería decir "Flujo copiado: NOMBRE DEL FLUJO"»):
+ * un token o el texto entero de una copia SALE del campo (`copiaPegada`) y en su lugar se lee «Flujo copiado: <nombre>»
+ * (el nombre lo da el server: `resumenDePegado`). El ↑ lo crea en ESTE negocio (`onFlujo`, «Pegar lo copiado»).
  *
  * ⚠️ SIN EL CHIP «Plan | Express» de la landing: acá no hay un modo que elegir (MaKo pregunta lo que le falta en el chat
  * de la fila, con botones). Un chip que no cambia nada sería inventado.
@@ -500,38 +542,99 @@ function TextoConLink({ texto, link }: { texto: string; link?: string }) {
  * NO trabaja acá: manda el pedido a quien monta (`onPedido`), que cierra el modal, crea la fila YA y abre su lienzo con el
  * chat (decimotercera, punto 2).
  */
-export function BarraPideselo({ onPedido, deshabilitado, inicial, acciones, onAccion }: {
+export function BarraPideselo({ onPedido, onFlujo, deshabilitado, inicial }: {
   onPedido: (pedido: string) => void;
+  /** Crear la automatización de un flujo pegado (el token o el texto entero). Sin esto, ni «Pegar un flujo» ni el chip. */
+  onFlujo?: (copia: string) => void;
   deshabilitado?: boolean;
   /** Lo escrito que vuelve (la fila no se pudo crear): con algo escrito, el ejemplo no se mueve. */
   inicial?: string | null;
-  /** Lo que ofrece el «+» (la galería: «Lienzo en blanco», «Usar plantilla», «Pegar lo copiado»). Sin esto, no hay «+». */
-  acciones?: readonly DropdownOption[];
-  onAccion?: (valor: string) => void;
 }) {
   const [texto, setTexto] = useState(inicial ?? '');
-  /** El ejemplo ya no se mueve: alguien tocó la caja. No vuelve. */
-  const [tocada, setTocada] = useState(!!inicial?.trim());
   const [error, setError] = useState<string | null>(null);
-  const parar = () => { if (!tocada) setTocada(true); };
-  const mandar = () => {
-    const v = texto.trim();
-    if (!v || deshabilitado) return;
+  /** El flujo pegado: lo que va al server y su nombre (null mientras el server contesta). */
+  const [flujo, setFlujo] = useState<{ copia: string; nombre: string | null } | null>(null);
+  const [archivo, setArchivo] = useState<ArchivoCaja | null>(null);
+  const vezFlujo = useRef(0);
+  const subida = useRef<AbortController | null>(null);
+  const elegirArchivo = useRef<HTMLInputElement>(null);
+  useEffect(() => () => subida.current?.abort(), []);
+
+  const quitarArchivo = () => { subida.current?.abort(); subida.current = null; setArchivo(null); };
+  const ponerFlujo = (copia: string) => {
+    const vez = ++vezFlujo.current;
+    quitarArchivo();
     setError(null);
-    onPedido(v);
+    setFlujo({ copia, nombre: null });
+    void resumenDePegado(copia).then((r) => {
+      if (vezFlujo.current !== vez) return;
+      if (!r) { setFlujo(null); setError(NO_ES_FLUJO); return; }
+      setFlujo({ copia, nombre: r.nombre });
+    });
+  };
+  const quitarFlujo = () => { vezFlujo.current++; setFlujo(null); };
+  /** Lo escrito o pegado en el campo: un flujo de MaKo sale del texto y queda como «Flujo copiado: …». */
+  const alEscribir = (v: string) => {
+    const pegado = onFlujo ? copiaPegada(v) : null;
+    if (pegado) { setTexto(pegado.resto); ponerFlujo(pegado.copia); return; }
+    setTexto(v);
+  };
+  const pegarDelPortapapeles = () => {
+    if (typeof navigator === 'undefined' || !navigator.clipboard?.readText) { setError(PEGALO_A_MANO); return; }
+    navigator.clipboard.readText().then((t) => {
+      const pegado = copiaPegada(t);
+      if (!pegado) { setError(SIN_FLUJO_COPIADO); return; }
+      ponerFlujo(pegado.copia);
+    }).catch(() => setError(PEGALO_A_MANO));
+  };
+  const subir = (file: File) => {
+    quitarFlujo();
+    quitarArchivo();
+    setError(null);
+    const base = { nombre: file.name, imagen: file.type.startsWith('image/') };
+    const ac = new AbortController();
+    subida.current = ac;
+    setArchivo({ ...base, estado: 'leyendo' });
+    void leerArchivoParaPedido(file, ac.signal).then((r) => {
+      if (ac.signal.aborted) return;
+      if (!r.ok) { setArchivo({ ...base, estado: 'error' }); setError(r.error); return; }
+      setArchivo({ ...base, estado: 'listo', texto: r.texto });
+    });
+  };
+  const alMas = (v: string) => {
+    if (v === MAS_ARCHIVO) elegirArchivo.current?.click();
+    else if (v === MAS_PEGAR) pegarDelPortapapeles();
+  };
+  /** ¿Se puede mandar? Un flujo con nombre, un archivo leído, o algo escrito (y nada leyéndose). */
+  const listo = flujo ? !!flujo.nombre : archivo ? archivo.estado === 'listo' : !!texto.trim();
+  const mandar = () => {
+    if (deshabilitado || !listo) return;
+    setError(null);
+    if (flujo) { onFlujo?.(flujo.copia); return; }
+    if (archivo?.estado === 'listo') { onPedido(pedidoConArchivo(texto, { nombre: archivo.nombre, texto: archivo.texto })); return; }
+    onPedido(texto.trim());
   };
   return (
     <div className="gp cp-casa" data-chat-mako="galeria" data-crear-ia-caja="galeria">
       <style>{CSS_TOKENS_CASA + CSS_CAJA_PEDIDO}</style>
-      <CajaPedido valor={texto} onValor={(v) => { setTexto(v); parar(); }} onEnviar={mandar}
-        ejemplos={EJEMPLOS} animar={!tocada && !texto} placeholderQuieto={PLACEHOLDER_QUIETO}
-        etiqueta="Qué tiene que hacer la automatización" onTocar={parar} deshabilitado={deshabilitado} onError={setError}
-        antes={acciones?.length && onAccion ? (
+      <CajaPedido titulo={{ texto: TITULO_CAJA, nivel: 2 }} valor={texto} onValor={alEscribir} onEnviar={mandar} listo={listo}
+        ejemplos={EJEMPLOS} animar={!archivo} placeholderQuieto={archivo ? PLACEHOLDER_ARCHIVO : PLACEHOLDER_QUIETO}
+        etiqueta="Qué tiene que hacer la automatización" deshabilitado={deshabilitado} onError={setError}
+        adjunto={archivo ? (
+          <ChipCaja icono={archivo.imagen ? 'imagen' : 'archivo'} texto={archivo.nombre} error={archivo.estado === 'error'}
+            detalle={archivo.estado === 'leyendo' ? 'Leyendo…' : null} onQuitar={quitarArchivo} etiquetaQuitar="Quitar el archivo" />
+        ) : null}
+        enLugarDelCampo={flujo ? (
+          <ChipCaja icono="flujo" texto={rotuloFlujoPegado(flujo.nombre ?? '…')} onQuitar={quitarFlujo} etiquetaQuitar="Quitar el flujo" />
+        ) : null}
+        antes={(
           <Dropdown value="" resetAfterSelect sinFlecha search={false} ariaLabel="Agregar" disabled={deshabilitado}
-            botonLabel={<Ico n="mas" t={16} />} options={[...acciones]} onChange={onAccion} menuMinAncho={240}
+            botonLabel={<Ico n="mas" t={16} />} options={accionesMas(!!onFlujo)} onChange={alMas} menuMinAncho={240}
             buttonStyle={BOTON_MAS} />
-        ) : null} />
-      {error && <p role="alert" style={{ ...S.error, margin: '8px 0 0', maxWidth: 720, width: '100%' }}>{error}</p>}
+        )} />
+      <input ref={elegirArchivo} type="file" accept={ACCEPT_ARCHIVO_FLUJO} hidden tabIndex={-1} aria-hidden
+        onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) subir(f); }} />
+      {error && <p role="alert" style={{ ...S.error, margin: '-6px 0 0', maxWidth: 720, width: '100%' }}>{error}</p>}
     </div>
   );
 }

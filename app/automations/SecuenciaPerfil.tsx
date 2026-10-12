@@ -1134,11 +1134,8 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
             <BotonPila titulo="Rehacer (Ctrl+Y)" onClick={rehacer} activo={puedeRehacer}>↷</BotonPila>
           </div>
         ) : undefined}
-        // «Publicar» también desde el click derecho del lienzo (sexta tanda, punto 2), con la MISMA
-        // función y apagado cuando el botón lo está.
-        onPublicar={rolAdmin ? () => void publicar() : undefined}
+        // ⛔ «Publicar» ya no va en el click derecho del lienzo (decimoquinta tanda, punto 5): sólo el botón.
         accionesTodo={rolAdmin && onAccionTodo ? { copiar: () => onAccionTodo('copiar'), duplicar: () => onAccionTodo('duplicar'), eliminar: () => onAccionTodo('eliminar') } : undefined}
-        puedePublicar={sinPublicar && busy !== 'save'}
         // El pie va también para quien no edita: ve si está activa (el interruptor, apagado). Lo de
         // escribir —el error, «Publicar»— es sólo del admin.
         pie={(

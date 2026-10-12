@@ -19,9 +19,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { BarraPideselo } from '../app/automations/ChatMako';
+import { BarraPideselo, accionesMas, MAS_ARCHIVO, MAS_PEGAR } from '../app/automations/ChatMako';
 import { EJEMPLOS } from '../app/automations/CrearConIA';
-import { accionesMas, MAS_BLANCO, MAS_PEGAR, MAS_PLANTILLA } from '../app/automations/GaleriaPlantillas';
 import { opcionesDeCuenta, valorDeCuenta, rotuloSinCuenta, CONECTAR_OTRA, PAGAR_ZERNIO } from '../app/automations/EditorMensajeSocial';
 import { cuentaNueva, type EstadoZernio } from '../app/automations/ConectarMedio';
 import { cuentaDelPaso, cuentaAlGuardar, conversacionDelPaso } from '../lib/canal-social';
@@ -42,19 +41,19 @@ test('puntos 1 y 2: la caja del modal es la del Landing Generator, sin «Nace pa
   assert.match(html, /class="gp-cc-enviar" aria-label="Enviar" disabled=""/);
   // La MISMA pieza en las dos puertas (no una copia): la landing y el modal importan CajaPedido.
   assert.match(fuente('app/landing-generator/CajaCrear.tsx'), /<CajaPedido\n/);
-  assert.match(fuente('app/automations/ChatMako.tsx'), /<CajaPedido valor=\{texto\}/);
+  assert.match(fuente('app/automations/ChatMako.tsx'), /<CajaPedido titulo=\{\{ texto: TITULO_CAJA, nivel: 2 \}\} valor=\{texto\}/);
   // Sin un chip «Plan | Express»: acá no hay un modo que elegir.
   assert.doesNotMatch(fuente('app/automations/ChatMako.tsx'), /Express/);
 });
 
-test('punto 2: el «+» ofrece lo que ya tiene la pantalla, y «Pegar lo copiado» sólo con algo copiado', () => {
-  assert.deepEqual(accionesMas(false).map((o) => o.value), [MAS_BLANCO, MAS_PLANTILLA]);
-  assert.deepEqual(accionesMas(true).map((o) => o.value), [MAS_BLANCO, MAS_PLANTILLA, MAS_PEGAR]);
+// ⚠️ DECIMOQUINTA (punto 7): el «+» ya no ofrece «Lienzo en blanco» ni «Usar plantilla» (están abajo): sube un archivo o
+// una imagen y pega un flujo. El detalle, en tests/automations-decimoquinta.test.ts; acá queda que el «+» es de la caja.
+test('punto 2: el «+» es de la caja: subir un archivo y, si quien monta puede crearlo, pegar un flujo', () => {
+  assert.deepEqual(accionesMas(false).map((o) => o.value), [MAS_ARCHIVO]);
+  assert.deepEqual(accionesMas(true).map((o) => o.value), [MAS_ARCHIVO, MAS_PEGAR]);
   for (const o of accionesMas(true)) assert.deepEqual(marcasDeVoseo(o.label), [], o.label);
   const galeria = fuente('app/automations/GaleriaPlantillas.tsx');
-  assert.match(galeria, /if \(v === MAS_BLANCO\) props\.current\.onBlanco\(\);/);
-  assert.match(galeria, /else if \(v === MAS_PEGAR && copiado\) props\.current\.onPegar\?\.\(copiado\.texto\);/);
-  assert.match(galeria, /else if \(v === MAS_PLANTILLA\) buscarRef\.current\?\.focus\(\);/);
+  assert.doesNotMatch(galeria, /MAS_BLANCO|MAS_PLANTILLA|buscarRef/);
 });
 
 // ── 4. Sin el chip rojo al lado de «Activar» ─────────────────────────────────────────────────────

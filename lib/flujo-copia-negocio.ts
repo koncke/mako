@@ -12,16 +12,79 @@
 //   · El CRON entra por `guardarDisparadores`. Si su etapa no existe acá (otro negocio), NO tumba nada:
 //     queda «Elige qué la dispara» y se dice (`aviso`), como en la galería.
 //   · Dónde estaba cada tarjeta, por `guardarPosicionesSecuencia` (best-effort: es el dibujo).
+//
+// EL TOKEN (decimoquinta tanda, 12/10/2026, punto 8; el formato en lib/flujo-copia.ts): «Copiar flujo» guarda la copia
+// en `flujo_copias` (mig 0265) y el portapapeles lleva sólo el token. La tabla NO es de un inquilino: la lee cualquier
+// negocio que tenga el token (por eso va con el cliente crudo, `getSupabaseServer`, y su columna es
+// `workspace_origen`, no `workspace_id`). Quien llama ya comprobó que es el admin de SU negocio (la ruta).
+//   · Sin la tabla (la migración todavía no se aplicó), `FaltaTablaCopiasError`: la ruta contesta 503 diciendo que
+//     falta y el botón copia el texto entero de antes. Un error que NO es «falta la tabla» tira tal cual.
 
 import 'server-only';
+import { randomBytes } from 'node:crypto';
 import { getTenantDb } from './workspace';
+import { getSupabaseServer } from './supabase';
 import { setSecuenciaPasos, type PasoSecuencia } from './nutricion';
 import { guardarDisparadores } from './disparadores-guardar';
 import { guardarPosicionesSecuencia, type DbPosiciones } from './secuencia-posiciones';
 import { productosConEtapas, TriggerInvalidoError } from './setting-secuencias';
 import { nombreLibre } from './plantillas-automatizaciones';
 import { emojiDeSecuencia } from './flujo-conversacion';
-import { limpiarReferencias, type CopiaFlujo, type Existentes, type PasoCopiado } from './flujo-copia';
+import { leerCopia, limpiarReferencias, tokenDeBytes, tokenDeTexto, LARGO_TOKEN, type CopiaFlujo, type Existentes, type PasoCopiado } from './flujo-copia';
+
+// ── El token: guardar y leer la copia ─────────────────────────────────────────────────────────────
+
+const TABLA_COPIAS = 'flujo_copias';
+/** Lo que se dice si la tabla no está (la ruta lo devuelve tal cual; el botón sigue con el texto entero). */
+export const FALTA_TABLA_COPIAS = 'Falta la migración 0265 (flujo_copias).';
+export class FaltaTablaCopiasError extends Error {
+  constructor() { super(FALTA_TABLA_COPIAS); this.name = 'FaltaTablaCopiasError'; }
+}
+/** La TABLA que falta (PGRST205 de PostgREST, 42P01 de Postgres), no otra cosa. */
+const faltaLaTabla = (e: { code?: string } | null | undefined): boolean => !!e && (e.code === 'PGRST205' || e.code === '42P01');
+
+/**
+ * Guarda la copia de un flujo ENTERO y devuelve su token. Cada copia es una fila nueva (el flujo como estaba al
+ * copiarse). Un choque de token (23505, 1 en 2^50) prueba otro; tres seguidos es otra cosa y tira.
+ */
+export async function guardarCopiaConToken(copia: CopiaFlujo, o: { ws: number; secuenciaId?: number | null }): Promise<string> {
+  const db = getSupabaseServer();
+  for (let intento = 0; intento < 3; intento++) {
+    const token = tokenDeBytes(randomBytes(LARGO_TOKEN));
+    const { error } = await db.from(TABLA_COPIAS).insert({
+      token, workspace_origen: o.ws, secuencia_origen: o.secuenciaId ?? null,
+      nombre: (copia.nombre ?? '').slice(0, 120), copia,
+    });
+    if (!error) return token;
+    if (faltaLaTabla(error)) throw new FaltaTablaCopiasError();
+    if (error.code !== '23505') throw new Error(`guardarCopiaConToken: ${error.message}`);
+  }
+  throw new Error('guardarCopiaConToken: tres tokens repetidos seguidos');
+}
+
+/** La copia detrás de un token, validada otra vez con `leerCopia` (lo guardado pasa por la misma vara). null = no existe. */
+export async function copiaDeToken(token: string): Promise<CopiaFlujo | null> {
+  const t = tokenDeTexto(token);
+  if (!t) return null;
+  const { data, error } = await getSupabaseServer().from(TABLA_COPIAS).select('copia').eq('token', t).maybeSingle();
+  if (error) {
+    if (faltaLaTabla(error)) throw new FaltaTablaCopiasError();
+    throw new Error(`copiaDeToken: ${error.message}`);
+  }
+  const c = (data as { copia?: unknown } | null)?.copia;
+  return c ? leerCopia(JSON.stringify(c)) : null;
+}
+
+/**
+ * LO PEGADO, sea lo que sea: el texto entero de una copia (el de antes, o tarjetas de Ctrl+C) o un token. Primero el texto
+ * entero: una copia de verdad no trae un token adentro. null = no es un flujo de MaKo, o el token no existe.
+ */
+export async function resolverCopia(texto: unknown): Promise<CopiaFlujo | null> {
+  const entera = leerCopia(texto);
+  if (entera) return entera;
+  const token = tokenDeTexto(texto);
+  return token ? copiaDeToken(token) : null;
+}
 
 /** Lo que tiene este negocio, para limpiar lo pegado. Un error de lectura TIRA: «no pude leer» no es «no hay». */
 export async function existentesDelNegocio(): Promise<Existentes> {

@@ -19,7 +19,10 @@
 //      hasta la duodécima, la caja de CrearConIA.tsx y después el chat en `modo: 'galeria'`). DECIMOTERCERA TANDA (punto
 //      2): NO trabaja acá. Al enviar, el modal se cierra y quien monta crea la fila YA, abre su lienzo y el chat de esa
 //      fila le pasa el pedido a MaKo (`onPedirAMako`, ChatAgentApp.tsx). DECIMOCUARTA TANDA (puntos 1 y 2): es la caja de
-//      «¿Qué vas a crear hoy?» del Landing Generator (`CajaPedido`), sin «Nace pausada», con su «+» (`accionesMas`).
+//      «¿Qué vas a crear hoy?» del Landing Generator (`CajaPedido`), sin «Nace pausada», con su «+». DECIMOQUINTA TANDA
+//      (puntos 1, 7 y 8): con el título «¿Qué vas a crear hoy?», y su «+» ya no repite lo de abajo («Lienzo en blanco» y
+//      «Usar plantilla» se fueron de ahí): sube un archivo o una imagen para MaKo, o pega un flujo copiado (`onFlujo`,
+//      que es «Pegar lo copiado»: crea la automatización en este negocio).
 //   2. El buscador y el filtro (Canal y Objetivo) en una fila. Lo que filtra es puro y con test
 //      (`filtrarPlantillas`, `alternarFiltroGaleria`).
 //   3. La grilla: «Lienzo en blanco» PRIMERA SIEMPRE (ningún texto ni filtro la saca), «Pegar lo copiado» si hay algo
@@ -48,7 +51,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import { Modal } from '@/app/_ui/Modal';
 import { Button } from '@/app/_ui/Button';
 import { IconoMenu, type NombreIconoMenu } from '@/app/_ui/iconos-menu';
-import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
+import { Dropdown } from '@/app/components/Dropdown';
 import { Icon } from '@/app/_components/icons';
 import {
   PLANTILLAS, seccionesParaCron, seccionesDeEtiquetas, rotuloDeEleccion, filtrarPlantillas, filtroDeValores, alternarFiltroGaleria,
@@ -56,7 +59,7 @@ import {
   type PlantillaAutomatizacion, type PideCron, type EtiquetaParaPlantilla,
 } from '@/lib/plantillas-automatizaciones';
 import type { ProductoParaDisparo } from '@/lib/flujo-conversacion';
-import { leerCopia } from '@/lib/flujo-copia';
+import { resumenDePegado } from './copia-flujo-cliente';
 import { useEtiquetasTodas } from '@/app/_components/etiquetas-cliente';
 import { BarraPideselo } from './ChatMako';
 import { CSS_NUEVO } from './NuevoPlaceholder';
@@ -85,22 +88,10 @@ export const PLACEHOLDER_BUSCAR = 'Buscar plantillas';
 /** Lo que se lee cuando ninguna plantilla pasa el filtro (queda «Lienzo en blanco»). */
 export const SIN_RESULTADOS = 'Ninguna plantilla con eso';
 
-export const MAS_BLANCO = 'blanco';
-export const MAS_PLANTILLA = 'plantilla';
-export const MAS_PEGAR = 'pegar';
-
-/**
- * EL «+» DE LA CAJA DE MaKo (decimocuarta tanda, punto 2: la caja del Landing Generator, que tiene su «+»). Ofrece lo que
- * ya está en esta pantalla, nada nuevo: «Lienzo en blanco» (la primera tarjeta), «Usar plantilla» (va al buscador) y
- * «Pegar lo copiado» sólo si hay algo copiado (como su tarjeta). Pura y exportada para el test.
- */
-export function accionesMas(hayCopiado: boolean): DropdownOption[] {
-  return [
-    { value: MAS_BLANCO, label: BLANCO.nombre, icono: 'agregar' },
-    { value: MAS_PLANTILLA, label: 'Usar plantilla', icono: 'buscar' },
-    ...(hayCopiado ? [{ value: MAS_PEGAR, label: 'Pegar lo copiado', icono: 'copiar' as const }] : []),
-  ];
-}
+// ⛔ ACÁ VIVÍA `accionesMas` (el «+» de la caja con «Lienzo en blanco», «Usar plantilla» y «Pegar lo copiado», decimocuarta
+// tanda). Decimoquinta, punto 7, Martín: «no tiene sentido las opciones de lienzo en blanco y plantilla, si para eso ya
+// tenemos eso abajo». El «+» es ahora de la caja (`accionesMas`, app/automations/ChatMako.tsx): subir un archivo o una
+// imagen, y pegar un flujo.
 
 /**
  * ¿Al elegirla hay que preguntar la etapa (o la etiqueta)? Sólo si arranca en una y hay para ofrecer: si no, nace con
@@ -164,9 +155,10 @@ export function GaleriaPlantillas(p: {
   useEffect(() => {
     if (!p.onPegar || typeof navigator === 'undefined' || !navigator.clipboard?.readText) return;
     let vivo = true;
-    navigator.clipboard.readText().then((t) => {
-      const c = leerCopia(t);
-      if (vivo && c) setCopiado({ texto: t, nombre: c.nombre ?? (c.pasos.length === 1 ? 'una tarjeta' : `${c.pasos.length} tarjetas`) });
+    // Un TOKEN o el texto entero de antes (decimoquinta tanda, punto 8): el nombre del token lo sabe el server.
+    navigator.clipboard.readText().then(async (t) => {
+      const r = await resumenDePegado(t);
+      if (vivo && r) setCopiado({ texto: t, nombre: r.nombre });
     }).catch(() => { /* sin permiso: no se ofrece */ });
     return () => { vivo = false; };
     // Una vez, al abrir.
@@ -182,8 +174,6 @@ export function GaleriaPlantillas(p: {
   const [creando, setCreando] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const enVuelo = useRef(false);
-  /** El buscador: «Usar plantilla» del «+» lo enfoca. */
-  const buscarRef = useRef<HTMLInputElement>(null);
 
   // Las props de AHORA, sin cambiarle la identidad al `onCerrar` del Modal (ver la cabecera).
   const props = useRef(p);
@@ -254,12 +244,6 @@ export function GaleriaPlantillas(p: {
 
   // ── 1. La galería ──
   const ocupado = creando != null;
-  /** El «+» de la caja de MaKo: lo MISMO que la grilla de abajo, a mano (`accionesMas`). */
-  const alMas = (v: string) => {
-    if (v === MAS_BLANCO) props.current.onBlanco();
-    else if (v === MAS_PEGAR && copiado) props.current.onPegar?.(copiado.texto);
-    else if (v === MAS_PLANTILLA) buscarRef.current?.focus();
-  };
   /** La tarjeta de una plantilla: la MISMA para todas. */
   const tarjeta = (pl: PlantillaAutomatizacion) => (
     <button key={pl.id} type="button" className="gal-tarjeta" data-plantilla={pl.id}
@@ -282,12 +266,13 @@ export function GaleriaPlantillas(p: {
         {/* 1. «Pídeselo a MaKo», a lo ancho: escribir o mandar una nota de voz (punto 6 de la décima). Desde la
             decimotercera (punto 2) la barra sólo PIDE: el modal se cierra y la fila nace YA, con su lienzo y el chat de
             MaKo trabajando adentro. Si MaKo necesita un dato, lo pregunta ahí, en el chat de esa fila. */}
-        {/* DECIMOCUARTA TANDA (puntos 1 y 2): la caja de «¿Qué vas a crear hoy?» del Landing Generator, la MISMA. Su «+»
-            ofrece lo que ya tiene esta pantalla (`accionesMas`): ninguna puerta nueva. */}
+        {/* DECIMOCUARTA TANDA (puntos 1 y 2): la caja de «¿Qué vas a crear hoy?» del Landing Generator, la MISMA.
+            DECIMOQUINTA (puntos 1, 7 y 8): con su título, y su «+» sube un archivo o una imagen, o pega un flujo copiado;
+            un flujo pegado (un token o el texto entero) se crea en ESTE negocio con «Pegar lo copiado» (`onPegar`). */}
         {p.onPedirAMako && (
           <div data-galeria-ia>
             <BarraPideselo onPedido={(t) => props.current.onPedirAMako?.(t)} deshabilitado={creando != null} inicial={p.pedidoInicial}
-              acciones={accionesMas(!!(copiado && p.onPegar))} onAccion={alMas} />
+              onFlujo={p.onPegar ? (t) => props.current.onPegar?.(t) : undefined} />
           </div>
         )}
 
@@ -295,7 +280,7 @@ export function GaleriaPlantillas(p: {
         <div data-galeria-busqueda style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <label className="gal-buscar">
             <Icon name="search" size={16} />
-            <input ref={buscarRef} value={texto} onChange={(e) => setTexto(e.target.value)} placeholder={PLACEHOLDER_BUSCAR}
+            <input value={texto} onChange={(e) => setTexto(e.target.value)} placeholder={PLACEHOLDER_BUSCAR}
               aria-label={PLACEHOLDER_BUSCAR} disabled={ocupado} />
           </label>
           <span style={{ flex: 'none', display: 'inline-flex' }} data-galeria-filtro>
