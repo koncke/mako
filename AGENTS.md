@@ -4802,6 +4802,16 @@ quedan en disco (`~/.claude/projects/<proyecto>/<sesión>/subagents/workflows/<r
 pero son megas de crudo que nadie va a abrir y que la próxima sesión ni sabe que
 existen. En la práctica: lo que no se escribe, se pierde.
 
+⚠️ **Y ese «sí quedan en disco» tiene letra chica: el DIRECTORIO sobrevive al contenido.**
+Medido el 13/10/2026 en este proyecto: los 26 directorios de workflow de una sesión estaban
+**vacíos**, los 26 con la misma fecha (alguien los barrió en una pasada), mientras otras
+sesiones conservaban **179** `journal.jsonl` y **2151** `agent-*.jsonl` con todo adentro. La
+retención no es global y un `ls` contesta que la corrida existió — que es justo la respuesta
+que apaga la búsqueda. **La cosecha se escribe en la MISMA ventana**: cuatro días después
+puede no haber nada que releer. Y ojo con la ruta, que es la mitad del error: los journals
+viven en `<sesión>/subagents/workflows/`, no en `<sesión>/workflows/` — las dos carpetas
+existen, se llaman igual, y la equivocada contesta cero sin un error.
+
 No es hipotético. Una corrida de 14 agentes sobre el formulario "¿Qué hacer ahora?"
 encontró 13 problemas reales; los 5 que quedaron fuera de alcance sobrevivieron
 únicamente porque se escribieron.
