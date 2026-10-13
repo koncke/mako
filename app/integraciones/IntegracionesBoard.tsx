@@ -29,6 +29,7 @@ import { BrandDefs, SvcIcon } from '../_components/ServicioVisual';
 import { Carrusel, EnlaceMaKo } from '../_components/PanelMarketing';
 import { SLIDES, type Slide } from '@/lib/servicio-slides';
 import type { MetaHealth } from '@/lib/meta-health-ui';
+import { AVISO_FALTAN_PERMISOS_META, FALTAN_PERMISOS_META } from '@/lib/meta-permisos';
 import { procesoLegible, proveedorLegible, modeloLegible, motivoLegible, ordenIA, IA_ORDEN, esIAdePago } from '@/lib/ia-labels';
 import type { CuotaProv } from '@/lib/ia-cuotas';
 import { TutorialAgente, CODE } from '../_components/TutorialAgente';
@@ -360,7 +361,7 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
     if (i.key === 'meta') {
       motivo = health
         ? (health.account.entregaFrenada ? 'Entrega frenada' : (health.account.disableReasonLabel || health.account.statusLabel || 'Requiere atención'))
-        : 'No se pudo leer el estado de Meta';
+        : metaError === FALTAN_PERMISOS_META ? FALTAN_PERMISOS_META : 'No se pudo leer el estado de Meta';
     } else if (i.key === 'google' && gcalIncompleta) {
       // El motivo dice QUÉ falta (no "Requiere atención", que no orienta a nadie) y
       // el botón dice el verbo que resuelve: volver a pasar por el consentimiento.
@@ -1404,7 +1405,8 @@ export function ServicioModal({ i, sev, chipWord, gcal, health, metaError, usage
     ];
     actions.push({ label: 'Abrir Ads Manager ↗', href: 'https://adsmanager.facebook.com', primary: true });
   } else if (i.key === 'meta') {
-    alerta = metaError ? `No se pudo leer el estado de Meta: ${metaError}` : null;
+    alerta = metaError === FALTAN_PERMISOS_META ? AVISO_FALTAN_PERMISOS_META
+      : metaError ? `No se pudo leer el estado de Meta: ${metaError}` : null;
   } else if (i.key === 'anthropic' || i.key === 'openai' || (i.key === 'gemini' && !!usage?.porProveedor?.find((p) => p.provider === 'gemini' && !p.gratis))) {
     // Proveedor de PAGO (Claude, OpenAI, o Gemini con créditos): TODO lo de saldo/gasto
     // y el acceso a facturación vive en el SaldoEditor de abajo (restante, cargado,

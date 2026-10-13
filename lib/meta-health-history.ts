@@ -14,6 +14,7 @@
 import 'server-only';
 import { getTenantDb } from './workspace';
 import type { MetaAccountHealth } from './meta-health';
+import { AVISO_FALTAN_PERMISOS_META, FALTAN_PERMISOS_META } from './meta-permisos';
 
 // Un problema ACTIVO ahora, tal como lo detecta quien reconcilia.
 export type ProblemaActual = {
@@ -128,14 +129,18 @@ export function problemaMeta(h: MetaAccountHealth | null, metaError: string | nu
   // `esCritico()` no lo persiga, y `confirmado` es el guard EN POSITIVO que no
   // depende de que nadie vuelva a mirar la severidad. Las dos capas de siempre.
   if (metaError) {
+    // Si Meta dijo que falta el permiso de anuncios, el incidente se llama así: es lo
+    // que hay que arreglar (lib/meta-permisos.ts). Sigue en ámbar y sin confirmar,
+    // porque del estado de la CUENTA no se sabe nada.
+    const sinPermiso = metaError === FALTAN_PERMISOS_META;
     return {
       service: 'meta',
       severidad: 'ambar',
-      statusLabel: 'No se pudo leer el estado de Meta',
+      statusLabel: sinPermiso ? FALTAN_PERMISOS_META : 'No se pudo leer el estado de Meta',
       disableReason: null,
       entregaFrenada: false,
       balanceMxn: null,
-      detalle: `No se pudo leer el estado de Meta: ${metaError}`,
+      detalle: sinPermiso ? AVISO_FALTAN_PERMISOS_META : `No se pudo leer el estado de Meta: ${metaError}`,
       confirmado: false,
     };
   }

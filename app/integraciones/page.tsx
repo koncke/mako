@@ -5,6 +5,7 @@
 // historial de estados negativos + el Saldo de IA.
 
 import { getMetaHealth, type MetaHealth } from '@/lib/meta-health';
+import { FALTAN_PERMISOS_META } from '@/lib/meta-permisos';
 import { getIntegraciones } from '@/lib/integraciones';
 import { reconciliarIncidentes, problemaMeta, getIncidentes, type ProblemaActual, type Incidente } from '@/lib/meta-health-history';
 import { integracionConectada } from '@/lib/credenciales';
@@ -41,7 +42,12 @@ export default async function IntegracionesPage() {
     const metaConectado = await integracionConectada('meta');
     health = metaConectado ? await getMetaHealth() : null;
   } catch (err) {
-    metaError = err instanceof Error ? err.message : String(err);
+    // Si Meta dijo que falta el permiso de anuncios, eso es lo que se muestra: el texto
+    // crudo de Meta («(#200) Ad account owner has NOT grant…») no orienta a nadie. Se
+    // mira el NOMBRE y no la clase: el error puede volver por la caché.
+    metaError = err instanceof Error && err.name === 'MetaHealthPermisoError'
+      ? FALTAN_PERMISOS_META
+      : err instanceof Error ? err.message : String(err);
   }
 
   // Reconciliar los incidentes (con inicio/fin) contra el estado actual. Un

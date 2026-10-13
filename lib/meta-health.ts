@@ -22,6 +22,7 @@ import { META_BALANCE_ALERTA_MXN } from './config';
 import { conversorDeGasto, desdeUnidadMeta, montoCuenta } from './presupuesto-cambio';
 import { parseRecosCuenta } from './meta-recos-cuenta';
 import { paisDeCuentaMeta } from './meta-pais';
+import { esErrorDePermisoMeta } from './meta-permisos';
 import { credWs } from './credenciales';
 import { cachedRead, TAG } from './cache';
 
@@ -73,6 +74,19 @@ export class MetaHealthTokenError extends Error {
   }
 }
 
+/**
+ * Meta contestó que la conexión no tiene permiso (códigos 10 y 200-299: falta
+ * `ads_read`/`ads_management`). Es un hecho de la conexión, no un bache: la
+ * pantalla lo nombra (lib/meta-permisos.ts). El mensaje queda igual que el de
+ * cualquier error de Meta, para no romper a quien lo lea por texto.
+ */
+export class MetaHealthPermisoError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'MetaHealthPermisoError';
+  }
+}
+
 async function graphGet(url: string, attempt = 0): Promise<GraphResponse> {
   const res = await fetch(url, { method: 'GET', cache: 'no-store' });
   let body: GraphResponse;
@@ -88,6 +102,7 @@ async function graphGet(url: string, attempt = 0): Promise<GraphResponse> {
       await sleep(1000 * 2 ** attempt);
       return graphGet(url, attempt + 1);
     }
+    if (esErrorDePermisoMeta(code)) throw new MetaHealthPermisoError(`Meta API error: ${message}`);
     throw new Error(`Meta API error: ${message}`);
   }
   if (!res.ok) throw new Error(`HTTP ${res.status} de Meta sin error body`);
