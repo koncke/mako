@@ -205,12 +205,13 @@ test('la ruta v2: árbol, alta atada al funnel, la web por la descarga SSRF-segu
   // La web del dueño sólo por lib/landing-fetch.ts: ningún fetch de URLs de usuarios en la ruta.
   assert.match(RUTA, /from '@\/lib\/landing-fetch';/);
   assert.doesNotMatch(RUTA, /\bfetch\(/);
-  // «Pega el link» lee LA página pegada: `linkParaLeer` decide antes de bajar (un link que elige la página
-  // por parámetro no se lee, porque extraerLanding le saca el querystring), y se baja lo que decidió.
+  // «Pega el link» baja LA página pegada, TAL CUAL: `linkParaLeer` le saca sólo los parámetros de
+  // seguimiento y `talCual: true` conserva el www y el querystring. Sin esa opción un `?page_id=245`
+  // bajaba la HOME —otra oferta— y la IA anotaba piezas de ahí sin que nada avisara.
   const link = funcion(RUTA, 'leerLink');
   assert.match(link, /const link = linkParaLeer\(url\);\n\s*if \(!link\.ok\) return no\(422, link\.error\);/);
   assert.ok(link.indexOf('linkParaLeer(url)') < link.indexOf('extraerLanding('), 'se decide ANTES de bajar');
-  assert.match(link, /pagina = await extraerLanding\(link\.leida\);/);
+  assert.match(link, /pagina = await extraerLanding\(link\.leida, \{ talCual: true \}\);/);
   // El error de una página sin texto no afirma una causa que no se midió, y no vosea.
   assert.doesNotMatch(link, /Abrí|se arma en el navegador|Framer|Lovable/);
   // Un documento que se pierde porque el CAS se rindió se NOMBRA (su binario ya se borró).
@@ -255,22 +256,29 @@ test('la ruta v2: árbol, alta atada al funnel, la web por la descarga SSRF-segu
 // con la prioridad vieja (gana el chat); generar sin `diagnosticoFaltante`; el turno sin `parseFlojo`;
 // `pedir` sin el flojo; el contexto con otra regla de fase que la de `faseVigenteDe`.
 // (v2: rotura generar sin `fase`; rotura el plan de la ruta sin `conDocumentosNuevos`: 1 fallo, 9 pases.)
+// (13/10: rotura `guardarFaseSiNoHay` releyendo con `getDiagnosticoFase` —tolerante— y escribiendo con
+//  `setSetting` —upsert que pisa—, que es exactamente el bug del 11/10: 1 fallo, 12 pases.)
 test('el diagnóstico de fase: se guarda en el negocio SÓLO si no había uno (insert-if-absent), con el canal del negocio, y el PDF usa la regla de los prompts', () => {
-  // El upsert del store PISA: la ruta no lo usa. «Si no había» lo decide la base.
-  assert.doesNotMatch(RUTA, /from '@\/lib\/fase-store';/);
-  assert.match(RUTA, /import \{ cambiarSettingSi, getSettingEstricto \} from '@\/lib\/settings';/);
-  // La clave es la MISMA del store (que no la exporta).
-  const claveStore = sinComentarios(leer('lib/fase-store.ts')).match(/const FASE_KEY = '([^']+)';/);
-  const claveRuta = RUTA.match(/const CLAVE_FASE = '([^']+)';/);
-  assert.ok(claveStore && claveRuta, 'no encuentro FASE_KEY o CLAVE_FASE');
-  assert.equal(claveRuta[1], claveStore[1]);
+  // El «sólo si no había» vive en el STORE, que es el dueño del setting: la ruta ya no repite la clave
+  // ni el mecanismo. Lo que no puede usar NUNCA es `setDiagnosticoFase`, que es un upsert y PISA.
+  assert.ok(RUTA.includes("import { guardarFaseSiNoHay } from '@/lib/fase-store';"), 'la ruta no importa guardarFaseSiNoHay');
+  assert.ok(!RUTA.includes('setDiagnosticoFase'), 'la ruta usa el upsert que pisa');
+  assert.ok(!RUTA.includes('CLAVE_FASE'), 'la ruta volvió a copiar la clave');
+  assert.ok(!RUTA.includes("'negocio.fase.diagnostico'"), 'la clave del setting está escrita en la ruta');
+  // El store lo hace con el insert-if-absent atómico y la relectura ESTRICTA, nunca con `getDiagnosticoFase`
+  // (que es TOLERANTE: un error de Supabase devuelve null igual que «no hay», y ahí se pisaba el bueno).
+  const STORE = sinComentarios(leer('lib/fase-store.ts'));
+  const guardar = funcion(STORE, 'guardarFaseSiNoHay');
+  assert.ok(guardar.includes('if (await cambiarSettingSi(FASE_KEY, null, JSON.stringify(d))) return d;'), guardar);
+  assert.ok(guardar.includes('const raw = await getSettingEstricto(FASE_KEY);'), guardar);
+  assert.ok(guardar.includes('const ya = parseFase(raw);'), guardar);
+  assert.ok(guardar.includes('if (raw != null && await cambiarSettingSi(FASE_KEY, raw, JSON.stringify(d))) return d;'), guardar);
+  assert.ok(!/setSetting\(|getSetting\(|getDiagnosticoFase/.test(guardar), 'el store usa una lectura tolerante o un upsert');
   const asegura = funcion(RUTA, 'asegurarFaseGuardada');
-  assert.match(asegura, /if \(ctx\.faseGuardada\) return;/);
-  assert.match(asegura, /const d: Diagnostico = \{ \.\.\.e\.diag, canal: canalParaElNegocio\(e, ctx\.funnel\) \};/);
-  assert.match(asegura, /if \(await cambiarSettingSi\(CLAVE_FASE, null, JSON\.stringify\(d\)\)\) \{ ctx\.faseGuardada = d; return; \}/);
-  assert.match(asegura, /const raw = await getSettingEstricto\(CLAVE_FASE\);\n\s*const ya = faseDeSetting\(raw\);/);
-  assert.match(asegura, /if \(raw != null && await cambiarSettingSi\(CLAVE_FASE, raw, JSON\.stringify\(d\)\)\) ctx\.faseGuardada = d;/);
-  assert.doesNotMatch(asegura, /setSetting\(|getSetting\(|getDiagnosticoFase|setDiagnosticoFase/);
+  assert.ok(asegura.includes('if (ctx.faseGuardada) return;'), asegura);
+  assert.ok(asegura.includes('const d: Diagnostico = { ...e.diag, canal: canalParaElNegocio(e, ctx.funnel) };'), asegura);
+  assert.ok(asegura.includes('const vigente = await guardarFaseSiNoHay(d);'), asegura);
+  assert.ok(asegura.includes('if (vigente) ctx.faseGuardada = vigente;'), asegura);
   // El cálculo es el de `diagnosticar` (adentro de estadoDiagnostico): la ruta no hace otra cuenta.
   assert.doesNotMatch(RUTA, /\bdiagnosticar\(/);
   // El PDF y los prompts: la MISMA regla (`faseVigenteDe`), leída después de asegurar; y lo que falta, dicho.

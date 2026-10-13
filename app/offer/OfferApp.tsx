@@ -69,7 +69,14 @@ type EstadoGeneracion = { paso: PasoGeneracion; corriendo: boolean; error: strin
 const GEN_QUIETA: EstadoGeneracion = { paso: 'diagnostico', corriendo: false, error: null };
 
 /** Una nota de voz grabada: el binario, cuánto dura y su URL `blob:` (la del reproductor mientras sale). */
-type AudioGrabado = { blob: Blob; secs: number; url: string };
+/**
+ * Una nota de voz de la barra. `path` es dónde quedó subida en Storage, y existe para que un REINTENTO
+ * no la vuelva a subir: el servidor conserva el binario a propósito cuando la IA falla («el binario NO se
+ * borra: la pantalla puede reintentar con el mismo audio»), y la pantalla lo subía de nuevo igual — cada
+ * reintento dejaba un archivo huérfano pagando en Storage. Mismo trato que los documentos, que ya se
+ * recordaban en `docsLeidos` justamente para no releerlos.
+ */
+type AudioGrabado = { blob: Blob; secs: number; url: string; path?: string };
 
 /** Lo que se manda en un turno. */
 type Envio = {
@@ -314,8 +321,14 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
       let audio: { path: string; mime: string; secs: number } | undefined;
       if (envio.audio) {
         setFuente('tu audio');
-        const mp3 = await aMp3(envio.audio.blob);
-        const path = await subirArchivo(new File([mp3], 'nota-de-voz.mp3', { type: 'audio/mpeg' }), 'audio/mpeg');
+        // Si ya se subió en un intento anterior, se reusa: el binario sigue ahí (el servidor lo conserva
+        // cuando falla la IA) y volver a subirlo deja el primero huérfano.
+        let path = envio.audio.path;
+        if (!path) {
+          const mp3 = await aMp3(envio.audio.blob);
+          path = await subirArchivo(new File([mp3], 'nota-de-voz.mp3', { type: 'audio/mpeg' }), 'audio/mpeg');
+          envio.audio.path = path;
+        }
         if (e !== epoca.current) return 'volver';
         audio = { path, mime: 'audio/mpeg', secs: Math.max(1, Math.round(envio.audio.secs)) };
       }
@@ -513,8 +526,23 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
     if (e !== epoca.current) { soltarUrl(a.url); return; }
     // Sólo un fallo que se arregla reintentando devuelve el audio a la barra. Uno rechazado como
     // definitivo (sin voz, demasiado pesado, imposible de convertir) se descarta: el motivo ya está dicho.
-    if (res === 'volver') setAudioEnEspera(a);
-    else soltarUrl(a.url);
+    if (res === 'volver') { setAudioEnEspera(a); return; }
+    // Rechazo definitivo: la grabación no vuelve, así que su binario tampoco tiene que quedar. El 422
+    // «no le entendí nada» ya lo borra en el servidor; los otros (413, 415, imposible de convertir) no.
+    // Pedir el borrado dos veces no rompe: `remove` de un path que no está no es un error.
+    soltarUrl(a.url);
+    descartarSubida(a.path);
+  };
+
+  /**
+   * Le avisa al servidor que un binario subido ya no se va a usar. No espera ni muestra nada: que un
+   * archivo quede suelto es plata, no algo que el dueño pueda arreglar, y un error acá taparía lo que
+   * sí le importa. Sin `path` no hay nada que borrar (la grabación nunca llegó a subirse).
+   * Va con `TOPE.corto`: es un borrado, no una lectura de IA.
+   */
+  const descartarSubida = (path?: string) => {
+    if (!path) return;
+    void llamarOffer({ action: 'descartar-subida', path }, TOPE.corto, '').catch(() => null);
   };
   const mandarAudio = (blob: Blob, secs: number) => { void enviarAudio({ blob, secs, url: crearUrl(blob) }); };
   const reenviarAudio = () => {
@@ -524,7 +552,7 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
     void enviarAudio(a);
   };
   const descartarAudio = () => {
-    setAudioEnEspera((a) => { if (a) soltarUrl(a.url); return null; });
+    setAudioEnEspera((a) => { if (a) { soltarUrl(a.url); descartarSubida(a.path); } return null; });
   };
 
   // ── Armar la oferta ────────────────────────────────────────────────────────

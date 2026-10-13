@@ -73,3 +73,25 @@ export function analisisCortado(estado: string | null | undefined, actualizado: 
   const t = Date.parse(actualizado);
   return Number.isFinite(t) && ahora - t > MINUTOS_CORTE_ANALISIS * 60_000;
 }
+
+/**
+ * La MISMA URL que pegó la persona, lista para bajar: se le pone el esquema si falta y se le saca el
+ * hash (que no viaja al server). **Conserva el `www.` y el querystring entero.**
+ *
+ * Es la contracara de `normalizarUrl`, y la diferencia no es un detalle: aquélla responde «¿qué LANDING
+ * es ésta?» —y para eso el query sobra, porque `?sfnsn=` y `__lovable_load_id` fabricaban una entidad
+ * nueva por visita—, y ésta responde «¿qué PÁGINA quiere que lea?». Un `?page_id=245` de un WordPress
+ * sin permalinks no es ruido de medición: ES la página. Normalizada, baja la home — otra oferta — y la
+ * IA anota piezas de ahí sin que nada avise, que es el peor desenlace posible.
+ *
+ * Lo usa `extraerLanding(url, { talCual: true })` desde Offer, donde el dueño pega el link de SU página.
+ * No se usa para la identidad de una landing: eso sigue siendo `normalizarUrl`, y mezclarlas haría
+ * aparecer la misma página como veinticuatro.
+ */
+export function urlTalCual(input: string): string {
+  const bruto = input.trim();
+  const u = new URL(/^https?:\/\//i.test(bruto) ? bruto : `https://${bruto}`);
+  u.hostname = u.hostname.toLowerCase();
+  u.hash = '';
+  return u.toString();
+}

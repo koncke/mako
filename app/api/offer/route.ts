@@ -18,6 +18,7 @@
 //                                                   también para el AUDIO del turno.
 //   · 'leer'           { sesionId|null, path, nombre, mime, funnelId? } → { sesion, doc }  (crea la sesión si
 //                                                   hace falta; baja el archivo, lo pasa a texto y BORRA el binario)
+//   · 'descartar-subida' { path } → { borrado }  (un binario que al final no se usa)
 //   · 'leer-link'      { sesionId|null, url, funnelId? } → { sesion, doc }  (baja la web con la descarga
 //                                                   SSRF-segura de lib/landing-fetch.ts y la guarda como documento)
 //   · 'turno'          { sesionId|null, texto, docIds, audio?, respuesta?, funnelId?, reintentar? } → { sesion }
@@ -65,7 +66,7 @@ import { transcribirAudio, SttSinEscucha, errorDeCascada } from '@/lib/ai-cheap'
 import { extraerLanding } from '@/lib/landing-fetch';
 import { leerFunnels } from '@/lib/funnels';
 import { listarOfertas } from '@/lib/ofertas';
-import { cambiarSettingSi, getSettingEstricto } from '@/lib/settings';
+import { guardarFaseSiNoHay } from '@/lib/fase-store';
 import type { Diagnostico } from '@/lib/fase-diagnostico';
 import { MARCA_COMPLETAR, faltanMinimas, type ConclusionOferta } from '@/lib/offer-marco';
 import {
@@ -145,22 +146,14 @@ async function validarFunnel(funnelId: number): Promise<Response | null> {
 }
 
 /**
- * La clave del diagnóstico de fase en app_settings: la MISMA que `FASE_KEY` de lib/fase-store.ts, que no la
- * exporta (tests/offer-ia-cableado.test.ts lo fija leyendo los dos fuentes). Lo correcto es una función del
- * store que guarde «sólo si no hay» — pendiente en lib/fase-store.ts, que no es de esta tab.
- */
-const CLAVE_FASE = 'negocio.fase.diagnostico';
-
-/**
  * El diagnóstico de fase de esta conversación, guardado en el negocio (es la misma entidad que el
  * onboarding) si quedó completo y el negocio NO tenía uno. Nunca tira: si no se pudo, se intenta en el
  * turno siguiente (y al armar la oferta), y el PDF lo lleva igual desde los mensajes.
  *
- * ⚠️ «Si no tenía uno» lo decide la BASE, no una lectura: `cambiarSettingSi(clave, null, …)` es un
- *    insert-if-absent atómico. Antes se releía con `getDiagnosticoFase` (tolerante: un error de Supabase es
- *    null) y se escribía con un upsert que PISA: con la base intermitente se borraba el diagnóstico que el
- *    dueño había rehecho en el onboarding, y otra pestaña que guardara en el medio perdía (revisión
- *    adversarial del 11/10/2026). Si ya había uno, se lee con la lectura ESTRICTA y manda ése.
+ * El «sólo si no había» y su porqué viven en `guardarFaseSiNoHay` (lib/fase-store.ts), que es el dueño
+ * del setting: acá estaba el mecanismo entero con la clave COPIADA, y un test vigilaba que las dos
+ * cadenas no se separaran. Lo único que decide esta función es CUÁL diagnóstico se guarda.
+ *
  * ⚠️ El canal que se guarda es el del NEGOCIO (`canalParaElNegocio`): el canal propio de un funnel
  *    secundario no es «dónde cierra la venta» de todo el negocio.
  */
@@ -170,12 +163,8 @@ async function asegurarFaseGuardada(f: FilaOffer, ctx: ContextoOffer): Promise<v
   if (!e.diag) return;
   const d: Diagnostico = { ...e.diag, canal: canalParaElNegocio(e, ctx.funnel) };
   try {
-    if (await cambiarSettingSi(CLAVE_FASE, null, JSON.stringify(d))) { ctx.faseGuardada = d; return; }
-    const raw = await getSettingEstricto(CLAVE_FASE);
-    const ya = faseDeSetting(raw);
-    if (ya) { ctx.faseGuardada = ya; return; }
-    // La fila existe pero no trae un diagnóstico (vacía o ilegible): se reemplaza sólo si sigue así.
-    if (raw != null && await cambiarSettingSi(CLAVE_FASE, raw, JSON.stringify(d))) ctx.faseGuardada = d;
+    const vigente = await guardarFaseSiNoHay(d);
+    if (vigente) ctx.faseGuardada = vigente;
   } catch (err) {
     console.error('[offer:fase] no pude guardar el diagnóstico de fase en el negocio:', msg(err));
   }
@@ -229,6 +218,20 @@ export async function POST(req: NextRequest) {
 
         case 'leer':
           return await leer(ws, body);
+
+        // Un binario subido que al final no se usa (el dueño descarta la nota de voz, o cambia de
+        // conversación mientras algo sube). Antes 'leer' era lo ÚNICO que borraba, y en esos dos
+        // caminos ya no se llamaba: el archivo quedaba suelto en Storage para siempre, pagando.
+        // Misma validación de path que 'leer': el navegador lo escribe, así que sólo se borra uno de
+        // ESTE workspace y de esta tab. Nunca falla hacia afuera — no borrar no es algo que el dueño
+        // pueda arreglar, y un error acá taparía la acción que sí le importa.
+        case 'descartar-subida': {
+          const path = cadena(body.path);
+          if (!esPathDeOffer(ws, path)) return no(400, 'Ese archivo no es de esta cuenta.');
+          const { error } = await getSupabaseServer().storage.from(BUCKET).remove([path]);
+          if (error) console.error('[offer:descartar-subida] no pude borrar', path, error.message);
+          return ok({ borrado: !error });
+        }
 
         case 'leer-link':
           return await leerLink(body);
@@ -413,17 +416,18 @@ async function leer(ws: number, body: Record<string, unknown>): Promise<Response
 async function leerLink(body: Record<string, unknown>): Promise<Response> {
   const url = cadena(body.url).slice(0, TOPE_URL);
   if (!url) return no(400, 'Pega el link de tu web o de tu landing.');
-  // ¿Lo que se va a bajar es LA página que pegó? `extraerLanding` le saca el www y el querystring: un link
-  // que elige la página por parámetro no se lee (sería OTRA página), y el www se avisa (`linkParaLeer`).
+  // Se baja LA página que pegó, tal cual: `linkParaLeer` le saca sólo los parámetros de seguimiento y
+  // `extraerLanding(..., { talCual: true })` conserva el www y el querystring. Un `?page_id=245` ES la
+  // página, no ruido de medición: normalizarlo bajaba la home y la IA anotaba piezas de otra oferta.
   const link = linkParaLeer(url);
   if (!link.ok) return no(422, link.error);
   const previo = await antesDeLeer(body);
   if (previo) return previo;
   let pagina: Awaited<ReturnType<typeof extraerLanding>>;
   try {
-    pagina = await extraerLanding(link.leida);
+    pagina = await extraerLanding(link.leida, { talCual: true });
   } catch (e) {
-    const cual = link.sinWww ? ` (MaKo la abre sin el «www.»: ${link.leida})` : '';
+    const cual = link.leida === url.trim() ? '' : ` (${link.leida})`;
     return no(422, `No pude abrir esa página${cual}: ${msg(e)} Si es privada o pide iniciar sesión, copia su texto y pégalo aquí.`);
   }
   // `bloqueada` sólo MIDE que hay poco texto en los titulares, párrafos y botones: el porqué no se sabe,
@@ -438,19 +442,22 @@ async function leerLink(body: Record<string, unknown>): Promise<Response> {
     id: randomUUID(),
     nombre: recortar(pagina.titulo ? `${pagina.titulo} (${host})` : host, 200),
     via: 'web', texto: texto.slice(0, TOPE_TEXTO_DOC), chars: texto.length,
-    ...(avisoLink(texto.length, link.sinWww ? link.leida : null) ?? {}),
+    ...(avisoLink(texto.length) ?? {}),
     at: new Date().toISOString(),
   };
   return guardarDocumento(body, doc);
 }
 
-/** El aviso del documento de un link: si se leyó sólo el principio, y cuál se leyó si fue sin el www. */
-function avisoLink(chars: number, leidaSinWww: string | null): { aviso: string } | null {
-  const partes = [
-    chars > TOPE_TEXTO_DOC ? `Leí sólo el principio (${TOPE_TEXTO_DOC.toLocaleString('es-MX')} de ${chars.toLocaleString('es-MX')} caracteres).` : '',
-    leidaSinWww ? `Leí ${leidaSinWww}, sin el «www.»: si no es tu página, copia su texto y pégalo aquí.` : '',
-  ].filter(Boolean);
-  return partes.length ? { aviso: partes.join(' ') } : null;
+/**
+ * El aviso del documento de un link: hoy, sólo si se leyó el principio.
+ *
+ * Tenía un segundo aviso —«leí la página sin el www.»— que dejó de tener sentido cuando `extraerLanding`
+ * aprendió a bajar la URL tal cual: ya no se lee una página parecida, se lee la que pegó. Un aviso que
+ * describe algo que ya no pasa es peor que ninguno.
+ */
+function avisoLink(chars: number): { aviso: string } | null {
+  if (chars <= TOPE_TEXTO_DOC) return null;
+  return { aviso: `Leí sólo el principio (${TOPE_TEXTO_DOC.toLocaleString('es-MX')} de ${chars.toLocaleString('es-MX')} caracteres).` };
 }
 
 // ── turno ────────────────────────────────────────────────────────────────────
