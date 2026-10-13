@@ -268,13 +268,16 @@ export function conInstruccionDeTarjeta<T>(out: T): T {
 
 /** Lo que dice MaKo cuando una acción dejó un borrador del plan: el estado de un dato no
  *  depende de cómo le salió la frase al modelo (lib/respuesta-doer.ts, `mensajeBorrador`).
- *  Sin link: en el teléfono la fila de abajo lleva a Inbox. */
-export const MENSAJE_BORRADOR_APP = 'Listo, te armé el borrador. Todavía no está cargado: revísalo y confírmalo en Inbox.';
+ *  Sin link: lo que se revisa va ABAJO del mensaje, en el teléfono como una fila que lleva a
+ *  Inbox y en la ficha de escritorio (MaKo Analyst) como «Abrir para revisar».
+ *  ⚠️ «confírmalo en Inbox» salía también en la ficha de escritorio, donde Inbox no existe
+ *  (13/10/2026): «abajo» es verdad en las dos. */
+export const MENSAJE_BORRADOR_APP = 'Listo, te armé el borrador. Todavía no está cargado: revísalo y confírmalo abajo.';
 
 /** Lo mismo para la ficha de un lead: NO está en el CRM hasta que alguien la confirma. */
 export function mensajeLeadApp(nombre: string | null | undefined): string {
   const quien = (nombre ?? '').trim();
-  return `Preparé la ficha${quien ? ` de ${quien}` : ''} para el CRM. Todavía no está cargada: revísala y confírmala en Inbox.`;
+  return `Preparé la ficha${quien ? ` de ${quien}` : ''} para el CRM. Todavía no está cargada: revísala y confírmala abajo.`;
 }
 
 /** Lo que queda en el hilo cuando la acción quedó lista y el modelo no escribió nada. */
