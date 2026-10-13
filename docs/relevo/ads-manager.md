@@ -30,6 +30,8 @@ las 19:20 murió sin memoria con el tope de 2 GB; lo está arreglando la sesión
 |---|---|
 | `47fdde66` | Las monedas sin centavos (COP, CLP, JPY…): leer, escribir y crear presupuestos con la unidad de cada moneda (`offsetMeta`, `lib/presupuesto-cambio.ts`); escribir sin saber la moneda se niega (503). Y `EntityDetalle.tsx` ya no escribe «MXN» a mano |
 | `e4fb140b` | Un conjunto, anuncio o campaña de OTRA cuenta de Meta no se lee ni se escribe (404): público, textos, datos de campaña y `metaWrite` (pausar/presupuesto/renombrar/borrar). Regla: `esDeLaCuenta` (`lib/meta-cuenta-id.ts`) |
+| `81e80fb2` | La bitácora y `docs/hallazgos-ads.md` ya no mandan a «aplicar la 0215»: medido de nuevo el 13/10, está aplicada (0 de 19 borradores con clave) |
+| `c2ffe6a8` | Los lotes (pausar, activar, presupuesto) salen a Meta de a 4, no todos juntos |
 
 ---
 
@@ -142,8 +144,9 @@ Y dos cosas que pasaron **fuera del repo** y mandan en el área:
 - **Dos defaults para la misma moneda:** `computeAccountHealth` y `HEALTH_SIN_CONEXION` inventan
   `'MXN'` si Meta no manda `currency`; el wizard cae a `'USD'`. Riesgo bajo, pero el cartel no
   distingue una moneda medida de un default.
-- **El lote escribe en paralelo** (`Promise.allSettled`): con muchas filas puede chocar con el rate
-  limit de Meta. No medido.
+- ✅ **CERRADO el 13/10 (`c2ffe6a8`): el lote sale de a 4** (`allSettledConTope`,
+  `lib/settled-con-tope.ts`), no todo junto. No baja el TOTAL de llamadas: un lote enorme puede
+  agotar el cupo de Meta igual, y el error sigue saliendo por fila. No medido contra Meta.
 
 ### Lo que NUNCA se probó contra Meta de verdad
 
