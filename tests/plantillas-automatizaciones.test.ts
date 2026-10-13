@@ -113,6 +113,8 @@ const LAS_13: ReadonlyArray<readonly [id: string, nombre: string, objetivo: Obje
   ['lead-no-asistio', 'Un Lead No Asistió', 'recuperar'],
   ['lead-tuvo-reunion', 'Un Lead Tuvo la Reunión', 'vender'],
   ['lead-confirmo-compra', 'Un Lead Confirmó la Compra', 'cobrar'],
+  // El plazo de una etapa (12/10/2026: los plazos del CRM pasan a una plantilla).
+  ['lead-no-avanzo', 'Un Lead No Avanzó', 'recuperar'],
   ['cliente-empezo', 'Un Cliente Empezó', 'clientes'],
   ['mako-cobranza', 'Una Cuota Venció', 'cobrar'],
   ['mako-pago', 'Entró un Pago', 'cobrar'],
@@ -743,7 +745,7 @@ test('la etapa se pregunta sólo si hay etapas de ese kanban para ofrecer; una d
 /** POR DÓNDE SALE CADA UNA, A MANO leyendo sus tarjetas (deducido de `canalesDe` daría verde sobre la función rota). */
 const CANALES: Readonly<Record<string, readonly CanalPlantilla[]>> = {
   'lead-entro': ['whatsapp', 'email', 'mako'], 'lead-agendo': ['whatsapp', 'email', 'mako'], 'lead-no-asistio': ['whatsapp', 'email', 'mako'],
-  'lead-tuvo-reunion': ['whatsapp', 'mako'], 'lead-confirmo-compra': ['whatsapp', 'mako'], 'cliente-empezo': ['whatsapp', 'email'],
+  'lead-tuvo-reunion': ['whatsapp', 'mako'], 'lead-confirmo-compra': ['whatsapp', 'mako'], 'lead-no-avanzo': ['mako'], 'cliente-empezo': ['whatsapp', 'email'],
   'mako-cobranza': ['mako'], 'mako-pago': ['mako'], 'mako-charla': ['mako'],
   'instagram-te-escribieron': ['instagram', 'mako'], 'messenger-te-escribieron': ['messenger', 'mako'], 'email-recibido': ['email', 'mako'],
   'email-newsletter': ['email'],

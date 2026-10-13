@@ -254,6 +254,8 @@ const RECIENTE: FilaCondicion = { campo: 'antiguedad', valor: 72 };
  * salir»).
  */
 const REUNION_POR_DELANTE: FilaCondicion = { campo: 'reunion_en', op: 'menor_igual', valor: 720 };
+/** «Sigue en la etapa del CRON»: la etapa la dice el CRON de la automatización (lib/condiciones-catalogo.ts). */
+const SIGUE_EN_LA_ETAPA: FilaCondicion = { campo: 'sigue_en_etapa_cron' };
 
 const HORA = 60;
 const DIA = 24 * HORA;
@@ -409,6 +411,26 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
       condicion('lc_c2', [[[NO_PAGO], 'lc_mk']], null),
       mako('lc_mk', 'Confirmó la compra hace 3 días y todavía no pagó: {{nombre_completo}}.\n👉 {{link_lead}}', null),
       aiStep('lc_ia', { objetivo: 'Que complete el pago', casos: [['ya-pago', 'lc_c_pago'], ['problema-pago', 'lc_c_problema'], ['no-quiere-comprar', 'lc_c_no']] }),
+    ],
+  },
+  {
+    // (5b) EL PLAZO DE UNA ETAPA (12/10/2026, pedido de Martín reenviado por el chat CRM: «Si, pasa a una automatización
+    // eso de los plazos... Y ponlo como template en automations»). Era el plazo por etapa del CRM
+    // (`funnels.data.umbrales.porEtapa` + el aviso de lib/lead-quieto-aviso.ts). Acá: entra a la etapa, espera el plazo,
+    // y si SIGUE en esa etapa (la del CRON: cambiar el CRON no deja la condición vieja) avisa al equipo. Mover de etapa
+    // se agrega con «⚡ Acción» (la etapa destino es del negocio: una plantilla no la puede saber). Sin AI Step: no le
+    // escribe al lead.
+    id: 'lead-no-avanzo',
+    nombre: 'Un Lead No Avanzó',
+    emoji: '⏳',
+    linea: 'Si un lead sigue en la misma etapa cuando vence el plazo, te avisa en el grupo para que lo muevas.',
+    origen: 'plazos de etapa del CRM (12/10/2026)',
+    objetivo: 'recuperar',
+    cron: { pide: 'etapa_venta', ayuda: 'La etapa a la que le pones plazo.' },
+    pasos: [
+      esperar('lq_e', 3 * DIA, 'lq_c'),
+      condicion('lq_c', [[[SIGUE_EN_LA_ETAPA], 'lq_mk']], null),
+      mako('lq_mk', '⏳ {{nombre_completo}} sigue en {{lead_etapa}} y ya pasó el plazo.\n📱 {{lead_telefono}}\n👉 {{link_lead}}', null),
     ],
   },
   {

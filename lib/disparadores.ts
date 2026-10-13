@@ -34,7 +34,7 @@ import { normalizarEtapas, etapasDe, TRIGGER_ETAPA, TRIGGER_ENTREGA, TRIGGER_ETI
 import {
   valorDisparo, valoresDisparo, valoresTrasTocar, valorDeVarios, disparoDeValor, detalleDisparador, nombreEtiqueta, type DisparoActual, type EtiquetaParaDisparo, seccionesDisparo, pedidoDisparo, type OpcionDisparo, type ProductoParaDisparo,
 } from './flujo-conversacion';
-import { claseDe, idDe, puertosDe, raicesSalida, indicePorId, type PasoGrafo } from './flujo-grafo';
+import { claseDe, idDe, puertosDe, raicesSalida, indicePorId, type PasoGrafo, type EtapasDelCron, type HechosLead } from './flujo-grafo';
 import { OP_AVISAR } from './flujo-legado';
 import { partesExplicitas, sanearPartes } from './mensaje-partes';
 import { TRIGGER_RECORDATORIO } from './recordatorio-automatizacion';
@@ -447,6 +447,28 @@ export function disparadorDeColumnas(row: FilaDisparadores, id = 'd1'): Disparad
  * ⚠️ LAS ETAPAS DEL PRIMERO SALEN DE `etapasDe` (la regla de la 0230): una lista vieja de `etapas` que
  * ya no empieza con `etapa` no cuenta, igual que en el motor.
  */
+/**
+ * LAS ETAPAS DE LOS CRON DE UNA AUTOMATIZACIÓN, para la condición «Sigue en la etapa del CRON» (pedido de Martín reenviado
+ * por el chat CRM, 12/10/2026: los plazos de etapa pasan a una plantilla de Automations: «entra a una etapa → espera N
+ * días → sigue en esa etapa → avisar o mover»). Sólo los CRON de etapa (venta o entrega): uno de etiqueta o de un evento
+ * no tiene etapa. Un CRON de venta sin embudo propio es del embudo de la automatización (`funnelDeLaFila`).
+ */
+export function etapasDelCron(ds: readonly Disparador[], funnelDeLaFila: number | null = null): EtapasDelCron[] {
+  const out: EtapasDelCron[] = [];
+  for (const d of ds) {
+    const keys = etapasDe({ etapa: d.etapa ?? null, etapas: d.etapas ?? null });
+    if (!keys.length) continue;
+    if (d.trigger_tipo === TRIGGER_ETAPA) out.push({ tipo: 'venta', funnelId: d.funnel_id ?? funnelDeLaFila, keys });
+    else if (d.trigger_tipo === TRIGGER_ENTREGA) out.push({ tipo: 'entrega', productoId: d.producto_id ?? null, keys });
+  }
+  return out;
+}
+
+/** Los hechos de un lead con las etapas del CRON de ESTA automatización (cada automatización evalúa con las suyas). */
+export function conEtapasDelCron(h: HechosLead, ds: readonly Disparador[], funnelDeLaFila: number | null = null): HechosLead {
+  return { ...h, etapasDelCron: etapasDelCron(ds, funnelDeLaFila) };
+}
+
 export function disparadoresDe(row: FilaDisparadores): Disparador[] {
   const guardados = sanearDisparadores(row.disparadores);
   const cols = disparadorDeColumnas({ ...row, etapas: etapasDe({ etapa: row.etapa ?? null, etapas: Array.isArray(row.etapas) ? row.etapas : null }) });

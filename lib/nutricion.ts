@@ -53,7 +53,7 @@ import { decidirAgenda } from '@/lib/nutricion-agenda';
 // VARIOS CRON por automatización (sexta tanda, mig 0241): el modelo, cuándo dispara cada uno y qué le
 // llega al grupo de MaKo. Puro y con test: lib/disparadores.ts.
 import {
-  disparadoresDe, vistasPorDisparador, unaPorSecuencia, disparaPorEvento, barreElDisparador, textosParaElGrupo,
+  disparadoresDe, conEtapasDelCron, vistasPorDisparador, unaPorSecuencia, disparaPorEvento, barreElDisparador, textosParaElGrupo,
   TRIGGERS_SOLO_EVENTO, TRIGGER_ETIQUETA_AGREGADA, TRIGGER_ETIQUETA_QUITADA, TRIGGER_INSTAGRAM, TRIGGER_MESSENGER,
   TRIGGER_EMAIL_RECIBIDO, TRIGGERS_DEL_EMISOR, TRIGGER_AVISO_MAKO, TRIGGER_PAGO,
   type Disparador,
@@ -3971,7 +3971,9 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       // Las guardas de abajo (reunión, residuo, antigüedad, anti-ban…) son del mensaje o la
       // acción a la que se llega, no de la tarjeta que decide por dónde ir.
       if (esNodoDeControl(pasoLeido)) {
-        const hechos = necesitaHechos(sec.pasos, idxLeido) ? await hechosDe(insc.lead_id) : null;
+        const leidos = necesitaHechos(sec.pasos, idxLeido) ? await hechosDe(insc.lead_id) : null;
+        // Los hechos son del LEAD (una lectura por lote); las etapas del CRON son de ESTA automatización.
+        const hechos = leidos ? conEtapasDelCron(leidos, sec.disparadores ?? disparadoresDe(sec), sec.funnel_id ?? null) : null;
         // Un flujo con carril ancla su DELAY «antes de la reunión» en la reunión CON HORA (M3 a; sin ella y con
         // fecha, `sin_hora` cierra ese hilo, M3 g). Uno sin carril no tiene esa espera: lo de siempre.
         const reunionConHoraMs = tieneCarril(sec.pasos) ? await reunionConHoraDe(lead) : undefined;
@@ -5576,7 +5578,7 @@ async function responderConGrafo(c: CtxRespuesta, medio: MedioAIStep = 'whatsapp
         }))?.get(leadId) ?? null;
       }
       if (!hechos) { hecho.push('No pude leer lo que la condición necesita: me detuve ahí.'); noPudoDecidir = true; break; }
-      id = elegirSalida(p, hechos).destino;
+      id = elegirSalida(p, conEtapasDelCron(hechos, secuencia.disparadores ?? disparadoresDe(secuencia), secuencia.funnel_id ?? null)).destino;
       continue;
     }
     if (clase === 'ir_a') {
