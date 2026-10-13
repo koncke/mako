@@ -5679,6 +5679,32 @@ ambigüedad: un OOM de node **imprime** «FATAL ERROR: Reached heap limit Alloca
 y sale por abort; un `taskkill /F` sale con 1 y **cero bytes**. Si la salida está vacía, no
 fue memoria del proceso: fue memoria de la MÁQUINA, y el que decide es el vigía.
 
+⚠️ **Y LA VERSIÓN MÁS PRECISA DEL DIAGNÓSTICO: LA VENTANA DE RAM DURA MENOS QUE EL
+TRABAJO.** No es que nunca haya 3,3 GB — medido al cierre, la RAM libre oscilaba entre
+**0,23 y 4,50 GB en un minuto** según lo que estuvieran haciendo las 21 sesiones. El
+typecheck necesita ~60 segundos SEGUIDOS. Así que un umbral medido en un instante es el
+test equivocado: contesta «hay lugar» justo antes de que el lugar desaparezca, y a los 20
+segundos el vigía mata. **Cuando un recurso oscila más rápido de lo que dura el trabajo, no
+hay umbral que lo arregle** — hay que bajar la demanda (menos sesiones) o proteger al
+trabajo (que el vigía no mate al del pre-push). Pedirle al que empuja que «espere un
+momento mejor» es pedirle que adivine una ventana que no se puede ver desde una sola
+lectura.
+
+⚠️ **Y NO ERA UN DESAJUSTE DE CONTADORES: ESA HIPÓTESIS SE REFUTÓ.** Parecía que el lock
+(`os.freemem()`, que en Windows es *available*: libre + standby) y el vigía
+(`Win32_OperatingSystem.FreePhysicalMemory`, la lista libre) leían números distintos, lo
+que habría hecho imposible calibrarlos. Medido en el mismo instante tres veces: **1480 vs
+1570, 1611 vs 1539, 1567 vs 1353 MB** — coinciden dentro del ruido del intervalo. Queda
+anotado porque es la explicación elegante que uno quiere que sea cierta, y no lo es.
+
+⚠️ **Y EL VIGÍA NO PUEDE MATAR UNA PESTAÑA DE CHROME, aunque sea el proceso más grande.**
+Su filtro se aplica **sólo a `node.exe`** y su cabecera lo dice: «NUNCA: Claude, Chrome,
+npm ci/install». Así que cuando el Video Editor de producción abierto en una pestaña se
+llevó 5 GB (WASM + WebGPU), lo único matable seguía siendo el typecheck. **Una lista de
+exclusiones convierte al inocente en el único culpable posible:** el que paga la zona roja
+no es el que la causó, es el que estaba permitido matar. Es la contracara de «el fallback
+es más débil que el camino feliz, nunca más fuerte», aplicada a quién se sacrifica.
+
 ⚠️ **Y EL CONSUMIDOR DE RAM CAMBIA EN MINUTOS, NO EN DÍAS.** En la misma tarde: Chrome con
 un proceso en **5 GB** (reportado por Content Machine), y medido por mí **0,55 GB** y
 después **0,18 GB**. Cualquier frase del tipo «el problema es X» sobre esta máquina lleva la
