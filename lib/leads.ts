@@ -2071,6 +2071,18 @@ export function diasDesdeJ1(fechaJ1: string | null, hoy: Date = new Date()): num
  * J1 futura → "faltan X días para J1"; J1 pasada → "X días desde J1".
  * @returns null si no hay J1.
  */
+/**
+ * La cohorte que dibuja la ficha del lead («Madura · 48 días desde R1»), o null sin R1. UNA función
+ * para las dos puertas de la ficha: la ruta /crm/[id] y el panel del tablero (LeadSheet, que la
+ * recibe resuelta de getLeadFullAction porque es 'use client' y no puede importar este archivo).
+ * Hasta el 13/10/2026 sólo la calculaba la ruta, y el panel no la mostraba.
+ */
+export function cohorteDeLead(lead: Lead, hoy: Date = new Date()): { label: string; color: string; texto: string | null } | null {
+  if (!lead.fecha_junta_1) return null;
+  const { label, color } = labelMadurez(estadoMadurezLead(lead));
+  return { label, color, texto: textoCohorteJ1(lead.fecha_junta_1, hoy) };
+}
+
 export function textoCohorteJ1(fechaJ1: string | null, hoy: Date = new Date()): string | null {
   const dias = diasDesdeJ1(fechaJ1, hoy);
   if (dias === null) return null;

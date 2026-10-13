@@ -61,7 +61,7 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
   // vale mientras sea el MISMO lead: si la ficha pasa a mostrar otro, mandan sus datos.
   const [fresca, setFresca] = useState<LeadFullData | null>(null);
   const vigente = fresca && fresca.lead.id === data.lead.id ? fresca : data;
-  const { lead, stages, pagos, vslEng, campana, adNombre, adId, visitas, insights, tracking, pixelPuesto, respuestas, respuestasForm, insightGen, faltantesInsight, faltantes, equipo, closerDetectado, videos: videosLanding, replay, productos, fotoEmail } = vigente;
+  const { lead, stages, pagos, vslEng, campana, adNombre, adId, visitas, insights, tracking, pixelPuesto, respuestas, respuestasForm, cohorte, insightGen, faltantesInsight, faltantes, equipo, closerDetectado, videos: videosLanding, replay, productos, fotoEmail } = vigente;
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -214,18 +214,13 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
           <p style={{ fontSize: 13.5, color: 'var(--ink)', margin: 0, lineHeight: 1.5 }}>Va bien: su {nutriPos.tipo === 'post-agenda' ? 'Reunión 1' : 'Reunión 2'} es el <b>{fmtDDMMYYYY(nutriPos.hasta)}</b> ({nutriPos.dias === 0 ? 'hoy' : `en ${nutriPos.dias} día${nutriPos.dias === 1 ? '' : 's'}`}).</p>
         </section>
       )}
-      {/* ⚠️ A ESTE MONTAJE LE FALTA LA COHORTE, y es una diferencia REAL entre las dos
-          puertas: medido el 05/10/2026 en un lead con R1, la ruta /crm/[id] dibuja
-          «Cohorte · Madura · 48 dias desde R1» y este panel no dibuja nada. Quien entra
-          por el link de WhatsApp ve un dato que el tablero le esconde.
-          NO se arregla pasando la prop acá: la cohorte sale de `labelMadurez` y
-          `textoCohorteJ1`, que viven en lib/leads.ts — 2.600 lineas y sus dependencias de
-          servidor— y este archivo es 'use client'. Importar un VALOR de ahi se lleva el
-          modulo entero al navegador del cliente, que es la frontera que esta casa ya pago.
-          Se calcula en el SERVER y baja por props, como hace la ruta. Queda anotado en
-          docs/relevo/crm.md. */}
+      {/* ⚠️ LA COHORTE LLEGA RESUELTA DEL SERVER (`cohorte`, getLeadFullAction). Hasta el 13/10/2026
+          este panel no la dibujaba y la ruta /crm/[id] sí («Cohorte · Madura · 48 días desde R1»):
+          quien entraba por el link de WhatsApp veía un dato que el tablero le escondía. No se
+          calcula acá porque sale de lib/leads.ts (2.600 líneas con dependencias de servidor) y
+          este archivo es 'use client': las dos puertas usan `cohorteDeLead`. */}
       <InfoPrincipalCard leadId={lead.id} nombre={lead.nombre} empresa={lead.empresa} email={lead.email} telefono={lead.telefono} web={lead.web ?? null}
-        ingresoEstimado={lead.ingreso_estimado ?? null} instagram={lead.instagram ?? null} />
+        cohorte={cohorte ?? null} ingresoEstimado={lead.ingreso_estimado ?? null} instagram={lead.instagram ?? null} />
       {/* Lo que contestó en el formulario de Meta. Hasta el 07/10/2026 sólo lo dibujaba la
           ruta, y el tablero abre ESTE pop-up: en el uso diario no se veía. Las respuestas
           llegan resueltas del server (`respuestasForm`, getLeadFullAction). */}

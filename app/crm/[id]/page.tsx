@@ -11,9 +11,7 @@ import { notFound } from 'next/navigation';
 import type { CSSProperties } from 'react';
 import {
   getLead,
-  estadoMadurezLead,
-  labelMadurez,
-  textoCohorteJ1,
+  cohorteDeLead,
   getVslEngagement,
   getVisitasLandingMap,
   getTrackingEvents,
@@ -121,9 +119,7 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
   const adResuelto = resolverNombreAd(adIdCand, lead.meta_ad_name ?? utmC, adMap);
   const visitas = visitasMap.get(lead.visitor_id ?? '') ?? { total_visitas: 0, dias_distintos: 0 };
 
-  const { emoji: _e, label: cohorteLabel, color: cohorteColor } = labelMadurez(estadoMadurezLead(lead));
-  void _e;
-  const textoJ1 = textoCohorteJ1(lead.fecha_junta_1);
+  const cohorte = cohorteDeLead(lead);
 
   // Las preguntas propias del formulario de Meta, resueltas en el SERVER: la
   // sección de abajo sólo las dibuja.
@@ -215,7 +211,7 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
                     email={lead.email}
                     telefono={lead.telefono}
                     web={lead.web ?? null}
-                    cohorte={lead.fecha_junta_1 ? { label: cohorteLabel, color: cohorteColor, texto: textoJ1 } : null}
+                    cohorte={cohorte}
                     // Mig 0258 (12/10/2026): el ingreso estimado (punto 21) y el Instagram (punto 28).
                     ingresoEstimado={lead.ingreso_estimado ?? null}
                     instagram={lead.instagram ?? null}

@@ -27,7 +27,8 @@ function bust(...tags: string[]) {
     /* no-op: la caché vence por TTL */
   }
 }
-import { listLeadsDeFunnel, contarLeadsDeFunnel,
+import {
+  cohorteDeLead, listLeadsDeFunnel, contarLeadsDeFunnel,
   createLead,
   vendedorUnicoDelWorkspace,
   updateLead,
@@ -219,6 +220,8 @@ export type LeadFullData = {
    * Se resuelve acá y baja hecho, igual que en la ruta: el pop-up no lee el field_data.
    */
   respuestasForm: Array<{ pregunta: string; respuesta: string }>;
+  /** La cohorte de la ficha (`cohorteDeLead`, lib/leads.ts), resuelta acá: el panel es 'use client'. */
+  cohorte: { label: string; color: string; texto: string | null } | null;
   insightGen: LeadInsightGen | null;
   faltantesInsight: Step[];
   /** Datos sin marcar de la etapa actual (completos: incluye tel/empresa/deal). */
@@ -303,7 +306,7 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   // y es el mismo en todos los workspaces (mismo criterio que el selector del tablero).
   const productos = funnels.map((f) => ({ id: f.id, nombre: nombreVisible(f), esDefault: f.esDefault }));
   const fotoEmail = lead.email?.trim() ? urlGravatar(lead.email, 160) : null;
-  return { lead, stages, pagos, vslEng, videos, replay, campana, adNombre, adId: adIdCand, visitas, insights, tracking, pixelPuesto, respuestas, respuestasForm: respuestasPropias(lead.meta_field_data), insightGen, faltantesInsight, faltantes, equipo, closerDetectado, productos, fotoEmail, cobro, verTracking: await verTrackingP };
+  return { lead, stages, pagos, vslEng, videos, replay, campana, adNombre, adId: adIdCand, visitas, insights, tracking, pixelPuesto, respuestas, respuestasForm: respuestasPropias(lead.meta_field_data), cohorte: cohorteDeLead(lead), insightGen, faltantesInsight, faltantes, equipo, closerDetectado, productos, fotoEmail, cobro, verTracking: await verTrackingP };
 }
 
 /** Cuota explícita del plan (modelo simple: monto + fecha). */
