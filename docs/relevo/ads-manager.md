@@ -19,6 +19,20 @@ la tab **`/instagram`**, que se retiró el 06/10 y hoy sólo redirige.
 
 ---
 
+## Retomado el 13/10/2026 (cuenta 2): lo que se fue cerrando
+
+Pedido de Martín, por el chat «Estrategia 3 CUENTAS»: continuar y cerrar lo planificado acá, sumar la
+#801 (el Ads Manager no tiene onboarding) y no tocar lo nuevo de `mako-feedback-y-tareas.md`. Los
+commits quedan **locales**: el push espera a que el typecheck del clon vuelva a terminar (el 13/10 a
+las 19:20 murió sin memoria con el tope de 2 GB; lo está arreglando la sesión de infra, `9d6fa572`).
+
+| Commit | Qué se cerró |
+|---|---|
+| `47fdde66` | Las monedas sin centavos (COP, CLP, JPY…): leer, escribir y crear presupuestos con la unidad de cada moneda (`offsetMeta`, `lib/presupuesto-cambio.ts`); escribir sin saber la moneda se niega (503). Y `EntityDetalle.tsx` ya no escribe «MXN» a mano |
+| `e4fb140b` | Un conjunto, anuncio o campaña de OTRA cuenta de Meta no se lee ni se escribe (404): público, textos, datos de campaña y `metaWrite` (pausar/presupuesto/renombrar/borrar). Regla: `esDeLaCuenta` (`lib/meta-cuenta-id.ts`) |
+
+---
+
 ## Lo primero que hay que mirar
 
 1. **La bitácora del área miente sobre la migración 0215** y manda a hacer algo que ya está hecho
@@ -116,16 +130,15 @@ Y dos cosas que pasaron **fuera del repo** y mandan en el área:
 
 ### Bugs vivos, chicos y medidos
 
-- **`app/ads-manager/EntityDetalle.tsx:121` escribe «MXN» a mano** en el resumen que se le pasa a
-  MaKo (`presupuestoMxn.toLocaleString('es-MX')} MXN`). El commit de la moneda del 08/10
-  (`6118b275`) **no lo tocó**: para ws13/14/15, que cobran en USD, MaKo lee un monto con la moneda
-  equivocada. *(El briefing viejo decía `:87`; hoy es `:121`.)*
-- **El offset de centavos de Meta, sin verificar.** `lib/meta-write.ts` multiplica por 100 y
-  `lib/meta-health.ts` divide por 100. Hay monedas sin centavos (COP, CLP, JPY, KRW, TWD): un
-  cliente que cobre en una de ésas vería la celda, el cartel y el wizard **100× corridos**.
-- **`app/api/ads-manager/adset-targeting` no comprueba que el conjunto sea de la cuenta del
-  workspace.** Con un token de agencia, un id equivocado lee o pisa el de otro cliente. Ya pasaba
-  antes; el detalle de conjunto del 07/10 le sumó un call site de lectura.
+- ✅ **CERRADO el 13/10 (`47fdde66`): «MXN» escrito a mano en `EntityDetalle.tsx`.** Ahora el
+  resumen que lee MaKo dice la moneda de la cuenta.
+- ✅ **CERRADO el 13/10 (`47fdde66`): el offset de centavos.** La tabla de Meta (leída el 13/10)
+  tiene 11 monedas con offset 1; la regla vive en `offsetMeta` (`lib/presupuesto-cambio.ts`) y la
+  usan escribir, crear, el árbol, el saldo y la serie. Ningún cliente de hoy cobra en una de ésas.
+- ✅ **CERRADO el 13/10 (`e4fb140b`): un id de OTRA cuenta**, en los cinco lugares que tenían el
+  agujero (no sólo `adset-targeting`). Afuera a propósito: crear (Meta valida contra
+  `act_<cuenta>`), el rollback, y las lecturas por ids de nuestros datos (`getObjectStoryId` de un
+  ganador, `getAdsAprobacionPendiente`, `paginasDeGanadores`).
 - **Dos defaults para la misma moneda:** `computeAccountHealth` y `HEALTH_SIN_CONEXION` inventan
   `'MXN'` si Meta no manda `currency`; el wizard cae a `'USD'`. Riesgo bajo, pero el cartel no
   distingue una moneda medida de un default.
