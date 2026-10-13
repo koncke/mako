@@ -33,6 +33,7 @@ las 19:20 murió sin memoria con el tope de 2 GB; lo está arreglando la sesión
 | `81e80fb2` | La bitácora y `docs/hallazgos-ads.md` ya no mandan a «aplicar la 0215»: medido de nuevo el 13/10, está aplicada (0 de 19 borradores con clave) |
 | `c2ffe6a8` | Los lotes (pausar, activar, presupuesto) salen a Meta de a 4, no todos juntos |
 | `327d35ba` | La tarjeta de Meta en `/integraciones` dice «Faltan permisos de anuncios» en vez de «No se pudo leer» |
+| `41aa319f` | Una sola moneda por defecto (eran 'MXN' y 'USD'), y crear sin la moneda leída se niega |
 
 ---
 
@@ -145,9 +146,10 @@ Y dos cosas que pasaron **fuera del repo** y mandan en el área:
   agujero (no sólo `adset-targeting`). Afuera a propósito: crear (Meta valida contra
   `act_<cuenta>`), el rollback, y las lecturas por ids de nuestros datos (`getObjectStoryId` de un
   ganador, `getAdsAprobacionPendiente`, `paginasDeGanadores`).
-- **Dos defaults para la misma moneda:** `computeAccountHealth` y `HEALTH_SIN_CONEXION` inventan
-  `'MXN'` si Meta no manda `currency`; el wizard cae a `'USD'`. Riesgo bajo, pero el cartel no
-  distingue una moneda medida de un default.
+- ✅ **CERRADO el 13/10 (`41aa319f`): una sola moneda por defecto** (`MONEDA_META_POR_DEFECTO`,
+  'USD', sólo para dibujar), y crear con presupuesto se niega si `cuentaMeta()` no LEYÓ la moneda
+  (`monedaLeida`). Lo que sigue igual: el cartel de la tabla no distingue una moneda medida del
+  default — en la práctica Meta siempre manda la moneda de una cuenta.
 - ✅ **CERRADO el 13/10 (`c2ffe6a8`): el lote sale de a 4** (`allSettledConTope`,
   `lib/settled-con-tope.ts`), no todo junto. No baja el TOTAL de llamadas: un lote enorme puede
   agotar el cupo de Meta igual, y el error sigue saliendo por fila. No medido contra Meta.
