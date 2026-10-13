@@ -4,6 +4,19 @@
 `app/api-mako/**` (la tab que la muestra y acuña los tokens).
 **Ventana:** 05/10/2026 → 10/10/2026. **Escrito el 10/10/2026 sobre `origin/main` = `9862c146`.**
 
+> **13/10/2026, 18:55 — EN CURSO (cuenta 2, chat «API de MaKo»).** Martín volvió a este chat y la
+> decisión 1 de § 6 queda tomada por su pedido original («implementalo todo»): se retoma ENTERA, pero
+> no sobre la rama vieja. **Rama nueva `api-acciones-1310`, worktree `C:/dev/mako-api2`**, nacida de
+> `origin/main` = `cf494e2a`, con `node_modules` como junction al del clon. Ya tiene registrada el área
+> `comunidad` (tipos, registro, runners, `mako-intencion`) y copiados sus archivos de la rama vieja.
+> Corre la corrida `wf_8cb38f84-f1e` (13 implementadores por área o grupo, cada uno re-verifica la lista
+> del 08/10 contra el main de hoy, reusa el código de `C:/dev/mako-api` si lo hay, y un revisor de
+> seguridad por grupo). Las entradas por área están en el scratchpad de la sesión
+> `3e9e0b4f…` (`areas/<área>.json`, sacadas de `docs/api-acciones-relevo.json` de la rama vieja).
+> Al terminar: filas REST + títulos, docs y snapshot, suite, typecheck, build, e2e en ws 9, cosecha.
+> **Nada de esto está commiteado todavía.** Si este chat se corta, el trabajo está en el disco de
+> `C:/dev/mako-api2`, y la rama vieja `C:/dev/mako-api` sigue intacta como referencia.
+
 **Qué es esto, para quien nunca lo vio.** MaKo es la plataforma de Martín (marketing, CRM,
 automatizaciones, cursos). Cada negocio cliente es un **workspace** (`ws`): «ws 9» es el workspace
 donde se prueban las cosas de punta a punta, «ws 1» es el de Mauricio Bustos (un cliente, NO el
