@@ -57,6 +57,9 @@ const rescope = (sel) => sel.split(',').map((s) => {
 //    («.ahdoc @media (max-width: 1000px) {»), que no es CSS válido: el navegador tira
 //    el bloque entero y con él todo el responsive.
 let reglas = 0;
+/** Cuántos @font-face del origen se tiraron. Se CUENTA y se dice: un filtro que
+ *  descarta en silencio hace indistinguible «no había ninguno» de «los tiré todos». */
+let fuentesMuertas = 0;
 const salida = crudo.split('\n').map((linea) => {
   const l = linea.trim();
   if (!l) return '';
@@ -69,7 +72,30 @@ const salida = crudo.split('\n').map((linea) => {
     });
     return `${at[1]}{${dentro}}`;
   }
-  // @font-face y @keyframes no llevan selector de scope: van tal cual.
+  // ⚠️ LOS @font-face DEL ORIGEN SE TIRAN, no se copian.
+  //
+  // Apuntan a `/_next/static/media/<hash>.woff2`, que son los archivos que Next
+  // self-hostea en el dominio DEL ORIGEN con el hash de SU build. Acá esa URL no
+  // existe y nunca va a existir: medido el 13/10/2026 contra producción, los 38
+  // devuelven **404**. La cabecera ya pide esas mismas familias a Google —que es de
+  // donde salieron— y el comentario de abajo lo dice desde el primer día; lo que
+  // faltaba era SACAR las declaraciones muertas, que van DESPUÉS del `@import` y
+  // entonces le ganan: para cada peso que ellas declaran, la cara de Google queda
+  // tapada por una que no carga, y el navegador cae a la fuente de sistema.
+  //
+  // El síntoma es el peor de los posibles: la pantalla no se rompe, «se parece». El
+  // texto normal sale bien y la NEGRITA sale en Arial, porque sólo algunos pesos
+  // quedaban tapados. Pasa en los 132 cursos de /conocimientos.
+  //
+  // Es seguro tirarlos todos y está medido: las 7 familias que declaran
+  // (Bricolage Grotesque, Hanken Grotesk, Instrument Serif, Caveat, Spline Sans
+  // Mono, Archivo, JetBrains Mono) son EXACTAMENTE las 7 de `FUENTES`, no queda
+  // ninguna huérfana, y no hay una sola referencia a `/_next` fuera de un
+  // `@font-face`. Los 7 `@font-face` de las familias `* Fallback` NO se tocan: son
+  // las locales de Next, no apuntan a `/_next` y son las que sostienen el layout
+  // mientras Google llega.
+  if (l.startsWith('@font-face') && l.includes('/_next/static/media')) { fuentesMuertas++; return ''; }
+  // @keyframes y el resto de los at-rules no llevan selector de scope: van tal cual.
   if (l.startsWith('@')) return l;
   const r = /^([^{]+)\{([\s\S]*)\}$/.exec(l);
   if (!r) return l;
@@ -298,4 +324,5 @@ body:has(.ahdoc) { height: 100% !important; }
 
 writeFileSync(SALIDA, cabecera + salida + cola, 'utf8');
 console.log(`\n  reglas rescopeadas: ${reglas}`);
+console.log(`  @font-face del origen descartados (src a /_next, 404 aqui): ${fuentesMuertas}`);
 console.log(`  → ${SALIDA}  (${Math.round((cabecera + salida).length / 1024)} KB)\n`);

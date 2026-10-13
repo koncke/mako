@@ -480,3 +480,81 @@ test('la piel del «?» de la barra de arriba no se derrama sobre los botones de
     for (const s of r.sel.split(',')) assert.match(s.trim(), /\.ugc-topbar-(?:extra|acciones) \.mk-iconbtn$/, `se derrama: ${s.trim()}`);
   }
 });
+
+// =============================================================================
+// Las fuentes de la hoja del curso: lo que el origen self-hostea NO sirve acá
+// =============================================================================
+// `public/cono-doc/ugc.css` es GENERADA (scripts/avatarhype-css.mjs) desde la hoja del
+// origen, y el origen es una app Next que self-hostea sus fuentes en
+// `/_next/static/media/<hash>.woff2`. Ese hash es de SU build: en nuestro dominio la URL
+// no existe y nunca va a existir.
+//
+// Medido el 13/10/2026 contra producción: los 38 `@font-face` que venían copiados daban
+// **404**. Y como van DESPUÉS del `@import` de Google que la cabecera agrega, le ganaban:
+// para cada peso que ellos declaraban, la cara buena quedaba tapada por una que no carga.
+//
+// El síntoma es el peor: la pantalla no se rompe, «se parece». Medido antes/después en
+// Chrome sobre la misma página, con las 8 caras dibujadas:
+//   ANTES   → Archivo 400 ✓ pero Archivo 700 ✖, Bricolage 700 ✖, Instrument Serif ✖,
+//             Caveat ✖, Spline Sans Mono ✖, JetBrains Mono ✖ · 12 respuestas 404/fallidas
+//   DESPUÉS → las 8 ✓ · 0 fallidas
+// O sea: el texto normal salía bien y la NEGRITA caía a la fuente de sistema, en los 132
+// cursos de /conocimientos. Es el «la negrita del curso sale en Arial» que estaba anotado
+// como pendiente desde el 08/10.
+//
+// Probado ROMPIÉNDOLO (13/10/2026), restaurando de MEMORIA. Con todo en su lugar 27 / 0;
+// cada rotura tumba SU test (26 / 1 las cuatro veces):
+//   · devolviendo UN @font-face con src a /_next a la hoja     → «la hoja servida»
+//   · sacándole el filtro al generador                         → «el generador los descarta»
+//   · dejando de pedirle Archivo a Google en el @import        → «el generador los descarta»
+//   · haciendo que el generador descarte en silencio           → «el generador los descarta»
+//
+// ⚠️ Son DOS tests y no uno a propósito: el generador y la hoja servida contestan preguntas
+// distintas. Arreglar sólo el generador deja la hoja rota hasta que alguien lo vuelva a
+// correr, y arreglar sólo la hoja la deja volver a romperse en la próxima regeneración —
+// en silencio, porque nadie audita 38 líneas de @font-face en un diff de 350 KB.
+
+const HOJA = leer('public/cono-doc/ugc.css');
+const GENERADOR = leer('scripts/avatarhype-css.mjs');
+
+test('la hoja servida no pide una sola fuente del dominio del origen', () => {
+  // La pregunta es sobre el ARCHIVO QUE SE SIRVE, no sobre el generador: una regla que se
+  // aplica AL GENERAR no arregla ni una línea ya escrita, así que son dos tests.
+  const muertas = HOJA.split('\n').filter(
+    (l) => l.trim().startsWith('@font-face') && l.includes('/_next/static/media'),
+  );
+  assert.equal(muertas.length, 0,
+    `${muertas.length} @font-face apuntan a /_next: en nuestro dominio son 404 y tapan a los de Google`);
+
+  // Y ninguna referencia a /_next por otro camino (un background, una máscara).
+  assert.equal((HOJA.match(/_next\/static\/media/g) || []).length, 0,
+    'quedó una referencia al build del origen');
+
+  // Las que SÍ se quedan son las `* Fallback` locales de Next: no apuntan a /_next y son
+  // las que sostienen la métrica mientras Google llega. Si desaparecen, el texto salta.
+  const fallback = (HOJA.match(/@font-face[^\n]*Fallback/g) || []).length;
+  assert.ok(fallback >= 7, `esperaba las 7 familias Fallback y hay ${fallback}`);
+
+  // Sin el @import no hay NINGUNA fuente: tirar los muertos dejaría la hoja pelada.
+  assert.match(HOJA, /@import url\('https:\/\/fonts\.googleapis\.com\/css2/,
+    'la hoja se quedó sin el @import: sin él, tirar los @font-face la deja sin fuentes');
+});
+
+test('el generador los descarta, para que no vuelvan en la próxima regeneración', () => {
+  // Sin esto el arreglo dura hasta que alguien vuelva a correr el script, y vuelve EN
+  // SILENCIO: la hoja se regenera entera y nadie mira 38 líneas de @font-face.
+  assert.match(GENERADOR, /@font-face'\) && l\.includes\('\/_next\/static\/media'\)/,
+    'el generador tiene que tirar los @font-face que apunten a /_next');
+
+  // Y las 7 familias que esos @font-face declaraban tienen que seguir pedidas a Google, o
+  // tirarlos deja huérfana a la que falte. Son exactamente las 7 medidas en la hoja.
+  for (const fam of ['Bricolage+Grotesque', 'Hanken+Grotesk', 'Instrument+Serif', 'Caveat',
+    'Spline+Sans+Mono', 'Archivo', 'JetBrains+Mono']) {
+    assert.ok(GENERADOR.includes(`family=${fam}`), `el @import del generador no pide ${fam}`);
+  }
+
+  // Un filtro que descarta en silencio hace indistinguible «no había ninguno» de «los tiré
+  // todos»: el script cuenta y lo dice.
+  assert.match(GENERADOR, /fuentesMuertas\+\+/, 'el generador tiene que CONTAR lo que descarta');
+  assert.match(GENERADOR, /@font-face del origen descartados/, 'y decirlo al terminar');
+});

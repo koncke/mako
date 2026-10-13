@@ -281,3 +281,62 @@ de 4 h, el `timeupdate` en 0, YouTube y `onYouTubeIframeAPIReady`— están en
    items, dimelo*»: los compromisos de la junta sacados del Fathom (lo pidió Mauricio el 8/9),
    el onboarding de la tab Curso, la sincronización de las llamadas con Calendly, y qué puede
    leer MaKo del curso por WhatsApp.
+
+---
+
+## Repaso del 13/10/2026 — qué de todo esto seguía abierto
+
+⚠️ **Este relevo estaba VIEJO en cuatro de sus pendientes.** Es material de segunda mano y
+se verificó uno por uno antes de tocar nada; cuatro los habían cerrado otras sesiones entre
+el 08 y el 13/10 sin pasar por acá:
+
+| Lo que decía el relevo | Medido el 13/10 |
+|---|---|
+| «Falta compare-and-set en `moverClienteDeEtapa`» | **HECHO** — `lib/cs-mover-etapa.ts:267` hace `.eq('id', previa.id).eq('etapa', previa.etapa)` |
+| «`roadmap-cs.ts` todavía dibuja Whop como pieza viva» | **HECHO** — lo que queda de Whop ahí es HISTORIA, con su nota de retiro, y lo fija `tests/sin-whop.test.ts` |
+| «Lo que MaKo puede leer del curso no está declarado en `lib/api-mako/areas/`» | **HECHO** — existen `curso.def.ts` / `.run.ts` / `.helpers.ts` |
+| «Sin hacer: el onboarding de la tab Curso» | **HECHO** — es un RECORRIDO (`app/_ui/Recorrido.tsx`, `cs-curso`) desde el 08/10 |
+| «Hay trabajo del curso EN VUELO y SIN COMMITEAR» | **EN MAIN** — `app/mi-curso/`, mig `0206_curso_invitacion.sql`, `InvitarAlCurso.tsx` y `tests/curso-invitar.test.ts` |
+
+### Cerrado en este repaso: las fuentes de la hoja del curso
+
+**«La negrita del curso sale en Arial»** estaba anotado como una DECISIÓN que esperaba a
+Martín, con la nota de que arreglarlo «cambia también los 132 cursos de Conocimientos». No
+era una decisión: era un **404**.
+
+`public/cono-doc/ugc.css` traía 38 `@font-face` copiados del origen que apuntan a
+`/_next/static/media/<hash>.woff2` — el build DE ELLOS. Medido contra producción: los 38 dan
+404. Y como van después del `@import` de Google que la cabecera agrega, le ganaban: tapaban
+la cara buena con una que no carga. Antes/después en Chrome, con las 8 caras dibujadas:
+**antes 6 de 8 muertas y 12 respuestas 404; después las 8 cargan y 0 fallidas.** Archivo 400
+andaba y Archivo **700** no — de ahí que sólo la negrita se viera mal.
+
+Se arregló en los dos lugares, porque son dos preguntas: el **generador**
+(`scripts/avatarhype-css.mjs`) descarta esos `@font-face` y cuenta cuántos tiró, y la **hoja
+servida** se arregló en el mismo commit (regenerar necesita el archivo capturado del origen,
+que no está en el repo). Guards en `tests/cursos-ugc.test.ts`, probados rompiéndolos: 27 / 0
+con todo en su lugar, 26 / 1 en las cuatro roturas. El detalle, en
+`docs/hallazgos-conocimiento.md` → «La hoja del curso pedía 38 fuentes al dominio del
+ORIGEN».
+
+### Lo que sigue esperando una decisión de Martín (preguntado el 13/10)
+
+1. **El arrastre no anda en pantallas táctiles.** Es HTML5 nativo (`draggable` +
+   `onDragStart`, `app/customer-success/curso/arrastre-campos.ts`), y ese gesto no existe en
+   touch. Arreglarlo es escribir un SEGUNDO camino con pointer events — no es un ajuste.
+2. **La vista Avance no cuenta los módulos sueltos.** Hoy es coherente con la D1 del 08/10
+   (`lib/curso-avance.ts:16`: «un módulo SUELTO no es una etapa»), así que la pregunta es qué
+   tiene que significar el %: si los sueltos cuentan, quien termine todas las etapas no llega
+   a 100.
+3. **«+ Nuevo campo» arriba con el campo naciendo abajo** — lo pidió él, y la prueba pidió lo
+   contrario.
+4. **Reabrir el tutorial del curso a todos.**
+5. **La fuente en Conocimientos** (necesita migración) — además se pisa con el pedido nuevo
+   de «biblioteca de tipografías» de `mako-feedback-y-tareas.md`, que sigue PROVISIONAL.
+
+### Lo que sigue sin hacer, con su archivo
+
+Igual que antes: la limpieza de videos huérfanos del bucket `curso-videos`, la
+sincronización de las llamadas con Calendly, y los «compromisos de la junta» que Mauricio
+pidió el 8/9 sacados del Fathom. Y `envio_whatsapp_enabled` sigue gobernando que a los 14
+clientes del ws1 no les llegue nada.
