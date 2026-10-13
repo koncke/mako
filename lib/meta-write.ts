@@ -25,6 +25,7 @@ import { credWs } from '@/lib/credenciales';
 import { TAG } from '@/lib/cache';
 import { monedaCuentaMeta } from '@/lib/moneda-meta';
 import { aUnidadMeta } from '@/lib/presupuesto-cambio';
+import { esDeLaCuenta } from '@/lib/meta-cuenta-id';
 
 const GRAPH = 'https://graph.facebook.com';
 
@@ -56,6 +57,12 @@ export async function metaWrite(body: MetaWriteBody, ws: number): Promise<MetaWr
   if (!body || typeof body.id !== 'string' || !/^\d+$/.test(body.id)) {
     return { ok: false, message: 'id inválido (debe ser el id numérico de Meta)', status: 400 };
   }
+
+  // Que sea de la cuenta publicitaria DE ESTE workspace, antes de pausar, presupuestar,
+  // renombrar o borrar. El id lo manda el navegador o el modelo (el doer), y el token
+  // puede llegar a varias cuentas: Meta escribía en la de otro sin error.
+  const ajeno = await fueraDeLaCuenta(ver, token, body.id, ws);
+  if (ajeno) return ajeno;
 
   // Eliminar (DELETE /{id}). Cascadea a conjuntos/anuncios — el caller restringe
   // a entidades PAUSADAS y confirma.
@@ -164,6 +171,24 @@ async function propagarRename(ws: number, level: 'campaign' | 'adset' | 'ad', id
   } catch (e) {
     console.error('[meta-write] propagar rename a leads/métricas falló:', e instanceof Error ? e.message : String(e));
     return null;
+  }
+}
+
+/**
+ * null si el objeto es de la cuenta publicitaria del workspace; si no, la respuesta que
+ * corta. 404 y no 403: a quien no le corresponde, no existe. Si Meta no contesta de
+ * quién es, tampoco se escribe (la regla, en `esDeLaCuenta`, lib/meta-cuenta-id.ts).
+ */
+async function fueraDeLaCuenta(ver: string, token: string, id: string, ws: number): Promise<MetaWriteResult | null> {
+  const cuenta = await credWs('META_AD_ACCOUNT_ID', ws);
+  try {
+    const res = await fetch(`${GRAPH}/${ver}/${id}?fields=account_id&access_token=${encodeURIComponent(token)}`, { cache: 'no-store' });
+    const data = await res.json().catch(() => ({}));
+    if (data && data.error) return errorDeMeta(data.error, 'Meta no dejó leer de qué cuenta es');
+    if (!res.ok) return { ok: false, message: `HTTP ${res.status} de Meta`, status: 502 };
+    return esDeLaCuenta(data.account_id, cuenta) ? null : { ok: false, message: 'Eso no está en la cuenta de Meta de este negocio.', status: 404 };
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : String(err), status: 502 };
   }
 }
 
