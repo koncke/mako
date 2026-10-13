@@ -369,15 +369,17 @@ test('los botones de MaKo de la tab son el logo sobre negro, sin texto (punto 3)
   assert.match(html, /width:26px;height:26px/, 'el botón de MaKo no es el chico');
   const nueva = sinComentarios(leer('app/dashboard/NuevaHoja.tsx'));
   assert.doesNotMatch(nueva, /variant="mako"/, 'el «Crear» de MaKo volvió a ser una pastilla con texto');
-  assert.match(nueva, /<BotonMako lado=\{36\} title="Crear la hoja con MaKo"/);
+  // 13/10/2026: el pedido de «Nueva hoja» es la caja de «¿Qué vas a crear hoy?»; el que crea es su ↑ (tests/graficos-copia.test.ts).
+  assert.match(nueva, /<CajaPedido titulo=\{\{ texto: TITULO_CAJA, nivel: 2 \}\}/);
   // El de la casa sigue con su texto para las otras tabs (Ads Manager, Marketing): la variante es local.
   assert.match(sinComentarios(leer('app/_components/ChartIA.tsx')), /<MakoStar size=\{14\} \/><MakoWord>MaKo<\/MakoWord>/);
 });
 
 // ── 8. Sin voseo en lo que se dibuja ─────────────────────────────────────────
 
-// «cobré» es primera persona («Lo que cobré este mes», un ejemplo del pedido de «Nueva hoja»), no voseo.
-const NEUTRAS = new Set(['más', 'está', 'aquí', 'así', 'ahí', 'allí', 'sí', 'qué', 'días', 'después', 'además', 'través', 'país', 'cobré']);
+// «cobré» es primera persona («Lo que cobré este mes», un ejemplo del pedido de «Nueva hoja»), no voseo. «encontré»
+// también («No encontré ese dashboard», el mismo texto que «No encontré ese flujo» de Automations).
+const NEUTRAS = new Set(['más', 'está', 'aquí', 'así', 'ahí', 'allí', 'sí', 'qué', 'días', 'después', 'además', 'través', 'país', 'cobré', 'encontré']);
 test('sin voseo en el texto nuevo de la topbar (el guard del repo no ve un archivo sin git add)', () => {
   for (const ruta of ['app/dashboard/Cabecera.tsx', 'app/dashboard/EditorInforme.tsx', 'app/dashboard/Galeria.tsx', 'app/dashboard/lectura-compartida.ts', 'app/dashboard/NuevaHoja.tsx', 'app/dashboard/CompartirInforme.tsx', 'app/dashboard/BuscarEnHoja.tsx']) {
     const codigo = sinComentarios(leer(ruta)).replace(/([\s;,)}\]])\/\/.*$/gm, '$1');

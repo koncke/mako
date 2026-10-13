@@ -367,13 +367,16 @@ test('la feature: gratis por default, sin PII, sin permiso pago, y el prompt reg
 });
 
 // r9: 1 fallo.
+// 13/10/2026: «¿Qué vas a crear hoy?» en lugar de «Pídeselo a MaKo» (tests/graficos-copia.test.ts). El micrófono y el ↑
+// son de LA caja (`CajaPedido`), y SIN foco al abrir: el ejemplo de la caja se escribe sólo mientras no lo tiene.
+// Rota volviendo a poner `useFocoInicial('x')` en el modal: 1 fallo.
 test('el modal: el Modal de la casa a 980 sin filetes, onCerrar estable, foco sin autoFocus, y «Hoja en blanco» primera', () => {
   const src = sinComentarios(leer('app/dashboard/NuevaHoja.tsx'));
   assert.match(src, /<Modal titulo="Nueva hoja" ancho=\{980\} sinFiletes onCerrar=\{cerrar\}>/);
   assert.match(src, /const cerrar = useCerrarEstable\(onCerrar\);/);
-  assert.match(src, /useFocoInicial\(ID_PEDIDO\)/);
+  assert.doesNotMatch(src, /useFocoInicial/, 'con el foco al abrir, el ejemplo de la caja no se mueve nunca');
   assert.doesNotMatch(src, /autoFocus/);
-  assert.match(src, /<BotonDictar /, 'el micrófono de la casa');
+  assert.match(src, /<CajaPedido titulo=/, 'el micrófono y el ↑ de la casa (los de la caja)');
   assert.match(src, /fetch\('\/api\/graficos\/ia', \{[\s\S]*?signal: c\.signal/);
   assert.match(src, /setTimeout\(\(\) => c\.abort\(\), TOPE_CLIENTE_MS\)/, 'el fetch no espera para siempre');
   assert.match(src, /sanearHoja\(j\.hoja, 0\)/, 'lo que llega por la red se vuelve a sanear');

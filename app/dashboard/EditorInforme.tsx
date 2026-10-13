@@ -137,6 +137,9 @@ import { crearColaGuardado, leerRespuestaGuardado, type ColaGuardado } from './g
 import { pedidoDeLectura, type Compartido } from './lectura-compartida';
 import { AccionesFilaProvider } from './entidades/acciones-fila';
 import { PASOS_DASHBOARD, PASOS_DASHBOARD_EDICION, RECORRIDO_DASHBOARD, RECORRIDO_DASHBOARD_EDICION } from './recorridos-dashboard';
+import { hojaConIdsNuevos } from '@/lib/graficos-copia';
+import { tokenDeDashboard } from './copia-dash-cliente';
+import { copiarAlPortapapeles } from '@/app/automations/copia-flujo-cliente';
 
 /** La grilla: 12 columnas, filas de 30 px y 16 px entre tarjetas. ⚠️ El PDF (editor-css.ts) repite estos números. */
 const FILA = 30;
@@ -574,21 +577,23 @@ export function EditorInforme({
     const h = tablero.hojas.find((x) => x.id === id);
     if (!h || tablero.hojas.length >= MAX_HOJAS) return;
     // TODO lo que tiene id se acuña de nuevo (la hoja, sus controles, sus componentes y los controles de
-    // cada uno): con el mismo id, lo elegido mirando en una se vería en la otra. Los conectores siguen a
-    // sus componentes por el id NUEVO.
-    const componentes = h.componentes.map(conIdsNuevos);
-    const nuevoDe = new Map(h.componentes.map((c, i) => [c.id, componentes[i].id] as const));
-    const conectores = (h.conectores ?? []).flatMap((k) => {
-      const d = nuevoDe.get(k.desde), a = nuevoDe.get(k.hasta);
-      return d && a ? [{ ...k, id: nuevoId(), desde: d, hasta: a }] : [];
-    });
-    const copia: Hoja = {
-      ...h, id: nuevoId(), nombre: `${h.nombre} (copia)`.slice(0, 40),
-      controles: h.controles.map((c) => ({ ...c, id: nuevoId() })),
-      componentes, conectores: conectores.length ? conectores : undefined,
-    };
+    // cada uno): con el mismo id, lo elegido mirando en una se vería en la otra. Los conectores y lo que lee
+    // una caja de MaKo siguen a sus componentes por el id NUEVO (la misma función que pegar un dashboard).
+    const copia = hojaConIdsNuevos(h, `${h.nombre} (copia)`);
     mutar((t) => { const i = t.hojas.findIndex((x) => x.id === id); const hs = [...t.hojas]; hs.splice(i + 1, 0, copia); return { ...t, hojas: hs }; });
     irAHoja(copia.id);
+  };
+  /**
+   * «COPIAR DASHBOARD» (lib/graficos-copia.ts): el server guarda la hoja como está en pantalla (sin los filtros sobre
+   * personas) y al portapapeles va su TOKEN, que se pega en «Nueva hoja» de este informe, de otra persona o de otro
+   * negocio. `copiarAlPortapapeles` toma el permiso en el clic aunque el token llegue después (Safari).
+   */
+  const copiarHoja = (id: string) => {
+    const h = tablero.hojas.find((x) => x.id === id);
+    if (!h) return;
+    copiarAlPortapapeles(tokenDeDashboard(h))
+      .then(() => show('Dashboard copiado'))
+      .catch((e: unknown) => show(e instanceof Error && e.message !== 'sin portapapeles' ? e.message : 'No se pudo copiar', undefined, 'bad'));
   };
   const eliminarHoja = (id: string) => {
     if (tablero.hojas.length <= 1) return;
@@ -1243,7 +1248,7 @@ export function EditorInforme({
         <Flotante ancla={menu.ancla} onCerrar={() => setMenu(null)} ancho={300}>
           <MenuHojas
             hojas={tablero.hojas} activa={hoja.id} puedeNueva={puedeNuevaHoja}
-            acciones={guardable ? { onRenombrar: renombrarHoja, onDuplicar: duplicarHoja, onMover: moverHoja, onEliminar: eliminarHoja } : null}
+            acciones={guardable ? { onRenombrar: renombrarHoja, onDuplicar: duplicarHoja, onCopiar: copiarHoja, onMover: moverHoja, onEliminar: eliminarHoja } : null}
             onIr={(id) => { setMenu(null); irAHoja(id); }}
             onNueva={() => { setMenu(null); setNuevaHoja(true); }}
           />
