@@ -205,6 +205,21 @@ export async function guardarResultadoPropuesta(id: string, resultado: Record<st
   if (error) console.error(`[propuestas] no pude guardar el resultado de ${id}:`, error.message);
 }
 
+/**
+ * Devuelve a `pendiente` una propuesta que se reclamó y NO llegó a escribir nada.
+ *
+ * Sólo para ese caso: si el trabajo pudo haber escrito algo, volver a `pendiente` invita a un
+ * segundo click sobre algo hecho a medias (la regla de `lib/api-mako/acciones.ts`). Suelta
+ * únicamente la que sigue `en_curso`, para no reabrir una que otro ya terminó.
+ */
+export async function soltarPropuesta(id: string): Promise<void> {
+  const db = await getTenantDb();
+  const { error } = await db.from('propuestas')
+    .update({ estado: 'pendiente', applied_at: null, resultado: null })
+    .eq('id', id).eq('estado', 'aplicada').eq('resultado->>en_curso', 'true');
+  if (error) console.error(`[propuestas] no pude soltar ${id}:`, error.message);
+}
+
 /** Descartar NO borra: la fila queda con su estado. Es la misma regla que el plan —
  *  descartar es una decisión y borrarla haría que el mismo lead vuelva a proponerse. */
 export async function descartarPropuesta(id: string): Promise<void> {
