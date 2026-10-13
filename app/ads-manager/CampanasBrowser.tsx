@@ -17,6 +17,7 @@ import dynamic from 'next/dynamic';
 import { Dropdown } from '../components/Dropdown';
 import { MakoStar } from '../_components/MakoBrand';
 import { cifra, cuentaAUsd, editaPresupuestoAca, esConvertible, horaDeEscritura, inicialTipeado, montoCuenta, presupuestosVigentes, saltoPresupuesto, tipeadoACuenta, type EscritoPresupuesto } from '@/lib/presupuesto-cambio';
+import { allSettledConTope, TOPE_LOTE_META } from '@/lib/settled-con-tope';
 import type { SenalRecon, ReconVeredicto, RitmoEstado } from '@/lib/queries';
 import {
   colorDeSemaforo, bgDeSemaforo, explicarIssueEs, esAprobacionPendiente, linkAprobarEnMeta,
@@ -461,7 +462,7 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyRe
     // subárbol (los hijos pasan a CAMPAIGN_PAUSED/ADSET_PAUSED solos), así que basta 1 call.
     if (next === 'PAUSED') { const r = await writeOneStatus(lvl, id, 'PAUSED'); if (!r.ok) setToast(r.msg ?? 'Meta rechazó el cambio'); cargar(true); return; }
     // ACTIVAR: cascada a padres + hijos para que el árbol completo entregue.
-    const results = await Promise.allSettled(statusCascadeIds(lvl, id).map((cid) => writeOneStatus(levelOf(cid), cid, 'ACTIVE')));
+    const results = await allSettledConTope(statusCascadeIds(lvl, id), TOPE_LOTE_META, (cid) => writeOneStatus(levelOf(cid), cid, 'ACTIVE'));
     const fail = results.find((res): res is PromiseFulfilledResult<{ ok: boolean; msg?: string }> => res.status === 'fulfilled' && !res.value.ok);
     if (fail) setToast(fail.value.msg ?? 'Meta rechazó activar parte del árbol');
     cargar(true); // reconciliar con el estado EFECTIVO real de Meta (sin spinner)
@@ -518,10 +519,12 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyRe
     const detalle = primero?.value.msg ?? 'Meta rechazó el cambio';
     setToast(fallidos.length === 1 ? `No se pudo ${verbo}: ${detalle}` : `No se pudieron ${verbo} ${fallidos.length} de ${results.length}: ${detalle}`);
   };
+  // Los lotes salen de a TOPE_LOTE_META a la vez, no todos juntos: cada fila son dos
+  // llamadas a Meta y Meta topea por cuenta (lib/settled-con-tope.ts).
   const bulkStatus = async (next: 'ACTIVE' | 'PAUSED') => {
     const seeds = [...selSet];
     if (next === 'PAUSED') {
-      const results = await Promise.allSettled(seeds.map((id) => writeOneStatus(level, id, 'PAUSED')));
+      const results = await allSettledConTope(seeds, TOPE_LOTE_META, (id) => writeOneStatus(level, id, 'PAUSED'));
       avisarFallos(results, 'pausar');
       cargar(true);
       return;
@@ -529,7 +532,7 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyRe
     // ACTIVAR en lote: unir los subárboles de todo lo seleccionado y postear cada id 1 vez.
     const all = new Set<string>();
     for (const id of seeds) for (const cid of statusCascadeIds(level, id)) all.add(cid);
-    const results = await Promise.allSettled([...all].map((cid) => writeOneStatus(levelOf(cid), cid, 'ACTIVE')));
+    const results = await allSettledConTope([...all], TOPE_LOTE_META, (cid) => writeOneStatus(levelOf(cid), cid, 'ACTIVE'));
     avisarFallos(results, 'activar');
     cargar(true); // reconciliar con el estado EFECTIVO real de Meta (sin spinner)
   };
@@ -558,11 +561,11 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyRe
     setPideBudget({ filas: puede.map(filaBudget), nuevo, afuera: elegidas.length - puede.length, moneda: health.account.currency });
   };
 
-  // El «sí» del cartel. Todas en paralelo, como la pausa en lote, y el éxito se afirma
+  // El «sí» del cartel. Con el mismo tope que la pausa en lote, y el éxito se afirma
   // sólo si salieron TODAS. Sin cargar() después: la caché del árbol no se entera de la
   // escritura y no traería nada nuevo (ver presupuestosVigentes).
   const aplicarPresupuesto = async (p: PideBudget) => {
-    const results = await Promise.allSettled(p.filas.map((f) => writeBudget(f.lvl, f.id, p.nuevo)));
+    const results = await allSettledConTope(p.filas, TOPE_LOTE_META, (f) => writeBudget(f.lvl, f.id, p.nuevo));
     if (results.some((res) => res.status === 'rejected' || !res.value.ok)) { avisarFallos(results, 'cambiar'); return; }
     const n = p.filas.length;
     setToast(`${n === 1 ? 'Presupuesto cambiado' : `Presupuesto cambiado en ${n}`}${p.afuera ? ` · ${p.afuera} sin cambiar` : ''}`);
