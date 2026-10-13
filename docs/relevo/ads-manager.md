@@ -32,6 +32,7 @@ las 19:20 murió sin memoria con el tope de 2 GB; lo está arreglando la sesión
 | `e4fb140b` | Un conjunto, anuncio o campaña de OTRA cuenta de Meta no se lee ni se escribe (404): público, textos, datos de campaña y `metaWrite` (pausar/presupuesto/renombrar/borrar). Regla: `esDeLaCuenta` (`lib/meta-cuenta-id.ts`) |
 | `81e80fb2` | La bitácora y `docs/hallazgos-ads.md` ya no mandan a «aplicar la 0215»: medido de nuevo el 13/10, está aplicada (0 de 19 borradores con clave) |
 | `c2ffe6a8` | Los lotes (pausar, activar, presupuesto) salen a Meta de a 4, no todos juntos |
+| `327d35ba` | La tarjeta de Meta en `/integraciones` dice «Faltan permisos de anuncios» en vez de «No se pudo leer» |
 
 ---
 
@@ -122,9 +123,12 @@ Y dos cosas que pasaron **fuera del repo** y mandan en el área:
 - **Por eso el botón «Conectar con Meta» todavía no lo ve ningún cliente.**
   `conectarMetaDisponible()` lo ofrece sólo al super admin hasta la aprobación, y a todos con
   `META_OAUTH_ABIERTO=true` en Vercel — **sin deploy**, el día que Meta apruebe.
-- **La tarjeta de Meta en `/integraciones` dice «No se pudo leer»** y no dice por qué. Tendría que
-  decir «Faltan permisos de anuncios», leyendo `/me/permissions` al descubrir
-  (`lib/meta-conexion.ts`).
+- ✅ **CERRADO el 13/10 (`327d35ba`): la tarjeta de Meta dice «Faltan permisos de anuncios»**
+  cuando Meta contesta con un error de permisos (códigos 10 y 200-299, `lib/meta-permisos.ts`).
+  No se hizo leyendo `/me/permissions` al descubrir, como decía acá: el código de error de la
+  MISMA lectura ya lo dice, sin pedidos de más y para cualquier conexión. Lo que NO hace: avisar
+  al CONECTAR que el token vino sin esos permisos (eso sí pediría `/me/permissions` en
+  `guardarConexionMeta`).
 - **La app MaKo no tiene webhook de leads.** Nadie llama a `subscribed_apps`, así que los leads de
   un cliente conectado SÓLO por la app MaKo entran **por el polling, no en vivo**. Hace falta
   `pages_manage_metadata` (quedó afuera del App Review a propósito), suscribir la página, y que
