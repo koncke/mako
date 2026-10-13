@@ -5570,3 +5570,97 @@ posterior al leído, o una revisión. La primera escritura (esperado `null`) sí
 
 **Vive en:** `lib/settings.ts` · `lib/automatizacion-chat-db.ts` (el que ya lo esquiva) · *2026-10-12 duodécima
 tanda de Automations*
+
+## El typecheck que «salía con 1 sin errores»: lo mataba el vigía, y el fallo mudo alimentaba la estampida (13/10/2026)
+
+**El síntoma, tal como llegó:** `node node_modules/typescript/bin/tsc --noEmit` sale con
+código **1 y no imprime UNA SOLA LÍNEA**, en el clon compartido. Igual con
+`--incremental false`, con `--pretty false` y con `--max-old-space-size=6144`. El pre-push
+lo reporta como «hay errores de tipos» y **bloquea cualquier push desde el clon**. Dos
+sesiones perdieron una hora buscando un error de tipos que no existe.
+
+**La causa:** el vigía de RAM (`~/.claude/guardia/vigia.ps1`) mata el node pesado más
+grande cuando quedan menos de 0,9 GB disponibles, y lo mata con **`taskkill /T /F`** — que
+en Windows deja al proceso con **código 1 y sin salida**. Medido en `guardia.log`: **30
+typechecks matados en un día**. Con 22 sesiones de Claude abiertas (17 trabajando), la RAM
+libre baja de 0,9 GB a mitad de la corrida, siempre.
+
+⚠️ **Y EL FALLO MUDO ERA EL QUE ALIMENTABA LA ESTAMPIDA.** Cada sesión bloqueada corría
+`tsc` A MANO para diagnosticar —es lo razonable cuando el mensaje no dice nada—, fuera del
+lock, y eso pedía otros 2-3 GB y hacía matar al siguiente. Mi propio tsc acotado (pico
+1.571 MB) fue matado porque otra sesión tenía uno de **3.765 MB** al mismo tiempo. O sea:
+el mensaje mudo no era sólo una molestia de diagnóstico, era **el mecanismo que mantenía el
+problema vivo**. Cuando un fallo de infraestructura se disfraza de fallo de código, cada
+persona que lo investiga empeora la causa.
+
+**Lo que quedó, en `scripts/typecheck-lock.mjs`:**
+
+1. **Un exit != 0 con CERO salida no es un error de tipos.** Un `tsc` que falla **siempre**
+   imprime, así que se cuentan los bytes que escribió (stdio a pipes, reenviando a la
+   consola). Si no escribió nada, se dice con todas las letras, se busca en `guardia.log` la
+   línea `MATO pid <su propio hijo>` y se imprime, y se pide expresamente **no correr `tsc`
+   a mano**.
+2. **El heap va acotado** (`--max-old-space-size=2048`). V8 crece el old space hasta ~4 GB
+   en una máquina de 16, así que un `tsc` suelto llega a 3,7 GB **pudiendo trabajar en 1,6**
+   (medido: pico 1.571 MB con cap de 1.500). Capado son ~2,1 GB privados, bastante menos
+   matable — y si de verdad no alcanza, node lo dice ruidoso («Reached heap limit»), que es
+   lo contrario de morir mudo.
+3. **El piso de RAM se DERIVA, no se elige a mano:** cap del heap + zona roja del vigía +
+   margen (≈ 3,3 GB). Estaba en 2,0.
+
+⚠️ **LA LECCIÓN QUE GENERALIZA: UN UMBRAL DE ADMISIÓN MENOR QUE LO QUE EL TRABAJO PIDE ES
+UN PERMISO PARA QUE LO MATEN.** Dos guardas calibradas por separado se peleaban: la de las
+sesiones (`memoria.mjs`) admitía un «pesado» con 1,5 GB libres, el lock esperaba 2,0 — y el
+vigía mataba por debajo de 0,9 con un trabajo que pedía 2,8. Cada paso era defendible solo y
+el sistema completo garantizaba el kill. Cuando dos guardas miran el mismo recurso, sus
+números no son independientes: **el piso de la primera tiene que cubrir el techo del trabajo
+MÁS el gatillo de la segunda**, o la admisión es una trampa. Y bajarlo más no hace que se
+trabaje «al límite»: hace que no se trabaje.
+
+⚠️ **Y `--max-old-space-size=8192` ES LO CONTRARIO DE LO QUE CONVIENE.** Es el reflejo
+natural ante un fallo que parece de memoria, y acá acelera el kill: V8 toma todo lo que le
+des. Subir el techo de un proceso en una máquina con un vigía que mata al más grande es
+pedirle que sea el elegido.
+
+⚠️ **EL GUARD QUE ESCRIBÍ PARA ESTO NO CAZABA SU PROPIA ROTURA.** El assert era
+`assert.match(src, /MATO pid \$\{hijo\.pid\}/)` sobre el archivo entero, y el pid aparece
+**tres veces**: rompiendo la línea que BUSCA, el guard seguía en verde. Va sobre la línea
+del `.find(...)`. Es exactamente la trampa que `AGENTS.md` ya documenta («un guard que lee
+el archivo entero encuentra lo que el archivo dice de sí»), cometida al escribir el guard
+que la nombra. Los 6 guards de `tests/typecheck-lock.test.ts` están probados rompiendo cada
+afirmación por separado: sin pipes 1 fallo · sin cap 1 fallo · piso a mano 1 fallo · sin
+cazar el mudo 1 fallo · buscando la última línea del log 1 fallo · restaurado 6 pases.
+
+⚠️ **Y DE PUNTA A PUNTA SE PRUEBA MATÁNDOLO.** `taskkill /T /F` al `tsc` hijo a mitad de
+camino, desde otro proceso: imprime «EL TYPECHECK NO TERMINÓ, Y NO SON ERRORES DE TIPOS» con
+la línea del log. Leer el código no alcanzaba: la rama que importa es la que sólo existe
+cuando alguien te mata.
+
+**Lo que NO se arregló, y es decisión de Martín:**
+
+- **El vigía mata el `tsc` del pre-push, que es el único que DEBE terminar.** Matarlo
+  garantiza que nadie pueda pushear, y la sesión reintenta, así que el ciclo no converge. Lo
+  correcto sería que el vigía prefiera matar los `tsc` que corren FUERA del lock (el lock
+  tiene el pid del dueño, y su hijo es el serializado) y deje al del pre-push como último
+  recurso. No se tocó porque `vigia.ps1` es config de la máquina.
+- **22 sesiones en 16 GB.** Ningún cap arregla que no haya RAM: medido con **8 MB libres**,
+  el vigía mataba typechecks a los **368 MB**, o sea recién arrancados. Falta ~1 GB para que
+  uno sobreviva; son ~5 sesiones.
+
+⚠️ **Y HOY EL CONSUMIDOR NO ERA CHROME.** El 09/10 se midió que el cuello era Chrome (6,4 GB)
+y no los chats; el 13/10, Chrome tenía **0,55 GB** y las sesiones 4,07. **La misma pregunta
+tuvo dos respuestas distintas en cuatro días**, así que el consumidor se mide cada vez — un
+hallazgo sobre quién se come la RAM caduca más rápido que el resto.
+
+⚠️ **Y EL LOCK NO CRUZA PROYECTOS AUNQUE EL ARCHIVO SEA POR MÁQUINA.** En el medio de esto
+corrían typechecks de `C:\dev\wt-video-editor` con su propio `tsconfig.ve.json`, que no pasan
+por este lock porque ese proyecto no lo cablea. El archivo de lock vive en `os.tmpdir()` y
+alcanza para todos; lo que falta es que cada proyecto lo llame. Es la tercera cara de «un
+lock que vive en un archivo versionado protege a un COMMIT, no a una máquina».
+
+⚠️ **Y `git pull --rebase` NO CORRE EN EL CLON COMPARTIDO.** Con los cambios sin commitear
+de las otras sesiones contesta «cannot pull with rebase: You have unstaged changes» y el
+`pull` no pasa. Se usa `git fetch` y, si hace falta rebasar, un worktree limpio.
+
+**Vive en:** `scripts/typecheck-lock.mjs` · `tests/typecheck-lock.test.ts` ·
+`~/.claude/guardia/vigia.ps1` (sin tocar) · *2026-10-13*

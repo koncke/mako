@@ -140,6 +140,20 @@ siendo el del worktree, así que `tsc` lee SU `tsconfig`: lo que se serializa es
 lo que se chequea. Lo fija `tests/typecheck-lock.test.ts`, que se saltea donde no hay hook
 legible (un clon nuevo, o un worktree donde `.git` es un archivo).
 
+⚠️ **SI EL PRE-PUSH FALLA SIN IMPRIMIR UNA SOLA LÍNEA, NO ES TU CÓDIGO: LO MATARON.** Un
+`tsc` que encuentra errores **siempre** los imprime, así que un exit distinto de 0 con cero
+salida es otra cosa — en esta máquina, el vigía de RAM (`~/.claude/guardia/vigia.ps1`), que
+mata el node pesado más grande cuando quedan menos de 0,9 GB disponibles y lo hace con
+`taskkill /F`, **que en Windows deja código 1 y silencio**. Medido el 13/10/2026: **30
+typechecks matados en un día** con 22 sesiones abiertas. El lock ya lo detecta y lo nombra
+con la línea del log; si lo ves, **NO corras `tsc` a mano para diagnosticar**: son otros 2-3
+GB fuera del lock y es lo que hace matar al próximo — ese fue el mecanismo que mantuvo el
+problema vivo una hora. Se espera, o se cierran chats. Y **nunca le subas el
+`--max-old-space-size`**: V8 toma todo lo que le des (un `tsc` suelto llega a 3,7 GB
+pudiendo trabajar en 1,6), así que subirlo lo convierte en el candidato número uno a morir.
+El detalle, en [docs/hallazgos-infra.md](docs/hallazgos-infra.md) → «El typecheck que
+"salía con 1 sin errores"».
+
 Reglas para cualquier agente que trabaje acá:
 - **Nunca** uses `git push --no-verify` (saltea el único chequeo de tipos que queda).
 - Antes de pushear, si tocaste rutas nuevas, corré `npm run build` una vez: el hook usa
