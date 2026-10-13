@@ -886,7 +886,7 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyRe
       {adSel && <AdDetailTabs key={adSel.ad_id} senal={adSel} desde={desde} hasta={hasta} defaultTab="rendimiento" onClose={() => abrirAd(null)} />}
       {entSel && (
         <EntityDetalle id={entSel.node.id} level={entSel.level} name={entSel.node.name} statusLabel={entSel.node.statusLabel} semaforo={entSel.node.semaforo}
-          desde={desde} hasta={hasta} cross={entSel.cross} recosMeta={entSel.node.recosMeta} presupuestoMxn={entSel.node.dailyBudgetMxn ?? null} onClose={() => setEntSel(null)}
+          desde={desde} hasta={hasta} cross={entSel.cross} recosMeta={entSel.node.recosMeta} presupuestoCuenta={entSel.node.dailyBudgetMxn ?? null} moneda={health?.account.currency ?? 'USD'} onClose={() => setEntSel(null)}
           // La segunda puerta al MISMO editor que «Público» de la fila: los dos refrescan igual.
           onCambiarLugar={entSel.level === 'adset' ? () => setEditPublicoAdset({ id: entSel.node.id, name: nameOf(entSel.node) }) : undefined}
           versionGeo={versionGeo} />

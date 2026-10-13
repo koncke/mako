@@ -23,6 +23,8 @@ import { updateTag } from 'next/cache';
 import { getTenantDb, runWithWorkspace } from '@/lib/workspace';
 import { credWs } from '@/lib/credenciales';
 import { TAG } from '@/lib/cache';
+import { monedaCuentaMeta } from '@/lib/moneda-meta';
+import { aUnidadMeta } from '@/lib/presupuesto-cambio';
 
 const GRAPH = 'https://graph.facebook.com';
 
@@ -79,10 +81,15 @@ export async function metaWrite(body: MetaWriteBody, ws: number): Promise<MetaWr
     if ((body.level as string) === 'ad') return { ok: false, message: 'un anuncio no tiene presupuesto', status: 400 };
     const mxn = Number(body.dailyBudgetMxn);
     if (!Number.isFinite(mxn) || mxn <= 0) return { ok: false, message: 'presupuesto inválido', status: 400 };
-    // daily_budget va en centavos de la moneda de LA CUENTA del ws, que ya no es
-    // siempre MXN: el campo se llama `dailyBudgetMxn` por historia, y lo que se
-    // tipea se interpreta en la moneda de esa cuenta (pendiente en hallazgos-ads).
-    params.set('daily_budget', String(Math.round(mxn * 100)));
+    // daily_budget va en la unidad mínima de la moneda de LA CUENTA del ws (centavos, o
+    // la unidad entera en COP, CLP, JPY…): el campo se llama `dailyBudgetMxn` por
+    // historia y trae un monto en la moneda de esa cuenta. Sin saber la moneda NO se
+    // escribe: con el ×100 de siempre, una cuenta en pesos colombianos recibiría un
+    // presupuesto 100 veces más grande. Leer no escribe a ciegas; escribir plata, sí
+    // pregunta (docs/hallazgos-ads.md, «Las monedas sin centavos»).
+    const moneda = await runWithWorkspace(ws, () => monedaCuentaMeta()).catch(() => null);
+    if (!moneda) return { ok: false, message: 'No pude leer la moneda de tu cuenta de Meta. Reintenta en un momento.', status: 503 };
+    params.set('daily_budget', String(aUnidadMeta(mxn, moneda)));
     applied.dailyBudgetMxn = mxn;
   } else if (body.op === 'name') {
     const name = typeof body.name === 'string' ? body.name.trim() : '';

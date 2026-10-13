@@ -20,6 +20,7 @@ import { META_PAGE_ID } from './config';
 import { credWs } from './credenciales';
 import { normalizarCuentaMeta } from './meta-cuenta-id';
 import { paisDeCuentaMeta } from './meta-pais';
+import { aUnidadMeta } from './presupuesto-cambio';
 import { TIPOS_BUSCABLES, lugarDesdeBusqueda, ordenarLugares, type LugarMeta } from './meta-geo';
 import { describirRegla, estadoConversion, type EstadoConversion } from './meta-conversiones';
 import { erroresFormulario, paramsFormulario, sitioLimpio, urlValida, type FormularioNuevo } from './meta-formularios';
@@ -191,7 +192,12 @@ async function graphGet(url: string): Promise<Record<string, unknown>> {
   return data;
 }
 
-const mxnACentavos = (mxn: number): number => Math.round(mxn * 100);
+/**
+ * Un presupuesto en la moneda de la cuenta → el entero que Meta espera: centavos, o la
+ * unidad entera en las monedas sin centavos (COP, CLP, JPY…). La moneda sale de
+ * `cuentaMeta()`, que tira si Meta no contesta: sin saberla no se crea nada.
+ */
+const aUnidadDeCuenta = (monto: number, currency: string): number => aUnidadMeta(monto, currency);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Segmentación: nuestro Targeting → spec de Meta
@@ -1087,7 +1093,7 @@ export async function createCampaign(spec: CampaignSpec): Promise<string> {
   // conjuntos comparten presupuesto (subcode 4834011, medido el 2026-09-11).
   if (!(spec.budget_level === 'campaign' && spec.daily_budget_mxn)) params.is_adset_budget_sharing_enabled = 'false';
   if (spec.budget_level === 'campaign' && spec.daily_budget_mxn) {
-    params.daily_budget = mxnACentavos(spec.daily_budget_mxn);
+    params.daily_budget = aUnidadDeCuenta(spec.daily_budget_mxn, (await cuentaMeta()).currency);
     params.bid_strategy = 'LOWEST_COST_WITHOUT_CAP'; // CBO exige estrategia a nivel campaña
   }
   const data = await graphPost(`${await cred('META_AD_ACCOUNT_ID')}/campaigns`, params);
@@ -1098,17 +1104,18 @@ export async function createCampaign(spec: CampaignSpec): Promise<string> {
 export async function createAdSet(campaignId: string, spec: CampaignSpec, adset: AdSetSpec): Promise<string> {
   const def = objetivoDef(spec.objective);
   const optimization = adset.optimization_goal || def.optimization_goal;
+  const cuenta = await cuentaMeta();
   const params: Record<string, string | number | undefined> = {
     name: adset.name,
     campaign_id: campaignId,
     status: 'PAUSED',
     billing_event: adset.billing_event || def.billing_event,
     optimization_goal: optimization,
-    targeting: JSON.stringify(buildTargeting(adset.targeting, (await cuentaMeta()).country)),
+    targeting: JSON.stringify(buildTargeting(adset.targeting, cuenta.country)),
   };
   // ABO: presupuesto + estrategia de puja en el conjunto. CBO: viven en la campaña.
   if (spec.budget_level === 'adset') {
-    if (adset.daily_budget_mxn) params.daily_budget = mxnACentavos(adset.daily_budget_mxn);
+    if (adset.daily_budget_mxn) params.daily_budget = aUnidadDeCuenta(adset.daily_budget_mxn, cuenta.currency);
     params.bid_strategy = adset.bid_strategy || 'LOWEST_COST_WITHOUT_CAP';
   }
   const promoted = await buildPromotedObject(spec.objective, optimization, adset.conversion, spec.identidad);

@@ -141,6 +141,46 @@ export function montoCuenta(monto: number, currency: string): string {
 }
 
 /**
+ * Las monedas que Meta maneja SIN subdivisión: su «offset» es 1, o sea que un
+ * `daily_budget` de 5000 en una cuenta en JPY son 5000 yenes, no 50. Todas las demás
+ * tienen offset 100 (el campo viaja en centavos). Copiada de la tabla «Supported
+ * currencies and offsets» de developers.facebook.com/docs/marketing-api/currencies,
+ * leída el 13/10/2026.
+ *
+ * ⚠️ HASTA EL 13/10/2026 TODO MULTIPLICABA Y DIVIDÍA POR 100. Para los clientes de hoy
+ * (MXN y USD) es correcto; un negocio que cobre en pesos colombianos o chilenos habría
+ * visto la celda, el cartel y el wizard 100 veces corridos, y escribir «20.000 COP/día»
+ * habría puesto 2.000.000. Ningún cliente cobraba en una de éstas al escribirlo: el
+ * arreglo llegó antes que el primero.
+ */
+export const MONEDAS_SIN_CENTAVOS_META: ReadonlySet<string> = new Set([
+  'CLP', 'COP', 'CRC', 'HUF', 'IDR', 'ISK', 'JPY', 'KRW', 'PYG', 'TWD', 'VND',
+]);
+
+/**
+ * Por cuánto se multiplica un monto de la cuenta para mandárselo a Meta (y se divide lo
+ * que Meta devuelve): 1 para las monedas sin centavos, 100 para el resto.
+ *
+ * Con la moneda DESCONOCIDA devuelve 100, que es lo que el código hizo siempre: sirve
+ * para DIBUJAR. Quien ESCRIBE un presupuesto no llama esto con `null` — se niega a
+ * escribir si no sabe la moneda (lib/meta-write.ts), porque ahí un default es plata.
+ */
+export function offsetMeta(currency: string | null | undefined): number {
+  const m = currency ? currency.trim().toUpperCase() : '';
+  return MONEDAS_SIN_CENTAVOS_META.has(m) ? 1 : 100;
+}
+
+/** Un monto en la moneda de la cuenta → el entero que Meta espera en `daily_budget`. */
+export function aUnidadMeta(monto: number, currency: string | null | undefined): number {
+  return Math.round(monto * offsetMeta(currency));
+}
+
+/** Lo que Meta devuelve en `daily_budget`, `balance`, `spend_cap`… → el monto en la moneda de la cuenta. */
+export function desdeUnidadMeta(valor: number, currency: string | null | undefined): number {
+  return valor / offsetMeta(currency);
+}
+
+/**
  * A partir de cuántas veces el actual el cambio se marca. El mismo número que usaban
  * las propuestas de MaKo por chat (lib/api-mako/areas/ads.run.ts), que ahora lo leen
  * de acá: era la tercera copia.
