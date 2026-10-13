@@ -111,7 +111,8 @@ const RUTA_TODO = leer('app', 'api', 'todo', 'route.ts');
 const TODO_BOARD = leer('app', 'plan', 'TodoBoard.tsx');
 // ⚠️ LOS MAPPERS DE ENTRADA SE MUDARON EL 26/09/2026. `toBoard`/`toLabel` vivían adentro
 // de `TodoBoard.tsx` y ahora están en `board/desde-todo.ts`, para que los pueda importar
-// también el SERVER (/productivity-analyst) — un `.tsx` con `'use client'` no exporta
+// también el SERVER (hasta el 11/10/2026 /productivity-analyst; desde entonces el Dashboard,
+// lib/graficos-datos-extra.ts) — un `.tsx` con `'use client'` no exporta
 // valores al grafo del server. La guarda sigue al código: apuntarla al archivo viejo
 // habría dado verde sobre un mapper que ya no está ahí, que es peor que no tenerla.
 const TODO_ENTRADA = leer('app', 'plan', 'board', 'desde-todo.ts');

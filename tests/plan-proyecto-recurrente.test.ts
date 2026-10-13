@@ -81,7 +81,8 @@ const rutaTodo = vivo(leer('app', 'api', 'todo', 'route.ts'));
 const todoBoard = vivo(leer('app', 'plan', 'TodoBoard.tsx'));
 // ⚠️ LA PUERTA DE ENTRADA SE MUDÓ EL 26/09/2026: `toBoard`/`toLabel` viven en
 // `board/desde-todo.ts` para que también los pueda importar el SERVER
-// (/productivity-analyst) — un `.tsx` con `'use client'` no exporta valores al grafo del
+// (hasta el 11/10/2026 /productivity-analyst; desde entonces el Dashboard,
+// lib/graficos-datos-extra.ts) — un `.tsx` con `'use client'` no exporta valores al grafo del
 // server. La ESCRITURA (`createLabel`, `saveLabel`) sigue en `TodoBoard.tsx`, que es donde
 // vive el `Repo`. Son dos archivos y por eso son dos constantes: dejar la aserción
 // apuntando al archivo viejo habría dado «no encontré toLabel», que es el error correcto

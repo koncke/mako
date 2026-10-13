@@ -56,6 +56,7 @@ function bloque(src: string, desde: string, hasta: string): string {
 }
 
 const SHELL = sinComentarios(leer('app/plan/board/BoardShell.tsx'));
+const PRIO = sinComentarios(leer('app/plan/board/prioridades.ts'));
 
 // ── La regla, ejecutada ─────────────────────────────────────────────────────
 
@@ -145,9 +146,15 @@ test('Proyectos: la grilla y la tabla filtran por cliente, y la vista lo recibe'
 });
 
 test('Prioridades: las cinco tarjetas y el objetivo son del cliente; las columnas del Kanban no se mueven', () => {
-  assert.match(bloque(SHELL, 'const pendientesTodas = ', ';\n'), /&& pasaCliente\(t\)/);
+  // Desde el 11/10/2026 la cuenta vive en `prioridadesDelTablero` (app/plan/board/prioridades.ts,
+  // la comparten el teléfono y la API de MaKo): BoardShell le pasa el filtro ENTERO y la función
+  // lo aplica a las tarjetas y al norte de la vista. Los dos lados se fijan acá.
+  assert.match(bloque(SHELL, 'const prio = prioridadesDelTablero(', ';\n'), /filtro: filtroCli/);
+  assert.match(bloque(PRIO, 'const pendientesTodas = ', ';\n'), /\(!filtro \|\| filtro\.tarea\(t\)\)/);
+  assert.match(bloque(PRIO, 'const objetivoVista = ', ';\n'), /filtro \? elegirObjetivo\(porScore\.filter\(filtro\.proyecto\)\)/);
+  assert.match(bloque(PRIO, 'const esDelTop = ', ';\n'), /topVistaId/);
   assert.match(bloque(SHELL, "view === 'prioridades' && <Prioridades", '/>'), /objetivo=\{objetivoVista\}/);
-  assert.match(bloque(SHELL, 'const esDelTop = ', ';\n'), /topVistaId/);
+  assert.match(bloque(SHELL, 'const objetivoVista = ', ';\n'), /prio\.objetivoVista/);
   // `topProjectId` decide la COLUMNA de cada tarjeta: un filtro que la cambia reordena.
   assert.match(bloque(SHELL, 'const topProjectId = ', ';\n'), /objetivoPrincipal\?\.id/);
 });
@@ -228,6 +235,8 @@ test('embebido no ofrece el filtro: nace en null y el menú no recibe la capa', 
 //  6   `recurrentesVisibles` sin `pasaCliente(t)`                                   18/1
 //  7   la grilla de Proyectos sin `.filter(({ l }) => pasaCliente(l))`              18/1
 //  8   `pendientesTodas` sin `&& pasaCliente(t)`                                    18/1
+//      (11/10/2026: la cuenta se mudó a prioridades.ts. Re-probado: BoardShell sin
+//      `filtro: filtroCli` → 18/1; prioridades.ts sin `(!filtro || filtro.tarea(t))` → 18/1)
 //  9   Prioridades con `objetivo={objetivoPrincipal}`                               18/1
 //  10  la URL sin `sp.set/delete(PARAM_CLIENTE…)`                                    18/1
 //  11  «Limpiar» sin `cliente?.set(null)`                                           18/1
