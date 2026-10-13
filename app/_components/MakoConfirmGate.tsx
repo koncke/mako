@@ -29,6 +29,7 @@
 // dos botones. El porqué sigue estando, a un toque, para cuando algo no cierre.
 
 import { Suspense, useCallback, useEffect, useState, type CSSProperties } from 'react';
+import dynamic from 'next/dynamic';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useRouter } from '@/app/_ui/Link';
 import { listConfirmacionesAction, resolverConfirmacionAction, type AlcanceConfirmaciones } from '../crm/mako-confirm-actions';
@@ -37,6 +38,14 @@ import type { MakoConfirmacion, ConfOpcion, CambioCampo } from '@/lib/mako-confi
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
+
+/**
+ * La ficha del lead, encima de la página (la misma que abre el tablero). Se carga RECIÉN al
+ * abrirla: este panel lo monta `app/layout.tsx` en cada página, y la ficha arrastra el CRM entero.
+ */
+const LeadEditModal = dynamic(() => import('@/app/crm/LeadEditModal').then((m) => m.LeadEditModal), { ssr: false });
+
+type SinMarcarItem = { lead_id: number; lead_nombre: string; mensaje: string };
 
 const btnBase: CSSProperties = { padding: '7px 13px', borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: SANS, border: '1px solid transparent' };
 
@@ -148,6 +157,10 @@ function Tarjeta() {
   // por la que la mudanza había quedado a medias. El endpoint ya existía y ya lo
   // consume el Sidebar, así que no hay una segunda definición de «sin marcar».
   const [sinMarcar, setSinMarcar] = useState(0);
+  const [sinMarcarLista, setSinMarcarLista] = useState<SinMarcarItem[]>([]);
+  const [ficha, setFicha] = useState<{ id: number; nombre: string } | null>(null);
+  // Sube cuando se cierra una ficha: lo que se arregló adentro sale de la lista.
+  const [releer, setReleer] = useState(0);
 
   // ⚠️ `funnelParam` VA EN LAS DEPS. El selector de producto navega SOFT: cambia el query
   // y NO el pathname, así que con `[enCrm, pathname]` el efecto no se volvía a disparar y
@@ -167,12 +180,16 @@ function Tarjeta() {
     // El contador NO se corta por producto: `getPendientesDeMarcar` es del workspace
     // y la vista que abre tampoco filtra por embudo. Mostrarlo recortado acá diría un
     // número que la pantalla de destino contradice al abrirse.
-    fetch('/api/datos-sin-marcar-count')
+    fetch('/api/datos-sin-marcar-count?lista=1')
       .then((r) => r.json())
-      .then((d) => { if (vivo) setSinMarcar(Number(d?.total) || 0); })
+      .then((d) => {
+        if (!vivo) return;
+        setSinMarcar(Number(d?.total) || 0);
+        setSinMarcarLista(Array.isArray(d?.items) ? (d.items as SinMarcarItem[]) : []);
+      })
       .catch(() => { /* sin contador no se dibuja la fila: no hay nada que afirmar */ });
     return () => { vivo = false; };
-  }, [enCrm, pathname, funnelParam]);
+  }, [enCrm, pathname, funnelParam, releer]);
 
   const resolver = useCallback(async (id: number, decision: string) => {
     if (busy !== null) return; // una resolución a la vez
@@ -240,16 +257,27 @@ function Tarjeta() {
           style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--dim)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: SANS, padding: 4 }}>Después</button>
       </div>
       <div style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto', padding: '0 15px 15px' }}>
-        {/* Los datos que faltan: una fila que LLEVA, no una lista. La cola entera vive en
-            su vista (`?pendientes=1`) y duplicarla acá serían dos lugares donde mirar lo
-            mismo. Desaparece en cero: un renglón que dice «0» es ruido fijo. */}
+        {/* ⚠️ LOS DATOS QUE FALTAN SE RESUELVEN ACÁ, SIN IR A OTRA TAB (tercer feedback del
+            12/10/2026, punto 4: «A revisar» sin ir a otra tab). Hasta entonces era una fila que
+            llevaba a la cola (`?pendientes=1`). Ahora lista los primeros y cada uno abre SU
+            ficha encima de la página; la cola entera sigue a un clic («Ver todos»). Desaparece
+            en cero: un renglón que dice «0» es ruido fijo. */}
         {sinMarcar > 0 && (
-          <button type="button" onClick={() => { setAbierta(false); irAPendientes(); }}
-            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 9, marginTop: 13, padding: '11px 13px', borderRadius: 11, cursor: 'pointer', textAlign: 'left', fontFamily: SANS, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-            <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>Sin marcar</span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 19, height: 19, padding: '0 5px', borderRadius: 999, background: 'var(--warn)', color: '#fff', fontFamily: MONO, fontSize: 11, fontWeight: 700, lineHeight: 1 }}>{sinMarcar}</span>
-            <span style={{ marginLeft: 'auto', fontSize: 13, fontWeight: 700, color: 'var(--primary)' }}>Ver</span>
-          </button>
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 13, marginBottom: 2 }}>
+              <span style={{ fontSize: 11, fontFamily: MONO, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' }}>Sin marcar</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 19, height: 19, padding: '0 5px', borderRadius: 999, background: 'var(--warn)', color: '#fff', fontFamily: MONO, fontSize: 11, fontWeight: 700, lineHeight: 1 }}>{sinMarcar}</span>
+              <button type="button" onClick={() => { setAbierta(false); irAPendientes(); }}
+                style={{ marginLeft: 'auto', background: 'none', border: 'none', padding: 2, cursor: 'pointer', fontFamily: SANS, fontSize: 13, fontWeight: 700, color: 'var(--primary)' }}>Ver todos</button>
+            </div>
+            {sinMarcarLista.map((p) => (
+              <button key={p.lead_id} type="button" onClick={() => setFicha({ id: p.lead_id, nombre: p.lead_nombre })}
+                style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2, marginTop: 6, padding: '9px 12px', borderRadius: 10, cursor: 'pointer', textAlign: 'left', fontFamily: SANS, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+                <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>{p.lead_nombre}</span>
+                <span style={{ fontSize: 12.5, color: 'var(--dim)', width: '100%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.mensaje}</span>
+              </button>
+            ))}
+          </>
         )}
         {/* Con las dos cosas en el mismo panel, «MaKo movió N» deja de ser el título y
             pasa a ser el rótulo de SU grupo: sin esto no se sabe cuál de los dos números
@@ -259,6 +287,10 @@ function Tarjeta() {
         )}
         {items.map((c) => <ItemCard key={c.id} c={c} busy={busy === c.id} bloqueado={busy !== null} error={err === c.id} onResolve={resolver} />)}
       </div>
+      {ficha && (
+        <LeadEditModal leadId={ficha.id} seed={{ nombre: ficha.nombre }}
+          onClose={() => { setFicha(null); setReleer((n) => n + 1); router.refresh(); }} />
+      )}
     </section>
   );
 }
