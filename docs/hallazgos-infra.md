@@ -5662,5 +5662,28 @@ lock que vive en un archivo versionado protege a un COMMIT, no a una máquina».
 de las otras sesiones contesta «cannot pull with rebase: You have unstaged changes» y el
 `pull` no pasa. Se usa `git fetch` y, si hace falta rebasar, un worktree limpio.
 
+⚠️ **EL COSTO, MEDIDO: CINCO SESIONES DIAGNOSTICARON LO MISMO EN PARALELO.** En dos horas
+escribieron cinco chats distintos —Estrategia 3 CUENTAS, CRM, Landing Generator, Content
+Machine y Graphics— cada uno con la misma conclusión, cada uno habiendo pagado su propio
+`tsc` para llegar. Uno hasta leyó la línea exacta (`typecheck-lock.mjs:126`) y propuso el
+arreglo que ya estaba hecho. **Eso no es redundancia: es la cuenta de lo que cuesta un
+fallo que miente sobre su causa.** Un mensaje mudo no cuesta el rato de quien lo ve;
+cuesta ese rato × la cantidad de gente que lo ve, y acá cada investigación consumía 2-3 GB
+que hacían matar al typecheck del vecino. Al cierre: **78 kills del vigía en el día, 45 de
+ellos a un `tsc`.**
+
+⚠️ **Y UNA CORRECCIÓN QUE HAY QUE SABER ANTES DE «ARREGLARLO»: NO ES OOM.** Dos sesiones
+propusieron subir el heap (`--max-old-space-size=4096`, `=8192`), que es el reflejo
+correcto ante un fallo que parece de memoria y acá **acelera el kill**. Se distinguen sin
+ambigüedad: un OOM de node **imprime** «FATAL ERROR: Reached heap limit Allocation failed»
+y sale por abort; un `taskkill /F` sale con 1 y **cero bytes**. Si la salida está vacía, no
+fue memoria del proceso: fue memoria de la MÁQUINA, y el que decide es el vigía.
+
+⚠️ **Y EL CONSUMIDOR DE RAM CAMBIA EN MINUTOS, NO EN DÍAS.** En la misma tarde: Chrome con
+un proceso en **5 GB** (reportado por Content Machine), y medido por mí **0,55 GB** y
+después **0,18 GB**. Cualquier frase del tipo «el problema es X» sobre esta máquina lleva la
+hora pegada o no sirve — es la regla de «una medición tiene fecha» aplicada al recurso más
+volátil que hay.
+
 **Vive en:** `scripts/typecheck-lock.mjs` · `tests/typecheck-lock.test.ts` ·
 `~/.claude/guardia/vigia.ps1` (sin tocar) · *2026-10-13*
