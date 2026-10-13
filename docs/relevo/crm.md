@@ -6,6 +6,56 @@ el briefing anterior (`b5f7fb55`, 10/10 17:10) con todo verificado contra el ár
 **Rutas de esta área:** `app/crm/**`, `lib/leads.ts`, `lib/funnel*.ts`, `lib/crm*.ts`,
 `lib/lead-*.ts`, `lib/campana-*.ts`, `lib/etiquetas*.ts`, `lib/pipeline.ts`.
 
+## 0-α. Al 13/10/2026 (chat «CRM», cuenta `claude2`, al reanudar lo frenado por la cuota)
+
+Martín, vía «Estrategia 3 cuentas»: «dile a esos chats que continuen y cierren lo que ya habiamos
+planificado». Lo nuevo de `mako-feedback-y-tareas.md` NO se tocó: sigue provisional.
+
+### ✅ Cerrado (cada uno con su test probado rompiéndolo)
+
+- **El rojo de main** (`tests/mover-etapa-validacion.test.ts`): el código validaba bien. El test
+  leía 1.400 caracteres fijos y el commit de MaKo Mobile metió código en el medio. Ahora lee la
+  rama de la opción.
+- **Confirmar una propuesta de contactos la RECLAMA antes de crear** (§3): dos pestañas ya no
+  crean dos veces. Si no escribió nada, se suelta (`soltarPropuesta`).
+- **Quitar una columna pregunta aunque el filtro esconda sus leads.**
+- **La nota desde el teléfono se rechaza si es larga**, con `TOPE_NOTA`, en vez de recortarse.
+- **«confírmalo en Inbox» → «confírmalo abajo»**: el mismo turno corre en la ficha de escritorio.
+- **Instagram: una sola regla** de qué es un usuario (la del buscador).
+- **El desplegable no esconde «＋ Nueva» al buscar** (`app/components/Dropdown.tsx`).
+- **La cohorte se ve en el panel del tablero**, con `cohorteDeLead`, la misma función de la ruta.
+- **«A revisar» resuelve en el lugar**: lista los primeros 12 leads con datos sin marcar y abre
+  su ficha encima de la página. «Ver todos» sigue llevando a la cola.
+- **Las notas como los chats de MaKo**: emojis, el micrófono (ya estaba) y **adjuntos**. La
+  **mig 0267 YA ESTÁ APLICADA en prod**: columnas en `lead_audit` y el bucket privado
+  `lead-notas`. Verificado de punta a punta en ws3 y borrado.
+
+**Sin mirar en el navegador.**
+
+**El push:** al cierre, el pre-push no pudo correr el typecheck. La vigía de RAM lo mata en zona
+roja y sale «hay errores de tipos» sin ninguno. Lo arregla «Fallas en la PC» en
+`scripts/typecheck-lock.mjs`. Los commits se pushean cuando eso esté en main; nunca con
+`--no-verify`.
+
+### Ya estaba hecho (las notas de abajo quedaron viejas)
+
+- **El punto 3 del quinto feedback** (desplegable de tipo en las nutriciones, arrastrar cambia el
+  tipo): está en `ab720661`.
+- **El duplicado del opt-in sin productos** (§3): desde el 09/10 la propuesta guarda
+  `datos.funnels` y los aplica quien confirma.
+
+### Sin hacer, con su archivo
+
+- **El espejo etapa↔etiqueta reconoce por el NOMBRE** lo que tocó una persona
+  (`lib/etiquetas-motor.ts`).
+- **Los dos textos al borrar una etapa se contradicen, y ninguno es exacto.**
+  - El tablero (`CrmBoard.tsx`) dice que los leads «pasan a la primera etapa».
+  - El editor (`EtapasModal.tsx`) dice que «quedan fuera del embudo».
+  - Lo que pasa: vuelven a la etapa que les dan sus datos (`etapaVigenteDe`), y quedan afuera
+    sólo si esa etapa no existe en el funnel.
+- **El lápiz (color) en las etapas de nutrición**; **la causa del título de /crm**; **los tres
+  clasificadores de «Meta está limitando»**.
+
 ## 0. Al 12/10/2026, 15:30 (chat «CRM», cuenta `claude3`, al 98% semanal)
 
 ### ✅ Sexto feedback del 12/10 (14:54) y el punto 3 del quinto: HECHOS en `ab720661`

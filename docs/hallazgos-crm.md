@@ -8402,3 +8402,33 @@ cargada después de las 12 hacía que MaKo diera la reunión por pasada y cortar
 zona del workspace). Ojo: la hora de una reunión NO entra en `lead_audit` (`AUDIT_FIELDS` tiene la fecha y no `junta_1_at`).
 
 **Vive en:** `app/crm/actions.ts` (`StageMoveData`, el paso de la reunión del asistente) · `lib/leads.ts` (`AUDIT_FIELDS`)
+
+## Lo frenado por la cuota, cerrado el 13/10: tres trampas que el código no cuenta (13/10/2026)
+
+**Vive en:** `app/crm/revisar/[id]/acciones.ts` · `tests/mover-etapa-validacion.test.ts` ·
+`app/components/Dropdown.tsx` · `app/crm/lead-view/NotasCard.tsx` · mig 0267
+
+- ⚠️ **Un comentario que promete una garantía no es la garantía.** `confirmarLeadsAction` decía
+  que «dos pestañas o un doble click crean UN solo lote», y marcaba la propuesta DESPUÉS de
+  crear. Las dos pestañas pasaban el chequeo de `pendiente` y las dos creaban. Lo que evitaba
+  el duplicado era el dedup del importador, que es otra pieza y puede cambiar. **La regla: lo
+  que tiene que pasar UNA vez se reclama ANTES de hacerlo** (`marcarAplicada({ en_curso })`,
+  el molde de `lib/api-mako/acciones.ts`). Si no escribió nada, se suelta.
+- ⚠️ **Un test que lee N caracteres fijos desde un ancla se rompe cuando alguien agrega código
+  en el medio, con el comportamiento intacto.** El rojo de main en «CABLEADO: la opción del
+  modal de confirmaciones…» era eso: el commit de MaKo Mobile metió el reclamo de la
+  confirmación, y `requisitos: 'validar'` quedó afuera de la ventana. Se ancla a la RAMA
+  (`} else if (op) {` hasta el `} else {` siguiente), no a un largo.
+- ⚠️ **En un desplegable, «crear» es una acción, no un dato de la lista.** El buscador aparece
+  pasadas las 7 opciones y filtraba también «＋ Nueva» por su título, así que escribir el nombre
+  de una etiqueta que no existe la escondía justo cuando hace falta. El arreglo va en el
+  primitive (`coincide`), para todos los desplegables.
+- **El adjunto de una nota** tiene el molde de las notas del curso (mig 0208): el navegador
+  sube directo con una URL firmada, el alta comprueba que llegó, y se abre por el id de la nota.
+  La ruta del bucket no viaja a la pantalla. Verificado contra producción en ws3: un `.exe`
+  rebota con 400 en el bucket, no sólo en la pantalla.
+
+**Lo que quedó SIN hacer:** está en `docs/relevo/crm.md` §0-α (el espejo de etiquetas por
+nombre y los dos textos contradictorios al borrar una etapa, entre otros).
+
+_13/10/2026, cuenta 2, sin subagentes._
