@@ -79,7 +79,17 @@ test('el catálogo se consulta ANTES que las familias: prohibido inventarla, no 
 test('la lista de familias sigue siendo la de nav.ts', () => {
   // Está copiada en el catálogo porque `lib/` no importa de `app/`. Copiada sin guarda,
   // la quinta familia que se agregue no la vería nadie — y sería justo la que falta.
-  assert.deepEqual([...FAMILIAS_SIDEBAR], FAMILIAS.map((f) => f.label));
+  //
+  // ⚠️ Se comparan CONJUNTOS, no listas. El catálogo usa la copia con un `.some()`, así
+  // que el orden no cambia nada de lo que prohíbe — y el orden de la barra es una
+  // decisión de UI que se toma sin pensar en el Plan. Con `deepEqual` sobre la lista,
+  // mandar «Customer Success» al final de la barra (3dce7696, 12/10) dejó este test en
+  // rojo en main sin que hubiera nada que arreglar en el catálogo.
+  //
+  // Probado rompiéndolo (13/10): sacar «Analyze» de la copia → 1 fallo; reordenar la
+  // copia entera → 0 fallos.
+  const orden = (xs: readonly string[]) => [...xs].sort();
+  assert.deepEqual(orden(FAMILIAS_SIDEBAR), orden(FAMILIAS.map((f) => f.label)));
 });
 
 test('EL PREFIJO NO ES UNA FORMA DE ESQUIVAR EL CONTROL', () => {
