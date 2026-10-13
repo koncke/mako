@@ -18,6 +18,7 @@
 import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { BotonBorrar } from '@/app/_ui/BotonBorrar';
 import { WizardShell } from '../_components/WizardShell';
+import ErrorIA from '../_components/ErrorIA';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -240,6 +241,11 @@ export function ProductosView({ onListo }: { onListo?: (listo: boolean) => void 
       )}
 
       {err && <div style={{ marginTop: 14, fontSize: 13.5, color: 'var(--bad)', lineHeight: 1.5 }}>{err}</div>}
+      {/* Un error de IA no se dibuja sin su salida: acá el cliente todavía tiene UNA
+          sola key y ninguna pista de que puede sumar otra. Pedido del dueño con un
+          cliente trabado: «debería ahí mismo saltar la opción de dejarle otra key».
+          `soloSalida` porque el texto ya lo pinta el renglón de arriba. */}
+      <ErrorIA soloSalida error={err} onConectada={() => { setErr(null); void cargar(); }} />
 
       {nuevo && (
         <NuevoProducto

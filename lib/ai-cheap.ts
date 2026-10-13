@@ -374,10 +374,10 @@ async function modelosDisponibles(p: Prov): Promise<string> {
  */
 export type EsfuerzoBarato = 'minimal' | 'low' | 'medium' | 'high';
 
-export async function chatCheap(opts: { system: string; user: string; json?: boolean; maxTokens?: number; temperature?: number; feature?: string; motivo?: string; provider?: ProvName; model?: string; clave?: string; timeoutMs?: number; esfuerzo?: EsfuerzoBarato }): Promise<string> {
+export async function chatCheap(opts: { system: string; user: string; json?: boolean; maxTokens?: number; temperature?: number; feature?: string; motivo?: string; provider?: ProvName; model?: string; clave?: string; timeoutMs?: number; esfuerzo?: EsfuerzoBarato; /** De qué workspace sale la KEY. SOLO lo pasa la red de plataforma; sin esto, la del workspace en curso (el BYOK de siempre). */ wsKey?: number }): Promise<string> {
   // `clave` elige CUÁL cuenta del proveedor (GEMINI_API_KEY vs _2 vs _3). La pone la
   // cascada al rotar; un caller suelto no la pasa y usa la de siempre.
-  const p = await proveedor(opts.provider, opts.clave);
+  const p = await proveedor(opts.provider, opts.clave, opts.wsKey);
   if (!p) throw new Error('Sin proveedor de IA barata (falta GROQ_API_KEY u OPENAI_API_KEY).');
   const model = opts.model || p.chatModel;
   // Timeout configurable: 30s alcanza para tareas simples, pero una llamada grande
@@ -489,7 +489,20 @@ export function techoDeEntrada(p: ProvName): number | undefined {
 // espera: se sigue rotando. Cuando se acaba, se anota «sin tiempo» en `erroresOut`.
 //
 // `sinRespaldoDeModelo` saca el tercer eje (ver `modelosAProbar`).
-export async function chatCheapCascade(opts: { system: string; user: string; json?: boolean; maxTokens?: number; temperature?: number; feature?: string; motivo?: string; provs?: ProvName[]; timeoutMs?: number; modelos?: Partial<Record<ProvName, string>>; validar?: (t: string) => boolean; erroresOut?: string[]; esfuerzo?: EsfuerzoBarato; hastaMs?: number; sinRespaldoDeModelo?: boolean }): Promise<string> {
+/**
+ * `redDePlataforma`: cuando las keys del NEGOCIO ya fallaron, reintenta con las
+ * gratis de la agencia. Es opt-in porque sólo el que llama sabe si este camino lo
+ * usa un CLIENTE — y un cliente con una sola key no tiene cascada: cualquier bache
+ * de su proveedor es MaKo muda. En el arranque eso es el onboarding trabado, que
+ * es justo el caso que lo pidió: «no puede ser que se exceda la quota durante el
+ * onboarding».
+ *
+ * `erroresPlataformaOut`: los errores de NUESTRAS keys van acá y NUNCA a
+ * `erroresOut`. Con ellos adentro, el mensaje que lee el cliente le echa la culpa
+ * a las suyas: el 429 crónico de una key de la agencia ya fabricó un «te quedaste
+ * sin cuota» con la del cliente contestando HTTP 200 (01/10/2026).
+ */
+export async function chatCheapCascade(opts: { system: string; user: string; json?: boolean; maxTokens?: number; temperature?: number; feature?: string; motivo?: string; provs?: ProvName[]; timeoutMs?: number; modelos?: Partial<Record<ProvName, string>>; validar?: (t: string) => boolean; erroresOut?: string[]; esfuerzo?: EsfuerzoBarato; hastaMs?: number; sinRespaldoDeModelo?: boolean; redDePlataforma?: boolean; erroresPlataformaOut?: string[] }): Promise<string> {
   const quedan = (): number => (opts.hastaMs ?? Number.POSITIVE_INFINITY) - Date.now();
   // El timeout de UN intento: el de siempre, o lo que queda del plazo si es menos.
   const plazoDeIntento = (): number => Math.min(opts.timeoutMs ?? 30_000, quedan());
@@ -515,6 +528,10 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
   }
   // PROACTIVO: probamos primero los que todavía tienen cuota hoy (los cerca del tope van al final).
   const orden = await ordenarPorCuota(candidatos.map(String)).catch(() => candidatos.map(String));
+  // Cuáles se probaron DE VERDAD (los que tenían key cargada). Lo usa la red de
+  // plataforma para empezar por OTRO proveedor: si Google está saturado, su segunda
+  // cuenta le pega al mismo Google.
+  const probados = new Set<ProvName>();
   for (const prov of orden as ProvName[]) {
     // DOS ejes de rotación, y este es el de adentro: todas las CUENTAS cargadas de
     // este proveedor antes de pasar al siguiente. El free tier se agota por cuenta,
@@ -523,6 +540,7 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
     // mejor que quedaba río abajo. Sin key cargada, `instancias` es vacío y no
     // cuesta ni un request.
     const instancias = await provsDe(prov);
+    if (instancias.length) probados.add(prov);
     for (const inst of instancias) {
      // ⚠️ TERCER EJE DE ROTACIÓN: EL MODELO. Los otros dos (cuenta y proveedor) no
      // sirven de nada cuando lo que está caído es UN MODELO y el workspace tiene un
@@ -613,6 +631,47 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
      }
     }
   }
+
+  // ── La red de plataforma: último recurso, gratis y REGISTRADO ──
+  // La doctrina (y los tres límites) están en provsGratisDePlataforma. El molde es
+  // transcribirAudio, que la tiene desde el 25/08; este camino —el que lee los
+  // documentos del negocio y arma su catálogo— no la tenía, y es el del arranque.
+  if (opts.redDePlataforma) {
+    const { wsSuperAdmin, getWorkspaceActual } = await import('./workspace');
+    const wsSA = await wsSuperAdmin().catch(() => null);
+    const wsActual = await getWorkspaceActual().catch(() => null);
+    // El super admin ya probó SUS keys arriba: repetirlas es gastar tiempo en lo que ya falló.
+    if (wsSA != null && wsActual !== wsSA) {
+      const red = await provsGratisDePlataforma().catch(() => []);
+      const otroPrimero = [...red.filter((r) => !probados.has(r.provider)), ...red.filter((r) => probados.has(r.provider))];
+      for (const r of otroPrimero) {
+        for (const model of modelosAProbar(r.provider, opts.modelos?.[r.provider], !opts.sinRespaldoDeModelo)) {
+          // ⏱ El plazo del pedido manda también acá: la red no puede estirar un turno.
+          if (quedan() < MIN_INTENTO_MS) return sinTiempo();
+          try {
+            const t = await chatCheap({
+              system: opts.system, user: opts.user, maxTokens: opts.maxTokens, temperature: opts.temperature,
+              feature: opts.feature, esfuerzo: opts.esfuerzo, json: opts.json,
+              provider: r.provider, clave: r.clave, model, wsKey: wsSA, timeoutMs: plazoDeIntento(),
+              motivo: `⚠ red de plataforma (${r.provider}) — las keys del negocio no pudieron · ${opts.motivo ?? ''}`.trim(),
+            });
+            if (t && (!opts.validar || opts.validar(t))) {
+              console.error(`[ai-cheap] ws=${wsActual} resolvió con la RED DE PLATAFORMA (${rotulo({ ...cfgDe(r.provider), key: '', clave: r.clave })}): sus propias keys no pudieron`);
+              return t;
+            }
+          } catch (e) {
+            // A la lista de la PLATAFORMA, nunca a la del cliente (ver el doc de la firma).
+            const detalle = e instanceof Error ? e.message : String(e);
+            opts.erroresPlataformaOut?.push(`${r.provider}/${r.clave}: ${detalle}`);
+            // Y al log SIEMPRE: una red que se usa y falla tiene que poder verse
+            // aunque el caller no haya pedido la lista. Un respaldo que falla en
+            // silencio es indistinguible de uno que nunca se usó.
+            console.error(`[ai-cheap] red de plataforma ${r.provider}/${r.clave} falló: ${detalle}`);
+          }
+        }
+      }
+    }
+  }
   return '';
 }
 
@@ -679,16 +738,23 @@ const MODELO_VISION: Partial<Record<ProvName, string>> = {
 // fotos en vez de mirar solo una (bug real: la cara de marca solo analizaba la
 // primera foto que le funcionaba, y una sola conclusión sobre p.ej. la vestimenta
 // quedaba como si fuera válida para todas). Solo aplica al camino de imagen, no PDF.
-type DocOpts = { dataUrl: string; dataUrls?: string[]; isPdf: boolean; nombreArchivo: string; prompt: string; json?: boolean; feature?: string; motivo?: string; timeoutMs?: number };
+/**
+ * `redDePlataforma`: igual que en chatCheapCascade — cuando las keys del negocio no
+ * pudieron, reintenta con las gratis de la agencia. Acá importa especialmente: el
+ * free tier de visión de Gemini son VEINTE requests, y un onboarding con 6
+ * documentos y las fotos de la cara de marca se lo come solo (medido el 16/08/2026,
+ * con un cliente trabado en vivo).
+ */
+type DocOpts = { dataUrl: string; dataUrls?: string[]; isPdf: boolean; nombreArchivo: string; prompt: string; json?: boolean; feature?: string; motivo?: string; timeoutMs?: number; redDePlataforma?: boolean };
 
 export async function leerDocumentoIA(opts: DocOpts): Promise<{ text: string; provider: ProvName }> {
   const errores: string[] = [];
   const sinKey: ProvName[] = [];
-  for (const prov of VISION_CASCADE) {
-    // Todas las CUENTAS del proveedor: leer un contrato con la key 1 agotada y
-    // rendirse teniendo la key 2 cargada era perder el documento por nada.
-    const instancias = await provsDe(prov);
-    if (!instancias.length) { sinKey.push(prov); continue; }
+
+  // El intento, en UNA función: la usan las keys del cliente y la red de plataforma.
+  // Con dos copias, cualquier arreglo de la rotación de modelo (que acá costó un
+  // cliente trabado) se aplica en una sola y la otra se queda vieja.
+  const probarCon = async (prov: ProvName, instancias: Prov[], errs: string[], o: DocOpts): Promise<{ text: string; provider: ProvName } | null> => {
     for (const inst of instancias) {
       // MISMO tercer eje que en chatCheapCascade: si el modelo está caído (503) o
       // retirado (404), rotar cuentas no sirve — todas pegan contra el mismo modelo
@@ -697,15 +763,55 @@ export async function leerDocumentoIA(opts: DocOpts): Promise<{ text: string; pr
       for (const model of modelosAProbar(prov, undefined)) {
         try {
           const text = prov === 'gemini'
-            ? await leerConGemini(inst.key, opts, nroCuenta(inst), model)
-            : await leerConOpenAI(inst.key, opts, nroCuenta(inst), prov);
+            ? await leerConGemini(inst.key, o, nroCuenta(inst), model)
+            : await leerConOpenAI(inst.key, o, nroCuenta(inst), prov);
           if (text.trim()) return { text, provider: prov };
-          errores.push(`${rotulo(inst)}: respuesta vacía`);
+          errs.push(`${rotulo(inst)}: respuesta vacía`);
         } catch (e) {
-          errores.push(`${rotulo(inst)}: ${e instanceof Error ? e.message : String(e)}`);
+          errs.push(`${rotulo(inst)}: ${e instanceof Error ? e.message : String(e)}`);
         }
         // OpenAI no tiene lista de respaldo: no tiene sentido repetir con el mismo modelo.
         if (prov !== 'gemini') break;
+      }
+    }
+    return null;
+  };
+
+  for (const prov of VISION_CASCADE) {
+    // Todas las CUENTAS del proveedor: leer un contrato con la key 1 agotada y
+    // rendirse teniendo la key 2 cargada era perder el documento por nada.
+    const instancias = await provsDe(prov);
+    if (!instancias.length) { sinKey.push(prov); continue; }
+    const r = await probarCon(prov, instancias, errores, opts);
+    if (r) return r;
+  }
+
+  // ── La red de plataforma: último recurso, gratis y REGISTRADO ──
+  if (opts.redDePlataforma) {
+    const { wsSuperAdmin, getWorkspaceActual } = await import('./workspace');
+    const wsSA = await wsSuperAdmin().catch(() => null);
+    const wsActual = await getWorkspaceActual().catch(() => null);
+    // El super admin ya probó SUS keys arriba.
+    if (wsSA != null && wsActual !== wsSA) {
+      // Los errores de NUESTRAS keys van aparte: `errores` es lo que termina en el
+      // mensaje del cliente, y con los nuestros adentro le echa la culpa a los suyos.
+      const erroresPlataforma: string[] = [];
+      const red = await provsGratisDePlataforma().catch(() => []);
+      // Sólo los que MIRAN: la red trae gemini y groq, y groq no tiene visión.
+      for (const r of red.filter((x) => VISION_CASCADE.includes(x.provider))) {
+        const p = await provDe(r.provider, r.clave, wsSA).catch(() => null);
+        if (!p) continue;
+        const res = await probarCon(r.provider, [p], erroresPlataforma, {
+          ...opts,
+          motivo: `⚠ red de plataforma (${r.provider}) — las keys del negocio no pudieron leer el documento · ${opts.motivo ?? ''}`.trim(),
+        });
+        if (res) {
+          console.error(`[ai-cheap] ws=${wsActual} leyó el documento con la RED DE PLATAFORMA (${r.provider}): sus propias keys no pudieron`);
+          return res;
+        }
+      }
+      if (erroresPlataforma.length) {
+        console.error(`[ai-cheap] la red de plataforma tampoco pudo leer: ${erroresPlataforma.join(' · ')}`);
       }
     }
   }

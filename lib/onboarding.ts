@@ -108,7 +108,7 @@ export async function extractAnswersFromText(texto: string, fields: Array<{ key:
   if (!texto.trim() || fields.length === 0) return {};
   const lista = fields.map((f) => `- ${f.key}: ${f.label}`).join('\n');
   const sys = await renderPrompt('onboarding.extract.system', ONBOARDING_EXTRACT_TEMPLATE, { lista });
-  const crudo = await chatCheapCascade({ system: sys, user: texto.slice(0, maxChars), json: true, maxTokens: 1800, feature: 'onboarding-extract', motivo: 'Extraer campos del brief de un documento', provs: CASCADA_DOCS, modelos: MODELO_DOCS, validar: esJsonObjeto });
+  const crudo = await chatCheapCascade({ system: sys, user: texto.slice(0, maxChars), json: true, maxTokens: 1800, feature: 'onboarding-extract', motivo: 'Extraer campos del brief de un documento', provs: CASCADA_DOCS, modelos: MODELO_DOCS, validar: esJsonObjeto, redDePlataforma: true });
   const parsed = parseJsonLoose(crudo);
   const campos = (parsed.campos && typeof parsed.campos === 'object' ? parsed.campos : parsed) as Record<string, unknown>;
   const out: Record<string, string> = {};
@@ -132,7 +132,7 @@ export async function extraerDeArchivo(texto: string, fields: Array<{ key: strin
   // usamos modelos capaces (70b/flash) y `validar` para que, si uno falla, rescate el
   // siguiente. Sin esto, un doc de +10k chars volvía "sin datos útiles" (bug reportado).
   const errores: string[] = [];
-  const out = await chatCheapCascade({ system: sys, user: texto.slice(0, maxChars), json: true, maxTokens: 2000, feature: 'El Archivero', motivo: 'Extraer campos de un documento del negocio', provs: CASCADA_DOCS, modelos: MODELO_DOCS, validar: esJsonObjeto, erroresOut: errores });
+  const out = await chatCheapCascade({ system: sys, user: texto.slice(0, maxChars), json: true, maxTokens: 2000, feature: 'El Archivero', motivo: 'Extraer campos de un documento del negocio', provs: CASCADA_DOCS, modelos: MODELO_DOCS, validar: esJsonObjeto, erroresOut: errores, redDePlataforma: true });
   // out vacío: puede ser "sin ninguna key en el workspace" O "hay key pero la cascada
   // falló igual" (cuota, rate-limit, key vencida). El caller (route) YA validó lo
   // primero con docsIADisponible() antes de llegar hasta acá, así que si pasa por
@@ -217,7 +217,7 @@ function panoramaCompleto(t: string): boolean {
 export async function generarPanorama(textos: string[], contexto: string): Promise<string> {
   const material = textos.map((t, i) => `— DOCUMENTO ${i + 1} —\n${t.slice(0, 8000)}`).join('\n\n');
   const user = `${contexto ? `Lo que ya tenías del negocio:\n${contexto}\n\n` : ''}DOCUMENTOS:\n${material}`.slice(0, 60000);
-  const out = await chatCheapCascade({ system: ARCHIVERO_PANORAMA_TEMPLATE, user, maxTokens: 4500, feature: 'El Archivero', motivo: 'Panorama del negocio desde los documentos', provs: CASCADA_PANORAMA, modelos: MODELO_DOCS, validar: panoramaCompleto });
+  const out = await chatCheapCascade({ system: ARCHIVERO_PANORAMA_TEMPLATE, user, maxTokens: 4500, feature: 'El Archivero', motivo: 'Panorama del negocio desde los documentos', provs: CASCADA_PANORAMA, modelos: MODELO_DOCS, validar: panoramaCompleto, redDePlataforma: true });
   return limpiarPanorama(out);
 }
 
@@ -234,7 +234,7 @@ export async function generarPreguntasCerradas(
   if (faltantes.length === 0) return [];
   const lista = faltantes.map((f) => `- ${f.key}: ${f.label}`).join('\n');
   const sys = await renderPrompt('archivero.preguntas.system', ARCHIVERO_PREGUNTAS_TEMPLATE, { conocido: conocido || '(todavía no sé nada)', faltantes: lista });
-  const out = await chatCheapCascade({ system: sys, user: 'Generá las preguntas cerradas.', json: true, maxTokens: 1600, feature: 'El Archivero', motivo: 'Preguntas cerradas para los huecos del perfil', provs: CASCADA_DOCS, modelos: MODELO_DOCS, validar: (t) => Array.isArray(parseJsonLoose(t).preguntas) });
+  const out = await chatCheapCascade({ system: sys, user: 'Generá las preguntas cerradas.', json: true, maxTokens: 1600, feature: 'El Archivero', motivo: 'Preguntas cerradas para los huecos del perfil', provs: CASCADA_DOCS, modelos: MODELO_DOCS, validar: (t) => Array.isArray(parseJsonLoose(t).preguntas), redDePlataforma: true });
   const parsed = parseJsonLoose(out);
   const arr = Array.isArray(parsed.preguntas) ? parsed.preguntas : [];
   const validas = new Set(faltantes.map((f) => f.key));

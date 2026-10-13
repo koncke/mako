@@ -67,14 +67,14 @@ async function leerArchivo(file: File): Promise<{ texto: string; warning?: strin
     // 2) PDF escaneado (imágenes) → visión.
     try {
       const dataUrl = `data:application/pdf;base64,${buf.toString('base64')}`;
-      const { text } = await leerDocumentoIA({ dataUrl, isPdf: true, nombreArchivo: file.name, prompt: LEER_DOC, feature: 'El Archivero', motivo: `Leer "${file.name}"` });
+      const { text } = await leerDocumentoIA({ dataUrl, isPdf: true, nombreArchivo: file.name, prompt: LEER_DOC, feature: 'El Archivero', motivo: `Leer "${file.name}"`, redDePlataforma: true });
       return { texto: text };
     } catch (e) { return { texto: '', warning: `No pude leer "${file.name}": ${msg(e)}` }; }
   }
   if (esImg) {
     try {
       const dataUrl = `data:${file.type || 'image/jpeg'};base64,${buf.toString('base64')}`;
-      const { text } = await leerDocumentoIA({ dataUrl, isPdf: false, nombreArchivo: file.name, prompt: LEER_DOC, feature: 'El Archivero', motivo: `Leer "${file.name}"` });
+      const { text } = await leerDocumentoIA({ dataUrl, isPdf: false, nombreArchivo: file.name, prompt: LEER_DOC, feature: 'El Archivero', motivo: `Leer "${file.name}"`, redDePlataforma: true });
       return { texto: text };
     } catch (e) { return { texto: '', warning: `No pude leer "${file.name}": ${msg(e)}` }; }
   }

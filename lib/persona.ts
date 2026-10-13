@@ -209,7 +209,7 @@ export async function generarDescripcionPersona(): Promise<{ ok: true; descripci
     // Cascada de visión son 2 (gemini→openai): 60s × 2 = 120s tope, bajo el maxDuration=180.
     const { text } = await leerDocumentoIA({
       dataUrl: dataUrls[0], dataUrls, isPdf: false, nombreArchivo: 'fotos-persona',
-      prompt: PERSONA_DESC_PROMPT, feature: 'persona', motivo: 'Describir la cara de marca (todas las fotos)', timeoutMs: 60000,
+      prompt: PERSONA_DESC_PROMPT, feature: 'persona', motivo: 'Describir la cara de marca (todas las fotos)', timeoutMs: 60000, redDePlataforma: true,
     });
     if (text.trim().length > 60) {
       const descripcion = text.trim();
