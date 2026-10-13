@@ -40,6 +40,7 @@ import { buscarLeads, notasDeLead } from '@/lib/crm-movil';
 import { porEtapa, type PorEtapaM } from './datos';
 import { comoLite, seMueveEnElTelefono, MIN_BUSQUEDA, type EtapaM, type FilaLeadM } from './reglas';
 import { addLeadNoteAction, setLeadStageAction, undoStageMoveAction } from '@/app/crm/actions';
+import { TOPE_NOTA } from '@/app/crm/notas-reglas';
 
 /** null = puede; si no, el motivo corto (para un toast). */
 async function noPuede(): Promise<string | null> {
@@ -97,9 +98,13 @@ type Nota = { id: number; texto: string; cuando: string; autor: string };
 export async function notaLeadAction(leadId: number, texto: string): Promise<{ ok: true; notas: Nota[] } | { ok: false; error: string }> {
   const no = await noPuede();
   if (no) return { ok: false, error: no };
-  const t = String(texto ?? '').trim().slice(0, 4000);
+  // ⚠️ SE RECHAZA, NO SE RECORTA (13/10/2026). Acá se cortaba a 4000 ANTES de llamar a
+  // addLeadNoteAction, así que su rechazo por largo nunca llegaba: el teléfono guardaba sólo el
+  // principio y contestaba que quedó. El tope es el mismo del alta (app/crm/notas-reglas.ts).
+  const t = String(texto ?? '').trim();
   if (!idOk(leadId)) return { ok: false, error: 'Falta el lead' };
   if (!t) return { ok: false, error: 'Nota vacía' };
+  if (t.length > TOPE_NOTA) return { ok: false, error: 'La nota es muy larga' };
   try {
     if (!(await getLead(leadId))) return { ok: false, error: 'Ese lead no está' };
     const desde = Date.now() - 60_000;
