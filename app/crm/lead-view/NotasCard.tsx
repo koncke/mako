@@ -27,7 +27,10 @@
 import { useEffect, useRef, useState, useTransition, type CSSProperties } from 'react';
 import { useRefrescarFicha } from './ficha-cambio';
 import { addLeadNoteAction, getLeadNotasAction, type LeadAuditRowFull } from '../actions';
-import { editarNotaLeadAction, borrarNotaLeadAction } from '../notas-actions';
+import { editarNotaLeadAction, borrarNotaLeadAction, urlSubidaNotaLeadAction, urlAdjuntoNotaLeadAction, descartarAdjuntoNotaLeadAction } from '../notas-actions';
+// El adjunto: la MISMA subida y los MISMOS formatos que las notas del curso (mig 0208 / 0267).
+import { subirConProgreso } from '@/app/customer-success/curso/subir-video';
+import { mimeDeNota, ACEPTA_NOTA, TOPE_NOTA_BYTES } from '@/app/customer-success/curso/reglas';
 import { TOPE_NOTA } from '../notas-reglas';
 import { useTzWorkspace } from './useTzWorkspace';
 import { BotonDictar } from '@/app/plan/board/CrearTareaModal';
@@ -35,7 +38,10 @@ import { BotonDictar } from '@/app/plan/board/CrearTareaModal';
 // (tercer feedback del 12/10/2026, punto 3: «las notas como los chats de MaKo»).
 import { EmojiPicker } from '@/app/whatsapp/EmojiPicker';
 import { PopoverWA, insertarEnCursor } from '@/app/whatsapp/_shared/ComposerWhatsApp';
-import { IconSmiley } from '@/app/whatsapp/_shared/composer-icons';
+import { IconSmiley, IconClip } from '@/app/whatsapp/_shared/composer-icons';
+
+/** El archivo elegido para la nota que se está escribiendo: sube apenas se elige. */
+type AdjuntoEnCurso = { nombre: string; mime: string; bytes: number; path: string | null; pct: number };
 import { BotonBorrar, estiloCaja } from '@/app/_ui/BotonBorrar';
 import { IconoMenu } from '@/app/_ui/iconos-menu';
 import { Confirm } from '@/app/_ui/Confirm';
@@ -96,6 +102,42 @@ export function NotasCard({ leadId }: { leadId: number }) {
   const { toast, show, clear } = useToast();
   const refNueva = useAltoQueSigue(texto);
   const [btnEmoji, setBtnEmoji] = useState<HTMLButtonElement | null>(null);
+  const refArchivo = useRef<HTMLInputElement>(null);
+  const [adjunto, setAdjunto] = useState<AdjuntoEnCurso | null>(null);
+  const subiendo = !!adjunto && !adjunto.path;
+  /**
+   * ⚠️ SUBE APENAS SE ELIGE, directo al bucket (lib: `urlSubidaNotaLeadAction`), y la nota lo
+   * nombra recién al agregarla, después de que el server comprueba que llegó. El tipo se corrige
+   * por la extensión (`mimeDeNota`): con el que pone Windows a un .csv, el bucket rebota un
+   * archivo bueno.
+   */
+  const elegirArchivo = async (file: File | undefined) => {
+    if (!file) return;
+    const mime = mimeDeNota(file.name, file.type);
+    if (!mime) { show('Ese formato no va', undefined, 'bad'); return; }
+    if (file.size > TOPE_NOTA_BYTES) { show('Pasa de 25 MB', undefined, 'bad'); return; }
+    if (adjunto?.path) void descartarAdjuntoNotaLeadAction(leadId, adjunto.path);
+    setAdjunto({ nombre: file.name, mime, bytes: file.size, path: null, pct: 0 });
+    const r = await urlSubidaNotaLeadAction(leadId, mime, file.size).catch(() => ({ ok: false as const, error: 'No pude preparar la subida.' }));
+    if (!r.ok) { setAdjunto(null); show(r.error, undefined, 'bad'); return; }
+    try {
+      const f = new File([file], file.name, { type: mime });
+      await subirConProgreso(r.signedUrl, f, r.apikey, (pct) => setAdjunto((a) => (a ? { ...a, pct } : a)), 'PDF, Word, Excel o una imagen').promesa;
+      setAdjunto((a) => (a ? { ...a, path: r.path, pct: 100 } : a));
+    } catch (e) {
+      setAdjunto(null);
+      show(e instanceof Error ? e.message : 'No se pudo subir', undefined, 'bad');
+    }
+  };
+  const quitarAdjunto = () => {
+    if (adjunto?.path) void descartarAdjuntoNotaLeadAction(leadId, adjunto.path);
+    setAdjunto(null);
+  };
+  const abrirAdjunto = async (notaId: number) => {
+    const r = await urlAdjuntoNotaLeadAction(leadId, notaId).catch(() => ({ ok: false as const, error: 'No pude abrir el archivo.' }));
+    if (r.ok) window.open(r.url, '_blank', 'noopener');
+    else show(r.error, undefined, 'bad');
+  };
   const [emojis, setEmojis] = useState(false);
   /** El emoji va donde está el cursor, no al final, y nunca pasa el tope de la nota. */
   const ponerEmoji = (em: string) => {
@@ -126,15 +168,18 @@ export function NotasCard({ leadId }: { leadId: number }) {
 
   const agregar = () => {
     const t = texto.trim();
-    if (!t || pending) return;
+    // Una nota puede ser SÓLO el archivo (como en un chat). Mientras sube, no se agrega.
+    if ((!t && !adjunto?.path) || pending || subiendo) return;
     // Lo dictado no pasa por el `maxLength` de la caja: el server lo rechaza igual (TOPE_NOTA).
     if (t.length > TOPE_NOTA) { show('Nota demasiado larga', undefined, 'bad'); return; }
+    const adj = adjunto?.path ? { path: adjunto.path, nombre: adjunto.nombre, mime: adjunto.mime, bytes: adjunto.bytes } : null;
     setTexto('');
     startTransition(async () => {
       try {
-        await addLeadNoteAction(leadId, t);
+        await addLeadNoteAction(leadId, t, adj);
+        setAdjunto(null);
         await releer();
-      } catch { setTexto(t); show('No se pudo guardar', undefined, 'bad'); }
+      } catch (e) { setTexto(t); show(e instanceof Error && e.message ? e.message : 'No se pudo guardar', undefined, 'bad'); }
     });
   };
 
@@ -181,7 +226,20 @@ export function NotasCard({ leadId }: { leadId: number }) {
         placeholder="Ej: Le mandé WhatsApp para retomar; quedó en avisarme la semana que viene."
         style={caja}
       />
+      {adjunto && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, padding: '7px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', fontSize: 13 }}>
+          <span aria-hidden style={{ color: 'var(--dim)', display: 'inline-flex' }}><IconClip /></span>
+          <span style={{ flex: 1, minWidth: 0, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{adjunto.nombre}</span>
+          {subiendo && <span style={{ fontFamily: MONO, fontSize: 12, color: 'var(--dim)' }}>{adjunto.pct}%</span>}
+          <button type="button" onClick={quitarAdjunto} disabled={pending} aria-label="Quitar el archivo" title="Quitar el archivo"
+            style={{ background: 'none', border: 'none', color: 'var(--dim)', cursor: 'pointer', fontSize: 15, lineHeight: 1, padding: 2 }}>×</button>
+        </div>
+      )}
       <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 10, marginTop: 10 }}>
+        <input ref={refArchivo} type="file" accept={ACEPTA_NOTA} hidden
+          onChange={(e) => { void elegirArchivo(e.target.files?.[0]); e.target.value = ''; }} />
+        <button type="button" onClick={() => refArchivo.current?.click()} disabled={subiendo || pending} title="Adjuntar un archivo" aria-label="Adjuntar un archivo"
+          style={{ width: 34, height: 34, flex: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 9, border: '1px solid transparent', background: 'transparent', cursor: subiendo ? 'default' : 'pointer', color: 'var(--dim)', opacity: subiendo ? 0.5 : 1 }}><IconClip /></button>
         <button type="button" ref={setBtnEmoji} onClick={() => setEmojis((v) => !v)} title="Emojis" aria-label="Emojis" aria-expanded={emojis}
           style={{ width: 34, height: 34, flex: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 9, border: '1px solid transparent', background: 'transparent', cursor: 'pointer', color: emojis ? 'var(--primary)' : 'var(--dim)' }}><IconSmiley /></button>
         {emojis && (
@@ -190,7 +248,7 @@ export function NotasCard({ leadId }: { leadId: number }) {
           </PopoverWA>
         )}
         <BotonDictar titulo="Dictar la nota" valor={texto} onValor={setTexto} onError={(m) => show(m, undefined, 'bad')} />
-        <button type="button" onClick={agregar} disabled={!texto.trim() || pending} style={botonPrincipal(!!texto.trim() && !pending)}>
+        <button type="button" onClick={agregar} disabled={(!texto.trim() && !adjunto?.path) || pending || subiendo} style={botonPrincipal((!!texto.trim() || !!adjunto?.path) && !pending && !subiendo)}>
           {pending && !editando && !aBorrar ? 'Guardando…' : 'Agregar nota'}
         </button>
       </div>
@@ -238,7 +296,18 @@ export function NotasCard({ leadId }: { leadId: number }) {
                   </div>
                 </>
               ) : (
-                <div style={{ fontSize: 14, color: 'var(--ink)', lineHeight: 1.5, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{n.valor_nuevo ?? ''}</div>
+                <>
+                  {(n.valor_nuevo ?? '').trim() && (
+                    <div style={{ fontSize: 14, color: 'var(--ink)', lineHeight: 1.5, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{n.valor_nuevo}</div>
+                  )}
+                  {n.archivo_nombre && (
+                    <button type="button" onClick={() => void abrirAdjunto(n.id)} title={`Abrir ${n.archivo_nombre}`}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 7, maxWidth: '100%', marginTop: (n.valor_nuevo ?? '').trim() ? 8 : 0, padding: '6px 10px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--primary)', fontFamily: 'inherit', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                      <span aria-hidden style={{ display: 'inline-flex' }}><IconClip /></span>
+                      <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{n.archivo_nombre}</span>
+                    </button>
+                  )}
+                </>
               )}
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, fontSize: 11.5, color: 'var(--faint)' }}>
                 {n.autor_foto && <img src={n.autor_foto} alt="" width={18} height={18} style={{ borderRadius: '50%', objectFit: 'cover' }} />}

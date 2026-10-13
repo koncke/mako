@@ -1585,7 +1585,11 @@ export async function applyFathomRecording(
 }
 
 // ── Audit log (historial real de cambios por lead) ──────────────────────────
-export type LeadAuditRow = { id: number; campo: string; valor_anterior: string | null; valor_nuevo: string | null; autor: string; created_at: string };
+export type LeadAuditRow = {
+  id: number; campo: string; valor_anterior: string | null; valor_nuevo: string | null; autor: string; created_at: string;
+  /** El adjunto de una NOTA (mig 0267). La ruta del bucket NO viaja: se abre por el id de la nota. */
+  archivo_nombre?: string | null; archivo_mime?: string | null; archivo_bytes?: number | null;
+};
 
 // OJO: 'pipeline_stage' NO está en esta lista. La etapa se audita aparte (campo
 // 'Etapa', ver más abajo) porque lo que le importa al usuario es la etapa
@@ -1725,7 +1729,7 @@ export async function getLeadAudit(leadId: number): Promise<LeadAuditRow[]> {
   try {
     const { data, error } = await (await getTenantDb())
       .from('lead_audit')
-      .select('id, campo, valor_anterior, valor_nuevo, autor, created_at')
+      .select('id, campo, valor_anterior, valor_nuevo, autor, created_at, archivo_nombre, archivo_mime, archivo_bytes')
       .eq('lead_id', leadId)
       .order('created_at', { ascending: false })
       .limit(100);

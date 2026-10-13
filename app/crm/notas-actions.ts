@@ -31,11 +31,14 @@ import { tabEnCapa } from '@/lib/capas';
 import { getUsuarioActual } from '@/lib/auth';
 import { logLeadEvent } from '@/lib/leads';
 import { tzActual } from '@/lib/timezone';
-import { TOPE_NOTA, fechaDeNota } from './notas-reglas';
+import { TOPE_NOTA, fechaDeNota, BUCKET_NOTAS_LEAD, pathDeNotaLead, pathEsNotaDelLead } from './notas-reglas';
+import { esMimeNota, TOPE_NOTA_BYTES, adjuntoSeVe } from '@/app/customer-success/curso/reglas';
+import { getSupabaseServer } from '@/lib/supabase';
+import { randomUUID } from 'node:crypto';
 
 export type ResultadoNota = { ok: true } | { ok: false; error: string };
 
-type FilaNota = { id: number; lead_id: number; autor: string; valor_anterior: string | null; valor_nuevo: string | null; created_at: string };
+type FilaNota = { id: number; lead_id: number; autor: string; valor_anterior: string | null; valor_nuevo: string | null; created_at: string; archivo_path: string | null };
 
 /**
  * Las guardas de las dos acciones, y la nota que se va a tocar. Sin exportar (es 'use server').
@@ -55,7 +58,7 @@ async function notaQueSePuedeTocar(leadId: number, notaId: number): Promise<{ ok
   const db = await getTenantDb();
   const { data, error } = await db
     .from('lead_audit')
-    .select('id, lead_id, autor, valor_anterior, valor_nuevo, created_at')
+    .select('id, lead_id, autor, valor_anterior, valor_nuevo, created_at, archivo_path')
     .eq('id', notaId)
     .eq('lead_id', leadId)
     .eq('campo', 'Nota')
@@ -139,6 +142,11 @@ export async function borrarNotaLeadAction(leadId: number, notaId: number): Prom
       .eq('workspace_id', ws ?? -1);
     if (error) return { ok: false, error: 'No se pudo borrar.' };
     // La fecha en la zona del negocio, la misma con que la pintaba la tarjeta (`fechaDeNota`).
+    // El adjunto se va con la nota (best-effort: la nota ya se borró, y un archivo suelto no
+    // rompe nada). Sólo si es de este lead: la ruta se guardó validada, pero se vuelve a mirar.
+    if (r.fila.archivo_path && ws != null && pathEsNotaDelLead(r.fila.archivo_path, ws, leadId)) {
+      await getSupabaseServer().storage.from(BUCKET_NOTAS_LEAD).remove([r.fila.archivo_path]).catch(() => {});
+    }
     const fecha = fechaDeNota(r.fila.created_at, await tzActual());
     const cuando = fecha ? ` · escrita el ${fecha}` : '';
     await logLeadEvent(leadId, 'Nota borrada', `Se borró una nota${cuando}`, r.autor);
@@ -147,5 +155,99 @@ export async function borrarNotaLeadAction(leadId: number, notaId: number): Prom
   } catch (e) {
     console.error('[notas] borrar', e instanceof Error ? e.message : String(e));
     return { ok: false, error: 'No se pudo borrar.' };
+  }
+}
+
+// ── El adjunto de una nota (mig 0267) ─────────────────────────────────────────────────────
+// El molde es el de las notas del curso (lib/curso-notas.ts): el navegador sube DIRECTO al
+// bucket con una URL firmada, el alta verifica que llegó, y se abre con una URL firmada de vida
+// corta que se pide por el id de la nota. La ruta no viaja a la pantalla.
+
+/** Cuánto vive el link para abrir un adjunto: lo que tarda en abrirse, no lo que dura leerlo. */
+const VIDA_ADJUNTO_SEG = 120;
+
+/** Las guardas de quien sube a un lead: sesión, acceso a la ficha, negocio abierto y el lead es suyo. */
+async function leadDondeSubir(leadId: number): Promise<{ ok: true; ws: number } | { ok: false; error: string }> {
+  if (!Number.isSafeInteger(leadId) || leadId <= 0) return { ok: false, error: 'Falta el lead.' };
+  if ((await getRolWsEfectivo()) == null) return { ok: false, error: 'Inicia sesión para adjuntar.' };
+  const capa = await getCapaActual();
+  if (!tabEnCapa('crm', capa) && !tabEnCapa('customer-success', capa)) return { ok: false, error: 'No tienes acceso a esta ficha.' };
+  const ws = await getWorkspaceActual();
+  if (ws == null) return { ok: false, error: 'Elige una cuenta primero.' };
+  const { data, error } = await (await getTenantDb()).from('leads').select('id').eq('id', leadId).maybeSingle();
+  if (error) return { ok: false, error: 'No pude leer el lead.' };
+  if (!data) return { ok: false, error: 'Ese lead no está.' };
+  return { ok: true, ws };
+}
+
+/** La URL firmada para que el NAVEGADOR suba el adjunto directo al bucket (PUT multipart, 2 h). */
+export async function urlSubidaNotaLeadAction(leadId: number, mime: string, bytes: number): Promise<{ ok: true; path: string; signedUrl: string; apikey: string | null } | { ok: false; error: string }> {
+  try {
+    const g = await leadDondeSubir(leadId);
+    if (!g.ok) return g;
+    if (!esMimeNota(mime)) return { ok: false, error: 'Ese formato no va.' };
+    if (!Number.isFinite(bytes) || bytes <= 0) return { ok: false, error: 'El archivo está vacío.' };
+    if (bytes > TOPE_NOTA_BYTES) return { ok: false, error: 'Pasa de 25 MB.' };
+    const path = pathDeNotaLead(g.ws, leadId, randomUUID());
+    if (!path) return { ok: false, error: 'No pude armar la subida.' };
+    const { data, error } = await getSupabaseServer().storage.from(BUCKET_NOTAS_LEAD).createSignedUploadUrl(path);
+    if (error || !data) return { ok: false, error: 'No pude firmar la subida.' };
+    const apikey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY ?? null;
+    return { ok: true, path, signedUrl: data.signedUrl, apikey };
+  } catch (e) {
+    console.error('[notas] subida', e instanceof Error ? e.message : String(e));
+    return { ok: false, error: 'No pude preparar la subida.' };
+  }
+}
+
+/**
+ * El link de VIDA CORTA para abrir el adjunto de una nota, por su id. Lo que el navegador no puede
+ * mostrar (una planilla, un Word) se baja con su nombre original: la ruta es un uuid.
+ */
+export async function urlAdjuntoNotaLeadAction(leadId: number, notaId: number): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
+  try {
+    const r = await notaQueSePuedeVer(leadId, notaId);
+    if (!r.ok) return r;
+    const f = r.fila;
+    if (!f.archivo_path) return { ok: false, error: 'Esa nota no tiene archivo.' };
+    const opciones = adjuntoSeVe(f.archivo_mime) ? undefined : { download: f.archivo_nombre || true };
+    const { data, error } = await getSupabaseServer().storage.from(BUCKET_NOTAS_LEAD).createSignedUrl(f.archivo_path, VIDA_ADJUNTO_SEG, opciones);
+    if (error || !data) return { ok: false, error: 'No pude abrir el archivo.' };
+    return { ok: true, url: data.signedUrl };
+  } catch (e) {
+    console.error('[notas] abrir adjunto', e instanceof Error ? e.message : String(e));
+    return { ok: false, error: 'No pude abrir el archivo.' };
+  }
+}
+
+/** Leer una nota para abrir su adjunto: mirarla alcanza (no hace falta poder editarla). */
+async function notaQueSePuedeVer(leadId: number, notaId: number): Promise<{ ok: true; fila: { archivo_path: string | null; archivo_nombre: string | null; archivo_mime: string | null } } | { ok: false; error: string }> {
+  const g = await leadDondeSubir(leadId);
+  if (!g.ok) return g;
+  if (!Number.isSafeInteger(notaId) || notaId <= 0) return { ok: false, error: 'Falta la nota.' };
+  const { data, error } = await (await getTenantDb()).from('lead_audit')
+    .select('archivo_path, archivo_nombre, archivo_mime')
+    .eq('id', notaId).eq('lead_id', leadId).eq('campo', 'Nota').eq('workspace_id', g.ws).maybeSingle();
+  if (error) return { ok: false, error: 'No pude leer la nota.' };
+  if (!data) return { ok: false, error: 'Esa nota ya no existe.' };
+  return { ok: true, fila: data as { archivo_path: string | null; archivo_nombre: string | null; archivo_mime: string | null } };
+}
+
+/**
+ * Borra un adjunto que se SUBIÓ y no llegó a quedar en ninguna nota (se quitó antes de agregarla).
+ * ⚠️ Sólo de este lead (el prefijo) y sólo si ninguna nota lo nombra: el path viaja desde el navegador.
+ */
+export async function descartarAdjuntoNotaLeadAction(leadId: number, path: string): Promise<ResultadoNota> {
+  try {
+    const g = await leadDondeSubir(leadId);
+    if (!g.ok) return g;
+    if (!pathEsNotaDelLead(path, g.ws, leadId)) return { ok: false, error: 'Ese archivo no es de este lead.' };
+    const { data: usos } = await (await getTenantDb()).from('lead_audit').select('id').eq('archivo_path', path).limit(1);
+    if ((usos ?? []).length) return { ok: true };
+    await getSupabaseServer().storage.from(BUCKET_NOTAS_LEAD).remove([path]);
+    return { ok: true };
+  } catch (e) {
+    console.error('[notas] descartar adjunto', e instanceof Error ? e.message : String(e));
+    return { ok: false, error: 'No se pudo descartar.' };
   }
 }

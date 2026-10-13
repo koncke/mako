@@ -155,7 +155,8 @@ import { verTrackingDeLead } from '@/lib/tracking-ficha-server';
 import { crearProductoConFunnel } from '@/lib/producto-con-funnel';
 import { urlGravatar } from '@/lib/gravatar';
 import { type VisitasMap } from './crm-map';
-import { TOPE_NOTA } from './notas-reglas';
+import { TOPE_NOTA, BUCKET_NOTAS_LEAD, pathEsNotaDelLead } from './notas-reglas';
+import { esMimeNota, TOPE_NOTA_BYTES, nombreDeAdjunto } from '@/app/customer-success/curso/reglas';
 
 /** Análisis de llamadas (Closing Analyst) matcheados a este lead. */
 export type LeadInsightRow = {
@@ -2460,12 +2461,35 @@ export async function getLeadNotasAction(id: number): Promise<LeadAuditRowFull[]
  * Agrega una nota de seguimiento manual al lead. Disponible en CUALQUIER etapa
  * (WhatsApp/llamada/lo que sea): queda con fecha y autor en el historial.
  */
-export async function addLeadNoteAction(id: number, texto: string): Promise<void> {
+/** El adjunto que ya subió el navegador (urlSubidaNotaLeadAction). Viaja desde el navegador: se valida. */
+export type AdjuntoNotaLead = { path: string; nombre: string; mime: string; bytes: number };
+
+export async function addLeadNoteAction(id: number, texto: string, adjunto?: AdjuntoNotaLead | null): Promise<void> {
   const t = texto.trim();
-  if (!t) return;
+  if (!t && !adjunto) return;
   // ⚠️ EL MISMO TOPE QUE LA EDICIÓN, Y SE RECHAZA (revisión del 12/10/2026): sin tope acá, una nota
   // dictada más larga entraba entera y la edición la recortaba al corregirle una letra.
   if (t.length > TOPE_NOTA) throw new Error('La nota es demasiado larga.');
+  if (adjunto) {
+    // ⚠️ TODO lo del adjunto viene del navegador: que la ruta sea de ESTE lead y de ESTE negocio,
+    // que el formato y el tamaño sean los permitidos, y que el archivo esté de verdad en el bucket
+    // (una nota que nombra un archivo que no subió es un link roto para siempre).
+    const ws = await getWorkspaceActual();
+    if (ws == null || !pathEsNotaDelLead(adjunto.path, ws, id)) throw new Error('Ese archivo no es de este lead.');
+    if (!esMimeNota(adjunto.mime)) throw new Error('Ese formato no va.');
+    const bytes = Number(adjunto.bytes);
+    if (!Number.isFinite(bytes) || bytes <= 0 || bytes > TOPE_NOTA_BYTES) throw new Error('El archivo pasa de 25 MB.');
+    const { data: hay } = await getSupabaseServer().storage.from(BUCKET_NOTAS_LEAD).exists(adjunto.path);
+    if (!hay) throw new Error('El archivo no terminó de subir.');
+    const { error } = await (await getTenantDb()).from('lead_audit').insert([{
+      lead_id: id, campo: 'Nota', valor_anterior: null, valor_nuevo: t, autor: await autorActual(),
+      archivo_path: adjunto.path, archivo_nombre: nombreDeAdjunto(adjunto.nombre), archivo_mime: adjunto.mime, archivo_bytes: bytes,
+    }]);
+    if (error) throw new Error('No se pudo guardar la nota.');
+    bust(TAG.leads);
+    revalidatePath(`/crm/${id}`);
+    return;
+  }
   await logLeadEvent(id, 'Nota', t, await autorActual());
   bust(TAG.leads);
   revalidatePath(`/crm/${id}`);
