@@ -71,7 +71,63 @@ test('el lock suelta siempre y propaga el código de salida', () => {
   // espera 10 minutos por nada.
   assert.match(src, /process\.on\('exit', soltar\)/, 'el lock se suelta pase lo que pase');
   // Y si no se propaga el código, un error de tipos saldría como push verde.
-  assert.match(src, /hijo\.on\('exit'[\s\S]{0,80}cerrar\(code/, 'el exit code de tsc se propaga');
+  assert.match(src, /hijo\.on\('exit'[\s\S]*?cerrar\(code \?\? 1\)/, 'el exit code de tsc se propaga');
+});
+
+/**
+ * ⚠️ UN FALLO MUDO NO SE REPORTA COMO UN FALLO DE TIPOS.
+ * Medido el 13/10/2026: el vigía de RAM (~/.claude/guardia/vigia.ps1) mató **30
+ * typechecks en un día** con `taskkill /T /F`, que en Windows deja código 1 y
+ * CERO salida. El lock lo devolvía como un exit 1 cualquiera, así que el pre-push
+ * decía «hay errores de tipos» sobre un repo que compila. Costó una hora a dos
+ * sesiones — y lo peor: cada sesión bloqueada corría `tsc` A MANO para
+ * diagnosticar, fuera del lock, lo que pedía otros 3 GB y hacía matar al
+ * siguiente. El fallo mudo ERA el que alimentaba la estampida.
+ *
+ * Verificado rompiéndolo: con `stdio: 'inherit'` (sin contar bytes) no se puede
+ * distinguir, 1 fallo; sin el cap, 1 fallo; con el piso de RAM a mano, 1 fallo.
+ * Y de punta a punta: `taskkill /T /F` al tsc hijo a mitad de camino imprime
+ * «EL TYPECHECK NO TERMINÓ, Y NO SON ERRORES DE TIPOS» con la línea del log.
+ */
+test('un tsc que muere sin imprimir se reporta como lo que es, no como errores de tipos', () => {
+  const src = leer('../scripts/typecheck-lock.mjs');
+  // Para saber si imprimió algo hay que CONTAR: con stdio heredado no se puede.
+  assert.match(src, /stdio:\s*\['inherit',\s*'pipe',\s*'pipe'\]/, 'la salida de tsc se canaliza para poder contarla');
+  assert.match(src, /bytes \+= b\.length/, 'se cuentan los bytes que tsc escribió');
+  assert.match(
+    src,
+    /\(code \?\? 1\) !== 0 && bytes === 0/,
+    'un exit distinto de 0 con CERO salida es un fallo mudo, no un error de tipos',
+  );
+  assert.match(src, /guardia\.log/, 'el fallo mudo busca en el log del vigía quién lo mató');
+  // ⚠️ El assert va sobre la línea que BUSCA, no sobre «aparece el pid en el archivo»:
+  // `${hijo.pid}` sale tres veces, así que un match suelto pasa en verde con la
+  // búsqueda ya rota (medido: esa versión del guard no cazó la rotura).
+  assert.match(
+    src,
+    /\.find\(\(l\) => l\.includes\(`MATO pid \$\{hijo\.pid\} `\)\)/,
+    'la búsqueda en el log es por el pid de SU hijo, no la última línea de cualquiera',
+  );
+});
+
+test('el heap de tsc va acotado, y el piso de RAM se deriva de ese cap', () => {
+  // V8 crece hasta ~4 GB en esta máquina: un tsc suelto llegó a 3.765 MB pudiendo
+  // trabajar en 1.571. Capado es menos matable, y si no alcanza falla ruidoso.
+  // Y el piso NO puede ser un número a mano menor que lo que el trabajo pide: con
+  // 2,0 GB la admisión era un permiso para que el vigía lo matara.
+  // Verificado rompiéndolo: sin el `--max-old-space-size`, 1 fallo; con
+  // `const RAM_MIN_GB = 2.0`, 1 fallo.
+  const src = leer('../scripts/typecheck-lock.mjs');
+  assert.match(src, /--max-old-space-size=\$\{CAP_HEAP_MB\}/, 'tsc se lanza con el heap acotado');
+  assert.match(
+    src,
+    /const RAM_MIN_GB = CAP_HEAP_MB/,
+    'el piso de RAM se deriva del cap del heap (y de la zona roja del vigía), no se elige a mano',
+  );
+  assert.match(src, /ZONA_ROJA_VIGIA_GB/, 'el piso contempla la zona roja del vigía');
+  const cap = src.indexOf('const CAP_HEAP_MB');
+  const piso = src.indexOf('const RAM_MIN_GB');
+  assert.ok(cap > 0 && piso > cap, 'CAP_HEAP_MB se declara ANTES de RAM_MIN_GB (un const no se hoistea: sería ReferenceError)');
 });
 
 test('el lock espera RAM, con el turno tomado, antes de lanzar tsc', () => {
