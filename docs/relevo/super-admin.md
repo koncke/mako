@@ -116,6 +116,19 @@ Las que más crecieron: `chatbot` 32→79 hitos, `integraciones` 14→48, `custo
 
 ## 3. Lo que quedó a medio hacer o sin verificar, con el archivo donde vive
 
+> **Estado al 13/10/2026** (revisado por la cuenta 2 al retomar lo frenado de la cuenta 3):
+>
+> | Pendiente | Estado |
+> |---|---|
+> | Change History congelado el 07/09 | ✅ Regenerado el 11/10 (`b112e5b7`). `api-mako` y `legal-compliance` ya tienen entrada. Se sigue corriendo **a mano**: va a volver a envejecer. |
+> | El pedido del 10/10 sin bitácora | ✅ Está en `gtm-oferta-y-precios/bitacora.ts` (`1ca807ef`). |
+> | `docs/relevo/README.md` no listaba este archivo | ✅ Lo lista (`1e85eb62`). |
+> | Comentarios «122 áreas» | ✅ Los que mentían ya no están; `areas.ts:15` queda porque es HISTÓRICO (el relevamiento dio 122). |
+> | Runway: «hoy» a nivel módulo y en UTC (trampa ⑥) | ✅ 13/10: `hoy = hoyAR()` adentro del componente, el MISMO de Strategy. |
+> | Runway: «Al primer deadline» en «0 días» para siempre | ✅ 13/10: `textoPlazo()` en `runway/datos.ts` dice «venció hace N días». Test en `tests/estrategia-tab.test.ts`, probado rompiéndolo (las dos regresiones dan 15/1). |
+> | Runway: la FOTO del 03/10 (fechas de `HITOS`, capital, «45 días») | ⏸ **Espera a Martín**: hacen falta el capital de hoy y el calendario vigente. Hay dos fuentes que no coinciden (el audio del 04/10 → 18 y 19/10; las cinco etapas → tope 4/11) y no se elige una por él. |
+> | Abrir Strategy y el runway en un navegador | ⏸ Visual: lo mira Martín (memoria «Revisión: sólo lo invisible»). |
+
 ### ⛔ El Change History de las 124 áreas está congelado el 07/09/2026
 
 `app/admin/dev/_historial.generado.ts` es el Historial automático de cada área: lo escribe
@@ -224,8 +237,8 @@ CADA workspace: usarlo acá abriría estas pantallas a todos los clientes. Está
 (`datos.ts:66`). El runway lo hace al revés —`const HOY = new Date().toISOString()` a nivel
 módulo, `page.tsx:60`— y eso tiene dos fallas: `force-dynamic` vuelve a correr la función, no
 el módulo, así que una instancia caliente se queda con la fecha de su primera carga; y la
-fecha UTC ya es «mañana» después de las 21 h de Buenos Aires. **Está sin arreglar en el
-runway.**
+fecha UTC ya es «mañana» después de las 21 h de Buenos Aires. **Arreglado en el runway el
+13/10**: usa el mismo `hoyAR()`.
 
 **⑦ Los hex de las tortas son a propósito y no son un descuido.** `estrategia.css` tiene 22
 colores literales y 140 `var(--token)`. Los literales son **sólo** la paleta categórica de las

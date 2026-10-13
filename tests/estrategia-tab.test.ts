@@ -60,6 +60,7 @@ import {
   CAC_GRUPAL, CAC_PRO, CAC_CAMPANA_GRUPAL, DEJA_GRUPAL, LOOMS_POR_VENTA, CANALES,
   ANALISIS, FUTURO, DIAG, LOOM_MIRA, LOOM_DICE, JAN_GANA, JAN_GANO,
 } from '../app/admin/estrategia/datos';
+import { textoPlazo } from '../app/admin/runway/datos';
 import Estrategia from '../app/admin/estrategia/Estrategia';
 import { ADMIN_FAMILIAS, FAMILIAS, itemsDe } from '../app/_components/nav';
 
@@ -131,6 +132,23 @@ test('«hoy» es la fecha de Buenos Aires, no la UTC', () => {
   const page = sinComentarios(leer('app/admin/estrategia/page.tsx'));
   // Adentro del componente, no a nivel módulo.
   assert.match(page, /export default async function[\s\S]*const hoy = hoyAR\(\)/);
+});
+
+test('el runway cuenta contra el «hoy» de Buenos Aires y dice VENCIDO, no «0 días»', () => {
+  // El 7/10 pasó y la tarjeta «Al primer deadline» quedó en «0 días» en rojo, que se lee
+  // «es hoy», para siempre: `Math.max(0, …)` tapaba el vencimiento.
+  // Rota: `textoPlazo` con el `Math.max(0, …)` de vuelta → 15 pases, 1 fallo; `hoy` con
+  // `toISOString()` en vez de `hoyAR()` → 15 pases, 1 fallo.
+  assert.equal(textoPlazo(faltan('2026-10-07', '2026-10-13')), 'venció hace 6 días');
+  assert.equal(textoPlazo(faltan('2026-10-14', '2026-10-13')), '1 día');
+  assert.equal(textoPlazo(0), 'hoy');
+  assert.equal(textoPlazo(-1), 'venció ayer');
+  assert.equal(textoPlazo(22), '22 días');
+  const page = sinComentarios(leer('app/admin/runway/page.tsx'));
+  // Adentro del componente y en hora de acá, igual que Strategy.
+  assert.match(page, /export default async function[\s\S]*const hoy = hoyAR\(\)/);
+  assert.doesNotMatch(page, /toISOString/, 'el runway volvió a contar en UTC');
+  assert.doesNotMatch(page, /Math\.max\(0/, 'el runway volvió a tapar los vencidos con un 0');
 });
 
 test('la proyección es la de la ventana entera, y lo facturado sale de las ventas, no del objetivo', () => {

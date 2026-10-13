@@ -73,6 +73,20 @@ export const CIFRAS: Cifra[] = [
   },
 ];
 
+/**
+ * Lo que dice la tarjeta de un deadline, contado contra hoy.
+ *
+ * ⚠️ Antes era `Math.max(0, …)` + «N días»: el 7/10 pasó y la tarjeta quedó diciendo
+ * «0 días» en rojo, que se lee «es hoy», y lo iba a decir para siempre. Un plazo vencido
+ * se dice vencido. Vive acá y no en `page.tsx` para que un test lo pueda importar.
+ */
+export function textoPlazo(dias: number): string {
+  if (dias > 1) return `${dias} días`;
+  if (dias === 1) return '1 día';
+  if (dias === 0) return 'hoy';
+  return dias === -1 ? 'venció ayer' : `venció hace ${-dias} días`;
+}
+
 export type Escalon = { et: string; que: string; cuando: string; estado: 'vive' | 'fuera' };
 
 export const ESCALONES: Escalon[] = [
