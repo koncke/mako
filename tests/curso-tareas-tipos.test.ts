@@ -650,6 +650,10 @@ test('lib/curso-tarea-comunidad: publica y comenta con las funciones de la comun
   assert.match(v, /\.eq\('producto_id', dueno\.productoId\)\.eq\('id', ref\.postId\)\.eq\('miembro', miembro\)/);
   assert.match(v, /\.eq\('id', ref\.comentarioId!\)\.eq\('post_id', ref\.postId\)\.eq\('miembro', miembro\)/);
   assert.match(v, /const miembro = claveDeLead\(dueno\.leadId\);/);
+  // «Comentar»: en el post que pide la tarea (13/10/2026). Con el elegido, ése; sin él, un fijado del feed.
+  // Roto cada uno (sin la comparación con `c.postId`; sin el chequeo del fijado): 34 / 1 y 34 / 1.
+  assert.match(v, /if \(c\.postId != null && ref\.postId !== c\.postId\) suya = false;/);
+  assert.match(v, /if \(suya && c\.postId == null\) \{[\s\S]{0,200}\.eq\('id', ref\.postId\)\.is\('clase_id', null\)\.not\('fijado_at', 'is', null\)/);
   // La vista del equipo (la ficha) lleva el link al post, y la tab Comunidad lo abre.
   const ficha = leer('app/customer-success/curso/RespuestaTarea.tsx');
   assert.match(ficha, /<Link className="rt-link" href=\{`\/customer-success\/comunidad\?post=\$\{r\.postId\}`\}>Ver post<\/Link>/);

@@ -429,7 +429,7 @@ html:has(.ahdoc--embebido), body:has(.ahdoc--embebido) { overflow: visible !impo
  * Aca las columnas crecen con lo suyo y lo unico que scrollea es .ugc-content. El split no se encoge: si se
  * encogiera, lo de abajo (los comentarios) se dibujaria ENCIMA del papel que desborda. El video queda pegado
  * arriba mientras se lee al costado, solo al costado y en escritorio: abajo o en el telefono va primero y se
- * va con el scroll. Conocimientos y la tab Curso no llevan la clase: siguen con una columna que scrollea. */
+ * va con el scroll. Desde el 13/10 la tab Curso tambien la lleva; Conocimientos no: sigue con una columna que scrollea. */
 .ahdoc.ahdoc--ugc.ahdoc--un-scroll .ugc .ugc-content > .ugc-split { flex: 0 0 auto !important; }
 .ahdoc.ahdoc--ugc.ahdoc--un-scroll .ugc .ugc-split > .ugc-vcol,
 .ahdoc.ahdoc--ugc.ahdoc--un-scroll .ugc .ugc-split > .ugc-pcol { overflow: visible !important; max-height: none !important; }

@@ -181,6 +181,13 @@ test('los lectores SALTEAN la sección: enviar, sanear, qué falta, aprobarse so
     ['1. Tarea', ['a']], ['2. Tu primer anuncio', ['b', 'c']], [null, ['viejo']],
   ]);
   assert.deepEqual(gruposPorTarea(camposConRespuesta(DOS), bloques).map((g) => g.titulo), [null], 'con una sola tarea, sin títulos');
+  // La principal VACÍA (sin consigna ni campos) no es una tarea para el alumno (`tareaVacia`, como
+  // TareaAlumno): la ficha no numera «2. …» una clase que él ve con una sola (13/10/2026). Con la consigna
+  // en texto, la principal sí cuenta y la sección es la 2. Roto (sin el filtro de `tareaVacia`): 10 / 1.
+  const soloUna: Campo[] = [{ id: 's', label: 'Tu anuncio', tipo: 'seccion' }, { id: 'l', label: 'El link', tipo: 'link' }];
+  const bl = respuestaDe(soloUna, { l: 'https://ej.com' });
+  assert.deepEqual(gruposPorTarea(soloUna, bl).map((g) => g.titulo), [null], 'principal vacía: una sola tarea, sin número');
+  assert.deepEqual(gruposPorTarea(soloUna, bl, 'Mira el video y contesta').map((g) => g.titulo), ['2. Tu anuncio']);
   // La IA: la sección no se propone, y una clave suya es ajena.
   assert.equal(esProponible({ tipo: 'seccion' }), false);
   const v = validarPropuesta(DOS, { a: 'meta', b: 'https://ej.com' }, { a: 'meta mejor', c: 'bien' });

@@ -8,6 +8,10 @@
 //     imagen + descripción visual → secciones.
 // No escribe en la BD; el caller persiste el resultado.
 
+// Relativo y no `@/`, a propósito: este módulo lo corren scripts (curso-transcribir,
+// backfill-transcripts) además de las rutas.
+import { salidaDegenerada } from './stt-degenerado';
+
 const GRAPH = 'https://graph.facebook.com';
 const OAI = 'https://api.openai.com/v1';
 const MAX_BYTES = 25 * 1024 * 1024; // límite de OpenAI audio
@@ -248,6 +252,14 @@ async function sttGemini(buf: Buffer, mime: string, key: string, hint?: string):
   if (fin && fin !== 'STOP') throw new Error(`se cortó (finishReason=${fin}): no devuelvo media transcripción`);
   const texto = (data.candidates?.[0]?.content?.parts ?? []).map((x: { text?: string }) => x.text ?? '').join('').trim();
   if (!texto) throw new Error('devolvió vacío');
+  // ⚠️ Un STOP no garantiza nada: el 08/10/2026 Gemini devolvió un minuto de habla y después
+  // «1 2 3 … 699» con `finishReason: STOP` (lib/stt-degenerado.ts). Un bucle es un fallo, no
+  // un texto a recortar: media clase se publica igual que una entera.
+  const bucle = salidaDegenerada(texto);
+  if (bucle) {
+    console.error(`[transcribe] gemini devolvió ${bucle.detalle}`);
+    throw new Error(bucle.motivo);
+  }
   return { texto, modelo };
 }
 
@@ -276,6 +288,14 @@ export async function transcribeMediaBuffer(
       if (hint?.trim()) form.append('prompt', hint.trim()); // sesga ortografía/términos
       const tr = await (await fetch(`${p.base}/audio/transcriptions`, { method: 'POST', headers: { Authorization: `Bearer ${key}` }, body: form })).json();
       if (tr.error) { errores.push(`${p.modelo}: ${tr.error.message}`); continue; }
+      // Whisper también entra en bucle (repite una frase sobre la música o el silencio): se
+      // anota y se prueba el que sigue, igual que un error.
+      const bucle = salidaDegenerada(tr.text ?? '');
+      if (bucle) {
+        errores.push(`${p.modelo}: ${bucle.motivo}`);
+        console.error(`[transcribe] ${p.modelo} devolvió ${bucle.detalle}`);
+        continue;
+      }
       // ⚠️ Un 200 con texto VACÍO no es un éxito ni un fallo del proveedor: puede ser
       // un audio sin voz. Se devuelve como ok con el texto vacío y el que llama decide,
       // pero NO se cae al siguiente proveedor —gastar dos veces por un silencio.
@@ -385,6 +405,8 @@ export async function transcribeAd(
       const tr = await (await fetch(`${OAI}/audio/transcriptions`, { method: 'POST', headers: { Authorization: `Bearer ${oai}` }, body: form })).json();
       if (tr.error) return { ...base, tipo: 'video', status: 'error', error: `whisper: ${tr.error.message}` };
       const text: string = tr.text ?? '';
+      const bucle = salidaDegenerada(text);
+      if (bucle) return { ...base, tipo: 'video', status: 'error', error: `whisper: ${bucle.motivo}` };
       let secciones: Seccion[] | null = null;
       try { secciones = await structureTranscript(text, instruccion, pr?.structureSystem); } catch { /* no fatal */ }
       return { ...base, tipo: 'video', status: 'ok', transcript: text, secciones, idioma: tr.language ?? null, duracion_s: tr.duration ?? null, model: 'whisper-1+gpt-4o-mini' };

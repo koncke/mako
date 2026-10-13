@@ -359,3 +359,13 @@ test('revisión final: «Guardar» revalida el curso (el Atrás), la disposició
 // Y en tests/curso-menu-estructura.test.ts (base 10 / 0): la obligatoria en una sección propia → 8 / 2; el
 // interruptor sin su motivo · sin «Deshacer» → 9 / 1. En tests/curso-recorridos.test.ts (base 9 / 0): vuelve
 // el paso «Obligatoria» de la tarea → 7 / 2.
+
+// Borrar la clase ABIERTA con cambios sin guardar pregunta primero, como al salir (13/10/2026: pendiente
+// de la revisión del 08/10 — el borrador se iba con la clase y «Deshacer» la devolvía sin esos cambios).
+// Otra clase no pregunta. Roto (sin la pregunta): 1 fallo.
+test('borrar la clase abierta con cambios sin guardar pregunta antes; otra clase no', () => {
+  const app = sinComentarios(leer('app/customer-success/curso/CursoApp.tsx'));
+  const borrar = entre(app, 'const borrar = async (c: Clase) => {', 'const borrarYa = async (c: Clase) => {');
+  assert.match(borrar, /if \(pos\.clase === c\.id\) \{ leccionAbierta\.pedirSalida\(\(\) => \{ void borrarYa\(c\); \}\); return; \}/);
+  assert.match(borrar, /await borrarYa\(c\);/);
+});

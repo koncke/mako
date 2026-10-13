@@ -249,10 +249,13 @@ test('2: la escala (números y estrellas) va centrada, con sus extremos debajo d
 
 // ── 4: un solo scroll en la lección del alumno ───────────────────────────────
 
-test('4: el portal pide UN solo scroll, y sólo el portal (Conocimientos y la tab Curso siguen igual)', () => {
+// Desde el 13/10/2026 la tab Curso TAMBIÉN (el relevo del 10/10 lo dejó pendiente: «el editor de la tab
+// Curso sigue con dos scrolls en la lección»). Conocimientos sigue igual: no hubo pedido ahí.
+// Roto el 13/10 (sin la prop en CursoApp): 13 / 1.
+test('4: el portal y la tab Curso piden UN solo scroll (Conocimientos sigue igual)', () => {
   assert.match(leer('app/compartido/curso/[token]/PortalAlumno.tsx'), /<CursoUgc[\s\S]*\n\s+unSoloScroll\n[\s\S]*\/>/);
   assert.doesNotMatch(leer('app/conocimientos/CursoConocimientos.tsx'), /unSoloScroll/);
-  assert.doesNotMatch(leer('app/customer-success/curso/CursoApp.tsx'), /unSoloScroll/);
+  assert.match(sinComentarios(leer('app/customer-success/curso/CursoApp.tsx')), /<CursoUgc[\s\S]*\n\s+unSoloScroll\n[\s\S]*\/>/);
   assert.match(leer('app/_cursos/CursoUgc.tsx'), /\$\{unSoloScroll \? ' ahdoc--un-scroll' : ''\}/);
 });
 

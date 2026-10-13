@@ -400,7 +400,7 @@ export type CursoUgcProps = {
    * Lo pide la VISTA DEL ALUMNO (punto 4 del audio del 08/10 a la noche, min 10: «hay dos scroll… tengo que
    * poner el cursor acá para que pueda deslizar»). Medido: la columna del papel es un contenedor de scroll
    * con `overscroll-behavior: contain`, y con el cursor encima la rueda no llegaba al contenido — en la
-   * vista previa, ni un píxel. Conocimientos (con alumnos reales) y la tab Curso siguen como estaban.
+   * vista previa, ni un píxel. Desde el 13/10/2026 también la tab Curso; Conocimientos sigue como estaba.
    */
   unSoloScroll?: boolean;
   /** El nivel de arriba del curso. Sin esto no hay salida en la barra (un share de UN curso). */
