@@ -864,4 +864,35 @@ export const BITACORA: Hito[] = [
       "docs/feedback-curso-08oct-noche.md \u2014 el audio, punto por punto",
     ],
   },
+  {
+    fecha: "13 oct", hora: "19:55", chat: "Customer Success", cuenta: "claude2",
+    actor: "martin", tipo: "prompt",
+    titulo: "Cerrar lo que ya estaba planificado",
+    pedido: "En la cuenta 3 quedaron muchos pendientes que frenamos porque estabamos llegando al limite semanal, dile a esos chats que continuen y cierren lo que ya habiamos planificado [llegó por la sesión «Estrategia 3 CUENTAS»]",
+    puntos: [
+      "Se tomó lo pendiente de las listas «SIN hacer» del 08/10 y del 09/10 y del relevo del 10/10. Lo que espera a Martín se le pregunta en una línea cada cosa.",
+    ],
+  },
+  {
+    fecha: "13 oct", hora: "19:55", chat: "Customer Success", cuenta: "claude2",
+    actor: "claude", tipo: "implementacion",
+    titulo: "El foco de los diálogos de raíz, la ficha que numera lo que ve el alumno y el STT de los cursos",
+    puntos: [
+      "Modal.tsx: onCerrar por ref y el foco cuando la capa se ve. Los nueve diálogos que perdían el foco con cada letra se arreglan sin tocarlos.",
+      "La ficha numera las tareas que ve el alumno; «Comentar» exige el post pedido; borrar la clase abierta con cambios pregunta antes; un solo scroll en el editor.",
+      "«Permisos del curso» ya no dibuja «Todos los módulos» en un curso que el acceso no abre.",
+      "lib/transcribe.ts: los tres pedidos a un STT pasan el detector de bucles.",
+      "Nada se abrió en la app real (el ws3 sigue con 0 productos).",
+    ],
+    commits: [
+      { sha: "f729063e", msg: "Curso: se cierra lo planificado — el foco de los diálogos de raíz, la ficha que numera lo que ve el alumno y el STT de los cursos con el detector de bucles", lineas: 301, archivos: 19 },
+    ],
+    archivos: [
+      "app/_ui/Modal.tsx + tests/modal-foco.test.ts — el foco de raíz",
+      "app/customer-success/curso-ficha-lectura.ts — gruposPorTarea con tareaVacia",
+      "lib/curso-tarea-comunidad.ts — verificarComunidad mira el post",
+      "app/customer-success/FichaCurso.tsx — Permisos con qué abre el acceso",
+      "lib/transcribe.ts + tests/transcribe-degenerado.test.ts — el detector de bucles",
+    ],
+  },
 ];

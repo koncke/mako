@@ -7495,9 +7495,9 @@ Thank you.» (`1X6de_rpO6cP9UbS7T2ghN1J9TGjMnspf.json`), colas de «Thank you» 
 (`1XY6TE4AW9qR2R0pRXjLzfeFBlf6lTgev.json`) y unos 48 párrafos en bucle («me ha tocado» ×19 en
 `1-c8cfVjgQrb-qELAWGsuZJBhIst2n4if.json#165`, «no no no» ×57).
 
-**Sin hacer:** `lib/transcribe.ts` (el pipeline de cursos) no usa `salidaDegenerada`, y
-`scripts/curso-verificar.mjs` podría usarlo para marcar las clases a re-transcribir. · *2026-10-08
-Customer Success*
+**Cerrado el 13/10/2026:** `lib/transcribe.ts` ya pasa `salidaDegenerada` (ver hallazgos-ia). **Sigue sin
+hacer:** lo YA publicado no se re-transcribió, y `scripts/curso-verificar.mjs` podría usarlo para marcar
+las clases a re-transcribir. · *2026-10-08 / 2026-10-13 Customer Success*
 
 ## La hoja del curso pedía 38 fuentes al dominio del ORIGEN, y las 38 daban 404 (13/10/2026)
 

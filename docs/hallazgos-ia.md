@@ -3824,9 +3824,16 @@ en 392.939 párrafos sueltos (una canción «La, la, la» y dos en el borde).
 chicos al final de un texto largo (a propósito: el «Thank you» del silencio del cierre no se lleva
 la reunión).
 
-**Sin hacer:** `lib/transcribe.ts` (el pipeline de cursos) tiene su propio `sttGemini` sin este
-chequeo; `escucharCon` no prueba el otro modelo de la misma key ante un bucle; no se corrió contra la
-red real (cada llamada escribe filas de uso en prod). · *2026-10-08 Customer Success*
+**Cerrado el 13/10/2026:** `lib/transcribe.ts` también lo pasa, en sus TRES pedidos a un STT (la
+cascada de Whisper de los cursos, `sttGemini` y el whisper de los anuncios). En la cascada un bucle
+se anota y se prueba el que sigue; en Gemini tira; en un anuncio es `status: 'error'`.
+`tests/transcribe-degenerado.test.ts` cuenta un detector por pedido: un camino nuevo que transcriba
+sin pasarlo lo hace caer (probado rompiéndolo, 4 roturas).
+
+**Sigue sin hacer:** `escucharCon` no prueba el otro modelo de la misma key ante un bucle; no se
+corrió contra la red real (cada llamada escribe filas de uso en prod); y lo ya publicado en
+`public/cono-tx` con bucles adentro sigue ahí (ver hallazgos-conocimiento → «Transcripciones
+publicadas con BUCLES»). · *2026-10-08 / 2026-10-13 Customer Success*
 
 ## Google le bloqueó el PROYECTO a la key de Gemini del ws1, y el mensaje culpaba a «la configuración de MaKo» (11/10/2026)
 

@@ -5279,3 +5279,62 @@ cortado; un POST real sobre ws15 → 500 «Esta cuenta todavía no tiene a nadie
 - **Los otros lectores de `getPerfil`** (el usuario del menú en /plan y /customer-success, el guion
   del audio) ahora también muestran al cliente en la vista de agencia, como ya pasaba con el super
   admin. No se miraron uno por uno en el navegador.
+
+---
+
+## Lo que quedó planificado y se cerró el 13/10/2026: el foco de los diálogos, la ficha y el STT de los cursos
+
+Martín, por la sesión «Estrategia 3 CUENTAS»: «dile a esos chats que continúen y cierren lo que ya habíamos
+planificado». Lo cerrado sale de las listas «SIN hacer» del 08/10 y del 09/10 y del relevo del 10/10.
+
+**`app/_ui/Modal.tsx`, el arreglo de raíz.** El parche escrito el 09/10 se aplicó tal cual: `onCerrar` por un
+ref y el foco cuando la capa se ve (`capa.visible`), con `data-autofocus` como marcador. Con eso dejan de perder
+el foco letra por letra los nueve diálogos que lo tenían, sin tocar ninguno (`CuentaDeMaKo`, `AdminView`,
+`EditarObjetivo`, Pricing, CampanasBrowser, CrmBoard, VideoGeneratorApp…). Lo fija `tests/modal-foco.test.ts`.
+**No medido en el navegador**: el banco del 09/10 lo midió con una copia parcheada, no con el archivo commiteado.
+
+**La ficha numeraba «2. …» una clase que el alumno ve con una sola tarea.** `gruposPorTarea`
+(`app/customer-success/curso-ficha-lectura.ts`) armaba las tareas sin la consigna en texto de la clase y sin el
+filtro de `tareaVacia`, que el portal sí aplica. La regla: **lo que la ficha numera es lo que ve el alumno**, con
+la misma función. Ahora recibe la consigna (`RespuestaTarea` → `tarea`, `FichaCurso.tsx`).
+
+**«Comentar en la comunidad» se completaba con CUALQUIER comentario.** `verificarComunidad`
+(`lib/curso-tarea-comunidad.ts`) comprobaba que el comentario fuera del alumno, no DÓNDE: con un post elegido
+por el equipo, ahora tiene que ser en ése; sin él (el default es «el último fijado»), en un post fijado del feed
+que no sea el hilo de una clase. ⚠️ Acepta CUALQUIER fijado, no sólo el último: si se fija otro post después,
+un comentario en el anterior sigue contando. Es a propósito (no se le quita una tarea hecha a nadie por un
+cambio del equipo) y queda escrito acá.
+
+**Borrar la clase ABIERTA con cambios sin guardar los perdía** (el «Deshacer» devuelve la clase guardada).
+`borrar` (`CursoApp.tsx`) pregunta primero con `leccionAbierta.pedirSalida`, como cualquier otra salida; otra
+clase se borra como siempre.
+
+**El editor de la tab Curso tenía dos scrolls en la lección**: `CursoApp` monta `<CursoUgc unSoloScroll>`, el
+mismo prop que ya usaba el portal. Conocimientos sigue con su columna.
+
+**«Permisos del curso» dibujaba «Todos los módulos» en un curso que el acceso NO abre** (mig 0232). El dato ya
+viajaba (`acceso.productos`) y la caja lo ignoraba: se leía como que el alumno lo ve entero. Ahora dice «No se
+le abrió este curso.» y no ofrece módulos. Un acceso sin leer (`undefined`) se dibuja como siempre.
+
+**El STT de los cursos pasa el detector de bucles** (`lib/transcribe.ts`, ver hallazgos-ia): los tres pedidos a
+un STT del archivo, con `tests/transcribe-degenerado.test.ts` contando un detector por pedido.
+
+**Y el `vive[]` del área** declara la mig 0232, `lib/curso-invitar-reglas.ts`, `dialogo-foco.ts`, el feedback
+de la noche del 08/10 y `tests/modal-foco.test.ts`: `/admin/dev/customer-success` no veía ese trabajo.
+
+**Vive en:** `app/_ui/Modal.tsx` · `app/customer-success/curso-ficha-lectura.ts` · `lib/curso-tarea-comunidad.ts` ·
+`app/customer-success/curso/CursoApp.tsx` · `app/customer-success/FichaCurso.tsx` · `lib/transcribe.ts`
+
+### Lo que quedó SIN hacer
+
+- **Imágenes huérfanas** de un borrador descartado (`lib/curso-purga.ts:63-65`): borrar de storage sin la
+  prueba en un workspace con datos es el riesgo; no se tocó.
+- **La portada de un módulo VINCULADO sin candado** que se elimina queda (`portada:etapa:<clave>`): no hay fila
+  de `curso_modulos` que vaya a la papelera, así que la purga (`lib/curso-papelera.ts`) no la ve, y un módulo
+  nuevo con la misma clave la hereda. Cosmético.
+- **La vista previa** no busca el «último fijado» de un «Comentar» y dice que no hay post.
+- **Código muerto** (`urlSubida`, `descartarVideo`, `duracionDeArchivo`, `{ tipo }` en `CambioClase`,
+  `rotuloTipo`, `camposEnOrden`, `guardarClase`, `conteoDeNotas`, `ChecklistCurso`, la prop `onboarding`).
+- **El renombrar, el menú «…» y la obligatoria no revalidan** (el Atrás puede mostrarlos viejos): se dejó a
+  propósito; revalidar cada acción inmediata hace parpadear el editor.
+- **Nada de esto se abrió en la app real**: el ws3 sigue con 0 productos. · *2026-10-13 Customer Success*

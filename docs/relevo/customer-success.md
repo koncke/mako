@@ -5,6 +5,9 @@ historial**. Cubre la ventana del commit `6785dc16` (05/10/2026 12:33) a `a6481b
 (10/10/2026 19:05). Reemplaza entero al briefing anterior (del 09/10 16:09): lo que ése
 afirmaba y hoy es falso está más abajo, en «Lo que el briefing viejo decía mal».</sub>
 
+<sub>**Puesto al día el 13/10/2026** por la sesión que cerró lo planificado (ver «0.» abajo). Lo que
+se cerró está marcado ✅ en su lugar, con la fecha.</sub>
+
 ## Qué es esta parte del producto, para alguien que nunca la vio
 
 MaKo es la plataforma de Martín Koncke. Cada cliente de MaKo es un **negocio** (un
@@ -36,6 +39,38 @@ ahí cuelgan dos cosas que nacieron en esta ventana:
 
 El dibujo del curso es **UNO** y lo comparten el editor, el portal del alumno y la tab
 Conocimientos: `app/_cursos/CursoUgc.tsx`.
+
+---
+
+## 0. 13/10/2026: lo planificado que se cerró, y lo que sigue
+
+Pedido de Martín (por «Estrategia 3 CUENTAS»): «dile a esos chats que continúen y cierren lo que ya
+habíamos planificado». Cerrado, cada cosa con su test probado rompiéndolo:
+
+- ✅ **`app/_ui/Modal.tsx`, el arreglo de raíz del foco** (`onCerrar` por ref, foco cuando la capa se
+  ve, `data-autofocus`): los nueve diálogos que perdían el foco letra por letra se arreglan sin
+  tocarlos. `tests/modal-foco.test.ts`.
+- ✅ **`InvitarAlCurso` / `InvitarAlumnos`** con `useCerrarEstable`, y el foco al abrir con
+  `useFocoInicial`.
+- ✅ **Un solo scroll en la lección del editor** (`CursoApp` → `<CursoUgc unSoloScroll>`).
+- ✅ **La ficha numera las tareas que ve el alumno** (`gruposPorTarea` con la consigna y `tareaVacia`).
+- ✅ **«Comentar en la comunidad» exige el post pedido** (o un fijado que no sea hilo de clase).
+- ✅ **Borrar la clase ABIERTA con cambios sin guardar pregunta antes.**
+- ✅ **«Permisos del curso» dice «No se le abrió este curso.»** en un curso que el acceso no abre.
+- ✅ **El STT de los cursos pasa el detector de bucles** (`lib/transcribe.ts`, los tres pedidos).
+- ✅ **El `vive[]` del área** declara lo que faltaba (la deuda de registro de abajo).
+
+El detalle, en `docs/hallazgos-customer-success.md` → «Lo que quedó planificado y se cerró el
+13/10/2026». **Nada de esto se abrió en la app real** (el ws3 sigue con 0 productos).
+
+**Sigue SIN hacer, a propósito:** las imágenes huérfanas de un borrador descartado (borrar de
+storage sin prueba con datos), la portada de un módulo vinculado sin candado que se elimina, la
+vista previa de «Comentar», el código muerto, y la revalidación de las acciones inmediatas
+(parpadea el editor). Ninguno espera a Martín.
+
+⚠️ **La negrita del curso en Arial NO es una decisión**: era un 404 de 38 fuentes copiadas del
+origen, y la sesión de Conocimientos lo está cerrando el 13/10 (`docs/hallazgos-conocimiento.md` →
+«La hoja del curso pedía 38 fuentes…»). Se sacó de la lista de §6.
 
 ---
 
@@ -122,7 +157,7 @@ de Mauricio Bustos — un CLIENTE real**.
 
 ### Arreglos escritos y no aplicados, con las líneas exactas
 
-- **`app/_ui/Modal.tsx` — el arreglo de raíz del foco. VERIFICADO HOY QUE SIGUE SIN HACER**
+- ✅ **CERRADO EL 13/10 (ver §0).** ~~**`app/_ui/Modal.tsx` — el arreglo de raíz del foco. VERIFICADO HOY QUE SIGUE SIN HACER**
   (`app/_ui/Modal.tsx:152` todavía dice `}, [onCerrar, arriba]);`). El efecto de foco
   depende de `onCerrar`, así que un `onCerrar={() => …}` nuevo en cada render lo re-dispara
   con cada tecla y **el campo pierde el foco letra por letra**. El parche exacto (dos
@@ -134,20 +169,23 @@ de Mauricio Bustos — un CLIENTE real**.
   `AdminView.tsx:1025`, `EditarObjetivo.tsx:94` y `:172`, Pricing, CampanasBrowser, CrmBoard
   y VideoGeneratorApp. El workaround del área es `useCerrarEstable`
   (`app/customer-success/curso/dialogo-foco.ts`), hoy puesto en sólo 3 diálogos:
-  `NuevoProducto.tsx`, `QuitarEtapa.tsx`, `LeccionEditable.tsx`.
-- **`InvitarAlCurso.tsx:136` y `InvitarAlumnos.tsx:163`** siguen con
+  `NuevoProducto.tsx`, `QuitarEtapa.tsx`, `LeccionEditable.tsx`.~~
+- ✅ **CERRADO EL 13/10** para los dos de Invitar; `PortadaPicker` y `Dropdown` siguen sin medir.
+  ~~**`InvitarAlCurso.tsx:136` y `InvitarAlumnos.tsx:163`** siguen con
   `alCerrar.current = onCerrar;` **en el cuerpo del render** (verificado hoy): eslint lo
   marca y va `useCerrarEstable`. Y en `InvitarAlCurso.tsx:139-144` el foco al abrir no llega
   al campo (medido por la sesión anterior): va `useFocoInicial(id)`. Mismo patrón, sin
-  medir: `PortadaPicker.tsx:243-277` y `Dropdown.tsx:704-738`.
-- **El editor de la tab Curso tiene DOS scrolls en la lección.** Verificado:
+  medir: `PortadaPicker.tsx:243-277` y `Dropdown.tsx:704-738`.~~
+- ✅ **CERRADO EL 13/10.** ~~**El editor de la tab Curso tiene DOS scrolls en la lección.** Verificado:
   `app/customer-success/curso/CursoApp.tsx:1112` monta `<CursoUgc` y **no** le pasa
   `unSoloScroll`, el prop que ya existe (`app/_cursos/tipos.ts:405`) y que el portal del
-  alumno sí usa (`PortalAlumno.tsx:314`). Es pasárselo.
-- **La ficha del cliente no muestra qué cursos abre el acceso**, ni deja sacar uno salvo con
+  alumno sí usa (`PortalAlumno.tsx:314`). Es pasárselo.~~
+- ✅ **CERRADO EL 13/10 lo que mentía**: «Permisos del curso» ya no dibuja «Todos los módulos» en un
+  curso que el acceso no abre. Sacar UN curso del acceso sigue siendo «Quitar de este producto» o
+  «Cortar acceso». ~~**La ficha del cliente no muestra qué cursos abre el acceso**, ni deja sacar uno salvo con
   «Quitar de este producto» o «Cortar acceso». El dato ya viaja hasta la pantalla
   (`accesoParaPantalla.productos`; el componente es `Permisos` en
-  `app/customer-success/FichaCurso.tsx:602`).
+  `app/customer-success/FichaCurso.tsx:602`).~~
 - **La invitación al ganar, en un producto AGREGADO: SIN MEDIR.** Con el producto puesto, si
   el lead no tiene fila en `cliente_entrega` de ése, el núcleo contesta «No es cliente de
   ese producto» y no invita (`lib/crm-curso-al-ganar.ts`). Antes invitaba a lo que veía.
@@ -178,7 +216,7 @@ de Mauricio Bustos — un CLIENTE real**.
   catálogo sin leer) ya está arreglada; **dónde ponerla la decide Martín**, y se mueve con un
   clic desde su ficha.
 
-### Deuda de registro (verificada hoy)
+### Deuda de registro (verificada hoy) — ✅ CERRADA EL 13/10 (`app/admin/dev/areas.ts`)
 
 **Cuatro archivos del último commit no están declarados en el área**, así que
 `/admin/dev/customer-success` no ve ese trabajo. Medido con `grep -c` sobre
@@ -276,11 +314,19 @@ de Mauricio Bustos — un CLIENTE real**.
    un quiz reabierto (`darOtroIntento`, `lib/curso-entregas.ts`): las de un reabierto ya se
    ven. **Confirmar o cambiar.**
 6. **La ficha mira la invitación desde el curso elegido** (otro default sin confirmar).
-7. **Ideas sin pedido, para decidir si se hacen**: el diseño del mail de invitación; el
+7. **«+ Nuevo campo»**: Martín lo pidió ARRIBA a la mañana del 08/10 y la prueba de la tarde quiere
+   los campos nuevos ABAJO. Hoy nace abajo. **Confirmar.**
+8. **El recorrido del curso conserva la clave `cs-curso`**: quien ya lo vio no ve los pasos nuevos
+   solo (sí con el «?»). Cambiar la clave (`recorridos-curso.ts`) se lo reabre a todos. **¿Se reabre?**
+9. **La fuente en Conocimientos** (el selector que ya tiene la tab Curso) necesita una migración (el
+   CHECK de `conocimiento_ajustes.campo`). **¿Se hace?**
+10. **Un Panda insertado en la descripción arranca solo** si la cuenta de Panda del negocio tiene el
+    autoplay prendido. Es de Panda, no nuestro. **¿Se fuerza apagado?**
+11. **Ideas sin pedido, para decidir si se hacen**: el diseño del mail de invitación; el
    Curso como pestaña de la comunidad (a Leandro le gusta separado, no hay pedido); los
    niveles del ranking, que hoy salen sin configurar; crear el grupo de WhatsApp del curso
    desde MaKo.
-8. **Del audio del 08/10 a la noche quedan los puntos 13, 14 y 15** (el correo con
+12. **Del audio del 08/10 a la noche quedan los puntos 13, 14 y 15** (el correo con
    Google/Gmail entre ellos): **son de Integraciones**, no de acá.
 
 ---
