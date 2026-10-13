@@ -2012,7 +2012,11 @@ export function CrmBoard({
    * quedan fuera del embudo.
    */
   const quitarColumna = async (c: Stage) => {
-    const cuantos = filtered.filter((l) => effStage(l) === c.key).length;
+    // ⚠️ SE CUENTAN TODOS LOS LEADS DE LA COLUMNA, no los que deja ver el filtro. Con un filtro
+    // puesto, una columna con leads ESCONDIDOS daba 0 y se borraba sin el «¿seguro?»
+    // (docs/relevo/crm.md, «Lo que quedó sin hacer», 12/10/2026). Lo fija
+    // tests/quitar-columna-cuenta-todos.test.ts.
+    const cuantos = leads.filter((l) => effStage(l) === c.key).length;
     if (cuantos > 0) { setBorrarEtapa({ key: c.key, label: c.label }); return; }
     const r = await opEtapa({ op: 'eliminar', key: c.key });
     if (!r?.ok) return;
