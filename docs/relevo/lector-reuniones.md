@@ -1,5 +1,24 @@
 # Relevo · Lector de reuniones (13/10/2026, claude3)
 
+## ✅ Actualización (13/10, noche, claude2): los dos tramos ya están leídos
+
+**La lista está completa: 42 tareas** (35 + 7). Las 7 nuevas están al final de
+`C:\Users\marti\Downloads\mako-feedback-y-tareas.md`, en «Lo que faltaba». Sigue **sin
+cargarse nada al plan**: falta que Martín valide el reparto.
+
+- **13/10:** releída entera (5 tramos, 0 fallidos). De 17 tareas, cuatro ya estaban con otro
+  minuto (cobranza, pagos, Kanban del Plan, fallo del chatbot): **1 nueva**, el funnel de
+  Renovación, que el detalle cuenta en pasado y puede haber quedado hecho en la reunión.
+- **12/10 18:26:** **no era Google.** El tramo 1 fallaba siempre porque el modelo escribía
+  `"detalle": **Qué hay…` sin la comilla de apertura y `repararJson` no lo arreglaba. Arreglado
+  en lib/json-del-modelo.ts (con test probado rompiéndolo). Releída: 4 tramos, 0 fallidos,
+  **6 nuevas**, tres de ellas la misma regla («todo lead que entra pregunta el funnel»).
+- La cosecha, en `docs/hallazgos-ia.md` → «"Google estaba saturado" explicaba UNO de los dos
+  tramos perdidos».
+
+Lo de abajo es el relevo original, que sigue valiendo salvo el «puede faltar alguna».
+
+
 Ventana corta y de una sola cosa: **sacar las tareas de las últimas 3 reuniones de Martín**.
 No se tocó una línea de código: el trabajo fue correr el pipeline que ya existe y leer lo que
 devolvió.
