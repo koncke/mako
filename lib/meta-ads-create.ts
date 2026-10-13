@@ -20,7 +20,7 @@ import { META_PAGE_ID } from './config';
 import { credWs } from './credenciales';
 import { esDeLaCuenta, normalizarCuentaMeta } from './meta-cuenta-id';
 import { paisDeCuentaMeta } from './meta-pais';
-import { aUnidadMeta } from './presupuesto-cambio';
+import { aUnidadMeta, MONEDA_META_POR_DEFECTO } from './presupuesto-cambio';
 import { TIPOS_BUSCABLES, lugarDesdeBusqueda, ordenarLugares, type LugarMeta } from './meta-geo';
 import { describirRegla, estadoConversion, type EstadoConversion } from './meta-conversiones';
 import { erroresFormulario, paramsFormulario, sitioLimpio, urlValida, type FormularioNuevo } from './meta-formularios';
@@ -228,9 +228,13 @@ async function graphGet(url: string): Promise<Record<string, unknown>> {
 /**
  * Un presupuesto en la moneda de la cuenta → el entero que Meta espera: centavos, o la
  * unidad entera en las monedas sin centavos (COP, CLP, JPY…). La moneda sale de
- * `cuentaMeta()`, que tira si Meta no contesta: sin saberla no se crea nada.
+ * `cuentaMeta()`, que tira si Meta no contesta; y si contestó SIN moneda, la que trae
+ * es el default de dibujar (`monedaLeida: false`) y con ésa no se crea nada.
  */
-const aUnidadDeCuenta = (monto: number, currency: string): number => aUnidadMeta(monto, currency);
+const aUnidadDeCuenta = (monto: number, cuenta: { currency: string; monedaLeida: boolean }): number => {
+  if (!cuenta.monedaLeida) throw new MetaWriteError('No pude leer la moneda de tu cuenta de Meta. Reintenta en un momento.');
+  return aUnidadMeta(monto, cuenta.currency);
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Segmentación: nuestro Targeting → spec de Meta
@@ -607,16 +611,20 @@ export async function crearFormularioInstantaneo(f: FormularioNuevo, pagina?: st
  * MXN (y se multiplicaba el presupuesto por el tipo de cambio sobre cuentas en
  * dólares) y que el público está en México.
  */
-export async function cuentaMeta(): Promise<{ accountId: string; name: string; currency: string; country: string | null; timezoneName: string | null }> {
+export async function cuentaMeta(): Promise<{ accountId: string; name: string; currency: string; monedaLeida: boolean; country: string | null; timezoneName: string | null }> {
   const [apiVersion, adAccountId, tk] = await Promise.all([cred('META_API_VERSION'), cred('META_AD_ACCOUNT_ID'), cred('META_ACCESS_TOKEN')]);
   const url = new URL(`${GRAPH_BASE}/${apiVersion}/${adAccountId}`);
   url.searchParams.set('fields', 'name,currency,timezone_name,business_country_code');
   url.searchParams.set('access_token', tk);
   const d = await graphGet(url.toString());
+  const leida = typeof d.currency === 'string' && d.currency.trim() !== '';
   return {
     accountId: adAccountId,
     name: String(d.name ?? ''),
-    currency: String(d.currency ?? 'USD'),
+    // Sin moneda de Meta se dibuja con el default, y `monedaLeida` le avisa a quien
+    // escribe que no la use (`aUnidadDeCuenta`).
+    currency: leida ? String(d.currency) : MONEDA_META_POR_DEFECTO,
+    monedaLeida: leida,
     country: paisDeCuentaMeta(d),
     timezoneName: d.timezone_name != null ? String(d.timezone_name) : null,
   };
@@ -1126,7 +1134,7 @@ export async function createCampaign(spec: CampaignSpec): Promise<string> {
   // conjuntos comparten presupuesto (subcode 4834011, medido el 2026-09-11).
   if (!(spec.budget_level === 'campaign' && spec.daily_budget_mxn)) params.is_adset_budget_sharing_enabled = 'false';
   if (spec.budget_level === 'campaign' && spec.daily_budget_mxn) {
-    params.daily_budget = aUnidadDeCuenta(spec.daily_budget_mxn, (await cuentaMeta()).currency);
+    params.daily_budget = aUnidadDeCuenta(spec.daily_budget_mxn, await cuentaMeta());
     params.bid_strategy = 'LOWEST_COST_WITHOUT_CAP'; // CBO exige estrategia a nivel campaña
   }
   const data = await graphPost(`${await cred('META_AD_ACCOUNT_ID')}/campaigns`, params);
@@ -1148,7 +1156,7 @@ export async function createAdSet(campaignId: string, spec: CampaignSpec, adset:
   };
   // ABO: presupuesto + estrategia de puja en el conjunto. CBO: viven en la campaña.
   if (spec.budget_level === 'adset') {
-    if (adset.daily_budget_mxn) params.daily_budget = aUnidadDeCuenta(adset.daily_budget_mxn, cuenta.currency);
+    if (adset.daily_budget_mxn) params.daily_budget = aUnidadDeCuenta(adset.daily_budget_mxn, cuenta);
     params.bid_strategy = adset.bid_strategy || 'LOWEST_COST_WITHOUT_CAP';
   }
   const promoted = await buildPromotedObject(spec.objective, optimization, adset.conversion, spec.identidad);

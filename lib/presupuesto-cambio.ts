@@ -141,6 +141,16 @@ export function montoCuenta(monto: number, currency: string): string {
 }
 
 /**
+ * La moneda que se DIBUJA cuando Meta no dijo la de la cuenta (o no hay conexión).
+ * Es UNA para todo el Ads Manager: hasta el 13/10/2026 la salud de la cuenta decía
+ * 'MXN' y el wizard 'USD', así que la misma cuenta podía verse en dos monedas.
+ *
+ * ⚠️ Sirve para dibujar, NUNCA para escribir: un presupuesto con la moneda adivinada
+ * se niega (`metaWrite` pregunta la moneda; `cuentaMeta().monedaLeida` en la creación).
+ */
+export const MONEDA_META_POR_DEFECTO = 'USD';
+
+/**
  * Las monedas que Meta maneja SIN subdivisión: su «offset» es 1, o sea que un
  * `daily_budget` de 5000 en una cuenta en JPY son 5000 yenes, no 50. Todas las demás
  * tienen offset 100 (el campo viaja en centavos). Copiada de la tabla «Supported

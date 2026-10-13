@@ -19,7 +19,7 @@
 // =============================================================================
 
 import { META_BALANCE_ALERTA_MXN } from './config';
-import { conversorDeGasto, desdeUnidadMeta, montoCuenta } from './presupuesto-cambio';
+import { conversorDeGasto, desdeUnidadMeta, montoCuenta, MONEDA_META_POR_DEFECTO } from './presupuesto-cambio';
 import { parseRecosCuenta } from './meta-recos-cuenta';
 import { paisDeCuentaMeta } from './meta-pais';
 import { esErrorDePermisoMeta } from './meta-permisos';
@@ -193,7 +193,7 @@ function learningInfo(raw: unknown): NodoEstado['learning'] {
 function computeAccountHealth(raw: Record<string, unknown>): MetaAccountHealth {
   const status = num(raw.account_status);
   const disableReason = num(raw.disable_reason);
-  const currency = String(raw.currency ?? 'MXN');
+  const currency = String(raw.currency ?? MONEDA_META_POR_DEFECTO);
   // Montos en la unidad mínima de la moneda de la cuenta: centavos casi siempre, y la
   // unidad entera en las monedas sin centavos (COP, CLP, JPY…). Ver `offsetMeta`.
   const balanceMxn = desdeUnidadMeta(num(raw.balance), currency);

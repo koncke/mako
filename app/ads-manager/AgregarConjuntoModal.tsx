@@ -26,7 +26,7 @@ import { useGanadoresBloqueados } from './useGanadoresBloqueados';
 import { LugarPicker } from './LugarPicker';
 import { CrearFormulario } from './CrearFormulario';
 import { geoSpecDe, lugarPais, type LugarMeta } from '@/lib/meta-geo';
-import { esConvertible, usdACuenta } from '@/lib/presupuesto-cambio';
+import { esConvertible, MONEDA_META_POR_DEFECTO, usdACuenta } from '@/lib/presupuesto-cambio';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -86,7 +86,7 @@ export function AgregarConjuntoModal({ campaignId, defaultAdsetName, senales, mo
   useEffect(() => { fetch('/api/ads-manager/targeting?kind=audiences', { cache: 'no-store' }).then((r) => r.json()).then((j) => { setAudiencesAll(j.ok ? j.items : []); if (!j.ok) setLoadErr(`No pude traer tus públicos: ${j.error || 'error'}`); }).catch((e) => { setAudiencesAll([]); setLoadErr(`No pude traer tus públicos: ${String(e)}`); }); }, []);
   useEffect(() => {
     fetch('/api/ads-manager/targeting?kind=cuenta', { cache: 'no-store' }).then((r) => r.json())
-      .then((j) => { if (j.ok && j.cuenta) setCuenta({ currency: String(j.cuenta.currency ?? 'USD'), country: j.cuenta.country ?? null }); })
+      .then((j) => { if (j.ok && j.cuenta) setCuenta({ currency: String(j.cuenta.currency ?? MONEDA_META_POR_DEFECTO), country: j.cuenta.country ?? null }); })
       .catch(() => { /* el selector sigue estando; solo se pierde la precarga */ });
   }, []);
   // Precarga, no decisión: el país de la cuenta viene marcado y se puede cambiar.

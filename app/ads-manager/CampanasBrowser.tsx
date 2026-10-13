@@ -16,7 +16,7 @@ import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
 import { Dropdown } from '../components/Dropdown';
 import { MakoStar } from '../_components/MakoBrand';
-import { cifra, cuentaAUsd, editaPresupuestoAca, esConvertible, horaDeEscritura, inicialTipeado, montoCuenta, presupuestosVigentes, saltoPresupuesto, tipeadoACuenta, type EscritoPresupuesto } from '@/lib/presupuesto-cambio';
+import { cifra, cuentaAUsd, editaPresupuestoAca, esConvertible, horaDeEscritura, inicialTipeado, MONEDA_META_POR_DEFECTO, montoCuenta, presupuestosVigentes, saltoPresupuesto, tipeadoACuenta, type EscritoPresupuesto } from '@/lib/presupuesto-cambio';
 import { allSettledConTope, TOPE_LOTE_META } from '@/lib/settled-con-tope';
 import type { SenalRecon, ReconVeredicto, RitmoEstado } from '@/lib/queries';
 import {
@@ -889,7 +889,7 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyRe
       {adSel && <AdDetailTabs key={adSel.ad_id} senal={adSel} desde={desde} hasta={hasta} defaultTab="rendimiento" onClose={() => abrirAd(null)} />}
       {entSel && (
         <EntityDetalle id={entSel.node.id} level={entSel.level} name={entSel.node.name} statusLabel={entSel.node.statusLabel} semaforo={entSel.node.semaforo}
-          desde={desde} hasta={hasta} cross={entSel.cross} recosMeta={entSel.node.recosMeta} presupuestoCuenta={entSel.node.dailyBudgetMxn ?? null} moneda={health?.account.currency ?? 'USD'} onClose={() => setEntSel(null)}
+          desde={desde} hasta={hasta} cross={entSel.cross} recosMeta={entSel.node.recosMeta} presupuestoCuenta={entSel.node.dailyBudgetMxn ?? null} moneda={health?.account.currency ?? MONEDA_META_POR_DEFECTO} onClose={() => setEntSel(null)}
           // La segunda puerta al MISMO editor que «Público» de la fila: los dos refrescan igual.
           onCambiarLugar={entSel.level === 'adset' ? () => setEditPublicoAdset({ id: entSel.node.id, name: nameOf(entSel.node) }) : undefined}
           versionGeo={versionGeo} />
