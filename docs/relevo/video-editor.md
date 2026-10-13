@@ -2,6 +2,41 @@
 
 *12/10/2026, chat «Video Editor», cuenta claude3 (semana al 88 %).*
 
+## 13/10 (cuenta 2, chat «Puente a Flow / Content Machine»): cerrado, medido y lo que espera
+
+**CERRADO** en la rama `video-editor` (worktree `C:/dev/wt-video-editor`, `tsc-ve` en verde). **Sin
+pushear**: el clon tiene el `tsc` bloqueado y lo mira «Fallas en la PC». Para subirlo, desde el clon:
+`git merge --ff-only video-editor && git push` (la rama es main + estos commits).
+- «No se pudo exportar» ya no muestra el `error.message` del motor en inglés: `export/mensaje-error.ts`
+  traduce lo que el motor tira hoy (grep de `throw new Error`) y lo desconocido cae a una frase que dice
+  qué probar; el crudo sigue en consola. Test `tests/video-editor-export-mensaje.test.ts`.
+- Botón dentro de botón en `timeline-element.tsx` (`EffectsButton` vivía adentro del botón que cubre
+  el clip; React lo marcaba como error con cualquier clip con efectos): `<span role="button">` con
+  Enter/Espacio.
+- El último `hsl(var(--primary))` (`selection/selectable-item.tsx`): `var(--primary)`. Lo vigila
+  `tests/video-editor-tema.test.ts`, que barre `app/video-editor/**`.
+- El borde doble del panel del reproductor: el mismo `rounded-[7px]` que los otros tres paneles.
+
+**MEDIDO en producción** (hola-mako.com, Chrome de Martín, 13/10, máquina con 1-2 GB de RAM libre):
+- El inicio (`/video-editor`) tarda ~20 s en pintar el contenido; la barra de secciones sale al toque.
+- Crear proyecto → importar un MP4 9:16 de 6 s → agregar a la línea → dividir en 2:02 funcionan, y la
+  consola queda limpia: el único error es «Receiving end does not exist», del content script del
+  puente a Flow, ajeno al editor.
+- ⚠️ **Al agregar un «Texto predeterminado» el renderizador se congeló más de 90 s** (CDP no pudo ni
+  capturar pantalla) con 1 GB libre y un proceso de Chrome en 5 GB. NO se pudo separar bug de falta
+  de memoria: es lo primero a reproducir con RAM libre (`text/`, `font-picker`). El export quedó sin
+  probar por eso; la cadena «→ texto → exportar y medir con ffprobe» sigue pendiente. Los clips de
+  prueba están hechos con ffmpeg (`testsrc2` 720x1280 6 s con tono; uno con `rotate=90`).
+
+**ESPERA A MARTÍN** (una línea cada una):
+- ¿Canva en Image y Notion/Mila en Copywriting arrancan ahora, o siguen en «luego»?
+- ¿El editor sigue a pantalla completa (decisión §9 del diseño) o la barra lateral se queda, como pide
+  la tarea del 12/10?
+
+**NO TOCADO a propósito**: todo lo de `mako-feedback-y-tareas.md` (provisional), incluidas las 4 tareas
+del editor de las reuniones. Dato para esa decisión: los subtítulos automáticos YA existen (Whisper en
+el navegador); borrar silencios, B-rolls y sidebar visible no.
+
 ## Dónde está
 - El editor (copia de CapCut 9.3 sobre OpenCut portado) vive en `app/video-editor/`, en `main`,
   **abierto a todos** desde el 12/10 (antes sólo super admin). El plano: `docs/diseno-editor-video.md`;

@@ -454,7 +454,7 @@ Los tokens viven en `.ce` y en ningún otro lado. Lo que se dibuja afuera sale s
   DEFECTO de `components/ui/select.tsx`. Un parche en el lugar donde se vio no arregla el patrón.
 - **`hsl(var(--x))` es CSS inválido en el port**: los tokens de OpenCut eran tripletes HSL; en `.ce` son
   hex, `hsl(#262626)` no vale y queda transparente (los marcadores se dibujaban sin fondo). Se buscan con
-  `grep "hsl(var"`; queda uno (ver «sin hacer»).
+  `grep "hsl(var"`; ya no queda ninguno, y lo vigila `tests/video-editor-tema.test.ts` (13/10).
 - **Un `<canvas>` posicionado con `left` + `right` mide 300 px**: es un elemento reemplazado y toma su
   ancho de fábrica. Lleva `width` y `height` explícitos.
 
@@ -856,6 +856,12 @@ diálogos abiertos desde un menú. «Editar en el editor» (`app/video-editor/de
 tiene hoy con qué probarse: 0 montajes `listo` en prod y «Anuncios terminados» sólo en el ws1, que es de
 un cliente.
 
+**Medido en producción el 13/10** (Chrome de Martín, 1-2 GB de RAM libre): importar → agregar → dividir
+funcionan con la consola limpia; el inicio tarda ~20 s en pintar; y **«Agregar texto predeterminado»
+congeló el renderizador más de 90 s** — con un proceso de Chrome en 5 GB no se pudo separar bug de falta
+de memoria. Reproducirlo con RAM libre antes que nada: si es del editor, vive en `text/` o en el
+`font-picker`. El export sigue sin medirse por eso.
+
 **La tanda 3 (G, H, J, M) se construyó el 11-12/10 y no se vio en Chrome.** Lo primero a mirar,
 reproduciendo y en el MP4 con ffprobe: las transiciones (los barridos sobre un clip reflejado o girado,
 los shaders en el GLSL ES real, `transiciones/shaders.ts`); trazo, sombra y brillo del texto y las
@@ -915,8 +921,6 @@ la GPU de MediaPipe, 1080p30, el alfa en el compositor y el cuentagotas (`fondo/
 - «Profundidad lineal» apagada en Mezcla › Modo: no está en los 17 del WASM (`properties/video/basico.tsx`,
   `MODOS_CAPCUT`).
 - El fondo «Lienzo con desenfoque» usa la fuente sin recorte ni volteo (`services/renderer/resolve.ts`).
-- Debajo de «No se pudo exportar» va el `error.message` crudo del motor, que puede venir en inglés
-  (`export/dialogo-exportar.tsx`, `export/exportar.ts:202`).
 
 **Panel derecho**
 - Máscara sin «Esquinas redondeadas» (`masks/builtin/definitions/rectangle.ts`), sin ◇ y sin seguimiento
@@ -952,7 +956,6 @@ la GPU de MediaPipe, 1080p30, el alfa en el compositor y el cuentagotas (`fondo/
   apagado (`timeline/components/timeline-element.tsx`); Q/W con vinculación no borra lo vinculado
   (`actions/use-editor-actions.ts`); los marcadores van en una fila propia y no sobre la regla
   (`timeline/bookmarks/components/bookmarks.tsx`).
-- Queda un `hsl(var(--primary))`, el anillo de selección invisible (`selection/selectable-item.tsx:57`).
 
 **Reproductor y biblioteca**
 - «Calidad de la vista previa» es deducida, no vista en CapCut (`preview/components/cabecera.tsx`,
@@ -965,8 +968,6 @@ la GPU de MediaPipe, 1080p30, el alfa en el compositor y el cuentagotas (`fondo/
   esperan licencia (`sounds/components/assets-view.tsx`).
 - Los emojis dependen de la fuente del sistema: en un Linux sin Noto Color Emoji salen monocromos
   (`stickers/providers/emojis.ts`, `pngDeEmoji`).
-- El borde `rounded-sm border` de cada panel sobra (el marco lo pone `editor-page.tsx`): queda en
-  `preview/components/index.tsx:102`.
 
 **Operaciones de clip**
 - Revertir no invierte el audio SEPARADO del clip (`commands/timeline/element/revertir.ts`) y con más de
@@ -1014,8 +1015,6 @@ la GPU de MediaPipe, 1080p30, el alfa en el compositor y el cuentagotas (`fondo/
   `components/ui/font-picker.tsx:80`, `timeline/components/index.tsx` (`syncFollowers`) y
   `timeline/bookmarks/components/bookmarks.tsx:308`.
 
-- Botón dentro de botón en `timeline/components/timeline-element.tsx` (el «Efectos» ~l.1216 vive adentro
-  del botón que cubre el clip ~l.626): React lo marca como error en cuanto un clip tiene efectos.
 - «Encountered a script tag while rendering React component» en el inicio después de volver con «atrás»:
   sin ubicar.
 - Para mirar a ojo: Espejo deja una línea de 1 px en el centro; Saturación −50 queda igual que Blanco y
