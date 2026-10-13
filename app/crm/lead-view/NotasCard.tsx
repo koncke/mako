@@ -31,6 +31,11 @@ import { editarNotaLeadAction, borrarNotaLeadAction } from '../notas-actions';
 import { TOPE_NOTA } from '../notas-reglas';
 import { useTzWorkspace } from './useTzWorkspace';
 import { BotonDictar } from '@/app/plan/board/CrearTareaModal';
+// Los emojis son los del composer de WhatsApp: el MISMO panel y la misma inserción en el cursor
+// (tercer feedback del 12/10/2026, punto 3: «las notas como los chats de MaKo»).
+import { EmojiPicker } from '@/app/whatsapp/EmojiPicker';
+import { PopoverWA, insertarEnCursor } from '@/app/whatsapp/_shared/ComposerWhatsApp';
+import { IconSmiley } from '@/app/whatsapp/_shared/composer-icons';
 import { BotonBorrar, estiloCaja } from '@/app/_ui/BotonBorrar';
 import { IconoMenu } from '@/app/_ui/iconos-menu';
 import { Confirm } from '@/app/_ui/Confirm';
@@ -90,6 +95,15 @@ export function NotasCard({ leadId }: { leadId: number }) {
   const [pending, startTransition] = useTransition();
   const { toast, show, clear } = useToast();
   const refNueva = useAltoQueSigue(texto);
+  const [btnEmoji, setBtnEmoji] = useState<HTMLButtonElement | null>(null);
+  const [emojis, setEmojis] = useState(false);
+  /** El emoji va donde está el cursor, no al final, y nunca pasa el tope de la nota. */
+  const ponerEmoji = (em: string) => {
+    const el = refNueva.current;
+    const r = insertarEnCursor(texto, el?.selectionStart, el?.selectionEnd, em);
+    if (r.valor.length > TOPE_NOTA) return;
+    setTexto(r.valor);
+  };
   /** La nota que se está editando (id) y su texto en curso. */
   const [editando, setEditando] = useState<{ id: number; texto: string } | null>(null);
   const refEdicion = useAltoQueSigue(editando?.texto ?? '');
@@ -168,6 +182,13 @@ export function NotasCard({ leadId }: { leadId: number }) {
         style={caja}
       />
       <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 10, marginTop: 10 }}>
+        <button type="button" ref={setBtnEmoji} onClick={() => setEmojis((v) => !v)} title="Emojis" aria-label="Emojis" aria-expanded={emojis}
+          style={{ width: 34, height: 34, flex: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 9, border: '1px solid transparent', background: 'transparent', cursor: 'pointer', color: emojis ? 'var(--primary)' : 'var(--dim)' }}><IconSmiley /></button>
+        {emojis && (
+          <PopoverWA ancla={btnEmoji} etiqueta="Emojis" onCerrar={() => setEmojis(false)}>
+            <EmojiPicker onPick={ponerEmoji} onClose={() => setEmojis(false)} />
+          </PopoverWA>
+        )}
         <BotonDictar titulo="Dictar la nota" valor={texto} onValor={setTexto} onError={(m) => show(m, undefined, 'bad')} />
         <button type="button" onClick={agregar} disabled={!texto.trim() || pending} style={botonPrincipal(!!texto.trim() && !pending)}>
           {pending && !editando && !aBorrar ? 'Guardando…' : 'Agregar nota'}
