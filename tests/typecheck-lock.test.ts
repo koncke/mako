@@ -143,3 +143,40 @@ test('el lock espera RAM, con el turno tomado, antes de lanzar tsc', () => {
   assert.ok(ram > turno && ram < lanza, 'esperarRam() tiene que correr DESPUÉS de tomar el turno y ANTES de lanzar tsc');
   assert.match(src, /freemem\(\)/, 'la espera mira la RAM disponible de la máquina');
 });
+
+/**
+ * ⚠️ SIN RAM NO SE CORRE IGUAL. El fallback «espero 5 min y arranco lo mismo, puede ir
+ * lento» era correcto cuando el riesgo era la lentitud. Con el vigía de RAM matando al
+ * pesado más grande bajo 0,9 GB libres, arrancar sin RAM es un kill GARANTIZADO que
+ * además consume 2 GB que le faltan a los otros 21 chats — o sea el mecanismo que hacía
+ * matar al siguiente. Frenar y decir qué hacer es lo honesto; la salida de emergencia es
+ * explícita (MAKO_TYPECHECK_SIN_ESPERA=1).
+ *
+ * Verificado rompiéndolo: devolviendo `true` al vencer la espera (el «corro igual» de
+ * antes), 1 fallo; sacando la salida de emergencia, 1 fallo.
+ */
+test('sin RAM el lock FRENA con instrucciones, no arranca tsc hacia un kill', () => {
+  const src = leer('../scripts/typecheck-lock.mjs');
+  // Al vencer la espera tiene que devolver false (frenar), no true (correr igual).
+  const esp = src.slice(src.indexOf('async function esperarRam'), src.indexOf('if (!(await esperarRam())'));
+  assert.ok(esp.length > 200 && esp.length < 2500, `el recorte de esperarRam mide ${esp.length}: está mirando otra cosa`);
+  assert.match(esp, /if \(Date\.now\(\) >= hasta\) return false;/, 'al vencer la espera FRENA (return false), no corre igual');
+  assert.doesNotMatch(
+    esp.replace(/^[ \t]*\/\/.*$/gm, ''),
+    /corro igual \(puede ir lento\)/,
+    'ya no existe el camino «corro igual» por falta de RAM',
+  );
+  // Y lo que frena tiene que decir que NO son errores de tipos, o se lee igual que antes.
+  assert.match(src, /NO CORRÍ EL TYPECHECK/, 'el freno dice que no corrió, no que falló');
+  assert.match(src, /Esto NO es un error de tipos/, 'y aclara que no es un error de tipos');
+  assert.match(src, /Cerrá unos chats/, 'y dice qué hacer para destrabarlo');
+  // Una guarda sin llave toma de rehén a quien empuja: la excepción va escrita.
+  // ⚠️ El assert va sobre la LECTURA de la variable, no sobre que el nombre aparezca:
+  // el nombre también está en el mensaje de ayuda, así que un match suelto pasa en verde
+  // con la salida de emergencia ya rota (medido: esa versión no cazó la rotura).
+  assert.match(
+    src,
+    /process\.env\.MAKO_TYPECHECK_SIN_ESPERA === '1'/,
+    'la salida de emergencia se LEE del entorno (no basta con nombrarla en el mensaje)',
+  );
+});

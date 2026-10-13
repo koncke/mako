@@ -112,25 +112,52 @@ if (!turno) {
 // Bajarlo más no hace que se trabaje «al límite»: hace que no se trabaje.
 const ZONA_ROJA_VIGIA_GB = 0.9;  // ~/.claude/guardia/vigia.ps1 → $ROJA_MB
 const RAM_MIN_GB = CAP_HEAP_MB / 1024 + 0.1 + ZONA_ROJA_VIGIA_GB + 0.3;  // ≈ 3,3
-const RAM_ESPERA_MAX_MS = 5 * 60 * 1000;
+const RAM_ESPERA_MAX_MS = 15 * 60 * 1000;
+
+/**
+ * ⚠️ SIN RAM NO SE CORRE IGUAL: SE AVISA Y SE FRENA.
+ * Hasta el 13/10/2026, después de esperar 5 minutos esto arrancaba tsc «igual, puede
+ * ir lento». Ese default era correcto cuando el riesgo era la lentitud; dejó de serlo
+ * cuando apareció el vigía de RAM, que MATA al pesado más grande bajo 0,9 GB libres:
+ * arrancar sin RAM no es ir lento, es un kill garantizado — y encima consume 2 GB que
+ * le faltan a los otros 21 chats, que es lo que hacía matar al siguiente. Medido ese
+ * día: 42 typechecks matados, y con 8 MB libres el vigía mataba a los 368 MB.
+ *
+ * Frenar acá SÍ cumple la regla de la casa («una guarda bloquea sólo lo que se arregla
+ * haciendo lo que ella pide»): lo que pide se arregla cerrando chats o esperando, y lo
+ * dice. Lo que NO se puede es seguir mintiendo con un kill mudo.
+ *
+ * La salida de emergencia es explícita y queda escrita: MAKO_TYPECHECK_SIN_ESPERA=1.
+ */
 async function esperarRam() {
   const hasta = Date.now() + RAM_ESPERA_MAX_MS;
   let aviso = false;
   for (;;) {
     const libre = freemem() / 1024 ** 3;
-    if (libre >= RAM_MIN_GB) return;
-    if (Date.now() >= hasta) {
-      process.stderr.write(`  [typecheck] la RAM no se liberó en 5 min (${libre.toFixed(1)} GB): corro igual (puede ir lento)\n`);
-      return;
+    if (libre >= RAM_MIN_GB) return true;
+    if (process.env.MAKO_TYPECHECK_SIN_ESPERA === '1') {
+      process.stderr.write(`  [typecheck] MAKO_TYPECHECK_SIN_ESPERA=1 con ${libre.toFixed(1)} GB: corro igual, puede matarlo el vigía\n`);
+      return true;
     }
+    if (Date.now() >= hasta) return false;
     if (!aviso) {
-      process.stderr.write(`  [typecheck] quedan ${libre.toFixed(1)} GB de RAM y tsc pide ~3: espero a que se libere…\n`);
+      process.stderr.write(`  [typecheck] quedan ${libre.toFixed(1)} GB de RAM y tsc necesita ${RAM_MIN_GB.toFixed(1)}: espero hasta 15 min…\n`);
       aviso = true;
     }
     await new Promise((r) => setTimeout(r, 2000));
   }
 }
-await esperarRam();
+
+if (!(await esperarRam())) {
+  const libre = (freemem() / 1024 ** 3).toFixed(1);
+  process.stderr.write('\n  ✖ NO CORRÍ EL TYPECHECK: NO HAY RAM, Y ARRANCARLO ASÍ ES UN KILL SEGURO.\n');
+  process.stderr.write(`    Quedan ${libre} GB disponibles y hace falta ${RAM_MIN_GB.toFixed(1)} (tsc capado pide ~2,1 y el\n`);
+  process.stderr.write('    vigía mata al pesado más grande por debajo de 0,9). Esto NO es un error de tipos.\n');
+  process.stderr.write('    Cerrá unos chats de Claude (cada uno son ~0,2-0,3 GB) y volvé a pushear. Si hace\n');
+  process.stderr.write('    falta empujar igual: MAKO_TYPECHECK_SIN_ESPERA=1 git push (y puede morir mudo).\n\n');
+  soltar();
+  process.exit(1);
+}
 
 // Se llama al tsc de node_modules con el MISMO node, sin npx y sin shell:
 // npx agrega un proceso y ~1 s de arranque, y `shell: true` con argumentos
