@@ -24,7 +24,7 @@ import {
   fetchAdsetBudgets, MetaRateLimitError, MetaTokenError,
 } from './meta-ads';
 import type { MarketingMetricRow } from './types';
-import { pollMetaLeads } from './meta-leads';
+import { pollMetaLeads, credencialesDeLeads } from './meta-leads';
 import { transcribeAd, STRUCTURE_SYSTEM_BASE, IMAGE_PROMPT_BASE } from './transcribe';
 import { getPromptText } from './prompt-render';
 import { syncScriptAnalyses } from './ads-analyst';
@@ -63,10 +63,18 @@ async function jobAplica(key: JobKey): Promise<{ aplica: boolean; motivo?: strin
         : { aplica: false, motivo: 'Meta no conectado' };
     case 'meta_leads': {
       if (!(await integracionConectada('meta'))) return { aplica: false, motivo: 'Meta no conectado' };
-      const pageToken = await credWs('META_PAGE_ACCESS_TOKEN');
-      const pageId = await getSetting('meta_page_id');
-      if (!pageToken || !pageId) return { aplica: false, motivo: 'Falta token de página o ID de página' };
-      return { aplica: true };
+      // Lo que decide si este job puede correr es EXACTAMENTE lo que exige
+      // pollMetaLeads, preguntado por su misma puerta. Hasta el 13/10/2026 acá
+      // se leía la setting `meta_page_id` (minúscula), que nadie escribe desde
+      // que el page id vive como credencial del catálogo: el job quedaba
+      // `skipped` con «Falta token de página o ID de página» en workspaces donde
+      // la ingesta andaba perfecto, así que el histórico de leads no llegaba
+      // NUNCA y el CRM del cliente nuevo arrancaba vacío. Sin error, sin log y
+      // con el paso del wizard en verde (tarea #171).
+      //
+      // Dos lectores de la misma pregunta se separan; uno solo no puede.
+      const cred = await credencialesDeLeads();
+      return cred.ok ? { aplica: true } : { aplica: false, motivo: cred.motivo };
     }
     case 'ad_transcripts':
     case 'script_analyses':

@@ -96,10 +96,29 @@ export type PollLeadsResult = {
   detalle_errores?: string[];
 };
 
-export async function pollMetaLeads(dias: number): Promise<PollLeadsResult> {
+/**
+ * Lo que la ingesta de leads de Meta EXIGE para poder correr, resuelto en UN lugar.
+ *
+ * Existe porque la pregunta se contestaba DOS veces y las dos respuestas se
+ * separaron: `pollMetaLeads` lee la credencial del catalogo y el gate del
+ * onboarding (`jobAplica` en lib/onboarding-extract.ts) leia la SETTING
+ * homonima en minuscula, que nadie escribe desde que el page id vive como
+ * credencial. Resultado: el job `meta_leads` quedaba `skipped` con «Falta
+ * token de pagina o ID de pagina» en un workspace donde la ingesta funcionaba
+ * perfecto — o sea el historico de leads no llegaba nunca, sin un error, y el
+ * CRM del cliente nuevo arrancaba vacio (tarea #171).
+ *
+ * Quien pregunte «¿puedo ingerir leads?» llama a esto. Un segundo lector que
+ * resuelva el page id por su cuenta es el mismo bug otra vez.
+ */
+export type CredLeads =
+  | { ok: true; token: string; pageId: string }
+  | { ok: false; motivo: string };
+
+export async function credencialesDeLeads(): Promise<CredLeads> {
   const token = await credWs('META_PAGE_ACCESS_TOKEN');
   if (!token || token.startsWith('PENDING')) {
-    throw new Error('META_PAGE_ACCESS_TOKEN no configurado');
+    return { ok: false, motivo: 'META_PAGE_ACCESS_TOKEN no configurado' };
   }
   // El page id sale de la MISMA credencial del catálogo que el cliente carga en
   // /integraciones (META_PAGE_ID), no de una setting aparte. Antes esto leía
@@ -118,9 +137,15 @@ export async function pollMetaLeads(dias: number): Promise<PollLeadsResult> {
   const ws = await getWorkspaceActual();
   const pageId = (await credWs('META_PAGE_ID')) ?? (ws === OWNER_WS || ws == null ? META_PAGE_ID : null);
   if (!pageId) {
-    throw new Error('META_PAGE_ID no configurado para este workspace (Integraciones → Meta Ads → "ID de tu página de Facebook")');
+    return { ok: false, motivo: 'META_PAGE_ID no configurado para este workspace (Integraciones → Meta Ads → "ID de tu página de Facebook")' };
   }
+  return { ok: true, token, pageId: String(pageId) };
+}
 
+export async function pollMetaLeads(dias: number): Promise<PollLeadsResult> {
+  const cred = await credencialesDeLeads();
+  if (!cred.ok) throw new Error(cred.motivo);
+  const { token, pageId } = cred;
   const corteMs = Date.now() - Math.max(1, dias) * 86400_000;
 
   // 1) Listar formularios activos de la página
