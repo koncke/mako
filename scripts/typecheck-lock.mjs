@@ -27,6 +27,15 @@ const LOCK = join(tmpdir(), 'mako-typecheck.lock');
 const ESPERA_MAX_MS = 10 * 60 * 1000;  // 10 min
 const SONDEO_MS = 400;
 
+// ⚠️ CODIGO DE SALIDA PROPIO PARA «NO PUDE CHEQUEAR», distinto de «hay errores».
+// Medido el 13/10/2026 en un push real: el lock explicaba bien que lo había matado el
+// vigía y el hook imprimía debajo «✖ PUSH BLOQUEADO: hay errores de tipos», o sea que
+// la última línea que lee la persona volvía a mentir. Un exit 1 no alcanza: hacen falta
+// DOS respuestas distintas, porque son dos causas con dos acciones distintas (corregir
+// tipos vs. cerrar chats). El hook lo mira (ver AGENTS.md → «El typecheck NO corre en
+// el build»); cualquier valor != 0 sigue bloqueando el push.
+const SALIDA_SIN_CHEQUEAR = 99;
+
 // ⚠️ EL HEAP DE tsc VA ACOTADO, y no es prolijidad: es lo que decide si lo MATAN.
 // V8 crece el old space hasta ~4 GB en una máquina de 16, así que un tsc suelto
 // llega a 3,7 GB (medido el 13/10/2026: 3.765 MB) aunque pueda trabajar en 1,6 —
@@ -156,7 +165,7 @@ if (!(await esperarRam())) {
   process.stderr.write('    Cerrá unos chats de Claude (cada uno son ~0,2-0,3 GB) y volvé a pushear. Si hace\n');
   process.stderr.write('    falta empujar igual: MAKO_TYPECHECK_SIN_ESPERA=1 git push (y puede morir mudo).\n\n');
   soltar();
-  process.exit(1);
+  process.exit(SALIDA_SIN_CHEQUEAR);
 }
 
 // Se llama al tsc de node_modules con el MISMO node, sin npx y sin shell:
@@ -210,8 +219,8 @@ function explicarMudo() {
 // 10 minutos por nada.
 const cerrar = (code) => { soltar(); process.exit(code); };
 hijo.on('exit', (code, signal) => {
-  if ((code ?? 1) !== 0 && bytes === 0) explicarMudo();
-  else if (signal) process.stderr.write(`  [typecheck] tsc murió por señal ${signal}\n`);
+  if ((code ?? 1) !== 0 && bytes === 0) { explicarMudo(); cerrar(SALIDA_SIN_CHEQUEAR); return; }
+  if (signal) process.stderr.write(`  [typecheck] tsc murió por señal ${signal}\n`);
   cerrar(code ?? 1);
 });
 hijo.on('error', (e) => { process.stderr.write(`  [typecheck] no pude lanzar tsc: ${e.message}\n`); cerrar(1); });

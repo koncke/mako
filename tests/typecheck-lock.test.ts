@@ -110,6 +110,39 @@ test('un tsc que muere sin imprimir se reporta como lo que es, no como errores d
   );
 });
 
+/**
+ * ⚠️ «NO PUDE CHEQUEAR» Y «HAY ERRORES» SON DOS RESPUESTAS, CON DOS ACCIONES.
+ * Medido el 13/10/2026 en un push real: el lock explicaba bien que al tsc lo había
+ * matado el vigía, y el hook imprimía DEBAJO «✖ PUSH BLOQUEADO: hay errores de tipos».
+ * La última línea que lee la persona volvía a mentir, con la explicación correcta tres
+ * renglones más arriba. Un exit 1 no alcanza: hace falta un código propio (99) para que
+ * el hook pueda decir «cerrá chats» en vez de «corregí los tipos».
+ *
+ * Verificado rompiéndolo: con `cerrar(code ?? 1)` en el camino mudo, 1 fallo; con el
+ * freno por RAM saliendo con 1, 1 fallo.
+ */
+test('el lock distingue «no pude chequear» de «hay errores» con un código propio', () => {
+  const src = leer('../scripts/typecheck-lock.mjs');
+  assert.match(src, /const SALIDA_SIN_CHEQUEAR = 99;/, 'hay un código de salida propio para «no pude chequear»');
+  // El camino mudo (lo mataron) sale con ESE código, no con 1.
+  assert.match(
+    src,
+    /bytes === 0\) \{ explicarMudo\(\); cerrar\(SALIDA_SIN_CHEQUEAR\)/,
+    'un tsc muerto sin imprimir sale con SALIDA_SIN_CHEQUEAR, no con 1',
+  );
+  // Y el freno por falta de RAM también: tampoco chequeó nada.
+  assert.match(
+    src,
+    /soltar\(\);\s*\n\s*process\.exit\(SALIDA_SIN_CHEQUEAR\);/,
+    'el freno por falta de RAM también sale con SALIDA_SIN_CHEQUEAR',
+  );
+  // Y el hook tiene que mirarlo, o el mensaje final vuelve a mentir.
+  let hook: string;
+  try { hook = leer('../.git/hooks/pre-push'); } catch { return; }
+  assert.match(hook, /-eq 99/, 'el pre-push distingue el 99 y no dice «hay errores de tipos»');
+  assert.match(hook, /NO es un error de tipos/, 'y lo dice con todas las letras');
+});
+
 test('el heap de tsc va acotado, y el piso de RAM se deriva de ese cap', () => {
   // V8 crece hasta ~4 GB en esta máquina: un tsc suelto llegó a 3.765 MB pudiendo
   // trabajar en 1.571. Capado es menos matable, y si no alcanza falla ruidoso.

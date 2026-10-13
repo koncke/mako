@@ -121,12 +121,26 @@ Si `.git/hooks/pre-push` no existe, recrealo con este contenido y `chmod +x`:
 LOCK_TSC="$(dirname "$(git rev-parse --git-common-dir)")/scripts/typecheck-lock.mjs"
 echo "[pre-push] Chequeando tipos…"
 if [ -f "$LOCK_TSC" ]; then node "$LOCK_TSC"; else npm run --silent typecheck; fi
-if [ $? -ne 0 ]; then
+TIPOS=$?
+# 99 = «no pude chequear» (sin RAM, o el vigía mató el tsc), NO «hay errores».
+if [ "$TIPOS" -eq 99 ]; then
+  echo "\n  ✖ PUSH BLOQUEADO: no se pudo chequear los tipos (el motivo está arriba)."
+  echo "    NO es un error de tipos. Cerrá unos chats de Claude y volvé a pushear.\n"
+  exit 1
+fi
+if [ "$TIPOS" -ne 0 ]; then
   echo "\n  ✖ PUSH BLOQUEADO: hay errores de tipos.\n"
   exit 1
 fi
 echo "[pre-push] ✓ Tipos OK."
 ```
+
+⚠️ **Y «NO PUDE CHEQUEAR» NO ES «HAY ERRORES»: son dos causas con dos acciones.** El lock
+sale con **99** cuando no llegó a verificar nada (no había RAM, o el vigía mató el `tsc`),
+y con el código de `tsc` cuando sí corrió. Sin esa rama, el hook imprimía «hay errores de
+tipos» **tres renglones debajo** de la explicación correcta — medido en un push real el
+13/10/2026, y la última línea que lee la persona es la que gana. Cualquier valor ≠ 0 sigue
+bloqueando el push: lo que cambia es qué se le pide hacer.
 
 ⚠️ **Y el typecheck se llama POR LA RUTA DEL CLON PRINCIPAL, no con `npm run typecheck`.**
 `npm` resuelve el script del `package.json` **del worktree**, y este `.git` lo comparten 20
@@ -3503,8 +3517,8 @@ voz con un mensaje que le pedía cargar otra key. Dos reglas al escribir un cami
 (`lib/stt-degenerado.ts`). Medido el 08/10/2026: Gemini devolvió un minuto de habla y después
 «1 2 3 … 699» con `finishReason: STOP`, y la cascada lo tomó como el texto del audio — siete minutos
 perdidos sin un error. Un bucle es un FALLO de esa cuenta: se anota con su motivo y se prueba la
-siguiente; nunca un texto a recortar. Todo camino que transcriba llama al detector (`lib/transcribe.ts`,
-el de los cursos, todavía no). El detalle, en `docs/hallazgos-ia.md`.
+siguiente; nunca un texto a recortar. Todo camino que transcriba llama al detector (desde el 13/10/2026 también `lib/transcribe.ts`, el de
+los cursos y los anuncios: `tests/transcribe-degenerado.test.ts` cuenta un detector por pedido a un STT). El detalle, en `docs/hallazgos-ia.md`.
 
 # Un contrato de datos no es un layout
 
@@ -4198,26 +4212,28 @@ desde el navegador, así que lo que el estado local no tenga sale como `null`. N
 se borra solo, sin un error, sin un 4xx y con la tarjeta a la vista. Es la misma trampa que
 los mappers de lectura, del lado de la escritura.
 
-# Todo `<Modal>` recibe un `onCerrar` de identidad FIJA, y `autoFocus` adentro no anda
+# `<Modal>` guarda su `onCerrar` en un ref y enfoca cuando la capa se VE
 
-El efecto de foco de `app/_ui/Modal.tsx` depende de `[onCerrar, arriba]`. Una flecha creada en
-el mismo componente que tiene el estado de un campo es una identidad nueva por tecla: el efecto
-se re-ejecuta, su limpieza devuelve el foco atrás y el campo **pierde el foco con cada letra**.
-Medido el 09/10/2026 en «Nuevo producto» de la tab Curso; el diagnóstico obvio (un componente
-definido adentro de otro, una `key` que cambia) era falso: el barrido con el AST dio cero.
+Hasta el 13/10/2026 el efecto de foco de `app/_ui/Modal.tsx` dependía de `[onCerrar, arriba]`. Una
+flecha creada en el mismo componente que tiene el estado de un campo es una identidad nueva por
+tecla: el efecto se re-ejecutaba, su limpieza devolvía el foco atrás y el campo **perdía el foco
+con cada letra** (medido el 09/10/2026 en «Nuevo producto» de la tab Curso, y vivo en otros nueve
+diálogos). El diagnóstico obvio (un componente definido adentro de otro, una `key` que cambia) era
+falso: el barrido con el AST dio cero.
 
-- **Va `useCerrarEstable(onCerrar, ocupado)`** (`app/customer-success/curso/dialogo-foco.ts`) o un
-  `useCallback(…, [])` con refs. Pasar el `onCerrar` del padre tal cual tampoco alcanza si el
-  padre se re-renderiza por otra cosa (un toast, un sondeo).
-- **`autoFocus` (y cualquier `.focus()` al montar) no llega**: el primer render de la caja es
-  `display:none`. Va `useFocoInicial(id)`, que espera a que el campo se vea.
-- **Y una MEDIDA tampoco**: un campo que se mide solo en su primer efecto (`height = scrollHeight`) mide 0 y queda
-  colapsado, con la barra de scroll y el placeholder fuera de la vista (la barra «Pídeselo a MaKo», 12/10/2026). Va con
-  `minHeight` y la medida con el borde (`ComposerWhatsApp`), o vuelve a medir cuando se ve (`ResizeObserver`).
-- **Hasta que se arregle Modal de raíz** (el `onCerrar` por ref y el foco cuando la capa se ve;
-  los cambios exactos en `docs/hallazgos-customer-success.md` → «El feedback del audio del 08/10 a
-  la noche»), el mismo bug vive en otros nueve
-  diálogos de la app. `tests/curso-nuevo-producto.test.ts` lo frena sólo en la tab Curso.
+Se arregló de raíz y lo fija `tests/modal-foco.test.ts`. Lo que gobierna código nuevo:
+
+- **Ningún efecto de `Modal` vuelve a depender de `onCerrar`**: viaja por un ref que se actualiza en
+  un layout effect. Una prop-función nueva que un efecto necesite, igual.
+- **El foco inicial va cuando la capa se ve (`capa.visible`), no al montar**: el primer render de la
+  caja es `display:none` y un `.focus()` ahí no hace nada. Por eso `autoFocus` de React no llega
+  adentro de un Modal: el campo que pide el foco lleva **`data-autofocus`** (o `useFocoInicial(id)`,
+  `app/customer-success/curso/dialogo-foco.ts`, que espera a que se vea).
+- **Y una MEDIDA tampoco llega al montar**: un campo que se mide solo en su primer efecto (`height = scrollHeight`) mide 0
+  y queda colapsado, con la barra de scroll y el placeholder fuera de la vista (la barra «Pídeselo a MaKo», 12/10/2026).
+  Va con `minHeight` y la medida con el borde (`ComposerWhatsApp`), o vuelve a medir cuando se ve (`ResizeObserver`).
+- `useCerrarEstable(onCerrar, ocupado)` sigue sirviendo para no cerrar mientras algo se manda; ya no
+  hace falta para el foco.
 
 # Un componente COMPARTIDO no lleva el endpoint adentro: lleva la capacidad del Repo
 
