@@ -4113,10 +4113,8 @@ Lo que no se ve en el diff:
   décima): el ✦ es un botón chico.
 
 **SIN HACER (con su archivo):**
-- `app/automations/ChatMako.tsx`: crear sobre una fila con el borrador vaciado a mano pero con tarjetas PUBLICADAS da el
-  409 («ya tiene tarjetas: pídele un cambio») en el chat. El `guardado` del 409 no se usa.
-- `app/automations/PanelProbar.tsx`: los rearranques de Probar (↻, «Cambió · ↻») miran `EdicionLocal.freno` (la forma), no
-  los medios. Desconectar un medio con Probar abierto no frena hasta cerrarlo.
+- ~~`app/automations/ChatMako.tsx`: el 409 de crear sobre lo publicado~~ y ~~los rearranques de Probar sin los medios~~:
+  HECHOS el 13/10/2026 (`6e53ff79`, ver «Los pendientes de la decimotercera, cerrados» más abajo).
 - `app/automations/EditorPasoIA.tsx` y `app/landing-generator/CajaCrear.tsx`: el ejemplo que se escribe solo usa el mismo
   placeholder. Si alguno mide su alto en el primer efecto adentro de un Modal, tiene la trampa de arriba: no se midió.
 - Lo visual (el chat como WhatsApp, la capa, el modal de Zernio) no se miró en el navegador: lo mira Martín.
@@ -4226,3 +4224,46 @@ un TOKEN que al pegarse dice «Flujo copiado: <nombre>». Un agente solo, en `C:
 - Lo visual (el título en el modal, los chips, el logo en los editores) no se miró en el navegador: lo mira Martín.
 
 _12/10/2026 — cierre de la decimoquinta: typecheck en 0 errores. Áreas tocadas: 1640 / 1640 (119 archivos). Roturas: 10 de 10 cazadas (`tests/automations-decimoquinta.test.ts`, al pie)._
+
+## Los pendientes de la decimotercera, cerrados, y los plazos de etapa como plantilla (13/10/2026)
+
+Cuenta `claude2`, worktree `C:/dev/wt-undecima`, commits `ae462b56` y `6e53ff79` (sin push al escribir esto).
+
+### El 409 de «crear» no era del server: el chat decidía con la mitad del dato [chat de MaKo]
+
+Síntoma: con el borrador vaciado a mano y tarjetas publicadas, pedirle algo a MaKo contestaba «ya tiene tarjetas: pídele un
+cambio». El diagnóstico obvio era el server (el 409 sale de la ruta). La ruta tenía razón: crear ESCRIBE encima y no pisa un
+flujo publicado (puede tener leads adentro). Lo que estaba mal era la pregunta del cliente: `crea = pasos.length === 0`
+miraba sólo el BORRADOR. Con algo publicado, edita sobre el borrador vacío (`publicadas`, lo pasa SecuenciaPerfil).
+**Regla:** una decisión que cambia QUÉ escribe el server (crear vs editar) se toma con lo que el server va a mirar, no con la
+copia local.
+
+**Vive en:** `app/automations/ChatMako.tsx` · `app/automations/SecuenciaPerfil.tsx` · `app/api/chat-agent/secuencias/ia/route.ts`
+
+### Un freno que viaja a otro componente tiene que ser el MISMO que el del botón [probar]
+
+El botón «Probar» frenaba por la forma Y por un medio sin conectar; lo que viajaba al panel (`EdicionLocal.freno`) era sólo
+la forma, así que los rearranques (↻, «Cambió · ↻», «Probar en WhatsApp») corrían con un medio desconectado. Ahora viaja
+`FrenoDeProbar` (forma o medio, con la cuenta de Publicar: `medioQueFrena`) y frenar abre el modal del medio. La lectura de
+los medios tuvo que SUBIR antes del efecto que manda la edición local: un `useMemo` declarado después no lo podía usar.
+
+**Vive en:** `app/automations/SecuenciaPerfil.tsx` (`frenoProbar`, `frenarDesdeProbar`) · `app/automations/PanelProbar.tsx`
+
+### Una condición que depende de la AUTOMATIZACIÓN no se guarda en la fila: la pone quien evalúa [condiciones]
+
+Los plazos de etapa del CRM pasaron a la plantilla «Un Lead No Avanzó» (espera → «Sigue en la etapa del CRON» → aviso). La
+salida obvia era copiar la etapa elegida en la condición al crear la plantilla; queda VIEJA el día que alguien cambia el
+CRON. La condición no guarda la etapa: `HechosLead.etapasDelCron` lo pone quien evalúa (`conEtapasDelCron`,
+lib/disparadores.ts) — el motor por automatización en los dos lugares donde decide, y «Probar» con el lead de prueba, que
+entra EN la etapa del CRON. Sin un CRON de etapa es «no sé». Medido el 13/10: ningún embudo tiene plazos guardados
+(`funnels.data.umbrales.porEtapa`), así que no hubo nada que migrar; el aviso viejo (`lib/lead-quieto-aviso.ts`) y la op
+`plazo` del CRM quedan sin datos (retirarlos es del chat CRM).
+
+**Vive en:** `lib/condiciones-catalogo.ts` (`sigueEnEtapaDelCron`) · `lib/disparadores.ts` · `lib/nutricion.ts` · `lib/simulador-grafo.ts` · `lib/plantillas-automatizaciones.ts`
+
+### El entorno del 13/10: `tsc` y las suites largas mueren sin decir nada
+
+`tsc --noEmit` sale con código 1 y CERO bytes de salida (ni con `--extendedDiagnostics`), y `npm test` corta sin el resumen:
+el vigía de RAM (`~/.claude/guardia/vigia.ps1`) los mata con poca memoria libre (2,8 GB medidos). Un «exit 1» sin texto NO es
+un error de tipos. Los tests se corrieron en tandas de 10-12 archivos (1153 del área en verde). El typecheck queda para antes
+del push, cuando «Fallas en la PC» lo destrabe.

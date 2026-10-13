@@ -9,6 +9,13 @@
 > la montan las dos), el chat de MaKo se abre a la derecha, sin el chip «Conecta tu…», y la tarjeta de Instagram/Messenger con
 > el desplegable de cuentas de Zernio (cada tarjeta guarda la suya; el motor manda sólo por ella). Sin hacer: el chip «Sin
 > conectar», Probar y Publicar miran si hay ALGUNA cuenta y no la elegida; las condiciones de Instagram no miran la cuenta.
+> **13/10/2026 (`claude2`, chat «Chatbot» de la cuenta 2, en `C:/dev/wt-undecima`, rama `undecima`, SIN PUSH hasta que
+> «Fallas en la PC» arregle el typecheck: `tsc` muere sin mensaje en esta PC, el vigía de RAM lo mata):** Martín pidió
+> «que continúen y cierren lo planificado». HECHOS: el 1 (`ae462b56`: plantilla «Un Lead No Avanzó» + la condición
+> «Sigue en la etapa del CRON»; medido: 0 embudos con plazos guardados, nada que migrar) y el 2 (`6e53ff79`: MaKo no crea
+> sobre lo publicado; el ↻ de Probar frena por un medio sin conectar). La limpieza §8.7 (el 6) tiene su medición al día:
+> 0 filas vivas con `{{mensaje_mako}}`, 0 con el CRON del recordatorio, 0 plantillas con el dato. Lo que sigue: el 3
+> (Dashboard; Graphics cerró el área `metricas` con 25 operaciones y espera el id del aviso «El AI Analyst terminó»).
 > **PENDIENTE, en este orden:**
 > 1. **Plazos de etapa del CRM → plantilla de Automations** (pedido de Martín reenviado por el chat CRM, 12/10: «Si, pasa
 >    a una automatización eso de los plazos... Y ponlo como template en automations. Dile esto al chat de "Chatbot" que lo
