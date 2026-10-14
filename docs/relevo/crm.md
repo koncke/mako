@@ -48,7 +48,9 @@ es abrir una ficha con datos sin marcar y probar «Ver →», solucionar, ignora
 1. ~~Autoguardado~~ y 2. ~~cabecera compacta~~: hechos (arriba).
 3. **Tarjetas del lead personalizables** (plantillas, campos, arrastrar, vista en vivo) en los tres puntos.
 4. **Resumen personalizable** (IG, YouTube, web, LinkedIn, dirección, sexo, respuestas del form).
-5. **CAPI**: revisar cómo se elige qué píxel y qué evento alimenta «¿Era calificado?».
+5. ~~**CAPI**~~: revisado el 14/10 (docs/hallazgos-ads.md, «a dónde va hoy ¿Era calificado?»). La
+   tarjeta ya no afirma «Meta aprende» donde no llega. **Espera a Martín**: si quiere ofrecer el
+   conjunto de datos de CRM (lo que hace que Meta optimice por calificados); nadie lo tiene.
 6. **Pagos**: ~~el desplegable de OFERTA~~ (hecho); falta la tab personalizable como Reuniones
    (tipografía, tamaño de tarjetas, colores). Coordinar con Integraciones (worktree
    `C:/dev/wt-pagos`, rama `pagos-pasarela`).

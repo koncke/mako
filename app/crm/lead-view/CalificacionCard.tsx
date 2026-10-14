@@ -1,3 +1,5 @@
+'use client';
+
 // =============================================================================
 // CalificacionCard — «¿Era calificado?» sin depender de una reunión
 // =============================================================================
@@ -22,8 +24,16 @@
 // ⚠️ Y SE DIBUJA SIEMPRE, también sin reunión: ése es justo el lead que no se podía
 // marcar. Lo único que lo bloquea es que CONSTE que no vino a la R1 — ahí
 // `updateLead` descarta el dato y un control clickeable rebotaría.
+//
+// ⚠️ «META APRENDE DE ESTO» SÓLO SI LE LLEGA (14/10/2026). Medido: dos cuentas tienen el
+// token de Meta y ningún píxel, y lo que marcaban no salía. Si no llega, la tarjeta lo
+// dice y lleva a conectarlo; si no se pudo leer, dice lo de siempre (no se acusa a nadie
+// por una lectura caída).
 
-import type { CSSProperties } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
+import Link from '@/app/_ui/Link';
+import { adondeVaLaCalificacionAction } from '../calificacion-actions';
+import type { AdondeVaLaCalificacion } from '@/lib/meta-capi-payload';
 import type { Lead } from '@/lib/leads';
 import { calificadoSeDescarta } from '@/lib/calificado-reunion';
 import { CajaCampo, TriEditable } from './CampoEditable';
@@ -35,6 +45,13 @@ const sectLabel: CSSProperties = { fontFamily: MONO, fontSize: 11, letterSpacing
 
 export function CalificacionCard({ lead }: { lead: Lead }) {
   const noVino = calificadoSeDescarta(lead);
+  const [adonde, setAdonde] = useState<AdondeVaLaCalificacion | null>(null);
+  useEffect(() => {
+    let vivo = true;
+    void adondeVaLaCalificacionAction().then((r) => { if (vivo) setAdonde(r); }).catch(() => {});
+    return () => { vivo = false; };
+  }, []);
+  const noLlega = adonde === 'sin_pixel' || adonde === 'sin_token';
 
   return (
     <section style={card}>
@@ -46,7 +63,9 @@ export function CalificacionCard({ lead }: { lead: Lead }) {
           <div style={{ fontSize: 12, color: 'var(--dim)', lineHeight: 1.45, marginTop: 3 }}>
             {noVino
               ? 'No asistió a la reunión 1, así que no hay nada que calificar.'
-              : 'Meta aprende de esto para traerte leads parecidos.'}
+              : noLlega
+                ? (<>No le llega a Meta: {adonde === 'sin_pixel' ? 'falta el píxel' : 'falta el token'}. <Link href="/integraciones?abrir=meta" style={{ color: 'var(--primary)', fontWeight: 600 }}>Conectar →</Link></>)
+                : 'Meta aprende de esto para traerte leads parecidos.'}
           </div>
         </div>
         <TriEditable

@@ -2905,6 +2905,33 @@ que no existe.
   quedaron CERRADOS** por esta corrida; la conversión personalizada por API y el camino de polling
   siguen abiertos.
 
+### Medido el 14/10/2026: a dónde va hoy «¿Era calificado?», y dos cuentas donde no iba a ningún lado
+
+Lo pidió Martín al mover «¿Era calificado?» a Resumen (13/10): *«¿Cómo el usuario alimenta X pixel, o
+X evento del pixel? Tal vez deberíamos hacer configurable esto»*. Medido en la base (sólo lectura):
+
+- **Ningún workspace tiene `META_CRM_DATASET_ID`**, así que todo va al píxel del sitio, como
+  `SubmitApplication` (estándar: Meta optimiza sin que nadie declare nada) y `QualifiedLead` (el
+  nombre propio, para medirlo), con el mismo `event_id` y `action_source: system_generated`.
+  Lo hacen ws1, ws4, ws13, ws14 y ws15.
+- **ws9 y ws11 tienen el token y NINGÚN píxel** (`META_PIXEL_ID` es `auto`, y para ellos MaKo no
+  encontró uno). Lo que se marcaba ahí —ws11, 3 cambios de «calificado» en 30 días— **no salía**, y
+  no quedaba rastro: `sin_pixel` no va al historial de cada lead a propósito (no es noticia de ESE
+  lead). Mientras tanto la tarjeta afirmaba *«Meta aprende de esto para traerte leads parecidos»*.
+- **Ningún rechazo de Meta registrado** (`lead_audit`, campo `Meta`): lo que sale, entra.
+
+**La regla que queda: lo que la pantalla afirma sobre un envío sale de la MISMA función que decide
+el envío.** `destinoYToken` lo leen `sendMetaCAPIEvent` y `adondeVaLaCalificacion`, y el veredicto
+es `adondeDe` (puro, con test). Con la base caída la ficha no acusa a nadie: una sonda estricta
+devuelve null y la tarjeta dice lo de siempre.
+
+**Lo que NO se hizo, y es de Martín:** elegir el evento a mano. El nombre del evento no es lo que
+mueve la aguja: lo que hace que Meta busque leads que califiquen en un formulario instantáneo es el
+**conjunto de datos de CRM** («Conversion leads»), y no lo tiene nadie. Si se hace configurable algo,
+es «a qué conjunto de datos», y eso ya es un campo de Integraciones → Meta.
+**Vive en:** `lib/meta-capi.ts` · `lib/meta-capi-payload.ts` · `app/crm/lead-view/CalificacionCard.tsx` ·
+`tests/calificacion-adonde-va.test.ts`
+
 ## Un guard de «no hay emoji» busca donde uno adivina, y los emoji estaban en otras cuatro partes (06/10)
 
 **Síntoma.** Martín, sobre la barra de la selección múltiple del Ads Manager: *«No pongas

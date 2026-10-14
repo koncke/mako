@@ -200,6 +200,16 @@ export function destinoCAPI(dataset: string | null | undefined, pixel: string | 
   return null;
 }
 
+/** A dónde va hoy la calificación de un lead (lo que dice la ficha, 14/10/2026). */
+export type AdondeVaLaCalificacion = 'crm' | 'pixel' | 'sin_pixel' | 'sin_token';
+
+/** El veredicto, con lo MISMO que decide el envío: sin destino no sale, sin token tampoco. */
+export function adondeDe(destino: DestinoCAPI | null, token: string | null | undefined): AdondeVaLaCalificacion {
+  if (!destino) return 'sin_pixel';
+  if (!cargado(token)) return 'sin_token';
+  return destino.esCrm ? 'crm' : 'pixel';
+}
+
 /**
  * Los dos campos que Meta exige SOLO en el payload de un conjunto de datos de CRM.
  * Van aparte porque mandarlos al píxel del sitio es justo lo que la doc prohíbe.

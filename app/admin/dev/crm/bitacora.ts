@@ -2144,4 +2144,22 @@ export const BITACORA: Hito[] = [
       'tests/oferta-del-lead.test.ts',
     ],
   },
+  {
+    fecha: '14 oct', hora: '01:40', chat: 'CRM', cuenta: 'claude2',
+    actor: 'claude', tipo: 'investigacion',
+    titulo: 'Meta CAPI revisado: a dónde va «¿Era calificado?», y la tarjeta ya no afirma de más',
+    puntos: [
+      'Ningún cliente tiene conjunto de datos de CRM: todo va al píxel del sitio como SubmitApplication y QualifiedLead.',
+      'Dos cuentas tienen el token y ningún píxel: lo que marcaban no llegaba a Meta y la tarjeta decía «Meta aprende de esto».',
+      'Ahora, si no llega, la tarjeta lo dice y lleva a conectar Meta. Si no se pudo leer, dice lo de siempre.',
+      'Elegir el evento a mano no se hizo: lo que mueve la aguja es el conjunto de datos de CRM. Lo decide Martín.',
+    ],
+    commits: [],
+    archivos: [
+      'lib/meta-capi.ts — destinoYToken, adondeVaLaCalificacion',
+      'lib/meta-capi-payload.ts — adondeDe',
+      'app/crm/lead-view/CalificacionCard.tsx',
+      'tests/calificacion-adonde-va.test.ts',
+    ],
+  },
 ];
