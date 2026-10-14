@@ -185,7 +185,12 @@ export function correoQueFallo(p: { error: string | null | undefined; via?: 'neg
  * casilla que manda un mensaje a una persona no vuelve prendida sola de un borrador.
  */
 export type BorradorInvitar = {
-  pestana: 'clientes' | 'nuevo';
+  /**
+   * Qué pestaña quedó abierta. `embudo` es el BUSCADOR de leads en cualquier etapa (pedido de Martín
+   * el 13/10/2026): no guarda lo tipeado, a propósito — una búsqueda es un gesto, no un formulario a
+   * medio llenar, y reabrir el modal con veinte resultados viejos de ayer es peor que vacío.
+   */
+  pestana: 'clientes' | 'nuevo' | 'embudo';
   nuevo: { nombre: string; email: string; telefono: string; empresa: string; sinCobro: boolean };
   /** Los clientes elegidos de la lista y los emails que se editaron. */
   clientes: { elegidos: number[]; emails: Record<string, string> };

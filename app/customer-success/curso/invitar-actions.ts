@@ -378,3 +378,113 @@ async function conEstado(dups: Array<{ leadId: number; nombre: string; texto: st
   // UNO por lead: el mismo puede chocar por email Y por teléfono, y dos botones «Usar» iguales confunden.
   return ids.map((id) => dups.find((d) => d.leadId === id)!).map((d) => ({ ...d, ganado: ganados.has(d.leadId) }));
 }
+
+// ── El BUSCADOR de leads, para invitar a alguien que todavía no compró ─────────────────────────────
+//
+// Pedido de Martín (13/10/2026), textual: «Incluir un buscador de leads en la ventana de invitación a
+// cursos que permita seleccionar contactos en cualquier etapa del embudo y no solo los ganados»
+// (Fathom 858545195 @91:40).
+//
+// Hasta acá, invitar al curso exigía DOS cosas —estar en Ganado y ser cliente de ESE producto— y las
+// dos las mira `invitarAlCurso`. Las levanta `cualquierEtapa: true`, que SÓLO pone este camino: el
+// automático (`crm-curso-al-ganar`, que se dispara al pasar a Ganado) nunca lo manda, porque ahí la
+// precondición ES haber ganado. El porqué del reparto está en lib/curso-invitar.ts.
+//
+// ⚠️ LA CARTERA NO VIAJA AL NAVEGADOR. Se busca en el SERVER y vuelven ~20 filas compactas, con el
+//    MISMO criterio que el tablero y el CRM del teléfono (`buscarEnCartera`, app/m/crm/reglas.ts: sin
+//    acentos, términos en cualquier orden, «#412» por id, dígitos por id y después por teléfono). Un
+//    segundo criterio de búsqueda es un segundo lugar que se queda viejo — y acá el de al lado ya
+//    estaba escrito y probado.
+
+/**
+ * Busca leads para invitar, en CUALQUIER etapa del embudo. Devuelve lo justo para elegir uno:
+ * quién es, cómo distinguirlo de un homónimo, su email del CRM, y si ya está invitado a ESE curso.
+ *
+ * ⚠️ EL `yaInvitado` NO ES DECORACIÓN: sin él, el único modo de enterarse de que alguien ya estaba
+ *    invitado es apretar y leer «Ya está invitado.» — y con un buscador abierto sobre la cartera
+ *    entera eso pasa todo el tiempo. La fila lo dice antes.
+ *
+ * ⚠️ Y NO FILTRA a los ya invitados hacia afuera: buscar a alguien y que no aparezca es
+ *    indistinguible de «no existe», y manda a crearlo de nuevo.
+ */
+export async function buscarLeadsParaInvitarAction(q: string, productoId: number): Promise<
+  | { ok: true; filas: Array<{ id: number; nombre: string; segunda: string | null; email: string | null; yaInvitado: boolean }>; hayMas: boolean }
+  | { ok: false; error: string }
+> {
+  const no = await puedeUsarCs(); if (no) return { ok: false, error: no };
+  try {
+    const producto = Number(productoId);
+    if (!Number.isInteger(producto) || producto <= 0) return { ok: false, error: 'Falta el producto.' };
+    const texto = typeof q === 'string' ? q : '';
+
+    const { buscarEnCartera } = await import('@/app/m/crm/reglas');
+    const { listLeads } = await import('@/lib/leads');
+    const leads = await listLeads();
+    const { filas, hayMas } = buscarEnCartera(
+      leads.map((l) => ({ id: l.id, nombre: l.nombre, empresa: l.empresa, email: l.email, telefono: l.telefono })),
+      texto,
+    );
+    if (!filas.length) return { ok: true, filas: [], hayMas };
+
+    // El email y el «ya invitado» SÓLO de las ~20 que vuelven: preguntar por la cartera entera sería
+    // leer miles de accesos para dibujar veinte renglones.
+    const porId = new Map(leads.map((l) => [Number(l.id), l]));
+    const accesos = await productosDeAccesos(filas.map((f) => f.id)).catch(() => new Map<number, number[]>());
+    return {
+      ok: true,
+      hayMas,
+      filas: filas.map((f) => ({
+        id: f.id,
+        nombre: f.nombre,
+        segunda: f.segunda,
+        email: (porId.get(f.id)?.email ?? '').trim() || null,
+        yaInvitado: (accesos.get(f.id) ?? []).includes(producto),
+      })),
+    };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'No se pudo buscar.' };
+  }
+}
+
+/**
+ * Invita a ESE curso a un lead elegido en el buscador, esté en la etapa que esté.
+ *
+ * ⚠️ NO LO HACE CLIENTE NI LO MUEVE EN EL KANBAN, a propósito. `invitarNuevoAlumnoAction` sí lo hace
+ *    —porque ahí se está dando de alta a alguien que no existe—, pero mover de etapa a un lead que YA
+ *    está en el embudo es cambiarle la venta a alguien por haberle dado acceso a un curso, y eso lo
+ *    decide el CRM. Acá sólo se le abre el curso.
+ *
+ * ⚠️ `reenviar: false`: es idempotente. Un doble clic, o alguien invitado en otra pestaña entre que
+ *    se buscó y se apretó, contesta «Ya está invitado.» y no manda un segundo mail.
+ */
+export async function invitarLeadDeCualquierEtapaAction(leadId: number, productoId: number, email: string): Promise<
+  | { ok: true; enviado: boolean; acceso: AccesoParaPantalla | null; aviso: AvisoInvitacionCurso; correo: CorreoQueFallo }
+  | { ok: false; error: string }
+> {
+  const no = await puedeUsarCs(); if (no) return { ok: false, error: no };
+  try {
+    const id = Number(leadId);
+    const producto = Number(productoId);
+    if (!Number.isInteger(id) || id <= 0) return { ok: false, error: 'Ese lead no existe.' };
+    if (!Number.isInteger(producto) || producto <= 0) return { ok: false, error: 'Falta el producto.' };
+    const correo = emailNormalizado(typeof email === 'string' ? email : '');
+    if (!emailUtilizable(correo)) return { ok: false, error: 'Ese email no sirve.' };
+    const ws = await getWorkspaceActual();
+    if (!ws) return { ok: false, error: 'No sé en qué cuenta estás.' };
+
+    const r = await invitarAlCurso({
+      ws, leadId: id, email: correo, autor: await autorActual(), reenviar: false,
+      productoId: producto, cualquierEtapa: true,
+    });
+    if (r.tipo === 'error') return { ok: false, error: r.error };
+    if (r.tipo === 'no') return { ok: false, error: TEXTO_NO_INVITA[r.motivo] };
+    const acceso = await accesoParaPantalla(id, ws).catch(() => null);
+    return {
+      ok: true, enviado: r.enviado, acceso,
+      aviso: avisoInvitacionCurso({ enviado: r.enviado, error: r.fallo ?? undefined }, r.anotado),
+      correo: r.enviado ? null : correoQueFallo({ error: r.fallo, via: r.via }),
+    };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'No se pudo invitar.' };
+  }
+}

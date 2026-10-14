@@ -231,12 +231,27 @@ test('todo call site de «qué ve el alumno» y de «de qué es cliente» está 
 test('la invitación a UN producto llega hasta la escritura: el mail, el reclamo y la lista', () => {
   // El núcleo: por producto, los motivos y los cursos; y lo pasa al reclamo y al marcar.
   assert.match(NUCLEO, /productoId != null \? invitadoAlProducto\(deEste, productoId\)/);
-  assert.match(NUCLEO, /const cursos = await d\.cursos\(p\.leadId, productoId\);/);
+  // El tercer argumento es el PERMISO de invitar a alguien que todavía no compró (13/10/2026):
+  // `productoId` tiene que seguir llegando, y el permiso viaja al lado, no en su lugar.
+  assert.match(NUCLEO, /const cursos = await d\.cursos\(p\.leadId, productoId, cualquierEtapa\);/);
   assert.match(NUCLEO, /if \(cursos === null\) return \{ tipo: 'error'/);
   assert.match(NUCLEO, /d\.reclamar\(p\.leadId, productoId\)/);
   assert.match(NUCLEO, /await d\.marcar\(p\.leadId, correo, autor, productoId\);/);
   // Con producto, el mail nombra SÓLO ése y sólo si es cliente de ése (la regla del kanban).
-  assert.match(NUCLEO, /\(await entrega\.productosDelCliente\(leadId\)\)\.productos\.includes\(productoId\) \? \[productoId\] : null/);
+  assert.match(NUCLEO, /cualquierEtapa \|\| \(await entrega\.productosDelCliente\(leadId\)\)\.productos\.includes\(productoId\) \? \[productoId\] : null/);
+
+  // ⚠️ EL PERMISO ES EXPLÍCITO Y NACE APAGADO. Es lo único que separa «una persona eligió a este
+  // lead en el buscador» de «cualquier webhook le abre el curso a un lead frío»: `=== true` no se
+  // satisface con un `1`, un `'si'` ni un objeto, y sin el campo el comportamiento es el de antes.
+  assert.match(NUCLEO, /const cualquierEtapa = p\.cualquierEtapa === true;/);
+  assert.match(NUCLEO, /if \(!lead\.ganado && !cualquierEtapa\) return \{ tipo: 'no', motivo: 'no-ganado' \}/);
+  // Sin producto no tiene a qué abrirle, y se falla ANTES de escribir nada: `productosDelAlumno` de
+  // alguien que no compró da vacío y el intento moriría en «el curso todavía no tiene clases», que
+  // manda a cargar clases cuando lo que falta es decir a CUÁL.
+  assert.match(NUCLEO, /if \(cualquierEtapa && p\.productoId == null\) return \{ tipo: 'error'/);
+  // Y el camino AUTOMÁTICO no lo manda nunca: ahí la precondición ES haber ganado.
+  assert.doesNotMatch(sinComentarios(leer('lib/crm-curso-al-ganar.ts')), /cualquierEtapa/,
+    'el invitar automático al ganar no puede levantar la guarda de etapa');
   // La escritura: la lista se calcula con la regla, sólo con producto y sólo en la fila del cliente.
   const marcar = bloque(DATOS, 'export async function marcarInvitacion(', 'const RECLAMO_MS');
   assert.match(marcar, /if \(area == null && productoId != null\) \{/);

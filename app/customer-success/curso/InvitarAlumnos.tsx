@@ -57,7 +57,13 @@ import { emailUtilizable } from '@/lib/agencia-altas';
 import { TelefonoConPais } from '@/app/_components/TelefonoConPais';
 import { splitTelefono, unirTelefono } from '@/lib/paises';
 import { clientesSinInvitar, type AccesoDeFila, type ClienteSinInvitar } from '../curso-ficha-lectura';
-import { invitarClientesAction, invitarNuevoAlumnoAction, opcionesDeInvitarAction, productosDeLosAccesosAction } from './invitar-actions';
+import {
+  buscarLeadsParaInvitarAction, invitarClientesAction, invitarLeadDeCualquierEtapaAction,
+  invitarNuevoAlumnoAction, opcionesDeInvitarAction, productosDeLosAccesosAction,
+} from './invitar-actions';
+
+/** Una fila del buscador del embudo. La arma el server; acá no se vuelve a calcular nada. */
+type FilaEmbudo = { id: number; nombre: string; segunda: string | null; email: string | null; yaInvitado: boolean };
 import { ofreceWhatsapp, tieneTelefono, type CanalInvitacion } from '@/lib/curso-invitar-canales';
 import { useCerrarEstable } from './dialogo-foco';
 import {
@@ -181,11 +187,17 @@ export function ModalInvitarAlumnos({ productoId, producto, filas, onListo, onCe
   return createPortal(
     <Modal titulo={`Invitar a ${producto}`} encabezado="Alumnos" ancho={600} anidada onCerrar={cerrar}>
       <Tabs
-        tabs={[{ id: 'clientes', label: 'Clientes sin invitar', badge: sinInvitar.length }, { id: 'nuevo', label: 'Alguien nuevo' }]}
+        tabs={[
+          { id: 'clientes', label: 'Clientes sin invitar', badge: sinInvitar.length },
+          { id: 'embudo', label: 'Del embudo' },
+          { id: 'nuevo', label: 'Alguien nuevo' },
+        ]}
         activa={pestana}
-        onCambio={(id) => { if (!ocupadoRef.current) setBorrador((b) => ({ ...b, pestana: id === 'nuevo' ? 'nuevo' : 'clientes' })); }}
+        onCambio={(id) => { if (!ocupadoRef.current) setBorrador((b) => ({ ...b, pestana: id === 'nuevo' || id === 'embudo' ? id : 'clientes' })); }}
       />
-      {pestana === 'clientes'
+      {pestana === 'embudo'
+        ? <DelEmbudo productoId={productoId} ocupado={ocupado} ocupar={ocupar} hecho={hecho} onListo={onListo} />
+        : pestana === 'clientes'
         ? <Clientes lista={sinInvitar} hayClientes={filas.length > 0} productoId={productoId} ocupado={ocupado} ocupar={ocupar} hecho={hecho} wa={wa}
           borrador={borrador.clientes} setBorrador={(f) => setBorrador((b) => ({ ...b, clientes: f(b.clientes) }))} />
         : <Nuevo productoId={productoId} ocupado={ocupado} ocupar={ocupar} hecho={hecho} wa={wa}
@@ -521,3 +533,127 @@ const CSS = `
 .ina-correo-tit{ margin:0; font-size:13.5px; font-weight:600; color:var(--ink); }
 .ina-correo > .ina-sub{ margin:0 0 4px; }
 `;
+
+// ── «Del embudo»: invitar a alguien que todavía NO compró ─────────────────────────────────────────
+//
+// Pedido de Martín (13/10/2026), textual: «Incluir un buscador de leads en la ventana de invitación a
+// cursos que permita seleccionar contactos en cualquier etapa del embudo y no solo los ganados»
+// (Fathom 858545195 @91:40).
+//
+// Es una TERCERA pestaña y no un cambio de las otras dos, porque son tres preguntas distintas:
+// «Clientes sin invitar» es la lista de los que ya compraron, «Alguien nuevo» da de alta a quien no
+// existe, y ésta busca en la cartera a alguien que SÍ existe y todavía no compró. Meterla en la
+// primera habría mezclado una lista con un buscador — y la lista de clientes es corta y se lee entera.
+//
+// ⚠️ LA CARTERA NO VIAJA AL NAVEGADOR: se busca en el server y vuelven ~20 filas
+//    (`buscarLeadsParaInvitarAction`, con el MISMO criterio que el tablero y el CRM del teléfono).
+// ⚠️ NO LO HACE CLIENTE NI LO MUEVE EN EL KANBAN: sólo le abre el curso. Mover de etapa a alguien por
+//    haberle dado acceso es cambiarle la venta, y eso lo decide el CRM.
+
+function DelEmbudo({ productoId, ocupado, ocupar, hecho, onListo }: {
+  productoId: number;
+  ocupado: boolean;
+  ocupar: <T>(f: () => Promise<T>) => Promise<T | undefined>;
+  hecho: () => void;
+  onListo?: () => void;
+}) {
+  const [q, setQ] = useState('');
+  const [filas, setFilas] = useState<FilaEmbudo[] | null>(null);
+  const [hayMas, setHayMas] = useState(false);
+  const [buscando, setBuscando] = useState(false);
+  const [error, setError] = useState('');
+  const [emails, setEmails] = useState<Record<number, string>>({});
+  const [resultados, setResultados] = useState<Record<number, { enviado: boolean; texto: string }>>({});
+  const [correo, setCorreo] = useState<CorreoQueFallo>(null);
+  const idQ = useId();
+
+  // ⚠️ SE BUSCA CON UN RESPIRO Y LA ÚLTIMA GANA. Sin el contador, una respuesta lenta de «mar» pisa a
+  //    la de «martín» y la lista muestra lo que NO se escribió — el bug clásico de todo buscador, y el
+  //    más difícil de ver porque sólo aparece con la red lenta.
+  const pedido = useRef(0);
+  useEffect(() => {
+    const texto = q.trim();
+    if (texto.length < 2) { setFilas(null); setHayMas(false); setBuscando(false); return; }
+    const mio = ++pedido.current;
+    setBuscando(true);
+    const t = setTimeout(() => {
+      void buscarLeadsParaInvitarAction(texto, productoId)
+        .then((r) => {
+          if (mio !== pedido.current) return;        // llegó tarde: la gana la última
+          if (!r.ok) { setError(r.error); setFilas([]); return; }
+          setError(''); setFilas(r.filas); setHayMas(r.hayMas);
+        })
+        .catch(() => { if (mio === pedido.current) { setError('No se pudo buscar.'); setFilas([]); } })
+        .finally(() => { if (mio === pedido.current) setBuscando(false); });
+    }, 250);
+    return () => clearTimeout(t);
+  }, [q, productoId]);
+
+  async function invitar(f: FilaEmbudo) {
+    const correoDe = (emails[f.id] ?? f.email ?? '').trim();
+    if (!correoDe) { setError('Falta su email.'); return; }
+    setError('');
+    const r = await ocupar(() => invitarLeadDeCualquierEtapaAction(f.id, productoId, correoDe));
+    if (!r) return;
+    if (!r.ok) { setResultados((x) => ({ ...x, [f.id]: { enviado: false, texto: r.error } })); return; }
+    setCorreo(r.correo);
+    setResultados((x) => ({ ...x, [f.id]: { enviado: r.enviado, texto: r.aviso.texto } }));
+    hecho();
+    onListo?.();
+  }
+
+  return (
+    <>
+      {/* Qué se busca y dónde: una frase, porque la pestaña sola no dice que acá entra CUALQUIERA. */}
+      <Field label="Buscar en el embudo" htmlFor={idQ} hint="Cualquier etapa, no sólo los ganados." error={error || undefined}>
+        <Input id={idQ} type="search" value={q} autoFocus placeholder="Nombre, email, teléfono o #id"
+          onChange={(e) => setQ(e.target.value)} />
+      </Field>
+
+      {buscando && <div style={{ padding: '10px 2px' }}><Spinner size={14} /></div>}
+
+      {/* Los tres estados se dicen distinto: todavía no escribiste, no hay nadie así, y acá están. */}
+      {!buscando && filas === null && (
+        <p className="cu-vacio">Escribe al menos dos letras.</p>
+      )}
+      {!buscando && filas?.length === 0 && (
+        <p className="cu-vacio">Nadie con ese nombre en el embudo.</p>
+      )}
+
+      {!!filas?.length && (
+        <div className="cu-embudo-lista">
+          {filas.map((f) => {
+            const r = resultados[f.id];
+            const mail = emails[f.id] ?? f.email ?? '';
+            return (
+              <div key={f.id} className="cu-embudo-fila">
+                <div className="cu-embudo-quien">
+                  <span className="cu-embudo-nombre">{f.nombre}</span>
+                  {/* Lo que lo distingue de un homónimo, que es para lo que se busca. */}
+                  {f.segunda && <span className="cu-embudo-segunda">{f.segunda}</span>}
+                </div>
+                {r
+                  ? <span className={r.enviado ? 'cu-embudo-ok' : 'cu-embudo-mal'}>{r.texto}</span>
+                  : f.yaInvitado
+                    ? <span className="cu-embudo-ya">Ya invitado</span>
+                    : (
+                      <>
+                        <Input type="email" value={mail} placeholder="persona@empresa.com"
+                          onChange={(e) => setEmails((x) => ({ ...x, [f.id]: e.target.value }))} />
+                        <Button variant="secondary" disabled={ocupado || !mail.trim()} onClick={() => void invitar(f)}>
+                          Invitar
+                        </Button>
+                      </>
+                    )}
+              </div>
+            );
+          })}
+          {/* No se trunca en silencio: si hay más, se dice y se dice cómo verlos. */}
+          {hayMas && <p className="cu-vacio">Hay más. Afiná la búsqueda.</p>}
+        </div>
+      )}
+
+      {correo && <CorreoAhiMismo cual={correo} />}
+    </>
+  );
+}
