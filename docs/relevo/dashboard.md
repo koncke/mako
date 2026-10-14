@@ -17,21 +17,16 @@ vigía mata los `tsc`). Dos ramas:
   - `35dc37f6` — feedback de la reunión del 12/10: el **botón de MaKo no sale editando**, y **las plantillas se arman con los datos del
     negocio** (`/api/graficos/plantilla`: quita los vacíos y MaKo suma hasta 4 con datos). Lo mismo para lo que arma MaKo con un pedido y
     para la API (`crear_hoja_dashboard`).
-- **`graphics-bloques-1310`** (`C:/dev/wt-graphics-bloques`): `298f5f66` **WIP sin verificar** — el borrado del código muerto de los
-  bloques que hizo un agente y que se cortó por el límite de sesión de la cuenta. Borró los muertos y mudó lo vivo
-  (`lib/datos-comercial.ts`, `lib/datos-comercial-server.ts`, `lib/llamadas-modelo.ts`, `app/dashboard/entidades/FichaLlamada.tsx`,
-  `app/dashboard/piezas.tsx`); falta correr los tests y el typecheck, terminar lo que quedó, y mergearlo a `graphics-1310`.
+  - `29a39259` — merge del **código muerto de los bloques, borrado** (lo hizo un agente en `graphics-bloques-1310` y se cortó por el
+    límite de sesión; se verificó acá: tests del área en verde, ninguna ruta vieja nombrada). Lo vivo se mudó a `lib/datos-comercial*.ts`,
+    `lib/llamadas-modelo.ts`, `app/dashboard/entidades/FichaLlamada.tsx` y `app/dashboard/piezas.tsx`.
+  - `9966e7bc` — **«A quién cobrarle» en la tab General** (reunión con Mauricio del 12/10, 86:17: «en la tab general, la cobranza»), con
+    «Marcar cobrada»: la misma lista que el teléfono. Sigue también en el Dashboard: Martín no dijo si se saca de allá (se le preguntó).
 
-**Para pushear** (cuando el typecheck pueda terminar): en `C:/dev/wt-graphics`, `git pull --rebase origin main` (o merge), mergear la rama
-de los bloques ya verificada, `npm test`, y `git push origin HEAD:main`. Después, `vercel ls`.
+**Para pushear** (cuando el typecheck pueda terminar): en `C:/dev/wt-graphics`, `git pull --rebase origin main` (o merge), `npm test`, el
+typecheck por el lock, y `git push origin HEAD:main`. Después, `vercel ls`.
 
 ## Lo que falta
-
-- **Cobranza en la tab General** (feedback de la reunión con Mauricio del 13/10, 86:17: «Número tres, en la tab general, la cobranza»; antes,
-  71:28 y 54:29: «el cobranza yo lo veo más operativo… ¿A quién cobrarle?»). Es poner la lista «A quién cobrarle» con «Marcar cobrada» en
-  `/general` (`app/general/page.tsx`), con la misma lectura que la hoja del Dashboard (`getOutstandingDetalle` + `armarCobranza`, que la
-  rama de los bloques mudó a `lib/datos-comercial.ts`) y abriendo la guarda de `marcarPagoAction` (`exigirAccesoAMarcarPago`,
-  app/crm/actions.ts) a quien tiene General. **Martín no dijo si se SACA del Dashboard**: por default queda en los dos (se le preguntó).
 - **El aviso «El AI Analyst terminó»**: el chat Chatbot ya lo puso en su catálogo (`dashboard-analisis-listo`, commit `2ea2cf81` en la rama
   `undecima`, sin push). Cuando entre a main, va UNA llamada en `analizarHoja` (lib/graficos-analisis-server.ts, después de
   `cerrarCorrida` con `ok`, sólo con `p.origen === 'cron'`): `emitirDelCatalogo('dashboard-analisis-listo', { ws: p.ws, datos:

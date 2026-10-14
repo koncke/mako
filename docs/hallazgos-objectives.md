@@ -455,8 +455,28 @@ escriben en `notificaciones`, que sigue sin existir en producción (la 0048 nunc
 `app/general/page.tsx:128` · `lib/capas.ts:280`. *Corrida `wf_01c22b1b-91a`, 10/10/2026.*
 
 
+## «A quién cobrarle» en General: la tercera puerta de «Marcar cobrada» (13/10/2026)
+
+**Vive en:** `app/general/Cobranza.tsx`, `app/general/page.tsx`, `leerAQuienCobrar` en `lib/datos-comercial-server.ts`,
+`exigirAccesoAMarcarPago` en `app/crm/actions.ts`
+
+Pedido al cerrar la reunión con Mauricio del 12/10 (86:17): «en la tab general, la cobranza». Él la ve como algo que se HACE,
+no que se analiza. Es la lista del teléfono en escritorio, y lo que importa al tocarla:
+
+- **Una lista, tres pantallas, una lectura.** General, el teléfono (`app/m/dashboard/CobranzaM.tsx`) y «Clientes por cobrar» del
+  Dashboard leen `getOutstandingDetalle` + `armarCobranza`. General sin ventana (todo lo pendiente). El renglón («US$500 · vence el
+  jue») está escrito en DOS lugares —el teléfono no puede importar del catálogo para no engordar su bundle— y lo ata
+  `tests/general-cobranza.test.ts`, que compara los dos textos.
+- **La guarda de `marcarPagoAction` es POR TAB**, y General era una tercera puerta: sin `porGeneral`, un negocio cuya capa no
+  tenga CRM ni Dashboard vería el botón y le contestaría «No tienes acceso a la cobranza de esta cuenta». General es sólo del
+  admin (`requireRolWs([])`), así que la puerta nueva también.
+- **Un negocio que no cobra en cuotas no ve la sección**: sin filas y sin error es ruido en la pantalla de lo que se hace hoy. Si
+  la lectura falla, la sección está y lo dice.
+
 ## Lo que quedó sin hacer
 
+- **«A quién cobrarle» sigue TAMBIÉN en el Dashboard** (la sección de la hoja Comercial): Martín pidió ponerla en General y no
+  dijo si se saca de allá. Se le preguntó el 13/10.
 - **`getObjetivoProgreso` y los tres settings siguen alimentando los reportes**
   (`lib/reportes.ts:66` y `:174`). Mientras existan, hay dos fuentes para «cuál es la meta»:
   la vieja manda en los reportes por WhatsApp y la nueva en la pantalla. Unificarlo es
