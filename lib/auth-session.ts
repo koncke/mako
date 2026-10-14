@@ -11,6 +11,7 @@
 // Supabase: la verificación es crypto pura, sin base de datos.
 
 import crypto from 'node:crypto';
+import { AMRS, type Amr } from './mfa-reglas';
 
 /** Rol GLOBAL de la app: admin = agencia, usuario = lado cliente. */
 export type Rol = 'admin' | 'usuario';
@@ -35,6 +36,12 @@ export type Sesion = {
   ws?: number | null;
   /** rol dentro del workspace (equipo del cliente). Se resuelve de la base, no se firma. */
   rolWs?: RolWorkspace | null;
+  /**
+   * Cómo se probó el SEGUNDO factor de esta sesión. Va FIRMADO: no se puede agregar a
+   * mano sin la llave. Ausente = la sesión nació sin segundo factor, y eso para un
+   * admin quiere decir que NO es una sesión (ver `verificarToken`).
+   */
+  mfa?: Amr;
 };
 
 export const SESSION_COOKIE = 'mako_session';
@@ -193,11 +200,72 @@ export function verificarToken(token: string | undefined | null): Sesion | null 
     const s = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as Sesion;
     if (typeof s.exp !== 'number' || s.exp * 1000 < Date.now()) return null;
     if (s.rol !== 'admin' && s.rol !== 'usuario') return null;
+    // ⛔ EL SUPER ADMIN NO TIENE SESIÓN SIN SEGUNDO FACTOR. Acá y no en cada pantalla:
+    // por esta función pasan el proxy (que decide si una ruta abre) y `getUsuarioActual`
+    // (que decide qué ve el server), así que no queda una puerta que la saltee. Un token
+    // de admin emitido ANTES del 2FA no lo trae y deja de valer: hay que volver a entrar
+    // con Google, y ahí se pide el segundo paso. Un valor desconocido tampoco vale.
+    if (s.mfa !== undefined && !AMRS.includes(s.mfa)) return null;
+    if (s.rol === 'admin' && !s.mfa) return null;
     return s;
   } catch {
     return null;
   }
 }
+
+// ── El paso intermedio: Google ya dijo quién es, falta el segundo factor ─────
+// Un token APARTE, con su propio prefijo (`p1.`) y firmado con separación de dominio
+// (`preauth:` adelante de lo firmado): `verificarToken` no lo acepta ni aunque alguien
+// le cambie el prefijo a mano, porque la firma no le cierra. Así una ruta que pregunta
+// «¿hay sesión?» contesta que NO para quien está a mitad del login, sin que esa ruta
+// tenga que saber que el paso intermedio existe.
+//
+// Vive 15 minutos: es lo que tarda alguien en abrir su app de autenticación o esperar
+// un WhatsApp, y no más. Pasado eso, se vuelve a entrar con Google.
+
+export const PREAUTH_COOKIE = 'mako_preauth';
+export const PREAUTH_MINUTOS = 15;
+
+export type Preauth = {
+  sub: string; email: string; nombre: string; rol: Rol;
+  /** Adónde va después del segundo paso. Ya pasó por `destinoSeguro`. */
+  next: string;
+  /** La foto de Google, para `registrarLogin` cuando el login se COMPLETE (no antes). */
+  foto?: string;
+  exp: number;
+};
+
+export function crearPreauth(p: Omit<Preauth, 'exp'>, minutos: number = PREAUTH_MINUTOS): string | null {
+  const sec = secret();
+  if (!sec) return null;
+  const cuerpo: Preauth = { ...p, next: destinoSeguro(p.next), exp: Math.floor(Date.now() / 1000) + minutos * 60 };
+  const payload = b64url(Buffer.from(JSON.stringify(cuerpo), 'utf8'));
+  return `p1.${payload}.${firmar(`preauth:${payload}`, sec)}`;
+}
+
+export function verificarPreauth(token: string | undefined | null): Preauth | null {
+  if (!token) return null;
+  const sec = secret();
+  if (!sec) return null;
+  const partes = token.split('.');
+  if (partes.length !== 3 || partes[0] !== 'p1') return null;
+  const [, payload, firma] = partes;
+  const a = Buffer.from(firma);
+  const b = Buffer.from(firmar(`preauth:${payload}`, sec));
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+  try {
+    const p = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as Preauth;
+    if (typeof p.exp !== 'number' || p.exp * 1000 < Date.now()) return null;
+    if (p.rol !== 'admin' && p.rol !== 'usuario') return null;
+    if (typeof p.sub !== 'string' || typeof p.email !== 'string') return null;
+    return { ...p, next: destinoSeguro(p.next) };
+  } catch {
+    return null;
+  }
+}
+
+/** «Recordar este dispositivo»: la cookie lleva un token al azar; la base, su HMAC. */
+export const DISPOSITIVO_COOKIE = 'mako_disp';
 
 // ── Impersonación (admin "entra como" un cliente) ────────────────────────────
 // Valor firmado `w1.<wsId>.<firma>` en la cookie mako_ws. Solo lo setea un
