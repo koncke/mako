@@ -33,6 +33,23 @@ Workflows: tanda A `wf_d8dfde6d-689`; catálogo de bloques `wf_70de8f94-88b`, qu
 en wtcrm5 (los journals están en `~/.claude/projects/<proyecto>/debe2ade-…/subagents/workflows/<runId>/journal.jsonl`).
 Al terminar: se revisa cada rama, se mergea en `fb1410`, se corren los tests, se cosecha y se pushea.
 
+**ESTADO AL 14/10 ~06:35 (la app se cayó a las 04:27 y a las 06:10).** La tanda A TERMINÓ y está en `fb1410`
+(cherry-pick de las seis ramas, sin choques): `c76f48bb2` reproductor en línea · `f52234dc3`+`fa9d5ca75` etiquetas ·
+`99e0a02b5` A revisar · `43a27b56c` tres puntos · `a3496cc32` clic derecho del tablero · `b04e3d1fe` chat de MaKo
+con sugerencias · `b4db1eaa7` arreglo de la revisión de A revisar (agrupación pura con test, ignorados sin tope chico).
+Los resultados de los seis agentes, con sus hallazgos y pendientes, están en el journal de `wf_d8dfde6d-689`.
+**Falta, en este orden:**
+1. Dos arreglos de la revisión del chat de MaKo, de gravedad media. El texto de «Un Lead No Avanzó» promete el plazo de la
+   etapa y la plantilla espera 3 días fijos; tiene que decir lo que hace. «Ahora no» no tiene vuelta: hace falta «Calladas (N)»
+   con «Volver a mostrar». Uno bajo: al cambiar de CRM con el panel plegado, se carga el hilo, y cargar el hilo escribe.
+   El agente que los hacía se cortó con la caída sin escribir nada.
+2. COSECHAR los hallazgos de la tanda A en docs/hallazgos-crm.md, hallazgos-ui.md y hallazgos-landing.md (la causa del
+   reproductor: player.css nunca se cargaba; maxScale 0 = sin tope; el iframe grabado va inert; el MenuContextual de la casa
+   y sus guardas; las caras de A revisar sin el proxy de Evolution), y la bitácora con sus commits.
+3. Correr los tests de todo lo tocado en fb1410 y pasarle la rama y el hash a Estrategia 3 CUENTAS, que pushea.
+4. Retomar el catálogo `wf_70de8f94-88b` (lo frenó la guardia de RAM) y después la tanda B.
+5. Borrar `C:/Users/marti/wtc-a1..a6` (primero `cmd /c rmdir` del junction de node_modules, después `git worktree remove`).
+
 **Lo que viene después (tanda B): el CONSTRUCTOR POR BLOQUES.** Martín: «no los hagas con un modal diferente… Que replique la
 edición que tenemos en "Dashboard" y "Landing Generator", que sea un constructor por bloques… con templates… que pueda
 elegir que bloques poner, que diseño, tamaño». Va para Resumen, Pagos y las tabs que proponga el catálogo. Ahí mismo se
