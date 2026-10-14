@@ -77,6 +77,7 @@ crear_etiqueta
 crear_evento_calendario
 crear_experimento
 crear_hoja_dashboard
+crear_landing_desde_diseno
 crear_lead_magnet
 crear_link_pago
 crear_modulo_curso
@@ -90,6 +91,7 @@ descartar_borrador_plan
 descartar_experimento
 descartar_item_plan_retro
 deshacer_item_plan_retro
+despublicar_landing
 destacados_periodo_retro
 detectar_fatiga_adsets
 detectar_piezas_landing
@@ -205,6 +207,7 @@ listar_conversiones_meta
 listar_creaciones
 listar_cursos
 listar_dependencias_plan
+listar_disenos_landing
 listar_etapas_email
 listar_etiquetas
 listar_etiquetas_whatsapp
@@ -224,6 +227,7 @@ listar_identidades_meta
 listar_incidentes_meta
 listar_kpis
 listar_landings
+listar_landings_creadas
 listar_landings_detectadas
 listar_lead_magnets
 listar_leads
@@ -320,6 +324,7 @@ proponer_tareas_plan
 proponer_toggle_nutricion
 propuestas_lead_pendientes
 publicar_creacion
+publicar_landing
 quitar_componente_dashboard
 quitar_conector_dashboard
 quitar_dependencia_plan
@@ -401,6 +406,7 @@ ver_glosario_negocio
 ver_grabaciones_prueba
 ver_integracion
 ver_integraciones
+ver_landing_creada
 ver_metricas_video_panda
 ver_montaje_anuncio
 ver_mrr_activo

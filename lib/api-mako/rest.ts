@@ -339,6 +339,14 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['DELETE', '/landing/borradores/{id}', 'borrar_borrador_landing'],
   ['GET', '/landing/borradores/{id}', 'ver_borrador_landing'],
   ['GET', '/landing/diagnosticos', 'listar_analisis_landing'],
+  // El editor del Landing Generator (landing_docs, 14/10/2026). `documentos` y no `landings`: ese
+  // recurso ya es el de las declaradas en Integraciones, que son otra cosa.
+  ['GET', '/landing/documentos', 'listar_landings_creadas'],
+  ['POST', '/landing/documentos', 'crear_landing_desde_diseno'],
+  ['GET', '/landing/documentos/{id}', 'ver_landing_creada'],
+  ['DELETE', '/landing/documentos/{id}/publicacion', 'despublicar_landing'],
+  ['PUT', '/landing/documentos/{id}/publicacion', 'publicar_landing'],
+  ['GET', '/landing/plantillas', 'listar_disenos_landing'],
   ['DELETE', '/landing/landings', 'borrar_landing'],
   ['GET', '/landing/landings', 'listar_landings'],
   ['POST', '/landing/landings', 'guardar_landing'],
