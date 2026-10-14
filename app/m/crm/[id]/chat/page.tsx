@@ -12,7 +12,7 @@
 import '../../crm.css';
 import { requireMovil } from '@/lib/movil-guard';
 import { hiloWhatsApp, type HiloM } from '@/lib/crm-movil';
-import { CabeceraM, VacioM } from '@/app/m/_ui';
+import { CabeceraM, PantallaM, VacioM } from '@/app/m/_ui';
 import { ComposerChat } from './ComposerChat';
 
 export const dynamic = 'force-dynamic';
@@ -60,7 +60,7 @@ export default async function ChatLeadMovil({ params }: { params: Promise<{ id: 
   if (!h) return <VacioM frase="Ese lead no está en esta cuenta." accion={{ rotulo: 'Volver al CRM', href: '/m/crm' }} />;
 
   return (
-    <>
+    <PantallaM refrescable>
       <CabeceraM titulo={h.nombre} trabajo padre={{ href: `/m/crm/${h.leadId}`, label: 'Ficha' }} />
       {h.chat ? (
         <>
@@ -73,6 +73,6 @@ export default async function ChatLeadMovil({ params }: { params: Promise<{ id: 
           accion={h.waMe ? { rotulo: 'Abrir WhatsApp de mi teléfono', href: h.waMe } : undefined}
         />
       )}
-    </>
+    </PantallaM>
   );
 }

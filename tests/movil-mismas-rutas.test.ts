@@ -131,9 +131,17 @@ test('el teléfono ve la página de /m en la MISMA URL (rewrite), con la query o
 });
 
 test('el proxy no toca /api, lo público, el login, el repartidor ni lo que se usa en la computadora', () => {
-  for (const p of ['/api/crm', '/api/v1/leads', '/privacidad', '/vsl', '/login', '/onboarding', '/inicio', '/integraciones', '/m.js', '/']) {
+  for (const p of ['/api/crm', '/api/v1/leads', '/privacidad', '/vsl', '/login', '/onboarding', '/integraciones', '/m.js', '/']) {
     assert.deepEqual(pm(p), { tipo: 'seguir' }, p);
   }
+  // El repartidor en un TELÉFONO se resuelve en el borde (14/10/2026): un 307 a General, con la query.
+  // Hecho en la página, /inicio se dibujaba con el layout de escritorio antes de su redirect (Vercel:
+  // GET /inicio 200 y recién después /general), y Martín veía la Sidebar y el resto en blanco.
+  // Probado rompiéndolo: sin la regla de /inicio en pedidoMovil → 13 / 1.
+  assert.deepEqual(pm('/inicio'), { tipo: 'redirigir', destino: '/general' });
+  assert.deepEqual(pm('/inicio', { search: '?ws=3' }), { tipo: 'redirigir', destino: '/general?ws=3' });
+  assert.deepEqual(pm('/inicio', { telefono: false }), { tipo: 'seguir' }, 'la computadora reparte en la página, como siempre');
+  assert.deepEqual(pm('/inicio', { metodo: 'POST' }), { tipo: 'seguir' });
   // /whatsapp dejó de ser «de la computadora» (v3): en el teléfono es la pestaña Chats.
   assert.deepEqual(pm('/whatsapp'), { tipo: 'reescribir', destino: '/m/chats' });
 });
@@ -228,7 +236,9 @@ test('nadie navega a /m: el desvío sólo tapa, el shell lee la ruta interna, el
   assert.ok(desvio.includes("if (desvio.tipo !== 'computadora') return null;"), 'el desvío tapa algo que no es «en la computadora»');
   const shell = leer('app/m/_ui/ShellM.tsx');
   assert.ok(shell.includes('const pathname = useRutaInterna();') && !shell.includes('usePathname('), 'el shell lee la URL y no la ruta interna');
-  assert.ok(leer('app/_components/PublicRouteGate.tsx').includes('if (movil || esVistaSinChrome(pathname)) return null;'), 'el Sidebar se dibuja sobre la página del teléfono');
+  // Y en un teléfono el cromo de escritorio no se dibuja NUNCA, tampoco en una pantalla sin versión del
+  // teléfono (/inicio pintado antes de su redirect: la Sidebar angosta y el resto en blanco, 14/10/2026).
+  assert.ok(leer('app/_components/PublicRouteGate.tsx').includes('if (movil || telefono || esVistaSinChrome(pathname)) return null;'), 'el Sidebar se dibuja sobre la página del teléfono');
   assert.ok(leer('app/_components/NotificationsProvider.tsx').includes('const enMovil = (p: string) => telefonoRef.current || esRutaMovil(p);'), 'los pollers de escritorio corren en el teléfono');
   // Los atajos de la app instalada y el link por default de un push no muestran /m.
   assert.ok(!/url: '\/m\//.test(leer('app/manifest.ts')), 'un atajo del manifest apunta a /m');

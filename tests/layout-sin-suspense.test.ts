@@ -87,6 +87,16 @@ const LOADING_PERMITIDOS = [
   'app/m/plan/loading.tsx',
   'app/m/video/loading.tsx',
   'app/m/video/[id]/loading.tsx',
+  // v3 (14/10/2026): las pestañas de la barra y lo que se abre desde ellas. Medido en producción: sin
+  // esqueleto, tocar una pestaña dejaba la pantalla anterior congelada 1,2-3,3 s (y más tras un deploy).
+  'app/m/hoy/loading.tsx',
+  'app/m/crm/loading.tsx',
+  'app/m/crm/[id]/loading.tsx',
+  'app/m/crm/[id]/chat/loading.tsx',
+  'app/m/chats/loading.tsx',
+  'app/m/mas/loading.tsx',
+  'app/m/inbox/loading.tsx',
+  'app/m/cs/loading.tsx',
 ];
 
 test('no hay loading.tsx fuera de la lista blanca (cada uno esconde su página sin JavaScript)', () => {
