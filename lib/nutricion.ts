@@ -65,7 +65,7 @@ import { getAudio, audioBase64 } from '@/lib/setting-audios';
 import { estaBloqueado } from '@/lib/evolution-block';
 import { estadoDraftPorNombre } from '@/lib/meta-templates';
 import {
-  reunionFuturaMs, reunionQuePreparaMs, inscripcionReusable, marcasPorInscripcion, reactivarInscripcion, proximaReunion, soloQuedaElCarril,
+  reunionFuturaMs, reunionQuePreparaMs, laReunionYaPaso, inscripcionReusable, marcasPorInscripcion, reactivarInscripcion, proximaReunion, soloQuedaElCarril,
   ESTADOS_TERMINADOS, SIN_MARCAS, type JuntasLead, type FilaPrevia,
 } from '@/lib/nutricion-reinscripcion';
 // El carril del recordatorio (undécima tanda, M3): la marca del emisor de hoy, compartida.
@@ -2290,7 +2290,8 @@ export async function inscribirEnSecuencia(
   const previa = (await inscripcionesDe(supabase, [leadId], (q) => q.eq('secuencia_id', s.id), prepara))[0] ?? null;
 
   const aTiempoOk = (await aTiempo(supabase, { antiguedad_max_horas: parseEstrategia(s.estrategia)?.antiguedad_max_horas ?? null, pasos }, [leadId])).length > 0;
-  const sinReunion = (pasoDeEntrada(pasos)?.ancla === 'reunion' || prepara) && reunionFuturaMs(lead) == null;
+  const entraAnclada = pasoDeEntrada(pasos)?.ancla === 'reunion';
+  const sinReunion = (entraAnclada || prepara) && laReunionYaPaso(lead, { anclada: entraAnclada });
   const fueraDelResiduo = s.trigger_tipo === TRIGGER_RESIDUO && !(await residuoVigente(supabase, [leadId])).has(leadId);
   let enLaOtraMitad = false;
   if (FAMILIA_POST_AGENDA.includes(s.trigger_tipo)) {
@@ -4096,7 +4097,8 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       // dos leads reales de Mauricio hasta DESPUÉS de su reunión. (Undécima tanda, M2: por la FORMA del flujo,
       // así vale también para «Un Lead Agendó Llamada», colgado de la etapa «Agenda R1».)
       if (anclada || preparaReunion(sec)) {
-        if (reunionFuturaMs(lead) == null) {
+        // Una fecha SIN hora vale hasta que termina su día salvo para un paso anclado (`laReunionYaPaso`, bug 5 del 13/10/2026).
+        if (laReunionYaPaso(lead, { anclada })) {
           res.omitidos += 1;
           res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'omitido', nota: 'la reunión ya pasó' });
           await escribir(insc, { estado: 'completada', proximo_envio_at: null }, { modo: 'fila', alcance: 'inscripcion' });

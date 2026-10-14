@@ -57,7 +57,8 @@ test('el motor pregunta por la reunión también cuando el paso NO está anclado
   assert.match(
     MOTOR,
     // Undécima tanda (M2): «prepara una reunión» mira la automatización entera (`preparaReunion(sec)`).
-    /if \(anclada \|\| preparaReunion\(sec\)\) \{\s*if \(reunionFuturaMs\(lead\) == null\)/,
+    // Bug 5 (13/10/2026): la pregunta es `laReunionYaPaso` (una fecha sin hora vale hasta que termina su día).
+    /if \(anclada \|\| preparaReunion\(sec\)\) \{\s*if \(laReunionYaPaso\(lead, \{ anclada \}\)\)/,
     'procesarEnvios volvió a mirar solo `paso.ancla`: la post-agenda vuelve a mandar tarde',
   );
   assert.match(MOTOR, /const anclada = paso\.ancla === 'reunion' \|\| minAntes != null;/);
