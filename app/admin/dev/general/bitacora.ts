@@ -374,6 +374,9 @@ export const BITACORA: Hito[] = [
     actor: 'martin', tipo: 'prompt',
     titulo: 'Todos los bloques que alguien querría ver, con los distintos funnels',
     pedido: 'Piensa en todos los bloques que un usuario, con los diferentes funnels que tenemos y en general, todo lo que un usuario podría llegar a querer ver en una tab general, para hacer el editable',
+    puntos: [
+      'Lo contestó la tanda de las 04:13: los doce bloques de General como elementos del editor, y una plantilla por tipo de funnel.',
+    ],
   },
   {
     fecha: '14 oct', hora: '04:13', chat: 'General', cuenta: 'claude2',
