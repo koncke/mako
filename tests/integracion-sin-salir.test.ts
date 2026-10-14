@@ -89,8 +89,7 @@ const QUEDAN: Record<string, { porque: string; pendiente?: true }> = {
   'app/landing-analyst/PulsoPaginas.tsx': { porque: 'copiar la línea del Pixel (la landing)' },
   'app/marketing/salud/page.tsx': { porque: 'un alias de ruta que redirige a /integraciones' },
   'app/onboarding/Listo.tsx': { porque: 'el resumen del onboarding: lleva a la lista de lo que falta' },
-  'app/dashboard/PanelAnalista.tsx': { porque: '«Conectar una IA»: lo pasa al modal la sesión del Dashboard', pendiente: true },
-  'app/general/bloques/Norte.tsx': { porque: '«Conectar»: lo pasa al modal la sesión de General', pendiente: true },
+  'app/general/bloques/Norte.tsx': { porque: 'el «Conectar» del semáforo SIN FUENTES no nombra una integración: va a la grilla (abd91fdb, docs/hallazgos-objectives.md)' },
 };
 
 /** Un literal que ARRANCA con /integraciones (no la prosa, no /api/integraciones, no /admin/dev/integraciones). */
