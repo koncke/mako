@@ -98,7 +98,76 @@ export type CtxSpec = {
    * insertado vacío no se dibuja, como en la publicada.
    */
   marcadores?: boolean;
+  /**
+   * Marcar los textos A COMPLETAR («[Tu especialidad]», `rangosACompletar` abajo) con un
+   * `span.gm-completar`. Lo prende render.ts junto con `marcadores` (la miniatura de TRABAJO) y lo
+   * puede pedir un NodeView del editor para lo que dibuja desde un atributo (el `valor` de un ítem).
+   * El `renderHTML` de TipTap nunca lo pide: `getHTML()` y el portapapeles salen sin marcar.
+   */
+  completar?: boolean;
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Los textos A COMPLETAR: «[Tu especialidad]», «[resultado concreto]», «[00]%»
+// ─────────────────────────────────────────────────────────────────────────────
+// Pedido de Martín (14/10/2026): «También quiero que los [] que el usuario debe completar, se queden
+// como de otro color o algo diferencial, y que eso se vea también en la miniatura, así se entiende
+// mejor.» Las plantillas, los diseños y la IA (ia-bloques.ts: «usa marcadores entre corchetes») dejan
+// entre corchetes lo que la persona tiene que escribir. Se MARCA en dos lugares y en ningún otro:
+//   · el editor, con una decoración de ProseMirror (editor/extensiones/completar.ts): no toca el
+//     documento, ni el JSON guardado, ni `getHTML()`;
+//   · la miniatura de TRABAJO (render.ts con `marcadores`): un `span.gm-completar`.
+// La publicada, la exportación y la vista del visitante en el teléfono (app/m/landing, miniatura sin
+// marcadores) no marcan nada: si la persona publicó con un corchete, se publica tal cual.
+// El tope es 120 y no 80: el más largo de los catálogos mide 88 (medido el 14/10/2026 sobre
+// PLANTILLAS, DISENOS_SECCION, PLANTILLAS_PRESENTACION y los diseños × objetivos: 526 distintos; con
+// 80 quedaban sin marcar la garantía y la historia del «Sobre mí»). Sin saltos de línea ni corchetes
+// adentro (un «[» suelto no se come el párrafo), y con al menos una letra o un número: «[…]» y
+// «[ ]» no son algo a completar.
+
+/** La regla de un texto a completar. Con `g`: se usa con `matchAll`, que la clona (no comparte `lastIndex`). */
+export const RE_A_COMPLETAR = /\[(?=[^\[\]\n]*[\p{L}\p{N}])[^\[\]\n]{1,120}\]/gu;
+/** La clase del marcado (la hoja, css.ts, lo dibuja sólo en el editor y en la miniatura de trabajo). */
+export const CLASE_A_COMPLETAR = 'gm-completar';
+
+/** Los rangos `[desde, hasta)` de cada texto a completar, con sus corchetes, en orden. */
+export function rangosACompletar(texto: string): Array<readonly [number, number]> {
+  const out: Array<readonly [number, number]> = [];
+  if (!texto.includes('[')) return out;
+  for (const m of texto.matchAll(RE_A_COMPLETAR)) out.push([m.index, m.index + m[0].length]);
+  return out;
+}
+
+export type TramoACompletar = { texto: string; completar: boolean };
+
+/**
+ * Un texto partido según `rangos`, que se midieron sobre el texto CORRIDO del bloque; `base` es dónde
+ * empieza este texto en él. Es lo que deja marcar «[tu **cliente** ideal]» aunque la negrita lo parta
+ * en tres textos: cada pedazo se marca adentro de su propia marca, como parte ProseMirror una
+ * decoración. Nunca devuelve un tramo vacío salvo para un texto vacío.
+ */
+export function tramosACompletar(texto: string, rangos: ReadonlyArray<readonly [number, number]>, base = 0): TramoACompletar[] {
+  const fin = base + texto.length;
+  const out: TramoACompletar[] = [];
+  let i = 0;
+  for (const [d, h] of rangos) {
+    if (h <= base || d >= fin) continue;
+    const a = Math.max(d, base) - base;
+    const b = Math.min(h, fin) - base;
+    if (a > i) out.push({ texto: texto.slice(i, a), completar: false });
+    if (b > Math.max(a, i)) out.push({ texto: texto.slice(Math.max(a, i), b), completar: true });
+    i = Math.max(i, b);
+  }
+  if (i < texto.length || !out.length) out.push({ texto: texto.slice(i), completar: false });
+  return out;
+}
+
+/** Un texto suelto (que no parte ninguna marca) como hijos de un árbol, con lo que hay que completar marcado. */
+export function hijosACompletar(texto: string): HijoArbol[] {
+  return tramosACompletar(texto, rangosACompletar(texto))
+    .filter((t) => t.texto)
+    .map((t): HijoArbol => (t.completar ? ['span', { class: CLASE_A_COMPLETAR }, t.texto] : t.texto));
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers de lectura (lo que no es exactamente un valor válido, no se lee)
@@ -690,13 +759,17 @@ export function numeroDeValor(valor: string): number | null {
   return Math.max(-1e9, Math.min(1e9, Math.round(n * 100) / 100));
 }
 
-/** `.gm-item[data-destacado]` > `.gm-item-marca` (ícono · imagen · valor) + `.gm-item-cuerpo`. */
-export function specOptimizadoItem(raw: unknown): NodoArbol {
+/**
+ * `.gm-item[data-destacado]` > `.gm-item-marca` (ícono · imagen · valor) + `.gm-item-cuerpo`. Con
+ * `ctx.completar`, el `valor` («[00]%», «[$000]») marca lo que hay que completar: es un atributo, no
+ * texto del documento, así que el recorrido de render.ts no lo ve.
+ */
+export function specOptimizadoItem(raw: unknown, ctx?: CtxSpec): NodoArbol {
   const a = attrsOptimizadoItem(raw);
   const marca: Hijo[] = [];
   if (a.icono) marca.push(el('span', { class: 'gm-item-icono', 'data-icono': a.icono, 'aria-hidden': 'true' }));
   if (a.imagenSrc) marca.push(el('img', { class: 'gm-item-imagen', src: a.imagenSrc, alt: '', loading: 'lazy', decoding: 'async' }));
-  if (a.valor) marca.push(el('span', { class: 'gm-item-valor' }, a.valor));
+  if (a.valor) marca.push(el('span', { class: 'gm-item-valor' }, ...(ctx?.completar ? hijosACompletar(a.valor) : [a.valor])));
   const num = a.valor ? numeroDeValor(a.valor) : null;
   return el('div', { class: 'gm-item', 'data-destacado': si(a.destacado), style: num != null ? `--gm-num:${num}` : undefined },
     el('div', { class: 'gm-item-marca' }, ...marca),

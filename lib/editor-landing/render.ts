@@ -29,8 +29,9 @@ import { estiloDeTema, varsDeFondoPropio, type Tema } from './temas';
 import { svgIcono } from './iconos';
 import { claseDeProveedor } from '../embeds';
 import {
-  NORMALIZAR_MARCAS, ORDEN_MARCAS, SPEC_MARCAS, SPEC_NODOS, attrsColumnas, attrsHtmlLibre, attrsImagen, attrsInsertado,
-  attrsTarjeta, attrsVideo, hrefPermitido, idValido, srcImagen, type CtxSpec, type ModoRender,
+  CLASE_A_COMPLETAR, NORMALIZAR_MARCAS, ORDEN_MARCAS, SPEC_MARCAS, SPEC_NODOS, attrsColumnas, attrsHtmlLibre, attrsImagen,
+  attrsInsertado, attrsTarjeta, attrsVideo, hrefPermitido, idValido, rangosACompletar, srcImagen, tramosACompletar,
+  type CtxSpec, type ModoRender,
 } from './especificacion';
 import { HtmlCrudo, escaparTexto, htmlDeArbol, type AttrsArbol, type HijoArbol, type NodoArbol } from './grafico-svg';
 import { sanearConfig } from './validar';
@@ -55,6 +56,8 @@ export type OpRender = {
    * Lo pide quien dibuja una miniatura de TRABAJO (la grilla de Diseños, el Panel, Crear, la tira
    * de secciones, el Agente); no lo pide quien muestra lo que vería un visitante (app/m/landing),
    * que tiene que coincidir con la publicada, donde el VSL vacío no sale.
+   * También marca los textos A COMPLETAR («[Tu especialidad]», especificacion.ts) con un
+   * `span.gm-completar` (pedido de Martín, 14/10/2026: «que eso se vea también en la miniatura»).
    */
   marcadores?: boolean;
   urlBase?: string;
@@ -128,6 +131,8 @@ function ctxDe(op?: Partial<OpRender>, tema?: Tema, formulario: string | null = 
   ctx.spec = {
     modo,
     marcadores: modo === 'miniatura' && op?.marcadores === true,
+    // Los textos a completar van con los marcadores: lo mismo que «falta» en una miniatura de trabajo.
+    completar: modo === 'miniatura' && op?.marcadores === true,
     resolverHref: (h) => resolverHref(h, ctx),
     // La tinta de una sección con fondo propio la calcula el tema (temas.ts).
     varsFondo: tema ? (relleno) => varsDeFondoPropio(tema, relleno) : undefined,
@@ -240,17 +245,45 @@ function marcasDe(raw: unknown, ctx: Ctx): MarcaLista[] {
   return out.sort((a, b) => a.orden - b.orden).map((x) => x.m);
 }
 
+/** El texto de un nodo de texto tal como se escribe: sin caracteres de control y con su tope. */
+const textoDe = (h: Record<string, unknown>): string => (typeof h.text === 'string' ? h.text.replace(CONTROL, '').slice(0, TOPES.caracteresTexto) : '');
+
+/**
+ * Lo que aporta cada hijo al texto CORRIDO de su bloque, donde se buscan los textos a completar: un
+ * texto, el suyo; cualquier otro nodo (un salto de línea, un bloque), un `\n` que corta el corchete
+ * (la regla no cruza saltos); lo que el recorrido no dibuja, nada.
+ */
+const parteCorrida = (h: unknown): string => (!esObj(h) || typeof h.type !== 'string' ? '' : h.type === 'text' ? textoDe(h) : '\n');
+
+/** Un texto escapado, con los pedazos a completar (los `rangos`, medidos desde `base`) en un `span.gm-completar`. */
+function htmlConACompletar(texto: string, rangos: ReadonlyArray<readonly [number, number]>, base: number): string {
+  return tramosACompletar(texto, rangos, base)
+    .map((t) => (t.completar ? htmlDeArbol(['span', { class: CLASE_A_COMPLETAR }, t.texto]) : escaparTexto(t.texto)))
+    .join('');
+}
+
 /**
  * Los hijos de un nodo. Los textos seguidos que comparten marcas comparten la etiqueta (como el
  * serializador de ProseMirror): «**Hola _mundo_**» sale `<strong>Hola <em>mundo</em></strong>`,
  * no dos `<strong>`.
+ * En una miniatura de trabajo (`ctx.spec.completar`), los textos a completar se buscan en el texto
+ * CORRIDO de los hijos y no en cada texto: «[tu **cliente** ideal]» son tres textos (la negrita los
+ * parte) y se marcan igual, con un `span.gm-completar` ADENTRO de cada marca (un span para «[tu »,
+ * otro adentro del `<strong>` para «cliente» y otro para « ideal]»): un span que cruzara la negrita
+ * dejaría etiquetas mal anidadas. Es lo mismo que hace ProseMirror con la decoración del editor.
  */
 function htmlDeHijos(hijos: unknown, ctx: Ctx, prof: number): string {
   if (!Array.isArray(hijos)) return '';
   let out = '';
   const abiertas: MarcaLista[] = [];
   const cerrarHasta = (n: number) => { while (abiertas.length > n) out += abiertas.pop()!.cierra; };
-  for (const h of hijos) {
+  const partes = ctx.spec.completar ? hijos.map(parteCorrida) : null;
+  const rangos = partes ? rangosACompletar(partes.join('')) : [];
+  let base = 0;
+  for (let k = 0; k < hijos.length; k++) {
+    const h: unknown = hijos[k];
+    const desde = base;
+    base += partes ? partes[k].length : 0;
     if (!esObj(h) || typeof h.type !== 'string') continue;
     if (h.type === 'text' || h.type === 'hardBreak') {
       const marcas = marcasDe(h.marks, ctx);
@@ -259,7 +292,7 @@ function htmlDeHijos(hijos: unknown, ctx: Ctx, prof: number): string {
       cerrarHasta(comun);
       for (let i = comun; i < marcas.length; i++) { out += marcas[i].abre; abiertas.push(marcas[i]); }
       if (h.type === 'hardBreak') out += '<br>';
-      else if (typeof h.text === 'string') out += escaparTexto(h.text.replace(CONTROL, '').slice(0, TOPES.caracteresTexto));
+      else if (typeof h.text === 'string') out += rangos.length ? htmlConACompletar(textoDe(h), rangos, desde) : escaparTexto(textoDe(h));
       continue;
     }
     cerrarHasta(0);

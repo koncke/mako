@@ -356,6 +356,22 @@ const BLOQUES: string[] = [
   // En la publicada no, ni en la vista del visitante del teléfono: ahí no hay un cuadro que corte y
   // el video a todo el ancho es el protagonista del VSL.
   r(D + '[data-marcadores="si"] .gm-tarjeta-cuerpo > .gm-insertado[data-clase="video"]', 'width: 52%; justify-self: center;'),
+  // Los textos A COMPLETAR («[Tu especialidad]», especificacion.ts). Pedido de Martín (14/10/2026): «quiero
+  // que los [] que el usuario debe completar, se queden como de otro color o algo diferencial, y que eso se
+  // vea también en la miniatura». Sólo en el editor (la decoración de editor/extensiones/completar.ts) y en
+  // la miniatura de TRABAJO (`data-marcadores`): la publicada, la exportación y el teléfono no traen la
+  // clase. El texto en el color del acento sobre una FRANJA del acento con transparencia. Sale de
+  // --gm-acento-texto, que es legible sobre la superficie de la sección y que redefinen la sección con
+  // imagen de fondo y la de fondo acento (con --gm-acento, en esas el tinte no se veía). La transparencia
+  // es a propósito: en un título con degradado (texto transparente y background-clip) el degradado se
+  // sigue viendo a través. Es una franja del 80 % del alto y no el fondo entero: el fondo de un span cubre
+  // su alto de fuente (~1.2em) y un título va con interlineado 1, así que los renglones se pisaban y el
+  // pedazo pisado salía con el doble de tinte (medido el 14/10/2026 en la captura de las miniaturas).
+  // Sin sombras: una sombra con extensión también pisaba el renglón de al lado. El clone repite la franja
+  // en cada renglón.
+  r([D + '[data-modo="editor"] .gm-completar', D + '[data-marcadores="si"] .gm-completar'], '--gm-completar-tinte: color-mix(in srgb, var(--gm-acento-texto, #2f6fed) 22%, transparent); background: linear-gradient(var(--gm-completar-tinte, rgba(47,111,237,0.22)), var(--gm-completar-tinte, rgba(47,111,237,0.22))) 0 60% / 100% 80% no-repeat; border-radius: 0.15em; color: var(--gm-acento-texto, inherit); -webkit-box-decoration-break: clone; box-decoration-break: clone;'),
+  // Adentro de un botón, del color de SU texto: el acento sobre un botón del acento no se ve.
+  r([D + '[data-modo="editor"] .gm-boton .gm-completar', D + '[data-marcadores="si"] .gm-boton .gm-completar'], '--gm-completar-tinte: color-mix(in srgb, currentColor 24%, transparent); color: inherit;'),
 
   '/* ── 12. Formulario (los datos entran al CRM por el Pixel) ── */',
   r(D + ' .gm-formulario', 'display: grid; gap: 0.9em; width: 100%; max-width: 34em;'),
