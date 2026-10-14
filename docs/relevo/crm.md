@@ -8,6 +8,17 @@ el briefing anterior (`b5f7fb55`, 10/10 17:10) con todo verificado contra el ár
 
 ## 0-Ω3. 14/10/2026 ~16:30 (chat «CRM», cuenta `claude1`): las dos ALTAS de b2, ARREGLADAS
 
+**Al ~17:30, b2 está en `fca716101`** (`c27eb4323` → `906c36467` → `fca716101`), sin pushear ni mergear:
+- `906c36467`: la segunda vuelta de la revisión de Pagos. Acortar el plan con una cuota protegida ya no duplica, y
+  un ajuste del plan aplica sólo la DIFERENCIA (no pisa una cuota movida a mano ni borra una que no es del plan).
+  Un lead sin plan y con cuotas a mano: el ajuste se rechaza.
+- `fca716101`: tres de las seis medias: «Sin cobro» con impagas, la cuota que la pantalla no vio, y Editar deal que
+  decía «guardados». **Las otras tres las toma el chat «Pagos»** en su rama `pagos-b2-medias` (sale de
+  `906c36467`): el dedup de la cobranza, el link vivo de una cuota cobrada a mano y el plazo de una suscripción
+  al cancelar y reactivar. Cuando pase el hash, se mergea en b2.
+- Tests `pagos-campo` 19/0 (22 roturas en rojo en total), pagos/cobros/API 203/203, tsc acotado 0.
+
+Lo de abajo es de las 16:30:
 En `crm-bloques-b2` @ `c27eb4323` (`wtc-b2`), sin pushear y sin mergear en `crm-bloques`:
 - **Modo 'lista'** (wizard de Ganado, API `guardar_cuotas`): las cuotas protegidas se casan PRIMERO, así que
   ya no duplican la deuda. La API y el wizard dicen lo que no se tocó (el wizard, en el historial y en `sinTocar`;
