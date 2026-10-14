@@ -10,6 +10,15 @@
 
 Repo `C:/dev/wt-undecima`. HEAD se movió durante la lectura (`e4c8a6d7`). Volví a comprobar las líneas clave y no cambiaron: `nutricion.ts:4015`, `:4099`, `:4854`; `nutricion-grafo-motor.ts:216`, `:746`; `plantillas-automatizaciones.ts:257`; `nutricion-reinscripcion.ts:167`, `:190`. No edité nada, no corrí la app y no toqué la base.
 
+## DECIDIDO por Martín (14/10/2026)
+
+1. **Si el lead contesta** (§1-C): opción visible en cada camino, «Si contesta: se corta / sigue», con **«sigue» de fábrica**.
+   Las que ya existen quedan con lo que hacen hoy («se corta»), salvo la bienvenida de «Un Lead Agendó Llamada» (#213 y la
+   plantilla `lead-agendo`), que pasa a «sigue».
+2. **Protecciones** (§4), textual: «Todas configurables, y también más visibles, ya sea con un aviso o advertencia».
+3. **Una reunión cancelada cuenta como «no agendó»** (§2.1, el bug de lectura de `catalogoDeLead` / `agendoDe`).
+4. **«Pausar» congela** (§1-D): al reactivar, cada lead sigue en su paso y lo vencido sale al reactivar.
+
 ## 0. Lo primero, en seis líneas
 
 1. Hace falta **UNA condición nueva**, `reunion_en_pie`, para responder «¿se canceló o ya pasó?». No hace falta ninguna tarjeta nueva.

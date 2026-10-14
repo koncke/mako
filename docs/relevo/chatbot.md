@@ -88,6 +88,19 @@
 > lead desde el 10/10. O el alta de «Nuevo lead» no lo guardó (bug del CRM: medir `createLead` con ese teléfono, ¿duplicado?
 > ¿error tragado?), o lo borraron después de la llamada: se le preguntó a Martín. Sin lead no hay inscripción: la #213 no tenía
 > a quién mandarle.
+> **CIERRE (14/10 ~07:00, pedido de Martín vía «Estrategia 3 CUENTAS»: «que se pushee todo y que los chats cierren»).**
+> Hecho y en main (e4c8a6d7): bug 5 de la fecha sin hora (329d1443), el emisor del AI Analyst (60186944). Commiteado sin
+> push en la rama `undecima`: la cosecha del inventario (6b9363f4) y este cierre. **Martín DECIDIÓ las cuatro preguntas**
+> (docs/diseno-mako-nada-por-detras.md, «DECIDIDO»): «si contesta» por camino con «sigue» de fábrica; protecciones todas
+> configurables y con aviso; cancelada = no agendó; «Pausar» congela. **NADA de eso está implementado.** Orden para retomar:
+> 1) «Si contesta: se corta / sigue» por camino (lib/nutricion.ts `pausarPorRespuesta` + la flecha del CRON en
+>    app/automations; #213 a «sigue» en la bienvenida); 2) `reunion_en_pie` (lib/condiciones-catalogo.ts,
+>    lib/nutricion-grafo-motor.ts `catalogoDeLead`) con la cancelada = no agendó; 3) el reintento vuelve a pasar por su
+>    condición (lib/nutricion.ts ~4854); 4) migrar plantillas y #213/#241 (ws3 primero, --dry-run) y borrar la guarda;
+>    5) «Pausar» congela (lib/nutricion.ts ~431, ~3939); 6) protecciones configurables y visibles; 7) el resto del §2.4.
+> En cola, también: el botón «Publicar» de las estrellas (ya entró 92a2be21: `<BotonPublicar tipo="automatizacion" …/>`
+> en el «⋯»), los videos redondos (`/message/sendPtv`), el registro de acciones (sin dueño), y marcar como resueltos en
+> docs/hallazgos-crm.md los cuatro del CRM cuando salga su push (los hizo el chat CRM, en C:/Users/marti/wtcrm4).
 > **14/10 ~04:30, inventario hecho:** docs/diseno-mako-nada-por-detras.md (162 reglas escondidas, plan §2, «Stop» §3,
 > protecciones para Martín §4). **Bug 5, causa REAL (medida en `notificaciones`):** la reserva de Calendly sí reinició la
 > #213 (su aviso salió 02:05:16); a las 02:08 el lead CONTESTÓ un mensaje a mano de Mauricio y `pausarPorRespuesta` frenó
