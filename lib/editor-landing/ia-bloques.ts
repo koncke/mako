@@ -54,7 +54,7 @@ import { NOMBRES_ICONO } from './iconos';
 // importan, no se copian (AGENTS.md, «Una cosa, un lugar»).
 import { hrefPermitido, srcImagen, NORMALIZAR_NODOS, NORMALIZAR_MARCAS, ETIQUETA_CAMPO } from './especificacion';
 import { compactar } from './validar';
-import { hrefPagoValido } from './pago-landing';
+import { hrefPagoValido, productoDeHref } from './pago-landing';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // La gramática (tipos)
@@ -569,7 +569,27 @@ type Ctx = {
   formularioId: string | null;
   /** ids de las secciones de la página en orden (sólo la conversión de varias): resuelve '#seccion-N'. */
   ids: string[] | null;
+  /** Los productos que ya cobraban los botones de las secciones ORIGINALES (`pagosDe`): lo único que vuelve. */
+  pagos: ReadonlySet<number>;
 };
+
+/**
+ * Los productos de los botones de pago (`pago:<id>`) de estas secciones originales. Es lo único que un
+ * botón de la vuelta de la IA puede cobrar (`destinoBoton`): el id de un producto es un DATO EXACTO, y
+ * uno que pasa por las manos de un LLM deja de serlo (AGENTS.md). Sin bases (generar una landing), vacío.
+ */
+function pagosDe(bases: ReadonlyArray<JsonNodo | null | undefined>): ReadonlySet<number> {
+  const out = new Set<number>();
+  const visitar = (x: JsonNodo) => {
+    if (x.type === NODO.boton) {
+      const id = productoDeHref(x.attrs?.href);
+      if (id !== null) out.add(id);
+    }
+    for (const c of x.content ?? []) visitar(c);
+  };
+  for (const b of bases) if (b) visitar(b);
+  return out;
+}
 
 /**
  * Anclas PENDIENTES. Una sección convertida sola (las tandas de 3 de «generar», «Editar con IA»
@@ -602,9 +622,17 @@ function destinoBoton(v: unknown, ctx: Ctx, donde: string): string {
   // «Editar con IA» sobre una sección con el botón de pago lo devolvía apuntando al formulario: el
   // cobro se perdía en silencio (tests/editor-landing-pago.test.ts). Que el producto exista y se pueda
   // cobrar lo dicen el control del botón y el aviso de Publicar, no la gramática.
-  const h = s ? hrefPermitido(s) ?? hrefPagoValido(s) : null;
+  // ⚠️ Y SÓLO UN PRODUCTO QUE YA COBRABA LA SECCIÓN ORIGINAL (revisión de la tanda 4, BAJA): un dígito
+  // cambiado por el modelo (`pago:12` → `pago:99`) hacía que el botón cobrara OTRO producto, a otro
+  // precio, sin una sola línea en los descartes. Un id nuevo se descarta: el producto lo elige la persona.
+  const pago = s ? hrefPagoValido(s) : null;
+  if (pago) {
+    if (ctx.pagos.has(productoDeHref(pago)!)) return pago;
+    ctx.d?.push(`${donde}: el cobro «${pago}» no estaba en la sección; el botón no cobra lo que eligió la IA`);
+  }
+  const h = s && !pago ? hrefPermitido(s) : null;
   if (h) return h;
-  if (s) ctx.d?.push(`${donde}: destino no válido «${s.slice(0, 80)}»`);
+  if (s && !pago) ctx.d?.push(`${donde}: destino no válido «${s.slice(0, 80)}»`);
   // Sin destino válido, al formulario (lo normal en una landing), o pendiente si no se sabe dónde está.
   return ctx.formularioId ? `#t-${ctx.formularioId}` : ctx.ids ? '#' : ANCLA_FORMULARIO;
 }
@@ -1010,7 +1038,7 @@ export function bloquesATarjeta(t: TarjetaIA, op: OpConversion = {}): JsonNodo {
   const pedida = esObj(t) ? strCrudo((t as Record<string, unknown>).id) : '';
   const id = (base && typeof base.attrs?.id === 'string' && base.attrs.id) || (ID_RE.test(pedida) ? pedida : nuevoId('t'));
   const formularioId = op.formularioId ?? (tieneFormulario(t) ? id : null);
-  return convertirTarjeta(t, { d: op.descartes, refs: refsDe(base), formularioId, ids: null }, base, id);
+  return convertirTarjeta(t, { d: op.descartes, refs: refsDe(base), formularioId, ids: null, pagos: pagosDe([base]) }, base, id);
 }
 
 /**
@@ -1036,10 +1064,13 @@ export function bloquesATarjetas(tarjetas: TarjetaIA[], op: Omit<OpConversion, '
   const iForm = lista.findIndex(tieneFormulario);
   const formularioId = iForm >= 0 ? ids[iForm] : (op.formularioId ?? null);
 
+  // Los cobros de TODAS las secciones originales: «Editar con IA» sobre la landing puede mover el botón
+  // de pago a otra sección, y eso no es un producto nuevo.
+  const pagos = pagosDe(op.bases ?? []);
   let hayTitulo = false;
   return lista.map((t, i) => {
     const local: string[] = [];
-    const n = convertirTarjeta(t, { d: local, refs: refsDe(bases.get(ids[i])), formularioId, ids }, bases.get(ids[i]), ids[i]);
+    const n = convertirTarjeta(t, { d: local, refs: refsDe(bases.get(ids[i])), formularioId, ids, pagos }, bases.get(ids[i]), ids[i]);
     // Un solo «Título» por página (regla de la gramática, chequeada en código).
     const bajar = (x: JsonNodo) => {
       if (x.type === 'heading' && x.attrs?.variante === 'titulo') {

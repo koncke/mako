@@ -33,7 +33,7 @@ import {
 import { attrsBoton, hrefPermitido, specBoton, htmlDeArbol } from '../lib/editor-landing/especificacion';
 import { htmlDePagina } from '../lib/editor-landing/render';
 import { sanearContenido } from '../lib/editor-landing/validar';
-import { bloquesATarjeta, tarjetaABloques } from '../lib/editor-landing/ia-bloques';
+import { bloquesATarjeta, bloquesATarjetas, tarjetaABloques } from '../lib/editor-landing/ia-bloques';
 import { temaPorId } from '../lib/editor-landing/temas';
 import { NODO, urlPublica, type JsonNodo, type Pagina } from '../lib/editor-landing/doc';
 import { CONFIG_DEFAULT } from '../lib/editor-landing/api-tipos';
@@ -92,6 +92,25 @@ test('«Editar con IA» devuelve el botón de pago TAL CUAL (antes volvía apunt
   const vuelta = bloquesATarjeta(ida, { base: t });
   const hrefs: string[] = JSON.stringify(vuelta).match(/"href":"[^"]*"/g) ?? [];
   assert.ok(hrefs.includes('"href":"pago:12"'), hrefs.join(' '));
+});
+
+// Revisión de la tanda 4 (BAJA): un dígito cambiado por el modelo hacía que el botón cobrara OTRO producto.
+test('«Editar con IA» no deja que el modelo cambie QUÉ producto cobra un botón (ni que invente uno)', () => {
+  const hrefsDeNodo = (n: unknown): string[] => (JSON.stringify(n).match(/"href":"[^"]*"/g) ?? []).map((h) => h.slice(8, -1));
+  const t = tarjeta([botones(boton('pago:12'))]);
+  const cambiada = JSON.parse(JSON.stringify(tarjetaABloques(t)).replace('pago:12', 'pago:99'));
+  const descartes: string[] = [];
+  const vuelta = bloquesATarjeta(cambiada, { base: t, descartes });
+  assert.ok(!hrefsDeNodo(vuelta).includes('pago:99'), hrefsDeNodo(vuelta).join(' '));
+  assert.ok(descartes.some((d) => /pago:99/.test(d)), `queda escrito: ${descartes.join(' | ')}`);
+  // Generar una landing (sin secciones originales): ningún botón nace cobrando.
+  const nueva = bloquesATarjetas([tarjetaABloques(t)]);
+  assert.ok(!hrefsDeNodo(nueva).some((h) => h.startsWith('pago:')), hrefsDeNodo(nueva).join(' '));
+  // Sobre la landing entera, mover el botón a OTRA sección no es un producto nuevo.
+  const otra = tarjeta([{ type: 'paragraph', content: [{ type: 'text', text: 'Hola' }] }]);
+  const [ida1, ida2] = [tarjetaABloques(t), tarjetaABloques(otra)];
+  const movida = [{ ...ida1, bloques: [] }, { ...ida2, bloques: [...ida2.bloques, ...ida1.bloques] }];
+  assert.ok(hrefsDeNodo(bloquesATarjetas(movida, { bases: [t, otra] })).includes('pago:12'));
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -412,4 +431,7 @@ test('el POST: 303 al link; y cada puerta corta antes de cobrar', async () => {
 //   21. `cobroReusable` sin `esDeLaLanding` (reusa lo que armó el dueño)      → 16 / 1
 //   22. `cobroReusable` sin comparar el email                                 → 16 / 1
 //   23. `esDeLaLanding` por el texto entero (un título nuevo huerfana)        → 16 / 1
+//   (desde acá con tests/editor-landing-ia-bloques.test.ts: base 34 / 0)
+//   24. `destinoBoton` acepta cualquier `pago:` que devuelva el modelo         → 33 / 1
+//   25. `bloquesATarjetas` con los cobros de CADA sección y no de todas        → 33 / 1
 // =============================================================================
