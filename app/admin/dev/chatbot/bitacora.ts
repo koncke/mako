@@ -1547,7 +1547,7 @@ FEEDBACK PROBAR:
       "Sin probar contra un DM real: ningún workspace recibió un evento de Zernio. Falta la cuenta de prueba en ws3.",
     ],
     commits: [
-      { sha: "50c58cfbf", msg: "Automations: el AI Step contesta por Instagram y Messenger (TikTok fase 0)", lineas: 752, archivos: 21 },
+      { sha: "c9cdbdf3a", msg: "Automations: el AI Step contesta por Instagram y Messenger (TikTok fase 0)", lineas: 752, archivos: 21 },
     ],
     archivos: ["docs/hallazgos-chatbot.md — «TikTok fase 0»", "docs/diseno-tiktok-linkedin.md §4"],
   },
@@ -1560,7 +1560,7 @@ FEEDBACK PROBAR:
       "Un paso de Instagram o Messenger se mandaba como email: ahora se saltea con su aviso.",
     ],
     commits: [
-      { sha: "f72e7a3b4", msg: "Automations: probar_secuencia manda UN escenario", lineas: 249, archivos: 7 },
+      { sha: "d488977f0", msg: "Automations: probar_secuencia manda UN escenario", lineas: 249, archivos: 7 },
     ],
     archivos: ["docs/hallazgos-chatbot.md — «probar_secuencia manda UN escenario»"],
   },

@@ -2,9 +2,9 @@
 
 > **ESTADO AL 14/10/2026 ~17:20 AR (`claude1`, chat «Chatbot», worktree `C:/dev/wt-undecima`, rama `undecima`).**
 > Verificado contra git y la base a las ~16:00: lo de abajo (13:20) es cierto; las dos migraciones que quedan dan 0 en
-> dry run. **HECHO: el 1 de la lista (TikTok fase 0)**, `50c58cfbf`: el AI Step contesta por Instagram y Messenger
+> dry run. **HECHO: el 1 de la lista (TikTok fase 0)**, `c9cdbdf3a`: el AI Step contesta por Instagram y Messenger
 > (detalle y lo que quedó sin hacer en docs/hallazgos-chatbot.md → «TikTok fase 0»). SIN probar contra un DM real.
-> **HECHO también el 2** (`f72e7a3b4`): `probar_secuencia` manda UN escenario. **SIGUE:** el 4 y el 5;
+> **HECHO también el 2** (`d488977f0`): `probar_secuencia` manda UN escenario. **SIGUE:** el 4 y el 5;
 > el 3 (feedback 6 y 11, lienzo) al final, por choque con otros chats. **Coordinación:** la rama `crm-bloques-b5` del chat
 > «CRM» (C:/Users/marti/wtc-b5) tiene 2 commits sin integrar sobre archivos de Automations (5129d8dde y 87889880f «A
 > MEDIAS»): se le preguntó qué toca; no hubo respuesta a las 17:20.

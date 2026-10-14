@@ -4391,7 +4391,7 @@ convertido con la regla nueva, contestaría distinto.
 
 ## TikTok fase 0 (14/10/2026): el AI Step contesta por Instagram y Messenger
 
-Lo hecho está en `50c58cfbf` (decisión de producto: docs/diseno-ai-step-v2.md §6; plan: docs/diseno-tiktok-linkedin.md §4).
+Lo hecho está en `c9cdbdf3a` (decisión de producto: docs/diseno-ai-step-v2.md §6; plan: docs/diseno-tiktok-linkedin.md §4).
 
 - **⚠️ El diagnóstico obvio era UNA línea y eran nueve lugares.** El plan decía «`pausarPorRespuesta` con `soloPausa`
   sólo pausa»: sacar ese `return` hacía que un DM pasara por todo lo de abajo, y TODO asumía WhatsApp. El historial
@@ -4435,7 +4435,7 @@ Lo que quedó sin hacer, con su archivo:
 
 ## `probar_secuencia` manda UN escenario (14/10/2026)
 
-Lo hecho está en `f72e7a3b4`.
+Lo hecho está en `d488977f0`.
 
 - **Mandar «todos los pasos» de un flujo con ramas es mandar una prueba que ningún lead recibe.** La prueba en vivo
   (`probarSecuencia`, la de la API) recorría el ARRAY: con una condición, el dueño recibía el «Sí» y el «No» juntos, y el

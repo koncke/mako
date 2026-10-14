@@ -118,7 +118,7 @@ PAUSA (`pausarRespuestaSocial`, lib/zernio-entrante.ts) y MaKo no tiene bandeja 
 `asistirRespuesta(lead, ids, texto, null, { medio })`; «Sola» manda el DM por Zernio (es respuesta: dentro de las 24 h), «Para aprobar»
 manda el borrador en el aviso al grupo («Te dejé esta respuesta para mandarla tú: …») y «Sólo te avisa» igual que en WhatsApp. Sin audio.
 **Los chips de Instagram y Messenger se muestran recién cuando esto esté**: la pantalla ofrece lo que el emisor hace.
-**HECHO el 14/10/2026 (`50c58cfbf`, TikTok fase 0):** el motor contesta por esos dos canales y los chips están.
+**HECHO el 14/10/2026 (`c9cdbdf3a`, TikTok fase 0):** el motor contesta por esos dos canales y los chips están.
 
 ## 7. El motor: qué se reusa y qué se escribe
 
