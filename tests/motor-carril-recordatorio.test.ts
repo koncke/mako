@@ -67,9 +67,9 @@ const F: PasoGrafo[] = [
   msg('u11t60', { siguiente: 'u11e15' }),
   antes('u11e15', 15, 'u11t15'),
   msg('u11t15', { siguiente: null }),
-  // «Si el lead contesta» por camino (14/10/2026): la forma de la undécima, explícita — la preparación y el aviso se
-  // cortan, el carril sigue. Hasta el 14/10 eso lo decidía el motor por su cuenta (sólo el carril seguía).
-  ctl('entrada', { nodo: 'inicio', siguiente: 'nvlvg08', paralelos: ['u11aviso', 'u11e1440'], si_contesta: { p: 'corta', u11aviso: 'corta', u11e1440: 'sigue' } }),
+  // (Hasta el 14/10/2026 a la tarde, el inicio decía qué camino se cortaba si el lead contestaba. Ya no: lo dice la
+  // condición «No contestó desde que entró», tests/automations-condicion-contesto.test.ts.)
+  ctl('entrada', { nodo: 'inicio', siguiente: 'nvlvg08', paralelos: ['u11aviso', 'u11e1440'] }),
 ];
 const I = (id: string): number => indicePorId(F, id);
 

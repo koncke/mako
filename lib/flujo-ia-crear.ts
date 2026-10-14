@@ -28,7 +28,6 @@ import { chatCheapCascade, MODELO_DOCS, provsDe, tokensAprox, techoDeEntrada, ty
 import { overrideDeFeature } from '@/lib/model-registry';
 import { getPromptText } from '@/lib/prompt-render';
 import { parseJsonObject } from '@/lib/json-del-modelo';
-import type { PasoGrafo } from '@/lib/flujo-grafo';
 import { perfilNegocioTexto } from '@/lib/onboarding';
 import { getVozGuia } from '@/lib/nutricion-generator';
 import { setSecuenciaPasos, setSecuenciaActiva, PasosInvalidosError, type PasoSecuencia } from '@/lib/nutricion';

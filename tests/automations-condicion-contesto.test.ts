@@ -64,7 +64,7 @@ test('la condición existe, se niega, y «no sé» no se cumple ni negada', () =
 });
 
 test('en el motor: después de la espera, la condición decide; y el reintento la vuelve a pasar', () => {
-  const ctx = (contestoEnEsta: boolean) => ({ hechos: H({ contestoEnEsta }), ahoraMs: Date.parse('2026-10-14T12:00:00Z') });
+  const ctx = (contestoEnEsta: boolean) => ({ hechos: H({ contestoEnEsta }), ahoraMs: Date.parse('2026-10-14T12:00:00Z'), reunionMs: null });
   const sigue = resolverControl(F, I('c'), ctx(false));
   assert.equal(sigue.tipo === 'nodo' ? sigue.idx : sigue.tipo, I('m2'), 'no contestó: sale el seguimiento');
   const corta = resolverControl(F, I('c'), ctx(true));
