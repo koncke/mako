@@ -3496,8 +3496,30 @@ todavía tienen el número que les puso el arrastre.
   —con las vecinas que devuelve `hacerLugar` sobre el `GET /api/plan-board`, que es lo que haría
   el server—. El script se escribió y no sobrevive: el scratchpad de la sesión se vacía en el
   relevo de cuenta (se perdió así también la foto del tablero del 06/10).
-- **Las TABLAS no lo hacen.** Arrastrar una fila de `TablaTareas` (`useArrastreFilas`, Tablas.tsx)
-  sigue usando el punto medio solo: el mismo gesto da otro resultado según la vista.
+- ~~Las TABLAS no lo hacen.~~ Hecho el 14/10/2026: ver abajo.
+
+### La tabla de tareas, el mismo gesto (14/10/2026)
+
+`TablaTareas` (la de la vista Tareas y la de adentro de un proyecto) manda ahora el lugar igual
+que el Kanban: con la tabla por prioridad de mayor a menor, `soltarFila` arma el lugar con
+`lugarEn` y el número con `sugerirNumero`, y el pop-up se lo pasa a quien escribe. Con otro
+orden va el número solo, como siempre. `useArrastreFilas` entrega `resto` y `pos` para eso; la
+tabla de proyectos no los usa (los proyectos no empatan).
+
+⚠️ **Pasar el lugar no alcanzaba: la tabla desempataba por ORDEN DE LLEGADA.** El orden por
+prioridad era `s * (a.score - b.score)` a secas, y `Array.sort` es estable, así que entre dos
+filas con el mismo número mandaba el orden en que `visibles` llegó — que no es el `num` con el
+que `hacerLugar` decide quién va delante (`vaAntes`). El server dejaba la soltada en su lugar y
+la tabla la dibujaba en otro: el mismo «la solté acá y quedó allá», con el arreglo puesto. Va
+`|| s * (a.num - b.num)`, el desempate del Kanban. **Antes de reusar una regla de orden en otra
+vista, mirá cómo desempata ESA vista**: la regla decide la posición con un orden, y la pantalla
+la dibuja con el suyo.
+
+**Vive en:** `app/plan/board/Tablas.tsx` (`soltarFila`, `useArrastreFilas`, el `cmp` de
+`TablaTareas`) · `app/plan/board/BoardShell.tsx` (los tres montajes que la arrastran) · guard en
+`tests/plan-lugar-al-soltar.test.ts`, probado rompiéndolo (6 roturas, 15/1 cada una).
+
+**Sin verificar en el navegador**, por lo mismo que el Kanban (ver arriba cómo medirlo).
 - **El Perro todavía puede re-empatar al día siguiente** a una tarjeta fijada con una vecina que no
   lo está: la curva reparte números por rango y no sabe que la fijada estaba en ese lugar. No es
   nuevo —le pasa a toda tarjeta fijada a mano— y se arregla en `recurvarPlanOwner`, no acá.

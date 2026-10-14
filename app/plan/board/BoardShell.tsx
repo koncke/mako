@@ -1520,7 +1520,7 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
                  ⚠️ LA PROP **ES** LA CAPACIDAD (`repo.prioridadManual`): el tablero del
                  cliente no tiene con qué escribir una prioridad a mano, así que ahí la
                  tabla no dibuja el agarre en vez de ofrecer un gesto que contesta 403. */
-              onSoltar={board.repo.prioridadManual ? (id, sugerido) => setSoltada({ entidad: 'tarea', id, sugerido }) : undefined} /></div>
+              onSoltar={board.repo.prioridadManual ? (id, sugerido, lugar) => setSoltada({ entidad: 'tarea', id, sugerido, lugar }) : undefined} /></div>
           : <Kanban tasks={visibles} board={board} topProjectId={topProjectId} sortMode={sortMode} sortDir={sortDir} frenanA={frenanA} ask={ask} sel={selTareasVista} setSel={setSelTareasVista} onOpen={setOpenId} onNew={(p) => { setNuevaTareaPrio(p ?? null); setNuevaTarea(true); }} onWarn={setOpenId} onOpenProj={setOpenProj} onEliminar={setEliminarTaskId} onSoltar={(id, destino, sugerido, lugar) => setSoltada({ entidad: 'tarea', id, destino, sugerido, lugar })} />)}
         {view === 'proyectos' && <ProyectosView board={board} topProjectId={topProjectId} onOpen={setOpenProj} onNew={() => setNuevoProj(true)} projFilter={doneFilter} q={q} campos={campos} fOrigen={fOrigen} pasaCliente={pasaClienteProy} sortMode={sortMode} sortDir={sortDir} tabla={tabla}
           onSoltar={(id, sugerido) => setSoltada({ entidad: 'proyecto', id, sugerido })} />}
@@ -1536,7 +1536,7 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
         onClose={() => { setOpenId(null); setOpenProj(null); setPeekProjId(null); setMakoHintId(null); }} />}
       {peekProj && openTask && <ProjectDetailModal proj={peekProj} board={board} topProjectId={topProjectId} trabajando={trabajandoIA.has(peekProj.id)} z={130} onBack={() => setPeekProjId(null)} onAsignarCliente={() => setAsignarCli({ tipo: 'proyecto', id: peekProj.id })} onPortada={(ancla) => setPortadaDe({ id: peekProj.id, ancla })} onIcono={(ancla) => setIconoDe({ id: peekProj.id, ancla })} onEncuadre={(y) => board.patchLabelLog(peekProj.id, { portadaY: y }, 'Acomodó la portada')}
         onOpenTask={(id) => { setPeekProjId(null); setOpenId(id); }} onNewTask={() => { setNuevaTareaProj(peekProj.id); setNuevaTarea(true); }} ask={ask}
-        onPrioridad={() => setSoltada({ entidad: 'proyecto', id: peekProj.id })} onMako={() => setMakoProjId(peekProj.id)} onDelete={() => setEliminarProjId(peekProj.id)} onEliminarTask={setEliminarTaskId} onSoltarTask={board.repo.prioridadManual ? (id, sugerido) => setSoltada({ entidad: 'tarea', id, sugerido }) : undefined}
+        onPrioridad={() => setSoltada({ entidad: 'proyecto', id: peekProj.id })} onMako={() => setMakoProjId(peekProj.id)} onDelete={() => setEliminarProjId(peekProj.id)} onEliminarTask={setEliminarTaskId} onSoltarTask={board.repo.prioridadManual ? (id, sugerido, lugar) => setSoltada({ entidad: 'tarea', id, sugerido, lugar }) : undefined}
         onClose={() => setPeekProjId(null)} />}
       {/* LA AUDIENCIA. Reemplaza a `DebateModal` en el camino del SCORE (la FECHA se sigue
           debatiendo aparte: es otra pregunta). Tres cosas cambian y las tres importan: la
@@ -1578,7 +1578,7 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
       {nuevaTarea && <CrearTareaModal proyectoInicial={nuevaTareaProj} prioInicial={nuevaTareaPrio} ejemplos={tasks.filter((t) => t.progress < 100).map((t) => ({ title: t.title, score: t.score }))} onCrear={crearConGuardian} onDone={(id) => { setNuevaTarea(false); setNuevaTareaProj(null); setNuevaTareaPrio(null); setOpenId(id); setMakoHintId(id); }} onClose={() => { setNuevaTarea(false); setNuevaTareaProj(null); setNuevaTareaPrio(null); }} />}
       {openProjLabel && <ProjectDetailModal proj={openProjLabel} board={board} topProjectId={topProjectId} taskAbierta={!!openTask} trabajando={trabajandoIA.has(openProjLabel.id)} onAsignarCliente={() => setAsignarCli({ tipo: 'proyecto', id: openProjLabel.id })} onPortada={(ancla) => setPortadaDe({ id: openProjLabel.id, ancla })} onIcono={(ancla) => setIconoDe({ id: openProjLabel.id, ancla })} onEncuadre={(y) => board.patchLabelLog(openProjLabel.id, { portadaY: y }, 'Acomodó la portada')}
         onBack={welcomeVisible ? () => setOpenProj(null) : undefined} backLabel="Volver"
-        onOpenTask={setOpenId} onNewTask={() => { setNuevaTareaProj(openProjLabel.id); setNuevaTarea(true); }} ask={ask} onPrioridad={() => setSoltada({ entidad: 'proyecto', id: openProjLabel.id })} onMako={() => setMakoProjId(openProjLabel.id)} onDelete={() => setEliminarProjId(openProjLabel.id)} onEliminarTask={setEliminarTaskId} onSoltarTask={board.repo.prioridadManual ? (id, sugerido) => setSoltada({ entidad: 'tarea', id, sugerido }) : undefined} onClose={() => setOpenProj(null)} />}
+        onOpenTask={setOpenId} onNewTask={() => { setNuevaTareaProj(openProjLabel.id); setNuevaTarea(true); }} ask={ask} onPrioridad={() => setSoltada({ entidad: 'proyecto', id: openProjLabel.id })} onMako={() => setMakoProjId(openProjLabel.id)} onDelete={() => setEliminarProjId(openProjLabel.id)} onEliminarTask={setEliminarTaskId} onSoltarTask={board.repo.prioridadManual ? (id, sugerido, lugar) => setSoltada({ entidad: 'tarea', id, sugerido, lugar }) : undefined} onClose={() => setOpenProj(null)} />}
       {makoProj && <MakoProyectoModal proj={{ name: makoProj.name, emoji: makoProj.emoji, detalle: makoProj.detalle }} onApply={(nombre, emoji, det) => board.patchLabelLog(makoProj.id, { name: nombre, emoji, detalle: det }, 'MaKo mejoró el proyecto', 'ia')} onClose={() => setMakoProjId(null)} />}
       {/* ⛔ ACÁ SE MONTABA `FechaDebateModal`, y se fue el 23/09/2026 con el botón que lo
           abría: la fecha se cambia en el selector y listo. El archivo queda en el repo —el
@@ -5512,7 +5512,7 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, tr
   /** soltaste una TAREA en la tabla de adentro del proyecto. Este modal no tiene el estado
    *  del pop-up (vive en `BoardShell`), así que la capacidad entra por acá: sin la prop, la
    *  tabla no dibuja el agarre. Es el mismo criterio que `onAgarrar` de `ProyectoCardTile`. */
-  onSoltarTask?: (id: string, sugerido: number) => void;
+  onSoltarTask?: (id: string, sugerido: number, lugar?: Lugar) => void;
   /** borrar UNA tarea del proyecto. Sin esto, la fila de la tabla no dibuja el tacho — que
    *  es cómo se ve desde afuera que este modal no pasó la capacidad. */
   onEliminarTask?: (id: string) => void; onClose: () => void;

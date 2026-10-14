@@ -20,7 +20,7 @@ export const PARTES: Parte[] = [
   { titulo: 'La casilla de selección animada', detalle: 'Tarjetas de tarea y de proyecto con la misma regla del CRM: de ancho 0 a 15 con el hover, y todas a la vista con algo elegido', estado: 'hecha' },
   { titulo: 'Borrar lo que quedó sin call site', detalle: 'Se fueron `PreguntaCampo` y tres textos del contrato de preguntas que no leía nadie (14/10)', estado: 'hecha' },
   { titulo: 'La tarjeta queda donde se soltó', detalle: 'Al soltar en el Kanban se corren las de abajo un punto, sin cruzarse ni cambiar de columna; el deshacer las devuelve', estado: 'hecha' },
-  { titulo: 'Las tablas también', detalle: 'Arrastrar una fila de la tabla de tareas sigue usando el punto medio solo', estado: 'cola' },
+  { titulo: 'Las tablas también', detalle: 'Arrastrar una fila de la tabla de tareas (la de la vista Tareas y la de adentro de un proyecto) corre a las de abajo igual que el Kanban (14/10)', estado: 'hecha' },
 ];
 
 export const BITACORA: Hito[] = [
@@ -168,6 +168,19 @@ export const BITACORA: Hito[] = [
     ],
     archivos: [
       'docs/relevo/plan-perro-guardian.md — el cruce de la proyección y lo que se cargó',
+    ],
+  },
+  {
+    fecha: '14 oct', hora: '16:10', chat: 'Plan - Perro Guardián', cuenta: 'claude1', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Arrastrar una fila de la tabla de tareas corre a las de abajo, igual que el Kanban',
+    puntos: [
+      'La tabla de la vista Tareas y la de adentro de un proyecto mandan ahora el LUGAR al pop-up, con la misma regla del Kanban (`hacerLugar`). Antes mandaban el punto medio solo: el mismo gesto daba otro resultado según la vista.',
+      '⚠️ **Pasar el lugar no alcanzaba**: la tabla desempataba dos filas con el mismo número por el orden de llegada, no por `num` como el Kanban y el server. La soltada quedaba bien en la base y la tabla la dibujaba en otro lugar. Va el mismo desempate.',
+      'Sin verificar con un arrastre en el navegador: la máquina estaba sin RAM (el vigía mató hasta el chequeo de tipos acotado).',
+    ],
+    archivos: [
+      'app/plan/board/Tablas.tsx — `soltarFila`; `useArrastreFilas` entrega `resto` y `pos`; el desempate por `num`',
+      'tests/plan-lugar-al-soltar.test.ts — 3 guards nuevos, seis roturas probadas (15/1 cada una)',
     ],
   },
 ];

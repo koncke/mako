@@ -183,3 +183,46 @@ test('el tablero del cliente corre a las de abajo con la MISMA regla, y el desha
   assert.match(board, /repo\.prioridadManual\?\.\(entidad, fijado\.id, scorePrevio, corridas\.length \? \{ deshacer: corridas \} : undefined\)/);
   assert.match(board, /scoreBase: baseCorrida\(x\.scoreBase, \{ id: x\.id, antes: x\.score, despues: n \}\)/);
 });
+
+// ── la tabla de tareas, el mismo gesto (14/10/2026) ─────────────────────────────────
+// Hasta el 14/10 la tabla mandaba sólo el punto medio: el mismo arrastre dejaba la tarjeta
+// en su lugar en el Kanban y corrida en la tabla. Es la tabla de la vista Tareas y la de
+// adentro de un proyecto (las dos montan `TablaTareas`).
+//
+// PROBADO ROMPIÉNDOLO (14/10/2026), sobre los 16 del archivo, restaurando de memoria; cada
+// rotura dio 15 pass / 1 fail:
+//   1. el hook sin `resto, pos` en el `onSoltar` del drop.
+//   2. la tabla mandando el lugar con cualquier orden (sin `dir !== 'desc'`).
+//   3. la tabla sin el lugar en su `onSoltar` final.
+//   4. el orden por prioridad sin el desempate por `num`.
+//   5. la tabla de la vista Tareas montada sin pasar el lugar al pop-up.
+//   6. uno de los dos montajes del detalle de proyecto sin el lugar.
+
+const TABLAS = sinComentarios(leer('app/plan/board/Tablas.tsx'));
+
+test('el arrastre de filas entrega DÓNDE cayó, no sólo el número', () => {
+  const a = TABLAS.indexOf('function useArrastreFilas<');
+  const hook = TABLAS.slice(a, TABLAS.indexOf('\nfunction Th(', a));
+  assert.ok(hook.length > 1000 && hook.length < 20000, `el recorte del hook mide ${hook.length}`);
+  assert.match(hook, /onSoltar\(id, scoreEntreFilas\(resto, pos, dir, filas\[j\]\?\.score \?\? 50, porPrioridad\), resto, pos\);/);
+});
+
+test('la tabla de tareas manda el lugar SÓLO por prioridad de mayor a menor, y desempata como el Kanban', () => {
+  const a = TABLAS.indexOf('export function TablaTareas(');
+  const tabla = TABLAS.slice(a);
+  assert.ok(tabla.length > 2000, 'no encontré TablaTareas');
+  assert.match(tabla, /if \(orden !== 'score' \|\| dir !== 'desc' \|\| !yo\) \{ onSoltar\(id, base\); return; \}/);
+  assert.match(tabla, /const lugar = lugarEn\(resto, pos, compite\);/);
+  assert.match(tabla, /onSoltar\(id, sugerirNumero\(col, \{ id, num: yo\.num \}, lugar, prioFromScore\(base\), base\), lugar\);/);
+  assert.match(tabla, /useArrastreFilas\(vivas, dir, orden === 'score', soltarFila\)/);
+  // Sin el desempate, entre dos empatadas la tabla dibuja la soltada donde la dejó el orden
+  // de llegada, que no es donde el server le hizo lugar.
+  assert.match(tabla, /if \(orden === 'score'\) return s \* \(\(a\.score \|\| 0\) - \(b\.score \|\| 0\)\) \|\| s \* \(a\.num - b\.num\);/);
+});
+
+test('las tres tablas de tareas que se arrastran le pasan el lugar al pop-up', () => {
+  // La de la vista Tareas y los dos montajes del detalle de un proyecto (el peek y el modal).
+  const n = SHELL.split("(id, sugerido, lugar) => setSoltada({ entidad: 'tarea', id, sugerido, lugar })").length - 1;
+  assert.equal(n, 3, `se encontraron ${n}`);
+  assert.match(SHELL, /onSoltarTask\?: \(id: string, sugerido: number, lugar\?: Lugar\) => void;/);
+});

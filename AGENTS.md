@@ -700,7 +700,7 @@ Los que hoy son fuente única:
 | Cómo se llama y se ve cada estado de la IA, y el Semáforo | `lib/mako-gramatica.ts` | la primitive `<Mako>`, `meta-health-ui`, `avisos-catalogo` |
 | Qué cliente mira ESTA pestaña (`?ws=`) | `lib/ws-tab.ts` + la validación en `proxy.ts` | `getWorkspaceActual`, el `<Link>` de `app/_ui`, el parche de fetch |
 | Cómo se escribe **MaKo** (`corregirMarca`, `REGLA_MARCA`) | `lib/mako-gramatica.ts` | `transcribirAudio` (STT), `limpiarTarea`, `MAKO_NUCLEO`, `docs/branding-mako.md` (generado) |
-| Los tipos de pregunta del Perro, su saneo y el texto que leen los modelos | `lib/preguntas-contrato.ts` (**sin `server-only`**, a propósito) | desde el 05/10/2026 **nadie las genera al cargar tareas** (el alta no pregunta: `tests/alta-sin-preguntas.test.ts`); quedan `plan-prueba` y `PreguntaCampo`, este último sin call site |
+| Los tipos de pregunta del Perro, su saneo y el texto que leen los modelos | `lib/preguntas-contrato.ts` (**sin `server-only`**, a propósito) | desde el 05/10/2026 **nadie las genera al cargar tareas** (el alta no pregunta: `tests/alta-sin-preguntas.test.ts`); queda `plan-prueba` (`PreguntaCampo`, que ya no tenía call site, se borró el 14/10/2026) |
 | Lo que un agente puede leer o hacer en MaKo | `lib/api-mako/areas/<área>.def.ts` + `.run.ts`, reunidos en `lib/api-mako/registro.ts` | el doer de WhatsApp, el chat de la app, `/api/v1`, `docs/api-mako.md` (generado), la skill del cliente |
 
 ⚠️ **El rótulo de un estado de MaKo no es un prop.** Sale de `GRAMATICA` y no se puede
