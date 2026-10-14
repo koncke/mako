@@ -91,11 +91,24 @@ test('generateFunnel — funnel "venta directa" (sin reunión) no rompe', () => 
   }
 });
 
-test('generateFunnel — funnel "VSL + Webinar" produce grupo/webinar/checkout', () => {
+test('generateFunnel — funnel "VSL + Webinar" produce registro, grupo, webinar y checkout con claves canónicas', () => {
+  // ⚠️ CAMBIADO A PROPÓSITO el 14/10/2026: las claves eran `registro`, `grupo`, `webinar` y
+  // `checkout`, que `deriveStageKey` no conoce (el lead con la fecha del webinar caía en la
+  // primera columna). Ahora son las canónicas con el MISMO nombre en pantalla, como `presencial`.
+  // Verificado rompiéndolo: con `registro` de vuelta en la entrada de la plantilla, 9 / 1 en este
+  // archivo (este).
   const tpl = FUNNEL_TEMPLATES.find((t) => t.id === 'vsl')!;
   const { stages } = generateFunnel(tpl.pipeline, []);
-  const keys = new Set(stages.map((s) => s.key));
-  for (const k of ['registro', 'grupo', 'webinar', 'checkout', 'ganado']) assert.ok(keys.has(k), `falta ${k}`);
+  const label = (k: string) => stages.find((s) => s.key === k)?.label;
+  assert.equal(label('lead'), 'Registro (landing)');
+  assert.equal(label('conversando'), 'Grupo WhatsApp');
+  assert.equal(label('agenda'), 'Webinar');
+  assert.equal(label('facturando'), 'Oferta / Checkout');
+  assert.ok(label('ganado'), 'falta ganado');
+  // El grupo sigue siendo un GRUPO: su nutrición diaria antes del evento.
+  assert.ok(stages.some((s) => s.key === 'nutridiaria'), 'el grupo dejó de tener su nutrición diaria');
+  // Y el lead con la fecha del webinar cae en el webinar, no en la primera columna.
+  assert.equal(deriveStageKey(L({ fecha_junta_1: '2026-10-20' })), 'agenda');
 });
 
 test('NUTRI_KEYS incluye reactivacion (etapa de nutrición negativa)', () => {
