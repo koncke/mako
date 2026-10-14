@@ -20,6 +20,7 @@ import {
   gateConfigurado, verificarToken, type Rol, type Sesion,
 } from './auth-session';
 import { buscarUsuarioPorEmail } from './usuarios';
+import { requiereSegundoFactor } from './mfa-reglas';
 
 export type { Rol, Sesion };
 
@@ -44,6 +45,12 @@ export const getUsuarioActual = cache(async (): Promise<Sesion | null> => {
       try {
         const u = await buscarUsuarioPorEmail(firmada.email);
         if (!u || u.estado === 'suspendido') return null;
+        // ⛔ Segunda capa del segundo factor, con lo que dice la BASE. `verificarToken` ya
+        // cortó a todo token de admin sin segundo factor; esto cubre lo que el token no
+        // sabe: a quien la base dice admin aunque el token diga usuario (lo ascendieron
+        // después de entrar), y a quien activó el 2FA después de entrar — una cookie
+        // vieja suya, robada, no puede seguir valiendo sin el segundo paso.
+        if (requiereSegundoFactor(u.rol, !!u.mfa_activo) && !firmada.mfa) return null;
         // El rol, el workspace y el rol-de-workspace de la base ganan sobre lo firmado.
         return { ...firmada, rol: u.rol, ws: u.workspace_id ?? null, rolWs: u.rol_ws ?? null };
       } catch {

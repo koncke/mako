@@ -329,7 +329,8 @@ function pedir(url: string, metodo = 'GET', headers: Record<string, string> = {}
 }
 const pasa = (r: Response) => r.headers.get('x-middleware-next') === '1';
 const sobrescritas = (r: Response) => (r.headers.get('x-middleware-override-headers') ?? '').split(',').map((s) => s.trim());
-const sesionAdmin = () => `${SESSION_COOKIE}=${crearToken({ sub: 'u1', email: 'admin@mako.test', nombre: 'Admin', rol: 'admin' })}`;
+// `mfa`: desde el 2FA (14/10/2026) un token de admin sin segundo factor no es una sesión.
+const sesionAdmin = () => `${SESSION_COOKIE}=${crearToken({ sub: 'u1', email: 'admin@mako.test', nombre: 'Admin', rol: 'admin', mfa: 'totp' })}`;
 
 test('proxy en hola-mako.site: reescribe a app/l sin el workspace ni el dominio, y NO lee la sesión (en cualquier entorno)', () => {
   for (const env of ['production', undefined]) {

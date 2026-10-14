@@ -21,7 +21,10 @@
 // =============================================================================
 
 import { NextResponse, type NextRequest } from 'next/server';
-import { EMAIL_COOKIE, SESSION_COOKIE, SESSION_DIAS, crearToken, destinoSeguro } from '@/lib/auth-session';
+import { DISPOSITIVO_COOKIE, crearPreauth, destinoSeguro } from '@/lib/auth-session';
+import { ponerPreauth, ponerSesion } from '@/lib/sesion-cookies';
+import { decidirTrasGoogle, requiereSegundoFactor } from '@/lib/mfa-reglas';
+import { dispositivoValido } from '@/lib/mfa';
 import { buscarUsuarioPorEmail, contarUsuarios, crearUsuario, registrarLogin, type Usuario } from '@/lib/usuarios';
 import { googleCalendarDueno, guardarRefreshTokenGoogle } from '@/lib/google-calendar';
 import { runWithWorkspace } from '@/lib/workspace';
@@ -60,7 +63,7 @@ async function resolverConFallback(email: string): Promise<Usuario | null> {
   } catch (e) {
     console.error('[auth] resolverUsuario falló, evaluando allowlist:', e);
     if (!enAllowlist(email)) return null;
-    return { id: 0, email, nombre: '', rol: 'admin', estado: 'activo', foto_url: null, invitado_por: 'allowlist-fallback', ultimo_login: null, created_at: '', workspace_id: null, rol_ws: null, invitacion_enviada_at: null };
+    return { id: 0, email, nombre: '', rol: 'admin', estado: 'activo', foto_url: null, invitado_por: 'allowlist-fallback', ultimo_login: null, created_at: '', workspace_id: null, rol_ws: null, invitacion_enviada_at: null, mfa_activo: false };
   }
 }
 
@@ -182,27 +185,48 @@ export async function GET(req: NextRequest) {
 
     // usuario.id === 0 es el admin de fallback (DB no disponible): no persiste
     // login y su sesión no se re-chequea contra la base (sub break-glass).
-    if (usuario.id > 0) await registrarLogin(email, { nombre: ui.name, foto_url: ui.picture });
-
-    // Google Calendar: el login ya NO pide el scope de la agenda (un scope sensible
-    // acá deja la app restringida a testers y nadie puede entrar), así que en el
-    // login normal esto no recibe refresh_token y sale de una. Se conserva porque
-    // el mismo callback atiende el consentimiento incremental: si el usuario vuelve
-    // habiendo aceptado la agenda, el token se guarda igual. Nunca tumba el login.
+    // El calendario se guarda ANTES del segundo paso a propósito: el refresh_token sólo
+    // existe en esta respuesta de Google y no se lo pasea por una cookie. No abre nada:
+    // conecta la agenda de ESTA misma cuenta de Google a SU propio workspace, y sólo si
+    // no tenía ninguna — quien ya tiene la cuenta de Google ya tenía esa agenda.
     await guardarCalendarBestEffort(usuario, tokens.refresh_token);
 
-    const token = crearToken({
-      sub: usuario.id > 0 ? String(usuario.id) : 'password',
-      email,
-      nombre: (ui.name ?? usuario.nombre ?? '').trim(),
-      rol: usuario.rol,
-    });
-    if (!token) return fail('config');
+    const nombre = (ui.name ?? usuario.nombre ?? '').trim();
+    const sub = usuario.id > 0 ? String(usuario.id) : 'password';
 
+    // ── El segundo factor ──────────────────────────────────────────────────────
+    // `decidirTrasGoogle` (lib/mfa-reglas.ts, con test) decide entre tres salidas. El
+    // dispositivo de confianza se consulta sólo si hace falta: es una consulta a la base.
+    const requiere = requiereSegundoFactor(usuario.rol, !!usuario.mfa_activo);
+    let dispositivo = false;
+    if (requiere && usuario.id > 0) {
+      try { dispositivo = await dispositivoValido(usuario.id, req.cookies.get(DISPOSITIVO_COOKIE)?.value); }
+      catch { dispositivo = false; }
+    }
+    const decision = decidirTrasGoogle({
+      rol: usuario.rol, mfaActivo: !!usuario.mfa_activo, tieneFila: usuario.id > 0, dispositivoValido: dispositivo,
+    });
+
+    // Sin base no hay con qué comprobar el segundo factor: antes este usuario de
+    // emergencia entraba como admin directo. Ya no.
+    if (decision === 'bloquear') return fail('mfa-sin-base');
+
+    if (decision === 'segundo-factor') {
+      const pre = crearPreauth({ sub, email, nombre, rol: usuario.rol, next: destinoSeguro(next), foto: ui.picture });
+      if (!pre) return fail('config');
+      const res = NextResponse.redirect(new URL('/login/2fa', url.origin));
+      ponerPreauth(res, pre);
+      res.cookies.set({ name: 'oauth_state', value: '', maxAge: 0, path: '/' });
+      res.cookies.set({ name: 'oauth_next', value: '', maxAge: 0, path: '/' });
+      return res;
+    }
+
+    // Entra directo: no necesita segundo factor, o el dispositivo es de confianza.
+    if (usuario.id > 0) await registrarLogin(email, { nombre: ui.name, foto_url: ui.picture });
     const res = NextResponse.redirect(new URL(destinoSeguro(next), url.origin));
-    const base = { secure: process.env.NODE_ENV === 'production', sameSite: 'lax' as const, path: '/' };
-    res.cookies.set({ name: SESSION_COOKIE, value: token, httpOnly: true, maxAge: 60 * 60 * 24 * SESSION_DIAS, ...base });
-    res.cookies.set({ name: EMAIL_COOKIE, value: email, httpOnly: false, maxAge: 60 * 60 * 24 * SESSION_DIAS, ...base });
+    if (!ponerSesion(res, { sub, email, nombre, rol: usuario.rol, mfa: requiere ? 'dispositivo' : undefined })) {
+      return fail('config');
+    }
     res.cookies.set({ name: 'oauth_state', value: '', maxAge: 0, path: '/' });
     res.cookies.set({ name: 'oauth_next', value: '', maxAge: 0, path: '/' });
     return res;

@@ -11,6 +11,7 @@ import { Icon } from '../_components/icons';
 import { Dropdown } from '../components/Dropdown';
 import { TelefonoConPais } from '../_components/TelefonoConPais';
 import { DIAL_DEFAULT, splitTelefono, unirTelefono } from '@/lib/paises';
+import Link from '@/app/_ui/Link';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -43,6 +44,11 @@ export function PerfilTabs() {
   const [perfil, setPerfil] = useState<Perfil | null>(null);
   const [draft, setDraft] = useState<Perfil | null>(null);
   const [vista, setVista] = useState<Vista>({ deOtro: false });
+  // El segundo paso al entrar es de la PERSONA que mira, no de la cuenta que se está viendo: en
+  // una vista de otro no se ofrece. (La «contraseña maestra» que decía el cartel de antes ya no
+  // existe: se fue con el login por contraseña.) ⚠️ Esto NO va como comentario de bloque en el JSX:
+  // el `accept` de la foto (image, barra, asterisco) abre un bloque para los guards que sacan los
+  // comentarios por regex, y el cierre de uno posterior se tragaba el teléfono del medio.
   const [busy, setBusy] = useState(false);
   const [subiendo, setSubiendo] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
@@ -190,12 +196,13 @@ export function PerfilTabs() {
         </div>
         )}
 
-        <div style={{ ...card, background: 'var(--surface-2)', display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-          <span style={{ fontSize: 18 }}>🔒</span>
-          <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.5 }}>
-            Cada cuenta entra con su <b>Google</b> (los admins gestionan los accesos en Admin). La contraseña maestra queda como respaldo y se cambia en el server, no desde aquí.
-          </div>
-        </div>
+        {!vista.deOtro && (
+          <Link href="/perfil/seguridad" style={{ ...card, background: 'var(--surface-2)', display: 'flex', gap: 12, alignItems: 'center', textDecoration: 'none', color: 'var(--ink)' }}>
+            <span style={{ fontSize: 18 }}>🔒</span>
+            <span style={{ flex: 1, fontSize: 14, fontWeight: 600 }}>Segundo paso al entrar</span>
+            <span style={{ color: 'var(--dim)' }}>→</span>
+          </Link>
+        )}
       </div>
     </main>
   );

@@ -171,7 +171,8 @@ test('¿es la vista del teléfono?: /m siempre; una URL de escritorio, sólo en 
 // ── El proxy DE VERDAD ─────────────────────────────────────────────────────────────────────
 
 function pedir(metodo: string, ruta: string, o: { ua?: string; rol?: 'admin' | 'usuario'; vista?: boolean; sinSesion?: boolean } = {}) {
-  const token = o.sinSesion ? null : crearToken({ sub: '7', email: 'x@y.com', nombre: 'X', rol: o.rol ?? 'usuario', ws: 3 });
+  // `mfa`: desde el 2FA (14/10/2026) un token de admin sin segundo factor no es una sesión.
+  const token = o.sinSesion ? null : crearToken({ sub: '7', email: 'x@y.com', nombre: 'X', rol: o.rol ?? 'usuario', ws: 3, mfa: 'totp' });
   const cookies = [token ? `${SESSION_COOKIE}=${token}` : '', o.vista ? `${VISTA_COOKIE}=${VISTA_ESCRITORIO}` : ''].filter(Boolean).join('; ');
   return proxy(new NextRequest(`http://localhost:3010${ruta}`, {
     method: metodo,

@@ -1235,7 +1235,7 @@ export const AREAS: AreaDev[] = [
     slug: 'auth-session', titulo: 'Auth & Session', familia: 'Infra', grupo: 'Seguridad',
     estado: 'listo',
     alcance: 'Login con Google, token firmado, roles. El inventario tenía la pantalla, no el mecanismo.',
-    vive: ['lib/auth-session.ts', 'lib/auth.ts', 'app/api/auth/google/route.ts', 'app/api/auth/callback/google/route.ts', 'app/api/auth/logout/route.ts', 'app/api/auth/me/route.ts', 'app/api/auth/dev-login/route.ts'],
+    vive: ['lib/auth-session.ts', 'lib/auth.ts', 'app/api/auth/google/route.ts', 'app/api/auth/callback/google/route.ts', 'app/api/auth/logout/route.ts', 'app/api/auth/me/route.ts', 'app/api/auth/dev-login/route.ts', 'app/api/auth/2fa/route.ts', 'app/login/2fa', 'lib/mfa.ts', 'lib/mfa-reglas.ts', 'lib/sesion-cookies.ts', 'app/api/perfil/seguridad/route.ts', 'app/perfil/seguridad', 'supabase/migrations/0266_segundo_factor.sql', 'tests/mfa.test.ts'],
   },
   {
     slug: 'access-gate', titulo: 'Access Gate', familia: 'Infra', grupo: 'Seguridad',
