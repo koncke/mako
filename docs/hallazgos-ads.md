@@ -3984,3 +3984,72 @@ vuelven a 30 días. **Sigue igual:** `app/ads-manager/AdsManagerView.tsx` (misma
   `applyAngles` y `applyAvatares`. Mudar eso y borrar el resto es una decisión aparte.
 
 *11/10/2026, chat «Graphics», paquete P3 de la tanda v4 del Dashboard (commit `6e85d8d7`).*
+
+## El Autopilot: lo que el relevamiento encontró antes de dejar que una IA mueva plata (14/10/2026)
+
+**Vive en:** `lib/queries.ts` · `lib/meta-write.ts` · `lib/meta-health.ts` · `lib/api-mako/areas/ads.run.ts` · `lib/api-mako/flujo.ts` · `app/api/cron/meta-daily/route.ts` · `app/video-generator/video-action.ts`
+
+El punto 18 del feedback del 13/10 (la IA que maneja el Ads Manager sola) se diseñó en
+[diseno-ads-autopilot.md](diseno-ads-autopilot.md). Antes de escribirlo, un relevamiento de 6
+lectores midió con qué datos se podía decidir y por dónde se escribía. Esto es lo que sirve
+después, y la mitad es lo contrario de lo que se suponía.
+
+**Lo que se creía y no era:**
+
+- **«El veredicto Recon ya dice qué escalar.»** No en una cuenta con presupuesto de campaña
+  (CBO): el conjunto tiene `adset_budget_daily` en NULL, se lee como 0, y el ritmo da
+  ✗ siempre. Así, todo anuncio con 10 leads o más sale «falso positivo» y nunca «validada»
+  (`lib/queries.ts:1718`, `:1785`, `:1801`; `lib/meta-ads.ts:543-547`). Una IA que escale lo
+  «validado» no escala nunca en CBO.
+- **«La herramienta de rendimiento de la API de MaKo trae los leads del CRM.»** Trae
+  `leads_meta` = la CONSTANTE 10 (`RECON_LEADS_VALIDACION`) y `leads_crm` = los leads de Meta
+  (`lib/api-mako/areas/ads.run.ts:381` sobre `lib/queries.ts:1813-1814`). Un modelo que decide
+  con eso decide con un campo inventado. **Bug vivo, sin arreglar al escribir esto.**
+- **«Hay datos para un tope de gasto por día.»** No hay un solo dato de hoy en la base:
+  `meta-daily` corre una vez (13:00 UTC), trae AYER en Tijuana para todas las cuentas y nunca
+  vuelve sobre días anteriores (`app/api/cron/meta-daily/route.ts:55`). Lo de hoy sólo se lee
+  en vivo (`app/api/entity-insights/route.ts`). Por eso el tope del Autopilot es un techo de lo
+  PRESUPUESTADO, no de lo gastado.
+- **«Pausar lo que gasta sin leads es seguro.»** Sólo si «leads» incluye el CRM: los leads de
+  una landing no traen `meta_ad_id` (9 de 114 agendados del ws1 lo tienen), y el cruce por
+  `utm_content` (`adIdDeLead`, `lib/atribucion-url.ts`) no lo usa `getSenalesRecon`. La regla
+  vieja de «apagar» apagaría el anuncio que trae las reuniones.
+- **«validate_only valida.»** Sobre `adcreatives` dio success para algo que el anuncio rechazó
+  después (`docs/hallazgos-ads.md`, la medición del 1885499), y sobre una ACTUALIZACIÓN de
+  status o presupuesto no hay ninguna medición. El Autopilot lo usa para FRENAR, nunca como
+  prueba de que la escritura va a pasar.
+- **«Prender o apagar no es plata.»** Activar está declarado `costo: 'externo'` aunque enciende
+  gasto (`lib/api-mako/areas/ads.def.ts:384-411`), así que un token detallado lo escribe en el
+  acto. Y un paso «⚡ Acción» de un flujo puede correr `proponer_presupuesto_*` sin un «sí» y
+  sin tope (`lib/api-mako/flujo.ts`: `aplicarEnElActo` no mira el costo). Es del núcleo de la
+  API, ya anotado en `docs/hallazgos-planes-y-cobro.md`.
+- **«Las variaciones de hook se generan solas.»** No desde el servidor: el que filma es el
+  navegador del cliente (extensión + pestaña de Flow abierta), las acciones de video exigen
+  sesión (`ctxAdmin` en `app/video-generator/video-action.ts`), avanzar una toma lo hace la
+  PANTALLA cada pocos segundos, el historial del generador topea en 10 planes, y el worker de
+  montaje nunca corrió (2 trabajos pendientes con 0 intentos). «Content Machine» es el nombre
+  de la familia del sidebar, no un pipeline.
+
+**Las trampas para quien escriba un motor que mueve plata acá:**
+
+- **El presupuesto «actual» del árbol cacheado puede tener cualquier edad** (stale-while-revalidate
+  y `metaWrite` no lo invalida). El `antes` de una decisión se lee EN VIVO, y se vuelve a leer
+  antes de escribir: si cambió, la decisión vence.
+- **`aUsdNum` devuelve el monto crudo con etiqueta USD** si la moneda no tiene tasa, y divide por
+  17,3 si es desconocida (`lib/presupuesto-cambio.ts:93-101`). Para decidir, `aUsd` (null sin
+  tasa) y abstenerse. Sólo USD y MXN tienen tasa.
+- **Una propuesta de `propuestas` no vence nunca** y su `resumen` se corta a 300 caracteres; el
+  `reversible: true` del presupuesto es una promesa sin el valor anterior guardado. Por eso el
+  Autopilot tiene su propia tabla con `antes`, `despues`, `porque` y `vence_at`.
+- **Lo que propone un cron por el canal `app` no dispara push** (`lib/mako-pendientes.ts:86`,
+  `lib/propuestas.ts:149`): sin un aviso propio, una propuesta de madrugada espera sin que nadie
+  se entere.
+- **Si `listarWorkspaces` falla, `correrRonda` corre sólo el ws1** (`lib/cron-workspaces.ts:93-97`),
+  que es un cliente. Un motor que escribe exige su propia config por workspace para no actuar ahí.
+- **El ws3 llegó a tener la misma cuenta publicitaria que el ws1** (commit `5b3ad721`, 13/08). Un
+  motor por workspace actuaría dos veces sobre la misma cuenta con los parámetros del cliente de
+  prueba: el cron saltea las cuentas repetidas.
+- **`/api/cron/plan-recurvar` no tiene autenticación** (es la única ruta de `app/api/cron` sin
+  `checkCronAuth`), y todo `/api/cron` es público por prefijo. Quedó como tarea aparte.
+
+*14/10/2026, cuenta 2 (claude2), chat «Ads Manager», relevamiento `wf_2c9a91f5-f46`.*
