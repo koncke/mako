@@ -58,7 +58,8 @@ test('el endpoint da la lista sólo si se la piden, y con tope', () => {
   assert.match(ruta, /if \(new URL\(req\.url\)\.searchParams\.get\('lista'\) === '1'\) \{/);
   // UN corte, el de los leads: cada lead es una fila, con todos sus datos adentro (hasta el
   // 13/10/2026 eran dos, porque cada dato era una fila).
-  assert.equal((ruta.match(/if \(filas\.length >= TOPE_LISTA\) break;/g) ?? []).length, 1, 'la lista perdió su tope, o volvió el tope por dato');
+  // El tope se aplica en filasPorLead (lib/a-revisar-filas.ts, con test que lo ejecuta), por LEAD.
+  assert.match(ruta, /filasPorLead\(items \?\? \[\], TOPE_LISTA\)/, 'la lista perdió su tope');
   assert.match(ruta, /const TOPE_LISTA = 12;/);
   assert.match(ruta, /return Response\.json\(\{ total \}\);/);
 });

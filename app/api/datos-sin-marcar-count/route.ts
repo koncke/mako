@@ -8,14 +8,18 @@ import { getPendientesDeMarcar } from '@/lib/queries';
 import { hoyEnTijuana } from '@/lib/date-utils';
 import { getTenantDb } from '@/lib/workspace';
 import { urlGravatar } from '@/lib/gravatar';
+import { filasPorLead, ocultosPorLead, type FilaLead as FilaBase } from '@/lib/a-revisar-filas';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 /** Cuántos LEADS dibuja «A revisar». La cola entera sigue en su vista (`/crm?pendientes=1`). */
 const TOPE_LISTA = 12;
-
-type Paso = { id: string; label: string };
+/**
+ * Cuántos leads ignorados viajan para el «Ver más». Generoso a propósito (revisión del 14/10): un lead
+ * ignorado con la ✕ que no entre acá no tiene vuelta desde el panel.
+ */
+const TOPE_OCULTOS = 50;
 
 /**
  * Lo que hace falta para dibujar la cara del lead, con la MISMA cadena que la cabecera de su ficha
@@ -34,7 +38,7 @@ type Cara = { icono: string | null; avatarUrl: string | null; avatarY: number | 
  * saca de la lista, y la pantalla no lo puede deducir. Sin la marca, la ✕ lo borraba de la vista y
  * la relectura lo traía de vuelta un segundo después.
  */
-type FilaLead = { lead_id: number; lead_nombre: string; pasos: Paso[]; cara?: Cara; porOtraCosa?: true };
+type FilaLead = FilaBase & { cara?: Cara };
 
 const texto = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v.trim() : null);
 
@@ -47,23 +51,11 @@ export async function GET(req: Request) {
     if (new URL(req.url).searchParams.get('lista') === '1') {
       // `total` cuenta LEADS (un item por lead) y las filas también: el número del panel y lo
       // que se ve abajo hablan de lo mismo.
-      const filas: FilaLead[] = [];
-      for (const i of items ?? []) {
-        if (filas.length >= TOPE_LISTA) break;
-        filas.push({
-          lead_id: i.lead_id, lead_nombre: i.lead_nombre, pasos: (i.faltantes ?? []).map((f) => ({ id: f.id, label: f.label })),
-          ...(i.tipo === 'R' || i.tipo === 'M' ? { porOtraCosa: true as const } : {}),
-        });
-      }
-      // Los ignorados llegan UNO POR DATO (lib/queries.ts los topea en 50): se juntan por lead, en
-      // el orden en que aparecen, para el «Ver más» y su «volver a avisar» por lead.
-      const ocultos: FilaLead[] = [];
-      for (const x of ignorados ?? []) {
-        const ya = ocultos.find((o) => o.lead_id === x.lead_id);
-        if (ya) { if (!ya.pasos.some((p) => p.id === x.paso.id)) ya.pasos.push({ id: x.paso.id, label: x.paso.label }); continue; }
-        if (ocultos.length >= TOPE_LISTA) continue;
-        ocultos.push({ lead_id: x.lead_id, lead_nombre: x.lead_nombre, pasos: [{ id: x.paso.id, label: x.paso.label }] });
-      }
+      // Una fila por lead (lib/a-revisar-filas.ts, puro y con test que lo ejecuta).
+      const filas: FilaLead[] = filasPorLead(items ?? [], TOPE_LISTA);
+      // Los ignorados llegan UNO POR DATO (lib/queries.ts los topea en 500): se juntan por lead para
+      // el «Ver más» y su «volver a avisar» por lead.
+      const ocultos: FilaLead[] = ocultosPorLead(ignorados ?? [], TOPE_OCULTOS);
       await ponerCaras([...filas, ...ocultos]);
       return Response.json({ total, items: filas, ignorados: ocultos });
     }

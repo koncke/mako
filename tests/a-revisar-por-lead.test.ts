@@ -34,6 +34,7 @@
 //   · `ignorarDatosDelLeadAction` sin `haySesion()`                                          → 10 / 1
 
 import { test } from 'node:test';
+import { filasPorLead, ocultosPorLead } from '../lib/a-revisar-filas';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
@@ -57,13 +58,29 @@ const tramo = (src: string, desde: string, hasta: string): string => {
 const filasDelPanel = () => tramo(gate, '{filas.map(', '{verMas && ignorados.map(');
 const cuerpoDe = (src: string, fn: string) => tramo(src, `export async function ${fn}`, '\nexport ');
 
-test('la ruta arma UNA fila por lead, con todos sus datos adentro', () => {
-  const lista = tramo(ruta, "searchParams.get('lista') === '1'", 'return Response.json({ total, items: filas');
-  assert.match(lista, /filas\.push\(\{\s*lead_id: i\.lead_id, lead_nombre: i\.lead_nombre, pasos: \(i\.faltantes \?\? \[\]\)\.map\(/);
-  assert.equal((lista.match(/filas\.push\(/g) ?? []).length, 1, 'volvió a haber más de una fila por lead');
-  assert.doesNotMatch(lista, /for \(const f of i\.faltantes/, 'volvió la fila por dato');
-  // Los ignorados llegan uno por dato: se juntan por lead.
-  assert.match(lista, /ocultos\.find\(\(o\) => o\.lead_id === x\.lead_id\)/);
+// Probado rompiendo lib/a-revisar-filas.ts (base 11/0): sin el tope por lead, 10/1; sin juntar los datos de un
+// mismo lead, 10/1; sin la marca porOtraCosa, 9/2.
+test('la ruta arma UNA fila por lead, con todos sus datos adentro (se EJECUTA, 14/10)', () => {
+  // La revisión del 14/10 mostró que esto era sólo regex sobre el fuente: ahora se corre la función.
+  const filas = filasPorLead([
+    { lead_id: 1, lead_nombre: 'Ana', tipo: 'P', faltantes: [{ id: 'telefono', label: 'Teléfono' }, { id: 'empresa', label: 'Empresa' }] },
+    { lead_id: 2, lead_nombre: 'Beto', tipo: 'R', faltantes: [{ id: 'fathomR1', label: 'Fathom' }] },
+    { lead_id: 3, lead_nombre: 'Caro', tipo: 'M' },
+  ], 2);
+  assert.equal(filas.length, 2, 'el tope es de LEADS');
+  assert.deepEqual(filas[0], { lead_id: 1, lead_nombre: 'Ana', pasos: [{ id: 'telefono', label: 'Teléfono' }, { id: 'empresa', label: 'Empresa' }] });
+  assert.equal(filas[1].porOtraCosa, true, 'una reunión pasada está por otra cosa: ignorar sus datos no la saca');
+  // Los ignorados llegan uno por dato: se juntan por lead, sin repetir un dato.
+  const ocultos = ocultosPorLead([
+    { lead_id: 7, lead_nombre: 'Gus', paso: { id: 'telefono', label: 'Teléfono' } },
+    { lead_id: 8, lead_nombre: 'Hilda', paso: { id: 'empresa', label: 'Empresa' } },
+    { lead_id: 7, lead_nombre: 'Gus', paso: { id: 'empresa', label: 'Empresa' } },
+    { lead_id: 7, lead_nombre: 'Gus', paso: { id: 'telefono', label: 'Teléfono' } },
+  ], 50);
+  assert.deepEqual(ocultos.map((o) => [o.lead_id, o.pasos.map((p) => p.id)]), [[7, ['telefono', 'empresa']], [8, ['empresa']]]);
+  assert.equal(ocultosPorLead(Array.from({ length: 60 }, (_, i) => ({ lead_id: i + 1, lead_nombre: 'x', paso: { id: 'telefono', label: 'T' } })), 50).length, 50);
+  assert.match(ruta, /const filas: FilaLead\[\] = filasPorLead\(items \?\? \[\], TOPE_LISTA\);/);
+  assert.match(ruta, /const ocultos: FilaLead\[\] = ocultosPorLead\(ignorados \?\? \[\], TOPE_OCULTOS\);/);
 });
 
 test('el número de arriba cuenta LEADS, lo mismo que las filas', () => {
@@ -120,7 +137,8 @@ test('ignorar: una ✕ que ignora TODOS los ignorables del lead, con una sola ac
 test('ignorar los datos de un lead que está por OTRA cosa no lo saca de la vista', () => {
   // Una reunión pasada sin desenlace (tipo 'R') o una nutrición vencida ('M') siguen en la lista
   // con los datos ignorados: la ruta lo marca y el panel lo deja, sin el número.
-  assert.match(ruta, /\.\.\.\(i\.tipo === 'R' \|\| i\.tipo === 'M' \? \{ porOtraCosa: true as const \} : \{\}\)/);
+  // Desde el 14/10 la marca la pone filasPorLead (lib/a-revisar-filas.ts), y el test de arriba la EJECUTA.
+  assert.equal(filasPorLead([{ lead_id: 1, lead_nombre: 'x', tipo: 'M', faltantes: [{ id: 'telefono', label: 'T' }] }], 12)[0].porOtraCosa, true);
   assert.match(gate, /return quedan\.length \|\| x\.porOtraCosa \? \[\{ \.\.\.x, pasos: quedan \}\] : \[\];/);
 });
 

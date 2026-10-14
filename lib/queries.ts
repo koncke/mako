@@ -2206,8 +2206,13 @@ export type Pendientes = {
   ignorados?: Array<{ lead_id: number; lead_nombre: string; paso: Step }>;
 };
 
-/** Cuántos ignorados viajan en el resultado (ver `Pendientes.ignorados`). */
-const TOPE_IGNORADOS = 50;
+/**
+ * Cuántos ignorados viajan en el resultado (ver `Pendientes.ignorados`). Son DATOS, no leads, y salen
+ * en el orden de los leads (por id). Con 50 (hasta el 14/10/2026), un lead ignorado con la ✕ de «A
+ * revisar» podía no entrar al «Ver más» y no tener vuelta desde el panel (revisión del 14/10). Lo
+ * ignorado lo marca una persona, de a uno: 500 entra holgado.
+ */
+const TOPE_IGNORADOS = 500;
 
 function fmtFechaPendiente(yyyy_mm_dd: string): string {
   // Convención del proyecto: fecha completa en pantalla → dd/mm/aaaa.
