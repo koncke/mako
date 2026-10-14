@@ -57,6 +57,9 @@ export const BITACORA: Hito[] = [
     fecha: '14 oct', hora: '—', chat: CH, cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
     titulo: 'Que se termine',
     pedido: 'No se pusheo? Avanza y termina',
+    puntos: [
+      'Lo contestó la tanda 2 (el armazón de Canva y el catálogo propio), que salió en el push integrado del orquestador.',
+    ],
   },
   {
     fecha: '14 oct', hora: '—', chat: CH, cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
