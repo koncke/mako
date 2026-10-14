@@ -34,11 +34,11 @@ export type InteraccionLectura = { tipo: string; texto: string; destino?: string
 
 /**
  * La página como la leyó el navegador. `texto`: el copy en el orden de lectura, una cosa por línea, con
- * las marcas del extractor del server (`textoDeBloques`, lib/landing-extraer.ts: `# título`,
- * `[BOTÓN] rótulo`, `• renglón`, `[PREGUNTA] pregunta`) o las del lector, que sabe más porque abrió
- * los desplegables (`armarTextoLectura`, lector.ts: `[DESPLEGABLE] pregunta → respuesta`,
- * `[BOTÓN] rótulo → destino`). El server no las interpreta: van tal cual al modelo, como texto de la
- * página.
+ * las MISMAS marcas que el extractor del server (`textoDeBloques`, lib/landing-extraer.ts): `# título`,
+ * `[BOTÓN] rótulo`, `• renglón` y `[DESPLEGABLE] pregunta → respuesta` (o `[DESPLEGABLE] pregunta` si
+ * la respuesta no estaba en el HTML). El lector sabe más porque abre los desplegables y anota a dónde
+ * lleva cada botón (`armarTextoLectura`, lector.ts: `[BOTÓN] rótulo → destino`). El server no las
+ * interpreta: van tal cual al modelo, como texto de la página.
  */
 export type Lectura = { texto: string; interacciones: InteraccionLectura[]; fuente: 'navegador' };
 

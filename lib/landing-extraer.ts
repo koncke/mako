@@ -40,6 +40,12 @@ export type BloqueLanding = {
    */
   tipo: 'h1' | 'h2' | 'h3' | 'texto' | 'cta' | 'lista' | 'pregunta';
   texto: string;
+  /**
+   * Tanda 6: este texto (o renglón) es la RESPUESTA de la pregunta de un desplegable: vino después de
+   * ella y adentro del mismo ítem (el <details>, el ítem del acordeón). `textoDeBloques` la pega a su
+   * pregunta (`[DESPLEGABLE] pregunta → respuesta`, la misma marca que el lector del navegador).
+   */
+  respuesta?: true;
 };
 
 export type LandingExtraida = {
@@ -61,6 +67,18 @@ export type LandingExtraida = {
    */
   leidaEnNavegador?: { interacciones: { tipo: string; texto: string; destino?: string }[] };
 };
+
+/**
+ * Lo que se guarda en `landing_analyses.bloqueada` (pendiente de las piezas de la tanda 6):
+ *   · true  = el server no la lee sola (el copy se pegó a mano, o la bajada dio casi nada);
+ *   · false = el server la bajó y la leyó;
+ *   · null  = la leyó el NAVEGADOR de la persona: si el server la lee o no, NO lo sabemos (no se bajó).
+ * Antes una lectura del navegador guardaba false, que afirma «el server la lee» sin haberlo probado.
+ * En la página (`LandingExtraida.bloqueada`) sigue siendo boolean: ahí decide si se frena el análisis,
+ * y una lectura del navegador no se frena.
+ */
+export const bloqueadaParaGuardar = (p: Pick<LandingExtraida, 'bloqueada' | 'leidaEnNavegador'>): boolean | null =>
+  p.leidaEnNavegador ? null : p.bloqueada;
 
 /**
  * Debajo de esto asumimos que la página no se renderiza en el server (SPA de
@@ -154,7 +172,16 @@ type Tipo = BloqueLanding['tipo'];
  * frase (decide al cerrar: CTA o navegación, que no es copy); `enlinea` no junta nada (su texto va al
  * bloque de arriba). `enNav`: está adentro de un <nav> (ver `vaciar`).
  */
-type Marco = { tag: string; rol: 'bloque' | 'enlace' | 'enlinea'; tipo: Tipo; textual: boolean; partes: string[]; ctaPorClase: boolean; enNav: boolean };
+type Marco = { tag: string; rol: 'bloque' | 'enlace' | 'enlinea'; tipo: Tipo; textual: boolean; partes: string[]; ctaPorClase: boolean; enNav: boolean; item: Item };
+
+/**
+ * El ÍTEM de un contenedor (tanda 6): cada contenedor abre uno, encadenado al de su padre, y lo demás
+ * usa el de su contenedor. Cuando sale la pregunta de un desplegable, su ítem queda `pregunta: true`, y
+ * el texto que sale DESPUÉS adentro de ese ítem (en él o en un contenedor de adentro) es su respuesta.
+ * Así el <details>, el acordeón de Radix (botón adentro de un <h3> adentro del ítem) y el armado con
+ * divs se leen igual, y lo que viene después del desplegable no se pega como respuesta.
+ */
+type Item = { pregunta: boolean; padre: Item | null };
 
 /** El valor de un atributo en el texto de una etiqueta de apertura, o null si no está. */
 function atributo(attrs: string, nombre: string): string | null {
@@ -206,17 +233,25 @@ export function extraerBloques(htmlCrudo: string): BloqueLanding[] {
   const html = htmlCrudo.replace(COMENTARIOS, ' ').replace(RUIDO, ' ');
   const out: BloqueLanding[] = [];
   const vistos = new Set<string>();
-  const raiz: Marco = { tag: '#raiz', rol: 'bloque', tipo: 'texto', textual: false, partes: [], ctaPorClase: false, enNav: false };
+  const raiz: Marco = { tag: '#raiz', rol: 'bloque', tipo: 'texto', textual: false, partes: [], ctaPorClase: false, enNav: false, item: { pregunta: false, padre: null } };
   const pila: Marco[] = [raiz];
 
-  const emitir = (tipo: Tipo, crudo: string) => {
+  /** ¿Este ítem (o uno que lo contiene) ya mostró la pregunta de un desplegable? Ver `Item`. */
+  const trasPregunta = (it: Item | null): boolean => {
+    for (let x = it; x; x = x.padre) if (x.pregunta) return true;
+    return false;
+  };
+  /** Saca un bloque (si es copy y no está repetido). `de`: el marco que lo juntó. Devuelve si salió. */
+  const emitir = (tipo: Tipo, crudo: string, de?: Marco): boolean => {
     const texto = decodificar(crudo).replace(/\s+/g, ' ').trim();
-    if (texto.length < 2 || texto.length > MAX_BLOQUE) return;
+    if (texto.length < 2 || texto.length > MAX_BLOQUE) return false;
     // Dedup: los menús y footers repiten el mismo texto muchas veces.
     const clave = `${tipo}:${texto.toLowerCase()}`;
-    if (vistos.has(clave)) return;
+    if (vistos.has(clave)) return false;
     vistos.add(clave);
-    out.push({ tipo, texto });
+    const respuesta = (tipo === 'texto' || tipo === 'lista') && !!de && trasPregunta(de.item);
+    out.push(respuesta ? { tipo, texto, respuesta: true } : { tipo, texto });
+    return true;
   };
   /** Saca el texto juntado por un marco (si tiene) como un bloque. Un enlace decide acá si es CTA. */
   const vaciar = (m: Marco) => {
@@ -233,7 +268,8 @@ export function extraerBloques(htmlCrudo: string): BloqueLanding[] {
       if (m.ctaPorClase || (t.length <= 40 && RE_CTA_TEXTO.test(t))) emitir('cta', t);
       return;
     }
-    emitir(m.tipo, crudo);
+    // La pregunta de un desplegable marca su ítem: lo que sale después adentro es su respuesta.
+    if (emitir(m.tipo, crudo, m) && m.tipo === 'pregunta') m.item.pregunta = true;
   };
   /** Todo lo pendiente sale en orden de lectura: lo de abajo de la pila se escribió antes. */
   const vaciarTodo = () => { for (const m of pila) vaciar(m); };
@@ -302,7 +338,10 @@ export function extraerBloques(htmlCrudo: string): BloqueLanding[] {
     if (r.rol === 'bloque') {
       vaciarTodo();
       const enNav = juntador().enNav || pila[pila.length - 1].enNav || tag === 'nav' || (atributo(attrs, 'role') ?? '').toLowerCase() === 'navigation';
-      if (!autocierre) pila.push({ tag, rol: 'bloque', tipo: r.tipo, textual: r.textual, partes: [], ctaPorClase: false, enNav });
+      // Un contenedor abre su ítem; un bloque de texto (un título, la pregunta, un párrafo) usa el de arriba.
+      const deArriba = pila[pila.length - 1].item;
+      const item = r.textual ? deArriba : { pregunta: false, padre: deArriba };
+      if (!autocierre) pila.push({ tag, rol: 'bloque', tipo: r.tipo, textual: r.textual, partes: [], ctaPorClase: false, enNav, item });
       continue;
     }
     if (r.rol === 'enlace') {
@@ -311,23 +350,41 @@ export function extraerBloques(htmlCrudo: string): BloqueLanding[] {
       // Un link DENTRO de una frase (un <p>, un <li>, o un contenedor que ya venía con texto) es parte
       // de la frase. Suelto, es navegación o un botón: decide al cerrar.
       const enFrase = !ctaPorClase && (arriba.textual || arriba.partes.join('').trim() !== '');
-      if (!autocierre) pila.push({ tag, rol: enFrase ? 'enlinea' : 'enlace', tipo: 'cta', textual: true, partes: [], ctaPorClase, enNav: pila[pila.length - 1].enNav });
+      if (!autocierre) pila.push({ tag, rol: enFrase ? 'enlinea' : 'enlace', tipo: 'cta', textual: true, partes: [], ctaPorClase, enNav: pila[pila.length - 1].enNav, item: pila[pila.length - 1].item });
       continue;
     }
-    if (!autocierre) pila.push({ tag, rol: 'enlinea', tipo: 'texto', textual: false, partes: [], ctaPorClase: false, enNav: pila[pila.length - 1].enNav });
+    if (!autocierre) pila.push({ tag, rol: 'enlinea', tipo: 'texto', textual: false, partes: [], ctaPorClase: false, enNav: pila[pila.length - 1].enNav, item: pila[pila.length - 1].item });
   }
   cerrarHasta(0);
   return out;
 }
 
-/** El copy plano, en el formato que leen el análisis y el esquema (`# título`, `[BOTÓN]`, `•`, `[PREGUNTA]`). */
+/**
+ * El copy plano, en el formato que leen el análisis y el esquema (`# título`, `[BOTÓN]`, `•`,
+ * `[DESPLEGABLE]`), un bloque por renglón.
+ *
+ * Tanda 6 (pendiente de las piezas del server): un desplegable se escribe con LA MISMA marca que el
+ * lector del navegador (lector.ts, `armarTextoLectura`): `[DESPLEGABLE] pregunta → respuesta` cuando
+ * la respuesta vino en el HTML (un <details>, un acordeón montado), y `[DESPLEGABLE] pregunta` cuando
+ * no. Antes eran dos formatos para lo mismo —`[PREGUNTA] x` con la respuesta suelta en el renglón de
+ * abajo—, y el modelo leía distinto la misma página según quién la hubiera leído.
+ */
 export function textoDeBloques(bloques: readonly BloqueLanding[]): string {
-  return bloques
-    .map((b) => (b.tipo === 'cta' ? `[BOTÓN] ${b.texto}`
+  const renglones: string[] = [];
+  for (let i = 0; i < bloques.length; i++) {
+    const b = bloques[i];
+    if (b.tipo === 'pregunta') {
+      // La respuesta: los bloques marcados que vienen pegados (una de varios párrafos va entera).
+      const respuesta: string[] = [];
+      while (bloques[i + 1]?.respuesta) respuesta.push(bloques[++i].texto);
+      renglones.push(`[DESPLEGABLE] ${b.texto}${respuesta.length ? ` → ${respuesta.join(' ')}` : ''}`);
+      continue;
+    }
+    renglones.push(b.tipo === 'cta' ? `[BOTÓN] ${b.texto}`
       : b.tipo === 'lista' ? `• ${b.texto}`
-        : b.tipo === 'pregunta' ? `[PREGUNTA] ${b.texto}`
-          : b.tipo.startsWith('h') ? `${'#'.repeat(Number(b.tipo[1]))} ${b.texto}` : b.texto))
-    .join('\n');
+        : b.tipo.startsWith('h') ? `${'#'.repeat(Number(b.tipo[1]))} ${b.texto}` : b.texto);
+  }
+  return renglones.join('\n');
 }
 
 export const contarPalabras = (t: string): number => t.split(/\s+/).filter(Boolean).length;

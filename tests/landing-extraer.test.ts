@@ -30,12 +30,27 @@
 // salida: abrir un bloque ya vacía lo pendiente de los de abajo, así que un <li> sin cerrar no se
 // come al siguiente con o sin él. Lo que cuida es la PROFUNDIDAD de la pila (una página vieja con
 // miles de <li>/<p> sin cerrar haría cuadrático cada vaciado), y eso no se mide con una salida.
+//
+// SEGUNDA PASADA (14/10/2026, pendientes de las piezas del server): la marca de un desplegable es la
+// del lector del navegador (`[DESPLEGABLE] pregunta → respuesta`, antes `[PREGUNTA]` con la respuesta
+// suelta abajo) y `bloqueada` va null en la fila de una página leída en el navegador. Base en verde
+// (13 pass), una rotura por vez, restaurada de memoria (sha256 igual). Pasan / fallan:
+//   · textoDeBloques vuelve a escribir `[PREGUNTA]` (lo de antes)                   -> 9 / 4
+//   · ninguna respuesta se marca (`respuesta = false`)                              -> 10 / 3
+//   · un contenedor no abre su ítem (todos comparten el de arriba)                  -> 10 / 3
+//   · trasPregunta mira sólo su ítem, sin la cadena (la región de Radix se pierde)  -> 10 / 3
+//   · la respuesta toma sólo el primer renglón                                      -> 11 / 2
+//   · bloqueadaParaGuardar devuelve la bandera de la página (lo de antes)           -> 12 / 1
+//   · landing-analyst.ts: filaAnalizada vuelve a `p.bloqueada`                      -> 12 / 1
+//   · landing-analyst.ts: el fallo después de una lectura guarda `pagina.bloqueada` -> 12 / 1
 // =============================================================================
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
-  ErrorDeLectura, MIN_PALABRAS, bloqueaLaLectura, copyDeHtml, extraerBloques, textoDeBloques, type BloqueLanding,
+  ErrorDeLectura, MIN_PALABRAS, bloqueaLaLectura, bloqueadaParaGuardar, copyDeHtml, extraerBloques, textoDeBloques, type BloqueLanding,
 } from '../lib/landing-extraer';
 
 const pares = (bs: BloqueLanding[]) => bs.map((b) => `${b.tipo}:${b.texto}`);
@@ -101,13 +116,22 @@ test('acordeón de Radix (como lo sirve un sitio con SSR): la pregunta es PREGUN
   const html = `<section><h2>Preguntas frecuentes</h2><div data-orientation="vertical">
     ${item('¿Cuánto dura el programa?', '<div class="pb-4 pt-0">Doce semanas, con una sesión por semana.</div>', 1)}
     ${item('¿Hay garantía?', '', 2)}
-  </div></section>`;
+  </div><p>¿Tienes otra duda? Escríbenos.</p></section>`;
   assert.deepEqual(pares(extraerBloques(html)), [
     'h2:Preguntas frecuentes',
     'pregunta:¿Cuánto dura el programa?',
     'texto:Doce semanas, con una sesión por semana.',
     'pregunta:¿Hay garantía?',
+    'texto:¿Tienes otra duda? Escríbenos.',
   ]);
+  // Tanda 6: la marca del lector del navegador. La respuesta montada va con su pregunta; la que no vino
+  // en el HTML no se inventa, y el párrafo de DESPUÉS del acordeón no se le pega a la última pregunta.
+  assert.equal(textoDeBloques(extraerBloques(html)), [
+    '## Preguntas frecuentes',
+    '[DESPLEGABLE] ¿Cuánto dura el programa? → Doce semanas, con una sesión por semana.',
+    '[DESPLEGABLE] ¿Hay garantía?',
+    '¿Tienes otra duda? Escríbenos.',
+  ].join('\n'));
 });
 
 test('acordeón armado con divs: la respuesta escondida con display:none se lee (antes no se leía ninguna)', () => {
@@ -123,15 +147,30 @@ test('acordeón armado con divs: la respuesta escondida con display:none se lee 
     'texto:¿Qué pasa si no me sirve?',
     'texto:Te devolvemos el dinero en 30 días.',
   ]);
+  // El que no se declara desplegable (sin aria-expanded ni role) se lee como texto, sin la marca.
+  assert.equal(textoDeBloques(extraerBloques(html)), [
+    '[DESPLEGABLE] ¿Puedo pagar en cuotas? → Sí, hasta en 6 cuotas sin interés.',
+    '¿Qué pasa si no me sirve?',
+    'Te devolvemos el dinero en 30 días.',
+  ].join('\n'));
 });
 
-test('details/summary: la pregunta y la respuesta, esté en un <p> o suelta', () => {
+test('details/summary: la pregunta y la respuesta, esté en un <p>, suelta o en varios renglones', () => {
   const html = `<details><summary>¿Cómo pago?</summary><p>Con tarjeta o transferencia.</p></details>
-    <details open><summary><strong>¿Cuándo empiezo?</strong></summary>El lunes siguiente a tu inscripción.</details>`;
+    <details open><summary><strong>¿Cuándo empiezo?</strong></summary>El lunes siguiente a tu inscripción.</details>
+    <details><summary>¿Qué incluye?</summary><p>Tres cosas:</p><ul><li>Las clases</li><li>La comunidad</li></ul></details>
+    <p>Un párrafo después de los desplegables.</p>`;
   assert.deepEqual(pares(extraerBloques(html)), [
     'pregunta:¿Cómo pago?', 'texto:Con tarjeta o transferencia.', 'pregunta:¿Cuándo empiezo?', 'texto:El lunes siguiente a tu inscripción.',
+    'pregunta:¿Qué incluye?', 'texto:Tres cosas:', 'lista:Las clases', 'lista:La comunidad', 'texto:Un párrafo después de los desplegables.',
   ]);
-  assert.match(textoDeBloques(extraerBloques(html)), /^\[PREGUNTA\] ¿Cómo pago\?\nCon tarjeta o transferencia\./);
+  assert.equal(textoDeBloques(extraerBloques(html)), [
+    '[DESPLEGABLE] ¿Cómo pago? → Con tarjeta o transferencia.',
+    '[DESPLEGABLE] ¿Cuándo empiezo? → El lunes siguiente a tu inscripción.',
+    '[DESPLEGABLE] ¿Qué incluye? → Tres cosas: Las clases La comunidad',
+    'Un párrafo después de los desplegables.',
+  ].join('\n'));
+  assert.doesNotMatch(textoDeBloques(extraerBloques(html)), /\[PREGUNTA\]/, 'volvió el formato viejo');
 });
 
 // ── 3. Los links y el menú ────────────────────────────────────────────────────
@@ -186,11 +225,31 @@ test('bloqueaLaLectura: 401/403/406/429 se leen en el navegador; un 404 o un err
   assert.equal(bloqueaLaLectura('403'), false);
 });
 
-test('el formato del texto plano: títulos con #, botones, renglones y preguntas marcados', () => {
+test('el formato del texto plano: títulos con #, botones, renglones y desplegables marcados', () => {
   assert.equal(
     textoDeBloques([{ tipo: 'h1', texto: 'A' }, { tipo: 'h3', texto: 'B' }, { tipo: 'cta', texto: 'C' }, { tipo: 'lista', texto: 'D' }, { tipo: 'pregunta', texto: 'E' }, { tipo: 'texto', texto: 'F' }]),
-    '# A\n### B\n[BOTÓN] C\n• D\n[PREGUNTA] E\nF',
+    '# A\n### B\n[BOTÓN] C\n• D\n[DESPLEGABLE] E\nF',
+  );
+  // Sólo lo marcado como respuesta se pega a la pregunta; una respuesta suelta (sin pregunta) es texto.
+  assert.equal(
+    textoDeBloques([{ tipo: 'pregunta', texto: 'G' }, { tipo: 'texto', texto: 'H', respuesta: true }, { tipo: 'lista', texto: 'I', respuesta: true }, { tipo: 'cta', texto: 'J' }, { tipo: 'texto', texto: 'K', respuesta: true }]),
+    '[DESPLEGABLE] G → H I\n[BOTÓN] J\nK',
   );
   assert.ok(todo(extraerBloques('<h5>Chico</h5>')).includes('Chico'));
   assert.deepEqual(pares(extraerBloques('<h5>Chico</h5>')), ['h3:Chico'], 'h4-h6 cuentan como h3');
+});
+
+// ── 5. Lo que se guarda de una página leída en el navegador ──────────────────
+
+test('bloqueada en la fila: null si la leyó el navegador (no sabemos), y lo de siempre si no', () => {
+  const base = { bloqueada: false };
+  assert.equal(bloqueadaParaGuardar({ ...base, leidaEnNavegador: { interacciones: [] } }), null);
+  assert.equal(bloqueadaParaGuardar({ bloqueada: true }), true, 'el copy pegado a mano sigue diciendo que no se lee sola');
+  assert.equal(bloqueadaParaGuardar(base), false);
+  // Y es lo que escribe el Landing Analyst en la fila, en el análisis y en el fallo.
+  const an = readFileSync(join(__dirname, '..', 'lib/landing-analyst.ts'), 'utf8').replace(/\r\n/g, '\n')
+    .replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+  const fila = an.slice(an.indexOf('function filaAnalizada('), an.indexOf('function filaError('));
+  assert.match(fila, /bloqueada: bloqueadaParaGuardar\(p\),/);
+  assert.doesNotMatch(an, /bloqueada: (p|pagina)\.bloqueada\b/, 'una fila volvió a guardar la bandera de la página tal cual');
 });

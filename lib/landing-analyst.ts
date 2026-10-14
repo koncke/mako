@@ -26,6 +26,7 @@ import { contenidoNoConfiable, getPromptText, renderPrompt } from './prompt-rend
 import { getFunnelDefault } from './funnels';
 import { perfilNegocioTexto } from './onboarding';
 import { extraerLanding, normalizarUrl, type LandingExtraida } from './landing-fetch';
+import { bloqueadaParaGuardar } from './landing-extraer';
 import { LINEA_LEIDA_EN_NAVEGADOR, lineasProbadas, mensajeEnNavegador, motivoDeError } from './editor-landing/lectura-reglas';
 import type { Lectura, MotivoEnNavegador } from './editor-landing/lectura-tipos';
 import { esPreviewDeEditor } from './landing-paginas';
@@ -541,7 +542,7 @@ function filaAnalizada(p: LandingExtraida, comp: LandingComportamiento, a: Anali
     fetch_ms: p.fetchMs,
     html_bytes: p.htmlBytes,
     palabras: p.palabras,
-    bloqueada: p.bloqueada,
+    bloqueada: bloqueadaParaGuardar(p),
     error: null,
     model,
     analysis_version: ANALYSIS_VERSION,
@@ -640,8 +641,10 @@ const MSG_SPA = (palabras: number) =>
  * Mauricio "No pude leer el texto de esa página". Soluciona eso...»):
  *   · `opts.lectura`: la página LEÍDA en el navegador de la persona (el lector del
  *     Diagnóstico, ya saneada con `sanearLectura`). También saltea la descarga, y
- *     el `meta` dice que se leyó así y qué se probó. `bloqueada` queda false: no
- *     sabemos si el server la lee, y no hay por qué decir que no.
+ *     el `meta` dice que se leyó así y qué se probó. En la página `bloqueada` es
+ *     false (no hay por qué frenar el análisis), y en la FILA va null
+ *     (`bloqueadaParaGuardar`, landing-extraer.ts): si el server la lee o no, no
+ *     lo sabemos. Antes guardaba false, que afirmaba «el server la lee» sin probarlo.
  *   · `opts.leer`: la dirección TAL CUAL la pegó la persona, para BAJAR (con su
  *     www: hay hosts que sólo existen con www). La normalizada sigue siendo la
  *     llave de la fila; si `leer` no es la misma página, se ignora.
@@ -670,7 +673,7 @@ export async function analizarLanding(
       url, urlFinal: url, titulo: '', descripcion: '', bloques: [],
       texto, palabras: palabrasDe(texto),
       htmlBytes: 0, fetchMs: 0,
-      bloqueada: false,
+      bloqueada: false,   // en la fila va null: `bloqueadaParaGuardar`
       leidaEnNavegador: { interacciones: opts.lectura.interacciones },
     };
   } else if (manual) {
@@ -712,7 +715,7 @@ export async function analizarLanding(
   if (!res.ok) {
     await guardarFallo(url, res.error, {
       url_final: pagina.urlFinal, titulo: pagina.titulo || null,
-      fetch_ms: pagina.fetchMs, html_bytes: pagina.htmlBytes, palabras: pagina.palabras, bloqueada: pagina.bloqueada,
+      fetch_ms: pagina.fetchMs, html_bytes: pagina.htmlBytes, palabras: pagina.palabras, bloqueada: bloqueadaParaGuardar(pagina),
     }).catch(() => { /* la fila es trazabilidad: el error ya se devuelve igual */ });
     return { ok: false, error: res.error, url };
   }
