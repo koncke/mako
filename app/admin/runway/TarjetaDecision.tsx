@@ -22,8 +22,9 @@ export function TarjetaDecision({ d, responder }: { d: Decision; responder: Acci
   return (
     <article className={`decisiones-tarjeta decisiones-tarjeta--${d.urgencia}`} aria-busy={pendiente}>
       <p className="decisiones-chat">{d.chat}</p>
-      {d.contexto && <p className="decisiones-contexto">{d.contexto}</p>}
+      {/* La pregunta va primero y grande; el porqué, debajo y chico: se lee si hace falta. */}
       <h3 className="decisiones-pregunta">{d.pregunta}</h3>
+      {d.contexto && <p className="decisiones-contexto">{d.contexto}</p>}
       {d.destraba && (
         <p className="decisiones-destraba"><span>Destraba</span>{d.destraba}</p>
       )}
@@ -43,8 +44,13 @@ export function TarjetaDecision({ d, responder }: { d: Decision; responder: Acci
                 <button key={o.clave} type="submit" name="clave" value={o.clave} disabled={pendiente}
                   aria-pressed={elegida}
                   className={`decisiones-opcion${elegida ? ' decisiones-opcion--elegida' : ''}`}>
-                  <b>{o.clave}</b><span>{o.texto}</span>
-                  {d.recomendada === o.clave && <em className="decisiones-reco">Recomendada</em>}
+                  {/* La marca va ARRIBA del texto, no al costado: al costado le comía el ancho y
+                      una opción de cinco palabras salía en cuatro renglones. */}
+                  <b>{o.clave}</b>
+                  <span>
+                    {d.recomendada === o.clave && <em className="decisiones-reco">Recomendada</em>}
+                    {o.texto}
+                  </span>
                 </button>
               );
             })}
