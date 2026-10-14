@@ -2167,7 +2167,7 @@ export const BITACORA: Hito[] = [
     ],
   },
   {
-    fecha: '14 oct', hora: '01:40', chat: 'CRM', cuenta: 'claude2',
+    fecha: '14 oct', hora: '01:15', chat: 'CRM', cuenta: 'claude2',
     actor: 'claude', tipo: 'investigacion',
     titulo: 'Meta CAPI revisado: a dónde va «¿Era calificado?», y la tarjeta ya no afirma de más',
     puntos: [
@@ -2185,7 +2185,7 @@ export const BITACORA: Hito[] = [
     ],
   },
   {
-    fecha: '14 oct', hora: '01:50', chat: 'CRM', cuenta: 'claude2',
+    fecha: '14 oct', hora: '01:29', chat: 'CRM', cuenta: 'claude2',
     actor: 'claude', tipo: 'implementacion',
     titulo: 'El Resumen del lead, personalizable: qué datos y qué formularios se ven',
     puntos: [
@@ -2205,7 +2205,7 @@ export const BITACORA: Hito[] = [
     ],
   },
   {
-    fecha: '14 oct', hora: '02:20', chat: 'CRM', cuenta: 'claude2',
+    fecha: '14 oct', hora: '01:41', chat: 'CRM', cuenta: 'claude2',
     actor: 'claude', tipo: 'implementacion',
     titulo: 'La oferta del lead y los datos nuevos del contacto, en la API de MaKo',
     puntos: [
@@ -2218,7 +2218,7 @@ export const BITACORA: Hito[] = [
     archivos: ['lib/oferta-lead.ts', 'lib/api-mako/areas/crm.def.ts', 'lib/api-mako/areas/crm.run.ts', 'lib/api-mako/rest.ts', 'docs/api-mako.md'],
   },
   {
-    fecha: '14 oct', hora: '03:00', chat: 'Automations', cuenta: 'claude2',
+    fecha: '14 oct', hora: '02:20', chat: 'Automations', cuenta: 'claude2',
     actor: 'martin', tipo: 'prompt',
     titulo: 'Mover a mano pregunta la hora',
     pedido: 'con respecto a la fecha, si, sería bueno que si se mueve a mano, se pregunte la hora',
@@ -2227,7 +2227,7 @@ export const BITACORA: Hito[] = [
     archivos: [],
   },
   {
-    fecha: '14 oct', hora: '03:20', chat: 'CRM', cuenta: 'claude2',
+    fecha: '14 oct', hora: '02:27', chat: 'CRM', cuenta: 'claude2',
     actor: 'claude', tipo: 'correccion',
     titulo: 'Tres cosas que MaKo hacía «por detrás» mal, y la hora al mover a mano',
     puntos: [
@@ -2246,5 +2246,16 @@ export const BITACORA: Hito[] = [
       'app/crm/horarios-respuesta.ts — instanteDeReunionManual',
       'app/crm/StageMoveDialog.tsx — FechaYHora',
     ],
+  },
+  {
+    fecha: '14 oct', hora: '03:06', chat: 'CRM', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Feedback del 14/10: reproductor, etiquetas, chat de MaKo, constructor por bloques, A revisar y clic derecho',
+    pedido: "Mira como se ve el reproductor, completamente roto... No hagas un desplegable de eso, que viva dentro de la sección \"Grabación de su visita\" en tracking...\n\nY la etiqueta, vuelve a como estaba antes, pero que esté ubicado donde esta ahora... Antes estaba bien el diseño, yo me refería a \"+2\" cuando son más de 1 etiqueta seleccionada, pero la primera siempre debe estar visible normalmente.\n\nNo veo nada sobre el chat de MaKo y las recomendaciones...\n\nLa tab de \"pagos\" aún no es personalizable... El usuario debería elegir que quiere ver y que no... Y debería poder editar todo siempre en la misma tab, sin la redirección o \"Editar deal →\", eso esta muy mal, deprecalo completamente de todos lados.\n\nPor otro lado, todos los personalizables, no los hagas con un modal diferente al que el usuario ya ve... Que replique la edición que tenemos en \"Dashboard\" y \"Landing Generator\", que sea un constructor por bloques, donde el usuario puede editar completamente, y tiene templates...\nQue pueda elegir que bloques poner, que diseño, tamaño, etc... Eso para todos los personalizables...\nY en ese personalizable también ya se podría elegir los datos para las notificaciones de \"datos sin marcar\". Entonces con esto, ya eliminarías en los 3 puntos los botones de \"avisos y resumen\".\nTambién elimina todos los subtitulos de los botones de los 3 puntos.\n\nY elimina el botón de \"CRM Automático\", para eso ya llevamos todo a Automations...\nSi quedó algo pendiente, llevalo como template a automations.\n\nEl desplegable de \"A revisar\" si toco otra cosa, se debería cerrar.\nNo pongas muchas filas del mismo lead, en todo caso un número de cuantos datos sin revisar tiene...\nNo pongas subtitulos, pon antes del nombre la foto de perfil.\nQue el botón de revisar sea azul y con una flecha, no un lapiz. Y el botón de ignorar que sea una X.\nNo pongas para cerrarlo un botón que dice \"después\", pon una X.\n\nE implementa el click derecho en todo el CRM para diferentes acciones dependiendo donde clickee...",
+    puntos: [
+      'Con dos capturas: la grabación de la visita rota dentro de un modal, y «Nueva hoja» del Dashboard como molde de los personalizables.',
+    ],
+    commits: [],
+    archivos: [],
   },
 ];
