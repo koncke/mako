@@ -34,6 +34,8 @@ de primera mano: este chat coordinó los pushes del 13 y el 14/10. Reemplaza a e
   Image Editor (tandas 1 y 2) y el relevo de Automations. Las tres migraciones de «nada por detrás» corrieron
   (la 3ª, 8 automatizaciones, verificada por Automations).
 - **CRM arranca la tanda B**: la integra el orquestador, y que el CRM NO rebasee su rama.
+- **En cola para el próximo push (sin apuro, no cambia producción):** `editor-imagen` `61d442a7` (ff sobre
+  `fac319092`): docs del Image Editor y `tests/image-editor-dependencias.test.ts`.
 - **Nunca** pushear `wip/api-acciones-1410` («A MEDIAS») ni `api-acciones-1310`.
 - **Rojo conocido en HEAD:** `tests/cobranza.test.ts` (lo reportó General; no frena el push).
 - **Martín tiene que confirmar el borrador de 50 tareas** del Perro: https://hola-mako.com/plan/revisar/propmv7rwo1dkj2i6
