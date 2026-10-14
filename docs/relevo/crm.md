@@ -33,6 +33,21 @@ Workflows: tanda A `wf_d8dfde6d-689`; catálogo de bloques `wf_70de8f94-88b`, qu
 en wtcrm5 (los journals están en `~/.claude/projects/<proyecto>/debe2ade-…/subagents/workflows/<runId>/journal.jsonl`).
 Al terminar: se revisa cada rama, se mergea en `fb1410`, se corren los tests, se cosecha y se pushea.
 
+**ESTADO AL 14/10 ~12:15. TANDA B1 CORRIENDO: `wf_0132bb27-e06`** (script en el scratchpad de la sesión debe2ade,
+`tanda-b1.js`; con tope de 3 agentes a la vez por RAM). Martín: «Si, avanza con todo y pushea» → las 7 decisiones del
+catálogo están TOMADAS (§1 de docs/diseno-ficha-bloques.md, `1f075a2b8`). Cinco frentes, cada uno en su worktree, que salen
+de `crm-bloques`:
+- `wtc-b1` el motor (lib/ficha/**, config por funnel, avisos por funnel, el arreglo de los dos ignorados, ops
+  ver/cambiar_ficha_funnel) y después el armador (un solo armador para las dos puertas, el modo Personalizar, y se van
+  ResumenModal y AvisosDatosModal).
+- `wtc-b2` Pagos campo por campo (merge, cuotas por id, lo cobrado puro, la moneda).
+- `wtc-b3` los tipos de «Nuevo CRM».
+- `wtc-b4` la captura (el @ de IG, la primera entrada social, la página de registro, lo que lee MaKo).
+- `wtc-b5` las plantillas T1/T2/T3/T6 en Automations (avisado al chat de Automations).
+Si se corta: relanzar con `resumeFromRunId`. Después: revisar, mergear en `crm-bloques`, numerar las migraciones `XXXX`,
+tests, y lanzar la **tanda B2**: los bloques de cada tab sobre los registros que deja b1 (Resumen, charlas, Reuniones y
+Tracking, Pagos sin «Editar deal», CS). Después cosecha y push: Martín pidió pushear.
+
 **ESTADO AL 14/10 ~11:20.** Los puntos 1 a 5 de abajo están HECHOS: `fb1410` @ `adaa18103` (tests 1478/0) está en manos
 de Estrategia 3 CUENTAS, que la suma al push que sigue al de General y Automations. **No mover `fb1410`.** Los worktrees
 `wtc-a1..a6` están borrados, pero sus ramas quedan. La tanda B va en la rama `crm-bloques`, en el mismo worktree `wtcrm5`.
