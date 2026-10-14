@@ -26,8 +26,8 @@
 // =============================================================================
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { usePathname } from 'next/navigation';
 import Link, { useRouter } from '@/app/_ui/Link';
+import { useRutaInterna } from '@/app/_components/VistaMovil';
 import { Icon } from '@/app/_components/icons';
 import { MakoLogo } from '@/app/_components/MakoBrand';
 import { ATTR_MODO, LS_MODO } from '@/lib/temas-candidatos';
@@ -77,7 +77,9 @@ export function ShellM({
   cliente: { nombre: string } | null;
   children: ReactNode;
 }) {
-  const pathname = usePathname() || '';
+  // La ruta INTERNA (/m/crm/12), no la URL: con LAS MISMAS RUTAS (13/10/2026) el navegador dice
+  // /crm/12 y la cabecera, la barra y el nivel de la animación hablan en rutas /m.
+  const pathname = useRutaInterna();
   const router = useRouter();
 
   // ── La cabecera: lo de siempre para la ruta, o lo que pise la página ─────

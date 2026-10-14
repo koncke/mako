@@ -34,9 +34,10 @@ export default async function Inicio() {
     // En el teléfono, el admin SIN cliente va a /m de SU negocio: `requireMovil` le pone el `?ws=`
     // del workspace de plataforma. Hasta el 12/10/2026 iba a /customer-success y el desvío lo dejaba
     // en el escritorio (Martín: «No aún no veo la versión mobile, me sale todo igual...»).
-    if (ws == null) redirect(telefono ? '/m' : '/customer-success');
+    // Con LAS MISMAS RUTAS (13/10/2026) el teléfono va a /general: el proxy le sirve ahí Today.
+    if (ws == null) redirect(telefono ? '/general' : '/customer-success');
   }
-  if (telefono) redirect(await rutaConWs('/m'));
+  if (telefono) redirect(await rutaConWs('/general'));
   // ⚠️ TODOS los destinos de acá van con `rutaConWs`. Este archivo es EL repartidor:
   // si pierde la pestaña, el admin que abre un cliente termina mirando otra cuenta con
   // el chrome de admin puesto — se lee como «la app se rompió», no como «me cambió de

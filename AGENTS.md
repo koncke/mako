@@ -2301,6 +2301,15 @@ La guardia es `tests/landing-snippet-emitido.test.ts`: reconstruye el snippet ap
 reglas de escape y lo audita contra los propios detectores. **Si escribís código generado,
 el test mira lo EMITIDO, no el fuente.**
 
+⚠️ **Y EL MINIFICADOR DEL BUILD TAMBIÉN CAMBIA EL TEXTO: un texto armado con constantes va en UN
+SOLO template literal.** El SWC de Next junta los templates unidos con `+` cuyas `${…}` son todas
+constantes y se COME lo que queda entre ellos (`` `a${K}b` + `c` + `d${J}e` `` sale `"akkdjje"`).
+Medido el 13/10/2026: el script del tema de /m llegaba a producción como `getItem('mako.modoif(o){…`
+—un SyntaxError en cada página— con el fuente perfecto. Un archivo suelto puede minificar bien (el build
+mete constantes importadas que el archivo solo no): lo fija `tests/minificador-templates.test.ts`, que
+barre el repo y pasa los scripts por el SWC con las constantes adentro. El detalle, en
+`docs/hallazgos-infra.md` → «El minificador se come texto».
+
 ⚠️ **Y LA LANDING NO SE EDITA A MANO: `app/vsl/landing-html.ts` ES GENERADO.** No es un
 template literal — son **170.816 caracteres** de un string entre comillas dobles,
 auto-generado desde Claude Design. Se lee como un archivo fuente y no lo es: cualquier
@@ -7804,14 +7813,24 @@ técnicas están en [docs/diseno-mako-mobile.md](docs/diseno-mako-mobile.md), lo
 [docs/diseno-mako-mobile-v2.md](docs/diseno-mako-mobile-v2.md) con su prototipo, y lo que costó en
 [docs/hallazgos-mobile.md](docs/hallazgos-mobile.md).
 
+- **LAS MISMAS RUTAS (13/10/2026, decisión de Martín): /m es la carpeta INTERNA, nunca una URL.** Un teléfono abre
+  /crm, /general, /plan… y el proxy le sirve la página de /m en esa misma URL (`pedidoMovil`, lib/movil-desvio.ts);
+  una URL /m vieja se redirige a la de escritorio. Adentro de /m todo sigue hablando en rutas /m: al NAVEGAR, `conWs`
+  las traduce (`rutaEscritorio`), así que un `href="/m/…"` sale bien solo — pero un `redirect('/m…')` PELADO, sin
+  `rutaConWs`, no pasa por ahí. Al LEER la URL, el shell usa `useRutaInterna`. **Una página nueva de app/m necesita su
+  fila en `rutaEscritorio`** (y, si sólo existe en el teléfono, en `SOLO_TELEFONO`, con su respaldo de escritorio):
+  `tests/movil-mismas-rutas.test.ts` recorre cada page.tsx y falla nombrándola.
 - **«¿Es móvil?» se pregunta con `esRutaMovil` (`lib/movil-rutas.ts`), nunca con `startsWith('/m')`**: eso
-  atrapa /mako, /marketing y la ruta PÚBLICA /m.js del Pixel.
+  atrapa /mako, /marketing y la ruta PÚBLICA /m.js del Pixel. **Y lo del layout raíz pregunta `useVistaMovil()`**
+  (app/_components/VistaMovil.tsx): con LAS MISMAS RUTAS el navegador dice /crm, y `esRutaMovil(pathname)` sola no
+  sabe que es un teléfono — el Sidebar se dibujaría encima de la página de /m.
 - **Cada `page.tsx` de /m llama a `requireMovil` (`lib/movil-guard.ts`)**, nunca a `requireRolWs`/`requireCapa`:
   esos redirigen a pantallas de escritorio y sacan a la persona de la app. Los layouts no se re-ejecutan al navegar.
 - **Qué destino ve cada rol sale de `lib/movil-rutas.ts`** (la misma regla del Sidebar: `rolesWs` + capa). Un destino
   nuevo declara la key de `nav.ts` que refleja; no hay segunda tabla de permisos.
-- **Un link de escritorio que va al teléfono pasa por `rutaMovil`/`rutaMovilOHome`**, y uno que SALE (un push) por
-  `linkApp` — salvo al workspace de plataforma, que va sin `?ws=` (para un admin global es impersonación).
+- **Un link de escritorio que va al teléfono pasa por `rutaMovil`/`rutaMovilOHome`** (qué pantalla del teléfono es), y
+  uno que SALE (un push) por `linkApp`, que lo devuelve como URL de escritorio — salvo al workspace de plataforma, que
+  va sin `?ws=` (para un admin global es impersonación).
 - **Primitivas de `app/m/_ui`** (el contrato en `app/m/_ui/LEEME.md`: ListaM, FilaM, FilaDatoM, SeccionM, SheetM,
   PieM, PieFijoM, SegmentadoM, InterruptorM, CasillaM, PildoraM, ComputadoraM, TarjetaDecision, useToastM…), nunca
   `Pagina`, `Modal`, `Tooltip` ni `.mk-btn--sm` (son de escritorio). Si dos pantallas dibujan la misma pieza, es una
@@ -7829,8 +7848,8 @@ técnicas están en [docs/diseno-mako-mobile.md](docs/diseno-mako-mobile.md), lo
   hoja cargada al salir de la ruta, y dos prefijos abreviados iguales se pisan entre pantallas.
 - **Desde /m, una pantalla de escritorio se abre escribiendo la cookie de vista de escritorio y navegando con
   `conWs`** (como «Versión de computadora»): un link pelado lo devuelve el desvío a /m.
-- **MaKo Mobile se prende con UN interruptor, `MOVIL_ACTIVO` (lib/movil-desvio.ts)**: el reparto de /inicio y el
-  desvío de las pantallas de escritorio en un teléfono (<DesvioMovil>). Está PRENDIDO desde el 11/10/2026 (Martín:
+- **MaKo Mobile se prende con UN interruptor, `MOVIL_ACTIVO` (lib/movil-desvio.ts)**: el reparto de /inicio, el
+  rewrite del proxy y la cubierta de «se usa en la computadora» en un teléfono (<DesvioMovil>, que ya no navega). Está PRENDIDO desde el 11/10/2026 (Martín:
   «a cualquiera que entre desde mobile le debe salir este diseño»). Con él prendido, **cada ruta que se suma a
   `rutaMovil` se mira contra los redirects de `requireMovil`** (el admin sin cliente armaba un bucle
   /customer-success → /m/cs → /inicio), **lo público no se tapa nunca** (`esPublica`), y la página de una sección

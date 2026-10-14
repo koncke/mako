@@ -71,7 +71,11 @@ export function DashboardM({ hojas, hojaInicial, periodo, periodos, fichaLead }:
     if (!pedido || abierto) return;
     const u = new URL(window.location.href);
     u.searchParams.set('periodo', pedido.id);
-    u.searchParams.set('hoja', hoja.id);
+    // ⚠️ `hoja` sólo con el segmentado (Marketing | Comercial). Con LAS MISMAS RUTAS (13/10/2026) la URL
+    // es /dashboard, y ahí `?hoja=<otra>` ES la página de una hoja propia (lib/movil-rutas.ts →
+    // `rutaMovil`): al closer (una sola hoja, la suya) cambiarle el período lo mandaba a esa página, que
+    // lo devuelve a /dashboard SIN el período. Con una hoja, la hoja ya la dice la URL.
+    if (hojas.length > 1) u.searchParams.set('hoja', hoja.id);
     u.searchParams.delete('sheet');
     empezar(() => router.replace(`${u.pathname}?${u.searchParams.toString()}`, { scroll: false }));
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -5570,3 +5570,35 @@ posterior al leído, o una revisión. La primera escritura (esperado `null`) sí
 
 **Vive en:** `lib/settings.ts` · `lib/automatizacion-chat-db.ts` (el que ya lo esquiva) · *2026-10-12 duodécima
 tanda de Automations*
+
+## El minificador se come texto: templates de constantes unidos con `+` (13/10/2026)
+
+**Síntoma:** en la consola de producción, en CADA página de MaKo Mobile, `SyntaxError: missing ) after argument list`.
+El script que pone el tema oscuro antes del primer pintado (`app/m/_ui/tema.ts`) llegaba al navegador como
+`localStorage.getItem('mako.modoif(o){…` — le faltaba `');var o=g==='oscuro';` —, y el fuente se leía perfecto y
+parseaba (195 caracteres; lo servido, 173).
+
+**Causa (reproducida con `transform` de `next/dist/build/swc`, minify + compress):** el SWC de Next 16.2 junta en un
+solo string los templates unidos con `+` cuyas `${…}` son TODAS constantes, y al juntarlos pierde el texto que queda
+entre la última constante de un template y la primera del siguiente:
+
+    const K = 'kk', J = 'jj';
+    `a${K}b` + `c` + `d${J}e`   →   "akkdjje"      (se pierden «b» y «c»)
+
+Con una variable en cualquiera de los dos templates no pasa (queda un template, que no se dobla). Y en un archivo
+suelto SWC a veces NO mete la constante (si se usa varias veces), así que probar el archivo solo puede dar bien: en el
+build sí la metió, y era una constante IMPORTADA (`LS_MODO`, de lib/temas-candidatos.ts).
+
+**El diagnóstico obvio era el equivocado:** «un comentario `//` entre los templates» — estaba ahí, y no tiene nada que
+ver (sin comentarios falla igual).
+
+**La regla:** un texto armado con constantes —un `<script>` inline, una URL, un snippet— va en UN SOLO template literal
+(o con `[…].join('')`), nunca partido en templates con `+`. Y lo que se emite se prueba EMITIDO: un test que lee el
+fuente da verde sobre esto. Lo fija `tests/minificador-templates.test.ts`: barre el repo buscando la forma (templates
+unidos con `+` cuyas `${…}` son todas identificadores en MAYÚSCULAS) y pasa los dos scripts de tema por el SWC del build
+con las constantes adentro. Barrido del 13/10: 41 concatenaciones de templates en el repo, 2 con la forma peligrosa (el
+tema de /m, roto en producción, y `TemaOscuroScript.tsx`, que en el archivo suelto salía bien); las dos pasaron a un
+solo template.
+
+**Vive en:** `app/m/_ui/tema.ts` · `app/_components/TemaOscuroScript.tsx` · `tests/minificador-templates.test.ts` ·
+*2026-10-13 chat MaKo Mobile (cuenta 2)*

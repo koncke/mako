@@ -3,7 +3,36 @@
 <sub>Escrito por el chat «MaKo Mobile» (cuenta 3) el 11/10/2026 a las 15:00, al cruzar el 85% de uso
 semanal. Material de primera mano: lo hizo este chat.</sub>
 
-## ⚠️⚠️⚠️⚠️⚠️ 12/10, 09:26 — LO PRÓXIMO: LAS MISMAS RUTAS (pedido de Martín, NO hecho)
+## ⚠️⚠️⚠️⚠️⚠️⚠️ 13/10 (cuenta 2) — LAS MISMAS RUTAS, HECHO; el CRM que abría vacío y un script roto en producción
+
+Retomado por pedido de Martín («En la cuenta 3 quedaron muchos pendientes… dile a esos chats que continuen y cierren lo
+que ya habiamos planificado»). En la rama `mobile-mismas-rutas` del worktree `.claude/worktrees/wt-mobile`; si ya está
+en `main` lo dice `git log --oneline -5 -- proxy.ts`.
+
+- **LAS MISMAS RUTAS:** el teléfono abre /crm, /general, /plan… y el proxy le sirve /m en esa URL (rewrite); una URL /m
+  vieja redirige a la de escritorio; los links de /m salen traducidos por `conWs`. Las pantallas sólo del teléfono
+  tienen URL propia: /mas, /configurar, /perfil/instalar, /crm/<id>/chat. Detalle: docs/hallazgos-mobile.md → «LAS MISMAS
+  RUTAS». Verificado con tests (incluido el proxy de verdad con UA de iPhone). **NO mirado en un navegador**: la máquina
+  estuvo con 0,5-2 GB libres toda la sesión, sin lugar para un `next dev` ni para el typecheck (el vigía lo mató).
+- **«El CRM no funciona»: medido en producción** (ws9, sólo leyendo): abría «Nada pendiente por hoy.» con 13 leads. Ahora,
+  sin nada pendiente, muestra las etapas con su conteo. La ficha, el filtro y el chat se dibujaron bien.
+- **Un SyntaxError en cada página de /m** (el script del tema, roto por el minificador del build): arreglado y con guard.
+- ⚠️ **EL TYPECHECK NO CORRIÓ** (14/10, cierre pedido por Martín). Dos intentos: al primero lo mató el vigía de RAM;
+  el segundo se quedó sin heap, porque el lock lo larga con 2 GB (`CAP_HEAP_MB = 2048`, un cambio SIN COMMITEAR de
+  «Fallas en la PC» en `scripts/typecheck-lock.mjs` del clon). Lo que sí está en verde: los tests de todo lo tocado
+  (movil-*, m-*, push, links con ws, alumno-sesion, layout-sin-suspense, titulo, crm-tablero: 300+). **Antes de pushear
+  esta rama, el typecheck tiene que pasar.** Archivos tocados: `proxy.ts`, `lib/movil-rutas.ts`, `lib/movil-desvio.ts`,
+  `lib/ws-tab.ts`, `lib/push-payload.ts`, `app/_components/{VistaMovil,DesvioMovil,PublicRouteGate,NotificationsProvider,
+  MakoConfirmGate,AvisoPixelViejo,TituloTab,TemaOscuroScript}.tsx`, `app/layout.tsx`, `app/inicio/page.tsx`,
+  `app/manifest.ts`, `public/sw.js`, `app/m/_ui/{ShellM.tsx,tema.ts}`, `app/m/crm/ListaCrm.tsx`,
+  `app/m/dashboard/DashboardM.tsx`, y los tests `tests/movil-mismas-rutas.test.ts` y `tests/minificador-templates.test.ts`.
+- **Lo que mirar primero, con el deploy:** en un teléfono, /crm, /general, una ficha (/crm/<id>) y More (/mas): que se vea
+  la versión del teléfono con la URL de escritorio, y que la computadora siga igual en esas mismas URLs.
+- **Sigue sin hacer:** probar en un iPhone y un Android reales (la ficha: agendar, mover, dictar; el chat con PDF; la
+  franja de la barra de estado; instalar; los avisos). Y dos decisiones de Martín: el título «Perfil» o «Cuenta», y si
+  desde el teléfono se gastan créditos de Flow.
+
+## ✅ 12/10, 09:26 — LAS MISMAS RUTAS (pedido de Martín) — HECHO el 13/10, ver arriba
 
 Martín, textual, mirando /m/hoy en su celular: «de igual manera esta mal porque se ve muy chiquito todo,
 no como una app de celular... Y sobre todo lo que esta mal es que funcione por rutas, eso no debe ser

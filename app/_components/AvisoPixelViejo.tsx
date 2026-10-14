@@ -21,6 +21,7 @@ import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import Link, { useWs } from '@/app/_ui/Link';
 import { esVistaSinChrome } from './PublicRouteGate';
+import { useVistaMovil } from './VistaMovil';
 import { RUTA_PIXEL, ROTULO_PIXEL_VIEJO } from '@/lib/pixel-aviso';
 
 const SANS = "'Geist', sans-serif";
@@ -28,7 +29,9 @@ const SANS = "'Geist', sans-serif";
 export function AvisoPixelViejo() {
   const pathname = usePathname();
   const ws = useWs();
-  const sinChrome = esVistaSinChrome(pathname) || (pathname ?? '').startsWith('/login');
+  // `useVistaMovil`: en el teléfono, /crm es la página de /m (LAS MISMAS RUTAS, app/_components/VistaMovil.tsx).
+  const movil = useVistaMovil();
+  const sinChrome = movil || esVistaSinChrome(pathname) || (pathname ?? '').startsWith('/login');
   const [estado, setEstado] = useState<{ viejo: boolean; instalada: number | null } | null>(null);
 
   useEffect(() => {

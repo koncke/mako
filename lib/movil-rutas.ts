@@ -226,6 +226,12 @@ export function rutaMovil(href: string | null | undefined): string | null {
   if (p === '/general' || p === '/focus' || p === '/inicio') return HOME_MOVIL;
   if (p === '/mako/pendientes' || p.startsWith('/mako/revisar') || p.startsWith('/crm/revisar') || p.startsWith('/plan/revisar')) return '/m/inbox';
   if (p === '/mako' || p === '/mako-doer') return '/m/mako';
+  // Las pantallas que SÓLO existen en el teléfono, con la URL que muestran (`SOLO_TELEFONO`).
+  const chat = p.match(/^\/crm\/(\d+)\/chat$/);
+  if (chat) return `/m/crm/${chat[1]}/chat`;
+  if (p === '/mas') return RUTA_MAS;
+  if (p === '/configurar') return '/m/configurar';
+  if (p === '/perfil/instalar') return '/m/cuenta/instalar';
   const lead = p.match(/^\/crm\/(\d+)(?:\/resumen)?$/);
   if (lead) return `/m/crm/${lead[1]}`;
   if (p === '/crm') return '/m/crm';
@@ -259,4 +265,101 @@ export function rutaMovil(href: string | null | undefined): string | null {
 /** Para un link que SALE (un Web Push): el equivalente móvil o, si no hay, la home. */
 export function rutaMovilOHome(href: string | null | undefined): string {
   return rutaMovil(href) ?? HOME_MOVIL;
+}
+
+// =============================================================================
+// LAS MISMAS RUTAS (12/10/2026): /m es la carpeta INTERNA, nunca una URL
+// =============================================================================
+// Martín, mirando /m/hoy en su celular: «lo que esta mal es que funcione por rutas, eso no debe
+// ser así... Las rutas deben ser las mismas, solo debe detectar si estoy en mobile». O sea: el
+// teléfono abre /crm, /general, /plan… con la MISMA URL que la computadora, y el proxy le sirve la
+// página de /m (`NextResponse.rewrite`, proxy.ts → `pedidoMovil` de lib/movil-desvio.ts).
+//
+// Adentro de /m todo sigue hablando de rutas /m (la cabecera, la barra, el nivel de una pantalla):
+// es la representación interna. Hay DOS fronteras, una por sentido, y cada una es UNA función:
+//   · al LEER la URL del navegador → `rutaInterna` (lo que /m sabe dibujar);
+//   · al NAVEGAR → `rutaEscritorio`, que la aplica `conWs` (lib/ws-tab.ts), por donde pasan las
+//     cinco formas de navegar (Link, router, redirect, window.location, linkApp). Un href '/m/…'
+//     escrito en una pantalla sale como la ruta de escritorio sin que nadie se acuerde.
+// tests/movil-rutas.test.ts fija la ida y vuelta de cada página de app/m.
+// =============================================================================
+
+/**
+ * Las pantallas que existen SÓLO en el teléfono, con la URL que muestran y a dónde lleva esa URL
+ * si la abre una computadora (o un teléfono con «Versión completa»): el proxy la redirige ahí.
+ */
+export const SOLO_TELEFONO: ReadonlyArray<{ url: RegExp; computadora: (m: RegExpMatchArray) => string }> = [
+  { url: /^\/mas$/, computadora: () => '/general' },
+  { url: /^\/configurar$/, computadora: () => '/onboarding' },
+  { url: /^\/perfil\/instalar$/, computadora: () => '/perfil' },
+  { url: /^\/crm\/(\d+)\/chat$/, computadora: (m) => `/crm/${m[1]}` },
+];
+
+/** Si `pathname` es una pantalla SÓLO del teléfono, a dónde va en la computadora; si no, null. */
+export function respaldoEscritorio(pathname: string | null | undefined): string | null {
+  const p = (pathname ?? '').replace(/\/+$/, '') || '/';
+  for (const s of SOLO_TELEFONO) {
+    const m = p.match(s.url);
+    if (m) return s.computadora(m);
+  }
+  return null;
+}
+
+/**
+ * La URL que se MUESTRA para una ruta interna de /m: la de escritorio, con la query y el `#`
+ * intactos (el `?ws=` incluido). Lo que no es /m vuelve tal cual. Una ruta /m que no está en la
+ * tabla también (va a dar 404 como antes, y el test de ida y vuelta la nombra).
+ */
+export function rutaEscritorio(href: string): string {
+  // Barato a propósito: lo llama `conWs` en CADA navegación. Una URL que no arranca con «/m» no es
+  // de /m (y la pregunta de verdad es `esRutaMovil`, más abajo: «/mako» también arranca así).
+  if (!href || href.charCodeAt(0) !== 47 || href.charCodeAt(1) !== 109) return href;
+  const [sinHash, hash] = href.split('#');
+  const [crudo, query = ''] = sinHash.split('?');
+  const p = crudo.replace(/\/+$/, '') || '/';
+  if (!esRutaMovil(p)) return href;
+  const q = new URLSearchParams(query);
+  let destino: string | null = null;
+  let m: RegExpMatchArray | null;
+  if (p === '/m' || p === HOME_MOVIL) destino = '/general';
+  else if ((m = p.match(/^\/m\/crm\/(\d+)\/chat$/))) destino = `/crm/${m[1]}/chat`;
+  else if ((m = p.match(/^\/m\/crm\/([^/]+)$/))) destino = `/crm/${m[1]}`;
+  else if (p === '/m/crm') destino = '/crm';
+  else if (p === '/m/inbox') destino = '/mako/pendientes';
+  else if (p === '/m/plan') destino = '/plan';
+  else if (p === RUTA_MAS) destino = '/mas';
+  else if (p === '/m/mako') destino = '/mako';
+  else if (p === '/m/cuenta/instalar') destino = '/perfil/instalar';
+  else if (p === '/m/cuenta') destino = '/perfil';
+  else if (p === '/m/configurar') destino = '/configurar';
+  else if ((m = p.match(/^\/m\/dashboard\/([^/]+)$/))) {
+    destino = '/dashboard';
+    let hoja = m[1];
+    try { hoja = decodeURIComponent(hoja); } catch { /* un % suelto: va tal cual */ }
+    q.set('hoja', hoja);
+  } else if (p === '/m/dashboard') destino = '/dashboard';
+  else if (p === '/m/ads') destino = '/ads-manager';
+  else if (p === '/m/cs') destino = '/customer-success';
+  else if (p === '/m/automations') destino = RUTA_AUTOMATIONS;
+  else if ((m = p.match(/^\/m\/video\/([^/]+)$/))) { destino = '/video-generator'; q.set('plan', m[1]); }
+  else if (p === '/m/video') destino = '/video-generator';
+  else if ((m = p.match(/^\/m\/landing\/([^/]+)$/))) destino = `/landing-generator/${m[1]}`;
+  else if (p === '/m/landing') destino = '/landing-generator';
+  if (!destino) return href;
+  const resto = q.toString();
+  return `${destino}${resto ? `?${resto}` : ''}${hash ? `#${hash}` : ''}`;
+}
+
+/**
+ * La ruta INTERNA de /m que corresponde a la URL del navegador (sin query), o null si esa URL no
+ * es una pantalla del teléfono. Con LAS MISMAS RUTAS el navegador muestra /crm/12 y el shell de /m
+ * necesita saber que está en /m/crm/12 (la cabecera, la barra, el nivel de la animación). Acepta
+ * también una URL que ya es /m (un link viejo antes del redirect del proxy).
+ */
+export function rutaInterna(pathname: string | null | undefined, search = ''): string | null {
+  const p = (pathname ?? '').split(/[?#]/)[0].replace(/\/+$/, '') || '/';
+  if (esRutaMovil(p)) return p;
+  const s = search.replace(/^\?/, '');
+  const r = rutaMovil(s ? `${p}?${s}` : p);
+  return r ? r.split('?')[0] : null;
 }

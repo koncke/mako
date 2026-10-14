@@ -21,10 +21,15 @@ export const MARCA_TEMA_M = 'data-m-tema';
  * El <script> que va en el HTML del layout de /m: sin él, quien usa el teléfono en
  * oscuro ve un fogonazo blanco en cada carga (un efecto de React corre DESPUÉS de
  * pintar).
+ *
+ * Claro por defecto (pedido de Martín, 11/10/2026: «por defecto es white mode»): oscuro SÓLO si la
+ * persona lo eligió. Seguir al sistema ponía oscuro a quien tiene Windows o iOS en oscuro.
+ *
+ * ⚠️ UN SOLO template literal, a propósito (13/10/2026). Estaba partido en tres con `+`, y el
+ * minificador del build (SWC) junta los templates cuyas `${…}` son constantes y se COME el texto
+ * que queda entre ellos: producción servía `getItem('mako.modoif(o){…` —sin `');var o=g==='oscuro';`—,
+ * un SyntaxError en cada página de /m, y el script no corría nunca. El fuente se leía perfecto.
+ * Lo fija tests/minificador-templates.test.ts (y explica el bug, con la reproducción).
  */
 export const TEMA_ANTES_DE_PINTAR =
-  `(function(){try{var d=document.documentElement,g=localStorage.getItem('${LS_MODO}');` +
-  // Claro por defecto (pedido de Martín, 11/10/2026: «por defecto es white mode»): oscuro SÓLO si la
-  // persona lo eligió. Seguir al sistema ponía oscuro a quien tiene Windows o iOS en oscuro.
-  `var o=g==='oscuro';` +
-  `if(o){d.setAttribute('${ATTR_MODO}','oscuro');d.setAttribute('${MARCA_TEMA_M}','1');}}catch(e){}})()`;
+  `(function(){try{var d=document.documentElement,g=localStorage.getItem('${LS_MODO}');var o=g==='oscuro';if(o){d.setAttribute('${ATTR_MODO}','oscuro');d.setAttribute('${MARCA_TEMA_M}','1');}}catch(e){}})()`;
