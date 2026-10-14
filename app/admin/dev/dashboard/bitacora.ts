@@ -256,4 +256,55 @@ export const BITACORA: Hito[] = [
       'hallazgos-api-mako (el período que la API escribía y no hacía nada), hallazgos-landing (verificarPagina en 6,7 s y el mapa de calor en vivo), hallazgos-infra (Write cambia el fin de línea; un build sin raíz posible) y hallazgos-mobile.',
     ],
   },
+  {
+    fecha: '12 oct', hora: '14:10', chat: CH, cuenta: 'claude3', actor: 'martin', tipo: 'prompt',
+    titulo: '«¿Qué vas a crear hoy?» en «Nueva hoja», y copiar un dashboard con un token',
+    pedido: 'pasale la sección de "¿Qué vamos a hacer hoy?" al chat de graphics para que lo implemente tal cual en lo que se tiene hoy de "Pídeselo a MaKo". Tiene que ser funcional, es decir, que los dashboards también deberían poder copiarse y enviarse con ese token',
+    puntos: ['Lo dijo en el chat Chatbot, que lo dejó en el relevo de Graphics (commit 1732842b). No se empezó: la cuenta 3 estaba al 97% semanal.'],
+  },
+  {
+    fecha: '13 oct', hora: '18:50', chat: CH, cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'Seguir y cerrar lo que quedó planificado en la cuenta 3',
+    pedido: 'En la cuenta 3 quedaron muchos pendientes que frenamos porque estabamos llegando al limite semanal, dile a esos chats que continuen y cierren lo que ya habiamos planificado',
+    puntos: ['Llegó por el chat «Estrategia 3 cuentas», con la lista del relevo: la caja y el token primero, el código muerto de los bloques, el aviso al chat Chatbot y los textos sueltos de Landing Analyst.'],
+  },
+  {
+    fecha: '13 oct', hora: '19:37', chat: CH, cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: '«¿Qué vas a crear hoy?» en «Nueva hoja» y «Copiar dashboard» con un token',
+    puntos: [
+      '«Nueva hoja» tiene la misma caja que Automations y el Landing Generator: el ejemplo que se escribe solo, el micrófono, el ↑ y un «+» para subir un archivo o una imagen, o pegar un dashboard.',
+      'El ⋮ de cada hoja tiene «Copiar dashboard»: copia un código corto (MAKO-DASH-…) que se pega en la caja de cualquier informe, de este negocio o de otro.',
+      'Viaja cómo está armada la hoja, nunca los datos ni los nombres de personas. En otro negocio se vacían los filtros que eran de allá, y el aviso dice cuántos.',
+      '«Duplicar» una hoja ya no deja sin gráficos a sus Conclusiones de MaKo.',
+      'Los textos que todavía decían Landing Analyst ahora dicen Diagnóstico.',
+    ],
+    commits: [{ sha: 'a30282b', msg: 'Dashboard: «¿Qué vas a crear hoy?» en «Nueva hoja» y copiar un dashboard con un token MAKO-DASH', lineas: 1117, archivos: 15 }],
+    archivos: ['app/dashboard/NuevaHoja.tsx', 'app/dashboard/Cabecera.tsx', 'app/dashboard/EditorInforme.tsx', 'lib/graficos-copia.ts', 'lib/graficos-copia-server.ts', 'app/api/graficos/copia/route.ts', 'supabase/migrations/0266_dashboard_copias.sql'],
+  },
+  {
+    fecha: '13 oct', hora: '19:37', chat: CH, cuenta: 'claude2', actor: 'claude', tipo: 'cosecha',
+    titulo: 'Lo que dejó copiar un dashboard: «Duplicar» dejaba a la caja de MaKo sin gráficos, y los filtros de definición no se vacían',
+    puntos: [
+      'docs/hallazgos-graficos.md: la caja de IA que el saneo dejaba en `[]` al duplicar, qué viaja en positivo (personas al copiar, vocabulario fijo al cruzar de negocio, los de definición quietos), la caja sin foco al abrir y la tabla que no es de un inquilino.',
+      'AGENTS.md: el trailer de la cuenta necesita además una línea en blanco ANTES del bloque.',
+    ],
+  },
+  {
+    fecha: '12 oct', hora: '17:08', chat: CH, cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'Reunión con Leila: sin el botón de MaKo editando, y plantillas armadas con los datos que hay',
+    pedido: 'si estoy en la vista de edición, no debería salir el botón de preguntarle a Mako.\n\nY otro feedback que me doy en la parte del dashboard es que al momento de crear un template, debería analizar qué métricas tiene ese negocio disponible y crear los gráficos alrededor de esa métrica y no crear un montón de gráficos vacíos. […] un template, tiene que crear el template, ya no solamente con los gráficos predefinidos, sino que elegir qué gráficos quitar o qué gráficos agregar, pero que tengan datos, que esté conectado a los datos automáticamente.',
+    puntos: ['De la reunión de Fathom 858545195, minutos 101:53 y 103:41 (el transcript pone la primera frase a nombre de Leila; por la forma, «otro feedback que me doy» como a los 103:41, es de Martín: es una inferencia). Lo validó Martín el 13/10 al pasar el feedback de las 3 reuniones: «diles que lo implementen completo… De punta a punta».'],
+  },
+  {
+    fecha: '13 oct', hora: '23:07', chat: CH, cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Las plantillas se arman con los datos del negocio, y el botón de MaKo no sale editando',
+    puntos: [
+      'Elegir una plantilla en «Nueva hoja» mide cada gráfico con los datos del negocio, saca los que quedarían vacíos y MaKo suma hasta cuatro sobre lo que sí hay. El aviso dice cuántos.',
+      'Si ningún gráfico tiene datos, la plantilla entra entera con «Todavía sin datos». Lo que no se pudo leer se queda.',
+      'Lo que arma MaKo con un pedido también sale sin los vacíos, y la API de MaKo hace lo mismo.',
+      'Editando, el botón de MaKo de cada gráfico ya no sale.',
+    ],
+    commits: [{ sha: '35dc37f', msg: 'Dashboard: las plantillas se arman con los datos del negocio, y el botón de MaKo no sale editando', lineas: 569, archivos: 15 }],
+    archivos: ['app/api/graficos/plantilla/route.ts', 'lib/graficos-con-datos.ts', 'lib/graficos-con-datos-server.ts', 'app/dashboard/NuevaHoja.tsx', 'app/dashboard/EditorInforme.tsx', 'lib/api-mako/areas/dashboard.run.ts'],
+  },
 ];
