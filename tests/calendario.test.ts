@@ -31,7 +31,9 @@ import {
   filaDeEntrada, rangoDeVista, moverFecha, lunesDe, sumarDias, diaDeLaSemana, itemsPorDia, sinDuplicarLlamadas,
   quartersDelRango, PLANTILLAS_CALENDARIO, entradasDePlantilla, deIACalendario, rotuloDeRango, horaDe, diaDe,
   filtrarPlantillasCalendario, capaDeTipo, TOPE_TITULO, type ItemCalendario,
+  horaGoogle, fechaLarga, semanasDelMes, columnasDelDia, barrasDeLaFila,
 } from '../lib/calendario-modelo';
+import { eventoDeGoogle, calendarioDeGoogle, cuerpoEventoGoogle, ordenarCalendarios } from '../lib/calendario-google-modelo';
 
 const leer = (rel: string) => readFileSync(resolve(__dirname, rel), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (src: string) => src
@@ -86,10 +88,63 @@ test('la semana arranca el lunes y el mes dibuja semanas enteras', () => {
   assert.equal(sumarDias('2026-12-31', 1), '2027-01-01');
 });
 
-test('el rótulo del rango', () => {
-  assert.equal(rotuloDeRango('semana', '2026-10-14'), '12 – 18 oct 2026');
-  assert.equal(rotuloDeRango('semana', '2026-09-30'), '28 sep – 4 oct 2026');
-  assert.equal(rotuloDeRango('mes', '2026-10-14'), 'octubre 2026');
+// 14/10/2026: el título de la barra es el de Google Calendar en español (la copia fiel que pidió Martín).
+test('el rótulo del rango, como lo escribe Google', () => {
+  assert.equal(rotuloDeRango('semana', '2026-10-14'), 'octubre de 2026');
+  assert.equal(rotuloDeRango('semana', '2026-09-30'), 'sep – oct de 2026');
+  assert.equal(rotuloDeRango('semana', '2026-12-30'), 'dic de 2026 – ene de 2027');
+  assert.equal(rotuloDeRango('mes', '2026-10-14'), 'octubre de 2026');
+  assert.equal(rotuloDeRango('dia', '2026-10-14'), '14 de octubre de 2026');
+  assert.equal(rotuloDeRango('anio', '2026-10-14'), '2026');
+});
+
+test('las seis vistas de Google: qué días dibuja cada una y a dónde llevan las flechas', () => {
+  assert.deepEqual(rangoDeVista('dia', '2026-10-14').dias, ['2026-10-14']);
+  assert.deepEqual(rangoDeVista('4dias', '2026-10-14').dias, ['2026-10-14', '2026-10-15', '2026-10-16', '2026-10-17']);
+  assert.equal(rangoDeVista('agenda', '2026-10-14').dias.length, 30);
+  const a = rangoDeVista('anio', '2026-10-14');
+  assert.deepEqual([a.desde, a.hasta, a.dias.length], ['2026-01-01', '2027-01-01', 0]);
+  assert.equal(moverFecha('dia', '2026-10-14', -1), '2026-10-13');
+  assert.equal(moverFecha('4dias', '2026-10-14', 1), '2026-10-18');
+  assert.equal(moverFecha('anio', '2026-10-14', 1), '2027-01-01');
+  assert.equal(horaGoogle('00:00'), '12 a.m.');
+  assert.equal(horaGoogle('13:30'), '1:30 p.m.');
+  assert.equal(fechaLarga('2026-10-14'), 'miércoles, 14 de octubre');
+  assert.equal(semanasDelMes('2026-10-14').length, 6);
+  assert.equal(semanasDelMes('2026-10-14')[0][0], '2026-09-28');
+});
+
+// Rotura (14/10/2026, base en verde): sin cerrar el grupo cuando un evento empieza después del fin del grupo, el de
+// las 12 quedaba en una columna de 3 (1 fallo).
+test('los eventos que se pisan comparten el ancho, como en Google', () => {
+  const c = columnasDelDia([
+    { id: 'a', ini: 9 * 60, fin: 10 * 60 },
+    { id: 'b', ini: 9 * 60 + 30, fin: 11 * 60 },
+    { id: 'c', ini: 10 * 60, fin: 10 * 60 + 30 },
+    { id: 'd', ini: 12 * 60, fin: 13 * 60 },
+  ]);
+  assert.deepEqual(c.get('a'), { col: 0, cols: 2 });
+  assert.deepEqual(c.get('b'), { col: 1, cols: 2 });
+  // «c» empieza cuando «a» termina: reusa su columna.
+  assert.deepEqual(c.get('c'), { col: 0, cols: 2 });
+  assert.deepEqual(c.get('d'), { col: 0, cols: 1 });
+});
+
+// Rotura (14/10/2026, base en verde): sin el último día de un evento de Google (`fechaFin`), la barra del 13 al 15 se
+// cortaba en el 13 (1 fallo).
+test('un evento de varios días de Google es UNA barra, y el fin de Google es exclusivo', () => {
+  const dias = rangoDeVista('semana', '2026-10-14').dias;
+  const varios = item('viaje', '2026-10-13T07:00:00.000Z', {
+    fuente: 'google', diaCompleto: true,
+    google: { id: 'g1', calendarioId: 'c', titulo: 'viaje', inicio: '2026-10-13T07:00:00.000Z', fin: null, diaCompleto: true, fecha: '2026-10-13', fechaFin: '2026-10-15', color: '#039be5', colorId: null, ubicacion: '', descripcion: '', enlace: null, videollamada: null, invitados: 0, organizador: null, recurrente: false, rechazado: false, editable: true },
+  });
+  const uno = item('feriado', '2026-10-12T07:00:00.000Z', { diaCompleto: true });
+  const r = barrasDeLaFila([varios, uno], dias, TJ);
+  const b = r.barras.find((x) => x.item.id === 'viaje')!;
+  assert.deepEqual([b.desde, b.hasta, b.carril], [1, 3, 0]);
+  assert.equal(r.carriles, 1);
+  assert.deepEqual(itemsPorDia([varios], dias, TJ).get('2026-10-15')!.map((i) => i.id), ['viaje']);
+  assert.equal(itemsPorDia([varios], dias, TJ).get('2026-10-16')!.length, 0);
 });
 
 const item = (id: string, inicio: string, extra: Partial<ItemCalendario> = {}): ItemCalendario => ({
@@ -166,17 +221,23 @@ test('lo que propone la IA se revalida: lo que cae fuera de la semana se SACA, n
 
 test('la IA no ve la agenda: su módulo no lee Google, el CRM ni lo agendado', () => {
   const ia = sinComentarios(leer('../lib/calendario-ia.ts'));
-  assert.doesNotMatch(ia, /google-calendar|leerCalendario|listarPropios|from\('leads'\)|calendario_eventos/);
+  assert.doesNotMatch(ia, /google-calendar|calendario-google|leerCalendario|listarPropios|from\('leads'\)|calendario_eventos/);
   assert.doesNotMatch(ia, /chatClaude|anthropic/i);
   const ruta = sinComentarios(leer('../app/api/calendario/ia/route.ts'));
-  assert.doesNotMatch(ruta, /leerCalendario|eventosEntre|listarPropios/);
+  assert.doesNotMatch(ruta, /leerCalendario|leerAgendaGoogle|calendario-google|listarPropios/);
 });
 
-test('la API de MaKo del Calendario no toca la agenda de Google', () => {
+// 14/10/2026: desde que lo creado en MaKo se escribe en Google, el área ESCRIBE en la agenda (`crear_evento_google`) pero
+// sigue sin LEERLA. Rotura (base en verde): llamar a leerAgendaGoogle desde el runner: 1 fallo.
+test('la API de MaKo del Calendario escribe en Google pero no lee la agenda', () => {
   const run = sinComentarios(leer('../lib/api-mako/areas/calendario.run.ts'));
-  assert.doesNotMatch(run, /google-calendar|eventosEntre|leerCalendario/);
+  assert.doesNotMatch(run, /google-calendar'|leerAgendaGoogle|leerCalendario/);
+  assert.match(run, /crearEventoGoogle\('primary', /);
   const def = sinComentarios(leer('../lib/api-mako/areas/calendario.def.ts'));
   assert.match(def, /tab: 'calendario', rolMinimo: 'admin'/);
+  const op = def.slice(def.indexOf("id: 'crear_evento_google'"));
+  assert.match(op, /canales: SIN_HTTP, costo: 'externo', gating: GATING, datosDeGoogle: true,/);
+  assert.match(def, /const SIN_HTTP = \['whatsapp', 'app'\] as const;/);
 });
 
 test('la tabla del Calendario está en las dos listas de inquilino', () => {
@@ -196,4 +257,72 @@ test('las acciones del Calendario empiezan con el guard de la página', () => {
     assert.match(cuerpo, /await guard\(\);/, `${nombre} sin guard`);
   }
   assert.match(src, /requireRolWs\(\[\], \{ nav: 'calendario' \}\)/);
+});
+
+// ── Google (14/10/2026: la copia fiel; todos los calendarios y escribir en ellos) ─────────────────────────────────
+
+const CAL = calendarioDeGoogle({ id: 'c1', summary: 'Trabajo', backgroundColor: '#9FE1E7', accessRole: 'owner', selected: true })!;
+const inicioTJ = (f: string) => `${f}T07:00:00.000Z`;
+
+// Rotura (14/10/2026, base en verde): sin restar un día al fin exclusivo, `fechaFin` daba '2026-10-16' (1 fallo).
+test('un evento de Google se lee como lo dibuja Google', () => {
+  const todo = eventoDeGoogle({ id: 'e1', summary: ' Viaje ', start: { date: '2026-10-14' }, end: { date: '2026-10-16' }, colorId: '11' }, CAL, inicioTJ)!;
+  assert.deepEqual([todo.fecha, todo.fechaFin, todo.diaCompleto, todo.titulo, todo.color], ['2026-10-14', '2026-10-15', true, 'Viaje', '#d50000']);
+  const conHora = eventoDeGoogle({
+    id: 'e2', start: { dateTime: '2026-10-14T10:00:00-07:00' }, end: { dateTime: '2026-10-14T11:00:00-07:00' },
+    attendees: [{ email: 'yo@x.com', self: true, responseStatus: 'declined' }, { email: 'sala@x.com', resource: true }, { email: 'otra@x.com' }],
+    organizer: { email: 'jefa@x.com', self: false }, hangoutLink: 'https://meet.google.com/abc', recurringEventId: 'r1',
+  }, CAL, inicioTJ)!;
+  assert.equal(conHora.inicio, '2026-10-14T17:00:00.000Z');
+  assert.equal(conHora.titulo, '(Sin título)');
+  assert.equal(conHora.color, '#9fe1e7');
+  assert.deepEqual([conHora.invitados, conHora.rechazado, conHora.recurrente, conHora.videollamada], [2, true, true, 'https://meet.google.com/abc']);
+  // Lo organiza otra cuenta: no se mueve desde acá.
+  assert.equal(conHora.editable, false);
+  assert.equal(eventoDeGoogle({ id: 'x', status: 'cancelled', start: { date: '2026-10-14' } }, CAL, inicioTJ), null);
+});
+
+test('la lista de calendarios: sin los ocultos, el principal primero, y quién se puede editar', () => {
+  const lista = [
+    calendarioDeGoogle({ id: 'f', summary: 'Feriados', accessRole: 'reader' }),
+    calendarioDeGoogle({ id: 'o', summary: 'Oculto', hidden: true }),
+    calendarioDeGoogle({ id: 'p', summary: 'yo@x.com', primary: true, accessRole: 'owner', selected: false }),
+    calendarioDeGoogle({ id: 'a', summary: 'Agencia', accessRole: 'writer' }),
+  ].filter((c) => c != null);
+  const orden = ordenarCalendarios(lista);
+  assert.deepEqual(orden.map((c) => c.id), ['p', 'a', 'f']);
+  assert.deepEqual(orden.map((c) => c.editable), [true, true, false]);
+  assert.equal(orden[0].seleccionado, false);
+});
+
+// Rotura (14/10/2026, base en verde): con el fin de un día completo igual a la fecha (sin el +1 de Google), el evento
+// quedaba de cero días (1 fallo).
+test('el cuerpo para Google: la hora de pared con su zona, y el fin exclusivo de un día completo', () => {
+  const h = cuerpoEventoGoogle({ titulo: 'Grabar', fecha: '2026-10-14', hora: '23:30', duracionMin: 60 }, 'America/Tijuana');
+  assert.ok(h.ok);
+  assert.deepEqual(h.ok && h.cuerpo.start, { dateTime: '2026-10-14T23:30:00', timeZone: 'America/Tijuana' });
+  assert.deepEqual(h.ok && h.cuerpo.end, { dateTime: '2026-10-15T00:30:00', timeZone: 'America/Tijuana' });
+  const d = cuerpoEventoGoogle({ titulo: 'Viaje', fecha: '2026-10-14', hora: null, fechaFin: '2026-10-15' }, 'America/Tijuana');
+  assert.deepEqual(d.ok && [d.cuerpo.start, d.cuerpo.end], [{ date: '2026-10-14' }, { date: '2026-10-16' }]);
+  const largo = cuerpoEventoGoogle({ titulo: 'x'.repeat(301), fecha: '2026-10-14', hora: null }, 'America/Tijuana');
+  assert.equal(largo.ok, false);
+  assert.equal(cuerpoEventoGoogle({ titulo: 'a', fecha: '14/10', hora: null }, 'America/Tijuana').ok, false);
+});
+
+// Rotura (14/10/2026, base en verde): restaurar con otro campo que `status` (o sea, recrear en vez de devolver el
+// mismo evento): 1 fallo.
+test('la tab lee Google con UN token y escribe sólo con permiso', () => {
+  const g = sinComentarios(leer('../lib/calendario-google.ts'));
+  assert.match(g, /import \{ tokenDelCalendario \} from '\.\/google-calendar';/);
+  assert.doesNotMatch(g, /oauth2\.googleapis\.com/);
+  // Toda escritura pasa por conToken (permiso de escritura) y por calendarioEditable (el calendario es de la cuenta y editable).
+  for (const fn of ['crearEventoGoogle', 'cambiarEventoGoogle', 'borrarEventoGoogle', 'restaurarEventoGoogle']) {
+    const ini = g.indexOf(`export async function ${fn}(`);
+    const cuerpo = g.slice(ini, g.indexOf('\n}\n', ini));
+    assert.match(cuerpo, /conToken\(/, fn);
+    assert.match(cuerpo, /calendarioEditable\(access, /, fn);
+  }
+  // Deshacer un borrado devuelve el MISMO evento (PATCH a confirmed), no uno nuevo.
+  const rest = g.slice(g.indexOf('export async function restaurarEventoGoogle('));
+  assert.match(rest, /method: 'PATCH', body: JSON\.stringify\(\{ status: 'confirmed' \}\)/);
 });

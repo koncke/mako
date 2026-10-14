@@ -17,7 +17,9 @@ export const PARTES: Parte[] = [
   { titulo: 'Plantillas y «¿Qué vas a crear hoy?»', detalle: 'Seis semanas tipo · MaKo propone sin ver la agenda · la persona confirma', estado: 'hecha' },
   { titulo: 'La API de MaKo', detalle: 'listar_eventos_calendario · crear_evento_calendario (con «sí»)', estado: 'hecha' },
   { titulo: 'La entrega de servicio y la comunidad', detalle: 'Sesiones de CS agendadas · eventos en vivo del curso', estado: 'cola' },
-  { titulo: 'Arrastrar, roles y móvil', detalle: 'Mover un evento con el mouse · un closer viendo sus llamadas · el Calendario en /m', estado: 'cola' },
+  { titulo: 'La copia fiel de Google Calendar', detalle: 'Seis vistas · todos los calendarios de Google · crear, mover y borrar en Google · arrastrar', estado: 'hecha' },
+  { titulo: 'Las tareas de Google', detalle: 'Piden el permiso tasks.readonly: después de la aprobación de la verificación', estado: 'cola' },
+  { titulo: 'Roles y móvil', detalle: 'Un closer viendo sus llamadas · el Calendario en /m', estado: 'cola' },
 ];
 
 export const BITACORA: Hito[] = [
@@ -44,6 +46,30 @@ export const BITACORA: Hito[] = [
       'app/calendario/page.tsx', 'app/calendario/CalendarioApp.tsx', 'app/calendario/EventoModal.tsx', 'app/calendario/NuevoEnCalendario.tsx',
       'app/calendario/actions.ts', 'app/api/calendario/ia/route.ts', 'lib/api-mako/areas/calendario.def.ts', 'lib/api-mako/areas/calendario.run.ts',
       'tests/calendario.test.ts',
+    ],
+  },
+  {
+    fecha: '14 oct', hora: '03:05', chat: 'General', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Una copia fiel de Google Calendar',
+    pedido: 'Por otro lado, el calendario quiero que sea una copia fiel a Google Calendar, y que refleje todas las tareas y eventos que se tienen en google calendar.',
+    puntos: [
+      'Preguntado el mismo día: las tareas de Google, después de la aprobación de la verificación de Google («Sólo eventos por ahora»); y lo que se crea, mueve o borra desde MaKo se escribe en Google («Sí, como Google»).',
+    ],
+  },
+  {
+    fecha: '14 oct', hora: '—', chat: 'General', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La tab es Google Calendar: seis vistas, todos los calendarios y escribir en Google',
+    puntos: [
+      'La pantalla copia la web de Google Calendar: la barra con «Hoy» y el título como lo escribe Google, «Crear», el mes chico, «Mis calendarios» (las capas de MaKo) y los calendarios de la cuenta de Google con su color, Día · Semana · Mes · Año · Agenda · 4 días con las teclas de Google, la tarjeta del evento, crear con un clic o un arrastre, y mover o estirar arrastrando.',
+      'Se leen TODOS los calendarios de la cuenta (antes, sólo el principal). Lo de Google se crea, cambia, mueve y borra en Google (con «Deshacer» que devuelve el MISMO evento, y la pregunta de avisar a los invitados). La API de MaKo suma `crear_evento_google`, que escribe sin leer la agenda.',
+    ],
+    archivos: [
+      'lib/calendario-google-modelo.ts', 'lib/calendario-google.ts', 'lib/google-calendar.ts', 'lib/calendario-modelo.ts', 'lib/calendario.ts',
+      'app/calendario/CalendarioApp.tsx', 'app/calendario/VistaTiempo.tsx', 'app/calendario/VistasLista.tsx', 'app/calendario/Tarjetas.tsx',
+      'app/calendario/MiniMes.tsx', 'app/calendario/comun.ts', 'app/calendario/gc-css.ts', 'app/calendario/actions.ts', 'app/calendario/page.tsx',
+      'lib/api-mako/areas/calendario.def.ts', 'lib/api-mako/areas/calendario.run.ts', 'tests/calendario.test.ts', 'tests/agenda-sin-ia.test.ts',
     ],
   },
 ];

@@ -1,7 +1,7 @@
 'use server';
 
 // =============================================================================
-// Server actions del Calendario — sólo lo PROPIO (`calendario_eventos`)
+// Server actions del Calendario — lo PROPIO (`calendario_eventos`) y, desde el 14/10/2026, lo de Google
 // =============================================================================
 // ⚠️ TODAS EMPIEZAN CON EL GUARD DE LA PÁGINA: una server action es la API de esta pantalla, y esconder la tab no
 //    impide invocarla. El aislamiento entre negocios lo pone `getTenantDb()` abajo (la tabla está en TENANT_TABLES).
@@ -15,6 +15,8 @@ import {
   crearEventos, cambiarEvento, marcarEvento, borrarEvento, restaurarEvento, zonaDelCalendario, type EventoBorrado,
 } from '@/lib/calendario';
 import type { EntradaEvento } from '@/lib/calendario-modelo';
+import { crearEventoGoogle, cambiarEventoGoogle, borrarEventoGoogle, restaurarEventoGoogle, type ResultadoEscrituraGoogle } from '@/lib/calendario-google';
+import type { EntradaEventoGoogle } from '@/lib/calendario-google-modelo';
 import { getEstadoTab, marcarPasoTab } from '@/lib/tab-onboarding-state';
 
 const guard = () => requireRolWs([], { nav: 'calendario' });
@@ -72,4 +74,39 @@ export async function restaurarEventoAction(b: EventoBorrado): Promise<void> {
   await guard();
   await restaurarEvento(b);
   revalidatePath('/calendario');
+}
+
+// ── Google (14/10/2026, decisión de Martín: lo que se crea, mueve o borra desde MaKo se escribe en Google) ─────────
+// Las escrituras van a lib/calendario-google.ts, que valida el calendario (existe en la cuenta y se puede editar) y
+// el permiso del token antes de pegarle a Google. Nada de esto pasa por la IA.
+
+const textoCorto = (x: unknown, max: number) => (typeof x === 'string' ? x.slice(0, max) : '');
+
+export async function crearEventoGoogleAction(calendarioId: string, entrada: EntradaEventoGoogle): Promise<ResultadoEscrituraGoogle> {
+  await guard();
+  const r = await crearEventoGoogle(textoCorto(calendarioId, 300), entrada, await zonaDelCalendario());
+  if (r.ok) revalidatePath('/calendario');
+  return r;
+}
+
+export async function cambiarEventoGoogleAction(calendarioId: string, eventoId: string, entrada: EntradaEventoGoogle, avisar: boolean): Promise<ResultadoEscrituraGoogle> {
+  await guard();
+  const r = await cambiarEventoGoogle(textoCorto(calendarioId, 300), textoCorto(eventoId, 300), entrada, await zonaDelCalendario(), !!avisar);
+  if (r.ok) revalidatePath('/calendario');
+  return r;
+}
+
+/** Borra en Google. El «Deshacer» llama a `restaurarEventoGoogleAction` con el MISMO id. */
+export async function borrarEventoGoogleAction(calendarioId: string, eventoId: string, avisar: boolean): Promise<ResultadoEscrituraGoogle> {
+  await guard();
+  const r = await borrarEventoGoogle(textoCorto(calendarioId, 300), textoCorto(eventoId, 300), !!avisar);
+  if (r.ok) revalidatePath('/calendario');
+  return r;
+}
+
+export async function restaurarEventoGoogleAction(calendarioId: string, eventoId: string): Promise<ResultadoEscrituraGoogle> {
+  await guard();
+  const r = await restaurarEventoGoogle(textoCorto(calendarioId, 300), textoCorto(eventoId, 300));
+  if (r.ok) revalidatePath('/calendario');
+  return r;
 }

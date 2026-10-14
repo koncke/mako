@@ -29,6 +29,7 @@
 
 import { instanteDe } from './cron-aviso';
 import { hoyEnTz } from './date-utils';
+import type { EventoGoogle } from './calendario-google-modelo';
 
 export const TIPOS_EVENTO = ['publicacion', 'bloque', 'llamada', 'otro'] as const;
 export type TipoEvento = (typeof TIPOS_EVENTO)[number];
@@ -77,6 +78,11 @@ export type ItemCalendario = {
   formato?: FormatoPublicacion | null;
   notas?: string;
   hecho?: boolean;
+  /**
+   * Sólo los de Google (14/10/2026, la copia fiel de Google Calendar): el evento tal como lo dibuja Google —su color,
+   * su calendario, la ubicación, la videollamada— y si se puede mover desde acá.
+   */
+  google?: EventoGoogle;
 };
 
 /** Un evento propio, como está en la base. */
@@ -172,19 +178,40 @@ export function diaDeLaSemana(fecha: string): number {
 /** El lunes de la semana de `fecha`. La semana arranca el lunes (la de un negocio, no la del calendario de pared). */
 export const lunesDe = (fecha: string): string => sumarDias(fecha, -diaDeLaSemana(fecha));
 
-export type VistaCalendario = 'semana' | 'mes';
-export const esVistaCalendario = (x: unknown): x is VistaCalendario => x === 'semana' || x === 'mes';
+/**
+ * Las vistas de Google Calendar (14/10/2026, la copia fiel): Día, 4 días, Semana, Mes, Año y Agenda. Se llaman como en
+ * Google en español, y la tecla de cada una es la de Google (D, X, W, M, Y, A).
+ */
+export const VISTAS_CALENDARIO = [
+  { id: 'dia', nombre: 'Día', tecla: 'd' },
+  { id: 'semana', nombre: 'Semana', tecla: 'w' },
+  { id: 'mes', nombre: 'Mes', tecla: 'm' },
+  { id: 'anio', nombre: 'Año', tecla: 'y' },
+  { id: 'agenda', nombre: 'Agenda', tecla: 'a' },
+  { id: '4dias', nombre: '4 días', tecla: 'x' },
+] as const;
+export type VistaCalendario = (typeof VISTAS_CALENDARIO)[number]['id'];
+export const esVistaCalendario = (x: unknown): x is VistaCalendario => VISTAS_CALENDARIO.some((v) => v.id === x);
+/** Cuántos días lee la Agenda hacia adelante. */
+export const DIAS_AGENDA = 30;
 
 /**
  * Los días que dibuja una vista y el rango a leer. La semana: de lunes a domingo. El mes: la grilla completa de
- * semanas que lo contienen (de 4 a 6 filas de 7), así un evento del 30 del mes anterior se ve en su lugar.
- * `hasta` es EXCLUSIVO.
+ * semanas que lo contienen (de 4 a 6 filas de 7), así un evento del 30 del mes anterior se ve en su lugar. El año: sus
+ * doce meses, sin eventos (Google tampoco los dibuja ahí): `dias` vacío y nada que leer. `hasta` es EXCLUSIVO.
  */
 export function rangoDeVista(vista: VistaCalendario, fecha: string): { desde: string; hasta: string; dias: string[] } {
+  const serie = (desde: string, n: number) => Array.from({ length: n }, (_, i) => sumarDias(desde, i));
+  if (vista === 'dia') return { desde: fecha, hasta: sumarDias(fecha, 1), dias: [fecha] };
+  if (vista === '4dias') return { desde: fecha, hasta: sumarDias(fecha, 4), dias: serie(fecha, 4) };
+  if (vista === 'agenda') return { desde: fecha, hasta: sumarDias(fecha, DIAS_AGENDA), dias: serie(fecha, DIAS_AGENDA) };
   if (vista === 'semana') {
     const desde = lunesDe(fecha);
-    const dias = Array.from({ length: 7 }, (_, i) => sumarDias(desde, i));
-    return { desde, hasta: sumarDias(desde, 7), dias };
+    return { desde, hasta: sumarDias(desde, 7), dias: serie(desde, 7) };
+  }
+  if (vista === 'anio') {
+    const y = Number(fecha.slice(0, 4));
+    return { desde: `${y}-01-01`, hasta: `${y + 1}-01-01`, dias: [] };
   }
   const primero = `${fecha.slice(0, 7)}-01`;
   const [y, m] = primero.split('-').map(Number);
@@ -196,29 +223,62 @@ export function rangoDeVista(vista: VistaCalendario, fecha: string): { desde: st
   return { desde, hasta, dias };
 }
 
-/** La fecha de antes o de después, según la vista (una semana o un mes). */
+/** La fecha de antes o de después, según la vista (las flechas ‹ › de Google). */
 export function moverFecha(vista: VistaCalendario, fecha: string, delta: -1 | 1): string {
+  if (vista === 'dia') return sumarDias(fecha, delta);
+  if (vista === '4dias') return sumarDias(fecha, 4 * delta);
+  if (vista === 'agenda') return sumarDias(fecha, 7 * delta);
   if (vista === 'semana') return sumarDias(lunesDe(fecha), 7 * delta);
   const [y, m] = fecha.split('-').map(Number);
+  if (vista === 'anio') return `${y + delta}-01-01`;
   return new Date(Date.UTC(y, m - 1 + delta, 1)).toISOString().slice(0, 10);
 }
 
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+export const NOMBRES_MESES = MESES;
 export const DIAS_CORTOS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'] as const;
+/** Las iniciales de la grilla del mes chico de la barra lateral (las de Google en español). */
+export const INICIALES_DIAS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'] as const;
+const DIAS_LARGOS = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
 
-/** «13 – 19 oct 2026» o «octubre 2026». */
+/**
+ * El título de la barra de arriba, como lo escribe Google: «octubre de 2026» (semana, mes, agenda, 4 días dentro del
+ * mismo mes), «sep – oct de 2026» o «dic de 2026 – ene de 2027» si cruza, «14 de octubre de 2026» (día) y «2026» (año).
+ */
 export function rotuloDeRango(vista: VistaCalendario, fecha: string): string {
-  if (vista === 'mes') {
-    const [y, m] = fecha.split('-').map(Number);
-    return `${MESES[m - 1]} ${y}`;
-  }
-  const l = lunesDe(fecha);
-  const dom = sumarDias(l, 6);
-  const [y1, m1, d1] = l.split('-').map(Number);
-  const [y2, m2, d2] = dom.split('-').map(Number);
-  if (m1 === m2) return `${d1} – ${d2} ${MESES_CORTOS[m2 - 1]} ${y2}`;
-  return `${d1} ${MESES_CORTOS[m1 - 1]}${y1 !== y2 ? ` ${y1}` : ''} – ${d2} ${MESES_CORTOS[m2 - 1]} ${y2}`;
+  const [y, m, d] = fecha.split('-').map(Number);
+  if (vista === 'anio') return String(y);
+  if (vista === 'dia') return `${d} de ${MESES[m - 1]} de ${y}`;
+  if (vista === 'mes') return `${MESES[m - 1]} de ${y}`;
+  const { desde, hasta } = rangoDeVista(vista, fecha);
+  const ultimo = sumarDias(hasta, -1);
+  const [y1, m1] = desde.split('-').map(Number);
+  const [y2, m2] = ultimo.split('-').map(Number);
+  if (y1 === y2 && m1 === m2) return `${MESES[m1 - 1]} de ${y1}`;
+  if (y1 === y2) return `${MESES_CORTOS[m1 - 1]} – ${MESES_CORTOS[m2 - 1]} de ${y2}`;
+  return `${MESES_CORTOS[m1 - 1]} de ${y1} – ${MESES_CORTOS[m2 - 1]} de ${y2}`;
+}
+
+/** «miércoles, 14 de octubre»: la fecha de la tarjeta de un evento. */
+export function fechaLarga(fecha: string): string {
+  const [, m, d] = fecha.split('-').map(Number);
+  return `${DIAS_LARGOS[diaDeLaSemana(fecha)]}, ${d} de ${MESES[m - 1]}`;
+}
+
+/** «10:00 a.m.»: la hora como la escribe Google en español (12 h). `00:00` es «12:00 a.m.». */
+export function horaGoogle(hhmm: string, conMinutos = true): string {
+  const [h, mi] = hhmm.split(':').map(Number);
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  const suf = h < 12 ? 'a.m.' : 'p.m.';
+  return conMinutos && mi ? `${h12}:${String(mi).padStart(2, '0')} ${suf}` : `${h12} ${suf}`;
+}
+
+/** Las semanas (de lunes a domingo) de un mes chico: la grilla de la barra lateral y de la vista Año. Siempre 6 filas. */
+export function semanasDelMes(fecha: string): string[][] {
+  const primero = `${fecha.slice(0, 7)}-01`;
+  const desde = lunesDe(primero);
+  return Array.from({ length: 6 }, (_, f) => Array.from({ length: 7 }, (_, c) => sumarDias(desde, f * 7 + c)));
 }
 
 /** El día (en la zona del negocio) de un instante. */
@@ -239,8 +299,12 @@ export function horaDe(iso: string, tz: string): string {
 export function itemsPorDia(items: readonly ItemCalendario[], dias: readonly string[], tz: string): Map<string, ItemCalendario[]> {
   const out = new Map<string, ItemCalendario[]>(dias.map((d) => [d, []]));
   for (const it of items) {
-    const d = diaDe(it.inicio, tz);
-    out.get(d)?.push(it);
+    // Uno de varios días va en cada día que abarca (la Agenda y el «+N más» del mes lo cuentan en todos).
+    const { primero, ultimo } = diasDeItem(it, tz);
+    for (let d = primero; d <= ultimo; d = sumarDias(d, 1)) {
+      out.get(d)?.push(it);
+      if (d === ultimo || d > dias[dias.length - 1]) break;
+    }
   }
   for (const lista of out.values()) {
     lista.sort((a, b) => (a.diaCompleto === b.diaCompleto ? a.inicio.localeCompare(b.inicio) || a.titulo.localeCompare(b.titulo, 'es') : a.diaCompleto ? -1 : 1));
@@ -263,6 +327,100 @@ export function sinDuplicarLlamadas(crm: readonly ItemCalendario[], google: read
     const t = Date.parse(g.inicio);
     return !inicios.some((c) => Math.abs(c - t) <= 2 * 60_000);
   });
+}
+
+// ── Cómo se acomoda en la grilla (la de Google) ────────────────────────────────────────────────
+
+/** Los minutos desde la medianoche de un instante, en la zona del negocio. */
+export function minutosDelDia(iso: string, tz: string): number {
+  const [h, m] = horaDe(iso, tz).split(':').map(Number);
+  return h * 60 + m;
+}
+
+/** El primer y el último día (incluido) de un renglón: un día completo de Google puede abarcar varios. */
+export function diasDeItem(it: ItemCalendario, tz: string): { primero: string; ultimo: string } {
+  if (it.google?.diaCompleto && it.google.fecha) return { primero: it.google.fecha, ultimo: it.google.fechaFin ?? it.google.fecha };
+  const primero = diaDe(it.inicio, tz);
+  if (it.diaCompleto || !it.fin) return { primero, ultimo: primero };
+  // Con hora: el último día es el del fin, salvo que termine justo a la medianoche (eso es el día anterior).
+  const fin = new Date(Date.parse(it.fin) - 1).toISOString();
+  const ultimo = diaDe(fin, tz);
+  return { primero, ultimo: ultimo < primero ? primero : ultimo };
+}
+
+/** Lo que va en la franja de arriba (todo el día, o varios días) y no en la grilla de horas. */
+export const vaArriba = (it: ItemCalendario, tz: string): boolean => {
+  if (it.diaCompleto) return true;
+  const { primero, ultimo } = diasDeItem(it, tz);
+  return primero !== ultimo;
+};
+
+/**
+ * Los eventos con hora de UN día, repartidos en columnas como en Google: los que se pisan comparten el ancho; los que
+ * no, ocupan el día entero. Cada grupo de eventos que se pisan entre sí (aunque sea de a pares) usa las mismas
+ * columnas. Un evento sin fin dura 30 minutos para el dibujo. Devuelve, por id, la columna y cuántas hay en su grupo.
+ */
+export function columnasDelDia(eventos: ReadonlyArray<{ id: string; ini: number; fin: number }>): Map<string, { col: number; cols: number }> {
+  const orden = [...eventos].sort((a, b) => a.ini - b.ini || b.fin - a.fin);
+  const out = new Map<string, { col: number; cols: number }>();
+  let grupo: Array<{ id: string; col: number }> = [];
+  let finGrupo = -1;
+  let finesCols: number[] = [];
+  const cerrar = () => {
+    const cols = finesCols.length;
+    for (const g of grupo) out.set(g.id, { col: g.col, cols });
+    grupo = []; finesCols = [];
+  };
+  for (const e of orden) {
+    const fin = Math.max(e.fin, e.ini + 30);
+    if (grupo.length && e.ini >= finGrupo) cerrar();
+    let col = finesCols.findIndex((f) => f <= e.ini);
+    if (col < 0) { col = finesCols.length; finesCols.push(fin); } else finesCols[col] = fin;
+    grupo.push({ id: e.id, col });
+    finGrupo = Math.max(finGrupo, fin);
+  }
+  if (grupo.length) cerrar();
+  return out;
+}
+
+/**
+ * Las barras de la franja de arriba en una fila de días (la semana, o una fila del mes): cada renglón de todo el día
+ * o de varios días, recortado a la fila, en el primer carril libre. `desde` y `hasta` son columnas (incluidas), y
+ * `sigueAntes`/`sigueDespues` dicen si el evento continúa fuera de la fila (Google le dibuja la punta).
+ */
+export function barrasDeLaFila(items: readonly ItemCalendario[], dias: readonly string[], tz: string): {
+  barras: Array<{ item: ItemCalendario; desde: number; hasta: number; carril: number; sigueAntes: boolean; sigueDespues: boolean }>;
+  carriles: number;
+} {
+  if (!dias.length) return { barras: [], carriles: 0 };
+  const d0 = dias[0];
+  const dN = dias[dias.length - 1];
+  const tramos = items
+    .map((it) => ({ it, ...diasDeItem(it, tz) }))
+    .filter((t) => t.ultimo >= d0 && t.primero <= dN)
+    .map((t) => ({
+      item: t.it,
+      desde: t.primero < d0 ? 0 : dias.indexOf(t.primero),
+      hasta: t.ultimo > dN ? dias.length - 1 : dias.indexOf(t.ultimo),
+      sigueAntes: t.primero < d0,
+      sigueDespues: t.ultimo > dN,
+    }))
+    .filter((t) => t.desde >= 0 && t.hasta >= t.desde)
+    // Los más largos primero (como Google), y a igual largo, por hora y título.
+    .sort((a, b) => (b.hasta - b.desde) - (a.hasta - a.desde) || a.desde - b.desde || a.item.inicio.localeCompare(b.item.inicio) || a.item.titulo.localeCompare(b.item.titulo, 'es'));
+  const ocupado: boolean[][] = [];
+  const barras = tramos.map((t) => {
+    let carril = 0;
+    for (;; carril++) {
+      ocupado[carril] ??= Array(dias.length).fill(false);
+      let libre = true;
+      for (let c = t.desde; c <= t.hasta; c++) if (ocupado[carril][c]) { libre = false; break; }
+      if (libre) break;
+    }
+    for (let c = t.desde; c <= t.hasta; c++) ocupado[carril][c] = true;
+    return { ...t, carril };
+  });
+  return { barras, carriles: ocupado.length };
 }
 
 // ── El Quarter ────────────────────────────────────────────────────────────────────────────────

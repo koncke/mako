@@ -1237,51 +1237,11 @@ export async function horariosLibresDeGoogle(fechaISO: string, opts: OpcionesHor
   }
 }
 
-/** Un evento de la agenda, como lo dibuja la tab Calendario. */
-export type EventoAgenda = {
-  id: string;
-  titulo: string;
-  /** El instante del inicio (ISO). Uno de día completo no tiene: va `fecha`. */
-  inicioIso: string | null;
-  finIso: string | null;
-  diaCompleto: boolean;
-  /** 'YYYY-MM-DD' de un evento de día completo (Google lo da así, sin zona). */
-  fecha: string | null;
-};
-
 /**
- * LA AGENDA ENTRE DOS INSTANTES, para la tab Calendario (13/10/2026).
- *
- * ⚠️ ESTRICTA, como `eventosDelDia`: un fallo de Google es `ok: false`, no una lista vacía. «No tienes nada esta
- *    semana» sobre una lectura caída es mentirle a la persona.
- * ⚠️ LO QUE DEVUELVE NO VIAJA A NINGÚN MODELO (AGENTS.md: la agenda no pasa por IA). Lo dibuja la pantalla y nada
- *    más: ni la IA del Calendario ni la API de MaKo lo leen.
- * Hasta 250 eventos: una semana o un mes de una agenda de trabajo entran de sobra; si se llega al tope, `recortado`.
+ * El token para la tab Calendario (lib/calendario-google.ts): el acceso corto y si puede escribir. Existe para que el
+ * refresh del token y la lectura de sus permisos sigan viviendo en UN lugar, este módulo. null = sin agenda conectada.
  */
-export async function eventosEntre(desdeIso: string, hastaIso: string): Promise<{ ok: true; eventos: EventoAgenda[]; recortado: boolean } | { ok: false; codigo: 'sin-conexion' | 'api'; motivo: string }> {
-  const at = await accessTokenGoogle();
-  if (!at) return { ok: false, codigo: 'sin-conexion', motivo: 'No hay una agenda de Google conectada a este espacio.' };
-  const TOPE = 250;
-  try {
-    const items = await listarEventosEstricto(at, { timeMin: desdeIso, timeMax: hastaIso, max: TOPE });
-    if (!items) return { ok: false, codigo: 'api', motivo: 'Google no devolvió la agenda.' };
-    return {
-      ok: true,
-      recortado: items.length >= TOPE,
-      eventos: items.map((e, i) => {
-        const diaCompleto = !e.start?.dateTime;
-        return {
-          id: e.id ?? `g${i}`,
-          titulo: (e.summary ?? '').trim() || 'Sin título',
-          inicioIso: diaCompleto ? null : new Date(Date.parse(e.start!.dateTime!)).toISOString(),
-          finIso: e.end?.dateTime ? new Date(Date.parse(e.end.dateTime)).toISOString() : null,
-          diaCompleto,
-          fecha: diaCompleto ? (e.start?.date ?? null) : null,
-        };
-      }),
-    };
-  } catch (e) {
-    const timeout = e instanceof Error && e.name === 'TimeoutError';
-    return { ok: false, codigo: 'api', motivo: timeout ? 'Google no respondió a tiempo.' : 'No se pudo contactar a Google Calendar.' };
-  }
+export async function tokenDelCalendario(): Promise<{ access: string; puedeEscribir: boolean } | null> {
+  const tk = await tokenGoogle();
+  return tk ? { access: tk.access, puedeEscribir: puedeEscribir(tk.scopes) } : null;
 }
