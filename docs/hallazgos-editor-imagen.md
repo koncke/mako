@@ -211,6 +211,24 @@ El 14/10 el typecheck completo del pre-push con el Image Editor adentro murió a
 - Diagnóstico obvio equivocado: «el push falla por tipos». El síntoma de un heap corto es un exit sin errores impresos o el mensaje de V8, no un `error TS`.
 - Si el editor sigue creciendo, la salida no es subir el tope otra vez: es sacar del typecheck completo lo que no cambia (el port de Doory podría ir con su propio tsconfig y un chequeo acotado), decisión de infra a tomar con Martín.
 
+## «No veo la tab»: los dos diagnósticos obvios estaban equivocados
+
+**Vive en:** `lib/nav-visibilidad.ts` (`puedeVerItem`, `resolverTab`) · `lib/capas.ts` (`tabEnCapa`) · AGENTS.md ·
+`tests/image-editor-integracion.test.ts` 1c
+
+Martín, 14/10: «No veo la tab en la sidebar principal, debería estar en la sección de Content Machine».
+
+- ⚠️ **Falso 1: «`adminOnly` se apaga mirando un cliente; que la fila pregunte por la persona».** Se hizo (una marca
+  `soloSuperAdmin`) y se descartó sin pushear: mirando un cliente la barra es la del cliente, sin lo que es sólo del
+  super admin, y es una regla de Martín (01/08: «tampoco las tabs que no están disponibles en los usuarios y solo en
+  super admin»; docs/hallazgos-seguridad.md). Quedó en la rama `opcion-image-en-clientes` por si él la quiere.
+- ⚠️ **Falso 2: «la capa `superadmin` no trae la key en `navKeys`».** Así lo decía AGENTS.md, pero `tabEnCapa` une
+  `navKeys` con `userNavKeys`, y en esa capa `userNavKeys` es `null`: deja pasar CUALQUIER key. Ya lo habían anotado
+  Customer Success y Ads; la regla vieja de AGENTS.md lo seguía sembrando, y se corrigió.
+- **Lo medido:** con `resolverTab`, en su barra (capa `superadmin`) la tab lleva a `/image-editor`; mirando un
+  cliente, `null`. El deploy con el editor (13:33) estaba Ready en hola-mako.com. O sea: o miraba un cliente con
+  `?ws=`, o tenía abierta una pestaña de antes del deploy (el JS viejo no se recarga solo al navegar).
+
 ## Lo que quedó SIN hacer (con el archivo donde vive)
 
 - **Verificar el editor abierto en el navegador** (crear, texto, imagen, descargar PNG/PDF): la tanda 2 (el
