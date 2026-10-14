@@ -28,11 +28,6 @@ import { nombreVisible } from '@/lib/lead-funnel-reglas';
 
 const MONO = "'Geist Mono', monospace";
 import { Modal } from '@/app/_ui/Modal';
-import { Switch } from '@/app/_ui/Toggle';
-import { Tooltip } from '@/app/_ui/Tooltip';
-// El «?» sale del CATÁLOGO (`help`): un ícono dibujado a mano es un segundo lugar
-// donde vive el mismo dibujo, y el que se queda viejo es el de acá.
-import { Icon } from '@/app/_components/icons';
 
 import { CANALES } from '@/lib/fase-diagnostico';
 import { ENTRADAS, ENTRADAS_OFRECIDAS, type EntradaId } from '@/lib/pipeline';
@@ -40,14 +35,11 @@ import { crearProductoAction, declararEntradasAction, embudosArchivadosAction, r
 import { alternarGrupo, alternarHijo, conGrupoAbierto } from './arbol-seleccion';
 import { ANCHO_PANEL, MARGEN_VENTANA, lugarDelPanel } from './filtro-panel';
 import { Confirm } from '@/app/_ui/Confirm';
-import { useCrmAuto } from './CrmAutoToggle';
 import { LapizIcon } from './iconos';
 import { BANDAS_KANBAN } from './filtros-guardados';
 // El CUBO del desplegable de funnels (punto 24): el ícono `producto` del set de los menús, el
 // mismo que dibuja un funnel en el resto de la app. No se dibuja uno propio.
 import { IconoMenu } from '@/app/_ui/iconos-menu';
-import { AvisosDatosModal } from './lead-view/AvisosDatosModal';
-import { ResumenModal } from './lead-view/ResumenModal';
 
 const SANS = "'Geist', sans-serif";
 
@@ -189,17 +181,24 @@ function useEscape(activo: boolean, cerrar: () => void) {
 // «Sube la topbar del todo»).
 
 /**
- * El layout que comparten las DOS clases de renglón del menú: la que es un botón (una
- * acción) y la que no puede serlo (la del interruptor). Va en un solo lugar porque si
- * cada una escribe su propio estilo se desalinean solas en el primer cambio.
+ * Un renglón del menú: el ícono y el rótulo, nada más.
+ *
+ * ⚠️ SIN SUBTÍTULO (14/10/2026). Cada renglón llevaba debajo una línea gris que repetía el
+ * rótulo con otras palabras («Baja los leads a planilla o documento»). Martín: «elimina todos
+ * los subtitulos de los botones de los 3 puntos». El rótulo tiene que alcanzar solo; si no
+ * alcanza, se cambia el rótulo, no se le cuelga otra línea. Por eso el renglón ni siquiera
+ * acepta un `desc`: lo fija tests/crm-kebab-14-10.test.ts.
  *
  * ⚠️ EL HOVER SE QUEDA EN ESTADO DE REACT aunque el velo global ya exista
- * (`.crm-hover button:hover` en app/_ui/ui.css). Dos razones: (1) acá el hover no es
- * solo el fondo, también tiñe el ícono a --primary, que el velo no puede hacer; (2) el
- * velo solo alcanza a `button` y a `[role=button]`, y el renglón del interruptor no es
- * ninguno de los dos — sin este fondo, ese renglón sería el único sin hover.
+ * (`.crm-hover button:hover` en app/_ui/ui.css): acá el hover no es solo el fondo, también
+ * tiñe el ícono a --primary, que el velo no puede hacer.
+ *
+ * (Hasta el 14/10 había un segundo tipo de renglón, el del interruptor «CRM automático», y
+ * por eso el layout vivía en un hook compartido. Se fue con el interruptor.)
  */
-function useFilaMenu() {
+function MenuItem({ icon, label, onClick, href }: {
+  icon: ReactNode; label: string; onClick?: () => void; href?: string;
+}) {
   const [hover, setHover] = useState(false);
   const style: CSSProperties = {
     display: 'flex', alignItems: 'center', gap: 11, width: '100%', textAlign: 'left',
@@ -207,76 +206,15 @@ function useFilaMenu() {
     background: hover ? 'var(--surface-2)' : 'transparent', fontFamily: SANS, textDecoration: 'none',
   };
   const handlers = { onMouseEnter: () => setHover(true), onMouseLeave: () => setHover(false) };
-  return { hover, style, handlers };
-}
-
-function MenuItem({ icon, label, desc, onClick, href }: {
-  icon: ReactNode; label: string; desc: string; onClick?: () => void; href?: string;
-}) {
-  const { hover, style, handlers } = useFilaMenu();
   const inner = (
     <>
       <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, flex: 'none', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', color: hover ? 'var(--primary)' : 'var(--dim)' }}>{icon}</span>
-      <span style={{ minWidth: 0 }}>
-        <span style={{ display: 'block', fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>{label}</span>
-        <span style={{ display: 'block', fontSize: 12, color: 'var(--faint)', lineHeight: 1.35, marginTop: 1 }}>{desc}</span>
-      </span>
+      <span style={{ minWidth: 0, fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>{label}</span>
     </>
   );
   return href
     ? <Link href={href} style={style} onClick={onClick} {...handlers}>{inner}</Link>
     : <button type="button" onClick={onClick} style={style} {...handlers}>{inner}</button>;
-}
-
-/**
- * El renglón del menú que lleva un interruptor en vez de disparar una acción.
- *
- * ⚠️ NO ES UN <button>, Y NO PUEDE SERLO. El `Switch` de app/_ui ya es un
- * `<button role="switch">`: uno dentro de otro es marcado inválido, y el click del hijo
- * burbujea al padre, así que el interruptor se dispararía dos veces (una por el Switch,
- * otra por el renglón). Es el mismo arreglo que ya hizo el renglón con acciones del
- * Dropdown (app/components/Dropdown.tsx, «CON ACCIONES, el renglón NO puede ser un
- * botón»): control y texto son hermanos, y el hover lo maneja la fila.
- *
- * ⚠️ TAMPOCO LLEVA role="menuitemcheckbox". Hoy NINGÚN hijo del `role="menu"` declara
- * su rol: ponerle uno solo a este deja un menú de un único ítem para el lector de
- * pantalla, que es peor que ninguno. Se los pone a los cuatro juntos o a ninguno.
- *
- * ⚠️ EL «?» NO ES LA ÚNICA FUENTE DE LA EXPLICACIÓN, a propósito. La regla del repo
- * (app/_ui/Tooltip.tsx) dice que un tooltip «nunca» lleva una instrucción necesaria: en
- * un teléfono no hay hover y lo que solo vive ahí desaparece. Así que qué hace el CRM
- * automático se escribe en el renglón de abajo, SIEMPRE visible, y el «?» agrega nada
- * más el detalle de cada estado. (El pill viejo tenía esto en un `title=`: la misma
- * falla, invisible al toque.)
- *
- * El interruptor ocupa el lugar del cuadrito del ícono de los otros renglones: es el
- * ícono de este. Sin recuadro alrededor — un borde por renglón convierte el menú en
- * una lista de cajas.
- */
-function MenuSwitch({ titulo, desc, ayuda, checked, disabled, onChange }: {
-  titulo: string;
-  /** La explicación, visible siempre. También es donde aparece el error. */
-  desc: ReactNode;
-  /** El detalle de más que cuelga del «?». Nada indispensable. */
-  ayuda: ReactNode;
-  checked: boolean;
-  disabled?: boolean;
-  onChange: (v: boolean) => void;
-}) {
-  const { style, handlers } = useFilaMenu();
-  return (
-    <div {...handlers} style={{ ...style, cursor: 'default' }}>
-      {/* `titulo` va como string y no como JSX: el Switch saca de ahí su `aria-label`
-          (app/_ui/Toggle.tsx) y con un ReactNode se queda sin rótulo. El pill anunciaba
-          «CRM automático, presionado»; ahora anuncia «CRM automático, activado». */}
-      <Switch checked={checked} disabled={disabled} onChange={onChange} label={titulo} hint={desc} />
-      {/* El «?» queda fuera del a11y tree: lo que dice ya está escrito en el renglón de
-          abajo, así que anunciarlo dos veces es ruido. */}
-      <Tooltip text={ayuda}>
-        <span aria-hidden style={{ display: 'inline-flex', alignSelf: 'flex-start', marginTop: 7, color: 'var(--faint)' }}><Icon name="help" size={14} /></span>
-      </Tooltip>
-    </div>
-  );
 }
 
 export function AccionesHeader({ onImportar, onExportar, onNuevo, onEditarEtapas }: {
@@ -287,15 +225,7 @@ export function AccionesHeader({ onImportar, onExportar, onNuevo, onEditarEtapas
   onEditarEtapas: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  // «De qué datos te avisa MaKo» (13/10/2026: «en el título del desplegable como en los 3 puntos
-  // de la tab CRM una opción para configurar esto»). El MISMO modal que el engranaje de la ficha.
-  const [avisos, setAvisos] = useState(false);
-  const [resumenAbierto, setResumenAbierto] = useState(false);
-  const router = useRouter();
   useEscape(open, () => setOpen(false));
-  // El estado vive acá arriba, no dentro del panel: colgado del panel, cada vez que se
-  // abre el menú saldría un GET nuevo a /api/crm-auto.
-  const crmAuto = useCrmAuto();
 
   return (
     <div className="crm-acciones" style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 'none' }}>
@@ -318,7 +248,7 @@ export function AccionesHeader({ onImportar, onExportar, onNuevo, onEditarEtapas
           (`right: 0`), así que pegado al borde no se sale de la ventana. */}
       <span style={{ position: 'relative', flex: 'none', display: 'inline-flex' }}>
         <button type="button" onClick={() => setOpen((o) => !o)} aria-label="Más acciones del CRM" aria-expanded={open}
-          title="Importar, exportar y editar el funnel"
+          title="Importar, exportar y editar las etapas"
           // CTRL_H y no 38: ahora comparte la fila con los controles de 40 (era del header).
           style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: CTRL_H, height: CTRL_H, flex: 'none', borderRadius: 10, border: `1px solid ${open ? 'var(--primary)' : 'var(--border-strong)'}`, background: open ? 'var(--surface-2)' : 'var(--surface)', color: open ? 'var(--primary)' : 'var(--dim)', cursor: 'pointer', padding: 0 }}>
           <KebabIcon />
@@ -330,10 +260,8 @@ export function AccionesHeader({ onImportar, onExportar, onNuevo, onEditarEtapas
                 leads"»: el pop-up ya se llamaba así, era el menú el que prometía un
                 formato cuando el importador lee planilla, PDF, foto y documento. */}
             <MenuItem icon={<UploadIcon size={15} />} label="Importar leads"
-              desc="Un archivo con nombre, email, teléfono y empresa"
               onClick={() => { setOpen(false); onImportar(); }} />
             <MenuItem icon={<DownloadIcon size={15} />} label="Exportar leads"
-              desc="Baja los leads a planilla o documento"
               onClick={() => { setOpen(false); onExportar(); }} />
             <span style={{ height: 1, background: 'var(--border)', margin: '5px 6px' }} />
             {/* ⚠️ ABRE UN POP-UP, NO UNA PANTALLA. «Quiero eliminar la ruta de funnel, que
@@ -341,41 +269,28 @@ export function AccionesHeader({ onImportar, onExportar, onNuevo, onEditarEtapas
                 mirando el tablero que esas etapas dibujan es la mitad del arreglo: antes
                 había que irse, cambiar a ciegas y volver a ver si había quedado bien. */}
             <MenuItem icon={<FunnelIcon size={15} />} label="Editar las etapas"
-              desc="Cambia el nombre, el orden y cuáles hay"
               onClick={() => { setOpen(false); onEditarEtapas(); }} />
-            <MenuItem icon={<IconoMenu nombre="avisar" size={15} />} label="Avisos de datos sin marcar"
-              desc="Elige de qué datos te avisa MaKo"
-              onClick={() => { setOpen(false); setAvisos(true); }} />
-            <MenuItem icon={<IconoMenu nombre="ver" size={15} />} label="Qué muestra el Resumen"
-              desc="Elige los datos de la ficha de cada lead"
-              onClick={() => { setOpen(false); setResumenAbierto(true); }} />
-            {/* ⚠️ EL DIVISOR VA ADENTRO DE LA CONDICIÓN. Suelto, el que no es admin
-                (para quien /api/crm-auto responde 403 y `on` queda en null) vería una
-                rayita separando la nada — que es exactamente lo que pasaba en el header
-                con el pill y su divisor sin condicionar. */}
-            {crmAuto.on != null && <>
-              <span style={{ height: 1, background: 'var(--border)', margin: '5px 6px' }} />
-              <MenuSwitch titulo="CRM automático"
-                desc={crmAuto.err
-                  ? <span style={{ color: 'var(--bad)' }}>{crmAuto.err}</span>
-                  : 'MaKo mueve los leads solo'}
-                ayuda={crmAuto.on
-                  ? 'Mueve leads y deja confirmaciones.'
-                  : 'Solo mira: no mueve ningún lead.'}
-                checked={crmAuto.on} disabled={crmAuto.busy} onChange={() => crmAuto.toggle()} />
-            </>}
+            {/* ⚠️ ACÁ HABÍA TRES RENGLONES MÁS, y se fueron el 14/10/2026. Martín: «ya
+                eliminarías en los 3 puntos los botones de "avisos y resumen"... Y elimina el
+                botón de "CRM Automático", para eso ya llevamos todo a Automations».
+                  · «Avisos de datos sin marcar» y «Qué muestra el Resumen»: los dos modales
+                    se siguen abriendo desde el engranaje de la ficha (LeadSheet,
+                    LeadDetailBody, InfoPrincipalCard) hasta que llegue el constructor por
+                    bloques que los reemplaza. Dos puertas al mismo modal era una de más.
+                  · El interruptor «CRM automático»: se va la PERILLA, no el motor. lib/crm-auto*,
+                    el cron y /api/crm-auto siguen, y el flag se prende y apaga por
+                    `activar_crm_automatico` hasta que las plantillas de Automations lo
+                    reemplacen. */}
           </div>
         </>}
       </span>
-      {avisos && <AvisosDatosModal onCerrar={() => setAvisos(false)} onGuardado={() => router.refresh()} />}
-      {resumenAbierto && <ResumenModal onCerrar={() => setResumenAbierto(false)} onGuardado={() => router.refresh()} />}
     </div>
   );
 }
 
 // ⚠️ ACÁ VIVÍA `DivisorHeader`, el divisor entre el pill del CRM automático y el clúster
-// de acciones. Se fue con el pill: el interruptor es ahora un renglón del menú, así que
-// en el header no quedan dos cosas distintas que separar.
+// de acciones. Se fue con el pill (29/09: el interruptor pasó a ser un renglón del menú, y
+// el 14/10 se fue también de ahí), así que en el header no quedan dos cosas que separar.
 
 // =============================================================================
 // B) Barra: selector de vista, buscador, bandas
