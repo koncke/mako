@@ -2915,11 +2915,13 @@ como HTML dispara `onload` perfectamente y no define nada. Se pregunta por el GL
 probable es la red de quien está mirando.
 
 **Falta el archivo** (`public/replay/1/player.js`, el bundle UMD de `rrweb-player`), igual
-que falta `/replay/<v>/r.js` del lado del grabador. Mientras no esté, el pop-up **lo dice y
+que falta `/replay/<v>/r.js` del lado del grabador. Mientras no esté, el reproductor **lo dice y
 ofrece bajarse la grabación**: el reproductor no puede ser la única puerta a un dato que ya
-está en la pestaña.
+está en la pestaña. (Los archivos ya están publicados. Hasta el 14/10 esto se mostraba en un
+pop-up; hoy va en línea en la tarjeta, ver «El reproductor de la grabación» al final. Lo mismo vale
+para la HOJA: si `player.css` no carga, tampoco se monta.)
 
-**Vive en:** `lib/replay-reproductor.ts` · `app/crm/lead-view/GrabacionModal.tsx`
+**Vive en:** `lib/replay-reproductor.ts` · `app/crm/lead-view/GrabacionModal.tsx` (`GrabacionEnLinea`)
 
 ---
 
@@ -3457,8 +3459,9 @@ estar siempre activado»**. El interruptor había nacido esa misma mañana, apag
 
 El commit anterior dejó esto escrito como lo que NO quedaba: la prueba del Pixel podía
 AFIRMAR que grabó y no llevaba a ningún lado, porque el reproductor de rrweb vive en la
-ficha del lead (`app/crm/lead-view/GrabacionModal.tsx`, 180 líneas con su modal, su huso
-horario y su server action) y una prueba no tiene lead. La salida obvia —extraer el modal
+ficha del lead (`app/crm/lead-view/GrabacionModal.tsx`, entonces un modal de 180 líneas con su
+huso horario y su server action; desde el 14/10 es `GrabacionEnLinea`, un reproductor en línea
+dentro de la tarjeta) y una prueba no tiene lead. La salida obvia —extraer el modal
 del CRM— es la que NO se tomó: Martín pidió la otra, «que simplemente se cree un lead de
 PRUEBA en el CRM en ese producto», y es mejor, porque reusa el reproductor que ya existe en
 vez de montar un segundo lugar donde el mismo cuerpo se dibuja.
@@ -3615,10 +3618,11 @@ a repegar un código perfecto), `falta` si no llegó, y `ok` si llegó — dicie
 si ya se puede ver o si todavía se está guardando, que es un estado normal de hasta 10
 minutos y no un error.
 
-**Lo que quedó SIN hacer:** desde la prueba no se puede VER la grabación. El reproductor vive
-en la ficha del lead (`app/crm/lead-view/GrabacionModal.tsx`, 180 líneas) y una prueba no
-tiene lead; ofrecer un botón que no lleva a ningún lado es peor que no ofrecerlo. Para que
-exista ahí hay que sacar ese modal del CRM, y arrastra `useTzWorkspace` y su server action.
+**Lo que quedó SIN hacer (ya resuelto, por otro camino):** desde la prueba no se podía VER la
+grabación, porque el reproductor vivía en la ficha del lead y una prueba no tiene lead. No se
+sacó del CRM: se ve con un lead PRUEBA (la entrada «La grabación de una prueba se MIRA con un
+lead PRUEBA», más arriba). Y desde el 14/10 ya no es un modal: `GrabacionModal.tsx` exporta
+`GrabacionEnLinea`, un reproductor en línea dentro de la tarjeta.
 
 **Vive en:** app/integraciones/ProbarTracking.tsx · app/api/integraciones/landing/estado/route.ts
 (`chequeoGrabacion`) · lib/replay-leer.ts (`replayDePrueba`) · *2026-10-06*
@@ -3949,10 +3953,12 @@ una visita de 4 minutos.
    con el snippet v22 real en un navegador: con v1 ningún escenario dejaba fila; con v2, todos los de 10
    s o más. Y con la página real de ws1, la foto bajó de 116.400 B a 45.117 B.
 3. **Ninguna grabación se pudo mirar nunca.** El UMD de rrweb-player 2.1.7 deja
-   `window.rrwebPlayer = {Player, default}` (un objeto) y el cargador pedía una función: el pop-up decía
-   «sin reproductor» siempre. Regla: un global de un UMD se verifica CARGANDO el bundle, no por el
-   nombre. Y con la hoja como link, el reproductor tiene que sacar `crossorigin`/`integrity` de los
-   `<link>` de Vite, o el CSS de los clientes de Lovable se bloquea por CORS.
+   `window.rrwebPlayer = {Player, default}` (un objeto) y el cargador pedía una función: el pop-up (hoy
+   un reproductor en línea) decía «sin reproductor» siempre. Regla: un global de un UMD se verifica
+   CARGANDO el bundle, no por el nombre. Y con la hoja como link, el reproductor tiene que sacar
+   `crossorigin`/`integrity` de los `<link>` de Vite, o el CSS de los clientes de Lovable se bloquea por
+   CORS. (Y el script no era todo: su PROPIA hoja, `player.css`, tampoco se cargaba. Ver «El reproductor de
+   la grabación», 14/10.)
 
 ⚠️ **«ARREGLAR EL GRABADOR ES SUBIR UN NÚMERO, SIN REPEGAR» ERA FALSO.** El lote, el piso, el beacon y
 la cola viven en el snippet pegado en la página (`lib/landing-token.ts`); r.js sólo traía rrweb. Sin
@@ -4147,3 +4153,89 @@ desde donde está), `app/landing-analyst/page.tsx` (redirige)
   `app/dashboard/graficos/` (mapa de calor).
 
 *12/10/2026, chat «Graphics», ola 2 de la v5 (paquete del mapa de calor).*
+
+## El reproductor de la grabación: «completamente roto» porque su hoja de estilos nunca se cargaba (14/10/2026)
+
+**Vive en:** `lib/replay-reproductor.ts` (`cargarReproductor`, `medidasDelReproductor`, `CONTROLES_ALTO`,
+`enPantallaCompleta`) · `app/crm/lead-view/GrabacionModal.tsx` (`GrabacionEnLinea`) ·
+`app/crm/lead-view/GrabacionCard.tsx` · `scripts/replay-libs.mjs` · `tests/grabacion-montaje.test.ts` ·
+`tests/replay-ficha.test.ts`
+
+Martín, 14/10 03:06: «Mira como se ve el reproductor, completamente roto... No hagas un desplegable de eso, que viva
+dentro de la sección "Grabación de su visita" en tracking». La página grabada salía corrida hacia arriba a la izquierda
+y la barra de controles, sin forma.
+
+⚠️ **EL DIAGNÓSTICO OBVIO ERA EL EQUIVOCADO: no eran las medidas, que fue lo primero que se miró.**
+`scripts/replay-libs.mjs` publicaba `public/replay/1/player.css` y nadie la pedía: `lib/replay-reproductor.ts` sólo
+inyectaba `player.js`. Sin la hoja, `.replayer-wrapper` no tiene `position:relative` ni `left/top:50%`, y el
+`scale() translate(-50%,-50%)` del reproductor corre la página. Regla: **el reproductor se carga con script Y hoja, y
+un `.css` publicado que nadie pide es un estilo que no existe.** Se piden juntos, una vez por pestaña
+(`<link id="mko-replay-player-css">`), con un tope de 30 s compartido, y un fallo no se memoiza. Y se comprueba que
+la hoja tenga REGLAS (`hojaAplicada`): un 404 servido como HTML también dispara `onload`, la misma trampa del global
+de «El reproductor de rrweb no se instala: se SIRVE». Si la hoja falta, el reproductor no se monta: dice que no
+cargó y ofrece bajar el archivo. Antes salía el reproductor roto; ahora sale esa frase.
+
+**Lo que dice el bundle de rrweb-player 2.1.7 sobre las medidas (leído en el bundle, no en la documentación):**
+
+- `maxScale` vale 1 por defecto, así que una visita de escritorio se veía a escala 1 aunque cupiera más grande. La
+  escala es `min(ancho/grabado, alto/grabado, maxScale)`, y el tope entra con `l && ce.push(l)`: **`maxScale: 0`
+  quiere decir SIN tope**, no «escala cero».
+- La barra de controles mide 80 px fijos (`const bn=80`) y se suma DEBAJO del `height` que se le pasa. El recuadro
+  entero se topa al 70% del alto de la ventana (`TOPE_ALTO_VENTANA`), y el ancho es el de la tarjeta.
+- `$set({width,height})` cambia las variables en el momento, y `triggerResize` recalcula la escala con ellas. Un
+  `ResizeObserver` vuelve a medir.
+- Con `target`, el reproductor monta SINCRÓNICO (Svelte hace el flush en el constructor). `.rr-player__frame` y
+  `.rr-controller` ya existen cuando vuelve el constructor, así que se pueden tocar ahí mismo.
+
+**En pantalla completa no se reescala.** El bundle guarda `width/height` al recibir `fullscreenchange` y los repone
+al salir; cualquier `$set` mientras dura lo pisa. Entrar dispara un `resize` de la ventana, así que el listener que
+reescala se saltea mientras haya `document.fullscreenElement` (`enPantallaCompleta`).
+
+**La página grabada va `inert`.** rrweb le apaga el mouse al iframe (`pointer-events:none`) pero no el Tab. El foco
+podía entrar al documento del iframe, y ahí no llegan el Escape (un `keydown` en captura sobre `window`, en
+`app/crm/LeadSheet.tsx:122`) ni la trampa de foco de la ficha. Va `inert` sólo el frame; los controles siguen andando.
+
+**«skip inactive» es el único texto en inglés, y se cambia una vez.** Svelte reescribe `div.switch > span.label` sólo
+si cambia la prop `label`, que es fija: cambiarla al montar alcanza, y dice «Saltar pausas».
+
+⚠️ **El rótulo y el `inert` cuelgan de clases del bundle** (`.rr-player__frame`, `.rr-controller .switch .label`). Una
+versión nueva que las cambie vuelve al inglés y al Tab adentro del iframe SIN AVISAR: esas búsquedas devuelven null
+y siguen de largo.
+
+⚠️ **`player.css` trae nombres globales.** Define los `@keyframes` `click` y `touch-click`, y usa
+`animation: switch-on/switch-off` sin definirlos. Un `@keyframes` de la app con cualquiera de esos cuatro nombres se
+mezcla con el reproductor. El test cubre `click` y `touch-click`, no `switch-on` ni `switch-off`. Y el interruptor deja
+un `input id="skip"` global mientras la grabación está abierta.
+
+**Sin `Modal` no hay pila, y el Escape es de la ficha.** `GrabacionEnLinea` va sin Modal ni portal, debajo de la fila
+elegida, y conserva las fases (bajando, errores, el tope de 30 s del cuerpo) y el montaje con ref de callback (la
+entrada de la grabación «cargando eternamente», en hallazgos-crm). Con el foco en un control del reproductor, Escape
+cierra la ficha, como desde cualquier otra tarjeta. La tarjeta deja una sola grabación abierta (el estado es un id),
+y el mismo botón pasa de «Ver la grabación» a la X, así que el foco no salta. El archivo se sigue llamando
+`GrabacionModal.tsx` porque `tests/replay-envoltorio.test.ts` y `app/admin/dev/areas.ts` lo nombran por ruta.
+
+**Los números de rotura se escriben con la salida en la mano.** El intento cortado de esta tarea había anotado
+«base 11/0 y 35/0» ANTES de correr, y eran 10 y 34. Las 18 roturas se rehicieron una por una (13 en
+`grabacion-montaje`, 5 en `replay-ficha`).
+
+### Lo que quedó SIN hacer
+
+- **Verlo en un navegador**, en `/crm` con un lead que tenga grabación, en ws3 y nunca en ws1: la escala y el
+  centrado, la barra de controles, que el Tab no entre al iframe, el rótulo «Saltar pausas», y entrar y salir de
+  pantalla completa. Tampoco se midió el Escape en pantalla completa en todos los navegadores: uno que además se lo
+  pase a la página cerraría la ficha.
+- **Tema oscuro**: la barra de rrweb-player es blanca (#fff, íconos negros) dentro de la tarjeta oscura. Si se la
+  quiere con el tema, va un `<style>` acotado en `app/crm/lead-view/GrabacionModal.tsx`; los selectores del bundle
+  tienen especificidad 0,3,0 (`.rr-controller.svelte-189zk2r.svelte-189zk2r`).
+- `tests/replay-envoltorio.test.ts:325` y `:332` todavía hablan del «pop-up».
+- Renombrar a `GrabacionEnLinea.tsx` obliga a tocar `tests/replay-envoltorio.test.ts:330` y `app/admin/dev/areas.ts:560`,
+  además de los tests que ya lo nombran.
+- Al abrir una grabación al pie de la ficha, el reproductor puede quedar fuera de la vista: no hay `scrollIntoView`
+  (`app/crm/lead-view/GrabacionCard.tsx`).
+- `ANCHO_MINIMO` 240 (`lib/replay-reproductor.ts`): en una tarjeta más angosta, el reproductor se recorta a la
+  derecha, porque el contenedor tiene `overflow: hidden`.
+- Duda de lectura para Martín: «No hagas un desplegable de eso» se hizo como una fila que se abre debajo al tocar
+  «Ver la grabación». Si quería la grabación visible sin tocar nada, `GrabacionCard` tiene que montar la más reciente
+  de entrada.
+
+*14/10/2026, chat «CRM» (`claude2`), tanda A del feedback.*

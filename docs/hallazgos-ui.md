@@ -3699,3 +3699,63 @@ un Escape cierra las dos cosas en vez de sólo la lista.
 
 **Vive en:** `app/components/Dropdown.tsx` (`fuente`, `portalTo`) · `app/_cursos/SelectorFuente.tsx` · `app/_cursos/CursoUgc.tsx`
 (`MenuMarca`) · *2026-10-14 Customer Success*
+
+---
+
+## El clic derecho de la casa: `MenuContextual`, y las guardas que lo dejan convivir con la ficha (14/10/2026)
+
+Nació para el tablero del CRM («implementa el click derecho en todo el CRM», Martín, 14/10) y es GENÉRICO: qué
+opciones salen lo decide cada pantalla con una función pura con test (en el CRM, `opcionesCrm`). La pieza resuelve
+sólo cómo se abre en el punto del cursor, cómo se ubica sin salirse de la ventana, el teclado y el cierre (clic
+afuera, rueda, resize, perder la ventana). Lo que costó está en sus guardas.
+
+**Un menú fuera de la pila de modales es «nada encima», y su Escape cerraba también la ficha.** La ficha del lead
+cierra con Escape sólo si `profundidadModales()` da 0. El `MenuFlotante` de `app/_components/Lienzo.tsx`, uno de los
+moldes, no se registra en la pila, y ése es el defecto que no se copió. `MenuContextual` entra como capa anidada
+(`useCapaModal(true, { anidada: true })`): no esconde lo de abajo, pero cuenta como algo encima. Su Escape va en
+captura sobre `document`, contesta sólo si es la capa de arriba (`esElDeArriba`) y frena con
+`stopImmediatePropagation`, por lo que explica «Dos `Modal` apilados se cerraban los DOS con un solo Escape», más
+arriba.
+
+**En la pila, el primer render mide 0×0.** Es la trampa de «Un campo que se mide en su primer efecto adentro de un
+Modal mide CERO», más arriba, en un menú: `idx` es -1 y `visible` da false hasta el efecto de la pila. Un menú
+ubicado con tamaño cero se pinta un instante afuera de la ventana. Se espera al `ResizeObserver` con el tamaño real
+(`if (!r.width && !r.height) return;`) y va con opacidad 0 hasta ubicarse.
+
+**Un clic derecho afuera NO cierra en el `pointerdown`.** Lo resuelve su `contextmenu`: cierra éste y la pantalla
+abre el del lugar nuevo en el mismo gesto. Cerrando en el `pointerdown`, el `contextmenu` llegaba a una pantalla a
+medio redibujar.
+
+**La raíz que escucha el clic derecho recibe también los de la ficha y los modales.** En el CRM, un clic derecho en
+la ficha del lead, en un desplegable o en un modal abría el menú del tablero. Los eventos de React suben por el árbol
+de React, no por el DOM: `LeadEditModal`, los `Dropdown` y los `Modal` viven adentro del `<main>` del tablero aunque
+se dibujen en el `<body>` (la misma trampa del `createPortal` de [hallazgos-crm.md](hallazgos-crm.md) → «Un
+modal dentro de otro: el Escape ya tenía guarda, el CLICK no»). La regla: todo `onContextMenu` en una raíz arranca con
+`e.defaultPrevented || t.closest('[role="dialog"], [role="menu"], [role="listbox"]')`, y quien quiera su propio clic
+derecho adentro llama a `e.preventDefault()`.
+
+⚠️ **El diagnóstico obvio no alcanzaba: `closest('[role=dialog]')` no cubre el fondo oscuro de un `Modal`.** El
+`role="dialog"` está en la caja (`.mk-modal`), no en `.mk-modal__fondo` (`app/_ui/Modal.tsx:207`): un clic derecho en
+el fondo de cualquier modal abría el menú del tablero encima. Lo que cubre todo es
+`document.querySelector('[aria-modal="true"]')`, que ya ponen Modal, WizardShell, Confirm y LeadSheet. Contar la pila
+(`profundidadModales() > 0`) no sirve, porque mientras se resuelve el segundo clic derecho el propio menú está en la
+pila.
+
+**Un renglón rojo se verifica en el `style` de su `<button>`.** El tacho de la casa (`IconoMenu nombre='borrar'`) se
+pinta rojo solo, así que un test que busca `color:var(--bad)` cerca de «Eliminar» daba verde con el rótulo en negro.
+Salió a la luz rompiéndolo.
+
+**Vive en:** `app/_ui/MenuContextual.tsx` · `app/_components/pila-modales.ts` · `app/crm/CrmBoard.tsx`
+(`alClicDerecho`, el ejemplo de las guardas) · `app/_ui/Modal.tsx` · `tests/crm-menu-contextual.test.ts`
+
+### Lo que quedó sin hacer
+
+- Los estilos con `:hover`/`:focus` van en un `<style>` propio (`ESTILOS`, en `app/_ui/MenuContextual.tsx`), y
+  `app/_ui/LEEME.md` (regla de crecimiento 3) los pide en `app/_ui/ui.css`. Mudarlos es una línea.
+- La pieza no está en el barrel `app/_ui/index.ts` ni en el catálogo `/admin/ui` (LEEME, regla 5).
+- `app/_ui/iconos-menu.tsx` no tiene flechas izquierda/derecha. El menú usa `FlechaIzquierdaIcon`/`FlechaDerechaIcon`
+  de `app/crm/iconos`.
+- Un clic IZQUIERDO afuera cierra en el `pointerdown` y el clic sigue de largo: si cae en una tarjeta, abre la ficha.
+  El menú nativo de Chrome, en cambio, se lo traga. No se decidió cuál se quiere.
+- Sin ver en un navegador: el segundo clic derecho con el menú abierto, el Escape con la ficha abierta y el submenú
+  recorrido en diagonal con el mouse.

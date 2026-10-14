@@ -22,6 +22,221 @@ en [corridas-multiagente.md](corridas-multiagente.md).
 
 ## Lo que más muerde acá
 
+### La madrugada del 14/10/2026: la tanda A del feedback (chat CRM, `claude2`)
+
+El pedido textual (14/10 03:06) está en la bitácora del CRM (`app/admin/dev/crm/bitacora.ts`). Seis
+frentes en worktrees propios, mergeados en `fb1410`, y dos revisiones adversariales (A revisar y el chat
+de MaKo) con sus arreglos. Lo que vive en piezas compartidas está en su documento: el clic derecho de la
+casa y sus guardas en [hallazgos-ui.md](hallazgos-ui.md) → «El clic derecho de la casa», y el reproductor
+de la grabación en [hallazgos-landing.md](hallazgos-landing.md) → «El reproductor de la grabación».
+
+#### «A revisar»: una fila por lead
+
+**El número estaba bien; lo que contaba por dato era la ruta.** El panel decía N y dibujaba muchas más
+filas. Lo obvio era arreglar el conteo, y el conteo estaba bien: `getPendientesDeMarcar` da un item por
+lead y `total: items.length`. La ruta partía cada lead en una fila por dato. Regla: el número sale del
+server y la pantalla no lo recalcula; si no coincide, se corrige quien arma las filas.
+**Vive en:** `lib/queries.ts` (`getPendientesDeMarcar`) · `app/api/datos-sin-marcar-count/route.ts` ·
+`lib/a-revisar-filas.ts`
+
+**Un lead de tipo 'R' o 'M' sigue en la lista aunque se le ignore todo.** La rama R (reunión pasada sin
+desenlace) y la M (nutrición manual vencida) lo meten en el worklist aunque no le falte ningún dato. Un
+borrado optimista por «ya no le quedan datos» lo hacía parpadear: desaparecía y la relectura lo traía de
+vuelta. La fila lleva `porOtraCosa`, y con eso la ✕ no lo saca de la vista.
+**Vive en:** `lib/a-revisar-filas.ts` (`filasPorLead`) · `app/_components/MakoConfirmGate.tsx`
+
+**Los tests de la agrupación eran regex sobre el fuente y daban verde con la agrupación rota.** La
+revisión lo midió con mutaciones en una copia: `escribirIgnorados` guardando sólo el último dato, la ruta
+sin juntar los ignorados por lead, el filtro optimista invertido. Con cada una, 15/15 en verde. Lo que
+escribe o agrupa se saca a una función pura y el test la EJECUTA con valores (`filasPorLead`,
+`ocultosPorLead`); las regex quedan como guard de forma, no como única prueba.
+**Vive en:** `lib/a-revisar-filas.ts` · `tests/a-revisar-por-lead.test.ts`
+
+**Lo ignorado con la ✕ tiene que volver por «Ver más», y un tope por DATO lo dejaba afuera.** Los
+ignorados salen de `lib/queries.ts` uno por dato, por id ascendente y con tope. La ✕ ignora de 3 a 5
+datos de un saque, así que el tope de 50 se llenaba con los leads viejos y el recién ignorado (el de id
+más alto) quedaba afuera, o cortado a la mitad. Ahora la ruta junta por lead hasta 50 leads
+(`TOPE_OCULTOS`) y la lectura trae hasta 500 datos (`TOPE_IGNORADOS`).
+**Vive en:** `lib/queries.ts` · `app/api/datos-sin-marcar-count/route.ts`
+
+⚠️ **Ignorar tiene DOS columnas, y la API de MaKo escribe la otra.** La ✕ del panel escribe
+`leads.datos_ignorados` (por dato, 0270). `ignorar_datos_sin_marcar` escribe `leads.pendientes_ignorados`
+(el lead entero, 0109). Un lead ignorado por la API no entra en «Ver más»: `getPendientesDeMarcar` sólo
+junta los ignorados de los leads sin `pendientes_ignorados`. Desde el panel no tiene vuelta; se reactiva
+con `reactivar_datos_sin_marcar`. Leído en el código, no medido en la pantalla.
+**Vive en:** `lib/queries.ts` · `lib/api-mako/areas/crm.run.ts` · `app/crm/datos-sin-marcar-actions.ts`
+
+**La foto de cada fila va sin teléfono.** `useCaraDelLead` con teléfono le pide a Evolution la foto de
+WhatsApp EN VIVO (`/api/whatsapp/evolution/mensajes?avatarimg=`, en `candidatasDeFoto`). Con 24 filas son
+24 pedidos al proxy, y con la línea colgada es lento. En una lista va `telefono: null`: `foto_auto_url`
+ya es la copia de esa foto que guarda el cron. Y el Gravatar se arma en el server, porque
+`lib/gravatar.ts` usa `node:crypto` y un `'use client'` que lo importe no compila.
+**Vive en:** `app/api/datos-sin-marcar-count/route.ts` (`ponerCaras`) · `lib/contacto-lead.ts` ·
+`lib/gravatar.ts`
+
+**Cerrar al tocar afuera: `profundidadModales()` NO protege la ficha.** La ficha y el modal de avisos se
+montan ADENTRO del panel (plegarlo los desmonta y se pierde lo escrito). La ficha no se anota en la pila, y
+mientras se descarga (`dynamic`) la pila está vacía. Por eso el listener ni se registra con `ficha` o
+`config` abiertos, y además mira la pila y los `[role=menu|listbox|dialog]` portaleados.
+**Vive en:** `app/_components/MakoConfirmGate.tsx` (el efecto del cierre, `enCapaFlotante`)
+
+#### El «⋯» del CRM: sacar un botón no es apagar la función
+
+**Del «⋯» salieron «Avisos de datos sin marcar», «Qué muestra el Resumen» y «CRM automático», y las tres
+cosas siguen vivas.** El motor (`lib/crm-auto*`, `/api/crm-auto`, el cron y el flag
+`activar_crm_automatico`) no se tocó. `AvisosDatosModal` tiene tres puertas (LeadSheet, LeadDetailBody y
+MakoConfirmGate), pero `ResumenModal` tiene UNA: `InfoPrincipalCard`. Si se toca esa tarjeta, el Resumen
+queda sin acceso; el test lo fija barriendo `git ls-files`. Para el CRM automático ya no queda ninguna
+perilla en la app: sólo la API de MaKo o el chat.
+**Vive en:** `app/crm/CrmToolbar.tsx` (`AccionesHeader`) · `app/crm/lead-view/InfoPrincipalCard.tsx` ·
+`tests/crm-kebab-14-10.test.ts`
+
+**Un archivo sin call sites no está muerto mientras siga en `vive`.** `CrmAutoToggle.tsx` quedó sin uso y
+no se borró: `app/admin/dev/areas.ts:201` lo nombra, y `tests/dev-areas.test.ts` exige que toda ruta de
+`vive` exista. Se borra sacándolo de ahí en el mismo commit.
+
+**Un guard que corta cada `<MenuItem … />` con regex no ve un `desc=` que está.** El ícono va como JSX
+adentro del prop (`icon={<UploadIcon size={15} />}`) y el primer `/>` del recorte es el del ícono. En tests
+de fuente sobre JSX con íconos inline, se busca en el bloque del componente entero.
+**Vive en:** `tests/crm-kebab-14-10.test.ts`
+
+#### El clic derecho del tablero
+
+**Un solo `onContextMenu` en el `<main>`, y lo que sale lo decide una función pura.** `opcionesCrm` mira
+dónde cae el clic (tarjeta o fila, con `data-lead-id`; columna; fondo) y el estado. Cada opción reusa lo
+que el tablero ya tenía: mover por `idASoltar` + `handleDrop`, el borrado con su confirmación. Con
+selección, el clic sobre un tildado actúa sobre todos y pasa por la barra de lote con un ref
+(`ManijaLote`): hace la misma pregunta que sus desplegables, sin una segunda lista. React 19 acepta `ref`
+como prop común, así que el `useImperativeHandle` va antes del `if (n === 0) return null`. Las guardas
+(portales, el fondo del modal, la pila) son de la pieza y están en hallazgos-ui.
+**Vive en:** `app/crm/CrmBoard.tsx` (`alClicDerecho`) · `app/crm/menu-contextual-crm.ts` ·
+`app/crm/AccionesLoteLeads.tsx`
+
+**El tablero no sabe el rol de quien mira.** `app/crm/page.tsx` no se lo pasa a `CrmBoard`, y la barra de
+lote tampoco lo mira. El menú no filtra por rol: lo que un rol no puede, lo rechaza el server, igual que
+desde los botones.
+
+**Dos tests fijan el fuente del tablero por POSICIÓN.** `tests/funnel-estructura.test.ts:450` ubica el
+menú de la columna con `indexOf('Opciones de la etapa')` sobre el archivo crudo, con comentarios: el mismo
+texto más arriba en `CrmBoard.tsx`, aunque sea en un comentario, lo rompe con un mensaje engañoso («el
+contador ya no está entre el título y el menú»). Y `tests/crm-tablero-alta-12-10.test.ts:98` fija el orden
+de los atributos del `<main>`. Regla: un atributo nuevo del `<main>` del CRM va después del `style`.
+
+#### El chat de MaKo al costado del tablero, y sus sugerencias
+
+**El CRM principal es `null` en la pantalla y un id real en la automatización.** `/crm` sin `?funnel=` y
+`leads.funnel_id` dicen null, pero la galería arma el CRON con el id del embudo (`venta:<id>:<etapa>`,
+`productosConEtapas`). Lo que se crea desde el CRM lleva el id real también para el principal, y al
+comparar, un `funnel_id` null en la automatización quiere decir «todos los CRM».
+**Vive en:** `lib/sugerencias-crm.ts` (`yaExiste`) · `lib/sugerencias-crm-server.ts` (`crmDeLaPantalla`)
+
+**«Ya existe» no es «hay una con esa etapa en sus columnas».** Ése era el diagnóstico obvio, y era el
+equivocado: las columnas guardan sólo el PRIMER CRON. Los demás viven en `disparadores` (jsonb, 0241), y uno
+sin `funnel_id` hereda el de la fila. Se compara con `disparadoresDe(fila)`, la misma lista que lee el
+motor. Una automatización creada desde la galería se reconoce por su clave `plantilla-<id>-…`
+(`claveNueva`, `lib/plantilla-crear.ts`), y así no tapa las sugerencias de otra plantilla en la misma etapa.
+Y «Un Cliente Empezó» no arranca en Ganado: su CRON es una etapa de la ENTREGA del producto
+(`pide: 'etapa_entrega'`), a dos saltos del embudo. Sin producto o sin entrega, nace con el CRON a elegir.
+**Vive en:** `lib/sugerencias-crm.ts` · `lib/disparadores.ts` · `lib/plantillas-automatizaciones.ts`
+
+**Un «no sé» no sugiere.** Si `credWs` o `estadoMedios` fallan, o los leads no se leen, el dato es null y la
+sugerencia se abstiene. Sólo `false` quiere decir «no conectado» (`conectado.fathom === false`).
+
+**En serverless, una caché en memoria se invalida sólo en la instancia que atendió el clic.** Lo callado
+(«Ahora no», 30 días; lo recién hecho, 1 día) vive en `app_settings` y se aplica en cada pedido. «Hacerlo»
+vuelve a calcular SIN caché antes de crear, y así una instancia con caché vieja no duplica. Lo callado se
+lee estricto: «no pude leer» viaja como null, no como «nada callado». «Volver a mostrar» usa el mismo
+compare-and-set que callar.
+**Vive en:** `lib/sugerencias-crm-server.ts` (`callar`, `volverAMostrar`, `hacerSugerencia`)
+
+**Lo que se propone tiene que ser lo que se crea.** «Un Lead No Avanzó» espera un plazo FIJO (su primer
+«Esperar», hoy 3 días) y nada lo ajusta. Las líneas que la ofrecían prometían otra cosa: «hace más de N
+días» o «más de lo previsto». Ahora el plazo del texto sale de la definición de la plantilla
+(`esperaDePlantilla`), y el test lo saca del grafo por otro camino (sumando las esperas hasta el aviso) y
+los cruza. Con una etapa de nombre largo se acorta la ETAPA y no la pregunta (`conEtapa`).
+**Vive en:** `lib/sugerencias-crm.ts` · `tests/sugerencias-crm.test.ts`
+
+**Cambiar de CRM con el panel plegado cargaba, y ESCRIBÍA, el hilo del CRM nuevo.** Cargar el hilo llama a
+`pendientesVigentes`, que vence lo vencido. Desmontar desde el efecto de `funnelId` no alcanzaba: el efecto
+del chat (hijo) corre ANTES que el del panel, con el CRM nuevo, y el GET ya salió. La cura es una `key` por
+CRM (`PanelDeUnCrm`): el de antes se desmonta entero en el mismo render, con su pedido pendiente, y el
+nuevo nace plegado y sin chat. Regla: el estado que es DE un recurso se ata con `key`, no se limpia con un
+efecto del padre.
+**Vive en:** `app/crm/mako-crm/PanelMakoCrm.tsx` · `app/crm/mako-crm/ChatMakoCrm.tsx`
+
+**En un CRM secundario, dos lecturas le mentirían al modelo.** `ver_funnel` y `contar_leads_por_etapa`
+contestan siempre por el principal (`getFunnelDefault`). Sólo entran en el contexto del principal
+(`lecturasDe`), y la foto de cada CRM sale de la lectura `sugerencias_crm`, que lleva `embudoId`.
+**Vive en:** `app/crm/mako-crm/chat-reglas.ts` · `lib/api-mako/areas/crm.helpers.ts`
+
+**Un test que busca el `AbortSignal` de cada fetch con `fetch\([^;]*?\{[^]*?\}\)` da falsos «sin corte».**
+La regex termina en el primer `}`, el de los headers. Se corta el fuente por `fetch(` y se miran los
+primeros N caracteres de cada tramo. **Vive en:** `tests/sugerencias-crm.test.ts`
+
+#### Las etiquetas al lado del nombre
+
+**Un `flex-wrap` sólo envuelve si su contenedor puede achicarse.** El grupo de etiquetas tiene
+`flexWrap: 'wrap'`, y parece que en pantalla angosta envuelve. No envuelve: `.cl-junto` es `flex:none`, así
+que mide siempre lo máximo de su contenido. El `flex-wrap` de `.cl-tit` baja el grupo ENTERO debajo del
+nombre, no lo parte. Y `.cd-txt` es `overflow:hidden`, así que recorta sin barra. Con la píldora
+«＋ Etiqueta» de 150 px de vuelta (pedida), el peor caso suma ~434 px. En un teléfono la píldora queda
+afuera y no se puede agregar una etiqueta. Regla: el contenedor de algo que envuelve lleva
+`flex-shrink: 1`, `min-width: 0` y `max-width: 100%`.
+**Vive en:** `app/crm/lead-view/CabeceraLead.tsx:224` (`.cl-junto`) · `app/_components/CabeceraDetalle.tsx`
+(`.cd-txt`) · `app/crm/lead-view/EtiquetasDelLead.tsx`
+
+#### Lo que quedó sin hacer
+
+- **A revisar.** `tests/acciones-sin-sesion.test.ts:59`: sumar `ignorarDatosDelLeadAction` a la lista del
+  guard canónico. Hoy la cubre `tests/a-revisar-por-lead.test.ts`, que recorre todas las funciones exportadas.
+- **A revisar.** La API de MaKo no ignora un dato suelto (`datos_ignorados`): sólo el lead entero, por la otra
+  columna (ver arriba). La escritura está en `app/crm/datos-sin-marcar-actions.ts` (`escribirIgnorados`) y
+  tendría que ir a `lib/api-mako/areas/crm.*`.
+- **A revisar.** Con el panel abierto, tocar «Actualiza el Pixel» no hace nada. El panel se pliega en el
+  `pointerdown`, el aviso baja varios cientos de px y el click cae en otro elemento. La salida es cerrar en
+  `click` en captura, o ignorar los toques dentro de la esquina (`data-*` en EsquinaAvisos).
+  Vive en `app/_components/MakoConfirmGate.tsx`.
+- **A revisar.** Las caras se leen en cada `?lista=1`, aunque el panel esté plegado (el estado por defecto).
+  Habría que pedirlas sólo con el panel abierto. Y el comentario de `ponerCaras` dice «≤ 24»: con 50 ocultos
+  son hasta 62. Vive en `app/api/datos-sin-marcar-count/route.ts`.
+- **El «⋯».** Para borrar `app/crm/CrmAutoToggle.tsx`, sacarlo de `app/admin/dev/areas.ts:201` en el mismo
+  commit. `docs/api-mako-inventario.md:358` («En la app: CrmAutoToggle») y `docs/dev-tabs-mapa.md:175`
+  quedaron viejos. El menú sigue con `width: 306` (`app/crm/CrmToolbar.tsx`), un ancho pensado para los subtítulos.
+- **Clic derecho.** La ficha (`app/crm/LeadSheet.tsx`, LeadEditModal) no tiene su propio clic derecho.
+  Tiene que llamar a `e.preventDefault()`, así la guarda del tablero lo respeta, y abrir `app/_ui/MenuContextual.tsx`.
+- **Clic derecho.** Lo de lote depende de que la barra esté montada (`!showSinMarcar && elegidos.length > 0`
+  en `app/crm/CrmBoard.tsx`). Hoy lo está siempre que sale ese menú.
+- **Chat de MaKo.** «Hacerlo» puede duplicar entre instancias: el candado `EN_CURSO` vive en memoria y no hay
+  reclamo en la base antes de crear. Habría que reclamar con `cambiarSettingSi` antes de calcular. Vive en
+  `lib/sugerencias-crm-server.ts`.
+- **Chat de MaKo.** «Ganados sin cobro» ofrece «Una Cuota Venció», que no se dispara sin cuotas cargadas.
+  «Reuniones pasadas sin marcar» no tiene ventana de tiempo ni de etapa, así que con historia queda fija
+  para siempre. Las dos viven en `lib/sugerencias-crm.ts`.
+- **Chat de MaKo.** El CRON de «Un Cliente Empezó» se decide con `entregasDeProductos` NO estricto, que ante
+  un fallo devuelve la entrega de fábrica. Habría que pedirlo con `{ estricto: true }`
+  (`lib/sugerencias-crm-server.ts:164`).
+- **Chat de MaKo.** El GET del botón resuelve el CRM dos veces (`chatDelRequest` y `sugerenciasDeUnCrm`),
+  unas 4 consultas de más por carga de `/crm` (`app/api/crm/mako/route.ts`).
+- **Chat de MaKo.** «Ahora no» (callar) no está en la API de MaKo. «Volver a mostrar» sí está:
+  `volver_a_mostrar_sugerencia` (`lib/api-mako/areas/crm.def.ts`).
+- **Chat de MaKo.** Falta una decisión de Martín: «Ahora no» quedó sólo para el admin, porque calla para todo
+  el equipo. Se cambia en `app/api/crm/mako/route.ts` (rol) y en `app/crm/mako-crm/PanelMakoCrm.tsx` (`callar`).
+- **Chat de MaKo.** Mover `BotonLogoMako` de `app/automations/SecuenciaPerfil.tsx` a `app/_ui`. Hoy
+  `PanelMakoCrm.tsx` copia su aspecto (`CARA_BOTON`) para no meter el lienzo entero en el bundle de `/crm`.
+- **Chat de MaKo.** No se hicieron las clases 2 (gestos repetidos) y 4 (llega algo nuevo) del mapa, ni
+  «Perdidos hace 60 a 90 días» ni «la etapa donde se cae la mitad». `docs/sugerencias-mako-crm.md:4` todavía
+  dice «Nada de esto existe todavía».
+- **Chat de MaKo.** `sugerencias_crm` corre en cada mensaje del chat y, con la caché vencida, lee el CRM entero
+  y todas las cuotas sin pagar: en una cartera grande puede tardar varios segundos.
+- **Etiquetas.** `.cl-junto` tendría que ser `flex:0 1 auto; min-width:0; max-width:100%`
+  (`app/crm/lead-view/CabeceraLead.tsx:224`), y verlo a 360-390 px en las dos puertas (LeadSheet y
+  `/crm/[id]`).
+- `app/crm/lead-view/DatosSinMarcarCard.tsx:177`: el comentario dice que el Escape de la ficha vive en
+  `document`, y vive en `window` (`LeadSheet.tsx:122`). Funciona porque la tarjeta se anota en la pila
+  (`useCapaModal`), no por el `stopImmediatePropagation` que el comentario da como razón.
+- **Nada de la tanda se vio en un navegador** (se prohibió levantar servidores, y tampoco se corrieron tsc
+  ni build). Se mira en ws3, nunca en ws1.
+
 ### La noche del 13/10/2026: datos sin marcar v2, el nombre del CRM y la grabación (chat CRM, `claude2`)
 
 **La grabación «cargando eternamente» no era el servidor.** El diagnóstico obvio —un cuerpo
@@ -30,7 +245,8 @@ grande o Storage lento— era el equivocado: las 12 últimas sesiones pesan 50-1
 después de pedirlo, ANTES de que React dibujara el recuadro de «listo», y un `if (!nodo) return`
 mudo lo dejaba vacío para siempre. La regla: **algo que necesita un nodo que el render de un
 `setState` va a crear no se agenda a ciegas en un rAF: se engancha con un ref de callback** (monta el
-que llega segundo). **Vive en:** `app/crm/lead-view/GrabacionModal.tsx` · `tests/grabacion-montaje.test.ts`
+que llega segundo). **Vive en:** `app/crm/lead-view/GrabacionModal.tsx` (desde el 14/10 ya no es un modal:
+exporta `GrabacionEnLinea`, que conserva el ref de callback) · `tests/grabacion-montaje.test.ts`
 
 **Renombrar el CRM renombraba el curso** porque `nombreVisible` mostraba el nombre del PRODUCTO, y
 para que el renombre «se viera» `renombrarFunnel` escribía `productos.nombre` — el mismo campo con
@@ -2714,6 +2930,8 @@ llamadores. **Van linkeadas, no copiadas** (una entrada, un lugar):
 | **Un observador que reescribe lo que observa compara contra lo que el navegador DEVUELVE.** El título «MaKo - CRM» y el bucle infinito con `/reportes-` (12/10/2026) | [hallazgos-ui.md](hallazgos-ui.md) → «Un observador que reescribe…» |
 | **MaKo Analyst de la ficha es el turno del teléfono prestado**: el contexto del lead va por turno y no se guarda, y la privacidad del chat es un PREFIJO (12/10/2026) | [hallazgos-mobile.md](hallazgos-mobile.md) → «El turno del teléfono, prestado a la ficha del lead» |
 | La nota desde /m sigue recortando a 4000 en silencio al crearla (12/10/2026) | [hallazgos-mobile.md](hallazgos-mobile.md) → «Lo que quedó sin hacer» |
+| **El clic derecho del tablero abría su menú sobre la ficha y los modales**: los eventos de React suben por los portales, y `[role=dialog]` no cubre el fondo oscuro de un `Modal` (14/10/2026) | [hallazgos-ui.md](hallazgos-ui.md) → «El clic derecho de la casa» |
+| **La grabación de la visita, «completamente rota»**: `player.css` se publicaba y nadie la pedía; el reproductor ahora va en línea en la tarjeta (14/10/2026) | [hallazgos-landing.md](hallazgos-landing.md) → «El reproductor de la grabación» |
 
 ---
 
