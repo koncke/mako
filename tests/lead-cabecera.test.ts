@@ -136,6 +136,15 @@ test('la cabecera: portada y foto con las piezas de la casa, y el nombre se edit
 //   · el «+N» con UNA sola etiqueta (`(suyas ?? []).length > 0` en vez de `resto`) ........ 1 fallo
 //   · la píldora otra vez de 30 al lado del nombre (`width={compacto ? 30 : 150}`) ....... 1 fallo
 //   · los renglones del «+N» sin su ✕ (sin `acciones`) ................................... 1 fallo
+//   · la píldora sin texto (`placeholder=""`, el «＋» suelto de antes) ..................... 1 fallo
+//   · la píldora antes del «+N» (`{agregar}` pegado a la primera) ......................... 1 fallo
+// (Las seis, vueltas a correr el 14/10/2026 con un script que rompe y restaura: 9 pases, 1 fallo
+// cada una.)
+//
+// Lo que este test NO cubre, porque vive en CabeceraLead.tsx: `.cl-junto` es `flex:none`, así que
+// el `flexWrap` del grupo no se activa nunca y, en una pantalla angosta, una etiqueta larga (el chip
+// llega a 220 px) + «+N» + la píldora de 150 pasan el ancho y `.cd-txt` (overflow:hidden) recorta
+// la píldora.
 test('las etiquetas al lado del nombre: la primera es el chip de siempre, el «+N» desde la segunda y la píldora «＋ Etiqueta»', () => {
   const src = codigo('app/crm/lead-view/EtiquetasDelLead.tsx');
   const iCompacto = src.indexOf('if (compacto) {');
