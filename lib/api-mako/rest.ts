@@ -466,6 +466,16 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['PUT', '/cobros/cobros/{cobroId}/cancelacion-suscripcion', 'cancelar_suscripcion'],
   ['POST', '/cobros/links-pago', 'crear_link_pago'],
   ['PUT', '/cobros/links-pago/{cobroId}/anulacion', 'anular_link_pago'],
+  // ── creaciones (13/10/2026: la galería y sus estrellas, como GitHub) ─────────
+  // La estrella es un recurso de la creación: PUT la da y DELETE la saca (GitHub: PUT/DELETE /user/starred/{repo}).
+  ['GET', '/creaciones/creaciones', 'listar_creaciones'],
+  ['POST', '/creaciones/creaciones', 'publicar_creacion'],
+  ['GET', '/creaciones/creaciones/{creacionId}', 'ver_creacion'],
+  ['PUT', '/creaciones/creaciones/{creacionId}/estrella', 'dar_estrella'],
+  ['DELETE', '/creaciones/creaciones/{creacionId}/estrella', 'quitar_estrella'],
+  ['PUT', '/creaciones/creaciones/{creacionId}/retiro', 'retirar_creacion'],
+  ['POST', '/creaciones/creaciones/{creacionId}/usos', 'usar_creacion'],
+  ['GET', '/creaciones/mias', 'mis_creaciones'],
   // ── mako ──────────────────────────────────────────────────────────────────
   ['GET', '/mako/bandejas', 'resumen_bandejas_confirmacion'],
   ['GET', '/mako/capacidades', 'listar_capacidades_mako'],

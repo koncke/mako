@@ -44,6 +44,7 @@
 - **Integraciones** (`integraciones`): `ver_integraciones` · `ver_integracion` · `probar_conexion_integracion` · `ver_estado_google_calendar` · `ver_cuotas_ia` · `ver_activacion_tab` · `ver_estado_agente_claude` · `link_configurar_integracion`
 - **Cuenta, equipo y notificaciones** (`equipo`): `ver_workspace` · `ver_zona_horaria_workspace` · `ver_preferencias_notificaciones` · `listar_avisos_disponibles` · `esta_aviso_activo` · `ver_estado_plantilla_reporte` · `fijar_zona_horaria_workspace` · `configurar_reporte` · `configurar_seccion_reporte` · `configurar_aviso_whatsapp` · `asegurar_plantilla_reporte`
 - **Curso (módulos y clases)** (`curso`): `listar_cursos` · `ver_curso` · `ver_clase_curso` · `crear_modulo_curso` · `renombrar_modulo_curso` · `ordenar_modulos_curso` · `crear_clase_curso` · `editar_clase_curso` · `mover_clase_curso` · `borrar_clase_curso` · `restaurar_clase_curso`
+- **Creaciones de la comunidad (estrellas)** (`creaciones`): `listar_creaciones` · `ver_creacion` · `mis_creaciones` · `dar_estrella` · `quitar_estrella` · `publicar_creacion` · `retirar_creacion` · `usar_creacion`
 - **Cobros (Stripe y Mercado Pago)** (`cobros`): `listar_cobros` · `ver_cobro` · `crear_link_pago` · `anular_link_pago` · `reembolsar_cobro` · `cancelar_suscripcion`
 - **MaKo (pendientes, propuestas, chats)** (`mako`): `listar_pendientes` · `confirmar_accion` · `cancelar_accion` · `ver_pendiente` · `listar_propuestas_revisar` · `ver_propuesta_accion` · `resumen_bandejas_confirmacion` · `listar_capacidades_mako`
 
@@ -11113,6 +11114,221 @@ curl -L \
   -H "Authorization: Bearer <TU-TOKEN>" \
   -H "X-MaKo-Api-Version: 2026-10-08" \
   "https://hola-mako.com/api/v1/curso/clases/CLASE_ID/restauracion"
+```
+
+## Creaciones de la comunidad (estrellas) — `creaciones`
+
+Tab **Creaciones** (`/creaciones`). 3 lecturas · 5 acciones.
+
+### `GET /api/v1/creaciones/creaciones` — Creaciones de la comunidad
+
+La galería de lo que los negocios de MaKo publicaron para los demás (automatizaciones, dashboards, formatos de video y de imagen), con sus estrellas y cuántos negocios la usaron: id, tipo, título, descripción, autor (o «MaKo» si es una plantilla de la plataforma), estrellas, usos, si ya le diste tu estrella, si es tuya y si ya se puede usar. NO trae la definición (eso es ver_creacion) ni datos de ningún negocio. De a 24, la más valorada primero.
+
+- **Ruta por operación:** `GET /api/v1/creaciones/listar_creaciones`
+- **Token detallado:** permiso `creaciones=read` (Solo lectura en «Creaciones de la comunidad (estrellas)»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `tipo` | string (automatizacion \\| dashboard \\| formato_video \\| formato_imagen) | no | filtra por tipo. |
+| `orden` | string (estrellas \\| usos \\| recientes) | no | estrellas (default), usos o recientes. |
+| `q` | string | no | busca en el título y la descripción. |
+| `pagina` | number | no | la página (de a 24; default 1). |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/creaciones/creaciones"
+```
+
+### `GET /api/v1/creaciones/creaciones/{creacionId}` — Detalle de una creación
+
+UNA creación publicada por su id: tipo, título, descripción, autor, estrellas, usos, si ya le diste tu estrella, si es tuya, y un resumen de lo que trae (su nombre y cuántas tarjetas). Una creación retirada sólo la ve quien la publicó.
+
+- **Ruta por operación:** `GET /api/v1/creaciones/ver_creacion`
+- **Token detallado:** permiso `creaciones=read` (Solo lectura en «Creaciones de la comunidad (estrellas)»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `creacionId` | number | sí | id de la creación (de listar_creaciones o mis_creaciones). |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/creaciones/creaciones/CREACION_ID"
+```
+
+### `GET /api/v1/creaciones/mias` — Lo que publicó tu negocio
+
+Las creaciones que publicó este negocio, publicadas y retiradas, con sus estrellas y sus usos.
+
+- **Ruta por operación:** `GET /api/v1/creaciones/mis_creaciones`
+- **Token detallado:** permiso `creaciones=read` (Solo lectura en «Creaciones de la comunidad (estrellas)»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+
+_Sin parámetros._
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/creaciones/mias"
+```
+
+### `PUT /api/v1/creaciones/creaciones/{creacionId}/estrella` — Darle una estrella a una creación
+
+PROPONE darle la estrella de este negocio a una creación de otro (como las estrellas de GitHub). Una por negocio: darla dos veces no suma dos. Las tuyas no se pueden puntuar. Se saca con quitar_estrella.
+
+- **Ruta por operación:** `POST /api/v1/creaciones/dar_estrella`
+- **Token detallado:** permiso `creaciones=write` (Lectura y escritura en «Creaciones de la comunidad (estrellas)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** agrega la estrella del negocio en `creacion_estrellas` y suma 1 a las estrellas de la creación
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `creacionId` | number | sí | id de la creación (de listar_creaciones o mis_creaciones). |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/creaciones/creaciones/CREACION_ID/estrella"
+```
+
+### `DELETE /api/v1/creaciones/creaciones/{creacionId}/estrella` — Quitarle la estrella a una creación
+
+PROPONE sacarle a una creación la estrella que le dio este negocio.
+
+- **Ruta por operación:** `POST /api/v1/creaciones/quitar_estrella`
+- **Token detallado:** permiso `creaciones=write` (Lectura y escritura en «Creaciones de la comunidad (estrellas)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** borra la estrella del negocio de `creacion_estrellas` y resta 1 a las estrellas de la creación
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `creacionId` | number | sí | id de la creación (de listar_creaciones o mis_creaciones). |
+
+```bash
+curl -L \
+  -X DELETE \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/creaciones/creaciones/CREACION_ID/estrella"
+```
+
+### `POST /api/v1/creaciones/creaciones` — Publicar una creación
+
+PROPONE publicar para todos los negocios de MaKo algo que creó este negocio. Hoy se publican: automatizacion (una automatización de Automations, por su id de listar_secuencias_nutricion). Se publica la DEFINICIÓN, sin los datos del negocio: las tarjetas y sus textos (tal cual: que no lleven datos de una persona), sin audios propios (pasan a texto con su guion), archivos, etiquetas, líneas de WhatsApp, emails ni teléfonos. Volver a publicar la misma automatización la ACTUALIZA y conserva sus estrellas. Se retira con retirar_creacion.
+
+- **Ruta por operación:** `POST /api/v1/creaciones/publicar_creacion`
+- **Token detallado:** permiso `creaciones=write` (Lectura y escritura en «Creaciones de la comunidad (estrellas)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** crea (o actualiza) la fila de la creación en `creaciones`, visible para todos los negocios
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `tipo` | string (automatizacion \\| dashboard \\| formato_video \\| formato_imagen) | sí | qué se publica. Hoy sólo «automatizacion» se puede publicar. |
+| `origenId` | string | sí | el id de la cosa en este negocio, como texto (una automatización: su número de listar_secuencias_nutricion, p. ej. "12"). |
+| `titulo` | string | no | cómo se llama en la galería. Sin valor, el nombre de la automatización. |
+| `descripcion` | string | no | para qué sirve, en una o dos frases. |
+| `autorNombre` | string | no | el nombre con que firma (el del negocio, o el de una persona). Sin valor, «Un negocio de MaKo». |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/creaciones/creaciones" \
+  -d '{"tipo":"automatizacion","origenId":"ORIGEN_ID"}'
+```
+
+### `PUT /api/v1/creaciones/creaciones/{creacionId}/retiro` — Retirar una creación de la galería
+
+PROPONE sacar de la galería una creación que publicó este negocio. No la borra: los negocios que ya la usaron conservan su copia, y volver a publicarla la devuelve. Sólo la retira quien la publicó.
+
+- **Ruta por operación:** `POST /api/v1/creaciones/retirar_creacion`
+- **Token detallado:** permiso `creaciones=write` (Lectura y escritura en «Creaciones de la comunidad (estrellas)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** marca la creación «retirada» en `creaciones`
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `creacionId` | number | sí | id de la creación (de mis_creaciones). |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/creaciones/creaciones/CREACION_ID/retiro"
+```
+
+### `POST /api/v1/creaciones/creaciones/{creacionId}/usos` — Usar una creación en este negocio
+
+PROPONE crear en este negocio una copia de una creación publicada (hoy, una automatización), APAGADA: nace en Automations para revisarla y prenderla. Si su disparador apunta a una etapa que este negocio no tiene, nace sin disparador y lo dice. Cuenta un uso de la creación (uno por negocio).
+
+- **Ruta por operación:** `POST /api/v1/creaciones/usar_creacion`
+- **Token detallado:** permiso `creaciones=write` (Lectura y escritura en «Creaciones de la comunidad (estrellas)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** crea la automatización en `nutricion_secuencias` (apagada) y anota el uso en `creacion_usos`
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `creacionId` | number | sí | id de la creación (de listar_creaciones o mis_creaciones). |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/creaciones/creaciones/CREACION_ID/usos"
 ```
 
 ## Cobros (Stripe y Mercado Pago) — `cobros`

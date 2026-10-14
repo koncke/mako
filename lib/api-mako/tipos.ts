@@ -33,7 +33,7 @@ import type { Permisos } from './permisos';
 export const AREAS = [
   'general', 'plan', 'crm', 'ads', 'whatsapp', 'email', 'chatbot',
   'metricas', 'experimentos', 'landing', 'closing', 'negocio', 'contenido', 'video',
-  'integraciones', 'equipo', 'cs', 'curso', 'cobros', 'mako',
+  'integraciones', 'equipo', 'cs', 'curso', 'creaciones', 'cobros', 'mako',
 ] as const;
 export type Area = (typeof AREAS)[number];
 
@@ -62,6 +62,9 @@ export const AREA_INFO: Record<Area, { titulo: string; tab: string; ruta: string
   equipo: { titulo: 'Cuenta, equipo y notificaciones', tab: 'Configuraciones', ruta: '/configuraciones' },
   cs: { titulo: 'Customer Success', tab: 'Customer Success', ruta: '/customer-success' },
   curso: { titulo: 'Curso (módulos y clases)', tab: 'Customer Success › Curso', ruta: '/customer-success/curso' },
+  // Las creaciones que un negocio publica para los demás y sus estrellas (13/10/2026, lib/creaciones.ts). Sin tab
+  // en la barra: la galería vive en /creaciones y cada feature pone su botón «Publicar».
+  creaciones: { titulo: 'Creaciones de la comunidad (estrellas)', tab: 'Creaciones', ruta: '/creaciones' },
   // La pasarela de pagos (11/10/2026, docs/diseno-pasarela-pagos.md). Área PROPIA y no `crm`, a
   // propósito: un token detallado con escritura en el CRM no crea links de pago ni reembolsa, y los
   // tokens que ya existen no la tienen. Vive en la ficha del lead (tab Pagos), por eso la tab es el CRM.

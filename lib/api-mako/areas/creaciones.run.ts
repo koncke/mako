@@ -189,7 +189,7 @@ export const RUNNERS: Runners = {
         ok: true,
         resumen: `Listo: «${r.nombre}» quedó creada en tu negocio, apagada.${r.aviso ? ` ${r.aviso}` : ''}`,
         datos: { creacionId: Number(payload.creacionId), id: r.id, nombre: r.nombre, aviso: r.aviso, url: link },
-        paraLaPersona: `Ábrela acá: ${link}`,
+        paraLaPersona: `Ábrela aquí: ${link}`,
       };
     }),
   },

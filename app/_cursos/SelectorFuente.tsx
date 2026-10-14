@@ -155,7 +155,7 @@ export function SelectorFuente({ actual, onElegir, disabled }: {
         {/* Una frase, y dice dónde se arregla. Nunca una lista vacía y muda. */}
         {cuantas === 0 && (
           <p style={{ margin: '10px 2px', font: '600 12px/1.4 inherit', color: 'var(--u-ink-60, var(--dim))' }}>
-            Ninguna se llama así. Probá «serif», «mono» o «títulos».
+            Ninguna se llama así. Prueba «serif», «mono» o «títulos».
           </p>
         )}
       </div>

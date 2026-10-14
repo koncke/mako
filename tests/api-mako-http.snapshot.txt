@@ -79,6 +79,7 @@ crear_lead_magnet
 crear_link_pago
 crear_modulo_curso
 crear_secuencia_email
+dar_estrella
 declarar_entradas_funnel
 desarchivar_secuencia
 descartar_borrador_plan
@@ -197,6 +198,7 @@ listar_cohortes_semanales
 listar_conclusiones_experimentos
 listar_conjuntos_meta
 listar_conversiones_meta
+listar_creaciones
 listar_cursos
 listar_dependencias_plan
 listar_etapas_email
@@ -261,6 +263,7 @@ medir_tramo_r1_r2
 metricas_chatbot
 metricas_closers
 metricas_negocio
+mis_creaciones
 mover_a_nutricion_manual
 mover_clase_curso
 mover_estado_guion_anuncio
@@ -309,9 +312,11 @@ proponer_sincronizar_guiones
 proponer_tareas_plan
 proponer_toggle_nutricion
 propuestas_lead_pendientes
+publicar_creacion
 quitar_componente_dashboard
 quitar_conector_dashboard
 quitar_dependencia_plan
+quitar_estrella
 quitar_filtro_dashboard
 r2_sin_lead
 reabrir_onboarding_chatbot
@@ -330,6 +335,7 @@ restablecer_informe_dashboard
 restaurar_clase_curso
 resumen_bandejas_confirmacion
 resumir_marketing_periodo
+retirar_creacion
 reuniones_proximas
 reuniones_recientes
 sacar_etiqueta_lead
@@ -341,6 +347,7 @@ sugerir_productos
 tendencia_score
 tracking_lead
 transiciones_desde_etapa
+usar_creacion
 variables_plantilla
 ver_activacion_tab
 ver_anuncio_planteado
@@ -361,6 +368,7 @@ ver_cobro
 ver_codigo_pixel
 ver_comportamiento_landing
 ver_contexto_video
+ver_creacion
 ver_cuadrante_retencion
 ver_cuenta_meta
 ver_cuotas_ia

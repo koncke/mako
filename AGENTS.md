@@ -543,7 +543,10 @@ fuera un hecho. Va en las DOS direcciones, y la segunda es la que no se nota:
   del CRM ya tenía `0190_clic_con_su_punto.sql` commiteada y aplicada. Se destrabó porque el
   CRM avisó y Chatbot renumeró a `0192`; sin ese aviso entraban dos migraciones distintas con
   el mismo número. **Antes de nombrar una migración: `git pull` y `ls supabase/migrations/ |
-  tail -5`,** y si al commitear alguien se te adelantó, renumerá **antes** de pushear. Si
+  tail -5`,** y si al commitear alguien se te adelantó, renumerá **antes** de pushear.
+  ⚠️ **Y main no ve los números que ya tomaron OTROS worktrees sin commitear.** El 14/10/2026 main
+  terminaba en 0265 y del 0266 al 0272 estaban todos tomados en worktrees ajenos: se elige el
+  número después de recorrer `git worktree list` y listar cada `supabase/migrations/`. Si
   renumerás, borrá el archivo viejo del clon: un `0190_secuencia_cron.sql` huérfano en otro
   worktree se aplica solo el día que alguien corre las migraciones en orden.
 - ⚠️ **`git add <ruta>` NO acota el commit: se commitea TODO el índice.** Si otra sesión ya
@@ -2230,6 +2233,21 @@ largos»). Vale para `tutorial.pasos` y para `AYUDA_CAMPO[*].pasos` (`lib/metodo
 
 Lo fija `tests/tutoriales-legibles.test.ts`. Su extractor lleva un piso: buscaba 6 espacios, los pasos están a 8, y
 pasaba en verde leyendo cero líneas.
+
+# Una creación publicada es la DEFINICIÓN, y cada tipo se enchufa en UN lugar
+
+Las estrellas (pedido de Martín del 13/10/2026: «para que los usuarios hagan sus creaciones y otros usuarios puedan
+puntuarles») son UN mecanismo: `lib/creaciones.ts`, la galería `/creaciones`, `BotonEstrella` y `PublicarCreacion`
+(`app/creaciones/`) y el área `creaciones` de la API. Lo que gobierna código nuevo:
+
+- **Un tipo nuevo se enchufa en `lib/creaciones-enchufes.ts`** (`opciones`, `exportar`, `resumir`, `usar`) y se pasa de
+  `POR_ENCHUFAR` a `ENCHUFADOS` (`lib/creaciones-reglas.ts`); el botón de su pantalla es `<BotonPublicar …/>`. Nunca una
+  tabla, una galería o un botón de estrellas propio.
+- **`exportar` devuelve la DEFINICIÓN, sin datos del negocio**: ni ids propios, ni personas, ni cuentas, ni números. La
+  arma el código desde la base; ningún camino publica un JSON que mande el pedido. Molde y test:
+  `lib/creaciones-automatizacion.ts`.
+- **Las tablas son de todos** (`workspace_origen`, cliente crudo, workspace explícito) y a otro negocio nunca sale el
+  workspace de origen ni el email de quien publicó. El detalle, en [docs/hallazgos-creaciones.md](docs/hallazgos-creaciones.md).
 
 # Un cobro pasa por `lib/cobros.ts`, y la clave de una pasarela se lee con `credDelCliente`
 
