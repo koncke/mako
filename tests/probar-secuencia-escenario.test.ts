@@ -24,10 +24,10 @@ const bloque = (src: string, ini: string, fin: string): string => {
   return src.slice(i, j);
 };
 
-// Un saludo, una condición «Es cliente» con dos ramas, y un mensaje en cada una.
+// Un saludo, una condición «Está calificado» con dos ramas, y un mensaje en cada una.
 const FLUJO: PasoGrafo[] = [
   { id: 'm0', canal: 'whatsapp', cuerpo: 'Hola', siguiente: 'c1' },
-  { id: 'c1', nodo: 'condicion', ramas: [{ id: 'r1', titulo: 'Ya compró', filas: [{ campo: 'cliente', op: 'es', valor: 'si' }], siguiente: 'mSi' }], si_no: 'mNo' } as PasoGrafo,
+  { id: 'c1', nodo: 'condicion', ramas: [{ id: 'r1', modo: 'todas', filas: [{ campo: 'calificado' }], siguiente: 'mSi' }], si_no: 'mNo' },
   { id: 'mSi', canal: 'whatsapp', cuerpo: 'Gracias por tu compra', siguiente: null },
   { id: 'mNo', canal: 'whatsapp', cuerpo: '¿Te cuento cómo funciona?', siguiente: null },
   { id: ID_INICIO, nodo: 'inicio', siguiente: 'm0' },
