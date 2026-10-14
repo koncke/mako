@@ -27,6 +27,7 @@ import { NODO, TOPES, type JsonNodo, type LandingContenido, type Pagina } from '
 import type { ConfigLanding } from './api-tipos';
 import { estiloDeTema, varsDeFondoPropio, type Tema } from './temas';
 import { svgIcono } from './iconos';
+import { claseDeProveedor } from '../embeds';
 import {
   NORMALIZAR_MARCAS, ORDEN_MARCAS, SPEC_MARCAS, SPEC_NODOS, attrsHtmlLibre, attrsImagen, attrsInsertado,
   attrsTarjeta, attrsVideo, hrefPermitido, idValido, srcImagen, type CtxSpec, type ModoRender,
@@ -257,7 +258,9 @@ function htmlDeNodo(n: Record<string, unknown>, ctx: Ctx, prof: number): string 
   if (tipo === NODO.tarjeta && attrsTarjeta(attrs).oculta && !ctx.incluirOcultas) return '';
   if (tipo === NODO.imagen && !attrsImagen(attrs).src) return '';
   if (tipo === NODO.video && !attrsVideo(attrs).src) return '';
-  if (tipo === NODO.insertado && !attrsInsertado(attrs).src) return '';
+  // El insertado vacío tampoco, salvo en la MINIATURA con pista de VIDEO: el VSL de un diseño se ve
+  // como un ▶ en la grilla (specInsertado; pedido de Martín, 14/10/2026). Una agenda vacía, nunca.
+  if (tipo === NODO.insertado && !attrsInsertado(attrs).src && !(ctx.modo === 'miniatura' && claseDeProveedor(attrsInsertado(attrs).proveedor) === 'video')) return '';
   if (tipo === NODO.htmlLibre && !attrsHtmlLibre(attrs).html) return '';
   const conSvg = conIconos(spec(attrs, ctx.spec));
   const arbol = ctx.modo === 'miniatura' ? sinInteractivos(conSvg) : conSvg;

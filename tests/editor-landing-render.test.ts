@@ -309,6 +309,26 @@ test('render ESTABLE: el mismo input da el mismo HTML, byte por byte (y no muta 
   assert.match(a, /<h1 class="gm-titulo">Hola <a href="https:\/\/a\.com"><strong>mundo<\/strong> y más<\/a><\/h1>/);
 });
 
+// El VSL vacío de un diseño (pedido de Martín, 14/10/2026: «que la mayoría de las plantillas sean con un
+// VIDEO»): la grilla de Diseños son miniaturas, y sin esto ninguna mostraba un video.
+// Roturas (14/10/2026, en memoria, restauradas y verificadas por hash; base: 16 pasan, 0 fallan): render.ts
+// sin la excepción de la miniatura → 15 / 1; el vacío de video en todos los modos → 15 / 1; cualquier pista
+// dibuja el ▶ (la agenda también) → 15 / 1.
+test('miniatura: el insertado VACÍO de video se dibuja como ▶ (con el svg del catálogo); la publicada, la exportación y el editor no; una agenda vacía, nunca', () => {
+  const vacio = (proveedor?: string): JsonNodo => seccion([p(txt('Hola')), { type: NODO.insertado, attrs: proveedor ? { src: '', proveedor, alto: null } : { src: '' } }]);
+  const mini = htmlDeTarjeta(vacio('youtube'), tema, { modo: 'miniatura' });
+  assert.match(mini, /<div class="gm-insertado" data-proveedor="youtube" data-clase="video" data-marcador="si" data-pista="si"><div class="gm-marcador" data-play="si"><span class="gm-marcador-play" data-icono="play" aria-hidden="true"><svg [^>]*viewBox="0 0 256 256"[^>]*><path d="M232\.4/);
+  assert.doesNotMatch(mini, /<iframe|YouTube|Pega/, 'sin iframe ni texto');
+  for (const modo of ['publico', 'exportar', 'editor'] as const) {
+    assert.doesNotMatch(htmlDeTarjeta(vacio('youtube'), tema, { modo }), /gm-insertado|gm-marcador|data-icono="play"/, `el VSL vacío sale en ${modo}`);
+  }
+  for (const modo of ['miniatura', 'publico', 'exportar', 'editor'] as const) {
+    assert.doesNotMatch(htmlDeTarjeta(vacio('calendly'), tema, { modo }), /gm-insertado|data-icono="play"/, `la agenda vacía sale en ${modo}`);
+  }
+  assert.doesNotMatch(htmlDeTarjeta(vacio(), tema, { modo: 'miniatura' }), /gm-insertado/, 'sin pista (el «Insertar» genérico) tampoco');
+  assert.doesNotMatch(htmlDeTarjeta(vacio('inventado'), tema, { modo: 'miniatura' }), /gm-insertado/, 'una pista inventada no es un video');
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 // ROTURAS (11/10/2026). Base: 15 pass / 0 fail. Cada rotura sobre el fuente, corrida, y vuelta
 // al original desde la copia en memoria (hash verificado). Resultado de cada una:

@@ -163,6 +163,10 @@ export const CSS_G2: string = [
   '.gmx-nv-etq{flex:none;font-size:12px;font-weight:600;color:var(--gmx-tenue);padding:0 6px}',
   '.gmx-nv-vacio{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:120px;padding:18px;border:1.5px dashed rgba(127,127,127,.45);border-radius:10px;background:rgba(127,127,127,.06);text-align:center;color:var(--gmx-texto-2);cursor:pointer}',
   '.gmx-nv-vacio .gmx-ico{color:var(--gmx-azul)}',
+  // El hueco de un VIDEO (el VSL de un diseño, 14/10/2026): 16:9 como el video que va a ocupar, con un ▶.
+  '.gmx-nv-vacio[data-clase="video"]{aspect-ratio:16/9;min-height:0}',
+  '.gmx-nv-play{display:grid;place-items:center;width:56px;height:56px;border-radius:50%;background:var(--gmx-azul)}',
+  '.gmx-nv-vacio .gmx-nv-play .gmx-ico{color:#ffffff;margin-left:3px}',
 ].join('\n');
 
 /** La hoja del chrome de G2. React 19 la sube al head y la deduplica por `href`. */

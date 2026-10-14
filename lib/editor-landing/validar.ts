@@ -354,6 +354,11 @@ function sanearNodo(h: Record<string, unknown>, ctx: Ctx, prof: number, donde: s
     // motivo, un enlace que vino y no es de un proveedor permitido.
     const pidio = typeof crudo.src === 'string' && crudo.src.trim() !== '';
     if (!attrs.src && pidio) { descartar(ctx, `insertado de un sitio no permitido «${recorte(crudo.src)}» en ${donde}: se quita`); return null; }
+    // Vacío, el proveedor es la PISTA de qué va en el hueco (video o agenda: el VSL de un diseño, el
+    // bloque «Agenda»; 14/10/2026). `attrsInsertado` la conserva sólo si es de la lista de
+    // lib/embeds.ts; una inventada queda '' y se anota.
+    const pista = typeof crudo.proveedor === 'string' ? crudo.proveedor : '';
+    if (!pidio && pista && pista !== attrs.proveedor) descartar(ctx, `pista de proveedor desconocida «${recorte(pista, 30)}» en ${donde}: queda sin pista`);
   } else if (tipo === NODO.formulario) {
     attrs = sanearFormulario(crudo, ctx, donde);
   } else if (tipo === NODO.htmlLibre) {
