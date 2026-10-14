@@ -3,6 +3,39 @@
 <sub>Escrito por el chat «MaKo Mobile» (cuenta 3) el 11/10/2026 a las 15:00, al cruzar el 85% de uso
 semanal. Material de primera mano: lo hizo este chat.</sub>
 
+## 🆕 14/10/2026 ~16:30 (cuenta 1) — PEDIDO NUEVO: TODAS las tabs y TODOS los kanban en el teléfono. Plan propuesto, SIN código todavía
+
+Pedido de Martín, relevado por «Estrategia 3 cuentas» (textual en lo que importa): «Implementá TODAS las tabs que
+construimos, todo» · «quiero que TODOS los kanban que hay en MaKo se vean en mobile de alguna forma» (CRM, Customer
+Success y Plan; «de alguna forma» queda a criterio) · «agarrá referencias de otras apps… Preocupate MUCHO por el diseño»
+(skills `thumb-first`, `thumb-first-design`, `mobile-native`, en `.claude/skills/`) · la publicación
+https://www.instagram.com/p/DeBds9diCoY/ (de @junaid_jamel, «How to Avoid Overbuilding Your App»: «Build what matters
+now. Let the product earn the rest». Sin sesión sólo se lee la portada y el texto; las demás láminas no).
+
+**Medido en `origin/main` (ab2641963):** LAS MISMAS RUTAS ya están (7b82bcde), `MOVIL_ACTIVO = true`, 21 páginas en
+`app/m`. Tienen teléfono: Today, CRM (lista + ficha + chat), Plan (Hoy · Semana · Prioridades), Inbox, More, Dashboard
+(una pantalla PROPIA, no las hojas que se arman en el editor), Ads Manager, Customer Success (la entrega como lista
+agrupada), Automations, Video Generator, Landing Generator, MaKo y Cuenta. **Sin teléfono, construidas y visibles para
+clientes:** General (en el teléfono es Today, que no lee el informe de General), Calendario, WhatsApp, Email, Second
+Brain, Experiments, Offer, Ads Writer, Curso y Comunidad. Sólo super admin: Video Editor, Image Editor, Reels, Carousels,
+Stories, Agencia, Mensajes, Conocimientos. Ningún kanban se ve como tablero: CRM y CS son listas, Plan no tiene tablero.
+
+**Plan propuesto (espera el OK de Martín):**
+1. Un patrón de tablero para los tres (`KanbanM` en `app/m/_ui`): una columna por pantalla con la siguiente asomando
+   (scroll-snap), arriba el riel de etapas con su conteo, mover con mantener apretado → barra de destinos abajo, y
+   «Mover a…» en el sheet como salida visible, con Deshacer por el mismo camino del server. Referencias: Pipedrive,
+   Trello, Linear y HubSpot en el teléfono. CRM: segmentado «Hoy | Tablero»; CS: tablero por etapa de entrega y
+   segmentado por producto; Plan: «Tablero» con las bandas de prioridad.
+2. General en el teléfono = el informe de General en la pila del celular (los mismos bloques del editor), y Dashboard =
+   las hojas reales en pila, no la pantalla propia de hoy.
+3. Cada tab que falta, con UNA acción clara en el teléfono y el resto «en la computadora»: WhatsApp (copia de WhatsApp),
+   Calendario (copia de Google Calendar: Programación + Día + crear), Comunidad (copia de la app de Skool), Offer (el
+   chat y el PDF), Email (números y pausar/mandar), Ads Writer (pedir dictando y copiar), Second Brain (buscar y
+   capturar), Experiments (estado y registrar resultado), Curso (módulos, publicar/ocultar, avance).
+4. Tandas: (1) kanbans + General + Dashboard → (2) WhatsApp, Calendario, Comunidad, Offer → (3) Email, Ads Writer,
+   Second Brain, Experiments, Curso → (4) las de super admin.
+5. Antes del código, un prototipo HTML del tablero en los tres y de General, para mirarlo en el teléfono.
+
 ## ⚠️⚠️⚠️⚠️⚠️⚠️ 13/10 (cuenta 2) — LAS MISMAS RUTAS, HECHO; el CRM que abría vacío y un script roto en producción
 
 Retomado por pedido de Martín («En la cuenta 3 quedaron muchos pendientes… dile a esos chats que continuen y cierren lo
