@@ -10,7 +10,7 @@
 //   · MaKo PROPONE, LA PERSONA CONFIRMA. Esto devuelve entradas; la pantalla las muestra editables y recién al
 //     «Agregar» se escriben (`crearEventos`, origen 'ia').
 //   · GRATIS SIEMPRE: la cascada gratis con el pin gratis primero y la red de plataforma al final (el molde de
-//     lib/general-vistas-ia.ts y lib/graficos-ia-generar.ts). La feature (`calendario-ia`) no está en CLAUDE_PERMITIDO.
+//     lib/graficos-ia-generar.ts). La feature (`calendario-ia`) no está en CLAUDE_PERMITIDO.
 //   · Lo que vuelve se revalida contra el modelo (`deIACalendario`): un día fuera de la semana, una hora rota o un
 //     tipo inventado se SACAN con un aviso; nunca se corrige adivinando.
 

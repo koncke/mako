@@ -1,13 +1,17 @@
 // =============================================================================
-// general-alcance — lo que una vista de /general lee de sus funnels y ofertas
+// general-alcance — lo que un bloque de /general lee de los funnels del negocio
 // =============================================================================
+// Desde el 14/10/2026 un bloque de General se ATA a un funnel (`general.funnel` del elemento, lib/general-piezas.ts):
+// «Tu funnel hoy» cuenta ese y «A quién cobrarle» muestra sólo sus clientes. Es lo que quedó del pedido del 13/10
+// («e incluso asignarles ofertas y/o funnels»), que antes vivía en las «vistas»: ahora se elige por bloque, en su panel.
 // Tres lecturas, y cada una con su forma de fallar escrita:
 //
-//   · `leerCatalogoAlcance` — los funnels activos, las ofertas activas y quién vende qué (`funnel_ofertas`). Con la
-//     lectura caída devuelve `null`: el botón del alcance no se ofrece (no se puede elegir de una lista que no hay).
-//   · `idsDeLeadsEnFunnels` — los leads de un alcance: los que tienen ahí su CASA (`leads.funnel_id`; el del negocio
-//     se escribe NULL, lib/lead-funnel-reglas.ts) más los AGREGADOS (`lead_funnel`, mig 0207). TIRA si falla: un
-//     filtro que no se pudo armar no es «ningún lead» — mostraría «nada por cobrar» sobre cuotas vencidas.
+//   · `leerFunnelsDeGeneral` — los funnels activos, con su nombre visible. Con la lectura caída devuelve `null`: el
+//     panel no ofrece elegir (no se puede elegir de una lista que no hay).
+//   · `funnelsDeLeads` — de qué funnels es cada lead de una lista CHICA (los de la cobranza): su CASA
+//     (`leads.funnel_id`; el del negocio se escribe NULL, lib/lead-funnel-reglas.ts) más los AGREGADOS (`lead_funnel`,
+//     mig 0207). TIRA si falla: un filtro que no se pudo armar no es «ningún cliente» — mostraría «nada por cobrar»
+//     sobre cuotas vencidas.
 //   · `conteoDelFunnel` — cuántos leads hay en cada etapa, con la etapa de la fila para los agregados (la misma
 //     regla que el tablero del CRM, `listLeadsDeFunnel` en lib/leads.ts).
 //
@@ -23,55 +27,48 @@ import { leerTodo } from './supabase-paginado';
 import { idDelFunnelDefault, leerFunnels } from './funnels';
 import { etapasDeProducto } from './lead-funnel';
 import { nombreVisible } from './lead-funnel-reglas';
-import { listarOfertas, ofertasDeFunnels } from './ofertas';
-import type { LigaFunnelOferta } from './general-vistas-modelo';
 
-export type CatalogoAlcance = {
-  funnels: Array<{ id: number; nombre: string; esDefault: boolean }>;
-  ofertas: Array<{ id: number; nombre: string }>;
-  ligas: LigaFunnelOferta[];
-};
+export type FunnelDeGeneral = { id: number; nombre: string; esDefault: boolean };
 
-/** Los funnels y las ofertas del negocio. `null` = no se pudo leer (no es «no hay»). */
-export async function leerCatalogoAlcance(): Promise<CatalogoAlcance | null> {
+/** Los funnels del negocio, con el nombre que ve la persona. `null` = no se pudo leer (no es «no hay»). */
+export async function leerFunnelsDeGeneral(): Promise<FunnelDeGeneral[] | null> {
   try {
-    const [fs, os, ls] = await Promise.all([
-      leerFunnels(),
-      listarOfertas(true),
-      // Sin la tabla (o con la lectura caída), una oferta no suma funnels: se elige igual y no filtra nada de más.
-      ofertasDeFunnels().catch(() => []),
-    ]);
+    const fs = await leerFunnels();
     if (fs == null) return null;
-    return {
-      funnels: fs.map((f) => ({ id: f.id, nombre: nombreVisible(f), esDefault: f.esDefault })),
-      ofertas: os.map((o) => ({ id: o.id, nombre: o.nombre })),
-      ligas: ls.map((l) => ({ funnel_id: Number(l.funnel_id), oferta_id: Number(l.oferta_id) })),
-    };
+    return fs.map((f) => ({ id: f.id, nombre: nombreVisible(f), esDefault: f.esDefault }));
   } catch (e) {
-    console.error('[general] no pude leer funnels y ofertas:', e instanceof Error ? e.message : e);
+    console.error('[general] no pude leer los funnels:', e instanceof Error ? e.message : e);
     return null;
   }
 }
 
-/** Los ids de los leads que están en alguno de estos funnels (casa o agregados). ⚠️ Tira si falla. */
-export async function idsDeLeadsEnFunnels(funnelIds: readonly number[]): Promise<Set<number>> {
-  const out = new Set<number>();
-  if (!funnelIds.length) return out;
+/** Cuántos ids van en un `in (…)`: la lista viaja en la URL de PostgREST. */
+const TANDA_IDS = 200;
+
+/** De qué funnels es cada uno de estos leads (casa o agregado). ⚠️ Tira si falla. */
+export async function funnelsDeLeads(leadIds: readonly number[]): Promise<Map<number, Set<number>>> {
+  const out = new Map<number, Set<number>>();
+  const ids = [...new Set(leadIds)];
+  if (!ids.length) return out;
   const db = await getTenantDb();
   const def = await idDelFunnelDefault();
-  const otros = funnelIds.filter((f) => f !== def);
-  // La CASA. El funnel del negocio se escribe NULL en `leads.funnel_id`.
-  if (def != null && funnelIds.includes(def)) {
-    const filas = await leerTodo<{ id: number }>(db, 'leads', 'id', { orden: 'id', filtros: (q) => q.is('funnel_id', null) });
-    for (const f of filas) out.add(Number(f.id));
+  const sumar = (lead: number, funnel: number | null) => {
+    if (funnel == null) return;
+    const s = out.get(lead) ?? new Set<number>();
+    s.add(funnel);
+    out.set(lead, s);
+  };
+  for (let i = 0; i < ids.length; i += TANDA_IDS) {
+    const tanda = ids.slice(i, i + TANDA_IDS);
+    const [casa, agregados] = await Promise.all([
+      leerTodo<{ id: number; funnel_id: number | null }>(db, 'leads', 'id, funnel_id', { orden: 'id', filtros: (q) => q.in('id', tanda) }),
+      leerTodo<{ id: number; lead_id: number; funnel_id: number }>(db, 'lead_funnel', 'id, lead_id, funnel_id', { orden: 'id', filtros: (q) => q.in('lead_id', tanda) }),
+    ]);
+    // La CASA. El funnel del negocio se escribe NULL en `leads.funnel_id`.
+    for (const l of casa) sumar(Number(l.id), l.funnel_id == null ? def : Number(l.funnel_id));
+    // Los AGREGADOS (mig 0207): están en el funnel por una fila de `lead_funnel`, no por su casa.
+    for (const f of agregados) sumar(Number(f.lead_id), Number(f.funnel_id));
   }
-  if (otros.length) {
-    const filas = await leerTodo<{ id: number }>(db, 'leads', 'id', { orden: 'id', filtros: (q) => q.in('funnel_id', otros) });
-    for (const f of filas) out.add(Number(f.id));
-  }
-  // Los AGREGADOS (mig 0207): están en el funnel por una fila de `lead_funnel`, no por su casa.
-  const agregados = await leerTodo<{ id: number; lead_id: number }>(db, 'lead_funnel', 'id, lead_id', { orden: 'id', filtros: (q) => q.in('funnel_id', [...funnelIds]) });
-  for (const f of agregados) out.add(Number(f.lead_id));
   return out;
 }
 

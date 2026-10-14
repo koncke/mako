@@ -59,6 +59,7 @@ import { GRAMATICA } from '@/lib/mako-gramatica';
 import { FUENTES, hojaVacia, sanearHoja, type Hoja } from '@/lib/graficos-catalogo';
 import { PLANTILLAS_HOJA, instanciarPlantilla, type PlantillaHoja } from '@/lib/graficos-plantillas';
 import { filtrarPlantillasHoja } from '@/lib/graficos-plantillas-generales';
+import { PLANTILLAS_GENERAL } from '@/lib/general-plantillas';
 import { TOPE_PEDIDO_IA } from '@/lib/graficos-ia';
 import { dashPegado, hojaConIdsNuevos, rotuloDashPegado } from '@/lib/graficos-copia';
 import { leerDashPegado } from './copia-dash-cliente';
@@ -76,6 +77,13 @@ export const EJEMPLOS_HOJA = [
   'Lo que cobré este mes y lo que falta cobrar',
   'Cómo rinden mis automatizaciones de WhatsApp',
   'Las llamadas de mis closers y cuántas cierran',
+] as const;
+/** Los de General (14/10/2026): lo que alguien quiere ver al entrar, no un informe. Genéricos, como los de arriba. */
+export const EJEMPLOS_GENERAL = [
+  'Lo que tengo que hacer hoy y a quién cobrarle',
+  'Mi objetivo del trimestre y mis KPIs',
+  'Las llamadas de la semana y cuánto cierra mi equipo',
+  'Los leads que entraron y en qué etapa están',
 ] as const;
 const PLACEHOLDER_QUIETO = 'Escribe o dicta qué quieres ver';
 /** El placeholder con un archivo adjunto (el ejemplo no se mueve: el pedido ya es el archivo). */
@@ -115,12 +123,14 @@ const CSS = `
 @media (prefers-reduced-motion: reduce){.nh-tarjeta{transition:none}.nh-tarjeta:active:not(:disabled){transform:none}}
 `;
 
-export function NuevaHoja({ onCerrar, onCrear, enBlanco = 'Página nueva' }: {
+export function NuevaHoja({ onCerrar, onCrear, enBlanco = 'Página nueva', informe = 'dashboard' }: {
   onCerrar: () => void;
   /** La hoja nueva, saneada y con ids nuevos. `aviso`: lo primero que MaKo ajustó (o lo que se vació al pegar), para el toast. */
   onCrear: (h: Hoja, aviso?: string) => void;
   /** El nombre de la «Hoja en blanco» (el editor le pasa «Página N»). */
   enBlanco?: string;
+  /** En General (14/10/2026) la galería es la de General (lib/general-plantillas.ts), nunca la del Dashboard. */
+  informe?: 'dashboard' | 'general';
 }) {
   const cerrar = useCerrarEstable(onCerrar);
   // Las props de AHORA para los handlers asincrónicos (un `onCrear` de hace un minuto cerraría sobre
@@ -323,7 +333,7 @@ export function NuevaHoja({ onCerrar, onCrear, enBlanco = 'Página nueva' }: {
     }
   };
 
-  const plantillas = useMemo(() => filtrarPlantillasHoja(PLANTILLAS_HOJA, busca), [busca]);
+  const plantillas = useMemo(() => filtrarPlantillasHoja(informe === 'general' ? PLANTILLAS_GENERAL : PLANTILLAS_HOJA, busca), [busca, informe]);
   const segundos = desde != null ? Math.max(0, Math.round((ahora - desde) / 1000)) : 0;
 
   return (
@@ -335,7 +345,7 @@ export function NuevaHoja({ onCerrar, onCrear, enBlanco = 'Página nueva' }: {
         <div className="gp cp-casa" data-pedido-mako="">
           <style>{CSS_TOKENS_CASA + CSS_CAJA_PEDIDO}</style>
           <CajaPedido titulo={{ texto: TITULO_CAJA, nivel: 2 }} valor={pedido} onValor={alEscribir} onEnviar={() => { void enviar(); }}
-            listo={listo} ejemplos={EJEMPLOS_HOJA} animar={!archivo} placeholderQuieto={archivo ? PLACEHOLDER_ARCHIVO : PLACEHOLDER_QUIETO}
+            listo={listo} ejemplos={informe === 'general' ? EJEMPLOS_GENERAL : EJEMPLOS_HOJA} animar={!archivo} placeholderQuieto={archivo ? PLACEHOLDER_ARCHIVO : PLACEHOLDER_QUIETO}
             etiqueta="Qué quieres ver en la hoja" tope={TOPE_PEDIDO_IA} deshabilitado={pensando}
             onError={(m) => setError(m ? { texto: m } : null)}
             adjunto={archivo ? (

@@ -34,6 +34,11 @@ export type ContextoMenu = {
   /** Se está editando un pop-up (adentro no hay conectores). */
   enPopup?: boolean;
   puedeNuevaHoja?: boolean;
+  /**
+   * El editor está en la tab General (14/10/2026): ahí no se copia el informe con un token ni se comparte (los dos hablan
+   * del informe del Dashboard).
+   */
+  enGeneral?: boolean;
 };
 
 /** Las opciones, en orden. `null` = un separador. Vacío = no hay menú propio (sale el del navegador). */
@@ -43,7 +48,8 @@ export function opcionesContextuales(c: ContextoMenu): Array<IdOpcion | null> {
   if (c.soloMirar || !c.guardable) return exportar;
   if (!c.editando) {
     if (c.sobre === 'lienzo') {
-      return ['editar_hoja', ...(c.puedeNuevaHoja ? ['nueva_hoja' as const] : []), 'copiar_dashboard', 'compartir', 'analista', null, ...exportar];
+      const delDashboard: IdOpcion[] = c.enGeneral ? [] : ['copiar_dashboard', 'compartir'];
+      return ['editar_hoja', ...(c.puedeNuevaHoja ? ['nueva_hoja' as const] : []), ...delDashboard, 'analista', null, ...exportar];
     }
     return ['editar', ...(c.sobre === 'grafico' && c.conMako && c.conDatos ? ['mako_chat' as const] : []), null, ...exportar];
   }

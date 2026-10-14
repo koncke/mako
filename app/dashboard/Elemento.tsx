@@ -55,6 +55,8 @@ import type { LoQueSeVe } from './PanelAnalista';
 import { ElementoIA, PropsIA } from './ElementoIA';
 import { ElementoAccion, PropsAccion } from './ElementoAccion';
 import { PiezaEntidad, PropsEntidad } from './entidades/PiezaEntidad';
+import { ElementoGeneral, useEnGeneral, useFunnelsGeneral, useVariablesInforme } from './ElementoGeneral';
+import { PIEZAS_GENERAL, VARIABLES_TEXTO, conVariables, esPiezaGeneral, piezaPorFunnel } from '@/lib/general-piezas';
 
 /**
  * Lo que la pantalla le cuenta a un elemento además de él mismo (interfaz I3). Todo opcional salvo la hoja: sin
@@ -292,6 +294,7 @@ export function CuerpoElemento({ e, colores, editando, onCambiar, ctx }: {
     );
   }
   if (e.tipo === 'accion') return <ElementoAccion e={e} contexto={ctx?.abierto ?? null} editando={editando} soloLectura={!!ctx?.compartido} onCambio={ctx?.onCambio} />;
+  if (e.tipo === 'general') return <ElementoGeneral e={e} />;
   if (e.tipo === 'entidad') return <PiezaEntidad e={e} contexto={ctx?.abierto ?? null} periodo={ctx?.periodo ?? null} soloLectura={!!ctx?.compartido} onCambio={ctx?.onCambio} />;
   return <CuerpoForma e={e} colores={colores} />;
 }
@@ -384,6 +387,8 @@ function CuerpoTexto({ e, colores, editando, onCambiar }: { e: Elemento; colores
   const { borrador, escribir, enLugar, abrir, cerrar, tope } = useEnLugar(e, editando, onCambiar);
   const campo = useRef<HTMLTextAreaElement>(null);
   useFocoAlAbrir(campo, enLugar);
+  // Las variables («{{nombre}}», lib/general-piezas.ts) se resuelven al MIRAR; editando se ven con sus llaves.
+  const variables = useVariablesInforme();
 
   const estilo = estiloTexto(e, colores);
 
@@ -417,7 +422,7 @@ function CuerpoTexto({ e, colores, editando, onCambiar }: { e: Elemento; colores
     >
       {vacio
         ? (editando ? <span style={{ color: 'var(--faint)', fontWeight: 400 }}>Doble clic para escribir</span> : null)
-        : parrafosDe(e.texto).map((p, i) => (
+        : parrafosDe(editando ? e.texto : conVariables(e.texto, variables)).map((p, i) => (
           // Un renglón vacío es un párrafo vacío: sin el espacio duro no ocupa nada y el salto se pierde.
           <p key={i} style={{ margin: 0, marginTop: i ? '0.35em' : 0 }}>{p || ' '}</p>
         ))}
@@ -560,7 +565,7 @@ function CuerpoForma({ e, colores }: { e: Elemento; colores: readonly string[] }
  * «imagen» que en cualquier otro menú de la app. El resto (texto, línea, flecha y sección) se dibuja acá.
  */
 const DEL_SET = {
-  imagen: 'imagen', enlace: 'link', video: 'video', insertado: 'insertar', ia: 'mako', accion: 'accion', entidad: 'archivo',
+  imagen: 'imagen', enlace: 'link', video: 'video', insertado: 'insertar', ia: 'mako', accion: 'accion', entidad: 'archivo', general: 'plan',
 } as const satisfies Partial<Record<TipoElemento, NombreIconoMenu>>;
 const esDelSet = (t: TipoElemento): t is keyof typeof DEL_SET => Object.prototype.hasOwnProperty.call(DEL_SET, t);
 
@@ -740,7 +745,7 @@ function PanelElemento({ e, colores, onCambiar, onDuplicar, onBorrar, onCerrar, 
         </Seccion>
       )}
       {e.tipo === 'enlace' && <SeccionesEnlace e={e} onCambiar={onCambiar} />}
-      {(e.tipo === 'seccion' || e.tipo === 'ia' || e.tipo === 'entidad') && (
+      {(e.tipo === 'seccion' || e.tipo === 'ia' || e.tipo === 'entidad' || e.tipo === 'general') && (
         <Seccion>
           <label htmlFor={idTexto} style={S.titulo}>Título</label>
           <input id={idTexto} value={e.texto} maxLength={topeDeTextoElemento(e.tipo)} onChange={(ev) => onCambiar({ texto: ev.target.value })} style={S.campo} />
@@ -751,6 +756,8 @@ function PanelElemento({ e, colores, onCambiar, onDuplicar, onBorrar, onCerrar, 
       {e.tipo === 'ia' && hoja && <PropsIA e={e} hoja={hoja} popupDe={popupDe} contexto={contexto} vista={vista} onCambiar={onCambiar} />}
       {e.tipo === 'accion' && <PropsAccion e={e} entidad={entidad} onCambiar={onCambiar} />}
       {e.tipo === 'entidad' && <PropsEntidad e={e} entidad={entidad} onCambiar={onCambiar} />}
+      {e.tipo === 'general' && <PropsGeneral e={e} onCambiar={onCambiar} />}
+      {e.tipo === 'texto' && <AyudaVariables />}
 
       {CON_TAMANO.includes(e.tipo) && (
         <Seccion titulo="Tamaño">
@@ -1004,5 +1011,60 @@ function SeccionesImagen({ e, onCambiar }: { e: Elemento; onCambiar: (p: Partial
         <input id={idAlt} value={e.texto} maxLength={300} placeholder="Qué muestra la imagen" onChange={(ev) => onCambiar({ texto: ev.target.value })} style={S.campo} />
       </Seccion>
     </>
+  );
+}
+
+// ── Los bloques de General (14/10/2026) ────────────────────────────────────────────────────────────────────────────
+
+/** Qué bloque es (se puede cambiar por otro sin moverlo). El título se edita arriba, como el de una sección. */
+function PropsGeneral({ e, onCambiar }: { e: Elemento; onCambiar: (p: Partial<Elemento>) => void }) {
+  const id = useId();
+  const funnels = useFunnelsGeneral();
+  const pieza = e.general?.pieza;
+  const funnel = e.general?.funnel ?? null;
+  // Un bloque que se ata a un funnel (lib/general-piezas.ts): sin elegir, el principal («Tu funnel hoy») o todo el
+  // negocio («A quién cobrarle»). Uno elegido que ya no está se muestra igual, marcado: un <select> cuyo valor no está
+  // entre sus opciones muestra la primera y el primer clic la escribe.
+  const conFunnel = pieza && piezaPorFunnel(pieza) && funnels;
+  const perdido = conFunnel && funnel != null && !funnels.some((f) => f.id === funnel);
+  return (
+    <Seccion>
+      <label htmlFor={id} style={S.titulo}>Bloque</label>
+      <select id={id} value={pieza ?? ''} style={S.campo}
+        onChange={(ev) => {
+          const v = ev.target.value;
+          // El funnel viaja sólo con los bloques que lo usan: cambiar de bloque no lo arrastra a uno que no sabe.
+          if (esPiezaGeneral(v)) onCambiar({ general: funnel != null && piezaPorFunnel(v) ? { pieza: v, funnel } : { pieza: v } });
+        }}>
+        {PIEZAS_GENERAL.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+      </select>
+      <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>{PIEZAS_GENERAL.find((p) => p.id === pieza)?.linea}</span>
+      {conFunnel && (
+        <>
+          <label htmlFor={`${id}-f`} style={S.titulo}>Funnel</label>
+          <select id={`${id}-f`} value={funnel ?? ''} style={S.campo}
+            onChange={(ev) => {
+              const n = Number(ev.target.value);
+              onCambiar({ general: n > 0 ? { pieza: pieza!, funnel: n } : { pieza: pieza! } });
+            }}>
+            <option value="">{pieza === 'cobranza' ? 'Todo el negocio' : 'El principal'}</option>
+            {funnels.map((f) => <option key={f.id} value={f.id}>{f.nombre}</option>)}
+            {perdido && <option value={funnel!}>Un funnel que ya no está</option>}
+          </select>
+        </>
+      )}
+    </Seccion>
+  );
+}
+
+/** En General, el panel de un Texto dice qué variables entiende (sólo ahí tienen valor). */
+function AyudaVariables() {
+  if (!useEnGeneral()) return null;
+  return (
+    <Seccion titulo="Variables">
+      <span style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5 }}>
+        {VARIABLES_TEXTO.map((v) => `{{${v.id}}}`).join(' · ')}
+      </span>
+    </Seccion>
   );
 }

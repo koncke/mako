@@ -102,13 +102,13 @@ export const AREAS: AreaDev[] = [
   {
     slug: 'general', titulo: 'General', familia: 'Operate', grupo: 'General',
     estado: 'listo', verEnApp: '/general',
-    alcance: 'La casa del cliente al entrar: hero de la meta, resumen del mes, semáforo del negocio y worklist de pendientes.',
+    alcance: 'La casa de cada persona al entrar: el editor del Dashboard con su propio informe, las plantillas de General y los bloques de siempre (el objetivo y la acción del día, los KPIs, el semáforo, el mes) más los nuevos (mi día, llamadas, prioridades, cobranza, funnel, publicaciones).',
     vive: [
       'app/general/page.tsx', 'app/general/actions.ts', 'lib/queries.ts', 'lib/pagos.ts', 'lib/meta-health.ts',
-      // Las vistas personalizables (13/10/2026): cada persona elige bloques, orden y funnels u ofertas.
-      'app/general/BarraVistas.tsx', 'app/general/NuevaVista.tsx', 'app/general/EditarVista.tsx',
-      'app/general/Cobranza.tsx', 'app/general/Bloques.tsx', 'app/api/general',
-      'lib/general-vistas-modelo.ts', 'lib/general-vistas.ts', 'lib/general-alcance.ts', 'lib/general-vistas-ia.ts',
+      // Desde el 14/10/2026 General es el editor del Dashboard con su propio informe y sus bloques (lib/general-piezas.ts).
+      'app/general/Cobranza.tsx', 'app/general/Bloques.tsx',
+      'lib/general-alcance.ts', 'lib/general-piezas.ts', 'lib/general-plantillas.ts', 'app/general/piezas.tsx',
+      'app/dashboard/ElementoGeneral.tsx',
     ],
     proyectos: ['Feature: General'],
   },

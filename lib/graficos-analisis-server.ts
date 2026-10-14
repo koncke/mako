@@ -40,6 +40,7 @@ import { efectivoDe, esBloque, esGrafico, sanearTablero, tituloDe, type Grafico,
 import { datosDeGraficos, hastaDeFuente, type DatosGrafico, type PedidoDatos } from './graficos-datos';
 import { cortarEnHoy } from './graficos-agregar';
 import { tableroInicial } from './graficos-plantillas';
+import { informeGeneralInicial } from './general-plantillas';
 import { getSettingEstricto } from './settings';
 import { chatCheapCascade, CASCADA_DOCS, MODELO_DOCS, docsIADisponible, errorDeCascada, type ProvName } from './ai-cheap';
 import { overrideDeFeature } from './model-registry';
@@ -435,8 +436,17 @@ export type FilaProgramada = FilaConCandado & { usuario: string; cron: unknown; 
  */
 export async function leerInformeGuardado(usuario: string): Promise<Tablero> {
   const raw = await getSettingEstricto(claveTablero(usuario));
-  return raw == null ? tableroInicial() : (sanearTablero(JSON.parse(raw)) ?? tableroInicial());
+  const dash = raw == null ? tableroInicial() : (sanearTablero(JSON.parse(raw)) ?? tableroInicial());
+  // 14/10/2026: la tab General es este mismo editor con OTRO informe (lib/graficos-tablero.ts): lo programado en una hoja
+  // de General también tiene que encontrarla, o el cron le saca el horario («La hoja ya no existe»). Las hojas de los
+  // dos informes van juntas: los callers buscan por id, y los ids de un informe no se repiten en el otro.
+  const rawGeneral = await getSettingEstricto(claveInformeGeneral(usuario));
+  const general = rawGeneral == null ? informeGeneralInicial() : (sanearTablero(JSON.parse(rawGeneral)) ?? informeGeneralInicial());
+  return { ...dash, hojas: [...dash.hojas, ...general.hojas] };
 }
+
+/** La clave del informe de General de una persona (la misma que lib/graficos-tablero.ts, `claveDe`). */
+export const claveInformeGeneral = (sub: string): string => `general.informe.${sub}`;
 
 /**
  * Lo programado que venció en el negocio ACTUAL de UNA tabla (el cron lo llama adentro de `runWithWorkspace`).
