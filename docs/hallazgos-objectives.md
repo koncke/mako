@@ -601,6 +601,11 @@ editor sabe dibujar de más:
   teléfono, lee `leerInformeGeneral()` y dibuja sus bloques. Vive en `app/m/hoy`.
 - **Más de 8 funnels**: los bloques que se atan a uno se arman hasta 8 (`TOPE_FUNNELS`, app/general/piezas.tsx); el
   noveno dice «Ese funnel ya no está». Ningún workspace llega hoy.
+- **El pop-up de un gráfico de General se busca en el tablero del DASHBOARD** (lo marcó el chat de Graphics al revisar
+  56efcbaa). La acción `datos` con `popupDe` lee el dueño con `informeDeRol(rol) ?? leerTablero()` (app/api/graficos/route.ts,
+  ~línea 114), que es el informe del Dashboard. Un admin cae a la definición que manda la pantalla y anda; un rol con
+  «hoja única» (closer, setter) recibiría 403. Hoy General es sólo del admin y no muerde; si algún día otro rol ve
+  General, esa lectura tiene que mirar `general.informe.<sub>` (`leerInformeGeneral`, lib/graficos-tablero.ts).
 - **Una «Prioridades del Plan» por funnel no existe**: las tareas del tablero no tienen funnel, tienen proyecto.
 - **«A quién cobrarle» sigue TAMBIÉN en el Dashboard** (la sección de la hoja Comercial): Martín pidió ponerla en General y no
   dijo si se saca de allá. Se le preguntó el 13/10.
