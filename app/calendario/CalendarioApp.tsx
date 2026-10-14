@@ -7,8 +7,9 @@
 // eventos que se tienen en google calendar». De arriba abajo, como en Google:
 //   · LA BARRA: ☰ (la barra lateral), el logo con el día de hoy, «Hoy», ‹ ›, el título («octubre de 2026») y, a la
 //     derecha, la vista (Día, Semana, Mes, Año, Agenda, 4 días).
-//   · LA BARRA LATERAL: «Crear» (un evento, una publicación, un bloque, una llamada, o una semana con plantillas o con
-//     MaKo), el mes chico, «Mis calendarios» de MaKo y los calendarios de la cuenta de Google, cada uno con su casilla.
+//   · LA BARRA LATERAL: «Crear» (un evento, una publicación, un bloque, una llamada, una semana con una plantilla, o
+//     agendar una llamada por Calendly o Cal.com), el mes chico, «Mis calendarios» de MaKo y los calendarios de la cuenta
+//     de Google, cada uno con su casilla.
 //   · LA HOJA: la vista. Un clic (o un arrastre) en un hueco crea; un clic en algo abre su tarjeta; lo que se puede
 //     mover se arrastra.
 //
@@ -23,9 +24,15 @@
 //   · BORRAR DEJA «DESHACER» en el toast, que devuelve el MISMO evento (el de MaKo y el de Google).
 //   · LO QUE SE MOVIÓ SE VE EN SU LUGAR NUEVO EN EL ACTO (`movidos`), hasta que llega la lectura nueva: sin eso, la
 //     tarjeta vuelve a donde estaba durante el viaje al server y se lee como que no se movió.
+//   · SIN GOOGLE CALENDAR, AL ENTRAR SALTA EL MODAL DE CONECTARLO (14/10/2026, Martín: «si una persona entra allí y no
+//     tiene el google calendar conectado, que salte el modal que tenemos en integraciones allí mismo»). Una vez por
+//     sesión del navegador y por negocio (sessionStorage): cerrarlo no lo vuelve a abrir al cambiar de semana. Y el
+//     «Conectar»/«Reconectar» del aviso abre ESE modal acá, nunca navega a /integraciones; el OAuth vuelve a esta tab
+//     (`?gcal=`, `useVueltaDeGoogle`). Reemplaza a «¿Qué vas a crear hoy?», que se fue entero («eliminalo
+//     completamente»): la galería ya no se abre sola y el armado de la semana con IA no existe más.
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import Link, { useRouter, useWs } from '@/app/_ui/Link';
+import { useRouter, useWs } from '@/app/_ui/Link';
 import { Toast, useToast } from '@/app/_ui';
 import { Modal } from '@/app/_ui/Modal';
 import { Button } from '@/app/_ui/Button';
@@ -40,7 +47,9 @@ import {
   crearEventoGoogleAction, cambiarEventoGoogleAction, borrarEventoGoogleAction, restaurarEventoGoogleAction,
 } from './actions';
 import { EventoModal, type EventoEditable } from './EventoModal';
-import { NuevoEnCalendario } from './NuevoEnCalendario';
+import { PlantillasSemana } from './PlantillasSemana';
+import { AgendarLlamada } from './AgendarLlamada';
+import { useConectarIntegracion, useVueltaDeGoogle } from '@/app/_components/ConectarIntegracion';
 import { CSS_GC } from './gc-css';
 import { COLOR_CAPA, LLAVES_MAKO, NOMBRE_CAPA, llaveDe } from './comun';
 import { MiniMes, Flecha } from './MiniMes';
@@ -54,6 +63,7 @@ type Abierto =
   | { t: 'propio'; inicial: EventoEditable }
   | { t: 'google'; inicial: EdicionGoogle }
   | { t: 'plantillas' }
+  | { t: 'agendar' }
   | { t: 'avisar'; item: ItemCalendario; entrada: EntradaEventoGoogle; mov: Movido }
   | null;
 
@@ -63,7 +73,7 @@ type Movido = { inicio: string; fin: string | null };
 const hhmm = (min: number) => `${String(Math.floor(min / 60) % 24).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;
 const llavePreferencia = (ws: number | null) => `calendario.visibles.${ws ?? 'propio'}`;
 
-export function CalendarioApp({ vista, fecha, hoy, tz, dias, items, fallos, google, pendienteOnboarding }: {
+export function CalendarioApp({ vista, fecha, hoy, tz, dias, items, fallos, google }: {
   vista: VistaCalendario;
   fecha: string;
   hoy: string;
@@ -72,8 +82,6 @@ export function CalendarioApp({ vista, fecha, hoy, tz, dias, items, fallos, goog
   items: ItemCalendario[];
   fallos: FallosCalendario;
   google: GoogleDelCalendario | null;
-  /** El onboarding de la tab no está hecho: se abren las plantillas la primera vez (es la primera semana). */
-  pendienteOnboarding: boolean;
 }) {
   const router = useRouter();
   const ws = useWs();
@@ -118,20 +126,29 @@ export function CalendarioApp({ vista, fecha, hoy, tz, dias, items, fallos, goog
     });
   };
 
-  // La primera vez (onboarding pendiente) se abren las plantillas: armar la primera semana ES el onboarding.
+  // Conectar una integración SIN salir de la tab (AGENTS.md): el modal de /integraciones, montado acá. Al conectarse,
+  // se vuelve a leer la pantalla (los calendarios de Google, el link de agenda).
+  const integracion = useConectarIntegracion({ onConectado: () => router.refresh() });
+  const abrirIntegracion = integracion.abrir;
+  const googleOk = useCallback(() => { show('Google Calendar conectado'); router.refresh(); }, [show, router]);
+  const vueltaGoogle = useVueltaDeGoogle(abrirIntegracion, googleOk);
+
+  // Sin Google Calendar, al ENTRAR salta el modal de conectarlo: una vez por sesión del navegador y por negocio, y se
+  // cierra. Si el OAuth acaba de volver (`?gcal=`), lo abre `useVueltaDeGoogle` con lo que pasó.
+  const sinGoogle = fallos.google === 'sin-conexion';
   useEffect(() => {
-    if (!pendienteOnboarding) return;
-    try { if (window.sessionStorage.getItem('calendario.bienvenida')) return; window.sessionStorage.setItem('calendario.bienvenida', '1'); } catch { /* igual se abre */ }
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setAbierto({ t: 'plantillas' });
-  }, [pendienteOnboarding]);
+    if (!sinGoogle || vueltaGoogle) return;
+    const llave = `calendario.conectarGoogle.${ws ?? 'propio'}`;
+    try { if (window.sessionStorage.getItem(llave)) return; window.sessionStorage.setItem(llave, '1'); } catch { /* sin almacenamiento: igual se ofrece */ }
+    abrirIntegracion('google');
+  }, [sinGoogle, vueltaGoogle, ws, abrirIntegracion]);
 
   const ir = useCallback((v: VistaCalendario, f: string) => { setAbierto(null); router.push(`/calendario?vista=${v}&fecha=${f}`); }, [router]);
 
   // Los atajos de Google: t (hoy), j/n (siguiente), k/p (anterior), c (crear), y la tecla de cada vista.
   useEffect(() => {
     const tecla = (e: KeyboardEvent) => {
-      if (e.ctrlKey || e.metaKey || e.altKey || abierto) return;
+      if (e.ctrlKey || e.metaKey || e.altKey || abierto || integracion.abierto) return;
       const el = e.target as HTMLElement | null;
       if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return;
       const k = e.key.toLowerCase();
@@ -352,7 +369,7 @@ export function CalendarioApp({ vista, fecha, hoy, tz, dias, items, fallos, goog
           )}
           {avisos.map((a) => (
             <p key={a.texto} className={`gc-aviso${a.mal ? ' gc-aviso--mal' : ''}`}>
-              {a.texto}{a.href && <> <Link href={a.href}>{a.link}</Link></>}
+              {a.texto}{a.servicio && <> <button type="button" className="gc-aviso-boton" onClick={() => abrirIntegracion(a.servicio!)}>{a.link}</button></>}
             </p>
           ))}
         </aside>
@@ -363,7 +380,8 @@ export function CalendarioApp({ vista, fecha, hoy, tz, dias, items, fallos, goog
             <button type="button" role="menuitem" onClick={() => { setMenuCrear(null); setError(null); setAbierto({ t: 'propio', inicial: { titulo: '', tipo: 'bloque', fecha: enVista.has(hoy) ? hoy : fecha, hora: '10:00', duracionMin: 120 } }); }}><span>Bloque de trabajo</span></button>
             <button type="button" role="menuitem" onClick={() => { setMenuCrear(null); setError(null); setAbierto({ t: 'propio', inicial: { titulo: '', tipo: 'llamada', fecha: enVista.has(hoy) ? hoy : fecha, hora: '10:00', duracionMin: 30 } }); }}><span>Llamada</span></button>
             <div className="gc-menu-sep" />
-            <button type="button" role="menuitem" onClick={() => { setMenuCrear(null); setAbierto({ t: 'plantillas' }); }}><span>Planear la semana con MaKo</span></button>
+            <button type="button" role="menuitem" onClick={() => { setMenuCrear(null); setAbierto({ t: 'agendar' }); }}><span>Agendar llamada</span></button>
+            <button type="button" role="menuitem" onClick={() => { setMenuCrear(null); setAbierto({ t: 'plantillas' }); }}><span>Plantilla de semana</span></button>
           </MenuFlotante>
         )}
 
@@ -429,11 +447,16 @@ export function CalendarioApp({ vista, fecha, hoy, tz, dias, items, fallos, goog
         </Modal>
       )}
       {abierto?.t === 'plantillas' && (
-        <NuevoEnCalendario lunes={lunesDe(enVista.has(hoy) ? hoy : fecha)} guardando={guardando} onCerrar={() => setAbierto(null)}
-          onBlanco={() => { setAbierto(null); nuevoDesdeBoton(); }}
-          onPlantilla={(p: PlantillaCalendario, entradas) => { void correr(() => crearEventosAction(entradas, 'plantilla'), `${p.nombre}: ${entradas.length} agendados`); }}
-          onConfirmarIA={(entradas, aviso) => { void correr(() => crearEventosAction(entradas, 'ia'), aviso ?? (entradas.length === 1 ? '1 agendado' : `${entradas.length} agendados`)); }} />
+        <PlantillasSemana lunes={lunesDe(enVista.has(hoy) ? hoy : fecha)} guardando={guardando} onCerrar={() => setAbierto(null)}
+          onPlantilla={(p: PlantillaCalendario, entradas) => { void correr(() => crearEventosAction(entradas, 'plantilla'), `${p.nombre}: ${entradas.length} agendados`); }} />
       )}
+      {abierto?.t === 'agendar' && (
+        <AgendarLlamada onCerrar={() => setAbierto(null)} onCopiado={() => show('Link copiado')}
+          onConectar={(s) => { setAbierto(null); abrirIntegracion(s); }}
+          // La reserva entra al CRM por el webhook, que tarda unos segundos: se vuelve a leer después.
+          onAgendada={() => { show('Llamada agendada'); window.setTimeout(() => router.refresh(), 5000); }} />
+      )}
+      {integracion.modal}
     </div>
   );
 }
@@ -487,18 +510,24 @@ function MenuFlotante({ ancla, alinear, onCerrar, children }: { ancla: DOMRect; 
   return <div className="gc-menu" role="menu" style={estilo}>{children}</div>;
 }
 
-/** Lo que la barra lateral dice debajo de los calendarios: lo que no se pudo leer y la cuenta de Google sin conectar. */
-function lineasDeAviso(f: FallosCalendario, g: GoogleDelCalendario | null): Array<{ texto: string; mal: boolean; href?: string; link?: string }> {
-  const out: Array<{ texto: string; mal: boolean; href?: string; link?: string }> = [];
+/**
+ * Lo que la barra lateral dice debajo de los calendarios: lo que no se pudo leer y la cuenta de Google sin conectar.
+ * ⚠️ «Conectar» y «Reconectar» abren el modal de Google AHÍ (`servicio`), nunca un link a /integraciones (AGENTS.md:
+ * para una integración no se sale de la tab).
+ */
+function lineasDeAviso(f: FallosCalendario, g: GoogleDelCalendario | null): Array<{ texto: string; mal: boolean; servicio?: string; link?: string }> {
+  const out: Array<{ texto: string; mal: boolean; servicio?: string; link?: string }> = [];
   if (f.propios) out.push({ texto: 'No pude leer tus eventos.', mal: true });
   if (f.crm) out.push({ texto: 'No pude leer las reuniones del CRM.', mal: true });
   if (f.plan) out.push({ texto: 'No pude leer los deadlines del Plan.', mal: true });
+  if (f.recurrentes) out.push({ texto: 'No pude leer lo que se repite.', mal: true });
+  if (f.cobros) out.push({ texto: 'No pude leer los cobros.', mal: true });
   if (f.objetivos) out.push({ texto: 'No pude leer los Objetivos.', mal: true });
   if (f.google === 'error') out.push({ texto: 'No pude leer tu Google Calendar.', mal: true });
-  if (f.google === 'sin-conexion') out.push({ texto: 'Conecta tu Google Calendar para ver sus eventos aquí.', mal: false, href: '/integraciones', link: 'Conectar' });
+  if (f.google === 'sin-conexion') out.push({ texto: 'Conecta tu Google Calendar para ver sus eventos aquí.', mal: false, servicio: 'google', link: 'Conectar' });
   if (g?.fallaron.length) out.push({ texto: `No pude leer: ${g.fallaron.join(', ')}.`, mal: true });
   if (g?.recortado) out.push({ texto: 'Hay más eventos de los que entran en esta vista.', mal: false });
-  if (g && !g.puedeEscribir) out.push({ texto: 'Tu Google Calendar está conectado sólo para leer.', mal: false, href: '/integraciones', link: 'Reconectar' });
+  if (g && !g.puedeEscribir) out.push({ texto: 'Tu Google Calendar está conectado sólo para leer.', mal: false, servicio: 'google', link: 'Reconectar' });
   return out;
 }
 

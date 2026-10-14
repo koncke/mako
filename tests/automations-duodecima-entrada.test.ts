@@ -66,12 +66,12 @@ test('la puerta del QR se fue: sin EvolutionConnect, sin abreEnQR, y el spinner 
 
 test('el recorrido se abre solo también con la lista vacía, y el primer lienzo de la visita lo reabre desde el CRON', () => {
   const app = APP();
-  const gancho = app.indexOf('const recorrido = useRecorridoAutomations(rolAdmin && visibles !== null && !error && creando === null && !galeria);');
+  const gancho = app.indexOf('const recorrido = useRecorridoAutomations(rolAdmin && visibles !== null && !error && creando === null && !galeria && !makoTrabajando);');
   assert.ok(gancho > 0, 'el autoabrir cambió');
   assert.doesNotMatch(app.slice(gancho, app.indexOf('\n', gancho)), /visibles\.length/, 'volvió a esperar la pantalla llena');
   assert.ok(gancho < app.indexOf('if (secuencias === null) {'), 'el gancho va ANTES de los return');
   // `vioVacio`: visto con la lista vacía → el primer lienzo (sin creando ni galería) lo reabre UNA vez.
-  assert.match(app, /const conLienzo = visibles !== null && visibles\.length > 0 && creando === null && !galeria;/);
+  assert.match(app, /const conLienzo = visibles !== null && visibles\.length > 0 && creando === null && !galeria && !makoTrabajando;/);
   assert.match(app, /if \(recorrido\.abierto && vacia\) vioVacio\.current = true;/);
   assert.match(app, /if \(!vioVacio\.current \|\| !conLienzo \|\| recorridoAbierto\) return;\n\s+vioVacio\.current = false;\n\s+setSoloLienzo\(true\);\n\s+reabrirRecorrido\(\);/);
   assert.match(app, /pasos=\{soloLienzo \? PASOS_DEL_LIENZO : undefined\}/);

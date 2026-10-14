@@ -20,7 +20,8 @@
 // el test (tests/editor-landing-panel.test.ts).
 //
 // ⚠️ LAS ANALIZADAS QUE SON NUESTRAS NO SON «DE AFUERA». El Diagnóstico también analiza las
-//    landings publicadas en hola-mako.com/l/<slug>; listarlas dos veces (como documento y como
+//    landings publicadas en hola-mako.site/<slug> (y las de antes de la tanda 4, en
+//    hola-mako.com/l/<slug>: `bases` trae las dos, la vigente primero); listarlas dos veces (como documento y como
 //    página de afuera) partiría en dos la misma landing. Se cruzan por la URL NORMALIZADA con
 //    la función del Landing Analyst (lib/landing-url.ts): con otra normalización el cruce falla
 //    en silencio (AGENTS.md, «dos escritores con dos ritmos son dos claves»: las dos puntas
@@ -28,7 +29,8 @@
 // =============================================================================
 
 import type { LandingResumen } from '../../lib/editor-landing/api-tipos';
-import { urlPublica } from '../../lib/editor-landing/doc';
+import { urlLandingEn } from '../../lib/editor-landing/origen-landings';
+import { urlDeDominio } from '../../lib/editor-landing/dominios-reglas';
 import { normalizarUrl } from '../../lib/landing-url';
 
 /** Una landing de `landing_analyses` (lo que devuelve `listarAnalizadas`). */
@@ -65,17 +67,20 @@ function claveUrl(url: string): string | null {
 }
 
 /**
- * El id de la landing NUESTRA que vive en esa URL (`<base>/l/<slug>` o una de sus páginas,
- * `<base>/l/<slug>/<ruta>`), o null si es de afuera. Sólo las que tienen slug (una sin publicar
- * no tiene URL pública).
+ * El id de la landing NUESTRA que vive en esa URL (`<base>/<slug>` o una de sus páginas,
+ * `<base>/<slug>/<ruta>`, en cualquiera de las `bases`: `https://hola-mako.site` y la de antes,
+ * `https://hola-mako.com/l`, que da el server con `basesLandings`), o null si es de afuera. Sólo las
+ * que tienen slug (una sin publicar no tiene URL pública).
  */
-export function docDeUrl(url: string, docs: readonly LandingResumen[], base: string): number | null {
+export function docDeUrl(url: string, docs: readonly LandingResumen[], bases: readonly string[]): number | null {
   const k = claveUrl(url);
   if (!k) return null;
+  const es = (propia: string | null) => !!propia && (k === propia || k.startsWith(propia + '/'));
   for (const d of docs) {
     if (!d.slug) continue;
-    const propia = claveUrl(urlPublica(base, d.slug));
-    if (propia && (k === propia || k.startsWith(propia + '/'))) return d.id;
+    for (const base of bases) if (es(claveUrl(urlLandingEn(base, d.slug)))) return d.id;
+    // Tanda 4: su dominio propio VERIFICADO (`https://<dominio>` y sus páginas) también es ella.
+    if (d.dominio && es(claveUrl(urlDeDominio(d.dominio)))) return d.id;
   }
   return null;
 }
@@ -85,7 +90,7 @@ export function docDeUrl(url: string, docs: readonly LandingResumen[], base: str
  * último arriba), después las landings de afuera ya analizadas (en el orden en que llegan: el
  * análisis más nuevo arriba), sin las que son nuestras y sin URLs repetidas.
  */
-export function filasDelPanel(docs: readonly LandingResumen[], analizadas: readonly Analizada[], base: string): FilaPanel[] {
+export function filasDelPanel(docs: readonly LandingResumen[], analizadas: readonly Analizada[], bases: readonly string[]): FilaPanel[] {
   const propias: FilaPanel[] = docs
     .filter((d) => !d.papelera)
     .sort((a, b) => b.actualizado.localeCompare(a.actualizado) || b.id - a.id)
@@ -99,7 +104,7 @@ export function filasDelPanel(docs: readonly LandingResumen[], analizadas: reado
   const deAfuera: FilaPanel[] = [];
   for (const a of analizadas) {
     const k = claveUrl(a.url);
-    if (!k || vistas.has(k) || docDeUrl(a.url, docs, base) !== null) continue;
+    if (!k || vistas.has(k) || docDeUrl(a.url, docs, bases) !== null) continue;
     vistas.add(k);
     deAfuera.push({ tipo: 'analizada', clave: `a:${k}`, nombre: hostDe(a.url), url: a.url });
   }
@@ -177,14 +182,14 @@ export function urlDeBusqueda(q: string): string | null {
 export function derechaDeQuery(
   q: { vista?: string | null; diagnostico?: string | null; analizar?: string | null },
   docs: readonly LandingResumen[],
-  base: string,
+  bases: readonly string[],
 ): Derecha {
   const id = idValido(q.diagnostico);
   if (id) return { tipo: 'diagnostico', docId: id };
   if (typeof q.analizar === 'string') {
     const url = urlParaAnalizar(q.analizar);
     if (!url) return { tipo: 'diagnostico' };
-    const propia = docDeUrl(url, docs, base);
+    const propia = docDeUrl(url, docs, bases);
     return propia ? { tipo: 'diagnostico', docId: propia } : { tipo: 'diagnostico', url };
   }
   if (q.vista && (VISTAS as readonly string[]).includes(q.vista)) return { tipo: q.vista as Vista };

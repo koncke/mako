@@ -27,9 +27,10 @@
 //   · `conVariables` borrando la variable sin valor (`: ''` en vez de `: todo`)              -> 6 / 1 «las variables…»
 //   · `elegirPersona` quedándose con la primera de dos homónimas (sin el `hay.length > 1`)   -> 6 / 1 «de quién…»
 //   · «Clientes de Mauricio» como título de un gráfico de la plantilla Ventas                -> 6 / 1 «ningún nombre…»
-// Y el test del funnel por bloque (base 8 / 0), cada rotura -> 7 / 1 «un bloque se ata a un funnel…»: el saneo sin
-// `piezaPorFunnel` (los KPIs con funnel), la variante de la cobranza con otra clave, el elemento buscando `piezas[pieza]`,
-// `clavePieza` con guion, y la cobranza de un funnel sin poder leer de quién es cada cliente con `error={ null }`.
+// Y el test del funnel por bloque, re-probado el 14/10/2026 al pasar los bloques a DATOS (base 8 / 0), cada rotura ->
+// 7 / 1 «un bloque se ata a un funnel…»: el saneo sin `piezaPorFunnel` (los KPIs con funnel); el funnel de hoy buscando
+// el principal aunque se haya elegido otro; la cobranza sin filtrar por el funnel elegido; y la cobranza de un funnel sin
+// poder leer de quién es cada cliente dibujada como «nadie debe» (sin su `return` con el error).
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -39,7 +40,7 @@ import { sanearElemento, sanearGrafico, type Componente } from '../lib/graficos-
 import {
   DEFINICIONES_GENERAL, PLANTILLAS_GENERAL, elegirPersona, esPlantillaGeneral, informeGeneralInicial, type PersonaGeneral,
 } from '../lib/general-plantillas';
-import { PIEZAS_GENERAL, clavePieza, conVariables, esPiezaGeneral, piezaPorFunnel, saludoDeHora } from '../lib/general-piezas';
+import { PIEZAS_GENERAL, conVariables, esPiezaGeneral, piezaPorFunnel, saludoDeHora } from '../lib/general-piezas';
 
 test('cada pieza de cada plantilla de General sobrevive al saneo con lo que se escribió', () => {
   let bloques = 0, graficos = 0;
@@ -89,23 +90,26 @@ test('en un pop-up no hay General que dibujar: el saneo tira el bloque (y el que
 });
 
 // El pedido del 13/10 («e incluso asignarles ofertas y/o funnels») vive desde el 14/10 en el bloque: «Tu funnel hoy» y
-// «A quién cobrarle» se atan a un funnel. El server arma una variante por funnel con la MISMA clave que busca el
-// elemento; con dos claves distintas el bloque dice «Ese funnel ya no está» sobre un funnel vivo.
-test('un bloque se ata a un funnel sólo si sabe, y la variante se busca con la misma clave con que se arma', () => {
+// «A quién cobrarle» se atan a un funnel. Desde la segunda vuelta de ese día el server manda los datos de TODOS los
+// funnels (cada uno con su id) y el bloque elige el suyo por el id del elemento: si buscara por otra cosa, diría «Ese
+// funnel ya no está» sobre un funnel vivo, o contaría el principal con otro elegido.
+test('un bloque se ata a un funnel sólo si sabe, y el bloque elige el suyo por el id', () => {
   assert.deepEqual(sanearElemento({ id: 'b', tipo: 'general', general: { pieza: 'funnel', funnel: 12 } })?.general, { pieza: 'funnel', funnel: 12 });
   assert.deepEqual(sanearElemento({ id: 'b', tipo: 'general', general: { pieza: 'cobranza', funnel: '7' } })?.general, { pieza: 'cobranza', funnel: 7 });
   assert.deepEqual(sanearElemento({ id: 'b', tipo: 'general', general: { pieza: 'kpis', funnel: 12 } })?.general, { pieza: 'kpis' }, 'los KPIs miden el negocio entero');
   for (const malo of [-1, 0, 1.5, 'x', null]) assert.deepEqual(sanearElemento({ id: 'b', tipo: 'general', general: { pieza: 'funnel', funnel: malo } })?.general, { pieza: 'funnel' });
   assert.deepEqual(PIEZAS_GENERAL.filter((p) => piezaPorFunnel(p.id)).map((p) => p.id).sort(), ['cobranza', 'funnel']);
-  assert.equal(clavePieza('cobranza', 3), 'cobranza:3');
-  assert.equal(clavePieza('cobranza', null), 'cobranza');
 
-  const leer = (r: string) => readFileSync(join(import.meta.dirname, '..', r), 'utf8').replace(/\r\n/g, '\n');
-  const armar = leer('app/general/piezas.tsx');
-  for (const p of ['funnel', 'cobranza']) assert.match(armar, new RegExp(`porFunnel\\[clavePieza\\('${p}', f\\.id\\)\\] =`), `no se arma la variante de «${p}» por funnel`);
-  assert.match(leer('app/dashboard/ElementoGeneral.tsx'), /piezas\?\.\[clavePieza\(pieza, funnel\)\]/, 'el elemento no busca su variante con clavePieza');
+  const leer = (r: string) => readFileSync(join(import.meta.dirname, '..', r), 'utf8').replace(/\r\n/g, '\n').replace(/^[ \t]*\/\/.*$/gm, '');
+  const datos = leer('app/general/datos.ts');
+  // El server cuenta cada funnel con su id, y manda de qué funnel es cada cliente con cuotas (null = no se pudo leer).
+  assert.match(datos, /d: atables\.map\(\(f\) => \(\{ id: f\.id, nombre: f\.nombre, principal: f\.id === principal\?\.id, conteo: conteos\.get\(f\.id\) \?\? null \}\)\),/);
+  assert.match(datos, /deQuien: deQuien == null \? null :/);
+  const bloque = leer('app/general/bloques/Negocio.tsx');
+  assert.match(bloque, /const f = funnel \? d\.d\.find\(\(x\) => x\.id === funnel\) : d\.d\.find\(\(x\) => x\.principal\) \?\? d\.d\[0\];/, 'el funnel de hoy no busca el elegido por su id');
+  assert.match(bloque, /if \(funnel && d\.d\.deQuien\) filas = filas\.filter\(\(c\) => d\.d\.deQuien\?\.\[c\.leadId\]\?\.includes\(funnel\)\);/, 'la cobranza no filtra por el funnel elegido');
   // Un filtro que no se pudo armar no es «nadie debe»: la cobranza de un funnel sin saber de quién es cada cliente lo dice.
-  assert.match(armar, /deQuien == null\s*\n\s*\/\/[^\n]*\n\s*\? <Cobranza filas=\{\[\]\} tz=\{cobranza\.datos\.tz\} error="No pude leer de qué funnel es cada cliente\."/);
+  assert.match(bloque, /if \(funnel && d\.d\.deQuien == null\) return <Cobranza filas=\{\[\]\} tz=\{d\.d\.tz\} error="No pude leer de qué funnel es cada cliente\."/);
 });
 
 test('el informe con que arranca es la General de siempre, con la cabecera arriba', () => {

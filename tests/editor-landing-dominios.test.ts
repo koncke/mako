@@ -43,6 +43,9 @@
 //   · la 0263 sin atar la fecha del reclamo en el CHECK           → 24 / 1 «la 0263 ata las cinco…»
 //   · la página del dominio sin comparar el docId                 → 24 / 1 «la página en el dominio…»
 // Restaurado: 25 / 0.
+//
+// Tanda 4 (14/10/2026, hola-mako.site): base 25 / 0. Rota con el arnés de editor-landing-origen:
+//   · esHostDeMako sin hola-mako.site                             → 22 / 3 «validar…», «soltar de Vercel…», «los hosts de MaKo…»
 // =============================================================================
 
 import { test } from 'node:test';
@@ -80,7 +83,8 @@ test('validar: un dominio de cliente sí; MaKo, IPs y basura no', () => {
   for (const d of ['tunegocio.com', 'promo.tunegocio.com', 'www.tunegocio.com.mx', 'xn--caf-dma.com', 'a1-b.co']) {
     assert.equal(motivoDominioInvalido(d), null, d);
   }
-  for (const d of ['hola-mako.com', 'www.hola-mako.com', 'promo.hola-mako.com', 'makodigital.app', 'www.makodigital.app', 'vercel.app', 'dashboard-marketing-six.vercel.app']) {
+  // hola-mako.site (tanda 4): sin esto, un admin lo «conectaba» a su landing (Vercel ya lo tiene).
+  for (const d of ['hola-mako.com', 'www.hola-mako.com', 'promo.hola-mako.com', 'makodigital.app', 'www.makodigital.app', 'vercel.app', 'dashboard-marketing-six.vercel.app', 'hola-mako.site', 'www.hola-mako.site', 'promo.hola-mako.site']) {
     assert.equal(motivoDominioInvalido(d), 'Ese dominio es de MaKo', d);
   }
   for (const d of ['localhost', '192.168.0.1', '-malo.com', 'malo-.com', 'a..b.com', '*.tunegocio.com', 'sin-tld', 'x.c']) {
@@ -109,7 +113,7 @@ test('el CHECK de la migración 0263 acepta exactamente lo que acepta DOMINIO_RE
 });
 
 test('soltar de Vercel: sólo un dominio de cliente QUE MAKO AGREGÓ, nunca uno de MaKo (el guard en positivo)', () => {
-  for (const d of ['hola-mako.com', 'www.hola-mako.com', 'makodigital.app', 'dashboard-marketing-six.vercel.app', '', null, undefined, 'localhost']) {
+  for (const d of ['hola-mako.com', 'www.hola-mako.com', 'makodigital.app', 'dashboard-marketing-six.vercel.app', 'hola-mako.site', 'www.hola-mako.site', '', null, undefined, 'localhost']) {
     assert.equal(puedeSoltarseDeVercel(d, true), false, String(d));
   }
   assert.equal(puedeSoltarseDeVercel('promo.tunegocio.com', true), true);
@@ -232,13 +236,17 @@ test('next.config.ts: HSTS sólo en el bloque con `has` del host de MaKo, nunca 
   const global = cfg.slice(cfg.indexOf("source: '/:path*'"), cfg.indexOf('],', cfg.indexOf("source: '/:path*'")));
   assert.doesNotMatch(global, /Strict-Transport-Security/);
   assert.match(cfg, /\{\s*source: '\/:path\*',\s*has: \[\{ type: 'host', value: PATRON_HOSTS_DE_MAKO \}\],\s*headers: \[\{ key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains' \}\],\s*\}/);
-  assert.match(cfg, /import \{ PATRON_HOSTS_DE_MAKO \} from "\.\/lib\/editor-landing\/dominios-reglas";/);
+  assert.match(cfg, /import \{ PATRON_HOSTS_DE_LA_APP, PATRON_HOSTS_DE_MAKO \} from "\.\/lib\/editor-landing\/dominios-reglas";/);
 });
 
-test('dominios-reglas.ts sólo importa ./doc (lo cargan next.config.ts, proxy.ts y el navegador)', () => {
+test('dominios-reglas.ts sólo importa ./doc y ./origen-landings (lo cargan next.config.ts, proxy.ts y el navegador)', () => {
   const src = sinComentarios(leer('lib/editor-landing/dominios-reglas.ts'));
-  assert.deepEqual([...src.matchAll(/^import[^;]*from\s+'([^']+)'/gm)].map((m) => m[1]), ['./doc']);
+  assert.deepEqual([...src.matchAll(/^import[^;]*from\s+'([^']+)'/gm)].map((m) => m[1]), ['./doc', './origen-landings']);
   assert.doesNotMatch(src, /server-only|['"]node:|require\(/);
+  // Tanda 4: origen-landings.ts entra al arranque de Next por acá; sólo puede traer lo puro.
+  const origen = sinComentarios(leer('lib/editor-landing/origen-landings.ts'));
+  assert.deepEqual([...origen.matchAll(/^import[^;]*from\s+'([^']+)'/gm)].map((m) => m[1]), ['./doc', './html-libre']);
+  assert.doesNotMatch(origen, /server-only|['"]node:|require\(|process\.env/);
 });
 
 test('la página en el dominio: sólo la landing de ESE dominio (la caché host → slug no sirve la de otro)', () => {
@@ -251,8 +259,8 @@ test('la página en el dominio: sólo la landing de ESE dominio (la caché host 
 // ── Los hosts de MaKo y la decisión del proxy ────────────────────────────────────
 
 test('los hosts de MaKo: el canónico, los viejos y los deploys', () => {
-  for (const h of ['hola-mako.com', 'www.hola-mako.com', 'makodigital.app', 'dashboard-marketing-six.vercel.app', 'mako-git-x-equipo.vercel.app']) assert.equal(esHostDeMako(h), true, h);
-  for (const h of ['tunegocio.com', 'hola-mako.com.evil.tld', 'nohola-mako.com', 'vercel.app.evil.tld']) assert.equal(esHostDeMako(h), false, h);
+  for (const h of ['hola-mako.com', 'www.hola-mako.com', 'makodigital.app', 'dashboard-marketing-six.vercel.app', 'mako-git-x-equipo.vercel.app', 'hola-mako.site', 'www.hola-mako.site']) assert.equal(esHostDeMako(h), true, h);
+  for (const h of ['tunegocio.com', 'hola-mako.com.evil.tld', 'nohola-mako.com', 'vercel.app.evil.tld', 'hola-mako.site.evil.tld', 'nohola-mako.site']) assert.equal(esHostDeMako(h), false, h);
 });
 
 test('decidirHost: en un dominio de cliente, sólo la landing', () => {
@@ -265,6 +273,9 @@ test('decidirHost: en un dominio de cliente, sólo la landing', () => {
     ['', '/', 'GET', { tipo: 'app' }],
     [null, '/', 'GET', { tipo: 'app' }],
     ['1.2.3.4', '/', 'GET', { tipo: 'app' }],
+    // hola-mako.site (tanda 4) no es de un cliente: medido en producción el 14/10/2026, el proxy lo
+    // reescribía a la ruta del dominio propio y contestaba 404 (`X-Matched-Path: /api/landing-generator/dominio`).
+    ['hola-mako.site', '/mi-landing', 'GET', { tipo: 'app' }],
     [D, '/', 'GET', { tipo: 'sitio', ruta: '' }],
     [`${D}:443`, '/gracias', 'HEAD', { tipo: 'sitio', ruta: 'gracias' }],
     ['PROMO.TuNegocio.com', '/Gracias', 'GET', { tipo: 'minusculas', destino: '/gracias' }],

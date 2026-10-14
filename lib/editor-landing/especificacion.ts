@@ -48,8 +48,9 @@ import {
   type AttrsRecuadro, type AttrsTarjeta, type AttrsVideo, type CampoFormulario, type ColorTema, type Degradado,
   type TamanoTexto, type TipoCampo, type VarianteOptimizado, type VarianteParrafo,
 } from './doc';
-import { altoDeEmbed, atributosDeIframe, claseDeProveedor, embedDe, nombreDeProveedor } from '../embeds';
+import { altoDeEmbed, atributosDeIframe, claseDeProveedor, embedDe, esProveedorEmbed, nombreDeProveedor } from '../embeds';
 import { SANDBOX_PUBLICO } from './html-libre';
+import { hrefPagoValido } from './pago-landing';
 import {
   arbolDeGrafico, htmlDeArbol, normalizarGrafico, type AttrsArbol, type HijoArbol, type NodoArbol,
 } from './grafico-svg';
@@ -91,6 +92,12 @@ export type CtxSpec = {
    * landing (`OpRender.htmlLibre`). Sin esto, o sin id, el bloque sale con `srcdoc` como siempre.
    */
   srcHtmlLibre?: (idBloque: string) => string | null;
+  /**
+   * Los MARCADORES de una miniatura de trabajo (render.ts, `OpRender.marcadores`; sólo en
+   * 'miniatura'): el VSL vacío de un diseño se dibuja como un ▶ (`specInsertado`). Sin esto, un
+   * insertado vacío no se dibuja, como en la publicada.
+   */
+  marcadores?: boolean;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -304,9 +311,15 @@ export function attrsBotones(raw: unknown): AttrsBotones {
   return { alinea: enLista(ALINEACIONES, obj(raw).alinea, 'izquierda') };
 }
 
+/**
+ * Un BOTÓN acepta además `pago:<productoId>` (tanda 4: el «Botón de pago» cobrado por la pasarela de
+ * MaKo, pago-landing.ts). Sólo el botón: un enlace de texto, una imagen o la barra del sitio siguen con
+ * `hrefSeguro`, que no lo conoce — un `pago:` ahí no tendría quién lo resuelva. Va en el `href` que
+ * ya existía y no en un atributo nuevo: el esquema de TipTap, el saneo y el pegado lo leen igual.
+ */
 export function attrsBoton(raw: unknown): AttrsBoton {
   const r = obj(raw);
-  return { href: hrefSeguro(r.href) ?? '', variante: enLista(VARIANTES_BOTON, r.variante, 'primario'), nuevaPestana: bool(r.nuevaPestana) };
+  return { href: hrefSeguro(r.href) ?? hrefPagoValido(r.href) ?? '', variante: enLista(VARIANTES_BOTON, r.variante, 'primario'), nuevaPestana: bool(r.nuevaPestana) };
 }
 
 export function attrsRecuadro(raw: unknown): AttrsRecuadro {
@@ -343,16 +356,60 @@ export function attrsVideo(raw: unknown): AttrsVideo {
 
 /**
  * El insertado sale de `embedDe` (lib/embeds.ts), la MISMA fuente que el saneo del editor rico:
- * el `src` que se guarda es el que arma ese módulo desde el id, nunca el que entró, y el
+ * el `src` que se guarda es el que arma ese módulo desde el id, nunca el que entró, y con enlace el
  * proveedor sale de ahí (el que traiga el JSON no se lee). El alto sólo existe en una agenda.
+ *
+ * SIN enlace (el marcador que pide «Pega el enlace»), el proveedor es una PISTA de qué va en el hueco
+ * —un video o una agenda— y se conserva SÓLO si es uno de la lista cerrada de lib/embeds.ts
+ * (`esProveedorEmbed`); uno inventado sale ''. Con eso el editor pide lo justo («el enlace de tu
+ * video») y la miniatura dibuja el VSL vacío de un diseño como un video (`specInsertado`). Antes del
+ * 14/10/2026 salía siempre '': un VSL vacío y una agenda vacía eran indistinguibles.
  */
 export function attrsInsertado(raw: unknown): AttrsInsertado {
   const r = obj(raw);
-  const e = typeof r.src === 'string' ? embedDe(r.src) : null;
-  if (!e) return { src: '', proveedor: '', alto: null };
+  const sinEnlace = typeof r.src !== 'string' || r.src.trim() === '';
+  const e = sinEnlace ? null : embedDe(r.src as string);
+  if (!e) return { src: '', proveedor: sinEnlace && esProveedorEmbed(r.proveedor) ? r.proveedor : '', alto: null };
   const agenda = claseDeProveedor(e.proveedor) === 'agenda';
   return { src: e.src, proveedor: e.proveedor, alto: agenda ? altoDeEmbed(r.alto) ?? e.alto ?? null : null };
 }
+
+/** El aviso de Publicar cuando un video quedó sin su enlace (corto: lo dibuja el diálogo). */
+export const TEXTO_FALTA_VIDEO = 'Falta el enlace del video';
+
+/**
+ * ¿Cuántos VIDEOS quedaron sin pegar? Un `insertado` con la pista de un proveedor de video (el VSL que
+ * trae un diseño, «Video de YouTube…»: `attrsInsertado` la conserva en el hueco vacío) y sin `src`. Lo
+ * pregunta el diálogo Publicar ANTES de publicar (integración de la tanda 4): la publicada no dibuja
+ * un insertado vacío (render.ts), así que el hero de un diseño con VSL sale sin video y nadie lo dice.
+ * Una agenda vacía no cuenta (no tiene pista de video), ni una sección OCULTA (no se publica). Se lee
+ * con `attrsInsertado`, la MISMA regla del saneo y del render: un enlace que no es de la lista ya no
+ * está, y una pista inventada sale ''.
+ */
+export function videosSinEnlace(paginas: ReadonlyArray<{ doc?: { content?: unknown } } | null | undefined>): number {
+  let n = 0;
+  const recorrer = (nodos: unknown, prof: number): void => {
+    if (!Array.isArray(nodos) || prof > 40) return;
+    for (const x of nodos) {
+      if (!x || typeof x !== 'object' || Array.isArray(x)) continue;
+      const nodo = x as { type?: unknown; attrs?: unknown; content?: unknown };
+      const attrs = nodo.attrs && typeof nodo.attrs === 'object' ? nodo.attrs as Record<string, unknown> : {};
+      if (nodo.type === NODO.tarjeta && attrs.oculta === true) continue;
+      if (nodo.type === NODO.insertado) {
+        const a = attrsInsertado(attrs);
+        if (!a.src && claseDeProveedor(a.proveedor) === 'video') n++;
+        continue;
+      }
+      recorrer(nodo.content, prof + 1);
+    }
+  };
+  for (const p of paginas ?? []) recorrer(p?.doc?.content, 0);
+  return n;
+}
+
+/** El aviso de Publicar, o null si no falta ningún video. */
+export const avisoDeVideo = (paginas: Parameters<typeof videosSinEnlace>[0]): string | null =>
+  videosSinEnlace(paginas) > 0 ? TEXTO_FALTA_VIDEO : null;
 
 /** Rótulo por default de cada tipo de campo (el que la persona ve si no escribió otro). */
 export const ETIQUETA_CAMPO: Record<TipoCampo, string> = {
@@ -653,8 +710,13 @@ export function specBotones(raw: unknown): NodoArbol {
 /** `a.gm-boton[data-variante]`. Sin destino permitido, el `<a>` sale sin href. */
 export function specBoton(raw: unknown, ctx?: CtxSpec): NodoArbol {
   const a = attrsBoton(raw);
-  const href = hrefDe(a.href, ctx);
-  const nueva = a.nuevaPestana && !!href && esExterno(href);
+  // `pago:<id>` no pasa por `hrefSeguro` (no lo conoce): lo resuelve render.ts (`resolverHref`) al paso
+  // de nombre y email de la publicada, o a `#` donde no hay paso (vista previa, exportar). Sin
+  // resolvedor (el DOM del editor) se escribe como se guardó, igual que `pagina:<id>`.
+  const pago = hrefPagoValido(a.href);
+  const href = pago ? (ctx?.resolverHref ? ctx.resolverHref(pago) ?? undefined : pago) : hrefDe(a.href, ctx);
+  // El paso de pago abre en la MISMA pestaña: es el camino de compra, no un sitio de afuera.
+  const nueva = !pago && a.nuevaPestana && !!href && esExterno(href);
   return el('a', {
     class: 'gm-boton', 'data-variante': a.variante, href,
     target: nueva ? '_blank' : undefined, rel: nueva ? 'noopener noreferrer' : undefined,
@@ -721,7 +783,19 @@ export function specInsertado(raw: unknown, ctx?: CtxSpec): NodoArbol {
   const a = attrsInsertado(raw);
   const clase = claseDeProveedor(a.proveedor) ?? undefined;
   const attrsDiv: AttrsArbol = { class: 'gm-insertado', 'data-proveedor': a.proveedor || undefined, 'data-clase': clase };
-  if (!a.src) return el('div', { ...attrsDiv, 'data-vacia': 'si' });
+  if (!a.src) {
+    // El VSL vacío de un diseño, en una miniatura que pide MARCADORES: un video 16:9 con un ▶, sin
+    // texto (la grilla de Diseños tiene que mostrar que la landing lleva video; pedido de Martín,
+    // 14/10/2026). La publicada, la exportación y la vista del visitante en el teléfono no lo
+    // dibujan (render.ts no saca un insertado vacío) y el editor tiene su NodeView. Una agenda
+    // vacía no se dibuja en ningún modo.
+    if (ctx?.marcadores && modo(ctx) === 'miniatura' && clase === 'video') {
+      return el('div', { ...attrsDiv, 'data-marcador': 'si', 'data-pista': 'si' },
+        el('div', { class: 'gm-marcador', 'data-play': 'si' },
+          el('span', { class: 'gm-marcador-play', 'data-icono': 'play', 'aria-hidden': 'true' })));
+    }
+    return el('div', { ...attrsDiv, 'data-vacia': 'si' });
+  }
   if (modo(ctx) === 'miniatura') {
     return el('div', { ...attrsDiv, 'data-marcador': 'si' }, el('div', { class: 'gm-marcador' }, nombreDeProveedor(a.proveedor) ?? ''));
   }

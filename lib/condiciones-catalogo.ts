@@ -630,6 +630,15 @@ export const CONDICIONES: readonly DefCondicion[] = [
   // ── Mensajes ──
   { id: 'ya_contactado', seccion: 'Mensajes', ambito: 'ambos', rotulo: ['Ya le escribiste', 'Nunca le escribiste'], negable: true, valor: LEGADO, fuentes: ['contacto'] },
   { id: 'respondio', seccion: 'Mensajes', ambito: 'ambos', rotulo: ['Te escribió alguna vez', 'Nunca te escribió'], negable: true, valor: LEGADO, fuentes: ['respondio'] },
+  {
+    // «SI EL LEAD CONTESTA» (14/10/2026). Era la pausa escondida del motor (cualquier mensaje del lead frenaba todo lo
+    // que tenía por delante) y por unas horas fue una opción de cada flecha del CRON. Martín: «"Si el lead contesta" NO
+    // debería ir en el CRON, debería ser una CONDITION». Se pone delante del mensaje que no tiene que salir si contestó
+    // («¿Viste mi mensaje?»); el motor la vuelve a pasar antes de mandar (`condicionDeArriba`). Es de la INSCRIPCIÓN, no
+    // del lead: `contestoEnEsta`, que pone quien evalúa. La fuente es la base (`lead`): no lee nada aparte.
+    id: 'contesto', seccion: 'Mensajes', ambito: 'ambos', rotulo: ['Contestó desde que entró', 'No contestó desde que entró'], negable: true, valor: NINGUNO, fuentes: ['lead'],
+    evaluar: (_f, h) => tri(h.contestoEnEsta),
+  },
 
   // ── Instagram y Messenger (duodécima tanda) ──
   {

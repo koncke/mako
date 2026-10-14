@@ -6,8 +6,8 @@
 // producto. Con el nombre de PRUEBA. Y allí se podrá ver esa grabación.»
 //
 // ⚠️ POR QUÉ UN LEAD Y NO UN REPRODUCTOR EN LA PANTALLA DE LA PRUEBA. El
-// reproductor de rrweb vive en la ficha del lead (`app/crm/lead-view/GrabacionModal.tsx`,
-// 180 líneas, con su propio modal, su huso horario y su server action) y busca las
+// reproductor de rrweb vive en la ficha del lead, en línea en «Grabación de su visita»
+// (`app/crm/lead-view/GrabacionCard.tsx` y `GrabacionModal.tsx`), y busca las
 // grabaciones POR `visitor_id`. O sea que ya existe una pantalla que sabe hacer
 // exactamente esto; lo único que le falta es una fila a la que colgarse. Montar un
 // segundo reproductor en /integraciones sería dos lugares donde el mismo cuerpo se

@@ -19,22 +19,34 @@
 //    guarda, y el segundo marcaría la cuota SIGUIENTE del lead después del refresco.
 // La fila se va al marcar y vuelve si falla; el toast trae «Deshacer» (desmarca la cuota). Después, `router.refresh()`:
 // el semáforo, el mes y esta lista cambian juntos, y el cliente vuelve si le queda otra cuota.
+//
+// La segunda vuelta del 14/10/2026 («Diseña nuevamente todos los "Bloque general", la mayoría son solamente texto»):
+// cada cliente es una fila con su inicial en un círculo del color de su urgencia (rojo vencida, ámbar pronto), lo que
+// debe y cuándo vence, y la acción a la derecha. Arriba, cuántas hay y cuántas vencieron. `limite` lo elige el bloque
+// (lib/general-piezas.ts), `vacio` es su placeholder y `muestra` apaga las acciones (la vista previa del menú).
 // =============================================================================
 
-import { useRef, useState, useTransition, type CSSProperties } from 'react';
+import { useRef, useState, useTransition, type CSSProperties, type ReactNode } from 'react';
 import Link, { useRouter } from '@/app/_ui/Link';
 import { Button, Toast, useToast } from '@/app/_ui';
 import { marcarPagoAction } from '@/app/crm/actions';
 import { hoyEnTz } from '@/lib/date-utils';
 import type { CobroM } from '@/app/m/dashboard/modelo';
+import { TituloBloque } from './bloques/comun';
 
-/** Las que se ven antes de «Ver todos». */
-const VISIBLES = 6;
+const COLOR: Record<'vencida' | 'pronto' | 'al-dia', string> = { vencida: 'var(--bad)', pronto: 'var(--warn-fill)', 'al-dia': 'var(--faint)' };
+const inicial = (n: string) => n.trim().split(/\s+/).slice(0, 2).map((p) => p[0]?.toUpperCase() ?? '').join('') || '·';
 
-export function Cobranza({ filas, tz, error, alcance = null }: {
+export function Cobranza({ filas, tz, error, alcance = null, limite = Infinity, vacio = null, muestra = false }: {
   filas: CobroM[]; tz: string; error: string | null;
   /** Un rótulo al lado del título (lo que la hoja mira, si no es todo el negocio). */
   alcance?: string | null;
+  /** Cuántas se ven antes de «Ver todas». */
+  limite?: number;
+  /** Lo que se dibuja sin nadie por cobrar (el placeholder del bloque). */
+  vacio?: ReactNode;
+  /** La vista previa: sin acciones. */
+  muestra?: boolean;
 }) {
   const { toast, show, clear } = useToast();
   const router = useRouter();
@@ -82,42 +94,53 @@ export function Cobranza({ filas, tz, error, alcance = null }: {
   };
 
   const vivas = filas.filter((f) => !ocultas.has(f.pagoId));
-  const vistas = todas ? vivas : vivas.slice(0, VISIBLES);
+  const vistas = todas ? vivas : vivas.slice(0, limite);
+  const vencidas = vivas.filter((f) => f.urgencia === 'vencida').length;
 
   return (
-    <div data-cobranza-general="">
-      <div style={S.cabecera}>
-        <span style={S.titulo}>
-          <h2 style={S.h2}>A quién cobrarle</h2>
-          {alcance && <span style={S.alcance}>{alcance}</span>}
-        </span>
-        {!error && vivas.length > VISIBLES && (
-          <button type="button" style={S.ver} aria-expanded={todas} onClick={() => setTodas((t) => !t)}>
-            {todas ? 'Ver menos' : `Ver los ${vivas.length}`}
-          </button>
+    <div data-cobranza-general="" className="gb" style={S.raiz}>
+      {/* La cabecera de un bloque de la hoja (./bloques/comun.tsx): el título del tema, el alcance y los dos conteos. */}
+      <div className="gb-cab">
+        <TituloBloque>A quién cobrarle</TituloBloque>
+        {alcance && <span className="gb-cab-extra">{alcance}</span>}
+        {!error && vivas.length > 0 && (
+          <span style={{ display: 'flex', gap: 6, marginLeft: 'auto', flex: 'none' }}>
+            <span className="gb-chip">{vivas.length} por cobrar</span>
+            {vencidas > 0 && <span className="gb-chip" style={{ color: 'var(--bad)', background: 'color-mix(in srgb, var(--bad) 12%, transparent)' }}>{vencidas} {vencidas === 1 ? 'vencida' : 'vencidas'}</span>}
+          </span>
         )}
       </div>
       {error ? (
         <span style={S.dim}>{error}</span>
       ) : !vivas.length ? (
-        <span style={S.dim}>Nadie con cuotas por cobrar.</span>
+        vacio ?? <span style={S.dim}>Nadie con cuotas por cobrar.</span>
       ) : (
         <ul style={S.lista}>
-          {vistas.map((f) => (
-            <li key={f.pagoId} style={S.fila}>
-              <span aria-hidden style={{ ...S.punto, background: f.urgencia === 'vencida' ? 'var(--bad)' : f.urgencia === 'pronto' ? 'var(--warn)' : 'transparent' }} />
-              <span style={S.texto}>
-                <Link href={`/crm/${f.leadId}`} style={S.nombre}>{f.nombre}</Link>
-                <span style={S.linea}>{f.linea}</span>
-              </span>
-              <Button variant="secondary" size="sm" loading={marcando === f.pagoId}
-                disabled={marcando != null && marcando !== f.pagoId}
-                onClick={() => { void marcar(f); }} aria-label={`Marcar cobrada la cuota de ${f.nombre}`}>
-                Marcar cobrada
-              </Button>
-            </li>
-          ))}
+          {vistas.map((f) => {
+            const c = COLOR[f.urgencia ?? 'al-dia'];
+            return (
+              <li key={f.pagoId} className="gb-fila">
+                <span aria-hidden style={{ ...S.avatar, background: `color-mix(in srgb, ${c} 16%, transparent)`, color: f.urgencia ? c : 'var(--dim)', boxShadow: `inset 0 0 0 1.5px ${f.urgencia ? c : 'var(--border)'}` }}>{inicial(f.nombre)}</span>
+                <span style={S.texto}>
+                  {muestra
+                    ? <span style={S.nombre}>{f.nombre}</span>
+                    : <Link href={`/crm/${f.leadId}`} style={S.nombre}>{f.nombre}</Link>}
+                  <span style={{ ...S.linea, color: f.urgencia === 'vencida' ? 'var(--bad)' : 'var(--dim)' }}>{f.linea}</span>
+                </span>
+                <Button variant="secondary" size="sm" loading={marcando === f.pagoId}
+                  disabled={muestra || (marcando != null && marcando !== f.pagoId)}
+                  onClick={() => { void marcar(f); }} aria-label={`Marcar cobrada la cuota de ${f.nombre}`}>
+                  Marcar cobrada
+                </Button>
+              </li>
+            );
+          })}
         </ul>
+      )}
+      {!error && vivas.length > limite && (
+        <button type="button" style={S.ver} aria-expanded={todas} onClick={() => setTodas((t) => !t)}>
+          {todas ? 'Ver menos' : `Ver las ${vivas.length}`}
+        </button>
       )}
       <Toast state={toast} onClose={clear} />
     </div>
@@ -126,17 +149,13 @@ export function Cobranza({ filas, tz, error, alcance = null }: {
 
 // Sólo tokens que existen en claro y en oscuro.
 const S: Record<string, CSSProperties> = {
-  cabecera: { display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, marginBottom: 14 },
-  // El H2 de las otras secciones de /general (app/general/page.tsx).
-  h2: { margin: 0, fontSize: 25, fontWeight: 600, letterSpacing: '-0.015em', color: 'var(--ink)' },
-  titulo: { display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap', minWidth: 0 },
-  alcance: { fontSize: 'var(--fs-meta)', color: 'var(--dim)' },
-  ver: { border: 'none', background: 'none', padding: 0, font: 'inherit', fontSize: 'var(--fs-meta)', color: 'var(--primary)', cursor: 'pointer' },
-  dim: { fontSize: 'var(--fs-md)', color: 'var(--dim)' },
+  raiz: { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 },
+  ver: { alignSelf: 'flex-start', marginTop: 10, border: 'none', background: 'none', padding: 0, font: 'inherit', fontSize: 13, fontWeight: 600, color: 'var(--primary)', cursor: 'pointer' },
+  dim: { fontSize: 14, color: 'var(--dim)' },
+  // Filas con su línea (`gb-fila`), no una tarjeta por cliente adentro de la tarjeta del bloque.
   lista: { listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column' },
-  fila: { display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderTop: '1px solid var(--border)' },
-  punto: { width: 8, height: 8, borderRadius: 999, flex: 'none' },
+  avatar: { flex: 'none', width: 34, height: 34, borderRadius: '50%', display: 'grid', placeItems: 'center', fontSize: 13, fontWeight: 700 },
   texto: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 },
-  nombre: { fontSize: 'var(--fs-md)', fontWeight: 600, color: 'var(--ink)', textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-  linea: { fontSize: 'var(--fs-meta)', color: 'var(--dim)' },
+  nombre: { fontSize: 14, fontWeight: 600, color: 'var(--ink)', textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  linea: { fontSize: 12.5 },
 };

@@ -66,7 +66,8 @@ import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import { TEMAS, temaPorId, type Tema } from '@/lib/editor-landing/temas';
 import type { Plantilla } from '@/lib/editor-landing/plantillas';
 import { CATEGORIAS_PRESENTACION, PLANTILLAS_PRESENTACION, type PlantillaPresentacion } from '@/lib/editor-landing/plantillas-presentaciones';
-import { tarjetasDe, urlPublica, type JsonNodo, type LandingContenido } from '@/lib/editor-landing/doc';
+import { tarjetasDe, type JsonNodo, type LandingContenido } from '@/lib/editor-landing/doc';
+import { urlLandingEn } from '@/lib/editor-landing/origen-landings';
 import type { LandingResumen, PedidoDocs, TemaPropio } from '@/lib/editor-landing/api-tipos';
 import {
   ICONO_TIPO, NOMBRE_TIPO, TIPOS_CREAR, pedidoDeDiseno, pedidoDePlantilla, plantillasDe, type PlantillaCrear, type TipoCrear,
@@ -96,8 +97,12 @@ export type PropsInicio = {
   errorAnalizadas: string | null;
   propios: TemaPropio[];
   errorTemas: string | null;
-  /** APP_BASE_URL: «Copiar enlace público» y el cruce de las analizadas que son nuestras. */
-  base: string;
+  /**
+   * Las bases de las landings publicadas, la vigente primero (`basesLandings`, lib/app-url.ts: en
+   * producción hola-mako.site y la de antes, hola-mako.com/l). «Copiar enlace público» usa la
+   * primera; el cruce de las analizadas que son nuestras, todas. Las decide el server.
+   */
+  bases: string[];
   /** Date.now() del server: el primer render del navegador usa el mismo (hidratación). */
   ahora: number;
   /** Lo que pide la URL para la derecha (`derechaDeQuery`, en la página). */
@@ -184,7 +189,7 @@ export function Inicio(props: PropsInicio) {
   }, []);
 
   const temaDe = useCallback((id: string) => temaPorId(id, props.propios), [props.propios]);
-  const filas = useMemo(() => filtrarFilas(filasDelPanel(lista, analizadas, props.base), q), [lista, analizadas, props.base, q]);
+  const filas = useMemo(() => filtrarFilas(filasDelPanel(lista, analizadas, props.bases), q), [lista, analizadas, props.bases, q]);
   const urlBuscada = useMemo(() => urlDeBusqueda(q), [q]);
 
   // ── Acciones ─────────────────────────────────────────────────────────────
@@ -206,7 +211,7 @@ export function Inicio(props: PropsInicio) {
 
   /** Analizar una página por su dirección (el «Ir a» o la caja del Diagnóstico vacío): si es nuestra, su documento. */
   const analizarUrl = (url: string) => {
-    const propia = docDeUrl(url, lista, props.base);
+    const propia = docDeUrl(url, lista, props.bases);
     setDerecha(propia ? { tipo: 'diagnostico', docId: propia } : { tipo: 'diagnostico', url });
     setQ('');
   };
@@ -251,7 +256,7 @@ export function Inicio(props: PropsInicio) {
   const copiarEnlace = async (d: LandingResumen) => {
     if (!d.slug) return;
     try {
-      await navigator.clipboard.writeText(urlPublica(props.base, d.slug));
+      await navigator.clipboard.writeText(urlLandingEn(props.bases[0], d.slug));
       avisar('Enlace copiado');
     } catch {
       avisar('No se pudo copiar');
@@ -775,7 +780,7 @@ function DialogoEliminar({ frase, onCerrar, onConfirmar }: { frase: string; onCe
 // ─────────────────────────────────────────────────────────────────────────────
 
 const CSS_PANEL = `
-.gp.gp-panel { display: grid; grid-template-columns: 248px minmax(0, 1fr); min-height: 100vh; background: var(--gp-fondo); }
+.gp.gp-panel { display: grid; grid-template-columns: 248px minmax(0, 1fr); min-height: calc(100vh - var(--barra-agencia, 0px)); background: var(--gp-fondo); }
 .gp .gp-lateral { position: sticky; top: 0; align-self: start; display: flex; flex-direction: column; gap: 2px; height: 100vh; padding: 14px 10px 10px; background: var(--gp-superficie); border-right: 1px solid var(--gp-borde-suave); }
 .gp .gp-ir-a { display: flex; align-items: center; gap: 8px; flex: none; height: 34px; margin-bottom: 8px; padding: 0 10px; border-radius: 8px; background: var(--gp-fondo); color: var(--gp-debil); }
 .gp .gp-ir-a input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--gp-texto); font: inherit; font-size: 13.5px; outline: none; }

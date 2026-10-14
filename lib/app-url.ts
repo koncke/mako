@@ -27,6 +27,9 @@
 //   4b. El dominio VIEJO (y el nuevo) en `DOMINIOS_DE_MAKO` (lib/editor-landing/dominios-reglas.ts):
 //      un host que no está ahí lo trata proxy.ts como el dominio propio de una landing de un
 //      cliente, y la app entera contesta 404 en ese host.
+//   4c. Las landings NO se mudan con la app: viven en hola-mako.site (`baseLandings`, abajo), y una
+//      foto publicada trae sus enlaces absolutos a esa base. Si cambia el dominio de la APP, la vieja
+//      `<app>/l/<slug>` sigue en `basesLandingsPara` para reconocer lo que se compartió antes.
 // Afuera (lo que se olvida y falla EN SILENCIO):
 //   5. Los webhooks REGISTRADOS en cada servicio: cada instancia de
 //      Evolution (incluida la de voz, que ningún botón de la UI alcanza), Calendly,
@@ -43,12 +46,53 @@
 // =============================================================================
 
 import { conWs } from './ws-tab';
+import { baseLandingsPara, basesLandingsPara, urlLandingEn, urlVistaEn } from './editor-landing/origen-landings';
 
 export const APP_BASE_URL = (
   process.env.APP_BASE_URL ||
   process.env.NEXT_PUBLIC_APP_URL ||
   'https://hola-mako.com'
 ).replace(/\/+$/, '');
+
+// ── Las LANDINGS publicadas: hola-mako.site (tanda 4, 14/10/2026) ─────────────
+// Decisión de Martín: «Las landings enteras, como gamma.site». En producción una landing vive en
+// `https://hola-mako.site/<slug>`; en local y en los previews, en `<APP_BASE_URL>/l/<slug>` (un preview
+// no tiene el dominio). Lo puro —el host, cómo se arma una URL con una base, qué contesta el proxy—
+// vive en lib/editor-landing/origen-landings.ts; acá sólo lo que depende del ENTORNO.
+//
+// ⚠️ SÓLO EN EL SERVER. `VERCEL_ENV` no llega al navegador (Next inlinea sólo `NEXT_PUBLIC_*`): un
+// componente cliente que llamara a esto calcularía la base de LOCAL en producción, en silencio. Por
+// eso tira en el navegador; la pantalla recibe la base del server (`LandingCompleta.baseLandings`,
+// la prop `bases` del Panel). Mudar el dominio de las landings es pisar `HOST_LANDINGS` allá, sumar el
+// dominio al proyecto de Vercel con su DNS, y dejar el viejo en `basesLandingsPara` (lo que ya se
+// compartió sigue siendo de su landing).
+
+function entornoLandings(): { produccion: boolean; appBaseUrl: string } {
+  if (typeof window !== 'undefined') {
+    throw new Error('La dirección de las landings se calcula en el server: en el navegador no se sabe el entorno (llega por props).');
+  }
+  return { produccion: process.env.VERCEL_ENV === 'production', appBaseUrl: APP_BASE_URL };
+}
+
+/** La base VIGENTE de las landings (lo que va antes del slug): `https://hola-mako.site` en producción. */
+export function baseLandings(): string {
+  return baseLandingsPara(entornoLandings());
+}
+
+/** Todas las bases donde una landing se pudo ver, la vigente primero (para reconocer y medir). */
+export function basesLandings(): string[] {
+  return basesLandingsPara(entornoLandings());
+}
+
+/** LA URL pública de una landing (`ruta` '' = la de inicio). Todo lo que la muestra, la copia o la manda pasa por acá. */
+export function urlPublicaLanding(slug: string, ruta = ''): string {
+  return urlLandingEn(baseLandings(), slug, ruta);
+}
+
+/** El link privado al BORRADOR de una landing (`ruta` '' = la de inicio). */
+export function urlVistaLanding(token: string, ruta = ''): string {
+  return urlVistaEn(baseLandings(), token, ruta);
+}
 
 /**
  * La dirección de correo de MaKo. **UNA SOLA**, y de acá salen las tres cosas que tienen

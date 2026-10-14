@@ -3,6 +3,48 @@
 **Al 14/10/2026 (~04:30), claude2.** Lo escribe el chat que hizo el trabajo (primera mano). Lo que costó está en los
 hallazgos de cada área; acá va qué quedó, dónde y qué espera.
 
+## Actualización 14/10/2026 12:50 (claude2, el mismo chat)
+
+**General, cuarta vuelta** (`e6818ee0` + su cosecha): los 8 puntos de Martín de las 11:54 y el de las 12:05 sobre
+«¿Qué vas a crear hoy?» (los dos, textuales, en app/admin/dev/general/bitacora.ts).
+
+- Cada bloque es una tarjeta de la hoja (el marco y el título de un gráfico); adentro, losas y filas, no tarjetas.
+- «Meta objetivo» (id `cabecera`) y «Acción del día» (`accion`) son dos bloques, claros; todos los bloques ofrecen
+  «Fondo: Oscuro». Se borraron app/general/Cabecera.tsx y Ahora.tsx.
+- Nuevos: «Tareas prioritarias» (1/3/5/10) y «Próximos deadlines». Plantillas rehechas (una pregunta cada una, de a dos
+  con el mismo alto, títulos de parte, la plata y Meta en números; nueva «Anuncios»).
+- Editando: Escritorio / Tablet / Celular (también el Dashboard). Crear una hoja no deja Deshacer. Las miniaturas de
+  «¿Qué vas a crear hoy?» son la hoja dibujada con los componentes del editor, y cada tarjeta lleva sólo el título.
+
+**Estado de git (12:50):** commiteado en `main` local, **sin pushear** (lo pushea el orquestador). `npm test`: 9471 / 1;
+el rojo es `tests/cobranza.test.ts` («marcar el pago CORTA lo que está en vuelo»), sobre archivos que este chat no tocó
+y que estaban limpios en el árbol a las 12:41: es de HEAD, de otra sesión.
+
+**Falta verlo en pantalla** (ws3, después del deploy): no se levantó un `next dev`, así que los altos de cada bloque y las
+miniaturas salen de medir el código, no de mirarlos. Lo primero a mirar: que ningún bloque quede cortado ni con aire
+abajo en las plantillas, y la vista de celular editando.
+
+## Actualización 14/10/2026 10:40 (claude2, el mismo chat)
+
+**Lo que se hizo después de lo de abajo** (los pedidos literales, en las bitácoras de General y del Calendario):
+
+- **General, tercera vuelta** (`c2cda971` + cosecha `774c2882`): los 11 puntos de Martín. Bloques rediseñados con
+  opciones y placeholder, las tarjetas del Plan, «OKRs», menú «Bloques de General» de a 3 con vista previa, menos
+  gráficos y datos en General, sin código/MaKo/Acción; en blanco sin Editar/⋮/filtros y 8 bordes (también en el
+  Dashboard). Se borró la única General guardada (la «Página 1» de la captura, ws 9), con respaldo en el scratchpad.
+- **Calendario** (`184c0b37`, lo hizo un agente de este chat): sin «¿Qué vas a crear hoy?», conectar Google sin salir de
+  la tab (la pieza reusable `app/_components/ConectarIntegracion.tsx`), «Agendar llamada», lo que se repite y los cobros.
+  Su cosecha va en un commit propio.
+- **La API de MaKo** (`0b4f318d`): referencia y snapshot regenerados con las tres operaciones nuevas.
+- **Integraciones sin salir de la tab en General y el AI Analyst** (`abd91fdb`).
+
+**Estado de git (10:40):** todo en `main` local, **NADA pusheado**: lo pushea el orquestador («Estrategia 3 CUENTAS»),
+y la app se cayó dos veces en el medio (06:10 y 07:17). Si al entrar no está en `origin/main`
+(`git merge-base --is-ancestor abd91fdb origin/main`), hay que pedírselo de nuevo.
+
+**Falta verlo en pantalla** (en ws3, después del deploy): los bloques nuevos, el menú con vistas previas, los 8 bordes
+y el Calendario.
+
 ## Los pedidos (textuales)
 
 **13/10:** «Dale, arrancá con el Calendario, pero que sea en otra tab, no en GENERAL. Soluciona las cosas que pidió

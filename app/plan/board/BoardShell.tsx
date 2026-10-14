@@ -3527,6 +3527,76 @@ function ColHeader({ p, count }: { p: Prio; count: number }) {
 
 // ── vista Prioridades: Objetivo Principal a la IZQUIERDA (alto, clickeable) + las
 // 3 tareas a la DERECHA (feedback #11 y #3). ─────────────────────────────────────
+/**
+ * La tarjeta de una tarea en la vista Prioridades. Exportada (14/10/2026) para que la tab General dibuje la MISMA
+ * (Martín: «Tenemos un diseño de tarjetas para las tareas y proyectos del plan e hiciste cualquier cosa»): una segunda
+ * copia del dibujo es la que se queda vieja. Recibe lo que antes leía del tablero (`board`) ya resuelto, así la monta
+ * cualquiera que tenga la tarea y sus proyectos.
+ */
+export function TarjetaPrioridad({ t, puesto, proyectos, emoji, onOpen, onOpenProj, onCompletar }: {
+  t: BoardTask;
+  /** 1, 2, 3…: el número del círculo. */
+  puesto: number;
+  /** Los proyectos de la tarea que existen en el tablero. */
+  proyectos: Label[];
+  /** El ícono de la tarea cuando no tiene proyecto. */
+  emoji: string;
+  onOpen: (id: string) => void;
+  onOpenProj: (id: string) => void;
+  onCompletar: () => void;
+}) {
+  // A qué proyecto pertenece. Antes solo se decía cuando la tarjeta NO era del
+  // Objetivo Principal (entraba para completar las 3); ahora se dice siempre,
+  // porque saber de qué parte del plan es una tarea no debería depender de
+  // abrirla. El chip es el mismo del detalle: color del proyecto. UNO solo +
+  // "+N" (con su desplegable al pasar el mouse): con dos chips largos, el
+  // proyecto le ganaba en peso visual al título, que es lo que hay que leer.
+  return (
+    // ⚠️ MAS COMPACTA, Y LO QUE SE RECORTA ES EL AIRE, NO EL TEXTO. «Que no
+    // sean tan altas las tareas, que sea un poco mas compacto, asi el proyecto
+    // de al lado no queda larguisimo» (27/09/2026) — y el sintoma que nombra es
+    // el que importa: la columna izquierda es UNA tarjeta que estira hasta el
+    // alto de las cinco de la derecha, asi que cada pixel de mas aca se paga
+    // alla multiplicado por cinco. De 20/24 de padding y tres separaciones de
+    // 10/12/14 a 14/18 y 7/8: ~32 px menos por tarjeta, ~160 en la columna.
+    <div onClick={() => onOpen(t.id)} data-prioridad={t.id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '14px 18px', boxShadow: '0 1px 2px rgba(18,21,27,.05)', cursor: 'pointer', transition: 'border-color .12s' }}
+      onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--border-strong)')} onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}>
+      {/* Como el proyecto de al lado (feedback jul-18): arriba ranking + proyecto
+          + #id + prioridad; el título abajo, en su línea. El emoji suelto se fue:
+          era el del proyecto, y ahora va DENTRO del chip en vez de repetido. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 7, minWidth: 0 }}>
+        <span title={`Prioridad ${puesto}`} style={{ width: 22, height: 22, borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: 13, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none', fontFamily: MONO }}>{puesto}</span>
+        {proyectos.length > 0
+          ? <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}><LabelChips chips={proyectos} max={1} cap={240} onOpen={onOpenProj} /></span>
+          : <span style={{ fontSize: 22, lineHeight: 1, flex: 'none' }}>{emoji}</span>}
+        <span style={{ fontFamily: MONO, fontSize: 12, color: 'var(--faint)', flex: 'none' }}>#{t.num}</span>
+        <span style={{ flex: 1, minWidth: 0 }} />
+        {!t.deadline && <WarnMark title="Falta el deadline" size={16} />}
+        <ScoreBadge score={t.score} />
+      </div>
+      {/* DOS LÍNEAS: «permite el salto de línea 1 vez» (25/09/2026). A 19px una
+          sola cortaba casi todos los títulos, y tres renglones empujan el deadline
+          y el check fuera de la vista y hacen que dos tarjetas de la misma lista
+          midan distinto. El entero sigue en el `title`. */}
+      <div title={t.title} style={{ fontSize: 17, fontWeight: 600, lineHeight: 1.3, color: 'var(--ink)', letterSpacing: '-0.01em', marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2 }}>{t.title}</div>
+      {/* El DEADLINE a la vista y el check para completar. Antes acá vivían la
+          barra de avance, el % y la checklist plegable: los tres se fueron con
+          la checklist («una tarea se completa o no se completa»), y lo que
+          faltaba era justamente cuándo vence y cuánto falta. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        {t.deadline && <LineaDeadline iso={t.deadline} hoy={hoyISO()} hecho={t.progress >= 100} tam={13} mono={false} color="var(--dim)" style={{ flex: 'none' }} />}
+        <span style={{ flex: 1 }} />
+        <button onClick={(e) => { e.stopPropagation(); onCompletar(); }}
+          aria-label={`Marcar «${t.title}» como completada`} title="Marcar como completada"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', borderRadius: 9, padding: '5px 11px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>
+          <CheckHecho done={t.progress >= 100} size={14} />
+          Completar
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function Prioridades({ tasks, board, objetivo, cliente = null, onOpen, onOpenProj }: { tasks: BoardTask[]; board: Board; objetivo: Label | null;
   /** El cliente cuyo trabajo se está mirando —el del filtro, o el de la ficha que monta el
    *  tablero—, o `null`. Sólo cambia los dos VACÍOS: ahí «no queda ninguna tarea en todo el
@@ -3596,59 +3666,11 @@ function Prioridades({ tasks, board, objetivo, cliente = null, onOpen, onOpenPro
               <div style={{ fontSize: 14, maxWidth: 400, lineHeight: 1.5 }}>{cliente ? `${cliente} no tiene tareas abiertas.` : 'No queda ninguna tarea abierta en todo el plan. Crea una nueva o saca los pendientes de tu última reunión.'}</div>
             </div>
           )}
-          {tasks.map((t, i) => {
-            // A qué proyecto pertenece. Antes solo se decía cuando la tarjeta NO era del
-            // Objetivo Principal (entraba para completar las 3); ahora se dice siempre,
-            // porque saber de qué parte del plan es una tarea no debería depender de
-            // abrirla. El chip es el mismo del detalle: color del proyecto. UNO solo +
-            // "+N" (con su desplegable al pasar el mouse): con dos chips largos, el
-            // proyecto le ganaba en peso visual al título, que es lo que hay que leer.
-            const proys = t.labels.map((id) => board.labelById(id)).filter((l): l is Label => l != null);
-            return (
-              // ⚠️ MAS COMPACTA, Y LO QUE SE RECORTA ES EL AIRE, NO EL TEXTO. «Que no
-              // sean tan altas las tareas, que sea un poco mas compacto, asi el proyecto
-              // de al lado no queda larguisimo» (27/09/2026) — y el sintoma que nombra es
-              // el que importa: la columna izquierda es UNA tarjeta que estira hasta el
-              // alto de las cinco de la derecha, asi que cada pixel de mas aca se paga
-              // alla multiplicado por cinco. De 20/24 de padding y tres separaciones de
-              // 10/12/14 a 14/18 y 7/8: ~32 px menos por tarjeta, ~160 en la columna.
-              <div key={t.id} onClick={() => onOpen(t.id)} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '14px 18px', boxShadow: '0 1px 2px rgba(18,21,27,.05)', cursor: 'pointer', transition: 'border-color .12s' }}
-                onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--border-strong)')} onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}>
-                {/* Como el proyecto de al lado (feedback jul-18): arriba ranking + proyecto
-                    + #id + prioridad; el título abajo, en su línea. El emoji suelto se fue:
-                    era el del proyecto, y ahora va DENTRO del chip en vez de repetido. */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 7, minWidth: 0 }}>
-                  <span title={`Prioridad ${i + 1}`} style={{ width: 22, height: 22, borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: 13, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none', fontFamily: MONO }}>{i + 1}</span>
-                  {proys.length > 0
-                    ? <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}><LabelChips chips={proys} max={1} cap={240} onOpen={onOpenProj} /></span>
-                    : <span style={{ fontSize: 22, lineHeight: 1, flex: 'none' }}>{emojiTarea(board, t)}</span>}
-                  <span style={{ fontFamily: MONO, fontSize: 12, color: 'var(--faint)', flex: 'none' }}>#{t.num}</span>
-                  <span style={{ flex: 1, minWidth: 0 }} />
-                  {!t.deadline && <WarnMark title="Falta el deadline" size={16} />}
-                  <ScoreBadge score={t.score} />
-                </div>
-                {/* DOS LÍNEAS: «permite el salto de línea 1 vez» (25/09/2026). A 19px una
-                    sola cortaba casi todos los títulos, y tres renglones empujan el deadline
-                    y el check fuera de la vista y hacen que dos tarjetas de la misma lista
-                    midan distinto. El entero sigue en el `title`. */}
-                <div title={t.title} style={{ fontSize: 17, fontWeight: 600, lineHeight: 1.3, color: 'var(--ink)', letterSpacing: '-0.01em', marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2 }}>{t.title}</div>
-                {/* El DEADLINE a la vista y el check para completar. Antes acá vivían la
-                    barra de avance, el % y la checklist plegable: los tres se fueron con
-                    la checklist («una tarea se completa o no se completa»), y lo que
-                    faltaba era justamente cuándo vence y cuánto falta. */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                  {t.deadline && <LineaDeadline iso={t.deadline} hoy={hoyISO()} hecho={t.progress >= 100} tam={13} mono={false} color="var(--dim)" style={{ flex: 'none' }} />}
-                  <span style={{ flex: 1 }} />
-                  <button onClick={(e) => { e.stopPropagation(); board.toggleDone(t.id); }}
-                    aria-label={`Marcar «${t.title}» como completada`} title="Marcar como completada"
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', borderRadius: 9, padding: '5px 11px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>
-                    <CheckHecho done={t.progress >= 100} size={14} />
-                    Completar
-                  </button>
-                </div>
-              </div>
-            );
-          })}
+          {tasks.map((t, i) => (
+            <TarjetaPrioridad key={t.id} t={t} puesto={i + 1}
+              proyectos={t.labels.map((id) => board.labelById(id)).filter((l): l is Label => l != null)}
+              emoji={emojiTarea(board, t)} onOpen={onOpen} onOpenProj={onOpenProj} onCompletar={() => board.toggleDone(t.id)} />
+          ))}
         </div>
       </div>
     </div>

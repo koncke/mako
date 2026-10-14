@@ -116,3 +116,24 @@ test('la página de gracias se reconoce por su RUTA: la plataforma de pago agreg
   assert.equal(paginaDeGracias(configs, 'https://a.com/precios?x=1'), null);
   assert.equal(paginaDeGracias(configs, null), null);
 });
+
+// La mudanza de las landings del editor a hola-mako.site (integración de la tanda 4, 14/10/2026): la de
+// gracias declarada con la dirección de antes (`hola-mako.com/l/<slug>/gracias`) y la visita con la de
+// hoy (`hola-mako.site/<slug>/gracias`, con la orden de la pasarela) son la MISMA página. Sin la
+// traducción en las dos puntas, la de gracias dejaba de pasar a Ganado, sin un error.
+// PROBADO ROMPIÉNDOLO (14/10/2026), base 9 / 0, restaurado de memoria (sha256 igual):
+//   · paginaDeGracias sin urlLandingVigente (la ruta de antes)        → 8 / 1 (éste)
+//   · urlLandingVigente sólo del lado de la visita                    → 8 / 1 (éste)
+test('la de gracias de una landing del editor se reconoce con la dirección de antes y la de hoy', () => {
+  const configs = parsearConfig(JSON.stringify([
+    { url: 'https://hola-mako.com/l/mi-oferta/gracias', gracias: true },
+    { url: 'https://hola-mako.site/webinar/gracias', gracias: true },
+    { url: 'https://hola-mako.com/l/mi-oferta' },
+  ]));
+  assert.equal(paginaDeGracias(configs, 'https://hola-mako.site/mi-oferta/gracias?transaction=HP123')?.url, 'https://hola-mako.com/l/mi-oferta/gracias');
+  assert.equal(paginaDeGracias(configs, 'https://hola-mako.com/l/webinar/gracias?order_id=9')?.url, 'https://hola-mako.site/webinar/gracias');
+  // La de inicio de la misma landing no es la de gracias; otra landing tampoco.
+  assert.equal(paginaDeGracias(configs, 'https://hola-mako.site/mi-oferta'), null);
+  assert.equal(paginaDeGracias(configs, 'https://hola-mako.site/otra/gracias'), null);
+  assert.equal(paginaDeGracias(configs, 'https://tunegocio.com/l/mi-oferta/gracias'), null);
+});

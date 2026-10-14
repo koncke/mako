@@ -24,12 +24,12 @@ import { getTenantDb, getWorkspaceActual } from '../workspace';
 import { getSupabaseServer } from '../supabase';
 import { getUsuarioActual } from '../auth';
 import { getSettingEstricto, cambiarSettingSi } from '../settings';
-import { APP_BASE_URL } from '../app-url';
+import { baseLandings, basesLandings, urlPublicaLanding, urlVistaLanding } from '../app-url';
 import { leerTodo, leerPorPaginas } from '../supabase-paginado';
 import { tzDeWorkspace } from '../timezone';
 import { hoyEnTz } from '../date-utils';
 import type { LandingSpec } from '../landing-spec';
-import { contenidoVacio, slugDe, slugValido, urlPublica, type JsonNodo, type LandingContenido } from './doc';
+import { contenidoVacio, slugDe, slugValido, type JsonNodo, type LandingContenido } from './doc';
 import { CONFIG_DEFAULT, formatoDe, proporcionDe } from './api-tipos';
 import type {
   Analitica, Comentario, ConfigLanding, Falla, LandingCompleta, LandingResumen, PedidoDocs,
@@ -39,11 +39,12 @@ import { sanearContenido, sanearConfig, excedeTope } from './validar';
 import { sanearTemaPropio } from './temas';
 import { specADoc } from './spec-a-doc';
 import { soltarDominioDeVercel } from './dominios';
+import type { EstadoCobroLanding } from './pago-landing';
 import {
   MOTIVO, TOPE_VERSIONES_AUTO, TOPE_TEMAS, CLAVE_TEMAS, cambiosSinPublicar, candidatosSlug, esUrlMedida,
   idValido, mezclarConfig, motivoSlugInvalido, prefiltroVisitas, primeraLibre, puedeBorrarse,
   sanearMotivo, sanearTemasPropios, sanearTitulo, slugPedido, tarjetaIdValido, esComentarioPropio, puedeBorrarComentario,
-  tocaVersionAutomatica, urlsAMedir, urlVistaPrevia, visitasPorDia,
+  tocaVersionAutomatica, urlsAMedir, visitasPorDia,
 } from './server-reglas';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -90,6 +91,7 @@ export type RespuestasDocs = CubreTodas<{
   borrarTema: { temas: TemaPropio[] };
   borradoresViejos: { borradores: BorradorViejo[] };
   importarBorrador: { doc: LandingCompleta };
+  cobro: { cobro: EstadoCobroLanding };
 }>;
 
 /** La respuesta de una acción tal como la ve la pantalla. */
@@ -137,12 +139,15 @@ export const COLS_DOC = 'id, workspace_id, titulo, contenido, config, version, s
  * página) y NO se trae el contenido entero: con 40 landings de 200 KB, el Panel bajaría 8 MB para
  * dibujar 40 miniaturas.
  */
-const COLS_RESUMEN = 'id, titulo, tema:config->>tema, formato:config->>formato, proporcion:config->>proporcion, created_at, updated_at, creado_por_nombre, favorito, carpeta, papelera_at, slug, publicado_at, primera:contenido->paginas->0->doc->content->0';
+// `dominio`/`dominio_estado` (mig 0263, tanda 4): el Panel reconoce como NUESTRA una página analizada en
+// el dominio propio de una landing. Medido el 14/10/2026: la columna existe en producción (la ruta del
+// dominio la consulta por cada host ajeno y contestó 404, no 503).
+const COLS_RESUMEN = 'id, titulo, tema:config->>tema, formato:config->>formato, proporcion:config->>proporcion, created_at, updated_at, creado_por_nombre, favorito, carpeta, papelera_at, slug, publicado_at, dominio, dominio_estado, primera:contenido->paginas->0->doc->content->0';
 
 type FilaResumen = {
   id: number; titulo: string; tema: string | null; formato: string | null; proporcion: string | null; created_at: string; updated_at: string;
   creado_por_nombre: string | null; favorito: boolean; carpeta: string | null; papelera_at: string | null;
-  slug: string | null; publicado_at: string | null; primera: unknown;
+  slug: string | null; publicado_at: string | null; dominio?: string | null; dominio_estado?: string | null; primera: unknown;
 };
 
 const esNodo = (v: unknown): v is JsonNodo => !!v && typeof v === 'object' && typeof (v as { type?: unknown }).type === 'string';
@@ -160,6 +165,8 @@ function aResumen(f: FilaResumen): LandingResumen {
     papelera: !!f.papelera_at,
     slug: f.slug,
     publicadoAt: f.publicado_at,
+    // Sólo el VERIFICADO: uno pendiente todavía no sirve nada, y otra cuenta se lo puede quitar.
+    dominio: f.dominio_estado === 'verificado' && typeof f.dominio === 'string' && f.dominio ? f.dominio : null,
     primera: esNodo(f.primera) ? f.primera : null,
     // T1/T3: el ícono del renglón del Panel y la forma de la miniatura. Sin el campo (lo guardado
     // antes de la tanda 2) es una página: las mismas funciones que `sanearConfig`.
@@ -198,7 +205,8 @@ export function aCompleta(f: FilaDoc): LandingCompleta {
     publicadoAt: f.publicado_at,
     cambiosSinPublicar: cambiosSinPublicar(f),
     sitioActivo: !!f.sitio_activo,
-    urlPublica: f.slug && f.publicado_at ? urlPublica(APP_BASE_URL, f.slug) : null,
+    urlPublica: f.slug && f.publicado_at ? urlPublicaLanding(f.slug) : null,
+    baseLandings: baseLandings(),
     creado: f.created_at,
     actualizado: f.updated_at,
     favorito: f.favorito === true,
@@ -727,7 +735,7 @@ export async function vistaPrevia(idRaw: unknown, regenerar: unknown): Promise<R
       const r = await cambiarMetadatos(ws, id, { vista_token: token });
       if (r !== true) return r;
     }
-    return { ok: true, url: urlVistaPrevia(APP_BASE_URL, token) };
+    return { ok: true, url: urlVistaLanding(token) };
   } catch (e) {
     return falla(msg(e), 500);
   }
@@ -878,7 +886,7 @@ export async function analitica(idRaw: unknown): Promise<Resultado<'analitica'>>
     if (error) return falla(error.message, 500);
     if (!fila) return falla('No existe', 404);
     const f = fila as { slug: string | null; publicado_at: string | null; publicado: unknown };
-    const urls = f.publicado_at ? urlsAMedir(APP_BASE_URL, f.slug, rutasDeFoto(f.publicado)) : [];
+    const urls = f.publicado_at ? urlsAMedir(basesLandings(), f.slug, rutasDeFoto(f.publicado)) : [];
     if (!f.slug || !urls.length) {
       // Sin publicar no hay nada que medir: los ceros acá son ciertos (no hubo página que visitar).
       return { ok: true, analitica: { publicada: false, urls: [], visitas30: 0, visitantes30: 0, leads30: 0, porDia: [], alcancePorSeccion: null, enAnalyst: false } };
@@ -951,6 +959,21 @@ export async function temasPropiosDe(ws: number): Promise<TemaPropio[]> {
     .eq('workspace_id', ws).eq('key', CLAVE_TEMAS).maybeSingle();
   if (error) throw new Error(`No pude leer los temas: ${error.message}`);
   return sanearTemasPropios((data as { value?: unknown } | null)?.value ?? null);
+}
+
+/**
+ * Tanda 4: con qué cobra el «Botón de pago» de ESTE workspace (las pasarelas conectadas y los productos
+ * ACTIVOS del catálogo). Import dinámico: pago-landing-server.ts importa `temasPropiosDe` de acá.
+ */
+export async function cobro(): Promise<Resultado<'cobro'>> {
+  const ws = await wsOFalla();
+  if (typeof ws !== 'number') return ws;
+  try {
+    const { estadoCobroLanding } = await import('./pago-landing-server');
+    return { ok: true, cobro: await estadoCobroLanding(ws) };
+  } catch (e) {
+    return falla(msg(e), 503);
+  }
 }
 
 export async function temas(): Promise<Resultado<'temas'>> {

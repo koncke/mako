@@ -179,6 +179,8 @@ export const ROTULO_AREA: Record<AreaAviso, { emoji: string; texto: string }> = 
 const AREA_POR_AVISO: Record<string, AreaAviso> = {
   'reporte-diario': 'reporte', 'reporte-horario': 'reporte', 'reporte-semanal': 'reporte',
   'cierre-mes': 'reporte', 'retro-lista': 'reporte',
+  // El análisis del AI Analyst del Dashboard (lib/graficos-analisis-server.ts `avisarAnalisisListo`).
+  'dashboard-analisis-listo': 'reporte',
 
   'reunion-recordatorio': 'reunion', 'reunion-agenda-dia': 'reunion',
   'reunion-nuevo-agendado': 'reunion', 'reunion-cancelada': 'reunion',

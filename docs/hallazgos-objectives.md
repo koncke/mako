@@ -199,7 +199,7 @@ que eso no se rompa:
 
 ## Restaurar un diseño no es restaurar el código: la forma vuelve, los bugs no
 
-**Vive en:** `app/general/Cabecera.tsx` - `app/general/page.tsx` (`Semáforo`) - `lib/focus.ts`
+**Vive en:** `app/general/Cabecera.tsx` (desde el 14/10/2026, `app/general/bloques/Meta.tsx`) - `app/general/page.tsx` (`Semáforo`) - `lib/focus.ts`
 (`sinFuentes`) - `lib/objectives-modelo.ts` (`elegirObjetivoPrincipal`)
 
 Cuatro commits del 6 y 7/09/2026 (`30a37bdc`, `b3805511`, `ad608da3`, `86478448`) mezclaron
@@ -310,7 +310,7 @@ otra cosa que la meta.
 
 ## El relleno de una isla oscura se deriva del TEXTO de esa isla
 
-**Vive en:** `app/general/Cabecera.tsx` (`RELLENO`, `RELLENO_LINEA`) - `app/globals.css:916`
+**Vive en:** `app/general/Cabecera.tsx` (`RELLENO`, `RELLENO_LINEA`; se borró el 14/10/2026: la isla oscura es la opción «Fondo» de cada bloque, `app/dashboard/ElementoGeneral.tsx`) - `app/globals.css:916`
 
 Adentro de la isla oscura hacen falta un relleno y una línea elevados, y el repo los venía
 escribiendo a mano como `rgba(255,255,255,.05)`. Eso se rompe donde nadie mira:
@@ -601,22 +601,146 @@ de docs/hallazgos-graficos.md, «La pantalla en blanco es "¿Qué vas a crear ho
 - El modal «Personalizar vista» que Martín vio al apretar Editar era la versión de las VISTAS: la captura es de antes del
   deploy de 46958506.
 
-**Vive en:** `app/general/page.tsx` · `app/general/piezas.tsx` · `app/dashboard/ElementoGeneral.tsx` ·
+**Vive en:** `app/general/page.tsx` · `app/general/datos.ts` (era `piezas.tsx`) · `app/dashboard/ElementoGeneral.tsx` ·
 `app/dashboard/EditorInforme.tsx` · `app/dashboard/Elemento.tsx` · `lib/general-piezas.ts` · `lib/general-plantillas.ts` ·
 `lib/general-alcance.ts` · `lib/graficos-tablero.ts` · `lib/graficos-catalogo.ts` · `lib/graficos-analisis-server.ts` ·
 `lib/api-mako/areas/general.run.ts` · `lib/api-mako/areas/dashboard.helpers.ts` · `tests/general-editor.test.ts`.
 *14/10/2026, claude2 (56efcbaa).*
 
+**Tercera vuelta, el mismo día (con dos capturas de General editándose).** Martín: «Diseña nuevamente todos los "Bloque
+general", la mayoría son solamente texto... Si no hay datos aún, se debería ver el placeholder siempre», «Todos los
+desplegables de edición de un bloque y en general la edición del bloque hazlo mejor», «Tenemos un diseño de tarjetas para
+las tareas y proyectos del plan e hiciste cualquier cosa», «Hay bloques que en la configuración se deben definir allí mismo
+ciertas cosas... Como el objetivo del trimestre, que me gustaría que se llamen (OKRs)» y «Pon muchos menos gráficos
+disponibles en General». Lo que no se ve en el código y gobierna lo que venga:
+
+- **Un bloque que viaja YA DIBUJADO no puede tener opciones.** La primera versión mandaba cada bloque como JSX armado en el
+  server (`armarPiezas`), y por eso el panel sólo podía cambiar de bloque o de funnel: «cuántas», «cuántos días» o «cómo se
+  ve» habrían sido una variante más por combinación, o volver al server. Desde esta vuelta el server lee DATOS
+  (app/general/datos.ts, tipos en datos-tipos.ts) y cada bloque se dibuja en el navegador con sus opciones (app/general/
+  bloques/). El funnel elegido se resuelve igual: el server cuenta todos los funnels con su id y el bloque elige el suyo.
+- **El Dashboard no carga el código de General**: el dibujo de un bloque lo pone quien monta el contexto
+  (`ProveedorGeneral`, app/general/ProveedorGeneral.tsx), y el editor sólo llama a `dibujar`, `configurar` y `muestra`
+  (app/dashboard/ElementoGeneral.tsx). Importar los bloques desde ElementoGeneral habría metido General —y el tablero del
+  Plan que traen sus tarjetas— en el bundle del Dashboard.
+- **Las opciones las declara el bloque** (`opciones` en lib/general-piezas.ts, de 2 a 4 valores con su default) y el saneo
+  guarda sólo las que el bloque tiene, con un valor que existe y distinto del default (`sanearOpciones`). Un valor viejo
+  que ya no existe vuelve al default al leer (`opcionDe`). En el panel van como botones a la vista; «Bloque» y «Funnel»,
+  con el desplegable de la casa y el ícono de cada bloque.
+- **Las tarjetas del Plan son las del Plan.** La de una tarea vivía en línea adentro de la vista Prioridades de BoardShell:
+  se sacó a `TarjetaPrioridad` (exportada, mismo dibujo) y la usan las dos pantallas; la de proyecto ya era
+  `ProyectoCardTile`. General las trae con `next/dynamic` (BoardShell es el tablero entero: un pedazo aparte, sólo si hay un
+  bloque del Plan). «Completar» es la escritura del teléfono (`marcarHechaAction`, app/m/plan/acciones.ts), que ya sabe
+  escribir en los dos tableros.
+- **El placeholder es el bloque con datos de ejemplo** (app/general/bloques/muestras.ts, ficticios), apagado y con la
+  acción que lo llena encima («＋ Nuevo OKR», «Abrir el Plan»…). Las mismas muestras son la vista previa del menú «Bloques de
+  General» (tres por fila, sin títulos de grupo).
+- ⚠️ **Lo que depende de la hora se dibuja después de montar.** Los bloques se dibujan también en el server: la raya de
+  «Ahora» de Mi día, el «hace una hora» de las llamadas y las fechas de ejemplo (que salen de hoy y de la zona del navegador)
+  darían un HTML distinto en el server y en el primer dibujo del navegador, que es romper la hidratación sin un error a la
+  vista. Van con `useAhora` (null hasta montar) y el `Placeholder` dibuja la muestra recién montado.
+- **Los OKRs se definen ahí mismo**: cada tarjeta abre `EditarObjetivo`, el placeholder trae «＋ Nuevo OKR» y el panel de
+  «OKRs» (y del hero) lista los OKRs con «Editar» (`configurarBloque`). La entidad sigue siendo `objectives`: cambió cómo se
+  nombra en pantalla.
+- **General acota lo que trae del Dashboard** (`TIPOS_GENERAL`, `FUENTES_GENERAL`, `ELEMENTOS_FUERA_DE_GENERAL`): la
+  galería, «Añadir datos», el panel de un gráfico (que igual ofrece el conjunto que ya tiene) y la barra de inserción (sin
+  código, Conclusiones de MaKo ni Acción). Las plantillas de General sólo usan eso: un gráfico de afuera sería uno que
+  nadie puede volver a elegir. Lo fija tests/general-bloques.test.ts.
+- **La API de MaKo hace lo mismo que el panel**: `agregar_bloque_general` acepta `opciones` y `configurar_bloque_general`
+  cambia las de un bloque que ya está (su título y su funnel también). Un parámetro `object` del registro declara sus
+  `campos` (el test del registro lo exige): son la unión de las opciones de todos los bloques, y el runner rechaza la de
+  otro bloque diciendo cuáles tiene.
+- **«La tab que creé en el workspace de Leandro»** era la única General guardada en toda la base: `general.informe.1` del
+  ws 9 (el de Martín), con la hoja de la captura (`gmv7upmz01jrm`, «Página 1»). En ws 10 no había ninguna. Se borró con
+  respaldo y compare-and-set; General vuelve a arrancar en blanco.
+
+**Vive en:** `app/general/datos.ts` · `app/general/datos-tipos.ts` · `app/general/ProveedorGeneral.tsx` ·
+`app/general/bloques/` · `app/dashboard/ElementoGeneral.tsx` · `app/dashboard/Elemento.tsx` (`PropsGeneral`) ·
+`lib/general-piezas.ts` · `app/plan/board/BoardShell.tsx` (`TarjetaPrioridad`) · `lib/plan-hoy.ts`
+(`leerPlanHoyConTablero`) · `lib/api-mako/areas/general.*` · `tests/general-bloques.test.ts`.
+*14/10/2026, claude2.*
+
+## General, cuarta vuelta: un bloque es una tarjeta de la hoja, y una plantilla contesta una pregunta (14/10/2026)
+
+**El pedido** (Martín, 11:54, con tres capturas de una hoja recién creada en el ws1): «Mucho espacio en blanco en el
+template, bloques que no se ven, los gráficos no tienen sentido, mira como se rompe "Leads por producto y etapa"... Y
+pusiste ese dato 2 veces en diferentes gráficos... elegiste mostrar "Leads por origen" y "Pendientes del CRM" cuando hay
+datos mucho más interesantes... como datos de facturación, de Meta», «todos nacen con bloques que ocupan todo el ancho y
+quedan feos... No tienen títulos, no tienen separaciones claras», «Rediseña completamente el grafico de "Objetivo" y "Acción
+del día", deben ser 2 gráficos diferentes... que el primero se llame "Meta objetivo". Y que no tenga un diseño dark»,
+«muchos bloques los copiaste de otros lados, como el de Prioridades, pero no están interactuando con el diseño de la
+página», «Los templates deben ser simples» y «Faltan bloques... como el de "Tareas Prioritarias"... 1 tarea, 3 tareas, 5,
+10... Piensa en cada bloque y como debería poder editarse».
+
+**El diagnóstico obvio era el equivocado: no eran los bloques, era el MARCO.** Un elemento del editor va sin tarjeta
+(`.lk-comp--elemento`: fondo y borde transparentes, sin aire), y los bloques de General heredaban eso: sobre el fondo de la
+página, sin el marco que tienen los gráficos de al lado, se leían como algo pegado de otra app —y un placeholder apagado sin
+marco directamente no se veía—. Cada bloque tenía, además, su propio título (22 o 25 px) contra los 19 px del tema. La cura
+fue una línea de clase (`lk-comp--general`) y que el título de un bloque use las mismas variables que el de un gráfico
+(`--dash-titulo-*`, `.gb-tit`), no rediseñar cada bloque otra vez.
+
+**Lo que gobierna lo que venga:**
+
+- **Adentro de la tarjeta no va otra tarjeta.** Lo que se agrupa (un OKR, una métrica del mes, un proyecto) es una LOSA
+  (`gb-losa`: el color del texto al 4,5% sobre transparente, sin borde), y una lista es filas con su línea (`gb-fila`). La
+  losa se da vuelta sola con el fondo oscuro porque sale de `--ink`. Las tarjetas que vienen del Plan van adentro de
+  `gb-plan`, que les cambia `--surface` por la losa y les saca el borde.
+- **El fondo oscuro es una OPCIÓN de cada bloque** (`fondo`, lib/general-piezas.ts) y la aplica el MARCO, no el bloque:
+  `data-oscuro` redefine los tokens (tinta, grises, líneas, superficie) a los de la isla y la tarjeta se pinta con `:has`.
+  Un bloque escrito con los tokens de la casa se da vuelta sin saberlo; uno con colores fijos, no.
+- **La Meta objetivo y la Acción del día son dos bloques** (app/general/bloques/Meta.tsx), claros, con las decisiones del
+  08/09 intactas (la barra con la marca del tiempo, «a esta altura» y no «vas a llegar», sin meta no hay número). El id
+  `cabecera` no cambió: lo guardan los informes. ../Cabecera.tsx y ../Ahora.tsx se borraron.
+- **El título propio de un bloque va por contexto** (`useTituloPropio`): antes se dibujaba aparte, arriba, y escondía el del
+  bloque por CSS — dos títulos, y lo que el bloque decía al lado quedaba huérfano.
+- **El tamaño de un bloque es el de su CONTENIDO**, y en una plantilla **los bloques van de a dos con el mismo alto**:
+  `acomodar` estira la fila al más alto, y un bloque estirado es espacio en blanco. «Pendientes del CRM» medía 7 filas para
+  dibujar 4. Lo fija el test de las plantillas (un bloque que la fila estira, falla).
+- **«El mismo dato dos veces» es la misma métrica VISTA IGUAL** (conjunto + métricas + dimensión): un número y su serie por
+  día son dos lecturas; «Leads por etapa» al lado de «Tu funnel hoy» es la misma. La captura mostraba «Leads por
+  producto y etapa» rompiéndose: un desglose por etapa al lado del funnel, y ninguna plantilla de General lo trae ahora.
+- **Una plantilla contesta UNA pregunta**, con pocas piezas, títulos de parte (una Sección sin fondo ni pliegue) y lo más
+  importante en número: la plata (cobrado, vendido) y lo que cuesta conseguirla (la inversión, el costo por lead) le ganan a
+  un desglose por origen. Entró «Anuncios» (Meta).
+- **«Proyectos del Plan» dibuja la anatomía de la tarjeta del Plan** (portada, marca, título, avance, deadline) con las piezas
+  del Plan (`fondoPortada`, `Marca`, `LineaDeadline`, `projProgress`): la tarjeta del tablero mide 360 px de alto, que en una
+  hoja es un hueco. «Prioridades del Plan» sigue con las tarjetas del Plan tal cual.
+- **Los bloques nuevos** («Tareas prioritarias», «Próximos deadlines») leen lo que ya lee el Plan, y su «hoy» es el del
+  negocio que manda el server (`d.d.hoy`): el plazo de un deadline sale igual en los dos lados.
+- ⚠️ **Adentro de una hoja de estilos en template literal no va ningún backtick, ni en un comentario**: el comentario del
+  marco nombraba `--gb-fondo` entre backticks y partió `editor-css.ts` (lo cazó el typecheck: «',' expected»). Y en un
+  heredoc de Bash los backticks se EJECUTAN: un script de reemplazo escrito así contestó «No such file or directory» con
+  tres pedazos del texto.
+
+**Sin verse en pantalla todavía**: los altos de cada bloque salen de medir lo que dibuja, no de mirarlo (no se levantó un
+`next dev`). Va a ws3 después del deploy.
+
+**Vive en:** `app/general/bloques/` (`comun.tsx`, `Meta.tsx`, `Plan.tsx`) · `app/dashboard/ElementoGeneral.tsx` ·
+`app/dashboard/editor-css.ts` (`.lk-comp--general`) · `app/dashboard/EditorInforme.tsx` · `lib/general-piezas.ts` ·
+`lib/general-plantillas.ts` · `app/general/datos.ts` · `app/general/KpisCard.tsx` · `app/general/Cobranza.tsx` ·
+`tests/general-bloques.test.ts`.
+*14/10/2026, claude2 (e6818ee0).*
+
 ## Lo que quedó sin hacer
 
+- **«Fondo: Oscuro» no da vuelta los colores FIJOS de un bloque (14/10/2026).** Lo que usa los tokens de la casa se da
+  vuelta solo; los tipos de «Pendientes del CRM» (`TIPOS_PENDIENTE`, app/general/bloques/Negocio.tsx), los formatos de las
+  publicaciones (`COLOR_FORMATO`, Agenda.tsx) y la columna de las lámparas del semáforo (`var(--sidebar)` sobre una tarjeta
+  que ya es `--sidebar`, Norte.tsx) se quedan como están. Se ve recién cuando alguien elige oscuro.
+- **`.mk-cabecera` (app/_ui/ui.css) ya no lo usa nadie**: era la grilla de la cabecera oscura de ../Cabecera.tsx.
+
 - **Los bloques de General no obedecen los filtros de la hoja (14/10/2026).** Un filtro de período o de campo en la
-  barra de una hoja de General recorta los GRÁFICOS, no los bloques: el server los arma una vez, sin la vista. Sólo
-  «Tu funnel hoy» y «A quién cobrarle» se atan a un funnel, desde su propio panel. El objetivo, los KPIs, el semáforo,
-  el mes y los pendientes miden el negocio entero (salen de `leerVistaGeneral`, lib/vista-general.ts, sin alcance).
-  Vive en `app/general/piezas.tsx`.
+  barra de una hoja de General recorta los GRÁFICOS, no los bloques (y desde la tercera vuelta General ni siquiera muestra
+  la barra de filtros). Sólo «Tu funnel hoy» y «A quién cobrarle» se atan a un funnel, desde su propio panel. El objetivo,
+  los KPIs, el semáforo, el mes y los pendientes miden el negocio entero (salen de `leerVistaGeneral`, lib/vista-general.ts,
+  sin alcance). Vive en `app/general/datos.ts`.
+- **El «Conectar» del semáforo SIN FUENTES sigue yendo a /integraciones, a propósito.** No nombra UNA integración (una
+  fuente puede ser Meta, el CRM, un pago…), y abrir la grilla entera es lo que hace la pieza de la regla nueva
+  (`LinkIntegracion`, app/_components/ConectarIntegracion.tsx) con un link que no nombra ninguna. Las alertas del
+  semáforo, la acción del día y «Conectar una IA» del AI Analyst sí abren su modal ahí mismo (abd91fdb).
 - **El Today de MaKo Mobile no mira el informe de General**: dibuja lo de siempre. Para la misma personalización en el
   teléfono, lee `leerInformeGeneral()` y dibuja sus bloques. Vive en `app/m/hoy`.
-- **Más de 8 funnels**: los bloques que se atan a uno se arman hasta 8 (`TOPE_FUNNELS`, app/general/piezas.tsx); el
+- **Más de 8 funnels**: los bloques que se atan a uno se arman hasta 8 (`TOPE_FUNNELS`, app/general/datos.ts); el
   noveno dice «Ese funnel ya no está». Ningún workspace llega hoy.
 - **El pop-up de un gráfico de General se busca en el tablero del DASHBOARD** (lo marcó el chat de Graphics al revisar
   56efcbaa). La acción `datos` con `popupDe` lee el dueño con `informeDeRol(rol) ?? leerTablero()` (app/api/graficos/route.ts,

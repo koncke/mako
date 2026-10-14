@@ -216,7 +216,8 @@ export function bloqueJson(id: IdBloque, extra: { url?: string | null } = {}): J
       return extra.url ? { type: NODO.video, attrs: { src: extra.url, ancho: 100, autoplay: false, bucle: false, poster: null } } : null;
 
     // ── Incrustaciones: entran vacías y su NodeView pide el enlace o el código ──
-    case 'video-enlace':
+    // «Video de YouTube…» entra con la pista de video (pide «el enlace de tu video»); «Insertar», sin pista.
+    case 'video-enlace': return { type: NODO.insertado, attrs: { src: '', proveedor: 'youtube', alto: null } };
     case 'insertar':
       return { type: NODO.insertado, attrs: { src: '', proveedor: '', alto: null } };
     // Con id desde que nace (T6): la publicada sirve cada bloque desde /l/html/<docId>/<id>.

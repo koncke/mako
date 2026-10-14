@@ -61,6 +61,14 @@ export const DEFS: readonly OperacionDef[] = [
     salida: 'json', canales: TODOS, costo: 'gratis', gating: { tab: TAB },
   },
   {
+    // LOS ESCENARIOS DE «PROBAR» (14/10/2026): los mismos contactos de la barra de Probar (`escenariosDePrueba`).
+    id: 'escenarios_secuencia', area: 'chatbot', tipo: 'lectura',
+    titulo: 'Escenarios de prueba de una secuencia',
+    descripcion: 'Los caminos distintos de UNA automatización por sus condiciones, los mismos que «Probar» muestra como contactos de su barra: qué sale en cada condición, en orden, y cuántos mensajes de WhatsApp le llegan por ese camino. El primero es el de un lead recién llegado por su CRON. Hasta 8; `faltan` dice cuántas ramas quedaron afuera. Úsala para saber qué conviene probar antes de prenderla. Pide antes el secuenciaId con listar_secuencias_nutricion.',
+    parametros: [pSecuenciaId],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: { tab: TAB },
+  },
+  {
     id: 'metricas_chatbot', area: 'chatbot', tipo: 'lectura',
     titulo: 'Métricas del chatbot (30 días)',
     descripcion: 'Los KPIs del chatbot en los últimos 30 días: por secuencia, mensajes enviados por WhatsApp y por email, respuestas, aperturas y clics de email, inscriptos activos y completados; y la serie diaria de 30 días. Úsala para «cuántos mensajes salieron esta semana» o «cuántos contestaron». Las aperturas y clics existen solo para email; «respuestas» es la cantidad de inscripciones pausadas porque el lead contestó.',
@@ -272,18 +280,6 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'delayHoras', tipo: 'number', obligatorio: true, entero: true, minimo: 0, maximo: 8760, descripcion: 'horas de espera del paso (0 a 8760).' },
     ],
     reversible: true, escribe: 'cambia pasos[orden].delay_horas en nutricion_secuencias',
-    canales: TODOS, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
-  },
-  {
-    id: 'cambiar_si_contesta_secuencia', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
-    titulo: 'Qué hace un camino si el lead contesta',
-    descripcion: 'PROPONE elegir qué hace un CAMINO de una automatización —cada flecha que sale de su CRON— cuando el lead contesta: «sigue» (lo que falta de ese camino sigue saliendo; es el de fábrica) o «corta» (deja de salir). Pide antes el secuenciaId y los caminos con ficha_secuencia_mensajes: la tarjeta del CRON (tipo «inicio») dice sus `paralelos` y su `si_contesta`. El camino principal es «p»; cada flecha en paralelo se nombra con el id de su primera tarjeta. Sin tarjeta CRON (una sola flecha), el único camino es «p».',
-    parametros: [
-      pSecuenciaId,
-      { nombre: 'camino', tipo: 'string', obligatorio: true, descripcion: '«p» para el camino principal del CRON, o el id de la primera tarjeta de una flecha en paralelo.' },
-      { nombre: 'valor', tipo: 'string', obligatorio: true, enum: ['sigue', 'corta'], descripcion: 'sigue = lo que falta de ese camino sigue saliendo aunque el lead conteste; corta = deja de salir.' },
-    ],
-    reversible: true, escribe: 'cambia si_contesta de la tarjeta CRON (pasos) en nutricion_secuencias; sin tarjeta CRON, la crea',
     canales: TODOS, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
   },
   {

@@ -255,7 +255,10 @@ export function puedeContestarSolo(p: {
   if (!p.envioHabilitado) return { ok: false, motivo: 'el envío de WhatsApp está apagado' };
   if (p.bloqueado) return { ok: false, motivo: 'el número está bloqueado' };
   if (SIN_COMPLETAR.test(p.texto)) return { ok: false, motivo: 'trae un link o un dato sin completar' };
-  if (HABLA_DE_PLATA.test(p.texto)) return { ok: false, motivo: 'habla de precio o de un número' };
+  // Un escenario que HABLA DE PLATA y está en «Sola» lo eligió una persona, a la vista de su aviso (14/10/2026,
+  // `avisoDeLibertad`): ahí el precio no frena. Fuera de eso, una respuesta que se pone a hablar de plata la ve una persona.
+  const escenarioDePlata = HABLA_DE_PLATA.test(`${p.escenario?.titulo ?? ''}\n${p.escenario?.cuando ?? ''}\n${p.escenario?.comoResponder ?? ''}`);
+  if (!escenarioDePlata && HABLA_DE_PLATA.test(p.texto)) return { ok: false, motivo: 'habla de precio o de un número' };
   const tope = p.tope ?? TOPE_RESPUESTAS_SOLAS_24H;
   // Con el tope en 0 el negocio eligió «siempre borrador»: se dice así, no «ya le contesté 0 veces».
   if (tope <= 0) return { ok: false, motivo: 'elegiste que siempre quede en borrador' };

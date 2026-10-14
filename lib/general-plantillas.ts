@@ -20,150 +20,195 @@ import { plantilla, type DefinicionGeneral, type PiezaPlantilla } from './grafic
 import type { PlantillaHoja } from './graficos-plantillas';
 import { piezaGeneral, type PiezaGeneral } from './general-piezas';
 
-/** Un bloque de General como pieza de plantilla, con su tamaño de siempre (o el que se le pida). */
-const bloque = (pieza: PiezaGeneral, extra: { w?: number; h?: number; titulo?: string } = {}): PiezaPlantilla => {
+/** Un bloque de General como pieza de plantilla, con su tamaño de siempre (o el que se le pida) y sus opciones. */
+const bloque = (pieza: PiezaGeneral, extra: { w?: number; h?: number; titulo?: string; opciones?: Record<string, string> } = {}): PiezaPlantilla => {
   const info = piezaGeneral(pieza);
-  return { local: pieza, elemento: { tipo: 'general', texto: extra.titulo ?? '', general: { pieza }, w: extra.w ?? info.w, h: extra.h ?? info.h } };
+  const general = extra.opciones ? { pieza, opciones: extra.opciones } : { pieza };
+  return { local: pieza, elemento: { tipo: 'general', texto: extra.titulo ?? '', general, w: extra.w ?? info.w, h: extra.h ?? info.h } };
 };
 /** Un texto (un título grande, una línea) con variables. */
 const texto = (local: string, t: string, tamano: 's' | 'm' | 'l' | 'xl' = 'l'): PiezaPlantilla =>
   ({ local, elemento: { tipo: 'texto', texto: t, tamano } });
+/**
+ * El título de una parte de la hoja: una SECCIÓN (lib/graficos-catalogo.ts) sin fondo ni pliegue, que es un título con
+ * su línea debajo. Martín, 14/10/2026: «No tienen títulos, no tienen separaciones claras, no se entienden».
+ */
+const parte = (local: string, t: string): PiezaPlantilla =>
+  ({ local, elemento: { tipo: 'seccion', texto: t, tamano: 'l', seccion: { fondo: null, plegable: false, abierto: true }, w: 12, h: 2 } });
+/** Un número del período, comparado con el anterior. */
+const numero = (local: string, fuente: string, metrica: string, titulo: string, extra: Record<string, unknown> = {}): PiezaPlantilla =>
+  ({ local, tipo: 'numero', fuente, metricas: [metrica], dimension: null, titulo, comparar: true, ...extra });
+/** Un número con su evolución diaria abajo (los de plata: se lee si viene subiendo). */
+const tendencia = (local: string, fuente: string, metrica: string, titulo: string, extra: Record<string, unknown> = {}): PiezaPlantilla =>
+  ({ local, tipo: 'numero_tendencia', fuente, metricas: [metrica], dimension: null, titulo, comparar: true, ...extra });
 
+/**
+ * La tercera vuelta (14/10/2026). Martín, con las capturas de una hoja recién creada: «Mucho espacio en blanco en el
+ * template, bloques que no se ven, los gráficos no tienen sentido... Y pusiste ese dato 2 veces en diferentes
+ * gráficos... elegiste mostrar "Leads por origen" y "Pendientes del CRM" cuando hay datos mucho más interesantes que se
+ * pueden mostrar, como datos de facturación, de Meta, etc... Tiene que tener criterio y preguntarse ¿Qué gráfico es el
+ * más importante?», «todos nacen con bloques que ocupan todo el ancho y quedan feos... No tienen títulos, no tienen
+ * separaciones claras» y «Los templates deben ser simples, mientras menos tenga y más claro esté de que trata ese
+ * template, mejor». Las reglas con que se arman, y valen para la próxima:
+ *   · UNA PREGUNTA POR PLANTILLA, y el nombre la dice. Pocas piezas: lo que no contesta esa pregunta no va.
+ *   · CADA DATO UNA VEZ: si un bloque ya lo muestra (el mes, el funnel), no va también como gráfico.
+ *   · LO MÁS IMPORTANTE ARRIBA y en número: la plata (lo cobrado y lo vendido) y lo que cuesta conseguirla (la inversión
+ *     en anuncios y el costo por lead) le ganan a un desglose por origen.
+ *   · DE A DOS: los bloques van en pares de media hoja con el MISMO alto (`acomodar` estira la fila al más alto, y un
+ *     bloque estirado es espacio en blanco); a lo ancho sólo lo que se lee mejor así (una tabla, una serie, el mes).
+ *   · TÍTULOS DE PARTE (`parte`) cuando la hoja tiene más de un tema.
+ */
 export const DEFINICIONES_GENERAL: readonly DefinicionGeneral[] = [
   {
-    // La General de siempre: el objetivo y la acción del día arriba, después el compromiso (los KPIs y la cobranza),
-    // el diagnóstico (el semáforo) y la consecuencia (el mes y los pendientes). Es el orden que pensó Martín.
+    // La General de siempre, y la hoja con que arranca quien nunca armó la suya: el norte arriba (la meta y la acción
+    // del día, cada una su bloque), la plata del mes en números, y lo que hay que atender hoy.
     id: 'general', nombre: 'General', emoji: '🧭',
-    linea: 'El objetivo del trimestre, la acción del día, los KPIs, el semáforo y el mes.',
+    linea: 'Tu meta, la acción del día, la plata del mes y lo que hay que atender hoy.',
     subtitulo: '', periodo: 'este_mes',
-    piezas: [bloque('cabecera'), bloque('kpis'), bloque('cobranza', { w: 12 }), bloque('semaforo'), bloque('mes'), bloque('pendientes')],
+    piezas: [
+      bloque('cabecera'), bloque('accion'),
+      parte('mes', 'El mes'),
+      tendencia('cobrado', 'negocio', 'cobrado', 'Cobrado'),
+      tendencia('vendido', 'negocio', 'vendido', 'Vendido'),
+      tendencia('gasto', 'negocio', 'gasto', 'Inversión en anuncios'),
+      tendencia('cpl', 'negocio', 'cpl', 'Costo por lead'),
+      parte('hoy', 'Hoy'),
+      bloque('llamadas'), bloque('cobranza'),
+    ],
   },
   {
     id: 'bienvenida', nombre: 'Bienvenida', emoji: '👋',
-    linea: 'Te saluda por tu nombre y te deja a mano lo de hoy: el objetivo, las prioridades y a quién cobrarle.',
+    linea: 'Te saluda por tu nombre y te deja lo de hoy: qué hacer, tu día y tus compromisos.',
     subtitulo: '', periodo: 'este_mes',
     piezas: [
       texto('hola', '{{saludo}}, {{nombre}}', 'xl'),
       texto('hoy', 'Hoy es {{fecha}} · {{trimestre}}', 'm'),
-      bloque('cabecera'),
-      bloque('prioridades'), bloque('cobranza'),
+      bloque('accion', { h: 8 }), bloque('agenda'),
       bloque('kpis'),
     ],
   },
   {
-    // El caso de Mauricio (reunión del 12/10: el Plan, la cobranza y el CRM en la pantalla de lo que se hace hoy).
-    id: 'operacion', nombre: 'Operación diaria', emoji: '⚡',
-    linea: 'Las prioridades del Plan, a quién cobrarle y cómo viene el CRM.',
-    subtitulo: 'Lo que se hace hoy.', periodo: 'ult30',
+    id: 'foco', nombre: 'Foco de la semana', emoji: '🎯',
+    linea: 'Tus OKRs y lo que hay que hacer para cumplirlos: las tareas, los deadlines y los proyectos.',
+    subtitulo: '', periodo: 'este_mes',
     piezas: [
-      bloque('prioridades'), bloque('cobranza'),
-      { local: 'leads', tipo: 'numero', fuente: 'leads', metricas: ['leads'], dimension: null, titulo: 'Leads nuevos', comparar: true },
-      { local: 'agendas', tipo: 'numero', fuente: 'leads', metricas: ['agendas'], dimension: null, titulo: 'Agendaron' },
-      { local: 'cierres', tipo: 'numero', fuente: 'leads', metricas: ['cierres'], dimension: null, titulo: 'Cierres' },
-      { local: 'tasa', tipo: 'numero', fuente: 'leads', metricas: ['tasa_cierre'], dimension: null, titulo: 'Tasa de cierre' },
-      { local: 'etapas', tipo: 'barras', fuente: 'leads', dimension: 'etapa', metricas: ['leads'], titulo: 'Leads por etapa' },
-      bloque('pendientes'),
+      bloque('objetivos'),
+      parte('hacer', 'Lo que hay que hacer'),
+      bloque('tareas'), bloque('deadlines'),
+      bloque('proyectos'),
+    ],
+  },
+  {
+    // El caso de la reunión del 12/10 (el Plan, la cobranza y el CRM en la pantalla de lo que se hace hoy).
+    id: 'operacion', nombre: 'Operación diaria', emoji: '⚡',
+    linea: 'Las prioridades del Plan, a quién cobrarle, las llamadas y cómo está el funnel.',
+    subtitulo: '', periodo: 'ult30',
+    piezas: [
+      bloque('prioridades'),
+      parte('clientes', 'Clientes'),
+      bloque('cobranza'), bloque('llamadas'),
+      bloque('funnel', { w: 12, h: 5, opciones: { estilo: 'barras' } }),
+    ],
+  },
+  {
+    id: 'ventas', nombre: 'Ventas del mes', emoji: '📈',
+    linea: 'El mes contra el anterior, el funnel de hoy y lo que está en rojo.',
+    subtitulo: '', periodo: 'este_mes',
+    piezas: [
+      bloque('mes'),
+      bloque('funnel'), bloque('semaforo', { h: 8 }),
     ],
   },
   {
     id: 'cobros', nombre: 'Cobros', emoji: '💳',
     linea: 'Lo cobrado y lo pendiente del mes, y a quién cobrarle primero.',
-    subtitulo: 'Las cuotas de tus clientes.', periodo: 'este_mes_completo',
+    subtitulo: '', periodo: 'este_mes_completo',
     piezas: [
-      { local: 'cobrado', tipo: 'numero', fuente: 'pagos', fecha: 'pago', metricas: ['cobrado'], dimension: null, titulo: 'Cobrado', comparar: true },
-      { local: 'pendiente', tipo: 'numero', fuente: 'pagos', metricas: ['pendiente'], dimension: null, titulo: 'Pendiente' },
-      { local: 'vence', tipo: 'numero', fuente: 'pagos', metricas: ['monto'], dimension: null, titulo: 'Vence en el período' },
-      bloque('cobranza', { w: 12 }),
-      { local: 'semanas', tipo: 'columnas', fuente: 'pagos', dimension: 'semana', metricas: ['cobrado', 'pendiente'], titulo: 'Cobrado y pendiente por semana' },
+      numero('cobrado', 'pagos', 'cobrado', 'Cobrado', { fecha: 'pago' }),
+      numero('pendiente', 'pagos', 'pendiente', 'Por cobrar', { comparar: false }),
+      numero('vence', 'pagos', 'monto', 'Vence en el mes', { comparar: false }),
+      bloque('cobranza'),
+      { local: 'semanas', tipo: 'columnas', fuente: 'pagos', dimension: 'semana', metricas: ['cobrado', 'pendiente'], titulo: 'Cobrado y por cobrar, por semana' },
     ],
   },
   {
-    id: 'foco', nombre: 'Foco de la semana', emoji: '🎯',
-    linea: 'Los KPIs que te comprometiste a mover, las prioridades del Plan y lo que está en rojo.',
-    subtitulo: '', periodo: 'este_mes',
-    piezas: [bloque('objetivos'), bloque('prioridades'), bloque('kpis'), bloque('semaforo')],
+    id: 'anuncios', nombre: 'Anuncios', emoji: '📣',
+    linea: 'Cuánto inviertes en Meta, cuántos leads te trae y qué campaña rinde.',
+    subtitulo: '', periodo: 'ult30',
+    piezas: [
+      numero('gasto', 'meta', 'gasto', 'Inversión'),
+      numero('leads', 'meta', 'leads', 'Leads'),
+      numero('cpl', 'meta', 'cpl', 'Costo por lead'),
+      numero('ctr', 'meta', 'ctr', 'CTR'),
+      { local: 'por-dia', tipo: 'serie', fuente: 'meta', dimension: 'dia', metricas: ['leads'], titulo: 'Leads por día' },
+      { local: 'campanas', tipo: 'tabla_barras', fuente: 'meta', dimension: 'campana', metricas: ['gasto', 'leads', 'cpl'], titulo: 'Tus campañas' },
+    ],
   },
   // ── Una por tipo de funnel (lo que mira cada negocio, según cómo vende) ──
   {
     id: 'funnel-llamadas', nombre: 'Funnel de llamadas', emoji: '📞',
-    linea: 'Anuncio, landing o VSL, agenda y llamada: tus llamadas, el funnel y cuánto cierras.',
-    subtitulo: 'Del anuncio al cierre.', periodo: 'ult30',
+    linea: 'Tus llamadas de la semana y cuánto agendas, asisten y cierras.',
+    subtitulo: '', periodo: 'ult30',
     piezas: [
       bloque('llamadas'), bloque('agenda'),
-      { local: 'cpl', tipo: 'numero', fuente: 'negocio', metricas: ['cpl'], dimension: null, titulo: 'Costo por lead' },
-      { local: 'agendas', tipo: 'numero', fuente: 'leads', metricas: ['agendas'], dimension: null, titulo: 'Agendaron', comparar: true },
-      { local: 'asistencia', tipo: 'numero', fuente: 'leads', fecha: 'agenda', metricas: ['tasa_asistencia'], dimension: null, titulo: 'Tasa de asistencia' },
-      { local: 'cierre', tipo: 'numero', fuente: 'leads', fecha: 'agenda', metricas: ['tasa_cierre'], dimension: null, titulo: 'Tasa de cierre' },
-      bloque('funnel'),
-      { local: 'closers', tipo: 'tabla_barras', fuente: 'llamadas_venta', dimension: 'closer', metricas: ['llamadas', 'ganadas', 'tasa_cierre', 'puntaje'], titulo: 'Tus closers' },
-      bloque('cobranza', { w: 12 }),
+      parte('cierre', 'Cómo cierras'),
+      numero('agendas', 'leads', 'agendas', 'Agendaron'),
+      numero('asistencia', 'leads', 'tasa_asistencia', 'Tasa de asistencia', { fecha: 'agenda' }),
+      numero('cierre', 'leads', 'tasa_cierre', 'Tasa de cierre', { fecha: 'agenda' }),
+      numero('vendido', 'leads', 'vendido', 'Vendido', { fecha: 'cierre' }),
+      { local: 'closers', tipo: 'tabla_barras', fuente: 'llamadas_venta', dimension: 'closer', metricas: ['llamadas', 'ganadas', 'tasa_cierre'], titulo: 'Tus closers' },
     ],
   },
   {
     id: 'funnel-whatsapp', nombre: 'Ventas por WhatsApp', emoji: '💬',
-    linea: 'El anuncio lleva al chat: cuántos escriben, qué tan rápido respondes y cuántos compran.',
-    subtitulo: 'Del chat a la venta.', periodo: 'ult30',
+    linea: 'Cuántos escriben, qué tan rápido respondes y cuántos compran.',
+    subtitulo: '', periodo: 'ult30',
     piezas: [
-      { local: 'chats', tipo: 'numero', fuente: 'conversaciones', metricas: ['chats'], dimension: null, titulo: 'Chats', comparar: true },
-      { local: 'sin-responder', tipo: 'numero', fuente: 'conversaciones', fecha: 'actual', metricas: ['sin_responder'], dimension: null, titulo: 'Sin responder' },
-      { local: 'respuesta', tipo: 'numero', fuente: 'conversaciones', metricas: ['mediana_respuesta'], dimension: null, titulo: 'Tiempo de respuesta' },
-      { local: 'cierres', tipo: 'numero', fuente: 'leads', metricas: ['cierres'], dimension: null, titulo: 'Ventas', comparar: true },
-      bloque('pendientes'),
-      bloque('funnel'),
+      numero('chats', 'conversaciones', 'chats', 'Chats'),
+      numero('sin-responder', 'conversaciones', 'sin_responder', 'Esperando respuesta', { fecha: 'actual', comparar: false }),
+      numero('respuesta', 'conversaciones', 'mediana_respuesta', 'Tiempo de respuesta'),
+      numero('ventas', 'leads', 'cierres', 'Ventas'),
       { local: 'por-dia', tipo: 'serie', fuente: 'whatsapp', dimension: 'dia', metricas: ['recibidos', 'enviados'], titulo: 'Mensajes por día' },
-      { local: 'setters', tipo: 'tabla_barras', fuente: 'conversaciones', dimension: 'setter', metricas: ['chats', 'pct_rapidos', 'mediana_respuesta'], titulo: 'Tu equipo en el chat' },
+      bloque('funnel', { h: 5, opciones: { estilo: 'barras' } }), bloque('pendientes', { h: 5 }),
     ],
   },
   {
     id: 'lanzamiento', nombre: 'Contenido y lanzamiento', emoji: '🚀',
-    linea: 'Lo que publicas esta semana, quién ve tu página y tu video, y cuántos se registran.',
-    subtitulo: 'La atención, antes de la venta.', periodo: 'ult7',
+    linea: 'Lo que publicas esta semana, y cuántos ven tu página y tu video y se registran.',
+    subtitulo: '', periodo: 'ult7',
     piezas: [
-      bloque('publicaciones'), bloque('agenda'),
-      { local: 'visitas', tipo: 'numero', fuente: 'visitas', metricas: ['visitantes'], dimension: null, titulo: 'Visitantes', comparar: true },
-      { local: 'play', tipo: 'numero', fuente: 'vsl', metricas: ['play_rate'], dimension: null, titulo: 'Le dan play al video' },
-      { local: 'leads', tipo: 'numero', fuente: 'leads', metricas: ['leads'], dimension: null, titulo: 'Registros', comparar: true },
-      { local: 'gasto', tipo: 'numero', fuente: 'negocio', metricas: ['gasto'], dimension: null, titulo: 'Inversión en anuncios' },
-      { local: 'origen', tipo: 'tabla_barras', fuente: 'visitas', dimension: 'origen', metricas: ['visitantes'], titulo: 'De dónde llegan' },
+      bloque('publicaciones'),
+      parte('atencion', 'La atención'),
+      numero('visitas', 'visitas', 'visitantes', 'Visitantes'),
+      numero('play', 'vsl', 'play_rate', 'Le dan play al video'),
+      numero('leads', 'leads', 'leads', 'Registros'),
+      numero('gasto', 'negocio', 'gasto', 'Inversión en anuncios'),
+      { local: 'por-dia', tipo: 'serie', fuente: 'visitas', dimension: 'dia', metricas: ['visitantes'], titulo: 'Visitantes por día' },
     ],
   },
   {
     id: 'servicio', nombre: 'Agencia o servicio', emoji: '🤝',
-    linea: 'Tus clientes en cada etapa de la entrega, las sesiones de la semana y lo que te deben.',
-    subtitulo: 'La entrega y la cartera.', periodo: 'este_mes',
+    linea: 'Tus clientes en cada etapa de la entrega y lo que te deben.',
+    subtitulo: '', periodo: 'este_mes',
     piezas: [
-      bloque('agenda'), bloque('llamadas'),
-      { local: 'clientes', tipo: 'numero', fuente: 'cartera', metricas: ['clientes'], dimension: null, titulo: 'Clientes activos' },
-      { local: 'atencion', tipo: 'numero', fuente: 'cartera', metricas: ['atencion'], dimension: null, titulo: 'Piden atención' },
-      { local: 'deuda', tipo: 'numero', fuente: 'cartera', metricas: ['deuda_vencida_usd'], dimension: null, titulo: 'Deuda vencida' },
+      numero('clientes', 'cartera', 'clientes', 'Clientes activos', { comparar: false }),
+      numero('atencion', 'cartera', 'atencion', 'Piden atención', { comparar: false }),
+      numero('deuda', 'cartera', 'deuda_vencida_usd', 'Deuda vencida', { comparar: false }),
       { local: 'etapas', tipo: 'barras', fuente: 'entrega', fecha: 'actual', dimension: 'etapa', metricas: ['clientes'], titulo: 'Clientes por etapa de la entrega' },
-      bloque('cobranza', { w: 12 }),
+      bloque('cobranza'),
     ],
   },
   {
     id: 'curso', nombre: 'Curso o comunidad', emoji: '🎓',
-    linea: 'Cuántos alumnos avanzan, qué tanto y quién se quedó, junto a lo que vendes.',
-    subtitulo: 'Tus alumnos.', periodo: 'ult30',
+    linea: 'Cuántos alumnos avanzan y qué tanto, junto a lo que vendes.',
+    subtitulo: '', periodo: 'ult30',
     piezas: [
-      { local: 'alumnos', tipo: 'numero', fuente: 'avance_cursos', metricas: ['alumnos'], dimension: null, titulo: 'Alumnos activos' },
-      { local: 'clases', tipo: 'numero', fuente: 'avance_cursos', metricas: ['clases'], dimension: null, titulo: 'Clases vistas', comparar: true },
-      { local: 'avance', tipo: 'numero', fuente: 'avance_cursos', metricas: ['pct'], dimension: null, titulo: 'Avance promedio' },
-      { local: 'ventas', tipo: 'numero', fuente: 'leads', metricas: ['cierres'], dimension: null, titulo: 'Ventas', comparar: true },
+      numero('alumnos', 'avance_cursos', 'alumnos', 'Alumnos activos', { comparar: false }),
+      numero('clases', 'avance_cursos', 'clases', 'Clases vistas'),
+      numero('avance', 'avance_cursos', 'pct', 'Avance promedio', { comparar: false }),
+      numero('ventas', 'leads', 'cierres', 'Ventas'),
       { local: 'por-dia', tipo: 'serie', fuente: 'avance_cursos', dimension: 'dia', metricas: ['clases'], titulo: 'Clases vistas por día' },
-      bloque('publicaciones'), bloque('cobranza'),
-    ],
-  },
-  {
-    id: 'ventas', nombre: 'Ventas del mes', emoji: '📈',
-    linea: 'Leads, agendas, cierres y lo cobrado, contra el mes anterior.',
-    subtitulo: 'El mes, comparado.', periodo: 'este_mes',
-    piezas: [
-      { local: 'leads', tipo: 'numero', fuente: 'leads', metricas: ['leads'], dimension: null, titulo: 'Leads', comparar: true },
-      { local: 'agendas', tipo: 'numero', fuente: 'leads', metricas: ['agendas'], dimension: null, titulo: 'Agendas', comparar: true },
-      { local: 'cierres', tipo: 'numero', fuente: 'leads', metricas: ['cierres'], dimension: null, titulo: 'Cierres', comparar: true },
-      { local: 'cobrado', tipo: 'numero', fuente: 'pagos', fecha: 'pago', metricas: ['cobrado'], dimension: null, titulo: 'Cobrado', comparar: true },
-      bloque('mes'),
-      { local: 'origen', tipo: 'tabla_barras', fuente: 'leads', dimension: 'origen', metricas: ['leads', 'agendas', 'cierres', 'tasa_cierre'], titulo: 'De dónde vienen' },
+      bloque('publicaciones'),
     ],
   },
 ];

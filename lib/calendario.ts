@@ -1,11 +1,18 @@
 // =============================================================================
 // calendario — lo que lee y escribe la tab Calendario
 // =============================================================================
-// Cinco lecturas en paralelo y cada una con su forma de fallar escrita (ninguna tumba a las otras):
+// Siete lecturas en paralelo y cada una con su forma de fallar escrita (ninguna tumba a las otras):
 //
 //   · PROPIOS   — `calendario_eventos` (mig 0271): lo que se agenda en el Calendario.
 //   · CRM       — las reuniones de los leads: `junta_1_at` / `junta_2_at` (el ISO con hora que deja Calendly o
 //                 Cal.com); sin hora, `fecha_junta_1` / `fecha_junta_2` como día completo. Lleva a la ficha.
+//                 ⚠️ UNA REUNIÓN CANCELADA CONSERVA SU `junta_X_at` (cancelarJuntaEnLead, lib/leads.ts: sólo borra la
+//                 fecha, a propósito, por la regla de No Show). Así que la hora sola no dice que la reunión siga: se
+//                 lee con `fecha_junta_X` puesta, la misma definición de «cancelada» que el CRM automático
+//                 (`r1Cancelada`, lib/crm-auto-plan.ts). Hasta el 14/10/2026 el Calendario dibujaba las canceladas.
+//   · RECURRENTES — las PRÓXIMAS veces de las tareas que se repiten (`proximasVeces`, lib/calendario-modelo.ts),
+//                 contadas desde su ancla (`recurrente_desde`) como las cuenta el generador. No se crea ninguna fila.
+//   · COBROS    — las cuotas sin cobrar (`pagos`) que vencen en el rango, con el nombre del lead. Lleva a la ficha.
 //   · GOOGLE    — TODOS los calendarios de la cuenta conectada (lib/calendario-google.ts, 14/10/2026). Las que ya son una reunión del
 //                 CRM las saca la pantalla (`sinDuplicarLlamadas`). ⚠️ No viaja a ningún modelo: sólo se dibuja.
 //   · PLAN      — los deadlines de las tareas abiertas y de los proyectos (`tableroDelPlan`, lib/plan-hoy.ts: la
@@ -18,17 +25,19 @@
 
 import 'server-only';
 import { getTenantDb, getWorkspaceActual } from './workspace';
-import { tzDeWorkspace, TZ_DEFAULT } from './timezone';
+import { tzDeWorkspace, TZ_DEFAULT, hoyEnWorkspace } from './timezone';
 import { leerTodo } from './supabase-paginado';
 import { instanteDe } from './cron-aviso';
 import { googleCalendarConectado, googleCalendarDueno } from './google-calendar';
 import { leerAgendaGoogle } from './calendario-google';
 import type { CalendarioGoogle } from './calendario-google-modelo';
 import { tableroDelPlan } from './plan-hoy';
+import { tableroActual, type QueTablero } from './tablero-actual';
+import { tablasDe } from './tablero-de-capa';
 import { listObjectives } from './objectives';
-import { esRecurrente } from './plan-recurrentes';
+import { esRecurrente, recurrenciaDe, textoRepeticionCorto } from './plan-recurrentes';
 import {
-  itemDeFila, filaDeEntrada, quartersDelRango, MAX_LOTE, esTipoEvento, esFormato, TOPE_TITULO, TOPE_NOTAS,
+  itemDeFila, filaDeEntrada, quartersDelRango, proximasVeces, itemDeCuota, MAX_LOTE, esTipoEvento, esFormato, TOPE_TITULO, TOPE_NOTAS,
   type ItemCalendario, type FilaEvento, type EntradaEvento,
 } from './calendario-modelo';
 
@@ -38,6 +47,8 @@ export type FallosCalendario = {
   /** 'sin-conexion' no es un fallo: es que no hay agenda de Google conectada (y se ofrece conectarla). */
   google?: 'sin-conexion' | 'error' | null;
   plan?: boolean;
+  recurrentes?: boolean;
+  cobros?: boolean;
   objetivos?: boolean;
 };
 
@@ -59,16 +70,18 @@ export async function leerCalendario(desde: string, hasta: string, tz: string): 
   const hastaIso = inicioDelDia(hasta, tz);
   const fallos: FallosCalendario = {};
   const meta: { google: GoogleDelCalendario | null } = { google: null };
-  const [propios, crm, google, plan, objetivos] = await Promise.all([
+  const [propios, crm, google, plan, recurrentes, cobros, objetivos] = await Promise.all([
     leerPropios(desdeIso, hastaIso).catch((e) => { console.error('[calendario] propios:', msg(e)); fallos.propios = true; return [] as ItemCalendario[]; }),
     leerCrm(desde, hasta, desdeIso, hastaIso, tz).catch((e) => { console.error('[calendario] crm:', msg(e)); fallos.crm = true; return [] as ItemCalendario[]; }),
     leerGoogle(desdeIso, hastaIso, tz, fallos, meta),
     leerPlan(desde, hasta, tz).catch((e) => { console.error('[calendario] plan:', msg(e)); fallos.plan = true; return [] as ItemCalendario[]; }),
+    leerRecurrentes(desde, hasta, tz).catch((e) => { console.error('[calendario] recurrentes:', msg(e)); fallos.recurrentes = true; return [] as ItemCalendario[]; }),
+    leerCobros(desde, hasta, tz).catch((e) => { console.error('[calendario] cobros:', msg(e)); fallos.cobros = true; return [] as ItemCalendario[]; }),
     leerObjetivos(desde, hasta, tz).catch((e) => { console.error('[calendario] objetivos:', msg(e)); fallos.objetivos = true; return [] as ItemCalendario[]; }),
   ]);
   // Los de Google van TODOS: si una reunión del CRM y su evento de Google son la misma, lo decide la pantalla según qué
   // calendarios están prendidos (`sinDuplicarLlamadas`). Apagando las llamadas del CRM, el de Google tiene que verse.
-  return { items: [...propios, ...crm, ...google, ...plan, ...objetivos], fallos, google: meta.google };
+  return { items: [...propios, ...crm, ...google, ...plan, ...recurrentes, ...cobros, ...objetivos], fallos, google: meta.google };
 }
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
@@ -87,9 +100,10 @@ type FilaReunion = { id: number; nombre: string | null; closer: string | null; j
 async function leerCrm(desde: string, hasta: string, desdeIso: string, hastaIso: string, tz: string): Promise<ItemCalendario[]> {
   const db = await getTenantDb();
   const cols = 'id, nombre, closer, junta_1_at, junta_2_at, fecha_junta_1, fecha_junta_2';
+  // `fecha_junta_X` puesta = la reunión sigue en pie: una cancelada conserva su hora y pierde la fecha (ver arriba).
   const [a1, a2, f1, f2] = await Promise.all([
-    leerTodo<FilaReunion>(db, 'leads', cols, { orden: 'id', filtros: (q) => q.gte('junta_1_at', desdeIso).lt('junta_1_at', hastaIso) }),
-    leerTodo<FilaReunion>(db, 'leads', cols, { orden: 'id', filtros: (q) => q.gte('junta_2_at', desdeIso).lt('junta_2_at', hastaIso) }),
+    leerTodo<FilaReunion>(db, 'leads', cols, { orden: 'id', filtros: (q) => q.gte('junta_1_at', desdeIso).lt('junta_1_at', hastaIso).not('fecha_junta_1', 'is', null) }),
+    leerTodo<FilaReunion>(db, 'leads', cols, { orden: 'id', filtros: (q) => q.gte('junta_2_at', desdeIso).lt('junta_2_at', hastaIso).not('fecha_junta_2', 'is', null) }),
     leerTodo<FilaReunion>(db, 'leads', cols, { orden: 'id', filtros: (q) => q.is('junta_1_at', null).gte('fecha_junta_1', desde).lt('fecha_junta_1', hasta) }),
     leerTodo<FilaReunion>(db, 'leads', cols, { orden: 'id', filtros: (q) => q.is('junta_2_at', null).gte('fecha_junta_2', desde).lt('fecha_junta_2', hasta) }),
   ]);
@@ -150,10 +164,107 @@ async function leerPlan(desde: string, hasta: string, tz: string): Promise<ItemC
     if (!enRango(p.deadline) || esRecurrente(p)) continue;
     out.push({
       id: `plan:p:${p.id}`, fuente: 'plan', capa: 'plan', titulo: `${p.emoji} ${p.name}`, inicio: inicioDelDia(p.deadline!, tz), fin: null,
-      diaCompleto: true, href: '/plan', detalle: 'Deadline del proyecto',
+      // `?proyecto=` abre ESE proyecto en el tablero (BoardShell lo lee, como `?tarea=`), no la grilla entera.
+      diaCompleto: true, href: `/plan?proyecto=${encodeURIComponent(p.id)}`, detalle: 'Deadline del proyecto',
     });
   }
   return out;
+}
+
+type FilaPlantilla = Record<string, unknown>;
+
+/**
+ * Las PRÓXIMAS veces de las tareas que se repiten (Martín, 14/10/2026: «ver las tareas recurrentes allí»).
+ *
+ * Una tarea que se repite es una PLANTILLA (`recurrente = true` + su RRULE + `recurrente_desde`, mig 0185) y el
+ * generador (lib/plan-recurrentes-generar.ts) le crea UNA instancia normal, con deadline, el día que toca. Esa instancia
+ * ya se ve en «Plan». Esto dibuja el RITMO hacia adelante, con la misma cuenta que el generador (`proximasVeces` usa
+ * `ocurrenciasEntre` con el mismo ancla), sin escribir nada.
+ *
+ * ⚠️ El ancla (`recurrente_desde`) y el vínculo instancia → plantilla (`recurrente_de`) no los trae el mapper del
+ *    tablero, así que se leen acá, de la tabla que le toca a quien mira (`tableroActual` + `tablasDe`, la misma
+ *    decisión que `tableroDelPlan`). Y la columna del título se llama distinto en cada mitad (`title` / `titulo`):
+ *    PostgREST rechaza la consulta ENTERA si se pide una que no existe.
+ */
+async function leerRecurrentes(desde: string, hasta: string, tz: string): Promise<ItemCalendario[]> {
+  return (await recurrentesDelRango(desde, hasta)).map((v) => ({
+    id: `rec:${v.tareaId}:${v.fecha}`, fuente: 'plan' as const, capa: 'recurrentes' as const, titulo: v.titulo, inicio: inicioDelDia(v.fecha, tz), fin: null,
+    diaCompleto: true, href: `/plan?tarea=${encodeURIComponent(v.tareaId)}`, detalle: v.ritmo ?? 'Se repite',
+  }));
+}
+
+/** Una próxima vez de una tarea que se repite: qué tarea, cuándo y con qué ritmo. */
+export type VezRecurrente = { tareaId: string; titulo: string; ritmo: string | null; fecha: string };
+
+/**
+ * Las próximas veces de TODAS las tareas que se repiten, en [desde, hasta) (fechas del negocio). La leen el Calendario
+ * (capa «Se repite») y la API de MaKo (`ver_proximas_recurrentes`): una sola cuenta para las dos.
+ *
+ * ⚠️ `que` (qué mitad del tablero) lo pasa la API: por WhatsApp no hay cookie y `tableroActual()` contestaría
+ *    «cliente» para el super admin (lib/api-mako/areas/cs.run.ts ya lo pagó). La pantalla no lo pasa: decide quien mira,
+ *    como `tableroDelPlan`.
+ */
+export async function recurrentesDelRango(desde: string, hasta: string, forzado?: QueTablero): Promise<VezRecurrente[]> {
+  const que = forzado ?? await tableroActual();
+  const { tareas: tabla } = tablasDe(que);
+  const colTitulo = que === 'dueno' ? 'title' : 'titulo';
+  const db = await getTenantDb();
+  const [plantillas, instancias, hoy] = await Promise.all([
+    leerTodo<FilaPlantilla>(db, tabla, `id, ${colTitulo}, recurrencia, recurrente_desde`, { orden: 'id', eq: { recurrente: true } }),
+    leerTodo<FilaPlantilla>(db, tabla, 'id, recurrente_de, deadline', {
+      orden: 'id', filtros: (q) => q.not('recurrente_de', 'is', null).gte('deadline', desde).lt('deadline', hasta),
+    }),
+    hoyEnWorkspace(),
+  ]);
+  const conInstancia = new Map<string, Set<string>>();
+  for (const i of instancias) {
+    const k = String(i.recurrente_de);
+    const f = String(i.deadline ?? '').slice(0, 10);
+    if (!f) continue;
+    if (!conInstancia.has(k)) conInstancia.set(k, new Set());
+    conInstancia.get(k)!.add(f);
+  }
+  const out: VezRecurrente[] = [];
+  for (const p of plantillas) {
+    const rrule = recurrenciaDe({ recurrente: true, recurrencia: p.recurrencia });
+    if (!rrule) continue;   // «se repite y nadie dijo cada cuánto»: sin regla no hay fecha, y una inventada es peor
+    const id = String(p.id);
+    const ancla = typeof p.recurrente_desde === 'string' ? p.recurrente_desde.slice(0, 10) : null;
+    const titulo = String(p[colTitulo] ?? '').trim() || 'Tarea que se repite';
+    const ritmo = textoRepeticionCorto(rrule);
+    for (const fecha of proximasVeces({ rrule, ancla, desde, hasta, hoy, conInstancia: conInstancia.get(id) ?? new Set() })) {
+      out.push({ tareaId: id, titulo, ritmo, fecha });
+    }
+  }
+  return out.sort((a, b) => a.fecha.localeCompare(b.fecha) || a.titulo.localeCompare(b.titulo, 'es'));
+}
+
+type FilaCuota = { id: number; lead_id: number; numero: number; monto_usd: number | string; fecha_esperada: string };
+
+/**
+ * Las cuotas SIN COBRAR que vencen en el rango (`pagos`, las del plan de pagos de cada ficha del CRM), con el nombre
+ * del lead. Lo cobrado no aparece: ya no es algo que hacer. El lead se lee en una segunda consulta por ids.
+ */
+async function leerCobros(desde: string, hasta: string, tz: string): Promise<ItemCalendario[]> {
+  const db = await getTenantDb();
+  const cuotas = await leerTodo<FilaCuota>(db, 'pagos', 'id, lead_id, numero, monto_usd, fecha_esperada', {
+    orden: 'id', filtros: (q) => q.eq('pagado', false).gte('fecha_esperada', desde).lt('fecha_esperada', hasta),
+  });
+  if (!cuotas.length) return [];
+  const ids = [...new Set(cuotas.map((c) => c.lead_id))];
+  const nombres = new Map<number, string | null>();
+  for (let i = 0; i < ids.length; i += 200) {
+    const { data, error } = await db.from('leads').select('id, nombre').in('id', ids.slice(i, i + 200));
+    if (error) throw new Error(`no pude leer los leads de las cuotas: ${error.message}`);
+    for (const l of (data ?? []) as Array<{ id: number; nombre: string | null }>) nombres.set(Number(l.id), l.nombre);
+  }
+  // Una cuota de un lead que ya no está no es un cobro que se pueda hacer: no se dibuja.
+  return cuotas
+    .filter((c) => nombres.has(Number(c.lead_id)))
+    .map((c) => itemDeCuota(
+      { id: c.id, leadId: Number(c.lead_id), numero: Number(c.numero) || 0, montoUsd: Number(c.monto_usd) || 0, vence: String(c.fecha_esperada).slice(0, 10) },
+      nombres.get(Number(c.lead_id)) ?? null, inicioDelDia(String(c.fecha_esperada).slice(0, 10), tz),
+    ));
 }
 
 /** El inicio y el fin de cada Quarter del rango, y los objetivos que cierran con él. Lleva a /general. */

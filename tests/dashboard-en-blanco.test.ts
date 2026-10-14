@@ -15,6 +15,9 @@
 // cada rotura → 4 / 1: el botón «＋ Nuevo Dashboard» de vuelta en lugar de `CrearHoja`; «Editar» en blanco abriendo el
 // modal (`() => setNuevaHoja(true)`); el modal con su propia copia en vez de montar `CrearHoja`; General sin `sinPaginas`;
 // la barra de filtros de vuelta en General (sin `!esGeneral`); la API de General leyendo el informe crudo.
+// Y la segunda vuelta del 14/10 («Si no tengo tabs no debería salir el botón de editar ni los 3 puntos. Lo mismo para
+// dashboard... Y en el caso de dashboard tampoco el filtro ni la barra de busqueda»; base 5 / 0), cada rotura → 4 / 1:
+// «Editar» en blanco (sin `!enBlanco`), el ⋮ en blanco, y la barra de filtros del Dashboard en blanco.
 //
 // Correr: npx tsx --test tests/dashboard-en-blanco.test.ts
 
@@ -46,7 +49,7 @@ test('General: quien nunca armó la suya arranca en blanco como el Dashboard, y 
   assert.doesNotMatch(run.slice(0, run.indexOf('async function informeDe')), /leerTableroVersionado\(/, 'un runner lee el informe crudo');
 });
 
-test('EditorInforme: en blanco, la caja «¿Qué vas a crear hoy?» con las plantillas (la pieza del modal), y «Editar» edita', () => {
+test('EditorInforme: en blanco, la caja «¿Qué vas a crear hoy?» con las plantillas (la pieza del modal), y nada más en la barra', () => {
   const src = leer('app/dashboard/EditorInforme.tsx');
   assert.match(src, /autoabrir: conGuia && !enBlanco && !editando/);
   // Un return aparte se dibujaba SIN los <style> del editor (12/10: el texto chiquito arriba a la izquierda).
@@ -54,11 +57,12 @@ test('EditorInforme: en blanco, la caja «¿Qué vas a crear hoy?» con las plan
   assert.match(src, /\{enBlanco \? \(\s*<div className="lk-en-blanco lk-en-blanco-crear" onClick=\{\(e\) => e\.stopPropagation\(\)\}>\s*\{guardable && <CrearHoja onCrear=\{crearHoja\} enBlanco="Página 1" informe=\{informe\} \/>\}/);
   assert.doesNotMatch(src, /Nuevo Dashboard/, 'volvió el botón en lugar de la caja');
   assert.match(src, /conHojas=\{!enBlanco && /);
-  // «Editar» en blanco no abre ningún modal: arranca una hoja en blanco, ya editándose.
-  assert.match(src, /onClick=\{enBlanco \? empezarEnBlanco : alternarEdicion\}/);
-  assert.match(src, /const empezarEnBlanco = \(\) => \{ crearHoja\(hojaVacia\('Página 1'\)\); setEditando\(true\); \};/);
-  // En General, la topbar del Dashboard menos la búsqueda y el filtro.
-  assert.match(src, /\{!esGeneral && \(\s*<div className="lk-top-filtros"/);
+  // En blanco no hay «Editar» ni ⋮, y en el Dashboard tampoco el filtro ni la búsqueda (14/10/2026: «Si no tengo tabs no
+  // debería salir el botón de editar ni los 3 puntos. Lo mismo para dashboard»). En General la barra de filtros no va nunca.
+  assert.match(src, /\{!esGeneral && !enBlanco && \(\s*<div className="lk-top-filtros"/);
+  assert.match(src, /\{!soloMirar && !enBlanco && \(\s*<button type="button" className="lk-pill lk-pill--azul"/);
+  assert.match(src, /\{!enBlanco && \(\s*<button type="button" className="lk-pill lk-pill--icono lk-mas"/);
+  assert.doesNotMatch(src, /empezarEnBlanco/, 'volvió el «Editar» de la pantalla en blanco');
 });
 
 test('NuevaHoja: el modal monta la MISMA pieza que la pantalla en blanco, y las plantillas van como páginas', () => {

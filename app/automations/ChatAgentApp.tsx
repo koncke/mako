@@ -512,13 +512,16 @@ function ChatAgentInner() {
    * pantalla llena porque, abierto en el cartel vacío, quedaba VISTO con tres pasos y el del lienzo no salía nunca.
    * Eso lo resuelve `vioVacio` (abajo): si en la MISMA visita aparece el primer lienzo, se reabre UNA vez desde el CRON.
    */
-  const recorrido = useRecorridoAutomations(rolAdmin && visibles !== null && !error && creando === null && !galeria);
+  // ⚠️ Y SIN MaKo ARMANDO EL FLUJO (punto 9 del feedback del 13/10/2026: «el pop-up del recorrido recién cuando la IA
+  // terminó»): la fila ya existe (`creando` vuelve a null) pero MaKo sigue escribiendo sus tarjetas en el lienzo.
+  const [makoTrabajando, setMakoTrabajando] = useState(false);
+  const recorrido = useRecorridoAutomations(rolAdmin && visibles !== null && !error && creando === null && !galeria && !makoTrabajando);
   /** Se mostró el recorrido con la lista vacía en esta visita: el primer lienzo lo reabre con lo que faltó. */
   const vioVacio = useRef(false);
   /** El recorrido muestra sólo los pasos del lienzo (desde el CRON): la reapertura de `vioVacio`. */
   const [soloLienzo, setSoloLienzo] = useState(false);
   const vacia = visibles !== null && visibles.length === 0;
-  const conLienzo = visibles !== null && visibles.length > 0 && creando === null && !galeria;
+  const conLienzo = visibles !== null && visibles.length > 0 && creando === null && !galeria && !makoTrabajando;
   useEffect(() => {
     if (recorrido.abierto && vacia) vioVacio.current = true;
   }, [recorrido.abierto, vacia]);
@@ -764,7 +767,7 @@ function ChatAgentInner() {
           secuencias={visibles} objetivos={objetivos} etiquetaEtapa={etiquetaEtapa} productos={productos} disparadores={disparadores}
           negocio={negocio} rolAdmin={rolAdmin} audios={audios} canalCaido={canalCaido} tz={tz} onAudioNuevo={(a) => setAudios((prev) => [a, ...prev.filter((x) => x.id !== a.id)])}
           onNueva={abrirGaleria} errorNueva={errCrear} onReload={() => void load()}
-          abrir={abrirSec} onElegida={escribirSec}
+          abrir={abrirSec} onElegida={escribirSec} onMakoTrabajando={setMakoTrabajando}
           handoffs={sinCaso}
           /* EL MENÚ, antes del buscador de la lista (undécima tanda, punto 9): «Configuraciones» (el horario de
              oficina y los límites, en un modal: el admin edita, el resto ve) y «Tutorial» (el recorrido). Son de la

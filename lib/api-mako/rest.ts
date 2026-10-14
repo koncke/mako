@@ -29,6 +29,8 @@ export const RUTAS_REST: readonly RutaRest[] = [
   // ── calendario (13/10/2026) ─────────────────────────────────────────────────
   ['GET', '/calendario/eventos', 'listar_eventos_calendario'],
   ['POST', '/calendario/eventos', 'crear_evento_calendario'],
+  ['GET', '/calendario/links-agenda', 'link_agenda_llamada'],
+  ['GET', '/calendario/recurrentes', 'ver_proximas_recurrentes'],
   // ── general ───────────────────────────────────────────────────────────────
   ['GET', '/general/arranque/pendientes', 'listar_pendientes_arranque'],
   ['GET', '/general/capacidad', 'ver_capacidad_instalada'],
@@ -36,6 +38,7 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/general/hojas', 'listar_hojas_general'],
   ['POST', '/general/hojas', 'crear_hoja_general'],
   ['POST', '/general/hojas/{hoja}/bloques', 'agregar_bloque_general'],
+  ['PATCH', '/general/hojas/{hoja}/bloques/{elemento}', 'configurar_bloque_general'],
   ['GET', '/general/kpis', 'listar_kpis'],
   ['POST', '/general/kpis', 'guardar_kpi'],
   ['GET', '/general/kpis/fuentes', 'listar_fuentes_kpi'],
@@ -135,6 +138,10 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/crm/reuniones/proximas', 'reuniones_proximas'],
   ['GET', '/crm/reuniones/recientes', 'reuniones_recientes'],
   ['GET', '/crm/reuniones/sin-lead', 'r2_sin_lead'],
+  // Las sugerencias de MaKo para un CRM (14/10/2026): el CRM va por `?embudoId=` (opcional: sin él, el principal).
+  ['GET', '/crm/sugerencias', 'sugerencias_crm'],
+  // Deshacer un «Ahora no»: borrar el silencio, como `/crm/leads/{leadId}/faltantes/silencio`.
+  ['DELETE', '/crm/sugerencias/{sugerenciaId}/silencio', 'volver_a_mostrar_sugerencia'],
   // ── ads ───────────────────────────────────────────────────────────────────
   ['GET', '/ads/angulos', 'listar_angulos_guion'],
   ['POST', '/ads/angulos', 'proponer_agregar_angulo'],
@@ -258,8 +265,8 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/chatbot/secuencias-archivadas', 'listar_secuencias_archivadas'],
   ['DELETE', '/chatbot/secuencias/{secuenciaId}', 'archivar_secuencia'],
   ['GET', '/chatbot/secuencias/{secuenciaId}', 'ficha_secuencia_mensajes'],
+  ['GET', '/chatbot/secuencias/{secuenciaId}/escenarios', 'escenarios_secuencia'],
   ['PUT', '/chatbot/secuencias/{secuenciaId}/activacion', 'proponer_toggle_nutricion'],
-  ['PUT', '/chatbot/secuencias/{secuenciaId}/caminos/{camino}', 'cambiar_si_contesta_secuencia'],
   ['POST', '/chatbot/secuencias/{secuenciaId}/escenarios', 'agregar_escenario_secuencia'],
   ['PATCH', '/chatbot/secuencias/{secuenciaId}/estrategia', 'guardar_estrategia_secuencia'],
   ['PUT', '/chatbot/secuencias/{secuenciaId}/pasos', 'editar_pasos_secuencia_mensajes'],
@@ -341,6 +348,14 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['DELETE', '/landing/borradores/{id}', 'borrar_borrador_landing'],
   ['GET', '/landing/borradores/{id}', 'ver_borrador_landing'],
   ['GET', '/landing/diagnosticos', 'listar_analisis_landing'],
+  // El editor del Landing Generator (landing_docs, 14/10/2026). `documentos` y no `landings`: ese
+  // recurso ya es el de las declaradas en Integraciones, que son otra cosa.
+  ['GET', '/landing/documentos', 'listar_landings_creadas'],
+  ['POST', '/landing/documentos', 'crear_landing_desde_diseno'],
+  ['GET', '/landing/documentos/{id}', 'ver_landing_creada'],
+  ['DELETE', '/landing/documentos/{id}/publicacion', 'despublicar_landing'],
+  ['PUT', '/landing/documentos/{id}/publicacion', 'publicar_landing'],
+  ['GET', '/landing/plantillas', 'listar_disenos_landing'],
   ['DELETE', '/landing/landings', 'borrar_landing'],
   ['GET', '/landing/landings', 'listar_landings'],
   ['POST', '/landing/landings', 'guardar_landing'],

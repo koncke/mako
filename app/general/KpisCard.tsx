@@ -38,6 +38,7 @@ import {
   type EstadoKpi, type Cadencia, type UnidadObjetivo,
 } from '@/lib/objectives-modelo';
 import { guardarKpiAction, apagarKpiAction, registrarKpiAction, sembrarKpisAction } from './actions';
+import { Cabeza } from './bloques/comun';
 
 export type KpiVista = {
   id: string;
@@ -93,13 +94,8 @@ export function KpisCard({ kpis, candidatos, objetivos, objetivoPrincipalId }: {
       {/* ⚠️ NO ABRE SU PROPIA <section>: la superficie la pone la página, que es la
           que sabe que este bloque es una sección hermana de las otras tres. Una
           tarjeta adentro de una tarjeta es el «nested cards» que la casa veta. */}
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 16, marginBottom: 22 }}>
-        <h2 style={{ fontWeight: 600, fontSize: 25, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)' }}>KPIs</h2>
-        <button type="button" onClick={() => setEditando('nuevo')}
-          style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 13.5, color: 'var(--dim)', cursor: 'pointer' }}>
-          + agregar
-        </button>
-      </div>
+      {/* La cabecera de un bloque de la hoja (./bloques/comun.tsx): el título del tema y «＋ Agregar» donde va un link. */}
+      <Cabeza titulo="KPIs" accion={<button type="button" className="gb-cab-link" onClick={() => setEditando('nuevo')}>＋ Agregar</button>} />
 
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, overflowX: 'auto' }} className="mk-scroll-x">
         {kpis.map((k) => <Barra key={k.id} k={k} onAbrir={() => setEditando(k)} />)}
@@ -269,13 +265,7 @@ function Propuesta({ candidatos, objetivoPrincipalId, onManual }: {
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 16, marginBottom: 20 }}>
-        <h2 style={{ fontWeight: 600, fontSize: 25, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)' }}>KPIs</h2>
-        <button type="button" onClick={onManual}
-          style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 13.5, color: 'var(--dim)', cursor: 'pointer' }}>
-          escribir el mío
-        </button>
-      </div>
+      <Cabeza titulo="KPIs" accion={<button type="button" className="gb-cab-link" onClick={onManual}>Escribir el mío</button>} />
 
       {/* ⚠️ ACÁ NO VAN BARRAS, Y EL INTENTO ANTERIOR LO PROBÓ. La pasada previa
           dibujó la propuesta con los mismos carriles de 132 px del tablero, vacíos,

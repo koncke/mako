@@ -46,6 +46,8 @@ import { EditorControlesComp } from './BarraControles';
 import { Flotante, IconoTipo, SvgCalendario, SvgFlecha, SvgLupa } from './Galeria';
 import { esTarjetaNumero } from './Grafico';
 import { popupInicial } from './Popup';
+import { useEnGeneral } from './ElementoGeneral';
+import { FUENTES_GENERAL } from '@/lib/general-piezas';
 
 const ICONO_AREA: Record<Area, NombreIconoMenu> = {
   Negocio: 'dinero', Marketing: 'anuncio', 'CRM y ventas': 'persona', 'Comunicación': 'whatsapp', Automations: 'repetir',
@@ -100,6 +102,9 @@ export function PropsGrafico({ g, hoja, hoy, enPopup = false, onCambiar, onCambi
 }) {
   const fuente = fuenteDe(g.fuente)!;
   const info = tipoDe(g.tipo)!;
+  // En General, los conjuntos más importantes (`FUENTES_GENERAL`, lib/general-piezas.ts); el que ya tiene se ofrece igual.
+  const enGeneral = useEnGeneral();
+  const fuentesOfrecidas = enGeneral ? FUENTES.filter((f) => (FUENTES_GENERAL as readonly string[]).includes(f.id) || f.id === g.fuente) : FUENTES;
   const dims = dimensionesPara(fuente, g.tipo);
   const desgs = desglosesPara(fuente, g.tipo, g.dimension);
   const mets = metricasPara(fuente, g.tipo);
@@ -137,7 +142,7 @@ export function PropsGrafico({ g, hoja, hoy, enPopup = false, onCambiar, onCambi
         <Seccion titulo="Conjunto de datos">
           <Elegir
             boton={<span className="lk-fuente"><span className="lk-fuente-ico"><IconoMenu nombre={iconoFuente(g.fuente)} size={13} /></span><span className="lk-fuente-nom">{fuente.nombre}</span><SvgFlecha /></span>}
-            opciones={FUENTES.map((f) => ({ id: f.id, nombre: f.nombre, grupo: f.area, ico: <span className="lk-fuente-ico lk-fuente-ico--chico"><IconoMenu nombre={iconoFuente(f.id)} size={11} /></span> }))}
+            opciones={fuentesOfrecidas.map((f) => ({ id: f.id, nombre: f.nombre, grupo: f.area, ico: <span className="lk-fuente-ico lk-fuente-ico--chico"><IconoMenu nombre={iconoFuente(f.id)} size={11} /></span> }))}
             onElegir={(id) => onCambiar({ fuente: id })}
           />
         </Seccion>

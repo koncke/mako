@@ -11,7 +11,9 @@
 // landing y la hoja `CSS_CONTENIDO`, igual que las miniaturas del Panel de escritorio. Va en
 // modo 'miniatura': sin enlaces, formularios ni botones de verdad, sin iframes ni videos (un
 // toque no saca a nadie de MaKo ni manda un formulario de prueba). A este ancho aplica la media
-// query de celular de la hoja: se ve como la ve un visitante en su teléfono. Se dibuja LO
+// query de celular de la hoja: se ve como la ve un visitante en su teléfono. Por eso NO pide los
+// MARCADORES de render.ts (el ▶ del VSL vacío, el video más angosto): la publicada no los tiene, y
+// esta página tiene que coincidir con ella (14/10/2026). Se dibuja LO
 // GUARDADO (las páginas que se publicarían, sin las secciones ocultas), no la foto publicada:
 // es lo que «Publicar cambios» pondría en línea.
 //

@@ -480,3 +480,39 @@ export async function tzDeCalcom(apiKey: string): Promise<string | null> {
     return null;
   }
 }
+
+/**
+ * EL LINK PÚBLICO DE RESERVA de un tipo de evento de Cal.com (14/10/2026: «Agendar llamada» del Calendario).
+ *
+ * `eventType` es lo que el negocio cargó en `CALCOM_EVENT_TYPE_J1`/`_J2`: casi siempre el SLUG de su URL de reserva
+ * («llamada-de-auditoria»); a veces la URL entera. `me` es la respuesta de `GET /v2/me` (`{ data: { username } }`).
+ *
+ * ⚠️ NO MEDIDO contra una cuenta real (14/10/2026): la forma `https://cal.com/<usuario>/<slug>` es la pública de
+ *    Cal.com para una cuenta personal. Por eso lo que no se puede armar SIN ADIVINAR devuelve null: un id numérico o un
+ *    nombre visible (no son un slug), y una cuenta de ORGANIZACIÓN (su URL vive en el dominio de la organización). Un
+ *    link inventado manda a reservar a una página que no existe; null le dice a la pantalla que lo diga.
+ */
+export function linkDeReservaCalcom(eventType: string | null | undefined, me: unknown): string | null {
+  const et = (eventType ?? '').trim();
+  if (!et) return null;
+  if (/^https:\/\//i.test(et)) {
+    try { return new URL(et).toString(); } catch { return null; }
+  }
+  if (!/^[a-z0-9][a-z0-9-]*$/i.test(et) || /^\d+$/.test(et)) return null;
+  const raiz = me && typeof me === 'object' ? (me as { data?: unknown }).data ?? me : null;
+  const d = raiz && typeof raiz === 'object' ? (raiz as { username?: unknown; organizationId?: unknown }) : null;
+  const usuario = typeof d?.username === 'string' ? d.username.trim() : '';
+  if (!/^[a-z0-9._-]+$/i.test(usuario)) return null;
+  if (d?.organizationId != null) return null;
+  return `https://cal.com/${usuario}/${et}`;
+}
+
+/** `GET /v2/me` de Cal.com (el usuario de la API key), o null si no contesta. Lo lee `linkDeAgenda` (lib/agenda-link.ts). */
+export async function perfilDeCalcom(apiKey: string): Promise<unknown> {
+  try {
+    const r = await fetch(`${CALCOM_API.base}/me`, { headers: calcomHeaders(apiKey), cache: 'no-store', signal: AbortSignal.timeout(5000) });
+    return r.ok ? await r.json() : null;
+  } catch {
+    return null;
+  }
+}

@@ -101,12 +101,29 @@ test('cada tema: id único (el nombre en minúsculas sin espacios), fuentes del 
 test('el catálogo trae los 18 temas medidos y entre 10 y 16 «Standard» aproximados de captura; el default existe', () => {
   const medidos = ['Eclipse', 'Ultraviolet', 'Lawn', 'Syntax', 'Torch', 'Circuit', 'Pewter', 'Sapphire', 'Cirrus',
     'Espresso', 'Periwinkle', 'Botanical', 'Primer', 'Mint', 'Canyon', 'Anvil', 'Malachite', 'Terrain'];
-  const nombres = TEMAS.filter((t) => !t.aproximado).map((t) => t.nombre);
+  const nombres = TEMAS.filter((t) => !t.aproximado && !t.deMako).map((t) => t.nombre);
   assert.deepEqual(nombres, medidos, 'los medidos, con sus nombres y en el orden de gamma-tokens §4');
   const aprox = TEMAS.filter((t) => t.aproximado).length;
   assert.ok(aprox >= 10 && aprox <= 16, aprox + ' temas aproximados');
+  // Los PROPIOS de MaKo (14/10/2026: el diseño «MaKo» de la grilla, copiado de su landing app/vsl): ni
+  // medidos ni de captura, al final del catálogo. Pasan todo lo demás de este archivo como cualquier tema.
+  assert.deepEqual(TEMAS.filter((t) => t.deMako).map((t) => t.id), ['mako']);
+  assert.ok(TEMAS.every((t) => !(t.deMako && t.aproximado)), 'un tema de MaKo no es aproximado');
+  assert.equal(TEMAS.at(-1)?.id, 'mako', 'los de MaKo van al final de la galería');
   assert.equal(TEMA_DEFAULT_ID, CONFIG_DEFAULT.tema);
   assert.ok(TEMAS.some((t) => t.id === CONFIG_DEFAULT.tema), 'CONFIG_DEFAULT.tema (' + CONFIG_DEFAULT.tema + ') no está en TEMAS');
+});
+
+// Roturas (14/10/2026, en memoria, restauradas y verificadas por hash; base: 19 pasan, 0 fallan): Geist fuera
+// de FUENTES → 16 / 3 (éste, «cada tema…» y urlFuentes); el tema MaKo sin `deMako` → 18 / 1 (el catálogo:
+// contaba como medido); su texto en #bbbbbb → 18 / 1 (el contraste).
+test('el tema MaKo: Geist (la de su landing) está en el catálogo de Google Fonts con los pesos que usa', () => {
+  const mako = temaPorId('mako');
+  assert.equal(mako.id, 'mako', 'temaPorId(«mako») cae al default');
+  assert.deepEqual([mako.fuentes.titulo, mako.fuentes.cuerpo], [{ familia: 'Geist', peso: 600 }, { familia: 'Geist', peso: 400 }]);
+  assert.ok(FUENTES.Geist && FUENTES.Geist.tipo === 'sans' && [400, 600].every((p) => FUENTES.Geist.pesos.includes(p)), 'Geist no está en FUENTES');
+  assert.match(urlFuentes([mako]), /family=Geist:wght@400;600(;\d+)*&display=swap$/);
+  assert.equal(mako.colores.boton, '#2f6fed');
 });
 
 test('el texto se lee sobre la tarjeta de cada tema (contraste ≥ 4.5, también esmerilada)', () => {

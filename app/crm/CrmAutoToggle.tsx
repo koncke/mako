@@ -1,8 +1,14 @@
 'use client';
 
 // =============================================================================
-// CRM automático (tarea #5) — el estado y el POST. La FILA la dibuja el kebab.
+// CRM automático (tarea #5) — el estado y el POST. HOY NADIE LO DIBUJA.
 // =============================================================================
+// ⚠️ SIN CALL SITES DESDE EL 14/10/2026. La fila del «⋯» se fue: «elimina el botón de
+// "CRM Automático", para eso ya llevamos todo a Automations». El motor sigue (lib/crm-auto*,
+// el cron, /api/crm-auto) y el flag se maneja por `activar_crm_automatico`. El archivo queda
+// sólo porque app/admin/dev/areas.ts lo nombra en `vive` y tests/dev-areas.test.ts exige que
+// exista: se borra junto con esa línea.
+//
 // Lee y cambia el interruptor POR WORKSPACE del CRM automático (MaKo mueve leads
 // solo). Solo lo ve el admin del workspace: /api/crm-auto responde 403 al resto y
 // `on` se queda en null, así que la fila no se dibuja.

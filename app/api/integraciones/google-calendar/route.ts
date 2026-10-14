@@ -17,7 +17,8 @@ import { NextResponse, type NextRequest } from 'next/server';
 import crypto from 'node:crypto';
 import { adminDeWorkspaceActual } from '@/lib/workspace';
 import { conWs } from '@/lib/ws-tab';
-import { armarEstadoGcal } from '@/lib/gcal-estado';
+import { armarEstadoGcal, destinoGcal } from '@/lib/gcal-estado';
+import { volverSeguro } from '@/lib/meta-login';
 import { GCAL_SCOPE, googleRedirectUri } from '@/lib/google-calendar';
 
 export const dynamic = 'force-dynamic';
@@ -29,10 +30,14 @@ export async function GET(req: NextRequest) {
   // que alguien llame, es el href de un botón adentro de un modal. El 403 crudo
   // que veía el cliente ("Solo el workspace principal…") era una pared sin
   // vuelta atrás; GCAL_MSG ya sabe traducir estos motivos en /integraciones.
+  //
+  // ⚠️ Y vuelve a la pantalla DE LA QUE SALIÓ (`?volver=`, 14/10/2026): el modal de
+  // /integraciones se abre en cualquier tab, y para una integración no se sale de
+  // la tab (AGENTS.md). Sin `volver`, a /integraciones como siempre.
+  const volver = url.searchParams.get('volver');
   const fail = (motivo: string, ws?: number) => {
-    const d = new URL('/integraciones', url.origin);
-    d.searchParams.set('gcal', motivo);
-    return NextResponse.redirect(ws ? new URL(conWs(`${d.pathname}${d.search}`, ws), url.origin) : d);
+    const d = destinoGcal(volver, motivo);
+    return NextResponse.redirect(new URL(ws ? conWs(d, ws) : d, url.origin));
   };
 
   const ws = await adminDeWorkspaceActual();
@@ -69,5 +74,7 @@ export async function GET(req: NextRequest) {
   //     en SU workspace, sin error: tile verde en el lugar equivocado.
   // La cookie es httpOnly y la escribe este paso, que ya autorizó el ws.
   res.cookies.set({ name: 'gcal_state', value: armarEstadoGcal(state, ws), httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/', maxAge: 600 });
+  // La pantalla a la que vuelve, ya saneada (sólo un path de esta app). El callback la vuelve a sanear al leerla.
+  res.cookies.set({ name: 'gcal_volver', value: volverSeguro(volver), httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/', maxAge: 600 });
   return res;
 }

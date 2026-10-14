@@ -45,7 +45,7 @@ import { getSupabaseServer } from '@/lib/supabase';
 import { leerTableroVersionado, guardarTableroSi } from '@/lib/graficos-tablero';
 import { instanciarPlantilla } from '@/lib/graficos-plantillas';
 import { MAX_HOJAS, abajoDeTodo, esElemento, esGrafico, nuevoId, sanearElemento, tituloDe } from '@/lib/graficos-catalogo';
-import { PIEZAS_GENERAL, esPiezaGeneral, piezaGeneral, piezaPorFunnel } from '@/lib/general-piezas';
+import { PIEZAS_GENERAL, esPiezaGeneral, opcionesDePieza, piezaGeneral, piezaPorFunnel, sanearOpciones, type OpcionesElegidas, type PiezaGeneral } from '@/lib/general-piezas';
 import { leerFunnelsDeGeneral, type FunnelDeGeneral } from '@/lib/general-alcance';
 import { PLANTILLAS_GENERAL, elegirPersona, type PersonaGeneral } from '@/lib/general-plantillas';
 
@@ -711,7 +711,11 @@ export const RUNNERS: Runners = {
       const admins = await adminsDeLaCuenta(ctx.ws);
       const funnels = await leerFunnelsDeGeneral();
       const base = {
-        bloques: PIEZAS_GENERAL.map((b) => ({ id: b.id, nombre: b.nombre, que_muestra: b.linea, grupo: b.grupo, ...(piezaPorFunnel(b.id) ? { se_ata_a_un_funnel: true } : {}) })),
+        bloques: PIEZAS_GENERAL.map((b) => ({
+          id: b.id, nombre: b.nombre, que_muestra: b.linea,
+          ...(piezaPorFunnel(b.id) ? { se_ata_a_un_funnel: true } : {}),
+          opciones: opcionesDePieza(b.id).map((o) => ({ id: o.id, nombre: o.nombre, valores: o.valores.map((v) => ({ id: v.id, nombre: v.nombre })), por_defecto: o.def })),
+        })),
         plantillas: PLANTILLAS_GENERAL.map((p) => ({ id: p.id, nombre: p.nombre, que_trae: p.linea })),
         funnels: funnels ? funnels.map((f) => ({ id: f.id, nombre: f.nombre, principal: f.esDefault })) : 'no se pudieron leer',
       };
@@ -725,7 +729,7 @@ export const RUNNERS: Runners = {
         hojas: l.tablero.hojas.map((h) => ({
           id: h.id, nombre: h.nombre, plantilla: h.plantilla ?? null,
           bloques: h.componentes.flatMap((c) => (esElemento(c) && c.tipo === 'general' && c.general
-            ? [c.general.funnel ? { bloque: c.general.pieza, funnel: c.general.funnel } : { bloque: c.general.pieza }] : [])),
+            ? [{ id: c.id, bloque: c.general.pieza, ...(c.texto ? { titulo: c.texto } : {}), ...(c.general.funnel ? { funnel: c.general.funnel } : {}), ...(c.general.opciones ? { opciones: c.general.opciones } : {}) }] : [])),
           graficos: h.componentes.filter(esGrafico).map((g) => tituloDe(g)),
           textos: h.componentes.filter((c) => esElemento(c) && c.tipo === 'texto').map((c) => (esElemento(c) ? c.texto.slice(0, 80) : '')),
         })),
@@ -782,16 +786,14 @@ export const RUNNERS: Runners = {
       const pedidoFunnel = str(input, 'funnel');
       let funnel: FunnelDeGeneral | null = null;
       if (pedidoFunnel) {
-        if (!piezaPorFunnel(pieza)) return { error: `«${piezaGeneral(pieza).nombre}» mide el negocio entero: no se ata a un funnel.` };
-        const funnels = await leerFunnelsDeGeneral();
-        if (!funnels) return { error: 'No pude leer los funnels del negocio: vuelve a pedirlo en un rato.' };
-        const n = pedidoFunnel.trim().toLowerCase();
-        const hay = funnels.filter((f) => String(f.id) === n || f.nombre.trim().toLowerCase() === n);
-        if (hay.length !== 1) return { error: hay.length ? `Hay ${hay.length} funnels que se llaman «${pedidoFunnel}»: pasa su id.` : `No hay un funnel «${pedidoFunnel}». Son: ${funnels.map((f) => `${f.id} · ${f.nombre}`).join(', ')}.` };
-        funnel = hay[0];
+        const f = await funnelPedido(pieza, pedidoFunnel);
+        if ('error' in f) return f;
+        funnel = f.funnel;
       }
+      const op = opcionesPedidas(pieza, input.opciones);
+      if ('error' in op) return op;
       return {
-        payload: { sub: e.persona.sub, hojaId: hoja.id, pieza, titulo, ...(funnel ? { funnel: funnel.id } : {}) },
+        payload: { sub: e.persona.sub, hojaId: hoja.id, pieza, titulo, ...(funnel ? { funnel: funnel.id } : {}), ...(op.opciones ? { opciones: op.opciones } : {}) },
         resumen: `Agregar «${piezaGeneral(pieza).nombre}»${funnel ? ` del funnel «${funnel.nombre}»` : ''} al final de la hoja «${hoja.nombre}» de General${titulo ? `, con el título «${titulo}»` : ''}.`,
       };
     },
@@ -806,7 +808,7 @@ export const RUNNERS: Runners = {
         const info = piezaGeneral(pieza);
         const elemento = sanearElemento({
           id: nuevoId(), clase: 'elemento', tipo: 'general', texto: String(payload.titulo ?? ''),
-          general: typeof payload.funnel === 'number' ? { pieza, funnel: payload.funnel } : { pieza },
+          general: { pieza, ...(typeof payload.funnel === 'number' ? { funnel: payload.funnel } : {}), ...(payload.opciones ? { opciones: sanearOpciones(pieza, payload.opciones) } : {}) },
           x: 0, y: abajoDeTodo(hoja.componentes), w: info.w, h: info.h,
         });
         if (!elemento) return { ok: false, resumen: 'El bloque no es válido: no se agregó.' };
@@ -820,7 +822,104 @@ export const RUNNERS: Runners = {
       }
     },
   },
+
+  // Las opciones de un bloque que ya está (14/10/2026: el panel del bloque las ofrece, y la API tiene que poder lo mismo).
+  configurar_bloque_general: {
+    preparar: async (input, ctx): Promise<Preparado> => {
+      const admins = await adminsDeLaCuenta(ctx.ws);
+      const e = elegirPersona(admins, str(input, 'persona'));
+      if (!e.ok) return { error: e.error };
+      const l = await informeDe(e.persona.sub);
+      const hoja = l.tablero.hojas.find((h) => h.id === str(input, 'hoja'));
+      if (!hoja) return { error: 'No hay esa hoja en su General. Pide los ids con listar_hojas_general.' };
+      const c = hoja.componentes.find((x) => x.id === str(input, 'elemento'));
+      if (!c || !esElemento(c) || c.tipo !== 'general' || !c.general) return { error: `No hay ese bloque en «${hoja.nombre}». Pide los ids con listar_hojas_general.` };
+      const pieza = c.general.pieza;
+      const cambios: Record<string, unknown> = {};
+      const partes: string[] = [];
+      if (input.opciones != null) {
+        const op = opcionesPedidas(pieza, input.opciones);
+        if ('error' in op) return op;
+        cambios.opciones = { ...(c.general.opciones ?? {}), ...(op.crudas ?? {}) };
+        partes.push(`las opciones (${Object.entries(op.crudas ?? {}).map(([k, v]) => `${k}: ${v}`).join(', ')})`);
+      }
+      const titulo = str(input, 'titulo');
+      if (titulo != null) { cambios.titulo = titulo.slice(0, 80); partes.push(titulo ? `el título a «${titulo.slice(0, 80)}»` : 'el título al de siempre'); }
+      const pedidoFunnel = str(input, 'funnel');
+      if (pedidoFunnel != null) {
+        if (/^ningun[oa]?$/i.test(pedidoFunnel.trim())) { cambios.funnel = null; partes.push('el funnel al de siempre'); }
+        else {
+          const f = await funnelPedido(pieza, pedidoFunnel);
+          if ('error' in f) return f;
+          cambios.funnel = f.funnel.id;
+          partes.push(`el funnel a «${f.funnel.nombre}»`);
+        }
+      }
+      if (!partes.length) return { error: 'No pasaste nada para cambiar (opciones, título o funnel).' };
+      return {
+        payload: { sub: e.persona.sub, hojaId: hoja.id, elementoId: c.id, ...cambios },
+        resumen: `Cambiar en «${piezaGeneral(pieza).nombre}» (hoja «${hoja.nombre}» de General) ${partes.join(', ')}.`,
+      };
+    },
+    ejecutar: async (payload): Promise<Ejecutado> => {
+      try {
+        const sub = String(payload.sub);
+        const actual = await informeDe(sub);
+        const hoja = actual.tablero.hojas.find((h) => h.id === payload.hojaId);
+        const c = hoja?.componentes.find((x) => x.id === payload.elementoId);
+        if (!hoja || !c || !esElemento(c) || c.tipo !== 'general' || !c.general) return { ok: false, resumen: 'Ese bloque ya no está en su General: no se cambió.' };
+        const g = c.general;
+        const funnel = payload.funnel === null ? undefined : typeof payload.funnel === 'number' ? payload.funnel : g.funnel;
+        const crudo = {
+          ...c,
+          texto: typeof payload.titulo === 'string' ? payload.titulo : c.texto,
+          general: { pieza: g.pieza, ...(funnel != null ? { funnel } : {}), opciones: payload.opciones ?? g.opciones },
+        };
+        const nuevo = sanearElemento(crudo);
+        if (!nuevo) return { ok: false, resumen: 'El bloque no quedó válido: no se cambió.' };
+        const hojas = actual.tablero.hojas.map((h) => (h.id === hoja.id ? { ...h, componentes: h.componentes.map((x) => (x.id === c.id ? nuevo : x)) } : h));
+        const r = await guardarTableroSi(sub, { ...actual.tablero, hojas }, actual.version, 'general');
+        if (!r.ok) return { ok: false, resumen: 'General cambió en el medio (alguien la editó): vuelve a pedirlo.' };
+        try { revalidatePath('/general'); } catch { /* fuera de un request: vence sola */ }
+        return { ok: true, resumen: `«${piezaGeneral(g.pieza).nombre}» cambiado.`, datos: { elementoId: c.id } };
+      } catch (e) {
+        return { ok: false, resumen: `No se pudo cambiar el bloque (${e instanceof Error ? e.message : 'error'}).` };
+      }
+    },
+  },
 };
+
+/** El funnel que se pidió para un bloque: sólo en los que saben atarse a uno, y uno que EXISTE (por id o por nombre exacto). */
+async function funnelPedido(pieza: PiezaGeneral, pedido: string): Promise<{ funnel: FunnelDeGeneral } | { error: string }> {
+  if (!piezaPorFunnel(pieza)) return { error: `«${piezaGeneral(pieza).nombre}» mide el negocio entero: no se ata a un funnel.` };
+  const funnels = await leerFunnelsDeGeneral();
+  if (!funnels) return { error: 'No pude leer los funnels del negocio: vuelve a pedirlo en un rato.' };
+  const n = pedido.trim().toLowerCase();
+  const hay = funnels.filter((f) => String(f.id) === n || f.nombre.trim().toLowerCase() === n);
+  if (hay.length !== 1) return { error: hay.length ? `Hay ${hay.length} funnels que se llaman «${pedido}»: pasa su id.` : `No hay un funnel «${pedido}». Son: ${funnels.map((f) => `${f.id} · ${f.nombre}`).join(', ')}.` };
+  return { funnel: hay[0] };
+}
+
+/**
+ * Las opciones que se pidieron para un bloque: un valor que no existe es un error (dice cuáles hay), no se tira en
+ * silencio. `crudas` son las pedidas tal cual (válidas); `opciones`, las que quedan distintas de las de entrada.
+ */
+function opcionesPedidas(pieza: PiezaGeneral, crudo: unknown): { opciones?: OpcionesElegidas; crudas?: Record<string, string> } | { error: string } {
+  if (crudo == null) return {};
+  let obj: unknown = crudo;
+  if (typeof crudo === 'string') { try { obj = JSON.parse(crudo); } catch { obj = null; } }
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return { error: 'Las opciones van como {opción: valor}.' };
+  const ofrecidas = opcionesDePieza(pieza);
+  const crudas: Record<string, string> = {};
+  for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
+    const o = ofrecidas.find((x) => x.id === k);
+    if (!o) return { error: `«${piezaGeneral(pieza).nombre}» no tiene la opción «${k}». ${ofrecidas.length ? `Tiene: ${ofrecidas.map((x) => x.id).join(', ')}.` : 'No tiene opciones.'}` };
+    if (typeof v !== 'string' || !o.valores.some((x) => x.id === v)) return { error: `«${k}» va con uno de: ${o.valores.map((x) => x.id).join(', ')}.` };
+    crudas[k] = v;
+  }
+  const opciones = sanearOpciones(pieza, crudas);
+  return { crudas, ...(opciones ? { opciones } : {}) };
+}
 
 /**
  * El informe de General de una persona como lo ve SU pantalla (14/10/2026): quien nunca armó el suyo, SIN hojas. La General
