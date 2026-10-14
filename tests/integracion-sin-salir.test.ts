@@ -22,6 +22,8 @@
 //   · `CapaIntegracion` sin `createPortal` → 4 / 1;
 //   · app/landing-analyst/PulsoPaginas.tsx sin su link (una excepción que ya no corresponde) → 4 / 1.
 // Restaurado: 5 / 0.
+// Y los dos del cobro de la landing (14/10/2026, mismo arnés): el `<Link href="/integraciones" target="_blank">` de
+// vuelta en DialogoPublicar → 3 / 2 (el barrido y «lo que se convirtió»); en CobroBoton → 3 / 2. Restaurado: 5 / 0.
 //
 // Correr: npx tsx --test tests/integracion-sin-salir.test.ts
 
@@ -123,6 +125,9 @@ test('lo que se convirtió el 14/10/2026 abre el modal y no navega', () => {
     ['app/automations/EditorDisparadores.tsx', /<BotonIntegracion servicio="mercadopago" /],
     ['app/automations/ChatMako.tsx', /<LinkIntegracion href=\{link\}/],
     ['app/email/EmailApp.tsx', /<BotonIntegracion servicio="email" /],
+    // El cobro de la landing (Stripe, y sólo Stripe: `pasarelaDeLanding`): el aviso de Publicar y el panel del botón.
+    ['app/landing-generator/editor/dialogos/DialogoPublicar.tsx', /<BotonIntegracion servicio="stripe" onConectado=\{recargarCobro\}/],
+    ['app/landing-generator/editor/nodos/CobroBoton.tsx', /onClick=\{\(e\) => \{ e\.stopPropagation\(\); abrir\('stripe'\); \}\}/],
   ];
   for (const [f, re] of casos) {
     const src = sinComentarios(leer(f));
