@@ -453,9 +453,13 @@ test('el aviso de las ventanas: un componente, con flecha y en un portal, y el �
   assert.match(aviso, /TITULO_VENTANAS = 'Habilita las ventanas emergentes'/);
   const probar = sinComentarios(leer('app/integraciones/ProbarTracking.tsx'));
   assert.match(probar, /<AvisoVentanasBloqueadas abierto=\{sinPermiso\}/);
-  assert.match(probar, /if \(!chico \|\| chico\.closed\)/, 'cerrada al instante = bloqueada');
-  const i = probar.indexOf('if (!chico || chico.closed)');
-  assert.ok(i > 0 && i < probar.indexOf("window.open(`${base}${sep}mko_test="), 'la landing se abre DESPUÉS del chequeo');
+  // Tanda 6 (la pantalla): la pestaña de la landing también se abre vacía en el clic, y su bloqueo frena igual,
+  // ANTES del chequeo (la misma condición se repite después del `await`: la primera es la que vale).
+  // Rotura (14/10/2026, de memoria, verificada por hash; base 18 / 0): la del clic sin `!pestana` → 17 / 1.
+  const i = probar.indexOf('if (!chico || chico.closed || !pestana || pestana.closed) {');
+  const iFetch = probar.indexOf("await fetch('/api/integraciones/landing/estado?diag=1'");
+  assert.ok(i > 0 && i < iFetch, 'cerrada al instante = bloqueada, en el clic');
+  assert.ok(iFetch < probar.indexOf("pestana.location.replace(`${base}${sep}mko_test="), 'la landing navega DESPUÉS del chequeo');
   const hook = sinComentarios(leer('app/landing-generator/lector/useLectorEnNavegador.tsx'));
   assert.ok(hook.indexOf('leerEnNavegador(url, opciones)') < hook.indexOf('setLeyendo(true)'), 'la ventana se abre antes de tocar el estado');
 });

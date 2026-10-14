@@ -269,6 +269,15 @@ test('«Probar» del Pixel: la ventana se abre en el clic, ANTES del chequeo; si
   assert.match(arrancar, /if \(viejo\) \{ cerrarVentana\(\); setBloqueo\(true\); return; \}/);
   assert.match(arrancar, /chico\.location\.replace\(\s*conWs\(`\/integraciones\/escuchando\?p=\$\{id\}/);
   assert.equal((arrancar.match(/window\.open\(conWs\(/g) ?? []).length, 0, 'la ventana de la prueba se abre una sola vez, en el clic');
+  // Y la pestaña de la LANDING también, antes del chequeo (sin permiso para el sitio, Chrome deja UNA ventana
+  // por clic: abierta después, la landing quedaba bloqueada callada). Su bloqueo frena la prueba igual.
+  // Rotura (14/10/2026, de memoria, verificada por hash; base 14 / 0): la pestaña de la landing no se abre
+  // en el clic (`pestana = chico`) → 13 / 1; la condición del clic sin `!pestana` → 13 / 1. Sólo éste, las dos.
+  const iPestana = arrancar.indexOf("pestana = window.open('about:blank', '_blank')");
+  assert.ok(iPestana > iAbre && iFetch > iPestana, 'la pestaña de la landing se abre en el clic, después de la ventana y antes del chequeo');
+  assert.doesNotMatch(arrancar, /'noopener'\)/, 'una pestaña con noopener no dice si la bloquearon');
+  const iBloqueo = arrancar.indexOf('if (!chico || chico.closed || !pestana || pestana.closed) {');
+  assert.ok(iBloqueo > iPestana && iBloqueo < iFetch, 'si la pestaña no abre, la prueba no arranca (en el clic, antes del chequeo)');
 });
 
 test('el editor marca la cifra «[00]%» de un ítem (el NodeView pide `completar`)', () => {

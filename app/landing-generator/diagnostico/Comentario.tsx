@@ -5,10 +5,18 @@
 // =============================================================================
 // Tanda 2, punto 7 (docs/diseno-editor-landing.md, T5): «que queden guardados todos los comentarios y
 // sugerencias y claro, la opción de solucionarlo allí mismo con IA». Cada fila: la severidad, el título,
-// la cita que señala, la sugerencia (y el porqué, plegado), y sus acciones:
+// la cita que señala, la sugerencia (y el porqué, plegado), y sus acciones.
+//
+// Tanda 6, decisión (c) de Martín (14/10/2026): «"Aplicar" de cada comentario del Diagnóstico = un clic,
+// con la versión guardada antes y "Deshacer"; más "Aplicar todos" […] y "Preguntar a MaKo" (el chat de
+// MaKo al costado con el comentario). En una landing externa, "Aplicar" lleva a replicar primero y los
+// comentarios pasan a la copia.» Las acciones:
+//   · «Aplicar»: UN clic, sin revisar antes (era «Solucionar con IA» + «Aceptar»: dos pasos). En una landing
+//     nuestra hace falta saber de qué sección es; en una de afuera, replica primero (el panel decide).
+//     Aplicado, queda «Deshacer» (si es lo último que se aplicó) y «Ver cambio»: el «Original | Modificado»
+//     de antes, ahora para mirar DESPUÉS lo que cambió;
+//   · «Preguntar a MaKo»: el chat de MaKo al costado, con este comentario (lo abre el panel);
 //   · «Ver»: el recorrido desde este comentario (o sólo éste, si ya no está pendiente);
-//   · «Solucionar con IA» (sólo en una landing nuestra y si se sabe de qué sección es): la propuesta se
-//     revisa ACÁ con «Original | Modificado» (como el agente del editor, Gamma 5) y «Aceptar» la guarda;
 //   · «Resuelta» / «Descartar», y «Reabrir» las que ya no están pendientes. Nunca se borra.
 // El trabajo (los pedidos) lo hace el panel; esto sólo dibuja y avisa.
 // =============================================================================
@@ -21,45 +29,54 @@ import type { Sugerencia } from '@/lib/editor-landing/diagnostico';
 import { Ico, MiniaturaLanding } from '../MiniaturaLanding';
 import type { Ubicacion } from './vista';
 
-/** Lo que pasa con «Solucionar con IA» de un comentario. */
+/** Lo que pasa con «Aplicar» de un comentario. */
 export type EstadoArreglo =
-  | { fase: 'pidiendo' }
-  | { fase: 'revision' | 'aplicando'; original: JsonNodo; propuestas: JsonNodo[] }
+  | { fase: 'en-cola' | 'aplicando' }
+  | { fase: 'aplicado'; original: JsonNodo; nuevas: JsonNodo[] }
+  | { fase: 'deshaciendo' }
   | { fase: 'error'; error: string };
 
 const SEVERIDAD: Record<string, string> = { alta: 'Alta', media: 'Media', baja: 'Baja' };
 
 export function Comentario({
-  s, activa, ubicacion, deNuestra, tema, formato, proporcion, arreglo,
-  onVer, onEstado, onSolucionar, onAceptar, onDescartarPropuesta,
+  s, activa, ubicacion, tema, formato, proporcion, arreglo, puedeAplicar, ocupado,
+  onVer, onEstado, onAplicar, onPreguntar, onDeshacer,
 }: {
   s: Sugerencia;
   activa: boolean;
   /** null = no se encontró la cita; undefined = la vista todavía no lo sabe. */
   ubicacion: Ubicacion | undefined;
-  /** Una landing nuestra (hay «Solucionar con IA» y miniaturas). */
-  deNuestra: boolean;
+  /** El tema de una landing nuestra (las miniaturas de «Ver cambio»); null en una de afuera. */
   tema: Tema | null;
   formato: FormatoDoc;
   proporcion: Proporcion;
   arreglo: EstadoArreglo | undefined;
+  /** Hay «Aplicar» (pendiente y, en una nuestra, con su sección). Lo decide el panel. */
+  puedeAplicar: boolean;
+  /** Otra aplicación está corriendo («Aplicar todos», una réplica): los botones que escriben esperan. */
+  ocupado: boolean;
   onVer: () => void;
   onEstado: (estado: Sugerencia['estado']) => void;
-  onSolucionar: () => void;
-  onAceptar: () => void;
-  onDescartarPropuesta: () => void;
+  onAplicar: () => void;
+  onPreguntar: () => void;
+  /** Sólo si es lo último que se aplicó (la pila de Deshacer, lib/editor-landing/diagnostico.ts). */
+  onDeshacer?: () => void;
 }) {
+  const [verCambio, setVerCambio] = useState(false);
   const [vista, setVista] = useState<'original' | 'modificado'>('modificado');
   const h = s.hallazgo;
   const pendiente = s.estado === 'pendiente';
-  const ocupado = arreglo?.fase === 'pidiendo' || arreglo?.fase === 'aplicando';
-  const puedeIA = deNuestra && pendiente && !!s.seccionId;
+  const trabajando = arreglo?.fase === 'en-cola' || arreglo?.fase === 'aplicando' || arreglo?.fase === 'deshaciendo';
+  const aplicado = arreglo?.fase === 'aplicado' ? arreglo : null;
+  const quieto = ocupado || trabajando;
 
   return (
-    <li className="gdg-com" data-activa={activa ? 'si' : undefined} data-estado={s.estado}>
+    <li className="gdg-com" data-activa={activa ? 'si' : undefined} data-estado={aplicado ? 'aplicada' : s.estado}>
       <div className="gdg-com-cab">
         <span className="gdg-sev" data-sev={h.severidad}>{SEVERIDAD[h.severidad] ?? h.severidad}</span>
-        {s.estado !== 'pendiente' && <span className="gdg-com-estado">{s.estado === 'resuelta' ? 'Resuelta' : 'Descartada'}</span>}
+        {aplicado
+          ? <span className="gdg-com-estado gdg-com-estado--ok"><Ico n="check" t={12} /> Aplicada</span>
+          : s.estado !== 'pendiente' && <span className="gdg-com-estado">{s.estado === 'resuelta' ? 'Resuelta' : 'Descartada'}</span>}
         {ubicacion === null && <span className="gdg-com-sin" title="No encontré esta cita en la página">Sin ubicar</span>}
       </div>
       <button type="button" className="gdg-com-tit" onClick={onVer} title="Ver en la página">{h.titulo}</button>
@@ -72,49 +89,60 @@ export function Comentario({
         </details>
       )}
 
-      {arreglo?.fase === 'pidiendo' && (
-        <p className="gdg-com-trabajando"><span className="gp-giro" aria-hidden /> Revisando… hasta 1 minuto.</p>
+      {arreglo?.fase === 'en-cola' && (
+        <p className="gdg-com-trabajando"><span className="gp-giro" aria-hidden /> En cola…</p>
+      )}
+      {arreglo?.fase === 'aplicando' && (
+        <p className="gdg-com-trabajando"><span className="gp-giro" aria-hidden /> Aplicando… hasta 1 minuto.</p>
+      )}
+      {arreglo?.fase === 'deshaciendo' && (
+        <p className="gdg-com-trabajando"><span className="gp-giro" aria-hidden /> Deshaciendo…</p>
       )}
       {arreglo?.fase === 'error' && <p className="gdg-com-error" role="alert">{arreglo.error}</p>}
-      {(arreglo?.fase === 'revision' || arreglo?.fase === 'aplicando') && (
-        <div className="gdg-com-revision">
-          <div className="gdg-segmento" role="group" aria-label="Comparar">
-            <button type="button" aria-pressed={vista === 'original'} onClick={() => setVista('original')}>Original</button>
-            <button type="button" aria-pressed={vista === 'modificado'} onClick={() => setVista('modificado')}>Modificado</button>
-          </div>
-          {tema && (vista === 'original' ? [arreglo.original] : arreglo.propuestas).map((t, k) => (
-            <div key={k} className="gdg-com-mini">
-              <MiniaturaLanding tarjeta={t} tema={tema} formato={formato} proporcion={proporcion} entera />
-            </div>
-          ))}
-          <div className="gdg-com-acciones">
-            {arreglo.fase === 'aplicando'
-              ? <span className="gdg-com-trabajando"><span className="gp-giro" aria-hidden /> Aplicando el cambio…</span>
-              : (
-                <>
-                  <button type="button" className="gp-btn gp-btn-fantasma" onClick={onDescartarPropuesta}>Descartar</button>
-                  <button type="button" className="gp-btn gp-btn-primario" onClick={onAceptar}>Aceptar</button>
-                </>
-              )}
-          </div>
-        </div>
-      )}
 
-      {!(arreglo?.fase === 'revision' || arreglo?.fase === 'aplicando') && (
+      {aplicado ? (
+        <>
+          <div className="gdg-com-acciones">
+            {onDeshacer && (
+              <button type="button" className="gp-btn gp-btn-contorno" disabled={quieto} onClick={onDeshacer}><Ico n="deshacer" t={14} /> Deshacer</button>
+            )}
+            {tema && (
+              <button type="button" className="gp-btn gp-btn-fantasma" aria-expanded={verCambio} onClick={() => setVerCambio((v) => !v)}>
+                <Ico n={verCambio ? 'chevron-arriba' : 'chevron-abajo'} t={14} /> Ver cambio
+              </button>
+            )}
+            <button type="button" className="gp-btn gp-btn-fantasma" onClick={onPreguntar}><Ico n="chat" t={14} /> Preguntar a MaKo</button>
+          </div>
+          {verCambio && tema && (
+            <div className="gdg-com-revision">
+              <div className="gdg-segmento" role="group" aria-label="Comparar">
+                <button type="button" aria-pressed={vista === 'original'} onClick={() => setVista('original')}>Original</button>
+                <button type="button" aria-pressed={vista === 'modificado'} onClick={() => setVista('modificado')}>Modificado</button>
+              </div>
+              {(vista === 'original' ? [aplicado.original] : aplicado.nuevas).map((t, k) => (
+                <div key={k} className="gdg-com-mini">
+                  <MiniaturaLanding tarjeta={t} tema={tema} formato={formato} proporcion={proporcion} entera />
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      ) : (
         <div className="gdg-com-acciones">
-          {puedeIA && (
-            <button type="button" className="gp-btn gp-btn-ia" disabled={ocupado} onClick={onSolucionar}>
-              <Ico n="destellos" t={14} /> Solucionar con IA
+          {pendiente && puedeAplicar && (
+            <button type="button" className="gp-btn gp-btn-ia" disabled={quieto} onClick={onAplicar}>
+              <Ico n="destellos" t={14} /> Aplicar
             </button>
           )}
-          <button type="button" className="gp-btn gp-btn-contorno" onClick={onVer}><Ico n="ojo" t={14} /> Ver</button>
+          <button type="button" className="gp-btn gp-btn-contorno" onClick={onPreguntar}><Ico n="chat" t={14} /> Preguntar a MaKo</button>
+          <button type="button" className="gp-btn gp-btn-fantasma" onClick={onVer}><Ico n="ojo" t={14} /> Ver</button>
           {pendiente ? (
             <>
-              <button type="button" className="gp-btn gp-btn-fantasma" disabled={ocupado} onClick={() => onEstado('resuelta')}><Ico n="check" t={14} /> Resuelta</button>
-              <button type="button" className="gp-btn gp-btn-fantasma" disabled={ocupado} onClick={() => onEstado('descartada')}><Ico n="x-circulo" t={14} /> Descartar</button>
+              <button type="button" className="gp-btn gp-btn-fantasma" disabled={quieto} onClick={() => onEstado('resuelta')}><Ico n="check" t={14} /> Resuelta</button>
+              <button type="button" className="gp-btn gp-btn-fantasma" disabled={quieto} onClick={() => onEstado('descartada')}><Ico n="x-circulo" t={14} /> Descartar</button>
             </>
           ) : (
-            <button type="button" className="gp-btn gp-btn-fantasma" onClick={() => onEstado('pendiente')}><Ico n="deshacer" t={14} /> Reabrir</button>
+            <button type="button" className="gp-btn gp-btn-fantasma" disabled={quieto} onClick={() => onEstado('pendiente')}><Ico n="deshacer" t={14} /> Reabrir</button>
           )}
         </div>
       )}

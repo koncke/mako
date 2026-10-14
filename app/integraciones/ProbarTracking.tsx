@@ -433,22 +433,34 @@ export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?:
     // habilitadas, y el aviso de la flecha decía algo falso. Ahora se abre vacía (`about:blank`) en el clic,
     // con su nombre (dos pruebas reusan la misma), y recién después del chequeo navega. Si la prueba no
     // arranca (código viejo), se cierra. Cuando el clic lleva a nombrar los videos no hace falta ventana.
+    //
+    // Y LA PESTAÑA DE LA LANDING TAMBIÉN (tanda 6, el pendiente de la pantalla): se abría con `noopener`
+    // DESPUÉS del chequeo. Sin permiso para el sitio, Chrome deja UNA ventana por clic: la de la prueba
+    // pasaba y la landing quedaba bloqueada callada (con `noopener` no hay cómo saberlo), y la persona veía
+    // la ventana de MaKo sin ninguna página donde probar. Ahora las dos se abren vacías en el clic; si la
+    // segunda no abre, se cierra la primera y se ve el aviso de la flecha: no se abre nada. La landing se
+    // navega recién al final, con `opener = null` antes (lo que daba `noopener`).
     let chico: Window | null = null;
+    let pestana: Window | null = null;
     if (!vaAVideos) {
       const alto = Math.min(760, Math.max(420, window.screen.availHeight - 120));
       chico = window.open('about:blank', 'mako_prueba', `width=440,height=${alto},left=${Math.max(0, window.screen.availWidth - 470)},top=60,noopener=no`);
       // `chico.closed`: un bloqueador que deja abrir y cierra al instante es lo mismo que uno que no deja.
-      if (!chico || chico.closed) {
+      if (chico && !chico.closed) pestana = window.open('about:blank', '_blank');
+      if (!chico || chico.closed || !pestana || pestana.closed) {
         // No se abre la landing: dejarla abierta midiendo una prueba que nadie
         // puede mirar es peor que no empezar.
+        for (const w of [chico, pestana]) { try { if (w && !w.closed) w.close(); } catch { /* ya no es nuestra */ } }
         setSinPermiso(true);
         setPrueba(null);
         return;
       }
-      // Se abrió: si el aviso de las ventanas seguía arriba de un intento anterior, ya no dice la verdad.
+      // Se abrieron: si el aviso de las ventanas seguía arriba de un intento anterior, ya no dice la verdad.
       setSinPermiso(false);
     }
-    const cerrarVentana = () => { try { if (chico && !chico.closed) chico.close(); } catch { /* ya no es nuestra */ } };
+    const cerrarVentana = () => {
+      for (const w of [chico, pestana]) { try { if (w && !w.closed) w.close(); } catch { /* ya no es nuestra */ } }
+    };
 
     // ⚠️ SE VUELVE A PREGUNTAR, no se le cree a lo que se leyó al abrir el modal.
     // El caso real: la persona actualiza el código, recarga su landing y aprieta
@@ -465,8 +477,9 @@ export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?:
     if (viejo) { cerrarVentana(); setBloqueo(true); return; }
 
     if (vaAVideos) { setPaso('videos'); return; }
-    // La persona cerró la ventana mientras se chequeaba: sin ella no hay dónde mirar la prueba.
-    if (!chico || chico.closed) { setPrueba(null); return; }
+    // La persona cerró una de las dos mientras se chequeaba: sin la ventana no hay dónde mirar la prueba, y
+    // sin la pestaña no hay dónde hacerla.
+    if (!chico || chico.closed || !pestana || pestana.closed) { cerrarVentana(); setPrueba(null); return; }
 
     const u = url.trim();
     // Probar una página la GUARDA. Si no, la próxima vez hay que volver a
@@ -518,7 +531,16 @@ export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?:
       return;
     }
     ventana.current = chico;
-    window.open(`${base}${sep}mko_test=${id}${hash ? `#${hash}` : ''}`, '_blank', 'noopener');
+    // La landing, en la pestaña que se abrió en el clic. `opener = null` ANTES de navegar: la página de afuera
+    // no puede tocar la pestaña de MaKo (lo que hacía `noopener`).
+    try {
+      pestana.opener = null;
+      pestana.location.replace(`${base}${sep}mko_test=${id}${hash ? `#${hash}` : ''}`);
+    } catch {
+      cerrarVentana();
+      setPrueba(null);
+      return;
+    }
 
     // Y ENCIMA, una ventana de prueba de MaKo. Para verificar que un click se
     // registra hay que hacerlo EN la landing y mirar el resultado EN MaKo: con dos

@@ -47,22 +47,28 @@ export type EstadoReplicar =
   | { fase: 'replicando'; formato: FormatoReplicar }
   | { fase: 'falla'; formato: FormatoReplicar; error: string; enNavegador: boolean; pegable: boolean };
 
+/** Lo que se hace con la copia recién creada en vez de abrir su editor (el «Aplicar» del Diagnóstico). */
+export type AlReplicar = (copia: { id: number; titulo: string }) => Promise<void> | void;
+
 /**
- * Replicar una página. `replicar(url, formato, extra)` manda el pedido de la tanda 6 y, si sale bien, abre
- * el editor de la copia. `extra` es la página ya leída en el navegador (`lectura`) o el texto pegado
- * (`texto`): reemplazan la bajada (sólo en Presentación y Landing).
+ * Replicar una página. `replicar(url, formato, extra, alListo?)` manda el pedido de la tanda 6 y, si sale
+ * bien, abre el editor de la copia. `extra` es la página ya leída en el navegador (`lectura`) o el texto
+ * pegado (`texto`): reemplazan la bajada (sólo en Presentación y Landing). `alListo` (decisión c de Martín:
+ * «en una landing externa, "Aplicar" lleva a replicar primero y los comentarios pasan a la copia»): lo que
+ * sigue con la copia, en vez del editor; el estado se queda en «replicando» mientras corre (navega solo).
  */
 export function useReplicar(): {
   estado: EstadoReplicar;
-  replicar: (url: string, formato: FormatoReplicar, extra?: { lectura?: Lectura; texto?: string }) => Promise<void>;
+  replicar: (url: string, formato: FormatoReplicar, extra?: { lectura?: Lectura; texto?: string }, alListo?: AlReplicar) => Promise<void>;
 } {
   const ws = useWs();
   const [estado, setEstado] = useState<EstadoReplicar>({ fase: 'quieto' });
-  const replicar = useCallback(async (url: string, formato: FormatoReplicar, extra: { lectura?: Lectura; texto?: string } = {}) => {
+  const replicar = useCallback(async (url: string, formato: FormatoReplicar, extra: { lectura?: Lectura; texto?: string } = {}, alListo?: AlReplicar) => {
     setEstado({ fase: 'replicando', formato });
     const cuerpo: PedidoReplicar = formato === 'web' ? { url, formato } : { url, formato, ...extra };
     const r = await postJson<RespuestaReplicar>('/api/landing-generator/replicar', cuerpo, PLAZO_IA_MS);
-    // Sale bien: el editor de la copia (se queda «replicando» mientras navega).
+    // Sale bien: el editor de la copia (se queda «replicando» mientras navega), o lo que siga con ella.
+    if (r.ok && alListo) { await alListo({ id: r.id, titulo: r.titulo }); return; }
     if (r.ok) { irDuro(`/landing-generator/${r.id}`, ws); return; }
     const f = r as { error: string; enNavegador?: boolean; pegable?: boolean };
     setEstado({ fase: 'falla', formato, error: f.error, enNavegador: f.enNavegador === true, pegable: f.pegable === true });

@@ -353,8 +353,12 @@ test('la prueba se corre sobre una landing ELEGIDA, no sobre «abrila vos»', ()
   assert.ok(/previo\?\.urls/.test(probar), 'las landings que ya mandaron eventos se ofrecen: pedir que tipee una URL que ya tenemos es trabajo inventado');
   // Ya no se abre `u` pelada: lleva pegado el marcador de la prueba. Lo que hay
   // que afirmar es que se abre en OTRA pestaña, no la forma exacta de la URL.
-  assert.ok(/window\.open\(`\$\{base\}\$\{sep\}mko_test=/.test(probar), 'la prueba abre la página, como el Test Events de Meta');
-  assert.ok(/'_blank', 'noopener'/.test(probar), 'siempre en otra pestaña');
+  // Tanda 6 (14/10/2026): la pestaña se abre VACÍA en el clic (`window.open('about:blank', '_blank')`, para
+  // detectar el bloqueo) y navega al final, con `opener = null` antes (lo que daba `noopener`).
+  // Rotura (14/10/2026, de memoria, verificada por hash; base 66 / 0): sin `pestana.opener = null` -> 65 / 1.
+  assert.ok(/pestana\.location\.replace\(`\$\{base\}\$\{sep\}mko_test=/.test(probar), 'la prueba abre la página, como el Test Events de Meta');
+  assert.ok(/pestana = window\.open\('about:blank', '_blank'\)/.test(probar), 'siempre en otra pestaña');
+  assert.ok(/pestana\.opener = null;\s*pestana\.location\.replace\(/.test(probar), 'la página de afuera no puede tocar la pestaña de MaKo');
   assert.ok(/localStorage\.setItem\(URL_KEY/.test(probar), 'la URL se recuerda: se elige una vez, no en cada prueba');
 
   const lib = leer('../lib/landing-token.ts');
@@ -392,7 +396,7 @@ test('el panel usa las piezas de la casa, no HTML crudo', () => {
   const idle = probar.slice(probar.indexOf('if (!activo) {\n    return ('), probar.lastIndexOf('{avisoViejo}'));
   const botones = idle.match(/<Button\b/g) ?? [];
   assert.equal(botones.length, 1, `el arranque de la prueba tiene que tener UN botón y tiene ${botones.length}`);
-  assert.ok(/window\.open\(`/.test(probar) && /const arrancar/.test(probar), 'el único botón abre la página');
+  assert.ok(/pestana\.location\.replace\(`/.test(probar) && /const arrancar/.test(probar), 'el único botón abre la página');
 });
 
 test('el código usa LA MISMA barra que una credencial, no una pieza propia', () => {
@@ -920,7 +924,9 @@ test('la prueba abre una ventana de prueba de MaKo ENCIMA de la landing', () => 
   assert.ok(iVentana > 0 && iLanding > iVentana, 'la ventana de MaKo se abre primero: es la única cuyo bloqueo se puede detectar');
   // Tanda 6 (14/10/2026): también si la cierra un bloqueador al instante, y el aviso es el de la flecha a
   // la barra (app/landing-generator/lector/AvisoVentanasBloqueadas.tsx, tests/editor-landing-lector.test.ts).
-  assert.ok(/if \(!chico \|\| chico\.closed\) \{/.test(panel), 'si el navegador la bloquea, la prueba NO puede arrancar');
+  // Tanda 6: la pestaña de la landing también se abre en el clic y su bloqueo también frena la prueba (sin
+  // permiso para el sitio Chrome deja UNA ventana por clic, y la landing quedaba bloqueada callada).
+  assert.ok(/if \(!chico \|\| chico\.closed \|\| !pestana \|\| pestana\.closed\) \{/.test(panel), 'si el navegador la bloquea, la prueba NO puede arrancar');
   assert.ok(/<AvisoVentanasBloqueadas abierto=\{sinPermiso\}/.test(panel), 'y hay que decir cómo se arregla');
   assert.ok(/chico\?\.focus\(\)|chico\.focus\(\)/.test(panel), 'sin el focus, la ventana queda debajo de la landing');
   // La pestaña de atrás NO cambia: sigue mostrando la misma prueba. Un panel que

@@ -25,9 +25,9 @@
 // Lo que no se ve en el código:
 //   · ABRIR NO ANALIZA SI YA HAY COMENTARIOS GUARDADOS: el análisis cuesta una llamada a la IA (con las
 //     keys del negocio) y tarda. Sin nada guardado, arranca solo — para eso se eligió «Diagnóstico».
-//   · «Solucionar con IA» abre la landing DE NUEVO antes de pedir (la versión y la sección de ahora, no
-//     las del momento en que se abrió el panel), guarda una versión «Antes de un cambio de IA» antes de
-//     aplicar (D8) y guarda con la versión que abrió: si alguien guardó en el medio, lo dice y no pisa.
+//   · «Aplicar» (antes «Solucionar con IA») abre la landing DE NUEVO en el server (la versión y la sección
+//     de ahora, no las del momento en que se abrió el panel), guarda una versión antes de aplicar (D8) y
+//     guarda con la versión que abrió: si alguien guardó en el medio, lo dice y no pisa (abajo, tanda 6).
 //   · «Replicar en el editor» crea una landing NUEVA, así que se navega DURO (AGENTS.md, «si lo que
 //     cambió es QUÉ EXISTE…»), con el `?ws=`.
 //
@@ -44,25 +44,50 @@
 //   · la página de afuera viaja TAL CUAL la pegó la persona (con su www y su query) a la vista, al análisis y
 //     a Replicar: hay hosts que sólo existen así. La normalizada es sólo la LLAVE de los comentarios y de
 //     landing_analyses (y el nombre que se muestra).
+//
+// TANDA 6, decisión (c) de Martín (14/10/2026): «"Aplicar" de cada comentario del Diagnóstico = un clic, con
+// la versión guardada antes y "Deshacer"; más "Aplicar todos" (de a una sección, un solo Deshacer) y
+// "Preguntar a MaKo" (el chat de MaKo al costado con el comentario). En una landing externa, "Aplicar" lleva
+// a replicar primero y los comentarios pasan a la copia.» Reemplaza a «Solucionar con IA» + «Aceptar»:
+//   · «Aplicar» lo hace el SERVER (POST /api/landing-generator/diagnostico/aplicar, el mismo de la API de
+//     MaKo): abre la landing de ahora, la IA reescribe la sección, guarda antes la versión «Antes de aplicar
+//     el diagnóstico», guarda y marca resuelto. Los «Aplicar» de a uno van en COLA (uno por vez: dos a la
+//     vez chocarían en la versión de la landing);
+//   · «Aplicar todos»: de a una sección, en orden de la página, con UNA versión de antes (la primera vuelta)
+//     y cada vuelta encadenada a la versión que dejó la anterior (si alguien guarda en el medio, para);
+//   · «Deshacer» restaura esa versión (`restaurarVersion`, que a su vez deja «Antes de restaurar») y vuelve
+//     los comentarios a pendientes. Sólo lo ÚLTIMO aplicado, y sólo si la landing no cambió desde entonces:
+//     la pila vive en lib/editor-landing/diagnostico.ts (`pilaTrasAplicar`, `pilaTrasDeshacer`);
+//   · «Preguntar a MaKo»: el chat de MaKo (app/_components/MakoChat.tsx) en la columna de la derecha, con
+//     el comentario y el texto de su sección como contexto (`contextoDeComentario`), una conversación por
+//     comentario (`claveChatDeComentario`);
+//   · de AFUERA, «Aplicar» replica primero como Landing (con la lectura del navegador si ya está) y pasa los
+//     comentarios a la copia; el diagnóstico de la copia se abre y aplica ESE comentario (o todos) solo, una
+//     vez: lo que viaja es un aviso en sessionStorage que se consume al abrir (nunca la URL: un F5 o un
+//     link copiado no vuelven a aplicar).
 // =============================================================================
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import Link from '@/app/_ui/Link';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import Link, { useWs } from '@/app/_ui/Link';
+import { Button } from '@/app/_ui/Button';
+import { MakoChat } from '@/app/_components/MakoChat';
 import { CSS_CONTENIDO } from '@/lib/editor-landing/css';
 import { htmlDePagina } from '@/lib/editor-landing/render';
 import { temaPorId, urlFuentes } from '@/lib/editor-landing/temas';
-import { docPagina, tarjetasDe } from '@/lib/editor-landing/doc';
+import { tarjetasDe } from '@/lib/editor-landing/doc';
 import { formatoDe, proporcionDe, type LandingCompleta, type TemaPropio } from '@/lib/editor-landing/api-tipos';
 import {
-  instruccionDeSugerencia, objetivoDe, ordenarParaRecorrido, paginaPrincipal, tarjetaDeRecorrido,
-  type EstadoSugerencia, type PedidoDiagnostico, type RespuestaDiagnostico, type RespuestaListaDiagnostico, type Sugerencia,
+  RUTA_APLICAR_DIAGNOSTICO, bloquesDeTexto, claveChatDeComentario, contextoDeComentario, gruposParaAplicar, objetivoDe,
+  ordenarParaRecorrido, paginaPrincipal, pilaTrasAplicar, pilaTrasDeshacer, sePuedeDeshacer, tarjetaDeRecorrido,
+  type Aplicacion, type EstadoSugerencia, type PedidoAplicarDiagnostico, type PedidoDiagnostico, type RespuestaAplicar,
+  type RespuestaAplicarDiagnostico, type RespuestaDiagnostico, type RespuestaListaDiagnostico, type RespuestaPasar, type Sugerencia,
 } from '@/lib/editor-landing/diagnostico';
 import type { Lectura } from '@/lib/editor-landing/lectura-tipos';
 import { FORMATOS_REPLICAR, NOMBRE_FORMATO_REPLICAR, type FormatoReplicar } from '@/lib/editor-landing/replicar-reglas';
-import { MOTIVO_ANTES_DE_IA, anclasResueltas, huella, idDe, planDeAplicacion } from '../editor/diff-tarjetas';
-import { pedirDocs, pedirIA, postJson, type FallaPedido } from '../cliente';
-import { Filtros, Ico, ItemMenu, MenuFlotante, useAviso } from '../MiniaturaLanding';
-import { ICONO_FORMATO, useReplicar } from '../crear/Replicar';
+import { idDe } from '../editor/diff-tarjetas';
+import { PLAZO_IA_MS, pedirDocs, postJson, type FallaPedido } from '../cliente';
+import { Filtros, Ico, ItemMenu, MenuFlotante, irDuro, useAviso } from '../MiniaturaLanding';
+import { ICONO_FORMATO, useReplicar, type AlReplicar } from '../crear/Replicar';
 import { LeerOPegar } from '../lector/LeerOPegar';
 import { RecorridoDiagnostico, type PasoDiagnostico } from './RecorridoDiagnostico';
 import { VistaNuestra } from './VistaNuestra';
@@ -87,6 +112,38 @@ const pedirDiagnostico = (cuerpo: PedidoDiagnostico, ms = 65_000) =>
   postJson<RespuestaDiagnostico>('/api/landing-generator/diagnostico', cuerpo, ms);
 
 const esLista = (r: RespuestaDiagnostico | FallaPedido): r is RespuestaListaDiagnostico => r.ok && 'sugerencias' in r;
+
+const pedirAplicar = (cuerpo: PedidoAplicarDiagnostico) =>
+  postJson<RespuestaAplicarDiagnostico>(RUTA_APLICAR_DIAGNOSTICO, cuerpo, PLAZO_IA_MS);
+const esAplicada = (r: RespuestaAplicarDiagnostico | FallaPedido): r is RespuestaAplicar => r.ok && 'aplicadas' in r;
+const esPasada = (r: RespuestaAplicarDiagnostico | FallaPedido): r is RespuestaPasar => r.ok && 'mapa' in r;
+const errorDe = (r: { ok: boolean }) => (r as { error?: string }).error ?? 'No se pudo aplicar.';
+
+/** Las preguntas sugeridas del chat de «Preguntar a MaKo» (cortas: van en una fila). */
+const SUGERENCIAS_CHAT = ['¿Cómo lo reescribo?', 'Dame 3 opciones', '¿Por qué importa?'];
+
+/**
+ * Lo que el «Aplicar» de una landing de AFUERA deja para el diagnóstico de su copia: se usa UNA vez, al
+ * abrirlo, y vence (si la copia se abre otro día, no se aplica nada sin que la persona lo pida).
+ */
+const CLAVE_UNA_VEZ = 'gdg-aplicar-copia';
+const VENCE_UNA_VEZ_MS = 10 * 60_000;
+type UnaVez = { docId: number; t: number; ids?: number[]; todos?: true };
+
+function dejarUnaVez(u: UnaVez): void {
+  try { sessionStorage.setItem(CLAVE_UNA_VEZ, JSON.stringify(u)); } catch { /* sin sessionStorage: se aplica a mano */ }
+}
+
+function tomarUnaVez(docId: number): UnaVez | null {
+  try {
+    const u = JSON.parse(sessionStorage.getItem(CLAVE_UNA_VEZ) ?? 'null') as UnaVez | null;
+    if (!u || u.docId !== docId) return null;
+    sessionStorage.removeItem(CLAVE_UNA_VEZ);
+    return Date.now() - Number(u.t) < VENCE_UNA_VEZ_MS ? u : null;
+  } catch {
+    return null;
+  }
+}
 
 function hostDe(url: string): string {
   try { return new URL(url).host.replace(/^www\./, ''); } catch { return url; }
@@ -121,6 +178,23 @@ function PanelInterno({ docId, url, onCerrar, onAnalizada }: Props) {
   const [, setUbicadas] = useState(0);
   const senal = useMemo(() => new EventTarget(), []);
   const [arreglos, setArreglos] = useState<Record<number, EstadoArreglo | undefined>>({});
+  /** La pila de «Deshacer» (lib/editor-landing/diagnostico.ts): sólo la de arriba se deshace. */
+  const [pila, setPila] = useState<Aplicacion[]>([]);
+  const pilaRef = useRef<Aplicacion[]>([]);
+  const ponerPila = useCallback((p: Aplicacion[]) => { pilaRef.current = p; setPila(p); }, []);
+  /** Lo aplicado en esta visita sigue a la vista en «Pendientes» (con «Deshacer» y «Ver cambio»). */
+  const [recientes, setRecientes] = useState<number[]>([]);
+  /** «Aplicar todos» corriendo: cuántas secciones van. */
+  const [todos, setTodos] = useState<{ hecho: number; total: number } | null>(null);
+  /** El comentario de «Preguntar a MaKo» (el chat ocupa la columna de la derecha). */
+  const [chat, setChat] = useState<Sugerencia | null>(null);
+  /** Replicar para APLICAR (una de afuera): qué se aplica en la copia. Ref para el callback, estado para el texto. */
+  const afuera = useRef<number[] | 'todos' | null>(null);
+  const [paraAplicar, setParaAplicar] = useState(false);
+  const montado = useRef(true);
+  const unaVez = useRef<UnaVez | null>(null);
+  const unaVezLeida = useRef(false);
+  const ws = useWs();
   const [recorrido, setRecorrido] = useState<{ abierto: boolean; desde: number; pasos: PasoDiagnostico[] }>({ abierto: false, desde: 0, pasos: [] });
   const [quiereRecorrido, setQuiereRecorrido] = useState(false);
   const [menuReplicar, setMenuReplicar] = useState<HTMLElement | null>(null);
@@ -157,9 +231,14 @@ function PanelInterno({ docId, url, onCerrar, onAnalizada }: Props) {
     if (r.sugerencias.some((s) => s.estado === 'pendiente')) setQuiereRecorrido(true);
   }, [objetivo, aplicarLista, avisar, deNuestra, onAnalizada]);
 
+  useEffect(() => { montado.current = true; return () => { montado.current = false; }; }, []);
+
   // Al abrir: lo guardado (y la landing, si es nuestra). Sin nada guardado, analiza solo.
   useEffect(() => {
     let vivo = true;
+    // Lo que dejó el «Aplicar» de una landing de afuera para ESTA copia (una vez; el ref sobrevive al
+    // doble montaje del modo estricto, que si no lo consumiría en el primero y lo perdería).
+    if (!unaVezLeida.current) { unaVezLeida.current = true; if (docId != null) unaVez.current = tomarUnaVez(docId); }
     void (async () => {
       const [lista, abierta, propios] = await Promise.all([
         pedirDiagnostico({ accion: 'listar', ...objetivo }),
@@ -233,60 +312,131 @@ function PanelInterno({ docId, url, onCerrar, onAnalizada }: Props) {
     if (estado !== 'pendiente') avisar(estado === 'resuelta' ? 'Marcada como resuelta' : 'Comentario descartado', () => void cambiarEstado({ ...s, estado }, antes));
   }, [avisar]);
 
-  // ── Solucionar con IA (una landing nuestra) ──────────────────────────────────
+  // ── Aplicar (decisión c) ───────────────────────────────────────────────────
   const ponerArreglo = (id: number, a: EstadoArreglo | undefined) => setArreglos((m) => ({ ...m, [id]: a }));
+  const ponerArreglos = (ids: readonly number[], a: EstadoArreglo | undefined) =>
+    setArreglos((m) => ({ ...m, ...Object.fromEntries(ids.map((id) => [id, a])) }));
+  const arreglosRef = useRef(arreglos);
+  const ordenRef = useRef<string[]>([]);
+  const ordenSecciones = useMemo(() => (pagina ? tarjetasDe(pagina).map(idDe) : []), [pagina]);
+  useLayoutEffect(() => { arreglosRef.current = arreglos; ordenRef.current = ordenSecciones; });
 
-  const solucionar = useCallback(async (s: Sugerencia) => {
-    if (docId == null || !s.seccionId) return;
-    ponerArreglo(s.id, { fase: 'pidiendo' });
-    const a = await pedirDocs({ accion: 'abrir', id: docId });
-    if (!a.ok) { ponerArreglo(s.id, { fase: 'error', error: a.error }); return; }
-    setDoc(a.doc);
-    const pag = paginaPrincipal(a.doc.contenido);
-    const todas = pag ? tarjetasDe(pag) : [];
-    const original = todas.find((t) => idDe(t) === s.seccionId);
-    if (!pag || !original) { ponerArreglo(s.id, { fase: 'error', error: 'Esa sección ya no está.' }); return; }
-    const r = await pedirIA({
-      accion: 'editar',
-      instruccion: instruccionDeSugerencia(s.hallazgo),
-      tarjetas: [original],
-      alcance: 'seccion',
-      params: { formato: formatoDe(a.doc.config) },
-    });
-    if (!r.ok) { ponerArreglo(s.id, { fase: 'error', error: r.error }); return; }
-    if (!('tarjetas' in r) || !r.tarjetas.length) { ponerArreglo(s.id, { fase: 'error', error: 'MaKo no propuso cambios.' }); return; }
-    ponerArreglo(s.id, { fase: 'revision', original, propuestas: anclasResueltas(r.tarjetas, [original], todas) });
-  }, [docId]);
+  /** Lo que devolvió el server: la landing como quedó, los comentarios resueltos y su «Ver cambio». */
+  const tomarAplicada = useCallback((r: RespuestaAplicar) => {
+    setDoc(r.doc);
+    setSugerencias((xs) => xs.map((x) => r.aplicadas.find((a) => a.id === x.id) ?? x));
+    ponerArreglos(r.aplicadas.map((a) => a.id), { fase: 'aplicado', original: r.original, nuevas: r.nuevas });
+    setRecientes((xs) => [...new Set([...xs, ...r.aplicadas.map((a) => a.id)])]);
+  }, []);
+
+  // «Deshacer» viaja por ref: lo llaman el aviso y las filas, y él llama a cosas que lo nombran.
+  const deshacerRef = useRef<() => Promise<void>>(async () => {});
 
   /**
-   * Aceptar: se abre la landing OTRA VEZ y la propuesta se aplica sobre lo que hay AHORA (otra
-   * propuesta aceptada en el medio no se pisa). Si ESA sección cambió desde que se pidió, no se aplica:
-   * la propuesta se escribió sobre otro texto. Antes de guardar, la versión «Antes de un cambio de IA».
+   * Los «Aplicar» de a uno, EN COLA: uno por vez (dos a la vez chocarían en la versión de la landing y el
+   * segundo fallaría). Cada uno guarda su versión de antes y es su propio «Deshacer». `colaCorriendo` es de
+   * la cola; `trabajando`, de «Aplicar todos» y «Deshacer», que no corren con nada más.
    */
-  const aceptar = useCallback(async (s: Sugerencia) => {
-    const st = arreglos[s.id];
-    if (docId == null || !st || st.fase !== 'revision') return;
-    const fallar = (error: string) => ponerArreglo(s.id, { fase: 'error', error });
-    ponerArreglo(s.id, { ...st, fase: 'aplicando' });
-    const a = await pedirDocs({ accion: 'abrir', id: docId });
-    if (!a.ok) { fallar(a.error); return; }
-    const idSeccion = idDe(st.original);
-    const pag = a.doc.contenido.paginas.find((p) => tarjetasDe(p).some((t) => idDe(t) === idSeccion));
-    const todas = pag ? tarjetasDe(pag) : [];
-    const actual = todas.find((t) => idDe(t) === idSeccion);
-    if (!pag || !actual) { fallar('Esa sección ya no está.'); return; }
-    if (huella(actual) !== huella(st.original)) { fallar('Esa sección cambió mientras tanto. Vuelve a pedirlo.'); return; }
-    const resultado = planDeAplicacion(todas, st.propuestas, { anclaNuevas: idSeccion }).resultado;
-    const contenido = { ...a.doc.contenido, paginas: a.doc.contenido.paginas.map((p) => (p.id === pag.id ? { ...p, doc: docPagina(resultado) } : p)) };
-    const v = await pedirDocs({ accion: 'guardarVersion', id: docId, motivo: MOTIVO_ANTES_DE_IA });
-    if (!v.ok) { fallar('No pude guardar la versión de antes. Vuelve a intentarlo.'); return; }
-    const g = await pedirDocs({ accion: 'guardar', id: docId, version: a.doc.version, contenido });
-    if (!g.ok) { fallar(g.conflicto ? 'La landing cambió mientras tanto. Vuelve a pedirlo.' : g.error); return; }
-    setDoc({ ...a.doc, contenido, version: g.version, actualizado: g.actualizado, cambiosSinPublicar: g.cambiosSinPublicar });
-    ponerArreglo(s.id, undefined);
-    await cambiarEstado(s, 'resuelta');
-    avisar('Cambio aplicado');
-  }, [arreglos, docId, cambiarEstado, avisar]);
+  const cola = useRef<Sugerencia[]>([]);
+  const colaCorriendo = useRef(false);
+  const trabajando = useRef(false);
+  const aplicarUno = useCallback(async (s: Sugerencia) => {
+    if (docId == null || trabajando.current || cola.current.some((x) => x.id === s.id)) return;
+    cola.current.push(s);
+    ponerArreglo(s.id, { fase: 'en-cola' });
+    if (colaCorriendo.current) return;
+    colaCorriendo.current = true;
+    for (let x = cola.current.shift(); x; x = cola.current.shift()) {
+      if (!montado.current) break;
+      ponerArreglo(x.id, { fase: 'aplicando' });
+      const r = await pedirAplicar({ accion: 'aplicar', docId, ids: [x.id], versionAntes: true });
+      if (!montado.current) break;
+      if (!esAplicada(r)) { ponerArreglo(x.id, { fase: 'error', error: errorDe(r) }); continue; }
+      tomarAplicada(r);
+      if (r.versionAntes) ponerPila(pilaTrasAplicar(pilaRef.current, { ids: [x.id], versionAntesId: r.versionAntes.id, versionDoc: r.doc.version }, r.versionAbierta));
+      avisar('Comentario aplicado', () => void deshacerRef.current());
+    }
+    cola.current = [];
+    colaCorriendo.current = false;
+  }, [docId, tomarAplicada, ponerPila, avisar]);
+
+  /**
+   * «Aplicar todos»: de a una sección, en el orden de la página. La primera vuelta que sale guarda la
+   * versión de antes; las siguientes van encadenadas a la versión que dejó la anterior (`version`: si
+   * alguien guardó en el medio, el server contesta conflicto y se para). Un solo «Deshacer» para todo.
+   */
+  const aplicarTodos = useCallback(async (base: readonly Sugerencia[]) => {
+    if (docId == null || trabajando.current || colaCorriendo.current) return;
+    const { grupos } = gruposParaAplicar(base, ordenRef.current);
+    if (!grupos.length) return;
+    trabajando.current = true;
+    setTodos({ hecho: 0, total: grupos.length });
+    ponerArreglos(grupos.flatMap((g) => g.ids), { fase: 'en-cola' });
+    let antes: number | null = null;
+    let abierta = 0;
+    let version: number | undefined;
+    const hechos: number[] = [];
+    for (let i = 0; i < grupos.length; i++) {
+      if (!montado.current) break;
+      const g = grupos[i];
+      ponerArreglos(g.ids, { fase: 'aplicando' });
+      const r = await pedirAplicar({ accion: 'aplicar', docId, ids: g.ids, versionAntes: antes == null, ...(version ? { version } : {}) });
+      if (!montado.current) break;
+      setTodos({ hecho: i + 1, total: grupos.length });
+      if (!esAplicada(r)) {
+        ponerArreglos(g.ids, { fase: 'error', error: errorDe(r) });
+        if ((r as { conflicto?: boolean }).conflicto) { ponerArreglos(grupos.slice(i + 1).flatMap((x) => x.ids), undefined); break; }
+        continue;
+      }
+      if (antes == null && r.versionAntes) { antes = r.versionAntes.id; abierta = r.versionAbierta; }
+      version = r.doc.version;
+      hechos.push(...r.aplicadas.filter((a) => a.estado === 'resuelta').map((a) => a.id));
+      tomarAplicada(r);
+    }
+    trabajando.current = false;
+    if (!montado.current) return;
+    setTodos(null);
+    if (antes != null && version && hechos.length) {
+      ponerPila(pilaTrasAplicar(pilaRef.current, { ids: hechos, versionAntesId: antes, versionDoc: version }, abierta));
+      avisar(hechos.length === 1 ? 'Comentario aplicado' : `${hechos.length} comentarios aplicados`, () => void deshacerRef.current());
+    }
+  }, [docId, tomarAplicada, ponerPila, avisar]);
+
+  /**
+   * Deshacer lo de arriba de la pila: sólo si la landing sigue en la versión en que quedó (si alguien
+   * guardó después, restaurar pisaría eso: lo dice, suelta la pila y no toca nada).
+   */
+  const deshacer = useCallback(async () => {
+    const arriba = pilaRef.current[pilaRef.current.length - 1];
+    if (docId == null || !arriba || trabajando.current || colaCorriendo.current) return;
+    const como = Object.fromEntries(arriba.ids.map((id) => [id, arreglosRef.current[id]]));
+    const fallar = (texto: string, soltar: boolean) => {
+      setArreglos((m) => ({ ...m, ...como }));
+      if (soltar) ponerPila([]);
+      avisar(texto);
+    };
+    trabajando.current = true;
+    ponerArreglos(arriba.ids, { fase: 'deshaciendo' });
+    try {
+      const a = await pedirDocs({ accion: 'abrir', id: docId });
+      if (!a.ok) { fallar('No se pudo deshacer', false); return; }
+      if (a.doc.version !== arriba.versionDoc) { fallar('La landing ya cambió', true); return; }
+      const r = await pedirDocs({ accion: 'restaurarVersion', id: docId, versionId: arriba.versionAntesId });
+      if (!r.ok) { fallar(r.conflicto ? 'La landing ya cambió' : 'No se pudo deshacer', r.conflicto === true); return; }
+      setDoc(r.doc);
+      ponerPila(pilaTrasDeshacer(pilaRef.current, r.doc.version));
+      // Los comentarios vuelven a pendientes (de a uno: es la ruta de siempre).
+      for (const id of arriba.ids) {
+        const e = await pedirDiagnostico({ accion: 'estado', id, estado: 'pendiente' });
+        if (e.ok && 'sugerencia' in e) setSugerencias((xs) => xs.map((x) => (x.id === id ? e.sugerencia : x)));
+      }
+      ponerArreglos(arriba.ids, undefined);
+      avisar('Cambio deshecho');
+    } finally {
+      trabajando.current = false;
+    }
+  }, [docId, ponerPila, avisar]);
+  useLayoutEffect(() => { deshacerRef.current = deshacer; });
 
   // ── Replicar (una de afuera) ────────────────────────────────────────────────
   // Los 3 formatos (decisión d de Martín). Con la página ya leída en el navegador, la lectura viaja y el
@@ -294,14 +444,84 @@ function PanelInterno({ docId, url, onCerrar, onAnalizada }: Props) {
   const replicar = useCallback((formato: FormatoReplicar) => {
     setMenuReplicar(null);
     if (!urlPegada) return;
+    afuera.current = null;
+    setParaAplicar(false);
     const lectura = ultimaLectura.current;
     void pedirReplica(urlPegada, formato, lectura && formato !== 'web' ? { lectura } : {});
   }, [urlPegada, pedirReplica]);
 
+  /**
+   * La copia de una página de afuera ya existe (replicada para APLICAR): se le pasan los comentarios y se
+   * abre SU diagnóstico, que aplica lo pedido una vez (`dejarUnaVez`). Si pasarlos falla, igual se abre:
+   * sin comentarios, el diagnóstico de la copia la analiza solo.
+   */
+  const pasarYAbrir: AlReplicar = useCallback(async ({ id }: { id: number }) => {
+    const que = afuera.current;
+    const r = urlPegada ? await pedirAplicar({ accion: 'pasar', url: urlPegada, docId: id }) : null;
+    if (r && esPasada(r) && que) {
+      const ids = que === 'todos' ? [] : que.map((x) => r.mapa[String(x)]).filter((n): n is number => !!n);
+      dejarUnaVez({ docId: id, t: Date.now(), ...(que === 'todos' ? { todos: true as const } : { ids }) });
+    }
+    irDuro(`/landing-generator?diagnostico=${id}`, ws);
+  }, [urlPegada, ws]);
+
+  /** «Aplicar» en una landing de AFUERA: replicarla como Landing (con la lectura del navegador si ya está). */
+  const aplicarAfuera = useCallback((que: number[] | 'todos') => {
+    if (!urlPegada) return;
+    afuera.current = que;
+    setParaAplicar(true);
+    setRecorrido((r) => ({ ...r, abierto: false }));
+    const lectura = ultimaLectura.current;
+    void pedirReplica(urlPegada, 'landing', lectura ? { lectura } : {}, pasarYAbrir);
+  }, [urlPegada, pedirReplica, pasarYAbrir]);
+
+  /** «Aplicar» de un comentario: en una nuestra, a la cola; en una de afuera, replicar primero. */
+  const aplicar = useCallback((s: Sugerencia) => {
+    if (deNuestra) void aplicarUno(s);
+    else aplicarAfuera([s.id]);
+  }, [deNuestra, aplicarUno, aplicarAfuera]);
+
+  // El diagnóstico de una COPIA recién replicada para aplicar: lo pedido, una vez, cuando ya cargó.
+  useEffect(() => {
+    if (cargando || !unaVez.current) return;
+    const u = unaVez.current;
+    unaVez.current = null;
+    if (u.todos) { void aplicarTodos(sugerencias); return; }
+    const elegida = sugerencias.find((x) => u.ids?.includes(x.id) && x.estado === 'pendiente');
+    if (elegida?.seccionId) void aplicarUno(elegida);
+    else if (u.ids?.length) avisar('No ubiqué esa sección');
+  }, [cargando, sugerencias, aplicarTodos, aplicarUno, avisar]);
+
+  // ── Preguntar a MaKo ───────────────────────────────────────────────────────
+  const preguntar = useCallback((s: Sugerencia) => {
+    setRecorrido((r) => ({ ...r, abierto: false }));
+    setChat(s);
+  }, []);
+  // En el teléfono la columna va DEBAJO de la vista (60vh): el chat se trae a la pantalla al abrirlo, si no
+  // quedaba abajo y el toque parecía no hacer nada (medido a 390 px). En la computadora ya está a la vista.
+  const chatRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!chat || typeof window.matchMedia !== 'function' || !window.matchMedia('(max-width: 980px)').matches) return;
+    chatRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  }, [chat]);
+
   // ── Lo que se dibuja ───────────────────────────────────────────────────────
   const cuenta = (e: EstadoSugerencia) => sugerencias.filter((s) => s.estado === e).length;
-  const visibles = sugerencias.filter((s) => s.estado === filtro);
   const nombre = deNuestra ? (doc?.titulo || 'Landing') : hostDe(urlVista ?? '');
+  const enCurso = Object.values(arreglos).some((a) => a?.fase === 'aplicando' || a?.fase === 'en-cola' || a?.fase === 'deshaciendo');
+  const ocupado = !!todos || replicando || Object.values(arreglos).some((a) => a?.fase === 'deshaciendo');
+  const puedeAplicar = (s: Sugerencia) => s.estado === 'pendiente' && (deNuestra ? !!s.seccionId : !!urlPegada);
+  const aplicables = pendientes.filter(puedeAplicar).length;
+  const visibles = sugerencias.filter((s) => s.estado === filtro
+    || (filtro === 'pendiente' && recientes.includes(s.id) && arreglos[s.id]?.fase === 'aplicado'));
+  const contextoChat = (s: Sugerencia): string => {
+    const b = s.seccionId && pagina ? bloquesDeTexto(pagina).find((x) => x.id === s.seccionId) : null;
+    return contextoDeComentario({
+      hallazgo: s.hallazgo, cita: s.cita, landing: nombre, url: deNuestra ? doc?.urlPublica ?? null : urlVista,
+      deAfuera: !deNuestra, seccion: b ? { titulo: b.titulo, texto: b.texto } : null,
+    });
+  };
+  const objetivoChat = deNuestra && docId != null ? { docId } : { url: urlVista ?? url ?? '' };
 
   return (
     <section className="gdg" aria-label="Diagnóstico">
@@ -338,7 +558,7 @@ function PanelInterno({ docId, url, onCerrar, onAnalizada }: Props) {
           <button type="button" className="gdg-cerrar" aria-label="Cerrar diagnóstico" title="Cerrar" onClick={onCerrar}><Ico n="cerrar" t={16} /></button>
         </div>
       </header>
-      {replicando && <p className="gdg-cab-nota">Replicando… puede tardar unos minutos.</p>}
+      {replicando && <p className="gdg-cab-nota">{paraAplicar ? 'Copiando al editor para aplicar… unos minutos.' : 'Replicando… puede tardar unos minutos.'}</p>}
       {estadoReplicar.fase === 'falla' && urlPegada && (estadoReplicar.enNavegador || estadoReplicar.pegable) ? (
         <LeerOPegar
           key={`replicar|${estadoReplicar.formato}`}
@@ -348,8 +568,8 @@ function PanelInterno({ docId, url, onCerrar, onAnalizada }: Props) {
           ocupado={replicando}
           accionTexto="Replicar este texto"
           texto="MaKo no pudo leerla para replicarla."
-          onLectura={(lectura) => { ultimaLectura.current = lectura; void pedirReplica(urlPegada, estadoReplicar.formato, { lectura }); }}
-          onTexto={(texto) => void pedirReplica(urlPegada, estadoReplicar.formato, { texto })}
+          onLectura={(lectura) => { ultimaLectura.current = lectura; void pedirReplica(urlPegada, estadoReplicar.formato, { lectura }, afuera.current ? pasarYAbrir : undefined); }}
+          onTexto={(texto) => void pedirReplica(urlPegada, estadoReplicar.formato, { texto }, afuera.current ? pasarYAbrir : undefined)}
         />
       ) : estadoReplicar.fase === 'falla' ? <p className="gdg-error" role="alert">{estadoReplicar.error}</p> : null}
       {menuReplicar && (
@@ -371,57 +591,89 @@ function PanelInterno({ docId, url, onCerrar, onAnalizada }: Props) {
               : <div className="gdg-vista" />)}
         </div>
 
-        <aside className="gdg-col-lista" aria-label="Comentarios">
-          <Filtros
-            valor={filtro}
-            onCambio={setFiltro}
-            etiqueta="Filtrar comentarios"
-            opciones={[
-              { valor: 'pendiente', texto: `Pendientes ${cuenta('pendiente')}` },
-              { valor: 'resuelta', texto: `Resueltas ${cuenta('resuelta')}` },
-              { valor: 'descartada', texto: `Descartadas ${cuenta('descartada')}` },
-            ]}
-          />
-          {analizando && (
-            <p className="gdg-trabajando"><span className="gp-giro" aria-hidden /> Analizando… puede tardar 1-2 minutos.</p>
-          )}
-          {/* Tanda 6: el «No pude leer…» ya no es un callejón. Si el server no pudo, leerla en el navegador de la
-              persona o pegar su texto (LeerOPegar). Una landing NUESTRA se lee de su contenido: nunca llega acá. */}
-          {error && (pegable || enNavegador) && urlPegada ? (
-            <LeerOPegar
-              key={`analizar|${enNavegador ? 'n' : 'p'}`}
-              url={urlPegada}
-              error={error}
-              enNavegador={enNavegador}
-              ocupado={analizando}
-              accionTexto="Analizar este texto"
-              onLectura={(lectura) => void analizar({ lectura })}
-              onTexto={(texto) => void analizar({ texto })}
-            />
-          ) : error ? <p className="gdg-error" role="alert">{error}</p> : null}
-          {cargando && !analizando && <p className="gdg-vacio"><span className="gp-giro" aria-hidden /></p>}
-          {!cargando && !analizando && !error && !sugerencias.length && resumen && <p className="gdg-vacio">MaKo no encontró nada que señalar.</p>}
-          {!cargando && sugerencias.length > 0 && !visibles.length && <p className="gdg-vacio">No hay comentarios aquí.</p>}
-          <ul className="gdg-lista">
-            {visibles.map((s) => (
-              <Comentario
-                key={s.id}
-                s={s}
-                activa={activa === s.id}
-                ubicacion={controlRef.current ? controlRef.current.ubicacion(s.id) : undefined}
-                deNuestra={deNuestra}
-                tema={tema}
-                formato={doc ? formatoDe(doc.config) : 'pagina'}
-                proporcion={doc ? proporcionDe(doc.config) : '16:9'}
-                arreglo={arreglos[s.id]}
-                onVer={() => abrirRecorrido(s.id)}
-                onEstado={(e) => void cambiarEstado(s, e)}
-                onSolucionar={() => void solucionar(s)}
-                onAceptar={() => void aceptar(s)}
-                onDescartarPropuesta={() => ponerArreglo(s.id, undefined)}
+        <aside className="gdg-col-lista" aria-label={chat ? 'Preguntar a MaKo' : 'Comentarios'}>
+          {chat ? (
+            <div ref={chatRef} className="gdg-chat">
+              <div className="gdg-chat-cab">
+                <button type="button" className="gp-btn gp-btn-fantasma" onClick={() => setChat(null)}><Ico n="flecha-izquierda" t={14} /> Comentarios</button>
+              </div>
+              <p className="gdg-chat-tit">{chat.hallazgo.titulo}</p>
+              <div className="gdg-chat-cuerpo">
+                <MakoChat
+                  key={chat.id}
+                  chartKey={claveChatDeComentario(objetivoChat, chat.id)}
+                  titulo={chat.hallazgo.titulo.slice(0, 120)}
+                  contexto={contextoChat(chat)}
+                  sugerencias={SUGERENCIAS_CHAT}
+                />
+              </div>
+            </div>
+          ) : (
+            <>
+              <Filtros
+                valor={filtro}
+                onCambio={setFiltro}
+                etiqueta="Filtrar comentarios"
+                opciones={[
+                  { valor: 'pendiente', texto: `Pendientes ${cuenta('pendiente')}` },
+                  { valor: 'resuelta', texto: `Resueltas ${cuenta('resuelta')}` },
+                  { valor: 'descartada', texto: `Descartadas ${cuenta('descartada')}` },
+                ]}
               />
-            ))}
-          </ul>
+              {filtro === 'pendiente' && (todos || aplicables >= 2) && (
+                <div className="gdg-todos">
+                  {todos
+                    ? <p className="gdg-trabajando"><span className="gp-giro" aria-hidden /> Aplicando sección {Math.min(todos.hecho + 1, todos.total)} de {todos.total}…</p>
+                    : (
+                      <button type="button" className="gp-btn gp-btn-ia" disabled={ocupado || enCurso} onClick={() => (deNuestra ? void aplicarTodos(sugerencias) : aplicarAfuera('todos'))}>
+                        <Ico n="destellos" t={14} /> Aplicar todos
+                      </button>
+                    )}
+                </div>
+              )}
+              {analizando && (
+                <p className="gdg-trabajando"><span className="gp-giro" aria-hidden /> Analizando… puede tardar 1-2 minutos.</p>
+              )}
+              {/* Tanda 6: el «No pude leer…» ya no es un callejón. Si el server no pudo, leerla en el navegador de la
+                  persona o pegar su texto (LeerOPegar). Una landing NUESTRA se lee de su contenido: nunca llega acá. */}
+              {error && (pegable || enNavegador) && urlPegada ? (
+                <LeerOPegar
+                  key={`analizar|${enNavegador ? 'n' : 'p'}`}
+                  url={urlPegada}
+                  error={error}
+                  enNavegador={enNavegador}
+                  ocupado={analizando}
+                  accionTexto="Analizar este texto"
+                  onLectura={(lectura) => void analizar({ lectura })}
+                  onTexto={(texto) => void analizar({ texto })}
+                />
+              ) : error ? <p className="gdg-error" role="alert">{error}</p> : null}
+              {cargando && !analizando && <p className="gdg-vacio"><span className="gp-giro" aria-hidden /></p>}
+              {!cargando && !analizando && !error && !sugerencias.length && resumen && <p className="gdg-vacio">MaKo no encontró nada que señalar.</p>}
+              {!cargando && sugerencias.length > 0 && !visibles.length && <p className="gdg-vacio">No hay comentarios aquí.</p>}
+              <ul className="gdg-lista">
+                {visibles.map((s) => (
+                  <Comentario
+                    key={s.id}
+                    s={s}
+                    activa={activa === s.id}
+                    ubicacion={controlRef.current ? controlRef.current.ubicacion(s.id) : undefined}
+                    tema={tema}
+                    formato={doc ? formatoDe(doc.config) : 'pagina'}
+                    proporcion={doc ? proporcionDe(doc.config) : '16:9'}
+                    arreglo={arreglos[s.id]}
+                    puedeAplicar={puedeAplicar(s)}
+                    ocupado={ocupado}
+                    onVer={() => abrirRecorrido(s.id)}
+                    onEstado={(e) => void cambiarEstado(s, e)}
+                    onAplicar={() => aplicar(s)}
+                    onPreguntar={() => preguntar(s)}
+                    onDeshacer={!enCurso && sePuedeDeshacer(pila, s.id) && arreglos[s.id]?.fase === 'aplicado' ? () => void deshacer() : undefined}
+                  />
+                ))}
+              </ul>
+            </>
+          )}
         </aside>
       </div>
 
@@ -434,6 +686,18 @@ function PanelInterno({ docId, url, onCerrar, onAnalizada }: Props) {
         senal={senal}
         onPaso={setActiva}
         onCerrar={cerrarRecorrido}
+        acciones={(id, paso) => {
+          const s = sugerencias.find((x) => x.id === id);
+          if (!s) return null;
+          return (
+            <>
+              {puedeAplicar(s) && (!arreglos[s.id] || arreglos[s.id]?.fase === 'error') && (
+                <Button variant="secondary" size="sm" disabled={ocupado} onClick={() => { aplicar(s); if (deNuestra) paso.siguiente(); }}>Aplicar</Button>
+              )}
+              <Button variant="tertiary" size="sm" onClick={() => preguntar(s)}>Preguntar a MaKo</Button>
+            </>
+          );
+        }}
       />
       {aviso}
     </section>
@@ -480,6 +744,16 @@ const CSS_PANEL_DIAGNOSTICO = `
 .gdg-sev[data-sev="media"] { background: #fff4e0; color: #9a5b00; }
 [data-tema="oscuro"] .gdg-sev[data-sev="media"] { background: #3d2a05; color: #f5c46b; }
 .gdg-com-estado, .gdg-com-sin { font-size: 12px; font-weight: 600; color: var(--gp-tenue, #6b6b72); }
+.gdg-com-estado--ok { display: inline-flex; align-items: center; gap: 4px; color: var(--gp-exito, #067647); }
+[data-tema="oscuro"] .gdg-com-estado--ok { color: #6ce9a6; }
+.gdg-todos { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.gdg-todos .gp-btn { height: 30px; padding: 0 12px; font-size: 13px; }
+/* «Preguntar a MaKo»: el chat de la casa (MakoChat) ocupa la columna; su raíz mide 100% del alto. */
+.gdg-chat { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
+.gdg-chat-cab { display: flex; align-items: center; }
+.gdg-chat-cab .gp-btn { height: 28px; padding: 0 10px; font-size: 13px; }
+.gdg-chat-tit { margin: 0; font-size: 14px; font-weight: 650; line-height: 1.35; color: var(--gp-titulo, #18181b); }
+.gdg-chat-cuerpo { flex: 1 1 auto; min-height: 420px; border: 1px solid var(--gp-borde, #e4e4e7); border-radius: 12px; overflow: hidden; background: var(--surface, #fff); }
 .gdg-com-tit { all: unset; cursor: pointer; font-size: 14.5px; font-weight: 650; line-height: 1.35; color: var(--gp-titulo, #18181b); }
 .gdg-com-tit:hover { text-decoration: underline; }
 .gdg-com-tit:focus-visible { outline: 2px solid var(--gp-azul-500, #3b82f6); outline-offset: 2px; border-radius: 4px; }
@@ -499,5 +773,6 @@ const CSS_PANEL_DIAGNOSTICO = `
   .gdg { height: auto; min-height: 100dvh; padding: 12px 16px; }
   .gdg-cuerpo { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(360px, 60vh) auto; }
   .gdg-col-lista { overflow: visible; }
+  .gdg-chat-cuerpo { flex: none; height: 72dvh; min-height: 0; }
 }
 `;

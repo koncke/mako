@@ -73,7 +73,12 @@ import type { Sugerencia } from '../lib/editor-landing/diagnostico';
 import {
   disenosParaApi, listaParaApi, paginasEnTexto, diagnosticoParaApi, pedidoDeCrear, yaPublicadaAsi, resumenPublicar,
   urlDeLanding, estaPublicada, direccionParaPublicar, siFallaNuestra, TOPES_VER, type FilaPublicable, type DisponibilidadSlug,
+  urlPublicaParaApi, botonesDeLanding, elegirBotonDePago, conProductoEnBoton, resumenCobrar, TEXTO_BOTON_PAGO,
+  pedidoDePresentacion, analiticaParaApi,
 } from '../lib/api-mako/areas/landing-editor.helpers';
+import { pedidoDePlantilla } from '../app/landing-generator/crear/tipo';
+import { PLANTILLAS_PRESENTACION } from '../lib/editor-landing/plantillas-presentaciones';
+import { NODO as NODO_DOC, type JsonNodo, type LandingContenido } from '../lib/editor-landing/doc';
 
 const RAIZ = join(__dirname, '..');
 const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
@@ -401,4 +406,129 @@ test('listar_disenos_landing dice qué diseño trae video, y la mayoría lo trae
   assert.equal(disenos.length, DISENOS_LANDING.length);
   for (const d of disenos) assert.ok('video' in d && ['centro', 'costado', null].includes(d.video), JSON.stringify(d));
   assert.ok(disenos.filter((d) => d.video).length * 2 > disenos.length, 'la mayoría con video');
+});
+
+// ── 5. Tanda 6 (14/10/2026): el dominio propio, el botón de pago y lo que quedó fuera ──
+// Los pendientes de la tanda 4 de la API («url_publica no usa el dominio propio verificado») y de la de
+// pago («el botón de pago cobra el producto X» por la API).
+// Roturas (14/10/2026, arnés que restaura de memoria y verifica el sha256; base 23 / 0 + 1 todo), una por vez:
+//   · urlPublicaParaApi devuelve siempre la de MaKo                                   -> 22 / 1 (dominio)
+//   · elegirBotonDePago, sin `texto`, toma el primer «Pagar ahora» aunque haya dos      -> 22 / 1 (botón)
+//   · conProductoEnBoton cambia TODOS los botones                                      -> 22 / 1 (botón)
+//   · cobrar_producto_landing por chat y no en pantalla                                -> 22 / 1 (forma)
+// Lo que la tanda 4 dejó «fuera por ahora», misma base, una por vez:
+//   · duplicar_landing sin el freno de las automatizaciones                            -> 22 / 1 (las seis)
+//   · pausar_landing llama a sitioActivo con el valor al revés                          -> 22 / 1 (las seis)
+//   · pedidoDePresentacion sin el formato de la plantilla (nacería como página)         -> 22 / 1 (presentación)
+
+test('url_publica es la del dominio propio VERIFICADO si lo tiene (la que la persona pega en sus anuncios)', () => {
+  const r = listaParaApi([
+    resumen({ id: 1, slug: 'webinar', publicadoAt: '2026-10-03T00:00:00Z', dominio: 'pagina-de-ejemplo.com' }),
+    resumen({ id: 2, slug: 'otra', publicadoAt: '2026-10-03T00:00:00Z', dominio: null }),
+  ], 50);
+  assert.deepEqual(
+    r.landings.map((l) => [l.url_publica, (l as { url_mako?: string }).url_mako ?? null]),
+    [['https://pagina-de-ejemplo.com', urlDeLanding('webinar')], [urlDeLanding('otra'), null]],
+  );
+  assert.equal(urlPublicaParaApi('x', null), urlDeLanding('x'));
+  const ver = runnerDe('ver_landing_creada');
+  assert.match(ver, /url_publica: publicada \? urlPublicaParaApi\(d\.slug as string, dominio\) : null/);
+  assert.match(ver, /fd\?\.dominio_estado === 'verificado'/, 'sólo el dominio verificado');
+});
+
+const botonJson = (texto: string, href = ''): JsonNodo => ({ type: NODO_DOC.boton, attrs: { href, variante: 'primario', nuevaPestana: false }, content: [{ type: 'text', text: texto }] });
+const conBotones = (...paginas: JsonNodo[][]): LandingContenido => ({
+  v: 1,
+  paginas: paginas.map((bs, k) => ({
+    id: `p${k}`, titulo: k ? `Página ${k}` : 'Inicio', ruta: k ? `p${k}` : '',
+    doc: { type: 'doc', content: [{ type: NODO_DOC.tarjeta, attrs: { id: `t${k}` }, content: [{ type: NODO_DOC.botones, attrs: {}, content: bs }] }] },
+  })) as LandingContenido['paginas'],
+});
+
+test('el botón de pago: el que ya cobra o el único «Pagar ahora»; con dos o ninguno, pregunta; nada más cambia', () => {
+  const c = conBotones([botonJson('Agenda tu llamada', '#t-formulario'), botonJson(TEXTO_BOTON_PAGO)], [botonJson('Volver')]);
+  const bs = botonesDeLanding(c);
+  assert.deepEqual(bs.map((b) => [b.n, b.texto, b.producto]), [[0, 'Agenda tu llamada', null], [1, 'Pagar ahora', null], [2, 'Volver', null]]);
+  const elegido = elegirBotonDePago(bs, null);
+  assert.ok('boton' in elegido && elegido.boton.n === 1, 'sin texto: el «Pagar ahora»');
+  // Lo nuevo cobra el producto 7, y el resto del documento queda IGUAL (ni el otro botón ni la otra página).
+  const nuevo = conProductoEnBoton(c, 1, 7);
+  assert.deepEqual(botonesDeLanding(nuevo).map((b) => [b.texto, b.href]), [['Agenda tu llamada', '#t-formulario'], ['Pagar ahora', 'pago:7'], ['Volver', '']]);
+  assert.equal(botonesDeLanding(c)[1].href, '', 'no muta la entrada');
+  // Uno que ya cobra gana sin texto; con dos «Pagar ahora» y ninguno que cobre, no adivina.
+  const yaCobra = conBotones([botonJson('Comprar', 'pago:3'), botonJson(TEXTO_BOTON_PAGO)]);
+  const e2 = elegirBotonDePago(botonesDeLanding(yaCobra), null);
+  assert.ok('boton' in e2 && e2.boton.texto === 'Comprar' && e2.boton.producto === 3);
+  const dos = elegirBotonDePago(botonesDeLanding(conBotones([botonJson(TEXTO_BOTON_PAGO)], [botonJson(TEXTO_BOTON_PAGO)])), null);
+  assert.ok('error' in dos && /pásalo en «boton»/.test(dos.error), 'con dos, pregunta');
+  const porTexto = elegirBotonDePago(bs, 'volver');
+  assert.ok('boton' in porTexto && porTexto.boton.n === 2, 'con texto: sin importar mayúsculas');
+  const noEsta = elegirBotonDePago(bs, 'Inscríbete');
+  assert.ok('error' in noEsta && noEsta.botones?.includes('Agenda tu llamada'), 'nombra los botones que hay');
+  assert.match(resumenCobrar({ titulo: 'Mi landing', boton: bs[1], producto: { id: 7, nombre: 'Mentoría', tipo: 'unico', montoUsd: 97 }, publicada: true, motivo: 'sin-pasarela' }),
+    /^El botón «Pagar ahora» de «Mi landing» va a cobrar «Mentoría» \(.*97.*\) por la pasarela de MaKo.*se vuelve a publicar.*Conecta Stripe/);
+});
+
+test('cobrar_producto_landing va en PANTALLA (es plata), sólo para el admin, por el server de la pantalla', () => {
+  const d = accion('cobrar_producto_landing');
+  assert.equal(d.confirmacion, 'pantalla');
+  assert.equal(d.pantalla, '/mako/revisar');
+  assert.deepEqual(d.gating, { tab: 'landing-writer', rolMinimo: 'admin' });
+  assert.deepEqual(d.parametros.map((p) => p.nombre), ['id', 'producto', 'boton']);
+  assert.ok(rutaRestDe('cobrar_producto_landing'), 'sale por HTTP con su ruta');
+  const b = runnerDe('cobrar_producto_landing');
+  assert.ok(!/\.from\(|getTenantDb|getSupabaseServer/.test(b), 'ninguna segunda implementación');
+  assert.match(b, /docsEditor\.guardar\(\{ accion: 'guardar', id: plan\.id, version: plan\.f\.version, contenido: plan\.contenido \}\)/, 'compare-and-set con la versión leída');
+  const run = sinComentarios(leer('lib/api-mako/areas/landing.run.ts'));
+  const plan = run.slice(run.indexOf('async function planCobro'), run.indexOf('function noSeAplica'));
+  assert.match(plan, /const c = await docsEditor\.cobro\(\);/, 'el catálogo ACTIVO, el mismo de «Cobrar con MaKo»');
+  assert.match(plan, /c\.cobro\.productos\.find\(\(x\) => x\.id === productoId\)/);
+});
+
+const SEIS = ['ver_analitica_landing', 'renombrar_landing', 'duplicar_landing', 'pausar_landing', 'mandar_landing_a_papelera', 'crear_presentacion_desde_plantilla'];
+
+test('lo que quedó «fuera por ahora»: chat y reversibles, la puerta de la página y el server de la pantalla', () => {
+  for (const id of SEIS) {
+    const d = porId(id);
+    assert.ok(d, `falta ${id}`);
+    assert.deepEqual(d.gating, { tab: 'landing-writer', rolMinimo: 'admin' }, id);
+    assert.deepEqual([...d.canales].sort(), ['app', 'http', 'whatsapp'], id);
+    assert.ok(rutaRestDe(id), `${id} sin ruta REST`);
+    if (id !== 'ver_analitica_landing') {
+      const a = accion(id);
+      assert.equal(a.confirmacion, 'chat', id);
+      assert.equal(a.reversible, true, id);
+    }
+    assert.ok(!/\.from\(|getTenantDb|getSupabaseServer/.test(runnerDe(id)), `${id}: segunda implementación`);
+  }
+  assert.match(runnerDe('ver_analitica_landing'), /docsEditor\.analitica\(id\)/);
+  assert.match(runnerDe('renombrar_landing'), /docsEditor\.renombrar\(id, payload\.titulo\)/);
+  assert.match(runnerDe('duplicar_landing'), /docsEditor\.duplicar\(id\)/);
+  assert.match(runnerDe('pausar_landing'), /sitioActivoEnEditor\(id, !pausar\)/);
+  assert.match(runnerDe('mandar_landing_a_papelera'), /papelera \? await docsEditor\.mandarAPapelera\(id\) : await docsEditor\.restaurarDePapelera\(id\)/);
+  assert.match(runnerDe('crear_presentacion_desde_plantilla'), /docsEditor\.crear\(pedido\)/);
+  // Lo que crea una fila nueva no corre en una automatización (una por lead).
+  for (const id of ['duplicar_landing', 'crear_presentacion_desde_plantilla']) assert.match(runnerDe(id), /if \(enFlujo\(ctx\)\) return \{ error:/, id);
+});
+
+test('crear una presentación es EXACTAMENTE el alta de «Plantillas» de la pantalla, con su formato', () => {
+  const d = accion('crear_presentacion_desde_plantilla');
+  assert.deepEqual([...d.parametros.find((p) => p.nombre === 'plantilla')!.enum!], PLANTILLAS_PRESENTACION.map((p) => p.id));
+  for (const p of PLANTILLAS_PRESENTACION) {
+    const pedido = pedidoDePresentacion(p.id, null)!;
+    const pantalla = pedidoDePlantilla(p);
+    assert.deepEqual({ ...pedido, contenido: null }, { ...pantalla, contenido: null }, p.id);
+    assert.equal(pedido.config?.formato, 'presentacion', `${p.id}: nacería como página`);
+  }
+  assert.equal(pedidoDePresentacion(PLANTILLAS_PRESENTACION[0].id, 'Mi charla')!.titulo, 'Mi charla');
+  assert.equal(pedidoDePresentacion('no-existe', null), null);
+  assert.deepEqual(disenosParaApi().presentaciones.map((p) => p.id), PLANTILLAS_PRESENTACION.map((p) => p.id));
+});
+
+test('la analítica: los números de la tarjeta del editor, y sin publicar los ceros se dicen ciertos', () => {
+  const a = analiticaParaApi(4, { publicada: true, urls: ['hola-mako.site/x'], visitas30: 12, visitantes30: 9, leads30: 2, porDia: [{ dia: '2026-10-13', visitas: 5 }], alcancePorSeccion: null, enAnalyst: false });
+  assert.deepEqual([a.id, a.visitas, a.visitantes, a.leads, a.dias], [4, 12, 9, 2, 30]);
+  assert.deepEqual(a.por_dia, [{ dia: '2026-10-13', visitas: 5 }]);
+  const sin = analiticaParaApi(5, { publicada: false, urls: [], visitas30: 0, visitantes30: 0, leads30: 0, porDia: [], alcancePorSeccion: null, enAnalyst: false });
+  assert.match(sin.nota, /No está publicada/);
 });

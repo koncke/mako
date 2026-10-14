@@ -40,15 +40,18 @@ process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://proyecto.supabase.co';
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { Editor, getSchema } from '@tiptap/core';
 import { EditorState, TextSelection } from '@tiptap/pm/state';
 import type { Node as NodoPM, Schema } from '@tiptap/pm/model';
 import type { DecorationSet } from '@tiptap/pm/view';
 import { extensionesBase } from '../app/landing-generator/editor/extensiones/esquema';
 import {
-  CLAVE_A_COMPLETAR, actualizarACompletar, decoracionesACompletar, pluginACompletar,
+  CLAVE_A_COMPLETAR, actualizarACompletar, decoracionesACompletar, formularioConACompletar, pluginACompletar,
 } from '../app/landing-generator/editor/extensiones/completar';
-import { RE_A_COMPLETAR, rangosACompletar, tramosACompletar } from '../lib/editor-landing/especificacion';
+import { RE_A_COMPLETAR, rangosACompletar, specFormulario, tramosACompletar } from '../lib/editor-landing/especificacion';
+import { htmlDeArbol } from '../lib/editor-landing/grafico-svg';
 import { htmlDeContenido, htmlDeTarjeta } from '../lib/editor-landing/render';
 import { CSS_CONTENIDO } from '../lib/editor-landing/css';
 import { temaPorId } from '../lib/editor-landing/temas';
@@ -305,6 +308,36 @@ test('al editar, la decoración queda IGUAL al cálculo entero del documento fin
   // Una transacción sin cambio de documento devuelve el MISMO set (no recalcula nada).
   const antes = CLAVE_A_COMPLETAR.getState(s)!;
   assert.equal(actualizarACompletar(antes, s.tr.setSelection(TextSelection.create(s.doc, 3))), antes);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// El formulario (tanda 6): lo que el NodeView dibuja desde sus atributos
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Rotura (14/10/2026, de memoria, verificada por hash; base 9 / 0): `formularioConACompletar` marca
+// también lo `hidden` → 8 / 1; no baja a los hijos (sólo el primer nivel) → 8 / 1. Los dos, sólo éste.
+test('el formulario del editor marca los «[ ]» de etiquetas, preguntas, opciones y botón; lo oculto y la publicada, no', () => {
+  const attrs = {
+    campos: [
+      { id: 'a1', tipo: 'texto', etiqueta: '¿Cuál es tu [objetivo]?', requerido: false, opciones: [] },
+      { id: 'a2', tipo: 'opciones', etiqueta: '¿[Pregunta]?', requerido: true, opciones: ['[Opción 1]', 'Otra'] },
+    ],
+    boton: 'Quiero [mi lugar]',
+    exito: 'Gracias [nombre]',
+  };
+  const arbol = specFormulario(attrs, { modo: 'editor' });
+  const editor = htmlDeArbol(formularioConACompletar(arbol));
+  const marcas = [...editor.matchAll(/<span class="gm-completar">([^<]*)<\/span>/g)].map((m) => m[1]);
+  assert.deepEqual(marcas, ['[objetivo]', '[Pregunta]', '[Opción 1]', '[mi lugar]']);
+  // La etiqueta oculta que lee el Pixel (`labels[0].textContent`) y el mensaje de éxito quedan tal cual.
+  assert.match(editor, /<label for="[^"]+" hidden="">¿\[Pregunta\]\?<\/label>/);
+  assert.match(editor, /<p class="gm-formulario-exito" hidden="" aria-live="polite">Gracias \[nombre\]<\/p>/);
+  // Lo que no es la vista del editor sale sin marcar: el árbol de specFormulario no cambió.
+  assert.doesNotMatch(htmlDeArbol(arbol), /gm-completar/);
+  assert.doesNotMatch(htmlDeArbol(specFormulario(attrs, { modo: 'publico' })), /gm-completar/);
+  // Sólo la vista del NodeView lo pide; el `renderHTML` del nodo no.
+  const vista = readFileSync(join(__dirname, '..', 'app/landing-generator/editor/nodos/FormularioVista.tsx'), 'utf8');
+  assert.match(vista, /htmlDeArbol\(formularioConACompletar\(specFormulario\(node\.attrs, \{ modo: 'editor' \}\)\)\)/);
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

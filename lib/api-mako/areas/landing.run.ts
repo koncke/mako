@@ -49,20 +49,27 @@ import {
 // El EDITOR del Landing Generator (tanda 4): el MISMO server que llama /api/landing-generator (la
 // pantalla). Ningún `.from('landing_docs')` acá: tests/api-mako-landing-editor.test.ts lo frena.
 import * as docsEditor from '@/lib/editor-landing/server';
-import { publicar as publicarEnEditor, despublicar as despublicarEnEditor } from '@/lib/editor-landing/publicar';
-import { listar as comentariosDelDiagnostico } from '@/lib/editor-landing/diagnostico-server';
+import { publicar as publicarEnEditor, despublicar as despublicarEnEditor, sitioActivo as sitioActivoEnEditor } from '@/lib/editor-landing/publicar';
+import { listar as comentariosDelDiagnostico, cambiarEstado as estadoDeComentario } from '@/lib/editor-landing/diagnostico-server';
+// «Aplicar» un comentario del Diagnóstico (tanda 6, decisión c): el MISMO server que el botón de la pantalla.
+import { aplicarComentarios, leerComentario, type ComentarioConLanding } from '@/lib/editor-landing/diagnostico-aplicar';
 import { paginasParaPublicar } from '@/lib/editor-landing/server-reglas';
 import { fuentesHtmlLibre, pideContrasena, TEXTO_PIDE_CONTRASENA } from '@/lib/editor-landing/html-libre';
 import { avisoDeVideo } from '@/lib/editor-landing/especificacion';
+import { motivoNoCobra, type MotivoNoCobra, type ProductoDePago } from '@/lib/editor-landing/pago-landing';
+import type { LandingContenido } from '@/lib/editor-landing/doc';
 // «Replicar» (tanda 6): el MISMO server que la ruta de la pantalla (app/api/landing-generator/replicar).
 import { replicar as replicarEnEditor } from '@/lib/editor-landing/replicar';
 import { NOMBRE_FORMATO_REPLICAR, formatoReplicar, urlParaReplicar } from '@/lib/editor-landing/replicar-reglas';
-import type { Sugerencia } from '@/lib/editor-landing/diagnostico';
+import { estadoValido, type Sugerencia } from '@/lib/editor-landing/diagnostico';
 import { PREFIJO_FLUJO } from '../canal';
 import {
   LIMITE_LISTA, listaParaApi, paginasEnTexto, diagnosticoParaApi, disenosParaApi, pedidoDeCrear,
   nombreDeDiseno, nombreDeObjetivo, yaPublicadaAsi, resumenPublicar, urlDeLanding, formatoParaApi,
-  estaPublicada, direccionParaPublicar, siFallaNuestra, type FilaPublicable, type DisponibilidadSlug,
+  estaPublicada, direccionParaPublicar, siFallaNuestra, comentariosParaApi, nombreDeEstado, urlPublicaParaApi,
+  botonesDeLanding, elegirBotonDePago, conProductoEnBoton, resumenCobrar, type BotonDeLanding,
+  pedidoDePresentacion, analiticaParaApi,
+  type FilaPublicable, type DisponibilidadSlug,
 } from './landing-editor.helpers';
 
 // ── utilidades ───────────────────────────────────────────────────────────────
@@ -112,6 +119,53 @@ const fechaValida = (s: string): boolean => FECHA.test(s) && !Number.isNaN(Date.
 /** El editor de UNA landing (app/landing-generator/[id]), con el `?ws=` del negocio. */
 const linkEditor = (id: number, ws: number): string => linkPantalla(`/landing-generator/${id}`, ws);
 const noExisteCreada = (id: number): string => `No existe la landing ${id} en este negocio (búscala con listar_landings_creadas).`;
+const noExisteComentario = (id: number): string => `No existe el comentario ${id} en este negocio (búscalo con listar_comentarios_landing).`;
+
+/**
+ * `cobrar_producto_landing` (tanda 6): lo que se va a guardar, o el error. Lo mismo en preparar() y en
+ * ejecutar() (al confirmar se vuelve a leer: entre proponer y confirmar la landing o el catálogo cambian).
+ * El producto se valida contra el catálogo ACTIVO por `cobro`, el mismo server que «Cobrar con MaKo».
+ */
+type PlanCobro =
+  | { listo: false; error: string; faltan?: string[]; disponibles?: unknown }
+  | {
+    listo: true; id: number; f: docsEditor.FilaDoc; producto: ProductoDePago; boton: BotonDeLanding;
+    contenido: LandingContenido; motivo: MotivoNoCobra | null;
+  };
+
+async function planCobro(input: Record<string, unknown>, ctx: Ctx): Promise<PlanCobro> {
+  const id = num(input, 'id');
+  if (!id) return { listo: false, error: 'Falta el id de la landing.', faltan: ['id'] };
+  const productoId = num(input, 'producto');
+  if (!productoId) return { listo: false, error: 'Falta el producto que cobra el botón.', faltan: ['producto'] };
+  const f = await docsEditor.leerFilaDoc(ctx.ws, id, 'id, titulo, version, papelera_at, publicado_at, contenido');
+  if (!f) return { listo: false, error: noExisteCreada(id) };
+  if (f.papelera_at) return { listo: false, error: `«${f.titulo}» está en la papelera: se restaura desde el Landing Generator antes de cambiarla.` };
+  const c = await docsEditor.cobro();
+  if (!c.ok) { siFallaNuestra(c); return { listo: false, error: `No pude leer el catálogo (${c.error}).` }; }
+  const producto = c.cobro.productos.find((x) => x.id === productoId);
+  if (!producto) return { listo: false, error: 'Ese producto no está activo en el catálogo del negocio.', disponibles: c.cobro.productos.slice(0, 30).map((x) => `${x.id}: ${x.nombre}`) };
+  const contenido = docsEditor.limpiarContenido(f.contenido, `api cobrar #${id}`).contenido;
+  const eleccion = elegirBotonDePago(botonesDeLanding(contenido), str(input, 'boton'));
+  if ('error' in eleccion) return { listo: false, error: eleccion.error, ...(eleccion.botones ? { disponibles: eleccion.botones } : {}) };
+  return {
+    listo: true, id, f, producto, boton: eleccion.boton,
+    contenido: conProductoEnBoton(contenido, eleccion.boton.n, productoId),
+    motivo: motivoNoCobra({ conectadas: c.cobro.conectadas, producto }),
+  };
+}
+
+/**
+ * Lo que impide APLICAR un comentario (tanda 6), o null. Lo mismo en preparar() y en ejecutar(): entre
+ * proponer y confirmar alguien pudo marcarlo o aplicarlo desde la pantalla.
+ */
+function noSeAplica(c: ComentarioConLanding | null, id: number): string | null {
+  if (!c) return noExisteComentario(id);
+  if (c.docId == null) return 'Ese comentario es de una página de afuera: no se aplica por aquí. En el Landing Generator → Diagnóstico, «Aplicar» la replica primero en el editor y pasa los comentarios a la copia.';
+  if (c.estado !== 'pendiente') return `Ese comentario ya está ${nombreDeEstado(c.estado)}: no hay nada que aplicar.`;
+  if (!c.seccionId) return 'No sé en qué sección de la landing está ese comentario (su cita no se encontró): no se puede aplicar solo. Propón el cambio en el chat o hazlo en el editor.';
+  return null;
+}
 /** Lo que mira publicar_landing de la fila. Con el contenido: lo que publicar() rechazaría por él se dice en preparar(). */
 const COLS_PUBLICAR = 'id, titulo, version, slug, publicado_at, publicado_version, sitio_activo, papelera_at, config, contenido';
 /** «No corre en una automatización»: un flujo corre una vez por cada lead (dashboard.run.ts, `noEnFlujo`). */
@@ -522,6 +576,13 @@ export const RUNNERS: Runners = {
       // y si esa lectura falla sale null («no sé»), no false: la landing ya se leyó y se devuelve igual.
       let enPapelera: boolean | null = null;
       try { enPapelera = !!(await docsEditor.leerFilaDoc(ctx.ws, id, 'id, papelera_at'))?.papelera_at; } catch { enPapelera = null; }
+      // El dominio propio VERIFICADO (tanda 6): es la dirección que la persona usa. Aparte: sin la columna
+      // (mig 0263) la lectura falla y se contesta la de MaKo, que también anda.
+      let dominio: string | null = null;
+      try {
+        const fd = (await docsEditor.leerFilaDoc(ctx.ws, id, 'id, dominio, dominio_estado')) as unknown as { dominio?: string | null; dominio_estado?: string | null } | null;
+        dominio = fd?.dominio_estado === 'verificado' && fd.dominio ? fd.dominio : null;
+      } catch { dominio = null; }
       // Los comentarios del diagnóstico por el server de la pantalla. Si fallan, la landing se lee
       // igual y el diagnóstico dice «no pude leer» (null), que no es «nunca se diagnosticó».
       let sugerencias: Sugerencia[] | null = null;
@@ -533,7 +594,8 @@ export const RUNNERS: Runners = {
       const { paginas, secciones_sin_texto_por_tope: sinTexto } = paginasEnTexto(d.contenido);
       return json({
         id: d.id, titulo: d.titulo, formato: formatoParaApi(d.config),
-        publicada, url_publica: publicada ? urlDeLanding(d.slug as string) : null,
+        publicada, url_publica: publicada ? urlPublicaParaApi(d.slug as string, dominio) : null,
+        ...(publicada && dominio ? { url_mako: urlDeLanding(d.slug as string) } : {}),
         sitio_activo: publicada ? d.sitioActivo : null,
         cambios_sin_publicar: d.cambiosSinPublicar,
         en_papelera: enPapelera,
@@ -549,6 +611,33 @@ export const RUNNERS: Runners = {
           publicada && !d.sitioActivo ? 'Está publicada pero con el sitio pausado: la dirección no la muestra.' : null,
         ].filter(Boolean).join(' '),
       });
+    },
+  },
+
+  // Tanda 6: la tarjeta «Analítica» del editor, por el MISMO server (`analitica`).
+  ver_analitica_landing: {
+    leer: async (input) => {
+      const id = num(input, 'id') ?? 0;
+      const r = await docsEditor.analitica(id);
+      if (!r.ok) { siFallaNuestra(r); return errorLectura(r.status === 404 ? noExisteCreada(id) : `No pude leer la analítica de la landing ${id} (${r.error}).`); }
+      return json(analiticaParaApi(id, r.analitica));
+    },
+  },
+
+  // Tanda 6: los comentarios del Diagnóstico con su id, por el MISMO server que la pantalla.
+  listar_comentarios_landing: {
+    leer: async (input) => {
+      const id = num(input, 'id');
+      const url = str(input, 'url');
+      if (!id === !url) return errorLectura('Pasa el id de una landing creada o la url de una página diagnosticada: una de las dos.');
+      const estado = str(input, 'estado');
+      if (estado && !estadoValido(estado)) return errorLectura('El estado es pendiente, resuelta o descartada.');
+      const r = await comentariosDelDiagnostico(id ? { docId: id } : { url });
+      if (!r.ok) {
+        siFallaNuestra(r);
+        return errorLectura(r.status === 404 && id ? noExisteCreada(id) : `No pude leer los comentarios (${r.error}).`);
+      }
+      return json({ ...(id ? { id } : { url: r.url }), ...comentariosParaApi(r.sugerencias, { deNuestra: !!id, estado }) });
     },
   },
 
@@ -788,6 +877,165 @@ export const RUNNERS: Runners = {
     },
   },
 
+  // Tanda 6: lo que la tanda 4 dejó fuera, por el MISMO server que la pantalla (server.ts, publicar.ts).
+  renombrar_landing: {
+    preparar: async (input, ctx): Promise<Preparado> => {
+      const id = num(input, 'id');
+      if (!id) return { error: 'Falta el id de la landing.', faltan: ['id'] };
+      const titulo = str(input, 'titulo');
+      if (!titulo) return { error: 'Falta el nombre nuevo.', faltan: ['titulo'] };
+      const f = await docsEditor.leerFilaDoc(ctx.ws, id, 'id, titulo');
+      if (!f) return { error: noExisteCreada(id) };
+      if (f.titulo.trim() === titulo.trim()) return { error: `Ya se llama «${f.titulo}».`, yaEstaba: true };
+      return { payload: { id, titulo }, resumen: `Renombrar «${f.titulo}» a «${titulo}» en el Landing Generator. La dirección pública no cambia.` };
+    },
+    ejecutar: async (payload): Promise<Ejecutado> => {
+      const id = Number(payload.id);
+      try {
+        const r = await docsEditor.renombrar(id, payload.titulo);
+        if (!r.ok) return { ok: false, resumen: r.status === 404 ? noExisteCreada(id) : `No se pudo renombrar (${r.error}).` };
+        return { ok: true, resumen: `Listo: la landing ${id} ahora se llama «${r.titulo}».`, datos: { id, titulo: r.titulo } };
+      } catch (e) {
+        return { ok: false, resumen: `No se pudo renombrar (${mensaje(e)}).` };
+      }
+    },
+  },
+
+  duplicar_landing: {
+    preparar: async (input, ctx): Promise<Preparado> => {
+      if (enFlujo(ctx)) return { error: 'Duplicar una landing no corre en una automatización: un flujo corre una vez por cada lead y crearía una copia por cada uno. Duplícala desde el Landing Generator o pídesela a MaKo en el chat.' };
+      const id = num(input, 'id');
+      if (!id) return { error: 'Falta el id de la landing.', faltan: ['id'] };
+      const f = await docsEditor.leerFilaDoc(ctx.ws, id, 'id, titulo');
+      if (!f) return { error: noExisteCreada(id) };
+      return { payload: { id }, resumen: `Duplicar «${f.titulo}»: una copia nueva, «${f.titulo} (copia)», como borrador sin publicar.` };
+    },
+    ejecutar: async (payload, ctx): Promise<Ejecutado> => {
+      const id = Number(payload.id);
+      try {
+        const r = await docsEditor.duplicar(id);
+        if (!r.ok) return { ok: false, resumen: r.status === 404 ? noExisteCreada(id) : `No se pudo duplicar (${r.error}).` };
+        const link = linkEditor(r.doc.id, ctx.ws);
+        return { ok: true, resumen: `Listo: «${r.doc.titulo}» (id ${r.doc.id}), sin publicar. Se adapta en el editor: ${link}`, datos: { id: r.doc.id, titulo: r.doc.titulo, link } };
+      } catch (e) {
+        return { ok: false, resumen: `No se pudo duplicar (${mensaje(e)}).` };
+      }
+    },
+  },
+
+  pausar_landing: {
+    preparar: async (input, ctx): Promise<Preparado> => {
+      const id = num(input, 'id');
+      if (!id) return { error: 'Falta el id de la landing.', faltan: ['id'] };
+      const pausar = bool(input, 'pausar') ?? true;
+      const f = await docsEditor.leerFilaDoc(ctx.ws, id, 'id, titulo, slug, publicado_at, sitio_activo');
+      if (!f) return { error: noExisteCreada(id) };
+      if (!f.publicado_at || !f.slug) return { error: `«${f.titulo}» no está publicada: no hay sitio que ${pausar ? 'pausar' : 'reanudar'}.`, yaEstaba: true };
+      if (pausar === !f.sitio_activo) return { error: `«${f.titulo}» ya está ${pausar ? 'pausada' : 'en internet'}.`, yaEstaba: true };
+      const url = urlDeLanding(f.slug);
+      return {
+        payload: { id, pausar },
+        resumen: pausar
+          ? `Pausar «${f.titulo}»: ${url} deja de mostrarla hasta reanudarla. Lo publicado no se pierde.`
+          : `Reanudar «${f.titulo}»: ${url} vuelve a mostrar lo publicado.`,
+      };
+    },
+    ejecutar: async (payload): Promise<Ejecutado> => {
+      const id = Number(payload.id);
+      const pausar = payload.pausar !== false;
+      try {
+        const r = await sitioActivoEnEditor(id, !pausar);
+        if (!r.ok) return { ok: false, resumen: r.status === 404 ? noExisteCreada(id) : `No se pudo ${pausar ? 'pausar' : 'reanudar'} (${r.error}).` };
+        return { ok: true, resumen: pausar ? `Listo: la landing ${id} quedó pausada. Se reanuda con pausar_landing y pausar:false.` : `Listo: la landing ${id} vuelve a estar en internet.`, datos: { id, sitio_activo: r.sitioActivo } };
+      } catch (e) {
+        return { ok: false, resumen: `No se pudo ${pausar ? 'pausar' : 'reanudar'} (${mensaje(e)}).` };
+      }
+    },
+  },
+
+  mandar_landing_a_papelera: {
+    preparar: async (input, ctx): Promise<Preparado> => {
+      const id = num(input, 'id');
+      if (!id) return { error: 'Falta el id de la landing.', faltan: ['id'] };
+      const papelera = bool(input, 'papelera') ?? true;
+      const f = await docsEditor.leerFilaDoc(ctx.ws, id, 'id, titulo, slug, publicado_at, papelera_at');
+      if (!f) return { error: noExisteCreada(id) };
+      if (papelera === !!f.papelera_at) return { error: `«${f.titulo}» ${papelera ? 'ya está' : 'no está'} en la papelera.`, yaEstaba: true };
+      const publicada = f.publicado_at && f.slug ? urlDeLanding(f.slug) : null;
+      return {
+        payload: { id, papelera },
+        resumen: papelera
+          ? `Mandar «${f.titulo}» a la papelera${publicada ? `: ${publicada} deja de mostrarla mientras esté ahí (vuelve tal cual al sacarla)` : ''}. No se borra nada.`
+          : `Sacar «${f.titulo}» de la papelera${publicada ? `: ${publicada} vuelve a mostrarla` : ''}.`,
+      };
+    },
+    ejecutar: async (payload): Promise<Ejecutado> => {
+      const id = Number(payload.id);
+      const papelera = payload.papelera !== false;
+      try {
+        const r = papelera ? await docsEditor.mandarAPapelera(id) : await docsEditor.restaurarDePapelera(id);
+        if (!r.ok) return { ok: false, resumen: r.status === 404 ? noExisteCreada(id) : `No se pudo ${papelera ? 'mandar a la papelera' : 'sacar de la papelera'} (${r.error}).` };
+        return { ok: true, resumen: papelera ? `Listo: la landing ${id} está en la papelera. Se saca con mandar_landing_a_papelera y papelera:false.` : `Listo: la landing ${id} salió de la papelera.`, datos: { id, en_papelera: papelera } };
+      } catch (e) {
+        return { ok: false, resumen: `No se pudo cambiar la papelera (${mensaje(e)}).` };
+      }
+    },
+  },
+
+  crear_presentacion_desde_plantilla: {
+    preparar: async (input, ctx): Promise<Preparado> => {
+      if (enFlujo(ctx)) return { error: 'Crear una presentación no corre en una automatización: un flujo corre una vez por cada lead y crearía una por cada uno. Créala desde el Landing Generator o pídesela a MaKo en el chat.' };
+      const plantilla = str(input, 'plantilla') ?? '';
+      const titulo = str(input, 'titulo');
+      const pedido = pedidoDePresentacion(plantilla, titulo);
+      if (!pedido) return { error: 'Esa plantilla de presentación no existe.', disponibles: disenosParaApi().presentaciones };
+      return {
+        payload: { plantilla, ...(titulo ? { titulo } : {}) },
+        resumen: `Crear la presentación «${pedido.titulo}» desde la plantilla «${pedidoDePresentacion(plantilla, null)?.titulo ?? plantilla}», como borrador sin publicar.`,
+      };
+    },
+    ejecutar: async (payload, ctx): Promise<Ejecutado> => {
+      const pedido = pedidoDePresentacion(String(payload.plantilla ?? ''), typeof payload.titulo === 'string' ? payload.titulo : null);
+      if (!pedido) return { ok: false, resumen: 'Esa plantilla de presentación ya no existe.' };
+      try {
+        const r = await docsEditor.crear(pedido);
+        if (!r.ok) return { ok: false, resumen: `No se pudo crear la presentación (${r.error}).` };
+        const link = linkEditor(r.doc.id, ctx.ws);
+        return { ok: true, resumen: `Presentación «${r.doc.titulo}» creada como borrador (id ${r.doc.id}), sin publicar. Se adapta en el editor: ${link}`, datos: { id: r.doc.id, titulo: r.doc.titulo, link } };
+      } catch (e) {
+        return { ok: false, resumen: `No se pudo crear la presentación (${mensaje(e)}).` };
+      }
+    },
+  },
+
+  // Tanda 6: marcar un comentario del Diagnóstico. No toca la landing.
+  cambiar_estado_comentario_landing: {
+    preparar: async (input): Promise<Preparado> => {
+      const id = num(input, 'comentario');
+      if (!id) return { error: 'Falta el id del comentario.', faltan: ['comentario'] };
+      const estado = str(input, 'estado');
+      if (!estadoValido(estado)) return { error: 'Falta el estado: pendiente, resuelta o descartada.', faltan: ['estado'] };
+      const c = await leerComentario(id);
+      if (!c) return { error: noExisteComentario(id) };
+      if (c.estado === estado) return { error: `El comentario «${c.hallazgo.titulo}» ya está ${nombreDeEstado(estado)}.`, yaEstaba: true };
+      const de = c.docId != null ? ` de la landing ${c.docId}` : c.url ? ` de ${c.url}` : '';
+      return {
+        payload: { comentario: id, estado },
+        resumen: `Marcar como ${nombreDeEstado(estado)} el comentario «${c.hallazgo.titulo}» del diagnóstico${de}. No cambia la landing.`,
+      };
+    },
+    ejecutar: async (payload): Promise<Ejecutado> => {
+      const id = Number(payload.comentario);
+      try {
+        const r = await estadoDeComentario({ id, estado: payload.estado });
+        if (!r.ok) return { ok: false, resumen: r.status === 404 ? noExisteComentario(id) : `No se pudo marcar el comentario (${r.error}).` };
+        return { ok: true, resumen: `Listo: el comentario «${r.sugerencia.hallazgo.titulo}» quedó ${nombreDeEstado(r.sugerencia.estado)}.`, datos: { comentario: id, estado: r.sugerencia.estado } };
+      } catch (e) {
+        return { ok: false, resumen: `No se pudo marcar el comentario (${mensaje(e)}).` };
+      }
+    },
+  },
+
   despublicar_landing: {
     preparar: async (input, ctx): Promise<Preparado> => {
       const id = num(input, 'id');
@@ -926,6 +1174,88 @@ export const RUNNERS: Runners = {
         return { ok: true, resumen: `Versión ${id} borrada.` };
       } catch (e) {
         return { ok: false, resumen: `No se pudo borrar la versión (${mensaje(e)}).` };
+      }
+    },
+  },
+
+  // Tanda 6, decisión (c): «Aplicar» un comentario. EL MISMO `aplicarComentarios` que el botón de la
+  // pantalla (lib/editor-landing/diagnostico-aplicar.ts): la IA reescribe la sección, se guarda antes la
+  // versión «Antes de aplicar el diagnóstico», se guarda con la versión que abrió y queda resuelto. Todo lo
+  // que se puede saber sin escribir se dice en preparar() (`noSeAplica`), y se vuelve a mirar al confirmar.
+  aplicar_comentario_landing: {
+    preparar: async (input, ctx): Promise<Preparado> => {
+      if (enFlujo(ctx)) return { error: 'Aplicar un comentario no corre en una automatización: reescribe una landing con IA y la persona tiene que verlo. Pídeselo a MaKo en el chat o aplícalo en el Landing Generator.' };
+      const id = num(input, 'comentario');
+      if (!id) return { error: 'Falta el id del comentario.', faltan: ['comentario'] };
+      const c = await leerComentario(id);
+      const no = noSeAplica(c, id);
+      if (no || !c || c.docId == null) return { error: no ?? noExisteComentario(id), ...(c && c.estado !== 'pendiente' ? { yaEstaba: true } : {}) };
+      const f = await docsEditor.leerFilaDoc(ctx.ws, c.docId, 'id, titulo, papelera_at');
+      if (!f) return { error: noExisteCreada(c.docId) };
+      if (f.papelera_at) return { error: `«${f.titulo}» está en la papelera: se restaura desde el Landing Generator antes de cambiarla.` };
+      const a = c.hallazgo.arreglo;
+      const arreglo = a ? ` (${a.length > 160 ? `${a.slice(0, 160).trimEnd()}…` : a})` : '';
+      return {
+        payload: { comentario: id },
+        resumen: `Aplicar a «${f.titulo}» el comentario «${c.hallazgo.titulo}»${arreglo}: MaKo reescribe con IA la sección que señala, guarda antes una versión «Antes de aplicar el diagnóstico» y lo marca resuelto. No publica. Usa IA y tarda hasta un minuto.`,
+      };
+    },
+    ejecutar: async (payload, ctx): Promise<Ejecutado> => {
+      const id = Number(payload.comentario);
+      try {
+        const c = await leerComentario(id);
+        const no = noSeAplica(c, id);
+        if (no || !c || c.docId == null) return { ok: false, resumen: no ?? noExisteComentario(id) };
+        const r = await aplicarComentarios({ docId: c.docId, ids: [id], versionAntes: true });
+        if (!r.ok) return { ok: false, resumen: `No se pudo aplicar el comentario (${r.error}).` };
+        const link = linkEditor(c.docId, ctx.ws);
+        return {
+          ok: true,
+          resumen: `Listo: el comentario «${c.hallazgo.titulo}» quedó aplicado en «${r.doc.titulo}» y marcado resuelto. La versión de antes quedó en el historial («Antes de aplicar el diagnóstico»). Para que se vea en internet falta publicar. Se revisa en el editor: ${link}`,
+          datos: { id: c.docId, comentario: id, version: r.doc.version, version_antes: r.versionAntes?.id ?? null, link },
+        };
+      } catch (e) {
+        return { ok: false, resumen: `No se pudo aplicar el comentario (${mensaje(e)}).` };
+      }
+    },
+  },
+
+  // Tanda 6: qué producto cobra el botón de pago (`planCobro`, arriba). Se guarda con la versión que se
+  // leyó (compare-and-set): si alguien guardó en el medio, se relee una vez.
+  cobrar_producto_landing: {
+    preparar: async (input, ctx): Promise<Preparado> => {
+      if (enFlujo(ctx)) return { error: 'Elegir qué cobra una landing no corre en una automatización: pídeselo a MaKo en el chat o hazlo en el editor.' };
+      const plan = await planCobro(input, ctx);
+      if (!plan.listo) return { error: plan.error, ...(plan.faltan ? { faltan: plan.faltan } : {}), ...(plan.disponibles ? { disponibles: plan.disponibles } : {}) };
+      if (plan.boton.producto === plan.producto.id) return { error: `El botón «${plan.boton.texto}» de «${plan.f.titulo}» ya cobra «${plan.producto.nombre}».`, yaEstaba: true };
+      const boton = str(input, 'boton');
+      return {
+        payload: { id: plan.id, producto: plan.producto.id, ...(boton ? { boton } : {}) },
+        resumen: resumenCobrar({ titulo: plan.f.titulo, boton: plan.boton, producto: plan.producto, publicada: !!plan.f.publicado_at, motivo: plan.motivo }),
+      };
+    },
+    ejecutar: async (payload, ctx): Promise<Ejecutado> => {
+      try {
+        for (let intento = 0; intento < 2; intento++) {
+          const plan = await planCobro(payload, ctx);
+          if (!plan.listo) return { ok: false, resumen: plan.error };
+          const g = await docsEditor.guardar({ accion: 'guardar', id: plan.id, version: plan.f.version, contenido: plan.contenido });
+          if (g.ok) {
+            const link = linkEditor(plan.id, ctx.ws);
+            return {
+              ok: true,
+              resumen: `Listo: el botón «${plan.boton.texto}» de «${plan.f.titulo}» cobra «${plan.producto.nombre}».${plan.f.publicado_at ? ' Para que la landing publicada lo cobre, falta volver a publicarla.' : ''} Se revisa en el editor: ${link}`,
+              datos: { id: plan.id, producto: plan.producto.id, boton: plan.boton.texto, version: g.version, link },
+            };
+          }
+          if (!g.conflicto) return { ok: false, resumen: `No se pudo guardar el botón (${g.error}).` };
+        }
+        return { ok: false, resumen: 'No se pudo guardar: se están guardando cambios en la landing en este momento. Vuelve a intentarlo.' };
+      } catch (e) {
+        // `planCobro` tira con «api-mako:» si la base falla al leer el catálogo (en preparar() lo convierte
+        // la ruta en un 500 genérico); acá, al confirmar, el detalle de la base no va en el resumen.
+        const m = mensaje(e);
+        return { ok: false, resumen: m.startsWith('api-mako:') ? 'No se pudo guardar el botón: falló algo de nuestro lado. Vuelve a intentarlo.' : `No se pudo guardar el botón (${m}).` };
       }
     },
   },

@@ -23,6 +23,11 @@
 // «Opciones» nace con dos, y no se puede bajar de dos. Los tipos únicos (nombre,
 // correo, teléfono: el Pixel lee UNO de cada uno) no se ofrecen dos veces.
 // PEDIDO al paquete G1: `formulario` → `ReactNodeViewRenderer(FormularioVista)`.
+//
+// Tanda 6 (Martín, 14/10/2026: «que los [] que el usuario debe completar, se queden como de otro color o
+// algo diferencial»): la vista marca los «[ ]» de las etiquetas, las opciones y el botón, como el resto del
+// editor (`formularioConACompletar`). SÓLO la vista del NodeView: `renderHTML`, `getHTML()` y la publicada
+// salen sin marcar (el Pixel arma cada respuesta con `labels[0].textContent`; la publicada no lleva marcas).
 // =============================================================================
 
 import { useMemo, useState } from 'react';
@@ -34,6 +39,7 @@ import {
 } from '../BarraFormato';
 import { ETIQUETA_CAMPO, specFormulario } from '@/lib/editor-landing/especificacion';
 import { htmlDeArbol } from '@/lib/editor-landing/grafico-svg';
+import { formularioConACompletar } from '../extensiones/completar';
 import { TIPOS_CAMPO, TOPES, nuevoId, type CampoFormulario, type TipoCampo } from '@/lib/editor-landing/doc';
 
 const TIPO: Record<TipoCampo, { nombre: string; icono: string }> = {
@@ -78,7 +84,7 @@ export function FormularioVista(props: ReactNodeViewProps) {
   const ctx = useEditorLanding();
   const [panel, setPanel] = useState<PanelForm | null>(null);
   const [anclaEditor, setAnclaEditor] = useState<HTMLElement | null>(null);
-  const html = useMemo(() => htmlDeArbol(specFormulario(node.attrs, { modo: 'editor' })), [node.attrs]);
+  const html = useMemo(() => htmlDeArbol(formularioConACompletar(specFormulario(node.attrs, { modo: 'editor' }))), [node.attrs]);
   const campos = camposDe(node.attrs.campos);
   const activo = (selected || !!panel) && editor.isEditable;
   const secciones = useMemo(() => (panel ? seccionesDe(editor) : []), [panel, editor]);

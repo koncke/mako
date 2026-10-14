@@ -24,7 +24,8 @@ import { Extension } from '@tiptap/core';
 import type { Node as NodoPM } from '@tiptap/pm/model';
 import { Plugin, PluginKey, type Transaction } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
-import { CLASE_A_COMPLETAR, rangosACompletar } from '@/lib/editor-landing/especificacion';
+import { CLASE_A_COMPLETAR, hijosACompletar, rangosACompletar } from '@/lib/editor-landing/especificacion';
+import { HtmlCrudo, type AttrsArbol, type HijoArbol, type NodoArbol } from '@/lib/editor-landing/grafico-svg';
 
 export const CLAVE_A_COMPLETAR = new PluginKey<DecorationSet>('aCompletarLanding');
 
@@ -107,3 +108,34 @@ export const ResaltarACompletar = Extension.create({
     return [pluginACompletar()];
   },
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Lo que un NodeView dibuja desde sus ATRIBUTOS (tanda 6)
+// ─────────────────────────────────────────────────────────────────────────────
+// La decoración marca el TEXTO del documento; lo que un NodeView dibuja desde un atributo (las etiquetas,
+// las opciones y el botón del formulario) no pasa por ella. El formulario (nodos/FormularioVista.tsx) marca
+// su árbol con esto, SÓLO en la vista del editor: `renderHTML`, `getHTML()` y la publicada salen sin marcar
+// (el Pixel arma cada respuesta con `labels[0].textContent`; la publicada no lleva marcas).
+
+/** Lo que dibuja texto VISIBLE en el formulario (un `<option>` no admite marcas; lo `hidden` no se ve). */
+const CON_TEXTO_VISIBLE: ReadonlySet<string> = new Set(['label', 'legend', 'span', 'button']);
+
+const esAttrs = (h: HijoArbol | undefined): h is AttrsArbol => !!h && typeof h === 'object' && !Array.isArray(h) && !(h instanceof HtmlCrudo);
+
+/**
+ * El árbol del formulario con los «[ ]» marcados (`hijosACompletar`, la misma regla que la decoración y la
+ * miniatura) en las etiquetas, las preguntas, las opciones y el botón. Lo oculto (la etiqueta `hidden` que
+ * lee el Pixel, el mensaje de éxito) queda igual. Puro: lo prueba tests/editor-landing-completar.test.ts.
+ */
+export function formularioConACompletar(n: NodoArbol): NodoArbol {
+  const [tag, ...resto] = n;
+  const attrs = esAttrs(resto[0]) ? resto[0] : null;
+  const marca = CON_TEXTO_VISIBLE.has(tag) && attrs?.hidden == null;
+  const hijos = resto.flatMap((h, i): HijoArbol[] => {
+    if (i === 0 && attrs) return [h];
+    if (Array.isArray(h)) return [formularioConACompletar(h as NodoArbol)];
+    if (marca && typeof h === 'string') return hijosACompletar(h);
+    return [h];
+  });
+  return [tag, ...hijos];
+}
