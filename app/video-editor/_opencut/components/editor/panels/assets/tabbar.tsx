@@ -23,6 +23,7 @@ import {
 	SmileIcon,
 	SparklesIcon,
 	TextIcon,
+	UserSquareIcon,
 	Video01Icon,
 } from "@hugeicons/core-free-icons";
 import type { CategoriaBiblioteca } from "@/app/video-editor/ce/ranuras";
@@ -50,6 +51,8 @@ export const PESTANAS_BIBLIOTECA: Record<
 	subtitulos: { etiqueta: "Subtítulos", Icono: icono(ClosedCaptionIcon) },
 	filtros: { etiqueta: "Filtros", Icono: icono(BlendIcon) },
 	ajuste: { etiqueta: "Ajuste", Icono: icono(SlidersHorizontalIcon) },
+	// `pc_avatar_image` (CapCut 9.6): la pestaña que genera con el Video Generator.
+	avatar: { etiqueta: "Avatar de IA", Icono: icono(UserSquareIcon) },
 };
 
 /** Cuánto corre la fila cada clic en ‹ ›: dos pestañas. */

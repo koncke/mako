@@ -173,6 +173,9 @@ const TENANT_TABLES = new Set<string>([
   // aunque sólo la escriban acciones con sesión: el scope no se decide por quién
   // escribe hoy, sino por de quién son las filas.
   'objectives', 'kpis', 'kpi_registros',
+  // El Calendario (mig 0271, 13/10/2026): lo que la persona agenda. Sin esta línea getTenantDb() es
+  // PASSTHROUGH y el calendario de un negocio mostraría las publicaciones de todos.
+  'calendario_eventos',
   'identidades_fiscales', 'lead_insights', 'lead_respuestas', 'mako_acciones_pendientes', 'mako_confirmaciones', 'mako_doer_buffer', 'mako_doer_conv', 'mako_doer_lock', 'mako_knowledge', 'meta_campaign_drafts', 'meta_health_history', 'nutricion_envios', 'nutricion_inscripciones', 'nutricion_secuencias', 'pagos',
   'pipeline_stages', 'plan_dependencias', 'plan_propuestas', 'plan_reprios', 'propuestas', 'plan_proyectos', 'plan_tareas', 'productos', 'retros',
   // Los cobros de la pasarela (Stripe / Mercado Pago, mig 0255). Sin esta línea getTenantDb() es

@@ -163,7 +163,8 @@ export const CAPAS: Record<CapaId, CapaDef> = {
     // cuánto se produjo.
     // ⚠️ Y `graphics` desde el 11/10/2026: Productivity Analyst salió de la sidebar y es una plantilla
     // del Dashboard (su ruta redirige ahí); sin la tab, el Project Manager se quedaba sin nada.
-    navKeys: ['todo', 'mako', 'productivity-analyst', 'graphics'],
+    // ⚠️ Y `calendario` desde el 13/10/2026: los deadlines del Plan y el Quarter viven ahí, que es lo que mira un PM.
+    navKeys: ['todo', 'mako', 'productivity-analyst', 'graphics', 'calendario'],
     // Sin /integraciones: no tiene nada que conectar y la tab sería una lista de
     // rojos que le hace creer que le falta algo. Sin /contexto (es de agencia).
     userNavKeys: ['perfil', 'configuraciones'],
@@ -283,7 +284,8 @@ export const CAPAS: Record<CapaId, CapaDef> = {
     // abrió ese mismo día, y esta capa tiene `navKeys` EXPLÍCITAS: sin la key, el super
     // admin no la ve en su propio workspace y `requireCapa` lo rebota (lo mismo le pasa a
     // `video-generator`, que no está en la lista).
-    navKeys: ['todo', 'mako', 'mako-doer', 'closing', 'experimentos', 'customer-success', 'productivity-analyst', 'graphics', 'video-editor'],
+    // ⚠️ `calendario` ENTRA ACÁ EL 13/10/2026, con la tab: MaKo también planea sus publicaciones y sus llamadas.
+    navKeys: ['todo', 'mako', 'mako-doer', 'closing', 'experimentos', 'customer-success', 'productivity-analyst', 'graphics', 'video-editor', 'calendario'],
     userNavKeys: null,
     // Sin wizard: el super-admin no hace onboarding de cliente.
     onboarding: [],

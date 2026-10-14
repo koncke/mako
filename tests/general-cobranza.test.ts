@@ -30,14 +30,19 @@ test('el renglón de cada cuota es el MISMO que el del teléfono', () => {
   assert.equal(deGeneral, delTelefono);
 });
 
-// Roturas: la lectura con una ventana (`c.hoy, desde, hasta`): 1 fallo. La sección siempre dibujada: 1 fallo.
+// Desde el 14/10/2026 la sección es el bloque `cobranza` de las vistas de General (lib/general-vistas-modelo.ts),
+// recortado al alcance de la vista por `cobranzaDeLaVista`: vacía, sólo la vista de FÁBRICA la esconde.
+// Roturas: la lectura con una ventana (`c.hoy, desde, hasta`): 1 fallo. La sección siempre dibujada: 1 fallo. Sin el
+// recorte por alcance: 1 fallo. Vacía también en una vista armada por la persona: 1 fallo.
 test('la lectura es TODO lo pendiente, y la sección sale sólo con algo que cobrar o con el error', () => {
   const lib = sinComentarios(leer('lib/datos-comercial-server.ts'));
   const fn = lib.slice(lib.indexOf('export async function leerAQuienCobrar'), lib.indexOf('export async function leerComercial'));
   assert.match(fn, /getOutstandingDetalle\(c\.hoy, null, null\)/);
   assert.match(fn, /armarCobranza\(out\.items, c\.hoy\)\.filas/);
   assert.match(PAGINA, /const cobranzaLeida = leerAQuienCobrar\(\);/);
-  assert.match(PAGINA, /\{\(cobros\.length > 0 \|\| !cobranza\.ok\) && \(\s*<section style=\{SECCION\}>\s*<Cobranza /);
+  assert.match(PAGINA, /const filas = ids \? cobranza\.datos\.filas\.filter\(\(f\) => ids\.has\(f\.leadId\)\) : cobranza\.datos\.filas;/);
+  assert.match(PAGINA, /const deFabrica = !lectura\.vistas\.vistas\.length;/);
+  assert.match(PAGINA, /case 'cobranza': return cobranza && \(cobranza\.cobros\.length > 0 \|\| cobranza\.error \|\| !deFabrica\) \? \(\s*<section key=\{b\} style=\{SECCION\} data-bloque=\{b\}>\s*<Cobranza /);
 });
 
 // Roturas: marcar sin `hoyEnTz(tz)` (la fecha en null): 1 fallo. Sin el candado `enCurso`: 1 fallo.

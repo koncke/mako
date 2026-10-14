@@ -13,6 +13,8 @@
 
 import { getWorkspaceActual } from '@/lib/workspace';
 import { VideoEditorCliente } from '../VideoEditorCliente';
+import { Pagina } from '@/app/_ui';
+import { TemaOscuroScript } from '@/app/_components/TemaOscuroScript';
 import { requireEditorVideo } from '../acceso';
 import { resolverDesde } from '../desde/resolver';
 
@@ -30,5 +32,12 @@ export default async function VideoEditorProyectoPage({ params, searchParams }: 
   const { proyecto } = await params;
   const { desde } = await searchParams;
   const origen = typeof desde === 'string' && desde ? await resolverDesde(desde) : undefined;
-  return <VideoEditorCliente vista="editor" proyectoId={proyecto} ws={ws} desde={origen} />;
+  // Mismo marco que el inicio: la barra lateral y la de secciones se quedan (pedido
+  // de Martín del 12/10), y el editor llena el alto que queda debajo de las secciones.
+  return (
+    <Pagina ancho="completo" densidad="compacta" style={{ padding: 0, height: 'calc(100vh - var(--alto-secciones, 0px))', display: 'flex', flexDirection: 'column' }}>
+      <TemaOscuroScript />
+      <VideoEditorCliente vista="editor" proyectoId={proyecto} ws={ws} desde={origen} />
+    </Pagina>
+  );
 }

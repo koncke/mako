@@ -455,6 +455,61 @@ escriben en `notificaciones`, que sigue sin existir en producción (la 0048 nunc
 `app/general/page.tsx:128` · `lib/capas.ts:280`. *Corrida `wf_01c22b1b-91a`, 10/10/2026.*
 
 
+## /general personalizable: cada persona elige sus VISTAS, y un bloque que no filtra no finge (13/10/2026)
+
+**El pedido.** Martín: «Que los usuarios puedan elegir que ver, si quieren ver "Prioridades" del PLAN, como el
+caso de Mauricio, las cuotas a cobrar... Otros querrán ver su objetivo», y en el mismo turno: «Que hayan templates
+de tab general. Y que se puedan crear más de una, e incluso asignarles ofertas y/o funnels». Y Mauricio, en la
+reunión del 13/10 (min. 54 a 72, leído en el transcript): «el cobranza yo lo veo más operativo... ¿a quién
+cobrarle?» y «me genera mucho valor estar viendo quién sigue de cobranza». Martín le contestó «lo pongo ahí en el
+general»: por eso **«A quién cobrarle» entra en la vista POR DEFECTO de todos**, después de los KPIs.
+
+**Cómo quedó.** Una vista = qué bloques del catálogo (`BLOQUES_GENERAL`), en qué orden, y de qué funnels u ofertas
+(`lib/general-vistas-modelo.ts`, puro y con test). Se guardan POR PERSONA y por workspace en `app_settings`
+(`general.vistas.<sub>`, el molde del informe del Dashboard), con compare-and-set por `updated_at`. Se crean desde
+plantillas (Operación diaria = el caso de Mauricio) o con «¿Qué vas a crear hoy?» (la caja de siempre; la IA elige
+del mismo catálogo que lista «Personalizar» y `deIAVista` saca lo que no existe). Personalizar es ELEGIR bloques del
+diseño restaurado, nunca redibujarlos (memoria general-diseno-restaurado).
+
+**Tres trampas que salieron al escribirlo:**
+
+- **El semáforo saltea la alerta que ya es el titular de la cabecera, y la cabecera ahora se puede SACAR.** Con
+  una vista sin «Objetivo y acción del día», la alerta más urgente desaparecía de la pantalla y la lista decía «La
+  más urgente está arriba» apuntando a nada. `BloqueSemaforo` recibe `conCabecera` y sólo saltea si la cabecera se
+  dibuja. Es la regla de «dos bloques que antes vivían separados pueden contradecirse», del otro lado: dos bloques
+  que vivían JUNTOS pueden depender uno del otro, y personalizar los separa.
+- **Un alcance pedido que no matchea nada NO es «todo el negocio».** Una vista atada a una oferta que ningún funnel
+  vende (`funnel_ofertas` vacío para ella) devolvía, con el obvio `funnels.length ? … : todo`, los datos del
+  negocio entero bajo el rótulo de la oferta. `funnelsDelAlcance` distingue `{ todo: true }` de
+  `{ todo: false, funnels: [] }`, y «Tu funnel hoy» dice «Ningún funnel vende lo que elegiste».
+- **Sólo dos bloques saben filtrar por funnel** (`porFunnel`): «A quién cobrarle» (filtra los leads de los funnels
+  del alcance: la casa y los agregados de `lead_funnel`) y «Tu funnel hoy». El objetivo, los KPIs, el semáforo, el
+  mes y los pendientes miden el negocio entero: con un alcance puesto lo DICEN («Todo el negocio» a la derecha del
+  título). Filtrarlos de verdad pide reescribir `leerVistaGeneral`; hasta entonces, honestos.
+
+**En la API de MaKo** (la regla de Martín del 13/10: toda funcionalidad nueva se declara ahí): `listar_vistas_general`
+y `crear_vista_general` (área general). Como las vistas son POR PERSONA, la API tiene que saber de quién: se nombra
+(email o nombre) o, si la cuenta tiene una sola persona admin, es ésa (`elegirPersonaVista`). Un nombre repetido pide
+el email; una plantilla que no existe es un error aunque vengan bloques (la primera versión del test no lo cazaba). La
+lectura devuelve también los funnels y las ofertas con su id: ninguna otra operación los listaba.
+
+**Y una que no es trampa pero ahorra:** `leerVistaGeneral` son trece lecturas y ESCRIBE en la primera visita
+(`migrarSettingsAObjectives`). La página la llama sólo si la vista dibuja alguno de sus cinco bloques
+(`VIENEN_DE_LA_VISTA`): «Operación diaria» no la necesita.
+
+**Vive en:** `lib/general-vistas-modelo.ts` · `lib/general-vistas.ts` · `lib/general-alcance.ts` ·
+`lib/general-vistas-ia.ts` · `app/general/page.tsx` · `app/general/BarraVistas.tsx` · `app/general/NuevaVista.tsx` ·
+`app/general/EditarVista.tsx` · `app/general/Cobranza.tsx` · `app/general/Bloques.tsx` ·
+`app/api/general/ia/route.ts` · `tests/general-vistas.test.ts`. *13/10/2026, claude2.*
+
+**Y dos chats construyeron la MISMA cobranza el mismo día (14/10/2026).** Este y el de Graphics movieron «A quién
+cobrarle» a General sin saberlo el uno del otro: dos componentes, dos lecturas (la mía con `getOutstandingDetalle(hoy)`,
+la suya sin ventana) y el choque recién apareció en el merge. Quedó UNA: la `Cobranza` de Graphics (la lectura y el
+renglón del teléfono, con su test) es el bloque `cobranza` de las vistas, recortada al alcance por
+`cobranzaDeLaVista` y con el rótulo del alcance al lado del título. La regla de «vacía no se dibuja» quedó partida: la
+vista de FÁBRICA la esconde (un negocio sin cuotas no ve ruido), una vista que la persona armó la muestra (la eligió, y
+una vista de sólo cobranza quedaba en blanco). Lo fijan `tests/general-cobranza.test.ts` y `tests/general-vistas.test.ts`.
+
 ## «A quién cobrarle» en General: la tercera puerta de «Marcar cobrada» (13/10/2026)
 
 **Vive en:** `app/general/Cobranza.tsx`, `app/general/page.tsx`, `leerAQuienCobrar` en `lib/datos-comercial-server.ts`,
@@ -475,6 +530,13 @@ no que se analiza. Es la lista del teléfono en escritorio, y lo que importa al 
 
 ## Lo que quedó sin hacer
 
+- **Las vistas de /general (13/10/2026): cinco bloques miden el negocio entero aunque la vista tenga un funnel.**
+  El objetivo, los KPIs, el semáforo, el mes y los pendientes salen de `leerVistaGeneral` (`lib/vista-general.ts`),
+  que no recibe alcance. Hoy lo dicen («Todo el negocio»); filtrarlos es pasarle los ids de leads del alcance
+  (`idsDeLeadsEnFunnels`, lib/general-alcance.ts) a sus lecturas. Vive en `app/general/page.tsx`.
+- **El Today de MaKo Mobile no mira las vistas**: dibuja lo de siempre. Si se quiere la misma personalización en el
+  teléfono, lee `leerVistasGeneral()` y la vista activa. Vive en `app/m/hoy`.
+- **Una «Prioridades del Plan» por funnel no existe**: las tareas del tablero no tienen funnel, tienen proyecto.
 - **«A quién cobrarle» sigue TAMBIÉN en el Dashboard** (la sección de la hoja Comercial): Martín pidió ponerla en General y no
   dijo si se saca de allá. Se le preguntó el 13/10.
 - **`getObjetivoProgreso` y los tres settings siguen alimentando los reportes**

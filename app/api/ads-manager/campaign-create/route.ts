@@ -23,6 +23,7 @@ import { explicarRechazoPublicacion } from '@/lib/meta-publicar-errores';
 import { type CampaignSpec, objetivoDef } from '@/lib/campaign-types';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { guardAdsWs } from '@/lib/ads-guard';
+import { marcarPasoTab } from '@/lib/tab-onboarding-state';
 import { getWorkspaceActual, OWNER_WS } from '@/lib/workspace';
 import { motivoVideos, videosDeCampana } from '@/lib/campana-videos';
 import { abrirRegistro, claveIdemDe, decidirReintentoCampana, salidaAMedias, salidaEsperar, type Decision, type FilaPublicacion, type Salida } from '@/lib/meta-idempotencia';
@@ -141,6 +142,9 @@ export async function POST(req: NextRequest) {
     // ⚠️ Con la campaña adentro (revisión de la #59): el persist que la anota arriba traga su
     // error, y una fila 'publicada' sin campaña devolvía `campaign_id: null` al reintento.
     await persist({ status: 'publicada', meta_campaign_id: campaignId, meta_adset_ids, meta_ad_ids, meta_creative_ids, error: null });
+    // El último paso del onboarding de la tab (#801). Best-effort: si los anteriores no
+    // están marcados, marcarPasoTab se niega y la page lo deriva en la próxima carga.
+    await marcarPasoTab('ads-manager', 'am_campana').catch(() => null);
     return Response.json({ ok: true, campaign_id: campaignId, adset_ids: meta_adset_ids, ad_ids: meta_ad_ids, creative_ids: meta_creative_ids });
   } catch (err) {
     const env = metaErrorEnvelope(err);

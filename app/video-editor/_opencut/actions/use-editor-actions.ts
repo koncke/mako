@@ -37,6 +37,7 @@ import {
 	sinBloqueados,
 	todosEnCabezal,
 } from "@/app/video-editor/_opencut/timeline/components/pistas-ce";
+import { borrarSilencios } from "@/app/video-editor/_opencut/audio/borrar-silencios";
 import { COLORES_MARCADOR } from "@/app/video-editor/_opencut/timeline/components/theme";
 import {
 	copiarAtributos,
@@ -188,6 +189,17 @@ export function useEditorActions() {
 				elements: objetivos,
 				splitTime: editor.playback.getCurrentTime(),
 			});
+		},
+		undefined,
+	);
+
+	// «Borrar silencios» (pedido de Martín, reunión 858545195 @94:33): lee el audio
+	// del clip y corre UN comando (un solo Deshacer). El trabajo largo y los avisos
+	// viven en audio/borrar-silencios.ts.
+	useActionHandler(
+		"borrar-silencios",
+		() => {
+			void borrarSilencios(editor);
 		},
 		undefined,
 	);

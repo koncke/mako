@@ -15,7 +15,7 @@ import { TAG } from '@/lib/cache';
 import { getTenantDb } from '@/lib/workspace';
 import { getUsuarioActual } from '@/lib/auth';
 import { getLead, logLeadChanges, logLeadEvent, type Lead } from '@/lib/leads';
-import { saveLeadPlanManual, marcarPago, getPagosByLead } from '@/lib/pagos';
+import { saveLeadPlanManual, marcarPago, getPagosByLead, cobrarCuota, registrarPagoSuelto } from '@/lib/pagos';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { VENTA_SIN_COBRO, ventaTipoDe, type VentaTipo } from '@/lib/venta-tipo';
 
@@ -305,27 +305,49 @@ export type PagoManualInput = {
   monto?: number | null;   // si difiere del de la cuota, se actualiza
   fecha: string;           // YYYY-MM-DD (obligatoria)
   hora?: string | null;    // HH:MM
+  /**
+   * Si se cobró MENOS que la cuota, qué pasa con la diferencia (pedido de Mauricio del 13/10/2026: «yo no pude
+   * ponerle el tema cuando es un pago diferente»). 'pendiente' (default) = queda como una cuota nueva con el mismo
+   * vencimiento; 'descuento' = no se cobra. Sin esto, la diferencia DESAPARECÍA: la cuota quedaba pagada por menos
+   * y el Outstanding bajaba como si el cliente ya no debiera nada.
+   */
+  resto?: 'pendiente' | 'descuento';
 };
 
 /**
  * Marca una cuota como pagada con fecha + hora (y monto real si difiere).
  * Se usa tanto desde el registro manual como al confirmar lo extraído del
  * comprobante por IA. marcarPago sincroniza total_cobrado del lead.
+ *
+ * ⚠️ UN PAGO DE MENOS DEJA LA DIFERENCIA PENDIENTE (salvo `resto: 'descuento'`). La diferencia es una fila NUEVA
+ * de `pagos` (numerada después de la última: el índice único es (lead_id, numero)), con el vencimiento de la cuota
+ * original: el cliente la debe desde ese día. Devuelve cuánto quedó pendiente, para que la pantalla lo diga.
  */
-export async function marcarPagoManualAction(pagoId: number, leadId: number, datos: PagoManualInput): Promise<void> {
-  if (!datos.fecha) throw new Error('La fecha del pago es obligatoria.');
-  const db = await getTenantDb();
-
-  // Hora (y monto si vino uno válido) primero; marcarPago sincroniza después.
-  const upd: Record<string, unknown> = { pago_hora: datos.hora?.trim() || null };
-  if (datos.monto != null && Number.isFinite(datos.monto) && datos.monto > 0) upd.monto_usd = datos.monto;
-  const { error } = await db.from('pagos').update(upd).eq('id', pagoId);
-  if (error) throw new Error(`Error actualizando el pago ${pagoId}: ${error.message}`);
-
-  await marcarPago(pagoId, true, datos.fecha);
-
-  const nota = `Cuota cobrada el ${fmtDDMMYYYY(datos.fecha)}${datos.hora ? ` · ${datos.hora}` : ''}`;
+export async function marcarPagoManualAction(pagoId: number, leadId: number, datos: PagoManualInput): Promise<{ pendiente: number | null }> {
+  // La regla y la escritura viven en lib/pagos.ts (`cobrarCuota`): la usa también la API de MaKo.
+  const r = await cobrarCuota(pagoId, leadId, datos);
+  const resto = r.pendiente != null
+    ? ` · quedan USD ${r.pendiente} pendientes`
+    : r.descuento > 0 ? ` · USD ${r.descuento} de descuento` : '';
+  const nota = `Cuota cobrada el ${fmtDDMMYYYY(datos.fecha)}${datos.hora ? ` · ${datos.hora}` : ''}${r.monto != null && r.monto !== r.original ? ` · USD ${r.monto} (era de USD ${r.original})` : ''}${resto}`;
   await logLeadEvent(leadId, 'Pago registrado', nota, await autorActual());
+  bust(TAG.pagos, TAG.leads);
+  revalidarLead(leadId);
+  revalidatePath('/dashboard');
+  revalidatePath('/general');
+  return { pendiente: r.pendiente };
+}
+
+/**
+ * Un pago FUERA DEL PLAN (pedido de Mauricio del 13/10/2026, y Martín: «terminar de configurar la pestaña de pagos
+ * en el CRM para que esté bien fácil de manejar»): un adelanto, un extra, un pago que no calza con ninguna cuota.
+ * Entra como una cuota nueva ya cobrada, numerada después de la última, y pasa por `marcarPago` — el mismo camino
+ * que cualquier cobro: sincroniza lo cobrado del lead y corta los recordatorios. No toca el monto de cierre: si fue
+ * una venta nueva, el cierre se corrige en el deal.
+ */
+export async function registrarPagoSueltoAction(leadId: number, datos: { monto: number; fecha: string; hora?: string | null }): Promise<void> {
+  const r = await registrarPagoSuelto(leadId, datos);
+  await logLeadEvent(leadId, 'Pago registrado', `Pago fuera del plan por USD ${r.monto} el ${fmtDDMMYYYY(datos.fecha)}${datos.hora ? ` · ${datos.hora}` : ''}`, await autorActual());
   bust(TAG.pagos, TAG.leads);
   revalidarLead(leadId);
   revalidatePath('/dashboard');

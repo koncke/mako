@@ -8402,3 +8402,41 @@ cargada después de las 12 hacía que MaKo diera la reunión por pasada y cortar
 zona del workspace). Ojo: la hora de una reunión NO entra en `lead_audit` (`AUDIT_FIELDS` tiene la fecha y no `junta_1_at`).
 
 **Vive en:** `app/crm/actions.ts` (`StageMoveData`, el paso de la reunión del asistente) · `lib/leads.ts` (`AUDIT_FIELDS`)
+
+## Un pago de menos BORRABA la diferencia, y un pago fuera del plan no tenía dónde entrar (13/10/2026)
+
+**El pedido.** Mauricio, en la reunión del 13/10 (min. 87, leído en el transcript): «yo no pude ponerle el tema
+cuando es un pago diferente». Martín: «tengo que terminar de configurar la pestaña de pagos en el CRM para que esté
+bien fácil de manejar». Antes, en el min. 66 de la misma reunión, el «0» de pagos no se dejaba editar.
+
+**El diagnóstico obvio era el equivocado.** Parecía que faltaba un campo de monto: el registro manual de «Marcar
+pagada» YA dejaba cambiar el monto. Lo que estaba mal es lo que pasaba DESPUÉS: `marcarPagoManualAction` escribía el
+monto nuevo en la cuota y la marcaba pagada, así que una cuota de USD 500 cobrada con USD 300 quedaba «pagada por
+300» y los 200 que faltaban **desaparecían** del plan, del Outstanding y de «A quién cobrarle». Sin error, y con el
+cliente debiendo plata que ninguna pantalla mostraba.
+
+**Cómo quedó.**
+- **Un pago de menos pregunta qué pasa con la diferencia**, pegado al botón de confirmar: «Quedan pendientes»
+  (default: una cuota NUEVA con el mismo vencimiento, numerada después de la última porque el índice único es
+  `(lead_id, numero)`) o «Es un descuento». La diferencia se inserta ANTES de marcar: si el insert falla, la cuota
+  vuelve a su monto y no se marca nada.
+- **«Registrar otro pago»** (y «Registrar un pago» en una ficha sin cuotas): un cobro fuera del plan (un adelanto,
+  un extra, otro esquema). Entra como una cuota nueva y se marca por `marcarPago`, el choke point de siempre (lo
+  cobrado del lead y el corte de los recordatorios de cobranza). **No toca el monto de cierre**: si fue una venta
+  nueva, se corrige en el deal.
+- **Con una diferencia pendiente no se ofrece el «Deshacer» del toast**: desmarcar la cuota dejaría viva la cuota
+  nueva de la diferencia y el plan sumaría de más.
+- **Una sola implementación, dos puertas**: la regla vive en `lib/pagos-diferencia.ts` (pura, con test) y la escritura
+  en `cobrarCuota` / `registrarPagoSuelto` (lib/pagos.ts). La ficha y la API de MaKo las llaman: `marcar_pago_cobrado`
+  acepta `montoUsd` y `resto`, y `registrar_pago_suelto` es nueva (regla de Martín del 13/10: toda funcionalidad nueva
+  va a la API).
+
+**SIN HACER:** el «0» de pagos que Martín le pidió tocar a Mauricio en el min. 66 de la reunión no se pudo ubicar con
+certeza (la ficha tiene varios ceros); si es el contador de cuotas, hoy «Registrar un pago» cubre el caso. Y un pago
+de MÁS se registra entero en la cuota (el plan suma de más y el banner de Editar lo dice): no se reparte entre las
+cuotas siguientes.
+
+**Vive en:** `lib/pagos-diferencia.ts` · `lib/pagos.ts` (`cobrarCuota`, `registrarPagoSuelto`, `marcarPago`) ·
+`app/crm/[id]/deal-actions.ts` · `app/crm/[id]/DealDetailsCard.tsx` (`PayModal`, `PagoSueltoModal`) ·
+`lib/api-mako/areas/crm.*` · `tests/pagos-diferencia.test.ts` ·
+*13/10/2026, claude2*

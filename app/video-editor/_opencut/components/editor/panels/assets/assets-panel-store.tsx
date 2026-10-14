@@ -28,6 +28,8 @@ export const CATEGORIAS_BIBLIOTECA: readonly CategoriaBiblioteca[] = [
 	"subtitulos",
 	"filtros",
 	"ajuste",
+	// «Avatar de IA» (pedido de Martín del 14/10): lo genera el Video Generator.
+	"avatar",
 ];
 
 /** Los nombres de pestaña de OpenCut, que otros módulos del motor siguen usando. */

@@ -27,9 +27,9 @@
 
 ## Índice
 
-- **General** (`general`): `leer_resumen_objetivos` · `ver_trimestre_actual` · `listar_objetivos` · `ver_objetivo_principal` · `ver_tablero_kpis` · `listar_kpis` · `sugerir_kpis` · `listar_fuentes_kpi` · `medir_fuente_kpi` · `ver_capacidad_instalada` · `medir_tramo_r1_r2` · `listar_pendientes_arranque` · `registrar_valor_kpi` · `cerrar_objetivo` · `apagar_kpi` · `guardar_capacidad` · `guardar_objetivo` · `guardar_kpi` · `sembrar_kpis_sugeridos`
+- **General** (`general`): `leer_resumen_objetivos` · `ver_trimestre_actual` · `listar_objetivos` · `ver_objetivo_principal` · `ver_tablero_kpis` · `listar_kpis` · `sugerir_kpis` · `listar_fuentes_kpi` · `medir_fuente_kpi` · `ver_capacidad_instalada` · `medir_tramo_r1_r2` · `listar_pendientes_arranque` · `registrar_valor_kpi` · `cerrar_objetivo` · `apagar_kpi` · `guardar_capacidad` · `guardar_objetivo` · `guardar_kpi` · `sembrar_kpis_sugeridos` · `listar_vistas_general` · `crear_vista_general`
 - **Plan** (`plan`): `ver_plan` · `listar_tareas_plan` · `ver_tarea_plan` · `ver_proyecto_plan` · `listar_proyectos_plan` · `ver_prioridades_plan` · `listar_tareas_vencidas` · `listar_tareas_paradas` · `listar_tareas_sin_datos` · `buscar_tareas_plan` · `listar_dependencias_plan` · `listar_borradores_plan` · `ver_borrador_plan` · `ver_estado_borrador` · `ver_borrador_de_reunion` · `listar_proyectos_vacios` · `ver_senales_negocio` · `descartar_borrador_plan` · `actualizar_avance_tarea` · `agregar_dependencia_plan` · `quitar_dependencia_plan` · `guardar_termino_glosario` · `proponer_tareas_plan` · `proponer_cierre_tareas` · `proponer_ampliar_tareas`
-- **CRM** (`crm`): `buscar_leads` · `ficha_lead` · `reuniones_recientes` · `ver_funnel` · `listar_horarios_reunion` · `listar_leads` · `contar_leads_por_etapa` · `transiciones_desde_etapa` · `requisitos_para_mover` · `faltantes_del_lead` · `reuniones_proximas` · `cobranza_lead` · `tracking_lead` · `journey_lead` · `duplicados_lead` · `propuestas_lead_pendientes` · `confirmaciones_crm_automatico` · `estado_crm_automatico` · `evaluar_crm_automatico` · `link_agenda_calendly` · `link_resumen_lead` · `r2_sin_lead` · `listar_productos` · `listar_etiquetas` · `etiquetas_lead` · `proponer_cambio_etapa` · `proponer_agendar_reunion` · `proponer_lead` · `marcar_asistencia_reunion` · `marcar_calificado` · `agregar_nota_lead` · `asignar_closer_setter` · `mover_a_nutricion_manual` · `marcar_pago_cobrado` · `ignorar_datos_sin_marcar` · `reactivar_datos_sin_marcar` · `resolver_confirmacion_crm` · `declarar_entradas_funnel` · `crear_etiqueta` · `editar_etiqueta` · `archivar_etiqueta` · `poner_etiqueta_lead` · `sacar_etiqueta_lead` · `editar_contacto_lead` · `agregar_link_fathom` · `marcar_reunion_manual` · `guardar_plan_pagos` · `guardar_cuotas` · `guardar_deal_details` · `activar_crm_automatico` · `guardar_producto` · `proponer_leads`
+- **CRM** (`crm`): `buscar_leads` · `ficha_lead` · `reuniones_recientes` · `ver_funnel` · `listar_horarios_reunion` · `listar_leads` · `contar_leads_por_etapa` · `transiciones_desde_etapa` · `requisitos_para_mover` · `faltantes_del_lead` · `reuniones_proximas` · `cobranza_lead` · `tracking_lead` · `journey_lead` · `duplicados_lead` · `propuestas_lead_pendientes` · `confirmaciones_crm_automatico` · `estado_crm_automatico` · `evaluar_crm_automatico` · `link_agenda_calendly` · `link_resumen_lead` · `r2_sin_lead` · `listar_productos` · `listar_etiquetas` · `etiquetas_lead` · `proponer_cambio_etapa` · `proponer_agendar_reunion` · `proponer_lead` · `marcar_asistencia_reunion` · `marcar_calificado` · `agregar_nota_lead` · `asignar_closer_setter` · `mover_a_nutricion_manual` · `marcar_pago_cobrado` · `registrar_pago_suelto` · `ignorar_datos_sin_marcar` · `reactivar_datos_sin_marcar` · `resolver_confirmacion_crm` · `declarar_entradas_funnel` · `crear_etiqueta` · `editar_etiqueta` · `archivar_etiqueta` · `poner_etiqueta_lead` · `sacar_etiqueta_lead` · `editar_contacto_lead` · `agregar_link_fathom` · `marcar_reunion_manual` · `guardar_plan_pagos` · `guardar_cuotas` · `guardar_deal_details` · `activar_crm_automatico` · `guardar_producto` · `proponer_leads`
 - **Ads (Manager y Analyst)** (`ads`): `listar_campanas_meta` · `ver_estado_meta` · `ver_salud_cuenta_meta` · `listar_conjuntos_meta` · `listar_anuncios_meta` · `listar_anuncios_con_problemas_meta` · `listar_recomendaciones_meta` · `ver_rendimiento_anuncios` · `ver_cuenta_meta` · `listar_publicos_meta` · `buscar_intereses_meta` · `buscar_lugares_meta` · `listar_formularios_meta` · `listar_pixeles_meta` · `listar_eventos_pixel_meta` · `listar_conversiones_meta` · `listar_identidades_meta` · `verificar_ganadores_reusables` · `listar_motivos_venta_llamada` · `ver_publico_conjunto_meta` · `ver_textos_anuncio_meta` · `ver_datos_campana_meta` · `ver_datos_conjunto_meta` · `verificar_aprobacion_meta` · `listar_incidentes_meta` · `ver_base_formulario_meta` · `listar_publicaciones_mako_meta` · `listar_guiones_analizados` · `ver_ficha_guion` · `ver_estado_analisis_guiones` · `ver_cuadrante_retencion` · `ver_perfil_guiones` · `listar_angulos_guion` · `listar_avatares_guion` · `listar_guiones_valorados` · `ver_transcript_anuncio` · `proponer_estado_campana` · `proponer_renombrar_campana` · `proponer_estado_conjunto` · `proponer_estado_anuncio` · `proponer_renombrar_entidad_meta` · `proponer_presupuesto_campana` · `proponer_presupuesto_conjunto` · `proponer_eliminar_entidad_meta` · `proponer_agregar_anuncio` · `proponer_editar_textos_anuncio` · `proponer_crear_publico_meta` · `proponer_crear_formulario_meta` · `proponer_sincronizar_guiones` · `proponer_reanalizar_guion` · `proponer_corregir_angulo_guion` · `proponer_corregir_avatar_guion` · `proponer_borrar_guion_valorado` · `proponer_agregar_angulo` · `proponer_editar_angulo` · `proponer_borrar_angulo` · `proponer_agregar_avatar` · `proponer_editar_avatar` · `proponer_borrar_avatar`
 - **WhatsApp** (`whatsapp`): `listar_plantillas_aprobadas` · `listar_borradores_plantilla` · `estado_plantillas_meta` · `variables_plantilla` · `estado_envio_whatsapp` · `listar_etiquetas_whatsapp` · `etapa_inbox_de_lead` · `lead_insiste_con_lo_mismo` · `crear_contacto_chatwoot_lead` · `borrar_borrador_plantilla` · `reconciliar_plantillas` · `crear_borrador_whatsapp_empresa` · `guardar_borrador_plantilla` · `enviar_plantilla_a_meta` · `editar_plantilla_meta` · `borrar_plantilla_meta`
 - **Email** (`email`): `kpis_email` · `listar_secuencias_email` · `ficha_secuencia_email` · `listar_etapas_email` · `listar_triggers_email` · `listar_broadcasts` · `ficha_broadcast` · `listar_segmentos_email` · `contar_segmento_email` · `estado_email` · `remitente_email` · `envio_email_habilitado` · `crear_secuencia_email` · `editar_meta_secuencia_email` · `cancelar_programacion_broadcast` · `verificar_dominio_envio` · `editar_pasos_secuencia_email` · `crear_broadcast` · `editar_broadcast` · `programar_broadcast` · `enviar_broadcast` · `enviar_prueba_broadcast` · `eliminar_broadcast` · `activar_envio_real_email`
@@ -44,13 +44,14 @@
 - **Integraciones** (`integraciones`): `ver_integraciones` · `ver_integracion` · `probar_conexion_integracion` · `ver_estado_google_calendar` · `ver_cuotas_ia` · `ver_activacion_tab` · `ver_estado_agente_claude` · `link_configurar_integracion`
 - **Cuenta, equipo y notificaciones** (`equipo`): `ver_workspace` · `ver_zona_horaria_workspace` · `ver_preferencias_notificaciones` · `listar_avisos_disponibles` · `esta_aviso_activo` · `ver_estado_plantilla_reporte` · `fijar_zona_horaria_workspace` · `configurar_reporte` · `configurar_seccion_reporte` · `configurar_aviso_whatsapp` · `asegurar_plantilla_reporte`
 - **Curso (módulos y clases)** (`curso`): `listar_cursos` · `ver_curso` · `ver_clase_curso` · `crear_modulo_curso` · `renombrar_modulo_curso` · `ordenar_modulos_curso` · `crear_clase_curso` · `editar_clase_curso` · `mover_clase_curso` · `borrar_clase_curso` · `restaurar_clase_curso`
+- **Calendario** (`calendario`): `listar_eventos_calendario` · `crear_evento_calendario`
 - **Creaciones de la comunidad (estrellas)** (`creaciones`): `listar_creaciones` · `ver_creacion` · `mis_creaciones` · `dar_estrella` · `quitar_estrella` · `publicar_creacion` · `retirar_creacion` · `usar_creacion`
 - **Cobros (Stripe y Mercado Pago)** (`cobros`): `listar_cobros` · `ver_cobro` · `crear_link_pago` · `anular_link_pago` · `reembolsar_cobro` · `cancelar_suscripcion`
 - **MaKo (pendientes, propuestas, chats)** (`mako`): `listar_pendientes` · `confirmar_accion` · `cancelar_accion` · `ver_pendiente` · `listar_propuestas_revisar` · `ver_propuesta_accion` · `resumen_bandejas_confirmacion` · `listar_capacidades_mako`
 
 ## General — `general`
 
-Tab **General** (`/general`). 12 lecturas · 7 acciones.
+Tab **General** (`/general`). 13 lecturas · 8 acciones.
 
 ### `GET /api/v1/general/objetivos/resumen` — Resumen de objetivos del trimestre
 
@@ -546,6 +547,63 @@ curl -L \
   -H "Content-Type: application/json" \
   "https://hola-mako.com/api/v1/general/kpis/siembras" \
   -d '{"nombres":[]}'
+```
+
+### `GET /api/v1/general/vistas` — Ver las vistas de General
+
+Las vistas de la pantalla General de una persona (qué bloques ve, en qué orden y de qué funnels u ofertas), más los bloques, las plantillas, y los funnels y las ofertas del negocio (con su id) que existen para armar una nueva. Úsala antes de crear_vista_general.
+
+- **Ruta por operación:** `GET /api/v1/general/listar_vistas_general`
+- **Token detallado:** permiso `general=read` (Solo lectura en «General»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** general
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `persona` | string | no | Email (o nombre) de la persona admin. Si se omite y la cuenta tiene una sola persona admin, es ésa. |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/general/vistas"
+```
+
+### `POST /api/v1/general/vistas` — Crear una vista de General
+
+Propone crear una vista nueva en la pantalla General de una persona: desde una plantilla (por id) o con una lista de bloques, y opcionalmente atada a funnels u ofertas (por id). Lo que no existe se saca. Pide los bloques y las plantillas con listar_vistas_general.
+
+- **Ruta por operación:** `POST /api/v1/general/crear_vista_general`
+- **Token detallado:** permiso `general=write` (Lectura y escritura en «General»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** agrega una vista a las de esa persona (app_settings general.vistas.<persona>), con compare-and-set
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** general
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `persona` | string | no | Email (o nombre) de la persona admin. Si se omite y la cuenta tiene una sola persona admin, es ésa. |
+| `plantilla` | string (operacion \\| foco \\| cobranza \\| objetivo \\| comercial \\| salud \\| plan) | no | id de la plantilla. Si viene, manda sobre «bloques». |
+| `bloques` | string[] (objetivo \\| prioridades \\| cobranza \\| funnel \\| kpis \\| semaforo \\| mes \\| pendientes) | no | Los bloques, en el orden en que se ven. |
+| `nombre` | string | no | Cómo se llama la vista (default: el de la plantilla). |
+| `funnels` | string[] | no | ids de funnels (de listar_vistas_general). Vacío = todo el negocio. |
+| `ofertas` | string[] | no | ids de ofertas (de listar_vistas_general): suman los funnels que las venden. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/general/vistas"
 ```
 
 ## Plan — `plan`
@@ -1187,7 +1245,7 @@ curl -L \
 
 ## CRM — `crm`
 
-Tab **CRM** (`/crm`). 25 lecturas · 27 acciones.
+Tab **CRM** (`/crm`). 25 lecturas · 28 acciones.
 
 ### `GET /api/v1/crm/busqueda/leads` — Buscar leads por texto
 
@@ -2018,14 +2076,14 @@ curl -L \
 
 ### `PATCH /api/v1/crm/leads/{leadId}/cuotas/{pagoId}` — Marcar una cuota cobrada
 
-PROPONE marcar una cuota concreta como cobrada en una fecha, o desmarcarla (queda pendiente hasta el «sí»). Recalcula lo cobrado del lead. El pagoId sale de cobranza_lead. No cambia el monto de la cuota: si lo cobrado fue distinto, eso se corrige en la ficha. Úsala cuando digan «ya me pagó la cuota 2».
+PROPONE marcar una cuota concreta como cobrada en una fecha, o desmarcarla (queda pendiente hasta el «sí»). Recalcula lo cobrado del lead. El pagoId sale de cobranza_lead. Si se cobró un monto DISTINTO, pasa montoUsd: si fue menos, la diferencia queda como una cuota nueva pendiente con el mismo vencimiento, salvo que la persona diga que es un descuento (resto=descuento). Úsala cuando digan «ya me pagó la cuota 2» o «me pagó 300 de la cuota de 500».
 
 - **Ruta por operación:** `POST /api/v1/crm/marcar_pago_cobrado`
 - **Token detallado:** permiso `crm=write` (Lectura y escritura en «CRM»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
-- **Escribe:** marca o desmarca la cuota en pagos, recalcula total_cobrado_usd del lead y deja historial
+- **Escribe:** marca o desmarca la cuota en pagos (con el monto real si vino), deja la diferencia como una cuota nueva si se cobró de menos, recalcula total_cobrado_usd del lead y deja historial
 - **Reversible:** sí
 - **Costo:** gratis
 - **Requiere la tab:** crm
@@ -2036,6 +2094,8 @@ PROPONE marcar una cuota concreta como cobrada en una fecha, o desmarcarla (qued
 | `leadId` | number | sí | id del lead dueño de la cuota. |
 | `pagado` | boolean | sí | true cobrada, false revertir. |
 | `fechaPago` | string | no | YYYY-MM-DD en que se cobró (default hoy en la zona del negocio). |
+| `montoUsd` | number | no | Lo que se cobró de verdad, en USD, si fue distinto del monto de la cuota. Si se omite, la cuota se cobra tal cual. |
+| `resto` | string (pendiente \\| descuento) | no | Sólo si montoUsd es MENOR que la cuota: pendiente (default, la diferencia queda como una cuota nueva) o descuento (no se cobra). |
 
 ```bash
 curl -L \
@@ -2046,6 +2106,37 @@ curl -L \
   -H "Content-Type: application/json" \
   "https://hola-mako.com/api/v1/crm/leads/LEAD_ID/cuotas/PAGO_ID" \
   -d '{"pagado":true}'
+```
+
+### `POST /api/v1/crm/leads/{leadId}/pagos` — Registrar un pago fuera del plan
+
+PROPONE registrar un cobro que no es ninguna cuota del plan del lead (un adelanto, un extra, un pago de otro esquema): entra como una cuota nueva ya cobrada y suma a lo cobrado del lead. No cambia el monto de cierre. Si el pago corresponde a una cuota que ya existe, usa marcar_pago_cobrado.
+
+- **Ruta por operación:** `POST /api/v1/crm/registrar_pago_suelto`
+- **Token detallado:** permiso `crm=write` (Lectura y escritura en «CRM»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** insert en pagos (una cuota nueva ya cobrada), recalcula total_cobrado_usd del lead y deja historial
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `leadId` | number | sí | id del lead que pagó. |
+| `montoUsd` | number | sí | Lo que se cobró, en USD. |
+| `fechaPago` | string | no | YYYY-MM-DD en que se cobró (default hoy en la zona del negocio). |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/crm/leads/LEAD_ID/pagos" \
+  -d '{"montoUsd":0.01}'
 ```
 
 ### `PUT /api/v1/crm/leads/{leadId}/faltantes/silencio` — Ignorar datos sin marcar
@@ -11114,6 +11205,71 @@ curl -L \
   -H "Authorization: Bearer <TU-TOKEN>" \
   -H "X-MaKo-Api-Version: 2026-10-08" \
   "https://hola-mako.com/api/v1/curso/clases/CLASE_ID/restauracion"
+```
+
+## Calendario — `calendario`
+
+Tab **Calendario** (`/calendario`). 1 lecturas · 1 acciones.
+
+### `GET /api/v1/calendario/eventos` — Ver los eventos del Calendario
+
+Lista lo que el negocio agendó en el Calendario (publicaciones, bloques de trabajo, llamadas sueltas) entre dos fechas, con la hora en la zona del negocio. NO trae la agenda de Google ni las reuniones del CRM ni los deadlines del Plan: para eso están las operaciones de crm y plan. Úsala cuando pregunten «qué tengo agendado para publicar esta semana».
+
+- **Ruta por operación:** `GET /api/v1/calendario/listar_eventos_calendario`
+- **Token detallado:** permiso `calendario=read` (Solo lectura en «Calendario»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** calendario
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `desde` | string | no | Inicio, inclusive, YYYY-MM-DD. Si se omite, hoy. |
+| `hasta` | string | no | Fin, inclusive, YYYY-MM-DD. Si se omite, 7 días después de «desde». Máximo 62 días. |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/calendario/eventos?desde=2026-10-12&hasta=2026-10-18"
+```
+
+### `POST /api/v1/calendario/eventos` — Agendar un evento en el Calendario
+
+Propone agendar UN evento en el Calendario: una publicación (Story, Reel, Post, Anuncio, Email, Video), un bloque de trabajo o una llamada. La fecha y la hora van como las dijo la persona, en la zona del negocio; sin hora, es de todo el día. No mira la agenda: no digas que un horario está libre.
+
+- **Ruta por operación:** `POST /api/v1/calendario/crear_evento_calendario`
+- **Token detallado:** permiso `calendario=write` (Lectura y escritura en «Calendario»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** insert en calendario_eventos (origen api)
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** calendario
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `titulo` | string | sí | Qué es, corto («Reel del caso de éxito», «Escribir guiones»). |
+| `tipo` | string (publicacion \\| bloque \\| llamada \\| otro) | sí | publicacion, bloque (de trabajo), llamada u otro. |
+| `formato` | string (story \\| reel \\| post \\| ad \\| email \\| video \\| otro) | no | Sólo si es una publicación: story, reel, post, ad, email, video u otro. |
+| `fecha` | string | sí | YYYY-MM-DD, en la zona del negocio. |
+| `hora` | string | no | HH:MM en 24 horas, en la zona del negocio. Si se omite, es de todo el día. |
+| `duracionMin` | number | no | Cuánto dura, en minutos (para bloques y llamadas). |
+| `notas` | string | no | Notas opcionales. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/calendario/eventos" \
+  -d '{"titulo":"TITULO","tipo":"publicacion","fecha":"2026-10-15","hora":"10:00"}'
 ```
 
 ## Creaciones de la comunidad (estrellas) — `creaciones`

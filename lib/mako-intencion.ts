@@ -920,6 +920,9 @@ export const AREA_KEYWORDS: Readonly<Record<Area, RegExp>> = {
   // CUOTAS del CRM (cobranza_lead, área crm), y sumar esta área a cada pregunta de cobranza gastaría
   // presupuesto en herramientas que no son.
   cobros: /\b(cobros?\b|cobrar|links? (de|para) (pago|cobro|pagar)|checkout|stripe|mercado ?pago|reembols|devoluci[oó]n|suscripci[oó]n(es)?|pasarelas? de pago)/i,
+  // El Calendario (13/10/2026): lo que se agenda en la tab (publicaciones, bloques de trabajo). «calendario» también
+  // trae la agenda del CRM (arriba): las dos áreas contestan cosas distintas del mismo día.
+  calendario: /\b(calendario|publicaci[oó]n(es)? (?:de|para) (?:la semana|ma[ñn]ana|hoy|el)|programa(?:r|me|lo)? (?:un |una |el |la )?(?:reel|story|post|publicaci)|agend(?:ar|a|ame|alo) (?:un |una |el |la )?(?:reel|story|post|publicaci[oó]n|bloque)|bloques? de (?:trabajo|foco))/i,
   mako: /\b(pendientes?|propuestas?|qu[eé] (pod[eé]s|puedes) hacer|capacidades)/i,
 };
 

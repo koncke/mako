@@ -19,11 +19,14 @@
 
 import type { OperacionDef, Gating } from '../tipos';
 import { FUENTES_KPI, METRICA_LABEL } from '@/lib/objectives-modelo';
+import { BLOQUES_GENERAL, PLANTILLAS_GENERAL } from '@/lib/general-vistas-modelo';
 
 const GATING: Gating = { tab: 'general', rolMinimo: 'admin' };
 const TODOS = ['whatsapp', 'app', 'http'] as const;
 const FUENTES = FUENTES_KPI.map((f) => f.id);
 const METRICAS = Object.keys(METRICA_LABEL);
+const BLOQUES = BLOQUES_GENERAL.map((b) => b.id);
+const PLANTILLAS = PLANTILLAS_GENERAL.map((p) => p.id);
 
 export const DEFS: readonly OperacionDef[] = [
   // ── Lecturas ────────────────────────────────────────────────────────────────
@@ -223,5 +226,32 @@ export const DEFS: readonly OperacionDef[] = [
     canales: TODOS, costo: 'gratis', gating: GATING,
     reversible: true,
     escribe: 'inserta hasta 8 filas en kpis con origen seed (se apagan una por una con apagar_kpi)',
+  },
+  // ── Las vistas de /general (13/10/2026): cada persona elige bloques, orden y funnels u ofertas ──
+  // Son POR PERSONA: se nombra (email o nombre) o, si la cuenta tiene una sola persona admin, es ésa.
+  {
+    id: 'listar_vistas_general', area: 'general', tipo: 'lectura',
+    titulo: 'Ver las vistas de General',
+    descripcion: 'Las vistas de la pantalla General de una persona (qué bloques ve, en qué orden y de qué funnels u ofertas), más los bloques, las plantillas, y los funnels y las ofertas del negocio (con su id) que existen para armar una nueva. Úsala antes de crear_vista_general.',
+    parametros: [
+      { nombre: 'persona', tipo: 'string', max: 120, descripcion: 'Email (o nombre) de la persona admin. Si se omite y la cuenta tiene una sola persona admin, es ésa.' },
+    ],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: GATING,
+  },
+  {
+    id: 'crear_vista_general', area: 'general', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Crear una vista de General',
+    descripcion: 'Propone crear una vista nueva en la pantalla General de una persona: desde una plantilla (por id) o con una lista de bloques, y opcionalmente atada a funnels u ofertas (por id). Lo que no existe se saca. Pide los bloques y las plantillas con listar_vistas_general.',
+    parametros: [
+      { nombre: 'persona', tipo: 'string', max: 120, descripcion: 'Email (o nombre) de la persona admin. Si se omite y la cuenta tiene una sola persona admin, es ésa.' },
+      { nombre: 'plantilla', tipo: 'string', enum: PLANTILLAS, descripcion: 'id de la plantilla. Si viene, manda sobre «bloques».' },
+      { nombre: 'bloques', tipo: 'string[]', enum: BLOQUES, max: 8, descripcion: 'Los bloques, en el orden en que se ven.' },
+      { nombre: 'nombre', tipo: 'string', max: 40, descripcion: 'Cómo se llama la vista (default: el de la plantilla).' },
+      { nombre: 'funnels', tipo: 'string[]', max: 20, descripcion: 'ids de funnels (de listar_vistas_general). Vacío = todo el negocio.' },
+      { nombre: 'ofertas', tipo: 'string[]', max: 20, descripcion: 'ids de ofertas (de listar_vistas_general): suman los funnels que las venden.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: GATING,
+    reversible: true,
+    escribe: 'agrega una vista a las de esa persona (app_settings general.vistas.<persona>), con compare-and-set',
   },
 ];

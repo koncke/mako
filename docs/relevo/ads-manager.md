@@ -34,6 +34,13 @@ las 19:20 murió sin memoria con el tope de 2 GB; lo está arreglando la sesión
 | `c2ffe6a8` | Los lotes (pausar, activar, presupuesto) salen a Meta de a 4, no todos juntos |
 | `327d35ba` | La tarjeta de Meta en `/integraciones` dice «Faltan permisos de anuncios» en vez de «No se pudo leer» |
 | `41aa319f` | Una sola moneda por defecto (eran 'MXN' y 'USD'), y crear sin la moneda leída se niega |
+| `19b7542e` | **#801: el onboarding de la tab.** Tres pasos (cuenta leída, página, primera campaña) que la page DERIVA al abrir: quien ya opera su cuenta no lo ve. Con «Lo configuro después». ⚠️ **Sin mirar en el navegador todavía** (RAM: ~3,4 GB libres con muchas sesiones; un `next dev` arriesgaba a los otros chats). Se mira en ws3: entrar a `/ads-manager?ws=3` como super admin |
+
+**Lo que sigue (validado el 13/10 por Martín, relayado por «Estrategia 3 CUENTAS»): el punto 18
+de `mako-feedback-y-tareas.md`, la IA que maneja el Ads Manager sola**, con parámetros del
+cliente, dos modos («propone y confirmás» por default; «automático» sólo si el cliente lo prende
+y dentro de sus topes), cada decisión en el historial con su porqué y deshacer, y `validate_only`
+antes de escribir. Las variaciones de hooks se coordinan con «Content Machine».
 
 ---
 

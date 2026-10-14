@@ -14,6 +14,7 @@ import { getTenantDb, getWorkspaceActual } from './workspace';
 import { cachedRead, TAG, TTL } from './cache';
 import { VENTA_SIN_COBRO } from './venta-tipo';
 import { pasaAGanado } from './crm-curso-al-ganar-reglas';
+import { centavos, diferenciaPendiente, type RestoDeCobro } from './pagos-diferencia';
 
 export type Pago = {
   id: number;
@@ -314,6 +315,77 @@ export async function marcarPago(
       console.error('[pagos] no pude cortar los recordatorios:', e instanceof Error ? e.message : String(e));
     }
   }
+}
+
+/**
+ * COBRA una cuota con fecha, hora y —si fue distinto— el monto real (pedido de Mauricio del 13/10/2026: «un pago
+ * diferente»). Es lo que llaman la ficha del CRM (`marcarPagoManualAction`) y la API de MaKo (`marcar_pago_cobrado`):
+ * una sola implementación.
+ *
+ * ⚠️ UN PAGO DE MENOS DEJA LA DIFERENCIA PENDIENTE (salvo `resto: 'descuento'`; la regla en lib/pagos-diferencia.ts):
+ *    una fila NUEVA de `pagos` con el vencimiento de la cuota, numerada después de la última (el índice único es
+ *    (lead_id, numero)). Se inserta ANTES de marcar: si falla, la cuota vuelve a su monto y no se marca nada. Sin
+ *    esto, la diferencia desaparecía del plan y del Outstanding como si el cliente ya no la debiera.
+ * ⚠️ La cuota tiene que ser de ESE lead (`lead_id`): el id llega de afuera.
+ * No escribe el historial del lead: lo escribe quien llama, con su autor.
+ */
+export async function cobrarCuota(
+  pagoId: number,
+  leadId: number,
+  datos: { monto?: number | null; fecha: string; hora?: string | null; resto?: RestoDeCobro },
+): Promise<{ original: number; monto: number | null; pendiente: number | null; descuento: number }> {
+  if (!datos.fecha) throw new Error('La fecha del pago es obligatoria.');
+  const db = await getTenantDb();
+  const { data: antes, error: eLeer } = await db.from('pagos').select('monto_usd, fecha_esperada, pagado').eq('id', pagoId).eq('lead_id', leadId).maybeSingle();
+  if (eLeer) throw new Error(`Error leyendo el pago ${pagoId}: ${eLeer.message}`);
+  if (!antes) throw new Error('Esa cuota no existe en este lead.');
+  const fila = antes as { monto_usd: number; fecha_esperada: string | null; pagado: boolean };
+  const original = Number(fila.monto_usd) || 0;
+  const monto = datos.monto != null && Number.isFinite(datos.monto) && datos.monto > 0 ? centavos(datos.monto) : null;
+  const pend = diferenciaPendiente(original, monto, { yaPagada: fila.pagado, resto: datos.resto });
+  const descuento = !fila.pagado && datos.resto === 'descuento' && monto != null && monto < original ? centavos(original - monto) : 0;
+
+  // Hora (y monto si vino uno válido) primero; marcarPago sincroniza después.
+  const upd: Record<string, unknown> = { pago_hora: datos.hora?.trim() || null };
+  if (monto != null) upd.monto_usd = monto;
+  const { error } = await db.from('pagos').update(upd).eq('id', pagoId);
+  if (error) throw new Error(`Error actualizando el pago ${pagoId}: ${error.message}`);
+
+  if (pend > 0) {
+    const existentes = await getPagosByLead(leadId);
+    const base = existentes.length > 0 ? Math.max(...existentes.map((q) => q.numero)) : 0;
+    const { error: eResto } = await db.from('pagos').insert({ lead_id: leadId, numero: base + 1, monto_usd: pend, fecha_esperada: fila.fecha_esperada ?? datos.fecha, pagado: false });
+    if (eResto) {
+      // Sin la fila de la diferencia, marcar por menos la borraría: la cuota vuelve a su monto.
+      await db.from('pagos').update({ monto_usd: original }).eq('id', pagoId);
+      throw new Error(`No pude dejar pendiente la diferencia: ${eResto.message}`);
+    }
+  }
+
+  await marcarPago(pagoId, true, datos.fecha);
+  return { original, monto, pendiente: pend > 0 ? pend : null, descuento };
+}
+
+/**
+ * Un pago FUERA DEL PLAN (un adelanto, un extra, otro esquema): una cuota nueva ya cobrada, numerada después de la
+ * última, que pasa por `marcarPago` —lo cobrado del lead y el corte de los recordatorios—. No toca el monto de
+ * cierre: si fue una venta nueva, se corrige en el deal. Lo llaman la ficha y la API de MaKo (`registrar_pago_suelto`).
+ */
+export async function registrarPagoSuelto(leadId: number, datos: { monto: number; fecha: string; hora?: string | null }): Promise<{ pagoId: number; monto: number }> {
+  const monto = Number(datos.monto);
+  if (!Number.isFinite(monto) || monto <= 0) throw new Error('El monto tiene que ser mayor a cero.');
+  if (!datos.fecha || !/^\d{4}-\d{2}-\d{2}$/.test(datos.fecha)) throw new Error('La fecha del pago es obligatoria.');
+  const db = await getTenantDb();
+  const existentes = await getPagosByLead(leadId);
+  const base = existentes.length > 0 ? Math.max(...existentes.map((q) => q.numero)) : 0;
+  const redondo = centavos(monto);
+  const { data, error } = await db.from('pagos')
+    .insert({ lead_id: leadId, numero: base + 1, monto_usd: redondo, fecha_esperada: datos.fecha, pagado: false, pago_hora: datos.hora?.trim() || null })
+    .select('id').single();
+  if (error || !data) throw new Error(`No pude registrar el pago: ${error?.message ?? 'sin fila'}`);
+  const pagoId = Number((data as { id: number }).id);
+  await marcarPago(pagoId, true, datos.fecha);
+  return { pagoId, monto: redondo };
 }
 
 /**

@@ -77,6 +77,17 @@ export async function leerPlanHoy(): Promise<PlanHoy> {
   };
 }
 
+/**
+ * El tablero de quien mira, ya mapeado (las dos mitades: dueño y cliente). Lo usa también el Calendario
+ * (lib/calendario.ts) para los deadlines: una segunda lectura del tablero es la que se olvida de sacar `no_cumple`.
+ * Tira si el tablero no se pudo leer.
+ */
+export async function tableroDelPlan(): Promise<{ que: 'dueno' | 'cliente'; tareas: BoardTask[]; proyectos: Label[]; recortado: boolean }> {
+  const que = await tableroActual();
+  const t = await leerTablero(que);
+  return { que, tareas: t.tareas, proyectos: t.proyectos, recortado: t.recortado };
+}
+
 async function leerTablero(que: 'dueno' | 'cliente'): Promise<{ tareas: BoardTask[]; proyectos: Label[]; deps: Dep[]; recortado: boolean }> {
   if (que === 'dueno') {
     const b = await listPlanBoard();

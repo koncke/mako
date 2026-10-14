@@ -73,12 +73,14 @@ crear_broadcast
 crear_clase_curso
 crear_contacto_chatwoot_lead
 crear_etiqueta
+crear_evento_calendario
 crear_experimento
 crear_hoja_dashboard
 crear_lead_magnet
 crear_link_pago
 crear_modulo_curso
 crear_secuencia_email
+crear_vista_general
 dar_estrella
 declarar_entradas_funnel
 desarchivar_secuencia
@@ -204,6 +206,7 @@ listar_dependencias_plan
 listar_etapas_email
 listar_etiquetas
 listar_etiquetas_whatsapp
+listar_eventos_calendario
 listar_eventos_pixel_meta
 listar_experimentos
 listar_formatos_creativo
@@ -253,6 +256,7 @@ listar_triggers_email
 listar_videos_detectados
 listar_videos_landing
 listar_videos_panda
+listar_vistas_general
 marcar_asistencia_reunion
 marcar_calificado
 marcar_pago_cobrado
@@ -324,6 +328,7 @@ reactivar_datos_sin_marcar
 recomendar_formatos_creativo
 reconciliar_plantillas
 reembolsar_cobro
+registrar_pago_suelto
 registrar_valor_kpi
 reiniciar_personalidad
 remitente_email

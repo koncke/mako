@@ -13,6 +13,7 @@
 // van dibujando (igual que en OpenCut). Al terminar se le pide un cuadro nuevo
 // (`refrescarReproductor`), si no se queda mostrando el último cuadro exportado.
 
+import { mensajeDeExport } from "./mensaje-error";
 import type { EditorCore } from "@/app/video-editor/_opencut/core";
 import { buildScene } from "@/app/video-editor/_opencut/services/renderer/scene-builder";
 import { SceneExporter } from "@/app/video-editor/_opencut/services/renderer/scene-exporter";
@@ -199,7 +200,8 @@ export class Exportacion {
 			return { estado: "listo", archivos: archivos.map((a) => a.nombre) };
 		} catch (error) {
 			console.error("[exportar] falló", error);
-			return { estado: "error", mensaje: error instanceof Error ? error.message : String(error) };
+			// El crudo ya quedó en la consola (arriba): acá va la frase para la persona.
+			return { estado: "error", mensaje: mensajeDeExport(error) };
 		} finally {
 			refrescarReproductor(editor);
 		}

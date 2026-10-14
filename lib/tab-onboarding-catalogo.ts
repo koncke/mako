@@ -180,6 +180,24 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
     ],
   },
 
+  // ── Calendario (13/10/2026): se configura USÁNDOLO, como Offer ──
+  // Lo que el Calendario necesita (el CRM, el Plan, el Quarter) ya está en MaKo: no se pregunta nada. Lo que lo deja
+  // listo es armar la primera semana —con una plantilla o con «¿Qué vas a crear hoy?»— y eso es el ensayo: MaKo
+  // propone, la persona confirma. Lo marca `crearEventosAction` (app/calendario/actions.ts).
+  // La agenda de Google va AL FINAL y opcional (lo aburrido al final, y sin ella el Calendario igual sirve): se cierra
+  // cuando la agenda se LEE bien en la page (la prueba de vida), no cuando hay una credencial guardada.
+  // Keys con prefijo `cal_`: un paso pelado colisionaría con otra tab por el registro compartido.
+  calendario: {
+    key: 'calendario',
+    titulo: 'Configuración del Calendario',
+    nombre: 'Calendario',
+    pasos: [
+      { key: 'cal_semana', label: 'Tu primera semana' },
+      { key: 'cal_agenda', label: 'Tu agenda de Google', opcional: true },
+    ],
+    href: '/calendario',
+  },
+
   // ── Reels: el writer de guiones se configura usándose ──
   // Las keys van namespaced (`reels_*`) a propósito: las peladas `contexto`/`ensayo`
   // COLISIONAN con el Chatbot vía el registro compartido (gotcha conocido) y no son
@@ -286,6 +304,29 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
       // la persona, no que funcione.
       { key: 'vg_voz', label: 'Tu voz', opcional: true },
       { key: 'vg_ensayo', label: 'Tu primer escenario' },
+    ],
+  },
+
+  // ── Ads Manager: Meta primero, porque sin la cuenta no hay NADA que mostrar ──
+  // Tarea #801 (13/10/2026): la tab que justifica el precio abría sin decir qué faltaba
+  // conectar. La regla de la skill pone la plomería al final, salvo lo que bloquea — y
+  // acá la cuenta publicitaria bloquea todo: la tabla ES la cuenta de Meta.
+  //
+  // Los tres pasos los DERIVA la page al abrir (app/ads-manager/onboarding-datos.ts):
+  // cuenta leída, página guardada, al menos una campaña. Así un cliente que ya opera su
+  // cuenta no ve nunca el wizard. No hay `requiere`: alcanza con Meta (no se encadena con
+  // ads-writer, que es otra tab con su propio recorrido).
+  //
+  // ⚠️ Prefijo `am_`: el registro de pasos es COMPARTIDO entre tabs
+  // (tests/onboarding-keys-colision.test.ts).
+  'ads-manager': {
+    key: 'ads-manager',
+    titulo: 'Configuración del Ads Manager',
+    nombre: 'Ads Manager',
+    pasos: [
+      { key: 'am_cuenta', label: 'Tu cuenta publicitaria' },
+      { key: 'am_pagina', label: 'La página que firma tus anuncios' },
+      { key: 'am_campana', label: 'Tu primera campaña en pausa' },
     ],
   },
 

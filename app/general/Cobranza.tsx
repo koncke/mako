@@ -31,7 +31,11 @@ import type { CobroM } from '@/app/m/dashboard/modelo';
 /** Las que se ven antes de «Ver todos». */
 const VISIBLES = 6;
 
-export function Cobranza({ filas, tz, error }: { filas: CobroM[]; tz: string; error: string | null }) {
+export function Cobranza({ filas, tz, error, alcance = null }: {
+  filas: CobroM[]; tz: string; error: string | null;
+  /** Los funnels u ofertas de la vista de /general, si no mira todo el negocio (lib/general-vistas-modelo.ts). */
+  alcance?: string | null;
+}) {
   const { toast, show, clear } = useToast();
   const router = useRouter();
   const [, empezar] = useTransition();
@@ -83,7 +87,10 @@ export function Cobranza({ filas, tz, error }: { filas: CobroM[]; tz: string; er
   return (
     <div data-cobranza-general="">
       <div style={S.cabecera}>
-        <h2 style={S.h2}>A quién cobrarle</h2>
+        <span style={S.titulo}>
+          <h2 style={S.h2}>A quién cobrarle</h2>
+          {alcance && <span style={S.alcance}>{alcance}</span>}
+        </span>
         {!error && vivas.length > VISIBLES && (
           <button type="button" style={S.ver} aria-expanded={todas} onClick={() => setTodas((t) => !t)}>
             {todas ? 'Ver menos' : `Ver los ${vivas.length}`}
@@ -122,6 +129,8 @@ const S: Record<string, CSSProperties> = {
   cabecera: { display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, marginBottom: 14 },
   // El H2 de las otras secciones de /general (app/general/page.tsx).
   h2: { margin: 0, fontSize: 25, fontWeight: 600, letterSpacing: '-0.015em', color: 'var(--ink)' },
+  titulo: { display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap', minWidth: 0 },
+  alcance: { fontSize: 'var(--fs-meta)', color: 'var(--dim)' },
   ver: { border: 'none', background: 'none', padding: 0, font: 'inherit', fontSize: 'var(--fs-meta)', color: 'var(--primary)', cursor: 'pointer' },
   dim: { fontSize: 'var(--fs-md)', color: 'var(--dim)' },
   lista: { listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column' },

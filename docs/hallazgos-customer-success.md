@@ -5421,3 +5421,26 @@ un `git grep` de toda lectura de `productos`/`.nombre` en el área, no buscando 
   `FichaEntrega`, /m/cs): no es el nombre del curso y no se tocó.
 - ~~El comentario de `depsReales.cursos` todavía dice «si no el producto»~~ — lo corrigió CURSOS en
   a744e127. · *2026-10-14 Customer Success*
+
+---
+
+## Un refactor commiteado sin typecheck dejó un nombre vivo, y el test lo fijaba (14/10/2026)
+
+**Síntoma:** el push integrado del 14/10 (e4c8a6d7) corrió el typecheck completo por primera vez en
+horas y encontró `alCerrar.current()` en `InvitarAlCurso.tsx`, un ref que f729063e (el arreglo del foco)
+había reemplazado por `useCerrarEstable`. Los tests del área estaban en verde.
+
+**Por qué no lo vio nada:** el typecheck no corría (el vigía de RAM lo mataba toda la noche) y el guard
+de `tests/curso-invitar.test.ts` buscaba el texto LITERAL `'alCerrar.current()'` para comprobar que el
+modal no se cierra antes de saber si salió el mail. O sea que el test fijaba el resto del refactor: con
+la línea vieja viva pasaba, y sin ella habría fallado. Un test que lee fuente por un nombre fija ese
+nombre, para bien y para mal. La pestaña «Del embudo» (901e5cf7) trajo un error de la misma familia: se
+escribió contra un `ocupar` que el modal no tiene.
+
+**La regla, mientras el typecheck no pueda correr:** antes de commitear un refactor que saca un
+identificador (un ref, una prop, un helper), `git grep` de ese nombre en el archivo y en los tests que lo
+leen. Si un test lo nombra, el test se actualiza en el mismo commit que el código, y el grep tiene que
+dar cero usos en el fuente.
+
+**Vive en:** `app/customer-success/curso/InvitarAlCurso.tsx` · `tests/curso-invitar.test.ts` ·
+`app/customer-success/curso/InvitarAlumnos.tsx` · *2026-10-14 Customer Success*

@@ -1210,7 +1210,7 @@ function EffectsButton({
 	const editor = useEditor();
 	const setActiveTab = usePropertiesStore((s) => s.setActiveTab);
 
-	const handleClick = (event: React.MouseEvent) => {
+	const handleClick = (event: React.SyntheticEvent) => {
 		event.stopPropagation();
 		editor.selection.setSelectedElements({
 			elements: [{ trackId: track.id, elementId: element.id }],
@@ -1231,16 +1231,27 @@ function EffectsButton({
 		});
 	};
 
+	// ⚠️ NO ES UN <button>. Vive ADENTRO del botón que cubre el clip entero (el
+	// `<button … inset-0>` de arriba), y un botón dentro de otro es DOM inválido:
+	// React lo marcaba como error en cuanto un clip tenía efectos. Un <span
+	// role="button"> con Enter/Espacio hace exactamente lo mismo y es válido.
 	return (
-		<button
-			type="button"
+		<span
+			role="button"
+			tabIndex={0}
 			aria-label="Efectos"
 			className="flex shrink-0 cursor-pointer justify-center text-white"
 			onMouseDown={(event) => event.stopPropagation()}
 			onClick={handleClick}
+			onKeyDown={(event) => {
+				if (event.key === "Enter" || event.key === " ") {
+					event.preventDefault();
+					handleClick(event);
+				}
+			}}
 		>
 			<WandSparkles className="size-3" />
-		</button>
+		</span>
 	);
 }
 

@@ -22,6 +22,9 @@
 > `tests/api-mako-cobertura.test.ts`; falta clasificarlas). Y el trabajo de los agentes: la corrida
 > `wf_8cb38f84-f1e` se cortó a la 1ª pasada por el límite de sesión (2 de 15 agentes cerraron:
 > comunidad y plan) y se relanzó con `resumeFromRunId` **de a 2** (pedido de Estrategia por la RAM).
+> **A las 02:55 del 14/10 se PAUSÓ** (TaskStop) a pedido de Estrategia: dos agentes tenían tomado el lock del
+> typecheck y el push integrado de 8 chats esperaba esa RAM. Se retoma con `resumeFromRunId` cuando Estrategia
+> avise que entró; hasta entonces, ningún tsc completo desde este worktree.
 > Los cortados dejaron su trabajo en el árbol y lo retoman. Customer Success pidió `invitar_al_curso`
 > (área curso): va en esa corrida (`areas/curso.json` del scratchpad `3e9e0b4f…`).
 >

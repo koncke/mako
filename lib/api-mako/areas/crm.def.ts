@@ -528,15 +528,29 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'marcar_pago_cobrado', area: 'crm', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Marcar una cuota cobrada',
-    descripcion: 'PROPONE marcar una cuota concreta como cobrada en una fecha, o desmarcarla (queda pendiente hasta el «sí»). Recalcula lo cobrado del lead. El pagoId sale de cobranza_lead. No cambia el monto de la cuota: si lo cobrado fue distinto, eso se corrige en la ficha. Úsala cuando digan «ya me pagó la cuota 2».',
+    descripcion: 'PROPONE marcar una cuota concreta como cobrada en una fecha, o desmarcarla (queda pendiente hasta el «sí»). Recalcula lo cobrado del lead. El pagoId sale de cobranza_lead. Si se cobró un monto DISTINTO, pasa montoUsd: si fue menos, la diferencia queda como una cuota nueva pendiente con el mismo vencimiento, salvo que la persona diga que es un descuento (resto=descuento). Úsala cuando digan «ya me pagó la cuota 2» o «me pagó 300 de la cuota de 500».',
     parametros: [
       { nombre: 'pagoId', tipo: 'number', obligatorio: true, entero: true, minimo: 1, descripcion: 'id de la cuota (de cobranza_lead).' },
       leadId('id del lead dueño de la cuota.'),
       { nombre: 'pagado', tipo: 'boolean', obligatorio: true, descripcion: 'true cobrada, false revertir.' },
       fechaIso('fechaPago', 'YYYY-MM-DD en que se cobró (default hoy en la zona del negocio).'),
+      { nombre: 'montoUsd', tipo: 'number', minimo: 0.01, maximo: 100000000, descripcion: 'Lo que se cobró de verdad, en USD, si fue distinto del monto de la cuota. Si se omite, la cuota se cobra tal cual.' },
+      { nombre: 'resto', tipo: 'string', enum: ['pendiente', 'descuento'], descripcion: 'Sólo si montoUsd es MENOR que la cuota: pendiente (default, la diferencia queda como una cuota nueva) o descuento (no se cobra).' },
     ],
     canales: TODOS, costo: 'gratis', gating: TAB,
-    reversible: true, escribe: 'marca o desmarca la cuota en pagos, recalcula total_cobrado_usd del lead y deja historial',
+    reversible: true, escribe: 'marca o desmarca la cuota en pagos (con el monto real si vino), deja la diferencia como una cuota nueva si se cobró de menos, recalcula total_cobrado_usd del lead y deja historial',
+  },
+  {
+    id: 'registrar_pago_suelto', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Registrar un pago fuera del plan',
+    descripcion: 'PROPONE registrar un cobro que no es ninguna cuota del plan del lead (un adelanto, un extra, un pago de otro esquema): entra como una cuota nueva ya cobrada y suma a lo cobrado del lead. No cambia el monto de cierre. Si el pago corresponde a una cuota que ya existe, usa marcar_pago_cobrado.',
+    parametros: [
+      leadId('id del lead que pagó.'),
+      { nombre: 'montoUsd', tipo: 'number', obligatorio: true, minimo: 0.01, maximo: 100000000, descripcion: 'Lo que se cobró, en USD.' },
+      fechaIso('fechaPago', 'YYYY-MM-DD en que se cobró (default hoy en la zona del negocio).'),
+    ],
+    canales: TODOS, costo: 'gratis', gating: TAB,
+    reversible: true, escribe: 'insert en pagos (una cuota nueva ya cobrada), recalcula total_cobrado_usd del lead y deja historial',
   },
   {
     id: 'ignorar_datos_sin_marcar', area: 'crm', tipo: 'accion', confirmacion: 'chat',

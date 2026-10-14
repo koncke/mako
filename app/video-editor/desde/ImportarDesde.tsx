@@ -40,6 +40,7 @@ import { Button } from "@/app/video-editor/_opencut/components/ui/button";
 import { Progress } from "@/app/video-editor/_opencut/components/ui/progress";
 import { conEspacio } from "@/app/video-editor/espacio";
 import type { DesdeEditor } from "./desde";
+import { bajarVideo } from "./bajar";
 
 type Listo = Extract<DesdeEditor, { estado: "listo" }>;
 
@@ -57,34 +58,10 @@ class FalloImportar extends Error {
  */
 const enVuelo = new Map<string, Promise<string>>();
 
-async function bajar(url: string, alAvanzar: (pct: number) => void): Promise<Blob> {
-	const r = await fetch(url).catch(() => null);
-	if (!r?.ok) throw new FalloImportar("red");
-	// ⚠️ Un .mp4 que llega como HTML es la página de /login: el proxy rebota sin
-	// sesión con un 307 que el fetch sigue y termina en 200 (relevamiento de
-	// integración, §0.3). El status no lo delata; el tipo sí.
-	const tipo = r.headers.get("content-type") ?? "";
-	if (!tipo.startsWith("video/")) throw new FalloImportar("red");
-	// `Content-Length` es una cabecera que CORS deja leer sin exponerla.
-	const total = Number(r.headers.get("content-length")) || 0;
-	if (!r.body || total <= 0) return r.blob();
-	const lector = r.body.getReader();
-	const partes: BlobPart[] = [];
-	let leidos = 0;
-	for (;;) {
-		const { done, value } = await lector.read().catch(() => {
-			throw new FalloImportar("red");
-		});
-		if (done) break;
-		partes.push(value as BlobPart);
-		leidos += value.byteLength;
-		alAvanzar(Math.min(99, Math.round((leidos * 100) / total)));
-	}
-	return new Blob(partes, { type: tipo });
-}
-
 async function importar(desde: Listo, alAvanzar: (pct: number) => void): Promise<string> {
-	const blob = await bajar(desde.url, alAvanzar);
+	const blob = await bajarVideo(desde.url, alAvanzar).catch(() => {
+		throw new FalloImportar("red");
+	});
 	const editor = EditorCore.getInstance();
 	const id = await editor.project.createNewProject({ name: desde.titulo });
 	try {

@@ -13,6 +13,8 @@
 import { getSenalesRecon, type SenalRecon } from '@/lib/queries';
 import { ayerEnTijuana, hoyEnTijuana, esFechaValida, primerDiaDelMesDeFecha } from '@/lib/date-utils';
 import { CampanasBrowser } from './CampanasBrowser';
+import { OnboardingAdsManager } from './OnboardingAdsManager';
+import { onboardingAdsPendiente } from './onboarding-datos';
 import { requireRolWs } from '@/lib/tab-access';
 
 export const dynamic = 'force-dynamic';
@@ -47,6 +49,14 @@ export async function AdsManagerView({
     senales = await getSenalesRecon(rangoDesde, rangoHasta);
   } catch (err) {
     perfError = err instanceof Error ? err.message : String(err);
+  }
+
+  // Tarea #801: mientras falte la cuenta, la página o la primera campaña, la tab abre en
+  // su onboarding (con salida). Los pasos se derivan de lo que hay: un cliente que ya
+  // opera su cuenta no lo ve nunca. Si la derivación falla, se sirve la tabla.
+  const onboarding = await onboardingAdsPendiente().catch(() => null);
+  if (onboarding) {
+    return <OnboardingAdsManager datos={onboarding} senales={senales} desde={rangoDesde} hasta={rangoHasta} adInicial={adInicial} hoyReal={hoyReal} />;
   }
 
   return (

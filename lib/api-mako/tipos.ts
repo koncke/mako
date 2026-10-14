@@ -33,7 +33,7 @@ import type { Permisos } from './permisos';
 export const AREAS = [
   'general', 'plan', 'crm', 'ads', 'whatsapp', 'email', 'chatbot',
   'metricas', 'experimentos', 'landing', 'closing', 'negocio', 'contenido', 'video',
-  'integraciones', 'equipo', 'cs', 'curso', 'creaciones', 'cobros', 'mako',
+  'integraciones', 'equipo', 'cs', 'curso', 'calendario', 'creaciones', 'cobros', 'mako',
 ] as const;
 export type Area = (typeof AREAS)[number];
 
@@ -69,6 +69,8 @@ export const AREA_INFO: Record<Area, { titulo: string; tab: string; ruta: string
   // propósito: un token detallado con escritura en el CRM no crea links de pago ni reembolsa, y los
   // tokens que ya existen no la tienen. Vive en la ficha del lead (tab Pagos), por eso la tab es el CRM.
   cobros: { titulo: 'Cobros (Stripe y Mercado Pago)', tab: 'CRM', ruta: '/crm' },
+  // El Calendario (13/10/2026): sólo lo que se agenda en la tab. La agenda de Google no sale por la API.
+  calendario: { titulo: 'Calendario', tab: 'Calendario', ruta: '/calendario' },
   mako: { titulo: 'MaKo (pendientes, propuestas, chats)', tab: 'Pregúntale a MaKo', ruta: '/mako' },
 };
 
