@@ -28,10 +28,12 @@ typecheck por el lock, y `git push origin HEAD:main`. Después, `vercel ls`.
 
 ## Lo que falta
 - **El aviso «El AI Analyst terminó»**: el chat Chatbot ya lo puso en su catálogo (`dashboard-analisis-listo`, commit `2ea2cf81` en la rama
-  `undecima`, sin push). Cuando entre a main, va UNA llamada en `analizarHoja` (lib/graficos-analisis-server.ts, después de
-  `cerrarCorrida` con `ok`, sólo con `p.origen === 'cron'`): `emitirDelCatalogo('dashboard-analisis-listo', { ws: p.ws, datos:
-  valoresDelAnalisis({ hoja: p.hoja.nombre, resumen: salida.resumen, hallazgos: salida.hallazgos, link: linkApp('/dashboard?hoja=<id>',
-  p.ws) }), dedupKey: 'analisis:<id de la corrida>' })`.
+  `undecima`, sin push). Cuando entre a main (el chat Automations avisa), va UNA llamada en `analizarHoja`
+  (lib/graficos-analisis-server.ts, después de `cerrarCorrida` con `ok`), **SIEMPRE, a mano o programado** (Martín, 13/10 ~24:15:
+  «eso debería ser una configuración de automations del usuario... No lo configures tu»): `emitirDelCatalogo('dashboard-analisis-listo',
+  { ws: p.ws, datos: valoresDelAnalisis({ hoja: p.hoja.nombre, resumen: salida.resumen, hallazgos: salida.hallazgos, origen: p.origen,
+  link: linkApp('/dashboard?hoja=<id>', p.ws) }), dedupKey: 'analisis:<id de la corrida>' })`. El origen viaja como dato
+  (`analisis_origen`: «Programado» o «A mano»): cada negocio decide en su automatización.
 - **Verlo en el navegador (ws3)**: «Nueva hoja» (la caja, el «+», una plantilla armándose con datos), «Copiar dashboard» y pegarlo, y que el
   botón de MaKo no salga editando. No se pudo: RAM en rojo.
 - **Que Martín decida** si se borran `PulsoPaginas.tsx` + su ruta y su lib, y `ScriptsBrowser`/`GuionesFull` (~900 líneas sin usar).

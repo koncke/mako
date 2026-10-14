@@ -494,9 +494,10 @@ gobierna lo que se toque acá:
   `app/api/graficos/copia/route.ts`.
 - **`lib/flujo-copia.ts` tiene su propia copia de la mecánica del token** (alfabeto, largo y regex con `MAKO-FLUJO-`):
   cuando se toque, que delegue en `lib/token-copia.ts`. No se tocó para no pisar al chat de Automations.
-- **El aviso «El AI Analyst terminó» (`dashboard_analisis_listo`) no existe todavía**: lo crea el chat Chatbot en su
-  catálogo; la emisión va en `analizarHoja` (`lib/graficos-analisis-server.ts`), después de `cerrarCorrida` con `ok`,
-  con hoja, resumen, hallazgos y link como datos separados (se le avisó el 13/10 con las claves a acordar).
+- **El aviso «El AI Analyst terminó» (`dashboard-analisis-listo`) todavía no se emite**: el chat Automations lo puso en su
+  catálogo (`2ea2cf81`, rama `undecima`, sin push al 13/10). La emisión va en `analizarHoja` (`lib/graficos-analisis-server.ts`),
+  después de `cerrarCorrida` con `ok`, SIEMPRE (Martín: lo decide la automatización de cada negocio, no el código), con
+  `valoresDelAnalisis({ hoja, resumen, hallazgos, origen, link })`. La llamada exacta, en docs/relevo/dashboard.md.
 - **El teléfono (`/m/dashboard`)** le sigue mostrando Marketing y Comercial fijos a quien no tiene informe (en
   escritorio arranca en blanco con «＋ Nuevo Dashboard»).
 - **El AI Analyst no dice qué modelo contestó** (falta `respondioOut` en `chatCheapCascade`,
