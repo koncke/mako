@@ -154,6 +154,7 @@ async function autorActual(): Promise<string> {
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { getCampaignNameMap, resolverNombreCampana, getAdNameMap, resolverNombreAd, adIdDeLead } from '@/lib/queries';
 import { savePlanPagos, saveLeadPlanManual, marcarPago, getPagosByLead, type PlanPagos, type Pago } from '@/lib/pagos';
+import { avisoDeConservadas } from '@/lib/pagos-campo';
 import { faltaComprobante } from '@/lib/pago-comprobante';
 import { senalesDeCobroAction } from './[id]/cobros-actions';
 import { verTrackingDeLead } from '@/lib/tracking-ficha-server';
@@ -491,7 +492,8 @@ export async function requisitosDeEtapaAction(id: number, to: string, d: StageMo
  * cómo salir. Ahora vuelve tipado y el modal lo pinta en español, con los campos.
  */
 export type StageMoveResultado =
-  | { ok: true; pendientes?: Step[] }
+  /** `sinTocar`: las cuotas que el plan no pudo cambiar (link sin pagar o recordatorio corriendo), dichas. */
+  | { ok: true; pendientes?: Step[]; sinTocar?: string }
   | { ok: false; faltan: Step[]; mensaje: string };
 
 /**
@@ -606,14 +608,19 @@ export async function completeStageMoveAction(id: number, to: string, d: StageMo
 
   // 3) Plan de pagos (genera las cuotas; el cash del dashboard lee de acá).
   //    Modelo simple: cuotas explícitas (monto + fecha). `plan` queda por compat.
+  let sinTocar: string | null = null;
   if (d.cuotas?.length) {
-    await saveLeadPlanManual(id, {
+    const cambios = await saveLeadPlanManual(id, {
       total_usd: d.monto ?? before?.monto_cierre_usd ?? null,
       duracion_meses: null,
       fecha_cierre: null,
       fecha_inicio: null,
       cuotas: d.cuotas.map((c) => ({ monto_usd: c.monto, fecha_esperada: c.fecha })),
     });
+    // Lo que el plan no pudo cambiar queda en el historial y vuelve a la pantalla: si no, el total pedido y el
+    // que quedó escrito difieren sin que nadie lo diga.
+    sinTocar = avisoDeConservadas(cambios);
+    if (sinTocar) await logLeadEvent(id, 'Plan de pagos', `No se tocó: ${sinTocar}`, autor);
   } else if (d.plan) {
     await savePlanPagos(id, d.plan);
   }
@@ -715,7 +722,7 @@ export async function completeStageMoveAction(id: number, to: string, d: StageMo
   revalidatePath('/crm');
   revalidatePath(`/crm/${id}`);
   revalidatePath('/general');
-  return { ok: true, pendientes };
+  return { ok: true, pendientes, ...(sinTocar ? { sinTocar } : {}) };
 }
 
 /**

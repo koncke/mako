@@ -35,7 +35,7 @@ import {
   monedaDelNegocio, type CambioCampoDeal,
 } from '@/lib/pagos';
 import {
-  avisoDeConservadas, lineasDeCuotas, nombreCuota, validarPlan,
+  avisoDeConservadas, lineasDeCuotas, nombreCuota, ajustarSobre, planComoEstaba,
   type CambioObligacion, type CambioVenta, type Obligaciones, type PlanUniforme,
 } from '@/lib/pagos-campo';
 import { cobradoDelLead, type Cobrado } from '@/lib/cobrado-lead';
@@ -182,11 +182,11 @@ export async function guardarCuotasAction(
     const quien = await autor();
     const cambios = await guardarCuotasPorId(leadId, cuotas.map((c) => { const id = c?.id; return { id: idValido(id) ? id : null, monto_usd: Number(c?.monto), fecha_esperada: c?.fecha ?? null }; }));
     if (plan) {
-      const v = validarPlan(plan);
-      if (v.ok) {
-        const { error } = await (await getTenantDb()).from('leads').update({ ...v.plan }).eq('id', leadId);
-        if (error) console.error(`[pagos-campo] no pude devolver el plan del lead ${leadId}: ${error.message}`);
-      }
+      // ⚠️ TAL CUAL ESTABA, nulls incluidos (`planComoEstaba`), no por `validarPlan`: un plan anterior todo en null
+      // (las cuotas se habían cargado a mano) fallaba la validación y se descartaba en silencio, así que el
+      // Deshacer devolvía las cuotas y dejaba escrito el plan que se estaba deshaciendo.
+      const { error } = await (await getTenantDb()).from('leads').update({ ...planComoEstaba(plan) }).eq('id', leadId);
+      if (error) console.error(`[pagos-campo] no pude devolver el plan del lead ${leadId}: ${error.message}`);
     }
     await anotarEnHistorial(leadId, lineasDeCuotas(cambios), quien);
     const sinTocar = avisoDeConservadas(cambios);
@@ -211,17 +211,19 @@ export async function ajustarPlanAction(leadId: number, plan: Partial<PlanUnifor
   try {
     if (!(await haySesion())) return { ok: false, error: SIN_SESION };
     if (!idValido(leadId)) return { ok: false, error: 'Lead inválido.' };
-    const v = validarPlan(plan ?? {});
-    if (!v.ok) return v;
     const lead = await getLead(leadId);
     if (!lead) return { ok: false, error: 'No encontré ese lead en este negocio.' };
-    const antes = (await getPagosByLead(leadId)).filter((q) => !q.pagado);
     const fila = lead as unknown as Record<string, unknown>;
     const num = (x: unknown): number | null => (x == null || x === '' ? null : Number(x));
     const planAntes: PlanUniforme = {
       cobro_inicial_usd: num(fila.cobro_inicial_usd), monto_cuota_usd: num(fila.monto_cuota_usd),
       total_cuotas: num(fila.total_cuotas), dia_de_pago: num(fila.dia_de_pago),
     };
+    // ⚠️ LO QUE VINO ES SÓLO LO QUE CAMBIÓ, y se escribe ENCIMA del plan de la base (`ajustarSobre`). Validado
+    // como plan entero, cambiar sólo el inicial borraba las cuotas 1 a N y corría los vencimientos al día 1.
+    const v = ajustarSobre(planAntes, plan);
+    if (!v.ok) return v;
+    const antes = (await getPagosByLead(leadId)).filter((q) => !q.pagado);
     const quien = await autor();
     const { cambios } = await ajustarPlanPagos(leadId, v.plan, await hoyEnWorkspace());
     await anotarEnHistorial(leadId, lineasDeCuotas(cambios), quien);

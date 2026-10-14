@@ -314,7 +314,8 @@ export type CuotaDeseada = { id?: number | null; numero?: number | null; monto_u
  *   · 'porId' — la lista viene de una pantalla con el id de cada cuota (Editar deal): la que trae id se actualiza,
  *               la que no se inserta, y la impaga que no vino es la que la persona quitó.
  *   · 'lista' — la lista viene SIN ids (el wizard de Ganado, la API `guardar_cuotas`): primero se casan las
- *               iguales (mismo monto y vencimiento), después por orden, y sólo sobre cuotas no protegidas.
+ *               iguales (mismo monto y vencimiento), después cada protegida con una deseada (no se pueden borrar,
+ *               y sin deseada la deuda se duplicaba) y al final, por orden, las que se pueden cambiar enteras.
  *   · 'slots' — un plan uniforme (inicial = número 0, cuota N = número N): se casa por número. Una pagada cubre
  *               su número; es la regla de `savePlanPagos` de siempre.
  */
@@ -387,9 +388,22 @@ export function reconciliarCuotas(existentes: readonly CuotaExistente[], deseada
       if (q) casar(q, d);
       else resto.push(d);
     }
+    // ⚠️ LAS PROTEGIDAS SE CASAN PRIMERO, cada una con una deseada (la de su mismo vencimiento si la hay; si no,
+    // la que sigue en orden). Una protegida no se puede borrar, así que si se queda sin deseada se conserva IGUAL
+    // y su deseada termina en `insertar`: la misma deuda contada dos veces. Pasaba (revisión del 14/10/2026):
+    // con A protegida, B y C de 1000 y [1500, 1500], las libres se llevaban las dos deseadas, A quedaba
+    // conservada y el total daba 4000 en vez de 2500. `casar` ya decide qué se le puede cambiar a una protegida
+    // (sólo la fecha si lo único que tiene es un link; nada si tiene un recordatorio) y lo dice en `conservar`.
+    const protegidas = impagas.filter((q) => libres.has(q.id) && prot(q).length > 0);
+    for (const q of protegidas) {
+      const i = resto.findIndex((d) => (d.fecha_esperada ?? null) === (q.fecha_esperada ?? null));
+      if (i >= 0) casar(q, resto.splice(i, 1)[0]);
+    }
+    for (const q of protegidas) {
+      if (libres.has(q.id) && resto.length) casar(q, resto.shift()!);
+    }
+    // Después, por orden, sobre las que se pueden cambiar enteras.
     for (const d of resto) {
-      // Por orden, sólo sobre una que se pueda cambiar entera: reusar una protegida cambiaría lo que cobra su
-      // link o lo que dice su recordatorio.
       const q = impagas.find((x) => libres.has(x.id) && prot(x).length === 0);
       if (q) casar(q, d);
       else sinCasar.push(d);
@@ -492,6 +506,53 @@ export function validarPlan(p: Partial<Record<keyof PlanUniforme, unknown>>): Re
       total_cuotas: cuota != null ? cantidad : null,
       dia_de_pago: dia,
     },
+  };
+}
+
+const CLAVES_PLAN = ['cobro_inicial_usd', 'monto_cuota_usd', 'total_cuotas', 'dia_de_pago'] as const;
+
+/**
+ * El plan que queda al AJUSTAR: lo que vino encima de lo que está en la base, validado.
+ *
+ * ⚠️ UN AJUSTE TRAE SÓLO LO QUE CAMBIÓ. Un bloque que manda `{ cobro_inicial_usd: 500 }` está diciendo «el inicial
+ * pasa a 500», no «el plan es sólo un inicial»: escrito como plan entero, `validarPlan` llenaba con null lo que no
+ * vino y la reconciliación por número borraba las cuotas 1 a N (revisión del 14/10/2026). Una clave AUSENTE (o
+ * `undefined`) se conserva; una clave en `null` se vacía a propósito.
+ *
+ * ⚠️ Y SIN DÍA DE PAGO NO HAY CUOTAS. `cuotasDelPlan` cae al día 1 cuando falta, y en un lead cuyas cuotas se
+ * cargaron a mano (Editar deal, el wizard) la base no tiene plan: mezclar no completa el día y se inventaría el 1.
+ * Se pide, con `faltan`, en vez de inventarlo.
+ */
+export function ajustarSobre(
+  antes: PlanUniforme,
+  parcial: Partial<Record<keyof PlanUniforme, unknown>> | null | undefined,
+): Resultado<{ plan: PlanUniforme }> {
+  const mezcla: Partial<Record<keyof PlanUniforme, unknown>> = { ...antes };
+  for (const k of CLAVES_PLAN) {
+    if (parcial && Object.prototype.hasOwnProperty.call(parcial, k) && parcial[k] !== undefined) mezcla[k] = parcial[k];
+  }
+  const v = validarPlan(mezcla);
+  if (!v.ok) return v;
+  if (v.plan.monto_cuota_usd != null && v.plan.dia_de_pago == null) {
+    return { ok: false, error: 'Falta el día de pago de las cuotas (del 1 al 28).', faltan: ['dia_de_pago'] };
+  }
+  return v;
+}
+
+/**
+ * El plan anterior TAL CUAL, para el Deshacer de un ajuste: cada campo limpio por separado (número en su rango, o
+ * null). No pasa por `validarPlan` a propósito: un plan anterior todo en null (las cuotas se habían cargado a mano)
+ * no es «un plan inválido», es «no había plan», y descartarlo dejaba escrito el plan que se quería deshacer.
+ */
+export function planComoEstaba(p: Partial<Record<keyof PlanUniforme, unknown>> | null | undefined): PlanUniforme {
+  const num = (v: unknown): number | null => (v == null || v === '' || !Number.isFinite(Number(v)) ? null : Number(v));
+  const monto = (v: unknown): number | null => { const x = num(v); return x != null && x > 0 && x <= MAX_MONTO_USD ? centavos(x) : null; };
+  const entero = (v: unknown, min: number, max: number): number | null => { const x = num(v); return x != null && Number.isInteger(x) && x >= min && x <= max ? x : null; };
+  return {
+    cobro_inicial_usd: monto(p?.cobro_inicial_usd),
+    monto_cuota_usd: monto(p?.monto_cuota_usd),
+    total_cuotas: entero(p?.total_cuotas, 1, 6),
+    dia_de_pago: entero(p?.dia_de_pago, 1, 28),
   };
 }
 

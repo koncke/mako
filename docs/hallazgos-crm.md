@@ -8758,3 +8758,58 @@ Corrida de sólo lectura del chat de Automations (docs/diseno-mako-nada-por-detr
 - Y la reserva de Calendly limpia la etapa puesta a mano y firma el cambio «MaKo» (`AUTOR_SISTEMA`), no «Calendly».
 
 **Vive en:** `lib/leads.ts` (`setPipelineStage`, la reserva) · `lib/crm-auto-plan.ts` · `lib/etapa-historial.ts`
+
+---
+
+## Las cuotas que no se pueden tocar duplicaban la deuda, y un ajuste parcial borraba el plan (14/10/2026)
+
+Las dos fallas ALTAS de la revisión de la rama `crm-bloques-b2` (Pagos campo por campo), arregladas antes de
+integrar. Las dos de plata, las dos invisibles: ningún error, el total cambia y nadie lo dice.
+
+**1. Una cuota protegida (link sin pagar o recordatorio corriendo) contaba la deuda dos veces.** En el modo
+'lista' de `reconciliarCuotas` —la lista viene sin ids: el wizard de Ganado y la API `guardar_cuotas`— la
+segunda pasada casaba por orden SÓLO con las cuotas libres. La deseada que le tocaba a la protegida terminaba en
+`insertar`, y la protegida, que no se puede borrar, en `conservar`: la misma deuda dos veces, y al cliente le
+llegaban recordatorios de plata que no debía. Era una regresión: el borrar-e-insertar de antes no duplicaba.
+
+⚠️ **El arreglo obvio también duplica** (lo vio el chat de Pagos): casar primero las libres y después las
+protegidas. Con A protegida, B y C libres de 1000 y [1500, 1500], las libres se llevan las dos deseadas, A queda
+sin deseada, se conserva igual y el total da 4000. **Las protegidas se casan PRIMERO**: cada una se lleva una
+deseada (la de su mismo vencimiento si la hay, si no la que sigue), porque es la única que no puede desaparecer.
+`casar` ya decidía qué se le puede cambiar (sólo la fecha si lo único que tiene es un link; nada si tiene un
+recordatorio) y lo deja en `conservar` con el porqué. Resultado del caso: A en 1000, B en 1500, C borrada: 2500.
+
+La regla que queda: **en una reconciliación, lo que no se puede borrar tiene prioridad para casarse.** Si se
+deja para el final, sobra, y lo que sobra de una lista de deuda es deuda duplicada. Invariante del test: cada
+deseada termina en UNO de igual / actualizar / conservar / insertar, y nunca hay un insertar mientras quede una
+protegida sin casar.
+
+**Y lo que no se tocó se dice.** La API contestaba «Listo: N cuotas guardadas» ignorando el `PlanDeCuotas` que
+devuelve `saveLeadPlanManual`: 2500 contra 3000 pedidos pasaba callado. Ahora la API lo dice en su respuesta y el
+wizard de Ganado lo deja en el historial del lead (y lo devuelve en `sinTocar`; mostrarlo en pantalla es de los
+bloques de Pagos de la tanda B2: el diálogo no tiene toast).
+
+**2. `ajustarPlanAction` escribía un plan PARCIAL como plan entero.** Se entrega con `Partial<PlanUniforme>`
+—un bloque manda sólo el campo que cambió—, pero `validarPlan` llenaba con null lo que no vino y
+`ajustarPlanPagos` reconcilia por número: cambiar sólo el inicial borraba las cuotas 1 a N y corría los
+vencimientos al día 1 (`dia_de_pago ?? 1`). Ahora `ajustarSobre` escribe lo que vino ENCIMA del plan de la
+base: una clave ausente se conserva, un `null` explícito vacía. Y si después de mezclar hay cuotas sin día de
+pago (un lead cuyas cuotas se cargaron a mano no tiene plan en la base), lo pide con `faltan` en vez de
+inventar el día 1.
+
+En el mismo pase, el Deshacer del ajuste: devolvía el plan anterior por `validarPlan`, que con un plan todo en
+null falla y lo descartaba en silencio — las cuotas volvían y quedaba escrito el plan que se quería deshacer.
+`planComoEstaba` lo escribe tal cual, cada campo limpio por separado.
+
+**El test que fijaba el bug:** `tests/pagos-campo.test.ts` tenía un caso (`r3`) que exigía que la libre se
+llevara la deseada y la protegida quedara aparte — o sea, la duplicación. Lo había escrito la misma tanda con
+su porqué («reusar la protegida perdería la cuota pedida»). Un test verde sobre la propiedad equivocada es la
+forma más cara de estar seguro: la pregunta que lo desarma es **¿cuánto debe el cliente después?**, y el test
+nuevo la hace (`deudaDespues`).
+
+**Sin hacer (las seis medias de la misma revisión, en `docs/relevo/crm-tanda-b1.md` → «Revisión de b2»):** el
+dedup de la cobranza con un id que ya no cambia, el link vivo de una cuota cobrada a mano, «Sin cobro» con
+impagas vivas, una cuota nacida después de la foto que el modo porId borra, Editar deal que ignora en silencio y
+reactivar una suscripción sin su plazo.
+
+**Vive en:** `lib/pagos-campo.ts` (`reconciliarCuotas` modo 'lista', `ajustarSobre`, `planComoEstaba`) · `app/crm/[id]/pagos-campo-actions.ts` (`ajustarPlanAction`, `guardarCuotasAction`) · `lib/api-mako/areas/crm.run.ts` (`guardar_cuotas`) · `app/crm/actions.ts` (`completeStageMoveAction`) · `tests/pagos-campo.test.ts` · *2026-10-14 rama crm-bloques-b2*

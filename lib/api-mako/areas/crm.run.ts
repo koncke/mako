@@ -33,6 +33,7 @@ import { etapaVigenteDe } from '@/lib/funnel-etapas';
 import { calificadoSeDescarta } from '@/lib/calificado-reunion';
 import { getJuntasProximas } from '@/lib/queries';
 import { getLeadPlan, getPagosByLead, savePlanPagos, saveLeadPlanManual, marcarPago, cobrarCuota, registrarPagoSuelto } from '@/lib/pagos';
+import { avisoDeConservadas } from '@/lib/pagos-campo';
 // Sólo para la lectura cobranza_lead (14/10/2026): lo cobrado con la misma cuenta que la ficha.
 import { cobradoDelLead } from '@/lib/cobrado-lead';
 import { listarCobros } from '@/lib/cobros';
@@ -1621,13 +1622,18 @@ export const RUNNERS: Runners = {
       const before = await getLead(id);
       if (!before) return { ok: false, resumen: noExiste(id) };
       const cuotas = (payload.cuotas as Array<{ monto_usd: number; fecha_esperada: string | null }>) ?? [];
-      await saveLeadPlanManual(id, { total_usd: n(payload.total_usd) ?? null, duracion_meses: n(payload.duracion_meses) ?? null, fecha_cierre: s(payload.fecha_cierre) ?? null, fecha_inicio: s(payload.fecha_inicio) ?? null, cuotas });
-      await logLeadEvent(id, 'Plan de pagos', `Cuotas actualizadas desde ${canalTxt(ctx)} (${cuotas.length} sin pagar)`, autorDe(ctx));
+      const cambios = await saveLeadPlanManual(id, { total_usd: n(payload.total_usd) ?? null, duracion_meses: n(payload.duracion_meses) ?? null, fecha_cierre: s(payload.fecha_cierre) ?? null, fecha_inicio: s(payload.fecha_inicio) ?? null, cuotas });
+      // ⚠️ LO QUE NO SE TOCÓ SE DICE. Una cuota con un link sin pagar o un recordatorio corriendo se conserva como
+      // está, y contestar «Listo: N cuotas» sobre eso afirmaba un plan que no quedó escrito.
+      const sinTocar = avisoDeConservadas(cambios);
+      await logLeadEvent(id, 'Plan de pagos', `Cuotas actualizadas desde ${canalTxt(ctx)} (${cuotas.length} sin pagar)${sinTocar ? ` · no se tocó: ${sinTocar}` : ''}`, autorDe(ctx));
       // saveLeadPlanManual escribe estado_lead con un update directo que no audita:
       // el diff deja en el historial que el lead pasó a ganado y quién lo hizo.
       await logLeadChanges(id, before, await getLead(id).catch(() => null), autorDe(ctx));
       invalidar('pagos', 'leads');
-      return { ok: true, resumen: `Listo: ${cuotas.length} cuota(s) guardadas para ${before.nombre}; el lead quedó como ganado.` };
+      return { ok: true, resumen: sinTocar
+        ? `Guardé las cuotas de ${before.nombre} menos lo que no se puede cambiar (${sinTocar}); el lead quedó como ganado.`
+        : `Listo: ${cuotas.length} cuota(s) guardadas para ${before.nombre}; el lead quedó como ganado.` };
     }),
   },
   guardar_deal_details: {
