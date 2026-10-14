@@ -16,13 +16,12 @@
 // de un teléfono ni de un nombre. Un IGSID es un número de ~17 dígitos y el matcheo telefónico de la
 // casa lo confundiría con un teléfono real. El lead se une por la fila de la persona, y nada más.
 //
-// ⚠️ UNA RESPUESTA POR INSTAGRAM O MESSENGER PAUSA LA SALIDA, SIN CONTESTAR (segunda pasada de la
-// sexta tanda, 09/10/2026). Un mensaje o una respuesta a una historia de alguien que YA es un lead
-// es una respuesta: lo que le estaban escribiendo se pausa, igual que con una de WhatsApp
-// (`pausarPorRespuesta`, lib/nutricion.ts, con `origen: canal`). Lo que esa función hace además con
-// una de WhatsApp —el borrador del modo asistido, «Si responde», la charla del setter— contesta POR
-// WHATSAPP, al teléfono del lead, y por eso con lo social NO corre: le contestaría por otro canal a
-// quien escribió por Instagram. La respuesta la ve el negocio en su Instagram.
+// ⚠️ UNA RESPUESTA POR INSTAGRAM O MESSENGER SE ANOTA Y LA CONTESTA EL AI STEP DE ESE MEDIO (TikTok fase 0,
+// 14/10/2026; desde la sexta tanda hasta ese día sólo pausaba). Un mensaje o una respuesta a una historia de
+// alguien que YA es un lead es una respuesta: se anota igual que una de WhatsApp (`pausarPorRespuesta`,
+// lib/nutricion.ts, con `origen: canal`), y si una automatización suya tiene un AI Step de ese medio, le
+// contesta POR ESE CANAL (la charla de `ig_mensajes`, la respuesta por Zernio). El borrador del modo asistido
+// y lo demás del WhatsApp no corren: le contestarían por WhatsApp a quien escribió por Instagram.
 //
 // ⚠️ Y LA PAUSA VA ANTES DEL DISPARO, en el mismo `after` (app/api/webhooks/zernio/route.ts): el
 // mismo DM puede arrancar una automatización de «Te envía un mensaje», y pausar después pausaría la
@@ -76,12 +75,13 @@ export async function dispararEventoSocial(leadId: number, canal: CanalSocial, s
 }
 
 /**
- * La respuesta por Instagram o Messenger de alguien que ya es un lead: pausa lo que le estaban
- * escribiendo, SIN contestarle (ver la cabecera). Devuelve cuántas inscripciones pausó.
+ * La respuesta por Instagram o Messenger de alguien que ya es un lead: anota que contestó y, si una
+ * automatización suya tiene un AI Step de ese medio, le contesta por ahí (ver la cabecera). `texto`: lo que
+ * escribió; `cuenta`: la cuenta de Zernio que lo recibió. Devuelve cuántas inscripciones anotó.
  */
-export async function pausarRespuestaSocial(leadId: number, canal: CanalSocial): Promise<number> {
+export async function pausarRespuestaSocial(leadId: number, canal: CanalSocial, extra: { texto?: string | null; cuenta?: string | null } = {}): Promise<number> {
   const { pausarPorRespuesta } = await import('./nutricion');
-  return pausarPorRespuesta(leadId, { origen: canal });
+  return pausarPorRespuesta(leadId, { origen: canal, texto: extra.texto ?? undefined, cuenta: extra.cuenta ?? null });
 }
 
 type Fila = { id: number; lead_id: number | null };

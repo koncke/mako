@@ -309,6 +309,54 @@ export function tipoAdjuntoZernio(mime: string | null | undefined): 'image' | 'v
 /** Instagram corta un mensaje con botones a 640; sin botones, Meta topea en 1000. */
 export const TOPE_TEXTO_SOCIAL = 1000;
 
+// ── La charla de Instagram o Messenger, para el AI Step (TikTok fase 0, 14/10/2026) ──────
+
+/** Cuántos mensajes de cada lado se leen para armar la charla (el redactor usa los últimos 20 turnos). */
+export const TOPE_CHARLA_SOCIAL = 25;
+
+/** Un mensaje de la persona, como lo guarda el webhook de Zernio (`ig_mensajes`, dirección 'entrante'). */
+export type EntranteSocial = { texto: string | null; adjuntos?: unknown; created_at: string | null };
+/** Un mensaje que le salió por ese canal (`nutricion_envios` con el canal social y estado 'enviado'). */
+export type SalienteSocial = { texto_enviado: string | null; created_at: string | null };
+
+/** El tipo de adjunto que guardó el webhook, en las palabras del historial del setter (`sinTexto`). */
+function tipoDeAdjunto(adjuntos: unknown): string | null {
+  const a = Array.isArray(adjuntos) ? (adjuntos[0] as { type?: unknown } | undefined) : undefined;
+  const t = typeof a?.type === 'string' ? a.type.toLowerCase() : null;
+  if (!t) return null;
+  if (t.includes('image') || t.includes('photo') || t.includes('sticker')) return t.includes('sticker') ? 'sticker' : 'image';
+  if (t.includes('video') || t.includes('reel')) return 'video';
+  if (t.includes('audio')) return 'audio';
+  return 'document';
+}
+
+/**
+ * LA CHARLA DE UN LEAD POR INSTAGRAM O MESSENGER, en la forma del historial del WhatsApp
+ * (`FilaMensaje` de lib/setter-conversacion.ts: `historialDeMensajes` y `ultimoEntranteMs` la leen tal
+ * cual), de la más vieja a la más nueva y con los últimos `tope`.
+ *
+ * Son DOS fuentes y por eso se juntan acá: lo que escribió la persona lo guarda el webhook
+ * (`ig_mensajes`), y lo que le salió —los pasos del motor y las respuestas del AI Step— queda en
+ * `nutricion_envios`, que es el único rastro de lo saliente (el envío por Zernio no escribe en
+ * `ig_mensajes`). Sin lo saliente el redactor no sabría qué se le contestó y repetiría la pregunta.
+ * Un mensaje de la persona sin texto ni adjunto entra igual, como «(mandó un mensaje sin texto)».
+ */
+export function filasDeCharlaSocial(
+  entrantes: readonly EntranteSocial[], salientes: readonly SalienteSocial[], tope: number = TOPE_CHARLA_SOCIAL,
+): Array<{ from_me: boolean; texto: string | null; tipo: string | null; wa_timestamp: string | null }> {
+  const filas = [
+    ...entrantes.map((e) => ({
+      from_me: false, texto: e.texto?.trim() ? e.texto : null,
+      tipo: e.texto?.trim() ? 'texto' : tipoDeAdjunto(e.adjuntos), wa_timestamp: e.created_at,
+    })),
+    ...salientes.filter((s) => (s.texto_enviado ?? '').trim()).map((s) => ({
+      from_me: true, texto: s.texto_enviado, tipo: 'texto', wa_timestamp: s.created_at,
+    })),
+  ];
+  const ms = (iso: string | null) => Date.parse(iso ?? '') || 0;
+  return filas.sort((a, b) => ms(a.wa_timestamp) - ms(b.wa_timestamp)).slice(-Math.max(1, tope));
+}
+
 // ── Los eventos que entran (lo que ManyChat ofrece y lo que Zernio entrega) ──────
 
 /**

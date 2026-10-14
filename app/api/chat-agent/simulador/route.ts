@@ -111,8 +111,10 @@ export async function POST(req: NextRequest) {
       if ('error' in t) return json({ ok: false, error: t.error }, 400);
       const mensaje = t.texto || (typeof body.mensaje === 'string' ? body.mensaje : '');
       // Llegan como se ven en el lienzo (un AI Step, compacto): `escenariosDeRespuesta` lo expande adentro
-      // (`expandirPasoIA`, novena tanda), así la guía y «sale sola» de cada caso son las que lee el motor.
-      const casos = escenariosDeRespuesta(pasos);
+      // (`expandirPasoIA`, novena tanda), así la guía y «sale sola» de cada caso son las que lee el motor. Con el
+      // MEDIO de la prueba (TikTok fase 0, 14/10/2026): por Instagram, los casos del AI Step de Instagram.
+      const medio = body.medio === 'instagram' || body.medio === 'messenger' ? body.medio : undefined;
+      const casos = escenariosDeRespuesta(pasos, { medio });
       // La forma del clasificador de siempre. Se busca el caso por REFERENCIA: el clasificador
       // devuelve el mismo objeto que se le pasó, así que no hace falta comparar títulos (dos casos
       // pueden llamarse igual).

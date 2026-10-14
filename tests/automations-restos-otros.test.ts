@@ -34,7 +34,8 @@ test('«Probar» anuncia la rama con las palabras de la tarjeta, no «Si respond
   const p = codigo('app/automations/PanelProbar.tsx');
   // Sin casos dice «Respondió», como la tarjeta: la misma función, no un literal (un literal fijaba el
   // «Si no» de antes cuando la tarjeta ya decía otra cosa).
-  assert.match(p, /sistema\(e\.caso\?\.id \? textoCasoRespuesta\(e\.caso\) : rotuloSiNoDeRespuesta\(nodoPorId\(flujoRef\.current, raizRespuesta\(flujoRef\.current\)\)\)\);/);
+  // La raíz del AI Step del MEDIO de la prueba (TikTok fase 0, 14/10/2026): con dos, la de otro medio no es la que contesta.
+  assert.match(p, /sistema\(e\.caso\?\.id \? textoCasoRespuesta\(e\.caso\) : rotuloSiNoDeRespuesta\(nodoPorId\(flujoRef\.current, raizRespuesta\(expandirPasoIA\(flujoRef\.current, \{ medio: medioIA \}\)\)\)\)\);/);
   assert.doesNotMatch(p, /'Si no'/, 'volvió un «Si no» escrito a mano');
   assert.doesNotMatch(p, /Si responde · /, 'volvió el rótulo de la tarjeta de antes');
 });

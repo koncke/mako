@@ -3,9 +3,9 @@
 // =============================================================================
 // La ESTRATEGIA (lib/setting-estrategia.ts) vive en nutricion_secuencias.estrategia.
 // Acá: getSecuencias (secuencias + estrategia + métricas 30d), guardarEstrategia,
-// crearSecuenciaDesdeEtapa (la de la API, colgada de una etapa) y probarSecuencia (manda TODOS
-// los pasos al contacto del admin, marcados [PRUEBA], SIN tocar inscripciones
-// ni nutricion_envios: cero contaminación de KPIs y del guard anti-ban).
+// crearSecuenciaDesdeEtapa (la de la API, colgada de una etapa) y probarSecuencia (manda los
+// mensajes de UN escenario —14/10/2026; antes, todos los pasos— al contacto del admin, marcados
+// [PRUEBA], SIN tocar inscripciones ni nutricion_envios: cero contaminación de KPIs y del guard anti-ban).
 
 import 'server-only';
 import { getTenantDb } from './workspace';
@@ -28,7 +28,8 @@ import { enviarYEspejar, enviarAudioYEspejar, enviarMediaYEspejar } from './evol
 import { getAudio, audioBase64 } from './setting-audios';
 import { sendEmail, renderEmailHtml, remitenteEsSandbox } from './resend';
 import { aplicarVariables } from './template-vars';
-import { datosDeEjemplo } from './simulador-grafo';
+import { datosDeEjemplo, escenariosDeLaSecuencia, mensajesDelEscenario } from './simulador-grafo';
+import { esCanalSocial, NOMBRE_CANAL } from './canal-social';
 import { esPasoAccion } from './nutricion-paso-accion';
 import { partesDe } from './mensaje-partes';
 import { emojiDeSecuencia } from './flujo-conversacion';
@@ -659,17 +660,41 @@ export type ResultadoPrueba =
   | { ok: true; enviadosWa: number; enviadosEmail: number; avisos: string[] }
   | { ok: false; error: string };
 
-export async function probarSecuencia(secuenciaId: number): Promise<ResultadoPrueba> {
+/**
+ * EL ESCENARIO QUE SE PRUEBA (14/10/2026): los mensajes que le llegan a un lead por UN camino de la automatización
+ * (`escenariosDeLaSecuencia` + `mensajesDelEscenario`, lib/simulador-grafo.ts: lo MISMO que «Probar» y que
+ * `escenarios_secuencia`), en orden. Hasta ese día la prueba mandaba cada mensaje del array, con las ramas que se
+ * excluyen juntas. `escenario`: el número (1 = el de un lead recién llegado por su CRON); ausente, el 1. `total`:
+ * cuántos hay, para que quien pide sepa si tenía que elegir.
+ */
+export async function escenarioDePrueba(secuenciaId: number, escenario: number | null = null): Promise<
+  | { ok: true; sec: SecuenciaConStats; numero: number; total: number; camino: readonly string[]; mensajes: SecuenciaConStats['pasos'] }
+  | { ok: false; error: string }
+> {
   const secs = await getSecuenciasConStats();
   const sec = secs.find((s) => s.id === secuenciaId);
   if (!sec) return { ok: false, error: 'Esa secuencia no existe en este workspace.' };
   if (!sec.pasos.length) return { ok: false, error: 'La secuencia no tiene pasos para probar.' };
+  const { pasos, escenarios } = escenariosDeLaSecuencia(sec, (clave) => secs.find((x) => x.clave === clave)?.id ?? null);
+  const numero = escenario ?? 1;
+  const elegido = escenarios[numero - 1];
+  if (!elegido) {
+    return { ok: false, error: escenarios.length ? `Esa automatización tiene ${escenarios.length} ${escenarios.length === 1 ? 'escenario' : 'escenarios'}: elige del 1 al ${escenarios.length}.` : 'Esa automatización no tiene ningún camino para probar.' };
+  }
   // Un paso «⚡ Acción de MaKo» no se prueba: correrlo ESCRIBE de verdad (mueve un lead, crea
   // una tarea) y la prueba manda los MENSAJES al admin, nada más. Sin este filtro salía un
   // WhatsApp «[PRUEBA n/N] » en blanco por cada acción, porque su cuerpo se guarda vacío.
   // Ni una tarjeta de CONTROL (condición, espera, «Si responde», «Ir a»): no manda nada.
-  const mensajes = sec.pasos.filter((p) => !esPasoAccion(p) && !esNodoDeControl(p));
-  if (!mensajes.length) return { ok: false, error: 'Esta secuencia sólo tiene acciones: en una prueba no corren.' };
+  const mensajes = mensajesDelEscenario(pasos, elegido.elecciones)
+    .filter((p) => !esPasoAccion(p) && !esNodoDeControl(p)) as unknown as SecuenciaConStats['pasos'];
+  return { ok: true, sec, numero, total: escenarios.length, camino: elegido.pasos, mensajes };
+}
+
+export async function probarSecuencia(secuenciaId: number, op: { escenario?: number | null } = {}): Promise<ResultadoPrueba> {
+  const e = await escenarioDePrueba(secuenciaId, op.escenario ?? null);
+  if (!e.ok) return { ok: false, error: e.error };
+  const { sec, mensajes } = e;
+  if (!mensajes.length) return { ok: false, error: 'Por ese camino no le llega ningún mensaje al lead: no hay nada que probar.' };
 
   const contacto = await getContactoReportes();
   if (!contacto.telefono && !contacto.email) {
@@ -679,7 +704,8 @@ export async function probarSecuencia(secuenciaId: number): Promise<ResultadoPru
   const avisos: string[] = [];
   let enviadosWa = 0;
   let enviadosEmail = 0;
-  const total = sec.pasos.length;
+  // El número es la POSICIÓN en el escenario (1 de N): `orden` es la del array, con las otras ramas adentro.
+  const total = mensajes.length;
   // El catálogo entero del «{ }» con sus ejemplos y, encima, el nombre de quien prueba (`datosDeEjemplo`,
   // lib/simulador-grafo.ts: el MISMO de «Probar»). Con los cinco de antes, la etapa o la reunión le
   // llegaban crudas a quien probaba.
@@ -715,10 +741,13 @@ export async function probarSecuencia(secuenciaId: number): Promise<ResultadoPru
     };
   }
 
-  for (const paso of mensajes) {
-    const cuerpo = `[PRUEBA ${paso.orden}/${total}] ${aplicarVariables(paso.cuerpo, vars)}`;
+  for (const [k, paso] of mensajes.entries()) {
+    const n = k + 1;
+    // Instagram y Messenger no se prueban en vivo: Meta no deja escribirle primero a nadie (lib/canal-social.ts).
+    if (esCanalSocial(paso.canal)) { avisos.push(`Paso ${n}: por ${NOMBRE_CANAL[paso.canal]} no se prueba en vivo (Meta no deja escribir primero).`); continue; }
+    const cuerpo = `[PRUEBA ${n}/${total}] ${aplicarVariables(paso.cuerpo, vars)}`;
     if (paso.canal === 'whatsapp') {
-      if (!contacto.telefono) { avisos.push(`Paso ${paso.orden}: sin teléfono en Perfil, no se probó.`); continue; }
+      if (!contacto.telefono) { avisos.push(`Paso ${n}: sin teléfono en Perfil, no se probó.`); continue; }
       if (!evoConectada) { avisos.push('Tu WhatsApp está desconectado: esos pasos no se probaron (vuelve a vincularlo en Configuración → WhatsApp).'); continue; }
       // ⚠️ CADA PARTE, EN ORDEN, COMO LE LLEGA AL LEAD (cuarta tanda, punto 15: «un audio primero y
       // luego un link»). `partesDe` lee también lo de antes: un audio con pie son dos (el audio y el
@@ -726,35 +755,35 @@ export async function probarSecuencia(secuenciaId: number): Promise<ResultadoPru
       // en el primer texto o caption del paso; un audio no tiene dónde llevarlo. Si una parte falla,
       // las que siguen de ese paso no salen: es lo que hace el motor (`enviarPartesDelPaso`).
       const lista = partesDe(paso);
-      if (!lista.length) { avisos.push(`Paso ${paso.orden}: sin escribir, no se probó.`); continue; }
+      if (!lista.length) { avisos.push(`Paso ${n}: sin escribir, no se probó.`); continue; }
       let rotulado = false;
-      const conRotulo = (t: string) => { if (rotulado) return t; rotulado = true; return `[PRUEBA ${paso.orden}/${total}] ${t}`; };
+      const conRotulo = (t: string) => { if (rotulado) return t; rotulado = true; return `[PRUEBA ${n}/${total}] ${t}`; };
       for (const parte of lista) {
         if (parte.tipo === 'audio') {
           // La nota de voz de verdad, como al lead.
           const audio = await getAudio(parte.audio_id);
           const b64 = audio ? await audioBase64(audio) : null;
-          if (!audio || !b64) { avisos.push(`Paso ${paso.orden}: no pude bajar el audio «${audio?.titulo ?? parte.audio_id}».`); break; }
+          if (!audio || !b64) { avisos.push(`Paso ${n}: no pude bajar el audio «${audio?.titulo ?? parte.audio_id}».`); break; }
           const ra = await enviarAudioYEspejar({ telefono: contacto.telefono, base64: b64, mimetype: audio.media_mime, linea: lineaSec });
-          if (ra.ok) enviadosWa += 1; else { avisos.push(`Paso ${paso.orden} (audio): ${ra.error ?? 'no salió'}`); break; }
+          if (ra.ok) enviadosWa += 1; else { avisos.push(`Paso ${n} (audio): ${ra.error ?? 'no salió'}`); break; }
         } else if (parte.tipo === 'media') {
           // El archivo de verdad, con su pie.
           const adj = await getAdjunto(parte.media_id);
           const b64 = adj ? await adjuntoBase64(adj) : null;
-          if (!adj || !b64) { avisos.push(`Paso ${paso.orden}: no pude bajar el archivo «${adj?.titulo ?? parte.media_id}».`); break; }
+          if (!adj || !b64) { avisos.push(`Paso ${n}: no pude bajar el archivo «${adj?.titulo ?? parte.media_id}».`); break; }
           const rm = await enviarMediaYEspejar({ telefono: contacto.telefono, media: { ...mediaDeAdjunto(adj), base64: b64 }, caption: conRotulo(aplicarVariables(parte.cuerpo ?? '', vars)), linea: lineaSec });
-          if (rm.ok) enviadosWa += 1; else { avisos.push(`Paso ${paso.orden} (archivo): ${rm.error ?? 'no salió'}`); break; }
+          if (rm.ok) enviadosWa += 1; else { avisos.push(`Paso ${n} (archivo): ${rm.error ?? 'no salió'}`); break; }
         } else {
           const r = await enviarYEspejar({ telefono: contacto.telefono, texto: conRotulo(aplicarVariables(parte.cuerpo, vars)), linea: lineaSec });
-          if (r.ok) enviadosWa += 1; else { avisos.push(`Paso ${paso.orden} (WhatsApp): ${r.error ?? 'no salió'}`); break; }
+          if (r.ok) enviadosWa += 1; else { avisos.push(`Paso ${n} (WhatsApp): ${r.error ?? 'no salió'}`); break; }
         }
       }
     } else {
-      if (!contacto.email) { avisos.push(`Paso ${paso.orden}: sin email en Perfil, no se probó.`); continue; }
+      if (!contacto.email) { avisos.push(`Paso ${n}: sin email en Perfil, no se probó.`); continue; }
       if (sandbox) { avisos.push('Remitente sandbox: verifica tu dominio para probar los emails.'); continue; }
       const asunto = `[PRUEBA] ${aplicarVariables(paso.asunto ?? '(sin asunto)', vars)}`;
       const r = await sendEmail({ to: contacto.email, subject: asunto, html: renderEmailHtml({ subject: asunto, bodyText: cuerpo }), text: cuerpo });
-      if (r.ok) enviadosEmail += 1; else avisos.push(`Paso ${paso.orden} (email): ${r.error ?? 'no salió'}`);
+      if (r.ok) enviadosEmail += 1; else avisos.push(`Paso ${n} (email): ${r.error ?? 'no salió'}`);
     }
   }
 

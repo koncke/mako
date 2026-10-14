@@ -83,7 +83,7 @@ import {
   CAMPOS_CONDICION, ID_INICIO, TOPE_PARALELOS, TOPE_HILOS, TOPE_RAMAS, TOPE_FILAS, TOPE_CASOS, TOPE_OBJETIVO,
   claseDe, idDe, nuevoId, puertosDe, raicesSalida, raizRespuesta, descendientes, indicePorId,
   conectarPuerto, puedeTenerParalelos, validarGrafo, contarParalelos, esPasoIA,
-  borrarNodo, padresDe, siguienteDe,
+  borrarNodo, padresDe, siguienteDe, medioDe, puedeSumarAIStep,
 } from './flujo-grafo';
 import { faltanEnPaso, LEAD_DEL_EVENTO } from './api-mako/flujo-params';
 import { respuestaAPasoIA } from './paso-ia-convertir';
@@ -1556,10 +1556,13 @@ export function deIA(json: unknown, ctx: CtxIA, rnd: () => number = Math.random)
   const cards = tarjetasDe(Array.isArray(json) ? json : o.tarjetas, est.avisos);
   if (cards.length > TOPE_TARJETAS_IA * 3) est.avisos.push('Eran demasiadas tarjetas: armé las primeras');
   let usadas = cards.slice(0, TOPE_TARJETAS_IA * 3);
-  // UN FLUJO SOCIAL NO LLEVA «SI RESPONDE» NI AI STEP: el AI Step contesta por WhatsApp (lib/nutricion.ts llama a
-  // `asistirRespuesta` sin el medio). Se va con lo que colgaba SÓLO de ella, y un aviso.
+  // UN FLUJO SOCIAL QUE ARMA LA IA NO LLEVA «SI RESPONDE». Desde TikTok fase 0 (14/10/2026) el motor SÍ contesta por
+  // Instagram y Messenger con el AI Step de ese medio, pero lo que arma el modelo no llega a serlo: un «MaKo contesta»
+  // de un canal social pierde la IA en `nodoDe` (ahí no va) y el plegado a AI Step (`respuestaAPasoIA`) sólo junta los
+  // de WhatsApp. Lo que quedaría es un «Si responde» de los de siempre, que escucha por WhatsApp. Se saca con lo que
+  // colgaba SÓLO de ella, y el aviso dice dónde se suma el que sí contesta. ⚠️ SIN HACER: armarlo acá con su medio.
   if (social && usadas.some((c) => c.tipo === 'si_responde')) {
-    est.avisos.push(`Saqué el Si responde: por ${NOMBRE_CANAL[social]} todavía no contesta`);
+    est.avisos.push(`Saqué el Si responde: el AI Step de ${NOMBRE_CANAL[social]} se suma desde el ＋`);
     usadas = sinRespuesta(usadas);
   }
 
@@ -2105,7 +2108,6 @@ export function deIAEdicion(json: unknown, base: readonly PasoGrafo[], ctx: CtxI
   // eligió el modelo va primero entre las opciones de la pregunta.
   let sugerido: string | null = null;
   if (disparador !== undefined && !pideCron(ctx.pedido)) { sugerido = disparador; disparador = undefined; }
-  const respAntes = raizRespuesta(pasos);
   const cron = disparador ?? cronActual(ctx);
   const social = cambio ?? canalSocialDelFlujo(ctx, cron);
   est.condiciones = idsDeCondiciones(cron ? ambitoDeValor(cron) : 'cualquiera', ctx.catalogoCondicion ?? {});
@@ -2116,14 +2118,26 @@ export function deIAEdicion(json: unknown, base: readonly PasoGrafo[], ctx: CtxI
     if (x && typeof x === 'object' && !Array.isArray(x)) pasos = cambiarTarjeta(pasos, x as Record<string, unknown>, ed);
   }
   if (cambio) {
-    for (let k = 0; k < 3; k++) {
-      const r = raizRespuesta(pasos);
-      if (!r) break;
-      pasos = quitarTarjeta(pasos, r, est);
+    // EL AI STEP SE MUDA AL CANAL NUEVO (TikTok fase 0, 14/10/2026): el motor contesta por Instagram y Messenger con el
+    // AI Step de ese medio, así que «cambia WhatsApp por Instagram» le cambia el medio en el MISMO id. Se saca sólo lo
+    // que por ahí no contesta: un «Si responde» de los de siempre (escucha por WhatsApp) o un AI Step que no entra (ya
+    // hay uno de ese medio).
+    for (const p of [...pasos]) {
+      if (claseDe(p) !== 'respuesta' || indicePorId(pasos, p.id!) < 0) continue;
+      if (esPasoIA(p) && medioDe(p) === cambio) continue;
+      if (esPasoIA(p) && puedeSumarAIStep(pasos.filter((q) => q.id !== p.id), cambio)) {
+        // Sin el audio: por las redes no hay nota de voz (Publicar no la deja, `erroresDelPasoIA`).
+        pasos = pasos.map((q) => {
+          if (q.id !== p.id) return q;
+          const { audio: _sinAudio, ...resto } = q;
+          void _sinAudio;
+          return { ...resto, medio: cambio } as PasoIA;
+        });
+        est.avisos.push(`El AI Step ahora contesta por ${NOMBRE_CANAL[cambio]}`);
+      } else {
+        pasos = quitarTarjeta(pasos, p.id!, est, esPasoIA(p) ? `Saqué el AI Step de WhatsApp: ya hay uno de ${NOMBRE_CANAL[cambio]}` : `Saqué el Si responde: por ${NOMBRE_CANAL[cambio]} contesta el AI Step`);
+      }
     }
-    // El aviso, también si lo sacó el modelo con "quitar".
-    const ra = respAntes ? antes.get(respAntes) : undefined;
-    if (ra && indicePorId(pasos, ra.id!) < 0) est.avisos.push(`Saqué ${esPasoIA(ra) ? 'el AI Step' : 'el Si responde'}: por ${NOMBRE_CANAL[cambio]} todavía no contesta`);
     for (const p of [...pasos]) {
       if (claseDe(p) === 'mensaje' && canalDePaso(p) === 'whatsapp') pasos = cambiarTarjeta(pasos, { id: p.id, canal: cambio }, ed);
     }
@@ -2183,14 +2197,14 @@ function agregarTramos(pasosIn: PasoIA[], grupos: readonly unknown[], ed: Edicio
     const cards = tarjetasDe(g.tarjetas, est.avisos).slice(0, TOPE_TARJETAS_IA * 3);
     const sinResp = cards.filter((c) => {
       if (c.tipo !== 'si_responde') return true;
-      est.avisos.push(social ? `Saqué el Si responde: por ${NOMBRE_CANAL[social]} todavía no contesta` : 'No agregué otra «Si responde»: ya hay una, sumé un caso');
+      est.avisos.push(social ? `Saqué el Si responde: el AI Step de ${NOMBRE_CANAL[social]} se suma desde el ＋` : 'No agregué otra «Si responde»: ya hay una, sumé un caso');
       return false;
     });
     if (!sinResp.length) continue;
     preferirEsperas(sinResp, est.avisos);
     const despues = normNombre(g.despues_de ?? g.después_de ?? 'cron').replace(/\s+/g, '_');
     const salida = normNombre(g.salida ?? 'paralelo').replace(/\s+/g, '_');
-    if (social && (despues === 'si_responde' || despues === 'respuesta')) { est.avisos.push(`Saqué el Si responde: por ${NOMBRE_CANAL[social]} todavía no contesta`); continue; }
+    if (social && (despues === 'si_responde' || despues === 'respuesta')) { est.avisos.push(`Saqué el Si responde: el AI Step de ${NOMBRE_CANAL[social]} se suma desde el ＋`); continue; }
     const copias = huellas
       ? new Set(sinResp.filter((c) => (c.tipo === 'mensaje' || c.tipo === 'email') && huellas.has(huellaDe(c.raw.texto ?? c.raw.cuerpo ?? c.raw.mensaje))).map((c) => c.tmp))
       : new Set<string>();
@@ -2402,8 +2416,9 @@ export function validarIA(pasos: readonly PasoGrafo[], ctx: CtxIA, soloIds?: Rea
         if (f.campo === 'etapa' && !etapaOk(f.valor, f.funnel_id)) err.push(`una condición usa una etapa que no existe (${String(f.valor)})`);
       }
     }
-    // Un flujo de Instagram o Messenger no lleva «Si responde» ni AI Step: contestan por WhatsApp.
-    if (c === 'respuesta' && social) err.push(`un flujo por ${NOMBRE_CANAL[social]} no lleva "si_responde"`);
+    // Un flujo de Instagram o Messenger no lleva un «Si responde» de los de siempre ni un AI Step de OTRO medio: los dos
+    // contestan por WhatsApp. Uno de ESE medio sí (TikTok fase 0, 14/10/2026: el motor contesta por ese canal).
+    if (c === 'respuesta' && social && !(esPasoIA(p) && medioDe(p) === social)) err.push(`un flujo por ${NOMBRE_CANAL[social]} no lleva "si_responde"`);
     if (c === 'accion') {
       const a = p.accion;
       const def = a ? ctx.acciones.find((x) => x.id === a.operacion) : undefined;
@@ -2930,7 +2945,7 @@ REGLAS (el código las comprueba y saca lo que no cumpla):
 6. No inventes precios, cifras, plazos, resultados ni herramientas que no estén en el negocio o en el pedido.
 7. Escribe con la GUÍA DE VOZ. Sin guía: español neutro, cercano y directo, con tú, aunque el negocio sea del Río de la Plata.
 8. Una automatización por categoría, completa: los recordatorios van con "antes_de_reunion", el aviso al equipo con "avisar_al_equipo" y lo que contesta en UN "si_responde" con varios casos. Entre dos "condicion" va un mensaje o un aviso.
-9. Por "instagram" o "messenger" Meta no deja escribir primero: el disparador es de ese canal, sin "si_responde" y sin esperar más de 24 h antes de un DM.`;
+9. Por "instagram" o "messenger" Meta no deja escribir primero: el disparador es de ese canal, sin armar "si_responde" y sin esperar más de 24 h antes de un DM.`;
 
 // ⚠️ EL EJEMPLO OBEDECE A LAS REGLAS QUE ENSEÑA (revisión, 09/10/2026). La guía de «Quiere agendar»
 // decía «Ofrécele dos horarios de esta semana»: justo lo que prohíbe la regla 4 (MaKo no ve la
