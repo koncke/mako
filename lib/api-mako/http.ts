@@ -37,6 +37,7 @@ import { permisoAceptado } from './permisos';
 import { recursoDe } from './recursos';
 import { VERSION_API, VERSIONES_API, CABECERA_VERSION, TOPE_POR_MINUTO_WS, TOPE_POR_MINUTO_IP, TOPE_CUERPO_BYTES } from './version';
 import { resolverTokenApi, type TokenResuelto } from './tokens';
+import { mensajeSinCreador } from './tokens-creador';
 import type { Ctx, Formato, OperacionDef, Resultado } from './tipos';
 
 /** Los topes (lib/api-mako/version.ts, donde también los lee la documentación). */
@@ -136,6 +137,8 @@ export async function autenticar(req: Request, opts: { sinConsumir?: boolean } =
     const dia = r.expira ? r.expira.slice(0, 10) : '';
     return errorJson(401, `El token «${r.nombre}» venció${dia ? ` el ${dia}` : ''}. Regenéralo en MaKo → API → Tokens.`);
   }
+  // Como GitHub: el token deja de valer cuando quien lo creó deja de administrar el negocio.
+  if (r.clase === 'detallado' && r.sinCreador) return errorJson(401, mensajeSinCreador(r.nombre));
   // Por workspace, nunca por el token: un secreto no es una clave de un Map.
   // `sinConsumir`: GET /api/v1/rate_limit mira la ventana sin gastarla, como en GitHub.
   const porWs = opts.sinConsumir ? rateLimitVer(`api-v1:ws:${r.ws}`, TOPE_POR_MINUTO_WS, 60_000) : rateLimitEstado(`api-v1:ws:${r.ws}`, TOPE_POR_MINUTO_WS, 60_000);

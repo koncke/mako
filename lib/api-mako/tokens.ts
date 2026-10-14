@@ -22,8 +22,12 @@ import { runWithWorkspace } from '@/lib/workspace';
 import { upsertRouting, wsPorIdentificadorEstricto } from '@/lib/webhook-routing';
 import { conReintentoTransitorio } from '@/lib/webhook-ruteo-huella';
 import { revocarAgenteToken, tokenAgenteVisible, wsPorAgenteToken } from '@/lib/agente-token';
+import { getSupabaseServer } from '@/lib/supabase';
+import { buscarUsuarioPorEmail } from '@/lib/usuarios';
+import type { FilaCartera } from '@/lib/agencia-cartera';
 import { AREAS } from './tipos';
 import type { Permisos } from './permisos';
+import { creadorConAcceso } from './tokens-creador';
 import { marcarUso, olvidarUso } from './tokens-uso';
 import {
   API_TOKENS_KEY, API_TOKENS_USO_KEY, ID_PRINCIPAL, PREFIJO_DETALLADO, SERVICIO_API,
@@ -36,8 +40,41 @@ const leerLista = (raw: string | null) => parsearLista(raw, AREAS);
 
 /** Lo que /api/v1 necesita saber de un bearer. */
 export type TokenResuelto =
-  | { ws: number; clase: 'detallado'; id: string; nombre: string; permisos: Permisos; expira: string | null; vencido: boolean }
+  | { ws: number; clase: 'detallado'; id: string; nombre: string; permisos: Permisos; expira: string | null; vencido: boolean; sinCreador: boolean }
   | { ws: number; clase: 'clasico' };
+
+/**
+ * ¿Quien creó un token de `ws` sigue administrándolo? (el juicio, en tokens-creador.ts).
+ *
+ * Se mira en CADA pedido, como el permiso de agencia: una persona sale del negocio después de
+ * acuñar el token. Con un minuto de memoria por (workspace, email) —la clave lleva el ws: esta
+ * caché es de todos los inquilinos del proceso— para no sumar dos lecturas a cada llamada; o
+ * sea que sacar a alguien apaga sus tokens en menos de un minuto.
+ *
+ * «No pude leer» TIRA (lo contesta 503, como el resto del resolvedor): un corte de la base no
+ * puede decir «tu token dejó de valer» sobre uno bueno.
+ */
+const CREADOR_TTL_MS = 60_000;
+const creadoresVistos = new Map<string, { ok: boolean; hasta: number }>();
+async function creadorVigente(ws: number, email: string): Promise<boolean> {
+  const e = email.trim().toLowerCase();
+  if (!e) return true;   // sin creador no hay a quién revisar (ver tokens-creador.ts)
+  const clave = `${ws}|${e}`;
+  const visto = creadoresVistos.get(clave);
+  if (visto && visto.hasta > Date.now()) return visto.ok;
+  const u = await buscarUsuarioPorEmail(e);
+  let cartera: FilaCartera[] = [];
+  if (u && u.rol !== 'admin' && u.workspace_id != null && u.workspace_id !== ws) {
+    const { data, error } = await getSupabaseServer()
+      .from('agencia_clientes').select('agencia_ws, cliente_ws, estado')
+      .eq('agencia_ws', u.workspace_id).eq('cliente_ws', ws).limit(1);
+    if (error) throw new Error(`agencia_clientes: ${error.message}`);
+    cartera = (data ?? []) as FilaCartera[];
+  }
+  const ok = creadorConAcceso(ws, u, cartera);
+  creadoresVistos.set(clave, { ok, hasta: Date.now() + CREADOR_TTL_MS });
+  return ok;
+}
 
 /**
  * El token de un bearer para /api/v1: un detallado (con sus permisos y si venció) o el
@@ -60,8 +97,9 @@ export async function resolverTokenApi(token: string): Promise<TokenResuelto | n
     });
     if (!r) return null;
     const venc = vencido(r.g, Date.now());
-    if (!venc) marcarUso(r.ws, r.g.id);
-    return { ws: r.ws, clase: 'detallado', id: r.g.id, nombre: r.g.nombre, permisos: r.g.permisos, expira: r.g.expira, vencido: venc };
+    const sinCreador = !venc && !(await conReintentoTransitorio(() => creadorVigente(r.ws, r.g.creadoPor)));
+    if (!venc && !sinCreador) marcarUso(r.ws, r.g.id);
+    return { ws: r.ws, clase: 'detallado', id: r.g.id, nombre: r.g.nombre, permisos: r.g.permisos, expira: r.g.expira, vencido: venc, sinCreador };
   }
   // El principal anota su propio uso adentro de wsPorAgenteToken (lo usa también /api/agente).
   const ws = await wsPorAgenteToken(t);
@@ -71,7 +109,7 @@ export async function resolverTokenApi(token: string): Promise<TokenResuelto | n
 /** El workspace de un bearer válido y vigente (para quien sólo necesita eso). */
 export async function wsPorTokenApi(token: string): Promise<number | null> {
   const r = await resolverTokenApi(token);
-  return r && !(r.clase === 'detallado' && r.vencido) ? r.ws : null;
+  return r && !(r.clase === 'detallado' && (r.vencido || r.sinCreador)) ? r.ws : null;
 }
 
 export type TokensDelWorkspace = { principal: TokenPrincipal | null; tokens: TokenPublico[] };
