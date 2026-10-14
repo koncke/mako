@@ -18,7 +18,7 @@ import type { Hito, Parte } from '../_registro/tipos';
 export const PARTES: Parte[] = [
   { titulo: 'Cargar tareas sin preguntas', detalle: 'Las reuniones, WhatsApp, Claude y el proyecto vacío cargan derecho: el borrador nace sin preguntas y la fecha y la prioridad las pone el Perro', estado: 'hecha' },
   { titulo: 'La casilla de selección animada', detalle: 'Tarjetas de tarea y de proyecto con la misma regla del CRM: de ancho 0 a 15 con el hover, y todas a la vista con algo elegido', estado: 'hecha' },
-  { titulo: 'Borrar lo que quedó sin call site', detalle: '`PreguntaCampo` y cuatro exports de lib/preguntas-contrato.ts ya no los usa ninguna pantalla', estado: 'cola' },
+  { titulo: 'Borrar lo que quedó sin call site', detalle: 'Se fueron `PreguntaCampo` y tres textos del contrato de preguntas que no leía nadie (14/10)', estado: 'hecha' },
   { titulo: 'La tarjeta queda donde se soltó', detalle: 'Al soltar en el Kanban se corren las de abajo un punto, sin cruzarse ni cambiar de columna; el deshacer las devuelve', estado: 'hecha' },
   { titulo: 'Las tablas también', detalle: 'Arrastrar una fila de la tabla de tareas sigue usando el punto medio solo', estado: 'cola' },
 ];
