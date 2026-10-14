@@ -182,9 +182,13 @@ const ALTO_MAX = 180;
 type ItemTira = { id: string; html: string; titulo: string; oculta: boolean };
 type Cache = WeakMap<NodoPM, { tema: Tema; html: string; titulo: string }>;
 
-/** El HTML de la miniatura, sin ids de DOM (ver la cabecera). */
+/**
+ * El HTML de la miniatura, sin ids de DOM (ver la cabecera). Con MARCADORES (render.ts): la tira es
+ * el mapa de lo que se está editando, y el VSL vacío de un diseño se ve como un ▶, igual que el
+ * hueco 16:9 que dibuja el editor (14/10/2026).
+ */
 function htmlDeMiniatura(json: JsonNodo, tema: Tema): string {
-  return htmlDeTarjeta(json, tema, { modo: 'miniatura', incluirOcultas: true }).replace(/\sid="[^"]*"/g, '');
+  return htmlDeTarjeta(json, tema, { modo: 'miniatura', incluirOcultas: true, marcadores: true }).replace(/\sid="[^"]*"/g, '');
 }
 
 function leerItems(editor: Editor, tema: Tema, cache: Cache, previos: ItemTira[]): ItemTira[] {

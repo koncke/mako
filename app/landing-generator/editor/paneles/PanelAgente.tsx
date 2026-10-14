@@ -179,7 +179,9 @@ export function Miniatura({ tarjeta, tema, alto }: { tarjeta: JsonNodo; tema: Te
   const ref = useRef<HTMLDivElement>(null);
   const ancho = useAncho(ref);
   const html = useMemo(() => {
-    try { return htmlDeTarjeta(tarjeta, tema, { modo: 'miniatura', incluirOcultas: true }); } catch { return ''; }
+    // Con MARCADORES (render.ts): el Agente muestra la sección que se está editando (la original y la
+    // que propone), y el VSL vacío tiene que verse como el hueco del editor, no desaparecer.
+    try { return htmlDeTarjeta(tarjeta, tema, { modo: 'miniatura', incluirOcultas: true, marcadores: true }); } catch { return ''; }
   }, [tarjeta, tema]);
   const estilo = {
     ['--gm-base' as string]: ancho ? `${ancho / 64.5}px` : undefined,

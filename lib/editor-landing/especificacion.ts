@@ -48,7 +48,7 @@ import {
   type AttrsRecuadro, type AttrsTarjeta, type AttrsVideo, type CampoFormulario, type ColorTema, type Degradado,
   type TamanoTexto, type TipoCampo, type VarianteOptimizado, type VarianteParrafo,
 } from './doc';
-import { altoDeEmbed, atributosDeIframe, claseDeProveedor, embedDe, nombreDeProveedor } from '../embeds';
+import { altoDeEmbed, atributosDeIframe, claseDeProveedor, embedDe, esProveedorEmbed, nombreDeProveedor } from '../embeds';
 import { SANDBOX_PUBLICO } from './html-libre';
 import {
   arbolDeGrafico, htmlDeArbol, normalizarGrafico, type AttrsArbol, type HijoArbol, type NodoArbol,
@@ -91,6 +91,12 @@ export type CtxSpec = {
    * landing (`OpRender.htmlLibre`). Sin esto, o sin id, el bloque sale con `srcdoc` como siempre.
    */
   srcHtmlLibre?: (idBloque: string) => string | null;
+  /**
+   * Los MARCADORES de una miniatura de trabajo (render.ts, `OpRender.marcadores`; sólo en
+   * 'miniatura'): el VSL vacío de un diseño se dibuja como un ▶ (`specInsertado`). Sin esto, un
+   * insertado vacío no se dibuja, como en la publicada.
+   */
+  marcadores?: boolean;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -343,13 +349,20 @@ export function attrsVideo(raw: unknown): AttrsVideo {
 
 /**
  * El insertado sale de `embedDe` (lib/embeds.ts), la MISMA fuente que el saneo del editor rico:
- * el `src` que se guarda es el que arma ese módulo desde el id, nunca el que entró, y el
+ * el `src` que se guarda es el que arma ese módulo desde el id, nunca el que entró, y con enlace el
  * proveedor sale de ahí (el que traiga el JSON no se lee). El alto sólo existe en una agenda.
+ *
+ * SIN enlace (el marcador que pide «Pega el enlace»), el proveedor es una PISTA de qué va en el hueco
+ * —un video o una agenda— y se conserva SÓLO si es uno de la lista cerrada de lib/embeds.ts
+ * (`esProveedorEmbed`); uno inventado sale ''. Con eso el editor pide lo justo («el enlace de tu
+ * video») y la miniatura dibuja el VSL vacío de un diseño como un video (`specInsertado`). Antes del
+ * 14/10/2026 salía siempre '': un VSL vacío y una agenda vacía eran indistinguibles.
  */
 export function attrsInsertado(raw: unknown): AttrsInsertado {
   const r = obj(raw);
-  const e = typeof r.src === 'string' ? embedDe(r.src) : null;
-  if (!e) return { src: '', proveedor: '', alto: null };
+  const sinEnlace = typeof r.src !== 'string' || r.src.trim() === '';
+  const e = sinEnlace ? null : embedDe(r.src as string);
+  if (!e) return { src: '', proveedor: sinEnlace && esProveedorEmbed(r.proveedor) ? r.proveedor : '', alto: null };
   const agenda = claseDeProveedor(e.proveedor) === 'agenda';
   return { src: e.src, proveedor: e.proveedor, alto: agenda ? altoDeEmbed(r.alto) ?? e.alto ?? null : null };
 }
@@ -721,7 +734,19 @@ export function specInsertado(raw: unknown, ctx?: CtxSpec): NodoArbol {
   const a = attrsInsertado(raw);
   const clase = claseDeProveedor(a.proveedor) ?? undefined;
   const attrsDiv: AttrsArbol = { class: 'gm-insertado', 'data-proveedor': a.proveedor || undefined, 'data-clase': clase };
-  if (!a.src) return el('div', { ...attrsDiv, 'data-vacia': 'si' });
+  if (!a.src) {
+    // El VSL vacío de un diseño, en una miniatura que pide MARCADORES: un video 16:9 con un ▶, sin
+    // texto (la grilla de Diseños tiene que mostrar que la landing lleva video; pedido de Martín,
+    // 14/10/2026). La publicada, la exportación y la vista del visitante en el teléfono no lo
+    // dibujan (render.ts no saca un insertado vacío) y el editor tiene su NodeView. Una agenda
+    // vacía no se dibuja en ningún modo.
+    if (ctx?.marcadores && modo(ctx) === 'miniatura' && clase === 'video') {
+      return el('div', { ...attrsDiv, 'data-marcador': 'si', 'data-pista': 'si' },
+        el('div', { class: 'gm-marcador', 'data-play': 'si' },
+          el('span', { class: 'gm-marcador-play', 'data-icono': 'play', 'aria-hidden': 'true' })));
+    }
+    return el('div', { ...attrsDiv, 'data-vacia': 'si' });
+  }
   if (modo(ctx) === 'miniatura') {
     return el('div', { ...attrsDiv, 'data-marcador': 'si' }, el('div', { class: 'gm-marcador' }, nombreDeProveedor(a.proveedor) ?? ''));
   }

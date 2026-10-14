@@ -27,8 +27,9 @@ import { NODO, TOPES, type JsonNodo, type LandingContenido, type Pagina } from '
 import type { ConfigLanding } from './api-tipos';
 import { estiloDeTema, varsDeFondoPropio, type Tema } from './temas';
 import { svgIcono } from './iconos';
+import { claseDeProveedor } from '../embeds';
 import {
-  NORMALIZAR_MARCAS, ORDEN_MARCAS, SPEC_MARCAS, SPEC_NODOS, attrsHtmlLibre, attrsImagen, attrsInsertado,
+  NORMALIZAR_MARCAS, ORDEN_MARCAS, SPEC_MARCAS, SPEC_NODOS, attrsColumnas, attrsHtmlLibre, attrsImagen, attrsInsertado,
   attrsTarjeta, attrsVideo, hrefPermitido, idValido, srcImagen, type CtxSpec, type ModoRender,
 } from './especificacion';
 import { HtmlCrudo, escaparTexto, htmlDeArbol, type AttrsArbol, type HijoArbol, type NodoArbol } from './grafico-svg';
@@ -47,6 +48,14 @@ export type { ModoRender } from './especificacion';
 export type OpRender = {
   modo: ModoRender;
   incluirOcultas?: boolean;
+  /**
+   * Los MARCADORES de lo que falta, sólo en 'miniatura' (14/10/2026): el VSL vacío de un diseño
+   * se dibuja como un ▶ y un video suelto en la sección va más angosto (css.ts, `data-marcadores`).
+   * Lo pide quien dibuja una miniatura de TRABAJO (la grilla de Diseños, el Panel, Crear, la tira
+   * de secciones, el Agente); no lo pide quien muestra lo que vería un visitante (app/m/landing),
+   * que tiene que coincidir con la publicada, donde el VSL vacío no sale.
+   */
+  marcadores?: boolean;
   urlBase?: string;
   paginas?: ReadonlyArray<Pick<Pagina, 'id' | 'ruta'>>;
   /**
@@ -108,6 +117,7 @@ function ctxDe(op?: Partial<OpRender>, tema?: Tema, formulario: string | null = 
   const ctx: Ctx = { modo, incluirOcultas: op?.incluirOcultas === true, urlBase: baseValida(op?.urlBase), rutas, formulario, spec: { modo }, nodos: 0 };
   ctx.spec = {
     modo,
+    marcadores: modo === 'miniatura' && op?.marcadores === true,
     resolverHref: (h) => resolverHref(h, ctx),
     // La tinta de una sección con fondo propio la calcula el tema (temas.ts).
     varsFondo: tema ? (relleno) => varsDeFondoPropio(tema, relleno) : undefined,
@@ -257,19 +267,56 @@ function htmlDeNodo(n: Record<string, unknown>, ctx: Ctx, prof: number): string 
   if (tipo === NODO.tarjeta && attrsTarjeta(attrs).oculta && !ctx.incluirOcultas) return '';
   if (tipo === NODO.imagen && !attrsImagen(attrs).src) return '';
   if (tipo === NODO.video && !attrsVideo(attrs).src) return '';
-  if (tipo === NODO.insertado && !attrsInsertado(attrs).src) return '';
+  // El insertado vacío tampoco, salvo en una miniatura que pide MARCADORES y con pista de VIDEO: el
+  // VSL de un diseño se ve como un ▶ en la grilla (specInsertado; pedido de Martín, 14/10/2026).
+  // Una agenda vacía, nunca.
+  if (tipo === NODO.insertado && !attrsInsertado(attrs).src && !(ctx.spec.marcadores && claseDeProveedor(attrsInsertado(attrs).proveedor) === 'video')) return '';
   if (tipo === NODO.htmlLibre && !attrsHtmlLibre(attrs).html) return '';
   const conSvg = conIconos(spec(attrs, ctx.spec));
   const arbol = ctx.modo === 'miniatura' ? sinInteractivos(conSvg) : conSvg;
+  if (tipo === NODO.columnas) {
+    const columnas = htmlDeColumnas(n, arbol, ctx, prof);
+    if (columnas !== null) return columnas;
+  }
   const contenido = Array.isArray(n.content) ? htmlDeHijos(n.content, ctx, prof + 1) : '';
   return htmlDeArbol(arbol, contenido);
+}
+
+/**
+ * Las columnas, sin las que salen VACÍAS. Una columna cuyo único contenido no se dibuja (el VSL de
+ * un diseño «al costado» sin el enlace pegado: el insertado vacío no sale en la publicada, en la
+ * exportación ni en una miniatura sin marcadores) dejaba `<div class="gm-columna"></div>`: el texto
+ * apretado en 5/12 y 7/12 en blanco (medido el 14/10/2026: los 10 objetivos de los dos diseños con
+ * video al costado, en la publicada y al exportar). Esa columna se omite y `--gm-cols` se rearma con
+ * los anchos de las que quedan; si queda UNA, su contenido sale suelto en la sección (sin grilla), y
+ * si no queda ninguna, ''. Sin nada que omitir, sale exactamente como antes. `null` = no son sólo
+ * columnas (un JSON que no pasó por el saneo): el camino de siempre.
+ */
+function htmlDeColumnas(n: Record<string, unknown>, arbol: NodoArbol, ctx: Ctx, prof: number): string | null {
+  const hijos = Array.isArray(n.content) ? n.content : [];
+  if (!hijos.length || !hijos.every((c) => esObj(c) && c.type === NODO.columna)) return null;
+  // Cada columna cuenta como un nodo y respeta el tope de profundidad, como en htmlDeNodo.
+  const interiores = hijos.map((c): string | null => {
+    if (prof + 1 > PROFUNDIDAD_MAX || ++ctx.nodos > NODOS_MAX) return null;
+    const col = c as Record<string, unknown>;
+    return Array.isArray(col.content) ? htmlDeHijos(col.content, ctx, prof + 2) : '';
+  });
+  const columna = (interior: string) => htmlDeArbol(conIconos(SPEC_NODOS[NODO.columna]({}, ctx.spec)), interior);
+  const vivas = interiores.flatMap((h, i) => (h ? [i] : []));
+  if (vivas.length === hijos.length) return htmlDeArbol(arbol, interiores.map((h) => columna(h as string)).join(''));
+  if (!vivas.length) return '';
+  if (vivas.length === 1) return interiores[vivas[0]] as string;
+  const a = attrsColumnas(n.attrs);
+  const anchos = a.anchos.length === hijos.length ? vivas.map((i) => a.anchos[i]) : [];
+  const grilla = conIconos(SPEC_NODOS[NODO.columnas]({ anchos, divisores: a.divisores }, ctx.spec));
+  return htmlDeArbol(ctx.modo === 'miniatura' ? sinInteractivos(grilla) : grilla, vivas.map((i) => columna(interiores[i] as string)).join(''));
 }
 
 /** La raíz `.gm-doc` con las variables del tema INLINE (así conviven miniaturas de temas distintos). */
 function raiz(interior: string, tema: Tema, ctx: Ctx, extra: AttrsArbol = {}): string {
   let estilo = '';
   try { estilo = String(estiloDeTema(tema) ?? ''); } catch { estilo = ''; }
-  return htmlDeArbol(['div', { class: 'gm-doc', style: estilo || undefined, 'data-modo': ctx.modo, ...extra }, 0], interior);
+  return htmlDeArbol(['div', { class: 'gm-doc', style: estilo || undefined, 'data-modo': ctx.modo, 'data-marcadores': ctx.spec.marcadores ? 'si' : undefined, ...extra }, 0], interior);
 }
 
 const tarjetasDePagina = (p: unknown): Record<string, unknown>[] => {

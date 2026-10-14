@@ -52,6 +52,7 @@ import { BLOQUES } from '../lib/editor-landing/catalogo-bloques';
 import { NODO, docPagina, type JsonNodo } from '../lib/editor-landing/doc';
 import { sanearContenido, CONTENIDO_TIPTAP } from '../lib/editor-landing/validar';
 import { PLANTILLAS, DISENOS_SECCION } from '../lib/editor-landing/plantillas';
+import { DISENOS_LANDING, OBJETIVOS_LANDING, landingDesde } from '../lib/editor-landing/disenos-landing';
 
 const RAIZ = join(import.meta.dirname, '..');
 const leer = (f: string) => readFileSync(join(RAIZ, f), 'utf8').replace(/\r\n/g, '\n');
@@ -121,6 +122,37 @@ test('lo que el saneo deja pasar (las plantillas y los diseños de sección) se 
     try { schema.nodeFromJSON({ type: 'doc', content: [d.crear()] }).check(); } catch (e) { rechazados.push(`diseño ${d.id}: ${(e as Error).message}`); }
   }
   assert.deepEqual(rechazados, []);
+});
+
+// Los cruces diseño × objetivo (14/10/2026: el VSL del diseño mete un insertado en una COLUMNA del hero
+// y la pista del proveedor en el insertado vacío). Que el saneo los deje pasar no alcanza: si el esquema
+// no los acepta, TipTap abre la landing nueva VACÍA. Y sin perder nodos ni la pista (un atributo que el
+// nodo no declara, TipTap lo tira al cargar sin avisar).
+// Rotura (14/10/2026, en memoria, restaurada y verificada por hash; base: 14 pasan, 0 fallan): el nodo
+// `insertado` de TipTap sin declarar `proveedor` (nodos.ts) → 13 / 1, sólo éste: el esquema carga igual
+// y la pista se pierde callada.
+test('los cruces de DISENOS_LANDING se cargan en el editor sin perder nodos ni la pista del video', () => {
+  const contar = (n: { content?: unknown[] }): number => 1 + (n.content ?? []).reduce<number>((s, h) => s + contar(h as { content?: unknown[] }), 0);
+  const mal: string[] = [];
+  let pistas = 0;
+  for (const d of DISENOS_LANDING) {
+    for (const o of OBJETIVOS_LANDING) {
+      const { contenido } = sanearContenido(landingDesde(d, o.id)!);
+      for (const pg of contenido.paginas) {
+        try {
+          const doc = schema.nodeFromJSON(pg.doc);
+          doc.check();
+          const vuelta = doc.toJSON() as JsonNodo;
+          if (contar(vuelta) !== contar(pg.doc)) mal.push(`${d.id} × ${o.id}/${pg.ruta || 'inicio'}: ${contar(pg.doc)} nodos → ${contar(vuelta)}`);
+          doc.descendants((n) => { if (n.type.name === NODO.insertado && !n.attrs.src && n.attrs.proveedor === 'youtube') pistas++; });
+        } catch (e) {
+          mal.push(`${d.id} × ${o.id}/${pg.ruta || 'inicio'}: ${(e as Error).message}`);
+        }
+      }
+    }
+  }
+  assert.deepEqual(mal, []);
+  assert.ok(pistas >= DISENOS_LANDING.filter((d) => d.video).length * OBJETIVOS_LANDING.length, `la pista del video se perdió al cargar (${pistas})`);
 });
 
 test('moverTarjeta: todas las combinaciones, sin perder ni duplicar', () => {

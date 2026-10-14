@@ -16,11 +16,18 @@
 // link de Stripe o Mercado Pago), vestido con el diseño. Los bloques entran VACÍOS a propósito: el
 // insertado vacío es un marcador que el editor dibuja con «Pega el enlace» (lib/embeds.ts decide qué
 // proveedores entran), y el botón de pago lleva a la sección del formulario hasta que se pegue el link.
+//
+// Pedido de Martín (14/10/2026), mirando la grilla «Diseños»: «Por favor, que la mayoría de las
+// plantillas sean con un VIDEO, porque deberían ser tipo VSL Funnel... Puedes inspirarte en otras
+// plantillas de VSL Funnel e incluso en la misma plantilla de MaKo.» Por eso el VSL es del DISEÑO
+// (`video`), no sólo del objetivo: en un diseño con video el hero lleva el video para CUALQUIER
+// objetivo, una sola vez (`conVideoDelDiseno`). Sin video queda sólo Minimal.
 // Puro: lo usan la caja de crear (cliente) y los tests.
 // =============================================================================
 
 import { NODO, nuevoId, parrafo, type DisenoTarjeta, type JsonNodo, type LandingContenido } from './doc';
 import { PLANTILLAS } from './plantillas';
+import { claseDeProveedor } from '../embeds';
 
 export type DisenoLanding = {
   id: string;
@@ -28,21 +35,33 @@ export type DisenoLanding = {
   descripcion: string;
   /** Id de TEMAS (lib/editor-landing/temas.ts). */
   tema: string;
-  /** Imagen de acento del hero (la primera sección). */
+  /**
+   * Imagen de acento del hero (la primera sección). En un diseño CON video el hero va 'sin' salvo
+   * 'fondo' (`heroDelDiseno`): el valor sigue decidiendo de qué lado arranca el zigzag de las demás.
+   */
   hero: DisenoTarjeta;
   /** Las secciones con imagen alternan izquierda/derecha (zigzag) o van todas igual. */
   zigzag: boolean;
+  /**
+   * El VSL del hero, como en los VSL funnels: 'centro' = pre-titular, titular y subtítulo arriba, el
+   * video y el botón JUSTO debajo, todo centrado; 'costado' = el hero en dos columnas, el texto y el
+   * botón a la izquierda y el video a la derecha (la landing de MaKo, app/vsl); null = sin video
+   * (queda sólo el VSL que pone el objetivo, `conHerramientasMako`).
+   */
+  video: 'centro' | 'costado' | null;
 };
 
+// La descripción dice que lleva video (≤ 45 caracteres: es la línea de abajo de la miniatura).
 export const DISENOS_LANDING: readonly DisenoLanding[] = [
-  { id: 'claro-clasico', nombre: 'Clásico claro', descripcion: 'Limpio, con la imagen a la derecha.', tema: 'pewter', hero: 'derecha', zigzag: true },
-  { id: 'oscuro-moderno', nombre: 'Oscuro moderno', descripcion: 'Fondo profundo y títulos con brillo.', tema: 'eclipse', hero: 'fondo', zigzag: false },
-  { id: 'minimal', nombre: 'Minimal', descripcion: 'Sólo texto, mucho aire.', tema: 'commons', hero: 'sin', zigzag: false },
-  { id: 'audaz', nombre: 'Audaz', descripcion: 'Contraste alto y un acento fuerte.', tema: 'torch', hero: 'izquierda', zigzag: true },
-  { id: 'calido', nombre: 'Cálido', descripcion: 'Tonos tierra y tipografía con serifa.', tema: 'espresso', hero: 'arriba', zigzag: true },
-  { id: 'tecnologico', nombre: 'Tecnológico', descripcion: 'Monoespaciada y bordes finos.', tema: 'syntax', hero: 'derecha', zigzag: false },
-  { id: 'fresco', nombre: 'Fresco', descripcion: 'Verdes suaves y bordes redondeados.', tema: 'mint', hero: 'izquierda', zigzag: true },
-  { id: 'editorial', nombre: 'Editorial', descripcion: 'Serifa grande, como una revista.', tema: 'botanical', hero: 'fondo', zigzag: false },
+  { id: 'mako', nombre: 'MaKo', descripcion: 'Como la de MaKo: texto y video.', tema: 'mako', hero: 'sin', zigzag: true, video: 'costado' },
+  { id: 'claro-clasico', nombre: 'Clásico claro', descripcion: 'Video al centro y el botón debajo.', tema: 'pewter', hero: 'derecha', zigzag: true, video: 'centro' },
+  { id: 'oscuro-moderno', nombre: 'Oscuro moderno', descripcion: 'Fondo profundo y video al centro.', tema: 'eclipse', hero: 'fondo', zigzag: false, video: 'centro' },
+  { id: 'minimal', nombre: 'Minimal', descripcion: 'Sólo texto, mucho aire.', tema: 'commons', hero: 'sin', zigzag: false, video: null },
+  { id: 'audaz', nombre: 'Audaz', descripcion: 'Contraste alto, video protagonista.', tema: 'torch', hero: 'izquierda', zigzag: true, video: 'centro' },
+  { id: 'calido', nombre: 'Cálido', descripcion: 'Tonos tierra, serifa y video.', tema: 'espresso', hero: 'arriba', zigzag: true, video: 'centro' },
+  { id: 'tecnologico', nombre: 'Tecnológico', descripcion: 'Monoespaciada, video al costado.', tema: 'syntax', hero: 'derecha', zigzag: false, video: 'costado' },
+  { id: 'fresco', nombre: 'Fresco', descripcion: 'Verdes suaves y video al centro.', tema: 'mint', hero: 'izquierda', zigzag: true, video: 'centro' },
+  { id: 'editorial', nombre: 'Editorial', descripcion: 'Serifa grande y video premium.', tema: 'botanical', hero: 'fondo', zigzag: false, video: 'centro' },
 ];
 
 export type ObjetivoLanding = { id: string; nombre: string; descripcion: string; icono: string };
@@ -113,6 +132,16 @@ export function conHerramientasMako(c: LandingContenido, objetivo: string): Land
   return copia;
 }
 
+/**
+ * La imagen de acento del hero de un diseño. Con video, 'sin', salvo 'fondo': en un VSL el video ES
+ * el visual del hero, y en el editor una imagen al costado o arriba sin cargar se dibuja como el
+ * hueco «Agregar imagen» al 37,5% al lado del video (en Tecnológico, tres franjas y el video al ~36%,
+ * hallado el 14/10/2026). Una imagen de fondo detrás del video sí tiene sentido, y se queda.
+ */
+export function heroDelDiseno(d: DisenoLanding): DisenoTarjeta {
+  return d.video && d.hero !== 'fondo' ? 'sin' : d.hero;
+}
+
 /** Viste el contenido con el diseño: el hero y el zigzag de las imágenes. */
 export function aplicarDiseno(c: LandingContenido, d: DisenoLanding): LandingContenido {
   const copia: LandingContenido = JSON.parse(JSON.stringify(c));
@@ -120,7 +149,7 @@ export function aplicarDiseno(c: LandingContenido, d: DisenoLanding): LandingCon
     let lado: 'izquierda' | 'derecha' = d.hero === 'izquierda' ? 'derecha' : 'izquierda';
     pagina.doc.content.forEach((t, i) => {
       if (t.type !== NODO.tarjeta || !t.attrs) return;
-      if (i === 0 && pagina === copia.paginas[0]) { t.attrs.diseno = d.hero; return; }
+      if (i === 0 && pagina === copia.paginas[0]) { t.attrs.diseno = heroDelDiseno(d); return; }
       const actual = t.attrs.diseno as DisenoTarjeta;
       if (actual === 'izquierda' || actual === 'derecha') {
         t.attrs.diseno = d.zigzag ? lado : (d.hero === 'izquierda' || d.hero === 'derecha' ? d.hero : actual);
@@ -131,9 +160,104 @@ export function aplicarDiseno(c: LandingContenido, d: DisenoLanding): LandingCon
   return copia;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// El VSL del diseño (pedido de Martín, 14/10/2026: «que la mayoría de las plantillas sean con un
+// VIDEO, porque deberían ser tipo VSL Funnel»)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** ¿Es el video de un VSL? Un insertado de un proveedor de VIDEO de lib/embeds.ts (vacío con su pista, o con enlace). */
+const esVideo = (n: JsonNodo): boolean => n.type === NODO.insertado && claseDeProveedor(n.attrs?.proveedor) === 'video';
+/** Lo que pide la acción (el botón o el formulario): el video va JUSTO antes. */
+const esAccion = (n: JsonNodo): boolean => n.type === NODO.botones || n.type === NODO.formulario;
+const esTexto = (n: JsonNodo): boolean => n.type === 'paragraph' || n.type === 'heading';
+
+/**
+ * El «Título» display (5em) pasa a un h1 (2.5em) en un hero con video. Medido en la miniatura 16/10 de la
+ * grilla (14/10/2026, Chrome sin cabeza, copy de la agenda): con el display el titular va en 3 renglones
+ * al centro (el video, cortado 94 a 220px de 281) y en 8 o 9 al costado (ahí se corta el propio titular);
+ * con el h1, en 2 y en 4 o 5. Con el h1 y el video angosto de la miniatura (css.ts) entran el titular, el
+ * video entero y el botón en los 8 diseños con video. Es además el tamaño del titular de la landing de
+ * MaKo: 44px allá, 45px el h1 de la publicada en escritorio (2.5em de 18px, css.ts).
+ */
+function sinTituloDisplay(n: JsonNodo): JsonNodo {
+  if (n.type === NODO.columnas || n.type === NODO.columna) return { ...n, content: (n.content ?? []).map(sinTituloDisplay) };
+  if (n.type !== 'heading' || n.attrs?.variante !== 'titulo') return n;
+  return { ...n, attrs: { ...n.attrs, level: 1, variante: null } };
+}
+
+/** La lista con el video justo antes del primer botón o formulario, o al final si no hay (la página de gracias). */
+function antesDeLaAccion(lista: JsonNodo[], video: JsonNodo): JsonNodo[] {
+  const i = lista.findIndex(esAccion);
+  return i < 0 ? [...lista, video] : [...lista.slice(0, i), video, ...lista.slice(i)];
+}
+
+/**
+ * El video del diseño en el hero (la primera sección de la primera página), UNA vez: si el objetivo ya
+ * puso su VSL (`conHerramientasMako`), se MUEVE ese mismo nodo; si no, entra uno vacío con la pista de
+ * YouTube (el editor pide «el enlace de tu video»; el proveedor real lo decide lo que se pegue). El
+ * objetivo sigue mandando en el copy: acá sólo se reordena, se alinea y se achica el titular.
+ *   · 'centro': pre-titular → titular → subtítulo → VIDEO → botones (o formulario) → lo demás, con los
+ *     textos centrados y los botones al centro. Sin botón ni formulario (la página de gracias), el video
+ *     va al final del hero: es el «qué sigue».
+ *   · 'costado': dos columnas, 5 de 12 para el texto y el botón y 7 para el video. Un hero que ya era
+ *     columnas (el lead magnet: texto | formulario) se aplana a la izquierda, y el video va a la derecha.
+ *   · Un hero en columnas con el video al 'centro' (el lead magnet) conserva sus columnas: el video va en
+ *     la primera, debajo del texto, y el formulario sigue al lado (centrar el texto junto a un formulario
+ *     no se lee).
+ * No toca los atributos de la sección: la agenda de `conHerramientasMako` copia los del hero.
+ */
+export function conVideoDelDiseno(c: LandingContenido, d: DisenoLanding): LandingContenido {
+  const copia: LandingContenido = JSON.parse(JSON.stringify(c));
+  const hero = copia.paginas[0]?.doc.content[0];
+  if (!hero || hero.type !== NODO.tarjeta) return copia;
+  if (!d.video) {
+    // Sin video del diseño (Minimal) queda el VSL del objetivo donde el objetivo lo puso, y el titular
+    // se achica igual: es un hero con video y el display lo dejaba cortado en la miniatura.
+    if ((hero.content ?? []).some(esVideo)) hero.content = (hero.content ?? []).map(sinTituloDisplay);
+    return copia;
+  }
+
+  // El VSL que haya puesto el objetivo (suelto o adentro de una columna) sale de donde está.
+  const hallados: JsonNodo[] = [];
+  const sacarVideo = (lista: JsonNodo[]): JsonNodo[] => lista.flatMap((n): JsonNodo[] => {
+    if (!hallados.length && esVideo(n)) { hallados.push(n); return []; }
+    if (n.type !== NODO.columnas) return [n];
+    // Una columna que queda vacía lleva un párrafo: el esquema no admite una columna sin bloques.
+    return [{ ...n, content: (n.content ?? []).map((col) => { const resto = sacarVideo(col.content ?? []); return { ...col, content: resto.length ? resto : [parrafo()] }; }) }];
+  });
+  const bloques = sacarVideo(hero.content ?? []).map(sinTituloDisplay);
+  const video = hallados[0] ?? insertadoVacio('youtube');
+
+  if (d.video === 'costado') {
+    const planos = bloques.flatMap((n) => (n.type === NODO.columnas ? (n.content ?? []).flatMap((col) => col.content ?? []) : [n]));
+    hero.content = [{
+      type: NODO.columnas,
+      attrs: { anchos: [5, 7], divisores: false },
+      content: [{ type: NODO.columna, content: planos.length ? planos : [parrafo()] }, { type: NODO.columna, content: [video] }],
+    }];
+    return copia;
+  }
+
+  const columnas = bloques.find((n) => n.type === NODO.columnas);
+  const primera = columnas?.content?.[0];
+  if (primera) {
+    primera.content = antesDeLaAccion(primera.content ?? [], video);
+    hero.content = bloques;
+    return copia;
+  }
+  hero.content = antesDeLaAccion(bloques, video).map((n): JsonNodo => {
+    if (esTexto(n)) return { ...n, attrs: { ...(n.attrs ?? {}), textAlign: 'center' } };
+    if (n.type === NODO.botones) return { ...n, attrs: { ...(n.attrs ?? {}), alinea: 'centro' } };
+    return n;
+  });
+  return copia;
+}
+
 /** El contenido de una landing nueva: el copy del objetivo, con lo de MaKo, vestido con el diseño. */
 export function landingDesde(d: DisenoLanding, objetivo: string): LandingContenido | null {
   const p = PLANTILLAS.find((x) => x.id === objetivo);
   if (!p) return null;
-  return aplicarDiseno(conHerramientasMako(p.contenido(), objetivo), d);
+  // El video del diseño va DESPUÉS de las herramientas del objetivo: así reusa el VSL que el objetivo ya
+  // puso (entra una vez) y la agenda copia los atributos del hero tal como vinieron.
+  return aplicarDiseno(conVideoDelDiseno(conHerramientasMako(p.contenido(), objetivo), d), d);
 }

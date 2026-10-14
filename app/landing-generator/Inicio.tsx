@@ -775,7 +775,7 @@ function DialogoEliminar({ frase, onCerrar, onConfirmar }: { frase: string; onCe
 // ─────────────────────────────────────────────────────────────────────────────
 
 const CSS_PANEL = `
-.gp.gp-panel { display: grid; grid-template-columns: 248px minmax(0, 1fr); min-height: 100vh; background: var(--gp-fondo); }
+.gp.gp-panel { display: grid; grid-template-columns: 248px minmax(0, 1fr); min-height: calc(100vh - var(--barra-agencia, 0px)); background: var(--gp-fondo); }
 .gp .gp-lateral { position: sticky; top: 0; align-self: start; display: flex; flex-direction: column; gap: 2px; height: 100vh; padding: 14px 10px 10px; background: var(--gp-superficie); border-right: 1px solid var(--gp-borde-suave); }
 .gp .gp-ir-a { display: flex; align-items: center; gap: 8px; flex: none; height: 34px; margin-bottom: 8px; padding: 0 10px; border-radius: 8px; background: var(--gp-fondo); color: var(--gp-debil); }
 .gp .gp-ir-a input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--gp-texto); font: inherit; font-size: 13.5px; outline: none; }
