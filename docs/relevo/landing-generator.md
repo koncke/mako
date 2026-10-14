@@ -205,3 +205,25 @@ proveedor que se pierde al pegar HTML. Y las imágenes por Flow siguen afuera po
 Decisiones que dejé tomadas por default (Martín no las pidió revisar): techo de 120 pedidos de pago por landing y hora;
 cuando no se puede cobrar, propuesta y no ficha; `despublicar_landing` sigue reversible (avisando en el resumen);
 `publicar_landing` con un token detallado publica en el acto, como el resto de la API («como GitHub»).
+
+## Tanda 6 — EN CURSO (14/10 ~13:30, cuenta claude2 al 89% semanal)
+
+Pedido literal de Martín (mirando «No pude leer el texto de esa página.» sobre la landing de un cliente, y «Crear con IA»):
+«1. El mimso error que nos saltaba con Mauricio "No pude leer el texto de esa página.". Soluciona eso... 2. La sección de
+"Importar con IA" no debería ser otra ruta, todo siempre en la misma ruta. 3. La sección de "Crear con IA", le faltan las
+opciones de "Analizar Landing" y "Replicar Landing". Y que el botón de "Importar" que solo sea importar, no que sea con URL
+[…] Y esta sección de "Crear con IA" debería estar en la tab principal de landing generator, en la sección de "¿Qué vas a
+crear hoy?". 4. […] elimina todas las opciones actuales dentro del "+" en el cuadro del chat. Y que en ese + solo quede la
+opción de importar archivo y otras opciones así, para subir imagen y esas cosas... 5. En el chat, si yo pego un link, me
+debería aparecer pintado de azul y que diga "Analiza esta landing" y que se pueda cambiar a "Replica esta landing". 6. Las
+miniaturas y el título de abajo en las plantillas, deberían estar englobadas en un contendor […] Elimina los subtitulos de
+cada plantilla. […] que esos bloques tengan como una sombra […] que los [] que el usuario debe completar, se queden como de
+otro color […] y que eso se vea también en la miniatura».
+
+Se está construyendo con el workflow `wf_8f7c15cf-56d` en `C:/dev/wt-landing-t6` (rama `landing-t6`, sobre origin/main
+`fac31909`): lector en el navegador (Pixel o ventana emergente, con el aviso de ventanas bloqueadas también en «Probar»),
+el extractor y Replicar con 3 formatos en el server, los [ ] resaltados en el editor y la miniatura, y la pantalla (Crear
+con IA en la tab, el «+», el link en el chat, las tarjetas). Si la cuenta se corta: `git -C C:/dev/wt-landing-t6 log
+--oneline origin/main..HEAD` dice qué quedó commiteado; el journal está en
+`~/.claude/projects/C--Users-marti-OneDrive-Escritorio-dashboard-marketing-main/b8862985-74eb-48c0-a235-c3eee83116be/subagents/workflows/wf_8f7c15cf-56d/`.
+NO se pushea a medias. Copiar el estilo de la original al replicar queda para después.
