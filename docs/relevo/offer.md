@@ -52,6 +52,40 @@ cuatro que se cerraron el 13/10».
 Lo demás de «Lo que quedó SIN hacer» (la API de MaKo, el PDF externo, el umbral de `alertaFoco`, la
 urgencia al guardar, ver versiones anteriores, la tasa de cierre en Experiments) sigue abierto.
 
+## Lo próximo: voz de marca en Offer (validado, SIN EMPEZAR)
+
+Feedback de reunión de Martín, validado el 13/10 y **frenado el 14/10 por el cierre** («por ahora
+quiero que se pushee todo y que los chats cierren lo que están haciendo»). No se escribió una sola
+línea de código: lo que sigue es el relevamiento, para que quien lo tome no vuelva a investigarlo.
+
+**El pedido** (Fathom 858545195 @44:56): «una configuración de voz de marca y tono personalizado en el
+Offer Generator, para evitar que los textos generados suenen genéricos, corporativos o desconectados
+del nicho».
+
+**⚠️ NO hay que construir una configuración nueva, y ése es el hallazgo.** La voz del negocio YA existe
+y la consumen seis features; Offer es la única que quedó afuera:
+
+- `getVozGuia()` (`lib/nutricion-generator.ts`) lee `mako.voz_guia`, la guía DESTILADA del Chat Agent.
+  La usan `lib/nutricion-generator.ts`, `lib/nutricion-plantillas.ts`, `lib/paso-ia.ts`,
+  `lib/flujo-ia-crear.ts`, `lib/guion-audio.ts` y `lib/api-mako/areas/chatbot.run.ts`.
+- Si no hay destilada, el respaldo es la marca DECLARADA en el brief (`marca_tono`, `marca_frase`,
+  `marca_no`, `marca_valores`), que `nutricion-generator` ya arma en `marcaDeclarada()`.
+- `contextoOffer()` (`lib/offer-contexto.ts`) junta ONCE fuentes —perfil, panorama, ofertas, productos,
+  fase, embudo, funnels, avatares, razones…— **y ninguna es la voz**. Por eso el copy sale neutro.
+
+**Cómo hacerlo, con el molde ya probado al lado:** no meter la voz adentro de `ContextoOffer.texto` —se
+recorta en `TOPE_CONTEXTO` (12.000) y además la voz gobierna CÓMO escribir, no QUÉ es el negocio—, sino
+como campo propio (`ContextoOffer.voz`) y como slot `{{voz}}` en los prompts que ESCRIBEN para el dueño:
+`OFFER_PROPUESTA_SYSTEM_TEMPLATE` y `OFFER_TURNO_SYSTEM_TEMPLATE` (`lib/offer-ia.ts`; hoy los slots son
+`contexto`, `conversacion`, `documentos`, `marco`, `piezas`, `diagnostico`, `alertas`, `embudo`,
+`faltan`, `guia`). Es exactamente lo que hace `generarSecuencia` en `lib/nutricion-generator.ts`, que
+pasa `voz` por `renderPrompt('nutri.gen.system', …)`. Registrar los prompts en `lib/prompt-registry.ts`
+para que queden editables desde /configuraciones.
+
+Falta además lo que pidió el cierre y no se hizo: declararlo en la API de MaKo si cuenta como capacidad
+nueva, los tests probados rompiéndolos, mirarlo en ws3, y la bitácora de `/admin/dev` con el pedido
+literal.
+
 ## Las 13 decisiones: qué está verificado y qué no
 
 No se miraron con clics, **y lo que se podía verificar sin navegador es más fuerte que un clic**:
