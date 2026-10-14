@@ -87,6 +87,11 @@ export function decidirInscripcionManual(p: {
   motor: CondicionesDelMotor;
   /** Lo pide un «Ir a otra automatización» de un flujo, no una persona (regla 6). */
   desdeFlujo?: boolean;
+  /**
+   * La «Reentrada» del destino lo deja volver a entrar (`puedeReentrar`, lib/reentrada.ts; 14/10/2026). Sin ella, un
+   * flujo nunca vuelve a meter a quien ya estuvo (`ya_estuvo`): era la regla escondida de antes, para todos igual.
+   */
+  reentraDesdeFlujo?: boolean;
   /** `hitoYaHecho(objetivo de la secuencia, lead) === true`. Sólo cuenta desde un flujo. */
   objetivoHecho?: boolean;
 }): VeredictoInscripcion {
@@ -102,7 +107,7 @@ export function decidirInscripcionManual(p: {
     if (previa.estado === 'handoff') return { inscribe: false, porque: 'handoff' };
     if (!ESTADOS_TERMINADOS.includes(previa.estado)) return { inscribe: false, porque: 'estado_desconocido' };
     // Terminada: una persona la puede volver a arrancar; un flujo, no (regla 6).
-    if (p.desdeFlujo) return { inscribe: false, porque: 'ya_estuvo' };
+    if (p.desdeFlujo && !p.reentraDesdeFlujo) return { inscribe: false, porque: 'ya_estuvo' };
   }
   if (p.desdeFlujo && p.objetivoHecho) return { inscribe: false, porque: 'objetivo_hecho' };
 

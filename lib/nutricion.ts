@@ -65,9 +65,11 @@ import { getAudio, audioBase64 } from '@/lib/setting-audios';
 import { estaBloqueado } from '@/lib/evolution-block';
 import { estadoDraftPorNombre } from '@/lib/meta-templates';
 import {
-  reunionFuturaMs, reunionQuePreparaMs, laReunionYaPaso, inscripcionReusable, marcasPorInscripcion, reactivarInscripcion, proximaReunion, soloQuedaElCarril,
+  reunionFuturaMs, reunionQuePreparaMs, laReunionYaPaso, marcasPorInscripcion, reactivarInscripcion, proximaReunion, soloQuedaElCarril,
   ESTADOS_TERMINADOS, SIN_MARCAS, type JuntasLead, type FilaPrevia,
 } from '@/lib/nutricion-reinscripcion';
+// La «Reentrada» del CRON (14/10/2026, docs/diseno-mako-nada-por-detras.md §2.4-a): si un lead vuelve a entrar.
+import { reentradaDe, puedeReentrar, esReentrada, type Reentrada } from '@/lib/reentrada';
 // El carril del recordatorio (undécima tanda, M3): la marca del emisor de hoy, compartida.
 import { estadoDeLaMarca, envioIncierto } from '@/lib/recordatorio-lead';
 import { decidirInscripcionManual, type PorQueNoSeInscribio } from '@/lib/nutricion-inscripcion-manual';
@@ -329,7 +331,27 @@ export type Secuencia = {
   disparadores?: Disparador[];
   /** El compare-and-set de la lista (mig 0241). null = la columna todavía no está: no hay CRON extra. */
   disparadores_rev?: number | null;
+  /**
+   * La «Reentrada» GUARDADA (mig 0279). `null` = sin guardar (o la columna todavía no está): la decide
+   * `reentradaDeSecuencia` con la regla de antes. Ver lib/reentrada.ts.
+   */
+  reentrada?: Reentrada | null;
 };
+
+/**
+ * LA REENTRADA DE UNA AUTOMATIZACIÓN (`reentradaDe`, lib/reentrada.ts): la guardada, o sin guardar la regla de antes
+ * (transitoria: «Otra vez si es otra reunión» si prepara una reunión). La lee TODO lo que decide si un lead vuelve a
+ * entrar: el barrido, el evento y la inscripción de un flujo.
+ */
+export const reentradaDeSecuencia = (s: Parameters<typeof preparaReunion>[0] & { reentrada?: unknown }): Reentrada =>
+  reentradaDe(s.reentrada, preparaReunion(s));
+
+/**
+ * ¿Esta inscripción ANOTA la reunión que prepara (`reunion_at`)? Las que la preparan por su forma, y las que eligieron
+ * «Otra vez si es otra reunión»: sin la reunión anotada, la regla de «otra reunión» no sabe con qué comparar.
+ */
+const anotaReunion = (s: Parameters<typeof preparaReunion>[0] & { reentrada?: unknown }): boolean =>
+  preparaReunion(s) || reentradaDeSecuencia(s) === 'otra_reunion';
 
 /** Una fila de `nutricion_secuencias` como la leen las dos lecturas de abajo. */
 type FilaSecuencia = {
@@ -341,6 +363,8 @@ type FilaSecuencia = {
   /** Ausentes con la 0241 sin aplicar (ídem). */
   disparadores?: unknown;
   disparadores_rev?: number | null;
+  /** Ausente con la 0279 sin aplicar (ídem). */
+  reentrada?: unknown;
 };
 
 /**
@@ -354,6 +378,8 @@ const COLS_SECUENCIA = 'id, clave, nombre, etapa, trigger_tipo, activa, pasos, e
 const COL_ETAPAS = 'etapas';
 /** Y las de la 0241 (varios CRON), por lo mismo. */
 const COLS_DISPARADORES = 'disparadores, disparadores_rev';
+/** Y la de la 0279 (la «Reentrada» del CRON), por lo mismo. */
+const COL_REENTRADA = 'reentrada';
 
 /** Los CRON de una fila, y su revisión (null = sin la 0241: la fila no trae la columna). */
 const listaDe = (r: FilaSecuencia): Pick<Secuencia, 'disparadores' | 'disparadores_rev'> => ({
@@ -378,6 +404,12 @@ async function leerFilasDeSecuencias(
   // ⚠️ PRIMERO CON LOS CRON DE LA 0241, Y LA MISMA TOLERANCIA (sexta tanda): sin la columna, cada
   // automatización dispara por sus columnas de siempre, como hoy, y queda el log. Lo de abajo es el
   // camino de antes, sin tocar.
+  // ⚠️ Y PRIMERO DE TODO CON LA «REENTRADA» DE LA 0279 (14/10/2026), con la misma tolerancia: sin la columna, cada
+  // automatización vuelve a entrar con la regla de antes (`reentradaDeSecuencia`), y queda el log.
+  const conReentrada = await pedir(`${COLS_SECUENCIA}, ${COL_ETAPAS}, ${COLS_DISPARADORES}, ${COL_REENTRADA}`);
+  if (!conReentrada.error) return (conReentrada.data ?? []) as FilaSecuencia[];
+  if (!esColumnaInexistente(conReentrada.error)) throw new Error(`${quien}: ${conReentrada.error.message}`);
+  console.warn(`[nutricion] ${quien}: falta nutricion_secuencias.reentrada (mig 0279); cada automatización vuelve a entrar con la regla de antes (${conReentrada.error.message})`);
   const conLista = await pedir(`${COLS_SECUENCIA}, ${COL_ETAPAS}, ${COLS_DISPARADORES}`);
   if (!conLista.error) return (conLista.data ?? []) as FilaSecuencia[];
   if (!esColumnaInexistente(conLista.error)) throw new Error(`${quien}: ${conLista.error.message}`);
@@ -479,6 +511,8 @@ export async function getSecuenciasActivas(): Promise<Secuencia[]> {
     etiqueta_id: r.etiqueta_id == null ? null : Number(r.etiqueta_id),
     // Los CRON (mig 0241): el primero es el de estas mismas columnas.
     ...listaDe(r),
+    // La «Reentrada» guardada (mig 0279); sin guardar, null: la decide `reentradaDeSecuencia`.
+    reentrada: esReentrada(r.reentrada) ? r.reentrada : null,
   }));
 }
 
@@ -545,6 +579,8 @@ export async function getSecuenciasConStats(): Promise<SecuenciaConStats[]> {
     etiqueta_id: r.etiqueta_id == null ? null : Number(r.etiqueta_id),
     // Los CRON (mig 0241): la pantalla los lee de acá (`SecuenciaDto.disparadores`).
     ...listaDe(r),
+    // La «Reentrada» guardada (mig 0279); sin guardar, null: la decide `reentradaDeSecuencia`.
+    reentrada: esReentrada(r.reentrada) ? r.reentrada : null,
     inscriptos: inscMap.get(r.id) ?? 0,
     enviados: envMap.get(r.id) ?? 0,
   }));
@@ -663,6 +699,21 @@ export async function setSecuenciaLinea(id: number, linea: string | null): Promi
     .update({ instance_name: valor, updated_at: ahoraISO() })
     .eq('id', id);
   if (error) throw new Error(`setSecuenciaLinea: ${error.message}`);
+}
+
+/**
+ * GUARDA LA «REENTRADA» DEL CRON (mig 0279, lib/reentrada.ts). Se guarda al elegirla, como el CRON y la línea: no espera a
+ * Publicar. Sin la columna, lo dice: la pantalla no puede hacer como que guardó.
+ */
+export async function setSecuenciaReentrada(id: number, reentrada: unknown): Promise<void> {
+  if (!esReentrada(reentrada)) throw new Error('Esa opción de reentrada no existe.');
+  const supabase = (await getTenantDb());
+  const { error } = await supabase
+    .from('nutricion_secuencias')
+    .update({ reentrada, updated_at: ahoraISO() })
+    .eq('id', id);
+  if (error && esColumnaInexistente(error)) throw new Error('Todavía no se puede elegir: falta aplicar la migración 0279.');
+  if (error) throw new Error(`setSecuenciaReentrada: ${error.message}`);
 }
 
 // `textoDelPaso` (qué texto sale en este envío, y el sorteo entre variantes) se mudó
@@ -1465,7 +1516,7 @@ async function juntasDe(db: Awaited<ReturnType<typeof getTenantDb>>, ids: readon
 
 /**
  * De estas filas, las que se pueden REUSAR (#789), con la reunión que van a preparar. La
- * regla es `inscripcionReusable` (lib/nutricion-reinscripcion.ts); acá sólo se junta lo que
+ * regla es `puedeReentrar` (lib/reentrada.ts, que con «Otra vez si es otra reunión» es `inscripcionReusable`); acá sólo se junta lo que
  * pregunta.
  *
  * `prepara(secuenciaId)` dice qué filas entran a la pregunta: el reuso es sólo de las
@@ -1477,10 +1528,16 @@ async function juntasDe(db: Awaited<ReturnType<typeof getTenantDb>>, ids: readon
 async function reusablesDe(
   db: Awaited<ReturnType<typeof getTenantDb>>,
   filas: readonly FilaInsc[],
-  prepara: (secuenciaId: number) => boolean,
-): Promise<Map<number, { fila: FilaInsc; reunionMs: number; porque: string }>> {
-  const out = new Map<number, { fila: FilaInsc; reunionMs: number; porque: string }>();
-  const posibles = filas.filter((f) => prepara(f.secuencia_id) && (ESTADOS_TERMINADOS.includes(f.estado) || soloQuedaElCarril(f)));
+  // La «Reentrada» de la automatización de cada fila (`reentradaDeSecuencia`); null = esa fila no entra a la pregunta.
+  modoDe: (secuenciaId: number) => Reentrada | null,
+  // Lo trae un EVENTO (o un «Ir a»), no el barrido: sólo así cuenta «Cada vez que vuelve a entrar» (lib/reentrada.ts).
+  porEvento: boolean,
+): Promise<Map<number, { fila: FilaInsc; reunionMs: number | null; porque: string }>> {
+  const out = new Map<number, { fila: FilaInsc; reunionMs: number | null; porque: string }>();
+  const posibles = filas.filter((f) => {
+    const modo = modoDe(f.secuencia_id);
+    return modo != null && modo !== 'una_vez' && (ESTADOS_TERMINADOS.includes(f.estado) || soloQuedaElCarril(f));
+  });
   if (!posibles.length) return out;
   const [marcas, juntas] = await Promise.all([
     marcasPorInscripcion(db, posibles.map((f) => f.id)),
@@ -1489,8 +1546,10 @@ async function reusablesDe(
   for (const fila of posibles) {
     // La R1, no «la más próxima»: la R2 no es volver a agendar (ver `reunionQuePreparaMs`).
     const reunionMs = reunionQuePreparaMs(juntas.get(fila.lead_id));
-    const v = inscripcionReusable({ fila, marcas: marcas.get(fila.id) ?? SIN_MARCAS, reunionNuevaMs: reunionMs });
-    if (v.reusable && reunionMs != null) out.set(fila.id, { fila, reunionMs, porque: v.porque });
+    const modo = modoDe(fila.secuencia_id)!;
+    const v = puedeReentrar(modo, { fila, marcas: marcas.get(fila.id) ?? SIN_MARCAS, reunionNuevaMs: reunionMs, porEvento });
+    // «Otra vez si es otra reunión» prepara ESA reunión; «Cada vez» anota la que tenga, si tiene una.
+    if (v.entra && (modo !== 'otra_reunion' || reunionMs != null)) out.set(fila.id, { fila, reunionMs, porque: v.porque });
   }
   return out;
 }
@@ -1500,8 +1559,8 @@ async function reusablesDe(
  * del flujo (`preparaReunion`, undécima tanda M2): «Un Lead Agendó Llamada» cuelga de la ETAPA «Agenda R1» y,
  * con el trigger solo, una reagenda («también con reunión nueva», Martín 06/10) no volvía a prepararla.
  */
-const reusaInscripciones = (s: Pick<Secuencia, 'trigger_tipo' | 'pasos' | 'etapa' | 'etapas' | 'disparadores'>): boolean =>
-  preparaReunion(s) && s.pasos.length > 0;
+const reusaInscripciones = (s: Pick<Secuencia, 'trigger_tipo' | 'pasos' | 'etapa' | 'etapas' | 'disparadores' | 'reentrada'>): boolean =>
+  reentradaDeSecuencia(s) !== 'una_vez' && s.pasos.length > 0;
 
 /**
  * Leads que YA están inscriptos en alguna secuencia de la familia post-agenda.
@@ -1539,7 +1598,7 @@ async function leadsEnFamiliaPostAgenda(leadIds: number[]): Promise<Set<number>>
   // familia» y el mismo lead entraba a las dos secuencias hermanas.
   const filas = await inscripcionesDe(supabase, leadIds, (q) => q.in('secuencia_id', ids), true);
   // Toda la familia prepara una reunión (`FAMILIA_POST_AGENDA` ⊂ `preparaReunion`).
-  const reusables = await reusablesDe(supabase, filas, (secId) => conPasos.has(secId));
+  const reusables = await reusablesDe(supabase, filas, (secId) => (conPasos.has(secId) ? 'otra_reunion' : null), false);
   for (const f of filas) if (!reusables.has(f.id)) set.add(f.lead_id);
   return set;
 }
@@ -1643,7 +1702,7 @@ async function aInscribir(
   sec: Secuencia,
   candidatos: number[],
 ): Promise<{ nuevas: AltaInscripcion[]; reusar: Reuso[] }> {
-  const prepara = preparaReunion(sec);
+  const prepara = anotaReunion(sec);
   // El instante de la decisión va ANTES de leer las filas: es el corte de lo que el reuso
   // desliga, y tomarlo al reactivar dejaba adentro lo que otra corrida mandó entre medio
   // (ver `Reactivacion.ahora` en lib/nutricion-reinscripcion.ts).
@@ -1651,7 +1710,9 @@ async function aInscribir(
   const filas = await inscripcionesDe(db, candidatos, (q) => q.eq('secuencia_id', sec.id), prepara);
   const conFila = new Set(filas.map((f) => f.lead_id));
   const pendientes = candidatos.filter((id) => !conFila.has(id));
-  const reusables = reusaInscripciones(sec) ? [...(await reusablesDe(db, filas, () => true)).values()] : [];
+  // El BARRIDO no es un evento: «Cada vez que vuelve a entrar» no reusa acá (lib/reentrada.ts, `solo_por_evento`).
+  const modo = reentradaDeSecuencia(sec);
+  const reusables = reusaInscripciones(sec) ? [...(await reusablesDe(db, filas, () => modo, false)).values()] : [];
 
   const quienes = [...pendientes, ...reusables.map((r) => r.fila.lead_id)];
   // En tandas y paginado: con el `.in()` suelto, un lead que caía del corte se quedaba sin su
@@ -2190,13 +2251,15 @@ export async function enrolarPorEvento(leadId: number, evento: EventoNutricion, 
     }
     if (!elegidas.length) return 0;
 
-    const preparan = elegidas.some((s) => preparaReunion(s));
+    // `reunion_at` y `proximo_envio_at` (el carril) se leen si alguna los necesita: las que anotan la reunión y las de
+    // «Cada vez que vuelve a entrar» (una a la que sólo le queda el carril cuenta como terminada).
+    const preparan = elegidas.some((s) => anotaReunion(s) || reentradaDeSecuencia(s) === 'siempre');
     // Antes de LEER las filas, como en `aInscribir`: es el corte de lo que el reuso desliga.
     const decididoAt = ahoraISO();
     const previas = await inscripcionesDe(supabase, [leadId], (q) => q.in('secuencia_id', elegidas.map((s) => s.id)), preparan);
     const previaDe = new Map(previas.map((f) => [f.secuencia_id, f]));
-    const reusaSec = new Set(elegidas.filter(reusaInscripciones).map((s) => s.id));
-    const reusables = await reusablesDe(supabase, previas, (secId) => reusaSec.has(secId));
+    const modoSec = new Map(elegidas.filter(reusaInscripciones).map((s) => [s.id, reentradaDeSecuencia(s)] as const));
+    const reusables = await reusablesDe(supabase, previas, (secId) => modoSec.get(secId) ?? null, true);
     const juntas = (preparan || elegidas.some((s) => pasoDeEntrada(s.pasos)?.ancla === 'reunion')) ? (await juntasDe(supabase, [leadId])).get(leadId) ?? null : null;
 
     // ⚠️ DE A UNA, NO POR LOTE (refutador del relevo #789, (3)). El insert por lote chocaba
@@ -2213,21 +2276,21 @@ export async function enrolarPorEvento(leadId: number, evento: EventoNutricion, 
         const r = reusables.get(previa.id);
         if (!r) continue;
         const reclamada = await reactivarInscripcion(supabase, {
-          id: previa.id, leido: previa, proximoEnvioAt: proximo, reunionAt: new Date(r.reunionMs).toISOString(), ahora: decididoAt,
+          id: previa.id, leido: previa, proximoEnvioAt: proximo, reunionAt: r.reunionMs == null ? null : new Date(r.reunionMs).toISOString(), ahora: decididoAt,
         });
         if (!reclamada) continue;
         console.log(`[nutricion] lead ${leadId}: la inscripción ${previa.id} (${s.clave}) vuelve a correr (${r.porque})`);
         arrancadas += 1;
         continue;
       }
-      const reunion = preparaReunion(s) ? reunionQuePreparaMs(juntas) : null;
+      const reunion = anotaReunion(s) ? reunionQuePreparaMs(juntas) : null;
       const { error } = await supabase.from('nutricion_inscripciones').insert({
         lead_id: leadId,
         secuencia_id: s.id,
         paso_actual: 0,
         estado: 'activa',
         proximo_envio_at: proximo,
-        ...(preparaReunion(s) ? { reunion_at: reunion == null ? null : new Date(reunion).toISOString() } : {}),
+        ...(anotaReunion(s) ? { reunion_at: reunion == null ? null : new Date(reunion).toISOString() } : {}),
       });
       if (error) { console.error(`[nutricion] enrolarPorEvento(${evento}) lead ${leadId} en ${s.clave}: ${error.message}`); continue; }
       arrancadas += 1;
@@ -2292,13 +2355,19 @@ export async function inscribirEnSecuencia(
   const supabase = await getTenantDb();
   // El ámbito (funnel_id, producto_id) viaja aunque acá no filtre —la secuencia la eligió una
   // persona, no una cohorte—: todo select de secuencias lo trae (tests/nutricion-ambito-embudo).
-  const { data: filaSec, error: eSec } = await supabase.from('nutricion_secuencias')
-    // `etapa, etapas, disparadores`: lo que mira `preparaReunion` (la forma del flujo, undécima tanda M2).
-    .select('id, nombre, trigger_tipo, activa, archivada_at, pasos, estrategia, funnel_id, producto_id, etapa, etapas, disparadores').eq('id', secuenciaId).maybeSingle();
+  // `etapa, etapas, disparadores`: lo que mira `preparaReunion` (la forma del flujo, undécima tanda M2). Y la «Reentrada» (mig
+  // 0279), tolerando la columna que falta como las lecturas del motor (`leerFilasDeSecuencias`): sin ella, la regla de antes.
+  const COLS_SEC_MANUAL = 'id, nombre, trigger_tipo, activa, archivada_at, pasos, estrategia, funnel_id, producto_id, etapa, etapas, disparadores';
+  let lecturaSec = await supabase.from('nutricion_secuencias').select(`${COLS_SEC_MANUAL}, ${COL_REENTRADA}`).eq('id', secuenciaId).maybeSingle();
+  if (lecturaSec.error && esColumnaInexistente(lecturaSec.error)) {
+    lecturaSec = await supabase.from('nutricion_secuencias').select(COLS_SEC_MANUAL).eq('id', secuenciaId).maybeSingle();
+  }
+  const { data: filaSec, error: eSec } = lecturaSec;
   if (eSec) throw new Error(`inscribirEnSecuencia (secuencia): ${eSec.message}`);
   const s = filaSec as {
     id: number; nombre: string; trigger_tipo: string; activa: boolean; archivada_at: string | null; pasos: unknown; estrategia: unknown;
     etapa?: string | null; etapas?: unknown[] | null; disparadores?: Array<{ trigger_tipo: string; etapa?: string | null; etapas?: unknown[] | null }> | null;
+    reentrada?: unknown;
   } | null;
   // Lo de `hitoYaHecho` (calificado, agenda, pago) va en la misma lectura: lo pregunta un flujo.
   const { data: filaLead, error: eLead } = await supabase.from('leads')
@@ -2315,9 +2384,18 @@ export async function inscribirEnSecuencia(
   if (!lead || !quien) return { inscribe: false, porque: 'lead_no_existe', secuencia: ref, lead: null };
 
   const pasos = Array.isArray(s.pasos) ? (s.pasos as PasoSecuencia[]) : [];
-  const prepara = preparaReunion({ ...s, pasos });
+  const prepara = anotaReunion({ ...s, pasos });
+  const modo = reentradaDeSecuencia({ ...s, pasos });
   const decididoAt = ahoraISO();
-  const previa = (await inscripcionesDe(supabase, [leadId], (q) => q.eq('secuencia_id', s.id), prepara))[0] ?? null;
+  const previa = (await inscripcionesDe(supabase, [leadId], (q) => q.eq('secuencia_id', s.id), prepara || modo === 'siempre'))[0] ?? null;
+  // ¿UN FLUJO lo puede volver a meter? (un «Ir a» o una ⚡ inscribir: `ya_estuvo`). Lo decide la «Reentrada» del destino
+  // (lib/reentrada.ts), con lo mismo que el evento: la marca de lo que le llegó y la reunión que tiene hoy.
+  const reentraDesdeFlujo = opts?.desdeFlujo === true && previa != null && modo !== 'una_vez'
+    ? puedeReentrar(modo, {
+      fila: previa, marcas: (await marcasPorInscripcion(supabase, [previa.id])).get(previa.id) ?? SIN_MARCAS,
+      reunionNuevaMs: reunionQuePreparaMs(lead), porEvento: true,
+    }).entra
+    : false;
 
   const aTiempoOk = (await aTiempo(supabase, { antiguedad_max_horas: parseEstrategia(s.estrategia)?.antiguedad_max_horas ?? null, pasos }, [leadId])).length > 0;
   const entraAnclada = pasoDeEntrada(pasos)?.ancla === 'reunion';
@@ -2343,6 +2421,7 @@ export async function inscribirEnSecuencia(
     previa: previa ? { estado: previa.estado, desenlace: previa.desenlace } : null,
     motor: { aTiempo: aTiempoOk, sinReunion, fueraDelResiduo, enLaOtraMitad },
     desdeFlujo: opts?.desdeFlujo === true,
+    reentraDesdeFlujo,
     objetivoHecho: opts?.desdeFlujo === true && objetivo != null && hitoYaHecho(objetivo, lead) === true,
   });
   if (!v.inscribe) return { inscribe: false, porque: v.porque, secuencia: ref, lead: quien };
