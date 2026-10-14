@@ -6,16 +6,22 @@
 // dedo... Seguro que hay cosas que deberás sacar en la versión mobile... O incluso tabs que
 // solo se puedan abrir en la versión de desktop».
 //
-// Tres respuestas, y las decide esta función PURA (sin server-only: la lee el componente
-// cliente y el test):
+// Tres respuestas, y las decide esta función PURA (sin server-only: la leen el proxy, el
+// componente cliente y el test):
 //   · 'nada'        → no es una pantalla de escritorio que haya que tapar (ya es /m, es
 //                     pública, es el login o un paso que existe para abrirse igual);
-//   · 'ir'          → tiene equivalente en MaKo Mobile (`rutaMovil`): se va ahí;
+//   · 'movil'       → tiene equivalente en MaKo Mobile (`rutaMovil`): el PROXY sirve esa
+//                     página en ESTA MISMA URL (`pedidoMovil`, más abajo). Nadie navega;
 //   · 'computadora' → no va al teléfono: se dice, con la salida a MaKo Mobile y la opción de
 //                     abrirla igual (la cookie de «Versión completa», 12 h).
+//
+// ⚠️ HASTA EL 13/10/2026 'movil' se llamaba 'ir' y <DesvioMovil> NAVEGABA a /m/…: el teléfono
+// terminaba en otra URL. Martín (12/10): «lo que esta mal es que funcione por rutas... Las rutas
+// deben ser las mismas, solo debe detectar si estoy en mobile». Desde ahí la decisión la ejecuta
+// el proxy con un rewrite, y el componente sólo tapa lo que se usa en la computadora.
 // =============================================================================
 
-import { esRutaMovil, rutaMovil } from './movil-rutas';
+import { esRutaMovil, respaldoEscritorio, rutaEscritorio, rutaMovil } from './movil-rutas';
 import { esPublica } from './rutas-publicas';
 import { conWs } from './ws-tab';
 
@@ -34,17 +40,18 @@ import { conWs } from './ws-tab';
  */
 export const MOVIL_ACTIVO = true;
 
-export type Desvio = { tipo: 'nada' } | { tipo: 'ir'; destino: string } | { tipo: 'computadora' };
+export type Desvio = { tipo: 'nada' } | { tipo: 'movil'; destino: string } | { tipo: 'computadora' };
 
 /**
  * Pantallas que se abren igual en el teléfono aunque no sean de /m (además de las públicas, que no
  * se tapan nunca): el login, el wizard del onboarding (al que manda /m/configurar), las legales, el
  * alumno del curso, la ventana de prueba del Pixel, lo que se comparte con alguien de afuera y la
- * API. Prefijos con barra: «/login» no atrapa «/logins».
+ * API. Y /inicio, el repartidor: no dibuja nada, redirige (en un teléfono, a /general). Sin él acá,
+ * el proxy le servía Today en la URL /inicio. Prefijos con barra: «/login» no atrapa «/logins».
  */
 const SE_ABREN_IGUAL = [
   '/login', '/logout', '/onboarding', '/privacidad', '/terminos', '/compartido', '/mi-curso',
-  '/integraciones/escuchando', '/vsl', '/api',
+  '/integraciones/escuchando', '/vsl', '/api', '/inicio',
 ];
 
 const empieza = (p: string, base: string) => p === base || p.startsWith(base + '/');
@@ -59,8 +66,67 @@ export function decidirDesvio(pathname: string | null | undefined, search = ''):
   if (esPublica(p)) return { tipo: 'nada' };
   if (SE_ABREN_IGUAL.some((b) => empieza(p, b))) return { tipo: 'nada' };
   const destino = rutaMovil(search ? `${p}?${search.replace(/^\?/, '')}` : p);
-  if (destino) return { tipo: 'ir', destino };
+  if (destino) return { tipo: 'movil', destino };
   return { tipo: 'computadora' };
+}
+
+/**
+ * ¿Lo que se ve en ESTA URL es la versión del teléfono? Sí en una ruta /m (un link viejo antes de su
+ * redirect) y, en un teléfono, en toda URL que el proxy reescribe a /m. Lo preguntan los del layout
+ * raíz (el Sidebar, los avisos de escritorio, los pollers): con LAS MISMAS RUTAS el navegador dice
+ * /crm y no /m/crm, así que `esRutaMovil(pathname)` sola ya no alcanza.
+ */
+export function esVistaMovil(pathname: string | null | undefined, search: string, telefono: boolean): boolean {
+  if (esRutaMovil(pathname)) return true;
+  return telefono && decidirDesvio(pathname, search).tipo === 'movil';
+}
+
+/** Lo que el proxy hace con un pedido de PÁGINA con sesión (las de /api no pasan por acá). */
+export type PedidoMovil = { tipo: 'seguir' } | { tipo: 'redirigir'; destino: string } | { tipo: 'reescribir'; destino: string };
+
+/**
+ * La decisión del proxy (proxy.ts), pura y con test. Va DESPUÉS de los chequeos de sesión y nunca
+ * para /api ni lo público (el proxy es el choke point de seguridad: AGENTS.md). `search` con o sin «?».
+ *
+ *   · Una URL /m/… (un favorito, un aviso o un acceso directo viejos) → se REDIRIGE a su ruta de
+ *     escritorio, con la query intacta: /m es la carpeta interna, nunca una URL. Sólo GET y HEAD: un
+ *     POST (una server action de una pestaña vieja) sigue a la página que la tiene.
+ *   · Un teléfono sin «Versión completa» en una pantalla con equivalente → se REESCRIBE a la página
+ *     de /m. La URL del navegador no cambia.
+ *   · Una computadora en una URL que sólo existe en el teléfono (/mas, /crm/12/chat…) → se REDIRIGE
+ *     a la pantalla de escritorio que corresponde (`respaldoEscritorio`).
+ */
+export function pedidoMovil(p: { pathname: string; search: string; metodo: string; telefono: boolean }): PedidoMovil {
+  const path = p.pathname.replace(/\/+$/, '') || '/';
+  if (path === '/api' || path.startsWith('/api/')) return { tipo: 'seguir' };
+  const lee = p.metodo === 'GET' || p.metodo === 'HEAD';
+  const search = p.search.replace(/^\?/, '');
+  if (esRutaMovil(path)) {
+    if (!lee) return { tipo: 'seguir' };
+    const destino = rutaEscritorio(search ? `${path}?${search}` : path);
+    // Una /m que no está en la tabla vuelve igual: se sigue (404 como antes), nunca un redirect en bucle.
+    return esRutaMovil(destino.split(/[?#]/)[0]) ? { tipo: 'seguir' } : { tipo: 'redirigir', destino };
+  }
+  if (!p.telefono) {
+    const respaldo = lee ? respaldoEscritorio(path) : null;
+    return respaldo ? { tipo: 'redirigir', destino: search ? `${respaldo}?${search}` : respaldo } : { tipo: 'seguir' };
+  }
+  const d = decidirDesvio(path, search);
+  if (d.tipo !== 'movil') return { tipo: 'seguir' };
+  return { tipo: 'reescribir', destino: urlReescrita(d.destino, search) };
+}
+
+/**
+ * La URL interna del rewrite: el path de /m y la query ORIGINAL entera (el `?ws=` incluido: el
+ * proxy pone el header del workspace desde el pedido original), más lo que la página de /m lee y
+ * escritorio dice de otra forma (`?hoja=comercial` de /comercial). Lo de la página de /m gana.
+ */
+export function urlReescrita(destino: string, searchOriginal: string): string {
+  const [path, qDestino = ''] = destino.split('?');
+  const q = new URLSearchParams(searchOriginal.replace(/^\?/, ''));
+  for (const [k, v] of new URLSearchParams(qDestino)) q.set(k, v);
+  const s = q.toString();
+  return s ? `${path}?${s}` : path;
 }
 
 /**

@@ -121,8 +121,8 @@ test('C1. el link de un push va sin `?ws=` SÓLO para el workspace de plataforma
   assert.equal(wsDelLink(13, null), 13, 'sin saber cuál es la plataforma, el destino se respeta');
   assert.equal(wsDelLink(null, 9), null);
   // De punta a punta: con el ws ya pasado por `wsDelLink`, la URL del dueño sale pelada.
-  assert.equal(armarPayloadPush({ tipo: 'plan-proyecto-vence', titulo: 'x', cuerpo: 'x', ruta: '/plan/agencia' }, wsDelLink(9, 9)).url, `${APP_BASE_URL}/m/plan`);
-  assert.equal(armarPayloadPush({ tipo: 'x', titulo: 'x', cuerpo: 'x', ruta: '/plan' }, wsDelLink(13, 9)).url, `${APP_BASE_URL}/m/plan?ws=13`);
+  assert.equal(armarPayloadPush({ tipo: 'plan-proyecto-vence', titulo: 'x', cuerpo: 'x', ruta: '/plan/agencia' }, wsDelLink(9, 9)).url, `${APP_BASE_URL}/plan`);
+  assert.equal(armarPayloadPush({ tipo: 'x', titulo: 'x', cuerpo: 'x', ruta: '/plan' }, wsDelLink(13, 9)).url, `${APP_BASE_URL}/plan?ws=13`);
 });
 
 test('C2. los DOS envíos de lib/push.ts arman el link con `wsDelLink`', () => {

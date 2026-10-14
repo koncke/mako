@@ -23,6 +23,8 @@ import { SESSION_COOKIE, gateConfigurado, verificarToken } from './lib/auth-sess
 import { WS_HEADER, WS_PARAM, parseWs } from './lib/ws-tab';
 import { esPublica, esPublicaSoloLeer, decidirRutaAlumno } from './lib/rutas-publicas';
 import { HEADER_DOMINIO, RUTA_DOMINIO, decidirHost, hostDeCabecera, paginaNoExisteDominio } from './lib/editor-landing/dominios-reglas';
+import { MOVIL_ACTIVO, pedidoMovil } from './lib/movil-desvio';
+import { VISTA_COOKIE, tipoDeDispositivo, vaAMovil } from './lib/movil-dispositivo';
 
 // La lista de rutas públicas vive en lib/rutas-publicas.ts, no acá: es la condición
 // que decide qué entra sin sesión, y adentro de un middleware ningún test la puede
@@ -199,6 +201,15 @@ function respuestaDominioPropio(req: NextRequest, pathname: string): NextRespons
  * devuelve cero filas, que es el fail-closed de siempre.
  */
 function seguir(req: NextRequest) {
+  return NextResponse.next({ request: { headers: headersSeguros(req) } });
+}
+
+/**
+ * Los headers con los que sigue un pedido: sin los internos que pudo mandar cualquiera, y con el
+ * workspace de la pestaña SÓLO si la sesión firmada es de un admin. Lo comparten `seguir` y el
+ * rewrite de MaKo Mobile (`seguirOMovil`): una salida que no pase por acá es el IDOR de arriba.
+ */
+function headersSeguros(req: NextRequest): Headers {
   const headers = new Headers(req.headers);
   headers.delete(WS_HEADER);
   // El dominio propio de una landing lo pone SÓLO `respuestaDominioPropio`: en cualquier otra salida
@@ -217,8 +228,34 @@ function seguir(req: NextRequest) {
     const sesion = verificarToken(req.cookies.get(SESSION_COOKIE)?.value);
     if (sesion?.rol === 'admin') headers.set(WS_HEADER, String(ws));
   }
+  return headers;
+}
 
-  return NextResponse.next({ request: { headers } });
+/**
+ * MaKo Mobile con LAS MISMAS RUTAS (12/10/2026, Martín: «Las rutas deben ser las mismas, solo debe
+ * detectar si estoy en mobile»). Un teléfono que pide /crm ve la página de /m/crm en la URL /crm: un
+ * REWRITE, no un redirect. La decisión es pura y tiene test (`pedidoMovil`, lib/movil-desvio.ts).
+ *
+ * ⚠️ Sólo se llama en las dos salidas CON SESIÓN (o del gate apagado en local): nunca para lo público,
+ * el alumno del curso ni /api (el proxy es el choke point de seguridad, AGENTS.md). Y el rewrite
+ * lleva los MISMOS headers que `seguir` (`headersSeguros`): el workspace sale del `?ws=` del pedido
+ * original, validado contra la sesión, y nunca de lo que mande el pedido.
+ *
+ * El teléfono es la misma pregunta que hace el layout (`prefiereMovil`): el UA y la cookie de
+ * «Versión completa». Si las dos preguntas no coincidieran, la página de escritorio se dibujaría
+ * tapada por <DesvioMovil> o el shell de /m sin su cromo; por eso las dos llaman a `vaAMovil`.
+ */
+function seguirOMovil(req: NextRequest, pathname: string) {
+  const telefono = MOVIL_ACTIVO && vaAMovil(
+    tipoDeDispositivo(req.headers.get('user-agent'), req.headers.get('sec-ch-ua-mobile')),
+    req.cookies.get(VISTA_COOKIE)?.value,
+  );
+  const d = pedidoMovil({ pathname, search: req.nextUrl.search, metodo: req.method.toUpperCase(), telefono });
+  if (d.tipo === 'redirigir') return NextResponse.redirect(new URL(d.destino, req.url));
+  if (d.tipo === 'reescribir') {
+    return NextResponse.rewrite(new URL(d.destino, req.url), { request: { headers: headersSeguros(req) } });
+  }
+  return seguir(req);
 }
 
 export function proxy(req: NextRequest) {
@@ -295,7 +332,7 @@ export function proxy(req: NextRequest) {
       process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production';
     // En local sin AUTH_SECRET no hay sesión que verificar, así que tampoco hay
     // a quién creerle: se borra el header y no se pone ninguno.
-    if (!esProd) return seguir(req);
+    if (!esProd) return seguirOMovil(req, pathname);
     console.error('[gate] AUTH_SECRET sin setear en producción → negando rutas protegidas');
     return denegar(req, pathname);
   }
@@ -308,7 +345,7 @@ export function proxy(req: NextRequest) {
   const sesion = verificarToken(req.cookies.get(SESSION_COOKIE)?.value);
   if (sesion) {
     if (esAdminRoute && sesion.rol !== 'admin') return denegarRol(req, pathname);
-    return seguir(req);
+    return seguirOMovil(req, pathname);
   }
 
   return denegar(req, pathname);

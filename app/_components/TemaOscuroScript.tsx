@@ -56,11 +56,11 @@ export function TemaOscuroScript() {
   return (
     <script
       // eslint-disable-next-line react/no-danger
+      // ⚠️ UN SOLO template literal: partido con `+` entre templates de constantes, el minificador
+      // del build (SWC) se come el texto entre ellos (tests/minificador-templates.test.ts).
       dangerouslySetInnerHTML={{
         __html:
-          `(function(){var d=document.documentElement;` +
-          `if(d.getAttribute('${MARCA}')!=='${VALOR}'){` +
-          `d.setAttribute('${PRESTADO}','1');d.setAttribute('${MARCA}','${VALOR}');}})()`,
+          `(function(){var d=document.documentElement;if(d.getAttribute('${MARCA}')!=='${VALOR}'){d.setAttribute('${PRESTADO}','1');d.setAttribute('${MARCA}','${VALOR}');}})()`,
       }}
     />
   );

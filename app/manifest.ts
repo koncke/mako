@@ -19,8 +19,8 @@ import type { MetadataRoute } from 'next';
 //
 // ⚠️ MaKo Mobile (11/10/2026): `start_url` era '/', y '/' es la LANDING DE VENTA
 // para todo el mundo, logueados incluidos (app/page.tsx): la app instalada abría la
-// landing. Ahora abre /inicio, el repartidor: un teléfono va a /m y una instalación
-// de escritorio sigue en escritorio.
+// landing. Ahora abre /inicio, el repartidor: un teléfono va a /general (que el proxy le
+// sirve en la versión del teléfono) y una instalación de escritorio sigue en escritorio.
 //   · `id: '/'` NO es decorativo. Sin `id`, la identidad de la app ES su start_url:
 //     cambiar el start_url sin fijar el id la volvía «otra app» para Chrome, y las
 //     instalaciones que ya existen no se actualizaban. '/' es el start_url de antes.
@@ -54,10 +54,12 @@ export default function manifest(): MetadataRoute.Manifest {
     ],
     // Los nombres de la barra de MaKo Mobile (lib/movil-rutas.ts): en inglés, como el producto.
     // v2: MaKo dejó de ser destino de la barra (vive en More), así que el tercer atajo es CRM.
+    // Con LAS MISMAS RUTAS (13/10/2026) los atajos son las URLs de escritorio: el proxy le sirve la
+    // versión del teléfono a un teléfono (lib/movil-rutas.ts → `rutaEscritorio`).
     shortcuts: [
-      { name: 'Today', url: '/m/hoy', icons: [{ src: '/icon-192.png', sizes: '192x192', type: 'image/png' }] },
-      { name: 'Inbox', url: '/m/inbox', icons: [{ src: '/icon-192.png', sizes: '192x192', type: 'image/png' }] },
-      { name: 'CRM', url: '/m/crm', icons: [{ src: '/icon-192.png', sizes: '192x192', type: 'image/png' }] },
+      { name: 'Today', url: '/general', icons: [{ src: '/icon-192.png', sizes: '192x192', type: 'image/png' }] },
+      { name: 'Inbox', url: '/mako/pendientes', icons: [{ src: '/icon-192.png', sizes: '192x192', type: 'image/png' }] },
+      { name: 'CRM', url: '/crm', icons: [{ src: '/icon-192.png', sizes: '192x192', type: 'image/png' }] },
     ],
   };
 }

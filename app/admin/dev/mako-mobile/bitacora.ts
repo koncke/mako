@@ -18,7 +18,7 @@ export const PARTES: Parte[] = [
   { titulo: 'Today, Inbox, MaKo, CRM y Plan', detalle: 'Las cinco pantallas re-adaptadas: el Pulso, aprobar, el chat con voz y fotos, la ficha con agendar, las tareas de hoy', estado: 'sigue' },
   { titulo: 'Web Push', detalle: 'Los avisos que ya salen por WhatsApp también al teléfono, por persona; y «MaKo te pide confirmar»', estado: 'sigue' },
   { titulo: 'La v2: app nativa con la piel de MaKo', detalle: 'Claro por defecto, título grande, listas agrupadas, barra Today · CRM · Inbox · Plan · More y seis secciones más en More (Dashboard, Ads Manager, Customer Success, Automations, Video, Landing)', estado: 'sigue' },
-  { titulo: 'Cualquier teléfono ve /m', detalle: 'El desvío prendido: un celular que abre una pantalla de escritorio va a su versión de /m, o se le dice que esa pantalla se usa en la computadora', estado: 'sigue' },
+  { titulo: 'Cualquier teléfono ve /m, con las mismas URLs', detalle: 'Un celular que abre /crm ve la versión del teléfono en esa misma URL (el proxy la sirve); lo que no va al teléfono dice que se usa en la computadora', estado: 'sigue' },
   { titulo: 'Medir en un iPhone y un Android de verdad', detalle: 'Voz, push, instalar, teclado y gestos no se pueden probar en un navegador sin pantalla', estado: 'cola' },
 ];
 
@@ -77,5 +77,26 @@ export const BITACORA: Hito[] = [
       'Falta verlo en un navegador y en un teléfono real: la máquina no tuvo RAM para un next dev en toda la corrida. El typecheck y los tests puntuales están en verde.',
     ],
     archivos: ['app/m/', 'lib/movil-desvio.ts', 'lib/movil-rutas.ts', 'app/layout.tsx', 'docs/diseno-mako-mobile-v2.md', 'docs/hallazgos-mobile.md', 'docs/relevo/mako-mobile.md'],
+  },
+  {
+    fecha: '12 oct', hora: '09:26', chat: CH, cuenta: 'claude3', actor: 'martin', tipo: 'prompt',
+    titulo: 'Las mismas rutas que la computadora',
+    pedido: 'de igual manera esta mal porque se ve muy chiquito todo, no como una app de celular... Y sobre todo lo que esta mal es que funcione por rutas, eso no debe ser así... Las rutas deben ser las mismas, solo debe detectar si estoy en mobile',
+    puntos: [
+      'Lo «muy chiquito» de sus capturas era Chrome en «Sitio para computadoras»: la página a ~980 px y un UA de escritorio.',
+      'También dijo «hay cosas que no funcionan, como el CRM», sin detalle. Se frenó al 90% semanal de la cuenta 3, sin arrancar.',
+    ],
+  },
+  {
+    fecha: '14 oct', hora: '02:21', chat: CH, cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Las mismas rutas, el CRM que abría vacío y el script del tema roto por el minificador',
+    puntos: [
+      'El teléfono abre /crm, /general, /plan… y el proxy le sirve /m en esa URL (rewrite); una URL /m vieja redirige a la de escritorio, y conWs traduce todo link de /m. Las pantallas sólo del teléfono: /mas, /configurar, /perfil/instalar y /crm/<id>/chat.',
+      'El CRM, medido en producción (ws9, sólo leyendo): abría «Nada pendiente por hoy.» con 13 leads. Sin nada pendiente, ahora muestra las etapas con su conteo.',
+      'Un SyntaxError en cada página de /m: el minificador del build se comía parte del script del tema. Un solo template literal, y un guard que lo pasa por el mismo SWC.',
+      'No se miró en un navegador ni corrió el typecheck: la máquina estuvo sin RAM toda la sesión. Los tests de lo tocado, en verde.',
+    ],
+    commits: [{ sha: '7b82bcde', msg: 'MaKo Mobile: las mismas rutas que la computadora, el CRM que abría vacío y el script del tema que rompía el minificador', lineas: 1085, archivos: 33 }],
+    archivos: ['proxy.ts', 'lib/movil-rutas.ts', 'lib/movil-desvio.ts', 'lib/ws-tab.ts', 'app/_components/VistaMovil.tsx', 'app/m/crm/ListaCrm.tsx', 'app/m/_ui/tema.ts', 'tests/movil-mismas-rutas.test.ts', 'tests/minificador-templates.test.ts'],
   },
 ];

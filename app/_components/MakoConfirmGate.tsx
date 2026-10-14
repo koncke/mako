@@ -33,6 +33,7 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { useRouter } from '@/app/_ui/Link';
 import { listConfirmacionesAction, resolverConfirmacionAction, type AlcanceConfirmaciones } from '../crm/mako-confirm-actions';
 import { esVistaSinChrome } from './PublicRouteGate';
+import { useVistaMovil } from './VistaMovil';
 import type { MakoConfirmacion, ConfOpcion, CambioCampo } from '@/lib/mako-confirmaciones';
 
 const SANS = "'Geist', sans-serif";
@@ -132,7 +133,9 @@ function Tarjeta() {
   const router = useRouter();
   // El resumen del lead vive bajo /crm pero se abre desde WhatsApp, en el
   // celular y con la reunión por empezar: no es lugar para esto. Ver esVistaSinChrome.
-  const enCrm = (pathname?.startsWith('/crm') ?? false) && !esVistaSinChrome(pathname);
+  // Y en el teléfono /crm es la página de /m (LAS MISMAS RUTAS): tampoco (`useVistaMovil`).
+  const movil = useVistaMovil();
+  const enCrm = (pathname?.startsWith('/crm') ?? false) && !movil && !esVistaSinChrome(pathname);
   const [items, setItems] = useState<MakoConfirmacion[]>([]);
   const [busy, setBusy] = useState<number | null>(null);
   const [err, setErr] = useState<number | null>(null);

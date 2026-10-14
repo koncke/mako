@@ -18,6 +18,7 @@ import { usePathname } from 'next/navigation';
 import { useRouter } from '@/app/_ui/Link';
 import { isPublicLandingPath } from './PublicRouteGate';
 import { esRutaMovil } from '@/lib/movil-rutas';
+import { useTelefono } from './VistaMovil';
 import { inAppActivo, type NotifInApp } from '@/lib/notif-catalogo';
 
 /**
@@ -152,6 +153,12 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   const tplToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pathRef = useRef(pathname);
   pathRef.current = pathname;
+  // En el TELÉFONO no corre nada de esto: con LAS MISMAS RUTAS (13/10/2026) el teléfono ve /m en la
+  // URL /crm, así que `esRutaMovil(pathname)` ya no alcanza para saberlo (app/_components/VistaMovil.tsx).
+  const telefono = useTelefono();
+  const telefonoRef = useRef(telefono);
+  telefonoRef.current = telefono;
+  const enMovil = (p: string) => telefonoRef.current || esRutaMovil(p);
 
   const unreadTotal = noOficialUnread;
 
@@ -208,7 +215,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   // `inApp` seguía en null y todo sonaba, hubiera apagado lo que hubiera apagado.
   // El ref evita repetir el GET en cada navegación.
   useEffect(() => {
-    if (pathname.startsWith('/login') || isPublicLandingPath(pathname) || esRutaMovil(pathname)) return;
+    if (pathname.startsWith('/login') || isPublicLandingPath(pathname) || enMovil(pathname)) return;
     let alive = true;
     const cargar = (forzar: boolean) => {
       if (!forzar && prefsPedidasRef.current) return;
@@ -279,7 +286,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       // (las plantillas viven en Automations, que es de escritorio), y un poll cada 6 s
       // es batería y datos móviles para nada. Lo que importa allá llega por el Inbox y
       // por push. Por `esRutaMovil`, nunca `startsWith('/m')` (atrapa /mako y /marketing).
-      if (esRutaMovil(pathRef.current)) return;
+      if (enMovil(pathRef.current)) return;
       tickRef.current += 1;
       if (tickRef.current === 1 || tickRef.current % 5 === 0) void checkTemplates();
     };
@@ -295,7 +302,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       if (pathRef.current.startsWith('/login') || isPublicLandingPath(pathRef.current)) return;
       // En /m no: el contador alimenta el badge del Sidebar y el pop-up que lleva a
       // /whatsapp de escritorio — ninguno de los dos existe en el teléfono.
-      if (esRutaMovil(pathRef.current)) return;
+      if (enMovil(pathRef.current)) return;
       try {
         const r = await fetch('/api/whatsapp/evolution/mensajes?resumen=1');
         const j = await r.json();
@@ -354,7 +361,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   return (
     <Ctx.Provider value={{ unreadTotal, noOficialUnread, marcarLeidoNoOficial, setOpenChatNoOficial, inApp }}>
       {children}
-      {!isPublicLandingPath(pathname) && !esRutaMovil(pathname) && toast && (
+      {!isPublicLandingPath(pathname) && !enMovil(pathname) && toast && (
         <button
           onClick={() => goToChatNoOficial(toast.gid)}
           style={{
@@ -375,7 +382,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
           </span>
         </button>
       )}
-      {!isPublicLandingPath(pathname) && !esRutaMovil(pathname) && tplToast && (
+      {!isPublicLandingPath(pathname) && !enMovil(pathname) && tplToast && (
         <button
           onClick={() => goToPlantilla(tplToast.name)}
           style={{

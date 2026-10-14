@@ -7,6 +7,60 @@ Corridas del 11/10/2026: la v1 (relevo de 7 agentes + 11 de implementación + 1 
 el diseño v2 a la tarde, y a la noche la implementación v2 (12 agentes + la integración) con el desvío
 de teléfonos PRENDIDO. Lo de la v2 está en su propia sección, más abajo.
 
+## LAS MISMAS RUTAS (13/10/2026): /m es la carpeta interna, nunca una URL
+
+Martín, 12/10/2026 09:26, mirando /m/hoy en su celular: «lo que esta mal es que funcione por rutas, eso no debe ser
+así... Las rutas deben ser las mismas, solo debe detectar si estoy en mobile». Cómo quedó: un teléfono abre /crm,
+/general, /plan… y el PROXY le sirve la página de /m en esa misma URL (`NextResponse.rewrite`, `pedidoMovil`); una URL
+/m vieja (un favorito, un push, un atajo) se REDIRIGE a la de escritorio; y todo link que arman las pantallas de /m sale
+como la ruta de escritorio. Lo que no se ve leyendo el código:
+
+- **Son dos fronteras y cada una es UNA función.** Al LEER la URL, `rutaInterna` (el shell la usa por `useRutaInterna`:
+  la cabecera, la barra y la animación siguen hablando en rutas /m). Al NAVEGAR, `rutaEscritorio`, que la aplica
+  `conWs`. El diagnóstico obvio —cambiar los ~30 `href="/m/…"` de las pantallas— dejaba afuera lo que no es un href
+  (`router.replace`, los `redirect` del guard, el `linkApp` de los push) y al próximo href que alguien escriba. Por
+  `conWs` pasan las cinco formas de navegar. La sexta, un `redirect('/m')` PELADO en /inicio, no pasaba: se cambió a
+  mano. **Vive en:** lib/movil-rutas.ts, lib/ws-tab.ts, app/inicio/page.tsx
+- **Lo del layout raíz necesita saber si es un TELÉFONO, no sólo la ruta.** El Sidebar, los banners, la esquina de
+  avisos, la tarjeta del CRM automático y los pollers de WhatsApp se apagaban con `esRutaMovil(pathname)`, y con el
+  rewrite el navegador dice /crm. Preguntan `useVistaMovil()` / `useTelefono()` (un contexto con el `telefono` que el
+  layout ya calculaba). ⚠️ **NO MEDIDO en un navegador:** si `usePathname` en el SSR de una página reescrita devuelve
+  /crm o /m/crm (en Next 16.2 el cliente arranca de `location.href` y el server de `req.url`). El código anda con las
+  dos respuestas a propósito: `rutaInterna` acepta las dos y `esVistaMovil` da true para las dos, así que el SSR y la
+  hidratación dibujan lo mismo. **Vive en:** app/_components/VistaMovil.tsx, app/_components/PublicRouteGate.tsx,
+  app/_components/NotificationsProvider.tsx, app/_components/MakoConfirmGate.tsx, app/_components/AvisoPixelViejo.tsx
+- **Una pantalla que sólo existe en el teléfono necesita una URL sin /m y un respaldo de escritorio** (`SOLO_TELEFONO`):
+  /mas (More), /configurar, /perfil/instalar y /crm/<id>/chat. Una computadora que la abre (un link copiado del
+  teléfono) va a /general, /onboarding, /perfil y la ficha. **Vive en:** lib/movil-rutas.ts
+- **`?hoja=` en /dashboard ES la página de una hoja propia** (`rutaMovil` lo manda a /m/dashboard/<hoja>). DashboardM
+  escribía `hoja` en la URL también con UNA sola hoja: al closer, cambiar el período lo mandaba a la página de su hoja,
+  que lo devuelve sin el período. Sólo con el segmentado. **Vive en:** app/m/dashboard/DashboardM.tsx
+- **/inicio va en `SE_ABREN_IGUAL`**: es el repartidor y no dibuja nada; sin eso, el proxy le servía Today en la URL
+  /inicio. **Vive en:** lib/movil-desvio.ts
+- **El POST de una server action también se reescribe**: la respuesta trae el árbol de la página, y sin el rewrite el
+  server armaría el de escritorio para un navegador que tiene el de /m. Una /m vieja se redirige sólo en GET y HEAD.
+- Lo fija tests/movil-mismas-rutas.test.ts: la ida y vuelta de CADA page.tsx de app/m (una página nueva sin su fila en
+  `rutaEscritorio` falla ahí), la decisión del proxy, y el proxy de verdad con UA de iPhone y una sesión firmada.
+
+## El CRM del teléfono abría VACÍO con 13 leads (13/10/2026, medido en producción)
+
+«Hay cosas que no funcionan, como el CRM...» (Martín, 12/10, sin detalle). Medido en hola-mako.com/m/crm con su sesión
+(ws9, sólo leyendo): la pantalla decía «Nada pendiente por hoy.» y nada más, con 13 leads en el embudo (8 en Círculo
+ROJO). Los tres grupos son lo de HOY (reuniones de hoy, chats sin responder de 7 días, nuevos de 7 días en la etapa de
+entrada): sin nada de eso, los leads quedaban detrás del ícono del filtro, que nadie adivina. El filtro, la ficha
+(/m/crm/2659) y el chat del lead se dibujaron bien, sin errores de la app. Arreglo: sin nada pendiente, debajo del
+aviso van las etapas con su conteo (la lista del sheet «Ver por etapa»). ⚠️ **NO MEDIDO:** si Martín se refería a otra
+cosa (en un teléfono real: agendar, mover de etapa, dictar), y que «Todas» del sheet sigue mostrando lo pendiente, no
+todos los leads. **Vive en:** app/m/crm/ListaCrm.tsx
+
+## Un SyntaxError en CADA página de /m: el minificador se comía el script del tema (13/10/2026)
+
+Medido en la consola de producción: `SyntaxError: missing ) after argument list`. El script que pone el oscuro antes del
+primer pintado llegaba como `getItem('mako.modoif(o){…`: el SWC del build junta los templates con `+` cuyas `${…}` son
+constantes y se come el texto entre ellos. El fuente se leía perfecto, y en pantalla sólo se notaba como un fogonazo
+claro a quien eligió el oscuro (el shell lo aplica después de pintar). El detalle y la regla, en docs/hallazgos-infra.md → «El minificador se come texto». **Vive en:**
+app/m/_ui/tema.ts, tests/minificador-templates.test.ts
+
 ## Lo que más cuesta redescubrir
 
 - **El manifest abría la LANDING de venta a la persona logueada.** `start_url: '/'` y la raíz es la

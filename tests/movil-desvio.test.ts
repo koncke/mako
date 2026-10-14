@@ -41,11 +41,11 @@ test('el login, el wizard del onboarding y el alumno se abren igual', () => {
   }
 });
 
-test('lo que tiene versión móvil va a /m', () => {
-  assert.deepEqual(decidirDesvio('/general'), { tipo: 'ir', destino: '/m/hoy' });
-  assert.deepEqual(decidirDesvio('/crm/412/resumen'), { tipo: 'ir', destino: '/m/crm/412' });
-  assert.deepEqual(decidirDesvio('/mako/pendientes'), { tipo: 'ir', destino: '/m/inbox' });
-  assert.deepEqual(decidirDesvio('/configuraciones', '?tab=notif'), { tipo: 'ir', destino: '/m/cuenta' });
+test('lo que tiene versión móvil se sirve en /m (con LAS MISMAS RUTAS, en la misma URL)', () => {
+  assert.deepEqual(decidirDesvio('/general'), { tipo: 'movil', destino: '/m/hoy' });
+  assert.deepEqual(decidirDesvio('/crm/412/resumen'), { tipo: 'movil', destino: '/m/crm/412' });
+  assert.deepEqual(decidirDesvio('/mako/pendientes'), { tipo: 'movil', destino: '/m/inbox' });
+  assert.deepEqual(decidirDesvio('/configuraciones', '?tab=notif'), { tipo: 'movil', destino: '/m/cuenta' });
 });
 
 test('v2: las secciones de More (y sus subrutas) van a su pantalla de /m, no a «en la computadora»', () => {
@@ -59,7 +59,7 @@ test('v2: las secciones de More (y sus subrutas) van a su pantalla de /m, no a �
     ['/video-generator', '/m/video/3f2b8c1e-9a4d-4c6b-8e2f-0a1b2c3d4e5f', '?plan=3f2b8c1e-9a4d-4c6b-8e2f-0a1b2c3d4e5f'],
     ['/landing-generator', '/m/landing'], ['/landing-generator/42', '/m/landing/42'], ['/landing-writer', '/m/landing'],
   ];
-  for (const [p, destino, q] of casos) assert.deepEqual(decidirDesvio(p, q ?? ''), { tipo: 'ir', destino }, `${p}${q ?? ''}`);
+  for (const [p, destino, q] of casos) assert.deepEqual(decidirDesvio(p, q ?? ''), { tipo: 'movil', destino }, `${p}${q ?? ''}`);
 });
 
 test('lo que no va al teléfono dice que se usa en la computadora', () => {
@@ -69,7 +69,7 @@ test('lo que no va al teléfono dice que se usa en la computadora', () => {
 });
 
 test('/mako no se confunde con /m (pero tiene su versión móvil)', () => {
-  assert.deepEqual(decidirDesvio('/mako'), { tipo: 'ir', destino: '/m/mako' });
+  assert.deepEqual(decidirDesvio('/mako'), { tipo: 'movil', destino: '/m/mako' });
 });
 
 test('el interruptor está PRENDIDO (Martín, 11/10 21:54: «a cualquiera que entre desde mobile»)', () => {
@@ -81,7 +81,7 @@ test('el admin global SIN cliente SÍ se desvía, a SU negocio (Martín, 12/10: 
   assert.equal(seDesvia({ activo: true, telefono: false }), false);
   assert.equal(seDesvia({ activo: false, telefono: true }), false);
   // Sin pestaña, el destino lleva el workspace propio; con una, el router de app/_ui/Link ya la lleva.
-  assert.equal(destinoMovil('/m/plan', null, 9), '/m/plan?ws=9');
+  assert.equal(destinoMovil('/m/plan', null, 9), '/plan?ws=9');
   assert.equal(destinoMovil('/m/plan', 13, 9), '/m/plan');
   assert.equal(destinoMovil('/m/plan', null, null), '/m/plan');
   // El layout le pasa el workspace propio al desvío SÓLO al admin sin cliente.
@@ -94,5 +94,5 @@ test('el admin global SIN cliente SÍ se desvía, a SU negocio (Martín, 12/10: 
   assert.ok(guard.includes("if (ctx.ws == null && ctx.sesion.rol === 'admin') redirect(conWs(HOME_MOVIL, await wsSuperAdmin()));"), 'el guard no manda al admin sin cliente a su negocio');
   assert.ok(!guard.includes("redirect('/inicio')"), 'volvió el rebote a /inicio: con el desvío prendido, un bucle');
   // Y /inicio, en un teléfono, lo manda a /m (no a /customer-success, que el desvío taparía).
-  assert.ok(leer('app/inicio/page.tsx').includes("if (ws == null) redirect(telefono ? '/m' : '/customer-success');"), '/inicio no reparte al teléfono');
+  assert.ok(leer('app/inicio/page.tsx').includes("if (ws == null) redirect(telefono ? '/general' : '/customer-success');"), '/inicio no reparte al teléfono');
 });

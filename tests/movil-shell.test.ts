@@ -166,8 +166,9 @@ test('el manifest abre el repartidor y conserva la identidad', () => {
   assert.equal(m.scope, '/');
   assert.equal(m.display, 'standalone');
   assert.ok((m.icons ?? []).length >= 3, 'se perdieron los íconos');
+  // LAS MISMAS RUTAS (13/10/2026): los atajos son las URLs de escritorio; el proxy le sirve /m al teléfono.
   assert.deepEqual((m.shortcuts ?? []).map((s) => [s.name, s.url]),
-    [['Today', '/m/hoy'], ['Inbox', '/m/inbox'], ['CRM', '/m/crm']]);
+    [['Today', '/general'], ['Inbox', '/mako/pendientes'], ['CRM', '/crm']]);
 });
 
 test('la cabecera por defecto: título en la raíz, volver fijo en la subpantalla', () => {
