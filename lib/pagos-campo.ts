@@ -418,6 +418,36 @@ export function reconciliarCuotas(existentes: readonly CuotaExistente[], deseada
   return out;
 }
 
+/** «Cuota 3» / «Cobro inicial»: cómo se nombra una cuota en el historial. */
+export const nombreCuota = (numero: number): string => (numero === 0 ? 'Cobro inicial' : `Cuota ${numero}`);
+const textoCuota = (monto: number, fecha: string | null): string => {
+  const f = fecha ? `${fecha.slice(8, 10)}/${fecha.slice(5, 7)}/${fecha.slice(0, 4)}` : 'sin fecha';
+  return `USD ${centavos(monto)} · vence ${f}`;
+};
+
+/**
+ * Las líneas del HISTORIAL de una reconciliación, una por cuota que cambió (antes → después), para insertarlas
+ * en `lead_audit` en un solo insert (comparten el instante: la ficha las agrupa como un movimiento).
+ */
+export function lineasDeCuotas(plan: PlanDeCuotas): Array<{ campo: string; valor_anterior: string | null; valor_nuevo: string | null }> {
+  return [
+    ...plan.actualizar.map((u) => ({ campo: nombreCuota(u.numero), valor_anterior: textoCuota(u.antes.monto_usd, u.antes.fecha_esperada), valor_nuevo: textoCuota(u.monto_usd, u.fecha_esperada) })),
+    ...plan.insertar.map((i) => ({ campo: nombreCuota(i.numero), valor_anterior: null, valor_nuevo: textoCuota(i.monto_usd, i.fecha_esperada) })),
+    ...plan.borrar.map((b) => ({ campo: nombreCuota(b.numero), valor_anterior: textoCuota(b.monto_usd, b.fecha_esperada), valor_nuevo: null })),
+  ];
+}
+
+const MOTIVO_CONSERVADA: Readonly<Record<MotivoConservada, string>> = {
+  link: 'tiene un link sin pagar',
+  recordatorio: 'tiene un recordatorio en curso',
+};
+
+/** «Cuota 3: tiene un link sin pagar»: lo que NO se tocó, dicho para la persona (y para el historial). */
+export function avisoDeConservadas(plan: PlanDeCuotas): string | null {
+  if (!plan.conservar.length) return null;
+  return plan.conservar.map((c) => `${nombreCuota(c.numero)}: ${MOTIVO_CONSERVADA[c.motivo]}`).join(' · ');
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // 5 · El plan uniforme: inicial, cuota, cantidad y día de pago
 // ─────────────────────────────────────────────────────────────────────────────

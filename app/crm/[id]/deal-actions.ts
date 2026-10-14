@@ -15,9 +15,32 @@ import { TAG } from '@/lib/cache';
 import { getTenantDb } from '@/lib/workspace';
 import { getUsuarioActual } from '@/lib/auth';
 import { getLead, logLeadChanges, logLeadEvent, type Lead } from '@/lib/leads';
-import { saveLeadPlanManual, marcarPago, getPagosByLead, cobrarCuota, registrarPagoSuelto } from '@/lib/pagos';
+import {
+  guardarCuotasPorId, getPagosByLead, cobrarCuota, registrarPagoSuelto, asegurarLeadDelNegocio, anotarEnHistorial, type DatosDeMoneda,
+} from '@/lib/pagos';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { VENTA_SIN_COBRO, ventaTipoDe, type VentaTipo } from '@/lib/venta-tipo';
+import { formatoMonto } from '@/lib/pasarela-moneda';
+import { ROTULO_METODO, avisoDeConservadas, etiquetaDePago, lineasDeCuotas } from '@/lib/pagos-campo';
+
+/**
+ * ⚠️ SIN SESIÓN NO SE ESCRIBE NADA (14/10/2026). Ninguna de estas acciones lo miraba, y sin cookie
+ * `getWorkspaceActual()` cae al ws1 (Mauricio, un cliente): un POST con el id de la acción escribía cuotas y
+ * pagos en su CRM. El corte de fondo es el proxy (una página pública sólo se lee); éste es el segundo, para no
+ * depender de la ruta (tests/acciones-sin-sesion.test.ts).
+ */
+async function haySesion(): Promise<boolean> {
+  try { return Boolean(await getUsuarioActual()); } catch { return false; }
+}
+const SIN_SESION = 'Tu sesión no está activa en este negocio. Recarga la página.';
+
+/** «USD 500» o, si se cobró en otra moneda, «MXN 8,600 (USD 500)», con el método y el concepto si vinieron. */
+function textoDelPago(montoUsd: number, d: DatosDeMoneda & { moneda?: string | null; montoOriginal?: number | null }): string {
+  const enOtra = d.moneda && d.moneda !== 'USD' && d.montoOriginal != null;
+  const plata = enOtra ? `${formatoMonto(d.montoOriginal as number, d.moneda as string)} (USD ${montoUsd})` : `USD ${montoUsd}`;
+  const e = etiquetaDePago(d);
+  return [plata, e.metodo ? ROTULO_METODO[e.metodo] : null, e.concepto].filter(Boolean).join(' · ');
+}
 
 // updateTag en try/catch: la mutación ya ocurrió; si la invalidación fallara,
 // la caché igual vence sola por su TTL — nunca debe romper el guardado.
@@ -60,6 +83,7 @@ export type IdentidadFiscal = {
 
 /** Identidades fiscales del workspace (default primero). */
 export async function getIdentidadesFiscalesAction(): Promise<IdentidadFiscal[]> {
+  if (!(await haySesion())) return [];
   const { data, error } = await (await getTenantDb())
     .from('identidades_fiscales')
     .select('id, nombre, id_fiscal, domicilio, correo, es_default, created_at')
@@ -80,6 +104,7 @@ export type IdentidadFiscalInput = {
 
 /** Crea o edita una identidad fiscal. Marcar default desmarca el resto. */
 export async function saveIdentidadFiscalAction(input: IdentidadFiscalInput): Promise<void> {
+  if (!(await haySesion())) throw new Error(SIN_SESION);
   const nombre = input.nombre?.trim();
   if (!nombre) throw new Error('La razón social / nombre es obligatoria.');
   const db = await getTenantDb();
@@ -107,6 +132,7 @@ export async function saveIdentidadFiscalAction(input: IdentidadFiscalInput): Pr
 
 /** Borra una identidad fiscal. Los leads que la referenciaban muestran "—". */
 export async function deleteIdentidadFiscalAction(id: number): Promise<void> {
+  if (!(await haySesion())) throw new Error(SIN_SESION);
   const { error } = await (await getTenantDb()).from('identidades_fiscales').delete().eq('id', id);
   if (error) throw new Error(`Error borrando la identidad fiscal: ${error.message}`);
   revalidatePath('/configuraciones');
@@ -142,8 +168,15 @@ export type DealSectionsInput = {
  * tocó y no de cuánto a cuánto. Ahora, si el patch trae plata, se diffea el lead antes y
  * después con `logLeadChanges` (AUDIT_FIELDS: «Monto de cierre», «Suscripción (USD/mes)»,
  * «Plazo de la suscripción»), y esas líneas se pueden revertir desde la ficha.
+ *
+ * ⚠️ LAS SECCIONES SE MERGEAN CON LO QUE HAY EN LA BASE (14/10/2026). Antes se escribía el jsonb que mandaba la
+ * pantalla tal cual: lo que no venía se borraba. La pantalla mandaba `deal_fiscal` con el `doc_path` de SU foto
+ * del lead, así que con una foto vieja (el documento subido en otra pestaña, o leído por IA después de abrir el
+ * deal) guardar borraba el documento fiscal. Los bloques de Pagos escriben campo por campo
+ * (app/crm/[id]/pagos-campo-actions.ts); esto queda para «Editar deal» hasta que se saque, con el mismo merge.
  */
 export async function saveDealSectionsAction(leadId: number, patch: DealSectionsInput): Promise<void> {
+  if (!(await haySesion())) throw new Error(SIN_SESION);
   const upd: Record<string, unknown> = {};
   const tocadas: string[] = [];
   const db = await getTenantDb();
@@ -153,10 +186,28 @@ export async function saveDealSectionsAction(leadId: number, patch: DealSections
   const tocaPlata = patch.monto_cierre_usd !== undefined || Object.keys(sus).length > 0;
   // El «antes» del diff: sin poder leerlo se guarda igual y queda sólo el evento de abajo.
   const before = tocaPlata ? await getLead(leadId).catch(() => null) : null;
-  if (patch.deal_fiscal !== undefined) { upd.deal_fiscal = patch.deal_fiscal; tocadas.push('datos fiscales'); }
-  if (patch.deal_servicio !== undefined) { upd.deal_servicio = patch.deal_servicio; tocadas.push('servicio'); }
-  if (patch.deal_promesa !== undefined) { upd.deal_promesa = patch.deal_promesa; tocadas.push('promesa'); }
-  if (patch.deal_obligaciones !== undefined) { upd.deal_obligaciones = patch.deal_obligaciones; tocadas.push('obligaciones'); }
+  const tocaSecciones = patch.deal_fiscal !== undefined || patch.deal_servicio !== undefined || patch.deal_promesa !== undefined || patch.deal_obligaciones !== undefined;
+  let enBase: Partial<Pick<Lead, 'deal_fiscal' | 'deal_servicio' | 'deal_promesa' | 'deal_obligaciones'>> = {};
+  if (tocaSecciones) {
+    const { data, error } = await db.from('leads').select('deal_fiscal, deal_servicio, deal_promesa, deal_obligaciones').eq('id', leadId).maybeSingle();
+    // Sin poder leer lo que hay, NO se escribe encima: reemplazar a ciegas es lo que borraba el documento fiscal.
+    if (error) throw new Error(`No pude leer el deal del lead ${leadId}: ${error.message}`);
+    if (!data) throw new Error('No encontré este lead.');
+    enBase = data as typeof enBase;
+  }
+  const mergeo = <T extends object>(previo: T | null | undefined, nuevo: T | null | undefined) => (nuevo == null ? nuevo : { ...(previo ?? {}), ...nuevo });
+  // El documento fiscal lo escribe SÓLO su subida (/api/extract-deal-fiscal): el que viene en el patch es el de la
+  // foto que tenía la pantalla, y gana siempre el de la base.
+  const sinDoc = (f: DealSectionsInput['deal_fiscal']) => {
+    if (f == null) return f;
+    const { doc_path: _p, doc_nombre: _n, ...resto } = f;
+    void _p; void _n;
+    return resto;
+  };
+  if (patch.deal_fiscal !== undefined) { upd.deal_fiscal = mergeo(enBase.deal_fiscal, sinDoc(patch.deal_fiscal)); tocadas.push('datos fiscales'); }
+  if (patch.deal_servicio !== undefined) { upd.deal_servicio = mergeo(enBase.deal_servicio, patch.deal_servicio); tocadas.push('servicio'); }
+  if (patch.deal_promesa !== undefined) { upd.deal_promesa = mergeo(enBase.deal_promesa, patch.deal_promesa); tocadas.push('promesa'); }
+  if (patch.deal_obligaciones !== undefined) { upd.deal_obligaciones = mergeo(enBase.deal_obligaciones, patch.deal_obligaciones); tocadas.push('obligaciones'); }
   if (patch.facturado_por_id !== undefined) { upd.facturado_por_id = patch.facturado_por_id; tocadas.push('facturado por'); }
   if (patch.monto_cierre_usd !== undefined) { upd.monto_cierre_usd = patch.monto_cierre_usd; tocadas.push('monto de cierre'); }
   if (patch.fecha_cierre !== undefined) { upd.fecha_cierre = patch.fecha_cierre; tocadas.push('fecha de cierre'); }
@@ -209,6 +260,7 @@ export async function saveDealSectionsAction(leadId: number, patch: DealSections
  * puede ser otro tipo cualquiera, que alguien cambió desde otra pantalla.
  */
 export async function quitarSinCobroAction(leadId: number): Promise<{ cambio: boolean; ventaTipo: VentaTipo | null }> {
+  if (!(await haySesion())) throw new Error(SIN_SESION);
   const db = await getTenantDb();
   const { data, error } = await db.from('leads')
     .update({ venta_tipo: 'unico' }).eq('id', leadId).eq('venta_tipo', VENTA_SIN_COBRO).select('id');
@@ -241,9 +293,15 @@ export type CuotaInput = {
 };
 
 /**
- * Reemplaza las cuotas NO pagadas del lead por la lista nueva (cuotas
- * explícitas: cada una con su monto y su fecha). Las pagadas que YA están en la
- * base se descartan acá porque saveLeadPlanManual las CONSERVA intactas.
+ * Guarda las cuotas NO pagadas del lead con la lista del borrador de Editar deal (cada una con su monto y su
+ * fecha), POR ID (`guardarCuotasPorId`, lib/pagos.ts): la que trae id se actualiza, la nueva se inserta y la que
+ * el borrador quitó se borra — salvo que tenga un link sin pagar o un recordatorio corriendo, que se conserva y
+ * se avisa en el historial. Las pagadas que YA están en la base no se tocan.
+ *
+ * ⚠️ HASTA EL 14/10/2026 ESTO PASABA POR `saveLeadPlanManual`, que GANABA el lead y BORRABA E INSERTABA todas las
+ * impagas: cada «Guardar cambios» le cambiaba el id a cada cuota y se rompían el link que la saldaba, el corte de
+ * su cobranza y el dedup del recordatorio (docs/diseno-ficha-bloques.md §3, «Trampa»). Ahora no gana: ganar es
+ * mover de etapa, no guardar un plan. EditarDeal sigue andando igual hasta que se saque.
  *
  * ⚠️ Una cuota pagada SIN id es otra cosa: nace cobrada desde "Registrar
  * mensualidad cobrada" (#697) y no hay nada que conservar, así que la inserta
@@ -251,17 +309,19 @@ export type CuotaInput = {
  * sin error, sin fila y con el botón diciendo que se había guardado.
  */
 export async function saveCuotasAction(leadId: number, cuotas: CuotaInput[]): Promise<void> {
+  if (!(await haySesion())) throw new Error(SIN_SESION);
   const nuevas = cuotas.filter((c) => !c.pagado && Number(c.monto) > 0);
   const cobradas = cuotas.filter((c) => c.pagado && c.id == null && Number(c.monto) > 0);
   const autor = await autorActual();
+  await asegurarLeadDelNegocio(leadId);
 
   if (cobradas.length > 0) {
-    // Se insertan ANTES de saveLeadPlanManual, por dos razones:
+    // Se insertan ANTES de guardarCuotasPorId, por dos razones:
     // 1) `pagos` tiene un índice único (lead_id, numero), así que hay que numerar
     //    sobre TODAS las filas que existen ahora, no sólo sobre las pagadas.
-    //    Después saveLeadPlanManual ve estas filas como pagadas, las conserva y
-    //    numera las no pagadas a continuación.
-    // 2) Si el reemplazo de las no pagadas fallara, el cobro ya quedó asentado,
+    //    Después la reconciliación ve estas filas como pagadas, no las toca y
+    //    numera las nuevas a continuación.
+    // 2) Si guardar las no pagadas fallara, el cobro ya quedó asentado,
     //    que es el dato que nadie puede volver a averiguar.
     const db = await getTenantDb();
     const existentes = await getPagosByLead(leadId);
@@ -279,13 +339,7 @@ export async function saveCuotasAction(leadId: number, cuotas: CuotaInput[]): Pr
     if (error) throw new Error(`Error registrando el cobro del lead ${leadId}: ${error.message}`);
   }
 
-  await saveLeadPlanManual(leadId, {
-    total_usd: null,
-    duracion_meses: null,
-    fecha_cierre: null,
-    fecha_inicio: null,
-    cuotas: nuevas.map((c) => ({ monto_usd: Number(c.monto), fecha_esperada: c.fecha })),
-  });
+  const cambios = await guardarCuotasPorId(leadId, nuevas.map((c) => ({ id: c.id ?? null, monto_usd: Number(c.monto), fecha_esperada: c.fecha })));
 
   // El cobro deja su propia fila en el historial: es un hecho distinto del plan
   // de cuotas, y es el único rastro de que la plata entró por este botón.
@@ -294,7 +348,10 @@ export async function saveCuotasAction(leadId: number, cuotas: CuotaInput[]): Pr
     const cuantas = cobradas.length === 1 ? 'Mensualidad cobrada' : `${cobradas.length} mensualidades cobradas`;
     await logLeadEvent(leadId, 'Pago registrado', `${cuantas} por USD ${monto}`, autor);
   }
-  await logLeadEvent(leadId, 'Plan de pagos', `Cuotas actualizadas desde Deal Details (${nuevas.length} sin pagar)`, autor);
+  // Cada cuota que cambió, con su antes y su después; y lo que NO se tocó, con el porqué.
+  await anotarEnHistorial(leadId, lineasDeCuotas(cambios), autor);
+  const sinTocar = avisoDeConservadas(cambios);
+  await logLeadEvent(leadId, 'Plan de pagos', `Cuotas actualizadas desde Deal Details (${nuevas.length} sin pagar)${sinTocar ? ` · no se tocó: ${sinTocar}` : ''}`, autor);
   bust(TAG.pagos, TAG.leads);
   revalidarLead(leadId);
   revalidatePath('/dashboard');
@@ -312,7 +369,7 @@ export type PagoManualInput = {
    * y el Outstanding bajaba como si el cliente ya no debiera nada.
    */
   resto?: 'pendiente' | 'descuento';
-};
+} & DatosDeMoneda;
 
 /**
  * Marca una cuota como pagada con fecha + hora (y monto real si difiere).
@@ -322,14 +379,24 @@ export type PagoManualInput = {
  * ⚠️ UN PAGO DE MENOS DEJA LA DIFERENCIA PENDIENTE (salvo `resto: 'descuento'`). La diferencia es una fila NUEVA
  * de `pagos` (numerada después de la última: el índice único es (lead_id, numero)), con el vencimiento de la cuota
  * original: el cliente la debe desde ese día. Devuelve cuánto quedó pendiente, para que la pantalla lo diga.
+ *
+ * La MONEDA (decisión 7, 14/10/2026): con `moneda` (y `montoOriginal` si no es USD) la cuota guarda en qué se
+ * cobró, como lo de la pasarela (mig 0255). `monto` sigue siendo DÓLARES (lo que suman el Dashboard y la cobranza)
+ * y sin `moneda` es USD: es lo que manda la pantalla de hoy. El valor inicial del selector es la moneda del negocio
+ * (`monedaDelNegocioAction`, app/crm/[id]/pagos-campo-actions.ts), no una suposición del server.
  */
 export async function marcarPagoManualAction(pagoId: number, leadId: number, datos: PagoManualInput): Promise<{ pendiente: number | null }> {
+  if (!(await haySesion())) throw new Error(SIN_SESION);
   // La regla y la escritura viven en lib/pagos.ts (`cobrarCuota`): la usa también la API de MaKo.
   const r = await cobrarCuota(pagoId, leadId, datos);
   const resto = r.pendiente != null
     ? ` · quedan USD ${r.pendiente} pendientes`
     : r.descuento > 0 ? ` · USD ${r.descuento} de descuento` : '';
-  const nota = `Cuota cobrada el ${fmtDDMMYYYY(datos.fecha)}${datos.hora ? ` · ${datos.hora}` : ''}${r.monto != null && r.monto !== r.original ? ` · USD ${r.monto} (era de USD ${r.original})` : ''}${resto}`;
+  // En otra moneda, o con método o concepto, la línea dice cómo se cobró: «MXN 8,600 (USD 500) · Transferencia».
+  const e = etiquetaDePago(datos);
+  const otraMoneda = !!r.moneda && r.moneda !== 'USD' && r.montoOriginal != null;
+  const como = otraMoneda || e.metodo || e.concepto ? ` · ${textoDelPago(r.monto ?? r.original, { ...datos, moneda: r.moneda, montoOriginal: r.montoOriginal })}` : '';
+  const nota = `Cuota cobrada el ${fmtDDMMYYYY(datos.fecha)}${datos.hora ? ` · ${datos.hora}` : ''}${r.monto != null && r.monto !== r.original ? ` · USD ${r.monto} (era de USD ${r.original})` : ''}${resto}${como}`;
   await logLeadEvent(leadId, 'Pago registrado', nota, await autorActual());
   bust(TAG.pagos, TAG.leads);
   revalidarLead(leadId);
@@ -344,10 +411,14 @@ export async function marcarPagoManualAction(pagoId: number, leadId: number, dat
  * Entra como una cuota nueva ya cobrada, numerada después de la última, y pasa por `marcarPago` — el mismo camino
  * que cualquier cobro: sincroniza lo cobrado del lead y corta los recordatorios. No toca el monto de cierre: si fue
  * una venta nueva, el cierre se corrige en el deal.
+ *
+ * La moneda, el concepto y el método (14/10/2026): como en `marcarPagoManualAction`, `monto` es DÓLARES y sin
+ * `moneda` todo es como siempre.
  */
-export async function registrarPagoSueltoAction(leadId: number, datos: { monto: number; fecha: string; hora?: string | null }): Promise<void> {
+export async function registrarPagoSueltoAction(leadId: number, datos: { monto: number; fecha: string; hora?: string | null } & DatosDeMoneda): Promise<void> {
+  if (!(await haySesion())) throw new Error(SIN_SESION);
   const r = await registrarPagoSuelto(leadId, datos);
-  await logLeadEvent(leadId, 'Pago registrado', `Pago fuera del plan por USD ${r.monto} el ${fmtDDMMYYYY(datos.fecha)}${datos.hora ? ` · ${datos.hora}` : ''}`, await autorActual());
+  await logLeadEvent(leadId, 'Pago registrado', `Pago fuera del plan por ${textoDelPago(r.monto, { ...datos, moneda: r.moneda, montoOriginal: r.montoOriginal })} el ${fmtDDMMYYYY(datos.fecha)}${datos.hora ? ` · ${datos.hora}` : ''}`, await autorActual());
   bust(TAG.pagos, TAG.leads);
   revalidarLead(leadId);
   revalidatePath('/dashboard');

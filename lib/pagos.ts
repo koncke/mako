@@ -12,13 +12,16 @@
 import 'server-only';
 import { getTenantDb, getWorkspaceActual } from './workspace';
 import { cachedRead, TAG, TTL } from './cache';
-import { VENTA_SIN_COBRO } from './venta-tipo';
+import { VENTA_SIN_COBRO, ventaTipoDe, type VentaTipo } from './venta-tipo';
 import { pasaAGanado } from './crm-curso-al-ganar-reglas';
 import { centavos, diferenciaPendiente, type RestoDeCobro } from './pagos-diferencia';
 import {
-  cuotasDelPlan, etiquetaDePago, pagoEnMoneda, reconciliarCuotas, MONEDA_POR_DEFECTO,
-  type CuotaDeseada, type CuotaExistente, type ModoReconciliar, type PlanDeCuotas, type PlanUniforme, type Proteccion,
+  aplicarObligacion, cuotasDelPlan, esCampoLeadDeal, esSeccionDeal, etiquetaDePago, fusionarCampo, pagoEnMoneda, patchDeVenta,
+  reconciliarCuotas, rotuloCampoDeal, rotuloObligacion, valorDeCampoDeal, CAMPOS_LEAD_DEAL, COLUMNA_SECCION, MONEDA_POR_DEFECTO,
+  type CambioObligacion, type CambioVenta, type CampoLeadDeal, type CuotaDeseada, type CuotaExistente, type FilaVenta,
+  type ModoReconciliar, type Obligaciones, type PlanDeCuotas, type PlanUniforme, type Proteccion, type SeccionDeal,
 } from './pagos-campo';
+import { getLead, logLeadChanges, logLeadEvent } from './leads';
 import { esCuotaDevuelta } from './cobrado-lead';
 import { normalizarMoneda } from './pasarela-moneda';
 import { getSetting, setSetting } from './settings';
@@ -538,6 +541,31 @@ export async function asegurarLeadDelNegocio(leadId: number): Promise<void> {
   if (!data) throw new Error('No encontré ese lead en este negocio.');
 }
 
+/**
+ * Las líneas de un cambio de Pagos en el HISTORIAL del lead (`lead_audit`), con el antes y el después y el actor,
+ * en UN insert: comparten el instante y la ficha las muestra como un solo movimiento (molde: `logLeadChanges`,
+ * lib/leads.ts, que sólo conoce las columnas de AUDIT_FIELDS y no los jsonb del deal ni las cuotas).
+ * No rompe la escritura si falla: lo peor es una línea de menos, que se ve; perder el cambio, no.
+ */
+export async function anotarEnHistorial(
+  leadId: number,
+  filas: ReadonlyArray<{ campo: string; valor_anterior: string | null; valor_nuevo: string | null }>,
+  autor: string,
+): Promise<void> {
+  if (!filas.length) return;
+  try {
+    const rows = filas.map((f) => ({
+      lead_id: leadId, campo: f.campo.slice(0, 120), autor,
+      valor_anterior: f.valor_anterior == null ? null : f.valor_anterior.slice(0, 2000),
+      valor_nuevo: f.valor_nuevo == null ? null : f.valor_nuevo.slice(0, 2000),
+    }));
+    const { error } = await (await getTenantDb()).from('lead_audit').insert(rows);
+    if (error) console.error(`[pagos] historial del lead ${leadId}: ${error.message}`);
+  } catch (e) {
+    console.error(`[pagos] historial del lead ${leadId}:`, e instanceof Error ? e.message : e);
+  }
+}
+
 /** La clave de la moneda del negocio en `app_settings` (decisión 7: va por negocio, como el resto de la config). */
 export const KEY_MONEDA_NEGOCIO = 'negocio.moneda';
 
@@ -1029,4 +1057,176 @@ async function _getCuotasPendientes(
   }
 
   return { vencidas, porVencer };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// El deal CAMPO POR CAMPO (14/10/2026, docs/diseno-ficha-bloques.md §3 Pagos)
+// ─────────────────────────────────────────────────────────────────────────────
+// Lo llaman los bloques de Pagos (app/crm/[id]/pagos-campo-actions.ts, que cortan sin sesión) y la API de MaKo
+// (lib/api-mako/areas/cobros.run.ts, adentro de runWithWorkspace). Las reglas son puras (lib/pagos-campo.ts);
+// acá se lee la fila del NEGOCIO, se escribe con compare-and-set y se deja la línea del historial con el actor.
+//
+// ⚠️ EL MERGE DE UN JSONB ES READ-MODIFY-WRITE, y dos pestañas editando dos campos de la misma sección en el
+// mismo segundo se pisarían una a la otra. Por eso el update va con `.eq('updated_at', lo_leido)` (el trigger de
+// la mig 0001 lo mueve en cada escritura del lead) y se reintenta con la fila fresca: la segunda escritura
+// mergea sobre la primera en vez de borrarla.
+
+type Fallo = { ok: false; error: string; faltan?: string[] };
+const esFallo = (x: unknown): x is Fallo => !!x && typeof x === 'object' && (x as { ok?: unknown }).ok === false;
+
+/** La fila del lead de ESTE negocio con las columnas pedidas, o null. */
+async function filaDelLead(leadId: number, cols: string): Promise<Record<string, unknown> | null> {
+  if (!Number.isInteger(leadId) || leadId <= 0) return null;
+  const { data, error } = await (await getTenantDb()).from('leads').select(cols).eq('id', leadId).maybeSingle();
+  if (error) throw new Error(`No pude leer el lead ${leadId}: ${error.message}`);
+  return (data as Record<string, unknown> | null) ?? null;
+}
+
+/**
+ * Read-modify-write de UNA columna del lead con compare-and-set sobre `updated_at`, hasta 3 vueltas. `armar` recibe
+ * el valor fresco y devuelve el nuevo (o null para no escribir). Devuelve lo que armó la vuelta que escribió.
+ */
+async function escribirConCas<T extends object = object>(leadId: number, col: string, armar: (actual: unknown) => ({ nuevo: unknown } & T) | Fallo | null): Promise<({ ok: true; escribio: boolean } & Partial<T>) | Fallo> {
+  const db = await getTenantDb();
+  for (let vuelta = 0; vuelta < 3; vuelta++) {
+    const fila = await filaDelLead(leadId, `${col}, updated_at`);
+    if (!fila) return { ok: false, error: 'No encontré ese lead en este negocio.' };
+    const r = armar(fila[col]);
+    if (r == null) return { ok: true, escribio: false };
+    if (esFallo(r)) return r;
+    const { nuevo, ...resto } = r as { nuevo: unknown } & T;
+    let q = db.from('leads').update({ [col]: nuevo }).eq('id', leadId);
+    q = fila.updated_at == null ? q.is('updated_at', null) : q.eq('updated_at', fila.updated_at as string);
+    const { data, error } = await q.select('id');
+    if (error) return { ok: false, error: `No pude guardar: ${error.message}` };
+    if (data?.length) return { ok: true, escribio: true, ...(resto as unknown as Partial<T>) };
+  }
+  return { ok: false, error: 'El lead cambió mientras guardabas. Vuelve a intentarlo.' };
+}
+
+export type CambioCampoDeal =
+  | { seccion: SeccionDeal; campo: string; valor: string | null }
+  | { seccion: 'lead'; campo: CampoLeadDeal; valor: string | number | null };
+
+/**
+ * Un campo del deal: de una sección jsonb (MERGE, el resto y el documento fiscal quedan) o uno de los dos sueltos
+ * (`fecha_inicio_servicio`, `facturado_por_id`, que tiene que ser una identidad fiscal de ESTE negocio).
+ * Devuelve el valor de antes, que es el Deshacer (se vuelve a llamar con él).
+ */
+export async function escribirCampoDeal(leadId: number, c: CambioCampoDeal, autor: string): Promise<{ ok: true; cambio: boolean; antes: string | number | null; despues: string | number | null } | Fallo> {
+  if (c.seccion === 'lead') {
+    if (!esCampoLeadDeal(c.campo)) return { ok: false, error: 'Ese dato no existe en el deal.' };
+    let valor: string | number | null = c.valor == null || c.valor === '' ? null : c.valor;
+    if (c.campo === 'fecha_inicio_servicio' && valor != null && (typeof valor !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(valor))) return { ok: false, error: 'La fecha tiene que ser AAAA-MM-DD.' };
+    let nombreNuevo: string | null = null;
+    if (c.campo === 'facturado_por_id' && valor != null) {
+      const id = Number(valor);
+      if (!Number.isInteger(id) || id <= 0) return { ok: false, error: 'Esa identidad fiscal no existe.' };
+      const { data, error } = await (await getTenantDb()).from('identidades_fiscales').select('id, nombre').eq('id', id).maybeSingle();
+      if (error) return { ok: false, error: `No pude leer la identidad fiscal: ${error.message}` };
+      if (!data) return { ok: false, error: 'Esa identidad fiscal no es de este negocio.' };
+      valor = id;
+      nombreNuevo = String((data as { nombre: string }).nombre);
+    }
+    const fila = await filaDelLead(leadId, c.campo);
+    if (!fila) return { ok: false, error: 'No encontré ese lead en este negocio.' };
+    const antes = (fila[c.campo] as string | number | null) ?? null;
+    if (String(antes ?? '') === String(valor ?? '')) return { ok: true, cambio: false, antes, despues: valor };
+    const { error } = await (await getTenantDb()).from('leads').update({ [c.campo]: valor }).eq('id', leadId);
+    if (error) return { ok: false, error: `No pude guardar: ${error.message}` };
+    let nombreAntes: string | null = antes == null ? null : String(antes);
+    if (c.campo === 'facturado_por_id' && antes != null) {
+      const { data } = await (await getTenantDb()).from('identidades_fiscales').select('nombre').eq('id', Number(antes)).maybeSingle();
+      nombreAntes = (data as { nombre?: string } | null)?.nombre ?? `#${String(antes)}`;
+    }
+    await anotarEnHistorial(leadId, [{ campo: CAMPOS_LEAD_DEAL[c.campo], valor_anterior: nombreAntes, valor_nuevo: nombreNuevo ?? (valor == null ? null : String(valor)) }], autor);
+    return { ok: true, cambio: true, antes, despues: valor };
+  }
+  if (!esSeccionDeal(c.seccion)) return { ok: false, error: 'Esa sección no existe en el deal.' };
+  const seccion = c.seccion;
+  const v = valorDeCampoDeal(seccion, c.campo, c.valor);
+  if (!v.ok) return v;
+  const r = await escribirConCas<{ antes: string | null }>(leadId, COLUMNA_SECCION[seccion], (actual) => {
+    const m = fusionarCampo(actual as Record<string, unknown> | null, c.campo, v.valor);
+    return m.cambio ? { nuevo: m.seccion, antes: m.antes } : null;
+  });
+  if (!r.ok) return r;
+  if (!r.escribio) return { ok: true, cambio: false, antes: v.valor, despues: v.valor };
+  const antes = r.antes ?? null;
+  await anotarEnHistorial(leadId, [{ campo: rotuloCampoDeal(seccion, c.campo), valor_anterior: antes, valor_nuevo: v.valor }], autor);
+  return { ok: true, cambio: true, antes, despues: v.valor };
+}
+
+/** Un renglón de las obligaciones (agregar, editar o quitar), con compare-and-set y su Deshacer. */
+export async function escribirObligacion(leadId: number, cambio: CambioObligacion, autor: string): Promise<{ ok: true; obligaciones: Obligaciones; deshacer: CambioObligacion } | Fallo> {
+  let aplicado: { obligaciones: Obligaciones; antes: string | null; despues: string | null; deshacer: CambioObligacion } | null = null;
+  const r = await escribirConCas(leadId, 'deal_obligaciones', (actual) => {
+    const a = aplicarObligacion(actual, cambio);
+    if (!a.ok) return a;
+    aplicado = a;
+    return { nuevo: a.obligaciones };
+  });
+  if (!r.ok) return r;
+  const hecho = aplicado as { obligaciones: Obligaciones; antes: string | null; despues: string | null; deshacer: CambioObligacion } | null;
+  if (!hecho) return { ok: false, error: 'No se guardó nada.' };
+  await anotarEnHistorial(leadId, [{ campo: rotuloObligacion(cambio.parte), valor_anterior: hecho.antes, valor_nuevo: hecho.despues }], autor);
+  return { ok: true, obligaciones: hecho.obligaciones, deshacer: hecho.deshacer };
+}
+
+const ROTULO_TIPO: Readonly<Record<VentaTipo, string>> = { unico: 'Pago único', suscripcion: 'Suscripción', sin_cobro: 'Sin cobro' };
+
+/**
+ * Un dato de la venta (monto, plazo, fecha o tipo), con compare-and-set sobre `venta_tipo` como Editar deal
+ * (deal-actions.ts): una pantalla vieja no le cuelga una mensualidad a un pago único. `tipoVisto` es el tipo que
+ * dibujó la pantalla: si ya no es ése, no se escribe. Salir de «sin cobro» va por `quitarSinCobro` (su CAS).
+ *
+ * La plata deja su diff con `logLeadChanges` (AUDIT_FIELDS: «Monto de cierre», «Suscripción (USD/mes)», «Plazo de
+ * la suscripción»), que la ficha sabe REVERTIR; la fecha y el tipo dejan su línea con el antes y el después.
+ */
+export async function escribirVenta(leadId: number, cambio: CambioVenta, opts: { autor: string; tipoVisto?: VentaTipo | null }): Promise<{ ok: true; cambio: boolean; ventaTipo: VentaTipo; deshacer: CambioVenta[] } | Fallo> {
+  const fila = await filaDelLead(leadId, 'venta_tipo, monto_cierre_usd, suscripcion_monto_usd, suscripcion_meses, fecha_cierre');
+  if (!fila) return { ok: false, error: 'No encontré ese lead en este negocio.' };
+  const tipo = ventaTipoDe(fila.venta_tipo as string | null);
+  if (opts.tipoVisto && opts.tipoVisto !== tipo) return { ok: false, error: 'El tipo de venta cambió en otra pantalla. Recarga la ficha.' };
+  const cobradas = (await getPagosByLead(leadId)).filter((q) => q.pagado).length;
+  const p = patchDeVenta(fila as FilaVenta, cambio, { hayCobradas: cobradas > 0 });
+  if (!p.ok) {
+    if ('usarQuitarSinCobro' in p && p.usarQuitarSinCobro) {
+      const q = await quitarSinCobro(leadId, opts.autor);
+      return q.cambio
+        ? { ok: true, cambio: true, ventaTipo: 'unico', deshacer: [{ campo: 'tipo', valor: VENTA_SIN_COBRO }] }
+        : { ok: false, error: 'El tipo de venta cambió en otra pantalla. Recarga la ficha.' };
+    }
+    return p;
+  }
+  if (p.nada) return { ok: true, cambio: false, ventaTipo: tipo, deshacer: [] };
+  const before = await getLead(leadId).catch(() => null);
+  const db = await getTenantDb();
+  let q = db.from('leads').update(p.patch).eq('id', leadId);
+  if (p.tipoEsperado) q = q.eq('venta_tipo', p.tipoEsperado);
+  const { data, error } = await q.select('id');
+  if (error) return { ok: false, error: `No pude guardar la venta: ${error.message}` };
+  if (!data?.length) return { ok: false, error: 'El tipo de venta cambió en otra pantalla. Recarga la ficha.' };
+  const after = await getLead(leadId).catch(() => null);
+  await logLeadChanges(leadId, before, after, opts.autor);
+  const lineas: Array<{ campo: string; valor_anterior: string | null; valor_nuevo: string | null }> = [];
+  if (cambio.campo === 'fecha') lineas.push({ campo: 'Fecha de cierre', valor_anterior: (fila.fecha_cierre as string | null) ?? null, valor_nuevo: cambio.valor ?? null });
+  const nuevoTipo = cambio.campo === 'tipo' ? ventaTipoDe(cambio.valor) : tipo;
+  if (nuevoTipo !== tipo) lineas.push({ campo: 'Tipo de venta', valor_anterior: ROTULO_TIPO[tipo], valor_nuevo: ROTULO_TIPO[nuevoTipo] });
+  await anotarEnHistorial(leadId, lineas, opts.autor);
+  return { ok: true, cambio: true, ventaTipo: nuevoTipo, deshacer: p.deshacer };
+}
+
+/**
+ * Saca a un lead de «Sin cobro»: vuelve a pago único, con compare-and-set sobre el tipo. Es la regla de
+ * `quitarSinCobroAction` (deal-actions.ts) para quien no es una pantalla con sesión (la API) o la llama por
+ * dentro (`escribirVenta`); la acción se queda con la suya, que la tarjeta del deal usa tal cual.
+ */
+export async function quitarSinCobro(leadId: number, autor: string): Promise<{ cambio: boolean }> {
+  const { data, error } = await (await getTenantDb()).from('leads')
+    .update({ venta_tipo: 'unico' }).eq('id', leadId).eq('venta_tipo', VENTA_SIN_COBRO).select('id');
+  if (error) throw new Error(`No se pudo cambiar el tipo de venta: ${error.message}`);
+  if (!data?.length) return { cambio: false };
+  await logLeadEvent(leadId, 'Tipo de venta', 'Con cobro', autor);
+  return { cambio: true };
 }
