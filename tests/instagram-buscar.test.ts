@@ -337,3 +337,14 @@ test('Enter no manda el formulario con una búsqueda a medias, y el Escape se at
   const botones = COMP.match(/<button\b[^>]*>/g) ?? [];
   assert.ok(botones.length > 0 && botones.every((b) => /type="button"/.test(b)), 'todo botón lleva type="button"');
 });
+
+// La ficha (app/crm/campo-inline.ts) y el buscador usan UNA regla (13/10/2026). Había dos y
+// diferían en «___». Probado rompiéndolo: devolver la regla vieja en `usuarioInstagram` → 1 fallo.
+test('la ficha y el buscador dicen lo mismo de qué es un usuario de Instagram', async () => {
+  const { usuarioInstagram } = await import('../app/crm/campo-inline');
+  for (const t of ['___', '...', '@ana.perez', 'instagram.com/ana_perez', 'Ana Pérez', '@AnaPerez']) {
+    const crudo = t.replace(/^(?:https?:\/\/)?(?:www\.|m\.)?instagram\.com\//i, '');
+    assert.equal(usuarioInstagram(t), usuarioDeTexto(crudo), `difieren en «${t}»`);
+  }
+  assert.equal(usuarioInstagram('___'), null);
+});

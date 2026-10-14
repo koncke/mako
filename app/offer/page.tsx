@@ -22,21 +22,25 @@ import { arbolOffer, leerSesion } from '@/lib/offer-sesiones';
 import { OPCION_ARMAR } from '@/lib/offer-reglas';
 import type { ArbolOffer, OfferSesionVista } from '@/lib/offer-marco';
 import { OfferApp } from './OfferApp';
-import { ARBOL_VACIO, arbolSeguro, todasLasSesiones } from './arbol';
+import { ARBOL_VACIO, arbolSeguro, entradaDelLink, idDeParametro, todasLasSesiones } from './arbol';
 import { masReciente } from './ayudas';
 
 export const dynamic = 'force-dynamic';
 
-export default async function Page() {
+export default async function Page({ searchParams }: { searchParams: Promise<{ oferta?: string | string[]; funnel?: string | string[] }> }) {
   await requireRolWs([], { nav: 'offer' });
+  const q = await searchParams;
 
   const leido = await arbolOffer().then(
     (v): { ok: true; arbol: ArbolOffer } => ({ ok: true, arbol: arbolSeguro(v) }),
     (e: unknown): { ok: false; arbol: ArbolOffer } => { console.error('[offer] no se pudo leer el árbol', e); return { ok: false, arbol: ARBOL_VACIO }; },
   );
 
-  // La más reciente abre sola (no se confía en el orden con que llega cada rama).
-  const ultima = masReciente(todasLasSesiones(leido.arbol));
+  // Un link que nombra una oferta (el «Analizar oferta →» del CRM) abre ESA: su conversación más
+  // reciente, o una nueva para analizarla, que la crea la pantalla al montar. Sin link, la más reciente
+  // abre sola (no se confía en el orden con que llega cada rama).
+  const pedido = entradaDelLink(leido.arbol, idDeParametro(q.oferta), idDeParametro(q.funnel));
+  const ultima = pedido?.tipo === 'sesion' ? pedido : pedido ? null : masReciente(todasLasSesiones(leido.arbol));
   let sesion: OfferSesionVista | null = null;
   if (ultima) {
     try {
@@ -58,6 +62,7 @@ export default async function Page() {
         sesionInicial={sesion}
         arbolFallo={!leido.ok}
         opcionArmar={OPCION_ARMAR}
+        analizarAlAbrir={pedido?.tipo === 'nueva' ? { funnelId: pedido.funnelId, ofertaBaseId: pedido.ofertaBaseId } : null}
       />
     </Pagina>
   );

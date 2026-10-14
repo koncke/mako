@@ -31,6 +31,7 @@ import { getSupabaseServer } from './supabase';
 import { OWNER_WS } from './auth-session';
 import { getUsuarioActual } from './auth';
 import { sendMetaCAPIEvent } from './meta-capi';
+import { esSexo } from './resumen-ficha';
 import { EVENTOS_CALIFICADO, eventIdCalificado } from './meta-capi-payload';
 // Cuándo se descarta el «calificado»: puro y compartido con la ficha y con el
 // canal de MaKo, para que los tres apliquen la MISMA regla.
@@ -53,7 +54,7 @@ import { DEFAULT_PIPELINE, generateFunnel, terminalEstadoFor, NUTRI_KEYS, derive
 // recorrido de ESE lead.
 import { getPipelineStagesDeLead, idDelFunnelDefault } from './funnels';
 import { AUTOR_SISTEMA, CAMPO_ETAPA, cambioDeEtapa, marcarEtapaVista } from './etapa-historial';
-import { stepsForStage, funnelReqInfo, type Step } from './stage-requirements';
+import { stepsForStage, funnelReqInfo, pasosResueltos, type Step, type StageReqValues } from './stage-requirements';
 import type { VentaTipo } from './venta-tipo';
 // La etapa de ORIGEN de un movimiento se deriva con la MISMA función que usa la
 // ficha (override chequeado contra el funnel vigente): con el override crudo, el
@@ -118,6 +119,13 @@ export type Lead = {
   ingreso_estimado?: number | null;
   /** Usuario de Instagram SIN la @ (mig 0258, punto 28). La foto del perfil no se guarda: vence. */
   instagram?: string | null;
+  /** Lo que el Resumen personalizable puede mostrar (mig 0274, 14/10/2026). */
+  youtube?: string | null;
+  linkedin?: string | null;
+  direccion?: string | null;
+  sexo?: 'mujer' | 'hombre' | 'otro' | null;
+  /** Lo que contestó en el formulario de la landing ([{ pregunta, respuesta }], lib/optin-respuestas.ts). */
+  optin_respuestas?: unknown;
   /** La cara que ELIGIÓ una persona (mig 0173/0174), desde la ficha del cliente. Gana sobre
    *  la foto automática (WhatsApp / Gravatar), que se calcula al leer y nunca se escribe acá. */
   avatar_url?: string | null;
@@ -247,6 +255,7 @@ export type Lead = {
   comprobante_omitido?: boolean | null;      // no se suben los comprobantes de pago
   empresa_omitido?: boolean | null;          // "Empresa" ignorada: no cuenta en el worklist del CRM
   pendientes_ignorados?: string | null;      // "Datos sin marcar" ignorados a nivel lead (mig 0109): no notifican ni cuentan; timestamp de cuándo se ignoró
+  datos_ignorados?: string[] | null;         // los datos sin marcar ignorados UNO POR UNO (mig 0270): ids de paso (StepId); no avisan, siguen faltando
   r2_agenda_externa_motivo?: string | null;  // la R2 se agendó fuera de Calendly (motivo) → satisface respuestas R2
 
   // Contrato subido (migración 0029): archivo en Storage + nombre original.
@@ -306,6 +315,8 @@ export type LeadCreateInput = {
    * del alta (app/crm/new/InstagramBuscador.tsx) y llega normalizado por `usuarioInstagram`.
    */
   instagram?: string | null;
+  /** Lo que contestó en el formulario de la landing (mig 0274), ya saneado por `respuestasDelOptin`. */
+  optin_respuestas?: Array<{ pregunta: string; respuesta: string }> | null;
 };
 
 export type LeadUpdateInput = {
@@ -891,6 +902,8 @@ export async function createLead(input: LeadCreateInput & { permitirDuplicado?: 
       // la mig 0258 aplicada, un alta sin Instagram tiene que seguir entrando; con Instagram,
       // el error dice qué columna falta en vez de perder el lead en silencio.
       ...(input.instagram?.trim() ? { instagram: input.instagram.trim() } : {}),
+      // Igual que Instagram: SÓLO SI VINO, así un alta sin respuestas entra sin la mig 0274.
+      ...(input.optin_respuestas?.length ? { optin_respuestas: input.optin_respuestas } : {}),
       ...(solo ? { setter: solo, closer: solo } : {}),
     })
     .select('*')
@@ -1585,7 +1598,11 @@ export async function applyFathomRecording(
 }
 
 // ── Audit log (historial real de cambios por lead) ──────────────────────────
-export type LeadAuditRow = { id: number; campo: string; valor_anterior: string | null; valor_nuevo: string | null; autor: string; created_at: string };
+export type LeadAuditRow = {
+  id: number; campo: string; valor_anterior: string | null; valor_nuevo: string | null; autor: string; created_at: string;
+  /** El adjunto de una NOTA (mig 0267). La ruta del bucket NO viaja: se abre por el id de la nota. */
+  archivo_nombre?: string | null; archivo_mime?: string | null; archivo_bytes?: number | null;
+};
 
 // OJO: 'pipeline_stage' NO está en esta lista. La etapa se audita aparte (campo
 // 'Etapa', ver más abajo) porque lo que le importa al usuario es la etapa
@@ -1602,6 +1619,11 @@ const AUDIT_FIELDS: Array<{ k: keyof Lead; label: string }> = [
   // dos switch de revertir.
   { k: 'ingreso_estimado', label: 'Ingreso estimado' },
   { k: 'instagram', label: 'Instagram' },
+  // Los del Resumen personalizable (mig 0274). Revertibles por los mismos dos switch.
+  { k: 'youtube', label: 'YouTube' },
+  { k: 'linkedin', label: 'LinkedIn' },
+  { k: 'direccion', label: 'Dirección' },
+  { k: 'sexo', label: 'Sexo' },
   { k: 'estado_lead', label: 'Estado' },
   { k: 'fecha_agenda', label: 'Fecha de agendamiento' },
   { k: 'asistio_j1', label: 'Asistió R1' },
@@ -1725,7 +1747,7 @@ export async function getLeadAudit(leadId: number): Promise<LeadAuditRow[]> {
   try {
     const { data, error } = await (await getTenantDb())
       .from('lead_audit')
-      .select('id, campo, valor_anterior, valor_nuevo, autor, created_at')
+      .select('id, campo, valor_anterior, valor_nuevo, autor, created_at, archivo_nombre, archivo_mime, archivo_bytes')
       .eq('lead_id', leadId)
       .order('created_at', { ascending: false })
       .limit(100);
@@ -1993,8 +2015,8 @@ export async function upsertLeadFromCalendly(
       const antes = pipelineStageOf(existing);
       const despues = pipelineStageOf(data as Lead);
       if (antes !== despues) await espejarEtiquetasDeEtapa(existing.id, existing.funnel_id ?? null, antes, despues);
-      // La etapa que la reserva limpió (M6), al historial: campo 'Etapa', firmada por MaKo, con la de antes.
-      if ('pipeline_stage' in updatePayload && antes !== despues) await auditarEtapaDeLaReserva(existing.id, antes, data as Lead);
+      // La etapa que la reserva limpió (M6), al historial: campo 'Etapa', firmada por la agenda, con la de antes.
+      if ('pipeline_stage' in updatePayload && antes !== despues) await auditarEtapaDeLaReserva(existing.id, antes, data as Lead, input.origen_lead === 'calcom' ? 'Cal.com' : 'Calendly');
     }
     return { created: false, lead: data as Lead };
   }
@@ -2071,6 +2093,18 @@ export function diasDesdeJ1(fechaJ1: string | null, hoy: Date = new Date()): num
  * J1 futura → "faltan X días para J1"; J1 pasada → "X días desde J1".
  * @returns null si no hay J1.
  */
+/**
+ * La cohorte que dibuja la ficha del lead («Madura · 48 días desde R1»), o null sin R1. UNA función
+ * para las dos puertas de la ficha: la ruta /crm/[id] y el panel del tablero (LeadSheet, que la
+ * recibe resuelta de getLeadFullAction porque es 'use client' y no puede importar este archivo).
+ * Hasta el 13/10/2026 sólo la calculaba la ruta, y el panel no la mostraba.
+ */
+export function cohorteDeLead(lead: Lead, hoy: Date = new Date()): { label: string; color: string; texto: string | null } | null {
+  if (!lead.fecha_junta_1) return null;
+  const { label, color } = labelMadurez(estadoMadurezLead(lead));
+  return { label, color, texto: textoCohorteJ1(lead.fecha_junta_1, hoy) };
+}
+
 export function textoCohorteJ1(fechaJ1: string | null, hoy: Date = new Date()): string | null {
   const dias = diasDesdeJ1(fechaJ1, hoy);
   if (dias === null) return null;
@@ -2808,6 +2842,11 @@ export async function setPipelineStage(
   // la etapa que SE VEÍA antes del movimiento, como el resto de esta función.
   if (antes && pipelineStageOf(antes) !== stageKey) {
     await espejarEtiquetasDeEtapa(id, antes.funnel_id ?? null, pipelineStageOf(antes), stageKey, autor);
+    // Y la automatización de la etapa a la que llegó, como `setBoardStageOverride` (14/10/2026, inventario de
+    // Automations): el kanban, el ⚡ y las confirmaciones mueven por ACÁ, y su CRON esperaba al barrido de la hora.
+    // Contra la etapa que SE VEÍA (moverlo a la misma no vuelve a inscribir), y `enrolarPorEvento` no duplica una
+    // inscripción viva. Nunca tira: el movimiento ya se escribió.
+    await enrolarPorEtapaDerivada(id, stageKey, antes.funnel_id ?? null);
   }
 }
 
@@ -2885,6 +2924,11 @@ export type LeadMetaInput = {
   ingreso_estimado?: number | null;
   /** Usuario de Instagram sin la @ (mig 0258). Llega ya normalizado por `valorDeCampo`. */
   instagram?: string | null;
+  /** Los del Resumen personalizable (mig 0274). Se sanean en `saveLeadMeta`. */
+  youtube?: string | null;
+  linkedin?: string | null;
+  direccion?: string | null;
+  sexo?: string | null;
 };
 
 /** Lo que `setBoardStageOverride` lee del lead ANTES de escribir: su etapa y su producto, y lo que
@@ -2909,15 +2953,16 @@ const COLS_ETAPA_PREVIA = 'pipeline_stage, funnel_id, estado_lead, fecha_agenda,
  */
 /**
  * El rastro de la etapa que LIMPIÓ una reserva (undécima tanda, M6): una línea 'Etapa' del historial, firmada por
- * MaKo, con la etapa de antes y la de ahora. La misma forma que `logLeadChanges` y el mismo `etapa_vista` (así la
+ * la AGENDA que la hizo (Calendly o Cal.com), con la etapa de antes y la de ahora. Hasta el 14/10/2026 la firmaba
+ * MaKo, y ese «MaKo lo movió» desvió un diagnóstico: el que movió fue la reserva. La misma forma que `logLeadChanges` y el mismo `etapa_vista` (así la
  * pasada de los pendientes no la vuelve a escribir). Nunca tira: la reserva ya entró.
  */
-async function auditarEtapaDeLaReserva(leadId: number, antes: string, despues: Lead): Promise<void> {
+async function auditarEtapaDeLaReserva(leadId: number, antes: string, despues: Lead, autor: string): Promise<void> {
   try {
     const cambio = cambioDeEtapa(despues, antes);
     if (!cambio) return;
     const { error } = await (await getTenantDb()).from('lead_audit')
-      .insert([{ lead_id: leadId, campo: CAMPO_ETAPA, valor_anterior: cambio.desde, valor_nuevo: cambio.hacia, autor: AUTOR_SISTEMA }]);
+      .insert([{ lead_id: leadId, campo: CAMPO_ETAPA, valor_anterior: cambio.desde, valor_nuevo: cambio.hacia, autor }]);
     if (error) { console.error(`[leads] el historial de la etapa que limpió la reserva del lead ${leadId}: ${error.message}`); return; }
     await marcarEtapaVista([leadId], cambio.hacia);
   } catch (e) {
@@ -2927,7 +2972,8 @@ async function auditarEtapaDeLaReserva(leadId: number, antes: string, despues: L
 
 /**
  * Inscribe al lead en las automatizaciones de la etapa a la que acaba de llegar por DERIVACIÓN (undécima tanda,
- * M1-b): el MISMO evento que el movimiento explícito (`setBoardStageOverride` → `enrolarPorEvento('etapa')`). Import
+ * M1-b): el MISMO evento que el movimiento explícito (`setBoardStageOverride` → `enrolarPorEvento('etapa')`). Desde
+ * el 14/10/2026 también lo usa `setPipelineStage`, que hasta ese día no inscribía. Import
  * dinámico (lib/nutricion.ts importa este módulo) y nunca tira: el guardado del lead no puede fallar por la
  * nutrición; lo que no entre, lo levanta el barrido de la hora.
  */
@@ -3034,6 +3080,15 @@ export async function saveLeadMeta(id: number, meta: LeadMetaInput): Promise<voi
   if (meta.web !== undefined) payload.web = meta.web;
   if (meta.ingreso_estimado !== undefined) payload.ingreso_estimado = meta.ingreso_estimado;
   if (meta.instagram !== undefined) payload.instagram = meta.instagram;
+  // ⚠️ VIENEN DEL NAVEGADOR (`saveLeadMetaAction` es una server action): se recortan, y el sexo
+  // sólo acepta los tres valores del check de la mig 0274 — otro valor rechazaría el update entero.
+  for (const k of ['youtube', 'linkedin', 'direccion'] as const) {
+    if (meta[k] !== undefined) payload[k] = String(meta[k] ?? '').trim().slice(0, 300) || null;
+  }
+  if (meta.sexo !== undefined) {
+    if (meta.sexo !== null && meta.sexo !== '' && !esSexo(meta.sexo)) throw new Error('Ese sexo no es una opción.');
+    payload.sexo = meta.sexo || null;
+  }
   if (meta.telefono !== undefined) { payload.telefono = meta.telefono; payload.telefono_normalizado = normalizarTelefono(meta.telefono); }
   if (Object.keys(payload).length === 0) return;
   // Una FECHA DE REUNIÓN cargada acá cambia la etapa derivada como en `updateLead` (M1-b): se lee la etapa de antes
@@ -3060,8 +3115,25 @@ export async function saveLeadMeta(id: number, meta: LeadMetaInput): Promise<voi
 export function faltantesDeLead(
   lead: Lead,
   tienePlan?: boolean,
-  extra?: { comprobantesFaltantes?: number; r2RespuestasOk?: boolean; pipeline?: Stage[]; grabable?: boolean },
+  extra?: ExtraRequisitos,
 ): Step[] {
+  const { stage, v } = requisitosDeLead(lead, tienePlan, extra);
+  return stepsForStage(stage, v);
+}
+
+/**
+ * Lo que la etapa del lead pide y YA está cargado (los «resueltos» del desplegable de la ficha).
+ * Sale de los MISMOS valores que `faltantesDeLead` y de la misma regla (`pasosResueltos`).
+ */
+export function resueltosDeLead(lead: Lead, tienePlan?: boolean, extra?: ExtraRequisitos): Step[] {
+  const { stage, v } = requisitosDeLead(lead, tienePlan, extra);
+  return pasosResueltos(stage, v);
+}
+
+type ExtraRequisitos = { comprobantesFaltantes?: number; r2RespuestasOk?: boolean; pipeline?: Stage[]; grabable?: boolean };
+
+/** La etapa vigente del lead y los valores con que se evalúan sus requisitos. UNA sola vez. */
+function requisitosDeLead(lead: Lead, tienePlan?: boolean, extra?: ExtraRequisitos): { stage: string; v: StageReqValues } {
   // El override manual (pipeline_stage) vale SOLO si esa etapa sigue existiendo en
   // el funnel del workspace; si no, se deriva del estado del lead — la misma regla
   // que usa el board (crm-map). Sin este chequeo, un lead parado en una etapa que
@@ -3080,7 +3152,7 @@ export function faltantesDeLead(
   // Un lead en NUTRICIÓN (no agendó / se enfrió / manual) es un contacto frío: no
   // tiene sentido exigirle "Empresa" como dato sin marcar. undefined → se saltea.
   const enNutricion = NUTRI_KEYS.includes(stage);
-  return stepsForStage(stage, {
+  return { stage, v: {
     fechaJ1: lead.fecha_junta_1,
     asistioJ1: lead.asistio_j1,
     calificado: lead.calificado,
@@ -3126,7 +3198,7 @@ export function faltantesDeLead(
     nivel: info?.nivel,
     numReuniones: info?.numReuniones,
     esVenta: info?.esVenta,
-  });
+  } };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

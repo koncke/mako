@@ -22,6 +22,63 @@ en [corridas-multiagente.md](corridas-multiagente.md).
 
 ## Lo que más muerde acá
 
+### La noche del 13/10/2026: datos sin marcar v2, el nombre del CRM y la grabación (chat CRM, `claude2`)
+
+**La grabación «cargando eternamente» no era el servidor.** El diagnóstico obvio —un cuerpo
+grande o Storage lento— era el equivocado: las 12 últimas sesiones pesan 50-100 KB y bajan en
+~2 s. Envolviendo el `requestAnimationFrame` en producción se vio que el montaje corría 4 ms
+después de pedirlo, ANTES de que React dibujara el recuadro de «listo», y un `if (!nodo) return`
+mudo lo dejaba vacío para siempre. La regla: **algo que necesita un nodo que el render de un
+`setState` va a crear no se agenda a ciegas en un rAF: se engancha con un ref de callback** (monta el
+que llega segundo). **Vive en:** `app/crm/lead-view/GrabacionModal.tsx` · `tests/grabacion-montaje.test.ts`
+
+**Renombrar el CRM renombraba el curso** porque `nombreVisible` mostraba el nombre del PRODUCTO, y
+para que el renombre «se viera» `renombrarFunnel` escribía `productos.nombre` — el mismo campo con
+que se titula el curso. Desacoplar es dos cosas a la vez: el CRM se muestra con `funnels.nombre`
+(salvo «Funnel principal») y una migración le copia a cada embudo el nombre que mostraba (0269, eran
+2 de 21), o el CRM de un cliente cambia de nombre solo. **Vive en:** `lib/lead-funnel-reglas.ts` ·
+`lib/funnels.ts` · `supabase/migrations/0269_funnel_nombre_propio.sql`
+
+**Ignorado, sin aviso y resuelto son tres cosas, y ninguna cambia lo que exige mover de etapa.**
+Ignorado = una persona sobre un dato de un lead (`leads.datos_ignorados`, 0270); sin aviso = el
+negocio sobre un tipo de dato (`crm.datos_aviso.apagados`, se guarda lo APAGADO para que un tipo
+nuevo avise a todos); resuelto = la etapa lo pide y está. **Lo resuelto sale de `stepsForStage`
+vaciando un dato por vez** (`pasosResueltos`), no de una lista aparte: una lista de «requisitos de
+cada etapa» diría «✓ Link de Fathom» sobre alguien que no vino. Si la config no se puede leer, no se
+apaga nada (avisar de más se nota). La asistencia a una reunión pasada no se ignora ni se apaga.
+**Vive en:** `lib/datos-aviso.ts` · `lib/stage-requirements.ts` · `lib/datos-aviso-config.ts` · `lib/queries.ts`
+
+**Un test que corta una función por su firma se rompe con un refactor que no cambia nada.**
+`tests/pendientes-columnas.test.ts` y `tests/venta-sin-cobro.test.ts` buscaban los campos del lead
+en el cuerpo de `export function faltantesDeLead`; al mudar esa lectura a `requisitosDeLead` (para que
+faltan y resueltos compartan los valores) los dos dieron rojo con el código bien. Se movieron a la
+función que LEE el lead.
+
+**Una oferta creada fuera de Offer que no se liga a un CRM no existe para Offer**, y el link que la
+nombra no falla: abre la conversación más reciente de OTRA oferta. El árbol de Offer sale de
+`funnel_ofertas` (`construirArbol`), no de la tabla `ofertas`. Por eso «Nueva oferta» de la ficha del
+lead llama a `ligarOfertaAFunnel` con el CRM del lead (o el del negocio), y `/offer?oferta=` sólo
+abre una que esté en el árbol (`entradaDelLink` → null si no). Y `leads.oferta_id` es una FK que mira
+que la oferta EXISTA, no que sea del workspace: se valida contra `listarOfertas()`.
+**Vive en:** `app/crm/oferta-lead-actions.ts` · `app/offer/arbol.ts` · `tests/oferta-del-lead.test.ts`
+
+**Lo que la persona contestaba en la landing no quedaba en ningún lado.** El opt-in sanea
+`body.respuestas` (zona, presupuesto, «comprar o rentar») y lo mandaba en el WhatsApp del aviso; el
+lead nacía sin eso, y la propuesta (el camino del duplicado) tampoco lo llevaba. Desde la 0274 va a
+`leads.optin_respuestas` por los DOS caminos: el alta directa (`createLead`) y la propuesta, que
+escribe quien confirma (`atribucionDePropuesta`). Un campo que entra por uno solo se apaga solo.
+**Vive en:** `app/api/track/optin/route.ts` · `lib/optin-respuestas.ts` · `app/crm/revisar/[id]/propuesta-lead.ts`
+
+**«Dirección» se había sacado el 06/10 y volvió el 13/10, y las dos decisiones valen.** El 06/10 Martín
+la sacó del Resumen («eso no importa»); el 13/10 la nombró entre lo que «otros» negocios quieren ver.
+No es una contradicción: lo nuevo es que se elige por negocio. Gana lo más nuevo, y lo viejo queda
+como el DEFAULT (apagada). Por eso el Resumen guarda sólo lo que alguien ELIGIÓ y lo demás toma su
+`porDefecto`: un dato nuevo del catálogo nace con su default en todos los negocios, y lo que ya se
+veía antes de esto sigue viéndose. `tests/ficha-lead-06-10.test.ts` se cambió a propósito.
+**Vive en:** `lib/resumen-ficha.ts` · `app/crm/lead-view/InfoPrincipalCard.tsx`
+
+**Lo que quedó sin hacer**, con el archivo: ver `docs/relevo/crm.md` §0-Ω.
+
 ## Configurar el funnel: qué es seguro tocar y qué no
 
 ### ⚠️ Renombrar una etapa es seguro; el `kind` y el ORDEN no, y el editor los deja como sea
@@ -8440,3 +8497,33 @@ cuotas siguientes.
 `app/crm/[id]/deal-actions.ts` · `app/crm/[id]/DealDetailsCard.tsx` (`PayModal`, `PagoSueltoModal`) ·
 `lib/api-mako/areas/crm.*` · `tests/pagos-diferencia.test.ts` ·
 *13/10/2026, claude2*
+
+## Lo frenado por la cuota, cerrado el 13/10: tres trampas que el código no cuenta (13/10/2026)
+
+**Vive en:** `app/crm/revisar/[id]/acciones.ts` · `tests/mover-etapa-validacion.test.ts` ·
+`app/components/Dropdown.tsx` · `app/crm/lead-view/NotasCard.tsx` · mig 0267
+
+- ⚠️ **Un comentario que promete una garantía no es la garantía.** `confirmarLeadsAction` decía
+  que «dos pestañas o un doble click crean UN solo lote», y marcaba la propuesta DESPUÉS de
+  crear. Las dos pestañas pasaban el chequeo de `pendiente` y las dos creaban. Lo que evitaba
+  el duplicado era el dedup del importador, que es otra pieza y puede cambiar. **La regla: lo
+  que tiene que pasar UNA vez se reclama ANTES de hacerlo** (`marcarAplicada({ en_curso })`,
+  el molde de `lib/api-mako/acciones.ts`). Si no escribió nada, se suelta.
+- ⚠️ **Un test que lee N caracteres fijos desde un ancla se rompe cuando alguien agrega código
+  en el medio, con el comportamiento intacto.** El rojo de main en «CABLEADO: la opción del
+  modal de confirmaciones…» era eso: el commit de MaKo Mobile metió el reclamo de la
+  confirmación, y `requisitos: 'validar'` quedó afuera de la ventana. Se ancla a la RAMA
+  (`} else if (op) {` hasta el `} else {` siguiente), no a un largo.
+- ⚠️ **En un desplegable, «crear» es una acción, no un dato de la lista.** El buscador aparece
+  pasadas las 7 opciones y filtraba también «＋ Nueva» por su título, así que escribir el nombre
+  de una etiqueta que no existe la escondía justo cuando hace falta. El arreglo va en el
+  primitive (`coincide`), para todos los desplegables.
+- **El adjunto de una nota** tiene el molde de las notas del curso (mig 0208): el navegador
+  sube directo con una URL firmada, el alta comprueba que llegó, y se abre por el id de la nota.
+  La ruta del bucket no viaja a la pantalla. Verificado contra producción en ws3: un `.exe`
+  rebota con 400 en el bucket, no sólo en la pantalla.
+
+**Lo que quedó SIN hacer:** está en `docs/relevo/crm.md` §0-α (el espejo de etiquetas por
+nombre y los dos textos contradictorios al borrar una etapa, entre otros).
+
+_13/10/2026, cuenta 2, sin subagentes._

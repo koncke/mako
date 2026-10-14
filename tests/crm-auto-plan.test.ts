@@ -69,6 +69,14 @@ test('T1 — precisión por HORA (junta_1_at): 3 h exactas', () => {
   assert.deepEqual(reglas(AL({ junta_1_at: '2026-07-05T18:00:00Z', fecha_junta_1: '2026-07-05' })), []);
 });
 
+test('T1 — una R1 CANCELADA no es una R1 sin marcar (14/10/2026)', () => {
+  // Cancelarla borra la fecha y deja la hora (cancelarJuntaEnLead). Con la hora pasada, T1 proponía No Show.
+  // Probado rompiéndolo: sin `!r1Cancelada`, este test da 1 fallo.
+  assert.deepEqual(reglas(AL({ junta_1_at: '2026-07-05T15:00:00Z', fecha_junta_1: null, fecha_agenda: '2026-07-01' })), []);
+  // Un lead viejo sin hora, sólo con la fecha en que agendó, sigue entrando.
+  assert.deepEqual(reglas(AL({ fecha_junta_1: null, fecha_agenda: '2026-07-03' })), ['T1']);
+});
+
 test('T1 — R2: solo tras asistir R1 y con R2 pasada', () => {
   const acc = planLeadAuto(AL({ asistio_j1: true, fecha_junta_2: '2026-07-03' }), HOY, NOW);
   assert.equal(acc.length, 1);

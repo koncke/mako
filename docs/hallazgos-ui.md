@@ -14,6 +14,14 @@ están arregladas. El registro de corridas está en [corridas-multiagente.md](co
 
 ## Lo que más muerde acá
 
+- **«No se autoguarda» no era el campo: era el MODAL** (14/10/2026). Los campos de la ficha del lead
+  guardan en `blur`, y medido en producción guardaban bien al salir. Lo que perdía lo escrito era
+  cerrar el modal con un clic en el fondo: `Modal` cerraba en el `mousedown` y desmontaba el campo
+  ANTES de que el navegador le mandara el `blur`. Ahora el fondo saca el foco del campo de adentro
+  primero y recién después cierra. Un campo nuevo que guarde en `blur` adentro de un `Modal` lo
+  hereda; uno que guarde en otro evento (un `onChange` con debounce) tiene que vaciar su respiro al
+  desmontar. **Vive en:** `app/_ui/Modal.tsx` · `tests/modal-guarda-al-cerrar.test.ts`
+
 - **«Cards are the lazy container» prohíbe la PILA de sub-tarjetas iguales adentro de una
   sección, no la sección.** Citado sin ese contexto dejó a `/general` como la única pantalla
   del producto sin una sola superficie —medido: `/comercial` 8 bloques con `var(--surface)` +

@@ -229,9 +229,16 @@ test('CABLEADO: el desenlace de nutrición no mueve por su cuenta', () => {
 
 test('CABLEADO: la opción del modal de confirmaciones valida y siempre lleva motivo', () => {
   const src = leer('../lib/mako-confirmaciones.ts');
-  const i = src.indexOf("decision.startsWith('op:')");
-  assert.notEqual(i, -1);
-  const rama = src.slice(i, i + 1400);
+  // ⚠️ LA RAMA DE LA OPCIÓN, NO UNA VENTANA DE CARACTERES. Hasta el 13/10 esto leía 1.400
+  // caracteres desde la primera `decision.startsWith('op:')`, que es la BÚSQUEDA de la opción:
+  // el commit de MaKo Mobile (ef8626ce) metió en el medio el reclamo de la confirmación y la
+  // llamada quedó afuera de la ventana. El test dio rojo con el código validando bien.
+  // Probado rompiéndolo (13/10): sacar `requisitos: 'validar'` de la rama → 15 pases / 1 fallo.
+  assert.notEqual(src.indexOf("decision.startsWith('op:')"), -1);
+  const i = src.indexOf('} else if (op) {');
+  assert.notEqual(i, -1, 'no encontré la rama de la opción elegida');
+  const fin = src.indexOf('} else {', i);
+  const rama = src.slice(i, fin > i ? fin : undefined);
   assert.ok(rama.includes("requisitos: 'validar'"), 'la opción volvió a mover sin validar');
   assert.ok(
     !/setPipelineStage\(c\.lead_id, op\.stage, \{ motivo: op\.motivo \?\? null \}\)/.test(src),

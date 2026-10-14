@@ -31,6 +31,19 @@ import { splitTelefono, unirTelefono } from '@/lib/paises';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
+/** La fecha de una reunión y su hora, opcional (14/10/2026: «si se mueve a mano, se pregunte la hora»). */
+function FechaYHora({ fecha, onFecha, hora, onHora, reunion }: { fecha: string; onFecha: (v: string) => void; hora: string; onHora: (v: string) => void; reunion: string }) {
+  return (
+    <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+      <input type="date" value={fecha} onChange={(e) => onFecha(e.target.value)} autoFocus aria-label={`Fecha de la ${reunion}`} style={{ ...compInput, maxWidth: 200 }} />
+      <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, color: 'var(--dim)', textAlign: 'left' }}>
+        Hora (opcional)
+        <input type="time" value={hora} onChange={(e) => onHora(e.target.value)} aria-label={`Hora de la ${reunion}`} style={{ ...compInput, maxWidth: 140 }} />
+      </label>
+    </div>
+  );
+}
+
 const compInput: CSSProperties = { width: '100%', padding: '12px 15px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 15, outline: 'none', textAlign: 'center' };
 
 /** Botón de opción del wizard (elegido = tinta llena). Para pasos de una elección. */
@@ -198,6 +211,9 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
   const [motivoNoR2, setMotivoNoR2] = useState('');
   const [fechaJ1, setFechaJ1] = useState(lead.fechaJ1 ?? '');
   const [fechaJ2, setFechaJ2] = useState(lead.fechaJ2 ?? '');
+  // La hora, opcional (14/10/2026): la convierte el server con la zona del negocio.
+  const [horaJ1, setHoraJ1] = useState('');
+  const [horaJ2, setHoraJ2] = useState('');
   const [asistioJ1, setAsistioJ1] = useState<boolean | null>(move.asistioJ1 ?? lead.asistioJ1);
   const [asistioJ2, setAsistioJ2] = useState<boolean | null>(move.asistioJ2 ?? lead.asistioJ2);
   const [calificado, setCalificado] = useState<boolean | null>(move.yaRespondido?.calificado ?? lead.calificado);
@@ -595,11 +611,11 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
           // deja la asistencia SIN marcar (todavía no pasó), así el lead vuelve a
           // quedar pendiente recién para la fecha nueva.
           ...(reprogR1 ? { fechaJ1: reprogR1, asistioJ1: null } : {
-            ...(pide('fechaJ1') && huboR1 !== false ? { fechaJ1: fechaJ1 || null } : {}),
+            ...(pide('fechaJ1') && huboR1 !== false ? { fechaJ1: fechaJ1 || null, horaJ1: horaJ1 || null } : {}),
             ...(pide('asistenciaR1') ? { asistioJ1 } : { asistioJ1: move.asistioJ1 }),
           }),
           ...(reprogR2 ? { fechaJ2: reprogR2, asistioJ2: null } : {
-            ...(pide('fechaJ2') && huboR2 !== false ? { fechaJ2: fechaJ2 || null } : {}),
+            ...(pide('fechaJ2') && huboR2 !== false ? { fechaJ2: fechaJ2 || null, horaJ2: horaJ2 || null } : {}),
             ...(pide('asistenciaR2') ? { asistioJ2 } : { asistioJ2: move.asistioJ2 }),
           }),
           ...(pide('calificado') ? { calificado } : (to === 'ganado' ? { calificado: true } : {})),
@@ -866,11 +882,11 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       break;
     case 'fechaJ1':
       pregunta = '¿Cuándo es (o fue) la Reunión 1?';
-      cuerpo = <input type="date" value={fechaJ1} onChange={(e) => setFechaJ1(e.target.value)} autoFocus style={{ ...compInput, maxWidth: 260, margin: '0 auto', display: 'block' }} />;
+      cuerpo = <FechaYHora fecha={fechaJ1} onFecha={setFechaJ1} hora={horaJ1} onHora={setHoraJ1} reunion="Reunión 1" />;
       break;
     case 'fechaJ2':
       pregunta = '¿Cuándo es (o fue) la Reunión 2?';
-      cuerpo = <input type="date" value={fechaJ2} onChange={(e) => setFechaJ2(e.target.value)} autoFocus style={{ ...compInput, maxWidth: 260, margin: '0 auto', display: 'block' }} />;
+      cuerpo = <FechaYHora fecha={fechaJ2} onFecha={setFechaJ2} hora={horaJ2} onHora={setHoraJ2} reunion="Reunión 2" />;
       break;
     // Asistencia con TRES salidas. La reunión que ya pasó y sigue sin resolver es
     // el pendiente que no se puede ignorar, así que el form tiene que ofrecer la

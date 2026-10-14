@@ -112,10 +112,15 @@ test('la cabecera: portada y foto con las piezas de la casa, y el nombre se edit
   assert.match(CAB, /<EditableInline[\s\S]*?onGuardar=\{guardarNombre\}/);
   assert.match(CAB, /await saveLeadMetaAction\(lead\.id, \{ nombre: nuevo \}\);/);
   assert.match(CAB, /if \(!nuevo\) \{ setVuelta/, 'un nombre vacío no se guarda');
-  // Las etiquetas arriba del nombre: van en el `kicker`, desde las dos puertas.
+  // Las etiquetas AL LADO del nombre, compactas («+N»), desde las dos puertas (13/10/2026: «poniendo
+  // la opción de etiquetas al lado del título, y si tienen más de una etiqueta que aparezca como
+  // "+2" y un desplegable»). Antes iban arriba, en el `kicker` (punto 9 del 12/10).
+  // Probado rompiéndolo: devolverlas al `kicker` en el pop-up, 1 fallo.
   for (const src of [SHEET, BODY]) {
-    assert.match(src, /kicker=\{<EtiquetasDelLead leadId=\{lead\.id\}/, 'las etiquetas no van arriba del nombre');
+    assert.match(src, /junto=\{<EtiquetasDelLead compacto leadId=\{lead\.id\}/, 'las etiquetas no van al lado del nombre');
+    assert.doesNotMatch(src, /kicker=\{<EtiquetasDelLead/, 'volvió el renglón de etiquetas arriba del nombre');
   }
+  assert.match(CAB, /\{junto != null && <span className="cl-junto">\{junto\}<\/span>\}/);
 });
 
 test('la action de la cara: la puerta del CRM, el workspace de la sesión y el mismo saneo que Customer Success', () => {
@@ -142,8 +147,12 @@ test('el pop-up: la cruz va sobre la portada, el pie no tiene «Cerrar» y «Bor
   assert.doesNotMatch(SHEET, />Cerrar<\/button>/, 'volvió el «Cerrar» del pie');
   assert.match(SHEET, /<BotonBorrar texto="Borrar lead"/);
   assert.match(BODY, /<BotonBorrar texto="Borrar lead"/);
-  // La ruta no tiene cruz: es una pantalla, se vuelve con «Volver».
-  assert.doesNotMatch(BODY, /onCerrar=/);
+  // La ruta no tiene cruz: es una pantalla, se vuelve con «Volver». (Desde el 13/10/2026 la ruta
+  // monta el señalador y el modal de avisos, que sí se cierran: lo que se mira es la CABECERA.)
+  const iCab = BODY.indexOf('<CabeceraLead');
+  const cab = BODY.slice(iCab, BODY.indexOf('\n      />', iCab));
+  assert.ok(iCab > 0 && cab.length > 100, 'no encontré la cabecera de la ruta');
+  assert.doesNotMatch(cab, /onCerrar=/);
 });
 
 // ── 14 y 16 · Ancho y pestañas pegadas ─────────────────────────────────────────

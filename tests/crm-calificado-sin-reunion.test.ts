@@ -94,19 +94,24 @@ test('updateLead ya no exige reunión para el calificado', () => {
     'el borrado usa la regla compartida');
 });
 
-// ── 3 · El control está en Tracking, por las DOS puertas ─────────────────────
+// ── 3 · El control está en RESUMEN, por las DOS puertas ──────────────────────
+// Desde el 13/10/2026 (Martín: «quiero que en esta tab se configure la opción de "¿Era
+// cualificado?" para alimentar a CAPI... Que no esté más en tracking»). Probado rompiéndolo:
+// devolverla a Tracking en el pop-up, 6 / 1.
 
-test('la pestaña Tracking ofrece marcar calificado en los dos montajes', () => {
+test('Resumen ofrece marcar calificado en los dos montajes, y Tracking ya no', () => {
   for (const [ruta, cual] of MONTAJES) {
     const f = leer(ruta);
-    assert.ok(/<CalificacionCard lead=\{lead\} \/>/.test(f), `${cual}: falta el control de calificación`);
-    // El orden que pidió Martín para esta pestaña se respeta: Origen va primero y
-    // Comportamiento después, con la calificación entre los dos (es el par de Meta).
-    const iOrigen = f.indexOf('<OrigenCard');
+    assert.equal((f.match(/<CalificacionCard lead=\{lead\} \/>/g) ?? []).length, 1, `${cual}: el control de calificación va UNA vez`);
+    // En Resumen: entre la información principal y las respuestas del formulario.
+    const iInfo = f.indexOf('<InfoPrincipalCard');
     const iCal = f.indexOf('<CalificacionCard');
+    const iResp = f.indexOf('<RespuestasFormulario');
+    assert.ok(iInfo >= 0 && iCal > iInfo && iResp > iCal, `${cual}: «¿Era calificado?» no está en Resumen`);
+    // Y fuera de Tracking: entre Origen y Comportamiento no queda nada.
+    const iOrigen = f.indexOf('<OrigenCard');
     const iComp = f.indexOf('<ComportamientoCard');
-    assert.ok(iOrigen >= 0 && iCal > iOrigen, `${cual}: «Origen del lead» va primero`);
-    assert.ok(iComp > iCal, `${cual}: «Comportamiento» va después`);
+    assert.ok(iOrigen >= 0 && iComp > iOrigen && !f.slice(iOrigen, iComp).includes('CalificacionCard'), `${cual}: sigue en Tracking`);
   }
 });
 

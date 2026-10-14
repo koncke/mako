@@ -717,7 +717,11 @@ export function Dropdown({
   // resultados sobre una lista de 42 (medido en el navegador el 04/10/2026). No se mira
   // el `value` de toda opción a propósito: en una lista de personas o de ids eso haría
   // matchear números sueltos sin que nadie lo pida.
-  const coincide = (o: DropdownOption) => !q.trim() || norm(`${o.label} ${o.sub ?? ''} ${o.buscar ?? ''}`).includes(norm(q.trim()));
+  // ⚠️ «CREAR» NO SE FILTRA: es una acción, no un dato de la lista. Filtrado por su título
+  // («Nueva»), escribir en el buscador lo escondía, y el buscador aparece pasadas las 7: el
+  // desplegable de etiquetas con 8 o más no dejaba crear una justo cuando uno escribe la que no
+  // está (docs/relevo/crm.md, 12/10/2026). Lo fija tests/dropdown-crear-visible.test.ts.
+  const coincide = (o: DropdownOption) => !!o.crear || !q.trim() || norm(`${o.label} ${o.sub ?? ''} ${o.buscar ?? ''}`).includes(norm(q.trim()));
   const optsVisibles = (options ?? []).filter(coincide);
   const colsVisibles = columns?.map((col) => col.map((g) => ({ ...g, options: g.options.filter(coincide) })).filter((g) => g.options.length));
   const buscando = q.trim().length > 0;

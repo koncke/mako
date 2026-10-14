@@ -758,8 +758,8 @@ export function EtapasModal({ funnelId, nombre, semilla, onCerrar }: {
     setConfirmar({
       titulo: `Eliminar «${emb.nombre}»`,
       cuerpo: extras && extras.leads > 0
-        ? `Sus ${extras.leads} ${extras.leads === 1 ? 'lead deja' : 'leads dejan'} de verse hasta que lo recuperes. Se guarda entero y vuelve desde «Funnels eliminados».`
-        : 'Se guarda entero y vuelve desde «Funnels eliminados».',
+        ? `Sus ${extras.leads} ${extras.leads === 1 ? 'lead deja' : 'leads dejan'} de verse hasta que lo recuperes. Se guarda entero y vuelve desde «CRM eliminados».`
+        : 'Se guarda entero y vuelve desde «CRM eliminados».',
       boton: 'Eliminar el funnel',
       hacer: () => archivar(false),
     });
@@ -790,7 +790,7 @@ export function EtapasModal({ funnelId, nombre, semilla, onCerrar }: {
           <input
             value={nombreTxt ?? emb?.nombre ?? nombre}
             maxLength={60}
-            aria-label="Nombre del funnel"
+            aria-label="Nombre del CRM"
             onChange={(e) => escribirNombre(e.target.value)}
             onBlur={(e) => {
               soltarNombre();

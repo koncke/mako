@@ -57,7 +57,11 @@ test('el aviso de «datos sin marcar» es SOLO el número y la salida', () => {
   // cierre · Datos fiscales del cliente · Documento fi…» era el 80% del ancho para
   // una lista que no se puede accionar desde ahí y que encima se cortaba a mitad de
   // palabra. Lo único que hay que decidir mirándolo es el CONTEO.
-  const card = leer('../app/crm/lead-view/DatosSinMarcarCard.tsx');
+  // ⚠️ DESDE EL 13/10/2026 EL ARCHIVO TIENE TAMBIÉN EL DESPLEGABLE («Ver →»: Martín pidió la lista
+  // de datos con solucionar e ignorar), que sí es una caja. Lo que se fija acá es el RENGLÓN.
+  const todo = leer('../app/crm/lead-view/DatosSinMarcarCard.tsx').replace(/\r\n/g, '\n');
+  const card = todo.slice(todo.indexOf('export function DatosSinMarcarCard'), todo.indexOf('function Desplegable'));
+  assert.ok(card.length > 500, 'no encontré el renglón');
 
   // NO tiene caja: ni fondo propio ni borde.
   assert.ok(!/background: 'var\(--warn-bg\)'/.test(card), 'el fondo ámbar se fue');
@@ -66,7 +70,7 @@ test('el aviso de «datos sin marcar» es SOLO el número y la salida', () => {
 
   // ⚠️ Y NO DIBUJA LOS NOMBRES. Ni completos ni recortados: la única vez que
   // aparecen es en el `title`, que no ocupa un píxel.
-  const enElTitle = /const nombres = faltantes\.map\(\(f\) => f\.label\)\.join\(' · '\)/.test(card) && /title=\{[^}]*nombres/.test(card);
+  const enElTitle = /title=\{\[\.\.\.local\.avisar\]\.map\(\(f\) => f\.label\)\.join\(' · '\)/.test(card);
   assert.ok(enElTitle, 'los nombres se conservan en el title, a un hover');
   // Los nombres pueden ARMARSE en una const; lo que no pueden es DIBUJARSE. Un
   // `{nombres}` suelto entre etiquetas es la enumeración de vuelta.
@@ -74,9 +78,10 @@ test('el aviso de «datos sin marcar» es SOLO el número y la salida', () => {
   assert.ok(!/\.join\(' · '\)\}</.test(card), 'ni interpolados directo entre etiquetas');
   assert.ok(!/textOverflow: 'ellipsis'/.test(card), 'no hay nada que recortar: el ellipsis se fue con la lista');
 
-  // Lo que queda: el conteo y la salida, y nada más.
-  assert.ok(/\{faltantes\.length\} sin marcar/.test(card), 'el conteo');
-  assert.ok(/\{label\}/.test(card), 'la salida');
+  // Lo que queda: el conteo y la salida, y nada más. Desde el 13/10/2026 la salida es «Ver →»
+  // (Martín: «debería decir "ver ->"»), y el conteo es lo que AVISA (lo ignorado no suma).
+  assert.ok(/\$\{n\} sin marcar/.test(card), 'el conteo');
+  assert.ok(/>Ver →<\/button>/.test(card), 'la salida');
 
   // Verificado rompiéndolo: devolviendo la enumeración al cuerpo, 1 fallo.
 });
@@ -91,7 +96,8 @@ test('el aviso es UN RENGLÓN, siempre — la garantía es nowrap, no una medici
   // contenido mide 214,6 y se parte en dos — que es lo que se reportó. De ahí las dos
   // mitades de este test: `nowrap` es la garantía DURA (no depende de ninguna fuente),
   // y el copy corto es lo que además evita que la columna se ensanche.
-  const card = leer('../app/crm/lead-view/DatosSinMarcarCard.tsx');
+  const todo = leer('../app/crm/lead-view/DatosSinMarcarCard.tsx').replace(/\r\n/g, '\n');
+  const card = todo.slice(todo.indexOf('export function DatosSinMarcarCard'), todo.indexOf('function Desplegable'));
 
   assert.ok(/flexWrap: 'nowrap'/.test(card), 'nowrap es la única garantía de un renglón');
   assert.ok(!/flexWrap: 'wrap'/.test(card), 'envolver está prohibido acá, no es una opción de layout');
@@ -101,16 +107,16 @@ test('el aviso es UN RENGLÓN, siempre — la garantía es nowrap, no una medici
   //   «6 datos sin marcar» + «Solucionar →»   214,6  ✗
   //   «6 sin marcar»       + «Solucionar →»   176,9  ✓  (33 px de holgura)
   //   «999 sin marcar»     + «Solucionar →»   192,7  ✓  (17 px con tres dígitos)
-  assert.ok(/\{faltantes\.length\} sin marcar/.test(card), 'sin la palabra «datos»: son 38 px que no dicen nada nuevo debajo de la etapa');
+  // (Desde el 13/10/2026 la salida es «Ver →», más corta que «Solucionar →».)
+  assert.ok(/\$\{n\} sin marcar/.test(card), 'sin la palabra «datos»: son 38 px que no dicen nada nuevo debajo de la etapa');
   assert.ok(!/datos sin marcar/.test(card), 'esa es la versión que se partía en dos');
 
-  // ⚠️ UNA SOLA ACCIÓN, Y ES SIEMPRE LA MISMA. Hasta el 06/10/2026, con los avisos
-  // ignorados en el worklist, la ficha apagaba el renglón y cambiaba «Solucionar» por
-  // «Reactivar». Martín: «Elimina lo de "Reactivar" en el detalle del lead, eso no tiene
-  // sentido, que siempre esté el mensaje sutil». Ignorar es una decisión sobre la LISTA
-  // del CRM, no sobre la ficha.
-  assert.ok(!/Reactivar|onReactivar|ignorado/.test(card), '«Reactivar» se fue de la ficha');
-  assert.equal((card.match(/<button /g) ?? []).length, 1, 'una sola acción: Solucionar');
+  // ⚠️ UNA SOLA ACCIÓN EN EL RENGLÓN, Y ES SIEMPRE LA MISMA. Hasta el 06/10/2026 la ficha
+  // cambiaba «Solucionar» por «Reactivar»; Martín: «Elimina lo de "Reactivar"... que siempre esté
+  // el mensaje sutil». Desde el 13/10/2026 ignorar UN dato se hace adentro del desplegable
+  // (lo pidió él), y el renglón sigue con su único «Ver →».
+  assert.ok(!/Reactivar|onReactivar/.test(card), '«Reactivar» se fue de la ficha');
+  assert.equal((card.match(/<button /g) ?? []).length, 1, 'una sola acción en el renglón: Ver');
 });
 test('el aviso vive EN EL HEADER, debajo del desplegable, en las DOS fichas', () => {
   // Estaba en su propia franja de ancho completo arriba de las tabs, empujando las
@@ -277,11 +283,14 @@ test('«Nuevo producto» es la salida para CREAR: apagada, y se enciende al pasa
   const drop = leer('../app/components/Dropdown.tsx');
 
   // El llamador la marca con el flag, no con un estilo suyo.
-  assert.ok(/label: 'Nuevo funnel', crear: true/.test(tb), 'va con el flag `crear`');
+  assert.ok(/label: 'Nuevo CRM', crear: true/.test(tb), 'va con el flag `crear`');
+  // ⚠️ Y VA ARRIBA DE TODO (13/10/2026): «que la opción de nuevo esté arriba del
+  // desplegable, no abajo». Con `push` volvía al final de la lista.
+  assert.ok(/opciones\.unshift\(\{ value: NUEVA, label: 'Nuevo CRM', crear: true \}\)/.test(tb), 'la opción de crear volvió al final');
   // ⚠️ `color` en un DropdownOption dibuja un PUNTO de 9 px, no tiñe el texto: el
   // intento anterior (`color: 'var(--faint)'`) dejó una bolita gris al lado del
   // renglón y el texto igual de negro que los demás.
-  assert.ok(!/'Nuevo funnel'[^}]*color:/.test(tb), 'nada de `color`: dibuja un punto, no tiñe');
+  assert.ok(!/'Nuevo CRM'[^}]*color:/.test(tb), 'nada de `color`: dibuja un punto, no tiñe');
 
   // Y NINGUNA opción lleva subtítulo. «JAMÁS uses textos innecesarios»: «el de tu
   // negocio» debajo del único producto que hay era un renglón para no decir nada.

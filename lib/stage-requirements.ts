@@ -292,6 +292,59 @@ const ORDEN: StepId[] = [
 ];
 
 /**
+ * Lo que la etapa PIDE y ya está: los «resueltos» del desplegable de «Datos sin marcar».
+ *
+ * ⚠️ NO ES UNA SEGUNDA REGLA. Se pregunta a `stepsForStage` —la misma que dice qué falta—
+ * vaciando UN dato por vez: si con ese dato vacío la etapa lo pediría, es un dato que la etapa
+ * exige y que hoy está cargado. Una lista de «requisitos de cada etapa» escrita aparte se
+ * desincroniza con la primera regla nueva (AGENTS.md: dos copias del predicado), y diría «✓ Link
+ * de Fathom» sobre un lead que no vino a la reunión, donde ese link no aplica.
+ *
+ * No se dicen «resueltos» el comprobante (sin cuotas pagadas no hay qué comprobar, y «✓» ahí
+ * afirma algo que no pasó) ni las respuestas de Calendly (no se piden más).
+ */
+export function pasosResueltos(stageKey: string, v: StageReqValues): Step[] {
+  const faltan = new Set(stepsForStage(stageKey, v).map((s) => s.id));
+  const out: Step[] = [];
+  for (const id of ORDEN) {
+    if (faltan.has(id)) continue;
+    const vaciar = VACIAR[id];
+    const vacio = vaciar ? vaciar(v) : null;
+    if (!vacio) continue;
+    const paso = stepsForStage(stageKey, vacio).find((s) => s.id === id);
+    if (paso) out.push(paso);
+  }
+  return out;
+}
+
+/**
+ * Cómo se vacía cada dato para preguntarle a `stepsForStage` si la etapa lo pide. `null` =
+ * el dato no aplica a este lead (el caller lo pasó `undefined`: no se evalúa), y no se dice
+ * resuelto lo que nunca se pidió.
+ */
+const VACIAR: Partial<Record<StepId, (v: StageReqValues) => StageReqValues | null>> = {
+  fechaJ1: (v) => ({ ...v, fechaJ1: null }),
+  asistenciaR1: (v) => ({ ...v, asistioJ1: null }),
+  calificado: (v) => ({ ...v, calificado: null }),
+  fathomR1: (v) => ({ ...v, hasFathomUrl: false, fathomOmitido: false }),
+  closer: (v) => (v.closer === undefined ? null : { ...v, closer: '' }),
+  fechaJ2: (v) => ({ ...v, fechaJ2: null }),
+  asistenciaR2: (v) => ({ ...v, asistioJ2: null }),
+  fathomR2: (v) => ({ ...v, hasFathomUrl: false, fathomOmitido: false }),
+  monto: (v) => ({ ...v, monto: null, suscripcionMonto: null }),
+  plan: (v) => (v.tienePlan === undefined ? null : { ...v, tienePlan: false }),
+  dealServicio: (v) => (v.dealServicioOk === undefined ? null : { ...v, dealServicioOk: false }),
+  dealPromesa: (v) => (v.dealPromesaOk === undefined ? null : { ...v, dealPromesaOk: false }),
+  dealFiscal: (v) => (v.dealFiscalOk === undefined ? null : { ...v, dealFiscalOk: false }),
+  dealFiscalDoc: (v) => (v.dealFiscalDocOk === undefined ? null : { ...v, dealFiscalDocOk: false }),
+  dealObligaciones: (v) => (v.dealObligacionesOk === undefined ? null : { ...v, dealObligacionesOk: false }),
+  motivo: (v) => ({ ...v, motivo: null, motivoNuevo: null }),
+  setter: (v) => (v.setter === undefined ? null : { ...v, setter: '' }),
+  empresa: (v) => (v.empresa === undefined ? null : { ...v, empresa: '' }),
+  telefono: (v) => (v.telefono === undefined ? null : { ...v, telefono: '' }),
+};
+
+/**
  * Une varias listas de pasos en UNA sola, sin repetidos y en el orden canónico.
  *
  * El wizard tiene que pedir TODO lo que el server va a exigir. Cuando las dos

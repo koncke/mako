@@ -231,8 +231,9 @@ test('un clic en cualquier parte de la tarjeta abre el campo, y un clic de un po
     ['app/crm/lead-view/MotivoYPlazoCard.tsx', 2],
     ['app/crm/lead-view/CalificacionCard.tsx', 1],
   ];
-  for (const [f, n] of usos) assert.equal((fuente(f).match(/<CajaCampo style=/g) ?? []).length, n, f);
-  assert.match(fuente('app/crm/lead-view/InfoPrincipalCard.tsx'), /editable \? <CajaCampo style=\{celda\}>/);
+  // (Desde el 13/10/2026 una caja puede llevar `marca`: lo que busca «solucionar» un dato sin marcar.)
+  for (const [f, n] of usos) assert.equal((fuente(f).match(/<CajaCampo (?:marca=\{[^}]*\} )?style=/g) ?? []).length, n, f);
+  assert.match(fuente('app/crm/lead-view/InfoPrincipalCard.tsx'), /editable \? <CajaCampo style=\{celda\}(?: marca=\{marca\})?>/);
 });
 
 // ── 4 · Las notas (punto 17) ─────────────────────────────────────────────────
@@ -253,16 +254,17 @@ test('las actions de las notas: guardas de las vecinas, y sólo tocan filas `Not
   assert.match(crudo('app/crm/notas-actions.ts'), /^'use server';/);
   // En un 'use server' sólo se exportan funciones async (y tipos).
   const exports = [...src.matchAll(/^export (?!type )(.*)$/gm)].map((m) => m[1]);
-  assert.ok(exports.length === 2 && exports.every((e) => e.startsWith('async function ')), `exports: ${exports.join(' | ')}`);
+  // 13/10/2026: + las tres del adjunto de una nota (subir, abrir, descartar; mig 0267).
+  assert.ok(exports.length === 5 && exports.every((e) => e.startsWith('async function ')), `exports: ${exports.join(' | ')}`);
   const guarda = cuerpo(src, 'async function notaQueSePuedeTocar(');
   assert.match(guarda, /getRolWsEfectivo\(\)/);
   assert.match(guarda, /tabEnCapa\('crm', capa\)/);
   assert.match(guarda, /getWorkspaceActual\(\)/);
   assert.match(guarda, /rol !== 'admin'/, 'una nota la cambia quien la escribió, o un admin');
-  // Las TRES consultas (leer, editar, borrar) piden `campo = 'Nota'` y el workspace: sin eso, un id
-  // cualquiera del historial se reescribiría o se borraría desde el navegador.
-  assert.equal((src.match(/\.eq\('campo', 'Nota'\)/g) ?? []).length, 3);
-  assert.equal((src.match(/\.eq\('workspace_id', ws/g) ?? []).length, 3);
+  // Las CUATRO consultas (leer, editar, borrar, abrir el adjunto) piden `campo = 'Nota'` y el
+  // workspace: sin eso, un id cualquiera del historial se reescribiría o se borraría desde el navegador.
+  assert.equal((src.match(/\.eq\('campo', 'Nota'\)/g) ?? []).length, 4);
+  assert.equal((src.match(/\.eq\('workspace_id', (?:g\.)?ws/g) ?? []).length, 4);
   // Borrar deja rastro (sin el texto).
   assert.match(cuerpo(src, 'export async function borrarNotaLeadAction('), /logLeadEvent\(leadId, 'Nota borrada'/);
 });

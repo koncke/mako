@@ -70,6 +70,9 @@ import {
 } from '@/lib/etiquetas';
 import { limpiarNombreEtiqueta, claveNombre, colorValido, emojiValido, consecuenciaDeArchivar, autorPublico } from '@/lib/etiquetas-reglas';
 import { linkApp, APP_BASE_URL } from '@/lib/app-url';
+import { ofertasDelLead, asignarOfertaAlLead, crearOfertaParaLead } from '@/lib/oferta-lead';
+import { validarOfertaNueva } from '@/lib/oferta-modelo';
+import { usuarioInstagram } from '@/app/crm/campo-inline';
 import {
   invalidar, hoyDelWorkspace, esFechaIso, etapasDelFunnelDefault, etapasDelFunnelDeLead, faltantesDeUnLead, leadsFiltrados, conteoPorEtapa,
   nombresAsignables, marcarPendientesIgnorados, guardarEntradas, guardarDeal, existeIdentidadFiscal, proponerLote,
@@ -98,6 +101,9 @@ const s = (v: unknown): string | undefined => (typeof v === 'string' && v.trim()
 const b = (v: unknown): boolean | undefined => (typeof v === 'boolean' ? v : undefined);
 const labels = (pasos: ReadonlyArray<{ label: string }>): string => pasos.map((p) => p.label).join(', ');
 const sumarDias = (iso: string, dias: number): string => new Date(Date.parse(`${iso}T12:00:00Z`) + dias * 86_400_000).toISOString().slice(0, 10);
+
+/** Lo que edita `editar_contacto_lead`: los datos de «Información principal» (mig 0194, 0258, 0274). */
+const CAMPOS_CONTACTO = ['nombre', 'email', 'telefono', 'empresa', 'web', 'instagram', 'youtube', 'linkedin', 'direccion', 'sexo'] as const;
 
 /** El lead por id, o null (no existe en ESTE workspace o falló la lectura). No lanza. */
 const leadDe = (id: unknown): Promise<Lead | null> => (typeof id === 'number' ? getLead(id).catch(() => null) : Promise.resolve(null));
@@ -1326,11 +1332,67 @@ export const RUNNERS: Runners = {
   },
 
   // ── Acciones pantalla (genérica /mako/revisar) ──────────────────────────────
+  oferta_del_lead: {
+    leer: (input) => conLead(input, async (lead) => {
+      const r = await ofertasDelLead(lead.id);
+      if (!r) return fallo(noExiste(lead.id));
+      return json({ lead: { id: lead.id, nombre: lead.nombre }, actual: r.actual, ofertas: r.ofertas });
+    }),
+  },
+  asignar_oferta_lead: {
+    preparar: async (input) => {
+      const lead = await leadDe(input.leadId);
+      if (!lead) return { error: noExiste(input.leadId) };
+      const quitar = b(input.quitar) === true;
+      const ofertaId = n(input.ofertaId);
+      if (!quitar && ofertaId == null) return { error: 'Falta la oferta: pasa ofertaId (de oferta_del_lead) o quitar.', faltan: ['ofertaId'] };
+      const r = await ofertasDelLead(lead.id);
+      if (!r) return { error: noExiste(lead.id) };
+      if (quitar) {
+        if (r.actual == null) return { error: `${lead.nombre} no tiene oferta.`, yaEstaba: true };
+        return { payload: { leadId: lead.id, ofertaId: null }, resumen: `Dejar a ${lead.nombre} sin oferta.` };
+      }
+      const o = r.ofertas.find((x) => x.id === ofertaId);
+      if (!o) return { error: `No existe la oferta #${ofertaId} en este negocio. Míralas con oferta_del_lead.` };
+      if (r.actual === o.id) return { error: `${lead.nombre} ya tiene la oferta «${o.nombre}».`, yaEstaba: true };
+      return { payload: { leadId: lead.id, ofertaId: o.id }, resumen: `Asignarle a ${lead.nombre} la oferta «${o.nombre}».` };
+    },
+    ejecutar: (payload, ctx) => seguro('asignar la oferta', async () => {
+      const ofertaId = payload.ofertaId == null ? null : Number(payload.ofertaId);
+      const r = await asignarOfertaAlLead(Number(payload.leadId), ofertaId, autorDe(ctx));
+      if (!r.ok) return { ok: false, resumen: r.error };
+      invalidar('leads');
+      return { ok: true, resumen: ofertaId == null ? 'Listo: quedó sin oferta.' : `Listo: oferta «${r.nombre}» asignada.` };
+    }),
+  },
+  crear_oferta_lead: {
+    preparar: async (input) => {
+      const lead = await leadDe(input.leadId);
+      if (!lead) return { error: noExiste(input.leadId) };
+      const v = validarOfertaNueva({ nombre: input.nombre, modelo: input.modelo, ticket: input.ticketUsd });
+      if (!v.ok) return { error: v.error };
+      const r = await ofertasDelLead(lead.id);
+      if (!r) return { error: noExiste(lead.id) };
+      const ya = r.ofertas.find((o) => o.nombre.toLowerCase() === v.nombre.toLowerCase());
+      if (ya) return { error: `Ya hay una oferta «${ya.nombre}» (id ${ya.id}): asígnala con asignar_oferta_lead.` };
+      const cobro = v.modelo === 'suscripcion' ? 'por mes' : 'pago único';
+      return {
+        payload: { leadId: lead.id, nombre: v.nombre, modelo: v.modelo, ticket: v.ticket },
+        resumen: `Crear la oferta «${v.nombre}» (${v.ticket != null ? `USD ${v.ticket} ` : ''}${cobro}) y asignársela a ${lead.nombre}.`,
+      };
+    },
+    ejecutar: (payload, ctx) => seguro('crear la oferta', async () => {
+      const r = await crearOfertaParaLead(Number(payload.leadId), { nombre: payload.nombre, modelo: payload.modelo, ticket: payload.ticket }, autorDe(ctx));
+      if (!r.ok) return { ok: false, resumen: r.error };
+      invalidar('leads');
+      return { ok: true, resumen: `Listo: creada la oferta «${r.oferta.nombre}» (id ${r.oferta.id}) y asignada.`, datos: { ofertaId: r.oferta.id } };
+    }),
+  },
   editar_contacto_lead: {
     preparar: async (input) => {
       const lead = await leadDe(input.leadId);
       if (!lead) return { error: noExiste(input.leadId) };
-      const campos = ['nombre', 'email', 'telefono', 'empresa'] as const;
+      const campos = CAMPOS_CONTACTO;
       const email = s(input.email);
       if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: `«${email}» no parece un email.` };
       const tel = s(input.telefono);
@@ -1338,7 +1400,13 @@ export const RUNNERS: Runners = {
       const payload: Record<string, unknown> = { leadId: lead.id };
       const cambios: string[] = [];
       for (const k of campos) {
-        const v = s(input[k]);
+        let v = s(input[k]);
+        // Instagram se guarda como en la ficha: el usuario, sin la @ (`usuarioInstagram`).
+        if (v && k === 'instagram') {
+          const u = usuarioInstagram(v);
+          if (!u) return { error: `«${v}» no parece un usuario de Instagram.` };
+          v = u;
+        }
         if (!v || v === (lead[k] ?? '')) continue;
         payload[k] = k === 'email' ? v.toLowerCase() : v;
         cambios.push(`${k}: ${lead[k] ?? '(vacío)'} → ${String(payload[k])}`);
@@ -1360,7 +1428,7 @@ export const RUNNERS: Runners = {
       const before = await getLead(id);
       if (!before) return { ok: false, resumen: noExiste(id) };
       const meta: Record<string, string> = {};
-      for (const k of ['nombre', 'email', 'telefono', 'empresa'] as const) if (typeof payload[k] === 'string') meta[k] = payload[k] as string;
+      for (const k of CAMPOS_CONTACTO) if (typeof payload[k] === 'string') meta[k] = payload[k] as string;
       await saveLeadMeta(id, meta);
       await logLeadChanges(id, before, await getLead(id).catch(() => null), autorDe(ctx));
       invalidar('leads');

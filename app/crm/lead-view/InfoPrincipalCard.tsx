@@ -18,7 +18,7 @@
 //
 // La montan la ficha del CRM (pop-up y ruta) y la ficha de un cliente de Customer Success.
 
-import { useState, useTransition, type CSSProperties, type ReactNode } from 'react';
+import { useCallback, useState, useTransition, type CSSProperties, type ReactNode } from 'react';
 import { useRefrescarFicha } from './ficha-cambio';
 import { EditableInline } from '@/app/_components/EditableInline';
 import { Toast, useToast } from '@/app/_ui/Toast';
@@ -26,6 +26,11 @@ import { saveLeadMetaAction } from '../actions';
 import { hrefDeWeb } from '@/lib/contacto-lead';
 import { linkInstagram, usuarioInstagram } from '../campo-inline';
 import { CajaCampo, InstagramEditable, MontoEditable, TelefonoEditable } from './CampoEditable';
+import { marcaDato } from '@/lib/datos-aviso';
+import { Dropdown } from '@/app/components/Dropdown';
+import { IconoMenu } from '@/app/_ui/iconos-menu';
+import { SEXOS, seVe, type CampoResumen, type ResumenElegido } from '@/lib/resumen-ficha';
+import { ResumenModal } from './ResumenModal';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -101,7 +106,7 @@ function EnviarNoOficial({ leadId, nombre, telefono }: { leadId: number; nombre:
 /** El recuadro de cada dato: el mismo en las celdas que copian y en las que no. */
 const celda: CSSProperties = { display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 15px' };
 
-function Row({ label, value, copyKey, copied, onCopy, extra, onGuardar, editor, copiable = true }: {
+function Row({ label, value, copyKey, copied, onCopy, extra, onGuardar, editor, copiable = true, marca }: {
   label: string; value: string | null; copyKey: string; copied: string;
   onCopy: (text: string, key: string) => void; extra?: ReactNode;
   /** Presente = el valor se corrige acá mismo. Ausente = solo se copia. */
@@ -110,6 +115,8 @@ function Row({ label, value, copyKey, copied, onCopy, extra, onGuardar, editor, 
   editor?: ReactNode;
   /** El botón de copiar. Sin él para lo que no se pega en otro lado (el ingreso estimado). */
   copiable?: boolean;
+  /** Lo que busca «solucionar» un dato sin marcar (`data-recorrido`). */
+  marca?: string;
 }) {
   const has = !!value?.trim();
   const iconBtn: CSSProperties = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', cursor: 'pointer', flex: 'none' };
@@ -154,10 +161,26 @@ function Row({ label, value, copyKey, copied, onCopy, extra, onGuardar, editor, 
       {has && extra}
     </>
   );
-  return editable ? <CajaCampo style={celda}>{contenido}</CajaCampo> : <div style={celda}>{contenido}</div>;
+  return editable ? <CajaCampo style={celda} marca={marca}>{contenido}</CajaCampo> : <div style={celda} data-recorrido={marca}>{contenido}</div>;
 }
 
-export function InfoPrincipalCard({ leadId, nombre, empresa, email, telefono, web = null, cohorte, ingresoEstimado, instagram }: {
+/** El sexo del lead: un desplegable de tres, guardado por el mismo camino que el resto. */
+function SexoEditable({ valor, onGuardar }: { valor: string | null; onGuardar: (v: string) => void }) {
+  return (
+    <div data-no-abre>
+      <Dropdown
+        value={valor ?? ''}
+        placeholder="—"
+        options={[...SEXOS.map((s) => ({ value: s.id, label: s.label })), ...(valor ? [{ value: '', label: 'Sin dato', sutil: true }] : [])]}
+        onChange={(v) => onGuardar(v)}
+        width={160}
+        ariaLabel="Sexo del lead"
+      />
+    </div>
+  );
+}
+
+export function InfoPrincipalCard({ leadId, nombre, empresa, email, telefono, web = null, cohorte, ingresoEstimado, instagram, youtube, linkedin, direccion, sexo, resumen }: {
   leadId: number; nombre: string; empresa: string | null; email: string | null; telefono: string | null;
   /** La web del lead (`leads.web`, mig 0194). Reemplazó a «Dirección»: «Saca en el resumen
    *  el dato de "Dirección" eso no importa. En su lugar, pon "Web"» (Martín, 06/10/2026). */
@@ -172,6 +195,16 @@ export function InfoPrincipalCard({ leadId, nombre, empresa, email, telefono, we
   ingresoEstimado?: number | null;
   /** El usuario de Instagram (`leads.instagram`, mig 0258; punto 28). `undefined` = no se ofrece. */
   instagram?: string | null;
+  /** Los del Resumen personalizable (mig 0274). `undefined` = esta ficha no los ofrece (Customer Success). */
+  youtube?: string | null;
+  linkedin?: string | null;
+  direccion?: string | null;
+  sexo?: string | null;
+  /**
+   * Qué eligió mostrar el negocio (lib/resumen-ficha.ts). `undefined` = esta ficha no es
+   * personalizable (la de Customer Success): se ve lo de siempre y no hay engranaje.
+   */
+  resumen?: ResumenElegido;
 }) {
   const [copied, setCopied] = useState('');
   const copy = (text: string, key: string) => {
@@ -179,6 +212,9 @@ export function InfoPrincipalCard({ leadId, nombre, empresa, email, telefono, we
   };
 
   const refrescarFicha = useRefrescarFicha();
+  const [configurando, setConfigurando] = useState(false);
+  // `onCerrar` de identidad FIJA para el Modal (AGENTS.md).
+  const cerrarConfig = useCallback(() => setConfigurando(false), []);
   const { toast, show, clear } = useToast();
   const [, startGuardar] = useTransition();
 
@@ -199,7 +235,7 @@ export function InfoPrincipalCard({ leadId, nombre, empresa, email, telefono, we
    * también — con CERO call sites, escrita y nunca enchufada— y el historial ya
    * registra estos campos y los sabe revertir.
    */
-  const guardar = (campo: 'nombre' | 'empresa' | 'email' | 'telefono' | 'web', antes: string | null) => (v: string) => {
+  const guardar = (campo: 'nombre' | 'empresa' | 'email' | 'telefono' | 'web' | 'youtube' | 'linkedin' | 'direccion' | 'sexo', antes: string | null) => (v: string) => {
     const nuevo = v.trim();
     startGuardar(async () => {
       try {
@@ -221,7 +257,19 @@ export function InfoPrincipalCard({ leadId, nombre, empresa, email, telefono, we
   const iconLink: CSSProperties = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--primary)', flex: 'none', textDecoration: 'none' };
   const ig = usuarioInstagram(instagram);
   const usuarioIg = linkInstagram(ig);
+  // ⚠️ Sin `resumen` (Customer Success) se ve lo de siempre: esa ficha no se personaliza.
+  const ve = (id: CampoResumen) => resumen === undefined || seVe(resumen, id);
+  const abrir = (href: string | null, rotulo: string) => (href
+    ? <a href={href} target="_blank" rel="noopener noreferrer" aria-label={rotulo} title={rotulo} style={iconLink}><IconExterno /></a>
+    : null);
+  // Los tres links del Resumen personalizable (mig 0274): se guardan como se escribieron y se
+  // abren con el mismo armado que la web.
+  const linkDe = (campo: 'youtube' | 'linkedin', valor: string | null | undefined, label: string) => (valor !== undefined && ve(campo) ? [
+    <Row key={campo} label={label} onGuardar={guardar(campo, valor)} value={valor} copyKey={campo} copied={copied} onCopy={copy}
+      extra={abrir(hrefDeWeb(valor), `Abrir ${label}`)} />,
+  ] : []);
   const debajo: ReactNode[] = [
+    ...(ve('web') ? [
     <Row
       key="web"
       label="Web"
@@ -230,9 +278,10 @@ export function InfoPrincipalCard({ leadId, nombre, empresa, email, telefono, we
         ? <a href={hrefDeWeb(web)!} target="_blank" rel="noopener noreferrer" aria-label="Abrir la web" title="Abrir la web" style={iconLink}><IconExterno /></a>
         : null}
     />,
+    ] : []),
     // Instagram (punto 28): se lee con la @ y se abre el perfil al lado. Se guarda sin la @ y en
     // minúsculas (`usuarioInstagram`, la misma regla del alta y del server).
-    ...(instagram !== undefined ? [
+    ...(instagram !== undefined && ve('instagram') ? [
       <Row
         key="instagram"
         label="Instagram"
@@ -243,9 +292,19 @@ export function InfoPrincipalCard({ leadId, nombre, empresa, email, telefono, we
           : null}
       />,
     ] : []),
+    ...linkDe('youtube', youtube, 'YouTube'),
+    ...linkDe('linkedin', linkedin, 'LinkedIn'),
+    ...(direccion !== undefined && ve('direccion') ? [
+      <Row key="direccion" label="Dirección" onGuardar={guardar('direccion', direccion)} value={direccion} copyKey="direccion" copied={copied} onCopy={copy}
+        extra={abrir(direccion ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(direccion)}` : null, 'Ver en el mapa')} />,
+    ] : []),
+    ...(sexo !== undefined && ve('sexo') ? [
+      <Row key="sexo" label="Sexo" value={SEXOS.find((s) => s.id === sexo)?.label ?? null} copyKey="sexo" copied={copied} onCopy={copy} copiable={false}
+        editor={<SexoEditable valor={sexo} onGuardar={guardar('sexo', sexo)} />} />,
+    ] : []),
     // El ingreso ESTIMADO (punto 21): en USD, corregible en el lugar. No se copia: no es un dato que
     // se pegue en otro lado. El total por columna lo suma el tablero con la marca de estimado.
-    ...(ingresoEstimado !== undefined ? [
+    ...(ingresoEstimado !== undefined && ve('ingreso') ? [
       <Row
         key="ingreso"
         label="Ingreso estimado (USD)"
@@ -253,7 +312,7 @@ export function InfoPrincipalCard({ leadId, nombre, empresa, email, telefono, we
         editor={<MontoEditable leadId={leadId} campo="ingreso_estimado" valor={ingresoEstimado} titulo="Ingreso estimado del lead, en dólares" />}
       />,
     ] : []),
-    ...(cohorte ? [
+    ...(cohorte && ve('cohorte') ? [
       <div key="cohorte" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 15px' }}>
         <div style={{ fontSize: 11.5, color: 'var(--dim)' }}>Cohorte</div>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
@@ -266,11 +325,20 @@ export function InfoPrincipalCard({ leadId, nombre, empresa, email, telefono, we
   return (
     <>
     <section style={card}>
-      <div style={{ ...sectLabel, marginBottom: 14 }}>Información principal</div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 14 }}>
+        <div style={sectLabel}>Información principal</div>
+        {/* Qué muestra el Resumen (13/10/2026, Resumen punto 1). Lo abre cualquiera; cambiarlo, el admin. */}
+        {resumen !== undefined && (
+          <button type="button" onClick={() => setConfigurando(true)} aria-label="Elegir qué muestra el Resumen" title="Elegir qué muestra el Resumen"
+            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--dim)', cursor: 'pointer' }}>
+            <IconoMenu nombre="configurar" size={15} />
+          </button>
+        )}
+      </div>
       {/* 2×2 fijo (nombre|empresa / teléfono|email) — nunca 3 arriba y 1 abajo. */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '16px 24px' }}>
         <Row label="Nombre" value={nombre} copyKey="nombre" copied={copied} onCopy={copy} onGuardar={guardar('nombre', nombre)} />
-        <Row label="Empresa" value={empresa} copyKey="empresa" copied={copied} onCopy={copy} onGuardar={guardar('empresa', empresa)} />
+        <Row label="Empresa" value={empresa} copyKey="empresa" copied={copied} onCopy={copy} onGuardar={guardar('empresa', empresa)} marca={marcaDato('empresa')} />
         {/* ⚠️ EL TELÉFONO SE EDITA CON EL PAÍS PRIMERO (punto 5 del 12/10/2026): «siempre en todos
             lados que pida telefono, primero tiene que ir la numeración que ya tenemos con las
             banderas». `TelefonoEditable` no reescribe el formato guardado si los dígitos no
@@ -278,6 +346,7 @@ export function InfoPrincipalCard({ leadId, nombre, empresa, email, telefono, we
             deshacer y su línea en el historial). */}
         <Row
           label="Teléfono"
+          marca={marcaDato('telefono')}
           value={telefono && telefono !== '—' ? telefono : null} copyKey="tel" copied={copied} onCopy={copy}
           editor={<TelefonoEditable valor={telefono && telefono !== '—' ? telefono : null} onGuardar={guardar('telefono', telefono)} />}
           extra={telefono && telefono !== '—' ? <EnviarNoOficial leadId={leadId} nombre={nombre} telefono={telefono} /> : null}
@@ -298,6 +367,7 @@ export function InfoPrincipalCard({ leadId, nombre, empresa, email, telefono, we
       </div>
     </section>
     <Toast state={toast} onClose={clear} />
+    {configurando && <ResumenModal onCerrar={cerrarConfig} onGuardado={refrescarFicha} />}
     </>
   );
 }

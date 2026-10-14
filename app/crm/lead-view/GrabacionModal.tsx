@@ -21,14 +21,21 @@
 // un dato que existe del otro lado de una pared.
 // =============================================================================
 
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { Button, Modal, Spinner } from '@/app/_ui';
 import { REPLAY_MINIMO_EVENTOS, duracionCorta, parsearCuerpo, textoDelCorte, tieneFoto, type SesionDeLead } from '@/lib/replay-ficha';
-import { cargarReproductor, type Reproductor } from '@/lib/replay-reproductor';
+import { cargarReproductor, type CargaDelReproductor, type Reproductor } from '@/lib/replay-reproductor';
 import { useTzWorkspace } from './useTzWorkspace';
 
 const ANCHO = 720;
+
+/**
+ * Cuánto se espera el cuerpo de la grabación. Pesa 50-100 KB y baja en ~2 s (medido el
+ * 13/10/2026 sobre las 12 últimas sesiones): pasado esto no es lento, está colgado, y un
+ * `fetch` sin `signal` no se rinde nunca (AGENTS.md: el tope de la ruta no protege al cliente).
+ */
+const ESPERA_CUERPO_MS = 30_000;
 
 /** Qué está pasando. Cada fallo es un estado propio porque cada uno se arregla distinto. */
 type Fase =
@@ -55,21 +62,56 @@ export function GrabacionModal({ sesion, onCerrar }: { sesion: SesionDeLead; onC
   const tz = useTzWorkspace();
   const [fase, setFase] = useState<Fase>({ k: 'bajando' });
   const [intento, setIntento] = useState(0);
-  const lienzo = useRef<HTMLDivElement>(null);
+  const lienzo = useRef<HTMLDivElement | null>(null);
   // El texto que bajó, para poder ofrecerlo si el reproductor es lo que falla: la
   // grabación ya está en esta pestaña y no se pierde por un archivo que no cargó.
   const crudo = useRef<string | null>(null);
+  // Lo que hace falta para montar —el reproductor y los eventos— y lo montado.
+  const listo = useRef<{ r: Extract<CargaDelReproductor, { ok: true }>; eventos: unknown[] } | null>(null);
+  const montado = useRef<Reproductor | null>(null);
+
+  /**
+   * Monta el reproductor si están LAS DOS cosas: lo bajado y el recuadro en el DOM.
+   *
+   * ⚠️ HASTA EL 13/10/2026 SE MONTABA EN UN `requestAnimationFrame` pedido justo después de
+   * `setFase('listo')`, con un `if (!nodo) return` mudo. Medido en producción (ws1, lead 2636,
+   * envolviendo el rAF): el callback corrió 4 ms después de pedirlo y el recuadro TODAVÍA NO
+   * EXISTÍA — React no había dibujado el render de 'listo'—, así que salía callado, y el recuadro
+   * aparecía después vacío, gris, para siempre. Martín: «se quedó cargando eternamente». Montada a
+   * mano en la misma página, la misma grabación andaba (166 eventos). Ahora lo llaman los DOS
+   * momentos —cuando termina de bajar y cuando el recuadro se engancha (`refLienzo`)—, y el que
+   * llega segundo es el que monta.
+   */
+  const intentarMontar = useCallback(() => {
+    const nodo = lienzo.current;
+    const l = listo.current;
+    if (!nodo || !l || montado.current) return;
+    try {
+      // El ancho se LEE del DOM (nunca se calcula) porque el modal lo fija.
+      montado.current = l.r.montar(nodo, l.eventos, nodo.clientWidth || ANCHO - 48);
+    } catch {
+      // El reproductor cargó y reventó con estos eventos: es el mismo callejón
+      // que no tenerlo, así que la misma salida — decirlo y ofrecer el archivo.
+      setFase({ k: 'sin_reproductor' });
+    }
+  }, []);
+
+  /** El recuadro se engancha (o se va): si ya está lo bajado, se monta acá. */
+  const refLienzo = useCallback((nodo: HTMLDivElement | null) => {
+    lienzo.current = nodo;
+    intentarMontar();
+  }, [intentarMontar]);
 
   useEffect(() => {
     let vivo = true;
-    let montado: Reproductor | null = null;
     setFase({ k: 'bajando' });
     crudo.current = null;
+    listo.current = null;
 
     (async () => {
       let texto: string;
       try {
-        const res = await fetch(`/api/crm/replay?sesion=${encodeURIComponent(sesion.id)}`, { cache: 'no-store' });
+        const res = await fetch(`/api/crm/replay?sesion=${encodeURIComponent(sesion.id)}`, { cache: 'no-store', signal: AbortSignal.timeout(ESPERA_CUERPO_MS) });
         if (!res.ok) {
           // El código dice qué pasó, y son cosas opuestas: 409 es «esperá», 404 es
           // «ya no está» y 5xx es «no pude». Un solo mensaje para los tres mandaría
@@ -97,24 +139,20 @@ export function GrabacionModal({ sesion, onCerrar }: { sesion: SesionDeLead; onC
       if (!vivo) return;
       if (!r.ok) { setFase({ k: 'sin_reproductor' }); return; }
 
-      // Se pinta el contenedor ANTES de montar: el nodo tiene que existir y tener
-      // ancho, y el ancho se LEE del DOM (nunca se calcula) porque el modal lo fija.
+      // Se pinta el contenedor y se monta cuando exista (ver `intentarMontar`): si el recuadro
+      // ya estaba, monta acá; si no, lo monta `refLienzo` cuando React lo dibuje.
+      listo.current = { r, eventos };
       setFase({ k: 'listo', ilegibles });
-      requestAnimationFrame(() => {
-        const nodo = lienzo.current;
-        if (!vivo || !nodo) return;
-        try {
-          montado = r.montar(nodo, eventos, nodo.clientWidth || ANCHO - 48);
-        } catch {
-          // El reproductor cargó y reventó con estos eventos: es el mismo callejón
-          // que no tenerlo, así que la misma salida — decirlo y ofrecer el archivo.
-          setFase({ k: 'sin_reproductor' });
-        }
-      });
+      intentarMontar();
     })();
 
-    return () => { vivo = false; montado?.destruir(); };
-  }, [sesion.id, intento]);
+    return () => {
+      vivo = false;
+      listo.current = null;
+      montado.current?.destruir();
+      montado.current = null;
+    };
+  }, [sesion.id, intento, intentarMontar]);
 
   const bajarEventos = () => {
     const t = crudo.current;
@@ -158,7 +196,7 @@ export function GrabacionModal({ sesion, onCerrar }: { sesion: SesionDeLead; onC
           {fase.ilegibles > 0 && (
             <p style={aviso}>Le faltan {fase.ilegibles} {fase.ilegibles === 1 ? 'pedazo' : 'pedazos'}: se va a ver con saltos.</p>
           )}
-          <div ref={lienzo} style={{ width: '100%', minHeight: 320, borderRadius: 12, overflow: 'hidden', background: 'var(--surface-2)' }} />
+          <div ref={refLienzo} style={{ width: '100%', minHeight: 320, borderRadius: 12, overflow: 'hidden', background: 'var(--surface-2)' }} />
         </>
       )}
 

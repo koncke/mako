@@ -291,6 +291,30 @@ export function instanteDeLocal(fechaISO: string, minutosDelDia: number, tz: str
   }
 }
 
+/**
+ * El instante de una reunión cargada A MANO al mover de etapa. Martín (14/10/2026): «con respecto a
+ * la fecha, si, sería bueno que si se mueve a mano, se pregunte la hora». Sin `junta_N_at`, el «1 h
+ * antes» de Automations no sale nunca y el pendiente de «reunión pasada» se decide por el día.
+ *
+ * Con hora ('HH:MM'), el instante en la zona del NEGOCIO, con el mismo `instanteDeLocal` de la grilla
+ * (el navegador la tomaría en el huso de quien mira). Sin hora, el instante que ya estaba sólo si cae
+ * el MISMO día en esa zona —una fecha nueva con la hora vieja sería otra reunión—; si no, null, y se
+ * cae al día como antes.
+ */
+export function instanteDeReunionManual(fechaISO: string | null | undefined, hora: string | null | undefined, tz: string, previo: string | null | undefined): string | null {
+  const fecha = (fechaISO ?? '').slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) return null;
+  const m = /^(\d{1,2}):(\d{2})$/.exec((hora ?? '').trim());
+  if (m && Number(m[1]) < 24 && Number(m[2]) < 60) return instanteDeLocal(fecha, Number(m[1]) * 60 + Number(m[2]), tz);
+  if (!previo) return null;
+  try {
+    const dia = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(previo));
+    return dia === fecha ? previo : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Minutos desde medianoche → 'HH:MM'. */
 export const hhmm = (min: number): string =>
   `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;

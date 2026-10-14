@@ -14,10 +14,31 @@
  * se perdía la cola, con el toast «Nota guardada» — y la ficha, Customer Success, /m y MaKo leían la
  * nota cortada. Ahora los dos caminos RECHAZAN lo que pasa el tope (nunca recortan) y las dos cajas
  * lo topean al escribir. La nota por la API de MaKo topea más abajo (el `max: 2000` de su parámetro,
- * lib/api-mako/areas/crm.def.ts). ⚠️ /m (app/m/crm/acciones.ts) todavía recorta a 4000 ANTES de
- * llamar al alta: ahí una nota más larga se corta en silencio al crearla. Queda pendiente.
+ * lib/api-mako/areas/crm.def.ts). /m (app/m/crm/acciones.ts) recortaba a 4000 ANTES de llamar al
+ * alta; desde el 13/10/2026 también rechaza con este tope.
  */
 export const TOPE_NOTA = 4000;
+
+/**
+ * El adjunto de una nota (archivos e imágenes, tercer feedback del 12/10/2026, punto 3: «las notas
+ * como los chats de MaKo»). Vive en el bucket PRIVADO `lead-notas` (mig 0267) en
+ * `<ws>/<lead>/<uuid>`: el workspace y el lead primero y puestos por el server, para que «¿este
+ * archivo es de este lead?» se conteste con el prefijo. El nombre original NO entra en la ruta.
+ * Los formatos y el tope son los de las notas del curso (`MIME_NOTA`, `TOPE_NOTA_BYTES`).
+ */
+export const BUCKET_NOTAS_LEAD = 'lead-notas';
+const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
+
+export function pathDeNotaLead(ws: number, leadId: number, uuid: string): string | null {
+  if (!Number.isSafeInteger(ws) || ws <= 0 || !Number.isSafeInteger(leadId) || leadId <= 0) return null;
+  if (!new RegExp('^' + UUID + '$').test(uuid)) return null;
+  return `${ws}/${leadId}/${uuid}`;
+}
+
+/** ¿Este path es un adjunto subido para ESTE lead de ESTE workspace? Viaja desde el navegador. */
+export function pathEsNotaDelLead(path: unknown, ws: number, leadId: number): boolean {
+  return typeof path === 'string' && new RegExp('^' + ws + '/' + leadId + '/' + UUID + '$').test(path);
+}
 
 /**
  * «DD/MM/AAAA» de cuando se escribió una nota, en la zona del NEGOCIO: lo que deja «Nota borrada»

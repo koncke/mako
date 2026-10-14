@@ -15,6 +15,7 @@
 
 import type { CSSProperties } from 'react';
 import { CajaCampo, TextoEditable, FechaEditable } from './CampoEditable';
+import { marcaDato } from '@/lib/datos-aviso';
 
 const MONO = "'Geist Mono', monospace";
 const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '22px 24px' };
@@ -43,7 +44,7 @@ export function MotivoCard({ leadId, motivo }: { leadId: number; motivo: string 
     <section style={card}>
       <div style={{ ...sectLabel, marginBottom: 12 }}>Motivo de salida</div>
       {/* Toda la tarjeta abre el campo (punto 7, 12/10/2026): `CajaCampo`. */}
-      <CajaCampo style={{ fontSize: 14, color: 'var(--ink)', lineHeight: 1.5 }}>
+      <CajaCampo marca={marcaDato('motivo')} style={{ fontSize: 14, color: 'var(--ink)', lineHeight: 1.5 }}>
         <TextoEditable leadId={leadId} campo="motivo_perdida" valor={motivo} titulo="Motivo de salida" placeholder="Por qué se perdió" />
       </CajaCampo>
     </section>

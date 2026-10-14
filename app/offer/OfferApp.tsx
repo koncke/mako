@@ -132,8 +132,10 @@ async function aMp3(blob: Blob): Promise<Blob> {
   }
 }
 
-export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar, opcionActualizar = ACTUALIZAR_PDF }: {
+export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar, opcionActualizar = ACTUALIZAR_PDF, analizarAlAbrir = null }: {
   arbolInicial: ArbolOffer;
+  /** Un link que nombra una oferta sin conversación todavía (`entradaDelLink`, ./arbol.ts): se abre una para analizarla. */
+  analizarAlAbrir?: { funnelId: number; ofertaBaseId: number | null } | null;
   /** La conversación más reciente, abierta. null = la bienvenida. */
   sesionInicial: OfferSesionVista | null;
   /** El server no pudo leer el árbol (la pantalla igual abre). */
@@ -691,6 +693,17 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
     if (el.tipo === 'sesion') void abrirSesion(el.id);
     else void nuevaSesion(el.funnelId, el.ofertaBaseId);
   };
+
+  // El link del CRM a una oferta sin conversación abre la nueva UNA vez. El ref sobrevive al doble
+  // efecto de React en desarrollo: sin él, se pedirían dos (el server reusa la vacía, pero igual).
+  const alAbrir = useRef(analizarAlAbrir);
+  useEffect(() => {
+    const p = alAbrir.current;
+    if (!p) return;
+    alAbrir.current = null;
+    void nuevaSesion(p.funnelId, p.ofertaBaseId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- corre al montar y nunca más
+  }, []);
 
   const guardarOferta = async (): Promise<AvisoGuardado | null> => {
     const id = sesionRef.current?.id;

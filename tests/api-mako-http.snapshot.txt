@@ -20,6 +20,7 @@ archivar_etiqueta
 archivar_secuencia
 asegurar_plantilla_reporte
 asignar_closer_setter
+asignar_oferta_lead
 audios_requeridos
 avisar_al_equipo
 borrar_analisis_landing
@@ -79,6 +80,7 @@ crear_hoja_dashboard
 crear_lead_magnet
 crear_link_pago
 crear_modulo_curso
+crear_oferta_lead
 crear_secuencia_email
 crear_vista_general
 declarar_entradas_funnel
@@ -270,6 +272,7 @@ mover_clase_curso
 mover_estado_guion_anuncio
 nombrar_video
 ocultar_video
+oferta_del_lead
 olvidar_nombre_video
 opciones_siguiente_paso_guion
 ordenar_modulos_curso

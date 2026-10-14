@@ -17,7 +17,7 @@
 // =============================================================================
 
 import { revalidatePath } from 'next/cache';
-import { getPropuesta, marcarAplicada, descartarPropuesta } from '@/lib/propuestas';
+import { getPropuesta, marcarAplicada, descartarPropuesta, guardarResultadoPropuesta, soltarPropuesta } from '@/lib/propuestas';
 import { importarLeadsRevisadosAction } from '@/app/crm/actions';
 import { getUsuarioActual } from '@/lib/auth';
 import { getTenantDb } from '@/lib/workspace';
@@ -45,8 +45,28 @@ export async function confirmarLeadsAction(id: string, filas: FilaImport[]): Pro
   const defaultId = productos.length ? await idDelFunnelDefault() : null;
   const casa = productos.length ? casaParaEscribir(productos[0], defaultId) : undefined;
 
-  const r = await importarLeadsRevisadosAction(filas, casa);
-  if (!r.creados && !r.ids?.length && r.errores.length) return { ok: false, error: r.errores.join(' · ') };
+  // ⚠️ SE RECLAMA ANTES DE CREAR (13/10/2026). Hasta acá se marcaba DESPUÉS, y el comentario
+  // decía que «dos pestañas o un doble click crean UN solo lote»: no era así. Las dos pasaban
+  // el `pendiente` de arriba, las dos creaban, y recién después una no podía marcarla. Lo
+  // que salvaba el duplicado era el dedup del importador, no la guarda. El molde es el de
+  // las acciones del registro (lib/api-mako/acciones.ts): de N toques, pasa uno.
+  const mia = await marcarAplicada(id, { en_curso: true });
+  if (!mia) return { ok: false, error: 'Esa propuesta ya se está aplicando.' };
+
+  let r: Awaited<ReturnType<typeof importarLeadsRevisadosAction>>;
+  try {
+    r = await importarLeadsRevisadosAction(filas, casa);
+  } catch (e) {
+    // Puede haber escrito a medias: queda aplicada con el error, no vuelve a pendiente.
+    const error = e instanceof Error ? e.message : String(e);
+    await guardarResultadoPropuesta(id, { error });
+    return { ok: false, error };
+  }
+  if (!r.creados && !r.ids?.length && r.errores.length) {
+    // No escribió NADA: se suelta, para que la persona corrija y vuelva a confirmar.
+    await soltarPropuesta(id);
+    return { ok: false, error: r.errores.join(' · ') };
+  }
   const errores = [...r.errores];
 
   // ── La atribución de la landing, sólo sobre los leads que SE CREARON ──────────────
@@ -77,10 +97,8 @@ export async function confirmarLeadsAction(id: string, filas: FilaImport[]): Pro
     }
   }
 
-  // ⚠️ Se marca DESPUÉS de crear, con la guarda de `pendiente` adentro: dos pestañas o
-  // un doble click crean UN solo lote. Si devuelve false es que otra la ganó — los
-  // leads ya están creados, así que no es un error que el usuario tenga que ver.
-  await marcarAplicada(id, { creados: r.creados, enriquecidos: r.enriquecidos, omitidos: r.omitidos });
+  // El resultado pisa el «en curso» del reclamo de arriba.
+  await guardarResultadoPropuesta(id, { creados: r.creados, enriquecidos: r.enriquecidos, omitidos: r.omitidos });
 
   revalidatePath('/crm');
   return { ok: true, creados: r.creados, omitidos: r.omitidos, errores };

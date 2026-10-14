@@ -31,13 +31,16 @@ import { ConfirmDialog } from '@/app/components/ConfirmDialog';
 import { deriveStageKey, stageMetaOpt, type Stage } from '@/lib/pipeline';
 import type { FathomLink } from '@/lib/leads';
 import { suscripcionDeFila } from '@/lib/venta-tipo';
-import type { Step } from '@/lib/stage-requirements';
+import type { Step, StepId } from '@/lib/stage-requirements';
 import type { Pago } from '@/lib/pagos';
 import type { MiembroEquipo } from '../actions';
 import { EditarDeal } from './EditarDeal';
 import { LeadTabs, type LeadTabDef } from '../lead-view/LeadTabs';
 import { FunnelYEtapa, useProductosDeLaFicha, type ProductoOpcion } from '../lead-view/ProductoDelLead';
 import { DatosSinMarcarCard } from '../lead-view/DatosSinMarcarCard';
+import { AvisosDatosModal } from '../lead-view/AvisosDatosModal';
+import { Senalar } from '@/app/_ui/Senalar';
+import { TAB_DE_DATO, marcaDato, type EstadoDatos } from '@/lib/datos-aviso';
 import { CabeceraLead, type LeadConCara } from '../lead-view/CabeceraLead';
 import { EtiquetasDelLead, versionDeEtiquetas } from '../lead-view/EtiquetasDelLead';
 import { StageMoveDialog, type MoveLeadInfo } from '../StageMoveDialog';
@@ -70,7 +73,7 @@ export function BackButton() {
   );
 }
 
-export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, initialSolucionar, tabs, nombre, stageLabel, faltantes = [], equipo = [], productos = [], fotoEmail = null }: {
+export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, initialSolucionar, tabs, nombre, stageLabel, faltantes = [], datos, equipo = [], productos = [], fotoEmail = null }: {
   /** Con las columnas de la cara (portada, encuadres): la cabecera las dibuja y las cambia. */
   lead: LeadConCara;
   stages: Stage[];
@@ -89,6 +92,8 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
   stageLabel: string;
   /** Datos sin marcar de la etapa actual (badge + Solucionar). */
   faltantes?: Step[];
+  /** Lo mismo, partido en lo que avisa y lo escondido (el desplegable, lib/datos-aviso.ts). */
+  datos?: EstadoDatos;
   /** Equipo del workspace (para los desplegables de setter/closer del wizard). */
   equipo?: MiembroEquipo[];
   /**
@@ -128,6 +133,19 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
   // `router.refresh()` que hace la ficha después de cada cambio le trae el lead de nuevo.
   const fichaProd = useProductosDeLaFicha({ leadId: lead.id, casa: lead.funnel_id, foto: productos });
 
+  // «Solucionar» un dato lleva al dato y lo señala (13/10/2026), igual que el pop-up del tablero
+  // (app/crm/LeadSheet.tsx): la tab donde vive su campo, y el asistente sólo de respaldo.
+  const [irATab, setIrATab] = useState<{ key: string; n: number } | null>(null);
+  const [senal, setSenal] = useState<{ id: StepId; label: string } | null>(null);
+  const [configAvisos, setConfigAvisos] = useState(false);
+  const solucionarDato = (id: StepId) => {
+    const destino = TAB_DE_DATO[id];
+    if (!tabs.some((t) => t.key === destino)) { setMoveTo(currentStage); return; }
+    const d = [...(datos?.avisar ?? []), ...(datos?.ocultos ?? [])].find((x) => x.id === id);
+    setIrATab({ key: destino, n: Date.now() });
+    setSenal({ id, label: d?.label ?? 'este dato' });
+  };
+
   const moveInfo: MoveLeadInfo = {
     id: lead.id,
     name: lead.nombre,
@@ -161,10 +179,9 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
     ...suscripcionDeFila(lead),
   };
 
-  // Solucionar (pasada única): SIEMPRE abre el wizard con TODO lo faltante
-  // (reuniones + venta + higiene + Deal Details + documentos + respuestas R2).
-  // Ya no deriva a ninguna tab ni queda mudo.
-  const solucionar = () => { setMoveTo(currentStage); };
+  // El asistente de «Completar datos» (pasada única, con TODO lo faltante) ya no es lo que abre
+  // «solucionar» (13/10/2026: lleva al dato, ver `solucionarDato`). Queda de respaldo, cuando el
+  // campo no está en la ficha, y para el deep-link `?solucionar=1`.
 
 
   const borrar = () => {
@@ -202,12 +219,13 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
         lead={lead}
         fotoEmail={fotoEmail}
         marco
-        kicker={<EtiquetasDelLead leadId={lead.id} version={versionDeEtiquetas(lead.updated_at, fichaProd.productos)} />}
+        junto={<EtiquetasDelLead compacto leadId={lead.id} version={versionDeEtiquetas(lead.updated_at, fichaProd.productos)} />}
         acciones={
           <>
             <FunnelYEtapa ficha={fichaProd} etapasCasa={stages} etapaCasa={currentStage} onElegirCasa={pickStage} ariaLabel="Cambiar etapa o funnel" />
-            {faltantes.length > 0 && (
-              <DatosSinMarcarCard faltantes={faltantes} onSolucionar={solucionar} />
+            {datos && (
+              <DatosSinMarcarCard leadId={lead.id} datos={datos} onSolucionar={solucionarDato}
+                onConfigurar={() => setConfigAvisos(true)} onCambio={() => router.refresh()} />
             )}
           </>
         }
@@ -229,7 +247,7 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
       ) : (
         <>
           {/* La fila de pestañas queda pegada arriba al scrollear la página (punto 16). */}
-          <LeadTabs initial={tab} onChange={setTab} tabs={tabs} fija={{ fondo: 'var(--bg)' }} />
+          <LeadTabs initial={tab} onChange={setTab} tabs={tabs} irA={irATab} fija={{ fondo: 'var(--bg)' }} />
           {/* ⚠️ BORRAR LEAD NO SE FUE CON EL BOTÓN DE EDITAR. Vivía al pie del formulario,
               que era el único lugar de ESTA ruta donde se podía borrar (el modal tiene el
               suyo). Es irreversible, así que queda al fondo y con su confirmación
@@ -252,6 +270,12 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
           zIndex={130}
         />
       )}
+
+      {senal && (
+        <Senalar objetivo={marcaDato(senal.id)} texto={`Falta: ${senal.label}`}
+          onCerrar={() => setSenal(null)} onNoEsta={() => setMoveTo(currentStage)} />
+      )}
+      {configAvisos && <AvisosDatosModal onCerrar={() => setConfigAvisos(false)} onGuardado={() => router.refresh()} />}
 
       {moveTo && (
         <StageMoveDialog

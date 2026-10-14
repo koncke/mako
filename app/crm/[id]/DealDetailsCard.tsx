@@ -34,6 +34,7 @@ import { pipelineStageOf } from '@/lib/pipeline';
 import { planEnLead, tieneDeal } from '@/lib/muestra-pagos';
 import { NOMBRE_PASARELA, esPasarela, type CobroVisible } from '@/lib/cobros-tipos';
 import { formatoMonto } from '@/lib/pasarela-moneda';
+import { marcaDato } from '@/lib/datos-aviso';
 import { opcionesCobroAction, cobrosDelLeadAction, type OpcionesCobro } from './cobros-actions';
 import { CobrarConLink } from './CobrarConLink';
 import { CobrosDelLead } from './CobrosDelLead';
@@ -537,8 +538,8 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, {
         </div>
       )}
 
-      {/* 1 · PAGOS */}
-      <section style={card}>
+      {/* 1 · PAGOS — la marca es la que busca «solucionar» un dato sin marcar (lib/datos-aviso.ts). */}
+      <section style={card} data-recorrido={marcaDato('monto')}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap' }}>
           <div>
             <div style={sectLabel}>Pagos</div>
@@ -610,8 +611,8 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, {
         {verContrato && tieneContrato && <DocViewer src={`/api/doc?leadId=${lead.id}&kind=contrato`} nombre={contratoNombre ?? 'Contrato'} onClose={() => setVerContrato(false)} />}
 
         {/* Cuotas */}
-        <div style={{ marginTop: 22 }}>
-          <div style={{ ...sectLabel, marginBottom: 12 }}>Cuotas</div>
+        <div style={{ marginTop: 22 }} data-recorrido={marcaDato('plan')}>
+          <div style={{ ...sectLabel, marginBottom: 12 }} data-recorrido={marcaDato('comprobante')}>Cuotas</div>
           {!d && (pagos.length === 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <div style={{ fontSize: 13.5, color: 'var(--faint)' }}>Sin cuotas cargadas. Entra a Editar para armar el plan o sube el contrato.</div>
@@ -698,8 +699,8 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, {
       {seccionLinks}
 
       {/* 2 · DATOS FISCALES */}
-      <section style={card}>
-        <SectionHead title="Datos fiscales" tag="Extraído del documento" />
+      <section style={card} data-recorrido={marcaDato('dealFiscal')}>
+        <div data-recorrido={marcaDato('dealFiscalDoc')}><SectionHead title="Datos fiscales" tag="Extraído del documento" /></div>
         <div style={{ maxWidth: 440, marginBottom: 18 }}>
           <span style={{ display: 'block', fontSize: 12.5, marginBottom: 6, color: 'var(--dim)' }}>Facturado por</span>
           {d ? (
@@ -757,7 +758,7 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, {
       </section>
 
       {/* 3 · SERVICIO */}
-      <section style={card}>
+      <section style={card} data-recorrido={marcaDato('dealServicio')}>
         <SectionHead title="Servicio" tag="Resumido por IA · editable" />
         {d ? (
           <>
@@ -787,7 +788,7 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, {
       </section>
 
       {/* 4 · PROMESA */}
-      <section style={card}>
+      <section style={card} data-recorrido={marcaDato('dealPromesa')}>
         <SectionHead title="Promesa" tag="Resumido por IA · editable" />
         {d ? (
           <div style={grid2}>
@@ -803,7 +804,7 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, {
       </section>
 
       {/* 5 · OBLIGACIONES */}
-      <section style={card}>
+      <section style={card} data-recorrido={marcaDato('dealObligaciones')}>
         <SectionHead title="Obligaciones" tag="Resumido por IA · editable" />
         {d ? (
           <div style={grid2}>

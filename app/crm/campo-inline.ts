@@ -16,6 +16,7 @@
 // «Editar deal →».
 
 import type { FathomLink } from '@/lib/leads';
+import { usuarioDeTexto } from '@/lib/instagram-buscar';
 
 /**
  * Los campos que la ficha edita en el lugar.
@@ -173,8 +174,10 @@ export function usuarioInstagram(t: string | null | undefined): string | null {
     if (RUTAS_NO_PERFIL.has(link[1].toLowerCase())) return null;
     s = link[1];
   }
-  s = s.replace(/^@+/, '').toLowerCase();
-  return /^[a-z0-9._]{1,30}$/.test(s) ? s : null;
+  // ⚠️ UNA SOLA REGLA de «esto es un usuario de Instagram»: la del buscador del alta
+  // (lib/instagram-buscar.ts). Había dos y diferían en «___» (sin letras ni números), que la
+  // ficha guardaba como usuario y el buscador no (docs/relevo/crm.md, 12/10/2026).
+  return usuarioDeTexto(s);
 }
 
 /**

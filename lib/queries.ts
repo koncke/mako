@@ -7,6 +7,8 @@
 
 import { getTenantDb } from './workspace';
 import { cachedRead, TAG, TTL } from './cache';
+import { avisables, NO_IGNORABLES } from './datos-aviso';
+import { apagadosDelNegocio } from './datos-aviso-config';
 import { RECON_LEADS_VALIDACION, RECON_SPEND_SIN_LEADS_USD, VSL_PRUEBA_VIDEO_ID } from './config';
 import { conversorGastoMeta } from './moneda-meta';
 import { getCashCollectedPeriodo, getOutstandingPeriodo, getCuotasPendientes } from './pagos';
@@ -2196,7 +2198,16 @@ export type Pendientes = {
    * con texto, la UI tiene que decirlo en vez de afirmar que no hay nada que hacer.
    */
   aviso?: string;
+  /**
+   * Los datos que alguien ignoró UNO POR UNO (mig 0270), para el «Ver más» de «A revisar»: no
+   * avisan ni cuentan, pero se tienen que poder ver para dejar de ignorarlos. Topeado: es una
+   * lista para mirar, no una cola.
+   */
+  ignorados?: Array<{ lead_id: number; lead_nombre: string; paso: Step }>;
 };
+
+/** Cuántos ignorados viajan en el resultado (ver `Pendientes.ignorados`). */
+const TOPE_IGNORADOS = 50;
 
 function fmtFechaPendiente(yyyy_mm_dd: string): string {
   // Convención del proyecto: fecha completa en pantalla → dd/mm/aaaa.
@@ -2241,7 +2252,9 @@ const PENDIENTES_COLS =
   // Deal Details (solo se evalúan en la etapa de cierre)
   'deal_servicio, deal_promesa, deal_fiscal, deal_obligaciones, ' +
   // Excepciones y omisiones declaradas: eximen requisitos de forma persistente
-  'sin_r1, sin_r2, fathom_omitido, deal_fiscal_doc_omitido, comprobante_omitido, empresa_omitido, pendientes_ignorados, r2_agenda_externa_motivo';
+  'sin_r1, sin_r2, fathom_omitido, deal_fiscal_doc_omitido, comprobante_omitido, empresa_omitido, pendientes_ignorados, r2_agenda_externa_motivo, ' +
+  // Los datos ignorados UNO POR UNO (mig 0270): sin la columna, lo ignorado vuelve a avisar.
+  'datos_ignorados';
 
 /**
  * Los leads de la pasada, paginados. Si la lista de columnas explícita falla
@@ -2340,8 +2353,12 @@ async function _getPendientesDeMarcar(
   // Un encuentro que no deja grabación no puede tener «falta el link de Fathom»
   // como dato sin marcar: sería una tarea imposible, repetida por cada lead.
   const grabable = await encuentroGrabable();
+  // Qué tipos de dato tiene apagado el negocio (13/10/2026). Si la lectura falla devuelve []:
+  // avisar de más se nota, callar sin que nadie lo decida no (lib/datos-aviso-config.ts).
+  const apagados = await apagadosDelNegocio();
 
   const items: PendienteItem[] = [];
+  const ignorados: NonNullable<Pendientes['ignorados']> = [];
 
   for (const l of data) {
     // M) Nutrición - Manual: si venció el deadline y sigue abierto, vuelve a
@@ -2398,11 +2415,17 @@ async function _getPendientesDeMarcar(
     // Una reunión que YA PASÓ y sigue sin resolverse NO se puede ignorar. Es el
     // único pendiente que no es "dato lindo de tener": el lead está parado en R1/R2
     // esperando que alguien diga qué ocurrió, y silenciarlo lo deja colgado para
-    // siempre. Todo lo demás sí respeta el "ignorar" del lead (mig 0109).
-    const NO_IGNORABLES = new Set(['asistenciaR1', 'asistenciaR2']);
+    // siempre. Todo lo demás sí respeta el "ignorar" del lead (mig 0109), el de cada
+    // dato (mig 0270) y lo que el negocio apagó — la regla vive en lib/datos-aviso.ts.
     const faltan = l.pendientes_ignorados
       ? faltanSinEmpresa.filter((f) => NO_IGNORABLES.has(f.id))
-      : faltanSinEmpresa;
+      : avisables(faltanSinEmpresa, l.datos_ignorados, apagados);
+    if (!l.pendientes_ignorados && l.datos_ignorados?.length && ignorados.length < TOPE_IGNORADOS) {
+      for (const f of faltanSinEmpresa) {
+        if (ignorados.length >= TOPE_IGNORADOS) break;
+        if (!NO_IGNORABLES.has(f.id) && (l.datos_ignorados ?? []).includes(f.id)) ignorados.push({ lead_id: l.id, lead_nombre: l.nombre, paso: f });
+      }
+    }
 
     const slot = l.estado_lead === 'abierto' ? slotDeReunion(funnelPipeline, etapaLead) : null;
     if (slot) {
@@ -2462,6 +2485,7 @@ async function _getPendientesDeMarcar(
     total: items.length,
     porTipo,
     aviso: avisos.length ? `No se pudo leer ${avisos.join(' ni ')}: esta lista puede estar incompleta.` : '',
+    ignorados,
   };
 }
 

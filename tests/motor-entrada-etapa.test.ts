@@ -201,6 +201,7 @@ test('M6: reservar una R1 limpia «nutri», «reactivación» y el no-show de R1
   const up = cuerpo(LEADS, 'export async function upsertLeadFromCalendly(');
   const vivo = up.slice(up.indexOf('} else {'), up.indexOf('const { data, error } = await supabase'));
   assert.match(vivo, /if \(limpiaEtapaAlReservar\(existing\.pipeline_stage \?\? null, derivadaDespues\)\) updatePayload\.pipeline_stage = null;/);
-  assert.match(up, /if \('pipeline_stage' in updatePayload && antes !== despues\) await auditarEtapaDeLaReserva\(existing\.id, antes, data as Lead\);/);
-  assert.match(cuerpo(LEADS, 'async function auditarEtapaDeLaReserva('), /campo: CAMPO_ETAPA, valor_anterior: cambio\.desde, valor_nuevo: cambio\.hacia, autor: AUTOR_SISTEMA/);
+  // ⚠️ Desde el 14/10/2026 la firma la AGENDA (Calendly o Cal.com), no MaKo: el «MaKo lo movió» desvió un diagnóstico.
+  assert.match(up, /if \('pipeline_stage' in updatePayload && antes !== despues\) await auditarEtapaDeLaReserva\(existing\.id, antes, data as Lead, input\.origen_lead === 'calcom' \? 'Cal\.com' : 'Calendly'\);/);
+  assert.match(cuerpo(LEADS, 'async function auditarEtapaDeLaReserva('), /campo: CAMPO_ETAPA, valor_anterior: cambio\.desde, valor_nuevo: cambio\.hacia, autor \}/);
 });

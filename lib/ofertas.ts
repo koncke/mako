@@ -28,7 +28,7 @@ import {
 
 const SEED_KEY = 'mako.ofertas.seeded';
 
-const COLS = 'id, nombre, precio_usd, precio_nota, promesa, incluye, garantia, bonos, '
+const COLS = 'id, nombre, precio_usd, modelo, precio_nota, promesa, incluye, garantia, bonos, '
   + 'urgencia_tipo, urgencia_dato, urgencia_razon, urgencia_hasta, para_quien, objeciones, prueba, '
   + 'desde_brief, es_principal, activa, orden, origen';
 
@@ -127,6 +127,7 @@ function fila(input: Partial<OfertaInput>): Record<string, unknown> {
   const set = (k: string, v: unknown) => { if (v !== undefined) r[k] = v; };
   if (input.nombre !== undefined) r.nombre = input.nombre.trim();
   set('precio_usd', input.precio_usd);
+  set('modelo', input.modelo);
   set('precio_nota', input.precio_nota?.trim() || null);
   set('promesa', input.promesa?.trim() || null);
   set('incluye', input.incluye?.trim() || null);

@@ -666,7 +666,7 @@ test('⚠️ eliminar un embudo lo ARCHIVA, y hay por dónde recuperarlo', () =>
   // ⚠️ SE LLAMA «PRODUCTOS», NO «EMBUDOS», y va `sutil`: «debe ser Productos eliminados y
   //    ser mucho más sutil, solo un texto» (30/09/2026). El nombre del negocio es el del
   //    producto — «embudo» es como lo llama la tabla, no el cliente.
-  assert.ok(tb.includes("label: 'Funnels eliminados', sutil: true"),
+  assert.ok(tb.includes("label: 'CRM eliminados', sutil: true"),
     'el selector no ofrece la puerta de vuelta, o volvió a llamarse «embudos» / a pesar como una opción más');
   assert.ok(!/label: 'Embudos eliminados'/.test(tb), 'volvió el nombre viejo');
   assert.match(tb, /restaurarEmbudoAction/, 'la pantalla de eliminados no puede restaurar nada');
@@ -810,24 +810,20 @@ test('⚠️ crear o eliminar un embudo NAVEGA DURO, no refresca', () => {
       `${etq} un embudo dejó de navegar duro: la lista va a quedar un paso atrás`);
   }
 });
-test('⚠️ renombrar un embudo escribe DONDE SE LEE, que puede no ser la tabla funnels', () => {
-  // La pantalla muestra el nombre del PRODUCTO: todos los funnels se llaman «Funnel
-  // principal» porque lo puso la 0170, y `listarFunnels` lo tapa con el del producto
-  // principal. Escribir `funnels.nombre` y refrescar deja la pantalla EXACTAMENTE IGUAL —
-  // un guardado que funciona, no da error, y no se ve.
+test('⚠️ renombrar un CRM escribe el CRM, nunca el producto (desde el 13/10/2026)', () => {
+  // Hasta el 13/10 escribía el PRODUCTO cuando el embudo tenía uno, porque la pantalla
+  // mostraba el nombre del producto. Con eso renombrar el CRM renombraba el curso. Martín:
+  // «desvincula lo que hace que se ponga automáticamente el nombre de ese CRM al nombre de
+  // un curso». La regla que se lee está ejecutada en tests/crm-nombre-propio.test.ts.
   //
-  // Probado rompiéndolo (el archivo entero da 17 / 0): se borra la rama del producto y
-  // `renombrarFunnel` escribe siempre en `funnels` -> 16 / 1.
-  //
-  // ⚠️ Y LA PRIMERA ROTURA NO FALLÓ, que es lo que enseña algo: renombré la vista a
-  // `v_funnel_productos_INEXISTENTE`, que SIGUE CONTENIENDO la cadena que el test busca.
-  // Una rotura que no rompe lo que el test persigue no prueba nada — hay que borrar la
-  // rama, no disfrazarla.
-  const fn = readFileSync(join(RAIZ, 'lib/funnels.ts'), 'utf8');
-  const ren = fn.slice(fn.indexOf('export async function renombrarFunnel'), fn.indexOf('function traducirChoque'));
+  // Probado rompiéndolo (el archivo entero da 28 / 0): devolverle a `renombrarFunnel` un
+  // update a `productos`, 27 / 1.
+  const fn = readFileSync(join(RAIZ, 'lib/funnels.ts'), 'utf8').replace(/\r\n/g, '\n');
+  const ini = fn.indexOf('export async function renombrarFunnel');
+  const ren = fn.slice(ini, fn.indexOf('\n}\n', ini));
   assert.ok(ren.length > 200, 'no se encontró el renombre de un embudo');
-  assert.match(ren, /v_funnel_productos/, 'el renombre no mira si el embudo tiene producto: escribiría donde no se lee');
-  assert.match(ren, /from\('productos'\)[\s\S]{0,60}\.update\(\{ nombre \}\)/, 'el renombre no escribe el nombre del producto');
+  assert.match(ren, /\.from\('funnels'\)\.update\(\{ nombre, updated_at/, 'el renombre no escribe el CRM');
+  assert.doesNotMatch(ren, /from\('productos'\)|v_funnel_productos/, 'el renombre del CRM volvió a tocar el producto (y con él el curso)');
   // Y el choque del índice único se traduce: el error crudo de Postgres no le dice nada a nadie.
   assert.match(fn, /Ya tienes un funnel que se llama/, 'un nombre repetido sale con el error crudo de la base');
 });

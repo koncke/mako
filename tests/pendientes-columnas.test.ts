@@ -52,7 +52,7 @@ function columnasDe(src: string, nombre: string): Set<string> {
 
 test('PENDIENTES_COLS trae TODO lo que faltantesDeLead lee del lead', () => {
   const cols = columnasDe(leer('../lib/queries.ts'), 'PENDIENTES_COLS');
-  const cuerpo = cuerpoDe(leer('../lib/leads.ts'), 'export function faltantesDeLead');
+  const cuerpo = cuerpoDe(leer('../lib/leads.ts'), 'function requisitosDeLead');
   const leidos = [...new Set((cuerpo.match(/\blead\.[a-z_0-9]+/g) ?? []).map((m) => m.slice(5)))];
 
   assert.ok(leidos.length > 10, `esperaba varios campos y encontré ${leidos.length}: ¿cambió la forma de la función?`);

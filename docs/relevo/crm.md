@@ -6,6 +6,130 @@ el briefing anterior (`b5f7fb55`, 10/10 17:10) con todo verificado contra el ár
 **Rutas de esta área:** `app/crm/**`, `lib/leads.ts`, `lib/funnel*.ts`, `lib/crm*.ts`,
 `lib/lead-*.ts`, `lib/campana-*.ts`, `lib/etiquetas*.ts`, `lib/pipeline.ts`.
 
+## 0-Ω. Noche del 13 al 14/10/2026 (chat «CRM», cuenta `claude2`): el feedback del detalle del lead
+
+Martín lo pidió directo (el texto literal está en `app/admin/dev/crm/bitacora.ts`, hito del 13/10
+22:57). **Nada de esto está en producción todavía:** al 14/10 01:10 los pushes de TODA la máquina
+seguían trabados por RAM (el typecheck completo ya pide ≈ 5,3 GB libres: el tope del heap subió a
+4096 el 14/10). Hay DOS worktrees con trabajo sin publicar:
+
+- `C:/Users/marti/wtcrm2` (HEAD `a98318cb`): `origin/main` + los commits de todas las sesiones +
+  los del CRM hasta la cabecera compacta. Un script de fondo lo pushea cuando haya RAM
+  (`scratchpad/push-cuando-haya-ram.sh`; sale con 2 si `origin/main` se movió → rebasar y relanzar).
+- `C:/Users/marti/wtcrm3` (HEAD `4ca15b9a`): encima de `a98318cb`, la oferta del lead
+  (`81a28c18`, `4ca15b9a`) y esta cosecha. **Se pasa a la rama del push con un cherry-pick** cuando
+  `wtcrm2` llegue, o se pushea desde acá si `wtcrm2` ya está en `origin`.
+
+**CIERRE (14/10 ~03:45, pedido de Martín: «que se pushee todo y que los chats cierren lo que están
+haciendo»).** Todo lo del CRM está en la rama `crm-1410` del worktree `C:/Users/marti/wtcrm4`: una copia
+limpia sobre origin/main `e4c8a6d7` con los commits del CRM pasados por cherry-pick (sin choques) más los
+tres bugs que encontró Automations y la hora al mover a mano. **El push lo hace Estrategia 3 CUENTAS, con
+todo junto: desde acá no se pushea.** Los hashes de la bitácora y de este relevo son los de `crm-1410`.
+Tests de lo tocado: 7907 verdes y 2 rojos ajenos. El de SelectorFuente lo reescribió CS en `0255c855`; el
+otro es el área de `dashboard-analisis-listo`, de Automations. La referencia de la API está al día.
+
+**Las migraciones ya están APLICADAS en prod** (0269, 0270, 0272 y 0274; todas aditivas o de datos): son de las que van antes del
+deploy. Los hashes de abajo son los de DESPUÉS del rebase del 14/10.
+
+### ✅ Hecho (commits locales, con tests probados rompiéndolos)
+
+- «A revisar» sólo con datos sin marcar, sin la «Mk» ni «MaKo movió» (`0d07ddc8`). **El motor
+  (lib/crm-auto.ts) sigue corriendo**: lo reemplazan las plantillas que se le pidieron al chat de
+  Automations, y recién ahí se apaga (flag por workspace `KEY_CRM_AUTO`).
+- «Nuevo CRM» arriba del desplegable, «CRM eliminados» (`0d07ddc8`).
+- El CRM con nombre propio: renombrarlo ya no renombra el producto ni el curso (`ace3e61d`, mig 0269).
+- La grabación de la visita: montaba en un rAF antes de que existiera el recuadro (`913966d4`).
+- Datos sin marcar v2: «Ver →», solucionar que lleva al dato y lo señala, ignorar por dato, «Ver
+  más», de qué avisa MaKo, «A revisar» por dato, y «¿Era calificado?» en Resumen (`42e57a6c`, mig 0270).
+- El mapa de sugerencias de MaKo: `docs/sugerencias-mako-crm.md`, **esperando que Martín lo valide**.
+- Autoguardado: lo que se perdía era cerrar un modal con un clic en el fondo (`862757d0`).
+- Cabecera compacta: etiquetas al lado del nombre con «+N» (`a98318cb`).
+- Pagos punto 1: la OFERTA del lead (desplegable, «Nueva oferta» con nombre, modelo y ticket, y
+  «Analizar oferta →» que abre ESA en Offer) (`81a28c18`, `4ca15b9a`, mig 0272). Toqué tres archivos
+  de Offer (`page.tsx`, `OfferApp.tsx`, `arbol.ts`) porque no había chat de Offer vivo para pedírselo.
+
+**Sin mirar en el navegador** (la máquina sin RAM para un `next dev`): lo primero al haber deploy
+es abrir una ficha con datos sin marcar y probar «Ver →», solucionar, ignorar y el engranaje.
+
+### ⏳ Lo que falta del mismo pedido (en este orden)
+
+1. ~~Autoguardado~~ y 2. ~~cabecera compacta~~: hechos (arriba).
+3. **Tarjetas del lead personalizables** (plantillas, campos, arrastrar, vista en vivo) en los tres puntos.
+4. ~~**Resumen personalizable**~~: hecho el 14/10 (mig 0274 aplicada). Falta mirarlo en el navegador.
+5. ~~**CAPI**~~: revisado el 14/10 (docs/hallazgos-ads.md, «a dónde va hoy ¿Era calificado?»). La
+   tarjeta ya no afirma «Meta aprende» donde no llega. **Espera a Martín**: si quiere ofrecer el
+   conjunto de datos de CRM (lo que hace que Meta optimice por calificados); nadie lo tiene.
+6. **Pagos**: ~~el desplegable de OFERTA~~ (hecho); falta la tab personalizable como Reuniones
+   (tipografía, tamaño de tarjetas, colores). Coordinar con Integraciones (worktree
+   `C:/dev/wt-pagos`, rama `pagos-pasarela`).
+7. **El chat de MaKo al costado del CRM con las sugerencias**: después de que Martín valide el mapa.
+8. Del lote de Estrategia: Leads Scraper (sólo fuentes legítimas) y los tipos de funnel que faltan.
+
+### Pedidos a otros chats (13/10), y lo que contestaron el 14/10
+
+- **Automations**: plantillas que reemplacen T1-T6 del CRM automático, revisar si hoy alcanza, y el
+  EVENTO de Calendly o Cal por etapa de reunión. **Contestó (14/10):** lo tiene en
+  `docs/relevo/chatbot.md` (`25e4600a`), después de tres bugs de Mauricio. Para crear desde una
+  plantilla hay UNA puerta: la op `crear_automatizacion_desde_plantilla` o
+  `POST /api/chat-agent/secuencias` con `action: 'crear_desde_plantilla'` (las dos terminan en
+  `crearDesdePlantilla`, lib/plantilla-crear.ts). Ya existe `lead-no-avanzo` (el plazo de etapa).
+  **El motor NO se apaga** hasta que avisen; se apaga por workspace con `KEY_CRM_AUTO`.
+- **Customer Success**: el título del curso desde la OFERTA. Se le tocó `renombrarServicioAction`
+  (un hunk: ahora renombra el producto, no el CRM). **Contestó (14/10):** lo toma, leyendo la oferta
+  principal del producto; espera el hash en main (`ace3e61d`) para leer `nombreVisible`.
+- **El push lo hace UNO: Estrategia 3 CUENTAS**, desde su worktree de integración (14/10 ~01:00). No se
+  pushea desde acá; se le pasa el HEAD de `C:/Users/marti/wtcrm3`.
+
+## 0-α. Al 13/10/2026 (chat «CRM», cuenta `claude2`, al reanudar lo frenado por la cuota)
+
+Martín, vía «Estrategia 3 cuentas»: «dile a esos chats que continuen y cierren lo que ya habiamos
+planificado». Lo nuevo de `mako-feedback-y-tareas.md` NO se tocó: sigue provisional.
+
+### ✅ Cerrado (cada uno con su test probado rompiéndolo)
+
+- **El rojo de main** (`tests/mover-etapa-validacion.test.ts`): el código validaba bien. El test
+  leía 1.400 caracteres fijos y el commit de MaKo Mobile metió código en el medio. Ahora lee la
+  rama de la opción.
+- **Confirmar una propuesta de contactos la RECLAMA antes de crear** (§3): dos pestañas ya no
+  crean dos veces. Si no escribió nada, se suelta (`soltarPropuesta`).
+- **Quitar una columna pregunta aunque el filtro esconda sus leads.**
+- **La nota desde el teléfono se rechaza si es larga**, con `TOPE_NOTA`, en vez de recortarse.
+- **«confírmalo en Inbox» → «confírmalo abajo»**: el mismo turno corre en la ficha de escritorio.
+- **Instagram: una sola regla** de qué es un usuario (la del buscador).
+- **El desplegable no esconde «＋ Nueva» al buscar** (`app/components/Dropdown.tsx`).
+- **La cohorte se ve en el panel del tablero**, con `cohorteDeLead`, la misma función de la ruta.
+- **«A revisar» resuelve en el lugar**: lista los primeros 12 leads con datos sin marcar y abre
+  su ficha encima de la página. «Ver todos» sigue llevando a la cola.
+- **Las notas como los chats de MaKo**: emojis, el micrófono (ya estaba) y **adjuntos**. La
+  **mig 0267 YA ESTÁ APLICADA en prod**: columnas en `lead_audit` y el bucket privado
+  `lead-notas`. Verificado de punta a punta en ws3 y borrado.
+
+**Sin mirar en el navegador.**
+
+**El push:** al cierre, el pre-push no pudo correr el typecheck. La vigía de RAM lo mata en zona
+roja y sale «hay errores de tipos» sin ninguno. Lo arregla «Fallas en la PC» en
+`scripts/typecheck-lock.mjs`. Los commits se pushean cuando eso esté en main; nunca con
+`--no-verify`.
+
+### Ya estaba hecho (las notas de abajo quedaron viejas)
+
+- **El punto 3 del quinto feedback** (desplegable de tipo en las nutriciones, arrastrar cambia el
+  tipo): está en `ab720661`.
+- **El duplicado del opt-in sin productos** (§3): desde el 09/10 la propuesta guarda
+  `datos.funnels` y los aplica quien confirma.
+
+### Sin hacer, con su archivo
+
+- **El espejo etapa↔etiqueta reconoce por el NOMBRE** lo que tocó una persona
+  (`lib/etiquetas-motor.ts`).
+- **Los dos textos al borrar una etapa se contradicen, y ninguno es exacto.**
+  - El tablero (`CrmBoard.tsx`) dice que los leads «pasan a la primera etapa».
+  - El editor (`EtapasModal.tsx`) dice que «quedan fuera del embudo».
+  - Lo que pasa: vuelven a la etapa que les dan sus datos (`etapaVigenteDe`), y quedan afuera
+    sólo si esa etapa no existe en el funnel.
+- **El lápiz (color) en las etapas de nutrición**; **la causa del título de /crm**; **los tres
+  clasificadores de «Meta está limitando»**.
+
 ## 0. Al 12/10/2026, 15:30 (chat «CRM», cuenta `claude3`, al 98% semanal)
 
 ### ✅ Sexto feedback del 12/10 (14:54) y el punto 3 del quinto: HECHOS en `ab720661`

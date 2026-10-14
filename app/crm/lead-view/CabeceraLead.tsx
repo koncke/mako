@@ -54,12 +54,19 @@ const caraDe = (l: LeadConCara): CaraLead => ({
   portada: l.portada ?? null, portadaY: l.portada_y ?? null, icono: l.icono ?? null, avatarY: l.avatar_y ?? null,
 });
 
-export function CabeceraLead({ lead, fotoEmail, kicker, acciones, onCerrar, marco = false, alto = 116, tam = 72 }: {
+export function CabeceraLead({ lead, fotoEmail, kicker, junto, acciones, onCerrar, marco = false, alto = 92, tam = 64 }: {
   lead: LeadConCara;
   /** La foto del email (Gravatar, `d=404`), armada en el server. */
   fotoEmail: string | null;
-  /** ARRIBA del nombre: las etiquetas del lead (punto 9). */
+  /** ARRIBA del nombre. Desde el 13/10/2026 las etiquetas van en `junto`; queda para otra cosa. */
   kicker?: ReactNode;
+  /**
+   * AL LADO del nombre, en su mismo renglón: las etiquetas del lead (13/10/2026: «compactes lo que
+   * hay arriba de las tabs... poniendo la opción de etiquetas al lado del título»). Antes iban en
+   * un renglón propio arriba del nombre (punto 9 del 12/10), y ese renglón y la banda de la portada
+   * eran lo que empujaba las pestañas hacia abajo. La banda bajó de 116 a 92 y la cara de 72 a 64.
+   */
+  junto?: ReactNode;
   /** A la derecha: el desplegable del funnel y, debajo, «N sin marcar · Solucionar». */
   acciones?: ReactNode;
   /** El pop-up: la cruz sobre la portada. La ruta no tiene: es una pantalla, se vuelve con «Volver». */
@@ -152,6 +159,7 @@ export function CabeceraLead({ lead, fotoEmail, kicker, acciones, onCerrar, marc
         onCerrar={onCerrar}
         kicker={kicker}
         titulo={
+          <span className="cl-tit">
           <EditableInline
             key={`${lead.id}:${vuelta}`}
             valor={lead.nombre ?? ''}
@@ -160,6 +168,8 @@ export function CabeceraLead({ lead, fotoEmail, kicker, acciones, onCerrar, marc
             className="cl-nom"
             maxLargo={160}
             onGuardar={guardarNombre} />
+          {junto != null && <span className="cl-junto">{junto}</span>}
+          </span>
         }
         bajada={<span>{lead.empresa?.trim() || 'Sin empresa'} · Lead #{lead.id} · creado {fmtDDMMYYYY(lead.created_at)}</span>}
         acciones={acciones ? <div className="cl-acc">{acciones}</div> : undefined}
@@ -206,8 +216,12 @@ const CSS = `
    Se edita con un clic, como la empresa. */
 .cl-nom{ font-size:22px; font-weight:670; letter-spacing:-.02em; line-height:1.2;
   color:var(--ink); overflow-wrap:anywhere; }
-/* Las etiquetas arriba del nombre, con aire hasta el nombre. */
+/* Lo que va arriba del nombre, con aire hasta el nombre. */
 .cl-cab .cd-kicker{ margin-bottom:6px; }
+/* El nombre y, en su renglon, las etiquetas. Si no entran, las etiquetas bajan debajo del
+   nombre (envuelven): nunca lo aplastan a cero. */
+.cl-tit{ display:flex; align-items:center; flex-wrap:wrap; gap:6px 12px; min-width:0; }
+.cl-junto{ display:inline-flex; align-items:center; flex:none; }
 /* A la derecha: el funnel arriba y el aviso de datos sin marcar debajo (punto 9: «que ese
    desplegable este arriba de donde hoy esta 1 sin marcar»). Pegado a la derecha aunque el nombre
    sea largo: el texto es lo que cede. */

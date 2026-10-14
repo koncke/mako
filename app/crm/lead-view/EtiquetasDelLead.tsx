@@ -21,6 +21,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useRefrescarFicha } from './ficha-cambio';
 import { ChipEtiqueta, SelectorEtiqueta, type Etiqueta } from '@/app/_components/etiquetas-cliente';
+import { Dropdown } from '@/app/components/Dropdown';
 
 type EtiquetaDelLead = Etiqueta & { puesta_at: string; puesta_por: string };
 type Resultado = { ok?: boolean; error?: string; yaEstaba?: boolean; movio?: boolean; sync?: Array<{ destino: string; ok: boolean }> };
@@ -42,7 +43,16 @@ export function versionDeEtiquetas(actualizado: string | null | undefined, produ
  * cambiaba y estos chips seguían mostrando las de antes — leían sólo al montarse, y ni el `releer`
  * de la ficha ni el `router.refresh()` de la ruta los remontan.
  */
-export function EtiquetasDelLead({ leadId, version }: { leadId: number; version?: string | number }) {
+export function EtiquetasDelLead({ leadId, version, compacto = false }: {
+  leadId: number;
+  version?: string | number;
+  /**
+   * Al lado del nombre (13/10/2026). Martín: «compactes lo que hay arriba de las tabs. Tal vez
+   * poniendo la opción de etiquetas al lado del título, y si tienen más de una etiqueta que aparezca
+   * como "+2" y un desplegable». Se ve la primera; las demás, en el desplegable del «+N», con su ✕.
+   */
+  compacto?: boolean;
+}) {
   const refrescarFicha = useRefrescarFicha();
   const [suyas, setSuyas] = useState<EtiquetaDelLead[] | null>(null);
   const [ocupada, setOcupada] = useState<number | null>(null);
@@ -86,19 +96,48 @@ export function EtiquetasDelLead({ leadId, version }: { leadId: number; version?
   };
 
   const puestas = new Set((suyas ?? []).map((e) => e.id));
+  const agregar = (
+    // «Agregar», no «Ponerle» (sexta tanda, TAG 1: «se formal escribiendo siempre... "Agregar" y
+    // "Eliminar"»). Compacto es sólo el «＋»: el nombre del control va en el aria-label.
+    <SelectorEtiqueta value={null} accion editable placeholder={compacto ? '' : 'Etiqueta'} ariaLabel="Agregar una etiqueta"
+      excluir={puestas} disabled={suyas == null || ocupada != null} width={compacto ? 30 : 150}
+      icono={<span aria-hidden style={{ color: 'var(--dim)', fontWeight: 600 }}>＋</span>}
+      buttonStyle={compacto
+        ? { height: 26, width: 26, padding: 0, borderRadius: 999, fontSize: 12.5, justifyContent: 'center' }
+        : { height: 30, padding: '0 10px', borderRadius: 999, fontSize: 12.5 }}
+      onElegir={(e) => void escribir('poner', e)} />
+  );
+
+  if (compacto) {
+    const [primera, ...resto] = suyas ?? [];
+    return (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'nowrap', minWidth: 0 }}>
+        {primera && <ChipEtiqueta e={primera} chico ocupado={ocupada === primera.id} onSacar={() => void escribir('sacar', primera)} />}
+        {/* Las demás: el «+N» es un desplegable, y cada renglón lleva su ✕ (sacar una etiqueta del
+            lead la QUITA de un vínculo, no la borra: va la ✕ y no el tacho). */}
+        {resto.length > 0 && (
+          <Dropdown value="" botonLabel={`+${resto.length}`} sinFlecha search={false} width={52}
+            ariaLabel={`Las otras ${resto.length} etiquetas`}
+            buttonStyle={{ height: 26, padding: '0 9px', borderRadius: 999, fontSize: 12, fontWeight: 650 }}
+            options={resto.map((e) => ({
+              value: String(e.id), label: e.nombre, color: e.color,
+              acciones: [{ icono: <span aria-hidden style={{ fontSize: 14, lineHeight: 1 }}>×</span>, title: `Eliminar ${e.nombre}`, onClick: () => void escribir('sacar', e) }],
+            }))}
+            onChange={() => { /* el renglón no se elige: lo que se hace es sacarla */ }} />
+        )}
+        {agregar}
+        {aviso && <span role="status" style={{ fontSize: 12, color: 'var(--bad)' }}>{aviso}</span>}
+      </span>
+    );
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
       <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6, minWidth: 0 }}>
         {(suyas ?? []).map((e) => (
           <ChipEtiqueta key={e.id} e={e} ocupado={ocupada === e.id} onSacar={() => void escribir('sacar', e)} />
         ))}
-        {/* «Agregar», no «Ponerle» (sexta tanda, TAG 1: «se formal escribiendo siempre... "Agregar" y
-            "Eliminar"»). */}
-        <SelectorEtiqueta value={null} accion editable placeholder="Etiqueta" ariaLabel="Agregar una etiqueta"
-          excluir={puestas} disabled={suyas == null || ocupada != null} width={150}
-          icono={<span aria-hidden style={{ color: 'var(--dim)', fontWeight: 600 }}>＋</span>}
-          buttonStyle={{ height: 30, padding: '0 10px', borderRadius: 999, fontSize: 12.5 }}
-          onElegir={(e) => void escribir('poner', e)} />
+        {agregar}
       </div>
       {aviso && <span role="status" style={{ fontSize: 12, color: 'var(--bad)' }}>{aviso}</span>}
     </div>

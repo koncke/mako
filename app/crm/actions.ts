@@ -27,7 +27,8 @@ function bust(...tags: string[]) {
     /* no-op: la caché vence por TTL */
   }
 }
-import { listLeadsDeFunnel, contarLeadsDeFunnel,
+import {
+  cohorteDeLead, listLeadsDeFunnel, contarLeadsDeFunnel,
   createLead,
   vendedorUnicoDelWorkspace,
   updateLead,
@@ -60,6 +61,9 @@ import { casaReal, destinoDelAlta, nombreVisible, type ProductoParaAlta } from '
 import { agregarAProducto } from '@/lib/lead-funnel';
 import { conLoteDeEtiquetas } from '@/lib/etiquetas';
 import { respuestasPropias } from '@/lib/meta-leads-campos';
+import { respuestasGuardadas } from '@/lib/optin-respuestas';
+import { resumenDelNegocio } from '@/lib/resumen-ficha-config';
+import type { ResumenElegido } from '@/lib/resumen-ficha';
 // Los dos lectores del funnel, separados a propósito: el del NEGOCIO (columnas del
 // board, catálogos de etapa) y el DEL LEAD (requisitos de un movimiento concreto).
 import { getFunnelDefault, getFunnelDe, getPipelineStagesDefault, getPipelineStagesDeLead, saveFunnelDefault, saveFunnelDe, listarFunnels,
@@ -102,11 +106,13 @@ import { getUltimoInsightGenerado, faltantesParaInsights, type LeadInsightGen } 
 import { duracionDeReunionEnAgendaMin, moverEventoDeReunion, permisoCalendarioGoogle } from '@/lib/google-calendar';
 import { motivoFijo } from '@/lib/agenda-sin-ia';
 import { etapaVigenteDe } from '@/lib/funnel-etapas';
-import { DURACION_DEFECTO_MIN, instanteDeLocal } from './horarios-respuesta';
+import { DURACION_DEFECTO_MIN, instanteDeLocal, instanteDeReunionManual } from './horarios-respuesta';
 import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 import type { Step } from '@/lib/stage-requirements';
 import { getSupabaseServer } from '@/lib/supabase';
 import { getTenantDb, getWorkspaceActual, getRolWsEfectivo, getCapaActual, rutaConWs } from '@/lib/workspace';
+import { estadoDatosDeLead } from '@/lib/datos-aviso-config';
+import type { EstadoDatos } from '@/lib/datos-aviso';
 import { tabEnCapa } from '@/lib/capas';
 
 /**
@@ -154,7 +160,8 @@ import { verTrackingDeLead } from '@/lib/tracking-ficha-server';
 import { crearProductoConFunnel } from '@/lib/producto-con-funnel';
 import { urlGravatar } from '@/lib/gravatar';
 import { type VisitasMap } from './crm-map';
-import { TOPE_NOTA } from './notas-reglas';
+import { TOPE_NOTA, BUCKET_NOTAS_LEAD, pathEsNotaDelLead } from './notas-reglas';
+import { esMimeNota, TOPE_NOTA_BYTES, nombreDeAdjunto } from '@/app/customer-success/curso/reglas';
 
 /** Análisis de llamadas (Closing Analyst) matcheados a este lead. */
 export type LeadInsightRow = {
@@ -219,10 +226,21 @@ export type LeadFullData = {
    * Se resuelve acá y baja hecho, igual que en la ruta: el pop-up no lee el field_data.
    */
   respuestasForm: Array<{ pregunta: string; respuesta: string }>;
+  /** Lo que contestó en el formulario de la landing (mig 0274), ya saneado. */
+  respuestasLanding: Array<{ pregunta: string; respuesta: string }>;
+  /** Qué muestra el Resumen en ESTE negocio (lib/resumen-ficha.ts, 14/10/2026). */
+  resumen: ResumenElegido;
+  /** La cohorte de la ficha (`cohorteDeLead`, lib/leads.ts), resuelta acá: el panel es 'use client'. */
+  cohorte: { label: string; color: string; texto: string | null } | null;
   insightGen: LeadInsightGen | null;
   faltantesInsight: Step[];
   /** Datos sin marcar de la etapa actual (completos: incluye tel/empresa/deal). */
   faltantes: Step[];
+  /**
+   * Lo mismo, partido en lo que AVISA y lo escondido detrás de «Ver más» (ignorado, sin aviso,
+   * resuelto). Lo dibuja el desplegable de la ficha (lib/datos-aviso.ts, 13/10/2026).
+   */
+  datos?: EstadoDatos;
   equipo: MiembroEquipo[];
   closerDetectado: string | null;
   /** Los productos, para el desplegable de la ficha (el mismo de la ruta /crm/[id]). */
@@ -297,13 +315,15 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   const faltantesInsight = faltantesParaInsights(lead, pagos.length > 0, stages);
   // Un cobro confirmado por la pasarela no pide comprobante (lib/pago-comprobante.ts).
   const comprobantesFaltantes = pagos.filter(faltaComprobante).length;
-  const faltantes = faltantesDeLead(lead, pagos.length > 0, { comprobantesFaltantes, r2RespuestasOk: respuestas.R2.length > 0, pipeline: stages, grabable });
+  const extraReq = { comprobantesFaltantes, r2RespuestasOk: respuestas.R2.length > 0, pipeline: stages, grabable };
+  const faltantes = faltantesDeLead(lead, pagos.length > 0, extraReq);
+  const datos = await estadoDatosDeLead(lead, faltantes, pagos.length > 0, extraReq);
   const closerDetectado = insights.find((i) => i.closer?.trim())?.closer ?? null;
   // El NOMBRE DEL PRODUCTO, no el del embudo: «Funnel principal» es el que puso la migración
   // y es el mismo en todos los workspaces (mismo criterio que el selector del tablero).
   const productos = funnels.map((f) => ({ id: f.id, nombre: nombreVisible(f), esDefault: f.esDefault }));
   const fotoEmail = lead.email?.trim() ? urlGravatar(lead.email, 160) : null;
-  return { lead, stages, pagos, vslEng, videos, replay, campana, adNombre, adId: adIdCand, visitas, insights, tracking, pixelPuesto, respuestas, respuestasForm: respuestasPropias(lead.meta_field_data), insightGen, faltantesInsight, faltantes, equipo, closerDetectado, productos, fotoEmail, cobro, verTracking: await verTrackingP };
+  return { lead, stages, pagos, vslEng, videos, replay, campana, adNombre, adId: adIdCand, visitas, insights, tracking, pixelPuesto, respuestas, respuestasForm: respuestasPropias(lead.meta_field_data), respuestasLanding: respuestasGuardadas(lead.optin_respuestas), resumen: await resumenDelNegocio(), cohorte: cohorteDeLead(lead), insightGen, faltantesInsight, faltantes, datos, equipo, closerDetectado, productos, fotoEmail, cobro, verTracking: await verTrackingP };
 }
 
 /** Cuota explícita del plan (modelo simple: monto + fecha). */
@@ -313,6 +333,9 @@ export type StageMoveCuota = { monto: number; fecha: string | null };
 export type StageMoveData = {
   fechaJ1?: string | null;
   fechaJ2?: string | null;
+  /** La hora de la reunión ('HH:MM', opcional), en la zona del negocio (14/10/2026). */
+  horaJ1?: string | null;
+  horaJ2?: string | null;
   fathom?: FathomLink[];
   monto?: number | null;
   motivo?: string | null;
@@ -560,6 +583,17 @@ export async function completeStageMoveAction(id: number, to: string, d: StageMo
     if (meta.closer === undefined && !before?.closer?.trim()) meta.closer = solo;
   }
   if (Object.keys(meta).length) await saveLeadMeta(id, meta);
+  // 1b) La HORA de la reunión cargada a mano (Martín, 14/10/2026): sin `junta_N_at` el «1 h antes» de
+  //     Automations no sale nunca. Va con la fecha que vino, en la zona del negocio (instanteDeReunionManual).
+  if (d.fechaJ1 !== undefined || d.fechaJ2 !== undefined) {
+    const wsHora = await getWorkspaceActual();
+    const tzHora = wsHora != null ? await tzDeWorkspace(wsHora).catch(() => TZ_DEFAULT) : TZ_DEFAULT;
+    const horas: Record<string, string | null> = {};
+    if (d.fechaJ1 !== undefined) horas.junta_1_at = instanteDeReunionManual(d.fechaJ1, d.horaJ1, tzHora, before?.junta_1_at);
+    if (d.fechaJ2 !== undefined) horas.junta_2_at = instanteDeReunionManual(d.fechaJ2, d.horaJ2, tzHora, before?.junta_2_at);
+    const { error: horaErr } = await (await getTenantDb()).from('leads').update(horas).eq('id', id);
+    if (horaErr) console.error(`[leads] la hora de la reunión del lead ${id} no se guardó: ${horaErr.message}`);
+  }
 
   // 2) Asistencias + calificado por updateLead (invariantes + CAPI: marcar
   //    calificado=true manda SubmitApplication + QualifiedLead a Meta, con o sin
@@ -2372,6 +2406,8 @@ const REVERTIBLES = new Set([
   'Nombre', 'Email', 'Teléfono', 'Empresa', 'Web',
   // Los dos de la mig 0258 (punto 21 y 28 del 12/10/2026): columna 1:1, por `saveLeadMeta`.
   'Ingreso estimado', 'Instagram',
+  // Los del Resumen personalizable (mig 0274): columna 1:1, por `saveLeadMeta`.
+  'YouTube', 'LinkedIn', 'Dirección', 'Sexo',
   // La plata de una suscripción (AUDIT_FIELDS, lib/leads.ts). Se revierten con un update
   // directo de su columna en los DOS switch de abajo, como el deadline: `updateLead` no las
   // conoce. ⚠️ Revierten el importe, no el tipo de venta, igual que «Monto de cierre».
@@ -2457,12 +2493,35 @@ export async function getLeadNotasAction(id: number): Promise<LeadAuditRowFull[]
  * Agrega una nota de seguimiento manual al lead. Disponible en CUALQUIER etapa
  * (WhatsApp/llamada/lo que sea): queda con fecha y autor en el historial.
  */
-export async function addLeadNoteAction(id: number, texto: string): Promise<void> {
+/** El adjunto que ya subió el navegador (urlSubidaNotaLeadAction). Viaja desde el navegador: se valida. */
+export type AdjuntoNotaLead = { path: string; nombre: string; mime: string; bytes: number };
+
+export async function addLeadNoteAction(id: number, texto: string, adjunto?: AdjuntoNotaLead | null): Promise<void> {
   const t = texto.trim();
-  if (!t) return;
+  if (!t && !adjunto) return;
   // ⚠️ EL MISMO TOPE QUE LA EDICIÓN, Y SE RECHAZA (revisión del 12/10/2026): sin tope acá, una nota
   // dictada más larga entraba entera y la edición la recortaba al corregirle una letra.
   if (t.length > TOPE_NOTA) throw new Error('La nota es demasiado larga.');
+  if (adjunto) {
+    // ⚠️ TODO lo del adjunto viene del navegador: que la ruta sea de ESTE lead y de ESTE negocio,
+    // que el formato y el tamaño sean los permitidos, y que el archivo esté de verdad en el bucket
+    // (una nota que nombra un archivo que no subió es un link roto para siempre).
+    const ws = await getWorkspaceActual();
+    if (ws == null || !pathEsNotaDelLead(adjunto.path, ws, id)) throw new Error('Ese archivo no es de este lead.');
+    if (!esMimeNota(adjunto.mime)) throw new Error('Ese formato no va.');
+    const bytes = Number(adjunto.bytes);
+    if (!Number.isFinite(bytes) || bytes <= 0 || bytes > TOPE_NOTA_BYTES) throw new Error('El archivo pasa de 25 MB.');
+    const { data: hay } = await getSupabaseServer().storage.from(BUCKET_NOTAS_LEAD).exists(adjunto.path);
+    if (!hay) throw new Error('El archivo no terminó de subir.');
+    const { error } = await (await getTenantDb()).from('lead_audit').insert([{
+      lead_id: id, campo: 'Nota', valor_anterior: null, valor_nuevo: t, autor: await autorActual(),
+      archivo_path: adjunto.path, archivo_nombre: nombreDeAdjunto(adjunto.nombre), archivo_mime: adjunto.mime, archivo_bytes: bytes,
+    }]);
+    if (error) throw new Error('No se pudo guardar la nota.');
+    bust(TAG.leads);
+    revalidatePath(`/crm/${id}`);
+    return;
+  }
   await logLeadEvent(id, 'Nota', t, await autorActual());
   bust(TAG.leads);
   revalidatePath(`/crm/${id}`);
@@ -2508,6 +2567,10 @@ export async function revertAuditChangeAction(auditId: number, leadId: number): 
     case 'Web': await saveLeadMeta(leadId, { web: v }); break;
     case 'Ingreso estimado': await saveLeadMeta(leadId, { ingreso_estimado: ingresoDelHistorial(v) }); break;
     case 'Instagram': await saveLeadMeta(leadId, { instagram: v }); break;
+    case 'YouTube': await saveLeadMeta(leadId, { youtube: v }); break;
+    case 'LinkedIn': await saveLeadMeta(leadId, { linkedin: v }); break;
+    case 'Dirección': await saveLeadMeta(leadId, { direccion: v }); break;
+    case 'Sexo': await saveLeadMeta(leadId, { sexo: v }); break;
     case 'Deadline de nutrición manual': {
       const { error } = await (await getTenantDb()).from('leads').update({ nutricion_manual_deadline: v }).eq('id', leadId);
       if (error) throw new Error(error.message);
@@ -2585,6 +2648,10 @@ export async function revertMoveAction(leadId: number, createdAt: string): Promi
       case 'Web': meta.web = v; break;
       case 'Ingreso estimado': meta.ingreso_estimado = ingresoDelHistorial(v); break;
       case 'Instagram': meta.instagram = v; break;
+      case 'YouTube': meta.youtube = v; break;
+      case 'LinkedIn': meta.linkedin = v; break;
+      case 'Dirección': meta.direccion = v; break;
+      case 'Sexo': meta.sexo = v; break;
       case 'Deadline de nutrición manual': deadline = { set: true, value: v }; break;
       case CAMPO_SUS_MONTO: case CAMPO_SUS_MESES: suscripcion = { ...suscripcion, ...columnaSuscripcion(r.campo, v) }; break;
     }

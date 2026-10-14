@@ -46,6 +46,8 @@ import { BANDAS_KANBAN } from './filtros-guardados';
 // El CUBO del desplegable de funnels (punto 24): el ícono `producto` del set de los menús, el
 // mismo que dibuja un funnel en el resto de la app. No se dibuja uno propio.
 import { IconoMenu } from '@/app/_ui/iconos-menu';
+import { AvisosDatosModal } from './lead-view/AvisosDatosModal';
+import { ResumenModal } from './lead-view/ResumenModal';
 
 const SANS = "'Geist', sans-serif";
 
@@ -285,6 +287,11 @@ export function AccionesHeader({ onImportar, onExportar, onNuevo, onEditarEtapas
   onEditarEtapas: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  // «De qué datos te avisa MaKo» (13/10/2026: «en el título del desplegable como en los 3 puntos
+  // de la tab CRM una opción para configurar esto»). El MISMO modal que el engranaje de la ficha.
+  const [avisos, setAvisos] = useState(false);
+  const [resumenAbierto, setResumenAbierto] = useState(false);
+  const router = useRouter();
   useEscape(open, () => setOpen(false));
   // El estado vive acá arriba, no dentro del panel: colgado del panel, cada vez que se
   // abre el menú saldría un GET nuevo a /api/crm-auto.
@@ -336,6 +343,12 @@ export function AccionesHeader({ onImportar, onExportar, onNuevo, onEditarEtapas
             <MenuItem icon={<FunnelIcon size={15} />} label="Editar las etapas"
               desc="Cambia el nombre, el orden y cuáles hay"
               onClick={() => { setOpen(false); onEditarEtapas(); }} />
+            <MenuItem icon={<IconoMenu nombre="avisar" size={15} />} label="Avisos de datos sin marcar"
+              desc="Elige de qué datos te avisa MaKo"
+              onClick={() => { setOpen(false); setAvisos(true); }} />
+            <MenuItem icon={<IconoMenu nombre="ver" size={15} />} label="Qué muestra el Resumen"
+              desc="Elige los datos de la ficha de cada lead"
+              onClick={() => { setOpen(false); setResumenAbierto(true); }} />
             {/* ⚠️ EL DIVISOR VA ADENTRO DE LA CONDICIÓN. Suelto, el que no es admin
                 (para quien /api/crm-auto responde 403 y `on` queda en null) vería una
                 rayita separando la nada — que es exactamente lo que pasaba en el header
@@ -354,6 +367,8 @@ export function AccionesHeader({ onImportar, onExportar, onNuevo, onEditarEtapas
           </div>
         </>}
       </span>
+      {avisos && <AvisosDatosModal onCerrar={() => setAvisos(false)} onGuardado={() => router.refresh()} />}
+      {resumenAbierto && <ResumenModal onCerrar={() => setResumenAbierto(false)} onGuardado={() => router.refresh()} />}
     </div>
   );
 }
@@ -818,7 +833,12 @@ export function SelectorFunnel({ funnels, activo, onEditarEtapas }: {
   // teñía el texto: `color` en un DropdownOption dibuja un PUNTO de 9 px, así que el
   // renglón salió con una bolita gris al lado y el texto igual de negro que los demás.
   // El flag `crear` es el que apaga la fila y la enciende al pasar el cursor.
-  opciones.push({ value: NUEVA, label: 'Nuevo funnel', crear: true });
+  //
+  // ⚠️ SE LLAMA «NUEVO CRM» Y VA ARRIBA DE TODO (13/10/2026). Martín: «que ya no se llame
+  // "Funnels" sino que "Nuevo CRM", así es más entendible y fácil... Y que la opción de
+  // nuevo esté arriba del desplegable, no abajo». El que se está mirando sigue siendo el
+  // primero de los TABLEROS: la salida para crear no es un tablero.
+  opciones.unshift({ value: NUEVA, label: 'Nuevo CRM', crear: true });
   // ⚠️ LA PUERTA DE VUELTA. Eliminar un producto lo ARCHIVA —la fila y sus leads quedan
   // enteros— pero sin una pantalla que los nombre, para la persona desapareció igual: una
   // copia de seguridad que nadie puede ver no es una copia de seguridad. El renglón sólo
@@ -828,7 +848,7 @@ export function SelectorFunnel({ funnels, activo, onEditarEtapas }: {
   // 30/09/2026). Con `crear` salía con el mismo `＋` y el mismo peso que «Nuevo producto»,
   // y dos renglones con el mismo peso son dos acciones con el mismo peso — pero una se usa
   // todas las semanas y la otra casi nunca.
-  if (hayArchivados) opciones.push({ value: ARCHIVADOS, label: 'Funnels eliminados', sutil: true });
+  if (hayArchivados) opciones.push({ value: ARCHIVADOS, label: 'CRM eliminados', sutil: true });
   // ⚠️ EL ANCHO VA EN EL DROPDOWN, NO EN UN ENVOLTORIO. Estaba `<span minWidth:190>`
   // alrededor de un Dropdown sin `width`, que se dibuja del tamaño de su contenido:
   // el span medía 190 y el botón 166,7, así que quedaban 23,3 px muertos a la derecha
@@ -854,7 +874,7 @@ export function SelectorFunnel({ funnels, activo, onEditarEtapas }: {
         options={opciones}
         width={190}
         icono={<IconoMenu nombre="producto" size={15} />}
-        ariaLabel="Funnel que dibuja el tablero"
+        ariaLabel="CRM que dibuja el tablero"
         onChange={(v) => {
           // ⚠️ SE RESUELVE ACÁ, NO EN OTRA PANTALLA. Hasta el 27/09/2026 esto hacía
           // `router.push('/second-brain?area=oferta')`: sacaba a la persona del CRM,
@@ -965,8 +985,8 @@ function NuevoProductoModal({ onCerrar, onCreado }: { onCerrar: () => void; onCr
   return (
     <Modal
       titulo={titulos[paso].t}
-      encabezado={`Nuevo funnel · ${paso + 1} de 3`}
-      etiqueta={`Nuevo funnel, paso ${paso + 1} de 3: ${titulos[paso].t}`}
+      encabezado={`Nuevo CRM · ${paso + 1} de 3`}
+      etiqueta={`Nuevo CRM, paso ${paso + 1} de 3: ${titulos[paso].t}`}
       ancho={560}
       alto="min(80vh, 520px)"
       sinFiletes
@@ -982,7 +1002,7 @@ function NuevoProductoModal({ onCerrar, onCreado }: { onCerrar: () => void; onCr
           style={{ padding: '10px 16px', fontSize: 14, color: 'var(--dim)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: SANS }}>Cancelar</button>
         <button type="button" onClick={seguir} disabled={guardando}
           style={{ padding: '11px 22px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: guardando ? 'default' : 'pointer', fontFamily: SANS, opacity: guardando ? 0.7 : 1 }}>
-          {paso < 2 ? 'Siguiente' : guardando ? 'Creando…' : 'Crear funnel'}
+          {paso < 2 ? 'Siguiente' : guardando ? 'Creando…' : 'Crear CRM'}
         </button>
       </>)}
     >
@@ -994,7 +1014,7 @@ function NuevoProductoModal({ onCerrar, onCreado }: { onCerrar: () => void; onCr
 
       {paso === 0 && (
         <input
-          type="text" value={nombre} autoFocus aria-label="Nombre del funnel"
+          type="text" value={nombre} autoFocus aria-label="Nombre del CRM"
           onChange={(e) => { setErr(null); setNombre(e.target.value); }}
           onKeyDown={(e) => { if (e.key === 'Enter') seguir(); }}
           // ⚠️ EL PLACEHOLDER NO NOMBRA A UN CLIENTE. Decía «Sistema DOS™», que es el
@@ -1099,7 +1119,7 @@ function ArchivadosModal({ onCerrar, onRestaurado }: { onCerrar: () => void; onR
 
   return (
     <Modal
-      titulo="Funnels eliminados"
+      titulo="CRM eliminados"
       ancho={520}
       onCerrar={onCerrar}
       pie={(

@@ -11,9 +11,7 @@ import { notFound } from 'next/navigation';
 import type { CSSProperties } from 'react';
 import {
   getLead,
-  estadoMadurezLead,
-  labelMadurez,
-  textoCohorteJ1,
+  cohorteDeLead,
   getVslEngagement,
   getVisitasLandingMap,
   getTrackingEvents,
@@ -38,6 +36,7 @@ import { ComportamientoCard } from '../lead-view/ComportamientoCard';
 // «¿Era calificado?» vive también acá, en Tracking: hay funnels sin reuniones y
 // ese dato es el que viaja a Meta. Mismo control y misma columna que en Reuniones.
 import { CalificacionCard } from '../lead-view/CalificacionCard';
+import { OfertaDelLead } from '../lead-view/OfertaDelLead';
 import { ReunionesCard } from '../lead-view/ReunionesCard';
 import { AnalystDelLead } from '../lead-view/AnalystDelLead';
 import { ANCHO_FICHA_LEAD, ALTO_CHAT_EN_LA_RUTA } from '../lead-view/ficha-medidas';
@@ -45,7 +44,11 @@ import { tieneEtapaDeReunion } from '@/lib/etapa-reunion';
 import { verTrackingDeLead } from '@/lib/tracking-ficha-server';
 import { getUltimoInsightGenerado, faltantesParaInsights } from '@/lib/lead-insights';
 import { respuestasPropias } from '@/lib/meta-leads-campos';
+import { respuestasGuardadas } from '@/lib/optin-respuestas';
+import { resumenDelNegocio } from '@/lib/resumen-ficha-config';
+import { seVe } from '@/lib/resumen-ficha';
 import { faltantesDeLead } from '@/lib/leads';
+import { estadoDatosDeLead } from '@/lib/datos-aviso-config';
 import { getPipelineStagesDeLead, listarFunnels } from '@/lib/funnels';
 import { nombreVisible } from '@/lib/lead-funnel-reglas';
 import { urlGravatar } from '@/lib/gravatar';
@@ -121,13 +124,14 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
   const adResuelto = resolverNombreAd(adIdCand, lead.meta_ad_name ?? utmC, adMap);
   const visitas = visitasMap.get(lead.visitor_id ?? '') ?? { total_visitas: 0, dias_distintos: 0 };
 
-  const { emoji: _e, label: cohorteLabel, color: cohorteColor } = labelMadurez(estadoMadurezLead(lead));
-  void _e;
-  const textoJ1 = textoCohorteJ1(lead.fecha_junta_1);
+  const cohorte = cohorteDeLead(lead);
 
   // Las preguntas propias del formulario de Meta, resueltas en el SERVER: la
   // sección de abajo sólo las dibuja.
   const respuestasForm = respuestasPropias(lead.meta_field_data);
+  const respuestasLanding = respuestasGuardadas(lead.optin_respuestas);
+  // Qué muestra el Resumen en este negocio (lib/resumen-ficha.ts, 14/10/2026).
+  const resumen = await resumenDelNegocio();
   const stageKey = lead.pipeline_stage && stages.some((s) => s.key === lead.pipeline_stage) ? lead.pipeline_stage : deriveStageKey(lead);
   const sm = stages.length ? stageMeta(stages, stageKey) : null;
 
@@ -161,7 +165,10 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
   // "Datos sin marcar": todo lo que la etapa actual adeuda (posible de conseguir). Un cobro confirmado
   // por la pasarela no pide comprobante (lib/pago-comprobante.ts).
   const comprobantesFaltantes = pagos.filter(faltaComprobante).length;
-  const faltantes = faltantesDeLead(lead, pagos.length > 0 ? true : undefined, { comprobantesFaltantes, r2RespuestasOk: respuestas.R2.length > 0, pipeline: stages });
+  const extraReq = { comprobantesFaltantes, r2RespuestasOk: respuestas.R2.length > 0, pipeline: stages };
+  const faltantes = faltantesDeLead(lead, pagos.length > 0 ? true : undefined, extraReq);
+  // Partido en lo que avisa y lo escondido (13/10/2026): la MISMA función que el pop-up.
+  const datos = await estadoDatosDeLead(lead, faltantes, pagos.length > 0 ? true : undefined, extraReq);
   const cuotasPendientes = pagos.filter((p) => !p.pagado).length;
   // Nutrición positiva (derivada): el lead avanza y está en su ventana informativa.
   const nutriPos = nutricionPositivaDe(lead, new Date().toISOString().slice(0, 10));
@@ -184,6 +191,7 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
           nombre={lead.nombre}
           stageLabel={sm?.label ?? lead.estado_lead}
           faltantes={faltantes}
+          datos={datos}
           equipo={equipo}
           productos={productos}
           fotoEmail={lead.email?.trim() ? urlGravatar(lead.email, 160) : null}
@@ -215,10 +223,15 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
                     email={lead.email}
                     telefono={lead.telefono}
                     web={lead.web ?? null}
-                    cohorte={lead.fecha_junta_1 ? { label: cohorteLabel, color: cohorteColor, texto: textoJ1 } : null}
+                    cohorte={cohorte}
                     // Mig 0258 (12/10/2026): el ingreso estimado (punto 21) y el Instagram (punto 28).
                     ingresoEstimado={lead.ingreso_estimado ?? null}
                     instagram={lead.instagram ?? null}
+                    youtube={lead.youtube ?? null}
+                    linkedin={lead.linkedin ?? null}
+                    direccion={lead.direccion ?? null}
+                    sexo={lead.sexo ?? null}
+                    resumen={resumen}
                   />
                   {/* ⚠️ Las notas NO son una pestaña: son parte de lo que mirás del
                       lead. Como pestaña propia se escribieron 4 en toda la base — no
@@ -245,7 +258,11 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
 
                       La pieza es la MISMA que dibuja el pop-up del tablero (07/10/2026):
                       lead-view/RespuestasFormulario.tsx. */}
-                  <RespuestasFormulario respuestas={respuestasForm} />
+                  {/* «¿Era calificado?» va en Resumen desde el 13/10/2026 (Martín: «Que no esté más
+                      en tracking»). La MISMA tarjeta que el pop-up del tablero. */}
+                  <CalificacionCard lead={lead} />
+                  {seVe(resumen, 'form_meta') && <RespuestasFormulario respuestas={respuestasForm} />}
+                  {seVe(resumen, 'form_landing') && <RespuestasFormulario respuestas={respuestasLanding} de="landing" />}
                   <NotasCard leadId={lead.id} />
                   {/* ⚠️ LAS MISMAS DOS TARJETAS QUE EL MODAL, y acá es la primera vez
                       que aparecen: el motivo de salida no se veía en esta ruta ni de
@@ -279,7 +296,6 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
               content: (
                 <>
                   <OrigenCard lead={lead} vslEng={vslEng} campana={campanaResuelta} adNombre={adResuelto} adId={adIdCand} />
-                  <CalificacionCard lead={lead} />
                   <ComportamientoCard visitas={visitas.total_visitas} dias={visitas.dias_distintos} plays={vslEng.plays} maxPct={vslEng.sin_datos ? null : vslEng.max_pct} tieneVisitor={!!lead.visitor_id} porVideo={vslEng.porVideo} videos={videosLanding} eventos={trackingEventos} pixelPuesto={pixelPuesto} replay={replay} />
                 </>
               ),
@@ -292,7 +308,7 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
             // abre nunca más, pero todos los días ocupa lugar y hace dudar de si falta
             // algo. Con pagos cargados vuelve sola, con todo lo de siempre. Y con una pasarela
             // conectada también está en el lead que todavía no compró: ahí vive «Cobrar con link».
-            ...(verPagos ? [{ key: 'cobranza', label: 'Pagos', badge: cuotasPendientes, content: <DealDetailsCard lead={lead} pagos={pagos} /> }] : []),
+            ...(verPagos ? [{ key: 'cobranza', label: 'Pagos', badge: cuotasPendientes, content: <><OfertaDelLead leadId={lead.id} funnelId={lead.funnel_id ?? null} /><DealDetailsCard lead={lead} pagos={pagos} /></> }] : []),
             // Análisis va pegado a Historial: las dos contestan «qué pasó con esta
             // persona» —una lo interpreta, la otra lo registra— y se leen seguidas.
             //

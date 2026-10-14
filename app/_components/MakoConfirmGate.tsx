@@ -1,10 +1,18 @@
 'use client';
 
 // =============================================================================
-// MakoConfirmGate — los cambios del CRM automático, SIN interrumpir
+// MakoConfirmGate — «A revisar»: los datos sin marcar del CRM, SIN interrumpir
 // =============================================================================
-// Al entrar al CRM, si MaKo hizo cambios automáticos, acá se listan para
-// confirmarlos o deshacerlos. (Fuente: mako_confirmaciones.)
+// ⚠️ DESDE EL 13/10/2026 ACÁ SÓLO VAN LOS DATOS SIN MARCAR. Martín: «solo deberían
+// aparecer los datos sin marcar del CRM, no las notificaciones de "MaKo movió 6 leads",
+// eso lo vamos a eliminar completamente... quiero que ahora todo eso pase a AUTOMATIONS».
+// El motor que mueve leads (lib/crm-auto.ts) sigue corriendo hasta que Automations tenga
+// sus plantillas (se le pidió al chat de Automations); sus confirmaciones ya no se piden
+// acá. Y «elimina la foto de perfil que dice "Mk"»: el panel no habla en nombre de MaKo,
+// dice qué falta.
+//
+// Lo de abajo es la historia de cuando también listaba los cambios de MaKo (fuente:
+// mako_confirmaciones); queda porque explica por qué es una tarjeta plegada.
 //
 // ⚠️ ESTO ERA UN MODAL BLOQUEANTE Y NO CERRABLE (25/09). Tapaba el CRM entero al
 // entrar y no dejaba pasar hasta resolver todo. Mauricio: «me meto al CRM y me
@@ -28,107 +36,45 @@
 // Facturando…»). Queda lo que hace falta para decidir: QUÉ lead, QUÉ cambió y los
 // dos botones. El porqué sigue estando, a un toque, para cuando algo no cierre.
 
-import { Suspense, useCallback, useEffect, useState, type CSSProperties } from 'react';
+import { Suspense, useCallback, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import dynamic from 'next/dynamic';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useRouter } from '@/app/_ui/Link';
-import { listConfirmacionesAction, resolverConfirmacionAction, type AlcanceConfirmaciones } from '../crm/mako-confirm-actions';
 import { esVistaSinChrome } from './PublicRouteGate';
 import { useVistaMovil } from './VistaMovil';
-import type { MakoConfirmacion, ConfOpcion, CambioCampo } from '@/lib/mako-confirmaciones';
+import { IconoMenu } from '@/app/_ui/iconos-menu';
+import { ignorarDatoAction } from '@/app/crm/datos-sin-marcar-actions';
+import { NO_IGNORABLES } from '@/lib/datos-aviso';
+import type { StepId } from '@/lib/stage-requirements';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
 
-const btnBase: CSSProperties = { padding: '7px 13px', borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: SANS, border: '1px solid transparent' };
+/**
+ * La ficha del lead, encima de la página (la misma que abre el tablero). Se carga RECIÉN al
+ * abrirla: este panel lo monta `app/layout.tsx` en cada página, y la ficha arrastra el CRM entero.
+ */
+const LeadEditModal = dynamic(() => import('@/app/crm/LeadEditModal').then((m) => m.LeadEditModal), { ssr: false });
+
+/** El modal de «de qué datos te avisa MaKo», cargado recién al abrirlo (por lo mismo que la ficha). */
+const AvisosDatosModal = dynamic(() => import('@/app/crm/lead-view/AvisosDatosModal').then((m) => m.AvisosDatosModal), { ssr: false });
 
 /**
- * El cambio en una línea. El «antes» solo entra cuando dice algo: casi siempre es
- * «Sin marcar», o sea el hueco que la automatización vino a llenar, y ponerlo
- * duplicaba el largo de la línea sin agregar nada.
+ * Una fila: UN DATO de un lead (13/10/2026), o el lead entero cuando lo que falta no es un dato
+ * (una nutrición manual vencida: sin `paso`, sólo se abre la ficha). Lo arma
+ * /api/datos-sin-marcar-count.
  */
-function lineaDeCambio(ch: CambioCampo): string {
-  const antes = (ch.antes ?? '').trim();
-  const despues = (ch.despues ?? '—').trim();
-  const valor = antes && antes.toLowerCase() !== 'sin marcar' ? `${antes} → ${despues}` : despues;
-  return `${ch.campo}: ${valor}`;
-}
+type FilaRevisar = { lead_id: number; lead_nombre: string; mensaje: string; paso?: { id: StepId; label: string } };
+type Ignorado = { lead_id: number; lead_nombre: string; paso: { id: StepId; label: string } };
 
-function ItemCard({ c, busy, bloqueado, error, onResolve }: { c: MakoConfirmacion; busy: boolean; bloqueado: boolean; error: boolean; onResolve: (id: number, decision: string) => void }) {
-  const [verPorque, setVerPorque] = useState(false);
-  const opBtn = (o: ConfOpcion): CSSProperties => o.tone === 'danger'
-    ? { ...btnBase, background: 'var(--bad-bg)', color: 'var(--bad)', borderColor: 'var(--bad)' }
-    : o.tone === 'primary'
-      ? { ...btnBase, background: 'var(--primary)', color: '#fff' }
-      : { ...btnBase, background: 'var(--surface)', color: 'var(--dim)', borderColor: 'var(--border-strong)' };
-  const off = bloqueado ? 0.5 : 1;
-  return (
-    <div style={{ borderTop: '1px solid var(--border)', padding: '13px 0 0', opacity: bloqueado && !busy ? 0.55 : 1 }}>
-      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.3 }}>
-        {c.titulo}
-        {/* Un cambio que MaKo NO aplicó todavía espera una decisión, no una
-            confirmación: sin esta marca los dos casos se ven igual. */}
-        {!c.aplicado && <span style={{ marginLeft: 7, fontSize: 11, fontWeight: 600, color: 'var(--warn)' }}>sin aplicar</span>}
-      </div>
-      {c.cambios.length > 0 && (
-        <div style={{ marginTop: 3, fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.45 }}>
-          {c.cambios.map((ch, i) => <div key={i}>{lineaDeCambio(ch)}</div>)}
-        </div>
-      )}
-      <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', alignItems: 'center', marginTop: 10 }}>
-        {c.aplicado && (
-          <button disabled={bloqueado} onClick={() => onResolve(c.id, 'confirmar')} style={{ ...btnBase, background: 'var(--good-bg)', color: 'var(--good)', borderColor: 'var(--good)', opacity: off }}>Confirmar</button>
-        )}
-        {(c.opciones ?? []).map((o) => (
-          <button key={o.key} disabled={bloqueado} onClick={() => onResolve(c.id, `op:${o.key}`)} style={{ ...opBtn(o), opacity: off }}>{o.label}</button>
-        ))}
-        {c.aplicado && (
-          <button disabled={bloqueado} onClick={() => onResolve(c.id, 'rechazar')} style={{ ...btnBase, background: 'transparent', color: 'var(--bad)', borderColor: 'var(--border-strong)', opacity: off }}>Deshacer</button>
-        )}
-        {c.detalle && (
-          <button type="button" aria-expanded={verPorque} onClick={() => setVerPorque((v) => !v)}
-            style={{ marginLeft: 'auto', padding: '7px 4px', background: 'none', border: 'none', color: 'var(--faint)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>
-            {verPorque ? 'Ocultar' : '¿Por qué?'}
-          </button>
-        )}
-        {busy && <span style={{ fontSize: 12, color: 'var(--dim)' }}>Aplicando…</span>}
-        {error && <span style={{ fontSize: 12, color: 'var(--bad)', fontWeight: 600 }}>No se pudo, reintenta</span>}
-      </div>
-      {verPorque && c.detalle && (
-        <p style={{ margin: '9px 0 0', fontSize: 12, color: 'var(--faint)', lineHeight: 1.5 }}>
-          <span style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 700, marginRight: 6 }}>{c.regla}</span>
-          {c.detalle}
-        </p>
-      )}
-    </div>
-  );
-}
-
-/**
- * Qué confirmaciones le toca pedir a ESTA pantalla.
- *
- * ⚠️ EL PRODUCTO VIAJA EN EL QUERY STRING, NO EN EL PATHNAME. El selector del tablero
- * navega con `router.push(f?.esDefault ? '/crm' : '/crm?funnel=' + v)` (el `onChange` del
- * desplegable de productos, en `app/crm/CrmToolbar.tsx`), así que con
- * `usePathname()` solo no hay forma de saber qué producto se está mirando: es el mismo
- * `/crm` para los tres. De ahí el `useSearchParams()`.
- *
- * Y el pathname sigue decidiendo OTRA cosa: si hay un tablero de producto a la vista.
- * La tarjeta vive en todo `/crm*`, y `/crm/[id]`, `/crm/revisar` y `/crm/new` no llevan
- * `?funnel=` — ahí «sin parámetro» NO significa «el producto del negocio», significa que
- * no se está mirando ningún producto (en la ficha de un lead el funnel que importa es el
- * DEL LEAD, y `getFunnelDeLead` es todavía un stub). En esas pantallas se muestra todo:
- * la tarjeta no puede desaparecer, son cambios que alguien tiene que revisar.
- */
-function alcanceDe(pathname: string | null, funnel: string | null): AlcanceConfirmaciones {
-  if (pathname !== '/crm') return 'todo';
-  const n = Number(funnel);
-  return { funnel: Number.isInteger(n) && n > 0 ? n : null };
-}
+const iconoBtn: CSSProperties = {
+  display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, flex: 'none',
+  borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--dim)', cursor: 'pointer', padding: 0,
+};
 
 function Tarjeta() {
   const pathname = usePathname();
-  // Cruda a propósito: la valida el server contra los funnels del workspace (ver
-  // listConfirmacionesAction). Acá sólo hace falta que dispare el efecto al cambiar.
+  // Sólo para que «Ver todos» vuelva al mismo tablero (ver irAPendientes).
   const funnelParam = useSearchParams().get('funnel');
   const router = useRouter();
   // El resumen del lead vive bajo /crm pero se abre desde WhatsApp, en el
@@ -136,9 +82,6 @@ function Tarjeta() {
   // Y en el teléfono /crm es la página de /m (LAS MISMAS RUTAS): tampoco (`useVistaMovil`).
   const movil = useVistaMovil();
   const enCrm = (pathname?.startsWith('/crm') ?? false) && !movil && !esVistaSinChrome(pathname);
-  const [items, setItems] = useState<MakoConfirmacion[]>([]);
-  const [busy, setBusy] = useState<number | null>(null);
-  const [err, setErr] = useState<number | null>(null);
   const [cargado, setCargado] = useState(false);
   // Plegada por defecto: entrar al CRM no puede empezar con una lista de deberes.
   const [abierta, setAbierta] = useState(false);
@@ -151,49 +94,36 @@ function Tarjeta() {
   // por la que la mudanza había quedado a medias. El endpoint ya existía y ya lo
   // consume el Sidebar, así que no hay una segunda definición de «sin marcar».
   const [sinMarcar, setSinMarcar] = useState(0);
+  const [filas, setFilas] = useState<FilaRevisar[]>([]);
+  const [ignorados, setIgnorados] = useState<Ignorado[]>([]);
+  const [verMas, setVerMas] = useState(false);
+  const [config, setConfig] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [ficha, setFicha] = useState<{ id: number; nombre: string; paso?: StepId } | null>(null);
+  // Sube cuando se cierra una ficha: lo que se arregló adentro sale de la lista.
+  const [releer, setReleer] = useState(0);
 
-  // ⚠️ `funnelParam` VA EN LAS DEPS. El selector de producto navega SOFT: cambia el query
-  // y NO el pathname, así que con `[enCrm, pathname]` el efecto no se volvía a disparar y
-  // quedaba en pantalla la lista del producto anterior — que es la mitad del síntoma que
-  // Martín reporta («me sigue apareciendo el mensaje por más que estoy parado en otro
-  // funnel/producto»). La otra mitad era que el server no filtraba.
+  // Se vuelve a pedir al cambiar de pantalla dentro del CRM y al cerrar una ficha: lo que se
+  // completó adentro sale de la lista.
   useEffect(() => {
     if (!enCrm) return;
     let vivo = true;
-    // La lista del producto anterior se va ANTES de pedir la nueva: mientras la action
-    // viaja, «MaKo movió 3 leads» sobre el tablero del producto 2 sigue siendo mentira,
-    // aunque dure 200 ms.
-    setItems([]);
-    listConfirmacionesAction(alcanceDe(pathname, funnelParam))
-      .then((r) => { if (vivo) { setItems(r); setCargado(true); } })
-      .catch(() => { if (vivo) setCargado(true); });
     // El contador NO se corta por producto: `getPendientesDeMarcar` es del workspace
     // y la vista que abre tampoco filtra por embudo. Mostrarlo recortado acá diría un
     // número que la pantalla de destino contradice al abrirse.
-    fetch('/api/datos-sin-marcar-count')
+    fetch('/api/datos-sin-marcar-count?lista=1')
       .then((r) => r.json())
-      .then((d) => { if (vivo) setSinMarcar(Number(d?.total) || 0); })
+      .then((d) => {
+        if (!vivo) return;
+        setSinMarcar(Number(d?.total) || 0);
+        setFilas(Array.isArray(d?.items) ? (d.items as FilaRevisar[]) : []);
+        setIgnorados(Array.isArray(d?.ignorados) ? (d.ignorados as Ignorado[]) : []);
+        setCargado(true);
+      })
       .catch(() => { /* sin contador no se dibuja la fila: no hay nada que afirmar */ });
     return () => { vivo = false; };
-  }, [enCrm, pathname, funnelParam]);
+  }, [enCrm, pathname, releer]);
 
-  const resolver = useCallback(async (id: number, decision: string) => {
-    if (busy !== null) return; // una resolución a la vez
-    setBusy(id);
-    setErr((e) => (e === id ? null : e));
-    const r = await resolverConfirmacionAction(id, decision).catch(() => ({ ok: false as const }));
-    setBusy(null);
-    if (r.ok) {
-      setItems((xs) => xs.filter((x) => x.id !== id));
-      router.refresh();
-    } else {
-      setErr(id);
-    }
-  }, [router, busy]);
-
-  // Antes cortaba con `items.length === 0`. Ahora el panel tiene DOS motivos para
-  // existir y alcanza con uno: si no hay nada que MaKo movió pero sí leads sin marcar,
-  // el panel es lo único que lleva a la cola.
   /**
    * La puerta a la cola. Conserva el `?funnel=` que esté puesto: la vista de datos sin
    * marcar vive dentro del CRM y salir de ella tiene que devolver al mismo producto.
@@ -207,10 +137,22 @@ function Tarjeta() {
     router.push(`/crm?${qs.toString()}`);
   }, [router, funnelParam]);
 
-  if (!enCrm || !cargado || (items.length === 0 && sinMarcar === 0)) return null;
+  /**
+   * Ignorar (o volver a avisar) UN dato de un lead, en el lugar. La lista se arregla al toque y
+   * se relee después: el número de arriba es el del server, no una resta de la pantalla.
+   */
+  const ignorar = useCallback((leadId: number, paso: { id: StepId; label: string }, si: boolean, nombre: string) => {
+    setError(null);
+    if (si) setFilas((xs) => xs.filter((x) => !(x.lead_id === leadId && x.paso?.id === paso.id)));
+    else setIgnorados((xs) => xs.filter((x) => !(x.lead_id === leadId && x.paso.id === paso.id)));
+    void ignorarDatoAction(leadId, paso.id, si)
+      .then((r) => { if (!r.ok) setError(r.error); setReleer((n) => n + 1); })
+      .catch(() => { setError(`No se pudo guardar (${nombre}).`); setReleer((n) => n + 1); });
+  }, []);
 
-  const cuantos = `${items.length} ${items.length === 1 ? 'lead' : 'leads'}`;
-  const total = items.length + sinMarcar;
+  if (!enCrm || !cargado || sinMarcar === 0) return null;
+
+  const total = sinMarcar;
   // ⚠️ YA NO ES `fixed` (06/10/2026): la esquina es un contenedor compartido
   // (app/_components/EsquinaAvisos.tsx) que la apila con «Actualiza el Pixel». Dos
   // piezas fijas en la misma esquina se pisan; en columna, cuando ésta se abre, la
@@ -227,41 +169,77 @@ function Tarjeta() {
     return (
       <button type="button" aria-expanded={false} onClick={() => setAbierta(true)}
         style={{ ...marco, display: 'flex', alignItems: 'center', gap: 9, padding: '10px 14px', cursor: 'pointer', textAlign: 'left' }}>
-        <span aria-hidden style={{ width: 22, height: 22, borderRadius: 7, background: 'var(--primary)', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800 }}>Mk</span>
         <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)' }}>A revisar</span>
         <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 19, height: 19, padding: '0 5px', borderRadius: 999, background: 'var(--primary)', color: '#fff', fontFamily: MONO, fontSize: 11, fontWeight: 700, lineHeight: 1 }}>{total}</span>
       </button>
     );
   }
 
+  const fila = (key: string, nombre: string, detalle: string, acciones: ReactNode) => (
+    <li key={key} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderTop: '1px solid var(--border)' }}>
+      <span style={{ flex: 1, minWidth: 0 }}>
+        <span style={{ display: 'block', fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nombre}</span>
+        <span style={{ display: 'block', fontSize: 12.5, color: 'var(--dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{detalle}</span>
+      </span>
+      {acciones}
+    </li>
+  );
+
   return (
     <section aria-label={`A revisar: ${total}`} style={{ ...marco, display: 'flex', flexDirection: 'column', maxHeight: 'min(520px, calc(100vh - 40px))', flex: '0 1 auto', minHeight: 0 }}>
       <div style={{ flex: '0 0 auto', display: 'flex', alignItems: 'center', gap: 9, padding: '13px 15px', borderBottom: '1px solid var(--border)' }}>
-        <span aria-hidden style={{ width: 22, height: 22, borderRadius: 7, background: 'var(--primary)', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800 }}>Mk</span>
         <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>A revisar</span>
+        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 19, height: 19, padding: '0 5px', borderRadius: 999, background: 'var(--warn)', color: '#fff', fontFamily: MONO, fontSize: 11, fontWeight: 700, lineHeight: 1 }}>{total}</span>
+        {/* El engranaje: de qué datos avisa MaKo (13/10/2026: «en el título del desplegable»). */}
+        <button type="button" onClick={() => setConfig(true)} title="Elegir de qué datos te avisa MaKo" aria-label="Elegir de qué datos te avisa MaKo"
+          style={{ ...iconoBtn, border: 'none', background: 'none', marginLeft: 'auto' }}>
+          <IconoMenu nombre="configurar" size={16} />
+        </button>
         <button type="button" onClick={() => setAbierta(false)} aria-label="Plegar"
-          style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--dim)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: SANS, padding: 4 }}>Después</button>
+          style={{ background: 'none', border: 'none', color: 'var(--dim)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: SANS, padding: 4 }}>Después</button>
       </div>
-      <div style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto', padding: '0 15px 15px' }}>
-        {/* Los datos que faltan: una fila que LLEVA, no una lista. La cola entera vive en
-            su vista (`?pendientes=1`) y duplicarla acá serían dos lugares donde mirar lo
-            mismo. Desaparece en cero: un renglón que dice «0» es ruido fijo. */}
-        {sinMarcar > 0 && (
+      <div style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto', padding: '4px 15px 12px' }}>
+        {/* ⚠️ UNA FILA POR DATO, con «solucionar» e «ignorar» (13/10/2026: «Todo esto también
+            afecta al desplegable que aparece en el CRM debajo a la derecha de "A revisar"»).
+            Solucionar abre la ficha encima de la página y la lleva a ESE dato; la cola entera
+            sigue a un clic («Ver todos»). Lo ignorado se esconde detrás de «Ver más». */}
+        {error && <p role="alert" style={{ margin: '8px 0 0', fontSize: 12.5, color: 'var(--bad)', fontWeight: 600 }}>{error}</p>}
+        <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+          {filas.map((p, i) => fila(`${p.lead_id}:${p.paso?.id ?? i}`, p.lead_nombre, p.mensaje, (
+            <>
+              <button type="button" style={iconoBtn} onClick={() => setFicha({ id: p.lead_id, nombre: p.lead_nombre, paso: p.paso?.id })}
+                title={p.paso ? `Completar: ${p.paso.label}` : 'Abrir la ficha'} aria-label={p.paso ? `Completar ${p.paso.label} de ${p.lead_nombre}` : `Abrir la ficha de ${p.lead_nombre}`}>
+                <IconoMenu nombre="editar" size={15} />
+              </button>
+              {p.paso && !NO_IGNORABLES.has(p.paso.id) && (
+                <button type="button" style={iconoBtn} onClick={() => ignorar(p.lead_id, p.paso!, true, p.lead_nombre)}
+                  title={`Ignorar: no avisar de ${p.paso.label}`} aria-label={`Ignorar ${p.paso.label} de ${p.lead_nombre}`}>
+                  <IconoMenu nombre="silenciar" size={15} />
+                </button>
+              )}
+            </>
+          )))}
+          {verMas && ignorados.map((x) => fila(`ign:${x.lead_id}:${x.paso.id}`, x.lead_nombre, `${x.paso.label} · Ignorado`, (
+            <button type="button" style={iconoBtn} onClick={() => ignorar(x.lead_id, x.paso, false, x.lead_nombre)}
+              title={`Volver a avisar de ${x.paso.label}`} aria-label={`Volver a avisar de ${x.paso.label} de ${x.lead_nombre}`}>
+              <IconoMenu nombre="avisar" size={15} />
+            </button>
+          )))}
+        </ul>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingTop: 9, borderTop: '1px solid var(--border)' }}>
+          {!verMas && ignorados.length > 0 && (
+            <button type="button" onClick={() => setVerMas(true)}
+              style={{ background: 'none', border: 'none', padding: 2, cursor: 'pointer', fontFamily: SANS, fontSize: 13, fontWeight: 600, color: 'var(--primary)' }}>Ver más</button>
+          )}
           <button type="button" onClick={() => { setAbierta(false); irAPendientes(); }}
-            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 9, marginTop: 13, padding: '11px 13px', borderRadius: 11, cursor: 'pointer', textAlign: 'left', fontFamily: SANS, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-            <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>Sin marcar</span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 19, height: 19, padding: '0 5px', borderRadius: 999, background: 'var(--warn)', color: '#fff', fontFamily: MONO, fontSize: 11, fontWeight: 700, lineHeight: 1 }}>{sinMarcar}</span>
-            <span style={{ marginLeft: 'auto', fontSize: 13, fontWeight: 700, color: 'var(--primary)' }}>Ver</span>
-          </button>
-        )}
-        {/* Con las dos cosas en el mismo panel, «MaKo movió N» deja de ser el título y
-            pasa a ser el rótulo de SU grupo: sin esto no se sabe cuál de los dos números
-            es cuál. */}
-        {items.length > 0 && (
-          <div style={{ marginTop: 13, marginBottom: 2, fontSize: 11, fontFamily: MONO, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' }}>MaKo movió {cuantos}</div>
-        )}
-        {items.map((c) => <ItemCard key={c.id} c={c} busy={busy === c.id} bloqueado={busy !== null} error={err === c.id} onResolve={resolver} />)}
+            style={{ marginLeft: 'auto', background: 'none', border: 'none', padding: 2, cursor: 'pointer', fontFamily: SANS, fontSize: 13, fontWeight: 700, color: 'var(--primary)' }}>Ver todos</button>
+        </div>
       </div>
+      {ficha && (
+        <LeadEditModal leadId={ficha.id} seed={{ nombre: ficha.nombre }} solucionar={ficha.paso}
+          onClose={() => { setFicha(null); setReleer((n) => n + 1); router.refresh(); }} />
+      )}
+      {config && <AvisosDatosModal onCerrar={() => setConfig(false)} onGuardado={() => setReleer((n) => n + 1)} />}
     </section>
   );
 }

@@ -30,8 +30,9 @@
 
 import 'server-only';
 import crypto from 'node:crypto';
-import { credWs } from './credenciales';
-import { CUSTOM_DATA_CRM, destinoCAPI, falloEnRespuesta, eventosRecibidos, hayIdentidad, leadIdDeMeta, tiempoDelHecho } from './meta-capi-payload';
+import { credWs, credWsEstricta } from './credenciales';
+import type { AdondeVaLaCalificacion } from './meta-capi-payload';
+import { CUSTOM_DATA_CRM, adondeDe, destinoCAPI, falloEnRespuesta, eventosRecibidos, hayIdentidad, leadIdDeMeta, tiempoDelHecho } from './meta-capi-payload';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tipos
@@ -134,7 +135,11 @@ function hashPhone(phone: string | null): string | null {
  * deja el mismo agujero que había: el llamador que tiene un lead a mano lo manda
  * al historial de la ficha (`logLeadEvent`), que es donde el dueño mira.
  */
-export async function sendMetaCAPIEvent(params: CAPIEventParams): Promise<CAPIResultado> {
+/**
+ * A dónde va un evento y con qué token. Lo usan el envío y la pregunta de la ficha
+ * (`adondeVaLaCalificacion`): dos lecturas distintas contestarían distinto.
+ */
+async function destinoYToken(): Promise<{ destino: ReturnType<typeof destinoCAPI>; accessToken: string | null }> {
   // Primero el conjunto de datos de CRM si el cliente lo creó, y si no el píxel del
   // sitio: el porqué y el centinela PENDING están en `destinoCAPI`.
   const destino = destinoCAPI(await credWs('META_CRM_DATASET_ID'), await credWs('META_PIXEL_ID'));
@@ -145,6 +150,27 @@ export async function sendMetaCAPIEvent(params: CAPIEventParams): Promise<CAPIRe
   // META_CAPI_TOKEN queda como override para el píxel que vive en OTRO negocio.
   const usado = await credWs('META_CAPI_TOKEN');
   const accessToken = usado && !usado.startsWith('PENDING') ? usado : await credWs('META_ACCESS_TOKEN');
+  return { destino, accessToken };
+}
+
+/**
+ * ¿Le llega a Meta lo que se marca en «¿Era calificado?»? Lo que la ficha le dice a quien
+ * marca (14/10/2026). Medido ese día: ws9 y ws11 tienen el token y NINGÚN píxel, así que
+ * lo que se marcaba ahí no salía (`sin_pixel`, que a propósito no va al historial de cada
+ * lead) y la tarjeta afirmaba «Meta aprende de esto».
+ *
+ * null = no se pudo leer. `credWs` convierte una base caída en «no hay», y «no pude
+ * leer» no es «no tiene» (AGENTS.md): sin esta sonda la ficha mandaría a conectar un
+ * píxel que está. Lo que se contesta sale de `destinoYToken`, lo mismo que usa el envío.
+ */
+export async function adondeVaLaCalificacion(ws: number): Promise<AdondeVaLaCalificacion | null> {
+  try { await credWsEstricta('META_PIXEL_ID', ws); } catch { return null; }
+  const { destino, accessToken } = await destinoYToken();
+  return adondeDe(destino, accessToken);
+}
+
+export async function sendMetaCAPIEvent(params: CAPIEventParams): Promise<CAPIResultado> {
+  const { destino, accessToken } = await destinoYToken();
   const apiVersion = process.env.META_API_VERSION || 'v24.0';
 
   if (!destino) {
