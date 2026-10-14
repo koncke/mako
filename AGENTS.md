@@ -7895,11 +7895,22 @@ costó, en [docs/hallazgos-objectives.md](docs/hallazgos-objectives.md) → «Ge
 
 - **Lo que se puede medir con el catálogo de gráficos va como GRÁFICO**, que se edita entero. Un bloque de General es
   lo que el catálogo no tiene (el objetivo con la acción del día, los KPIs con su registro, el semáforo, el Plan).
-- **Un bloque nuevo son dos lugares**: su fila en `PIEZAS_GENERAL` (lib/general-piezas.ts) y su nodo en `armarPiezas`
-  (app/general/piezas.tsx), que lo arma con las lecturas de siempre. El editor no aprende a leer nada: el bloque viaja
-  dibujado por contexto. Y alguna plantilla lo usa (`tests/general-editor.test.ts` falla si no).
-- **Un bloque que se ata a un funnel** lleva `porFunnel`, y su variante se arma y se busca con `clavePieza`: la misma
-  función en las dos puntas.
+- **Un bloque nuevo son tres lugares**: su fila en `PIEZAS_GENERAL` (lib/general-piezas.ts, con su ícono y sus
+  `opciones`), sus datos en `armarDatosGeneral` (app/general/datos.ts, con las lecturas de siempre) y su caso en
+  `dibujarBloque` y `muestraDeBloque` (app/general/ProveedorGeneral.tsx), con el dibujo en app/general/bloques/. El editor
+  no aprende a leer nada y el Dashboard no carga General: el dibujo llega por contexto. Alguna plantilla lo usa
+  (`tests/general-editor.test.ts`) y `tests/general-bloques.test.ts` falla si le falta el dibujo o la vista previa.
+- **Un bloque vacío dibuja su placeholder** (`Placeholder`, app/general/bloques/comun.tsx): el mismo bloque con los datos
+  de ejemplo de `muestras.ts` (ficticios), apagado, con la acción que lo llena. «No pude leer» es otra cosa y se dice
+  (`Fallo`). Y lo que depende de la HORA se dibuja después de montar (`useAhora`): el bloque se dibuja también en el server.
+- **Sus opciones las declara el bloque** (2 a 4 valores con su default) y se leen con `opcionDe`: el saneo tira lo que
+  el bloque no tiene, y la API de MaKo las ofrece igual (`agregar_bloque_general`, `configurar_bloque_general`).
+- **Un bloque que se ata a un funnel** lleva `porFunnel`: el server cuenta todos los funnels con su id y el bloque elige
+  el suyo por el id del elemento.
+- **Lo que existe en otra tab se monta, no se copia**: las tarjetas del Plan son las de BoardShell (`TarjetaPrioridad`,
+  `ProyectoCardTile`, traídas con `next/dynamic`), y escribir pasa por la acción que ya existe (`marcarHechaAction`).
+- **General ofrece poco del Dashboard** (`TIPOS_GENERAL`, `FUENTES_GENERAL`, `ELEMENTOS_FUERA_DE_GENERAL`), y sus
+  plantillas no usan nada de afuera.
 - **Un tipo de elemento nuevo en `TIPOS_ELEMENTO` aparece solo en todas las listas que derivan de él**: la API del
   Dashboard (`ELEMENTOS_DE_LA_API`), los links compartidos (`ELEMENTOS_QUE_NO_SALEN`), el catálogo que lee la IA. En cada
   una se decide si lo puede dibujar; si no, se excluye con un error que diga dónde va.
