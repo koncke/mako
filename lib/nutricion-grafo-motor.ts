@@ -31,7 +31,7 @@ import {
 import { conLibertad, libertadesPermitidas } from './ai-step-libertad';
 import { TRIGGER_ETIQUETA } from './nutricion-etapa';
 import { condicionPorId, reunionesDeFila, TOPE_REUNIONES, type HechosCatalogo } from './condiciones-catalogo';
-import { parseFechaJunta, reunionFuturaMs, proximaReunion, soloQuedaElCarril, type FilaReunion } from './nutricion-reinscripcion';
+import { parseFechaJunta, reunionFuturaMs, proximaReunion, soloQuedaElCarril, finDeLaReunionMs, type FilaReunion } from './nutricion-reinscripcion';
 // El CARRIL DEL RECORDATORIO (undécima tanda, M3 y M4): la marca y la tolerancia del emisor de hoy, los hilos
 // de una inscripción y la operación de la tarjeta «MaKo en WhatsApp». Los cuatro son puros.
 import { claveDelCarril, TOLERANCIA_MIN, type CualReunion } from './recordatorio-lead';
@@ -741,6 +741,19 @@ const msJunta = (x: string | null | undefined): number | null => {
 };
 
 /**
+ * Una reunión de la ficha. CANCELADA (la hora quedó, la fecha no: `junta_X_at` puesta y `fecha_junta_X` LEÍDA en null)
+ * cuenta como que no hay reunión — Martín, 14/10/2026: «Cancelada = no agendó». Hasta el 14/10 se leía la hora de una
+ * cancelada y la condición «Tiene reunión agendada» (y «Agendó») seguía diciendo que sí. `=== null`, no «falsy»: un
+ * objeto sin la fecha (`undefined`) no afirma que se canceló.
+ */
+function lugarDeFicha(at: string | null | undefined, fecha: string | null | undefined, asistio: boolean | null | undefined): { fechaMs: number | null; asistio: boolean | null; finMs: number | null } {
+  const cancelada = !!at && fecha === null;
+  const x = cancelada ? null : (at ?? fecha);
+  const fin = x ? finDeLaReunionMs(x) : NaN;
+  return { fechaMs: msJunta(x), asistio: asistio ?? null, finMs: Number.isFinite(fin) ? fin : null };
+}
+
+/**
  * El bloque `lead` del catálogo. Las reuniones se leen con la MISMA regla que el motor
  * (`parseFechaJunta`: una fecha sin hora es el mediodía de México) y la próxima con
  * `reunionFuturaMs`, la que usa el ancla «antes de la reunión».
@@ -756,8 +769,8 @@ export function catalogoDeLead(f: FilaLeadCatalogo, ahoraMs: number): NonNullabl
     emailBaja: f.email_opt_out === true,
     ventaTipo: f.venta_tipo ?? null,
     tieneFechaAgenda: !!f.fecha_agenda,
-    r1: { fechaMs: msJunta(f.junta_1_at ?? f.fecha_junta_1), asistio: f.asistio_j1 ?? null },
-    r2: { fechaMs: msJunta(f.junta_2_at ?? f.fecha_junta_2), asistio: f.asistio_j2 ?? null },
+    r1: lugarDeFicha(f.junta_1_at, f.fecha_junta_1, f.asistio_j1),
+    r2: lugarDeFicha(f.junta_2_at, f.fecha_junta_2, f.asistio_j2),
     cerro: f.cerro ?? null,
     tieneFechaCierre: !!f.fecha_cierre,
     confirmoCompra: !!f.fecha_confirmacion,

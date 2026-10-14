@@ -65,6 +65,7 @@ import {
 const recorrido = <P extends PasoGrafo>(pasos: readonly P[]): P[] => expandirPasoIA(pasos);
 import { legadoAGrafo, tieneLegado, type EstrategiaLegada } from './flujo-legado';
 import { TRIGGER_ETAPA, TRIGGER_ENTREGA, TRIGGER_ETIQUETA } from './nutricion-etapa';
+import { PIPELINE_KIND } from './pipeline';
 import { valoresVariablesLead, VARIABLES_LEAD } from './template-vars';
 import { valoresDeEjemplo } from './variables-aviso';
 import { textoConDatos } from './variables-del-lead';
@@ -239,6 +240,10 @@ export function hechosDeLeadNuevo(c: LeadNuevoPrueba = {}): HechosLead {
   const funnel = c.funnelId != null && Number.isFinite(Number(c.funnelId)) ? Number(c.funnelId) : null;
   const producto = c.productoId != null && Number.isFinite(Number(c.productoId)) ? Number(c.productoId) : null;
   const etiqueta = c.etiquetaId != null && Number.isFinite(Number(c.etiquetaId)) ? Number(c.etiquetaId) : null;
+  // QUIEN ENTRA POR UNA ETAPA DE REUNIÓN («Agenda R1») TIENE UNA REUNIÓN (14/10/2026): mañana, a esta hora. Sin esto,
+  // «Su reunión sigue en pie» (la condición que reemplaza la regla escondida «la reunión ya pasó») daba que no, y
+  // «Probar» de «Un Lead Agendó Llamada» no mostraba nada. Sólo las etapas de la casa (`PIPELINE_KIND`).
+  const reunionMs = producto == null && etapa && PIPELINE_KIND[etapa] === 'reunion' ? ahoraMs + 24 * 3_600_000 : null;
   return {
     etiquetas: new Set(etiqueta != null ? [etiqueta] : []),
     // Por la entrega, la etapa es del kanban de ENTREGA (`catalogo.entrega`), no de la casa.
@@ -246,7 +251,7 @@ export function hechosDeLeadNuevo(c: LeadNuevoPrueba = {}): HechosLead {
     // Entra EN la etapa del CRON: «Sigue en la etapa del CRON» se cumple para él.
     ...(etapa ? { etapasDelCron: [producto != null ? { tipo: 'entrega' as const, productoId: producto, keys: [etapa] } : { tipo: 'venta' as const, funnelId: funnel, keys: [etapa] }] } : {}),
     ...(funnel != null && etapa && producto == null ? { etapasPorProducto: new Map([[funnel, etapa]]) } : {}),
-    agendo: false,
+    agendo: reunionMs != null,
     pago: false,
     yaContactado: !!c.yaContactado,
     respondio: !!c.respondio,
@@ -258,8 +263,8 @@ export function hechosDeLeadNuevo(c: LeadNuevoPrueba = {}): HechosLead {
       lead: {
         origen: null, estado: null, calificado: null, deFormularioMeta: false, conVisitante: false, campana: null,
         emailBaja: false, ventaTipo: null, tieneFechaAgenda: false,
-        r1: { fechaMs: null, asistio: null }, r2: { fechaMs: null, asistio: null },
-        cerro: null, tieneFechaCierre: false, confirmoCompra: false, proximaReunionMs: null,
+        r1: { fechaMs: reunionMs, asistio: null, finMs: reunionMs }, r2: { fechaMs: null, asistio: null },
+        cerro: null, tieneFechaCierre: false, confirmoCompra: false, proximaReunionMs: reunionMs,
       },
       vsl: { plays: 0, maxPct: null },
       clics: 0,
