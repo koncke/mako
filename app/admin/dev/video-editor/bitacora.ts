@@ -97,4 +97,74 @@ export const BITACORA: Hito[] = [
       'app/video-generator/editor-video.tsx — el botón, que se ofrece con la misma pregunta que el guard',
     ],
   },
+  {
+    fecha: '13 oct', hora: '—', chat: 'Puente a Flow / Content Machine', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'Implementar completo el feedback de las tres reuniones',
+    pedido: 'Ahora pasale todos los feedback de las 3 reuniones a los chats y diles que lo implementen completo... De punta a punta',
+    puntos: [
+      'Llegó por el chat «Estrategia 3 CUENTAS», que repartió el feedback por área. Al editor le tocaron cuatro tareas de la reunión 858545195, que son extracción de Fathom y no palabras literales: el botón de borrar silencios (@94:33), los subtítulos automáticos sincronizados (@96:11), que la barra lateral no desaparezca mientras se edita (@96:17) y los nombres descriptivos de los B-rolls (@97:08).',
+      'La barra lateral contradecía el §9 del diseño (pantalla completa como CapCut). Se le preguntó a Martín y la decisión fue que la barra se queda.',
+    ],
+  },
+  {
+    fecha: '14 oct', hora: '00:05', chat: 'Puente a Flow / Content Machine', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'La barra lateral de MaKo se queda mientras se edita',
+    puntos: [
+      'El editor dejó de ser una vista sin chrome y dejó de ir fixed encima de todo: se dibuja adentro de Pagina, con el alto que queda bajo la barra de secciones, igual que el inicio.',
+      'Un test cuida las tres cosas, porque cualquiera de ellas sola alcanza para volver a tapar la barra.',
+    ],
+    commits: [
+      { sha: 'e1523b2f', msg: 'Video Editor: la barra lateral de MaKo se queda mientras se edita', lineas: 68, archivos: 5 },
+    ],
+  },
+  {
+    fecha: '14 oct', hora: '00:05', chat: 'Puente a Flow / Content Machine', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: '«Borrar silencios»: un botón en la barra de la línea de tiempo',
+    puntos: [
+      'Un solo comando, un solo Deshacer, que usa Dividir y Eliminar de la casa: así los fundidos, las animaciones y la transición se reparten igual que al cortar a mano.',
+      'El umbral se adapta al clip, para que una grabación bajita no sea «toda silencio». Un clip que es todo silencio no se borra: se avisa.',
+      'Se armó de cero: OpenCut classic no lo tiene y en CapCut es «Identificar y eliminar muletillas» (Pro). Martín pidió después que eso se avise ANTES de construir.',
+    ],
+    commits: [
+      { sha: '923120b4', msg: 'Video Editor: «Borrar silencios», un botón que los saca solo', lineas: 823, archivos: 8 },
+    ],
+    archivos: [
+      'app/video-editor/_opencut/audio/dsp/silencios.ts — la detección, pura',
+      'app/video-editor/_opencut/audio/silencios-plan.ts — de la fuente a la línea: cortes y lugares',
+      'app/video-editor/_opencut/commands/timeline/element/borrar-silencios.ts — el comando',
+    ],
+  },
+  {
+    fecha: '14 oct', hora: '—', chat: 'Puente a Flow / Content Machine', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'La pestaña «Avatar de IA» de CapCut, con lo que MaKo ya genera',
+    pedido: 'E implementa lo que ya tenemos en MaKo para la generación de videos con esa tab que tiene Capcut de "Avatar de IA"',
+    puntos: [
+      'Mandó la captura de CapCut: «Elige el avatar» → «Agregar voz», la columna con Biblioteca de avatares, De foto a avatar y las demás, y la grilla con «Crear».',
+    ],
+  },
+  {
+    fecha: '14 oct', hora: '—', chat: 'Puente a Flow / Content Machine', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'Antes de crear algo, revisar la fuente; si no está, avisar',
+    pedido: 'Lo de "borrar silencios" está bien, solo te pido que no crees cosas de 0, que siempre vuelvas a la inspiración que te pasé al momento de crear esta tab, tenias un repo en Githut para copiar, o no se de donde lo copiaste... Pero si ya esta eso, podrías simplemente copiar esa funcionalidad en lugar de crearla de 0. Siempre haz eso, como regla, primero revisar y en caso de que no esté para inspirarte o copiar me lo dices',
+    puntos: [
+      'Quedó como regla en la memoria y en el diseño del editor: primero el relevamiento de CapCut y el de OpenCut (docs/editor-video/), después construir.',
+    ],
+  },
+  {
+    fecha: '14 oct', hora: '00:25', chat: 'Puente a Flow / Content Machine', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: '«Avatar de IA»: la pantalla de CapCut, la generación del Video Generator',
+    puntos: [
+      'Un avatar es un escenario confirmado del historial del Video Generator: la persona con su cara en su lugar, que es lo que se anima para filmar.',
+      '«Generar» arma el plan con el guion literal (generarPlanAction) y filma toma por toma con las acciones del Video Generator, en serie y sin reintento. Cada toma que llega va a la línea, una detrás de la otra.',
+      'Lo único nuevo en lo compartido es un piso de tomas: con el rango del formato, una frase dicha por el avatar se cobraba como un anuncio de 7 tomas.',
+      'Llega de punta a punta cuando el puente lea el video del Flow nuevo: hoy el clip se genera en Google y MaKo todavía no lo puede traer.',
+    ],
+    commits: [
+      { sha: '98e8ea36', msg: 'Video Editor: la pestaña «Avatar de IA» de CapCut, generando con el Video Generator', lineas: 890, archivos: 15 },
+    ],
+    archivos: [
+      'app/video-editor/avatar/ — qué es un avatar y las server actions',
+      'app/video-editor/_opencut/avatar/ — la pestaña y la generación toma por toma',
+    ],
+  },
 ];

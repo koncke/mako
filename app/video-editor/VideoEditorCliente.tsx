@@ -8,10 +8,12 @@
 // false })` tiene que vivir en un client component (Next lo prohíbe en uno de
 // server), por eso este archivo existe.
 //
-// Dos vistas:
-// · el INICIO (la lista de proyectos) se dibuja adentro de MaKo, con su barra;
-// · el EDITOR ocupa la ventana entera, como CapCut: la ruta está en
-//   `esVistaSinChrome` (PublicRouteGate) y además va `fixed`, encima de todo.
+// Dos vistas, las dos adentro de MaKo, con su barra lateral:
+// · el INICIO (la lista de proyectos);
+// · el EDITOR, que llena el alto que queda bajo la barra de secciones. Iba a
+//   pantalla completa como CapCut (`fixed` y sin chrome, diseño §9); Martín pidió
+//   lo contrario el 12/10 («que la barra lateral no desaparezca del todo mientras
+//   se edita»). La pantalla completa sigue, a pedido, desde el reproductor.
 //
 // La raíz lleva la clase `.ce`: ahí viven los tokens del tema de CapCut
 // (capcut-theme.css). Y adentro, `#ce-portal`, donde se montan los menús y
@@ -49,7 +51,7 @@ export function VideoEditorCliente({ vista, proyectoId, ws, desde }: { vista: 'i
       key={ws ?? 0}
       className="ce"
       style={editor
-        ? { position: 'fixed', inset: 0, zIndex: 60, display: 'flex', flexDirection: 'column' }
+        ? { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }
         : { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'auto' }}
     >
       <TemaOscuro />
