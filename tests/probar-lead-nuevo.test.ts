@@ -149,7 +149,8 @@ test('el panel y la ruta: la condición la decide el lead nuevo, y los guardados
   const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
   const panel = sinComentarios(readFileSync(new URL('../app/automations/PanelProbar.tsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n'));
   const caso = panel.slice(panel.indexOf("case 'condicion': {"), panel.indexOf("case 'fin':"));
-  assert.ok(caso.length > 50 && caso.length < 700, `el recorte mide ${caso.length}`);
+  // (14/10/2026: 1000, con el escenario elegido de la barra delante: tests/probar-escenarios.test.ts.)
+  assert.ok(caso.length > 50 && caso.length < 1000, `el recorte mide ${caso.length}`);
   assert.match(caso, /elegirComoLead\(flujoRef\.current, simRef\.current, hechosDeLeadNuevo\(\{/);
   assert.match(caso, /yaContactado: huboMensaje\.current, respondio: turnoLead\.current > 0/);
   assert.doesNotMatch(caso, /opciones\[0\]/, 'volvió «siempre el Sí»');

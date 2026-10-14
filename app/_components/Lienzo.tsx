@@ -1505,6 +1505,12 @@ export function Lienzo({
                         cursor: conMas || arrastrable ? 'pointer' : 'default', touchAction: 'none',
                         boxShadow: '0 1px 3px rgba(0,0,0,.12)',
                       }}>{conMas ? '＋' : null}</button>
+                    {/* «TERMINA» (14/10/2026, el «Stop» de Martín: «no se si con las tarjetas que ya tenemos se pueda
+                        configurar ese stop»): una fila de una condición SIN flecha termina ese camino (`resolverControl`
+                        → `fin`), y no lo decía. Sólo en las filas con rótulo: al final de un mensaje se lee solo. */}
+                    {p.vacio && p.rotulo != null && (
+                      <span data-termina aria-hidden style={{ marginLeft: 4, fontSize: 10.5, fontWeight: 600, color: 'var(--faint)', lineHeight: 1, fontFamily: SANS, pointerEvents: 'none', whiteSpace: 'nowrap' }}>Termina</span>
+                    )}
                   </span>
                 );
               })}

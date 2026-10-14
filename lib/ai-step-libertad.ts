@@ -76,13 +76,40 @@ export function hablaDePlata(c: Pick<CasoRespuesta, 'titulo' | 'cuando' | 'respo
 }
 
 /**
- * LAS LIBERTADES QUE UN ESCENARIO PUEDE TENER, en el orden del desplegable. Sin cómo responder, sólo «Sólo te
- * avisa»; con plata o «Lo demás» (`cualquiera`), nunca «Sola».
+ * LAS LIBERTADES QUE UN ESCENARIO PUEDE TENER, en el orden del desplegable. Sin cómo responder, sólo «Sólo te avisa»
+ * (no hay qué mandar). Con respuesta, LAS TRES — también con plata y en «Lo demás».
+ *
+ * ⚠️ HASTA EL 14/10/2026 un escenario que hablaba de plata (y «Lo demás») nunca podía ser «Sola»: el desplegable no la
+ * ofrecía, Publicar la frenaba y el motor la bajaba a «Para aprobar» sin decirlo (decisión del 06/10: «el precio va
+ * siempre en borrador»). Punto 1 del feedback del 13/10: «la IA no permite configurar "hacer todo sola" en ciertos
+ * escenarios», y Martín (14/10): «Todas configurables, y también más visibles, ya sea con un aviso o advertencia». La
+ * persona elige; el aviso (`avisoDeLibertad`) lo dice al lado. Lo que arma la IA por su cuenta sigue siendo prudente
+ * (`libertadesDeFabrica`).
  */
 export function libertadesPermitidas(c: Pick<CasoRespuesta, 'titulo' | 'cuando' | 'responder' | 'cualquiera'>): Libertad[] {
   if (!(c.responder ?? '').trim()) return ['avisa'];
+  return [...LIBERTADES];
+}
+
+/**
+ * LO QUE LA IA PUEDE ELEGIR POR SU CUENTA (✦ Armar, el catálogo): la regla prudente de antes del 14/10 — con plata o
+ * en «Lo demás», nunca «Sola». La persona puede subirla a mano (`libertadesPermitidas`), con el aviso a la vista.
+ */
+export function libertadesDeFabrica(c: Pick<CasoRespuesta, 'titulo' | 'cuando' | 'responder' | 'cualquiera'>): Libertad[] {
+  if (!(c.responder ?? '').trim()) return ['avisa'];
   if (c.cualquiera === true || hablaDePlata(c)) return ['avisa', 'aprueba'];
   return [...LIBERTADES];
+}
+
+/**
+ * EL AVISO DE UNA «SOLA» QUE ANTES NO SE DEJABA (14/10/2026: «más visibles, ya sea con un aviso o advertencia»). Corto:
+ * es un texto que se dibuja debajo del desplegable. null = nada que avisar.
+ */
+export function avisoDeLibertad(c: Pick<CasoRespuesta, 'titulo' | 'cuando' | 'responder' | 'cualquiera'>, l: Libertad): string | null {
+  if (l !== 'sola') return null;
+  if (c.cualquiera === true) return 'Contesta sola lo que no encaje en otro escenario.';
+  if (hablaDePlata(c)) return 'Contesta sola aunque hable de precios.';
+  return null;
 }
 
 /** ¿El escenario te AVISA al grupo? Se deriva de la libertad: todo lo que no sale solo, avisa (§9.15). */

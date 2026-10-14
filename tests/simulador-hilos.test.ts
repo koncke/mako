@@ -164,7 +164,7 @@ test('una respuesta pausa TODOS los hilos; «Si responde» corre en uno y su «I
   for (let k = 0; k < 2; k++) e = siguiente(RESPUESTA, e).estado; // W1 y E1, los dos del día 0
   assert.equal(e.hilos.length, 2);
   const p = pausarPorRespuesta(e);
-  assert.equal(p.pausoLaSalida, true);
+  assert.equal(p.siguen, 2);
   assert.equal(siguiente(RESPUESTA, p.estado).evento, null, 'ningún hilo de la salida corre');
   const r = entrarEnRespuesta(RESPUESTA, p.estado, 'k1');
   assert.deepEqual(sinCursor(r.estado), [['r1', 0]], 'UN hilo, con el reloj de «ahora» (lo último que corrió fue el día 0)');
@@ -179,7 +179,7 @@ test('una salida sin hilos vivos no se «pausa»: no había nada corriendo', () 
   const f: PasoGrafo[] = [msg({ id: 'w1', cuerpo: 'W1', siguiente: null })];
   const despues = siguiente(f, iniciar(f)).estado; // salió W1; el «Fin» todavía no se dijo
   assert.equal(despues.terminado, false);
-  assert.equal(pausarPorRespuesta(despues).pausoLaSalida, false);
+  assert.equal(pausarPorRespuesta(despues).siguen, 0);
 });
 
 // ── Un hilo que termina no termina la prueba ────────────────────────────────────────────────────

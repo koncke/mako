@@ -112,7 +112,7 @@ test('1. dibujada: una lista, sin «Chatbot», «MaKo en WhatsApp» ni «＋ Nue
 
 test('1. el «⋯» de una fila de «MaKo en WhatsApp» es `opcionesDeFila`, y `opcionesDeMensaje` ya no existe', () => {
   // «Renombrar» desde la undécima tanda (punto 5), en todas las filas.
-  assert.deepEqual(opcionesDeFila(true).map((o) => o.value), ['activa', 'renombrar', 'duplicar', 'copiar', 'eliminar']);
+  assert.deepEqual(opcionesDeFila(true).map((o) => o.value), ['activa', 'renombrar', 'duplicar', 'copiar', 'publicar_creacion', 'eliminar']);
   assert.equal('opcionesDeMensaje' in Lista, false, 'volvió el «⋯» recortado de los mensajes de antes');
   // Una sola fila para todas: la misma función dibuja la lista entera.
   const src = fuente('app/automations/SimuladorWhatsApp.tsx');

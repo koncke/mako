@@ -88,6 +88,42 @@
 > lead desde el 10/10. O el alta de «Nuevo lead» no lo guardó (bug del CRM: medir `createLead` con ese teléfono, ¿duplicado?
 > ¿error tragado?), o lo borraron después de la llamada: se le preguntó a Martín. Sin lead no hay inscripción: la #213 no tenía
 > a quién mandarle.
+> **14/10 06:40 (reloj de la PC, Argentina) — Martín, después del corte de la app: «"Si el lead contesta" NO debería ir en el CRON, debería ser una CONDITION...
+> Es obvio eso».** Rehecho (commit «Si el lead contesta es una CONDITION»): que el lead conteste no corta nada; la condición
+> «No contestó desde que entró» (`contesto`) va después de cada espera; el panel del CRON, `si_contesta` y la operación
+> `cambiar_si_contesta_secuencia` se fueron. Hallazgo en docs/hallazgos-chatbot.md. También borrada la guarda escondida
+> «la reunión ya pasó» (el ÚLTIMO commit de la rama, aparte). **ORDEN NUEVO DEL DEPLOY, en DOS pushes:**
+> 1. Push de la rama SIN su último commit (la guarda): los 6 de 857f5ccc9..0b034457e + la condición `contesto`, y lo de
+>    `1a2fd15f` si todavía no salió.
+> 2. Con eso desplegado, las dos migraciones (dry run medido el 14/10):
+>    `ENV_FILE=C:/dev/mako-api/.env.local node --import tsx scripts/migrar-condicion-reunion.ts --apply` (#213 ws1, #241 ws13) y
+>    `ENV_FILE=C:/dev/mako-api/.env.local node --import tsx scripts/migrar-contesto-condicion.ts --apply` (10 automatizaciones:
+>    las 3 prendidas sólo pierden la clave; a las apagadas de ws10, ws11 y ws15 se les pone la condición).
+>    ⚠️ Al revés cortan: el código de antes no conoce `reunion_en_pie` ni `contesto` (la fila no se cumple).
+> 3. Recién ahí, el push del commit de la guarda.
+> Martín respondió también: el botón TikTok va en la grilla del CRON AL LADO DEL DE IG; LinkedIn queda afuera (explicado);
+> «¿cómo deprecar Zernio para TikTok?» = pedir Business Messaging API directo (respuesta en el chat). Y pidió: en «Probar»,
+> una barra de contactos (estilo WhatsApp/IG) con un contacto por escenario, y elegir el escenario al probar por WhatsApp.
+> **14/10 ~12:30: `migrar-si-contesta.ts --apply` CORRIDO** (10 automatizaciones; la 2ª pasada da 0). El push lo hace
+> «Estrategia 3 CUENTAS» con `1a2fd15f` (mi rama de antes del rebase, hasta «Pausar congela»). Los 6 commits de después
+> (857f5ccc9..0b034457e en la rama de hoy) van en el push siguiente, por cherry-pick. Después del deploy: la 2ª migración
+> (`migrar-condicion-reunion.ts --apply`) y el commit que borra la guarda.
+> **ESTADO 14/10 ~12:00 (rama `undecima`, 15 commits sobre origin/main, SIN push: espera turno de «Estrategia 3 CUENTAS»;
+> SIN tsc completo todavía, hay 2,6 GB libres):** hecho y con tests probados rompiéndolos —
+>  · bug 5 de raíz: «Si contesta: sigue / se corta» por camino (panel del CRON, API `cambiar_si_contesta_secuencia`);
+>  · bug 4: soltar una flecha sobre la pastilla de una espera; bug 8: la zona del ws1 era Buenos Aires → `America/Tijuana`
+>    (en DATOS, ya vale, sin deploy; hallazgo en docs/hallazgos-infra.md);
+>  · `reunion_en_pie` (+ cancelada = no agendó), el reintento re-evalúa la condición de arriba, «Pausar» congela, «Termina»
+>    en las filas sin flecha;
+>  · feedback del 13/10: 1 («Sola» con plata y en «Lo demás», con aviso; reemplaza la decisión del 06/10), 7 (⏹ Detener en
+>    Probar), 9 (el recorrido espera a MaKo), 10 (el error de crear con IA dice qué quedó mal); el 2 y el 3 ya estaban en la
+>    #213; «Publicar en Creaciones» en el ⋯.
+> FALTA, en orden: el push (con la migración `migrar-si-contesta` antes) → la 2ª migración + borrar la guarda (§2.3) →
+> feedback 6 (arrastrar para reordenar tarjetas y mensajes) y 11 (subir un audio rápido en WhatsApp) → el resto del §2.4 de
+> docs/diseno-mako-nada-por-detras.md (protecciones configurables y con aviso, AI Step «Deja de contestar si…», la casilla
+> «Sale sola», la «Reentrada» del CRON, el texto visible del DELAY «antes de la reunión») → TikTok fase 0 (que el AI Step
+> conteste por Instagram/Messenger; docs/diseno-tiktok-linkedin.md) → videos redondos (`/message/sendPtv`) → registro de
+> acciones (sin dueño) → la cola de siempre (Dashboard en ⚡, automatizaciones de SuperAdmin, Grupos de WhatsApp).
 > **ORDEN DEL DEPLOY de «nada por detrás» (14/10 ~10:00), en DOS pasos:**
 > 1. Push con `c0c46bad` (si contesta) + la condición `reunion_en_pie` + el reintento (§2.2). ANTES:
 >    `ENV_FILE=C:/dev/mako-api/.env.local node --import tsx scripts/migrar-si-contesta.ts --apply`.

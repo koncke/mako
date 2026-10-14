@@ -23,7 +23,7 @@ import {
   nodoPorId, esPasoIA, idDe, raicesRespuesta, puertosDe, puedeSumarAIStep,
   idRespuestaDeCaso, idAvisoDeCaso, idOtraCosa, AVISO_OTRA_COSA, TOPE_ESCENARIOS_AI_STEP, TOPE_AI_STEP_POR_MEDIO,
 } from '../lib/flujo-grafo';
-import { libertadDeCaso, libertadesPermitidas, camposDeLibertad, avisaElCaso, conLibertad } from '../lib/ai-step-libertad';
+import { libertadDeCaso, libertadesPermitidas, libertadesDeFabrica, avisoDeLibertad, camposDeLibertad, avisaElCaso, conLibertad } from '../lib/ai-step-libertad';
 import { camposDelFlujo, agregarCasoAlGrafo } from '../lib/nutricion-grafo-motor';
 import { loQueContesta } from '../lib/ai-step-migrar';
 import { opcionesDelMas, opcionesSueltas, nodoNuevo, resumenPasoIA, ID_ENTRADA } from '../lib/flujo-conversacion';
@@ -151,21 +151,27 @@ test('(e) el OBJETIVO, la voz y los ejemplos del AI Step llegan a CADA escenario
 
 // ── (f) Las libertades permitidas ──────────────────────────────────────────────────────────────
 
-test('(f) libertad: plata y «Lo demás» nunca «Sola»; sin respuesta sólo «Sólo te avisa»; `camposDeLibertad` es la única que escribe', () => {
+test('(f) libertad: con respuesta, las TRES (también plata y «Lo demás», con su aviso); sin respuesta sólo «Sólo te avisa»; `camposDeLibertad` es la única que escribe', () => {
+  // Desde el 14/10/2026 (punto 1 del feedback del 13/10 y «Todas configurables... con un aviso o advertencia»): la
+  // persona puede elegir «Sola» con plata y en «Lo demás»; la IA, por su cuenta, no (`libertadesDeFabrica`).
   assert.deepEqual(libertadesPermitidas({ titulo: 'Confirma', cuando: 'dice que sí', responder: 'Agradece' }), ['avisa', 'aprueba', 'sola']);
-  assert.deepEqual(libertadesPermitidas({ titulo: 'Pregunta el precio', cuando: 'x', responder: 'y' }), ['avisa', 'aprueba']);
-  assert.deepEqual(libertadesPermitidas({ titulo: 'Duda', cuando: 'quiere saber cuánto cuesta', responder: 'y' }), ['avisa', 'aprueba']);
-  assert.deepEqual(libertadesPermitidas({ titulo: 'Lo demás', cuando: '', responder: 'Contesta', cualquiera: true }), ['avisa', 'aprueba']);
+  assert.deepEqual(libertadesPermitidas({ titulo: 'Pregunta el precio', cuando: 'x', responder: 'y' }), ['avisa', 'aprueba', 'sola']);
+  assert.deepEqual(libertadesPermitidas({ titulo: 'Lo demás', cuando: '', responder: 'Contesta', cualquiera: true }), ['avisa', 'aprueba', 'sola']);
+  assert.deepEqual(libertadesDeFabrica({ titulo: 'Duda', cuando: 'quiere saber cuánto cuesta', responder: 'y' }), ['avisa', 'aprueba']);
+  assert.deepEqual(libertadesDeFabrica({ titulo: 'Lo demás', cuando: '', responder: 'Contesta', cualquiera: true }), ['avisa', 'aprueba']);
+  assert.equal(avisoDeLibertad({ titulo: 'Pregunta el precio', cuando: 'x', responder: 'y' }, 'sola'), 'Contesta sola aunque hable de precios.');
+  assert.equal(avisoDeLibertad({ titulo: 'Pregunta el precio', cuando: 'x', responder: 'y' }, 'aprueba'), null);
+  assert.equal(avisoDeLibertad({ titulo: 'Confirma', cuando: 'x', responder: 'y' }, 'sola'), null);
   assert.deepEqual(libertadesPermitidas({ titulo: 'Sin respuesta', cuando: 'x' }), ['avisa']);
   assert.deepEqual([camposDeLibertad('avisa'), camposDeLibertad('aprueba'), camposDeLibertad('sola')], [{ no_contesta: true }, {}, { sola: true }]);
   const c = conLibertad(caso('x', { responder: 'r', sola: true, avisar: true }), 'avisa');
   assert.deepEqual([c.no_contesta, c.sola, c.avisar, libertadDeCaso(c)], [true, undefined, undefined, 'avisa']);
-  // Lo que no puede tener, juntar lo baja (y lo dice); Publicar lo frena si llega por la API.
+  // «Sola» con plata, elegida: Publicar la deja y juntar NO la baja (hasta el 14/10 la bajaba a «Para aprobar»).
   const plata = unico().map((p) => (p.id === 'A' ? { ...p, casos: [{ ...p.casos![1], sola: true }] } : p));
-  assert.ok(validarGrafo(plata).includes('en la tarjeta A, «Pregunta el precio» no puede salir sola'), validarGrafo(plata).join(' | '));
+  assert.ok(!validarGrafo(plata).some((e) => e.includes('no puede salir sola')), validarGrafo(plata).join(' | '));
   const j = juntarPasosIA(plata);
-  assert.equal(libertadDeCaso(nodoPorId(j.pasos, 'A')!.casos![0]), 'aprueba');
-  assert.deepEqual(j.perdidos, ['«Pregunta el precio»: no puede salir sola; queda para aprobar']);
+  assert.equal(libertadDeCaso(nodoPorId(j.pasos, 'A')!.casos![0]), 'sola');
+  assert.ok(!j.perdidos.some((x) => x.includes('no puede salir sola')));
 });
 
 // ── (g) Lo que frena Publicar ──────────────────────────────────────────────────────────────────
@@ -206,10 +212,10 @@ test('(h) «enseñar un caso» (la API, el hand-off) suma el escenario ADENTRO d
   const a = nodoPorId(r.pasos, 'A')!;
   assert.deepEqual(a.casos!.map((c) => c.titulo), ['Confirma', 'Pregunta el precio', 'Puede no calificar', 'Horario', '']);
   assert.equal(libertadDeCaso(a.casos![3]), 'sola');
-  // Con plata, aunque pida salir sola: «Para aprobar».
+  // Con plata y pidiendo salir sola (lo pidió una persona: la API confirma en pantalla): «Sola», desde el 14/10/2026.
   const p = agregarCasoAlGrafo(base, { titulo: 'Descuento', cuando: 'pide un descuento', comoResponder: 'Lo vemos', contestaSolo: true }, rndDe());
   assert.ok('pasos' in p);
-  assert.equal(libertadDeCaso(nodoPorId(p.pasos, 'A')!.casos!.find((c) => c.titulo === 'Descuento')), 'aprueba');
+  assert.equal(libertadDeCaso(nodoPorId(p.pasos, 'A')!.casos!.find((c) => c.titulo === 'Descuento')), 'sola');
   // El mismo nombre reescribe el escenario (sin respuesta nueva, sólo el «cuándo»).
   const m = agregarCasoAlGrafo(base, { titulo: 'confirma', cuando: 'otro cuándo', comoResponder: '' }, rndDe());
   assert.ok('pasos' in m);
