@@ -62,6 +62,15 @@
 >  reunión. El CRM NO apaga el motor hasta que las plantillas lo reemplacen (avisarle, o apagarlo con el flag por workspace).
 >  La puerta para crear desde una plantilla: la op `crear_automatizacion_desde_plantilla` (API) o `POST /api/chat-agent/secuencias`
 >  `{ action: 'crear_desde_plantilla', plantilla, disparador? }` → `crearDesdePlantilla` (lib/plantilla-crear.ts).
+> **Bug 5, PISTAS MEDIDAS (13/10 ~24:10, #213 ws1, Martín confirmó que es ésta):**
+> - lead 2636 (Jesús Gil, reunión 20/10 17:00 UTC): su inscripción (202) está ESTACIONADA en `nodo_actual = 'u11t1440'`, el
+>   recordatorio del día anterior que se BORRÓ del flujo en la llamada (punto 3 del feedback), con `proximo_envio_at` 19/10
+>   17:00. Hay que medir qué hace el motor con un `nodo_actual` que ya no existe (¿cierra sin mandar los de 60 y 15 min?) y,
+>   si es eso, la regla: borrar una tarjeta con leads estacionados los tiene que mover a la siguiente (o Publicar avisar).
+> - lead 2593 (Guillermo Wong, reunión 13/10 17:00 UTC): su inscripción (201) quedó `completada` el 13/10 a las 16:45:21, justo
+>   en el toque de 15 min. Falta mirar en el registro de envíos si le SALIERON los de 60 y 15 min o se cerró sin mandar.
+> - No hubo inscripciones nuevas en la #213 desde el 10/10: el lead que agenda entra por el webhook de agenda (Calendly), no
+>   por moverlo a mano.
 > **PENDIENTE, en este orden:**
 > 1. **Plazos de etapa del CRM → plantilla de Automations** (pedido de Martín reenviado por el chat CRM, 12/10: «Si, pasa
 >    a una automatización eso de los plazos... Y ponlo como template en automations. Dile esto al chat de "Chatbot" que lo
