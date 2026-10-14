@@ -307,6 +307,29 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
     ],
   },
 
+  // ── Ads Manager: Meta primero, porque sin la cuenta no hay NADA que mostrar ──
+  // Tarea #801 (13/10/2026): la tab que justifica el precio abría sin decir qué faltaba
+  // conectar. La regla de la skill pone la plomería al final, salvo lo que bloquea — y
+  // acá la cuenta publicitaria bloquea todo: la tabla ES la cuenta de Meta.
+  //
+  // Los tres pasos los DERIVA la page al abrir (app/ads-manager/onboarding-datos.ts):
+  // cuenta leída, página guardada, al menos una campaña. Así un cliente que ya opera su
+  // cuenta no ve nunca el wizard. No hay `requiere`: alcanza con Meta (no se encadena con
+  // ads-writer, que es otra tab con su propio recorrido).
+  //
+  // ⚠️ Prefijo `am_`: el registro de pasos es COMPARTIDO entre tabs
+  // (tests/onboarding-keys-colision.test.ts).
+  'ads-manager': {
+    key: 'ads-manager',
+    titulo: 'Configuración del Ads Manager',
+    nombre: 'Ads Manager',
+    pasos: [
+      { key: 'am_cuenta', label: 'Tu cuenta publicitaria' },
+      { key: 'am_pagina', label: 'La página que firma tus anuncios' },
+      { key: 'am_campana', label: 'Tu primera campaña en pausa' },
+    ],
+  },
+
   // ── Landing Analyst: la única tab que se configura USÁNDOLA ──
   // No hay credencial que pedir ni contexto que redactar: el funnel y el perfil
   // ya están cargados, y el "ensayo" ES el primer análisis. Por eso el paso que

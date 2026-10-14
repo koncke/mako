@@ -158,7 +158,7 @@ const adIdDeLaUrl = (): string | null => {
   return m ? decodeURIComponent(m[1]) : null;
 };
 
-export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyReal }: { senales: SenalRecon[]; desde: string; hasta: string; adInicial?: string | null; hoyReal: string }) {
+export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyReal, abrirNueva = false }: { senales: SenalRecon[]; desde: string; hasta: string; adInicial?: string | null; hoyReal: string; abrirNueva?: boolean }) {
   const [health, setHealth] = useState<MetaHealth | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -207,7 +207,8 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null, hoyRe
   const [adSel, setAdSel] = useState<SenalRecon | null>(null);
   const [entSel, setEntSel] = useState<{ node: NodoEstado; level: 'campaign' | 'adset'; cross: CrossData } | null>(null);
   const [recosOpen, setRecosOpen] = useState(false);
-  const [nuevaOpen, setNuevaOpen] = useState(false);
+  // `abrirNueva`: el último paso del onboarding (#801) termina acá, con el asistente abierto.
+  const [nuevaOpen, setNuevaOpen] = useState(abrirNueva);
   // modo del wizard: campaña nueva vs subir creativos a una campaña existente
   const [nuevaModo, setNuevaModo] = useState<'nueva' | 'existente'>('nueva');
   const [editCopyAd, setEditCopyAd] = useState<{ id: string; name: string } | null>(null);
