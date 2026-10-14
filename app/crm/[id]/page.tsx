@@ -44,6 +44,9 @@ import { tieneEtapaDeReunion } from '@/lib/etapa-reunion';
 import { verTrackingDeLead } from '@/lib/tracking-ficha-server';
 import { getUltimoInsightGenerado, faltantesParaInsights } from '@/lib/lead-insights';
 import { respuestasPropias } from '@/lib/meta-leads-campos';
+import { respuestasGuardadas } from '@/lib/optin-respuestas';
+import { resumenDelNegocio } from '@/lib/resumen-ficha-config';
+import { seVe } from '@/lib/resumen-ficha';
 import { faltantesDeLead } from '@/lib/leads';
 import { estadoDatosDeLead } from '@/lib/datos-aviso-config';
 import { getPipelineStagesDeLead, listarFunnels } from '@/lib/funnels';
@@ -126,6 +129,9 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
   // Las preguntas propias del formulario de Meta, resueltas en el SERVER: la
   // sección de abajo sólo las dibuja.
   const respuestasForm = respuestasPropias(lead.meta_field_data);
+  const respuestasLanding = respuestasGuardadas(lead.optin_respuestas);
+  // Qué muestra el Resumen en este negocio (lib/resumen-ficha.ts, 14/10/2026).
+  const resumen = await resumenDelNegocio();
   const stageKey = lead.pipeline_stage && stages.some((s) => s.key === lead.pipeline_stage) ? lead.pipeline_stage : deriveStageKey(lead);
   const sm = stages.length ? stageMeta(stages, stageKey) : null;
 
@@ -221,6 +227,11 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
                     // Mig 0258 (12/10/2026): el ingreso estimado (punto 21) y el Instagram (punto 28).
                     ingresoEstimado={lead.ingreso_estimado ?? null}
                     instagram={lead.instagram ?? null}
+                    youtube={lead.youtube ?? null}
+                    linkedin={lead.linkedin ?? null}
+                    direccion={lead.direccion ?? null}
+                    sexo={lead.sexo ?? null}
+                    resumen={resumen}
                   />
                   {/* ⚠️ Las notas NO son una pestaña: son parte de lo que mirás del
                       lead. Como pestaña propia se escribieron 4 en toda la base — no
@@ -250,7 +261,8 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
                   {/* «¿Era calificado?» va en Resumen desde el 13/10/2026 (Martín: «Que no esté más
                       en tracking»). La MISMA tarjeta que el pop-up del tablero. */}
                   <CalificacionCard lead={lead} />
-                  <RespuestasFormulario respuestas={respuestasForm} />
+                  {seVe(resumen, 'form_meta') && <RespuestasFormulario respuestas={respuestasForm} />}
+                  {seVe(resumen, 'form_landing') && <RespuestasFormulario respuestas={respuestasLanding} de="landing" />}
                   <NotasCard leadId={lead.id} />
                   {/* ⚠️ LAS MISMAS DOS TARJETAS QUE EL MODAL, y acá es la primera vez
                       que aparecen: el motivo de salida no se veía en esta ruta ni de

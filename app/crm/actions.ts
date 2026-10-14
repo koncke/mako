@@ -61,6 +61,9 @@ import { casaReal, destinoDelAlta, nombreVisible, type ProductoParaAlta } from '
 import { agregarAProducto } from '@/lib/lead-funnel';
 import { conLoteDeEtiquetas } from '@/lib/etiquetas';
 import { respuestasPropias } from '@/lib/meta-leads-campos';
+import { respuestasGuardadas } from '@/lib/optin-respuestas';
+import { resumenDelNegocio } from '@/lib/resumen-ficha-config';
+import type { ResumenElegido } from '@/lib/resumen-ficha';
 // Los dos lectores del funnel, separados a propósito: el del NEGOCIO (columnas del
 // board, catálogos de etapa) y el DEL LEAD (requisitos de un movimiento concreto).
 import { getFunnelDefault, getFunnelDe, getPipelineStagesDefault, getPipelineStagesDeLead, saveFunnelDefault, saveFunnelDe, listarFunnels,
@@ -223,6 +226,10 @@ export type LeadFullData = {
    * Se resuelve acá y baja hecho, igual que en la ruta: el pop-up no lee el field_data.
    */
   respuestasForm: Array<{ pregunta: string; respuesta: string }>;
+  /** Lo que contestó en el formulario de la landing (mig 0274), ya saneado. */
+  respuestasLanding: Array<{ pregunta: string; respuesta: string }>;
+  /** Qué muestra el Resumen en ESTE negocio (lib/resumen-ficha.ts, 14/10/2026). */
+  resumen: ResumenElegido;
   /** La cohorte de la ficha (`cohorteDeLead`, lib/leads.ts), resuelta acá: el panel es 'use client'. */
   cohorte: { label: string; color: string; texto: string | null } | null;
   insightGen: LeadInsightGen | null;
@@ -316,7 +323,7 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   // y es el mismo en todos los workspaces (mismo criterio que el selector del tablero).
   const productos = funnels.map((f) => ({ id: f.id, nombre: nombreVisible(f), esDefault: f.esDefault }));
   const fotoEmail = lead.email?.trim() ? urlGravatar(lead.email, 160) : null;
-  return { lead, stages, pagos, vslEng, videos, replay, campana, adNombre, adId: adIdCand, visitas, insights, tracking, pixelPuesto, respuestas, respuestasForm: respuestasPropias(lead.meta_field_data), cohorte: cohorteDeLead(lead), insightGen, faltantesInsight, faltantes, datos, equipo, closerDetectado, productos, fotoEmail, cobro, verTracking: await verTrackingP };
+  return { lead, stages, pagos, vslEng, videos, replay, campana, adNombre, adId: adIdCand, visitas, insights, tracking, pixelPuesto, respuestas, respuestasForm: respuestasPropias(lead.meta_field_data), respuestasLanding: respuestasGuardadas(lead.optin_respuestas), resumen: await resumenDelNegocio(), cohorte: cohorteDeLead(lead), insightGen, faltantesInsight, faltantes, datos, equipo, closerDetectado, productos, fotoEmail, cobro, verTracking: await verTrackingP };
 }
 
 /** Cuota explícita del plan (modelo simple: monto + fecha). */
@@ -2385,6 +2392,8 @@ const REVERTIBLES = new Set([
   'Nombre', 'Email', 'Teléfono', 'Empresa', 'Web',
   // Los dos de la mig 0258 (punto 21 y 28 del 12/10/2026): columna 1:1, por `saveLeadMeta`.
   'Ingreso estimado', 'Instagram',
+  // Los del Resumen personalizable (mig 0274): columna 1:1, por `saveLeadMeta`.
+  'YouTube', 'LinkedIn', 'Dirección', 'Sexo',
   // La plata de una suscripción (AUDIT_FIELDS, lib/leads.ts). Se revierten con un update
   // directo de su columna en los DOS switch de abajo, como el deadline: `updateLead` no las
   // conoce. ⚠️ Revierten el importe, no el tipo de venta, igual que «Monto de cierre».
@@ -2544,6 +2553,10 @@ export async function revertAuditChangeAction(auditId: number, leadId: number): 
     case 'Web': await saveLeadMeta(leadId, { web: v }); break;
     case 'Ingreso estimado': await saveLeadMeta(leadId, { ingreso_estimado: ingresoDelHistorial(v) }); break;
     case 'Instagram': await saveLeadMeta(leadId, { instagram: v }); break;
+    case 'YouTube': await saveLeadMeta(leadId, { youtube: v }); break;
+    case 'LinkedIn': await saveLeadMeta(leadId, { linkedin: v }); break;
+    case 'Dirección': await saveLeadMeta(leadId, { direccion: v }); break;
+    case 'Sexo': await saveLeadMeta(leadId, { sexo: v }); break;
     case 'Deadline de nutrición manual': {
       const { error } = await (await getTenantDb()).from('leads').update({ nutricion_manual_deadline: v }).eq('id', leadId);
       if (error) throw new Error(error.message);
@@ -2621,6 +2634,10 @@ export async function revertMoveAction(leadId: number, createdAt: string): Promi
       case 'Web': meta.web = v; break;
       case 'Ingreso estimado': meta.ingreso_estimado = ingresoDelHistorial(v); break;
       case 'Instagram': meta.instagram = v; break;
+      case 'YouTube': meta.youtube = v; break;
+      case 'LinkedIn': meta.linkedin = v; break;
+      case 'Dirección': meta.direccion = v; break;
+      case 'Sexo': meta.sexo = v; break;
       case 'Deadline de nutrición manual': deadline = { set: true, value: v }; break;
       case CAMPO_SUS_MONTO: case CAMPO_SUS_MESES: suscripcion = { ...suscripcion, ...columnaSuscripcion(r.campo, v) }; break;
     }

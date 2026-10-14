@@ -31,6 +31,7 @@ import { getSupabaseServer } from './supabase';
 import { OWNER_WS } from './auth-session';
 import { getUsuarioActual } from './auth';
 import { sendMetaCAPIEvent } from './meta-capi';
+import { esSexo } from './resumen-ficha';
 import { EVENTOS_CALIFICADO, eventIdCalificado } from './meta-capi-payload';
 // Cuándo se descarta el «calificado»: puro y compartido con la ficha y con el
 // canal de MaKo, para que los tres apliquen la MISMA regla.
@@ -118,6 +119,13 @@ export type Lead = {
   ingreso_estimado?: number | null;
   /** Usuario de Instagram SIN la @ (mig 0258, punto 28). La foto del perfil no se guarda: vence. */
   instagram?: string | null;
+  /** Lo que el Resumen personalizable puede mostrar (mig 0274, 14/10/2026). */
+  youtube?: string | null;
+  linkedin?: string | null;
+  direccion?: string | null;
+  sexo?: 'mujer' | 'hombre' | 'otro' | null;
+  /** Lo que contestó en el formulario de la landing ([{ pregunta, respuesta }], lib/optin-respuestas.ts). */
+  optin_respuestas?: unknown;
   /** La cara que ELIGIÓ una persona (mig 0173/0174), desde la ficha del cliente. Gana sobre
    *  la foto automática (WhatsApp / Gravatar), que se calcula al leer y nunca se escribe acá. */
   avatar_url?: string | null;
@@ -307,6 +315,8 @@ export type LeadCreateInput = {
    * del alta (app/crm/new/InstagramBuscador.tsx) y llega normalizado por `usuarioInstagram`.
    */
   instagram?: string | null;
+  /** Lo que contestó en el formulario de la landing (mig 0274), ya saneado por `respuestasDelOptin`. */
+  optin_respuestas?: Array<{ pregunta: string; respuesta: string }> | null;
 };
 
 export type LeadUpdateInput = {
@@ -892,6 +902,8 @@ export async function createLead(input: LeadCreateInput & { permitirDuplicado?: 
       // la mig 0258 aplicada, un alta sin Instagram tiene que seguir entrando; con Instagram,
       // el error dice qué columna falta en vez de perder el lead en silencio.
       ...(input.instagram?.trim() ? { instagram: input.instagram.trim() } : {}),
+      // Igual que Instagram: SÓLO SI VINO, así un alta sin respuestas entra sin la mig 0274.
+      ...(input.optin_respuestas?.length ? { optin_respuestas: input.optin_respuestas } : {}),
       ...(solo ? { setter: solo, closer: solo } : {}),
     })
     .select('*')
@@ -1607,6 +1619,11 @@ const AUDIT_FIELDS: Array<{ k: keyof Lead; label: string }> = [
   // dos switch de revertir.
   { k: 'ingreso_estimado', label: 'Ingreso estimado' },
   { k: 'instagram', label: 'Instagram' },
+  // Los del Resumen personalizable (mig 0274). Revertibles por los mismos dos switch.
+  { k: 'youtube', label: 'YouTube' },
+  { k: 'linkedin', label: 'LinkedIn' },
+  { k: 'direccion', label: 'Dirección' },
+  { k: 'sexo', label: 'Sexo' },
   { k: 'estado_lead', label: 'Estado' },
   { k: 'fecha_agenda', label: 'Fecha de agendamiento' },
   { k: 'asistio_j1', label: 'Asistió R1' },
@@ -2902,6 +2919,11 @@ export type LeadMetaInput = {
   ingreso_estimado?: number | null;
   /** Usuario de Instagram sin la @ (mig 0258). Llega ya normalizado por `valorDeCampo`. */
   instagram?: string | null;
+  /** Los del Resumen personalizable (mig 0274). Se sanean en `saveLeadMeta`. */
+  youtube?: string | null;
+  linkedin?: string | null;
+  direccion?: string | null;
+  sexo?: string | null;
 };
 
 /** Lo que `setBoardStageOverride` lee del lead ANTES de escribir: su etapa y su producto, y lo que
@@ -3051,6 +3073,15 @@ export async function saveLeadMeta(id: number, meta: LeadMetaInput): Promise<voi
   if (meta.web !== undefined) payload.web = meta.web;
   if (meta.ingreso_estimado !== undefined) payload.ingreso_estimado = meta.ingreso_estimado;
   if (meta.instagram !== undefined) payload.instagram = meta.instagram;
+  // ⚠️ VIENEN DEL NAVEGADOR (`saveLeadMetaAction` es una server action): se recortan, y el sexo
+  // sólo acepta los tres valores del check de la mig 0274 — otro valor rechazaría el update entero.
+  for (const k of ['youtube', 'linkedin', 'direccion'] as const) {
+    if (meta[k] !== undefined) payload[k] = String(meta[k] ?? '').trim().slice(0, 300) || null;
+  }
+  if (meta.sexo !== undefined) {
+    if (meta.sexo !== null && meta.sexo !== '' && !esSexo(meta.sexo)) throw new Error('Ese sexo no es una opción.');
+    payload.sexo = meta.sexo || null;
+  }
   if (meta.telefono !== undefined) { payload.telefono = meta.telefono; payload.telefono_normalizado = normalizarTelefono(meta.telefono); }
   if (Object.keys(payload).length === 0) return;
   // Una FECHA DE REUNIÓN cargada acá cambia la etapa derivada como en `updateLead` (M1-b): se lee la etapa de antes

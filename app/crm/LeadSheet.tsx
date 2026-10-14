@@ -47,6 +47,7 @@ import { OfertaDelLead } from './lead-view/OfertaDelLead';
 import { LeadTabs } from './lead-view/LeadTabs';
 import { NotasCard } from './lead-view/NotasCard';
 import { RespuestasFormulario } from './lead-view/RespuestasFormulario';
+import { seVe } from '@/lib/resumen-ficha';
 import { MotivoCard, PlazoNutricionCard, leadSalio } from './lead-view/MotivoYPlazoCard';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 
@@ -70,7 +71,7 @@ export function LeadSheet({ data, onClose, initialTab, solucionarAlAbrir }: {
   // vale mientras sea el MISMO lead: si la ficha pasa a mostrar otro, mandan sus datos.
   const [fresca, setFresca] = useState<LeadFullData | null>(null);
   const vigente = fresca && fresca.lead.id === data.lead.id ? fresca : data;
-  const { lead, stages, pagos, vslEng, campana, adNombre, adId, visitas, insights, tracking, pixelPuesto, respuestas, respuestasForm, cohorte, insightGen, faltantesInsight, faltantes, datos, equipo, closerDetectado, videos: videosLanding, replay, productos, fotoEmail } = vigente;
+  const { lead, stages, pagos, vslEng, campana, adNombre, adId, visitas, insights, tracking, pixelPuesto, respuestas, respuestasForm, respuestasLanding, resumen, cohorte, insightGen, faltantesInsight, faltantes, datos, equipo, closerDetectado, videos: videosLanding, replay, productos, fotoEmail } = vigente;
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -255,7 +256,9 @@ export function LeadSheet({ data, onClose, initialTab, solucionarAlAbrir }: {
           calcula acá porque sale de lib/leads.ts (2.600 líneas con dependencias de servidor) y
           este archivo es 'use client': las dos puertas usan `cohorteDeLead`. */}
       <InfoPrincipalCard leadId={lead.id} nombre={lead.nombre} empresa={lead.empresa} email={lead.email} telefono={lead.telefono} web={lead.web ?? null}
-        cohorte={cohorte ?? null} ingresoEstimado={lead.ingreso_estimado ?? null} instagram={lead.instagram ?? null} />
+        cohorte={cohorte ?? null} ingresoEstimado={lead.ingreso_estimado ?? null} instagram={lead.instagram ?? null}
+        youtube={lead.youtube ?? null} linkedin={lead.linkedin ?? null} direccion={lead.direccion ?? null} sexo={lead.sexo ?? null}
+        resumen={resumen ?? {}} />
       {/* Lo que contestó en el formulario de Meta. Hasta el 07/10/2026 sólo lo dibujaba la
           ruta, y el tablero abre ESTE pop-up: en el uso diario no se veía. Las respuestas
           llegan resueltas del server (`respuestasForm`, getLeadFullAction). */}
@@ -263,7 +266,9 @@ export function LeadSheet({ data, onClose, initialTab, solucionarAlAbrir }: {
           que en esta tab se configure la opción de "¿Era cualificado?" para alimentar a CAPI... Que no
           esté más en tracking». La MISMA tarjeta que la ruta /crm/[id]. */}
       <CalificacionCard lead={lead} />
-      <RespuestasFormulario respuestas={respuestasForm ?? []} />
+      {/* Los dos formularios, cada uno si el negocio lo quiere ver (lib/resumen-ficha.ts). */}
+      {seVe(resumen, 'form_meta') && <RespuestasFormulario respuestas={respuestasForm ?? []} />}
+      {seVe(resumen, 'form_landing') && <RespuestasFormulario respuestas={respuestasLanding ?? []} de="landing" />}
       {/* ⚠️ Las notas NO son una pestaña: son parte de lo que mirás del lead. Como
           pestaña propia se escribieron 4 en toda la base — no porque no sirvan,
           sino porque escribir una costaba un viaje a otro lado. Acá abajo del

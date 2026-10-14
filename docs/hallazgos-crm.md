@@ -62,6 +62,21 @@ abre una que esté en el árbol (`entradaDelLink` → null si no). Y `leads.ofer
 que la oferta EXISTA, no que sea del workspace: se valida contra `listarOfertas()`.
 **Vive en:** `app/crm/oferta-lead-actions.ts` · `app/offer/arbol.ts` · `tests/oferta-del-lead.test.ts`
 
+**Lo que la persona contestaba en la landing no quedaba en ningún lado.** El opt-in sanea
+`body.respuestas` (zona, presupuesto, «comprar o rentar») y lo mandaba en el WhatsApp del aviso; el
+lead nacía sin eso, y la propuesta (el camino del duplicado) tampoco lo llevaba. Desde la 0274 va a
+`leads.optin_respuestas` por los DOS caminos: el alta directa (`createLead`) y la propuesta, que
+escribe quien confirma (`atribucionDePropuesta`). Un campo que entra por uno solo se apaga solo.
+**Vive en:** `app/api/track/optin/route.ts` · `lib/optin-respuestas.ts` · `app/crm/revisar/[id]/propuesta-lead.ts`
+
+**«Dirección» se había sacado el 06/10 y volvió el 13/10, y las dos decisiones valen.** El 06/10 Martín
+la sacó del Resumen («eso no importa»); el 13/10 la nombró entre lo que «otros» negocios quieren ver.
+No es una contradicción: lo nuevo es que se elige por negocio. Gana lo más nuevo, y lo viejo queda
+como el DEFAULT (apagada). Por eso el Resumen guarda sólo lo que alguien ELIGIÓ y lo demás toma su
+`porDefecto`: un dato nuevo del catálogo nace con su default en todos los negocios, y lo que ya se
+veía antes de esto sigue viéndose. `tests/ficha-lead-06-10.test.ts` se cambió a propósito.
+**Vive en:** `lib/resumen-ficha.ts` · `app/crm/lead-view/InfoPrincipalCard.tsx`
+
 **Lo que quedó sin hacer**, con el archivo: ver `docs/relevo/crm.md` §0-Ω.
 
 ## Configurar el funnel: qué es seguro tocar y qué no

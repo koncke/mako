@@ -23,11 +23,15 @@ const sectLabel: CSSProperties = { fontFamily: MONO, fontSize: 11, letterSpacing
 
 export type RespuestaFormulario = { pregunta: string; respuesta: string };
 
-export function RespuestasFormulario({ respuestas }: { respuestas: readonly RespuestaFormulario[] }) {
+export function RespuestasFormulario({ respuestas, de = 'meta' }: {
+  respuestas: readonly RespuestaFormulario[];
+  /** Hay dos: el formulario de Meta y el de la landing (mig 0274). El título lo pone esta pieza. */
+  de?: 'meta' | 'landing';
+}) {
   if (!respuestas.length) return null;
   return (
     <section style={card}>
-      <div style={{ ...sectLabel, marginBottom: 10 }}>Respondió en el formulario</div>
+      <div style={{ ...sectLabel, marginBottom: 10 }}>{de === 'landing' ? 'Respondió en tu landing' : 'Respondió en el formulario'}</div>
       <dl style={{ margin: 0, display: 'flex', flexDirection: 'column', gap: 11 }}>
         {respuestas.map((r) => (
           <div key={r.pregunta}>

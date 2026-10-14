@@ -47,7 +47,7 @@ es abrir una ficha con datos sin marcar y probar «Ver →», solucionar, ignora
 
 1. ~~Autoguardado~~ y 2. ~~cabecera compacta~~: hechos (arriba).
 3. **Tarjetas del lead personalizables** (plantillas, campos, arrastrar, vista en vivo) en los tres puntos.
-4. **Resumen personalizable** (IG, YouTube, web, LinkedIn, dirección, sexo, respuestas del form).
+4. ~~**Resumen personalizable**~~: hecho el 14/10 (mig 0274 aplicada). Falta mirarlo en el navegador.
 5. ~~**CAPI**~~: revisado el 14/10 (docs/hallazgos-ads.md, «a dónde va hoy ¿Era calificado?»). La
    tarjeta ya no afirma «Meta aprende» donde no llega. **Espera a Martín**: si quiere ofrecer el
    conjunto de datos de CRM (lo que hace que Meta optimice por calificados); nadie lo tiene.

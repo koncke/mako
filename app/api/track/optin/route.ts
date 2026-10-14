@@ -25,6 +25,7 @@
 // =============================================================================
 
 import { NextResponse, type NextRequest } from 'next/server';
+import { respuestasDelOptin } from '@/lib/optin-respuestas';
 import { emitirDelCatalogo } from '@/lib/avisos';
 import { linkApp, APP_BASE_URL } from '@/lib/app-url';
 import { crearPropuesta } from '@/lib/propuestas';
@@ -269,6 +270,9 @@ export async function POST(req: NextRequest) {
   // Se sanea acá y no se confía en el largo: el cuerpo lo escribe una página ajena.
   // Tope de 6 campos y 120 caracteres cada uno — un WhatsApp no es un volcado, y un
   // formulario con 40 campos no puede convertir el aviso en algo que nadie lee.
+  // Y las MISMAS respuestas quedan en el lead (mig 0274, 14/10/2026), por los DOS caminos:
+  // el alta directa y la propuesta. El Resumen de la ficha las muestra.
+  const respuestasOptin = respuestasDelOptin(body.respuestas);
   const resumenForm = (() => {
     const r = body.respuestas;
     if (!r || typeof r !== 'object' || Array.isArray(r)) return null;
@@ -365,6 +369,7 @@ export async function POST(req: NextRequest) {
         // NEGOCIO, que es donde caen hoy los 1.530 leads de la base. Una landing
         // sin producto asignado sigue cayendo exactamente ahi.
         funnel_id: funnelDelLead,
+        optin_respuestas: respuestasOptin,
       }));
 
       // ⚠️ UNA PERSONA, UNA FICHA: cada producto extra se AGREGA, no se clona.
@@ -478,6 +483,8 @@ export async function POST(req: NextRequest) {
         origen: 'landing',
         visitor_id: txt(body.visitor_id),
         pagina: txt(body.pagina) ?? txt(body.url) ?? req.headers.get('referer'),
+        // Las escribe quien confirma (`atribucionDePropuesta`, app/crm/revisar/[id]/propuesta-lead.ts).
+        respuestas: respuestasOptin,
       }],
       // Marcador de la sesión de prueba, si vino. Va en `datos` y no en una
       // columna propia: `propuestas` es una tabla genérica de todos los canales, y

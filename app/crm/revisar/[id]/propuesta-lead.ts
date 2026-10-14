@@ -17,6 +17,7 @@
 // =============================================================================
 
 import { recalcular, type FilaImport } from '@/app/crm/leads-importar';
+import { respuestasGuardadas, type RespuestaOptin } from '@/lib/optin-respuestas';
 
 const str = (v: unknown) => (typeof v === 'string' ? v : '');
 
@@ -77,6 +78,8 @@ export type Atribucion = {
   utm_campaign?: string;
   utm_content?: string;
   fbclid?: string;
+  /** Lo que contestó en el formulario de la landing (mig 0274). */
+  optin_respuestas?: RespuestaOptin[];
 };
 
 const CAMPOS_ATRIB = ['visitor_id', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'fbclid'] as const;
@@ -96,6 +99,9 @@ export function atribucionDePropuesta(origen: string | null, datos: Record<strin
       const v = str(c[k]).trim().slice(0, 300);
       if (v) a[k] = v;
     }
+    // Ya llegan saneadas de la ruta; se vuelven a sanear porque se leen de la base.
+    const resp = respuestasGuardadas(c.respuestas);
+    if (resp.length) a.optin_respuestas = resp;
     out[`p${i}`] = a;
   });
   return out;

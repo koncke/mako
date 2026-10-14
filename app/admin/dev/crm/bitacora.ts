@@ -2162,4 +2162,24 @@ export const BITACORA: Hito[] = [
       'tests/calificacion-adonde-va.test.ts',
     ],
   },
+  {
+    fecha: '14 oct', hora: '01:50', chat: 'CRM', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El Resumen del lead, personalizable: qué datos y qué formularios se ven',
+    puntos: [
+      'Un engranaje en «Información principal» y «Qué muestra el Resumen» en los tres puntos del CRM. Un interruptor por dato; lo decide el admin.',
+      'Datos nuevos: YouTube, LinkedIn, dirección y sexo. Nacen apagados; lo que ya se veía sigue prendido.',
+      'Lo que la persona contesta en el formulario de la landing ahora queda en el lead (antes sólo viajaba en el WhatsApp) y se ve en Resumen.',
+      'Migración 0274 aplicada. Los datos nuevos se editan, quedan en el historial y se deshacen.',
+    ],
+    commits: [],
+    archivos: [
+      'lib/resumen-ficha.ts — el catálogo y los defaults',
+      'lib/optin-respuestas.ts — las respuestas de la landing',
+      'app/crm/lead-view/ResumenModal.tsx',
+      'app/crm/lead-view/InfoPrincipalCard.tsx',
+      'supabase/migrations/0274_lead_resumen.sql',
+      'tests/resumen-ficha.test.ts',
+    ],
+  },
 ];

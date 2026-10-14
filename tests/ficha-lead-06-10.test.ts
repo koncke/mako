@@ -68,7 +68,12 @@ test('la web se linkea con https:// si no trae esquema, y un esquema que no es h
 
 test('«Dirección» se fue y «Web» se guarda, se audita, se deshace y tiene su columna', () => {
   const card = sinComentarios(leer('app/crm/lead-view/InfoPrincipalCard.tsx'));
-  assert.doesNotMatch(card, /label="Dirección"/);
+  // ⚠️ DESDE EL 14/10/2026 «Dirección» VUELVE, pero APAGADA: Martín (13/10) la nombró entre lo que
+  // «otros» negocios quieren ver en el Resumen personalizable. Lo del 06/10 sigue siendo lo que se ve
+  // si nadie la prende (lib/resumen-ficha.ts, porDefecto false), y sólo se dibuja detrás de su interruptor.
+  // Probado rompiéndolo: con la Dirección prendida por default, 1 fallo (17/1).
+  assert.match(card, /direccion !== undefined && ve\('direccion'\) \? \[\s*<Row key="direccion" label="Dirección"/);
+  assert.match(leer('lib/resumen-ficha.ts'), /\{ id: 'direccion', label: 'Dirección', grupo: 'Datos', porDefecto: false \}/);
   assert.match(card, /label="Web"[\s\S]{0,200}onGuardar=\{guardar\('web', web\)\}/);
   const leads = sinComentarios(leer('lib/leads.ts'));
   assert.match(leads, /\{ k: 'web', label: 'Web' \}/, 'el historial lo audita');
