@@ -383,6 +383,9 @@ test('el modal: el Modal de la casa a 980 sin filetes, onCerrar estable, foco si
   const blanco = src.indexOf('data-empezar="blanco"');
   const lista = src.indexOf('plantillas.map(');
   assert.ok(blanco > 0 && lista > 0 && blanco < lista, '«Hoja en blanco» va antes que las plantillas, y fuera del filtro');
-  assert.match(src, /crear\(instanciarPlantilla\(p\)\)/, 'una plantilla entra con ids nuevos');
+  // 13/10/2026: una plantilla se ARMA con los datos del negocio (tests/graficos-con-datos.test.ts); el server la instancia
+  // con ids nuevos y, si no contesta, entra la de siempre (también con ids nuevos).
+  assert.match(src, /onClick=\{\(\) => \{ void armarPlantilla\(p\); \}\}/, 'una plantilla se crea sin medir los datos');
+  assert.match(src, /crear\(instanciarPlantilla\(p\), SIN_MEDIR\)/, 'una plantilla entra con ids nuevos');
   assert.doesNotMatch(src, /createPortal/, 'el «pensando» va adentro del modal (una capa por portal quedaría debajo)');
 });

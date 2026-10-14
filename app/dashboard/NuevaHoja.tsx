@@ -25,6 +25,10 @@
 // lib/graficos-copia.ts); lo que se vació al copiarlo o al traerlo de otro negocio va en el toast. Y si al abrir hay uno
 // en el portapapeles, la grilla ofrece «Pegar lo copiado» (como la galería de Automations).
 //
+// UNA PLANTILLA SE ARMA CON LOS DATOS DEL NEGOCIO (reunión del 12/10, 103:41: «no crear un montón de gráficos vacíos»):
+// la ruta app/api/graficos/plantilla quita los gráficos que quedarían vacíos y MaKo suma otros sobre lo que sí tiene
+// (lib/graficos-con-datos*). Mientras, el mismo «pensando» que el pedido, con Cancelar.
+//
 // `onCrear` recibe la hoja YA saneada con ids nuevos (y, si la armó MaKo o se pegó, el primer aviso, para el toast). El
 // editor la agrega con `mutar` (una foto de deshacer) y la abre. Después de `onCrear` el modal llama a `onCerrar`: que
 // el editor también lo cierre no rompe nada.
@@ -53,7 +57,7 @@ import { leerArchivoParaPedido } from '@/app/automations/archivo-pedido-cliente'
 import { useCerrarEstable } from '@/app/customer-success/curso/dialogo-foco';
 import { GRAMATICA } from '@/lib/mako-gramatica';
 import { FUENTES, hojaVacia, sanearHoja, type Hoja } from '@/lib/graficos-catalogo';
-import { PLANTILLAS_HOJA, instanciarPlantilla } from '@/lib/graficos-plantillas';
+import { PLANTILLAS_HOJA, instanciarPlantilla, type PlantillaHoja } from '@/lib/graficos-plantillas';
 import { filtrarPlantillasHoja } from '@/lib/graficos-plantillas-generales';
 import { TOPE_PEDIDO_IA } from '@/lib/graficos-ia';
 import { dashPegado, hojaConIdsNuevos, rotuloDashPegado } from '@/lib/graficos-copia';
@@ -92,6 +96,8 @@ const NO_ES_DASH = 'No encontré ese dashboard.';
 const SIN_DASH_COPIADO = 'No hay un dashboard copiado.';
 /** «Pegar un dashboard» sin permiso para leer el portapapeles. */
 const PEGALO_A_MANO = 'Pega el dashboard en la caja (Ctrl+V).';
+/** El toast cuando una plantilla entra sin poder medir los datos del negocio (la ruta no contestó). */
+const SIN_MEDIR = 'Sin medir tus datos';
 
 /** El archivo de la caja: leyéndose, leído (con su texto) o que no se pudo leer. */
 type ArchivoCaja = { nombre: string; imagen: boolean } & ({ estado: 'leyendo' } | { estado: 'listo'; texto: string } | { estado: 'error' });
@@ -133,6 +139,8 @@ export function NuevaHoja({ onCerrar, onCrear, enBlanco = 'Página nueva' }: {
   const [archivo, setArchivo] = useState<ArchivoCaja | null>(null);
   /** El dashboard que había en el portapapeles al abrir: la grilla ofrece «Pegar lo copiado». */
   const [copiado, setCopiado] = useState<{ token: string; nombre: string } | null>(null);
+  /** La plantilla que se está armando con los datos del negocio (su nombre); null = lo que piensa es el pedido. */
+  const [armando, setArmando] = useState<string | null>(null);
   const pensando = desde != null;
   const ctrl = useRef<AbortController | null>(null);
   const subida = useRef<AbortController | null>(null);
@@ -175,6 +183,47 @@ export function NuevaHoja({ onCerrar, onCrear, enBlanco = 'Página nueva' }: {
     ctrl.current?.abort();
     ctrl.current = null;
     setDesde(null);
+    setArmando(null);
+  };
+
+  /**
+   * UNA PLANTILLA, ARMADA CON LOS DATOS DEL NEGOCIO (Martín, reunión del 12/10, 103:41: «al momento de crear un
+   * template, debería analizar qué métricas tiene ese negocio disponible… y no crear un montón de gráficos vacíos»).
+   * La ruta (app/api/graficos/plantilla) mide cada gráfico con el lector de la pantalla, quita los vacíos y MaKo suma
+   * otros sobre lo que sí tiene; el toast dice cuántos. Si la ruta no contesta, entra la plantilla tal cual y se dice:
+   * no poder medir no es razón para no crearla. Cancelar no crea nada.
+   */
+  const armarPlantilla = async (p: PlantillaHoja) => {
+    if (pensando) return;
+    const c = new AbortController();
+    ctrl.current = c;
+    const tope = setTimeout(() => c.abort(), TOPE_CLIENTE_MS);
+    setError(null);
+    setArmando(p.nombre);
+    setDesde(Date.now());
+    setAhora(Date.now());
+    try {
+      const res = await fetch('/api/graficos/plantilla', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plantilla: p.id }), signal: c.signal,
+      });
+      const j = await res.json().catch(() => null) as { ok?: boolean; hoja?: unknown; aviso?: unknown } | null;
+      if (ctrl.current !== c) return;
+      // Lo que llega por la red se vuelve a sanear: la hoja vale por lo que dice el catálogo de acá.
+      const h = j?.ok ? sanearHoja(j.hoja, 0) : null;
+      setDesde(null);
+      setArmando(null);
+      if (!h) { crear(instanciarPlantilla(p), SIN_MEDIR); return; }
+      crear(h, typeof j?.aviso === 'string' ? j.aviso : undefined);
+    } catch {
+      if (ctrl.current !== c) return;
+      setDesde(null);
+      setArmando(null);
+      crear(instanciarPlantilla(p), SIN_MEDIR);
+    } finally {
+      clearTimeout(tope);
+      if (ctrl.current === c) ctrl.current = null;
+    }
   };
 
   // ── Lo que se suma al pedido: un archivo, o un dashboard pegado ──────────────────────────────
@@ -306,7 +355,7 @@ export function NuevaHoja({ onCerrar, onCrear, enBlanco = 'Página nueva' }: {
           {pensando && (
             <div role="status" aria-live="polite" style={S.estado}>
               <span style={S.rotulo}>✦ {GRAMATICA.analizando.rotulo}</span>
-              <span style={S.dim}>· {FUENTES.length} conjuntos de datos · {segundos} s · hasta {Math.round(TOPE_CLIENTE_MS / 60_000)} min</span>
+              <span style={S.dim}>· {armando ? `${armando} con tus datos` : `${FUENTES.length} conjuntos de datos`} · {segundos} s · hasta {Math.round(TOPE_CLIENTE_MS / 60_000)} min</span>
               <span style={{ marginLeft: 'auto' }}><Button variant="tertiary" size="sm" onClick={cancelar}>Cancelar</Button></span>
             </div>
           )}
@@ -337,8 +386,8 @@ export function NuevaHoja({ onCerrar, onCrear, enBlanco = 'Página nueva' }: {
             </button>
           )}
           {plantillas.map((p) => (
-            <button key={p.id} type="button" className="nh-tarjeta" data-plantilla={p.id}
-              onClick={() => crear(instanciarPlantilla(p))}>
+            <button key={p.id} type="button" className="nh-tarjeta" data-plantilla={p.id} disabled={pensando}
+              onClick={() => { void armarPlantilla(p); }}>
               <span aria-hidden style={{ fontSize: 28, lineHeight: 1 }}>{p.emoji}</span>
               <span style={S.nombre}>{p.nombre}</span>
               <span style={S.linea}>{p.linea}</span>

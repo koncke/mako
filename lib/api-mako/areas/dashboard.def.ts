@@ -194,7 +194,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'crear_hoja_dashboard', area: 'metricas', tipo: 'accion',
     titulo: 'Crear una hoja del Dashboard',
-    descripcion: 'Crea una hoja nueva en el informe del Dashboard de una persona. Tres formas: desde una plantilla (`plantilla`: marketing, comercial, closing, ads-analyst…; la lista en ver_catalogo_dashboard), en blanco (sin plantilla ni pedido), o con un `pedido` en palabras para que MaKo la arme con IA gratis («los leads por campaña y el CAC de los últimos 90 días»). Con pedido, MaKo la arma ANTES de proponerla y el resumen dice qué gráficos tiene. Devuelve el id de la hoja. No corre en una automatización.',
+    descripcion: 'Crea una hoja nueva en el informe del Dashboard de una persona. Tres formas: desde una plantilla (`plantilla`: marketing, comercial, closing, ads-analyst…; la lista en ver_catalogo_dashboard), en blanco (sin plantilla ni pedido), o con un `pedido` en palabras para que MaKo la arme con IA gratis («los leads por campaña y el CAC de los últimos 90 días»). Con pedido, MaKo la arma ANTES de proponerla y el resumen dice qué gráficos tiene. Con plantilla o pedido, la hoja sale sin los gráficos que quedarían vacíos en este negocio, y a una plantilla MaKo le suma gráficos sobre los datos que sí tiene. Devuelve el id de la hoja. No corre en una automatización.',
     parametros: [
       persona,
       { nombre: 'plantilla', tipo: 'string', max: 40, rotulo: 'Plantilla', ejemplo: 'comercial', descripcion: 'El id de una plantilla de hoja (de ver_catalogo_dashboard).' },

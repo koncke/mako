@@ -974,8 +974,10 @@ export function EditorInforme({
             {/* El chat de MaKo de cada gráfico (el de las tabs viejas), también mirando, con el botón CHICO (sólo
                 el logo sobre negro, punto 3). Sin personas: ./exportar.ts. Al closer y a un link no: su tab de
                 antes no lo tenía, es IA que gasta en una vista de sólo lectura, y sin sesión no hay chat. Desde
-                v5 se apaga por gráfico (punto 15: ausente = prendido). */}
-            {est.resultado && !soloMirar && (c.mako !== false) && (
+                v5 se apaga por gráfico (punto 15: ausente = prendido). Y NO EDITANDO (Martín, reunión del 12/10,
+                101:53: «si estoy en la vista de edición, no debería salir el botón de preguntarle a Mako»): sobre una
+                tarjeta que se está armando tapa los controles y no tiene qué explicar. */}
+            {est.resultado && !soloMirar && !editando && (c.mako !== false) && (
               <span className="lk-mako" data-recorrido={c.id === primerConMako ? 'dash-mako' : undefined}>
                 <ChatMakoGrafico chartKey={`dashboard:${hoja.id}:${c.id}`} titulo={tituloDe(c)} contexto={contextoDeGrafico(c, est.resultado, ef)} />
               </span>

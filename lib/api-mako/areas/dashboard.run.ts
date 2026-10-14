@@ -48,6 +48,7 @@ import { guardarTableroSi, leerTableroVersionado, listarTablerosGuardados, type 
 import { analizarHoja, arrancarAMano, cancelarCorrida, programar, vistaDe, NoProgramable } from '@/lib/graficos-analisis-server';
 import { queTableroLeer } from '@/lib/graficos-lectura';
 import { generarHojaIA } from '@/lib/graficos-ia-generar';
+import { hojaConDatos } from '@/lib/graficos-con-datos-server';
 import { TOPE_PEDIDO_IA } from '@/lib/graficos-ia';
 import { Alias, sanearCronAnalisis, type SalidaAnalisis } from '@/lib/graficos-analisis';
 import { CajaInvalida, analizarCaja, arrancarCaja, vistaDeCaja } from '@/lib/graficos-ia-elemento-server';
@@ -583,18 +584,27 @@ export const RUNNERS: Runners = {
       let hoja: Hoja;
       let como: string;
       let aviso: string | undefined;
+      // 13/10/2026 (Martín: «no crear un montón de gráficos vacíos»): una plantilla o un pedido salen SIN los gráficos que
+      // quedarían vacíos en este negocio, y a una plantilla MaKo le suma gráficos sobre lo que sí tiene
+      // (lib/graficos-con-datos-server.ts, lo mismo que «Nueva hoja»). Por HTTP, con el plazo corto de siempre.
+      const inicio = Date.now();
+      const hastaMs = inicio + (ctx.canal === 'http' ? PLAZO_IA_HTTP_MS + 15_000 : 110_000);
       if (plantilla) {
         const p = plantillaHojaDe(plantilla);
         if (!p) return { error: `La plantilla ${comillas(plantilla)} no existe.`, disponibles: PLANTILLAS_HOJA.map((x) => x.id) };
-        hoja = instanciarPlantilla(p);
+        const r = await hojaConDatos(instanciarPlantilla(p), { hoy: hoyEnTijuana(), hastaMs, sumar: { nombre: p.nombre, linea: p.linea } });
+        hoja = r.hoja;
         como = `desde la plantilla ${p.nombre}`;
+        if (r.aviso) aviso = `(${r.aviso})`;
       } else if (pedido) {
         // MaKo la arma ANTES de proponerla: lo que la persona confirma es la hoja que se va a guardar.
-        const g = await generarHojaIA(pedido.slice(0, TOPE_PEDIDO_IA), Date.now(), ctx.canal === 'http' ? { plazoMs: PLAZO_IA_HTTP_MS } : {});
+        const g = await generarHojaIA(pedido.slice(0, TOPE_PEDIDO_IA), inicio, ctx.canal === 'http' ? { plazoMs: PLAZO_IA_HTTP_MS } : {});
         if ('error' in g) return { error: g.error };
-        hoja = g.hoja;
+        const r = await hojaConDatos(g.hoja, { hoy: hoyEnTijuana(), hastaMs }).catch(() => null);
+        hoja = r?.hoja ?? g.hoja;
         como = 'que armó MaKo con tu pedido';
-        if (g.avisos.length) aviso = `(${g.avisos.join(' · ')})`;
+        const avisos = [...(r?.aviso ? [r.aviso] : []), ...g.avisos];
+        if (avisos.length) aviso = `(${avisos.join(' · ')})`;
       } else {
         hoja = hojaVacia(nombre || `Página ${r.lectura.tablero.hojas.length + 1}`);
         como = 'en blanco';
