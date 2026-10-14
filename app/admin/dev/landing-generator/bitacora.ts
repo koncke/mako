@@ -212,7 +212,13 @@ export const BITACORA: Hito[] = [
       'La API (listar_disenos_landing) dice qué diseño trae video, y Publicar avisa «Falta el enlace del video».',
       'La barra «Estás viendo el dashboard de…» tapaba la de arriba del editor (Publicar incluido): los altos de pantalla completa descuentan --barra-agencia.',
     ],
-    commits: ['abfedd970', '222cab435', '142da25e1', '7f5b5b080', '179efda44'],
+    commits: [
+      { sha: 'abfedd970', msg: 'Landing Generator: la mayoría de los diseños llevan un VSL en el hero', lineas: 457, archivos: 14 },
+      { sha: '222cab435', msg: 'Landing Generator: sin hueco del VSL en la publicada, marcadores sólo donde se piden', lineas: 272, archivos: 15 },
+      { sha: '142da25e1', msg: 'Landing Generator: la barra de la agencia ya no tapa el editor ni el Panel', lineas: 62, archivos: 4 },
+      { sha: '7f5b5b080', msg: 'API de MaKo (landing): listar_disenos_landing dice qué diseño trae video', lineas: 24, archivos: 4 },
+      { sha: '179efda44', msg: 'Publicar avisa «Falta el enlace del video» cuando el VSL del diseño quedó vacío', lineas: 134, archivos: 6 },
+    ],
     archivos: [
       'lib/editor-landing/disenos-landing.ts',
       'lib/editor-landing/render.ts',
@@ -230,7 +236,14 @@ export const BITACORA: Hito[] = [
       'Las landings publicadas viven en hola-mako.site/<slug>; /l/… en la app es un 308; una página declarada con la dirección de antes sigue siendo la misma.',
       'El área landing de la API de MaKo maneja el editor: listar, leer, crear desde un diseño, publicar y despublicar.',
     ],
-    commits: ['f820ae2ea', 'c3688ca84', '207c1a6b0', 'd0c6214bd', 'c03ef3da7', 'fd1c5abb4'],
+    commits: [
+      { sha: 'f820ae2ea', msg: 'Merge de landing-api: el área landing de la API de MaKo maneja el Landing Generator', lineas: 1202, archivos: 10 },
+      { sha: 'c3688ca84', msg: 'Merge de landing-dom: las landings publicadas viven en hola-mako.site', lineas: 1727, archivos: 27 },
+      { sha: '207c1a6b0', msg: 'Merge de gamma-editor: el «Botón de pago» de las landings cobra por la pasarela de MaKo', lineas: 2639, archivos: 28 },
+      { sha: 'd0c6214bd', msg: 'API de MaKo (landing): la dirección que devuelve es la de hola-mako.site, la misma que ve Publicar', lineas: 57, archivos: 2 },
+      { sha: 'c03ef3da7', msg: 'Pago desde la landing en hola-mako.site: el botón lleva al paso y su POST pasa sólo con el Origin del host', lineas: 285, archivos: 9 },
+      { sha: 'fd1c5abb4', msg: 'Landings declaradas, gracias y Diagnóstico: la dirección de antes de hola-mako.site es la misma landing', lineas: 171, archivos: 7 },
+    ],
     archivos: [
       'lib/editor-landing/origen-landings.ts',
       'proxy.ts',
