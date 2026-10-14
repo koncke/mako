@@ -33,6 +33,40 @@ Workflows: tanda A `wf_d8dfde6d-689`; catálogo de bloques `wf_70de8f94-88b`, qu
 en wtcrm5 (los journals están en `~/.claude/projects/<proyecto>/debe2ade-…/subagents/workflows/<runId>/journal.jsonl`).
 Al terminar: se revisa cada rama, se mergea en `fb1410`, se corren los tests, se cosecha y se pushea.
 
+**CIERRE DEL 14/10 ~15:10: la cuenta claude2 llegó al 98% semanal.** Frené la tanda B1 (`wf_0132bb27-e06`) y NO se pusheó
+nada de la tanda B. En producción está hasta la tanda A (fb1410, en `45fe2cb7f`, deploy Ready). Lo que devolvió cada agente
+(contrato del motor, pendientes, hallazgos, revisiones) está volcado en **docs/relevo/crm-tanda-b1.md**.
+Estado de cada frente; todos salen de `crm-bloques` @ `2c19b2d69`:
+- **b1, motor** (`wtc-b1`, rama `crm-bloques-b1`): TERMINADO en 5 commits, de `1c930ec33` a `d04040305`: catálogo, plantillas, config por
+  funnel, avisos por funnel, ops ver/cambiar_ficha_funnel y los dos ignorados. Le falta su revisión.
+- **b1, armador**: A MEDIAS, en el commit `3eb46606a` («WIP — NO INTEGRAR»): armador, registros por tab, Personalizar y las dos
+  puertas, y se fueron ResumenModal y resumen-actions. NO se corrieron sus tests y falta borrar AvisosDatosModal. Hay que retomarlo
+  con el prompt ARMADOR de `tanda-b1.js` (scratchpad de la sesión debe2ade; se reconstruye con este relevo) y una nota de que
+  lo del commit WIP es suyo.
+- **b2, Pagos campo por campo** (`wtc-b2`): 5 commits, `f3a36ffa3`..`0952106fc`. **La revisión dice que NO va tal cual: dos fallas
+  ALTAS de plata.** Una: `ajustarPlanAction` recibe un Partial y lo escribe como el plan entero, y borra cuotas o corre los
+  vencimientos. Otra: en el modo 'lista', una cuota protegida termina en «insertar». Hay además seis medias (dedup de la cobranza
+  con un id que sobrevive, un link vivo de una cuota cobrada a mano, «Sin cobro» con impagas vivas, una cuota nacida después de
+  la foto, Editar deal que ignora en silencio, cancelar pisa el plazo). El detalle está en crm-tanda-b1.md. Trae migración XXXX.
+- **b3, «Nuevo CRM»** (`wtc-b3`): 3 commits, `54b6bde61`..`8b3392d15`: presets, el modal por tipo y las ops tipos_de_crm/crear_crm.
+  No tiene revisión (no era invisible).
+- **b4, captura** (`wtc-b4`): 2 commits, `6b11f7602` y `cab2e72d3`. La revisión dice que va bien, con una media: la etapa
+  efectiva de MaKo se calcula contra el funnel del negocio y no contra el del lead. Trae migración XXXX (`leads.pagina_registro` y
+  `entrada_social`, que va ANTES o JUNTO con el deploy).
+- **b5, plantillas del CRM automático** (`wtc-b5`): las piezas en `5129d8dde`, y las plantillas, la galería y las ops A MEDIAS en
+  `87889880f` («WIP — NO INTEGRAR»), sin tests corridos ni revisión. Tiene que respetar las reglas que mandó Automations (están en
+  el prompt de b5).
+**Orden para el que siga:**
+1. Retomar el armador de b1 y b5 (o relanzar `tanda-b1.js` con `resumeFromRunId`: los frentes terminados salen del caché).
+2. Arreglar las dos altas y las medias de b2.
+3. Revisar b1 (motor y armador) y b5.
+4. Mergear b1..b5 en `crm-bloques` (sin rebase), numerar las migraciones XXXX con la regla de AGENTS.md y correr los tests de lo
+   tocado.
+5. Pasarle a Estrategia 3 CUENTAS la rama y el hash: integra ella.
+6. Recién después, la **tanda B2**: los bloques de cada tab sobre los registros del armador, la salida de «Editar deal», CS y el clic
+   derecho dentro de la ficha.
+Con claude2 al 98%, esto lo tiene que hacer otra cuenta o esperar al reinicio del 20/10.
+
 **ESTADO AL 14/10 ~13:15. TANDA B1 CORRIENDO OTRA VEZ (`wf_0132bb27-e06`, el mismo run).** fb1410 ya está en origin/main
 (`45fe2cb7f`), y `crm-bloques` mergeó origin/main sin rebase en `2c19b2d69`, la base de los cinco frentes. Uso semanal de
 claude2: 88%. Antes de la B2, medir de nuevo. Lo de abajo es la historia de la pausa:
