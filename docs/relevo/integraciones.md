@@ -3,6 +3,18 @@
 De primera mano: lo escribió el chat que hizo el trabajo. Antes de actuar sobre algo de acá,
 medilo contra `main` (puede haber cambiado).
 
+> ⚠️ **Medido el 14/10/2026 a las 15:57 AR (claude1, producción, sólo lectura), y corrige lo que se venía
+> repitiendo («faltan repegar 4, 11, 13 y 14»).** Versión actual del Pixel: **v23**; el aviso pide **v22** (`PIXEL_MINIMO_AVISO`).
+> - **ws11 (Leila) y ws13 (Código Inmobiliario) YA repegaron** (v22: 134 y 271 visitas en 7 días). A Leila le quedan
+>   `que-es-lidermente.netlify.app` (v15) y `/guia-cuello-de-botella` (v18).
+> - **ws13 está en v22 y tiene CERO grabaciones** (ws1: 104, ws11: 39). El server contesta `rec` a toda visita v22
+>   (`app/api/track/vsl/route.ts`, muestreo 100), así que algo corta del lado de su página; su HTML no trae el código
+>   (lo arma en el navegador). Sin medir: se mira con un navegador.
+> - **ws14 (P2P) sigue en v15** (29 visitas, la última hoy) y no tiene canal: el aviso semanal no le llega.
+> - ws4: v21, sin páginas ni visitas en 7 días. ws 9, 10, 15 y 17: nunca pegaron el Pixel.
+> - **Rojo en `main`:** `tests/integracion-sin-salir.test.ts`, por dos links a /integraciones del Landing Generator
+>   (`DialogoPublicar.tsx:541` y `CobroBoton.tsx:110`, los dos para Stripe), archivos que también cambia la rama `landing-t6`.
+
 ## Lo que quedó hecho y en producción
 
 | Qué | Commit | Dónde se lee el porqué |
