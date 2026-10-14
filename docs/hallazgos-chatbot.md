@@ -4388,3 +4388,47 @@ lo de antes), y el conversor de un «Si responde» viejo también, porque ahí e
 convertido con la regla nueva, contestaría distinto.
 
 **Vive en:** `lib/ai-step-libertad.ts` · `lib/ai-step-armar.ts` · `lib/paso-ia-convertir.ts` · `lib/setter-conversacion.ts` (`puedeContestarSolo`) · `app/automations/EditorPasoIA.tsx`
+
+## TikTok fase 0 (14/10/2026): el AI Step contesta por Instagram y Messenger
+
+Lo hecho está en `50c58cfbf` (decisión de producto: docs/diseno-ai-step-v2.md §6; plan: docs/diseno-tiktok-linkedin.md §4).
+
+- **⚠️ El diagnóstico obvio era UNA línea y eran nueve lugares.** El plan decía «`pausarPorRespuesta` con `soloPausa`
+  sólo pausa»: sacar ese `return` hacía que un DM pasara por todo lo de abajo, y TODO asumía WhatsApp. El historial
+  (`mensajesRecientesDelLead` por línea), «¿entró uno más nuevo?», el borrador (`guardarBorradorSetter` con teléfono),
+  el audio, el tope de «Sola» (`wa_borradores`), los mensajes fijos de la rama (`enviarYEspejar`), la pregunta de la
+  charla (`charlaDelLead` miraba `escuchaPor(..., 'whatsapp')` fijo, así que un AI Step de Instagram nunca abría
+  charla), «Probar» (el simulador expandía el AI Step de WhatsApp) y «Editar con IA» (`validarIA` rechazaba CUALQUIER
+  «si_responde» en un flujo social: editar un flujo de Instagram con su AI Step habría dado error). Sacando sólo el
+  `return`, un DM le dejaba al lead un borrador que salía POR WHATSAPP. Cada lugar quedó con su rama y su test.
+- **Lo que le salió a un lead por Instagram no está en `ig_mensajes`.** El envío por Zernio no escribe ahí (el
+  webhook no guarda `message.sent`, a propósito): lo saliente vive en `nutricion_envios`. La charla para el redactor se
+  arma de las DOS (`filasDeCharlaSocial`, pura y con test); con sólo `ig_mensajes` el redactor no sabría qué se le
+  contestó y repetiría la pregunta. Por lo mismo, cada respuesta del AI Step que sale deja su fila (canal social, autor
+  'ia'): es lo que cuenta el tope de «Sola» por 24 h y lo que lee la charla siguiente.
+- **«Para aprobar» por las redes no tiene bandeja**: el texto ENTERO va en el aviso al grupo («Te dejé esta respuesta
+  para mandarla tú por Instagram»), como pidió el §6. Sin audio. La ventana de 24 h la mira el envío (`decidirSalida`):
+  es una respuesta a algo que la persona acaba de escribir.
+- **La clave de idempotencia es la del MENSAJE que se contesta** (`ai-step:<secuencia>:<lead>:<ms del entrante>`):
+  Zernio reintenta hasta 7 veces, y con una clave nueva por intento cada reentrega mandaba otro DM.
+- **El webhook de Zernio pasó de 120 a 300 s**: ahora redacta con IA en el `after`, como el de WhatsApp.
+- **«Cambia WhatsApp por Instagram» (Editar con IA) MUDA el AI Step** en el mismo id, sin su audio. Antes lo sacaba
+  porque «todavía no contesta», que ya no es cierto. Un «Si responde» de los de siempre se sigue sacando: escucha por
+  WhatsApp.
+
+Lo que quedó sin hacer, con su archivo:
+- **«Crear con IA» no arma un AI Step de Instagram** (`lib/flujo-ia.ts`, `deIA`): `nodoDe` le saca la IA a un mensaje
+  social y `respuestaAPasoIA` (`lib/paso-ia-convertir.ts`) sólo pliega «MaKo contesta» de WhatsApp. Hoy lo saca con el
+  aviso «el AI Step de Instagram se suma desde el ＋».
+- **La PRIMERA DM de un lead nuevo no la contesta el AI Step**: esa persona no era lead, así que no hay respuesta que
+  atender; la arranca el CRON «Te envía un mensaje» y la contesta su primera tarjeta. El AI Step contesta desde la
+  segunda (`lib/zernio-entrante.ts`, `pausar` sólo con `yaEraLead`). Si se quiere que conteste la primera, es una
+  decisión de producto (y choca con la bienvenida).
+- **Nada de esto corrió contra un DM real**: el 12/10 ningún workspace tenía `webhook_ok`. Falta la cuenta de prueba de
+  Martín en ws3.
+- **La API de MaKo no configura el medio de un AI Step**: en main no edita flujos con ramas (eso está en la rama sin
+  subir `wip/api-acciones-*`). El comportamiento nuevo no es una operación: lo hereda toda automatización.
+- Rojos ajenos en main al medirlo (14/10 ~17:00): `tests/api-mako-landing-editor.test.ts`, `tests/integracion-sin-salir.test.ts`
+  (dos archivos del editor de landings) y `tests/cobranza.test.ts`.
+
+**Vive en:** `lib/nutricion.ts` (`pausarPorRespuesta`, `contextoDeRespuesta`, `redactarRespuesta`, `contestarSolaPorRedes`, `mandarMensajeDeRespuesta`) · `lib/canal-social.ts` (`filasDeCharlaSocial`) · `lib/canal-zernio.ts` (`charlaSocialDelLead`) · `lib/zernio-entrante.ts` · `app/api/webhooks/zernio/route.ts` · `lib/simulador-grafo.ts` · `app/automations/PanelProbar.tsx` · `app/automations/EditorPasoIA.tsx` · `lib/flujo-ia.ts`

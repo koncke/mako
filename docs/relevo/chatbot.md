@@ -1,5 +1,14 @@
 # Relevo: Automations (ex /chatbot) y las secuencias
 
+> **ESTADO AL 14/10/2026 ~17:20 AR (`claude1`, chat «Chatbot», worktree `C:/dev/wt-undecima`, rama `undecima`).**
+> Verificado contra git y la base a las ~16:00: lo de abajo (13:20) es cierto; las dos migraciones que quedan dan 0 en
+> dry run. **HECHO: el 1 de la lista (TikTok fase 0)**, `50c58cfbf`: el AI Step contesta por Instagram y Messenger
+> (detalle y lo que quedó sin hacer en docs/hallazgos-chatbot.md → «TikTok fase 0»). SIN probar contra un DM real.
+> **SIGUE:** el 2 (`probar_secuencia` con escenario, lib/setting-secuencias.ts + chatbot.def/run), después el 4 y el 5;
+> el 3 (feedback 6 y 11, lienzo) al final, por choque con otros chats. **Coordinación:** la rama `crm-bloques-b5` del chat
+> «CRM» (C:/Users/marti/wtc-b5) tiene 2 commits sin integrar sobre archivos de Automations (5129d8dde y 87889880f «A
+> MEDIAS»): se le preguntó qué toca; no hubo respuesta a las 17:20.
+
 > **ESTADO AL 14/10/2026 ~13:20 AR (`claude2` al 88 % semanal: lo que sigue NO está arrancado).** TODO lo de «nada por
 > detrás» está EN PRODUCCIÓN (282173d6e, Ready) y las TRES migraciones corridas y verificadas leyendo la base:
 > `migrar-si-contesta` (la mañana), `migrar-condicion-reunion` (#213 ws1, #241 ws13) y `migrar-contesto-condicion` (8:

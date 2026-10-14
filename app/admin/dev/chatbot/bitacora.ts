@@ -1536,4 +1536,19 @@ FEEDBACK PROBAR:
       "TikTok sin Zernio = pedir la Business Messaging API directo a TikTok (app propia, revisión, Advanced Access por cuenta). LinkedIn: sin vía legal para DMs; queda afuera.",
     ],
   },
+  {
+    fecha: "14 oct", hora: "17:16", chat: "Chatbot", cuenta: "claude1",
+    actor: "claude", tipo: "implementacion",
+    titulo: "TikTok fase 0: el AI Step contesta por Instagram y Messenger",
+    puntos: [
+      "Del pedido «Implementar TikTok y LinkedIn… automatizar el chatbot» (14/10): antes de TikTok, que el AI Step conteste por las redes. Hasta hoy un DM sólo se anotaba.",
+      "El AI Step de ese medio contesta por ese canal: la charla de Instagram (lo que escribió y lo que le salió), «Sola» por Zernio con las mismas puertas, «Para aprobar» con el texto en el aviso, sin audio.",
+      "El AI Step ofrece Instagram y Messenger; «Probar» contesta con el del medio que se prueba; «Cambia WhatsApp por Instagram» muda el AI Step en vez de sacarlo.",
+      "Sin probar contra un DM real: ningún workspace recibió un evento de Zernio. Falta la cuenta de prueba en ws3.",
+    ],
+    commits: [
+      { sha: "50c58cfbf", msg: "Automations: el AI Step contesta por Instagram y Messenger (TikTok fase 0)", lineas: 752, archivos: 21 },
+    ],
+    archivos: ["docs/hallazgos-chatbot.md — «TikTok fase 0»", "docs/diseno-tiktok-linkedin.md §4"],
+  },
 ];
