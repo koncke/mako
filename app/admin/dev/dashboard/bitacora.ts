@@ -325,4 +325,21 @@ export const BITACORA: Hito[] = [
     commits: [{ sha: '25bd67c', msg: 'Dashboard: clic derecho en toda la tab, y el botón de MaKo selectivo y editable en el lugar', lineas: 597, archivos: 20 }],
     archivos: ['lib/graficos-catalogo.ts', 'app/dashboard/MenuContextual.tsx', 'app/dashboard/EditorMako.tsx', 'app/dashboard/EditorInforme.tsx', 'lib/api-mako/areas/dashboard.def.ts', 'tests/dashboard-mako-contextual.test.ts'],
   },
+  {
+    fecha: '14 oct', hora: '04:47', chat: 'General', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'La pantalla en blanco con «¿Qué vas a crear hoy?» y las plantillas como páginas (pedido desde General)',
+    pedido: "Toda la topbar la deberías copiar de Dashboard menos la barra de busqueda y el filtro que no sirven en general...\nY lo mismo que en Dashboard, para un usuario nuevo, deberías proponerle un template. \n\nLo único es que en lugar del botón de \"nuevo dashboard\" te pido que pongas ahí el \"¿Qué vas a crear hoy?\"... Te pido que le digas esto mismo a dashboard.\n\nY los templates, la preview debería ser como los de landing generator, porque justamente se deberáin ver como una pagina... Lo mismo te pido que le digas a dashboard.\n\ny el botón de EDITAR no debería saltarme ningún modal como el que salta hoy en día, debería, al igual que dashboard, habilitar el menú de edición de la página y poder comenzar a editarla...\n\n— Y al rato: Hazlo bien, mira como está construido el dashboard...",
+    puntos: ["Lo pidió en el chat de General para General y para el Dashboard («Te pido que le digas esto mismo a dashboard»). Como es el mismo código, lo hizo el chat de General una vez, con el visto bueno de Graphics."],
+  },
+  {
+    fecha: '14 oct', hora: '05:06', chat: 'General', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'La pantalla en blanco es la caja con las plantillas, y cada plantilla se ve como una página',
+    puntos: [
+      "Quien nunca armó una hoja ve «¿Qué vas a crear hoy?» con las plantillas abajo, como la portada del Landing Generator. Es la misma pieza que el modal «Nueva hoja».",
+      "Cada plantilla muestra la miniatura de su página (cada gráfico en su lugar, con su título), «Usar plantilla» al pasar el mouse, y el nombre y la línea abajo. La miniatura no pide datos.",
+      "«Editar» en la pantalla en blanco ya no abre un modal: arranca una hoja en blanco, ya editándose.",
+    ],
+    commits: [{ sha: 'a98ab025', msg: 'Dashboard y General: la pantalla en blanco es «¿Qué vas a crear hoy?», y las plantillas se ven como páginas', lineas: 573, archivos: 9 }],
+    archivos: ['app/dashboard/NuevaHoja.tsx', 'app/dashboard/MiniaturaHoja.tsx', 'app/dashboard/EditorInforme.tsx', 'tests/dashboard-miniatura-hoja.test.ts'],
+  },
 ];
