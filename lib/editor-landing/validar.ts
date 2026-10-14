@@ -356,9 +356,10 @@ function sanearNodo(h: Record<string, unknown>, ctx: Ctx, prof: number, donde: s
     if (!attrs.src && pidio) { descartar(ctx, `insertado de un sitio no permitido «${recorte(crudo.src)}» en ${donde}: se quita`); return null; }
     // Vacío, el proveedor es la PISTA de qué va en el hueco (video o agenda: el VSL de un diseño, el
     // bloque «Agenda»; 14/10/2026). `attrsInsertado` la conserva sólo si es de la lista de
-    // lib/embeds.ts; una inventada queda '' y se anota.
-    const pista = typeof crudo.proveedor === 'string' ? crudo.proveedor : '';
-    if (!pidio && pista && pista !== attrs.proveedor) descartar(ctx, `pista de proveedor desconocida «${recorte(pista, 30)}» en ${donde}: queda sin pista`);
+    // lib/embeds.ts; una inventada queda '' y se anota. Una que no es texto (un número, una lista,
+    // un objeto) tampoco se lee, y también se anota: venía algo y no quedó.
+    const vinoPista = crudo.proveedor !== undefined && crudo.proveedor !== null && crudo.proveedor !== '';
+    if (!pidio && vinoPista && crudo.proveedor !== attrs.proveedor) descartar(ctx, `pista de proveedor desconocida «${recorte(crudo.proveedor, 30)}» en ${donde}: queda sin pista`);
   } else if (tipo === NODO.formulario) {
     attrs = sanearFormulario(crudo, ctx, donde);
   } else if (tipo === NODO.htmlLibre) {
@@ -738,8 +739,12 @@ export function sanearConfig(raw: unknown): { config: ConfigLanding; descartes: 
       if ((OBJETIVOS as readonly unknown[]).includes(or.objetivo)) origen.objetivo = or.objetivo as ObjetivoLanding;
       const url = hrefPermitido(or.basadoEnUrl);
       if (or.basadoEnUrl !== undefined) origen.basadoEnUrl = url && /^https?:/i.test(url) && url.length <= 500 ? url : null;
-      const plantilla = typeof or.plantilla === 'string' && /^[A-Za-z0-9_-]{1,60}$/.test(or.plantilla) ? or.plantilla : null;
+      // `<diseño>:<objetivo>` (pedidoDeDiseno, crear/tipo.ts, desde el 12/10/2026) o el id de una
+      // plantilla suelta. Con la regex vieja (sin los dos puntos) el origen de toda landing creada
+      // desde un diseño se tiraba sin motivo; lo que no pasa ahora, se anota.
+      const plantilla = typeof or.plantilla === 'string' && /^[A-Za-z0-9_-]{1,60}(?::[A-Za-z0-9_-]{1,60})?$/.test(or.plantilla) ? or.plantilla : null;
       if (plantilla) origen.plantilla = plantilla;
+      else if (or.plantilla !== undefined && or.plantilla !== null && or.plantilla !== '') d.push(`la plantilla del origen «${String(or.plantilla).slice(0, 60)}» no es un id válido: se quita`);
       config.origen = origen;
     } else d.push('el origen de la landing no tiene un modo conocido: se quita');
   }

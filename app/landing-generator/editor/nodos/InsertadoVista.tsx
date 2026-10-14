@@ -34,7 +34,7 @@ import { ALTO_EMBED_MAX, ALTO_EMBED_MIN, ALTO_EMBED_PASO, altoValido, claseDePro
  */
 const TEXTO_VACIO: Record<'video' | 'agenda' | 'otro', readonly [string, string]> = {
   video: ['Pega el enlace de tu video', 'YouTube, Panda, Vimeo…'],
-  agenda: ['Pega el enlace de tu agenda', 'Calendly o Cal.com'],
+  agenda: ['Pega el enlace de tu agenda', 'Calendly, Cal.com…'],
   otro: ['Pega el enlace de un video o de tu agenda', 'YouTube, Vimeo, Loom, Calendly, Cal.com, Google Calendar…'],
 };
 

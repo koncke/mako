@@ -31,15 +31,18 @@
 //   · al centro sin achicar el «Título» display .................................. 11 / 1
 //   · al costado con el video a la izquierda ..................................... 11 / 1
 //   · el video ANTES de las herramientas, marcando el hero (la agenda lo hereda) .. 8 / 4
+// ── Revisión del 14/10/2026: las roturas con las que dos verificadores dejaban esto en verde (base: 13 / 0) ──
+//   · al centro, video y botón justo debajo del titular y el subtítulo DEBAJO ..... 12 / 1
+//   · al costado, vuelve el «Título» display con anchos [8,4] .................... 12 / 1
 // =============================================================================
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { sanearContenido } from '../lib/editor-landing/validar';
+import { sanearConfig, sanearContenido } from '../lib/editor-landing/validar';
 import { TEMAS } from '../lib/editor-landing/temas';
 import { PLANTILLAS } from '../lib/editor-landing/plantillas';
 import { NODO, type JsonNodo, type LandingContenido } from '../lib/editor-landing/doc';
-import { DISENOS_LANDING, OBJETIVOS_LANDING, landingDesde } from '../lib/editor-landing/disenos-landing';
+import { DISENOS_LANDING, OBJETIVOS_LANDING, heroDelDiseno, landingDesde } from '../lib/editor-landing/disenos-landing';
 import { pedidoDeDiseno, plantillasDe } from '../app/landing-generator/crear/tipo';
 
 const nodos = (c: LandingContenido): JsonNodo[] => {
@@ -68,9 +71,39 @@ test('el diseño manda en la forma: su tema existe y el hero toma el del diseño
   for (const d of DISENOS_LANDING) {
     assert.ok(ids.has(d.tema), `${d.id}: el tema «${d.tema}» no existe`);
     const c = landingDesde(d, 'webinar')!;
-    assert.equal(c.paginas[0].doc.content[0].attrs?.diseno, d.hero, `${d.id}: el hero no es el del diseño`);
+    assert.equal(c.paginas[0].doc.content[0].attrs?.diseno, heroDelDiseno(d), `${d.id}: el hero no es el del diseño`);
   }
   assert.equal(landingDesde(DISENOS_LANDING[0], 'no-existe'), null, 'un objetivo que no existe no arma nada');
+});
+
+// En un VSL el video ES el visual del hero (14/10/2026): una imagen al costado o arriba sin cargar se
+// dibujaba en el editor como el hueco «Agregar imagen» al 37,5% al lado del video. Va 'sin', salvo
+// 'fondo' (detrás del video sí tiene sentido). El zigzag de las demás secciones no cambia: arranca del
+// lado opuesto al hero del DATO, como siempre.
+// Roturas (14/10/2026, en memoria, restauradas y verificadas por hash; base: 13 pasan, 0 fallan):
+// `heroDelDiseno` devuelve `d.hero` (la imagen al costado vuelve junto al video) → 12 / 1; el zigzag
+// arranca del hero ya corregido (cambia el de las demás secciones) → 12 / 1.
+test('con video, el hero va sin imagen al costado (salvo «fondo»), y el zigzag de las demás sigue igual', () => {
+  const mal: string[] = [];
+  for (const d of DISENOS_LANDING) {
+    for (const o of OBJETIVOS_LANDING) {
+      const tarjetas = landingDesde(d, o.id)!.paginas[0].doc.content;
+      const hero = tarjetas[0].attrs?.diseno;
+      if (d.video && !['sin', 'fondo'].includes(String(hero))) mal.push(`${d.id} × ${o.id}: hero «${hero}» junto al video`);
+      if (d.video && d.hero === 'fondo' && hero !== 'fondo') mal.push(`${d.id} × ${o.id}: perdió la imagen de fondo`);
+      if (!d.video && hero !== d.hero) mal.push(`${d.id} × ${o.id}: sin video, el hero tiene que ser el del diseño`);
+      // Las secciones con imagen al costado: con zigzag alternan arrancando del lado opuesto a d.hero.
+      if (!d.zigzag) continue;
+      let lado = d.hero === 'izquierda' ? 'derecha' : 'izquierda';
+      for (const t of tarjetas.slice(1)) {
+        const s = t.attrs?.diseno;
+        if (s !== 'izquierda' && s !== 'derecha') continue;
+        if (s !== lado) { mal.push(`${d.id} × ${o.id}: el zigzag cambió (${s} donde iba ${lado})`); break; }
+        lado = lado === 'izquierda' ? 'derecha' : 'izquierda';
+      }
+    }
+  }
+  assert.deepEqual(mal, []);
 });
 
 test('el objetivo manda en el copy: el mismo diseño con dos objetivos dice cosas distintas', () => {
@@ -152,6 +185,8 @@ test('video al centro: titular, video y botón en ese orden, todo centrado y sin
       const iAccion = bloques.findIndex((n) => n.type === NODO.botones || n.type === NODO.formulario);
       const iTitulo = bloques.findIndex((n) => n.type === 'heading');
       if (!(iTitulo >= 0 && iTitulo < iVideo)) mal.push(`${d.id} × ${o.id}: el titular no va arriba del video`);
+      // TODO el texto del hero (pre-titular, titular, subtítulo) va ARRIBA del video: debajo sólo la acción.
+      if (bloques.slice(iVideo + 1).some((n) => n.type === 'paragraph' || n.type === 'heading')) mal.push(`${d.id} × ${o.id}: hay texto del hero debajo del video`);
       if (iAccion >= 0 && iAccion !== iVideo + 1) mal.push(`${d.id} × ${o.id}: el botón no va JUSTO debajo del video`);
       if (iAccion < 0 && iVideo !== bloques.length - 1) mal.push(`${d.id} × ${o.id}: sin botón, el video no cierra el hero`);
       for (const n of bloques) {
@@ -178,6 +213,8 @@ test('video al costado: el hero es UNA fila de dos columnas, texto y botón a la
       assert.equal(hero.content?.length, 1, `${d.id} × ${o.id}: el hero no es una sola fila`);
       const [izq, der] = hero.content![0].content ?? [];
       assert.equal(hero.content![0].type, NODO.columnas, `${d.id} × ${o.id}`);
+      assert.deepEqual(hero.content![0].attrs?.anchos, [5, 7], `${d.id} × ${o.id}: el texto en 5 de 12 y el video en 7`);
+      assert.ok(!todos(izq).some((n) => n.type === 'heading' && n.attrs?.variante === 'titulo'), `${d.id} × ${o.id}: el «Título» display no entra en 5 de 12`);
       assert.deepEqual(der.content!.map((n) => esVideo(n)), [true], `${d.id} × ${o.id}: la derecha no es el video`);
       assert.equal(videosEn(izq).length, 0, `${d.id} × ${o.id}: video a la izquierda`);
       assert.ok(izq.content!.some((n) => n.type === 'heading'), `${d.id} × ${o.id}: sin titular a la izquierda`);
@@ -224,6 +261,12 @@ test('el alta de un diseño lleva el objetivo elegido, el tema del diseño y es 
   assert.equal(alta.config?.formato, 'pagina');
   assert.equal(alta.titulo, PLANTILLAS.find((x) => x.id === 'webinar')!.nombre);
   assert.deepEqual(alta.config?.origen, { modo: 'plantilla', plantilla: `${d.id}:webinar` });
+  // Y el origen sobrevive al saneo del server: la regex vieja no aceptaba los dos puntos y lo tiraba
+  // sin motivo (hallado el 14/10/2026).
+  // Rotura (14/10/2026, en memoria, restaurada; base: 13 pasan, 0 fallan): la regex sin «:» → 12 / 1.
+  const saneo = sanearConfig(alta.config);
+  assert.deepEqual(saneo.config.origen, { modo: 'plantilla', plantilla: `${d.id}:webinar` });
+  assert.deepEqual(saneo.descartes, []);
   assert.equal(pedidoDeDiseno(p, 'no-existe'), null);
 });
 

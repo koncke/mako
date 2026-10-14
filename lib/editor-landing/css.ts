@@ -349,12 +349,13 @@ const BLOQUES: string[] = [
   r(D + ' .gm-marcador[data-play="si"]', 'border-style: solid; background: var(--gm-superficie, rgba(127,127,127,0.1));'),
   r(D + ' .gm-marcador-play', 'display: grid; place-items: center; width: 4.4em; height: 4.4em; border-radius: 50%; background: var(--gm-acento, #2f6fed); color: var(--gm-acento-contraste, #ffffff); box-shadow: 0 0.5em 1.4em rgba(0,0,0,0.18);'),
   r(D + ' .gm-marcador-play > svg', 'width: 44%; height: 44%; margin-left: 9%;'),
-  // En la miniatura (un cuadro 16/10 de UNA sección) el video suelto en la sección va más angosto y
-  // centrado: a todo el ancho mide 32em de alto y el cuadro 40em, así que el titular, el video y el
-  // botón no entraban juntos (medido el 14/10/2026 en la grilla de Diseños: video cortado 25 a 89px
-  // de 281 en los 6 diseños con el video al centro). En la publicada no: ahí no hay un cuadro que
-  // corte, la sección crece con lo que tiene y el video a todo su ancho es el protagonista del VSL.
-  r(D + '[data-modo="miniatura"] .gm-tarjeta-cuerpo > .gm-insertado[data-clase="video"]', 'width: 52%; justify-self: center;'),
+  // En una miniatura de TRABAJO (un cuadro 16/10 de UNA sección; la pide con `marcadores`, render.ts)
+  // el video suelto en la sección va más angosto y centrado: a todo el ancho mide 32em de alto y el
+  // cuadro 40em, así que el titular, el video y el botón no entraban juntos (medido el 14/10/2026 en
+  // la grilla de Diseños: video cortado 25 a 89px de 281 en los 6 diseños con el video al centro).
+  // En la publicada no, ni en la vista del visitante del teléfono: ahí no hay un cuadro que corte y
+  // el video a todo el ancho es el protagonista del VSL.
+  r(D + '[data-marcadores="si"] .gm-tarjeta-cuerpo > .gm-insertado[data-clase="video"]', 'width: 52%; justify-self: center;'),
 
   '/* ── 12. Formulario (los datos entran al CRM por el Pixel) ── */',
   r(D + ' .gm-formulario', 'display: grid; gap: 0.9em; width: 100%; max-width: 34em;'),

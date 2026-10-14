@@ -35,7 +35,10 @@ export type DisenoLanding = {
   descripcion: string;
   /** Id de TEMAS (lib/editor-landing/temas.ts). */
   tema: string;
-  /** Imagen de acento del hero (la primera sección). */
+  /**
+   * Imagen de acento del hero (la primera sección). En un diseño CON video el hero va 'sin' salvo
+   * 'fondo' (`heroDelDiseno`): el valor sigue decidiendo de qué lado arranca el zigzag de las demás.
+   */
   hero: DisenoTarjeta;
   /** Las secciones con imagen alternan izquierda/derecha (zigzag) o van todas igual. */
   zigzag: boolean;
@@ -129,6 +132,16 @@ export function conHerramientasMako(c: LandingContenido, objetivo: string): Land
   return copia;
 }
 
+/**
+ * La imagen de acento del hero de un diseño. Con video, 'sin', salvo 'fondo': en un VSL el video ES
+ * el visual del hero, y en el editor una imagen al costado o arriba sin cargar se dibuja como el
+ * hueco «Agregar imagen» al 37,5% al lado del video (en Tecnológico, tres franjas y el video al ~36%,
+ * hallado el 14/10/2026). Una imagen de fondo detrás del video sí tiene sentido, y se queda.
+ */
+export function heroDelDiseno(d: DisenoLanding): DisenoTarjeta {
+  return d.video && d.hero !== 'fondo' ? 'sin' : d.hero;
+}
+
 /** Viste el contenido con el diseño: el hero y el zigzag de las imágenes. */
 export function aplicarDiseno(c: LandingContenido, d: DisenoLanding): LandingContenido {
   const copia: LandingContenido = JSON.parse(JSON.stringify(c));
@@ -136,7 +149,7 @@ export function aplicarDiseno(c: LandingContenido, d: DisenoLanding): LandingCon
     let lado: 'izquierda' | 'derecha' = d.hero === 'izquierda' ? 'derecha' : 'izquierda';
     pagina.doc.content.forEach((t, i) => {
       if (t.type !== NODO.tarjeta || !t.attrs) return;
-      if (i === 0 && pagina === copia.paginas[0]) { t.attrs.diseno = d.hero; return; }
+      if (i === 0 && pagina === copia.paginas[0]) { t.attrs.diseno = heroDelDiseno(d); return; }
       const actual = t.attrs.diseno as DisenoTarjeta;
       if (actual === 'izquierda' || actual === 'derecha') {
         t.attrs.diseno = d.zigzag ? lado : (d.hero === 'izquierda' || d.hero === 'derecha' ? d.hero : actual);

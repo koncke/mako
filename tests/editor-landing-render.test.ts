@@ -29,6 +29,9 @@ import { HIJOS_PERMITIDOS } from '../lib/editor-landing/validar';
 import { temaPorId } from '../lib/editor-landing/temas';
 import { NODO, type JsonNodo, type Pagina } from '../lib/editor-landing/doc';
 import { CONFIG_DEFAULT, type ConfigLanding } from '../lib/editor-landing/api-tipos';
+import { CSS_CONTENIDO } from '../lib/editor-landing/css';
+import { DISENOS_LANDING, OBJETIVOS_LANDING, landingDesde } from '../lib/editor-landing/disenos-landing';
+import { readFileSync } from 'node:fs';
 
 const BUCKET = 'https://proyecto.supabase.co/storage/v1/object/public/landing-imagenes/';
 const IMG = `${BUCKET}7/3f2a9c1e-uuid.png`;
@@ -313,20 +316,79 @@ test('render ESTABLE: el mismo input da el mismo HTML, byte por byte (y no muta 
 // VIDEO»): la grilla de Diseños son miniaturas, y sin esto ninguna mostraba un video.
 // Roturas (14/10/2026, en memoria, restauradas y verificadas por hash; base: 16 pasan, 0 fallan): render.ts
 // sin la excepción de la miniatura → 15 / 1; el vacío de video en todos los modos → 15 / 1; cualquier pista
-// dibuja el ▶ (la agenda también) → 15 / 1.
+// dibuja el ▶ (la agenda también) → 15 / 1. Desde la revisión del mismo día el ▶ sale sólo con
+// `marcadores` (el test de abajo).
 test('miniatura: el insertado VACÍO de video se dibuja como ▶ (con el svg del catálogo); la publicada, la exportación y el editor no; una agenda vacía, nunca', () => {
   const vacio = (proveedor?: string): JsonNodo => seccion([p(txt('Hola')), { type: NODO.insertado, attrs: proveedor ? { src: '', proveedor, alto: null } : { src: '' } }]);
-  const mini = htmlDeTarjeta(vacio('youtube'), tema, { modo: 'miniatura' });
+  const mini = htmlDeTarjeta(vacio('youtube'), tema, { modo: 'miniatura', marcadores: true });
   assert.match(mini, /<div class="gm-insertado" data-proveedor="youtube" data-clase="video" data-marcador="si" data-pista="si"><div class="gm-marcador" data-play="si"><span class="gm-marcador-play" data-icono="play" aria-hidden="true"><svg [^>]*viewBox="0 0 256 256"[^>]*><path d="M232\.4/);
   assert.doesNotMatch(mini, /<iframe|YouTube|Pega/, 'sin iframe ni texto');
   for (const modo of ['publico', 'exportar', 'editor'] as const) {
     assert.doesNotMatch(htmlDeTarjeta(vacio('youtube'), tema, { modo }), /gm-insertado|gm-marcador|data-icono="play"/, `el VSL vacío sale en ${modo}`);
   }
   for (const modo of ['miniatura', 'publico', 'exportar', 'editor'] as const) {
-    assert.doesNotMatch(htmlDeTarjeta(vacio('calendly'), tema, { modo }), /gm-insertado|data-icono="play"/, `la agenda vacía sale en ${modo}`);
+    assert.doesNotMatch(htmlDeTarjeta(vacio('calendly'), tema, { modo, marcadores: true }), /gm-insertado|data-icono="play"/, `la agenda vacía sale en ${modo}`);
   }
-  assert.doesNotMatch(htmlDeTarjeta(vacio(), tema, { modo: 'miniatura' }), /gm-insertado/, 'sin pista (el «Insertar» genérico) tampoco');
-  assert.doesNotMatch(htmlDeTarjeta(vacio('inventado'), tema, { modo: 'miniatura' }), /gm-insertado/, 'una pista inventada no es un video');
+  assert.doesNotMatch(htmlDeTarjeta(vacio(), tema, { modo: 'miniatura', marcadores: true }), /gm-insertado/, 'sin pista (el «Insertar» genérico) tampoco');
+  assert.doesNotMatch(htmlDeTarjeta(vacio('inventado'), tema, { modo: 'miniatura', marcadores: true }), /gm-insertado/, 'una pista inventada no es un video');
+});
+
+// El modo 'miniatura' NO es sólo la grilla (revisión del 14/10/2026): app/m/landing lo usa para mostrar
+// lo que vería un visitante en su teléfono, y ahí no puede aparecer el ▶ que la publicada no tiene, ni
+// un video al 52%. Los marcadores los pide quien dibuja una miniatura de TRABAJO.
+// Roturas (14/10/2026, en memoria, restauradas y verificadas por hash; base: 18 pasan, 0 fallan): la
+// miniatura los pone siempre, sin pedirlos → 16 / 2 (éste y el de las columnas); el video angosto vuelve
+// a colgar de `data-modo="miniatura"` → 17 / 1; app/m/landing los pide → 17 / 1.
+test('los marcadores (el ▶ y el video angosto) salen sólo si quien dibuja los pide; la vista del visitante en el teléfono no los pide', () => {
+  const vsl = seccion([p(txt('Hola')), { type: NODO.insertado, attrs: { src: '', proveedor: 'youtube', alto: null } }]);
+  const sin = htmlDeTarjeta(vsl, tema, { modo: 'miniatura' });
+  assert.doesNotMatch(sin, /gm-insertado|data-icono="play"|data-marcadores/, 'sin pedirlos, la miniatura es la publicada');
+  const con = htmlDeTarjeta(vsl, tema, { modo: 'miniatura', marcadores: true });
+  assert.match(con, /^<div class="gm-doc"[^>]* data-modo="miniatura" data-marcadores="si"/);
+  assert.match(con, /data-icono="play"/);
+  assert.doesNotMatch(htmlDeTarjeta(vsl, tema, { modo: 'publico', marcadores: true }), /gm-insertado|data-marcadores/, 'fuera de la miniatura no existen');
+  // El video angosto cuelga del atributo, no del modo.
+  assert.ok(CSS_CONTENIDO.includes('.gm-doc[data-marcadores="si"] .gm-tarjeta-cuerpo > .gm-insertado[data-clase="video"] { width: 52%;'));
+  assert.doesNotMatch(CSS_CONTENIDO, /\[data-modo="miniatura"\][^{]*gm-insertado\[data-clase="video"\]/, 'una regla del video por el modo vuelve a pegarle al teléfono');
+  // Quién los pide: las miniaturas de trabajo sí, la vista del visitante no.
+  const leer = (f: string) => readFileSync(new URL(f, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+  for (const f of ['../app/landing-generator/MiniaturaLanding.tsx', '../app/landing-generator/editor/TiraSecciones.tsx', '../app/landing-generator/editor/paneles/PanelAgente.tsx']) {
+    assert.match(leer(f), /modo: 'miniatura', incluirOcultas: true, marcadores: true \}/, `${f} no pide los marcadores`);
+  }
+  assert.doesNotMatch(leer('../app/m/landing/[id]/page.tsx').replace(/^[ \t]*\/\/.*$/gm, ''), /marcadores/, 'el teléfono los pide');
+});
+
+// Una columna que sale VACÍA no deja su hueco (revisión del 14/10/2026): en los diseños con el video al
+// costado, sin el enlace pegado, la publicada y la exportación sacaban `<div class="gm-columna"></div>`
+// (texto en 5/12 y 7/12 en blanco, los 10 objetivos de los dos diseños).
+// Roturas (14/10/2026, en memoria, restauradas y verificadas por hash; base: 18 pasan, 0 fallan): sin
+// `htmlDeColumnas` → 17 / 1; los anchos no se rearman → 17 / 1; con una sola columna queda la grilla → 17 / 1.
+test('una columna vacía no sale: se rearman los anchos de las que quedan, y con una sola no hay grilla', () => {
+  const YT = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
+  const mal: string[] = [];
+  for (const d of DISENOS_LANDING.filter((x) => x.video === 'costado')) {
+    for (const o of OBJETIVOS_LANDING) {
+      const hero = landingDesde(d, o.id)!.paginas[0].doc.content[0];
+      for (const modo of ['publico', 'exportar', 'miniatura'] as const) {
+        const h = htmlDeTarjeta(hero, temaPorId(d.tema), { modo });
+        if (/<div class="gm-columna"><\/div>/.test(h)) mal.push(`${d.id} × ${o.id} (${modo}): columna vacía`);
+        if (/gm-columnas/.test(h)) mal.push(`${d.id} × ${o.id} (${modo}): quedó la grilla con una columna`);
+        if (!/<h1/.test(h)) mal.push(`${d.id} × ${o.id} (${modo}): se perdió el texto`);
+      }
+      // Con el enlace pegado, las dos columnas siguen.
+      const conVideo = JSON.parse(JSON.stringify(hero).replace('"src":""', `"src":"${YT}"`)) as JsonNodo;
+      const h = htmlDeTarjeta(conVideo, temaPorId(d.tema), { modo: 'publico' });
+      if (!/<div class="gm-columnas" style="--gm-cols: 5fr 7fr">/.test(h) || (h.match(/class="gm-columna"/g) ?? []).length !== 2 || !/<iframe/.test(h)) mal.push(`${d.id} × ${o.id}: con el video pegado no quedan las dos columnas`);
+    }
+  }
+  assert.deepEqual(mal, []);
+  // Tres columnas con la del medio vacía: quedan dos, con SUS anchos.
+  const col = (...c: JsonNodo[]): JsonNodo => ({ type: NODO.columna, content: c });
+  const tres = seccion([{ type: NODO.columnas, attrs: { anchos: [3, 6, 3], divisores: false }, content: [col(p(txt('A'))), col({ type: NODO.imagen, attrs: { src: '' } }), col(p(txt('C')))] }]);
+  assert.match(htmlDeTarjeta(tres, tema, PUB), /<div class="gm-columnas" style="--gm-cols: 3fr 3fr"><div class="gm-columna"><p>A<\/p><\/div><div class="gm-columna"><p>C<\/p><\/div><\/div>/);
+  // Sin nada que omitir, sale como siempre.
+  const dos = seccion([{ type: NODO.columnas, attrs: { anchos: [4, 8], divisores: true }, content: [col(p(txt('A'))), col(p(txt('B')))] }]);
+  assert.match(htmlDeTarjeta(dos, tema, PUB), /<div class="gm-columnas" style="--gm-cols: 4fr 8fr" data-divisores="si"><div class="gm-columna"><p>A<\/p><\/div><div class="gm-columna"><p>B<\/p><\/div><\/div>/);
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

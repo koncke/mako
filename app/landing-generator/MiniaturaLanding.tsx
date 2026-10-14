@@ -156,7 +156,9 @@ export function MiniaturaLanding({ tarjeta: t, tema, formato = 'pagina', proporc
   aspecto?: string;
   entera?: boolean;
 }) {
-  const html = useMemo(() => htmlDeTarjeta(t ?? TARJETA_VACIA, tema, { modo: 'miniatura', incluirOcultas: true }), [t, tema]);
+  // Con MARCADORES (render.ts): la grilla de Diseños, el Panel y Crear son miniaturas de TRABAJO, y
+  // el VSL vacío de un diseño tiene que verse como un ▶ (pedido de Martín, 14/10/2026).
+  const html = useMemo(() => htmlDeTarjeta(t ?? TARJETA_VACIA, tema, { modo: 'miniatura', incluirOcultas: true, marcadores: true }), [t, tema]);
   const diapo = formato === 'presentacion';
   const prop: Proporcion = proporcion === '4:3' ? '4:3' : '16:9';
   const cuadro = diapo ? (prop === '4:3' ? '4 / 3' : '16 / 9') : aspecto;

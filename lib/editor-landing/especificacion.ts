@@ -91,6 +91,12 @@ export type CtxSpec = {
    * landing (`OpRender.htmlLibre`). Sin esto, o sin id, el bloque sale con `srcdoc` como siempre.
    */
   srcHtmlLibre?: (idBloque: string) => string | null;
+  /**
+   * Los MARCADORES de una miniatura de trabajo (render.ts, `OpRender.marcadores`; sólo en
+   * 'miniatura'): el VSL vacío de un diseño se dibuja como un ▶ (`specInsertado`). Sin esto, un
+   * insertado vacío no se dibuja, como en la publicada.
+   */
+  marcadores?: boolean;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -729,11 +735,12 @@ export function specInsertado(raw: unknown, ctx?: CtxSpec): NodoArbol {
   const clase = claseDeProveedor(a.proveedor) ?? undefined;
   const attrsDiv: AttrsArbol = { class: 'gm-insertado', 'data-proveedor': a.proveedor || undefined, 'data-clase': clase };
   if (!a.src) {
-    // El VSL vacío de un diseño, en la MINIATURA: un video 16:9 con un ▶, sin texto (la grilla de
-    // Diseños tiene que mostrar que la landing lleva video; pedido de Martín, 14/10/2026). La
-    // publicada y la exportación no lo dibujan (render.ts no saca un insertado vacío) y el
-    // editor tiene su NodeView. Una agenda vacía no se dibuja en ningún modo.
-    if (modo(ctx) === 'miniatura' && clase === 'video') {
+    // El VSL vacío de un diseño, en una miniatura que pide MARCADORES: un video 16:9 con un ▶, sin
+    // texto (la grilla de Diseños tiene que mostrar que la landing lleva video; pedido de Martín,
+    // 14/10/2026). La publicada, la exportación y la vista del visitante en el teléfono no lo
+    // dibujan (render.ts no saca un insertado vacío) y el editor tiene su NodeView. Una agenda
+    // vacía no se dibuja en ningún modo.
+    if (ctx?.marcadores && modo(ctx) === 'miniatura' && clase === 'video') {
       return el('div', { ...attrsDiv, 'data-marcador': 'si', 'data-pista': 'si' },
         el('div', { class: 'gm-marcador', 'data-play': 'si' },
           el('span', { class: 'gm-marcador-play', 'data-icono': 'play', 'aria-hidden': 'true' })));
