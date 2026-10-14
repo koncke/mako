@@ -219,7 +219,7 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
         lead={lead}
         fotoEmail={fotoEmail}
         marco
-        kicker={<EtiquetasDelLead leadId={lead.id} version={versionDeEtiquetas(lead.updated_at, fichaProd.productos)} />}
+        junto={<EtiquetasDelLead compacto leadId={lead.id} version={versionDeEtiquetas(lead.updated_at, fichaProd.productos)} />}
         acciones={
           <>
             <FunnelYEtapa ficha={fichaProd} etapasCasa={stages} etapaCasa={currentStage} onElegirCasa={pickStage} ariaLabel="Cambiar etapa o funnel" />

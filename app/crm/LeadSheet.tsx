@@ -340,7 +340,7 @@ export function LeadSheet({ data, onClose, initialTab, solucionarAlAbrir }: {
           lead={lead}
           fotoEmail={fotoEmail}
           onCerrar={onClose}
-          kicker={<EtiquetasDelLead leadId={lead.id} version={versionDeEtiquetas(lead.updated_at, fichaProd.productos)} />}
+          junto={<EtiquetasDelLead compacto leadId={lead.id} version={versionDeEtiquetas(lead.updated_at, fichaProd.productos)} />}
           acciones={
             <>
               <FunnelYEtapa ficha={fichaProd} etapasCasa={stages} etapaCasa={stageKey} onElegirCasa={pickStage} ariaLabel="Cambiar etapa o funnel" />

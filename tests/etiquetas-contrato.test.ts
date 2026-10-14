@@ -173,7 +173,7 @@ test('las pantallas: el selector del paso «⚡ Acción», la ficha y la ruta', 
   assert.equal(controlDe({ nombre: 'etiquetaId', tipo: 'number' }), 'etiqueta', 'un etiquetaId se elige de un desplegable, no se tipea');
   assert.match(editor, /case 'etiqueta':[\s\S]{0,400}<SelectorEtiqueta/, 'un etiquetaId se elige de un desplegable, no se tipea');
   for (const f of ['app/crm/LeadSheet.tsx', 'app/crm/[id]/LeadDetailBody.tsx']) {
-    assert.match(sinComentarios(leer(f)), /<EtiquetasDelLead leadId=\{lead\.id\}[^>]*\/>/, `${f} no muestra las etiquetas del lead`);
+    assert.match(sinComentarios(leer(f)), /<EtiquetasDelLead (?:compacto )?leadId=\{lead\.id\}[^>]*\/>/, `${f} no muestra las etiquetas del lead`);
   }
   const chips = sinComentarios(leer('app/crm/lead-view/EtiquetasDelLead.tsx'));
   assert.match(chips, /useRefrescarFicha\(\)/);
@@ -230,7 +230,7 @@ test('etiquetas-5: los chips de la ficha se releen cuando cambia la etapa (la fi
   const chips = sinComentarios(leer('app/crm/lead-view/EtiquetasDelLead.tsx'));
   assert.match(chips, /useEffect\(\(\) => \{ void leer\(\); \}, \[leer, version\]\)/);
   for (const f of ['app/crm/LeadSheet.tsx', 'app/crm/[id]/LeadDetailBody.tsx']) {
-    assert.match(sinComentarios(leer(f)), /<EtiquetasDelLead leadId=\{lead\.id\} version=\{versionDeEtiquetas\(lead\.updated_at, fichaProd\.productos\)\} \/>/, f);
+    assert.match(sinComentarios(leer(f)), /<EtiquetasDelLead (?:compacto )?leadId=\{lead\.id\} version=\{versionDeEtiquetas\(lead\.updated_at, fichaProd\.productos\)\} \/>/, f);
   }
 });
 
