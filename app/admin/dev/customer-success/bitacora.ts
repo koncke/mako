@@ -952,4 +952,32 @@ export const BITACORA: Hito[] = [
       "lib/api-mako/areas/curso.run.ts — listar_cursos con el nombre del curso",
     ],
   },
+  {
+    fecha: "13 oct", hora: "—", chat: "CURSOS", cuenta: "claude2",
+    actor: "martin", tipo: "prompt",
+    titulo: "Biblioteca de tipografías y buscador de leads al invitar (reunión del 13/10)",
+    pedido: "Incorporar una biblioteca de tipografías seleccionables dentro de la configuración visual del módulo de cursos [Fathom 858545195 @88:21]\n\nIncluir un buscador de leads en la ventana de invitación a cursos que permita seleccionar contactos en cualquier etapa del embudo y no solo los ganados [Fathom 858545195 @91:40]",
+    puntos: [
+      "Lo hizo el chat CURSOS y se lo pasó a Customer Success: Martín dijo que debió hacerse acá.",
+    ],
+  },
+  {
+    fecha: "14 oct", hora: "00:30", chat: "CURSOS", cuenta: "claude2",
+    actor: "claude", tipo: "implementacion",
+    titulo: "24 tipografías y una pestaña «Del embudo» para invitar a quien todavía no compró",
+    puntos: [
+      "Las tipografías pasaron de 7 a 24, en cuatro grupos, con buscador; cada muestra se dibuja con su propia letra y se baja al verse. Los siete ids de antes no cambian: son lo que está guardado.",
+      "Al invitar hay una tercera pestaña, «Del embudo», que busca leads en cualquier etapa. Invitar no lo hace cliente ni lo mueve en el kanban.",
+      "Invitar a alguien que no compró lo permite sólo la pantalla, donde una persona lo elige. La invitación automática al ganar nunca lo hace.",
+      "Falta: verlo en la pantalla del ws3, y que la API de MaKo sume invitar al curso (coordinado con esa sesión).",
+    ],
+    commits: [
+      { sha: "901e5cf7", msg: "Biblioteca de tipografias y buscador de leads al invitar (feedback del 13/10)", lineas: 732, archivos: 8 },
+    ],
+    archivos: [
+      "app/_cursos/fuentes.ts + SelectorFuente.tsx — la biblioteca de tipografías",
+      "app/customer-success/curso/InvitarAlumnos.tsx + invitar-actions.ts — la pestaña «Del embudo»",
+      "lib/curso-invitar.ts — el permiso cualquierEtapa, y el mail con el nombre del curso",
+    ],
+  },
 ];
