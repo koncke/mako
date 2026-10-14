@@ -30,8 +30,9 @@ const MONO = "'Geist Mono', monospace";
 import { Modal } from '@/app/_ui/Modal';
 
 import { CANALES } from '@/lib/fase-diagnostico';
-import { ENTRADAS, ENTRADAS_OFRECIDAS, type EntradaId } from '@/lib/pipeline';
-import { crearProductoAction, declararEntradasAction, embudosArchivadosAction, restaurarEmbudoAction, eliminarEmbudoDefinitivoAction } from './actions';
+import { ENTRADAS, ENTRADAS_OFRECIDAS, TIPOS_CRM, TIPO_CRM_OTRO, type EntradaId, type TipoCrmId } from '@/lib/pipeline';
+import { embudosArchivadosAction, restaurarEmbudoAction, eliminarEmbudoDefinitivoAction } from './actions';
+import { crearCrmAction } from './nuevo-crm-actions';
 import { alternarGrupo, alternarHijo, conGrupoAbierto } from './arbol-seleccion';
 import { ANCHO_PANEL, MARGEN_VENTANA, lugarDelPanel } from './filtro-panel';
 import { Confirm } from '@/app/_ui/Confirm';
@@ -39,7 +40,7 @@ import { LapizIcon } from './iconos';
 import { BANDAS_KANBAN } from './filtros-guardados';
 // El CUBO del desplegable de funnels (punto 24): el ícono `producto` del set de los menús, el
 // mismo que dibuja un funnel en el resto de la app. No se dibuja uno propio.
-import { IconoMenu } from '@/app/_ui/iconos-menu';
+import { IconoMenu, type NombreIconoMenu } from '@/app/_ui/iconos-menu';
 
 const SANS = "'Geist', sans-serif";
 
@@ -822,62 +823,108 @@ export function SelectorFunnel({ funnels, activo, onEditarEtapas }: {
   );
 }
 
-/** Una opción de una lista de elegir: la misma caja para «cómo lo vendes» y «cómo te llega». */
-function Opcion({ label, desc, on, onClick }: { label: string; desc?: string; on: boolean; onClick: () => void }) {
+/**
+ * Una opción de una lista de elegir: la misma caja para el tipo, «cómo lo vendes» y «cómo te llega».
+ * Con `icono`, el dibujo va a la izquierda (el tipo de CRM); sin él, sólo el texto, como antes.
+ */
+function Opcion({ label, desc, on, onClick, icono }: { label: string; desc?: string; on: boolean; onClick: () => void; icono?: NombreIconoMenu }) {
   return (
     <button type="button" aria-pressed={on} onClick={onClick}
       style={{
-        display: 'block', width: '100%', textAlign: 'left', cursor: 'pointer',
+        display: 'flex', alignItems: 'flex-start', gap: 10, width: '100%', textAlign: 'left', cursor: 'pointer',
         padding: '11px 14px', borderRadius: 10, fontFamily: SANS,
         border: '1px solid ' + (on ? 'var(--primary)' : 'var(--border-strong)'),
         background: on ? 'var(--primary-weak)' : 'var(--surface-2)',
       }}>
-      <span style={{ display: 'block', fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{label}</span>
-      {desc && <span style={{ display: 'block', fontSize: 12.5, color: 'var(--dim)', marginTop: 2 }}>{desc}</span>}
+      {icono && (
+        <span style={{ display: 'inline-flex', flex: 'none', marginTop: 1, color: on ? 'var(--primary)' : 'var(--dim)' }}>
+          <IconoMenu nombre={icono} size={16} />
+        </span>
+      )}
+      <span style={{ display: 'block', flex: 1, minWidth: 0 }}>
+        <span style={{ display: 'block', fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{label}</span>
+        {desc && <span style={{ display: 'block', fontSize: 12.5, color: 'var(--dim)', marginTop: 2 }}>{desc}</span>}
+      </span>
     </button>
   );
 }
 
 /**
- * Alta de un producto: TRES preguntas, UNA POR PANTALLA.
+ * El ícono de cada tipo de «Nuevo CRM». `Record` a propósito: un tipo nuevo en `TIPOS_CRM` no
+ * compila sin el suyo (AGENTS.md, «íconos en los desplegables»). Los de las redes no están en el
+ * set de la casa, así que van por lo que hace la gente: el `#` de la palabra que comentan, la
+ * imagen de un posteo, el avión de «tú les escribes» (el mismo de Prospección en el editor del
+ * funnel) y el play de un video.
+ */
+const ICONO_TIPO_CRM: Record<TipoCrmId | typeof TIPO_CRM_OTRO, NombreIconoMenu> = {
+  llamada: 'telefono',
+  dos_reuniones: 'calendario',
+  webinar: 'video',
+  presencial: 'equipo',
+  conversaciones: 'whatsapp',
+  dm_funnel: 'numero',
+  instagram: 'imagen',
+  formulario_meta: 'anuncio',
+  recurso_gratis: 'descargar',
+  linkedin: 'enviar',
+  youtube: 'activar',
+  carrito: 'dinero',
+  otro: 'configurar',
+};
+
+/**
+ * Alta de un CRM: el NOMBRE y el TIPO, una pregunta por pantalla.
  *
- * ⚠️ ERAN LAS TRES JUNTAS Y SE PARTIÓ: «Nuevo producto hazlo modular el formulario, en 3
- * pasos, no todo junto» (29/09/2026). Las tres son hechos del negocio que quien crea el
- * producto sabe de memoria —cómo se llama, cómo lo vende, cómo le llega la gente— pero
- * juntas son once cajas de una sola vez, y once cajas se leen como un formulario.
+ * ⚠️ EL TIPO LLENA LO QUE ANTES ERAN DOS PREGUNTAS (14/10/2026, §2 de docs/diseno-ficha-bloques.md).
+ * «Cómo lo vendes» y «cómo te llega la gente» eran dos pantallas, y los funnels que Martín pidió
+ * (DM funnel, Instagram orgánico, LinkedIn, YouTube, recurso gratis, dos reuniones, formulario de
+ * Meta) no salían de ninguna de las dos. Cada tipo trae el canal, la entrada y las etapas
+ * (`TIPOS_CRM`, lib/pipeline.ts), así que elegirlo crea el CRM sin preguntar nada más. Las dos
+ * preguntas de antes siguen, UNA POR PANTALLA, detrás de «Otro, lo armo yo».
  *
- * ⚠️ Y EL ALTO ES FIJO. Los tres pasos miden distinto (un input contra cinco opciones), así
- * que sin esto la caja se encoge y se estira a cada «Siguiente»: es lo mismo que el dueño
- * pidió dos veces para la ficha —«JAMÁS achiques el tamaño de un detail según lo que
- * contenga dentro»— y acá pasa entre dos pantallas de la misma tarea.
+ * ⚠️ ERAN TODAS JUNTAS Y SE PARTIÓ: «Nuevo producto hazlo modular el formulario, en 3 pasos, no
+ * todo junto» (29/09/2026). Son hechos del negocio que quien crea el CRM sabe de memoria, pero
+ * juntas son una docena de cajas de una sola vez, y eso se lee como un formulario.
  *
- * ⚠️ Y CADA PASO VALIDA LO SUYO. Un error que se descubre al final manda a buscar cuál de
- * las tres preguntas fue; validando al avanzar, el aviso sale en la pantalla donde se
- * arregla.
+ * ⚠️ Y EL ALTO ES FIJO. Los pasos miden distinto (un input contra trece opciones), así que sin
+ * esto la caja se encoge y se estira a cada «Siguiente»: es lo mismo que el dueño pidió dos veces
+ * para la ficha —«JAMÁS achiques el tamaño de un detail según lo que contenga dentro»— y acá pasa
+ * entre dos pantallas de la misma tarea. Se mide con el paso MÁS LARGO, el de los tipos.
+ *
+ * ⚠️ Y CADA PASO VALIDA LO SUYO. Un error que se descubre al final manda a buscar cuál de las
+ * preguntas fue; validando al avanzar, el aviso sale en la pantalla donde se arregla.
  */
 function NuevoProductoModal({ onCerrar, onCreado }: { onCerrar: () => void; onCreado: (funnelId: number) => void }) {
   const [paso, setPaso] = useState(0);
   const [nombre, setNombre] = useState('');
-  // ⚠️ SIN DEFAULT. Preseleccionar «Llamada de venta» haría que el 90% cree su tablero con
-  // las etapas de otro negocio sin darse cuenta — que es exactamente el bug que esto viene
-  // a cerrar, con un paso más de por medio. Se elige, o no hay producto.
+  // ⚠️ SIN DEFAULT, ni en el tipo ni en el canal. Preseleccionar «Llamada de venta» haría que la
+  // mayoría cree su tablero con las etapas de otro negocio sin darse cuenta —que es exactamente el
+  // bug que esta pregunta vino a cerrar, con un paso más de por medio—, y desde el 14/10 el tipo
+  // decide además cómo llega la gente, que es lo que MaKo dice en la primera frase. Se elige, o no
+  // hay CRM.
+  const [tipo, setTipo] = useState<TipoCrmId | typeof TIPO_CRM_OTRO | ''>('');
   const [canal, setCanal] = useState<string>('');
-  // ⚠️ CÓMO ENTRA LA GENTE SE PREGUNTA ACÁ, al crear el producto. Era una subtab del
-  // pop-up y se mudó: «eso debería estar como un paso al momento de crear un nuevo
-  // producto». Sigue editándose después, desde el lápiz de la etapa de entrada.
+  // ⚠️ CÓMO ENTRA LA GENTE SE PREGUNTA ACÁ (con «Otro»), al crear el CRM. Era una subtab del
+  // pop-up y se mudó: «eso debería estar como un paso al momento de crear un nuevo producto».
+  // Sigue editándose después, en el «Tipo de funnel» del editor de etapas.
   const [entradas, setEntradas] = useState<EntradaId[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [guardando, startGuardar] = useTransition();
 
+  const aMano = tipo === TIPO_CRM_OTRO;
+  // Con un tipo son dos pasos (nombre y tipo); con «Otro», cuatro (más canal y entradas).
+  const total = aMano ? 4 : 2;
+  const ultimo = paso === total - 1;
+
   const crear = () => {
     setErr(null);
     startGuardar(async () => {
-      const r = await crearProductoAction(nombre.trim(), canal);
+      // ⚠️ UNA SOLA ACTION, la misma para el tipo y para «Otro». Antes eran dos llamadas (crear y
+      // después declarar las entradas, con el error de la segunda tragado): un closer creaba el
+      // CRM y la entrada se perdía sin aviso. Si las etapas del tipo no llegan a escribirse, el CRM
+      // igual quedó creado y se abre: se ajusta desde su lápiz (lib/nuevo-crm.ts dice por qué).
+      const r = await crearCrmAction(nombre.trim(), aMano ? { tipo, canal, entradas } : { tipo });
       if ('error' in r) { setErr(r.error); return; }
-      // Las entradas se declaran DESPUÉS de que el embudo existe: son suyas, no del
-      // negocio, y hasta que hay fila no hay dónde escribirlas. Si esto falla, el
-      // producto igual quedó creado — se declara desde su lápiz.
-      await declararEntradasAction(entradas, null, r.funnelId).catch(() => {});
       onCreado(r.funnelId);
     });
   };
@@ -885,14 +932,16 @@ function NuevoProductoModal({ onCerrar, onCreado }: { onCerrar: () => void; onCr
   /** Avanzar valida ESTE paso. El último crea. */
   const seguir = () => {
     if (paso === 0 && !nombre.trim()) { setErr('Ponle un nombre.'); return; }
-    if (paso === 1 && !canal) { setErr('Elige una.'); return; }
-    if (paso === 2 && !entradas.length) { setErr('Elige al menos una.'); return; }
+    if (paso === 1 && !tipo) { setErr('Elige uno.'); return; }
+    if (paso === 2 && !canal) { setErr('Elige una.'); return; }
+    if (paso === 3 && !entradas.length) { setErr('Elige al menos una.'); return; }
     setErr(null);
-    if (paso === 2) crear(); else setPaso(paso + 1);
+    if (ultimo) crear(); else setPaso(paso + 1);
   };
 
   const titulos = [
     { t: '¿Cómo se llama?', s: undefined as string | undefined },
+    { t: '¿Qué tipo de CRM es?', s: 'De esto salen sus etapas.' },
     { t: '¿Cómo lo vendes?', s: 'De esto salen las etapas de su tablero.' },
     { t: '¿Cómo te llega la gente?', s: 'Hasta tres.' },
   ];
@@ -900,10 +949,10 @@ function NuevoProductoModal({ onCerrar, onCreado }: { onCerrar: () => void; onCr
   return (
     <Modal
       titulo={titulos[paso].t}
-      encabezado={`Nuevo CRM · ${paso + 1} de 3`}
-      etiqueta={`Nuevo CRM, paso ${paso + 1} de 3: ${titulos[paso].t}`}
-      ancho={560}
-      alto="min(80vh, 520px)"
+      encabezado={`Nuevo CRM · ${paso + 1} de ${total}`}
+      etiqueta={`Nuevo CRM, paso ${paso + 1} de ${total}: ${titulos[paso].t}`}
+      ancho={600}
+      alto="min(85vh, 680px)"
       sinFiletes
       onCerrar={onCerrar}
       pie={(<>
@@ -917,7 +966,9 @@ function NuevoProductoModal({ onCerrar, onCreado }: { onCerrar: () => void; onCr
           style={{ padding: '10px 16px', fontSize: 14, color: 'var(--dim)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: SANS }}>Cancelar</button>
         <button type="button" onClick={seguir} disabled={guardando}
           style={{ padding: '11px 22px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: guardando ? 'default' : 'pointer', fontFamily: SANS, opacity: guardando ? 0.7 : 1 }}>
-          {paso < 2 ? 'Siguiente' : guardando ? 'Creando…' : 'Crear CRM'}
+          {/* En el paso del tipo, sin nada elegido, todavía no se sabe si es el último: dice
+              «Siguiente» hasta que se elige uno que crea. */}
+          {!ultimo || (paso === 1 && !tipo) ? 'Siguiente' : guardando ? 'Creando…' : 'Crear CRM'}
         </button>
       </>)}
     >
@@ -940,12 +991,23 @@ function NuevoProductoModal({ onCerrar, onCreado }: { onCerrar: () => void; onCr
         />
       )}
 
-      {/* ⚠️ DE ACÁ SALEN LAS ETAPAS del tablero de este producto, y por eso se pregunta.
-          Hasta el 28/09/2026 no se preguntaba nada y el funnel nacía sin etapas, así que
-          caía a la plantilla genérica — que en un workspace que nunca tocó su funnel es
-          IDÉNTICA a la del negocio. Tres productos nuevos se veían los tres iguales, y se
-          reportó tres veces como «no cambió absolutamente nada». */}
+      {/* ⚠️ DE ACÁ SALEN LAS ETAPAS del tablero de este CRM, y por eso se pregunta. Hasta el
+          28/09/2026 no se preguntaba nada y el funnel nacía sin etapas, así que caía a la
+          plantilla genérica — que en un workspace que nunca tocó su funnel es IDÉNTICA a la del
+          negocio. Tres productos nuevos se veían los tres iguales, y se reportó tres veces como
+          «no cambió absolutamente nada». Dos columnas cuando entran, una en el celular. */}
       {paso === 1 && (
+        <div style={{ display: 'grid', gap: 6, gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))' }}>
+          {TIPOS_CRM.map((t) => (
+            <Opcion key={t.id} label={t.label} desc={t.linea} icono={ICONO_TIPO_CRM[t.id]} on={tipo === t.id}
+              onClick={() => { setErr(null); setTipo(t.id); }} />
+          ))}
+          <Opcion label="Otro, lo armo yo" desc="Eliges cómo vendes y cómo llegan" icono={ICONO_TIPO_CRM[TIPO_CRM_OTRO]} on={aMano}
+            onClick={() => { setErr(null); setTipo(TIPO_CRM_OTRO); }} />
+        </div>
+      )}
+
+      {paso === 2 && (
         <div style={{ display: 'grid', gap: 7 }}>
           {CANALES.map((c) => (
             <Opcion key={c.id} label={c.label} desc={c.desc} on={canal === c.id}
@@ -958,7 +1020,7 @@ function NuevoProductoModal({ onCerrar, onCreado }: { onCerrar: () => void; onCr
           cómo se CIERRA. De ésta salen los audios que MaKo pide y lo que dice en la primera
           frase — sin declararla se abstiene de escribir, que es lo correcto y también lo
           que se lee como que no anda. */}
-      {paso === 2 && (
+      {paso === 3 && (
         <div style={{ display: 'grid', gap: 7 }}>
           {ENTRADAS_OFRECIDAS.map((id) => ENTRADAS[id]).filter(Boolean).map((e) => (
             <Opcion key={e.id} label={e.label} on={entradas.includes(e.id)}
