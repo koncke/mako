@@ -5386,3 +5386,38 @@ dejaría el viejo hasta recargar.
 - **Rojos ajenos medidos el 13/10 ~20:30**, sobre archivos sin commitear de otras sesiones:
   `tests/curso-apariencia.test.ts` (dos, sobre `app/_cursos/fuentes.ts`) y `tests/curso-invitar-reglas.test.ts`
   («la invitación a UN producto…», sobre `lib/curso-invitar.ts`). · *2026-10-13 Customer Success*
+
+---
+
+## El nombre del producto (el CRM) no nombra NUNCA un curso, ni de último recurso (14/10/2026)
+
+Martín: «Elimina el nombre del "producto" que hoy en día se llama "nuevo CRM", no debe aparecer nunca
+como nombre del curso». No hay ninguna fila que se llame así (medido): el producto ES el CRM, nace con el
+nombre del embudo (`crearProductoConFunnel`), y lo que pidió es que ese nombre no llegue a un curso.
+
+**Lo que el arreglo del 13/10 había dejado abierto: dos puertas, y las dos parecían prudentes.** La regla
+caía al producto «si no hay oferta» y cada pantalla caía al producto «si la lectura falla» (`?? s.nombre`,
+`?? prod.nombre`, el catálogo en la ficha). Un respaldo que es justo el dato prohibido no es un respaldo:
+es la regla vieja por la puerta de atrás. Ahora `nombreBaseDelCurso` **no recibe** el nombre del producto
+(la firma es el guard: el test mira su aridad), el lector no lee la tabla `productos`, y sin nombre cada
+superficie pone su genérico: «Tu programa» al alumno, «Curso sin nombre» al equipo.
+
+**Y había dos lugares que nombraban el curso sin pasar por la función**, que el 13/10 no se vieron porque
+no dicen «curso»: la **comunidad** (`ajustes.nombre ?? producto.nombre`, en inicio y About, que ve el
+alumno, y el selector de la tab) y la **API de MaKo** (`listar_cursos` con `p.nombre`). Se encontraron con
+un `git grep` de toda lectura de `productos`/`.nombre` en el área, no buscando la palabra «curso».
+
+**Efecto medido en prod:** cambia un solo curso, «Service Delivery & Ops» (ws10, sin oferta).
+
+**Vive en:** `lib/curso-nombre.ts` · `lib/curso-nombre-datos.ts` · `lib/comunidad-datos.ts` ·
+`lib/api-mako/areas/curso.run.ts` · `tests/curso-nombre.test.ts`
+
+### Lo que quedó SIN hacer
+
+- **La oferta que nace con el CRM se llama como el CRM**: `crearProductoConFunnel` crea producto, oferta
+  y embudo con el mismo nombre, así que un curso nuevo hereda el nombre del CRM por la oferta. Espera a
+  Martín: si esa oferta puede nombrar el curso o tiene que esperar a que la renombren en Offer.
+- **El kanban de Customer Success sigue nombrando el SERVICIO como el producto** (`SelectorServicio`,
+  `FichaEntrega`, /m/cs): no es el nombre del curso y no se tocó.
+- **El comentario de `depsReales.cursos`** (`lib/curso-invitar.ts`, de CURSOS) todavía dice «si no el
+  producto»; el código ya cae a «tu programa». Se le avisó. · *2026-10-14 Customer Success*

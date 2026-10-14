@@ -59,10 +59,15 @@ Se lee en cinco minutos. Medido el 13/10/2026; lo que no se midió, lo dice.
 - **La comunidad tipo Skool** por producto (posts, comentarios, niveles, ranking, eventos,
   moderación) y los comentarios por clase.
 - **El acceso por producto**: cada alumno ve sólo los cursos a los que se lo invitó.
-- **La invitación** por mail (con el remitente del negocio) y, si se elige, por WhatsApp.
+- **La invitación** por mail (con el remitente del negocio) y, si se elige, por WhatsApp. Y desde el
+  14/10 (901e5cf7, hecho por CURSOS y traspasado acá) una pestaña «Del embudo» que invita a un lead
+  de cualquier etapa: abre el curso, no lo hace cliente ni lo mueve en el kanban.
+- **24 tipografías** para el curso (eran 7), con buscador (901e5cf7).
 - **El editor**: la lección se guarda a mano con aviso al salir, papelera con Deshacer, tareas en
   contenedores con quiz, escala, archivos, audio y agenda, videos por embed.
-- **El nombre del curso sale de su OFERTA** (13/10), ya no del CRM.
+- **El nombre del curso sale de su OFERTA** (13/10) y **nunca del producto, que es el CRM** (14/10):
+  sin título ni oferta, el alumno ve «Tu programa» y el equipo «Curso sin nombre». Vale también para
+  la comunidad, la ficha, el mail y la API.
 
 ### Lo que FALTA
 
@@ -70,9 +75,14 @@ Se lee en cinco minutos. Medido el 13/10/2026; lo que no se midió, lo dice.
   «+ Nuevo campo», reabrir el tutorial, fuente en Conocimientos, autoplay de Panda, ideas).
 - **Que alguien lo vea en la pantalla**: todo se verificó con las funciones reales o en bancos de
   prueba, nunca clickeando la app andando. Desde el 13/10 hay con qué: el fixture del ws3 (abajo).
-- **De otros chats**: la invitación al ganar en un producto agregado, el **CRM**. (CURSOS ya hizo el
-  buscador de leads en cualquier etapa al invitar —pestaña «Del embudo»— y el mail que nombra el
-  curso por su oferta, el 13/10.)
+- **De otros chats**: la invitación al ganar en un producto agregado, y la sugerencia de crear la
+  automatización de la invitación al curso cuando un lead cae a Ganado (pedido del 14/10, anotado en
+  docs/sugerencias-mako-crm.md para validar), son del **CRM**. Invitar al curso por la API de MaKo
+  (`invitar_al_curso`, sólo ganados: invitar a quien no compró queda en la pantalla) la suma la
+  sesión **API de MaKo** en su rama (`api-acciones-1310`, worktree C:/dev/mako-api2) y avisa al
+  commitear. (El área `calendario` sin commitear que se ve en el clon el 14/10 no es suya.)
+- **Ver en la pantalla del ws3** la pestaña «Del embudo» y la biblioteca de tipografías: CURSOS no
+  pudo (RAM), y yo tampoco.
 - **Las ventas no son código**: el upsell a Teriyaki y los tres upsells de Mauricio son tareas suyas
   de venta, y las carga el Perro Guardián.
 
@@ -382,6 +392,9 @@ de Mauricio Bustos — un CLIENTE real**.
    desde MaKo.
 12. **Del audio del 08/10 a la noche quedan los puntos 13, 14 y 15** (el correo con
    Google/Gmail entre ellos): **son de Integraciones**, no de acá.
+13. **La oferta que nace junto con un CRM se llama como el CRM** (`crearProductoConFunnel` crea los
+    tres con el mismo nombre), así que un curso nuevo hereda el nombre del CRM por ahí. ¿Esa oferta
+    puede nombrar el curso, o el curso queda «sin nombre» hasta que alguien la renombre en Offer?
 
 ---
 

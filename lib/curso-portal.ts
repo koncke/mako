@@ -40,6 +40,7 @@ import {
   type VideoVista, type Clase, type Progreso, type Campo, type Valores, type EstadoTarea, type Calificacion,
 } from './curso';
 import { agendaValida } from './servicio-etapas';
+import { SIN_NOMBRE_ALUMNO } from './curso-nombre';
 import { estiloVacio, soloDeClases, type EstiloCurso } from './curso-estilo';
 import { moduloPermitido, type AlcanceCurso } from './curso-alcance';
 import {
@@ -628,8 +629,8 @@ export async function armarVistaAlumno(
   const nombre = lider != null ? null : primerNombre((lead as { nombre: string | null } | null)?.nombre);
   if (!productos.length) return { nombre, area: lider, productos: [] };
 
-  // El nombre de cada curso: el de su OFERTA, no el del CRM (lib/curso-nombre.ts, 13/10/2026). El
-  // título puesto a mano lo aplica el dibujo encima, como siempre.
+  // El nombre de cada curso: el de su OFERTA, NUNCA el del producto, que es el CRM (lib/curso-nombre.ts,
+  // 13 y 14/10/2026). Sin oferta va el genérico. El título puesto a mano lo aplica el dibujo encima.
   const nombreDe = await nombresDeCursos(productos);
   // Cómo se ve cada curso. Si la lectura falla vuelve el de siempre: es cosmético (ver ahí).
   const estilos = await estilosDeProductos(productos);
@@ -658,7 +659,7 @@ export async function armarVistaAlumno(
     }), sanearHtml);
     out.push({
       productoId,
-      nombre: nombreDe.get(productoId) ?? 'Tu programa',
+      nombre: nombreDe.get(productoId) ?? SIN_NOMBRE_ALUMNO,
       estilo: estiloQueViaja(estilos.get(productoId) ?? estiloVacio(), modulos),
       modulos,
     });

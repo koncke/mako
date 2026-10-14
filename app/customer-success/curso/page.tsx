@@ -26,6 +26,7 @@ import type { EstiloCurso } from '@/lib/curso-estilo';
 import { colorDeEtapa } from '@/lib/servicio-etapas';
 import { filasDeModulos } from '@/lib/curso-modulos-datos';
 import { nombresDeCursos } from '@/lib/curso-nombre-datos';
+import { SIN_NOMBRE_EQUIPO } from '@/lib/curso-nombre';
 import { derivarModulos, type FilaModulo } from '@/lib/curso-modulos';
 // ⚠️ DE lib/ Y NO DE ../trabajo: es la MISMA función (trabajo.ts la re-exporta), pero importarla
 // de allá arrastra el cruce, el ruteo y el Perro al grafo de una pantalla que sólo quiere los
@@ -79,15 +80,16 @@ export default async function CursoPage({ searchParams }: { searchParams: Promis
     console.warn('[curso] no pude leer los módulos sueltos:', mensaje(e, ''));
     return new Map<number, FilaModulo[]>();
   });
-  // El nombre de cada CURSO es el de su oferta, no el del CRM (lib/curso-nombre.ts, 13/10/2026). El
-  // kanban sigue nombrando el SERVICIO como el producto: acá cambia sólo el curso.
+  // El nombre de cada CURSO es el de su oferta, NUNCA el del producto, que es el CRM (lib/curso-nombre.ts,
+  // 13 y 14/10/2026): sin oferta ni título, «Curso sin nombre». El kanban sigue nombrando el SERVICIO
+  // como el producto: acá cambia sólo el curso.
   const nombresCurso = await nombresDeCursos(entrega.servicios.map((s) => s.productoId)).catch((e) => {
     console.warn('[curso] no pude leer los nombres de los cursos:', mensaje(e, ''));
     return new Map<number, string>();
   });
   const servicios: ServicioCurso[] = entrega.servicios.map((s) => ({
     productoId: s.productoId,
-    nombre: nombresCurso.get(s.productoId) ?? s.nombre,
+    nombre: nombresCurso.get(s.productoId) ?? SIN_NOMBRE_EQUIPO,
     etapas: s.etapas.map((e) => ({ key: e.key, label: e.label, color: colorDeEtapa(e, s.fases) })),
     modulos: derivarModulos(s.etapas, filasModulos.get(s.productoId) ?? []),
   }));

@@ -24,6 +24,7 @@ import { productoPropio } from '@/app/customer-success/curso/puerta-curso';
 import { modulosDelCurso, crearModulo, renombrarModulo, reordenarModulos } from '@/lib/curso-modulos-datos';
 import { nombreDeModulo, type ModuloCurso } from '@/lib/curso-modulos';
 import { clasesDelProducto, claseDeId } from '@/lib/curso-datos';
+import { nombresDeCursos } from '@/lib/curso-nombre-datos';
 import {
   crearClase, moverClaseA, guardarCampoClase, guardarLeccion, borrarClase, restaurarClases, productoConModulos,
 } from '@/lib/curso-admin';
@@ -219,16 +220,20 @@ export const RUNNERS: Runners = {
   listar_cursos: {
     leer: async () => {
       const productos = await productosDeLaEntrega();
+      // ⚠️ EL NOMBRE DEL CURSO, NUNCA EL DEL PRODUCTO (que es el CRM): Martín, 14/10/2026, «no debe
+      // aparecer nunca como nombre del curso» (lib/curso-nombre.ts). `null` = no tiene título ni oferta.
+      const nombres = await nombresDeCursos(productos.map((p) => p.id), { conTitulo: true }).catch(() => new Map<number, string>());
       const cursos = await Promise.all(productos.map(async (p) => {
+        const nombre = nombres.get(p.id) ?? null;
         try {
           const [cur, clases] = await Promise.all([modulosDelCurso(p.id, { estricta: true }), clasesDelProducto(p.id)]);
-          if (!cur) return { productoId: p.id, nombre: p.nombre, error: 'No pude leer sus módulos.' };
-          return { productoId: p.id, nombre: p.nombre, modulos: cur.modulos.length, clases: clases.length };
+          if (!cur) return { productoId: p.id, nombre, error: 'No pude leer sus módulos.' };
+          return { productoId: p.id, nombre, modulos: cur.modulos.length, clases: clases.length };
         } catch (e) {
-          return { productoId: p.id, nombre: p.nombre, error: `No pude leer su curso (${msg(e)}).` };
+          return { productoId: p.id, nombre, error: `No pude leer su curso (${msg(e)}).` };
         }
       }));
-      return J({ cursos, nota: 'Un curso con error NO está vacío: no se pudo leer. Para sus módulos y clases, ver_curso.' });
+      return J({ cursos, nota: 'Un curso con error NO está vacío: no se pudo leer. Un nombre null es un curso sin título ni oferta principal. Para sus módulos y clases, ver_curso.' });
     },
   },
 

@@ -36,8 +36,8 @@ import { getTenantDb, getWorkspaceActual, getWorkspace } from '@/lib/workspace';
 import { puedeUsarCs } from './puerta';
 import { productosDelCliente } from './entrega';
 import { getUsuarioActual } from '@/lib/auth';
-import { listProductos } from '@/lib/productos';
 import { nombresDeCursos } from '@/lib/curso-nombre-datos';
+import { SIN_NOMBRE_EQUIPO } from '@/lib/curso-nombre';
 import { entregasDeProductos } from '@/lib/entrega-servicio';
 import { colorDeEtapa } from '@/lib/servicio-etapas';
 import { emailNormalizado, emailUtilizable } from '@/lib/agencia-altas';
@@ -139,15 +139,13 @@ type CursoConClases = { productoId: number; nombre: string; clases: Clase[] };
 /** De esos productos, los que tienen al menos una clase, con su nombre y sus clases (en ese orden). */
 async function cursosDe(ids: readonly number[]): Promise<CursoConClases[]> {
   if (!ids.length) return [];
-  // El nombre de cada curso como lo ve el alumno: el título puesto a mano o el de su OFERTA, no el del
-  // CRM (lib/curso-nombre.ts, 13/10/2026). Si no se puede leer, el del catálogo, como antes.
-  const [catalogo, clases, nombresCurso] = await Promise.all([
-    listProductos(false),
+  // El nombre de cada curso como lo ve el alumno: el título puesto a mano o el de su OFERTA, NUNCA el del
+  // producto, que es el CRM (lib/curso-nombre.ts, 13 y 14/10/2026). Sin ninguno, «Curso sin nombre».
+  const [clases, nombresCurso] = await Promise.all([
     Promise.all(ids.map(async (id) => [id, await clasesDelProducto(id)] as const)),
     nombresDeCursos(ids, { conTitulo: true }).catch(() => new Map<number, string>()),
   ]);
-  const nombre = new Map(catalogo.map((p) => [Number(p.id), p.nombre]));
-  return clases.filter(([, cs]) => cs.length > 0).map(([id, cs]) => ({ productoId: id, nombre: nombresCurso.get(id) ?? nombre.get(id) ?? 'Producto', clases: cs }));
+  return clases.filter(([, cs]) => cs.length > 0).map(([id, cs]) => ({ productoId: id, nombre: nombresCurso.get(id) ?? SIN_NOMBRE_EQUIPO, clases: cs }));
 }
 
 /**
