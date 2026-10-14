@@ -79,9 +79,9 @@ export const DEFINICIONES_GENERAL: readonly DefinicionGeneral[] = [
   },
   {
     id: 'foco', nombre: 'Foco de la semana', emoji: '🎯',
-    linea: 'Los KPIs que te comprometiste a mover, las prioridades del Plan y lo que está en rojo.',
+    linea: 'Tus OKRs, las prioridades y los proyectos del Plan, los KPIs y lo que está en rojo.',
     subtitulo: '', periodo: 'este_mes',
-    piezas: [bloque('objetivos'), bloque('prioridades'), bloque('kpis'), bloque('semaforo')],
+    piezas: [bloque('objetivos'), bloque('prioridades'), bloque('proyectos'), bloque('kpis'), bloque('semaforo')],
   },
   // ── Una por tipo de funnel (lo que mira cada negocio, según cómo vende) ──
   {

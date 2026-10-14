@@ -36,6 +36,7 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/general/hojas', 'listar_hojas_general'],
   ['POST', '/general/hojas', 'crear_hoja_general'],
   ['POST', '/general/hojas/{hoja}/bloques', 'agregar_bloque_general'],
+  ['PATCH', '/general/hojas/{hoja}/bloques/{elemento}', 'configurar_bloque_general'],
   ['GET', '/general/kpis', 'listar_kpis'],
   ['POST', '/general/kpis', 'guardar_kpi'],
   ['GET', '/general/kpis/fuentes', 'listar_fuentes_kpi'],

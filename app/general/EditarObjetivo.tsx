@@ -30,6 +30,11 @@ const METRICAS: Array<{ value: MetricaObjetivo; label: string; hint: string }> =
 
 const hintDe = (m: string) => METRICAS.find((x) => x.value === m)?.hint ?? '';
 
+/**
+ * Crear o editar un OKR (14/10/2026, Martín: «me gustaría que se llamen (OKRs) en lugar de objetivo del trimestre»): la
+ * entidad es la misma (`objectives`), cambia cómo se nombra en pantalla. Lo abren el hero de la cabecera, cada
+ * tarjeta del bloque «OKRs» y su panel (app/general/bloques/).
+ */
 export function EditarObjetivo({ objetivo, anio, quarter, disparador }: {
   objetivo: { id: string; titulo: string; metrica: string; metaValor: number; quarter: number | null; avanceManual: number | null } | null;
   anio: number;
@@ -92,7 +97,7 @@ export function EditarObjetivo({ objetivo, anio, quarter, disparador }: {
 
       {abierto && (
         <Modal
-          titulo={objetivo ? objetivo.titulo : 'Nuevo objetivo'}
+          titulo={objetivo ? objetivo.titulo : 'Nuevo OKR'}
           encabezado={anual ? `Año ${anio}` : `${anio} · Q${quarter}`}
           onCerrar={() => setAbierto(false)}
           pie={
@@ -100,11 +105,11 @@ export function EditarObjetivo({ objetivo, anio, quarter, disparador }: {
               {objetivo && (
                 // «Cerrar» y no «Borrar»: el objetivo de un trimestre pasado es
                 // historia del negocio. Sale de la vista, no de la base.
-                <Button variant="tertiary" onClick={cerrar} disabled={pendiente}>Cerrar este objetivo</Button>
+                <Button variant="tertiary" onClick={cerrar} disabled={pendiente}>Cerrar este OKR</Button>
               )}
               <span style={{ flex: 1 }} />
               <Button variant="secondary" onClick={() => setAbierto(false)} disabled={pendiente}>No guardar</Button>
-              <Button onClick={guardar} loading={pendiente}>Guardar objetivo</Button>
+              <Button onClick={guardar} loading={pendiente}>Guardar OKR</Button>
             </div>
           }
         >

@@ -174,9 +174,11 @@ test('(2) con pendientes, el número manda aunque haya aviso', () => {
 test('(2) la tarjeta de escritorio pregunta por `estadoPendientes`, no por `total` a secas', () => {
   // ⚠️ VERIFICADO ROMPIÉNDOLO (11/10/2026): volviendo el h2 a `pendientes.total > 0 ? …`,
   // 1 fallo (éste) y 26 pases. La función sola no alcanza: hay que ver que la tarjeta la use.
-  const page = sinComentarios(leer('app/general/page.tsx'));
-  assert.match(page, /estadoPendientes\(/);
-  assert.doesNotMatch(page, /pendientes\.total > 0\s*\?\s*'leads sin marcar/);
+  // Desde el 14/10/2026 la tarjeta es el bloque «Pendientes del CRM» de General (app/general/bloques/Negocio.tsx).
+  // Re-probado ahí (base 27 / 0): el estado por `p.total > 0` → 26 / 1.
+  const page = sinComentarios(leer('app/general/bloques/Negocio.tsx'));
+  assert.match(page, /const estado = estadoPendientes\(p\);/);
+  assert.doesNotMatch(page, /p\.total > 0\s*\?/);
 });
 
 // ── La plata del objetivo ────────────────────────────────────────────────────

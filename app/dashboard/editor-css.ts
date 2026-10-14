@@ -145,9 +145,29 @@ export const CSS = `
 @keyframes lkGiro { to { transform: rotate(360deg); } }
 .lk .recharts-wrapper *:focus, .lk .recharts-surface:focus { outline: none; }
 .lk .react-grid-item.react-grid-placeholder { background: var(--primary); opacity: .15; border-radius: 12px; }
-.lk .react-grid-item > .react-resizable-handle { opacity: 0; }
-.lk .react-grid-item.lk-comp--sel > .react-resizable-handle { opacity: 1; }
-.lk .react-grid-item > .react-resizable-handle::after { border-right-color: var(--dim); border-bottom-color: var(--dim); }
+/* Los ocho tiradores (14/10/2026, Martín: «Debería poder editar el tamaño de un bloque desde cualquiera de sus costados...
+   Y elimina la flecha que aparece detrás del contorno azul»). La «flecha» era el ::after de react-grid-layout (un ángulo
+   girado por lado). Cada lado es una franja de 8 px ADENTRO del borde —la tarjeta recorta con overflow: hidden, afuera no
+   se vería— con su cursor; las esquinas, 14 px. Elegida, la tarjeta muestra un cuadradito blanco en cada uno de los ocho,
+   como Looker: dice que de ahí se agarra. Sin elegir no se dibuja nada (la franja sigue: el cursor avisa). */
+.lk .react-grid-item > .react-resizable-handle { opacity: 1; background: none; transform: none; margin: 0; z-index: 3; }
+.lk .react-grid-item > .react-resizable-handle::after { content: none; }
+.lk .react-grid-item > .react-resizable-handle-n, .lk .react-grid-item > .react-resizable-handle-s { left: 14px; right: 14px; width: auto; height: 8px; }
+.lk .react-grid-item > .react-resizable-handle-n { top: 0; }
+.lk .react-grid-item > .react-resizable-handle-s { bottom: 0; }
+.lk .react-grid-item > .react-resizable-handle-e, .lk .react-grid-item > .react-resizable-handle-w { top: 14px; bottom: 14px; width: 8px; height: auto; }
+.lk .react-grid-item > .react-resizable-handle-e { right: 0; }
+.lk .react-grid-item > .react-resizable-handle-w { left: 0; }
+.lk .react-grid-item > :is(.react-resizable-handle-ne, .react-resizable-handle-nw, .react-resizable-handle-se, .react-resizable-handle-sw) { width: 14px; height: 14px; z-index: 4; }
+.lk .react-grid-item.lk-comp--sel > .react-resizable-handle::after { content: ''; position: absolute; width: 7px; height: 7px; box-sizing: border-box; background: var(--surface); border: 1.5px solid var(--primary); border-radius: 2px; inset: auto; }
+.lk .react-grid-item.lk-comp--sel > .react-resizable-handle-n::after { top: 0; left: calc(50% - 3.5px); }
+.lk .react-grid-item.lk-comp--sel > .react-resizable-handle-s::after { bottom: 0; left: calc(50% - 3.5px); }
+.lk .react-grid-item.lk-comp--sel > .react-resizable-handle-e::after { right: 0; top: calc(50% - 3.5px); }
+.lk .react-grid-item.lk-comp--sel > .react-resizable-handle-w::after { left: 0; top: calc(50% - 3.5px); }
+.lk .react-grid-item.lk-comp--sel > .react-resizable-handle-ne::after { top: 0; right: 0; }
+.lk .react-grid-item.lk-comp--sel > .react-resizable-handle-nw::after { top: 0; left: 0; }
+.lk .react-grid-item.lk-comp--sel > .react-resizable-handle-se::after { bottom: 0; right: 0; }
+.lk .react-grid-item.lk-comp--sel > .react-resizable-handle-sw::after { bottom: 0; left: 0; }
 @media (hover: none) { .lk-hoja-mas, .lk-comp--kpi .lk-mako { opacity: 1; } }
 
 /* Mientras corre un recorrido, lo que aparece al pasar el cursor se ve (si no, el recorte señala la nada). */
@@ -217,6 +237,16 @@ export const CSS = `
 
 /* La galería «Añadir un gráfico». */
 .lk-galeria { padding: 4px 12px 10px; }
+/* «Bloques de General»: tres por fila, cada uno con su vista previa (el bloque con datos de ejemplo, a escala). La
+   escala es fija (el ancho de la tarjeta es fijo: el flotante mide 812): 640 px de bloque en 230 de vista. */
+.lk-bloques { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding: 10px 12px 12px; }
+@media (max-width: 760px) { .lk-bloques { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.lk-bloque { display: flex; flex-direction: column; gap: 3px; padding: 0; border: none; background: none; text-align: left; cursor: pointer; font: inherit; color: var(--ink); min-width: 0; }
+.lk-bloque-vista { position: relative; display: block; height: 150px; margin-bottom: 6px; border-radius: 10px; overflow: hidden; background: var(--surface); box-shadow: 0 0 0 1px var(--border); pointer-events: none; transition: box-shadow .12s; }
+.lk-bloque:hover .lk-bloque-vista, .lk-bloque:focus-visible .lk-bloque-vista { box-shadow: 0 0 0 2px var(--primary); }
+.lk-bloque-escala { position: absolute; left: 0; top: 0; width: 640px; padding: 18px; box-sizing: border-box; transform: scale(.36); transform-origin: top left; }
+.lk-bloque-nombre { font-size: 13.5px; font-weight: 600; }
+.lk-bloque-linea { font-size: 12px; color: var(--dim); line-height: 1.35; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .lk-galeria-tit { font-size: 13px; color: var(--ink); margin: 10px 0 6px; font-weight: 600; }
 .lk-galeria-fila { display: flex; flex-wrap: wrap; gap: 6px; }
 .lk-galeria-tipo { display: grid; place-items: center; width: 50px; height: 42px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); cursor: pointer; padding: 0; color: var(--ink); }

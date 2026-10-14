@@ -5,7 +5,9 @@
 // =============================================================================
 // Probado ROMPIÉNDOLO (13/10/2026), con la base en verde y restaurando de memoria: los números van en el comentario
 // de cada test. Re-probado el 14/10/2026 al mudarse a app/general/piezas.tsx (base 4 / 0): el renglón con `—` da
-// 3 / 1, y el bloque sin su `error` da 3 / 1.
+// 3 / 1, y el bloque sin su `error` da 3 / 1. Y otra vez el mismo día, al pasar los bloques a datos
+// (app/general/datos.ts + app/general/bloques/Negocio.tsx; base 4 / 0): el renglón con `—` → 3 / 1, y la lectura
+// caída dibujada con `error={null}` → 3 / 1.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -19,8 +21,10 @@ const sinComentarios = (src: string) => src
   .replace(/\/\*[\s\S]*?\*\//g, '')
   .replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
 
-// Desde el 14/10/2026 la lista es un BLOQUE del editor de General (lib/general-piezas.ts), armado en app/general/piezas.tsx.
-const PAGINA = sinComentarios(leer('app/general/piezas.tsx'));
+// Desde el 14/10/2026 la lista es un BLOQUE del editor de General (lib/general-piezas.ts): el server lee sus datos en
+// app/general/datos.ts y el bloque se dibuja en app/general/bloques/Negocio.tsx.
+const PAGINA = sinComentarios(leer('app/general/datos.ts'));
+const BLOQUE = sinComentarios(leer('app/general/bloques/Negocio.tsx'));
 const LISTA = sinComentarios(leer('app/general/Cobranza.tsx'));
 
 // Rotura: renglón distinto en General (`· vence` → `— vence`): 1 fallo.
@@ -42,7 +46,8 @@ test('la lectura es TODO lo pendiente, y una lectura caída se dice en el bloque
   assert.match(fn, /getOutstandingDetalle\(c\.hoy, null, null\)/);
   assert.match(fn, /armarCobranza\(out\.items, c\.hoy\)\.filas/);
   assert.match(PAGINA, /const cobranzaLeida = leerAQuienCobrar\(\);/);
-  assert.match(PAGINA, /cobranza: <Cobranza filas=\{cobros\} tz=\{cobranza\.ok \? cobranza\.datos\.tz : ''\} error=\{cobranza\.ok \? null : 'No pude leer la cobranza\.'\} \/>,/);
+  assert.match(PAGINA, /cobranza: !cobranza\.ok \? \{ ok: false, error: 'No pude leer la cobranza\.' \} : \{/);
+  assert.match(BLOQUE, /if \(!d\.ok\) return <Cobranza filas=\{\[\]\} tz="" error=\{d\.error\} alcance=\{nombreFunnel\} \/>;/);
 });
 
 // Roturas: marcar sin `hoyEnTz(tz)` (la fecha en null): 1 fallo. Sin el candado `enCurso`: 1 fallo.

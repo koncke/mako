@@ -106,8 +106,8 @@ export const AREAS: AreaDev[] = [
     vive: [
       'app/general/page.tsx', 'app/general/actions.ts', 'lib/queries.ts', 'lib/pagos.ts', 'lib/meta-health.ts',
       // Desde el 14/10/2026 General es el editor del Dashboard con su propio informe y sus bloques (lib/general-piezas.ts).
-      'app/general/Cobranza.tsx', 'app/general/Bloques.tsx',
-      'lib/general-alcance.ts', 'lib/general-piezas.ts', 'lib/general-plantillas.ts', 'app/general/piezas.tsx',
+      'app/general/Cobranza.tsx', 'app/general/datos.ts', 'app/general/datos-tipos.ts', 'app/general/ProveedorGeneral.tsx', 'app/general/bloques/',
+      'lib/general-alcance.ts', 'lib/general-piezas.ts', 'lib/general-plantillas.ts',
       'app/dashboard/ElementoGeneral.tsx',
     ],
     proyectos: ['Feature: General'],

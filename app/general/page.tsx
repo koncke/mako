@@ -15,8 +15,8 @@
 //   · EL INFORME ES OTRO: `general.informe.<sub>` (lib/graficos-tablero.ts), por persona y por workspace, con el mismo
 //     compare-and-set. Quien nunca armó el suyo arranca EN BLANCO, como el Dashboard: la caja «¿Qué vas a crear hoy?» y
 //     las plantillas de General como páginas (`CrearHoja`, app/dashboard/NuevaHoja.tsx). Mirar no guarda nada.
-//   · LOS BLOQUES DE GENERAL (lib/general-piezas.ts) son elementos del editor: el server los arma acá con las lecturas
-//     de siempre (./piezas.tsx) y viajan por contexto (app/dashboard/ElementoGeneral.tsx).
+//   · LOS BLOQUES DE GENERAL (lib/general-piezas.ts) son elementos del editor: el server lee sus datos con las lecturas
+//     de siempre (./datos.ts) y cada bloque se dibuja en el navegador con sus opciones (./ProveedorGeneral.tsx, ./bloques/).
 //   · LOS TEXTOS ENTIENDEN VARIABLES: «{{saludo}}, {{nombre}}» (la plantilla «Bienvenida»).
 //
 // ⚠️ LOS PEDIDOS SALEN DE `pedidosDeHoja` (app/dashboard/exportar.ts) con la vista vacía y la versión 0, como en
@@ -33,9 +33,9 @@ import { datosDeGraficos } from '@/lib/graficos-datos';
 import { ocultosPorPlegado, plegadasDeEntrada } from '@/lib/graficos-secciones';
 import { informeGeneralInicial } from '@/lib/general-plantillas';
 import { EditorInforme } from '../dashboard/EditorInforme';
-import { ContextoGeneral } from '../dashboard/ElementoGeneral';
 import { pedidosDeHoja } from '../dashboard/exportar';
-import { armarPiezas, variablesDeQuienMira } from './piezas';
+import { armarDatosGeneral, variablesDeQuienMira } from './datos';
+import { ProveedorGeneral } from './ProveedorGeneral';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -58,15 +58,15 @@ export default async function GeneralPage({ searchParams }: { searchParams: Prom
   const pedidos0 = pedidosDeHoja(hoja, {}, hoy, 0, ocultosPorPlegado(hoja.componentes, plegadasDeEntrada(hoja.componentes)));
   // En blanco no se dibuja ningún gráfico: no se lee nada. Los bloques se arman igual: la plantilla que se elija los usa.
   const graficos = sinPaginas ? [] : pedidos0.graficos;
-  const [datos, armadas, variables] = await Promise.all([
+  const [datos, bloques, variables] = await Promise.all([
     datosDeGraficos(graficos.map(({ pedido }) => pedido)),
-    armarPiezas(),
+    armarDatosGeneral(),
     variablesDeQuienMira(),
   ]);
 
   return (
     <Pagina ancho="completo" densidad="compacta" style={{ padding: 0, flex: 'none', height: '100dvh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      <ContextoGeneral piezas={armadas.piezas} variables={variables} funnels={armadas.funnels}>
+      <ProveedorGeneral datos={bloques} variables={variables}>
         <EditorInforme
           inicial={tablero}
           datosIniciales={datos}
@@ -77,7 +77,7 @@ export default async function GeneralPage({ searchParams }: { searchParams: Prom
           sinPaginas={sinPaginas}
           informe="general"
         />
-      </ContextoGeneral>
+      </ProveedorGeneral>
     </Pagina>
   );
 }
