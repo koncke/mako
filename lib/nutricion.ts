@@ -2316,7 +2316,9 @@ export async function inscribirEnSecuencia(
 
   const aTiempoOk = (await aTiempo(supabase, { antiguedad_max_horas: parseEstrategia(s.estrategia)?.antiguedad_max_horas ?? null, pasos }, [leadId])).length > 0;
   const entraAnclada = pasoDeEntrada(pasos)?.ancla === 'reunion';
-  const sinReunion = (entraAnclada || prepara) && laReunionYaPaso(lead, { anclada: entraAnclada });
+  // Sólo si ENTRA por un paso anclado (un «N antes de la reunión»: sin reunión no tiene a qué hora salir). Desde el
+  // 14/10/2026 un flujo que «prepara una reunión» ya no rechaza por su cuenta: lo dice su condición visible.
+  const sinReunion = entraAnclada && laReunionYaPaso(lead, { anclada: true });
   const fueraDelResiduo = s.trigger_tipo === TRIGGER_RESIDUO && !(await residuoVigente(supabase, [leadId])).has(leadId);
   let enLaOtraMitad = false;
   if (FAMILIA_POST_AGENDA.includes(s.trigger_tipo)) {
@@ -4132,22 +4134,22 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       const minAntes = minutosAntesDeReunion(sec.pasos, insc.paso_actual);
       const anclada = paso.ancla === 'reunion' || minAntes != null;
 
-      // Pasos ANCLADOS a la reunión (#18): la agenda se re-valida AL MOMENTO de
-      // enviar, no solo al programar. (1) Sin reunión futura → la inscripción se
-      // cierra sin enviar (un recordatorio tardío es peor que ninguno). (2) Si el
-      // objetivo re-calculado quedó en el futuro (reagenda, drift por espera de
-      // canal), el paso se re-ancla y espera su hora.
-      // Lo de «sin reunión futura no hay nada que mandar» vale para el paso anclado Y para
-      // toda la post-agenda, cuyos pasos NO están anclados (salen 1 h y 24 h después de
-      // agendarse). Ver `preparaReunion`: con la línea caída, el reintento diario empujó a
-      // dos leads reales de Mauricio hasta DESPUÉS de su reunión. (Undécima tanda, M2: por la FORMA del flujo,
-      // así vale también para «Un Lead Agendó Llamada», colgado de la etapa «Agenda R1».)
-      if (anclada || preparaReunion(sec)) {
-        // Una fecha SIN hora vale hasta que termina su día salvo para un paso anclado (`laReunionYaPaso`, bug 5 del 13/10/2026).
-        if (laReunionYaPaso(lead, { anclada })) {
+      // Pasos ANCLADOS a la reunión (#18, el DELAY «N antes de la reunión»): sin reunión por delante, ESE camino
+      // termina sin enviar (un recordatorio tardío es peor que ninguno); si se movió, se re-ancla. Es lo que el DELAY
+      // dice que hace: sin una reunión no hay «N antes».
+      //
+      // ⚠️ DESDE EL 14/10/2026 YA NO HAY GUARDA ESCONDIDA para el resto del flujo («la reunión ya pasó» antes de cada
+      // mensaje de un flujo que `preparaReunion`). Martín: «jamás que "mako" haga cosas que no están en el flujo». Lo
+      // dice una CONDITION visible, «Su reunión sigue en pie», delante del mensaje (las plantillas la traen y las
+      // automatizaciones prendidas la recibieron: scripts/migrar-condicion-reunion.ts), y el reintento la vuelve a pasar
+      // antes de mandar (`condicionDeArriba`, arriba): el caso del 25/09 (la preparación empujada hasta después de la
+      // reunión por los reintentos) queda cubierto por ahí. Y cierra el CAMINO, no la inscripción: un recordatorio sin
+      // reunión no corta la bienvenida del camino de al lado.
+      if (anclada) {
+        if (laReunionYaPaso(lead, { anclada: true })) {
           res.omitidos += 1;
           res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'omitido', nota: 'la reunión ya pasó' });
-          await escribir(insc, { estado: 'completada', proximo_envio_at: null }, { modo: 'fila', alcance: 'inscripcion' });
+          await escribir(insc, { estado: 'completada', proximo_envio_at: null }, { modo: 'fila', alcance: 'hilo' });
           await anotarCierreSinEnvio(insc, paso, lead, 'la reunión ya pasó');
           continue;
         }

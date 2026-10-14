@@ -176,8 +176,10 @@ test('M2: el REUSO al reagendar decide por la forma del flujo, y todos los usos 
   assert.match(NUTRI, /const reusaInscripciones = \(s: Pick<Secuencia, 'trigger_tipo' \| 'pasos' \| 'etapa' \| 'etapas' \| 'disparadores'>\): boolean =>\s*preparaReunion\(s\) && s\.pasos\.length > 0;/);
   assert.match(cuerpo(NUTRI, 'async function aInscribir('), /const prepara = preparaReunion\(sec\);/);
   assert.match(NUTRI, /const reunionDelPaso = preparaReunion\(sec\) \? reunionQuePreparaMs\(lead\) : null;/);
-  // Bug 5 (13/10/2026): la pregunta es `laReunionYaPaso` (tests/reunion-fecha-sola-del-dia.test.ts).
-  assert.match(NUTRI, /if \(anclada \|\| preparaReunion\(sec\)\) \{\s*if \(laReunionYaPaso\(lead, \{ anclada \}\)\)/);
+  // Desde el 14/10/2026 la guarda del envío es SÓLO del paso anclado: el resto, la condición visible (y ya no usa
+  // `preparaReunion`: ver tests/reunion-ya-paso.test.ts).
+  assert.match(NUTRI, /if \(anclada\) \{\s*if \(laReunionYaPaso\(lead, \{ anclada: true \}\)\)/);
+  assert.doesNotMatch(NUTRI, /if \(anclada \|\| preparaReunion\(sec\)\)/, 'volvió la guarda escondida de la reunión');
   assert.match(NUTRI, /reunionFutura: sec && preparaReunion\(sec\) \? hayReunion : null,/);
   assert.match(cuerpo(NUTRI, 'export async function enrolarPorEvento('), /const reunion = preparaReunion\(s\) \? reunionQuePreparaMs\(juntas\) : null;/);
   assert.match(cuerpo(NUTRI, 'export async function inscribirEnSecuencia('), /const prepara = preparaReunion\(\{ \.\.\.s, pasos \}\);/);

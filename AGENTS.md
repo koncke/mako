@@ -2765,9 +2765,12 @@ sino a los que la DECLARAN** — y esos dos conjuntos casi nunca son el mismo.
   `lib/nutricion-familias.ts` cubre la familia entera de la post-agenda, y el guard de
   `tests/reunion-ya-paso.test.ts` falla si el motor vuelve a mirar solo `paso.ancla`.
 - **⚠️ Desde el 14/10/2026 esa pregunta NO va escondida en el motor** (Martín: «jamás que "mako" haga
-  cosas que no están en el flujo»). Va como una CONDITION visible delante del mensaje, y el
-  reintento la vuelve a pasar antes de mandar. La guarda de `procesarEnvios` se borra cuando eso
-  exista: plan en docs/diseno-mako-nada-por-detras.md §2.1-2.3.
+  cosas que no están en el flujo»). Va como una CONDITION visible delante del mensaje («Su reunión
+  sigue en pie», `reunion_en_pie`), y el reintento la vuelve a pasar antes de mandar
+  (`condicionDeArriba` en `procesarEnvios`). La guarda escondida de `preparaReunion` está BORRADA: en
+  el motor queda sólo la del paso anclado (el DELAY «N antes de la reunión», que sin reunión no tiene
+  hora). Quien arme un flujo que habla de la reunión pone la condición: plantilla, Crear con IA o API.
+  Plan y decisiones en docs/diseno-mako-nada-por-detras.md §2.1-2.3.
 
 # Un DIAGNÓSTICO escrito de antemano deja de ser cierto sin avisar
 
@@ -7676,10 +7679,10 @@ mig 0228). Lo que eso exige al escribir código nuevo:
   `trigger_tipo` solo ve el primer CRON y se pierde los demás.
 - **Guardar no es publicar**: un borrador o una edición del lienzo pasa por `validarParaGuardar` (lo que
   rompe el DATO); `validarGrafo` es la vara de Publicar y rechaza lo que está a medio armar.
-- **Un flujo que arranca por una ETAPA no hereda «la reunión ya pasó»** (10/10/2026): esa guarda del
-  motor decide por el `trigger_tipo` (`preparaUnaReunion`, los eventos `agendado_*` de antes). Quien
-  arme un flujo así —una plantilla (`lib/plantillas-automatizaciones.ts`), Crear con IA, la API— pone
-  «Próxima reunión en ≤ 720 h» después de CADA espera por tiempo, antes de lo que habla de la reunión.
+- **Ningún flujo hereda «la reunión ya pasó»** (desde el 14/10/2026 esa guarda escondida no existe; antes
+  sólo la heredaban los de `trigger_tipo` de agenda). Quien arme un flujo que habla de la reunión —una
+  plantilla (`lib/plantillas-automatizaciones.ts`), Crear con IA, la API— pone «Su reunión sigue en pie»
+  después de CADA espera por tiempo, antes de lo que habla de la reunión.
   Y «Agendó» es «tiene una reunión cargada», pasada o futura: a quien faltó a una, también.
 
 **Y desde la undécima tanda (11/10/2026), un flujo se ARMA con las piezas que existen hoy, y nada se inventa.** Lo
