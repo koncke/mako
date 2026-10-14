@@ -730,6 +730,34 @@ export async function anularCobro(ws: number, id: number, autor: string): Promis
 }
 
 /**
+ * Anula los links SIN PAGAR que saldan una cuota que se acaba de cobrar por otro lado (a mano, o con otro link).
+ * Lo llama `marcarPago` (lib/pagos.ts) al marcarla pagada. Devuelve cuántos anuló.
+ *
+ * ⚠️ UN LINK VIVO DE UNA CUOTA YA COBRADA SE PUEDE PAGAR OTRA VEZ (revisión del 14/10/2026). Se mandaba el link de
+ * la cuota 2, el cliente pagaba por transferencia y el closer la marcaba pagada; días después el cliente abría el
+ * link del WhatsApp y pagaba: la pasarela le cobraba de nuevo y el CRM sumaba una cuota cobrada más. Stripe
+ * expira la sesión al anular; Mercado Pago no puede cerrar una preferencia abierta, y si igual la pagan, el pago
+ * entra como cuota nueva cobrada (`registrarCobroDeProveedor`): la plata entró dos veces y se ve.
+ *
+ * `exceptoCobroId`: el cobro que la está saldando (si la salda la pasarela), que a esa altura ya está pagado.
+ */
+export async function anularLinksDeCuota(ws: number, pagoId: number, autor: string, exceptoCobroId?: number | null): Promise<number> {
+  const ids = await runWithWorkspace(ws, async () => {
+    const db = await getTenantDb();
+    const { data, error } = await db.from('cobros').select('id').eq('pago_id', pagoId).in('estado', ['pendiente', 'fallido']);
+    if (error) throw new Error(`No pude leer los links de la cuota ${pagoId}: ${error.message}`);
+    return ((data ?? []) as Array<{ id: number }>).map((r) => Number(r.id)).filter((id) => id !== exceptoCobroId);
+  });
+  let anulados = 0;
+  for (const id of ids) {
+    const r = await anularCobro(ws, id, autor);
+    if (r.ok) anulados++;
+    else console.warn(`[cobros] no pude anular el link ${id} de la cuota ${pagoId}: ${r.error}`);
+  }
+  return anulados;
+}
+
+/**
  * Devuelve el pago ENTERO. Mueve plata real: lo pide una persona desde una PANTALLA (la ficha, con
  * confirmación, o /mako/revisar por la API) y sólo un admin. La clave de idempotencia es
  * determinística por cobro: una confirmación repetida no devuelve dos veces. Y NO se reintenta solo.

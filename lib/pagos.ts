@@ -24,7 +24,10 @@ import {
 import { getLead, logLeadChanges, logLeadEvent } from './leads';
 import { esCuotaDevuelta } from './cobrado-lead';
 import { normalizarMoneda } from './pasarela-moneda';
-import { getSetting, setSetting } from './settings';
+import { cambiarSettingSi, getSettingEstricto, getSetting, setSetting } from './settings';
+import { keyEspaciado } from './espaciado';
+import { AVISOS_DE_CUOTA, claveDedupCuota, cuotasReprogramadas } from './cobranza';
+import { plazoAlReactivar } from './suscripcion-manual';
 
 export type Pago = {
   id: number;
@@ -178,6 +181,34 @@ async function escribirReconciliacion(leadId: number, plan: PlanDeCuotas): Promi
   if (plan.borrar.length) {
     const { error } = await db.from('pagos').delete().in('id', plan.borrar.map((b) => b.id)).eq('lead_id', leadId).eq('pagado', false);
     if (error) throw new Error(`Error quitando cuotas del lead ${leadId}: ${error.message}`);
+  }
+  await olvidarAvisosDeCuotas(cuotasReprogramadas(plan.actualizar));
+}
+
+/** Un instante viejo: el dedup lo lee como «salió hace mucho» y la cuota puede volver a entrar. */
+const DEDUP_OLVIDADO = new Date(0).toISOString();
+
+/**
+ * Deja que una cuota REPROGRAMADA vuelva a entrar a la cobranza (`cuotasReprogramadas`, lib/cobranza.ts): el dedup
+ * de sus dos avisos pasa a «salió hace mucho». Se hace con compare-and-set contra lo que se leyó, la misma
+ * operación con que el cron reclama, así que un cron que justo la está reclamando gana y no sale dos veces.
+ *
+ * No tira: si falla, la cuota queda como estaba antes de esto (sin recordatorio de la fecha nueva), y eso no
+ * puede tumbar la edición que ya se escribió. Sin negocio no hace nada: `app_settings` caería al ws1.
+ */
+async function olvidarAvisosDeCuotas(pagoIds: readonly number[]): Promise<void> {
+  if (!pagoIds.length) return;
+  try {
+    if ((await getWorkspaceActual()) == null) return;
+    for (const id of pagoIds) {
+      for (const aviso of AVISOS_DE_CUOTA) {
+        const key = keyEspaciado(aviso, claveDedupCuota(id));
+        const previo = await getSettingEstricto(key);
+        if (previo && previo !== DEDUP_OLVIDADO) await cambiarSettingSi(key, previo, DEDUP_OLVIDADO);
+      }
+    }
+  } catch (e) {
+    console.error(`[pagos] no pude reabrir la cobranza de las cuotas ${pagoIds.join(', ')}:`, e instanceof Error ? e.message : e);
   }
 }
 
@@ -349,6 +380,7 @@ export async function editarCuota(
     .eq('id', pagoId).eq('lead_id', leadId).eq('pagado', false).select('id');
   if (e2) throw new Error(`Error guardando la cuota ${pagoId}: ${e2.message}`);
   if (!hecho?.length) throw new Error('La cuota cambió mientras tanto (¿se cobró?). Recarga la ficha.');
+  await olvidarAvisosDeCuotas(cuotasReprogramadas([{ id: pagoId, fecha_esperada: despues.fecha_esperada, antes }]));
   return { antes, despues, numero: q.numero };
 }
 
@@ -368,6 +400,24 @@ export async function cortarRecordatoriosDeCuota(leadId: number, pagoId: number)
 }
 
 /**
+ * ⚠️ AL COBRAR UNA CUOTA SE ANULAN SUS LINKS SIN PAGAR (`anularLinksDeCuota`, lib/cobros.ts): un link vivo de una
+ * cuota ya cobrada se podía pagar otra vez (revisión del 14/10/2026). Lo llama `marcarPago`, que es por donde pasan
+ * la ficha, el doer, la API y la pasarela. Si la salda la pasarela, su propio cobro (`cobro_id`) queda afuera.
+ * Desmarcar no los reabre: un link anulado no vuelve. No tira: lo peor es que el link siga vivo, como antes.
+ */
+async function anularLinksAlCobrar(pagoId: number, cobroId: number | null): Promise<void> {
+  try {
+    const ws = await getWorkspaceActual();
+    if (ws == null) return;
+    const { anularLinksDeCuota } = await import('./cobros');
+    const n = await anularLinksDeCuota(ws, pagoId, 'MaKo (la cuota ya se cobró)', cobroId == null ? null : Number(cobroId));
+    if (n) console.log(`[pagos] cuota ${pagoId} pagada → ${n} link(s) de pago anulado(s)`);
+  } catch (e) {
+    console.error('[pagos] no pude anular los links de la cuota:', e instanceof Error ? e.message : String(e));
+  }
+}
+
+/**
  * Marca un pago como cobrado (o lo revierte). Sincroniza total_cobrado_usd y
  * fecha_primer_pago del lead.
  */
@@ -379,7 +429,7 @@ export async function marcarPago(
   const supabase = (await getTenantDb());
   const { data: pago, error: getErr } = await supabase
     .from('pagos')
-    .select('lead_id')
+    .select('lead_id, cobro_id')
     .eq('id', pagoId)
     .single();
   if (getErr) throw new Error(`Error leyendo pago ${pagoId}: ${getErr.message}`);
@@ -416,6 +466,7 @@ export async function marcarPago(
       // que el recordatorio siguiente salga, y eso se ve. Perder el pago, no.
       console.error('[pagos] no pude cortar los recordatorios:', e instanceof Error ? e.message : String(e));
     }
+    await anularLinksAlCobrar(pagoId, pago.cobro_id ?? null);
   }
 }
 
@@ -612,6 +663,12 @@ export async function guardarMonedaDelNegocio(moneda: string): Promise<string> {
  * meses transcurridos), así el MRR deja de contarla; y además deja la fecha en `suscripcion_cancelada_at`
  * (mig XXXX), que es lo que distingue «cancelada» de «terminó su plazo». Reactivar devuelve el plazo de antes.
  *
+ * ⚠️ EL PLAZO DE ANTES SE GUARDA AL CANCELAR (`suscripcion_meses_antes`, la misma mig). Pisar `suscripcion_meses`
+ * con los meses transcurridos lo perdía, y reactivar escribía `mesesAlReactivar ?? null`: la API pasa siempre null,
+ * así que una suscripción de 12 meses cancelada en el mes 3 y reactivada por MaKo quedaba mes a mes, y el MRR la
+ * contaba para siempre (revisión del 14/10/2026). Ahora reactivar devuelve lo que vino o, si no vino, el guardado.
+ * Una cancelada antes de esta columna no tiene guardado: vuelve mes a mes, como antes.
+ *
  * Compare-and-set sobre el tipo: sólo una suscripción. Devuelve el plazo que había (para Deshacer).
  */
 export async function cambiarEstadoSuscripcionManual(
@@ -621,17 +678,17 @@ export async function cambiarEstadoSuscripcionManual(
 ): Promise<{ cambio: boolean; mesesAntes: number | null; canceladaAntes: string | null }> {
   const db = await getTenantDb();
   const before = await getLead(leadId).catch(() => null);
-  const { data, error } = await db.from('leads').select('venta_tipo, suscripcion_meses, suscripcion_cancelada_at').eq('id', leadId).maybeSingle();
+  const { data, error } = await db.from('leads').select('venta_tipo, suscripcion_meses, suscripcion_cancelada_at, suscripcion_meses_antes').eq('id', leadId).maybeSingle();
   if (error) throw new Error(`No pude leer la suscripción: ${error.message}`);
   if (!data) throw new Error('No encontré ese lead en este negocio.');
-  const fila = data as { venta_tipo: string | null; suscripcion_meses: number | null; suscripcion_cancelada_at: string | null };
+  const fila = data as { venta_tipo: string | null; suscripcion_meses: number | null; suscripcion_cancelada_at: string | null; suscripcion_meses_antes: number | null };
   if (fila.venta_tipo !== 'suscripcion') throw new Error('Ese lead no es una suscripción.');
   const mesesAntes = fila.suscripcion_meses ?? null;
   const canceladaAntes = fila.suscripcion_cancelada_at ?? null;
   if ((estado === 'cancelada') === !!canceladaAntes) return { cambio: false, mesesAntes, canceladaAntes };
   const patch = estado === 'cancelada'
-    ? { suscripcion_cancelada_at: `${opts.hoy}T12:00:00Z`, suscripcion_meses: opts.mesesAlCancelar }
-    : { suscripcion_cancelada_at: null, suscripcion_meses: opts.mesesAlReactivar ?? null };
+    ? { suscripcion_cancelada_at: `${opts.hoy}T12:00:00Z`, suscripcion_meses: opts.mesesAlCancelar, suscripcion_meses_antes: mesesAntes }
+    : { suscripcion_cancelada_at: null, suscripcion_meses: plazoAlReactivar(opts.mesesAlReactivar, fila.suscripcion_meses_antes), suscripcion_meses_antes: null };
   const { data: hecho, error: e2 } = await db.from('leads').update(patch).eq('id', leadId).eq('venta_tipo', 'suscripcion').select('id');
   if (e2) throw new Error(`No pude guardar la suscripción: ${e2.message}`);
   const cambio = !!hecho?.length;
@@ -731,7 +788,8 @@ export async function registrarCobroDeProveedor(p: {
     if (cuota.error) throw new Error(`Error leyendo la cuota ${p.pagoId}: ${cuota.error.message}`);
     // ⚠️ Y POR LO MISMO QUE COBRA (14/10/2026, el link por cuota): saldarla la marca pagada por SU monto, no por el del
     // link. Si alguien la cambió después de crear el link, marcarla mentiría en el cash: entra como una cuota nueva
-    // (o salda otra del mismo monto, abajo) y la persona ve las dos.
+    // y la persona ve las dos. NO salda otra del mismo monto: el casamiento por monto de abajo es sólo para los links
+    // SIN cuota (`!p.pagoId`); un link de la cuota 2 pagado de nuevo es plata que entró dos veces, no la cuota 3.
     const mismoMonto = !!cuota.data && Math.abs(Number(cuota.data.monto_usd) - p.montoUsd) < 0.01;
     if (cuota.data && !cuota.data.pagado && !cuota.data.proveedor_pago_id && mismoMonto) {
       const { error } = await db.from('pagos').update(marca).eq('id', p.pagoId).is('proveedor_pago_id', null);

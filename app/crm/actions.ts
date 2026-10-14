@@ -59,6 +59,8 @@ import {
 import { LeadDuplicadoError, estaEnProducto } from '@/lib/leads-duplicados';
 import { casaReal, destinoDelAlta, nombreVisible, type ProductoParaAlta } from '@/lib/lead-funnel-reglas';
 import { agregarAProducto } from '@/lib/lead-funnel';
+// El plazo de una suscripción cancelada no se revierte desde el historial (revisión del 14/10/2026).
+import { PLAZO_DE_CANCELADA, plazoSeRevierte } from '@/lib/suscripcion-manual';
 import { conLoteDeEtiquetas } from '@/lib/etiquetas';
 import { respuestasPropias } from '@/lib/meta-leads-campos';
 import { respuestasGuardadas } from '@/lib/optin-respuestas';
@@ -2427,6 +2429,11 @@ function ingresoDelHistorial(v: string | null): number | null {
   return Number.isFinite(n) && n >= 0 ? n : null;
 }
 
+/** `suscripcion_cancelada_at` del lead (mig XXXX; sin la migración no viene y cuenta como no cancelada). */
+function canceladaDe(lead: unknown): unknown {
+  return (lead as { suscripcion_cancelada_at?: unknown } | null)?.suscripcion_cancelada_at ?? null;
+}
+
 /** El valor del historial (texto de `auditVal`) de vuelta a la columna de la suscripción. */
 function columnaSuscripcion(campo: string, v: string | null): Record<string, number | null> {
   const n = v == null ? NaN : campo === CAMPO_SUS_MESES ? parseInt(v, 10) : parseFloat(v);
@@ -2585,6 +2592,7 @@ export async function revertAuditChangeAction(auditId: number, leadId: number): 
     }
     case CAMPO_SUS_MONTO:
     case CAMPO_SUS_MESES: {
+      if (row.campo === CAMPO_SUS_MESES && !plazoSeRevierte(canceladaDe(before))) throw new Error(PLAZO_DE_CANCELADA);
       const { error } = await (await getTenantDb()).from('leads').update(columnaSuscripcion(row.campo, v)).eq('id', leadId);
       if (error) throw new Error(error.message);
       break;
@@ -2624,6 +2632,11 @@ export async function revertMoveAction(leadId: number, createdAt: string): Promi
   }
 
   const bool = (s: string | null): boolean | null => (s === 'Sí' ? true : s === 'No' ? false : null);
+
+  // El plazo de una suscripción CANCELADA no se revierte (`plazoSeRevierte`): se corta ANTES de escribir nada del grupo.
+  if (grupo.some((r) => r.campo === CAMPO_SUS_MESES) && !plazoSeRevierte(canceladaDe(await getLead(leadId).catch(() => null)))) {
+    throw new Error(PLAZO_DE_CANCELADA);
+  }
 
   const upd: Parameters<typeof updateLead>[1] = {};
   const meta: LeadMetaInput = {};

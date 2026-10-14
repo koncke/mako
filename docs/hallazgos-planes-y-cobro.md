@@ -530,6 +530,20 @@ el repo. **Regla:** además del barrido, un guard POR MÓDULO que prohíbe `cred
 Vercel: `credWs`/`credWsEstricta` se la entregarían al ws1 (Mauricio) como si fuera suya.
 **Vive en:** `tests/cobros-servicio.test.ts` · `tests/pasarela-sin-env.test.ts` · `lib/credenciales.ts` (`NO_MIGRAR_A_WS`).
 
+### Un link vivo de una cuota ya cobrada se podía pagar dos veces (14/10/2026)
+
+**Síntoma (revisión de la rama `crm-bloques-b2`):** se manda el link de la cuota 2 (500), el cliente paga por
+transferencia y el closer la marca pagada. Días después el cliente abre el link del WhatsApp y paga: la pasarela le
+cobra 500 de nuevo y el CRM suma otra cuota cobrada. **Causa:** marcar una cuota a mano no tocaba sus cobros
+pendientes. El comentario de `registrarCobroDeProveedor` decía que el segundo pago «salda otra del mismo monto»,
+y no pasaba: el casamiento por monto es sólo para links SIN cuota (`!p.pagoId`).
+**Regla:** al marcar PAGADA una cuota se anulan sus links sin pagar (`anularLinksDeCuota`), y vive en
+`marcarPago`, por donde pasan la ficha, el doer, la API y la pasarela, igual que el corte de la cobranza. El cobro
+que la está saldando queda afuera (`pagos.cobro_id`; a esa altura ya está `pagado`). Desmarcar no los reabre. Un
+segundo pago de un link de la cuota 2 NO salda la cuota 3: es plata que entró dos veces, y entra como cuota nueva
+cobrada para que una persona la vea.
+**Vive en:** `lib/cobros.ts` (`anularLinksDeCuota`) · `lib/pagos.ts` (`marcarPago` → `anularLinksAlCobrar`) · `tests/pagos-medias-b2.test.ts`.
+
 *Corrida del 11/10/2026: relevamiento de 8 agentes, la base escrita a mano, 7 agentes de
 implementación en un worktree propio (`C:/dev/wt-pagos`) y una rama aparte para Automations.*
 
@@ -565,6 +579,7 @@ implementación en un worktree propio (`C:/dev/wt-pagos`) y una rama aparte para
 | **Pasarela (revisión):** el MRR al cancelar una suscripción redondea por meses (puede contar un mes de más o de menos) | `lib/cobros-reglas.ts` (`mesesTranscurridos`) |
 | **Pasarela (revisión):** la fecha de la cuota es la del procesamiento, no la del pago (un aviso tardío la corre de mes) | `lib/cobros.ts` (`aplicarPagoAprobado`) |
 | **Pasarela (revisión):** `aplicarAEnv` copia al entorno las claves de pasarela del ws1, y `revelar` las lee con `credWs` | `lib/credenciales.ts`, `app/api/integraciones/credencial/route.ts` |
+| **Pasarela (b2):** un link de Mercado Pago anulado se puede pagar igual (MP no cierra una preferencia abierta): el pago entra como cuota nueva cobrada y nadie avisa que la plata entró dos veces | `lib/cobros.ts` (`anularCobro`, `registrarCobroDeProveedor`) |
 
 *Corrida del 04/10/2026, 12 agentes. Las refutaciones dieron vuelta nueve afirmaciones; las
 tres que más cambiaron el plan están arriba (la cuenta del runway, el margen del 47 y el

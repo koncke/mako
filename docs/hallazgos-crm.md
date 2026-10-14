@@ -8841,3 +8841,47 @@ Dos guards que fijaban el texto EXACTO de una llamada se pusieron rojos por un a
 reconciliación, que devuelva los pendientes— y no la forma de la línea.
 
 **Vive en:** `lib/pagos-campo.ts` (`reconciliarCuotas` modo 'lista' y `soloNumeros`, `ajustarSobre`, `diferenciaDePlan`, `planVacio`, `planComoEstaba`) · `lib/pagos.ts` (`ajustarPlanPagos` con `antes`) · `app/crm/[id]/pagos-campo-actions.ts` (`ajustarPlanAction`, `guardarCuotasAction`) · `lib/api-mako/areas/crm.run.ts` (`guardar_cuotas`) · `lib/api-mako/areas/cobros.run.ts` (`editar_venta_lead`) · `app/crm/actions.ts` (`completeStageMoveAction`) · `app/crm/[id]/deal-actions.ts` (`saveCuotasAction`) · `app/crm/[id]/DealDetailsCard.tsx` · `app/crm/[id]/EditarDeal.tsx` · `tests/pagos-campo.test.ts` · *2026-10-14 rama crm-bloques-b2*
+
+## Una cuota reprogramada se quedaba sin recordatorio, y una suscripción reactivada perdía su plazo (14/10/2026)
+
+Dos de las fallas MEDIAS de la revisión de `crm-bloques-b2`, arregladas por el chat de Pagos en
+`pagos-b2-medias` (la tercera, el link vivo de una cuota cobrada, está en
+[hallazgos-planes-y-cobro.md](hallazgos-planes-y-cobro.md) → «La pasarela»).
+
+**1. Una cuota renegociada no volvía a avisar.** La cuota 3 vencía el 01/10, avisó el 02/10 y su cadencia
+terminó; el 05/10 se le pasó el vencimiento al 01/11, y ni el 31/10 ni el 02/11 salió nada. **Causa:** el dedup de
+la cobranza es por cuota (`cuota:<id>`, 120 días), y desde que ningún escritor borra e inserta, el id sobrevive a
+cualquier edición: el cron la daba por «ya entró». Antes, el borrar-e-insertar le daba un id nuevo y entraba sola.
+
+⚠️ **El arreglo obvio era el equivocado:** meter el vencimiento en la clave (`cuota:<id>:<vence>`, lo que proponía
+la revisión). Funciona para la cuota reprogramada, pero el día del deploy TODAS las cuotas que ya avisaron dentro
+de la ventana cambian de clave y vuelven a avisar: un segundo recordatorio a clientes reales por plata que ya se
+les pidió. **Regla:** la clave no lleva la fecha (`claveDedupCuota`, una sola para el cron y para el olvido), y
+toda escritura que cambia el vencimiento de una cuota la OLVIDA (`olvidarAvisosDeCuotas`: el dedup pasa a «salió
+hace mucho», con compare-and-set contra lo leído, que es como reclama el cron). Sólo cuenta la fecha: un monto
+nuevo con el mismo vencimiento no es un hecho nuevo para el cliente. Las escrituras que mueven una fecha son
+`escribirReconciliacion` y `editarCuota`; una nueva que cambie `fecha_esperada` por fuera de esas dos tiene que
+llamar al olvido.
+
+**2. Cancelar una suscripción manual perdía el plazo.** Para que el MRR deje de contarla, cancelar pisa
+`suscripcion_meses` con los meses transcurridos, y el plazo de antes no quedaba en ningún lado. Reactivar escribía
+`mesesAlReactivar ?? null`, y la API pasa siempre null: una de 12 meses cancelada en el mes 3 y reactivada por MaKo
+quedaba mes a mes y el MRR la contaba para siempre. **Regla:** cancelar guarda el plazo en
+`suscripcion_meses_antes` (la misma migración XXXX de b2) y reactivar devuelve lo que vino o, si no vino, el
+guardado (`plazoAlReactivar`, lib/suscripcion-manual.ts). «No vino» no es «mes a mes».
+
+⚠️ **Y el historial la dejaba a medias:** «Plazo de la suscripción» es REVERTIBLE, y revertir el «12 → 3» que
+escribe cancelar volvía a 12 con `suscripcion_cancelada_at` puesta: la ficha decía «Cancelada» y el MRR la volvía a
+contar. Mientras esté cancelada, el plazo no se revierte por ninguna de las dos puertas (`plazoSeRevierte`, antes
+de escribir nada del grupo): se reactiva, y eso devuelve el plazo y borra la fecha juntos.
+
+**Un guard que medía el fin de línea:** `tests/cobranza.test.ts` exige que el recorte de `marcarPago` mida menos de
+3000 caracteres (para saber que mide sólo esa función). Medía con el fin de línea del checkout: el mismo código daba
+~60 más en CRLF, y con dos líneas nuevas pasaba el tope en un clon y no en otro. Ahora mide con LF.
+
+**Lo que queda de la revisión de b2:** las seis BAJAS de docs/relevo/crm-tanda-b1.md («Revisión de b2 · Pagos»): la
+suscripción de la pasarela contra `suscripcion_cancelada_at` (lib/cobrado-lead.ts), la moneda que no se limpia al
+desmarcar (lib/pagos.ts, `cobrarCuota`), el corte de recordatorios que se traga el error (`cortarRecordatoriosDeCuota`),
+el tipo de una suscripción que cobra la pasarela (`escribirVenta`), la moneda del negocio sin workspace
+(`guardarMonedaNegocioAction`) y los dos «por cobrar» de `cobranza_lead` (lib/api-mako/areas/crm.run.ts).
+**Vive en:** `lib/cobranza.ts` · `lib/pagos.ts` · `lib/suscripcion-manual.ts` · `app/crm/actions.ts` · `tests/pagos-medias-b2.test.ts`.

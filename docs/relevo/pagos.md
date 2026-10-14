@@ -54,3 +54,11 @@ la API de MaKo, como automatios, como el CRM, etc...».
 **13/10/2026:** las tres siguen sin hacer. No se pueden medir sin las claves de prueba de Martín (se las pidió el chat de
 Integraciones). Lo demás de la pasarela está cerrado: el commit que había quedado suelto en el worktree
 `C:/dev/wt-pagos-auto` ya está en `main` como `67b7695d`.
+
+**14/10/2026 — la revisión de b2 (Pagos campo por campo, rama del CRM `crm-bloques-b2`):** las dos ALTAS y las seis
+MEDIAS están cerradas. Las altas y tres medias, en commits del chat CRM sobre `crm-bloques-b2`; las otras tres
+medias (la cuota reprogramada sin recordatorio, el link vivo de una cuota cobrada a mano, el plazo de la suscripción
+al reactivar), en la rama `pagos-b2-medias` del chat de Pagos, que el CRM mergea en b2. Nada de esto está en `main`
+todavía: entra cuando Estrategia integre la tanda B. Quedan las seis BAJAS de esa revisión (lista en
+docs/hallazgos-crm.md, «Una cuota reprogramada…»). La migración XXXX de b2 ahora suma `leads.suscripcion_meses_antes`.
+Las ramas `pagos-pasarela` y `pagos-automations` no tienen nada que no esté en `main`: se pueden borrar.
