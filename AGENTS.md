@@ -7904,12 +7904,15 @@ se pide sobre la raíz, nunca sobre un sub-elemento.
 de frase. Caracteres, segundos o tokens que se facturan se validan ANTES de llamar, y el
 mensaje dice cuál es el tope. Recortar es entregar —y cobrar— otra cosa que la pedida.
 
-# Una tab nueva decide si entra en la capa `superadmin`
+# Una tab que «no se ve»: la lista `navKeys` de `superadmin` NO es la causa
 
-La capa `superadmin` (`lib/capas.ts`) tiene `navKeys` EXPLÍCITAS: una tab que no se suma ahí no
-aparece para el super admin en su propio workspace, y `requireCapa` lo rebota a su casa sin
-explicar por qué. Les pasa a `video-generator` y `video-editor`. Al crear una tab, la decisión se
-toma y se escribe; no se descubre después.
+La capa `superadmin` (`lib/capas.ts`) tiene `navKeys` explícitas, pero `tabEnCapa` las une con
+`userNavKeys`, que en esa capa es `null`: contesta que sí a CUALQUIER key. Sumar o sacar una key
+de esa lista no cambia nada (medido el 14/10/2026; tres chats lo creyeron, ver
+docs/hallazgos-editor-imagen.md → «No veo la tab»). Lo que esconde una tab del super admin es
+`adminOnly`, que se apaga mirando un cliente con `?ws=`: ahí la barra es la del cliente, a
+propósito (Martín, 01/08/2026). Antes de tocar la visibilidad, se resuelve con
+`resolverTab` (lib/nav-visibilidad.ts) para las dos vistas.
 
 # El 200 también puede ser NUESTRO
 

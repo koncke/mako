@@ -28,6 +28,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { FAMILIAS, itemsDe } from '../app/_components/nav';
+import { resolverTab } from '../lib/nav-visibilidad';
 
 const RAIZ = join(import.meta.dirname, '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
@@ -53,6 +54,18 @@ test('1a: la sección del nav es adminOnly, es la primera de «Image» y la tab 
   assert.ok(ie, 'no encontré la entrada image-editor');
   assert.equal(ie.adminOnly, true, 'el editor es sólo del super admin hasta que Martín lo valide');
   assert.equal(ie.href, '/image-editor');
+});
+
+test('1c: en la barra del super admin, Content Machine → «Image» lleva al editor; mirando un cliente no se ve', () => {
+  // 14/10/2026, Martín: «No veo la tab en la sidebar principal, debería estar en la sección de Content Machine».
+  // Las dos mitades son reglas de él: la tab va en SU barra (capa superadmin), y mirando un cliente con `?ws=` la barra
+  // es la del cliente, sin lo que es sólo del super admin (01/08: «tampoco las tabs que… solo en super admin»).
+  // PROBADO ROMPIÉNDOLO: image-editor con `comingSoon: true` → la tab lleva a /carousels, 0/1; sin `adminOnly` → el
+  // cliente la ve, 0/1.
+  const image = FAMILIAS.find((f) => f.key === 'content')?.bloques.flat().find((i) => i.key === 'image');
+  assert.ok(image, 'la tab «Image» no está en la familia Content Machine');
+  assert.equal(resolverTab(image, { adminShell: true, rolWs: 'admin', capa: 'superadmin' })?.href, '/image-editor', 'en su barra, «Image» tiene que llevar al editor');
+  assert.equal(resolverTab(image, { adminShell: false, rolWs: 'admin', capa: 'completo' }), null, 'mirando un cliente, la barra es la del cliente');
 });
 
 test('1b: las dos pages llaman al guard por persona, y el guard pregunta getSesionAdmin', () => {
