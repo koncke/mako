@@ -13,7 +13,8 @@
 //     «¿Qué vas a crear hoy?» y la galería de General (lib/general-plantillas.ts), mover y agrandar, el estilo de la
 //     hoja, los filtros, los gráficos de todo el catálogo, textos, imágenes, secciones.
 //   · EL INFORME ES OTRO: `general.informe.<sub>` (lib/graficos-tablero.ts), por persona y por workspace, con el mismo
-//     compare-and-set. Quien nunca armó el suyo ve la General de siempre (`informeGeneralInicial`), y mirar no la guarda.
+//     compare-and-set. Quien nunca armó el suyo arranca EN BLANCO, como el Dashboard: la caja «¿Qué vas a crear hoy?» y
+//     las plantillas de General como páginas (`CrearHoja`, app/dashboard/NuevaHoja.tsx). Mirar no guarda nada.
 //   · LOS BLOQUES DE GENERAL (lib/general-piezas.ts) son elementos del editor: el server los arma acá con las lecturas
 //     de siempre (./piezas.tsx) y viajan por contexto (app/dashboard/ElementoGeneral.tsx).
 //   · LOS TEXTOS ENTIENDEN VARIABLES: «{{saludo}}, {{nombre}}» (la plantilla «Bienvenida»).
@@ -46,13 +47,19 @@ export default async function GeneralPage({ searchParams }: { searchParams: Prom
   const pedida = Array.isArray(p.hoja) ? p.hoja[0] : p.hoja;
 
   const lectura = await leerInformeGeneral();
-  // Un informe guardado sin hojas (las borró todas) vuelve a la General de siempre: General nunca queda en blanco.
+  // Quien nunca armó su General arranca EN BLANCO, como el Dashboard (Martín, 14/10/2026: «lo mismo que en Dashboard,
+  // para un usuario nuevo, deberías proponerle un template»): la caja «¿Qué vas a crear hoy?» con las plantillas de
+  // General abajo. La General de siempre viaja por dentro (la pantalla lee `hojas[0]`), no se muestra ni se guarda, y
+  // la primera hoja que se crea es la ÚNICA. Un informe guardado sin hojas, igual.
+  const sinPaginas = lectura.estado === 'inicial' || !lectura.tablero.hojas.length;
   const tablero = lectura.tablero.hojas.length ? lectura.tablero : informeGeneralInicial();
   const hoja = tablero.hojas.find((h) => h.id === pedida) ?? tablero.hojas[0];
 
   const pedidos0 = pedidosDeHoja(hoja, {}, hoy, 0, ocultosPorPlegado(hoja.componentes, plegadasDeEntrada(hoja.componentes)));
+  // En blanco no se dibuja ningún gráfico: no se lee nada. Los bloques se arman igual: la plantilla que se elija los usa.
+  const graficos = sinPaginas ? [] : pedidos0.graficos;
   const [datos, armadas, variables] = await Promise.all([
-    datosDeGraficos(pedidos0.graficos.map(({ pedido }) => pedido)),
+    datosDeGraficos(graficos.map(({ pedido }) => pedido)),
     armarPiezas(),
     variablesDeQuienMira(),
   ]);
@@ -67,6 +74,7 @@ export default async function GeneralPage({ searchParams }: { searchParams: Prom
           hoy={hoy}
           hojaInicial={hoja.id}
           versionInicial={lectura.version}
+          sinPaginas={sinPaginas}
           informe="general"
         />
       </ContextoGeneral>
