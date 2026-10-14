@@ -13,9 +13,11 @@ import { startRegistration } from '@simplewebauthn/browser';
 import Link from '@/app/_ui/Link';
 import { Pagina } from '@/app/_ui';
 import { BotonBorrar } from '@/app/_ui/BotonBorrar';
+import { descargarCodigos } from '@/app/login/2fa/descargar-codigos';
 
 type Estado = {
   obligatorio: boolean;
+  cuenta: string;
   passkeysDisponibles: boolean;
   /** Por dónde puede salir un código hoy (vacío en la tanda 1). */
   canales: ('whatsapp' | 'email')[];
@@ -141,6 +143,7 @@ export function SeguridadPanel() {
             {codigos.map((c) => <div key={c}>{c}</div>)}
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
+            <button type="button" style={btnSec} onClick={() => descargarCodigos(codigos, e.cuenta)}>Descargar</button>
             <button type="button" style={btnSec} onClick={() => { void navigator.clipboard?.writeText(codigos.join('\n')); }}>Copiar</button>
             <button type="button" style={btn} onClick={() => setCodigos(null)}>Ya los guardé</button>
           </div>
@@ -168,7 +171,9 @@ export function SeguridadPanel() {
             )}
           </div>
         ))}
-        {filaMetodo('passkey', 'Huella o Face ID', e.passkeys.length ? `${e.passkeys.length} llave${e.passkeys.length > 1 ? 's' : ''}` : null, (
+        {/* La huella se activa sólo desde el celular (decisión de Martín, 14/10/2026); en la compu se
+            listan las que hay, para poder quitarlas. */}
+        {filaMetodo('passkey', 'Huella o Face ID', e.passkeys.length ? `${e.passkeys.length} llave${e.passkeys.length > 1 ? 's' : ''}` : (e.passkeysDisponibles ? null : 'Se activa desde el celular'), (
           <>
             {e.passkeys.map((p) => (
               <div key={p.id} style={{ ...fila, paddingLeft: 14 }}>

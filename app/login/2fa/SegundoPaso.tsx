@@ -15,12 +15,15 @@
 
 import { useEffect, useState, type CSSProperties } from 'react';
 import { startAuthentication, startRegistration } from '@simplewebauthn/browser';
+import { descargarCodigos } from './descargar-codigos';
 
 type Metodo = 'passkey' | 'totp' | 'whatsapp' | 'email' | 'recuperacion';
 type Estado = {
   factores: { totp: boolean; passkey: boolean; whatsapp: string | null; email: string | null; recuperacion: boolean };
   hayQueEnrolar: boolean;
   passkeysDisponibles: boolean;
+  /** ¿Es un teléfono? La huella se ofrece sólo ahí, y sólo después de entrar (14/10/2026). */
+  esTelefono: boolean;
   /** Por dónde puede salir un código hoy (vacío en la tanda 1). */
   canales: ('whatsapp' | 'email')[];
 };
@@ -50,7 +53,7 @@ async function pedir(body: Record<string, unknown>): Promise<Respuesta> {
   return (await r.json().catch(() => ({ ok: false, error: 'No se pudo conectar.' }))) as Respuesta;
 }
 
-export function SegundoPaso() {
+export function SegundoPaso({ cuenta }: { cuenta: string }) {
   const [estado, setEstado] = useState<Estado | null>(null);
   const [metodo, setMetodo] = useState<Metodo | null>(null);
   const [enrolando, setEnrolando] = useState<Metodo | null>(null);
@@ -63,6 +66,8 @@ export function SegundoPaso() {
   const [error, setError] = useState<string | null>(null);
   const [codigos, setCodigos] = useState<{ lista: string[]; next: string } | null>(null);
   const [copiado, setCopiado] = useState(false);
+  // Después de entrar, en el teléfono: «¿la próxima vez con la huella?». Guarda adónde ir después.
+  const [ofertaHuella, setOfertaHuella] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/auth/2fa').then(async (r) => {
@@ -75,11 +80,27 @@ export function SegundoPaso() {
     }).catch(() => setError('No se pudo conectar.'));
   }, []);
 
+  /**
+   * Va a la app, salvo que haya que ofrecer la huella: decisión de Martín (14/10/2026), «es
+   * justamente un método rápido de entrar con el celu». Sólo en el teléfono, sólo si todavía no
+   * tiene una llave, y sólo DESPUÉS de haber entrado (la sesión ya está puesta: la llave se crea
+   * por /api/perfil/seguridad). Si dijo «Ahora no» en este teléfono, no se insiste.
+   */
+  const terminar = (next: string) => {
+    let yaDijoQueNo = false;
+    try { yaDijoQueNo = localStorage.getItem('mako.huella.ahora-no') === '1'; } catch { /* sin storage: se ofrece */ }
+    if (estado?.esTelefono && estado.passkeysDisponibles && !estado.factores.passkey && !yaDijoQueNo) {
+      setOfertaHuella(next);
+      return;
+    }
+    window.location.href = next;
+  };
+
   /** Termina: con códigos nuevos, primero se muestran; si no, entra. */
   const salir = (j: Respuesta) => {
     const next = j.next || '/inicio';
     if (j.codigos?.length) { setCodigos({ lista: j.codigos, next }); return; }
-    window.location.href = next;
+    terminar(next);
   };
 
   const correr = async (fn: () => Promise<void>) => {
@@ -127,13 +148,18 @@ export function SegundoPaso() {
     if (!j.ok) { setError(j.error ?? 'No coincide.'); return; }
     salir(j);
   });
-  const enrolarPasskey = () => correr(async () => {
-    const o = await pedir({ accion: 'enrolar-passkey-opciones' });
+  /** La huella, ya adentro: la crea /api/perfil/seguridad con la sesión que se acaba de poner. */
+  const activarHuella = (next: string) => correr(async () => {
+    const seg = async (body: Record<string, unknown>) => {
+      const r = await fetch('/api/perfil/seguridad', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+      return (await r.json().catch(() => ({ ok: false, error: 'No se pudo conectar.' }))) as Respuesta;
+    };
+    const o = await seg({ accion: 'passkey-opciones' });
     if (!o.ok) { setError(o.error ?? 'No se pudo.'); return; }
     const respuesta = await startRegistration({ optionsJSON: o.opciones as Parameters<typeof startRegistration>[0]['optionsJSON'] });
-    const j = await pedir({ accion: 'enrolar-passkey-verificar', respuesta, recordar, nombre: '' });
+    const j = await seg({ accion: 'passkey-verificar', respuesta, nombre: 'Celular' });
     if (!j.ok) { setError(j.error ?? 'No se pudo.'); return; }
-    salir(j);
+    window.location.href = next;
   });
   const enviarEnrolar = (canal: 'whatsapp' | 'email') => correr(async () => {
     const j = await pedir({ accion: 'enrolar-codigo-enviar', canal, destino });
@@ -155,10 +181,29 @@ export function SegundoPaso() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', fontFamily: "'Geist Mono', monospace", fontSize: '14px', background: '#fff', border: '1px solid rgba(0,0,0,.12)', borderRadius: '11px', padding: '12px', marginBottom: '12px' }}>
           {codigos.lista.map((c) => <div key={c}>{c}</div>)}
         </div>
-        <button type="button" style={{ ...btnSec, marginBottom: '8px' }} onClick={() => { void navigator.clipboard?.writeText(codigos.lista.join('\n')); setCopiado(true); }}>
-          {copiado ? 'Copiados' : 'Copiar'}
-        </button>
-        <button type="button" style={btn} onClick={() => { window.location.href = codigos.next; }}>Ya los guardé</button>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
+          <button type="button" style={btnSec} onClick={() => descargarCodigos(codigos.lista, cuenta)}>Descargar</button>
+          <button type="button" style={btnSec} onClick={() => { void navigator.clipboard?.writeText(codigos.lista.join('\n')); setCopiado(true); }}>
+            {copiado ? 'Copiados' : 'Copiar'}
+          </button>
+        </div>
+        <button type="button" style={btn} onClick={() => terminar(codigos.next)}>Ya los guardé</button>
+      </div>
+    );
+  }
+
+  if (ofertaHuella) {
+    const despues = ofertaHuella;
+    return (
+      <div>
+        <div style={titulo}>Entra más rápido</div>
+        <div style={sub}>La próxima vez, con tu huella o Face ID.</div>
+        {error && <div style={errorBox}>{error}</div>}
+        <button type="button" style={{ ...btn, marginBottom: '8px' }} disabled={ocupado} onClick={() => activarHuella(despues)}>Activar</button>
+        <button type="button" style={btnSec} disabled={ocupado} onClick={() => {
+          try { localStorage.setItem('mako.huella.ahora-no', '1'); } catch { /* sin storage: se vuelve a ofrecer */ }
+          window.location.href = despues;
+        }}>Ahora no</button>
       </div>
     );
   }
@@ -183,13 +228,15 @@ export function SegundoPaso() {
 
   // ── Activar el primero ─────────────────────────────────────────────────────
   if (estado.hayQueEnrolar) {
-    if (!enrolando) {
-      const opciones: { m: Metodo; txt: string }[] = [
-        { m: 'totp', txt: 'App de autenticación' },
-        ...(estado.passkeysDisponibles ? [{ m: 'passkey' as Metodo, txt: 'Huella o Face ID' }] : []),
-        ...(estado.canales.includes('whatsapp') ? [{ m: 'whatsapp' as Metodo, txt: 'WhatsApp' }] : []),
-        ...(estado.canales.includes('email') ? [{ m: 'email' as Metodo, txt: 'Otro correo' }] : []),
-      ];
+    // ⛔ La huella NO es un primer método (decisión de Martín, 14/10/2026): se ofrece en el
+    // teléfono después de entrar. Con un solo método para elegir, no hay nada que elegir.
+    const opciones: { m: Metodo; txt: string }[] = [
+      { m: 'totp', txt: 'App de autenticación' },
+      ...(estado.canales.includes('whatsapp') ? [{ m: 'whatsapp' as Metodo, txt: 'WhatsApp' }] : []),
+      ...(estado.canales.includes('email') ? [{ m: 'email' as Metodo, txt: 'Otro correo' }] : []),
+    ];
+    const elegido = enrolando ?? (opciones.length === 1 ? opciones[0].m : null);
+    if (!elegido) {
       return (
         <div>
           <div style={titulo}>Activa un segundo paso</div>
@@ -203,8 +250,10 @@ export function SegundoPaso() {
         </div>
       );
     }
-    const volver = <div style={{ marginTop: '14px', textAlign: 'center' }}><button type="button" style={link} onClick={() => cambiar(null, true)}>Otro método</button></div>;
-    if (enrolando === 'totp') {
+    const volver = opciones.length > 1
+      ? <div style={{ marginTop: '14px', textAlign: 'center' }}><button type="button" style={link} onClick={() => cambiar(null, true)}>Otro método</button></div>
+      : null;
+    if (elegido === 'totp') {
       return (
         <div>
           <div style={titulo}>App de autenticación</div>
@@ -226,19 +275,7 @@ export function SegundoPaso() {
         </div>
       );
     }
-    if (enrolando === 'passkey') {
-      return (
-        <div>
-          <div style={titulo}>Huella o Face ID</div>
-          <div style={sub}>Usa el desbloqueo de este dispositivo.</div>
-          {error && <div style={errorBox}>{error}</div>}
-          {recordarCasilla}
-          <button type="button" style={{ ...btn, marginTop: '10px' }} disabled={ocupado} onClick={enrolarPasskey}>Crear llave</button>
-          {volver}
-        </div>
-      );
-    }
-    const canal = enrolando === 'whatsapp' ? 'whatsapp' : 'email';
+    const canal = elegido === 'whatsapp' ? 'whatsapp' : 'email';
     return (
       <div>
         <div style={titulo}>{canal === 'whatsapp' ? 'WhatsApp' : 'Otro correo'}</div>

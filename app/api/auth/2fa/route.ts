@@ -20,12 +20,12 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { PREAUTH_COOKIE, verificarPreauth, type Preauth } from '@/lib/auth-session';
 import { ponerSesion, ponerDispositivo } from '@/lib/sesion-cookies';
 import { buscarUsuarioPorEmail, registrarLogin } from '@/lib/usuarios';
-import { puedeEnrolarSinSesion, canalDisponible, CANALES_CODIGO, CANAL_NO_DISPONIBLE, type Amr } from '@/lib/mfa-reglas';
+import { puedeEnrolarSinSesion, canalDisponible, esTelefono, CANALES_CODIGO, CANAL_NO_DISPONIBLE, type Amr } from '@/lib/mfa-reglas';
 import {
   estadoMfa, cantidadFactores, intentar, intentoOk, MENSAJE_FRENADO, registrarEvento,
   enviarCodigo, verificarCodigo, verificarTotpLogin, usarCodigoRecuperacion,
   iniciarTotp, confirmarTotp, opcionesLoginPasskey, verificarLoginPasskey,
-  opcionesRegistroPasskey, verificarRegistroPasskey, generarCodigosRecuperacion,
+  generarCodigosRecuperacion,
   crearDispositivo, rpDelPedido, type Canal,
 } from '@/lib/mfa';
 
@@ -87,7 +87,10 @@ export async function GET(req: NextRequest) {
     ok: true,
     factores: { totp: e.totp, passkey: e.passkeys.length > 0, whatsapp: e.whatsapp, email: e.email, recuperacion: e.codigosRestantes > 0 },
     hayQueEnrolar: puedeEnrolarSinSesion(cantidadFactores(e)),
-    passkeysDisponibles: !!rpDelPedido(req.headers.get('host')),
+    // La llave de acceso, sólo en el teléfono (decisión de Martín del 14/10/2026: es el atajo del
+    // celu, no un método para la compu). `esTelefono` le dice a la pantalla si ofrecerla después.
+    passkeysDisponibles: !!rpDelPedido(req.headers.get('host')) && esTelefono(req.headers.get('user-agent')),
+    esTelefono: esTelefono(req.headers.get('user-agent')),
     // Por dónde puede salir un código HOY (vacío en la tanda 1): la pantalla no ofrece otro.
     canales: CANALES_CODIGO,
   });
@@ -100,7 +103,8 @@ export async function POST(req: NextRequest) {
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
   const accion = String(body.accion ?? '');
   const recordar = body.recordar === true;
-  const rp = rpDelPedido(req.headers.get('host'));
+  // Entrar con la llave, sólo desde el teléfono (regla de producto: ver `esTelefono`).
+  const rp = esTelefono(req.headers.get('user-agent')) ? rpDelPedido(req.headers.get('host')) : null;
 
   // ⚠️ El freno NO va acá arriba para todo: frena cada intento de ADIVINAR un código
   // (`intentar`, que anota antes de contar). Puesto para todas las acciones, quien tiene la
@@ -142,12 +146,12 @@ export async function POST(req: NextRequest) {
   }
 
   if (accion === 'passkey-opciones') {
-    if (!rp) return no('Aquí no se pueden usar llaves de acceso.');
+    if (!rp) return no('La huella se usa desde el celular.');
     return NextResponse.json({ ok: true, opciones: await opcionesLoginPasskey(q.id, rp) });
   }
 
   if (accion === 'passkey-verificar') {
-    if (!rp) return no('Aquí no se pueden usar llaves de acceso.');
+    if (!rp) return no('La huella se usa desde el celular.');
     const ok = await verificarLoginPasskey(q.id, body.respuesta as never, rp);
     if (!ok) {
       await registrarEvento(q.id, 'login-passkey', false);
@@ -179,14 +183,10 @@ export async function POST(req: NextRequest) {
     await intentoOk(intento);
     return entrarEnrolado('totp');
   }
-  if (accion === 'enrolar-passkey-opciones') {
-    if (!rp) return no('Aquí no se pueden usar llaves de acceso.');
-    return NextResponse.json({ ok: true, opciones: await opcionesRegistroPasskey(q.id, q.pre.email, q.pre.nombre, rp) });
-  }
-  if (accion === 'enrolar-passkey-verificar') {
-    if (!rp) return no('Aquí no se pueden usar llaves de acceso.');
-    const r = await verificarRegistroPasskey(q.id, body.respuesta as never, rp, String(body.nombre ?? ''));
-    return r.ok ? entrarEnrolado('passkey') : no(r.error);
+  // ⛔ La llave de acceso NO es un primer método (decisión de Martín, 14/10/2026): se activa en el
+  // teléfono DESPUÉS de haber entrado con la app, desde /api/perfil/seguridad con la sesión completa.
+  if (accion === 'enrolar-passkey-opciones' || accion === 'enrolar-passkey-verificar') {
+    return no('La huella se activa en el celular, después de entrar.', 403);
   }
   if (accion === 'enrolar-codigo-enviar' || accion === 'enrolar-codigo-confirmar') {
     const canal: Canal | null = body.canal === 'email' ? 'email' : body.canal === 'whatsapp' ? 'whatsapp' : null;

@@ -29,7 +29,7 @@ export default async function SegundoPasoPage() {
           <div style={{ fontWeight: 700, fontSize: '22px', color: '#14161B', letterSpacing: '-0.02em' }}>MaKo</div>
         </div>
         <div style={{ fontSize: '13px', color: '#5B6472', marginBottom: '18px' }}>{pre.email}</div>
-        <SegundoPaso />
+        <SegundoPaso cuenta={pre.email} />
       </div>
     </div>
   );
