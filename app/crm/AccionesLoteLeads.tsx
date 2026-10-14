@@ -66,8 +66,8 @@
 // SI tiene deshacer (ver arriba): preguntar ahi seria friccion sobre algo reversible.
 // =============================================================================
 
-import { useState, useTransition } from 'react';
-import type { CSSProperties } from 'react';
+import { useImperativeHandle, useState, useTransition } from 'react';
+import type { CSSProperties, Ref } from 'react';
 import { Confirm, SANS, MONO } from '@/app/_ui';
 import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import { Dropdown } from '@/app/components/Dropdown';
@@ -149,7 +149,33 @@ type Pendiente =
   | { tipo: 'persona'; campo: 'closer' | 'setter'; valor: string; pisa: number }
   | { tipo: 'borrar' };
 
-export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelActivo, onLimpiar, onListo, estilo }: {
+/**
+ * Los funnels a los que se puede AGREGAR la seleccion: todos menos el que se esta mirando (ahi ya estan
+ * todos los tildados). `esDefault` viaja como `fid: null`, que es como las actions de lead-funnel nombran
+ * al producto del negocio. Exportado para el clic derecho del tablero (app/crm/menu-contextual-crm.ts):
+ * el menu ofrece los MISMOS destinos que este desplegable, no una lista propia.
+ */
+export function destinosDeLote(productos: ProductoDeLote[], funnelActivo: number | null): Array<{ fid: number | null; nombre: string }> {
+  return productos
+    .map((p) => ({ fid: p.esDefault ? null : p.id, nombre: p.nombre }))
+    .filter((p) => p.fid !== funnelActivo);
+}
+
+/**
+ * LAS MISMAS ACCIONES DE LA BARRA, PEDIDAS DESDE AFUERA: el clic derecho sobre un seleccionado
+ * (app/crm/CrmBoard.tsx, `elegirContextual`). No es un segundo camino: cada una abre la MISMA pregunta
+ * que su desplegable (con el numero, y el «ya tenian otro» de closer/setter) o corre la misma accion al
+ * toque con su Deshacer (etiqueta, funnel). Llamarlas sin barra montada no hace nada: el ref es null.
+ */
+export type ManijaLote = {
+  moverDeEtapa: (stageKey: string) => void;
+  asignar: (campo: 'closer' | 'setter', valor: string) => void;
+  etiquetar: (e: Etiqueta) => void;
+  agregarAFunnel: (funnelId: number | null) => void;
+  eliminar: () => void;
+};
+
+export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelActivo, onLimpiar, onListo, estilo, ref }: {
   elegidos: LeadDeLote[];
   stages: Stage[];
   productos: ProductoDeLote[];
@@ -160,6 +186,8 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
   /** Termino: el padre refresca y canta el resultado. */
   onListo: (r: ResultadoLote) => void;
   estilo?: CSSProperties;
+  /** Para el clic derecho del tablero (ver `ManijaLote`). */
+  ref?: Ref<ManijaLote>;
 }) {
   const [pide, setPide] = useState<Pendiente | null>(null);
   const [corriendo, start] = useTransition();
@@ -174,14 +202,15 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
   // igual que rellenarle el hueco a ocho que no.
   const conValor = (campo: 'closer' | 'setter') => elegidos.filter((l) => (l[campo] ?? '').trim()).length;
 
-  // Los productos a los que se puede agregar: todos menos el que se esta mirando (ahi
-  // ya estan todos los tildados). `esDefault` viaja como `null`, que es como las
-  // actions de lead-funnel nombran al producto del negocio (lo traducen a su id).
-  const destinos = productos
-    .map((p) => ({ fid: p.esDefault ? null : p.id, nombre: p.nombre }))
-    .filter((p) => p.fid !== funnelActivo);
+  // Los productos a los que se puede agregar (ver `destinosDeLote`).
+  const destinos = destinosDeLote(productos, funnelActivo);
 
   const cerrar = () => setPide(null);
+
+  /** Lo que piden el desplegable «Etapa» y el clic derecho: la MISMA pregunta. */
+  const pedirEtapa = (k: string) => { const s = stages.find((x) => x.key === k); if (s) setPide({ tipo: 'etapa', stage: s }); };
+  /** Lo que piden «Closer»/«Setter» y el clic derecho, con cuántos ya lo tenían. */
+  const pedirPersona = (campo: 'closer' | 'setter', v: string) => { if (v) setPide({ tipo: 'persona', campo, valor: v, pisa: conValor(campo) }); };
 
   /**
    * Agregar una etiqueta a los tildados, AL TOQUE (se deshace desde el aviso). Los que ya la tenían
@@ -278,6 +307,21 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
     });
   };
 
+  /** Agregar a un funnel por su id (`null` = el del negocio), con el nombre que lo canta el aviso. */
+  const agregarAFunnel = (fid: number | null) => {
+    if (corriendo) return;
+    agregarA(fid, destinos.find((p) => p.fid === fid)?.nombre ?? 'otro funnel');
+  };
+
+  // Antes del `return null` de abajo: un hook despues de un return temprano cambia de orden entre renders.
+  useImperativeHandle(ref, () => ({
+    moverDeEtapa: pedirEtapa,
+    asignar: pedirPersona,
+    etiquetar: (e: Etiqueta) => { if (!corriendo) etiquetar(e); },
+    agregarAFunnel,
+    eliminar: () => setPide({ tipo: 'borrar' }),
+  }));
+
   if (n === 0) return null;
 
   return (
@@ -306,7 +350,7 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
             icono={<span style={{ display: 'flex', color: 'var(--dim)' }}><IconoEtapa /></span>}
             buttonStyle={estiloDrop}
             options={stages.map((s) => ({ value: s.key, label: s.label, color: s.dot }))}
-            onChange={(k) => { const s = stages.find((x) => x.key === k); if (s) setPide({ tipo: 'etapa', stage: s }); }} />
+            onChange={pedirEtapa} />
 
           {/* El equipo puede estar vacio: ahi el desplegable no se dibuja. Un control
               con cero opciones se lee como que la app esta rota. */}
@@ -318,7 +362,7 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
               buttonStyle={estiloDrop}
               // Una persona va con su avatar (la foto o sus iniciales), no con un ícono (general 10).
               options={equipo.map((m) => ({ value: m.nombre, label: m.nombre, avatar: m.foto_url ?? null }))}
-              onChange={(v) => { if (v) setPide({ tipo: 'persona', campo, valor: v, pisa: conValor(campo) }); }} />
+              onChange={(v) => pedirPersona(campo, v)} />
           ))}
 
           {/* Agregar a otro producto: solo si hay OTRO adonde ir. Sin pregunta: suma y
@@ -329,11 +373,7 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
               icono={<span style={{ display: 'flex', color: 'var(--dim)' }}><IconoProducto /></span>}
               buttonStyle={estiloDrop}
               options={destinos.map((p) => ({ value: String(p.fid ?? 'default'), label: p.nombre }))}
-              onChange={(v) => {
-                if (corriendo) return;
-                const fid = v === 'default' ? null : Number(v);
-                agregarA(fid, destinos.find((p) => p.fid === fid)?.nombre ?? 'otro funnel');
-              }} />
+              onChange={(v) => agregarAFunnel(v === 'default' ? null : Number(v))} />
           )}
 
           {/* Agregar una etiqueta: al toque, con Deshacer. «＋ Nueva» la crea de paso. «Agregar» y no

@@ -6,20 +6,41 @@
 
 import { getPendientesDeMarcar } from '@/lib/queries';
 import { hoyEnTijuana } from '@/lib/date-utils';
+import { getTenantDb } from '@/lib/workspace';
+import { urlGravatar } from '@/lib/gravatar';
+import { filasPorLead, ocultosPorLead, type FilaLead as FilaBase } from '@/lib/a-revisar-filas';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-/** Cuántos dibuja «A revisar». La cola entera sigue en su vista (`/crm?pendientes=1`). */
+/** Cuántos LEADS dibuja «A revisar». La cola entera sigue en su vista (`/crm?pendientes=1`). */
 const TOPE_LISTA = 12;
+/**
+ * Cuántos leads ignorados viajan para el «Ver más». Generoso a propósito (revisión del 14/10): un lead
+ * ignorado con la ✕ que no entre acá no tiene vuelta desde el panel.
+ */
+const TOPE_OCULTOS = 50;
 
 /**
- * Una fila de «A revisar». Desde el 13/10/2026 es UN DATO de un lead (Martín: el desplegable con
- * «solucionar» e «ignorar» por dato, «Todo esto también afecta al desplegable que aparece en el CRM
- * debajo a la derecha de "A revisar"»). Lo que no es un dato —una nutrición manual vencida— va
- * como una fila del lead, sin `paso`: se abre la ficha y no se puede ignorar desde acá.
+ * Lo que hace falta para dibujar la cara del lead, con la MISMA cadena que la cabecera de su ficha
+ * (app/crm/lead-view/CaraDelLead.tsx): lo elegido → la foto guardada → Gravatar → iniciales.
  */
-type Fila = { lead_id: number; lead_nombre: string; mensaje: string; paso?: { id: string; label: string } };
+type Cara = { icono: string | null; avatarUrl: string | null; avatarY: number | null; fotoGuardada: string | null; fotoEmail: string | null };
+
+/**
+ * Una fila de «A revisar»: UN LEAD, con todos sus datos sin marcar (14/10/2026, Martín: «No pongas
+ * muchas filas del mismo lead, en todo caso un número de cuantos datos sin revisar tiene»). Hasta el
+ * 13/10 era una fila por dato, y un lead con cinco datos ocupaba cinco renglones. `pasos` vacío es
+ * el lead que está en la lista por otra cosa (una nutrición manual vencida, la reunión pasada sin
+ * desenlace): se abre la ficha y no hay nada que ignorar.
+ *
+ * `porOtraCosa` es ese mismo caso CON datos (tipo 'R' y 'M' del worklist): ignorar sus datos no lo
+ * saca de la lista, y la pantalla no lo puede deducir. Sin la marca, la ✕ lo borraba de la vista y
+ * la relectura lo traía de vuelta un segundo después.
+ */
+type FilaLead = FilaBase & { cara?: Cara };
+
+const texto = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v.trim() : null);
 
 export async function GET(req: Request) {
   try {
@@ -28,22 +49,55 @@ export async function GET(req: Request) {
     // 12/10/2026, punto 4: «A revisar» abre la ficha en el lugar). Sin el parámetro, el conteo
     // de siempre: lo pide el Sidebar en cada página y no necesita nombres.
     if (new URL(req.url).searchParams.get('lista') === '1') {
-      const filas: Fila[] = [];
-      for (const i of items ?? []) {
-        if (filas.length >= TOPE_LISTA) break;
-        if (!i.faltantes?.length) { filas.push({ lead_id: i.lead_id, lead_nombre: i.lead_nombre, mensaje: i.mensaje }); continue; }
-        for (const f of i.faltantes) {
-          if (filas.length >= TOPE_LISTA) break;
-          filas.push({ lead_id: i.lead_id, lead_nombre: i.lead_nombre, mensaje: f.label, paso: { id: f.id, label: f.label } });
-        }
-      }
-      const ocultos = (ignorados ?? []).slice(0, TOPE_LISTA)
-        .map((x) => ({ lead_id: x.lead_id, lead_nombre: x.lead_nombre, paso: { id: x.paso.id, label: x.paso.label } }));
+      // `total` cuenta LEADS (un item por lead) y las filas también: el número del panel y lo
+      // que se ve abajo hablan de lo mismo.
+      // Una fila por lead (lib/a-revisar-filas.ts, puro y con test que lo ejecuta).
+      const filas: FilaLead[] = filasPorLead(items ?? [], TOPE_LISTA);
+      // Los ignorados llegan UNO POR DATO (lib/queries.ts los topea en 500): se juntan por lead para
+      // el «Ver más» y su «volver a avisar» por lead.
+      const ocultos: FilaLead[] = ocultosPorLead(ignorados ?? [], TOPE_OCULTOS);
+      await ponerCaras([...filas, ...ocultos]);
       return Response.json({ total, items: filas, ignorados: ocultos });
     }
     return Response.json({ total });
   } catch (err) {
     console.error('[datos-sin-marcar-count]', err instanceof Error ? err.message : err);
     return Response.json({ total: 0 });
+  }
+}
+
+/**
+ * La foto de cada fila: UNA lectura más, sólo de los leads que se van a dibujar (≤ 24), DESPUÉS de
+ * armar las filas. `getPendientesDeMarcar` no trae estas columnas y no se tocan: es la lectura del
+ * worklist entero, cacheada, y la comparten el Sidebar, /hoy y los avisos de MaKo.
+ *
+ * ⚠️ EL GRAVATAR SE ARMA ACÁ, no en el navegador: el hash usa `node:crypto` (lib/gravatar.ts), y es
+ * el mismo reparto que la ficha (app/crm/[id]/page.tsx le pasa `fotoEmail` ya armado).
+ *
+ * Si la lectura falla, las filas salen sin cara y se dibujan las iniciales: la lista no se cae
+ * por una foto.
+ */
+async function ponerCaras(filas: FilaLead[]): Promise<void> {
+  const ids = [...new Set(filas.map((f) => f.lead_id))];
+  if (!ids.length) return;
+  try {
+    const db = await getTenantDb();
+    const { data, error } = await db.from('leads').select('id, icono, avatar_url, avatar_y, foto_auto_url, email').in('id', ids);
+    if (error) { console.error('[datos-sin-marcar-count] caras', error.message); return; }
+    const porId = new Map<number, Cara>();
+    for (const l of (data ?? []) as Array<Record<string, unknown>>) {
+      const email = texto(l.email);
+      const y = l.avatar_y == null ? NaN : Number(l.avatar_y);
+      porId.set(Number(l.id), {
+        icono: texto(l.icono),
+        avatarUrl: texto(l.avatar_url),
+        avatarY: Number.isFinite(y) ? y : null,
+        fotoGuardada: texto(l.foto_auto_url),
+        fotoEmail: email ? urlGravatar(email, 64) : null,
+      });
+    }
+    for (const f of filas) { const c = porId.get(f.lead_id); if (c) f.cara = c; }
+  } catch (e) {
+    console.error('[datos-sin-marcar-count] caras', e instanceof Error ? e.message : e);
   }
 }

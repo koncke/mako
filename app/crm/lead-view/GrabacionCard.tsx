@@ -16,16 +16,28 @@
 // ⚠️ Y LA PANTALLA NO INVENTA DÓNDE SE ARREGLA. Cada frase lleva link sólo si hay
 // una pantalla que de verdad lo resuelve: `pixel_viejo` (repegar el código). Un
 // botón que lleva a un lugar donde no está la respuesta es peor que ninguno.
+//
+// ⚠️ LA GRABACIÓN SE VE ACÁ ADENTRO, debajo de su fila, y no en un pop-up (pedido de
+// Martín del 14/10/2026: «que viva dentro de la sección "Grabación de su visita" en
+// tracking»). Una abierta a la vez: abrir otra pliega la anterior, y el botón de la
+// fila abierta se vuelve la X que la pliega. Es el MISMO `<button>` en los dos estados,
+// a propósito: React lo reusa y el foco se queda donde estaba al plegarla.
 
-import { useState, type CSSProperties } from 'react';
+import { Fragment, useState, type CSSProperties } from 'react';
 import Link from '@/app/_ui/Link';
+import { IconoMenu } from '@/app/_ui/iconos-menu';
 import { duracionCorta, textoDelCorte, textoDelVacio, type ReplayEnLaFicha, type SesionDeLead } from '@/lib/replay-ficha';
-import { GrabacionModal } from './GrabacionModal';
+import { GrabacionEnLinea } from './GrabacionModal';
 import { useTzWorkspace } from './useTzWorkspace';
 
 const MONO = "'Geist Mono', monospace";
 const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '22px 24px' };
 const sectLabel: CSSProperties = { fontFamily: MONO, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' };
+const botonVer: CSSProperties = {
+  display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 9, cursor: 'pointer',
+  border: '1px solid var(--border-strong)', background: 'var(--surface-2)', font: 'inherit',
+  fontSize: 12, fontWeight: 600, color: 'var(--ink)',
+};
 
 const fmtTs = (iso: string, tz: string) => {
   const d = new Date(iso);
@@ -39,13 +51,13 @@ const fmtTs = (iso: string, tz: string) => {
  * Un renglón por sesión: la regla de la casa para un grupo de cosas del mismo tipo
  * es una LISTA con filete, no una pila de cajas.
  */
-function Fila({ s, tz, onVer }: { s: SesionDeLead; tz: string; onVer: () => void }) {
+function Fila({ s, tz, abierta, onAlternar }: { s: SesionDeLead; tz: string; abierta: boolean; onAlternar: () => void }) {
   const corte = textoDelCorte(s.corte);
   // Una sesión sin sellar no se puede abrir: su cuerpo todavía está en el buffer
   // caliente y no en un objeto. Decirlo evita un botón que contesta un error.
   const sub = s.lista ? corte : 'Se está guardando';
   return (
-    <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'nowrap', padding: '11px 2px 12px', borderTop: '1px solid var(--border)' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'nowrap', padding: '11px 2px 12px', borderTop: '1px solid var(--border)' }}>
       <div style={{ flex: '0 1 auto', minWidth: 0 }}>
         <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {fmtTs(s.inicio, tz)}
@@ -55,7 +67,8 @@ function Fila({ s, tz, onVer }: { s: SesionDeLead; tz: string; onVer: () => void
             distingue una sesión de otra son la fecha y la duración, que ya están
             arriba; el número de eventos de rrweb no le dice nada a nadie y ocupa
             el lugar de la única cosa que sí hay que decir: que la cortamos
-            nosotros, o que todavía no se puede abrir. */}
+            nosotros, o que todavía no se puede abrir. Con la grabación abierta,
+            es además el aviso del corte: queda justo encima del reproductor. */}
         {sub && (
           <div style={{ fontSize: 11.5, color: 'var(--faint)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {sub}
@@ -64,11 +77,12 @@ function Fila({ s, tz, onVer }: { s: SesionDeLead; tz: string; onVer: () => void
       </div>
       <div style={{ flex: 'none', marginLeft: 'auto' }}>
         {s.lista && (
-          <button type="button" onClick={onVer}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 9, cursor: 'pointer',
-              border: '1px solid var(--border-strong)', background: 'var(--surface-2)', font: 'inherit',
-              fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>
-            Ver la grabación
+          <button type="button" onClick={onAlternar} aria-expanded={abierta}
+            className={abierta ? 'mk-iconbtn mk-iconbtn--sm' : undefined}
+            title={abierta ? 'Cerrar la grabación' : undefined}
+            aria-label={abierta ? 'Cerrar la grabación' : undefined}
+            style={abierta ? undefined : botonVer}>
+            {abierta ? <IconoMenu nombre="cerrar" size={15} /> : 'Ver la grabación'}
           </button>
         )}
       </div>
@@ -78,7 +92,9 @@ function Fila({ s, tz, onVer }: { s: SesionDeLead; tz: string; onVer: () => void
 
 export function GrabacionCard({ replay }: { replay: ReplayEnLaFicha }) {
   const tz = useTzWorkspace();
-  const [abierta, setAbierta] = useState<SesionDeLead | null>(null);
+  // El id y no la sesión: si la lista se vuelve a leer, la abierta sigue abierta, y si
+  // desaparece, el reproductor se va con ella.
+  const [abierta, setAbierta] = useState<string | null>(null);
 
   // ⚠️ `sin_visitor` NO DIBUJA NADA, y es lo único que esta tarjeta se calla: la
   // tarjeta de arriba ya lo dice en esa misma ficha («ingresó antes de que existiera
@@ -92,25 +108,29 @@ export function GrabacionCard({ replay }: { replay: ReplayEnLaFicha }) {
   const vacio = replay.vacio ? textoDelVacio(replay.vacio, replay.retencionDias, replay.visita, tz) : null;
 
   return (
-    <>
-      <section style={card}>
-        <div style={{ ...sectLabel, marginBottom: vacio ? 8 : 4 }}>Grabación de su visita</div>
-        {vacio ? (
-          <p style={{ fontSize: 13.5, color: 'var(--faint)', margin: 0, lineHeight: 1.5 }}>
-            {vacio.que}
-            {vacio.donde && (
-              <>
-                {' '}
-                <Link href={vacio.donde.href} style={{ fontWeight: 600, color: 'var(--primary)' }}>{vacio.donde.texto}</Link>
-              </>
-            )}
-          </p>
-        ) : (
-          replay.sesiones.map((s) => <Fila key={s.id} s={s} tz={tz} onVer={() => setAbierta(s)} />)
-        )}
-      </section>
-
-      {abierta && <GrabacionModal sesion={abierta} onCerrar={() => setAbierta(null)} />}
-    </>
+    <section style={card}>
+      <div style={{ ...sectLabel, marginBottom: vacio ? 8 : 4 }}>Grabación de su visita</div>
+      {vacio ? (
+        <p style={{ fontSize: 13.5, color: 'var(--faint)', margin: 0, lineHeight: 1.5 }}>
+          {vacio.que}
+          {vacio.donde && (
+            <>
+              {' '}
+              <Link href={vacio.donde.href} style={{ fontWeight: 600, color: 'var(--primary)' }}>{vacio.donde.texto}</Link>
+            </>
+          )}
+        </p>
+      ) : (
+        replay.sesiones.map((s) => (
+          <Fragment key={s.id}>
+            <Fila s={s} tz={tz} abierta={abierta === s.id}
+              onAlternar={() => setAbierta((a) => (a === s.id ? null : s.id))} />
+            {/* `key` por sesión: abrir otra es otro reproductor, con su descarga y su
+                montaje desde cero, nunca el anterior con otros eventos. */}
+            {abierta === s.id && s.lista && <GrabacionEnLinea key={s.id} sesion={s} />}
+          </Fragment>
+        ))
+      )}
+    </section>
   );
 }

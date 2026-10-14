@@ -354,6 +354,7 @@ sacar_etiqueta_lead
 seguimiento_ultima_retro
 sembrar_kpis_sugeridos
 snapshot_funnel_experimentos
+sugerencias_crm
 sugerir_kpis
 sugerir_productos
 tendencia_score
@@ -444,3 +445,4 @@ verificar_dominio_envio
 verificar_ganadores_reusables
 verificar_pagina_pixel
 vista_experimentos
+volver_a_mostrar_sugerencia

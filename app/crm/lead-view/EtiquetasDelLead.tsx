@@ -50,6 +50,12 @@ export function EtiquetasDelLead({ leadId, version, compacto = false }: {
    * Al lado del nombre (13/10/2026). Martín: «compactes lo que hay arriba de las tabs. Tal vez
    * poniendo la opción de etiquetas al lado del título, y si tienen más de una etiqueta que aparezca
    * como "+2" y un desplegable». Se ve la primera; las demás, en el desplegable del «+N», con su ✕.
+   *
+   * Y el 14/10/2026 el diseño vuelve al de antes, en este mismo lugar: «Y la etiqueta, vuelve a
+   * como estaba antes, pero que esté ubicado donde esta ahora... Antes estaba bien el diseño, yo me
+   * refería a "+2" cuando son más de 1 etiqueta seleccionada, pero la primera siempre debe estar
+   * visible normalmente». La primera es el chip de siempre (no uno chico), el «+N» aparece sólo
+   * desde la segunda y agregar es la píldora «＋ Etiqueta», no un «＋» suelto.
    */
   compacto?: boolean;
 }) {
@@ -96,29 +102,35 @@ export function EtiquetasDelLead({ leadId, version, compacto = false }: {
   };
 
   const puestas = new Set((suyas ?? []).map((e) => e.id));
+  // El chip y la píldora son los MISMOS en las dos formas (14/10/2026: «Antes estaba bien el
+  // diseño»): lo único que cambia al lado del nombre es cuántos chips se ven.
+  const chip = (e: EtiquetaDelLead) => (
+    <ChipEtiqueta key={e.id} e={e} ocupado={ocupada === e.id} onSacar={() => void escribir('sacar', e)} />
+  );
   const agregar = (
     // «Agregar», no «Ponerle» (sexta tanda, TAG 1: «se formal escribiendo siempre... "Agregar" y
-    // "Eliminar"»). Compacto es sólo el «＋»: el nombre del control va en el aria-label.
-    <SelectorEtiqueta value={null} accion editable placeholder={compacto ? '' : 'Etiqueta'} ariaLabel="Agregar una etiqueta"
-      excluir={puestas} disabled={suyas == null || ocupada != null} width={compacto ? 30 : 150}
+    // "Eliminar"»).
+    <SelectorEtiqueta value={null} accion editable placeholder="Etiqueta" ariaLabel="Agregar una etiqueta"
+      excluir={puestas} disabled={suyas == null || ocupada != null} width={150}
       icono={<span aria-hidden style={{ color: 'var(--dim)', fontWeight: 600 }}>＋</span>}
-      buttonStyle={compacto
-        ? { height: 26, width: 26, padding: 0, borderRadius: 999, fontSize: 12.5, justifyContent: 'center' }
-        : { height: 30, padding: '0 10px', borderRadius: 999, fontSize: 12.5 }}
+      buttonStyle={{ height: 30, padding: '0 10px', borderRadius: 999, fontSize: 12.5 }}
       onElegir={(e) => void escribir('poner', e)} />
   );
 
   if (compacto) {
     const [primera, ...resto] = suyas ?? [];
+    // `wrap`: si algún día el renglón del nombre le pone tope a este grupo, la píldora baja de
+    // renglón en vez de quedar cortada (hoy `.cl-junto` de CabeceraLead es `flex: none`).
     return (
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'nowrap', minWidth: 0 }}>
-        {primera && <ChipEtiqueta e={primera} chico ocupado={ocupada === primera.id} onSacar={() => void escribir('sacar', primera)} />}
-        {/* Las demás: el «+N» es un desplegable, y cada renglón lleva su ✕ (sacar una etiqueta del
-            lead la QUITA de un vínculo, no la borra: va la ✕ y no el tacho). */}
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', minWidth: 0 }}>
+        {primera && chip(primera)}
+        {/* Desde la SEGUNDA: el «+N» es un desplegable, y cada renglón lleva su ✕ (sacar una
+            etiqueta del lead la QUITA de un vínculo, no la borra: va la ✕ y no el tacho). Con una
+            sola etiqueta no hay «+N»: se ve ella y la píldora. */}
         {resto.length > 0 && (
           <Dropdown value="" botonLabel={`+${resto.length}`} sinFlecha search={false} width={52}
             ariaLabel={`Las otras ${resto.length} etiquetas`}
-            buttonStyle={{ height: 26, padding: '0 9px', borderRadius: 999, fontSize: 12, fontWeight: 650 }}
+            buttonStyle={{ height: 26, padding: '0 9px', borderRadius: 999, fontSize: 12.5, fontWeight: 650 }}
             options={resto.map((e) => ({
               value: String(e.id), label: e.nombre, color: e.color,
               acciones: [{ icono: <span aria-hidden style={{ fontSize: 14, lineHeight: 1 }}>×</span>, title: `Eliminar ${e.nombre}`, onClick: () => void escribir('sacar', e) }],
@@ -134,9 +146,7 @@ export function EtiquetasDelLead({ leadId, version, compacto = false }: {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
       <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6, minWidth: 0 }}>
-        {(suyas ?? []).map((e) => (
-          <ChipEtiqueta key={e.id} e={e} ocupado={ocupada === e.id} onSacar={() => void escribir('sacar', e)} />
-        ))}
+        {(suyas ?? []).map(chip)}
         {agregar}
       </div>
       {aviso && <span role="status" style={{ fontSize: 12, color: 'var(--bad)' }}>{aviso}</span>}

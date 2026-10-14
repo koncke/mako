@@ -122,7 +122,10 @@ import { Modal } from '@/app/_ui/Modal';
 import { BotonBorrar } from '@/app/_ui/BotonBorrar';
 import { NewLeadForm } from './new/NewLeadForm';
 import { BotonReuniones } from './ReunionesProximas';
-import { AccionesLoteLeads } from './AccionesLoteLeads';
+import { AccionesLoteLeads, destinosDeLote, type ManijaLote } from './AccionesLoteLeads';
+import { MenuContextual } from '@/app/_ui/MenuContextual';
+import { FUNNEL_DEL_NEGOCIO, esLote, itemsCrm, opcionesCrm, tituloCrm, type ContextoCrm, type IdOpcionCrm } from './menu-contextual-crm';
+import { useEtiquetas, type Etiqueta } from '@/app/_components/etiquetas-cliente';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -398,6 +401,20 @@ function ResumenFilas({ filas }: { filas: Array<[string, string]> }) {
     </div>
   );
 }
+
+/**
+ * Las etiquetas del submenú «Agregar etiqueta» del clic derecho de LOTE, pedidas sólo cuando ese menú se
+ * abre: colgado del tablero, `useEtiquetas` haría un GET a /api/crm/etiquetas en cada entrada al CRM para
+ * un menú que casi nunca se abre. La lista es la misma que la de la barra (`SelectorEtiqueta`): las dos
+ * leen la misma caché de la pestaña.
+ */
+function EtiquetasDelLote({ children }: { children: (etiquetas: Etiqueta[] | null, sinEtiquetas: string) => ReactNode }) {
+  const { etiquetas, error } = useEtiquetas();
+  return <>{children(etiquetas, error ? 'No se pudieron leer' : etiquetas ? 'Sin etiquetas' : 'Cargando…')}</>;
+}
+
+/** El clic derecho abierto: dónde (`x`, `y`), sobre qué, y el número de apertura (la `key` del menú). */
+type MenuAbierto = { n: number; x: number; y: number; ctx: ContextoCrm; leadId: number | null; colKey: string | null };
 
 function chipStyle(tone: Stage['tone']): CSSProperties {
   const c = CHIP[tone] || CHIP.neutral;
@@ -2276,6 +2293,178 @@ export function CrmBoard({
     soltarCol(key, delta < 0 ? i - 1 : i + 2);
   };
 
+  // ── El clic derecho del tablero (pedido de Martín, 14/10/2026) ──────────────
+  // «E implementa el click derecho en todo el CRM para diferentes acciones dependiendo donde clickee».
+  // QUÉ sale lo decide `opcionesCrm` (app/crm/menu-contextual-crm.ts, puro y con test); CÓMO se abre,
+  // la pieza de la casa (app/_ui/MenuContextual.tsx); QUÉ HACE cada opción, `elegirContextual`, que no
+  // inventa ninguna: llama a las que el tablero ya tenía. tests/crm-menu-contextual.test.ts cruza cada
+  // opción con su `case`.
+  const [menuCtx, setMenuCtx] = useState<MenuAbierto | null>(null);
+  const aperturasMenu = useRef(0);
+  const cerrarMenuCtx = useCallback(() => setMenuCtx(null), []);
+  /**
+   * El lead cuyo menú está abierto, marcado en su tarjeta o su fila (como un explorador de archivos marca lo
+   * que se clickeó con el derecho). En lote no: lo tildado ya está marcado, y marcar uno solo diría que
+   * actúa sobre uno.
+   */
+  const leadDelMenu = menuCtx && menuCtx.leadId != null && !esLote(menuCtx.ctx) ? menuCtx.leadId : null;
+  /** Las acciones de la barra de lote, pedidas desde el menú: la MISMA pregunta que sus desplegables. */
+  const manijaLote = useRef<ManijaLote>(null);
+  /** A qué funnels se puede agregar la selección: la misma cuenta que el desplegable «Funnel» de la barra. */
+  const destinosLote = destinosDeLote(funnels.map((f) => ({ id: f.id, nombre: f.nombre, esDefault: f.esDefault })), funnelActivo);
+
+  /** Qué hay debajo del clic: un lead (tarjeta o fila), una columna, o el fondo. Lo marcan `data-lead-id` y `data-colkey`. */
+  const contextoBajo = (t: Element): Omit<MenuAbierto, 'n' | 'x' | 'y'> | null => {
+    const nodoLead = t.closest<HTMLElement>('[data-lead-id]');
+    if (nodoLead) {
+      const id = Number(nodoLead.dataset.leadId);
+      const l = leads.find((x) => x.id === id);
+      if (!l) return null;
+      return {
+        leadId: id, colKey: null,
+        ctx: {
+          sobre: nodoLead.hasAttribute('data-leadcard') ? 'tarjeta' : 'fila',
+          conWhatsapp: !!l.telefonoNorm, conTelefono: !!l.phone?.trim(), conEmail: !!l.email?.trim(),
+          seleccionado: selLeads.has(id), seleccionados: elegidos.length,
+          hayEquipo: equipo.length > 0, hayOtroFunnel: destinosLote.length > 0,
+        },
+      };
+    }
+    const key = t.closest<HTMLElement>('[data-colkey]')?.dataset.colkey;
+    const c = key ? columnasKanban.find((s) => s.key === key) : undefined;
+    if (c) {
+      return {
+        leadId: null, colKey: c.key,
+        ctx: {
+          sobre: 'columna', mover: seArrastraCol(c), entrada: c.kind === 'entrada',
+          // La MISMA condición que el renglón del «⋯» (y su test, tests/crm-curso-al-ganar.test.ts).
+          curso: cursoAlGanar && terminalEstadoFor(c.key) === 'ganado' ? cursoPrendido : null,
+          borrable: colsBorrables.has(c.key),
+        },
+      };
+    }
+    // En «Pendientes» la barra de lote no se dibuja: ofrecer «Quitar la selección» ahí es limpiar algo que no se ve.
+    return { leadId: null, colKey: null, ctx: { sobre: 'fondo', seleccionados: showSinMarcar ? 0 : elegidos.length } };
+  };
+
+  /**
+   * UN `onContextMenu` en la raíz del tablero, con tres guardas antes de abrir nada:
+   *   · ⚠️ UN EVENTO DE REACT SUBE POR LOS PORTALES: la ficha del lead (`LeadEditModal`), los pop-ups y los
+   *     desplegables se dibujan en el <body>, pero en el árbol de React viven adentro de este <main>, así
+   *     que su clic derecho llega acá. Lo que ya lo atendió (`defaultPrevented`) o vive en un diálogo, un
+   *     menú o una lista, no se pisa. Y con un modal abierto (`aria-modal`) tampoco: el fondo oscuro de un
+   *     `Modal` no es el diálogo (el `role` está en la caja de adentro) y caía acá.
+   *   · Escribiendo (un campo, el nombre de una etapa que se edita en el lugar) el menú es el del navegador:
+   *     copiar, pegar, el corrector. Un link también (abrir en otra pestaña). La casilla de una tarjeta NO:
+   *     es parte de la tarjeta.
+   *   · Sin opciones, el del navegador.
+   */
+  const alClicDerecho = (e: React.MouseEvent<HTMLElement>) => {
+    const t = e.target;
+    if (e.defaultPrevented || !(t instanceof Element)) return;
+    if (t.closest('[role="dialog"], [role="menu"], [role="listbox"]') || document.querySelector('[aria-modal="true"]')) return;
+    if (t.closest('input:not([type="checkbox"]), textarea, select, [contenteditable="true"], [contenteditable=""], a[href]')) return;
+    const bajo = contextoBajo(t);
+    if (!bajo || !opcionesCrm(bajo.ctx).length) return;
+    e.preventDefault();
+    // Con el teclado (la tecla de menú, Mayús+F10) el evento llega sin punto: el menú va al borde de lo enfocado.
+    const r = t.getBoundingClientRect();
+    const conPunto = e.clientX !== 0 || e.clientY !== 0;
+    aperturasMenu.current += 1;
+    setMenuCtx({ n: aperturasMenu.current, x: conPunto ? e.clientX : r.left + 12, y: conPunto ? e.clientY : r.top + 12, ...bajo });
+  };
+
+  /** Copiar un dato del lead, con el aviso de la casa. Sin portapapeles (http, permiso negado) se dice. */
+  const copiarDato = (texto: string, listo: string) => {
+    const p = typeof navigator !== 'undefined' ? navigator.clipboard?.writeText(texto.trim()) : undefined;
+    if (!p) { mostrarAviso('No se pudo copiar', undefined, 'bad'); return; }
+    p.then(() => mostrarAviso(listo), () => mostrarAviso('No se pudo copiar', undefined, 'bad'));
+  };
+
+  /**
+   * Lo que hace cada opción: las acciones de siempre del tablero, sobre lo que había debajo del clic.
+   * `padre` = la opción de un submenú (`lote_closer`) y entonces `id` es el valor elegido (el nombre).
+   *
+   * ⚠️ «MOVER A ETAPA» ENTRA POR `handleDrop`, como soltar la tarjeta en esa columna: es el camino que sabe
+   *    que «Nutrición - Manual» pide su plazo, que las de Calendly abren la agenda, que hay señales que
+   *    ofrecerle a Meta, que un agregado mueve sólo su fila (`moverEnProducto`) y que va el «Deshacer».
+   * ⚠️ LAS DE LOTE PASAN POR LA BARRA (`manijaLote`), que hace la MISMA pregunta con el número que sus
+   *    desplegables. Una segunda lista acá sería otra pregunta, y la primera que se desincroniza.
+   */
+  const elegirContextual = (abierto: MenuAbierto, id: string, padre: string | null, etiquetas: ReadonlyArray<Etiqueta> | null) => {
+    setMenuCtx(null);
+    const l = abierto.leadId != null ? leads.find((x) => x.id === abierto.leadId) ?? null : null;
+    const c = abierto.colKey ? columnasKanban.find((s) => s.key === abierto.colKey) ?? null : null;
+    const op = (padre ?? id) as IdOpcionCrm;
+    const valor = padre ? id : '';
+    switch (op) {
+      case 'abrir': if (l) openDetail(l); return;
+      case 'mover_etapa': if (l && valor) { idASoltar.current = l.id; handleDrop(valor); } return;
+      case 'whatsapp': if (l?.telefonoNorm) window.open(waDe(l.telefonoNorm), '_blank', 'noopener,noreferrer'); return;
+      case 'copiar_telefono': if (l) copiarDato(l.phone, 'Teléfono copiado'); return;
+      case 'copiar_email': if (l) copiarDato(l.email, 'Email copiado'); return;
+      case 'seleccionar':
+      case 'quitar_seleccion': if (l) alternarSel(l.id); return;
+      // La MISMA confirmación que el tacho de la fila.
+      case 'eliminar': if (l) setBorrarUno(l); return;
+      case 'lote_etapa': if (valor) manijaLote.current?.moverDeEtapa(valor); return;
+      case 'lote_etiqueta': {
+        const e = etiquetas?.find((x) => String(x.id) === valor);
+        if (e) manijaLote.current?.etiquetar(e);
+        return;
+      }
+      case 'lote_closer': if (valor) manijaLote.current?.asignar('closer', valor); return;
+      case 'lote_setter': if (valor) manijaLote.current?.asignar('setter', valor); return;
+      case 'lote_funnel': if (valor) manijaLote.current?.agregarAFunnel(valor === FUNNEL_DEL_NEGOCIO ? null : Number(valor)); return;
+      case 'lote_limpiar': limpiarSel(); return;
+      case 'lote_eliminar': manijaLote.current?.eliminar(); return;
+      // El «＋ Nuevo lead» del carril de esa columna, por el mismo camino (`altaPendiente`).
+      case 'col_nuevo_lead': if (c) { setAltaPendiente(null); setNuevoLead({ etapa: c.key }); } return;
+      case 'col_izquierda': if (c) moverCol(c.key, -1); return;
+      case 'col_derecha': if (c) moverCol(c.key, 1); return;
+      case 'col_campanas': setCampanasAbierto(true); return;
+      case 'col_curso_prender': void cambiarCurso(true); return;
+      case 'col_curso_apagar': void cambiarCurso(false); return;
+      case 'col_renombrar': if (c) setRenombrando(c.key); return;
+      case 'col_agregar': if (c) void opEtapa({ op: 'agregar', despuesDe: c.key }); return;
+      case 'col_eliminar': if (c) void quitarColumna(c); return;
+      case 'nuevo_lead': setNuevoLead({ etapa: null }); return;
+      case 'importar': setImportar(true); return;
+      case 'exportar': setExportar(true); return;
+      case 'editar_etapas': setEtapasDe({ id: funnelActivo, nombre: nombreDeFunnel(funnelActivo) }); return;
+    }
+  };
+
+  /** El menú abierto, dibujado con lo que la pantalla sabe ahora (las etapas, el equipo, los funnels). */
+  const dibujarMenuCtx = (abierto: MenuAbierto, etiquetas: Etiqueta[] | null, sinEtiquetas?: string) => {
+    const ids = opcionesCrm(abierto.ctx);
+    const l = abierto.leadId != null ? leads.find((x) => x.id === abierto.leadId) : undefined;
+    const c = abierto.colKey ? columnasKanban.find((s) => s.key === abierto.colKey) : undefined;
+    const iProp = c ? colsPropias.indexOf(c.key) : -1;
+    const items = itemsCrm(ids, {
+      etapas: stages.map((s) => ({ key: s.key, label: s.label, color: s.dot })),
+      etapaActual: l ? effStage(l) : null,
+      equipo: equipo.map((m) => ({ nombre: m.nombre, foto: m.foto_url ?? null })),
+      etiquetas, sinEtiquetas,
+      funnels: destinosLote,
+      // Las flechas, con el dibujo del «⋯». La que no tiene a dónde ir se apaga (ver `moverCol`: en la
+      // punta derecha, `soltarCol` reescribiría el mismo orden).
+      flechas: { izquierda: iProp > pisoCol, derecha: iProp >= 0 && iProp < colsPropias.length - 1, iconoIzquierda: <FlechaIzquierdaIcon />, iconoDerecha: <FlechaDerechaIcon /> },
+    });
+    const sobre = abierto.ctx.sobre;
+    // ⚠️ NO el `ariaLabel` del «⋯» de la columna, a propósito: tests/funnel-estructura.test.ts ubica ese
+    // menú por la PRIMERA aparición de su texto en el archivo crudo (con comentarios), y esto va antes.
+    const etiqueta = sobre === 'columna' ? `Acciones de la etapa ${c?.label ?? ''}`
+      : sobre === 'fondo' ? 'Acciones del CRM'
+      : tituloCrm(abierto.ctx) ? `Acciones de ${tituloCrm(abierto.ctx)}` : `Acciones de ${l?.name ?? 'este lead'}`;
+    return (
+      <MenuContextual key={abierto.n} punto={{ x: abierto.x, y: abierto.y }} items={items}
+        titulo={tituloCrm(abierto.ctx)} etiqueta={etiqueta}
+        onCerrar={cerrarMenuCtx}
+        onElegir={(id, padre) => elegirContextual(abierto, id, padre, etiquetas)} />
+    );
+  };
+
   // Una columna del Kanban (reutilizada por cada banda).
   // ── La plata de cada columna (punto 21 del 12/10/2026) ─────────────────────────
   // Qué suma cada columna lo decide app/crm/total-columna.ts (puro, con test). Se calcula UNA
@@ -2471,7 +2660,11 @@ export function CrmBoard({
                   // opcional» (Martín, 07/10/2026). En Ganado, que es donde se ve a quién le llega, y
                   // sólo si el producto tiene clases (sin curso no hay a qué invitar).
                   ...(cursoAlGanar && terminalEstadoFor(c.key) === 'ganado'
-                    ? [{ value: 'curso', label: 'Invitar al curso al ganar', sub: cursoPrendido ? 'Prendido' : 'Apagado', icono: 'curso' as const }]
+                    // ⚠️ SIN SUBTÍTULO desde el 14/10/2026: «elimina todos los subtitulos de los botones de
+                    // los 3 puntos» (Martín). Era «Prendido»/«Apagado» debajo del rótulo; ahora el estado lo
+                    // dice el rótulo mismo, que nombra lo que va a pasar al tocarlo — los MISMOS textos que el
+                    // clic derecho (`OPCION_CRM` en app/crm/menu-contextual-crm.ts).
+                    ? [{ value: 'curso', label: cursoPrendido ? 'Dejar de invitar al curso' : 'Invitar al curso al ganar', icono: 'curso' as const }]
                     : []),
                   { value: 'renombrar', label: 'Cambiar el nombre', icono: 'renombrar' },
                   // «En lugar de "Agregar etapa después" simplemente "Agregar etapa"» (Martín,
@@ -2545,6 +2738,8 @@ export function CrmBoard({
               {hueco && <div aria-hidden style={{ flex: 'none', height: 92, borderRadius: 11, border: '2px dashed ' + bandC, background: 'var(--surface-2)' }} />}
               <div
                 data-leadcard
+                /* `data-lead-id` es de donde el clic derecho (`contextoBajo`) saca sobre QUÉ lead cayó. */
+                data-lead-id={l.id}
                 className="mk-tarjeta-lead"
                 onClick={() => openDetail(l)}
                 draggable
@@ -2559,7 +2754,7 @@ export function CrmBoard({
                   medirTarjetas();
                 }}
                 onDragEnd={limpiarArrastreTarjeta}
-                style={{ background: 'var(--surface-2)', borderTop: '1px solid var(--border)', borderRight: '1px solid var(--border)', borderBottom: '1px solid var(--border)', borderLeft: overdueManual ? '3px solid var(--bad)' : '1px solid var(--border)', borderRadius: 11, padding: '13px 14px', cursor: 'grab', transition: 'opacity .15s, transform .15s, box-shadow .15s', opacity: 1, transform: 'none', boxShadow: 'none' }}
+                style={{ background: 'var(--surface-2)', borderTop: '1px solid var(--border)', borderRight: '1px solid var(--border)', borderBottom: '1px solid var(--border)', borderLeft: overdueManual ? '3px solid var(--bad)' : '1px solid var(--border)', borderRadius: 11, padding: '13px 14px', cursor: 'grab', transition: 'opacity .15s, transform .15s, box-shadow .15s', opacity: 1, transform: 'none', boxShadow: leadDelMenu === l.id ? '0 0 0 2px var(--primary)' : 'none' }}
               >
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
                   {/* LA CASILLA. `onClick` con `stopPropagation` y no `onChange`: el click
@@ -2636,7 +2831,7 @@ export function CrmBoard({
     // ⚠️ ARRIBA, 16 Y NO 34 (punto 23 del 12/10/2026: «Sube la topbar del todo»). Con el título
     // fuera ya no hay header: la primera fila es la barra, y los 34 px de arriba eran el aire de
     // un título que no está. El esqueleto (app/crm/loading.tsx) lleva el mismo número.
-    <main className="crm-hover" style={{ flex: 1, minWidth: 0, padding: '16px 44px 60px', display: 'flex', flexDirection: 'column' }}>
+    <main className="crm-hover" style={{ flex: 1, minWidth: 0, padding: '16px 44px 60px', display: 'flex', flexDirection: 'column' }} onContextMenu={alClicDerecho}>
       <CrmToolbarStyles />
       {/* Conectar Google desde el reagendar abre el modal acá (14/10/2026, «para una integración jamás se debe salir de
           la tab»): el OAuth vuelve a /crm con `?gcal=`, y si falló se vuelve a abrir el modal diciendo qué pasó. */}
@@ -2767,6 +2962,8 @@ export function CrmBoard({
       {!showSinMarcar && elegidos.length > 0 && (
         <div style={{ position: 'sticky', top: 8, zIndex: 20, marginBottom: 10 }}>
           <AccionesLoteLeads
+            // El clic derecho sobre un tildado pide sus acciones por acá (`manijaLote`, ver `elegirContextual`).
+            ref={manijaLote}
             elegidos={elegidos.map((l) => ({ id: l.id, name: l.name, stage: effStage(l), closer: l.closer, setter: l.setter }))}
             stages={stages}
             productos={funnels.map((f) => ({ id: f.id, nombre: f.nombre, esDefault: f.esDefault }))}
@@ -2876,6 +3073,7 @@ export function CrmBoard({
             const tildado = selLeads.has(l.id);
             return (
               <div key={l.id} onClick={() => openDetail(l)}
+                data-lead-id={l.id}
                 draggable
                 onDragStart={(ev) => {
                   filaAgarrada.current = l.id;
@@ -2927,7 +3125,7 @@ export function CrmBoard({
                   // El destino se marca con un filete, no con un hueco: en una tabla, abrir
                   // un espacio del alto de una fila empuja todo lo de abajo y el ojo pierde
                   // la referencia de donde estaba soltando.
-                  boxShadow: filaDestino === l.id ? 'inset 3px 0 0 var(--primary)' : undefined,
+                  boxShadow: filaDestino === l.id || leadDelMenu === l.id ? 'inset 3px 0 0 var(--primary)' : undefined,
                   transition: 'background .12s, box-shadow .12s',
                 }}>
                 {/* Igual que en la tarjeta: el click de la FILA abre la ficha, asi que la
@@ -3100,6 +3298,13 @@ export function CrmBoard({
           onCancel={() => setBorrarUno(null)} />
       )}
       <Toast state={avisoBoard} onClose={limpiarAviso} />
+
+      {/* EL CLIC DERECHO. Va acá, al nivel del <main>, y no adentro de la tarjeta o la columna: un evento de
+          React sube por el portal, y colgado de una tarjeta, elegir una opción le haría el `onClick` a la
+          tarjeta (abrir la ficha). Las etiquetas se piden sólo si el menú es de lote (`EtiquetasDelLote`). */}
+      {menuCtx && (opcionesCrm(menuCtx.ctx).includes('lote_etiqueta')
+        ? <EtiquetasDelLote key={menuCtx.n}>{(etiquetas, sinEtiquetas) => dibujarMenuCtx(menuCtx, etiquetas, sinEtiquetas)}</EtiquetasDelLote>
+        : dibujarMenuCtx(menuCtx, null))}
 
       {/* Pop-up chico de completar movimiento (drag/worklist a etapa que pide datos) */}
       {stageMove && (() => {

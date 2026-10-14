@@ -123,6 +123,52 @@ test('la cabecera: portada y foto con las piezas de la casa, y el nombre se edit
   assert.match(CAB, /\{junto != null && <span className="cl-junto">\{junto\}<\/span>\}/);
 });
 
+// Martín, 14/10/2026: «Y la etiqueta, vuelve a como estaba antes, pero que esté ubicado donde esta
+// ahora... Antes estaba bien el diseño, yo me refería a "+2" cuando son más de 1 etiqueta
+// seleccionada, pero la primera siempre debe estar visible normalmente». El 13/10 (a98318cb) la
+// forma compacta había achicado el chip (`chico`) y dejado agregar en un «＋» suelto de 30 px; el
+// lugar (al lado del nombre) se queda, el diseño vuelve: el chip de siempre, el «+N» sólo desde la
+// segunda, con su ✕ por renglón, y la píldora «＋ Etiqueta» de 150 × 30.
+//
+// ⚠️ Verificado rompiéndolo (14/10/2026), una rotura por vez y restaurando. Con todo puesto: 10
+// pases, 0 fallos. Cada rotura, 1 FALLO y 9 pases:
+//   · devolverle `chico` al chip de la primera .......................................... 1 fallo
+//   · el «+N» con UNA sola etiqueta (`(suyas ?? []).length > 0` en vez de `resto`) ........ 1 fallo
+//   · la píldora otra vez de 30 al lado del nombre (`width={compacto ? 30 : 150}`) ....... 1 fallo
+//   · los renglones del «+N» sin su ✕ (sin `acciones`) ................................... 1 fallo
+//   · la píldora sin texto (`placeholder=""`, el «＋» suelto de antes) ..................... 1 fallo
+//   · la píldora antes del «+N» (`{agregar}` pegado a la primera) ......................... 1 fallo
+// (Las seis, vueltas a correr el 14/10/2026 con un script que rompe y restaura: 9 pases, 1 fallo
+// cada una.)
+//
+// Lo que este test NO cubre, porque vive en CabeceraLead.tsx: `.cl-junto` es `flex:none`, así que
+// el `flexWrap` del grupo no se activa nunca y, en una pantalla angosta, una etiqueta larga (el chip
+// llega a 220 px) + «+N» + la píldora de 150 pasan el ancho y `.cd-txt` (overflow:hidden) recorta
+// la píldora.
+test('las etiquetas al lado del nombre: la primera es el chip de siempre, el «+N» desde la segunda y la píldora «＋ Etiqueta»', () => {
+  const src = codigo('app/crm/lead-view/EtiquetasDelLead.tsx');
+  const iCompacto = src.indexOf('if (compacto) {');
+  const iNormal = src.indexOf('<div style={{ display: \'flex\', flexDirection: \'column\'', iCompacto);
+  assert.ok(iCompacto > 0 && iNormal > iCompacto, 'no encontré las dos formas: el test quedó viejo');
+  const compacto = src.slice(iCompacto, iNormal);
+
+  // Un solo chip y una sola píldora para las dos formas, sin nada que dependa de `compacto`.
+  assert.match(src, /const chip = \(e: EtiquetaDelLead\) => \(\s*<ChipEtiqueta key=\{e\.id\} e=\{e\} ocupado=\{ocupada === e\.id\} onSacar=\{\(\) => void escribir\('sacar', e\)\} \/>\s*\);/);
+  assert.doesNotMatch(src, /\bchico\b/, 'la primera etiqueta se ve normal, no en un chip chico');
+  assert.doesNotMatch(src, /compacto \?/, 'el chip o la píldora vuelven a cambiar al lado del nombre');
+  const agregar = src.slice(src.indexOf('const agregar = ('), src.indexOf('if (compacto) {'));
+  assert.match(agregar, /<SelectorEtiqueta value=\{null\} accion editable placeholder="Etiqueta" ariaLabel="Agregar una etiqueta"/);
+  assert.match(agregar, /width=\{150\}/);
+  assert.match(agregar, /buttonStyle=\{\{ height: 30, padding: '0 10px', borderRadius: 999, fontSize: 12\.5 \}\}/);
+
+  // Al lado del nombre: la primera, el «+N» con las DEMÁS (sólo si hay), y la píldora.
+  assert.match(compacto, /const \[primera, \.\.\.resto\] = suyas \?\? \[\];/);
+  assert.match(compacto, /\{primera && chip\(primera\)\}/);
+  assert.match(compacto, /\{resto\.length > 0 && \(\s*<Dropdown value="" botonLabel=\{`\+\$\{resto\.length\}`\}/, 'el «+N» es de las demás, y sólo aparece desde la segunda');
+  assert.match(compacto, /options=\{resto\.map\(\(e\) => \(\{[\s\S]*?acciones: \[\{ icono: <span aria-hidden[^>]*>×<\/span>, title: `Eliminar \$\{e\.nombre\}`, onClick: \(\) => void escribir\('sacar', e\) \}\]/, 'cada renglón del «+N» con su ✕');
+  assert.ok(compacto.indexOf('{agregar}') > compacto.indexOf('<Dropdown'), 'la píldora va después del «+N»');
+});
+
 test('la action de la cara: la puerta del CRM, el workspace de la sesión y el mismo saneo que Customer Success', () => {
   const src = leer('app/crm/lead-cabecera-actions.ts');
   const cod = sinComentarios(src);

@@ -33,7 +33,8 @@
 //
 // (Los casos `apagado` y `sin_grabacion` ya no existen: el primero se fue el 06/10
 // con el apagador, el segundo el 08/10, partido en `antes_del_grabador`,
-// `sin_visitas` y `no_quedo`.)
+// `sin_visitas` y `no_quedo`.) (Y el de `anidada` tampoco: el 14/10 la grabación dejó de
+// ser un pop-up y se ve en línea; el test que lo reemplaza dice por qué.)
 //
 // PROBADO ROMPIÉNDOLO OTRA VEZ (08/10/2026), con el mismo arnés. Base: 34 pases, 0
 // fallos; 17 roturas y las 17 caen. Cada una está anotada en su test.
@@ -391,11 +392,11 @@ test('las DOS puertas que escriben el vacío le pasan la visita (si no, la fecha
   assert.match(sinComentarios(leer('lib/api-mako/areas/landing.run.ts')), /textoDelVacio\(r\.vacio, r\.retencionDias, r\.visita,/);
 });
 
-test('el modal mira la FOTO antes de bajar el reproductor', () => {
+test('la grabación mira la FOTO antes de bajar el reproductor', () => {
   const src = sinComentarios(leer('app/crm/lead-view/GrabacionModal.tsx'));
   const foto = src.indexOf('if (!tieneFoto(eventos))');
   const repro = src.indexOf('await cargarReproductor()');
-  assert.ok(foto > 0, 'el modal no mira la foto');
+  assert.ok(foto > 0, 'la grabación no mira la foto');
   assert.ok(repro > 0);
   assert.ok(foto < repro, 'el reproductor se baja antes de saber si hay foto');
   assert.match(src, /fase\.k === 'sin_foto' &&/);
@@ -428,14 +429,35 @@ test('la tarjeta se calla el ÚNICO vacío que la ficha ya explica arriba', () =
   assert.match(leer('app/crm/lead-view/GrabacionCard.tsx'), /if \(replay\.vacio === 'sin_visitor'\) return null;/);
 });
 
-test('el pop-up de la grabación es una capa ANIDADA de la ficha', () => {
-  // Sin `anidada` la ficha se apaga detrás —se lee como que se cerró— y, sin
-  // registrarse en la pila, un Escape cierra la grabación Y la ficha entera.
-  const src = leer('app/crm/lead-view/GrabacionModal.tsx');
-  const i = src.indexOf('<Modal');
-  assert.notEqual(i, -1);
-  const bloque = src.slice(i, src.indexOf('>', src.indexOf('pie=', i)));
-  assert.match(bloque, /\n\s+anidada\n/);
+// ⚠️ CAMBIADO A PROPÓSITO EL 14/10/2026. Hasta ese día este test fijaba lo contrario: que la
+// grabación era un pop-up `<Modal anidada>` sobre la ficha. Martín, ese día: «No hagas un
+// desplegable de eso, que viva dentro de la sección "Grabación de su visita" en tracking».
+//
+// PROBADO ROMPIÉNDOLO (14/10/2026), base 34 · 0, una rotura por vez:
+//   `<GrabacionEnLinea …>` movido después del `</section>` .......... 33 · 1 (éste)
+//   el estado de la tarjeta como lista (`useState<string[]>`) ....... 33 · 1 (éste)
+//   `createPortal(` de vuelta en el reproductor ..................... 33 · 1 (éste)
+//   la X con un «×» en vez del ícono `cerrar` ....................... 33 · 1 (éste)
+//   la ruta de la hoja sin `player.css` ............................. 33 · 1 (el de la carga a pedido)
+test('la grabación vive EN LÍNEA en «Grabación de su visita», una a la vez, y no en un pop-up', () => {
+  const rep = sinComentarios(leer('app/crm/lead-view/GrabacionModal.tsx'));
+  assert.doesNotMatch(rep, /<Modal\b|createPortal\(|useCapaModal\(/, 'volvió el pop-up');
+  assert.match(rep, /export function GrabacionEnLinea\(/);
+
+  const card = sinComentarios(leer('app/crm/lead-view/GrabacionCard.tsx'));
+  const sec = card.indexOf('<section');
+  const fin = card.indexOf('</section>', sec);
+  const fila = card.indexOf('<Fila ', sec);
+  const repro = card.indexOf('<GrabacionEnLinea ', sec);
+  assert.ok(sec > 0 && fin > sec, 'no encontré la sección');
+  assert.ok(fila > sec && repro > fila && repro < fin, 'el reproductor no va adentro de la sección, debajo de su fila');
+  // Debajo de LA fila elegida, con su propia `key`: abrir otra es otro reproductor desde cero.
+  assert.match(card.slice(fila, fin), /\{abierta === s\.id && s\.lista && <GrabacionEnLinea key=\{s\.id\} sesion=\{s\} \/>\}/);
+  // UNA a la vez: el estado es un id, no una lista, y tocar la abierta la pliega.
+  assert.match(card, /useState<string \| null>\(null\)/);
+  assert.match(card, /setAbierta\(\(a\) => \(a === s\.id \? null : s\.id\)\)/);
+  // La X es de la casa: el ícono `cerrar` del set del menú.
+  assert.match(card, /<IconoMenu nombre="cerrar"/);
 });
 
 test('las pantallas NO importan nada del módulo con server-only', () => {
@@ -460,6 +482,9 @@ test('el reproductor se carga a pedido y desde una ruta nuestra', () => {
   // abre una vez por semana y el peso lo paga todo el mundo.
   assert.doesNotMatch(src, /^import .*rrweb/m);
   assert.match(src, /\/replay\/\$\{[^}]+\}\/player\.js/);
+  // Y su hoja, de la misma carpeta: sin ella se ve roto (14/10/2026). Lo que hace con ella lo
+  // prueban, cargándola, tests/grabacion-montaje.test.ts.
+  assert.match(src, /\/replay\/\$\{[^}]+\}\/player\.css/);
   // Y no por un CDN de un tercero: esta pantalla tiene la cookie de sesión del
   // equipo y los datos de los clientes a la vista.
   assert.doesNotMatch(src, /https?:\/\/(cdn|unpkg|jsdelivr)/);
