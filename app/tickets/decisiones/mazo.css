@@ -1,0 +1,218 @@
+/* =============================================================================
+   El mazo de decisiones (/tickets/decisiones) — nace en el teléfono
+   =============================================================================
+   Una tarjeta a la vez, con la siguiente asomando detrás. Lo que se toca vive abajo
+   (las opciones al pie de la tarjeta, ✕ y ✓ en la franja del pulgar); arriba sólo
+   el progreso y el aviso de lo que pasó. Sólo tokens de la casa.
+   El arrastre escribe `--mazo-p` (−1 a 1) en la tarjeta y `--mazo-a` (0 a 1) en la
+   pila: los sellos y la tarjeta de atrás se dibujan con eso, sin un render por píxel. */
+
+.mazo {
+  display: flex; flex-direction: column; gap: 12px;
+  width: 100%; max-width: 480px; margin: 0 auto;
+  height: clamp(540px, calc(100dvh - 190px), 860px);
+}
+/* En el teléfono (adentro de MaKo Mobile): el alto que queda debajo del encabezado. */
+[data-m] .mazo {
+  height: calc(100dvh - var(--m-header) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 40px);
+  min-height: 460px;
+}
+
+/* ── Arriba: el progreso, o lo que acaba de pasar ─────────────────────────── */
+.mazo-arriba { flex: none; min-height: 44px; display: flex; flex-direction: column; justify-content: center; gap: 6px; }
+.mazo-barra { height: 4px; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
+.mazo-barra span {
+  display: block; height: 100%; background: var(--good);
+  transform-origin: left center; transition: transform 300ms ease-out;
+}
+.mazo-cuenta { margin: 0; font-size: 14px; color: var(--dim); }
+.mazo-cuenta b { color: var(--ink); font-weight: 700; }
+
+.mazo-toast {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  min-height: 44px; padding: 0 6px 0 14px; border-radius: 12px;
+  background: var(--ink); color: var(--bg);
+  font-size: 15px; font-weight: 600;
+}
+.mazo-toast button {
+  min-height: 40px; padding: 0 12px; border: none; border-radius: 10px;
+  background: transparent; color: inherit; font: inherit; font-weight: 700; text-decoration: underline;
+  cursor: pointer; touch-action: manipulation;
+}
+.mazo-toast--error { background: var(--bad); color: #fff; }
+.mazo-toast--pista { background: var(--warn-bg); color: var(--ink); }
+
+/* ── La pila ──────────────────────────────────────────────────────────────── */
+.mazo-pila { position: relative; flex: 1; min-height: 0; }
+
+.mazo-carta {
+  --mazo-k: var(--primary);
+  position: absolute; inset: 0; z-index: 2;
+  display: flex; flex-direction: column;
+  background: var(--surface); color: var(--ink);
+  border: 1px solid var(--border); border-top: 5px solid var(--mazo-k);
+  border-radius: 24px; overflow: hidden;
+  box-shadow: 0 12px 32px color-mix(in srgb, var(--ink) 10%, transparent);
+  transform-origin: 50% 110%;
+  touch-action: pan-y;
+  user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+  will-change: transform;
+}
+.mazo-carta--bloquea { --mazo-k: var(--bad); }
+.mazo-carta--cuesta { --mazo-k: var(--warn); }
+.mazo-carta--criterio { --mazo-k: var(--primary); }
+.mazo-carta--aviso { --mazo-k: var(--faint); }
+
+/* La de atrás asoma y crece a medida que la de adelante se va. */
+.mazo-carta--atras {
+  z-index: 1; pointer-events: none;
+  transform: translateY(calc(14px * (1 - var(--mazo-a, 0)))) scale(calc(0.94 + 0.06 * var(--mazo-a, 0)));
+  transition: transform 160ms ease-out;
+  box-shadow: none;
+}
+.mazo-carta:not(.mazo-carta--atras) { transition: transform 200ms cubic-bezier(.2,.8,.3,1); }
+
+.mazo-cuerpo {
+  flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  display: flex; flex-direction: column; gap: 14px;
+  padding: 20px 18px 18px;
+}
+.mazo-cabeza { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.mazo-chat {
+  font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--dim);
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.mazo-urgencia {
+  flex: none; padding: 3px 9px; border-radius: 999px;
+  font-size: 11.5px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase;
+  color: var(--mazo-k); background: color-mix(in srgb, var(--mazo-k) 12%, var(--surface));
+}
+.mazo-carta--aviso .mazo-urgencia { color: var(--dim); }
+.mazo-pregunta {
+  margin: 0;
+  font-size: clamp(22px, 6vw, 27px); line-height: 1.25; font-weight: 700; letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+}
+
+/* ── Ver detalle ─────────────────────────────────────────────────────────── */
+.mazo-detalle { display: flex; flex-direction: column; gap: 8px; }
+.mazo-detalle-btn {
+  align-self: flex-start;
+  display: inline-flex; align-items: center; gap: 4px;
+  min-height: 40px; padding: 0; border: none; background: none;
+  font: inherit; font-size: 15px; font-weight: 600; color: var(--primary);
+  cursor: pointer; touch-action: manipulation;
+}
+.mazo-detalle-btn[aria-expanded="true"] svg { transform: rotate(180deg); }
+.mazo-detalle-cuerpo {
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 12px 14px; border-radius: 14px; background: var(--surface-2);
+  font-size: 15px; line-height: 1.45; color: var(--dim);
+  user-select: text; -webkit-user-select: text;
+}
+.mazo-detalle-cuerpo p { margin: 0; }
+.mazo-destraba { color: var(--ink); }
+.mazo-destraba b {
+  margin-right: 8px;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--good);
+}
+.mazo-link {
+  align-self: flex-start; display: inline-flex; align-items: center; min-height: 40px;
+  font-size: 15px; font-weight: 600; color: var(--primary); text-decoration: none;
+}
+
+/* ── En el medio: la respuesta (al pie de la tarjeta, cerca del pulgar) ───── */
+.mazo-opciones { margin-top: auto; display: flex; flex-direction: column; gap: 10px; }
+.mazo-opcion {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; min-height: 56px; padding: 12px 14px;
+  border-radius: 14px; border: 1.5px solid var(--border);
+  background: var(--bg); color: var(--ink);
+  font: inherit; font-size: 16.5px; font-weight: 600; line-height: 1.35; text-align: left;
+  cursor: pointer; touch-action: manipulation;
+  transition: border-color 120ms ease, background-color 120ms ease, transform 100ms ease-out;
+}
+.mazo-opcion:active { transform: scale(0.985); }
+.mazo-opcion b {
+  flex: none; width: 30px; height: 30px; border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; background: var(--surface-2); color: var(--ink);
+}
+.mazo-opcion span { flex: 1; min-width: 0; overflow-wrap: anywhere; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.mazo-opcion em {
+  font-style: normal; font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+  padding: 2px 8px; border-radius: 999px; color: var(--primary); background: var(--primary-bg);
+}
+.mazo-opcion--marcada { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 9%, var(--surface)); }
+.mazo-opcion--marcada b { background: var(--primary); color: var(--on-primary); }
+.mazo-opcion--otra { border-style: dashed; color: var(--dim); font-weight: 550; }
+.mazo-opcion--otra.mazo-opcion--marcada { color: var(--ink); border-style: solid; }
+.mazo-opcion:focus-visible, .mazo-btn:focus-visible, .mazo-detalle-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+.mazo-texto {
+  width: 100%; min-height: 96px; padding: 12px 14px; resize: vertical;
+  border-radius: 14px; border: 1.5px solid var(--border); background: var(--bg); color: var(--ink);
+  font: inherit; font-size: 16px; line-height: 1.45;
+  user-select: text; -webkit-user-select: text;
+}
+.mazo-texto:focus { outline: none; border-color: var(--primary); }
+/* Sin opciones, el campo es lo que se contesta: va al pie, cerca del pulgar, como las opciones. */
+.mazo-texto--solo { margin-top: auto; }
+
+/* ── Los sellos del arrastre ─────────────────────────────────────────────── */
+.mazo-sello {
+  position: absolute; top: 18px; z-index: 3; pointer-events: none;
+  padding: 5px 12px; border-radius: 10px; border: 3px solid currentColor;
+  background: var(--surface);
+  font-size: 20px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase;
+}
+.mazo-sello--si { left: 16px; color: var(--good); transform: rotate(-9deg); opacity: clamp(0, calc(var(--mazo-p, 0) * 1.6), 1); }
+.mazo-sello--no { right: 16px; color: var(--dim); transform: rotate(9deg); opacity: clamp(0, calc(var(--mazo-p, 0) * -1.6), 1); }
+.mazo-sello--apagado { color: var(--faint); }
+
+/* ── Abajo: la franja del pulgar ─────────────────────────────────────────── */
+.mazo-abajo { flex: none; }
+.mazo-acciones { display: grid; grid-template-columns: 1fr 1.5fr; gap: 12px; }
+.mazo-btn {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 64px; padding: 0 14px; border-radius: 20px;
+  font: inherit; font-size: 17px; font-weight: 700;
+  cursor: pointer; touch-action: manipulation; user-select: none; -webkit-user-select: none;
+  transition: transform 100ms ease-out, background-color 120ms ease;
+}
+.mazo-btn:active { transform: scale(0.97); }
+.mazo-btn--no { border: 1.5px solid var(--border); background: var(--surface); color: var(--ink); }
+.mazo-btn--si { border: none; background: var(--good); color: #fff; }
+.mazo-btn--si[aria-disabled="true"] { background: var(--surface); border: 1.5px dashed var(--border); color: var(--dim); }
+.mazo-btn span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (hover: hover) and (pointer: fine) {
+  .mazo-opcion:hover { border-color: var(--primary); }
+  .mazo-btn--no:hover { border-color: var(--dim); }
+  .mazo-btn--si:not([aria-disabled="true"]):hover { filter: brightness(1.05); }
+}
+
+/* ── Cuando no queda ninguna ─────────────────────────────────────────────── */
+.mazo-vacio {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+  padding: 24px; text-align: center;
+  border-radius: 24px; border: 1.5px dashed var(--border);
+}
+.mazo-vacio h2 { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.015em; }
+.mazo-vacio p { margin: 0; font-size: 15px; color: var(--dim); }
+.mazo-vacio .mazo-link { align-self: center; }
+.mazo-vacio-ico {
+  width: 64px; height: 64px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--good); background: var(--good-bg);
+}
+.mazo-vacio-btn {
+  min-height: 52px; padding: 0 22px; border: none; border-radius: 14px;
+  background: var(--primary); color: var(--on-primary);
+  font: inherit; font-size: 16px; font-weight: 700; cursor: pointer; touch-action: manipulation;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mazo-carta, .mazo-carta--atras, .mazo-barra span { transition: none; }
+}
+.mazo-falla { margin: 24px auto; max-width: 480px; padding: 16px; border-radius: 14px; background: var(--bad-bg); color: var(--ink); font-size: 15px; }

@@ -394,4 +394,28 @@ export const BITACORA: Hito[] = [
       'scripts/decisiones.ts — publicar / contestadas / recoger / retirar / listar',
     ],
   },
+  {
+    fecha: '14 oct', hora: '19:09', chat: 'Estrategia de ventas MaKo', cuenta: 'claude1',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Las decisiones como Tinder: deslizar para aprobar o dejar para después',
+    pedido: 'quiero que diseñes esto como si fuera "tinder" en donde hay tarjetas y yo puedo ir desplazando a la derecha o la izquierda para aprobar o ignorar. Y que en el medio cargue mi respuesta... Y claro pueda ver el detalle. Hazlo y ponlo en una nueva ruta de la Ticketera de MaKo',
+    puntos: ['Llegó por el chat «Estrategia 3 cuentas». «La Ticketera» se leyó como /tickets (la tab «Reportar problema»): no hay nada más con ese nombre en el repo.'],
+  },
+  {
+    fecha: '14 oct', hora: '19:09', chat: 'Estrategia de ventas MaKo', cuenta: 'claude1',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El mazo en /tickets/decisiones: nace en el teléfono, misma fuente que el tablero',
+    puntos: [
+      'Una tarjeta a la vez con la siguiente asomando. **Derecha manda la respuesta marcada, izquierda la deja para después** (no contesta: vuelve cuando se termina el mazo). En el medio se marca A/B/C u «Otra respuesta»; «Ver detalle» abre el porqué, qué destraba y el link. ✕ y ✓ abajo, y ← → en la compu.',
+      '⚠️ **«Derecha = la recomendada» habría dejado el gesto muerto en 37 de las 55 primeras:** no traían recomendada. Por eso la derecha manda lo MARCADO, que de entrada es la recomendada (o la única opción), y tocar una opción marca, no manda.',
+      'Contesta con la misma acción que /admin/runway, así que lo de un lado aparece contestado en el otro. En el teléfono la misma URL sirve app/m/tickets/decisiones como pantalla de trabajo (sin la barra de abajo). Sólo el super admin; para el resto, 404.',
+      '⚠️ **`Mazo.tsx` y `mazo.ts` en la misma carpeta se pisan en Windows:** importar `./Mazo` resolvía al `.ts` (que no distingue mayúsculas) y el componente llegaba `undefined`. La lógica se llama `reglas.ts`.',
+    ],
+    archivos: [
+      'app/tickets/decisiones/reglas.ts — la cola, lo marcado de entrada y cuándo cuenta un deslizamiento (con test)',
+      'app/tickets/decisiones/Mazo.tsx, mazo.css — el gesto (pointer events sobre un ref) y el dibujo',
+      'app/tickets/decisiones/page.tsx, app/m/tickets/decisiones/page.tsx — compu y teléfono, mismo mazo',
+      'lib/movil-rutas.ts, app/m/_ui/cabecera.ts, lib/titulo-tab.ts — la ruta del teléfono, pantalla de trabajo y el título de la pestaña',
+    ],
+  },
 ];
