@@ -6,6 +6,20 @@ el briefing anterior (`b5f7fb55`, 10/10 17:10) con todo verificado contra el ár
 **Rutas de esta área:** `app/crm/**`, `lib/leads.ts`, `lib/funnel*.ts`, `lib/crm*.ts`,
 `lib/lead-*.ts`, `lib/campana-*.ts`, `lib/etiquetas*.ts`, `lib/pipeline.ts`.
 
+## 0-Ω3. 14/10/2026 ~16:30 (chat «CRM», cuenta `claude1`): las dos ALTAS de b2, ARREGLADAS
+
+En `crm-bloques-b2` @ `c27eb4323` (`wtc-b2`), sin pushear y sin mergear en `crm-bloques`:
+- **Modo 'lista'** (wizard de Ganado, API `guardar_cuotas`): las cuotas protegidas se casan PRIMERO, así que
+  ya no duplican la deuda. La API y el wizard dicen lo que no se tocó (el wizard, en el historial y en `sinTocar`;
+  mostrarlo en pantalla es de B2).
+- **`ajustarPlanAction`**: mezcla el parcial con el plan de la base (`ajustarSobre`) y pide el día de pago si falta.
+  El Deshacer escribe el plan anterior tal cual (`planComoEstaba`).
+- Tests `pagos-campo` 16/0 con 8 roturas; pagos/cobros/API 197/197; tsc acotado 0. Cosecha en el
+  `docs/hallazgos-crm.md` de la rama. «Pagos» revisa el diff.
+
+**Sigue, en el orden de abajo:** las seis medias de b2, el armador de b1 y b5, revisar b1/b5, mergear b1..b5 en
+`crm-bloques` y pasárselo a Estrategia 3 cuentas.
+
 ## 0-Ω2. 14/10/2026 de madrugada (chat «CRM», cuenta `claude2`): el feedback del 14/10 03:06, EN CURSO
 
 El pedido textual está en `app/admin/dev/crm/bitacora.ts` (hito del 14/10 03:06). Más dos mensajes después:
