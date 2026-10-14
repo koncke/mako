@@ -34,12 +34,14 @@ const EXTRA: Record<string, string> = {
   '/equipo': 'Equipo',
   '/inicio': 'Inicio',
   // MaKo Mobile: los nombres de SU barra (lib/movil-rutas.ts), no los de escritorio
-  // —/m/hoy es «Today», no «General»—. Sin estas entradas, `desdeLaRuta` titulaba
+  // (desde la v3, /m/hoy es «General» como en escritorio). Sin estas entradas, `desdeLaRuta` titulaba
   // todo /m como «MaKo - M». `/m` atrapa el resto (una subpantalla sin nombre).
   ...Object.fromEntries(DESTINOS_MOVIL.map((d) => [d.href, d.label])),
   // Y las secciones de More (v2): sin ellas /m/dashboard, /m/ads… quedaban «MaKo» a secas.
   ...Object.fromEntries(SECCIONES_MAS.map((s) => [s.href, s.label])),
   '/m/cuenta': 'Perfil',
+  // La campana de General (v3: Inbox dejó la barra, pero la pantalla sigue llamándose así).
+  '/m/inbox': 'Inbox',
   '/m': 'MaKo',
 };
 const EXTRA_KEYS = Object.keys(EXTRA).sort((a, b) => b.length - a.length);

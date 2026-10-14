@@ -50,3 +50,35 @@
 /* ── Leads por decidir: la lista puede estar incompleta ─────────────────── */
 .m-hoy-nota { margin: 8px 4px 0; font-size: var(--fs-sm); line-height: 1.45; color: var(--dim); }
 
+
+/* ── General (v3): la hoja de General apilada ─────────────────────────────── */
+.m-hoy-gen { display: flex; flex-direction: column; gap: 14px; padding: 4px var(--m-gutter, 16px) 0; }
+.m-hoy-gen-tarjeta {
+  display: flex; flex-direction: column; min-width: 0;
+  padding: 16px; border-radius: 22px; background: var(--surface);
+  box-shadow: 0 1px 2px rgba(18, 21, 27, .04), 0 8px 24px rgba(18, 21, 27, .07);
+}
+/* «Fondo: Oscuro» del bloque (ElementoGeneral pone data-oscuro en .gen-pieza): la tarjeta también. */
+.m-hoy-gen-tarjeta:has(> .gen-pieza[data-oscuro]) { background: var(--sidebar); }
+/* El héroe (la Meta objetivo): la tarjeta oscura del prototipo, con las mismas variables del modo oscuro. */
+.m-hoy-gen-tarjeta[data-heroe] {
+  background: radial-gradient(120% 140% at 100% 0%, var(--sidebar-2) 0%, var(--sidebar) 60%);
+  --ink: var(--on-sidebar); --dim: var(--sidebar-text); --faint: var(--sidebar-text); --border: var(--sidebar-line);
+  --border-strong: color-mix(in srgb, var(--on-sidebar) 24%, transparent);
+  --surface-2: color-mix(in srgb, var(--on-sidebar) 8%, transparent);
+  --surface: color-mix(in srgb, var(--on-sidebar) 7%, var(--sidebar)); --gb-fondo: var(--sidebar);
+  color: var(--on-sidebar);
+}
+.m-hoy-gen-tarjeta .gen-pieza { overflow: visible; }
+.m-hoy-gen-parte { margin: 10px 4px -2px; font-size: 24px; font-weight: 800; letter-spacing: -.025em; color: var(--ink); }
+.m-hoy-gen-texto { margin: 0 4px; color: var(--ink); line-height: 1.3; font-weight: 600; letter-spacing: -.015em; text-wrap: balance; }
+.m-hoy-gen-texto[data-tam="s"] { font-size: 15px; font-weight: 500; color: var(--dim); }
+.m-hoy-gen-texto[data-tam="m"] { font-size: 17px; }
+.m-hoy-gen-texto[data-tam="l"] { font-size: 24px; font-weight: 700; }
+.m-hoy-gen-texto[data-tam="xl"] { font-size: 30px; font-weight: 800; letter-spacing: -.03em; }
+.m-hoy-gen-campana { position: relative; }
+.m-hoy-gen-campana__n {
+  position: absolute; top: 5px; left: 24px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 999px;
+  display: grid; place-items: center; background: var(--primary); color: var(--on-primary);
+  font-size: 11.5px; font-weight: 700; border: 2px solid var(--bg); font-variant-numeric: tabular-nums;
+}

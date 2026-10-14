@@ -1,5 +1,9 @@
 // =============================================================================
-// /m/hoy — «Today» (v2): lo que te espera hoy, en el orden en que se mira
+// /m/hoy — la portada: «General» (v3) para quien ve General, «Today» (v2) para el resto
+// =============================================================================
+// v3 (14/10/2026): quien ve la tab General de escritorio (la misma regla del Sidebar, `puedeVerKey`) abre
+// en SU hoja de General, apilada (./GeneralM.tsx), con el saludo como título y la campana de Inbox. El
+// closer y el setter no ven General en escritorio: siguen con la composición de abajo.
 // =============================================================================
 // docs/diseno-mako-mobile-v2.md, «Por sección → Today», y el prototipo (data-ir="today"):
 //   1. lo que BLOQUEA, como UNA tarjeta que lleva al Inbox (aquí no se aprueba: se ve allá);
@@ -29,7 +33,15 @@ import { componerHoy, type LeadsPorDecidir, type ReunionHoy } from '@/lib/hoy-mo
 import {
   ComputadoraM, ErrorM, FilaM, ListaM, PantallaM, SeccionM, TarjetaDecision, VacioM,
 } from '@/app/m/_ui';
+import { CabeceraM } from '@/app/m/_ui/CabeceraM';
+import { puedeVerKey, RUTA_INBOX } from '@/lib/movil-rutas';
+import { leerInformeGeneral } from '@/lib/graficos-tablero';
+import { informeGeneralInicial } from '@/lib/general-plantillas';
+import { contarParaDecidir } from '@/lib/inbox-movil';
+import { armarDatosGeneral, variablesDeQuienMira } from '@/app/general/datos';
+import type { ContextoMovil } from '@/lib/movil-guard';
 import { ParaHoy } from './ParaHoy';
+import { GeneralM } from './GeneralM';
 import { bloqueoDeHoy, filaTrimestre, paraHoy, TOPE_LEADS_HOY, type FilaTrimestre } from './modelo';
 import './hoy.css';
 
@@ -41,6 +53,7 @@ const NOMBRE_REUNION: Record<ReunionHoy['tipo'], string> = { J1: 'Primera llamad
 
 export default async function HoyPage() {
   const ctx = await requireMovil();
+  if (puedeVerKey('general', ctx.rol, ctx.capa)) return <GeneralPagina ctx={ctx} />;
   const hoy = await componerHoy(ctx);
   const { composicion } = hoy;
 
@@ -164,5 +177,37 @@ function Trimestre({ t }: { t: FilaTrimestre }) {
         ) : t.nota ? <span>{t.nota}</span> : null}
       </div>
     </div>
+  );
+}
+
+/**
+ * La portada de quien ve General: su hoja de General apilada, con el saludo como título y la campana
+ * de Inbox (lo que espera una decisión) como la acción del encabezado.
+ */
+async function GeneralPagina({ ctx }: { ctx: ContextoMovil }) {
+  const [lectura, datos, variables, decidir] = await Promise.all([
+    leerInformeGeneral(),
+    armarDatosGeneral(),
+    variablesDeQuienMira(),
+    contarParaDecidir({ rol: ctx.rol, capa: ctx.capa }).catch(() => null),
+  ]);
+  const tablero = lectura.tablero.hojas.length ? lectura.tablero : informeGeneralInicial();
+  const hoja = tablero.hojas[0];
+  const titulo = variables.saludo && variables.nombre ? `${variables.saludo}, ${variables.nombre}` : 'General';
+  const n = decidir?.total ?? null;
+  return (
+    <PantallaM refrescable>
+      <CabeceraM
+        titulo={titulo}
+        accion={(
+          <Link href={RUTA_INBOX} className="m-cabecera__accion m-hoy-gen-campana" aria-label={n ? `Inbox: ${n} para decidir` : 'Inbox'}>
+            <Icon name="bell" size={24} />
+            {n ? <span className="m-hoy-gen-campana__n" aria-hidden>{n > 99 ? '99+' : n}</span> : null}
+          </Link>
+        )}
+      />
+      {lectura.estado === 'error' && <ErrorM frase="No pude leer tu hoja de General." />}
+      {hoja ? <GeneralM hoja={hoja} datos={datos} variables={variables} /> : <VacioM frase="Tu hoja de General está vacía." />}
+    </PantallaM>
   );
 }
