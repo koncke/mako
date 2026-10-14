@@ -29,6 +29,8 @@ export const RUTAS_REST: readonly RutaRest[] = [
   // ── calendario (13/10/2026) ─────────────────────────────────────────────────
   ['GET', '/calendario/eventos', 'listar_eventos_calendario'],
   ['POST', '/calendario/eventos', 'crear_evento_calendario'],
+  ['GET', '/calendario/links-agenda', 'link_agenda_llamada'],
+  ['GET', '/calendario/recurrentes', 'ver_proximas_recurrentes'],
   // ── general ───────────────────────────────────────────────────────────────
   ['GET', '/general/arranque/pendientes', 'listar_pendientes_arranque'],
   ['GET', '/general/capacidad', 'ver_capacidad_instalada'],
@@ -36,6 +38,7 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/general/hojas', 'listar_hojas_general'],
   ['POST', '/general/hojas', 'crear_hoja_general'],
   ['POST', '/general/hojas/{hoja}/bloques', 'agregar_bloque_general'],
+  ['PATCH', '/general/hojas/{hoja}/bloques/{elemento}', 'configurar_bloque_general'],
   ['GET', '/general/kpis', 'listar_kpis'],
   ['POST', '/general/kpis', 'guardar_kpi'],
   ['GET', '/general/kpis/fuentes', 'listar_fuentes_kpi'],
@@ -258,8 +261,8 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/chatbot/secuencias-archivadas', 'listar_secuencias_archivadas'],
   ['DELETE', '/chatbot/secuencias/{secuenciaId}', 'archivar_secuencia'],
   ['GET', '/chatbot/secuencias/{secuenciaId}', 'ficha_secuencia_mensajes'],
+  ['GET', '/chatbot/secuencias/{secuenciaId}/escenarios', 'escenarios_secuencia'],
   ['PUT', '/chatbot/secuencias/{secuenciaId}/activacion', 'proponer_toggle_nutricion'],
-  ['PUT', '/chatbot/secuencias/{secuenciaId}/caminos/{camino}', 'cambiar_si_contesta_secuencia'],
   ['POST', '/chatbot/secuencias/{secuenciaId}/escenarios', 'agregar_escenario_secuencia'],
   ['PATCH', '/chatbot/secuencias/{secuenciaId}/estrategia', 'guardar_estrategia_secuencia'],
   ['PUT', '/chatbot/secuencias/{secuenciaId}/pasos', 'editar_pasos_secuencia_mensajes'],

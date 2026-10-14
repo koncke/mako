@@ -316,7 +316,8 @@ test('(11) sin la columna nueva, la respuesta del lead no se come: se lee ANTES 
   assert.equal(esColumnaInexistente({ message: 'fetch failed' }), false);
   const p = fn(NUTRI, 'export async function pausarPorRespuesta(');
   const lee = p.indexOf('secsActivas = await getSecuenciasActivas();');
-  assert.ok(lee > 0 && lee < p.indexOf(".update({ estado: 'respondio', proximo_envio_at: null"), 'se marca respondio antes de saber si se puede atender');
+  // (14/10/2026: el update sólo ANOTA 'respondio'; ya no le saca el próximo envío. Sigue después de leer.)
+  assert.ok(lee > 0 && lee < p.indexOf(".update({ estado: 'respondio', updated_at: ahoraISO() })"), 'se marca respondio antes de saber si se puede atender');
   assert.match(p, /if \(esColumnaInexistente\(\{ message: msg \}\)\) throw new Error\(/);
   const mig = leer('../supabase/migrations/0223_flujo_grafo.sql');
   assert.match(mig, /SE PIERDEN LAS RESPUESTAS DE LOS LEADS/, 'la cabecera de la 0223 no dice que se pierde la primera respuesta');

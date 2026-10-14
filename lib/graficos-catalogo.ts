@@ -33,7 +33,7 @@ import {
   type Area, type ClaseDim, type Dimension, type Formato, type Fuente, type Metrica,
 } from './graficos-constructores';
 import { FUENTES_EXTRA } from './graficos-fuentes-extra';
-import { esPiezaGeneral, piezaPorFunnel, type PiezaGeneral } from './general-piezas';
+import { esPiezaGeneral, piezaPorFunnel, sanearOpciones, type OpcionesElegidas, type PiezaGeneral } from './general-piezas';
 import { idDeParte, idLibre, migrarBloquesV5 } from './graficos-migrar-v5';
 
 export { AREAS };
@@ -1156,8 +1156,10 @@ export type Elemento = {
   /**
    * Bloque de General (14/10/2026): cuál (lib/general-piezas.ts). `texto` es su título; vacío = el de siempre.
    * `funnel`: el funnel al que se ata, sólo en los bloques que saben (`piezaPorFunnel`); sin él, el de siempre.
+   * `opciones`: lo elegido en el panel (cuántas, cómo se ve…), sólo lo que el bloque declara (`opcionesDePieza`) y
+   * distinto de su default.
    */
-  general?: { pieza: PiezaGeneral; funnel?: number };
+  general?: { pieza: PiezaGeneral; funnel?: number; opciones?: OpcionesElegidas };
   x: number; y: number; w: number; h: number;
 };
 
@@ -1642,7 +1644,12 @@ export function sanearElemento(raw: unknown, ctx: ContextoSaneo = {}): Elemento 
     const pieza = esObj(o.general) ? o.general.pieza : null;
     if (ctx.enPopup || !esPiezaGeneral(pieza)) return null;
     const funnel = esObj(o.general) ? Number(o.general.funnel) : NaN;
-    tipoEspecial.general = piezaPorFunnel(pieza) && Number.isInteger(funnel) && funnel > 0 ? { pieza, funnel } : { pieza };
+    const opciones = sanearOpciones(pieza, esObj(o.general) ? o.general.opciones : null);
+    tipoEspecial.general = {
+      pieza,
+      ...(piezaPorFunnel(pieza) && Number.isInteger(funnel) && funnel > 0 ? { funnel } : {}),
+      ...(opciones ? { opciones } : {}),
+    };
   }
   const grosor = [1, 2, 3, 4].includes(Number(o.grosor)) ? (Number(o.grosor) as 1 | 2 | 3 | 4) : 2;
   // Una sección va SIEMPRE a lo ancho: agrupa FILAS enteras (decisión 2 de Martín), no hay grilla anidada.

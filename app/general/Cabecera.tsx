@@ -132,7 +132,7 @@ export function Cabecera({ objetivo, foco, capacidad, progreso, fraccion, anio, 
               textAlign: 'left', cursor: 'pointer',
             }}>
               <span style={{ fontSize: 'var(--fs-sect)', fontWeight: 600, letterSpacing: '-0.015em', color: 'var(--on-sidebar)' }}>
-                {objetivo ? objetivo.titulo : 'Define el objetivo del trimestre'}
+                {objetivo ? objetivo.titulo : 'Define tu OKR del trimestre'}
               </span>
               {objetivo && (
                 <span style={{

@@ -147,7 +147,8 @@ test('el link compartido no guarda, ni edita, ni comparte, ni abre el detalle de
   // menú lo desmontaría), los dos con la guarda de guardable. «Editar» vuelve al azul.
   assert.match(EDITOR, /\{guardable && <BotonCompartir hojaId=\{hoja\.id\} titulo=\{hoja\.nombre\} abierto=\{compartir\} onCerrar=\{cerrarCompartir\} \/>\}/,
     'el modal de Compartir sin la guarda, o sin el modo controlado');
-  assert.match(EDITOR, /\{!soloMirar && \(\s*<button type="button" className="lk-pill lk-pill--azul" data-recorrido=\{editando \? 'dash-ver' : 'dash-editar'\}/,
+  // (14/10/2026: y no en blanco: «Si no tengo tabs no debería salir el botón de editar ni los 3 puntos».)
+  assert.match(EDITOR, /\{!soloMirar && !enBlanco && \(\s*<button type="button" className="lk-pill lk-pill--azul" data-recorrido=\{editando \? 'dash-ver' : 'dash-editar'\}/,
     '«Editar» no es el azul (punto 3)');
   const mas = bloque(EDITOR, "{menu?.tipo === 'mas' && (", '</Flotante>');
   // 14/10/2026: en la tab General (el mismo editor con otro informe) no se comparte: Compartir habla del informe del Dashboard.

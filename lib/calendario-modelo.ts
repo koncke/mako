@@ -8,27 +8,31 @@
 // "OBJETIVOS", el Q, el PLAN... que sea simple de usar, que sirva para todos los casos, que tenga IA que te ayude o
 // "templates" y que no sea restrictivo».
 //
-// UNA PANTALLA, CINCO CAPAS (`CAPAS_CALENDARIO`), cada una con su color y su interruptor:
+// UNA PANTALLA, SIETE CAPAS (`CAPAS_CALENDARIO`), cada una con su color y su interruptor:
 //   · Publicaciones — lo que la persona planea publicar (Story, Reel, Post, Anuncio, Email, Video). Propio.
 //   · Llamadas      — las reuniones del CRM (R1/R2 con su hora, de Calendly/Cal.com), la agenda de Google y las
 //                     llamadas sueltas que se agendan acá.
 //   · Bloques       — bloques de trabajo («Escribir guiones», «Grabar») y lo demás que se agenda acá.
 //   · Plan          — los deadlines de las tareas y los proyectos del tablero.
+//   · Se repite     — las PRÓXIMAS veces de las tareas que se repiten (14/10/2026), según su ritmo: se dibujan, no se
+//                     crean filas (la instancia la sigue creando el generador el día que toca, y se ve en «Plan»).
+//   · Cobros        — las cuotas sin cobrar que vencen (14/10/2026), de las fichas del CRM.
 //   · Objetivos     — dónde empieza y termina el Quarter, y los objetivos que cierran con él.
 //
 // ⚠️ SÓLO LO PROPIO SE GUARDA ACÁ (`calendario_eventos`, mig 0271). El CRM, Google, el Plan y el Q se LEEN de donde
 //    viven (lib/calendario.ts): una copia sería la segunda verdad, y la que se queda vieja.
 // ⚠️ UNA HORA DE PARED NO ES UN INSTANTE. Lo que la persona escribe («el martes a las 10») se convierte con la zona
 //    del NEGOCIO y en DOS pasadas (`instanteDe`, lib/cron-aviso.ts), por el salto de horario de verano.
-// ⚠️ LA AGENDA NO PASA POR LA IA (decisión de Martín del 07/10/2026). La IA de «¿Qué vas a crear hoy?» ve el pedido
-//    y las fechas de la semana; nunca un evento de Google ni una reunión del CRM. Lo que propone vuelve a la persona,
-//    que lo mira y lo confirma: un canal propone, una persona confirma.
+// ⚠️ LA AGENDA NO PASA POR LA IA (decisión de Martín del 07/10/2026). El Calendario no tiene IA propia: «¿Qué vas a
+//    crear hoy?» (el armado de la semana con IA) se sacó el 14/10/2026 («eliminalo completamente»). Lo que un agente
+//    agenda entra por la API de MaKo (área `calendario`), que tampoco lee la agenda.
 //
 // Puro, sin `server-only`: lo importan la pantalla, el server, la ruta de la IA y el test.
 // =============================================================================
 
 import { instanteDe } from './cron-aviso';
 import { hoyEnTz } from './date-utils';
+import { ocurrenciasEntre } from './plan-recurrentes-fechas';
 import type { EventoGoogle } from './calendario-google-modelo';
 
 export const TIPOS_EVENTO = ['publicacion', 'bloque', 'llamada', 'otro'] as const;
@@ -48,6 +52,10 @@ export const CAPAS_CALENDARIO = [
   { id: 'llamadas', nombre: 'Llamadas', color: 'var(--primary)' },
   { id: 'bloques', nombre: 'Bloques', color: 'var(--good)' },
   { id: 'plan', nombre: 'Plan', color: 'var(--warn-fill)' },
+  // 14/10/2026 (Martín: «ver las tareas recurrentes allí»): las próximas veces de lo que se repite, sin crear filas.
+  { id: 'recurrentes', nombre: 'Se repite', color: 'var(--warn-fill)' },
+  // 14/10/2026: las cuotas sin cobrar que vencen, de las fichas del CRM (`pagos`). Lleva a la ficha del lead.
+  { id: 'cobros', nombre: 'Cobros', color: 'var(--good)' },
   { id: 'objetivos', nombre: 'Objetivos', color: 'var(--ink)' },
 ] as const;
 export type CapaCalendario = (typeof CAPAS_CALENDARIO)[number]['id'];
@@ -57,7 +65,7 @@ export const colorDeCapa = (c: CapaCalendario): string => CAPAS_CALENDARIO.find(
 export const capaDeTipo = (t: TipoEvento): CapaCalendario => (t === 'publicacion' ? 'publicaciones' : t === 'llamada' ? 'llamadas' : 'bloques');
 
 /** De dónde salió un renglón del calendario. Sólo `propio` se edita desde acá. */
-export type FuenteCalendario = 'propio' | 'crm' | 'google' | 'plan' | 'objetivo';
+export type FuenteCalendario = 'propio' | 'crm' | 'google' | 'plan' | 'objetivo' | 'cobro';
 
 /** Un renglón del calendario, venga de donde venga. */
 export type ItemCalendario = {
@@ -446,7 +454,7 @@ export type EventoDePlantilla = { dia: number; hora: string | null; duracionMin:
 export type PlantillaCalendario = { id: string; emoji: string; nombre: string; linea: string; eventos: readonly EventoDePlantilla[] };
 
 /**
- * La galería de «Nueva semana». Genéricas a propósito (un ejemplo de UI es ficticio por regla): lo que planea un
+ * La galería de «Crear › Plantilla de semana» (app/calendario/PlantillasSemana.tsx). Genéricas a propósito (un ejemplo de UI es ficticio por regla): lo que planea un
  * negocio cualquiera. Se aplican sobre la semana que se está mirando, y los eventos nacen como propios y editables.
  */
 export const PLANTILLAS_CALENDARIO: readonly PlantillaCalendario[] = [
@@ -497,9 +505,6 @@ export const PLANTILLAS_CALENDARIO: readonly PlantillaCalendario[] = [
   },
 ];
 
-/** «Evento en blanco»: la primera tarjeta, SIEMPRE. */
-export const EVENTO_EN_BLANCO = { nombre: 'Evento en blanco', linea: 'Lo armas tú.' } as const;
-
 /** Los eventos de una plantilla sobre la semana del `lunes`. */
 export function entradasDePlantilla(p: PlantillaCalendario, lunes: string): EntradaEvento[] {
   return p.eventos.map((e) => ({
@@ -515,36 +520,57 @@ export function filtrarPlantillasCalendario(lista: readonly PlantillaCalendario[
 
 const sinAcentos = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 
-// ── Lo que propone la IA ──────────────────────────────────────────────────────────────────────
+// ── Lo que se repite (14/10/2026) ─────────────────────────────────────────────────────────────
+
+/** Cuántas veces de UNA serie se dibujan como mucho en una lectura (un «todos los días» en la Agenda son 30). */
+export const TOPE_OCURRENCIAS = 62;
 
 /**
- * La respuesta de la IA, revalidada: cada evento con un tipo y un formato que existen, un día de la semana pedida y
- * una hora válida. Lo que no se puede leer se SACA con un aviso; nunca se inventa una fecha. Sin un solo evento
- * válido es un error (se reintenta).
+ * Las PRÓXIMAS veces de una tarea que se repite dentro de [desde, hasta) (`hasta` exclusivo, como toda lectura del
+ * Calendario). Martín, 14/10/2026: «ver las tareas recurrentes allí». Se dibujan, no se crean filas.
+ *
+ *   · LA CUENTA ES LA DEL GENERADOR (`ocurrenciasEntre`, lib/plan-recurrentes-fechas.ts, con el MISMO ancla): la serie
+ *     cuelga de `recurrente_desde` y el día del ancla no cuenta (el generador arranca su cursor ahí, exclusivo). Sin
+ *     ancla, como el generador: hoy.
+ *   · SÓLO DE HOY EN ADELANTE. Lo pasado es lo que pasó: la instancia que nació ese día, con su deadline, en «Plan».
+ *     Dibujar el ritmo hacia atrás afirmaría tareas que nunca existieron (el generador saltea las perdidas).
+ *   · SIN EL DÍA QUE YA TIENE SU INSTANCIA (`conInstancia`): ésa se ve como deadline en «Plan», y dos renglones para el
+ *     mismo día se leen como dos tareas.
  */
-export function deIACalendario(obj: unknown, dias: readonly string[], tz: string): { entradas: EntradaEvento[]; avisos: string[]; errores: string[] } {
-  const r = obj && typeof obj === 'object' ? (obj as Record<string, unknown>) : {};
-  const crudos = Array.isArray(r.eventos) ? r.eventos.slice(0, MAX_LOTE) : [];
-  const entradas: EntradaEvento[] = [];
-  let malos = 0;
-  for (const c of crudos) {
-    const e = c && typeof c === 'object' ? (c as Record<string, unknown>) : {};
-    const fecha = typeof e.fecha === 'string' && dias.includes(e.fecha) ? e.fecha : null;
-    // Una hora que vino y no se lee no es «todo el día»: es un evento que no se puede agendar como lo pidieron.
-    const horaRota = e.hora != null && e.hora !== '' && !(typeof e.hora === 'string' && RE_HORA.test(e.hora));
-    if (horaRota) { malos++; continue; }
-    const entrada: EntradaEvento = {
-      titulo: typeof e.titulo === 'string' ? e.titulo.slice(0, TOPE_TITULO) : '',
-      tipo: esTipoEvento(e.tipo) ? e.tipo : 'bloque',
-      formato: esFormato(e.formato) ? e.formato : null,
-      fecha: fecha ?? '',
-      hora: typeof e.hora === 'string' && RE_HORA.test(e.hora) ? e.hora : null,
-      duracionMin: typeof e.duracionMin === 'number' && e.duracionMin > 0 && e.duracionMin <= MAX_DURACION_MIN ? Math.round(e.duracionMin) : null,
-    };
-    if (!fecha || !filaDeEntrada(entrada, tz).ok) { malos++; continue; }
-    entradas.push(entrada);
-  }
-  const avisos = malos ? [`Saqué ${malos === 1 ? 'un evento que no se podía agendar' : `${malos} eventos que no se podían agendar`}`] : [];
-  const errores = entradas.length ? [] : [`"eventos" tiene que traer al menos uno con "fecha" en: ${dias.join(', ')}`];
-  return { entradas, avisos, errores };
+export function proximasVeces(p: {
+  rrule: unknown;
+  /** `recurrente_desde` de la plantilla ('YYYY-MM-DD'), o null. */
+  ancla: string | null;
+  desde: string;
+  hasta: string;
+  /** Hoy, en la zona del negocio. */
+  hoy: string;
+  /** Los días que ya tienen una instancia creada (su deadline). */
+  conInstancia: ReadonlySet<string>;
+  max?: number;
+}): string[] {
+  const ancla = p.ancla && RE_FECHA.test(p.ancla) ? p.ancla : p.hoy;
+  const primero = p.desde > p.hoy ? p.desde : p.hoy;
+  const ultimo = sumarDias(p.hasta, -1);
+  if (ultimo < primero) return [];
+  const antes = sumarDias(primero, -1);
+  const cursor = antes > ancla ? antes : ancla;   // exclusivo
+  return ocurrenciasEntre(p.rrule, cursor, ultimo, ancla, p.max ?? TOPE_OCURRENCIAS).filter((f) => !p.conInstancia.has(f));
+}
+
+// ── Los cobros (14/10/2026) ───────────────────────────────────────────────────────────────────
+
+/** Una cuota sin cobrar, como la lee el Calendario de `pagos`. `numero` 0 es el pago inicial. */
+export type CuotaCalendario = { id: number; leadId: number; numero: number; montoUsd: number; vence: string };
+
+/** «US$1,500»: el monto de una cuota, en dólares (es lo que guarda `monto_usd`). */
+export const usdCorto = (n: number): string => `US$${Math.round(n).toLocaleString('en-US')}`;
+
+/** El renglón de una cuota que vence: a quién cobrarle, cuál y cuánto. Lleva a la ficha del lead. */
+export function itemDeCuota(c: CuotaCalendario, nombre: string | null, inicio: string): ItemCalendario {
+  const quien = (nombre ?? '').trim() || `Lead #${c.leadId}`;
+  return {
+    id: `cobro:${c.id}`, fuente: 'cobro', capa: 'cobros', titulo: `Cobrar a ${quien}`, inicio, fin: null, diaCompleto: true,
+    href: `/crm/${c.leadId}`, detalle: `${c.numero === 0 ? 'Pago inicial' : `Cuota ${c.numero}`} · ${usdCorto(c.montoUsd)}`,
+  };
 }

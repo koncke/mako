@@ -11,7 +11,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { getSesionAdmin } from '@/lib/auth';
 import { adminDeWorkspaceActual, runWithWorkspace } from '@/lib/workspace';
 import { conWs } from '@/lib/ws-tab';
-import { leerEstadoGcal, puedeEscribirAgenda } from '@/lib/gcal-estado';
+import { destinoGcal, leerEstadoGcal, puedeEscribirAgenda } from '@/lib/gcal-estado';
 import { emailDelCalendario, guardarRefreshTokenGoogle, googleRedirectUri } from '@/lib/google-calendar';
 
 export const dynamic = 'force-dynamic';
@@ -22,12 +22,17 @@ export async function GET(req: NextRequest) {
   // La cookie se limpia en TODOS los caminos, no solo en el feliz: ahora lleva
   // el workspace destino adentro, y dejarla colgada 10 minutos es dejar un
   // destino de escritura viejo en el navegador.
+  //
+  // Y vuelve a la pantalla DE LA QUE SALIÓ (cookie `gcal_volver`, 14/10/2026): conectar Google desde el Calendario
+  // vuelve al Calendario, no a /integraciones. `destinoGcal` la vuelve a sanear (la cookie la escribió el paso 1, pero
+  // es lo único de este flujo que el navegador podría haber tocado).
+  const volver = req.cookies.get('gcal_volver')?.value ?? null;
   const salir = (motivo: string, ws?: number | null) => {
-    const destino = new URL('/integraciones', url.origin);
-    destino.searchParams.set('gcal', motivo);
-    const href = ws ? conWs(`${destino.pathname}${destino.search}`, ws) : `${destino.pathname}${destino.search}`;
+    const destino = destinoGcal(volver, motivo);
+    const href = ws ? conWs(destino, ws) : destino;
     const res = NextResponse.redirect(new URL(href, url.origin));
     res.cookies.set({ name: 'gcal_state', value: '', maxAge: 0, path: '/' });
+    res.cookies.set({ name: 'gcal_volver', value: '', maxAge: 0, path: '/' });
     return res;
   };
 

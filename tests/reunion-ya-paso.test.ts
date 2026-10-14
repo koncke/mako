@@ -57,8 +57,9 @@ test('el motor pregunta por la reunión también cuando el paso NO está anclado
   assert.match(
     MOTOR,
     // Undécima tanda (M2): «prepara una reunión» mira la automatización entera (`preparaReunion(sec)`).
-    // Bug 5 (13/10/2026): la pregunta es `laReunionYaPaso` (una fecha sin hora vale hasta que termina su día).
-    /if \(anclada \|\| preparaReunion\(sec\)\) \{\s*if \(laReunionYaPaso\(lead, \{ anclada \}\)\)/,
+    // Desde el 14/10/2026 SÓLO el paso anclado: el resto lo dice la condición visible «Su reunión sigue en pie»
+    // (docs/diseno-mako-nada-por-detras.md §2.3) y el reintento la vuelve a pasar (tests/motor-reintento-condicion).
+    /if \(anclada\) \{\s*if \(laReunionYaPaso\(lead, \{ anclada: true \}\)\)/,
     'procesarEnvios volvió a mirar solo `paso.ancla`: la post-agenda vuelve a mandar tarde',
   );
   assert.match(MOTOR, /const anclada = paso\.ancla === 'reunion' \|\| minAntes != null;/);
@@ -76,7 +77,8 @@ test('y cerrar por reunión pasada NO deja la inscripción para mañana', () => 
   // pasó a mirar otra función y falló sobre un motor sano.
   // Undécima tanda: la condición es `preparaReunion(sec)` (M2) y el bloque que le sigue es el del carril del
   // recordatorio (`let carril: {`), que reemplazó al re-anclado.
-  const ini = MOTOR.indexOf('if (anclada || preparaReunion(sec))');
+  // Desde el 14/10/2026 el bloque es SÓLO el del paso anclado (`if (anclada) {`).
+  const ini = MOTOR.indexOf('if (anclada) {\n        if (laReunionYaPaso(lead, { anclada: true }))');
   const fin = MOTOR.indexOf('let carril: {', ini);
   assert.ok(ini >= 0 && fin > ini, 'no encontré el bloque de «la reunión ya pasó» en procesarEnvios');
   const trozo = MOTOR.slice(ini, fin);

@@ -169,8 +169,8 @@ test('soloVer decide sin escribir: es lo que llama el preparar() del registro', 
 
 test('lo que el motor vuelve a mirar al mandar se pregunta con SUS funciones, y se escribe como el evento', () => {
   assert.match(FN, /await aTiempo\(supabase, /, 'el tope de antigüedad, con la misma puerta del motor');
-  // Con la MISMA función que procesarEnvios (`laReunionYaPaso`, bug 5 del 13/10/2026).
-  assert.match(FN, /laReunionYaPaso\(lead, \{ anclada: entraAnclada \}\)/, 'la reunión, como la mira procesarEnvios');
+  // Con la MISMA función que procesarEnvios (`laReunionYaPaso`), y desde el 14/10/2026 sólo si entra por un paso anclado.
+  assert.match(FN, /const sinReunion = entraAnclada && laReunionYaPaso\(lead, \{ anclada: true \}\);/, 'la reunión, como la mira procesarEnvios');
   assert.match(FN, /await residuoVigente\(supabase, \[leadId\]\)/, 'el residuo, como lo mira procesarEnvios');
   assert.match(FN, /FAMILIA_POST_AGENDA\.includes\(s\.trigger_tipo\)/, 'la otra mitad de la post-agenda');
   // El alta: la misma fila que enrolarPorEvento, con la reunión sólo en la familia que prepara una.

@@ -51,7 +51,7 @@ import {
   type PasoGrafo, type NombresParaTexto, type HechosLead,
   claseDe, idDe, indicePorId, nodoPorId, normalizar, puertosDe, raicesSalida, raizRespuesta,
   textoEspera, textoRama, TOPE_HILOS, RESULTADO_SI_NO, paralelosDeResultado, elegirSalida, expandirPasoIA,
-  extrasDeCaso, sigueSiContesta,
+  extrasDeCaso,
 } from './flujo-grafo';
 
 /**
@@ -121,9 +121,9 @@ export type EstadoSim = {
   /** Una respuesta del lead pausó la salida: ya no corre (salvo un «Ir a» desde «Si responde»). */
   salidaPausada: boolean;
   /**
-   * Los hilos de la salida que SIGUEN cuando el lead contesta (la opción de su camino en el CRON, 14/10/2026, la
-   * misma `sigueSiContesta` del motor). Esperan a que termine la respuesta y ahí vuelven a correr; sin «Si
-   * responde», vuelven enseguida. En el motor corren a la vez: la prueba va de a un evento.
+   * Los hilos de la salida que corrían cuando el lead contestó. Que conteste no corta nada (14/10/2026: lo dice la
+   * condición «No contestó desde que entró», como en el motor). Esperan a que termine la respuesta y ahí vuelven a
+   * correr; sin «Si responde», vuelven enseguida. En el motor corren a la vez: la prueba va de a un evento.
    */
   salidaQueSigue?: HiloSim[];
   terminado: boolean;
@@ -255,6 +255,8 @@ export function hechosDeLeadNuevo(c: LeadNuevoPrueba = {}): HechosLead {
     pago: false,
     yaContactado: !!c.yaContactado,
     respondio: !!c.respondio,
+    // En «Probar», el lead contestó desde que entró si quien prueba escribió algo (la condición `contesto`).
+    contestoEnEsta: !!c.respondio,
     creadoMs: ahoraMs,
     tieneTelefono: c.tieneTelefono !== false,
     tieneEmail: c.tieneEmail !== false,
@@ -498,7 +500,7 @@ function correrHilo<P extends PasoGrafo>(pasos: readonly P[], estado: EstadoSim,
         // Desde «Si responde», un salto a una tarjeta RETOMA la salida ahí en UN hilo (el motor
         // hace lo mismo y descarta los congelados: retomar todo junto le mandaría varios mensajes
         // seguidos a alguien que acaba de escribir).
-        return { evento, estado: { ...base, saltos, hilos: [{ cursor: d.nodo, reloj: h.reloj }], rama: 'salida', salidaPausada: false } };
+        return { evento, estado: { ...base, saltos, hilos: [{ cursor: d.nodo, reloj: h.reloj }], rama: 'salida', salidaPausada: false, salidaQueSigue: undefined } };
       }
       const hilos = st.hilos.slice();
       hilos[k] = { cursor: d.nodo, reloj: h.reloj };
@@ -555,24 +557,92 @@ export function elegir(estado: EstadoSim, puerto: string): EstadoSim {
   return { ...estado, eligiendo: null, hilos: seguir(estado.hilos, e.hilo, o.destino, paralelos, h.reloj) };
 }
 
+// ── LOS ESCENARIOS DE «PROBAR» (14/10/2026) ─────────────────────────────────────────────────────────
+// Martín: «En "Probar" para las automatizaciones que tengas varios casos, varias condiciones, ese chat de "probar"
+// debería al lado tener la sidebar de diferentes contactos de WhatsApp o de IG... y justamente que ahí caigan los
+// diferentes escenarios para la prueba. Y si puedo por WhatsApp, debo elegir un escenario». Un ESCENARIO es un camino
+// por las condiciones de la salida: qué resultado sale en cada una. Se arman recorriendo el MISMO simulador que la
+// prueba (`siguiente` + `elegir`), así que salen sólo los caminos que la prueba puede recorrer de verdad.
+
+/** Un camino por las condiciones: el resultado (`puerto`) de cada una, y cómo se dice. */
+export type EscenarioPrueba = {
+  /** Estable: las elecciones en orden ("c1=si|c2=__si_no"). */
+  id: string;
+  elecciones: Readonly<Record<string, string>>;
+  /** Lo elegido en cada condición, en el orden en que se pasó. Un «Si no» dice de qué. */
+  pasos: readonly string[];
+  /** Cuántos mensajes le llegan por este camino (los que `cuenta` cuenta: los del canal que se prueba). */
+  mensajes: number;
+};
+
+/** Hasta cuántos escenarios se arman (la barra se lee de un vistazo; lo que sobra se dice). */
+export const TOPE_ESCENARIOS = 8;
+
+/** Cómo se dice un resultado: el texto de su rama; el «Si no», contra la primera rama. */
+function textoDeEleccion(o: OpcionRama, opciones: readonly OpcionRama[]): string {
+  if (o.puerto !== RESULTADO_SI_NO) return o.texto;
+  const otra = opciones.find((x) => x.puerto !== RESULTADO_SI_NO);
+  return otra ? `No: ${otra.texto}` : 'Si no';
+}
+
 /**
- * El lead escribió: se CORTAN los hilos de la salida cuyo camino dice «se corta», como en el motor
- * (`pausarPorRespuesta` + `alResponder`), y los que dicen «sigue» quedan en `salidaQueSigue` (con `pasos`; sin
- * ellos, la salida se pausa entera, como antes del 14/10). Si estaba corriendo «Si responde», esa respuesta se
- * corta: el turno nuevo la reemplaza. `pausoLaSalida` = se cortó algo; `siguen` = cuántos hilos siguen.
+ * LOS ESCENARIOS de un flujo: cada camino distinto por sus condiciones, hasta `TOPE_ESCENARIOS`. Con `hechos` (el
+ * lead recién llegado de la prueba), en cada condición se recorre PRIMERO lo que elegiría el motor (`elegirSalida`):
+ * el primer escenario es el de siempre. Sin condiciones, uno solo (vacío). `faltan`: cuántos quedaron afuera del tope.
  */
-export function pausarPorRespuesta(estado: EstadoSim, pasosIn?: readonly PasoGrafo[]): { estado: EstadoSim; pausoLaSalida: boolean; siguen: number } {
+export function escenariosDePrueba(
+  pasosIn: readonly PasoGrafo[],
+  o: { hechos?: HechosLead; nombres?: NombresSim; cuenta?: (p: PasoGrafo) => boolean } = {},
+): { escenarios: EscenarioPrueba[]; faltan: number } {
+  const pasos = recorrido(pasosIn);
+  const out: EscenarioPrueba[] = [];
+  let faltan = 0;
+  const cerrar = (elecciones: Record<string, string>, dichos: string[], mensajes: number) => {
+    if (out.length >= TOPE_ESCENARIOS) { faltan += 1; return; }
+    const id = Object.entries(elecciones).map(([n, p]) => `${n}=${p}`).join('|');
+    if (!out.some((e) => e.id === id)) out.push({ id, elecciones, pasos: dichos, mensajes });
+  };
+  const visitar = (inicio: EstadoSim, elecciones: Record<string, string>, dichos: string[], mensajes: number): void => {
+    let st = inicio;
+    let n = mensajes;
+    for (let vuelta = 0; vuelta <= TOPE_EVENTOS; vuelta++) {
+      const e = st.eligiendo;
+      if (e) {
+        const p = nodoPorId(pasos, e.nodo);
+        const deFabrica = p && o.hechos ? elegirSalida(p, o.hechos).puerto : null;
+        const orden = [...e.opciones].sort((a, b) => Number(b.puerto === deFabrica) - Number(a.puerto === deFabrica));
+        for (const op of orden) {
+          if (out.length >= TOPE_ESCENARIOS) { faltan += 1; continue; }
+          visitar(elegir(st, op.puerto), { ...elecciones, [e.nodo]: op.puerto }, [...dichos, textoDeEleccion(op, e.opciones)], n);
+        }
+        return;
+      }
+      const r = siguiente(pasosIn, st, o.nombres);
+      if (!r.evento || r.evento.t === 'fin') break;
+      if (r.evento.t === 'mensaje' && (!o.cuenta || o.cuenta(r.evento.paso))) n += 1;
+      st = r.estado;
+    }
+    cerrar(elecciones, dichos, n);
+  };
+  visitar(iniciar(pasosIn), {}, [], 0);
+  return { escenarios: out, faltan };
+}
+
+/**
+ * El lead escribió. Como en el motor (14/10/2026), eso NO corta nada: los hilos de la salida que corrían quedan en
+ * `salidaQueSigue` y vuelven cuando termine la respuesta; los corta, si está, la condición «No contestó desde que
+ * entró» (`contesto`), que «Probar» decide con `contestoEnEsta` (`hechosDeLeadNuevo`). Si estaba corriendo «Si
+ * responde», esa respuesta se corta: el turno nuevo la reemplaza. `siguen` = cuántos hilos de la salida esperan.
+ */
+export function pausarPorRespuesta(estado: EstadoSim): { estado: EstadoSim; siguen: number } {
   const corria = estado.rama === 'salida' && !estado.salidaPausada && !estado.terminado && estado.hilos.length > 0;
-  const pasos = pasosIn ? recorrido(pasosIn) : null;
-  const siguenAhora = corria && pasos ? estado.hilos.filter((h) => sigueSiContesta(pasos, indicePorId(pasos, h.cursor))) : [];
-  const salidaQueSigue = corria ? siguenAhora : (estado.salidaQueSigue ?? []);
+  const salidaQueSigue = corria ? estado.hilos : (estado.salidaQueSigue ?? []);
   return {
     estado: {
       ...estado, salidaPausada: estado.salidaPausada || estado.rama === 'salida', eligiendo: null,
       ...(estado.rama === 'respuesta' ? { terminado: true, hilos: [] } : {}),
       salidaQueSigue: salidaQueSigue.length ? salidaQueSigue : undefined,
     },
-    pausoLaSalida: corria && siguenAhora.length < estado.hilos.length,
     siguen: salidaQueSigue.length,
   };
 }
@@ -601,7 +671,7 @@ export function entrarEnRespuesta(
   const pasos = recorrido(pasosIn);
   const r = nodoPorId(pasos, raizRespuesta(pasos));
   if (!r) {
-    // Sin «Si responde» MaKo no contesta, pero lo que SIGUE cuando el lead contesta vuelve a correr.
+    // Sin «Si responde» MaKo no contesta, y la salida que corría vuelve a correr.
     if (estado.salidaQueSigue?.length) return { estado: reanudarSalida(estado), sinRespuesta: true, caso: null };
     return { estado: { ...estado, terminado: true, hilos: [], eligiendo: null }, sinRespuesta: true, caso: null };
   }

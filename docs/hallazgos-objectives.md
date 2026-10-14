@@ -601,22 +601,79 @@ de docs/hallazgos-graficos.md, «La pantalla en blanco es "¿Qué vas a crear ho
 - El modal «Personalizar vista» que Martín vio al apretar Editar era la versión de las VISTAS: la captura es de antes del
   deploy de 46958506.
 
-**Vive en:** `app/general/page.tsx` · `app/general/piezas.tsx` · `app/dashboard/ElementoGeneral.tsx` ·
+**Vive en:** `app/general/page.tsx` · `app/general/datos.ts` (era `piezas.tsx`) · `app/dashboard/ElementoGeneral.tsx` ·
 `app/dashboard/EditorInforme.tsx` · `app/dashboard/Elemento.tsx` · `lib/general-piezas.ts` · `lib/general-plantillas.ts` ·
 `lib/general-alcance.ts` · `lib/graficos-tablero.ts` · `lib/graficos-catalogo.ts` · `lib/graficos-analisis-server.ts` ·
 `lib/api-mako/areas/general.run.ts` · `lib/api-mako/areas/dashboard.helpers.ts` · `tests/general-editor.test.ts`.
 *14/10/2026, claude2 (56efcbaa).*
 
+**Tercera vuelta, el mismo día (con dos capturas de General editándose).** Martín: «Diseña nuevamente todos los "Bloque
+general", la mayoría son solamente texto... Si no hay datos aún, se debería ver el placeholder siempre», «Todos los
+desplegables de edición de un bloque y en general la edición del bloque hazlo mejor», «Tenemos un diseño de tarjetas para
+las tareas y proyectos del plan e hiciste cualquier cosa», «Hay bloques que en la configuración se deben definir allí mismo
+ciertas cosas... Como el objetivo del trimestre, que me gustaría que se llamen (OKRs)» y «Pon muchos menos gráficos
+disponibles en General». Lo que no se ve en el código y gobierna lo que venga:
+
+- **Un bloque que viaja YA DIBUJADO no puede tener opciones.** La primera versión mandaba cada bloque como JSX armado en el
+  server (`armarPiezas`), y por eso el panel sólo podía cambiar de bloque o de funnel: «cuántas», «cuántos días» o «cómo se
+  ve» habrían sido una variante más por combinación, o volver al server. Desde esta vuelta el server lee DATOS
+  (app/general/datos.ts, tipos en datos-tipos.ts) y cada bloque se dibuja en el navegador con sus opciones (app/general/
+  bloques/). El funnel elegido se resuelve igual: el server cuenta todos los funnels con su id y el bloque elige el suyo.
+- **El Dashboard no carga el código de General**: el dibujo de un bloque lo pone quien monta el contexto
+  (`ProveedorGeneral`, app/general/ProveedorGeneral.tsx), y el editor sólo llama a `dibujar`, `configurar` y `muestra`
+  (app/dashboard/ElementoGeneral.tsx). Importar los bloques desde ElementoGeneral habría metido General —y el tablero del
+  Plan que traen sus tarjetas— en el bundle del Dashboard.
+- **Las opciones las declara el bloque** (`opciones` en lib/general-piezas.ts, de 2 a 4 valores con su default) y el saneo
+  guarda sólo las que el bloque tiene, con un valor que existe y distinto del default (`sanearOpciones`). Un valor viejo
+  que ya no existe vuelve al default al leer (`opcionDe`). En el panel van como botones a la vista; «Bloque» y «Funnel»,
+  con el desplegable de la casa y el ícono de cada bloque.
+- **Las tarjetas del Plan son las del Plan.** La de una tarea vivía en línea adentro de la vista Prioridades de BoardShell:
+  se sacó a `TarjetaPrioridad` (exportada, mismo dibujo) y la usan las dos pantallas; la de proyecto ya era
+  `ProyectoCardTile`. General las trae con `next/dynamic` (BoardShell es el tablero entero: un pedazo aparte, sólo si hay un
+  bloque del Plan). «Completar» es la escritura del teléfono (`marcarHechaAction`, app/m/plan/acciones.ts), que ya sabe
+  escribir en los dos tableros.
+- **El placeholder es el bloque con datos de ejemplo** (app/general/bloques/muestras.ts, ficticios), apagado y con la
+  acción que lo llena encima («＋ Nuevo OKR», «Abrir el Plan»…). Las mismas muestras son la vista previa del menú «Bloques de
+  General» (tres por fila, sin títulos de grupo).
+- ⚠️ **Lo que depende de la hora se dibuja después de montar.** Los bloques se dibujan también en el server: la raya de
+  «Ahora» de Mi día, el «hace una hora» de las llamadas y las fechas de ejemplo (que salen de hoy y de la zona del navegador)
+  darían un HTML distinto en el server y en el primer dibujo del navegador, que es romper la hidratación sin un error a la
+  vista. Van con `useAhora` (null hasta montar) y el `Placeholder` dibuja la muestra recién montado.
+- **Los OKRs se definen ahí mismo**: cada tarjeta abre `EditarObjetivo`, el placeholder trae «＋ Nuevo OKR» y el panel de
+  «OKRs» (y del hero) lista los OKRs con «Editar» (`configurarBloque`). La entidad sigue siendo `objectives`: cambió cómo se
+  nombra en pantalla.
+- **General acota lo que trae del Dashboard** (`TIPOS_GENERAL`, `FUENTES_GENERAL`, `ELEMENTOS_FUERA_DE_GENERAL`): la
+  galería, «Añadir datos», el panel de un gráfico (que igual ofrece el conjunto que ya tiene) y la barra de inserción (sin
+  código, Conclusiones de MaKo ni Acción). Las plantillas de General sólo usan eso: un gráfico de afuera sería uno que
+  nadie puede volver a elegir. Lo fija tests/general-bloques.test.ts.
+- **La API de MaKo hace lo mismo que el panel**: `agregar_bloque_general` acepta `opciones` y `configurar_bloque_general`
+  cambia las de un bloque que ya está (su título y su funnel también). Un parámetro `object` del registro declara sus
+  `campos` (el test del registro lo exige): son la unión de las opciones de todos los bloques, y el runner rechaza la de
+  otro bloque diciendo cuáles tiene.
+- **«La tab que creé en el workspace de Leandro»** era la única General guardada en toda la base: `general.informe.1` del
+  ws 9 (el de Martín), con la hoja de la captura (`gmv7upmz01jrm`, «Página 1»). En ws 10 no había ninguna. Se borró con
+  respaldo y compare-and-set; General vuelve a arrancar en blanco.
+
+**Vive en:** `app/general/datos.ts` · `app/general/datos-tipos.ts` · `app/general/ProveedorGeneral.tsx` ·
+`app/general/bloques/` · `app/dashboard/ElementoGeneral.tsx` · `app/dashboard/Elemento.tsx` (`PropsGeneral`) ·
+`lib/general-piezas.ts` · `app/plan/board/BoardShell.tsx` (`TarjetaPrioridad`) · `lib/plan-hoy.ts`
+(`leerPlanHoyConTablero`) · `lib/api-mako/areas/general.*` · `tests/general-bloques.test.ts`.
+*14/10/2026, claude2.*
+
 ## Lo que quedó sin hacer
 
 - **Los bloques de General no obedecen los filtros de la hoja (14/10/2026).** Un filtro de período o de campo en la
-  barra de una hoja de General recorta los GRÁFICOS, no los bloques: el server los arma una vez, sin la vista. Sólo
-  «Tu funnel hoy» y «A quién cobrarle» se atan a un funnel, desde su propio panel. El objetivo, los KPIs, el semáforo,
-  el mes y los pendientes miden el negocio entero (salen de `leerVistaGeneral`, lib/vista-general.ts, sin alcance).
-  Vive en `app/general/piezas.tsx`.
+  barra de una hoja de General recorta los GRÁFICOS, no los bloques (y desde la tercera vuelta General ni siquiera muestra
+  la barra de filtros). Sólo «Tu funnel hoy» y «A quién cobrarle» se atan a un funnel, desde su propio panel. El objetivo,
+  los KPIs, el semáforo, el mes y los pendientes miden el negocio entero (salen de `leerVistaGeneral`, lib/vista-general.ts,
+  sin alcance). Vive en `app/general/datos.ts`.
+- **El «Conectar» del semáforo SIN FUENTES sigue yendo a /integraciones, a propósito.** No nombra UNA integración (una
+  fuente puede ser Meta, el CRM, un pago…), y abrir la grilla entera es lo que hace la pieza de la regla nueva
+  (`LinkIntegracion`, app/_components/ConectarIntegracion.tsx) con un link que no nombra ninguna. Las alertas del
+  semáforo, la acción del día y «Conectar una IA» del AI Analyst sí abren su modal ahí mismo (abd91fdb).
 - **El Today de MaKo Mobile no mira el informe de General**: dibuja lo de siempre. Para la misma personalización en el
   teléfono, lee `leerInformeGeneral()` y dibuja sus bloques. Vive en `app/m/hoy`.
-- **Más de 8 funnels**: los bloques que se atan a uno se arman hasta 8 (`TOPE_FUNNELS`, app/general/piezas.tsx); el
+- **Más de 8 funnels**: los bloques que se atan a uno se arman hasta 8 (`TOPE_FUNNELS`, app/general/datos.ts); el
   noveno dice «Ese funnel ya no está». Ningún workspace llega hoy.
 - **El pop-up de un gráfico de General se busca en el tablero del DASHBOARD** (lo marcó el chat de Graphics al revisar
   56efcbaa). La acción `datos` con `popupDe` lee el dueño con `informeDeRol(rol) ?? leerTablero()` (app/api/graficos/route.ts,

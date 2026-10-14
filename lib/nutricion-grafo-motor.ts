@@ -23,7 +23,7 @@ import {
   CAMPOS_CONDICION, TOPE_CASOS, TOPE_NODOS, TOPE_RESPONDER, TOPE_INSTRUCCIONES, TOPE_OTRA_AVISO,
   TOPE_OBJETIVO, TOPE_EJEMPLOS, TOPE_EJEMPLO, TOPE_ESCENARIOS_AI_STEP, MEDIOS_AI_STEP,
   claseDe, idDe, indicePorId, siguienteDe, puertosDe, raizSalida, raizRespuesta, elegirSalida, esPasoIA,
-  normalizar, nuevoId, paralelosDeResultado, aristasDeVuelta, padresSinVuelta, sigueSiContesta, HILO_PRINCIPAL,
+  normalizar, nuevoId, paralelosDeResultado, aristasDeVuelta, padresSinVuelta,
   type PasoGrafo, type HechosLead, type FilaCondicion, type RamaCondicion, type CasoRespuesta, type Espera, type DestinoIrA,
   type EjemploCaso, type MedioAIStep,
 } from './flujo-grafo';
@@ -35,7 +35,7 @@ import { parseFechaJunta, reunionFuturaMs, proximaReunion, soloQuedaElCarril, fi
 // El CARRIL DEL RECORDATORIO (undécima tanda, M3 y M4): la marca y la tolerancia del emisor de hoy, los hilos
 // de una inscripción y la operación de la tarjeta «MaKo en WhatsApp». Los cuatro son puros.
 import { claveDelCarril, TOLERANCIA_MIN, type CualReunion } from './recordatorio-lead';
-import { sanearHilos, hilosIniciales, esFilaNueva, type Hilo } from './nutricion-hilos';
+import type { Hilo } from './nutricion-hilos';
 import { OP_AVISAR } from './flujo-legado';
 import { claseCompleta } from './curso-bloqueo';
 import type { Clase, Progreso } from './curso';
@@ -470,16 +470,15 @@ export function esHiloDelCarril(pasos: readonly PasoGrafo[], idx: number): boole
 
 /**
  * ¿Esta corrida puede MOVER la tarjeta `idx` de una inscripción?
- *  · `enRespuesta` (la inscripción está en 'respondio': el lead contestó): SÓLO lo de un camino que SIGUE cuando el
- *    lead contesta (`sigueSiContesta`, la opción de la flecha del CRON, 14/10/2026). Hasta el 14/10 era «sólo el
- *    carril» y no se veía en ningún lado: así no salió la bienvenida del bug 5.
+ *  · Una fila en 'respondio' (el lead contestó) se mueve IGUAL que una activa (14/10/2026): que el lead conteste no
+ *    corta nada por su cuenta. Lo dice una CONDITION visible, «No contestó desde que entró» (`contesto`). Hasta el
+ *    14/10 seguía sólo el carril y no se veía en ningún lado: así no salió la bienvenida del bug 5.
  *  · `fueraDeHorario` (el horario de envío del negocio está cerrado, o no se pudo leer): el carril y las
  *    tarjetas «MaKo en WhatsApp» (M3 f; decisiones §9.6 y §9.7: el aviso al equipo sale a cualquier hora,
  *    como el del webhook). Lo demás espera a que abra, como siempre.
  *  · Si no, todo.
  */
-export function seMueveEnLaCorrida(pasos: readonly PasoGrafo[], idx: number, o: { enRespuesta: boolean; fueraDeHorario: boolean }): boolean {
-  if (o.enRespuesta && !sigueSiContesta(pasos, idx)) return false;
+export function seMueveEnLaCorrida(pasos: readonly PasoGrafo[], idx: number, o: { fueraDeHorario: boolean }): boolean {
   if (esHiloDelCarril(pasos, idx)) return true;
   if (o.fueraDeHorario) return esTarjetaMako(pasos[idx]);
   return true;
@@ -580,42 +579,6 @@ export function decidirToqueDelCarril(p: {
   }
   if (clave && p.estadoMarca === 'tomada') return { tipo: 'omitido', motivo: 'el recordatorio ya salió', clave };
   return { tipo: 'enviar', clave, cual: r.cual, inicio, min };
-}
-
-/**
- * LO QUE QUEDA VIVO cuando el lead CONTESTA. `pausarPorRespuesta` pasa la inscripción a 'respondio' y le saca el
- * próximo envío a lo que se CORTA. Qué se corta lo dice cada camino del CRON (`sigueSiContesta`, 14/10/2026: «Opción
- * en cada camino, sigue de fábrica»); hasta el 14/10 quedaba sólo el carril del recordatorio (M4), una regla que no
- * se veía en el lienzo. Devuelve las columnas a escribir (con `estado: 'respondio'`) y si quedó algo vivo (`carril`,
- * el nombre de siempre).
- *
- *  · con hilos: sólo los del carril, y las columnas de siempre resumen el que vence primero;
- *  · una fila NUEVA de varias raíces (todavía no repartida): sus raíces del carril, como las repartiría el motor;
- *  · un solo cursor: si está en el carril, sigue tal cual; si no, sin próximo envío.
- */
-export function alResponder(
-  pasos: readonly PasoGrafo[],
-  fila: { paso_actual: number; nodo_actual?: string | null; proximo_envio_at?: string | null; hilos?: unknown },
-  ahoraIso: string,
-): { carril: boolean; update: Record<string, unknown> } {
-  const enCarril = (x: Hilo): boolean => sigueSiContesta(pasos, indicePorId(pasos, x.nodo));
-  const conHilos = (hs: Hilo[]): { carril: boolean; update: Record<string, unknown> } => {
-    const vivos = hs.filter(enCarril);
-    if (!vivos.length) return { carril: false, update: { proximo_envio_at: null, hilos: null } };
-    const ms = (iso: string): number => (Number.isFinite(Date.parse(iso)) ? Date.parse(iso) : 0);
-    const primero = [...vivos].sort((a, b) => ms(a.proximo) - ms(b.proximo) || (a.h < b.h ? -1 : a.h > b.h ? 1 : 0))[0];
-    const i = indicePorId(pasos, primero.nodo);
-    return { carril: true, update: { hilos: vivos, ...(i >= 0 ? { paso_actual: i } : {}), nodo_actual: primero.nodo, proximo_envio_at: primero.proximo } };
-  };
-  const hs = sanearHilos(fila.hilos);
-  if (hs) return conHilos(hs);
-  if (esFilaNueva(fila)) {
-    const ini = hilosIniciales(pasos, () => fila.proximo_envio_at ?? ahoraIso);
-    if (ini) return conHilos(ini);
-  }
-  const idx = indiceActual(pasos, fila);
-  if (idx >= 0 && sigueSiContesta(pasos, idx) && fila.proximo_envio_at) return { carril: true, update: { proximo_envio_at: fila.proximo_envio_at } };
-  return { carril: false, update: { proximo_envio_at: null } };
 }
 
 /**
@@ -1243,7 +1206,7 @@ function sanearDestino(x: unknown): DestinoIrA | null {
 }
 
 /** Los campos que son SÓLO del flujo (los demás —canal, cuerpo, tipo…— los sanea el motor). */
-export type CamposFlujo = Pick<PasoGrafo, 'id' | 'siguiente' | 'paralelos' | 'nodo' | 'espera' | 'ramas' | 'casos' | 'suelta' | 'si_no' | 'paralelos_si_no' | 'destino' | 'revisar' | 'paso_ia' | 'instrucciones' | 'otra_aviso' | 'medio' | 'si_contesta'
+export type CamposFlujo = Pick<PasoGrafo, 'id' | 'siguiente' | 'paralelos' | 'nodo' | 'espera' | 'ramas' | 'casos' | 'suelta' | 'si_no' | 'paralelos_si_no' | 'destino' | 'revisar' | 'paso_ia' | 'instrucciones' | 'otra_aviso' | 'medio'
   // Undécima tanda: lo del OBJETIVO del AI Step (la quinta puerta: sin esto el primer guardado lo borraba).
   | 'objetivo' | 'audio' | 'ejemplos'>;
 
@@ -1318,13 +1281,6 @@ export function camposDelFlujo(p: unknown): CamposFlujo {
   // ⚠️ LA QUINTA PUERTA (AGENTS.md): `setSecuenciaPasos` reconstruye cada paso campo por campo, y
   // sin esta línea BORRABA las flechas en paralelo en el primer guardado, sin error.
   if (!nodo || nodo === 'esperar' || nodo === 'inicio') { const par = sanearParalelos(o.paralelos); if (par) out.paralelos = par; }
-  // SI CONTESTA (14/10/2026), la quinta puerta otra vez: sin esto el primer guardado borraba la opción de cada camino
-  // y todo volvía a la de fábrica. Las claves que no son caminos las limpia `normalizar`.
-  if (nodo === 'inicio' && o.si_contesta && typeof o.si_contesta === 'object' && !Array.isArray(o.si_contesta)) {
-    const sc: Record<string, 'corta' | 'sigue'> = {};
-    for (const [k, v] of Object.entries(o.si_contesta as Record<string, unknown>)) if ((k === HILO_PRINCIPAL || idValido(k)) && (v === 'corta' || v === 'sigue')) sc[k] = v;
-    if (Object.keys(sc).length) out.si_contesta = sc;
-  }
   return out;
 }
 

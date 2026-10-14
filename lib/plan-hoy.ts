@@ -66,14 +66,27 @@ const TOPE_FILAS = 1000;
 
 /** El plan de quien mira, contado para el teléfono. Tira si el tablero no se pudo leer. */
 export async function leerPlanHoy(): Promise<PlanHoy> {
+  return (await leerPlanHoyConTablero()).plan;
+}
+
+/**
+ * El plan contado Y el tablero de donde salió, de UNA lectura. Lo usa General (app/general/datos.ts): sus bloques del
+ * Plan dibujan las MISMAS tarjetas que /plan (la tarea entera, el proyecto entero), no la fila resumida del teléfono.
+ * Tira si el tablero no se pudo leer.
+ */
+export async function leerPlanHoyConTablero(): Promise<{ plan: PlanHoy; tareas: BoardTask[]; proyectos: Label[] }> {
   const que = await tableroActual();
   const [fecha, tablero, borradores] = await Promise.all([hoyEnWorkspace(), leerTablero(que), leerBorradores()]);
   return {
-    ...hoyDelTablero({ ...tablero, hoy: fecha, tablero: que }),
-    tablero: que,
-    fecha,
-    borradores,
-    recortado: tablero.recortado,
+    plan: {
+      ...hoyDelTablero({ ...tablero, hoy: fecha, tablero: que }),
+      tablero: que,
+      fecha,
+      borradores,
+      recortado: tablero.recortado,
+    },
+    tareas: tablero.tareas,
+    proyectos: tablero.proyectos,
   };
 }
 

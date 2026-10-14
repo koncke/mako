@@ -31,6 +31,7 @@ import { Button, Mako, Spinner } from '@/app/_ui';
 import { MakoLogo, MakoStar } from '@/app/_components/MakoBrand';
 import { MakoChat } from '@/app/_components/MakoChat';
 import { useCapaModal } from '@/app/_components/pila-modales';
+import { useConectarIntegracion } from '@/app/_components/ConectarIntegracion';
 import { BotonMako } from '@/app/_ui/BotonMako';
 import { BotonCerrar, RADIO_CAJA } from '@/app/_ui/BotonBorrar';
 import { Capa } from './piezas';
@@ -136,6 +137,9 @@ export function PanelAnalista({ hoja, loQueSeVe, onCerrar, vista }: {
   // La hoja cuyo estado ya sembró la selección y el horario: se siembra UNA vez, y después manda la persona.
   const sembrada = useRef<string | null>(null);
   const ahora = useAhora(30_000);
+  // «Conectar una IA» abre el modal de Gemini AHÍ (regla del 14/10/2026: conectar una integración nunca saca de la tab).
+  // Conectada, el panel vuelve a ofrecer «Analizar»: el próximo pedido es el que confirma si hay IA.
+  const integracion = useConectarIntegracion({ onConectado: () => setIa({ ok: true, mensaje: null }) });
 
   const graficos = useMemo(() => hoja.componentes.filter(esGrafico), [hoja.componentes]);
   const tituloDeId = useCallback((id: string) => {
@@ -257,8 +261,9 @@ export function PanelAnalista({ hoja, loQueSeVe, onCerrar, vista }: {
 
         {!cargando && !ia.ok && !corriendo && (
           <Mako estado="sin_conclusion" titulo="Falta conectar una IA" consecuencia={ia.mensaje ?? 'Sin IA conectada no puedo analizar la hoja.'}
-            datos={[{ k: 'Qué falta', v: 'Una IA gratis (con Gemini alcanza)' }]} accion={{ label: 'Conectar una IA', href: '/integraciones' }} />
+            datos={[{ k: 'Qué falta', v: 'Una IA gratis (con Gemini alcanza)' }]} accion={{ label: 'Conectar una IA', onClick: () => integracion.abrir('gemini') }} />
         )}
+        {integracion.modal}
 
         {estado?.corriendo && (
           <>

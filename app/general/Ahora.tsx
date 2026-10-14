@@ -37,7 +37,7 @@
 // =============================================================================
 
 import { useState } from 'react';
-import Link from '@/app/_ui/Link';
+import { LinkIntegracion } from '@/app/_components/ConectarIntegracion';
 import type { Foco } from '@/lib/focus';
 import { ORIGEN_LABEL } from '@/lib/focus';
 
@@ -82,14 +82,15 @@ export function Ahora({ foco }: { foco: Foco }) {
       </p>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', paddingLeft: 22 }}>
-        <Link href={foco.href} style={{
+        {/* Si la acción nombra una integración (`/integraciones?abrir=…`), abre su modal acá: nunca se sale de la tab. */}
+        <LinkIntegracion href={foco.href} style={{
           display: 'inline-flex', alignItems: 'center', gap: 8,
           padding: '12px 20px', borderRadius: 'var(--r-md)', minHeight: 'var(--touch)',
           background: 'var(--primary)', color: 'var(--on-primary)',
           fontSize: 'var(--fs-card)', fontWeight: 600, textDecoration: 'none',
         }}>
           {foco.hrefLabel} →
-        </Link>
+        </LinkIntegracion>
 
         <button type="button" onClick={() => setAbierto((v) => !v)} aria-expanded={abierto}
           style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 'var(--fs-sm)', color: 'var(--sidebar-text)', cursor: 'pointer' }}>

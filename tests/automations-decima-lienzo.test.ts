@@ -243,9 +243,9 @@ test('General 3: los días del horario de oficina, centrados en su recuadro', ()
 test('General 5: «Descartar cambios» aparece en el «⋯» SÓLO con cambios sin publicar, antes de «Eliminar»', () => {
   // (Con «Renombrar» segundo desde la undécima tanda, punto 5. Rotura R3 de wf-undecima/w1-lista-ui/romper.mjs, sin
   // «Renombrar»: base 17 / 0 → 16 / 1.)
-  assert.deepEqual(opcionesDeFila(true, false).map((o) => o.value), ['activa', 'renombrar', 'duplicar', 'copiar', 'eliminar']);
+  assert.deepEqual(opcionesDeFila(true, false).map((o) => o.value), ['activa', 'renombrar', 'duplicar', 'copiar', 'publicar_creacion', 'eliminar']);
   const con = opcionesDeFila(true, true);
-  assert.deepEqual(con.map((o) => o.value), ['activa', 'renombrar', 'duplicar', 'copiar', 'descartar', 'eliminar']);
+  assert.deepEqual(con.map((o) => o.value), ['activa', 'renombrar', 'duplicar', 'copiar', 'publicar_creacion', 'descartar', 'eliminar']);
   assert.equal(con.find((o) => o.value === 'descartar')!.label, 'Descartar cambios');
   const lista = sinComentarios(leer('app/automations/SimuladorWhatsApp.tsx'));
   const accion = tramo(lista, "if (accion === 'descartar') {", 'return;\n    }', 600);

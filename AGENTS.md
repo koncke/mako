@@ -2234,6 +2234,32 @@ largos»). Vale para `tutorial.pasos` y para `AYUDA_CAMPO[*].pasos` (`lib/metodo
 Lo fija `tests/tutoriales-legibles.test.ts`. Su extractor lleva un piso: buscaba 6 espacios, los pasos están a 8, y
 pasaba en verde leyendo cero líneas.
 
+# Para conectar una integración JAMÁS se sale de la tab: el modal de /integraciones se abre AHÍ
+
+Martín, 14/10/2026, textual: **«Esto significa también el botón de "Conectar" si no lo tiene conectado debería saltar el
+pop-up ahí. Esto como regla siempre, en todas las tabs, para una integración jamás se debe salir de la tab.»** Antes lo
+había pedido para Automations: «No crees un nuevo modal de conectar la API, reutiliza exactamente el mismo que ya
+tenemos en integraciones» (12/10/2026).
+
+- **Un «Conectar»/«Reconectar» abre EL modal de la grilla, montado en la tab**, con la pieza única
+  `app/_components/ConectarIntegracion.tsx`: `BotonIntegracion` (un botón), `LinkIntegracion` (un link que arma lib/,
+  como el `/integraciones?abrir=gemini` del fallo de la IA: si nombra una integración abre su modal, si no sigue siendo
+  link) y `useConectarIntegracion()` (para abrirlo sola, como el Calendario al entrar sin Google). Por debajo es
+  `ServicioSuelto` → `ServicioModal`: nunca un segundo formulario para la misma credencial.
+- **Si la tab NECESITA la integración para servir, el modal salta al entrar** (una vez por sesión y por negocio, y se
+  cierra). Molde: `app/calendario/CalendarioApp.tsx`.
+- **Un OAuth que sale de la pestaña vuelve a la MISMA tab** con su `?ws=`: Meta y Google llevan `?volver=`
+  (`volverDeLaPestana`, lib/integracion-en-tab.ts), el paso 1 lo guarda saneado en una cookie y el callback vuelve ahí
+  (`destinoGcal`, lib/gcal-estado.ts). Una tab que ofrece conectar Google monta `VueltaDeGoogle` (o
+  `useVueltaDeGoogle`): con un fallo, el modal se vuelve a abrir diciendo qué pasó.
+- **El modal va por portal al `body` y anotado en la pila** (la pieza ya lo hace): abierto desde adentro de un `<Modal>`
+  o de una tarjeta con su propio `onClick`, un `position: fixed` bajo un `transform` se ubica mal, el Escape lo
+  contestaba el de abajo y el clic burbujeaba por el árbol de React hasta quien lo montó.
+- **Lo que SÍ sigue siendo un link a /integraciones** es ir a MIRAR (el saldo de la IA), la landing y el agente de
+  Claude (su modal necesita datos que sólo arma la página: `SIN_MODAL_SUELTO`) y lo que viaja afuera (un WhatsApp, un
+  mail: ahí no hay tab). `tests/integracion-sin-salir.test.ts` barre `app/` y falla con un link nuevo a /integraciones
+  que no esté en su lista, con su porqué.
+
 # Una creación publicada es la DEFINICIÓN, y cada tipo se enchufa en UN lugar
 
 Las estrellas (pedido de Martín del 13/10/2026: «para que los usuarios hagan sus creaciones y otros usuarios puedan
@@ -2765,9 +2791,12 @@ sino a los que la DECLARAN** — y esos dos conjuntos casi nunca son el mismo.
   `lib/nutricion-familias.ts` cubre la familia entera de la post-agenda, y el guard de
   `tests/reunion-ya-paso.test.ts` falla si el motor vuelve a mirar solo `paso.ancla`.
 - **⚠️ Desde el 14/10/2026 esa pregunta NO va escondida en el motor** (Martín: «jamás que "mako" haga
-  cosas que no están en el flujo»). Va como una CONDITION visible delante del mensaje, y el
-  reintento la vuelve a pasar antes de mandar. La guarda de `procesarEnvios` se borra cuando eso
-  exista: plan en docs/diseno-mako-nada-por-detras.md §2.1-2.3.
+  cosas que no están en el flujo»). Va como una CONDITION visible delante del mensaje («Su reunión
+  sigue en pie», `reunion_en_pie`), y el reintento la vuelve a pasar antes de mandar
+  (`condicionDeArriba` en `procesarEnvios`). La guarda escondida de `preparaReunion` está BORRADA: en
+  el motor queda sólo la del paso anclado (el DELAY «N antes de la reunión», que sin reunión no tiene
+  hora). Quien arme un flujo que habla de la reunión pone la condición: plantilla, Crear con IA o API.
+  Plan y decisiones en docs/diseno-mako-nada-por-detras.md §2.1-2.3.
 
 # Un DIAGNÓSTICO escrito de antemano deja de ser cierto sin avisar
 
@@ -7600,6 +7629,10 @@ como condición del catálogo (`lib/condiciones-catalogo.ts`) u opción visible 
 operación en la API de MaKo. Lo que ya existe escondido está inventariado (162 ítems, con el plan) en
 docs/diseno-mako-nada-por-detras.md. La corrección técnica (carreras, no mandar dos veces) no cuenta.
 Antes de una tarjeta nueva, mirá si las que hay ya la expresan: una rama sin flecha ya TERMINA.
+**Y lo que depende de un HECHO es una CONDICIÓN, no una opción de otra tarjeta** (Martín, 14/10/2026: «"Si
+el lead contesta" NO debería ir en el CRON, debería ser una CONDITION... Es obvio eso»). Que el lead
+conteste no corta nada: lo dice «No contestó desde que entró» (`contesto`) después de cada espera, y
+quien arma un flujo con seguimientos —plantilla, Crear con IA, API— la pone ahí.
 
 Desde el 08/10/2026 una automatización de la tab Automations (ex Chatbot, renombrada el
 09/10/2026: la pantalla vive en `app/automations/`, /chatbot redirige con la query entera y las
@@ -7672,10 +7705,10 @@ mig 0228). Lo que eso exige al escribir código nuevo:
   `trigger_tipo` solo ve el primer CRON y se pierde los demás.
 - **Guardar no es publicar**: un borrador o una edición del lienzo pasa por `validarParaGuardar` (lo que
   rompe el DATO); `validarGrafo` es la vara de Publicar y rechaza lo que está a medio armar.
-- **Un flujo que arranca por una ETAPA no hereda «la reunión ya pasó»** (10/10/2026): esa guarda del
-  motor decide por el `trigger_tipo` (`preparaUnaReunion`, los eventos `agendado_*` de antes). Quien
-  arme un flujo así —una plantilla (`lib/plantillas-automatizaciones.ts`), Crear con IA, la API— pone
-  «Próxima reunión en ≤ 720 h» después de CADA espera por tiempo, antes de lo que habla de la reunión.
+- **Ningún flujo hereda «la reunión ya pasó»** (desde el 14/10/2026 esa guarda escondida no existe; antes
+  sólo la heredaban los de `trigger_tipo` de agenda). Quien arme un flujo que habla de la reunión —una
+  plantilla (`lib/plantillas-automatizaciones.ts`), Crear con IA, la API— pone «Su reunión sigue en pie»
+  después de CADA espera por tiempo, antes de lo que habla de la reunión.
   Y «Agendó» es «tiene una reunión cargada», pasada o futura: a quien faltó a una, también.
 
 **Y desde la undécima tanda (11/10/2026), un flujo se ARMA con las piezas que existen hoy, y nada se inventa.** Lo
@@ -7895,11 +7928,22 @@ costó, en [docs/hallazgos-objectives.md](docs/hallazgos-objectives.md) → «Ge
 
 - **Lo que se puede medir con el catálogo de gráficos va como GRÁFICO**, que se edita entero. Un bloque de General es
   lo que el catálogo no tiene (el objetivo con la acción del día, los KPIs con su registro, el semáforo, el Plan).
-- **Un bloque nuevo son dos lugares**: su fila en `PIEZAS_GENERAL` (lib/general-piezas.ts) y su nodo en `armarPiezas`
-  (app/general/piezas.tsx), que lo arma con las lecturas de siempre. El editor no aprende a leer nada: el bloque viaja
-  dibujado por contexto. Y alguna plantilla lo usa (`tests/general-editor.test.ts` falla si no).
-- **Un bloque que se ata a un funnel** lleva `porFunnel`, y su variante se arma y se busca con `clavePieza`: la misma
-  función en las dos puntas.
+- **Un bloque nuevo son tres lugares**: su fila en `PIEZAS_GENERAL` (lib/general-piezas.ts, con su ícono y sus
+  `opciones`), sus datos en `armarDatosGeneral` (app/general/datos.ts, con las lecturas de siempre) y su caso en
+  `dibujarBloque` y `muestraDeBloque` (app/general/ProveedorGeneral.tsx), con el dibujo en app/general/bloques/. El editor
+  no aprende a leer nada y el Dashboard no carga General: el dibujo llega por contexto. Alguna plantilla lo usa
+  (`tests/general-editor.test.ts`) y `tests/general-bloques.test.ts` falla si le falta el dibujo o la vista previa.
+- **Un bloque vacío dibuja su placeholder** (`Placeholder`, app/general/bloques/comun.tsx): el mismo bloque con los datos
+  de ejemplo de `muestras.ts` (ficticios), apagado, con la acción que lo llena. «No pude leer» es otra cosa y se dice
+  (`Fallo`). Y lo que depende de la HORA se dibuja después de montar (`useAhora`): el bloque se dibuja también en el server.
+- **Sus opciones las declara el bloque** (2 a 4 valores con su default) y se leen con `opcionDe`: el saneo tira lo que
+  el bloque no tiene, y la API de MaKo las ofrece igual (`agregar_bloque_general`, `configurar_bloque_general`).
+- **Un bloque que se ata a un funnel** lleva `porFunnel`: el server cuenta todos los funnels con su id y el bloque elige
+  el suyo por el id del elemento.
+- **Lo que existe en otra tab se monta, no se copia**: las tarjetas del Plan son las de BoardShell (`TarjetaPrioridad`,
+  `ProyectoCardTile`, traídas con `next/dynamic`), y escribir pasa por la acción que ya existe (`marcarHechaAction`).
+- **General ofrece poco del Dashboard** (`TIPOS_GENERAL`, `FUENTES_GENERAL`, `ELEMENTOS_FUERA_DE_GENERAL`), y sus
+  plantillas no usan nada de afuera.
 - **Un tipo de elemento nuevo en `TIPOS_ELEMENTO` aparece solo en todas las listas que derivan de él**: la API del
   Dashboard (`ELEMENTOS_DE_LA_API`), los links compartidos (`ELEMENTOS_QUE_NO_SALEN`), el catálogo que lee la IA. En cada
   una se decide si lo puede dibujar; si no, se excluye con un error que diga dónde va.

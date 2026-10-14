@@ -793,3 +793,53 @@ a 154 y la slide de 179 de vuelta dan 1 fallo cada uno (base 7/0)._
 _12/10/2026 — duodécima tanda, paquete «fuera»: `tests/tutoriales-legibles.test.ts`, 6 tests. Con el catálogo viejo, 4
 fallos; un paso con 4 verbos, un sexto paso, un paso partido con `+`, una nota de 121, el «Para qué sirve» de vuelta y el
 extractor a 6 espacios dan 1 fallo cada uno._
+
+## Conectar sin salir de la tab: la pieza ya existía, y lo que le faltaba no se veía (14/10/2026)
+
+**El pedido** (Martín, textual): «si una persona entra allí y no tiene el google calendar conectado, que salte el modal
+que tenemos en integraciones allí mismo... Esto como regla siempre, en todas las tabs, para una integración jamás se
+debe salir de la tab». La regla está en AGENTS.md («Para conectar una integración JAMÁS se sale de la tab»).
+
+**El diagnóstico obvio era el equivocado: no hacía falta un modal nuevo.** `ServicioSuelto` (el `ServicioModal` de la
+grilla abierto en otra pestaña) existía desde el 12/10 para Zernio en Automations. Lo que faltaba para usarlo en
+cualquier tab eran cuatro cosas que no se ven hasta que se monta en otro lado:
+
+1. **El OAuth de Google volvía SIEMPRE a /integraciones.** El callback armaba el destino a mano. Ahora el botón manda
+   `?volver=` (la tab, sin el `?ws=`: `volverDeLaPestana`, lib/integracion-en-tab.ts), el paso 1 lo guarda saneado en la
+   cookie `gcal_volver` con la MISMA defensa de host que Meta (`volverSeguro`) y el callback vuelve ahí con
+   `?gcal=<resultado>` (`destinoGcal`, lib/gcal-estado.ts). La tab que ofrece Google lee esa vuelta (`useVueltaDeGoogle`
+   / `VueltaDeGoogle`): con un fallo, reabre el modal con el mensaje de `GCAL_MSG`. Meta ya volvía a la tab (su
+   `meta_volver`, desde el 07/10).
+2. **`ServicioSuelto` pasaba `gcal={null}`**: abierto suelto, Google decía «Conectar» aunque la agenda estuviera
+   conectada a medias, y el chip no podía decir «Falta permiso». Ahora pide el permiso real
+   (`getGoogleCalendarStatusAction`) como la grilla.
+3. **Montado adentro de otra cosa, un modal sin portal se rompe de tres formas**, y ninguna da error: un
+   `position: fixed` bajo un ancestro con `transform` (la animación de un `<Modal>`) se ubica contra ese ancestro; el
+   Escape lo contestaba el `<Modal>` de abajo, que no sabía que había otro encima (`ModalShell` no está en la pila); y un
+   clic adentro burbujea por el árbol de React hasta el `onClick` de quien lo montó (en la Calificación del CRM, la
+   tarjeta abría su sí/no). La capa (`CapaIntegracion`, app/_components/ConectarIntegracion.tsx) va por portal al
+   `body`, se anota en la pila como `anidada` y frena la propagación; el botón también.
+4. **«No cabe en un modal» no era cierto para Stripe y Mercado Pago.** El CRON de Automations abría /integraciones en una
+   ventana emergente con ese porqué; son servicios de `ServicioConfigForm` como cualquier otro y se abren sueltos.
+
+**Lo que NO se abre suelto, y por qué sigue siendo un link:** la landing (el código del Pixel, sus páginas y la prueba)
+y el agente de Claude (el token y la skill) necesitan datos que arma el `page.tsx` de /integraciones (`SIN_MODAL_SUELTO`).
+Tampoco lo que viaja afuera (un aviso de WhatsApp, un mail: no hay tab) ni «ir a mirar» (el saldo de la IA). La lista
+completa, con el porqué de cada archivo, está en `tests/integracion-sin-salir.test.ts` (`QUEDAN`), que barre `app/`.
+
+**Lo que quedó SIN hacer:**
+
+- **General y el Dashboard** los pasó su propia sesión (`abd91fdb`: la acción del día, las alertas del semáforo y
+  «Conectar una IA» del AI Analyst). Quedan yendo a la grilla, a propósito, los que no nombran una integración (el
+  «Conectar» del semáforo sin fuentes, lo que arman `lib/focus.ts` y `lib/vista-general-modelo.ts`). Falta
+  `app/dashboard/NuevaHoja.tsx`: su `TextoConLink` del fallo de la IA sigue navegando (el patrón es el de
+  `app/automations/ChatMako.tsx` con `LinkIntegracion`); el barrido no lo ve porque el link llega en una variable.
+- **Abrir suelta la landing y el agente** pediría mudar su armado del `page.tsx` a una server action como
+  `integracionAction`.
+- **Las tabs que ofrecen Google y no montan la vuelta** pierden el mensaje si el OAuth falla (el parámetro queda en la
+  URL sin leer). Hoy la montan el Calendario y el CRM.
+
+**Vive en:** `app/_components/ConectarIntegracion.tsx` · `app/integraciones/ServicioSuelto.tsx` ·
+`app/integraciones/IntegracionesBoard.tsx` (`ServicioModal`, la acción de Google) · `lib/integracion-en-tab.ts` ·
+`lib/gcal-estado.ts` · `app/api/integraciones/google-calendar/route.ts` · `app/api/integraciones/google-calendar/callback/route.ts` ·
+`tests/integracion-sin-salir.test.ts` · `tests/gcal-estado.test.ts`. *14/10/2026, claude2.*

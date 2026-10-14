@@ -342,4 +342,20 @@ export const BITACORA: Hito[] = [
     commits: [{ sha: 'a98ab025', msg: 'Dashboard y General: la pantalla en blanco es «¿Qué vas a crear hoy?», y las plantillas se ven como páginas', lineas: 573, archivos: 9 }],
     archivos: ['app/dashboard/NuevaHoja.tsx', 'app/dashboard/MiniaturaHoja.tsx', 'app/dashboard/EditorInforme.tsx', 'tests/dashboard-miniatura-hoja.test.ts'],
   },
+  {
+    fecha: '14 oct', hora: '05:48', chat: 'General', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'En blanco sin Editar ni ⋮ ni filtros, y agrandar desde cualquier borde (pedido desde General, para las dos)',
+    pedido: "1. Si no tengo tabs no debería salir el botón de editar ni los 3 puntos. Lo mismo para dashboard... Y en el caso de dashboard tampoco el filtro ni la barra de busqueda.\n5. Debería poder editar el tamaño de un bloque desde cualquiera de sus costados, no solo de abajo a la derecha. Y elimina la flecha que aparece detrás del contorno azul... Esto también para dashboard.",
+    puntos: ["Los puntos 1 y 5 de una lista de once sobre General; los dos dicen «Lo mismo para dashboard» / «Esto también para dashboard»."],
+  },
+  {
+    fecha: '14 oct', hora: '07:09', chat: 'General', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'En blanco la barra es el título solo, y un gráfico se agranda desde sus ocho bordes',
+    puntos: [
+      "Sin hojas no hay «Editar», ⋮, filtro ni búsqueda: sólo «¿Qué vas a crear hoy?» y las plantillas en el medio.",
+      "Los ocho bordes agrandan; la «flecha» detrás del contorno azul era el adorno de react-grid-layout y se fue. Elegida, la tarjeta muestra un cuadradito en cada borde.",
+    ],
+    commits: [{ sha: 'c2cda971', msg: 'General: los bloques rediseñados con opciones, las tarjetas del Plan y los OKRs; el editor sin barra en blanco y con ocho bordes', lineas: 3936, archivos: 38 }],
+    archivos: ['app/dashboard/EditorInforme.tsx', 'app/dashboard/editor-css.ts', 'tests/dashboard-en-blanco.test.ts'],
+  },
 ];

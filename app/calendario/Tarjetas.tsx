@@ -130,7 +130,7 @@ export function TarjetaEvento({ item, ancla, tz, calendarios, googleEscribe, onC
   const lugar = g?.ubicacion || null;
   const nombreCalendario = cal?.nombre ?? NOMBRE_CAPA[item.capa];
   const ir = item.href && !g ? item.href : null;
-  const rotuloIr = item.fuente === 'crm' ? 'Abrir la ficha' : item.fuente === 'plan' ? 'Abrir en el Plan' : item.fuente === 'objetivo' ? 'Ver en General' : 'Abrir';
+  const rotuloIr = item.fuente === 'crm' || item.fuente === 'cobro' ? 'Abrir la ficha' : item.fuente === 'plan' ? 'Abrir en el Plan' : item.fuente === 'objetivo' ? 'Ver en General' : 'Abrir';
 
   return createPortal(
     <div ref={ref} className="gc gc-tarjeta" style={{ ...pos, height: 'auto' }} role="dialog" aria-label={item.titulo}>

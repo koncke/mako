@@ -44,7 +44,6 @@ buscar_lugares_meta
 buscar_tareas_plan
 buscar_tutorial
 cambiar_espera_paso
-cambiar_si_contesta_secuencia
 cancelar_accion
 cancelar_analisis_dashboard
 cancelar_programacion_broadcast
@@ -60,6 +59,7 @@ cobranza_lead
 comparar_agendas_meta_crm
 conectar_componentes_dashboard
 configurar_aviso_whatsapp
+configurar_bloque_general
 configurar_reporte
 configurar_seccion_reporte
 confirmaciones_crm_automatico
@@ -121,6 +121,7 @@ enviar_plantilla_a_meta
 enviar_prueba_broadcast
 envio_email_habilitado
 escenarios_ensayo
+escenarios_secuencia
 escribir_guion_anuncio
 esta_aviso_activo
 estado_analisis_lead
@@ -183,6 +184,7 @@ leer_resumen_objetivos
 leer_segundo_cerebro_como_archivos
 limites_formato_instagram
 link_agenda_calendly
+link_agenda_llamada
 link_configurar_integracion
 link_resumen_lead
 listar_analisis_landing
@@ -422,6 +424,7 @@ ver_plan
 ver_preferencias_notificaciones
 ver_prioridades_plan
 ver_propuesta_accion
+ver_proximas_recurrentes
 ver_proyecto_plan
 ver_publico_conjunto_meta
 ver_puente_flow

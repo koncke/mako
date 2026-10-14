@@ -5,12 +5,17 @@
 // que la pantalla: la validación (`filaDeEntrada`) y la zona del negocio son las mismas. Y no lee la agenda de Google:
 // ni para listar ni para validar un horario (la agenda no pasa por ningún modelo). Desde el 14/10/2026 ESCRIBE en ella
 // (`crear_evento_google`, lib/calendario-google.ts): crea y contesta un estado, nunca lo que hay en la agenda.
+// Y desde el mismo día lee el link de agenda del negocio (lib/agenda-link.ts) y las próximas veces de lo que se repite
+// (`recurrentesDelRango`, lib/calendario.ts): las MISMAS funciones que la pantalla.
 
 import 'server-only';
 import { revalidatePath } from 'next/cache';
 import type { Runners, Preparado, Ejecutado } from '../tipos';
 import { hoyEnWorkspace } from '@/lib/timezone';
-import { crearEventos, listarPropios, zonaDelCalendario } from '@/lib/calendario';
+import { crearEventos, listarPropios, recurrentesDelRango, zonaDelCalendario } from '@/lib/calendario';
+import { linkDeAgenda } from '@/lib/agenda-link';
+import { getWorkspace } from '@/lib/workspace';
+import { tableroDeCapa } from '@/lib/tablero-de-capa';
 import { crearEventoGoogle } from '@/lib/calendario-google';
 import { cuerpoEventoGoogle, type EntradaEventoGoogle } from '@/lib/calendario-google-modelo';
 import {
@@ -24,6 +29,17 @@ const str = (input: Record<string, unknown>, k: string): string | null => {
   return typeof v === 'string' && v.trim() ? v.trim() : null;
 };
 const MAX_DIAS = 62;
+
+/** El rango de una lectura: «desde» (hoy si no vino) y «hasta» inclusive (7 días si no vino), hasta MAX_DIAS. */
+function rangoDe(input: Record<string, unknown>, hoy: string): { desde: string; hasta: string } | { error: string } {
+  const desde = str(input, 'desde') ?? hoy;
+  if (!FECHA.test(desde)) return { error: '«desde» tiene que ser YYYY-MM-DD.' };
+  const hasta = str(input, 'hasta') ?? sumarDias(desde, 6);
+  if (!FECHA.test(hasta) || hasta < desde) return { error: '«hasta» tiene que ser YYYY-MM-DD y no antes de «desde».' };
+  const dias = Math.round((Date.parse(`${hasta}T00:00:00Z`) - Date.parse(`${desde}T00:00:00Z`)) / 86_400_000) + 1;
+  if (dias > MAX_DIAS) return { error: `Hasta ${MAX_DIAS} días por consulta.` };
+  return { desde, hasta };
+}
 
 /** La entrada de un evento desde lo que pasó el modelo (sin adivinar: lo que no vino, no está). */
 function entradaDe(input: Record<string, unknown>): EntradaEvento {
@@ -100,6 +116,31 @@ export const RUNNERS: Runners = {
       } catch (e) {
         return { ok: false, resumen: `No se pudo agendar (${e instanceof Error ? e.message : 'error'}).` };
       }
+    },
+  },
+
+  link_agenda_llamada: {
+    leer: async (input) => {
+      const cual = str(input, 'cual') === 'R2' ? 'R2' as const : 'R1' as const;
+      const r = await linkDeAgenda(cual);
+      return JSON.stringify(r.ok
+        ? { cual, proveedor: r.proveedor, reunion: r.reunion, url: r.url, motivo: null, instruccion: 'Pasa el link TAL CUAL: no lo reescribas.' }
+        : { cual, url: null, motivo: r.motivo, se_puede_conectar: r.faltan });
+    },
+  },
+
+  ver_proximas_recurrentes: {
+    leer: async (input, ctx) => {
+      const rango = rangoDe(input, await hoyEnWorkspace());
+      if ('error' in rango) return JSON.stringify({ error: rango.error });
+      // La mitad del tablero, por CAPA (por WhatsApp no hay cookie: ver `recurrentesDelRango`).
+      const que = tableroDeCapa((await getWorkspace(ctx.ws).catch(() => null))?.capa);
+      const veces = await recurrentesDelRango(rango.desde, sumarDias(rango.hasta, 1), que);
+      return JSON.stringify({
+        ...rango, total: veces.length,
+        nota: 'Proyecciones: la tarea de cada fecha la crea MaKo sola el día que toca. Sólo de hoy en adelante.',
+        veces: veces.map((v) => ({ fecha: v.fecha, tarea: v.titulo, tarea_id: v.tareaId, ritmo: v.ritmo })),
+      });
     },
   },
 

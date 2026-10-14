@@ -33,6 +33,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type 
 import { createPortal } from 'react-dom';
 import { GRUPOS, MAX_IA_POR_HOJA, TIPOS, TIPOS_ELEMENTO, type Componente, type Elemento, type GrupoElemento, type TipoElemento } from '@/lib/graficos-catalogo';
 import { PALETA_MAKO } from '@/lib/graficos-temas';
+import { ELEMENTOS_FUERA_DE_GENERAL } from '@/lib/general-piezas';
 import { useCapaModal } from '@/app/_components/pila-modales';
 import { IconoElemento } from './Elemento';
 
@@ -119,15 +120,19 @@ export function Flotante({ ancla, onCerrar, ancho, lado = 'abajo', anidado = fal
   );
 }
 
-/** La galería: los tipos de gráfico por grupo. (Desde v5 sin «Bloques de MaKo»: los bloques se migran.) */
-export function Galeria({ actual, onElegir }: { actual?: string; onElegir: (tipo: string) => void }) {
+/**
+ * La galería: los tipos de gráfico por grupo. (Desde v5 sin «Bloques de MaKo»: los bloques se migran.) `tipos` la
+ * acota (General ofrece pocos: `TIPOS_GENERAL`, lib/general-piezas.ts); un grupo sin ninguno no se dibuja.
+ */
+export function Galeria({ actual, onElegir, tipos }: { actual?: string; onElegir: (tipo: string) => void; tipos?: readonly string[] }) {
+  const ofrecidos = tipos ? TIPOS.filter((x) => tipos.includes(x.id)) : TIPOS;
   return (
     <div className="lk-galeria" role="menu">
-      {GRUPOS.map((gr) => (
+      {GRUPOS.filter((gr) => ofrecidos.some((x) => x.grupo === gr)).map((gr) => (
         <div key={gr}>
           <div className="lk-galeria-tit">{gr}</div>
           <div className="lk-galeria-fila">
-            {TIPOS.filter((x) => x.grupo === gr).map((x) => (
+            {ofrecidos.filter((x) => x.grupo === gr).map((x) => (
               <button key={x.id} type="button" role="menuitem" className="lk-galeria-tipo" data-actual={actual === x.id || undefined} title={x.nombre} aria-label={x.nombre} onClick={() => onElegir(x.id)}>
                 <IconoTipo tipo={x.id} size={34} />
               </button>
@@ -183,8 +188,15 @@ export const BARRA_INSERTAR: readonly LugarInsertar[] = [
   { clase: 'suelto', tipo: 'entidad', soloPopup: true },
 ];
 
-/** Los lugares que se ofrecen: la Ficha sólo editando un pop-up. */
-export const lugaresInsertar = (enPopup = false): LugarInsertar[] => BARRA_INSERTAR.filter((l) => l.clase !== 'suelto' || !l.soloPopup || enPopup);
+/**
+ * Los lugares que se ofrecen: la Ficha sólo editando un pop-up. En General, sin el código insertado ni lo de MaKo
+ * (`ELEMENTOS_FUERA_DE_GENERAL`, lib/general-piezas.ts): un menú que se queda sin opciones no se dibuja.
+ */
+export const lugaresInsertar = (enPopup = false, enGeneral = false): LugarInsertar[] => BARRA_INSERTAR
+  .filter((l) => l.clase !== 'suelto' || !l.soloPopup || enPopup)
+  .filter((l) => !enGeneral || (l.clase === 'suelto'
+    ? !(ELEMENTOS_FUERA_DE_GENERAL as readonly string[]).includes(l.tipo)
+    : l.opciones.some((o) => !(ELEMENTOS_FUERA_DE_GENERAL as readonly string[]).includes(o.tipo))));
 
 /**
  * Por qué no se puede insertar un tipo ahora (corto: va en el `title` de la opción apagada), o null. Una caja
@@ -212,6 +224,8 @@ type PropsInsertar = {
   componentes?: readonly Componente[];
   /** Editando un pop-up: suma la Ficha y saca «Conectar». */
   enPopup?: boolean;
+  /** En General: sin el código insertado ni lo de MaKo. */
+  enGeneral?: boolean;
   /** «Conectar dos bloques»: lo implementa la pantalla. Sin esto, la opción no se ofrece. */
   onConectar?: () => void;
 };
@@ -238,8 +252,8 @@ const GRUPOS_ELEMENTO: readonly GrupoElemento[] = ['texto', 'medios', 'formas', 
  * de la casa: un desplegable lleva ícono en cada opción). El dibujo es el de ./Elemento.tsx, el mismo de la
  * cabecera de su panel: un solo lugar. Los grupos van separados por un filete, sin rótulo.
  */
-export function MenuInsertar({ onElegir, componentes = [], enPopup = false, onConectar }: PropsInsertar) {
-  const lugares = lugaresInsertar(enPopup);
+export function MenuInsertar({ onElegir, componentes = [], enPopup = false, enGeneral = false, onConectar }: PropsInsertar) {
+  const lugares = lugaresInsertar(enPopup, enGeneral);
   const grupos = GRUPOS_ELEMENTO
     .map((g) => ({ g, opciones: lugares.flatMap(opcionesDe).filter((o) => TIPOS_ELEMENTO.find((t) => t.id === o.tipo)?.grupo === g) }))
     .filter((x) => x.opciones.length);

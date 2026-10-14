@@ -511,7 +511,7 @@ dashboard...».
 cuerpo del modal «Nueva hoja» sacado a una pieza: la caja y, abajo, las plantillas, como la portada del Landing Generator
 (`CajaCrear.tsx`). El modal es `CrearHoja` adentro del Modal de la casa. Cada plantilla es la tarjeta de esa portada
 (miniatura, «Usar plantilla» al pasar el mouse, nombre y línea), y la miniatura es `MiniaturaHoja`. «Editar» en blanco
-arranca una hoja en blanco ya editándose (`empezarEnBlanco`): la caja ya está en la pantalla, abrir el mismo contenido en un
+arrancaba una hoja en blanco ya editándose (`empezarEnBlanco`; desde la vuelta siguiente, en blanco no hay «Editar»): la caja ya está en la pantalla, abrir el mismo contenido en un
 modal era repetirlo.
 
 **Lo que no se ve y gobierna lo que venga:**
@@ -539,6 +539,36 @@ plantillas), probados rompiéndolos.
 **Vive en:** `app/dashboard/NuevaHoja.tsx` · `app/dashboard/MiniaturaHoja.tsx` · `app/dashboard/EditorInforme.tsx` ·
 `app/dashboard/editor-css.ts` · `tests/dashboard-en-blanco.test.ts` · `tests/dashboard-miniatura-hoja.test.ts`.
 *14/10/2026, claude2 (a98ab025), desde el chat de General.*
+
+## En blanco no hay barra, se agranda desde los ocho lados, y el editor se puede acotar (14/10/2026)
+
+**El pedido** (Martín, desde la tab General, para las dos): «Si no tengo tabs no debería salir el botón de editar ni los 3
+puntos. Lo mismo para dashboard... Y en el caso de dashboard tampoco el filtro ni la barra de busqueda» y «Debería poder
+editar el tamaño de un bloque desde cualquiera de sus costados, no solo de abajo a la derecha. Y elimina la flecha que
+aparece detrás del contorno azul... Esto también para dashboard».
+
+**Lo que no se ve en el código:**
+
+- **En blanco, la topbar es el título y nada más.** Editar, el ⋮ y la barra de filtros (con la búsqueda) cuelgan de
+  `!enBlanco`; lo único que se hace en blanco es elegir con qué arrancar, y eso está en el medio. Con eso se fue
+  `empezarEnBlanco` (el «Editar» que arrancaba una hoja vacía, de la vuelta anterior). Lo fija
+  tests/dashboard-en-blanco.test.ts; ojo que `tests/dashboard-topbar.test.ts` y `tests/graficos-analysts.test.ts` también
+  anclan el botón «Editar» por regex y hubo que moverlos.
+- **La «flecha» era el `::after` de react-grid-layout**: un ángulo de dos bordes que su CSS GIRA según el lado (315° en
+  `e`, 45° en `s`), o sea una flecha que asoma detrás del contorno de la tarjeta elegida. Con ocho tiradores (`TIRADORES`,
+  app/dashboard/EditorInforme.tsx) el `::after` se apaga y el `transform` se pisa (si no, los lados heredan el giro).
+- **Los tiradores van ADENTRO del borde.** La tarjeta (`.lk-comp`) recorta con `overflow: hidden`: un tirador corrido hacia
+  afuera no se ve ni se agarra. Los lados son franjas de 8 px a lo largo del borde (no el cuadradito de 20 px del medio que
+  trae la librería), las esquinas 14 px, y elegida la tarjeta muestra un cuadradito blanco en cada uno de los ocho, como
+  Looker (editor-css.ts). Sin elegir no se dibuja nada: el cursor avisa.
+- **El editor se puede ACOTAR sin copiarlo**: la galería recibe `tipos`, «Añadir datos» `soloFuentes`, el panel de un
+  gráfico mira `useEnGeneral()` y `lugaresInsertar(enPopup, enGeneral)` saca lo que General no inserta (un menú que se queda
+  sin opciones no se dibuja). Las listas viven en lib/general-piezas.ts; el Dashboard no cambia (el test lo compara contra
+  `BARRA_INSERTAR`).
+
+**Vive en:** `app/dashboard/EditorInforme.tsx` · `app/dashboard/editor-css.ts` · `app/dashboard/Galeria.tsx` ·
+`app/dashboard/Propiedades.tsx` · `tests/dashboard-en-blanco.test.ts` · `tests/general-bloques.test.ts`.
+*14/10/2026, claude2, desde el chat de General.*
 
 ## Lo que quedó sin hacer
 

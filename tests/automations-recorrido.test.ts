@@ -277,7 +277,7 @@ test('soltar saca sólo lo suyo, y un selector que el navegador no entiende no r
 test('ChatAgentApp lo monta como CURSO: el gancho antes de los return, «Tutorial» del menú de la lista y la capa en el <main>', () => {
   const app = sinComentarios(leer('app/automations/ChatAgentApp.tsx'));
   assert.match(app, /import \{ RecorridoAutomations, useRecorridoAutomations \} from '\.\/RecorridoAutomations';/);
-  const gancho = app.indexOf('const recorrido = useRecorridoAutomations(rolAdmin && visibles !== null && !error && creando === null && !galeria);');
+  const gancho = app.indexOf('const recorrido = useRecorridoAutomations(rolAdmin && visibles !== null && !error && creando === null && !galeria && !makoTrabajando);');
   // Solo, a quien arma (un admin, como `puedeEditar` en CURSO), apenas cargó y sin error, ni con la galería encima
   // ni mientras se crea una. DESDE LA DUODÉCIMA TAMBIÉN CON CERO AUTOMATIZACIONES (decisión 11): lo del lienzo lo
   // cubre la reapertura de `vioVacio` (tests/automations-duodecima-entrada.test.ts).

@@ -412,4 +412,24 @@ export const BITACORA: Hito[] = [
     commits: [{ sha: 'a98ab025', msg: 'Dashboard y General: la pantalla en blanco es «¿Qué vas a crear hoy?», y las plantillas se ven como páginas', lineas: 573, archivos: 9 }],
     archivos: ['app/general/page.tsx', 'app/dashboard/EditorInforme.tsx', 'lib/api-mako/areas/general.run.ts', 'lib/graficos-analisis-server.ts'],
   },
+  {
+    fecha: '14 oct', hora: '05:48', chat: 'General', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'Once puntos sobre General editándose: bloques que no sean texto, las tarjetas del Plan, OKRs y menos gráficos',
+    pedido: "1. Si no tengo tabs no debería salir el botón de editar ni los 3 puntos. Lo mismo para dashboard... Y en el caso de dashboard tampoco el filtro ni la barra de busqueda.\n2. Pon muchos menos gráficos disponibles en General, justamente para eso ya tenemos una tab de dashboard.\n3. Diseña nuevamente todos los \"Bloque general\", la mayoría son solamente texto... Si no hay datos aún, se debería ver el placeholder siempre.\n4. Todos los desplegables de edición de un bloque y en general la edición del bloque hazlo mejor, porque no tiene muchas opciones...\n5. Debería poder editar el tamaño de un bloque desde cualquiera de sus costados, no solo de abajo a la derecha. Y elimina la flecha que aparece detrás del contorno azul... Esto también para dashboard.\n6. Tenemos un diseño de tarjetas para las tareas y proyectos del plan e hiciste cualquier cosa. Por favor rediseña completamente cada bloque.\n7. Hay bloques que en la configuración se deben definir allí mismo ciertas cosas... Como el objetivo del trimestre, que me gustaría que se llamen (OKRs) en lugar de objetivo del trimestre.\n8. El desplegable de \"Bloques de General\" que no tenga titulos internos y que sean una preview de lo que va a ser el gráfico, no solo texto.  Que sea un desplegable más gordo para poder ver de a 3 por fila.\n9. Revisa lo de añadir datos, porque si vamos a quitar la mayoría de gráficos, también hay que limitar los gráficos que se traen... Generalmente deberían ser los más importantes, confio en tu criterio.\n10. Elimina lo de insertar codigo, conclusiones de mako y acción.\n11. Elimina la tab que creé en el workspace de Leandro.",
+    puntos: ["Con dos capturas de General editándose («Página 1»): los OKRs y las llamadas como una frase, «Prioridades del Plan» como una lista."],
+  },
+  {
+    fecha: '14 oct', hora: '07:09', chat: 'General', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Los bloques de General rediseñados, con opciones, placeholder y las tarjetas del Plan',
+    puntos: [
+      "Cada bloque se dibuja en el navegador con sus opciones (cuántas, cómo se ve, cuántos días): el server manda los datos, no el bloque dibujado.",
+      "Vacío, cada bloque muestra su placeholder: el mismo bloque con datos de ejemplo y la acción que lo llena.",
+      "Prioridades y Proyectos del Plan usan las tarjetas del Plan; «Completar» marca la tarea con la escritura del teléfono.",
+      "«Objetivos del trimestre» se llama OKRs, y se crean y editan desde la tarjeta, el placeholder y el panel.",
+      "El menú «Bloques de General» va de a tres, con la vista previa de cada uno. General ofrece pocos gráficos y datos, y no inserta código, MaKo ni Acción.",
+      "Se borró la única General guardada (la «Página 1» de la captura, en el workspace de Martín), con respaldo.",
+    ],
+    commits: [{ sha: 'c2cda971', msg: 'General: los bloques rediseñados con opciones, las tarjetas del Plan y los OKRs; el editor sin barra en blanco y con ocho bordes', lineas: 3936, archivos: 38 }],
+    archivos: ['app/general/datos.ts', 'app/general/ProveedorGeneral.tsx', 'app/general/bloques/', 'lib/general-piezas.ts', 'app/dashboard/Elemento.tsx', 'app/plan/board/BoardShell.tsx', 'tests/general-bloques.test.ts'],
+  },
 ];

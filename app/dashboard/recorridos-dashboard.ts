@@ -59,7 +59,7 @@ export const PASOS_DASHBOARD_EDICION: PasoRecorrido[] = [
   { objetivo: 'dash-insertar', titulo: 'Insertar', texto: 'Texto, imágenes, videos, secciones, líneas y conectores.' },
   { objetivo: 'dash-estilo', titulo: 'Estilo de la hoja', texto: 'Plantilla, color y letra para todos los gráficos.' },
   { objetivo: 'dash-filtro', titulo: 'Filtros de la hoja', texto: 'Agrega o quita filtros. Sólo mientras editas.' },
-  { objetivo: 'dash-componente', titulo: 'Mover y agrandar', texto: 'Arrástralo o estira su esquina. Con un clic, sus datos.' },
+  { objetivo: 'dash-componente', titulo: 'Mover y agrandar', texto: 'Arrástralo o estira cualquier borde. Con un clic, sus datos.' },
   { objetivo: 'dash-ver', titulo: 'Ver', texto: 'Sal de la edición. Los cambios se guardan solos.' },
   PASO_AYUDA,
 ];

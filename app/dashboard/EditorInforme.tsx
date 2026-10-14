@@ -98,13 +98,14 @@ import { useFocoInicial } from '@/app/customer-success/curso/dialogo-foco';
 import { conWs } from '@/lib/ws-tab';
 import {
   AREAS, COLS, FUENTES, MAX_COMPONENTES, MAX_CONECTORES, MAX_CONTROLES, MAX_HOJAS, MAX_IA_POR_HOJA, MAX_POPUP, TIPOS_ELEMENTO,
-  abajoDeTodo, campoDe, efectivoDe, esElemento, esGrafico, hojaVacia, minimoDeElemento, nuevoControlVista, nuevoElemento, nuevoGrafico, nuevoId,
+  abajoDeTodo, campoDe, efectivoDe, esElemento, esGrafico, minimoDeElemento, nuevoControlVista, nuevoElemento, nuevoGrafico, nuevoId,
   sanearComponente, sanearControlVista, sanearControles, sanearElemento, tituloDe, tonoDe,
   type Componente, type Conector, type ControlVista, type Efectivo, type Elemento, type Grafico, type Hoja, type Tablero, type TipoElemento, type ValorControl, type VistaValores,
 } from '@/lib/graficos-catalogo';
 import { colorDeTono, estiloEfectivo, letrasDe, paletaDe, sanearTema, varsDeTema, type TemaHoja } from '@/lib/graficos-temas';
 import { conHojaAgregada } from '@/lib/graficos-plantillas';
-import { GRUPOS_PIEZAS, PIEZAS_GENERAL, piezaGeneral, type PiezaGeneral } from '@/lib/general-piezas';
+import { FUENTES_GENERAL, PIEZAS_GENERAL, TIPOS_GENERAL, piezaGeneral, type PiezaGeneral } from '@/lib/general-piezas';
+import { useGeneral } from './ElementoGeneral';
 import { aGuardado, aVista, fondosDe, gruposDe, ocultosPorPlegado, plegadasDe, type GrupoSeccion } from '@/lib/graficos-secciones';
 import { conectorNuevo, puedeConectar, sinConectoresDe } from '@/lib/graficos-conectores';
 import type { Resultado } from '@/lib/graficos-agregar';
@@ -149,6 +150,12 @@ import { ChatMakoAbierto } from './PanelAnalista';
 /** La grilla: 12 columnas, filas de 30 px y 16 px entre tarjetas. ⚠️ El PDF (editor-css.ts) repite estos números. */
 const FILA = 30;
 const MARGEN = 16;
+/**
+ * Se agranda desde los OCHO lados (14/10/2026, Martín: «Debería poder editar el tamaño de un bloque desde cualquiera de
+ * sus costados, no solo de abajo a la derecha. Y elimina la flecha que aparece detrás del contorno azul... Esto también
+ * para dashboard»). Cada lado es una franja de 8 px adentro del borde; cómo se ven, en ./editor-css.ts.
+ */
+const TIRADORES = ['n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw'] as const;
 /** Por debajo de este ancho, la grilla de 12 columnas no se lee: las tarjetas van una abajo de la otra. */
 const ANCHO_PILA = 640;
 /**
@@ -348,6 +355,8 @@ export function EditorInforme({
   // token ni la guía del Dashboard. El AI Analyst sí (su horario encuentra la hoja también en General:
   // `leerInformeGuardado`, lib/graficos-analisis-server.ts).
   const esGeneral = informe === 'general';
+  // Lo que General le presta al editor (app/dashboard/ElementoGeneral.tsx): la vista previa de cada bloque del menú.
+  const general = useGeneral();
   const informeRef = useRef(informe);
 
   const hoja = tablero.hojas.find((h) => h.id === hojaId) ?? tablero.hojas[0];
@@ -896,12 +905,6 @@ export function EditorInforme({
   const primerGrafico = ordenados.find(esGrafico)?.id ?? null;
   const primerConMako = ordenados.find((c): c is Grafico => esGrafico(c) && conMako(c) && !!datos[c.id]?.resultado)?.id ?? null;
   const alternarEdicion = () => { setEditando((v) => !v); setSelId(null); setConSel(null); setConectando(null); setEditPopup(null); setMenu(null); setDetalle(null); };
-  /**
-   * «Editar» en la pantalla en blanco (14/10/2026). Martín: «el botón de EDITAR no debería saltarme ningún modal..., debería,
-   * al igual que dashboard, habilitar el menú de edición de la página y poder comenzar a editarla». La caja y las
-   * plantillas ya están en la pantalla; Editar arranca una hoja en blanco, ya editándose.
-   */
-  const empezarEnBlanco = () => { crearHoja(hojaVacia('Página 1')); setEditando(true); };
   const puedeNuevaHoja = guardable && tablero.hojas.length < MAX_HOJAS;
   /**
    * Un elemento de la barra de inserción (o de su menú), agregado al lienzo. `inicial` es lo que trae una variante
@@ -1131,8 +1134,12 @@ export function EditorInforme({
           <>
             {/* Los filtros de la hoja, SIEMPRE a la vista (punto 7); agregarlos y quitarlos, sólo editando. En General no
                 van (14/10/2026, Martín: «Toda la topbar la deberías copiar de Dashboard menos la barra de busqueda y el
-                filtro que no sirven en general»): su barra es el título, Editar y el ⋮. */}
-            {!esGeneral && (
+                filtro que no sirven en general»): su barra es el título, Editar y el ⋮.
+                ⚠️ Y EN BLANCO NO VA NADA DE ESTO, en las dos pantallas (14/10/2026, Martín: «Si no tengo tabs no debería
+                salir el botón de editar ni los 3 puntos. Lo mismo para dashboard... Y en el caso de dashboard tampoco el
+                filtro ni la barra de busqueda»): sin una hoja no hay qué editar, filtrar ni exportar. Lo único que se
+                hace en blanco es elegir con qué arrancar, y eso está en el medio de la pantalla. */}
+            {!esGeneral && !enBlanco && (
             <div className="lk-top-filtros" data-recorrido="dash-controles">
               <BarraControles
                 hoja={hojaTop} vista={vista} editando={editando} guardable={guardable} hoy={hoy} compartido={compartido}
@@ -1141,17 +1148,19 @@ export function EditorInforme({
             </div>
             )}
             {/* «Editar» en azul (punto 3 de v5). Compartir se fue al ⋮. */}
-            {!soloMirar && (
-              <button type="button" className="lk-pill lk-pill--azul" data-recorrido={editando ? 'dash-ver' : 'dash-editar'} disabled={!guardable && !editando} onClick={enBlanco ? empezarEnBlanco : alternarEdicion}>
+            {!soloMirar && !enBlanco && (
+              <button type="button" className="lk-pill lk-pill--azul" data-recorrido={editando ? 'dash-ver' : 'dash-editar'} disabled={!guardable && !editando} onClick={alternarEdicion}>
                 {editando ? <><SvgOjo /> Ver</> : <><SvgLapiz /> Editar</>}
               </button>
             )}
             {/* El ⋮ (punto 4): el AI Analyst, Exportar y la guía. «Restablecer el informe» se fue (punto 2). */}
-            <button type="button" className="lk-pill lk-pill--icono lk-mas" data-recorrido="dash-ayuda" aria-label={analisisNuevo ? 'Más opciones: hay un análisis nuevo' : 'Más opciones'}
-              title="Más opciones" aria-haspopup="menu" aria-expanded={menu?.tipo === 'mas'} onClick={abrirMenu('mas')}>
-              <span aria-hidden>⋮</span>
-              {analisisNuevo && <PuntoNuevo />}
-            </button>
+            {!enBlanco && (
+              <button type="button" className="lk-pill lk-pill--icono lk-mas" data-recorrido="dash-ayuda" aria-label={analisisNuevo ? 'Más opciones: hay un análisis nuevo' : 'Más opciones'}
+                title="Más opciones" aria-haspopup="menu" aria-expanded={menu?.tipo === 'mas'} onClick={abrirMenu('mas')}>
+                <span aria-hidden>⋮</span>
+                {analisisNuevo && <PuntoNuevo />}
+              </button>
+            )}
           </>
         )}
       />
@@ -1183,7 +1192,7 @@ export function EditorInforme({
               solo «Insertar ▾» con todos. */}
           <div className="lk-insertar" role="group" aria-label="Insertar" data-recorrido="dash-insertar">
             <span className="lk-ins-sueltos">
-              {lugaresInsertar(!!dueno).map((l) => (l.clase === 'suelto' ? (
+              {lugaresInsertar(!!dueno, esGeneral).map((l) => (l.clase === 'suelto' ? (
                 <button key={l.tipo} type="button" className="lk-herr lk-herr--icono" title={etiquetaInsertar(l.tipo)} aria-label={etiquetaInsertar(l.tipo)}
                   onClick={() => insertar(l.tipo)}>
                   <IconoElemento tipo={l.tipo} size={19} />
@@ -1250,7 +1259,7 @@ export function EditorInforme({
                   layout={layout}
                   gridConfig={{ cols: COLS, rowHeight: FILA, margin: [MARGEN, MARGEN], containerPadding: [0, 0] }}
                   dragConfig={{ enabled: editando && !conectando, cancel: '.lk-no-arrastrar' }}
-                  resizeConfig={{ enabled: editando && !conectando, handles: ['se', 'e', 's'] }}
+                  resizeConfig={{ enabled: editando && !conectando, handles: TIRADORES }}
                   compactor={verticalCompactor}
                   onDragStart={alEmpezarGesto}
                   onResizeStart={alEmpezarGesto}
@@ -1309,6 +1318,7 @@ export function EditorInforme({
         <Flotante ancla={menu.ancla} onCerrar={() => setMenu(null)} ancho={372}>
           <Galeria
             actual={menu.tipo === 'cambiarTipo' && sel && esGrafico(sel) ? sel.tipo : undefined}
+            tipos={esGeneral ? TIPOS_GENERAL : undefined}
             onElegir={(tipo) => {
               const m = menu;
               setMenu(null);
@@ -1320,7 +1330,7 @@ export function EditorInforme({
       ) : null}
       {menu?.tipo === 'insertar' && (
         <Flotante ancla={menu.ancla} onCerrar={() => setMenu(null)} ancho={220}>
-          <MenuInsertar onElegir={insertar} componentes={lienzo.componentes} enPopup={!!dueno} onConectar={iniciarConectar} />
+          <MenuInsertar onElegir={insertar} componentes={lienzo.componentes} enPopup={!!dueno} enGeneral={esGeneral} onConectar={iniciarConectar} />
         </Flotante>
       )}
       {menu?.tipo === 'menuInsertar' && (
@@ -1328,18 +1338,19 @@ export function EditorInforme({
           <MenuElementos menu={menu.lugar} onElegir={insertar} componentes={lienzo.componentes} enPopup={!!dueno} onConectar={iniciarConectar} />
         </Flotante>
       )}
+      {/* «Bloques de General» (14/10/2026, Martín: «que no tenga titulos internos y que sean una preview de lo que va a
+          ser el gráfico, no solo texto. Que sea un desplegable más gordo para poder ver de a 3 por fila»): cada bloque es
+          una tarjeta con su vista previa (el bloque con datos de ejemplo, achicado) y su nombre. El orden del catálogo
+          ya agrupa (el norte, hoy, la plata, el contenido). */}
       {menu?.tipo === 'piezas' && (
-        <Flotante ancla={menu.ancla} onCerrar={() => setMenu(null)} ancho={320}>
-          <div className="lk-lista" role="menu">
-            {GRUPOS_PIEZAS.map((g) => (
-              <div key={g} role="group" aria-label={g}>
-                <div className="lk-lista-grupo">{g}</div>
-                {PIEZAS_GENERAL.filter((x) => x.grupo === g).map((x) => (
-                  <button key={x.id} type="button" role="menuitem" className="lk-opcion" title={x.linea} onClick={() => insertarPieza(x.id)}>
-                    <IconoElemento tipo="general" size={17} /> <span>{x.nombre}</span>
-                  </button>
-                ))}
-              </div>
+        <Flotante ancla={menu.ancla} onCerrar={() => setMenu(null)} ancho={812}>
+          <div className="lk-bloques" role="menu">
+            {PIEZAS_GENERAL.map((x) => (
+              <button key={x.id} type="button" role="menuitem" className="lk-bloque" onClick={() => insertarPieza(x.id)}>
+                <span className="lk-bloque-vista" aria-hidden><span className="lk-bloque-escala">{general?.muestra(x.id)}</span></span>
+                <span className="lk-bloque-nombre">{x.nombre}</span>
+                <span className="lk-bloque-linea">{x.linea}</span>
+              </button>
             ))}
           </div>
         </Flotante>
@@ -1428,7 +1439,7 @@ export function EditorInforme({
 
       {/* ── Los modales ── */}
       {guardable && <BotonCompartir hojaId={hoja.id} titulo={hoja.nombre} abierto={compartir} onCerrar={cerrarCompartir} />}
-      {modalDatos && <ModalDatos onElegir={anadirFuente} onCerrar={cerrarModalDatos} />}
+      {modalDatos && <ModalDatos onElegir={anadirFuente} onCerrar={cerrarModalDatos} soloFuentes={esGeneral ? FUENTES_GENERAL : undefined} />}
       {nuevaHoja && <NuevaHoja onCerrar={cerrarNuevaHoja} onCrear={crearHoja} enBlanco={enBlanco ? 'Página 1' : `Página ${tablero.hojas.length + 1}`} informe={informe} />}
       {gDetalle && esGrafico(gDetalle) && detalle && (
         <DetalleModal g={gDetalle} hoja={hoja} efectivo={efectivosHoja[gDetalle.id] ?? efectivoDe(gDetalle, hoja, vista, hoy)} sel={detalle.sel} tema={hoja.tema}
@@ -1455,7 +1466,12 @@ export function EditorInforme({
 // Con el `Modal` de la casa (entra en la pila de modales: queda arriba del recorrido y el Escape cierra
 // sólo esto). El foco va al buscador con `useFocoInicial`: `autoFocus` adentro de un Modal no llega.
 
-function ModalDatos({ onElegir, onCerrar }: { onElegir: (id: string) => void; onCerrar: () => void }) {
+/**
+ * «Añadir datos de MaKo». `soloFuentes` lo acota: General ofrece los conjuntos más importantes (`FUENTES_GENERAL`,
+ * lib/general-piezas.ts; Martín, 14/10/2026: «si vamos a quitar la mayoría de gráficos, también hay que limitar los
+ * gráficos que se traen»). Un área sin ninguno no se dibuja.
+ */
+function ModalDatos({ onElegir, onCerrar, soloFuentes }: { onElegir: (id: string) => void; onCerrar: () => void; soloFuentes?: readonly string[] }) {
   const [q, setQ] = useState('');
   useFocoInicial('lk-buscar-datos');
   const filtro = norm(q.trim());
@@ -1464,7 +1480,7 @@ function ModalDatos({ onElegir, onCerrar }: { onElegir: (id: string) => void; on
       <div className="lk">
         <div className="lk-buscar lk-buscar--modal"><SvgLupa /><input id="lk-buscar-datos" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar" aria-label="Buscar datos" /></div>
         {AREAS.map((area) => {
-          const fs = FUENTES.filter((f) => f.area === area && (!filtro || norm(`${f.nombre} ${f.descripcion} ${area}`).includes(filtro)));
+          const fs = FUENTES.filter((f) => f.area === area && (!soloFuentes || soloFuentes.includes(f.id)) && (!filtro || norm(`${f.nombre} ${f.descripcion} ${area}`).includes(filtro)));
           if (!fs.length) return null;
           return (
             <div key={area}>
