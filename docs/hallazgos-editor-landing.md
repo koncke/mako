@@ -311,10 +311,108 @@ una, puede salir un pop-up... que te pregunte de que quieres crearla». Hecho si
   medido sobre los 80 cruces diseño × objetivo (`tests/editor-landing-disenos.test.ts`). En el menú de
   bloques son la categoría «Herramientas de MaKo» (Agenda, VSL, Botón de pago). **Vive en:**
   `lib/editor-landing/catalogo-bloques.ts`, `app/landing-generator/editor/insertar.ts`.
-- **Sin hacer**: el botón de pago no arma el link desde la pasarela de MaKo (`lib/cobros.ts`, `crearCobro`):
-  la persona pega el suyo. Conectarlo es un cobro por visitante, con su producto y su moneda, y no entraba
-  en «cambios simples». Y falta mirarlo con clics (la barra en una sección del medio y en la última, y el
-  pop-up desde el Panel y desde la caja).
+- ~~**Sin hacer**: el botón de pago no arma el link desde la pasarela de MaKo (`lib/cobros.ts`, `crearCobro`):
+  la persona pega el suyo.~~ Hecho en la tanda 4 (abajo). Sigue faltando mirarlo con clics (la barra en una
+  sección del medio y en la última, y el pop-up desde el Panel y desde la caja).
+
+## Tanda 4 (14/10/2026): el botón de pago por la pasarela de MaKo
+
+Pedido: que el «Botón de pago» cobre por la pasarela del negocio (Stripe / Mercado Pago, `lib/cobros.ts`) en
+vez de llevar a un link pegado. Decisión de Martín (14/10): antes del checkout se le piden NOMBRE y EMAIL a
+quien paga. Y lo que pidió respetar «Integraciones», dueño de `lib/cobros.ts` (que no se tocó): monto, moneda,
+montoUsd y altaCapa nunca salen del pedido; un lead por email exacto; el pendiente se compara antes de
+reusarse; los errores de `crearCobro` son para el dueño; topes. El recorrido: el botón guarda
+`pago:<productoId>` → la foto publicada congela qué productos ofrece → el render lo escribe
+`<base>/pagar/<id>` → el paso (`app/l/[slug]/pagar/[bloque]`, HTML sin JavaScript) → el POST
+(`app/api/landing-generator/pagar`, exacta en PUBLICOS) → 303 al link `/pagar/<token>`.
+
+- **«Cobrado por MaKo» va en el `href` del botón, no en un atributo nuevo.** Lo obvio era `productoId` en
+  `AttrsBoton`, y eran cuatro puertas: el tipo, el normalizador, la extensión de TipTap (con
+  `parseHTML: () => null`) y lo que lee el NodeView; la que se olvide hace que `nodeFromJSON` tire el
+  atributo en silencio y el autoguardado lo pise. `pago:<productoId>` viaja por el `href`, que ya pasa por las
+  cuatro y por el saneo, igual que `pagina:<id>`. SÓLO el botón lo conoce (`attrsBoton` → `hrefPagoValido`):
+  `hrefPermitido` no, así que un enlace de texto, una imagen o la barra del sitio no pueden apuntar a un
+  pago que nadie resolvería. **Regla: antes de sumarle un atributo a un nodo, mirar si el dato cabe en uno que
+  ya cruza el esquema y el saneo.** **Vive en:** `lib/editor-landing/especificacion.ts` (`attrsBoton`,
+  `specBoton`), `lib/editor-landing/pago-landing.ts`.
+- **«Editar con IA» se comía el botón de pago, sin error.** La gramática (`destinoBoton`) valida el destino con
+  `hrefPermitido`, y lo que no conoce lo manda al formulario: la vuelta de la IA dejaba el botón apuntando a
+  `#t-<formulario>`. Toda forma nueva de destino de un botón entra también ahí (tiene test). **Vive en:**
+  `lib/editor-landing/ia-bloques.ts`.
+- **La URL del paso sale de la base del render, no se arma a mano**: `resolverHref` escribe
+  `<urlBase>/pagar/<id>` (`urlPasoPago`), la MISMA base de los `pagina:` (hoy `https://hola-mako.com/l/<slug>`;
+  la mudanza a hola-mako.site cambia esa base en `publicar.ts` y el botón la sigue). Sólo con `pagos: true`
+  (lo pide `armarFoto` al publicar): en la vista previa y al exportar el botón queda en `#`, porque
+  `/l/vista/<tok>/pagar/…` no existe y un `pago:` crudo en un `<a>` haría que el navegador busque una app.
+  ⚠️ **En un dominio propio la base se reescribe al servir (`conEnlacesDelDominio`) y queda
+  `https://cliente.com/pagar/<id>`: ese `/pagar/` de la raíz CHOCA con `app/pagar/[token]`** (el link de un
+  cobro). Hoy no llega: `decidirHost` contesta 404 a una ruta de dos segmentos. Cuando el proxy lo deje
+  pasar, lo reescribe al paso y nunca a `app/pagar` (un id de producto son dígitos; un token, 32 base64url).
+  **Vive en:** `lib/editor-landing/render.ts`.
+- **La foto congela qué se ofrece (`publicado.pagos`), y `leerFoto` no lo copia.** El POST sólo cobra un
+  producto que la landing PUBLICADA ofrece (un visitante no elige qué producto del catálogo se le cobra).
+  `leerFoto` reconstruye la foto campo por campo y deja afuera lo que no conoce (`pagos`, igual que
+  `htmlLibre`): se lee de la fila CRUDA (`productosDeFoto`). Una foto publicada antes de la tanda 4 no cobra
+  nada hasta que se republique. **Vive en:** `lib/editor-landing/publicar.ts`, `server-reglas.ts`,
+  `pago-landing-server.ts`.
+- **Mercado Pago NO cobra desde una landing, y no es un olvido.** Cobra en la moneda del sitio de su cuenta
+  (ARS, MXN…) y `productos` sólo tiene `monto_usd`: `decidirCobro` exige el monto explícito en esa moneda, y
+  acá el monto no sale del pedido (nunca una tasa inventada). Es la misma decisión que la API de MaKo para
+  `crear_link_pago`. Con sólo Mercado Pago, el control del botón y Publicar lo dicen y mandan a conectar
+  Stripe. **Vive en:** `lib/editor-landing/pago-landing.ts` (`pasarelaDeLanding`, `motivoNoCobra`).
+- **El lead NO cae a propuesta (a diferencia del opt-in).** El opt-in, ante un duplicado, deja una propuesta y
+  no hay `leadId`; un cobro EXIGE uno. Se busca ANTES por email EXACTO (`ilike` con `%`, `_` y la barra
+  invertida escapados trae candidatos; decide `emailComparable`, y con dos fichas gana la más vieja) y en
+  lectura ESTRICTA: `duplicadosDeLead` traga el error y devuelve `[]`, que acá crearía una segunda ficha de la
+  misma persona. Si `createLead` choca igual (otro pedido en el medio), se vuelve a buscar. Se crea por el
+  camino del opt-in (`createLead` con `origen_lead: 'landing'` y la casa del producto principal de la página)
+  aunque el negocio no haya declarado la landing como entrada de leads: alguien escribió su email para PAGAR.
+  ⚠️ Trampa menor: `esLeadDuplicado` vive en `lib/leads-duplicados.ts`; `lib/leads.ts` no lo re-exporta.
+  **Vive en:** `lib/editor-landing/pago-landing-server.ts` (`leadDeQuienPaga`), `pago-pedido.ts` (`leadPorEmail`).
+- **`cobroPendienteDelLead` no sirve para decidir si se reusa**: devuelve el pendiente más nuevo de CUALQUIER
+  producto, y además un pendiente viejo puede tener el precio de antes. Se listan los `pendiente` del lead y se
+  reusa sólo el del MISMO producto, pasarela, monto, moneda y tipo (`cobroReusable`). **Vive en:**
+  `lib/editor-landing/pago-pedido.ts`, `pago-landing-server.ts` (`pagarDesdeLanding`).
+- **`form-action` se aplica a las REDIRECCIONES del envío (Chrome).** El POST rebota dos veces (303 →
+  `/pagar/<token>` de la app → el checkout de Stripe): la política del paso nombra `'self'`, el origen de la
+  app y los checkouts, o el navegador corta el último salto y queda una página en blanco con el pago a medio
+  camino. ⚠️ NO MEDIDO en un navegador (en este worktree no se levantó `next dev`): es lo primero a mirar con
+  clics. **Vive en:** `lib/editor-landing/pago-pagina.ts` (`politicaPasoPago`, `ORIGENES_CHECKOUT`).
+- **El Origin, en positivo, y `*.vercel.app` no es MaKo.** `esHostDeMako` incluye `*.vercel.app` (para el
+  proxy está bien: son los deploys), pero ese sufijo es de CUALQUIER cliente de Vercel: para el POST sólo vale
+  el deploy que contesta. Un dominio propio vuelve como `dominio` y se confirma contra `landingDeDominio` de
+  ESA landing. No es una barrera contra un script (el Origin se falsifica con curl): lo que frena el abuso son
+  los topes (por IP 10 cada 10 min, por email 5 por hora; en memoria por instancia) y el campo trampa — cada
+  pedido crea un checkout en el Stripe del cliente. **Vive en:** `lib/editor-landing/pago-pedido.ts`
+  (`origenDelPago`), `pago-pagina.ts` (`responderPagoPost`).
+- **Al visitante, una frase; el motivo real, al historial del lead.** Los errores de `crearCobro` están
+  escritos para el dueño («Stripe: …»). El paso muestra el formulario aunque hoy no se pueda cobrar (sin
+  Stripe, sin precio): el POST deja a la persona en el CRM con «Quiso pagar X y no se pudo: <motivo>» en su
+  historial, y el visitante lee «Este pago no está disponible en este momento. Ya tenemos tus datos.» Un
+  producto que ya no está activo, en cambio, no se ofrece (no hay qué mostrar). **Vive en:**
+  `lib/editor-landing/pago-pagina.ts`, `pago-landing-server.ts`.
+- **Un módulo que importa el editor no puede importar del CRM**: `emailComparable` (`leads-duplicados`) arrastra
+  `lead-funnel-reglas` → `funnel-fila` → `pipeline` (mil líneas) al bundle del editor, porque
+  `especificacion.ts` y `render.ts` viajan al navegador. Lo del botón vive en `pago-landing.ts` (liviano) y lo
+  del pedido en `pago-pedido.ts` (sólo server y tests).
+
+### Lo que quedó sin hacer (tanda 4)
+
+- **El dominio propio de una landing no cobra todavía**: `decidirHost` contesta 404 a `/pagar/<id>` (dos
+  segmentos) y a `/api/…`. Hace falta que el paso (GET) se reescriba a `app/l/[slug]/pagar/[bloque]` con el slug
+  de la landing de ese dominio (la ruta ya se niega a servir una landing de otro dominio) y que el POST
+  `/api/landing-generator/pagar` pase. `lib/editor-landing/dominios-reglas.ts` (`decidirHost`), `proxy.ts`.
+- **hola-mako.site**: `HOST_SITIOS` (`lib/editor-landing/pago-pedido.ts`) repite el host que declare la
+  mudanza; cuando lo declare (p. ej. en `DOMINIOS_DE_MAKO`), se importa de ahí. Y la mudanza tiene que dejar
+  pasar el POST en ese host.
+- **API de MaKo**: «configurar el botón de pago de un bloque» no está en el registro
+  (`lib/api-mako/areas/landing.*`, en construcción en otro worktree). Es poner `href: hrefDePago(id)` en un
+  `boton` (helpers puros de `pago-landing.ts`).
+- **La vista previa no cobra** (el botón queda en `#`), y nadie le avisa al dueño en el momento cuando alguien
+  quiso pagar y no se pudo: queda sólo en el historial del lead.
+- **Verlo con clics**: elegir el producto en el panel «Destino», el rótulo y la advertencia, Publicar con y sin
+  Stripe, el paso en un celular (tema, teclado), y el POST hasta el checkout de Stripe en modo prueba
+  (incluido el `form-action` en Chrome).
 
 ## Lo que quedó sin hacer
 
