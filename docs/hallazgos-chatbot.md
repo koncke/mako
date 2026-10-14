@@ -4336,3 +4336,15 @@ de Instagram. Es el prerrequisito de TikTok. Y una trampa para sumar un canal: l
 avisar; van a `Record<CanalSocial, …>` para que el compilador obligue.
 
 **Vive en:** `lib/nutricion.ts` (`pausarPorRespuesta`, `asistirRespuesta`) · `lib/canal-social.ts` · `app/automations/EditorPasoIA.tsx` (`MEDIOS_OFRECIDOS`)
+
+### Una flecha no se podía soltar sobre la PASTILLA de una espera [lienzo · bug 4 del 13/10, 14/10]
+
+«Las líneas de conexión desde el botón de sumar no se sueltan ni se guardan» (Mauricio, 13/10). Una espera con un solo
+padre y una salida se dibuja como pastilla sobre la flecha (`colapsable`), y `tarjetaBajo` sólo aceptaba `[data-nodo]`:
+soltar la flecha sobre la pastilla caía al vacío. El caso de esa llamada: conectar el segundo audio de «Un Lead Agendó
+Llamada» a la espera de 2 h (la #213 terminó con los dos audios en esa espera). El dato siempre lo admitió (`conectar` a una
+espera); era el lienzo. Ahora la pastilla recibe la flecha (y se ve entera bajo el cursor). Con dos padres, la espera se
+dibuja como tarjeta. ⚠️ Sin ver la grabación (la cuenta 2 no accede a Fathom 858927676): es la causa más probable, no la
+medida; hay que confirmarlo con Mauricio después del deploy.
+
+**Vive en:** `app/_components/Lienzo.tsx` (`tarjetaBajo`, las pastillas) · `lib/flujo-conversacion.ts` (`colapsable`)

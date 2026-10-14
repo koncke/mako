@@ -533,11 +533,18 @@ export function Lienzo({
       onElegir: () => elegir(o.value),
     }));
 
-  /** ¿Qué tarjeta hay debajo del cursor (que no sea la de origen)? La pastilla de una espera no cuenta. */
+  /**
+   * ¿Qué tarjeta hay debajo del cursor (que no sea la de origen)? LA PASTILLA DE UNA ESPERA TAMBIÉN CUENTA (bug 4 del
+   * 13/10/2026, «las líneas de conexión desde el botón de sumar no se sueltan ni se guardan»): una espera con un solo
+   * padre se dibuja como pastilla sobre la flecha, y no recibía flechas. Conectar una segunda tarjeta a esa espera —
+   * los dos audios de «Un Lead Agendó Llamada» a la espera de 2 h— no tenía dónde soltarse. Con dos padres la espera
+   * pasa a dibujarse como tarjeta (`colapsable`, lib/flujo-conversacion.ts).
+   */
   const tarjetaBajo = (clientX: number, clientY: number, salvo: string): string | null => {
     const el = typeof document !== 'undefined' ? document.elementFromPoint(clientX, clientY) : null;
-    const id = el instanceof Element ? el.closest('[data-nodo]')?.getAttribute('data-nodo') ?? null : null;
-    return id && id !== salvo && caja.current?.contains(el) ? id : null;
+    if (!(el instanceof Element) || !caja.current?.contains(el)) return null;
+    const id = el.closest('[data-nodo]')?.getAttribute('data-nodo') ?? el.closest('[data-pildora]')?.getAttribute('data-pildora') ?? null;
+    return id && id !== salvo ? id : null;
   };
 
   /**
@@ -1311,7 +1318,8 @@ export function Lienzo({
           {/* LAS ESPERAS QUE VAN EN UNA FLECHA (sexta tanda, DELAY 1: «que la flecha no se corte, que
               sea algo en medio de la flecha, más sutil»): una pastilla por espera, repartidas sobre la
               curva (`tDePildora`). Se tocan para editarlas (abren su panel como una tarjeta) y el click
-              derecho les da su menú. No son `data-nodo`: no se arrastran ni reciben una flecha. */}
+              derecho les da su menú. No son `data-nodo`: no se arrastran; desde el 14/10/2026 SÍ reciben una flecha
+              (`tarjetaBajo`, bug 4). */}
           {grafo.aristas.map((a, i) => {
             if (!a.esperas?.length) return null;
             const d = grafo.nodos.find((n) => n.id === a.desde);
@@ -1330,10 +1338,11 @@ export function Lienzo({
                     position: 'absolute', left: p.x, top: p.y, transform: 'translate(-50%, -50%)',
                     height: ALTO_PILDORA_FLECHA, padding: '0 9px', borderRadius: 999, whiteSpace: 'nowrap',
                     display: 'inline-flex', alignItems: 'center', gap: 5, cursor: 'pointer', fontFamily: SANS,
-                    background: 'var(--surface)', border: `1px solid ${activa ? 'var(--primary)' : 'var(--border-strong)'}`,
+                    background: 'var(--surface)', border: `1px solid ${activa || sobreFlecha === e.id ? 'var(--primary)' : 'var(--border-strong)'}`,
                     boxShadow: activa ? '0 0 0 3px var(--primary-bg)' : 'none',
                     fontSize: 11, fontWeight: 600, color: 'var(--dim)',
-                    opacity: !vista ? 0 : arrastreFlecha ? ATENUADO : 1, transition: 'opacity .12s ease',
+                    // Mientras se arrastra una flecha, la pastilla de abajo del cursor se ve entera: también recibe la flecha.
+                    opacity: !vista ? 0 : arrastreFlecha && sobreFlecha !== e.id ? ATENUADO : 1, transition: 'opacity .12s ease',
                   }}>
                   <span aria-hidden style={{ fontSize: 11 }}>⏳</span>{e.texto}
                 </button>
