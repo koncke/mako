@@ -1,6 +1,6 @@
 # Relevo — chat «Graphics» (la tab Dashboard)
 
-<sub>Escrito el 13/10/2026 ~21:00 (hora de Argentina) por la cuenta 2, desde el chat que hizo el trabajo. Se pisa en cada relevo.</sub>
+<sub>Escrito el 13/10/2026 ~23:55 (hora de Argentina) por la cuenta 2, desde el chat que hizo el trabajo. Se pisa en cada relevo.</sub>
 
 ## Dónde está
 
@@ -22,6 +22,9 @@ vigía mata los `tsc`). Dos ramas:
     `lib/llamadas-modelo.ts`, `app/dashboard/entidades/FichaLlamada.tsx` y `app/dashboard/piezas.tsx`.
   - `9966e7bc` — **«A quién cobrarle» en la tab General** (reunión con Mauricio del 12/10, 86:17: «en la tab general, la cobranza»), con
     «Marcar cobrada»: la misma lista que el teléfono. Sigue también en el Dashboard: Martín no dijo si se saca de allá (se le preguntó).
+  - El commit que sigue a `9f70a36e` — **clic derecho en toda la tab** (opciones según dónde y en qué modo), el **botón de MaKo
+    selectivo** (sólo tendencias por día/semana/mes, embudos y dispersión; ausente = lo del tipo, `conMako`) y **editable en el
+    lugar**: editando, su clic abre lo que responde, las sugerencias y «Quitar el botón». La API: `pedido_mako`.
 
 **Para pushear** (cuando el typecheck pueda terminar): en `C:/dev/wt-graphics`, `git pull --rebase origin main` (o merge), `npm test`, el
 typecheck por el lock, y `git push origin HEAD:main`. Después, `vercel ls`.
@@ -35,7 +38,7 @@ typecheck por el lock, y `git push origin HEAD:main`. Después, `vercel ls`.
   link: linkApp('/dashboard?hoja=<id>', p.ws) }), dedupKey: 'analisis:<id de la corrida>' })`. El origen viaja como dato
   (`analisis_origen`: «Programado» o «A mano»): cada negocio decide en su automatización.
 - **Verlo en el navegador (ws3)**: «Nueva hoja» (la caja, el «+», una plantilla armándose con datos), «Copiar dashboard» y pegarlo, y que el
-  botón de MaKo no salga editando. No se pudo: RAM en rojo.
+  botón de MaKo editable (clic en él editando) y el clic derecho en el lienzo, un gráfico y un texto, mirando y editando. No se pudo: RAM en rojo.
 - **Que Martín decida** si se borran `PulsoPaginas.tsx` + su ruta y su lib, y `ScriptsBrowser`/`GuionesFull` (~900 líneas sin usar).
 - **Copiar un dashboard por la API de MaKo** (`copiar_dashboard`, `pegar_dashboard`).
 - **El teléfono (`/m/dashboard`)** le sigue mostrando Marketing y Comercial fijos a quien no tiene informe.

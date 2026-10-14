@@ -307,4 +307,10 @@ export const BITACORA: Hito[] = [
     commits: [{ sha: '35dc37f', msg: 'Dashboard: las plantillas se arman con los datos del negocio, y el botón de MaKo no sale editando', lineas: 569, archivos: 15 }],
     archivos: ['app/api/graficos/plantilla/route.ts', 'lib/graficos-con-datos.ts', 'lib/graficos-con-datos-server.ts', 'app/dashboard/NuevaHoja.tsx', 'app/dashboard/EditorInforme.tsx', 'lib/api-mako/areas/dashboard.run.ts'],
   },
+  {
+    fecha: '13 oct', hora: '23:30', chat: CH, cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'Clic derecho en toda la tab, y el botón de MaKo editable en el lugar y en menos gráficos',
+    pedido: 'Creo que no se pusheó, porque aún no veo lo de «¿Qué vas a crear hoy?»...\n\nTambién te pido que implementes el click derecho en toda la tab, con diferentes acciones... Y que el botón de la IA de MaKo NO se abra al estar en modo edición, sino que se pueda editar allí justamente... Que se pueda editar el prompt, lo que debe responder, eliminar el botón de IA de ese grafico, etc... Y por favor, borra ese botón de la mayoría de gráficos, es muy molesto que esté en todos. Se selectivo.',
+    puntos: ['No se había pusheado: el typecheck del pre-push no tenía RAM para correr (no era un error de tipos).'],
+  },
 ];

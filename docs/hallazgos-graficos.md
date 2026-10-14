@@ -474,6 +474,31 @@ gobierna lo que se toque acá:
 - **Lo que suma MaKo se pide con el catálogo RECORTADO** a los conjuntos que tienen datos (`catalogoParaIA(fuentes)`), y se mide
   igual antes de entrar: el recorte orienta, la medición decide. Si MaKo no contesta, la hoja sale podada (sumar es lo opcional).
 
+## El clic derecho, y el botón de MaKo selectivo y editable en el lugar (13/10/2026)
+
+**Vive en:** `makoPorDefecto` / `conMako` / `makoIA` en `lib/graficos-catalogo.ts`, `app/dashboard/MenuContextual.tsx`,
+`app/dashboard/EditorMako.tsx`, `alClicDerecho` y `elegirContextual` en `app/dashboard/EditorInforme.tsx`
+
+Pedido de Martín: clic derecho en toda la tab, el botón de MaKo editable en modo edición (no abre el chat), y «borra ese botón de
+la mayoría de gráficos… Se selectivo». Lo que gobierna lo que se toque acá:
+
+- **La AUSENCIA de `mako` cambió de significado.** Antes se guardaba sólo `false` («prenderlo es sacar la marca»), así que ausente
+  era PRENDIDO. Ahora ausente es lo del tipo (`makoPorDefecto`: tendencias por día, semana o mes, embudos y dispersión) y se guardan
+  los dos valores. Con eso el botón se fue de golpe de los informes ya guardados, que es lo pedido: en las 13 plantillas lo llevan
+  21 de 157 gráficos. ⚠️ El caso que pierde: alguien que lo apagó y lo volvió a prender antes del 13/10 quedó con la marca ausente
+  y ahora sigue al tipo. No se puede distinguir de «nadie lo tocó»: el camino viejo no lo escribía.
+- **`conMako` es la ÚNICA lectura** (pantalla, Propiedades, la API y la hoja en palabras). Un `g.mako !== false` suelto vuelve a la
+  regla vieja sin un error; el test lo busca en `dashboard.run.ts`.
+- **Un evento de React SUBE POR LOS PORTALES.** El clic derecho en una fila del desplegable de hojas (que tiene su propio menú), en
+  un `Flotante` o en un modal llega al `onContextMenu` de la raíz aunque en el DOM viva en el `body`. La guarda es
+  `defaultPrevented` + `closest('[role="menu"], [role="dialog"], [role="listbox"], .lk-flotante')`, y escribiendo sale el menú del
+  navegador (copiar, pegar, el corrector).
+- **Cada opción del menú llama a una acción que YA existía** (duplicar, cambiar el tipo, conectar, exportar, el chat de MaKo):
+  nada se implementa dos veces. El test cruza las claves de `OPCION` contra los `case` de `elegirContextual`, así una opción nueva no
+  se puede dibujar muerta.
+- **Lo que MaKo «responde» viaja como texto del contexto**, no como un prompt aparte: `contextoDeGrafico` le agrega «quien armó este
+  gráfico pide que respondas, antes que nada: …». Las sugerencias reemplazan las preguntas por defecto del chat del gráfico.
+
 ## Lo que quedó sin hacer
 
 - **El tipo `Bloque` y `clase: 'bloque'` siguen en `lib/graficos-catalogo.ts`** (y `esBloque`, `sanearBloque`): los necesita

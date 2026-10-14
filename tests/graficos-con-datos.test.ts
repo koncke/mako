@@ -166,7 +166,12 @@ test('las tres puertas que crean una hoja pasan por hojaConDatos (la plantilla s
   assert.match(server, /!d \|\| !d\.ok \? 'nose' : sinDatos\(d\.resultado\) \? 'sin' : 'con'/);
 });
 
-test('editando, el botón de MaKo de cada gráfico no sale (12/10, 101:53)', () => {
+// 13/10/2026 a la noche, Martín: «que el botón de la IA de MaKo NO se abra al estar en modo edición, sino que se pueda
+// editar allí justamente». Reemplaza al «no sale editando» de la reunión (101:53): editando SALE, y abre su configuración
+// en vez del chat (tests/dashboard-mako-contextual.test.ts tiene el resto).
+test('editando, el botón de MaKo de cada gráfico no abre el chat: abre su configuración en el lugar', () => {
   const editor = sinComentarios(leer('app/dashboard/EditorInforme.tsx'));
-  assert.match(editor, /\{est\.resultado && !soloMirar && !editando && \(c\.mako !== false\) && \(/);
+  assert.match(editor, /\{\(editando \|\| est\.resultado\) && !soloMirar && conMako\(c\) && \(/);
+  assert.match(editor, /onClick=\{editando \? \(e\) => \{ e\.stopPropagation\(\); setMenu\(\{ ancla: e\.currentTarget, tipo: 'mako', id: c\.id \}\); \} : undefined\}/);
+  assert.match(editor, /\{editando\s*\? <BotonMako [^>]*onClick=\{\(\) => \{\}\} \/>\s*: <ChatMakoGrafico /);
 });

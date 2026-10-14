@@ -36,7 +36,7 @@ import { runWithWorkspace } from '@/lib/workspace';
 import { hoyEnTijuana } from '@/lib/date-utils';
 import { rateLimit } from '@/lib/rate-limit';
 import {
-  campoDe, camposDeFuente, efectivoDe, esElemento, esGrafico, fuenteDe, hojaVacia, metricaDe, sanearTablero,
+  campoDe, camposDeFuente, conMako, efectivoDe, esElemento, esGrafico, fuenteDe, hojaVacia, metricaDe, sanearTablero,
   tituloDe,
   type Componente, type Elemento, type Grafico, type Hoja,
 } from '@/lib/graficos-catalogo';
@@ -455,7 +455,7 @@ export const RUNNERS: Runners = {
                 periodo: { desde: l.desde, hasta: l.hasta },
                 agrupado_por: l.agrupar, lo_define: l.fijos, filtros: l.filtros, no_filtra: l.noAplica,
                 filtros_propios: http ? g.controles.map((k) => controlParaHttp(k, alias)) : g.controles,
-                ...(g.mako === false ? { mako: false } : {}),
+                mako: conMako(g), ...(g.makoIA?.pedido ? { pedido_mako: g.makoIA.pedido } : {}),
                 ...(g.popup ? { popup: { titulo: g.popup.titulo, piezas: g.popup.componentes.length } } : {}),
                 x: g.x, y: g.y, w: g.w, h: g.h,
                 ...(l.resultado ? { resultado: l.resultado } : { error: l.error ?? 'no se pudo leer' }),
@@ -757,6 +757,7 @@ export const RUNNERS: Runners = {
         ...(num(input, 'limite') !== undefined ? { limite: num(input, 'limite') } : {}),
         ...(input.comparar !== undefined ? { comparar: input.comparar === true } : {}),
         ...(typeof input.mako === 'boolean' ? { mako: input.mako } : {}),
+        ...(input.pedido_mako !== undefined ? { pedidoMako: str(input, 'pedido_mako') === '-' ? '' : str(input, 'pedido_mako') } : {}),
       };
       const a = armarGrafico(e, g);
       if (!a.ok) return { error: a.error, disponibles: a.disponibles };
@@ -790,7 +791,8 @@ export const RUNNERS: Runners = {
       if (periodoEnTexto(pNuevo) !== periodoEnTexto(pAntes)) { cambios.push(`período ${periodoEnTexto(pNuevo)}`); antes.push(periodoComoParametro(pAntes)); }
       dif('titulo', nuevo.titulo, g.titulo, (v) => (v ? comillas(String(v)) : '-')); dif('subtitulo', nuevo.subtitulo, g.subtitulo, (v) => (v ? comillas(String(v)) : '-'));
       dif('limite', nuevo.limite, g.limite, t); dif('comparar', nuevo.comparar, g.comparar, t);
-      dif('mako', nuevo.mako !== false, g.mako !== false, t);
+      dif('mako', conMako(nuevo), conMako(g), t);
+      dif('pedido_mako', nuevo.makoIA?.pedido ?? '', g.makoIA?.pedido ?? '', (v) => (v ? comillas(String(v)) : '-'));
       if (JSON.stringify(filtrosFijosDe(nuevo)) !== JSON.stringify(filtrosFijosDe(g))) cambios.push('los filtros que lo definen');
       return {
         cambio: { op: 'reemplazar_componente', hojaId: h.id, componente: nuevo },

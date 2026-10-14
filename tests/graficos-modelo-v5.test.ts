@@ -165,7 +165,8 @@ test('los campos nuevos de un gráfico: se copian con su tope, y lo que vale lo 
   const NUEVOS = ['mako', 'alClic', 'popup', 'barra', 'secundaria', 'ocultarSiCero', 'ejes', 'referencias', 'colorPor', 'tabla', 'mapa'];
   const viejo = g({ tipo: 'tabla', fuente: 'leads', dimension: 'etapa', metricas: ['leads'] });
   for (const k of NUEVOS) assert.equal(k in viejo, false, `un gráfico de antes no escribe «${k}»`);
-  assert.equal('mako' in g({ tipo: 'numero', fuente: 'leads', mako: true }), false, 'ausente = prendido');
+  // 13/10/2026: los DOS valores se guardan (ausente = lo del tipo, `conMako`; tests/dashboard-mako-contextual.test.ts).
+  assert.equal(g({ tipo: 'numero', fuente: 'leads', mako: true }).mako, true);
   assert.equal(g({ tipo: 'numero', fuente: 'leads', mako: false }).mako, false);
 
   const t = g({

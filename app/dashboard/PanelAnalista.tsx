@@ -530,19 +530,27 @@ export function LogoMako({ lado = 22 }: { lado?: number }) {
  *    portal de React sigue burbujeando hasta la tarjeta (un clic la seleccionaría y un mousedown la
  *    arrastraría): `Capa` frena los eventos y lleva la clase de no arrastrar.
  */
-export function ChatMakoGrafico({ chartKey, titulo, contexto }: { chartKey: string; titulo: string; contexto: string }) {
+export function ChatMakoGrafico({ chartKey, titulo, contexto, sugerencias }: { chartKey: string; titulo: string; contexto: string; sugerencias?: string[] }) {
   const [abierto, setAbierto] = useState(false);
   const cerrar = useCallback(() => setAbierto(false), []);
   return (
     <>
       <BotonMako lado={26} title="Conclusiones con MaKo" encendido={abierto} onClick={() => setAbierto(true)} />
-      {abierto && <Capa><CapaChatMako chartKey={chartKey} titulo={titulo} contexto={contexto} onCerrar={cerrar} /></Capa>}
+      {abierto && <Capa><CapaChatMako chartKey={chartKey} titulo={titulo} contexto={contexto} sugerencias={sugerencias} onCerrar={cerrar} /></Capa>}
     </>
   );
 }
 
+/**
+ * El chat de MaKo de un gráfico abierto DESDE AFUERA del botón (el clic derecho, «Preguntarle a MaKo»): el mismo modal,
+ * con quien lo abre dueño de cuándo se cierra.
+ */
+export function ChatMakoAbierto(p: { chartKey: string; titulo: string; contexto: string; sugerencias?: string[]; onCerrar: () => void }) {
+  return <Capa><CapaChatMako {...p} /></Capa>;
+}
+
 /** El modal del chat: en la pila de capas (su z y su Escape, que frena a los demás). */
-function CapaChatMako({ chartKey, titulo, contexto, onCerrar }: { chartKey: string; titulo: string; contexto: string; onCerrar: () => void }) {
+function CapaChatMako({ chartKey, titulo, contexto, sugerencias, onCerrar }: { chartKey: string; titulo: string; contexto: string; sugerencias?: string[]; onCerrar: () => void }) {
   const capa = useCapaModal(true);
   const esArriba = capa.esElDeArriba;
   useEffect(() => {
@@ -568,7 +576,7 @@ function CapaChatMako({ chartKey, titulo, contexto, onCerrar }: { chartKey: stri
           <BotonCerrar onClick={onCerrar} />
         </div>
         <div style={{ flex: 1, minHeight: 0 }}>
-          <MakoChat chartKey={chartKey} titulo={titulo} contexto={contexto} sidebar />
+          <MakoChat chartKey={chartKey} titulo={titulo} contexto={contexto} sugerencias={sugerencias?.length ? sugerencias : undefined} sidebar />
         </div>
       </div>
     </div>

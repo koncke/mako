@@ -567,7 +567,8 @@ test('el modo de un rol está enchufado: la página, la ruta y la pantalla (leye
   // «Editar» en azul desde v5 (P4: `lk-pill lk-pill--azul`).
   assert.match(ed, /\{!soloMirar && \(\s*<button type="button" className="lk-pill lk-pill--azul" data-recorrido=\{editando \? 'dash-ver' : 'dash-editar'\}/, 'el rol ve Editar');
   assert.match(ed, /onDetalle=\{editando \|\| soloMirar \? undefined :/, 'el rol abre el detalle de un número (403)');
-  assert.match(ed, /\{est\.resultado && !soloMirar && /, 'el rol ve el chat de MaKo de cada gráfico');
+  // Desde el 13/10/2026 el botón sale también editando (abre su configuración) y sólo en los gráficos que lo llevan.
+  assert.match(ed, /\{\(editando \|\| est\.resultado\) && !soloMirar && conMako\(c\) && /, 'el rol ve el chat de MaKo de cada gráfico');
 });
 
 test('?llamada= abre la ficha: un entero positivo o nada, y /closing?call= se traduce', () => {

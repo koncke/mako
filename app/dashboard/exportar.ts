@@ -211,6 +211,10 @@ export function contextoDeGrafico(g: Grafico, r: Resultado, ef: Pick<Efectivo, '
   if (limpio.fuera > 0) lineas.push(`Hay ${limpio.fuera} grupos más que no entran en el gráfico.`);
   if (cols.length) lineas.push(`Total: ${cols.map((c, i) => `${c.nombre} ${fmt(limpio.totales[i] ?? null, c.formato)}`).join(' · ')}.`);
   if (limpio.anterior?.length) lineas.push(`Período anterior del mismo largo: ${cols.map((c, i) => `${c.nombre} ${fmt(limpio.anterior![i] ?? null, c.formato)}`).join(' · ')}.`);
+  // Lo que quien armó la hoja le pidió al botón de MaKo de ESTE gráfico (13/10/2026, `Grafico.makoIA`): va al final, como
+  // un dato entre comillas, y lo responde primero (el prompt del análisis, `chart_insights.prompt_analisis`, lee el contexto).
+  const pedido = g.makoIA?.pedido.trim();
+  if (pedido) lineas.push(`\nQuien armó este gráfico pide que respondas, antes que nada: «${pedido.replace(/[«»]/g, '"')}»`);
   return lineas.join('\n');
 }
 

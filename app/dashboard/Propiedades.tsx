@@ -37,7 +37,7 @@ import { Switch } from '@/app/_ui';
 import { IconoMenu, type NombreIconoMenu } from '@/app/_ui/iconos-menu';
 import { BotonBorrar, BotonCerrar } from '@/app/_ui/BotonBorrar';
 import {
-  ENTIDADES, FUENTES, LIMITES, MAX_CONTROLES, PRESET_AUTOMATICO, desglosesPara, dimensionesPara, fuenteDe, metricaDe, metricasPara, nombrePreset, tipoDe, tituloDe,
+  ENTIDADES, FUENTES, LIMITES, MAX_CONTROLES, PRESET_AUTOMATICO, conMako, desglosesPara, dimensionesPara, fuenteDe, metricaDe, metricasPara, nombrePreset, tipoDe, tituloDe,
   type Area, type ControlVista, type Dimension, type Grafico, type Hoja, type Metrica,
 } from '@/lib/graficos-catalogo';
 import { campoDeDimension, nuevoControlPara, resumenControl, tituloControl } from '@/lib/graficos-controles-texto';
@@ -329,7 +329,7 @@ export function PropsGrafico({ g, hoja, hoy, enPopup = false, onCambiar, onCambi
         </Seccion>
         {!enPopup && (
           <Seccion>
-            <Switch checked={g.mako !== false} onChange={(v) => onCambiar({ mako: v ? undefined : false })} label="Botón de MaKo" />
+            <Switch checked={conMako(g)} onChange={(v) => onCambiar({ mako: v })} label="Botón de MaKo" />
           </Seccion>
         )}
 

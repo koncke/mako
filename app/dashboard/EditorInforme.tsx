@@ -139,6 +139,11 @@ import { PASOS_DASHBOARD, PASOS_DASHBOARD_EDICION, RECORRIDO_DASHBOARD, RECORRID
 import { hojaConIdsNuevos } from '@/lib/graficos-copia';
 import { tokenDeDashboard } from './copia-dash-cliente';
 import { copiarAlPortapapeles } from '@/app/automations/copia-flujo-cliente';
+import { conMako } from '@/lib/graficos-catalogo';
+import { BotonMako } from '@/app/_ui/BotonMako';
+import { EditorMako } from './EditorMako';
+import { MenuContextual, opcionesContextuales, type IdOpcion } from './MenuContextual';
+import { ChatMakoAbierto } from './PanelAnalista';
 
 /** La grilla: 12 columnas, filas de 30 px y 16 px entre tarjetas. ⚠️ El PDF (editor-css.ts) repite estos números. */
 const FILA = 30;
@@ -163,6 +168,10 @@ const ESPERA_PDF_MS = 15_000;
 type Menu =
   | { ancla: HTMLElement; tipo: 'graficos' | 'cambiarTipo' | 'insertar' | 'estilo' | 'mas' | 'hojas' | 'emoji' }
   | { ancla: HTMLElement; tipo: 'menuInsertar'; lugar: MenuBarra }
+  // 13/10/2026: el clic derecho (./MenuContextual.tsx, con dónde se hizo: `id` del componente o null = el lienzo, y el
+  // punto, que hace de `key` para que el flotante se vuelva a ubicar) y el botón de MaKo editado en el lugar (./EditorMako.tsx).
+  | { ancla: HTMLElement; tipo: 'contextual'; id: string | null; x: number; y: number }
+  | { ancla: HTMLElement; tipo: 'mako'; id: string }
   | null;
 
 /** Lo que se abrió con un clic mirando: el gráfico, lo clickeado, su período y la hoja de ese momento. */
@@ -305,6 +314,10 @@ export function EditorInforme({
   const [conSel, setConSel] = useState<string | null>(null);
   const [conectando, setConectando] = useState<{ desde: string | null } | null>(null);
   const [popup, setPopup] = useState<PopupAbierto | null>(null);
+  /** El chat de MaKo de un gráfico abierto desde el clic derecho («Preguntarle a MaKo»). */
+  const [chatMako, setChatMako] = useState<{ chartKey: string; titulo: string; contexto: string; sugerencias?: string[] } | null>(null);
+  /** El ancla del clic derecho: un punto invisible donde se hizo el clic (el `Flotante` se ancla a un elemento). */
+  const anclaContextual = useRef<HTMLSpanElement>(null);
   const [editPopup, setEditPopup] = useState<string | null>(null);
   const [enGesto, setEnGesto] = useState(false);
   const [conflicto, setConflicto] = useState(false);
@@ -869,7 +882,7 @@ export function EditorInforme({
   // que puede ser el último que se agregó y estar abajo de todo. El de MaKo, el primero QUE LO TIENE.
   const ordenados = enOrden(visibles);
   const primerGrafico = ordenados.find(esGrafico)?.id ?? null;
-  const primerConMako = ordenados.find((c): c is Grafico => esGrafico(c) && c.mako !== false && !!datos[c.id]?.resultado)?.id ?? null;
+  const primerConMako = ordenados.find((c): c is Grafico => esGrafico(c) && conMako(c) && !!datos[c.id]?.resultado)?.id ?? null;
   const alternarEdicion = () => { setEditando((v) => !v); setSelId(null); setConSel(null); setConectando(null); setEditPopup(null); setMenu(null); setDetalle(null); };
   const puedeNuevaHoja = guardable && tablero.hojas.length < MAX_HOJAS;
   /**
@@ -893,6 +906,76 @@ export function EditorInforme({
     setMenu((m) => (m && m.tipo === 'menuInsertar' && m.lugar === lugar ? null : { ancla, tipo: 'menuInsertar', lugar }));
   };
   const menuInsertarAbierto = menu?.tipo === 'menuInsertar' ? menu.lugar : null;
+
+  // ── El clic derecho (./MenuContextual.tsx): en toda la tab, con las acciones que ya existen, donde está el cursor ──
+  /** El componente del lienzo (la hoja o el pop-up que se edita) que está debajo del clic, o null = el lienzo. */
+  const componenteBajo = (t: HTMLElement): Componente | null => {
+    const id = t.closest<HTMLElement>('[data-comp]')?.dataset.comp;
+    return id ? lienzo.componentes.find((c) => c.id === id) ?? null : null;
+  };
+  const contextoDe = (c: Componente | null) => ({
+    sobre: !c ? 'lienzo' as const : esGrafico(c) ? 'grafico' as const : 'elemento' as const,
+    editando, guardable, soloMirar, compartido: !!compartido, enPopup: !!dueno, puedeNuevaHoja,
+    conMako: !!c && esGrafico(c) && conMako(c), conDatos: !!c && !!datos[c.id]?.resultado,
+  });
+  const alClicDerecho = (e: ReactMouseEvent<HTMLElement>) => {
+    const t = e.target as HTMLElement;
+    // ⚠️ UN EVENTO DE REACT SUBE POR LOS PORTALES: el clic derecho en una fila del desplegable de hojas (que tiene el suyo,
+    //    ./Cabecera.tsx), adentro de un menú abierto o de un modal llega hasta acá. Lo que ya lo atendió (`defaultPrevented`)
+    //    o vive en un menú o un diálogo, no se pisa.
+    if (e.defaultPrevented || t.closest('[role="menu"], [role="dialog"], [role="listbox"], .lk-flotante')) return;
+    // Escribiendo, el menú es el del navegador (copiar, pegar, el corrector).
+    if (t.closest('input, textarea, select, [contenteditable="true"], [contenteditable=""]')) return;
+    const c = componenteBajo(t);
+    const opciones = opcionesContextuales(contextoDe(c));
+    if (!opciones.length || !anclaContextual.current) return;
+    e.preventDefault();
+    // Con el teclado (la tecla de menú, Mayús+F10) el evento llega sin punto: el menú va al borde de lo enfocado.
+    const r = (t.closest('[data-comp]') ?? t).getBoundingClientRect();
+    const x = e.clientX || e.clientY ? e.clientX : r.left + 12;
+    const y = e.clientX || e.clientY ? e.clientY : r.top + 12;
+    anclaContextual.current.style.left = `${x}px`;
+    anclaContextual.current.style.top = `${y}px`;
+    if (editando && c) { setSelId(c.id); setConSel(null); }
+    setMenu({ ancla: anclaContextual.current, tipo: 'contextual', id: c?.id ?? null, x, y });
+  };
+  /** Lo que hace cada opción: las acciones de siempre de la pantalla, sobre el componente del clic. */
+  const elegirContextual = (id: IdOpcion, compId: string | null) => {
+    const c = compId ? lienzo.componentes.find((x) => x.id === compId) ?? null : null;
+    const ancla = anclaContextual.current;
+    setMenu(null);
+    switch (id) {
+      case 'editar':
+        if (!editando) alternarEdicion();
+        if (c) { setSelId(c.id); setConSel(null); }
+        return;
+      case 'editar_hoja': if (!editando) alternarEdicion(); return;
+      case 'terminar': if (editando) alternarEdicion(); return;
+      case 'duplicar': if (c) duplicar(c); return;
+      case 'borrar': if (c) borrar(c); return;
+      case 'cambiar_tipo': if (c && ancla) { setSelId(c.id); setMenu({ ancla, tipo: 'cambiarTipo' }); } return;
+      case 'mako_config': if (c && ancla) setMenu({ ancla, tipo: 'mako', id: c.id }); return;
+      case 'mako_quitar': if (c) { cambiar(c.id, { mako: false }); show('Sin botón de MaKo'); } return;
+      case 'mako_agregar': if (c) { cambiar(c.id, { mako: true }); show('Con botón de MaKo'); } return;
+      case 'mako_chat': {
+        const r = c && esGrafico(c) ? datos[c.id]?.resultado : null;
+        if (c && esGrafico(c) && r) {
+          setChatMako({ chartKey: `dashboard:${hoja.id}:${c.id}`, titulo: tituloDe(c), contexto: contextoDeGrafico(c, r, efectivoDe(c, lienzo, vista, hoy)), sugerencias: c.makoIA?.sugerencias });
+        }
+        return;
+      }
+      case 'conectar': if (c) { setConectando({ desde: c.id }); setConSel(null); } return;
+      case 'agregar_grafico': if (ancla) setMenu({ ancla, tipo: 'graficos' }); return;
+      case 'insertar_texto': insertar('texto'); return;
+      case 'estilo': if (ancla) setMenu({ ancla, tipo: 'estilo' }); return;
+      case 'nueva_hoja': setNuevaHoja(true); return;
+      case 'copiar_dashboard': copiarHoja(hoja.id); return;
+      case 'compartir': abrirCompartir(); return;
+      case 'analista': alternarAnalista(); return;
+      case 'csv': exportarCsv(); return;
+      case 'pdf': exportarPdf(); return;
+    }
+  };
 
   // ── De qué lado va el panel (punto 19): se fija AL ELEGIR y no se mueve mientras se arrastra ─────────
   const claveSel = `${sel?.id ?? (conectorSel ? `k:${conectorSel.id}` : '')}|${analista ? 'a' : ''}`;
@@ -968,12 +1051,17 @@ export function EditorInforme({
             {/* El chat de MaKo de cada gráfico (el de las tabs viejas), también mirando, con el botón CHICO (sólo
                 el logo sobre negro, punto 3). Sin personas: ./exportar.ts. Al closer y a un link no: su tab de
                 antes no lo tenía, es IA que gasta en una vista de sólo lectura, y sin sesión no hay chat. Desde
-                v5 se apaga por gráfico (punto 15: ausente = prendido). Y NO EDITANDO (Martín, reunión del 12/10,
-                101:53: «si estoy en la vista de edición, no debería salir el botón de preguntarle a Mako»): sobre una
-                tarjeta que se está armando tapa los controles y no tiene qué explicar. */}
-            {est.resultado && !soloMirar && !editando && (c.mako !== false) && (
-              <span className="lk-mako" data-recorrido={c.id === primerConMako ? 'dash-mako' : undefined}>
-                <ChatMakoGrafico chartKey={`dashboard:${hoja.id}:${c.id}`} titulo={tituloDe(c)} contexto={contextoDeGrafico(c, est.resultado, ef)} />
+                v5 se apaga por gráfico (punto 15). Desde el 13/10 sólo lo llevan los tipos donde explicar suma
+                (`conMako`: «borra ese botón de la mayoría de gráficos… Se selectivo»), y EDITANDO no abre el chat: abre
+                su configuración en el lugar (Martín: «que el botón de la IA de MaKo NO se abra al estar en modo edición,
+                sino que se pueda editar allí justamente», ./EditorMako.tsx). Eso reemplaza al «no sale editando» de la
+                reunión del 12/10 (101:53), que lo escondía. */}
+            {(editando || est.resultado) && !soloMirar && conMako(c) && (
+              <span className="lk-mako" data-recorrido={c.id === primerConMako ? 'dash-mako' : undefined}
+                onClick={editando ? (e) => { e.stopPropagation(); setMenu({ ancla: e.currentTarget, tipo: 'mako', id: c.id }); } : undefined}>
+                {editando
+                  ? <BotonMako lado={26} title="Configurar el botón de MaKo" encendido={menu?.tipo === 'mako' && menu.id === c.id} onClick={() => {}} />
+                  : <ChatMakoGrafico chartKey={`dashboard:${hoja.id}:${c.id}`} titulo={tituloDe(c)} contexto={contextoDeGrafico(c, est.resultado!, ef)} sugerencias={c.makoIA?.sugerencias} />}
               </span>
             )}
           </div>
@@ -1003,7 +1091,8 @@ export function EditorInforme({
   const hojaTop: Hoja = enBlanco ? { ...hoja, nombre: 'Dashboard', emoji: '📊', subtitulo: '', controles: [], componentes: [] } : hoja;
 
   return (
-    <div className={`lk lk-app${editando ? ' lk--editando' : ''}${imprimiendo ? ' lk--imprimir' : ''}${conectando ? ' lk--conectando' : ''}`}>
+    <div className={`lk lk-app${editando ? ' lk--editando' : ''}${imprimiendo ? ' lk--imprimir' : ''}${conectando ? ' lk--conectando' : ''}`} onContextMenu={alClicDerecho}>
+      <span ref={anclaContextual} aria-hidden style={{ position: 'fixed', left: 0, top: 0, width: 0, height: 0, pointerEvents: 'none' }} />
       {lecturaFallo && <div className="lk-sin-imprimir" style={{ padding: '8px 16px 0' }}><Banner tono="warn" alcance="local">No pude leer tu informe. Los cambios no se guardan.</Banner></div>}
       {conflicto && <div className="lk-sin-imprimir" style={{ padding: '8px 16px 0' }}><Banner tono="warn" alcance="local" accion={{ label: 'Recargar', onClick: recargar }}>Cambió en otra pestaña. Lo de aquí no se guarda.</Banner></div>}
 
@@ -1255,6 +1344,30 @@ export function EditorInforme({
           <EmojiPicker embebido onPick={(e) => { setMenu(null); cambiarCabecera({ emoji: e }); }} onClose={() => setMenu(null)} />
         </Flotante>
       )}
+      {/* El clic derecho: la `key` con el punto hace que un segundo clic derecho en otro lado vuelva a ubicar el menú. */}
+      {menu?.tipo === 'contextual' && (() => {
+        const c = menu.id ? lienzo.componentes.find((x) => x.id === menu.id) ?? null : null;
+        const compId = menu.id;
+        return (
+          <Flotante key={`ctx-${menu.x}-${menu.y}`} ancla={menu.ancla} onCerrar={() => setMenu(null)} ancho={230}>
+            <MenuContextual opciones={opcionesContextuales(contextoDe(c))} onElegir={(id) => elegirContextual(id, compId)} />
+          </Flotante>
+        );
+      })()}
+      {/* El botón de MaKo de un gráfico, editado en el lugar (editando la hoja). */}
+      {menu?.tipo === 'mako' && (() => {
+        const g = lienzo.componentes.find((x) => x.id === menu.id);
+        if (!g || !esGrafico(g)) return null;
+        return (
+          <Flotante key={`mako-${g.id}`} ancla={menu.ancla} onCerrar={() => setMenu(null)} ancho={300}>
+            <EditorMako g={g} onCambiar={(cambio) => {
+              cambiar(g.id, cambio);
+              if ('mako' in cambio) { setMenu(null); show('Sin botón de MaKo'); }
+            }} />
+          </Flotante>
+        );
+      })()}
+      {chatMako && <ChatMakoAbierto {...chatMako} onCerrar={() => setChatMako(null)} />}
 
       {/* ── Los modales ── */}
       {guardable && <BotonCompartir hojaId={hoja.id} titulo={hoja.nombre} abierto={compartir} onCerrar={cerrarCompartir} />}
