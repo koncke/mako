@@ -399,6 +399,14 @@ cambio, con `curl` (0 landings publicadas ese día: no hubo nada que migrar).
   `readFileSync(...).includes('\r\n')` dijo la verdad). Un arnés de roturas con anclas `\n` encontró las del
   archivo nuevo y no las de `proxy.ts` ni `next.config.ts` («el ancla aparece 0 veces»): el ancla tiene que
   seguir el fin de línea de CADA archivo. Edit conserva el CRLF del archivo que toca.
+- **El build de un worktree en `C:/dev` NO corre con la receta de AGENTS.md** (la raíz de Turbopack en una
+  carpeta que contenga al worktree y al clon): con el clon en `C:/Users/…/OneDrive/…` la única carpeta común
+  es la unidad, y con `root: 'C:/'` (y `'C:\\'`) Turbopack aborta con «Symlink [project]/node_modules is in a
+  symlink loop: ["node_modules"]». `next build --webpack` tampoco: el repo no compila con webpack
+  (`node:crypto` en `lib/cripto-credenciales.ts` ← `lib/credenciales.ts`, ajeno a este cambio). Lo único que
+  ese intento sí probó es que next.config.ts CARGA y valida sus redirecciones con `has` (el build llegó a
+  compilar). El build va en el clon, al integrar. No quedaron enlaces en `.next` (medido con
+  `Get-ChildItem -Attributes ReparsePoint`).
 
 ### Lo que quedó sin hacer (tanda 4)
 
