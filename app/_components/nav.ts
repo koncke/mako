@@ -584,6 +584,7 @@ export const ADMIN_FAMILIAS: NavFamilia[] = [
           { key: 'dev-vsl-generator', label: 'VSL Generator', href: '/admin/dev/vsl-generator', icon: 'video', match: starts('/admin/dev/vsl-generator') },
           // La copia de CapCut (11/10/2026): el pedido textual y las tandas del port.
           { key: 'dev-video-editor', label: 'Video Editor', href: '/admin/dev/video-editor', icon: 'tijera', match: starts('/admin/dev/video-editor') },
+          { key: 'dev-image-editor', label: 'Image Editor', href: '/admin/dev/image-editor', icon: 'imagegen', match: starts('/admin/dev/image-editor') },
           // El editor de landings copiado de Gamma (11/10/2026): su registro lleva el pedido literal
           // de Martín y lo que quedó sin hacer (app/admin/dev/landing-generator/bitacora.ts).
           { key: 'dev-landing-generator', label: 'Landing Generator', href: '/admin/dev/landing-generator', icon: 'web', match: starts('/admin/dev/landing-generator') },

@@ -744,6 +744,15 @@ export const AREAS: AreaDev[] = [
     hallazgos: 'hallazgos-video-editor',
   },
   {
+    slug: 'image-editor', titulo: 'Image Editor', familia: 'Content Machine', grupo: 'Image',
+    estado: 'parcial', verEnApp: '/image-editor',
+    alcance: 'El «Canva» de MaKo: el editor de diseño de Doory (fabric.js 7, licencia de atribución) portado y re-vestido como Canva por tandas. Diseños multipágina, texto, formas, imágenes, marcos, QR, capas, recortar, filtros, animaciones, presentar y descargar PNG/JPG/PDF/SVG. Hoy guarda en el navegador por workspace y lo ve sólo el super admin, con el crédito de Doory en cada apertura.',
+    // ⚠️ Sin nav.ts: es de los archivos más calientes del repo y desplazaría el Change History propio.
+    vive: ['app/image-editor', 'docs/diseno-editor-imagen.md', 'docs/editor-imagen', 'tests/image-editor-integracion.test.ts'],
+    hallazgos: 'hallazgos-editor-imagen',
+    nota: 'Lo que hay adentro de _doory/ es código de un tercero con licencia de atribución: modificarlo no saca la obligación del crédito (app/image-editor/editor/CreditoDoory.tsx).',
+  },
+  {
     slug: 'reels', titulo: 'Reels', familia: 'Content Machine', grupo: 'Instagram',
     estado: 'parcial', verEnApp: '/reels',
     alcance: 'El GUION del reel de Instagram, construido el 15/08: pedido (tema + objetivo + duración) → guion tipado (gancho con frase, título en pantalla y visual · escenas con locución e indicación de cámara · moraleja · CTA con palabra clave · caption) → «Copiar el guion». Hasta el 06/10/2026 además lo dejaba como borrador en /instagram; salió con esa tab. Falta historial durable y que los prompts sean editables desde /configuraciones.',

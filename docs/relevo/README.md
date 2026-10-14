@@ -33,6 +33,7 @@ El flujo, entonces: Martín abre un chat con el título de siempre y pega **una 
 | Plan / Perro Guardián | `Leé docs/relevo/plan-perro-guardian.md y seguimos desde ahí.` |
 | Pricing MaKo / Strategy | `Leé docs/relevo/super-admin.md y seguimos desde ahí.` |
 | Fallas en la PC / infra | `Leé docs/relevo/infra-y-build.md y seguimos desde ahí.` |
+| Image Editor (el Canva de MaKo, sobre Doory) | `Leé docs/relevo/image-editor.md y seguimos desde ahí.` |
 | Graphics (la tab Dashboard) | `Leé docs/relevo/dashboard.md y seguimos desde ahí.` |
 | General (vistas personalizables, pagos de Mauricio y el Calendario) | `Leé docs/relevo/general-y-calendario.md y seguimos desde ahí.` |
 
