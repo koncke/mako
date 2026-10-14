@@ -19,7 +19,7 @@ import type { Hito, Parte } from '../_registro/tipos';
 
 export const PARTES: Parte[] = [
   { titulo: 'El documento y su único render', detalle: 'JSON de ProseMirror (doc.ts) → render.ts, la ÚNICA fábrica de HTML público: lo usan la publicación, la vista previa, las miniaturas, exportar y Presentar · el saneo (validar.ts) descarta con motivo', estado: 'hecha' },
-  { titulo: 'Temas, hoja e íconos', detalle: '34 temas (18 medidos de Gamma, 16 aproximados de captura), una hoja de contenido de ~94 KB en em relativos a la sección y 251 íconos de Phosphor (MIT)', estado: 'hecha' },
+  { titulo: 'Temas, hoja e íconos', detalle: '35 temas (18 medidos de Gamma, 16 aproximados de captura y el de MaKo), una hoja de contenido de ~94 KB en em relativos a la sección y 251 íconos de Phosphor (MIT)', estado: 'hecha' },
   { titulo: 'Crear con IA en dos pasos', detalle: 'Esquema que se edita → secciones en tandas de 3 · la IA escribe bloques simples y el código los convierte (ia-bloques.ts) · prompts en el registro editable · IA gratis (Gemini), Claude vetado', estado: 'hecha' },
   { titulo: 'El editor', detalle: 'Un TipTap por página: menú «/», barra de formato, asa de bloques, 52 diseños optimizados, NodeViews de imagen, video, insertado, formulario, gráfico y HTML · autoguardado con concurrencia optimista', estado: 'hecha' },
   { titulo: 'Paneles y diálogos', detalle: 'Tema y editor de tema, estilo de sección, Edición con IA (Original/Modificado, aceptar/restaurar), comentarios, historial, análisis, Presentar, compartir, publicar y exportar (PDF, PNG, PPTX, HTML)', estado: 'hecha' },
@@ -182,6 +182,70 @@ export const BITACORA: Hito[] = [
       'lib/editor-landing/catalogo-bloques.ts + editor/insertar.ts — «Herramientas de MaKo»',
       'app/landing-generator/editor/EditorLanding.tsx — el agente abierto por defecto, sin conmutador ni cabecera doble',
       'tests/editor-landing-disenos.test.ts — los 80 cruces pasan el saneo; los bloques de MaKo donde van',
+    ],
+  },
+  {
+    fecha: '14 oct', hora: '04:24', chat: 'Landing Generator', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Las landings en hola-mako.site, y terminar lo pendiente menos las imágenes',
+    pedido: 'Ya compré: hola-mako.site\nImplementalo allí y termina todo lo pendiente\n\nMenos el tema de las imagenes\n\n(a «¿Qué va en hola-mako.site?») Las landings enteras, como gamma.site',
+    puntos: [
+      'Antes había decidido: el botón de pago pide nombre y email antes del checkout, y «Dominios» usa el token de Vercel que está en .env.local.',
+    ],
+  },
+  {
+    fecha: '14 oct', hora: '04:49', chat: 'Landing Generator', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Que la mayoría de los diseños lleven un video (VSL Funnel)',
+    pedido: 'Por favor, que la mayoría de las plantillas sean con un VIDEO, porque deberían ser tipo VSL Funnel... Puedes inspirarte en otras plantillas de VSL Funnel e incluso en la misma plantilla de MaKo.',
+    puntos: [
+      'Llegó con una captura de la grilla «Diseños» de Nueva landing: ninguna miniatura mostraba un video.',
+    ],
+  },
+  {
+    fecha: '14 oct', hora: '07:01', chat: 'Landing Generator', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Diseños con video: 8 de 9, «MaKo» primero, y la barra de la agencia',
+    puntos: [
+      'El VSL pasó a ser del DISEÑO (`video: centro | costado | null`): entra en el hero para cualquier objetivo, una sola vez. Sin video queda sólo Minimal. «MaKo» (tema propio, Geist, video al costado como app/vsl) va primero.',
+      'La miniatura dibuja el video vacío como un 16:9 con ▶ sólo cuando quien dibuja lo pide (`marcadores`): la vista del teléfono (/m/landing) y la publicada no lo muestran. Una columna que queda vacía en la publicada se omite.',
+      'La API (listar_disenos_landing) dice qué diseño trae video, y Publicar avisa «Falta el enlace del video».',
+      'La barra «Estás viendo el dashboard de…» tapaba la de arriba del editor (Publicar incluido): los altos de pantalla completa descuentan --barra-agencia.',
+    ],
+    commits: ['abfedd970', '222cab435', '142da25e1', '7f5b5b080', '179efda44'],
+    archivos: [
+      'lib/editor-landing/disenos-landing.ts',
+      'lib/editor-landing/render.ts',
+      'lib/editor-landing/temas.ts',
+      'app/landing-generator/gamma.css',
+      'docs/hallazgos-editor-landing.md — «Diseños con video»',
+    ],
+  },
+  {
+    fecha: '14 oct', hora: '10:54', chat: 'Landing Generator', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Tanda 4 integrada: pago, hola-mako.site y la API',
+    puntos: [
+      'El «Botón de pago» cobra por la pasarela de MaKo: paso de nombre y email, POST con candado por email (mig 0276, aplicada) y propuesta cuando no se puede cobrar.',
+      'Las landings publicadas viven en hola-mako.site/<slug>; /l/… en la app es un 308; una página declarada con la dirección de antes sigue siendo la misma.',
+      'El área landing de la API de MaKo maneja el editor: listar, leer, crear desde un diseño, publicar y despublicar.',
+    ],
+    commits: ['f820ae2ea', 'c3688ca84', '207c1a6b0', 'd0c6214bd', 'c03ef3da7', 'fd1c5abb4'],
+    archivos: [
+      'lib/editor-landing/origen-landings.ts',
+      'proxy.ts',
+      'lib/editor-landing/pago-pedido.ts',
+      'lib/api-mako/areas/landing.def.ts',
+    ],
+  },
+  {
+    fecha: '14 oct', hora: '11:49', chat: 'Landing Generator', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Leer la landing con el Pixel o con una ventana emergente, y avisar si están bloqueadas',
+    pedido: 'Tal vez no es necesario la extensión de MaKo... Piensa como es mejor, pienso en algo como el pixel de MaKo, que se abre otra tab y una pestaña al lado.\nPero bueno, tal vez sea más cómodo con el pixel.\n\nHaz ambas opciones disponibles, si detecta que tenes el pixel instalado, que lo haga desde allí y sino desde la ventana emergente. Y previo a abrir la página, es muy importante que si el usuario no tiene la opción de \"habilitar ventanas emergentes\" de Chrome, no continue, no abra la página, sino que indique dentro de MaKo que lo tiene que habilitar. Me imagino como el mensaje que tenemso en Video Generator que es una flecha apuntando arriba con el mensaje.\nEsto para ambos, para esto y para el pixel hazlo.\n\nY quiero que en Landing Generator, si la landing del usuario está alojado, que se instale siempre por defecto el pixel y que se actualice solo siempre.',
+    puntos: [
+      'Respuesta a las decisiones del feedback de las reuniones: Aplicar = un clic + Deshacer; Replicar con 3 formatos; al replicar se copia el estilo. Queda para la próxima tanda (docs/relevo/landing-generator.md).',
+      'Lo último ya era así: la publicada lleva el cargador de una línea del Pixel (/m.js), que sirve siempre la versión actual (pagina-publica.ts, tests/editor-landing-publica.test.ts).',
     ],
   },
 ];

@@ -172,7 +172,8 @@ export function landingDe(configs: LandingConfig[], url: string | null | undefin
   const u = url ? normalizarUrl(url) : null;
   if (!u) return null;
   const k = urlLandingVigente(u);
-  return configs.find((c) => c.url === u || urlLandingVigente(c.url) === k) ?? null;
+  // La exacta PRIMERO: con una declarada en cada dirección, la de antes no le gana a la que coincide igual.
+  return configs.find((c) => c.url === u) ?? configs.find((c) => urlLandingVigente(c.url) === k) ?? null;
 }
 
 /**
