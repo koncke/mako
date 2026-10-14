@@ -10,8 +10,10 @@
 // ⚠️ PÚBLICA Y SIN COOKIE, como las otras rutas de app/l: `/l` está en PUBLICOS (lib/rutas-publicas.ts)
 //    como prefijo y, como no es /api/, el proxy la deja sólo en GET/HEAD/OPTIONS. Lee con el cliente
 //    crudo por slug y el workspace sale de la FILA; nunca `getTenantDb` sin contexto (caería al ws1).
-// ⚠️ EN EL DOMINIO DE UN CLIENTE: si el proxy la deja pasar (hoy no: `decidirHost` contesta 404 a una
-//    ruta de dos segmentos), sólo sirve una landing de ESE dominio — el mismo corte que /l/html.
+// ⚠️ EN EL DOMINIO DE UN CLIENTE el botón NO trae acá con el host del cliente: `conEnlacesDelDominio`
+//    (dominios-reglas.ts) deja el pago en la base de MaKo, porque `decidirHost` contesta 404 a una ruta
+//    de dos segmentos (revisión de la tanda 4, ALTA). Si algún día el proxy la deja pasar, sólo sirve
+//    una landing de ESE dominio — el mismo corte que /l/html.
 // La decisión entera (formas, 404 sin tocar la base, 503, el formulario) vive en `responderPasoPago`
 // (lib/editor-landing/pago-pagina.ts), con test.
 // =============================================================================

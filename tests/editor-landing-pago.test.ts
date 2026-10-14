@@ -35,8 +35,9 @@ import { htmlDePagina } from '../lib/editor-landing/render';
 import { sanearContenido } from '../lib/editor-landing/validar';
 import { bloquesATarjeta, tarjetaABloques } from '../lib/editor-landing/ia-bloques';
 import { temaPorId } from '../lib/editor-landing/temas';
-import { NODO, type JsonNodo, type Pagina } from '../lib/editor-landing/doc';
+import { NODO, urlPublica, type JsonNodo, type Pagina } from '../lib/editor-landing/doc';
 import { CONFIG_DEFAULT } from '../lib/editor-landing/api-tipos';
+import { conEnlacesDelDominio, decidirHost, urlDeDominio } from '../lib/editor-landing/dominios-reglas';
 
 const APP = 'https://hola-mako.com';
 const boton = (href: string, texto = 'Pagar ahora'): JsonNodo => ({ type: NODO.boton, attrs: { href, variante: 'primario', nuevaPestana: false }, content: [{ type: 'text', text: texto }] });
@@ -121,6 +122,27 @@ test('la foto ofrece los productos de los botones de pago: sin repetir, ordenado
   assert.deepEqual(productosDePago(paginas), [12, 13]);
   assert.deepEqual(productosDeFoto({ pagos: [12, 13, 12, -1, 'x', 0, 1.5] }), [12, 13]);
   assert.deepEqual(productosDeFoto({ paginas: [] }), [], 'una foto anterior a la tanda 4 no cobra nada');
+});
+
+// Revisión de la tanda 4 (ALTA): servida en un dominio propio, `conEnlacesDelDominio` reescribía también
+// el botón de pago a `https://<dominio>/pagar/<id>`, y ahí el proxy contesta 404 (dos segmentos). El
+// recorrido entero: publicar → servir en el dominio → lo que contesta el proxy a cada enlace.
+test('en un dominio propio el botón de pago sigue en MaKo, y ningún enlace servido cae en un 404 del proxy', () => {
+  const base = urlPublica(APP, 'mi-landing');
+  const p = pagina([tarjeta([botones(boton('pago:12'), boton('pagina:pgracias', 'Gracias'))])]);
+  const paginas = [{ id: p.id, ruta: '' }, { id: 'pgracias', ruta: 'gracias' }];
+  const publicada = htmlDePagina(p, CONFIG_DEFAULT, temaPorId('pewter'), { modo: 'publico', urlBase: base, paginas, pagos: true });
+  const servida = conEnlacesDelDominio(publicada, base, urlDeDominio('cliente-real.com'));
+  assert.deepEqual(hrefsDe(servida), [urlPasoPago(base, 12), 'https://cliente-real.com/gracias'], 'el pago queda en MaKo; la página sí se muda al dominio');
+  for (const h of hrefsDe(servida)) {
+    const u = new URL(h);
+    assert.notEqual(decidirHost(u.host, u.pathname, 'GET').tipo, 'no-existe', `${h}: el visitante vería un 404`);
+  }
+  // El paso postea relativo: servido en la base de MaKo, el POST cae en la app (no en el 404 del dominio).
+  assert.deepEqual(decidirHost('hola-mako.com', RUTA_POST_PAGO, 'POST'), { tipo: 'app' });
+  // Los bordes de la reescritura: una PÁGINA llamada «pagar» sí se muda; otra landing no se toca.
+  const crudo = `<a href="${base}/pagar">x</a><a href="${base}/pagar/3">y</a><a href="${base}d/pagar/3">z</a>`;
+  assert.equal(conEnlacesDelDominio(crudo, base, 'https://c.com'), `<a href="https://c.com/pagar">x</a><a href="${base}/pagar/3">y</a><a href="${base}d/pagar/3">z</a>`);
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -363,4 +385,7 @@ test('el POST: 303 al link; y cada puerta corta antes de cobrar', async () => {
 // Restaurado: 30 / 0. La primera versión del 9 sacaba un `if (esHostDeMako(host)) return null` propio
 // y dio 30 / 0: era código muerto, porque `dominioValido` ya excluye los hosts de MaKo. Se borró el
 // renglón y la rotura pasó a quitar `dominioValido` entero.
+//
+// REVISIÓN DE LA TANDA 4 (14/10/2026), mismo arnés, sólo ESTE archivo (base 16 / 0):
+//   19. `conEnlacesDelDominio` sin el `(?!/pagar/)`: el pago se muda al dominio → 15 / 1
 // =============================================================================

@@ -407,11 +407,20 @@ export const urlDeDominio = (d: string): string => `https://${d}`;
  *
  * Sólo la base EXACTA seguida de un fin de URL (`/`, comillas, `?`, `#`, `&`, `<`, espacio o el final):
  * la base de `…/l/abc` no toca un enlace a `…/l/abcd`, que es OTRA landing.
+ *
+ * ⚠️ MENOS EL BOTÓN DE PAGO (`<base>/pagar/<productoId>`, tanda 4): reescrito quedaba
+ * `https://<dominio>/pagar/<id>`, y en un dominio propio `decidirHost` contesta 404 a toda ruta de dos
+ * segmentos (y a `/api/…`, adonde postea el paso). El visitante que tocaba «Pagar ahora» en el dominio
+ * del cliente veía «Parece que esta página no existe (404)», mientras que en hola-mako.com/l/<slug> el
+ * MISMO botón andaba — o sea que el dueño, probándolo, lo veía funcionar (revisión de la tanda 4, ALTA).
+ * Así el paso se abre donde SÍ se sirve (la base de MaKo), y su POST sale con un Origin de MaKo.
+ * `/pagar/` es `SEGMENTO_PAGO` de pago-landing.ts, escrito acá a mano a propósito: ese módulo trae la
+ * moneda y las pasarelas, y éste lo importan proxy.ts y next.config.ts (el test ata los dos).
  */
 export function conEnlacesDelDominio(html: string, baseMako: string, baseDominio: string): string {
   if (!html || !baseMako || !baseDominio || baseMako === baseDominio) return html;
   const escapada = baseMako.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return html.replace(new RegExp(`${escapada}(?=[/"'?#&<\\s]|$)`, 'g'), () => baseDominio);
+  return html.replace(new RegExp(`${escapada}(?!/pagar/)(?=[/"'?#&<\\s]|$)`, 'g'), () => baseDominio);
 }
 
 /** El slug que devuelve la base para un dominio, si es uno que se puede servir. */
