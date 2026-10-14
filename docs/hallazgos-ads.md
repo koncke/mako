@@ -2997,7 +2997,14 @@ Dos cosas que no se ven en el mapa:
 campaña. Que sea múltiple choca con que un lead tiene un solo `funnel_id`
 (`lib/campana-config.ts`), y las tres salidas —partir por conjunto (ya funciona), múltiple
 con prioridad (desempate silencioso), un lead por producto (cambia el modelo del CRM)— las
-tiene que decidir Martín. El default por si la cuenta tiene un solo producto SÍ está: la
+tiene que decidir Martín.
+
+⚠️ **Corrección del 14/10/2026: el choque ya no existe.** El mismo 06/10, horas después
+(`f26c0a94`, migración 0207), un lead pasó a poder estar en VARIOS productos: su casa en
+`leads.funnel_id` y una fila de `lead_funnel` por cada otro (`agregarAProducto`,
+`lib/lead-funnel.ts`). Lo que sigue siendo cierto es que la entrada de leads de Meta resuelve
+UN producto (`funnelIdDeCampana`) y no llama a `agregarAProducto`: «múltiple» ya no cambia el
+modelo del CRM, sólo esa entrada. La decisión sigue siendo de Martín. El default por si la cuenta tiene un solo producto SÍ está: la
 columna no se dibuja y el lote no la ofrece (`asig.productos.length > 1`).
 
 ## Dos guards de «no hay emoji», escritos el mismo día, ya habían divergido (06/10)
