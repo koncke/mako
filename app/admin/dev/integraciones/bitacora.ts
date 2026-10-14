@@ -872,4 +872,29 @@ export const BITACORA: Hito[] = [
       'AGENTS.md · docs/hallazgos-infra.md · docs/hallazgos-landing.md · docs/estado-del-arte.md · docs/hallazgos.md',
     ],
   },
+  {
+    fecha: '13 oct', hora: '18:56', chat: 'Integraciones', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Que los chats de la cuenta 3 cierren lo que ya estaba planificado',
+    pedido: 'En la cuenta 3 quedaron muchos pendientes que frenamos porque estabamos llegando al limite semanal, dile a esos chats que continuen y cierren lo que ya habiamos planificado',
+    puntos: [
+      'Lo trajo la sesión «Estrategia 3 CUENTAS». A este chat le tocaba lo de docs/relevo/integraciones.md y docs/relevo/pagos.md, y lo que el 12/10 había quedado sin hacer en los tutoriales.',
+    ],
+  },
+  {
+    fecha: '13 oct', hora: '19:17', chat: 'Integraciones', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El «opcional» de un tutorial se comprueba en los 19 servicios, y el recuadro y las slides caben en una línea',
+    puntos: [
+      'El guard de Calendly no se copió a Cal.com: se generalizó. `tests/tutorial-opcional.test.ts` exige que todo paso que diga «opcional» nombre su campo, y que ese campo lo sea de verdad. Probado rompiéndolo: el error del 12/10 de vuelta en Cal.com da 1 fallo.',
+      'Lo que nadie medía: dos `porque` y dos `donde` del recuadro amarillo, y 9 de 45 slides, pasaban de 120 caracteres (la más larga, 179). Se condensaron sin sumar nada y quedaron fijados en tests/tutoriales-legibles.test.ts.',
+      '⚠️ **Sin hacer:** las slides de «MaKo IA (Anthropic)» afirman lo contrario del veto de Claude («Sin esta llave, MaKo no piensa»). Reescribirlas es decidir qué se le promete al cliente.',
+    ],
+    archivos: [
+      'tests/tutorial-opcional.test.ts — nuevo',
+      'tests/tutoriales-legibles.test.ts — el recuadro y las slides',
+      'lib/metodo-catalogo.ts · lib/servicio-slides.ts — los textos condensados',
+      'docs/hallazgos-integraciones.md — «13/10/2026: el guard de "opcional", para TODOS los servicios»',
+    ],
+  },
 ];

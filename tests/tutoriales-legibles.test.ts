@@ -42,6 +42,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { SLIDES } from '../lib/servicio-slides';
 
 const FUENTE = readFileSync(new URL('../lib/metodo-catalogo.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const ZONA_SERVICIOS = FUENTE.slice(FUENTE.indexOf('SERVICIOS_METODO'), FUENTE.indexOf('export const serviciosPara'));
@@ -157,7 +158,23 @@ test('una nota de campo y un «ojo» del recuadro amarillo caben en una línea',
     if (o.length > 2) malos.push(`un «ojo» de ${o.length} ítems: «${o[0].slice(0, 50)}…»`);
     for (const x of o) if (x.length > TOPE) malos.push(`un «ojo» de ${x.length}: «${x.slice(0, 60)}…»`);
   }
+  // Y lo que el recuadro amarillo dice ARRIBA del «ojo» (`porque`, `donde`) y el `sinEsto` de un campo
+  // opcional: se dibujan igual y nadie los medía. El 13/10/2026 pasaban de 120 dos `porque` (Fathom 154,
+  // Cal.com 126) y dos `donde` (Fathom 123, Mercado Pago 145).
+  const recuadro = [...ZONA_SERVICIOS.matchAll(/\b(porque|donde|sinEsto): ?'((?:[^'\\]|\\.)*)'/g)];
+  assert.ok(recuadro.length >= 6, `solo se leyeron ${recuadro.length} textos del recuadro: el extractor quedó viejo`);
+  for (const [, campo, x] of recuadro) if (x.length > TOPE) malos.push(`un \`${campo}\` de ${x.length}: «${x.slice(0, 60)}…»`);
   assert.deepEqual(malos, [], `texto de más:\n${malos.slice(0, 12).join('\n')}`);
+});
+
+test('una slide del panel negro dice lo suyo en una línea', () => {
+  // Las slides de lib/servicio-slides.ts se dibujan en el modal de /integraciones y en el onboarding,
+  // al lado del tutorial que el 12/10/2026 se acortó. Nadie las había medido: el 13/10/2026 pasaban de
+  // 120 caracteres 9 de 45 (la más larga, 179). Se condensaron sin sumar nada.
+  const todas = Object.entries(SLIDES).flatMap(([k, xs]) => xs.map((x) => ({ k, ...x })));
+  assert.ok(todas.length > 30, `solo se leyeron ${todas.length} slides: el import quedó viejo`);
+  const malos = todas.filter((x) => x.d.length > TOPE).map((x) => `${x.k} «${x.t}»: ${x.d.length} caracteres`);
+  assert.deepEqual(malos, [], `slides de más de ${TOPE} caracteres:\n${malos.join('\n')}`);
 });
 
 test('el copy de cara al cliente está en español neutro', () => {

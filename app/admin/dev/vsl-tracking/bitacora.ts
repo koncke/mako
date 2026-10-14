@@ -460,4 +460,19 @@ export const BITACORA: Hito[] = [
       { sha: '6a43d32e', msg: 'El Pixel se puede bajar como archivo: el editor con IA del cliente lo tapaba con asteriscos', lineas: 195, archivos: 7 },
     ],
   },
+  {
+    fecha: '13 oct', hora: '19:17', chat: 'Integraciones', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El Pixel pegado dos veces ya no cuenta doble',
+    puntos: [
+      'Era lo que el cargador `/m.js` había dejado sin hacer (09/10): quien sumaba la línea sin sacar el código viejo mandaba cada visita, clic y opt-in dos veces. Ahora la primera copia que corre se anota en `window` y las demás no hacen nada. Viene del pedido de cerrar lo planificado de la cuenta 3 (el prompt está en la bitácora de Integraciones).',
+      '**No subió la versión, a propósito:** una v24 haría que «Comprobar» y MaKo le digan a cada página en la 23 que hay código nuevo, por algo que no le cambia nada a quien lo pegó una vez. El primer comentario daba otro motivo —que mandaba el WhatsApp de repegar— y era falso: eso corta en el mínimo (22).',
+      'Lo que no cubre: una copia vieja más una nueva (la vieja no se anota).',
+    ],
+    archivos: [
+      'lib/landing-token.ts — la primera línea del snippet',
+      'tests/pixel-archivo.test.ts — corre el archivo emitido en vm; sacar la salida temprana o la anotación da 1 fallo cada una',
+      'docs/hallazgos-landing.md — «Una sola copia por página, y por qué NO subió la versión»',
+    ],
+  },
 ];

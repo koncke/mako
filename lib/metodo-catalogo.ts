@@ -503,9 +503,9 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     ],
     pasoExterno: {
       titulo: 'Pega esta dirección dentro de Fathom',
-      porque: 'Es por donde Fathom avisa apenas cortas una llamada. Sin esto la reunión llega horas más tarde, cuando ya no sirve para escribirle al cliente en caliente.',
+      porque: 'Es por donde Fathom avisa apenas cortas una llamada. Sin esto, la reunión llega horas tarde, ya en frío.',
       valor: '{{APP_URL}}/api/webhooks/fathom',
-      donde: 'En fathom.video: "User Settings" → sección "API Access" → "Manage" → "Add Webhook", en el campo de la dirección de destino.',
+      donde: 'En fathom.video: "User Settings" → "API Access" → "Manage" → "Add Webhook", en el campo de la dirección de destino.',
       ojo: [
         'Marca "My Recordings" (y "Team Recordings" si tu plan es Team) y la casilla "transcript".',
         'Al guardar, copia la contraseña (whsec_…, se ve UNA vez) y pégala en "Contraseña del webhook".',
@@ -639,7 +639,7 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     ],
     pasoExterno: {
       titulo: 'Pega esta dirección dentro de Cal.com',
-      porque: 'Es por donde Cal.com avisa apenas alguien reserva. Sin esto la reserva no llega nunca: quien agendó se queda afuera de tu CRM.',
+      porque: 'Es por donde Cal.com avisa apenas alguien reserva. Sin esto, quien agendó se queda afuera de tu CRM.',
       valor: '{{APP_URL}}/api/webhooks/calcom',
       donde: 'En app.cal.com: "Settings" → "Developer" → "Webhooks" → botón "+ New", arriba a la derecha → campo "Subscriber Url".',
       ojo: [
@@ -713,7 +713,7 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
       titulo: 'Pega esta dirección dentro de Mercado Pago',
       porque: 'Es por donde Mercado Pago avisa cada cobro de una suscripción. Sin esto, las renovaciones no entran a tu CRM.',
       valor: '{{APP_URL}}/api/webhooks/mercadopago',
-      donde: 'En mercadopago.com/developers/panel/app ("Tus integraciones"): tu aplicación → "Webhooks" → "Configurar notificaciones", en la URL de producción.',
+      donde: 'En mercadopago.com/developers/panel/app: tu aplicación → "Webhooks" → "Configurar notificaciones" → URL de producción.',
       ojo: [
         'Marca "Pagos" y "Planes y suscripciones", en la misma aplicación del access token.',
         'Al guardar, copia la "clave secreta" y pégala en "Clave secreta del aviso". Con cuenta de prueba, es obligatorio.',

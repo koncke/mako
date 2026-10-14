@@ -65,11 +65,11 @@ export const SLIDES: Record<string, Slide[]> = {
   ],
   calendly: [
     // app/api/webhooks/calendly (respuestas por frase, UTMs, visitor_id de la landing)
-    { t: 'La agenda se vuelve lead', d: 'Cada reserva entra al CRM con sus respuestas de calificación, sus UTMs y hasta el visitante anónimo que venía de la landing.' },
+    { t: 'La agenda se vuelve lead', d: 'Cada reserva entra al CRM con sus respuestas, sus UTMs y hasta el visitante anónimo que venía de la landing.' },
     // route.ts: una J2 NUNCA crea lead; sin match → enqueueJ2SinMatch (revisión)
     { t: 'R1 y R2, cada una en su lugar', d: 'Una R2 nunca crea un lead nuevo: se pega a la ficha que ya existe. Si no matchea, va a revisión en vez de duplicar.' },
     // junta_1_at (ISO con hora) → lib/crm-auto.ts T1 (respeta la decisión humana)
-    { t: 'El No Show se detecta solo', d: 'Guardamos la hora exacta: si la reunión pasó y no hubo grabación, queda marcada — salvo que un humano ya lo haya decidido.' },
+    { t: 'El No Show se detecta solo', d: 'Si la reunión pasó y no hubo grabación, queda marcada — salvo que una persona ya lo haya decidido.' },
     // lib/meta-capi.ts (Schedule, event_id determinístico para dedup con el píxel)
     { t: 'Meta se entera del agendado', d: 'Cada reserva dispara un evento Schedule por CAPI, deduplicado contra el píxel del navegador.' },
   ],
@@ -91,11 +91,11 @@ export const SLIDES: Record<string, Slide[]> = {
   google: [
     { t: 'Entrar con Google', d: 'El botón "Continuar con Google" del login. Si algo falla, la contraseña sigue andando.' },
     // lib/auto-reuniones.ts:83 → buscarEventosGoogle (SOLO lectura)
-    { t: 'Calendar como tercera fuente', d: 'Al buscar las reuniones de un lead, MaKo también mira Google Calendar — además de Calendly y Fathom. Solo lee: no agenda ni toca nada.' },
+    { t: 'Calendar como tercera fuente', d: 'Al buscar las reuniones de un lead, MaKo también mira Google Calendar. Solo lee: no agenda ni toca nada.' },
   ],
   landing: [
     // app/api/webhooks/calendly: utm_term transporta el UUID anónimo (nqe_visitor_id)
-    { t: 'El anónimo se vuelve lead', d: 'El Pixel le pone un identificador a cada visita. Cuando esa persona agenda, MaKo une la reserva con todo lo que hizo antes.' },
+    { t: 'El anónimo se vuelve lead', d: 'El Pixel marca cada visita. Cuando esa persona agenda, MaKo une la reserva con todo lo que hizo antes.' },
     // lib/integraciones.ts: la única integración cuyo estado son eventos REALES
     { t: 'La única que se comprueba de verdad', d: 'Las demás se ven «conectadas» porque hay una credencial cargada. Esta se pone en verde solo cuando llega un evento real.' },
   ],
@@ -104,7 +104,7 @@ export const SLIDES: Record<string, Slide[]> = {
   // Automations, el aviso al dueño) no se promete aquí.
   stripe: [
     // lib/cobros.ts (crearCobro, urlParaPagar) + app/pagar/[token]
-    { t: 'Un link de pago por lead', d: 'Desde la ficha del lead armas el link con el monto y se lo mandas. Si el de Stripe vence, el link de MaKo crea otro solo.' },
+    { t: 'Un link de pago por lead', d: 'Desde la ficha del lead armas el link con el monto y se lo mandas. Si el de Stripe vence, MaKo crea otro solo.' },
     // app/api/webhooks/stripe + lib/cobros.ts (aplicarPagoAprobado → lib/pagos.ts registrarCobroDeProveedor)
     { t: 'El pago entra solo al CRM', d: 'Cuando te pagan, la cuota queda pagada en la ficha y el lead pasa a ganado. Sin cargar nada a mano.' },
     // lib/stripe-api.ts (mode subscription, interval month) + invoice.paid en el webhook
@@ -118,7 +118,7 @@ export const SLIDES: Record<string, Slide[]> = {
     // app/api/webhooks/mercadopago + lib/cobros.ts (aplicarPagoAprobado)
     { t: 'El pago entra solo al CRM', d: 'Cuando te pagan, la cuota queda pagada en la ficha y el lead pasa a ganado. Sin cargar nada a mano.' },
     // app/api/webhooks/mercadopago: el aviso no se cree, se relee el pago con tu token (§4.5 del contrato)
-    { t: 'Un aviso falso no marca nada', d: 'Antes de anotar un pago, MaKo lo vuelve a consultar en tu cuenta de Mercado Pago. Solo cuenta lo que Mercado Pago confirma.' },
+    { t: 'Un aviso falso no marca nada', d: 'Antes de anotar un pago, MaKo lo vuelve a consultar en tu Mercado Pago. Solo cuenta lo que Mercado Pago confirma.' },
   ],
   // Claude enchufado a MaKo. Sin API key: se instala una skill del lado del usuario y
   // habla por /api/agente/* con un token.
@@ -128,8 +128,8 @@ export const SLIDES: Record<string, Slide[]> = {
   // es que Claude arranque sabiendo a qué te dedicás, a quién le vendés y cómo suena tu
   // marca. Eso va primero.
   agente: [
-    { t: 'Arranca sabiendo de tu negocio', d: 'Tu oferta, tu cliente ideal, tus avatares, tus razones de compra y cómo suena tu marca. No se lo tienes que contar de nuevo en cada chat.' },
-    { t: 'Mira tu plan antes de proponerte nada', d: 'Lee tus tareas y proyectos abiertos, así no te propone algo que ya está anotado y te avisa si hay algo urgente o vencido.' },
-    { t: 'Te propone, no decide', d: 'Cuando encuentra algo para anotar, deja un borrador con preguntas y te pasa el link. Tú respondes y el Perro Guardián le pone la prioridad — el mismo camino que MaKo por WhatsApp.' },
+    { t: 'Arranca sabiendo de tu negocio', d: 'Tu oferta, tu cliente ideal, tus avatares, tus razones de compra y la voz de tu marca, sin contárselo en cada chat.' },
+    { t: 'Mira tu plan antes de proponerte nada', d: 'Lee tus tareas y proyectos abiertos: no te propone lo que ya está anotado y te avisa de lo urgente o vencido.' },
+    { t: 'Te propone, no decide', d: 'Cuando encuentra algo para anotar, deja un borrador y te pasa el link. La prioridad la pone el Perro Guardián.' },
   ],
 };
