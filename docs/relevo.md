@@ -45,8 +45,19 @@ plantillas.» El método está en `docs/hallazgos-objectives.md` → «General, 
 **Ramas que NUNCA se pushean sin su dueño:** `wip/api-acciones-0910`, `wip/api-acciones-1410`
 («A MEDIAS»), `api-acciones-1310`, `opcion-image-en-clientes`, `crm-bloques-b1..b5`.
 Sin trabajo nuevo sobre origin: `chats-1410`, `graphics-1310`, `graphics-bloques-1310`,
-`pagos-pasarela`, `video-editor`, `chatbot-v6`, `mobile-mismas-rutas`. `pagos-automations` tiene 1
-commit del 11/10 sin integrar.
+`pagos-pasarela`, `video-editor`, `chatbot-v6`, `mobile-mismas-rutas` y **`pagos-automations`**
+(decía «tiene 1 commit del 11/10 sin integrar» y es FALSO: `git cherry origin/main
+pagos-automations` devuelve `-` para `b5843d84f`, o sea que el CRON «Pagos» y el evento «Entra un
+pago» ya entraron a main por otro camino, y `lib/cobros.ts` llama a `enrolarPorPago`. Lo cazó el
+chat de Automations el 14/10 16:00 y lo verifiqué).
+
+⚠️ **Lo de arriba no es un detalle: es el modo de falla de este documento.** Una rama dada por
+«sin integrar» manda a alguien a integrar lo que ya está, y un pendiente dado por abierto manda a
+resolver lo resuelto. El 14/10 pasó dos veces el mismo día: esto, y las tres decisiones de
+Strategy (pauta, `/vsl/costos` privada, el 1 a 1 a US$10.000) que figuraban esperando a Martín
+cuando la cuenta 3 las había cerrado el 10/10 a las 21:37 en `a5cf14074`. **Antes de actuar sobre
+cualquier «abierto» o «sin integrar» de acá, medilo**: `git cherry origin/main <rama>` para una
+rama, `git log --since=<la fecha del relevo> -- <archivos>` para un pendiente.
 
 ---
 
