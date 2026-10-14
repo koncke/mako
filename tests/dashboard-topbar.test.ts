@@ -60,7 +60,7 @@ import { ChatMakoGrafico } from '../app/dashboard/PanelAnalista';
 import { BarraControles } from '../app/dashboard/BarraControles';
 import { CSS } from '../app/dashboard/editor-css';
 import { CSS_CONTROLES } from '../app/dashboard/MenuFiltro';
-import type { PedidoBloqueHoja, PedidoGrafico } from '../app/dashboard/exportar';
+import type { PedidoGrafico } from '../app/dashboard/exportar';
 
 const RAIZ = join(__dirname, '..');
 const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
@@ -91,14 +91,11 @@ const hoja = (id: string, nombre: string, extra: Record<string, unknown> = {}): 
 // ── 1. El contrato de lectura (lo ejecuta) ────────────────────────────────────
 
 const PG = { grafico: { id: 'g1' }, desde: '2026-10-01', hasta: '2026-10-11', filtros: [], agrupar: null } as unknown as PedidoGrafico;
-const PB: PedidoBloqueHoja = { id: 'b1', bloque: 'revenue', desde: '2026-10-01', hasta: '2026-10-11' };
 
 test('sin link, cada lectura va a /api/graficos con el cuerpo de SIEMPRE (ni token, ni hoja, ni ids de más)', () => {
   const d = pedidoDeLectura({ accion: 'datos', hojaId: 'h1', pedidos: [{ id: 'g1', pedido: PG }] }, null);
   assert.equal(d.ruta, RUTA_LECTURA);
   assert.deepEqual(d.cuerpo, { accion: 'datos', pedidos: [PG] }, 'el closer pasa por `closerPuedePedir`, que mira el cuerpo entero');
-  const b = pedidoDeLectura({ accion: 'bloques', hojaId: 'h1', pedidos: [{ id: 'b1', pedido: PB }] });
-  assert.deepEqual(b, { ruta: RUTA_LECTURA, cuerpo: { accion: 'bloques', pedidos: [PB] } });
   const v = pedidoDeLectura({ accion: 'valores', hojaId: 'h1', controlId: 'c1', campo: 'campana', desde: '2026-10-01', hasta: '2026-10-11', fuentes: ['meta'] });
   assert.deepEqual(v, { ruta: RUTA_LECTURA, cuerpo: { accion: 'valores', campo: 'campana', desde: '2026-10-01', hasta: '2026-10-11', fuentes: ['meta'] } });
 });
@@ -113,8 +110,7 @@ test('con link, la ruta del link con el token, el id de la HOJA y el id de CADA 
   assert.deepEqual((d.cuerpo.pedidos as Array<{ id: string }>).map((p) => p.id), ['g1', 'g2'], 'un pedido sin el id del componente: el server no lo puede reconstruir');
   // El estado de la VISTA viaja tal cual (es lo único que el server del link acepta del cliente).
   assert.deepEqual((d.cuerpo.pedidos as Array<Record<string, unknown>>)[0], { ...PG, id: 'g1' });
-  const b = pedidoDeLectura({ accion: 'bloques', hojaId: 'h1', pedidos: [{ id: 'b1', pedido: PB }] }, link);
-  assert.deepEqual(b.cuerpo, { accion: 'bloques', token: 'tk_123', hojaId: 'h1', pedidos: [{ ...PB, id: 'b1' }] });
+  // (La lectura de `bloques` se fue el 13/10/2026 con el código de los bloques: desde v5 no llegaba ninguno.)
   // Los valores de una lista: la hoja, el control y, si es de una tarjeta, el componente.
   const vh = pedidoDeLectura({ accion: 'valores', hojaId: 'h1', controlId: 'c1', campo: 'campana', desde: 'a', hasta: 'b' }, link);
   assert.deepEqual(vh, { ruta: RUTA_LECTURA_COMPARTIDA, cuerpo: { accion: 'valores', token: 'tk_123', hojaId: 'h1', controlId: 'c1', campo: 'campana', desde: 'a', hasta: 'b' } });

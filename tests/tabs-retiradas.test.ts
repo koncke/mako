@@ -129,7 +129,7 @@ test('las rutas viejas REDIRIGEN (con el ?ws=) y no montan la pantalla vieja', (
   // La cáscara de /chat-analyst se borró con la ruta (v5): su dashboard es la hoja Chat Analyst.
   assert.ok(!existsSync(join(RAIZ, 'app/chat-analyst/ChatAnalystVista.tsx')), 'volvió la pantalla vieja de /chat-analyst');
   // La tab vieja de Closing ya no tiene pantalla: su detalle es la ficha del Dashboard.
-  assert.ok(existsSync(join(RAIZ, 'app/dashboard/bloques/extra/FichaLlamada.tsx')), 'falta la ficha de la llamada en el Dashboard');
+  assert.ok(existsSync(join(RAIZ, 'app/dashboard/entidades/FichaLlamada.tsx')), 'falta la ficha de la llamada en el Dashboard');
 });
 
 test('cada link a una hoja del Dashboard que escribe el producto abre ESA hoja (ninguno cae en la primera)', () => {

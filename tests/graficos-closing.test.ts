@@ -2,9 +2,9 @@
 // Closing COMPLETO en el Dashboard (decisión 6 de Martín, 11/10/2026): la lista, la ficha y sus tareas
 // =============================================================================
 // Lo que fija:
-//   · El modelo de la hoja (app/dashboard/bloques/extra/llamadas-modelo.ts): cómo se nombra una llamada, el
+//   · El modelo de la hoja (lib/llamadas-modelo.ts): cómo se nombra una llamada, el
 //     reproductor de Fathom y el salto al segundo (con lo que entra en una URL), lo que avisa la ficha de una
-//     llamada que no es una venta analizada, la búsqueda y el orden de la lista, las marcas del transcript, el
+//     llamada que no es una venta analizada, las marcas del transcript, el
 //     puntaje que se recalcula al revisar (la MISMA cuenta que `reviseAnalysis`), lo que sale por
 //     GET /api/closing/llamada (`fichaDe`), y que una tarea vencida NO se afirma fallida.
 //   · La puerta de las rutas de Closing: admin o closer, con el Dashboard en la capa (un setter no gasta IA),
@@ -51,6 +51,8 @@
 //   · «Revisá a mano» en la ficha                                          → «sin voseo…»
 // Los tres tests del BLOQUE «Las llamadas» (su catálogo, la plantilla con el bloque abajo y los ejemplos de
 // Factores del bloque) salieron con la v5: los bloques se migran en el saneo (lib/graficos-migrar-v5.ts).
+// Y el de «la lista…» (la búsqueda y el orden de la lista de ese bloque, `filtrarLlamadas`) salió el 13/10/2026,
+// cuando se borró el código de los bloques: la tabla de llamadas de v5 busca con la barra de cualquier tabla.
 // v5 (P6), base 18 de 18 (arnés scratchpad/p6/romper.mjs, restaurando DE MEMORIA); cada rotura, una por vez, dio
 // 17 pases y 1 fallo en el test que la persigue (la vuelta, 18 de 18):
 //   · la ficha de la llamada sin la pieza entera (PIEZAS_ENTIDAD.llamada)        → «la lista de llamadas…»
@@ -64,11 +66,10 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  CAMPOS_FICHA, FILTRO_INICIAL, TOPE_MS, estadoDeLlamada, fichaDe, filtrarLlamadas, linkAlSegundo, marcasDeTranscript, nombreDeLlamada,
+  CAMPOS_FICHA, TOPE_MS, estadoDeLlamada, fichaDe, linkAlSegundo, marcasDeTranscript, nombreDeLlamada,
   postearTarea, puntajeEnVivo, reproductorFathom, textoDeSync, tokenFathom,
-} from '../app/dashboard/bloques/extra/llamadas-modelo';
+} from '../lib/llamadas-modelo';
 import { reglaDePuerta } from '../app/api/closing/puerta-regla';
-import type { FilaLlamada } from '../lib/graficos-bloques-extra-catalogo';
 import { ACCIONES_ELEMENTO, DIMENSIONES_PERSONA, PIEZAS_ENTIDAD } from '../lib/graficos-acciones';
 import { ACCION_SINCRONIZAR_LLAMADAS, PIEZA_COMPLETA } from '../lib/graficos-migrar-v5';
 import { dimensionPublica } from '../lib/graficos-analisis';
@@ -123,29 +124,6 @@ test('la ficha avisa lo que NO es una venta analizada (la abre también el conju
   assert.equal(estadoDeLlamada({ ...base, status: 'pendiente' })!.texto, 'Sin transcript: se reintenta al sincronizar');
   assert.equal(estadoDeLlamada({ ...base, category: 'interna', status: 'descartada' })!.texto, 'Llamada interna: no se analiza');
   assert.equal(estadoDeLlamada({ ...base, has_transcript: false })!.texto, 'Sin transcript');
-});
-
-const fila = (o: Partial<FilaLlamada> & { id: number }): FilaLlamada => ({
-  fecha: '2026-10-01', tipo: 'R1', closer: 'Ana', nombre: 'Lead', empresa: null, email: null, titulo: null, puntaje: 5, tono: 'warn', minutos: 30, conTranscript: true, ...o,
-});
-
-test('la lista: busca sin acentos en lead, empresa, título y email; filtra; y ordena con lo que no tiene número al final', () => {
-  const xs = [
-    fila({ id: 1, nombre: 'José Pérez', fecha: '2026-10-03', puntaje: 8, minutos: 20, tipo: 'R2', tono: 'good' }),
-    fila({ id: 2, nombre: 'Marta', empresa: 'Acme', fecha: null, puntaje: null, minutos: null }),
-    fila({ id: 3, nombre: 'Luis', email: 'luis@perez.com', fecha: '2026-10-03', puntaje: 6, minutos: 50, closer: 'Beto', tono: 'bad' }),
-    fila({ id: 4, nombre: 'Sol', titulo: 'Junta con Pérez', fecha: '2026-10-05', puntaje: 9, minutos: 40 }),
-  ];
-  const ids = (f: Partial<typeof FILTRO_INICIAL>) => filtrarLlamadas(xs, { ...FILTRO_INICIAL, ...f }).map((x) => x.id);
-  assert.deepEqual(ids({}), [4, 3, 1, 2], 'fecha: lo más nuevo primero, el empate por id, sin fecha al final');
-  assert.deepEqual(ids({ q: 'perez' }), [4, 3, 1], 'el nombre, el email y el título, sin acentos');
-  assert.deepEqual(ids({ q: 'ACME' }), [2], 'la empresa');
-  assert.deepEqual(ids({ tipo: 'R2' }), [1]);
-  assert.deepEqual(ids({ closer: 'Beto' }), [3]);
-  assert.deepEqual(ids({ tono: 'good' }), [1]);
-  assert.deepEqual(ids({ orden: 'puntaje' }), [4, 1, 3, 2], 'sin puntaje al final');
-  assert.deepEqual(ids({ orden: 'duracion' }), [3, 4, 1, 2], 'sin duración al final');
-  assert.equal(xs[0].id, 1, 'no ordena la lista que recibe');
 });
 
 test('las marcas del análisis van a la línea más cercana, a 30 s o menos', () => {
@@ -236,7 +214,7 @@ test('cada pedido de la ficha y de la lista lleva `signal`, y su tope supera el 
     assert.ok(TOPE_MS[k] > Number(m![1]) * 1000, `${k}: ${TOPE_MS[k]} ms no supera los ${m![1]} s de la ruta`);
   }
   // Cada `fetch(` hasta SU paréntesis de cierre (no un número de caracteres): adentro tiene que estar el signal.
-  for (const archivo of ['app/dashboard/bloques/extra/FichaLlamada.tsx', 'app/dashboard/bloques/extra/BloquesClosing.tsx', 'app/dashboard/bloques/extra/llamadas-modelo.ts', 'app/dashboard/entidades/llamada.tsx']) {
+  for (const archivo of ['app/dashboard/entidades/FichaLlamada.tsx', 'lib/llamadas-modelo.ts', 'app/dashboard/entidades/llamada.tsx']) {
     const src = sinComentarios(leer(archivo));
     let i = src.indexOf('fetch(');
     while (i >= 0) {
@@ -277,8 +255,8 @@ test('la lista de llamadas (v5): la migración deja una tabla con su pop-up «Ll
 });
 
 test('la ficha es UNA: FichaLlamada dibuja el cuerpo de entidades/llamada.tsx, y es el único que pide la llamada', () => {
-  const ficha = sinComentarios(leer('app/dashboard/bloques/extra/FichaLlamada.tsx'));
-  assert.match(ficha, /from '\.\.\/\.\.\/entidades\/llamada'/);
+  const ficha = sinComentarios(leer('app/dashboard/entidades/FichaLlamada.tsx'));
+  assert.match(ficha, /from '\.\/llamada'/);
   assert.match(ficha, /<CuerpoFichaLlamada f=\{f\} \/>/);
   assert.doesNotMatch(ficha, /fetch\(/, 'una segunda lectura de la llamada: dos implementaciones de la ficha');
   const piezas = sinComentarios(leer('app/dashboard/entidades/llamada.tsx'));
@@ -318,7 +296,7 @@ test('la API de MaKo linkea cada llamada a la hoja Closing del Dashboard, con su
 /** Las palabras terminadas en á/é/í (o en ás/és/ís) que SÍ son de tú o neutras. Todo lo demás es sospechoso. */
 const NEUTRAS = new Set(['más', 'está', 'aquí', 'así', 'ahí', 'allí', 'sí', 'qué', 'días', 'después', 'además', 'través', 'país', 'acá', 'estás', 'detrás']);
 const NUEVOS = [
-  'app/dashboard/bloques/extra/FichaLlamada.tsx', 'app/dashboard/bloques/extra/llamadas-modelo.ts', 'app/dashboard/bloques/extra/BloquesClosing.tsx',
+  'app/dashboard/entidades/FichaLlamada.tsx', 'lib/llamadas-modelo.ts',
   'app/api/closing/puerta-regla.ts', 'app/api/closing/puerta.ts', 'app/api/closing/llamada/route.ts', 'app/api/closing/revise/route.ts',
   'app/dashboard/entidades/llamada.tsx', 'app/dashboard/ElementoAccion.tsx',
 ];

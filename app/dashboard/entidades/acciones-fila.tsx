@@ -26,8 +26,8 @@ import { marcarPagoAction } from '@/app/crm/actions';
 import type { Efectivo, Grafico } from '@/lib/graficos-catalogo';
 import type { FilaResultado } from '@/lib/graficos-agregar';
 import { accionesDeFila, filasPorId, idDeDimension, type AccionFila, type FilaDetalle, type RespuestaDetalle } from '@/lib/graficos-acciones';
-import { FichaLlamada } from '../bloques/extra/FichaLlamada';
-import { Capa } from '../bloques/piezas';
+import { FichaLlamada } from './FichaLlamada';
+import { Capa } from '../piezas';
 
 const LeadEditModal = dynamic(() => import('@/app/crm/LeadEditModal').then((m) => m.LeadEditModal), { ssr: false });
 

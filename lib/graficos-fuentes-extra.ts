@@ -7,9 +7,10 @@
 // las dos listas.
 // Puro y sin `server-only`.
 //
-// Lo que NO entra en el agregador (el cuadrante de retención, los patrones, el mapa de calor, el
-// embudo y los factores del cierre, la matriz impacto × esfuerzo…) va como BLOQUE
-// (lib/graficos-bloques-extra-catalogo.ts). Acá sólo lo que se puede sumar fila por fila.
+// Lo que no entraba en el agregador (el cuadrante de retención, los patrones, el mapa de calor, el
+// embudo y los factores del cierre, la matriz impacto × esfuerzo…) iba como BLOQUE hasta v5; desde v5
+// (12/10/2026) son conjuntos y tipos del catálogo (lib/graficos-migrar-v5.ts convierte los bloques
+// guardados) y el código de los bloques se borró el 13/10/2026.
 //
 // ⚠️ LAS RAZONES DE LA RETENCIÓN Y DEL SCROLL SE DIVIDEN POR LOS MEDIDOS, NUNCA POR LOS QUE
 // ENTRARON (lib/vsl-retencion.ts y lib/landing-pulso.ts). Con el Pixel viejo «medidos» es chico y
@@ -174,7 +175,8 @@ export const FUENTES_EXTRA: readonly Fuente[] = [
     id: 'proyectos', nombre: 'Proyectos del Plan', area: 'Plan',
     descripcion: 'Cada proyecto del tablero: su avance, si está completo, impacto y esfuerzo.',
     fechas: [{ id: 'actual', nombre: 'Todos (hoy)', sinRango: true }],
-    // Los colores del cuadrante son los de la matriz de la tab (BloquesProductividad.tsx, `COLOR_CUADRANTE`).
+    // Los colores del cuadrante son los de la matriz de la tab (los de `COLOR_CUADRANTE` del bloque de
+    // Productividad, que se borró con los bloques el 13/10/2026).
     dimensiones: [
       cat('proyecto', 'Proyecto'), cat('estado', 'Estado'), cat('con_deadline', 'Con deadline'),
       escala(cat('cuadrante', 'Cuadrante'), ['Quick win', 'Apuesta grande', 'De relleno', 'Trampa', 'Sin evaluar'],

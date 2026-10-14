@@ -28,9 +28,9 @@ import type { Elemento } from '@/lib/graficos-catalogo';
 import {
   ACCIONES_ELEMENTO, accionElementoDe, accionElementoDisponible, type AccionElementoDef, type ContextoEntidad, type TipoEntidad,
 } from '@/lib/graficos-acciones';
-import { postearTarea, textoDeSync } from './bloques/extra/llamadas-modelo';
-import { FichaLlamada } from './bloques/extra/FichaLlamada';
-import { Capa } from './bloques/piezas';
+import { postearTarea, textoDeSync } from '@/lib/llamadas-modelo';
+import { FichaLlamada } from './entidades/FichaLlamada';
+import { Capa } from './piezas';
 
 type Abierto = { tipo: 'llamada'; id: number; revisar: boolean } | null;
 

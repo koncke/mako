@@ -6,7 +6,7 @@
 //   { recording_id, mode:'mako', note }   ← re-evalúa con MaKo dándole el comentario
 // Pisa el análisis, recalcula el puntaje y registra el cambio en edit_history.
 // Lo usan «Revisar a mano» y «Re-evaluar con MaKo» de la ficha de una llamada
-// (app/dashboard/bloques/extra/FichaLlamada.tsx).
+// (app/dashboard/entidades/llamada.tsx).
 //
 // Puerta (../puerta.ts): admin o closer, el Dashboard en la capa y Fathom conectado
 // (re-evaluar con MaKo paga IA). El AUTOR del historial lo pone el server con la

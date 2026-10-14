@@ -16,7 +16,7 @@ el commit; acá va lo que hay que saber **antes** de tocarlo.
 | El estilo de la página | `lib/graficos-temas.ts`, `app/dashboard/PanelEstilo.tsx` | 6 plantillas de estilo; las tarjetas leen `--dash-*` |
 | El agregador | `lib/graficos-agregar.ts` | De filas a lo que se dibuja; también `tramosDeDias` |
 | Los lectores | `lib/graficos-datos.ts`, `lib/graficos-datos-extra.ts`, `lib/graficos-lectura.ts` | Uno por conjunto, con el workspace explícito; `leer` trae un instante en tramos a la vez |
-| Los bloques | `lib/graficos-bloques*.ts`, `app/dashboard/bloques/` | Lo que no es un gráfico del catálogo: Revenue, A quién cobrarle, cohortes, los de Analysts |
+| Lo que quedó de los bloques | `lib/datos-comercial.ts` (puro), `lib/datos-comercial-server.ts` | Revenue y «A quién cobrarle» con las lecturas de siempre: los lee el teléfono. Los bloques se borraron el 13/10 (los migra el saneo, v5) |
 | La audiencia y el mapa | `lib/graficos-audiencia.ts`, `lib/meta-desgloses.ts`, `app/dashboard/MapaMexico.tsx` | Meta EN VIVO; el mapa también lo usa el Ads Manager |
 | Los controles | `app/dashboard/BarraControles.tsx`, `valores.ts`, `lib/graficos-controles-texto.ts` | La fila de filtros de la topbar y los chips de cada gráfico |
 | La topbar | `app/dashboard/Cabecera.tsx` | Título, emoji y subtítulo editables en el lugar, el desplegable de hojas, los filtros, Compartir, Editar y el ⋮ |
@@ -87,7 +87,7 @@ Automations ya lo tenían escrito en `ChatAgentApp.tsx`), y el `@media print` lo
 
 ## Todo pop-up desde una tarjeta va por portal, y el portal no aísla
 
-**Vive en:** `Capa` en `app/dashboard/bloques/piezas.tsx`; `Elemento.tsx`
+**Vive en:** `Capa` en `app/dashboard/piezas.tsx` (hasta el 13/10, `app/dashboard/bloques/piezas.tsx`); `Elemento.tsx`
 
 - La grilla ubica las tarjetas con `transform` y `.lk-comp` lleva `overflow: hidden`: un `position:
   fixed` de adentro (un modal, un toast) queda pegado a la tarjeta y recortado, sin error. Va con
@@ -125,7 +125,7 @@ Medido el 11/10/2026 (Graph v25.0, cuenta del ws1):
 
 ## «Marcar cobrada» y Comercial: la fecha y tres cuentas que estaban mal
 
-**Vive en:** `lib/graficos-bloques.ts`, `app/dashboard/bloques/`
+**Vive en:** `lib/datos-comercial-server.ts` y `lib/datos-comercial.ts` (hasta el 13/10, `lib/graficos-bloques.ts` y `app/dashboard/bloques/`)
 
 - **La fecha de cobro era distinta en cada camino** (CobrarTable el vencimiento, la API de MaKo y
   PayModal hoy). Con el vencimiento, marcar una cuota atrasada no movía el Cash del período mirado. Va
@@ -228,7 +228,7 @@ Superset es Python). `react-grid-layout` 2.2.4 (MIT) + `recharts`.
 
 ## Closing al Dashboard: lo que la tab hacía mal y el port obvio habría copiado (11/10/2026)
 
-**Vive en:** `app/dashboard/bloques/extra/BloquesClosing.tsx`, `FichaLlamada.tsx`, `app/api/closing/puerta-regla.ts`
+**Vive en:** `app/dashboard/entidades/FichaLlamada.tsx`, `lib/llamadas-modelo.ts`, `app/api/closing/puerta-regla.ts` (`BloquesClosing.tsx` se borró el 13/10: la hoja Closing son gráficos desde v5)
 
 - **El KPI «Analizadas» de la tab contaba ventas pendientes y con error** (`counts.ventas`). La hoja cuenta
   sólo las analizadas (`llamadas_venta.llamadas`): 71 en el ws1.
@@ -476,15 +476,10 @@ gobierna lo que se toque acá:
 
 ## Lo que quedó sin hacer
 
-- **El código muerto de los bloques**: ya no se dibuja ninguno (el saneo los migra), pero quedan los archivos.
-  Muertos (sólo se importan entre ellos): `app/dashboard/bloques/{BloqueCobranza,BloqueCohortes,BloqueFunnel,
-  BloqueRevenue,BloqueScl,CuerpoBloque}.tsx` y `bloques/extra/{BloquesAds,BloquesClosing,BloquesLanding,
-  BloquesProductividad,CuerpoBloqueExtra}.tsx`, más `lib/graficos-bloques-extra.ts`. Vivos y para MUDAR (no
-  borrar): `bloques/piezas.tsx`, `bloques/datos-comercial.ts`, `bloques/extra/{FichaLlamada,llamadas-modelo,
-  piezas-extra}`. Y con eso: la acción `'bloques'` de `app/api/graficos/route.ts`, `datosDeBloques` de
-  `app/dashboard/page.tsx`, `bloquesIniciales`, `LecturaBloques` (`lectura-compartida.ts`) y `PedidosHoja.bloques`
-  (`exportar.ts`). Ojo: `app/admin/dev/areas.ts` nombra esos archivos en `vive[]` y `tests/dev-areas.test.ts` los
-  busca en disco.
+- **El tipo `Bloque` y `clase: 'bloque'` siguen en `lib/graficos-catalogo.ts`** (y `esBloque`, `sanearBloque`): los necesita
+  la migración v5 para leer un informe viejo. El código que los DIBUJABA se borró el 13/10 (merge de `graphics-bloques-1310`;
+  lo vivo se mudó a `lib/datos-comercial*.ts`, `lib/llamadas-modelo.ts`, `app/dashboard/entidades/FichaLlamada.tsx` y
+  `app/dashboard/piezas.tsx`).
 - **`controlParaHttp` (API) y `controlParaLink` (link) siguen siendo dos funciones** (miden contra universos
   distintos). Y `useValoresCompartidos` vive en `BarraControles.tsx`, no en `valores.ts`.
 - **El tipo de control `texto` se llama «Búsqueda» en `TIPOS_CONTROL`** y la pantalla lo muestra «Contiene…»

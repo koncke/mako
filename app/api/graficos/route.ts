@@ -10,7 +10,7 @@
 //
 // ⚠️ EL CLOSER, DESDE EL 11/10/2026 (decisión 6 de Martín: Closing Analyst se retiró y «los closers ven
 //    SÓLO la hoja Closing del Dashboard»): entra, pero sólo a lo que esa hoja pide —`datos` de las
-//    llamadas, `bloques` de Closing y `valores` de un campo de Closing, recortados a esos conjuntos—, y
+//    llamadas y `valores` de un campo de Closing, recortados a esos conjuntos—, y
 //    sólo si su negocio tiene Closing en la capa. Guardar, el detalle de un número y todo lo demás:
 //    403. La lista vive en lib/graficos-plantillas.ts (`puedePedir`), al lado de la hoja que la
 //    usa, y en positivo: una acción nueva de esta ruta nace cerrada para él. Antes de esto un closer
@@ -21,7 +21,6 @@
 //    hoja, su capa (WhatsApp) y su informe en memoria para los pop-ups.
 //
 //   POST { accion: 'datos', pedidos: [{ grafico, desde, hasta, filtros?, agrupar? }], popupDe? } → { datos: Record<id, DatosGrafico> }
-//   POST { accion: 'bloques', pedidos: [{ id, bloque, desde, hasta }] }               → { datos: Record<id, DatosBloque> }
 //   POST { accion: 'valores', campo, desde, hasta, fuentes? }                        → { valores: [{ valor, filas }] }
 //   POST { accion: 'detalle', grafico, desde, hasta, filtros?, agrupar?, sel }        → { detalle: RespuestaDetalle }
 //   POST { accion: 'guardar', version, tablero }                                      → { tablero, version } · 409 si cambió
@@ -45,9 +44,8 @@ import { NextResponse } from 'next/server';
 import { getCapaActual, getRolWsEfectivo } from '@/lib/workspace';
 import { tabEnCapa } from '@/lib/capas';
 import { esFechaValida } from '@/lib/date-utils';
-import { bloqueDe, esGrafico, MAX_COMPONENTES, type BloqueId, type Componente, type Tablero } from '@/lib/graficos-catalogo';
+import { esGrafico, MAX_COMPONENTES, type Componente, type Tablero } from '@/lib/graficos-catalogo';
 import { datosDeGraficos, valoresDeCampo, type PedidoDatos } from '@/lib/graficos-datos';
-import { datosDeBloques, type PedidoBloque } from '@/lib/graficos-bloques';
 import { detalleDeGrafico } from '@/lib/graficos-detalle';
 import { guardarTableroVersion, leerTablero } from '@/lib/graficos-tablero';
 import { fuentesDeCampoDeRol, hojaDeRol, informeDeRol, puedePedir } from '@/lib/graficos-plantillas';
@@ -122,20 +120,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ datos: await datosDeGraficos(pedidos) });
   }
 
-  if (body.accion === 'bloques') {
-    // Un bloque decide su propia ventana (el Outstanding mira hasta fin de mes): las fechas llegan sin acotar.
-    const lista = Array.isArray(body.pedidos) ? body.pedidos.slice(0, MAX_COMPONENTES) : [];
-    const pedidos: PedidoBloque[] = [];
-    for (const p of lista as Array<Record<string, unknown>>) {
-      const desde = String(p?.desde ?? '');
-      const hasta = String(p?.hasta ?? '');
-      const id = typeof p?.id === 'string' ? p.id.slice(0, 40) : '';
-      const info = bloqueDe(String(p?.bloque ?? ''));
-      if (!id || !info || !esFechaValida(desde) || !esFechaValida(hasta) || desde > hasta) continue;
-      pedidos.push({ id, bloque: info.id as BloqueId, desde, hasta });
-    }
-    return NextResponse.json({ datos: await datosDeBloques(pedidos) });
-  }
+  // (Hasta el 13/10/2026 había una acción `bloques`: desde v5 ningún bloque llega a la pantalla —el saneo los
+  // convierte en gráficos, lib/graficos-migrar-v5.ts— y la acción contestaba siempre vacío. Ahora cae en
+  // «Acción desconocida».)
 
   if (body.accion === 'valores') {
     const desde = String(body.desde ?? '');

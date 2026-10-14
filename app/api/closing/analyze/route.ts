@@ -4,7 +4,7 @@
 // Body: { recording_id: number }. Baja el contenido de Fathom, corre Claude y
 // hace upsert en closing_analyses. Sirve para forzar el re-análisis de una
 // llamada (p.ej. clasificada mal, o que falló): «↻ Re-analizar» de la ficha de
-// una llamada (app/dashboard/bloques/extra/FichaLlamada.tsx).
+// una llamada (app/dashboard/entidades/llamada.tsx).
 //
 // Puerta (../puerta.ts): admin o closer, el Dashboard en la capa y Fathom conectado.
 // Paga IA: un setter no llega acá.

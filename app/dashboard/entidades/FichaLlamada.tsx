@@ -11,13 +11,15 @@
 // a mejorar, objeciones y coaching), los Momentos, el Transcript en vivo de Fathom con las marcas del
 // análisis, «Lead →», y las TAREAS: revisar a mano, re-evaluar con MaKo y re-analizar.
 //
-// v5 (12/10/2026): el ADENTRO de la ficha se mudó a ../../entidades/llamada.tsx, partido en piezas (el pop-up
-// «Llamada» es una mini-hoja que las pone donde quiere, y la pieza `completo` es esta misma ficha sin el Modal).
-// Esto quedó como la caja de siempre: el Modal con el título, la línea de arriba y el pie de tareas. Una sola
-// implementación de cada sección: lo que se ve acá y en el pop-up es lo mismo.
+// v5 (12/10/2026): el ADENTRO de la ficha se mudó a ./llamada.tsx, partido en piezas (el pop-up «Llamada» es
+// una mini-hoja que las pone donde quiere, y la pieza `completo` es esta misma ficha sin el Modal). Esto quedó
+// como la caja de siempre: el Modal con el título, la línea de arriba y el pie de tareas. Una sola
+// implementación de cada sección: lo que se ve acá y en el pop-up es lo mismo. (Hasta el 13/10/2026 vivía en la
+// carpeta de los bloques, al lado del bloque «Las llamadas»; los bloques se borraron y la ficha vino a su entidad.)
 //
-// Quién la abre: la acción «Ver llamada» del detalle de un número (../../Detalle.tsx), `?llamada=<recording_id>`
-// (EditorInforme) y el botón «Revisar» de un pop-up de llamada (../../ElementoAccion.tsx, con `revisarAlAbrir`).
+// Quién la abre: la acción «Ver llamada» del detalle de un número (../Detalle.tsx), `?llamada=<recording_id>`
+// (EditorInforme), la acción de una fila (./acciones-fila.tsx) y el botón «Revisar» de un pop-up de llamada
+// (../ElementoAccion.tsx, con `revisarAlAbrir`).
 // Pide sus datos a GET /api/closing/llamada (una lectura compartida con las piezas abiertas de esa llamada).
 //
 // Lo que no se ve en la firma:
@@ -38,7 +40,7 @@ import { createPortal } from 'react-dom';
 import { Modal, Toast, useToast } from '@/app/_ui';
 import { useCerrarEstable } from '@/app/customer-success/curso/dialogo-foco';
 import { NO_ARRASTRAR } from '../piezas';
-import { CuerpoFichaLlamada, EncabezadoFicha, EstilosFicha, PieFichaLlamada, tituloDeFicha, useFichaLlamada } from '../../entidades/llamada';
+import { CuerpoFichaLlamada, EncabezadoFicha, EstilosFicha, PieFichaLlamada, tituloDeFicha, useFichaLlamada } from './llamada';
 
 type Props = {
   recordingId: number;

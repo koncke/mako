@@ -69,10 +69,10 @@ export const TABS_ACTIVACION: Record<string, TabActivacion> = {
     slides: [
       // lib/closing.ts (ClosingDim/ClosingObjection con t_seconds) + cron closing-sync
       { t: 'Cada llamada, puntuada', d: 'Separa venta de entrega de servicio, puntúa por SPIN y ejecución, y cita el minuto exacto de cada fortaleza y de cada objeción.' },
-      // app/dashboard/bloques/extra/FichaLlamada.tsx (era app/closing/ClosingBrowser.tsx): embed de
+      // app/dashboard/entidades/llamada.tsx (era app/closing/ClosingBrowser.tsx): embed de
       // Fathom + ▶ mm:ss que abre la grabación en ESE segundo en Fathom (el embed no salta solo).
       { t: 'El video y el transcript, juntos', d: 'Player embebido y transcript anotado: tocas una línea y la grabación salta a ese segundo.' },
-      // La hoja Closing del Dashboard (lib/graficos-plantillas-analysts.ts + app/dashboard/bloques/extra/BloquesClosing.tsx)
+      // La hoja Closing del Dashboard (lib/graficos-plantillas-analysts.ts; desde v5, gráficos del catálogo)
       { t: 'Qué dimensión decide tus cierres', d: 'Cruza ganadas contra perdidas y te marca la dimensión con más gap, la tendencia del score y cómo va cada closer.' },
       // lib/closing.ts:828 reviseAnalysis + :870 reviseWithMako → edit_history
       { t: 'La última palabra es tuya', d: 'Corriges un puntaje a mano o le pides a MaKo que re-analice con tu nota, y queda el historial de quién cambió qué.' },
