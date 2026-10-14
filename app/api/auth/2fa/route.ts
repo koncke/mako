@@ -22,7 +22,7 @@ import { ponerSesion, ponerDispositivo } from '@/lib/sesion-cookies';
 import { buscarUsuarioPorEmail, registrarLogin } from '@/lib/usuarios';
 import { puedeEnrolarSinSesion, canalDisponible, CANALES_CODIGO, CANAL_NO_DISPONIBLE, type Amr } from '@/lib/mfa-reglas';
 import {
-  estadoMfa, cantidadFactores, frenado, MENSAJE_FRENADO, registrarEvento,
+  estadoMfa, cantidadFactores, intentar, intentoOk, MENSAJE_FRENADO, registrarEvento,
   enviarCodigo, verificarCodigo, verificarTotpLogin, usarCodigoRecuperacion,
   iniciarTotp, confirmarTotp, opcionesLoginPasskey, verificarLoginPasskey,
   opcionesRegistroPasskey, verificarRegistroPasskey, generarCodigosRecuperacion,
@@ -102,8 +102,9 @@ export async function POST(req: NextRequest) {
   const recordar = body.recordar === true;
   const rp = rpDelPedido(req.headers.get('host'));
 
-  // El freno va ANTES de cualquier verificación, y también antes de mandar un código.
-  if (await frenado(q.id)) return no(MENSAJE_FRENADO, 429);
+  // ⚠️ El freno NO va acá arriba para todo: frena cada intento de ADIVINAR un código
+  // (`intentar`, que anota antes de contar). Puesto para todas las acciones, quien tiene la
+  // cuenta de Google le bloqueaba al dueño también su llave de acceso mandando códigos malos.
 
   const e = await estadoMfa(q.id);
   const sinFactores = puedeEnrolarSinSesion(cantidadFactores(e));
@@ -120,6 +121,9 @@ export async function POST(req: NextRequest) {
   if (accion === 'verificar') {
     const metodo = String(body.metodo ?? '');
     const codigo = String(body.codigo ?? '');
+    if (!['totp', 'recuperacion', 'whatsapp', 'email'].includes(metodo)) return no('método inválido');
+    const intento = await intentar(q.id, `login-${metodo}`);
+    if (!intento) return no(MENSAJE_FRENADO, 429);
     let ok = false;
     let mfa: Amr | null = null;
     if (metodo === 'totp') { ok = await verificarTotpLogin(q.id, codigo); mfa = 'totp'; }
@@ -133,6 +137,7 @@ export async function POST(req: NextRequest) {
       await registrarEvento(q.id, `login-${metodo}`, false);
       return no(metodo === 'recuperacion' ? 'Ese código de recuperación no vale o ya se usó.' : 'Ese código no coincide.');
     }
+    await intentoOk(intento);
     return entrar(req, q, mfa, { recordar });
   }
 
@@ -167,8 +172,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, secreto: t.secreto, uri: t.uri, qr: t.qr });
   }
   if (accion === 'enrolar-totp-confirmar') {
+    const intento = await intentar(q.id, 'enrolar-totp');
+    if (!intento) return no(MENSAJE_FRENADO, 429);
     const r = await confirmarTotp(q.id, String(body.codigo ?? ''));
-    return r.ok ? entrarEnrolado('totp') : no(r.error);
+    if (!r.ok) return no(r.error);
+    await intentoOk(intento);
+    return entrarEnrolado('totp');
   }
   if (accion === 'enrolar-passkey-opciones') {
     if (!rp) return no('Aquí no se pueden usar llaves de acceso.');
@@ -187,8 +196,12 @@ export async function POST(req: NextRequest) {
       const r = await enviarCodigo(q.id, canal, 'enrolar', { destino: String(body.destino ?? ''), emailLogin: q.pre.email });
       return r.ok ? NextResponse.json({ ok: true, destino: r.destino }) : no(r.error);
     }
+    const intento = await intentar(q.id, `enrolar-${canal}`);
+    if (!intento) return no(MENSAJE_FRENADO, 429);
     const r = await verificarCodigo(q.id, canal, 'enrolar', String(body.codigo ?? ''));
-    return r.ok ? entrarEnrolado(canal) : no(r.error);
+    if (!r.ok) return no(r.error);
+    await intentoOk(intento);
+    return entrarEnrolado(canal);
   }
 
   return no('acción inválida');

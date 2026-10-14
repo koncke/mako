@@ -17,7 +17,7 @@ import { getUsuarioActual } from '@/lib/auth';
 import { ponerSesion } from '@/lib/sesion-cookies';
 import { canalDisponible, CANALES_CODIGO, CANAL_NO_DISPONIBLE, type Amr } from '@/lib/mfa-reglas';
 import {
-  estadoMfa, cantidadFactores, frenado, MENSAJE_FRENADO,
+  estadoMfa, cantidadFactores, intentar, intentoOk, MENSAJE_FRENADO,
   iniciarTotp, confirmarTotp, enviarCodigo, verificarCodigo,
   opcionesRegistroPasskey, verificarRegistroPasskey, generarCodigosRecuperacion,
   quitarFactor, revocarDispositivo, rpDelPedido, type Canal,
@@ -57,7 +57,8 @@ export async function POST(req: NextRequest) {
   const uid = Number(s.sub);
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
   const accion = String(body.accion ?? '');
-  if (await frenado(uid)) return no(MENSAJE_FRENADO, 429);
+  // El freno va en cada intento de adivinar un código (`intentar`), no acá: puesto para todo,
+  // quien tiene la cuenta de Google le bloqueaba al dueño logueado hasta olvidar un dispositivo.
 
   const antes = cantidadFactores(await estadoMfa(uid));
 
@@ -83,8 +84,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, secreto: t.secreto, qr: t.qr });
     }
     case 'totp-confirmar': {
+      const intento = await intentar(uid, 'enrolar-totp');
+      if (!intento) return no(MENSAJE_FRENADO, 429);
       const r = await confirmarTotp(uid, String(body.codigo ?? ''));
-      return r.ok ? activado('totp') : no(r.error);
+      if (!r.ok) return no(r.error);
+      await intentoOk(intento);
+      return activado('totp');
     }
     case 'passkey-opciones': {
       if (!rp) return no('Aquí no se pueden usar llaves de acceso.');
@@ -104,8 +109,12 @@ export async function POST(req: NextRequest) {
     case 'codigo-confirmar': {
       const canal = canalDe(body.canal);
       if (!canal) return no('canal inválido');
+      const intento = await intentar(uid, `enrolar-${canal}`);
+      if (!intento) return no(MENSAJE_FRENADO, 429);
       const r = await verificarCodigo(uid, canal, 'enrolar', String(body.codigo ?? ''));
-      return r.ok ? activado(canal) : no(r.error);
+      if (!r.ok) return no(r.error);
+      await intentoOk(intento);
+      return activado(canal);
     }
     case 'quitar': {
       const factor = String(body.factor ?? '');

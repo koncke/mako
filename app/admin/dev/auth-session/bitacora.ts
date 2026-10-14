@@ -11,10 +11,12 @@
 import type { Hito, Parte } from '../_registro/tipos';
 
 const CH = 'Admin';
+const CIBER = 'Ciberseguridad';
 
 export const PARTES: Parte[] = [
   { titulo: 'Login con Google y token firmado', detalle: 'Google decide quién es; `verificarToken` (proxy, sin base) y `getUsuarioActual` (con base) deciden si entra', estado: 'hecha' },
-  { titulo: 'El segundo paso al entrar', detalle: 'App de autenticación, huella/Face ID, código por WhatsApp o por otro correo · obligatorio para el super admin, opcional para el resto', estado: 'hecha' },
+  { titulo: 'El segundo paso al entrar', detalle: 'App de autenticación y huella/Face ID · obligatorio para el super admin, opcional para el resto · en la rama 2fa-tanda1, se despliega con Martín presente', estado: 'hecha' },
+  { titulo: 'Código por WhatsApp y por otro correo', detalle: 'Sale por una automatización del SuperAdmin, nunca por un emisor propio · el motor todavía no le escribe a una persona de `usuarios`', estado: 'cola' },
   { titulo: 'Códigos de recuperación y dispositivos recordados', detalle: '10 códigos de un uso; «recordar este dispositivo» 30 días, revocable desde el perfil', estado: 'hecha' },
   { titulo: 'Volver a pedir el segundo paso para lo sensible', detalle: 'Quitar un método o regenerar códigos hoy sólo pide la sesión completa, no un código fresco', estado: 'cola' },
   { titulo: 'El 2FA de las cuentas externas', detalle: 'Google, GitHub, Vercel, Supabase, Meta, Railway, Porkbun · lo activa Martín con el checklist de docs/2fa-cuentas-externas.md', estado: 'sigue' },
@@ -52,6 +54,35 @@ export const BITACORA: Hito[] = [
       'supabase/migrations/0266_segundo_factor.sql',
       'tests/mfa.test.ts — 11 tests, cada uno probado rompiéndolo',
       'docs/2fa-cuentas-externas.md — el checklist de Martín',
+    ],
+  },
+  {
+    fecha: '14 oct', hora: '16:05', chat: CIBER, cuenta: 'claude1', actor: 'martin', tipo: 'prompt',
+    titulo: 'El 2FA, como Google, con todos los medios',
+    pedido: 'Tu prioridad número uno es el 2FA, replicando cómo lo hace Google... App de autenticación (TOTP). Códigos por WhatsApp. Códigos por email, aprovechando Automations del SuperAdmin... Entrada rápida con huella o FaceID una vez que ya pasaste el 2FA (passkeys / WebAuthn). Códigos de recuperación. Que se sienta como Google: elegir método, método preferido, «confiar en este dispositivo», y una salida cuando perdés el teléfono.',
+    puntos: [
+      'Llegó por «Estrategia 3 cuentas», que lo pasó «textual en lo que importa»: no es la frase entera de Martín.',
+      'Se partió en tandas: la 1 (app, huella, códigos, recordar) sale sola; WhatsApp y correo esperan a que el motor de Automations le pueda escribir a una persona de `usuarios`.',
+    ],
+  },
+  {
+    fecha: '14 oct', hora: '17:05', chat: CIBER, cuenta: 'claude1', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Tanda 1: el WIP del 13/10, terminado y probado',
+    puntos: [
+      '**WhatsApp y correo APAGADOS** (`CANALES_CODIGO` vacío): se sacó el emisor propio del WIP, que además le mandaba el WhatsApp a OTRO número en AR y MX (Evolution le saca un dígito a los 13 dígitos que empiezan con 52/54).',
+      '**/perfil/seguridad para todos los roles**: el `requireRolWs([])` del WIP echaba a closers y setters.',
+      'Probado de punta a punta en localhost con un super admin descartable, borrado al terminar: activar la app, códigos, entrar con la app (el código ya usado no vale), recordar, código de recuperación (no dos veces), crear y usar una llave, y no poder sacar el último método.',
+    ],
+    commits: [{ sha: '07fb7cfdd', msg: '2FA del login, tanda 1: app de autenticación, llave de acceso y códigos de recuperación', lineas: 2660, archivos: 27 }],
+  },
+  {
+    fecha: '14 oct', hora: '17:34', chat: CIBER, cuenta: 'claude1', actor: 'claude', tipo: 'correccion',
+    titulo: 'La revisión de seguridad: el freno se salteaba en paralelo',
+    puntos: [
+      '⚠️ **El freno contaba primero y anotaba el fallo después**: 500 pedidos en paralelo leían «0 fallos» y probaban 500 códigos. Con la cuenta de Google del super admin, eso es ~13% por día de adivinar la app. Ahora cada intento se ANOTA antes de contar (`intentar`), fail-closed en las dos puntas. Medido contra la base: 30 en paralelo, pasó 1.',
+      '**El freno ya no corta las llaves de acceso ni lo defensivo**: puesto para todo, quien tiene la cuenta de Google le bloqueaba al dueño hasta la huella y el «olvidar dispositivo».',
+      '**El login cuenta los factores de verdad** (`mfaActivoReal`) y no sólo `usuarios.mfa_activo`: son dos escrituras, y con la segunda caída el 2FA de esa persona quedaba apagado sin aviso.',
+      'Queda para la tanda 3, con el «pedir un código fresco»: dos «quitar» simultáneos pueden dejar al super admin sin métodos (hace falta ya tener su sesión).',
     ],
   },
 ];

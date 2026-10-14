@@ -34,7 +34,7 @@ import {
   type Factor, type RelyingParty, type Canal,
   generarSecretoTotp, verificarTotp, uriOtpauth, generarCodigoNumerico, hmacCodigo,
   generarCodigosRecuperacion as generarCodigosPuros, normalizarCodigoRecuperacion,
-  validarEmailRespaldo, validarTelefono, enmascarar, bloqueadoPorFallos, relyingParty, igualSeguro,
+  validarEmailRespaldo, validarTelefono, enmascarar, debeFrenar, relyingParty, igualSeguro,
   canalDisponible, CANAL_NO_DISPONIBLE,
   MAX_FALLOS, VENTANA_FALLOS_MIN, CODIGO_MINUTOS, CODIGO_INTENTOS, DISPOSITIVO_DIAS,
 } from './mfa-reglas';
@@ -131,28 +131,69 @@ export async function sincronizarMfaActivo(usuarioId: number): Promise<boolean> 
   return e.activo;
 }
 
+/**
+ * ¿Tiene algún factor DE VERDAD? Lo pregunta el login antes de decidir si hace falta el
+ * segundo paso, y no confía sólo en `usuarios.mfa_activo`.
+ *
+ * ⚠️ Activar un factor son dos escrituras (el factor y después el flag): si la segunda
+ * fallaba, quedaba un factor activo con el flag en false, y el 2FA de esa persona apagado
+ * sin aviso y para siempre (revisión del 14/10/2026). Acá se cuenta lo que hay y, si no
+ * coincide con el flag, se arregla el flag. Si la base no contesta, vale el flag: es lo
+ * único que hay, y el login ya depende de la base para encontrar al usuario.
+ */
+export async function mfaActivoReal(usuarioId: number, flag: boolean): Promise<boolean> {
+  try {
+    const e = await estadoMfa(usuarioId);
+    if (e.activo !== flag) await sincronizarMfaActivo(usuarioId).catch(() => {});
+    return e.activo;
+  } catch {
+    return flag;
+  }
+}
+
 // ── El registro de intentos, y el freno ──────────────────────────────────────
 
+/**
+ * Una fila de AUDITORÍA. Best-effort: perder una no puede tumbar un login que salió bien.
+ * ⚠️ El freno NO se cuenta con estas filas (se tragan el error): lo cuenta `intentar`,
+ * con las suyas.
+ */
 export async function registrarEvento(usuarioId: number | null, tipo: string, ok: boolean, detalle?: string): Promise<void> {
-  // Best-effort: perder una fila de auditoría no puede tumbar un login que salió bien.
   await sb().from('mfa_eventos').insert({ usuario_id: usuarioId, tipo, ok, detalle: detalle?.slice(0, 300) ?? null })
     .then(() => {}, () => {});
 }
 
+/** El tipo de las filas que cuenta el freno. Un código de 6 dígitos se puede adivinar; una
+ *  firma de passkey, no: por eso las passkeys no pasan por acá (y el que tiene la cuenta
+ *  de Google no puede dejar al dueño sin su llave mandando códigos malos). */
+const TIPO_INTENTO = 'intento';
+
 /**
- * ¿Está frenado por fuerza bruta? Cuenta los fallos de la ventana EN LA BASE: el
- * rate-limit en memoria vive en una instancia, y cada pedido puede caer en otra.
+ * Anota un intento de ADIVINAR (un código de la app, uno mandado o uno de recuperación)
+ * ANTES de verificarlo, y recién ahí cuenta. Devuelve el id de la fila si se puede probar,
+ * o null si hay que frenar.
  *
- * ⚠️ Si la consulta falla, contesta que SÍ está frenado: un freno que se abre cuando no
- * puede contar es un freno que se apaga tirando la base.
+ * ⚠️ Fail-closed en las dos puntas: si el insert falla o la cuenta falla, se frena. Un
+ * freno que se abre cuando la base no contesta se apaga tirando la base.
+ * ⚠️ La fila nace `ok: false` y sólo pasa a true si el código vale (`intentoOk`): un
+ * pedido que se cae a mitad de camino cuenta como fallo, que es lo seguro.
  */
-export async function frenado(usuarioId: number): Promise<boolean> {
+export async function intentar(usuarioId: number, accion: string): Promise<number | null> {
+  const ins = await sb().from('mfa_eventos')
+    .insert({ usuario_id: usuarioId, tipo: TIPO_INTENTO, ok: false, detalle: accion.slice(0, 60) })
+    .select('id').single();
+  if (ins.error || !ins.data) return null;
   const desde = new Date(Date.now() - VENTANA_FALLOS_MIN * 60_000).toISOString();
   const { count, error } = await sb().from('mfa_eventos')
     .select('id', { count: 'exact', head: true })
-    .eq('usuario_id', usuarioId).eq('ok', false).gte('created_at', desde);
-  if (error) return true;
-  return bloqueadoPorFallos(count ?? 0);
+    .eq('usuario_id', usuarioId).eq('tipo', TIPO_INTENTO).eq('ok', false).gte('created_at', desde);
+  if (error || debeFrenar(count ?? Number.POSITIVE_INFINITY)) return null;
+  return (ins.data as { id: number }).id;
+}
+
+/** El código valió: la fila deja de contar como fallo. */
+export async function intentoOk(id: number): Promise<void> {
+  await sb().from('mfa_eventos').update({ ok: true }).eq('id', id).eq('tipo', TIPO_INTENTO).then(() => {}, () => {});
 }
 
 export const MENSAJE_FRENADO = `Demasiados intentos. Espera ${VENTANA_FALLOS_MIN} minutos y vuelve a probar.`;

@@ -24,7 +24,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { DISPOSITIVO_COOKIE, crearPreauth, destinoSeguro } from '@/lib/auth-session';
 import { ponerPreauth, ponerSesion } from '@/lib/sesion-cookies';
 import { decidirTrasGoogle, requiereSegundoFactor } from '@/lib/mfa-reglas';
-import { dispositivoValido } from '@/lib/mfa';
+import { dispositivoValido, mfaActivoReal } from '@/lib/mfa';
 import { buscarUsuarioPorEmail, contarUsuarios, crearUsuario, registrarLogin, type Usuario } from '@/lib/usuarios';
 import { googleCalendarDueno, guardarRefreshTokenGoogle } from '@/lib/google-calendar';
 import { runWithWorkspace } from '@/lib/workspace';
@@ -197,14 +197,16 @@ export async function GET(req: NextRequest) {
     // ── El segundo factor ──────────────────────────────────────────────────────
     // `decidirTrasGoogle` (lib/mfa-reglas.ts, con test) decide entre tres salidas. El
     // dispositivo de confianza se consulta sólo si hace falta: es una consulta a la base.
-    const requiere = requiereSegundoFactor(usuario.rol, !!usuario.mfa_activo);
+    // Lo que la persona tiene de verdad, no sólo el flag (que puede quedar atrasado).
+    const mfaActivo = usuario.id > 0 ? await mfaActivoReal(usuario.id, !!usuario.mfa_activo) : !!usuario.mfa_activo;
+    const requiere = requiereSegundoFactor(usuario.rol, mfaActivo);
     let dispositivo = false;
     if (requiere && usuario.id > 0) {
       try { dispositivo = await dispositivoValido(usuario.id, req.cookies.get(DISPOSITIVO_COOKIE)?.value); }
       catch { dispositivo = false; }
     }
     const decision = decidirTrasGoogle({
-      rol: usuario.rol, mfaActivo: !!usuario.mfa_activo, tieneFila: usuario.id > 0, dispositivoValido: dispositivo,
+      rol: usuario.rol, mfaActivo, tieneFila: usuario.id > 0, dispositivoValido: dispositivo,
     });
 
     // Sin base no hay con qué comprobar el segundo factor: antes este usuario de

@@ -61,12 +61,27 @@ export function puedeEnrolarSinSesion(cantFactores: number): boolean {
 
 // ── Freno contra la fuerza bruta ─────────────────────────────────────────────
 
-/** Fallos tolerados en la ventana. Un código de 6 dígitos con 8 intentos cada 15 min
- *  da 1 en 125.000 por ventana: suficiente, y no castiga al que se equivocó dos veces. */
+/** Fallos tolerados en la ventana. Con TOTP valen 3 códigos a la vez (±1 paso), así que 8
+ *  intentos cada 15 min dan ~1 en 41.000 por ventana: suficiente, y no castiga al que se
+ *  equivocó dos veces. ⚠️ Eso vale sólo si el freno no se puede saltear en paralelo: ver
+ *  `debeFrenar` y `intentar` (lib/mfa.ts). */
 export const MAX_FALLOS = 8;
 export const VENTANA_FALLOS_MIN = 15;
 export function bloqueadoPorFallos(fallosRecientes: number): boolean {
   return fallosRecientes >= MAX_FALLOS;
+}
+
+/**
+ * ¿Se frena ESTE intento? `contados` son los intentos fallidos o en vuelo de la ventana,
+ * INCLUIDO éste: se cuenta DESPUÉS de anotarlo.
+ *
+ * ⚠️ El orden es el freno. Contar primero y anotar el fallo después de verificar dejaba
+ * pasar una ráfaga entera: 500 pedidos en paralelo leían «0 fallos» antes de que ninguno
+ * escribiera el suyo (revisión del 14/10/2026). Anotando primero, el k-ésimo pedido ve al
+ * menos k filas, así que como mucho MAX_FALLOS llegan a verificar.
+ */
+export function debeFrenar(contados: number): boolean {
+  return contados > MAX_FALLOS;
 }
 
 /** Cuánto vive un código mandado por WhatsApp o correo, y cuántas veces se puede probar. */

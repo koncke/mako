@@ -35,6 +35,13 @@
 //   · `enviarCodigo` sin el corte de `canalDisponible` al principio → 1 fallo (sin emisor propio).
 //   · la ruta del segundo paso sin `canalDisponible` antes de `enviarCodigo` → 1 fallo (las puertas).
 //   · /perfil/seguridad con `requireRolWs([])` de vuelta → 1 fallo.
+//
+// Y lo que encontró la revisión de seguridad del 14/10/2026 (tres lentes + refutadores):
+//   · `debeFrenar` con >= en vez de > → 1 fallo (las reglas del freno).
+//   · `intentar` contando ANTES de anotar → 1 fallo (el freno no se saltea en paralelo).
+//   · la ruta del segundo paso con el `frenado` de antes, arriba de todo → 1 fallo.
+//   · 'verificar' probando el código antes de `intentar` → 1 fallo.
+//   · el callback decidiendo con `usuario.mfa_activo` en vez de `mfaActivoReal` → 1 fallo.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -50,7 +57,7 @@ import {
 import {
   codigoTotp, verificarTotp, base32Encode, pasoTotp, decidirTrasGoogle, requiereSegundoFactor,
   validarEmailRespaldo, relyingParty, puedeEnrolarSinSesion, normalizarCodigoRecuperacion,
-  generarCodigosRecuperacion, hmacCodigo, igualSeguro, CANALES_CODIGO, canalDisponible,
+  generarCodigosRecuperacion, hmacCodigo, igualSeguro, CANALES_CODIGO, canalDisponible, debeFrenar, MAX_FALLOS,
 } from '../lib/mfa-reglas';
 import { esPublica, esPublicaSoloLeer } from '../lib/rutas-publicas';
 import { proxy } from '../proxy';
@@ -244,4 +251,61 @@ test('/perfil/seguridad es de la persona, sea cual sea su rol', () => {
   const src = sinComentarios(leer('app/perfil/seguridad/page.tsx'));
   assert.doesNotMatch(src, /requireRolWs|requireCapa/);
   assert.match(src, /getUsuarioActual\(\)/);
+});
+
+// ── La revisión de seguridad del 14/10/2026 ──────────────────────────────────
+
+test('el freno cuenta el intento propio: pasan MAX_FALLOS, frena el siguiente', () => {
+  assert.equal(debeFrenar(1), false);
+  assert.equal(debeFrenar(MAX_FALLOS), false);
+  assert.equal(debeFrenar(MAX_FALLOS + 1), true);
+});
+
+test('el freno anota ANTES de contar, y es fail-closed en las dos puntas', () => {
+  const src = sinComentarios(leer('lib/mfa.ts'));
+  const ini = src.indexOf('export async function intentar');
+  const cuerpo = src.slice(ini, src.indexOf('export async function intentoOk', ini));
+  assert.ok(cuerpo.length > 100 && cuerpo.length < 2000, `recorte de intentar: ${cuerpo.length}`);
+  assert.ok(cuerpo.indexOf('.insert(') > 0 && cuerpo.indexOf('.insert(') < cuerpo.indexOf("count: 'exact'"), 'anota y DESPUÉS cuenta');
+  assert.match(cuerpo, /if \(ins\.error \|\| !ins\.data\) return null;/, 'si no pudo anotar, frena');
+  assert.match(cuerpo, /if \(error \|\| debeFrenar\(/, 'si no pudo contar, frena');
+  // Y ya no existe el freno que contaba primero.
+  assert.doesNotMatch(src, /export async function frenado/);
+});
+
+test('las rutas frenan cada intento de adivinar, y no las llaves de acceso', () => {
+  const dosfa = sinComentarios(leer('app/api/auth/2fa/route.ts'));
+  assert.doesNotMatch(dosfa, /frenado\(/, 'nada de un freno general arriba de todo');
+  const rama = (src: string, desde: string, hasta: string) => {
+    const i = src.indexOf(desde);
+    assert.ok(i > 0, desde);
+    return src.slice(i, src.indexOf(hasta, i + desde.length));
+  };
+  const verificar = rama(dosfa, "accion === 'verificar'", "accion === 'passkey-opciones'");
+  for (const fn of ['verificarTotpLogin(', 'usarCodigoRecuperacion(', 'verificarCodigo(']) {
+    assert.ok(verificar.indexOf('intentar(') > 0 && verificar.indexOf('intentar(') < verificar.indexOf(fn), `${fn} sin intentar antes`);
+  }
+  assert.match(verificar, /await intentoOk\(intento\);\s*return entrar\(/);
+  const passkey = rama(dosfa, "accion === 'passkey-verificar'", "accion.startsWith('enrolar-')");
+  assert.doesNotMatch(passkey, /intentar\(|MENSAJE_FRENADO/, 'una firma no se adivina: la llave no se frena');
+  for (const [desde, hasta, fn] of [
+    ["accion === 'enrolar-totp-confirmar'", "accion === 'enrolar-passkey-opciones'", 'confirmarTotp('],
+    ["accion === 'enrolar-codigo-enviar' || accion === 'enrolar-codigo-confirmar'", "no('acción inválida')", "verificarCodigo(q.id, canal, 'enrolar'"],
+  ]) {
+    const r = rama(dosfa, desde, hasta);
+    assert.ok(r.indexOf('intentar(') > 0 && r.indexOf('intentar(') < r.indexOf(fn), `${desde}: sin intentar antes`);
+  }
+  const perfil = sinComentarios(leer('app/api/perfil/seguridad/route.ts'));
+  assert.doesNotMatch(perfil, /frenado\(/);
+  for (const [caso, fn] of [["case 'totp-confirmar'", 'confirmarTotp('], ["case 'codigo-confirmar'", 'verificarCodigo(']]) {
+    const r = rama(perfil, caso, 'case ');
+    assert.ok(r.indexOf('intentar(') > 0 && r.indexOf('intentar(') < r.indexOf(fn), `${caso} sin intentar antes`);
+  }
+});
+
+test('el login decide con los factores de verdad, no sólo con el flag', () => {
+  const cb = sinComentarios(leer('app/api/auth/callback/google/route.ts'));
+  const i = cb.indexOf('mfaActivoReal(usuario.id');
+  assert.ok(i > 0 && i < cb.indexOf('requiereSegundoFactor(usuario.rol'), 'cuenta los factores antes de decidir');
+  assert.doesNotMatch(cb, /requiereSegundoFactor\(usuario\.rol, !!usuario\.mfa_activo\)|mfaActivo: !!usuario\.mfa_activo/);
 });
