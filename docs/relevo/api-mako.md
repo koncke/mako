@@ -4,18 +4,33 @@
 `app/api-mako/**` (la tab que la muestra y acuña los tokens).
 **Ventana:** 05/10/2026 → 10/10/2026. **Escrito el 10/10/2026 sobre `origin/main` = `9862c146`.**
 
-> **13/10/2026, 18:55 — EN CURSO (cuenta 2, chat «API de MaKo»).** Martín volvió a este chat y la
-> decisión 1 de § 6 queda tomada por su pedido original («implementalo todo»): se retoma ENTERA, pero
-> no sobre la rama vieja. **Rama nueva `api-acciones-1310`, worktree `C:/dev/mako-api2`**, nacida de
-> `origin/main` = `cf494e2a`, con `node_modules` como junction al del clon. Ya tiene registrada el área
-> `comunidad` (tipos, registro, runners, `mako-intencion`) y copiados sus archivos de la rama vieja.
-> Corre la corrida `wf_8cb38f84-f1e` (13 implementadores por área o grupo, cada uno re-verifica la lista
-> del 08/10 contra el main de hoy, reusa el código de `C:/dev/mako-api` si lo hay, y un revisor de
-> seguridad por grupo). Las entradas por área están en el scratchpad de la sesión
-> `3e9e0b4f…` (`areas/<área>.json`, sacadas de `docs/api-acciones-relevo.json` de la rama vieja).
-> Al terminar: filas REST + títulos, docs y snapshot, suite, typecheck, build, e2e en ws 9, cosecha.
-> **Nada de esto está commiteado todavía.** Si este chat se corta, el trabajo está en el disco de
-> `C:/dev/mako-api2`, y la rama vieja `C:/dev/mako-api` sigue intacta como referencia.
+> **14/10/2026, 01:10 — EN CURSO (cuenta 2, chat «API de MaKo»).** Todo vive en la rama
+> **`api-acciones-1310`**, worktree **`C:/dev/mako-api2`** (nacida de `origin/main` = `cf494e2a`,
+> `node_modules` como junction al del clon). NADA de eso está en main ni pusheado.
+>
+> **Commiteado en la rama (local):**
+> - El token detallado deja de valer cuando su creador pierde el acceso (`lib/api-mako/tokens-creador.ts`,
+>   `creadorVigente` en `tokens.ts`, el 401 en `http.ts`): cierra la fila de § 3.2.
+> - Las ESTRELLAS (punto 10 de Martín, 13/10): mig **0273** (no 0266: 0266-0272 ya los tienen otros
+>   worktrees), `lib/creaciones*.ts`, `app/creaciones/` (galería /creaciones, BotonEstrella,
+>   PublicarCreacion) y el área `creaciones` de la API (8 operaciones, sin registrar todavía). Se les
+>   pasó el contrato de enchufe a Automations, Graphics y Content Machine.
+>
+> **Sin commitear en la rama:** el registro de `comunidad` y `creaciones` (tipos, registro, runners,
+> `mako-intencion`, 10 filas REST de creaciones) y el esqueleto del guard del punto 5
+> (`scripts/api-cobertura.mjs` = inventario de 1273 capacidades, `lib/api-mako/cobertura.ts`,
+> `tests/api-mako-cobertura.test.ts`; falta clasificarlas). Y el trabajo de los agentes: la corrida
+> `wf_8cb38f84-f1e` se cortó a la 1ª pasada por el límite de sesión (2 de 15 agentes cerraron:
+> comunidad y plan) y se relanzó con `resumeFromRunId` **de a 2** (pedido de Estrategia por la RAM).
+> Los cortados dejaron su trabajo en el árbol y lo retoman. Customer Success pidió `invitar_al_curso`
+> (área curso): va en esa corrida (`areas/curso.json` del scratchpad `3e9e0b4f…`).
+>
+> **Al terminar la corrida:** integrar filas REST + títulos (`integrar-rest-1310.ts` del scratchpad),
+> docs y snapshot, suite, typecheck, build, e2e en ws 9; aplicar la 0273 en prod ANTES del deploy;
+> clasificar las 1273 capacidades del guard (de a 2) y declarar lo que falte (Instagram en Automations,
+> pagos, Offer, Landing Generator, Video Editor, Mobile); cosecha y merge.
+> **Si este chat se corta:** la rama y el árbol están en `C:/dev/mako-api2`; la rama vieja
+> `C:/dev/mako-api` sigue intacta como referencia.
 
 **Qué es esto, para quien nunca lo vio.** MaKo es la plataforma de Martín (marketing, CRM,
 automatizaciones, cursos). Cada negocio cliente es un **workspace** (`ws`): «ws 9» es el workspace

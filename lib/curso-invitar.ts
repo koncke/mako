@@ -395,8 +395,13 @@ async function depsReales(): Promise<DepsInvitar> {
       if (!conClases.length) return [];
       // ⚠️ EL NOMBRE SALE DE `nombresDeCursos`, NO DE `productos.nombre`. Pedido de Martín del
       //    13/10/2026: «los cursos deberían tener el nombre de una OFERTA». Esa función es el ÚNICO
-      //    lugar que lo decide (el título puesto a mano, si no la oferta principal única y activa, si
-      //    no el producto), y ya la usan el portal, el editor, la vista previa y la ficha. Este era el
+      //    lugar que lo decide (el título puesto a mano, si no la oferta principal única y activa, y
+      //    si no, NINGUNO: el curso vuelve sin nombre y acá cae al genérico «tu programa»). Desde
+      //    `0a24ca6a` (14/10) el producto ya no es un respaldo, y es a propósito: «Elimina el nombre
+      //    del "producto" que hoy en día se llama "nuevo CRM", no debe aparecer nunca como nombre del
+      //    curso». O sea que un curso sin oferta sale como «tu programa» en el mail — feo, y mucho
+      //    menos feo que decirle al alumno que compró el «nuevo CRM».
+      //    Ya la usan el portal, el editor, la vista previa y la ficha. Este era el
       //    último call site que leía la tabla cruda — o sea el único por el que el curso podía
       //    llamarse distinto en el MAIL que en la pantalla, y el mail es lo que ve el alumno primero.
       const nombre = await nombreDeCurso.nombresDeCursos(conClases, { conTitulo: true });
