@@ -487,6 +487,7 @@ export const BITACORA: Hito[] = [
     fecha: '14 oct', hora: '14:16', chat: 'General', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
     titulo: 'Las plantillas también: que se vean como la tab General, no como un dashboard',
     pedido: "No solo los bloques, sino los templates, con el feedback que te di que se vea como una tab general, no como un dashboard... Cosas grandes, textos grandes, que sea simple de leer",
+    puntos: ['Lo contestó la sexta vuelta de las 14:50: las plantillas nacen con el tema «General», sin bordes y con números grandes.'],
   },
   {
     fecha: '14 oct', hora: '14:50', chat: 'General', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
