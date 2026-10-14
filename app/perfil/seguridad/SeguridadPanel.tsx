@@ -14,6 +14,7 @@ import Link from '@/app/_ui/Link';
 import { Pagina } from '@/app/_ui';
 import { BotonBorrar } from '@/app/_ui/BotonBorrar';
 import { descargarCodigos } from '@/app/login/2fa/descargar-codigos';
+import { CampoCodigo } from '@/app/login/2fa/CampoCodigo';
 
 type Estado = {
   obligatorio: boolean;
@@ -98,7 +99,8 @@ export function SeguridadPanel() {
         </>
       ) : (
         <>
-          <input style={{ ...input, width: 130, letterSpacing: 3 }} value={codigo} autoFocus inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="000000" onChange={(ev) => setCodigo(ev.target.value.replace(/\D/g, ''))} />
+          <CampoCodigo valor={codigo} onCambio={setCodigo} ocupado={ocupado} error={error} estilo={{ ...input, width: 130, letterSpacing: 3 }}
+            onCompleto={() => correr(() => pedir({ accion: 'codigo-confirmar', canal, codigo }).then(listo))} />
           <button type="button" style={btn} disabled={ocupado || codigo.length !== 6} onClick={() => correr(() => pedir({ accion: 'codigo-confirmar', canal, codigo }).then(listo))}>Activar</button>
           <span style={{ ...detalle, alignSelf: 'center' }}>Enviado a {enviadoA}</span>
         </>
@@ -163,7 +165,8 @@ export function SeguridadPanel() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0 }}>
                   <div style={{ ...detalle, fontFamily: "'Geist Mono', monospace", fontSize: 11, wordBreak: 'break-all' }}>{qr.secreto}</div>
                   <div style={{ display: 'flex', gap: 8 }}>
-                    <input style={{ ...input, width: 130, letterSpacing: 3 }} value={codigo} autoFocus inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="000000" onChange={(ev) => setCodigo(ev.target.value.replace(/\D/g, ''))} />
+                    <CampoCodigo valor={codigo} onCambio={setCodigo} ocupado={ocupado} error={error} estilo={{ ...input, width: 130, letterSpacing: 3 }}
+                      onCompleto={() => correr(() => pedir({ accion: 'totp-confirmar', codigo }).then(listo))} />
                     <button type="button" style={btn} disabled={ocupado || codigo.length !== 6} onClick={() => correr(() => pedir({ accion: 'totp-confirmar', codigo }).then(listo))}>Activar</button>
                   </div>
                 </div>

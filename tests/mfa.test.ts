@@ -68,7 +68,7 @@ import {
   generarCodigosRecuperacion, hmacCodigo, igualSeguro, CANALES_CODIGO, canalDisponible, debeFrenar, MAX_FALLOS, esTelefono,
 } from '../lib/mfa-reglas';
 import { esPublica, esPublicaSoloLeer } from '../lib/rutas-publicas';
-import { textoCodigosRecuperacion } from '../lib/mfa-texto';
+import { textoCodigosRecuperacion, extraerCodigo } from '../lib/mfa-texto';
 import { proxy } from '../proxy';
 
 const raiz = join(__dirname, '..');
@@ -362,4 +362,39 @@ test('los códigos de recuperación se descargan en un .txt con la cuenta y todo
   }
   // El módulo que llega al navegador no arrastra node:crypto.
   assert.doesNotMatch(leer('lib/mfa-texto.ts'), /from ['"]node:|from ['"]\.\/mfa-reglas/);
+});
+
+// ── El campo del código: toma lo copiado y avanza solo (Martín, 14/10/2026) ───
+// Rotos, una rotura por vez (base 25/25): el resultado, en el comentario de cada test.
+
+// Roto: buscando primero el código partido en 3+3 → «123456 10» deja de dar el código. 1 fallo.
+test('extraerCodigo encuentra el código en lo que se pega o se copia', () => {
+  assert.equal(extraerCodigo('123456'), '123456');
+  assert.equal(extraerCodigo(' 123 456 '), '123456');
+  assert.equal(extraerCodigo('123-456'), '123456');
+  assert.equal(extraerCodigo('Tu código de MaKo es 123456. Vence en 10 minutos.'), '123456');
+  assert.equal(extraerCodigo('123456 10'), '123456');
+  assert.equal(extraerCodigo('12345'), null);
+  assert.equal(extraerCodigo('1234567'), null);
+  assert.equal(extraerCodigo('111111 o 222222'), null, 'con dos códigos no elige');
+  assert.equal(extraerCodigo(null), null);
+});
+
+// Roto: sacando `enviado.current === valor` → 1 fallo; mandando con menos de 6 → 1 fallo;
+// leyendo el portapapeles sin mirar el permiso → 1 fallo; un input de código suelto en una pantalla → 1 fallo.
+test('el campo avanza solo una vez por código y no lee el portapapeles sin permiso', () => {
+  const src = sinComentarios(leer('app/login/2fa/CampoCodigo.tsx'));
+  assert.match(src, /if \(!corto \|\| ocupado \|\| valor\.length !== 6 \|\| enviado\.current === valor\) return;/,
+    'sólo con 6 dígitos, sin un pedido en vuelo, y una vez por código distinto');
+  assert.match(src, /if \(permiso\?\.state !== 'granted'\) return;/, 'al volver a la pestaña, sólo con el permiso ya dado');
+  // Un error no borra lo tipeado.
+  const efectoError = src.slice(src.indexOf('if (error)'), src.indexOf('}, [error]'));
+  assert.ok(efectoError.length > 0 && efectoError.length < 200, `recorte: ${efectoError.length}`);
+  assert.doesNotMatch(efectoError, /onCambio/);
+  // Las dos pantallas usan el campo: no queda un input de código suelto.
+  for (const pantalla of ['app/login/2fa/SegundoPaso.tsx', 'app/perfil/seguridad/SeguridadPanel.tsx']) {
+    const p = sinComentarios(leer(pantalla));
+    assert.match(p, /<CampoCodigo/, pantalla);
+    assert.doesNotMatch(p, /autoComplete="one-time-code"/, `${pantalla}: un campo de código por fuera de CampoCodigo`);
+  }
 });

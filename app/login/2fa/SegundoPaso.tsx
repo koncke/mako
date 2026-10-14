@@ -16,6 +16,7 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import { startAuthentication, startRegistration } from '@simplewebauthn/browser';
 import { descargarCodigos } from './descargar-codigos';
+import { CampoCodigo } from './CampoCodigo';
 
 type Metodo = 'passkey' | 'totp' | 'whatsapp' | 'email' | 'recuperacion';
 type Estado = {
@@ -216,13 +217,12 @@ export function SegundoPaso({ cuenta }: { cuenta: string }) {
       Recordar este dispositivo 30 días
     </label>
   );
-  const campoCodigo = (onEnter: () => void, largo = 6) => (
-    <input
-      value={codigo} autoFocus inputMode={largo === 6 ? 'numeric' : 'text'} autoComplete="one-time-code"
-      maxLength={largo === 6 ? 6 : 11} placeholder={largo === 6 ? '000000' : 'xxxxx-xxxxx'}
-      onChange={(e) => setCodigo(largo === 6 ? e.target.value.replace(/\D/g, '') : e.target.value)}
-      onKeyDown={(e) => { if (e.key === 'Enter' && codigo) onEnter(); }}
-      style={largo === 6 ? campo : { ...campo, fontSize: '16px', letterSpacing: '2px' }}
+  // El campo detecta el código copiado y, con 6 dígitos, avanza solo (CampoCodigo, pedido de Martín
+  // del 14/10/2026). Los botones de abajo quedan igual, por si alguien prefiere apretar.
+  const campoCodigo = (onEnter: () => void, largo: 6 | 11 = 6) => (
+    <CampoCodigo
+      valor={codigo} onCambio={setCodigo} onCompleto={onEnter} ocupado={ocupado} error={error} largo={largo}
+      estilo={largo === 6 ? campo : { ...campo, fontSize: '16px', letterSpacing: '2px' }}
     />
   );
 

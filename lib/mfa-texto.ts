@@ -20,3 +20,20 @@ export function textoCodigosRecuperacion(codigos: readonly string[], cuenta: str
     '',
   ].join('\r\n');
 }
+
+/**
+ * El código de 6 dígitos que hay en un texto pegado o copiado: «123456», «123 456», «123-456» o
+ * «Tu código es 123456. Vence en 10 minutos». Null si no hay uno solo claro.
+ *
+ * Pedido de Martín (14/10/2026): que el campo tome solo el código que acaba de copiar. ⚠️ Primero
+ * se busca un bloque SUELTO de 6 dígitos y recién después el partido en 3+3: juntar dígitos
+ * separados por espacios antes de buscar convertiría «123456 10» en 8 dígitos y no encontraría nada.
+ */
+export function extraerCodigo(texto: string | null | undefined): string | null {
+  const t = String(texto ?? '');
+  const solo = t.match(/(?<!\d)\d{6}(?!\d)/g);
+  if (solo && solo.length === 1) return solo[0];
+  if (solo && solo.length > 1) return null;
+  const partido = t.match(/(?<!\d)(\d{3})[ -](\d{3})(?!\d)/);
+  return partido ? partido[1] + partido[2] : null;
+}
