@@ -41,6 +41,13 @@ import { elegirObjetivoPrincipal, fuenteKpi, periodoDe, quarterKey, progresoQuar
 import { getTramoJ1J2Reciente } from '@/lib/queries';
 import { pendientesOnboarding } from '@/lib/onboarding-pendientes';
 import { objetivoPorId, registroKpiExistente, sanearObjetivo, sanearKpi, type ObjetivoFila } from './general.helpers';
+import { getSupabaseServer } from '@/lib/supabase';
+import { leerVistasDe, guardarVistasDe } from '@/lib/general-vistas';
+import { leerCatalogoAlcance } from '@/lib/general-alcance';
+import {
+  BLOQUES_GENERAL, PLANTILLAS_GENERAL, MAX_VISTAS, elegirPersonaVista, vistaDesdePedido, sanearVista, nuevoIdVista,
+  agregarVista, defDeBloque, type PersonaVista,
+} from '@/lib/general-vistas-modelo';
 
 // ── utilidades ───────────────────────────────────────────────────────────────
 
@@ -696,4 +703,73 @@ export const RUNNERS: Runners = {
       return `${n} KPI${n === 1 ? '' : 's'} creados.`;
     }),
   },
+  // ── Las vistas de /general (13/10/2026) ──────────────────────────────────────────────────
+  // Por persona (lib/general-vistas.ts). ⚠️ Por HTTP no se escribe el email de una persona que quien llama no nombró:
+  // son datos del equipo, y un token vive en la máquina de un tercero (la regla de la API del Dashboard).
+  listar_vistas_general: {
+    leer: async (input, ctx) => {
+      const [cat, admins] = await Promise.all([leerCatalogoAlcance(), adminsDeLaCuenta(ctx.ws)]);
+      const base = {
+        bloques: BLOQUES_GENERAL.map((b) => ({ id: b.id, nombre: b.nombre, que_muestra: b.linea, filtra_por_funnel: b.porFunnel })),
+        plantillas: PLANTILLAS_GENERAL.map((p) => ({ id: p.id, nombre: p.nombre, bloques: p.bloques })),
+        funnels: cat ? cat.funnels.map((f) => ({ id: f.id, nombre: f.nombre })) : null,
+        ofertas: cat ? cat.ofertas : null,
+        nota: 'funnels u ofertas null = no se pudieron leer (no es «no hay»). Un bloque con filtra_por_funnel false mide el negocio entero aunque la vista tenga funnels.',
+      };
+      const pedido = str(input, 'persona');
+      const e = elegirPersonaVista(admins, pedido);
+      if (!e.ok) return json({ ...base, error: e.error });
+      const l = await leerVistasDe(e.persona.sub);
+      const quien = ctx.canal === 'http' && !pedido ? 'la única persona admin de la cuenta' : `${e.persona.nombre || e.persona.email} (${e.persona.email})`;
+      return json({
+        ...base, persona: quien, guardadas: l.estado === 'propio',
+        vistas: l.vistas.vistas.map((v) => ({ id: v.id, nombre: v.nombre, bloques: v.bloques, funnels: v.funnels, ofertas: v.ofertas })),
+      });
+    },
+  },
+
+  crear_vista_general: {
+    preparar: async (input, ctx): Promise<Preparado> => {
+      const admins = await adminsDeLaCuenta(ctx.ws);
+      const e = elegirPersonaVista(admins, str(input, 'persona'));
+      if (!e.ok) return { error: e.error };
+      const cat = await leerCatalogoAlcance();
+      const r = vistaDesdePedido(input, { funnels: cat?.funnels ?? [], ofertas: cat?.ofertas ?? [] });
+      if (r.errores.length) return { error: r.errores.join(' ') };
+      const l = await leerVistasDe(e.persona.sub);
+      if (l.vistas.vistas.length >= MAX_VISTAS) return { error: `Esa persona ya tiene ${MAX_VISTAS} vistas en General, el tope: que borre una antes.` };
+      const nombres = r.vista.bloques.map((b) => defDeBloque(b).nombre).join(', ');
+      const alcance = r.vista.funnels.length + r.vista.ofertas.length ? `, de ${r.vista.funnels.length + r.vista.ofertas.length} funnel(s) u oferta(s)` : '';
+      const avisos = r.avisos.length ? ` (${r.avisos.join('; ')})` : '';
+      return { payload: { sub: e.persona.sub, vista: r.vista }, resumen: `Crear la vista «${r.vista.nombre}» en General: ${nombres}${alcance}${avisos}.` };
+    },
+    ejecutar: async (payload): Promise<Ejecutado> => {
+      try {
+        const sub = String(payload.sub);
+        // Se relee al ejecutar: entre la propuesta y el «sí» la persona pudo armar otra en la pantalla.
+        const actual = await leerVistasDe(sub);
+        const v = sanearVista({ ...(payload.vista && typeof payload.vista === 'object' ? payload.vista : {}), id: nuevoIdVista(actual.vistas.vistas.map((x) => x.id)) });
+        if (!v || !v.bloques.length) return { ok: false, resumen: 'La vista no tiene bloques válidos: no se creó.' };
+        const nuevas = agregarVista(actual.vistas, v);
+        if (!nuevas) return { ok: false, resumen: `Ya tiene ${MAX_VISTAS} vistas en General: no se creó.` };
+        const g = await guardarVistasDe(sub, nuevas, actual.version);
+        if (!g.ok) return { ok: false, resumen: 'Las vistas cambiaron en el medio (alguien las editó): vuelve a pedirlo.' };
+        try { revalidatePath('/general'); } catch { /* fuera de un request: vence sola */ }
+        return { ok: true, resumen: `Vista «${v.nombre}» creada en General.`, datos: { vistaId: v.id } };
+      } catch (e) {
+        return { ok: false, resumen: `No se pudo crear la vista (${e instanceof Error ? e.message : 'error'}).` };
+      }
+    },
+  },
 };
+
+/** Las personas ADMIN de la cuenta (General es sólo del admin): no suspendidas y con email. */
+async function adminsDeLaCuenta(ws: number): Promise<PersonaVista[]> {
+  const { data, error } = await getSupabaseServer().from('usuarios').select('id, email, nombre, rol, rol_ws, estado')
+    .eq('workspace_id', ws).neq('estado', 'suspendido').limit(500);
+  if (error) throw new Error(`No pude leer las personas de la cuenta: ${error.message}`);
+  type Fila = { id: number | string; email: string | null; nombre: string | null; rol: string | null; rol_ws: string | null };
+  return ((data ?? []) as Fila[])
+    .filter((x) => x.email && x.rol_ws !== 'closer' && x.rol_ws !== 'setter')
+    .map((x) => ({ sub: String(x.id), email: (x.email ?? '').toLowerCase(), nombre: x.nombre ?? '' }));
+}

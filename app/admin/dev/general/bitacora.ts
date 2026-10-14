@@ -306,4 +306,27 @@ export const BITACORA: Hito[] = [
       { sha: "289ef79c", msg: "Retomar el wizard pregunta por la pantalla, no la cuenta", lineas: 61, archivos: 2 },
     ],
   },
+  {
+    fecha: '13 oct', hora: '—', chat: 'General', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'General personalizable, con plantillas, varias vistas y funnels',
+    pedido: 'Soluciona las cosas que pidió Mauricio con la tab GENERAl y los cobros... Y te pido que la tab GENERAL sea personalizable... Que los usuarios puedan elegir que ver, si quieren ver "Prioridades" del PLAN, como el caso de Mauricio, las cuotas a cobrar... Otros querrán ver su objetivo, etc etc... Hazla personalizable. — Y en el mismo turno: Copia lo que ya tenemos en muchos lugares con "TEMPLATES" y la opción de IA de "¿Qué vas a crear hoy?"... Que hayan templates de tab general. Y que se puedan crear más de una, e incluso asignarles ofertas y/o funnels.',
+    puntos: [
+      'Lo de Mauricio sale de la reunión del 13/10 (min. 54 a 72, leído en el transcript): «el cobranza yo lo veo más operativo... ¿a quién cobrarle?» y «me genera mucho valor estar viendo quién sigue de cobranza»; Martín le contestó «lo pongo ahí en el general».',
+    ],
+  },
+  {
+    fecha: '13 oct', hora: '—', chat: 'General', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Las vistas de General: cada persona elige bloques, orden y alcance',
+    puntos: [
+      'Una vista = bloques del catálogo (los cinco de siempre más Prioridades del Plan, A quién cobrarle y Tu funnel hoy), su orden y sus funnels u ofertas. Por persona y por workspace en app_settings (`general.vistas.<sub>`), con compare-and-set. La vista por defecto es la /general de siempre con «A quién cobrarle» después de los KPIs: lo prometido a Mauricio, para todos.',
+      'Plantillas (Operación diaria es el caso de Mauricio) y «¿Qué vas a crear hoy?» con la caja de siempre; la IA elige del mismo catálogo que «Personalizar» y lo que no existe se saca. Sólo dos bloques filtran por funnel y los demás lo DICEN («Todo el negocio»). El semáforo dejó de saltear la alerta del titular cuando la vista no dibuja la cabecera: se habría perdido de la pantalla.',
+    ],
+    archivos: [
+      'lib/general-vistas-modelo.ts', 'lib/general-vistas.ts', 'lib/general-alcance.ts', 'lib/general-vistas-ia.ts',
+      'app/general/page.tsx', 'app/general/BarraVistas.tsx', 'app/general/NuevaVista.tsx', 'app/general/EditarVista.tsx',
+      'app/general/CobranzaGeneral.tsx', 'app/general/Bloques.tsx', 'app/api/general/ia/route.ts', 'tests/general-vistas.test.ts',
+    ],
+  },
 ];

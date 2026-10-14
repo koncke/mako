@@ -22,6 +22,14 @@
 // testeable. TODO lo que la pantalla decide se LEE en `lib/vista-general.ts` (lo comparte
 // el Today de MaKo Mobile) y se calcula en `lib/vista-general-modelo.ts`, con test. Acá
 // sólo queda lo que dibuja el escritorio.
+//
+// ── PERSONALIZABLE (13/10/2026) ── Martín: «Que los usuarios puedan elegir que ver... Hazla
+// personalizable», «Que hayan templates de tab general. Y que se puedan crear más de una, e incluso
+// asignarles ofertas y/o funnels.» Cada persona tiene sus VISTAS (lib/general-vistas.ts): qué bloques
+// del catálogo ve, en qué orden y de qué funnels u ofertas (lib/general-vistas-modelo.ts). Se crean
+// desde plantillas o con «¿Qué vas a crear hoy?» (app/general/NuevaVista.tsx). Los bloques son los de
+// siempre, dibujados igual; los nuevos —Prioridades del Plan, A quién cobrarle, Tu funnel hoy— usan la
+// misma fórmula de sección. Personalizar es ELEGIR, no rediseñar (memoria general-diseno-restaurado).
 // =============================================================================
 
 import Link from '@/app/_ui/Link';
@@ -37,7 +45,14 @@ import {
   type SenalRecon,
 } from '@/lib/queries';
 import { fmtUSD, fmtNum } from '@/lib/format';
-import { getRevenueBreakdowns, type RevItem, type RevenueBreakdowns } from '@/lib/pagos';
+import { getRevenueBreakdowns, getOutstandingDetalle, type RevItem, type RevenueBreakdowns } from '@/lib/pagos';
+import { leerVistasGeneral } from '@/lib/general-vistas';
+import { leerCatalogoAlcance, idsDeLeadsEnFunnels, conteoDelFunnel, type CatalogoAlcance, type ConteoFunnel } from '@/lib/general-alcance';
+import { vistaActiva, funnelsDelAlcance, rotuloAlcance, defDeBloque, type BloqueGeneral } from '@/lib/general-vistas-modelo';
+import { leerPlanHoy } from '@/lib/plan-hoy';
+import { getWorkspaceActual } from '@/lib/workspace';
+import { tzDeWorkspace, TZ_DEFAULT, hoyEnWorkspace } from '@/lib/timezone';
+import { armarCobranza, type FilaCobro } from '@/app/dashboard/bloques/datos-comercial';
 import { METRICA_LABEL } from '@/lib/objectives-modelo';
 import { leerVistaGeneral } from '@/lib/vista-general';
 import {
@@ -49,6 +64,9 @@ import { Icon } from '../_components/icons';
 import { requireRolWs } from '@/lib/tab-access';
 import { Cabecera } from './Cabecera';
 import { KpisCard, type KpiVista } from './KpisCard';
+import { BarraVistas, BotonElegirBloques } from './BarraVistas';
+import { CobranzaGeneral } from './CobranzaGeneral';
+import { PrioridadesGeneral, FunnelHoy } from './Bloques';
 
 /** La fórmula de una sección de este producto. Literal, y la misma de /comercial y /marketing. */
 const SECCION: CSSProperties = {
@@ -117,39 +135,182 @@ function alertaDeEscritorio(a: AlertaGeneral): Alerta {
   };
 }
 
-export default async function GeneralPage() {
+export default async function GeneralPage({ searchParams }: { searchParams: Promise<{ vista?: string }> }) {
   await requireRolWs([], { nav: 'general' });
+  const sp = await searchParams;
 
-  // ⚠️ TODO LO QUE DECIDE ESTA PANTALLA SE LEE EN `lib/vista-general.ts`, y no acá: la
-  // migración de los settings viejos, las trece lecturas con sus defaults, las seis reglas
-  // del semáforo, la guarda #165, el objetivo principal, la plata del hero y LA acción del
-  // día. Lo comparte el Today de MaKo Mobile: una segunda copia de esta lista es la que se
-  // queda vieja. Acá queda lo que sólo dibuja el escritorio — el detalle del mes y la forma.
-  const v = await leerVistaGeneral();
-  const { qt, progreso, objetivos, objetivoPrincipal, kpis, candidatos, capacidad, foco, pendientes, comparativo, plata } = v;
+  // ── LA VISTA (13/10/2026) ── Qué bloques ve ESTA persona, en qué orden y de qué funnels. Por persona y por
+  // workspace (lib/general-vistas.ts); la de `?vista=`, o la primera. Sin nada guardado, la de por defecto: la
+  // /general de siempre con «A quién cobrarle» (lo que Martín le prometió a Mauricio el 13/10).
+  const [lectura, catalogo] = await Promise.all([leerVistasGeneral(), leerCatalogoAlcance()]);
+  const vista = vistaActiva(lectura.vistas, sp?.vista);
+  const tiene = (b: BloqueGeneral) => vista.bloques.includes(b);
+  const alcance = funnelsDelAlcance(vista, catalogo?.ligas ?? []);
+  const nombresAlcance = {
+    funnels: new Map((catalogo?.funnels ?? []).map((f) => [f.id, f.nombre])),
+    ofertas: new Map((catalogo?.ofertas ?? []).map((o) => [o.id, o.nombre])),
+  };
+  const rotulo = alcance.todo ? null : rotuloAlcance(vista, nombresAlcance);
 
-  // Desgloses del bloque plegado, en una sola ola.
-  const mtd = compareMTD(v.ayer);
+  // ⚠️ SÓLO SE LEE LO QUE LA VISTA DIBUJA. `leerVistaGeneral` son trece lecturas (y escribe en la primera visita):
+  // una vista de «Operación diaria» no las necesita. Lo que sí, va en una sola ola.
+  const usaVista = vista.bloques.some((b) => VIENEN_DE_LA_VISTA.includes(b));
+  const [v, cobranza, plan, funnelHoy] = await Promise.all([
+    usaVista ? leerVistaGeneral() : Promise.resolve(null),
+    tiene('cobranza') ? leerCobranza(alcance) : Promise.resolve(null),
+    tiene('prioridades') ? leerPlanHoy().then((p) => ({ ok: true as const, p })).catch((e) => {
+      console.error('[general] prioridades:', e instanceof Error ? e.message : e);
+      return { ok: false as const };
+    }) : Promise.resolve(null),
+    tiene('funnel') ? leerFunnelHoy(alcance, catalogo) : Promise.resolve(null),
+  ]);
+
+  // Desgloses del mes, sólo si el mes se dibuja.
   let mtdBreak: RevenueBreakdowns = { sold: [], cash: [], outstanding: [] };
   let agendasMTD: AgendaItem[] = [];
   let senalesMTD: SenalRecon[] = [];
-  try {
-    const [mtdB, agMTD, senMTD] = await Promise.all([
-      getRevenueBreakdowns(mtd.actualInicio, mtd.actualFin),
-      getAgendasBreakdown(mtd.actualInicio, mtd.actualFin),
-      getSenalesRecon(mtd.actualInicio, mtd.actualFin),
-    ]);
-    mtdBreak = mtdB; agendasMTD = agMTD; senalesMTD = senMTD;
-  } catch {
-    // degradación elegante: las cards muestran los números sin desglose.
+  if (v && tiene('mes')) {
+    const mtd = compareMTD(v.ayer);
+    try {
+      const [mtdB, agMTD, senMTD] = await Promise.all([
+        getRevenueBreakdowns(mtd.actualInicio, mtd.actualFin),
+        getAgendasBreakdown(mtd.actualInicio, mtd.actualFin),
+        getSenalesRecon(mtd.actualInicio, mtd.actualFin),
+      ]);
+      mtdBreak = mtdB; agendasMTD = agMTD; senalesMTD = senMTD;
+    } catch {
+      // degradación elegante: las cards muestran los números sin desglose.
+    }
   }
 
-  // ── Semáforo: las mismas seis reglas de siempre (armadas en la lib) ──
-  const alertas: Alerta[] = v.alertas.map(alertaDeEscritorio);
+  const bloques = vista.bloques.map((b) => {
+    // ⚠️ Un bloque que no sabe filtrar por funnel NO finge que filtra: con un alcance puesto, lo dice.
+    const todoElNegocio = !alcance.todo && !defDeBloque(b).porFunnel ? <TodoElNegocio /> : null;
+    switch (b) {
+      case 'objetivo': return v ? <BloqueObjetivo key={b} v={v} /> : null;
+      case 'kpis': return v ? <section key={b} style={SECCION} data-bloque={b}>{todoElNegocio}<BloqueKpis v={v} /></section> : null;
+      case 'semaforo': return v ? <section key={b} style={SECCION} data-bloque={b}>{todoElNegocio}<BloqueSemaforo v={v} conCabecera={tiene('objetivo')} /></section> : null;
+      case 'mes': return v ? (
+        <section key={b} style={SECCION} data-bloque={b}>
+          {todoElNegocio}
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap', marginBottom: 22 }}>
+            <h2 style={H2}>El mes</h2>
+            {v.comparativo && <span style={{ fontSize: 'var(--fs-meta)', color: 'var(--dim)' }}>vs. {v.comparativo.etiqueta_anterior}</span>}
+          </div>
+          {v.comparativo
+            ? <ResumenMes c={v.comparativo} desgloses={desglosesDelMes(mtdBreak, agendasMTD, senalesMTD)} />
+            // Esconder la sección escondería el fallo: el mes seguiría existiendo y la pantalla no diría que no
+            // lo pudo leer.
+            : <span style={{ fontSize: 'var(--fs-md)', color: 'var(--dim)' }}>No pude leer el resumen del mes.</span>}
+        </section>
+      ) : null;
+      case 'pendientes': return v ? <section key={b} style={SECCION} data-bloque={b}>{todoElNegocio}<PendientesCard pendientes={v.pendientes} /></section> : null;
+      case 'cobranza': return cobranza ? (
+        <section key={b} style={SECCION} data-bloque={b}>
+          <CobranzaGeneral filas={cobranza.filas} total={cobranza.total} tz={cobranza.tz} error={cobranza.error} alcance={rotulo} />
+        </section>
+      ) : null;
+      case 'prioridades': return plan ? (
+        <section key={b} style={SECCION} data-bloque={b}>
+          {todoElNegocio}
+          <PrioridadesGeneral items={plan.ok ? plan.p.prioridades : []} objetivo={plan.ok ? plan.p.objetivo : null} error={!plan.ok} />
+        </section>
+      ) : null;
+      case 'funnel': return funnelHoy ? (
+        <section key={b} style={SECCION} data-bloque={b}>
+          <FunnelHoy conteos={funnelHoy.conteos} error={funnelHoy.error} alcance={funnelHoy.alcance} />
+        </section>
+      ) : null;
+    }
+  });
 
-  // El detalle lead por lead del número grande, y la OTRA métrica de plata del mismo
-  // período. `plata` sólo existe para objetivos de plata y si la lectura salió: si falla,
-  // el hero muestra el número y esconde el desglose — nunca se cae la pantalla por un detalle.
+  return (
+    <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px' }}>
+      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 26 }}>
+        <h1 style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 12, fontWeight: 600, fontSize: 46, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>
+          <span style={{ display: 'inline-flex', color: 'var(--accent)' }}><Icon name="general" size={34} /></span>
+          General
+        </h1>
+        <BarraVistas
+          vistas={lectura.vistas}
+          activaId={vista.id}
+          version={lectura.version}
+          puedeGuardar={lectura.estado !== 'error'}
+          catalogo={catalogo ? { funnels: catalogo.funnels.map((f) => ({ id: f.id, nombre: f.nombre })), ofertas: catalogo.ofertas } : null}
+        />
+      </header>
+
+      {/* ⚠️ EL ORDEN ES EL DISEÑO, y desde el 13/10/2026 lo elige cada persona (Personalizar). La vista por
+          defecto es el orden de siempre: arriba lo que se decide hoy —el norte y la acción—; después el
+          compromiso (KPIs) y la cobranza; después el diagnóstico (semáforo); y al final la consecuencia.
+
+          Los bloques son SECCIONES EN TARJETA, como el resto del producto. El 07/09 esta pantalla quedó sin una
+          sola superficie y el dueño lo reportó como «se ve mucho peor, no se ve nada». El veto de la casa es
+          contra apilar sub-tarjetas iguales ADENTRO de una sección, no contra la sección. */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sect-gap)' }}>
+        {vista.bloques.length ? bloques : (
+          <section style={{ ...SECCION, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }} data-vista-vacia="">
+            <span style={{ fontSize: 'var(--fs-card)', color: 'var(--dim)' }}>Esta vista todavía no tiene bloques.</span>
+            {lectura.estado !== 'error' && <BotonElegirBloques />}
+          </section>
+        )}
+      </div>
+    </main>
+  );
+}
+
+/** Los bloques que salen de `leerVistaGeneral` (las trece lecturas de siempre). */
+const VIENEN_DE_LA_VISTA: readonly BloqueGeneral[] = ['objetivo', 'kpis', 'semaforo', 'mes', 'pendientes'];
+
+type Vista = Awaited<ReturnType<typeof leerVistaGeneral>>;
+
+/** «Todo el negocio», a la derecha del título de un bloque que no filtra por funnel. */
+function TodoElNegocio() {
+  return <span style={{ float: 'right', marginLeft: 12, fontSize: 'var(--fs-meta)', color: 'var(--faint)' }}>Todo el negocio</span>;
+}
+
+/** «A quién cobrarle», con el alcance de la vista. ⚠️ Un filtro que no se pudo armar NO es «nada por cobrar». */
+async function leerCobranza(alcance: ReturnType<typeof funnelsDelAlcance>): Promise<{ filas: FilaCobro[]; total: number; tz: string; error: boolean }> {
+  const ws = await getWorkspaceActual();
+  const tz = ws != null ? await tzDeWorkspace(ws).catch(() => TZ_DEFAULT) : TZ_DEFAULT;
+  try {
+    const hoy = await hoyEnWorkspace();
+    const [out, ids] = await Promise.all([
+      getOutstandingDetalle(hoy),
+      alcance.todo ? Promise.resolve(null) : idsDeLeadsEnFunnels(alcance.funnels),
+    ]);
+    const items = ids ? out.items.filter((it) => ids.has(Number(it.lead_id))) : out.items;
+    const { filas, total } = armarCobranza(items, hoy);
+    return { filas, total, tz, error: false };
+  } catch (e) {
+    console.error('[general] cobranza:', e instanceof Error ? e.message : e);
+    return { filas: [], total: 0, tz, error: true };
+  }
+}
+
+/** «Tu funnel hoy»: los funnels del alcance (hasta 4), o el del negocio si la vista mira todo. */
+async function leerFunnelHoy(alcance: ReturnType<typeof funnelsDelAlcance>, catalogo: CatalogoAlcance | null): Promise<{ conteos: ConteoFunnel[]; error: boolean; alcance: 'todo' | 'elegido' | 'vacio' }> {
+  if (!catalogo) return { conteos: [], error: true, alcance: 'todo' };
+  const nombre = new Map(catalogo.funnels.map((f) => [f.id, f.nombre]));
+  const ids = alcance.todo
+    ? catalogo.funnels.filter((f) => f.esDefault).map((f) => f.id).slice(0, 1)
+    : alcance.funnels.filter((id) => nombre.has(id)).slice(0, 4);
+  if (!alcance.todo && !ids.length) return { conteos: [], error: false, alcance: 'vacio' };
+  try {
+    const conteos = await Promise.all(ids.map((id) => conteoDelFunnel(id, nombre.get(id) ?? 'Funnel')));
+    return { conteos, error: false, alcance: alcance.todo ? 'todo' : 'elegido' };
+  } catch (e) {
+    console.error('[general] funnel hoy:', e instanceof Error ? e.message : e);
+    return { conteos: [], error: true, alcance: 'todo' };
+  }
+}
+
+/** El hero oscuro: el objetivo del Q, la facturación y LA acción del día (lo de siempre). */
+function BloqueObjetivo({ v }: { v: Vista }) {
+  const { objetivoPrincipal, plata } = v;
+  // El detalle lead por lead del número grande, y la OTRA métrica de plata del mismo período. `plata` sólo
+  // existe para objetivos de plata y si la lectura salió: si falla, el hero muestra el número y esconde el
+  // desglose — nunca se cae la pantalla por un detalle.
   let heroDesglose: DesgloseData | null = null;
   let heroComplemento: React.ComponentProps<typeof Cabecera>['complemento'] = null;
   if (objetivoPrincipal && plata) {
@@ -174,11 +335,67 @@ export default async function GeneralPage() {
       },
     };
   }
+  return (
+    <Cabecera
+      objetivo={objetivoPrincipal}
+      foco={v.foco}
+      capacidad={v.capacidad}
+      progreso={v.progreso}
+      fraccion={v.fraccionObjetivo}
+      anio={v.qt.anio}
+      quarter={v.qt.q}
+      desglose={heroDesglose}
+      complemento={heroComplemento}
+    />
+  );
+}
 
-  // Cuántas alertas quedan para el plegado, sacando la que ya es el titular.
-  const restantes = alertas.length - (foco.alertaIdx === null ? 0 : 1);
+function BloqueKpis({ v }: { v: Vista }) {
+  const kpisVista: KpiVista[] = v.kpis.map((k) => ({
+    id: k.id, nombre: k.nombre, cadencia: k.cadencia, compromiso: k.compromiso,
+    unidad: k.unidad, fuente: k.fuente, fuenteId: k.fuenteId, objectiveId: k.objectiveId,
+    valor: k.valor, error: k.error, estado: k.estado, pct: k.pct,
+    umbralVerde: k.umbralVerde, umbralAmbar: k.umbralAmbar,
+  }));
+  return (
+    <KpisCard
+      kpis={kpisVista}
+      candidatos={v.candidatos}
+      objetivos={v.objetivos.map((o) => ({ id: o.id, titulo: o.titulo }))}
+      objetivoPrincipalId={v.objetivoPrincipal?.id ?? null}
+    />
+  );
+}
 
-  const mtdDesgloses: Record<string, DesgloseData> = {
+/**
+ * El semáforo. ⚠️ LA ALERTA QUE YA ES EL TITULAR SÓLO SE SALTEA SI EL TITULAR SE DIBUJA: con la vista sin la
+ * cabecera (`conCabecera` en false), la alerta de la acción del día va en la lista como cualquier otra — si no,
+ * desaparecería de la pantalla y el «La más urgente está arriba» apuntaría a algo que no está.
+ */
+function BloqueSemaforo({ v, conCabecera }: { v: Vista; conCabecera: boolean }) {
+  // Las mismas seis reglas de siempre (armadas en la lib).
+  const alertas: Alerta[] = v.alertas.map(alertaDeEscritorio);
+  const saltar = conCabecera ? v.foco.alertaIdx : null;
+  const restantes = alertas.length - (saltar === null ? 0 : 1);
+  return (
+    <>
+      <h2 style={{ ...H2, marginBottom: 24 }}>Semáforo del negocio</h2>
+      <Semaforo
+        alertas={alertas}
+        fuentes={v.fuentes}
+        lampara={v.lampara.estado}
+        saltar={saltar}
+        restantes={restantes}
+        // `objetivoAtrasado` sólo se afirma cuando el avance se pudo LEER (lib/vista-general-modelo.ts).
+        objetivoAtrasado={v.objetivoAtrasado}
+      />
+    </>
+  );
+}
+
+/** Los desgloses de las cuatro tarjetas del mes. */
+function desglosesDelMes(mtdBreak: RevenueBreakdowns, agendasMTD: AgendaItem[], senalesMTD: SenalRecon[]): Record<string, DesgloseData> {
+  return {
     'Ad Spend': {
       label: 'Ad Spend del mes · por anuncio',
       value: fmtUSD(senalesMTD.reduce((s, a) => s + a.spend_usd, 0)),
@@ -215,87 +432,6 @@ export default async function GeneralPage() {
       emptyText: 'Sin agendas este mes.',
     },
   };
-
-  const kpisVista: KpiVista[] = kpis.map((k) => ({
-    id: k.id, nombre: k.nombre, cadencia: k.cadencia, compromiso: k.compromiso,
-    unidad: k.unidad, fuente: k.fuente, fuenteId: k.fuenteId, objectiveId: k.objectiveId,
-    valor: k.valor, error: k.error, estado: k.estado, pct: k.pct,
-    umbralVerde: k.umbralVerde, umbralAmbar: k.umbralAmbar,
-  }));
-
-  return (
-    <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px' }}>
-      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap', marginBottom: 26 }}>
-        <h1 style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 12, fontWeight: 600, fontSize: 46, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>
-          <span style={{ display: 'inline-flex', color: 'var(--accent)' }}><Icon name="general" size={34} /></span>
-          General
-        </h1>
-      </header>
-
-      {/* ⚠️ EL ORDEN ES EL DISEÑO, y sale de qué se puede HACER con cada bloque.
-          Arriba lo que se decide hoy —el norte y la acción—; después el compromiso
-          (KPIs); después el diagnóstico (semáforo); y al final la consecuencia (el
-          mes, los pendientes), que describe lo que ya pasó.
-
-          Los cuatro de abajo son SECCIONES EN TARJETA, como el resto del producto.
-          El 07/09 esta pantalla quedó sin una sola superficie —la única de la app— y
-          el dueño lo reportó como «se ve mucho peor, no se ve nada». El veto de la
-          casa es contra apilar sub-tarjetas iguales ADENTRO de una sección, no contra
-          la sección: la caja de afuera es lo que hace que /general se lea como una
-          pantalla del mismo producto que /comercial. */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sect-gap)' }}>
-        <Cabecera
-          objetivo={objetivoPrincipal}
-          foco={foco}
-          capacidad={capacidad}
-          progreso={progreso}
-          fraccion={v.fraccionObjetivo}
-          anio={qt.anio}
-          quarter={qt.q}
-          desglose={heroDesglose}
-          complemento={heroComplemento}
-        />
-
-        <section style={SECCION}>
-          <KpisCard
-            kpis={kpisVista}
-            candidatos={candidatos}
-            objetivos={objetivos.map((o) => ({ id: o.id, titulo: o.titulo }))}
-            objetivoPrincipalId={objetivoPrincipal?.id ?? null}
-          />
-        </section>
-
-        <section style={SECCION}>
-          <h2 style={{ ...H2, marginBottom: 24 }}>Semáforo del negocio</h2>
-          <Semaforo
-            alertas={alertas}
-            fuentes={v.fuentes}
-            lampara={v.lampara.estado}
-            saltar={foco.alertaIdx}
-            restantes={restantes}
-            // `objetivoAtrasado` sólo se afirma cuando el avance se pudo LEER (lib/vista-general-modelo.ts).
-            objetivoAtrasado={v.objetivoAtrasado}
-          />
-        </section>
-
-        <section style={SECCION}>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap', marginBottom: 22 }}>
-            <h2 style={H2}>El mes</h2>
-            {comparativo && <span style={{ fontSize: 'var(--fs-meta)', color: 'var(--dim)' }}>vs. {comparativo.etiqueta_anterior}</span>}
-          </div>
-          {comparativo
-            ? <ResumenMes c={comparativo} desgloses={mtdDesgloses} />
-            // Esconder la sección escondería el fallo: el mes seguiría existiendo y la
-            // pantalla no diría que no lo pudo leer.
-            : <span style={{ fontSize: 'var(--fs-md)', color: 'var(--dim)' }}>No pude leer el resumen del mes.</span>}
-        </section>
-
-        <section style={SECCION}>
-          <PendientesCard pendientes={pendientes} />
-        </section>
-      </div>
-    </main>
-  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
