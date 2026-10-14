@@ -1,7 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { filaAOferta, esModeloOferta } from '../lib/oferta-modelo';
+import { filaAOferta, esModeloOferta, validarOfertaNueva } from '../lib/oferta-modelo';
+import { DEFS } from '../lib/api-mako/areas/crm.def';
+import { RUTAS_REST } from '../lib/api-mako/rest';
 import { entradaDelLink, idDeParametro } from '../app/offer/arbol';
 
 /**
@@ -12,7 +14,9 @@ import { entradaDelLink, idDeParametro } from '../app/offer/arbol';
  * crear sin el candado de admin, 1 fallo; «Nueva oferta» al final del desplegable, 1 fallo; la ruta
  * sin el desplegable, 1 fallo; `filaAOferta` sin leer el modelo, 1 fallo. Y con el link a Offer
  * (base 7/0): el funnel del link sin desempatar, 1 fallo; la página sin leer el link, 1 fallo; el
- * «Analizar» sin el candado del rol, 1 fallo.
+ * «Analizar» sin el candado del rol, 1 fallo. Y la API de MaKo (base 8/0, 14/10): sin la ruta REST de
+ * asignar, 1 fallo; el ejecutar de editar_contacto_lead con la lista vieja, 1 fallo; crear sin
+ * validar, 1 fallo; editar_contacto_lead sin «sexo», 1 fallo.
  */
 
 const leer = (r: string) => readFileSync(new URL(r, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
@@ -22,15 +26,37 @@ const UI = sinComentarios(leer('../app/crm/lead-view/OfertaDelLead.tsx'));
 const cuerpo = (src: string, firma: string) => { const i = src.indexOf(firma); assert.ok(i >= 0, `no encontré ${firma}`); const f = src.indexOf('\nexport ', i + 10); return src.slice(i, f < 0 ? undefined : f); };
 
 test('asignar busca la oferta entre las del workspace: la FK sólo mira que exista', () => {
-  const fn = cuerpo(ACC, 'export async function asignarOfertaLeadAction');
+  const LIB = sinComentarios(leer('../lib/oferta-lead.ts'));
+  const fn = cuerpo(LIB, 'export async function asignarOfertaAlLead');
   assert.match(fn, /const o = \(await listarOfertas\(\)\)\.find\(\(x\) => x\.id === ofertaId\);\s*if \(!o\) return \{ ok: false, error: 'Esa oferta no existe\.' \};/);
+  assert.match(cuerpo(ACC, 'export async function asignarOfertaLeadAction'), /await asignarOfertaAlLead\(leadId, ofertaId, await autor\(\)\)/, 'la ficha usa la misma que la API');
 });
 
-test('crear es del admin, pide nombre y modelo, y la liga al CRM del lead', () => {
-  const fn = cuerpo(ACC, 'export async function crearOfertaDesdeLeadAction');
-  assert.match(fn, /if \(\(await getRolWsEfectivo\(\)\) !== 'admin'\) return/);
-  assert.match(fn, /if \(!esModeloOferta\(modelo\)\) return/);
+test('crear es del admin, valida lo mínimo y la liga al CRM del lead', () => {
+  assert.match(cuerpo(ACC, 'export async function crearOfertaDesdeLeadAction'), /if \(\(await getRolWsEfectivo\(\)\) !== 'admin'\) return/);
+  const LIB = sinComentarios(leer('../lib/oferta-lead.ts'));
+  const fn = cuerpo(LIB, 'export async function crearOfertaParaLead');
+  assert.match(fn, /const v = validarOfertaNueva\(datos\);\s*if \(!v\.ok\) return v;/);
   assert.match(fn, /await ligarOfertaAFunnel\(funnelId, id, false\)/, 'sin ligarla al CRM no aparece en Offer');
+  assert.deepEqual(validarOfertaNueva({ nombre: '  Mentoría   VIP ', modelo: 'suscripcion', ticket: '97' }), { ok: true, nombre: 'Mentoría VIP', modelo: 'suscripcion', ticket: 97 });
+  assert.equal(validarOfertaNueva({ nombre: 'X', modelo: 'cuotas', ticket: null }).ok, false);
+  assert.equal(validarOfertaNueva({ nombre: '', modelo: 'unico', ticket: null }).ok, false);
+  assert.equal(validarOfertaNueva({ nombre: 'X', modelo: 'unico', ticket: -5 }).ok, false);
+});
+
+test('la API de MaKo puede leer, asignar y crear la oferta, y editar los datos nuevos del contacto', () => {
+  const op = (id: string) => DEFS.find((d) => d.id === id);
+  for (const id of ['oferta_del_lead', 'asignar_oferta_lead', 'crear_oferta_lead']) {
+    assert.ok(op(id), `${id} no está en el registro`);
+    assert.ok(op(id)!.canales.includes('http'), `${id} no sale por HTTP: Claude de afuera no lo vería`);
+    assert.ok(RUTAS_REST.some((r) => r[2] === id), `${id} sin ruta REST`);
+  }
+  assert.equal(op('crear_oferta_lead')!.gating?.rolMinimo, 'admin', 'crear una oferta es del admin, como en la ficha');
+  const params = op('editar_contacto_lead')!.parametros.map((p) => p.nombre);
+  for (const c of ['web', 'instagram', 'youtube', 'linkedin', 'direccion', 'sexo']) assert.ok(params.includes(c), `editar_contacto_lead sin «${c}»`);
+  const RUN = sinComentarios(leer('../lib/api-mako/areas/crm.run.ts'));
+  assert.match(RUN, /const CAMPOS_CONTACTO = \['nombre', 'email', 'telefono', 'empresa', 'web', 'instagram', 'youtube', 'linkedin', 'direccion', 'sexo'\] as const;/);
+  assert.match(RUN, /for \(const k of CAMPOS_CONTACTO\) if \(typeof payload\[k\] === 'string'\) meta\[k\] = payload\[k\] as string;/, 'lo que se propone tiene que ser lo que se escribe');
 });
 
 test('«Nueva oferta» va arriba, y «Analizar oferta» lleva a Offer con la oferta y el CRM', () => {

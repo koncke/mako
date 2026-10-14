@@ -44,6 +44,22 @@ export const MODELOS_OFERTA: ReadonlyArray<{ id: ModeloOferta; label: string }> 
 ];
 export const esModeloOferta = (v: unknown): v is ModeloOferta => v === 'unico' || v === 'suscripcion';
 
+/** Una oferta como la ve la ficha del lead (y la API de MaKo, `oferta_del_lead`). */
+export type OfertaParaLead = { id: number; nombre: string; precio_usd: number | null; modelo: ModeloOferta | null };
+
+/** Lo mínimo de una oferta nueva, validado. Una sola regla para la ficha y la API. */
+export function validarOfertaNueva(datos: { nombre?: unknown; modelo?: unknown; ticket?: unknown }):
+  { ok: true; nombre: string; modelo: ModeloOferta; ticket: number | null } | { ok: false; error: string } {
+  const nombre = String(datos?.nombre ?? '').trim().replace(/\s+/g, ' ');
+  if (!nombre) return { ok: false, error: 'La oferta necesita un nombre.' };
+  if (nombre.length > 80) return { ok: false, error: 'El nombre no puede pasar de 80 caracteres.' };
+  const modelo = datos?.modelo;
+  if (!esModeloOferta(modelo)) return { ok: false, error: 'Elige cómo se cobra.' };
+  const ticket = datos?.ticket == null || datos.ticket === '' ? null : Number(datos.ticket);
+  if (ticket != null && (!Number.isFinite(ticket) || ticket < 0)) return { ok: false, error: 'El ticket tiene que ser un número.' };
+  return { ok: true, nombre, modelo, ticket };
+}
+
 export type Oferta = {
   id: number;
   nombre: string;

@@ -673,16 +673,58 @@ export const DEFS: readonly OperacionDef[] = [
   },
 
   // ── Acciones nuevas: pantalla (genérica /mako/revisar) ────────────────────────
+  // La OFERTA de un lead (13/10/2026, Pagos punto 1): las ofertas son las de la tab Offer (tabla
+  // `ofertas`, lib/ofertas.ts), NO el catálogo de listar_productos. La lógica es la misma que la
+  // ficha (lib/oferta-lead.ts). Salen por HTTP: son ofertas y precios del negocio, no personas.
+  {
+    id: 'oferta_del_lead', area: 'crm', tipo: 'lectura',
+    titulo: 'La oferta de un lead',
+    descripcion: 'Las ofertas del negocio (las de la tab Offer: id, nombre, cómo se cobra y el ticket en USD) y cuál tiene asignada el lead. El ofertaId es el que piden asignar_oferta_lead; NO es el id de listar_productos.',
+    parametros: [leadId()],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB,
+  },
+  {
+    id: 'asignar_oferta_lead', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Asignarle una oferta a un lead',
+    descripcion: 'PROPONE asignarle a un lead una de las ofertas del negocio (de oferta_del_lead), o sacársela con quitar (queda pendiente hasta el «sí»). Dice a qué oferta entró: no cambia su etapa, su monto ni sus cuotas. Si ya tiene esa, lo dice.',
+    parametros: [
+      leadId(),
+      { nombre: 'ofertaId', tipo: 'number', entero: true, minimo: 1, descripcion: 'id de la oferta (de oferta_del_lead). Sin él, hace falta quitar.' },
+      { nombre: 'quitar', tipo: 'boolean', descripcion: 'true para dejar al lead sin oferta.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: TAB,
+    reversible: true, escribe: 'cambia leads.oferta_id y deja historial',
+  },
+  {
+    id: 'crear_oferta_lead', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Crear una oferta para un lead',
+    descripcion: 'PROPONE crear una oferta con lo mínimo —nombre, cómo se cobra y el ticket— y asignársela al lead (queda pendiente hasta el «sí»). Queda ligada al CRM del lead, así aparece en la tab Offer, donde se completa y se analiza. Si ya hay una con ese nombre, usa asignar_oferta_lead.',
+    parametros: [
+      leadId(),
+      { nombre: 'nombre', tipo: 'string', obligatorio: true, max: 80, descripcion: 'el nombre de la oferta.' },
+      { nombre: 'modelo', tipo: 'string', obligatorio: true, enum: ['unico', 'suscripcion'], descripcion: 'cómo se cobra: unico = pago único, suscripcion = por mes.' },
+      { nombre: 'ticketUsd', tipo: 'number', minimo: 0, descripcion: 'el precio en USD (en una suscripción, el de cada mes).' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    reversible: false, escribe: 'una fila en ofertas, su liga al CRM del lead (funnel_ofertas) y leads.oferta_id; deja historial',
+  },
   {
     id: 'editar_contacto_lead', area: 'crm', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar',
     titulo: 'Editar contacto de un lead',
-    descripcion: 'PROPONE corregir nombre, email, teléfono o empresa de un lead: deja un link donde una persona revisa el dato exacto y confirma. Cambiar el teléfono cambia la llave con la que WhatsApp, Meta y Calendly reconocen al lead: un dígito mal lo separa de su chat. Pasa al menos un campo. Devuelve el link: pásalo tal cual.',
+    descripcion: 'PROPONE corregir los datos de contacto de un lead —nombre, email, teléfono, empresa, web, Instagram, YouTube, LinkedIn, dirección o sexo—: deja un link donde una persona revisa el dato exacto y confirma. Cambiar el teléfono cambia la llave con la que WhatsApp, Meta y Calendly reconocen al lead: un dígito mal lo separa de su chat. Pasa al menos un campo. Devuelve el link: pásalo tal cual.',
     parametros: [
       leadId(),
       { nombre: 'nombre', tipo: 'string', max: 200, descripcion: 'nombre y apellido.' },
       { nombre: 'email', tipo: 'string', max: 200, descripcion: 'email.' },
       { nombre: 'telefono', tipo: 'string', max: 40, descripcion: 'teléfono con código de país.' },
       { nombre: 'empresa', tipo: 'string', max: 200, descripcion: 'empresa.' },
+      // Los de la ficha (mig 0194, 0258 y 0274): los mismos que edita «Información principal».
+      { nombre: 'web', tipo: 'string', max: 300, descripcion: 'la web.' },
+      { nombre: 'instagram', tipo: 'string', max: 300, descripcion: 'el usuario de Instagram (con o sin @) o el link al perfil.' },
+      { nombre: 'youtube', tipo: 'string', max: 300, descripcion: 'el link al canal de YouTube.' },
+      { nombre: 'linkedin', tipo: 'string', max: 300, descripcion: 'el link al perfil de LinkedIn.' },
+      { nombre: 'direccion', tipo: 'string', max: 300, descripcion: 'la dirección.' },
+      { nombre: 'sexo', tipo: 'string', enum: ['mujer', 'hombre', 'otro'], descripcion: 'mujer, hombre u otro.' },
     ],
     canales: TODOS, costo: 'gratis', gating: TAB,
     reversible: true, escribe: 'cambia los datos de contacto del lead (y su teléfono normalizado) y deja historial',

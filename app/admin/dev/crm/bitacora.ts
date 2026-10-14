@@ -2182,4 +2182,17 @@ export const BITACORA: Hito[] = [
       'tests/resumen-ficha.test.ts',
     ],
   },
+  {
+    fecha: '14 oct', hora: '02:20', chat: 'CRM', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La oferta del lead y los datos nuevos del contacto, en la API de MaKo',
+    puntos: [
+      'Regla de Martín del 13/10: toda funcionalidad nueva va a la API. Antes no había ninguna operación sobre las ofertas de Offer.',
+      'oferta_del_lead, asignar_oferta_lead y crear_oferta_lead, también por HTTP. Crear es del admin, como en la ficha.',
+      'editar_contacto_lead suma web, Instagram, YouTube, LinkedIn, dirección y sexo.',
+      'La ficha y la API usan la misma lógica (lib/oferta-lead.ts).',
+    ],
+    commits: [],
+    archivos: ['lib/oferta-lead.ts', 'lib/api-mako/areas/crm.def.ts', 'lib/api-mako/areas/crm.run.ts', 'lib/api-mako/rest.ts', 'docs/api-mako.md'],
+  },
 ];

@@ -18,8 +18,8 @@ import { useRouter } from '@/app/_ui/Link';
 import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
 import { Modal } from '@/app/_ui/Modal';
 import { Toast, useToast } from '@/app/_ui/Toast';
-import { MODELOS_OFERTA, type ModeloOferta } from '@/lib/oferta-modelo';
-import { ofertasDelLeadAction, asignarOfertaLeadAction, crearOfertaDesdeLeadAction, type OfertaParaLead } from '../oferta-lead-actions';
+import { MODELOS_OFERTA, type ModeloOferta, type OfertaParaLead } from '@/lib/oferta-modelo';
+import { ofertasDelLeadAction, asignarOfertaLeadAction, crearOfertaDesdeLeadAction } from '../oferta-lead-actions';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
