@@ -21,7 +21,7 @@
 // =============================================================================
 
 import {
-  DESTINOS_MOVIL, HOME_MOVIL, RUTA_MAS, SECCIONES_MAS, esRutaMovil, seccionDeRuta,
+  DESTINOS_MOVIL, HOME_MOVIL, RUTA_INBOX, RUTA_MAS, SECCIONES_MAS, esRutaMovil, seccionDeRuta,
 } from '@/lib/movil-rutas';
 
 export type PadreM = { href: string; label: string };
@@ -104,6 +104,8 @@ export function cabeceraPorRuta(
   if (seccion) return { titulo: seccion.label, padre: MAS, trabajo, conBarra: !trabajo };
 
   if (p === RUTA_CUENTA) return { titulo: TITULO_CUENTA, padre: MAS, trabajo: false, conBarra: true };
+  // La campana de General (v3: Inbox dejó la barra): se titula Inbox y vuelve a General.
+  if (p === RUTA_INBOX) return { titulo: 'Inbox', padre: { href: HOY.href, label: HOY.label }, trabajo: false, conBarra: true };
 
   // El chat de un lead vuelve a SU ficha, no a la lista del CRM (la página lo pisa igual con
   // el nombre del lead; acá queda bien desde el HTML del server).

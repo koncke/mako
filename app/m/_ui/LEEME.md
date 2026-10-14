@@ -61,6 +61,7 @@ nombre y vuelve a More; una subpantalla vuelve a su sección. Para pisarlo, `<Ca
 | `.card` lo que bloquea (una sola) | `<TarjetaDecision titulo consecuencia accion estrella?>` (sin píldora; `estrella` SÓLO si lo propuso MaKo) |
 | `.chk` casilla redonda de una tarea | `<CasillaM marcada onMarcar titulo deshabilitado motivo />` (la misma en Today y en Plan) |
 | sheet (radio 18, agarradera, título + ✕, pie) | `<SheetM abierto onCerrar titulo pie={<PieM consecuencia="…"><Button …/></PieM>}>` |
+| un tablero (kanban: CRM, Clientes, Plan) | `<KanbanM etiqueta columnas tarjetas unidades moverA onMover>`: una columna por pantalla, barra de etapas, mantener presionado = «Mover a…» con Deshacer. Lo de adentro de la tarjeta, con las clases `m-kb-tj__*` (m.css). `onMover` devuelve `{ ok, deshacer }`; el gesto NUNCA es el único camino para mover (lo que abre el toque también mueve) |
 | `.pie-fijo` consecuencia + botón grande | `<PieFijoM consecuencia="…"><Button variant="primary" size="lg" full>…</Button></PieFijoM>` |
 | toast 3-4 palabras + Deshacer | `const toast = useToastM(); toast('Activa', { deshacer })` |
 | vacío / error / cargando | `<VacioM frase>` / `<ErrorM frase onReintentar>` / `<SkeletonFilas>` |

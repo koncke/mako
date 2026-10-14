@@ -43,7 +43,8 @@ import {
 
 type Rol = Parameters<typeof barraMovil>[0];
 const barra = (rol: Rol, capa: string | null) => barraMovil(rol, capa).map((d) => d.id);
-const mas = (rol: Rol, capa: string | null) => gruposMas(rol, capa).map((g) => g.map((s) => s.id));
+const mas = (rol: Rol, capa: string | null) => gruposMas(rol, capa).map((g) => g.secciones.map((s) => s.id));
+const familias = (rol: Rol, capa: string | null) => gruposMas(rol, capa).map((g) => g.titulo);
 
 test('el prefijo móvil es /m o /m/..., nunca /mako, /marketing ni /m.js', () => {
   for (const p of ['/m', '/m/', '/m/hoy', '/m/crm/12', '/m/cuenta', '/m/mas', '/m/ads']) assert.equal(esRutaMovil(p), true, p);
@@ -61,33 +62,40 @@ test('cada destino y cada sección de More hereda una key que EXISTE en nav.ts, 
     assert.ok(d.href.startsWith('/m/'), d.href);
   }
   assert.equal(DESTINOS_MOVIL.length, 5, 'la barra es de cinco, nunca más (veto de la casa y de iOS)');
-  assert.equal(DESTINOS_MOVIL[0].href, HOME_MOVIL);
+  // v3 (Martín, 14/10/2026): «el ícono del medio, abajo, va a ser General», y es donde se abre.
+  assert.equal(DESTINOS_MOVIL[2].href, HOME_MOVIL);
   assert.equal(DESTINOS_MOVIL[DESTINOS_MOVIL.length - 1].href, RUTA_MAS, 'More va al final');
   // Ninguna sección de More comparte ruta con un destino de la barra.
   const hrefs = [...DESTINOS_MOVIL, ...SECCIONES_MAS].map((d) => d.href);
   assert.equal(new Set(hrefs).size, hrefs.length);
 });
 
-test('los nombres van en inglés, como el escritorio; Inbox al centro; MaKo ya no es destino', () => {
-  assert.deepEqual(DESTINOS_MOVIL.map((d) => d.label), ['Today', 'CRM', 'Inbox', 'Plan', 'More']);
-  assert.deepEqual(SECCIONES_MAS.map((s) => s.label),
-    ['Dashboard', 'Ads Manager', 'Customer Success', 'Automations', 'Video Generator', 'Landing Generator', 'MaKo']);
-  assert.deepEqual(SECCIONES_MAS.map((s) => [s.id, s.navKey]), [
-    ['dashboard', 'graphics'], ['ads', 'ads-manager'], ['cs', 'customer-success'], ['automations', 'setting'],
-    ['video', 'video-generator'], ['landing', 'landing-writer'], ['mako', 'mako'],
+test('v3: CRM · Chats · General · Plan · More; More por las familias de la sidebar', () => {
+  assert.deepEqual(DESTINOS_MOVIL.map((d) => d.label), ['CRM', 'Chats', 'General', 'Plan', 'More']);
+  // Chats hereda la key de la bandeja de escritorio (/whatsapp): quien no la ve, no ve la pestaña.
+  assert.equal(DESTINOS_MOVIL.find((d) => d.id === 'chats')?.navKey, 'whatsapp');
+  assert.deepEqual(SECCIONES_MAS.map((s) => [s.id, s.navKey, s.familia]), [
+    ['ads', 'ads-manager', 'operate'], ['dashboard', 'graphics', 'analyze'], ['landing', 'landing-writer', 'sales'],
+    ['automations', 'setting', 'sales'], ['video', 'video-generator', 'content'], ['cs', 'customer-success', 'customer'],
+    ['mako', 'mako', null],
   ]);
 });
 
-test('admin de un cliente completo: la barra de cinco y More con todo, en tres grupos', () => {
-  assert.deepEqual(barra('admin', 'completo'), ['hoy', 'crm', 'inbox', 'plan', 'mas']);
-  assert.deepEqual(mas('admin', 'completo'), [['dashboard', 'ads', 'cs', 'automations'], ['video', 'landing'], ['mako']]);
+test('admin de un cliente completo: la barra de cinco y More con todo, una caja por familia', () => {
+  assert.deepEqual(barra('admin', 'completo'), ['crm', 'chats', 'hoy', 'plan', 'mas']);
+  assert.deepEqual(mas('admin', 'completo'), [['ads'], ['dashboard'], ['landing', 'automations'], ['video'], ['cs'], ['mako']]);
+  // Cada caja lleva el nombre de su familia en la sidebar; MaKo va última y sin título, como en escritorio.
+  assert.deepEqual(familias('admin', 'completo'),
+    ['Operate', 'Analyze', 'Sales Machine', 'Content Machine', 'Customer Success', null]);
 });
 
 test('quién ve qué en More: lo que nav.ts le da a cada rol, y nada más', () => {
   // Closer: Dashboard (graphics, su hoja Closing) y MaKo. Setter: Dashboard (su hoja Chat Analyst, desde la v5
   // del 12/10/2026), Automations (setting) y MaKo.
   assert.deepEqual(mas('closer', 'completo'), [['dashboard'], ['mako']]);
-  assert.deepEqual(mas('setter', 'completo'), [['dashboard', 'automations'], ['mako']]);
+  assert.deepEqual(mas('setter', 'completo'), [['dashboard'], ['automations'], ['mako']]);
+  // Una familia sin nada que el rol vea no deja una caja vacía.
+  assert.deepEqual(familias('closer', 'completo'), ['Analyze', null]);
   // El closer entra al Dashboard SÓLO por la hoja Closing (app/dashboard/page.tsx): en una capa
   // sin Closing (pm tiene graphics, no closing), More no le ofrece una fila que lo rebota a Today.
   assert.equal(puedeVerKey('graphics', 'closer', 'pm'), true, 'el nav solo se la daría');
@@ -99,22 +107,22 @@ test('quién ve qué en More: lo que nav.ts le da a cada rol, y nada más', () =
       assert.equal(puedeVerKey(k, rol, 'completo'), false, `${rol} ve ${k}`);
     }
   }
-  // Sin rol resuelto: nada gateado (sólo Today, Inbox y More, que se componen por rol).
-  assert.deepEqual(barra(null, 'completo'), ['hoy', 'inbox', 'mas']);
+  // Sin rol resuelto: nada gateado (sólo General y More, que se componen por rol).
+  assert.deepEqual(barra(null, 'completo'), ['hoy', 'mas']);
   assert.deepEqual(seccionesMasVisibles(null, 'completo'), []);
   assert.equal(puedeVerKey('inexistente', 'admin', 'completo'), false);
 });
 
 test('el hueco: si el rol no ve uno de los cuatro, lo ocupa la primera sección de More que ve (y no se repite en More)', () => {
-  // La capa pm no ve CRM aunque sea admin (tabEnCapa manda): sube Dashboard a su lugar.
+  // La capa pm no ve CRM ni la bandeja aunque sea admin (tabEnCapa manda): suben Dashboard y MaKo.
   assert.equal(puedeVerKey('crm', 'admin', 'pm'), false);
-  assert.deepEqual(barra('admin', 'pm'), ['hoy', 'dashboard', 'inbox', 'plan', 'mas']);
-  assert.deepEqual(mas('admin', 'pm'), [['mako']]);
-  // Un setter en pm: sólo ve MaKo de More, y sube.
-  assert.deepEqual(barra('setter', 'pm'), ['hoy', 'mako', 'inbox', 'plan', 'mas']);
+  assert.deepEqual(barra('admin', 'pm'), ['dashboard', 'mako', 'hoy', 'plan', 'mas']);
+  assert.deepEqual(mas('admin', 'pm'), []);
+  // Un setter en pm: sólo ve MaKo de More, y sube (queda un hueco sin llenar: la barra es de cuatro).
+  assert.deepEqual(barra('setter', 'pm'), ['mako', 'hoy', 'plan', 'mas']);
   assert.deepEqual(mas('setter', 'pm'), []);
   // destinosVisibles sigue siendo la lista de los FIJOS que el rol ve.
-  assert.deepEqual(destinosVisibles('admin', 'pm').map((d) => d.id), ['hoy', 'inbox', 'plan', 'mas']);
+  assert.deepEqual(destinosVisibles('admin', 'pm').map((d) => d.id), ['hoy', 'plan', 'mas']);
 });
 
 test('el lugar activo de una ruta', () => {
@@ -143,6 +151,8 @@ test('el mapa escritorio → móvil de los links que salen', () => {
   assert.equal(rutaMovil('/crm/12/resumen?ws=3'), '/m/crm/12');
   assert.equal(rutaMovil('/crm/12#notas'), '/m/crm/12');
   assert.equal(rutaMovil('https://hola-mako.com/mako/revisar/abc?ws=1'), '/m/inbox');
+  // La bandeja de escritorio es la pestaña Chats del teléfono (v3).
+  assert.equal(rutaMovil('/whatsapp'), '/m/chats');
   assert.equal(rutaMovil('/configuraciones?tab=notif'), '/m/cuenta');
   assert.equal(rutaMovil('/configuraciones'), null);
   assert.equal(rutaMovil('/m/plan'), '/m/plan');
@@ -183,7 +193,8 @@ test('el mapa v2: cada pantalla de escritorio de una sección de More cae en su 
 });
 
 test('un link sin equivalente móvil cae en la home', () => {
-  assert.equal(rutaMovilOHome('/whatsapp'), HOME_MOVIL);
+  assert.equal(rutaMovilOHome('/configuraciones'), HOME_MOVIL);
+  assert.equal(rutaMovilOHome('/whatsapp'), '/m/chats');
   assert.equal(rutaMovilOHome('/ads-manager'), '/m/ads');
   assert.equal(rutaMovilOHome(undefined), HOME_MOVIL);
 });

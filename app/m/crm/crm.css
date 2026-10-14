@@ -173,3 +173,14 @@
 @media (prefers-reduced-motion: reduce) {
   .m-crm-acc, .m-crm-enviar { transition: none; }
 }
+
+/* v3: el selector de funnel arriba del tablero (como el desplegable de escritorio). */
+.m-crm-funnel {
+  display: inline-flex; align-items: center; gap: 4px; min-height: 44px; max-width: 100%;
+  padding: 0 4px; border: 0; background: none; font: inherit; cursor: pointer;
+  font-size: var(--fs-md); font-weight: 600; color: var(--ink);
+}
+.m-crm-funnel span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.m-crm-funnel svg { flex: none; color: var(--dim); }
+.m-crm-funnel:active { opacity: .6; }
+.m-crm-resultados { margin-top: 14px; }

@@ -7,6 +7,50 @@ Corridas del 11/10/2026: la v1 (relevo de 7 agentes + 11 de implementación + 1 
 el diseño v2 a la tarde, y a la noche la implementación v2 (12 agentes + la integración) con el desvío
 de teléfonos PRENDIDO. Lo de la v2 está en su propia sección, más abajo.
 
+## La tanda 1 del v3 en código: barra, General, Chats y los tableros (14/10/2026, noche)
+
+Tres pushes: 104a26209 (barra, General de portada, More por familias, Chats), 5e4bed65d (KanbanM, el CRM y Clientes
+como tablero) y c2f6863a0 (el Plan con las cuatro vistas de escritorio).
+
+- **Un worktree con un push esperando NO se toca.** El pre-push corre `tsc` sobre el árbol ENTERO del worktree,
+  archivos sin commitear incluidos. Si se empieza la tanda siguiente en el mismo worktree mientras otro chat pushea
+  desde ahí, el código a medio hacer entra al typecheck del push ajeno. Se sigue en otro worktree. El que quedó
+  pusheado se reusa con `git switch -c <rama> <la última>`.
+- **El push con `MAKO_TYPECHECK_SIN_ESPERA=1` igual lo mata el vigía** cuando la RAM libre baja de ~750 MB a mitad del
+  tsc (pasó dos veces, con 3,1 y 4,3 GB libres al arrancar). El hook lo dice bien: «NO son errores de tipos». Lo
+  destraba quien puede pausar el vigía (el orquestador, `push_<letra>.sh`). No se corre `tsc` a mano para diagnosticar.
+- **Los tests NO son vitest.** `npx vitest run` falla en el worktree con «Cannot find package '@/lib/…'». Parece un
+  alias roto por el junction de node_modules, y no lo es: el repo corre `node --import tsx --test tests/x.test.ts`
+  (`npm test`).
+- **FilaM con `href` IGNORA `onClick`.** Una fila de un sheet que tiene que cerrar el sheet Y navegar (el selector de
+  funnel del CRM) va con `onClick` + `router.push` (el de `@/app/_ui/Link`, que conserva el cliente). Cerrar la hoja
+  por código y navegar en el mismo tick es seguro: SheetM saca su `?sheet=` con `replaceState`, no con `back()`.
+- **El pull-to-refresh se robaba el gesto de las columnas.** PantallaM arranca si `window.scrollY === 0`, y con un
+  tablero eso es casi siempre: tirar hacia abajo dentro de una columna scrolleada subía la lista Y refrescaba la página.
+  Ahora un scroll anidado con `data-m-scroll` que no está arriba de todo se queda con el gesto (app/m/_ui/PantallaM.tsx).
+- **Lo optimista de KanbanM se limpia por la FIRMA de las tarjetas (id:columna), no por la identidad del array.**
+  Con la identidad, una pantalla que arma las tarjetas en cada render (todas) hacía rebotar la tarjeta recién movida.
+- **Las reglas del Plan atrapadas en un `'use client'`**: `projProgress` vive en app/plan/board/piezas.tsx, que es
+  `'use client'`. Importada desde el server llega como referencia de cliente, no como función. Se copió en
+  app/m/plan/tableros.ts (`avanceProyecto`) y el test fija los dos casos (la familia de «las reglas atrapadas en
+  módulos `'use client'`», arriba).
+- **Proyectos en escritorio NO es un kanban**: es una grilla de tarjetas (`ProyectosView`). El teléfono los agrupa por
+  los cuatro escalones de prioridad porque así quedó en el prototipo v3 que aprobó Martín.
+
+**Lo que quedó sin hacer** (esta tanda):
+- **More tiene sólo las secciones que ya existían** (Ads, Dashboard, Landing, Automations, Video, Clientes, MaKo).
+  Las otras 9 pantallas del prototipo v3 (Calendario, Second Brain, Experiments, Offer, Copywriting, Curso, Comunidad,
+  Avisos, Perfil nuevo) siguen sin código. Se agregan en `SECCIONES_MAS` (lib/movil-rutas.ts), cada una con su página.
+- **Chats lee sólo WhatsApp** (app/m/chats/datos.ts). Los chats unificados siguen SIN COMMITEAR en `C:/dev/wt-chats`.
+  Cuando lleguen a main, cambia la lectura de `listaChats` y se suman las bandejas del prototipo. Las conversaciones
+  sin lead se cuentan pero no se abren: el hilo del teléfono es el del lead.
+- **En el teléfono no se cambia la prioridad del Plan**: es la audiencia con el Perro, y los tableros de Tareas y
+  Proyectos no mueven tarjetas. Para que muevan, `moverA`/`onMover` en app/m/plan/ListaPlan.tsx contra
+  `prioridadManual`, sólo en el tablero del dueño.
+- **Nada de esto se miró en un teléfono de verdad** (con 7+ chats no había RAM para `next dev`). El CSS de KanbanM sale
+  del prototipo, que sí se miró a 390 px. Pendiente: el alto de la pista (`100dvh − 64px`) con el segmentado de
+  Clientes o del Plan arriba, que hace scrollear un poco el documento.
+
 ## El prototipo v3 y el relevamiento de las tiendas (14/10/2026, tarde)
 
 - **El v1 se rechazó por REINVENTAR, no por feo.** Martín: el CRM no lleva «Hoy» (ya está el Plan), el Plan no se

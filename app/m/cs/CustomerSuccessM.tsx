@@ -1,21 +1,17 @@
 'use client';
 
 // =============================================================================
-// CustomerSuccessM — la entrega como lista agrupada, y el sheet de un cliente
+// CustomerSuccessM — la entrega como TABLERO (v3), y el sheet de un cliente
 // =============================================================================
-// Prototipo: docs/prototipos/mako-mobile-v2.html, data-ir="cs" y la plantilla «t-cliente».
+// v3 (14/10/2026, prototipo docs/prototipos/mako-mobile-tableros.html, «Clientes»): Martín quiere
+// «TODOS los kanban de MaKo en mobile». La entrega es el kanban de escritorio por producto, una
+// columna por pantalla (KanbanM): arriba el servicio (segmentado o fila), la barra de etapas con
+// su conteo, y en cada columna los clientes con su empresa y hace cuánto se movieron (en rojo si
+// están trabados). La v2 era una lista agrupada por etapa con los mismos datos.
 //
-//   [Servicio A | Servicio B]            sólo con más de un servicio
-//   Onboarding                      3    una sección por etapa, con su conteo
-//     (FR) Fernanda Ríos   hace 2 días
-//          Estudio Luma
-//   Primeras clases                 1
-//     (EN) Emilio Navarro
-//          Navarro Bienes Raíces
-//          (• 21 días sin moverse)       la píldora con el punto rojo
-//
-// Sheet del cliente: las etapas (la actual con ✓; tocar otra lo mueve), «Escribirle por
-// WhatsApp», «Reenviar la invitación al curso» y abajo «Pasar a <la siguiente>».
+//   · Tocar un cliente abre su sheet: las etapas (la actual con ✓; tocar otra lo mueve),
+//     «Escribirle por WhatsApp», «Reenviar la invitación al curso» y «Pasar a <la siguiente>».
+//   · Mantenerlo presionado abre «Mover a…» (KanbanM). Los dos caminos mueven igual.
 //
 // ⚠️ MOVER ES `moverEntregaAction`, LA MISMA DE ESCRITORIO, y el DESHACER vuelve a llamar al
 // server con la etapa anterior Y SU RELOJ (`relojPrevio`); si no tenía fila, la borra
@@ -35,7 +31,8 @@ import { relojDeVuelta } from '@/lib/servicio-etapas';
 import { moverEntregaAction, sacarDeEntregaAction } from '@/app/customer-success/actions';
 import { invitarAlCursoDelProductoAction } from '@/app/customer-success/curso/invitar-actions';
 import {
-  FilaDatoM, FilaM, ListaM, PieM, PildoraM, SeccionM, SegmentadoM, SheetM, VacioM, useConexion, useToastM,
+  FilaDatoM, FilaM, KanbanM, ListaM, PieM, SegmentadoM, SheetM, VacioM, useConexion, useToastM,
+  type ResultadoMover,
 } from '@/app/m/_ui';
 import {
   asignacionCon, claveMov, etapaDe, gruposDe, siguienteEtapa, tiempoDe,
@@ -122,6 +119,34 @@ export function CustomerSuccessM({ servicios, clientes }: { servicios: ServicioC
     }
   };
 
+  /** Mover desde «Mover a…» del tablero: KanbanM ya lo pintó; acá se escribe y se anota. */
+  const moverDesdeTablero = async (id: string, destino: string): Promise<ResultadoMover> => {
+    if (!enLinea) return { ok: false, error: 'Sin conexión' };
+    const leadId = Number(id);
+    const productoId = s.id;
+    const previa = asig[leadId] ?? null;
+    try {
+      const r = await moverEntregaAction(leadId, productoId, destino);
+      if (!r.ok) return { ok: false, error: r.error };
+      // `cambio: false` = ya estaba ahí: se queda donde lo pintó el tablero, sin Deshacer.
+      setMovs((v) => ({ ...v, [claveMov(productoId, leadId)]: { etapa: r.hacia, desde: r.cambio ? new Date().toISOString() : previa?.desde ?? new Date().toISOString() } }));
+      if (!r.cambio) return { ok: true };
+      return {
+        ok: true,
+        deshacer: async () => {
+          const d = await (previa
+            ? moverEntregaAction(leadId, productoId, previa.etapa, previa.desde)
+            : sacarDeEntregaAction(leadId, productoId)).catch(() => ({ ok: false as const }));
+          if (!d.ok) return false;
+          setMovs((v) => ({ ...v, [claveMov(productoId, leadId)]: previa ? { etapa: previa.etapa, desde: relojDeVuelta(previa.desde) ?? new Date().toISOString() } : null }));
+          return true;
+        },
+      };
+    } catch {
+      return { ok: false, error: 'No se pudo mover' };
+    }
+  };
+
   const c = clienteId != null ? porId.get(clienteId) ?? null : null;
   const actual = clienteId != null ? etapaDe(s, asig, clienteId) : null;
   const siguiente = siguienteEtapa(s.etapas, actual);
@@ -192,32 +217,37 @@ export function CustomerSuccessM({ servicios, clientes }: { servicios: ServicioC
         <VacioM frase="Este servicio no tiene etapas." />
       ) : !s.miembros.length ? (
         <VacioM frase="Todavía no hay clientes en este servicio." />
-      ) : grupos.map((g) => (
-        <SeccionM key={g.key} id={`m-cs-${g.key}`} titulo={g.label}
-          accion={<span className="m-cs-n" aria-label={`${g.ids.length} ${g.ids.length === 1 ? 'cliente' : 'clientes'}`}>{g.ids.length}</span>}>
-          {/* Una etapa vacía queda con su 0 en el título y sin caja: escritorio sacó el «Sin
-              clientes.» de la columna vacía (05/10/2026) porque repetía el único dato que había. */}
-          {g.ids.length > 0 && (
-            <ListaM etiqueta={g.label}>
-              {g.ids.map((id) => {
-                const cli = porId.get(id);
-                const t = tiempoDe(asig[id]);
-                return (
-                  <FilaM
-                    key={id}
-                    avatar={nombreDe(id)}
-                    titulo={nombreDe(id)}
-                    segunda={cli?.empresa ?? undefined}
-                    riel={t && !t.trabado ? t.texto : undefined}
-                    pill={t?.trabado ? <PildoraM tono="bad">{t.texto}</PildoraM> : undefined}
-                    onClick={() => abrir(id)}
-                  />
-                );
-              })}
-            </ListaM>
-          )}
-        </SeccionM>
-      ))}
+      ) : (
+        <KanbanM
+          key={s.id}
+          etiqueta={`Entrega de ${s.nombre}`}
+          columnas={grupos.map((g) => ({ key: g.key, titulo: g.label }))}
+          tarjetas={grupos.flatMap((g) => g.ids.map((id) => {
+            const cli = porId.get(id);
+            const t = tiempoDe(asig[id]);
+            return {
+              id: String(id),
+              col: g.key,
+              etiqueta: nombreDe(id),
+              contenido: (
+                <>
+                  <span className="m-kb-tj__n">{nombreDe(id)}</span>
+                  {cli?.empresa && <span className="m-kb-tj__c">{cli.empresa}</span>}
+                  {t && <span className="m-kb-tj__pie"><span data-mal={t.trabado || undefined}>{t.texto}</span></span>}
+                </>
+              ),
+            };
+          }))}
+          unidades="clientes"
+          onTocar={(id) => abrir(Number(id))}
+          moverA={(id) => {
+            const aca = etapaDe(s, asig, Number(id));
+            return s.etapas.filter((e) => e.key !== aca).map((e) => e.key);
+          }}
+          onMover={moverDesdeTablero}
+          fraseMovida={(col) => `En ${col}`}
+        />
+      )}
 
       <SheetM id="cliente" abierto={abierto} onCerrar={cerrar} titulo={c?.nombre ?? 'Cliente'} snap="alto"
         ocupado={!!ocupado} pie={pie} rotuloCerrar="Cerrar el cliente">

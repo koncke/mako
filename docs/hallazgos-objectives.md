@@ -831,8 +831,6 @@ no va en mono. «Cobros» perdió sus columnas por semana.
   fuente puede ser Meta, el CRM, un pago…), y abrir la grilla entera es lo que hace la pieza de la regla nueva
   (`LinkIntegracion`, app/_components/ConectarIntegracion.tsx) con un link que no nombra ninguna. Las alertas del
   semáforo, la acción del día y «Conectar una IA» del AI Analyst sí abren su modal ahí mismo (abd91fdb).
-- **El Today de MaKo Mobile no mira el informe de General**: dibuja lo de siempre. Para la misma personalización en el
-  teléfono, lee `leerInformeGeneral()` y dibuja sus bloques. Vive en `app/m/hoy`.
 - **Más de 8 funnels**: los bloques que se atan a uno se arman hasta 8 (`TOPE_FUNNELS`, app/general/datos.ts); el
   noveno dice «Ese funnel ya no está». Ningún workspace llega hoy.
 - **El pop-up de un gráfico de General se busca en el tablero del DASHBOARD** (lo marcó el chat de Graphics al revisar
