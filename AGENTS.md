@@ -6670,6 +6670,11 @@ peor: el número se mueve solo, de a poco, todos los días**, sin una entrada de
 lo explique. Lo fijado entra al reparto con su número tal cual (para que el resto se ordene
 alrededor) y sale sin que se le escriba nada — y el cron **cuenta cuántas respetó**, porque
 un candado que funciona y uno que nadie disparó se ven iguales si no se cuentan.
+⚠️ **Y no escribirle no alcanza: las de alrededor no la pueden CRUZAR por ruido del reparto.** Un
+reparto por ranking le devuelve a cada vecina el número de su puesto, y el 14/10/2026 eso deshacía
+240 de 513 arrastres en la primera corrida. Todo proceso que reescriba números alrededor de algo
+fijado pasa por `respetarFijadas` (app/plan/board/lugar-al-soltar.ts): se cruza sólo con un
+juicio claro (`MARGEN_CRUCE`), nunca por 1 o 2 puntos de redondeo.
 
 ⚠️ **Y el corolario de la priorización: un proyecto se juzga por lo que tiene ADENTRO, no por
 su nombre.** En esa misma corrida «Cliente: Mauricio» quedó primero porque las decisiones

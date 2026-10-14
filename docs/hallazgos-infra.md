@@ -5924,3 +5924,29 @@ no dice nada de si está declarado.
 comentarios).
 
 **Vive en:** `package.json` · `package-lock.json` · `app/image-editor/_doory/editor/engine/objects/qr.ts`
+
+## El tsc «acotado» con `files` chequeaba el repo ENTERO: `extends` hereda el `include` (14/10/2026)
+
+**Síntoma:** un tsconfig temporal que extiende el del repo y lista sólo los archivos de la rama en
+`"files"` se quedaba sin heap con 2 GB, igual que el completo. Y peor: dio «0 errores» con un
+error de tipos metido a propósito, porque el vigía lo mató (salida 1, sin texto) y el script que
+contaba errores leyó cero.
+
+**Causa:** en un tsconfig, `files`, `include` y `exclude` se heredan del que se extiende **cada uno
+por separado**. Poner `files` no apaga el `include` del repo: lo suma. El «acotado» era el completo.
+
+**Regla:** el tsconfig acotado lleva `"include": []` además de `"files"`:
+
+```json
+{ "extends": "<repo>/tsconfig.json", "compilerOptions": { "noEmit": true, "incremental": false },
+  "include": [], "files": ["<repo>/next-env.d.ts", "<repo>/app/…/Tocado.tsx"] }
+```
+
+Medido: con eso, un módulo puro y su test chequean con 1,5 GB de heap en segundos, y cinco archivos
+del Plan con todo lo que importan (829 archivos de `app/` y `lib/`, `BoardShell.tsx` incluido)
+terminan con 2 GB. Y **un verde de un tsc se prueba rompiéndolo como un test**: metiendo un error,
+la corrida tiene que salir con 2 y el error impreso. Una salida 1 sin una línea es el vigía, no un
+resultado (ver «El typecheck que "salía con 1 sin errores"»).
+
+**Vive en:** el tsconfig temporal de cada chat (scratchpad) · la memoria `pc-techo-ram-chrome`, que
+enseñaba la receta sin el `include` · *2026-10-14 Plan - Perro Guardián*

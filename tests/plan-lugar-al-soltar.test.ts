@@ -33,7 +33,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { hacerLugar, sugerirNumero, lugarEn, vaAntes, bandaDe, baseCorrida, type FilaLugar } from '../app/plan/board/lugar-al-soltar';
+import { hacerLugar, sugerirNumero, lugarEn, vaAntes, bandaDe, baseCorrida, respetarFijadas, MARGEN_CRUCE, type FilaLugar, type FilaReparto } from '../app/plan/board/lugar-al-soltar';
 import { prioFromScore, type Prio } from '../app/plan/board/types';
 
 const ordenar = (l: FilaLugar[]) => [...l].sort((a, b) => (vaAntes(a, b) ? -1 : vaAntes(b, a) ? 1 : 0));
@@ -225,4 +225,72 @@ test('las tres tablas de tareas que se arrastran le pasan el lugar al pop-up', (
   const n = SHELL.split("(id, sugerido, lugar) => setSoltada({ entidad: 'tarea', id, sugerido, lugar })").length - 1;
   assert.equal(n, 3, `se encontraron ${n}`);
   assert.match(SHELL, /onSoltarTask\?: \(id: string, sugerido: number, lugar\?: Lugar\) => void;/);
+});
+
+// ── y la corrida del Perro no lo deshace (14/10/2026) ───────────────────────────────
+// El reparto diario (`recurvarPlanOwner`) da los números por RANKING y no sabía dónde estaba
+// la fijada: la vecina que el arrastre corrió volvía al número de su puesto y quedaba encima.
+// Medido sobre el tablero real (174 abiertas, 513 lugares, simulando la corrida con las mismas
+// funciones): se deshacían 240; con `respetarFijadas`, 0. Con margen 1 se deshacían 169 y con
+// 2, cuatro: el 3 está medido. El tablero sin arrastres sale idéntico.
+//
+// PROBADO ROMPIÉNDOLO (14/10/2026), restaurando de memoria, sobre los 22 del archivo:
+//   1. sin el recorte (`respetarFijadas` devuelve la curva tal cual): 19 pass / 3 fail.
+//   2. sin el margen (recorta siempre, el Perro no puede cruzar): 21 / 1.
+//   3. el desempate por `num` dado vuelta en el recorte de abajo: 19 / 3.
+//   4. el margen con `<=` (cruza un punto antes): 21 / 1.
+//   5. `recurvarPlanOwner` sin `respetarFijadas`: 21 / 1.
+
+const fr = (id: string, mostrado: number, num: number, manual = false): FilaReparto => ({ id, num, mostrado, manual });
+
+test('el reparto sin fijadas queda tal cual', () => {
+  const filas = [fr('a', 92, 1), fr('b', 90, 2), fr('c', 80, 3)];
+  const curva = { a: 93, b: 88, c: 79 };
+  assert.deepEqual(respetarFijadas(filas, curva), curva);
+});
+
+test('la vecina que el arrastre corrió NO vuelve a pasar a la soltada', () => {
+  // El caso medido: #806 soltada en 91 entre #805 (92) y #804, que se corrió de 92 a 91 (su
+  // num es menor, así que en 91 queda detrás). El reparto le devuelve a #804 el 92 de su puesto.
+  const filas = [fr('805', 92, 805), fr('806', 91, 806, true), fr('804', 91, 804), fr('803', 90, 803)];
+  const curva = { 805: 92, 804: 92, 803: 90 };
+  const out = respetarFijadas(filas, curva);
+  assert.equal(out['804'], 91, 'queda en 91: a igual número su num la deja detrás de la soltada');
+  assert.equal(out['805'], 92, 'la de arriba no se toca');
+  assert.equal(out['803'], 90, 'la que ya quedaba debajo no se toca');
+  assert.ok(!('806' in out), 'a la fijada no se le escribe nada');
+});
+
+test('el desempate del recorte es el del Kanban: con num más alto, un punto menos', () => {
+  const filas = [fr('m', 70, 50, true), fr('u', 69, 60)];
+  // u tiene num MÁS ALTO que la fijada: en 70 se vería arriba, así que baja a 69.
+  assert.equal(respetarFijadas(filas, { u: 71 }).u, 69);
+  // Y la de arriba con num más bajo: en 70 se vería abajo, así que sube a 71.
+  const filas2 = [fr('u', 72, 10), fr('m', 70, 50, true)];
+  assert.equal(respetarFijadas(filas2, { u: 69 }).u, 71);
+});
+
+test('un juicio nuevo del Perro SÍ cruza a la fijada: el candado es de ella, no de las vecinas', () => {
+  // Una que se veía debajo y a la que se le acercó el deadline: el reparto la pone 5 arriba.
+  const debajo = [fr('m', 70, 50, true), fr('u', 68, 60)];
+  assert.equal(respetarFijadas(debajo, { u: 75 }).u, 75);
+  // Y una que se veía arriba y se fue quedando quieta: 5 debajo.
+  const arriba = [fr('u', 72, 60), fr('m', 70, 50, true)];
+  assert.equal(respetarFijadas(arriba, { u: 65 }).u, 65);
+});
+
+test('el margen: hasta MARGEN_CRUCE − 1 puntos del otro lado es ruido del reparto; desde ahí, cruza', () => {
+  const filas = [fr('m', 70, 50, true), fr('u', 68, 60)];
+  assert.equal(respetarFijadas(filas, { u: 70 + MARGEN_CRUCE - 1 }).u, 69, 'ruido: se queda debajo');
+  assert.equal(respetarFijadas(filas, { u: 70 + MARGEN_CRUCE }).u, 70 + MARGEN_CRUCE, 'juicio: cruza');
+});
+
+test('la corrida del Perro corrige el reparto alrededor de lo fijado', () => {
+  const PB = sinComentarios(leer('lib/plan-board.ts'));
+  const a = PB.indexOf('export async function recurvarPlanOwner(');
+  const corrida = PB.slice(a, PB.indexOf('\nexport ', a + 1));
+  assert.ok(corrida.length > 1000 && corrida.length < 20000, `el recorte de la corrida mide ${corrida.length}`);
+  assert.match(corrida, /const curva = respetarFijadas\(\s*filas\.map\(\(t\) => \(\{ id: t\.id, num: t\.num, mostrado: t\.mostrado, manual: t\.manual \}\)\),\s*curveTaskScores\(/);
+  // Y a la fijada sigue sin escribírsele nada.
+  assert.match(corrida, /const cambian = filas\.filter\(\(t\) => !t\.manual && curva\[t\.id\] != null && curva\[t\.id\] !== t\.mostrado\);/);
 });

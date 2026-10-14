@@ -3474,6 +3474,9 @@ Tres cosas que cuestan ver y que la regla hace a propósito:
   `score_base` (`recurvarPlanOwner`); corriendo sólo el número que se ve, la corrida de la
   mañana siguiente lo deshace y la soltada vuelve a empatar. Y el estado local del board corre
   la base también: el autosave de una tarea upsertea la fila ENTERA.
+  ⛔ **CORRECCIÓN del 14/10/2026: correr la base NO lo sostenía.** La corrida reparte por
+  RANKING, no desde el número de la base, y 240 de 513 lugares se deshacían igual en la primera
+  corrida. Ver «La corrida del Perro deshacía el arrastre», abajo.
 
 Y dos que encontró escribir la verificación, no el test:
 
@@ -3520,6 +3523,52 @@ la dibuja con el suyo.
 `tests/plan-lugar-al-soltar.test.ts`, probado rompiéndolo (6 roturas, 15/1 cada una).
 
 **Sin verificar en el navegador**, por lo mismo que el Kanban (ver arriba cómo medirlo).
+
+### La corrida del Perro deshacía el arrastre (14/10/2026)
+
+**Síntoma (medido, nadie lo había reportado todavía):** la tarjeta queda donde se soltó hasta la
+próxima corrida del Perro (`recurvarPlanOwner`), que corre cada día y además después de cada alta
+de tareas. Ahí, la vecina que el arrastre había corrido de 92 a 91 vuelve a 92 y queda encima.
+Simulando la corrida con las mismas funciones puras sobre el tablero real (174 abiertas, 513
+lugares donde se puede soltar): **240 de 513 se deshacían**.
+
+**Causa real — y el diagnóstico del 09/10 era el equivocado.** El 09/10 se dio por hecho que
+correr la `score_base` de las vecinas alcanzaba, porque «el Perro re-curva desde la base». No: la
+corrida reparte por RANKING sobre una pirámide fija (`curveTaskScores`), así que un punto menos de
+base casi nunca cambia el puesto, y el puesto devuelve el número de antes. Y la fijada entra a ese
+ranking con su número visible contra la BASE de las demás, que es otra escala: **5 de 174 tareas
+tienen base = número visible**, y la diferencia va de −34 a +24. Ocupa un puesto casi al azar y
+corre uno a todas las del medio.
+
+**La cura** (`respetarFijadas`, app/plan/board/lugar-al-soltar.ts, llamada desde
+`recurvarPlanOwner`): una no fijada se queda del lado de la fijada en que HOY se ve, salvo que el
+Perro la ponga claramente del otro lado (`MARGEN_CRUCE` = 3 puntos o más); si se queda, se le
+recorta el número lo justo, con el desempate por `num` del Kanban. **513 de 513** quedan en su
+lugar, el tablero sin arrastres sale idéntico, y cada corrida recorta p50 1 tarjeta, p90 2,
+máximo 4, sin cambiar a ninguna de columna. El margen se midió: con 1 se deshacían 169, con 2
+cuatro, con 3 ninguno.
+
+⚠️ **Cuatro formas de «ubicar a la fijada en el orden de mañana» fallaron antes** (65, 103, 80 y
+28 de 513 deshechos): cortar sobre los números de mañana, sobre el ranking del Perro, con el
+desempate de hoy, y con un primer reparto por cantidad. Todas chocan con lo mismo: el ranking
+distingue tarjetas que en pantalla se ven con el mismo número —y el Kanban las desempata por
+`num`, muchas veces al revés—. **Lo que la persona ve y donde suelta es el número; el ranking que
+no se dibuja no es una opinión que haya que respetar.** Por eso la regla es un margen sobre el
+número, no un orden.
+
+**Cómo se midió** (el script no sobrevive al scratchpad; se rehace en 15 minutos): leer
+`plan_tareas` y `plan_dependencias` del ws 9 por PostgREST (sólo GET); para tres tarjetas, cada
+lugar entre dos vecinas de la misma columna → `sugerirNumero` + `hacerLugar` → aplicar en memoria
+como el server (fijada, vecinas con `baseCorrida`) → la corrida en memoria (`ajusteTemporal`,
+`resolverDeps`, `curveTaskScores`, y ahora `respetarFijadas`) → ¿la soltada sigue entre sus dos
+vecinas?
+
+**Vive en:** `app/plan/board/lugar-al-soltar.ts` (`respetarFijadas`, `MARGEN_CRUCE`) ·
+`lib/plan-board.ts` (`recurvarPlanOwner`) · tests en `tests/plan-lugar-al-soltar.test.ts`,
+probados rompiéndolo.
+
+**Sin hacer:** `puntuarPlan` (lib/mako-guardian.ts, la re-puntuación completa con el modelo)
+también curva con `curveTaskScores` y no pasa por acá; no se midió si respeta a las fijadas.
 - **El Perro todavía puede re-empatar al día siguiente** a una tarjeta fijada con una vecina que no
   lo está: la curva reparte números por rango y no sabe que la fijada estaba en ese lugar. No es
   nuevo —le pasa a toda tarjeta fijada a mano— y se arregla en `recurvarPlanOwner`, no acá.

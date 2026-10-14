@@ -29,9 +29,15 @@ chat lo suyo (memoria `cerebro-reparte-a-chats`). No antes.
   de llegada y no por `num`. Detalle en `docs/hallazgos-plan.md` → «La tabla de tareas, el mismo
   gesto». Sin verificar con un arrastre: no había RAM.
 - La línea de AGENTS.md que nombraba `PreguntaCampo`, corregida.
+- **La corrida del Perro ya no deshace el arrastre.** Era más grave que «re-empatar»: medido,
+  240 de 513 arrastres se deshacían en la primera corrida (cada día y con cada alta). Ahora 0
+  (`respetarFijadas`). El porqué y lo que falló antes, en `docs/hallazgos-plan.md` → «La corrida
+  del Perro deshacía el arrastre».
 
 **Lo que sigue en la cola, sin tocar:**
-- **El Perro puede re-empatar** a una tarjeta fijada (`recurvarPlanOwner`).
+- `puntuarPlan` (la re-puntuación completa con el modelo, `lib/mako-guardian.ts`) también curva
+  con `curveTaskScores` y no pasa por `respetarFijadas`: no se midió si respeta a las fijadas.
+- Nada de lo del arrastre se probó con un arrastre en un navegador (sin RAM para un dev server).
 
 **Una trampa medida que sirve para el que pushee:** `tsc --noEmit` sobre el proyecto entero sale
 con código 1 sin un solo error (también con 6 GB de heap), pero el MISMO tsc con un `include`

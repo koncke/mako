@@ -21,6 +21,7 @@ export const PARTES: Parte[] = [
   { titulo: 'Borrar lo que quedó sin call site', detalle: 'Se fueron `PreguntaCampo` y tres textos del contrato de preguntas que no leía nadie (14/10)', estado: 'hecha' },
   { titulo: 'La tarjeta queda donde se soltó', detalle: 'Al soltar en el Kanban se corren las de abajo un punto, sin cruzarse ni cambiar de columna; el deshacer las devuelve', estado: 'hecha' },
   { titulo: 'Las tablas también', detalle: 'Arrastrar una fila de la tabla de tareas (la de la vista Tareas y la de adentro de un proyecto) corre a las de abajo igual que el Kanban (14/10)', estado: 'hecha' },
+  { titulo: 'El Perro no deshace el arrastre', detalle: 'La corrida diaria del Perro dejaba de nuevo encima a la vecina corrida en 240 de 513 lugares; ahora en ninguno (14/10)', estado: 'hecha' },
 ];
 
 export const BITACORA: Hito[] = [
@@ -181,6 +182,22 @@ export const BITACORA: Hito[] = [
     archivos: [
       'app/plan/board/Tablas.tsx — `soltarFila`; `useArrastreFilas` entrega `resto` y `pos`; el desempate por `num`',
       'tests/plan-lugar-al-soltar.test.ts — 3 guards nuevos, seis roturas probadas (15/1 cada una)',
+    ],
+  },
+  {
+    fecha: '14 oct', hora: '16:43', chat: 'Plan - Perro Guardián', cuenta: 'claude1', actor: 'claude', tipo: 'correccion',
+    titulo: 'La corrida del Perro deshacía el arrastre en casi la mitad de los lugares',
+    puntos: [
+      'Medido simulando la corrida sobre el tablero real (174 abiertas, 513 lugares): **240 de 513** arrastres se deshacían la primera vez que corría el Perro, que es cada día y después de cada alta de tareas.',
+      '⚠️ **El diagnóstico del 09/10 era el equivocado**: se creyó que correr también la base de las vecinas alcanzaba. La corrida reparte por RANKING, así que la vecina volvía al número de su puesto.',
+      'La cura (`respetarFijadas`): una tarjeta no fijada no cruza a una fijada salvo que el Perro la ponga 3 puntos o más del otro lado. **513 de 513** quedan en su lugar; el tablero sin arrastres sale idéntico. El 3 está medido (con 1 se deshacían 169, con 2 cuatro).',
+      'Cuatro formas de ubicar a la fijada en el orden del Perro fallaron antes (65, 103, 80 y 28 deshechos): el Perro distingue tarjetas que en pantalla se ven con el mismo número.',
+      'De paso: el chequeo de tipos «acotado» chequeaba el repo entero (`extends` hereda el `include`). Corregido en la memoria y en hallazgos-infra.',
+    ],
+    archivos: [
+      'app/plan/board/lugar-al-soltar.ts — `respetarFijadas`, `MARGEN_CRUCE`',
+      'lib/plan-board.ts — `recurvarPlanOwner` corrige el reparto alrededor de lo fijado',
+      'tests/plan-lugar-al-soltar.test.ts — 6 tests nuevos, cinco roturas probadas',
     ],
   },
 ];
