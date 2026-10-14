@@ -88,6 +88,11 @@
 > lead desde el 10/10. O el alta de «Nuevo lead» no lo guardó (bug del CRM: medir `createLead` con ese teléfono, ¿duplicado?
 > ¿error tragado?), o lo borraron después de la llamada: se le preguntó a Martín. Sin lead no hay inscripción: la #213 no tenía
 > a quién mandarle.
+> **14/10 ~04:30, inventario hecho:** docs/diseno-mako-nada-por-detras.md (162 reglas escondidas, plan §2, «Stop» §3,
+> protecciones para Martín §4). **Bug 5, causa REAL (medida en `notificaciones`):** la reserva de Calendly sí reinició la
+> #213 (su aviso salió 02:05:16); a las 02:08 el lead CONTESTÓ un mensaje a mano de Mauricio y `pausarPorRespuesta` frenó
+> el audio de los 5 min. Siguiente: lo que Martín decida de §4 y de «si contesta»; mientras, §2.1 (`reunion_en_pie`) y §2.2
+> (el reintento vuelve a pasar por su condición), que no cambian el comportamiento.
 > **PEDIDO GRANDE de Martín (14/10 ~01:10): «Depreca absolutamente todas las cosas que MaKo haga por detrás»** (textual en la
 > bitácora; regla en la memoria `mako-nada-por-detras`). Toda regla escondida del motor (ej. «la reunión ya pasó» en
 > procesarEnvios) pasa a una CONDITION visible y configurable; si falta, se crea; los flujos vivos se rehacen con la condición
