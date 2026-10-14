@@ -8527,3 +8527,16 @@ cuotas siguientes.
 nombre y los dos textos contradictorios al borrar una etapa, entre otros).
 
 _13/10/2026, cuenta 2, sin subagentes._
+
+## Dos reglas del CRM que encontró el inventario de «MaKo por detrás» (14/10/2026)
+
+Corrida de sólo lectura del chat de Automations (docs/diseno-mako-nada-por-detras.md, zonas inscripción y fuera).
+- **Mover de etapa a mano no dispara el CRON al instante.** `setPipelineStage` (kanban, ⚡ y confirmaciones) no llama a
+  `enrolarPorEvento('etapa')`. El comentario de `lib/leads.ts` (~2983) que dice lo contrario es falso: la automatización de
+  esa etapa espera al barrido del cron. Arreglo de integridad: disparar el evento cuando cambia la etapa EFECTIVA.
+- **T1 del CRM automático manda a «No Show» a quien CANCELÓ.** `crm-auto-plan.ts` (~212-221) lee `junta_X_at ?? fecha_junta_X`,
+  y una reunión cancelada deja la hora puesta y la fecha en null (`junta_X_at && fecha === null`). El mismo bug de lectura
+  lo tiene `catalogoDeLead` en Automations (`nutricion-grafo-motor.ts` ~757).
+- Y la reserva de Calendly limpia la etapa puesta a mano y firma el cambio «MaKo» (`AUTOR_SISTEMA`), no «Calendly».
+
+**Vive en:** `lib/leads.ts` (`setPipelineStage`, la reserva) · `lib/crm-auto-plan.ts` · `lib/etapa-historial.ts`
