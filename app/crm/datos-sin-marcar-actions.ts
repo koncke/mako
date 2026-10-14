@@ -10,12 +10,12 @@
 // =============================================================================
 
 import { revalidatePath, updateTag } from 'next/cache';
-import { getTenantDb, getRolWsEfectivo } from '@/lib/workspace';
+import { getRolWsEfectivo } from '@/lib/workspace';
 import { getUsuarioActual } from '@/lib/auth';
-import { logLeadEvent } from '@/lib/leads';
 import { TAG } from '@/lib/cache';
-import { conIgnorado, sanearIds, DATOS_AVISABLES, NO_IGNORABLES } from '@/lib/datos-aviso';
-import { apagadosDelNegocio, guardarApagados } from '@/lib/datos-aviso-config';
+import { sanearIds, sanearApagados, NO_IGNORABLES } from '@/lib/datos-aviso';
+import { apagadosDelNegocio, guardarApagados, escribirDatosIgnorados } from '@/lib/datos-aviso-config';
+import { apagadosDeFunnel, cambiarFichaDeFunnel } from '@/lib/ficha/config-server';
 import type { StepId } from '@/lib/stage-requirements';
 
 /** El worklist y el contador viven en la caché de leads: sin esto, lo ignorado sigue contando. */
@@ -39,32 +39,18 @@ async function autor(): Promise<string> {
 type ResultadoIgnorar = { ok: true; ignorados: StepId[] } | { ok: false; error: string };
 
 /**
- * LA escritura de lo ignorado, una sola para las dos puertas: el dato suelto (la ficha) y el lead
- * entero (la ✕ de «A revisar»). No completa nada: el dato sigue faltando y mover de etapa lo sigue
- * pidiendo. Lo que cambia es que no avisa, y queda en `leads.datos_ignorados` (mig 0270), que es
- * de donde sale el «Ver más» con su «volver a avisar».
+ * Las dos puertas de la pantalla (el dato suelto de la ficha y la ✕ del lead en «A revisar») escriben
+ * por `escribirDatosIgnorados` (lib/datos-aviso-config.ts), la MISMA función que usa la API de MaKo
+ * (`ignorar_datos_sin_marcar`): hasta el 14/10/2026 la API escribía `pendientes_ignorados` (el lead
+ * entero, mig 0109) y lo que ignoraba MaKo no aparecía en «Ver más» ni se podía volver a mostrar.
  *
  * Quien llama ya cortó sin sesión y ya saneó `pasos` (ids que existen, sin los NO_IGNORABLES).
- *
- * ⚠️ READ-MODIFY-WRITE de un array chico, por lead: dos pestañas ignorando dos datos del mismo
- * lead en el mismo instante pueden pisarse una a la otra. Es una preferencia de aviso, se ve en
- * pantalla y se vuelve a ignorar en un clic: no justifica una función de base.
  */
 async function escribirIgnorados(leadId: number, pasos: readonly StepId[], ignorar: boolean): Promise<ResultadoIgnorar> {
-  const db = await getTenantDb();
-  const { data, error } = await db.from('leads').select('datos_ignorados').eq('id', leadId).limit(1);
-  if (error) return { ok: false, error: 'No se pudo leer el lead.' };
-  const fila = ((data ?? []) as Array<{ datos_ignorados: unknown }>)[0];
-  if (!fila) return { ok: false, error: 'Ese lead no es de esta cuenta.' };
-  let nuevos = sanearIds(fila.datos_ignorados);
-  for (const paso of pasos) nuevos = conIgnorado(nuevos, paso, ignorar);
-  const { error: e2 } = await db.from('leads').update({ datos_ignorados: nuevos }).eq('id', leadId);
-  if (e2) return { ok: false, error: 'No se pudo guardar.' };
-  const nombres = pasos.map((p) => DATOS_AVISABLES.find((d) => d.id === p)?.label ?? p).join(' · ');
-  await logLeadEvent(leadId, 'Datos sin marcar', `${ignorar ? 'ignorado' : 'vuelve a avisar'}: ${nombres}`, await autor()).catch(() => {});
-  bust();
-  revalidatePath('/crm');
-  return { ok: true, ignorados: nuevos };
+  const r = await escribirDatosIgnorados(leadId, pasos, ignorar, await autor());
+  if (!r.ok) return r;
+  if (r.cambio) { bust(); revalidatePath('/crm'); }
+  return { ok: true, ignorados: r.ignorados };
 }
 
 /** Ignora (o deja de ignorar) UN dato sin marcar de UN lead: el desplegable de la ficha. */
@@ -102,22 +88,39 @@ export async function ignorarDatosDelLeadAction(leadId: number, ids: string[], i
   }
 }
 
-/** Qué tipos de dato tiene apagados el negocio, y si quien mira los puede cambiar. */
-export async function avisosDatosAction(): Promise<{ apagados: StepId[]; puedeEditar: boolean }> {
+/**
+ * Qué tipos de dato NO avisan, y si quien mira los puede cambiar.
+ *
+ * Desde el 14/10/2026 los avisos son POR FUNNEL (decisión 1 de docs/diseno-ficha-bloques.md): con
+ * `funnelId` (la casa del lead; null = el producto del negocio) son los de la ficha de ese funnel, que
+ * es lo que de verdad cuenta el lead. Sin `funnelId` (undefined), los del negocio: el respaldo que se
+ * suma a todos los funnels.
+ */
+export async function avisosDatosAction(funnelId?: number | null): Promise<{ apagados: StepId[]; puedeEditar: boolean }> {
   if (!(await haySesion())) return { apagados: [], puedeEditar: false };
-  const [apagados, rol] = await Promise.all([apagadosDelNegocio(), getRolWsEfectivo().catch(() => null)]);
+  const [apagados, rol] = await Promise.all([
+    funnelId === undefined ? apagadosDelNegocio() : apagadosDeFunnel(funnelId),
+    getRolWsEfectivo().catch(() => null),
+  ]);
   return { apagados, puedeEditar: rol === 'admin' };
 }
 
 /**
- * Guarda qué tipos de dato NO avisan. Sólo el admin: es del negocio entero (el worklist, «A
- * revisar» y los avisos de MaKo de todo el equipo cuentan con esto).
+ * Guarda qué tipos de dato NO avisan. Sólo el admin: el worklist, «A revisar» y los avisos de MaKo de
+ * todo el equipo cuentan con esto. Con `funnelId`, en la ficha de ese funnel (sólo lo que difiere de su
+ * plantilla); sin él, en el respaldo del negocio.
  */
-export async function guardarAvisosDatosAction(apagados: string[]): Promise<{ ok: true; apagados: StepId[] } | { ok: false; error: string }> {
+export async function guardarAvisosDatosAction(apagados: string[], funnelId?: number | null): Promise<{ ok: true; apagados: StepId[] } | { ok: false; error: string }> {
   try {
     if (!(await haySesion())) return { ok: false, error: 'Sin sesión.' };
     if ((await getRolWsEfectivo()) !== 'admin') return { ok: false, error: 'Solo el administrador puede cambiarlo.' };
-    const limpios = await guardarApagados(apagados);
+    let limpios: StepId[];
+    if (funnelId === undefined) limpios = await guardarApagados(apagados);
+    else {
+      const r = await cambiarFichaDeFunnel(funnelId, { op: 'avisos', apagados: sanearApagados(apagados) });
+      if (!r.ok) return r;
+      limpios = r.ficha.efectiva.apagados;
+    }
     bust();
     revalidatePath('/crm');
     return { ok: true, apagados: limpios };
