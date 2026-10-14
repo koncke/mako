@@ -8868,7 +8868,7 @@ curl -L \
 
 ### `PUT /api/v1/landing/documentos/{id}/publicacion` — Publicar una landing en internet
 
-Publica lo guardado de una landing o presentación del editor del Landing Generator en su dirección pública de MaKo (la respuesta la trae), con el Pixel de MaKo midiendo las visitas; si ya estaba publicada, la actualiza con lo último guardado. Es público: cualquiera con el link la ve. Úsala cuando pidan publicar una landing o subir sus cambios. La dirección es la que ya tenía, o una sugerida desde el título si nunca se publicó; para otra, pásala en `slug` (si estaba publicada, la dirección vieja deja de andar). Necesita el id (de listar_landings_creadas). Deja un link para que la persona revise la dirección y confirme.
+Publica lo guardado de una landing o presentación del editor del Landing Generator en su dirección pública de MaKo (la respuesta la trae), con el Pixel de MaKo midiendo las visitas; si ya estaba publicada, la actualiza con lo último guardado. Es público: cualquiera con el link la ve. Úsala cuando pidan publicar una landing o subir sus cambios. La dirección es la que ya tenía; si nunca se publicó, va en `slug` (sin ella contesta una libre sacada del título, para proponerla). Para otra, pásala en `slug` (si estaba publicada, la dirección vieja deja de andar). Necesita el id (de listar_landings_creadas). En el chat deja un link para que la persona revise la dirección y confirme; con un token detallado de escritura se publica en el acto.
 
 - **Ruta por operación:** `POST /api/v1/landing/publicar_landing`
 - **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
@@ -8884,7 +8884,7 @@ Publica lo guardado de una landing o presentación del editor del Landing Genera
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
 | `id` | number | sí | El id de la landing o presentación (de listar_landings_creadas). |
-| `slug` | string | no | El final de la dirección pública (la parte que es de esta landing): minúsculas, números y guiones, de 3 a 60 caracteres. Sin ella, la que ya tenía la landing o una sugerida desde su título. |
+| `slug` | string | no | El final de la dirección pública (la parte que es de esta landing): minúsculas, números y guiones, de 3 a 60 caracteres. Obligatoria si la landing nunca se publicó; sin ella, la que ya tenía. |
 
 ```bash
 curl -L \

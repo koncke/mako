@@ -29,6 +29,15 @@
 //   · diagnosticoParaApi(null) tratado como [] («nunca se diagnosticó»)                 -> 11 / 1
 //   · yaPublicadaAsi sin mirar `sitio_activo`                                           -> 11 / 1
 //   · crear_landing_desde_diseno sin el `if (enFlujo(ctx))`                             -> 11 / 1
+// Tras la revisión adversarial (14/10/2026), con todo en verde antes (14 pass + 1 todo) y
+// restaurado después (14 pass + 1 todo), una rotura por vez:
+//   · direccionParaPublicar devuelve la SUGERIDA sin que nadie la pida                  -> 13 / 1
+//   · el runner de publicar usa `disp?.sugerencia ?? dir.slug`                         -> 13 / 1
+//   · publicar dice «ya está así» también a una persona (sin `sinPersona(ctx) &&`)    -> 13 / 1
+//   · sinPersona = sólo enFlujo (un token por HTTP republicaría en bucle)             -> 13 / 1
+//   · siFallaNuestra con `> 500` (un 500 de la base salía como 400 crudo)             -> 13 / 1
+//   · listar_landings_creadas sin siFallaNuestra                                       -> 13 / 1
+//   · resumenPublicar sin la nota «sin cambios guardados nuevos»                      -> 13 / 1
 // El `todo` (punto 4, «publicá la landing…») NO es una rotura: falla hoy porque el clasificador
 // no reconoce el pedido. Es el BLOQUEANTE de lib/mako-intencion.ts (docs/hallazgos-editor-landing.md,
 // «Tanda 4»); con el parche aplicado pasa y se le saca el `todo`. Medido el 14/10 con el parche en
@@ -55,7 +64,7 @@ import type { LandingResumen } from '../lib/editor-landing/api-tipos';
 import type { Sugerencia } from '../lib/editor-landing/diagnostico';
 import {
   listaParaApi, paginasEnTexto, diagnosticoParaApi, pedidoDeCrear, yaPublicadaAsi, resumenPublicar,
-  urlDeLanding, estaPublicada, TOPES_VER, type FilaPublicable,
+  urlDeLanding, estaPublicada, direccionParaPublicar, siFallaNuestra, TOPES_VER, type FilaPublicable, type DisponibilidadSlug,
 } from '../lib/api-mako/areas/landing-editor.helpers';
 
 const RAIZ = join(__dirname, '..');
@@ -146,8 +155,45 @@ test('la dirección pública sale de UNA función (urlDeLanding): el día que se
 
 test('crear no corre en una automatización, y publicar/despublicar dicen «ya está así»', () => {
   assert.match(runnerDe('crear_landing_desde_diseno'), /preparar: async \(input, ctx\)[^{]*\{\s*if \(enFlujo\(ctx\)\) return \{ error:/);
-  assert.match(runnerDe('publicar_landing'), /yaPublicadaAsi\(fila, slug\)\) return \{ error: .*yaEstaba: true \};/);
+  // Publicar dice «ya está así» SÓLO sin una persona (un flujo o un token): a una persona se le deja
+  // republicar como el botón de la pantalla, porque la foto hornea lo que cambia sin subir la
+  // versión (los temas propios del negocio). Revisión adversarial del 14/10/2026.
+  assert.match(runnerDe('publicar_landing'), /sinPersona\(ctx\) && yaPublicadaAsi\(fila, slug\)\) return \{ error: .*yaEstaba: true \};/);
+  assert.match(sinComentarios(leer('lib/api-mako/areas/landing.run.ts')), /const sinPersona = \(ctx: Ctx\): boolean => enFlujo\(ctx\) \|\| ctx\.canal === 'http';/);
   assert.match(runnerDe('despublicar_landing'), /yaEstaba: true \}/);
+});
+
+test('publicar: la dirección es la PEDIDA o la que ya tenía; la sugerida vuelve para ir en `slug`, nunca se publica sola', () => {
+  // La pantalla genérica guarda el INPUT y vuelve a correr preparar() al confirmar: una sugerida se
+  // recalcularía (otro título, otro negocio que la tomó) y se publicaría en una URL que la persona no vio.
+  const sinPedir = (sugerencia: string | null): DisponibilidadSlug => ({ slug: '', disponible: false, sugerencia, motivo: 'Falta la dirección' });
+  const nunca = direccionParaPublicar(null, null, sinPedir('webinar-marzo'));
+  assert.ok('error' in nunca, 'una landing que nunca se publicó NO sale en la sugerida sin pedirla');
+  assert.deepEqual(nunca.faltan, ['slug']);
+  assert.deepEqual(nunca.disponibles, ['webinar-marzo']);
+  assert.match(nunca.error, /«webinar-marzo»/, 'la sugerida va en el texto: por HTTP directo sólo viaja el texto');
+  const sinLibre = direccionParaPublicar(null, null, sinPedir(null));
+  assert.ok('error' in sinLibre && sinLibre.faltan?.includes('slug'));
+  assert.deepEqual(direccionParaPublicar(null, 'webinar', null), { slug: 'webinar' }, 'la que ya tenía');
+  assert.deepEqual(direccionParaPublicar('Mi Webinar', 'webinar', { slug: 'mi-webinar', disponible: true, sugerencia: null, motivo: null }), { slug: 'mi-webinar' }, 'la pedida, como la normalizó slugDisponible');
+  const tomada = direccionParaPublicar('webinar', null, { slug: 'webinar', disponible: false, sugerencia: 'webinar-2', motivo: 'Ya está tomada' });
+  assert.ok('error' in tomada && /ya está tomada/.test(tomada.error));
+  assert.deepEqual((tomada as { disponibles?: string[] }).disponibles, ['webinar-2']);
+  // Y el runner no tiene otra fuente: ni una `sugerencia` suelta, ni un slug armado por su cuenta.
+  const b = runnerDe('publicar_landing');
+  assert.match(b, /direccionParaPublicar\(pedida, f\.slug, disp\)/);
+  assert.doesNotMatch(b, /sugerencia/, 'el runner publica una sugerida por su cuenta');
+});
+
+test('un error de la BASE no viaja crudo: se tira con «api-mako:» y el choke point lo hace 500 genérico', () => {
+  assert.throws(() => siFallaNuestra({ ok: false, error: 'Error leyendo landing_docs (página 1): canceling statement', status: 500 }), /^Error: api-mako: Error leyendo landing_docs/);
+  assert.throws(() => siFallaNuestra({ ok: false, error: 'Vercel', status: 502 }), /^Error: api-mako:/);
+  for (const status of [400, 403, 404, 409, 413, 422]) assert.doesNotThrow(() => siFallaNuestra({ ok: false, error: 'del que llama', status }), `status ${status}`);
+  // El prefijo es el que `esNuestro` reconoce (lib/api-mako/ejecutar.ts): si cambia allá, esto miente.
+  assert.match(leer('lib/api-mako/ejecutar.ts'), /const esNuestro = \(msg: string\): boolean =>\s*\/api-mako:\|/);
+  assert.match(runnerDe('listar_landings_creadas'), /if \(!r\.ok\) \{ siFallaNuestra\(r\); return errorLectura\(/);
+  assert.match(runnerDe('ver_landing_creada'), /if \(!r\.ok\) \{ siFallaNuestra\(r\); return errorLectura\(/);
+  assert.match(runnerDe('publicar_landing'), /if \(!d\.ok\) \{ siFallaNuestra\(d\); return \{ error:/);
 });
 
 // ── 3. Lo puro ────────────────────────────────────────────────────────────────
@@ -234,6 +280,9 @@ test('«ya está publicada así»: misma dirección, lo último guardado y el si
   assert.ok(r.includes(urlDeLanding('nueva')) && r.includes(urlDeLanding('webinar')), 'nombra la dirección nueva y la que deja de andar');
   assert.ok(resumenPublicar(fila({ sitio_activo: false, publicado_version: 6 }), 'webinar', 'landing').includes('pausado'));
   assert.ok(resumenPublicar(fila(), 'webinar', 'presentacion').startsWith('Publicar la presentación'));
+  // A una persona se le deja republicar sin cambios (como la pantalla), y el resumen se lo dice.
+  assert.match(resumenPublicar(fila(), 'webinar', 'landing'), /sin cambios guardados nuevos/);
+  assert.doesNotMatch(resumenPublicar(fila({ publicado_version: 6 }), 'webinar', 'landing'), /sin cambios guardados nuevos/);
 });
 
 test('el alta de crear es EXACTAMENTE la de la pantalla (pedidoDeDiseno), con el título encima', () => {

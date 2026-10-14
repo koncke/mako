@@ -170,9 +170,11 @@ export type FilaPublicable = {
 
 /**
  * «Ya está publicada así»: en esa dirección, con lo último guardado y el sitio prendido. Publicar
- * de nuevo no cambiaría nada y SÍ dejaría otra versión «Publicada» en el historial, que no se poda
- * nunca (server.ts, `podarVersionesAuto` sólo poda las automáticas): un flujo que publica en cada
- * lead llenaría el historial con copias de hasta 1,5 MB. Se marca `yaEstaba`.
+ * de nuevo dejaría otra versión «Publicada» en el historial, que no se poda nunca (server.ts,
+ * `podarVersionesAuto` sólo poda las automáticas): un flujo que publica en cada lead llenaría el
+ * historial con copias de hasta 1,5 MB. Se marca `yaEstaba` SÓLO sin una persona (un flujo o un
+ * token por HTTP, landing.run.ts): la foto también hornea lo que cambia sin subir la versión (los
+ * temas propios), y la pantalla deja republicar igual — a una persona, la API también.
  */
 export function yaPublicadaAsi(f: FilaPublicable, slug: string): boolean {
   return !!f.publicado_at && f.sitio_activo && f.slug === slug && f.publicado_version === f.version;
@@ -185,5 +187,51 @@ export function resumenPublicar(f: FilaPublicable, slug: string, formato: 'landi
   if (f.publicado_at) partes.push(`con lo último guardado (reemplaza lo publicado el ${f.publicado_at.slice(0, 10)})`);
   if (f.publicado_at && f.slug && f.slug !== slug) partes.push(`— la dirección anterior, ${urlDeLanding(f.slug)}, deja de andar`);
   else if (f.publicado_at && !f.sitio_activo) partes.push('— el sitio estaba pausado y vuelve a prenderse');
+  // A una PERSONA se le deja republicar sin cambios, como el botón de la pantalla: la foto vuelve a
+  // tomar lo que cambia sin subir la versión (los temas propios del negocio). Se le dice.
+  else if (yaPublicadaAsi(f, slug)) partes.push('— sin cambios guardados nuevos: se vuelve a armar y toma los temas propios de hoy');
   return `${partes.join(' ')}.`;
+}
+
+/** Lo que devuelve `slugDisponible` (lib/editor-landing/server.ts) cuando contesta. */
+export type DisponibilidadSlug = { slug: string; disponible: boolean; sugerencia: string | null; motivo: string | null };
+
+/**
+ * La dirección en la que se publica. Sale de DOS fuentes y nada más: la PEDIDA (validada y libre) o
+ * la que la landing YA tiene. Una SUGERIDA nunca se publica sola: la pantalla genérica guarda el
+ * INPUT de la propuesta (no el payload) y vuelve a correr preparar() al confirmar, así que una
+ * sugerencia se recalcularía contra el título y la ocupación DE ESE MOMENTO — la persona revisaba
+ * /l/webinar-marzo y se publicaba en /l/webinar-abril (revisión adversarial del 14/10/2026). Sin
+ * dirección pedida ni propia, se contesta la sugerida para que el modelo la pase en `slug`: queda
+ * fija en la propuesta, a la vista y editable en el formulario.
+ *
+ * `d` es la respuesta de `slugDisponible` (se consulta si hay pedida o si la landing no tiene).
+ */
+export function direccionParaPublicar(
+  pedida: string | null, actual: string | null, d: DisponibilidadSlug | null,
+): { slug: string } | { error: string; faltan?: string[]; disponibles?: string[] } {
+  if (pedida) {
+    if (!d) return { error: 'No pude revisar la dirección pedida.' };
+    if (d.disponible) return { slug: d.slug };
+    return {
+      error: `La dirección «${d.slug}» no se puede usar: ${(d.motivo ?? 'ya está tomada').toLowerCase()}.${d.sugerencia ? ` Una libre: «${d.sugerencia}».` : ''}`,
+      ...(d.sugerencia ? { disponibles: [d.sugerencia] } : {}),
+    };
+  }
+  if (actual) return { slug: actual };
+  const sugerida = d?.sugerencia ?? null;
+  return sugerida
+    ? { error: `Nunca se publicó y falta la dirección: «${sugerida}» está libre (sale del título). Pásala en «slug», o la que pida la persona.`, faltan: ['slug'], disponibles: [sugerida] }
+    : { error: 'Nunca se publicó y no encontré una dirección libre a partir del título: pide una en «slug».', faltan: ['slug'] };
+}
+
+/**
+ * Un error de la BASE (status ≥ 500 del server de la pantalla) no viaja crudo: se tira con el
+ * prefijo `api-mako:`, y `esNuestro` (lib/api-mako/ejecutar.ts) lo convierte en un 500 genérico con
+ * el detalle sólo en la consola. Devuelto como texto de error salía como 400 a un tercero, con el
+ * nombre de la tabla y el error de Postgres, y lo leía como un error suyo (revisión del 14/10/2026).
+ * Lo del que llama (404, 409, 400) sigue su camino.
+ */
+export function siFallaNuestra(r: { ok: false; error: string; status?: number }): void {
+  if ((r.status ?? 0) >= 500) throw new Error(`api-mako: ${r.error}`);
 }

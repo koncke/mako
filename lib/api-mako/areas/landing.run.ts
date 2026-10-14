@@ -58,7 +58,7 @@ import { PREFIJO_FLUJO } from '../canal';
 import {
   LIMITE_LISTA, listaParaApi, paginasEnTexto, diagnosticoParaApi, disenosParaApi, pedidoDeCrear,
   nombreDeDiseno, nombreDeObjetivo, yaPublicadaAsi, resumenPublicar, urlDeLanding, formatoParaApi,
-  estaPublicada, type FilaPublicable,
+  estaPublicada, direccionParaPublicar, siFallaNuestra, type FilaPublicable, type DisponibilidadSlug,
 } from './landing-editor.helpers';
 
 // ── utilidades ───────────────────────────────────────────────────────────────
@@ -112,6 +112,8 @@ const noExisteCreada = (id: number): string => `No existe la landing ${id} en es
 const COLS_PUBLICAR = 'id, titulo, version, slug, publicado_at, publicado_version, sitio_activo, papelera_at, config, contenido';
 /** «No corre en una automatización»: un flujo corre una vez por cada lead (dashboard.run.ts, `noEnFlujo`). */
 const enFlujo = (ctx: Ctx): boolean => ctx.canalKey.startsWith(PREFIJO_FLUJO);
+/** Sin una persona que confirme: un paso de un flujo o un token por HTTP (lo que puede correr en bucle). */
+const sinPersona = (ctx: Ctx): boolean => enFlujo(ctx) || ctx.canal === 'http';
 
 // ── Lecturas ─────────────────────────────────────────────────────────────────
 
@@ -501,7 +503,7 @@ export const RUNNERS: Runners = {
   listar_landings_creadas: {
     leer: async (input) => {
       const r = await docsEditor.listar();
-      if (!r.ok) return errorLectura(`No pude leer las landings (${r.error}).`);
+      if (!r.ok) { siFallaNuestra(r); return errorLectura(`No pude leer las landings (${r.error}).`); }
       return json(listaParaApi(r.docs, num(input, 'limite') ?? LIMITE_LISTA));
     },
   },
@@ -510,7 +512,7 @@ export const RUNNERS: Runners = {
     leer: async (input, ctx) => {
       const id = num(input, 'id') ?? 0;
       const r = await docsEditor.abrir(id);
-      if (!r.ok) return errorLectura(r.status === 404 ? noExisteCreada(id) : `No pude leer la landing ${id} (${r.error}).`);
+      if (!r.ok) { siFallaNuestra(r); return errorLectura(r.status === 404 ? noExisteCreada(id) : `No pude leer la landing ${id} (${r.error}).`); }
       const d = r.doc;
       // `abrir` no dice si está en la papelera (la pantalla no la abre desde ahí): se pregunta aparte,
       // y si esa lectura falla sale null («no sé»), no false: la landing ya se leyó y se devuelve igual.
@@ -871,8 +873,8 @@ export const RUNNERS: Runners = {
   },
 
   // ⚠️ LA PANTALLA GENÉRICA VUELVE A LLAMAR preparar() AL CONFIRMAR con el input guardado
-  // ({ id, slug? }): la dirección sugerida y la versión se resuelven otra vez contra la base, y se
-  // publica lo GUARDADO en ese momento (el botón «Publicar» del editor hace lo mismo).
+  // ({ id, slug? }): por eso la dirección viaja EN EL INPUT (una sugerida se recalcularía) y la
+  // versión se lee al confirmar: se publica lo GUARDADO en ese momento, como el botón del editor.
   publicar_landing: {
     preparar: async (input, ctx): Promise<Preparado> => {
       const id = num(input, 'id');
@@ -882,24 +884,23 @@ export const RUNNERS: Runners = {
       if (f.papelera_at) return { error: `«${f.titulo}» está en la papelera: se restaura desde el Landing Generator antes de publicarla.` };
 
       // La dirección: la pedida (validada y libre, por el MISMO chequeo que el diálogo de la
-      // pantalla), la que ya tenía, o la sugerida desde el título. La unicidad es global.
+      // pantalla) o la que ya tenía. La sugerida desde el título NO se publica sola: se contesta
+      // para que vuelva en `slug` y quede fija en la propuesta (direccionParaPublicar). La
+      // unicidad es global.
       const pedida = str(input, 'slug');
-      let slug: string | null = f.slug;
-      if (pedida || !slug) {
+      let disp: DisponibilidadSlug | null = null;
+      if (pedida || !f.slug) {
         const d = await docsEditor.slugDisponible(id, pedida ?? '');
-        if (!d.ok) return { error: `No pude revisar la dirección (${d.error}).` };
-        if (pedida && !d.disponible) {
-          return {
-            error: `La dirección «${d.slug}» no se puede usar: ${(d.motivo ?? 'ya está tomada').toLowerCase()}.${d.sugerencia ? ` Una libre: «${d.sugerencia}».` : ''}`,
-            ...(d.sugerencia ? { disponibles: [d.sugerencia] } : {}),
-          };
-        }
-        slug = pedida ? d.slug : d.sugerencia;
+        if (!d.ok) { siFallaNuestra(d); return { error: `No pude revisar la dirección (${d.error}).` }; }
+        disp = d;
       }
-      if (!slug) return { error: 'No encontré una dirección libre a partir del título: pide una en «slug».', faltan: ['slug'] };
+      const dir = direccionParaPublicar(pedida, f.slug, disp);
+      if ('error' in dir) return dir;
+      const slug = dir.slug;
 
       const fila: FilaPublicable = f;
-      if (yaPublicadaAsi(fila, slug)) return { error: `«${f.titulo}» ya está publicada en ${urlDeLanding(slug)} con lo último guardado: no hay cambios que publicar.`, yaEstaba: true };
+      // «Ya está así» sólo sin una persona (un flujo o un token): ver yaPublicadaAsi.
+      if (sinPersona(ctx) && yaPublicadaAsi(fila, slug)) return { error: `«${f.titulo}» ya está publicada en ${urlDeLanding(slug)} con lo último guardado: no hay cambios que publicar.`, yaEstaba: true };
       // Lo que publicar() rechazaría por el CONTENIDO se dice ahora, con las mismas reglas que usa
       // él (paginasParaPublicar, fuentesHtmlLibre, pideContrasena): en ejecutar() consumiría la
       // propuesta (AGENTS.md, «todo lo que se pueda saber sin escribir falla en preparar()»).

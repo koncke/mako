@@ -391,16 +391,20 @@ export const DEFS: readonly OperacionDef[] = [
     escribe: 'borra la fila en landing_drafts',
   },
   // PUBLICAR VA EN PANTALLA: deja algo PÚBLICO en internet, y la dirección es un dato exacto
-  // que un modelo puede transcribir mal (y que después se pega en los anuncios). La persona la
-  // ve y la corrige en /mako/revisar antes de que salga. Al confirmar se publica lo GUARDADO en
-  // ese momento, como el botón «Publicar» del editor (AGENTS.md, «publicar promueve lo GUARDADO»).
+  // que un modelo puede transcribir mal (y que después se pega en los anuncios). En el chat y por
+  // WhatsApp, la persona la ve y la corrige en /mako/revisar antes de que salga; por eso la
+  // dirección de una landing que nunca se publicó viaja en `slug` y no se sugiere al confirmar
+  // (se recalcularía). ⚠️ Con un token detallado de escritura o en una automatización NO hay
+  // revisión: se publica en el acto (decisión del 08/10/2026, lib/api-mako/rutas-http.ts `correr`).
+  // Al confirmar se publica lo GUARDADO en ese momento, como el botón «Publicar» del editor
+  // (AGENTS.md, «publicar promueve lo GUARDADO»).
   {
     id: 'publicar_landing', area: 'landing', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: true,
     titulo: 'Publicar una landing en internet',
-    descripcion: 'Publica lo guardado de una landing o presentación del editor del Landing Generator en su dirección pública de MaKo (la respuesta la trae), con el Pixel de MaKo midiendo las visitas; si ya estaba publicada, la actualiza con lo último guardado. Es público: cualquiera con el link la ve. Úsala cuando pidan publicar una landing o subir sus cambios. La dirección es la que ya tenía, o una sugerida desde el título si nunca se publicó; para otra, pásala en `slug` (si estaba publicada, la dirección vieja deja de andar). Necesita el id (de listar_landings_creadas). Deja un link para que la persona revise la dirección y confirme.',
+    descripcion: 'Publica lo guardado de una landing o presentación del editor del Landing Generator en su dirección pública de MaKo (la respuesta la trae), con el Pixel de MaKo midiendo las visitas; si ya estaba publicada, la actualiza con lo último guardado. Es público: cualquiera con el link la ve. Úsala cuando pidan publicar una landing o subir sus cambios. La dirección es la que ya tenía; si nunca se publicó, va en `slug` (sin ella contesta una libre sacada del título, para proponerla). Para otra, pásala en `slug` (si estaba publicada, la dirección vieja deja de andar). Necesita el id (de listar_landings_creadas). En el chat deja un link para que la persona revise la dirección y confirme; con un token detallado de escritura se publica en el acto.',
     parametros: [
       P_ID_CREADA,
-      { nombre: 'slug', rotulo: 'Dirección', tipo: 'string', max: 60, descripcion: 'El final de la dirección pública (la parte que es de esta landing): minúsculas, números y guiones, de 3 a 60 caracteres. Sin ella, la que ya tenía la landing o una sugerida desde su título.' },
+      { nombre: 'slug', rotulo: 'Dirección', tipo: 'string', max: 60, descripcion: 'El final de la dirección pública (la parte que es de esta landing): minúsculas, números y guiones, de 3 a 60 caracteres. Obligatoria si la landing nunca se publicó; sin ella, la que ya tenía.' },
     ],
     canales: TODOS, costo: 'gratis', gating: G_WRITER,
     escribe: 'la foto publicada de la landing (landing_docs.publicado, su dirección y la fecha), una versión «Publicada» en su historial y el paso del onboarding de publicar',
