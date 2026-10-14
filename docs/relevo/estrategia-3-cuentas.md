@@ -24,16 +24,17 @@ de primera mano: este chat coordinó los pushes del 13 y el 14/10. Reemplaza a e
   un merge en el medio le hace leer un árbol mezclado (14/10 12:49, 13 errores falsos). Ver
   `docs/hallazgos-infra.md` → «Mergear en el worktree de un push mientras corre su pre-push».
 
-## Lo que quedó pendiente al 14/10 13:00 (semanal de la cuenta 2 al 88%)
+- ⚠️ **El typecheck completo pide 5120 MB de heap desde el 14/10 13:15** (el Image Editor portado lo pasó
+  de 4096). Con «no esperes RAM» de Martín se pushea con `MAKO_TYPECHECK_SIN_ESPERA=1`; el chequeo arranca
+  con 2-4 GB libres y pagina, pero terminó (≈ 4 min).
 
-- **El push de CRM + Landing + General, en curso** desde `C:/dev/wt-push-k` (HEAD `b8b41ab8b`, sobre origin
-  `282173d6e`): la tanda A del CRM (`fb1410`), las tandas 3-5 del Landing Generator (`landing-int`
-  `73b45cb79`) y la tercera y cuarta vuelta de General. Si quedó rojo, el log es `push_k.log` del scratchpad.
-- **Después de ese deploy:** avisarles a CRM (puede arrancar la tanda B; que NO rebasee), General y Landing.
-- **Automations: la 3ª migración** (`scripts/migrar-contesto-condicion.ts --apply`, 8 automatizaciones) va
-  cuando el deploy de `282173d6e` esté Ready. Las dos primeras ya corrieron.
-- **Sin integrar, esperando a su dueño:** `editor-imagen` (3 commits del Image Editor). **Nunca** pushear
-  `wip/api-acciones-1410` («A MEDIAS») ni `api-acciones-1310`.
+## Lo que quedó pendiente al 14/10 13:30 (semanal de la cuenta 2 al 89%)
+
+- **Todo lo terminado está en origin/main `353c81a84`**: CRM tanda A, Landing tandas 3-5, General, el
+  Image Editor (tandas 1 y 2) y el relevo de Automations. Las tres migraciones de «nada por detrás» corrieron
+  (la 3ª, 8 automatizaciones, verificada por Automations).
+- **CRM arranca la tanda B**: la integra el orquestador, y que el CRM NO rebasee su rama.
+- **Nunca** pushear `wip/api-acciones-1410` («A MEDIAS») ni `api-acciones-1310`.
 - **Rojo conocido en HEAD:** `tests/cobranza.test.ts` (lo reportó General; no frena el push).
 - **Martín tiene que confirmar el borrador de 50 tareas** del Perro: https://hola-mako.com/plan/revisar/propmv7rwo1dkj2i6
 - **Decisión de Martín, sin contestar:** si la barra de selección en lote del Ads Manager va oscura o clara.
