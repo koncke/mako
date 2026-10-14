@@ -23,6 +23,10 @@
 //   4. mira las agendas embebidas (Calendly, Cal.com, GoHighLevel): si están, su alto y si cargaron,
 //      SIN tocar nada adentro (son de otro origen: no se puede, y no se quiere reservar);
 //   5. arma las piezas en el orden de la página y se las manda a MaKo; MaKo arma el texto y la cierra.
+// Y desde la tanda 6 (decisión d de Martín, «al replicar como landing se COPIA el estilo»), entre el 1 y
+// el 2, lee el ESTILO de la página (`leerEstilo`: colores, fuentes e imágenes como los ve un visitante) y
+// lo manda en el mismo mensaje final. Se sirve fresco desde `/m.js?leer=<id>` (sin caché): el Pixel no
+// cambia, así que ni SNIPPET_VERSION ni VERSION_PIXEL_LECTOR suben.
 // Antes de tocar nada, apaga los rastreadores de la página (fbq, gtag, ttq…, sendBeacon y los pedidos a
 // sus dominios): un clic del lector no puede ser una conversión en el Meta de un cliente.
 //
@@ -529,6 +533,144 @@ export const JS_LECTOR = String.raw`function (id, camino, origenMako) {
     }
   }
 
+  // ── El estilo de la página (tanda 6, d): para replicarla con SUS colores, fuentes e imágenes ──
+  // Decisión de Martín (14/10/2026): «Al replicar como landing se COPIA el estilo (colores y fuentes
+  // leídos en el navegador → tema propio; imágenes al bucket), nada de fotos de stock». Son los estilos
+  // COMPUTADOS (lo que ve un visitante, con el CSS de la app ya aplicado): el fondo y el texto, el título
+  // principal y la palabra resaltada, el botón que más se repite, el fondo detrás de cada título y las
+  // imágenes grandes visibles con el título de su parte. Van CRUDOS («rgb(…)», «"Inter", sans-serif»):
+  // MaKo los pasa a #hex, les pone topes y los sanea (estilo-original.ts). Se leen ANTES de tocar nada.
+  var estiloLeido = null;
+  function cssDe(el) { try { return getComputedStyle(el); } catch (e) { return null; } }
+  function alfa(c) {
+    c = String(c || '');
+    if (!c || c === 'transparent') return 0;
+    var m = /\/\s*([\d.]+)(%?)\s*\)$/.exec(c);
+    if (m) return m[2] ? Number(m[1]) / 100 : Number(m[1]);
+    m = /^rgba\([^,]+,[^,]+,[^,]+,\s*([\d.]+)\s*\)$/.exec(c);
+    return m ? Number(m[1]) : 1;
+  }
+  function conDegradado(cs) { return cs && /linear-gradient\(/.test(cs.backgroundImage || '') ? cs.backgroundImage : ''; }
+  function recortaTexto(cs) { return /text/.test(String(cs.webkitBackgroundClip || cs.backgroundClip || '')) || alfa(cs.webkitTextFillColor) < 0.5; }
+  function urlImg(u) {
+    if (!u || /^data:/i.test(String(u))) return '';
+    try {
+      var x = new URL(String(u), document.baseURI);
+      if (camino === 'ventana' && x.origin === location.origin) x = new URL(x.pathname + x.search + x.hash, document.baseURI);
+      return /^https?:$/.test(x.protocol) ? sinLeer(x.href).slice(0, 2000) : '';
+    } catch (e) { return ''; }
+  }
+  function leerEstilo() {
+    var e = { fondo: '', texto: '', titulo: '', tituloDegradado: '', acento: '', enlace: '', boton: '', botonDegradado: '', botonTexto: '', radioBoton: 0, altoBoton: 0, fuenteTitulo: '', fuenteCuerpo: '', pesoTitulo: '', pesoCuerpo: '', secciones: [], imagenes: [] };
+    var b = document.body, i, j, el, cs;
+    if (!b) return e;
+    var cb = cssDe(b), chtml = cssDe(document.documentElement);
+    if (cb && alfa(cb.backgroundColor) >= 0.5) e.fondo = cb.backgroundColor;
+    else if (chtml && alfa(chtml.backgroundColor) >= 0.5) e.fondo = chtml.backgroundColor;
+    if (cb) { e.texto = cb.color; e.fuenteCuerpo = cb.fontFamily; e.pesoCuerpo = cb.fontWeight; }
+    // El texto corrido: el de un párrafo visible (una app pone el color en un envoltorio, no en el body).
+    var ps = document.querySelectorAll('main p, section p, p');
+    for (i = 0; i < ps.length && i < 200; i++) {
+      if (!visible(ps[i]) || limpio(ps[i].innerText).length < 40) continue;
+      cs = cssDe(ps[i]);
+      if (cs) { e.texto = cs.color; e.fuenteCuerpo = cs.fontFamily; e.pesoCuerpo = cs.fontWeight; }
+      break;
+    }
+    // Los títulos visibles, en orden: cada uno con el fondo que tiene detrás (el de su parte) y, si esa
+    // parte tiene una imagen de fondo grande, esa imagen.
+    var hs = document.querySelectorAll('h1, h2, h3'), vis = [], vistas = {};
+    for (i = 0; i < hs.length && vis.length < 60; i++) if (visible(hs[i]) && limpio(hs[i].innerText) && !hs[i].closest(SEL_RUIDO + ', nav, [role="navigation"]')) vis.push(hs[i]);
+    function sumarImagen(u, s, fondo, r) {
+      if (!u || vistas[u] || e.imagenes.length >= 24 || /\.svgz?(\?|#|$)/i.test(u)) return;
+      vistas[u] = 1;
+      e.imagenes.push({ url: u, seccion: s, fondo: fondo, ancho: Math.round(r.width), alto: Math.round(r.height) });
+    }
+    for (i = 0; i < vis.length; i++) {
+      var fondo = '';
+      for (var p = vis[i], n = 0; p && p.nodeType === 1 && n < 30; p = p.parentElement, n++) {
+        cs = cssDe(p);
+        if (!cs) continue;
+        var u = /url\(\s*["']?([^"')]+)["']?\s*\)/.exec(cs.backgroundImage || '');
+        if (u && p !== document.body && p !== document.documentElement) {
+          var r = p.getBoundingClientRect();
+          if (r.width >= 300 && r.height >= 150) sumarImagen(urlImg(u[1]), i, true, r);
+        }
+        if (alfa(cs.backgroundColor) >= 0.5) { fondo = cs.backgroundColor; break; }
+        if (conDegradado(cs) && !recortaTexto(cs)) { fondo = cs.backgroundImage; break; }
+      }
+      e.secciones.push({ titulo: limpio(vis[i].innerText).slice(0, 160), fondo: fondo });
+    }
+    // El título principal (el h1; si no hay, el primero) y la palabra que resalta en otro color: el acento.
+    var h = null;
+    for (i = 0; i < vis.length && !h; i++) if (vis[i].tagName === 'H1') h = vis[i];
+    if (!h) h = vis[0] || null;
+    var ch = h ? cssDe(h) : null;
+    if (ch) {
+      e.titulo = ch.color; e.fuenteTitulo = ch.fontFamily; e.pesoTitulo = ch.fontWeight;
+      if (conDegradado(ch) && recortaTexto(ch)) e.tituloDegradado = ch.backgroundImage;
+      var ds = h.querySelectorAll('span, strong, em, mark, b, i');
+      for (j = 0; j < ds.length && j < 40 && !e.acento; j++) {
+        var cd = cssDe(ds[j]);
+        if (!cd) continue;
+        if (conDegradado(cd) && recortaTexto(cd)) e.acento = cd.backgroundImage;
+        else if (cd.color !== ch.color && alfa(cd.color) >= 0.5) e.acento = cd.color;
+      }
+    }
+    // El botón principal: el fondo que más se repite entre los botones visibles (el de una landing se repite).
+    var bs = document.querySelectorAll(SEL_BOTON), cuenta = {}, mejor = null, peso = 0;
+    for (i = 0; i < bs.length && i < 600; i++) {
+      el = bs[i];
+      if (!visible(el) || el.closest(SEL_RUIDO)) continue;
+      cs = cssDe(el);
+      if (!cs) continue;
+      var rb = el.getBoundingClientRect();
+      if (rb.width * rb.height < 1200 || rb.height < 24 || rb.height > 140) continue;
+      var t = etiqueta(el);
+      if (!t || t.length > 60) continue;
+      var deg = conDegradado(cs), bg = alfa(cs.backgroundColor) >= 0.5 ? cs.backgroundColor : '';
+      if ((!bg && !deg) || (!deg && bg === e.fondo)) continue;
+      var k = deg || bg;
+      cuenta[k] = (cuenta[k] || 0) + 1;
+      var w = cuenta[k] * 10 + Math.min(10, rb.width * rb.height / 2000);
+      if (w > peso) { peso = w; mejor = { cs: cs, r: rb, bg: bg, deg: deg }; }
+    }
+    if (mejor) {
+      e.boton = mejor.bg; e.botonDegradado = mejor.deg; e.botonTexto = mejor.cs.color;
+      e.radioBoton = parseFloat(mejor.cs.borderTopLeftRadius) || 0; e.altoBoton = Math.round(mejor.r.height);
+    }
+    // El color de un enlace dentro del texto (no un botón).
+    var as = document.querySelectorAll('p a[href], li a[href]');
+    for (i = 0; i < as.length && i < 200; i++) {
+      if (!visible(as[i])) continue;
+      cs = cssDe(as[i]);
+      if (cs && alfa(cs.backgroundColor) < 0.5) { e.enlace = cs.color; break; }
+    }
+    // Las imágenes grandes visibles, cada una con su parte: en el contenedor más chico que tiene títulos,
+    // el último título de ANTES de la imagen (o el primero, si la imagen va arriba del título).
+    var imgs = document.images;
+    for (i = 0; i < imgs.length && i < 400 && e.imagenes.length < 24; i++) {
+      el = imgs[i];
+      if (!visible(el) || el.closest(SEL_RUIDO)) continue;
+      var ri = el.getBoundingClientRect();
+      if (ri.width < 120 || ri.height < 80) continue;
+      var su = urlImg(el.currentSrc || el.src || el.getAttribute('data-src'));
+      if (!su) continue;
+      var s = -1;
+      for (var a = el.parentElement, m = 0; a && m < 12 && s < 0 && a !== document.body; a = a.parentElement, m++) {
+        var primero = -1;
+        for (j = 0; j < vis.length; j++) {
+          if (!a.contains(vis[j])) continue;
+          if (primero < 0) primero = j;
+          if (vis[j].compareDocumentPosition(el) & 4) s = j;
+        }
+        if (s < 0) s = primero;
+      }
+      if (s < 0) for (j = vis.length - 1; j >= 0 && s < 0; j--) if (vis[j].compareDocumentPosition(el) & 4) s = j;
+      sumarImagen(su, s < 0 ? (vis.length ? 0 : -1) : s, false, ri);
+    }
+    return e;
+  }
+
   // ── Armar las piezas en el orden de la página ──
   function construir() {
     var piezas = [], buf = [], chars = 0, nodos = 0;
@@ -577,7 +719,9 @@ export const JS_LECTOR = String.raw`function (id, camino, origenMako) {
     tocando = false;
     var piezas = [];
     try { piezas = construir(); } catch (e) {}
-    mandar({ fase: 'fin', camino: camino, titulo: String(document.title || '').slice(0, 200), piezas: piezas, ms: ahora(), quieto: quietoOk, parcial: !!parcial || tarde() });
+    var estilo = estiloLeido;
+    if (!estilo) { try { estilo = leerEstilo(); } catch (e) { estilo = null; } }
+    mandar({ fase: 'fin', camino: camino, titulo: String(document.title || '').slice(0, 200), piezas: piezas, ms: ahora(), quieto: quietoOk, parcial: !!parcial || tarde(), estilo: estilo });
     setTimeout(function () { try { window.close(); } catch (e) {} }, 300);
   }
 
@@ -591,6 +735,7 @@ export const JS_LECTOR = String.raw`function (id, camino, origenMako) {
       quietoOk = await esperarQuieto(QUIETO, Math.max(300, TOPE_QUIETO - ahora()));
       await bajarYSubir();
       await esperarQuieto(300, 1500);
+      try { estiloLeido = leerEstilo(); } catch (e) {}
       mirarAgendas(null, null);
       tocando = true;
       inicioToques = ahora();

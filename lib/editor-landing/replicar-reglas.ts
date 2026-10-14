@@ -48,7 +48,10 @@ export type ModoReplicar = (typeof MODOS_REPLICAR)[number];
 // (la copia idéntica de hoy). Ninguno pone fotos de stock al azar: las imágenes quedan como huecos para
 // elegir (`fuenteImagenes: 'marcadores'`). Antes «Como bloques» buscaba en el stock lo que la IA
 // describía, y una landing replicada salía con caras de banco de imágenes donde el original tenía las
-// suyas.
+// suyas. Y la otra mitad de la decisión, «se COPIA el estilo»: replicar.ts llena esos huecos con las
+// imágenes de la ORIGINAL (copiadas a nuestro bucket) y la landing nace con un tema propio armado con sus
+// colores y fuentes (estilo-original.ts, estilo-aplicar.ts). Esta receta no cambia: el hueco es el punto
+// de partida, y el que no se puede llenar queda como hoy.
 
 export const FORMATOS_REPLICAR = ['presentacion', 'landing', 'web'] as const;
 export type FormatoReplicar = (typeof FORMATOS_REPLICAR)[number];

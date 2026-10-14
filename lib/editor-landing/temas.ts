@@ -142,6 +142,39 @@ export const FUENTES: Readonly<Record<string, DefFuente>> = {
   'Source Sans 3': { pesos: [200, 300, 400, 500, 600, 700, 800, 900], tipo: 'sans' },
   // La de la landing de MaKo (app/vsl/Landing.tsx): para el tema «MaKo» (14/10/2026).
   'Geist': { pesos: P100_900, tipo: 'sans' },
+  // Tanda 6 (14/10/2026), decisión de Martín: al replicar una landing de afuera «se COPIA el estilo
+  // (colores y fuentes leídos en el navegador → tema propio)». Las que más usan las landings y no estaban
+  // (lib/editor-landing/estilo-original.ts las elige; con éstas la réplica lleva la MISMA fuente más
+  // seguido, y no la más parecida). Cada lista de pesos MEDIDA contra la API css2 ese día: las 47
+  // familias de este bloque contestaron 200 con exactamente esos pesos.
+  'Barlow': { pesos: P100_900, tipo: 'sans' },
+  'Mulish': { pesos: [200, 300, 400, 500, 600, 700, 800, 900], tipo: 'sans' },
+  'Karla': { pesos: [200, 300, 400, 500, 600, 700, 800], tipo: 'sans' },
+  'Quicksand': { pesos: [300, 400, 500, 600, 700], tipo: 'sans' },
+  'Josefin Sans': { pesos: [100, 200, 300, 400, 500, 600, 700], tipo: 'sans' },
+  'Figtree': { pesos: [300, 400, 500, 600, 700, 800, 900], tipo: 'sans' },
+  'Lexend': { pesos: P100_900, tipo: 'sans' },
+  'Urbanist': { pesos: P100_900, tipo: 'sans' },
+  'Heebo': { pesos: P100_900, tipo: 'sans' },
+  'Ubuntu': { pesos: [300, 400, 500, 700], tipo: 'sans' },
+  'PT Sans': { pesos: [400, 700], tipo: 'sans' },
+  'Noto Sans': { pesos: P100_900, tipo: 'sans' },
+  'Nunito Sans': { pesos: [200, 300, 400, 500, 600, 700, 800, 900], tipo: 'sans' },
+  'Cabin': { pesos: [400, 500, 600, 700], tipo: 'sans' },
+  'Titillium Web': { pesos: [200, 300, 400, 600, 700, 900], tipo: 'sans' },
+  'Kanit': { pesos: P100_900, tipo: 'sans' },
+  'Libre Franklin': { pesos: P100_900, tipo: 'sans' },
+  'Red Hat Display': { pesos: [300, 400, 500, 600, 700, 800, 900], tipo: 'sans' },
+  'Exo 2': { pesos: P100_900, tipo: 'sans' },
+  'Jost': { pesos: P100_900, tipo: 'sans' },
+  'Hind': { pesos: [300, 400, 500, 600, 700], tipo: 'sans' },
+  'Assistant': { pesos: [200, 300, 400, 500, 600, 700, 800], tipo: 'sans' },
+  'Prompt': { pesos: P100_900, tipo: 'sans' },
+  'Syne': { pesos: [400, 500, 600, 700, 800], tipo: 'sans' },
+  'Epilogue': { pesos: P100_900, tipo: 'sans' },
+  'Albert Sans': { pesos: P100_900, tipo: 'sans' },
+  'Be Vietnam Pro': { pesos: P100_900, tipo: 'sans' },
+  'Roboto Condensed': { pesos: P100_900, tipo: 'sans' },
   // ── Serif ──
   'Playfair Display': { pesos: [400, 500, 600, 700, 800, 900], tipo: 'serif' },
   'Lora': { pesos: [400, 500, 600, 700], tipo: 'serif' },
@@ -153,15 +186,37 @@ export const FUENTES: Readonly<Record<string, DefFuente>> = {
   'Cormorant Garamond': { pesos: [300, 400, 500, 600, 700], tipo: 'serif' },
   'DM Serif Display': { pesos: [400], tipo: 'serif' },
   'Source Serif 4': { pesos: [200, 300, 400, 500, 600, 700, 800, 900], tipo: 'serif' },
+  // Tanda 6 (ver el bloque de las sans): medidas contra la API css2.
+  'Roboto Slab': { pesos: P100_900, tipo: 'serif' },
+  'Noto Serif': { pesos: P100_900, tipo: 'serif' },
+  'PT Serif': { pesos: [400, 700], tipo: 'serif' },
+  'Bitter': { pesos: P100_900, tipo: 'serif' },
+  'EB Garamond': { pesos: [400, 500, 600, 700, 800], tipo: 'serif' },
+  'Cormorant': { pesos: [300, 400, 500, 600, 700], tipo: 'serif' },
+  'Crimson Text': { pesos: [400, 600, 700], tipo: 'serif' },
   // ── Display ──
   'Anton': { pesos: [400], tipo: 'display' },
   'Bebas Neue': { pesos: [400], tipo: 'display' },
   'Oswald': { pesos: [200, 300, 400, 500, 600, 700], tipo: 'display' },
+  // Tanda 6 (ver el bloque de las sans): medidas contra la API css2.
+  'Barlow Condensed': { pesos: P100_900, tipo: 'display' },
+  'Unbounded': { pesos: [200, 300, 400, 500, 600, 700, 800, 900], tipo: 'display' },
+  'Archivo Black': { pesos: [400], tipo: 'display' },
+  'Abril Fatface': { pesos: [400], tipo: 'display' },
+  'Teko': { pesos: [300, 400, 500, 600, 700], tipo: 'display' },
+  'Fjalla One': { pesos: [400], tipo: 'display' },
+  'Righteous': { pesos: [400], tipo: 'display' },
+  'Pacifico': { pesos: [400], tipo: 'display' },
+  'Dancing Script': { pesos: [400, 500, 600, 700], tipo: 'display' },
+  'Caveat': { pesos: [400, 500, 600, 700], tipo: 'display' },
   // ── Mono ──
   'Fira Mono': { pesos: [400, 500, 700], tipo: 'mono' },
   'IBM Plex Mono': { pesos: [100, 200, 300, 400, 500, 600, 700], tipo: 'mono' },
   'JetBrains Mono': { pesos: [100, 200, 300, 400, 500, 600, 700, 800], tipo: 'mono' },
   'Space Mono': { pesos: [400, 700], tipo: 'mono' },
+  // Tanda 6 (ver el bloque de las sans): medidas contra la API css2.
+  'Roboto Mono': { pesos: [100, 200, 300, 400, 500, 600, 700], tipo: 'mono' },
+  'Inconsolata': { pesos: [200, 300, 400, 500, 600, 700, 800, 900], tipo: 'mono' },
 };
 
 const RESPALDO_FUENTE: Record<TipoFuente, string> = {

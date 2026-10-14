@@ -29,20 +29,36 @@
 // los de siempre, y nacen con el formato y el origen de su receta. Devuelven su id; la pantalla la abre
 // en el editor. La usan la ruta (app/api/landing-generator/replicar) y la API de MaKo
 // (`replicar_landing`, lib/api-mako/areas/landing.run.ts).
+//
+// Tanda 6 (14/10/2026), la otra mitad de la decisión (d): «Al replicar como landing se COPIA el estilo
+// (colores y fuentes leídos en el navegador → tema propio; imágenes al bucket), nada de fotos de stock».
+// Por bloques (Presentación y Landing), mientras la IA arma las secciones:
+//   · el ESTILO de la original sale de la lectura del navegador (`lectura.estilo`, los estilos
+//     computados) o, si no vino, del HTML y las hojas que baja el server (`estiloDeLaPagina`);
+//   · se guarda como un TEMA PROPIO del workspace («Estilo de <sitio>», `temaDeEstilo`) y la landing nace
+//     con él; el mismo estilo replicado dos veces reusa el tema (su id sale del contenido);
+//   · las imágenes de la original se copian a NUESTRO bucket (`subirImagenes`) y van a las secciones que
+//     las tenían, con los fondos de sección distintos (`aplicarEstilo`). La que no se copia deja el
+//     marcador de hoy. La Página web (copia fiel) no cambia: ya lleva el HTML y los estilos de la original.
 // =============================================================================
 
 import 'server-only';
 import { htmlDePagina } from '../landing-fetch';
-import { crear } from './server';
+import { getWorkspaceActual } from '../workspace';
+import { crear, guardarTema, temasPropiosDe } from './server';
 import { esquema as pedirEsquema, secciones as pedirSecciones } from './ia';
 import { tandasDe, tarjetaDesdeEsquema } from './ia-reglas';
 import { nuevoId, type JsonNodo, type LandingContenido } from './doc';
-import { terminoTarjeta, type ConfigLanding, type Esquema } from './api-tipos';
+import { terminoTarjeta, type ConfigLanding, type Esquema, type TemaPropio } from './api-tipos';
 import { motivoDeError, seLeeEnNavegador } from './lectura-reglas';
 import {
   configDeReplica, contenidoDeCopiaFiel, copiaFiel, formatoReplicar, urlParaReplicar,
   type ConfigReplica, type RespuestaReplicar,
 } from './replicar-reglas';
+import { estiloDeLectura, temaDeEstilo, type EstiloOriginal } from './estilo-original';
+import { TOPES_IMAGENES_REPLICA, aplicarEstilo, asignarSecciones, imagenesParaSubir, imagenesQueFaltan } from './estilo-aplicar';
+import { estiloDeLaPagina, subirImagenes } from './estilo-server';
+import { colorDeRelleno, temaPorId } from './temas';
 
 export type ResultadoReplicar = RespuestaReplicar & { status?: number };
 
@@ -54,6 +70,11 @@ const TANDA_MS = 60_000;
 const EN_PARALELO = 2;
 /** El texto pegado que se acepta (el de un esquema, `MAX_TEXTO_ENTRADA`: ia.ts lo vuelve a cortar). */
 const MAX_TEXTO = 60_000;
+/**
+ * Hasta cuándo se copian imágenes de la original: después de las tandas, con aire para guardar el tema
+ * y crear antes del `maxDuration` de la ruta (300 s). `subirImagenes` no empieza una que no termina.
+ */
+const PLAZO_IMAGENES_MS = 265_000;
 
 const falla = (error: string, status = 400): ResultadoReplicar => ({ ok: false, error, status });
 
@@ -115,6 +136,10 @@ async function replicarFiel(url: string, receta: ConfigReplica): Promise<Resulta
 async function replicarComoBloques(url: string, receta: ConfigReplica, entrada: { lectura: unknown; texto: string }): Promise<ResultadoReplicar> {
   const t0 = Date.now();
   const params = receta.params ?? {};
+  // El estilo de la original, EN PARALELO con el esquema: el de la lectura del navegador si vino (los
+  // estilos computados de la página armada), o el del HTML y sus hojas. `estiloDeLaPagina` nunca tira.
+  const leido = estiloDeLectura(entrada.lectura);
+  const estiloP: Promise<EstiloOriginal | null> = leido ? Promise.resolve(leido) : estiloDeLaPagina(url);
   // El texto pegado entra como «Pegar texto»; la lectura del navegador, como «Importar» sin bajar nada.
   const e = entrada.texto
     ? await pedirEsquema({ modo: 'pegar', texto: entrada.texto, params })
@@ -124,6 +149,13 @@ async function replicarComoBloques(url: string, receta: ConfigReplica, entrada: 
     return { ok: false, error: e.error, status: e.status, ...(e.enNavegador && e.motivo ? seLeeEnNavegador(e.motivo) : {}) };
   }
   const esq: Esquema = e.esquema;
+  const estilo = await estiloP;
+  // Qué sección de la réplica es cuál de la original (por el título), y la primera imagen de cada una
+  // a NUESTRO bucket mientras la IA arma las secciones.
+  const asig = estilo ? asignarSecciones(esq.secciones, estilo.secciones) : [];
+  const ws = estilo?.imagenes.length ? await getWorkspaceActual().catch(() => null) : null;
+  const primeras = estilo && ws != null ? imagenesParaSubir(asig, estilo).primeras : [];
+  const subidasP = ws != null && primeras.length ? subirImagenes(primeras, ws, t0 + PLAZO_IMAGENES_MS) : Promise.resolve(new Map<string, string>());
   const tandas = tandasDe(esq.secciones.length);
   const porIndice = new Map<number, JsonNodo>();
   let sinIA = 0;
@@ -152,14 +184,57 @@ async function replicarComoBloques(url: string, receta: ConfigReplica, entrada: 
     return tarjetaDesdeEsquema(s, i === 0);
   });
   if (!tarjetas.length) return falla('No encontré secciones en esa página.', 422);
-  const contenido: LandingContenido = { v: 1, paginas: [{ id: nuevoId('p'), titulo: 'Inicio', ruta: '', doc: { type: 'doc', content: tarjetas } }] };
-  const creada = await crearLanding(esq.titulo, contenido, receta.config);
+
+  // Las imágenes que faltan para los huecos que dejó la IA (una galería, las caras de un equipo), si
+  // queda plazo y tope; después el tema propio y lo de la original puesto en las secciones.
+  const subidas = await subidasP;
+  const intentadas = new Set(primeras);
+  if (estilo && ws != null) {
+    const faltan = imagenesQueFaltan(tarjetas, asig, estilo, subidas).slice(0, Math.max(0, TOPES_IMAGENES_REPLICA.total - primeras.length));
+    for (const u of faltan) intentadas.add(u);
+    if (faltan.length) for (const [k, v] of await subirImagenes(faltan, ws, t0 + PLAZO_IMAGENES_MS)) subidas.set(k, v);
+  }
+  const tema = await temaParaLaCopia(estilo, url);
+  const config: Partial<ConfigLanding> = tema.ok ? { ...receta.config, tema: `ws:${tema.tema.id}` } : receta.config;
+  // El fondo de la tarjeta del tema que quedó (el guardado: si la persona ya lo había tocado, el suyo).
+  const fondoTema = tema.ok ? colorDeRelleno(temaPorId(`ws:${tema.tema.id}`, [tema.tema]).tarjeta.fondo) : null;
+  const puesto = estilo ? aplicarEstilo(tarjetas, asig, estilo, subidas, { fondoTema }) : { tarjetas, imagenes: 0, fondos: 0 };
+
+  const contenido: LandingContenido = { v: 1, paginas: [{ id: nuevoId('p'), titulo: 'Inicio', ruta: '', doc: { type: 'doc', content: puesto.tarjetas } }] };
+  const creada = await crearLanding(esq.titulo, contenido, config);
   if ('ok' in creada) return creada;
-  console.log(`[editor-landing/replicar] ${receta.formato} ${url}${entrada.texto ? ' (texto pegado)' : entrada.lectura ? ' (leída en el navegador)' : ''} → #${creada.id} (${tarjetas.length} secciones, ${sinIA} sin IA, ${Math.round((Date.now() - t0) / 1000)} s)`);
+  const noCopiadas = Math.max(0, intentadas.size - subidas.size);
+  console.log(`[editor-landing/replicar] ${receta.formato} ${url}${entrada.texto ? ' (texto pegado)' : entrada.lectura ? ' (leída en el navegador)' : ''} → #${creada.id} (${tarjetas.length} secciones, ${sinIA} sin IA, estilo ${estilo ? (leido ? 'del navegador' : 'del HTML') : 'no'}, tema ${tema.ok ? tema.tema.id : tema.error}, ${puesto.imagenes} imágenes y ${puesto.fondos} fondos de la original, ${noCopiadas} sin copiar, ${Math.round((Date.now() - t0) / 1000)} s)`);
   const una = terminoTarjeta(receta.config);
   const varias = terminoTarjeta(receta.config, { plural: true });
+  const avisos = [
+    sinIA ? (sinIA === 1 ? `Una ${una} quedó sin diseño.` : `${sinIA} ${varias} quedaron sin diseño.`) : '',
+    !estilo ? 'Sin el estilo de la original.' : !tema.ok && tema.tope ? 'Llegaste al tope de temas.' : '',
+    noCopiadas ? (noCopiadas === 1 ? 'Una imagen no se copió.' : `${noCopiadas} imágenes no se copiaron.`) : '',
+  ].filter(Boolean);
   return {
     ok: true, id: creada.id, titulo: creada.titulo, secciones: tarjetas.length, formato: receta.formato,
-    ...(sinIA ? { aviso: sinIA === 1 ? `Una ${una} quedó sin diseño.` : `${sinIA} ${varias} quedaron sin diseño.` } : {}),
+    ...(avisos.length ? { aviso: avisos.join(' ') } : {}),
   };
+}
+
+/**
+ * El tema propio con el estilo de la original, guardado en el workspace. Si ya hay uno con el mismo id
+ * (el mismo estilo, replicado antes) se REUSA tal como está: no se pisa lo que la persona le haya cambiado.
+ * Nunca tira: sin tema, la réplica nace con el de fábrica (`tope` cuando no entra uno más).
+ */
+async function temaParaLaCopia(estilo: EstiloOriginal | null, url: string): Promise<{ ok: true; tema: TemaPropio } | { ok: false; error: string; tope?: boolean }> {
+  const tema = temaDeEstilo(estilo, url);
+  if (!tema) return { ok: false, error: 'sin estilo' };
+  try {
+    const ws = await getWorkspaceActual();
+    if (ws == null) return { ok: false, error: 'sin negocio' };
+    const ya = (await temasPropiosDe(ws)).find((t) => t.id === tema.id);
+    if (ya) return { ok: true, tema: ya };
+    const r = await guardarTema(tema);
+    if (r.ok) return { ok: true, tema: r.tema };
+    return { ok: false, error: r.error, tope: r.status === 409 && /tope/i.test(r.error) };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
 }

@@ -18,7 +18,10 @@
 //     formato vive en un solo lugar, con test, y nunca se le cree a un texto armado por una página ajena;
 //   · el paso a lo que ACEPTA EL SERVER (`aLecturaDelServer`): el contrato del server es `Lectura` de
 //     lectura-tipos.ts (análisis, Replicar, Importar), y el server la re-sanea con SU `sanearLectura`
-//     (lectura-reglas.ts). Un contrato solo: esto no define otro, lo llena.
+//     (lectura-reglas.ts). Un contrato solo: esto no define otro, lo llena;
+//   · tanda 6 (d), «al replicar como landing se COPIA el estilo»: el `estilo` de la página (colores,
+//     fuentes e imágenes como las ve un visitante) viaja en el mismo mensaje y en la misma lectura, como
+//     campo opcional (`LecturaConEstilo`). Lo sanea estilo-original.ts, acá y otra vez en el server.
 //
 // El script que corre ADENTRO de la página leída está en lector-script.ts; la ventana sin Pixel, en
 // lector-pagina.ts; la función que abre la ventana y espera la respuesta, en lector-navegador.ts.
@@ -27,7 +30,7 @@
 //   página → MaKo  { fase: 'hola', camino }        el lector arrancó (se repite hasta el «dale»)
 //   MaKo → página  { fase: 'dale' }                 recién ahí toca algo: un link compartido con el
 //                                                   parámetro, abierto por otro, no hace nada
-//   página → MaKo  { fase: 'fin', camino, titulo, piezas, ms, quieto, parcial }
+//   página → MaKo  { fase: 'fin', camino, titulo, piezas, ms, quieto, parcial, estilo }
 //   página → MaKo  { fase: 'error', error }         la página no se pudo bajar o el lector se cayó
 // MaKo sólo acepta mensajes de LA ventana que abrió (`ev.source`), con SU id y desde un origen esperado
 // (`origenDeLecturaValido`): el de la landing, el opaco de la ventana aislada («null») o el propio.
@@ -37,8 +40,18 @@
 
 // El contrato del server (del agente que lo escribió en la misma tanda): sólo el tipo, no arrastra nada.
 import type { Lectura as LecturaDelServer } from './lectura-tipos';
+// El ESTILO de la página (tanda 6, d): su saneo es puro y vive con el resto del estilo.
+import { sanearEstilo, type EstiloOriginal } from './estilo-original';
 
 export type { LecturaDelServer };
+
+/**
+ * Lo que va al server: la `Lectura` de siempre y, si el lector lo leyó, el `estilo` de la página (tanda 6,
+ * decisión d de Martín: al replicar se COPIA el estilo de la original). El campo es OPCIONAL y el server lo
+ * vuelve a sanear (`estiloDeLectura`, estilo-original.ts); las entradas que no lo usan (Importar, el
+ * Diagnóstico) lo ignoran: `sanearLectura` arma la suya con texto e interacciones.
+ */
+export type LecturaConEstilo = LecturaDelServer & { estilo?: EstiloOriginal };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // El contrato
@@ -121,6 +134,11 @@ export type LecturaDetallada = {
   quieto: boolean;
   /** Se cortó antes de terminar (el tope de tiempo, o la página se fue). */
   parcial: boolean;
+  /**
+   * Tanda 6 (d): los colores, las fuentes y las imágenes grandes de la página como la ve un visitante
+   * (los estilos COMPUTADOS), saneados. Sin el campo: el lector no pudo leerlos.
+   */
+  estilo?: EstiloOriginal;
 };
 
 export const TOPES_LECTOR = {
@@ -321,6 +339,8 @@ function lecturaDe(url: string, crudo: Record<string, unknown>, camino: CaminoLe
   const { piezas, cortada } = sanearPiezas(crudo.piezas);
   const texto = armarTextoLectura(piezas);
   const ms = typeof crudo.ms === 'number' && Number.isFinite(crudo.ms) ? Math.max(0, Math.min(TOPES_LECTOR.ms, Math.round(crudo.ms))) : 0;
+  // Lo manda una página ajena: con forma y topes, o nada (`sanearEstilo` da null si no trae nada usable).
+  const estilo = sanearEstilo(crudo.estilo);
   return {
     v: 1,
     url,
@@ -333,6 +353,7 @@ function lecturaDe(url: string, crudo: Record<string, unknown>, camino: CaminoLe
     ms,
     quieto: crudo.quieto === true,
     parcial: crudo.parcial === true || cortada,
+    ...(estilo ? { estilo } : {}),
   };
 }
 
@@ -402,8 +423,10 @@ function interaccionDelServer(p: InteraccionLeida): LecturaDelServer['interaccio
  * La lectura con la forma que aceptan las tres entradas del server (el `lectura` de ia «importar», del
  * Diagnóstico y de Replicar: `Lectura` de lectura-tipos.ts). El texto va entero (con sus marcas: es el
  * orden de la página); lo probado, una vez por cosa (un botón que aparece tres veces se probó una).
+ * Tanda 6 (d): con el `estilo` de la página si se leyó (lo usa Replicar para copiar colores, fuentes e
+ * imágenes; la pantalla manda esto TAL CUAL en el `lectura` de cada pedido).
  */
-export function aLecturaDelServer(d: Pick<LecturaDetallada, 'texto' | 'interacciones'>): LecturaDelServer {
+export function aLecturaDelServer(d: Pick<LecturaDetallada, 'texto' | 'interacciones' | 'estilo'>): LecturaConEstilo {
   const vistas = new Set<string>();
   const interacciones: LecturaDelServer['interacciones'] = [];
   for (const p of d.interacciones) {
@@ -413,5 +436,5 @@ export function aLecturaDelServer(d: Pick<LecturaDetallada, 'texto' | 'interacci
     vistas.add(clave);
     interacciones.push(i);
   }
-  return { texto: d.texto, interacciones, fuente: 'navegador' };
+  return { texto: d.texto, interacciones, fuente: 'navegador', ...(d.estilo ? { estilo: d.estilo } : {}) };
 }
