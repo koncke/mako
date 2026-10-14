@@ -26,10 +26,15 @@ export type RutaRest = readonly [MetodoRest, string, string];
 
 /** [método, ruta (sin /api/v1), id de la operación] */
 export const RUTAS_REST: readonly RutaRest[] = [
+  // ── calendario (13/10/2026) ─────────────────────────────────────────────────
+  ['GET', '/calendario/eventos', 'listar_eventos_calendario'],
+  ['POST', '/calendario/eventos', 'crear_evento_calendario'],
   // ── general ───────────────────────────────────────────────────────────────
   ['GET', '/general/arranque/pendientes', 'listar_pendientes_arranque'],
   ['GET', '/general/capacidad', 'ver_capacidad_instalada'],
   ['PUT', '/general/capacidad', 'guardar_capacidad'],
+  ['GET', '/general/vistas', 'listar_vistas_general'],
+  ['POST', '/general/vistas', 'crear_vista_general'],
   ['GET', '/general/kpis', 'listar_kpis'],
   ['POST', '/general/kpis', 'guardar_kpi'],
   ['GET', '/general/kpis/fuentes', 'listar_fuentes_kpi'],
@@ -96,6 +101,7 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['PUT', '/crm/leads/{leadId}/calificacion', 'marcar_calificado'],
   ['PUT', '/crm/leads/{leadId}/cuotas', 'guardar_cuotas'],
   ['PATCH', '/crm/leads/{leadId}/cuotas/{pagoId}', 'marcar_pago_cobrado'],
+  ['POST', '/crm/leads/{leadId}/pagos', 'registrar_pago_suelto'],
   ['PUT', '/crm/leads/{leadId}/deal-details', 'guardar_deal_details'],
   ['PUT', '/crm/leads/{leadId}/etapa', 'proponer_cambio_etapa'],
   ['GET', '/crm/leads/{leadId}/etapas/{etapa}/requisitos', 'requisitos_para_mover'],

@@ -55,12 +55,13 @@ import { DEFS as equipo } from './areas/equipo.def';
 import { DEFS as cs } from './areas/cs.def';
 import { DEFS as curso } from './areas/curso.def';
 import { DEFS as cobros } from './areas/cobros.def';
+import { DEFS as calendario } from './areas/calendario.def';
 import { DEFS as mako } from './areas/mako.def';
 
 /** Por área, en el orden de la barra. El orden es el del catálogo y la referencia. */
 const POR_AREA: Record<Area, readonly OperacionDef[]> = {
   general, plan, crm, ads, whatsapp, email, chatbot, metricas: [...metricas, ...dashboard], experimentos,
-  landing, closing, negocio, contenido, video, integraciones, equipo, cs, curso, cobros, mako,
+  landing, closing, negocio, contenido, video, integraciones, equipo, cs, curso, cobros, calendario, mako,
 };
 
 export const REGISTRO: readonly OperacionDef[] = AREAS.flatMap((a) => POR_AREA[a]);

@@ -156,6 +156,9 @@ export const FAMILIAS: NavFamilia[] = [
         // escrita en la base.
         { key: 'general', label: 'General', href: '/general', icon: 'general', match: (p) => starts('/general')(p) || starts('/focus')(p) },
         { key: 'todo', label: 'Plan', href: '/plan', icon: 'todo', rolesWs: ['closer', 'setter'], match: (p) => starts('/plan')(p) || starts('/todo')(p) },
+        // El Calendario (13/10/2026, Martín: «que sea en otra tab, no en GENERAL»): publicaciones, llamadas, bloques
+        // de trabajo, los deadlines del Plan y el Quarter. Sólo el admin: dibuja la agenda de Google del negocio.
+        { key: 'calendario', label: 'Calendario', href: '/calendario', icon: 'calendario', match: starts('/calendario') },
       ],
       // La máquina: lo que trae gente y lo que la mueve.
       [
@@ -510,6 +513,7 @@ export const ADMIN_FAMILIAS: NavFamilia[] = [
           { key: 'dev-admin', label: 'Admin', href: '/admin/dev/admin', icon: 'admin', match: starts('/admin/dev/admin') },
           { key: 'dev-onboarding', label: 'Onboarding', href: '/admin/dev/onboarding', icon: 'config', match: starts('/admin/dev/onboarding') },
           { key: 'dev-general', label: 'General', href: '/admin/dev/general', icon: 'config', match: starts('/admin/dev/general') },
+          { key: 'dev-calendario', label: 'Calendario', href: '/admin/dev/calendario', icon: 'calendario', match: starts('/admin/dev/calendario') },
           { key: 'dev-dashboard', label: 'Dashboard', href: '/admin/dev/dashboard', icon: 'graphics', match: starts('/admin/dev/dashboard') },
           // El área se llama como la tab (Automations, desde el 09/10/2026); la key y la ruta
           // /admin/dev/chatbot siguen: son el slug del registro y su historia.

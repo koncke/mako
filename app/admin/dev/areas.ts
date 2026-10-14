@@ -103,8 +103,26 @@ export const AREAS: AreaDev[] = [
     slug: 'general', titulo: 'General', familia: 'Operate', grupo: 'General',
     estado: 'listo', verEnApp: '/general',
     alcance: 'La casa del cliente al entrar: hero de la meta, resumen del mes, semáforo del negocio y worklist de pendientes.',
-    vive: ['app/general/page.tsx', 'app/general/actions.ts', 'lib/queries.ts', 'lib/pagos.ts', 'lib/meta-health.ts'],
+    vive: [
+      'app/general/page.tsx', 'app/general/actions.ts', 'lib/queries.ts', 'lib/pagos.ts', 'lib/meta-health.ts',
+      // Las vistas personalizables (13/10/2026): cada persona elige bloques, orden y funnels u ofertas.
+      'app/general/BarraVistas.tsx', 'app/general/NuevaVista.tsx', 'app/general/EditarVista.tsx',
+      'app/general/CobranzaGeneral.tsx', 'app/general/Bloques.tsx', 'app/api/general',
+      'lib/general-vistas-modelo.ts', 'lib/general-vistas.ts', 'lib/general-alcance.ts', 'lib/general-vistas-ia.ts',
+    ],
     proyectos: ['Feature: General'],
+  },
+  {
+    slug: 'calendario', titulo: 'Calendario', familia: 'Operate', grupo: 'General',
+    estado: 'listo', verEnApp: '/calendario',
+    alcance: 'La tab Calendario: publicaciones, bloques de trabajo y llamadas propias, con las reuniones del CRM, la agenda de Google, los deadlines del Plan y el Quarter leídos de donde viven. Plantillas de semana y «¿Qué vas a crear hoy?» (MaKo propone, la persona confirma).',
+    vive: [
+      'app/calendario', 'app/api/calendario', 'lib/calendario.ts', 'lib/calendario-modelo.ts', 'lib/calendario-ia.ts',
+      'lib/api-mako/areas/calendario.def.ts', 'lib/api-mako/areas/calendario.run.ts',
+      'supabase/migrations/0271_calendario_eventos.sql', 'tests/calendario.test.ts',
+    ],
+    hallazgos: 'hallazgos-calendario',
+    nota: 'La agenda de Google se DIBUJA y nada más: ni la IA del Calendario ni su área de la API la leen (la agenda no pasa por IA). Y las reuniones del CRM tienen la fecha sin hora (fecha_junta_1) y con hora (junta_1_at) en dos columnas distintas.',
   },
   {
     slug: 'foco-hoy', titulo: 'Foco / Hoy', familia: 'Operate', grupo: 'General',

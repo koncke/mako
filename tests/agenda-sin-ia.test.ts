@@ -364,6 +364,9 @@ const DEVUELVEN_DATOS = [
   'horariosLibresDeGoogle',
   // 08/10/2026: lo que hay un día (con o sin invitados), y cancelar o cambiar un evento.
   'eventosDelDia', 'cancelarEventoDeReunion', 'cambiarEventoDeReunion',
+  // 13/10/2026: la agenda entre dos fechas, para DIBUJAR la tab Calendario (lib/calendario.ts). Ni su IA ni su
+  // área de la API la leen (tests/calendario.test.ts lo fija).
+  'eventosEntre',
 ];
 const NO_DEVUELVEN_DATOS = [
   'GCAL_SCOPE_LECTURA', 'GCAL_SCOPE_ESCRITURA', 'GCAL_SCOPE', 'googleRedirectUri',
