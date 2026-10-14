@@ -831,9 +831,9 @@ completa, con el porqué de cada archivo, está en `tests/integracion-sin-salir.
 
 - **General y el Dashboard** los pasó su propia sesión (`abd91fdb`: la acción del día, las alertas del semáforo y
   «Conectar una IA» del AI Analyst). Quedan yendo a la grilla, a propósito, los que no nombran una integración (el
-  «Conectar» del semáforo sin fuentes, lo que arman `lib/focus.ts` y `lib/vista-general-modelo.ts`). Falta
-  `app/dashboard/NuevaHoja.tsx`: su `TextoConLink` del fallo de la IA sigue navegando (el patrón es el de
-  `app/automations/ChatMako.tsx` con `LinkIntegracion`); el barrido no lo ve porque el link llega en una variable.
+  «Conectar» del semáforo sin fuentes, lo que arman `lib/focus.ts` y `lib/vista-general-modelo.ts`).
+  `app/dashboard/NuevaHoja.tsx` (el `TextoConLink` del fallo de la IA) ya abre el modal: `cd88308bb`, medido el 14/10.
+  El barrido no lo habría visto, porque el link llega en una variable.
 - **Abrir suelta la landing y el agente** pediría mudar su armado del `page.tsx` a una server action como
   `integracionAction`.
 - **Las tabs que ofrecen Google y no montan la vuelta** pierden el mensaje si el OAuth falla (el parámetro queda en la
