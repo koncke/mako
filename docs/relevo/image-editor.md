@@ -1,6 +1,6 @@
-# Relevo — Image Editor (el Canva de MaKo), 14/10/2026
+# Relevo — Image Editor (el Canva de MaKo), 14/10/2026 tarde
 
-Chat: «Canva en Content Machine» (cuenta claude2). Lo escribe el chat que hizo el trabajo.
+Chat: «Image Editor» (cuenta claude1). Antes: «Canva en Content Machine» (claude2). Lo escribe el chat que hizo el trabajo.
 
 ## El pedido
 
@@ -8,55 +8,43 @@ Chat: «Canva en Content Machine» (cuenta claude2). Lo escribe el chat que hizo
 > diseño como funcionalidades. Revisa si hay algún repo que nos ahorre trabajo. Dejalo en "Content
 > Machine" en una tab que sea "Image"»
 
-Y sobre la base, eligiendo entre tres: **«Copia a Doory, y luego lo modificamos completamente para que
-sea original de MaKo, pero quiero la plantilla para ir trabajando».**
+Y sobre la base: **«Copia a Doory, y luego lo modificamos completamente para que sea original de MaKo,
+pero quiero la plantilla para ir trabajando».** El 14/10 a la tarde, por el orquestador: cerrar lo
+pendiente que no dependa de Martín y dejarle en una línea las opciones de lo que sí.
 
 ## Dónde quedó
 
-- **Rama `editor-imagen`, worktree `C:/dev/wt-canva`.** Tanda 1 commiteada (`7c82507d`) + registro de
-  `/admin/dev`, hallazgos y este relevo en el commit siguiente. Si no dice «en main» abajo, no se pusheó.
-- **Lo que hay:** Doory (el único Canva open source completo, fabric.js 7) portado a
-  `app/image-editor/_doory/`, con la cáscara de MaKo: `/image-editor` (inicio con los tamaños de Canva y
-  recientes) y `/image-editor/<id>` (el editor). Sólo el super admin, por persona. Guarda en el navegador,
-  una base por workspace. Textos en español neutro. La paleta de Canva ya está en los tokens.
-- **El crédito de Doory se muestra en cada apertura**: su licencia lo exige aunque se modifique el código.
-  Se va sólo con permiso escrito del autor (Siam, github.com/shaongitbd/doory) o reescribiendo sin su
-  código. No abrir a clientes antes de resolver esto.
-- **Verificado:** typecheck acotado limpio; 74 tests de los que barren el árbol + el test nuevo, probado
-  rompiéndolo; el inicio dibujado en un dev server local (captura). **NO verificado:** el editor abierto —
-  el dev server local pasa los 5 GB al compilarlo y el vigía de RAM lo mata. Se mira en producción.
+- **Rama `editor-imagen`, worktree `C:/dev/wt-canva`.** Tandas 1 y 2 en main desde el 14/10 13:26
+  (`353c81a8`). Encima: `c7a77fcb` (la vista del presentador) y `5136c1ce` (tanda 3, la base), más la
+  cosecha. Si abajo no dice «en main», no se pusheó.
+- **Tanda 3 hecha:** diseños, «Subidos» y miniaturas en Supabase (mig **0278, ya aplicada en prod**: sólo
+  agrega dos tablas y el bucket `image-editor`). Lo que la etapa 1 dejó en el navegador de alguien sube solo
+  la primera vez que abre el editor, con su mismo enlace. Plano: `docs/diseno-editor-imagen.md`.
+- **Verificado:** el editor andando en un banco (esbuild + Chrome sin ventana, sin dev server: pasa los 5 GB)
+  — crear, texto, plantilla, imagen, guardar y reabrir, PNG y PDF, presentador; el server contra la base
+  real en el ws 3 (23 pasos, limpiando todo al final); 887 tests de los que barren el árbol en verde.
+- **NO verificado:** la cáscara de MaKo alrededor (la tab, la barra, el `?ws=`) en producción. El Chrome con
+  Claude in Chrome no estaba conectado para claude1. Qué mirar con la sesión de Martín: crear un diseño,
+  subir una imagen, cerrar y abrir desde otra pestaña (tiene que estar), descargar PNG, el crédito de Doory al pie.
 
-## EN MAIN desde el 14/10 13:26 (`353c81a8`, tandas 1 y 2) — cuenta claude2 al 89% semanal
+## Lo que decide Martín (en una línea cada una)
 
-Lo pusheó el orquestador en su push integrado. El primer deploy murió por `qrcode` sin declarar; con su arreglo (`fac319092`) quedó Ready en producción.
+- **¿«Image» también mirando un cliente (`?ws=`)?** A) Sí: la fila te aparece a vos también adentro de un
+  cliente; ya está hecho en `opcion-image-en-clientes` (`8cd57c7e`) y arregla su «no veo la tab» · B) No, como
+  hoy. Un admin de cliente no lo ve en ninguna.
+- **¿Le escribimos a Siam (autor de Doory) pidiendo MIT?** Sin eso el cartel se queda y no se abre a clientes.
+- **¿Fotos de Unsplash con una key de MaKo?** ¿Y un modelo para quitar fondo de objetos?
+- **¿La API del editor ya, con un gating nuevo «sólo plataforma», o el día que se abre a clientes?** Hoy
+  declararla con `gating.tab` la abre por token a cualquier cliente completo/agencia.
+- **Una pestaña de Canva** (`canva.com/design/DAHX-ICTUd4`) en el grupo de los agentes: si se creó en su cuenta, papelera.
 
-**Falta verificarlo a mano con la cuenta de Martín**: el Chrome conectado a Claude in Chrome tiene la sesión de Leandro (rol usuario, ws 10), y el guard lo rebota a /crm — que es lo correcto y prueba el candado, pero no deja ver el editor. Qué mirar: crear un diseño, texto, imagen subida, plantilla, descargar PNG/PDF, y que el crédito de Doory aparezca.
+## Lo que sigue (no depende de él)
 
-Lo de abajo es la historia de cómo se llegó.
-
-## Actualización 14/10 tarde
-
-- **La tanda 1 NO está en main todavía**: cada push lo frenó la RAM (el vigía mata el typecheck del pre-push). Hay un reintento corriendo desde un worktree LIMPIO, `C:/dev/wt-canva-push` (detached en `aa8ea32b`), con `scratchpad/scripts/push-con-ram.sh`: espera 6 GB libres, integra origin/main y pushea; hasta 8 intentos. Si se cortó, se relanza con `sh <script> <log>` desde cualquier chat.
-- **La tanda 2 (re-vestido de Canva + catálogo) está COMMITEADA** (`bef0ad47`, rama `editor-imagen`): typecheck acotado 0 errores, 59/59 tests. Sin ver en el navegador. Se le pidió al orquestador (Estrategia 3 cuentas) que la sume a su próximo push integrado; si no lo hizo, desde `C:/dev/wt-canva`: `git fetch && git merge origin/main` y push.
-
-## Lo que sigue (por tandas, en `docs/diseno-editor-imagen.md` §4)
-
-1. **Verificar el editor en producción** (crear, texto, imagen, descargar PNG/PDF).
-2. **Re-vestido de Canva** (6 paquetes de archivos separados: barra superior, riel izquierdo y paneles,
-   barra del objeto, lienzo y barra inferior, diálogos, inicio). La especificación medida está en
-   `docs/editor-imagen/relevamiento-canva-armazon.md`; falta `relevamiento-canva-funciones.md` (el agente
-   se cortó con la caída).
-3. Supabase, catálogo propio, lo que a Doory le falta de Canva, API de MaKo.
-
-## Decisiones que esperan a Martín
-
-- ¿«Image» también en la barra mirando un cliente (`?ws=`)? Hoy no, por su regla del 01/08. El cambio está hecho y sin
-  pushear en la rama `opcion-image-en-clientes` (`8cd57c7e`); si dice que sí, se trae con cherry-pick.
-- ¿Le escribimos a Siam pidiendo licencia MIT para sacar el cartel?
-- ¿Unsplash (key de MaKo) para las fotos? ¿Modelo para quitar fondo de objetos?
-- Una pestaña de Canva quedó abierta en el grupo de los agentes (`canva.com/design/DAHX-ICTUd4`): si se
-  creó en su cuenta, va a la papelera.
+1. Las 10 plantillas con el texto del lienzo en español y sus miniaturas redibujadas (el banco sirve).
+2. Tanda 5: lo de Canva que Doory no trae (lista en `docs/hallazgos-editor-imagen.md`, al final).
+3. Tanda 4: alojar las fuentes (hoy jsDelivr). Marca, versiones, compartir y comentarios con tablas propias.
+4. `docs/editor-imagen/relevamiento-canva-funciones.md` (el agente se cortó con la caída del 14/10).
 
 ## Para retomar
 
-`Leé docs/relevo/image-editor.md y docs/hallazgos-editor-imagen.md y seguimos con el re-vestido.`
+`Leé docs/relevo/image-editor.md y docs/hallazgos-editor-imagen.md y seguimos.`
