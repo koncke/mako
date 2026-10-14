@@ -8,12 +8,9 @@
 // Canva (entre «Herramientas» y «Apps»): los diseños de ESTE workspace con su
 // miniatura; un clic abre ese diseño.
 //
-// Se registra al importar este módulo (lo importa la pantalla del editor). Quien
-// conoce el workspace es el server (`getWorkspaceActual`, prop de la página): la
-// pantalla llama `registrarProyectos(ws)` con ese número y el panel lee la base de
-// ese workspace. Sin esa llamada, el panel busca solo en qué base del navegador está
-// el diseño abierto (ProyectosPanel.tsx → `repoDelDiseno`). El `?ws=` de la URL NO
-// alcanza: en tu propia cuenta no está y la base sería la del workspace 0.
+// Se registra al importar este módulo (lo importa la pantalla del editor). La lista
+// sale de la base (/api/image-editor/disenos) con el workspace de la pestaña: el
+// `ws` que pasa la pantalla ya no decide nada y queda por si un panel lo necesita.
 
 import { createElement } from 'react';
 import { FolderOpen } from 'lucide-react';
