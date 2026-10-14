@@ -8643,7 +8643,7 @@ curl -L \
 
 ### `GET /api/v1/landing/plantillas` — Diseños y objetivos para crear
 
-Con qué se puede crear una landing en el editor: los diseños (cómo se VE: colores, tipografía, dónde va la imagen) y los objetivos (qué DICE: agendar una llamada, webinar, lead magnet, venta directa…), cada uno con su id, su nombre y una línea. Úsala antes de crear_landing_desde_diseno para elegir los dos con la persona. No requiere parámetros.
+Con qué se puede crear una landing en el editor: los diseños (cómo se VE: colores, tipografía y si trae un video al inicio, al centro o al costado; casi todos lo traen) y los objetivos (qué DICE: agendar una llamada, webinar, lead magnet, venta directa…), cada uno con su id, su nombre y una línea. Úsala antes de crear_landing_desde_diseno para elegir los dos con la persona. No requiere parámetros.
 
 - **Ruta por operación:** `GET /api/v1/landing/listar_disenos_landing`
 - **Token detallado:** permiso `landing=read` (Solo lectura en «Landing (Analyst, Generator y tracking)»)
@@ -8769,7 +8769,7 @@ Crea una landing nueva en el editor del Landing Generator: el texto de ejemplo d
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `diseno` | string (claro-clasico \\| oscuro-moderno \\| minimal \\| audaz \\| calido \\| tecnologico \\| fresco \\| editorial) | sí | Cómo se ve (de listar_disenos_landing). |
+| `diseno` | string (mako \\| claro-clasico \\| oscuro-moderno \\| minimal \\| audaz \\| calido \\| tecnologico \\| fresco \\| editorial) | sí | Cómo se ve (de listar_disenos_landing). |
 | `objetivo` | string (agenda-llamada \\| webinar \\| lead-magnet \\| venta-directa \\| servicio-local \\| lista-espera \\| curso-programa \\| gracias \\| consultoria \\| app-software) | sí | Qué dice: el texto de ejemplo con que nace (de listar_disenos_landing). |
 | `titulo` | string | no | El nombre de la landing en el Panel. Sin él, el nombre del objetivo. |
 
@@ -8781,7 +8781,7 @@ curl -L \
   -H "X-MaKo-Api-Version: 2026-10-08" \
   -H "Content-Type: application/json" \
   "https://hola-mako.com/api/v1/landing/documentos" \
-  -d '{"diseno":"claro-clasico","objetivo":"agenda-llamada"}'
+  -d '{"diseno":"mako","objetivo":"agenda-llamada"}'
 ```
 
 ### `DELETE /api/v1/landing/documentos/{id}/publicacion` — Sacar una landing de internet

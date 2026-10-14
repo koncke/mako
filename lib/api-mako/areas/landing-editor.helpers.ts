@@ -137,7 +137,9 @@ export function diagnosticoParaApi(sugerencias: readonly Sugerencia[] | null) {
 /** Los diseños y los objetivos, como los ofrece la pantalla. */
 export function disenosParaApi() {
   return {
-    disenos: DISENOS_LANDING.map((d) => ({ id: d.id, nombre: d.nombre, descripcion: d.descripcion })),
+    // `video` dice si el diseño trae un VSL en el inicio y dónde (centro / costado; null = sin video):
+    // la mayoría lo trae desde el 14/10/2026 («deberían ser tipo VSL Funnel», Martín).
+    disenos: DISENOS_LANDING.map((d) => ({ id: d.id, nombre: d.nombre, descripcion: d.descripcion, video: d.video })),
     objetivos: OBJETIVOS_LANDING.map((o) => ({ id: o.id, nombre: o.nombre, descripcion: o.descripcion })),
     nota: 'Una landing se crea cruzando un diseño (cómo se ve) con un objetivo (qué dice): crear_landing_desde_diseno con los dos ids. Las presentaciones no se crean por aquí.',
   };

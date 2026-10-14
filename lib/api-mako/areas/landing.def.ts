@@ -274,7 +274,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'listar_disenos_landing', area: 'landing', tipo: 'lectura',
     titulo: 'Diseños y objetivos para crear',
-    descripcion: 'Con qué se puede crear una landing en el editor: los diseños (cómo se VE: colores, tipografía, dónde va la imagen) y los objetivos (qué DICE: agendar una llamada, webinar, lead magnet, venta directa…), cada uno con su id, su nombre y una línea. Úsala antes de crear_landing_desde_diseno para elegir los dos con la persona. No requiere parámetros.',
+    descripcion: 'Con qué se puede crear una landing en el editor: los diseños (cómo se VE: colores, tipografía y si trae un video al inicio, al centro o al costado; casi todos lo traen) y los objetivos (qué DICE: agendar una llamada, webinar, lead magnet, venta directa…), cada uno con su id, su nombre y una línea. Úsala antes de crear_landing_desde_diseno para elegir los dos con la persona. No requiere parámetros.',
     parametros: [],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: G_WRITER,
   },

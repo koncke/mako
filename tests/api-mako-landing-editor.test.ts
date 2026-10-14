@@ -63,7 +63,7 @@ import { APP_BASE_URL } from '../lib/app-url';
 import type { LandingResumen } from '../lib/editor-landing/api-tipos';
 import type { Sugerencia } from '../lib/editor-landing/diagnostico';
 import {
-  listaParaApi, paginasEnTexto, diagnosticoParaApi, pedidoDeCrear, yaPublicadaAsi, resumenPublicar,
+  disenosParaApi, listaParaApi, paginasEnTexto, diagnosticoParaApi, pedidoDeCrear, yaPublicadaAsi, resumenPublicar,
   urlDeLanding, estaPublicada, direccionParaPublicar, siFallaNuestra, TOPES_VER, type FilaPublicable, type DisponibilidadSlug,
 } from '../lib/api-mako/areas/landing-editor.helpers';
 
@@ -342,4 +342,14 @@ test('por WhatsApp: «publicá / despublicá / creame una landing» llegan con s
     ['creame una landing de webinar', 'crear_landing_desde_diseno'],
   ];
   for (const [f, tool] of casos) assert.ok(turno(f).includes(tool), `${f} → sin ${tool}`);
+});
+
+// Los diseños con video (14/10/2026, «deberían ser tipo VSL Funnel»): un agente que elige el diseño con
+// la persona tiene que saber cuál trae el VSL al inicio, como lo ve ella en la miniatura.
+// Rotura (14/10/2026, a mano y restaurada): sacar `video: d.video` de disenosParaApi → 14 pasan / 1 falla (base: 15 / 0).
+test('listar_disenos_landing dice qué diseño trae video, y la mayoría lo trae', () => {
+  const { disenos } = disenosParaApi();
+  assert.equal(disenos.length, DISENOS_LANDING.length);
+  for (const d of disenos) assert.ok('video' in d && ['centro', 'costado', null].includes(d.video), JSON.stringify(d));
+  assert.ok(disenos.filter((d) => d.video).length * 2 > disenos.length, 'la mayoría con video');
 });
