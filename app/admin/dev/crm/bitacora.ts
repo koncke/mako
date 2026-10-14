@@ -2046,8 +2046,8 @@ export const BITACORA: Hito[] = [
       'El mapa de sugerencias de MaKo, para que lo valide antes de construirlo: docs/sugerencias-mako-crm.md.',
     ],
     commits: [
-      { sha: '5d4e308b', msg: '«A revisar» sólo con los datos sin marcar, y «Nuevo CRM» arriba del desplegable', lineas: 227, archivos: 5 },
-      { sha: '85552622', msg: 'El CRM tiene nombre propio: renombrarlo ya no renombra el producto ni el curso', lineas: 238, archivos: 6 },
+      { sha: '0d07ddc8', msg: '«A revisar» sólo con los datos sin marcar, y «Nuevo CRM» arriba del desplegable', lineas: 227, archivos: 5 },
+      { sha: 'ace3e61d', msg: 'El CRM tiene nombre propio: renombrarlo ya no renombra el producto ni el curso', lineas: 238, archivos: 6 },
       { sha: 'e57d8630', msg: 'Mapa de las sugerencias de MaKo en el CRM, para que Martín lo valide', lineas: 84, archivos: 1 },
     ],
     archivos: [
@@ -2074,7 +2074,7 @@ export const BITACORA: Hito[] = [
       'Medido en producción: el requestAnimationFrame del montaje corría antes de que React dibujara el recuadro y salía callado. La grabación andaba montada a mano.',
       'Ahora monta el que llega segundo (lo bajado o el recuadro), y el cuerpo tiene tope de 30 s.',
     ],
-    commits: [{ sha: '23fdf8a2', msg: 'La grabación de la visita se quedaba en un recuadro gris: se monta cuando el recuadro existe', lineas: 119, archivos: 2 }],
+    commits: [{ sha: '913966d4', msg: 'La grabación de la visita se quedaba en un recuadro gris: se monta cuando el recuadro existe', lineas: 119, archivos: 2 }],
     archivos: ['app/crm/lead-view/GrabacionModal.tsx — intentarMontar, refLienzo', 'tests/grabacion-montaje.test.ts'],
   },
   {
@@ -2089,7 +2089,7 @@ export const BITACORA: Hito[] = [
       '«A revisar»: una fila por dato, con solucionar (abre la ficha en ese dato) e ignorar.',
       '«¿Era calificado?» pasa de Tracking a Resumen.',
     ],
-    commits: [{ sha: 'f33f873c', msg: 'Datos sin marcar: «Ver →» abre la lista con solucionar e ignorar, y se elige de qué avisa MaKo', lineas: 1685, archivos: 36 }],
+    commits: [{ sha: '42e57a6c', msg: 'Datos sin marcar: «Ver →» abre la lista con solucionar e ignorar, y se elige de qué avisa MaKo', lineas: 1685, archivos: 36 }],
     archivos: [
       'lib/datos-aviso.ts — partirDatos, avisables, TAB_DE_DATO',
       'lib/stage-requirements.ts — pasosResueltos',
@@ -2108,7 +2108,7 @@ export const BITACORA: Hito[] = [
       'Medido en producción: el nombre del lead sí se guardaba al salir del campo. Lo que se perdía era cerrar el modal con un clic afuera.',
       'El fondo cerraba en el mousedown y desmontaba el campo antes de su blur. Ahora saca el foco primero, y el campo guarda.',
     ],
-    commits: [{ sha: 'f86e50d2', msg: 'Cerrar un modal con un clic en el fondo guarda lo que se estaba escribiendo', lineas: 50, archivos: 3 }],
+    commits: [{ sha: '862757d0', msg: 'Cerrar un modal con un clic en el fondo guarda lo que se estaba escribiendo', lineas: 50, archivos: 3 }],
     archivos: ['app/_ui/Modal.tsx — el fondo saca el foco antes de cerrar', 'tests/modal-guarda-al-cerrar.test.ts'],
   },
   {
@@ -2119,7 +2119,7 @@ export const BITACORA: Hito[] = [
       'Las etiquetas pasan al renglón del nombre; las que no entran quedan en un «+N» que abre la lista.',
       'La portada baja de alto. Las dos puertas de la ficha montan lo mismo.',
     ],
-    commits: [{ sha: 'ae5912be', msg: 'Ficha del lead más compacta: las etiquetas al lado del nombre con «+N», y la portada más baja', lineas: 92, archivos: 6 }],
+    commits: [{ sha: 'a98318cb', msg: 'Ficha del lead más compacta: las etiquetas al lado del nombre con «+N», y la portada más baja', lineas: 92, archivos: 6 }],
     archivos: ['app/crm/lead-view/EtiquetasDelLead.tsx — compacto', 'app/crm/lead-view/CabeceraLead.tsx — el hueco junto al título'],
   },
   {
@@ -2133,8 +2133,8 @@ export const BITACORA: Hito[] = [
       'Migración 0272 aplicada: leads.oferta_id y ofertas.modelo (pago único o suscripción).',
     ],
     commits: [
-      { sha: '5b480d1e', msg: 'Pagos del lead: la oferta arriba, con «Nueva oferta» y «Analizar oferta →»', lineas: 435, archivos: 8 },
-      { sha: 'c49fe3c5', msg: 'Offer abre la oferta que nombra el link: «Analizar oferta →» del lead cae en ESA', lineas: 86, archivos: 5 },
+      { sha: '81a28c18', msg: 'Pagos del lead: la oferta arriba, con «Nueva oferta» y «Analizar oferta →»', lineas: 435, archivos: 8 },
+      { sha: '4ca15b9a', msg: 'Offer abre la oferta que nombra el link: «Analizar oferta →» del lead cae en ESA', lineas: 86, archivos: 5 },
     ],
     archivos: [
       'app/crm/lead-view/OfertaDelLead.tsx',
@@ -2154,7 +2154,7 @@ export const BITACORA: Hito[] = [
       'Ahora, si no llega, la tarjeta lo dice y lleva a conectar Meta. Si no se pudo leer, dice lo de siempre.',
       'Elegir el evento a mano no se hizo: lo que mueve la aguja es el conjunto de datos de CRM. Lo decide Martín.',
     ],
-    commits: [{ sha: '70918c59', msg: '«¿Era calificado?» dice a dónde va: «no le llega a Meta» donde falta el píxel', lineas: 190, archivos: 8 }],
+    commits: [{ sha: 'e541ff32', msg: '«¿Era calificado?» dice a dónde va: «no le llega a Meta» donde falta el píxel', lineas: 190, archivos: 8 }],
     archivos: [
       'lib/meta-capi.ts — destinoYToken, adondeVaLaCalificacion',
       'lib/meta-capi-payload.ts — adondeDe',
@@ -2172,7 +2172,7 @@ export const BITACORA: Hito[] = [
       'Lo que la persona contesta en el formulario de la landing ahora queda en el lead (antes sólo viajaba en el WhatsApp) y se ve en Resumen.',
       'Migración 0274 aplicada. Los datos nuevos se editan, quedan en el historial y se deshacen.',
     ],
-    commits: [{ sha: 'f2154a58', msg: 'El Resumen del lead, personalizable: qué datos y qué formularios se ven', lineas: 581, archivos: 20 }],
+    commits: [{ sha: '6bae3751', msg: 'El Resumen del lead, personalizable: qué datos y qué formularios se ven', lineas: 581, archivos: 20 }],
     archivos: [
       'lib/resumen-ficha.ts — el catálogo y los defaults',
       'lib/optin-respuestas.ts — las respuestas de la landing',
@@ -2192,7 +2192,7 @@ export const BITACORA: Hito[] = [
       'editar_contacto_lead suma web, Instagram, YouTube, LinkedIn, dirección y sexo.',
       'La ficha y la API usan la misma lógica (lib/oferta-lead.ts).',
     ],
-    commits: [],
+    commits: [{ sha: 'fb6c929f', msg: 'API de MaKo: la oferta del lead (leer, asignar, crear) y los datos nuevos del contacto', lineas: 471, archivos: 11 }],
     archivos: ['lib/oferta-lead.ts', 'lib/api-mako/areas/crm.def.ts', 'lib/api-mako/areas/crm.run.ts', 'lib/api-mako/rest.ts', 'docs/api-mako.md'],
   },
   {
@@ -2214,7 +2214,10 @@ export const BITACORA: Hito[] = [
       'La etapa que limpia una reserva la firma Calendly o Cal.com, no MaKo.',
       'El paso de la fecha de la reunión pregunta la hora (opcional), en la zona del negocio.',
     ],
-    commits: [],
+    commits: [
+      { sha: '9e505d74', msg: 'CRM: tres cosas que MaKo hacía «por detrás» mal (inventario de Automations, 14/10)', lineas: 59, archivos: 5 },
+      { sha: '46890b96', msg: 'Mover a mano a una etapa con reunión pregunta también la hora', lineas: 106, archivos: 4 },
+    ],
     archivos: [
       'lib/crm-auto-plan.ts — T1',
       'lib/leads.ts — setPipelineStage, auditarEtapaDeLaReserva',

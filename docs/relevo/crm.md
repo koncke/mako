@@ -13,51 +13,39 @@ Martín lo pidió directo (el texto literal está en `app/admin/dev/crm/bitacora
 seguían trabados por RAM (el typecheck completo ya pide ≈ 5,3 GB libres: el tope del heap subió a
 4096 el 14/10). Hay DOS worktrees con trabajo sin publicar:
 
-- `C:/Users/marti/wtcrm2` (HEAD `ae5912be`): `origin/main` + los commits de todas las sesiones +
+- `C:/Users/marti/wtcrm2` (HEAD `a98318cb`): `origin/main` + los commits de todas las sesiones +
   los del CRM hasta la cabecera compacta. Un script de fondo lo pushea cuando haya RAM
   (`scratchpad/push-cuando-haya-ram.sh`; sale con 2 si `origin/main` se movió → rebasar y relanzar).
-- `C:/Users/marti/wtcrm3` (HEAD `c49fe3c5`): encima de `ae5912be`, la oferta del lead
-  (`5b480d1e`, `c49fe3c5`) y esta cosecha. **Se pasa a la rama del push con un cherry-pick** cuando
+- `C:/Users/marti/wtcrm3` (HEAD `4ca15b9a`): encima de `a98318cb`, la oferta del lead
+  (`81a28c18`, `4ca15b9a`) y esta cosecha. **Se pasa a la rama del push con un cherry-pick** cuando
   `wtcrm2` llegue, o se pushea desde acá si `wtcrm2` ya está en `origin`.
 
-**AL 14/10 ~03:30 YA ESTÁ ARMADO:** `C:/Users/marti/wtcrm4` es una copia limpia sobre origin/main
-`e4c8a6d7` con los 29 commits del CRM ya pasados (sin un choque) y cuatro más: los tres bugs que
-encontró Automations (T1 con la R1 cancelada, `setPipelineStage` sin inscribir por etapa, la reserva
-firmada por MaKo) y la hora al mover a mano. Tests: 7907 verdes y 2 rojos ajenos (SelectorFuente de
-`901e5cf7` y el área de `dashboard-analisis-listo`). Turno de push: el 2, después de GENERAL; ahí se sube
-encima del origin/main nuevo (que ya trae `935ee3cc`: el piso de RAM según si el vigía está vivo), se
-corrigen los hashes de la bitácora y se pushea con `git push` sólo con **5,3 GB libres o más**. Si no
-llega, NO se usa `MAKO_TYPECHECK_SIN_ESPERA`: se le avisa a Estrategia (corrección suya del 14/10: el
-«4,8 GB» de antes pasó porque el vigía estaba apagado).
-
-**⚠️ CÓMO SALE (acordado con Estrategia 3 CUENTAS el 14/10 ~02:45):** Estrategia pushea UNA vez el
-main del clon + origin desde `C:/dev/wt-push-1410`. Cuando avise, en un worktree limpio sobre el
-origin/main nuevo se cherry-pickean SÓLO los commits del CRM, en este orden (wtcrm3 trae además copias
-rebasadas de commits de otros, con otros hashes, y mergearlo entero los publicaría dos veces):
-`90af3218 7549571c ac591da0 9d16e7f0 5d21c8b1 8852a3d0 386ecabb 6dc59958 b0d838e4 84b74123 90369c21
-b27f6baf` (lo del 13/10 que NO está en el main del clon: `git cherry main`) y después
-`5d4e308b^..HEAD` de wtcrm3. Si `lib/api-mako/areas/crm.def.ts` choca con los pagos de GENERAL
-(`ba199cb4`), van las dos cosas; después se regenera `docs/api-mako.md` y el snapshot, tests, y push.
-Las bitácoras que citan hashes se corrigen en el mismo paso.
+**CIERRE (14/10 ~03:45, pedido de Martín: «que se pushee todo y que los chats cierren lo que están
+haciendo»).** Todo lo del CRM está en la rama `crm-1410` del worktree `C:/Users/marti/wtcrm4`: una copia
+limpia sobre origin/main `e4c8a6d7` con los commits del CRM pasados por cherry-pick (sin choques) más los
+tres bugs que encontró Automations y la hora al mover a mano. **El push lo hace Estrategia 3 CUENTAS, con
+todo junto: desde acá no se pushea.** Los hashes de la bitácora y de este relevo son los de `crm-1410`.
+Tests de lo tocado: 7907 verdes y 2 rojos ajenos. El de SelectorFuente lo reescribió CS en `0255c855`; el
+otro es el área de `dashboard-analisis-listo`, de Automations. La referencia de la API está al día.
 
 **Las migraciones ya están APLICADAS en prod** (0269, 0270, 0272 y 0274; todas aditivas o de datos): son de las que van antes del
 deploy. Los hashes de abajo son los de DESPUÉS del rebase del 14/10.
 
 ### ✅ Hecho (commits locales, con tests probados rompiéndolos)
 
-- «A revisar» sólo con datos sin marcar, sin la «Mk» ni «MaKo movió» (`5d4e308b`). **El motor
+- «A revisar» sólo con datos sin marcar, sin la «Mk» ni «MaKo movió» (`0d07ddc8`). **El motor
   (lib/crm-auto.ts) sigue corriendo**: lo reemplazan las plantillas que se le pidieron al chat de
   Automations, y recién ahí se apaga (flag por workspace `KEY_CRM_AUTO`).
-- «Nuevo CRM» arriba del desplegable, «CRM eliminados» (`5d4e308b`).
-- El CRM con nombre propio: renombrarlo ya no renombra el producto ni el curso (`85552622`, mig 0269).
-- La grabación de la visita: montaba en un rAF antes de que existiera el recuadro (`23fdf8a2`).
+- «Nuevo CRM» arriba del desplegable, «CRM eliminados» (`0d07ddc8`).
+- El CRM con nombre propio: renombrarlo ya no renombra el producto ni el curso (`ace3e61d`, mig 0269).
+- La grabación de la visita: montaba en un rAF antes de que existiera el recuadro (`913966d4`).
 - Datos sin marcar v2: «Ver →», solucionar que lleva al dato y lo señala, ignorar por dato, «Ver
-  más», de qué avisa MaKo, «A revisar» por dato, y «¿Era calificado?» en Resumen (`f33f873c`, mig 0270).
+  más», de qué avisa MaKo, «A revisar» por dato, y «¿Era calificado?» en Resumen (`42e57a6c`, mig 0270).
 - El mapa de sugerencias de MaKo: `docs/sugerencias-mako-crm.md`, **esperando que Martín lo valide**.
-- Autoguardado: lo que se perdía era cerrar un modal con un clic en el fondo (`f86e50d2`).
-- Cabecera compacta: etiquetas al lado del nombre con «+N» (`ae5912be`).
+- Autoguardado: lo que se perdía era cerrar un modal con un clic en el fondo (`862757d0`).
+- Cabecera compacta: etiquetas al lado del nombre con «+N» (`a98318cb`).
 - Pagos punto 1: la OFERTA del lead (desplegable, «Nueva oferta» con nombre, modelo y ticket, y
-  «Analizar oferta →» que abre ESA en Offer) (`5b480d1e`, `c49fe3c5`, mig 0272). Toqué tres archivos
+  «Analizar oferta →» que abre ESA en Offer) (`81a28c18`, `4ca15b9a`, mig 0272). Toqué tres archivos
   de Offer (`page.tsx`, `OfferApp.tsx`, `arbol.ts`) porque no había chat de Offer vivo para pedírselo.
 
 **Sin mirar en el navegador** (la máquina sin RAM para un `next dev`): lo primero al haber deploy
@@ -88,7 +76,7 @@ es abrir una ficha con datos sin marcar y probar «Ver →», solucionar, ignora
   **El motor NO se apaga** hasta que avisen; se apaga por workspace con `KEY_CRM_AUTO`.
 - **Customer Success**: el título del curso desde la OFERTA. Se le tocó `renombrarServicioAction`
   (un hunk: ahora renombra el producto, no el CRM). **Contestó (14/10):** lo toma, leyendo la oferta
-  principal del producto; espera el hash en main (`85552622`) para leer `nombreVisible`.
+  principal del producto; espera el hash en main (`ace3e61d`) para leer `nombreVisible`.
 - **El push lo hace UNO: Estrategia 3 CUENTAS**, desde su worktree de integración (14/10 ~01:00). No se
   pushea desde acá; se le pasa el HEAD de `C:/Users/marti/wtcrm3`.
 
