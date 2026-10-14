@@ -11,10 +11,10 @@
 // =============================================================================
 
 import type { CSSProperties } from 'react';
-import Link from '@/app/_ui/Link';
 import { fmtUSD, fmtNum } from '@/lib/format';
 import { opcionDe, numeroDe, type OpcionesElegidas } from '@/lib/general-piezas';
 import { DesgloseTrigger } from '../../_components/Desglose';
+import { LinkIntegracion } from '../../_components/ConectarIntegracion';
 import { Cabecera } from '../Cabecera';
 import { KpisCard } from '../KpisCard';
 import { EditarObjetivo } from '../EditarObjetivo';
@@ -207,7 +207,8 @@ function Semaforo({ alertas, lampara, conLamparas, limite, objetivoAtrasado }: {
               const fila: CSSProperties = { display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '12px 0', textDecoration: 'none', borderTop: i === 0 ? 'none' : '1px solid var(--border)' };
               return a.desglose
                 ? <DesgloseTrigger key={i} data={a.desglose} style={fila}>{inner}</DesgloseTrigger>
-                : <Link key={i} href={a.href} style={fila}>{inner}</Link>;
+                // Una alerta que nombra una integración (un arranque pendiente) abre su modal acá: nunca se sale de la tab.
+                : <LinkIntegracion key={i} href={a.href} style={fila}>{inner}</LinkIntegracion>;
             })}
             {resto > 0 && <p style={{ margin: '10px 0 0', fontSize: 13, color: 'var(--faint)' }}>{resto === 1 ? 'Y una más.' : `Y ${resto} más.`}</p>}
           </div>

@@ -667,9 +667,10 @@ disponibles en General». Lo que no se ve en el código y gobierna lo que venga:
   la barra de filtros). Sólo «Tu funnel hoy» y «A quién cobrarle» se atan a un funnel, desde su propio panel. El objetivo,
   los KPIs, el semáforo, el mes y los pendientes miden el negocio entero (salen de `leerVistaGeneral`, lib/vista-general.ts,
   sin alcance). Vive en `app/general/datos.ts`.
-- **El «Conectar» del semáforo vacío todavía navega a /integraciones** (app/general/bloques/Norte.tsx). La regla nueva
-  (memoria «conectar una integración NUNCA saca de la tab», 14/10/2026) pide el modal de /integraciones ahí mismo; la pieza
-  reusable la está haciendo la sesión del Calendario. Cuando esté, ese placeholder la usa.
+- **El «Conectar» del semáforo SIN FUENTES sigue yendo a /integraciones, a propósito.** No nombra UNA integración (una
+  fuente puede ser Meta, el CRM, un pago…), y abrir la grilla entera es lo que hace la pieza de la regla nueva
+  (`LinkIntegracion`, app/_components/ConectarIntegracion.tsx) con un link que no nombra ninguna. Las alertas del
+  semáforo, la acción del día y «Conectar una IA» del AI Analyst sí abren su modal ahí mismo (0b4f318d en adelante).
 - **El Today de MaKo Mobile no mira el informe de General**: dibuja lo de siempre. Para la misma personalización en el
   teléfono, lee `leerInformeGeneral()` y dibuja sus bloques. Vive en `app/m/hoy`.
 - **Más de 8 funnels**: los bloques que se atan a uno se arman hasta 8 (`TOPE_FUNNELS`, app/general/datos.ts); el
