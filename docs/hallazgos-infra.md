@@ -5897,3 +5897,30 @@ opcional de un paso en `tests/sugerencias-crm.test.ts`. Arreglados en `b8b41ab8b
 qué archivos tocaba el merge de la carrera: los del CRM no estaban.
 
 **Vive en:** `.git/hooks/pre-push` (chequea el disco) · el procedimiento del push integrado, en `docs/relevo/estrategia-3-cuentas.md`
+
+## Un paquete que está en el `node_modules` del clon y NO en `package.json`: el typecheck pasa y el deploy muere (14/10/2026)
+
+**Síntoma:** el push del Image Editor (`45fe2cb7f..353c81a84`) pasó el pre-push entero y el deploy quedó en **Error**:
+`Module not found: Can't resolve 'qrcode'` en `app/image-editor/_doory/editor/engine/objects/qr.ts:12` (un `import()`
+dinámico). Producción siguió sirviendo la versión anterior, sin un aviso.
+
+**Causa:** `qrcode` 1.5.4 y `@types/qrcode` estaban en el `node_modules` del clon, sueltos (los dejó otra sesión), y en
+ningún lado de `package.json` ni de `package-lock.json`. El `tsc` del pre-push resuelve contra ese `node_modules`
+(los worktrees lo comparten por junction), así que da verde; Vercel instala desde el lock, y ahí no existe. Es la familia
+de «el catálogo importa fichas que no están en git»: **la pregunta no es si el archivo existe en el disco, es si existe
+en lo que se despliega.**
+
+⚠️ **Y el `node_modules` compartido lo empeora:** el chat del Image Editor copió sus ocho paquetes a mano «SIN npm
+install, porque tiene paquetes sueltos de otra sesión que un install borraría». Con eso, que algo compile en el clon ya
+no dice nada de si está declarado.
+
+**Arreglo:** `npm install <pkg> --package-lock-only` en un worktree (escribe `package.json` y el lock, no toca
+`node_modules`). Así se sumaron `qrcode` y `@types/qrcode`.
+
+**Cómo se mide en un minuto:** cruzar los imports de `git ls-files app lib` contra las dependencias de
+`git show HEAD:package.json`. El 14/10 dio, del Image Editor, `qrcode` (rompía), `onnxruntime-web` (llega por
+`@huggingface/transformers`, frágil) y cinco `@fontsource-variable/*` en `presenter/view/main.tsx`, que nadie importa.
+**Sin hacer:** ese cruce como test o como chequeo del pre-push (con un parser, no con regex: la regex caza texto de
+comentarios).
+
+**Vive en:** `package.json` · `package-lock.json` · `app/image-editor/_doory/editor/engine/objects/qr.ts`
