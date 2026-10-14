@@ -112,23 +112,39 @@ export function slugDeUrlLanding(url: string | null | undefined, bases: readonly
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Las sub-rutas FIJAS de una landing con un tercer segmento (`/<slug>/<fija>/<id>`, con la forma del
- * id). HOY NINGUNA. ⚠️ Una carpeta fija nueva bajo `app/l/[slug]/` se suma ACÁ, con su test, el MISMO
- * día que la carpeta existe: en hola-mako.site sólo se reescribe lo que tiene una forma conocida, y
- * declarar una que no existe manda al not-found de la APP (con su layout) en el dominio de los clientes.
- * Pasó con `pagar` (revisión de la tanda 4): el paquete del pago de un bloque todavía no existe, y
- * `/<slug>/pagar/<id>` se reescribía a una ruta que no hay. Lo mismo vale para su POST
- * (`/api/landing-generator/pagar`): hoy es un 404 como todo /api. Cuando llegue, lo suma ese paquete
- * con `Origin` exigido (ausente o igual a `https://<host del pedido>`; 403 si no), tope por IP e
- * idempotencia por bloque y visitante, y el monto, la moneda y el workspace nunca del pedido.
+ * La ÚNICA ruta de /api que contesta en hola-mako.site: el POST del paso de pago de una landing (el
+ * formulario de nombre y email de `app/l/[slug]/pagar/[bloque]` postea RELATIVO a su propio host,
+ * `RUTA_POST_PAGO` de pago-pedido.ts, que sale de acá). Sólo POST, y sólo con un `Origin` ausente o
+ * igual a `https://<host del pedido>` (403 si no): el contrato de la revisión de la tanda 4. Lo demás
+ * del contrato lo cumple la ruta (app/api/landing-generator/pagar, `responderPagoPost` de
+ * pago-pagina.ts): el Origin otra vez y en positivo (ausente ahí es 403), tope por IP y por email, el
+ * candado por (negocio, email) y el reuso del pendiente de ESA landing (la idempotencia), y el monto,
+ * la moneda y el workspace nunca del pedido (salen de la landing publicada y del catálogo).
  */
-export const SUBRUTAS_FIJAS: Readonly<Record<string, RegExp>> = Object.freeze({});
+export const RUTA_PAGAR_LANDING = '/api/landing-generator/pagar';
+
+/**
+ * Las sub-rutas FIJAS de una landing con un tercer segmento (`/<slug>/<fija>/<id>`, con la forma del
+ * id). ⚠️ Una carpeta fija nueva bajo `app/l/[slug]/` se suma ACÁ, con su test, el MISMO día que la
+ * carpeta existe: en hola-mako.site sólo se reescribe lo que tiene una forma conocida, y declarar una
+ * que no existe manda al not-found de la APP (con su layout) en el dominio de los clientes (pasó con
+ * `pagar` antes de que existiera su paquete: revisión de la tanda 4; el test exige la carpeta).
+ *
+ * `pagar` (integración de la tanda 4, 14/10/2026): el paso de nombre y email antes del checkout,
+ * `app/l/[slug]/pagar/[bloque]`. El id es el del PRODUCTO que cobra el botón: entero positivo, sin
+ * ceros adelante, hasta 10 dígitos. Escrito acá a mano a propósito (es `SEGMENTO_PAGO` y la forma de
+ * `productoDeSegmento` de pago-landing.ts, que trae la moneda y las pasarelas; este módulo lo importan
+ * el proxy y next.config.ts): el test ata los dos.
+ */
+export const SUBRUTAS_FIJAS: Readonly<Record<string, RegExp>> = Object.freeze({ pagar: /^[1-9][0-9]{0,9}$/ });
 
 export type DecisionLandings =
   /** Una página de una landing (o del borrador): se REESCRIBE a la ruta interna `destino` (la query viaja). */
   | { tipo: 'reescribir'; destino: string }
-  /** Algo que la página pide a su propio host (hoy, sólo el HTML libre): pasa tal cual. */
+  /** Algo que la página pide a su propio host (el HTML libre, el POST del pago): pasa tal cual. */
   | { tipo: 'pasar' }
+  /** El POST del pago con un `Origin` de OTRO sitio: 403. */
+  | { tipo: 'prohibido' }
   /** Mismo host, otra dirección (mayúsculas, el `/l/…` de antes): 308 a `destino`, con la query. */
   | { tipo: 'redirigir'; destino: string }
   /** La raíz de hola-mako.site: no es de nadie. El proxy manda a la landing de venta de MaKo. */
@@ -149,16 +165,33 @@ const enMinusculas = (seg: string, vale: (s: string) => boolean): string | null 
 };
 
 /**
+ * ¿El `Origin` de un POST a hola-mako.site es aceptable? Ausente, o exactamente `https://<host del
+ * pedido>` (`host` ya normalizado: minúsculas, sin puerto). `null` (un iframe sandbox), otro sitio,
+ * http o un puerto: no.
+ */
+export function origenDelMismoHost(origin: string | null | undefined, host: string): boolean {
+  if (origin == null || origin.trim() === '') return true;
+  return !!host && origin.trim().replace(/\/+$/, '').toLowerCase() === `https://${host}`;
+}
+
+/**
  * Qué contesta el proxy a un pedido en hola-mako.site. Sólo se sirven las landings: `/<slug>`,
- * `/<slug>/<ruta>`, las sub-rutas de `SUBRUTAS_FIJAS` (hoy ninguna), el borrador `/vista/<token>[/<ruta>]` y el HTML libre
+ * `/<slug>/<ruta>`, las sub-rutas de `SUBRUTAS_FIJAS` (el paso de pago), el borrador `/vista/<token>[/<ruta>]` y el HTML libre
  * `/l/html/…` (que se pide RELATIVO desde la página, así que viaja con ella a su host). La raíz manda
- * a MaKo. Nada de la app ni de /api: ni el Pixel ni /api/track pasan por acá
+ * a MaKo. De /api, SÓLO el POST del pago (`RUTA_PAGAR_LANDING`) y con el `Origin` de este host
+ * (`origenDelMismoHost`); ni el Pixel ni /api/track pasan por acá
  * (la página los pide ABSOLUTOS a hola-mako.com, `lineaCargador` de lib/pixel-cargador.ts).
  *
  * Que la landing EXISTA y esté publicada no se decide acá: lo decide la ruta interna (404 si no).
+ * `origen` es lo que el proxy lee del pedido (la cabecera `Origin` y el host normalizado): sin él, el
+ * POST del pago se decide como si no trajera Origin.
  */
-export function decidirLandings(pathname: string, metodo: string): DecisionLandings {
+export function decidirLandings(pathname: string, metodo: string, origen?: { origin: string | null; host: string }): DecisionLandings {
   const m = metodo.toUpperCase();
+  if (pathname === RUTA_PAGAR_LANDING) {
+    if (m !== 'POST') return { tipo: 'no-existe' };
+    return origenDelMismoHost(origen?.origin, origen?.host ?? '') ? { tipo: 'pasar' } : { tipo: 'prohibido' };
+  }
   if (esPrefijo(pathname, '/api')) return { tipo: 'no-existe' };
   if (!LEER.has(m)) return { tipo: 'metodo' };
   if (pathname === '/' || pathname === '') return { tipo: 'raiz' };

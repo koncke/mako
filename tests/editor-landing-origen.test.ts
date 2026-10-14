@@ -32,9 +32,11 @@ process.env.NEXT_PUBLIC_SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || '
 process.env.AUTH_SECRET = process.env.AUTH_SECRET || 'secreto-de-prueba-de-las-landings-0123456789abcdef';
 
 import {
-  HOST_LANDINGS, ORIGEN_LANDINGS, SUBRUTAS_FIJAS, baseLandingsPara, basesLandingsPara, decidirLEnApp, decidirLandings,
-  esHostDeLandings, redireccionEnElHost, slugDeUrlLanding, urlLandingEn, urlVistaEn, type DecisionLandings,
+  HOST_LANDINGS, ORIGEN_LANDINGS, RUTA_PAGAR_LANDING, SUBRUTAS_FIJAS, baseLandingsPara, basesLandingsPara, decidirLEnApp, decidirLandings,
+  esHostDeLandings, origenDelMismoHost, redireccionEnElHost, slugDeUrlLanding, urlLandingEn, urlVistaEn, type DecisionLandings,
 } from '../lib/editor-landing/origen-landings';
+import { SEGMENTO_PAGO, productoDeSegmento } from '../lib/editor-landing/pago-landing';
+import { RUTA_POST_PAGO } from '../lib/editor-landing/pago-pedido';
 import {
   HEADER_DOMINIO, PATRON_HOSTS_DE_LA_APP, PATRON_HOSTS_DE_MAKO, decidirHost, tipoDeHost, urlLandingVigente,
 } from '../lib/editor-landing/dominios-reglas';
@@ -117,10 +119,22 @@ test('decidirLandings: las landings, su borrador y su HTML libre; la raíz manda
     // Lo que la página le pide a su propio host.
     ['/l/html/12/h1abc', 'GET', { tipo: 'pasar' }],
     ['/l/html/12/h1abc', 'POST', { tipo: 'metodo' }],
-    // El pago de un bloque todavía no existe (ni la página ni su POST): no se declara en el proxy.
-    ['/api/landing-generator/pagar', 'POST', { tipo: 'no-existe' }],
+    // El paso de pago (integración de la tanda 4): `/<slug>/pagar/<productoId>` se reescribe al paso;
+    // el id es el de un PRODUCTO (dígitos, sin ceros adelante). Lo que no tiene esa forma, 404.
+    ['/mi-landing/pagar/12', 'GET', { tipo: 'reescribir', destino: '/l/mi-landing/pagar/12' }],
+    ['/mi-landing/pagar/12', 'HEAD', { tipo: 'reescribir', destino: '/l/mi-landing/pagar/12' }],
+    ['/Mi-Landing/pagar/12', 'GET', { tipo: 'redirigir', destino: '/mi-landing/pagar/12' }],
+    ['/l/mi-landing/pagar/12', 'GET', { tipo: 'redirigir', destino: '/mi-landing/pagar/12' }],
+    ['/mi-landing/pagar/12', 'POST', { tipo: 'metodo' }],
     ['/mi-landing/pagar/bloque_1-A', 'GET', { tipo: 'no-existe' }],
+    ['/mi-landing/pagar/012', 'GET', { tipo: 'no-existe' }],
+    ['/mi-landing/pagar/12345678901', 'GET', { tipo: 'no-existe' }],
     ['/Mi-Landing/pagar/AbC', 'GET', { tipo: 'no-existe' }],
+    // Su POST, sin Origin (la ruta lo exige y contesta 403): el proxy no decide por ella.
+    ['/api/landing-generator/pagar', 'POST', { tipo: 'pasar' }],
+    ['/api/landing-generator/pagar', 'GET', { tipo: 'no-existe' }],
+    ['/api/landing-generator/pagar/x', 'POST', { tipo: 'no-existe' }],
+    ['/l/api/landing-generator/pagar', 'POST', { tipo: 'metodo' }],
     ['/', 'GET', { tipo: 'raiz' }],
     // Nada de /api (el Pixel y /api/track van ABSOLUTOS a hola-mako.com) ni de la app.
     ['/api/track/optin', 'POST', { tipo: 'no-existe' }],
@@ -146,6 +160,25 @@ test('decidirLandings: las landings, su borrador y su HTML libre; la raíz manda
   for (const [ruta, metodo, esperado] of casos) assert.deepEqual(decidirLandings(ruta, metodo), esperado, `${metodo} ${ruta}`);
   // Una sub-ruta fija se declara el día que su carpeta existe (`pagar` se declaró antes: revisión de la tanda 4).
   for (const k of Object.keys(SUBRUTAS_FIJAS)) assert.ok(existsSync(join(RAIZ, 'app', 'l', '[slug]', k)), `SUBRUTAS_FIJAS declara «${k}» y no hay app/l/[slug]/${k}`);
+  // `pagar` está escrito a mano acá (el proxy no puede importar pago-landing.ts): el MISMO segmento y la
+  // MISMA forma del id que el botón y el paso.
+  assert.equal(Object.keys(SUBRUTAS_FIJAS).includes(SEGMENTO_PAGO), true, 'el segmento del botón no está en SUBRUTAS_FIJAS');
+  for (const id of ['1', '12', '9999999999', '0', '012', '12345678901', '1a', 'abc', '', '-1']) {
+    assert.equal(SUBRUTAS_FIJAS[SEGMENTO_PAGO].test(id), productoDeSegmento(id) !== null, `forma del id «${id}»`);
+  }
+  assert.equal(RUTA_PAGAR_LANDING, RUTA_POST_PAGO, 'adonde postea el paso es lo que el proxy deja pasar');
+});
+
+test('el POST del pago en hola-mako.site: pasa SÓLO con un Origin ausente o de ese mismo host', () => {
+  const host = 'hola-mako.site';
+  const con = (origin: string | null, h = host) => decidirLandings(RUTA_PAGAR_LANDING, 'POST', { origin, host: h });
+  for (const o of [null, '', 'https://hola-mako.site', 'https://hola-mako.site/', 'HTTPS://HOLA-MAKO.SITE']) assert.deepEqual(con(o), { tipo: 'pasar' }, String(o));
+  for (const o of ['https://evil.com', 'http://hola-mako.site', 'https://hola-mako.site:8443', 'https://hola-mako.site.evil.com', 'https://x.hola-mako.site', 'null', 'https://hola-mako.com']) {
+    assert.deepEqual(con(o), { tipo: 'prohibido' }, o);
+  }
+  assert.deepEqual(con('https://promo.hola-mako.site', 'promo.hola-mako.site'), { tipo: 'pasar' }, 'un subdominio, con el suyo');
+  assert.deepEqual(con('https://hola-mako.site', ''), { tipo: 'prohibido' }, 'sin host no hay con qué comparar');
+  assert.equal(origenDelMismoHost(undefined, host), true);
 });
 
 test('redireccionEnElHost: un 308 nunca sale del host del pedido (`//otro.com` es OTRO host en una Location)', () => {
@@ -168,7 +201,7 @@ test('decidirLEnApp: en la app, /l/<…> se muda a hola-mako.site con la query; 
   assert.deepEqual(decidirLEnApp('/l/html', ''), { tipo: 'no-existe' });
   for (const p of ['/landing-generator', '/login', '/', '/lx/a', '/api/l/x']) assert.deepEqual(decidirLEnApp(p, ''), { tipo: 'seguir' }, p);
   // Ida y vuelta: lo que la app manda a hola-mako.site es lo que hola-mako.site reescribe a la MISMA ruta interna.
-  for (const interna of ['/l/mi-landing', '/l/mi-landing/gracias', `/l/vista/${TOKEN}/gracias`]) {
+  for (const interna of ['/l/mi-landing', '/l/mi-landing/gracias', `/l/vista/${TOKEN}/gracias`, '/l/mi-landing/pagar/12']) {
     const d = decidirLEnApp(interna, '');
     assert.equal(d.tipo, 'mudar');
     const u = new URL((d as { destino: string }).destino);
@@ -317,7 +350,16 @@ test('proxy en hola-mako.site: reescribe a app/l sin el workspace ni el dominio,
       const html = pedir('https://hola-mako.site/l/html/12/h1abc', 'GET', { [WS_HEADER]: '9' });
       assert.ok(pasa(html), 'el HTML libre pasa');
       assert.ok(!sobrescritas(html).includes(WS_HEADER));
-      assert.equal(pedir('https://hola-mako.site/api/landing-generator/pagar', 'POST', { cookie }).status, 404, 'ningún POST pasa (el del pago, cuando exista)');
+      // El paso de pago se reescribe igual que una página (sin workspace ni dominio).
+      const paso = pedir('https://hola-mako.site/mi-landing/pagar/12', 'GET', { cookie, [WS_HEADER]: '9', [HEADER_DOMINIO]: 'otro.com' });
+      assert.equal(new URL(paso.headers.get('x-middleware-rewrite') ?? 'http://x/').pathname, '/l/mi-landing/pagar/12');
+      assert.ok(!sobrescritas(paso).includes(WS_HEADER) && !sobrescritas(paso).includes(HEADER_DOMINIO));
+      // Su POST: con el Origin del host pasa (sin workspace); con el de otro sitio, 403; ningún otro POST.
+      const post = pedir('https://hola-mako.site/api/landing-generator/pagar', 'POST', { cookie, origin: 'https://hola-mako.site', [WS_HEADER]: '9' });
+      assert.ok(pasa(post), 'el POST del pago con el Origin de hola-mako.site pasa');
+      assert.ok(!sobrescritas(post).includes(WS_HEADER), 'el POST del pago no lleva workspace');
+      assert.equal(pedir('https://hola-mako.site/api/landing-generator/pagar', 'POST', { origin: 'https://evil.com' }).status, 403, 'con el Origin de otro sitio, 403');
+      assert.equal(pedir('https://hola-mako.site/api/landing-generator', 'POST', { cookie, origin: 'https://hola-mako.site' }).status, 404, 'ningún otro POST de /api');
     });
   }
 });
@@ -540,4 +582,14 @@ test('la URL pública de una landing sale de UN lugar: nadie usa la ruta interna
 //   · pagina-publica importando `urlPublica` desde './doc'    → 16 / 1 «la URL pública…» (con el patrón de antes: 17 / 0,
 //     el guard sólo miraba `…editor-landing/doc` y adentro de lib/editor-landing se importa como './doc')
 //   · Inicio.tsx importando `urlPublica` / `rutaInternaL`     → 16 / 1 cada una «la URL pública…»
+//
+// INTEGRACIÓN CON EL PAGO (14/10/2026): `pagar` vuelve a SUBRUTAS_FIJAS (su carpeta ya existe) y el POST
+// de /api/landing-generator/pagar pasa en hola-mako.site sólo con un Origin ausente o del mismo host.
+// Mismo arnés, corriendo ESTE archivo con tests/editor-landing-pago.test.ts (base 37 / 0):
+//   · SUBRUTAS_FIJAS sin `pagar` (como lo dejó la rama dom)   → 32 / 5 (tres acá, dos en el pago)
+//   · `pagar` con la forma de un id de bloque                 → 36 / 1 «decidirLandings…»
+//   · sin el pase del POST del pago                           → 33 / 4
+//   · el POST del pago pasa con cualquier Origin              → 34 / 3
+//   · el proxy no le pasa el Origin a decidirLandings         → 35 / 2 «proxy en hola-mako.site: reescribe…» y el recorrido del pago
+//   · el proxy sin el caso 'prohibido' (cae al 404)           → 35 / 2 (los mismos)
 // =============================================================================

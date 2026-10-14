@@ -16,9 +16,13 @@
 // =============================================================================
 
 process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://proyecto.supabase.co';
+process.env.AUTH_SECRET = process.env.AUTH_SECRET || 'secreto-de-prueba-del-pago-de-landings-0123456789abcdef';
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
+import { NextRequest } from 'next/server';
 import {
   avisoDeCobro, describirCobro, esHrefPago, hrefDePago, hrefPagoValido, motivoNoCobra, pasarelaDeLanding, precioDe,
   productoDeHref, productoDeSegmento, productosDeFoto, productosDePago, urlPasoPago, type EstadoCobroLanding,
@@ -35,11 +39,15 @@ import { htmlDePagina } from '../lib/editor-landing/render';
 import { sanearContenido } from '../lib/editor-landing/validar';
 import { bloquesATarjeta, bloquesATarjetas, tarjetaABloques } from '../lib/editor-landing/ia-bloques';
 import { temaPorId } from '../lib/editor-landing/temas';
-import { NODO, urlPublica, type JsonNodo, type Pagina } from '../lib/editor-landing/doc';
+import { NODO, type JsonNodo, type Pagina } from '../lib/editor-landing/doc';
 import { CONFIG_DEFAULT } from '../lib/editor-landing/api-tipos';
-import { conEnlacesDelDominio, decidirHost, urlDeDominio } from '../lib/editor-landing/dominios-reglas';
+import { conEnlacesDelDominio, decidirHost, tipoDeHost, urlDeDominio } from '../lib/editor-landing/dominios-reglas';
+import { ORIGEN_LANDINGS, decidirLandings, urlLandingEn } from '../lib/editor-landing/origen-landings';
+import { urlPublicaLanding } from '../lib/app-url';
+import { proxy } from '../proxy';
 
 const APP = 'https://hola-mako.com';
+const RAIZ = join(__dirname, '..');
 const boton = (href: string, texto = 'Pagar ahora'): JsonNodo => ({ type: NODO.boton, attrs: { href, variante: 'primario', nuevaPestana: false }, content: [{ type: 'text', text: texto }] });
 const botones = (...b: JsonNodo[]): JsonNodo => ({ type: NODO.botones, attrs: { alinea: 'izquierda' }, content: b });
 const tarjeta = (contenido: JsonNodo[], attrs: Record<string, unknown> = {}): JsonNodo => ({ type: NODO.tarjeta, attrs: { id: `t${Math.random().toString(36).slice(2, 8)}`, ...attrs }, content: contenido });
@@ -147,21 +155,81 @@ test('la foto ofrece los productos de los botones de pago: sin repetir, ordenado
 // el botón de pago a `https://<dominio>/pagar/<id>`, y ahí el proxy contesta 404 (dos segmentos). El
 // recorrido entero: publicar → servir en el dominio → lo que contesta el proxy a cada enlace.
 test('en un dominio propio el botón de pago sigue en MaKo, y ningún enlace servido cae en un 404 del proxy', () => {
-  const base = urlPublica(APP, 'mi-landing');
-  const p = pagina([tarjeta([botones(boton('pago:12'), boton('pagina:pgracias', 'Gracias'))])]);
-  const paginas = [{ id: p.id, ruta: '' }, { id: 'pgracias', ruta: 'gracias' }];
-  const publicada = htmlDePagina(p, CONFIG_DEFAULT, temaPorId('pewter'), { modo: 'publico', urlBase: base, paginas, pagos: true });
-  const servida = conEnlacesDelDominio(publicada, base, urlDeDominio('cliente-real.com'));
-  assert.deepEqual(hrefsDe(servida), [urlPasoPago(base, 12), 'https://cliente-real.com/gracias'], 'el pago queda en MaKo; la página sí se muda al dominio');
-  for (const h of hrefsDe(servida)) {
-    const u = new URL(h);
-    assert.notEqual(decidirHost(u.host, u.pathname, 'GET').tipo, 'no-existe', `${h}: el visitante vería un 404`);
+  // La base con que se publica en producción (hola-mako.site, sin /l/) y la de antes de la mudanza.
+  for (const base of [urlLandingEn(ORIGEN_LANDINGS, 'mi-landing'), `${APP}/l/mi-landing`]) {
+    const p = pagina([tarjeta([botones(boton('pago:12'), boton('pagina:pgracias', 'Gracias'))])]);
+    const paginas = [{ id: p.id, ruta: '' }, { id: 'pgracias', ruta: 'gracias' }];
+    const publicada = htmlDePagina(p, CONFIG_DEFAULT, temaPorId('pewter'), { modo: 'publico', urlBase: base, paginas, pagos: true });
+    const servida = conEnlacesDelDominio(publicada, base, urlDeDominio('cliente-real.com'));
+    assert.deepEqual(hrefsDe(servida), [urlPasoPago(base, 12), 'https://cliente-real.com/gracias'], `${base}: el pago queda en MaKo; la página sí se muda al dominio`);
+    for (const h of hrefsDe(servida)) {
+      const u = new URL(h);
+      // En hola-mako.site contesta `decidirLandings`; en el dominio, `decidirHost`; en la app, la app.
+      const tipo = tipoDeHost(u.host);
+      const d = tipo === 'landings' ? decidirLandings(u.pathname, 'GET') : decidirHost(u.host, u.pathname, 'GET');
+      assert.ok(tipo === 'landings' ? d.tipo === 'reescribir' : d.tipo !== 'no-existe', `${h}: el visitante vería un 404 (${d.tipo})`);
+    }
+    // Los bordes de la reescritura: una PÁGINA llamada «pagar» sí se muda; otra landing no se toca.
+    const crudo = `<a href="${base}/pagar">x</a><a href="${base}/pagar/3">y</a><a href="${base}d/pagar/3">z</a>`;
+    assert.equal(conEnlacesDelDominio(crudo, base, 'https://c.com'), `<a href="https://c.com/pagar">x</a><a href="${base}/pagar/3">y</a><a href="${base}d/pagar/3">z</a>`);
   }
   // El paso postea relativo: servido en la base de MaKo, el POST cae en la app (no en el 404 del dominio).
   assert.deepEqual(decidirHost('hola-mako.com', RUTA_POST_PAGO, 'POST'), { tipo: 'app' });
-  // Los bordes de la reescritura: una PÁGINA llamada «pagar» sí se muda; otra landing no se toca.
-  const crudo = `<a href="${base}/pagar">x</a><a href="${base}/pagar/3">y</a><a href="${base}d/pagar/3">z</a>`;
-  assert.equal(conEnlacesDelDominio(crudo, base, 'https://c.com'), `<a href="https://c.com/pagar">x</a><a href="${base}/pagar/3">y</a><a href="${base}d/pagar/3">z</a>`);
+});
+
+// Integración de la tanda 4 (14/10/2026): las landings viven en hola-mako.site. El recorrido entero con
+// el PROXY DE VERDAD: publicar (la base de producción) → el botón → lo que el proxy de hola-mako.site
+// hace con él → que la ruta interna EXISTA en app/ → el formulario del paso → su POST, que pasa SÓLO con
+// el Origin de ese host, y que la ruta del POST exista y lo reconozca como de MaKo.
+/** La carpeta de app/ que atiende una ruta interna (estática primero, después `[param]`), o null. */
+function rutaDeApp(pathname: string): string | null {
+  let dir = join(RAIZ, 'app');
+  for (const seg of pathname.split('/').filter(Boolean)) {
+    if (existsSync(join(dir, seg))) { dir = join(dir, seg); continue; }
+    const dinamica = readdirSync(dir).find((n) => /^\[[^.\]]+\]$/.test(n));
+    if (!dinamica) return null;
+    dir = join(dir, dinamica);
+  }
+  const archivo = ['route.ts', 'page.tsx'].map((f) => join(dir, f)).find((f) => existsSync(f));
+  return archivo ?? null;
+}
+
+test('publicada en hola-mako.site: el botón lleva a hola-mako.site/<slug>/pagar/<id>, el proxy lo reescribe al paso que existe, y su POST pasa sólo con el Origin del host', () => {
+  const antes = process.env.VERCEL_ENV;
+  process.env.VERCEL_ENV = 'production';
+  try {
+    const base = urlPublicaLanding('mi-landing');
+    assert.equal(base, 'https://hola-mako.site/mi-landing', 'publicar() arma la foto con esta base');
+    const p = pagina([tarjeta([botones(boton('pago:12'))])]);
+    const publicada = htmlDePagina(p, CONFIG_DEFAULT, temaPorId('pewter'), { modo: 'publico', urlBase: base, paginas: [{ id: p.id, ruta: '' }], pagos: true });
+    const [href] = hrefsDe(publicada);
+    assert.equal(href, 'https://hola-mako.site/mi-landing/pagar/12');
+
+    const u = new URL(href);
+    const r = proxy(new NextRequest(href, { headers: { host: u.host } }));
+    const interna = new URL(r.headers.get('x-middleware-rewrite') ?? 'http://x/').pathname;
+    assert.equal(interna, '/l/mi-landing/pagar/12', `el proxy de hola-mako.site no lo llevó al paso (status ${r.status})`);
+    const paso = rutaDeApp(interna);
+    assert.ok(paso && /[\\/]pagar[\\/]\[bloque\][\\/]route\.ts$/.test(paso), `no hay ruta para ${interna}: ${paso}`);
+    assert.match(readFileSync(paso, 'utf8'), /export async function GET\(/);
+
+    // El formulario del paso postea RELATIVO: en hola-mako.site el POST va a ESE host.
+    const html = paginaPasoPago({ sitio: 'S', appBaseUrl: APP, producto: { nombre: 'Programa', precio: 'US$ 990' }, slug: 'mi-landing', productoId: 12, nota: null });
+    const accion = /<form[^>]*\saction="([^"]+)"/.exec(html)?.[1];
+    assert.ok(accion, 'el paso no tiene un formulario con action');
+    const destino = new URL(accion, href);
+    assert.equal(destino.origin, 'https://hola-mako.site');
+    const postear = (origin: string) => proxy(new NextRequest(destino.toString(), { method: 'POST', headers: { host: destino.host, origin } }));
+    assert.equal(postear('https://hola-mako.site').headers.get('x-middleware-next'), '1', 'con el Origin del host, pasa');
+    assert.equal(postear('https://evil.com').status, 403, 'con el de otro sitio, 403');
+    const post = rutaDeApp(destino.pathname);
+    assert.ok(post, `no hay ruta para ${destino.pathname}`);
+    assert.match(readFileSync(post, 'utf8'), /export async function POST\(/);
+    // Y la ruta lo reconoce como de MaKo (el Origin, en positivo, otra vez).
+    assert.deepEqual(origenDelPago('https://hola-mako.site', { appBaseUrl: APP, propio: destino.origin }), { tipo: 'mako' });
+  } finally {
+    if (antes === undefined) delete process.env.VERCEL_ENV; else process.env.VERCEL_ENV = antes;
+  }
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -215,6 +283,10 @@ test('el Origin, en positivo: la app, los sitios, el deploy que contesta; un dom
   const op = { appBaseUrl: APP, propio: 'https://hola-mako.com' };
   assert.deepEqual(origenDelPago('https://hola-mako.com', op), { tipo: 'mako' });
   assert.deepEqual(origenDelPago('https://hola-mako.site', op), { tipo: 'mako' });
+  // hola-mako.site sale de `esHostDeLandings` (la MISMA declaración que el proxy): el apex y sus
+  // subdominios, nunca un host que sólo termina parecido.
+  assert.deepEqual(origenDelPago('https://promo.hola-mako.site', op), { tipo: 'mako' });
+  assert.deepEqual(origenDelPago('https://nohola-mako.site', op), { tipo: 'dominio', host: 'nohola-mako.site' });
   assert.deepEqual(origenDelPago('https://www.hola-mako.com', op), { tipo: 'mako' });
   assert.deepEqual(origenDelPago('https://mako-abc.vercel.app', { appBaseUrl: APP, propio: 'https://mako-abc.vercel.app' }), { tipo: 'mako' });
   assert.equal(origenDelPago('https://cualquiera.vercel.app', op), null, 'un vercel.app ajeno no es MaKo');
@@ -444,4 +516,12 @@ test('el POST: 303 al link; y cada puerta corta antes de cobrar', async () => {
 //   (desde acá con tests/editor-landing-pago-candado.test.ts: base 24 / 0)
 //   26. el campo trampa vuelve a llamarse `sitio_web`                          → 23 / 1
 //   27. su id vuelve a ser `pago-sitio`                                        → 23 / 1
+//
+// INTEGRACIÓN CON hola-mako.site (14/10/2026), mismo arnés (sha256 igual después de cada una), corriendo
+// ESTE archivo con tests/editor-landing-origen.test.ts (base 37 / 0):
+//   28. SUBRUTAS_FIJAS sin `pagar`                                             → 32 / 5 (el recorrido y el dominio, acá)
+//   29. origenDelPago con `host === 'hola-mako.site'` (sin esHostDeLandings)    → 36 / 1 «el Origin, en positivo…»
+//   30. `conEnlacesDelDominio` sin `(?!/pagar/)`, con la base sin /l/          → 36 / 1 «en un dominio propio…»
+//   31. el botón armado con `hola-mako.com/l/<slug>` y no con la base pública  → 35 / 2 «publicada: …», el recorrido
+//   32. el proxy no le pasa el Origin / sin el caso 'prohibido'                → 35 / 2 cada una (el recorrido, acá)
 // =============================================================================

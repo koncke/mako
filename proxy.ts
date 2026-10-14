@@ -207,12 +207,13 @@ function noExisteFueraDeLaApp(): NextResponse {
 //
 // ⚠️ ACÁ NO CORRE NADA DE LA APP, y es a propósito: ni el gate, ni la cookie de sesión (no se lee:
 // la de MaKo es de hola-mako.com y el navegador no la manda a este host), ni el `?ws=`, ni el cartel
-// de mudanza, ni MaKo Mobile. Sólo GET/HEAD (ningún POST: el del pago de un bloque lo suma su paquete,
-// con su test y el `Origin` exigido, el día que exista: `SUBRUTAS_FIJAS`). Y en CUALQUIER
+// de mudanza, ni MaKo Mobile. Sólo GET/HEAD, salvo UN POST: el del paso de pago de una landing
+// (`RUTA_PAGAR_LANDING`, integración de la tanda 4), y sólo con un `Origin` ausente o de ESTE host
+// (403 si no; la ruta lo vuelve a mirar en positivo, con sus topes). Y en CUALQUIER
 // entorno: el host ya lo decide (un preview no tiene este dominio). Los headers internos se borran
 // igual: una reescritura que llevara el del workspace o el del dominio propio es el IDOR de `seguir`.
 function respuestaLandings(req: NextRequest, pathname: string): NextResponse {
-  const d = decidirLandings(pathname, req.method);
+  const d = decidirLandings(pathname, req.method, { origin: req.headers.get('origin'), host: hostDeCabecera(req.headers.get('host')) });
   const limpios = () => {
     const headers = new Headers(req.headers);
     headers.delete(WS_HEADER);
@@ -235,6 +236,8 @@ function respuestaLandings(req: NextRequest, pathname: string): NextResponse {
       return NextResponse.redirect(`https://${HOST_CANONICO}/`, 307);
     case 'metodo':
       return new NextResponse('Method Not Allowed', { status: 405, headers: { allow: 'GET, HEAD' } });
+    case 'prohibido':
+      return new NextResponse('Forbidden', { status: 403, headers: { 'cache-control': 'no-store', 'x-robots-tag': 'noindex, nofollow' } });
     default:
       return noExisteFueraDeLaApp();
   }

@@ -23,7 +23,7 @@ import 'server-only';
 import { createHash } from 'node:crypto';
 import { getSupabaseServer } from '../supabase';
 import { getTenantDb, runWithWorkspace } from '../workspace';
-import { APP_BASE_URL } from '../app-url';
+import { urlPublicaLanding } from '../app-url';
 import { listProductos } from '../productos';
 import { createLead, logLeadEvent } from '../leads';
 import { emailComparable, esLeadDuplicado } from '../leads-duplicados';
@@ -32,7 +32,7 @@ import { funnelPrincipalDeLanding } from '../landing-funnel';
 import { casaParaEscribir } from '../lead-funnel-reglas';
 import { crearCobro, linkDelCobro, listarCobros, pasarelasConectadas } from '../cobros';
 import { crearPropuesta } from '../propuestas';
-import { slugValido, urlPublica } from './doc';
+import { slugValido } from './doc';
 import { leerFoto } from './server-reglas';
 import { sanearConfig } from './validar';
 import { temaPorId, estiloDeTema, type Tema } from './temas';
@@ -169,7 +169,9 @@ export async function leadDeQuienPaga(l: Pick<LandingDePago, 'ws' | 'slug'>, p: 
       return { leadId: ya.id, nuevo: false };
     }
     const defaultId = await idDelFunnelDefault().catch(() => null);
-    const principal = await funnelPrincipalDeLanding(l.ws, urlPublica(APP_BASE_URL, l.slug));
+    // La dirección PÚBLICA de hoy (hola-mako.site en producción): una página declarada con la de antes
+    // de la mudanza (`hola-mako.com/l/<slug>`) la reconoce `landingDe` (urlLandingVigente, las dos puntas).
+    const principal = await funnelPrincipalDeLanding(l.ws, urlPublicaLanding(l.slug));
     try {
       const lead = await createLead({ nombre: p.nombre, email: p.email, origen_lead: 'landing', funnel_id: casaParaEscribir(principal, defaultId) });
       return { leadId: Number(lead.id), nuevo: true };
@@ -264,7 +266,7 @@ async function proponerQuienQuisoPagar(
   motivo: MotivoNoCobra,
   quePide: string,
 ): Promise<void> {
-  const pagina = urlPublica(APP_BASE_URL, l.slug);
+  const pagina = urlPublicaLanding(l.slug);
   const principal = await funnelPrincipalDeLanding(l.ws, pagina);
   await crearPropuesta({
     ws: l.ws,

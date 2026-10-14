@@ -70,8 +70,9 @@ export const SEGMENTO_PAGO = 'pagar';
 
 /**
  * `<base>/pagar/<productoId>`, con la MISMA base con que el render enlaza las páginas del sitio
- * (`urlBase`: `https://hola-mako.com/l/<slug>` al publicar; la mudanza a hola-mako.site la cambia en UN
- * lugar y esto la sigue sola). La base '/' (la raíz de un sitio) no duplica la barra.
+ * (`urlBase` = `urlPublicaLanding(slug)` al publicar: `https://hola-mako.site/<slug>` en producción,
+ * donde el proxy reescribe `/<slug>/pagar/<id>` al paso, y `<app>/l/<slug>` en local y en los previews).
+ * La base '/' (la raíz de un sitio) no duplica la barra.
  */
 export function urlPasoPago(base: string, productoId: number): string {
   const b = base.replace(/\/+$/, '');

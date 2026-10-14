@@ -13,7 +13,8 @@
 //    cuenta de MaKo, y por eso NO LEE NINGUNA COOKIE: el early-return del proxy saltea el chequeo de
 //    Origin, así que acá se mira el Origin a mano (`origenDelPago`, en positivo) — y no es una server
 //    action ni un formulario que postee a app/l/** (una página pública que acepta POST ejecuta server
-//    actions sin sesión, AGENTS.md).
+//    actions sin sesión, AGENTS.md). En hola-mako.site es la ÚNICA ruta de /api que el proxy deja
+//    pasar, sólo en POST y con un Origin ausente o de ese host (`decidirLandings`, origen-landings.ts).
 // ⚠️ LO QUE NO SALE DEL PEDIDO: el workspace (sale de la landing), el monto, la moneda, el valor en
 //    dólares y el alta de MaKo. El producto sí, y tiene que estar en la foto PUBLICADA.
 // ⚠️ CADA LLAMADA PUEDE CREAR UN CHECKOUT EN EL STRIPE DEL CLIENTE: topes por IP y por email (en la

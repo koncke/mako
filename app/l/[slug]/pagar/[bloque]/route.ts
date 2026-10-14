@@ -4,14 +4,15 @@
 // El «Botón de pago» de una landing publicada lleva acá (`<base del sitio>/pagar/<productoId>`,
 // pago-landing.ts). Decisión de Martín (14/10/2026): antes del checkout se le piden NOMBRE y EMAIL a
 // quien paga. El formulario postea a /api/landing-generator/pagar, que crea (o reusa) el lead y el
-// cobro y redirige al link de pago. En hola-mako.site (la mudanza en curso) se sirve como
-// /<slug>/pagar/<productoId>; el `[bloque]` es el PRODUCTO que cobra el botón.
+// cobro y redirige al link de pago. En hola-mako.site se sirve como /<slug>/pagar/<productoId> (el
+// proxy lo reescribe acá: `pagar` en `SUBRUTAS_FIJAS`, origen-landings.ts, y deja pasar el POST del
+// formulario sólo con el Origin de ese host); el `[bloque]` es el PRODUCTO que cobra el botón.
 //
 // ⚠️ PÚBLICA Y SIN COOKIE, como las otras rutas de app/l: `/l` está en PUBLICOS (lib/rutas-publicas.ts)
 //    como prefijo y, como no es /api/, el proxy la deja sólo en GET/HEAD/OPTIONS. Lee con el cliente
 //    crudo por slug y el workspace sale de la FILA; nunca `getTenantDb` sin contexto (caería al ws1).
 // ⚠️ EN EL DOMINIO DE UN CLIENTE el botón NO trae acá con el host del cliente: `conEnlacesDelDominio`
-//    (dominios-reglas.ts) deja el pago en la base de MaKo, porque `decidirHost` contesta 404 a una ruta
+//    (dominios-reglas.ts) deja el pago en la base de las landings (hola-mako.site en producción), porque `decidirHost` contesta 404 a una ruta
 //    de dos segmentos (revisión de la tanda 4, ALTA). Si algún día el proxy la deja pasar, sólo sirve
 //    una landing de ESE dominio — el mismo corte que /l/html.
 // La decisión entera (formas, 404 sin tocar la base, 503, el formulario) vive en `responderPasoPago`

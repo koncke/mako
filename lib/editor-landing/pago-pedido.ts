@@ -14,13 +14,17 @@
 
 import { slugValido } from './doc';
 import { DOMINIOS_DE_MAKO, dominioValido, esHostDeMako } from './dominios-reglas';
+import { RUTA_PAGAR_LANDING, esHostDeLandings } from './origen-landings';
 import { motivoNoCobra, pasarelaDeLanding, productoDeSegmento, type EstadoCobroLanding, type MotivoNoCobra } from './pago-landing';
 import type { Cobro, Pasarela, TipoCobro } from '../cobros-tipos';
 import { emailNormalizado, emailUtilizable } from '../agencia-altas';
 import { emailComparable } from '../leads-duplicados';
 
-/** Adonde postea el formulario del paso. RELATIVA a propósito: el mismo host que sirve la página. */
-export const RUTA_POST_PAGO = '/api/landing-generator/pagar';
+/**
+ * Adonde postea el formulario del paso. RELATIVA a propósito: el mismo host que sirve la página
+ * (en hola-mako.site el proxy deja pasar SÓLO este POST: `RUTA_PAGAR_LANDING`, origen-landings.ts).
+ */
+export const RUTA_POST_PAGO = RUTA_PAGAR_LANDING;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Lo que manda el formulario del paso
@@ -88,13 +92,6 @@ export const TEXTO_DEMASIADOS = 'Demasiados intentos. Prueba de nuevo en unos mi
 // De dónde viene el POST (Origin)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * El host donde se van a servir las landings publicadas (la mudanza en curso: `https://hola-mako.site/<slug>`).
- * ⚠️ SI LA MUDANZA LO DECLARA EN OTRO LADO (p. ej. en `DOMINIOS_DE_MAKO`), esto pasa a importarlo de ahí:
- * dos constantes del mismo host son la misma regla escrita dos veces.
- */
-export const HOST_SITIOS = 'hola-mako.site';
-
 export type OrigenPago = { tipo: 'mako' } | { tipo: 'dominio'; host: string };
 
 const origenDe = (url: string | null | undefined): string | null => {
@@ -110,7 +107,8 @@ const esDe = (host: string, base: string): boolean => host === base || host.ends
 
 /**
  * ¿Desde dónde se mandó el formulario? EN POSITIVO: la app (APP_BASE_URL), un dominio de MaKo, el host
- * de los sitios publicados, o el MISMO host que contesta cuando es un deploy de MaKo o una máquina local
+ * de las landings publicadas (hola-mako.site, `esHostDeLandings`: la MISMA declaración que usa el
+ * proxy), o el MISMO host que contesta cuando es un deploy de MaKo o una máquina local
  * (en dev la landing se sirve en /l/<slug> del mismo host). Un dominio de cliente vuelve como
  * `dominio`: quien llama confirma que es el de ESA landing (`landingDeDominio`). Lo demás —sin Origin,
  * `null` (un iframe sandbox), otro sitio, un puerto raro— es null.
@@ -130,7 +128,7 @@ export function origenDelPago(origin: string | null | undefined, op: { appBaseUr
   const local = host === 'localhost' || host === '127.0.0.1';
   if (o === propio && (local || esHostDeMako(host))) return { tipo: 'mako' };
   if (u.protocol !== 'https:' || u.port) return null;
-  if (esDe(host, HOST_SITIOS) || DOMINIOS_DE_MAKO.some((d) => esDe(host, d))) return { tipo: 'mako' };
+  if (esHostDeLandings(host) || DOMINIOS_DE_MAKO.some((d) => esDe(host, d))) return { tipo: 'mako' };
   // Un `*.vercel.app` que no es el que contesta cae acá y vuelve null: `dominioValido` ya excluye todo host
   // de MaKo (`motivoDominioInvalido`). Un renglón propio para eso era código muerto (lo dijo la rotura).
   return dominioValido(host) ? { tipo: 'dominio', host } : null;
