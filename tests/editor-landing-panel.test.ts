@@ -390,3 +390,6 @@ test('ni la pantalla, ni las páginas, ni las reglas tienen voseo (el guard del 
 //  22. urlDeBusqueda acepta cualquier dominio (también un nombre con punto)   → 19 / 1 (7)
 //  23. el Diagnóstico vacío monta el panel sin landing (en vez de la caja)    → 19 / 1 (16)
 // Restaurado: 20 / 0.
+//
+// Tanda 4 (14/10/2026, hola-mako.site): base 20 / 0. Rota con el arnés de editor-landing-origen:
+//  24. docDeUrl mirando sólo la primera base (hola-mako.com/l/… «de afuera»)  → 17 / 3 «docDeUrl…», «filasDelPanel…», «derechaDeQuery…»

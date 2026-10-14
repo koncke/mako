@@ -104,6 +104,9 @@ sitio: nav.gm-nav · footer.gm-pie · a.gm-marca («Hecho con MaKo»)
 
 ## D4. Publicar: `/l/<slug>` como route handler con HTML completo
 
+> Tanda 4 (14/10/2026): la dirección pública es `https://hola-mako.site/<slug>`; `/l/<slug>` queda como la
+> ruta INTERNA a la que el proxy reescribe (y la que sirve en local). Ver «Tanda 4» al final.
+
 - `app/l/[slug]/route.ts` y `app/l/[slug]/[ruta]/route.ts` devuelven el HTML ENTERO de la foto
   (`publicado`), sin pasar por el layout raíz (sin sidebar, sin pollers, sin Suspense). GET/HEAD.
   `app/l/vista/[token]/route.ts` sirve el BORRADOR por el link privado (`noindex`). Van en `PUBLICOS`
@@ -309,3 +312,51 @@ Pedido textual (con dos capturas del Panel en producción):
   `VERCEL_TEAM_SLUG`), se muestran los registros DNS a cargar, se verifica el estado, y `proxy.ts`
   sirve en ESE host sólo la landing publicada (nada de la app ni de `/api`, salvo lo que la página
   necesita). Subdominios `<slug>.hola-mako.com` quedan fuera (necesitan DNS comodín: lo decide Martín).
+  Desde la tanda 4 la URL de MaKo es `hola-mako.site/<slug>` (abajo).
+
+---
+
+# Tanda 4 (14/10/2026): las landings publicadas en hola-mako.site
+
+Decisión de Martín, textual: «Las landings enteras, como gamma.site». Compró hola-mako.site (Porkbun); la
+sesión principal lo sumó al proyecto de Vercel (`www.` → 308 al apex) con su DNS. La APP sigue en
+hola-mako.com. Una landing con DOMINIO PROPIO del cliente sigue sirviéndose ahí, como antes. El porqué: lo
+que publica un cliente (HTML personalizado con JavaScript, «Replicar» que copia páginas ajenas) no puede
+vivir bajo el dominio de la app ni el del mail; si Google Safe Browsing marca una página, que marque
+hola-mako.site y no hola-mako.com. Lo que costó y lo medido: [hallazgos-editor-landing.md](hallazgos-editor-landing.md)
+→ «Tanda 4».
+
+- **L1 · El origen público en UN lugar.** La BASE de las landings es lo que va antes del slug:
+  `https://hola-mako.site` en producción (`VERCEL_ENV === 'production'`) y `<APP_BASE_URL>/l` en local y en
+  los previews (un preview no tiene el dominio). Lo puro vive en `lib/editor-landing/origen-landings.ts`
+  (`baseLandingsPara`, `urlLandingEn`, `urlVistaEn`, `slugDeUrlLanding`); la base VIGENTE, en
+  `lib/app-url.ts` al lado de `APP_BASE_URL` (`baseLandings`, `basesLandings`, `urlPublicaLanding`,
+  `urlVistaLanding`), sólo en el server: tira en el navegador, que la recibe por props
+  (`LandingCompleta.baseLandings`, la prop `bases` del Panel). Todo lo que muestra, copia, manda o mide la URL
+  de una landing pasa por ahí (la publicación y los enlaces entre páginas de la foto, la vista previa
+  privada, la canónica, la analítica, el diálogo Publicar, «Copiar enlace», el cruce del Panel, la ruta del
+  dominio propio). `urlPublica` de `doc.ts` queda como la ruta INTERNA (`/l/<slug>`).
+- **L2 · El proxy decide por HOST, primero que nada** (`tipoDeHost`: `app` | `landings` | `propio`). En
+  hola-mako.site (`decidirLandings`): `/<slug>`, `/<slug>/<ruta>`, `/<slug>/pagar/<bloque>` y
+  `/vista/<token>[/<ruta>]` se REESCRIBEN a `app/l` (la URL que ve el visitante no cambia); `/l/html/…` pasa;
+  el POST de `/api/landing-generator/pagar` pasa; `/l/<…>` es un 308 a `/<…>`; la raíz, un 307 a
+  hola-mako.com; lo demás, 404. Sin gate, sin cookie, sin `?ws=`, sin mudanza, sólo GET/HEAD (salvo el pago),
+  en cualquier entorno. Las rutas de `app/l` no cambian: siguen siendo el destino interno.
+- **L3 · La app muda lo viejo.** En producción, en un host de la app, `/l/<…>` es un 308 a
+  `https://hola-mako.site/<…>` con la query entera (`decidirLEnApp`), antes del cartel de mudanza; en local y
+  en los previews `/l` sigue sirviendo.
+- **L4 · El HTML libre vive con su página.** En producción hola-mako.com ya no sirve `/l/html` (404): nadie
+  de la app lo usa (el editor y el Diagnóstico dibujan el bloque con `srcdoc`). En hola-mako.site y en el
+  dominio del cliente sí, con las cabeceras de `CABECERAS_HTML_LIBRE` (sandbox, `frame-ancestors 'self'`).
+- **L5 · Lo de la app en next.config va con el host de la app.** Las redirecciones y la reescritura corren
+  ANTES del proxy: van con `has: [{ type: 'host', value: PATRON_HOSTS_DE_LA_APP }]` (MaKo, `*.vercel.app`,
+  `localhost`, una IPv4), puesto por `.map(enLaApp)` a la lista entera. El HSTS sigue con
+  `PATRON_HOSTS_DE_MAKO` (sin localhost, sin hola-mako.site). Las cabeceras de `/l/html` no llevan host.
+- **L6 · Lo que una landing pide a su host es sólo su HTML libre.** El Pixel, `/api/track` y el grabador van
+  ABSOLUTOS a hola-mako.com; por eso en hola-mako.site no pasa ningún `/api` salvo el pago. Los estáticos de
+  MaKo (`/_next`, `favicon.ico`, `sw.js`) siguen sirviéndose en hosts ajenos: medido y pendiente
+  (hallazgos, «Lo que quedó sin hacer (tanda 4)»).
+- **L7 · Reconocer «una landing nuestra» por URL** acepta las dos bases (`basesLandings`: hola-mako.site y
+  hola-mako.com/l): el Panel (`docDeUrl`), el Diagnóstico y la analítica (`urlsAMedir`, `prefiltroVisitas`).
+- `hola-mako.site` es «de MaKo» para el dominio propio (`esHostDeMako`: nadie lo conecta a su landing), pero
+  NO entra a `DOMINIOS_DE_MAKO` (que gobierna el HSTS, las redirecciones y el cartel de mudanza).

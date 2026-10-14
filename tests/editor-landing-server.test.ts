@@ -9,7 +9,10 @@
 //
 // PROBADO ROMPIÉNDOLO (11/10/2026): 19 roturas, una por vez sobre el archivo real, restaurado desde
 // la copia en memoria y verificado por hash. Con todo en su lugar: 25 pass / 0 fail. Las 18 primeras
-// se corrieron con 24 tests (dieron 23 / 1) y la última con 25 (dio 24 / 1); en todas cayó SU test:
+// se corrieron con 24 tests (dieron 23 / 1) y la última con 25 (dio 24 / 1); en todas cayó SU test.
+// Tanda 4 (14/10/2026, hola-mako.site), base 25 / 0, con el arnés de editor-landing-origen:
+// `prefiltroVisitas` con `%/l/…%` (deja afuera hola-mako.site) → 24 / 1 «analítica: las URLs medidas…»;
+// `urlsAMedir` con una sola base → 24 / 1 (el mismo). Las de 11/10:
 //   · `tocaVersionAutomatica` con `>` en vez de `>=`              → versión automática (los 10 min justos)
 //   · `puedeBorrarse` en NEGATIVO (`papelera_at !== null`)        → borrar: SÓLO lo de la papelera
 //   · el `delete` de `borrar` sin `.not('papelera_at', …)`        → borrar: lo exige EN LA CONSULTA

@@ -397,7 +397,11 @@ export const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{1,58})[a-z0-9]$/;
 // `vista` es una carpeta FIJA de app/l (el link privado del borrador): una landing con ese slug
 // tendría sus páginas tapadas por la ruta fija (server-reglas.ts, RUTAS_DE_L, lo frena también).
 // `html` también (tanda 2): app/l/html/[docId]/[bloque] sirve el «HTML personalizado» publicado.
-export const SLUGS_RESERVADOS = new Set(['api', 'admin', 'login', 'app', 'mako', 'vsl', 'www', 'static', 'assets', 'nuevo', 'editar', 'vista', 'html']);
+// `cono-tx` y `cono-doc` (tanda 4): en hola-mako.site el slug es el PRIMER segmento, y el matcher de
+// proxy.ts no corre en `/cono-tx/…` ni `/cono-doc/…` (assets públicos de /conocimientos): las páginas
+// internas de una landing con ese slug no llegarían al proxy que las reescribe
+// (tests/editor-landing-origen.test.ts lo cruza con el matcher).
+export const SLUGS_RESERVADOS = new Set(['api', 'admin', 'login', 'app', 'mako', 'vsl', 'www', 'static', 'assets', 'nuevo', 'editar', 'vista', 'html', 'cono-tx', 'cono-doc']);
 
 export function slugDe(texto: string): string {
   return texto

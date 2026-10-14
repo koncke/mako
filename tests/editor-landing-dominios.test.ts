@@ -43,6 +43,9 @@
 //   · la 0263 sin atar la fecha del reclamo en el CHECK           → 24 / 1 «la 0263 ata las cinco…»
 //   · la página del dominio sin comparar el docId                 → 24 / 1 «la página en el dominio…»
 // Restaurado: 25 / 0.
+//
+// Tanda 4 (14/10/2026, hola-mako.site): base 25 / 0. Rota con el arnés de editor-landing-origen:
+//   · esHostDeMako sin hola-mako.site                             → 22 / 3 «validar…», «soltar de Vercel…», «los hosts de MaKo…»
 // =============================================================================
 
 import { test } from 'node:test';
