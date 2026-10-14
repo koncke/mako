@@ -1,47 +1,55 @@
 # Relevo — Estrategia 3 cuentas (el chat orquestador)
 
-<sub>Escrito por el chat «Estrategia 3 cuentas» (cuenta 2) el 14/10/2026 a las 10:40 hora AR. Es material
-de primera mano: este chat coordinó los pushes del 13 y el 14/10. Reemplaza a estrategia-2-cuentas.md.</sub>
+<sub>Escrito por el chat «Estrategia 3 cuentas» (cuenta 2) el 14/10/2026; cierre a las 15:05 hora AR, con la
+cuenta al 95% semanal. Es material de primera mano: este chat coordinó los pushes del 13 y el 14/10.
+Reemplaza a estrategia-2-cuentas.md.</sub>
 
 ## Cómo se pushea hoy, con ~15 chats sobre un clon y 16 GB de RAM
 
-- **Un solo push por vez, y lo hace el orquestador.** Cada push corre un `tsc` de ~4 GB. Si corren dos a la
+- **Un solo push por vez, y lo hace el orquestador.** Cada push corre un `tsc` de ~4-5 GB. Si corren dos a la
   vez, mueren los dos, y la app de Claude se cayó dos veces por eso (14/10, a las 04:27 y a las 06:10).
-- **Integración en un worktree aparte** (`C:/dev/wt-push-<letra>`): se parte del main del clon y se suman
-  las ramas de cada chat con **merge, nunca rebase**, porque las bitácoras citan hashes. Un chat que rebasea
-  su rama trae copias de commits que ya entraron, y eso choca en decenas de archivos: se le devuelve para
-  que mergee él.
-- **Martín autorizó pausar el vigía de RAM durante un push.** El procedimiento: `Stop-ScheduledTask
-  mako-vigia-ram`, una red propia (`guardia_push.ps1`, en el scratchpad de este chat) que mata sólo ese tsc
-  si quedan menos de 300 MB, `MAKO_TYPECHECK_SIN_ESPERA=1 git push`, y al terminar `Start-ScheduledTask`.
-  ⚠️ Dos veces el script terminó con el vigía apagado: después de cada push hay que verificar
-  `(Get-ScheduledTask mako-vigia-ram).State` = Running.
-- **Con poca RAM, el push espera solo**: `push_final_<letra>.sh` (también en el scratchpad) espera 4 GB
-  libres, trae el main del clon y origin, y pushea.
+- **Integración en un worktree aparte** (`C:/dev/wt-push-<letra>`; la última letra usada fue la `o`): se parte
+  del main del clon y se suman las ramas de cada chat con **merge, nunca rebase**, porque las bitácoras citan
+  hashes. Un chat que rebasea su rama trae copias de commits que ya entraron y choca en decenas de archivos:
+  se le devuelve para que mergee él.
+- **Martín pidió (14/10 13:00) «No esperes por la ram, pushea directamente».** El procedimiento:
+  `Stop-ScheduledTask mako-vigia-ram`, una red propia (`guardia_push_<letra>.ps1`, en el scratchpad de este chat)
+  que mata sólo el tsc de ese worktree si quedan menos de 300 MB, `MAKO_TYPECHECK_SIN_ESPERA=1 git push origin
+  HEAD:main`, y al terminar `Start-ScheduledTask`. El script es `push_<letra>.sh`. ⚠️ Después de cada push se
+  verifica `(Get-ScheduledTask mako-vigia-ram).State` = Running: varias veces quedó en «Ready».
+- **Si otro chat tiene el turno del lock esperando RAM** (un `typecheck-lock.mjs` sin un `tsc` hijo), frena a
+  todos: se corta ese `git push` (`taskkill /T`), no subió nada, y se le avisa al chat.
+- **Después del push:** `npx vercel ls` hasta Ready (pushear no es desplegar), y avisarle a cada chat.
 - **Cada push se le reporta a Martín en bullets**, en palabras de producto (memoria `pushes-con-bullets`).
+- ⚠️ **Mientras corre un push, su worktree NO se toca** (ni merge ni edición): el pre-push chequea el DISCO.
+  Ver `docs/hallazgos-infra.md` → «Mergear en el worktree de un push mientras corre su pre-push».
+- ⚠️ **El typecheck completo pide 5120 MB de heap desde el 14/10 13:15** (el Image Editor portado lo pasó de
+  4096). Arranca con 2-4 GB libres, pagina, y termina en ≈ 4 min.
+- ⚠️ **Antes de pushear una rama con paquetes nuevos**, que estén en `package.json` y en el lock: el
+  `node_modules` del clon tiene paquetes sueltos y el typecheck pasa igual (14/10: `qrcode` tiró un deploy).
+- ⚠️ **Para sacar el junction de un worktree desde PowerShell**, `(Get-Item <ruta>\node_modules).Delete()`: la
+  guardia de la app bloquea `cmd /c rmdir` («Remove-Item on system path '/c'»).
 
-- ⚠️ **Mientras corre un push, su worktree NO se toca** (ni merge ni edición): el pre-push chequea el DISCO y
-  un merge en el medio le hace leer un árbol mezclado (14/10 12:49, 13 errores falsos). Ver
-  `docs/hallazgos-infra.md` → «Mergear en el worktree de un push mientras corre su pre-push».
+## Lo que quedó pendiente al cierre (14/10 15:05, cuenta 2 al 95%)
 
-- ⚠️ **El typecheck completo pide 5120 MB de heap desde el 14/10 13:15** (el Image Editor portado lo pasó
-  de 4096). Con «no esperes RAM» de Martín se pushea con `MAKO_TYPECHECK_SIN_ESPERA=1`; el chequeo arranca
-  con 2-4 GB libres y pagina, pero terminó (≈ 4 min).
-
-## Lo que quedó pendiente al 14/10 13:30 (semanal de la cuenta 2 al 89%)
-
-- **Todo lo terminado está en origin/main `353c81a84`**: CRM tanda A, Landing tandas 3-5, General, el
-  Image Editor (tandas 1 y 2) y el relevo de Automations. Las tres migraciones de «nada por detrás» corrieron
-  (la 3ª, 8 automatizaciones, verificada por Automations).
-- **CRM arranca la tanda B**: la integra el orquestador, y que el CRM NO rebasee su rama.
-- **En cola para el próximo push (sin apuro, no cambia producción):** la rama `editor-imagen` (HEAD `7f696486`,
-  ff sobre `fac319092`): docs del Image Editor y `tests/image-editor-dependencias.test.ts`. Se lleva el HEAD
-  de la rama, no un sha fijo (14:15: `6800964de`, docs + tests + la regla de la capa superadmin en
-  AGENTS.md). La rama `opcion-image-en-clientes` NO va: espera la decisión de Martín (ver la tab Image
-  mirando un cliente).
-- **Nunca** pushear `wip/api-acciones-1410` («A MEDIAS») ni `api-acciones-1310`.
+- **Todo lo terminado sale en el push de cierre** (General sexta vuelta con el arreglo urgente del Dashboard
+  sin hojas `78fe81321`, y `editor-imagen` hasta `912d2d2d8`). Si no quedó Ready, el log es `push_o.log` del
+  scratchpad de este chat.
+- **Pedido de Martín sin chat que lo tome (14/10 14:34, textual):** «Dale este mismo feedback al dashboard...
+  Que rediseñe bloque por bloque y que tenga en cuenta mobile. Que vaya viendo con datos ficticios o con algun
+  dato de algun workspace que todo se vea bien en diseño. Tanto bloques como las plantillas.» No hay un chat
+  del Dashboard abierto y la cuenta 2 no lo arranca (95%). El método (capturas por bloque y por plantilla, en
+  escritorio y a 364 px) está en `docs/hallazgos-objectives.md` → «General, sexta vuelta», y el pendiente en
+  «Lo que quedó sin hacer» del mismo archivo.
+- **CRM está en la tanda B**: la integra el orquestador, y que el CRM NO rebasee su rama.
+- **Landing Generator:** rojo en main de `tests/integracion-sin-salir.test.ts` por
+  `app/landing-generator/editor/dialogos/DialogoPublicar.tsx` y `editor/nodos/CobroBoton.tsx` (links a
+  /integraciones); se le pasó el 14/10 14:12.
 - **Rojo conocido en HEAD:** `tests/cobranza.test.ts` (lo reportó General; no frena el push).
-- **Martín tiene que confirmar el borrador de 50 tareas** del Perro: https://hola-mako.com/plan/revisar/propmv7rwo1dkj2i6
-- **Decisión de Martín, sin contestar:** si la barra de selección en lote del Ads Manager va oscura o clara.
-- **Decisión de Martín, sin contestar:** que el vigía se levante solo si se cae (hoy sólo arranca al
-  iniciar sesión, y el 13/10 estuvo seis horas caído sin que nadie se enterara).
+- **Nunca** pushear `wip/api-acciones-1410` («A MEDIAS»), `api-acciones-1310` ni `opcion-image-en-clientes`.
+- **Decisiones de Martín, sin contestar:**
+  - si la tab Image se ve también mirando un cliente (está armada en `opcion-image-en-clientes`);
+  - si la barra de selección en lote del Ads Manager va oscura o clara;
+  - que el vigía se levante solo si se cae (hoy sólo arranca al iniciar sesión, y el 13/10 estuvo seis horas
+    caído sin que nadie se enterara);
+  - confirmar el borrador de 50 tareas del Perro: https://hola-mako.com/plan/revisar/propmv7rwo1dkj2i6
