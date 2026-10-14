@@ -41,9 +41,11 @@
 //
 // 2. `script-src` SIN 'unsafe-inline': los dos scripts inline propios (el de la página y el
 //    del Píxel de Meta) entran por su HASH, calculado acá. Es la segunda capa contra un
-//    escape que se le escape al renderizador: una página publicada vive en hola-mako.com, el
+//    escape que se le escape al renderizador: una página publicada vivía en hola-mako.com, el
 //    mismo origen que la sesión de MaKo, y un script inyectado podría llamar /api/* como el
-//    que mira (D4: «nada de JavaScript de terceros en hola-mako.com»).
+//    que mira (D4: «nada de JavaScript de terceros en hola-mako.com»). Desde la tanda 4 vive en
+//    hola-mako.site (sin la cookie de MaKo), y la política se queda igual: en local y en los
+//    previews sigue sirviéndose bajo el host de la app.
 //    ⚠️ Y EL COSTO, que hay que decir: un <iframe srcdoc> HEREDA la política del padre, así
 //    que el bloque «HTML personalizado» (render.ts lo pone en un iframe sandbox con srcdoc)
 //    NO ejecuta sus scripts en la página publicada. Arreglarlo no es aflojar esta política:
@@ -80,7 +82,8 @@ import { CONFIG_DEFAULT, type ConfigLanding } from './api-tipos';
 import { CSS_CONTENIDO } from './css';
 import { PREFIJO_PUBLICO, rutaValida, slugValido, urlPublica } from './doc';
 import { origenImagenes } from './especificacion';
-import { APP_BASE_URL } from '../app-url';
+import { baseLandingsPara, urlLandingEn, urlVistaEn } from './origen-landings';
+import { APP_BASE_URL, baseLandings } from '../app-url';
 import { FORMA_TOKEN, lineaCargador } from '../pixel-cargador';
 import { DOMINIOS_IFRAME, HOSTS_IFRAME } from '../embeds';
 
@@ -158,6 +161,11 @@ export type Entorno = {
   appBaseUrl: string;
   /** `https://<proyecto>.supabase.co/storage/v1/object/public/landing-imagenes/`, o null. */
   prefijoBucket: string | null;
+  /**
+   * La base de las landings (tanda 4: `https://hola-mako.site` en producción), para la canónica y el
+   * og:url. Sin ella, la de local (`<appBaseUrl>/l`): la usan los tests que no la pasan.
+   */
+  baseLandings?: string;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -171,8 +179,11 @@ export type Entorno = {
  * que el render dejó pasar.
  */
 export function entornoActual(): Entorno {
-  return { appBaseUrl: APP_BASE_URL, prefijoBucket: origenImagenes() || null };
+  return { appBaseUrl: APP_BASE_URL, prefijoBucket: origenImagenes() || null, baseLandings: baseLandings() };
 }
+
+/** La base de las landings de un entorno (ver `Entorno.baseLandings`). */
+const baseDe = (e: Entorno): string => e.baseLandings ?? baseLandingsPara({ produccion: false, appBaseUrl: e.appBaseUrl });
 
 function origenDe(url: string): string | null {
   try {
@@ -683,18 +694,20 @@ export async function responderPublico(req: Request, pedido: PedidoPublico, dep:
     const slug = pedido.slug, ruta = pedido.ruta;
     const slugMin = slug.toLowerCase(), rutaMin = ruta.toLowerCase();
     if ((slugMin !== slug || rutaMin !== ruta) && slugValido(slugMin) && rutaValida(rutaMin)) {
+      // La ruta INTERNA (/l/…) del host que contestó: en hola-mako.site las mayúsculas ya las corrige el
+      // proxy antes de reescribir (`decidirLandings`), así que esto sólo corre en local y en los previews.
       const u = new URL(req.url);
       u.pathname = urlPublica('', slugMin, rutaMin);
       return new Response(null, { status: 308, headers: { Location: u.toString(), 'Cache-Control': CACHE_ERROR } });
     }
     if (!slugValido(slug) || !rutaValida(ruta)) return respuestaError(404, sinCuerpo);
     modo = 'publico';
-    urlCanonica = pedido.base ? `${pedido.base}${ruta ? `/${ruta}` : '/'}` : urlPublica(entorno.appBaseUrl, slug, ruta);
+    urlCanonica = pedido.base ? `${pedido.base}${ruta ? `/${ruta}` : '/'}` : urlLandingEn(baseDe(entorno), slug, ruta);
   } else {
     const ruta = pedido.ruta ?? '';
     if (!FORMA_TOKEN_VISTA.test(pedido.token) || !rutaValida(ruta)) return respuestaError(404, sinCuerpo);
     modo = 'vista';
-    urlCanonica = `${entorno.appBaseUrl}${PREFIJO_PUBLICO}/vista/${pedido.token}${ruta ? `/${ruta}` : ''}`;
+    urlCanonica = urlVistaEn(baseDe(entorno), pedido.token, ruta);
   }
 
   let lectura: LecturaPublica | null;

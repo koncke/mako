@@ -132,6 +132,13 @@ export type LandingCompleta = {
   cambiosSinPublicar: boolean;
   sitioActivo: boolean;
   urlPublica: string | null;
+  /**
+   * La base de la dirección pública (lo que va antes del slug, sin barra final): `https://hola-mako.site`
+   * en producción, `<app>/l` en local y en los previews (tanda 4). La decide el SERVER
+   * (`baseLandings`, lib/app-url.ts): el navegador no sabe en qué entorno corre. La usa el diálogo
+   * Publicar para mostrar la dirección antes de publicar.
+   */
+  baseLandings: string;
   creado: string;
   actualizado: string;
   /** La estrella del menú ⋯ (y del Panel). */

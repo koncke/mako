@@ -1,7 +1,18 @@
 import type { NextConfig } from "next";
 import { EXTENSION_EN_TIENDA, EXTENSION_URL_TIENDA, EXTENSION_URL_ZIP } from "./lib/extension-tienda";
 import { CABECERAS_HTML_LIBRE } from "./lib/editor-landing/html-libre";
-import { PATRON_HOSTS_DE_MAKO } from "./lib/editor-landing/dominios-reglas";
+import { PATRON_HOSTS_DE_LA_APP, PATRON_HOSTS_DE_MAKO } from "./lib/editor-landing/dominios-reglas";
+
+// Las redirecciones y reescrituras de abajo son de la APP, y corren ANTES del proxy sin mirar el host
+// (tanda 4, 14/10/2026). Medido en producción ese día: hola-mako.site/leads → 307 a hola-mako.site/crm y
+// /extension → 307 al zip de la extensión. En hola-mako.site `/todo`, `/leads` o `/extension` son slugs
+// VÁLIDOS: la landing con esa dirección quedaba tapada por la redirección antes de que el proxy la
+// leyera; y en el dominio de un cliente llevaban a pantallas de MaKo. Por eso TODAS van con el host de
+// la app en positivo (`PATRON_HOSTS_DE_LA_APP`: MaKo, los previews, localhost y una IP), puesto por
+// `enLaApp` a la lista entera: una redirección nueva lo hereda sin que nadie se acuerde.
+// tests/editor-landing-origen.test.ts evalúa esta configuración y lee el fuente.
+const EN_LA_APP = [{ type: 'host' as const, value: PATRON_HOSTS_DE_LA_APP }];
+const enLaApp = <T extends object>(r: T) => ({ ...r, has: EN_LA_APP });
 
 const nextConfig: NextConfig = {
   // El chequeo de tipos NO corre en el build: es ~65 de los ~99 segundos de cada
@@ -50,7 +61,7 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return [
       { source: '/vsl/mako-cs', destination: '/vsl-assets/mako-cs.html' },
-    ];
+    ].map(enLaApp);
   },
   // /todo se renombró a /plan (el "Plan de ejecución"). Mantenemos el redirect
   // para links viejos.
@@ -124,7 +135,7 @@ const nextConfig: NextConfig = {
         destination: EXTENSION_EN_TIENDA ? EXTENSION_URL_TIENDA : EXTENSION_URL_ZIP,
         permanent: false,
       },
-    ];
+    ].map(enLaApp);
   },
   // Cabeceras de seguridad globales (defense-in-depth). Subset SEGURO: no toca
   // script-src/style-src (eso requiere nonces + testeo en browser), pero corta
@@ -148,9 +159,11 @@ const nextConfig: NextConfig = {
       // su dominio RAÍZ, los navegadores de sus visitantes le forzaban HTTPS por dos años a TODOS sus
       // subdominios — rompiendo cualquiera que sólo ande por HTTP. En positivo: los dominios de MaKo
       // y sus subdominios (`PATRON_HOSTS_DE_MAKO`, de `DOMINIOS_DE_MAKO`); Next lo compila `^(…)$`
-      // contra el host sin puerto. Lo que NO se movió y queda pendiente: las redirecciones de arriba
-      // y los archivos de public/ también se sirven en el dominio de un cliente
-      // (docs/hallazgos-editor-landing.md, «Tanda 2»).
+      // contra el host sin puerto. Medido en producción el 14/10/2026: hola-mako.com la trae con
+      // `includeSubDomains` y hola-mako.site NO (sólo el `max-age=63072000` que Vercel pone solo).
+      // hola-mako.site no está en `DOMINIOS_DE_MAKO` a propósito: es de MaKo, pero no es la app.
+      // Las redirecciones de arriba ya van con el host de la app (tanda 4); los archivos de public/ y
+      // /_next siguen sirviéndose en cualquier host (docs/hallazgos-editor-landing.md, «Tanda 4»).
       {
         source: '/:path*',
         has: [{ type: 'host', value: PATRON_HOSTS_DE_MAKO }],
@@ -165,6 +178,9 @@ const nextConfig: NextConfig = {
       // ya puso una (por eso no alcanza con que la ruta las mande). Las dos rutas además se niegan a
       // contestar si no las pide un iframe (`Sec-Fetch-Dest`): abiertas como pestaña, sin sandbox,
       // correrían con el origen de MaKo. Fuente única de las cabeceras: lib/editor-landing/html-libre.ts.
+      // Desde la tanda 4 /l/html se sirve en hola-mako.site y en el dominio de un cliente (donde vive la
+      // página que lo enmarca); en hola-mako.com, en producción, el proxy contesta 404. Por eso este
+      // bloque NO lleva `has`: tiene que valer en todos los hosts.
       { source: '/l/html/:path*', headers: [...CABECERAS_HTML_LIBRE] },
       { source: '/api/landing-generator/diagnostico/pagina', headers: [...CABECERAS_HTML_LIBRE] },
       // El service worker de MaKo Mobile (public/sw.js: sólo push y click, SIN 'fetch'). Lo

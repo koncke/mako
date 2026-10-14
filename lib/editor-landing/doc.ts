@@ -416,6 +416,14 @@ export function rutaValida(r: string): boolean {
 }
 
 export const PREFIJO_PUBLICO = '/l';
+/**
+ * La ruta INTERNA de una landing en el host de la APP (`<base>/l/<slug>[/<ruta>]`: app/l/[slug]).
+ * ⚠️ NO es la dirección que se muestra, se copia o se manda: desde la tanda 4 (14/10/2026) las landings
+ * viven en hola-mako.site y esa sale de `urlPublicaLanding` (lib/app-url.ts) o, en el navegador, de
+ * `urlLandingEn` con la base que da el server (lib/editor-landing/origen-landings.ts). Sólo la usa
+ * pagina-publica.ts para el 308 a minúsculas en la misma ruta interna (tests/editor-landing-origen.test.ts
+ * lo fija).
+ */
 export function urlPublica(base: string, slug: string, ruta = ''): string {
   return `${base.replace(/\/$/, '')}${PREFIJO_PUBLICO}/${slug}${ruta ? `/${ruta}` : ''}`;
 }

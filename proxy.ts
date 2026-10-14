@@ -22,7 +22,8 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { SESSION_COOKIE, gateConfigurado, verificarToken } from './lib/auth-session';
 import { WS_HEADER, WS_PARAM, parseWs } from './lib/ws-tab';
 import { esPublica, esPublicaSoloLeer, decidirRutaAlumno } from './lib/rutas-publicas';
-import { HEADER_DOMINIO, RUTA_DOMINIO, decidirHost, hostDeCabecera, paginaNoExisteDominio } from './lib/editor-landing/dominios-reglas';
+import { HEADER_DOMINIO, RUTA_DOMINIO, decidirHost, hostDeCabecera, paginaNoExisteDominio, tipoDeHost } from './lib/editor-landing/dominios-reglas';
+import { decidirLEnApp, decidirLandings } from './lib/editor-landing/origen-landings';
 import { MOVIL_ACTIVO, pedidoMovil } from './lib/movil-desvio';
 import { VISTA_COOKIE, tipoDeDispositivo, vaAMovil } from './lib/movil-dispositivo';
 
@@ -43,7 +44,8 @@ const SOLO_ADMIN = ['/admin', '/api/admin', '/metodo', '/api/metodo'];
 // muda), así que un cambio de dominio futuro es solo pisar HOST_CANONICO acá +
 // lib/app-url.ts + las env vars de Vercel — y sumar el dominio viejo a `DOMINIOS_DE_MAKO`
 // (lib/editor-landing/dominios-reglas.ts): desde T7, un host que no es de MaKo es el dominio de una
-// landing (`respuestaDominioPropio`, más abajo) y NO llega a este cartel.
+// landing (`respuestaDominioPropio`, más abajo) y NO llega a este cartel. Tampoco hola-mako.site, el de
+// las landings publicadas (tanda 4, `respuestaLandings`): sale antes que todo.
 //
 // Con tres excepciones que NO se pueden cortar, porque no las abre una persona.
 // Todas validan por firma/secret propio, así que abrirlas por host no afloja nada:
@@ -176,11 +178,70 @@ function respuestaDominioPropio(req: NextRequest, pathname: string): NextRespons
     case 'metodo':
       return new NextResponse('Method Not Allowed', { status: 405, headers: { allow: 'GET, HEAD' } });
     default:
-      return new NextResponse(paginaNoExisteDominio(), {
-        status: 404,
-        headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-robots-tag': 'noindex, nofollow' },
-      });
+      return noExisteFueraDeLaApp();
   }
+}
+
+/** El 404 de un host que no es la app (el dominio de un cliente, hola-mako.site): sin enumerar nada. */
+function noExisteFueraDeLaApp(): NextResponse {
+  return new NextResponse(paginaNoExisteDominio(), {
+    status: 404,
+    headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-robots-tag': 'noindex, nofollow' },
+  });
+}
+
+// ── hola-mako.site: las landings publicadas (tanda 4, 14/10/2026) ──────────────
+// Decisión de Martín: «Las landings enteras, como gamma.site». En ESE host se sirven sólo las
+// landings: `/<slug>[/<ruta>]` y `/vista/<token>` se REESCRIBEN a las rutas de app/l (la URL que ve el
+// visitante no cambia), `/l/html/…` pasa, y la raíz manda a la landing de venta de MaKo. Lo decide
+// `decidirLandings` (lib/editor-landing/origen-landings.ts, puro y con test).
+//
+// ⚠️ ACÁ NO CORRE NADA DE LA APP, y es a propósito: ni el gate, ni la cookie de sesión (no se lee:
+// la de MaKo es de hola-mako.com y el navegador no la manda a este host), ni el `?ws=`, ni el cartel
+// de mudanza, ni MaKo Mobile. Sólo GET/HEAD, salvo el POST del pago de un bloque. Y en CUALQUIER
+// entorno: el host ya lo decide (un preview no tiene este dominio). Los headers internos se borran
+// igual: una reescritura que llevara el del workspace o el del dominio propio es el IDOR de `seguir`.
+function respuestaLandings(req: NextRequest, pathname: string): NextResponse {
+  const d = decidirLandings(pathname, req.method);
+  const limpios = () => {
+    const headers = new Headers(req.headers);
+    headers.delete(WS_HEADER);
+    headers.delete(HEADER_DOMINIO);
+    return headers;
+  };
+  switch (d.tipo) {
+    case 'reescribir': {
+      const u = req.nextUrl.clone();
+      u.pathname = d.destino;
+      return NextResponse.rewrite(u, { request: { headers: limpios() } });
+    }
+    case 'pasar':
+      return NextResponse.next({ request: { headers: limpios() } });
+    case 'redirigir':
+      // En el MISMO host y con la query intacta (los utm_* son la atribución del anuncio).
+      return NextResponse.redirect(new URL(d.destino + req.nextUrl.search, `https://${hostDeCabecera(req.headers.get('host'))}`), 308);
+    case 'raiz':
+      // 307 y no 308: el día que hola-mako.site tenga su portada propia, nadie la tiene cacheada.
+      return NextResponse.redirect(`https://${HOST_CANONICO}/`, 307);
+    case 'metodo':
+      return new NextResponse('Method Not Allowed', { status: 405, headers: { allow: 'GET, HEAD' } });
+    default:
+      return noExisteFueraDeLaApp();
+  }
+}
+
+/**
+ * Las landings se MUDARON a hola-mako.site (tanda 4): en producción, un `/l/<…>` en un host de la app
+ * es un 308 a `https://hola-mako.site/<…>` con la query, y el HTML libre (`/l/html`) ya no se sirve
+ * bajo el dominio de la app (`decidirLEnApp`). En local y en los previews /l sigue sirviendo: no
+ * tienen el dominio. `null` = no es de /l, sigue.
+ */
+function respuestaLEnApp(req: NextRequest, pathname: string): NextResponse | null {
+  if (process.env.VERCEL_ENV !== 'production') return null;
+  const d = decidirLEnApp(pathname, req.nextUrl.search);
+  if (d.tipo === 'seguir') return null;
+  if (d.tipo === 'mudar') return NextResponse.redirect(d.destino, 308);
+  return noExisteFueraDeLaApp();
 }
 
 /**
@@ -261,10 +322,18 @@ function seguirOMovil(req: NextRequest, pathname: string) {
 export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
+  // hola-mako.site → sólo las landings publicadas, y NADA de lo de abajo (ni el gate ni la cookie).
+  // Va primero: es contenido de clientes y nunca puede caer en una pantalla de la app.
+  if (tipoDeHost(req.headers.get('host')) === 'landings') return respuestaLandings(req, pathname);
+
   // El dominio de una landing → sólo esa landing. Va antes que la mudanza, que trata a todo host
   // que no sea el canónico como un dominio viejo de MaKo.
   const propio = respuestaDominioPropio(req, pathname);
   if (propio) return propio;
+
+  // Un /l/<…> en la app (producción) → la landing en hola-mako.site.
+  const landing = respuestaLEnApp(req, pathname);
+  if (landing) return landing;
 
   // Dominio viejo → cartel de mudanza. Va PRIMERO: ni el gate ni las rutas
   // públicas deben responder ahí.

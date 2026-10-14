@@ -24,12 +24,12 @@ import { getTenantDb, getWorkspaceActual } from '../workspace';
 import { getSupabaseServer } from '../supabase';
 import { getUsuarioActual } from '../auth';
 import { getSettingEstricto, cambiarSettingSi } from '../settings';
-import { APP_BASE_URL } from '../app-url';
+import { baseLandings, basesLandings, urlPublicaLanding, urlVistaLanding } from '../app-url';
 import { leerTodo, leerPorPaginas } from '../supabase-paginado';
 import { tzDeWorkspace } from '../timezone';
 import { hoyEnTz } from '../date-utils';
 import type { LandingSpec } from '../landing-spec';
-import { contenidoVacio, slugDe, slugValido, urlPublica, type JsonNodo, type LandingContenido } from './doc';
+import { contenidoVacio, slugDe, slugValido, type JsonNodo, type LandingContenido } from './doc';
 import { CONFIG_DEFAULT, formatoDe, proporcionDe } from './api-tipos';
 import type {
   Analitica, Comentario, ConfigLanding, Falla, LandingCompleta, LandingResumen, PedidoDocs,
@@ -43,7 +43,7 @@ import {
   MOTIVO, TOPE_VERSIONES_AUTO, TOPE_TEMAS, CLAVE_TEMAS, cambiosSinPublicar, candidatosSlug, esUrlMedida,
   idValido, mezclarConfig, motivoSlugInvalido, prefiltroVisitas, primeraLibre, puedeBorrarse,
   sanearMotivo, sanearTemasPropios, sanearTitulo, slugPedido, tarjetaIdValido, esComentarioPropio, puedeBorrarComentario,
-  tocaVersionAutomatica, urlsAMedir, urlVistaPrevia, visitasPorDia,
+  tocaVersionAutomatica, urlsAMedir, visitasPorDia,
 } from './server-reglas';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -198,7 +198,8 @@ export function aCompleta(f: FilaDoc): LandingCompleta {
     publicadoAt: f.publicado_at,
     cambiosSinPublicar: cambiosSinPublicar(f),
     sitioActivo: !!f.sitio_activo,
-    urlPublica: f.slug && f.publicado_at ? urlPublica(APP_BASE_URL, f.slug) : null,
+    urlPublica: f.slug && f.publicado_at ? urlPublicaLanding(f.slug) : null,
+    baseLandings: baseLandings(),
     creado: f.created_at,
     actualizado: f.updated_at,
     favorito: f.favorito === true,
@@ -727,7 +728,7 @@ export async function vistaPrevia(idRaw: unknown, regenerar: unknown): Promise<R
       const r = await cambiarMetadatos(ws, id, { vista_token: token });
       if (r !== true) return r;
     }
-    return { ok: true, url: urlVistaPrevia(APP_BASE_URL, token) };
+    return { ok: true, url: urlVistaLanding(token) };
   } catch (e) {
     return falla(msg(e), 500);
   }
@@ -878,7 +879,7 @@ export async function analitica(idRaw: unknown): Promise<Resultado<'analitica'>>
     if (error) return falla(error.message, 500);
     if (!fila) return falla('No existe', 404);
     const f = fila as { slug: string | null; publicado_at: string | null; publicado: unknown };
-    const urls = f.publicado_at ? urlsAMedir(APP_BASE_URL, f.slug, rutasDeFoto(f.publicado)) : [];
+    const urls = f.publicado_at ? urlsAMedir(basesLandings(), f.slug, rutasDeFoto(f.publicado)) : [];
     if (!f.slug || !urls.length) {
       // Sin publicar no hay nada que medir: los ceros acá son ciertos (no hubo página que visitar).
       return { ok: true, analitica: { publicada: false, urls: [], visitas30: 0, visitantes30: 0, leads30: 0, porDia: [], alcancePorSeccion: null, enAnalyst: false } };
