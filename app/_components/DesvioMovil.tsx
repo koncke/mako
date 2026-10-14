@@ -4,19 +4,23 @@
 // DesvioMovil — un teléfono no ve el escritorio
 // =============================================================================
 // Montado en el layout raíz. Cuando el SERVER dice que esto es un teléfono (UA, sin la
-// cookie de «Versión completa»: `prefiereMovil`), tapa cualquier pantalla de escritorio
-// DESDE EL PRIMER PINTADO — usePathname corre también en el render del server, así que la
-// cubierta viaja en el HTML y no hay un parpadeo del escritorio con su Sidebar en
-// miniatura. Qué hacer con cada pantalla lo decide `decidirDesvio` (lib/movil-desvio.ts):
-// ir a su versión de MaKo Mobile, o decir que se usa en la computadora.
+// cookie de «Versión completa»: `prefiereMovil`), tapa toda pantalla de escritorio que NO
+// tiene versión del teléfono, DESDE EL PRIMER PINTADO — usePathname corre también en el
+// render del server, así que la cubierta viaja en el HTML y no hay un parpadeo del
+// escritorio con su Sidebar en miniatura. Qué es cada pantalla lo decide `decidirDesvio`
+// (lib/movil-desvio.ts).
+//
+// ⚠️ YA NO NAVEGA (13/10/2026, LAS MISMAS RUTAS). Hasta ese día, lo que tenía versión del
+// teléfono se mandaba a /m/… con un `router.replace`, y el teléfono terminaba en otra URL.
+// Ahora esa página la sirve el PROXY en la misma URL (`pedidoMovil`), así que acá 'movil' no
+// dibuja nada: el shell de /m ya está en pantalla.
 //
 // «Abrirla igual» escribe la misma cookie que «Versión completa» (12 h) y recarga: la
 // decisión es del server, así que el componente no guarda nada propio.
 // =============================================================================
 
-import { useEffect } from 'react';
-import { usePathname } from 'next/navigation';
-import Link, { useRouter, useWs } from '@/app/_ui/Link';
+import { usePathname, useSearchParams } from 'next/navigation';
+import { useRouter, useWs } from '@/app/_ui/Link';
 import { Button } from '@/app/_ui/Button';
 import { Icon } from './icons';
 import { decidirDesvio, destinoMovil } from '@/lib/movil-desvio';
@@ -38,29 +42,15 @@ export function DesvioMovil({ telefono, wsPropio = null }: {
   wsPropio?: number | null;
 }) {
   const pathname = usePathname();
+  // La query decide en dos pantallas (/configuraciones?tab=notif es la cuenta del teléfono). Sin
+  // Suspense a propósito: el layout es dinámico (app/_ui/Link.tsx → WsProvider, la misma razón).
+  const sp = useSearchParams();
   const router = useRouter();
   const ws = useWs();
-  const desvio = telefono ? decidirDesvio(pathname) : { tipo: 'nada' as const };
+  const desvio = telefono ? decidirDesvio(pathname, sp?.toString() ?? '') : { tipo: 'nada' as const };
 
-  useEffect(() => {
-    if (!telefono) return;
-    // La query sólo se conoce en el navegador (useSearchParams pediría un Suspense en el
-    // layout raíz, que está prohibido): se vuelve a decidir con ella.
-    const d = decidirDesvio(window.location.pathname, window.location.search);
-    if (d.tipo === 'ir') router.replace(destinoMovil(d.destino, ws, wsPropio));
-  }, [telefono, pathname, router, ws, wsPropio]);
-
-  if (desvio.tipo === 'nada') return null;
-
-  if (desvio.tipo === 'ir') {
-    // Con JavaScript, el efecto de arriba lleva solo; el link es la salida si tarda o falla
-    // (sin él, la cubierta sería una pantalla vacía sin forma de seguir).
-    return (
-      <div style={{ ...cubierta, alignItems: 'center' }} aria-busy="true">
-        <Link href={destinoMovil(desvio.destino, ws, wsPropio)} style={{ fontSize: 18, fontWeight: 600, color: 'var(--primary)', padding: 12 }}>Abrir MaKo Mobile</Link>
-      </div>
-    );
-  }
+  // 'movil': la página de /m ya la sirvió el proxy en esta URL. Nada que tapar.
+  if (desvio.tipo !== 'computadora') return null;
 
   return (
     <div style={cubierta} role="dialog" aria-modal="true" aria-labelledby="desvio-titulo">

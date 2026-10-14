@@ -18,14 +18,20 @@
 import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { isPublicLandingPath } from './PublicRouteGate';
+import { useRutaInterna, useVistaMovil } from './VistaMovil';
 import { tituloDe } from '@/lib/titulo-tab';
 
 export function TituloTab() {
   const pathname = usePathname() || '';
+  // En el teléfono, /general ES Today y /mako/pendientes ES Inbox (LAS MISMAS RUTAS, 13/10/2026):
+  // la pestaña lleva el nombre de lo que se ve, que es la ruta interna de /m.
+  const movil = useVistaMovil();
+  const interna = useRutaInterna();
+  const ruta = movil ? interna : pathname;
 
   useEffect(() => {
     if (pathname === '/' || isPublicLandingPath(pathname) || pathname.startsWith('/compartido')) return;
-    const titulo = tituloDe(pathname);
+    const titulo = tituloDe(ruta);
     const reafirmar = () => { if (document.title !== titulo) document.title = titulo; };
     document.title = titulo;
     // Al navegar, Next escribe el <title> del layout ("MaKo") con el commit de la
@@ -47,7 +53,7 @@ export function TituloTab() {
     const obs = new MutationObserver(reafirmar);
     obs.observe(document.head, { childList: true, subtree: true, characterData: true });
     return () => { cancelAnimationFrame(id); obs.disconnect(); };
-  }, [pathname]);
+  }, [pathname, ruta]);
 
   return null;
 }

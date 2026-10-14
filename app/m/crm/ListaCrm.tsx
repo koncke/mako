@@ -36,6 +36,44 @@ type DeEtapa = { fase: 'cargando' } | { fase: 'listo'; filas: FilaCrmM[]; hayMas
 
 const ficha = (id: number) => `/m/crm/${id}`;
 
+/** Las etapas del negocio con su conteo: la del sheet «Ver por etapa» y la del CRM sin nada pendiente. */
+function ListaEtapas({ etapas, filtro, onElegir, conTodas }: {
+  etapas: EtapaConteoM[];
+  filtro: { key: string } | null;
+  onElegir: (e: { key: string; label: string } | null) => void;
+  conTodas: boolean;
+}) {
+  const check = <span className="m-crm-check"><IconoMenu nombre="check" size={20} /></span>;
+  return (
+    <ListaM etiqueta="Etapas">
+      {conTodas && (
+        <FilaM
+          titulo="Todas"
+          navegacion
+          onClick={() => onElegir(null)}
+          chevron={false}
+          riel={!filtro ? check : undefined}
+          etiqueta={!filtro ? 'Todas, elegida' : 'Todas'}
+        />
+      )}
+      {etapas.map((e) => {
+        const es = filtro?.key === e.key;
+        return (
+          <FilaM
+            key={e.key}
+            titulo={e.label}
+            navegacion
+            onClick={() => onElegir({ key: e.key, label: e.label })}
+            chevron={false}
+            riel={es ? check : String(e.n)}
+            etiqueta={`${e.label}: ${e.n}${es ? ', elegida' : ''}`}
+          />
+        );
+      })}
+    </ListaM>
+  );
+}
+
 function Filas({ filas }: { filas: FilaCrmM[] }) {
   return (
     <ListaM>
@@ -118,6 +156,18 @@ export function ListaCrm({ datos }: { datos: ListaCrmM }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [datos]);
 
+  // ⚠️ SIN NADA PENDIENTE, LAS ETAPAS A LA VISTA (13/10/2026). Los tres grupos son lo de HOY: con 13
+  // leads y ninguno para hoy, el CRM abría diciendo «Nada pendiente por hoy.» y nada más — medido en
+  // producción en el ws9 —, y llegar a los leads dependía de adivinar el ícono del filtro. Se lee como
+  // un CRM vacío (Martín: «hay cosas que no funcionan, como el CRM»). Las etapas se piden solas.
+  const sinPendientes = !buscando && !filtro
+    && datos.hoy?.length === 0 && datos.porResponder?.length === 0 && datos.nuevos?.length === 0;
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (sinPendientes && etapas.fase === 'cargando') leerEtapas();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sinPendientes, etapas.fase]);
+
   // UNA acción a la derecha de la barra. Memo: CabeceraM vuelve a pisar el encabezado cada
   // vez que cambia, y un elemento nuevo en cada render lo pisaría en cada render.
   const accion = useMemo(() => (
@@ -163,9 +213,15 @@ export function ListaCrm({ datos }: { datos: ListaCrmM }) {
     );
   } else {
     const { hoy, porResponder, nuevos } = datos;
-    const todoVacio = hoy?.length === 0 && porResponder?.length === 0 && nuevos?.length === 0;
-    cuerpo = todoVacio ? (
-      <VacioM frase="Nada pendiente por hoy." />
+    cuerpo = sinPendientes ? (
+      <>
+        <VacioM frase="Nada pendiente por hoy." />
+        <SeccionM titulo="Por etapa">
+          {etapas.fase === 'cargando' ? <SkeletonFilas filas={4} />
+            : etapas.fase === 'error' ? <ErrorM frase={etapas.error} onReintentar={leerEtapas} />
+            : <ListaEtapas etapas={etapas.etapas} filtro={null} onElegir={elegir} conTodas={false} />}
+        </SeccionM>
+      </>
     ) : (
       <>
         {hoy == null ? (
@@ -223,32 +279,7 @@ export function ListaCrm({ datos }: { datos: ListaCrmM }) {
       <SheetM id="etapas" abierto={sheet} onCerrar={() => setSheet(false)} titulo="Ver por etapa" snap="medio">
         {etapas.fase === 'cargando' ? <SkeletonFilas filas={5} />
           : etapas.fase === 'error' ? <ErrorM frase={etapas.error} onReintentar={leerEtapas} />
-          : (
-            <ListaM etiqueta="Etapas">
-              <FilaM
-                titulo="Todas"
-                navegacion
-                onClick={() => elegir(null)}
-                chevron={false}
-                riel={!filtro ? <span className="m-crm-check"><IconoMenu nombre="check" size={20} /></span> : undefined}
-                etiqueta={!filtro ? 'Todas, elegida' : 'Todas'}
-              />
-              {etapas.etapas.map((e) => {
-                const es = filtro?.key === e.key;
-                return (
-                  <FilaM
-                    key={e.key}
-                    titulo={e.label}
-                    navegacion
-                    onClick={() => elegir({ key: e.key, label: e.label })}
-                    chevron={false}
-                    riel={es ? <span className="m-crm-check"><IconoMenu nombre="check" size={20} /></span> : String(e.n)}
-                    etiqueta={`${e.label}: ${e.n}${es ? ', elegida' : ''}`}
-                  />
-                );
-              })}
-            </ListaM>
-          )}
+          : <ListaEtapas etapas={etapas.etapas} filtro={filtro} onElegir={elegir} conTodas />}
       </SheetM>
     </>
   );

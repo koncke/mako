@@ -35,7 +35,7 @@ self.addEventListener('push', (event) => {
   const cuerpo = typeof datos.cuerpo === 'string' ? datos.cuerpo : '';
   // `renotify` exige un tag: sin tag, Chrome tira TypeError y no muestra NADA.
   const tag = typeof datos.tag === 'string' && datos.tag ? datos.tag : 'mako';
-  const url = typeof datos.url === 'string' && datos.url ? datos.url : '/m/hoy';
+  const url = typeof datos.url === 'string' && datos.url ? datos.url : '/general';
 
   const tareas = [
     self.registration.showNotification(titulo, {
@@ -67,7 +67,7 @@ function urlPropia(cruda) {
     if (u.origin === self.location.origin) return u.href;
     return new URL(u.pathname + u.search + u.hash, self.location.origin).href;
   } catch (e) {
-    return new URL('/m/hoy', self.location.origin).href;
+    return new URL('/general', self.location.origin).href;
   }
 }
 

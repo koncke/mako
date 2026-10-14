@@ -126,8 +126,9 @@ test('el título de la pestaña sale como lo devuelve document.title: si no, el 
     assert.equal(comoLoLee(t), t, `${ruta} → «${t}»`);
   }
   assert.equal(tituloDe('/-'), 'MaKo', 'una ruta sin nombre no deja la marca con un guion colgando');
-  // TituloTab compara contra `tituloDe` tal cual, sin otra transformación en el medio.
-  assert.match(codigo('app/_components/TituloTab.tsx'), /const titulo = tituloDe\(pathname\);/);
+  // TituloTab compara contra `tituloDe` tal cual, sin otra transformación en el medio. (La ruta es
+  // la de la URL, o en el teléfono la interna de /m: LAS MISMAS RUTAS, 13/10/2026.)
+  assert.match(codigo('app/_components/TituloTab.tsx'), /const titulo = tituloDe\(ruta\);/);
 });
 
 // ── 20 · 27 · 28 · el alta ───────────────────────────────────────────────────

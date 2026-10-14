@@ -13,6 +13,7 @@ import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { RUTA_ALUMNO } from '@/lib/rutas-publicas';
 import { esRutaMovil } from '@/lib/movil-rutas';
+import { useVistaMovil } from './VistaMovil';
 
 /** ¿La ruta es una landing pública? (no debe mostrar chrome de la app). */
 export function isPublicLandingPath(pathname: string | null | undefined): boolean {
@@ -69,9 +70,17 @@ export function esVistaSinChrome(pathname: string | null | undefined): boolean {
     || esRutaMovil(p);
 }
 
-/** Renderiza a sus hijos SOLO en las pantallas que sí llevan el chrome de la app. */
+/**
+ * Renderiza a sus hijos SOLO en las pantallas que sí llevan el chrome de la app.
+ *
+ * ⚠️ Y en el TELÉFONO, tampoco en una URL de escritorio que el proxy sirve con la página de /m
+ * (LAS MISMAS RUTAS, 13/10/2026): el navegador dice /crm y el shell de /m ya trae su cromo. Eso
+ * no lo puede contestar `esVistaSinChrome(pathname)` sola —no sabe si es un teléfono—, así que
+ * se pregunta con `useVistaMovil` (app/_components/VistaMovil.tsx).
+ */
 export function HideOnPublicLanding({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  if (esVistaSinChrome(pathname)) return null;
+  const movil = useVistaMovil();
+  if (movil || esVistaSinChrome(pathname)) return null;
   return <>{children}</>;
 }

@@ -19,6 +19,7 @@ import { getSesionAdmin, getUsuarioActual } from '@/lib/auth';
 import { APP_BASE_URL } from '@/lib/app-url';
 import { WsProvider } from './_ui/Link';
 import { DesvioMovil } from './_components/DesvioMovil';
+import { TelefonoProvider } from './_components/VistaMovil';
 import { prefiereMovil } from '@/lib/movil-guard';
 import { MOVIL_ACTIVO, seDesvia } from '@/lib/movil-desvio';
 import { getWorkspaceActual, wsSuperAdmin } from '@/lib/workspace';
@@ -112,8 +113,9 @@ export default async function RootLayout({
   // negocio. La vieja compartida no es una persona: no detecta nada.
   const sesion = await getUsuarioActual();
   // MaKo Mobile: un TELÉFONO no ve el escritorio (lib/movil-desvio.ts). Lo decide el server
-  // (UA + la cookie de «Versión completa»); <DesvioMovil> tapa la pantalla desde el primer
-  // pintado y lleva a /m, o dice que esa pantalla se usa en la computadora.
+  // (UA + la cookie de «Versión completa»). Lo que tiene versión del teléfono lo sirve el PROXY en
+  // la misma URL (LAS MISMAS RUTAS, proxy.ts); <DesvioMovil> sólo tapa, desde el primer pintado, lo
+  // que se usa en la computadora.
   // ⚠️ El admin global SIN cliente también va a /m, a SU negocio (`wsPropioMovil`, el workspace de
   // plataforma): hasta el 12/10 se lo dejaba en el escritorio y era Martín (lib/movil-desvio.ts →
   // `seDesvia`). El workspace sólo se pregunta en un teléfono: la computadora no paga esa lectura.
@@ -133,10 +135,8 @@ export default async function RootLayout({
         />
         {/* Notificaciones de WhatsApp a nivel app: badge del sidebar + sonido +
             pop-up, corriendo en cualquier sección. */}
-        {/* Nombre de la sección en la pestaña del navegador. */}
-        <Suspense fallback={null}>
-          <TituloTab />
-        </Suspense>
+        {/* El nombre de la sección en la pestaña del navegador va más abajo, adentro de
+            <TelefonoProvider>: en el teléfono, /general se llama «Today». */}
         {/* No pinta nada: importarlo acá es lo que aplica el parche de fetch que
             le pega el `?ws=` de la pestaña a todas las llamadas a /api. Va lo más
             arriba posible del árbol para que el chunk cargue antes que nadie. */}
@@ -191,6 +191,13 @@ export default async function RootLayout({
             que no esté en su lista: envuelve la página en un Suspense y la vuelve a
             esconder. */}
         <WsProvider>
+        {/* Con LAS MISMAS RUTAS (13/10/2026) el teléfono ve /m en la URL /crm: lo que se apagaba
+            con `esRutaMovil(pathname)` pregunta además si esto es un teléfono (app/_components/VistaMovil.tsx). */}
+        <TelefonoProvider telefono={telefono}>
+        {/* Nombre de la sección en la pestaña del navegador. */}
+        <Suspense fallback={null}>
+          <TituloTab />
+        </Suspense>
         <DesvioMovil telefono={telefono} wsPropio={wsPropioMovil} />
         <NotificationsProvider>
           <div style={rootStyle}>
@@ -247,6 +254,7 @@ export default async function RootLayout({
             </div>
           </div>
         </NotificationsProvider>
+        </TelefonoProvider>
         </WsProvider>
       </body>
     </html>

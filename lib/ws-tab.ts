@@ -24,6 +24,8 @@
 // ISOMÓRFICO a propósito (sin `server-only`): lo importan el proxy, el
 // resolvedor del workspace y los componentes de cliente.
 
+import { rutaEscritorio } from './movil-rutas';
+
 /** El parámetro en la URL. Se ve, y está bien que se vea: te dice a quién mirás. */
 export const WS_PARAM = 'ws';
 
@@ -47,8 +49,15 @@ export function parseWs(v: string | number | null | undefined): number | null {
  * Devuelve el href intacto cuando no hay workspace de pestaña, cuando el destino
  * es externo o cuando YA trae su propio `ws` (un link que apunta a un cliente
  * puntual manda sobre el contexto).
+ *
+ * ⚠️ Y UNA RUTA DE MaKo Mobile (`/m/…`) SALE COMO LA DE ESCRITORIO (`rutaEscritorio`), con o sin
+ * workspace: /m es la carpeta interna y el teléfono navega con LAS MISMAS URLs que la computadora
+ * (lib/movil-rutas.ts). Va acá porque por acá pasan las cinco formas de navegar (Link, router,
+ * `rutaConWs`, `window.location` y `linkApp`): un href '/m/crm/12' escrito en una pantalla nueva
+ * sale como '/crm/12' sin que nadie tenga que acordarse.
  */
 export function conWs(href: string, ws: number | null): string {
+  if (href) href = rutaEscritorio(href);
   if (!ws || !href) return href;
   // Externos, anclas y protocolos raros: no son navegación adentro de la app.
   if (!href.startsWith('/') || href.startsWith('//')) return href;

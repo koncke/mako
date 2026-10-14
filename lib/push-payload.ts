@@ -12,7 +12,10 @@
 // ⚠️ EL LINK SALE DE LA APP, así que va por la QUINTA forma de navegar (AGENTS.md):
 // `linkApp(ruta, ws)` con el workspace DESTINO del aviso, nunca el de la pestaña de nadie.
 // Y la ruta se traduce a su equivalente MÓVIL (`rutaMovilOHome`): el link por default de un
-// aviso es una pantalla de escritorio (`/configuraciones?tab=notif`).
+// aviso es una pantalla de escritorio (`/configuraciones?tab=notif`), y una que no va al teléfono
+// abre la home. Desde el 13/10/2026 (LAS MISMAS RUTAS) eso sale con la URL de ESCRITORIO de esa
+// pantalla (`conWs` adentro de `linkApp` aplica `rutaEscritorio`): /perfil, no /m/cuenta. El
+// teléfono la ve en su versión porque el proxy se la sirve así; nunca viaja una URL /m.
 // =============================================================================
 
 import { linkApp } from './app-url';
