@@ -334,19 +334,19 @@ export function KanbanM(p: KanbanMProps) {
             <p className="m-kb__sub">{tarjetaMovida.etiqueta}</p>
             <ListaM>
               {cols.filter((c) => c.key === tarjetaMovida.col || destinos.has(c.key)).map((c) => {
-                const aca = c.key === tarjetaMovida.col;
+                const esActual = c.key === tarjetaMovida.col;
                 return (
                   <button
                     key={c.key}
                     type="button"
                     className="m-kb__destino"
-                    aria-disabled={aca || undefined}
-                    aria-current={aca ? 'true' : undefined}
-                    onClick={() => { if (!aca) void mover(tarjetaMovida.id, c.key); }}
+                    aria-disabled={esActual || undefined}
+                    aria-current={esActual ? 'true' : undefined}
+                    onClick={() => { if (!esActual) void mover(tarjetaMovida.id, c.key); }}
                   >
                     <span className="m-kb__destino-n">{c.titulo}</span>
-                    {aca
-                      ? <span className="m-kb__aca">Aquí <Icon name="check" size={18} /></span>
+                    {esActual
+                      ? <span className="m-kb__aqui">Aquí <Icon name="check" size={18} /></span>
                       : <span className="m-kb__destino-r">{cuenta(c, porColumna.get(c.key)?.length ?? 0)}</span>}
                   </button>
                 );

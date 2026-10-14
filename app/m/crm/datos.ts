@@ -23,7 +23,8 @@ import { getWorkspaceActual } from '@/lib/workspace';
 import { tzDeWorkspace, TZ_DEFAULT, hoyEnWorkspace } from '@/lib/timezone';
 import { fichaMovil, type FichaMovil } from '@/lib/crm-movil';
 import { listLeadsDeFunnel, getLead } from '@/lib/leads';
-import { getPipelineStagesDefault, getFunnelDe, listarFunnels } from '@/lib/funnels';
+import { getPipelineStagesDefault, getFunnelDe, listarFunnels, FUNNEL_DEFAULT_NOMBRE } from '@/lib/funnels';
+import { nombreVisible } from '@/lib/lead-funnel-reglas';
 import { leerOrdenManual } from '@/lib/crm-orden';
 import { ordenarKanbanManual } from '@/app/crm/orden-kanban';
 import { totalDeColumna, textoDelTotal, plataCorta } from '@/app/crm/total-columna';
@@ -170,11 +171,13 @@ export async function tableroCrm(funnelPedido: number | null): Promise<TableroCr
       }
     }
     const lite = stages.map((s) => ({ key: s.key, label: s.label, kind: s.kind ?? null }));
+    const def = funnels.find((f) => f.esDefault);
     return {
       funnelId,
       funnels: [
-        { id: null, nombre: funnels.find((f) => f.esDefault)?.producto?.trim() || funnels.find((f) => f.esDefault)?.nombre || 'Funnel principal' },
-        ...funnels.filter((f) => !f.esDefault).map((f) => ({ id: f.id, nombre: f.producto?.trim() || f.nombre })),
+        // El nombre, con LA regla de la casa (nombreVisible): no una copia, que es la que se queda vieja.
+        { id: null, nombre: (def ? nombreVisible(def) : '') || FUNNEL_DEFAULT_NOMBRE },
+        ...funnels.filter((f) => !f.esDefault).map((f) => ({ id: f.id, nombre: nombreVisible(f) })),
       ],
       columnas: stages.map((s) => {
         const cs = porCol.get(s.key) ?? [];
