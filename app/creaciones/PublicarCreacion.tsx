@@ -23,7 +23,8 @@ export function PublicarCreacion({
   tipo, origenId, nombre, onCerrar, onPublicada,
 }: {
   tipo: TipoCreacion;
-  origenId?: number;
+  /** El id de la cosa en el negocio: un número (automatización) o un UUID (anuncio). Viaja como texto. */
+  origenId?: string | number;
   nombre?: string;
   onCerrar: () => void;
   onPublicada?: (x: { id: number; actualizada: boolean }) => void;
@@ -36,8 +37,9 @@ export function PublicarCreacion({
   ocupadoRef.current = ocupado;
   const cerrar = useCallback(() => { if (!ocupadoRef.current) cerrarRef.current(); }, []);
 
-  const [opciones, setOpciones] = useState<Array<{ id: number; nombre: string }> | null>(origenId ? [] : null);
-  const [elegido, setElegido] = useState<number | null>(origenId ?? null);
+  const fijo = origenId != null && origenId !== '' ? String(origenId) : null;
+  const [opciones, setOpciones] = useState<Array<{ id: string; nombre: string }> | null>(fijo ? [] : null);
+  const [elegido, setElegido] = useState<string | null>(fijo);
   const [titulo, setTitulo] = useState(nombre ?? '');
   const [descripcion, setDescripcion] = useState('');
   const [autor, setAutor] = useState('');
@@ -46,7 +48,7 @@ export function PublicarCreacion({
   const info = INFO_TIPO[tipo];
 
   useEffect(() => {
-    if (origenId) return;
+    if (fijo) return;
     let vivo = true;
     opcionesPublicarAction(tipo).then((r) => {
       if (!vivo) return;
@@ -54,9 +56,9 @@ export function PublicarCreacion({
       setOpciones(r);
     }).catch(() => { if (vivo) { setError('Sin conexión'); setOpciones([]); } });
     return () => { vivo = false; };
-  }, [tipo, origenId]);
+  }, [tipo, fijo]);
 
-  const elegir = (id: number) => {
+  const elegir = (id: string) => {
     setElegido(id);
     const o = opciones?.find((x) => x.id === id);
     if (o && !titulo.trim()) setTitulo(o.nombre);
@@ -88,13 +90,13 @@ export function PublicarCreacion({
         <p style={{ margin: 0, fontSize: 14 }}>{hecho.actualizada ? 'Actualizada en la galería.' : 'Publicada en la galería.'}</p>
       ) : (
         <div>
-          {!origenId && (
+          {!fijo && (
             <>
               <label style={{ ...rotulo, marginTop: 0 }} htmlFor="pub-que">Qué publicas</label>
               {opciones == null ? (
                 <p style={{ margin: 0, fontSize: 13, color: 'var(--dim)' }}>Cargando…</p>
               ) : opciones.length ? (
-                <select id="pub-que" style={campo} value={elegido ?? ''} onChange={(e) => elegir(Number(e.target.value))}>
+                <select id="pub-que" style={campo} value={elegido ?? ''} onChange={(e) => elegir(e.target.value)}>
                   <option value="" disabled>Elige una</option>
                   {opciones.map((o) => <option key={o.id} value={o.id}>{o.nombre}</option>)}
                 </select>
@@ -103,7 +105,7 @@ export function PublicarCreacion({
               )}
             </>
           )}
-          <label style={{ ...rotulo, ...(origenId ? { marginTop: 0 } : null) }} htmlFor="pub-titulo">Título</label>
+          <label style={{ ...rotulo, ...(fijo ? { marginTop: 0 } : null) }} htmlFor="pub-titulo">Título</label>
           <input id="pub-titulo" style={campo} value={titulo} maxLength={TOPE_TITULO_CREACION} onChange={(e) => setTitulo(e.target.value)} />
           <label style={rotulo} htmlFor="pub-desc">Para qué sirve</label>
           <textarea id="pub-desc" style={{ ...campo, minHeight: 72, resize: 'vertical' }} value={descripcion} maxLength={TOPE_DESCRIPCION_CREACION} onChange={(e) => setDescripcion(e.target.value)} />
@@ -118,7 +120,7 @@ export function PublicarCreacion({
 }
 
 /** El botón que monta una feature al lado de lo que se puede publicar. */
-export function BotonPublicar({ tipo, origenId, nombre, onPublicada }: { tipo: TipoCreacion; origenId: number; nombre?: string; onPublicada?: (x: { id: number; actualizada: boolean }) => void }) {
+export function BotonPublicar({ tipo, origenId, nombre, onPublicada }: { tipo: TipoCreacion; origenId: string | number; nombre?: string; onPublicada?: (x: { id: number; actualizada: boolean }) => void }) {
   const [abierto, setAbierto] = useState(false);
   const cerrar = useCallback(() => setAbierto(false), []);
   return (

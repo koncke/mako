@@ -3,7 +3,7 @@
 // en la API de MaKo (área «creaciones»). La definición publicable de una automatización tiene su propio test
 // (tests/creaciones-automatizacion.test.ts).
 //
-// Verificado rompiéndolo (13/10/2026), con la base en verde (10 de 10), cada rotura → 1 fallo y 9 pases:
+// Verificado rompiéndolo (13/10/2026), con la base en verde (10 de 10, antes del test del id), cada rotura → 1 fallo y 9 pases:
 //   · `porQueNoEstrella` sin el corte de «es tuya».
 //   · sacar 'dashboard' de `POR_ENCHUFAR` (un tipo queda sin enchufe y sin dueño).
 //   · sacar el `revoke all on creacion_usos` de la migración.
@@ -11,12 +11,13 @@
 //   · cambiar `getSupabaseServer` por `getTenantDb` en lib/creaciones.ts.
 //   · sacar `rolMinimo: 'admin'` del gating del área.
 //   · borrar la ruta REST de `dar_estrella`.
+// Y el test del id (14/10): aflojar la regex de sanearOrigenId → 1 fallo y 10 pases.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   ENCHUFADOS, INFO_TIPO, POR_ENCHUFAR, TIPOS_CREACION, definicionCabe, normalizarBusqueda, numeroCorto, patronBusqueda,
-  porQueNoEstrella, puedeRetirar, sanearPublicacion, TOPE_TITULO_CREACION,
+  porQueNoEstrella, puedeRetirar, sanearOrigenId, sanearPublicacion, TOPE_TITULO_CREACION,
 } from '../lib/creaciones-reglas';
 import { porArea } from '../lib/api-mako/registro';
 
@@ -44,6 +45,15 @@ test('buscar: sin lo que parte el filtro de PostgREST, con los acentos, y con lo
   assert.equal(normalizarBusqueda(' automatización,  (de) "leads" '), 'automatización de leads');
   assert.equal(patronBusqueda('50%_off'), '%50\\%\\_off%');
   assert.equal(normalizarBusqueda(42), '');
+});
+
+test('el id de lo que se publica es TEXTO: un número o un UUID, nunca otra cosa', () => {
+  assert.equal(sanearOrigenId(12), '12');
+  assert.equal(sanearOrigenId(' 12 '), '12');
+  assert.equal(sanearOrigenId('3f2b9c1e-7a4d-4b8e-9c21-0a1b2c3d4e5f'), '3f2b9c1e-7a4d-4b8e-9c21-0a1b2c3d4e5f');
+  assert.equal(sanearOrigenId(''), null);
+  assert.equal(sanearOrigenId('12; drop table'), null);
+  assert.equal(sanearOrigenId(null), null);
 });
 
 test('el número corto, como GitHub', () => {

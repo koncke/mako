@@ -46,7 +46,7 @@ create table if not exists creaciones (
   descripcion      text not null default '' check (char_length(descripcion) <= 500),
   definicion       jsonb not null,
   workspace_origen bigint not null references workspaces(id) on delete cascade,
-  origen_id        bigint,
+  origen_id        text,
   autor_nombre     text not null default '' check (char_length(autor_nombre) <= 80),
   publicado_por    text not null default '' check (char_length(publicado_por) <= 200),
   de_mako          boolean not null default false,
@@ -56,6 +56,11 @@ create table if not exists creaciones (
   created_at       timestamptz not null default now(),
   updated_at       timestamptz not null default now()
 );
+
+-- `origen_id` es el id de la cosa en el negocio que la publicó, como TEXTO: una automatización tiene un número y un
+-- anuncio del Video Generator un UUID. La primera versión lo creó bigint (aplicada el 14/10 con la tabla vacía): esto
+-- lo deja en texto y es un no-op si ya lo es.
+alter table creaciones alter column origen_id type text using origen_id::text;
 
 create index if not exists idx_creaciones_galeria on creaciones (tipo, estado, estrellas desc, id desc);
 create index if not exists idx_creaciones_origen on creaciones (workspace_origen);

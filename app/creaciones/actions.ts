@@ -15,7 +15,7 @@ import {
   publicarCreacion, quitarEstrella, retirarCreacion, usarCreacion, verCreacion,
   type Creacion, type CreacionDetalle, type FiltroCreaciones,
 } from '@/lib/creaciones';
-import { esOrdenCreaciones, esTipoCreacion } from '@/lib/creaciones-reglas';
+import { esOrdenCreaciones, esTipoCreacion, sanearOrigenId } from '@/lib/creaciones-reglas';
 
 type Puerta = { ws: number; email: string } | { error: string };
 
@@ -70,20 +70,22 @@ export async function estrellaAction(id: number, dar: boolean): Promise<{ estrel
   } catch (e) { return falla(dar ? 'dar la estrella' : 'quitar la estrella', p.ws, e); }
 }
 
-export async function opcionesPublicarAction(tipo: string): Promise<Array<{ id: number; nombre: string }> | { error: string }> {
+export async function opcionesPublicarAction(tipo: string): Promise<Array<{ id: string; nombre: string }> | { error: string }> {
   const p = await puerta();
   if ('error' in p) return p;
   if (!esTipoCreacion(tipo)) return { error: 'Tipo desconocido.' };
   try { return await opcionesParaPublicar(tipo); } catch (e) { return falla('leer lo que puedes publicar', p.ws, e); }
 }
 
-export async function publicarCreacionAction(x: { tipo: string; origenId: number; titulo?: string; descripcion?: string; autorNombre?: string }): Promise<{ id: number; actualizada: boolean } | { error: string }> {
+export async function publicarCreacionAction(x: { tipo: string; origenId: string | number; titulo?: string; descripcion?: string; autorNombre?: string }): Promise<{ id: number; actualizada: boolean } | { error: string }> {
   const p = await puerta();
   if ('error' in p) return p;
   if (!esTipoCreacion(x?.tipo)) return { error: 'Tipo desconocido.' };
+  const origenId = sanearOrigenId(x?.origenId);
+  if (!origenId) return { error: 'Elige qué publicar.' };
   if (!rateLimit(`creaciones:publicar:${p.ws}`, 10, 60_000)) return { error: 'Demasiados intentos. Espera un minuto.' };
   try {
-    const r = await publicarCreacion(p.ws, { tipo: x.tipo, origenId: Number(x.origenId), titulo: x.titulo, descripcion: x.descripcion, autorNombre: x.autorNombre }, p.email);
+    const r = await publicarCreacion(p.ws, { tipo: x.tipo, origenId, titulo: x.titulo, descripcion: x.descripcion, autorNombre: x.autorNombre }, p.email);
     return { id: r.id, actualizada: r.actualizada };
   } catch (e) { return falla('publicar', p.ws, e); }
 }

@@ -45,7 +45,7 @@ export class CreacionError extends Error {
 
 type Fila = {
   id: number; tipo: string; titulo: string; descripcion: string; definicion?: unknown; workspace_origen: number;
-  origen_id: number | null; autor_nombre: string; de_mako: boolean; estado: string; estrellas: number; usos: number;
+  origen_id: string | null; autor_nombre: string; de_mako: boolean; estado: string; estrellas: number; usos: number;
   created_at: string; updated_at: string;
 };
 const COLS = 'id, tipo, titulo, descripcion, workspace_origen, origen_id, autor_nombre, de_mako, estado, estrellas, usos, created_at, updated_at';
@@ -136,7 +136,7 @@ export async function misCreaciones(ws: number): Promise<Creacion[]> {
 }
 
 /** Lo que ESTE negocio puede publicar de un tipo (para el modal). */
-export async function opcionesParaPublicar(tipo: TipoCreacion): Promise<Array<{ id: number; nombre: string }>> {
+export async function opcionesParaPublicar(tipo: TipoCreacion): Promise<Array<{ id: string; nombre: string }>> {
   if (!estaEnchufado(tipo)) return [];
   return ENCHUFES[tipo].opciones();
 }
@@ -156,7 +156,7 @@ export function porQueNoSePublica(tipo: TipoCreacion): string | null {
  */
 export async function publicarCreacion(
   ws: number,
-  input: { tipo: TipoCreacion; origenId: number; titulo?: unknown; descripcion?: unknown; autorNombre?: unknown },
+  input: { tipo: TipoCreacion; origenId: string; titulo?: unknown; descripcion?: unknown; autorNombre?: unknown },
   quien: string,
 ): Promise<{ id: number; actualizada: boolean; titulo: string }> {
   const no = porQueNoSePublica(input.tipo);

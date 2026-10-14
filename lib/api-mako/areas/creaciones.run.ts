@@ -16,7 +16,7 @@ import {
   porQueNoSePublica, publicarCreacion, quitarEstrella, retirarCreacion, usarCreacion, verCreacion, type Creacion,
 } from '@/lib/creaciones';
 import {
-  INFO_TIPO, esOrdenCreaciones, esTipoCreacion, porQueNoEstrella, sanearPublicacion,
+  INFO_TIPO, esOrdenCreaciones, esTipoCreacion, porQueNoEstrella, sanearOrigenId, sanearPublicacion,
 } from '@/lib/creaciones-reglas';
 import { linkApp } from '@/lib/app-url';
 
@@ -132,9 +132,9 @@ export const RUNNERS: Runners = {
       const tipo = input.tipo;
       const no = porQueNoSePublica(tipo);
       if (no) return { error: no };
-      const origenId = n(input.origenId);
+      const origenId = sanearOrigenId(input.origenId);
       if (!origenId) return { error: `Falta el id de la ${INFO_TIPO[tipo].singular} que se publica.` };
-      let opciones: Array<{ id: number; nombre: string }>;
+      let opciones: Array<{ id: string; nombre: string }>;
       try {
         opciones = await opcionesParaPublicar(tipo);
       } catch (e) {
@@ -152,7 +152,7 @@ export const RUNNERS: Runners = {
     ejecutar: (payload, ctx) => seguro('publicar', async () => {
       if (!esTipoCreacion(payload.tipo)) return { ok: false, resumen: 'No se pudo publicar (tipo desconocido).' };
       const r = await publicarCreacion(ctx.ws, {
-        tipo: payload.tipo, origenId: Number(payload.origenId), titulo: payload.titulo, descripcion: payload.descripcion, autorNombre: payload.autorNombre,
+        tipo: payload.tipo, origenId: String(payload.origenId), titulo: payload.titulo, descripcion: payload.descripcion, autorNombre: payload.autorNombre,
       }, autorDe(ctx));
       return {
         ok: true,

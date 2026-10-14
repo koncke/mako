@@ -78,7 +78,7 @@ export const DEFS: readonly OperacionDef[] = [
     escribe: 'crea (o actualiza) la fila de la creación en `creaciones`, visible para todos los negocios',
     parametros: [
       { nombre: 'tipo', rotulo: 'Tipo', tipo: 'string', obligatorio: true, enum: TIPOS_CREACION, descripcion: 'qué se publica. Hoy sólo «automatizacion» se puede publicar.' },
-      { nombre: 'origenId', rotulo: 'Qué publicar', tipo: 'number', obligatorio: true, entero: true, minimo: 1, descripcion: 'el id de la cosa en este negocio (una automatización: su id de listar_secuencias_nutricion).' },
+      { nombre: 'origenId', rotulo: 'Qué publicar', tipo: 'string', obligatorio: true, max: 80, descripcion: 'el id de la cosa en este negocio, como texto (una automatización: su número de listar_secuencias_nutricion, p. ej. "12").' },
       { nombre: 'titulo', rotulo: 'Título', tipo: 'string', max: TOPE_TITULO_CREACION, descripcion: 'cómo se llama en la galería. Sin valor, el nombre de la automatización.' },
       { nombre: 'descripcion', rotulo: 'Descripción', tipo: 'string', max: TOPE_DESCRIPCION_CREACION, descripcion: 'para qué sirve, en una o dos frases.' },
       { nombre: 'autorNombre', rotulo: 'Autor', tipo: 'string', max: TOPE_AUTOR_CREACION, descripcion: 'el nombre con que firma (el del negocio, o el de una persona). Sin valor, «Un negocio de MaKo».' },

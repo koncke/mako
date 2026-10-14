@@ -77,6 +77,15 @@ export function sanearPublicacion(x: { titulo?: unknown; descripcion?: unknown; 
   return { titulo, descripcion, autorNombre };
 }
 
+/**
+ * El id de la cosa en el negocio que la publica, como TEXTO: una automatización tiene un número y un anuncio del Video
+ * Generator un UUID (Content Machine, 14/10/2026). null si no sirve. Lo que decide si existe es el enchufe de su tipo.
+ */
+export function sanearOrigenId(x: unknown): string | null {
+  const s = typeof x === 'number' && Number.isFinite(x) ? String(Math.trunc(x)) : typeof x === 'string' ? x.trim() : '';
+  return /^[A-Za-z0-9_-]{1,80}$/.test(s) ? s : null;
+}
+
 /** ¿Cabe la definición? Se mide en bytes del JSON, que es lo que se guarda. */
 export function definicionCabe(def: unknown): boolean {
   try {

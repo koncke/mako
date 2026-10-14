@@ -5,7 +5,8 @@
 // Para sumar un tipo (el contrato que se les pasó a «Graphics» y «Content Machine»):
 //   1. Sacarlo de `POR_ENCHUFAR` y sumarlo a `ENCHUFADOS` (lib/creaciones-reglas.ts). El compilador pide el enchufe.
 //   2. Escribir su enchufe acá, con sus cuatro funciones:
-//      · `opciones()`: lo que ESTE negocio puede publicar de ese tipo (id y nombre), para el modal de publicar.
+//      · `opciones()`: lo que ESTE negocio puede publicar de ese tipo (id y nombre), para el modal de publicar. El id
+//        es TEXTO: un número para una automatización, un UUID para un anuncio.
 //      · `exportar(origenId)`: la DEFINICIÓN de una cosa del negocio, sin sus datos (los ids, las personas, las
 //        cuentas). Corre en el workspace de quien publica (`getTenantDb`). Tira si no existe.
 //      · `resumir(def)`: nombre y una línea (cuántas tarjetas, cuántos bloques). null = la definición no sirve.
@@ -26,8 +27,8 @@ import type { TipoEnchufado } from './creaciones-reglas';
 export type Usada = { id: number | string; nombre: string; aviso: string | null; ruta: string };
 
 export type Enchufe = {
-  opciones: () => Promise<Array<{ id: number; nombre: string }>>;
-  exportar: (origenId: number) => Promise<{ definicion: unknown; nombre: string }>;
+  opciones: () => Promise<Array<{ id: string; nombre: string }>>;
+  exportar: (origenId: string) => Promise<{ definicion: unknown; nombre: string }>;
   resumir: (def: unknown) => { nombre: string; detalle: string } | null;
   usar: (def: unknown) => Promise<Usada>;
 };
@@ -41,12 +42,14 @@ const automatizacion: Enchufe = {
     const db = await getTenantDb();
     const { data, error } = await db.from('nutricion_secuencias').select('id, nombre').is('archivada_at', null).order('id', { ascending: true });
     if (error) throw new Error(`opciones de automatizaciones: ${error.message}`);
-    return ((data ?? []) as Array<{ id: number; nombre: string | null }>).map((r) => ({ id: r.id, nombre: r.nombre?.trim() || `Automatización #${r.id}` }));
+    return ((data ?? []) as Array<{ id: number; nombre: string | null }>).map((r) => ({ id: String(r.id), nombre: r.nombre?.trim() || `Automatización #${r.id}` }));
   },
 
   async exportar(origenId) {
+    const id = Number(origenId);
+    if (!Number.isInteger(id) || id <= 0) throw new NoExisteError(`No existe la automatización #${origenId} en tu negocio.`);
     const db = await getTenantDb();
-    const { data, error } = await db.from('nutricion_secuencias').select('id, nombre, emoji, pasos, posiciones, archivada_at').eq('id', origenId).maybeSingle();
+    const { data, error } = await db.from('nutricion_secuencias').select('id, nombre, emoji, pasos, posiciones, archivada_at').eq('id', id).maybeSingle();
     if (error) throw new Error(`exportar la automatización: ${error.message}`);
     const f = data as FilaSecuencia | null;
     if (!f || f.archivada_at) throw new NoExisteError(`No existe la automatización #${origenId} en tu negocio.`);
