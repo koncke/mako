@@ -259,8 +259,8 @@ export function CustomerSuccessM({ servicios, clientes }: { servicios: ServicioC
           unidades="clientes"
           onTocar={(id) => abrir(Number(id))}
           moverA={(id) => {
-            const aca = etapaDe(s, asig, Number(id));
-            return s.etapas.filter((e) => e.key !== aca).map((e) => e.key);
+            const donde = etapaDe(s, asig, Number(id));
+            return s.etapas.filter((e) => e.key !== donde).map((e) => e.key);
           }}
           onMover={moverDesdeTablero}
           fraseMovida={(col) => `En ${col}`}

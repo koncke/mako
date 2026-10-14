@@ -43,9 +43,16 @@ export type Usuario = {
    * ese vacío, así que guardar el perfil borraba lo que no venía en el formulario.
    */
   perfil?: Record<string, unknown> | null;
+  /**
+   * ¿Tiene al menos un segundo factor activo? (mig 0266). Viaja en esta fila porque
+   * `getUsuarioActual` ya la lee en CADA request: así saber si la sesión necesita el
+   * segundo paso no cuesta otra consulta. Lo mantiene `sincronizarMfaActivo`
+   * (lib/mfa.ts) — nunca se escribe a mano.
+   */
+  mfa_activo?: boolean;
 };
 
-const COLS = 'id, email, nombre, rol, estado, foto_url, invitado_por, ultimo_login, created_at, workspace_id, rol_ws, perfil, invitacion_enviada_at';
+const COLS = 'id, email, nombre, rol, estado, foto_url, invitado_por, ultimo_login, created_at, workspace_id, rol_ws, perfil, invitacion_enviada_at, mfa_activo';
 
 export async function listarUsuarios(): Promise<Usuario[]> {
   const { data, error } = await getSupabaseServer()

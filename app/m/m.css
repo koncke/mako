@@ -707,7 +707,7 @@
 .m-kb__destino[aria-disabled] { cursor: default; }
 .m-kb__destino-n { flex: 1; min-width: 0; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .m-kb__destino-r { flex: none; color: var(--faint); font-variant-numeric: tabular-nums; }
-.m-kb__aca { flex: none; display: inline-flex; align-items: center; gap: 6px; color: var(--primary-strong); font-weight: 600; font-size: var(--fs-sm); }
+.m-kb__aqui { flex: none; display: inline-flex; align-items: center; gap: 6px; color: var(--primary-strong); font-weight: 600; font-size: var(--fs-sm); }
 
 /* ── Reduced motion: lo que se desliza pasa a aparecer ────────────────── */
 @media (prefers-reduced-motion: reduce) {

@@ -541,6 +541,7 @@ export const ADMIN_FAMILIAS: NavFamilia[] = [
           // es UNA pieza de Customer Success. La ruta vieja redirige (ver
           // app/admin/dev/[area]/page.tsx), así que sigue matcheando.
           { key: 'dev-customer-success', label: 'Customer Success', href: '/admin/dev/customer-success', icon: 'cs', match: (p) => starts('/admin/dev/customer-success')(p) || starts('/admin/dev/cs-analyst')(p) },
+          { key: 'dev-auth-session', label: 'Auth & Session', href: '/admin/dev/auth-session', icon: 'config', match: starts('/admin/dev/auth-session') },
           { key: 'dev-build-deploy', label: 'Build & Deploy', href: '/admin/dev/build-deploy', icon: 'rayo', match: starts('/admin/dev/build-deploy') },
           // Va pegada a Build & Deploy y es su otra punta: aquélla es cómo llega
           // el código a producción, ésta es la máquina donde se escribe — el clon
