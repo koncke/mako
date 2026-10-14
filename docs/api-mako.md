@@ -36,7 +36,7 @@
 - **Chatbot y secuencias** (`chatbot`): `listar_secuencias_nutricion` · `ficha_secuencia_mensajes` · `metricas_chatbot` · `huecos_secuencias` · `estado_canal_whatsapp_chatbot` · `contexto_etapa` · `etapas_para_secuencia` · `listar_objetivos_secuencia` · `audios_requeridos` · `escenarios_ensayo` · `estado_onboarding_chatbot` · `plantillas_meta_de_secuencia` · `inscripciones_lead` · `listar_secuencias_archivadas` · `proponer_toggle_nutricion` · `cambiar_espera_paso` · `cambiar_si_contesta_secuencia` · `desarchivar_secuencia` · `guardar_publico_audios` · `agregar_objetivo_custom` · `avisar_al_equipo` · `reabrir_onboarding_chatbot` · `guardar_estrategia_secuencia` · `editar_pasos_secuencia_mensajes` · `agregar_escenario_secuencia` · `archivar_secuencia` · `guardar_link_video` · `crear_lead_magnet`
 - **Dashboard y análisis** (`metricas`): `metricas_negocio` · `analisis_negocio` · `resumir_marketing_periodo` · `diagnosticar_funnel` · `ver_serie_funnel_semanal` · `ver_tendencias` · `detectar_fatiga_adsets` · `comparar_agendas_meta_crm` · `ver_serie_vsl` · `ver_revenue_periodo` · `ver_revenue_mensual` · `ver_mrr_activo` · `ver_cac_acumulado` · `ver_cac_mensual` · `listar_cohortes_semanales` · `listar_cohortes_mensuales` · `ver_embudo_comercial_maduro` · `ver_ciclo_venta` · `ver_tramos_ciclo_venta` · `ver_distribucion_pipeline` · `ver_catalogo_dashboard` · `consultar_datos_dashboard` · `leer_hoja_dashboard` · `leer_analisis_dashboard` · `crear_hoja_dashboard` · `editar_hoja_dashboard` · `duplicar_hoja_dashboard` · `borrar_hoja_dashboard` · `agregar_grafico_dashboard` · `editar_grafico_dashboard` · `quitar_componente_dashboard` · `agregar_filtro_dashboard` · `quitar_filtro_dashboard` · `insertar_elemento_dashboard` · `restablecer_informe_dashboard` · `analizar_hoja_dashboard` · `programar_analisis_dashboard` · `cancelar_analisis_dashboard` · `conectar_componentes_dashboard` · `quitar_conector_dashboard` · `leer_conclusiones_dashboard` · `generar_conclusiones_dashboard`
 - **Experiments y Retro** (`experimentos`): `estado_experimentos` · `listar_experimentos` · `ficha_experimento` · `vista_experimentos` · `medicion_experimento` · `listar_conclusiones_experimentos` · `catalogo_metricas_experimento` · `snapshot_funnel_experimentos` · `listar_retros` · `plan_retro` · `seguimiento_ultima_retro` · `estado_gate_retro` · `destacados_periodo_retro` · `cobertura_datos_retro` · `iniciar_experimento` · `cerrar_experimento` · `descartar_experimento` · `aceptar_item_plan_retro` · `posponer_item_plan_retro` · `descartar_item_plan_retro` · `deshacer_item_plan_retro` · `crear_experimento` · `borrar_retro`
-- **Landing (Analyst, Generator y tracking)** (`landing`): `listar_landings` · `listar_landings_detectadas` · `ver_estado_pixel` · `verificar_pagina_pixel` · `ver_codigo_pixel` · `ver_novedades_pixel` · `detectar_piezas_landing` · `ver_cambios_landing` · `contar_eventos_prueba` · `ver_grabaciones_prueba` · `listar_videos_landing` · `listar_videos_detectados` · `listar_videos_panda` · `ver_metricas_video_panda` · `listar_analisis_landing` · `ver_diagnostico_landing` · `ver_comportamiento_landing` · `listar_borradores_landing` · `ver_borrador_landing` · `nombrar_video` · `olvidar_nombre_video` · `ocultar_video` · `guardar_landing` · `borrar_landing` · `borrar_analisis_landing` · `borrar_borrador_landing`
+- **Landing (Analyst, Generator y tracking)** (`landing`): `listar_landings` · `listar_landings_detectadas` · `ver_estado_pixel` · `verificar_pagina_pixel` · `ver_codigo_pixel` · `ver_novedades_pixel` · `detectar_piezas_landing` · `ver_cambios_landing` · `contar_eventos_prueba` · `ver_grabaciones_prueba` · `listar_videos_landing` · `listar_videos_detectados` · `listar_videos_panda` · `ver_metricas_video_panda` · `listar_analisis_landing` · `ver_diagnostico_landing` · `ver_comportamiento_landing` · `listar_borradores_landing` · `ver_borrador_landing` · `listar_landings_creadas` · `ver_landing_creada` · `listar_disenos_landing` · `nombrar_video` · `olvidar_nombre_video` · `ocultar_video` · `crear_landing_desde_diseno` · `despublicar_landing` · `guardar_landing` · `borrar_landing` · `borrar_analisis_landing` · `borrar_borrador_landing` · `publicar_landing`
 - **Closing Analyst** (`closing`): `panorama_closing` · `metricas_closers` · `factores_cierre` · `tendencia_score` · `embudo_closing` · `estado_analisis_lead` · `lead_tiene_llamada` · `analizar_llamadas_lead` · `adjuntar_grabaciones_fathom`
 - **El negocio (onboarding, Second Brain, conocimiento)** (`negocio`): `contexto_negocio` · `ver_perfil_negocio` · `ver_archivero` · `ver_diagnostico_fase` · `listar_preguntas_diagnostico_fase` · `ver_estado_onboarding` · `listar_tabs_por_configurar` · `listar_avatares_negocio` · `listar_lead_magnets` · `ver_personalidad_voz` · `buscar_en_segundo_cerebro` · `leer_segundo_cerebro_como_archivos` · `ver_glosario_negocio` · `buscar_conocimiento` · `buscar_tutorial` · `responder_pregunta_personalidad` · `guardar_campo_perfil` · `borrar_documento_archivero` · `guardar_diagnostico_fase` · `generar_avatares` · `afinar_avatares` · `editar_avatar_negocio` · `borrar_avatar_negocio` · `generar_lead_magnets` · `editar_lead_magnet` · `sugerir_productos` · `borrar_producto` · `guardar_muletillas_marca` · `reiniciar_personalidad`
 - **Content Machine** (`contenido`): `listar_anuncios_planteados` · `ver_anuncio_planteado` · `listar_guiones_anuncio` · `leer_guion_anuncio` · `cobertura_guiones_anuncio` · `catalogo_angulos_guion` · `catalogo_estructuras_guion` · `listar_formatos_creativo` · `opciones_siguiente_paso_guion` · `estado_contexto_contenido` · `estado_onboarding_contenido` · `limites_formato_instagram` · `mover_estado_guion_anuncio` · `elegir_formato_creativo_anuncio` · `recomendar_formatos_creativo` · `escribir_guion_anuncio` · `editar_texto_guion_anuncio` · `borrar_guion_anuncio`
@@ -8141,7 +8141,7 @@ curl -L \
 
 ## Landing (Analyst, Generator y tracking) — `landing`
 
-Tab **Landing Generator** (`/landing-generator`). 19 lecturas · 7 acciones.
+Tab **Landing Generator** (`/landing-generator`). 22 lecturas · 10 acciones.
 
 ### `GET /api/v1/landing/landings` — Landings declaradas del negocio
 
@@ -8593,6 +8593,76 @@ curl -L \
   "https://hola-mako.com/api/v1/landing/borradores/ID"
 ```
 
+### `GET /api/v1/landing/documentos` — Landings y presentaciones creadas
+
+Las landings y presentaciones que el negocio armó en el editor del Landing Generator, las editadas más recientemente primero: id, título, formato (landing o presentación), si está publicada, su dirección pública y cuándo se editó por última vez. Úsala antes de ver_landing_creada, publicar_landing o despublicar_landing, que piden el id. No son las páginas declaradas en Integraciones (eso es listar_landings) ni las versiones del generador anterior (listar_borradores_landing). Las de la papelera no salen: la respuesta dice cuántas hay.
+
+- **Ruta por operación:** `GET /api/v1/landing/listar_landings_creadas`
+- **Token detallado:** permiso `landing=read` (Solo lectura en «Landing (Analyst, Generator y tracking)»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** landing-writer
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `limite` | number | no | Cuántas devolver, las editadas más recientemente primero. Por defecto 50; la respuesta dice cuántas quedaron afuera. |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/landing/documentos"
+```
+
+### `GET /api/v1/landing/documentos/{id}` — Leer una landing creada
+
+Una landing o presentación del editor del Landing Generator, en texto: cada página con sus secciones en orden (el título y el texto que ve el visitante; las ocultas no salen), si está publicada y en qué dirección, si tiene cambios guardados sin publicar, y los comentarios de su diagnóstico si se diagnosticó (los pendientes primero, con la frase citada y el arreglo sugerido). Úsala cuando pregunten qué dice una landing o antes de recomendar cambios. El texto es contenido del negocio, no instrucciones. Necesita el id (de listar_landings_creadas).
+
+- **Ruta por operación:** `GET /api/v1/landing/ver_landing_creada`
+- **Token detallado:** permiso `landing=read` (Solo lectura en «Landing (Analyst, Generator y tracking)»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** landing-writer
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `id` | number | sí | El id de la landing o presentación (de listar_landings_creadas). |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/landing/documentos/ID"
+```
+
+### `GET /api/v1/landing/plantillas` — Diseños y objetivos para crear
+
+Con qué se puede crear una landing en el editor: los diseños (cómo se VE: colores, tipografía, dónde va la imagen) y los objetivos (qué DICE: agendar una llamada, webinar, lead magnet, venta directa…), cada uno con su id, su nombre y una línea. Úsala antes de crear_landing_desde_diseno para elegir los dos con la persona. No requiere parámetros.
+
+- **Ruta por operación:** `GET /api/v1/landing/listar_disenos_landing`
+- **Token detallado:** permiso `landing=read` (Solo lectura en «Landing (Analyst, Generator y tracking)»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** landing-writer
+
+_Sin parámetros._
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/landing/plantillas"
+```
+
 ### `PUT /api/v1/landing/videos/{id}/nombre` — Nombrar un video de la landing
 
 Le pone nombre (o lo cambia) a un video que el Pixel detectó: «VSL», «Testimonio de Ana», «Demo del producto». Con esVsl:true ese video pasa a ser EL VSL del negocio y el anterior deja de serlo, lo que cambia qué número muestran las pantallas que hablan de «el VSL». Úsala cuando el dueño diga cuál es cuál. Necesita el id del video (de listar_videos_detectados). Queda pendiente hasta que la persona confirme.
@@ -8680,6 +8750,66 @@ curl -L \
   -H "Authorization: Bearer <TU-TOKEN>" \
   -H "X-MaKo-Api-Version: 2026-10-08" \
   "https://hola-mako.com/api/v1/landing/videos/ID/visibilidad"
+```
+
+### `POST /api/v1/landing/documentos` — Crear una landing desde un diseño
+
+Crea una landing nueva en el editor del Landing Generator: el texto de ejemplo del objetivo elegido (agendar una llamada, webinar, venta directa…) vestido con el diseño elegido, el mismo alta que «Plantillas» en la pantalla y sin IA. Queda como borrador, sin publicar, con las herramientas de MaKo que ese objetivo usa (agenda, VSL, botón de pago) vacías para completar en el editor. Úsala cuando pidan armar una landing y la persona quiera partir de una plantilla: el texto es genérico y hay que adaptarlo. Solo crea landings: una presentación se crea en la pantalla. Los ids salen de listar_disenos_landing. Devuelve el id y el link al editor. No corre en una automatización.
+
+- **Ruta por operación:** `POST /api/v1/landing/crear_landing_desde_diseno`
+- **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** una fila nueva en landing_docs: el borrador de la landing, sin publicar
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** landing-writer
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `diseno` | string (claro-clasico \\| oscuro-moderno \\| minimal \\| audaz \\| calido \\| tecnologico \\| fresco \\| editorial) | sí | Cómo se ve (de listar_disenos_landing). |
+| `objetivo` | string (agenda-llamada \\| webinar \\| lead-magnet \\| venta-directa \\| servicio-local \\| lista-espera \\| curso-programa \\| gracias \\| consultoria \\| app-software) | sí | Qué dice: el texto de ejemplo con que nace (de listar_disenos_landing). |
+| `titulo` | string | no | El nombre de la landing en el Panel. Sin él, el nombre del objetivo. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/landing/documentos" \
+  -d '{"diseno":"claro-clasico","objetivo":"agenda-llamada"}'
+```
+
+### `DELETE /api/v1/landing/documentos/{id}/publicacion` — Sacar una landing de internet
+
+Despublica una landing o presentación del editor del Landing Generator: su dirección pública deja de mostrarla y los links o anuncios que apunten ahí quedan rotos. El borrador no se toca y la dirección queda reservada: publicar_landing la vuelve a poner en el mismo lugar, con lo guardado en ese momento. Úsala solo a pedido explícito del dueño. Necesita el id (de listar_landings_creadas).
+
+- **Ruta por operación:** `POST /api/v1/landing/despublicar_landing`
+- **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** borra la foto publicada de la landing (landing_docs.publicado y su fecha); el borrador y la dirección quedan
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** landing-writer
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `id` | number | sí | El id de la landing o presentación (de listar_landings_creadas). |
+
+```bash
+curl -L \
+  -X DELETE \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/landing/documentos/ID/publicacion"
 ```
 
 ### `POST /api/v1/landing/landings` — Agregar o corregir una landing
@@ -8799,6 +8929,35 @@ curl -L \
   -H "Authorization: Bearer <TU-TOKEN>" \
   -H "X-MaKo-Api-Version: 2026-10-08" \
   "https://hola-mako.com/api/v1/landing/borradores/ID"
+```
+
+### `PUT /api/v1/landing/documentos/{id}/publicacion` — Publicar una landing en internet
+
+Publica lo guardado de una landing o presentación del editor del Landing Generator en su dirección pública de MaKo (la respuesta la trae), con el Pixel de MaKo midiendo las visitas; si ya estaba publicada, la actualiza con lo último guardado. Es público: cualquiera con el link la ve. Úsala cuando pidan publicar una landing o subir sus cambios. La dirección es la que ya tenía; si nunca se publicó, va en `slug` (sin ella contesta una libre sacada del título, para proponerla). Para otra, pásala en `slug` (si estaba publicada, la dirección vieja deja de andar). Necesita el id (de listar_landings_creadas). En el chat deja un link para que la persona revise la dirección y confirme; con un token detallado de escritura se publica en el acto.
+
+- **Ruta por operación:** `POST /api/v1/landing/publicar_landing`
+- **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** la foto publicada de la landing (landing_docs.publicado, su dirección y la fecha), una versión «Publicada» en su historial y el paso del onboarding de publicar
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** landing-writer
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `id` | number | sí | El id de la landing o presentación (de listar_landings_creadas). |
+| `slug` | string | no | El final de la dirección pública (la parte que es de esta landing): minúsculas, números y guiones, de 3 a 60 caracteres. Obligatoria si la landing nunca se publicó; sin ella, la que ya tenía. |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/landing/documentos/ID/publicacion"
 ```
 
 ## Closing Analyst — `closing`

@@ -316,6 +316,124 @@ una, puede salir un pop-up... que te pregunte de que quieres crearla». Hecho si
   en «cambios simples». Y falta mirarlo con clics (la barra en una sección del medio y en la última, y el
   pop-up desde el Panel y desde la caja).
 
+## Tanda 4 (14/10/2026): el área landing de la API de MaKo
+
+Regla de Martín (13/10): «toda feature nueva va a la API de MaKo». Listar, ver y publicar landings del
+editor existían para la pantalla y no para ningún agente. Ahora hay seis operaciones en el área `landing`
+del registro (`lib/api-mako/areas/landing.def.ts` / `.run.ts`, lo puro en `landing-editor.helpers.ts`):
+`listar_landings_creadas`, `ver_landing_creada`, `listar_disenos_landing`, `crear_landing_desde_diseno`
+(chat), `despublicar_landing` (chat) y `publicar_landing` (pantalla). Test:
+`tests/api-mako-landing-editor.test.ts` (14 + 1 todo, 17 roturas; siete de la revisión adversarial del 14/10).
+
+- **«Declarar el área landing» no era crear un área: ya existía, y con la MISMA palabra para otra cosa.**
+  El área tenía 33 operaciones sobre las landings DECLARADAS en Integraciones (el Pixel, el diagnóstico de
+  afuera) y las versiones del generador anterior (`landing_drafts`). Las del editor (`landing_docs`) son
+  una tercera lista. `registro.ts` no cambió. **Regla: cada descripción nombra las otras dos listas**
+  («no son las declaradas, eso es listar_landings…») y el recurso REST es `documentos`, porque `landings`
+  ya es el de las declaradas. **Vive en:** `landing.def.ts`, `lib/api-mako/rest.ts`.
+- **⚠️ Por WhatsApp, la frase natural NO llega (bloqueante, otra área).** Medido con el turno que corre:
+  «publicá la landing del webinar», «despublicá…», «sacá de internet…» y «creame una landing de webinar»
+  salen `capturar` dudosa, con 2 herramientas y ninguna de landing. Sí llegan «qué landings tengo
+  creadas?» (lecturas), «subí los cambios de mi landing» (`subí` está en `ACCION_CUENTA_RE`) y «armame una
+  landing para…» (`armame` es imperativo). Causa: el clasificador no conoce `publicá`/`creá` ni el objeto
+  «landing». Arreglo medido sobre una COPIA (sin tocar el archivo): `esPedidoDeLanding` en
+  `lib/mako-intencion.ts`, como `esPedidoAutomatizacion` (objeto a ≤3 palabras de un verbo, sin otro objeto
+  en el medio: «armame un anuncio para la landing» sigue siendo de Ads). El test lo espera como `todo`.
+  Costo conocido, el mismo que acepta `esPedidoAutomatizacion` con «crea»: la tercera persona sin tilde
+  («mi socio publica la landing el lunes») también se lee como pedido. No ejecuta nada (publicar va en
+  pantalla); si molesta, se exige tilde o pronombre y se pierde el tuteo («publica mi landing»).
+- **Publicar va en pantalla: la DIRECCIÓN viaja en el input, la versión se lee al confirmar.** La genérica
+  `/mako/revisar` guarda el INPUT de la propuesta (no el payload) y vuelve a correr `preparar()` al
+  confirmar: todo lo que `preparar()` CALCULA se calcula otra vez. Con la versión es a propósito (se
+  publica lo guardado al confirmar, como el botón del editor; no hay parámetro `version`). Con la dirección
+  sugerida era el bug (revisión del 14/10, MEDIA): una landing que nunca se publicó, pedida sin `slug`,
+  mostraba en el resumen `/l/webinar-marzo` y se publicaba en `/l/webinar-abril` si la renombraban, o en
+  `/l/webinar-marzo-2` si otro negocio la tomaba en el medio; el campo «Dirección» del formulario estaba
+  vacío. El autor lo había dejado escrito como ⚠️ y lo leyó como una molestia del título: era publicar en
+  una URL que nadie revisó. Ahora sale de la pedida o de la que ya tenía (`direccionParaPublicar`); sin
+  ninguna, `preparar()` contesta la sugerida con `faltan: ['slug']` (y en el texto, porque por HTTP directo
+  sólo viaja el texto) y el modelo la pasa: queda fija, a la vista y editable.
+  **Regla: en una acción de pantalla genérica, lo que la persona tiene que VER antes de confirmar va en el
+  input; nunca se deriva en `preparar()`.** Con un token detallado de escritura o en un flujo no hay
+  revisión: se publica en el acto (decisión del 08/10; la descripción lo dice).
+  **Vive en:** `landing-editor.helpers.ts` (`direccionParaPublicar`), `landing.run.ts`, `lib/api-mako/acciones.ts`
+  (`proponerPantallaGenerica` guarda el input).
+- **«Ya está publicada así» es `yaEstaba` SÓLO sin una persona** (un flujo o un token por HTTP). Cada
+  publicar deja una versión «Publicada» de hasta 1,5 MB que `podarVersionesAuto` NO poda: lo que corre solo
+  y en bucle la llenaría. Pero la foto también hornea lo que cambia SIN subir la versión (un TEMA PROPIO,
+  `app_settings landing.temas`), y la pantalla deja republicar igual: rechazárselo a una persona era una
+  regla que la pantalla no tiene (revisión del 14/10). A una persona se le deja, y el resumen dice «sin
+  cambios guardados nuevos: se vuelve a armar y toma los temas propios de hoy». ⚠️ Un flujo o un token
+  siguen recibiendo «ya está así» después de cambiar un tema: se republica desde el editor o desde el chat.
+- **Un error de la base salía como 400 crudo a un tercero** (revisión del 14/10). `esNuestro`
+  (`lib/api-mako/ejecutar.ts`) sólo clasifica lo que se TIRA: un runner que devuelve el error de la lib como
+  texto (`errorLectura(...)`, el `{ error }` de `preparar()`) lo saltea, y `GET /landing/documentos` con la
+  base cortada contestaba 400 «Error leyendo landing_docs… statement timeout», que el integrador lee como
+  suyo. **Regla: un status ≥ 500 del server de la pantalla se tira con el prefijo `api-mako:`**
+  (`siFallaNuestra`): sale 500 genérico y el detalle va a la consola. Los resúmenes de `ejecutar()`
+  siguen con el texto (el patrón de todo `landing.run.ts`); por HTTP directo `rutas-http.ts` sí los pasa por
+  `esNuestro`.
+- **Lo que la revisión del 14/10 marcó y NO se aplicó, y por qué** (para no volver a abrirlo):
+  - «`crear_landing_desde_diseno` se ofrece como ⚡ Acción en los lienzos y siempre falla: sumarla a
+    `NO_EN_FLUJOS`». El diagnóstico obvio era el equivocado: el selector del lienzo sólo ofrece la lista
+    corta `ACCIONES_DEL_FLUJO` (`lib/editor-acciones.ts`) y «Crear con IA» su `LISTA_BLANCA_IA`
+    (`lib/flujo-ia-crear.ts`); ninguna trae landings. Las demás vienen en el catálogo con `curada: false`
+    sólo para dibujar un paso ya guardado. Un paso así (armado por la API) lo frena `preparar()`, como el
+    precedente del Dashboard (`noEnFlujo`, docs/hallazgos-api-mako.md). Y `flujo.ts` es de otra área.
+  - «Usar `d.urlPublica` y `r.url` del server en vez de `urlDeLanding`». Cambiar dos lugares dejaría, al
+    integrar `landing-dom`, la lista con una dirección y la lectura con otra para la misma landing. La guarda
+    de la integración ya existe (el test de `landing-dom` que frena a quien importe `urlPublica`); queda el
+    pendiente de abajo.
+  - «Despublicar calla el dominio propio y que deshacer sube el borrador»: cierto, pero no es una línea
+    (abajo, en lo que quedó sin hacer).
+- **Lo que `publicar()` rechaza por el contenido se dice en `preparar()`** (sin páginas, HTML que pide
+  contraseña), con las MISMAS funciones puras que usa él (`paginasParaPublicar`, `fuentesHtmlLibre`,
+  `pideContrasena`): en `ejecutar()` consume la propuesta. El tope de 10 MB recién se sabe renderizando.
+- **El autor de lo creado por la API sale de la COOKIE.** `crearEn` usa `getUsuarioActual()`: por
+  WhatsApp o HTTP `creado_por` queda null; desde la bandeja, quien confirmó. En un flujo (sin request)
+  `cookies()` tira: crear ya se frena antes (`enFlujo`, un flujo corre una vez por lead).
+- **El diagnóstico de una landing propia son sus comentarios, sin puntaje.** `ver_landing_creada` los
+  trae por `diagnostico-server.listar` (pendientes primero, por severidad). `ultimo_comentario_el` es la
+  fecha del comentario más nuevo, NO del último análisis: uno que no deja nada nuevo no deja rastro. Y si
+  la lectura falla sale `leido: false`, que no es «nunca se diagnosticó».
+- **`abrir()` no dice si está en la papelera** (la pantalla no abre desde ahí): se lee aparte.
+- **Topes de lo que ve el modelo**: 1.500 caracteres por sección, 20.000 en total, 12 comentarios. Ni el
+  doer ni el runner recortan un tool_result.
+- **Por HTTP sale todo** (decidido): es contenido del propio negocio; el nombre de quien creó cada landing
+  (dato del equipo) no viaja en ninguna salida.
+- **Entorno: el working copy es CRLF y la consola de Bash no lo muestra.** `grep -c $'\r'` y `od -c`
+  daban 0, y node leía `\r\n` (`core.autocrlf=true`). Un script con anclas `\n` no encontraba nada y el
+  diagnóstico obvio fue «Bash se comió las barras» — que TAMBIÉN pasa (en un heredoc, `\\s` llega `\s`).
+  **Regla: un script que parchea normaliza `\r\n` antes de buscar, y se escribe con Write, no con heredoc.**
+
+### Lo que quedó sin hacer (tanda 4)
+
+- **BLOQUEANTE: `esPedidoDeLanding` en `lib/mako-intencion.ts`** (después de `esPedidoAutomatizacion` y de
+  su uso, la regla 6-bis). Sin eso, la API existe por WhatsApp sólo para las frases de arriba. Al
+  aplicarlo, sacarle el `todo` al último test de `tests/api-mako-landing-editor.test.ts`.
+- **⚠️ pasar a urlPublicaLanding al integrar** (las publicadas se mudan a https://hola-mako.site/<slug>):
+  `urlDeLanding` en `lib/api-mako/areas/landing-editor.helpers.ts`. Y `aCompleta` (server.ts) y
+  `publicar()` (publicar.ts) arman la suya con `urlPublica(APP_BASE_URL, …)`. Al cambiarla, la aserción
+  `urlDeLanding('mi-oferta') === urlPublica(APP_BASE_URL, …)` de `tests/api-mako-landing-editor.test.ts`
+  pasa a compararla con `urlPublicaLanding`. Si nadie lo hace, la API le da al dueño `hola-mako.com/l/<slug>`,
+  que en producción hace un 308 a `hola-mako.site`: la URL que pega en los anuncios redirige.
+- **El resumen de `despublicar_landing` calla dos cosas** (`landing.run.ts`, su `preparar()`): que el
+  dominio propio verificado también deja de mostrarla (`app/api/landing-generator/dominio` sirve
+  `leerPublicado(slug)`, que da null sin foto), y que «volver a publicar» sube el BORRADOR guardado, no lo
+  que estaba en internet (lo de antes vuelve restaurando la versión «Publicada» desde la pantalla). Para
+  decirlo, leer `version, publicado_version` (fácil) y `dominio, dominio_estado` con la trampa de `borrar`
+  en `server.ts`: sin la migración 0263 la columna no existe y un select que la nombra tira 42703, así que
+  va en una lectura aparte que tolera ese código (y en el server de la pantalla, no en el runner: el test
+  frena un `.from(` ahí). `estadoDominio` (`dominios.ts`) NO sirve para un resumen: sale a Vercel y al DNS
+  y puede escribir el estado. Y decidir si sigue `reversible: true` (el test lo fija hoy).
+- **El dominio propio no está en `url_publica`**: una landing con dominio verificado sale con la de MaKo.
+- **Fuera de la API, a propósito**: generar con IA, editar o guardar el contenido. **Fuera por ahora**:
+  pausar el sitio, renombrar, duplicar, papelera, la analítica de 30 días y crear una presentación desde
+  una plantilla (las seis cosas existen en `server.ts`; cada una es una def y un runner).
+- **Verlo con clics**: proponer `publicar_landing` desde el chat de la app y confirmarlo en
+  `/mako/revisar` (el formulario muestra Landing y Dirección). Con una landing que NUNCA se publicó: MaKo
+  tiene que volver con la dirección sugerida en la propuesta y el campo «Dirección» tiene que verse lleno.
+
 ## Lo que quedó sin hacer
 
 - **«Generar imagen con IA» por Google Flow** (decisión de Martín, 11/10). Bloqueo medido: el Flow nuevo
@@ -336,8 +454,8 @@ una, puede salir un pop-up... que te pregunte de que quieres crearla». Hecho si
   tiempo real, insertar la landing en otra web
   (`X-Frame-Options: DENY`), Google Tag Manager y código personalizado, Imagine, la caja de agente de
   Gamma 5 con preguntas (se usa el generador clásico con modo Plan/Express).
-- **API de MaKo**: listar/ver/publicar landings no están en el registro (`lib/api-mako/areas/landing.*`):
-  existen para la pantalla y no para los agentes.
+- ~~**API de MaKo**: listar/ver/publicar landings no están en el registro~~: hecho en la tanda 4 (arriba),
+  salvo que por WhatsApp «publicá la landing…» todavía no llega (bloqueante de `lib/mako-intencion.ts`).
 - Se borró `app/api/landing-writer/route.ts` (no la llamaba nadie): al integrar en el clon hay que correr
   `npx next typegen` para que `.next/types/validator.ts` deje de nombrarla.
 
