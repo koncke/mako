@@ -4348,3 +4348,16 @@ dibuja como tarjeta. ⚠️ Sin ver la grabación (la cuenta 2 no accede a Fatho
 medida; hay que confirmarlo con Mauricio después del deploy.
 
 **Vive en:** `app/_components/Lienzo.tsx` (`tarjetaBajo`, las pastillas) · `lib/flujo-conversacion.ts` (`colapsable`)
+
+### «Sola» con plata: la regla de tres puertas que nadie veía [AI Step · punto 1 del 13/10, 14/10]
+
+«La IA no permite configurar "hacer todo sola" en ciertos escenarios» (reunión del 13/10). La regla «con plata o en «Lo
+demás», nunca «Sola»» (decisión del 06/10: «el precio va siempre en borrador») estaba en TRES puertas que se repetían: el
+desplegable no ofrecía la opción, Publicar la frenaba («no puede salir sola») y `juntarPasosIA` la bajaba sola a «Para
+aprobar» en cada guardado; y la cuarta, el motor, frenaba el texto con plata. Cambiar una sola no alcanzaba. Ahora la
+persona elige en cualquier escenario con respuesta y el editor avisa (`avisoDeLibertad`); el motor no frena el precio en
+un escenario DE plata en «Sola». **La IA sigue prudente** (`libertadesDeFabrica`: lo que arma ✦ Armar y el conversor de
+lo de antes), y el conversor de un «Si responde» viejo también, porque ahí el freno del texto hacía que no saliera solo:
+convertido con la regla nueva, contestaría distinto.
+
+**Vive en:** `lib/ai-step-libertad.ts` · `lib/ai-step-armar.ts` · `lib/paso-ia-convertir.ts` · `lib/setter-conversacion.ts` (`puedeContestarSolo`) · `app/automations/EditorPasoIA.tsx`

@@ -57,11 +57,11 @@ import {
   type CasoRespuesta, type PasoGrafo, type MedioAIStep, type EjemploCaso,
 } from '@/lib/flujo-grafo';
 import { resumenPasoIA, FILA_OBJETIVO_IA, FILA_ESCENARIOS_IA, FILA_CHIPS_IA, ICONOS_MAS } from '@/lib/flujo-conversacion';
-import { libertadDeCaso, LIBERTADES, ROTULO_LIBERTAD, type Libertad } from '@/lib/ai-step-libertad';
+import { libertadDeCaso, avisoDeLibertad, LIBERTADES, ROTULO_LIBERTAD, type Libertad } from '@/lib/ai-step-libertad';
 import { escenarioTipico } from '@/lib/ai-step-escenarios';
 import {
   casoDeArmado, casosDelArmado, conEscenario, sinEscenario, conLibertadDe, conLoDemas, libertadDeLoDemas,
-  generadorDeIds, escenariosParaSumar, distintivoDeTipico, opcionesDeLibertad, OPCIONES_LO_DEMAS,
+  generadorDeIds, escenariosParaSumar, distintivoDeTipico, opcionesDeLibertad, OPCIONES_LO_DEMAS, GUIA_LO_DEMAS,
   type ArmadoAIStep, type ModoArmado, type LoDemasAIStep,
 } from '@/lib/ai-step-armar';
 import { cambioDelEnsayo } from '@/lib/ai-step-ensayo';
@@ -300,19 +300,29 @@ export function EditorPasoIA({ id, paso, pasos, busy, cambiar, secuenciaId, onEr
       </PasoAIStep>
 
       <PasoAIStep n={2} titulo="Escenarios" abierto={abierto === 2} onAbrir={() => abrir(2)} resumen={resumenes[2]} rojo={rojo(2)}>
-        {escenarios.map((c) => (
-          <div key={c.id} data-escenario={c.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ ...UNA_LINEA, flex: 1, fontSize: 13, fontWeight: 600, color: faltaEnCaso(c) ? 'var(--bad)' : 'var(--ink)' }}>{c.titulo.trim() || 'Sin nombre'}</span>
-            <Dropdown value={libertadDeCaso(c)} options={conIconos(opcionesDeLibertad(c))} search={false} width={156} disabled={busy}
-              ariaLabel={`Libertad de ${c.titulo.trim() || 'el escenario'}`} onChange={(v) => setCasos(conLibertadDe(casos, c.id, v as Libertad))} />
-            <BotonBorrar talla="sm" title={`Quitar «${c.titulo.trim() || 'el escenario'}»`} disabled={busy} onClick={() => setCasos(sinEscenario(casos, c.id))} />
+        {escenarios.map((c) => {
+          // «SOLA» CON SU AVISO (14/10/2026): con plata ya se puede, y se dice al lado (`avisoDeLibertad`).
+          const aviso = avisoDeLibertad(c, libertadDeCaso(c));
+          return (
+            <div key={c.id} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <div data-escenario={c.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ ...UNA_LINEA, flex: 1, fontSize: 13, fontWeight: 600, color: faltaEnCaso(c) ? 'var(--bad)' : 'var(--ink)' }}>{c.titulo.trim() || 'Sin nombre'}</span>
+                <Dropdown value={libertadDeCaso(c)} options={conIconos(opcionesDeLibertad(c))} search={false} width={156} disabled={busy}
+                  ariaLabel={`Libertad de ${c.titulo.trim() || 'el escenario'}`} onChange={(v) => setCasos(conLibertadDe(casos, c.id, v as Libertad))} />
+                <BotonBorrar talla="sm" title={`Quitar «${c.titulo.trim() || 'el escenario'}»`} disabled={busy} onClick={() => setCasos(sinEscenario(casos, c.id))} />
+              </div>
+              {aviso && <span data-aviso-libertad style={{ fontSize: 11.5, color: 'var(--warn)' }}>{aviso}</span>}
+            </div>
+          );
+        })}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <div data-escenario="lo-demas" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ ...UNA_LINEA, flex: 1, fontSize: 13, fontWeight: 600, color: 'var(--dim)' }}>{ROTULO_LO_DEMAS}</span>
+            <Dropdown value={loDemas} options={conIconos(OPCIONES_LO_DEMAS)} search={false} width={156} disabled={busy}
+              ariaLabel={`Libertad de ${ROTULO_LO_DEMAS}`} onChange={(v) => setCasos(conLoDemas(casos, v as LoDemasAIStep, ids()()))} />
+            <span aria-hidden style={{ flex: 'none', width: 26 }} />
           </div>
-        ))}
-        <div data-escenario="lo-demas" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ ...UNA_LINEA, flex: 1, fontSize: 13, fontWeight: 600, color: 'var(--dim)' }}>{ROTULO_LO_DEMAS}</span>
-          <Dropdown value={loDemas} options={conIconos(OPCIONES_LO_DEMAS)} search={false} width={156} disabled={busy}
-            ariaLabel={`Libertad de ${ROTULO_LO_DEMAS}`} onChange={(v) => setCasos(conLoDemas(casos, v as LoDemasAIStep, ids()()))} />
-          <span aria-hidden style={{ flex: 'none', width: 26 }} />
+          {loDemas === 'sola' && <span data-aviso-libertad style={{ fontSize: 11.5, color: 'var(--warn)' }}>{avisoDeLibertad({ titulo: ROTULO_LO_DEMAS, cuando: '', responder: GUIA_LO_DEMAS, cualquiera: true }, 'sola')}</span>}
         </div>
         {armando?.modo === 'uno' ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5, color: 'var(--dim)' }}>

@@ -195,10 +195,10 @@ test('camposDelFlujo CONSERVA el AI Step: la marca, el tono, el aviso y lo de ad
 
 // ── La validación, en la forma COMPACTA ────────────────────────────────────────────────
 
-test('Publicar frena sin objetivo, un escenario sin nombre o sin «cuándo», y una «Sola» que habla de plata; abre la tarjeta del AI Step', () => {
-  // UNDÉCIMA: el objetivo es obligatorio, y «Precio» no puede salir sola (plata).
-  assert.deepEqual(validarGrafo(conIA()), ['falta el objetivo de la tarjeta R', 'en la tarjeta R, «Precio» no puede salir sola']);
-  // Junto (baja «Precio» a «Para aprobar») y con objetivo, se publica.
+test('Publicar frena sin objetivo y un escenario sin nombre o sin «cuándo» (una «Sola» con plata, desde el 14/10, no); abre la tarjeta del AI Step', () => {
+  // UNDÉCIMA: el objetivo es obligatorio. Desde el 14/10/2026 «Precio» PUEDE salir sola (la elige una persona, con aviso).
+  assert.deepEqual(validarGrafo(conIA()), ['falta el objetivo de la tarjeta R']);
+  // Junto y con objetivo, se publica.
   assert.deepEqual(validarGrafo(juntarPasosIA(conIA({ objetivo: 'Que agende' })).pasos), [], 'un AI Step completo no se publicaba');
   const sinNombre = conIA({ objetivo: 'x', casos: [caso('A', { titulo: ' ', responder: 'x' })] });
   assert.deepEqual(validarGrafo(sinNombre), ['la tarjeta R tiene un escenario sin nombre']);
@@ -480,15 +480,20 @@ test('la libertad es un DESPLEGABLE por escenario con las tres opciones, y las q
   assert.match(p, /<Dropdown value=\{libertadDeCaso\(c\)\} options=\{conIconos\(opcionesDeLibertad\(c\)\)\}[\s\S]*?onChange=\{\(v\) => setCasos\(conLibertadDe\(casos, c\.id, v as Libertad\)\)\}/);
   assert.match(p, /<Dropdown value=\{loDemas\} options=\{conIconos\(OPCIONES_LO_DEMAS\)\}/);
   assert.match(sinComentarios(leer(EDITOR)), /ops\.map\(\(o\) => \(\{ value: o\.value, label: o\.label, icono: ICONO_LIBERTAD\[o\.value\], disabled: o\.disabled \}\)\);/);
-  // Ejecutado: una que contesta, las tres; con plata, sin «Sola»; sin respuesta, sólo «Sólo te avisa»; «Lo demás», dos.
+  // Ejecutado: una que contesta, las tres (con plata también, desde el 14/10/2026: con su aviso); sin respuesta, sólo
+  // «Sólo te avisa»; «Lo demás», las tres.
   const habil = (c: Partial<CasoRespuesta>) => opcionesDeLibertad({ titulo: 'x', cuando: 'y', ...c }).map((o) => `${o.label}${o.disabled ? ' ✗' : ''}`);
   assert.deepEqual(habil({ titulo: 'Confirma', responder: 'Agradece' }), ['Sólo te avisa', 'Para aprobar', 'Sola']);
-  assert.deepEqual(habil({ titulo: 'Pregunta el precio', responder: 'En la llamada' }), ['Sólo te avisa', 'Para aprobar', 'Sola ✗']);
+  assert.deepEqual(habil({ titulo: 'Pregunta el precio', responder: 'En la llamada' }), ['Sólo te avisa', 'Para aprobar', 'Sola']);
   assert.deepEqual(habil({ titulo: 'Se queja', responder: '' }), ['Sólo te avisa', 'Para aprobar ✗', 'Sola ✗']);
-  assert.deepEqual(OPCIONES_LO_DEMAS.map((o) => o.label), ['Sólo te avisa', 'Para aprobar']);
-  // Lo deshabilitado tampoco se escribe por otro lado.
+  assert.deepEqual(OPCIONES_LO_DEMAS.map((o) => o.label), ['Sólo te avisa', 'Para aprobar', 'Sola']);
+  // Lo deshabilitado (sin respuesta, «Sola») tampoco se escribe por otro lado; con plata sí se escribe, y el editor avisa.
+  const sinRespuesta = [caso('S', { titulo: 'Se queja', responder: '' })];
+  assert.equal(conLibertadDe(sinRespuesta, 'S', 'sola'), sinRespuesta, 'escribió «Sola» en un escenario sin respuesta');
   const cs = [caso('P', { titulo: 'Precio', responder: 'En la llamada' })];
-  assert.equal(conLibertadDe(cs, 'P', 'sola'), cs, 'escribió «Sola» en un escenario que habla de plata');
+  assert.equal(libertadDeCaso(conLibertadDe(cs, 'P', 'sola')[0]), 'sola');
+  assert.match(p, /const aviso = avisoDeLibertad\(c, libertadDeCaso\(c\)\);/);
+  assert.match(p, /\{aviso && <span data-aviso-libertad/);
 });
 
 test('se fueron «Hasta», «Te aviso cada vez», «＋ Otro AI Step», los campos de nombre/cuándo/cómo y los textos de ayuda', () => {

@@ -15,8 +15,10 @@
 //   · [«MaKo contesta» → «avisar al equipo»]       → «Para aprobar» (también si salía solo: «Sola» no avisa, y
 //                                                    una persona ve lo que avisaba; §7, «sola + te aviso»);
 //   · [«avisar al equipo»] o nada debajo           → «Sólo te avisa» (no contesta: la charla pasa a una persona).
-// Una libertad que el escenario no puede tener (plata) baja a «Para aprobar»: lo hace `juntarPasosIA` al final (la
-// MISMA puerta que todo lo de antes; una copia acá no la cazaba ninguna rotura: medido, quedaba muerta).
+// Una «Sola» con plata baja a «Para aprobar» ACÁ, con la regla prudente (`libertadesDeFabrica`): en la forma de antes
+// una respuesta que hablaba de plata quedaba en borrador igual (el freno del texto, `puedeContestarSolo`), y desde el
+// 14/10/2026 una «Sola» elegida en un escenario de plata ya no frena: convertida así, contestaría distinto. Hasta el
+// 14/10 lo hacía `juntarPasosIA`, que ahora deja la «Sola» que eligió una persona.
 // «Otra cosa» que es un «avisar al equipo» se va: «Lo demás» avisa con el texto de siempre (`AVISO_OTRA_COSA`).
 //
 // ⚠️ TODO O NADA. Si UN caso tiene algo que no entra (una condición, una espera, un audio, un texto fijo,
@@ -37,7 +39,7 @@ import {
   type PasoGrafo, type CasoRespuesta,
   claseDe, esPasoIA, indicePorId, nodoPorId, normalizar, padresDe, juntarPasosIA, OP_AVISO_EQUIPO, TOPE_OBJETIVO,
 } from './flujo-grafo';
-import { conLibertad, type Libertad } from './ai-step-libertad';
+import { conLibertad, libertadesDeFabrica, type Libertad } from './ai-step-libertad';
 
 export type ConversionPasoIA<P> = { pasos: P[] } | { error: string };
 
@@ -100,8 +102,8 @@ export function respuestaAPasoIA<P extends PasoGrafo>(pasosIn: readonly P[], idR
     const adentro = plegar(r.id!, c.siguiente ?? null);
     if (!adentro) return { error: `«${c.titulo.trim() || 'Un caso'}» tiene tarjetas que no entran en un AI Step` };
     const escenario: CasoRespuesta = { id: c.id, titulo: c.titulo, cuando: c.cuando, siguiente: null, ...(adentro.responder ? { responder: adentro.responder } : {}) };
-    // La libertad de la forma (la que el escenario no puede tener, la baja `juntarPasosIA` abajo).
-    casos.push(conLibertad(escenario, adentro.libertad));
+    // La libertad de la forma, con la regla prudente (ver la cabecera): contesta IGUAL que antes de convertir.
+    casos.push(conLibertad(escenario, libertadesDeFabrica(escenario).includes(adentro.libertad) ? adentro.libertad : 'aprueba'));
   }
 
   // «Otra cosa»: un aviso que termina ahí, o nada. Las dos son «Lo demás: Sólo te avisa» (el default: sin caso).
