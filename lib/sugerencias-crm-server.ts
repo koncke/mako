@@ -123,7 +123,7 @@ async function cuotasDe(leadIds: ReadonlySet<number>, hoy: string): Promise<{ ve
   if (!leadIds.size) return { vencidas: 0, pendientes: 0 };
   // Paginado: una cartera con planes de 6 cuotas pasa las 1.000 filas, y PostgREST corta en silencio.
   const filas = await leerTodo<{ lead_id: number; fecha_esperada: string | null }>(await getTenantDb(), 'pagos', 'id, lead_id, fecha_esperada', {
-    orden: 'id', eq: { pagado: false }, filtros: (q) => q.not('fecha_esperada', 'is', null) as ConsultaPaginada,
+    orden: 'id', eq: { pagado: false }, filtros: (q) => q.not('fecha_esperada', 'is', null) as unknown as ConsultaPaginada,
   });
   let vencidas = 0; let pendientes = 0;
   for (const f of filas) {
