@@ -470,6 +470,49 @@ typecheck completo ni prueba en el navegador. Qué falta, en `docs/relevo/super-
 MISMO correo con el que se entra: el login ES esa cuenta de Google, y quien la robó lee el código. La
 0266 ya lo exige distinto (`email_respaldo`). Google tampoco ofrece el correo como segundo paso.
 
+#### Tanda 1 (14/10/2026): terminada y probada en la rama `2fa-tanda1`, sin desplegar
+
+**Vive en:** la rama `2fa-tanda1` (worktree `C:/Users/marti/wt-2fa`): `lib/mfa.ts` · `lib/mfa-reglas.ts` ·
+`app/api/auth/2fa/route.ts` · `app/api/perfil/seguridad/route.ts` · `app/api/auth/callback/google/route.ts` ·
+`tests/mfa.test.ts`. Sale con la app de autenticación, la llave de acceso, los códigos de recuperación y
+«recordar este dispositivo»; WhatsApp y correo quedan apagados (`CANALES_CODIGO` vacío) hasta que salgan
+por una automatización del SuperAdmin. **No se despliega sin Martín presente**: al desplegar, su sesión
+deja de valer y tiene que activar su método en el acto.
+
+Lo que encontró la revisión de seguridad (tres lentes con un refutador por hallazgo), con su regla:
+
+- ⚠️ **Un freno que CUENTA antes de ANOTAR se saltea en paralelo.** `frenado()` leía «cuántos fallos
+  hubo» y el fallo propio se escribía recién después de verificar, tres idas a la base más tarde: 500
+  pedidos simultáneos con el mismo paso intermedio leían todos «0» y probaban 500 códigos. Con la cuenta
+  de Google del super admin eso es ~13% por día de adivinar su app. **La regla: se anota el intento
+  ANTES de contar, y se cuenta incluyéndolo** (`intentar` + `debeFrenar`); el k-ésimo pedido ve al
+  menos k filas. Fail-closed en las dos puntas: la versión anterior tragaba el error del insert y el
+  freno quedaba abierto sin aviso. Medido contra la base: 30 en paralelo, pasó 1.
+- **Un freno por persona que corta TODO se vuelve un arma.** Puesto arriba de todas las acciones,
+  quien tenía la cuenta de Google le bloqueaba al dueño también su llave de acceso y hasta el
+  «olvidar dispositivo», mandando códigos malos. El freno va sólo en lo que se puede ADIVINAR (un
+  código de 6 dígitos o uno de recuperación); una firma de passkey no se adivina.
+- **Un flag desnormalizado no puede ser lo único que decide si se pide el segundo paso.** Activar un
+  factor son dos escrituras (el factor y `usuarios.mfa_activo`); con la segunda caída, el 2FA de esa
+  persona quedaba apagado para siempre. El login cuenta los factores de verdad (`mfaActivoReal`) y
+  arregla el flag si no coincide; el flag sigue sirviendo para lo que corre en cada request.
+- **Refutado**: que un email de `AUTH_ALLOWED_EMAILS` sin fila sea una puerta. Nace admin sin factores
+  y enrola el primero, pero es el mismo bootstrap que el del super admin, no una puerta nueva.
+
+**Cómo se prueba el login sin Google** (lo que funcionó el 14/10): un usuario descartable en
+`usuarios` (local escribe en prod: se borra al terminar y se verifica que las seis tablas vuelvan a
+cero), el paso intermedio firmado a mano con `crearPreauth` y el `AUTH_SECRET` del `.env.local`, y
+Playwright con un autenticador WebAuthn virtual por CDP (`WebAuthn.addVirtualAuthenticator`).
+⚠️ **El autenticador virtual vive en el contexto del navegador**: una llave creada en una corrida no
+existe en la siguiente, y el «entrar con la llave» se cuelga sin error hasta el timeout. Crear y usar
+la llave van en la MISMA corrida. Y un test que firma un token de admin necesita `mfa` (`'totp'` o
+`'dev'`): sin eso ya no es una sesión, y tres tests del proxy se pusieron rojos por eso.
+
+**Quedó SIN hacer (tanda 3):** pedir un código fresco para quitar un método o regenerar los códigos;
+dos «quitar» simultáneos pueden dejar al super admin sin métodos (hace falta ya tener su sesión);
+reset del 2FA por un admin; cerrar sesiones en todos lados al perder el teléfono; método preferido; la
+sección Seguridad en `/m/cuenta`. **Tanda 2:** el destino «a la persona del evento» en Automations.
+
 ### ⚠️ Ningún guard que mire el eje de workspace puede restringir a la agencia: el único que sirve es `getSesionAdmin()`
 
 Tres guards con nombre de «solo la agencia» y ninguno lo cumple, por la misma razón de

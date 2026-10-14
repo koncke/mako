@@ -5,7 +5,16 @@
 > Sirve a dos chats de `docs/relevo/chats.md`: **«Pricing MaKo»** (Strategy, runway, referidos) y
 > **«Admin»** (clientes, agencia, links compartidos).
 
-## ⏸ 13/10/2026 ~20:00 — EL 2FA DEL LOGIN, PAUSADO A MITAD (léelo primero)
+## ▶ 14/10/2026 — EL 2FA LO RETOMÓ EL CHAT «CIBERSEGURIDAD» (léelo primero)
+
+La tanda 1 está **terminada, probada y commiteada en la rama `2fa-tanda1`** (worktree
+`C:/Users/marti/wt-2fa`), no en main: app de autenticación, llave de acceso, códigos de
+recuperación y recordar dispositivo. WhatsApp y correo quedan apagados hasta la tanda 2 (por una
+automatización del SuperAdmin). **No se pushea sin Martín presente**: al desplegar su sesión deja de
+valer y tiene que activar su método en el acto. Lo que se aprendió, en `docs/hallazgos-seguridad.md` →
+«El 2FA del login YA está escrito a medias». Lo de abajo es la foto del 13/10 y ya no es el estado.
+
+## ⏸ 13/10/2026 ~20:00 — EL 2FA DEL LOGIN, PAUSADO A MITAD (historia: ver arriba)
 
 > Escrito por la cuenta 2 (chat «Admin») en la pausa que pidió Martín para liberar RAM. Primera mano.
 

@@ -2744,6 +2744,18 @@ por IPv6. Antes de medir contra el server de otro, un `curl --max-time 20`; si n
 no se lo mata —es de otra sesión— y se levanta uno propio desde un worktree (ver «Las tres
 cosas que hay que recrear a mano»).
 
+### ⚠️ Un `next dev` de un worktree llega a ~6 GB y el vigía lo mata: la corrida tiene que ser CORTA (14/10/2026)
+
+Medido verificando el 2FA desde `C:/Users/marti/wt-2fa`: en ~15 minutos el dev server pasó los 5 GB
+privados y `vigia.ps1` lo mató por «fuga next dev» (`MATO pid … 5949 MB privados`). `--max-old-space-size`
+no lo frena: lo que crece es la memoria nativa de Turbopack, no el heap de V8. El síntoma en el arnés es
+un `page.goto: Timeout` en el medio del recorrido, que se lee como un bug de la pantalla.
+
+Y la otra trampa del mismo día: Turbopack compacta su caché en disco (`Finished filesystem cache
+database compaction in 60s`) y mientras tanto las primeras requests no contestan. **Antes del arnés,
+un `curl` a cada pantalla que se va a recorrer** (calienta la compilación y espera la compactación);
+después, el recorrido entero en una sola pasada y el server apagado al terminar.
+
 ### ⚠️ El worktree para tener dev server propio: sirve, pero NO desde el scratchpad
 
 Es la letra chica del párrafo de arriba, y se escribió dos veces porque **la primera
