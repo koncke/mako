@@ -142,11 +142,13 @@ test('el panel prueba lo LOCAL, anima los mensajes y dice si el flujo cambió', 
   assert.doesNotMatch(panel, /conVars|'Juan'|Acme SRL/);
 });
 
-test('escribir como el lead PAUSA la salida y clasifica contra los casos LOCALES', () => {
+test('escribir como el lead deja ESPERANDO la salida (no la corta) y clasifica contra los casos LOCALES', () => {
   const panel = PANEL();
   const responder = panel.slice(panel.indexOf('const alResponder = async'), panel.indexOf('async function enviarTexto'));
   assert.match(responder, /const p = pausarPorRespuesta\(simRef\.current\);/);
-  assert.match(responder, /if \(!raizRespuesta\(flujoRef\.current\)\) \{ sistema\('MaKo no contesta'\); return null; \}/);
+  // Sin «Si responde» MaKo no contesta, y la salida que corría vuelve a correr (14/10/2026: contestar no corta nada).
+  assert.match(responder, /if \(!raizRespuesta\(flujoRef\.current\)\) \{\s*sistema\('MaKo no contesta'\);\s*if \(p\.siguen\) \{ simRef\.current = entrarEnRespuesta\(flujoRef\.current, simRef\.current, null\)\.estado; luego\(PILDORA_MS, avanzar\); \}\s*return null;\s*\}/);
+  assert.doesNotMatch(responder, /Se pausa/);
   assert.match(responder, /postar\(\{ action: 'clasificar', pasos: flujoRef\.current, \.\.\.cuerpo \}\)/);
   assert.match(responder, /entrarEnRespuesta\(flujoRef\.current, simRef\.current,/);
   // El server: el MISMO clasificador y el MISMO redactor del motor, con lo local.

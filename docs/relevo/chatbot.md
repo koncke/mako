@@ -88,6 +88,22 @@
 > lead desde el 10/10. O el alta de «Nuevo lead» no lo guardó (bug del CRM: medir `createLead` con ese teléfono, ¿duplicado?
 > ¿error tragado?), o lo borraron después de la llamada: se le preguntó a Martín. Sin lead no hay inscripción: la #213 no tenía
 > a quién mandarle.
+> **14/10 06:40 (reloj de la PC, Argentina) — Martín, después del corte de la app: «"Si el lead contesta" NO debería ir en el CRON, debería ser una CONDITION...
+> Es obvio eso».** Rehecho (commit «Si el lead contesta es una CONDITION»): que el lead conteste no corta nada; la condición
+> «No contestó desde que entró» (`contesto`) va después de cada espera; el panel del CRON, `si_contesta` y la operación
+> `cambiar_si_contesta_secuencia` se fueron. Hallazgo en docs/hallazgos-chatbot.md. También borrada la guarda escondida
+> «la reunión ya pasó» (el ÚLTIMO commit de la rama, aparte). **ORDEN NUEVO DEL DEPLOY, en DOS pushes:**
+> 1. Push de la rama SIN su último commit (la guarda): los 6 de 857f5ccc9..0b034457e + la condición `contesto`, y lo de
+>    `1a2fd15f` si todavía no salió.
+> 2. Con eso desplegado, las dos migraciones (dry run medido el 14/10):
+>    `ENV_FILE=C:/dev/mako-api/.env.local node --import tsx scripts/migrar-condicion-reunion.ts --apply` (#213 ws1, #241 ws13) y
+>    `ENV_FILE=C:/dev/mako-api/.env.local node --import tsx scripts/migrar-contesto-condicion.ts --apply` (10 automatizaciones:
+>    las 3 prendidas sólo pierden la clave; a las apagadas de ws10, ws11 y ws15 se les pone la condición).
+>    ⚠️ Al revés cortan: el código de antes no conoce `reunion_en_pie` ni `contesto` (la fila no se cumple).
+> 3. Recién ahí, el push del commit de la guarda.
+> Martín respondió también: el botón TikTok va en la grilla del CRON AL LADO DEL DE IG; LinkedIn queda afuera (explicado);
+> «¿cómo deprecar Zernio para TikTok?» = pedir Business Messaging API directo (respuesta en el chat). Y pidió: en «Probar»,
+> una barra de contactos (estilo WhatsApp/IG) con un contacto por escenario, y elegir el escenario al probar por WhatsApp.
 > **14/10 ~12:30: `migrar-si-contesta.ts --apply` CORRIDO** (10 automatizaciones; la 2ª pasada da 0). El push lo hace
 > «Estrategia 3 CUENTAS» con `1a2fd15f` (mi rama de antes del rebase, hasta «Pausar congela»). Los 6 commits de después
 > (857f5ccc9..0b034457e en la rama de hoy) van en el push siguiente, por cherry-pick. Después del deploy: la 2ª migración

@@ -7600,6 +7600,10 @@ como condición del catálogo (`lib/condiciones-catalogo.ts`) u opción visible 
 operación en la API de MaKo. Lo que ya existe escondido está inventariado (162 ítems, con el plan) en
 docs/diseno-mako-nada-por-detras.md. La corrección técnica (carreras, no mandar dos veces) no cuenta.
 Antes de una tarjeta nueva, mirá si las que hay ya la expresan: una rama sin flecha ya TERMINA.
+**Y lo que depende de un HECHO es una CONDICIÓN, no una opción de otra tarjeta** (Martín, 14/10/2026: «"Si
+el lead contesta" NO debería ir en el CRON, debería ser una CONDITION... Es obvio eso»). Que el lead
+conteste no corta nada: lo dice «No contestó desde que entró» (`contesto`) después de cada espera, y
+quien arma un flujo con seguimientos —plantilla, Crear con IA, API— la pone ahí.
 
 Desde el 08/10/2026 una automatización de la tab Automations (ex Chatbot, renombrada el
 09/10/2026: la pantalla vive en `app/automations/`, /chatbot redirige con la query entera y las

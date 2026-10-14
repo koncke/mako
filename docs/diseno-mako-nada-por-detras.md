@@ -12,9 +12,12 @@ Repo `C:/dev/wt-undecima`. HEAD se movió durante la lectura (`e4c8a6d7`). Volv�
 
 ## DECIDIDO por Martín (14/10/2026)
 
-1. **Si el lead contesta** (§1-C): opción visible en cada camino, «Si contesta: se corta / sigue», con **«sigue» de fábrica**.
-   Las que ya existen quedan con lo que hacen hoy («se corta»), salvo la bienvenida de «Un Lead Agendó Llamada» (#213 y la
-   plantilla `lead-agendo`), que pasa a «sigue».
+1. **Si el lead contesta** (§1-C): ~~opción visible en cada camino, «Si contesta: se corta / sigue», con «sigue» de
+   fábrica~~ → **REEMPLAZADO el mismo 14/10 a la tarde.** Martín: «"Si el lead contesta" NO debería ir en el CRON, debería
+   ser una CONDITION... Es obvio eso». Es la condición **«No contestó desde que entró»** (`contesto`, sección Mensajes);
+   que el lead conteste no corta nada por su cuenta. Lo de fábrica sigue siendo «sigue»: sin la condición, el camino
+   sigue. Las que existían se convierten con scripts/migrar-contesto-condicion.ts (la condición después de cada DELAY de
+   un camino que decía «se corta»); la bienvenida de «Un Lead Agendó Llamada» sigue saliendo.
 2. **Protecciones** (§4), textual: «Todas configurables, y también más visibles, ya sea con un aviso o advertencia».
 3. **Una reunión cancelada cuenta como «no agendó»** (§2.1, el bug de lectura de `catalogoDeLead` / `agendoDe`).
 4. **«Pausar» congela** (§1-D): al reactivar, cada lead sigue en su paso y lo vencido sale al reactivar.
@@ -74,7 +77,7 @@ Las zonas que lo vieron van entre corchetes: I (inscripción), E (envío), G (gr
 
 | id [zonas] | Qué decide | Dónde | Propuesta |
 |---|---|---|---|
-| ~~pausa-por-respuesta + respondio-solo-carril + carril-sobrevive~~ **HECHO `c0c46bad` (14/10): «Si contesta» por camino** [E,G,F] | Cualquier entrante (WhatsApp no oficial o Zernio; no el oficial ni el email) pausa TODAS las inscripciones activas del lead, también las de email. Sólo se salva el carril. | `nutricion.ts:4922-4956, 3959-3967`; `nutricion-grafo-motor.ts:441-455, 554-587` | Una opción visible **por camino** (en la flecha del CRON): «Si contesta: se corta / sigue». La migración deja «se corta» en todo lo que no es carril. Alternativa: la condición «Contestó desde que entró a esta automatización». |
+| ~~pausa-por-respuesta + respondio-solo-carril + carril-sobrevive~~ **HECHO (14/10, a la tarde): la condición «No contestó desde que entró»** (la opción por camino de `c0c46bad` duró unas horas) [E,G,F] | Cualquier entrante (WhatsApp no oficial o Zernio; no el oficial ni el email) pausa TODAS las inscripciones activas del lead, también las de email. Sólo se salva el carril. | `nutricion.ts:4922-4956, 3959-3967`; `nutricion-grafo-motor.ts:441-455, 554-587` | Una opción visible **por camino** (en la flecha del CRON): «Si contesta: se corta / sigue». La migración deja «se corta» en todo lo que no es carril. Alternativa: la condición «Contestó desde que entró a esta automatización». |
 | respuesta-tardia-reabre [G] | Una 'completada' con envíos pasa a 'respondio' si el lead escribe. | `nutricion.ts:4958-4988` | Va con la «Reentrada» y con el «Deja de contestar si…» del AI Step. |
 | ai-step-elige-la-primera [G] | La primera respuesta la contesta la automatización de id más bajo; desde la segunda, la del último intercambio. | `nutricion.ts:5247-5258`; `setter-conversacion.ts:345-356` | Un solo criterio visible: la más reciente. |
 | si-responde-rama-vacia-pasa-a-persona [G] | Una rama sin respuesta cierra la charla «como de una persona», para siempre. | `nutricion.ts:5645-5664` | Una ⚡ operación nueva, «La sigue una persona» (registro de la API, sin tarjeta nueva). Una rama vacía sólo termina esa respuesta. |
@@ -165,7 +168,7 @@ Con esto se pueden borrar después también la segunda mirada de la antigüedad 
 ### 2.4 El resto, en pocas piezas (ninguna es una tarjeta nueva)
 
 - **a. CRON «Reentrada»** (sección 1-B).
-- **b. Por camino, «Si contesta: se corta / sigue»** (sección 1-C).
+- **b. ~~Por camino, «Si contesta: se corta / sigue»~~ HECHO como condición: «No contestó desde que entró»** (sección 1-C).
 - **c. DELAY «antes de la reunión»**: el texto visible y el campo de tolerancia (sección 1-A).
 - **d. Mensaje**: la casilla «Sale sola», y que el borrador pendiente se diga.
 - **e. Pausar = congelar.**

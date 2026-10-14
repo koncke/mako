@@ -239,8 +239,13 @@ function inicio(principal: string, paralelos: readonly string[]): PasoDePlantill
 const NO_AGENDO: FilaCondicion = { campo: 'agendo', no: true };
 const YA_LE_ESCRIBISTE: FilaCondicion = { campo: 'ya_contactado' };
 const NO_PAGO: FilaCondicion = { campo: 'pago', no: true };
-/** «Nunca te escribió» (el lead no contestó nunca: `respondio` negada). */
-const NUNCA_TE_ESCRIBIO: FilaCondicion = { campo: 'respondio', no: true };
+/**
+ * «No contestó desde que entró» (`contesto` negada, 14/10/2026). Que el lead conteste ya no corta nada por detrás: va
+ * en la condición de cada seguimiento que da por hecho que no contestó («¿pudiste ver mi mensaje?», «agendó y no
+ * confirmó»). Quien contestó lo atiende el AI Step.
+ */
+const NO_CONTESTO: FilaCondicion = { campo: 'contesto', no: true };
+const CONTESTO: FilaCondicion = { campo: 'contesto' };
 const TIENE_WHATSAPP: FilaCondicion = { campo: 'tiene_telefono' };
 const TIENE_EMAIL: FilaCondicion = { campo: 'tiene_email' };
 /**
@@ -279,18 +284,18 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
       condicion('le_entrada', [[[RECIENTE, NO_AGENDO, TIENE_WHATSAPP], 'le_w1'], [[RECIENTE, NO_AGENDO, TIENE_EMAIL], 'le_m1']], null),
       whatsapp('le_w1', 'Hola {{nombre}} 👋 Gracias por dejarnos tus datos. ¿Te gustaría agendar una llamada corta para ver cómo podemos ayudarte?', 'le_e1', { revisar: false }),
       esperar('le_e1', DIA, 'le_c1'),
-      condicion('le_c1', [[[NO_AGENDO], 'le_w2']], null),
+      condicion('le_c1', [[[NO_AGENDO, NO_CONTESTO], 'le_w2']], null),
       whatsapp('le_w2', '{{nombre}}, ¿pudiste ver mi mensaje? Si quieres, respóndeme por aquí y te ayudo a encontrar un horario.', 'le_e2', { revisar: false, ia: true }),
       esperar('le_e2', 6 * DIA, 'le_c2'),
-      condicion('le_c2', [[[NO_AGENDO, NUNCA_TE_ESCRIBIO], 'le_w3']], null),
-      // A quien nunca escribió no se le manda solo ni el mismo texto a todos (AGENTS.md: lo que protege una línea no
+      condicion('le_c2', [[[NO_AGENDO, NO_CONTESTO], 'le_w3']], null),
+      // A quien no contestó no se le manda solo ni el mismo texto a todos (AGENTS.md: lo que protege una línea no
       // oficial es el ritmo y el contenido): MaKo lo adapta y queda para aprobar.
       whatsapp('le_w3', '{{nombre}}, te escribo por última vez para no molestarte: ¿sigue en tus planes? Si quieres, respóndeme por aquí y lo vemos.', 'le_mk', { revisar: true, ia: true }),
       mako('le_mk', 'Pasó una semana y no agendó: {{nombre_completo}}. Te dejé un último mensaje para aprobar.\n👉 {{link_lead}}', null),
       email('le_m1', 'Gracias por tus datos', '¿Hablamos en una llamada corta?',
         'Hola {{nombre}}:\n\nGracias por dejarnos tus datos. Si quieres, agendamos una llamada corta para ver cómo podemos ayudarte: responde este correo y lo coordinamos.', 'le_e3', { revisar: false }),
       esperar('le_e3', 2 * DIA, 'le_c3'),
-      condicion('le_c3', [[[NO_AGENDO], 'le_m2']], null),
+      condicion('le_c3', [[[NO_AGENDO, NO_CONTESTO], 'le_m2']], null),
       email('le_m2', '¿Lo vemos juntos?', 'Una llamada corta y lo vemos.',
         'Hola {{nombre}}:\n\n¿Pudiste ver mi correo? Si todavía te interesa, responde este correo y buscamos un horario para hablar.', null, { revisar: false }),
       aiStep('le_ia', { objetivo: 'Que agende una llamada', casos: [['quiere-agendar', 'le_c_agendar'], ['precio-llamada', 'le_c_precio'], ['no-le-interesa', 'le_c_no']] }),
@@ -301,8 +306,8 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
     // (#212/#213, #221), el recordatorio de la reunión (#228: ahora son DELAY «antes de la reunión» del mismo flujo), el
     // aviso de nuevo agendado (#239/#240: ahora una «MaKo en WhatsApp» con datos citables) y los dos emails.
     // TRES CAMINOS desde el CRON (la tarjeta de inicio, 2 en paralelo):
-    //   1. recordatorios y equipo — no se corta si el lead contesta (el carril, M4);
-    //   2. confirmar — se corta si contesta (lo atiende el AI Step);
+    //   1. recordatorios y equipo — siguen aunque el lead conteste;
+    //   2. confirmar — el aviso «no confirmó» lleva «No contestó desde que entró» (quien contesta lo atiende el AI Step);
     //   3. email.
     id: 'lead-agendo',
     nombre: 'Un Lead Agendó Llamada',
@@ -331,7 +336,7 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
       whatsapp('la_wya', 'Hola {{nombre}}, ¡gracias por agendar! 🙌 Nos vemos {{reunion_cuando}} a las {{reunion_hora}}. ¿Me confirmas que vas a poder estar?', 'la_e1d', { revisar: false }),
       whatsapp('la_wnuevo', 'Hola {{nombre}}, te escribo por la reunión que agendaste para {{reunion_cuando}} a las {{reunion_hora}} 🙌 ¿Me confirmas que vas a poder estar?', 'la_e1d', { revisar: false }),
       esperar('la_e1d', DIA, 'la_c'),
-      condicion('la_c', [[[EN_PIE, SIGUE_EN_LA_ETAPA], 'la_mk3']], null),
+      condicion('la_c', [[[EN_PIE, SIGUE_EN_LA_ETAPA, NO_CONTESTO], 'la_mk3']], null),
       mako('la_mk3', 'Agendó y no confirmó: {{nombre_completo}}. Conviene que le marques tú.\n📱 {{lead_telefono}}\n👉 {{link_lead}}', null),
       // 3. Email.
       condicion('la_m', [[[EN_PIE, SIGUE_EN_LA_ETAPA, TIENE_EMAIL], 'la_m1']], null),
@@ -361,9 +366,9 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
       whatsapp('ln_w1', 'Hola {{nombre}}, te esperábamos en la reunión y no pudimos conectarnos. ¿Quieres que busquemos otro horario?', 'ln_mk', { revisar: false }),
       mako('ln_mk', 'No se conectó a la reunión: {{nombre_completo}}. Le escribí para reagendar; si prefieres, llámalo.\n📱 {{lead_telefono}}\n👉 {{link_lead}}', 'ln_e2d'),
       esperar('ln_e2d', 2 * DIA, 'ln_c'),
-      // Si ya tiene otra reunión por delante, no se le insiste («si se cumple» termina). «Agendó» no sirve acá: la
-      // reunión a la que faltó también cuenta como agendada.
-      condicion('ln_c', [[[EN_PIE], null]], 'ln_w2'),
+      // Si ya tiene otra reunión por delante, o contestó, no se le insiste («si se cumple» termina). «Agendó» no sirve
+      // acá: la reunión a la que faltó también cuenta como agendada.
+      condicion('ln_c', [[[EN_PIE], null], [[CONTESTO], null]], 'ln_w2'),
       whatsapp('ln_w2', '{{nombre}}, ¿lo reagendamos? Respóndeme por aquí y buscamos un horario que te quede bien.', null, { revisar: true }),
       email('ln_m1', '¿Reprogramamos tu reunión?', 'Buscamos otro horario en un minuto.',
         'Hola {{nombre}}:\n\nTe esperábamos en la reunión y no pudimos conectarnos.\n\nSi todavía te interesa, responde este correo y buscamos un nuevo horario.', null, { revisar: false }),
@@ -388,10 +393,10 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
       condicion('lt_c2', [[[NO_PAGO], 'lt_mk']], null),
       mako('lt_mk', 'Tuvo la reunión hace 3 días y todavía no compró: {{nombre_completo}}. Conviene que le escribas tú.\n👉 {{link_lead}}', 'lt_e42d'),
       esperar('lt_e42d', 42 * DIA, 'lt_c3'),
-      condicion('lt_c3', [[[NO_PAGO], 'lt_w2']], null),
+      condicion('lt_c3', [[[NO_PAGO, NO_CONTESTO], 'lt_w2']], null),
       whatsapp('lt_w2', 'Hola {{nombre}}, hace un tiempo tuvimos una reunión y quedó en pausa. ¿Sigue en tus planes? Si quieres, lo retomamos esta semana; si ya no es el momento, dímelo sin problema.', 'lt_e3d2', { revisar: true }),
       esperar('lt_e3d2', 3 * DIA, 'lt_c4'),
-      condicion('lt_c4', [[[NO_PAGO], 'lt_w3']], null),
+      condicion('lt_c4', [[[NO_PAGO, NO_CONTESTO], 'lt_w3']], null),
       whatsapp('lt_w3', '{{nombre}}, te dejo la puerta abierta: cuando quieras retomarlo, respóndeme por aquí y lo vemos.', null, { revisar: true }),
       aiStep('lt_ia', { objetivo: 'Que decida avanzar', casos: [['precio-llamada', 'lt_c_precio'], ['quiere-retomarlo', 'lt_c_retomar'], ['no-le-interesa', 'lt_c_no']] }),
     ],
@@ -407,7 +412,7 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
     cron: { pide: 'etapa_venta', ayuda: 'La etapa de quien confirmó y falta que pague.' },
     pasos: [
       esperar('lc_e24', DIA, 'lc_c1'),
-      condicion('lc_c1', [[[NO_PAGO, TIENE_WHATSAPP], 'lc_w1']], null),
+      condicion('lc_c1', [[[NO_PAGO, TIENE_WHATSAPP, NO_CONTESTO], 'lc_w1']], null),
       whatsapp('lc_w1', 'Hola {{nombre}}, ¿pudiste completar el pago? Si tuviste algún problema, cuéntame y te ayudo.', 'lc_e2d', { revisar: true }),
       esperar('lc_e2d', 2 * DIA, 'lc_c2'),
       condicion('lc_c2', [[[NO_PAGO], 'lc_mk']], null),

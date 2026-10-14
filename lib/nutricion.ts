@@ -75,7 +75,7 @@ import { esPasoAccion, sanearAccion, correrPasoAccion, type AccionDelPaso } from
 import {
   normalizar, validarGrafo, claseDe, idDe, indicePorId, raizRespuesta, raizSalida, antiguedadDeEntrada, elegirSalida,
   escenariosDeRespuesta, expandirPasoIA, nodoPorId, siguienteDe, TOPE_NODOS, HILO_PRINCIPAL, TOPE_HILOS, raicesSalida,
-  juntarPasosIA, escuchaPor, extrasDeCaso, algunCaminoSigue, type MedioAIStep,
+  juntarPasosIA, escuchaPor, extrasDeCaso, type MedioAIStep,
   type Espera, type RamaCondicion, type CasoRespuesta, type DestinoIrA, type HechosLead, type PasoGrafo, type FilaCondicion,
 } from '@/lib/flujo-grafo';
 import { OP_AVISAR, puedePisarFlujo } from '@/lib/flujo-legado';
@@ -88,7 +88,7 @@ import {
   filasDelFlujo, catalogoDeLead, resumenCursoDeAlumno, resumenPagos,
   // El CARRIL DEL RECORDATORIO (undécima tanda, M3 y M4), puro y con test (tests/motor-carril-recordatorio.test.ts).
   tieneCarril, esTarjetaMako, esHiloDelCarril, seMueveEnLaCorrida, pasaPorAntiBan, cuentaParaElCupo, decidirToqueDelCarril,
-  alResponder, estadoAlEscribir, aplazaParaNoTapar, APLAZO_SIN_TAPAR_MS,
+  estadoAlEscribir, aplazaParaNoTapar, APLAZO_SIN_TAPAR_MS,
   type FilaHechos, type RecientesPorCanal, type EnviadoEnCorrida, type FilaLeadCatalogo,
 } from '@/lib/nutricion-grafo-motor';
 import {
@@ -263,8 +263,6 @@ export type PasoSecuencia = {
   destino?: DestinoIrA | null;
   /** «Sale sola» POR MENSAJE: true = borrador, false = sale, ausente = lo de la secuencia. */
   revisar?: boolean;
-  /** Sólo el inicio: qué hace cada camino cuando el lead contesta (`siContestaDe`, 14/10/2026). Lo guarda `camposDelFlujo`. */
-  si_contesta?: PasoGrafo['si_contesta'];
 };
 
 export type Secuencia = {
@@ -3937,10 +3935,11 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       // ── LOS HILOS (segunda tanda): una fila nueva con varias raíces se reparte; con hilos, se
       // toma UNO —el vencido más antiguo que no se miró en esta corrida en esa tarjeta— y se lo
       // trata como el cursor de siempre. Si quedan otros vencidos, la fila vuelve a la cola.
-      // ── QUÉ PUEDE MOVER ESTA CORRIDA (undécima tanda, `seMueveEnLaCorrida`): de una fila en 'respondio' (el lead
-      // contestó), SÓLO su carril del recordatorio (M4); fuera del horario, el carril y «MaKo en WhatsApp» (M3 f).
+      // ── QUÉ PUEDE MOVER ESTA CORRIDA (undécima tanda, `seMueveEnLaCorrida`): fuera del horario, el carril y «MaKo en
+      // WhatsApp» (M3 f). Una fila en 'respondio' (el lead contestó) se mueve igual que una activa desde el 14/10/2026:
+      // lo que corta es la condición visible «No contestó desde que entró», que lee `contestoEnEsta` (abajo).
       const enRespuesta = insc.estado === 'respondio';
-      const seMueve = (i: number): boolean => !!sec && seMueveEnLaCorrida(sec.pasos, i, { enRespuesta, fueraDeHorario: fueraDeHorario != null });
+      const seMueve = (i: number): boolean => !!sec && seMueveEnLaCorrida(sec.pasos, i, { fueraDeHorario: fueraDeHorario != null });
       let hs = sanearHilos(insc.hilos);
       if (sec && !hs && esFilaNueva(insc) && raicesSalida(sec.pasos).length > 1) {
         hs = await repartirAlEntrar(supabase, insc, sec.pasos, (n) => proximoEnvioDePaso(nodoPorId(sec.pasos, n) ?? undefined, lead));
@@ -3948,9 +3947,8 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       }
       if (sec && hs) {
         const vencidos = hilosVencidos(hs, Date.now()).filter((x) => !hilosVistos.has(`${insc.id}:${x.h}:${x.nodo}`));
-        // Fuera del horario, los que no corren igual se quedan como están (salen al abrir). En una 'respondio' no se
-        // filtran: uno que no es del carril se cierra más abajo (no debería quedar ninguno: `alResponder`).
-        const libres = fueraDeHorario && !enRespuesta ? vencidos.filter((x) => seMueve(indicePorId(sec.pasos, x.nodo))) : vencidos;
+        // Fuera del horario, los que no corren igual se quedan como están (salen al abrir).
+        const libres = fueraDeHorario ? vencidos.filter((x) => seMueve(indicePorId(sec.pasos, x.nodo))) : vencidos;
         // Y los que se quedan, si la fila tiene el carril pendiente, se aplazan para no taparlo (`aplazaParaNoTapar`).
         for (const x of vencidos) {
           if (libres.includes(x) || !aplazaParaNoTapar(sec.pasos, sanearHilos(insc.hilos), x.h)) continue;
@@ -3991,15 +3989,8 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         }
         continue;
       }
-      if (!seMueve(idxLeido)) {
-        // Lo de una 'respondio' que no es del carril se CORTA (sigue en 'respondio', sin próximo envío): es lo que
-        // `pausarPorRespuesta` hace con todo lo demás. Fuera del horario, no se toca: sale al abrir.
-        if (enRespuesta) {
-          await escribir(insc, { estado: 'completada', proximo_envio_at: null }, { modo: 'cas' });
-          res.detalle.push({ lead_id: insc.lead_id, canal: pasoLeido.canal, estado: 'saltado', nota: 'el lead contestó: este camino se corta' });
-        }
-        continue;
-      }
+      // Fuera del horario, no se toca: sale al abrir.
+      if (!seMueve(idxLeido)) continue;
 
       // ── LOS NODOS DE CONTROL, ANTES DE LAS GUARDAS (diseño §2) ─────────────────────
       // Una condición, una espera o un «Ir a» no mandan nada: se RESUELVEN (`resolverControl`,
@@ -4009,7 +4000,8 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       if (esNodoDeControl(pasoLeido)) {
         const leidos = necesitaHechos(sec.pasos, idxLeido) ? await hechosDe(insc.lead_id) : null;
         // Los hechos son del LEAD (una lectura por lote); las etapas del CRON son de ESTA automatización.
-        const hechos = leidos ? conEtapasDelCron(leidos, sec.disparadores ?? disparadoresDe(sec), sec.funnel_id ?? null) : null;
+        // Y si el lead contestó desde que entró, también es de ESTA inscripción (`contestoEnEsta`, la condición `contesto`).
+        const hechos = leidos ? { ...conEtapasDelCron(leidos, sec.disparadores ?? disparadoresDe(sec), sec.funnel_id ?? null), contestoEnEsta: enRespuesta } : null;
         // Un flujo con carril ancla su DELAY «antes de la reunión» en la reunión CON HORA (M3 a; sin ella y con
         // fecha, `sin_hora` cierra ese hilo, M3 g). Uno sin carril no tiene esa espera: lo de siempre.
         const reunionConHoraMs = tieneCarril(sec.pasos) ? await reunionConHoraDe(lead) : undefined;
@@ -4096,12 +4088,8 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         insc.nodo_actual = idDe(destino, r.idx);
         if (!enSuHora) { res.detalle.push({ lead_id: insc.lead_id, canal: destino.canal, estado: 'saltado', nota: 'espera su hora' }); continue; }
         if (cupoLleno() && !sigueSinCupo(sec.pasos, r.idx)) { await aplazarSiTapa(insc, sec); continue; }
-        // Lo que esta corrida no puede mover (fuera del horario, o lo de una 'respondio' que no es del carril):
-        // queda en su tarjeta y sale al abrir; en una 'respondio', se corta.
-        if (!seMueve(r.idx)) {
-          if (enRespuesta) await escribir(insc, { estado: 'completada', proximo_envio_at: null }, { modo: 'cas' });
-          continue;
-        }
+        // Lo que esta corrida no puede mover (fuera del horario) queda en su tarjeta y sale al abrir.
+        if (!seMueve(r.idx)) continue;
       } else if (idxLeido !== insc.paso_actual || (insc.nodo_actual != null && insc.nodo_actual !== idDe(pasoLeido, idxLeido))) {
         // La fila decía otra posición que la del nodo (una fila que nunca avanzó, con la entrada
         // más abajo en el array; o un array reordenado): se alinea ANTES de seguir, porque todo
@@ -4122,7 +4110,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         const idxCond = condicionDeArriba(sec.pasos, insc.paso_actual);
         if (idxCond != null) {
           const leidos = await hechosDe(insc.lead_id);
-          const hechos = leidos ? conEtapasDelCron(leidos, sec.disparadores ?? disparadoresDe(sec), sec.funnel_id ?? null) : null;
+          const hechos = leidos ? { ...conEtapasDelCron(leidos, sec.disparadores ?? disparadoresDe(sec), sec.funnel_id ?? null), contestoEnEsta: enRespuesta } : null;
           if (hechos && !condicionSigueLlevando(sec.pasos, idxCond, insc.paso_actual, hechos)) {
             const ahora = sec.pasos[insc.paso_actual];
             if (await escribir(insc, { estado: 'completada', proximo_envio_at: null }, { modo: 'cas', alcance: 'hilo' })) {
@@ -4996,22 +4984,21 @@ export async function pausarPorRespuesta(leadId: number, opts?: { texto?: string
     if (esColumnaInexistente({ message: msg })) throw new Error(`pausarPorRespuesta: no toqué al lead ${leadId}, falta una migración (${msg})`);
     console.error(`[nutricion] leer las secuencias antes de pausar al lead ${leadId}: ${msg}`);
   }
-  // ⚠️ LO QUE SIGUE CUANDO EL LEAD CONTESTA LO DICE CADA CAMINO DEL CRON (14/10/2026, «Si contesta: se corta / sigue»;
-  // hasta entonces era una regla escondida: sólo el carril del recordatorio seguía, M4). Las inscripciones de una
-  // automatización con algún camino que SIGUE (`algunCaminoSigue`) pasan a 'respondio' de a una, dejando vivos esos
-  // hilos con su próximo envío (`alResponder`); el motor mueve sólo ésos (`seMueveEnLaCorrida`). Las demás, en un solo
-  // update. Sin poder leer las secuencias, todas se cortan: no avanzarle una secuencia a quien contestó es lo seguro.
-  const conCarril = (secsActivas ?? []).filter((s) => algunCaminoSigue(s.pasos));
-  let q = supabase
+  // ⚠️ QUE EL LEAD CONTESTE NO CORTA NADA POR SU CUENTA (14/10/2026). Hasta ese día era una regla escondida: cualquier
+  // mensaje del lead frenaba todo lo que tenía por delante salvo el carril del recordatorio (M4), y así no salió la
+  // bienvenida del bug 5. Martín: «"Si el lead contesta" NO debería ir en el CRON, debería ser una CONDITION». Acá
+  // sólo se ANOTA que contestó ('respondio', con su posición, sus hilos y su próximo envío intactos); lo que corta es
+  // la condición «No contestó desde que entró» (`contesto`) que la persona pone en el lienzo, y que el motor vuelve a
+  // pasar antes de mandar (`condicionDeArriba`). Sin tocar la posición no hace falta compare-and-set: si el motor la
+  // mueve a la vez, su escritura (contra 'activa') no pasa y la mueve la corrida que viene, ya en 'respondio'.
+  const { data, error } = await supabase
     .from('nutricion_inscripciones')
-    .update({ estado: 'respondio', proximo_envio_at: null, updated_at: ahoraISO() })
+    .update({ estado: 'respondio', updated_at: ahoraISO() })
     .eq('lead_id', leadId)
-    .eq('estado', 'activa');
-  if (conCarril.length) q = q.not('secuencia_id', 'in', `(${conCarril.map((s) => s.id).join(',')})`);
-  const { data, error } = await q.select('id, secuencia_id');
+    .eq('estado', 'activa')
+    .select('id, secuencia_id');
   if (error) throw new Error(`pausarPorRespuesta: ${error.message}`);
   const pausadas = (data ?? []) as Array<{ id: number; secuencia_id: number }>;
-  if (conCarril.length) pausadas.push(...await pausarConCarril(supabase, leadId, conCarril));
 
   // RESPUESTA A UNA SECUENCIA QUE YA TERMINÓ (#788). Una inscripción 'completada' sin
   // desenlace ya mandó todo y está esperando: o contesta o vence el silencio. Si contesta
@@ -5099,55 +5086,6 @@ export async function pausarPorRespuesta(leadId: number, opts?: { texto?: string
     if (!atendida) await seguirCharla(leadId, charla, opts?.texto, opts?.linea ?? null, opts?.origen === 'no_oficial' ? 'no_oficial' : 'oficial');
   } catch (e) { console.error(`[nutricion] modo asistido lead ${leadId} falló:`, e); }
   return respondidas.length;
-}
-
-/**
- * Pasa a 'respondio' las inscripciones ACTIVAS de un lead en automatizaciones CON CARRIL (undécima tanda, M4), de a
- * una y con compare-and-set (la posición leída y `hilos_rev`): lo que queda vivo lo decide `alResponder` (los hilos
- * del carril, con su próximo envío). Si el motor la movió entre la lectura y la escritura, se relee (hasta tres
- * veces); si sigue moviéndose, se pausa como siempre, sin próximo envío: apagar un recordatorio es la dirección
- * segura. Devuelve las que pausó. Una lectura o escritura que falla TIRA, como el update de siempre.
- */
-async function pausarConCarril(
-  db: Awaited<ReturnType<typeof getTenantDb>>, leadId: number, secs: readonly Secuencia[],
-): Promise<Array<{ id: number; secuencia_id: number }>> {
-  type Fila = { id: number; secuencia_id: number; paso_actual: number; nodo_actual: string | null; proximo_envio_at: string | null; hilos: unknown; hilos_rev: number | null; estado?: string };
-  const COLS = 'id, secuencia_id, paso_actual, nodo_actual, proximo_envio_at, hilos, hilos_rev, estado';
-  const porId = new Map(secs.map((s) => [s.id, s]));
-  const { data, error } = await db.from('nutricion_inscripciones').select(COLS)
-    .eq('lead_id', leadId).eq('estado', 'activa').in('secuencia_id', [...porId.keys()]);
-  if (error) throw new Error(`pausarPorRespuesta (carril): ${error.message}`);
-  const out: Array<{ id: number; secuencia_id: number }> = [];
-  for (const leida of (data ?? []) as Fila[]) {
-    const sec = porId.get(leida.secuencia_id);
-    if (!sec) continue;
-    let fila: Fila | null = leida;
-    let hecho = false;
-    for (let intento = 0; intento < 3 && fila && !hecho; intento++) {
-      const { update } = alResponder(sec.pasos, fila, ahoraISO());
-      const rev = Number(fila.hilos_rev) || 0;
-      const base = db.from('nutricion_inscripciones')
-        .update({ ...update, estado: 'respondio', hilos_rev: rev + 1, updated_at: ahoraISO() })
-        .eq('id', fila.id).eq('estado', 'activa').eq('hilos_rev', rev).eq('paso_actual', fila.paso_actual);
-      const { data: upd, error: e } = await (fila.nodo_actual == null ? base.is('nodo_actual', null) : base.eq('nodo_actual', fila.nodo_actual)).select('id');
-      if (e) throw new Error(`pausarPorRespuesta (carril, inscripción ${fila.id}): ${e.message}`);
-      if (((upd ?? []) as unknown[]).length) { hecho = true; break; }
-      const relectura: { data: unknown; error: { message: string } | null } = await db.from('nutricion_inscripciones').select(COLS).eq('id', fila.id).maybeSingle();
-      if (relectura.error) throw new Error(`pausarPorRespuesta (carril, inscripción ${fila.id}): ${relectura.error.message}`);
-      const otra = relectura.data as Fila | null;
-      fila = otra && otra.estado === 'activa' ? otra : null;
-    }
-    if (!hecho && fila) {
-      const { data: upd, error: e } = await db.from('nutricion_inscripciones')
-        .update({ estado: 'respondio', proximo_envio_at: null, hilos: null, updated_at: ahoraISO() })
-        .eq('id', fila.id).eq('estado', 'activa').select('id');
-      if (e) throw new Error(`pausarPorRespuesta (carril, inscripción ${fila.id}): ${e.message}`);
-      hecho = ((upd ?? []) as unknown[]).length > 0;
-      if (hecho) console.warn(`[nutricion] lead ${leadId}: la inscripción ${fila.id} se pausó sin su carril (se movía mientras contestaba)`);
-    }
-    if (hecho) out.push({ id: leida.id, secuencia_id: leida.secuencia_id });
-  }
-  return out;
 }
 
 /**
@@ -5638,7 +5576,8 @@ async function responderConGrafo(c: CtxRespuesta, medio: MedioAIStep = 'whatsapp
         }))?.get(leadId) ?? null;
       }
       if (!hechos) { hecho.push('No pude leer lo que la condición necesita: me detuve ahí.'); noPudoDecidir = true; break; }
-      id = elegirSalida(p, conEtapasDelCron(hechos, secuencia.disparadores ?? disparadoresDe(secuencia), secuencia.funnel_id ?? null)).destino;
+      // Adentro de «Si responde» el lead acaba de contestar (`contestoEnEsta`, la condición `contesto`).
+      id = elegirSalida(p, { ...conEtapasDelCron(hechos, secuencia.disparadores ?? disparadoresDe(secuencia), secuencia.funnel_id ?? null), contestoEnEsta: true }).destino;
       continue;
     }
     if (clase === 'ir_a') {

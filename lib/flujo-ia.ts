@@ -2924,7 +2924,7 @@ CÓMO SE CONECTAN: cada tarjeta tiene un "id" corto ("t1", "t2"…) y "sigue" di
 REGLAS (el código las comprueba y saca lo que no cumpla):
 1. Usa SÓLO lo de las listas. Una etiqueta que no existe va por su nombre en "etiquetas_nuevas". Nunca inventes un id.
 2. En los textos, ni links ni corchetes: un link va en "link", y sin LINKS no se promete. Al lead: {{nombre}}, y los de su reunión ({{reunion_cuando}}, {{reunion_hora}}, {{reunion_faltan}}, {{reunion_link}}) sólo detrás de un "esperar" con "antes_de_reunion" o de una condición "reunion_en". En "avisar_al_equipo", además: {{nombre_completo}}, {{lead_telefono}}, {{lead_email}} y {{link_lead}}.
-3. Entre dos WhatsApp va un "esperar" de 20 horas o más, salvo que preparen una reunión.
+3. Entre dos WhatsApp va un "esperar" de 20 horas o más, salvo que preparen una reunión. Un seguimiento tras "esperar" va detrás de "contesto" con "no": true.
 4. Debajo de "si_responde": sólo ${CANALES_RESPUESTA}, sin "esperar" y nada a la vez. Ahí un mensaje con "ia": true es una GUÍA para que MaKo conteste (sin días ni horarios: MaKo no ve la agenda; para agendar, el "link" de agenda); sin "ia", un texto fijo.
 5. Hasta ${TOPE_TARJETAS_IA} tarjetas, ${TOPE_PARALELOS} caminos a la vez por tarjeta, ${TOPE_RAMAS} ramas por condición y ${TOPE_FILAS} filas por rama.
 6. No inventes precios, cifras, plazos, resultados ni herramientas que no estén en el negocio o en el pedido.

@@ -400,7 +400,8 @@ test('el ＋ ofrece «AI Step» donde puede ir y lo crea colgado del CRON, sin e
 
 test('«Probar» entra a un caso del AI Step y corre su «MaKo contesta» y su aviso, como el motor', () => {
   const pasos = normalizar(conIA());
-  const pausa = pausarPorRespuesta(iniciar(pasos)).estado;
+  // El lead contesta DESPUÉS del «Hola» (ya salió: la salida no tiene nada más que la espere).
+  const pausa = pausarPorRespuesta(siguiente(pasos, iniciar(pasos)).estado).estado;
   // B es «Para aprobar»: contesta (a revisar) y después AVISA (undécima: el aviso se deriva de la libertad).
   const e = entrarEnRespuesta(pasos, pausa, 'B');
   assert.equal(e.sinRespuesta, false);

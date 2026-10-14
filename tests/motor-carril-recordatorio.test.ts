@@ -21,8 +21,8 @@
 //   (1)  quitar la tolerancia (el toque sale tarde)                           → (b)
 //   (2)  `pasaPorAntiBan` ignorando el carril                                 → (d)
 //   (3)  el motor pasándole `carril: false` al anti-ban                       → (d)
-//   (4)  `alResponder` cortando también el carril                             → M4
-//   (5)  `pausarPorRespuesta` sin `pausarConCarril` (el update de siempre)     → M4
+//   (4)  [14/10/2026] `seMueveEnLaCorrida` cortando lo de una 'respondio'      → M4
+//   (5)  [14/10/2026] `pausarPorRespuesta` sacándole el próximo envío          → M4
 //   (6)  la marca tomada sin frenar (sale dos veces con #228)                 → (c)
 //   (7)  una clave del carril distinta de `claveToque`                        → (c)
 //   (8)  el ancla laxa (una reunión cancelada o sin hora cuenta)              → (h)
@@ -37,7 +37,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   decidirToqueDelCarril, esHiloDelCarril, tieneCarril, esTarjetaMako, seMueveEnLaCorrida, pasaPorAntiBan, cuentaParaElCupo,
-  alResponder, estadoAlEscribir, desenlaceEsperaAlCarril, resolverControl, frenadoPorAntiBan, RELLENO_CONTROL,
+  estadoAlEscribir, desenlaceEsperaAlCarril, resolverControl, frenadoPorAntiBan, RELLENO_CONTROL,
   aplazaParaNoTapar, APLAZO_SIN_TAPAR_MS,
 } from '../lib/nutricion-grafo-motor';
 import { claveToque, claveDelCarril, toquesVencidos, juntasDe, TOLERANCIA_MIN, estadoDeLaMarca } from '../lib/recordatorio-lead';
@@ -203,19 +203,19 @@ test('(d) sin ANTI-BAN y (e) sin TOPES: el «15 min antes» sale 45 minutos desp
 });
 
 test('(f) FUERA DEL HORARIO corre el carril y «MaKo en WhatsApp»; un mensaje normal, no', () => {
-  const fuera = { enRespuesta: false, fueraDeHorario: true };
+  const fuera = { fueraDeHorario: true };
   assert.equal(seMueveEnLaCorrida(F, I('u11t60'), fuera), true, 'el recordatorio');
   assert.equal(seMueveEnLaCorrida(F, I('u11e1440'), fuera), true, 'su espera');
   assert.equal(seMueveEnLaCorrida(F, I('u11aviso'), fuera), true, 'el aviso al equipo (decisión §9.7)');
   assert.equal(seMueveEnLaCorrida(F, I('o1'), fuera), false, 'el «¿alcanzaste a ver el video?» espera a que abra');
   assert.equal(seMueveEnLaCorrida(F, I('nvlvg08'), fuera), false);
   // Dentro del horario, todo.
-  for (let i = 0; i < F.length; i++) assert.equal(seMueveEnLaCorrida(F, i, { enRespuesta: false, fueraDeHorario: false }), true, F[i].id);
+  for (let i = 0; i < F.length; i++) assert.equal(seMueveEnLaCorrida(F, i, { fueraDeHorario: false }), true, F[i].id);
   // El motor ya no corta TODO fuera del horario: sólo si no hay nada que corra igual.
   assert.doesNotMatch(PROC, /if \(!\(await dentroDeVentana\(horario\)\)\) return \{ \.\.\.res, saltado: 'fuera-de-horario' \};/);
   assert.match(PROC, /else if \(!\(await dentroDeVentana\(horario\)\)\) fueraDeHorario = 'fuera-de-horario';/);
   assert.match(PROC, /if \(fueraDeHorario && !corrensFuera\.length\) return \{ \.\.\.res, saltado: fueraDeHorario \};/);
-  assert.match(PROC, /seMueveEnLaCorrida\(sec\.pasos, i, \{ enRespuesta, fueraDeHorario: fueraDeHorario != null \}\)/);
+  assert.match(PROC, /seMueveEnLaCorrida\(sec\.pasos, i, \{ fueraDeHorario: fueraDeHorario != null \}\)/);
 });
 
 test('un hilo FRENADO no tapa al carril: se aplaza, y el tick ve el recordatorio que vence después', () => {
@@ -237,37 +237,15 @@ test('un hilo FRENADO no tapa al carril: se aplaza, y el tick ve el recordatorio
   assert.match(PROC, /nota: 'msg <20h' \}\);\s*await aplazarSiTapa\(insc, sec\);\s*continue;/);
 });
 
-test('M4: una RESPUESTA deja vivo el hilo del carril y corta los demás (con «se corta» en los otros caminos)', () => {
-  const ahora = '2026-10-12T20:00:00.000Z';
-  // La inscripción 201 repartida: la preparación en o1, el carril esperando el «1 h antes».
-  const fila = {
-    paso_actual: I('o1'), nodo_actual: 'o1', proximo_envio_at: '2026-10-12T20:30:00.000Z',
-    hilos: [
-      { h: 'p', nodo: 'o1', proximo: '2026-10-12T20:30:00.000Z' },
-      { h: 'u11e1440', nodo: 'u11t60', proximo: '2026-10-13T16:00:00.000Z' },
-    ],
-  };
-  const r = alResponder(F, fila, ahora);
-  assert.equal(r.carril, true);
-  assert.deepEqual(r.update, {
-    hilos: [{ h: 'u11e1440', nodo: 'u11t60', proximo: '2026-10-13T16:00:00.000Z' }],
-    paso_actual: I('u11t60'), nodo_actual: 'u11t60', proximo_envio_at: '2026-10-13T16:00:00.000Z',
-  });
-  // Sin hilo del carril (ya terminó), como siempre: sin próximo envío.
-  assert.deepEqual(alResponder(F, { ...fila, hilos: [fila.hilos[0]] }, ahora), { carril: false, update: { proximo_envio_at: null, hilos: null } });
-  // Una fila NUEVA (todavía no repartida): sus raíces del carril.
-  const nueva = alResponder(F, { paso_actual: 0, nodo_actual: null, proximo_envio_at: ahora, hilos: null }, ahora);
-  assert.equal(nueva.carril, true);
-  assert.deepEqual((nueva.update.hilos as Array<{ h: string }>).map((x) => x.h), ['u11e1440']);
-  // Un solo cursor: en el carril sigue tal cual; fuera, sin próximo envío. (Sin CRON en el dato: el de fábrica, «sigue».)
-  const soloCarril: PasoGrafo[] = [antes('e1', 60, 'm1'), msg('m1', { siguiente: null })];
-  assert.deepEqual(alResponder(soloCarril, { paso_actual: 1, nodo_actual: 'm1', proximo_envio_at: ahora }, ahora), { carril: true, update: { proximo_envio_at: ahora } });
-  assert.deepEqual(alResponder(F, { paso_actual: I('o1'), nodo_actual: 'o1', proximo_envio_at: ahora }, ahora), { carril: false, update: { proximo_envio_at: null } });
-  // El motor mueve de una 'respondio' SÓLO el carril; la fila sigue en 'respondio' y el desenlace la espera.
-  const resp = { enRespuesta: true, fueraDeHorario: false };
+test('M4 (desde el 14/10/2026): una RESPUESTA no corta nada; se anota y el motor mueve la fila igual', () => {
+  // Hasta el 14/10 quedaba vivo SÓLO el carril y lo demás se cortaba, sin que el lienzo lo dijera (así no salió la
+  // bienvenida del bug 5). Martín: «"Si el lead contesta" NO debería ir en el CRON, debería ser una CONDITION». Lo que
+  // corta ahora es «No contestó desde que entró» (tests/automations-condicion-contesto.test.ts).
+  const resp = { fueraDeHorario: false };
   assert.equal(seMueveEnLaCorrida(F, I('u11t60'), resp), true);
-  assert.equal(seMueveEnLaCorrida(F, I('o1'), resp), false, 'el «¿alcanzaste a ver el video?» se corta');
-  assert.equal(seMueveEnLaCorrida(F, I('ne9jyr0'), resp), false, 'el «no confirmó» al equipo se corta');
+  assert.equal(seMueveEnLaCorrida(F, I('o1'), resp), true, 'el «¿alcanzaste a ver el video?» ya no se corta solo');
+  assert.equal(seMueveEnLaCorrida(F, I('ne9jyr0'), resp), true, 'el «no confirmó» al equipo tampoco');
+  // La fila sigue en 'respondio' y el desenlace la espera.
   assert.equal(estadoAlEscribir('respondio', 'activa'), 'respondio');
   assert.equal(estadoAlEscribir('respondio', 'completada'), 'respondio', 'el desenlace («Respondió» = logrado) la tiene que ver');
   assert.equal(estadoAlEscribir('respondio', 'cancelada'), 'cancelada');
@@ -279,14 +257,12 @@ test('M4: una RESPUESTA deja vivo el hilo del carril y corta los demás (con «s
   assert.match(PROC, /proximo_envio_at, hilos, hilos_rev, estado, desenlace'\)/);
   assert.equal(desenlaceEsperaAlCarril({ estado: 'respondio', proximo_envio_at: '2026-10-13T16:00:00Z' }), true);
   assert.equal(desenlaceEsperaAlCarril({ estado: 'respondio', proximo_envio_at: null }), false);
-  // El cableado: `pausarPorRespuesta` pausa aparte las del carril; la cola y la vista previa levantan las
-  // 'respondio' vencidas; el desenlace las espera; toda escritura de la posición compara contra lo leído.
+  // El cableado: `pausarPorRespuesta` sólo ANOTA ('respondio', con su posición y su próximo envío intactos); la cola y
+  // la vista previa levantan las 'respondio' vencidas; el desenlace las espera; toda escritura de la posición compara.
   const pausar = cuerpo(NUTRI, 'export async function pausarPorRespuesta(');
-  // Desde el 14/10/2026 pasa de a una la que tiene ALGÚN camino que sigue cuando el lead contesta (`algunCaminoSigue`).
-  assert.match(pausar, /const conCarril = \(secsActivas \?\? \[\]\)\.filter\(\(s\) => algunCaminoSigue\(s\.pasos\)\);/);
-  assert.match(pausar, /if \(conCarril\.length\) q = q\.not\('secuencia_id', 'in', /);
-  assert.match(pausar, /pausadas\.push\(\.\.\.await pausarConCarril\(supabase, leadId, conCarril\)\)/);
-  assert.match(cuerpo(NUTRI, 'async function pausarConCarril('), /const \{ update \} = alResponder\(sec\.pasos, fila, ahoraISO\(\)\);/);
+  assert.match(pausar, /\.update\(\{ estado: 'respondio', updated_at: ahoraISO\(\) \}\)\s*\.eq\('lead_id', leadId\)\s*\.eq\('estado', 'activa'\)/);
+  assert.doesNotMatch(pausar, /pausarConCarril|alResponder|algunCaminoSigue/);
+  assert.doesNotMatch(NUTRI, /async function pausarConCarril\(/);
   assert.match(PROC, /\.in\('estado', \['activa', 'respondio'\]\)/);
   assert.match(cuerpo(NUTRI, 'async function inscripcionesVencidas('), /q\.in\('estado', \['activa', 'respondio'\]\)/);
   assert.match(DESENLACE, /if \(desenlaceEsperaAlCarril\(\{ estado: insc\.estado, proximo_envio_at: insc\.proximo_envio_at \?\? null \}\)\) continue;/);

@@ -4309,23 +4309,50 @@ en lib/graficos-analisis-server.ts). Un link de ejemplo nombra una hoja real (`?
 
 **Vive en:** `lib/avisos-catalogo.ts` · `lib/variables-aviso.ts` · `lib/graficos-analisis-server.ts`
 
-### «Si el lead contesta: sigue / se corta», por camino del CRON [motor · bug 5, 14/10]
+### «Si el lead contesta» es una CONDITION: que conteste no corta nada por su cuenta [motor · bug 5, 14/10]
 
-Lo que causó el bug 5 (`pausarPorRespuesta`: una respuesta frenaba todo salvo el carril) pasó a una opción de cada camino
-del CRON, con «sigue» de fábrica (decisión de Martín). Vive en la tarjeta CRON (`si_contesta`, la clave es la del hilo del
-motor: `p` o la primera tarjeta de la flecha en paralelo) y la leen con la MISMA función (`sigueSiContesta`) el motor y
-«Probar». Commit `c0c46bad`. Trampas que costaron:
-- **La quinta puerta, otra vez:** `camposDelFlujo` reconstruye cada paso campo por campo; sin su línea, el primer guardado
-  borraba la opción. También la copia de flujo (`conDestinos`, las claves son ids que se remapean al pegar).
-- **La opción es de la FLECHA, no de la tarjeta:** el ＋ del medio de una flecha del CRON cambia su primera tarjeta, así
-  que la opción se muda en `conectarParalelo`. Guardarla en la primera tarjeta se perdía en la primera inserción.
-- **Sin tarjeta CRON en el dato** (una sola flecha), elegir la opción la crea, como la primera flecha en paralelo.
-- **«Probar» va de a un evento:** lo que sigue espera a que termine la respuesta (`salidaQueSigue`); el motor lo corre a la vez.
-- **Migración:** scripts/migrar-si-contesta.ts (las existentes con lo de hoy, la bienvenida de «Un Lead Agendó Llamada» a
-  «sigue»). Va ANTES del deploy: el código de antes ignora la clave.
-- Lo que NO hace: una inscripción que ya estaba en 'respondio' no se reanuda.
+Lo que causó el bug 5 (`pausarPorRespuesta`: una respuesta frenaba todo salvo el carril) pasó primero a una opción de
+cada flecha del CRON («sigue» / «se corta», `si_contesta` en la tarjeta CRON, commit `c0c46bad`). Duró unas horas.
+Martín: «"Si el lead contesta" NO debería ir en el CRON, debería ser una CONDITION... Es obvio eso». Quedó así:
+- **El diagnóstico «falta una opción» era el equivocado.** Lo que el lead hace es un HECHO, y un hecho lo decide una
+  condición en el lugar exacto del camino. Una opción del CRON vuelve a esconder la regla en un panel que no está en el
+  dibujo, y además corta TODO el camino en vez de sólo el seguimiento que da por hecho que no contestó.
+- **`contesto` es de la INSCRIPCIÓN, no del lead.** «Te escribió alguna vez» (`respondio`) ya existía y es otra cosa: un
+  lead que escribió hace un mes entra a un seguimiento sin haber contestado ahí. El hecho es `contestoEnEsta` y lo pone
+  quien evalúa: el motor con `insc.estado === 'respondio'`, «Si responde» con true, «Probar» con lo escrito en el chat.
+- **Contestar sólo se ANOTA** ('respondio', con la posición, los hilos y el próximo envío intactos): sin tocar la posición
+  no hace falta el compare-and-set de antes (`pausarConCarril`, borrado). El motor mueve una 'respondio' igual que una
+  activa (`seMueveEnLaCorrida` ya no mira la respuesta).
+- **Dónde va la condición: DESPUÉS de cada espera.** Es donde un lead puede contestar antes de lo que sigue; lo que sale
+  sin espera de por medio sale antes de que pueda. Si el mensaje queda parado (un reintento), `condicionDeArriba` la
+  vuelve a pasar. Dos condiciones seguidas no se pueden guardar: si después de la espera ya hay una, la fila se SUMA con
+  «y» a cada grupo de cada rama (las «o» abren grupo).
+- **La quinta puerta, al revés:** para borrar una clave del dato no alcanza con sacarla del tipo; `normalizar` la borra
+  a mano (`delete … si_contesta`), si no viaja intacta en cada guardado.
+- **Migración:** scripts/migrar-contesto-condicion.ts, DESPUÉS del deploy (el código de antes no conoce `contesto`, la da
+  por no cumplida y el camino termina). En el dry run del 14/10: las 3 prendidas (#198, #213 ws1; #241 ws13) sólo pierden
+  la clave (sus «se corta» no tenían espera de por medio); a las apagadas de ws10, ws11 y ws15 se les pone la condición.
 
-**Vive en:** `lib/flujo-grafo.ts` · `lib/nutricion-grafo-motor.ts` · `lib/nutricion.ts` · `lib/simulador-grafo.ts` · `app/automations/SiContestaCaminos.tsx`
+**Vive en:** `lib/condiciones-catalogo.ts` (`contesto`) · `lib/nutricion.ts` (`pausarPorRespuesta`, `procesarEnvios`) · `lib/nutricion-grafo-motor.ts` · `lib/simulador-grafo.ts` · `lib/plantillas-automatizaciones.ts`
+
+### «Probar» con un contacto por escenario: las condiciones se deciden en el CLIENTE [probar · 14/10]
+
+Pedido de Martín: una barra de contactos (estilo WhatsApp o Instagram) con un escenario en cada uno, y elegir el escenario
+al probar por WhatsApp. Lo que costó o conviene saber:
+- **«Probar» decide cada condición en el navegador, también en la prueba DE VERDAD** (el server sólo manda lo que el
+  panel le pasa). Por eso el escenario se fuerza en un solo lugar, el `case 'condicion'` de `avanzar` (PanelProbar), y
+  vale igual para «Probar en WhatsApp». No hace falta tocar `/api/chat-agent/simulador`.
+- **Los escenarios salen del MISMO simulador** (`siguiente` + `elegir`, `escenariosDePrueba`), no de recorrer el grafo
+  aparte: con flechas en paralelo, «Ir a» y esperas, un recorrido propio inventaba caminos que la prueba no puede hacer.
+  El primero es el que elegiría el motor con el lead recién llegado (`elegirSalida` con `hechosDeLeadNuevo`).
+- **Un panel es UN canal:** el camino que sólo manda email no es un contacto de WhatsApp (`mensajes` cuenta los del canal).
+- **Las cajas, absolutas:** el chat se mide con `height: 100%` y contra un alto de flex es cero en Safari (AGENTS.md);
+  la barra y el chat van `position: absolute` dentro del cuerpo.
+- **SIN HACER:** la operación `probar_secuencia` de la API manda TODOS los pasos de una (el modelo de antes, sin camino):
+  ahí todavía no se elige un escenario. La API sí los lista (`escenarios_secuencia`). Vive en lib/setting-secuencias.ts
+  (`probarSecuencia`). La bandeja de email no tiene barra (es otra cara); su menú sí pide el escenario.
+
+**Vive en:** `lib/simulador-grafo.ts` (`escenariosDePrueba`) · `app/automations/PanelProbar.tsx` (`BarraEscenarios`, `MenuDestinos`)
 
 ### El AI Step no contesta por redes: una respuesta de Instagram o Messenger sólo PAUSA [motor · 14/10]
 
