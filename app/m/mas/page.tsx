@@ -5,7 +5,15 @@
 //   2. Una caja por familia de la sidebar, con su nombre de escritorio y en su orden (Operate ·
 //      Analyze · Sales Machine · Content Machine · Customer Success): `gruposMas`
 //   3. Pregúntale a MaKo, con el logo real como ícono (fuera de las familias, como en escritorio)
-//   4. Versión de computadora
+//   4. Decisiones, SÓLO para el super admin (el tablero de /admin/runway, en el teléfono /m/decisiones)
+//   5. Versión de computadora
+//
+// ⚠️ DECISIONES NO VA EN `SECCIONES_MAS`, A PROPÓSITO (14/10/2026, acordado con el chat «Pricing MaKo»,
+// dueño de la tab). SECCIONES_MAS es para tabs DEL NEGOCIO gateadas por una key de nav.ts (puedeVerKey),
+// y de ahí salen la barra del rol, la cabecera y el desvío. Decisiones no es una tab del negocio: es el
+// tablero de la PLATAFORMA, no tiene key en nav.ts, y su guard es «super admin» (getSesionAdmin =
+// sesión con rol 'admin', la misma pregunta que se hace acá). Si entrara a SECCIONES_MAS podría «subir
+// a la barra» de un rol al que le falta un destino, que es justo lo que no tiene que pasar.
 //
 // Lo que el rol no ve, NO aparece (`gruposMas` → `puedeVerKey`, la misma regla del Sidebar
 // y del guard de cada sección). Lo que subió a la barra (porque el rol no ve CRM o Plan) no
@@ -25,6 +33,9 @@ import { contarBadges } from '../badges';
 import { FilaVersionComputadora } from './VersionComputadora';
 
 export const dynamic = 'force-dynamic';
+
+/** El tablero de decisiones del super admin (lo sirve app/m/decisiones; en la URL, /admin/runway). */
+const RUTA_DECISIONES = '/m/decisiones';
 
 export default async function MasPagina() {
   const ctx = await requireMovil();
@@ -69,6 +80,14 @@ export default async function MasPagina() {
         </ListaM>
         </SeccionM>
       ))}
+
+      {ctx.sesion.rol === 'admin' && (
+        <SeccionM titulo="Super admin">
+          <ListaM>
+            <FilaM navegacion icono="admin" titulo="Decisiones" href={RUTA_DECISIONES} />
+          </ListaM>
+        </SeccionM>
+      )}
 
       <div className="m-mas-compu">
         <ListaM>
