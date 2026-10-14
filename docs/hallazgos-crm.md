@@ -22,6 +22,40 @@ en [corridas-multiagente.md](corridas-multiagente.md).
 
 ## Lo que más muerde acá
 
+### La noche del 13/10/2026: datos sin marcar v2, el nombre del CRM y la grabación (chat CRM, `claude2`)
+
+**La grabación «cargando eternamente» no era el servidor.** El diagnóstico obvio —un cuerpo
+grande o Storage lento— era el equivocado: las 12 últimas sesiones pesan 50-100 KB y bajan en
+~2 s. Envolviendo el `requestAnimationFrame` en producción se vio que el montaje corría 4 ms
+después de pedirlo, ANTES de que React dibujara el recuadro de «listo», y un `if (!nodo) return`
+mudo lo dejaba vacío para siempre. La regla: **algo que necesita un nodo que el render de un
+`setState` va a crear no se agenda a ciegas en un rAF: se engancha con un ref de callback** (monta el
+que llega segundo). **Vive en:** `app/crm/lead-view/GrabacionModal.tsx` · `tests/grabacion-montaje.test.ts`
+
+**Renombrar el CRM renombraba el curso** porque `nombreVisible` mostraba el nombre del PRODUCTO, y
+para que el renombre «se viera» `renombrarFunnel` escribía `productos.nombre` — el mismo campo con
+que se titula el curso. Desacoplar es dos cosas a la vez: el CRM se muestra con `funnels.nombre`
+(salvo «Funnel principal») y una migración le copia a cada embudo el nombre que mostraba (0269, eran
+2 de 21), o el CRM de un cliente cambia de nombre solo. **Vive en:** `lib/lead-funnel-reglas.ts` ·
+`lib/funnels.ts` · `supabase/migrations/0269_funnel_nombre_propio.sql`
+
+**Ignorado, sin aviso y resuelto son tres cosas, y ninguna cambia lo que exige mover de etapa.**
+Ignorado = una persona sobre un dato de un lead (`leads.datos_ignorados`, 0270); sin aviso = el
+negocio sobre un tipo de dato (`crm.datos_aviso.apagados`, se guarda lo APAGADO para que un tipo
+nuevo avise a todos); resuelto = la etapa lo pide y está. **Lo resuelto sale de `stepsForStage`
+vaciando un dato por vez** (`pasosResueltos`), no de una lista aparte: una lista de «requisitos de
+cada etapa» diría «✓ Link de Fathom» sobre alguien que no vino. Si la config no se puede leer, no se
+apaga nada (avisar de más se nota). La asistencia a una reunión pasada no se ignora ni se apaga.
+**Vive en:** `lib/datos-aviso.ts` · `lib/stage-requirements.ts` · `lib/datos-aviso-config.ts` · `lib/queries.ts`
+
+**Un test que corta una función por su firma se rompe con un refactor que no cambia nada.**
+`tests/pendientes-columnas.test.ts` y `tests/venta-sin-cobro.test.ts` buscaban los campos del lead
+en el cuerpo de `export function faltantesDeLead`; al mudar esa lectura a `requisitosDeLead` (para que
+faltan y resueltos compartan los valores) los dos dieron rojo con el código bien. Se movieron a la
+función que LEE el lead.
+
+**Lo que quedó sin hacer**, con el archivo: ver `docs/relevo/crm.md` §0-Ω.
+
 ## Configurar el funnel: qué es seguro tocar y qué no
 
 ### ⚠️ Renombrar una etapa es seguro; el `kind` y el ORDEN no, y el editor los deja como sea

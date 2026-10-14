@@ -6,6 +6,53 @@ el briefing anterior (`b5f7fb55`, 10/10 17:10) con todo verificado contra el ár
 **Rutas de esta área:** `app/crm/**`, `lib/leads.ts`, `lib/funnel*.ts`, `lib/crm*.ts`,
 `lib/lead-*.ts`, `lib/campana-*.ts`, `lib/etiquetas*.ts`, `lib/pipeline.ts`.
 
+## 0-Ω. Noche del 13 al 14/10/2026 (chat «CRM», cuenta `claude2`): el feedback del detalle del lead
+
+Martín lo pidió directo (el texto literal está en `app/admin/dev/crm/bitacora.ts`, hito del 13/10
+22:57). **Nada de esto está en producción todavía:** al cierre de la ventana los pushes de TODA la
+máquina estaban trabados por RAM (el typecheck completo pide ~4,3 GB libres y había 2,2-3,6). Los
+commits viven en el worktree `C:/Users/marti/wtcrm2` (encima del `main` local del clon, con los 36
+commits de las otras sesiones) y un script de fondo pushea solo cuando haya RAM
+(`scratchpad/push-cuando-haya-ram.sh`). **Las dos migraciones ya están APLICADAS en prod** (0269 y
+0270): son de las que van antes del deploy.
+
+### ✅ Hecho (commits locales, con tests probados rompiéndolos)
+
+- «A revisar» sólo con datos sin marcar, sin la «Mk» ni «MaKo movió» (`9f0f77de`). **El motor
+  (lib/crm-auto.ts) sigue corriendo**: lo reemplazan las plantillas que se le pidieron al chat de
+  Automations, y recién ahí se apaga (flag por workspace `KEY_CRM_AUTO`).
+- «Nuevo CRM» arriba del desplegable, «CRM eliminados» (`9f0f77de`).
+- El CRM con nombre propio: renombrarlo ya no renombra el producto ni el curso (`6f8f64c6`, mig 0269).
+- La grabación de la visita: montaba en un rAF antes de que existiera el recuadro (`ca01e16f`).
+- Datos sin marcar v2: «Ver →», solucionar que lleva al dato y lo señala, ignorar por dato, «Ver
+  más», de qué avisa MaKo, «A revisar» por dato, y «¿Era calificado?» en Resumen (`94735afd`, mig 0270).
+- El mapa de sugerencias de MaKo: `docs/sugerencias-mako-crm.md`, **esperando que Martín lo valide**.
+
+**Sin mirar en el navegador** (la máquina sin RAM para un `next dev`): lo primero al haber deploy
+es abrir una ficha con datos sin marcar y probar «Ver →», solucionar, ignorar y el engranaje.
+
+### ⏳ Lo que falta del mismo pedido (en este orden)
+
+1. **Autoguardado al salir de un campo.** `EditableInline` y los campos de la ficha YA guardan en
+   `blur`; no se encontró el caso leyendo. Hay que reproducirlo en el navegador (¿qué campo? ¿cómo
+   salió?). Sospecha: cerrar un modal con `mousedown` en el fondo desmonta el campo antes del blur.
+2. **Cabecera más compacta**: etiquetas al lado del título, «+2» con desplegable.
+3. **Tarjetas del lead personalizables** (plantillas, campos, arrastrar, vista en vivo) en los tres puntos.
+4. **Resumen personalizable** (IG, YouTube, web, LinkedIn, dirección, sexo, respuestas del form).
+5. **CAPI**: revisar cómo se elige qué píxel y qué evento alimenta «¿Era calificado?».
+6. **Pagos**: desplegable de OFERTA con alta en el lugar (nombre, modelo, ticket) y «Analizar oferta»
+   → Offer; y la tab personalizable como Reuniones. Coordinar con Integraciones (worktree
+   `C:/dev/wt-pagos`, rama `pagos-pasarela`).
+7. **El chat de MaKo al costado del CRM con las sugerencias**: después de que Martín valide el mapa.
+8. Del lote de Estrategia: Leads Scraper (sólo fuentes legítimas) y los tipos de funnel que faltan.
+
+### Pedidos a otros chats (13/10)
+
+- **Automations**: plantillas que reemplacen T1-T6 del CRM automático, revisar si hoy alcanza, y el
+  EVENTO de Calendly o Cal por etapa de reunión.
+- **Customer Success**: el título del curso desde la OFERTA. Se le tocó `renombrarServicioAction`
+  (un hunk: ahora renombra el producto, no el CRM).
+
 ## 0-α. Al 13/10/2026 (chat «CRM», cuenta `claude2`, al reanudar lo frenado por la cuota)
 
 Martín, vía «Estrategia 3 cuentas»: «dile a esos chats que continuen y cierren lo que ya habiamos
