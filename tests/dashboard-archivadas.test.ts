@@ -17,7 +17,8 @@
 //
 // PROBADO ROMPIÉNDOLO (14/10/2026; base en verde: 5 pasan, 0 fallan). Una rotura por vez, restaurando de memoria:
 //   · `sanearTablero` sin las archivadas (no las devuelve)                                 -> 4 / 1 «el informe guarda…»
-//   · `leerTableroVersionado` sin normalizar `enBlanco`                                     -> 4 / 1 «los que leen por fuera…»
+//   · `leerTableroVisible` sin normalizar `enBlanco`                                        -> 4 / 1 «los que leen por fuera…»
+//   · y al revés, la lectura de la PANTALLA normalizando (`if (t?.enBlanco) t.hojas = []`)  -> 4 / 1 «los que leen por fuera…»
 //   · `eliminarHoja` con el `if (tablero.hojas.length <= 1) return;` de vuelta              -> 4 / 1 «la pantalla…»
 //   · la API borrando la hoja en vez de archivarla                                          -> 4 / 1 «la API…»
 //   · la tarjeta de plantilla sin sombra (`box-shadow` fuera de `.nh-plantilla`)            -> 4 / 1 «cada plantilla…»
@@ -53,7 +54,15 @@ test('el informe guarda las archivadas y la marca de «se eliminaron todas», sa
 
 test('los que leen el informe por fuera (la API, los links) no ven la hoja vacía de adentro', () => {
   const src = leer('lib/graficos-tablero.ts');
-  assert.match(src, /const visible = t\?\.enBlanco \? \{ v: 3 as const, nombre: t\.nombre, hojas: \[\], \.\.\.\(t\.archivadas \? \{ archivadas: t\.archivadas \} : \{\}\) \} : t;/);
+  const visible = src.slice(src.indexOf('export async function leerTableroVisible('), src.indexOf('export type ResultadoGuardar'));
+  assert.match(visible, /const visible = t\?\.enBlanco \? \{ v: 3 as const, nombre: t\.nombre, hojas: \[\], \.\.\.\(t\.archivadas \? \{ archivadas: t\.archivadas \} : \{\}\) \} : t;/);
+  // ⚠️ La PANTALLA lee crudo: con la lectura normalizada, el Dashboard de quien eliminó todas leía hojas[0] de una lista
+  // vacía (c73755ec, lo cazó mirarlo). La normalización vive SÓLO en la lectura de afuera.
+  const crudo = src.slice(src.indexOf('export async function leerTableroVersionado('), src.indexOf('export async function leerTableroVisible('));
+  assert.doesNotMatch(crudo, /enBlanco/, 'la lectura de la pantalla volvió a esconder las hojas');
+  for (const r of ['lib/api-mako/areas/dashboard.run.ts', 'lib/api-mako/areas/general.run.ts', 'app/api/compartir/route.ts', 'app/compartido/[token]/informe-compartido.ts']) {
+    assert.doesNotMatch(leer(r), /leerTableroVersionado\(/, `${r} lee crudo: vería la hoja vacía de adentro`);
+  }
   assert.match(leer('app/dashboard/page.tsx'), /\} else if \(tablero\.enBlanco && !agregar\) \{\s*sinPaginas = true;/);
   assert.match(leer('app/general/page.tsx'), /\|\| !!lectura\.tablero\.enBlanco;/);
 });

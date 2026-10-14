@@ -402,7 +402,7 @@ test('⚠️ crear, borrar y restablecer NO corren en un flujo; la persona se re
 // Rotura 8 (en lib/graficos-tablero.ts) y la del runner.
 test('⚠️ ESCRIBIR ES COMPARE-AND-SET: el runner relee y compara, y el guardado no escribe si cambió', () => {
   const aplicar = RUN.slice(RUN.indexOf('async function aplicar('), RUN.indexOf('function laHoja('));
-  assert.match(aplicar, /const actual = await leerTableroVersionado\(sub\);\s*if \(actual\.version !== version\) return \{ ok: false, resumen: TEXTO_CAMBIO \};/);
+  assert.match(aplicar, /const actual = await leerTableroVisible\(sub\);\s*if \(actual\.version !== version\) return \{ ok: false, resumen: TEXTO_CAMBIO \};/);
   assert.match(aplicar, /await guardarTableroSi\(sub, ap\.tablero, version\);\s*if \(!g\.ok\) return \{ ok: false, resumen: TEXTO_CAMBIO \};/);
   assert.doesNotMatch(RUN, /guardarTableroDe\(|setSetting\(|leerTablero\(\)/, 'el runner no usa las de sesión ni escribe a ciegas');
   const tablero = sinComentarios(leer('lib/graficos-tablero.ts'));

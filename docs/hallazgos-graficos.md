@@ -620,8 +620,11 @@ para dashboard» y «Cuando clickeo en MaKo en la sidebar, me redirecciona a gen
 - **«Sin hojas» no se puede guardar como `hojas: []`**: `sanearTablero` devuelve siempre una («Página 1» vacía) y media
   app lee `hojas[0]`. Eliminar la última guarda esa vacía con la marca `enBlanco`, y la pantalla vuelve a «¿Qué vas a crear
   hoy?» (`sinPaginas` en las dos páginas). Crear o restaurar una hoja saca la marca (`sinBlanco`).
-- **Los que leen el informe por fuera no tienen que ver esa vacía**: `leerTableroVersionado` (la API de MaKo y los links
+- **Los que leen el informe por fuera no tienen que ver esa vacía**: `leerTableroVisible` (la API de MaKo y los links
   compartidos) la devuelve como un informe SIN hojas. Lo que escriba la API después sale sin la marca.
+  ⚠️ **Y la PANTALLA lee crudo (`leerTableroVersionado`).** La primera versión normalizaba en la lectura de TODOS, y el
+  Dashboard de quien eliminó todas sus hojas leía `hojas[0]` de una lista vacía. Lo cazó mirar la pantalla, no un test: la
+  normalización vive sólo en la lectura de afuera, y `tests/dashboard-archivadas.test.ts` fija los dos lados.
 - **Las archivadas comparten el espacio de ids con las hojas**: el saneo las desduplica entre las dos listas, o restaurar una
   chocaría con otra. Van con tope (`MAX_ARCHIVADAS`, 20): entra una y se va la más vieja.
 - **Borrar de Archivados es un segundo clic sobre el mismo botón**, que pasa a decir «Eliminar para siempre» (la consecuencia

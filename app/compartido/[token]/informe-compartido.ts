@@ -25,7 +25,7 @@
 import 'server-only';
 import { resolverToken, puedeVerInforme, type Acceso } from '@/lib/shares';
 import { runWithWorkspace } from '@/lib/workspace';
-import { leerTableroVersionado } from '@/lib/graficos-tablero';
+import { leerTableroVisible } from '@/lib/graficos-tablero';
 import { datosDeGraficos, valoresDeCampo, type DatosGrafico, type ValorDeCampo } from '@/lib/graficos-datos';
 import type { Grafico, Hoja, Tablero } from '@/lib/graficos-catalogo';
 import { ocultosPorPlegado, plegadasDeEntrada } from '@/lib/graficos-secciones';
@@ -59,7 +59,7 @@ const enSuWorkspace = <T,>(a: AccesoInforme, fn: () => Promise<T>): Promise<T> =
 /** El informe de la persona dueña del share, o null si la lectura falló: «no pude leer» no es «no armó ninguno». */
 export async function leerInformeCompartido(a: AccesoInforme): Promise<Tablero | null> {
   try {
-    return (await enSuWorkspace(a, () => leerTableroVersionado(a.sub))).tablero;
+    return (await enSuWorkspace(a, () => leerTableroVisible(a.sub))).tablero;
   } catch (e) {
     console.error(`[compartido] no pude leer el informe del share ${a.acceso.share.id}: ${e instanceof Error ? e.message : String(e)}`);
     return null;

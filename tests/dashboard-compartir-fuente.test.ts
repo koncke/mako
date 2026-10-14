@@ -104,7 +104,7 @@ test('el endpoint del link no lee sesión, ni cookie, ni un workspace del pedido
 });
 
 test('todo lo que el link lee corre en el workspace DEL SHARE', () => {
-  for (const lector of ['datosDeGraficos(', 'valoresDeCampo(', 'leerTableroVersionado(']) {
+  for (const lector of ['datosDeGraficos(', 'valoresDeCampo(', 'leerTableroVisible(']) {
     let desde = 0;
     let vistos = 0;
     for (let i = SERVER.indexOf(lector, desde); i > -1; i = SERVER.indexOf(lector, desde)) {
