@@ -583,6 +583,9 @@ editor sabe dibujar de más:
   General al Dashboard deja los bloques diciendo «se ve en la tab General»: aceptado, no se migran.
 - **El tsc del chequeo angosto murió sin imprimir nada con 2 GB libres** (el vigía de RAM). Con 2,9 GB y
   `--max-old-space-size=2560` pasó. No era el código: AGENTS.md, «si el pre-push falla sin imprimir una sola línea».
+- **Y un chequeo angosto cubre los archivos de SU lista, a la hora en que corrió.** La bitácora de `/admin/dev` también
+  tipa (`Hito` exige `puntos`), se escribió después del chequeo, y el hito de un pedido sin `puntos` llegó al pre-push
+  del orquestador (lo arregló en `46958506`). Lo que se escribe en la cosecha entra a la lista y se vuelve a chequear.
 
 **Vive en:** `app/general/page.tsx` · `app/general/piezas.tsx` · `app/dashboard/ElementoGeneral.tsx` ·
 `app/dashboard/EditorInforme.tsx` · `app/dashboard/Elemento.tsx` · `lib/general-piezas.ts` · `lib/general-plantillas.ts` ·

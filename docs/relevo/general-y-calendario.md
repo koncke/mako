@@ -28,10 +28,10 @@ verificación de Google); escribir en Google «Sí, como Google».
 | Calendario = copia de Google Calendar | `app/calendario/`, `lib/calendario-google*.ts` | Día, semana, mes, año, agenda y 4 días; todos los calendarios de Google con sus colores; crear, mover, cambiar y borrar eventos en Google (con «avisar a los invitados» y Deshacer). La agenda no pasa por ninguna IA. |
 | Pagos atípicos | `app/crm/[id]/deal-actions.ts`, `DealDetailsCard.tsx` | Un pago de menos ya no borra la diferencia: queda pendiente o es descuento. «Registrar otro pago». |
 
-**Estado de git (14/10/2026, ~04:30).** El Calendario (`acea2449`) y General (`56efcbaa`, más su cosecha) están
-commiteados en el main del clon y **NO pusheados**: el push lo coordina el orquestador y el pre-push pide 5,3 GB libres
-(había 2,9). Los tests de lo tocado, en verde (editor, General, Calendario, API de MaKo y los guards transversales); el
-typecheck angosto de los archivos tocados, limpio. **Después del deploy, falta verlo en ws3**: /general (Nueva hoja con
+**Estado de git (14/10/2026, 04:40).** El Calendario (`acea2449`), General (`56efcbaa`) y su cosecha (`1c262df9`,
+`0caf070b`) ENTRARON a origin/main en el push del orquestador (`92a2be21..46958506`). El typecheck completo encontró
+un error mío que el chequeo angosto no vio: el hito de las 03:19 de `app/admin/dev/general/bitacora.ts` sin `puntos`
+(la bitácora se escribió DESPUÉS del chequeo y no estaba en su lista); lo arregló el orquestador en `46958506`. **Después del deploy, falta verlo en ws3**: /general (Nueva hoja con
 las plantillas, Bienvenida con el nombre, los bloques y su panel con el funnel) y /calendario con un Google conectado.
 
 Hallazgos: `docs/hallazgos-objectives.md` (General), `docs/hallazgos-crm.md` (pagos), `docs/hallazgos-calendario.md`.
