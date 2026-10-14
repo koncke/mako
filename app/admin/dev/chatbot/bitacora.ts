@@ -1493,4 +1493,15 @@ FEEDBACK PROBAR:
       "Quedó en docs/hallazgos-chatbot.md («Decimoquinta tanda») y en tests/automations-decimoquinta.test.ts. El token necesita la migración 0265 (flujo_copias): sin ella «Copiar flujo» copia el texto entero de antes.",
     ],
   },
+  {
+    fecha: "13 oct", hora: "23:55", chat: "chatbot", cuenta: "claude2",
+    actor: "martin", tipo: "prompt",
+    titulo: "El mensaje que no salió en la reunión, el registro de lo que hace cada usuario y los videos redondos",
+    pedido: "Pero si lo creamos con el botón de \"nuevo lead\" en el workspace de Mauricio\nDe hecho, si estaba, solo que Mauricio luego lo eliminó porque era de prueba... Me preocupa bastante que no se guarde registro de leads eliminados, o en general de las acciones que hace un usuario en todo MaKo... Yo como SuperAdmin quiero tener registro de todas las acciones que hace un usuario\nPor otro lado, te consulto si se pueden enviar los videos redondos de WhatsApp, si podemos agregar esa opción a las automatizaciones.",
+    puntos: [
+      "Bug 5 de la reunión del 13/10 («no salió el mensaje» de «Un Lead Agendó Llamada», ws1). El lead de prueba se borró, y con él su inscripción y sus envíos. Lo que quedó fue `lead_audit`, que no tiene FK. El 2660 pasó a «agenda» con la R1 de HOY sin hora a las 19:57 de México. El motor lee una fecha sola como el mediodía y lo cerró por «la reunión ya pasó». Arreglado en 329d1443. El hallazgo está en docs/hallazgos-chatbot.md.",
+      "El registro de acciones: hoy borrar un lead es un hard delete (`deleteLead`, lib/leads.ts) y no deja quién ni qué. Quedó en la memoria `registro-acciones-superadmin`, sin hacer.",
+      "Videos redondos: medido, nuestro Evolution (2.3.7) tiene la ruta `/message/sendPtv`. Sin hacer.",
+    ],
+  },
 ];

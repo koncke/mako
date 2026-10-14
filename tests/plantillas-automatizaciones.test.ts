@@ -113,9 +113,13 @@ const LAS_13: ReadonlyArray<readonly [id: string, nombre: string, objetivo: Obje
   ['lead-no-asistio', 'Un Lead No Asistió', 'recuperar'],
   ['lead-tuvo-reunion', 'Un Lead Tuvo la Reunión', 'vender'],
   ['lead-confirmo-compra', 'Un Lead Confirmó la Compra', 'cobrar'],
+  // El plazo de una etapa (12/10/2026: los plazos del CRM pasan a una plantilla).
+  ['lead-no-avanzo', 'Un Lead No Avanzó', 'recuperar'],
   ['cliente-empezo', 'Un Cliente Empezó', 'clientes'],
   ['mako-cobranza', 'Una Cuota Venció', 'cobrar'],
   ['mako-pago', 'Entró un Pago', 'cobrar'],
+  // El AI Analyst del Dashboard (13/10/2026: Automations consume el Dashboard).
+  ['mako-analisis', 'El AI Analyst Terminó', 'medir'],
   ['mako-charla', 'Un Lead Te Escribió', 'vender'],
   ['instagram-te-escribieron', 'Te Escribieron por Instagram', 'captar'],
   ['messenger-te-escribieron', 'Te Escribieron por Messenger', 'captar'],
@@ -447,7 +451,9 @@ test('los datos del EQUIPO van sólo en «MaKo en WhatsApp», y cada aviso nuevo
       const delEquipo = claves.filter((k) => datoDe(k)?.soloPara === 'equipo');
       if (claseDe(x) === 'mensaje') assert.deepEqual(delEquipo, [], `${p.id}/${x.id}: un dato del equipo en un mensaje al lead`);
       // Una tarjeta con su lista sale TAL CUAL: no agrega sola ni el nombre ni el link (la cobranza es la de antes, LITERAL).
-      if (claseDe(x) === 'accion' && p.id !== 'mako-cobranza') {
+      // El AI Analyst (13/10/2026) no habla de un lead: el análisis es del negocio. Lleva SU link (al análisis).
+      if (claseDe(x) === 'accion' && p.id === 'mako-analisis') assert.ok(claves.includes('analisis_link'), `${p.id}/${x.id}: el aviso sin el link al análisis`);
+      if (claseDe(x) === 'accion' && p.id !== 'mako-cobranza' && p.id !== 'mako-analisis') {
         assert.ok(claves.includes('link_lead'), `${p.id}/${x.id}: el aviso sin el link a la ficha`);
         assert.ok(claves.includes('nombre_completo'), `${p.id}/${x.id}: el aviso sin el nombre del lead`);
       }
@@ -743,8 +749,8 @@ test('la etapa se pregunta sólo si hay etapas de ese kanban para ofrecer; una d
 /** POR DÓNDE SALE CADA UNA, A MANO leyendo sus tarjetas (deducido de `canalesDe` daría verde sobre la función rota). */
 const CANALES: Readonly<Record<string, readonly CanalPlantilla[]>> = {
   'lead-entro': ['whatsapp', 'email', 'mako'], 'lead-agendo': ['whatsapp', 'email', 'mako'], 'lead-no-asistio': ['whatsapp', 'email', 'mako'],
-  'lead-tuvo-reunion': ['whatsapp', 'mako'], 'lead-confirmo-compra': ['whatsapp', 'mako'], 'cliente-empezo': ['whatsapp', 'email'],
-  'mako-cobranza': ['mako'], 'mako-pago': ['mako'], 'mako-charla': ['mako'],
+  'lead-tuvo-reunion': ['whatsapp', 'mako'], 'lead-confirmo-compra': ['whatsapp', 'mako'], 'lead-no-avanzo': ['mako'], 'cliente-empezo': ['whatsapp', 'email'],
+  'mako-cobranza': ['mako'], 'mako-pago': ['mako'], 'mako-analisis': ['mako'], 'mako-charla': ['mako'],
   'instagram-te-escribieron': ['instagram', 'mako'], 'messenger-te-escribieron': ['messenger', 'mako'], 'email-recibido': ['email', 'mako'],
   'email-newsletter': ['email'],
 };

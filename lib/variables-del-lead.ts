@@ -343,6 +343,45 @@ export function valoresDeLoEscrito(texto: string | null | undefined): Record<str
   return t ? { lead_escribio: cortar(t, TOPE_ESCRITO) } : {};
 }
 
+/** Lo que el AI Analyst del Dashboard tiene en la mano al terminar (`analizarHoja`, lib/graficos-analisis-server.ts). */
+export type AnalisisDelAviso = {
+  hoja: string | null | undefined;
+  resumen: string | null | undefined;
+  /** Sin nombres de personas: el Dashboard los filtra antes (`DIMENSIONES_PUBLICAS`). */
+  hallazgos: ReadonlyArray<string> | null | undefined;
+  /** Absoluto y con el `?ws=` (`linkApp('/dashboard?hoja=<id>', ws)`). */
+  link: string | null | undefined;
+  /**
+   * Programado (`cron`) o pedido a mano (`mano`). El evento sale SIEMPRE (Martín, 13/10/2026: «eso debería ser una
+   * configuración de automations del usuario... No lo configures tu»): el origen viaja como dato y lo usa el negocio.
+   */
+  origen?: 'cron' | 'mano' | null;
+};
+
+/** Topes del aviso: un WhatsApp al grupo, no el informe entero (el link lleva al resto). */
+export const TOPE_RESUMEN_ANALISIS = 600;
+export const TOPE_HALLAZGOS_ANALISIS = 5;
+const TOPE_HALLAZGO = 200;
+
+/**
+ * LOS DATOS DEL ANÁLISIS (el evento «El AI Analyst termina un análisis», 13/10/2026). Cada uno en su clave y SIN valor
+ * no entra (su renglón se va). Los hallazgos van como lista con viñetas, los primeros `TOPE_HALLAZGOS_ANALISIS`.
+ */
+export function valoresDelAnalisis(a: AnalisisDelAviso): Record<string, string> {
+  const out: Record<string, string> = {};
+  const hoja = String(a.hoja ?? '').trim();
+  if (hoja) out.analisis_hoja = cortar(hoja, 120);
+  const resumen = String(a.resumen ?? '').trim();
+  if (resumen) out.analisis_resumen = cortar(resumen, TOPE_RESUMEN_ANALISIS);
+  const hallazgos = (a.hallazgos ?? []).map((h) => String(h ?? '').trim()).filter(Boolean).slice(0, TOPE_HALLAZGOS_ANALISIS);
+  if (hallazgos.length) out.analisis_hallazgos = hallazgos.map((h) => `• ${cortar(h, TOPE_HALLAZGO)}`).join('\n');
+  const link = String(a.link ?? '').trim();
+  if (/^https?:\/\//.test(link)) out.analisis_link = link;
+  if (a.origen === 'cron') out.analisis_origen = 'Programado';
+  else if (a.origen === 'mano') out.analisis_origen = 'A mano';
+  return out;
+}
+
 /** Lo que `avisarPagoRecibido` (lib/cobros.ts) tiene en la mano del pago que entró. */
 export type PagoDelAviso = {
   monto: number;

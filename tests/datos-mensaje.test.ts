@@ -33,7 +33,7 @@ import {
 import {
   valoresDelNombre, valoresDelLead, valoresConZona, valoresDelProducto, valoresDeEtiquetas, valoresDePagos,
   valoresDelCurso, valoresDelPerfil, valoresDelLeadMagnet, valoresDelMomento, valoresDelCobro,
-  valoresDeLaProximaReunion, valoresDeRespuestasAgenda, valoresDelPago, valoresDeLoEscrito, TOPE_ESCRITO,
+  valoresDeLaProximaReunion, valoresDeRespuestasAgenda, valoresDelPago, valoresDeLoEscrito, valoresDelAnalisis, TOPE_ESCRITO,
 } from '../lib/variables-del-lead';
 import { detalleDelAviso } from '../lib/calcom';
 import { VARIABLES_LEAD, VARIABLES_NEGOCIO, esVariableConocida } from '../lib/template-vars';
@@ -95,6 +95,8 @@ function porFuente(): Record<FuenteDato, Set<string>> {
     respuestas: set(valoresDeRespuestasAgenda([{ respuestas: [{ q: '¿Tienes equipo?', a: 'Sí' }] }])),
     pago: set(valoresDelPago({ monto: 2300, moneda: 'USD', concepto: 'Mentoría', proveedor: 'stripe', renovacion: false, modo: 'prueba', alta: 'hecha' })),
     escrito: set(valoresDeLoEscrito('¿Puedo cambiar la hora?')),
+    // 13/10/2026: lo que pasa el AI Analyst del Dashboard al terminar (`valoresDelAnalisis`).
+    analisis: set(valoresDelAnalisis({ hoja: 'Ventas', resumen: 'Subieron.', hallazgos: ['Uno', 'Dos'], link: 'https://x/dashboard?hoja=1', origen: 'cron' })),
   };
 }
 
@@ -153,7 +155,7 @@ test('⚠️ TODO lo que el árbol ofrece tiene quien lo PONGA: cada clave sale 
   assert.match(res, /if \(zona && pide\('momento'\)\) Object\.assign\(out, valoresDelMomento\(Date\.now\(\), zona\)\);/);
   // El árbol: cada grupo con ícono, y ninguno vacío en el destino más amplio.
   for (const g of GRUPOS_VARIABLES) assert.ok(g.icono, `${g.key} sin ícono`);
-  assert.equal(datosOfrecidos({ destino: 'equipo', conLead: true, conCuota: true }).length, GRUPOS_VARIABLES.length);
+  assert.equal(datosOfrecidos({ destino: 'equipo', conLead: true, conCuota: true, conAnalisis: true }).length, GRUPOS_VARIABLES.length);
   assert.ok(VARIABLES_AVISO.filter((v) => !v.oculta).length >= 70, 'se pidieron MUCHOS más datos');
   // La previa tiene con qué dibujar cada uno.
   const ej = valoresDeEjemplo();

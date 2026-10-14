@@ -173,7 +173,7 @@ test('3. una sola puerta a la galería: «＋ Nueva», sin sección; «＋ Nuevo
 test('3. las tres de Evento de MaKo van mezcladas con las demás, con la misma tarjeta y sin rótulos', () => {
   const html = galeria();
   const mako = PLANTILLAS.filter(esPlantillaMako);
-  assert.deepEqual(mako.map((p) => p.id).sort(), ['mako-charla', 'mako-cobranza', 'mako-pago']);
+  assert.deepEqual(mako.map((p) => p.id).sort(), ['mako-analisis', 'mako-charla', 'mako-cobranza', 'mako-pago']);
   assert.deepEqual(dibujadas(html), PLANTILLAS.map((p) => p.id), 'no se dibujan todas, en el orden del catálogo');
   for (const p of PLANTILLAS) assert.match(html, new RegExp(`<button type="button" class="gal-tarjeta" data-plantilla="${p.id}"`), `«${p.id}» con otra tarjeta`);
   // Ni la sección aparte, ni los rótulos de antes, ni la sección de los «eliminados».
@@ -298,7 +298,7 @@ test('5. `listarPlantillas` deja afuera los tres eventos en las dos vistas, y la
     'los eventos de MaKo volvieron a listarse (en /mensajes serían un interruptor que no hace nada)');
   // El nuevo agendado es un evento desde la décima tanda: tampoco se lista en /mensajes.
   // Y el pago recibido desde el 11/10/2026 (la pasarela): también es un evento, no un interruptor de /mensajes.
-  assert.deepEqual([...AVISOS_POR_EVENTO].sort(), ['cuota-vencida', 'pago-recibido', 'reunion-nuevo-agendado', 'reunion-recordatorio', 'wa-mensaje-entrante']);
+  assert.deepEqual([...AVISOS_POR_EVENTO].sort(), ['cuota-vencida', 'dashboard-analisis-listo', 'pago-recibido', 'reunion-nuevo-agendado', 'reunion-recordatorio', 'wa-mensaje-entrante']);
   assert.deepEqual(AVISOS_DEL_CLIENTE, [], '«Todos arrancan vacíos»: un mensaje de MaKo del cliente es una automatización');
   // El reporte de los lunes no se mudó: es del super admin y sale como siempre (sólo email).
   assert.ok(AVISOS_SOLO_SUPERADMIN.includes('reporte-semanal'));

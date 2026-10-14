@@ -237,6 +237,8 @@ export function hechosDeLeadNuevo(c: LeadNuevoPrueba = {}): HechosLead {
     etiquetas: new Set(etiqueta != null ? [etiqueta] : []),
     // Por la entrega, la etapa es del kanban de ENTREGA (`catalogo.entrega`), no de la casa.
     etapa: producto == null ? etapa : null,
+    // Entra EN la etapa del CRON: «Sigue en la etapa del CRON» se cumple para él.
+    ...(etapa ? { etapasDelCron: [producto != null ? { tipo: 'entrega' as const, productoId: producto, keys: [etapa] } : { tipo: 'venta' as const, funnelId: funnel, keys: [etapa] }] } : {}),
     ...(funnel != null && etapa && producto == null ? { etapasPorProducto: new Map([[funnel, etapa]]) } : {}),
     agendo: false,
     pago: false,

@@ -9,6 +9,96 @@
 > la montan las dos), el chat de MaKo se abre a la derecha, sin el chip «Conecta tu…», y la tarjeta de Instagram/Messenger con
 > el desplegable de cuentas de Zernio (cada tarjeta guarda la suya; el motor manda sólo por ella). Sin hacer: el chip «Sin
 > conectar», Probar y Publicar miran si hay ALGUNA cuenta y no la elegida; las condiciones de Instagram no miran la cuenta.
+> **13/10/2026 (`claude2`, chat «Chatbot» de la cuenta 2, en `C:/dev/wt-undecima`, rama `undecima`, SIN PUSH hasta que
+> «Fallas en la PC» arregle el typecheck: `tsc` muere sin mensaje en esta PC, el vigía de RAM lo mata):** Martín pidió
+> «que continúen y cierren lo planificado». HECHOS: el 1 (`ae462b56`: plantilla «Un Lead No Avanzó» + la condición
+> «Sigue en la etapa del CRON»; medido: 0 embudos con plazos guardados, nada que migrar) y el 2 (`6e53ff79`: MaKo no crea
+> sobre lo publicado; el ↻ de Probar frena por un medio sin conectar). La limpieza §8.7 (el 6) tiene su medición al día:
+> 0 filas vivas con `{{mensaje_mako}}`, 0 con el CRON del recordatorio, 0 plantillas con el dato. Lo que sigue: el 3
+> (Dashboard; Graphics cerró el área `metricas` con 25 operaciones y espera el id del aviso «El AI Analyst terminó»).
+> **13/10 ~23:00 — más hecho (sin push):** el 3, primera mitad (`2ea2cf81`): el Evento de MaKo «El AI Analyst termina un
+> análisis» (`analisis_listo` → aviso `dashboard-analisis-listo`, datos `analisis_hoja/resumen/hallazgos/link` armados con
+> `valoresDelAnalisis`, plantilla «El AI Analyst Terminó», objetivo nuevo «Medir»). FALTA la emisión (es de Graphics, en
+> `analizarHoja`; se le pasó el id) y la segunda mitad: las acciones del Dashboard en «⚡ Acción» (Graphics cerró el área
+> `metricas`: 25 operaciones, todas `confirmacion: 'chat'`, selector persona → hoja → componente; `leer_bloque_dashboard` y
+> `bloque` ya no existen).
+> **ORDEN NUEVO (13/10, Martín por «Estrategia 3 CUENTAS»: «pasale todos los feedback de las 3 reuniones a los chats y diles
+> que lo implementen completo... De punta a punta»), fuente `C:/Users/marti/Downloads/mako-feedback-y-tareas.md`, YA
+> VALIDADO:** primero los que FRENAN A MAURICIO: (4) las líneas del «＋» no se sueltan ni se guardan al arrastrarlas
+> (Fathom 858927676 @36:37); (5) no salió el mensaje automático de la automatización que configuraron en la llamada, de raíz
+> (@85:50); (8) recordatorios por WhatsApp: los temporizadores no coinciden con los textos (858473424 @44:05). Después,
+> terminar lo frenado (el 3 segunda mitad, Grupos de WhatsApp, la limpieza §8.7 con su medición en 0) y el resto del
+> feedback: (1) la IA no deja configurar «hacer todo sola» en ciertos escenarios (858927676 @13:22); (2) separar bienvenida y
+> seguimiento según si el lead ya habló con Mauricio (@25:25); (3) en esa automatización el delay después del video pasa de
+> 1 día a 2 horas y sale la tarjeta de recordatorio del día anterior (@27:54); (6) arrastrar para reordenar tarjetas y
+> mensajes (858545195 @74:42); (7) un botón para pausar a mano un flujo en prueba (@85:00); (9) el pop-up del recorrido
+> recién cuando la IA terminó (@64:00); (10) el error de crear con IA con su causa (@65:34); (11) guardar o subir un audio
+> en WhatsApp rápido (@75:18). «De punta a punta» = código, migración, API de MaKo si es capacidad nueva, tests probados
+> rompiéndolos, verlo en ws3, bitácora con el pedido literal, relevo y hallazgos.
+> **Bug 5, diagnóstico en curso (13/10 ~23:30, medido en la base):** la #241 de ws13 («Un Lead Agendó Llamada»: aviso al
+> grupo → espera 5 min → WhatsApp «Hola {{nombre}}… Joan te saluda!») tiene 12 inscripciones y las 12 quedan `completada` a
+> los ~2 s de entrar, con `paso_actual` 0 o 1, `ultimo_paso_at` NULL y sin `proximo_envio_at`: no pasan por la espera ni
+> mandan el WhatsApp. La #213 de ws1 NO es esto (su condición «Ya le escribiste» sigue por las dos ramas). Fathom de la
+> llamada 858927676: «call_id not found or access denied» con esta cuenta. Siguiente: ver en lib/nutricion.ts por qué una
+> inscripción se cierra después de la tarjeta de aviso (la acción `avisar_al_equipo` como primera tarjeta) en vez de agendar
+> la espera.
+> **Corrección (13/10 ~23:50):** la #241 NO es el bug: esas inscripciones son de ANTES de que le agregaran la espera y el
+> WhatsApp (13/10 14:08 UTC); hasta ahí el flujo terminaba en el aviso. Reproducido el motor puro sobre sus pasos de hoy:
+> agenda la espera de 5 min y sigue al WhatsApp. Por los minutos de los otros puntos de esa llamada, el flujo tocado sería la
+> #213 de ws1 (editada el 12/10 22:56 AR: video → 2 h, sin el recordatorio del día anterior), pero en ws1 no aparece un lead
+> de prueba en esa ventana (sólo #778 y #23, ganados, sin inscribirse). Falta saber QUÉ se probó: la transcripción de Fathom
+> no se puede leer con la cuenta 2 (se le pidió a Martín). Hipótesis a medir con ese dato: (a) el lead ya estaba inscripto
+> (una inscripción por lead y automatización), (b) una espera en minutos espera al cron (cada cuánto corre el motor).
+> **13/10 ~24:00 — dos pedidos nuevos de Martín (validados):**
+> (A) «toda feature nueva va a la API de MaKo» (memoria `api-mako-con-cada-feature`): las plantillas nuevas ya salen solas
+>  (`IDS_PLANTILLAS` sale de la galería; docs y plugin al día). FALTA lo grande: en main la API sólo edita automatizaciones SIN
+>  ramas, así que tarjetas y condiciones (IG, AI Step, MaKo en WhatsApp, «Sigue en la etapa del CRON») no se configuran por la
+>  API; esas operaciones están en la rama sin subir `wip/api-acciones-0910` (C:/dev/mako-api): se propuso tomar su parte de
+>  Automations después de los bugs 5, 4 y 8. Bug 5 confirmado por Martín: «Un Lead Agendó Llamada» de Mauricio (#213 ws1).
+> (B) Del chat CRM: lo que hace el «CRM automático» (lib/crm-auto.ts, reglas T1-T6 en `AUTO_REGLAS` lib/pipeline.ts:388, flag
+>  `KEY_CRM_AUTO`, cron /api/cron/crm-automatico) pasa a Automations: (1) plantillas que muevan de etapa y hagan las acciones,
+>  una por categoría; (2) revisar si hoy Automations tiene todo (mover etapa, asistencia/grabación de Fathom, días sin agendar,
+>  el chat de WhatsApp) y decirle a Martín qué falta; (3) elegir un EVENTO de Calendly o Cal.com y atarlo a cada etapa de
+>  reunión. El CRM NO apaga el motor hasta que las plantillas lo reemplacen (avisarle, o apagarlo con el flag por workspace).
+>  La puerta para crear desde una plantilla: la op `crear_automatizacion_desde_plantilla` (API) o `POST /api/chat-agent/secuencias`
+>  `{ action: 'crear_desde_plantilla', plantilla, disparador? }` → `crearDesdePlantilla` (lib/plantilla-crear.ts).
+> **Bug 5, PISTAS MEDIDAS (13/10 ~24:10, #213 ws1, Martín confirmó que es ésta):**
+> - lead 2636 (Jesús Gil, reunión 20/10 17:00 UTC): su inscripción (202) está ESTACIONADA en `nodo_actual = 'u11t1440'`, el
+>   recordatorio del día anterior que se BORRÓ del flujo en la llamada (punto 3 del feedback), con `proximo_envio_at` 19/10
+>   17:00. Hay que medir qué hace el motor con un `nodo_actual` que ya no existe (¿cierra sin mandar los de 60 y 15 min?) y,
+>   si es eso, la regla: borrar una tarjeta con leads estacionados los tiene que mover a la siguiente (o Publicar avisar).
+> - lead 2593 (Guillermo Wong, reunión 13/10 17:00 UTC): su inscripción (201) quedó `completada` el 13/10 a las 16:45:21, justo
+>   en el toque de 15 min. Falta mirar en el registro de envíos si le SALIERON los de 60 y 15 min o se cerró sin mandar.
+> - No hubo inscripciones nuevas en la #213 desde el 10/10: el lead que agenda entra por el webhook de agenda (Calendly), no
+>   por moverlo a mano.
+> **Respuestas de Martín (13/10 ~24:15), textual:** «1. Si, el lead de prueba lo creamos, se llama "Marco Bustos". 2. No, eso
+> debería ser una configuración de automations del usuario en todo caso... No lo configures tu, de última ponlo como template.
+> Siempre piensa en todo como un template, en todo caso, si es muy interno de MaKo, como que no pagó su suscripción o algo así...
+> Y esas automatizaciones yo debería configurarlas en SuperAdmin, en este caso SuperAdmin debería tener una opción que el resto
+> no, para poder mandar mensajes a todos los grupos con MaKo. 3. Si, quiero que pueda hacer cosas en el dashboard en incluso en
+> todas las tabs, piensa que otras cosas podría hacer una automatización en las otras tabs.»
+> Qué sale: (1) bug 5 = el lead de prueba «Marco Bustos» en la #213 de ws1: medir su inscripción; (2) el aviso del AI Analyst
+> NO lo decide el código: el evento se emite SIEMPRE (programado y a mano, con el origen como dato) y el negocio decide con la
+> plantilla «El AI Analyst Terminó» (avisarle a Graphics); y NUEVO: automatizaciones internas de MaKo (ej. un cliente no pagó
+> su suscripción) se configuran en SuperAdmin, con una tarjeta que sólo tiene SuperAdmin: «MaKo a todos los grupos» (manda a
+> los grupos de MaKo de todos los clientes); (3) ⚡ Acción con acciones del Dashboard y de TODAS las tabs (pensar cuáles).
+> **Bug 5, el lead de prueba (13/10 ~24:40, medido):** Martín: «lo creamos con el botón de "nuevo lead" en el workspace de
+> Mauricio», nombre «Marco Bustos». NO EXISTE en `leads` (ni en ws1 ni en otro), ni en `propuestas`, ni con su teléfono
+> (5216862805657). El único rastro es un contacto de WhatsApp de ws1 en `evolution_contactos` (del 29/09). En ws1 no se creó NINGÚN
+> lead desde el 10/10. O el alta de «Nuevo lead» no lo guardó (bug del CRM: medir `createLead` con ese teléfono, ¿duplicado?
+> ¿error tragado?), o lo borraron después de la llamada: se le preguntó a Martín. Sin lead no hay inscripción: la #213 no tenía
+> a quién mandarle.
+> **Bug 5, CAUSA y arreglo (14/10 ~00:30, commit 329d1443):** lo que sobrevivió del lead borrado es `lead_audit` (sin FK):
+> el 2660 pasó a «agenda» con la R1 «2026-10-12» SIN hora a las 19:57 de México. El motor lee una fecha sola como mediodía
+> y cerró la inscripción por «la reunión ya pasó». Ahora una fecha sola vale hasta el final del día (`laReunionYaPaso`).
+> Hallazgo en docs/hallazgos-chatbot.md. Falta verlo en ws3 (alta a mano con R1 de hoy, después de las 12).
+> **Pedido de Martín (13/10, durante esto):** «se pueden enviar los videos redondos de WhatsApp, si podemos agregar esa
+> opción a las automatizaciones». Medido: nuestro Evolution (2.3.7) tiene `/message/sendPtv`. Sin hacer.
+> **Bug 5, cierre del dato (13/10 ~24:50):** Martín: el lead «Marco Bustos» SÍ existía; Mauricio lo borró después porque era
+> de prueba. Con el lead se fueron su inscripción y todo rastro: la causa no se puede medir sobre ese lead. Siguiente: reproducir
+> en ws3 con una copia de la #213 (alta con «Nuevo lead», etapa de agenda, ver si inscribe y qué manda). Y un PEDIDO NUEVO de
+> Martín: «Yo como SuperAdmin quiero tener registro de todas las acciones que hace un usuario» (memoria
+> `registro-acciones-superadmin`; preguntado si lo hace este chat o el de Admin).
 > **PENDIENTE, en este orden:**
 > 1. **Plazos de etapa del CRM → plantilla de Automations** (pedido de Martín reenviado por el chat CRM, 12/10: «Si, pasa
 >    a una automatización eso de los plazos... Y ponlo como template en automations. Dile esto al chat de "Chatbot" que lo

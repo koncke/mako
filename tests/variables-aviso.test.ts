@@ -303,9 +303,10 @@ test('⚠️ sin lead, los datos del CRM NO SE MUESTRAN', () => {
   // (11/10/2026: «Lo que arma MaKo» pide además el texto del código: `conMensaje`, sólo un evento de MaKo. Y desde
   // la undécima tanda, el PAGO —`conPago`, «Entra un pago»— y lo que ESCRIBIÓ —`conEscrito`, la charla—.)
   assert.equal(
-    variablesOfrecidas({ conLead: true, conCuota: true, conMensaje: true, conPago: true, conEscrito: true }).flatMap((g) => g.items).length,
+    // 13/10/2026: y el ANÁLISIS del Dashboard (`conAnalisis`, «El AI Analyst termina un análisis»).
+    variablesOfrecidas({ conLead: true, conCuota: true, conMensaje: true, conPago: true, conEscrito: true, conAnalisis: true }).flatMap((g) => g.items).length,
     VARIABLES_AVISO.filter((v) => !v.oculta && v.soloPara !== 'lead').length,
-    'con lead, cuota, el texto del código, el pago y lo escrito se puede resolver TODO lo del equipo',
+    'con lead, cuota, el texto del código, el pago, lo escrito y el análisis se puede resolver TODO lo del equipo',
   );
   // Y los grupos vacíos no se dibujan: un título sin filas promete algo que no está.
   assert.ok(gs.every((g) => g.items.length > 0), 'quedó un grupo vacío en el desplegable');

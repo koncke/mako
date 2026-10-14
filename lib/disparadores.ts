@@ -34,7 +34,7 @@ import { normalizarEtapas, etapasDe, TRIGGER_ETAPA, TRIGGER_ENTREGA, TRIGGER_ETI
 import {
   valorDisparo, valoresDisparo, valoresTrasTocar, valorDeVarios, disparoDeValor, detalleDisparador, nombreEtiqueta, type DisparoActual, type EtiquetaParaDisparo, seccionesDisparo, pedidoDisparo, type OpcionDisparo, type ProductoParaDisparo,
 } from './flujo-conversacion';
-import { claseDe, idDe, puertosDe, raicesSalida, indicePorId, type PasoGrafo } from './flujo-grafo';
+import { claseDe, idDe, puertosDe, raicesSalida, indicePorId, type PasoGrafo, type EtapasDelCron, type HechosLead } from './flujo-grafo';
 import { OP_AVISAR } from './flujo-legado';
 import { partesExplicitas, sanearPartes } from './mensaje-partes';
 import { TRIGGER_RECORDATORIO } from './recordatorio-automatizacion';
@@ -192,7 +192,7 @@ export const EVENTOS_PAGO: readonly EventoCanal[] = [
 ];
 
 /** Cuál de los «Eventos de MaKo» (`EVENTOS_MAKO`). */
-export type SubtipoMako = 'reunion_pronto' | 'lead_contesta' | 'cuota_vencida' | 'lead_agendo' | 'pago_recibido';
+export type SubtipoMako = 'reunion_pronto' | 'lead_contesta' | 'cuota_vencida' | 'lead_agendo' | 'pago_recibido' | 'analisis_listo';
 
 /**
  * LOS EVENTOS DE MAKO (11/10/2026, docs/diseno-mako-en-whatsapp-unificado.md §1): cada uno es un aviso del
@@ -212,7 +212,7 @@ export type SubtipoMako = 'reunion_pronto' | 'lead_contesta' | 'cuota_vencida' |
  * `eventoDeFila` devolvería null para las filas vivas (#239, #240) entre el deploy y el script de la ola 4, y sus avisos
  * dejarían de salir. Ni `apagado`: eso las frenaría al guardar.
  */
-export type EventoMako = EventoCanal & { subtipo: SubtipoMako; aviso: string; trae: ReadonlyArray<'lead' | 'mensaje' | 'cuota' | 'pago' | 'escrito'>; retirado?: true };
+export type EventoMako = EventoCanal & { subtipo: SubtipoMako; aviso: string; trae: ReadonlyArray<'lead' | 'mensaje' | 'cuota' | 'pago' | 'escrito' | 'analisis'>; retirado?: true };
 export const EVENTOS_MAKO: readonly EventoMako[] = [
   { subtipo: 'reunion_pronto', aviso: 'reunion-recordatorio', label: 'Falta media hora para una reunión', trae: ['lead', 'mensaje'], retirado: true },
   { subtipo: 'lead_contesta', aviso: 'wa-mensaje-entrante', label: 'Un lead contesta y MaKo no le respondió', trae: ['lead', 'escrito', 'mensaje'] },
@@ -225,6 +225,10 @@ export const EVENTOS_MAKO: readonly EventoMako[] = [
   // La pasarela de pagos (11/10/2026): el aviso «Entró un pago» lo arma lib/cobros.ts cuando Stripe o Mercado Pago
   // confirman un cobro creado en MaKo. Al equipo (el grupo de MaKo), no al lead: al lead le escribe el CRON «Pagos».
   { subtipo: 'pago_recibido', aviso: 'pago-recibido', label: 'Entra un pago', trae: ['lead', 'pago', 'mensaje'] },
+  // EL DASHBOARD (13/10/2026, pedido de Martín reenviado por Graphics: «que se pueda configurar en automations y
+  // consumir esto»): lo emite el AI Analyst al terminar (`analizarHoja`, lib/graficos-analisis-server.ts) con los datos
+  // de `valoresDelAnalisis`. No es de un lead: el análisis es del negocio, y la automatización le avisa al grupo.
+  { subtipo: 'analisis_listo', aviso: 'dashboard-analisis-listo', label: 'El AI Analyst termina un análisis', trae: ['analisis'] },
 ];
 
 /**
@@ -447,6 +451,28 @@ export function disparadorDeColumnas(row: FilaDisparadores, id = 'd1'): Disparad
  * ⚠️ LAS ETAPAS DEL PRIMERO SALEN DE `etapasDe` (la regla de la 0230): una lista vieja de `etapas` que
  * ya no empieza con `etapa` no cuenta, igual que en el motor.
  */
+/**
+ * LAS ETAPAS DE LOS CRON DE UNA AUTOMATIZACIÓN, para la condición «Sigue en la etapa del CRON» (pedido de Martín reenviado
+ * por el chat CRM, 12/10/2026: los plazos de etapa pasan a una plantilla de Automations: «entra a una etapa → espera N
+ * días → sigue en esa etapa → avisar o mover»). Sólo los CRON de etapa (venta o entrega): uno de etiqueta o de un evento
+ * no tiene etapa. Un CRON de venta sin embudo propio es del embudo de la automatización (`funnelDeLaFila`).
+ */
+export function etapasDelCron(ds: readonly Disparador[], funnelDeLaFila: number | null = null): EtapasDelCron[] {
+  const out: EtapasDelCron[] = [];
+  for (const d of ds) {
+    const keys = etapasDe({ etapa: d.etapa ?? null, etapas: d.etapas ?? null });
+    if (!keys.length) continue;
+    if (d.trigger_tipo === TRIGGER_ETAPA) out.push({ tipo: 'venta', funnelId: d.funnel_id ?? funnelDeLaFila, keys });
+    else if (d.trigger_tipo === TRIGGER_ENTREGA) out.push({ tipo: 'entrega', productoId: d.producto_id ?? null, keys });
+  }
+  return out;
+}
+
+/** Los hechos de un lead con las etapas del CRON de ESTA automatización (cada automatización evalúa con las suyas). */
+export function conEtapasDelCron(h: HechosLead, ds: readonly Disparador[], funnelDeLaFila: number | null = null): HechosLead {
+  return { ...h, etapasDelCron: etapasDelCron(ds, funnelDeLaFila) };
+}
+
 export function disparadoresDe(row: FilaDisparadores): Disparador[] {
   const guardados = sanearDisparadores(row.disparadores);
   const cols = disparadorDeColumnas({ ...row, etapas: etapasDe({ etapa: row.etapa ?? null, etapas: Array.isArray(row.etapas) ? row.etapas : null }) });

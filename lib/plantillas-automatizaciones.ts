@@ -90,7 +90,7 @@ export type FijoDeCanal = typeof TRIGGER_INSTAGRAM | typeof TRIGGER_MESSENGER | 
 // ── El objetivo y el canal: el filtro de la galería (décima tanda) ──────────────────────────────────
 
 /** Para qué sirve una plantilla. A MANO en cada una: no se deduce. */
-export type ObjetivoPlantilla = 'captar' | 'agendar' | 'reunion' | 'recuperar' | 'vender' | 'clientes' | 'cobrar';
+export type ObjetivoPlantilla = 'captar' | 'agendar' | 'reunion' | 'recuperar' | 'vender' | 'clientes' | 'cobrar' | 'medir';
 
 /** El grupo «Objetivo» del filtro, en este orden (el del embudo: de captar a cobrar). */
 export const OBJETIVOS_PLANTILLA: ReadonlyArray<{ id: ObjetivoPlantilla; label: string }> = [
@@ -101,6 +101,7 @@ export const OBJETIVOS_PLANTILLA: ReadonlyArray<{ id: ObjetivoPlantilla; label: 
   { id: 'vender', label: 'Vender' },
   { id: 'clientes', label: 'Clientes' },
   { id: 'cobrar', label: 'Cobrar' },
+  { id: 'medir', label: 'Medir' },
 ];
 
 /** Por dónde sale una plantilla. `mako` = «MaKo en WhatsApp» (el grupo del negocio). */
@@ -254,6 +255,8 @@ const RECIENTE: FilaCondicion = { campo: 'antiguedad', valor: 72 };
  * salir»).
  */
 const REUNION_POR_DELANTE: FilaCondicion = { campo: 'reunion_en', op: 'menor_igual', valor: 720 };
+/** «Sigue en la etapa del CRON»: la etapa la dice el CRON de la automatización (lib/condiciones-catalogo.ts). */
+const SIGUE_EN_LA_ETAPA: FilaCondicion = { campo: 'sigue_en_etapa_cron' };
 
 const HORA = 60;
 const DIA = 24 * HORA;
@@ -412,6 +415,26 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
     ],
   },
   {
+    // (5b) EL PLAZO DE UNA ETAPA (12/10/2026, pedido de Martín reenviado por el chat CRM: «Si, pasa a una automatización
+    // eso de los plazos... Y ponlo como template en automations»). Era el plazo por etapa del CRM
+    // (`funnels.data.umbrales.porEtapa` + el aviso de lib/lead-quieto-aviso.ts). Acá: entra a la etapa, espera el plazo,
+    // y si SIGUE en esa etapa (la del CRON: cambiar el CRON no deja la condición vieja) avisa al equipo. Mover de etapa
+    // se agrega con «⚡ Acción» (la etapa destino es del negocio: una plantilla no la puede saber). Sin AI Step: no le
+    // escribe al lead.
+    id: 'lead-no-avanzo',
+    nombre: 'Un Lead No Avanzó',
+    emoji: '⏳',
+    linea: 'Si un lead sigue en la misma etapa cuando vence el plazo, te avisa en el grupo para que lo muevas.',
+    origen: 'plazos de etapa del CRM (12/10/2026)',
+    objetivo: 'recuperar',
+    cron: { pide: 'etapa_venta', ayuda: 'La etapa a la que le pones plazo.' },
+    pasos: [
+      esperar('lq_e', 3 * DIA, 'lq_c'),
+      condicion('lq_c', [[[SIGUE_EN_LA_ETAPA], 'lq_mk']], null),
+      mako('lq_mk', '⏳ {{nombre_completo}} sigue en {{lead_etapa}} y ya pasó el plazo.\n📱 {{lead_telefono}}\n👉 {{link_lead}}', null),
+    ],
+  },
+  {
     // (6) Junta «Bienvenida al cliente» y «Pedir un testimonio». «Felicitación al terminar una clase» se RETIRA: «cada vez
     // que avanza» es falso (un lead entra UNA vez a cada automatización: unique (lead_id, secuencia_id)).
     id: 'cliente-empezo',
@@ -467,6 +490,21 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
     cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'pago_recibido' },
     pasos: [
       mako('mp_aviso', '💰 *Entró un pago*: {{nombre_completo}} pagó *{{pago_monto}}* por {{pago_pasarela}}.\n🧾 {{pago_concepto}}\n{{pago_tipo}}\n🧪 {{pago_modo}}\n{{pago_alta}}\n\n👉 {{link_lead}}', null),
+    ],
+  },
+  {
+    // (8b) «El AI Analyst terminó» (13/10/2026, la tarea del Dashboard en Automations): el análisis de una hoja del
+    // Dashboard, con sus datos citables (la hoja, el resumen, los hallazgos y el link), que pasa el Dashboard armados con
+    // `valoresDelAnalisis`. No es de un lead: el análisis es del negocio. Cada dato en su renglón (sin valor, se va).
+    id: 'mako-analisis',
+    nombre: 'El AI Analyst Terminó',
+    emoji: '📊',
+    linea: 'Te avisa en el grupo cuando el AI Analyst termina de analizar una hoja del Dashboard.',
+    origen: 'el aviso «Análisis del Dashboard listo» (dashboard-analisis-listo), con los datos del análisis',
+    objetivo: 'medir',
+    cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'analisis_listo' },
+    pasos: [
+      mako('ma_aviso', '📊 *Análisis listo*: {{analisis_hoja}}\n\n{{analisis_resumen}}\n\n{{analisis_hallazgos}}\n\n👉 {{analisis_link}}', null),
     ],
   },
   {
