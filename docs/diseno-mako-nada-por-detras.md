@@ -182,7 +182,7 @@ Con esto se pueden borrar después también la segunda mirada de la antigüedad 
 ## 3. «Stop»
 
 - **Hoy ya existe, por camino.** La rama o el «Si no» sin flecha devuelve `fin` con «la condición termina aquí» (`nutricion-grafo-motor.ts:215-216`), y el motor cierra ESE hilo (`nutricion.ts:3989-4011`, `alcance 'hilo'`). La inscripción termina si no le quedan otros caminos (`nutricion-hilos.ts:225-241`). **No hace falta la tarjeta.**
-- **Lo que falta es que se vea.** La salida vacía se dibuja como un punto con «＋», sin decir que termina (`flujo-conversacion.ts:963-964, 989-992`). Hay que rotularla «Termina».
+- **Lo que falta es que se vea.** La salida vacía se dibuja como un punto con «＋», sin decir que termina (`flujo-conversacion.ts:963-964, 989-992`). Hay que rotularla «Termina». — **HECHO (14/10): las filas con rótulo sin flecha dicen «Termina».**
 - **«Cortar en cualquier momento»** (por ejemplo, se cancela durante un DELAY de 3 días): el motor no despierta un hilo dormido, pero no hace falta. **DELAY → CONDITION → mensaje** evalúa la condición al vencer la espera, justo antes de mandar; durante la espera no sale nada, así que el efecto es el mismo. Los dos casos en que no alcanza:
   1. **El reintento** (sección 2.2): es la pieza clave.
   2. **Los caminos en paralelo**: cada uno necesita su condición. Si eso resulta incómodo, lo mínimo es una propiedad de la salida vacía: «Termina este camino / **Termina toda la automatización**». `resolverControl` devuelve `fin` con `alcance: 'inscripcion'`, la misma vía que ya usa `sin_reunion` (`nutricion.ts:4015`). Para «Un Lead Agendó Llamada» no hace falta: cada camino lleva la suya.
