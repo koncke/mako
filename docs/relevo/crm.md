@@ -33,6 +33,9 @@ Workflows: tanda A `wf_d8dfde6d-689`; catálogo de bloques `wf_70de8f94-88b`, qu
 en wtcrm5 (los journals están en `~/.claude/projects/<proyecto>/debe2ade-…/subagents/workflows/<runId>/journal.jsonl`).
 Al terminar: se revisa cada rama, se mergea en `fb1410`, se corren los tests, se cosecha y se pushea.
 
+**ESTADO AL 14/10 ~13:15. TANDA B1 CORRIENDO OTRA VEZ (`wf_0132bb27-e06`, el mismo run).** fb1410 ya está en origin/main
+(`45fe2cb7f`), y `crm-bloques` mergeó origin/main sin rebase en `2c19b2d69`, la base de los cinco frentes. Uso semanal de
+claude2: 88%. Antes de la B2, medir de nuevo. Lo de abajo es la historia de la pausa:
 **ESTADO AL 14/10 ~12:20. TANDA B1 EN PAUSA (`wf_0132bb27-e06`), hasta que Estrategia 3 CUENTAS avise que entró su push** (la paré
 a los minutos y sin cambios en los worktrees: Estrategia necesita 4 GB libres para pushear, y fb1410 va en ese push. Se
 retoma con `resumeFromRunId`. La tanda B la INTEGRA Estrategia: se le pasa rama y hash, y NO se hace `pull --rebase`)
