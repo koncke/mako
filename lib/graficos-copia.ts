@@ -88,8 +88,9 @@ function vocabularioFijo(campoId: string | null): ReadonlySet<string> | null {
     const fuente = fuenteDe(f);
     const valores = fuente ? dimensionDe(fuente, d)?.valores : undefined;
     if (!valores?.length) return null;
-    const estos = new Set(valores);
-    comun = comun ? new Set([...comun].filter((v) => estos.has(v))) : estos;
+    const estos = new Set<string>(valores);
+    const previo: Set<string> | null = comun;
+    comun = previo ? new Set<string>([...previo].filter((v: string) => estos.has(v))) : estos;
   }
   return comun;
 }

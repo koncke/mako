@@ -896,8 +896,8 @@ export function EditorInforme({
     if (e) agregarComponente(e); else if (t === 'entidad') show(dueno ? 'Este gráfico no abre una ficha' : 'Sólo en un pop-up');
   };
   /** Abre (o cierra, si ya estaba abierto) un flotante anclado a `ancla`. */
-  const alternarMenu = (tipo: Exclude<NonNullable<Menu>['tipo'], 'menuInsertar'>, ancla: HTMLElement) => setMenu((m) => (m && m.tipo === tipo ? null : { ancla, tipo }));
-  const abrirMenu = (tipo: Exclude<NonNullable<Menu>['tipo'], 'menuInsertar'>) => (e: ReactMouseEvent<HTMLElement>) => {
+  const alternarMenu = (tipo: Exclude<NonNullable<Menu>['tipo'], 'menuInsertar' | 'contextual' | 'mako'>, ancla: HTMLElement) => setMenu((m) => (m && m.tipo === tipo ? null : { ancla, tipo }));
+  const abrirMenu = (tipo: Exclude<NonNullable<Menu>['tipo'], 'menuInsertar' | 'contextual' | 'mako'>) => (e: ReactMouseEvent<HTMLElement>) => {
     const ancla = e.currentTarget;
     alternarMenu(tipo, ancla);
   };

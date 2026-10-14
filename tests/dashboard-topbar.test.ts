@@ -197,7 +197,7 @@ test('la topbar: el título y el subtítulo se editan con un clic SIN entrar a E
 
 test('el desplegable de las hojas: «Nueva hoja» PRIMERA siempre, la abierta marcada, y sin poder guardar ni ⋮ ni «Nueva hoja»', () => {
   const hojas = [hoja('h1', 'Marketing'), hoja('h2', 'Comercial'), hoja('h3', 'Closing')];
-  const acciones = { onRenombrar: () => {}, onDuplicar: () => {}, onMover: () => {}, onEliminar: () => {} };
+  const acciones = { onRenombrar: () => {}, onDuplicar: () => {}, onCopiar: () => {}, onMover: () => {}, onEliminar: () => {} };
   const con = renderToStaticMarkup(createElement(MenuHojas, { hojas, activa: 'h2', puedeNueva: true, acciones, onIr: () => {}, onNueva: () => {} }));
   const iNueva = con.indexOf('Nueva hoja');
   assert.ok(iNueva > 0 && iNueva < con.indexOf('Marketing'), '«Nueva hoja» no es la primera opción (punto 1)');
