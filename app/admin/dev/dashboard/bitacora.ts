@@ -375,4 +375,21 @@ export const BITACORA: Hito[] = [
     commits: [{ sha: 'e6818ee0', msg: 'General, tercera vuelta: los bloques son tarjetas de la hoja, la Meta objetivo y la Acción del día por separado, plantillas simples y la vista de celular al editar', lineas: 2679, archivos: 28 }],
     archivos: ['app/dashboard/EditorInforme.tsx', 'app/dashboard/MiniaturaHoja.tsx', 'lib/graficos-muestra.ts', 'app/dashboard/NuevaHoja.tsx', 'app/_ui/usePilaDeshacer.ts', 'tests/dashboard-miniatura-hoja.test.ts'],
   },
+  {
+    fecha: '14 oct', hora: '13:26', chat: 'General', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'Eliminar todas las hojas con «Archivados», y las plantillas como tarjetas con sombra (pedido desde General, para las dos)',
+    pedido: "1. ...Las miniaturas y el título de abajo, deberían estar englobadas en un contendor... Y me gustaría que esos bloques tengan como una sombra, que se separe del fondo. Lo mismo para dashboard.\n5. Me debería dejar eliminar todas las hojas, también para dashboard. Y en el desplegable de las hojas, un texto que diga \"Archivados\" y ahí la opción de eliminar permanentemente. El \"archivados\" como un texto sutil abajo de todas las opciones, como lo tenemos en los filtros del CRM con \"Eliminar filtros\".",
+    puntos: ['Los puntos 1 y 5 de una lista de seis sobre General.'],
+  },
+  {
+    fecha: '14 oct', hora: '13:58', chat: 'General', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Las hojas se archivan, también la última, y las plantillas son tarjetas con sombra',
+    puntos: [
+      'Eliminar una hoja la manda a «Archivados» (al pie del desplegable de hojas): se restaura o se elimina para siempre con un segundo clic.',
+      'Se puede eliminar la última: la pantalla vuelve a «¿Qué vas a crear hoy?».',
+      'Cada plantilla de «¿Qué vas a crear hoy?» es una tarjeta con borde y sombra.',
+    ],
+    commits: [{ sha: 'c73755ec', msg: 'General, quinta vuelta: bloques de un vistazo y en grande, Archivados para las hojas, y la marca de MaKo sin navegar', lineas: 569, archivos: 25 }],
+    archivos: ['app/dashboard/EditorInforme.tsx', 'app/dashboard/Cabecera.tsx', 'app/dashboard/NuevaHoja.tsx', 'lib/graficos-catalogo.ts', 'lib/graficos-tablero.ts', 'tests/dashboard-archivadas.test.ts'],
+  },
 ];

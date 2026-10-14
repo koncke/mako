@@ -3,6 +3,15 @@
 **Al 14/10/2026 (~04:30), claude2.** Lo escribe el chat que hizo el trabajo (primera mano). Lo que costó está en los
 hallazgos de cada área; acá va qué quedó, dónde y qué espera.
 
+## Actualización 14/10/2026 14:00 (claude2, el mismo chat)
+
+**General, quinta vuelta** (`c73755ec`): los seis puntos de las 13:26 (textuales en la bitácora de General). Cada bloque con
+una cosa en grande y la letra en `cqi` (se adapta a media hoja y al celular), plantillas de bloques sin tablas ni series,
+las hojas se archivan (también la última) con «Archivados» al pie del desplegable, las plantillas de «¿Qué vas a crear
+hoy?» como tarjetas con sombra, y la marca de MaKo sin link. **El punto 3 llegó cortado («Elimina») y se le preguntó qué
+eliminar.** Commiteado en `main` local; el push lo hace el orquestador. Rojo ajeno a las 13:55:
+`tests/integracion-sin-salir.test.ts` por dos links del Landing Generator (`faa061ef`).
+
 ## Actualización 14/10/2026 12:50 (claude2, el mismo chat)
 
 **General, cuarta vuelta** (`e6818ee0` + su cosecha): los 8 puntos de Martín de las 11:54 y el de las 12:05 sobre
