@@ -4289,3 +4289,16 @@ hora (`laReunionYaPaso(…, { anclada })`). Test: tests/reunion-fecha-sola-del-d
 
 **Sin hacer:** borrar un lead es un hard delete (`deleteLead`, lib/leads.ts) y no deja quién ni qué. Martín lo pidió
 como registro de TODAS las acciones de un usuario para SuperAdmin (memoria `registro-acciones-superadmin`).
+
+### Un Evento de MaKo que se ofrece sin emisor deja main en rojo, aunque el emisor «sea de otro chat» [avisos · 14/10]
+
+`2ea2cf81` sumó el evento «El AI Analyst termina un análisis» y su plantilla, con la idea de que lo emitiera después el
+chat Graphics. Main quedó con dos tests en rojo (lo avisó el chat CRM): tests/plantillas-viejas.test.ts (test 1, «se le
+muestra al cliente y nada lo emite») y tests/tabs-retiradas.test.ts (un `?hoja=12` de EJEMPLO, en lib/avisos-catalogo.ts
+y lib/variables-aviso.ts, que no es una hoja). Ninguno de los dos estaba en las tandas que corrí: leen el catálogo de
+avisos y el de variables, no el área.
+**Regla:** al tocar `lib/avisos-catalogo.ts`, `lib/variables-aviso.ts` o `EVENTOS_MAKO`, correr también esos dos. Y un
+evento entra con su emisor en el MISMO commit, aunque el emisor viva en el código de otra área (acá, `avisarAnalisisListo`
+en lib/graficos-analisis-server.ts). Un link de ejemplo nombra una hoja real (`?hoja=marketing`).
+
+**Vive en:** `lib/avisos-catalogo.ts` · `lib/variables-aviso.ts` · `lib/graficos-analisis-server.ts`

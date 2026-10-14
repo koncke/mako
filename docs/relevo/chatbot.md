@@ -88,6 +88,16 @@
 > lead desde el 10/10. O el alta de «Nuevo lead» no lo guardó (bug del CRM: medir `createLead` con ese teléfono, ¿duplicado?
 > ¿error tragado?), o lo borraron después de la llamada: se le preguntó a Martín. Sin lead no hay inscripción: la #213 no tenía
 > a quién mandarle.
+> **PEDIDO GRANDE de Martín (14/10 ~01:10): «Depreca absolutamente todas las cosas que MaKo haga por detrás»** (textual en la
+> bitácora; regla en la memoria `mako-nada-por-detras`). Toda regla escondida del motor (ej. «la reunión ya pasó» en
+> procesarEnvios) pasa a una CONDITION visible y configurable; si falta, se crea; los flujos vivos se rehacen con la condición
+> explícita. «Stop»: sólo si no se puede con lo que hay. Inventario: workflow wf_a7729a89-429 (cuatro zonas, verificado).
+> Y CORRIGE el bug 5: el lead se volvió a agendar por CALENDLY (con hora) a las 02:05 y tampoco salió: hay otra regla.
+> **Estrellas (punto 10 de Martín, 13/10), pedido del chat «API de MaKo» (14/10 ~00:45):** el enchufe de automatizaciones
+> ya está escrito en su rama `api-acciones-1310` (C:/dev/mako-api2, sin merge todavía; avisan cuando llegue a main). Lo
+> nuestro: en el «⋯» de cada automatización `<BotonPublicar tipo="automatizacion" origenId={sec.id} nombre={sec.nombre} />`
+> (app/creaciones/PublicarCreacion.tsx); opcional `<BotonEstrella …/>` en las plantillas. NO antes del merge: el import
+> rompe el typecheck. Si se toca lib/flujo-copia.ts o crearDesdeCopia, correr tests/creaciones-automatizacion.test.ts.
 > **Bug 5, CAUSA y arreglo (14/10 ~00:30, commit 329d1443):** lo que sobrevivió del lead borrado es `lead_audit` (sin FK):
 > el 2660 pasó a «agenda» con la R1 «2026-10-12» SIN hora a las 19:57 de México. El motor lee una fecha sola como mediodía
 > y cerró la inscripción por «la reunión ya pasó». Ahora una fecha sola vale hasta el final del día (`laReunionYaPaso`).
