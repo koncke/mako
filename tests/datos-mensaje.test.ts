@@ -96,7 +96,7 @@ function porFuente(): Record<FuenteDato, Set<string>> {
     pago: set(valoresDelPago({ monto: 2300, moneda: 'USD', concepto: 'Mentoría', proveedor: 'stripe', renovacion: false, modo: 'prueba', alta: 'hecha' })),
     escrito: set(valoresDeLoEscrito('¿Puedo cambiar la hora?')),
     // 13/10/2026: lo que pasa el AI Analyst del Dashboard al terminar (`valoresDelAnalisis`).
-    analisis: set(valoresDelAnalisis({ hoja: 'Ventas', resumen: 'Subieron.', hallazgos: ['Uno', 'Dos'], link: 'https://x/dashboard?hoja=1' })),
+    analisis: set(valoresDelAnalisis({ hoja: 'Ventas', resumen: 'Subieron.', hallazgos: ['Uno', 'Dos'], link: 'https://x/dashboard?hoja=1', origen: 'cron' })),
   };
 }
 

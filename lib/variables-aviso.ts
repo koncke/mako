@@ -313,6 +313,7 @@ export const VARIABLES_AVISO: VariableAviso[] = [
   { key: 'analisis_hoja', label: 'Hoja analizada', ejemplo: 'Ventas de octubre', alcance: 'analisis', grupo: 'dashboard', fuente: 'analisis', soloPara: 'equipo' },
   { key: 'analisis_resumen', label: 'Resumen del análisis', ejemplo: 'Las agendas subieron 18% y el costo por lead bajó a US$ 4,10.', alcance: 'analisis', grupo: 'dashboard', fuente: 'analisis', soloPara: 'equipo' },
   { key: 'analisis_hallazgos', label: 'Hallazgos', ejemplo: '• El anuncio «Testimonio 3» trae la mitad de las agendas\n• Los martes se agenda el doble', alcance: 'analisis', grupo: 'dashboard', fuente: 'analisis', soloPara: 'equipo' },
+  { key: 'analisis_origen', label: 'Programado o a mano', ejemplo: 'Programado', alcance: 'analisis', grupo: 'dashboard', fuente: 'analisis', soloPara: 'equipo' },
   { key: 'analisis_link', label: 'Link al análisis', ejemplo: 'https://hola-mako.com/dashboard?hoja=12', alcance: 'analisis', grupo: 'dashboard', fuente: 'analisis', soloPara: 'equipo' },
 
   // ── Campaña: de dónde vino. Son nombres internos (de la campaña, del anuncio): para el equipo.

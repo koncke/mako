@@ -26,6 +26,9 @@ test('los datos del análisis: cada uno en su clave, sin valor no entra, los hal
   assert.ok(v.analisis_hallazgos.startsWith('• a\n• b'));
   assert.equal(v.analisis_link, 'https://hola-mako.com/dashboard?hoja=1&ws=3');
   assert.deepEqual(valoresDelAnalisis({ hoja: '', resumen: null, hallazgos: [], link: 'javascript:alert(1)' }), {}, 'un dato vacío o un link que no es web entró');
+  // El origen viaja como dato: el evento sale siempre y el negocio decide (Martín, 13/10/2026).
+  assert.equal(valoresDelAnalisis({ hoja: 'x', resumen: null, hallazgos: null, link: null, origen: 'cron' }).analisis_origen, 'Programado');
+  assert.equal(valoresDelAnalisis({ hoja: 'x', resumen: null, hallazgos: null, link: null, origen: 'mano' }).analisis_origen, 'A mano');
 });
 
 test('el evento no trae lead (el análisis es del negocio) y sí el análisis; su plantilla avisa al grupo con el link', () => {

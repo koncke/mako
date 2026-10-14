@@ -351,6 +351,11 @@ export type AnalisisDelAviso = {
   hallazgos: ReadonlyArray<string> | null | undefined;
   /** Absoluto y con el `?ws=` (`linkApp('/dashboard?hoja=<id>', ws)`). */
   link: string | null | undefined;
+  /**
+   * Programado (`cron`) o pedido a mano (`mano`). El evento sale SIEMPRE (Martín, 13/10/2026: «eso debería ser una
+   * configuración de automations del usuario... No lo configures tu»): el origen viaja como dato y lo usa el negocio.
+   */
+  origen?: 'cron' | 'mano' | null;
 };
 
 /** Topes del aviso: un WhatsApp al grupo, no el informe entero (el link lleva al resto). */
@@ -372,6 +377,8 @@ export function valoresDelAnalisis(a: AnalisisDelAviso): Record<string, string> 
   if (hallazgos.length) out.analisis_hallazgos = hallazgos.map((h) => `• ${cortar(h, TOPE_HALLAZGO)}`).join('\n');
   const link = String(a.link ?? '').trim();
   if (/^https?:\/\//.test(link)) out.analisis_link = link;
+  if (a.origen === 'cron') out.analisis_origen = 'Programado';
+  else if (a.origen === 'mano') out.analisis_origen = 'A mano';
   return out;
 }
 
