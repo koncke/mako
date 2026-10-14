@@ -276,6 +276,9 @@ export function Flotante({ ancla, onCerrar, etiqueta, ancho, children, clase, al
 
   useEffect(() => {
     const fuera = (e: PointerEvent) => {
+      // Con una capa encima (el modal de /integraciones que abre «Conectar Stripe»), el clic es de ELLA:
+      // cerrar acá se llevaba el modal puesto al primer clic adentro.
+      if (!esElDeArriba()) return;
       const t = e.target as Element | null;
       if (!t || !(t instanceof Element)) return;
       if (ref.current?.contains(t)) return;
