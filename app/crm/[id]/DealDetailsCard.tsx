@@ -25,6 +25,7 @@ import {
   saveDealSectionsAction,
   saveCuotasAction,
   marcarPagoManualAction,
+  registrarPagoSueltoAction,
   quitarSinCobroAction,
   type IdentidadFiscal,
 } from './deal-actions';
@@ -236,7 +237,8 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, {
   const [identidades, setIdentidades] = useState<IdentidadFiscal[] | null>(null);
   const [verContrato, setVerContrato] = useState(false);
   const [verFiscal, setVerFiscal] = useState(false);
-  const [modal, setModal] = useState<{ tipo: 'pagar' | 'comprobante'; pago: Pago } | null>(null);
+  // 'suelto' = «Registrar otro pago»: un cobro que no calza con ninguna cuota (no lleva `pago`).
+  const [modal, setModal] = useState<{ tipo: 'pagar' | 'comprobante'; pago: Pago } | { tipo: 'suelto' } | null>(null);
   // Toast de 5s de deshacer, tanto al MARCAR como al DESMARCAR una cuota.
   const [pagoToast, setPagoToast] = useState<{ pago: Pago; accion: 'marcada' | 'desmarcada' } | null>(null);
   useEffect(() => { if (!pagoToast) return; const t = setTimeout(() => setPagoToast(null), 5000); return () => clearTimeout(t); }, [pagoToast]);
@@ -611,7 +613,12 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, {
         <div style={{ marginTop: 22 }}>
           <div style={{ ...sectLabel, marginBottom: 12 }}>Cuotas</div>
           {!d && (pagos.length === 0 ? (
-            <div style={{ fontSize: 13.5, color: 'var(--faint)' }}>Sin cuotas cargadas. Entra a Editar para agregarlas o sube el contrato.</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ fontSize: 13.5, color: 'var(--faint)' }}>Sin cuotas cargadas. Entra a Editar para armar el plan o sube el contrato.</div>
+              {/* Un pago se registra SIN armar el plan antes (Mauricio, 13/10/2026: «no pude ponerle el tema cuando
+                  es un pago diferente»). */}
+              <button type="button" style={dashedBtn} onClick={() => setModal({ tipo: 'suelto' })}>+ Registrar un pago</button>
+            </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
               {pagos.map((p) => {
@@ -646,6 +653,8 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, {
                   </div>
                 );
               })}
+              {/* Un cobro que no calza con ninguna cuota: un adelanto, un extra, un pago de otro esquema. */}
+              <button type="button" style={{ ...dashedBtn, marginTop: 2 }} onClick={() => setModal({ tipo: 'suelto' })}>+ Registrar otro pago</button>
             </div>
           ))}
 
@@ -816,7 +825,12 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, {
       </section>
 
       {modal?.tipo === 'pagar' && (
-        <PayModal pago={modal.pago} leadId={lead.id} onClose={() => setModal(null)} onDone={(msg) => { const p = modal.pago; setModal(null); setFeedback({ kind: 'ok', msg }); setPagoToast({ pago: p, accion: 'marcada' }); refrescarFicha(); }} />
+        // ⚠️ Con una diferencia pendiente NO va el «Deshacer» del toast: desmarcar la cuota dejaría viva la cuota
+        // nueva de la diferencia, y el plan sumaría de más. Se corrige desmarcando y quitando en Editar.
+        <PayModal pago={modal.pago} leadId={lead.id} onClose={() => setModal(null)} onDone={(msg, conDeshacer) => { const p = modal.pago; setModal(null); setFeedback({ kind: 'ok', msg }); if (conDeshacer) setPagoToast({ pago: p, accion: 'marcada' }); refrescarFicha(); }} />
+      )}
+      {modal?.tipo === 'suelto' && (
+        <PagoSueltoModal leadId={lead.id} onClose={() => setModal(null)} onDone={(msg) => { setModal(null); setFeedback({ kind: 'ok', msg }); refrescarFicha(); }} />
       )}
       {modal?.tipo === 'comprobante' && <ComprobanteModal pago={modal.pago} leadId={lead.id} onClose={() => setModal(null)} />}
 
@@ -831,8 +845,16 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, {
 });
 
 // =============================================================================
-function PayModal({ pago, leadId, onClose, onDone }: { pago: Pago; leadId: number; onClose: () => void; onDone: (msg: string) => void }) {
+/**
+ * Marcar una cuota pagada: con el comprobante (la IA lee monto, fecha y hora) o a mano.
+ *
+ * ⚠️ UN PAGO DE MENOS PREGUNTA QUÉ PASA CON LA DIFERENCIA (Mauricio, 13/10/2026: «yo no pude ponerle el tema cuando es
+ * un pago diferente»). Hasta acá la cuota quedaba pagada por menos y la diferencia DESAPARECÍA del Outstanding. Dos
+ * salidas y nada más: queda pendiente (default: el cliente la sigue debiendo) o es un descuento.
+ */
+function PayModal({ pago, leadId, onClose, onDone }: { pago: Pago; leadId: number; onClose: () => void; onDone: (msg: string, conDeshacer: boolean) => void }) {
   const etiqueta = etiquetaCuota(pago.numero);
+  const [resto, setResto] = useState<'pendiente' | 'descuento'>('pendiente');
   const [step, setStep] = useState<'elegir' | 'manual' | 'extraido'>('elegir');
   const [leyendo, setLeyendo] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -859,10 +881,27 @@ function PayModal({ pago, leadId, onClose, onDone }: { pago: Pago; leadId: numbe
   const confirmar = (datos: { monto?: number | null; fecha: string; hora?: string | null }) => {
     setErr(null);
     startTransition(async () => {
-      try { await marcarPagoManualAction(pago.id, leadId, datos); onDone(`${etiqueta} marcada como pagada`); }
+      try {
+        const r = await marcarPagoManualAction(pago.id, leadId, { ...datos, resto });
+        onDone(r.pendiente != null ? `${etiqueta} cobrada · quedan ${fmtUSD(r.pendiente)} pendientes` : `${etiqueta} marcada como pagada`, r.pendiente == null);
+      }
       catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
     });
   };
+
+  /** Lo que falta para la cuota si se cobra `m` (0 = nada, o se cobró igual o más). */
+  const faltaCon = (m: number | null) => (m != null && m > 0 && m < Number(pago.monto_usd) ? Math.round((Number(pago.monto_usd) - m) * 100) / 100 : 0);
+  /** La pregunta de la diferencia, pegada al botón de confirmar. Sólo aparece si se cobró de menos. */
+  const preguntaResto = (falta: number) => falta > 0 && (
+    <div role="radiogroup" aria-label="Qué pasa con la diferencia" style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 14, padding: '12px 14px', borderRadius: 11, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+      <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>Faltan {fmtUSD(falta)} de la cuota</span>
+      {([['pendiente', 'Quedan pendientes'], ['descuento', 'Es un descuento']] as const).map(([v, l]) => (
+        <label key={v} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5, color: 'var(--ink)', cursor: 'pointer' }}>
+          <input type="radio" name={`resto-${pago.id}`} checked={resto === v} onChange={() => setResto(v)} />{l}
+        </label>
+      ))}
+    </div>
+  );
 
   const rowStyle: CSSProperties = { display: 'flex', justifyContent: 'space-between', fontSize: 13.5, padding: '5px 0', borderBottom: '1px dashed var(--border)' };
   return (
@@ -893,7 +932,8 @@ function PayModal({ pago, leadId, onClose, onDone }: { pago: Pago; leadId: numbe
               <div style={{ ...rowStyle, borderBottom: 'none' }}><span style={{ color: 'var(--dim)' }}>Hora</span><span style={{ color: 'var(--ink)', fontWeight: 600 }}>{ext.hora ?? '—'}</span></div>
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
+          {preguntaResto(faltaCon(ext.monto))}
+          <div style={{ display: 'flex', gap: 8, marginTop: faltaCon(ext.monto) > 0 ? 14 : 0 }}>
             <button type="button" style={{ ...goodBtn, flex: 1, padding: '10px 14px', opacity: pending ? 0.6 : 1 }} disabled={pending} onClick={() => confirmar({ monto: ext.monto, fecha: ext.fecha ?? hoyISO(), hora: ext.hora })}>{pending ? 'Guardando…' : 'Confirmar pago'}</button>
             <button type="button" style={ghostBtn} onClick={() => setStep('elegir')} disabled={pending}>Volver</button>
           </div>
@@ -908,12 +948,53 @@ function PayModal({ pago, leadId, onClose, onDone }: { pago: Pago; leadId: numbe
             <Field label="Fecha"><input className="lead-field" type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} /></Field>
             <Field label="Hora"><input className="lead-field" type="time" value={hora} onChange={(e) => setHora(e.target.value)} /></Field>
           </div>
+          {preguntaResto(faltaCon(parseFloat(monto) || null))}
           <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
             <button type="button" style={{ ...goodBtn, flex: 1, padding: '10px 14px', opacity: pending || !fecha ? 0.6 : 1 }} disabled={pending || !fecha} onClick={() => confirmar({ monto: parseFloat(monto) || null, fecha, hora: hora || null })}>{pending ? 'Guardando…' : 'Guardar pago'}</button>
             <button type="button" style={ghostBtn} onClick={() => setStep('elegir')} disabled={pending}>Volver</button>
           </div>
         </>
       )}
+      {err && <div style={{ ...bannerStyle('err'), marginTop: 12 }}>{err}</div>}
+    </Modal>
+  );
+}
+
+// =============================================================================
+/**
+ * «Registrar otro pago»: un cobro que no calza con ninguna cuota del plan (un adelanto, un extra, un pago de otro
+ * esquema). Entra como una cuota nueva ya cobrada (`registrarPagoSueltoAction`) y suma a lo cobrado del lead. No
+ * cambia el monto de cierre: si fue una venta nueva, se corrige en el deal.
+ */
+function PagoSueltoModal({ leadId, onClose, onDone }: { leadId: number; onClose: () => void; onDone: (msg: string) => void }) {
+  const [monto, setMonto] = useState('');
+  const [fecha, setFecha] = useState(hoyISO());
+  const [hora, setHora] = useState(horaAhora());
+  const [err, setErr] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+  const valor = parseFloat(monto);
+  const listo = Number.isFinite(valor) && valor > 0 && !!fecha;
+  const guardar = () => {
+    if (!listo) return;
+    setErr(null);
+    startTransition(async () => {
+      try { await registrarPagoSueltoAction(leadId, { monto: valor, fecha, hora: hora || null }); onDone(`Pago de ${fmtUSD(valor)} registrado`); }
+      catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
+    });
+  };
+  return (
+    <Modal onClose={onClose}>
+      <h3 style={modalH3}>Registrar otro pago</h3>
+      <p style={modalSub}>Un cobro que no es una cuota del plan.</p>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 12 }}>
+        <Field label="Monto (USD)"><input className="lead-field" type="number" min={0} step="0.01" value={monto} autoFocus onChange={(e) => setMonto(e.target.value)} /></Field>
+        <Field label="Fecha"><input className="lead-field" type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} /></Field>
+        <Field label="Hora"><input className="lead-field" type="time" value={hora} onChange={(e) => setHora(e.target.value)} /></Field>
+      </div>
+      <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+        <button type="button" style={{ ...goodBtn, flex: 1, padding: '10px 14px', opacity: pending || !listo ? 0.6 : 1 }} disabled={pending || !listo} onClick={guardar}>{pending ? 'Guardando…' : 'Registrar pago'}</button>
+        <button type="button" style={ghostBtn} onClick={onClose} disabled={pending}>Cancelar</button>
+      </div>
       {err && <div style={{ ...bannerStyle('err'), marginTop: 12 }}>{err}</div>}
     </Modal>
   );

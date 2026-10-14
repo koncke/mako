@@ -32,7 +32,8 @@ import { etapaVigenteDe } from '@/lib/funnel-etapas';
 // El candado de «calificado»: el mismo que aplica updateLead y que dibuja la ficha.
 import { calificadoSeDescarta } from '@/lib/calificado-reunion';
 import { getJuntasProximas } from '@/lib/queries';
-import { getLeadPlan, getPagosByLead, savePlanPagos, saveLeadPlanManual, marcarPago } from '@/lib/pagos';
+import { getLeadPlan, getPagosByLead, savePlanPagos, saveLeadPlanManual, marcarPago, cobrarCuota, registrarPagoSuelto } from '@/lib/pagos';
+import { centavos, diferenciaPendiente, type RestoDeCobro } from '@/lib/pagos-diferencia';
 import { getResumenLead, linkResumenLead } from '@/lib/lead-resumen';
 import { getWorkspaceActual } from '@/lib/workspace';
 import { getUltimoInsightGenerado, generarInsightLead } from '@/lib/lead-insights';
@@ -970,20 +971,60 @@ export const RUNNERS: Runners = {
       if (input.fechaPago !== undefined && !esFechaIso(input.fechaPago)) return { error: '«fechaPago» tiene que ser una fecha YYYY-MM-DD.' };
       const fechaPago = pagado ? (s(input.fechaPago) ?? (await hoyDelWorkspace(ctx.ws)).hoy) : null;
       const cuota = pago.numero === 0 ? 'el cobro inicial' : `la cuota ${pago.numero}`;
+      // El monto REAL (Mauricio, 13/10/2026: «un pago diferente»). La regla de la diferencia es la de la ficha
+      // (`diferenciaPendiente`, lib/pagos-diferencia.ts), y la escritura también (`cobrarCuota`, lib/pagos.ts).
+      const montoUsd = typeof input.montoUsd === 'number' && Number.isFinite(input.montoUsd) && input.montoUsd > 0 ? centavos(input.montoUsd) : null;
+      if (montoUsd != null && !pagado) return { error: '«montoUsd» va sólo al marcar la cuota como cobrada.' };
+      const resto: RestoDeCobro = input.resto === 'descuento' ? 'descuento' : 'pendiente';
+      const falta = diferenciaPendiente(Number(pago.monto_usd), montoUsd, { yaPagada: false, resto });
+      const distinto = montoUsd != null && montoUsd !== Number(pago.monto_usd);
+      const extra = !distinto ? '' : falta > 0
+        ? ` por ${montoUsd} USD: los ${falta} USD que faltan quedan como una cuota nueva pendiente`
+        : montoUsd! < Number(pago.monto_usd) ? ` por ${montoUsd} USD: los ${centavos(Number(pago.monto_usd) - montoUsd!)} USD que faltan son un descuento` : ` por ${montoUsd} USD`;
       return {
-        payload: { pagoId: pago.id, leadId: lead.id, pagado, fechaPago },
+        payload: { pagoId: pago.id, leadId: lead.id, pagado, fechaPago, ...(distinto ? { montoUsd, resto } : {}) },
         resumen: pagado
-          ? `Marcar ${cuota} de ${lead.nombre} (${pago.monto_usd} USD) como cobrada el ${fechaPago}.`
+          ? `Marcar ${cuota} de ${lead.nombre} (${pago.monto_usd} USD) como cobrada el ${fechaPago}${extra}.`
           : `Desmarcar ${cuota} de ${lead.nombre} (${pago.monto_usd} USD): vuelve a figurar sin cobrar.`,
       };
     },
     ejecutar: (payload, ctx) => seguro('marcar el pago', async () => {
       const pagado = payload.pagado === true;
       const fechaPago = typeof payload.fechaPago === 'string' ? payload.fechaPago : null;
+      if (pagado && fechaPago && typeof payload.montoUsd === 'number') {
+        const r = await cobrarCuota(Number(payload.pagoId), Number(payload.leadId), {
+          monto: payload.montoUsd, fecha: fechaPago, resto: payload.resto === 'descuento' ? 'descuento' : 'pendiente',
+        });
+        const nota = `Cuota cobrada (${fechaPago}) · USD ${r.monto} (era de USD ${r.original})${r.pendiente != null ? ` · quedan USD ${r.pendiente} pendientes` : r.descuento > 0 ? ` · USD ${r.descuento} de descuento` : ''}`;
+        await logLeadEvent(Number(payload.leadId), 'Pago registrado', nota, autorDe(ctx));
+        invalidar('pagos', 'leads');
+        return { ok: true, resumen: `Listo: cuota cobrada el ${fechaPago} por ${r.monto} USD${r.pendiente != null ? `; quedan ${r.pendiente} USD pendientes en una cuota nueva` : ''}.` };
+      }
       await marcarPago(Number(payload.pagoId), pagado, fechaPago);
       await logLeadEvent(Number(payload.leadId), pagado ? 'Pago registrado' : 'Pago desmarcado', pagado ? `Cuota marcada como pagada${fechaPago ? ` (${fechaPago})` : ''}` : 'Cuota desmarcada', autorDe(ctx));
       invalidar('pagos', 'leads');
       return { ok: true, resumen: pagado ? `Listo: cuota marcada como cobrada el ${fechaPago}.` : 'Listo: la cuota volvió a figurar sin cobrar.' };
+    }),
+  },
+  registrar_pago_suelto: {
+    preparar: async (input, ctx) => {
+      const lead = await leadDe(input.leadId);
+      if (!lead) return { error: noExiste(input.leadId) };
+      const montoUsd = typeof input.montoUsd === 'number' && Number.isFinite(input.montoUsd) && input.montoUsd > 0 ? centavos(input.montoUsd) : null;
+      if (montoUsd == null) return { error: 'Falta el monto (un número mayor a cero, en USD).', faltan: ['montoUsd'] };
+      if (input.fechaPago !== undefined && !esFechaIso(input.fechaPago)) return { error: '«fechaPago» tiene que ser una fecha YYYY-MM-DD.' };
+      const fechaPago = s(input.fechaPago) ?? (await hoyDelWorkspace(ctx.ws)).hoy;
+      return {
+        payload: { leadId: lead.id, montoUsd, fechaPago },
+        resumen: `Registrar un pago de ${montoUsd} USD de ${lead.nombre} el ${fechaPago}, fuera del plan de cuotas (no cambia el monto de cierre).`,
+      };
+    },
+    ejecutar: (payload, ctx) => seguro('registrar el pago', async () => {
+      const fecha = String(payload.fechaPago);
+      const r = await registrarPagoSuelto(Number(payload.leadId), { monto: Number(payload.montoUsd), fecha });
+      await logLeadEvent(Number(payload.leadId), 'Pago registrado', `Pago fuera del plan por USD ${r.monto} el ${fecha}`, autorDe(ctx));
+      invalidar('pagos', 'leads');
+      return { ok: true, resumen: `Listo: pago de ${r.monto} USD registrado el ${fecha}.`, datos: { pagoId: r.pagoId } };
     }),
   },
   ignorar_datos_sin_marcar: {

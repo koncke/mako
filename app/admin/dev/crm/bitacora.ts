@@ -2025,4 +2025,26 @@ export const BITACORA: Hito[] = [
       'app/crm/CampanasModal.tsx — sin «N asignadas», fondo gris en línea',
     ],
   },
+  {
+    fecha: '13 oct', hora: '—', chat: 'General', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Los pagos que pidió Mauricio',
+    pedido: 'Soluciona las cosas que pidió Mauricio con la tab GENERAl y los cobros...',
+    puntos: [
+      'De la reunión del 13/10 (min. 87, leído en el transcript), Mauricio: «yo no pude ponerle el tema cuando es un pago diferente». Martín: «tengo que terminar de configurar la pestaña de pagos en el CRM para que esté bien fácil de manejar».',
+    ],
+  },
+  {
+    fecha: '13 oct', hora: '—', chat: 'General', cuenta: 'claude2',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Un pago de menos borraba la diferencia; ahora queda pendiente o es un descuento',
+    puntos: [
+      'El monto ya se podía cambiar al marcar una cuota: lo roto era que la diferencia DESAPARECÍA (la cuota quedaba pagada por menos y el Outstanding bajaba). Ahora un pago de menos pregunta, pegado al botón, si quedan pendientes (una cuota nueva con el mismo vencimiento, el default) o es un descuento.',
+      'Y «Registrar otro pago» para lo que no calza con ninguna cuota (un adelanto, un extra, otro esquema), también en una ficha sin plan. Pasa por `marcarPago`, el choke point de siempre, y no toca el monto de cierre.',
+    ],
+    archivos: [
+      'app/crm/[id]/deal-actions.ts — marcarPagoManualAction (la diferencia), registrarPagoSueltoAction',
+      'app/crm/[id]/DealDetailsCard.tsx — PayModal (la pregunta), PagoSueltoModal',
+    ],
+  },
 ];
