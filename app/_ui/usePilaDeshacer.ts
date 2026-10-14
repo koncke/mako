@@ -57,6 +57,11 @@ export type PilaDeshacer<T> = {
   apilar: (ahora: T) => void;
   deshacer: () => void;
   rehacer: () => void;
+  /**
+   * Olvida todo (atrás y adelante). Para lo que NO es un gesto que se deshace y cambia el estado entero: crear una hoja
+   * del Dashboard o de General. Un paso viejo deshecho después restauraría un estado SIN lo creado.
+   */
+  vaciar: () => void;
   /** Cuántos pasos hay para atrás y para adelante. Es lo que apaga los botones. */
   puedeDeshacer: boolean;
   puedeRehacer: boolean;
@@ -89,6 +94,13 @@ export function usePilaDeshacer<T>(
     adelante.current = [];
     repintar((n) => n + 1);
   }, [tope]);
+
+  const vaciar = useCallback(() => {
+    if (!atras.current.length && !adelante.current.length) return;
+    atras.current = [];
+    adelante.current = [];
+    repintar((n) => n + 1);
+  }, []);
 
   const deshacer = useCallback(() => {
     const pila = atras.current;
@@ -135,6 +147,7 @@ export function usePilaDeshacer<T>(
     apilar,
     deshacer,
     rehacer,
+    vaciar,
     puedeDeshacer: atras.current.length > 0,
     puedeRehacer: adelante.current.length > 0,
   };

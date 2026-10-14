@@ -16,6 +16,8 @@ import type { ConteoFunnel } from '@/lib/general-alcance';
 import type { CobroM } from '@/app/m/dashboard/modelo';
 import type { ResumenComparativo } from '@/lib/queries';
 import type { OkrVista, AlertaVista } from '../datos-tipos';
+import type { ObjectiveConAvance } from '@/lib/objectives';
+import type { Foco } from '@/lib/focus';
 
 const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 export const hoyMuestra = (): string => ymd(new Date());
@@ -101,3 +103,22 @@ export const ALERTAS_MUESTRA: AlertaVista[] = [
   { nivel: 'ambar', titulo: '5 leads sin contactar hace 2 días', href: '/crm', hrefLabel: 'Ver' },
   { nivel: 'verde', titulo: 'Los anuncios entregan bien', href: '/marketing', hrefLabel: 'Ver' },
 ];
+
+/** La Meta objetivo de ejemplo (lo que se pisa sobre los datos de verdad del bloque: el período y la capacidad son reales). */
+export const META_MUESTRA = {
+  objetivo: {
+    id: 'mo', anio: 2026, quarter: 4, titulo: 'Facturar US$30.000 en el trimestre', metrica: 'cash_usd', metaValor: 30000, unidad: 'usd',
+    avanceManual: null, orden: 0, estado: 'activo', origen: 'muestra', actual: 18600, pct: 62, desde: '2026-10-01', hasta: '2026-12-31',
+    ritmo: { esperado: 16500, desvio: 2100, desvioPct: 13, llegadaEstimada: null, alDia: true },
+  } as ObjectiveConAvance,
+  desglose: null,
+  complemento: { label: 'Vendido', valor: 'US$24.000', pie: '', desglose: null },
+  fraccion: 0.55,
+};
+
+/** La Acción del día de ejemplo. */
+export const FOCO_MUESTRA: Foco = {
+  accion: 'Llama a los 4 leads que agendaron y no asistieron', razon: 'Son las agendas más baratas que vas a conseguir esta semana.',
+  resultadoEsperado: 'Agendas de la semana', responsable: 'Tú', progreso: null, siguienteRevision: 'Mañana', origen: 'kpi',
+  alertaIdx: null, href: '/crm', hrefLabel: 'Abrir el CRM', nivel: 'ambar', pideConfigurar: null,
+};

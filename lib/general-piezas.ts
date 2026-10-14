@@ -34,94 +34,153 @@ export type OpcionDeBloque = {
 };
 
 /**
+ * El fondo de un bloque, que lo ofrecen TODOS (14/10/2026, la tercera vuelta; Martín sobre el objetivo: «que no tenga un
+ * diseño dark... Los usuarios pueden elegir cambiarlo en la edición personalizada de cada bloque, pero por defecto tiene
+ * que ser como el resto»). «Como la hoja» es la tarjeta de los gráficos (el tema de la hoja); «Oscuro», la isla oscura de
+ * la General de antes. Lo aplica el editor (app/dashboard/ElementoGeneral.tsx): ningún bloque tiene que saberlo.
+ */
+const FONDO: OpcionDeBloque = { id: 'fondo', nombre: 'Fondo', def: 'claro', valores: [{ id: 'claro', nombre: 'Como la hoja' }, { id: 'oscuro', nombre: 'Oscuro' }] };
+
+/**
  * El catálogo, pensado desde lo que alguien quiere ver al entrar (Martín, el mismo día: «Piensa en todos los bloques que
  * un usuario, con los diferentes funnels que tenemos y en general, todo lo que un usuario podría llegar a querer ver en
  * una tab general»). El ORDEN es el del menú «Bloques de General», que desde la segunda vuelta va sin títulos internos
  * (Martín: «que no tenga titulos internos y que sean una preview de lo que va a ser»), así que el orden ES la agrupación:
- *   · el norte (¿voy bien?): el objetivo con la acción del día, los OKRs, los KPIs y el semáforo;
- *   · hoy (¿qué hago ahora?): las prioridades y los proyectos del Plan, mi día, las próximas llamadas, lo que falta
- *     marcar en el CRM;
+ *   · el norte (¿voy bien?): la meta objetivo, la acción del día, los OKRs, los KPIs y el semáforo;
+ *   · hoy (¿qué hago ahora?): las tareas prioritarias, las prioridades y los proyectos del Plan, los próximos deadlines,
+ *     mi día, las próximas llamadas y lo que falta marcar en el CRM;
  *   · la plata y el funnel (¿cómo viene?): el funnel de hoy, a quién cobrarle y el mes;
  *   · el contenido (¿qué sale esta semana?): las próximas publicaciones.
- * El resto de lo que un negocio puede querer (anuncios, landing, VSL, WhatsApp, automatizaciones) se inserta como
+ * El resto de lo que un negocio puede querer (lo cobrado, los anuncios, la landing, el VSL, WhatsApp) se inserta como
  * GRÁFICO (los pocos de `TIPOS_GENERAL`); las plantillas por tipo de funnel (lib/general-plantillas.ts) lo combinan.
+ *
+ * La tercera vuelta (14/10/2026, Martín con capturas: «Mucho espacio en blanco en el template, bloques que no se ven»,
+ * «Rediseña completamente el grafico de "Objetivo" y "Acción del día", deben ser 2 gráficos diferentes... Y que el primero
+ * se llame "Meta objetivo"» y «Faltan bloques... como el de "Tareas Prioritarias"... si quiero que muestre 1 tarea, 3
+ * tareas, 5, 10... Piensa en cada bloque y como debería poder editarse»):
+ *   · `cabecera` es «Meta objetivo» (el id no cambia: lo guardan los informes) y la acción del día es su propio bloque;
+ *   · entran «Tareas prioritarias» y «Próximos deadlines»;
+ *   · el tamaño de cada uno es el de su CONTENIDO (`w`/`h` en la grilla de 12 columnas y filas de 30 px): un bloque más
+ *     alto que lo que dibuja es el espacio en blanco del reporte.
  *
  * `icono`: el del set de la casa (app/_ui/iconos-menu.tsx) para el desplegable de «Bloque» del panel.
  */
 export const PIEZAS_GENERAL = [
-  { id: 'cabecera', nombre: 'Objetivo y acción del día', icono: 'fijar', linea: 'El avance del trimestre y lo que conviene hacer hoy.', w: 12, h: 10 },
   {
-    id: 'objetivos', nombre: 'OKRs', icono: 'grafico', linea: 'Cada OKR con su avance, contra el tiempo que pasó.', w: 12, h: 8,
+    id: 'cabecera', nombre: 'Meta objetivo', icono: 'fijar', linea: 'El OKR que manda: cuánto llevas, cuánto falta y si vas a tiempo.', w: 6, h: 7,
+    opciones: [
+      { id: 'detalle', nombre: 'Qué muestra', def: 'completo', valores: [{ id: 'completo', nombre: 'Con el ritmo', icono: 'grafico' }, { id: 'simple', nombre: 'Sólo el avance', icono: 'numero' }] },
+      FONDO,
+    ],
+  },
+  {
+    id: 'accion', nombre: 'Acción del día', icono: 'accion', linea: 'Lo que más conviene hacer hoy, y por qué.', w: 6, h: 7,
+    opciones: [
+      { id: 'razon', nombre: 'El porqué', def: 'si', valores: [{ id: 'si', nombre: 'Se ve', icono: 'ver' }, { id: 'no', nombre: 'Oculto', icono: 'ocultar' }] },
+      FONDO,
+    ],
+  },
+  {
+    id: 'objetivos', nombre: 'OKRs', icono: 'grafico', linea: 'Cada OKR con su avance, contra el tiempo que pasó.', w: 12, h: 6,
     opciones: [
       { id: 'estilo', nombre: 'Cómo se ven', def: 'anillos', valores: [{ id: 'anillos', nombre: 'Anillos', icono: 'grafico' }, { id: 'barras', nombre: 'Barras', icono: 'numero' }] },
       { id: 'cuales', nombre: 'Cuáles', def: 'todos', valores: [{ id: 'todos', nombre: 'Todos' }, { id: 'trimestre', nombre: 'Del trimestre' }, { id: 'anio', nombre: 'Del año' }] },
+      FONDO,
     ],
   },
   {
-    id: 'kpis', nombre: 'KPIs', icono: 'numero', linea: 'Los compromisos de la semana, con su registro.', w: 12, h: 10,
+    id: 'kpis', nombre: 'KPIs', icono: 'numero', linea: 'Los compromisos de la semana, con su registro.', w: 12, h: 7,
     opciones: [
       { id: 'cadencia', nombre: 'Cuáles', def: 'todas', valores: [{ id: 'todas', nombre: 'Todos' }, { id: 'diaria', nombre: 'Diarios' }, { id: 'semanal', nombre: 'Semanales' }] },
+      FONDO,
     ],
   },
   {
-    id: 'semaforo', nombre: 'Semáforo del negocio', icono: 'condicion', linea: 'Lo que está en rojo, en ámbar y en verde.', w: 12, h: 9,
+    id: 'semaforo', nombre: 'Semáforo del negocio', icono: 'condicion', linea: 'Lo que está en rojo, en ámbar y en verde.', w: 6, h: 7,
     opciones: [
       { id: 'lamparas', nombre: 'Las lámparas', def: 'si', valores: [{ id: 'si', nombre: 'Se ven', icono: 'ver' }, { id: 'no', nombre: 'Ocultas', icono: 'ocultar' }] },
-      { id: 'limite', nombre: 'Alertas', def: '5', valores: [{ id: '3', nombre: '3' }, { id: '5', nombre: '5' }, { id: 'todas', nombre: 'Todas' }] },
+      { id: 'limite', nombre: 'Alertas', def: '4', valores: [{ id: '3', nombre: '3' }, { id: '4', nombre: '4' }, { id: '6', nombre: '6' }, { id: 'todas', nombre: 'Todas' }] },
+      FONDO,
     ],
   },
   {
-    id: 'prioridades', nombre: 'Prioridades del Plan', icono: 'plan', linea: 'El Objetivo Principal y las tareas que más lo mueven.', w: 12, h: 11,
+    id: 'tareas', nombre: 'Tareas prioritarias', icono: 'check', linea: 'Las tareas del Plan que más mueven la aguja, para completarlas aquí.', w: 6, h: 8,
     opciones: [
-      { id: 'cuantas', nombre: 'Tareas', def: '3', valores: [{ id: '3', nombre: '3' }, { id: '5', nombre: '5' }] },
+      { id: 'cuantas', nombre: 'Cuántas', def: '5', valores: [{ id: '1', nombre: '1' }, { id: '3', nombre: '3' }, { id: '5', nombre: '5' }, { id: '10', nombre: '10' }] },
+      { id: 'vista', nombre: 'Cómo se ven', def: 'lista', valores: [{ id: 'lista', nombre: 'Lista', icono: 'texto' }, { id: 'tarjetas', nombre: 'Tarjetas', icono: 'plan' }] },
+      { id: 'proyecto', nombre: 'El proyecto', def: 'si', valores: [{ id: 'si', nombre: 'Se ve', icono: 'ver' }, { id: 'no', nombre: 'Oculto', icono: 'ocultar' }] },
+      FONDO,
+    ],
+  },
+  {
+    id: 'prioridades', nombre: 'Prioridades del Plan', icono: 'plan', linea: 'El Objetivo Principal y las tareas que más lo mueven.', w: 12, h: 10,
+    opciones: [
+      { id: 'cuantas', nombre: 'Tareas', def: '3', valores: [{ id: '1', nombre: '1' }, { id: '3', nombre: '3' }, { id: '5', nombre: '5' }] },
       { id: 'objetivo', nombre: 'El Objetivo Principal', def: 'si', valores: [{ id: 'si', nombre: 'Se ve', icono: 'ver' }, { id: 'no', nombre: 'Oculto', icono: 'ocultar' }] },
+      FONDO,
     ],
   },
   {
-    id: 'proyectos', nombre: 'Proyectos del Plan', icono: 'producto', linea: 'Los proyectos que más importan, con su avance y su deadline.', w: 12, h: 10,
+    id: 'deadlines', nombre: 'Próximos deadlines', icono: 'calendario', linea: 'Lo que vence pronto en el Plan, y lo que ya se pasó.', w: 6, h: 8,
     opciones: [
-      { id: 'cuantos', nombre: 'Cuántos', def: '4', valores: [{ id: '3', nombre: '3' }, { id: '4', nombre: '4' }, { id: '6', nombre: '6' }] },
-      { id: 'orden', nombre: 'Cuáles', def: 'prioridad', valores: [{ id: 'prioridad', nombre: 'Los más prioritarios', icono: 'arriba' }, { id: 'deadline', nombre: 'Los que vencen antes', icono: 'calendario' }] },
+      { id: 'dias', nombre: 'Los próximos', def: '14', valores: [{ id: '7', nombre: '7 días' }, { id: '14', nombre: '14 días' }, { id: '30', nombre: '30 días' }] },
+      { id: 'que', nombre: 'Qué', def: 'todo', valores: [{ id: 'todo', nombre: 'Tareas y proyectos' }, { id: 'tareas', nombre: 'Tareas', icono: 'check' }, { id: 'proyectos', nombre: 'Proyectos', icono: 'producto' }] },
+      { id: 'vencidos', nombre: 'Los vencidos', def: 'si', valores: [{ id: 'si', nombre: 'Se ven', icono: 'ver' }, { id: 'no', nombre: 'Ocultos', icono: 'ocultar' }] },
+      FONDO,
     ],
   },
   {
-    id: 'agenda', nombre: 'Mi día', icono: 'calendario', linea: 'Lo de hoy en el Calendario: llamadas, bloques, publicaciones y tu Google.', w: 6, h: 10,
+    id: 'proyectos', nombre: 'Proyectos del Plan', icono: 'producto', linea: 'Los proyectos que más importan, con su avance y su deadline.', w: 12, h: 7,
+    opciones: [
+      { id: 'cuantos', nombre: 'Cuántos', def: '4', valores: [{ id: '2', nombre: '2' }, { id: '3', nombre: '3' }, { id: '4', nombre: '4' }, { id: '6', nombre: '6' }] },
+      { id: 'orden', nombre: 'Cuáles', def: 'prioridad', valores: [{ id: 'prioridad', nombre: 'Los más prioritarios', icono: 'arriba' }, { id: 'deadline', nombre: 'Los que vencen antes', icono: 'calendario' }] },
+      FONDO,
+    ],
+  },
+  {
+    id: 'agenda', nombre: 'Mi día', icono: 'calendario', linea: 'Lo de hoy en el Calendario: llamadas, bloques, publicaciones y tu Google.', w: 6, h: 8,
     opciones: [
       { id: 'vista', nombre: 'Cómo se ve', def: 'linea', valores: [{ id: 'linea', nombre: 'Línea de tiempo', icono: 'reloj' }, { id: 'lista', nombre: 'Lista', icono: 'texto' }] },
+      FONDO,
     ],
   },
   {
-    id: 'llamadas', nombre: 'Próximas llamadas', icono: 'telefono', linea: 'Las reuniones del CRM que vienen, con su closer.', w: 6, h: 10,
+    id: 'llamadas', nombre: 'Próximas llamadas', icono: 'telefono', linea: 'Las reuniones del CRM que vienen, con su closer.', w: 6, h: 8,
     opciones: [
       { id: 'dias', nombre: 'Los próximos', def: '7', valores: [{ id: '1', nombre: 'Hoy' }, { id: '3', nombre: '3 días' }, { id: '7', nombre: '7 días' }, { id: '14', nombre: '14 días' }] },
-      { id: 'limite', nombre: 'Cuántas', def: '5', valores: [{ id: '3', nombre: '3' }, { id: '5', nombre: '5' }, { id: '8', nombre: '8' }] },
+      { id: 'limite', nombre: 'Cuántas', def: '4', valores: [{ id: '3', nombre: '3' }, { id: '4', nombre: '4' }, { id: '6', nombre: '6' }, { id: '8', nombre: '8' }] },
+      FONDO,
     ],
   },
-  { id: 'pendientes', nombre: 'Pendientes del CRM', icono: 'check', linea: 'Los leads que falta marcar para que el tablero sea confiable.', w: 12, h: 7 },
+  { id: 'pendientes', nombre: 'Pendientes del CRM', icono: 'check', linea: 'Los leads que falta marcar para que el tablero sea confiable.', w: 6, h: 4, opciones: [FONDO] },
   {
-    id: 'funnel', nombre: 'Tu funnel hoy', icono: 'etapa', linea: 'Cuántos leads hay ahora en cada etapa de tu funnel.', w: 12, h: 8, porFunnel: true,
+    id: 'funnel', nombre: 'Tu funnel hoy', icono: 'etapa', linea: 'Cuántos leads hay ahora en cada etapa de tu funnel.', w: 6, h: 8, porFunnel: true,
     opciones: [
       { id: 'estilo', nombre: 'Cómo se ve', def: 'embudo', valores: [{ id: 'embudo', nombre: 'Embudo', icono: 'etapa' }, { id: 'barras', nombre: 'Barras', icono: 'grafico' }] },
+      FONDO,
     ],
   },
   {
-    id: 'cobranza', nombre: 'A quién cobrarle', icono: 'dinero', linea: 'La próxima cuota de cada cliente, con «Marcar cobrada».', w: 6, h: 10, porFunnel: true,
+    id: 'cobranza', nombre: 'A quién cobrarle', icono: 'dinero', linea: 'La próxima cuota de cada cliente, con «Marcar cobrada».', w: 6, h: 8, porFunnel: true,
     opciones: [
       { id: 'cuales', nombre: 'Cuáles', def: 'todas', valores: [{ id: 'todas', nombre: 'Todas' }, { id: 'vencidas', nombre: 'Sólo vencidas' }] },
-      { id: 'limite', nombre: 'Cuántas', def: '5', valores: [{ id: '5', nombre: '5' }, { id: '10', nombre: '10' }, { id: 'todas', nombre: 'Todas' }] },
+      { id: 'limite', nombre: 'Cuántas', def: '4', valores: [{ id: '4', nombre: '4' }, { id: '6', nombre: '6' }, { id: '10', nombre: '10' }, { id: 'todas', nombre: 'Todas' }] },
+      FONDO,
     ],
   },
   {
-    id: 'mes', nombre: 'El mes', icono: 'grafico', linea: 'Ad Spend, agendas, cierres y lo cobrado contra el mes anterior.', w: 12, h: 8,
+    id: 'mes', nombre: 'El mes', icono: 'grafico', linea: 'Ad Spend, agendas, cierres y lo cobrado contra el mes anterior.', w: 12, h: 5,
     opciones: [
       { id: 'comparar', nombre: 'El mes anterior', def: 'si', valores: [{ id: 'si', nombre: 'Se compara', icono: 'ver' }, { id: 'no', nombre: 'Sin comparar', icono: 'ocultar' }] },
+      FONDO,
     ],
   },
   {
-    id: 'publicaciones', nombre: 'Próximas publicaciones', icono: 'imagen', linea: 'Lo que tienes planeado publicar.', w: 12, h: 8,
+    id: 'publicaciones', nombre: 'Próximas publicaciones', icono: 'imagen', linea: 'Lo que tienes planeado publicar.', w: 12, h: 6,
     opciones: [
       { id: 'dias', nombre: 'Los próximos', def: '7', valores: [{ id: '7', nombre: '7 días' }, { id: '14', nombre: '14 días' }] },
       { id: 'vista', nombre: 'Cómo se ve', def: 'tarjetas', valores: [{ id: 'tarjetas', nombre: 'Tarjetas', icono: 'imagen' }, { id: 'lista', nombre: 'Lista', icono: 'texto' }] },
+      FONDO,
     ],
   },
 ] as const satisfies ReadonlyArray<{

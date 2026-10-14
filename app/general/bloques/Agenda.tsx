@@ -51,7 +51,7 @@ function LineaDeTiempo({ c, items }: { c: Cal; items: ItemCalendario[] }) {
         <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <span style={{ width: 2, flex: 1, background: 'var(--border)' }} />
         </span>
-        <span style={{ margin: '3px 0', padding: '8px 12px', borderRadius: 10, background: `color-mix(in srgb, ${color} 13%, var(--surface))`, borderLeft: `4px solid ${color}`, minWidth: 0 }}>
+        <span style={{ margin: '3px 0', padding: '7px 12px', borderRadius: 10, background: `color-mix(in srgb, ${color} 14%, transparent)`, borderLeft: `4px solid ${color}`, minWidth: 0 }}>
           <span style={{ display: 'block', fontSize: 14, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.titulo}</span>
           <span style={{ display: 'block', fontSize: 12, color: 'var(--dim)' }} className="gb-num">
             {horaDe(it.inicio, c.tz)}{it.fin ? ` – ${horaDe(it.fin, c.tz)}` : ''}{it.detalle ? ` · ${it.detalle}` : ''}
@@ -75,7 +75,7 @@ function LineaDeTiempo({ c, items }: { c: Cal; items: ItemCalendario[] }) {
   );
 }
 
-const FILA: CSSProperties = { display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderTop: '1px solid var(--border)', minWidth: 0, textDecoration: 'none' };
+const FILA: CSSProperties = { gap: 12 };
 const NOMBRE: CSSProperties = { fontSize: 14, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 };
 const META: CSSProperties = { fontSize: 12.5, color: 'var(--dim)', flex: 'none' };
 
@@ -84,7 +84,7 @@ function ListaSimple({ c, items, conDia = false }: { c: Cal; items: ItemCalendar
   return (
     <div>
       {items.map((it) => (
-        <Link key={it.id} href={destino(it)} style={FILA}>
+        <Link key={it.id} href={destino(it)} className="gb-fila" style={FILA}>
           <span aria-hidden style={{ width: 10, height: 10, borderRadius: 3, background: colorDe(it), flex: 'none' }} />
           <span style={{ ...META, minWidth: conDia ? 96 : 50 }} className="gb-num">
             {conDia ? `${diaCorto(diaDe(it.inicio, c.tz), c.hoy, manana)} · ` : ''}{it.diaCompleto ? 'Todo el día' : horaDe(it.inicio, c.tz)}
@@ -141,16 +141,17 @@ function llamadasDe(c: Cal, dias: number, ahora: string | null): ItemCalendario[
 function TarjetasLlamadas({ c, items }: { c: Cal; items: ItemCalendario[] }) {
   const manana = sumarDias(c.hoy, 1);
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <div>
       {items.map((it) => {
         const dia = diaDe(it.inicio, c.tz);
         const color = colorDe(it);
         const cuando = diaCorto(dia, c.hoy, manana);
         return (
-          <Link key={it.id} href={destino(it)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 10, borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface)', textDecoration: 'none', minWidth: 0 }}>
-            <span aria-hidden style={{ flex: 'none', width: 46, height: 50, borderRadius: 10, background: `color-mix(in srgb, ${color} 14%, var(--surface))`, color, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>
+          // Filas con su línea, no una tarjeta por llamada: la fecha en su cuadradito, como un evento de calendario.
+          <Link key={it.id} href={destino(it)} className="gb-fila">
+            <span aria-hidden style={{ flex: 'none', width: 42, height: 44, borderRadius: 10, background: `color-mix(in srgb, ${color} 14%, transparent)`, color, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>
               <span style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em' }}>{diaDeSemana(dia)}</span>
-              <span style={{ fontSize: 20, fontWeight: 700 }} className="gb-num">{Number(dia.slice(8, 10))}</span>
+              <span style={{ fontSize: 18, fontWeight: 700 }} className="gb-num">{Number(dia.slice(8, 10))}</span>
             </span>
             <span style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0, flex: 1 }}>
               <span style={NOMBRE}>{it.titulo}</span>
@@ -213,11 +214,11 @@ function TarjetasPublicaciones({ c, items }: { c: Cal; items: ItemCalendario[] }
       {items.map((it) => {
         const color = it.formato ? COLOR_FORMATO[it.formato] : colorDe(it);
         return (
-          <Link key={it.id} href={destino(it)} style={{ display: 'flex', flexDirection: 'column', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface)', overflow: 'hidden', textDecoration: 'none', minWidth: 0 }}>
+          <Link key={it.id} href={destino(it)} className="gb-losa" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', textDecoration: 'none', minWidth: 0 }}>
             <span aria-hidden style={{ height: 6, background: color }} />
             <span style={{ display: 'flex', flexDirection: 'column', gap: 7, padding: '10px 12px 12px' }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'space-between' }}>
-                <span className="gb-chip" style={{ background: `color-mix(in srgb, ${color} 14%, var(--surface))`, color, borderColor: 'transparent' }}>{it.formato ? ROTULO_FORMATO[it.formato] : 'Publicación'}</span>
+                <span className="gb-chip" style={{ background: `color-mix(in srgb, ${color} 16%, transparent)`, color }}>{it.formato ? ROTULO_FORMATO[it.formato] : 'Publicación'}</span>
                 <span style={{ fontSize: 12, color: 'var(--dim)' }} className="gb-num">{diaCorto(diaDe(it.inicio, c.tz), c.hoy, manana)}</span>
               </span>
               <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.3, overflow: 'hidden', display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 3 }}>{it.titulo}</span>

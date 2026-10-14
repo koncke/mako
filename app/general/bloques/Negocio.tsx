@@ -9,7 +9,6 @@
 // =============================================================================
 
 import type { CSSProperties } from 'react';
-import Link from '@/app/_ui/Link';
 import { fmtUSD, fmtNum } from '@/lib/format';
 import { estadoPendientes } from '@/lib/vista-general-modelo';
 import { opcionDe, numeroDe, type OpcionesElegidas } from '@/lib/general-piezas';
@@ -41,32 +40,30 @@ export function BloquePendientes({ d }: { d: DatosGeneral['pendientes'] }) {
   const total = tipos.reduce((s, t) => s + t.n, 0) || 1;
   return (
     <div className="gb">
-      <Cabeza titulo="Pendientes del CRM" />
+      <Cabeza titulo="Pendientes del CRM" href="/crm" link={estado === 'por-marcar' ? 'Marcar en el CRM' : undefined} />
       {estado === 'por-marcar' ? (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 22, flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <span className="gb-num" style={{ fontSize: 44, fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1, color: 'var(--bad)' }}>{p.total}</span>
-            <span style={{ fontSize: 13, color: 'var(--dim)' }}>leads sin marcar</span>
+        // El número, la barra partida por tipo y la leyenda, uno debajo del otro: entra en media hoja sin saltos.
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}>
+          <span style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+            <span className="gb-num" style={{ fontSize: 34, fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1, color: 'var(--bad)' }}>{p.total}</span>
+            <span style={{ fontSize: 13, color: 'var(--dim)' }}>{p.total === 1 ? 'lead sin marcar' : 'leads sin marcar'}</span>
+          </span>
+          <div aria-hidden style={{ display: 'flex', height: 10, borderRadius: 999, overflow: 'hidden', background: 'var(--gb-losa-2)' }}>
+            {tipos.map((t) => <span key={t.k} style={{ width: `${(t.n / total) * 100}%`, background: t.c }} />)}
           </div>
-          <div style={{ flex: 1, minWidth: 220, display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div aria-hidden style={{ display: 'flex', height: 12, borderRadius: 999, overflow: 'hidden', background: 'var(--surface-2)' }}>
-              {tipos.map((t) => <span key={t.k} style={{ width: `${(t.n / total) * 100}%`, background: t.c }} />)}
-            </div>
-            <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-              {tipos.map((t) => (
-                <span key={t.k} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--dim)' }}>
-                  <span aria-hidden style={{ width: 9, height: 9, borderRadius: 3, background: t.c }} />
-                  <b className="gb-num" style={{ color: 'var(--ink)' }}>{t.n}</b> {t.l}
-                </span>
-              ))}
-            </div>
+          <div style={{ display: 'flex', gap: '6px 14px', flexWrap: 'wrap' }}>
+            {tipos.map((t) => (
+              <span key={t.k} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: 'var(--dim)' }}>
+                <span aria-hidden style={{ width: 8, height: 8, borderRadius: 2, background: t.c }} />
+                <b className="gb-num" style={{ color: 'var(--ink)' }}>{t.n}</b> {t.l}
+              </span>
+            ))}
           </div>
-          <Link href="/crm" className="gb-boton gb-boton--sec">Marcar en el CRM</Link>
         </div>
       ) : (
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <span aria-hidden style={{ flex: 'none', width: 44, height: 44, borderRadius: '50%', display: 'grid', placeItems: 'center', fontSize: 22, fontWeight: 700,
-            background: estado === 'al-dia' ? 'color-mix(in srgb, var(--good) 15%, var(--surface))' : 'color-mix(in srgb, var(--warn-fill) 18%, var(--surface))',
+            background: estado === 'al-dia' ? 'color-mix(in srgb, var(--good) 15%, transparent)' : 'color-mix(in srgb, var(--warn-fill) 18%, transparent)',
             color: estado === 'al-dia' ? 'var(--good)' : 'var(--warn)' }}>{estado === 'al-dia' ? '✓' : '!'}</span>
           <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <span style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)' }}>{estado === 'al-dia' ? 'Datos al día' : 'No pude confirmar que estén al día'}</span>
@@ -95,7 +92,7 @@ function Embudo({ c }: { c: ConteoFunnel }) {
             <div style={{ display: 'grid', gridTemplateColumns: 'minmax(80px, 150px) 1fr 52px', alignItems: 'center', gap: 12 }}>
               <span style={{ fontSize: 13, color: 'var(--dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right' }}>{e.label}</span>
               <span style={{ display: 'flex', justifyContent: 'center' }}>
-                <span style={{ width: `${Math.min(100, ancho)}%`, height: 30, borderRadius: 8, background: e.dot || 'var(--primary)', opacity: e.n ? 1 : 0.25 }} />
+                <span style={{ width: `${Math.min(100, ancho)}%`, height: 26, borderRadius: 7, background: e.dot || 'var(--primary)', opacity: e.n ? 1 : 0.25 }} />
               </span>
               <span className="gb-num" style={{ fontSize: 15, fontWeight: 700, color: e.n ? 'var(--ink)' : 'var(--faint)' }}>{fmtNum(e.n)}</span>
             </div>
@@ -121,7 +118,7 @@ function Barras({ c }: { c: ConteoFunnel }) {
         <div key={e.key} style={{ display: 'grid', gridTemplateColumns: 'minmax(90px, 170px) 1fr 52px', alignItems: 'center', gap: 12 }}>
           <span style={{ fontSize: 13, color: 'var(--dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.label}</span>
           {/* La barra se recorta al 100% y su carril lleva overflow: hidden (AGENTS.md). */}
-          <span style={{ display: 'block', height: 12, borderRadius: 999, background: 'var(--surface-2)', overflow: 'hidden' }}>
+          <span style={{ display: 'block', height: 12, borderRadius: 999, background: 'var(--gb-losa-2)', overflow: 'hidden' }}>
             <span style={{ display: 'block', height: '100%', borderRadius: 999, width: `${Math.min(100, (e.n / tope) * 100)}%`, background: e.dot || 'var(--primary)', opacity: e.n ? 1 : 0 }} />
           </span>
           <span className="gb-num" style={{ textAlign: 'right', fontWeight: 700, fontSize: 14, color: e.n ? 'var(--ink)' : 'var(--faint)' }}>{fmtNum(e.n)}</span>
@@ -202,7 +199,7 @@ function ResumenMes({ c, desgloses, comparar }: { c: ResumenComparativo; desglos
     { label: 'Cash Collected', m: c.cash_usd, f: fmtUSD },
   ];
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 14 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: 12 }}>
       {items.map((it) => {
         const dg = desgloses[it.label];
         const tope = Math.max(it.m.actual, it.m.anterior, 1);
@@ -210,12 +207,13 @@ function ResumenMes({ c, desgloses, comparar }: { c: ResumenComparativo; desglos
         const igual = it.m.actual === it.m.anterior;
         const color = igual ? 'var(--faint)' : it.invertir ? 'var(--dim)' : sube ? 'var(--good)' : 'var(--bad)';
         const delta = it.m.anterior > 0 ? Math.round(((it.m.actual - it.m.anterior) / it.m.anterior) * 100) : null;
-        const tarjeta: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 10, padding: 14, borderRadius: 14, border: '1px solid var(--border)', background: 'var(--surface)', cursor: dg ? 'pointer' : 'default', textAlign: 'left' };
+        // Una LOSA por métrica (./comun.tsx), no una tarjeta dentro de la tarjeta del bloque.
+        const tarjeta: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 8, padding: '12px 14px', borderRadius: 12, background: 'var(--gb-losa)', border: 'none', cursor: dg ? 'pointer' : 'default', textAlign: 'left', font: 'inherit', color: 'inherit' };
         const inner = (
           <>
             <span style={{ fontSize: 13, color: 'var(--dim)' }}>{it.label}</span>
             <span style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-              <span className="gb-num" style={{ fontWeight: 700, fontSize: 26, color: 'var(--ink)', letterSpacing: '-0.02em' }}>{it.f(it.m.actual)}</span>
+              <span className="gb-num" style={{ fontWeight: 700, fontSize: 24, color: 'var(--ink)', letterSpacing: '-0.02em' }}>{it.f(it.m.actual)}</span>
               {comparar && delta != null && !igual && <span className="gb-num" style={{ fontSize: 12.5, fontWeight: 700, color }}>{delta > 0 ? '▲' : '▼'} {Math.abs(delta)}%</span>}
             </span>
             {comparar && (
@@ -223,10 +221,10 @@ function ResumenMes({ c, desgloses, comparar }: { c: ResumenComparativo; desglos
                 {/* ⚠️ La barra recesiva va en `--faint` (contra `--surface-2`, `--border-strong` es invisible), y el valor
                     anterior va en texto: el color nunca es el único portador de un dato. */}
                 <span style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <span style={{ display: 'block', height: 8, borderRadius: 999, background: 'var(--surface-2)', overflow: 'hidden' }}>
+                  <span style={{ display: 'block', height: 6, borderRadius: 999, background: 'var(--gb-losa-2)', overflow: 'hidden' }}>
                     <span style={{ display: 'block', height: '100%', borderRadius: 999, width: `${Math.min(100, (it.m.actual / tope) * 100)}%`, background: color }} />
                   </span>
-                  <span style={{ display: 'block', height: 8, borderRadius: 999, background: 'var(--surface-2)', overflow: 'hidden' }}>
+                  <span style={{ display: 'block', height: 6, borderRadius: 999, background: 'var(--gb-losa-2)', overflow: 'hidden' }}>
                     <span style={{ display: 'block', height: '100%', borderRadius: 999, width: `${Math.min(100, (it.m.anterior / tope) * 100)}%`, background: 'var(--faint)' }} />
                   </span>
                 </span>

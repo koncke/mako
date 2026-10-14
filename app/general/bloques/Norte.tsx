@@ -1,9 +1,9 @@
 'use client';
 
 // =============================================================================
-// Norte — ¿voy bien? El objetivo con la acción del día, los OKRs, los KPIs y el semáforo
+// Norte — ¿voy bien? Los OKRs, los KPIs y el semáforo (la Meta objetivo y la Acción del día viven en ./Meta.tsx)
 // =============================================================================
-// El hero (../Cabecera.tsx), los KPIs (../KpisCard.tsx) y el semáforo son el diseño que Martín fijó el 08/09/2026 y se
+// Los KPIs (../KpisCard.tsx) y el semáforo son el diseño que Martín fijó el 08/09/2026 y se
 // dibujan igual; lo nuevo del 14/10/2026 son sus opciones y los OKRs, que dejan de ser una lista de texto: cada OKR es
 // un anillo con su avance y la marca de dónde debería ir a esta altura (o una barra, si se elige así), y se crea y se
 // edita AHÍ MISMO (Martín: «Hay bloques que en la configuración se deben definir allí mismo ciertas cosas... Como el
@@ -15,7 +15,6 @@ import { fmtUSD, fmtNum } from '@/lib/format';
 import { opcionDe, numeroDe, type OpcionesElegidas } from '@/lib/general-piezas';
 import { DesgloseTrigger } from '../../_components/Desglose';
 import { LinkIntegracion } from '../../_components/ConectarIntegracion';
-import { Cabecera } from '../Cabecera';
 import { KpisCard } from '../KpisCard';
 import { EditarObjetivo } from '../EditarObjetivo';
 import type { DatosGeneral, OkrVista, AlertaVista } from '../datos-tipos';
@@ -23,13 +22,6 @@ import { Cabeza, Fallo, Placeholder } from './comun';
 import { OKRS_MUESTRA, ALERTAS_MUESTRA } from './muestras';
 
 type D<K extends keyof DatosGeneral> = DatosGeneral[K];
-
-// ── El objetivo y la acción del día ─────────────────────────────────────────────────────────────────────────────────
-
-export function BloqueCabecera({ d }: { d: D<'cabecera'> }) {
-  if (!d.ok) return <Fallo titulo="Objetivo y acción del día" error={d.error} />;
-  return <Cabecera {...d.d} />;
-}
 
 // ── Los OKRs ────────────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -44,7 +36,7 @@ function Anillo({ pct, fraccion, color, tam = 92 }: { pct: number | null; fracci
   const cx = tam / 2;
   return (
     <svg width={tam} height={tam} viewBox={`0 0 ${tam} ${tam}`} aria-hidden style={{ flex: 'none', display: 'block' }}>
-      <circle cx={cx} cy={cx} r={r} fill="none" stroke="var(--surface-2)" strokeWidth={9} />
+      <circle cx={cx} cy={cx} r={r} fill="none" stroke="var(--gb-losa-2)" strokeWidth={9} />
       <circle cx={cx} cy={cx} r={r} fill="none" stroke={color} strokeWidth={9} strokeLinecap="round"
         strokeDasharray={`${(v / 100) * c} ${c}`} transform={`rotate(-90 ${cx} ${cx})`} />
       {/* La marca del tiempo: un trazo corto que cruza el aro donde «debería ir». */}
@@ -67,15 +59,16 @@ function Estado({ o }: { o: OkrVista }) {
 
 const S: Record<string, CSSProperties> = {
   grilla: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 },
-  okr: { display: 'flex', alignItems: 'center', gap: 14, padding: 14, borderRadius: 14, border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', minWidth: 0, textAlign: 'left', width: '100%', boxSizing: 'border-box' },
+  // Una LOSA (./comun.tsx), no una tarjeta dentro de la tarjeta.
+  okr: { display: 'flex', alignItems: 'center', gap: 14, padding: 12, cursor: 'pointer', minWidth: 0, textAlign: 'left', width: '100%', boxSizing: 'border-box' },
   okrTit: { fontSize: 14.5, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.3, overflow: 'hidden', display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2 },
   okrMeta: { fontSize: 12.5, color: 'var(--dim)' },
 };
 
 function TarjetaOkr({ o, anio, quarter }: { o: OkrVista; anio: number; quarter: number }) {
   const cuerpo = (
-    <div style={S.okr} title="Editar este OKR">
-      <Anillo pct={o.pct} fraccion={o.fraccion} color={colorOkr(o)} />
+    <div style={S.okr} className="gb-losa" role="button" title="Editar este OKR">
+      <Anillo pct={o.pct} fraccion={o.fraccion} color={colorOkr(o)} tam={78} />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
         <span style={S.okrTit}>{o.titulo}</span>
         <span style={S.okrMeta} className="gb-num">{fmtOkr(o.actual, o.unidad)} de {fmtOkr(o.metaValor, o.unidad)}</span>
@@ -92,12 +85,12 @@ function TarjetaOkr({ o, anio, quarter }: { o: OkrVista; anio: number; quarter: 
 
 function FilaOkr({ o, anio, quarter }: { o: OkrVista; anio: number; quarter: number }) {
   const cuerpo = (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 7, padding: '12px 0', borderTop: '1px solid var(--border)', cursor: 'pointer' }} title="Editar este OKR">
+    <div className="gb-fila" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 7, cursor: 'pointer' }} title="Editar este OKR">
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, minWidth: 0 }}>
         <span style={{ ...S.okrTit, WebkitLineClamp: 1, flex: 1 }}>{o.titulo}</span>
         <span className="gb-num" style={{ fontSize: 14, fontWeight: 700, color: colorOkr(o) }}>{o.pct == null ? '—' : `${o.pct}%`}</span>
       </div>
-      <div aria-hidden style={{ position: 'relative', height: 8, borderRadius: 999, background: 'var(--surface-2)', overflow: 'hidden' }}>
+      <div aria-hidden style={{ position: 'relative', height: 8, borderRadius: 999, background: 'var(--gb-losa-2)', overflow: 'hidden' }}>
         <div style={{ width: `${o.pct ?? 0}%`, height: '100%', borderRadius: 999, background: colorOkr(o) }} />
         <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${Math.round(o.fraccion * 100)}%`, width: 2, background: 'var(--ink)', opacity: 0.4 }} />
       </div>
@@ -130,12 +123,11 @@ export function BloqueOkrs({ d, op }: { d: D<'okrs'>; op?: OpcionesElegidas }) {
   const lista = d.d.lista.filter((o) => cuales === 'todos' || (cuales === 'anio' ? o.quarter == null : o.quarter != null));
   return (
     <div className="gb">
-      <Cabeza titulo="OKRs" extra={`Q${quarter} ${anio}`} />
+      {/* «＋ Nuevo OKR» va en la cabecera, como el link de cualquier bloque: abajo ocupaba un renglón entero. */}
+      <Cabeza titulo="OKRs" extra={`Q${quarter} ${anio}`}
+        accion={lista.length ? <EditarObjetivo objetivo={null} anio={anio} quarter={quarter} disparador={<span className="gb-cab-link">＋ Nuevo OKR</span>} /> : undefined} />
       {lista.length ? (
-        <>
-          <ListaOkrs lista={lista} anio={anio} quarter={quarter} estilo={estilo} />
-          <div style={{ marginTop: 12 }}><NuevoOkr anio={anio} quarter={quarter} secundario /></div>
-        </>
+        <ListaOkrs lista={lista} anio={anio} quarter={quarter} estilo={estilo} />
       ) : (
         <Placeholder
           muestra={<ListaOkrs lista={OKRS_MUESTRA} anio={anio} quarter={quarter} estilo={estilo} />}
@@ -163,7 +155,7 @@ export function BloqueKpis({ d, op }: { d: D<'kpis'>; op?: OpcionesElegidas }) {
   const cadencia = opcionDe('kpis', op, 'cadencia');
   const kpis = cadencia === 'todas' ? d.d.kpis : d.d.kpis.filter((k) => k.cadencia === cadencia);
   // Sin KPIs, KpisCard ya muestra su propuesta (los candidatos que MaKo sugiere, con «agregar»): ése es su placeholder.
-  return <KpisCard kpis={kpis} candidatos={d.d.candidatos} objetivos={d.d.objetivos} objetivoPrincipalId={d.d.objetivoPrincipalId} />;
+  return <div className="gb"><KpisCard kpis={kpis} candidatos={d.d.candidatos} objetivos={d.d.objetivos} objetivoPrincipalId={d.d.objetivoPrincipalId} /></div>;
 }
 
 // ── El semáforo ─────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -179,16 +171,16 @@ function Semaforo({ alertas, lampara, conLamparas, limite, objetivoAtrasado }: {
   const vistas = alertas.slice(0, limite);
   const resto = alertas.length - vistas.length;
   return (
-    <div style={{ display: 'flex', gap: 22, alignItems: 'stretch', flexWrap: 'wrap' }}>
+    <div style={{ display: 'flex', gap: 18, alignItems: 'stretch' }}>
       {conLamparas && (
         // `alignSelf: stretch` y NUNCA `height: 100%`: Safari devuelve cero contra un alto indefinido.
-        <div style={{ flex: 'none', width: 80, alignSelf: 'stretch', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, background: 'var(--sidebar)', borderRadius: 18, padding: '16px 14px' }}>
+        <div style={{ flex: 'none', width: 64, alignSelf: 'stretch', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, background: 'var(--sidebar)', borderRadius: 16, padding: '12px 10px' }}>
           <Lampara color="var(--bad)" encendida={lampara === 'rojo'} />
           <Lampara color="var(--warn-fill)" encendida={lampara === 'ambar'} />
           <Lampara color="var(--good)" encendida={lampara === 'verde'} />
         </div>
       )}
-      <div style={{ flex: 1, minWidth: 240 }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
         {vistas.length === 0 ? (
           <span style={{ fontSize: 15, color: 'var(--dim)' }}>
             {objetivoAtrasado ? 'Ninguna señal en rojo, pero el trimestre va por debajo de lo esperado.' : 'Nada que atender.'}
@@ -200,11 +192,11 @@ function Semaforo({ alertas, lampara, conLamparas, limite, objetivoAtrasado }: {
               const inner = (
                 <>
                   <span aria-hidden style={{ flex: 'none', width: 10, height: 10, borderRadius: '50%', background: c, boxShadow: `0 0 0 4px color-mix(in srgb, ${c} 18%, transparent)` }} />
-                  <span style={{ flex: 1, minWidth: 0, fontSize: 15, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.titulo}</span>
-                  <span style={{ flex: 'none', color: 'var(--faint)', fontSize: 13 }}>{a.desglose ? 'ver detalle →' : `${a.hrefLabel} →`}</span>
+                  <span style={{ flex: 1, minWidth: 0, fontSize: 14, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.titulo}</span>
+                  <span style={{ flex: 'none', color: 'var(--faint)', fontSize: 12.5 }}>{a.desglose ? 'ver detalle →' : `${a.hrefLabel} →`}</span>
                 </>
               );
-              const fila: CSSProperties = { display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '12px 0', textDecoration: 'none', borderTop: i === 0 ? 'none' : '1px solid var(--border)' };
+              const fila: CSSProperties = { display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: i === 0 ? '2px 0 10px' : '10px 0', textDecoration: 'none', borderTop: i === 0 ? 'none' : '1px solid var(--border)' };
               return a.desglose
                 ? <DesgloseTrigger key={i} data={a.desglose} style={fila}>{inner}</DesgloseTrigger>
                 // Una alerta que nombra una integración (un arranque pendiente) abre su modal acá: nunca se sale de la tab.
@@ -221,7 +213,7 @@ function Semaforo({ alertas, lampara, conLamparas, limite, objetivoAtrasado }: {
 function Lampara({ color, encendida }: { color: string; encendida: boolean }) {
   return (
     <span aria-hidden style={{
-      width: 44, height: 44, borderRadius: '50%', background: color,
+      width: 36, height: 36, borderRadius: '50%', background: color,
       ...(encendida ? { boxShadow: `0 0 24px 4px color-mix(in srgb, ${color} 55%, transparent)` } : { opacity: 0.18 }),
     }} />
   );

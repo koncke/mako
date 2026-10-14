@@ -119,6 +119,14 @@ export const CSS = `
 .lk-cuerpo { flex: 1; min-height: 0; display: flex; align-items: stretch; min-width: 0; }
 .lk-lienzo { flex: 1; min-width: 0; overflow-y: auto; overflow-x: hidden; background: var(--bg); }
 .lk-pagina { padding: 14px 24px 40px; box-sizing: border-box; min-width: 0; }
+/* La vista por dispositivo de la edición (./EditorInforme.tsx, DISPOSITIVOS): la página al ancho del dispositivo, con
+   su marco. El ancho lo mide el editor (useContainerWidth), así que por debajo de 640 px es la pila del celular. */
+.lk-lienzo[data-dispositivo] { background: var(--surface-2); }
+.lk-pagina[data-dispositivo] { margin: 18px auto 32px; background: var(--bg); border: 1px solid var(--border-strong); }
+.lk-pagina[data-dispositivo="tableta"] { width: 820px; max-width: calc(100% - 32px); border-radius: 22px; padding: 18px 18px 36px; }
+.lk-pagina[data-dispositivo="movil"] { width: 390px; max-width: calc(100% - 32px); border-radius: 30px; padding: 16px 12px 36px; }
+.lk-disp { display: inline-flex; align-items: center; gap: 2px; }
+.lk-disp .lk-herr[aria-pressed="true"] { background: var(--velo-hover); color: var(--primary); }
 .lk-vacio { display: grid; place-items: center; gap: 12px; padding: 120px 0; color: var(--dim); font-size: 14px; text-align: center; }
 .lk-vacio p { margin: 0; }
 .lk-pila { display: flex; flex-direction: column; gap: 12px; }
@@ -127,6 +135,12 @@ export const CSS = `
 .lk-comp { display: flex; flex-direction: column; gap: 10px; padding: var(--dash-tarjeta-pad, 20px 22px); box-sizing: border-box; background: var(--dash-tarjeta-fondo, var(--surface)); border: 1px solid var(--dash-tarjeta-borde, var(--border)); border-radius: var(--dash-tarjeta-radio, 16px); box-shadow: var(--dash-tarjeta-sombra, none); overflow: hidden; font-family: var(--dash-letra, 'Geist', system-ui, sans-serif); color: var(--ink); min-width: 0; }
 .lk-comp--filete { border-top: 3px solid var(--lk-filete, var(--border-strong)); }
 .lk-comp--elemento { background: transparent; border-color: transparent; box-shadow: none; padding: 0; }
+/* Un bloque de General es una TARJETA DE LA HOJA, como un gráfico (14/10/2026, Martín: «no están interactuando con el
+   diseño de la página»): el marco del tema, y adentro el bloque (app/general/bloques/comun.tsx). --gb-fondo es el fondo
+   de la tarjeta, para lo que se dibuja ENCIMA de ella (la caja del placeholder, las tarjetas del Plan). Con «Fondo:
+   Oscuro» (lib/general-piezas.ts) la tarjeta entera es la isla oscura: los tokens los da vuelta ./ElementoGeneral.tsx. */
+.lk-comp--general { gap: 0; --gb-fondo: var(--dash-tarjeta-fondo, var(--surface)); }
+.lk-comp--general:has(> .gen-pieza[data-oscuro]) { background: var(--sidebar); border-color: var(--sidebar-line); }
 .lk-comp--kpi { justify-content: center; }
 .lk--editando .lk-comp { cursor: move; }
 .lk--editando .lk-comp:hover { outline: 1px dashed var(--border-strong); outline-offset: -1px; }
