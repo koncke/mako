@@ -338,5 +338,29 @@ test('el POST: 303 al link; y cada puerta corta antes de cobrar', async () => {
 });
 
 // =============================================================================
-// PROBADO ROMPIÉNDOLO (14/10/2026): se completa al correr el arnés (ver el final del archivo).
+// PROBADO ROMPIÉNDOLO (14/10/2026), una rotura por vez, corriendo ESTE archivo con
+// tests/rutas-publicas.test.ts (base: 30 pass / 0 fail), con un arnés en el scratchpad que guarda el
+// archivo en memoria, lo rompe, corre y lo reescribe (md5 igual antes y después; nunca `git checkout`).
+// Resultado «pass / fail»:
+//    1. attrsBoton sin `hrefPagoValido`                        → 26 / 4
+//    2. el render lleva el pago también en la vista previa      → 29 / 1
+//    3. el render sin resolver `pago:`                          → 29 / 1
+//    4. el botón de pago abre en otra pestaña                   → 29 / 1
+//    5. la IA sin `pago:` en `destinoBoton`                     → 29 / 1
+//    6. la foto ofrece los productos de una sección oculta     → 29 / 1
+//    7. Mercado Pago cobra desde la landing                     → 29 / 1
+//    8. sin el campo trampa                                     → 28 / 2
+//    9. cualquier host es un dominio propio (sin dominioValido) → 28 / 2
+//   10. el lead de dos fichas: el más nuevo                     → 29 / 1
+//   11. se reusa el pendiente de OTRO producto                  → 29 / 1
+//   12. form-action sin el origen de la app                     → 29 / 1
+//   13. lo escrito vuelve al formulario sin escapar             → 29 / 1
+//   14. el paso lee la base con un slug imposible               → 29 / 1
+//   15. el POST sin tope por email                              → 29 / 1
+//   16. el POST cobra un producto que la foto no ofrece         → 29 / 1
+//   17. el POST no mira que el dominio sea el de ESA landing    → 29 / 1
+//   18. /api/landing-generator/pagar fuera de PUBLICOS          → 29 / 1 (rutas-publicas)
+// Restaurado: 30 / 0. La primera versión del 9 sacaba un `if (esHostDeMako(host)) return null` propio
+// y dio 30 / 0: era código muerto, porque `dominioValido` ya excluye los hosts de MaKo. Se borró el
+// renglón y la rotura pasó a quitar `dominioValido` entero.
 // =============================================================================

@@ -127,7 +127,8 @@ export function origenDelPago(origin: string | null | undefined, op: { appBaseUr
   if (o === propio && (local || esHostDeMako(host))) return { tipo: 'mako' };
   if (u.protocol !== 'https:' || u.port) return null;
   if (esDe(host, HOST_SITIOS) || DOMINIOS_DE_MAKO.some((d) => esDe(host, d))) return { tipo: 'mako' };
-  if (esHostDeMako(host)) return null; // un *.vercel.app que no es el que contesta
+  // Un `*.vercel.app` que no es el que contesta cae acá y vuelve null: `dominioValido` ya excluye todo host
+  // de MaKo (`motivoDominioInvalido`). Un renglón propio para eso era código muerto (lo dijo la rotura).
   return dominioValido(host) ? { tipo: 'dominio', host } : null;
 }
 
