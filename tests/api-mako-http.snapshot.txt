@@ -44,6 +44,7 @@ buscar_lugares_meta
 buscar_tareas_plan
 buscar_tutorial
 cambiar_espera_paso
+cambiar_ficha_funnel
 cancelar_accion
 cancelar_analisis_dashboard
 cancelar_programacion_broadcast
@@ -405,6 +406,7 @@ ver_estado_meta
 ver_estado_onboarding
 ver_estado_pixel
 ver_estado_plantilla_reporte
+ver_ficha_funnel
 ver_ficha_guion
 ver_funnel
 ver_glosario_negocio

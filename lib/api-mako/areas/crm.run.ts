@@ -76,10 +76,13 @@ import { usuarioInstagram } from '@/app/crm/campo-inline';
 import { sugerenciasDeUnCrm, volverAMostrar } from '@/lib/sugerencias-crm-server';
 import { plantillaPorId } from '@/lib/plantillas-automatizaciones';
 import {
-  invalidar, hoyDelWorkspace, esFechaIso, etapasDelFunnelDefault, etapasDelFunnelDeLead, faltantesDeUnLead, leadsFiltrados, conteoPorEtapa,
-  nombresAsignables, marcarPendientesIgnorados, guardarEntradas, guardarDeal, existeIdentidadFiscal, proponerLote,
-  estadoConfirmacion, productosCrm, type ProductoCrm,
+  invalidar, hoyDelWorkspace, esFechaIso, etapasDelFunnelDefault, etapasDelFunnelDeLead, leadsFiltrados, conteoPorEtapa,
+  nombresAsignables, ignorarDatosDeUnLead, todoIgnorado, algoIgnorado, datosSinMarcarDeUnLead, guardarEntradas, guardarDeal,
+  existeIdentidadFiscal, proponerLote, estadoConfirmacion, productosCrm, type ProductoCrm,
 } from './crm.helpers';
+import { leerFichaDeFunnel, cambiarFichaDeFunnel, type FichaDelFunnel } from '@/lib/ficha/config-server';
+import { aplicarCambio, describirCambio, sanearCambio } from '@/lib/ficha/config';
+import { cambioDeInputApi, salidaFichaApi } from '@/lib/ficha/api';
 
 /** Los campos del Deal Details por sección: el parámetro plano es `<seccion>_<campo>`. */
 const CAMPOS_DEAL = {
@@ -304,6 +307,18 @@ async function seguro(que: string, fn: () => Promise<Ejecutado>): Promise<Ejecut
   }
 }
 
+// ── la ficha del lead por bloques (ver_ficha_funnel, cambiar_ficha_funnel) ────
+
+/** La ficha del CRM pedido (sin embudoId, el principal), o el error con los CRM que hay. */
+async function fichaDelCrm(embudoId: unknown): Promise<FichaDelFunnel | { error: string; disponibles?: unknown }> {
+  const pedido = n(embudoId) ?? null;
+  let f: FichaDelFunnel | null;
+  try { f = await leerFichaDeFunnel(pedido); } catch { return { error: 'No pude leer ese CRM. Intenta de nuevo.' }; }
+  if (f) return f;
+  const crms = await productosCrm().catch(() => null);
+  return { error: pedido == null ? 'Este negocio todavía no tiene un CRM.' : `El CRM #${pedido} no es de este negocio.`, disponibles: crms?.map((p) => ({ embudoId: p.embudoId, nombre: p.nombre })) };
+}
+
 // ── los runners ───────────────────────────────────────────────────────────────
 
 export const RUNNERS: Runners = {
@@ -386,11 +401,17 @@ export const RUNNERS: Runners = {
   },
   faltantes_del_lead: {
     leer: (input) => conLead(input, async (lead) => {
-      const [faltan, stages] = await Promise.all([faltantesDeUnLead(lead), etapasDelFunnelDeLead(lead)]);
+      const [{ faltan, avisan, apagados }, stages] = await Promise.all([datosSinMarcarDeUnLead(lead), etapasDelFunnelDeLead(lead)]);
+      // `avisan` es lo que cuenta «N sin marcar» de su ficha y su fila en «A revisar» (la ficha de SU funnel):
+      // si MaKo dijera otro número, contradiría la pantalla.
+      const siAvisa = new Set(avisan.map((f) => f.id));
+      const apagado = new Set<string>(apagados);
       return json({
         lead_id: lead.id, nombre: lead.nombre, etapa: etapaVigenteDe(lead, stages),
         al_dia: faltan.length === 0, faltan: faltan.map((f) => ({ id: f.id, label: f.label })),
-        ...(lead.pendientes_ignorados ? { ignorados_desde: lead.pendientes_ignorados, nota: 'Sus pendientes están ignorados: no cuentan en «Datos sin marcar», pero siguen faltando.' } : {}),
+        sin_marcar: avisan.length,
+        no_avisan: faltan.filter((f) => !siAvisa.has(f.id)).map((f) => ({ id: f.id, label: f.label, por: apagado.has(f.id) ? 'este CRM no avisa de ese dato' : 'ignorado' })),
+        ...(lead.pendientes_ignorados ? { ignorados_desde: lead.pendientes_ignorados } : {}),
       });
     }),
   },
@@ -739,6 +760,39 @@ export const RUNNERS: Runners = {
       // Sin cambio, «Listo» sería un éxito falso: ya estaba a la vista (otra persona o venció).
       if (!v.cambio) return { ok: false, resumen: 'Esa sugerencia ya estaba a la vista: no se cambió nada.' };
       return { ok: true, resumen: 'Listo: la sugerencia vuelve a la lista de ese CRM.' };
+    }),
+  },
+
+  // ── La ficha del lead por bloques (14/10/2026) ──────────────────────────────
+  ver_ficha_funnel: {
+    leer: async (input) => {
+      const f = await fichaDelCrm(input.embudoId);
+      if ('error' in f) return fallo(json(f));
+      return json(salidaFichaApi(f));
+    },
+  },
+  cambiar_ficha_funnel: {
+    preparar: async (input) => {
+      const f = await fichaDelCrm(input.embudoId);
+      if ('error' in f) return f;
+      const c = cambioDeInputApi(input);
+      if ('error' in c) return c;
+      // Todo lo que se puede saber sin escribir falla acá (AGENTS.md, «Confirmar RECLAMA antes de ejecutar»):
+      // el mismo `aplicarCambio` que corre al confirmar, sobre la ficha de hoy.
+      const r = aplicarCambio(f.guardada, c, f.eleccion.id, f.respaldo);
+      if (!r.ok) return { error: r.error };
+      if (!r.cambio) return { error: 'La ficha ya está así.', yaEstaba: true };
+      return { payload: { embudoId: f.funnel.id, cambio: c }, resumen: `${describirCambio(c)}, en la ficha de «${f.funnel.nombre}» (para todos sus leads).` };
+    },
+    ejecutar: (payload) => seguro('cambiar la ficha', async () => {
+      const c = sanearCambio(payload.cambio);
+      if ('error' in c) return { ok: false, resumen: c.error };
+      const r = await cambiarFichaDeFunnel(Number(payload.embudoId), c);
+      if (!r.ok) return { ok: false, resumen: r.error };
+      if (!r.cambio) return { ok: false, resumen: 'La ficha ya estaba así: no se cambió nada.' };
+      // Los avisos de la ficha cambian lo que cuenta «Datos sin marcar» (la caché de leads).
+      invalidar('leads');
+      return { ok: true, resumen: `Listo: ${describirCambio(c)}.` };
     }),
   },
 
@@ -1092,27 +1146,32 @@ export const RUNNERS: Runners = {
       return { ok: true, resumen: `Listo: pago de ${r.monto} USD registrado el ${fecha}.`, datos: { pagoId: r.pagoId } };
     }),
   },
+  // Ignoran IGUAL que la pantalla (14/10/2026): en `datos_ignorados`, por la misma escritura que la ficha
+  // y la ✕ de «A revisar» (ignorarDatosDeUnLead, crm.helpers.ts). Lo ignorado sale en «Ver más».
   ignorar_datos_sin_marcar: {
     preparar: async (input) => {
       const lead = await leadDe(input.leadId);
       if (!lead) return { error: noExiste(input.leadId) };
-      if (lead.pendientes_ignorados) return { error: `Los pendientes de ${lead.nombre} ya están ignorados desde ${lead.pendientes_ignorados}.` };
-      return { payload: { leadId: lead.id }, resumen: `Ignorar los datos sin marcar de ${lead.nombre} (siguen visibles en su ficha).` };
+      if (lead.pendientes_ignorados) return { error: `Los datos sin marcar de ${lead.nombre} ya están ignorados desde ${lead.pendientes_ignorados}.`, yaEstaba: true };
+      if (todoIgnorado(lead)) return { error: `Los datos sin marcar de ${lead.nombre} ya están ignorados.`, yaEstaba: true };
+      return { payload: { leadId: lead.id }, resumen: `Ignorar los datos sin marcar de ${lead.nombre}: dejan de contar y quedan en «Ver más», donde se pueden volver a mostrar. La asistencia a una reunión pasada sigue avisando.` };
     },
-    ejecutar: (payload, ctx) => seguro('ignorar los pendientes', async () => {
-      await marcarPendientesIgnorados(Number(payload.leadId), true, autorDe(ctx));
-      return { ok: true, resumen: `Listo: los pendientes del lead #${String(payload.leadId)} ya no cuentan en «Datos sin marcar».` };
+    ejecutar: (payload, ctx) => seguro('ignorar los datos sin marcar', async () => {
+      const r = await ignorarDatosDeUnLead(Number(payload.leadId), true, autorDe(ctx));
+      if (!r.ok) return { ok: false, resumen: r.error };
+      return { ok: true, resumen: `Listo: los datos del lead #${String(payload.leadId)} ya no cuentan en «Datos sin marcar».` };
     }),
   },
   reactivar_datos_sin_marcar: {
     preparar: async (input) => {
       const lead = await leadDe(input.leadId);
       if (!lead) return { error: noExiste(input.leadId) };
-      if (!lead.pendientes_ignorados) return { error: `Los pendientes de ${lead.nombre} no están ignorados.` };
-      return { payload: { leadId: lead.id }, resumen: `Volver a contar los datos sin marcar de ${lead.nombre}.` };
+      if (!algoIgnorado(lead)) return { error: `${lead.nombre} no tiene datos sin marcar ignorados.`, yaEstaba: true };
+      return { payload: { leadId: lead.id }, resumen: `Volver a contar todos los datos sin marcar de ${lead.nombre}.` };
     },
-    ejecutar: (payload, ctx) => seguro('reactivar los pendientes', async () => {
-      await marcarPendientesIgnorados(Number(payload.leadId), false, autorDe(ctx));
+    ejecutar: (payload, ctx) => seguro('volver a contar los datos sin marcar', async () => {
+      const r = await ignorarDatosDeUnLead(Number(payload.leadId), false, autorDe(ctx));
+      if (!r.ok) return { ok: false, resumen: r.error };
       return { ok: true, resumen: `Listo: el lead #${String(payload.leadId)} vuelve a contar en «Datos sin marcar».` };
     }),
   },

@@ -97,6 +97,10 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['POST', '/crm/etiquetas', 'crear_etiqueta'],
   ['PATCH', '/crm/etiquetas/{etiquetaId}', 'editar_etiqueta'],
   ['PUT', '/crm/etiquetas/{etiquetaId}/archivado', 'archivar_etiqueta'],
+  // La ficha del lead por bloques de UN CRM (14/10/2026): el CRM va por `?embudoId=` (opcional: sin él, el
+  // principal), como `/crm/sugerencias`. PATCH porque cambia UNA parte (un bloque, un aviso, el estilo).
+  ['GET', '/crm/ficha', 'ver_ficha_funnel'],
+  ['PATCH', '/crm/ficha', 'cambiar_ficha_funnel'],
   ['POST', '/crm/importaciones', 'proponer_leads'],
   ['GET', '/crm/leads', 'listar_leads'],
   ['POST', '/crm/leads', 'proponer_lead'],
