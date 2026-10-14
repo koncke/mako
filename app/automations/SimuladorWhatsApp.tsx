@@ -61,7 +61,7 @@
 //   · «Enviado · revisa tu WhatsApp» lo pide PanelProbar (`onEnviado`) y el <Toast> vive en la raíz, fuera de la capa
 //     de Probar: ver `avisoEnviado`.
 
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Dropdown } from '../components/Dropdown';
 import { Confirm } from '@/app/_ui/Confirm';
 import { Toast, useToast } from '@/app/_ui/Toast';
@@ -77,6 +77,9 @@ import type { AudioSetting, SecuenciaDto, Opcion } from './ChatAgentApp';
 import { TOPE_NOMBRE_SECUENCIA, nombreParaGuardar, type Objetivo } from '@/lib/setting-estrategia';
 import { muelles as calcularMuelles, MUELLE } from '@/lib/lienzo-grafo';
 import { enviosDePasos, pasaFiltroLista, type FilaFiltrable } from '@/lib/chatbot-lista-filtro';
+// El modal de las estrellas, DIFERIDO: arrastra las server actions de app/creaciones, y la lista (y sus tests, que
+// importan `opcionesDeFila`) no tiene por qué cargarlas hasta que alguien elige «Publicar en Creaciones».
+const PublicarCreacion = lazy(() => import('@/app/creaciones/PublicarCreacion').then((m) => ({ default: m.PublicarCreacion })));
 
 export const EMOJI_OBJETIVO: Record<Objetivo, string> = { agendar: '📅', preparar: '🎯', reactivar: '🧲', cualificar: '❓', confirmar_pago: '💳' };
 
@@ -154,7 +157,7 @@ export function listaConCreando(lista: readonly SecuenciaDto[], creando: Creando
  * `data:`, con la papelera en un rojo copiado a mano.
  */
 export const ICONOS_FILA = {
-  activar: 'activar', pausar: 'pausar', renombrar: 'renombrar', duplicar: 'duplicar', copiar: 'copiar', descartar: 'restaurar', eliminar: 'borrar',
+  activar: 'activar', pausar: 'pausar', renombrar: 'renombrar', duplicar: 'duplicar', copiar: 'copiar', publicar: 'subir', descartar: 'restaurar', eliminar: 'borrar',
 } as const satisfies Record<string, NombreIconoMenu>;
 
 /**
@@ -170,7 +173,7 @@ export const ICONOS_FILA = {
  * «RENOMBRAR» (undécima tanda, punto 5: «Quiero que en los 3 puntos exista la opción de renombrar»): segunda, en
  * todas las filas. No pide nada al elegirla: la fila pasa a ser un campo (`accionFila` → `renombrando`).
  */
-export function opcionesDeFila(activa: boolean, conCambios = false): Array<{ value: 'activa' | 'renombrar' | 'duplicar' | 'copiar' | 'descartar' | 'eliminar'; label: string; icono: NombreIconoMenu }> {
+export function opcionesDeFila(activa: boolean, conCambios = false): Array<{ value: 'activa' | 'renombrar' | 'duplicar' | 'copiar' | 'publicar_creacion' | 'descartar' | 'eliminar'; label: string; icono: NombreIconoMenu }> {
   return [
     { value: 'activa', label: activa ? 'Pausar' : 'Activar', icono: activa ? ICONOS_FILA.pausar : ICONOS_FILA.activar },
     { value: 'renombrar', label: 'Renombrar', icono: ICONOS_FILA.renombrar },
@@ -178,6 +181,10 @@ export function opcionesDeFila(activa: boolean, conCambios = false): Array<{ val
     // «COPIAR FLUJO» (10/10/2026: «que esté en los 3 puntos de cada flujo en la sidebar... por si un usuario
     // de MaKo le quiere compartir un flujo que creó a otro»). Va al portapapeles (lib/flujo-copia.ts).
     { value: 'copiar', label: 'Copiar flujo', icono: ICONOS_FILA.copiar },
+    // LAS ESTRELLAS (punto 10 de Martín, 13/10/2026; el enchufe es del chat de la API, lib/creaciones-enchufes.ts): sube
+    // lo PUBLICADO de esta automatización a la galería /creaciones, limpio de lo propio del negocio. «Publicar» a secas
+    // ya es subir el borrador al flujo vivo: por eso dice «en Creaciones».
+    { value: 'publicar_creacion', label: 'Publicar en Creaciones', icono: ICONOS_FILA.publicar },
     ...(conCambios ? [{ value: 'descartar' as const, label: 'Descartar cambios', icono: ICONOS_FILA.descartar }] : []),
     { value: 'eliminar', label: 'Eliminar', icono: ICONOS_FILA.eliminar },
   ];
@@ -513,6 +520,8 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
     }
   };
   const [aEliminar, setAEliminar] = useState<SecuenciaDto | null>(null);
+  /** La que se está publicando en la galería de Creaciones (el modal de app/creaciones/PublicarCreacion.tsx). */
+  const [aPublicar, setAPublicar] = useState<SecuenciaDto | null>(null);
   const [eliminando, setEliminando] = useState(false);
   /** La copia recién creada: se abre cuando llegue en la lista (si no hay nada sin publicar). */
   const [abrirCopia, setAbrirCopia] = useState<number | null>(null);
@@ -581,6 +590,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
     // «Renombrar» no pide nada: la fila pasa a ser un campo (`guardarNombre` escribe al salir).
     if (accion === 'renombrar') { setErrFila(null); setRenombrando(j.id); return; }
     if (accion === 'copiar') { setErrFila(null); await copiarFlujo(j); return; }
+    if (accion === 'publicar_creacion') { setErrFila(null); setAPublicar(j); return; }
     if (accion === 'descartar') {
       setErrFila(null);
       if (j.id === selId && descartarBorrador.current) { descartarBorrador.current(); setSinPublicar(false); return; }
@@ -862,6 +872,11 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
       )}
 
       {/* Eliminar ARCHIVA: la confirmación de la casa, una frase pegada al botón. */}
+      {aPublicar && (
+        <Suspense fallback={null}>
+          <PublicarCreacion tipo="automatizacion" origenId={aPublicar.id} nombre={aPublicar.nombre} onCerrar={() => setAPublicar(null)} />
+        </Suspense>
+      )}
       {aEliminar && (
         <Confirm
           message={`«${aEliminar.nombre}» deja de enviar y sale de la lista.`}
