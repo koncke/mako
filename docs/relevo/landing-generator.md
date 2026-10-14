@@ -43,3 +43,30 @@ Pendiente (con su archivo):
 2. El botón de pago no arma el link desde la pasarela de MaKo (`lib/cobros.ts`, `crearCobro`): hoy se pega el link de Stripe o Mercado Pago.
 3. Tres tests rojos en main que NO son de esta área (medido 14:57 UTC): `tests/mover-etapa-validacion.test.ts` (CRM), `tests/plan-filtro-cliente.test.ts` y `tests/plan-proyectos-catalogo.test.ts` (Plan / nav.ts).
 4. Lo de la tanda 2 sigue igual (token de Vercel en producción, `/l/html` en dominio aparte, parche de la extensión para imágenes con Flow).
+
+## Tanda 4 (13-14/10/2026, cuenta claude2) — en curso
+
+Pedido de Martín (13/10, por el chat «Estrategia 3 cuentas»): «En la cuenta 3 quedaron muchos pendientes que frenamos
+porque estabamos llegando al limite semanal, dile a esos chats que continuen y cierren lo que ya habiamos planificado».
+
+**Decisiones de Martín (14/10, no se re-preguntan):**
+- El botón de pago de una landing pide **nombre y email** antes del checkout (crearCobro exige un lead; así el pago entra
+  al CRM a su nombre).
+- «Dominios» usa **el token de Vercel de Mauricio que está en `.env.local`** (`VERCEL_API_TOKEN` + `VERCEL_TEAM_SLUG`).
+- El HTML con JavaScript de los clientes sale desde **makodigital.app** («el otro dominio que tengo en pork»; ya está en el
+  proyecto de Vercel). Si la landing tiene dominio propio, sale desde ese. Las landings siguen en hola-mako.com/l/<slug>.
+  Preguntó: «no entiendo lo del login, porque desde landing generator no deberían poder crear logins» → el bloque «HTML
+  personalizado» y «Replicar» permiten pegar o copiar cualquier página; el freno `pideContrasena` se esquiva armando el
+  campo por JavaScript.
+- Medir las imágenes por Flow en ws3: **«Ahora no, más tarde»** (hay que pasar la extensión de su Chrome de Windows,
+  hoy en ws10 Leandro Tejado, al ws3). No empezar sin volver a preguntar.
+
+**Hecho:**
+- `npx next typegen` en el clon (13/10 18:51 AR): `.next/types/validator.ts` ya no nombra `app/api/landing-writer/route.ts`.
+- `VERCEL_API_TOKEN` y `VERCEL_TEAM_SLUG` cargadas en producción por la API de Vercel (14/10, `target: production`,
+  encrypted). Entran con el próximo deploy de producción.
+
+**En curso (worktrees):** botón de pago por la pasarela de MaKo en `wt-gamma` (rama `gamma-editor`); /l/html en
+makodigital.app + redirecciones con `has: host` en `C:/dev/wt-landing-dom` (rama `landing-dominio`); verificación con
+clics en /landing-generator?ws=3 (producción). Coordinado con «Integraciones» (dueño de lib/cobros.ts: siete reglas para
+llamar a crearCobro desde una ruta pública) y avisado por «CRM» (tocó app/api/track/optin/route.ts, sin pushear).
