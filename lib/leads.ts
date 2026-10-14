@@ -2015,8 +2015,8 @@ export async function upsertLeadFromCalendly(
       const antes = pipelineStageOf(existing);
       const despues = pipelineStageOf(data as Lead);
       if (antes !== despues) await espejarEtiquetasDeEtapa(existing.id, existing.funnel_id ?? null, antes, despues);
-      // La etapa que la reserva limpió (M6), al historial: campo 'Etapa', firmada por MaKo, con la de antes.
-      if ('pipeline_stage' in updatePayload && antes !== despues) await auditarEtapaDeLaReserva(existing.id, antes, data as Lead);
+      // La etapa que la reserva limpió (M6), al historial: campo 'Etapa', firmada por la agenda, con la de antes.
+      if ('pipeline_stage' in updatePayload && antes !== despues) await auditarEtapaDeLaReserva(existing.id, antes, data as Lead, input.origen_lead === 'calcom' ? 'Cal.com' : 'Calendly');
     }
     return { created: false, lead: data as Lead };
   }
@@ -2842,6 +2842,11 @@ export async function setPipelineStage(
   // la etapa que SE VEÍA antes del movimiento, como el resto de esta función.
   if (antes && pipelineStageOf(antes) !== stageKey) {
     await espejarEtiquetasDeEtapa(id, antes.funnel_id ?? null, pipelineStageOf(antes), stageKey, autor);
+    // Y la automatización de la etapa a la que llegó, como `setBoardStageOverride` (14/10/2026, inventario de
+    // Automations): el kanban, el ⚡ y las confirmaciones mueven por ACÁ, y su CRON esperaba al barrido de la hora.
+    // Contra la etapa que SE VEÍA (moverlo a la misma no vuelve a inscribir), y `enrolarPorEvento` no duplica una
+    // inscripción viva. Nunca tira: el movimiento ya se escribió.
+    await enrolarPorEtapaDerivada(id, stageKey, antes.funnel_id ?? null);
   }
 }
 
@@ -2948,15 +2953,16 @@ const COLS_ETAPA_PREVIA = 'pipeline_stage, funnel_id, estado_lead, fecha_agenda,
  */
 /**
  * El rastro de la etapa que LIMPIÓ una reserva (undécima tanda, M6): una línea 'Etapa' del historial, firmada por
- * MaKo, con la etapa de antes y la de ahora. La misma forma que `logLeadChanges` y el mismo `etapa_vista` (así la
+ * la AGENDA que la hizo (Calendly o Cal.com), con la etapa de antes y la de ahora. Hasta el 14/10/2026 la firmaba
+ * MaKo, y ese «MaKo lo movió» desvió un diagnóstico: el que movió fue la reserva. La misma forma que `logLeadChanges` y el mismo `etapa_vista` (así la
  * pasada de los pendientes no la vuelve a escribir). Nunca tira: la reserva ya entró.
  */
-async function auditarEtapaDeLaReserva(leadId: number, antes: string, despues: Lead): Promise<void> {
+async function auditarEtapaDeLaReserva(leadId: number, antes: string, despues: Lead, autor: string): Promise<void> {
   try {
     const cambio = cambioDeEtapa(despues, antes);
     if (!cambio) return;
     const { error } = await (await getTenantDb()).from('lead_audit')
-      .insert([{ lead_id: leadId, campo: CAMPO_ETAPA, valor_anterior: cambio.desde, valor_nuevo: cambio.hacia, autor: AUTOR_SISTEMA }]);
+      .insert([{ lead_id: leadId, campo: CAMPO_ETAPA, valor_anterior: cambio.desde, valor_nuevo: cambio.hacia, autor }]);
     if (error) { console.error(`[leads] el historial de la etapa que limpió la reserva del lead ${leadId}: ${error.message}`); return; }
     await marcarEtapaVista([leadId], cambio.hacia);
   } catch (e) {
@@ -2966,7 +2972,8 @@ async function auditarEtapaDeLaReserva(leadId: number, antes: string, despues: L
 
 /**
  * Inscribe al lead en las automatizaciones de la etapa a la que acaba de llegar por DERIVACIÓN (undécima tanda,
- * M1-b): el MISMO evento que el movimiento explícito (`setBoardStageOverride` → `enrolarPorEvento('etapa')`). Import
+ * M1-b): el MISMO evento que el movimiento explícito (`setBoardStageOverride` → `enrolarPorEvento('etapa')`). Desde
+ * el 14/10/2026 también lo usa `setPipelineStage`, que hasta ese día no inscribía. Import
  * dinámico (lib/nutricion.ts importa este módulo) y nunca tira: el guardado del lead no puede fallar por la
  * nutrición; lo que no entre, lo levanta el barrido de la hora.
  */

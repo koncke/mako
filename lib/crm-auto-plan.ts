@@ -218,7 +218,12 @@ export function planLeadAuto(
     // El NOMBRE de la reunión sale del embudo del dueño (`rotulos`); `which` sigue siendo
     // 'j1'/'j2' porque es la llave de todo lo demás (ver RotulosReunion).
     const r1 = l.fecha_junta_1 ?? l.fecha_agenda;
-    if (l.asistio_j1 == null && reunionPasada(l.junta_1_at, r1)) {
+    // ⚠️ UNA R1 CANCELADA NO ES UNA R1 SIN MARCAR (14/10/2026, inventario de Automations). Cancelarla borra
+    // `fecha_junta_1` y CONSERVA `junta_1_at` (cancelarJuntaEnLead, lib/leads.ts), así que al pasar la hora
+    // vieja T1 proponía «No Show» a quien canceló. Sin fecha y con hora = cancelada y no reagendada. Un lead
+    // viejo sin hora (sólo `fecha_agenda`) sigue entrando por la fecha.
+    const r1Cancelada = l.fecha_junta_1 == null && !!l.junta_1_at;
+    if (l.asistio_j1 == null && !r1Cancelada && reunionPasada(l.junta_1_at, r1)) {
       const reunion = rotuloReunion('j1', rotulos);
       out.push({
         regla: 'T1', tipo: 'reunion_check', leadId: l.id, lead: nombre, which: 'j1', resolver: 'fathom', confirmar: true,
