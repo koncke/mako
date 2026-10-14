@@ -88,6 +88,22 @@
 > lead desde el 10/10. O el alta de «Nuevo lead» no lo guardó (bug del CRM: medir `createLead` con ese teléfono, ¿duplicado?
 > ¿error tragado?), o lo borraron después de la llamada: se le preguntó a Martín. Sin lead no hay inscripción: la #213 no tenía
 > a quién mandarle.
+> **ESTADO 14/10 ~12:00 (rama `undecima`, 15 commits sobre origin/main, SIN push: espera turno de «Estrategia 3 CUENTAS»;
+> SIN tsc completo todavía, hay 2,6 GB libres):** hecho y con tests probados rompiéndolos —
+>  · bug 5 de raíz: «Si contesta: sigue / se corta» por camino (panel del CRON, API `cambiar_si_contesta_secuencia`);
+>  · bug 4: soltar una flecha sobre la pastilla de una espera; bug 8: la zona del ws1 era Buenos Aires → `America/Tijuana`
+>    (en DATOS, ya vale, sin deploy; hallazgo en docs/hallazgos-infra.md);
+>  · `reunion_en_pie` (+ cancelada = no agendó), el reintento re-evalúa la condición de arriba, «Pausar» congela, «Termina»
+>    en las filas sin flecha;
+>  · feedback del 13/10: 1 («Sola» con plata y en «Lo demás», con aviso; reemplaza la decisión del 06/10), 7 (⏹ Detener en
+>    Probar), 9 (el recorrido espera a MaKo), 10 (el error de crear con IA dice qué quedó mal); el 2 y el 3 ya estaban en la
+>    #213; «Publicar en Creaciones» en el ⋯.
+> FALTA, en orden: el push (con la migración `migrar-si-contesta` antes) → la 2ª migración + borrar la guarda (§2.3) →
+> feedback 6 (arrastrar para reordenar tarjetas y mensajes) y 11 (subir un audio rápido en WhatsApp) → el resto del §2.4 de
+> docs/diseno-mako-nada-por-detras.md (protecciones configurables y con aviso, AI Step «Deja de contestar si…», la casilla
+> «Sale sola», la «Reentrada» del CRON, el texto visible del DELAY «antes de la reunión») → TikTok fase 0 (que el AI Step
+> conteste por Instagram/Messenger; docs/diseno-tiktok-linkedin.md) → videos redondos (`/message/sendPtv`) → registro de
+> acciones (sin dueño) → la cola de siempre (Dashboard en ⚡, automatizaciones de SuperAdmin, Grupos de WhatsApp).
 > **ORDEN DEL DEPLOY de «nada por detrás» (14/10 ~10:00), en DOS pasos:**
 > 1. Push con `c0c46bad` (si contesta) + la condición `reunion_en_pie` + el reintento (§2.2). ANTES:
 >    `ENV_FILE=C:/dev/mako-api/.env.local node --import tsx scripts/migrar-si-contesta.ts --apply`.
