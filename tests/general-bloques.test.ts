@@ -284,16 +284,22 @@ test('las plantillas: simples, cada dato una vez, de a dos sin estirar, y con t�
     assert.ok([...porFila.values()].some((n) => n > 1), `${d.id}: todo nace a lo ancho`);
   }
   assert.ok(conTitulos >= 5, `sólo ${conTitulos} plantillas con títulos de parte`);
-  // La General arranca con la plata del mes y lo que cuesta conseguirla.
+  // La General arranca con la plata del mes en GRANDE: el bloque «El mes», no cuatro gráficos (la quinta vuelta: «que las
+  // plantillas de GENERAL, no se parezcan tanto a un dashboard»).
   const general = DEFINICIONES_GENERAL.find((d) => d.id === 'general')!;
-  for (const m of ['cobrado', 'vendido', 'gasto']) assert.ok(general.piezas.some((p) => (p as { metricas?: string[] }).metricas?.[0] === m), `la General sin «${m}»`);
+  assert.ok(general.piezas.some((p) => (p.elemento as { general?: { pieza: string } } | undefined)?.general?.pieza === 'mes'), 'la General sin «El mes»');
+  // Y ninguna plantilla de General trae tablas ni series: «Ya si quiere profundizar entra a dashboard».
+  for (const d of DEFINICIONES_GENERAL) {
+    for (const p of d.piezas) assert.ok(!['tabla', 'tabla_barras', 'serie'].includes(String((p as { tipo?: string }).tipo)), `${d.id}/${p.local}: un gráfico de Dashboard`);
+    assert.ok(d.piezas.filter((p) => (p as { tipo?: string }).tipo).length <= 4, `${d.id}: más de 4 gráficos`);
+  }
 });
 
 test('crear una hoja no se deshace, y la edición se mira en tablet y en celular', async () => {
   const editor = leer('app/dashboard/EditorInforme.tsx');
   const crear = editor.slice(editor.indexOf('const crearHoja = useCallback('), editor.indexOf('const duplicarHoja'));
   assert.ok(crear.length > 200 && crear.length < 1500, `el recorte mide ${crear.length}`);
-  assert.match(crear, /setTablero\(\(tt\) => \(\{ \.\.\.tt, hojas: enBlanco \? \[nueva\] : \[\.\.\.tt\.hojas, nueva\] \}\)\);\s*vaciar\(\);/);
+  assert.match(crear, /setTablero\(\(tt\) => \(\{ \.\.\.sinBlanco\(tt\), hojas: enBlanco \? \[nueva\] : \[\.\.\.tt\.hojas, nueva\] \}\)\);\s*vaciar\(\);/);
   assert.doesNotMatch(crear, /mutar\(/, 'crear la hoja volvió a apilar un deshacer');
   assert.match(leer('app/_ui/usePilaDeshacer.ts'), /const vaciar = useCallback\(\(\) => \{/);
   // La vista por dispositivo: sólo editando, la página al ancho del dispositivo.

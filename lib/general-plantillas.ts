@@ -38,9 +38,6 @@ const parte = (local: string, t: string): PiezaPlantilla =>
 /** Un número del período, comparado con el anterior. */
 const numero = (local: string, fuente: string, metrica: string, titulo: string, extra: Record<string, unknown> = {}): PiezaPlantilla =>
   ({ local, tipo: 'numero', fuente, metricas: [metrica], dimension: null, titulo, comparar: true, ...extra });
-/** Un número con su evolución diaria abajo (los de plata: se lee si viene subiendo). */
-const tendencia = (local: string, fuente: string, metrica: string, titulo: string, extra: Record<string, unknown> = {}): PiezaPlantilla =>
-  ({ local, tipo: 'numero_tendencia', fuente, metricas: [metrica], dimension: null, titulo, comparar: true, ...extra });
 
 /**
  * La tercera vuelta (14/10/2026). Martín, con las capturas de una hoja recién creada: «Mucho espacio en blanco en el
@@ -57,6 +54,11 @@ const tendencia = (local: string, fuente: string, metrica: string, titulo: strin
  *   · DE A DOS: los bloques van en pares de media hoja con el MISMO alto (`acomodar` estira la fila al más alto, y un
  *     bloque estirado es espacio en blanco); a lo ancho sólo lo que se lee mejor así (una tabla, una serie, el mes).
  *   · TÍTULOS DE PARTE (`parte`) cuando la hoja tiene más de un tema.
+ * Y la quinta vuelta (14/10/2026, Martín: «que las plantillas de GENERAL, no se parezcan tanto a un dashboard... Está bien
+ * que tengan algún que otro gráfico, pero aquí en general todo tiene que ser más minimalista, textos enormes, cosas
+ * grandes... Ya si quiere profundizar entra a dashboard»):
+ *   · BLOQUES ANTES QUE GRÁFICOS: un bloque de General dice una cosa en grande; los gráficos quedan para lo que un bloque
+ *     no tiene (los números de Meta, los alumnos), y sin tablas ni series que se leen como un Dashboard.
  */
 export const DEFINICIONES_GENERAL: readonly DefinicionGeneral[] = [
   {
@@ -67,11 +69,7 @@ export const DEFINICIONES_GENERAL: readonly DefinicionGeneral[] = [
     subtitulo: '', periodo: 'este_mes',
     piezas: [
       bloque('cabecera'), bloque('accion'),
-      parte('mes', 'El mes'),
-      tendencia('cobrado', 'negocio', 'cobrado', 'Cobrado'),
-      tendencia('vendido', 'negocio', 'vendido', 'Vendido'),
-      tendencia('gasto', 'negocio', 'gasto', 'Inversión en anuncios'),
-      tendencia('cpl', 'negocio', 'cpl', 'Costo por lead'),
+      bloque('mes'),
       parte('hoy', 'Hoy'),
       bloque('llamadas'), bloque('cobranza'),
     ],
@@ -107,7 +105,7 @@ export const DEFINICIONES_GENERAL: readonly DefinicionGeneral[] = [
       bloque('prioridades'),
       parte('clientes', 'Clientes'),
       bloque('cobranza'), bloque('llamadas'),
-      bloque('funnel', { w: 12, h: 5, opciones: { estilo: 'barras' } }),
+      bloque('funnel', { w: 12, h: 6, opciones: { estilo: 'barras' } }),
     ],
   },
   {
@@ -116,7 +114,7 @@ export const DEFINICIONES_GENERAL: readonly DefinicionGeneral[] = [
     subtitulo: '', periodo: 'este_mes',
     piezas: [
       bloque('mes'),
-      bloque('funnel'), bloque('semaforo', { h: 8 }),
+      bloque('funnel', { h: 7, opciones: { estilo: 'barras' } }), bloque('semaforo', { h: 7 }),
     ],
   },
   {
@@ -133,15 +131,14 @@ export const DEFINICIONES_GENERAL: readonly DefinicionGeneral[] = [
   },
   {
     id: 'anuncios', nombre: 'Anuncios', emoji: '📣',
-    linea: 'Cuánto inviertes en Meta, cuántos leads te trae y qué campaña rinde.',
+    linea: 'Cuánto inviertes en Meta, cuántos leads te trae y dónde están.',
     subtitulo: '', periodo: 'ult30',
     piezas: [
       numero('gasto', 'meta', 'gasto', 'Inversión'),
       numero('leads', 'meta', 'leads', 'Leads'),
       numero('cpl', 'meta', 'cpl', 'Costo por lead'),
       numero('ctr', 'meta', 'ctr', 'CTR'),
-      { local: 'por-dia', tipo: 'serie', fuente: 'meta', dimension: 'dia', metricas: ['leads'], titulo: 'Leads por día' },
-      { local: 'campanas', tipo: 'tabla_barras', fuente: 'meta', dimension: 'campana', metricas: ['gasto', 'leads', 'cpl'], titulo: 'Tus campañas' },
+      bloque('funnel', { w: 12, h: 6, opciones: { estilo: 'barras' } }),
     ],
   },
   // ── Una por tipo de funnel (lo que mira cada negocio, según cómo vende) ──
@@ -156,7 +153,6 @@ export const DEFINICIONES_GENERAL: readonly DefinicionGeneral[] = [
       numero('asistencia', 'leads', 'tasa_asistencia', 'Tasa de asistencia', { fecha: 'agenda' }),
       numero('cierre', 'leads', 'tasa_cierre', 'Tasa de cierre', { fecha: 'agenda' }),
       numero('vendido', 'leads', 'vendido', 'Vendido', { fecha: 'cierre' }),
-      { local: 'closers', tipo: 'tabla_barras', fuente: 'llamadas_venta', dimension: 'closer', metricas: ['llamadas', 'ganadas', 'tasa_cierre'], titulo: 'Tus closers' },
     ],
   },
   {
@@ -168,8 +164,7 @@ export const DEFINICIONES_GENERAL: readonly DefinicionGeneral[] = [
       numero('sin-responder', 'conversaciones', 'sin_responder', 'Esperando respuesta', { fecha: 'actual', comparar: false }),
       numero('respuesta', 'conversaciones', 'mediana_respuesta', 'Tiempo de respuesta'),
       numero('ventas', 'leads', 'cierres', 'Ventas'),
-      { local: 'por-dia', tipo: 'serie', fuente: 'whatsapp', dimension: 'dia', metricas: ['recibidos', 'enviados'], titulo: 'Mensajes por día' },
-      bloque('funnel', { h: 5, opciones: { estilo: 'barras' } }), bloque('pendientes', { h: 5 }),
+      bloque('funnel', { h: 6, opciones: { estilo: 'barras' } }), bloque('pendientes', { h: 6 }),
     ],
   },
   {
@@ -183,7 +178,6 @@ export const DEFINICIONES_GENERAL: readonly DefinicionGeneral[] = [
       numero('play', 'vsl', 'play_rate', 'Le dan play al video'),
       numero('leads', 'leads', 'leads', 'Registros'),
       numero('gasto', 'negocio', 'gasto', 'Inversión en anuncios'),
-      { local: 'por-dia', tipo: 'serie', fuente: 'visitas', dimension: 'dia', metricas: ['visitantes'], titulo: 'Visitantes por día' },
     ],
   },
   {
@@ -207,7 +201,6 @@ export const DEFINICIONES_GENERAL: readonly DefinicionGeneral[] = [
       numero('clases', 'avance_cursos', 'clases', 'Clases vistas'),
       numero('avance', 'avance_cursos', 'pct', 'Avance promedio', { comparar: false }),
       numero('ventas', 'leads', 'cierres', 'Ventas'),
-      { local: 'por-dia', tipo: 'serie', fuente: 'avance_cursos', dimension: 'dia', metricas: ['clases'], titulo: 'Clases vistas por día' },
       bloque('publicaciones'),
     ],
   },

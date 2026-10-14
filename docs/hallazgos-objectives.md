@@ -721,6 +721,43 @@ fue una línea de clase (`lk-comp--general`) y que el título de un bloque use l
 `tests/general-bloques.test.ts`.
 *14/10/2026, claude2 (e6818ee0).*
 
+## General, quinta vuelta: de un vistazo, en grande, y medido en pantalla (14/10/2026)
+
+**El pedido** (Martín, 13:26, con dos capturas de «¿Qué vas a crear hoy?»): «Rediseña bloque por bloque, sacale una captura
+o algo y date feedback a vos mismo para perfeccionarlo en diseño. Por ejemplo, el bloque del semáforo tiene un espacio en
+blanco grande e innecesario... Haz esto también para mobile... las plantillas de GENERAL, no se parezcan tanto a un
+dashboard... aquí en general todo tiene que ser más minimalista, textos enormes, cosas grandes, porque justamente es para ver
+de una pasada lo que el usuario quiera ver... Ya si quiere profundizar entra a dashboard» y «El diseño mobile no se ve bien
+de los bloques».
+
+**Lo que se vio en las capturas (ws3, producción, con «Editar → Celular»)** y lo que salió:
+
+- **La Acción del día tenía un hueco del alto de la tarjeta entre la razón y el botón**: el botón iba al pie con
+  `marginTop: auto`. Va pegado a la razón.
+- **El semáforo dejaba media tarjeta en blanco**: la columna de lámparas medía lo que la tarjeta y la lista tenía tres
+  renglones. Ahora el titular manda («2 cosas para atender», en grande y del color del semáforo), las lámparas van en fila
+  al lado, y el bloque pide 6 filas.
+- **«Tu funnel hoy» mostraba diez etapas en cero y una barra de scroll**, con «2 leads» arriba: los dos estaban en etapas
+  que el funnel ya no tiene. Con más de 6 etapas se dibujan sólo las que tienen leads, el total va en grande y lo que no
+  tiene etapa se dice.
+- **«El mes» tenía barra de scroll y dos barras por métrica** (un gráfico del Dashboard): cuatro números grandes y el
+  anterior en texto.
+- **«A quién cobrarle» vacío repetía su título**: la muestra del placeholder es el componente entero, con su cabecera.
+  La muestra va `sinCabeza`.
+- **En el celular, cuatro números del mes eran cuatro tarjetas a lo ancho**: la pila pone los números de a dos.
+
+**La regla que queda: en General, cada bloque tiene UNA cosa en grande** (el número de la meta, la acción, cuántas cosas
+para atender, cuántos por cobrar, la próxima llamada, los leads sin marcar, el total del funnel) **y su letra va en `cqi`**:
+`.gen-pieza` lleva `container-type: inline-size`, así que la misma letra crece en una tarjeta ancha y baja en media hoja o
+en el teléfono, sin media queries y sin tocar el estilo en línea. ⚠️ Un bloque que se dibuja FUERA de `.gen-pieza` (la
+vista previa del menú) necesita su propio contenedor (`.lk-bloque-escala`): sin uno, `cqi` se mide contra la ventana.
+Y las plantillas de General son bloques antes que gráficos: sin tablas ni series, y como mucho cuatro números.
+
+**Vive en:** `app/general/bloques/` (`Meta.tsx`, `Norte.tsx`, `Negocio.tsx`, `Agenda.tsx`, `Plan.tsx`) ·
+`app/general/Cobranza.tsx` · `app/dashboard/ElementoGeneral.tsx` · `app/dashboard/editor-css.ts` (`.lk-pila`) ·
+`lib/general-plantillas.ts` · `tests/general-bloques.test.ts`.
+*14/10/2026, claude2.*
+
 ## Lo que quedó sin hacer
 
 - **«Fondo: Oscuro» no da vuelta los colores FIJOS de un bloque (14/10/2026).** Lo que usa los tokens de la casa se da

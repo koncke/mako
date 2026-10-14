@@ -54,10 +54,10 @@ function CuerpoMeta({ c, detalle }: { c: Cab; detalle: string }) {
 
   const numero = (
     <span style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
-      <span className="gb-num" style={{ fontSize: 'clamp(30px, 3.4vw, 42px)', fontWeight: 700, lineHeight: 1, letterSpacing: '-0.03em', color: 'var(--ink)' }}>
+      <span className="gb-num" style={{ fontSize: 'clamp(40px, 12cqi, 84px)', fontWeight: 750, lineHeight: 0.95, letterSpacing: '-0.035em', color: 'var(--ink)' }}>
         {fmtValor(objetivo.actual, objetivo.unidad)}
       </span>
-      <span className="gb-num" style={{ fontSize: 15, fontWeight: 500, color: 'var(--dim)' }}>
+      <span className="gb-num" style={{ fontSize: 'clamp(15px, 3.4cqi, 22px)', fontWeight: 500, color: 'var(--dim)' }}>
         {metaOk ? `de ${fmtValor(objetivo.metaValor, objetivo.unidad)}` : 'sin meta cargada'}
       </span>
     </span>
@@ -72,7 +72,7 @@ function CuerpoMeta({ c, detalle }: { c: Cab; detalle: string }) {
         anio={c.anio} quarter={c.quarter}
         disparador={(
           <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, cursor: 'pointer', marginBottom: 12 }} title="Editar la meta">
-            <span style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--ink)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{objetivo.titulo}</span>
+            <span style={{ fontSize: 15, fontWeight: 500, color: 'var(--dim)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{objetivo.titulo}</span>
             {objetivo.metrica !== 'libre' && <span className="gb-chip" style={{ flex: 'none' }}>{METRICA_LABEL[objetivo.metrica]}</span>}
           </span>
         )}
@@ -83,10 +83,10 @@ function CuerpoMeta({ c, detalle }: { c: Cab; detalle: string }) {
         : numero}
 
       {metaOk && objetivo.actual !== null && (
-        <div style={{ marginTop: 14 }}>
+        <div style={{ marginTop: 18 }}>
           {/* La barra ES el dato y la marca vertical es el tiempo. Recortada al 100% y con marca de corte: una barra llena
               que no avisa que se pasó afirma «llegaste justo». */}
-          <div aria-hidden style={{ position: 'relative', height: 10, borderRadius: 999, background: 'var(--gb-losa-2)', overflow: 'hidden' }}>
+          <div aria-hidden style={{ position: 'relative', height: 14, borderRadius: 999, background: 'var(--gb-losa-2)', overflow: 'hidden' }}>
             <div style={{ width: `${Math.min(100, objetivo.pct ?? 0)}%`, height: '100%', borderRadius: 999, background: colorBarra }} />
             {supera && <span style={{ position: 'absolute', top: 0, bottom: 0, right: 0, width: 5, background: 'repeating-linear-gradient(135deg, var(--ink) 0 2px, transparent 2px 4px)', opacity: 0.6 }} />}
             <span style={{ position: 'absolute', top: 0, bottom: 0, left: `${Math.min(100, c.fraccion * 100)}%`, width: 2, background: 'var(--ink)', opacity: 0.45 }} />
@@ -126,7 +126,7 @@ function Ritmo({ objetivo, supera, periodo }: { objetivo: ObjectiveConAvance; su
       : <>Vas <strong style={fuerte}>{delta} abajo</strong> de lo esperado a esta altura</>;
   }
   return (
-    <p style={{ margin: '9px 0 0', fontSize: 13, lineHeight: 1.45, color: 'var(--dim)' }}>
+    <p style={{ margin: '10px 0 0', fontSize: 'clamp(13.5px, 2.6cqi, 16px)', lineHeight: 1.45, color: 'var(--dim)' }}>
       {texto}
       {r?.llegadaEstimada && !supera && <span> · estimado: llegas el {r.llegadaEstimada.split('-').reverse().join('/')}</span>}
     </p>
@@ -192,12 +192,13 @@ function CuerpoAccion({ foco, conRazon }: { foco: Foco; conRazon: boolean }) {
   const [abierto, setAbierto] = useState(false);
   return (
     <>
-      <p style={{ display: 'flex', alignItems: 'flex-start', gap: 10, margin: 0, fontSize: 'clamp(17px, 1.7vw, 21px)', fontWeight: 600, lineHeight: 1.3, letterSpacing: '-0.015em', color: 'var(--ink)' }}>
-        <span aria-hidden style={{ flex: 'none', width: 10, height: 10, borderRadius: '50%', background: COLOR[foco.nivel], marginTop: '0.42em' }} />
+      <p style={{ display: 'flex', alignItems: 'flex-start', gap: 12, margin: 0, fontSize: 'clamp(22px, 5.6cqi, 36px)', fontWeight: 700, lineHeight: 1.2, letterSpacing: '-0.02em', color: 'var(--ink)' }}>
+        <span aria-hidden style={{ flex: 'none', width: 12, height: 12, borderRadius: '50%', background: COLOR[foco.nivel], marginTop: '0.4em' }} />
         <span style={{ minWidth: 0 }}>{foco.accion}</span>
       </p>
-      {conRazon && <p style={{ margin: '8px 0 0', paddingLeft: 20, fontSize: 13.5, lineHeight: 1.5, color: 'var(--dim)' }}>{foco.razon}</p>}
-      <div style={{ marginTop: 'auto', paddingTop: 14, paddingLeft: 20, display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+      {conRazon && <p style={{ margin: '10px 0 0', paddingLeft: 24, fontSize: 'clamp(14px, 2.6cqi, 16px)', lineHeight: 1.5, color: 'var(--dim)' }}>{foco.razon}</p>}
+      {/* El botón va pegado a la razón, no al pie: abajo de todo dejaba un hueco del alto de la tarjeta en el medio. */}
+      <div style={{ paddingTop: 16, paddingLeft: 24, display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
         {/* Si la acción nombra una integración (`/integraciones?abrir=…`), abre su modal acá: nunca se sale de la tab. */}
         <LinkIntegracion href={foco.href} className="gb-boton">{foco.hrefLabel} →</LinkIntegracion>
         <button type="button" className="gb-cab-link" style={{ marginLeft: 0, color: 'var(--dim)', fontWeight: 500 }} onClick={() => setAbierto((v) => !v)} aria-expanded={abierto}>

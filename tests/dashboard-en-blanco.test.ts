@@ -39,7 +39,8 @@ test('page.tsx: sin informe guardado y sin pedir una hoja, la pantalla va en bla
 
 test('General: quien nunca armó la suya arranca en blanco como el Dashboard, y la API ve lo mismo que la pantalla', () => {
   const src = leer('app/general/page.tsx');
-  assert.match(src, /const sinPaginas = lectura\.estado === 'inicial' \|\| !lectura\.tablero\.hojas\.length;/);
+  // Y desde el 14/10/2026 también con TODAS las hojas eliminadas (`enBlanco` en el informe: quedaron en Archivados).
+  assert.match(src, /const sinPaginas = lectura\.estado === 'inicial' \|\| !lectura\.tablero\.hojas\.length \|\| !!lectura\.tablero\.enBlanco;/);
   assert.match(src, /const graficos = sinPaginas \? \[\] : pedidos0\.graficos;/);
   assert.match(src, /sinPaginas=\{sinPaginas\}/);
   // La API de MaKo lee el informe de General como lo ve la pantalla: sin hojas para quien nunca armó el suyo (si no,
@@ -56,7 +57,8 @@ test('EditorInforme: en blanco, la caja «¿Qué vas a crear hoy?» con las plan
   assert.doesNotMatch(src, /if \(enBlanco\) \{\s*return \(/);
   assert.match(src, /\{enBlanco \? \(\s*<div className="lk-en-blanco lk-en-blanco-crear" onClick=\{\(e\) => e\.stopPropagation\(\)\}>\s*\{guardable && <CrearHoja onCrear=\{crearHoja\} enBlanco="Página 1" informe=\{informe\} \/>\}/);
   assert.doesNotMatch(src, /Nuevo Dashboard/, 'volvió el botón en lugar de la caja');
-  assert.match(src, /conHojas=\{!enBlanco && /);
+  // En blanco el desplegable de hojas sólo existe si hay Archivados (para restaurar una).
+  assert.match(src, /conHojas=\{enBlanco \? guardable && !!tablero\.archivadas\?\.length : /);
   // En blanco no hay «Editar» ni ⋮, y en el Dashboard tampoco el filtro ni la búsqueda (14/10/2026: «Si no tengo tabs no
   // debería salir el botón de editar ni los 3 puntos. Lo mismo para dashboard»). En General la barra de filtros no va nunca.
   assert.match(src, /\{!esGeneral && !enBlanco && \(\s*<div className="lk-top-filtros"/);
@@ -76,5 +78,5 @@ test('NuevaHoja: el modal monta la MISMA pieza que la pantalla en blanco, y las 
 
 test('EditorInforme: la primera página que se crea en blanco es la ÚNICA (el inicial no se guarda)', () => {
   const src = leer('app/dashboard/EditorInforme.tsx');
-  assert.match(src, /hojas: enBlanco \? \[nueva\] : \[\.\.\.tt\.hojas, nueva\]/);
+  assert.match(src, /setTablero\(\(tt\) => \(\{ \.\.\.sinBlanco\(tt\), hojas: enBlanco \? \[nueva\] : \[\.\.\.tt\.hojas, nueva\] \}\)\);/);
 });

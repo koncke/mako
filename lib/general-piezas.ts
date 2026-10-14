@@ -96,7 +96,7 @@ export const PIEZAS_GENERAL = [
     ],
   },
   {
-    id: 'semaforo', nombre: 'Semáforo del negocio', icono: 'condicion', linea: 'Lo que está en rojo, en ámbar y en verde.', w: 6, h: 7,
+    id: 'semaforo', nombre: 'Semáforo del negocio', icono: 'condicion', linea: 'Lo que está en rojo, en ámbar y en verde.', w: 6, h: 6,
     opciones: [
       { id: 'lamparas', nombre: 'Las lámparas', def: 'si', valores: [{ id: 'si', nombre: 'Se ven', icono: 'ver' }, { id: 'no', nombre: 'Ocultas', icono: 'ocultar' }] },
       { id: 'limite', nombre: 'Alertas', def: '4', valores: [{ id: '3', nombre: '3' }, { id: '4', nombre: '4' }, { id: '6', nombre: '6' }, { id: 'todas', nombre: 'Todas' }] },

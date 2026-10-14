@@ -163,8 +163,12 @@ export async function leerTableroVersionado(sub: string, informe: Informe = 'das
   if (raw == null) return { estado: 'inicial', tablero: inicialDe(informe), version, actualizado: f?.updated_at ?? null };
   let t: Tablero | null = null;
   try { t = sanearTablero(JSON.parse(raw)); } catch { t = null; }
-  return t
-    ? { estado: 'propio', tablero: t, version, actualizado: f?.updated_at ?? null }
+  // Con TODAS las hojas eliminadas (`enBlanco`, lib/graficos-catalogo.ts) los que leen por acá —la API de MaKo, los
+  // links compartidos— ven un informe sin hojas: la vacía que viaja por dentro es de la pantalla. Lo que se escriba
+  // después (una hoja nueva por la API) sale sin la marca, y la pantalla deja de estar en blanco.
+  const visible = t?.enBlanco ? { v: 3 as const, nombre: t.nombre, hojas: [], ...(t.archivadas ? { archivadas: t.archivadas } : {}) } : t;
+  return visible
+    ? { estado: 'propio', tablero: visible, version, actualizado: f?.updated_at ?? null }
     : { estado: 'inicial', tablero: inicialDe(informe), version, actualizado: f?.updated_at ?? null };
 }
 

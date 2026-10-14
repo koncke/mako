@@ -121,19 +121,20 @@ type ArchivoCaja = { nombre: string; imagen: boolean } & ({ estado: 'leyendo' } 
 // Sin backticks acá adentro: es un template literal. Sólo tokens de la app (se dan vuelta en oscuro).
 const CSS = `
 .nh-grilla{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(210px,100%),1fr));gap:18px}
-.nh-plantilla{display:flex;flex-direction:column;gap:4px;min-width:0;padding:0;border:0;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.nh-plantilla{display:flex;flex-direction:column;gap:0;min-width:0;padding:8px 8px 12px;border:1px solid var(--border);border-radius:14px;background:var(--surface);color:inherit;font:inherit;text-align:left;cursor:pointer;
+  box-shadow:0 1px 2px color-mix(in srgb,var(--ink) 6%,transparent),0 6px 18px color-mix(in srgb,var(--ink) 7%,transparent);transition:box-shadow .15s,transform .15s,border-color .15s}
+.nh-plantilla:hover:not(:disabled),.nh-plantilla:focus-visible{border-color:var(--primary);box-shadow:0 2px 4px color-mix(in srgb,var(--ink) 8%,transparent),0 12px 28px color-mix(in srgb,var(--ink) 12%,transparent);transform:translateY(-1px)}
 .nh-plantilla:disabled{cursor:default}
 .nh-plantilla:disabled:not([data-armando="si"]){opacity:.6}
 .nh-plantilla:focus-visible{outline:none}
-.nh-mini{position:relative;display:block;margin-bottom:6px;border-radius:10px;box-shadow:0 0 0 1px var(--border),0 1px 3px color-mix(in srgb,var(--ink) 8%,transparent);transition:box-shadow .15s}
-.nh-plantilla:hover:not(:disabled) .nh-mini,.nh-plantilla:focus-visible .nh-mini{box-shadow:0 0 0 2px var(--primary),0 4px 6px -1px rgba(0,0,0,.1)}
-.nh-mini--vacia{display:grid;place-items:center;aspect-ratio:16/10;background:var(--surface);box-shadow:none;border:1.5px dashed var(--border-strong);color:var(--dim);font-size:30px;line-height:1}
-.nh-plantilla:hover:not(:disabled) .nh-mini--vacia,.nh-plantilla:focus-visible .nh-mini--vacia{border-color:var(--primary);color:var(--primary);box-shadow:none}
+.nh-mini{position:relative;display:block;margin-bottom:10px;border-radius:9px;overflow:hidden;box-shadow:0 0 0 1px var(--border)}
+.nh-mini--vacia{display:grid;place-items:center;aspect-ratio:16/10;background:var(--bg);box-shadow:none;border:1.5px dashed var(--border-strong);color:var(--dim);font-size:30px;line-height:1}
+.nh-plantilla:hover:not(:disabled) .nh-mini--vacia,.nh-plantilla:focus-visible .nh-mini--vacia{border-color:var(--primary);color:var(--primary)}
 .nh-usar{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:inline-flex;align-items:center;gap:8px;padding:7px 14px;border-radius:9999px;background:var(--primary);color:var(--on-primary);font-size:13px;font-weight:600;white-space:nowrap;opacity:0;transition:opacity .15s;pointer-events:none}
 .nh-plantilla:hover:not(:disabled) .nh-usar,.nh-plantilla:focus-visible .nh-usar,.nh-usar[data-visible="si"]{opacity:1}
 .nh-giro{width:13px;height:13px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;animation:nh-giro .8s linear infinite}
 @keyframes nh-giro{to{transform:rotate(360deg)}}
-.nh-nombre{font-size:14.5px;font-weight:600;line-height:1.3;color:var(--ink)}
+.nh-nombre{font-size:14.5px;font-weight:600;line-height:1.3;color:var(--ink);padding:0 4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .nh-buscar{display:flex;align-items:center;gap:8px;padding:0 12px;height:40px;box-sizing:border-box;border-radius:11px;border:1px solid var(--border-strong);background:var(--surface);color:var(--dim)}
 .nh-buscar:focus-within{border-color:var(--primary)}
 .nh-buscar input{flex:1;min-width:0;border:none;outline:none;background:transparent;color:var(--ink);font:inherit;font-size:14px}

@@ -170,42 +170,42 @@ function Semaforo({ alertas, lampara, conLamparas, limite, objetivoAtrasado }: {
 }) {
   const vistas = alertas.slice(0, limite);
   const resto = alertas.length - vistas.length;
+  // El titular, de un vistazo (14/10/2026, Martín: «el bloque del semáforo tiene un espacio en blanco grande e
+  // innecesario... textos enormes, cosas grandes»): cuántas cosas hay para atender, en grande y del color del semáforo.
+  // Las lámparas van en fila al lado (antes una columna del alto de la tarjeta, que es el hueco que se veía).
+  const atender = alertas.filter((a) => a.nivel !== 'verde').length;
+  const titular = atender
+    ? `${atender} ${atender === 1 ? 'cosa' : 'cosas'} para atender`
+    : objetivoAtrasado ? 'Atrasado con la meta' : 'Todo en orden';
+  const color = lampara === 'rojo' ? 'var(--bad)' : lampara === 'ambar' ? 'var(--warn)' : 'var(--good)';
   return (
-    <div style={{ display: 'flex', gap: 18, alignItems: 'stretch' }}>
-      {conLamparas && (
-        // `alignSelf: stretch` y NUNCA `height: 100%`: Safari devuelve cero contra un alto indefinido.
-        <div style={{ flex: 'none', width: 64, alignSelf: 'stretch', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, background: 'var(--sidebar)', borderRadius: 16, padding: '12px 10px' }}>
-          <Lampara color="var(--bad)" encendida={lampara === 'rojo'} />
-          <Lampara color="var(--warn-fill)" encendida={lampara === 'ambar'} />
-          <Lampara color="var(--good)" encendida={lampara === 'verde'} />
-        </div>
-      )}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        {vistas.length === 0 ? (
-          <span style={{ fontSize: 15, color: 'var(--dim)' }}>
-            {objetivoAtrasado ? 'Ninguna señal en rojo, pero el trimestre va por debajo de lo esperado.' : 'Nada que atender.'}
+    <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: vistas.length ? 10 : 0, minWidth: 0 }}>
+        {conLamparas && (
+          <span aria-hidden style={{ flex: 'none', display: 'inline-flex', gap: 7, padding: '7px 9px', borderRadius: 999, background: 'var(--sidebar)' }}>
+            <Lampara color="var(--bad)" encendida={lampara === 'rojo'} />
+            <Lampara color="var(--warn-fill)" encendida={lampara === 'ambar'} />
+            <Lampara color="var(--good)" encendida={lampara === 'verde'} />
           </span>
-        ) : (
-          <div>
-            {vistas.map((a, i) => {
-              const c = a.nivel === 'rojo' ? 'var(--bad)' : a.nivel === 'ambar' ? 'var(--warn-fill)' : 'var(--good)';
-              const inner = (
-                <>
-                  <span aria-hidden style={{ flex: 'none', width: 10, height: 10, borderRadius: '50%', background: c, boxShadow: `0 0 0 4px color-mix(in srgb, ${c} 18%, transparent)` }} />
-                  <span style={{ flex: 1, minWidth: 0, fontSize: 14, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.titulo}</span>
-                  <span style={{ flex: 'none', color: 'var(--faint)', fontSize: 12.5 }}>{a.desglose ? 'ver detalle →' : `${a.hrefLabel} →`}</span>
-                </>
-              );
-              const fila: CSSProperties = { display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: i === 0 ? '2px 0 10px' : '10px 0', textDecoration: 'none', borderTop: i === 0 ? 'none' : '1px solid var(--border)' };
-              return a.desglose
-                ? <DesgloseTrigger key={i} data={a.desglose} style={fila}>{inner}</DesgloseTrigger>
-                // Una alerta que nombra una integración (un arranque pendiente) abre su modal acá: nunca se sale de la tab.
-                : <LinkIntegracion key={i} href={a.href} style={fila}>{inner}</LinkIntegracion>;
-            })}
-            {resto > 0 && <p style={{ margin: '10px 0 0', fontSize: 13, color: 'var(--faint)' }}>{resto === 1 ? 'Y una más.' : `Y ${resto} más.`}</p>}
-          </div>
         )}
+        <span style={{ fontSize: 'clamp(22px, 6cqi, 34px)', fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.15, color: atender || objetivoAtrasado ? color : 'var(--ink)' }}>{titular}</span>
       </div>
+      {vistas.map((a, i) => {
+        const c = a.nivel === 'rojo' ? 'var(--bad)' : a.nivel === 'ambar' ? 'var(--warn-fill)' : 'var(--good)';
+        const inner = (
+          <>
+            <span aria-hidden style={{ flex: 'none', width: 10, height: 10, borderRadius: '50%', background: c }} />
+            <span style={{ flex: 1, minWidth: 0, fontSize: 'clamp(14px, 2.6cqi, 16px)', color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.titulo}</span>
+            <span style={{ flex: 'none', color: 'var(--faint)', fontSize: 12.5 }}>{a.desglose ? 'ver →' : `${a.hrefLabel} →`}</span>
+          </>
+        );
+        const fila: CSSProperties = { display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '10px 0', textDecoration: 'none', borderTop: '1px solid var(--border)' };
+        return a.desglose
+          ? <DesgloseTrigger key={i} data={a.desglose} style={fila}>{inner}</DesgloseTrigger>
+          // Una alerta que nombra una integración (un arranque pendiente) abre su modal acá: nunca se sale de la tab.
+          : <LinkIntegracion key={i} href={a.href} style={fila}>{inner}</LinkIntegracion>;
+      })}
+      {resto > 0 && <p style={{ margin: '8px 0 0', fontSize: 13, color: 'var(--faint)' }}>{resto === 1 ? 'Y una más.' : `Y ${resto} más.`}</p>}
     </div>
   );
 }
@@ -213,8 +213,8 @@ function Semaforo({ alertas, lampara, conLamparas, limite, objetivoAtrasado }: {
 function Lampara({ color, encendida }: { color: string; encendida: boolean }) {
   return (
     <span aria-hidden style={{
-      width: 36, height: 36, borderRadius: '50%', background: color,
-      ...(encendida ? { boxShadow: `0 0 24px 4px color-mix(in srgb, ${color} 55%, transparent)` } : { opacity: 0.18 }),
+      width: 16, height: 16, borderRadius: '50%', background: color,
+      ...(encendida ? { boxShadow: `0 0 10px 2px color-mix(in srgb, ${color} 60%, transparent)` } : { opacity: 0.2 }),
     }} />
   );
 }

@@ -173,7 +173,7 @@ function FilaTarea({ t, puesto, proyecto, hoy, onOpen, onCompletar }: {
       onKeyDown={(e) => { if (e.key === 'Enter') onOpen(); }}>
       <span style={NUMERO} className="gb-num">{puesto}</span>
       <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <span title={t.title} style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.3, overflow: 'hidden', display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2 }}>{t.title}</span>
+        <span title={t.title} style={{ fontSize: 'clamp(14.5px, 3cqi, 17px)', fontWeight: 600, color: 'var(--ink)', lineHeight: 1.3, overflow: 'hidden', display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2 }}>{t.title}</span>
         {(proyecto || t.deadline) && (
           <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
             {proyecto && <ChipProyecto l={proyecto} />}
@@ -372,7 +372,7 @@ function ListaVence({ items, hoy, onOpen }: { items: Vence[]; hoy: string; onOpe
               <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em' }}>{MES[(m ?? 1) - 1]}</span>
             </span>
             <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
-              <span title={v.titulo} style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.titulo}</span>
+              <span title={v.titulo} style={{ fontSize: 'clamp(14.5px, 3cqi, 17px)', fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.titulo}</span>
               <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, fontSize: 12, color: 'var(--dim)' }}>
                 <span aria-hidden style={{ flex: 'none', width: 7, height: 7, borderRadius: 2, background: v.color }} />
                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.tipo === 'proyecto' ? 'Proyecto' : v.proyecto?.name ?? 'Tarea'}</span>

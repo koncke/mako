@@ -51,7 +51,7 @@ export default async function GeneralPage({ searchParams }: { searchParams: Prom
   // para un usuario nuevo, deberías proponerle un template»): la caja «¿Qué vas a crear hoy?» con las plantillas de
   // General abajo. La General de siempre viaja por dentro (la pantalla lee `hojas[0]`), no se muestra ni se guarda, y
   // la primera hoja que se crea es la ÚNICA. Un informe guardado sin hojas, igual.
-  const sinPaginas = lectura.estado === 'inicial' || !lectura.tablero.hojas.length;
+  const sinPaginas = lectura.estado === 'inicial' || !lectura.tablero.hojas.length || !!lectura.tablero.enBlanco;
   const tablero = lectura.tablero.hojas.length ? lectura.tablero : informeGeneralInicial();
   const hoja = tablero.hojas.find((h) => h.id === pedida) ?? tablero.hojas[0];
 

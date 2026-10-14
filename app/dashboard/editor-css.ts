@@ -129,7 +129,11 @@ export const CSS = `
 .lk-disp .lk-herr[aria-pressed="true"] { background: var(--velo-hover); color: var(--primary); }
 .lk-vacio { display: grid; place-items: center; gap: 12px; padding: 120px 0; color: var(--dim); font-size: 14px; text-align: center; }
 .lk-vacio p { margin: 0; }
-.lk-pila { display: flex; flex-direction: column; gap: 12px; }
+/* La pila del celular: una tarjeta debajo de la otra, y los NÚMEROS de a dos (un número solo a lo ancho del teléfono es
+   una tarjeta enorme con un dato chico). */
+.lk-pila { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.lk-pila > * { grid-column: 1 / -1; }
+.lk-pila > .lk-comp--kpi { grid-column: auto; }
 
 /* Las tarjetas: las de MaKo, con el tema de la hoja. */
 .lk-comp { display: flex; flex-direction: column; gap: 10px; padding: var(--dash-tarjeta-pad, 20px 22px); box-sizing: border-box; background: var(--dash-tarjeta-fondo, var(--surface)); border: 1px solid var(--dash-tarjeta-borde, var(--border)); border-radius: var(--dash-tarjeta-radio, 16px); box-shadow: var(--dash-tarjeta-sombra, none); overflow: hidden; font-family: var(--dash-letra, 'Geist', system-ui, sans-serif); color: var(--ink); min-width: 0; }
@@ -244,6 +248,15 @@ export const CSS = `
 .lk-opcion-linea { font-size: 12px; color: var(--dim); }
 .lk-opcion .lk-agg, .lk-opcion .lk-tipo-campo { width: 30px; color: var(--dim); }
 .lk-sep-h { height: 1px; background: var(--border); margin: 4px 0; }
+/* «Archivados» al pie del desplegable de hojas: sutil, como «Limpiar filtros» del CRM (./Cabecera.tsx, MenuHojas). */
+.lk-archivados { display: block; width: 100%; margin-top: 4px; padding: 9px 10px 4px; border: none; border-top: 1px solid var(--border); background: none; font: inherit; font-size: 12.5px; color: var(--dim); text-align: center; cursor: pointer; }
+.lk-archivados:hover, .lk-archivados[aria-expanded="true"] { color: var(--ink); }
+.lk-archivada { display: flex; align-items: center; gap: 4px; padding: 4px 6px 4px 10px; min-height: 36px; font-size: 13.5px; }
+.lk-archivada .lk-hoja-nombre { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--dim); }
+.lk-archivada-btn { flex: none; display: inline-flex; align-items: center; justify-content: center; min-width: 30px; height: 30px; padding: 0 6px; border: none; border-radius: 8px; background: none; color: var(--dim); cursor: pointer; font: inherit; font-size: 12.5px; font-weight: 600; }
+.lk-archivada-btn:hover { box-shadow: inset 0 0 0 999px var(--velo-hover); color: var(--ink); }
+.lk-archivada-btn--peligro:hover, .lk-archivada-btn--confirmar { color: var(--bad); }
+.lk-archivada-btn--confirmar { box-shadow: inset 0 0 0 999px color-mix(in srgb, var(--bad) 10%, transparent); }
 .lk-buscar { display: flex; align-items: center; gap: 8px; margin: 0 12px 8px; height: 36px; padding: 0 12px; border-radius: 18px; background: var(--surface-2); color: var(--dim); }
 .lk-buscar input { flex: 1; min-width: 0; border: none; outline: none; font: inherit; font-size: 14px; background: transparent; color: var(--ink); }
 .lk-buscar--lista { margin: 4px 8px 6px; }
@@ -258,7 +271,7 @@ export const CSS = `
 .lk-bloque { display: flex; flex-direction: column; gap: 3px; padding: 0; border: none; background: none; text-align: left; cursor: pointer; font: inherit; color: var(--ink); min-width: 0; }
 .lk-bloque-vista { position: relative; display: block; height: 150px; margin-bottom: 6px; border-radius: 10px; overflow: hidden; background: var(--surface); box-shadow: 0 0 0 1px var(--border); pointer-events: none; transition: box-shadow .12s; }
 .lk-bloque:hover .lk-bloque-vista, .lk-bloque:focus-visible .lk-bloque-vista { box-shadow: 0 0 0 2px var(--primary); }
-.lk-bloque-escala { position: absolute; left: 0; top: 0; width: 640px; padding: 18px; box-sizing: border-box; transform: scale(.36); transform-origin: top left; }
+.lk-bloque-escala { position: absolute; left: 0; top: 0; width: 640px; padding: 18px; box-sizing: border-box; transform: scale(.36); transform-origin: top left; container-type: inline-size; }
 .lk-bloque-nombre { font-size: 13.5px; font-weight: 600; }
 .lk-bloque-linea { font-size: 12px; color: var(--dim); line-height: 1.35; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .lk-galeria-tit { font-size: 13px; color: var(--ink); margin: 10px 0 6px; font-weight: 600; }

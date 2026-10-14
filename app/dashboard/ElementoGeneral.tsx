@@ -61,7 +61,7 @@ const TituloPropio = createContext<string | null>(null);
 export const useTituloPropio = (): string | null => useContext(TituloPropio);
 
 const CSS = `
-.gen-pieza{flex:1;min-height:0;min-width:0;overflow:auto;display:flex;flex-direction:column;scrollbar-width:thin}
+.gen-pieza{flex:1;min-height:0;min-width:0;overflow:auto;display:flex;flex-direction:column;scrollbar-width:thin;container-type:inline-size}
 .gen-pieza[data-oscuro]{--ink:var(--on-sidebar);--dim:var(--sidebar-text);--faint:var(--sidebar-text);--border:var(--sidebar-line);
   --border-strong:color-mix(in srgb,var(--on-sidebar) 24%,transparent);--surface-2:color-mix(in srgb,var(--on-sidebar) 8%,transparent);
   --surface:color-mix(in srgb,var(--on-sidebar) 7%,var(--sidebar));--gb-fondo:var(--sidebar);color:var(--on-sidebar)}

@@ -142,20 +142,22 @@ function TarjetasLlamadas({ c, items }: { c: Cal; items: ItemCalendario[] }) {
   const manana = sumarDias(c.hoy, 1);
   return (
     <div>
-      {items.map((it) => {
+      {items.map((it, i) => {
         const dia = diaDe(it.inicio, c.tz);
         const color = colorDe(it);
         const cuando = diaCorto(dia, c.hoy, manana);
+        // La PRÓXIMA va en grande (la quinta vuelta, 14/10/2026: «textos enormes, cosas grandes»): es la que se mira.
+        const grande = i === 0;
         return (
           // Filas con su línea, no una tarjeta por llamada: la fecha en su cuadradito, como un evento de calendario.
-          <Link key={it.id} href={destino(it)} className="gb-fila">
-            <span aria-hidden style={{ flex: 'none', width: 42, height: 44, borderRadius: 10, background: `color-mix(in srgb, ${color} 14%, transparent)`, color, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>
-              <span style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em' }}>{diaDeSemana(dia)}</span>
-              <span style={{ fontSize: 18, fontWeight: 700 }} className="gb-num">{Number(dia.slice(8, 10))}</span>
+          <Link key={it.id} href={destino(it)} className="gb-fila" style={grande ? { paddingBottom: 14 } : undefined}>
+            <span aria-hidden style={{ flex: 'none', width: grande ? 58 : 42, height: grande ? 62 : 44, borderRadius: grande ? 14 : 10, background: `color-mix(in srgb, ${color} 14%, transparent)`, color, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>
+              <span style={{ fontSize: grande ? 12 : 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em' }}>{diaDeSemana(dia)}</span>
+              <span style={{ fontSize: grande ? 26 : 18, fontWeight: 700 }} className="gb-num">{Number(dia.slice(8, 10))}</span>
             </span>
-            <span style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0, flex: 1 }}>
-              <span style={NOMBRE}>{it.titulo}</span>
-              <span style={{ fontSize: 12.5, color: 'var(--dim)' }} className="gb-num">{horaDe(it.inicio, c.tz)}{it.detalle ? ` · ${it.detalle}` : ''}</span>
+            <span style={{ display: 'flex', flexDirection: 'column', gap: grande ? 5 : 3, minWidth: 0, flex: 1 }}>
+              <span style={grande ? { ...NOMBRE, fontSize: 'clamp(17px, 4.2cqi, 24px)', fontWeight: 700, letterSpacing: '-0.015em' } : NOMBRE}>{it.titulo}</span>
+              <span style={{ fontSize: grande ? 'clamp(13.5px, 2.8cqi, 16px)' : 12.5, color: 'var(--dim)' }} className="gb-num">{horaDe(it.inicio, c.tz)}{it.detalle ? ` · ${it.detalle}` : ''}</span>
             </span>
             {(cuando === 'Hoy' || cuando === 'Mañana') && (
               <span className="gb-chip" style={cuando === 'Hoy' ? { background: color, color: '#fff', borderColor: 'transparent' } : undefined}>{cuando}</span>
