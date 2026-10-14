@@ -82,6 +82,15 @@ blocked the extension». Para mirar local va Playwright headless de la caché de
 
 - Con la máquina llena, el editor se verifica en producción (está detrás del guard del super admin).
 
+## Un typecheck ACOTADO no ve dos `declare module` del mismo paquete en dos áreas
+
+**Vive en:** `app/video-editor/_opencut/export/gifenc.d.ts` · `app/image-editor/_doory/editor/engine/export/video/gifenc.d.ts`
+
+`gifenc` no trae tipos y los dos editores lo declaran por su cuenta. TypeScript FUSIONA las dos declaraciones y gana la del Video Editor, que no tenía la opción `first` de `writeFrame`: el typecheck acotado del Image Editor (sólo `app/image-editor`) dio limpio, y el completo del pre-push frenó el push con «`first` does not exist». Se le sumó `first?` (una opción real de gifenc) a la declaración del Video Editor.
+
+- Regla: un paquete sin tipos se declara UNA vez; si ya hay un `declare module` en otra área, se amplía ése en vez de escribir otro.
+
+
 ## Lo que el relevamiento de integración midió y cambia el plan
 
 **Vive en:** `docs/editor-imagen/relevamiento-integracion-mako.md`
