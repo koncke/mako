@@ -277,11 +277,14 @@ test('«Nuevo producto» es la salida para CREAR: apagada, y se enciende al pasa
   const drop = leer('../app/components/Dropdown.tsx');
 
   // El llamador la marca con el flag, no con un estilo suyo.
-  assert.ok(/label: 'Nuevo funnel', crear: true/.test(tb), 'va con el flag `crear`');
+  assert.ok(/label: 'Nuevo CRM', crear: true/.test(tb), 'va con el flag `crear`');
+  // ⚠️ Y VA ARRIBA DE TODO (13/10/2026): «que la opción de nuevo esté arriba del
+  // desplegable, no abajo». Con `push` volvía al final de la lista.
+  assert.ok(/opciones\.unshift\(\{ value: NUEVA, label: 'Nuevo CRM', crear: true \}\)/.test(tb), 'la opción de crear volvió al final');
   // ⚠️ `color` en un DropdownOption dibuja un PUNTO de 9 px, no tiñe el texto: el
   // intento anterior (`color: 'var(--faint)'`) dejó una bolita gris al lado del
   // renglón y el texto igual de negro que los demás.
-  assert.ok(!/'Nuevo funnel'[^}]*color:/.test(tb), 'nada de `color`: dibuja un punto, no tiñe');
+  assert.ok(!/'Nuevo CRM'[^}]*color:/.test(tb), 'nada de `color`: dibuja un punto, no tiñe');
 
   // Y NINGUNA opción lleva subtítulo. «JAMÁS uses textos innecesarios»: «el de tu
   // negocio» debajo del único producto que hay era un renglón para no decir nada.
