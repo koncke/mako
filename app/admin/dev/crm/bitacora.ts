@@ -2154,7 +2154,7 @@ export const BITACORA: Hito[] = [
       'Ahora, si no llega, la tarjeta lo dice y lleva a conectar Meta. Si no se pudo leer, dice lo de siempre.',
       'Elegir el evento a mano no se hizo: lo que mueve la aguja es el conjunto de datos de CRM. Lo decide Martín.',
     ],
-    commits: [],
+    commits: [{ sha: '70918c59', msg: '«¿Era calificado?» dice a dónde va: «no le llega a Meta» donde falta el píxel', lineas: 190, archivos: 8 }],
     archivos: [
       'lib/meta-capi.ts — destinoYToken, adondeVaLaCalificacion',
       'lib/meta-capi-payload.ts — adondeDe',
@@ -2172,7 +2172,7 @@ export const BITACORA: Hito[] = [
       'Lo que la persona contesta en el formulario de la landing ahora queda en el lead (antes sólo viajaba en el WhatsApp) y se ve en Resumen.',
       'Migración 0274 aplicada. Los datos nuevos se editan, quedan en el historial y se deshacen.',
     ],
-    commits: [],
+    commits: [{ sha: 'f2154a58', msg: 'El Resumen del lead, personalizable: qué datos y qué formularios se ven', lineas: 581, archivos: 20 }],
     archivos: [
       'lib/resumen-ficha.ts — el catálogo y los defaults',
       'lib/optin-respuestas.ts — las respuestas de la landing',
