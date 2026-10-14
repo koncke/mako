@@ -89,6 +89,8 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/crm/automatizaciones/simulacion', 'evaluar_crm_automatico'],
   ['GET', '/crm/busqueda/duplicados', 'duplicados_lead'],
   ['GET', '/crm/busqueda/leads', 'buscar_leads'],
+  // Un CRM nuevo por su tipo (14/10/2026): crea el embudo y devuelve su embudoId.
+  ['POST', '/crm/embudos', 'crear_crm'],
   ['PUT', '/crm/entradas', 'declarar_entradas_funnel'],
   ['GET', '/crm/estadisticas/leads', 'contar_leads_por_etapa'],
   ['GET', '/crm/etapas', 'ver_funnel'],
@@ -142,6 +144,8 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/crm/sugerencias', 'sugerencias_crm'],
   // Deshacer un «Ahora no»: borrar el silencio, como `/crm/leads/{leadId}/faltantes/silencio`.
   ['DELETE', '/crm/sugerencias/{sugerenciaId}/silencio', 'volver_a_mostrar_sugerencia'],
+  // Los tipos de «Nuevo CRM» (14/10/2026), los que acepta POST /crm/embudos.
+  ['GET', '/crm/tipos', 'tipos_de_crm'],
   // ── ads ───────────────────────────────────────────────────────────────────
   ['GET', '/ads/angulos', 'listar_angulos_guion'],
   ['POST', '/ads/angulos', 'proponer_agregar_angulo'],

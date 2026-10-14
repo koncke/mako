@@ -27,6 +27,10 @@
 // =============================================================================
 
 import type { OperacionDef, Parametro } from '../tipos';
+// Los tipos de «Nuevo CRM» y lo que se elige con «Otro»: módulos PUROS, así el enum de `crear_crm`
+// es el mismo catálogo que dibuja el modal (copiarlo a mano es crear uno que se desincroniza).
+import { TIPOS_CRM, TIPO_CRM_OTRO, ENTRADAS_OFRECIDAS } from '@/lib/pipeline';
+import { CANALES } from '@/lib/fase-diagnostico';
 
 const TAB = { tab: 'crm' } as const;
 const TAB_ADMIN = { tab: 'crm', rolMinimo: 'admin' } as const;
@@ -622,6 +626,32 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
     reversible: true, escribe: 'reescribe las entradas declaradas en el funnel del negocio',
+  },
+
+  // ── Crear un CRM por su TIPO (14/10/2026, §2 de docs/diseno-ficha-bloques.md) ──────────────
+  // «Nuevo CRM» elige un tipo (DM funnel, LinkedIn, dos reuniones…) que trae canal, entrada y
+  // etapas (`TIPOS_CRM`, lib/pipeline.ts), o «otro» con el canal y las entradas a mano. Las dos
+  // ops van por el mismo camino que el modal: `siembraDeCrm` sanea y `crearCrm` (lib/nuevo-crm.ts)
+  // escribe. Por HTTP a propósito: un tipo y sus etapas no traen datos de nadie.
+  {
+    id: 'tipos_de_crm', area: 'crm', tipo: 'lectura',
+    titulo: 'Tipos de CRM para crear',
+    descripcion: 'Los tipos de CRM que se pueden crear con crear_crm, los mismos de «Nuevo CRM» en la pantalla: llamada de venta, dos reuniones (high-ticket), webinar, sesión presencial, conversaciones por chat, DM funnel (comentan una palabra clave), Instagram orgánico, anuncio con formulario de Meta, recurso gratis (lead magnet), LinkedIn, YouTube y carrito. Por cada uno, su id, qué es en una línea, cómo se vende, cómo llega la gente y las etapas con las que nace el tablero. Úsala antes de crear_crm cuando no está claro cuál corresponde. El tipo otro arma el CRM con el canal y las entradas que se pasen.',
+    parametros: [],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB,
+  },
+  {
+    id: 'crear_crm', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Crear un CRM nuevo',
+    descripcion: 'PROPONE crear un CRM nuevo del negocio, con su propio tablero de etapas, de un tipo de tipos_de_crm (queda pendiente hasta el «sí»). El tipo pone las etapas, cómo se vende y cómo llega la gente, igual que «Nuevo CRM» en la pantalla; con tipo otro se pasan el canal y las entradas. No toca los CRM que ya existen. Devuelve el embudoId del CRM nuevo, que es el que piden productos_del_lead y agregar_lead_a_producto. Solo el administrador.',
+    parametros: [
+      { nombre: 'nombre', tipo: 'string', obligatorio: true, max: 200, descripcion: 'cómo se llama el CRM, por ejemplo «Mentoría». No puede ser «Funnel principal», que es el del negocio.' },
+      { nombre: 'tipo', tipo: 'string', obligatorio: true, enum: [...TIPOS_CRM.map((t) => t.id), TIPO_CRM_OTRO], descripcion: 'el tipo de CRM (de tipos_de_crm), u otro para elegir a mano el canal y las entradas.' },
+      { nombre: 'canal', tipo: 'string', enum: CANALES.map((c) => c.id), descripcion: 'solo con tipo otro, y obligatorio ahí: cómo se cierra la venta (de él salen las etapas).' },
+      { nombre: 'entradas', tipo: 'string[]', max: 3, enum: ENTRADAS_OFRECIDAS, descripcion: 'solo con tipo otro, y al menos una ahí: cómo llega la gente (hasta 3).' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    reversible: false, escribe: 'crea un producto, su oferta y su embudo, con las etapas y la entrada del tipo',
   },
   // Un lead en VARIOS productos (mig 0207). «No se debe "Mover", se debe agregar al otro
   // producto» (Martín, 06/10/2026): los tres van por lib/lead-funnel.ts tal como lo usa la ficha,
