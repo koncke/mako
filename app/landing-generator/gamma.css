@@ -169,10 +169,14 @@
    ⚠️ El alto es un NÚMERO (100dvh) y los hijos estiran con flex: 1 + min-height: 0. Nada
    de height: 100% en un hijo de flex: 1 (AGENTS.md, «Dos reglas de layout»: Safari lo
    resuelve a CERO y con overflow: hidden la pantalla queda en blanco). Molde: .lk-app del
-   editor de informes. */
+   editor de informes.
+   ⚠️ Y ese número DESCUENTA la barra de la agencia («Estás viendo el dashboard de…», 50 px,
+   fija): el body le reserva su alto con padding-top, así que 100dvh entero hacía scrollear al
+   documento esos 50 px y la barra tapaba la de arriba del editor, Publicar incluido (medido el
+   14/10/2026 en el Chrome de Martín, viendo un cliente: scrollTop 50,4). */
 .gma-app {
-  height: 100vh;
-  height: 100dvh;
+  height: calc(100vh - var(--barra-agencia, 0px));
+  height: calc(100dvh - var(--barra-agencia, 0px));
   min-width: 0;
   display: flex;
   flex-direction: column;

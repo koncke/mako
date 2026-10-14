@@ -127,6 +127,40 @@ test('un insertado VACÍO es un marcador: se guarda sin motivo (su NodeView pide
   assert.doesNotMatch(htmlDeTarjeta(t, TEMAS[0], { modo: 'publico' }), /gm-insertado/, 'la página publicada dibujaría un hueco sin explicación');
 });
 
+// La PISTA del insertado vacío (14/10/2026): el VSL de un diseño y el bloque «Agenda» entran sin enlace,
+// y el proveedor dice si el hueco es un video o una agenda (el editor pide lo justo; la miniatura dibuja
+// el ▶). Antes el saneo lo dejaba '' y un VSL vacío era igual a una agenda vacía.
+// Roturas (14/10/2026, en memoria, restauradas y verificadas por hash; base: 14 pasan, 0 fallan): la pista
+// con `in` en vez de `esProveedorEmbed` (entra «toString») → 13 / 1; cualquier pista se guarda → 13 / 1;
+// la inventada se tira sin motivo → 13 / 1. Revisión del mismo día (base: 14 / 0): sin el `!pidio` (con
+// enlace salía un motivo falso de pista desconocida) → 13 / 1; sólo se anota la pista que es texto → 13 / 1.
+test('la pista de proveedor de un insertado vacío se conserva sólo si es de la lista cerrada; una inventada sale vacía, con motivo', () => {
+  const ins = (attrs: Record<string, unknown>) => ({ type: NODO.insertado, attrs });
+  const r = sanearContenido(landing([sec([
+    p(txt('x')), ins({ src: '', proveedor: 'youtube', alto: null }), ins({ src: '', proveedor: 'calendly' }),
+    ins({ src: '', proveedor: 'evil<script>' }), ins({ proveedor: 'panda' }), ins({ src: '', proveedor: 'toString' }),
+  ], { id: 'tA' })]));
+  const [, yt, cal, mala, panda, proto] = r.contenido.paginas[0].doc.content[0].content!;
+  assert.deepEqual(yt.attrs, { src: '', proveedor: 'youtube', alto: null });
+  assert.equal(cal.attrs!.proveedor, 'calendly');
+  assert.equal(mala.attrs!.proveedor, '', 'una pista inventada no se guarda');
+  assert.equal(panda.attrs!.proveedor, 'panda');
+  assert.equal(proto.attrs!.proveedor, '', 'una clave del prototipo no es un proveedor');
+  assert.equal(r.descartes.length, 2, r.descartes.join('\n'));
+  tieneMotivo(r.descartes, /pista de proveedor desconocida «evil<script>»/);
+  // Con enlace, el proveedor lo decide el enlace (lib/embeds.ts): la pista del JSON no se lee.
+  const conEnlace = sanearContenido(landing([sec([ins({ src: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', proveedor: 'calendly' })], { id: 'tA' })]));
+  assert.equal(conEnlace.contenido.paginas[0].doc.content[0].content![0].attrs!.proveedor, 'youtube');
+  assert.deepEqual(conEnlace.descartes, [], 'con enlace, la pista no se mira: no hay nada que anotar');
+  // Una pista que no es texto tampoco se lee, y se anota (venía algo y no quedó).
+  const raras = sanearContenido(landing([sec([ins({ src: '', proveedor: 123 }), ins({ src: '', proveedor: ['youtube'] }), ins({ src: '', proveedor: { toString: 'youtube' } })], { id: 'tA' })]));
+  assert.deepEqual(raras.contenido.paginas[0].doc.content[0].content!.map((n) => n.attrs!.proveedor), ['', '', '']);
+  assert.equal(raras.descartes.filter((m) => /pista de proveedor desconocida/.test(m)).length, 3, raras.descartes.join('\n'));
+  // Idempotente, y lo que sale carga en el editor con la pista.
+  assert.deepEqual(sanearContenido(r.contenido).descartes, []);
+  cargaEnTipTap(r.contenido);
+});
+
 test('listas cerradas: lo que no es exactamente un valor de la lista vuelve al default, con motivo', () => {
   const r = sanearContenido(landing([sec([
     { type: NODO.optimizado, attrs: { variante: 'cajas-3d', columnas: '9', mostrarIconos: 'si' }, content: [{ type: NODO.optimizadoItem, attrs: { icono: '<svg>', valor: 'x'.repeat(80) }, content: [p(txt('i'))] }] },

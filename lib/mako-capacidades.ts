@@ -70,7 +70,7 @@ export const CAPACIDADES: Capacidad[] = [
     // (y por eso no está): dominio propio, código de terceros, «Generar imagen con IA» todavía, ni
     // editar a la vez con otra persona.
     id: 'landing-escribir', tab: 'Landing Generator', ruta: '/landing-generator',
-    que: 'Crear tu landing con MaKo y publicarla: arma el esquema y las secciones desde tu oferta (o desde una página ya analizada, resolviendo sus hallazgos), la editas por bloques con el tema que elijas y queda en hola-mako.com/l/<tu-dirección>, con el Pixel de MaKo midiendo las visitas.',
+    que: 'Crear tu landing con MaKo y publicarla: arma el esquema y las secciones desde tu oferta (o desde una página ya analizada, resolviendo sus hallazgos), la editas por bloques con el tema que elijas y queda en hola-mako.site/<tu-dirección>, con el Pixel de MaKo midiendo las visitas.',
     como: [
       'Entra a Landing Generator y toca "Crear nuevo"',
       'Cuéntale qué página necesitas (o pega tu texto) y toca "Generar esquema"',

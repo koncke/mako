@@ -1205,3 +1205,29 @@ _11/10/2026 — `tests/api-mako-dashboard.test.ts` (25, probado con 14 roturas),
   fuera de un pop-up. **Vive en:** `lib/api-mako/areas/dashboard.def.ts`, `dashboard.helpers.ts`, `dashboard.run.ts`.
 
 *12/10/2026, chat «Graphics», ola 3 de la v5 (paquete de la API y el link).*
+
+## El editor del Landing Generator (14/10/2026, seis operaciones en `landing`)
+
+El detalle del área está en [hallazgos-editor-landing.md](hallazgos-editor-landing.md) («Tanda 4»). Lo
+que vale para cualquier área que sume operaciones:
+
+- **Un recurso REST con tilde pasa el test con el título sin tilde.** `tests/api-mako-rest.test.ts` sólo
+  mira que el título del recurso arranque en mayúscula y no tenga guiones: `/landing/disenos` salía
+  «Disenos» en la referencia, en verde. Una palabra con tilde va a `ACENTOS` de `lib/api-mako/recursos.ts`
+  (acá se eligió `plantillas`, que no la necesita). **Vive en:** `lib/api-mako/recursos.ts`.
+- **Tercera vez: la operación existe por HTTP y no por WhatsApp porque el clasificador no conoce la
+  frase** (antes cobros y automatizaciones). «publicá la landing…» sale `capturar` dudosa. Cuando el
+  clasificador es de otro chat, el arreglo se mide sobre una COPIA de `lib/mako-intencion.ts` (sólo
+  importa un tipo, así que se copia y se importa suelta) y el test lo espera como `{ todo }`: en
+  `node:test` un `todo` que falla no rompe la corrida, y el día del parche pasa sin que nadie lo
+  reescriba. **Regla: toda área que suma ACCIONES mide sus frases con el turno que corre ANTES de dar
+  la tanda por cerrada.**
+- **En la pantalla genérica se decide QUÉ queda fijo al proponer.** Fijarlo exige un parámetro (que es
+  un campo editable en `/mako/revisar`) o un `proponer()` propio (que necesita su rama en el ejecutor de
+  flujos, `tests/flujo-acciones.test.ts` las cuenta). `publicar_landing` NO fija la versión: publica lo
+  guardado al confirmar, como el botón de su pantalla. Es una decisión por operación, y va escrita en la
+  def.
+- **`yaEstaba` no es sólo para no molestar al dueño**: también frena una escritura que deja rastro que
+  no se poda (cada publicar deja una versión de hasta 1,5 MB en el historial).
+
+*14/10/2026, chat del editor de landings, tanda 4 (`tests/api-mako-landing-editor.test.ts`).*

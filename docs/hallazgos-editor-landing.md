@@ -256,16 +256,17 @@ en el navegador y un revisor adversarial; acá va lo que costó.
 - **`VERCEL_API_TOKEN` y `VERCEL_TEAM_SLUG` en producción**: sin ellas la pestaña dice «no está activado en
   MaKo». El token de `.env.local` es de mbustos (un cliente): decide Martín cuál va. `lib/editor-landing/dominios.ts`
   (`configVercel`).
-- **Las redirecciones de `next.config.ts` corren antes del proxy en un dominio de cliente** (`/extension`,
-  `/leads`, `/todo`, `/graphics`, `/script-analyst`): van con `has: host` de MaKo, que también tiene que
-  aceptar `localhost` y los `*.vercel.app`. `next.config.ts` (`redirects`).
+- ~~**Las redirecciones de `next.config.ts` corren antes del proxy en un dominio de cliente**~~: hecho en la
+  tanda 4 (`has: host` de la app con `.map(enLaApp)`, abajo).
 - **El matcher de `proxy.ts` no corre en rutas con sufijo de archivo**: en el dominio del cliente se sirven
   `/_next/*`, el `favicon.ico` de MaKo, `/m.js`, `/sw.js`. Un rewrite `beforeFiles` con `missing` host de MaKo
-  hacia un 404. `proxy.ts` (matcher), `next.config.ts`.
-- **Servir `/l/html` desde un dominio aparte, sólo para contenido de usuarios**: lo de fondo contra el
-  phishing. `lib/editor-landing/html-libre.ts`, `especificacion.ts`.
+  hacia un 404. `proxy.ts` (matcher), `next.config.ts`. Medido en la tanda 4 y sigue pendiente (por qué, abajo).
+- ~~**Servir `/l/html` desde un dominio aparte, sólo para contenido de usuarios**~~: hecho en la tanda 4 (las
+  landings y su `/l/html` viven en hola-mako.site; en producción hola-mako.com ya no lo sirve).
 - **Los popups del bloque heredan el sandbox** (un checkout ajeno puede fallar): decidir con Martín
-  `allow-popups-to-escape-sandbox`. `html-libre.ts` (`SANDBOX_PUBLICO`).
+  `allow-popups-to-escape-sandbox`. `html-libre.ts` (`SANDBOX_PUBLICO`). Con las landings en hola-mako.site el
+  riesgo de aflojarlo es menor (un popup sin sandbox que cargue algo de su propio host ya no corre con el
+  origen de la app ni con su cookie), pero sigue siendo su decisión.
 - **La pestaña «Dominios» no avisa que una reserva venció** (`queFalta` no lo sabe); el `www.` no se agrega
   solo; los subdominios `<slug>.hola-mako.com` quedan para Martín. `dominios-reglas.ts`.
 - **«Probar nuevo diseño» no recibe el formato** (el server `disenos` no toma params) y **el PDF de una
@@ -273,9 +274,9 @@ en el navegador y un revisor adversarial; acá va lo que costó.
 - **Las rutas `analyze`, `sync` y `pulso` del Landing Analyst no miran el rol** (quedó como tarea aparte).
   `app/api/landing-analyst/*`.
 - **Una página armada como app** (`html/body` al 100% con scroll interno) queda en 400 px por sección en la
-  copia fiel. **Sólo se analiza la página de inicio**, el puntaje de una landing nuestra no se guarda, y una
-  landing con dominio propio analizada en `https://<dominio>` aparece «de afuera» (`LandingResumen` no trae el
-  dominio). `replicar-reglas.ts`, `diagnostico.ts`, `panel-reglas.ts`.
+  copia fiel. **Sólo se analiza la página de inicio** y el puntaje de una landing nuestra no se guarda.
+  `replicar-reglas.ts`, `diagnostico.ts`. ~~Una landing con dominio propio analizada en `https://<dominio>`
+  aparece «de afuera»~~: hecho en la tanda 4 (`LandingResumen.dominio`, sólo el verificado; `docDeUrl`).
 - **Verlo con clics**: la tira en Chrome de Windows (6-9 secciones con imágenes, al borde de scrollear, sin
   «ResizeObserver loop» en la consola), Presentar, guardar sugerencias reales (con la 0264 ya aplicada) y la
   conexión real a Vercel. Y la cascada de IA del ws1: el Landing Analyst no tiene un proveedor gratis que
@@ -311,10 +312,593 @@ una, puede salir un pop-up... que te pregunte de que quieres crearla». Hecho si
   medido sobre los 80 cruces diseño × objetivo (`tests/editor-landing-disenos.test.ts`). En el menú de
   bloques son la categoría «Herramientas de MaKo» (Agenda, VSL, Botón de pago). **Vive en:**
   `lib/editor-landing/catalogo-bloques.ts`, `app/landing-generator/editor/insertar.ts`.
-- **Sin hacer**: el botón de pago no arma el link desde la pasarela de MaKo (`lib/cobros.ts`, `crearCobro`):
-  la persona pega el suyo. Conectarlo es un cobro por visitante, con su producto y su moneda, y no entraba
-  en «cambios simples». Y falta mirarlo con clics (la barra en una sección del medio y en la última, y el
-  pop-up desde el Panel y desde la caja).
+- ~~**Sin hacer**: el botón de pago no arma el link desde la pasarela de MaKo (`lib/cobros.ts`, `crearCobro`):
+  la persona pega el suyo.~~ Hecho en la tanda 4 (abajo). Sigue faltando mirarlo con clics (la barra en una
+  sección del medio y en la última, y el pop-up desde el Panel y desde la caja).
+
+## Tanda 4 (14/10/2026): el botón de pago por la pasarela de MaKo
+
+Pedido: que el «Botón de pago» cobre por la pasarela del negocio (Stripe / Mercado Pago, `lib/cobros.ts`) en
+vez de llevar a un link pegado. Decisión de Martín (14/10): antes del checkout se le piden NOMBRE y EMAIL a
+quien paga. Y lo que pidió respetar «Integraciones», dueño de `lib/cobros.ts` (que no se tocó): monto, moneda,
+montoUsd y altaCapa nunca salen del pedido; un lead por email exacto; el pendiente se compara antes de
+reusarse; los errores de `crearCobro` son para el dueño; topes. El recorrido: el botón guarda
+`pago:<productoId>` → la foto publicada congela qué productos ofrece → el render lo escribe
+`<base>/pagar/<id>` → el paso (`app/l/[slug]/pagar/[bloque]`, HTML sin JavaScript) → el POST
+(`app/api/landing-generator/pagar`, exacta en PUBLICOS) → 303 al link `/pagar/<token>`.
+
+- **«Cobrado por MaKo» va en el `href` del botón, no en un atributo nuevo.** Lo obvio era `productoId` en
+  `AttrsBoton`, y eran cuatro puertas: el tipo, el normalizador, la extensión de TipTap (con
+  `parseHTML: () => null`) y lo que lee el NodeView; la que se olvide hace que `nodeFromJSON` tire el
+  atributo en silencio y el autoguardado lo pise. `pago:<productoId>` viaja por el `href`, que ya pasa por las
+  cuatro y por el saneo, igual que `pagina:<id>`. SÓLO el botón lo conoce (`attrsBoton` → `hrefPagoValido`):
+  `hrefPermitido` no, así que un enlace de texto, una imagen o la barra del sitio no pueden apuntar a un
+  pago que nadie resolvería. **Regla: antes de sumarle un atributo a un nodo, mirar si el dato cabe en uno que
+  ya cruza el esquema y el saneo.** **Vive en:** `lib/editor-landing/especificacion.ts` (`attrsBoton`,
+  `specBoton`), `lib/editor-landing/pago-landing.ts`.
+- **«Editar con IA» se comía el botón de pago, sin error.** La gramática (`destinoBoton`) valida el destino con
+  `hrefPermitido`, y lo que no conoce lo manda al formulario: la vuelta de la IA dejaba el botón apuntando a
+  `#t-<formulario>`. Toda forma nueva de destino de un botón entra también ahí (tiene test). **Vive en:**
+  `lib/editor-landing/ia-bloques.ts`.
+- **La URL del paso sale de la base del render, no se arma a mano**: `resolverHref` escribe
+  `<urlBase>/pagar/<id>` (`urlPasoPago`), la MISMA base de los `pagina:` (hoy `https://hola-mako.com/l/<slug>`;
+  la mudanza a hola-mako.site cambia esa base en `publicar.ts` y el botón la sigue). Sólo con `pagos: true`
+  (lo pide `armarFoto` al publicar): en la vista previa y al exportar el botón queda en `#`, porque
+  `/l/vista/<tok>/pagar/…` no existe y un `pago:` crudo en un `<a>` haría que el navegador busque una app.
+  ⚠️ **En un dominio propio el botón de pago NO se reescribe al dominio** (revisión, ALTA; abajo, «El botón
+  de pago en un dominio propio»): queda en la base de MaKo. Si algún día el proxy sirve el paso en el
+  dominio, ojo: `https://cliente.com/pagar/<id>` choca con `app/pagar/[token]` (el link de un cobro); se
+  reescribe al paso y nunca a `app/pagar` (un id de producto son dígitos; un token, 32 base64url).
+  **Vive en:** `lib/editor-landing/render.ts`, `dominios-reglas.ts` (`conEnlacesDelDominio`).
+- **La foto congela qué se ofrece (`publicado.pagos`), y `leerFoto` no lo copia.** El POST sólo cobra un
+  producto que la landing PUBLICADA ofrece (un visitante no elige qué producto del catálogo se le cobra).
+  `leerFoto` reconstruye la foto campo por campo y deja afuera lo que no conoce (`pagos`, igual que
+  `htmlLibre`): se lee de la fila CRUDA (`productosDeFoto`). Una foto publicada antes de la tanda 4 no cobra
+  nada hasta que se republique. **Vive en:** `lib/editor-landing/publicar.ts`, `server-reglas.ts`,
+  `pago-landing-server.ts`.
+- **Mercado Pago NO cobra desde una landing, y no es un olvido.** Cobra en la moneda del sitio de su cuenta
+  (ARS, MXN…) y `productos` sólo tiene `monto_usd`: `decidirCobro` exige el monto explícito en esa moneda, y
+  acá el monto no sale del pedido (nunca una tasa inventada). Es la misma decisión que la API de MaKo para
+  `crear_link_pago`. Con sólo Mercado Pago, el control del botón y Publicar lo dicen y mandan a conectar
+  Stripe. **Vive en:** `lib/editor-landing/pago-landing.ts` (`pasarelaDeLanding`, `motivoNoCobra`).
+- **Cuando SÍ se cobra, el lead NO cae a propuesta (a diferencia del opt-in)** — cuando no se puede cobrar, sí
+  (revisión, abajo). El opt-in, ante un duplicado, deja una propuesta y no hay `leadId`; un cobro EXIGE uno. Se busca ANTES por email EXACTO (`ilike` con `%`, `_` y la barra
+  invertida escapados trae candidatos; decide `emailComparable`, y con dos fichas gana la más vieja) y en
+  lectura ESTRICTA: `duplicadosDeLead` traga el error y devuelve `[]`, que acá crearía una segunda ficha de la
+  misma persona. Si `createLead` choca igual (otro pedido en el medio), se vuelve a buscar. Se crea por el
+  camino del opt-in (`createLead` con `origen_lead: 'landing'` y la casa del producto principal de la página)
+  aunque el negocio no haya declarado la landing como entrada de leads: alguien escribió su email para PAGAR.
+  ⚠️ Trampa menor: `esLeadDuplicado` vive en `lib/leads-duplicados.ts`; `lib/leads.ts` no lo re-exporta.
+  **Vive en:** `lib/editor-landing/pago-landing-server.ts` (`leadDeQuienPaga`), `pago-pedido.ts` (`leadPorEmail`).
+- **`cobroPendienteDelLead` no sirve para decidir si se reusa**: devuelve el pendiente más nuevo de CUALQUIER
+  producto, y además un pendiente viejo puede tener el precio de antes. Se listan los `pendiente` del lead y se
+  reusa sólo el del MISMO producto, pasarela, monto, moneda y tipo (`cobroReusable`). **Vive en:**
+  `lib/editor-landing/pago-pedido.ts`, `pago-landing-server.ts` (`pagarDesdeLanding`).
+- **`form-action` se aplica a las REDIRECCIONES del envío (Chrome).** El POST rebota dos veces (303 →
+  `/pagar/<token>` de la app → el checkout de Stripe): la política del paso nombra `'self'`, el origen de la
+  app y los checkouts, o el navegador corta el último salto y queda una página en blanco con el pago a medio
+  camino. ⚠️ NO MEDIDO en un navegador (en este worktree no se levantó `next dev`): es lo primero a mirar con
+  clics. **Vive en:** `lib/editor-landing/pago-pagina.ts` (`politicaPasoPago`, `ORIGENES_CHECKOUT`).
+- **El Origin, en positivo, y `*.vercel.app` no es MaKo.** `esHostDeMako` incluye `*.vercel.app` (para el
+  proxy está bien: son los deploys), pero ese sufijo es de CUALQUIER cliente de Vercel: para el POST sólo vale
+  el deploy que contesta. Un dominio propio vuelve como `dominio` y se confirma contra `landingDeDominio` de
+  ESA landing. No es una barrera contra un script (el Origin se falsifica con curl): lo que frena el abuso son
+  los topes (por IP 10 cada 10 min, por email 5 por hora; en memoria por instancia) y el campo trampa — cada
+  pedido crea un checkout en el Stripe del cliente. **Vive en:** `lib/editor-landing/pago-pedido.ts`
+  (`origenDelPago`), `pago-pagina.ts` (`responderPagoPost`).
+- **Al visitante, una frase; el motivo real, al dueño.** Los errores de `crearCobro` están escritos para el
+  dueño («Stripe: …») y van al historial del lead. El paso muestra el formulario aunque hoy no se pueda cobrar
+  (sin Stripe, sin precio): el POST deja una PROPUESTA de contacto con «quiso pagar X y no se pudo: <motivo>»
+  en el resumen (desde la revisión: antes era una ficha directa), y el visitante lee «Este pago no está
+  disponible en este momento. Ya tenemos tus datos.» Un producto que ya no está activo, en cambio, no se
+  ofrece (no hay qué mostrar). **Vive en:** `lib/editor-landing/pago-pagina.ts`, `pago-pedido.ts`
+  (`ejecutarPago`), `pago-landing-server.ts`.
+- **Un módulo que importa el editor no puede importar del CRM**: `emailComparable` (`leads-duplicados`) arrastra
+  `lead-funnel-reglas` → `funnel-fila` → `pipeline` (mil líneas) al bundle del editor, porque
+  `especificacion.ts` y `render.ts` viajan al navegador. Lo del botón vive en `pago-landing.ts` (liviano) y lo
+  del pedido en `pago-pedido.ts` (sólo server y tests).
+
+### Lo que quedó sin hacer (tanda 4)
+
+- **El paso de pago no se sirve EN el dominio propio**: desde la revisión, el botón de una landing con dominio
+  lleva al paso en la base de MaKo (antes llevaba a un 404). Servirlo en el dominio es reescribir el GET
+  `/pagar/<id>` a `app/l/[slug]/pagar/[bloque]` con el slug de ese dominio (la ruta ya se niega a servir una
+  landing de otro dominio), dejar pasar el POST, y recién ahí sacar el `(?!/pagar/)` de `conEnlacesDelDominio`.
+  `lib/editor-landing/dominios-reglas.ts` (`decidirHost`, `conEnlacesDelDominio`), `proxy.ts`.
+- **hola-mako.site**: `HOST_SITIOS` (`lib/editor-landing/pago-pedido.ts`) repite el host. La mudanza (rama
+  `landing-dom`, sin integrar el 14/10) ya lo declara: `HOST_LANDINGS` / `esHostDeLandings` en
+  `lib/editor-landing/origen-landings.ts`, y `esHostDeMako` lo incluye (con eso nadie puede reclamar
+  hola-mako.site en «Dominios»). Al integrarla: en `origenDelPago`, `esDe(host, HOST_SITIOS)` pasa a ser
+  `esHostDeLandings(host)` y `HOST_SITIOS` se borra. No se hizo acá para no dejar dos declaraciones.
+- **API de MaKo**: «configurar el botón de pago de un bloque» no está en el registro
+  (`lib/api-mako/areas/landing.*`, en construcción en otro worktree). Es poner `href: hrefDePago(id)` en un
+  `boton` (helpers puros de `pago-landing.ts`).
+- **La vista previa no cobra** (el botón queda en `#`). Cuando alguien quiso pagar y no se pudo, desde la
+  revisión queda una propuesta y le llega el aviso de las propuestas; cuando falla la PASARELA (Stripe rechaza),
+  sigue quedando sólo en el historial del lead, sin aviso en el momento.
+- **Verlo con clics**: elegir el producto en el panel «Destino», el rótulo y la advertencia, Publicar con y sin
+  Stripe, el paso en un celular (tema, teclado), y el POST hasta el checkout de Stripe en modo prueba
+  (incluido el `form-action` en Chrome).
+
+### Revisión adversarial de la tanda 4 (14/10/2026)
+
+Un revisor leyó el diff entero y ejecutó lo que se podía ejecutar; se aplicó lo confirmado de severidad alta y
+media, y lo bajo de una línea. Lo que costó entender, por tema:
+
+- **El botón de pago en un dominio propio llevaba a un 404, y el hallazgo de arriba lo daba por «pendiente».**
+  El diagnóstico escrito el mismo día decía «el dominio propio no cobra todavía: `decidirHost` contesta 404»,
+  como si fuera una feature que faltaba. Era una ROTURA activa: al servir en el dominio, `conEnlacesDelDominio`
+  reescribía TODO lo que colgaba de la base de MaKo, el botón incluido, a `https://<dominio>/pagar/<id>`, y ahí
+  el proxy contesta «Parece que esta página no existe (404)». En hola-mako.com/l/<slug> el mismo botón andaba,
+  así que el dueño, probándolo, lo veía funcionar. **Regla: una reescritura al servir se prueba contra lo que
+  el proxy contesta a CADA enlace reescrito**, no contra el texto. El test recorre publicar → servir en el
+  dominio → `decidirHost` por enlace. **Vive en:** `lib/editor-landing/dominios-reglas.ts`
+  (`conEnlacesDelDominio`, con `(?!/pagar/)`), `tests/editor-landing-pago.test.ts`.
+- **Un formulario sin JavaScript tiene doble clic, y «buscar y si no está, crear» sin candado lo duplica.** El
+  comentario decía «un doble clic sigue en el mismo checkout», cierto sólo si los dos POST llegan uno después
+  del otro. Ni `leads` tiene un único por email ni `cobros` uno por (lead, producto, pendiente), así que dos a
+  la vez dejaban dos fichas y dos Checkout Sessions. El arreglo es un CANDADO por (negocio, email) en la base:
+  una fila `en_curso` con un índice único PARCIAL (`landing_pago_pedidos`, mig 0276); el segundo choca (23505),
+  espera y encuentra lo que dejó el primero. Por NEGOCIO y no por landing: la ficha es del negocio. Trampas:
+  - **Un índice único parcial no sirve de blanco de un `ON CONFLICT`**: el candado es un INSERT que se deja
+    chocar y se lee el 23505, no un upsert.
+  - **`select(..., { head: true })` que falla vuelve sin cuerpo**: sin el código no se distingue «la tabla no
+    está» (PGRST205/42P01, se tolera: corre como antes y lo dice en el log) de «la base se cayó» (tira). El
+    conteo va sin `head`.
+  - **Un candado colgado (la función murió) se suelta a los 90 s**, más que el `maxDuration` de la ruta; uno
+    vivo hace esperar hasta 20 s y rendirse con un fallo, sin tocar el CRM. La espera tiene plazo SIEMPRE: un
+    bucle que sólo sale por «se soltó» cuelga la función.
+  - **El orden se testea con un CRM de mentira cuya lectura y alta NO son atómicas** (dos vueltas del bucle en
+    el medio): con uno síncrono la carrera no existe y el test da verde sin candado.
+  **Vive en:** `lib/editor-landing/pago-pedido.ts` (`ejecutarPago`, `conCandado`), `pago-landing-server.ts`
+  (`candadoDePago`), `supabase/migrations/0276_landing_pago_pedidos.sql`, `tests/editor-landing-pago-candado.test.ts`.
+- **Un POST público creaba fichas en el CRM del cliente aunque no se pudiera cobrar.** Sin `entradas`, sin
+  propuesta, ANTES de mirar si el producto cobraba, y con topes que viven en la memoria de cada instancia
+  (lib/rate-limit.ts los declara «best-effort»; el Origin se falsifica con curl). Sin cobro no hace falta una
+  ficha: queda una PROPUESTA (`ref` = landing + producto + email, no se duplica; el dueño recibe el aviso de
+  siempre y la confirma en /crm/revisar) y el visitante lee lo mismo. Y un techo por landing y hora contado en
+  la BASE (`TECHO_PAGOS_HORA`, 120). **Vive en:** `pago-pedido.ts` (`ejecutarPago`), `pago-landing-server.ts`
+  (`proponerQuienQuisoPagar`, `usosDeLaHora`).
+- **Reusar un pendiente por un email que nadie verifica entregaba cobros del DUEÑO.** `cobroReusable` no miraba
+  de quién era el cobro: quien tipeaba el email de un lead recibía el token de un pendiente armado desde la
+  ficha o la API, y uno con alta de MaKo habilita el cambio de email de la cuenta (app/pagar/cambio-email.ts).
+  Ahora sólo se reusa lo que creó ESTA landing (`esDeLaLanding`, por el slug: cambiarle el título no huerfana
+  el pendiente) para ESTE email, sin `alta_capa`. **Vive en:** `pago-pedido.ts` (`cobroReusable`).
+- **«Editar con IA» podía cambiar QUÉ producto cobra un botón.** `destinoBoton` aceptaba cualquier `pago:<id>`
+  del modelo: un dígito cambiado cobraba otro producto, sin descarte. Ahora vuelve sólo un producto que ya
+  cobraban los botones de las secciones ORIGINALES (todas, sobre la landing entera: moverlo de sección no es un
+  producto nuevo); al generar, ninguno. **Vive en:** `lib/editor-landing/ia-bloques.ts` (`pagosDe`).
+- **El campo trampa se llamaba `sitio_web`**, que es lo que un autocompletado llena solo: un comprador real
+  perdía el pago sin rastro. Ahora `mk_q7`, y el test lo fija contra palabras de autocompletado.
+
+### Lo que quedó sin hacer (revisión de la tanda 4)
+
+- **Aplicar la mig 0276 ANTES o JUNTO con el deploy** (sin ella corre sin candado ni techo, como antes). Y
+  revisar el número al integrar: el 14/10 la 0275 la tenía el worktree de chats.
+- **Nadie poda `landing_pago_pedidos`** (con el techo, como mucho 120 filas por landing y hora). Un cron que
+  borre lo terminado de más de unos días. `supabase/migrations/0276_landing_pago_pedidos.sql`.
+- **Los rechazos del POST no dejan rastro consultable** (trampa, Origin, topes, tamaño: a lo sumo un
+  `console.warn`). AGENTS.md: «una política puede RECHAZAR; no puede no dejar rastro». Va un contador por
+  landing y día con el motivo, sin datos personales, y mostrarlo donde el dueño ve la landing. Cuidado: los
+  rechazos de antes de leer la landing (Origin, trampa) no saben de qué negocio son, y escribir una fila por
+  cada uno le abre a un bot una escritura por pedido. `lib/editor-landing/pago-pagina.ts` (`responderPagoPost`).
+- **La atribución del anuncio se pierde en la conversión más cara**: el lead que nace por el botón de pago no
+  lleva `utm_*`, `fbclid` ni `visitor_id` (el href del paso es fijo y el paso no tiene el Pixel). Que el Pixel
+  decore los enlaces `/pagar/` con lo que ya guarda y el paso los pase, saneados, a `createLead`. Es del Pixel
+  (versión nueva del snippet): `lib/landing-token.ts`, `render.ts`, `pago-pagina.ts`.
+- **La cadena de pago termina en hola-mako.com** (el 303 a `/pagar/<token>` y el regreso de Stripe salen de
+  `APP_BASE_URL`, lib/cobros.ts:62-64): desde un dominio propio o hola-mako.site, el comprador sale del dominio
+  del cliente y al terminar no vuelve a la landing; el «Volver» del paso apunta a hola-mako.com/l/<slug>. Hay
+  que darle a `crearCobro` una base de retorno del host que sirvió la landing: es de «Integraciones», dueño de
+  lib/cobros.ts.
+- **`form-action` y un checkout de Stripe con dominio propio** (NO medido): la política nombra sólo
+  `checkout.stripe.com` como destino final; si Chrome corta un 302 a `pay.sunegocio.com`, queda una página en
+  blanco con el cobro creado. Medir en Chrome y Safari antes de tocar. `pago-pagina.ts` (`ORIGENES_CHECKOUT`).
+- **`cobroReusable` no compara el `modo`** (prueba/real): un pendiente de prueba reusado después de pasar a
+  claves reales manda a un checkout de prueba. Hace falta el modo de la clave actual, que sólo lee lib/cobros.ts.
+- **API de MaKo**: «el botón cobra el producto X» sigue sin declararse (lo construye el worktree de
+  `landing-api`, `lib/api-mako/areas/landing-editor.helpers.ts`), con `confirmacion: 'pantalla'`,
+  `rolMinimo: 'admin'` y el producto validado contra `listProductos(true)` del workspace.
+
+## Tanda 4 (14/10/2026): el área landing de la API de MaKo
+
+Regla de Martín (13/10): «toda feature nueva va a la API de MaKo». Listar, ver y publicar landings del
+editor existían para la pantalla y no para ningún agente. Ahora hay seis operaciones en el área `landing`
+del registro (`lib/api-mako/areas/landing.def.ts` / `.run.ts`, lo puro en `landing-editor.helpers.ts`):
+`listar_landings_creadas`, `ver_landing_creada`, `listar_disenos_landing`, `crear_landing_desde_diseno`
+(chat), `despublicar_landing` (chat) y `publicar_landing` (pantalla). Test:
+`tests/api-mako-landing-editor.test.ts` (14 + 1 todo, 17 roturas; siete de la revisión adversarial del 14/10).
+
+- **«Declarar el área landing» no era crear un área: ya existía, y con la MISMA palabra para otra cosa.**
+  El área tenía 33 operaciones sobre las landings DECLARADAS en Integraciones (el Pixel, el diagnóstico de
+  afuera) y las versiones del generador anterior (`landing_drafts`). Las del editor (`landing_docs`) son
+  una tercera lista. `registro.ts` no cambió. **Regla: cada descripción nombra las otras dos listas**
+  («no son las declaradas, eso es listar_landings…») y el recurso REST es `documentos`, porque `landings`
+  ya es el de las declaradas. **Vive en:** `landing.def.ts`, `lib/api-mako/rest.ts`.
+- **⚠️ Por WhatsApp, la frase natural NO llega (bloqueante, otra área).** Medido con el turno que corre:
+  «publicá la landing del webinar», «despublicá…», «sacá de internet…» y «creame una landing de webinar»
+  salen `capturar` dudosa, con 2 herramientas y ninguna de landing. Sí llegan «qué landings tengo
+  creadas?» (lecturas), «subí los cambios de mi landing» (`subí` está en `ACCION_CUENTA_RE`) y «armame una
+  landing para…» (`armame` es imperativo). Causa: el clasificador no conoce `publicá`/`creá` ni el objeto
+  «landing». Arreglo medido sobre una COPIA (sin tocar el archivo): `esPedidoDeLanding` en
+  `lib/mako-intencion.ts`, como `esPedidoAutomatizacion` (objeto a ≤3 palabras de un verbo, sin otro objeto
+  en el medio: «armame un anuncio para la landing» sigue siendo de Ads). El test lo espera como `todo`.
+  Costo conocido, el mismo que acepta `esPedidoAutomatizacion` con «crea»: la tercera persona sin tilde
+  («mi socio publica la landing el lunes») también se lee como pedido. No ejecuta nada (publicar va en
+  pantalla); si molesta, se exige tilde o pronombre y se pierde el tuteo («publica mi landing»).
+- **Publicar va en pantalla: la DIRECCIÓN viaja en el input, la versión se lee al confirmar.** La genérica
+  `/mako/revisar` guarda el INPUT de la propuesta (no el payload) y vuelve a correr `preparar()` al
+  confirmar: todo lo que `preparar()` CALCULA se calcula otra vez. Con la versión es a propósito (se
+  publica lo guardado al confirmar, como el botón del editor; no hay parámetro `version`). Con la dirección
+  sugerida era el bug (revisión del 14/10, MEDIA): una landing que nunca se publicó, pedida sin `slug`,
+  mostraba en el resumen `/l/webinar-marzo` y se publicaba en `/l/webinar-abril` si la renombraban, o en
+  `/l/webinar-marzo-2` si otro negocio la tomaba en el medio; el campo «Dirección» del formulario estaba
+  vacío. El autor lo había dejado escrito como ⚠️ y lo leyó como una molestia del título: era publicar en
+  una URL que nadie revisó. Ahora sale de la pedida o de la que ya tenía (`direccionParaPublicar`); sin
+  ninguna, `preparar()` contesta la sugerida con `faltan: ['slug']` (y en el texto, porque por HTTP directo
+  sólo viaja el texto) y el modelo la pasa: queda fija, a la vista y editable.
+  **Regla: en una acción de pantalla genérica, lo que la persona tiene que VER antes de confirmar va en el
+  input; nunca se deriva en `preparar()`.** Con un token detallado de escritura o en un flujo no hay
+  revisión: se publica en el acto (decisión del 08/10; la descripción lo dice).
+  **Vive en:** `landing-editor.helpers.ts` (`direccionParaPublicar`), `landing.run.ts`, `lib/api-mako/acciones.ts`
+  (`proponerPantallaGenerica` guarda el input).
+- **«Ya está publicada así» es `yaEstaba` SÓLO sin una persona** (un flujo o un token por HTTP). Cada
+  publicar deja una versión «Publicada» de hasta 1,5 MB que `podarVersionesAuto` NO poda: lo que corre solo
+  y en bucle la llenaría. Pero la foto también hornea lo que cambia SIN subir la versión (un TEMA PROPIO,
+  `app_settings landing.temas`), y la pantalla deja republicar igual: rechazárselo a una persona era una
+  regla que la pantalla no tiene (revisión del 14/10). A una persona se le deja, y el resumen dice «sin
+  cambios guardados nuevos: se vuelve a armar y toma los temas propios de hoy». ⚠️ Un flujo o un token
+  siguen recibiendo «ya está así» después de cambiar un tema: se republica desde el editor o desde el chat.
+- **Un error de la base salía como 400 crudo a un tercero** (revisión del 14/10). `esNuestro`
+  (`lib/api-mako/ejecutar.ts`) sólo clasifica lo que se TIRA: un runner que devuelve el error de la lib como
+  texto (`errorLectura(...)`, el `{ error }` de `preparar()`) lo saltea, y `GET /landing/documentos` con la
+  base cortada contestaba 400 «Error leyendo landing_docs… statement timeout», que el integrador lee como
+  suyo. **Regla: un status ≥ 500 del server de la pantalla se tira con el prefijo `api-mako:`**
+  (`siFallaNuestra`): sale 500 genérico y el detalle va a la consola. Los resúmenes de `ejecutar()`
+  siguen con el texto (el patrón de todo `landing.run.ts`); por HTTP directo `rutas-http.ts` sí los pasa por
+  `esNuestro`.
+- **Lo que la revisión del 14/10 marcó y NO se aplicó, y por qué** (para no volver a abrirlo):
+  - «`crear_landing_desde_diseno` se ofrece como ⚡ Acción en los lienzos y siempre falla: sumarla a
+    `NO_EN_FLUJOS`». El diagnóstico obvio era el equivocado: el selector del lienzo sólo ofrece la lista
+    corta `ACCIONES_DEL_FLUJO` (`lib/editor-acciones.ts`) y «Crear con IA» su `LISTA_BLANCA_IA`
+    (`lib/flujo-ia-crear.ts`); ninguna trae landings. Las demás vienen en el catálogo con `curada: false`
+    sólo para dibujar un paso ya guardado. Un paso así (armado por la API) lo frena `preparar()`, como el
+    precedente del Dashboard (`noEnFlujo`, docs/hallazgos-api-mako.md). Y `flujo.ts` es de otra área.
+  - «Usar `d.urlPublica` y `r.url` del server en vez de `urlDeLanding`». Cambiar dos lugares dejaría, al
+    integrar `landing-dom`, la lista con una dirección y la lectura con otra para la misma landing. La guarda
+    de la integración ya existe (el test de `landing-dom` que frena a quien importe `urlPublica`); queda el
+    pendiente de abajo.
+  - «Despublicar calla el dominio propio y que deshacer sube el borrador»: cierto, pero no es una línea
+    (abajo, en lo que quedó sin hacer).
+- **Lo que `publicar()` rechaza por el contenido se dice en `preparar()`** (sin páginas, HTML que pide
+  contraseña), con las MISMAS funciones puras que usa él (`paginasParaPublicar`, `fuentesHtmlLibre`,
+  `pideContrasena`): en `ejecutar()` consume la propuesta. El tope de 10 MB recién se sabe renderizando.
+- **El autor de lo creado por la API sale de la COOKIE.** `crearEn` usa `getUsuarioActual()`: por
+  WhatsApp o HTTP `creado_por` queda null; desde la bandeja, quien confirmó. En un flujo (sin request)
+  `cookies()` tira: crear ya se frena antes (`enFlujo`, un flujo corre una vez por lead).
+- **El diagnóstico de una landing propia son sus comentarios, sin puntaje.** `ver_landing_creada` los
+  trae por `diagnostico-server.listar` (pendientes primero, por severidad). `ultimo_comentario_el` es la
+  fecha del comentario más nuevo, NO del último análisis: uno que no deja nada nuevo no deja rastro. Y si
+  la lectura falla sale `leido: false`, que no es «nunca se diagnosticó».
+- **`abrir()` no dice si está en la papelera** (la pantalla no abre desde ahí): se lee aparte.
+- **Topes de lo que ve el modelo**: 1.500 caracteres por sección, 20.000 en total, 12 comentarios. Ni el
+  doer ni el runner recortan un tool_result.
+- **Por HTTP sale todo** (decidido): es contenido del propio negocio; el nombre de quien creó cada landing
+  (dato del equipo) no viaja en ninguna salida.
+- **Entorno: el working copy es CRLF y la consola de Bash no lo muestra.** `grep -c $'\r'` y `od -c`
+  daban 0, y node leía `\r\n` (`core.autocrlf=true`). Un script con anclas `\n` no encontraba nada y el
+  diagnóstico obvio fue «Bash se comió las barras» — que TAMBIÉN pasa (en un heredoc, `\\s` llega `\s`).
+  **Regla: un script que parchea normaliza `\r\n` antes de buscar, y se escribe con Write, no con heredoc.**
+
+### Lo que quedó sin hacer (tanda 4)
+
+- **BLOQUEANTE: `esPedidoDeLanding` en `lib/mako-intencion.ts`** (después de `esPedidoAutomatizacion` y de
+  su uso, la regla 6-bis). Sin eso, la API existe por WhatsApp sólo para las frases de arriba. Al
+  aplicarlo, sacarle el `todo` al último test de `tests/api-mako-landing-editor.test.ts`.
+- **⚠️ pasar a urlPublicaLanding al integrar** (las publicadas se mudan a https://hola-mako.site/<slug>):
+  `urlDeLanding` en `lib/api-mako/areas/landing-editor.helpers.ts`. Y `aCompleta` (server.ts) y
+  `publicar()` (publicar.ts) arman la suya con `urlPublica(APP_BASE_URL, …)`. Al cambiarla, la aserción
+  `urlDeLanding('mi-oferta') === urlPublica(APP_BASE_URL, …)` de `tests/api-mako-landing-editor.test.ts`
+  pasa a compararla con `urlPublicaLanding`. Si nadie lo hace, la API le da al dueño `hola-mako.com/l/<slug>`,
+  que en producción hace un 308 a `hola-mako.site`: la URL que pega en los anuncios redirige.
+- **El resumen de `despublicar_landing` calla dos cosas** (`landing.run.ts`, su `preparar()`): que el
+  dominio propio verificado también deja de mostrarla (`app/api/landing-generator/dominio` sirve
+  `leerPublicado(slug)`, que da null sin foto), y que «volver a publicar» sube el BORRADOR guardado, no lo
+  que estaba en internet (lo de antes vuelve restaurando la versión «Publicada» desde la pantalla). Para
+  decirlo, leer `version, publicado_version` (fácil) y `dominio, dominio_estado` con la trampa de `borrar`
+  en `server.ts`: sin la migración 0263 la columna no existe y un select que la nombra tira 42703, así que
+  va en una lectura aparte que tolera ese código (y en el server de la pantalla, no en el runner: el test
+  frena un `.from(` ahí). `estadoDominio` (`dominios.ts`) NO sirve para un resumen: sale a Vercel y al DNS
+  y puede escribir el estado. Y decidir si sigue `reversible: true` (el test lo fija hoy).
+- **El dominio propio no está en `url_publica`**: una landing con dominio verificado sale con la de MaKo.
+- **Fuera de la API, a propósito**: generar con IA, editar o guardar el contenido. **Fuera por ahora**:
+  pausar el sitio, renombrar, duplicar, papelera, la analítica de 30 días y crear una presentación desde
+  una plantilla (las seis cosas existen en `server.ts`; cada una es una def y un runner).
+- **Verlo con clics**: proponer `publicar_landing` desde el chat de la app y confirmarlo en
+  `/mako/revisar` (el formulario muestra Landing y Dirección). Con una landing que NUNCA se publicó: MaKo
+  tiene que volver con la dirección sugerida en la propuesta y el campo «Dirección» tiene que verse lleno.
+
+## Tanda 4 (14/10/2026): las landings en hola-mako.site y el dominio del cliente
+
+Decisión de Martín: «Las landings enteras, como gamma.site». Compró hola-mako.site; una landing publicada vive
+en `https://hola-mako.site/<slug>` y la app sigue en hola-mako.com. El porqué: lo que publica un cliente (HTML
+personalizado con JavaScript, «Replicar» que copia páginas ajenas) no puede vivir bajo el dominio de la app ni
+el del mail; si Safe Browsing marca una página, que marque hola-mako.site. Diseño:
+[diseno-editor-landing.md](diseno-editor-landing.md) → «Tanda 4». Medido en producción el 14/10, antes del
+cambio, con `curl` (0 landings publicadas ese día: no hubo nada que migrar).
+
+- **hola-mako.site ya respondía, y el proxy lo trataba como el dominio de un CLIENTE.** `hola-mako.site/`
+  daba 404 con `X-Matched-Path: /api/landing-generator/dominio`: `esHostDeMako` sólo conocía la app, y todo
+  host que no es de MaKo es un dominio propio. Peor: `motivoDominioInvalido('hola-mako.site')` daba null.
+  **El diagnóstico obvio («cualquier admin se lo quedaba») era el equivocado**: sin el TXT `_mako` con el HMAC
+  de SU landing (el DNS lo carga sólo Martín, en Porkbun) nunca se verifica ni se sirve, y sin la marca no se
+  suelta de Vercel. Lo que sí podía es RESERVARLO 72 h como pendiente. **Regla: un dominio que MaKo suma al
+  proyecto de Vercel entra a `esHostDeMako` el mismo día** (la app en `DOMINIOS_DE_MAKO`; el de las landings
+  por `esHostDeLandings`, que NO entra al patrón del HSTS ni al de las redirecciones).
+  **Vive en:** `lib/editor-landing/dominios-reglas.ts` (`esHostDeMako`, `tipoDeHost`), `origen-landings.ts`.
+- **Las redirecciones de next.config.ts corren antes del proxy y TAPABAN slugs.** Medido: `hola-mako.site/leads`
+  → 307 a `/crm` y `/extension` → 307 al zip de la extensión. En hola-mako.site el primer segmento ES el slug, y
+  `todo`, `leads`, `graphics`, `extension` o `script-analyst` son slugs válidos: esa landing nunca llegaba al
+  proxy. **Regla: lo de la app en next.config va con `has: host` de la app, puesto por `.map(enLaApp)` a la
+  lista ENTERA** (una redirección nueva lo hereda). El patrón de la app (`PATRON_HOSTS_DE_LA_APP`) acepta
+  `*.vercel.app`, `localhost` y una IPv4 (el dev desde el teléfono); el del HSTS (`PATRON_HOSTS_DE_MAKO`) NO:
+  HSTS de dos años en `localhost` le fuerza HTTPS a todo puerto de localhost del que desarrolla. Un túnel
+  (ngrok) queda sin las redirecciones: un 404 en /leads, no una pantalla de MaKo en el dominio de otro.
+  **Vive en:** `next.config.ts`, `dominios-reglas.ts`.
+- **El navegador no sabe en qué entorno corre.** La base de las landings depende de `VERCEL_ENV`, que no es
+  `NEXT_PUBLIC_*`: en un componente cliente es `undefined` y daría la base de LOCAL en producción, en silencio
+  (el diálogo Publicar mostraba `hola-mako.com/l/` armándolo con `APP_BASE_URL`). **Regla: la base la calcula
+  el server** (`baseLandings`, `basesLandings`, `urlPublicaLanding` en `lib/app-url.ts`, que TIRAN en el
+  navegador) **y baja por props** (`LandingCompleta.baseLandings`, la prop `bases` del Panel). Lo puro (cómo se
+  arma una URL con una base) está en `origen-landings.ts` y sí se usa en el navegador.
+- **El Pixel mide la URL que ve el visitante, no la ruta interna.** `landing_visits.landing_url` es
+  `location.href` = `hola-mako.site/<slug>`, aunque el proxy reescriba a `/l/<slug>`. El prefiltro de la
+  analítica (`%/l/<slug>%`) dejaba afuera todo lo nuevo sin un error. **Regla: mudar la URL pública toca
+  `urlsAMedir` (una URL por página Y por base: lo medido antes sigue siendo de la landing) y `prefiltroVisitas`
+  (`%/<slug>%`).** **Vive en:** `server-reglas.ts`, `server.ts` (`analitica`).
+- **La foto guarda los enlaces entre páginas ABSOLUTOS, con la base del día en que se publicó.** Lo publicado
+  antes trae `hola-mako.com/l/<slug>/…`: en la app redirige (308, con la query); en el dominio propio la ruta
+  reescribe las DOS bases (`basesLandings` + `conEnlacesDelDominio`). Nunca se asume que la foto tiene la base
+  vigente. **Vive en:** `publicar.ts`, `app/api/landing-generator/dominio`.
+- **`/l/html` bajo hola-mako.com: nadie de la app lo usa** (el editor y el Diagnóstico dibujan el bloque con
+  `srcdoc`: el render sin `htmlLibre`). En producción, en la app, 404; la página y su iframe viven juntos en
+  hola-mako.site (o en el dominio del cliente), y `frame-ancestors 'self'` exige justo eso. Cierra «servir
+  /l/html desde un dominio aparte». El freno `pideContrasena` se queda: ahora una página de phishing haría marcar
+  hola-mako.site ENTERO, que es donde viven todas las landings. **Vive en:** `proxy.ts` (`respuestaLEnApp`),
+  `origen-landings.ts` (`decidirLEnApp`).
+- **En hola-mako.site sólo se reescribe lo que tiene una forma conocida**: `/<slug>`, `/<slug>/<ruta>`,
+  `/vista/<token>[/<ruta>]` y las sub-rutas de `SUBRUTAS_FIJAS` (hoy ninguna: ver la revisión, abajo); `/l/html`
+  pasa. Lo demás reescrito a `/l/…` caería en el not-found de la APP, con su
+  layout y sus `/_next`, en el dominio de los clientes. **Regla: una carpeta fija nueva bajo `app/l/[slug]/` se
+  suma a `SUBRUTAS_FIJAS` el día que existe.** Las mayúsculas se corrigen en el proxy ANTES de reescribir (el 308 de
+  `responderPublico` arma la `Location` con `req.url`, que después de una reescritura es la ruta interna).
+  Y ahí no corre nada de la app: ni el gate, ni la cookie (la de MaKo es de hola-mako.com), ni el `?ws=` (el
+  test lo prueba con una sesión de admin válida), ni el cartel de mudanza, ni MaKo Mobile.
+- **En hola-mako.site el slug es el primer segmento, y el matcher del proxy saltea `cono-tx/` y `cono-doc/`**
+  (los assets públicos de /conocimientos): `/cono-tx/gracias` de una landing con ese slug no pasaba por el
+  proxy y caía en el not-found de la app. Se reservaron los dos (`SLUGS_RESERVADOS`) y un test cruza cada
+  prefijo del matcher con la lista. **Regla: un prefijo nuevo en el matcher de `proxy.ts` con forma de slug
+  va a `SLUGS_RESERVADOS`.**
+- **El Panel reconoce también el dominio propio** (`LandingResumen.dominio`, sólo el VERIFICADO: uno pendiente
+  no sirve nada y otra cuenta se lo puede quitar). Antes de sumar `dominio, dominio_estado` a la lista del
+  Panel (un `select` con una columna que falta tumba el Panel entero) se midió que la 0263 está en
+  producción SIN tocar la base: `hola-mako.site/` contestaba 404 desde la ruta del dominio, que filtra por esas
+  dos columnas y contesta 503 si la consulta falla. **Vive en:** `server.ts` (`COLS_RESUMEN`, `aResumen`),
+  `panel-reglas.ts` (`docDeUrl`).
+- **La raíz de hola-mako.site va a hola-mako.com con 307** (decidido): no es de nadie, y un 308 quedaría
+  cacheado el día que tenga portada propia. `/l/<…>` en hola-mako.site es un 308 a `/<…>` en el mismo host.
+- **Lo que una landing le pide a SU host (medido con el documento armado y en producción):** sólo el iframe de
+  `/l/html` (relativo a propósito) y lo que el navegador pide solo (`/favicon.ico` si el sitio no tiene
+  favicon). El cargador del Pixel, `/api/track/*` y el grabador van ABSOLUTOS a hola-mako.com
+  (`lineaCargador(token, appBaseUrl)`); fuentes de Google; imágenes del bucket. Un test lo fija.
+- **Trampas de Vercel medidas**: el `has: host` de next.config SÍ se aplica en producción (hola-mako.com trae el
+  HSTS con `includeSubDomains`); y Vercel pone su PROPIO `Strict-Transport-Security: max-age=63072000` (sin
+  `includeSubDomains`) en cualquier dominio, también en hola-mako.site y en el de un cliente: lo que la tanda 2
+  sacó fue el `includeSubDomains`, no el HSTS.
+- **Entorno de la corrida: en un worktree, lo que sacó git está en CRLF y lo que crea Write en LF, y el
+  `grep` de Git Bash no ve los `\r`** (`grep -c $'\r'` dio 0 sobre archivos CRLF; `node` con
+  `readFileSync(...).includes('\r\n')` dijo la verdad). Un arnés de roturas con anclas `\n` encontró las del
+  archivo nuevo y no las de `proxy.ts` ni `next.config.ts` («el ancla aparece 0 veces»): el ancla tiene que
+  seguir el fin de línea de CADA archivo. Edit conserva el CRLF del archivo que toca.
+- **El build de un worktree en `C:/dev` NO corre con la receta de AGENTS.md** (la raíz de Turbopack en una
+  carpeta que contenga al worktree y al clon): con el clon en `C:/Users/…/OneDrive/…` la única carpeta común
+  es la unidad, y con `root: 'C:/'` (y `'C:\\'`) Turbopack aborta con «Symlink [project]/node_modules is in a
+  symlink loop: ["node_modules"]». `next build --webpack` tampoco: el repo no compila con webpack
+  (`node:crypto` en `lib/cripto-credenciales.ts` ← `lib/credenciales.ts`, ajeno a este cambio). Lo único que
+  ese intento sí probó es que next.config.ts CARGA y valida sus redirecciones con `has` (el build llegó a
+  compilar). El build va en el clon, al integrar. No quedaron enlaces en `.next` (medido con
+  `Get-ChildItem -Attributes ReparsePoint`).
+
+### La revisión adversarial de la tanda 4 (14/10/2026)
+
+- **Una redirección que arma su destino con la ruta del pedido es una redirección abierta si no se valida lo
+  que queda.** Síntoma: `hola-mako.site/l//evil.com` → 308 a `https://evil.com/`, y desde la app
+  `hola-mako.com/l/l//evil.com` llegaba en dos saltos (un link con la marca de MaKo, bueno para phishing).
+  Causa: la rama `/l/<…>` de `decidirLandings` devolvía lo que quedaba sin mirarlo, ANTES del corte de
+  segmentos vacíos, y el proxy armaba la Location con `new URL(destino, 'https://<host>')`: `//evil.com` es
+  una URL relativa al protocolo. `/l/\evil.com` llega igual (el parser lo lee como `/l//evil.com`). **El
+  diagnóstico tranquilizador («Next normaliza el `//`») no alcanza**: `next start` sí lo manda con un 308
+  antes del proxy (`resolve-routes`), pero nadie midió Vercel, y `new NextRequest(…).nextUrl.pathname` de
+  `https://hola-mako.site/l//evil.com` es `/l//evil.com` (medido). **Regla: lo que queda después de un
+  prefijo se decide con las mismas reglas que una dirección directa, y todo 308 que el proxy arma con la
+  ruta del pedido pasa por `redireccionEnElHost`** (null si la Location cambia de host → 404). Son dos capas
+  a propósito, cada una con su test. **Vive en:** `origen-landings.ts` (`decidirLandings`,
+  `redireccionEnElHost`), `proxy.ts` (`redirigirEnElHost`, también el 308 a minúsculas del dominio propio).
+- **Un test que compara el TEXTO de un patrón no ve sus comodines.** `favicon.ico` iba sin escapar en el
+  matcher del proxy: el `.` dejaba afuera `favicon-ico-promo` (un slug válido, que caía en el 404 de la app),
+  y el test que cruzaba cada alternativa con `SLUG_RE` como texto daba verde. Ahora el test COMPILA el
+  matcher y lo prueba con slugs parecidos a cada alternativa. Trampas medidas: `getMiddlewareMatchers` no
+  se puede importar en un test («Invariant: AsyncLocalStorage accessed in runtime where it is not
+  available»); `tryToParsePath` (`next/dist/lib/try-to-parse-path`, lo que usa por dentro) sí. Y
+  path-to-regexp conserva el `\.` dentro del grupo (el `.*\.(?:png|…)` ya dependía de eso). Otra: el Bash
+  del entorno se come las barras de un heredoc (un `'favicon\\.ico'` llegó como `'favicon\.ico'`): un
+  script con barras se escribe con Write. **Regla: un prefijo nuevo en el matcher va con los puntos
+  escapados; el test lo cruza solo.** **Vive en:** `proxy.ts` (`config.matcher`).
+- **No se declara en el proxy una ruta que todavía no existe.** `pagar` en `SUBRUTAS_FIJAS` y el POST de
+  `/api/landing-generator/pagar` estaban declarados para un paquete que no existe en ninguna rama:
+  `/<slug>/pagar/<id>` se reescribía a una ruta inexistente (el not-found de la app, con su layout, en el
+  dominio de los clientes) y el POST pasaba sin que nadie mirara el `Origin`. Se sacaron; el test exige que
+  cada clave de `SUBRUTAS_FIJAS` tenga su carpeta en `app/l/[slug]/`. **El contrato para cuando llegue el
+  pago:** `Origin` ausente o igual a `https://<host del pedido>` (403 si no), tope por IP, idempotencia por
+  bloque y visitante, y el monto, la moneda y el workspace nunca del pedido (por `lib/cobros.ts`).
+  **Vive en:** `origen-landings.ts` (`SUBRUTAS_FIJAS`).
+- **Para que una rama paralela no compile con la semántica vieja, se renombra.** `urlPublica(base, slug,
+  ruta)` siguió exportada con la misma firma después de la mudanza, y la rama de la API de MaKo
+  (`lib/api-mako/areas/landing-editor.helpers.ts:31` en `landing-api`) arma con ella `url_publica` y lo que
+  devuelve `publicar_landing`: al integrar compilaba y la API contestaba `hola-mako.com/l/<slug>`. **El
+  diagnóstico del revisor («nada lo hace cumplir, es un comentario») era a medias**: el guard del test sí
+  veía un `import { urlPublica } from '@/lib/editor-landing/doc'` de afuera, pero NO uno de adentro de
+  `lib/editor-landing` (`from './doc'`): roto a propósito dio 17 / 0. Ahora es `rutaInternaL(slug, ruta)` y
+  el guard mira las dos formas. **Regla: cuando cambia lo que DEVUELVE una función compartida y hay ramas
+  en paralelo, se le cambia el nombre (o la firma), no sólo el comentario.** **Vive en:** `doc.ts`,
+  `pagina-publica.ts`.
+- **Mudar la URL pública tiene más consumidores que la analítica.** Lo que manda el Pixel (`location.href`,
+  hoy `hola-mako.site/<slug>`) se compara por IGUALDAD con: (a) las páginas que el negocio declaró
+  (`landing.config`): el producto de una landing (`landingDe` → `funnelsDeLanding`, el alta por opt-in) y la
+  página de gracias (`paginaDeGracias`, que pasa a Ganado); (b) el comportamiento del Diagnóstico
+  (`getComportamiento`, igualdad exacta sobre `landing_visits`). Algo declarado o medido como
+  `hola-mako.com/l/<slug>` deja de coincidir: el lead cae en el embudo del negocio, la de gracias no lo pasa
+  a Ganado y el Diagnóstico dice «sin datos» (y la IA analiza creyendo que nadie la vio), todo sin un error.
+  Hoy el impacto es chico (0 landings publicadas el 14/10, medido antes del cambio), pero cualquier landing
+  publicada antes del deploy queda así. La pieza es `urlLandingVigente` (`dominios-reglas.ts`, con test): la
+  dirección de hoy de una escrita con la de antes; se aplica a LAS DOS PUNTAS de la comparación. El
+  cableado vive en archivos de otras áreas (Pixel/Integraciones y Landing Analyst) y quedó para la sesión
+  principal (abajo). **Regla: mudar la URL pública es buscar todo lo que compara una URL de landing por
+  igualdad (`normalizarUrl(…) ===`), no sólo lo que la muestra o la mide.**
+
+### Lo que quedó sin hacer (tanda 4)
+
+- **Cablear `urlLandingVigente` en las comparaciones de otras áreas** (la revisión, arriba). Dos cambios:
+  `lib/landing-config.ts` (`landingDe`): `const k = urlLandingVigente(u); return configs.find((c) => c.url
+  === u || urlLandingVigente(c.url) === k) ?? null;` y `lib/landing-gracias-reglas.ts` (`paginaDeGracias`):
+  comparar `sinParametros(urlLandingVigente(c.url)) === sinParametros(urlLandingVigente(u))`; y
+  `lib/landing-analyst.ts` (`getComportamiento`): `const clave = urlLandingVigente(url)` y comparar
+  `urlLandingVigente(norm(v.landing_url))` contra `clave` en `mias` y en `compartidos` (así las dos bases son
+  la MISMA página y no «otra landing»). Con eso el Diagnóstico (`diagnostico-server.ts`) no cambia. Cada uno
+  con su test en su área.
+- **Al integrar la rama `landing-api`**: `lib/api-mako/areas/landing-editor.helpers.ts:31` deja de compilar
+  (a propósito); va `urlPublicaLanding(slug, ruta)` de `lib/app-url.ts`.
+
+- **Los estáticos de MaKo se sirven en hola-mako.site y en el dominio de un cliente** (el matcher de `proxy.ts`
+  no corre en rutas con sufijo). Medido el 14/10 en hola-mako.site: `/_next/static/chunks/…js` 200,
+  `/favicon.ico` 200 (el de MaKo), `/sw.js` 200; `/m.js` 404 y `/robots.txt` 404. Una landing no necesita
+  ninguno (arriba), así que bloquearlos no rompe una landing; lo que NO se hizo es el bloqueo: un rewrite
+  `beforeFiles` con `missing` host de la app, si el patrón no matchea en Vercel como en Next local, deja a la
+  APP sin su JavaScript. No exponen datos (son archivos públicos). Si se hace: medir antes con un preview y
+  `curl` en los dos hosts. `next.config.ts`, `proxy.ts` (matcher).
+- **El pago de un bloque** (`/<slug>/pagar/<bloque>` y el POST de `/api/landing-generator/pagar`) no existe en
+  ninguna rama (medido el 14/10 en los worktrees), así que hoy es 404 en hola-mako.site y en el dominio propio.
+  Lo suma su paquete en los DOS hosts (`SUBRUTAS_FIJAS` en origen-landings.ts y `decidirHost` en
+  dominios-reglas.ts), con el contrato de la revisión (abajo): `Origin` exigido, tope por IP, idempotencia.
+- **Textos que todavía dicen `hola-mako.com/l/<…>`** en archivos de otras áreas: `lib/mako-capacidades.ts:73`
+  (lo que MaKo cuenta de la tab) y `app/admin/dev/areas.ts:598` (el alcance del área). Los cambia la sesión
+  principal. El comentario de `/l` en `lib/rutas-publicas.ts` también (en producción el proxy la muda antes).
+- **HSTS propio para hola-mako.site** (con o sin `includeSubDomains`): hoy sólo el de Vercel. Decide Martín.
+- **Verlo en producción después del deploy**: `curl -sI https://hola-mako.site/` (307 a hola-mako.com),
+  `https://hola-mako.site/leads` (404 de landing, no 307), `https://hola-mako.com/leads` (307 a /crm: las
+  redirecciones con `has` siguen andando en la app), `https://hola-mako.com/l/x` (308 a hola-mako.site/x) y
+  una landing publicada de prueba en el ws3 (abrirla, el formulario, el HTML libre, la vista previa privada).
+
+## Diseños con video: la grilla tipo VSL Funnel (14/10/2026)
+
+Pedido literal de Martín: «Por favor, que la mayoría de las plantillas sean con un VIDEO, porque deberían ser tipo
+VSL Funnel... Puedes inspirarte en otras plantillas de VSL Funnel e incluso en la misma plantilla de MaKo.»
+
+### El diagnóstico obvio era el equivocado: los 8 diseños ya eran casi el mismo
+
+- **Síntoma:** la grilla «Diseños» mostraba ocho miniaturas que sólo cambiaban de color.
+- **Causa:** los `hero: 'derecha' | 'fondo' | …` de `DISENOS_LANDING` describen dónde va la IMAGEN de acento, y
+  ninguna plantilla de copy trae `imagenSrc`: sin imagen, `specTarjeta` dibuja `'sin'`
+  (`lib/editor-landing/especificacion.ts` ~558). O sea que el «diseño» era el tema y nada más.
+- **Regla:** un eje de diseño que depende de un dato que las plantillas no traen no es un eje. Antes de sumar una
+  variante de layout, comprobá en la MINIATURA que se distinga.
+
+### El insertado vacío perdía de qué era
+
+- `attrsInsertado` y el saneo devolvían `proveedor: ''` con `src` vacío, así que un VSL sin pegar y una agenda sin
+  pegar eran el mismo nodo: el render no podía dibujar un ▶ para uno y no para el otro, y el editor decía lo mismo
+  en los dos («Pega el enlace de un video o de tu agenda»).
+- **Vive en:** lib/editor-landing/especificacion.ts (attrsInsertado), lib/editor-landing/validar.ts.
+
+### La miniatura es un cuadro 16/10 con overflow hidden
+
+- Un hero alto (Título display de 5em + 2.75em de padding) deja el video FUERA del cuadro sin un error: la miniatura
+  muestra el titular y nada más. Lo que se ve en la grilla se mide en el cuadro, no en la página.
+- **Vive en:** app/landing-generator/MiniaturaLanding.tsx (.gp-mini).
+
+### El test de insertar no cargaba los diseños en TipTap
+
+- `tests/editor-landing-insertar.test.ts` cargaba en el esquema de TipTap `PLANTILLAS` y `DISENOS_SECCION`, no los
+  cruces diseño × objetivo: un nodo que el saneo acepta y TipTap tira (se abre VACÍO y el autoguardado lo pisa)
+  pasaba en verde.
+
+### Un átomo vacío que no se dibuja deja vacía la COLUMNA que lo contiene
+
+- **Síntoma (verificación del 14/10):** en los diseños con el video al costado, publicar sin pegar el video sacaba
+  `<div class="gm-columna"></div>`: el texto apretado en 5/12 y 7/12 en blanco, en la publicada y en las
+  exportaciones. Borrar el video tampoco lo arreglaba (la columna exige un bloque y deja un párrafo vacío).
+- **Causa:** el render omite el insertado vacío (correcto: no hay hueco sin explicación), pero la columna que lo
+  envolvía no se enteraba. La regla «lo vacío no se dibuja» vale para el CONTENEDOR también.
+- **Vive en:** lib/editor-landing/render.ts (columnas), lib/editor-landing/disenos-landing.ts (rama 'costado').
+
+### El modo 'miniatura' no es sólo la grilla
+
+- `app/m/landing/[id]/page.tsx` usa el modo 'miniatura' como «lo que vería un visitante en su teléfono». Un
+  marcador que sólo tenía sentido en la grilla de Diseños (el ▶ del video sin pegar, el video al 52 %) aparecía ahí
+  como si la publicada lo tuviera. Antes de cambiar lo que dibuja un modo, grep de quién lo pide.
+
+### Probar un merge sin tocar el árbol
+
+- `git merge-tree --write-tree <a> <b>` dice si dos ramas chocan y en qué hunks, sin checkout ni índice: sirve con
+  varias sesiones en el clon. El merge de prueba de los diseños con video contra el botón de pago dio un solo
+  conflicto, en un comentario de cabecera.
+
+### Lo que dicen las referencias de VSL (para no volver a buscarlo)
+
+- **«VSL funnel» en ClickFunnels es un funnel de VENTA** (pedido, upsell, downsell); el de agendar es su
+  «Application Funnel». Un VSL para agendar llamada es el arquetipo high-ticket: titular → video → «Aplicar/Agendar»
+  → prueba → para quién es → FAQ → agenda.
+- **El titular va arriba del video y el botón justo debajo**; el video es el protagonista (60-70 % del ancho).
+- **Las páginas de webinar casi nunca llevan VSL en el hero**: llevan foto o un tráiler del host.
+- **Calendly no deja poner un video en su página de agenda**: el video tiene que ir en nuestra página.
+- **La landing de MaKo (app/vsl) es split**: texto a la izquierda, video a la derecha; el tema más parecido era
+  Commons, y un tema «MaKo» exigía sumar Geist a `FUENTES` y otra categoría en el test de temas (el cupo de
+  «aproximados» estaba lleno en 16).
+- **`app/vsl/landing-html.ts` no es lo que se ve**: `Landing.tsx` le cambia cosas al cargar (el fondo de los cupos,
+  títulos, secciones que saca). Para describir la landing de MaKo se lee lo que queda DESPUÉS de Landing.tsx.
+
+### Medir una miniatura sin `--window-size` mide otro layout
+
+- Chrome sin cabeza abre a 800 px de ancho: las columnas del hero salían APILADAS y el video al 96 %, que no es
+  lo que ve nadie en la grilla de escritorio. Con `--window-size=1780,1500`, dos columnas y el video al 50 %. El
+  layout de la miniatura depende de la ventana, no del cuadro: se mide con ventana de escritorio.
+
+### Trampas chicas que costaron una vuelta cada una
+
+- **Un atributo en el `saltear` de `attrsConMotivo` se descarta SIN motivo.** La pista de proveedor de los bloques
+  «Agenda» y «VSL» del menú desaparecía en el saneo sin que nada lo dijera. Cuando un atributo salteado empieza a
+  significar algo, se le suma su motivo (lib/editor-landing/validar.ts).
+- **Una lista cerrada no se chequea con `in`**: «toString» pasa como proveedor válido. Va `hasOwnProperty`
+  (`esProveedorEmbed`, lib/embeds.ts).
+- **Un tema que no es «medido» ni «aproximado» rompe el catálogo**: el test fija la lista exacta de los medidos y
+  un tope de aproximados. El tema `mako` lleva su flag `deMako` (lib/editor-landing/temas.ts).
+- **Un test que toma `DISENOS_LANDING[0]` como «el diseño neutro» cambia de sentido cuando cambia el orden del
+  catálogo**: se elige por propiedad (`video === null`).
+- **Un string compuesto que arma el cliente tiene que pasar la regex del server**: `pedidoDeDiseno` arma
+  `diseño:objetivo` desde el 12/10 y `sanearConfig` lo tiraba sin motivo (no aceptaba los dos puntos). La regex y
+  el armado van en el mismo test.
+- **La barra de la agencia («Estás viendo el dashboard de…», 50 px) le reserva su alto al body**: toda pantalla de
+  alto completo descuenta `var(--barra-agencia, 0px)` o el documento scrollea esos 50 px y la barra tapa la de
+  arriba (en el editor tapaba Publicar). Medido por la verificación con clics en el Chrome de Martín.
+
+### Lo que quedó sin hacer (diseños con video)
+
+- La SEGUNDA página de gracias del webinar y del lead magnet no lleva el video de «qué sigue».
+- En el teléfono, con el video al costado, el video queda debajo del texto y el botón (el orden de las columnas).
+- Al pegar HTML sin el JSON del editor, la pista del proveedor se pierde (`parseHTML` de nodos.ts cae a
+  `attrsInsertado({})`).
+- El ícono `play` del catálogo es de contorno; no hay uno relleno.
+- `app/admin/dev/landing-generator/bitacora.ts` sigue diciendo «34 temas» (ahora son 35).
 
 ## Lo que quedó sin hacer
 
@@ -336,8 +920,8 @@ una, puede salir un pop-up... que te pregunte de que quieres crearla». Hecho si
   tiempo real, insertar la landing en otra web
   (`X-Frame-Options: DENY`), Google Tag Manager y código personalizado, Imagine, la caja de agente de
   Gamma 5 con preguntas (se usa el generador clásico con modo Plan/Express).
-- **API de MaKo**: listar/ver/publicar landings no están en el registro (`lib/api-mako/areas/landing.*`):
-  existen para la pantalla y no para los agentes.
+- ~~**API de MaKo**: listar/ver/publicar landings no están en el registro~~: hecho en la tanda 4 (arriba),
+  salvo que por WhatsApp «publicá la landing…» todavía no llega (bloqueante de `lib/mako-intencion.ts`).
 - Se borró `app/api/landing-writer/route.ts` (no la llamaba nadie): al integrar en el clon hay que correr
   `npx next typegen` para que `.next/types/validator.ts` deje de nombrarla.
 

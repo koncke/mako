@@ -13,6 +13,7 @@
 import type { ProductoDelLead } from './lead-funnel-reglas';
 import type { LandingConfig } from './landing-config';
 import { normalizarUrl } from './landing-paginas';
+import { urlLandingVigente } from './editor-landing/dominios-reglas';
 
 const sinParametros = (u: string): string => {
   const i = u.indexOf('?');
@@ -28,12 +29,17 @@ const sinParametros = (u: string): string => {
  * `?order_id=…`), distinta en cada compra, así que comparando la URL entera no coincidiría NUNCA
  * con la que se guardó. Medido sobre el código el 08/10/2026 (lo señaló el relevo de Customer
  * Success), con la función ya desplegada y apagada para todos.
+ *
+ * ⚠️ Y CON LA DIRECCIÓN DE HOY EN LAS DOS PUNTAS (`urlLandingVigente`, integración de la tanda 4): una
+ * página de gracias del editor declarada antes de la mudanza (`hola-mako.com/l/<slug>/gracias`) es la
+ * MISMA que la que manda el Pixel desde el 14/10 (`hola-mako.site/<slug>/gracias`). Sin esto la de
+ * gracias dejaba de pasar a Ganado, sin un error.
  */
 export function paginaDeGracias(configs: readonly LandingConfig[], url: string | null | undefined): LandingConfig | null {
   const u = url ? normalizarUrl(url) : null;
   if (!u) return null;
-  const ruta = sinParametros(u);
-  return configs.find((c) => c.gracias === true && sinParametros(c.url) === ruta) ?? null;
+  const ruta = sinParametros(urlLandingVigente(u));
+  return configs.find((c) => c.gracias === true && sinParametros(urlLandingVigente(c.url)) === ruta) ?? null;
 }
 
 /** Un lead candidato: los que tienen el `visitor_id` de la visita. */

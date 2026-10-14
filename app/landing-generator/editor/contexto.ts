@@ -84,6 +84,11 @@ export type CtxEditorLanding = {
   insertarTarjetas: (nuevas: JsonNodo[], despuesDe?: string | null) => void;
 
   urlPublica: string | null;
+  /**
+   * Lo que va antes del slug en la dirección pública (`https://hola-mako.site` en producción, tanda 4).
+   * Viene del server (`LandingCompleta.baseLandings`): el navegador no sabe en qué entorno corre.
+   */
+  baseLandings: string;
   cambiosSinPublicar: boolean;
   /** Recarga lo del server (después de publicar, restaurar una versión, etc.). */
   recargar: () => Promise<void>;

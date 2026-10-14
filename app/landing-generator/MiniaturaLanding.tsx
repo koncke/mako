@@ -156,7 +156,9 @@ export function MiniaturaLanding({ tarjeta: t, tema, formato = 'pagina', proporc
   aspecto?: string;
   entera?: boolean;
 }) {
-  const html = useMemo(() => htmlDeTarjeta(t ?? TARJETA_VACIA, tema, { modo: 'miniatura', incluirOcultas: true }), [t, tema]);
+  // Con MARCADORES (render.ts): la grilla de Diseños, el Panel y Crear son miniaturas de TRABAJO, y
+  // el VSL vacío de un diseño tiene que verse como un ▶ (pedido de Martín, 14/10/2026).
+  const html = useMemo(() => htmlDeTarjeta(t ?? TARJETA_VACIA, tema, { modo: 'miniatura', incluirOcultas: true, marcadores: true }), [t, tema]);
   const diapo = formato === 'presentacion';
   const prop: Proporcion = proporcion === '4:3' ? '4:3' : '16:9';
   const cuadro = diapo ? (prop === '4:3' ? '4 / 3' : '16 / 9') : aspecto;
@@ -674,8 +676,8 @@ export const CSS_GP = `
 .gp .gp-menu-sep { height: 1px; margin: 6px 4px; background: var(--gp-borde-suave); }
 
 /* Diálogo */
-.gp .gp-velo { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(19,19,20,.48); }
-.gp .gp-dialogo { max-width: 100%; max-height: calc(100vh - 32px); display: flex; flex-direction: column; border-radius: 16px; background: var(--gp-superficie); color: var(--gp-texto); box-shadow: var(--gp-sombra-xl); outline: none; }
+.gp .gp-velo { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: calc(16px + var(--barra-agencia, 0px)) 16px 16px; background: rgba(19,19,20,.48); }
+.gp .gp-dialogo { max-width: 100%; max-height: calc(100vh - 32px - var(--barra-agencia, 0px)); display: flex; flex-direction: column; border-radius: 16px; background: var(--gp-superficie); color: var(--gp-texto); box-shadow: var(--gp-sombra-xl); outline: none; }
 .gp .gp-dialogo-cabeza { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 16px 4px 24px; }
 .gp .gp-dialogo-titulo { margin: 0; font-size: 20px; font-weight: 600; color: var(--gp-titulo); line-height: 1.25; }
 .gp .gp-dialogo-cuerpo { padding: 8px 24px 16px; overflow-y: auto; font-size: 14px; line-height: 1.5; }

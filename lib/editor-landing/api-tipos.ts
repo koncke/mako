@@ -113,6 +113,11 @@ export type LandingResumen = {
   papelera: boolean;
   slug: string | null;
   publicadoAt: string | null;
+  /**
+   * El dominio propio VERIFICADO de la landing (tanda 4), o null. Con él el Panel reconoce como nuestra
+   * una página analizada en `https://<dominio>` (antes aparecía «de afuera»).
+   */
+  dominio?: string | null;
   /** La primera sección, para dibujar la miniatura del Panel en el navegador. */
   primera: JsonNodo | null;
   /** T1/T3: el ícono del renglón y la forma de la miniatura (sin el campo: una página). Lo llena `listar` desde `config`. */
@@ -132,6 +137,13 @@ export type LandingCompleta = {
   cambiosSinPublicar: boolean;
   sitioActivo: boolean;
   urlPublica: string | null;
+  /**
+   * La base de la dirección pública (lo que va antes del slug, sin barra final): `https://hola-mako.site`
+   * en producción, `<app>/l` en local y en los previews (tanda 4). La decide el SERVER
+   * (`baseLandings`, lib/app-url.ts): el navegador no sabe en qué entorno corre. La usa el diálogo
+   * Publicar para mostrar la dirección antes de publicar.
+   */
+  baseLandings: string;
   creado: string;
   actualizado: string;
   /** La estrella del menú ⋯ (y del Panel). */
@@ -192,7 +204,10 @@ export type PedidoDocs =
   | { accion: 'guardarTema'; tema: TemaPropio }
   | { accion: 'borrarTema'; temaId: string }
   | { accion: 'borradoresViejos' }                         // landing_drafts del generador anterior
-  | { accion: 'importarBorrador'; draftId: number };
+  | { accion: 'importarBorrador'; draftId: number }
+  // Tanda 4: con qué cobra el «Botón de pago» (las pasarelas conectadas y los productos activos del
+  // catálogo). Lo leen el control del botón y el aviso de Publicar (pago-landing.ts).
+  | { accion: 'cobro' };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // IA (POST /api/landing-generator/ia)

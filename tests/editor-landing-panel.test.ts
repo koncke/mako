@@ -52,7 +52,9 @@ const sinComentarios = (src: string) => src
   .replace(/\/\*[\s\S]*?\*\//g, '')
   .replace(/\{\s*\}/g, '');          // lo que queda de un `{/* … */}` de JSX
 
-const BASE = 'https://hola-mako.com';
+const APP = 'https://hola-mako.com';
+/** Las bases de las landings en producción (tanda 4): hola-mako.site, y la de antes, hola-mako.com/l. */
+const BASES = ['https://hola-mako.site', 'https://hola-mako.com/l'];
 
 function doc(id: number, p: Partial<LandingResumen> = {}): LandingResumen {
   return {
@@ -70,15 +72,28 @@ test('hostDe: el host sin «www.» y la ruta sin la barra final; lo que no es UR
   assert.equal(hostDe('no es una url'), 'no es una url');
 });
 
-test('docDeUrl: una URL de hola-mako.com/l/<slug> (o una de sus páginas) es NUESTRA; un slug que empieza igual no', () => {
+test('docDeUrl: una URL de hola-mako.site/<slug> o hola-mako.com/l/<slug> (o una de sus páginas) es NUESTRA; un slug que empieza igual no', () => {
   const docs = [doc(5, { slug: 'mi-landing' }), doc(6, { slug: 'mi-landing-2' }), doc(7)];
-  assert.equal(docDeUrl('https://hola-mako.com/l/mi-landing', docs, BASE), 5);
-  assert.equal(docDeUrl('https://www.hola-mako.com/l/mi-landing/?utm_source=x', docs, BASE), 5, 'la clave es la del Landing Analyst: sin www, sin query, sin barra');
-  assert.equal(docDeUrl('https://hola-mako.com/l/mi-landing/gracias', docs, BASE), 5, 'una página de la landing es de la landing');
-  assert.equal(docDeUrl('https://hola-mako.com/l/mi-landing-2', docs, BASE), 6, 'el prefijo no confunde dos slugs');
-  assert.equal(docDeUrl('https://hola-mako.com/l/otra', docs, BASE), null, 'un slug que no es de este negocio no es nuestro');
-  assert.equal(docDeUrl('https://otra.com/l/mi-landing', docs, BASE), null);
-  assert.equal(docDeUrl('::', docs, BASE), null);
+  // Tanda 4: la dirección vigente, la que se comparte desde el 14/10/2026.
+  assert.equal(docDeUrl('https://hola-mako.site/mi-landing', docs, BASES), 5);
+  assert.equal(docDeUrl('https://www.hola-mako.site/mi-landing/gracias?utm_source=x', docs, BASES), 5);
+  assert.equal(docDeUrl('https://hola-mako.site/mi-landing-2', docs, BASES), 6);
+  assert.equal(docDeUrl('https://hola-mako.site/l/mi-landing', docs, BASES), null, 'hola-mako.site no lleva /l');
+  assert.equal(docDeUrl('https://hola-mako.com/mi-landing', docs, BASES), null, 'la app sin /l no es una landing');
+  // La de antes (redirige, pero lo analizado con ella sigue siendo de la landing).
+  assert.equal(docDeUrl('https://hola-mako.com/l/mi-landing', docs, BASES), 5);
+  // Su dominio propio VERIFICADO (el server sólo lo manda así): la raíz y sus páginas son ella.
+  const conDominio = [...docs, doc(8, { slug: 'promo', dominio: 'promo.tunegocio.com' })];
+  assert.equal(docDeUrl('https://promo.tunegocio.com/', conDominio, BASES), 8);
+  assert.equal(docDeUrl('https://www.promo.tunegocio.com/gracias?utm_source=fb', conDominio, BASES), 8);
+  assert.equal(docDeUrl('https://promo.tunegocio.com.evil.tld/', conDominio, BASES), null);
+  assert.equal(docDeUrl('https://tunegocio.com/', conDominio, BASES), null, 'el dominio raíz no es el subdominio conectado');
+  assert.equal(docDeUrl('https://www.hola-mako.com/l/mi-landing/?utm_source=x', docs, BASES), 5, 'la clave es la del Landing Analyst: sin www, sin query, sin barra');
+  assert.equal(docDeUrl('https://hola-mako.com/l/mi-landing/gracias', docs, BASES), 5, 'una página de la landing es de la landing');
+  assert.equal(docDeUrl('https://hola-mako.com/l/mi-landing-2', docs, BASES), 6, 'el prefijo no confunde dos slugs');
+  assert.equal(docDeUrl('https://hola-mako.com/l/otra', docs, BASES), null, 'un slug que no es de este negocio no es nuestro');
+  assert.equal(docDeUrl('https://otra.com/l/mi-landing', docs, BASES), null);
+  assert.equal(docDeUrl('::', docs, BASES), null);
 });
 
 test('filasDelPanel: documentos por nombre (el editado último arriba) y después las de afuera, sin la papelera, sin las nuestras y sin repetidas', () => {
@@ -92,9 +107,10 @@ test('filasDelPanel: documentos por nombre (el editado último arriba) y despué
     analizada('https://www.otra.com/oferta'),
     analizada('https://otra.com/oferta/?fbclid=1'),     // la misma página: no se repite
     analizada('https://hola-mako.com/l/agenda'),         // es NUESTRA: ya está como documento
+    analizada('https://hola-mako.site/agenda/gracias'),  // también (tanda 4: la dirección vigente)
     analizada('esto no es una url'),
     analizada('https://tercera.mx/'),
-  ], BASE);
+  ], BASES);
   assert.deepEqual(filas.map((f) => [f.tipo, f.nombre]), [
     ['presentacion', 'Pitch'],
     ['landing', 'Agenda tu llamada'],
@@ -109,7 +125,7 @@ test('filasDelPanel: documentos por nombre (el editado último arriba) y despué
 });
 
 test('filtrarFilas («Ir a»): por nombre, sin acentos ni mayúsculas', () => {
-  const filas = filasDelPanel([doc(1, { titulo: 'Presentación comercial', formato: 'presentacion' }), doc(2, { titulo: 'Webinar' })], [analizada('https://otra.com/')], BASE);
+  const filas = filasDelPanel([doc(1, { titulo: 'Presentación comercial', formato: 'presentacion' }), doc(2, { titulo: 'Webinar' })], [analizada('https://otra.com/')], BASES);
   assert.deepEqual(filtrarFilas(filas, 'PRESENTACION').map((f) => f.nombre), ['Presentación comercial']);
   assert.deepEqual(filtrarFilas(filas, 'otra').map((f) => f.nombre), ['otra.com']);
   assert.equal(filtrarFilas(filas, '  ').length, 3);
@@ -138,11 +154,12 @@ test('urlDeBusqueda: el «Ir a» ofrece analizar sólo lo que es la dirección d
 
 test('derechaDeQuery: diagnóstico por id, por URL (la nuestra abre NUESTRO documento), vacío para pegar una, las vistas, y la caja por default', () => {
   const docs = [doc(5, { slug: 'mi-landing' })];
-  const d = (q: { vista?: string | null; diagnostico?: string | null; analizar?: string | null }) => derechaDeQuery(q, docs, BASE);
+  const d = (q: { vista?: string | null; diagnostico?: string | null; analizar?: string | null }) => derechaDeQuery(q, docs, BASES);
   assert.deepEqual(d({ diagnostico: '9' }), { tipo: 'diagnostico', docId: 9 });
   assert.deepEqual(d({ diagnostico: '9', analizar: 'https://a.com/', vista: 'temas' }), { tipo: 'diagnostico', docId: 9 }, 'el id manda');
   assert.deepEqual(d({ analizar: 'https://a.com/x' }), { tipo: 'diagnostico', url: 'https://a.com/x' });
   assert.deepEqual(d({ analizar: 'https://hola-mako.com/l/mi-landing' }), { tipo: 'diagnostico', docId: 5 }, 'una URL nuestra abre el diagnóstico del documento');
+  assert.deepEqual(d({ analizar: 'https://hola-mako.site/mi-landing' }), { tipo: 'diagnostico', docId: 5 }, 'la de hola-mako.site también (tanda 4)');
   assert.deepEqual(d({ analizar: '' }), { tipo: 'diagnostico' }, 'vacía: el Diagnóstico para pegar una URL');
   assert.deepEqual(d({ analizar: 'javascript:alert(1)' }), { tipo: 'diagnostico' });
   assert.deepEqual(d({ diagnostico: 'abc', analizar: null, vista: 'papelera' }), { tipo: 'papelera' });
@@ -167,12 +184,12 @@ test('queryDeDerecha: escribe la derecha y conserva el ?ws=; lo escrito se vuelv
   for (const d of ida) {
     const p = new URLSearchParams(queryDeDerecha('?ws=3', d));
     assert.equal(p.get('ws'), '3');
-    assert.deepEqual(derechaDeQuery({ vista: p.get('vista'), diagnostico: p.get('diagnostico'), analizar: p.get('analizar') }, [], BASE), d, JSON.stringify(d));
+    assert.deepEqual(derechaDeQuery({ vista: p.get('vista'), diagnostico: p.get('diagnostico'), analizar: p.get('analizar') }, [], BASES), d, JSON.stringify(d));
   }
 });
 
 test('esDiagnosticoDe: marca el renglón cuyo diagnóstico está abierto (la de afuera por la URL normalizada)', () => {
-  const [propio, ext] = filasDelPanel([doc(5)], [analizada('https://www.a.com/x')], BASE) as [FilaPanel, FilaPanel];
+  const [propio, ext] = filasDelPanel([doc(5)], [analizada('https://www.a.com/x')], BASES) as [FilaPanel, FilaPanel];
   assert.equal(esDiagnosticoDe({ tipo: 'diagnostico', docId: 5 }, propio), true);
   assert.equal(esDiagnosticoDe({ tipo: 'diagnostico', docId: 6 }, propio), false);
   assert.equal(esDiagnosticoDe({ tipo: 'diagnostico', url: 'https://a.com/x/' }, ext), true);
@@ -194,8 +211,8 @@ test('destinoAnalizar: /landing-generator/analizar aterriza en el Panel con el D
     [{ url: 'https://a.com/x' }, { tipo: 'diagnostico', url: 'https://a.com/x' }],
     [{ id: '12' }, { tipo: 'diagnostico', docId: 12 }],
   ] as const) {
-    const p = new URL(destinoAnalizar(sp), BASE).searchParams;
-    assert.deepEqual(derechaDeQuery({ vista: p.get('vista'), diagnostico: p.get('diagnostico'), analizar: p.get('analizar') }, [], BASE), esperado);
+    const p = new URL(destinoAnalizar(sp), APP).searchParams;
+    assert.deepEqual(derechaDeQuery({ vista: p.get('vista'), diagnostico: p.get('diagnostico'), analizar: p.get('analizar') }, [], BASES), esperado);
   }
 });
 
@@ -297,7 +314,7 @@ test('la derecha: la caja de crear por default, el Diagnóstico montado AHÍ (co
   // las dos van por `analizarUrl`, que abre NUESTRO documento si la URL es nuestra.
   assert.match(src, /if \(derecha\.tipo === 'diagnostico' && !derecha\.docId && !derecha\.url\) \{\s*contenido = <AnalizarUnaPagina onAnalizar=\{analizarUrl\} \/>;/);
   assert.match(src, /\{urlBuscada && \([\s\S]{0,300}onClick=\{\(\) => analizarUrl\(urlBuscada\)\}/);
-  assert.match(src, /const analizarUrl = \(url: string\) => \{\s*const propia = docDeUrl\(url, lista, props\.base\);/);
+  assert.match(src, /const analizarUrl = \(url: string\) => \{\s*const propia = docDeUrl\(url, lista, props\.bases\);/);
   // Una plantilla se crea con el config de crear/tipo.ts (una presentación sin formato nacería página).
   assert.match(src, /const usarPlantilla = \(p: PlantillaGaleria\) => void crearYAbrir\(pedidoDePlantilla\(p\)\);/);
 });
@@ -306,7 +323,10 @@ test('las páginas: el Panel lee las analizadas DESPUÉS del guard y resuelve la
   const page = sinComentarios(leer(PAGE));
   const guard = page.indexOf("await requireRolWs([], { nav: 'landing-writer' });");
   assert.ok(guard > 0 && page.indexOf('listarAnalizadas()') > guard, 'la lectura corre antes del guard');
-  assert.match(page, /derechaDeQuery\(\{ vista: uno\(sp\.vista\), diagnostico: uno\(sp\.diagnostico\), analizar: uno\(sp\.analizar\) \}, docs, APP_BASE_URL\)/);
+  // Tanda 4: las bases las da el server (`basesLandings`), y van a la derecha Y a la pantalla.
+  assert.match(page, /const bases = basesLandings\(\);/);
+  assert.match(page, /derechaDeQuery\(\{ vista: uno\(sp\.vista\), diagnostico: uno\(sp\.diagnostico\), analizar: uno\(sp\.analizar\) \}, docs, bases\)/);
+  assert.match(page, /bases=\{bases\}/);
   assert.match(page, /analizadas=\{analizadas\}/);
   assert.match(page, /derechaInicial=\{derechaInicial\}/);
   const an = sinComentarios(leer(ANALIZAR));
@@ -325,6 +345,9 @@ test('server: `listar` (y `duplicar`) traen el formato y la proporción desde co
   const cuerpo = src.slice(ini, src.indexOf('\n}\n', ini));
   assert.match(cuerpo, /formato: formatoDe\(f\),/);
   assert.match(cuerpo, /proporcion: proporcionDe\(f\),/);
+  // Tanda 4: el dominio propio, y SÓLO el verificado (uno pendiente no sirve nada todavía).
+  assert.match(cols, /\bdominio, dominio_estado\b/);
+  assert.match(cuerpo, /dominio: f\.dominio_estado === 'verificado' && typeof f\.dominio === 'string' && f\.dominio \? f\.dominio : null,/);
 });
 
 test('la miniatura de una presentación es la diapositiva: el padre del .gm-doc declara el formato y el cuadro toma su forma', () => {
@@ -376,3 +399,8 @@ test('ni la pantalla, ni las páginas, ni las reglas tienen voseo (el guard del 
 //  22. urlDeBusqueda acepta cualquier dominio (también un nombre con punto)   → 19 / 1 (7)
 //  23. el Diagnóstico vacío monta el panel sin landing (en vez de la caja)    → 19 / 1 (16)
 // Restaurado: 20 / 0.
+//
+// Tanda 4 (14/10/2026, hola-mako.site): base 20 / 0. Rota con el arnés de editor-landing-origen:
+//  24. docDeUrl mirando sólo la primera base (hola-mako.com/l/… «de afuera»)  → 17 / 3 «docDeUrl…», «filasDelPanel…», «derechaDeQuery…»
+//  25. docDeUrl sin el dominio propio (https://<dominio> «de afuera»)         → 19 / 1 «docDeUrl…»
+//  26. aResumen mandando también el dominio PENDIENTE                         → 19 / 1 «server: `listar`…»

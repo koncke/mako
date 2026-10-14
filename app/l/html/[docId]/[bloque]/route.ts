@@ -30,6 +30,10 @@
 //    `seguir` la borra: nadie la manda a mano). Ahí sólo se sirve un bloque de LA landing de ese
 //    dominio y nunca el borrador: sin este corte, cliente.com/l/html/<otro id>/… serviría el HTML de
 //    la landing de cualquier otro negocio bajo el dominio del cliente.
+// ⚠️ TANDA 4 (14/10/2026): en producción esta ruta ya NO contesta en hola-mako.com (el proxy da 404:
+//    `decidirLEnApp`). Contesta en hola-mako.site —donde viven todas las landings y su borrador por el
+//    link privado, así que ahí sirve cualquier landing publicada y el `?vista=` como antes lo hacía
+//    hola-mako.com— y en el dominio de un cliente (sólo SU landing, como arriba). En local, como siempre.
 // =============================================================================
 import type { NextRequest } from 'next/server';
 import { getSupabaseServer } from '@/lib/supabase';
@@ -82,7 +86,7 @@ async function esDelDominio(req: NextRequest, docId: string): Promise<boolean> {
 export async function GET(req: NextRequest, ctx: { params: Params }) {
   const { docId, bloque } = await ctx.params;
   const enDominio = req.headers.get(HEADER_DOMINIO) != null;
-  // En un dominio de cliente no hay borrador: el link privado vive en hola-mako.com.
+  // En un dominio de cliente no hay borrador: el link privado vive en hola-mako.site (en local, en la app).
   const vista = enDominio ? null : req.nextUrl.searchParams.get('vista');
   return responderHtmlLibre(req, { docId, bloque, vista }, {
     // `responderHtmlLibre` valida las formas ANTES de llamar a esto: acá ya llegan sanas.

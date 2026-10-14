@@ -27,7 +27,7 @@ import { getFunnelDefault } from './funnels';
 import { perfilNegocioTexto } from './onboarding';
 import { extraerLanding, normalizarUrl, type LandingExtraida } from './landing-fetch';
 import { esPreviewDeEditor } from './landing-paginas';
-import { analisisCortado } from './landing-url';
+import { analisisCortado, visitasDeLaLanding } from './landing-url';
 // La profundidad del VSL NO se calcula acá: se reusa el módulo que ya resolvió
 // el problema (mig 0121 — el player de Panda no le da la duración al navegador,
 // así que el dato crudo son los segundos y el % se deriva). Su regla, que este
@@ -156,10 +156,10 @@ export async function getComportamiento(url: string): Promise<LandingComportamie
     visitas = await leerTabla<Visita>('landing_visits', 'visitor_id, landing_url, referrer, created_at');
   } catch { return vacio; }
 
-  // La URL guardada por el beacon trae utm/fbclid: se compara NORMALIZADA contra
-  // la que se analizó. Sin esto el mismo aterrizaje con y sin utm no cruza.
-  const norm = (u: string | null): string | null => { if (!u) return null; try { return normalizarUrl(u); } catch { return null; } };
-  const mias = visitas.filter((v) => norm(v.landing_url) === url);
+  // Normalizada (el beacon trae utm/fbclid) y con la dirección de HOY en las dos puntas: una landing del
+  // editor medida antes de la mudanza (`hola-mako.com/l/<slug>`) es la misma que la de hola-mako.site.
+  // Lo decide `visitasDeLaLanding` (lib/landing-url.ts, con test), que dice también `compartidos`.
+  const { mias, compartidos } = visitasDeLaLanding(visitas, url);
   if (!mias.length) return vacio;
 
   const visitantes = new Set(mias.map((v) => v.visitor_id).filter(Boolean));
@@ -167,14 +167,10 @@ export async function getComportamiento(url: string): Promise<LandingComportamie
   const refs = new Map<string, number>();
   for (const v of mias) { const k = refCorto(v.referrer); refs.set(k, (refs.get(k) ?? 0) + 1); }
 
-  // ¿Esta gente también entró a OTRAS landings del workspace? `vsl_events` no
+  // ¿Esta gente también entró a OTRAS landings del workspace? (`compartidos`, arriba) `vsl_events` no
   // guarda a qué página pertenece el evento, así que la profundidad se atribuye
   // por visitante; si el visitante vio dos landings, la atribución es ambigua y
   // hay que DECIRLO en vez de presentar el número como limpio.
-  const compartidos = visitas.some((v) => {
-    const u = norm(v.landing_url);
-    return u !== null && u !== url && visitantes.has(v.visitor_id);
-  });
 
   let plays = 0, medidos = 0;
   let mitad: number | null = null, final: number | null = null;
