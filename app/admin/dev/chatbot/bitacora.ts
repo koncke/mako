@@ -1504,4 +1504,14 @@ FEEDBACK PROBAR:
       "Videos redondos: medido, nuestro Evolution (2.3.7) tiene la ruta `/message/sendPtv`. Sin hacer.",
     ],
   },
+  {
+    fecha: "14 oct", hora: "01:10", chat: "chatbot", cuenta: "claude2",
+    actor: "martin", tipo: "prompt",
+    titulo: "MaKo nada por detrás: todo lo que el motor decide fuera del flujo se depreca y pasa a una condición",
+    pedido: "Sobre esto: \"Antes de mandar cualquier mensaje de «Un Lead Agendó Llamada», incluido el audio de los 5 minutos, MaKo revisa si la reunión ya pasó. Si pasó, corta el flujo entero, para no escribirle «te espero en la reunión» a alguien que ya la tuvo.\"\n\nEso está muy mal que pase y no esté en el flujo... Debería justamente existir una CONDITION en el flujo que pueda pausar en el envio si se canceló o ya pasó la reunión... Pero jamás que \"mako\" haga cosas que no están en el flujo... Si no es configurable el usuario, como yo, lo tomamos como un bug... Para eso estamos creando AUTOMATIONS...\nDepreca absolutamente todas las cosas que MaKo haga por detrás... Y si encuentras cosas como estas que deberían ser estar en el flujo pero no hay una condición para eso o falta crear algo, crealo dentro de automations...\n\nPor ejemplo, creo que falta una tarjeta de \"stop\". Aunque no se si con las tarjetas que ya tenemos se pueda configurar ese \"stop\"... Tampoco quiero agregar tarjetas por agregar...\n\nY por otro lado, con respecto a la fecha, si, sería bueno que si se mueve a mano, se pregunte la hora, pero ese lead, lo movimos primero a mano, y luego Mauricio lo puso otra vez en \"lead entrante\" y ahí agendamos la reunión con el email de ese lead por  CALENDLY, entonces si debería haber tenido la hora.",
+    puntos: [
+      "La regla quedó en la memoria `mako-nada-por-detras`. El inventario de todo lo que el motor decide fuera del flujo lo corre el workflow wf_a7729a89-429, que busca y verifica en cuatro zonas (inscripción, envío, grafo y lo que está fuera de Automations).",
+      "Corrección del diagnóstico del bug 5: la fecha sin hora explica la primera pasada (a mano, 19:57), pero la reserva por Calendly de las 02:05 traía la hora y aun así no reinició el flujo. Esa segunda regla escondida es parte del inventario.",
+    ],
+  },
 ];
