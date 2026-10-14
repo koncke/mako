@@ -71,6 +71,17 @@
 >   en el toque de 15 min. Falta mirar en el registro de envíos si le SALIERON los de 60 y 15 min o se cerró sin mandar.
 > - No hubo inscripciones nuevas en la #213 desde el 10/10: el lead que agenda entra por el webhook de agenda (Calendly), no
 >   por moverlo a mano.
+> **Respuestas de Martín (13/10 ~24:15), textual:** «1. Si, el lead de prueba lo creamos, se llama "Marco Bustos". 2. No, eso
+> debería ser una configuración de automations del usuario en todo caso... No lo configures tu, de última ponlo como template.
+> Siempre piensa en todo como un template, en todo caso, si es muy interno de MaKo, como que no pagó su suscripción o algo así...
+> Y esas automatizaciones yo debería configurarlas en SuperAdmin, en este caso SuperAdmin debería tener una opción que el resto
+> no, para poder mandar mensajes a todos los grupos con MaKo. 3. Si, quiero que pueda hacer cosas en el dashboard en incluso en
+> todas las tabs, piensa que otras cosas podría hacer una automatización en las otras tabs.»
+> Qué sale: (1) bug 5 = el lead de prueba «Marco Bustos» en la #213 de ws1: medir su inscripción; (2) el aviso del AI Analyst
+> NO lo decide el código: el evento se emite SIEMPRE (programado y a mano, con el origen como dato) y el negocio decide con la
+> plantilla «El AI Analyst Terminó» (avisarle a Graphics); y NUEVO: automatizaciones internas de MaKo (ej. un cliente no pagó
+> su suscripción) se configuran en SuperAdmin, con una tarjeta que sólo tiene SuperAdmin: «MaKo a todos los grupos» (manda a
+> los grupos de MaKo de todos los clientes); (3) ⚡ Acción con acciones del Dashboard y de TODAS las tabs (pensar cuáles).
 > **PENDIENTE, en este orden:**
 > 1. **Plazos de etapa del CRM → plantilla de Automations** (pedido de Martín reenviado por el chat CRM, 12/10: «Si, pasa
 >    a una automatización eso de los plazos... Y ponlo como template en automations. Dile esto al chat de "Chatbot" que lo
