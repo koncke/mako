@@ -1,5 +1,25 @@
 # Relevo: Automations (ex /chatbot) y las secuencias
 
+> **ESTADO AL 14/10/2026 ~13:20 AR (`claude2` al 88 % semanal: lo que sigue NO está arrancado).** TODO lo de «nada por
+> detrás» está EN PRODUCCIÓN (282173d6e, Ready) y las TRES migraciones corridas y verificadas leyendo la base:
+> `migrar-si-contesta` (la mañana), `migrar-condicion-reunion` (#213 ws1, #241 ws13) y `migrar-contesto-condicion` (8:
+> #198, #209, #210, #238, #244, #245, #247, #249; las 8 pasan `validarParaGuardar` y `validarGrafo`; respaldo previo en
+> el scratchpad de la sesión 461dd390, `respaldo-contesto-2026-10-14.json`). Ya no hay guarda escondida de «la reunión ya
+> pasó» ni corte por respuesta: lo dicen «Su reunión sigue en pie» y «No contestó desde que entró». Probar tiene la barra
+> de escenarios. Rama `undecima` = origin/main (45fe2cb7f), sin nada propio pendiente.
+> **SIGUE, en orden (nada empezado):**
+> 1. TikTok fase 0: que el AI Step conteste por Instagram/Messenger (`pausarPorRespuesta` con `soloPausa` sólo anota;
+>    plan en docs/diseno-tiktok-linkedin.md §4). Después fase 1-2; el botón TikTok en la grilla del CRON va AL LADO DEL
+>    DE IG (Martín, 14/10). Falta de Martín: una cuenta TikTok Business de prueba (LATAM) para ws3.
+> 2. `probar_secuencia` de la API manda TODOS los pasos: que acepte un escenario (lib/setting-secuencias.ts).
+> 3. Feedback del 13/10: 6 (arrastrar para reordenar tarjetas y mensajes) y 11 (subir un audio rápido en WhatsApp).
+> 4. El resto del §2.4 de docs/diseno-mako-nada-por-detras.md (protecciones configurables y con aviso, AI Step «Deja de
+>    contestar si…», «Sale sola», «Reentrada» del CRON, texto visible del DELAY «antes de la reunión»).
+> 5. Videos redondos (`/message/sendPtv`), registro de acciones (sin dueño), la cola de siempre.
+> El chat CRM (frente b5, worktree C:/Users/marti/wtc-b5) está pasando el CRM automático a plantillas y toca
+> plantillas-automatizaciones, condiciones-catalogo, el motor y chatbot.def/run: se le pasaron las reglas de contesto/EN_PIE.
+> Tests rotos que NO son del área (otros chats): vista-general-modelo, cobranza.
+
 > **ESTADO AL CIERRE (12/10/2026 ~12:00 hora AR, `claude3` al 95 % semanal: no se arrancó nada más).** Todo lo hecho está
 > en main y desplegado: undécima (a29af1a9 + datos aplicados), duodécima (f9308753), decimotercera (9295305e), y la barra
 > (Offer en Sales Machine, «pronto» y Content Machine sólo super admin, Customer Success familia propia y al final). Se
