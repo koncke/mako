@@ -22,6 +22,7 @@
 // =============================================================================
 
 import { normalizarUrl } from './landing-paginas';
+import { urlLandingVigente } from './editor-landing/dominios-reglas';
 
 /** Una landing del cliente, con lo que le pertenece solo a ella. */
 export type LandingConfig = {
@@ -159,10 +160,19 @@ export function funnelIdsDeLanding(configs: LandingConfig[], url: string | null 
   return landingDe(configs, url)?.funnelIds ?? [];
 }
 
-/** La landing elegida, o null. Compara normalizado en las dos puntas. */
+/**
+ * La landing elegida, o null. Compara normalizado en las dos puntas.
+ *
+ * ⚠️ Y con la dirección de HOY en las dos puntas (`urlLandingVigente`, integración de la tanda 4): una
+ * landing del editor declarada antes de la mudanza (`hola-mako.com/l/<slug>`) y la que manda el Pixel
+ * desde el 14/10 (`hola-mako.site/<slug>`) son la MISMA página. Sin esto el producto de la landing no
+ * se encontraba y el lead caía en el embudo del negocio, sin un error.
+ */
 export function landingDe(configs: LandingConfig[], url: string | null | undefined): LandingConfig | null {
   const u = url ? normalizarUrl(url) : null;
-  return u ? configs.find((c) => c.url === u) ?? null : null;
+  if (!u) return null;
+  const k = urlLandingVigente(u);
+  return configs.find((c) => c.url === u || urlLandingVigente(c.url) === k) ?? null;
 }
 
 /**

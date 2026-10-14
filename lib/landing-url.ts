@@ -13,6 +13,8 @@
 // analiza todos los días.
 // =============================================================================
 
+import { urlLandingVigente } from './editor-landing/dominios-reglas';
+
 /**
  * Normaliza la URL de una landing a la entidad que se analiza.
  *
@@ -39,6 +41,32 @@ export function normalizarUrl(input: string): string {
   if (u.pathname !== '/' && u.pathname.endsWith('/')) u.pathname = u.pathname.replace(/\/+$/, '');
   if (u.port === '80' || u.port === '443') u.port = '';
   return u.toString().replace(/\/$/, '');
+}
+
+/**
+ * Las visitas de UNA landing (`url`, ya normalizada con `normalizarUrl`) entre las del workspace, y si
+ * su gente entró también a OTRA landing (`compartidos`: la profundidad del VSL se atribuye por
+ * visitante y hay que decir que es ambigua). Lo usa `getComportamiento` (lib/landing-analyst.ts, el
+ * Diagnóstico); vive acá, sin `server-only`, para que un test lo EJECUTE.
+ *
+ * ⚠️ LA MISMA LANDING CON DOS DIRECCIONES (integración de la tanda 4, 14/10/2026): una landing del
+ * editor analizada o medida antes de la mudanza dice `hola-mako.com/l/<slug>`, y el Pixel manda desde
+ * entonces `hola-mako.site/<slug>`. Se compara con la dirección de HOY en las dos puntas
+ * (`urlLandingVigente`): sin eso el Diagnóstico decía «sin datos» (y la IA analizaba creyendo que nadie
+ * la vio), y las dos bases contaban como OTRA landing en `compartidos`. Todo sin un error.
+ */
+export function visitasDeLaLanding<V extends { visitor_id: string; landing_url: string | null }>(visitas: readonly V[], url: string): { mias: V[]; compartidos: boolean } {
+  // La URL guardada por el beacon trae utm/fbclid: se compara NORMALIZADA contra
+  // la que se analizó. Sin esto el mismo aterrizaje con y sin utm no cruza.
+  const norm = (u: string | null): string | null => { if (!u) return null; try { return normalizarUrl(u); } catch { return null; } };
+  const clave = urlLandingVigente(url);
+  const mias = visitas.filter((v) => { const u = norm(v.landing_url); return u !== null && urlLandingVigente(u) === clave; });
+  const visitantes = new Set(mias.map((v) => v.visitor_id).filter(Boolean));
+  const compartidos = visitas.some((v) => {
+    const u = norm(v.landing_url);
+    return u !== null && urlLandingVigente(u) !== clave && visitantes.has(v.visitor_id);
+  });
+  return { mias, compartidos };
 }
 
 /** Cuánto se espera a un análisis que quedó en `pendiente` antes de darlo por cortado. */
