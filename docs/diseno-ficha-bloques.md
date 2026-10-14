@@ -12,15 +12,22 @@ Un bloque sin datos se calla: el lead nuevo ve poco y el ganado ve su cobro. Los
 El panel lateral y la página de la ficha muestran exactamente lo mismo.
 En el mismo panel donde se arma, el **estilo de la ficha**: tipografía, tamaño de las tarjetas y colores, como pediste el 13/10, más el ícono de cada bloque. Es el tema del Dashboard, con sus colores dentro de la paleta del modo claro y el oscuro, así nunca queda ilegible.
 
-**Lo que necesito que decidas**
+**Decidido el 14/10** (Martín: «Si, avanza con todo y pushea»). Las cinco preguntas de sí o no van por el sí; en la 5
+y la 7, que no eran de sí o no, quedó el default que se anota, y se cambia con una línea de código si dice otra cosa.
 
-1. ¿La ficha y sus avisos de «datos sin marcar» pasan a guardarse por funnel, con lo que el negocio ya eligió como respaldo? (Recomiendo que sí: ws1, ws11, ws15 y ws17 tienen funnels de tipos distintos, y un funnel de carrito no puede pedir contrato.)
-2. ¿Vuelve la conversación a la ficha de escritorio (WhatsApp, DM de Instagram y el mensaje listo para mandar) como bloques del Resumen y no como tab, aunque la tab Chat se sacó a propósito?
-3. ¿Se puede contestar un DM de Instagram desde la ficha, ya que MaKo sabe mandarlo pero hoy ese envío no está abierto para la ficha?
-4. ¿La tab Tracking sale también cuando sabemos que el lead visitó la página o de qué anuncio vino, aunque su funnel no tenga una campaña de Meta asignada, o sigue la regla que pediste el 12/10?
-5. ¿El puntaje y las recomendaciones de la llamada los ve el closer o sólo el admin? (Hasta que lo decidas, no entran en ninguna plantilla.)
-6. ¿La ficha del CRM le muestra a un ganado lo de Customer Success (estado, entrega y curso, sólo para ver, con «Abrir en CS»), y la ficha de CS pasa a usar estos mismos bloques con una plantilla fija de cliente?
-7. ¿La moneda se guarda por negocio o por oferta, si hoy sólo los pagos de la pasarela traen la moneda original y ws1 y ws11 venden en MXN?
+1. **Sí:** la ficha y sus avisos de «datos sin marcar» se guardan por funnel, y lo que el negocio ya eligió queda de
+   respaldo (ws1, ws11, ws15 y ws17 tienen funnels de tipos distintos, y un funnel de carrito no puede pedir contrato).
+2. **Sí:** la conversación vuelve a la ficha de escritorio (WhatsApp, DM de Instagram y el mensaje listo para mandar)
+   como bloques del Resumen, no como tab.
+3. **Sí:** el DM de Instagram se contesta desde la ficha.
+4. **Sí:** la tab Tracking sale también cuando sabemos que el lead visitó la página o de qué anuncio vino, aunque su
+   funnel no tenga una campaña de Meta asignada.
+5. **Default:** el puntaje y las recomendaciones de la llamada los ven el admin y el closer de ese lead. Entran en las
+   plantillas con llamada.
+6. **Sí:** la ficha del CRM le muestra a un ganado lo de Customer Success (estado, entrega y curso, sólo para ver, con
+   «Abrir en CS»), y la ficha de CS pasa a usar estos mismos bloques con una plantilla fija de cliente.
+7. **Default:** la moneda va por negocio, como el resto de la config, y cada pago guarda la moneda en que se cobró. Lo
+   cargado a mano usa la del negocio. «Por oferta» queda para cuando un negocio venda en dos monedas.
 
 ---
 
@@ -139,7 +146,7 @@ La tab sigue saliendo sólo si el funnel tiene una etapa de reunión. Cada bloqu
 | `diagnostico-mako`<br>también en Resumen | Dolor, situación, señales de compra, objeciones, riesgos, próxima acción y preguntas para la próxima llamada. | Generar o regenerar | ½ · completo | tarjeta con secciones · sólo las preguntas · sólo riesgos y objeciones | — | A medias: hoy plegado en MaKo Analyst; sale de ahí |
 | `ciclo-de-venta` | Agendó → R1 → R2 → dijo que sí → primer pago, con los días entre cada paso. En lo orgánico, «agendó a los N días de entrar». | No: cada fecha se edita en su bloque | ½ · completo | línea con días · número grande · cajas | — | A medias: las fechas existen, el cálculo no |
 | `cohorte` | Madura, Madurando o Reciente, con «N días desde la R1». | No | ¼ | chip · número grande | — | Sí; pasa del Resumen a aquí |
-| `coaching-de-la-llamada` | Puntaje de 0 a 10, dimensiones de la venta, fortalezas, qué mejorar y recomendaciones al closer. | No (se corrige en Closing) | ¼ · ⅓ · ½ | puntaje grande · barras por dimensión · recomendaciones | — | A medias: se trae y nadie lo dibuja; fuera de las plantillas (decisión 5) |
+| `coaching-de-la-llamada` | Puntaje de 0 a 10, dimensiones de la venta, fortalezas, qué mejorar y recomendaciones al closer. | No (se corrige en Closing) | ¼ · ⅓ · ½ | puntaje grande · barras por dimensión · recomendaciones | — | A medias: se trae y nadie lo dibuja; lo ven el admin y el closer (decisión 5) |
 
 **Para implementar.**
 - Webinar y presencial usan el lugar de la R1 (lib/funnel-etapas.ts:65-68). La tab sale con `tieneEtapaDeReunion` (lib/etapa-reunion.ts:132), que también elige la plantilla: la tab y la plantilla nunca se contradicen.
