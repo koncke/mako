@@ -5855,3 +5855,20 @@ solo template.
 
 **Vive en:** `app/m/_ui/tema.ts` · `app/_components/TemaOscuroScript.tsx` · `tests/minificador-templates.test.ts` ·
 *2026-10-13 chat MaKo Mobile (cuenta 2)*
+
+## La zona del ws1 era Buenos Aires: los recordatorios decían la hora de otro país (bug 8, 14/10/2026)
+
+Síntoma (reunión del 13/10, Mauricio): «los temporizadores no coinciden con los textos» de los recordatorios por WhatsApp.
+El diagnóstico obvio era la plantilla o el cálculo de `{{reunion_faltan}}` (los dos estaban bien, medido). Lo que estaba mal
+era el DATO: `mako.timezone` del ws1 (Mauricio, Mexicali) era `America/Argentina/Buenos_Aires`, con origen «navegador» y
+`por: mbustos@elevate.com.mx`, escrito el 12/10 02:00 UTC por `detectarZonaAction`. La regla de quién cuenta como «el
+usuario» se cumplió (era la sesión de un admin propio): alguien entró con la cuenta de Mauricio desde Argentina, o su
+máquina tiene mal la zona. Medido en un envío real: la reunión de Guillermo (lead 2593) era a las 10:00 de Tijuana y los
+recordatorios dijeron «mañana a las 2:00 p. m.» y «empieza en 59 minutos, a las 2:00 p. m.». También corría con esa zona
+el horario de envío del negocio. Se corrigió a `America/Tijuana` con origen «persona» (la detección ya no la pisa).
+Las demás zonas medidas el 14/10 son coherentes (Leila en Cancún; Código Inmobiliario, Leandro y Martín en Argentina).
+**Regla:** una detección automática mide la máquina de quien mira, no al negocio: el navegador de un admin propio
+también puede estar en otro país. **Sin hacer:** cruzarla antes de escribir con señales del propio negocio (el país de
+su número de WhatsApp, la zona de su Calendly o de su cuenta de Meta) y no escribir si no coinciden.
+
+**Vive en:** `app/_components/zona-actions.ts` (`detectarZonaAction`) · `lib/timezone.ts` (`fijarZonaDelNegocio`) · `lib/zona-negocio-reglas.ts`
