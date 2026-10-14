@@ -40,6 +40,7 @@ import {
   montoUsdDelCobro, pasaAPagado, textoPagoRegistrado, urlPorVencer, ESTADOS_QUE_PASAN_A_PAGADO,
 } from './cobros-reglas';
 import { formatoMonto } from './pasarela-moneda';
+import { esCuotaDevuelta, esRenovacionFallida, PREFIJO_RENOVACION_FALLIDA } from './cobrado-lead';
 import { motivoSinDatos } from './cobros-eventos';
 import { emitirDelCatalogo } from './avisos';
 import { linkResumenLead } from './lead-resumen';
@@ -187,7 +188,37 @@ async function actualizar(ws: number, id: number, patch: Record<string, unknown>
 // Crear
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type ResultadoCrearCobro = { ok: true; cobro: Cobro; link: string } | { ok: false; error: string; faltan?: string[] };
+export type ResultadoCrearCobro = { ok: true; cobro: Cobro; link: string; yaEstaba?: true } | { ok: false; error: string; faltan?: string[] };
+
+type CuotaDelLink = { id: number; numero: number; monto_usd: number };
+
+/**
+ * La cuota que va a saldar un link (el «cobrar una cuota con link» del bloque `cuotas`, 14/10/2026). Se valida
+ * ANTES de crear nada, adentro del workspace del cobro:
+ *   · de ESTE lead (el id llega del navegador o de la API);
+ *   · impaga y sin pasarela: una cobrada no se cobra dos veces, y una devuelta no es deuda;
+ *   · y si ya tiene un link que todavía se puede pagar (pendiente o rechazado), se devuelve ÉSE: dos links para la
+ *     misma cuota son dos cobros posibles de la misma plata.
+ * Al pagarse, `aplicarPagoAprobado` → `registrarCobroDeProveedor` la marca por su id (si sigue impaga y por el
+ * MISMO monto) y `marcarPago` corta su cobranza (`cerrarCorridasDeCuota`).
+ */
+async function cuotaParaLink(leadId: number, pagoId: number): Promise<{ ok: true; cuota: CuotaDelLink; pendiente: Cobro | null } | { ok: false; error: string }> {
+  const db = await getTenantDb();
+  const { data, error } = await db.from('pagos').select('id, numero, monto_usd, pagado, proveedor_pago_id, proveedor, cobro_id, fecha_esperada').eq('id', pagoId).eq('lead_id', leadId).maybeSingle();
+  if (error) return { ok: false, error: `No pude leer la cuota: ${error.message}` };
+  if (!data) return { ok: false, error: 'Esa cuota no es de este lead.' };
+  const q = data as { id: number; numero: number; monto_usd: number; pagado: boolean; proveedor_pago_id: string | null; proveedor: string | null; cobro_id: number | null; fecha_esperada: string | null };
+  if (q.pagado) return { ok: false, error: 'Esa cuota ya está cobrada.' };
+  if (q.proveedor_pago_id || esCuotaDevuelta(q)) return { ok: false, error: 'Esa cuota ya pasó por la pasarela.' };
+  const montoUsd = Number(q.monto_usd);
+  if (!Number.isFinite(montoUsd) || montoUsd <= 0) return { ok: false, error: 'Esa cuota no tiene monto.' };
+  const { data: links, error: e2 } = await db.from('cobros').select(COLS_COBRO)
+    .eq('lead_id', leadId).eq('pago_id', pagoId).in('estado', ['pendiente', 'fallido'])
+    .order('created_at', { ascending: false }).limit(1);
+  if (e2) return { ok: false, error: `No pude revisar los links de la cuota: ${e2.message}` };
+  const pendiente = (links ?? [])[0] ? cobroDeFila((links as Record<string, unknown>[])[0]) : null;
+  return { ok: true, cuota: { id: Number(q.id), numero: Number(q.numero), monto_usd: montoUsd }, pendiente };
+}
 
 /**
  * Crea el cobro y su checkout en la pasarela. La FILA se escribe ANTES de llamar al proveedor (con
@@ -225,6 +256,18 @@ export async function crearCobro(ws: number, p: {
     const lead = await getLead(p.leadId);
     if (!lead) return { ok: false, error: 'No encontré ese lead en este negocio.' };
 
+    // El link de UNA cuota: cobra esa cuota, en un pago único y sin producto (su precio es el de la cuota).
+    let cuota: CuotaDelLink | null = null;
+    if (p.pagoId != null) {
+      if (p.productoId) return { ok: false, error: 'El link de una cuota cobra la cuota: sin producto.' };
+      if (p.tipo === 'suscripcion') return { ok: false, error: 'Una cuota se cobra con un pago único, no con una suscripción.' };
+      if (altaCapa) return { ok: false, error: 'El link de una cuota no da de alta una cuenta.' };
+      const v = await cuotaParaLink(lead.id, p.pagoId);
+      if (!v.ok) return { ok: false, error: v.error };
+      if (v.pendiente) return { ok: true, cobro: v.pendiente, link: linkDelCobro(v.pendiente.token), yaEstaba: true };
+      cuota = v.cuota;
+    }
+
     const [stripe, mp] = await Promise.all([credStripe(ws), credMp(ws)]);
     const conectadas: Pasarela[] = [...(stripe ? (['stripe'] as const) : []), ...(mp ? (['mercadopago'] as const) : [])];
 
@@ -250,21 +293,27 @@ export async function crearCobro(ws: number, p: {
 
     const d = decidirCobro({
       pasarela: p.pasarela ?? null, conectadas, monto: p.monto, moneda: p.moneda,
-      productoMontoUsd: producto?.monto_usd ?? null, monedaDeLaCuenta: cuentaMp?.moneda ?? null, tipo, email,
+      productoMontoUsd: cuota?.monto_usd ?? producto?.monto_usd ?? null, monedaDeLaCuenta: cuentaMp?.moneda ?? null, tipo, email,
     });
     if (!d.ok) return d;
+    // ⚠️ EL VALOR EN DÓLARES DE UN LINK DE CUOTA ES EL DE LA CUOTA, no uno declarado aparte: al pagarse la marca
+    // pagada por su monto (`registrarCobroDeProveedor` exige que coincidan). En dólares, el link cobra exactamente
+    // la cuota; en otra moneda, la persona dice cuánto es en esa moneda y la cuota pone los dólares.
+    if (cuota && d.moneda === 'USD' && Math.abs(d.monto - cuota.monto_usd) >= 0.01) {
+      return { ok: false, error: `El link de esta cuota cobra US$ ${cuota.monto_usd}. Para otro monto, edita la cuota primero.`, faltan: ['monto'] };
+    }
 
-    const montoUsd = montoUsdDelCobro({ monto: d.monto, moneda: d.moneda, montoUsdDeclarado: p.montoUsd, productoMontoUsd: producto?.monto_usd });
+    const montoUsd = cuota ? cuota.monto_usd : montoUsdDelCobro({ monto: d.monto, moneda: d.moneda, montoUsdDeclarado: p.montoUsd, productoMontoUsd: producto?.monto_usd });
     // Sin valor en USD el pago no podría asentarse en el CRM (pagos.monto_usd es NOT NULL) y el CRON «Pagos»
     // saldría sin `fecha_primer_pago`: se pide antes de crear el link, no después de cobrar.
     if (montoUsd == null) return { ok: false, error: `¿Cuánto es en dólares? Hace falta para tus reportes (se cobra en ${d.moneda}).`, faltan: ['montoUsd'] };
-    const concepto = (p.concepto ?? '').trim() || producto?.nombre || (altaCapa ? `MaKo · plan ${capaDef(altaCapa).nombre}` : 'Pago');
+    const concepto = (p.concepto ?? '').trim() || (cuota ? (cuota.numero === 0 ? 'Cobro inicial' : `Cuota ${cuota.numero}`) : '') || producto?.nombre || (altaCapa ? `MaKo · plan ${capaDef(altaCapa).nombre}` : 'Pago');
     const modo = d.pasarela === 'stripe' ? (modoDeClaveStripe(stripe?.key) ?? 'real') : (cuentaMp?.modo ?? 'real');
     const token = nuevoTokenCobro();
 
     const db = await getTenantDb();
     const { data: fila, error } = await db.from('cobros').insert({
-      token, lead_id: lead.id, pago_id: p.pagoId ?? null, producto_id: producto?.id ?? null,
+      token, lead_id: lead.id, pago_id: cuota?.id ?? null, producto_id: producto?.id ?? null,
       proveedor: d.pasarela, modo, tipo, concepto: concepto.slice(0, 200), monto: d.monto, moneda: d.moneda,
       monto_usd: montoUsd, email, nombre: nombre?.slice(0, 200) ?? null, estado: 'pendiente',
       alta_capa: altaCapa, creado_por: p.creadoPor,
@@ -376,6 +425,13 @@ export async function aplicarPagoAprobado(c: Cobro, p: {
     const renovacion = esRenovacion(actual, p.proveedorPagoId);
     const fecha = await hoyEnWorkspace();
     const prueba = actual.modo === 'prueba';
+    // ⚠️ UNA RENOVACIÓN QUE ENTRA BORRA EL RECHAZO DE LA ANTERIOR (14/10/2026). El cobro de una suscripción ya
+    // está «Pagado», así que el paso 1 no lo vuelve a tocar y el `motivo` del rechazo quedaba para siempre: la
+    // ficha la pintaba «Falló la renovación» después de que la tarjeta volvió a pasar. Sólo ese motivo: otro (un
+    // pago que no se pudo asentar) lo sigue diciendo hasta que alguien lo resuelva.
+    if (renovacion && esRenovacionFallida(actual.motivo)) {
+      actual = (await actualizar(ws, c.id, { motivo: null })) ?? actual;
+    }
 
     // 2. El CRM: la cuota. Idempotente por (workspace, proveedor, proveedor_pago_id).
     let cuotaNueva = false;
@@ -592,7 +648,9 @@ export async function aplicarPagoFallido(c: Cobro, motivo: string): Promise<void
       return;
     }
     if (c.estado === 'pagado' && c.tipo === 'suscripcion' && c.lead_id) {
-      await actualizar(c.workspace_id, c.id, { motivo: `Falló el cobro de la renovación: ${motivo}`.slice(0, 300) });
+      // El prefijo lo LEE `cobradoDelLead` (lib/cobrado-lead.ts): es lo que pinta en rojo una renovación rechazada
+      // de un cobro que sigue «Pagado». Y lo borra la próxima renovación que entre (`aplicarPagoAprobado`).
+      await actualizar(c.workspace_id, c.id, { motivo: `${PREFIJO_RENOVACION_FALLIDA}: ${motivo}`.slice(0, 300) });
       await logLeadEvent(c.lead_id, 'Pago rechazado', `Renovación de ${c.concepto}: ${motivo}`.slice(0, 300), NOMBRE_PASARELA[c.proveedor]);
       await alCron(c, 'rechazado');
     }

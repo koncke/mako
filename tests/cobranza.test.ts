@@ -166,7 +166,11 @@ test('⚠️ marcar el pago CORTA lo que está en vuelo, y lo hace `marcarPago`'
   // secuencia sigue y le cobra a alguien que ya pagó. Va en `marcarPago` y no en la
   // pantalla porque el pago se marca desde la ficha, desde WhatsApp y desde la API.
   const pagos = leer('../lib/pagos.ts');
-  const fn = pagos.slice(pagos.indexOf('export async function marcarPago'), pagos.indexOf('export async function sincronizarTotalCobrado'));
+  // ⚠️ El recorte va hasta el PRÓXIMO export, no hasta sincronizarTotalCobrado (cambiado a propósito el 14/10/2026):
+  // desde el 13/10 (ba199cb49) entre las dos viven cobrarCuota y registrarPagoSuelto, el recorte medía 6.777
+  // caracteres y este test fallaba en la base, antes de tocar nada. Mide sólo marcarPago, que es lo que pregunta.
+  const iniMarcar = pagos.indexOf('export async function marcarPago');
+  const fn = pagos.slice(iniMarcar, pagos.indexOf('\nexport ', iniMarcar + 10));
   assert.ok(fn.length > 200 && fn.length < 3000, `el recorte de marcarPago mide ${fn.length}: mira otra cosa`);
   assert.match(fn, /cerrarCorridasDeCuota\(ws, pagoId\)/, 'marcar el pago dejó de cortar los recordatorios');
   assert.match(fn, /if \(pagado\)/, 'desmarcar un pago también cortaría, o peor, reabriría la secuencia');
