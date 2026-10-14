@@ -293,10 +293,9 @@ export async function cambiarEstadoSuscripcionAction(
     }
     const hoy = await hoyEnWorkspace();
     const r = await cambiarEstadoSuscripcionManual(leadId, estado, {
-      hoy, mesesAlCancelar: mesesTranscurridos(lead.fecha_cierre ?? null, hoy), mesesAlReactivar: opts.mesesAlReactivar ?? null,
+      hoy, mesesAlCancelar: mesesTranscurridos(lead.fecha_cierre ?? null, hoy), mesesAlReactivar: opts.mesesAlReactivar ?? null, autor: await autor(),
     });
     if (r.cambio) {
-      await anotarEnHistorial(leadId, [{ campo: 'Suscripción', valor_anterior: estado === 'cancelada' ? 'Activa' : 'Cancelada', valor_nuevo: estado === 'cancelada' ? 'Cancelada' : 'Activa' }], await autor());
       bust(TAG.leads, TAG.pagos);
       revalidar(leadId, true);
     }

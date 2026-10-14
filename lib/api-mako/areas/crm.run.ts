@@ -33,6 +33,9 @@ import { etapaVigenteDe } from '@/lib/funnel-etapas';
 import { calificadoSeDescarta } from '@/lib/calificado-reunion';
 import { getJuntasProximas } from '@/lib/queries';
 import { getLeadPlan, getPagosByLead, savePlanPagos, saveLeadPlanManual, marcarPago, cobrarCuota, registrarPagoSuelto } from '@/lib/pagos';
+// Sólo para la lectura cobranza_lead (14/10/2026): lo cobrado con la misma cuenta que la ficha.
+import { cobradoDelLead } from '@/lib/cobrado-lead';
+import { listarCobros } from '@/lib/cobros';
 import { centavos, diferenciaPendiente, type RestoDeCobro } from '@/lib/pagos-diferencia';
 import { getResumenLead, linkResumenLead } from '@/lib/lead-resumen';
 import { getWorkspaceActual } from '@/lib/workspace';
@@ -431,11 +434,26 @@ export const RUNNERS: Runners = {
     }),
   },
   cobranza_lead: {
-    leer: (input) => conLead(input, async (lead) => {
+    leer: (input, ctx) => conLead(input, async (lead) => {
       const plan = await getLeadPlan(lead.id);
-      const cuotas = plan.pagos.map((p) => ({ pago_id: p.id, numero: p.numero, es_inicial: p.numero === 0, monto_usd: Number(p.monto_usd), vence: p.fecha_esperada, pagada: p.pagado, fecha_pago: p.fecha_pago, tiene_comprobante: !!p.comprobante_path }));
+      const cuotas = plan.pagos.map((p) => ({
+        pago_id: p.id, numero: p.numero, es_inicial: p.numero === 0, monto_usd: Number(p.monto_usd), vence: p.fecha_esperada, pagada: p.pagado, fecha_pago: p.fecha_pago, tiene_comprobante: !!p.comprobante_path,
+        // La moneda en que se cobró (mig 0255 y XXXX): sólo donde no fue en dólares, para no llenar de ruido.
+        ...(p.moneda && p.moneda !== 'USD' && p.monto_original != null ? { cobrada_en: { moneda: p.moneda, monto: Number(p.monto_original) } } : {}),
+      }));
       const suma = (xs: typeof cuotas) => Math.round(xs.reduce((a, c) => a + c.monto_usd, 0) * 100) / 100;
       const sus = lead.venta_tipo === 'suscripcion';
+      // ⚠️ LO COBRADO SALE DE LA MISMA FUNCIÓN QUE LA FICHA (`cobradoDelLead`, lib/cobrado-lead.ts, 14/10/2026): sin
+      // ella MaKo decía «pagada por completo» de una mensualidad activa y no veía una renovación rechazada, que
+      // vive en el cobro de la pasarela. Si los cobros no se pueden leer, se cuenta sin ellos (sólo las cuotas).
+      const [cobros, { hoy }] = await Promise.all([listarCobros(ctx.ws, { leadId: lead.id, limite: 50 }).catch(() => []), hoyDelWorkspace(ctx.ws)]);
+      const cob = cobradoDelLead({
+        ventaTipo: lead.venta_tipo ?? null, montoCierreUsd: lead.monto_cierre_usd ?? null,
+        suscripcionMontoUsd: lead.suscripcion_monto_usd ?? null, suscripcionMeses: lead.suscripcion_meses ?? null,
+        fechaCierre: lead.fecha_cierre ?? null,
+        suscripcionCanceladaAt: (lead as unknown as { suscripcion_cancelada_at?: string | null }).suscripcion_cancelada_at ?? null,
+        pagos: plan.pagos, cobros, hoy,
+      });
       return json({
         lead_id: lead.id, nombre: lead.nombre, estado: lead.estado_lead,
         venta_tipo: lead.venta_tipo ?? 'unico',
@@ -443,6 +461,15 @@ export const RUNNERS: Runners = {
         ...(sus ? { suscripcion_mensual_usd: lead.suscripcion_monto_usd ?? null, suscripcion_meses: lead.suscripcion_meses ?? null, nota: 'Suscripción: total_vendido_usd queda null a propósito; el importe es el mensual.' } : {}),
         duracion_meses: plan.duracion_meses, fecha_cierre: plan.fecha_cierre, fecha_inicio_servicio: plan.fecha_inicio, tiene_contrato: plan.tiene_contrato,
         cobrado_usd: suma(cuotas.filter((c) => c.pagada)), por_cobrar_usd: suma(cuotas.filter((c) => !c.pagada)),
+        cobrado: {
+          texto: cob.texto, estado: cob.semaforo.texto, tono: cob.semaforo.tono,
+          cobrado_usd: cob.cobradoUsd, total_usd: cob.totalUsd, pendiente_usd: cob.pendienteUsd, vencido_usd: cob.vencidoUsd, porcentaje: cob.pct,
+          proxima: cob.proxima ? { pago_id: cob.proxima.pagoId, vence: cob.proxima.fecha, monto_usd: cob.proxima.montoUsd } : null,
+          ...(cob.suscripcion ? { suscripcion: { estado: cob.suscripcion.estado, mensualidad: cob.suscripcion.mensualidadTexto, fin_del_plazo: cob.suscripcion.finPlazo, proxima_renovacion: cob.suscripcion.proximaRenovacion, renovacion_fallida: cob.suscripcion.renovacionFallida, cobra: cob.suscripcion.fuente, meses_sin_registrar: cob.suscripcion.sinRegistrar } } : {}),
+          ...(cob.monedas.length ? { en_otras_monedas: cob.monedas } : {}),
+          ...(cob.cuadra && !cob.cuadra.cuadra ? { no_cuadra: `El plan suma USD ${cob.cuadra.diferenciaUsd > 0 ? 'más' : 'menos'} que el cierre (diferencia ${cob.cuadra.diferenciaUsd}).` } : {}),
+          ...(cob.seDibuja ? {} : { nota: cob.tipo === 'sin_cobro' ? 'Becado: no tiene cobrado.' : 'Sin venta ni cuotas cargadas.' }),
+        },
         cuotas,
         ...(cuotas.length ? {} : { nota_cuotas: 'Sin cuotas cargadas: no hay plan de pagos, no significa que no deba nada.' }),
       });

@@ -492,6 +492,17 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['PUT', '/cobros/cobros/{cobroId}/cancelacion-suscripcion', 'cancelar_suscripcion'],
   ['POST', '/cobros/links-pago', 'crear_link_pago'],
   ['PUT', '/cobros/links-pago/{cobroId}/anulacion', 'anular_link_pago'],
+  // Pagos campo por campo (14/10/2026): el deal, la venta y las cuotas son recursos del lead y de la cuota; el link
+  // de UNA cuota se crea sobre ella, y cortar su recordatorio lo borra (DELETE, como GitHub con una suscripción).
+  ['GET', '/cobros/moneda', 'ver_moneda_negocio'],
+  ['PUT', '/cobros/moneda', 'cambiar_moneda_negocio'],
+  ['PATCH', '/cobros/deals/{leadId}', 'editar_dato_deal'],
+  ['PATCH', '/cobros/deals/{leadId}/obligaciones', 'editar_obligacion_deal'],
+  ['PATCH', '/cobros/ventas/{leadId}', 'editar_venta_lead'],
+  ['PUT', '/cobros/ventas/{leadId}/suscripcion', 'estado_suscripcion_manual'],
+  ['PATCH', '/cobros/cuotas/{cuotaId}', 'editar_cuota'],
+  ['POST', '/cobros/cuotas/{cuotaId}/links-pago', 'crear_link_cuota'],
+  ['DELETE', '/cobros/cuotas/{cuotaId}/recordatorios', 'cortar_recordatorio_cuota'],
   // ── creaciones (13/10/2026: la galería y sus estrellas, como GitHub) ─────────
   // La estrella es un recurso de la creación: PUT la da y DELETE la saca (GitHub: PUT/DELETE /user/starred/{repo}).
   ['GET', '/creaciones/creaciones', 'listar_creaciones'],

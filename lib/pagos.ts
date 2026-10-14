@@ -601,9 +601,10 @@ export async function guardarMonedaDelNegocio(moneda: string): Promise<string> {
 export async function cambiarEstadoSuscripcionManual(
   leadId: number,
   estado: 'cancelada' | 'activa',
-  opts: { hoy: string; mesesAlCancelar: number; mesesAlReactivar?: number | null },
+  opts: { hoy: string; mesesAlCancelar: number; mesesAlReactivar?: number | null; autor: string },
 ): Promise<{ cambio: boolean; mesesAntes: number | null; canceladaAntes: string | null }> {
   const db = await getTenantDb();
+  const before = await getLead(leadId).catch(() => null);
   const { data, error } = await db.from('leads').select('venta_tipo, suscripcion_meses, suscripcion_cancelada_at').eq('id', leadId).maybeSingle();
   if (error) throw new Error(`No pude leer la suscripción: ${error.message}`);
   if (!data) throw new Error('No encontré ese lead en este negocio.');
@@ -617,7 +618,13 @@ export async function cambiarEstadoSuscripcionManual(
     : { suscripcion_cancelada_at: null, suscripcion_meses: opts.mesesAlReactivar ?? null };
   const { data: hecho, error: e2 } = await db.from('leads').update(patch).eq('id', leadId).eq('venta_tipo', 'suscripcion').select('id');
   if (e2) throw new Error(`No pude guardar la suscripción: ${e2.message}`);
-  return { cambio: !!hecho?.length, mesesAntes, canceladaAntes };
+  const cambio = !!hecho?.length;
+  if (cambio) {
+    // El plazo deja su diff («Plazo de la suscripción», AUDIT_FIELDS): la ficha lo sabe REVERTIR desde el historial.
+    await logLeadChanges(leadId, before, await getLead(leadId).catch(() => null), opts.autor);
+    await anotarEnHistorial(leadId, [{ campo: 'Suscripción', valor_anterior: estado === 'cancelada' ? 'Activa' : 'Cancelada', valor_nuevo: estado === 'cancelada' ? 'Cancelada' : 'Activa' }], opts.autor);
+  }
+  return { cambio, mesesAntes, canceladaAntes };
 }
 
 /**

@@ -44,6 +44,7 @@ buscar_lugares_meta
 buscar_tareas_plan
 buscar_tutorial
 cambiar_espera_paso
+cambiar_moneda_negocio
 cancelar_accion
 cancelar_analisis_dashboard
 cancelar_programacion_broadcast
@@ -71,6 +72,7 @@ contar_leads_por_etapa
 contar_segmento_email
 contexto_etapa
 contexto_negocio
+cortar_recordatorio_cuota
 crear_borrador_whatsapp_empresa
 crear_broadcast
 crear_clase_curso
@@ -82,6 +84,7 @@ crear_hoja_dashboard
 crear_hoja_general
 crear_landing_desde_diseno
 crear_lead_magnet
+crear_link_cuota
 crear_link_pago
 crear_modulo_curso
 crear_oferta_lead
@@ -104,15 +107,19 @@ editar_avatar_negocio
 editar_broadcast
 editar_clase_curso
 editar_contacto_lead
+editar_cuota
+editar_dato_deal
 editar_etiqueta
 editar_grafico_dashboard
 editar_hoja_dashboard
 editar_lead_magnet
 editar_meta_secuencia_email
+editar_obligacion_deal
 editar_pasos_secuencia_email
 editar_pasos_secuencia_mensajes
 editar_plantilla_meta
 editar_texto_guion_anuncio
+editar_venta_lead
 elegir_formato_creativo_anuncio
 eliminar_broadcast
 embudo_closing
@@ -136,6 +143,7 @@ estado_onboarding_chatbot
 estado_onboarding_contenido
 estado_onboarding_video
 estado_plantillas_meta
+estado_suscripcion_manual
 etapa_inbox_de_lead
 etapas_para_secuencia
 etiquetas_lead
@@ -413,6 +421,7 @@ ver_integracion
 ver_integraciones
 ver_landing_creada
 ver_metricas_video_panda
+ver_moneda_negocio
 ver_montaje_anuncio
 ver_mrr_activo
 ver_novedades_pixel

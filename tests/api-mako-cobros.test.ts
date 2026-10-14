@@ -54,6 +54,12 @@ const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\
 const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 
 const IDS = ['listar_cobros', 'ver_cobro', 'crear_link_pago', 'anular_link_pago', 'reembolsar_cobro', 'cancelar_suscripcion'];
+// ⚠️ Cambiado A PROPÓSITO el 14/10/2026: el área suma las nueve de Pagos campo por campo (docs/diseno-ficha-bloques.md
+// §3), con su forma fijada en tests/api-mako-pagos-campo.test.ts.
+const IDS_PAGOS_CAMPO = [
+  'ver_moneda_negocio', 'cambiar_moneda_negocio', 'editar_dato_deal', 'editar_obligacion_deal', 'editar_venta_lead',
+  'editar_cuota', 'crear_link_cuota', 'cortar_recordatorio_cuota', 'estado_suscripcion_manual',
+];
 const accion = (id: string): AccionDef => {
   const d = porId(id);
   assert.ok(d && esAccion(d), `«${id}» no es una acción del registro`);
@@ -62,11 +68,11 @@ const accion = (id: string): AccionDef => {
 
 // ── 1. La forma ───────────────────────────────────────────────────────────────
 
-test('el área `cobros` existe, va antes de `mako` y tiene exactamente sus seis operaciones', () => {
+test('el área `cobros` existe, va antes de `mako` y tiene exactamente sus operaciones (las seis de la pasarela y las nueve de Pagos)', () => {
   assert.ok(AREAS.indexOf('cobros') >= 0 && AREAS.indexOf('cobros') === AREAS.indexOf('mako') - 1, 'el orden de AREAS es el del catálogo');
   assert.deepEqual(AREA_INFO.cobros, { titulo: 'Cobros (Stripe y Mercado Pago)', tab: 'CRM', ruta: '/crm' });
-  assert.deepEqual(porArea('cobros').map((d) => d.id).sort(), [...IDS].sort());
-  for (const id of IDS) assert.ok(!/^proponer_/.test(id), `«${id}»: con proponer_ viaja la receta que pide un «sí»`);
+  assert.deepEqual(porArea('cobros').map((d) => d.id).sort(), [...IDS, ...IDS_PAGOS_CAMPO].sort());
+  for (const id of [...IDS, ...IDS_PAGOS_CAMPO]) assert.ok(!/^proponer_/.test(id), `«${id}»: con proponer_ viaja la receta que pide un «sí»`);
 });
 
 test('las lecturas: gratis, por TODOS los canales (http incluido) y con la tab del CRM', () => {
@@ -146,8 +152,11 @@ test('el runner es server-only y no lee claves ni llama a Stripe o Mercado Pago 
   const codigo = sinComentarios(run);
   assert.doesNotMatch(codigo, /credDelCliente|credWs|envCred|process\.env|stripe-api|mercadopago-api|fetch\(/);
   assert.match(codigo, /from '@\/lib\/cobros'/);
-  // ejecutar() nunca lanza: cada uno va envuelto.
-  assert.equal((codigo.match(/ejecutar: \(payload, ctx\) => seguro\(/g) ?? []).length, 4);
+  // ejecutar() nunca lanza: cada uno va envuelto. ⚠️ Cambiado a propósito el 14/10/2026: contaba exactamente 4
+  // (las de la pasarela); ahora TODO `ejecutar:` del archivo tiene que ir envuelto, cuente lo que cuente.
+  const ejecutores = codigo.match(/ejecutar: \([^)]*\) => /g) ?? [];
+  assert.ok(ejecutores.length >= 12, `vi ${ejecutores.length} ejecutar(): el recorte no está mirando`);
+  assert.equal((codigo.match(/ejecutar: \([^)]*\) => seguro\(/g) ?? []).length, ejecutores.length, 'un ejecutar() sin seguro() lanza y consume la pendiente');
 });
 
 // ── 4. Las frases reales llegan con su herramienta ────────────────────────────────────────────
