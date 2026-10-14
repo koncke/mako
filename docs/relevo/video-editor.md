@@ -2,11 +2,48 @@
 
 *12/10/2026, chat «Video Editor», cuenta claude3 (semana al 88 %).*
 
+## 14/10 (cuenta 2, mismo chat): barra lateral, Borrar silencios y Avatar de IA
+
+**Cierre (14/10 ~02:40, pedido de Martín: «que se pushee todo y que los chats cierren»):** todo commiteado en
+la rama `video-editor`, árbol limpio, nada a medias. El push lo hace «Estrategia 3 CUENTAS» con todo junto;
+estos commits no pasaron por tsc (si el pre-push marca algo en `app/video-editor/avatar/` o en
+`_opencut/avatar/`, es de acá).
+En la rama `video-editor` del worktree `C:/dev/wt-video-editor`, **sin pushear** (el typecheck sigue
+bloqueado en la máquina; lo mira «Fallas en la PC»). Commits `e1523b2f`, `923120b4` y `98e8ea36`, encima
+de `6c9e0162`. Para subirlo, desde el clon: `git merge --no-edit video-editor && git push`. Un merge y
+no un rebase: la bitácora cita estos hashes, y un rebase los cambia (al 14/10 no hay archivos en común con `main`).
+- **Barra lateral**: se queda mientras se edita (decidido por Martín, gana sobre el §9 del diseño).
+- **Borrar silencios**: botón en la barra de la línea de tiempo, un solo Deshacer.
+- **Avatar de IA**: la pestaña de CapCut. Los avatares son los escenarios confirmados del Video
+  Generator y genera con sus acciones. Llega de punta a punta cuando el puente lea el video del Flow
+  nuevo.
+- **Regla nueva de Martín**: antes de construir, buscar en la fuente (relevamientos de CapCut y OpenCut);
+  si no está, avisarle antes de crear.
+
+**SIGUE** (de la lista del 13/10): verificar subtítulos en el navegador; preguntarle a Martín qué son
+los «B-rolls que genera la IA» (no hay generación de B-roll en MaKo); Canva en Image y Notion/Mila en
+Copywriting; formatos híbridos y colas (dependen del puente).
+
+**ESPERA A MARTÍN — Estrellas (punto 10, 13/10):** «API de MaKo» armó la publicación de creaciones
+(rama `api-acciones-1310`, mig 0273, `lib/creaciones-reglas.ts`). `formato_video` y `formato_imagen` quedan en
+`POR_ENCHUFAR` a propósito: los formatos de video son las 8 puestas fijas del código (ningún negocio crea uno) y
+el Image Generator no tiene backend. Si Martín elige «un anuncio como plantilla», el enchufe sale de
+`PlanGuardado` sin el guion literal ni la foto. El contrato ya acepta ids de texto (UUID).
+
+**PENDIENTE MÍO — variaciones de hook para el Autopilot del Ads Manager (punto 18, 13/10):** el contrato
+acordado es `lib/video-variaciones.ts` con `pedirVariacionesHook(ws, { planId, toma, n })` y
+`estadoVariaciones(ws, planId)`, sin reintento de lo que gasta créditos. Bloqueos, en orden: (1) el puente no
+trae el video del Flow nuevo (`mediaDeFlow` null con el payload posicional); (2) el avance de tomas lo mueve la
+pantalla: mudar el núcleo de `estadoTomaAction`/`generarTomaAction` a `lib/` con ws explícito y llamarlo desde
+un cron; (3) no hay generador de N ganchos (`reescribirToma` es de a una) y el historial topea en 10: tabla
+propia; (4) el worker de montaje no tiene contenedor: sólo hace falta para un anuncio completo, y es
+decisión de Martín. «Mis creativos» ya lista las tomas filmadas del historial (`lib/creativo-mako-fuentes.ts`).
+
 ## 13/10 (cuenta 2, chat «Puente a Flow / Content Machine»): cerrado, medido y lo que espera
 
 **CERRADO** en la rama `video-editor` (worktree `C:/dev/wt-video-editor`, `tsc-ve` en verde). **Sin
 pushear**: el clon tiene el `tsc` bloqueado y lo mira «Fallas en la PC». Para subirlo, desde el clon:
-`git merge --ff-only video-editor && git push` (la rama es main + estos commits).
+`git merge --no-edit video-editor && git push`.
 - «No se pudo exportar» ya no muestra el `error.message` del motor en inglés: `export/mensaje-error.ts`
   traduce lo que el motor tira hoy (grep de `throw new Error`) y lo desconocido cae a una frase que dice
   qué probar; el crudo sigue en consola. Test `tests/video-editor-export-mensaje.test.ts`.

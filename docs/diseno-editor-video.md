@@ -40,10 +40,17 @@ ByteDance. Se copian a mano sólo los rótulos que se usan.
 | 10 | **Onboarding = estado vacío** («Crear proyecto»), sin entrada en el catálogo | La tab ES la herramienta (regla del 05/10, como /api-mako y el Dashboard) |
 
 **Fuera de alcance de v1** (no se dibujan, o se dibujan apagados con «Próximamente»):
-Plantillas (no hay catálogo), Avatar de IA, Dreamina, Archivos multimedia de IA, Retoque
+Plantillas (no hay catálogo), Dreamina, Archivos multimedia de IA, Retoque
 (belleza facial), Estabilización, Flujo óptico, Seguimiento de movimiento, Subtítulos
 bilingües, Música y Efectos de sonido de biblioteca (licencia), Compartir, todo lo «Pro» (el
 diamante no se copia). Si Martín quiere una, se reabre.
+
+**Reabiertas:** «Avatar de IA» (14/10, pedido de Martín): sólo «Biblioteca de avatares», generando con el
+Video Generator (`app/video-editor/avatar/`). Un avatar es un escenario confirmado de su historial.
+
+**Regla desde el 14/10 (Martín):** antes de construir una función se busca en la fuente —el relevamiento de
+CapCut y el de OpenCut (`docs/editor-video/`)— y se copia. Si no está para copiar ni para inspirarse, se le
+avisa a Martín ANTES de crearla.
 
 ---
 

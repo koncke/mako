@@ -839,7 +839,60 @@ camino es transparente». En esta corrida pegó así:
   ya tiene literales así (`app/conocimientos/PortadaModulo.tsx:344`). El `new RegExp(…)` de
   `stickers/providers/emojis.ts` no hacía falta.
 
+## «Borrar silencios»: el umbral relativo y los bordes del clip
+
+**Vive en:** `audio/dsp/silencios.ts` · `audio/silencios-plan.ts` ·
+`commands/timeline/element/borrar-silencios.ts` · `audio/borrar-silencios.ts`
+
+⚠️ **Diagnóstico obvio y falso: «un umbral relativo al clip protege a la grabación bajita».** Es cierto,
+y con el aire digital adentro del p95 rompe el caso opuesto: un clip que es casi todo silencio daba un
+p95 en el piso, el umbral bajaba a −125 dB y NADA era silencio (medido: 0 tramos). El nivel típico se
+mide sobre las ventanas que traen algo; sin ninguna, manda el absoluto de −40 dBFS.
+
+- **El margen de 80 ms protege la palabra de al lado, y en el borde del clip no hay palabra de al
+  lado.** Con el margen puesto ahí quedaban 80 ms de aire por toma.
+- **El audio arranca en el paquete, no en el recorte.** Un silencio que empieza a 30 ms del borde
+  dejaba una astilla de aire como clip suelto: se estira hasta el borde (50 ms).
+- **Se recoloca contra las posiciones de ANTES.** El imán corre la principal en el `updateTracks` del
+  borrado y las otras pistas no. Calculado contra las de antes, el resultado es el mismo con imán o sin él.
+- **Se construyó de cero, y no tenía que pasar sin avisar.** OpenCut classic no lo tiene
+  (relevamiento §3) y en CapCut es «Identificar y eliminar muletillas» (Pro). La regla de Martín
+  desde el 14/10: antes de construir, mirar la fuente; si no está, decírselo.
+
+## «Avatar de IA»: un avatar es un escenario del Video Generator
+
+**Vive en:** `app/video-editor/avatar/{avatares,actions}.ts` · `_opencut/avatar/{generar.ts,AvatarIAView.tsx}` ·
+`app/video-generator/escenario-reuso.ts` (`sirveParaFilmar`) · `lib/video-planner.ts` (`clipsMinimos`)
+
+- **La pantalla es de CapCut; lo que genera, del Video Generator.** Nada se generó de nuevo: el plan es
+  `generarPlanAction` con el guion literal, y filmar y preguntar son `generarTomaAction` y
+  `estadoTomaAction`. El único cambio en lo compartido es el piso de tomas.
+- ⚠️ **Todos los formatos tienen un mínimo de 3 a 7 tomas.** Sin `clipsMinimos`, una frase dicha por
+  el avatar sobre The Office se planificaba en 7 tomas, o sea 7 clips pagados por una oración. Medido
+  con `cabidaDeGuion` en el test.
+- **La url de la imagen vence a las ~6 h y el `mediaId` no.** La grilla dibuja el avatar sin foto si
+  no carga: sigue sirviendo para filmar.
+- **El avatar vive en el historial del Video Generator, que topea en 10.** El plan que arma el editor
+  lleva la misma imagen, así que generar con un avatar también lo mantiene vivo.
+- **La generación está en un store, no en la vista.** Cambiar de pestaña desmonta la vista y la
+  cadena tiene que seguir. Si se abre otro proyecto en el medio, la toma no se pega ahí: queda en el
+  Video Generator.
+
 ## Lo que quedó SIN hacer
+
+**Del 14/10 (barra lateral, Borrar silencios, Avatar de IA)**
+- Nada de lo del 14/10 se miró en un navegador: el editor se ve en producción y la rama `video-editor`
+  no se pudo pushear (typecheck bloqueado en la máquina).
+- «Avatar de IA» llega de punta a punta recién cuando el puente lea el video del Flow nuevo
+  (`mediaDeFlow` devuelve null con el payload posicional; memoria `puente-flow-boq-estado`). Hasta
+  entonces la toma se genera en Google y la pestaña queda esperando.
+- «Avatar de IA» filma todas las tomas seguidas. El Video Generator pregunta «¿esta cara es la tuya?»
+  después de la toma 1, y la pestaña no (el avatar ya es una imagen aprobada). Si Martín quiere esa
+  pausa, va en `_opencut/avatar/generar.ts`.
+- «Crear» abre el Video Generator en otra pestaña. «Voz» muestra el acento del perfil y no se cambia
+  desde el editor.
+- Borrar silencios: el umbral, la ventana y el mínimo son fijos y sin controles. Las curvas de
+  velocidad no se probaron en el navegador.
 
 **Las tandas 1 y 2 se hicieron sin dev server**, y lo que se midió después en Chrome (cinco bugs del
 motor, arriba) no cubre esta lista. Lo primero a probar: importar
