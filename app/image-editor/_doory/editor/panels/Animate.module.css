@@ -1,4 +1,5 @@
-/* The Animate panel. */
+/* El panel «Animar», alineado al de Canva: títulos de sección 14/700, baldosas grises con el rótulo debajo y la
+   elegida con el borde violeta de selección. */
 .panel {
   display: flex;
   flex-direction: column;
@@ -10,7 +11,7 @@
 .selected {
   margin: 0;
   color: var(--cv-color-text-muted);
-  font: 600 var(--cv-text-xs) / 1.2 var(--cv-font-sans);
+  font: 400 var(--cv-text-sm) / 18px var(--cv-font-sans);
 }
 
 .slots {
@@ -30,7 +31,7 @@
 .hint {
   margin: 0;
   color: var(--cv-color-text-muted);
-  font: 400 var(--cv-text-xs) / 1.5 var(--cv-font-sans);
+  font: 400 var(--cv-text-sm) / 18px var(--cv-font-sans);
 }
 
 .sections {
@@ -47,10 +48,8 @@
 
 .groupTitle {
   margin: 0;
-  color: var(--cv-color-text-muted);
-  font: 700 10px / 1.2 var(--cv-font-sans);
-  letter-spacing: 1px;
-  text-transform: uppercase;
+  color: var(--cv-color-text);
+  font: 700 var(--cv-text-base) / 20px var(--cv-font-sans); /* Canva: titleXSmall */
 }
 
 .grid {
@@ -65,38 +64,37 @@
   gap: 4px;
   min-width: 0;
   padding: 4px 4px 6px;
-  border: 1px solid var(--cv-color-border);
-  border-radius: var(--cv-radius-md);
-  background: var(--cv-color-bg-subtle);
-  color: var(--cv-color-text-muted);
+  border: 0;
+  border-radius: var(--cv-radius-sm);
+  background: transparent;
+  color: var(--cv-color-text);
   cursor: pointer;
   transition:
     border-color var(--cv-duration-fast) var(--cv-ease-out),
     background var(--cv-duration-fast) var(--cv-ease-out),
     color var(--cv-duration-fast) var(--cv-ease-out);
 }
-.thumb:hover {
-  border-color: var(--cv-color-brand);
-  color: var(--cv-color-text);
+.thumb:hover .thumbCanvas {
+  box-shadow: inset 0 0 0 2px rgb(57 70 96 / 0.2);
 }
 .thumb:focus-visible {
   outline: none;
   box-shadow: var(--cv-focus-ring);
 }
-.thumbOn {
-  border-color: var(--cv-color-brand);
-  background: var(--cv-color-brand-soft);
-  color: var(--cv-color-brand);
+.thumbOn .thumbCanvas,
+.thumbOn:hover .thumbCanvas {
+  box-shadow: inset 0 0 0 2px var(--cv-selection-color); /* Canva: borde violeta de la baldosa elegida */
 }
 .thumbCanvas {
   display: block;
   width: 100%;
   aspect-ratio: 160 / 110;
-  border-radius: calc(var(--cv-radius-md) - 3px);
+  border-radius: var(--cv-radius-sm);
+  background: var(--cv-color-canvas-workspace);
 }
 .thumbLabel {
   overflow: hidden;
-  font: 600 11px / 1.2 var(--cv-font-sans);
+  font: 400 var(--cv-text-sm) / 18px var(--cv-font-sans);
   text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -123,8 +121,8 @@
   min-width: 0;
 }
 .fieldLabel {
-  color: var(--cv-color-text-muted);
-  font: 600 var(--cv-text-xs) / 1.2 var(--cv-font-sans);
+  color: var(--cv-color-text);
+  font: 600 var(--cv-text-base) / 20px var(--cv-font-sans);
 }
 
 .pair {
@@ -148,19 +146,17 @@
   height: 32px;
   padding: 0 14px;
   border: 1px solid var(--cv-color-border-strong);
-  border-radius: var(--cv-radius-full);
+  border-radius: var(--cv-radius-sm);
   background: var(--cv-color-surface);
   color: var(--cv-color-text);
-  font: 600 var(--cv-text-xs) / 1 var(--cv-font-sans);
+  font: 600 var(--cv-text-base) / 1 var(--cv-font-sans);
   cursor: pointer;
   transition:
     border-color var(--cv-duration-fast) var(--cv-ease-out),
     background var(--cv-duration-fast) var(--cv-ease-out);
 }
 .chip:hover {
-  border-color: var(--cv-color-brand);
-  background: var(--cv-color-brand-soft);
-  color: var(--cv-color-brand);
+  background: rgb(64 79 109 / 0.06);
 }
 .chip:focus-visible {
   outline: none;

@@ -13,7 +13,7 @@ import styles from './Floating.module.css'
 
 const { min: MIN_PX, max: MAX_DIMENSION_PX } = CANVAS_SIDE_PX
 /** Sizes offered right in the popover. */
-const QUICK_PRESETS = ['a4', 'a5', 'letter', 'instagram-post', 'presentation', 'youtube-thumbnail']
+const QUICK_PRESETS = ['a4', 'a5', 'letter', 'instagramPost', 'presentation', 'youtubeThumbnail']
 const MODES: { id: ResizeMode; label: string; hint: string }[] = [
   { id: 'scale', label: t.canvasSize.scale, hint: t.canvasSize.scaleHint },
   { id: 'magic', label: t.canvasSize.magic, hint: t.canvasSize.magicHint },
@@ -32,7 +32,7 @@ interface SizePanelProps {
   pageId: string
   /** Which pages start selected: `all` for the design-level button, `page` for the size chip of one page. */
   defaultScope: ResizeScope
-  /** Offers flipping the page (the button of the whole canvas does, the chip of a page does not). */
+  /** Ofrece voltear la página. Desde que el botón redondo del lienzo se fue (Canva no lo tiene), lo ofrece el tamaño de cada página. */
   showFlip?: boolean
 }
 

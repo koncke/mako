@@ -1,4 +1,4 @@
-import { Crop, Frame, Replace } from 'lucide-react'
+import { Crop, Frame } from 'lucide-react'
 import { I } from '../../chrome/icons'
 import { useEditor, useSelection } from '../../context'
 import { isBackgroundRemovalAvailable } from '../../engine/bgRemoval'
@@ -8,9 +8,9 @@ import type { ImageFilterSpec, MaskShape } from '@/app/image-editor/_doory/types
 import { t } from '../../strings'
 import { Slider } from '../../ui/Slider'
 import { Switch } from '../../ui/Switch'
-import { OpacityTool } from '../controls'
+import { FlipTool } from '../controls'
 import { Field, PopoverStack, PopoverTool, ToolButton } from '../parts'
-import ed from '../../chrome/ed.module.css'
+import bar from '../parts.module.css'
 import styles from './sections.module.css'
 
 function MaskGlyph({ id }: { id: (typeof MASK_SHAPE_IDS)[number] | 'none' }) {
@@ -20,7 +20,7 @@ function MaskGlyph({ id }: { id: (typeof MASK_SHAPE_IDS)[number] | 'none' }) {
   return <svg viewBox="0 0 100 100" aria-hidden="true"><path d={maskPath(id) ?? ''} fill="currentColor" /></svg>
 }
 
-/** Frame (mask shape) picker shared by images and placeholders. */
+/** «Marco»: la forma que recorta la foto (también la de los marcadores de imagen). */
 export function FrameTool() {
   const editor = useEditor()
   const sel = useSelection()
@@ -28,8 +28,8 @@ export function FrameTool() {
   const current = typeof o.maskShape === 'string' ? o.maskShape : o.maskShape ? 'custom' : 'none'
   const radius = Math.round(Number(o.maskRadius ?? 0.18) * 100)
   return (
-    <PopoverTool label={t.toolbar.mask} trigger={<Frame size={18} aria-hidden="true" />} pressed={current !== 'none'} width={280} testId="ed-frame">
-      <PopoverStack width={256}>
+    <PopoverTool label={t.toolbar.mask} trigger={<Frame size={18} aria-hidden="true" />} pressed={current !== 'none'} width={296} testId="ed-frame">
+      <PopoverStack width={264}>
         <div className={styles.maskGrid} role="group" aria-label={t.toolbar.mask}>
           {(['none', ...MASK_SHAPE_IDS] as const).map((id) => (
             <button key={id} type="button" className={`${styles.maskBtn} ${current === id ? styles.maskOn : ''}`} aria-label={id === 'none' ? t.toolbar.maskNone : t.masks[id]} aria-pressed={current === id} title={id === 'none' ? t.toolbar.maskNone : t.masks[id]} onClick={() => editor.style.setMask(id === 'none' ? undefined : (id as MaskShape))}>
@@ -37,13 +37,13 @@ export function FrameTool() {
             </button>
           ))}
         </div>
-        {current === 'rounded' ? <Slider label={t.toolbar.cornerRadius} value={radius} min={0} max={50} onChange={(v) => editor.style.setMask('rounded', v / 100)} display={`${radius}%`} /> : null}
+        {current === 'rounded' ? <Slider label={t.toolbar.cornerRadius} value={radius} min={0} max={50} withInput onChange={(v) => editor.style.setMask('rounded', v / 100)} /> : null}
       </PopoverStack>
     </PopoverTool>
   )
 }
 
-/** CSS approximation of a preset, used only for the preview swatches. */
+/** Aproximación CSS de un filtro, sólo para las miniaturas. */
 function presetCss(specs: readonly ImageFilterSpec[]): string {
   const parts: string[] = []
   for (const s of specs) {
@@ -58,12 +58,19 @@ function presetCss(specs: readonly ImageFilterSpec[]): string {
   return parts.join(' ') || 'none'
 }
 
-export function AdjustPanel() {
+/** «Editar foto» de Canva: quitar el fondo (si está disponible), «Filtros» y «Ajustar». */
+export function AdjustPanel({ onRemoveBackground }: { onRemoveBackground?: () => void }) {
   const editor = useEditor()
   const sel = useSelection()
   const specs = (sel.objects[0]?.filters ?? []) as ImageFilterSpec[]
   return (
     <PopoverStack width={288}>
+      {onRemoveBackground ? (
+        <button type="button" className={`${bar.button} ${bar.buttonWide}`} data-testid="ed-remove-bg" onClick={onRemoveBackground}>
+          {I.removeBg}
+          {t.ctx.removeBackground}
+        </button>
+      ) : null}
       <Field label={t.toolbar.filterPresets}>
         <div className={styles.presetGrid}>
           {FILTER_PRESETS.map((p) => (
@@ -75,59 +82,57 @@ export function AdjustPanel() {
         </div>
       </Field>
       <Field label={t.toolbar.filters}>
-        {FILTER_RANGES.map((r) => {
-          const v = specValue(specs, r.type)
-          return <Slider key={r.type} label={t.toolbar[r.type]} value={v} min={r.min} max={r.max} step={r.step} display={`${Math.round(v * r.display)}${r.suffix}`} onChange={(n) => editor.style.setFilter(r.type, n)} />
-        })}
-        {TOGGLE_FILTERS.map((f) => (
-          <Switch key={f} label={t.toolbar[f]} checked={specValue(specs, f) > 0} onChange={(on) => editor.style.setFilter(f, on ? 1 : 0)} />
-        ))}
+        <div className={bar.stack} style={{ gap: 12 }}>
+          {FILTER_RANGES.map((r) => {
+            const v = specValue(specs, r.type)
+            return <Slider key={r.type} label={t.toolbar[r.type]} value={v} min={r.min} max={r.max} step={r.step} display={`${Math.round(v * r.display)}${r.suffix}`} onChange={(n) => editor.style.setFilter(r.type, n)} />
+          })}
+          {TOGGLE_FILTERS.map((f) => (
+            <Switch key={f} label={t.toolbar[f]} checked={specValue(specs, f) > 0} onChange={(on) => editor.style.setFilter(f, on ? 1 : 0)} />
+          ))}
+        </div>
       </Field>
-      <button type="button" className={`${ed.btn} ${ed.ghost}`} disabled={specs.length === 0} onClick={() => editor.style.setFilters([])}>
+      <button type="button" className={`${bar.button} ${bar.buttonWide}`} disabled={specs.length === 0} onClick={() => editor.style.setFilters([])}>
         {t.toolbar.reset}
       </button>
     </PopoverStack>
   )
 }
 
-/** Images: crop, remove background, adjustments, frame and opacity; replace, border and shadow sit under `⋯`. A picture that fills a placeholder offers "Reset to placeholder" in place of crop and frame. */
+/**
+ * Imagen: «Editar foto», «Recortar» y «Voltear», como Canva; el «Marco» de Doory al lado. Reemplazar la imagen está en
+ * «⋯ Más» y en el clic derecho. Una foto que llena un marcador ofrece «Volver a marcador» en lugar de recortar.
+ */
 export function ImageSection() {
   const editor = useEditor()
   const sel = useSelection()
   const fillsPlaceholder = sel.objects[0]?.slot !== undefined
+  const removeBg = isBackgroundRemovalAvailable()
   return (
     <>
+      <PopoverTool label={t.toolbar.editPhoto} text={t.toolbar.editPhoto} width={320} testId="ed-adjust">
+        {(close) => (
+          <AdjustPanel
+            onRemoveBackground={
+              removeBg
+                ? () => {
+                    close()
+                    editor.openDialog('background-removal')
+                  }
+                : undefined
+            }
+          />
+        )}
+      </PopoverTool>
       {fillsPlaceholder ? (
-        <ToolButton label={t.ctx.resetPlaceholder} testId="ed-reset-placeholder" onClick={() => editor.style.resetToPlaceholder()}>
-          <span className={ed.textButton}>{t.ctx.resetPlaceholder}</span>
-        </ToolButton>
+        <ToolButton label={t.ctx.resetPlaceholder} text={t.ctx.resetPlaceholder} testId="ed-reset-placeholder" onClick={() => editor.style.resetToPlaceholder()} />
       ) : (
-        <ToolButton label={t.toolbar.crop} shortcut="Enter" testId="ed-crop" onClick={() => void editor.crop.start()}>
+        <ToolButton label={t.toolbar.crop} text={t.toolbar.crop} shortcut="Enter" testId="ed-crop" onClick={() => void editor.crop.start()}>
           <Crop size={18} aria-hidden="true" />
         </ToolButton>
       )}
-      <ToolButton label={t.toolbar.replaceImage} testId="ed-replace-image" onClick={() => void editor.insert.pickAndReplaceImage()}>
-        <Replace size={18} aria-hidden="true" />
-      </ToolButton>
-      {isBackgroundRemovalAvailable() ? (
-        <ToolButton label={t.toolbar.removeBackground} featured testId="ed-remove-bg" onClick={() => editor.openDialog('background-removal')}>
-          {I.removeBg}
-          <span className={ed.toolText}>{t.ctx.removeBackground}</span>
-        </ToolButton>
-      ) : null}
-      <PopoverTool label={t.toolbar.filters} trigger={<SlidersIcon />} width={312} testId="ed-adjust">
-        <AdjustPanel />
-      </PopoverTool>
+      <FlipTool />
       {fillsPlaceholder ? null : <FrameTool />}
-      <OpacityTool />
     </>
-  )
-}
-
-function SlidersIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M2 14h4M10 8h4M18 16h4" />
-    </svg>
   )
 }

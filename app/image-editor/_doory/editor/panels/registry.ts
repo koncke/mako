@@ -1,6 +1,8 @@
 /**
- * Tool registry: every entry is a button in the top bar (icon over label) that opens its component either as
- * a drawer anchored under the button or as a docked sidebar. Features add tools without touching core files:
+ * Tool registry. Con el armazón de Canva (tanda 2) los paneles con `rail: true` son las pestañas del riel izquierdo
+ * (Diseño, Elementos, Texto, Marca, Subidos, Herramientas, Proyectos, Apps) y se abren como la tarjeta flotante de la
+ * izquierda (`SidebarHost`); un `drawer` sólo se abre como popover si alguien registró su botón ancla
+ * (`useChrome().setAnchor`), si no también va a la izquierda. Features add tools without touching core files:
  *
  * ```tsx
  * registerPanel({ id: 'charts', label: 'Charts', icon: <ChartBar size={18} />, order: 45, placement: 'drawer', component: ChartsDrawer })
@@ -39,6 +41,11 @@ export interface PanelDefinition {
   shortcut?: string
   /** `tools`: icon-over-label entry in the middle of the top bar (default). `end`: icon button at the right end. */
   slot?: 'tools' | 'end'
+  /**
+   * Pestaña del riel izquierdo de Canva (chrome/RielCanva.tsx), en el orden de `order`. Los paneles sin `rail`
+   * (Animar, Audio, Capas, Comentarios) siguen registrados: los abren la barra del objeto, «Apps» y los comandos.
+   */
+  rail?: boolean
   /** Starts downloading the panel's code (lazy panels); the top-bar button calls it when it is hovered or focused. */
   preload?(): void
   /** Also offered while the design is open view-only or comment-only (a shared link), e.g. Comments. */

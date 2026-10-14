@@ -1,26 +1,44 @@
+/* El crédito de Doory: franja fina al pie del editor, sobre el gris del cromo de Canva. Discreta pero legible
+   (12 px, gris oscuro): la licencia pide que se vea en cada apertura. */
 .credito {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: 8px;
   flex: none;
-  min-height: 28px;
-  padding: 4px 12px;
-  background: var(--cv-color-bg-subtle);
-  border-bottom: 1px solid var(--cv-color-border);
+  min-height: 24px;
+  padding: 2px 12px;
+  background: var(--cv-chrome);
+  border-top: 1px solid var(--cv-color-border);
   color: var(--cv-color-text-muted);
-  font-size: 12px;
-  line-height: 1.3;
+  font: 400 var(--cv-text-sm) / 18px var(--cv-font-sans);
+  text-align: center;
 }
 
 .credito a {
   color: inherit;
   text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.credito a:hover {
+  color: var(--cv-color-text);
 }
 
 .cerrar {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: var(--cv-radius-full);
+  background: transparent;
+  color: var(--cv-color-text-muted);
   font-size: 16px;
   line-height: 1;
-  padding: 0 4px;
-  color: var(--cv-color-text-muted);
+  cursor: pointer;
+}
+
+.cerrar:hover {
+  background: var(--cv-color-bg-muted);
+  color: var(--cv-color-text);
 }

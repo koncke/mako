@@ -1,24 +1,7 @@
+/* Páginas a las que llega «Redimensionar»: el segmentado de Canva a todo el ancho */
 .scope {
   display: flex;
-  gap: 6px;
-}
-.scopeOption {
-  display: flex;
-  flex: 1;
-  gap: 8px;
-  align-items: center;
-  padding: 8px 10px;
-  border: 1px solid var(--cv-color-border);
-  border-radius: var(--cv-radius-md);
-  font: 600 var(--cv-text-sm) / 1.2 var(--cv-font-sans);
-  cursor: pointer;
-}
-.scopeOption input {
-  accent-color: var(--cv-color-brand);
-}
-.scopeOn {
-  border-color: var(--cv-color-brand);
-  background: var(--cv-color-brand-soft);
+  width: 100%;
 }
 
 .preview {
@@ -27,11 +10,10 @@
   flex-direction: column;
   gap: var(--cv-space-2);
 }
+/* Título de sección de Canva (titleXSmall: 14/700) */
 .previewTitle {
-  color: var(--cv-color-text-muted);
-  font: 700 var(--cv-text-xs) / 1 var(--cv-font-sans);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  color: var(--cv-color-text);
+  font: 700 var(--cv-text-base) / 20px var(--cv-font-sans);
 }
 .previewRow {
   display: flex;
@@ -45,19 +27,20 @@
   gap: 6px;
   min-width: 0;
   color: var(--cv-color-text-muted);
-  font: 500 var(--cv-text-xs) / 1 var(--cv-font-sans);
+  font: 400 var(--cv-text-sm) / 1 var(--cv-font-sans);
 }
+/* Canva: la página blanca sobre el gris del área del lienzo */
 .previewFrame {
   display: grid;
   place-items: center;
   max-width: 100%;
-  border-radius: var(--cv-radius-md);
-  background: var(--cv-color-bg-muted);
+  border-radius: var(--cv-radius-sm);
+  background: var(--cv-color-canvas-workspace);
 }
 .previewPage {
   overflow: hidden;
   background: var(--cv-color-surface);
-  box-shadow: var(--cv-shadow-sm), 0 0 0 1px var(--cv-color-border);
+  box-shadow: var(--cv-shadow-artboard);
 }
 .previewPage img {
   display: block;

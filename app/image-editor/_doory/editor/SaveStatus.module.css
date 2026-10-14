@@ -1,41 +1,61 @@
+/*
+ * El estado de guardado vive sobre el degradado de la barra superior: blanco sobre violeta. Los avisos
+ * (conflicto, error, sin conexión) son chips claros para que se lean sobre el color.
+ */
+.cloud {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--cv-radius-sm);
+  color: var(--cv-header-text);
+}
+
 .pill {
   display: inline-flex;
-  /* In a tight top bar the pill gives way (its text is cut with an ellipsis) instead of running over the tools. */
+  /* En una barra apretada el aviso cede (el texto se corta con «…») en vez de pisar lo demás. */
   flex: 0 1 auto;
   min-width: 30px;
   align-items: center;
   gap: 6px;
-  height: 30px;
+  height: 32px;
   padding: 0 var(--cv-space-3);
   border-radius: var(--cv-radius-full);
-  font: 600 var(--cv-text-xs) / 1 var(--cv-font-sans);
+  font: 600 var(--cv-text-sm) / 1 var(--cv-font-sans);
   white-space: nowrap;
   overflow: hidden;
 }
+
 .text {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
+/* Guardando, solo lectura, conectando: texto blanco sin fondo, como la nube */
 .neutral,
 .ok {
-  background: var(--cv-color-bg-muted);
-  color: var(--cv-color-text-muted);
+  background: transparent;
+  color: var(--cv-header-text);
 }
+
 .warn {
   background: var(--cv-color-warning-soft);
-  color: var(--cv-color-warning);
+  color: #3e2a14; /* Canva: texto del aviso de advertencia suave */
 }
+
 .error {
   background: var(--cv-color-danger-soft);
-  color: var(--cv-color-danger);
+  color: #501b21; /* Canva: texto del aviso de error suave */
 }
 
 .live {
-  background: var(--cv-color-brand-soft);
+  background: var(--cv-header-button-bg);
   color: var(--cv-color-brand);
 }
+
 .liveDot {
   width: 7px;
   height: 7px;
@@ -49,7 +69,7 @@
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--cv-color-text-subtle);
+  background: currentColor;
 }
 
 .spin {
@@ -59,12 +79,12 @@
 .retry {
   flex: none;
   margin-left: 2px;
-  padding: 3px 8px;
+  padding: 4px 10px;
   border: 0;
   border-radius: var(--cv-radius-full);
   background: var(--cv-color-danger);
-  color: var(--cv-color-bg);
-  font: 700 11px / 1 var(--cv-font-sans);
+  color: var(--cv-color-on-brand);
+  font: 600 var(--cv-text-sm) / 1 var(--cv-font-sans);
   cursor: pointer;
 }
 
@@ -75,15 +95,13 @@
 }
 
 @media (max-width: 1100px) {
-  .text {
+  .neutral .text,
+  .ok .text {
     display: none;
   }
-  .pill {
+  .neutral,
+  .ok {
     padding: 0 9px;
-  }
-  .error .text,
-  .warn .text {
-    display: inline;
   }
 }
 

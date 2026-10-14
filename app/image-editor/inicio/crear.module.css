@@ -1,0 +1,337 @@
+/*
+ * El diálogo «Crear un diseño» (copia del de Canva). Tokens --cv-* de Canva; los valores que no son token
+ * llevan su origen al lado (relevamiento-canva-armazon.md §1.2 y §8).
+ */
+
+.velo {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--cv-space-6);
+  background: var(--cv-color-overlay);
+}
+
+.dialogo {
+  display: grid;
+  grid-template-columns: 248px minmax(0, 1fr);
+  width: min(960px, 100%);
+  height: min(620px, 100%);
+  overflow: hidden;
+  border-radius: var(--cv-radius-xl);
+  background: var(--cv-color-surface);
+  box-shadow: var(--cv-shadow-lg);
+}
+
+/* ── Columna izquierda: título y categorías ─────────────────────────────── */
+
+.lado {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: var(--cv-space-6) var(--cv-space-3) var(--cv-space-4);
+  border-right: 1px solid var(--cv-color-border);
+}
+
+.titulo {
+  padding: 0 var(--cv-space-3) var(--cv-space-5);
+  font-size: var(--cv-text-2xl); /* Canva: titleLarge 24 / 1.25 / 600 */
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.categorias {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.pie {
+  margin-top: auto;
+  padding-top: var(--cv-space-3);
+  border-top: 1px solid var(--cv-color-border);
+}
+
+.categoria {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--cv-space-3);
+  width: 100%;
+  min-height: 44px;
+  padding: 6px var(--cv-space-3);
+  border-radius: var(--cv-radius-md);
+  color: var(--cv-color-text);
+  font-size: var(--cv-text-base);
+  text-align: left;
+  transition: background var(--cv-duration-fast) var(--cv-ease-out);
+}
+
+.categoria:hover {
+  background: var(--cv-color-bg-muted);
+}
+
+.categoria[aria-current='true'] {
+  background: #f3ecff; /* Canva: ítem elegido de «Crear un diseño» */
+  color: #5100a8;
+  font-weight: 600;
+}
+
+.texto {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.icono {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--cv-radius-sm);
+  color: #ffffff;
+}
+
+.iconoGris {
+  background: #f2f3f5; /* Canva: el gris de «Elegir el tamaño» */
+  color: var(--cv-color-text);
+}
+
+/* ── Columna derecha: buscador y tarjetas ───────────────────────────────── */
+
+.contenido {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.barra {
+  display: flex;
+  align-items: center;
+  gap: var(--cv-space-3);
+  padding: var(--cv-space-5) var(--cv-space-6) var(--cv-space-3);
+}
+
+.buscar {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--cv-space-2);
+  min-width: 0;
+  height: 40px;
+  padding: 0 var(--cv-space-3);
+  border: 1px solid #e1e4e7; /* Canva: borde del buscador del diálogo */
+  border-radius: var(--cv-radius-md);
+  background: #fbfbfc; /* Canva: fondo del buscador del diálogo */
+  color: var(--cv-color-text-muted);
+  transition: border-color var(--cv-duration-fast) var(--cv-ease-out);
+}
+
+.buscar:focus-within {
+  border-color: var(--cv-color-brand);
+  background: var(--cv-color-surface);
+}
+
+.buscar input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--cv-color-text);
+}
+
+.buscar input:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+.buscar input::placeholder {
+  color: var(--cv-color-text-subtle);
+}
+
+.cuerpo {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--cv-space-2) var(--cv-space-6) var(--cv-space-6);
+}
+
+.subtitulo {
+  margin-bottom: var(--cv-space-4);
+  font-size: var(--cv-text-lg); /* Canva: titleSmall 16 / 24 / 600 */
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.grilla {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--cv-space-5) var(--cv-space-4);
+}
+
+.vacio {
+  color: var(--cv-color-text-muted);
+}
+
+/* ── Tamaño personalizado ───────────────────────────────────────────────── */
+
+.personalizado {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cv-space-4);
+  max-width: 360px;
+}
+
+.campo {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.rotulo {
+  color: var(--cv-color-text);
+  font-size: var(--cv-text-sm);
+  font-weight: 600;
+}
+
+.unidades {
+  display: inline-flex;
+  align-self: flex-start;
+  gap: 2px;
+  padding: 3px;
+  border-radius: var(--cv-radius-md);
+  background: var(--cv-color-bg-muted);
+}
+
+.unidad {
+  min-width: 52px;
+  height: 32px;
+  padding: 0 var(--cv-space-3);
+  border-radius: var(--cv-radius-sm);
+  color: var(--cv-color-text-muted);
+  font-weight: 600;
+}
+
+.unidad[aria-checked='true'] {
+  background: var(--cv-color-surface);
+  box-shadow: var(--cv-shadow-sm);
+  color: var(--cv-color-text);
+}
+
+.medidas {
+  display: flex;
+  gap: var(--cv-space-3);
+}
+
+.entrada {
+  width: 100%;
+  height: 40px;
+  padding: 0 var(--cv-space-3);
+  border: 1px solid var(--cv-color-border-strong); /* Canva: campo, borde #35415A33 */
+  border-radius: var(--cv-radius-sm);
+  background: var(--cv-color-surface);
+}
+
+.entrada:hover {
+  border-color: rgb(28 33 48 / 0.5); /* Canva: campo, borde al pasar el cursor */
+}
+
+.campo .entrada:focus-visible {
+  border-color: var(--cv-color-brand);
+  outline: none;
+  box-shadow: 0 0 0 1px var(--cv-color-brand);
+}
+
+.entrada[aria-invalid='true'] {
+  border-color: var(--cv-color-danger);
+}
+
+.pista {
+  margin-top: calc(-1 * var(--cv-space-2));
+  color: var(--cv-color-text-muted);
+  font-size: var(--cv-text-sm);
+}
+
+.pista[data-error='true'] {
+  color: var(--cv-color-danger);
+}
+
+.primario {
+  height: 40px;
+  padding: 0 var(--cv-space-4);
+  border-radius: var(--cv-radius-sm);
+  background: var(--cv-color-cta);
+  color: var(--cv-color-on-cta);
+  font-weight: 600;
+  transition: background var(--cv-duration-fast) var(--cv-ease-out);
+}
+
+.primario:hover:not(:disabled) {
+  background: var(--cv-color-cta-hover);
+}
+
+.primario:disabled {
+  background: var(--cv-color-bg-muted); /* Canva: deshabilitado, fondo #404F6D0F y texto #1C213080 */
+  color: rgb(28 33 48 / 0.5);
+}
+
+/* ── Teléfono: categorías arriba, en una fila que se desliza ────────────── */
+
+@media (max-width: 640px) {
+  .velo {
+    padding: var(--cv-space-2);
+  }
+
+  .dialogo {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    height: 100%;
+  }
+
+  .lado {
+    padding: var(--cv-space-4) var(--cv-space-3) var(--cv-space-2);
+    border-right: 0;
+    border-bottom: 1px solid var(--cv-color-border);
+  }
+
+  .titulo {
+    padding-bottom: var(--cv-space-3);
+    font-size: var(--cv-text-xl);
+  }
+
+  .categorias {
+    flex-direction: row;
+    overflow-x: auto;
+  }
+
+  .pie {
+    margin-top: 2px;
+    padding-top: 0;
+    border-top: 0;
+  }
+
+  .categoria {
+    width: auto;
+    flex: none;
+  }
+
+  .barra,
+  .cuerpo {
+    padding-left: var(--cv-space-4);
+    padding-right: var(--cv-space-4);
+  }
+
+  .grilla {
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  }
+}

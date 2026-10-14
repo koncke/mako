@@ -1,3 +1,4 @@
+/* Desplegable con el campo de Canva: borde rgba(53,65,90,.2), hover más oscuro, foco violeta #8B3DFF */
 .wrap {
   position: relative;
   display: inline-flex;
@@ -5,34 +6,36 @@
 }
 .select {
   width: 100%;
-  height: 36px;
-  padding: 0 30px 0 12px;
+  height: 40px;
+  padding: 0 36px 0 12px;
   border: 1px solid var(--cv-color-border-strong);
-  border-radius: var(--cv-radius-md);
+  border-radius: var(--cv-radius-sm);
   background: var(--cv-color-surface);
   color: var(--cv-color-text);
-  font: 500 var(--cv-text-sm) / 1 var(--cv-font-sans);
+  font: 400 var(--cv-text-base) / 1 var(--cv-font-sans);
   text-overflow: ellipsis;
   appearance: none;
   cursor: pointer;
+  transition: border-color var(--cv-duration-fast) var(--cv-ease-out), box-shadow var(--cv-duration-fast) var(--cv-ease-out);
 }
 .select:hover:not(:disabled) {
-  border-color: var(--cv-color-brand);
+  border-color: rgb(28 33 48 / 0.5); /* Canva: borde del campo al pasar el mouse */
 }
 .select:focus-visible {
   outline: none;
   border-color: var(--cv-color-brand);
-  box-shadow: var(--cv-focus-ring);
+  box-shadow: 0 0 0 1px var(--cv-color-brand);
 }
 .select:disabled {
-  opacity: 0.5;
+  color: rgb(28 33 48 / 0.5);
+  background: rgb(64 79 109 / 0.06);
   cursor: not-allowed;
 }
 .chevron {
   position: absolute;
   top: 50%;
-  right: 11px;
-  color: var(--cv-color-text-muted);
+  right: 12px;
+  color: var(--cv-color-text);
   transform: translateY(-50%);
   pointer-events: none;
 }

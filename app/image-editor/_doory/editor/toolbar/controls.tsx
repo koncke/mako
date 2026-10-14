@@ -1,20 +1,26 @@
-import { type ReactNode, useCallback, useRef, useState } from 'react'
-import { ChevronDown } from 'lucide-react'
+import { type ReactNode, useState } from 'react'
+import { ChevronDown, CopyPlus, Minus, Plus, RotateCcw, RotateCw, Trash2 } from 'lucide-react'
+import { runCommand } from '../commands'
 import { I } from '../chrome/icons'
-import { useEditor, useSelection } from '../context'
+import { useEditor, useEditorState, useSelection } from '../context'
+import { formatShortcut } from '../shortcuts'
 import { t } from '../strings'
-import { Popover } from '../ui/Popover'
-import { Tooltip } from '../ui/Tooltip'
+import { Slider } from '../ui/Slider'
 import { type Limit, clampTo, rangeHint } from './limits'
 import { PopoverTool, ToolButton } from './parts'
-import ed from '../chrome/ed.module.css'
+import styles from './parts.module.css'
 
 const outside = (raw: string, limit: Limit): boolean => {
   const n = Number(raw)
   return raw.trim() !== '' && Number.isFinite(n) && (n < limit.min || n > limit.max)
 }
 
-/** `−  36  +` with an inverted number box. The range is the field's tooltip; a value outside it is clamped when committed. */
+/** El atajo como lo escribe Canva en español: «Supr» para Delete. */
+export function shortcutText(shortcut: string): string {
+  return formatShortcut(shortcut).replace(/\bDel\b/, 'Supr')
+}
+
+/** `−  24  +` de Canva: el número en una caja con borde; un valor fuera del rango se recorta al confirmarlo. */
 export function Stepper({ label, value, limit, onChange, testId }: { label: string; value: number; limit: Limit; onChange: (value: number, key?: string) => void; testId: string }) {
   const [draft, setDraft] = useState<string | null>(null)
   const { min, max, step } = limit
@@ -26,13 +32,13 @@ export function Stepper({ label, value, limit, onChange, testId }: { label: stri
   }
   const hint = rangeHint(limit)
   return (
-    <div className={ed.stepper} role="group" aria-label={label} title={hint} data-testid={testId}>
-      <button type="button" className={ed.stepBtn} aria-label={t.ctx.decreaseSize} title={t.ctx.decreaseSize} disabled={value <= min} data-testid={`${testId}-minus`} onClick={() => onChange(clamp(value - step), 'step')}>
-        −
+    <div className={styles.stepper} role="group" aria-label={label} title={hint} data-testid={testId}>
+      <button type="button" className={styles.stepBtn} aria-label={t.ctx.decreaseSize} title={t.ctx.decreaseSize} disabled={value <= min} data-testid={`${testId}-minus`} onClick={() => onChange(clamp(value - step), 'step')}>
+        <Minus size={16} aria-hidden="true" />
       </button>
       <input
         type="number"
-        className={ed.stepInput}
+        className={styles.stepInput}
         aria-label={label}
         aria-invalid={draft !== null && outside(draft, limit) ? true : undefined}
         title={hint}
@@ -62,17 +68,16 @@ export function Stepper({ label, value, limit, onChange, testId }: { label: stri
           }
         }}
       />
-      <button type="button" className={ed.stepBtn} aria-label={t.ctx.increaseSize} title={t.ctx.increaseSize} disabled={value >= max} data-testid={`${testId}-plus`} onClick={() => onChange(clamp(value + step), 'step')}>
-        +
+      <button type="button" className={styles.stepBtn} aria-label={t.ctx.increaseSize} title={t.ctx.increaseSize} disabled={value >= max} data-testid={`${testId}-plus`} onClick={() => onChange(clamp(value + step), 'step')}>
+        <Plus size={16} aria-hidden="true" />
       </button>
     </div>
   )
 }
 
 /**
- * A labelled number field of a popover (line height, stroke width, …). A value inside the range applies as it is
- * typed; one outside waits, is marked invalid and is clamped when the field is committed (Enter or leaving it).
- * The range is the tooltip and the accessible description.
+ * Un campo numérico con rótulo dentro de un popover (lados de un polígono, puntas de una estrella). Un valor dentro
+ * del rango se aplica al escribirlo; uno fuera espera, queda marcado y se recorta al confirmarlo (Enter o al salir).
  */
 export function LimitedNumber({ label, value, limit, onChange, testId }: { label: string; value: number; limit: Limit; onChange: (value: number) => void; testId: string }) {
   const [draft, setDraft] = useState<string | null>(null)
@@ -84,11 +89,11 @@ export function LimitedNumber({ label, value, limit, onChange, testId }: { label
     if (raw.trim() !== '' && Number.isFinite(n)) onChange(clampTo(limit, n))
   }
   return (
-    <>
-      <div className={ed.propLabel}>{label}</div>
+    <div>
+      <div className={styles.label}>{label}</div>
       <input
         type="number"
-        className={ed.propInput}
+        className={styles.input}
         aria-label={label}
         aria-invalid={draft !== null && outside(draft, limit) ? true : undefined}
         title={hint}
@@ -111,167 +116,187 @@ export function LimitedNumber({ label, value, limit, onChange, testId }: { label
           else if (e.key === 'Escape') setDraft(null)
         }}
       />
+    </div>
+  )
+}
+
+/** Deslizador con la caja numérica a la derecha del rótulo (Canva: Transparencia, Grosor del borde, Interlineado…). */
+export function RangeField({ label, value, limit, onChange }: { label: string; value: number; limit: Limit; onChange: (value: number) => void }) {
+  return <Slider label={label} value={value} min={limit.min} max={limit.max} step={limit.step} decimals={limit.decimals} withInput onChange={(n) => onChange(clampTo(limit, n))} />
+}
+
+/** Los giros de un cuarto de vuelta como filas de menú (en «Voltear» y en «⋯ Más › Girar»). */
+export function RotateItems({ onDone }: { onDone?: () => void }) {
+  const editor = useEditor()
+  const sel = useSelection()
+  const angle = Math.round((((sel.bounds?.angle ?? 0) % 360) + 360) % 360)
+  const run = (fn: () => void): void => {
+    fn()
+    onDone?.()
+  }
+  return (
+    <>
+      <button type="button" role="menuitem" className={styles.menuItem} disabled={sel.locked} onClick={() => run(() => editor.arrange.rotateBy(90))}>
+        <span className={styles.menuIcon}>
+          <RotateCw size={16} aria-hidden="true" />
+        </span>
+        <span className={styles.menuLabel}>{t.ctx.rotateRight}</span>
+      </button>
+      <button type="button" role="menuitem" className={styles.menuItem} disabled={sel.locked} onClick={() => run(() => editor.arrange.rotateBy(-90))}>
+        <span className={styles.menuIcon}>
+          <RotateCcw size={16} aria-hidden="true" />
+        </span>
+        <span className={styles.menuLabel}>{t.ctx.rotateLeft}</span>
+      </button>
+      <button type="button" role="menuitem" className={styles.menuItem} disabled={sel.locked} onClick={() => run(() => editor.arrange.rotateBy(180))}>
+        <span className={styles.menuIcon}>{I.rotate}</span>
+        <span className={styles.menuLabel}>{t.ctx.rotate180}</span>
+      </button>
+      <button type="button" role="menuitem" className={styles.menuItem} disabled={sel.locked || angle === 0} onClick={() => run(() => editor.arrange.setAngle(0))}>
+        <span className={styles.menuIcon} />
+        <span className={styles.menuLabel}>{t.ctx.rotateReset}</span>
+        <span className={styles.menuKbd}>{angle}°</span>
+      </button>
     </>
   )
 }
 
-/**
- * Quarter-turn rotate control: a small menu of presets. For a locked selection it stays in its place, disabled and
- * named "Rotation locked": hiding it would slide the lock button, which sits next to it, out
- * from under the pointer the moment it is pressed.
- */
-export function RotateTool() {
+/** «Voltear» de Canva: horizontal y vertical; abajo, los giros de un cuarto de vuelta que Doory ya tenía. */
+export function FlipTool() {
   const editor = useEditor()
   const sel = useSelection()
-  const ref = useRef<HTMLButtonElement>(null)
-  const [open, setOpen] = useState(false)
-  const close = useCallback(() => setOpen(false), [])
-  const angle = Math.round((((sel.bounds?.angle ?? 0) % 360) + 360) % 360)
-  // Locking while the menu is open (Mod+L) closes it for good rather than reopening it after the unlock.
-  if (sel.locked && open) setOpen(false)
-  if (sel.locked) {
-    return (
-      <ToolButton label={t.ctx.rotationLocked} disabled onClick={() => undefined} testId="ed-rotate">
-        {I.rotate}
-      </ToolButton>
-    )
-  }
-  const run = (fn: () => void): void => {
-    fn()
-    close()
-  }
   return (
-    <>
-      <Tooltip label={t.ctx.rotateTitle(angle)} disabled={open}>
-        <button ref={ref} type="button" className={`${ed.toolBtn} ${open ? ed.active : ''}`} aria-label={t.toolbar.rotate} aria-haspopup="menu" aria-expanded={open} data-testid="ed-rotate" onClick={() => setOpen((o) => !o)}>
-          {I.rotate}
-        </button>
-      </Tooltip>
-      <Popover open={open} onClose={close} anchorRef={ref} label={t.toolbar.rotate} placement="bottom" variant="plain" cover>
-        <div className={ed.menuList} role="menu" data-testid="ed-rotate-menu">
-          <button type="button" role="menuitem" className={ed.menuItem} onClick={() => run(() => editor.arrange.rotateBy(90))}>
-            {t.ctx.rotateRight} <span>↻</span>
+    <PopoverTool label={t.toolbar.flip} text={t.toolbar.flip} flush testId="ed-flip">
+      {(close) => (
+        <div className={styles.menuList} role="menu" data-testid="ed-flip-menu">
+          <button
+            type="button"
+            role="menuitem"
+            className={styles.menuItem}
+            data-testid="ed-flip-h"
+            disabled={sel.locked}
+            onClick={() => {
+              editor.arrange.flip('horizontal')
+              close()
+            }}
+          >
+            <span className={styles.menuIcon}>{I.flipH}</span>
+            <span className={styles.menuLabel}>{t.toolbar.flipH}</span>
           </button>
-          <button type="button" role="menuitem" className={ed.menuItem} onClick={() => run(() => editor.arrange.rotateBy(-90))}>
-            {t.ctx.rotateLeft} <span>↺</span>
+          <button
+            type="button"
+            role="menuitem"
+            className={styles.menuItem}
+            data-testid="ed-flip-v"
+            disabled={sel.locked}
+            onClick={() => {
+              editor.arrange.flip('vertical')
+              close()
+            }}
+          >
+            <span className={styles.menuIcon}>{I.flipV}</span>
+            <span className={styles.menuLabel}>{t.toolbar.flipV}</span>
           </button>
-          <button type="button" role="menuitem" className={ed.menuItem} onClick={() => run(() => editor.arrange.rotateBy(180))}>
-            {t.ctx.rotate180} <span>⟳</span>
-          </button>
-          <button type="button" role="menuitem" className={ed.menuItem} disabled={angle === 0} onClick={() => run(() => editor.arrange.setAngle(0))}>
-            {t.ctx.rotateReset} <span>{angle}°</span>
-          </button>
+          <div className={styles.menuSep} role="separator" />
+          <RotateItems onDone={close} />
         </div>
-      </Popover>
-    </>
+      )}
+    </PopoverTool>
   )
+}
+
+/** «Animar»: abre (o cierra) el panel de animación a la izquierda, como Canva. */
+export function AnimateTool() {
+  const editor = useEditor()
+  const open = useEditorState((s) => s.ui.panelId === 'animate')
+  return <ToolButton label={t.toolbar.animate} text={t.toolbar.animate} pressed={open} testId="ed-animate" onClick={() => runCommand(editor, 'view.animate')} />
+}
+
+/** «Posición»: abre (o cierra) el panel de Capas (ordenar, elegir y bloquear lo que hay en la página). */
+export function PositionTool() {
+  const editor = useEditor()
+  const open = useEditorState((s) => s.ui.panelId === 'layers')
+  return <ToolButton label={t.toolbar.position} text={t.toolbar.position} pressed={open} testId="ed-position" onClick={() => editor.patchUi({ panelId: open ? null : 'layers' })} />
 }
 
 export function LockTool() {
   const editor = useEditor()
   const sel = useSelection()
   return (
-    <ToolButton label={sel.locked ? t.ctx.unlockPosition : t.ctx.lockPosition} shortcut="Mod+L" pressed={sel.locked} onClick={() => editor.arrange.toggleLock()} testId="ed-lock">
+    <ToolButton label={sel.locked ? t.ctx.unlockPosition : t.ctx.lockPosition} shortcut="Alt+Shift+L" pressed={sel.locked} onClick={() => editor.arrange.toggleLock()} testId="ed-lock">
       {sel.locked ? I.lock : I.unlock}
     </ToolButton>
   )
 }
 
-export function DuplicateTool() {
-  const editor = useEditor()
-  return (
-    <ToolButton label={t.toolbar.duplicate} shortcut="Mod+D" onClick={() => void editor.arrange.duplicate()} testId="ed-duplicate">
-      {I.duplicate}
-    </ToolButton>
-  )
-}
-
-export function DeleteTool() {
-  const editor = useEditor()
-  return (
-    <ToolButton label={t.toolbar.delete} shortcut="Delete" danger onClick={() => editor.arrange.delete()} testId="ed-delete">
-      {I.trash}
-    </ToolButton>
-  )
-}
-
-/** `Opacity` popover with the percentage on the label row (a slider). */
+/** «Transparencia»: el ícono de damero y un deslizador de 0 a 100 con su caja, como Canva. */
 export function OpacityTool({ testId = 'ed-opacity' }: { testId?: string }) {
   const editor = useEditor()
   const sel = useSelection()
   const opacity = Number(sel.objects[0]?.opacity ?? 1)
   return (
-    <PopoverTool label={t.toolbar.opacity} trigger={I.opacity} width={200} testId={testId}>
-      <div className={`${ed.propLabel} ${ed.propLabelRow}`}>
-        <span>{t.toolbar.opacity}</span>
-        <span>{Math.round(opacity * 100)}%</span>
-      </div>
-      <input type="range" className={ed.slider} min={0} max={1} step={0.05} value={opacity} aria-label={t.toolbar.opacity} data-testid={`${testId}-range`} onChange={(e) => editor.style.setOpacity(Number(e.target.value))} />
+    <PopoverTool label={t.toolbar.opacity} trigger={I.opacity} width={280} testId={testId}>
+      <RangeField label={t.toolbar.opacity} value={Math.round(opacity * 100)} limit={{ min: 0, max: 100, step: 1, decimals: 0 }} onChange={(v) => editor.style.setOpacity(v / 100)} />
     </PopoverTool>
   )
 }
 
-export function FlipTools() {
-  const editor = useEditor()
-  return (
-    <>
-      <ToolButton label={t.toolbar.flipH} onClick={() => editor.arrange.flip('horizontal')} testId="ed-flip-h">
-        {I.flipH}
-      </ToolButton>
-      <ToolButton label={t.toolbar.flipV} onClick={() => editor.arrange.flip('vertical')} testId="ed-flip-v">
-        {I.flipV}
-      </ToolButton>
-    </>
-  )
-}
-
-export function ZOrderTools() {
-  const editor = useEditor()
-  return (
-    <>
-      <ToolButton label={t.toolbar.forward} shortcut="Mod+]" onClick={() => editor.arrange.zOrder('forward')} testId="ed-forward">
-        {I.layerUp}
-      </ToolButton>
-      <ToolButton label={t.toolbar.backward} shortcut="Mod+[" onClick={() => editor.arrange.zOrder('backward')} testId="ed-backward">
-        {I.layerDown}
-      </ToolButton>
-    </>
-  )
-}
-
-export function CenterTools() {
-  const editor = useEditor()
-  return (
-    <>
-      <ToolButton label={t.ctx.centerH} onClick={() => editor.arrange.align('center', 'page')} testId="ed-center-h">
-        {I.canvasCenterH}
-      </ToolButton>
-      <ToolButton label={t.ctx.centerV} onClick={() => editor.arrange.align('middle', 'page')} testId="ed-center-v">
-        {I.canvasCenterV}
-      </ToolButton>
-    </>
-  )
-}
-
-/** A named section of an "overflow" popover that can be folded away. */
+/** Una sección con nombre del popover «⋯ Más», plegable. */
 export function Accordion({ title, children, defaultOpen = false, testId }: { title: string; children: ReactNode; defaultOpen?: boolean; testId?: string }) {
   const [open, setOpen] = useState(defaultOpen)
   return (
-    <section className={ed.accordion} data-testid={testId}>
-      <button type="button" className={ed.accordionHead} aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+    <section className={styles.accordion} data-testid={testId}>
+      <button type="button" className={styles.accordionHead} aria-expanded={open} onClick={() => setOpen((o) => !o)}>
         <span>{title}</span>
-        <ChevronDown size={14} aria-hidden="true" style={{ transform: open ? 'rotate(180deg)' : undefined }} />
+        <ChevronDown size={16} aria-hidden="true" style={{ transform: open ? 'rotate(180deg)' : undefined }} />
       </button>
-      {open ? <div className={ed.accordionBody}>{children}</div> : null}
+      {open ? <div className={styles.accordionBody}>{children}</div> : null}
     </section>
   )
 }
 
-/** The `⋯` button at the end of the row: the less common controls live in its popover. */
-export function OverflowTool({ children }: { children: ReactNode }) {
+/** Una fila de acción del «⋯ Más» (Duplicar, Eliminar…), con el atajo gris a la derecha. */
+export function OverflowAction({ icon, label, shortcut, disabled, onClick, testId }: { icon: ReactNode; label: string; shortcut?: string; disabled?: boolean; onClick: () => void; testId?: string }) {
   return (
-    <PopoverTool label={t.ctx.moreOptions} trigger={<span aria-hidden="true">⋯</span>} width={304} flush testId="ed-overflow">
-      <div className={ed.overflow}>{children}</div>
+    <button type="button" className={styles.menuItem} disabled={disabled} data-testid={testId} onClick={onClick}>
+      <span className={styles.menuIcon}>{icon}</span>
+      <span className={styles.menuLabel}>{label}</span>
+      {shortcut ? <kbd className={styles.menuKbd}>{shortcutText(shortcut)}</kbd> : null}
+    </button>
+  )
+}
+
+/** El `⋯` al final de la barra: Duplicar y Eliminar arriba, y las opciones menos usadas en secciones plegables. */
+export function OverflowTool({ children }: { children: ReactNode | ((close: () => void) => ReactNode) }) {
+  const editor = useEditor()
+  return (
+    <PopoverTool label={t.toolbar.more} trigger={<span aria-hidden="true">⋯</span>} width={304} flush testId="ed-overflow">
+      {(close) => (
+        <div className={styles.overflow}>
+          <OverflowAction
+            icon={<CopyPlus size={16} aria-hidden="true" />}
+            label={t.toolbar.duplicate}
+            shortcut="Mod+D"
+            testId="ed-duplicate"
+            onClick={() => {
+              close()
+              void editor.arrange.duplicate()
+            }}
+          />
+          <OverflowAction
+            icon={<Trash2 size={16} aria-hidden="true" />}
+            label={t.toolbar.delete}
+            shortcut="Delete"
+            testId="ed-delete"
+            onClick={() => {
+              close()
+              editor.arrange.delete()
+            }}
+          />
+          <div className={styles.menuSep} role="separator" />
+          {typeof children === 'function' ? children(close) : children}
+        </div>
+      )}
     </PopoverTool>
   )
 }

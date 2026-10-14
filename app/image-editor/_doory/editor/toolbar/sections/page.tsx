@@ -1,14 +1,17 @@
-import { Copy, Plus, Trash2 } from 'lucide-react'
+import { Scaling } from 'lucide-react'
 import { ColorTool } from '../../chrome/ColorTool'
+import { runCommand } from '../../commands'
 import { useDocument, useEditor, useEditorState } from '../../context'
 import { backgroundFill, fillToBackground } from '../../panels/backgroundFill'
+import { DurationChip } from '../../presenter/DurationChip'
 import { t } from '../../strings'
-import { ToolButton } from '../parts'
-import ed from '../../chrome/ed.module.css'
+import { AnimateTool } from '../controls'
+import { ColorSlot, ToolButton } from '../parts'
+import bar from '../parts.module.css'
 
 /**
- * What the contextual row offers while nothing is selected: the page's colour and the page actions. The row is
- * always there (like the selection tools replace it), so selecting an object never moves the page under the pointer.
+ * Sin nada elegido, la barra es la de la página de Canva: el color de fondo, «Redimensionar», «Animar» y «Duración».
+ * Agregar, duplicar y eliminar páginas están en el encabezado de cada página y en la tira de páginas.
  */
 export function PageSection() {
   const editor = useEditor()
@@ -18,20 +21,16 @@ export function PageSection() {
   const page = doc.pages[index]
   return (
     <>
-      <span className={ed.stripLabel} data-testid="ed-page-label">
-        {page.name?.trim() || t.workspace.pageOf(index + 1, doc.pages.length)}
+      <ColorSlot>
+        <ColorTool label={t.toolbar.pageColor} value={backgroundFill(page.background)} allowGradient testId="ed-page-bg" onChange={(f, key) => editor.pages.setBackground(page.id, fillToBackground(f), key ?? 'bg-fill')} />
+      </ColorSlot>
+      <ToolButton label={t.toolbar.pageResize} text={t.toolbar.pageResize} testId="ed-page-resize" onClick={() => runCommand(editor, 'file.resize')}>
+        <Scaling size={18} aria-hidden="true" />
+      </ToolButton>
+      <AnimateTool />
+      <span className={bar.durationSlot}>
+        <DurationChip pageId={page.id} />
       </span>
-      <ColorTool label={t.panels.pageBackground} value={backgroundFill(page.background)} allowGradient testId="ed-page-bg" onChange={(f, key) => editor.pages.setBackground(page.id, fillToBackground(f), key ?? 'bg-fill')} />
-      <span className={ed.divider} role="separator" aria-orientation="vertical" />
-      <ToolButton label={t.pagesPill.add} testId="ed-page-add" onClick={() => editor.pages.add(index + 1)}>
-        <Plus size={18} aria-hidden="true" />
-      </ToolButton>
-      <ToolButton label={t.workspace.duplicatePage} testId="ed-page-duplicate" onClick={() => editor.pages.duplicate(page.id)}>
-        <Copy size={18} aria-hidden="true" />
-      </ToolButton>
-      <ToolButton label={t.workspace.deletePage} danger disabled={doc.pages.length < 2} testId="ed-page-delete" onClick={() => editor.pages.remove(page.id)}>
-        <Trash2 size={18} aria-hidden="true" />
-      </ToolButton>
     </>
   )
 }

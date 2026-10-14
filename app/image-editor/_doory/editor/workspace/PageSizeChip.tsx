@@ -51,7 +51,7 @@ export function PageSizeChip({ pageId, number }: PageSizeChipProps) {
         {text}
       </button>
       <Popover open={open} onClose={() => setOpen(false)} anchorRef={ref} label={t.canvasSize.pageTitle(number)} placement="bottom-start" variant="plain" cover gap={6}>
-        <SizePanel close={() => setOpen(false)} pageId={pageId} defaultScope="page" />
+        <SizePanel close={() => setOpen(false)} pageId={pageId} defaultScope="page" showFlip />
       </Popover>
     </>
   )

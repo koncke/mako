@@ -2,8 +2,9 @@
   /*
    * The editor's names for its colours and metrics, mapped onto the Doory tokens: the chrome
    * stylesheets (chrome/ed.module.css and friends) are written against these, so re-theming is one place.
+   * Con el armazón de Canva el fondo es el gris del cromo (riel, área del lienzo, barra inferior).
    */
-  --ed-bg: var(--cv-color-bg-subtle);
+  --ed-bg: var(--cv-chrome);
   --ed-surface: var(--cv-color-surface);
   --ed-surface-2: var(--cv-color-bg-subtle);
   --ed-surface-3: var(--cv-color-bg-muted);
@@ -18,9 +19,9 @@
   --ed-canvas-bg: var(--cv-color-canvas-workspace);
   --ed-danger: var(--cv-color-danger);
   --ed-danger-dim: var(--cv-color-danger-soft);
-  --ed-radius: 12px;
-  --ed-radius-sm: 8px;
-  --ed-topbar-h: 54px;
+  --ed-radius: var(--cv-radius-lg);
+  --ed-radius-sm: var(--cv-radius-sm);
+  --ed-topbar-h: var(--cv-editor-topbar-h);
   --ed-ease: cubic-bezier(0.16, 1, 0.3, 1);
   --ed-dur: 0.18s;
 
@@ -59,14 +60,18 @@
   min-height: 0;
   display: flex;
   flex-direction: row;
+  background: var(--cv-chrome);
 }
 
+/* El área del lienzo: relativa para que la barra del objeto flote arriba sobre el lienzo. */
 .main {
+  position: relative;
   flex: 1;
   min-width: 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
+  background: var(--cv-chrome);
 }
 
 .live {

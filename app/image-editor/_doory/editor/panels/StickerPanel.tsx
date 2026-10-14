@@ -18,14 +18,27 @@ function filterKey(f: Filter): string {
   return f.type === 'all' ? 'all' : f.type === 'kind' ? `k:${f.kind}` : `p:${f.pack.slug}`
 }
 
-/** Sticker library (docked sidebar): search, category menu and an endless grid. */
-export function StickerPanel() {
-  const editor = useEditor()
-  const [query, setQuery] = useState('')
-  const [filter, setFilter] = useState<Filter>({ type: 'all' })
-  const q = useDebounced(query.trim(), 250)
+interface StickerPanelProps {
+  /** La búsqueda viene de afuera (el buscador «Buscar elementos» del panel Elementos): no dibuja la suya. */
+  query?: string
+  /** Vista previa de una sección de «Elementos»: sólo los primeros `preview`, en una fila, sin categorías. */
+  preview?: number
+  /** Dentro de otra lista (resultados de «Buscar elementos»): sin categorías ni scroll propio; sigue cargando al bajar. */
+  embedded?: boolean
+  /** Después de agregar uno (en la hoja inferior cierra el panel). */
+  done?: () => void
+}
 
-  const packs = useAsyncList<ElementPack>(() => editor.adapter.services.elements.packs().then((p) => ({ count: p.length, next: null, previous: null, results: p })), 'packs')
+/** «Gráficos» (la biblioteca de elementos del catálogo): búsqueda, categorías y una grilla sin fin. */
+export function StickerPanel({ query: external, preview, embedded, done }: StickerPanelProps = {}) {
+  const editor = useEditor()
+  const [own, setOwn] = useState('')
+  const [filter, setFilter] = useState<Filter>({ type: 'all' })
+  const q = useDebounced((external ?? own).trim(), 250)
+  const paging = preview === undefined
+  const showFilters = paging && !embedded
+
+  const packs = useAsyncList<ElementPack>(() => editor.adapter.services.elements.packs().then((p) => ({ count: p.length, next: null, previous: null, results: p })), 'packs', showFilters)
   const list = useAsyncList<ElementItem>(
     (page) =>
       editor.adapter.services.elements.list({
@@ -33,20 +46,23 @@ export function StickerPanel() {
         kind: filter.type === 'kind' ? filter.kind : undefined,
         pack: filter.type === 'pack' ? filter.pack.slug : undefined,
         page,
-        page_size: 36,
+        page_size: preview ?? 36,
       }),
-    `${q}|${filterKey(filter)}`,
+    `${q}|${filterKey(filter)}|${preview ?? 'all'}`,
   )
 
   const { loadMore } = list
-  const sentinel = useSentinel(list.hasMore && !list.loading && !list.error && list.items.length > 0, loadMore)
+  const sentinel = useSentinel(paging && list.hasMore && !list.loading && !list.error && list.items.length > 0, loadMore)
 
   const label = filter.type === 'all' ? t.stickers.all : filter.type === 'kind' ? t.stickers.kinds[filter.kind] : filter.pack.name
   const filters = useMemo(() => {
     const byId = new Map<string, Filter>([['all', { type: 'all' }]])
     const entries: CategoryEntry[] = [{ kind: 'option', id: 'all', label: t.stickers.all }]
-    entries.push({ kind: 'group', id: 'g-type', label: t.stickers.byType })
-    for (const k of KINDS) {
+    // Los tipos salen de los packs del catálogo: un tipo sin pack (en MaKo: ilustración, marco, forma, línea; las
+    // formas y líneas las dibuja «Líneas y formas») daría una lista vacía.
+    const kinds = KINDS.filter((k) => packs.items.some((p) => p.kind === k))
+    if (kinds.length > 1) entries.push({ kind: 'group', id: 'g-type', label: t.stickers.byType })
+    for (const k of kinds.length > 1 ? kinds : []) {
       byId.set(`k:${k}`, { type: 'kind', kind: k })
       entries.push({ kind: 'option', id: `k:${k}`, label: t.stickers.kinds[k] })
     }
@@ -58,13 +74,20 @@ export function StickerPanel() {
     return { byId, entries }
   }, [packs.items])
 
+  const add = (item: ElementItem): void => {
+    void editor.insert.element(item)
+    done?.()
+  }
+
+  const items = preview === undefined ? list.items : list.items.slice(0, preview)
   const loading = list.loading && list.items.length === 0
+  const grid = preview === undefined ? styles.grid : styles.row
   return (
     <>
-      <LibrarySearch value={query} onChange={setQuery} placeholder={t.stickers.search} clearLabel={t.stickers.clearSearch} testId="sticker-search" />
-      <CategoryMenu name={t.stickers.category} label={label} entries={filters.entries} activeId={filterKey(filter)} onSelect={(id) => setFilter(filters.byId.get(id) ?? { type: 'all' })} testId="sticker-category" />
+      {external === undefined ? <LibrarySearch value={own} onChange={setOwn} placeholder={t.stickers.search} clearLabel={t.stickers.clearSearch} testId="sticker-search" /> : null}
+      {showFilters ? <CategoryMenu name={t.stickers.category} label={label} entries={filters.entries} activeId={filterKey(filter)} onSelect={(id) => setFilter(filters.byId.get(id) ?? { type: 'all' })} testId="sticker-category" /> : null}
 
-      <div className={styles.gridWrap} data-testid="sticker-grid-wrap">
+      <div className={showFilters ? styles.gridWrap : styles.previewWrap} data-testid="sticker-grid-wrap" data-embedded={embedded || undefined}>
         {list.error && list.items.length === 0 ? (
           <div className={styles.state} role="alert">
             <span>{t.stickers.failed}</span>
@@ -74,24 +97,24 @@ export function StickerPanel() {
           </div>
         ) : null}
         {loading ? (
-          <div className={styles.grid} aria-busy="true" aria-label={t.stickers.loading}>
-            {Array.from({ length: 12 }, (_, i) => (
+          <div className={grid} aria-busy="true" aria-label={t.stickers.loading}>
+            {Array.from({ length: preview ?? 12 }, (_, i) => (
               <Skeleton key={i} className={styles.skel} height="auto" />
             ))}
           </div>
         ) : null}
         {!list.error && !list.loading && list.items.length === 0 ? <div className={styles.state}>{q ? t.stickers.noMatch(q) : t.stickers.empty}</div> : null}
-        {list.items.length > 0 ? (
-          <div className={styles.grid} data-testid="sticker-grid">
-            {list.items.map((item) => (
-              <button key={item.id} type="button" className={styles.cell} title={item.name} aria-label={t.elementsPanel.addOf(item.name)} data-testid="sticker-cell" onClick={() => void editor.insert.element(item)}>
+        {items.length > 0 ? (
+          <div className={grid} data-testid="sticker-grid">
+            {items.map((item) => (
+              <button key={item.id} type="button" className={styles.cell} title={item.name} aria-label={t.elementsPanel.addOf(item.name)} data-testid="sticker-cell" onClick={() => add(item)}>
                 <img src={item.svg_url} alt="" loading="lazy" draggable={false} />
               </button>
             ))}
           </div>
         ) : null}
-        {list.loading && list.items.length > 0 ? <div className={styles.state}>{t.stickers.loadingMore}</div> : null}
-        {list.error && list.items.length > 0 ? (
+        {paging && list.loading && list.items.length > 0 ? <div className={styles.state}>{t.stickers.loadingMore}</div> : null}
+        {paging && list.error && list.items.length > 0 ? (
           <div className={styles.state} role="alert">
             <span>{t.stickers.failed}</span>
             <button type="button" className={`${ed.btn} ${ed.ghost}`} onClick={loadMore}>
@@ -99,7 +122,7 @@ export function StickerPanel() {
             </button>
           </div>
         ) : null}
-        <div ref={sentinel} className={styles.sentinel} />
+        {paging ? <div ref={sentinel} className={styles.sentinel} /> : null}
       </div>
     </>
   )

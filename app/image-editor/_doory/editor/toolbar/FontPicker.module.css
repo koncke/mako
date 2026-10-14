@@ -1,9 +1,10 @@
+/* El selector de fuente de Canva (relevamiento §9.5): buscador arriba, filtros, y cada fila escrita con su fuente. */
 .picker {
   display: flex;
   flex-direction: column;
-  gap: var(--cv-space-2);
-  width: 300px;
-  padding: 8px;
+  gap: var(--cv-space-3);
+  width: 320px;
+  padding: var(--cv-space-4) var(--cv-space-4) var(--cv-space-2);
   overscroll-behavior: contain;
 }
 
@@ -12,51 +13,58 @@
 }
 .search svg {
   position: absolute;
-  left: 10px;
+  left: 12px;
   top: 50%;
   transform: translateY(-50%);
-  color: var(--ed-text-dim);
+  color: var(--cv-color-text-muted);
 }
 .search input {
   width: 100%;
-  height: 36px;
-  padding: 0 10px 0 32px;
-  border: 1px solid var(--ed-border);
-  border-radius: 6px;
-  background: var(--ed-bg);
-  color: var(--ed-text);
-  font: 400 13px / 1 var(--cv-font-sans);
+  height: 40px;
+  padding: 0 12px 0 38px;
+  border: 1px solid var(--cv-color-border-strong);
+  border-radius: var(--cv-radius-sm);
+  background: var(--cv-color-surface);
+  color: var(--cv-color-text);
+  font: 400 var(--cv-text-base) / 1 var(--cv-font-sans);
+}
+.search input::placeholder {
+  color: var(--cv-color-text-subtle);
+}
+.search input:hover {
+  border-color: rgb(28 33 48 / 0.5); /* Canva: borde de campo en hover #1C213080 */
 }
 .search input:focus {
   outline: none;
-  border-color: var(--ed-accent);
-  box-shadow: 0 0 0 3px var(--ed-accent-glow);
+  border-color: var(--cv-color-brand);
 }
 
 .chips {
   display: flex;
-  gap: 4px;
+  gap: var(--cv-space-2);
   overflow-x: auto;
   scrollbar-width: none;
 }
 .chip {
   flex: none;
-  height: 26px;
-  padding: 0 8px;
-  border: 1px solid var(--cv-color-border);
+  height: 32px;
+  padding: 0 var(--cv-space-3);
+  border: 1px solid var(--cv-color-border-strong);
   border-radius: var(--cv-radius-full);
-  background: transparent;
-  color: var(--cv-color-text-muted);
-  font: 600 11px / 1 var(--cv-font-sans);
+  background: var(--cv-color-surface);
+  color: var(--cv-color-text);
+  font: 400 var(--cv-text-sm) / 1 var(--cv-font-sans);
   cursor: pointer;
 }
 .chip:hover {
-  color: var(--cv-color-text);
+  background: var(--cv-color-bg-muted);
 }
-.chipOn {
-  border-color: var(--cv-color-brand);
+.chipOn,
+.chipOn:hover {
+  border: 2px solid var(--cv-selection-color);
   background: var(--cv-color-brand-soft);
-  color: var(--cv-color-brand);
+  color: var(--cv-violet-800);
+  font-weight: 600;
 }
 .chip:focus-visible {
   outline: none;
@@ -67,24 +75,19 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: var(--cv-space-2);
   width: 100%;
-  height: 34px;
-  border: 1px dashed var(--cv-color-border-strong);
-  border-radius: 6px;
+  height: 40px;
+  border: 1px solid var(--cv-color-border-strong);
+  border-radius: var(--cv-radius-sm);
   background: transparent;
   color: var(--cv-color-text);
-  font: 600 12px / 1 var(--cv-font-sans);
+  font: 600 var(--cv-text-base) / 1 var(--cv-font-sans);
   cursor: pointer;
-  transition:
-    border-color var(--cv-duration-fast) var(--cv-ease-out),
-    background var(--cv-duration-fast) var(--cv-ease-out),
-    color var(--cv-duration-fast) var(--cv-ease-out);
+  transition: background var(--cv-duration-fast) var(--cv-ease-out);
 }
 .upload:hover {
-  border-color: var(--cv-color-brand);
-  background: var(--cv-color-brand-soft);
-  color: var(--cv-color-brand);
+  background: var(--cv-color-bg-muted);
 }
 .upload:focus-visible {
   outline: none;
@@ -107,37 +110,36 @@
 .list {
   position: relative;
   overflow-y: auto;
-  margin: 0 -6px;
-  padding: 0 6px;
+  margin: 0 calc(-1 * var(--cv-space-4));
+  padding: 0 var(--cv-space-2);
   scrollbar-width: thin;
 }
 
+/* Título de grupo: «Fuentes recientes», «Fuentes de la marca»… (Canva: 14 px semibold, en frase, sin mayúsculas). */
 .heading {
   position: absolute;
-  left: 6px;
-  right: 6px;
+  left: var(--cv-space-2);
+  right: var(--cv-space-2);
   display: flex;
   align-items: flex-end;
-  padding-bottom: 4px;
-  color: var(--ed-text-dim);
-  font: 600 10px / 1 var(--cv-font-sans);
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
+  padding: 0 var(--cv-space-2) 6px;
+  color: var(--cv-color-text);
+  font: 600 var(--cv-text-base) / 1 var(--cv-font-sans);
 }
 
 .row {
   position: absolute;
-  left: 0;
-  right: 0;
+  left: var(--cv-space-2);
+  right: var(--cv-space-2);
   display: flex;
   align-items: center;
   width: auto;
-  padding: 0 10px;
+  padding: 0 var(--cv-space-2);
   border: 0;
-  border-radius: 4px;
+  border-radius: 6px;
   background: transparent;
   color: var(--cv-color-text);
-  font-size: 14px;
+  font-size: 16px; /* Canva: el nombre de cada fuente se escribe a 16 px con ella misma */
   line-height: 1.3;
   text-align: left;
   white-space: nowrap;
@@ -145,16 +147,21 @@
   text-overflow: ellipsis;
   cursor: pointer;
 }
+.row:hover {
+  background: var(--cv-color-bg-muted);
+}
 .row:focus-visible {
   outline: none;
 }
-.rowOn {
-  background: color-mix(in srgb, var(--ed-accent) 8%, transparent);
+.rowOn,
+.rowOn:hover {
+  background: var(--cv-color-brand-soft);
+  color: var(--cv-violet-800);
 }
 .rowHi,
 .rowOn.rowHi {
-  background: color-mix(in srgb, var(--ed-accent) 18%, transparent);
-  box-shadow: inset 2px 0 0 var(--ed-accent);
+  background: var(--cv-color-bg-muted);
+  box-shadow: inset 0 0 0 2px var(--cv-selection-color);
 }
 
 .loading {
@@ -168,17 +175,17 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--cv-space-2);
-  padding: 8px 10px;
-  border-radius: var(--cv-radius-md);
+  padding: var(--cv-space-2) var(--cv-space-3);
+  border-radius: var(--cv-radius-sm);
   background: var(--cv-color-warning-soft);
-  color: var(--cv-color-warning);
-  font: 500 var(--cv-text-xs) / 1.35 var(--cv-font-sans);
+  color: var(--cv-color-text);
+  font: 400 var(--cv-text-sm) / 1.4 var(--cv-font-sans);
 }
 
 .empty {
   margin: 0;
   padding: var(--cv-space-4);
   color: var(--cv-color-text-muted);
-  font: 500 var(--cv-text-sm) / 1.4 var(--cv-font-sans);
+  font: 400 var(--cv-text-base) / 1.4 var(--cv-font-sans);
   text-align: center;
 }

@@ -1,7 +1,10 @@
+/* Reglas de Canva: blancas, finas (20 px), marcas grises y números chicos; la guía que se arrastra va en el color de las guías. */
 .rulers {
   --ruler-bg: var(--cv-color-surface);
+  --ruler-tick: #c1c5cd; /* Canva: gris de controles deshabilitados */
   --ruler-fg: var(--cv-color-text-subtle);
-  --ruler-accent: var(--cv-selection-color);
+  --ruler-accent: var(--cv-color-bg-muted);
+  --ruler-font: var(--cv-font-sans);
   position: absolute;
   inset: 0;
   z-index: 7;
@@ -12,8 +15,8 @@
   position: absolute;
   left: 0;
   top: 0;
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   background: var(--cv-color-surface);
   border-right: 1px solid var(--cv-color-border);
   border-bottom: 1px solid var(--cv-color-border);
@@ -25,14 +28,14 @@
   background: var(--cv-color-surface);
 }
 .h {
-  left: 24px;
+  left: 20px;
   top: 0;
   border-bottom: 1px solid var(--cv-color-border);
   cursor: row-resize;
 }
 .v {
   left: 0;
-  top: 24px;
+  top: 20px;
   border-right: 1px solid var(--cv-color-border);
   cursor: col-resize;
 }

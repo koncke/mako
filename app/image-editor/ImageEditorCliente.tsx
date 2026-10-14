@@ -13,10 +13,24 @@
 // (_doory/styles/global.css), limitados a esa clase para no tocar el resto de
 // MaKo. Los menús y diálogos de Doory se montan adentro de la raíz del editor
 // (EditorProvider → `portalRoot`), así que heredan los tokens solos.
+//
+// La letra de la interfaz es Noto Sans (relevamiento-canva-armazon.md §1.4):
+// Canva Sans es de Canva y no se copia, y Noto Sans es el respaldo de su propia
+// pila, así que las medidas ya están pensadas para ella. Entra por next/font
+// (alojada con el build, sin pedir nada a Google en el navegador) como la
+// variable `--cv-font-ui`, que tokens.css usa en `--cv-font-sans`.
 
 import dynamic from 'next/dynamic';
+import { Noto_Sans } from 'next/font/google';
 import './_doory/styles/tokens.css';
 import './_doory/styles/global.css';
+
+const notoSans = Noto_Sans({
+  weight: ['400', '500', '600', '700'],
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--cv-font-ui',
+});
 
 const Inicio = dynamic(() => import('./inicio/Inicio').then((m) => m.Inicio), { ssr: false });
 const PantallaEditor = dynamic(() => import('./editor/PantallaEditor').then((m) => m.PantallaEditor), { ssr: false });
@@ -26,7 +40,7 @@ export function ImageEditorCliente({ vista, disenoId, ws }: { vista: 'inicio' | 
   return (
     <div
       key={ws ?? 0}
-      className="cv"
+      className={`cv ${notoSans.variable}`}
       style={editor
         ? { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }
         : { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'auto' }}

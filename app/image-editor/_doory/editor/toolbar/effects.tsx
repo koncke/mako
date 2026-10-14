@@ -26,6 +26,8 @@ export function EffectsPanel({ text }: { text: boolean }) {
   const effects = (sel.objects[0]?.effects ?? {}) as ObjectEffects
   const patch = (p: ObjectEffects, key?: string): void => editor.style.setEffects(p, key)
   const curve = typeof sel.objects[0]?.curveAmount === 'number' ? (sel.objects[0].curveAmount as number) : 0
+  // Curvar sólo anda con texto de una línea (era el aviso del botón «Curvar» de Doory, que ahora vive acá).
+  const multiline = String(sel.objects[0]?.text ?? '').includes('\n')
   const fill = readFill(sel.objects[0]?.fill, '#000000')
   const hollow = !!effects.outline && fill.type === 'solid' && fill.color === 'transparent'
 
@@ -78,7 +80,11 @@ export function EffectsPanel({ text }: { text: boolean }) {
             {effects.background ? <ColorSwatchRow label={t.tools.color} value={effects.background.color} onChange={(color) => patch({ background: { color } }, 'bg-c')} /> : null}
           </EffectBlock>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <Slider label={t.toolbar.curve} value={curve} min={-CURVE_MAX} max={CURVE_MAX} step={5} onChange={(v) => editor.style.setCurve(v)} display={curve === 0 ? t.toolbar.none : String(curve)} />
+            {multiline && curve === 0 ? (
+              <p style={{ margin: 0, font: '400 var(--cv-text-sm) / 18px var(--cv-font-sans)', color: 'var(--cv-color-text-muted)' }}>{t.ctx.curveSingleLine}</p>
+            ) : (
+              <Slider label={t.toolbar.curve} value={curve} min={-CURVE_MAX} max={CURVE_MAX} step={5} onChange={(v) => editor.style.setCurve(v)} display={curve === 0 ? t.toolbar.none : String(curve)} />
+            )}
             {curve !== 0 ? (
               <Button size="sm" variant="ghost" onClick={() => editor.style.setCurve(0)}>
                 {t.toolbar.reset}
@@ -94,8 +100,8 @@ export function EffectsPanel({ text }: { text: boolean }) {
 function ColorSwatchRow({ label, value, onChange }: { label: string; value: string; onChange: (c: string) => void }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-      <span style={{ font: '500 var(--cv-text-xs) / 1 var(--cv-font-sans)', color: 'var(--cv-color-text-muted)' }}>{label}</span>
-      <ColorButton label={`${label} color`} value={{ type: 'solid', color: value }} solidOnly onChange={(f) => (f.type === 'solid' ? onChange(f.color) : undefined)} />
+      <span style={{ font: '400 var(--cv-text-base) / 1 var(--cv-font-sans)', color: 'var(--cv-color-text)' }}>{label}</span>
+      <ColorButton label={label} value={{ type: 'solid', color: value }} solidOnly onChange={(f) => (f.type === 'solid' ? onChange(f.color) : undefined)} />
     </div>
   )
 }

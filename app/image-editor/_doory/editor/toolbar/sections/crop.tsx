@@ -2,7 +2,8 @@ import { Check, RotateCcw, X } from 'lucide-react'
 import { useState } from 'react'
 import { useEditor } from '../../context'
 import { t } from '../../strings'
-import ed from '../../chrome/ed.module.css'
+import { Divider } from '../parts'
+import bar from '../parts.module.css'
 import styles from './sections.module.css'
 
 const ASPECTS: { id: string; label: string; ratio: number | null }[] = [
@@ -14,7 +15,7 @@ const ASPECTS: { id: string; label: string; ratio: number | null }[] = [
   { id: '9:16', label: '9:16', ratio: 9 / 16 },
 ]
 
-/** Replaces the toolbar while an image is being cropped. */
+/** Reemplaza a la barra mientras se recorta una imagen: proporciones, «Restablecer», «Cancelar» y «Listo» (violeta). */
 export function CropSection() {
   const editor = useEditor()
   const [aspect, setAspect] = useState('free')
@@ -25,7 +26,7 @@ export function CropSection() {
           <button
             key={a.id}
             type="button"
-            className={`${ed.toolBtn} ${aspect === a.id ? ed.active : ''}`}
+            className={`${bar.btn} ${bar.textBtn} ${aspect === a.id ? bar.on : ''}`}
             aria-pressed={aspect === a.id}
             data-testid={`ed-crop-${a.id}`}
             onClick={() => {
@@ -33,20 +34,20 @@ export function CropSection() {
               editor.crop.setAspect(a.ratio)
             }}
           >
-            <span className={ed.textButton}>{a.label}</span>
+            {a.label}
           </button>
         ))}
       </div>
-      <button type="button" className={`${ed.btn} ${ed.ghost}`} data-testid="ed-crop-reset" onClick={() => editor.crop.reset()}>
+      <Divider />
+      <button type="button" className={`${bar.btn} ${bar.textBtn}`} data-testid="ed-crop-reset" onClick={() => editor.crop.reset()}>
         <RotateCcw size={16} aria-hidden="true" />
         {t.toolbar.reset}
       </button>
-      <span className={ed.divider} aria-hidden="true" />
-      <button type="button" className={`${ed.btn} ${ed.ghost}`} data-testid="ed-crop-cancel" onClick={() => editor.crop.cancel()}>
+      <button type="button" className={`${bar.btn} ${bar.textBtn}`} data-testid="ed-crop-cancel" onClick={() => editor.crop.cancel()}>
         <X size={16} aria-hidden="true" />
         {t.toolbar.cropCancel}
       </button>
-      <button type="button" className={`${ed.btn} ${ed.primary}`} data-testid="ed-crop-apply" onClick={() => editor.crop.apply()}>
+      <button type="button" className={`${bar.btn} ${bar.primary}`} data-testid="ed-crop-apply" onClick={() => editor.crop.apply()}>
         <Check size={16} aria-hidden="true" />
         {t.toolbar.cropApply}
       </button>

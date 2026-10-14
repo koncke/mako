@@ -120,6 +120,20 @@ export function registerBuiltinCommands(): void {
   registerCommand({ id: 'view.grid', label: t.cmd.viewGrid, shortcut: "Mod+'", group: t.cmdGroup.view, run: (e) => e.patchUi({ grid: !e.state.ui.grid }) })
   registerCommand({ id: 'view.guides', label: t.cmd.viewGuides, group: t.cmdGroup.view, run: (e) => e.patchUi({ guides: !e.state.ui.guides }) })
   registerCommand({ id: 'view.snapping', label: t.cmd.viewSnapping, group: t.cmdGroup.view, run: (e) => e.patchUi({ snapping: !e.state.ui.snapping }) })
+  // Ctrl+/ de Canva: cierra el panel lateral abierto, o vuelve a abrir el último (o «Diseño»).
+  let lastPanel = 'design'
+  registerCommand({
+    id: 'view.sidePanel',
+    label: t.cmd.viewSidePanel,
+    shortcut: 'Mod+/',
+    group: t.cmdGroup.view,
+    enabled: ({ state }) => !state.readOnly,
+    run: (e) => {
+      const open = e.state.ui.panelId
+      if (open) lastPanel = open
+      e.patchUi({ panelId: open ? null : lastPanel })
+    },
+  })
 
   registerCommand({ id: 'page.add', label: t.cmd.pageAdd, group: t.cmdGroup.pages, run: (e) => void e.pages.add() })
   registerCommand({ id: 'page.duplicate', label: t.cmd.pageDuplicate, group: t.cmdGroup.pages, run: (e) => e.pages.duplicate(e.state.activePageId) })

@@ -1,9 +1,11 @@
+/* Interruptor de Canva: riel gris, encendido violeta #8B3DFF (hover #7630D7), tirador blanco */
 .row {
   position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--cv-space-3);
+  min-height: 32px;
   cursor: pointer;
 }
 
@@ -15,12 +17,13 @@
 }
 
 .label {
-  font: 500 var(--cv-text-sm) / 1.3 var(--cv-font-sans);
+  color: var(--cv-color-text);
+  font: 400 var(--cv-text-base) / 1.4 var(--cv-font-sans);
 }
 
 .hint {
   color: var(--cv-color-text-subtle);
-  font: 400 var(--cv-text-xs) / 1.3 var(--cv-font-sans);
+  font: 400 var(--cv-text-sm) / 1.4 var(--cv-font-sans);
 }
 
 .input {
@@ -34,19 +37,19 @@
 .track {
   flex: none;
   position: relative;
-  width: 36px;
-  height: 20px;
+  width: 40px;
+  height: 24px;
   border-radius: 99px;
-  background: var(--cv-color-border-strong);
+  background: rgb(36 44 61 / 0.4); /* Canva: neutro «más fuerte» #242C3D66 */
   transition: background var(--cv-duration-base) var(--cv-ease-out);
 }
 
 .thumb {
   position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 16px;
-  height: 16px;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
   background: #fff;
   box-shadow: var(--cv-shadow-sm);
@@ -55,6 +58,10 @@
 
 .input:checked ~ .track {
   background: var(--cv-color-brand);
+}
+
+.row:hover .input:checked ~ .track {
+  background: var(--cv-color-brand-hover);
 }
 
 .input:checked ~ .track .thumb {

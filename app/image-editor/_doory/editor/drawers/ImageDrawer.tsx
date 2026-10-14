@@ -1,4 +1,4 @@
-import { Trash2 } from 'lucide-react'
+import { CloudUpload, Trash2 } from 'lucide-react'
 import { useCallback, useId, useRef, useState } from 'react'
 import type { AssetRef } from '@/app/image-editor/_doory/types/adapter'
 import type { Asset, StockPhoto } from '@/app/image-editor/_doory/types/api'
@@ -11,24 +11,24 @@ import { useResolvedSrc } from '../hooks/useResolvedSrc'
 import type { PanelProps } from '../panels/registry'
 import { t } from '../strings'
 import { Skeleton } from '../ui/Skeleton'
-import ed from '../chrome/ed.module.css'
 import styles from './Drawers.module.css'
 import { uploadToLibrary } from './uploads'
+import { useInsertDone } from './useInsertDone'
 
 function toRef(a: Asset): AssetRef {
   return { id: a.id, url: a.url, thumbUrl: a.thumb_url, width: a.width, height: a.height, name: a.name, kind: a.kind }
 }
 
+/** Una imagen subida: miniatura cuadrada (clic = agregarla al diseño) y el tacho al pasar el mouse, como en Canva. */
 function Thumb({ asset, onPlace, onDelete }: { asset: AssetRef; onPlace: () => void; onDelete?: () => void }) {
   const url = useResolvedSrc(asset.thumbUrl || asset.url)
   return (
-    <div className={styles.thumbRow}>
-      <button type="button" className={ed.uploadedThumb} data-testid="uploaded-thumb" onClick={onPlace}>
-        {url ? <img src={url} alt="" draggable={false} /> : <Skeleton width={40} height={40} radius={5} />}
-        <span className={ed.uploadedName}>{asset.name}</span>
+    <div className={styles.upItem}>
+      <button type="button" className={styles.upThumb} title={asset.name} aria-label={asset.name} data-testid="uploaded-thumb" onClick={onPlace}>
+        {url ? <img src={url} alt="" draggable={false} /> : <Skeleton width="100%" height="100%" radius={8} />}
       </button>
       {onDelete ? (
-        <button type="button" className={styles.thumbDelete} aria-label={t.imageDrawer.remove(asset.name)} title={t.imageDrawer.remove(asset.name)} onClick={onDelete}>
+        <button type="button" className={styles.upDelete} aria-label={t.imageDrawer.remove(asset.name)} title={t.imageDrawer.remove(asset.name)} onClick={onDelete}>
           <Trash2 size={14} aria-hidden="true" />
         </button>
       ) : null}
@@ -36,9 +36,10 @@ function Thumb({ asset, onPlace, onDelete }: { asset: AssetRef; onPlace: () => v
   )
 }
 
-/** Uploads tab: the "Upload photo" zone and the list of images, plus drag and drop and delete. */
+/** «Subidos»: el botón violeta «Subir archivos» (también se sueltan archivos encima) y la grilla de lo subido. */
 function UploadsTab({ close }: PanelProps) {
   const editor = useEditor()
+  const done = useInsertDone(close)
   const session = useEditorStateShallow((s) => s.uploads)
   const uploading = useEditorState((s) => s.uploading)
   const library = useAsyncList<Asset>((page) => editor.adapter.services.assets.list({ page, page_size: 20 }), 'library')
@@ -51,7 +52,7 @@ function UploadsTab({ close }: PanelProps) {
 
   const place = (asset: AssetRef): void => {
     void editor.insert.imageFromAsset(asset)
-    close()
+    done()
   }
   const remove = async (asset: AssetRef): Promise<void> => {
     setFailed(false)
@@ -73,13 +74,10 @@ function UploadsTab({ close }: PanelProps) {
 
   return (
     <>
-      <p className={ed.sectionTitle}>{t.drawers.uploadPhoto}</p>
-      <button
-        type="button"
-        className={ed.uploadZone}
+      <div
+        className={styles.drop}
         data-testid="upload-zone"
         data-over={over || undefined}
-        onClick={() => void editor.insert.pickAndUpload()}
         onDragOver={(e) => {
           if (!e.dataTransfer.types.includes('Files')) return
           e.preventDefault()
@@ -88,10 +86,12 @@ function UploadsTab({ close }: PanelProps) {
         onDragLeave={() => setOver(false)}
         onDrop={onDrop}
       >
-        {I.upload}
-        <div>{t.drawers.clickToUpload}</div>
-        <small>{t.imageDrawer.dropHere}</small>
-      </button>
+        <button type="button" className={styles.cta} data-testid="upload-files" onClick={() => void editor.insert.pickAndUpload()}>
+          <CloudUpload size={18} aria-hidden="true" />
+          {t.drawers.uploadFiles}
+        </button>
+        <p className={styles.dropHint}>{t.imageDrawer.dropHere}</p>
+      </div>
       {uploading > 0 ? (
         <div className={styles.status} role="status">
           <span className={styles.spinner} aria-hidden="true" />
@@ -105,12 +105,12 @@ function UploadsTab({ close }: PanelProps) {
       ) : null}
       {images.length > 0 ? (
         <>
-          <p className={ed.sectionTitle} style={{ marginTop: 16 }}>
-            {t.drawers.yourImages}
-          </p>
-          {images.map((img) => (
-            <Thumb key={img.id} asset={img} onPlace={() => place(img)} onDelete={library.items.some((a) => a.id === img.id) || sessionIds.has(img.id) ? () => void remove(img) : undefined} />
-          ))}
+          <p className={styles.sectionTitle}>{t.drawers.yourImages}</p>
+          <div className={styles.uploads}>
+            {images.map((img) => (
+              <Thumb key={img.id} asset={img} onPlace={() => place(img)} onDelete={library.items.some((a) => a.id === img.id) || sessionIds.has(img.id) ? () => void remove(img) : undefined} />
+            ))}
+          </div>
         </>
       ) : null}
       {library.error && images.length === 0 ? (
@@ -119,7 +119,7 @@ function UploadsTab({ close }: PanelProps) {
         </p>
       ) : null}
       {library.hasMore && library.items.length > 0 ? (
-        <button type="button" className={`${ed.btn} ${ed.ghost}`} style={{ width: '100%', marginTop: 8 }} onClick={library.loadMore} disabled={library.loading}>
+        <button type="button" className={styles.more} onClick={library.loadMore} disabled={library.loading}>
           {t.imageDrawer.loadMore}
         </button>
       ) : null}
@@ -131,6 +131,7 @@ function UploadsTab({ close }: PanelProps) {
 /** Stock tab: search free photos, add one (the server imports it with its attribution). */
 function StockTab({ close }: PanelProps) {
   const editor = useEditor()
+  const done = useInsertDone(close)
   const stock = editor.adapter.services.stock
   const [query, setQuery] = useState('')
   const q = useDebounced(query.trim(), 300)
@@ -169,7 +170,7 @@ function StockTab({ close }: PanelProps) {
     try {
       const ref = await stock.importPhoto(photo)
       await editor.insert.imageFromAsset(ref)
-      close()
+      done()
     } catch {
       setError(t.imageDrawer.importFailed)
     } finally {
@@ -220,7 +221,7 @@ function StockTab({ close }: PanelProps) {
   )
 }
 
-/** Image drawer: upload photo, plus a stock-photo tab when the server offers one. */
+/** El panel «Subidos»: lo que subiste y, si el servidor las ofrece, una pestaña de fotos de stock. */
 export function ImageDrawer(props: PanelProps) {
   const editor = useEditor()
   const hasStock = editor.adapter.services.stock !== null

@@ -14,8 +14,9 @@ import { Skeleton } from '../ui/Skeleton'
 import styles from './FontPicker.module.css'
 
 const ROW = 40
-const HEADING = 26
-const VIEW = 300
+const HEADING = 30
+/** Alto de la lista: Canva muestra una columna larga de fuentes. */
+const VIEW = 360
 
 interface Entry {
   family: string

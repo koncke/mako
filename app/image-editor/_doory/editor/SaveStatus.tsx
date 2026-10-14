@@ -1,7 +1,8 @@
-import { AlertTriangle, Check, CloudOff, Loader2, Eye } from 'lucide-react'
+import { AlertTriangle, Cloud, CloudCheck, CloudOff, Loader2, Eye } from 'lucide-react'
 import { useCollabState, usePresenceState } from './collab/context'
 import { useEditor, useEditorState } from './context'
 import { t } from './strings'
+import { Tooltip } from './ui/Tooltip'
 import styles from './SaveStatus.module.css'
 
 /** The pill while the design is edited live: who is here, or what is wrong with the connection. */
@@ -73,7 +74,11 @@ function LiveStatus() {
   }
 }
 
-/** Save-state pill: Saving… / Saved / Saved in this browser / Conflict / Error with retry; the live state while a room is connected. */
+/**
+ * El estado de guardado de Canva, sobre el degradado de la barra: la nube con tilde cuando está todo guardado
+ * (el texto va en el tooltip), «Guardando…» mientras guarda, y un aviso claro si hay conflicto o error.
+ * Mientras hay una sala en vivo muestra el estado de la conexión.
+ */
 export function SaveStatus() {
   const editor = useEditor()
   const save = useEditorState((s) => s.save)
@@ -83,7 +88,7 @@ export function SaveStatus() {
   if (readOnly) {
     return (
       <span className={`${styles.pill} ${styles.neutral}`} role="status">
-        <Eye size={14} />
+        <Eye size={16} aria-hidden="true" />
         <span className={styles.text}>{t.save.readOnly}</span>
       </span>
     )
@@ -91,55 +96,45 @@ export function SaveStatus() {
   switch (save.status) {
     case 'saving':
       return (
-        <span className={`${styles.pill} ${styles.neutral}`} role="status">
-          <Loader2 size={14} className={styles.spin} />
+        <span className={`${styles.pill} ${styles.neutral}`} role="status" data-testid="ed-save-status" data-state="saving">
+          <Loader2 size={16} className={styles.spin} aria-hidden="true" />
           <span className={styles.text}>{t.save.saving}</span>
         </span>
       )
     case 'dirty':
       return (
-        <span className={`${styles.pill} ${styles.neutral}`} role="status">
-          <span className={styles.dot} />
-          <span className={styles.text}>{t.save.unsaved}</span>
-        </span>
+        <Tooltip label={t.save.unsaved}>
+          <span className={styles.cloud} role="status" aria-label={t.save.unsaved} data-testid="ed-save-status" data-state="dirty">
+            <Cloud size={22} aria-hidden="true" />
+          </span>
+        </Tooltip>
       )
     case 'conflict':
       return (
-        <span className={`${styles.pill} ${styles.warn}`} role="status">
-          <AlertTriangle size={14} />
+        <span className={`${styles.pill} ${styles.warn}`} role="status" data-testid="ed-save-status" data-state="conflict">
+          <AlertTriangle size={14} aria-hidden="true" />
           <span className={styles.text}>{t.save.conflict}</span>
         </span>
       )
     case 'error':
       return (
-        <span className={`${styles.pill} ${styles.error}`} role="alert" title={save.message}>
-          <CloudOff size={14} />
+        <span className={`${styles.pill} ${styles.error}`} role="alert" title={save.message} data-testid="ed-save-status" data-state="error">
+          <CloudOff size={14} aria-hidden="true" />
           <span className={styles.text}>{t.save.error}</span>
           <button type="button" className={styles.retry} onClick={() => void editor.persistence.saveNow()}>
             {t.save.retry}
           </button>
         </span>
       )
-    case 'local':
+    default: {
+      const label = save.status === 'local' ? t.save.local : t.save.saved
       return (
-        <span className={`${styles.pill} ${styles.ok}`} role="status">
-          <Check size={14} />
-          <span className={styles.text}>{t.save.local}</span>
-        </span>
+        <Tooltip label={label}>
+          <span className={styles.cloud} role="status" aria-label={label} data-testid="ed-save-status" data-state={save.status}>
+            <CloudCheck size={22} aria-hidden="true" />
+          </span>
+        </Tooltip>
       )
-    case 'saved':
-      return (
-        <span className={`${styles.pill} ${styles.ok}`} role="status">
-          <Check size={14} />
-          <span className={styles.text}>{t.save.saved}</span>
-        </span>
-      )
-    default:
-      return (
-        <span className={`${styles.pill} ${styles.ok}`} role="status">
-          <Check size={14} />
-          <span className={styles.text}>{t.save.saved}</span>
-        </span>
-      )
+    }
   }
 }

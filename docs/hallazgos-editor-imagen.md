@@ -104,21 +104,114 @@ blocked the extension». Para mirar local va Playwright headless de la caché de
 - **Una foto de afuera no se puede dibujar en el lienzo sin copiarla antes al bucket**: Openverse y
   Picsum no mandan CORS y el export a PNG/PDF falla con el canvas «sucio».
 
+## Un `import './x'` a un módulo que no existe pasa el typecheck y da 500
+
+**Vive en:** `app/image-editor/editor/PantallaEditor.tsx` → `mako/registro.ts`
+
+En la tanda 2 la pantalla importó `'../mako/registro'` (sin nombres, sólo para que registre «Proyectos») antes de
+que otro agente lo creara. Con TS 5.9 sin `noUncheckedSideEffectImports`, tsc NO marca un import de efecto a un
+archivo que falta; Turbopack sí, y la página da 500.
+
+- Regla: un módulo que se importa por su efecto se importa con un nombre (`import { registrarProyectos } from …`)
+  y se usa; así tsc lo ve. Hoy la pantalla llama `registrarProyectos(ws)` con el workspace del server.
+
+## «Proyectos» con el `?ws=` de la URL abría la base del workspace 0
+
+**Vive en:** `app/image-editor/mako/ProyectosPanel.tsx` · `mako/registro.ts`
+
+La consigna pedía elegir la base local por el `?ws=`. En la cuenta propia ese parámetro NO está, así que se abría
+la base del workspace 0 y la lista salía vacía sin error. Diagnóstico obvio equivocado: «el `?ws=` dice el
+workspace». Quien lo sabe es el server (`getWorkspaceActual`, prop de la página): la pantalla lo pasa con
+`registrarProyectos(ws)`, y si falta, el panel busca en qué base del navegador está el diseño abierto.
+
+## Las trampas de `.cv` (la raíz con los estilos base de Doory)
+
+**Vive en:** `app/image-editor/_doory/styles/global.css` · `ImageEditorCliente.tsx`
+
+- `.cv :where(a)` tiene la MISMA especificidad que una clase de módulo: gana el que cargue después. El link
+  «Inicio» de la barra va colgado de `.editor` para ganar siempre.
+- `.cv :focus-visible` les pone radio de 8 px a todos los que tienen foco: un botón redondo vuelve a declarar su
+  radio con más especificidad o pierde la forma al tabular.
+- `.cv` lleva `isolation: isolate`: un overlay `fixed` adentro queda DEBAJO de la barra lateral de MaKo. Un diálogo
+  fuera del `EditorProvider` (el «Crear un diseño» del Inicio) va por portal a `<body>`, envuelto en `.cv` y con
+  `useCapaModal`.
+- Dentro del editor: un `Popover` (z 200) abierto desde un `Dialog` (z 300) queda detrás del velo; para eso está
+  el prop `overModal`. `ui/Menu` no lo tiene, y tampoco se da vuelta hacia arriba: abierto desde la barra inferior
+  tapa su botón (la lista del zoom usa `Popover placement="top"`).
+
+## La barra del objeto flota SOBRE el lienzo: el lienzo le reserva la franja
+
+**Vive en:** `_doory/editor/workspace/Workspace.tsx` (`TOOLBAR_BAND`) · `toolbar/parts.module.css`
+
+En Canva la barra del objeto flota arriba del área del lienzo (8 px del borde, 48 de alto). Sin reservarle lugar,
+tapaba el encabezado «Página 1 - Agregar título de página» y el salto a una página lo dejaba debajo.
+`TOOLBAR_BAND = 64` sube el aire de arriba a 72 px, el `scrollTo` de una página deja esa franja libre y «Ajustar»
+la descuenta.
+
+- Regla: si cambia el alto o la posición de la barra, cambia `TOOLBAR_BAND` en el mismo commit.
+
+## La selección de Canva vive en TRES lugares
+
+**Vive en:** `_doory/editor/engine/objects/controls.ts` · `engine/objects/theme.ts`
+
+Los tiradores (círculos blancos de 12 px con borde gris y sombra, píldoras laterales, rotación abajo) se dibujan en
+`controls.ts`. Pero `theme.ts` vuelve a aplicar `selectionStyle` a TODOS los objetos al re-tematizar y a la
+selección de varios: con su 1,5 de Doory, el marco volvía de 2 px a 1,5. Ahora `theme.ts` dice 2 y 12.
+
+- ⚠️ Frágil: `controls.ts` cambia `ActiveSelection.createControls` al cargar el módulo (una subida de fabric puede
+  romperlo sin aviso).
+
+## El catálogo de Iconify: tres APIs que fallan en silencio
+
+**Vive en:** `app/image-editor/mako/elementos.ts` · `elementos-lista.ts` (generado por `scripts/image-editor/genera-elementos.mjs`)
+
+- `GET /collection` **banea una hora** tras ~6 pedidos seguidos: 429 «error code: 1015», `Retry-After: 3595`, sin
+  CORS. Por eso los destacados de cada set quedan guardados en el repo y el editor sólo busca en vivo.
+- La búsqueda es **sólo en inglés**: «casa» devuelve 0 resultados, sin error. La consulta pasa por un diccionario
+  español → inglés («corazón» → «heart») antes de ir a la API.
+- `start=` contesta «Bad request»: se pide una vez con `limit=999` y se pagina en el editor.
+
+## Las fuentes de jsDelivr: el primer pedido tarda más que el corte del motor
+
+**Vive en:** `app/image-editor/mako/fuentes.ts` (generado por `scripts/image-editor/genera-fuentes.mjs`) · `_doory/editor/engine/fonts.ts` (`LOAD_TIMEOUT_MS`)
+
+Un archivo «frío» de jsDelivr tardó 12,6 s y el motor corta la carga a los 8 s: la primera vez el texto puede caer
+a la fuente del sistema. **Diagnóstico obvio equivocado:** al verificar las 499 variantes con 15 s de tope dieron
+16 «404» que no eran tales; al repetir, todas 200 (hubo además un 503 pasajero en latin-ext).
+
+- Regla: una verificación de URLs de CDN reintenta antes de declarar un 404. Alojar las fuentes nosotros (tanda 4)
+  saca el problema de raíz.
+
+## Detalles del motor que confunden
+
+- **Degradados de Doory:** el ángulo 0 apunta a la DERECHA (el CSS usa ángulo + 90). `_doory/editor/engine/objects/fills.ts`.
+- **Quitar tildes con una regex:** la herramienta de escritura cambia `̀` por el carácter invisible; se escribe
+  `/\p{M}/gu`. (`dialogs/resizeSizes.ts` e `inicio/tamanos.ts` tienen el rango ya convertido: funciona, pero no se ve.)
+- **`next/font` entra por primera vez en el repo** (Noto Sans como `--cv-font-ui`, `ImageEditorCliente.tsx`): el
+  build la baja de Google al compilar.
+- **Un diseño viejo puede tener un `meta.presetId` en kebab-case** (`instagram-post`): desde la tanda 2 hay UNA lista
+  de tamaños (`dialogs/resizeSizes.ts`, ids camelCase) para Redimensionar, el popover de la página y el Inicio. El
+  `presetId` es sólo un dato; nadie lo busca.
+
 ## Lo que quedó SIN hacer (con el archivo donde vive)
 
-- **Verificar el editor abierto** (crear, texto, imagen, descargar PNG/PDF): sólo se vio el inicio.
-- **El re-vestido de Canva** (tanda 2): `_doory/editor/TopBar.tsx`, `chrome/ToolHost.tsx`,
-  `builtins/panels.tsx`, `toolbar/`, `workspace/` (Workspace, PageStrip, ZoomControls), `dialogs/`,
-  `app/image-editor/inicio/`. La paleta ya está en `_doory/styles/tokens.css`; la especificación en
-  `docs/editor-imagen/relevamiento-canva-armazon.md`.
+- **Verificar el editor abierto en el navegador** (crear, texto, imagen, descargar PNG/PDF): la tanda 2 (el
+  re-vestido de Canva) se escribió y pasó typecheck y tests, pero NADIE la vio dibujada.
+- **ESLint de Doory:** `_doory/editor/ui/ColorPicker.tsx:46` hace `setState` dentro de un efecto (venía de Doory). Si
+  el pre-push pasa ESLint por `_doory/`, frena ahí.
+- **Lo de Canva que Doory no trae** (tanda 5): notas adhesivas, dibujo y tablas (`drawers/ToolsPanel.tsx`), copiar
+  estilo, líneas en codo/curva, texto alternativo, descargar la selección, bloquear/ocultar página, «Ir a la página».
+- **Del armazón:** la vista rápida al pasar el mouse por el riel y la pestaña «Estilos» de Diseño
+  (`chrome/RielCanva.tsx`); la mini-barra pegada a la selección (falta la posición en pantalla del objeto); las marcas
+  de la regla con la posición del elemento (`workspace/Rulers.tsx`); el «⋯» por mosaico de la cuadrícula
+  (`workspace/PageGrid.tsx`); «Editando ▾» y el avatar (no hay modos ni co-edición); en Proyectos, «Carpetas».
+- **El texto del lienzo de las 10 plantillas sigue en inglés** (`mako/plantillas/*.json`): traducirlo pide volver a
+  dibujar las miniaturas (`public/cv/plantillas/*.webp`), y eso necesita navegador.
+- **Las fuentes salen de jsDelivr**, no de un almacenamiento propio (tanda 4).
 - **El relevamiento de FUNCIONES de Canva no se escribió**: el agente se cortó con la caída de la app
   del 14/10 09:10. Falta `docs/editor-imagen/relevamiento-canva-funciones.md`.
-- **Los catálogos**: `app/image-editor/mako/servicios.ts` tiene 28 fuentes y los elementos/plantillas de
-  prueba de Doory (en inglés). Las 10 plantillas de Doory (AAL) están en su repo, `backend/data/templates`.
 - **Supabase** (tabla de diseños + bucket), **API de MaKo**, **Estrellas `formato_imagen`**.
 - **«Presentar con notas»** abre `presenter-view.html`, que en MaKo no existe (`_doory/editor/presenter/channel.ts`).
-- **Los textos visibles** siguen el vocabulario de Doory traducido; los rótulos exactos de Canva van con el
-  re-vestido.
 - **Una pestaña de Canva** («Diseño sin título - Presentación», `canva.com/design/DAHX-ICTUd4`) quedó
   abierta en el grupo de pestañas de los agentes: la abrió el relevamiento de funciones antes de cortarse.
   Si lo creó en la cuenta de Martín, hay que mandarlo a la papelera a mano.

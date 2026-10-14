@@ -1,168 +1,569 @@
+/*
+ * El Inicio del Image Editor, copiado del Inicio de Canva 2025–26 (relevamiento-canva-armazon.md §1.2 y §8).
+ * Colores: tokens --cv-* de Canva; lo que no es token lleva su origen al lado.
+ */
+
 .inicio {
   display: flex;
   flex-direction: column;
-  gap: 32px;
-  padding: 32px 40px 48px;
-  background: var(--cv-color-surface);
+  gap: var(--cv-space-8);
   min-height: 100%;
+  padding: var(--cv-space-4) var(--cv-space-4) var(--cv-space-12);
+  background: var(--cv-color-surface);
 }
 
-.cabecera {
-  display: flex;
-  justify-content: center;
-  padding: 48px 16px;
-  border-radius: 16px;
-  background: linear-gradient(90deg, #00c4cc 0%, #7d2ae8 100%);
-}
+/* ── La franja de arriba: titular, chips y buscador ─────────────────────── */
 
-.cabecera h1 {
-  color: #ffffff;
-  font-family: var(--cv-font-sans);
-  font-size: 36px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-}
-
-.seccion h2 {
-  font-family: var(--cv-font-sans);
-  font-size: 18px;
-  font-weight: 700;
-  margin-bottom: 16px;
-}
-
-.tamanos {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 16px;
-}
-
-.tamano,
-.personalizado {
+.franja {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
+  gap: var(--cv-space-5);
+  padding: var(--cv-space-12) var(--cv-space-6) var(--cv-space-10);
+  border-radius: var(--cv-radius-xl);
+  background: linear-gradient(90deg, #daf1f8 0%, #e9defc 100%); /* Canva: fondo del Inicio, medido */
+}
+
+.titular {
+  padding-block: 4px; /* el texto en degradado se recorta a la caja: que entren la tilde y los signos */
+  font-size: var(--cv-text-5xl); /* Canva: displayXLarge 42 / 1.1 */
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  text-align: center;
+  color: #6430f5;
+  background: linear-gradient(90deg, #00c4cc 0%, #6430f5 100%); /* Canva: celeste → violeta, termina ~#6430F5 */
+  background: linear-gradient(90deg in oklab, #00c4cc 0%, #6430f5 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--cv-space-2);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
   gap: 6px;
-  padding: 12px;
-  border: 1px solid var(--cv-color-border);
-  border-radius: 12px;
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--cv-color-border-strong);
+  border-radius: var(--cv-radius-full);
   background: var(--cv-color-surface);
-  text-align: left;
+  color: var(--cv-color-text);
+  font-size: var(--cv-text-base);
+  font-weight: 500;
+  white-space: nowrap;
+  transition: border-color var(--cv-duration-fast) var(--cv-ease-out), background var(--cv-duration-fast) var(--cv-ease-out);
 }
 
-.tamano:hover {
-  border-color: #7d2ae8;
+.chip:hover:not(:disabled) {
+  border-color: rgb(28 33 48 / 0.5); /* Canva: borde de campo al pasar el cursor */
 }
 
-.forma {
-  display: block;
-  width: auto;
-  height: 72px;
-  max-width: 100%;
-  border-radius: 4px;
+.chip[aria-pressed='true'] {
+  border-color: var(--cv-selection-color); /* Canva: chip elegido, borde #8B3DFF y fondo #F1EAFF */
+  background: var(--cv-color-brand-soft);
+  color: var(--cv-violet-800);
+}
+
+.chip:disabled {
+  background: rgb(255 255 255 / 0.6);
+  color: rgb(28 33 48 / 0.5); /* Canva: texto deshabilitado */
+}
+
+.chips .chip:focus-visible {
+  border-radius: var(--cv-radius-full);
+}
+
+.insignia {
+  padding: 0 6px;
+  border-radius: var(--cv-radius-full);
+  background: var(--cv-color-brand);
+  color: var(--cv-color-on-brand);
+  font-size: var(--cv-text-xs);
+  font-weight: 700;
+  line-height: 18px;
+}
+
+.chip:disabled .insignia {
+  opacity: 0.6;
+}
+
+.buscador {
+  display: flex;
+  align-items: center;
+  gap: var(--cv-space-3);
+  width: min(760px, 100%);
+  height: 60px;
+  padding: 0 var(--cv-space-2) 0 var(--cv-space-5);
+  border: 2px solid transparent;
+  border-radius: var(--cv-radius-xl);
+  /* Canva: borde en degradado y sombra violeta suave */
+  background:
+    linear-gradient(var(--cv-color-surface), var(--cv-color-surface)) padding-box,
+    linear-gradient(90deg, #00c4cc 0%, #8b3dff 100%) border-box;
+  box-shadow: 0 6px 24px rgb(139 61 255 / 0.14);
+  transition: box-shadow var(--cv-duration-base) var(--cv-ease-out);
+}
+
+.buscador:focus-within {
+  box-shadow: 0 8px 28px rgb(139 61 255 / 0.26);
+}
+
+.lupa {
+  flex: none;
+  color: var(--cv-color-brand);
+}
+
+.buscador input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--cv-color-text);
+  font-size: var(--cv-text-lg);
+}
+
+.buscador input:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+.buscador input::placeholder {
+  color: var(--cv-color-text-subtle);
+}
+
+.limpiar {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--cv-radius-full);
+  color: var(--cv-color-text-muted);
+}
+
+.limpiar:hover {
   background: var(--cv-color-bg-muted);
 }
 
-.nombre {
+.ir {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--cv-radius-full);
+  background: var(--cv-color-cta);
+  color: var(--cv-color-on-cta);
+  transition: background var(--cv-duration-fast) var(--cv-ease-out);
+}
+
+.ir:hover:not(:disabled) {
+  background: var(--cv-color-cta-hover);
+}
+
+.ir:disabled {
+  background: var(--cv-color-bg-muted);
+  color: rgb(28 33 48 / 0.5);
+}
+
+.buscador .ir:focus-visible,
+.buscador .limpiar:focus-visible {
+  border-radius: var(--cv-radius-full);
+}
+
+.error {
+  color: var(--cv-color-danger);
+  font-size: var(--cv-text-base);
+  text-align: center;
+}
+
+/* ── Accesos por tipo: círculos de color con ícono blanco y el rótulo debajo ── */
+
+.accesos {
+  overflow-x: auto;
+  margin-top: calc(-1 * var(--cv-space-2));
+  scrollbar-width: none;
+}
+
+.filaAccesos {
+  display: flex;
+  gap: var(--cv-space-2);
+  width: max-content;
+  margin: 0 auto;
+  padding: var(--cv-space-1) var(--cv-space-2);
+}
+
+.acceso {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--cv-space-2);
+  width: 92px;
+  padding: var(--cv-space-1) 0;
+  color: var(--cv-color-text);
   font-size: 13px;
+  line-height: 18px;
+  text-align: center;
+}
+
+.acceso:hover {
+  text-decoration: none;
+}
+
+.circulo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--cv-radius-full);
+  color: #ffffff;
+  transition: transform var(--cv-duration-fast) var(--cv-ease-out), box-shadow var(--cv-duration-fast) var(--cv-ease-out);
+}
+
+.acceso:hover .circulo {
+  transform: translateY(-2px);
+}
+
+.acceso[aria-expanded='true'] .circulo {
+  box-shadow: 0 0 0 3px var(--cv-color-surface), 0 0 0 5px var(--cv-selection-color);
+}
+
+.acceso[aria-expanded='true'] .rotulo {
   font-weight: 600;
+}
+
+.circuloGris {
+  color: var(--cv-color-text); /* Canva: «Elegir el tamaño» es gris con ícono oscuro */
+}
+
+.rotulo {
+  max-width: 100%;
+}
+
+/* La fila de tamaños que abre un círculo */
+.formatos {
+  display: grid;
+  grid-auto-columns: 168px;
+  grid-auto-flow: column;
+  gap: var(--cv-space-4);
+  overflow-x: auto;
+  margin-top: calc(-1 * var(--cv-space-4));
+  padding: var(--cv-space-1) var(--cv-space-6) var(--cv-space-2);
+}
+
+/* ── Resultados y recientes ─────────────────────────────────────────────── */
+
+.resultados {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cv-space-8);
+  scroll-margin-top: var(--cv-space-4);
+}
+
+.seccion {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cv-space-4);
+  padding: 0 var(--cv-space-6);
+}
+
+.encabezado {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cv-space-3);
+  min-height: 36px;
+}
+
+.encabezado h2 {
+  font-size: var(--cv-text-xl);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.botonVista {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--cv-radius-sm);
   color: var(--cv-color-text);
 }
 
-.medidas {
-  font-size: 12px;
+.botonVista:hover {
+  background: var(--cv-color-bg-muted);
+}
+
+.grillaTamanos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: var(--cv-space-5) var(--cv-space-4);
+}
+
+.sinResultados,
+.vacio {
+  padding: 0 var(--cv-space-6);
   color: var(--cv-color-text-muted);
-}
-
-.personalizado {
-  grid-column: span 2;
-}
-
-.campos {
-  display: flex;
-  align-items: flex-end;
-  gap: 8px;
-}
-
-.campos label {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  font-size: 12px;
-  color: var(--cv-color-text-muted);
-}
-
-.campos input {
-  width: 80px;
-  padding: 6px 8px;
-  border: 1px solid var(--cv-color-border-strong);
-  border-radius: 6px;
-}
-
-.primario {
-  margin-top: 4px;
-  padding: 8px 14px;
-  border-radius: 8px;
-  background: #8b3dff;
-  color: #ffffff;
-  font-weight: 600;
-}
-
-.primario:disabled {
-  opacity: 0.5;
 }
 
 .vacio {
-  color: var(--cv-color-text-muted);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--cv-space-3);
+  padding: 0;
 }
 
+.primario {
+  height: 40px;
+  padding: 0 var(--cv-space-4);
+  border-radius: var(--cv-radius-sm);
+  background: var(--cv-color-cta);
+  color: var(--cv-color-on-cta);
+  font-weight: 600;
+  transition: background var(--cv-duration-fast) var(--cv-ease-out);
+}
+
+.primario:hover {
+  background: var(--cv-color-cta-hover);
+}
+
+/* Cuadrícula: miniatura sobre gris, el nombre y el tipo debajo, alineados a la izquierda */
 .grilla {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 20px;
+  gap: var(--cv-space-6) var(--cv-space-5);
 }
 
 .tarjeta {
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 2px;
+  min-width: 0;
 }
 
 .miniatura {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 160px;
-  padding: 12px;
-  border-radius: 10px;
-  background: var(--cv-color-bg-muted);
+  height: 168px;
+  margin-bottom: 6px;
+  padding: var(--cv-space-4);
   overflow: hidden;
+  border-radius: var(--cv-radius-lg);
+  background: #f2f3f5; /* Canva: el gris detrás de las miniaturas */
+  transition: background var(--cv-duration-fast) var(--cv-ease-out);
+}
+
+.tarjeta:hover .miniatura {
+  background: #e9eaee;
 }
 
 .miniatura img {
-  max-height: 136px;
   width: auto;
-  box-shadow: var(--cv-shadow-sm);
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 2px;
+  box-shadow: var(--cv-shadow-artboard);
 }
 
-.vacia {
+.hoja {
   display: block;
-  height: 120px;
-  background: #ffffff;
-  box-shadow: var(--cv-shadow-sm);
+  flex: none;
+  border-radius: 2px;
+  background: var(--cv-paper);
+  box-shadow: var(--cv-shadow-artboard);
 }
 
-.pie {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+/* El tacho cuelga de la esquina de la miniatura y aparece al pasar el cursor (en pantallas táctiles, siempre) */
+.borrar {
+  position: absolute;
+  top: var(--cv-space-2);
+  right: var(--cv-space-2);
+  opacity: 0;
+  transition: opacity var(--cv-duration-fast) var(--cv-ease-out);
 }
 
-.titulo {
-  font-size: 14px;
-  font-weight: 600;
-  text-align: left;
+.tarjeta:hover .borrar,
+.tarjeta:focus-within .borrar {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .borrar {
+    opacity: 1;
+  }
+}
+
+.nombre {
+  display: block;
+  width: 100%;
   overflow: hidden;
+  color: var(--cv-color-text);
+  font-size: var(--cv-text-base);
+  font-weight: 600;
+  line-height: 20px;
+  text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.detalle {
+  overflow: hidden;
+  color: var(--cv-color-text-muted);
+  font-size: var(--cv-text-sm);
+  line-height: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Lista: Nombre · Tipo · Editado · borrar */
+.tabla {
+  display: flex;
+  flex-direction: column;
+}
+
+.filaCabecera,
+.fila {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 240px) 150px 26px;
+  align-items: center;
+  gap: var(--cv-space-4);
+  padding: 0 var(--cv-space-3);
+}
+
+.filaCabecera {
+  height: 36px;
+  border-bottom: 1px solid var(--cv-color-border);
+  color: var(--cv-color-text-muted);
+  font-size: var(--cv-text-sm);
+  font-weight: 600;
+}
+
+.lista {
+  display: flex;
+  flex-direction: column;
+}
+
+.fila {
+  min-height: 64px;
+  border-radius: var(--cv-radius-md);
+  transition: background var(--cv-duration-fast) var(--cv-ease-out);
+}
+
+.fila:hover {
+  background: var(--cv-color-bg-muted);
+}
+
+.abrir {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--cv-space-3);
+  min-width: 0;
+  padding: var(--cv-space-2) 0;
+  text-align: left;
+}
+
+.mini {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 44px;
+  overflow: hidden;
+  border-radius: 6px;
+  background: #f2f3f5;
+}
+
+.mini img {
+  max-width: 48px;
+  max-height: 36px;
+  box-shadow: var(--cv-shadow-artboard);
+}
+
+.nombreFila {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.celda {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--cv-color-text-muted);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Pantallas chicas ───────────────────────────────────────────────────── */
+
+@media (max-width: 720px) {
+  .inicio {
+    gap: var(--cv-space-6);
+    padding: var(--cv-space-2) var(--cv-space-2) var(--cv-space-8);
+  }
+
+  .franja {
+    gap: var(--cv-space-4);
+    padding: var(--cv-space-8) var(--cv-space-4) var(--cv-space-6);
+  }
+
+  .titular {
+    font-size: var(--cv-text-3xl);
+  }
+
+  .buscador {
+    height: 52px;
+    padding-left: var(--cv-space-4);
+  }
+
+  .seccion,
+  .sinResultados {
+    padding: 0 var(--cv-space-2);
+  }
+
+  .formatos {
+    padding: var(--cv-space-1) var(--cv-space-2) var(--cv-space-2);
+  }
+
+  .grilla {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: var(--cv-space-5) var(--cv-space-3);
+  }
+
+  .miniatura {
+    height: 140px;
+  }
+
+  .filaCabecera,
+  .fila {
+    grid-template-columns: minmax(0, 1fr) 26px;
+  }
+
+  .celdaTipo,
+  .celdaEditado {
+    display: none;
+  }
 }

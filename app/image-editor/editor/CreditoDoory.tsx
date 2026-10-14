@@ -14,6 +14,8 @@
 // saca la obligación (lo derivado sigue siendo derivado): el cartel se va sólo
 // con permiso escrito del autor o con un editor reescrito sin su código.
 // Se puede cerrar, pero vuelve la próxima vez que se abre un diseño.
+// Con el armazón de Canva (tanda 2) va como franja fina al pie del editor
+// (PantallaEditor), debajo de la barra inferior: no compite con la barra superior.
 
 import { useState } from 'react';
 import styles from './credito.module.css';

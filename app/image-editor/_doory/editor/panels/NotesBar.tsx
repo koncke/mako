@@ -106,7 +106,7 @@ function NotesField({ pageId, label, readOnly }: NotesFieldProps) {
   )
 }
 
-/** The speaker notes of the active page, under the workspace. Read-only (and without the empty text area) in view-only links. */
+/** Las notas de la página elegida, entre el área del lienzo y la barra inferior (como en Canva). En un enlace de sólo lectura, sin el campo vacío. */
 function NotesBar() {
   const editor = useEditor()
   const pageId = useEditorState((s) => s.activePageId)
@@ -133,7 +133,7 @@ function NotesBar() {
   )
 }
 
-/** Renders the notes bar while it is switched on (the Notes button of the pages pill, the More menu or `Shift+N`). */
+/** Dibuja las notas mientras están abiertas («Notas» en la barra inferior, el menú o `Shift+N`). */
 export function NotesHost() {
   return useNotesOpen() ? <NotesBar /> : null
 }

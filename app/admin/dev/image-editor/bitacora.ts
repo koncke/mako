@@ -15,7 +15,7 @@ const CH = 'Image Editor (Canva)';
 /** Las fases del área y en qué anda cada una. */
 export const PARTES: Parte[] = [
   { titulo: 'Doory adentro de MaKo', detalle: 'El editor de Doory (fabric.js 7) portado, con el crédito que pide su licencia, guardado local por workspace y sólo para el super admin', estado: 'hecha' },
-  { titulo: 'El re-vestido de Canva', detalle: 'Barra superior, riel izquierdo con su panel, barra del objeto, barra inferior e inicio de Canva, con la paleta y las proporciones medidas', estado: 'cola' },
+  { titulo: 'El re-vestido de Canva', detalle: 'Barra superior, riel izquierdo con su panel, barra del objeto, barra inferior e inicio de Canva, con la paleta y las proporciones medidas', estado: 'hecha' },
   { titulo: 'Guardar en Supabase', detalle: 'Diseños e imágenes en la base y el bucket del workspace; Marca, versiones, compartir y comentarios', estado: 'cola' },
   { titulo: 'El catálogo propio', detalle: 'Fuentes alojadas, íconos y emoji con licencia libre, formas propias, plantillas y fotos de Unsplash', estado: 'cola' },
   { titulo: 'Lo que a Doory le falta de Canva', detalle: 'Texto en formas, tablas, cuadrículas, dibujar, copiar estilo, efectos de texto, quitar fondo de objetos', estado: 'cola' },
@@ -51,6 +51,20 @@ export const BITACORA: Hito[] = [
     ],
     commits: [
       { sha: '7c82507d', msg: 'Image Editor (tanda 1): Doory portado como base del Canva de MaKo, en la tab Image', lineas: 69698, archivos: 531 },
+    ],
+  },
+  {
+    fecha: '14 oct', hora: '—', chat: CH, cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'Que se termine',
+    pedido: 'No se pusheo? Avanza y termina',
+  },
+  {
+    fecha: '14 oct', hora: '—', chat: CH, cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'El editor con el armazón de Canva y el catálogo propio',
+    puntos: [
+      'Barra superior con el degradado de Canva (Inicio, Archivo, Redimensionar, deshacer, guardado, título con medidas, Presentar, Compartir); riel izquierdo Diseño · Elementos · Texto · Marca · Subidos · Herramientas · Proyectos · Apps con su panel flotante; barra del objeto flotante; barra inferior con Notas, zoom, Páginas y pantalla completa; inicio de Canva.',
+      'Catálogo: ~60 fuentes de Google Fonts con sus pesos reales, las 10 plantillas de Doory, íconos y emoji de Iconify con licencia libre.',
+      'Sin verificar en el navegador: el dev server local no aguanta compilar el editor con la máquina llena.',
     ],
   },
 ];

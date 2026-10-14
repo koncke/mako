@@ -1,181 +1,296 @@
+/*
+ * La barra superior de Canva (relevamiento §1 y §2): 56 px, degradado celeste→violeta de punta a punta, texto
+ * blanco 14/22. Los botones de texto («Archivo», «Redimensionar») son transparentes con un velo blanco al pasar.
+ */
 .bar {
   flex: none;
+  position: relative;
   z-index: 100;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  display: flex;
   align-items: center;
-  gap: 12px;
-  height: var(--ed-topbar-h);
-  padding: 0 16px;
-  background: var(--ed-surface);
-  border-bottom: 1px solid var(--ed-border);
+  justify-content: space-between;
+  gap: var(--cv-space-2);
+  height: var(--cv-editor-topbar-h);
+  padding: 0 var(--cv-space-2);
+  background: var(--cv-header-gradient);
+  color: var(--cv-header-text);
+  font: 500 var(--cv-text-base) / 22px var(--cv-font-sans);
 }
 
 .left,
 .right {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--cv-space-1);
   min-width: 0;
 }
+
 .left {
-  gap: 10px;
+  flex: 0 1 auto;
 }
+
 .right {
+  flex: 1 1 auto;
   justify-content: flex-end;
 }
-/* When the bar is tight the middle group stops being centred, so the right-hand group keeps its full width instead of being squeezed. */
-@media (min-width: 641px) {
-  .bar[data-level='3'] {
-    grid-template-columns: minmax(0, 1fr) auto auto;
-  }
+
+.start {
+  display: flex;
+  flex: none;
+  align-items: center;
 }
+
 .presence {
   display: flex;
   flex: none;
 }
+
 .end {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--cv-space-1);
   flex: none;
   white-space: nowrap;
 }
 
-.title {
-  flex: 0 1 220px;
-  min-width: 80px;
-  width: 220px;
-  height: 32px;
-  padding: 0 8px;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--ed-text);
-  font: 600 14px / 1 var(--cv-font-sans);
-  text-overflow: ellipsis;
-}
-.title:hover:not(:read-only) {
-  border-color: var(--ed-border);
-  background: var(--ed-surface-2);
-}
-.title:focus {
-  outline: none;
-  border-color: var(--ed-accent);
-  background: var(--ed-surface);
-  box-shadow: 0 0 0 3px var(--ed-accent-glow);
+/* Separador vertical entre grupos, blanco translúcido. Canva: ~1×24 px */
+.sep {
+  flex: none;
+  width: 1px;
+  height: 24px;
+  margin: 0 var(--cv-space-1);
+  background: rgb(255 255 255 / 0.3);
 }
 
-.center {
+/* Botón de la barra sobre el degradado. Canva: alto 40, radio 8, sin borde */
+.hbtn {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: var(--cv-space-2);
+  height: 40px;
+  padding: 0 var(--cv-space-3);
+  border: 1px solid transparent;
+  border-radius: var(--cv-radius-sm);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--cv-duration-fast) var(--cv-ease-out);
+}
+
+.hbtn:hover:not(:disabled),
+.hbtn[aria-expanded='true'],
+.hbtn[aria-pressed='true'] {
+  background: var(--cv-header-hover);
+}
+
+.hbtn:active:not(:disabled) {
+  background: rgb(255 255 255 / 0.24); /* Canva: presionado, un escalón más que el hover */
+}
+
+.hbtn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.hbtn:focus-visible,
+.share:focus-visible {
+  outline: 2px solid var(--cv-header-text);
+  outline-offset: 1px;
+}
+
+.square {
+  width: 40px;
+  padding: 0;
+}
+
+/* Los botones con borde de la derecha (Comentarios, Presentar). Canva: borde blanco translúcido */
+.outlined {
+  border-color: var(--cv-header-button-border);
+}
+
+/* «Compartir»: botón claro sobre el degradado. Canva: #F3EBFD / texto #0E1318, ~93×42 */
+.share {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: var(--cv-space-2);
+  height: 40px;
+  margin-left: var(--cv-space-1);
+  padding: 0 var(--cv-space-4);
+  border: 0;
+  border-radius: var(--cv-radius-sm);
+  background: #f3ebfd; /* Canva: «Compartir» sobre el degradado */
+  color: var(--cv-color-text);
+  font: 600 var(--cv-text-base) / 22px var(--cv-font-sans);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--cv-duration-fast) var(--cv-ease-out);
+}
+
+.share:hover,
+.share[aria-expanded='true'] {
+  background: #ffffff;
+}
+
+.shareIcon {
+  width: 40px;
+  padding: 0;
+}
+
+/* «Diseño sin título - 1080 × 1080 px»: blanco translúcido, se edita el nombre en el lugar */
+.titleBox {
+  display: inline-flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: var(--cv-space-1);
+  min-width: 0;
+  max-width: 420px;
+  height: 40px;
+  margin-right: var(--cv-space-2);
+  padding: 0 var(--cv-space-2);
+  border: 1px solid transparent;
+  border-radius: var(--cv-radius-sm);
+  color: rgb(255 255 255 / 0.85); /* Canva: el título va en blanco translúcido */
+  white-space: nowrap;
+}
+
+.titleBox:not(.titleLocked):hover {
+  border-color: var(--cv-header-button-border);
+}
+
+.titleBox:focus-within {
+  border-color: var(--cv-header-text);
+  background: var(--cv-header-hover);
+  color: var(--cv-header-text);
+}
+
+/* El campo crece con el texto: el ::after copia el valor (data-value) y le da el ancho a la grilla. */
+.titleSizer {
+  display: inline-grid;
+  min-width: 0;
+  max-width: 260px;
+  overflow: hidden;
+}
+
+.titleSizer::after,
+.title {
+  grid-area: 1 / 1;
+  min-width: 0;
+  font: inherit;
+  font-weight: 500;
+  letter-spacing: inherit;
+}
+
+.titleSizer::after {
+  content: attr(data-value) ' ';
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
+  white-space: pre;
+}
+
+.title {
+  width: 100%;
+  min-width: 1ch;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-overflow: ellipsis;
+}
+
+.title::placeholder {
+  color: inherit;
+}
+
+.title:focus {
+  outline: none;
+}
+
+.title:read-only {
+  cursor: default;
+}
+
+.titleSize {
+  flex: none;
+}
+
+/* Herramientas en pantallas chicas: tira blanca abajo, ícono sobre rótulo (la barra del teléfono de Canva) */
+.compactTools {
+  flex: none;
+  display: flex;
+  justify-content: flex-start;
   gap: 2px;
+  padding: var(--cv-space-1) var(--cv-space-2);
+  overflow-x: auto;
+  border-top: 1px solid var(--cv-color-border);
+  background: var(--cv-color-surface);
+  scrollbar-width: none;
+}
+
+.compactTools::-webkit-scrollbar {
+  display: none;
 }
 
 .entry {
   display: inline-flex;
+  flex: 1 0 auto;
   flex-direction: column;
   align-items: center;
-  gap: 1px;
-  flex: none;
-  min-width: 64px;
-  padding: 6px 14px;
-  border: none;
-  border-radius: 8px;
+  gap: 2px;
+  min-width: 60px;
+  padding: 6px var(--cv-space-2);
+  border: 0;
+  border-radius: var(--cv-radius-sm);
   background: none;
-  color: var(--ed-text-dim);
-  font: 600 11px / 1.35 var(--cv-font-sans);
+  color: var(--cv-color-text);
+  font: 600 var(--cv-text-xs) / 16px var(--cv-font-sans);
   cursor: pointer;
-  transition:
-    color var(--ed-dur),
-    background var(--ed-dur);
 }
+
 .entry:hover,
 .entryOn {
-  background: var(--ed-accent-glow);
-  color: var(--ed-accent);
+  background: var(--cv-color-brand-soft);
+  color: var(--cv-color-brand);
 }
+
 .entry:focus-visible {
   outline: none;
   box-shadow: var(--cv-focus-ring);
 }
-/* Tightest bar: the tools sit closer so the title, the status and the avatars keep their room. */
-.bar[data-level='3'] .entry {
-  min-width: 52px;
-  padding: 6px 8px;
-}
+
 .entryIcon {
   display: inline-flex;
 }
+
 .entryLabel {
-  letter-spacing: 0.2px;
+  white-space: nowrap;
 }
 
-.download {
-  gap: 6px;
-}
-.share {
-  gap: 6px;
-  margin-left: 4px;
+/* Barra angosta: menos aire entre grupos y el nombre más corto */
+.bar[data-size='narrow'] .titleSizer {
+  max-width: 160px;
 }
 
-/* Icon-only Download and Share when the bar is tight: on narrow windows, or when the shell's end slot is wide. */
-.bar[data-level='3'] .btnLabel {
-  display: none;
-}
-@media (max-width: 1099px) {
-  .btnLabel {
-    display: none;
-  }
+.bar[data-size='narrow'] .hbtn:not(.square) {
+  padding: 0 var(--cv-space-2);
 }
 
-@media (max-width: 640px) {
-  .bar {
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-rows: auto auto;
-    gap: 4px;
-    height: auto;
-    padding: 4px 6px;
-  }
-  .left {
-    grid-column: 1;
-    grid-row: 1;
-    gap: 4px;
-  }
-  .right {
-    grid-column: 2;
-    grid-row: 1;
-    gap: 2px;
-  }
-  .bar .download {
-    display: none;
-  }
-  .end {
-    margin-left: 4px;
-  }
-  .title {
-    flex: 1 1 60px;
-    width: auto;
-    min-width: 40px;
-    font-size: 12px;
-  }
-  .center {
-    grid-column: 1 / -1;
-    grid-row: 2;
-    justify-content: space-around;
-    gap: 2px;
-    margin-top: 2px;
-    padding-top: 4px;
-    border-top: 1px solid var(--ed-border-light);
-  }
-  .entry {
-    flex: 1;
-    min-width: 0;
-    padding: 6px 8px;
-    font-size: 10px;
-  }
+.bar[data-size='tiny'] {
+  gap: var(--cv-space-1);
+  padding: 0 var(--cv-space-1);
 }
 
-@media (max-width: 380px) {
-  .title {
-    flex-basis: 40px;
-  }
+.bar[data-size='tiny'] .sep {
+  margin: 0 2px;
+}
+
+.bar[data-size='tiny'] .hbtn:not(.square) {
+  padding: 0 var(--cv-space-2);
 }

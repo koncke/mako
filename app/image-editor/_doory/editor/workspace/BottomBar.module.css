@@ -1,0 +1,236 @@
+/*
+ * La barra inferior de Canva (relevamiento §7): 40 px, el gris del cromo, botones terciarios (sin borde) con el
+ * hover y el presionado del sistema de diseño de Canva, y el zoom a la derecha.
+ */
+.bar {
+  /* El padre (la columna del área principal) es flex: `order` la deja al pie, debajo de notas, línea de tiempo y tira. */
+  order: 1;
+  position: relative;
+  z-index: 2;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cv-space-2);
+  height: var(--cv-editor-bottombar-h);
+  padding: 0 var(--cv-space-2);
+  background: var(--cv-chrome);
+  color: var(--cv-color-text);
+  font: 500 var(--cv-text-base) / 1 var(--cv-font-sans);
+  user-select: none;
+}
+
+.start,
+.end {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+.textBtn,
+.iconBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 var(--cv-space-2);
+  border: 0;
+  border-radius: var(--cv-radius-sm);
+  background: transparent;
+  color: var(--cv-color-text);
+  font: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--cv-duration-fast) var(--cv-ease-out);
+}
+.iconBtn {
+  width: 32px;
+  padding: 0;
+}
+.textBtn:hover,
+.iconBtn:hover {
+  background: var(--cv-color-bg-muted); /* Canva: terciario hover #404F6D0F */
+}
+.textBtn:active,
+.iconBtn:active {
+  background: var(--cv-color-border); /* Canva: terciario presionado #39466024 */
+}
+.textBtn[aria-pressed='true'],
+.iconBtn[aria-pressed='true'] {
+  background: rgb(163 112 252 / 0.15); /* Canva: elegido #A370FC26 */
+  color: var(--cv-violet-800); /* Canva: texto elegido #4A2E7E */
+}
+.textBtn[aria-pressed='true']:active,
+.iconBtn[aria-pressed='true']:active {
+  background: rgb(163 112 252 / 0.2); /* Canva: elegido presionado #A370FC33 */
+}
+.textBtn:focus-visible,
+.iconBtn:focus-visible {
+  outline: none;
+  box-shadow: var(--cv-focus-ring);
+}
+
+.count {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Zoom: deslizador fino y la caja del porcentaje */
+.zoom {
+  display: flex;
+  align-items: center;
+  gap: var(--cv-space-2);
+  margin-right: var(--cv-space-1);
+}
+
+.slider {
+  --track: var(--cv-color-border-strong);
+  width: 112px;
+  height: 20px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+}
+.slider::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: var(--cv-radius-full);
+  background: linear-gradient(to right, var(--cv-selection-color) var(--fill, 0%), var(--track) var(--fill, 0%));
+}
+.slider::-moz-range-track {
+  height: 4px;
+  border-radius: var(--cv-radius-full);
+  background: var(--track);
+}
+.slider::-moz-range-progress {
+  height: 4px;
+  border-radius: var(--cv-radius-full);
+  background: var(--cv-selection-color);
+}
+/* Canva: pulgar violeta #8B3DFF con borde blanco; al arrastrar, el halo #EBDCFF */
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -6px;
+  border: 2px solid var(--cv-color-surface);
+  border-radius: var(--cv-radius-full);
+  background: var(--cv-selection-color);
+  box-shadow: var(--cv-shadow-sm);
+  transition: box-shadow var(--cv-duration-fast) var(--cv-ease-out);
+}
+.slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--cv-color-surface);
+  border-radius: var(--cv-radius-full);
+  background: var(--cv-selection-color);
+  box-shadow: var(--cv-shadow-sm);
+}
+.slider:active::-webkit-slider-thumb {
+  box-shadow: 0 0 0 4px #ebdcff;
+}
+.slider:active::-moz-range-thumb {
+  box-shadow: 0 0 0 4px #ebdcff;
+}
+.slider:focus-visible {
+  outline: none;
+}
+.slider:focus-visible::-webkit-slider-thumb {
+  box-shadow: var(--cv-focus-ring);
+}
+.slider:focus-visible::-moz-range-thumb {
+  box-shadow: var(--cv-focus-ring);
+}
+
+.percent {
+  min-width: 56px;
+  height: 28px;
+  padding: 0 var(--cv-space-2);
+  border: 1px solid var(--cv-color-border-strong); /* Canva: borde de campo #35415A33 */
+  border-radius: var(--cv-radius-sm);
+  background: var(--cv-color-surface);
+  color: var(--cv-color-text);
+  font: 500 var(--cv-text-sm) / 1 var(--cv-font-sans);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color var(--cv-duration-fast) var(--cv-ease-out);
+}
+.percent:hover {
+  border-color: rgb(28 33 48 / 0.5); /* Canva: borde de campo al pasar #1C213080 */
+}
+.percent[aria-expanded='true'] {
+  border-color: var(--cv-selection-color);
+}
+.percent:focus-visible {
+  outline: none;
+  box-shadow: var(--cv-focus-ring);
+}
+
+/* La lista del zoom: menú blanco con la sombra flotante de Canva (el selector doble le gana al estilo base del popover). */
+.zoomPop.zoomPop {
+  border: 0;
+  border-radius: var(--cv-radius-lg);
+  box-shadow: var(--cv-shadow-lg);
+}
+.zoomList {
+  display: flex;
+  flex-direction: column;
+  min-width: 168px;
+  padding: var(--cv-space-2);
+}
+.zoomRow {
+  display: contents;
+}
+.zoomSep {
+  height: 1px;
+  margin: var(--cv-space-1) 0;
+  border: 0;
+  background: var(--cv-color-border);
+}
+.zoomItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cv-space-3);
+  height: 36px;
+  padding: 0 var(--cv-space-3);
+  border: 0;
+  border-radius: var(--cv-radius-sm);
+  background: transparent;
+  color: var(--cv-color-text);
+  font: 400 var(--cv-text-base) / 1 var(--cv-font-sans);
+  font-variant-numeric: tabular-nums;
+  text-align: left;
+  cursor: pointer;
+}
+.zoomItem:hover {
+  background: var(--cv-color-bg-muted);
+}
+.zoomItem[aria-pressed='true'] {
+  font-weight: 600;
+}
+.zoomItem:focus-visible {
+  outline: none;
+  box-shadow: var(--cv-focus-ring);
+}
+
+/* Teléfono: los rótulos de Notas/Duración y el deslizador ceden lugar; queda el porcentaje. */
+@media (max-width: 640px) {
+  .bar {
+    padding: 0 var(--cv-space-1);
+  }
+  .start .text {
+    display: none;
+  }
+  .start .textBtn {
+    width: 32px;
+    padding: 0;
+  }
+  .slider {
+    display: none;
+  }
+}

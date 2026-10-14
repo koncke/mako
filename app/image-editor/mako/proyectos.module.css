@@ -1,0 +1,121 @@
+/*
+ * «Proyectos» con los valores de Canva (docs/editor-imagen/relevamiento-canva-armazon.md §1.2–1.4): pestañas con raya
+ * violeta, miniaturas en dos columnas con radio 8 y el diseño abierto con el anillo violeta de «elegido».
+ * Usa los tokens `--cv-*` del editor (este panel se dibuja dentro de `.cv`).
+ */
+.pestanas {
+  display: flex;
+  flex: none;
+  gap: 16px;
+  border-bottom: 1px solid var(--cv-color-border);
+}
+.pestana {
+  position: relative;
+  height: 36px;
+  padding: 0 2px;
+  border: none;
+  background: transparent;
+  color: var(--cv-color-text-muted);
+  font: 600 var(--cv-text-base) / 1 var(--cv-font-sans);
+  cursor: pointer;
+}
+.pestana:hover {
+  color: var(--cv-color-text);
+}
+.pestana[aria-selected='true'] {
+  color: var(--cv-color-text);
+}
+.pestana[aria-selected='true']::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--cv-color-brand);
+}
+.pestana:focus-visible {
+  outline: none;
+  box-shadow: var(--cv-focus-ring);
+}
+
+.grilla {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: end;
+  gap: 12px 8px;
+}
+.item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.tarjeta {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 0;
+  overflow: hidden;
+  border: none;
+  border-radius: var(--cv-radius-sm);
+  background: var(--cv-color-bg-subtle);
+  box-shadow: inset 0 0 0 1px var(--cv-color-border);
+  cursor: pointer;
+  transition: filter var(--cv-duration-fast) var(--cv-ease-out);
+}
+.tarjeta:hover:not(:disabled) {
+  filter: brightness(0.95);
+}
+.tarjeta:focus-visible {
+  outline: none;
+  box-shadow: var(--cv-focus-ring);
+}
+.tarjeta:disabled {
+  cursor: progress;
+  opacity: 0.6;
+}
+.tarjeta img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+/* Canva: lo elegido lleva el anillo violeta de 2 px separado 2 px (la miniatura de la página elegida) */
+.abierto {
+  box-shadow:
+    0 0 0 2px var(--cv-color-surface),
+    0 0 0 4px var(--cv-selection-color);
+}
+.vacia {
+  width: 100%;
+  height: 100%;
+  background: var(--cv-color-surface);
+}
+.marca {
+  position: absolute;
+  left: 6px;
+  bottom: 6px;
+  padding: 2px 8px;
+  border-radius: var(--cv-radius-full);
+  background: var(--cv-color-brand);
+  color: var(--cv-color-on-brand);
+  font: 600 11px / 16px var(--cv-font-sans);
+}
+.titulo {
+  overflow: hidden;
+  color: var(--cv-color-text);
+  font: 400 var(--cv-text-sm) / 16px var(--cv-font-sans);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.aviso {
+  margin: 8px 0 0;
+  color: var(--cv-color-text-subtle);
+  font: 400 var(--cv-text-sm) / 18px var(--cv-font-sans);
+  text-align: center;
+}

@@ -1,3 +1,7 @@
+/*
+ * Diálogo de Canva (relevamiento §1.2–1.4): velo rgba(36,44,61,.4), tarjeta blanca con radio 16 y la sombra
+ * «flotante», título 24/600 (titleLarge), cuerpo con 24 px de margen y sin raya sobre el pie.
+ */
 .overlay {
   position: fixed;
   inset: 0;
@@ -15,37 +19,39 @@
   flex-direction: column;
   width: 100%;
   max-height: calc(100vh - 32px);
-  border: 2px solid var(--cv-ink);
+  border: 0;
   border-radius: var(--cv-radius-xl);
   background: var(--cv-color-surface-raised);
   color: var(--cv-color-text);
-  box-shadow: 6px 6px 0 var(--cv-pastel-pink), var(--cv-shadow-lg);
-  animation: rise var(--cv-duration-slow) var(--cv-ease-out);
+  font: 400 var(--cv-text-base) / var(--cv-leading-normal) var(--cv-font-sans);
+  box-shadow: var(--cv-shadow-lg);
+  animation: rise var(--cv-duration-base) var(--cv-ease-out);
 }
 
 .header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: var(--cv-space-3);
-  padding: var(--cv-space-4) var(--cv-space-5) var(--cv-space-2);
+  padding: var(--cv-space-6) var(--cv-space-4) var(--cv-space-2) var(--cv-space-6);
 }
 
 .title {
   margin: 0;
-  font: 700 var(--cv-text-xl) / 1.2 var(--cv-font-display);
-  letter-spacing: -0.01em;
+  padding-top: 2px;
+  font: 600 var(--cv-text-2xl) / var(--cv-leading-tight) var(--cv-font-display);
+  color: var(--cv-color-text);
 }
 
 .desc {
   margin: 0;
-  padding: 0 var(--cv-space-5);
+  padding: 0 var(--cv-space-6);
   color: var(--cv-color-text-muted);
-  font-size: var(--cv-text-sm);
+  font: 400 var(--cv-text-base) / var(--cv-leading-normal) var(--cv-font-sans);
 }
 
 .body {
-  padding: var(--cv-space-3) var(--cv-space-5) var(--cv-space-5);
+  padding: var(--cv-space-4) var(--cv-space-6) var(--cv-space-6);
   overflow: auto;
 }
 
@@ -53,8 +59,7 @@
   display: flex;
   justify-content: flex-end;
   gap: var(--cv-space-2);
-  padding: var(--cv-space-3) var(--cv-space-5) var(--cv-space-4);
-  border-top: 1px solid var(--cv-color-border);
+  padding: 0 var(--cv-space-6) var(--cv-space-6);
 }
 
 @keyframes fade {
@@ -66,6 +71,6 @@
 @keyframes rise {
   from {
     opacity: 0;
-    transform: translateY(10px) scale(0.985);
+    transform: translateY(8px) scale(0.99);
   }
 }

@@ -1,3 +1,4 @@
+/* Popover de Canva: superficie blanca, sombra «flotante» (--cv-shadow-lg), radio 12, sin borde marcado */
 .panel {
   position: fixed;
   left: 0;
@@ -6,12 +7,13 @@
   max-width: calc(100vw - 16px);
   max-height: calc(100vh - 16px);
   overflow: auto;
-  padding: var(--cv-space-3);
-  border: 1.5px solid var(--cv-ink);
+  padding: var(--cv-space-4);
+  border: 0;
   border-radius: var(--cv-radius-lg);
   background: var(--cv-color-surface-raised);
   color: var(--cv-color-text);
-  box-shadow: 4px 4px 0 var(--cv-pastel-butter), var(--cv-shadow-md);
+  font: 400 var(--cv-text-base) / var(--cv-leading-normal) var(--cv-font-sans);
+  box-shadow: var(--cv-shadow-lg);
   animation: pop-in var(--cv-duration-base) var(--cv-ease-out);
   overscroll-behavior: contain;
 }
@@ -19,9 +21,14 @@
 /* Toolbar popovers and drawers: no padding of their own. */
 .plain {
   padding: 0;
-  border-radius: 14px;
-  box-shadow: 4px 4px 0 var(--cv-pastel-butter), 0 16px 40px rgb(43 28 23 / 0.12);
+  border-radius: var(--cv-radius-lg);
+  box-shadow: var(--cv-shadow-lg);
   animation: pop-in 140ms var(--cv-ease-out);
+}
+
+/* Abierto desde un diálogo: tiene que quedar por encima del velo del diálogo. */
+.overModal {
+  z-index: calc(var(--cv-z-modal) + 2);
 }
 
 .cover {
@@ -29,6 +36,10 @@
   inset: 0;
   z-index: calc(var(--cv-z-drawer) - 1);
   background: transparent;
+}
+
+.coverOverModal {
+  z-index: calc(var(--cv-z-modal) + 1);
 }
 
 /* Hidden until placed. `opacity`, not `visibility`: visibility is inherited, so children with `transition: all` would

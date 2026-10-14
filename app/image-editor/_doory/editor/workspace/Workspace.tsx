@@ -8,20 +8,25 @@ import { getPageSize, pageSizes, widestPage } from '../engine/pageSizes'
 import { wheelZoom } from '../engine/zoom'
 import { useLatest } from '../hooks/useLatest'
 import { t } from '../strings'
-import { Button } from '../ui/Button'
 import { LazyCommentPins } from './CommentPinsLoader'
 import { PageSlot } from './PageSlot'
 import { Rulers } from './Rulers'
-import { CanvasSizeButton } from './CanvasSizeButton'
+import { BottomBar } from './BottomBar'
 import { FollowBadge } from '../chrome/FollowBadge'
-import { PagesPill } from './PagesPill'
+import { PageGrid } from './PageGrid'
 import { LazyTimelinePreview } from './TimelineLoader'
-import { ZoomControls } from './ZoomControls'
 import { usePresenceTracking } from './usePresenceTracking'
 import styles from './Workspace.module.css'
 
-/** 32 px around the page; the per-page header only exists once there are several pages. */
-const metricsFor = (pages: number): StackMetrics => ({ ...DEFAULT_METRICS, padding: 32, header: pages > 1 ? DEFAULT_METRICS.header : 0 })
+/**
+ * La barra del objeto flota SOBRE el lienzo (toolbar/parts.module.css: 8 px del borde + 48 px de alto + 8 px de aire):
+ * esta franja de arriba es suya, y ni el arranque de la página ni el salto a una página caen debajo de ella.
+ */
+const TOOLBAR_BAND = 64
+/** 72 px sobre la primera página (la franja de la barra + 8); el encabezado de página («Página 1 - Agregar título de página») va siempre, también con una sola página, como en Canva. */
+const METRICS: StackMetrics = { ...DEFAULT_METRICS, padding: TOOLBAR_BAND + 8 }
+/** El botón ancho «+ Agregar página» nunca es más angosto que esto, por chica que se vea la última página. */
+const ADD_PAGE_MIN_WIDTH = 240
 const BLEED = 56
 const OVERSCAN = 360
 /** Pages this many viewport heights from the visible area (above and below) get their picture prepared in the background. */
@@ -67,6 +72,9 @@ export function Workspace({ stripOpen, onToggleStrip }: WorkspaceProps) {
   /** Pages within a couple of screens: the ones whose picture is prepared while they have no live canvas (a long design must not render all of them at once). */
   const [near, setNear] = useState<ReadonlySet<string>>(() => new Set([doc.pages[0].id]))
   const [dropping, setDropping] = useState(false)
+  /** La «Vista de cuadrícula» de la barra inferior: tapa el área del lienzo con las páginas en mosaico. */
+  const [grid, setGrid] = useState(false)
+  const closeGrid = useCallback(() => setGrid(false), [])
   const prev = useRef<{ zoom: number; layout: ReturnType<typeof computeStack> } | null>(null)
   /** Where the scroller was before the last change of layout: scrolling does not re-render, so it is tracked here. */
   const lastScroll = useRef({ top: 0, left: 0 })
@@ -74,7 +82,7 @@ export function Workspace({ stripOpen, onToggleStrip }: WorkspaceProps) {
   const panning = spaceDown || tool === 'hand'
   usePresenceTracking(scrollRef, artboards)
 
-  const metrics = useMemo(() => metricsFor(doc.pages.length), [doc.pages.length])
+  const metrics = METRICS
   const layout = useMemo(
     () => computeStack(doc.pages.map((p) => ({ id: p.id, ...pageSize(doc, p) })), zoom, metrics),
     [doc, zoom, metrics],
@@ -92,7 +100,7 @@ export function Workspace({ stripOpen, onToggleStrip }: WorkspaceProps) {
     const slot = pending ? layoutRef.current.slots.find((s) => s.id === pending.id) : undefined
     if (!pending || !el || !slot) return
     pendingScroll.current = null
-    el.scrollTo({ top: Math.max(0, slot.top - 24), behavior: pending.behavior })
+    el.scrollTo({ top: Math.max(0, slot.top - TOOLBAR_BAND), behavior: pending.behavior })
   }, [layoutRef])
 
   const registerArtboard = useCallback((id: string, el: HTMLDivElement | null) => {
@@ -273,7 +281,9 @@ export function Workspace({ stripOpen, onToggleStrip }: WorkspaceProps) {
         // The zoom may be about to change (a resize refits it): scroll once the new layout is in place.
         requestAnimationFrame(flushScroll)
       },
-      viewportSize: () => ({ width: scrollRef.current?.clientWidth ?? 0, height: scrollRef.current?.clientHeight ?? 0 }),
+      // «Ajustar» deja lugar para el encabezado de la página: la página entera, su título arriba y el «+ Agregar página» abajo entran en pantalla.
+      // También descuenta la franja de la barra flotante (lo que pasa de los 48 px de aire que ya deja fitZoom).
+      viewportSize: () => ({ width: scrollRef.current?.clientWidth ?? 0, height: Math.max(0, (scrollRef.current?.clientHeight ?? 0) - METRICS.header - (TOOLBAR_BAND - 48)) }),
       relayout: () => {
         windows.current.clear()
         updateLive()
@@ -385,56 +395,62 @@ export function Workspace({ stripOpen, onToggleStrip }: WorkspaceProps) {
     void editor.insert.imageFiles(files, inside, pageId)
   }
 
+  const lastWidth = layout.slots[layout.slots.length - 1]?.width ?? 0
+
+  // Dos hermanas en la columna del área principal: el área del lienzo y la barra inferior de Canva (que con `order`
+  // queda al pie, debajo de las notas, la línea de tiempo y la tira de miniaturas que el armazón pone en el medio).
   return (
-    <div className={styles.workspace} data-dropping={dropping || undefined}>
-      {rulers ? <Rulers scrollRef={scrollRef} artboards={artboards} /> : null}
-      <div
-        ref={scrollRef}
-        className={`${styles.scroller} ${rulers ? styles.withRulers : ''} ${panning ? styles.hand : ''} ${tool === 'text' ? styles.textTool : ''}`}
-        data-workspace-bg
-        onPointerDown={onBackgroundPointerDown}
-        onDragOver={onDragOver}
-        onDragLeave={() => setDropping(false)}
-        onDrop={onDrop}
-        onContextMenu={(e) => {
-          if (e.target === e.currentTarget) e.preventDefault()
-        }}
-      >
-        <div className={styles.content} data-workspace-bg style={{ minWidth: `max(100%, ${layout.contentWidth}px)`, paddingTop: metrics.padding, paddingBottom: metrics.padding + 56 }}>
-          {doc.pages.map((page, index) => {
-            const slot = layout.slots[index]
-            return (
-              <PageSlot
-                key={page.id}
-                page={page}
-                index={index}
-                total={doc.pages.length}
-                width={slot.width}
-                height={slot.height}
-                zoom={zoom}
-                headerHeight={metrics.header}
-                gap={metrics.gap}
-                live={live.has(page.id)}
-                near={near.has(page.id)}
-                active={page.id === activePageId}
-                registerArtboard={registerArtboard}
-              />
-            )
-          })}
-          {readOnly ? null : (
-            <Button className={styles.addPage} variant="soft" icon={<Plus size={18} />} onClick={() => editor.pages.add(doc.pages.length)}>
-              {t.workspace.addPage}
-            </Button>
-          )}
+    <>
+      <div className={styles.workspace} data-dropping={dropping || undefined}>
+        {rulers && !grid ? <Rulers scrollRef={scrollRef} artboards={artboards} /> : null}
+        <div
+          ref={scrollRef}
+          className={`${styles.scroller} ${rulers ? styles.withRulers : ''} ${panning ? styles.hand : ''} ${tool === 'text' ? styles.textTool : ''}`}
+          data-workspace-bg
+          onPointerDown={onBackgroundPointerDown}
+          onDragOver={onDragOver}
+          onDragLeave={() => setDropping(false)}
+          onDrop={onDrop}
+          onContextMenu={(e) => {
+            if (e.target === e.currentTarget) e.preventDefault()
+          }}
+        >
+          <div className={styles.content} data-workspace-bg style={{ minWidth: `max(100%, ${layout.contentWidth}px)`, paddingTop: metrics.padding, paddingBottom: metrics.padding + 56 }}>
+            {doc.pages.map((page, index) => {
+              const slot = layout.slots[index]
+              return (
+                <PageSlot
+                  key={page.id}
+                  page={page}
+                  index={index}
+                  total={doc.pages.length}
+                  width={slot.width}
+                  height={slot.height}
+                  zoom={zoom}
+                  headerHeight={metrics.header}
+                  gap={metrics.gap}
+                  live={live.has(page.id)}
+                  near={near.has(page.id)}
+                  active={page.id === activePageId}
+                  registerArtboard={registerArtboard}
+                />
+              )
+            })}
+            {readOnly ? null : (
+              <button type="button" className={styles.addPage} style={{ width: Math.max(ADD_PAGE_MIN_WIDTH, lastWidth) }} data-testid="ed-add-page" onClick={() => editor.pages.add(doc.pages.length)}>
+                <Plus size={18} aria-hidden="true" />
+                <span>{t.workspace.addPage}</span>
+              </button>
+            )}
+          </div>
         </div>
+        <LazyCommentPins scrollRef={scrollRef} artboards={artboards} />
+        <FollowBadge />
+        <LazyTimelinePreview scrollRef={scrollRef} />
+        {grid ? <PageGrid onClose={closeGrid} /> : null}
+        {dropping ? <div className={styles.dropHint}>{t.panels.uploadHint}</div> : null}
       </div>
-      <LazyCommentPins scrollRef={scrollRef} artboards={artboards} />
-      {readOnly ? null : <CanvasSizeButton />}
-      <FollowBadge />
-      <ZoomControls />
-      <PagesPill stripOpen={stripOpen} onToggleStrip={onToggleStrip} />
-      <LazyTimelinePreview scrollRef={scrollRef} />
-      {dropping ? <div className={styles.dropHint}>{t.panels.uploadHint}</div> : null}
-    </div>
+      <BottomBar stripOpen={stripOpen} onToggleStrip={onToggleStrip} grid={grid} onToggleGrid={() => setGrid((g) => !g)} />
+    </>
   )
 }

@@ -1,3 +1,7 @@
+/*
+ * «Agregar un color nuevo» de Canva: espectro con radio 8, barra de tono, cuentagotas a la izquierda del campo
+ * hexadecimal y muestras como baldosas cuadradas de esquinas redondeadas (seis por fila).
+ */
 .picker {
   display: flex;
   flex-direction: column;
@@ -8,7 +12,7 @@
 .sv {
   position: relative;
   height: 160px;
-  border-radius: var(--cv-radius-md);
+  border-radius: var(--cv-radius-sm);
   cursor: crosshair;
   touch-action: none;
   outline: none;
@@ -19,48 +23,95 @@
 
 .svHandle {
   position: absolute;
-  width: 18px;
-  height: 18px;
-  margin: -9px 0 0 -9px;
-  border: 3px solid #fff;
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  border: 2px solid #fff;
   border-radius: 50%;
-  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.35), 0 2px 6px rgb(0 0 0 / 0.35);
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.2), 0 1px 4px rgb(0 0 0 / 0.3);
   pointer-events: none;
 }
 
-.sliders {
-  display: flex;
-  align-items: center;
-  gap: var(--cv-space-3);
-}
-
 .slidersCol {
-  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 10px;
   min-width: 0;
 }
 
+.hexRow {
+  display: flex;
+  align-items: center;
+  gap: var(--cv-space-2);
+}
+
+/* Cuentagotas: botón secundario cuadrado de Canva */
 .eye {
   flex: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
+  width: 40px;
+  height: 40px;
   border: 1px solid var(--cv-color-border-strong);
-  border-radius: var(--cv-radius-md);
+  border-radius: var(--cv-radius-sm);
   background: var(--cv-color-surface);
   color: var(--cv-color-text);
   cursor: pointer;
 }
 .eye:hover {
-  background: var(--cv-color-bg-muted);
+  background: rgb(64 79 109 / 0.06);
 }
 .eye:focus-visible {
   outline: none;
   box-shadow: var(--cv-focus-ring);
+}
+
+/* Campo hexadecimal de Canva: muestra del color a la izquierda y el código */
+.hexField {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--cv-space-2);
+  height: 40px;
+  min-width: 0;
+  padding: 0 var(--cv-space-3);
+  border: 1px solid var(--cv-color-border-strong);
+  border-radius: var(--cv-radius-sm);
+  background: var(--cv-color-surface);
+  cursor: text;
+}
+.hexField:hover {
+  border-color: rgb(28 33 48 / 0.5);
+}
+.hexField:focus-within {
+  border-color: var(--cv-color-brand);
+  box-shadow: 0 0 0 1px var(--cv-color-brand);
+}
+.hexChip {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 1px rgb(57 70 96 / 0.2);
+}
+.hexField input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--cv-color-text);
+  font: 400 var(--cv-text-base) / 1 var(--cv-font-sans);
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+}
+.hexField input[aria-invalid='true'] {
+  color: var(--cv-color-danger);
+}
+.hexField:has(input[aria-invalid='true']) {
+  border-color: var(--cv-color-danger);
 }
 
 .range {
@@ -88,18 +139,18 @@
   -webkit-appearance: none;
   width: 16px;
   height: 16px;
-  border: 3px solid #fff;
+  border: 2px solid #fff;
   border-radius: 50%;
   background: transparent;
-  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.4), 0 1px 4px rgb(0 0 0 / 0.3);
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.2), 0 1px 4px rgb(0 0 0 / 0.3);
 }
 .range::-moz-range-thumb {
-  width: 10px;
-  height: 10px;
-  border: 3px solid #fff;
+  width: 12px;
+  height: 12px;
+  border: 2px solid #fff;
   border-radius: 50%;
   background: transparent;
-  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.4);
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.2);
 }
 
 .inputs {
@@ -110,82 +161,79 @@
 .input {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
   min-width: 0;
   flex: 1;
 }
-.hex {
-  flex: 2.2;
-}
 .input span {
   color: var(--cv-color-text-subtle);
-  font: 600 10px / 1 var(--cv-font-sans);
-  letter-spacing: 0.04em;
+  font: 400 var(--cv-text-xs) / 1 var(--cv-font-sans);
   text-align: center;
 }
 .input input {
   width: 100%;
-  height: 30px;
+  height: 32px;
   padding: 0 4px;
   border: 1px solid var(--cv-color-border-strong);
   border-radius: var(--cv-radius-sm);
   background: var(--cv-color-surface);
   color: var(--cv-color-text);
-  font: 600 var(--cv-text-xs) / 1 var(--cv-font-sans);
+  font: 400 var(--cv-text-sm) / 1 var(--cv-font-sans);
   text-align: center;
-  text-transform: uppercase;
   font-variant-numeric: tabular-nums;
 }
-.input input[aria-invalid='true'] {
-  border-color: var(--cv-color-danger);
-  background: var(--cv-color-danger-soft);
+.input input:hover {
+  border-color: rgb(28 33 48 / 0.5);
 }
 .input input:focus {
   outline: none;
   border-color: var(--cv-color-brand);
-  box-shadow: var(--cv-focus-ring);
+  box-shadow: 0 0 0 1px var(--cv-color-brand);
 }
 
 .swatchArea {
   display: flex;
   flex-direction: column;
-  gap: var(--cv-space-3);
-  max-height: 220px;
+  gap: var(--cv-space-4);
+  max-height: 240px;
   overflow: auto;
-  padding-right: 2px;
-  margin-right: -2px;
+  padding: 2px;
+  margin: -2px;
 }
 
 .row {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--cv-space-2);
 }
+/* Título de sección de Canva (titleXSmall: 14/700) */
 .rowLabel {
-  color: var(--cv-color-text-muted);
-  font: 600 var(--cv-text-xs) / 1 var(--cv-font-sans);
+  color: var(--cv-color-text);
+  font: 700 var(--cv-text-base) / 20px var(--cv-font-sans);
 }
 .swatches {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: var(--cv-space-2);
 }
 .swatch {
-  width: 24px;
-  height: 24px;
+  aspect-ratio: 1;
+  width: 100%;
   padding: 0;
-  border: 1px solid var(--cv-color-border-strong);
-  border-radius: 50%;
+  border: 0;
+  border-radius: 6px; /* Canva: baldosa de color con esquinas redondeadas */
+  box-shadow: inset 0 0 0 1px rgb(57 70 96 / 0.14);
   cursor: pointer;
-  transition: transform var(--cv-duration-fast) var(--cv-ease-out);
 }
 .swatch:hover {
-  transform: scale(1.12);
+  box-shadow: inset 0 0 0 1px rgb(57 70 96 / 0.14), 0 0 0 2px var(--cv-color-surface), 0 0 0 4px rgb(57 70 96 / 0.2);
 }
 .swatch:focus-visible {
   outline: none;
   box-shadow: var(--cv-focus-ring);
 }
-.swatchOn {
-  box-shadow: 0 0 0 2px var(--cv-color-surface), 0 0 0 4px var(--cv-color-brand);
+/* Canva: la muestra elegida lleva un aro violeta separado por un filete blanco */
+.swatchOn,
+.swatchOn:hover {
+  box-shadow: inset 0 0 0 1px rgb(57 70 96 / 0.14), 0 0 0 2px var(--cv-color-surface), 0 0 0 4px var(--cv-selection-color);
 }

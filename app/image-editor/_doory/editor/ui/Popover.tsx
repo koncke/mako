@@ -37,6 +37,8 @@ interface PopoverProps {
   gap?: number
   /** Moves focus into the panel when it opens (keyboard users), without stealing it from the canvas for pointer users. */
   focusOnOpen?: boolean
+  /** Abierto desde un diálogo: el panel (y su `cover`) quedan por encima del velo del diálogo. */
+  overModal?: boolean
 }
 
 const MARGIN = 8
@@ -79,7 +81,7 @@ function place(anchor: DOMRect, panel: DOMRect, placement: Placement, gap: numbe
 }
 
 /** Anchored floating panel: closes on outside click / Escape, restores focus to the anchor. */
-export function Popover({ open, onClose, anchorRef, placement = 'bottom-start', label, children, width, className, keepOpenRefs, variant = 'default', cover = false, gap = 6, focusOnOpen = false }: PopoverProps) {
+export function Popover({ open, onClose, anchorRef, placement = 'bottom-start', label, children, width, className, keepOpenRefs, variant = 'default', cover = false, gap = 6, focusOnOpen = false, overModal = false }: PopoverProps) {
   const root = usePortalRoot()
   const panelRef = useRef<HTMLDivElement>(null)
   const id = useId()
@@ -158,13 +160,13 @@ export function Popover({ open, onClose, anchorRef, placement = 'bottom-start', 
   if (!open || !root) return null
   return createPortal(
     <>
-      {cover ? <div className={styles.cover} aria-hidden="true" /> : null}
+      {cover ? <div className={`${styles.cover} ${overModal ? styles.coverOverModal : ''}`} aria-hidden="true" /> : null}
       <div
         ref={panelRef}
         id={id}
         role="dialog"
         aria-label={label}
-        className={`${styles.panel} ${variant === 'plain' ? styles.plain : ''} ${className ?? ''}`}
+        className={`${styles.panel} ${variant === 'plain' ? styles.plain : ''} ${overModal ? styles.overModal : ''} ${className ?? ''}`}
         style={{ width }}
         tabIndex={-1}
       >

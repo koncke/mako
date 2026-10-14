@@ -5,8 +5,7 @@
   gap: var(--cv-space-2);
   padding: var(--cv-space-4);
   color: var(--cv-color-text);
-  font-family: var(--cv-font-sans);
-  font-size: 0.875rem;
+  font: 400 var(--cv-text-base) / var(--cv-leading-normal) var(--cv-font-sans);
 }
 
 .failed p {

@@ -16,6 +16,8 @@ interface FillEditorProps {
   /** Hide the gradient tab (strokes, text effects). */
   solidOnly?: boolean
   extraSwatches?: { label: string; colors: readonly string[] }
+  /** Muestras debajo del espectro (ver `ColorPicker`); el panel de colores de Canva ya las muestra y pasa `false`. */
+  showSwatches?: boolean
 }
 
 type Mode = 'solid' | 'linear' | 'radial'
@@ -25,7 +27,7 @@ function modeOf(v: FillSpec): Mode {
 }
 
 /** Solid colour or linear/radial gradient with a draggable stop editor. */
-export function FillEditor({ value, onChange, solidOnly, extraSwatches }: FillEditorProps) {
+export function FillEditor({ value, onChange, solidOnly, extraSwatches, showSwatches = true }: FillEditorProps) {
   const [selected, setSelected] = useState(0)
   const mode = modeOf(value)
 
@@ -47,6 +49,7 @@ export function FillEditor({ value, onChange, solidOnly, extraSwatches }: FillEd
     <div className={styles.editor}>
       {solidOnly ? null : (
         <Segmented
+          className={styles.mode}
           label={t.fill.type}
           value={mode}
           onChange={setMode}
@@ -58,9 +61,9 @@ export function FillEditor({ value, onChange, solidOnly, extraSwatches }: FillEd
         />
       )}
       {value.type === 'solid' ? (
-        <ColorPicker value={value.color} onChange={(color) => onChange({ type: 'solid', color })} extraSwatches={extraSwatches} />
+        <ColorPicker value={value.color} onChange={(color) => onChange({ type: 'solid', color })} extraSwatches={extraSwatches} showSwatches={showSwatches} />
       ) : (
-        <GradientEditor value={value} selected={selected} onSelect={setSelected} onChange={onChange} extraSwatches={extraSwatches} />
+        <GradientEditor value={value} selected={selected} onSelect={setSelected} onChange={onChange} extraSwatches={extraSwatches} showSwatches={showSwatches} />
       )}
     </div>
   )
@@ -72,12 +75,14 @@ function GradientEditor({
   onSelect,
   onChange,
   extraSwatches,
+  showSwatches,
 }: {
   value: Extract<FillSpec, { type: 'gradient' }>
   selected: number
   onSelect: (i: number) => void
   onChange: (fill: FillSpec) => void
   extraSwatches?: { label: string; colors: readonly string[] }
+  showSwatches: boolean
 }) {
   const barRef = useRef<HTMLDivElement>(null)
   const stops = value.stops
@@ -142,6 +147,7 @@ function GradientEditor({
           />
         ))}
       </div>
+      <span className={styles.label}>{t.fill.stops}</span>
       <div ref={barRef} className={styles.bar} onPointerDown={addStop} style={{ background: gradientCss({ type: 'gradient', kind: 'linear', angle: 0, stops: value.stops }) }}>
         {stops.map((s, i) => (
           <button
@@ -162,7 +168,7 @@ function GradientEditor({
           {t.fill.removeStop}
         </Button>
       </div>
-      <ColorPicker value={stops[index]?.color ?? '#000000'} onChange={(color) => update(stops.map((s, j) => (j === index ? { ...s, color } : s)))} extraSwatches={extraSwatches} />
+      <ColorPicker value={stops[index]?.color ?? '#000000'} onChange={(color) => update(stops.map((s, j) => (j === index ? { ...s, color } : s)))} extraSwatches={extraSwatches} showSwatches={showSwatches} />
     </div>
   )
 }

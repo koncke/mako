@@ -1,8 +1,11 @@
+import { ChevronLeft } from 'lucide-react'
 import { type ReactNode, useRef, useState } from 'react'
 import { type FillSpec } from '../engine/objects/fills'
 import { fillCssPreview } from '../engine/objects/fills'
-import { FillEditor } from './FillEditor'
+import { t } from '../strings'
+import { ColorPanel } from './ColorPanel'
 import { ColorPicker } from './ColorPicker'
+import { FillEditor } from './FillEditor'
 import { Popover } from './Popover'
 import { Tooltip } from './Tooltip'
 import styles from './ColorButton.module.css'
@@ -22,14 +25,22 @@ interface ColorButtonProps {
   className?: string
 }
 
-/** Colour control: shows the current fill and opens the picker / gradient editor in a popover. */
+/**
+ * Colour control: shows the current fill and opens the Canva colour panel (document colours, defaults, gradients);
+ * its rainbow tile «Agregar un color nuevo» switches to the picker / gradient editor.
+ */
 export function ColorButton({ label, value, onChange, solidOnly, variant = 'swatch', icon, extraSwatches, none, disabled, className }: ColorButtonProps) {
   const ref = useRef<HTMLButtonElement>(null)
   const [open, setOpen] = useState(false)
+  const [view, setView] = useState<'swatches' | 'custom'>('swatches')
   const bg = fillCssPreview(value)
+  const close = (): void => {
+    setOpen(false)
+    setView('swatches')
+  }
   return (
     <>
-      <Tooltip label={label}>
+      <Tooltip label={label} disabled={open}>
         <button
           ref={ref}
           type="button"
@@ -38,7 +49,7 @@ export function ColorButton({ label, value, onChange, solidOnly, variant = 'swat
           aria-haspopup="dialog"
           aria-expanded={open}
           disabled={disabled}
-          onClick={() => setOpen((o) => !o)}
+          onClick={() => (open ? close() : setOpen(true))}
         >
           {variant === 'bar' ? (
             <>
@@ -50,8 +61,22 @@ export function ColorButton({ label, value, onChange, solidOnly, variant = 'swat
           )}
         </button>
       </Tooltip>
-      <Popover open={open} onClose={() => setOpen(false)} anchorRef={ref} label={label} placement="bottom-start">
-        {solidOnly && value.type === 'solid' ? <ColorPicker value={value.color} onChange={(color) => onChange({ type: 'solid', color })} extraSwatches={extraSwatches} /> : <FillEditor value={value} onChange={onChange} solidOnly={solidOnly} extraSwatches={extraSwatches} />}
+      <Popover open={open} onClose={close} anchorRef={ref} label={label} placement="bottom-start">
+        {view === 'swatches' ? (
+          <ColorPanel value={value} onChange={onChange} onCustom={() => setView('custom')} allowGradient={!solidOnly} extraSwatches={extraSwatches} />
+        ) : (
+          <div className={styles.custom}>
+            <button type="button" className={styles.back} onClick={() => setView('swatches')}>
+              <ChevronLeft size={18} aria-hidden="true" />
+              {t.swatches.back}
+            </button>
+            {solidOnly && value.type === 'solid' ? (
+              <ColorPicker value={value.color} onChange={(color) => onChange({ type: 'solid', color })} showSwatches={false} />
+            ) : (
+              <FillEditor value={value} onChange={onChange} solidOnly={solidOnly} showSwatches={false} />
+            )}
+          </div>
+        )}
       </Popover>
     </>
   )

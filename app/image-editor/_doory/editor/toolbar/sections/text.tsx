@@ -1,21 +1,23 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { ALargeSmall, ChevronDown, List, ListOrdered, Strikethrough } from 'lucide-react'
 import { ColorTool } from '../../chrome/ColorTool'
 import { I } from '../../chrome/icons'
 import { isBold, textValue } from '../../builtins/textState'
 import { useEditor, useSelection } from '../../context'
 import { readFill } from '../../engine/objects/fills'
-import { CURVE_MAX } from '../../engine/text/curve'
 import { primaryFamily } from '../../engine/text/fontStack'
 import { t } from '../../strings'
 import { Popover } from '../../ui/Popover'
 import { Tooltip } from '../../ui/Tooltip'
-import { LimitedNumber, OpacityTool, Stepper } from '../controls'
+import { RangeField, Stepper } from '../controls'
+import { EffectsPanel } from '../effects'
 import { FontPicker } from '../FontPicker'
 import { createFontPreview } from '../fontPreview'
 import { FONT_SIZE, LETTER_SPACING, LINE_HEIGHT } from '../limits'
-import { PopoverTool, ToolButton } from '../parts'
-import ed from '../../chrome/ed.module.css'
+import { Divider, PopoverStack, PopoverTool, ToolButton } from '../parts'
+import bar from '../parts.module.css'
 
+/** La alineación avanza en este orden con cada clic, como el botón de Canva. */
 const ALIGN = [
   { id: 'left', label: t.toolbar.alignLeft, icon: I.alignLeft },
   { id: 'center', label: t.toolbar.alignCenter, icon: I.alignCenter },
@@ -23,16 +25,10 @@ const ALIGN = [
   { id: 'justify', label: t.toolbar.justify, icon: I.alignJustify },
 ] as const
 
-const CASES = [
-  { id: 'sentence', label: t.ctx.caseSentenceOption },
-  { id: 'lower', label: t.ctx.caseLowerOption },
-  { id: 'upper', label: t.ctx.caseUpperOption },
-  { id: 'title', label: t.ctx.caseTitleOption },
-] as const
+/** «Lista» avanza: sin lista → viñetas → numerada → sin lista. */
+const LISTS = ['none', 'bullet', 'number'] as const
 
-const RESTORE_CASE = { id: 'none', label: t.ctx.caseNormal } as const
-
-/** Whether the catalog has an italic file for the family (unknown and system fonts: assume so). */
+/** Si el catálogo tiene la cursiva de la familia (las fuentes desconocidas y las del sistema: se asume que sí). */
 function useHasItalic(family: string): boolean {
   const editor = useEditor()
   const [known, setKnown] = useState<{ family: string; italic: boolean } | null>(null)
@@ -49,7 +45,7 @@ function useHasItalic(family: string): boolean {
   return known?.family === family ? known.italic : true
 }
 
-/** The font pill and its searchable list. */
+/** La caja de la fuente (el nombre escrito con su propia fuente) y su lista con buscador. */
 function FontTool({ family, stack }: { family: string; stack: string }) {
   const editor = useEditor()
   const ref = useRef<HTMLButtonElement>(null)
@@ -62,12 +58,14 @@ function FontTool({ family, stack }: { family: string; stack: string }) {
   return (
     <>
       <Tooltip label={t.toolbar.font} disabled={open}>
-        <button ref={ref} type="button" className={ed.select} aria-label={`${t.toolbar.font}: ${family}`} aria-haspopup="dialog" aria-expanded={open} data-testid="ed-font" style={{ fontFamily: stack }} onClick={() => (open ? close() : setOpen(true))}>
-          <span className={ed.selectValue}>{family || t.tools.fontFallback}</span>
-          {I.chevronDown}
+        <button ref={ref} type="button" className={bar.fontBtn} aria-label={`${t.toolbar.font}: ${family}`} aria-haspopup="dialog" aria-expanded={open} data-testid="ed-font" onClick={() => (open ? close() : setOpen(true))}>
+          <span className={bar.fontName} style={{ fontFamily: stack }}>
+            {family || t.tools.fontFallback}
+          </span>
+          <ChevronDown size={16} className={bar.caret} aria-hidden="true" />
         </button>
       </Tooltip>
-      <Popover open={open} onClose={close} anchorRef={ref} label={t.toolbar.font} placement="bottom" variant="plain" cover>
+      <Popover open={open} onClose={close} anchorRef={ref} label={t.toolbar.font} placement="bottom-start" variant="plain" cover>
         <FontPicker
           current={family}
           onPreview={preview.preview}
@@ -83,6 +81,7 @@ function FontTool({ family, stack }: { family: string; stack: string }) {
   )
 }
 
+/** Texto: fuente, tamaño, color «A», B I U S, aA, alineación, lista, espaciado y «Efectos», en el orden de Canva. */
 export function TextSection() {
   const editor = useEditor()
   const sel = useSelection()
@@ -94,19 +93,21 @@ export function TextSection() {
   const fill = readFill(textValue(sel, 'fill'), '#1c1517')
   const weight = textValue(sel, 'fontWeight')
   const italic = textValue(sel, 'fontStyle') === 'italic'
+  const strike = !!textValue(sel, 'linethrough')
   const align = (typeof obj.textAlign === 'string' ? obj.textAlign : 'left') as (typeof ALIGN)[number]['id']
-  const AlignIcon = ALIGN.find((a) => a.id === align)?.icon ?? I.alignLeft
+  const alignIndex = Math.max(0, ALIGN.findIndex((a) => a.id === align))
+  const nextAlign = ALIGN[(alignIndex + 1) % ALIGN.length]
   const textCase = typeof obj.textCase === 'string' ? obj.textCase : 'none'
+  const list = (typeof obj.listStyle === 'string' ? obj.listStyle : 'none') as (typeof LISTS)[number]
+  const nextList = LISTS[(Math.max(0, LISTS.indexOf(list)) + 1) % LISTS.length]
   const lineHeight = Number(obj.lineHeight ?? 1.16)
   const spacing = Math.round(Number(obj.charSpacing ?? 0))
-  const curve = typeof obj.curveAmount === 'number' ? obj.curveAmount : 0
-  const multiline = String(obj.text ?? '').includes('\n')
 
   return (
     <>
       <FontTool family={family} stack={stack} />
       <Stepper label={t.ctx.sizeInput} value={size} limit={FONT_SIZE} testId="ed-font-size" onChange={(n, key) => editor.style.text({ fontSize: n }, t.history.changeFontSize, key === 'step' ? 'size-step' : 'font-size')} />
-      <ColorTool label={t.toolbar.textColor} value={fill} allowGradient testId="ed-text-color" onChange={(f, key) => editor.style.text({ fill: f }, t.history.changeTextColor, key ?? 'text-color')} />
+      <ColorTool variant="text" label={t.toolbar.textColor} value={fill} allowGradient testId="ed-text-color" onChange={(f, key) => editor.style.text({ fill: f }, t.history.changeTextColor, key ?? 'text-color')} />
 
       <ToolButton label={t.toolbar.bold} shortcut="Mod+B" pressed={isBold(weight)} testId="ed-bold" onClick={() => editor.style.text({ fontWeight: isBold(weight) ? 400 : 700 }, t.history.bold)}>
         {I.bold}
@@ -117,67 +118,35 @@ export function TextSection() {
       <ToolButton label={t.toolbar.underline} shortcut="Mod+U" pressed={!!textValue(sel, 'underline')} testId="ed-underline" onClick={() => editor.style.text({ underline: !textValue(sel, 'underline') }, t.history.underline)}>
         {I.underline}
       </ToolButton>
+      <ToolButton label={t.toolbar.strike} pressed={strike} testId="ed-strike" onClick={() => editor.style.text({ linethrough: !strike }, t.history.strikethrough)}>
+        <Strikethrough size={18} aria-hidden="true" />
+      </ToolButton>
+      <ToolButton label={t.toolbar.caseUpper} pressed={textCase === 'upper'} testId="ed-case" onClick={() => editor.style.text({ textCase: textCase === 'upper' ? 'none' : 'upper' }, t.history.changeCase)}>
+        <ALargeSmall size={18} aria-hidden="true" />
+      </ToolButton>
 
-      <PopoverTool label={t.toolbar.alignTitle} trigger={AlignIcon} inline testId="ed-text-align">
-        {(close) =>
-          ALIGN.map((a) => (
-            <ToolButton
-              key={a.id}
-              label={a.label}
-              pressed={align === a.id}
-              testId={`ed-align-${a.id}`}
-              onClick={() => {
-                editor.style.text({ textAlign: a.id }, t.history.alignText)
-                close()
-              }}
-            >
-              {a.icon}
-            </ToolButton>
-          ))
-        }
+      <ToolButton label={`${t.toolbar.textAlign}: ${ALIGN[alignIndex].label}`} testId="ed-text-align" onClick={() => editor.style.text({ textAlign: nextAlign.id }, t.history.alignText)}>
+        {ALIGN[alignIndex].icon}
+      </ToolButton>
+      <ToolButton
+        label={list === 'number' ? t.toolbar.numbers : list === 'bullet' ? t.toolbar.bullets : t.toolbar.list}
+        pressed={list !== 'none'}
+        testId="ed-list"
+        onClick={() => editor.style.text({ listStyle: nextList }, t.history.changeList)}
+      >
+        {list === 'number' ? <ListOrdered size={18} aria-hidden="true" /> : <List size={18} aria-hidden="true" />}
+      </ToolButton>
+      <PopoverTool label={t.toolbar.spacing} trigger={I.spacing} width={288} testId="ed-spacing">
+        <PopoverStack width={256}>
+          <RangeField label={t.toolbar.letterSpacing} value={spacing} limit={LETTER_SPACING} onChange={(v) => editor.style.text({ charSpacing: v }, t.history.changeLetterSpacing, 'char-spacing')} />
+          <RangeField label={t.toolbar.lineHeight} value={lineHeight} limit={LINE_HEIGHT} onChange={(v) => editor.style.text({ lineHeight: v }, t.history.changeLineHeight, 'line-height')} />
+        </PopoverStack>
       </PopoverTool>
 
-      <PopoverTool label={t.toolbar.lineHeight} trigger={I.lineHeight} width={180} testId="ed-line-height">
-        <LimitedNumber label={t.toolbar.lineHeight} value={lineHeight} limit={LINE_HEIGHT} testId="ed-line-height-input" onChange={(v) => editor.style.text({ lineHeight: v }, t.history.changeLineHeight, 'line-height')} />
+      <Divider />
+      <PopoverTool label={t.toolbar.effects} text={t.toolbar.effects} width={296} testId="ed-effects">
+        <EffectsPanel text />
       </PopoverTool>
-
-      <PopoverTool label={t.toolbar.letterSpacing} trigger={I.spacing} width={180} testId="ed-letter-spacing">
-        <LimitedNumber label={t.toolbar.letterSpacing} value={spacing} limit={LETTER_SPACING} testId="ed-letter-spacing-input" onChange={(v) => editor.style.text({ charSpacing: v }, t.history.changeLetterSpacing, 'char-spacing')} />
-      </PopoverTool>
-
-      <PopoverTool label={t.ctx.caseTitle} trigger={I.letterCase} flush testId="ed-case">
-        {(close) => (
-          <div className={ed.menuList} role="menu">
-            {(textCase === 'none' ? CASES : [...CASES, RESTORE_CASE]).map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                role="menuitemradio"
-                aria-checked={textCase === c.id}
-                className={ed.menuItem}
-                data-testid={`ed-case-${c.id}`}
-                onClick={() => {
-                  editor.style.text({ textCase: c.id }, t.history.changeCase)
-                  close()
-                }}
-              >
-                {c.label}
-              </button>
-            ))}
-          </div>
-        )}
-      </PopoverTool>
-
-      <PopoverTool label={multiline ? t.ctx.curveSingleLine : t.toolbar.curve} trigger={I.curve} width={200} disabled={multiline} testId="ed-curve">
-        <div className={ed.propLabel}>{t.toolbar.curve}</div>
-        <div className={ed.curveWrap}>
-          <input type="range" className={ed.slider} min={-CURVE_MAX} max={CURVE_MAX} step={10} value={curve} aria-label={t.toolbar.curve} data-testid="ed-curve-range" onChange={(e) => editor.style.setCurve(Number(e.target.value))} />
-          <span className={ed.curveTick} aria-hidden="true" />
-        </div>
-        <p className={ed.hintText}>{t.ctx.curveHelp}</p>
-      </PopoverTool>
-
-      <OpacityTool />
     </>
   )
 }

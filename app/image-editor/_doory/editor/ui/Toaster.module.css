@@ -1,3 +1,4 @@
+/* Aviso de Canva: banda oscura abajo al centro, texto blanco 14, radio 8, acción en violeta claro */
 .stack {
   position: absolute;
   z-index: var(--cv-z-toast);
@@ -17,29 +18,28 @@
   display: flex;
   align-items: center;
   gap: var(--cv-space-3);
-  width: 100%;
-  padding: 10px var(--cv-space-3) 10px var(--cv-space-4);
-  border: 1px solid var(--cv-color-border);
-  border-radius: var(--cv-radius-lg);
-  background: var(--cv-color-surface-raised);
-  color: var(--cv-color-text);
+  width: fit-content;
+  max-width: 100%;
+  min-height: 48px;
+  padding: 8px var(--cv-space-2) 8px var(--cv-space-4);
+  border: 0;
+  border-radius: var(--cv-radius-sm);
+  background: var(--cv-tooltip-bg);
+  color: #fff;
   box-shadow: var(--cv-shadow-lg);
-  font: 500 var(--cv-text-sm) / 1.35 var(--cv-font-sans);
+  font: 400 var(--cv-text-base) / 1.4 var(--cv-font-sans);
   animation: toast-in var(--cv-duration-slow) var(--cv-ease-out);
 }
 
 .icon {
   display: inline-flex;
-  color: var(--cv-color-info);
+  color: #a370fc; /* Canva: violeta del tema oscuro */
 }
 .success .icon {
-  color: var(--cv-color-success);
+  color: #3fc451; /* Canva: verde legible sobre fondo oscuro */
 }
 .error .icon {
-  color: var(--cv-color-danger);
-}
-.error {
-  border-color: var(--cv-color-danger);
+  color: #fd4958; /* Canva: error del tema oscuro */
 }
 
 .message {
@@ -50,27 +50,34 @@
 .action {
   border: 0;
   background: transparent;
-  color: var(--cv-color-brand);
-  font: 700 var(--cv-text-sm) / 1 var(--cv-font-sans);
+  color: #a370fc;
+  font: 600 var(--cv-text-base) / 1 var(--cv-font-sans);
   cursor: pointer;
-  padding: 6px 8px;
-  border-radius: var(--cv-radius-sm);
+  padding: 8px;
+  border-radius: 6px;
 }
 .action:hover {
-  background: var(--cv-color-brand-soft);
+  background: rgb(255 255 255 / 0.07);
 }
 
 .close {
   display: inline-flex;
   border: 0;
   background: transparent;
-  color: var(--cv-color-text-subtle);
-  padding: 4px;
-  border-radius: var(--cv-radius-sm);
+  color: rgb(255 255 255 / 0.7);
+  padding: 6px;
+  border-radius: 6px;
   cursor: pointer;
 }
 .close:hover {
-  background: var(--cv-color-bg-muted);
+  background: rgb(255 255 255 / 0.07);
+  color: #fff;
+}
+
+.action:focus-visible,
+.close:focus-visible {
+  outline: none;
+  box-shadow: var(--cv-focus-ring);
 }
 
 @keyframes toast-in {

@@ -1,4 +1,4 @@
-import { Check, Copy, Trash2 } from 'lucide-react'
+import { Check, Copy, Download, Presentation, Trash2 } from 'lucide-react'
 import { useCallback, useRef, useState } from 'react'
 import type { ShareLinkPatch } from '@/app/image-editor/_doory/types/adapter'
 import type { ShareLink, ShareRole } from '@/app/image-editor/_doory/types/api'
@@ -157,8 +157,9 @@ export function ShareDialog() {
   }
 
   return (
-    <Dialog title={t.share.title} description={t.share.description} width={560} onClose={() => editor.closeDialog()} footer={<Button onClick={() => editor.closeDialog()}>{t.dialog.close}</Button>}>
+    <Dialog title={t.share.title} description={sharing ? t.share.description : undefined} width={480} onClose={() => editor.closeDialog()}>
       <div className={dlg.stack} data-testid="share-dialog">
+        {sharing ? (
         <div className={styles.create}>
           <div className={styles.row}>
             <label className={styles.field}>
@@ -188,6 +189,7 @@ export function ShareDialog() {
             {busy ? t.share.creating : t.share.create}
           </Button>
         </div>
+        ) : null}
 
         {error ? (
           <p className={dlg.error} role="alert">
@@ -204,6 +206,22 @@ export function ShareDialog() {
             ))}
           </ul>
         ) : null}
+
+        {/* Canva: la fila de botones redondos al pie del panel «Compartir»; «Descargar» abre la descarga */}
+        <div className={styles.quick} role="group" aria-label={t.share.quick}>
+          <button type="button" className={styles.quickItem} onClick={() => editor.openDialog('download')} data-testid="share-download">
+            <span className={styles.quickIcon}>
+              <Download size={20} aria-hidden="true" />
+            </span>
+            {t.share.download}
+          </button>
+          <button type="button" className={styles.quickItem} onClick={() => editor.openDialog('presenter')} data-testid="share-present">
+            <span className={styles.quickIcon}>
+              <Presentation size={20} aria-hidden="true" />
+            </span>
+            {t.share.present}
+          </button>
+        </div>
       </div>
     </Dialog>
   )

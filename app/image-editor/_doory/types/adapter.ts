@@ -200,6 +200,11 @@ export interface EditorAdapter {
   services: EditorServices
   /** The design's live room; absent or `null` when real-time editing is not available (the editor saves over REST). */
   realtime?: RealtimeConnection | null
+  /**
+   * «Copiar y redimensionar» de Canva: guarda `document` como un diseño NUEVO (el actual no cambia) y lo abre.
+   * Absent → «Redimensionar» sólo ofrece cambiar este diseño.
+   */
+  duplicateDesign?(input: { title: string; document: DoryDocument }): Promise<void>
   /** Server-side vector PDF (account only). Absent → editor falls back to client-side PDF. */
   exportPdf?: (input: {
     /** One SVG document per page. Raster images are embedded as `data:` URIs (the server strips every other `href`). */

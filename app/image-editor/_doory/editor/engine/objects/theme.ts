@@ -44,9 +44,11 @@ export function selectionStyle(theme: CanvasTheme): Partial<FabricObject> {
     cornerStrokeColor: theme.selection,
     cornerStyle: 'circle',
     transparentCorners: false,
-    cornerSize: 11,
+    // Canva: tirador de 12 px y marco de 2 px (los tiradores se dibujan en controls.ts; esto es el tamaño y el marco
+    // que fabric usa al re-tematizar y en la selección de varios, para que no vuelva al 1,5 de Doory).
+    cornerSize: 12,
     touchCornerSize: 30,
-    borderScaleFactor: 1.5,
+    borderScaleFactor: 2,
     borderOpacityWhenMoving: 0.5,
     // The selection border sits 2 px outside the object (text gets more, see PageCanvas).
     padding: 2,

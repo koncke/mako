@@ -1,6 +1,11 @@
 /*
  * Building blocks of the editor chrome (sizes, radii, paddings and states), skinned with the --ed-* aliases defined on the editor root (EditorApp.module.css),
  * which map onto the Doory tokens.
+ *
+ * Tanda 2 (re-vestido de Canva): los estados y las piezas de los paneles toman los valores del sistema de diseño de
+ * Canva (docs/editor-imagen/relevamiento-canva-armazon.md §1.2–1.4): primario violeta lleno con radio 8 y sin la
+ * sombra corrida de Doory, «elegido» en violeta suave, títulos de sección 14/20 semibold (sin la letra manuscrita),
+ * campos blancos con borde gris y foco violeta.
  */
 
 /* ── Buttons ── */
@@ -43,26 +48,28 @@
   height: 36px;
 }
 .primary {
-  border-radius: 999px;
+  border-radius: var(--cv-radius-sm);
   background: var(--cv-color-cta);
   color: var(--cv-color-on-cta);
-  font-weight: 800;
-  box-shadow: 2px 2px 0 var(--cv-color-cta-shadow);
+  font-weight: 600;
 }
 .primary:hover:not(:disabled) {
   background: var(--cv-color-cta-hover);
   color: var(--cv-color-on-cta);
-  box-shadow: 3px 3px 0 var(--cv-color-cta-shadow);
-  transform: translate(-1px, -1px);
+}
+.primary:active:not(:disabled) {
+  background: var(--cv-color-brand-active);
+  transform: none;
 }
 .ghost:hover:not(:disabled) {
   color: var(--ed-text);
-  background: var(--ed-surface-2);
+  background: var(--ed-surface-3);
 }
+/* Canva: «elegido» = fondo violeta suave y texto violeta oscuro */
 .pressed,
 .pressed:hover:not(:disabled) {
-  background: var(--ed-accent-glow);
-  color: var(--ed-accent);
+  background: rgb(163 112 252 / 0.15);
+  color: var(--cv-violet-800);
 }
 
 /* ── Contextual strip ── */
@@ -214,8 +221,8 @@
   min-width: 150px;
   max-width: 210px;
   padding: 8px 12px 8px 14px;
-  border: 1px solid var(--ed-border);
-  border-radius: 999px;
+  border: 1px solid var(--cv-color-border-strong);
+  border-radius: var(--cv-radius-sm);
   background: var(--ed-surface);
   color: var(--ed-text);
   font: 500 14px / 1.2 var(--cv-font-sans);
@@ -231,8 +238,8 @@
 .select:focus-visible,
 .select[aria-expanded='true'] {
   outline: none;
-  border-color: var(--ed-accent);
-  box-shadow: 0 0 0 3px var(--ed-accent-glow);
+  border-color: var(--cv-color-brand);
+  box-shadow: 0 0 0 1px var(--cv-color-brand);
 }
 .select:disabled {
   opacity: 0.5;
@@ -264,8 +271,8 @@
   border-color: var(--ed-text-dim);
 }
 .stepper:focus-within {
-  border-color: var(--ed-accent);
-  box-shadow: 0 0 0 3px var(--ed-accent-glow);
+  border-color: var(--cv-color-brand);
+  box-shadow: 0 0 0 1px var(--cv-color-brand);
 }
 .stepBtn {
   width: 28px;
@@ -294,11 +301,12 @@
   height: 32px;
   padding: 0;
   border: none;
+  border-inline: 1px solid var(--cv-color-border);
   border-radius: 0;
-  background: var(--ed-text);
-  color: var(--ed-surface);
+  background: var(--cv-color-surface); /* Canva: el número va en blanco entre − y + (Doory lo pintaba negro) */
+  color: var(--cv-color-text);
   text-align: center;
-  font: 600 13px / 1 var(--cv-font-sans);
+  font: 500 14px / 1 var(--cv-font-sans);
   appearance: textfield;
   -moz-appearance: textfield;
 }
@@ -323,10 +331,8 @@
 }
 .propLabel {
   margin-bottom: 8px;
-  color: var(--ed-text-dim);
-  font: 700 10px / 1.2 var(--cv-font-sans);
-  text-transform: uppercase;
-  letter-spacing: 0.8px;
+  color: var(--cv-color-text);
+  font: 600 var(--cv-text-sm) / 18px var(--cv-font-sans); /* Canva titleXxSmall */
 }
 .propLabelRow {
   display: flex;
@@ -335,19 +341,19 @@
 .propInput {
   width: 100%;
   padding: 9px 12px;
-  border: 1px solid var(--ed-border);
-  border-radius: var(--ed-radius-sm);
-  background: var(--ed-surface-2);
+  border: 1px solid var(--cv-color-border-strong);
+  border-radius: var(--cv-radius-sm);
+  background: var(--cv-color-surface);
   color: var(--ed-text);
-  font: 500 13px / 1.2 var(--cv-font-sans);
+  font: 400 14px / 1.2 var(--cv-font-sans);
   transition:
     border-color var(--ed-dur),
     box-shadow var(--ed-dur);
 }
 .propInput:focus {
   outline: none;
-  border-color: var(--ed-accent);
-  box-shadow: 0 0 0 3px var(--ed-accent-glow);
+  border-color: var(--cv-color-brand);
+  box-shadow: 0 0 0 1px var(--cv-color-brand);
 }
 .propInput[aria-invalid='true'] {
   border-color: var(--ed-danger);
@@ -433,7 +439,7 @@
   border-radius: 7px;
   background: transparent;
   color: var(--ed-text);
-  font: 400 12.5px / 1.2 var(--cv-font-sans);
+  font: 400 14px / 22px var(--cv-font-sans);
   text-align: left;
   cursor: pointer;
 }
@@ -447,7 +453,8 @@
   cursor: default;
 }
 .menuItem[aria-checked='true'] {
-  background: var(--ed-accent-glow);
+  background: rgb(163 112 252 / 0.15);
+  color: var(--cv-violet-800);
   font-weight: 600;
 }
 .menuItem > span {
@@ -457,37 +464,35 @@
 
 /* ── Drawer content ── */
 .drawerBody {
-  padding: 18px;
+  padding: 16px;
 }
+/* Canva: subtítulo de sección 14/20 semibold (Doory usaba una letra manuscrita de 20 px) */
 .sectionTitle {
-  margin: 0 0 10px;
-  color: var(--ed-text);
-  font: 700 20px / 1.1 var(--cv-font-hand);
+  margin: 0 0 8px;
+  color: var(--cv-color-text);
+  font: 600 var(--cv-text-base) / 20px var(--cv-font-sans);
 }
 .sectionTitle:not(:first-child) {
-  margin-top: 20px;
+  margin-top: 16px;
 }
 .presetBtn {
   display: block;
   width: 100%;
   margin-bottom: 8px;
-  padding: 14px 16px;
-  border: 1px solid var(--ed-border);
-  border-radius: var(--ed-radius);
-  background: var(--ed-surface);
+  padding: 12px 16px;
+  border: 1px solid var(--cv-color-border-strong);
+  border-radius: var(--cv-radius-sm);
+  background: var(--cv-color-surface);
   color: var(--ed-text);
   text-align: left;
   cursor: pointer;
-  transition: all var(--ed-dur) var(--ed-ease);
+  transition: background var(--ed-dur) var(--ed-ease);
 }
 .presetBtn:hover {
-  border-color: var(--cv-ink);
-  background: var(--ed-accent-glow);
-  box-shadow: 3px 3px 0 var(--cv-pastel-pink);
-  transform: translate(-1px, -1px);
+  background: var(--cv-color-bg-muted);
 }
 .presetBtn:active {
-  transform: translateY(0);
+  background: rgb(57 70 96 / 0.14);
 }
 .presetBtn:focus-visible {
   outline: none;
@@ -496,10 +501,8 @@
 .presetLabel {
   display: block;
   margin-bottom: 4px;
-  color: var(--ed-text-dim);
-  font: 600 10px / 1.2 var(--cv-font-sans);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  color: var(--cv-color-text-muted);
+  font: 500 var(--cv-text-sm) / 16px var(--cv-font-sans);
 }
 .presetHeading {
   font-size: 20px;
@@ -538,41 +541,38 @@
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  padding: 18px 8px;
-  border: 1px solid var(--ed-border);
-  border-radius: var(--ed-radius);
-  background: var(--ed-surface);
-  color: var(--ed-text-dim);
-  font: 500 11px / 1.2 var(--cv-font-sans);
+  padding: 16px 8px;
+  border: none;
+  border-radius: var(--cv-radius-sm);
+  background: var(--cv-color-bg-subtle);
+  color: var(--cv-color-text);
+  font: 500 var(--cv-text-sm) / 16px var(--cv-font-sans);
   cursor: pointer;
-  transition: all var(--ed-dur) var(--ed-ease);
+  transition: background var(--ed-dur) var(--ed-ease);
 }
 .shapeBtn:hover:not(:disabled) {
-  border-color: var(--ed-accent);
-  background: var(--ed-accent-glow);
-  color: var(--ed-text);
-  transform: translateY(-1px);
+  background: var(--cv-color-bg-muted);
 }
 .shapeBtn:focus-visible {
   outline: none;
   box-shadow: var(--cv-focus-ring);
 }
 .shapeBtn.on {
-  border-color: var(--ed-accent);
-  background: var(--ed-accent-glow);
-  color: var(--ed-accent);
+  background: rgb(163 112 252 / 0.15);
+  box-shadow: inset 0 0 0 1px var(--cv-color-brand);
+  color: var(--cv-violet-800);
 }
 .uploadZone {
   display: flex;
   flex-direction: column;
   align-items: center;
   width: 100%;
-  padding: 28px 16px;
-  border: 2px dashed var(--ed-border);
-  border-radius: var(--ed-radius);
+  padding: 24px 16px;
+  border: 2px dashed var(--cv-color-border-strong);
+  border-radius: var(--cv-radius-sm);
   background: transparent;
-  color: var(--ed-text-dim);
-  font: 500 13px / 1.4 var(--cv-font-sans);
+  color: var(--cv-color-text-muted);
+  font: 500 var(--cv-text-base) / 22px var(--cv-font-sans);
   text-align: center;
   cursor: pointer;
   transition: all var(--ed-dur);
@@ -583,8 +583,8 @@
 }
 .uploadZone:hover,
 .uploadZone[data-over] {
-  border-color: var(--ed-accent);
-  background: var(--ed-accent-glow);
+  border-color: var(--cv-color-brand);
+  background: var(--cv-color-brand-soft);
   color: var(--ed-text);
 }
 .uploadZone:hover svg {

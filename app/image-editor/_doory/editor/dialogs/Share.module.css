@@ -1,11 +1,12 @@
+/* «Compartir» y «Historial de versiones» con los valores de Canva: tarjetas con borde de interfaz y radio 8 */
 .create {
   display: flex;
   flex-direction: column;
   gap: var(--cv-space-3);
   padding: var(--cv-space-4);
   border: 1px solid var(--cv-color-border);
-  border-radius: var(--cv-radius-md);
-  background: var(--cv-color-bg-subtle);
+  border-radius: var(--cv-radius-lg);
+  background: var(--cv-color-surface);
 }
 .row {
   display: flex;
@@ -32,7 +33,7 @@
   gap: 8px;
   padding: 12px;
   border: 1px solid var(--cv-color-border);
-  border-radius: var(--cv-radius-md);
+  border-radius: var(--cv-radius-lg);
   background: var(--cv-color-surface);
 }
 .link[data-status='off'],
@@ -44,7 +45,7 @@
   flex-wrap: wrap;
   gap: 6px 10px;
   color: var(--cv-color-text-muted);
-  font: 500 var(--cv-text-xs) / 1.3 var(--cv-font-sans);
+  font: 400 var(--cv-text-sm) / 18px var(--cv-font-sans);
 }
 .chip {
   display: inline-flex;
@@ -52,31 +53,81 @@
   height: 20px;
   padding: 0 8px;
   border-radius: 999px;
-  background: var(--cv-color-brand-soft);
-  color: var(--cv-color-brand);
-  font: 700 11px / 1 var(--cv-font-sans);
+  background: var(--cv-violet-200);
+  color: var(--cv-violet-900);
+  font: 600 var(--cv-text-sm) / 1 var(--cv-font-sans);
 }
 .chipMuted {
-  background: var(--cv-color-bg-muted);
+  background: rgb(64 79 109 / 0.06);
   color: var(--cv-color-text-muted);
 }
 .url {
   flex: 1;
-  height: 34px;
+  height: 32px;
   padding: 0 10px;
-  border: 1px solid var(--cv-color-border);
-  border-radius: var(--cv-radius-md);
-  background: var(--cv-color-bg-subtle);
+  border: 1px solid var(--cv-color-border-strong);
+  border-radius: var(--cv-radius-sm);
+  background: rgb(64 79 109 / 0.06);
   color: var(--cv-color-text);
-  font: 500 var(--cv-text-xs) / 1 var(--cv-font-mono);
+  font: 400 var(--cv-text-sm) / 1 var(--cv-font-mono);
+}
+.url:focus {
+  outline: none;
+  border-color: var(--cv-color-brand);
+  box-shadow: 0 0 0 1px var(--cv-color-brand);
 }
 .empty {
   margin: 0;
   padding: var(--cv-space-4);
+  border-radius: var(--cv-radius-lg);
+  background: rgb(64 79 109 / 0.06);
   color: var(--cv-color-text-muted);
-  font: 400 var(--cv-text-sm) / 1.5 var(--cv-font-sans);
+  font: 400 var(--cv-text-base) / 1.5 var(--cv-font-sans);
   text-align: center;
 }
+
+/* Canva: botones redondos grises con el rótulo abajo («Descargar», «Presentar»…) */
+.quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cv-space-2);
+  padding-top: var(--cv-space-4);
+  border-top: 1px solid var(--cv-color-border);
+}
+.quickItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 80px;
+  padding: 4px 0;
+  border: 0;
+  border-radius: var(--cv-radius-sm);
+  background: transparent;
+  color: var(--cv-color-text);
+  font: 400 var(--cv-text-sm) / 18px var(--cv-font-sans);
+  cursor: pointer;
+}
+.quickIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgb(64 79 109 / 0.06);
+  transition: background var(--cv-duration-fast) var(--cv-ease-out);
+}
+.quickItem:hover .quickIcon {
+  background: rgb(57 70 96 / 0.14);
+}
+.quickItem:focus-visible {
+  outline: none;
+}
+.quickItem:focus-visible .quickIcon {
+  box-shadow: var(--cv-focus-ring);
+}
+
 .versions {
   display: flex;
   flex-direction: column;
@@ -93,14 +144,18 @@
   gap: 12px;
   padding: 10px;
   border: 1px solid var(--cv-color-border);
-  border-radius: var(--cv-radius-md);
+  border-radius: var(--cv-radius-lg);
+}
+.version:hover {
+  background: rgb(64 79 109 / 0.06);
 }
 .versionThumb {
   flex: none;
   width: 56px;
   height: 56px;
-  border-radius: 8px;
-  background: var(--cv-color-bg-muted) center / cover no-repeat;
+  border-radius: var(--cv-radius-sm);
+  background: var(--cv-color-canvas-workspace) center / cover no-repeat;
+  box-shadow: inset 0 0 0 1px var(--cv-color-border);
 }
 .versionText {
   flex: 1;
@@ -109,13 +164,13 @@
 .versionText strong {
   display: block;
   overflow: hidden;
-  font: 600 var(--cv-text-sm) / 1.3 var(--cv-font-sans);
+  font: 600 var(--cv-text-base) / 20px var(--cv-font-sans);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .versionText small {
   color: var(--cv-color-text-muted);
-  font: 400 var(--cv-text-xs) / 1.4 var(--cv-font-sans);
+  font: 400 var(--cv-text-sm) / 18px var(--cv-font-sans);
 }
 
 .field {

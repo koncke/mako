@@ -1,0 +1,54 @@
+/* La tarjeta de un tamaño (Inicio y «Crear un diseño»). Colores: tokens --cv-* de Canva. */
+
+.tarjeta {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  min-width: 0;
+  padding: 0;
+  text-align: left;
+  border-radius: var(--cv-radius-lg);
+}
+
+.fondo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 120px;
+  margin-bottom: 6px;
+  border-radius: var(--cv-radius-lg);
+  background: #f2f3f5; /* Canva: el gris de las miniaturas del Inicio */
+  transition: background var(--cv-duration-fast) var(--cv-ease-out);
+}
+
+.tarjeta:hover .fondo {
+  background: #e9eaee; /* Canva: el mismo gris, un paso más oscuro al pasar el cursor */
+}
+
+.tarjeta:disabled {
+  opacity: 0.6;
+}
+
+.hoja {
+  display: block;
+  background: var(--cv-paper);
+  border-radius: 2px;
+  box-shadow: var(--cv-shadow-artboard);
+}
+
+.nombre {
+  overflow: hidden;
+  color: var(--cv-color-text);
+  font-size: var(--cv-text-base);
+  font-weight: 600;
+  line-height: 20px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.medidas {
+  color: var(--cv-color-text-muted);
+  font-size: var(--cv-text-sm);
+  line-height: 18px;
+}

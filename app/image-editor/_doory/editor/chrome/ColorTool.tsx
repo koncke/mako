@@ -1,26 +1,14 @@
-import { useMemo, useRef, useState, useSyncExternalStore } from 'react'
-import { useDocument } from '../context'
-import { normalizeColor } from '../engine/colors'
-import { documentColors } from '../engine/docOps'
-import { type FillSpec, fillCssPreview, gradientCss } from '../engine/objects/fills'
+import { ChevronLeft } from 'lucide-react'
+import { useRef, useState } from 'react'
+import { type FillSpec, fillCssPreview } from '../engine/objects/fills'
 import { t } from '../strings'
+import { ColorPanel } from '../ui/ColorPanel'
 import { ColorPicker } from '../ui/ColorPicker'
 import { FillEditor } from '../ui/FillEditor'
 import { Popover } from '../ui/Popover'
-import { GRADIENT_PRESETS, palettes } from '../ui/swatches'
 import { Tooltip } from '../ui/Tooltip'
 import ed from './ed.module.css'
-import { I } from './icons'
-
-/** The default swatch set, with the Doory palette first. */
-const DEFAULT_COLORS = [
-  '#2b1c17', '#ffffff', '#7a64e0', '#c9bcff', '#ffa9b9', '#ffc9d3',
-  '#f5a623', '#fb923c', '#fef08a', '#16a34a', '#22a39f', '#3b82f6',
-  '#1e40af', '#0a1f55', '#7e6cd8', '#5b2bb8', '#a3199c', '#3a0a4d',
-  '#7b4a1f', '#e8d5a6', '#cfd6df', '#6b6165', '#3b0a0a',
-] as const
-
-const DESIGN_COLORS_SHOWN = 5
+import styles from './ColorTool.module.css'
 
 interface ColorToolProps {
   label: string
@@ -32,114 +20,79 @@ interface ColorToolProps {
   allowGradient?: boolean
   /** Draw the swatch as a ring in the colour (a border swatch). */
   ring?: boolean
+  /** `swatch`: el mosaico redondo. `text`: la «A» de Canva con la barra del color debajo (color del texto). */
+  variant?: 'swatch' | 'text'
   testId: string
 }
 
 const isNone = (c: string): boolean => c === 'transparent' || c === ''
 
-/** The round colour swatch of the toolbar and its popover: design colours, defaults, gradients, custom. */
-export function ColorTool({ label, value, onChange, allowNone, allowGradient, ring, testId }: ColorToolProps) {
+/**
+ * El color de la barra del objeto, como en Canva: el mosaico (o la «A» del texto) abre el panel «Color» de la casa
+ * (ui/ColorPanel: Colores del documento con la baldosa arcoíris, la marca y los predeterminados); la baldosa
+ * arcoíris pasa al selector propio (espectro, hexadecimal, cuentagotas; degradados si se permiten).
+ */
+export function ColorTool({ label, value, onChange, allowNone, allowGradient, ring, variant = 'swatch', testId }: ColorToolProps) {
   const ref = useRef<HTMLButtonElement>(null)
   const [open, setOpen] = useState(false)
   const [keyboard, setKeyboard] = useState(false)
+  const [view, setView] = useState<'swatches' | 'custom'>('swatches')
   const none = value.type === 'solid' && isNone(value.color)
   const css = value.type === 'solid' ? (none ? undefined : value.color) : fillCssPreview(value)
+  const close = (): void => {
+    setOpen(false)
+    setView('swatches')
+  }
+  const toggle = (e: React.MouseEvent): void => {
+    setKeyboard(e.detail === 0)
+    if (open) close()
+    else setOpen(true)
+  }
+  const solid = (color: string, key?: string): void => onChange({ type: 'solid', color }, key)
+
   return (
     <>
       <Tooltip label={label} disabled={open}>
-        <button
-          ref={ref}
-          type="button"
-          className={`${ed.swatch} ${none ? ed.swatchNone : ''}`}
-          style={ring ? { background: 'transparent', border: `3px solid ${css ?? 'var(--ed-border)'}` } : css ? { background: css } : undefined}
-          aria-label={label}
-          aria-haspopup="dialog"
-          aria-expanded={open}
-          data-testid={testId}
-          onClick={(e) => {
-            setKeyboard(e.detail === 0)
-            setOpen((o) => !o)
-          }}
-        />
+        {variant === 'text' ? (
+          <button ref={ref} type="button" className={styles.textBtn} aria-label={label} aria-haspopup="dialog" aria-expanded={open} data-testid={testId} onClick={toggle}>
+            <span className={styles.glyph} aria-hidden="true">
+              A
+            </span>
+            <span className={styles.bar} style={{ background: css ?? 'transparent' }} aria-hidden="true" />
+          </button>
+        ) : (
+          <button
+            ref={ref}
+            type="button"
+            className={`${ed.swatch} ${none ? ed.swatchNone : ''}`}
+            style={ring ? { background: 'transparent', border: `3px solid ${css ?? 'var(--ed-border)'}` } : css ? { background: css } : undefined}
+            aria-label={label}
+            aria-haspopup="dialog"
+            aria-expanded={open}
+            data-testid={testId}
+            onClick={toggle}
+          />
+        )}
       </Tooltip>
-      <Popover open={open} onClose={() => setOpen(false)} anchorRef={ref} label={label} placement="bottom" variant="plain" cover focusOnOpen={keyboard}>
-        <SwatchGrid value={value} onChange={onChange} allowNone={allowNone} allowGradient={allowGradient} testId={testId} />
+      <Popover open={open} onClose={close} anchorRef={ref} label={label} placement="bottom" variant="plain" cover focusOnOpen={keyboard}>
+        <div className={styles.pop} data-testid={`${testId}-popover`}>
+          {view === 'swatches' ? (
+            <ColorPanel value={value} onChange={(f) => onChange(f)} onCustom={() => setView('custom')} allowGradient={allowGradient} allowNone={allowNone} />
+          ) : (
+            <div className={styles.custom}>
+              <button type="button" className={styles.back} onClick={() => setView('swatches')}>
+                <ChevronLeft size={18} aria-hidden="true" />
+                {t.swatches.back}
+              </button>
+              {allowGradient ? (
+                <FillEditor value={value} onChange={(f) => onChange(f, 'fill-custom')} showSwatches={false} />
+              ) : (
+                <ColorPicker value={value.type === 'solid' && !none ? value.color : '#000000'} onChange={(c) => solid(c, 'fill-custom')} showSwatches={false} />
+              )}
+            </div>
+          )}
+        </div>
       </Popover>
     </>
-  )
-}
-
-function SwatchGrid({ value, onChange, allowNone, allowGradient, testId }: Pick<ColorToolProps, 'value' | 'onChange' | 'allowNone' | 'allowGradient' | 'testId'>) {
-  const doc = useDocument()
-  const [showAll, setShowAll] = useState(false)
-  const [view, setView] = useState<'swatches' | 'custom'>('swatches')
-  const design = useMemo(() => documentColors(doc, 30), [doc])
-  const brand = useSyncExternalStore(palettes.subscribe, palettes.getSnapshot).find((p) => p.id === 'brand')
-  const active = value.type === 'solid' ? normalizeColor(value.color).toLowerCase() : null
-  const shown = showAll ? design : design.slice(0, DESIGN_COLORS_SHOWN)
-
-  const solid = (color: string, key?: string): void => onChange({ type: 'solid', color }, key)
-  const swatch = (color: string, id: string): React.ReactNode => (
-    <button key={id} type="button" className={`${ed.cpSwatch} ${active === color.toLowerCase() ? ed.cpOn : ''}`} style={{ background: color, border: color.toLowerCase() === '#ffffff' ? '1px solid var(--ed-border)' : undefined }} title={color} aria-label={t.swatches.use(color)} data-testid={`${testId}-swatch`} onClick={() => solid(color)} />
-  )
-
-  if (view === 'custom') {
-    return (
-      <div className={ed.colorPicker} style={{ width: 280 }}>
-        <button type="button" className={ed.cpBack} onClick={() => setView('swatches')}>
-          <span style={{ display: 'inline-flex', transform: 'rotate(90deg)' }}>{I.chevronDown}</span>
-          {t.swatches.back}
-        </button>
-        {allowGradient ? <FillEditor value={value} onChange={(f) => onChange(f, 'fill-custom')} /> : <ColorPicker value={value.type === 'solid' ? value.color : '#000000'} onChange={(c) => solid(c, 'fill-custom')} />}
-      </div>
-    )
-  }
-
-  return (
-    <div className={ed.colorPicker} data-testid={`${testId}-popover`}>
-      {brand ? (
-        <>
-          <p className={ed.cpTitle}>{brand.label}</p>
-          <div className={ed.cpGrid} data-testid={`${testId}-brand`}>
-            {brand.colors.map((c, i) => swatch(c, `b-${i}-${c}`))}
-          </div>
-        </>
-      ) : null}
-      {design.length > 0 ? (
-        <>
-          <p className={ed.cpTitle}>{t.swatches.design}</p>
-          <div className={ed.cpGrid}>
-            {shown.map((c) => swatch(c, `d-${c}`))}
-            {design.length > DESIGN_COLORS_SHOWN ? (
-              <button type="button" className={`${ed.cpSwatch} ${ed.cpMore}`} title={showAll ? t.swatches.showLess : t.swatches.showAll} aria-label={showAll ? t.swatches.showLess : t.swatches.showAll} onClick={() => setShowAll((v) => !v)}>
-                {showAll ? '−' : '…'}
-              </button>
-            ) : null}
-          </div>
-        </>
-      ) : null}
-
-      <p className={ed.cpTitle}>{t.swatches.defaults}</p>
-      <div className={ed.cpGrid}>
-        {allowNone ? <button type="button" className={`${ed.cpSwatch} ${ed.cpNoFill} ${value.type === 'solid' && isNone(value.color) ? ed.cpOn : ''}`} title={t.swatches.noFill} aria-label={t.swatches.noFill} data-testid={`${testId}-none`} onClick={() => solid('transparent')} /> : null}
-        {DEFAULT_COLORS.map((c) => swatch(c, `f-${c}`))}
-        <button type="button" className={`${ed.cpSwatch} ${ed.cpRainbow}`} title={t.swatches.custom} aria-label={t.swatches.custom} data-testid={`${testId}-custom`} onClick={() => setView('custom')} />
-      </div>
-
-      {allowGradient ? (
-        <>
-          <p className={ed.cpTitle}>{t.swatches.gradients}</p>
-          <div className={ed.cpGrid}>
-            {GRADIENT_PRESETS.map((g) => {
-              const spec: FillSpec = { type: 'gradient', kind: 'linear', angle: g.angle, stops: g.stops }
-              return <button key={g.id} type="button" className={ed.cpSwatch} style={{ backgroundImage: gradientCss(spec) }} title={g.label} aria-label={t.swatches.gradient(g.label)} data-testid={`${testId}-gradient`} onClick={() => onChange(spec)} />
-            })}
-            <button type="button" className={`${ed.cpSwatch} ${ed.cpMore}`} title={t.swatches.customGradient} aria-label={t.swatches.customGradient} onClick={() => setView('custom')}>
-              +
-            </button>
-          </div>
-        </>
-      ) : null}
-    </div>
   )
 }

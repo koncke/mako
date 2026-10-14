@@ -1,23 +1,26 @@
+/* Control segmentado de Canva: riel gris suave y la opción elegida como pastilla blanca con sombra */
 .group {
   display: inline-flex;
-  padding: 3px;
+  padding: 2px;
   gap: 2px;
-  border-radius: var(--cv-radius-md);
-  background: var(--cv-color-bg-muted);
+  border-radius: var(--cv-radius-sm);
+  background: rgb(64 79 109 / 0.06); /* Canva: neutro sutil #404F6D0F */
 }
 
 .option {
   position: relative;
+  flex: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
   min-width: 32px;
-  height: 30px;
+  height: 32px;
   padding: 0 var(--cv-space-3);
-  border-radius: calc(var(--cv-radius-md) - 3px);
+  border-radius: 6px; /* Canva: radio interno = 8 − 2 */
   color: var(--cv-color-text-muted);
-  font: 600 var(--cv-text-xs) / 1 var(--cv-font-sans);
+  font: 600 var(--cv-text-base) / 1 var(--cv-font-sans);
+  white-space: nowrap;
   cursor: pointer;
   transition: background var(--cv-duration-fast) var(--cv-ease-out), color var(--cv-duration-fast) var(--cv-ease-out);
 }
@@ -28,7 +31,7 @@
 
 .on {
   background: var(--cv-color-surface);
-  color: var(--cv-color-brand);
+  color: var(--cv-color-text);
   box-shadow: var(--cv-shadow-sm);
 }
 

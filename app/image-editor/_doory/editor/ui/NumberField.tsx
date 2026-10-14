@@ -1,4 +1,5 @@
 import { type ReactNode, useId, useRef, useState } from 'react'
+import { t } from '../strings'
 import styles from './NumberField.module.css'
 
 interface NumberFieldProps {
@@ -77,7 +78,7 @@ export function NumberField({ label, value, onChange, min, max, step = 1, decima
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
-        title={glyph && scrub ? `${label} (drag to change)` : undefined}
+        title={glyph && scrub ? t.limits.scrub(label) : undefined}
       >
         {glyph ? (
           <>

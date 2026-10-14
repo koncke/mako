@@ -3,7 +3,8 @@ import { useEditor, useEditorState } from '../context'
 import { pxToUnit } from '../engine/units'
 import styles from './Rulers.module.css'
 
-const THICKNESS = 24
+/** Canva: reglas finas (20 px), grises, con el número chico al lado de cada marca. Workspace.module.css corre el área lo mismo. */
+const THICKNESS = 20
 
 function niceStep(minDisplay: number): number {
   const pow = Math.pow(10, Math.floor(Math.log10(minDisplay)))
@@ -38,6 +39,7 @@ export function Rulers({ scrollRef, artboards }: RulersProps) {
       const ar = art.getBoundingClientRect()
       const cs = getComputedStyle(h)
       const bg = cs.getPropertyValue('--ruler-bg').trim() || '#fff'
+      const tick = cs.getPropertyValue('--ruler-tick').trim() || '#c1c5cd'
       const fg = cs.getPropertyValue('--ruler-fg').trim() || '#777'
       const dpr = window.devicePixelRatio || 1
       const unitPx = pxToUnit(1, unit)
@@ -57,10 +59,10 @@ export function Rulers({ scrollRef, artboards }: RulersProps) {
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
         ctx.fillStyle = bg
         ctx.fillRect(0, 0, w, hh)
-        ctx.strokeStyle = fg
+        ctx.strokeStyle = tick
         ctx.fillStyle = fg
         ctx.lineWidth = 1
-        ctx.font = '10px system-ui, sans-serif'
+        ctx.font = `10px ${cs.getPropertyValue('--ruler-font').trim() || 'system-ui, sans-serif'}`
         ctx.textBaseline = 'top'
         const startUnit = Math.floor((0 - origin) / pxPerUnit / minor) * minor
         const endUnit = Math.ceil((length - origin) / pxPerUnit / minor) * minor
@@ -68,7 +70,8 @@ export function Rulers({ scrollRef, artboards }: RulersProps) {
         for (let u = startUnit; u <= endUnit; u += minor) {
           const pos = Math.round(origin + u * pxPerUnit) + 0.5
           const isMajor = Math.abs(u / major - Math.round(u / major)) < 1e-6
-          const len = isMajor ? THICKNESS : THICKNESS * 0.3
+          // Las marcas mayores llegan a la mitad de la regla (Canva no las cruza enteras): el número entra arriba.
+          const len = isMajor ? THICKNESS * 0.5 : THICKNESS * 0.25
           if (horizontal) {
             ctx.moveTo(pos, THICKNESS)
             ctx.lineTo(pos, THICKNESS - len)
@@ -89,9 +92,9 @@ export function Rulers({ scrollRef, artboards }: RulersProps) {
           }
         }
         ctx.stroke()
-        // Page extent highlight.
-        ctx.globalAlpha = 0.12
-        ctx.fillStyle = cs.getPropertyValue('--ruler-accent').trim() || '#6a52d9'
+        // Dónde está la página: una franja gris clara (Canva marca en gris, no en color).
+        ctx.globalAlpha = 1
+        ctx.fillStyle = cs.getPropertyValue('--ruler-accent').trim() || 'rgb(64 79 109 / 0.08)'
         if (horizontal) ctx.fillRect(origin, 0, ar.width, THICKNESS)
         else ctx.fillRect(0, origin, THICKNESS, ar.height)
         ctx.globalAlpha = 1

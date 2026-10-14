@@ -61,7 +61,7 @@ export function VersionsDialog() {
   }
 
   return (
-    <Dialog title={t.versions.title} description={t.versions.description} width={560} onClose={() => editor.closeDialog()} footer={<Button onClick={() => editor.closeDialog()}>{t.dialog.close}</Button>}>
+    <Dialog title={t.versions.title} description={t.versions.description} width={560} onClose={() => editor.closeDialog()}>
       <div className={dlg.stack} data-testid="versions-dialog">
         <div className={styles.row}>
           <input className={`${dlg.input} ${styles.grow}`} value={label} maxLength={120} placeholder={t.versions.labelPlaceholder} aria-label={t.versions.labelField} data-testid="version-label" onChange={(e) => setLabel(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && void create()} />

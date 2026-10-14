@@ -1,5 +1,8 @@
+import { registerCommand } from '../commands'
+import { requestLinkEditor } from '../ContextMenuHost'
+import { t } from '../strings'
 import { registerToolbarSection } from '../toolbar/registry'
-import { ActionsSection, AlignSection, FlipRotateSection, GroupSection, MultiSection, ZOrderSection } from '../toolbar/sections/common'
+import { ActionsSection, GroupSection, MultiSection, ObjectSection } from '../toolbar/sections/common'
 import { elementColors, onlyKind } from '../toolbar/kinds'
 import { CropSection } from '../toolbar/sections/crop'
 import { ImageSection } from '../toolbar/sections/image'
@@ -8,10 +11,10 @@ import { ElementSection, LineSection, PlaceholderSection, QrSection, ShapeSectio
 import { TextSection } from '../toolbar/sections/text'
 
 /**
- * The contextual row, in this order: what is specific to the kind, then flip and rotate, order,
- * centre on the page, and lock / duplicate / delete. Each group is one section; sections that do not apply
- * (text has no flip or order group) are skipped and separators follow the groups shown. With nothing
- * selected the row shows the page's colour and actions, so the workspace below it never moves when a selection starts.
+ * La barra del objeto, en el orden de Canva: lo propio de cada tipo (texto, imagen, forma, línea, varios, grupo…),
+ * después «Animar» y «Posición», y al final «Transparencia», el candado y el `⋯ Más`. Cada grupo es una sección; las
+ * que no aplican no se dibujan y los separadores siguen a las que se ven. Sin nada elegido la barra es la de la
+ * página, así que el lienzo nunca se corre cuando empieza una selección.
  */
 export function registerBuiltinToolbarSections(): void {
   const selected = (ids: readonly string[], cropping: unknown): boolean => ids.length > 0 && cropping === null
@@ -26,10 +29,12 @@ export function registerBuiltinToolbarSections(): void {
   registerToolbarSection({ id: 'placeholder', order: 10, appliesTo: (sel) => onlyKind(sel.kinds, 'placeholder') && sel.ids.length === 1, component: PlaceholderSection })
   registerToolbarSection({ id: 'group', order: 10, appliesTo: (sel) => onlyKind(sel.kinds, 'group') && sel.ids.length === 1, component: GroupSection })
   registerToolbarSection({ id: 'multi', order: 10, appliesTo: (sel) => sel.ids.length > 1, component: MultiSection })
-  registerToolbarSection({ id: 'flip', order: 60, appliesTo: (sel, state) => selected(sel.ids, state.ui.cropping) && !onlyKind(sel.kinds, 'text'), component: FlipRotateSection })
-  registerToolbarSection({ id: 'zorder', order: 70, appliesTo: (sel, state) => selected(sel.ids, state.ui.cropping) && !onlyKind(sel.kinds, 'text'), component: ZOrderSection })
-  registerToolbarSection({ id: 'align', order: 80, appliesTo: (sel, state) => selected(sel.ids, state.ui.cropping), component: AlignSection })
+  registerToolbarSection({ id: 'object', order: 50, appliesTo: (sel, state) => selected(sel.ids, state.ui.cropping), component: ObjectSection })
   registerToolbarSection({ id: 'actions', order: 90, appliesTo: (sel, state) => selected(sel.ids, state.ui.cropping), component: ActionsSection })
+
+  // Atajos de Canva que abren piezas de la barra y del menú del clic derecho.
+  registerCommand({ id: 'edit.link', label: t.context.addLink, shortcut: 'Mod+K', group: t.cmdGroup.edit, run: (e) => requestLinkEditor(e), enabled: ({ state }) => state.selection.ids.length > 0 && !state.selection.editing })
+  registerCommand({ id: 'view.layers', label: t.context.showLayers, shortcut: 'Alt+1', group: t.cmdGroup.view, run: (e) => e.patchUi({ panelId: e.state.ui.panelId === 'layers' ? null : 'layers' }) })
 }
 
 registerBuiltinToolbarSections()

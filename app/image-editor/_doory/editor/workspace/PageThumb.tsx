@@ -12,11 +12,13 @@ interface PageThumbProps {
   page: DocPage
   index: number
   active: boolean
-  /** Compact (strip) or roomy (panel) sizing. */
-  variant: 'strip' | 'panel'
+  /** La tira de miniaturas de abajo (chica) o la vista de cuadrícula (grande). */
+  variant: 'strip' | 'grid'
   dragOver: 'before' | 'after' | null
   draggable: boolean
   onSelect: () => void
+  /** Doble clic o Enter: abre la página (en la cuadrícula, vuelve al lienzo sobre ella). */
+  onOpen?: () => void
   onDragStart: (e: React.DragEvent) => void
   onDragOver: (e: React.DragEvent) => void
   onDrop: (e: React.DragEvent) => void
@@ -24,19 +26,27 @@ interface PageThumbProps {
   onMove: (delta: number) => void
 }
 
-/** The strip draws every page inside the same box, at the page's own proportions. */
-const STRIP_BOX = { width: 96, height: 120 }
+/**
+ * Cada página se dibuja dentro de la misma caja, con sus propias proporciones. Canva: en la tira las miniaturas
+ * tienen el mismo ALTO (una 16:9 sale ancha, una historia sale angosta); en la cuadrícula, mosaicos parejos.
+ */
+const BOXES = {
+  strip: { width: 112, height: 64 },
+  grid: { width: 200, height: 150 },
+} as const
 const MIN_SIDE = 6
 
-export const PageThumb = memo(function PageThumb({ page, index, active, variant, dragOver, draggable, onSelect, onDragStart, onDragOver, onDrop, onDragEnd, onMove }: PageThumbProps) {
+export const PageThumb = memo(function PageThumb({ page, index, active, variant, dragOver, draggable, onSelect, onOpen, onDragStart, onDragOver, onDrop, onDragEnd, onMove }: PageThumbProps) {
   const editor = useEditor()
   const size = editor.pageSizeOf(page.id)
-  // Only the thumbnails that can be seen are drawn: a long design has a long strip, and each picture costs a page render.
+  // Sólo se dibujan las miniaturas que se ven: un diseño largo tiene una tira larga, y cada imagen cuesta un render de página.
   const [seenRef, seen] = useInView<HTMLDivElement>()
   const url = usePageSnapshot(page, size, seen)
-  const fit = fitBox(size, STRIP_BOX.width, STRIP_BOX.height)
+  const limit = BOXES[variant]
+  const fit = fitBox(size, limit.width, limit.height)
   const box = { width: Math.max(MIN_SIDE, fit.width), height: Math.max(MIN_SIDE, fit.height) }
-  const label = page.name?.trim() || t.workspace.page(index + 1)
+  const name = page.name?.trim()
+  const label = name || t.workspace.page(index + 1)
   return (
     <div
       ref={seenRef}
@@ -47,15 +57,21 @@ export const PageThumb = memo(function PageThumb({ page, index, active, variant,
       onDrop={onDrop}
       onDragEnd={onDragEnd}
     >
-      <span className={styles.frame}>
+      <span className={styles.frame} style={{ height: limit.height }}>
         <button
           type="button"
           className={styles.thumb}
-          style={variant === 'strip' ? box : { aspectRatio: `${size.width / size.height}` }}
-          aria-label={`${label}${active ? ', current page' : ''}`}
+          style={box}
+          aria-label={active ? `${label}, ${t.workspace.currentPage}` : label}
           aria-current={active || undefined}
           onClick={onSelect}
+          onDoubleClick={onOpen}
           onKeyDown={(e) => {
+            if (e.key === 'Enter' && onOpen) {
+              e.preventDefault()
+              onOpen()
+              return
+            }
             if (!draggable || !e.altKey) return
             if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
               e.preventDefault()
@@ -69,7 +85,9 @@ export const PageThumb = memo(function PageThumb({ page, index, active, variant,
           {url ? <img src={url} alt="" draggable={false} /> : <Skeleton width="100%" height="100%" radius={0} />}
         </button>
       </span>
-      <span className={styles.caption}>{index + 1}</span>
+      <span className={styles.caption}>
+        {variant === 'grid' && name ? `${index + 1} - ${name}` : index + 1}
+      </span>
     </div>
   )
 })

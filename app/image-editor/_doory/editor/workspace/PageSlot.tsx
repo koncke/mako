@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, Copy, Plus, Trash2 } from 'lucide-react'
+import { ChevronDown, ChevronUp, CopyPlus, SquarePlus, Trash2 } from 'lucide-react'
 import { type CSSProperties, memo, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { DocPage } from '@/app/image-editor/_doory/types/document'
 import { useEditor, useEditorState } from '../context'
@@ -29,8 +29,10 @@ interface PageSlotProps {
   registerArtboard: (id: string, el: HTMLDivElement | null) => void
 }
 
-/** A header never gets narrower than its name, size and actions need, however small the page is. */
+/** El encabezado nunca es más angosto de lo que piden el título y los íconos, por chica que sea la página. */
 const HEADER_MIN_WIDTH = 372
+/** El título de una página, como el resto de los nombres del editor. */
+const TITLE_MAX = 60
 
 /** The header spans the artboard; on a page narrower than the minimum it overhangs both sides equally, so the slot stays as wide as the page. */
 const headerStyle = (width: number, height: number): CSSProperties => {
@@ -45,14 +47,67 @@ function backgroundCss(page: DocPage): string | undefined {
   return fill.type === 'gradient' ? gradientCss(fill) : fill.color
 }
 
-/** One page in the stack: header chrome, artboard, and either a live Fabric canvas or a cached bitmap. */
+/**
+ * El título de la página, como en Canva: «Página 1 - Agregar título de página», donde lo segundo es un campo
+ * escribible en el mismo renglón. Se guarda al salir del campo o con Enter; Esc lo deja como estaba. Un cambio que
+ * llega de otro lado (deshacer, un colaborador) se adopta mientras no se esté escribiendo.
+ */
+function PageTitle({ page, readOnly }: { page: DocPage; readOnly: boolean }) {
+  const editor = useEditor()
+  const saved = page.name ?? ''
+  const [text, setText] = useState(saved)
+  const [synced, setSynced] = useState(saved)
+  const [editing, setEditing] = useState(false)
+  const cancelled = useRef(false)
+
+  if (saved !== synced) {
+    setSynced(saved)
+    if (!editing) setText(saved)
+  }
+
+  if (readOnly) return saved.trim() ? <span className={styles.titleText}>{saved}</span> : null
+  const shown = text || t.workspace.pageTitle
+  return (
+    <input
+      className={styles.titleInput}
+      // El campo mide lo que su texto (o el texto de ayuda): el encabezado queda como una sola frase.
+      style={{ width: `calc(${Math.min(TITLE_MAX, shown.length) + 1}ch + 12px)` }}
+      value={text}
+      placeholder={t.workspace.pageTitle}
+      aria-label={t.panels.pageName}
+      maxLength={TITLE_MAX}
+      spellCheck={false}
+      onFocus={() => {
+        cancelled.current = false
+        setEditing(true)
+      }}
+      onChange={(e) => setText(e.target.value)}
+      onBlur={() => {
+        setEditing(false)
+        if (cancelled.current) {
+          setText(saved)
+          return
+        }
+        if (text.trim() !== saved.trim()) editor.pages.rename(page.id, text.trim())
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') e.currentTarget.blur()
+        if (e.key === 'Escape') {
+          cancelled.current = true
+          e.currentTarget.blur()
+        }
+      }}
+    />
+  )
+}
+
+/** Una página de la pila: el encabezado de Canva, la mesa de trabajo, y el lienzo vivo de Fabric o su imagen guardada. */
 export const PageSlot = memo(function PageSlot({ page, index, total, width, height, zoom, headerHeight, gap, live, near, active, registerArtboard }: PageSlotProps) {
   const editor = useEditor()
   const readOnly = useEditorState((s) => s.readOnly)
   const loading = useEditorState((s) => s.loadingPages.includes(page.id))
   const hostRef = useRef<HTMLDivElement>(null)
   const artRef = useRef<HTMLDivElement>(null)
-  const [renaming, setRenaming] = useState(false)
   const pageSize = editor.pageSizeOf(page.id)
   const snapshot = usePageSnapshot(page, pageSize, near && (!live || loading))
 
@@ -73,57 +128,54 @@ export const PageSlot = memo(function PageSlot({ page, index, total, width, heig
     if (live) editor.view.relayout()
   }, [live, zoom, width, height, editor])
 
-  const label = page.name?.trim() || t.workspace.page(index + 1)
+  const number = t.workspace.page(index + 1)
+  const label = page.name?.trim() || number
+  const several = total > 1
+  const showDash = !readOnly || Boolean(page.name?.trim())
 
   return (
-    <section className={styles.slot} data-page-id={page.id} data-active={active || undefined} data-multi={total > 1 || undefined} style={{ height: headerHeight + height, marginBottom: gap }} aria-label={label}>
+    <section className={styles.slot} data-page-id={page.id} data-active={active || undefined} data-multi={several || undefined} style={{ height: headerHeight + height, marginBottom: gap }} aria-label={label}>
       <header className={styles.header} style={headerStyle(width, headerHeight)} hidden={headerHeight === 0}>
         <div className={styles.lead}>
-          {renaming ? (
-            <input
-              className={styles.nameInput}
-              defaultValue={page.name ?? ''}
-              placeholder={t.workspace.page(index + 1)}
-              aria-label={t.panels.pageName}
-              autoFocus
-              maxLength={60}
-              onBlur={(e) => {
-                editor.pages.rename(page.id, e.currentTarget.value)
-                setRenaming(false)
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') e.currentTarget.blur()
-                if (e.key === 'Escape') setRenaming(false)
-              }}
-            />
-          ) : (
-            <button type="button" className={styles.name} disabled={readOnly} onClick={() => (readOnly ? undefined : setRenaming(true))} onDoubleClick={() => undefined} title={readOnly ? undefined : t.workspace.renamePage}>
-              <span className={styles.count}>{index + 1}</span>
-              <span className={styles.label}>{label}</span>
-            </button>
-          )}
-          <PageSizeChip pageId={page.id} number={index + 1} />
-          <DurationChip pageId={page.id} className={styles.time} />
+          <span className={styles.number}>{number}</span>
+          {showDash ? (
+            <span className={styles.dash} aria-hidden="true">
+              -
+            </span>
+          ) : null}
+          <PageTitle page={page} readOnly={readOnly} />
         </div>
-        {readOnly ? null : (
-          <div className={styles.actions}>
-            <IconButton label={t.workspace.moveUp} size="sm" disabled={index === 0} onClick={() => editor.pages.moveBy(page.id, -1)}>
-              <ArrowUp size={16} />
-            </IconButton>
-            <IconButton label={t.workspace.moveDown} size="sm" disabled={index === total - 1} onClick={() => editor.pages.moveBy(page.id, 1)}>
-              <ArrowDown size={16} />
-            </IconButton>
-            <IconButton label={t.workspace.duplicatePage} size="sm" onClick={() => editor.pages.duplicate(page.id)}>
-              <Copy size={16} />
-            </IconButton>
-            <IconButton label={t.workspace.deletePage} size="sm" disabled={total <= 1} onClick={() => editor.pages.remove(page.id)}>
-              <Trash2 size={16} />
-            </IconButton>
-            <IconButton label={t.workspace.addPageHere} size="sm" onClick={() => editor.pages.add(index + 1)}>
-              <Plus size={16} />
-            </IconButton>
-          </div>
-        )}
+        <div className={styles.actions}>
+          <span className={styles.meta}>
+            <PageSizeChip pageId={page.id} number={index + 1} />
+            <DurationChip pageId={page.id} className={styles.time} />
+          </span>
+          {readOnly ? null : (
+            <>
+              {several ? (
+                <>
+                  <IconButton label={t.workspace.moveUp} size="sm" disabled={index === 0} onClick={() => editor.pages.moveBy(page.id, -1)}>
+                    <ChevronUp size={18} />
+                  </IconButton>
+                  <IconButton label={t.workspace.moveDown} size="sm" disabled={index === total - 1} onClick={() => editor.pages.moveBy(page.id, 1)}>
+                    <ChevronDown size={18} />
+                  </IconButton>
+                </>
+              ) : null}
+              <IconButton label={t.workspace.duplicatePage} size="sm" onClick={() => editor.pages.duplicate(page.id)}>
+                <CopyPlus size={18} />
+              </IconButton>
+              {several ? (
+                <IconButton label={t.workspace.deletePage} size="sm" onClick={() => editor.pages.remove(page.id)}>
+                  <Trash2 size={18} />
+                </IconButton>
+              ) : null}
+              <IconButton label={t.workspace.addPageHere} size="sm" onClick={() => editor.pages.add(index + 1)}>
+                <SquarePlus size={18} />
+              </IconButton>
+            </>
+          )}
+        </div>
       </header>
       <div ref={artRef} className={styles.artboard} style={{ width, height, background: backgroundCss(page) }} data-artboard data-page-id={page.id}>
         {snapshot && (!live || loading) ? <img className={styles.snapshot} src={snapshot} alt={t.workspace.snapshotAlt(index + 1)} draggable={false} /> : null}

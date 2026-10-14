@@ -32,7 +32,7 @@ es el plano: qué se decidió, cómo está armado y qué falta. Los relevamiento
 | 4 | **Etapa 1 = «plantilla para ir trabajando»: diseños e imágenes en el navegador** (IndexedDB, una base por workspace, `espacio.ts`), con el adaptador de «invitado» de Doory en modo `account` | Es lo que Doory ya trae andando y lo que Martín pidió primero. **Etapa 2: Supabase** (tabla de diseños + bucket, molde `landing_docs`/`landing-imagenes`): la regla de la casa es que el estado del producto va a la base, y la API de MaKo y las Estrellas leen de ahí (`relevamiento-integracion-mako.md` §0.7). Doory ya trae la migración «local → cuenta» (`migrateLocalDesign.ts`) |
 | 5 | **Tokens de Doory prefijados `--cv-` y limitados a `.cv`**; su `global.css` reescrito colgado de `.cv` | Sus nombres (`--color-*`, `--text-*`, `--font-*`, `--space-*`) son los namespaces de Tailwind 4 y pisarían MaKo (`repos/doory.md` §4) |
 | 6 | **Sin co-edición, comentarios, compartir, versiones, Marca ni fotos de stock en la etapa 1**: sus servicios van en `null` y el editor esconde esas herramientas | Dependen del backend Django de Doory. Vuelven con Supabase (etapa 2) |
-| 7 | **Catálogos estáticos de MaKo** (`mako/servicios.ts`): fuentes de Google Fonts por la copia de jsDelivr de `@fontsource/*`; elementos y plantillas, los de prueba de Doory hasta el catálogo propio | El backend de Doory los servía. Licencias en `relevamiento-contenido-licencias.md` |
+| 7 | **Catálogos propios de MaKo** (`mako/servicios.ts` los arma): 70 familias de Google Fonts (499 variantes, por la copia de jsDelivr de `@fontsource/*`, `mako/fuentes.ts`) y sus 14 combinaciones; elementos de 7 sets de Iconify MIT/ISC/Apache (`mako/elementos.ts`, búsqueda en vivo con diccionario español → inglés); las 10 plantillas de Doory con títulos, categorías y etiquetas en español (`mako/plantillas.ts`, cargadas al usarlas). Los archivos generados se rehacen con `scripts/image-editor/` | El backend de Doory los servía. Licencias en `relevamiento-contenido-licencias.md`. Las fuentes todavía no se alojan (tanda 4) |
 | 8 | **Dependencias nuevas instaladas SIN `npm install` en el clon** (en `C:/dev/canva-deps` y copiadas a `node_modules`), `package.json`/lock con `--package-lock-only` | El `node_modules` compartido tiene paquetes sueltos de otra sesión (`@simplewebauthn/*`): un `npm install` común los borraba |
 | 9 | **Textos de pantalla en español neutro (tú)**, con los nombres de Canva | AGENTS.md + `tests/puente-panel-copy.test.ts` barre el port entero |
 | 10 | **Onboarding = estado vacío** («Crear un diseño»), sin entrada en el catálogo | La tab ES la herramienta (regla del 05/10, como el Video Editor) |
@@ -53,10 +53,11 @@ app/image-editor/
   espacio.ts               un repositorio IndexedDB por workspace
   ruta.ts                  rutas internas con el `?ws=`
   ImageEditorCliente.tsx   raíz `.cv` (tokens + estilos base de Doory), monta todo sin SSR
-  inicio/Inicio.tsx        crear por tamaño + recientes (el inicio de Canva llega con el re-vestido)
-  editor/PantallaEditor.tsx carga el diseño, arma el adaptador y monta EditorApp
-  editor/CreditoDoory.tsx  el crédito que exige la licencia
-  mako/servicios.ts        fuentes, elementos y plantillas del lado de MaKo
+  inicio/                  Inicio de Canva: franja, chips, buscador, círculos, «Crear un diseño», recientes en cuadrícula o lista
+  editor/PantallaEditor.tsx carga el diseño, arma el adaptador (con «Copiar y redimensionar») y monta EditorApp
+  editor/CreditoDoory.tsx  el crédito que exige la licencia (franja fina al pie, en cada apertura)
+  mako/servicios.ts        fuentes, elementos y plantillas del lado de MaKo (fuentes.ts, elementos.ts, plantillas.ts)
+  mako/registro.ts         los paneles que suma MaKo (hoy «Proyectos», ProyectosPanel.tsx)
   _doory/                  el frontend de Doory portado (sin tests, sin el shell de su app)
     editor/                el editor: engine/ (fabric), chrome/, panels/, toolbar/, workspace/, dialogs/…
     types/                 documento, adaptador y tipos de su API
@@ -72,8 +73,16 @@ stock, versiones, compartir, comentarios). El editor no toca rutas, sesión ni H
 escribir un adaptador de Supabase, no tocar el editor.
 
 **Extender el editor:** `_doory/editor/extensions.ts` (`registerPanel`, `registerToolbarSection`,
-`registerCommand`, `registerExportFormat`, `registerObjectKind`). Los paneles ya declaran
-`placement: 'drawer' | 'sidebar'`: el riel izquierdo de Canva es mover herramientas, no reescribir.
+`registerCommand`, `registerExportFormat`, `registerObjectKind`). Un panel con `rail: true` es una pestaña del
+riel izquierdo (`chrome/RielCanva.tsx`), en el orden de `order` (Diseño 10 · Elementos 20 · Texto 30 · Marca 40 ·
+Subidos 50 · Herramientas 60 · Proyectos 70 · Apps 80); sin `rail` (Animar, Audio, Capas, Comentarios) se abre
+desde la barra del objeto, «Apps», el menú del clic derecho o los comandos.
+
+**El armazón de Canva (tanda 2)**, de arriba abajo: `TopBar.tsx` (degradado, Archivo, Redimensionar, título,
+Presentar, Compartir) · en fila sobre el gris del cromo: `RielCanva` (72 px), `SidebarHost` (la tarjeta de 350 px)
+y el área: la barra del objeto flotando arriba (`toolbar/ContextualToolbar.tsx`), el lienzo
+(`workspace/Workspace.tsx`) y al pie la barra inferior (`workspace/BottomBar.tsx`: Notas, Duración, zoom, Páginas,
+cuadrícula, pantalla completa). Debajo de 1024 px el riel pasa a la tira `CompactTools` y los paneles abren como hoja.
 
 ---
 
@@ -91,6 +100,13 @@ escribir un adaptador de Supabase, no tocar el editor.
 7. **Typecheck acotado**: `node C:/dev/tsc-cv.mjs` (sólo `app/image-editor`, con el lock de la
    máquina; `tsconfig.cv.json` no se versiona). El completo lo corre el pre-push.
 8. **Borrar** = el tacho de la casa (`BotonBorrar`).
+9. **Tamaños: UNA lista**, `_doory/editor/dialogs/resizeSizes.ts` (nombres en `strings.ts → dialog.resizeSizes`).
+   De ahí salen Redimensionar, el popover de tamaño de la página (`engine/presets.ts`) y el Inicio (`inicio/tamanos.ts`).
+10. **Un módulo de `app/image-editor/` que importe un VALOR de `_doory/` lleva `'use client'`** (o entra en `PUERTA`
+    del test 4 de `tests/image-editor-integracion.test.ts`).
+11. **La barra del objeto flota sobre el lienzo**: si cambia su alto, cambia `TOOLBAR_BAND` de `workspace/Workspace.tsx`.
+12. **Color**: todo selector de color abre `ui/ColorPanel` (Colores del documento, predeterminados de Canva); el
+    selector propio (`ColorPicker`/`FillEditor`) va con `showSwatches={false}` detrás de la baldosa arcoíris.
 
 ---
 
@@ -98,9 +114,9 @@ escribir un adaptador de Supabase, no tocar el editor.
 
 | Tanda | Qué | Estado |
 |---|---|---|
-| 1 | Port de Doory + cáscara de MaKo + textos en español + crédito | en curso (14/10) |
-| 2 | **Re-vestido como Canva**: barra superior (Archivo, Redimensionar, título, Compartir violeta), riel izquierdo con panel (Diseño, Elementos, Texto, Marca, Subidos, Herramientas, Proyectos, Apps), barra contextual, barra inferior (Notas, zoom, cuadrícula de páginas, pantalla completa), inicio de Canva; paleta y proporciones medidas | pendiente |
+| 1 | Port de Doory + cáscara de MaKo + textos en español + crédito | hecha (14/10) |
+| 2 | **Re-vestido como Canva**: barra superior (Archivo, Redimensionar, título, Compartir violeta), riel izquierdo con panel (Diseño, Elementos, Texto, Marca, Subidos, Herramientas, Proyectos, Apps), barra contextual, barra inferior (Notas, zoom, cuadrícula de páginas, pantalla completa), inicio de Canva; paleta y proporciones medidas | escrita (14/10): typecheck y tests en verde, **sin ver en el navegador**. Lo que no se hizo, en `hallazgos-editor-imagen.md` |
 | 3 | **Supabase**: tabla de diseños (jsonb + miniatura, por workspace), bucket de imágenes, adaptador; Marca, versiones, compartir y comentarios con tablas propias | pendiente |
-| 4 | **Catálogo propio**: ~64 fuentes alojadas + combinaciones, packs de íconos MIT/Apache por Iconify, emoji Fluent/Noto, ilustraciones CC0, formas/líneas/marcos/cuadrículas propias, plantillas propias (las 10 de Doory al principio), fotos de Unsplash | pendiente |
+| 4 | **Catálogo propio**: ~64 fuentes alojadas + combinaciones, packs de íconos MIT/Apache por Iconify, emoji Fluent/Noto, ilustraciones CC0, formas/líneas/marcos/cuadrículas propias, plantillas propias (las 10 de Doory al principio), fotos de Unsplash | en parte (14/10): 70 fuentes + 14 combinaciones, 7 sets de Iconify, las 10 plantillas de Doory en español (su texto del lienzo sigue en inglés). Falta alojar las fuentes, ilustraciones, plantillas propias y fotos |
 | 5 | **Lo que a Doory le falta frente a Canva**: texto en formas, tablas, cuadrículas, dibujar, copiar estilo, efectos de texto Elevar/Salpicadura/Eco/Glitch, líneas en codo/curvas, gráficos con datos, ajustes de foto que faltan, quitar fondo de objetos, borrador mágico | pendiente |
 | 6 | **API de MaKo** (área del editor: listar/crear/exportar diseños) y Estrellas `formato_imagen` | pendiente (necesita la etapa 3) |
