@@ -1086,6 +1086,18 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /**
+   * ⏹ DETENER (punto 7 del feedback del 13/10/2026: «un botón de parada o pausa accesible en la interfaz para detener
+   * de forma inmediata la ejecución de un flujo de automatización durante las fases de testeo»). Corta lo que estaba
+   * por salir (`cortar`: en «Probar en WhatsApp» no sale nada más) y lo dice. ↻ vuelve a empezar.
+   */
+  const detener = () => {
+    cortar();
+    setTyping(null); setOpciones(null);
+    setTerminado(true);
+    sistema('⏹ Detenido', null, true);
+  };
+
   /** Vuelve a empezar. `deVerdad`: este recorrido sale al destino de abajo. ↻ es sin envío. */
   const reiniciar = (deVerdad = false) => {
     // Lo que se ve tiene una tarjeta suelta o algo sin completar: no se rearranca (y lo de antes queda).
@@ -1322,6 +1334,8 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
             onClick={() => (menu ? cerrarMenu() : !frenado() && setMenu(true))}>{def.probarEn}</Button>
         )}
         <button type="button" onClick={() => reiniciar()} title="Reiniciar" aria-label="Reiniciar" style={iconBtn}>↻</button>
+        {/* ⏹ DESPUÉS de ↻: «Probar en WhatsApp» va pegado a ↻ (quinta tanda, punto 1). */}
+        {!terminado && <button type="button" data-detener onClick={detener} title="Detener" aria-label="Detener la prueba" style={iconBtn}>⏹</button>}
       </div>
       {menu && rolAdmin && (
         <PopoverWA ancla={btnProbar} etiqueta={def.probarEn} onCerrar={cerrarMenu}>
