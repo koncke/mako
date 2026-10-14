@@ -50,8 +50,14 @@ Si la pantalla creía que no tenía fila, deshacer la BORRA.
   tenía fila).
 - **El teléfono ofrece el Deshacer sólo si `desde` coincide con la pantalla**, y nunca desde una etapa que ya no
   existe, porque el server la rechaza (app/m/cs/CustomerSuccessM.tsx, `sePuedeDeshacer`).
-- **Pendiente en escritorio:** la misma guarda en `ClientesApp.moverEntrega` (app/customer-success). Para reponer
-  también el reloj real, que `moverClienteDeEtapa` (lib/cs-mover-etapa.ts) devuelva el `etapa_desde` de la fila previa.
+- **El escritorio quedó arreglado distinto, y de raíz (14/10/2026):** `moverClienteDeEtapa` lee también el `etapa_desde`
+  de la fila previa y lo devuelve como `relojPrevio`; las dos actions lo pasan, y los dos Deshacer de `ClientesApp`
+  (`moverEntrega` y `moverLote`) reponen `desde` + `relojPrevio` del RESULTADO, no la `previa` de la pantalla. O sea
+  que con la pantalla vieja el Deshacer igual se ofrece y vuelve a donde el cliente estaba DE VERDAD (Hito 1, con su
+  reloj), y si no tenía fila la borra porque el server lo dijo. A una etapa que ya no existe no se ofrece volver.
+  Lo fija `tests/cs-deshacer-reloj.test.ts` (probado rompiendo cada pieza: 1 fallo cada una).
+- **Pendiente en el teléfono:** con `r.relojPrevio` disponible, `sePuedeDeshacer` podría dejar de suprimir el Deshacer
+  cuando la pantalla estaba vieja y reponer lo del server, igual que el escritorio (app/m/cs/CustomerSuccessM.tsx).
 
 ## La API de Whop no deja leer las respuestas de una tarea
 

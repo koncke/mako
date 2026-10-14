@@ -27,6 +27,11 @@
 // point (baseline 61 pass / 0 fail): `etapa_desde: ahora` en `columna` → 59/2 («la columna que
 // se escribe…» y, en tests/cs-mover-etapa.test.ts, «…el MISMO reloj»); la action de lote sin
 // `relojPrevio: m.relojPrevio` → 60/1 («las dos actions»). Restaurado: 61 / 0.
+// El 14/10/2026 el deshacer pasó a reponer lo que dice el SERVER (ver abajo). Probado rompiéndolo,
+// una rotura por vez y restaurando de memoria, base 9 pass / 0 fail: el select sin `etapa_desde`,
+// la action devolviendo `relojPrevio: null`, el deshacer de una tarjeta leyendo el reloj de la
+// pantalla, el del lote con `relojPrevio: null` y sin la guarda de la etapa borrada → 8/1 cada una,
+// y cayó la suya. Restaurado: 9 / 0.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -84,17 +89,52 @@ test('las dos actions le pasan el reloj al choke point', () => {
   assert.match(src, /moverClienteDeEtapa\(\{\s*leadId,\s*productoId,\s*etapa:\s*m\.etapa,\s*relojPrevio:\s*m\.relojPrevio,\s*por\s*\}\)/);
 });
 
-test('el deshacer de una tarjeta manda el reloj que tenía', () => {
-  const src = leer('app/customer-success/ClientesApp.tsx');
-  assert.match(src, /if \(previa\) moverEntrega\(leadId, previa\.etapa, prodId, false, previa\.etapa_desde\)/);
-  assert.match(src, /moverEntregaAction\(leadId, prodId, etapa, relojPrevio\)/);
+// ⚠️ DESDE EL 14/10/2026 LO QUE SE REPONE LO DICE EL SERVER, NO LA PANTALLA. Con la pantalla
+// vieja (MaKo movió al cliente por el avance del curso después de dibujarla), deshacer con lo de
+// la pantalla lo devolvía a una etapa que ya había dejado, con su reloj trabado, re-enrolándolo
+// en sus secuencias; y si la pantalla creía que no tenía fila, se la borraba. El choke point lee
+// el reloj de la fila previa y lo devuelve (`relojPrevio`), las dos actions lo pasan, y los dos
+// deshacer de ClientesApp reponen `desde` + `relojPrevio` del resultado.
+const funcion = (src: string, nombre: string, siguiente: string) => {
+  const ini = src.indexOf(`function ${nombre}(`);
+  assert.ok(ini > 0, `no encontré ${nombre}`);
+  const fin = src.indexOf(`function ${siguiente}(`, ini);
+  assert.ok(fin > ini, `no encontré dónde termina ${nombre}`);
+  return src.slice(ini, fin);
+};
+
+test('el choke point devuelve el reloj que la fila tenía antes de moverse', () => {
+  const src = leer('lib/cs-mover-etapa.ts');
+  assert.match(src, /\.from\('cliente_entrega'\)\.select\('id, etapa, etapa_desde'\)/);
+  assert.match(src, /desde, relojPrevio: previa\?\.etapa_desde \?\? null, hacia/);
 });
 
-test('el deshacer del lote manda el reloj de cada cliente', () => {
+test('las dos actions le devuelven a la pantalla el reloj previo', () => {
+  const src = leer('app/customer-success/actions.ts');
+  assert.match(src, /return \{ ok: true, desde: m\.desde, relojPrevio: m\.relojPrevio,/);
+  assert.match(src, /resultados\.push\(\{ leadId, ok: true, desde: r\.desde, relojPrevio: r\.relojPrevio,/);
+});
+
+test('el deshacer de una tarjeta repone lo que dijo el server, con su reloj', () => {
   const src = leer('app/customer-success/ClientesApp.tsx');
-  const ini = src.indexOf('const volver = movidos.map(');
+  const cuerpo = funcion(src, 'moverEntrega', 'moverLote');
+  assert.match(cuerpo, /moverEntregaAction\(leadId, prodId, etapa, relojPrevio\)/);
+  assert.match(cuerpo, /const desde = r\.desde;/);
+  assert.match(cuerpo, /const relojDesde = r\.relojPrevio;/);
+  assert.match(cuerpo, /if \(desde\) moverEntrega\(leadId, desde, prodId, false, relojDesde\)/);
+  assert.doesNotMatch(cuerpo, /asignacionDe\(/, 'el deshacer no puede salir de lo que la pantalla cree: puede estar vieja');
+  assert.match(cuerpo, /if \(desde && !etapaExiste\(prodId, desde\)\)/, 'a una etapa que se borró no se ofrece volver');
+});
+
+test('el deshacer del lote repone lo que dijo el server para cada cliente', () => {
+  const src = leer('app/customer-success/ClientesApp.tsx');
+  const cuerpo = funcion(src, 'moverLote', 'siguienteDe');
+  assert.doesNotMatch(cuerpo, /asignacionDe\(/, 'el deshacer no puede salir de lo que la pantalla cree: puede estar vieja');
+  const ini = cuerpo.indexOf('const volver = movidos');
   assert.ok(ini > 0, 'no encontré el deshacer del lote');
-  const bloque = src.slice(ini, src.indexOf('});', ini) + 3);
+  const bloque = cuerpo.slice(ini, cuerpo.indexOf(';', ini) + 1);
   assert.ok(bloque.length < 400, `el recorte mide ${bloque.length}: está mirando otra cosa`);
-  assert.match(bloque, /relojPrevio:\s*p\?\.etapa_desde/);
+  assert.match(bloque, /etapa:\s*x\.desde/);
+  assert.match(bloque, /relojPrevio:\s*x\.relojPrevio/);
+  assert.match(bloque, /etapaExiste\(prodId, x\.desde\)/);
 });
