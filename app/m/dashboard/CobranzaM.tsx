@@ -3,7 +3,8 @@
 // =============================================================================
 // CobranzaM — «A quién cobrarle» en el teléfono: la próxima cuota de cada cliente y «Marcar cobrado»
 // =============================================================================
-// Es el bloque `cobranza` de la hoja Comercial (app/dashboard/bloques/BloqueCobranza.tsx) en filas:
+// Era el bloque `cobranza` de la hoja Comercial de escritorio (borrado el 13/10/2026: hoy es el conjunto
+// «Clientes por cobrar», lib/graficos-datos-extra.ts) en filas:
 // mismo orden (lo vencido hace más tiempo arriba, `armarCobranza`), la misma cuota (la PRÓXIMA sin
 // pagar) y la MISMA acción: `marcarPagoAction` (app/crm/actions.ts), que valida que la cuota sea de
 // ese lead en ESTE workspace, recalcula lo cobrado, deja el historial y corta los recordatorios. Su

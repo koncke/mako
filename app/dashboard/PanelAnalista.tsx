@@ -33,7 +33,7 @@ import { MakoChat } from '@/app/_components/MakoChat';
 import { useCapaModal } from '@/app/_components/pila-modales';
 import { BotonMako } from '@/app/_ui/BotonMako';
 import { BotonCerrar, RADIO_CAJA } from '@/app/_ui/BotonBorrar';
-import { Capa } from './bloques/piezas';
+import { Capa } from './piezas';
 import { Dropdown } from '@/app/components/Dropdown';
 import { esGrafico, tituloDe, type Hoja, type VistaValores } from '@/lib/graficos-catalogo';
 import { fmtValor, type Resultado } from '@/lib/graficos-agregar';
@@ -526,7 +526,7 @@ export function LogoMako({ lado = 22 }: { lado?: number }) {
  *
  * ⚠️ Es una VARIANTE LOCAL, no un cambio a `MakoButton` (app/_components/ChartIA.tsx): ése lo usan el Ads
  *    Manager y Marketing, que no pidieron nada. El modal es el mismo: el chat con el gráfico aislado.
- * ⚠️ La capa va por PORTAL (`Capa`, ./bloques/piezas.tsx): la tarjeta recorta (`overflow: hidden`) y un
+ * ⚠️ La capa va por PORTAL (`Capa`, ./piezas.tsx): la tarjeta recorta (`overflow: hidden`) y un
  *    portal de React sigue burbujeando hasta la tarjeta (un clic la seleccionaría y un mousedown la
  *    arrastraría): `Capa` frena los eventos y lleva la clase de no arrastrar.
  */

@@ -2,7 +2,7 @@
 // GET /api/closing/transcript?recording_id=N — transcript de una grabación
 // =============================================================================
 // Lo consume la pestaña «Transcript» de la ficha de una llamada
-// (app/dashboard/bloques/extra/FichaLlamada.tsx) para mostrar el transcript completo
+// (app/dashboard/entidades/llamada.tsx) para mostrar el transcript completo
 // con timestamps clicables. Devuelve líneas con t_seconds ya calculados.
 //
 // Puerta (../puerta.ts): admin o closer y el Dashboard en la capa. Es lo que se dijo

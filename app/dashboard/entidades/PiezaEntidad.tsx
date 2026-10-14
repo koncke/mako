@@ -24,7 +24,7 @@ import dynamic from 'next/dynamic';
 import { Toast, useToast } from '@/app/_ui';
 import type { Elemento } from '@/lib/graficos-catalogo';
 import { PIEZAS_ENTIDAD, piezaDe, type ContextoEntidad, type TipoEntidad } from '@/lib/graficos-acciones';
-import { Capa } from '../bloques/piezas';
+import { Capa } from '../piezas';
 import { PiezaLlamada } from './llamada';
 
 const PiezaAnuncio = dynamic(() => import('./anuncio'), { ssr: false });

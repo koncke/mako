@@ -9,8 +9,8 @@
 //     la tab vieja (app/closing/ClosingBrowser.tsx, que se eliminó el 11/10/2026 al
 //     mudarse Closing al Dashboard). Desde ese día ESTA es la única copia: la lee la API
 //     de MaKo. (Los bloques de la hoja Closing que también la leían se fueron en v5, el
-//     12/10/2026: la hoja es de gráficos del catálogo, lib/graficos-migrar-v5.ts; si
-//     lib/graficos-bloques-extra.ts todavía la importa, es código que nadie alcanza.)
+//     12/10/2026: la hoja es de gráficos del catálogo, lib/graficos-migrar-v5.ts; su
+//     código, que todavía la importaba, se borró el 13/10/2026.)
 //   · `leerLlamada` es la lectura de UNA fila por recording_id: la usan la API de MaKo
 //     y la ficha de una llamada del Dashboard (GET /api/closing/llamada). Trae las
 //     anotaciones del análisis (`annotations`): son las marcas del transcript.

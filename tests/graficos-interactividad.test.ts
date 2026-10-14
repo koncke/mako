@@ -371,7 +371,7 @@ test('los lectores llevan los ids de la misma fila (Meta, leads, pagos, llamadas
 
 test('«Ver llamada» abre la ficha de la llamada en lugar de la caja del detalle (como la del lead)', () => {
   const det = sinComentarios(leer('app', 'dashboard', 'Detalle.tsx'));
-  assert.match(det, /import \{ FichaLlamada \} from '\.\/bloques\/extra\/FichaLlamada'/);
+  assert.match(det, /import \{ FichaLlamada \} from '\.\/entidades\/FichaLlamada'/);
   // El botón de una acción `llamada` guarda el id de LA FILA (no uno que llegue de otro lado)…
   assert.match(det, /if \(a\.tipo === 'llamada'\) \{ const id = Number\(f\.ids\.llamada\); if \(Number\.isInteger\(id\) && id > 0\) setLlamada\(id\); return; \}/);
   // …y con eso se dibuja la ficha ANTES que la caja del detalle (un Modal encima de otro apaga al de abajo).

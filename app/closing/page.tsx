@@ -4,7 +4,7 @@
 // Decisión 6 de Martín (11/10/2026): «Closing Analyst va COMPLETO al Dashboard… y la tab se ELIMINA (la
 // ruta redirige). Los closers ven SÓLO la hoja Closing del Dashboard». Lo que era análisis vive en la
 // plantilla «Closing» (lib/graficos-plantillas-analysts.ts) y el detalle de una llamada con sus tareas
-// (re-analizar, revisar, re-evaluar con MaKo) en app/dashboard/bloques/extra/FichaLlamada.tsx.
+// (re-analizar, revisar, re-evaluar con MaKo) en app/dashboard/entidades/FichaLlamada.tsx.
 //
 // SE REDIRIGE, NO SE BORRA (AGENTS.md, «Retirar una RUTA…»): `/closing?call=<id>` salió en mensajes de
 // MaKo por WhatsApp (lib/mako-doer-in.ts lo enseñaba como deep link) y nadie los puede editar. El

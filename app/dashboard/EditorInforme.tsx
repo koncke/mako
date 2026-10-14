@@ -55,7 +55,7 @@
 //     AI Analyst ni el chat de MaKo de cada gráfico, sin el detalle de un número y sin guardar nunca;
 //     Exportar sí, y desde v5 los POP-UPS (la ficha de una llamada de la tabla «Las llamadas» era lo que su
 //     bloque hacía). ⚠️ La pantalla sólo esconde: lo que cierra es /api/graficos (`puedePedir`).
-//   · `llamadaInicial` (`?llamada=`): abre la ficha de esa llamada (./bloques/extra/FichaLlamada.tsx);
+//   · `llamadaInicial` (`?llamada=`): abre la ficha de esa llamada (./entidades/FichaLlamada.tsx);
 //     al cerrarla se saca de la URL con el mismo replaceState que usa la hoja.
 //
 // `compartido` (punto 9, el link que arma el paquete «Compartir»): quien lo abre NO tiene sesión. Sin
@@ -108,7 +108,6 @@ import { aGuardado, aVista, fondosDe, gruposDe, ocultosPorPlegado, plegadasDe, t
 import { conectorNuevo, puedeConectar, sinConectoresDe } from '@/lib/graficos-conectores';
 import type { Resultado } from '@/lib/graficos-agregar';
 import type { DatosGrafico } from '@/lib/graficos-datos';
-import type { DatosBloque } from '@/lib/graficos-bloques';
 import { accionInicial, entidadDeGrafico, piezaInicial, type SelDetalle } from '@/lib/graficos-acciones';
 import { CuerpoGrafico, esTarjetaNumero, ocultaSiCero, type EstadoDatos } from './Grafico';
 import { CuerpoElemento, IconoElemento, PropsElemento, type ContextoElemento } from './Elemento';
@@ -118,7 +117,7 @@ import { BarraControles } from './BarraControles';
 import { MenuFiltro } from './MenuFiltro';
 import { BuscarEnTabla } from './BuscarEnHoja';
 import { DetalleModal } from './Detalle';
-import { FichaLlamada } from './bloques/extra/FichaLlamada';
+import { FichaLlamada } from './entidades/FichaLlamada';
 import { BarraSuperior, MenuHojas } from './Cabecera';
 import { BotonCompartir, RenglonCompartir } from './CompartirInforme';
 import { PropsGrafico } from './Propiedades';
@@ -258,11 +257,6 @@ export function EditorInforme({
 }: {
   inicial: Tablero;
   datosIniciales: Record<string, DatosGrafico>;
-  /**
-   * @deprecated v5: los bloques se migran en el saneo (lib/graficos-migrar-v5.ts) y ninguno llega acá. Queda
-   * opcional hasta que la página y el link dejen de pasarlo; no se lee.
-   */
-  bloquesIniciales?: Record<string, DatosBloque>;
   lecturaFallo: boolean;
   hoy: string;
   hojaInicial: string;

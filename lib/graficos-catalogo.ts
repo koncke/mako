@@ -1014,7 +1014,8 @@ export type Grafico = {
  * quién cobrarle» elige UNA cuota por cliente (la próxima) y la marca cobrada; las cohortes maduras
  * son una propiedad de la semana, no de la fila. Leen las MISMAS funciones que la tab vieja y que los
  * runners de MaKo (lib/queries.ts, lib/pagos.ts), así la pantalla, WhatsApp y la API no cuentan
- * distinto (lib/graficos-bloques.ts).
+ * distinto. (Su lectura era lib/graficos-bloques.ts; desde el 13/10/2026 queda sólo la del teléfono,
+ * lib/datos-comercial-server.ts.)
  */
 /** El id de un bloque. ⚠️ v5: ya no hay ninguno (ver `BLOQUES`). */
 export type BloqueId = string;
