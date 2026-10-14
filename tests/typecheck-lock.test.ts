@@ -144,8 +144,9 @@ test('el lock distingue «no pude chequear» de «hay errores» con un código p
 });
 
 test('el heap de tsc va acotado, y el piso de RAM se deriva de ese cap', () => {
-  // V8 crece hasta ~4 GB en esta máquina: un tsc suelto llegó a 3.765 MB pudiendo
-  // trabajar en 1.571. Capado es menos matable, y si no alcanza falla ruidoso.
+  // V8 crece hasta ~4 GB en esta máquina: un tsc suelto llegó a 3.765 MB. Capado es
+  // menos matable, y si no alcanza falla ruidoso. (El «trabaja en 1.571» que decía acá
+  // era de un tsc que el vigía MATÓ a mitad: el chequeo completo pide más de 2 GB vivos.)
   // Y el piso NO puede ser un número a mano menor que lo que el trabajo pide: con
   // 2,0 GB la admisión era un permiso para que el vigía lo matara.
   // Verificado rompiéndolo: sin el `--max-old-space-size`, 1 fallo; con
@@ -211,5 +212,38 @@ test('sin RAM el lock FRENA con instrucciones, no arranca tsc hacia un kill', ()
     src,
     /process\.env\.MAKO_TYPECHECK_SIN_ESPERA === '1'/,
     'la salida de emergencia se LEE del entorno (no basta con nombrarla en el mensaje)',
+  );
+});
+
+test('un «heap out of memory» sale con 99 («no pude chequear»), no como errores de tipos', () => {
+  // 13/10/2026: con el tope en 2048, tsc murió con «FATAL ERROR: Ineffective mark-compacts
+  // near heap limit … heap out of memory». node SÍ imprime cuando se queda sin heap, así que
+  // el conteo de bytes del fallo mudo no lo veía y el pre-push decía «hay errores de tipos»
+  // sobre un chequeo que no llegó a terminar. tsc escribe sus errores en stdout: el detector
+  // mira sólo la cola de stderr.
+  // Verificado rompiéndolo (base 9/0): cerrar esa rama con el código de tsc antes del 99,
+  // 1 fallo; no alimentar la cola con stderr, 1 fallo; una regex que no reconoce el FATAL de
+  // V8, 1 fallo; la rama apagada (`&& false`), 1 fallo. Y en un push real: salió con 99.
+  const src = leer('../scripts/typecheck-lock.mjs');
+  const m = src.match(/const sinHeap = \(\) => (\/.+\/[a-z]*)\.test\(colaErr\);/);
+  assert.ok(m, 'no encontré sinHeap: el guard está mirando otra cosa');
+  const lit = m![1];
+  const re = new RegExp(lit.slice(1, lit.lastIndexOf('/')), lit.slice(lit.lastIndexOf('/') + 1));
+  assert.ok(
+    re.test('FATAL ERROR: Ineffective mark-compacts near heap limit Allocation failed - JavaScript heap out of memory'),
+    'reconoce el FATAL de V8 tal como salió en el push',
+  );
+  assert.ok(!re.test("app/x.ts(3,5): error TS2322: Type 'string' is not assignable to type 'number'."), 'un error de tipos no cuenta');
+  assert.match(src, /if \(flujo === hijo\.stderr\) colaErr = /, 'la cola se alimenta con stderr');
+  const ini = src.indexOf("hijo.on('exit'");
+  const fin = src.indexOf("hijo.on('error'", ini);
+  assert.ok(ini > 0 && fin > ini, 'no encontré el handler de salida');
+  const handler = src.slice(ini, fin);
+  const rama = handler.match(/if \(\(code \?\? 1\) !== 0 && sinHeap\(\)\) \{([\s\S]*?)\n  \}/);
+  assert.ok(rama, 'el handler de salida pregunta por sinHeap()');
+  assert.equal(
+    rama![1].match(/cerrar\(([^)]*)\)/)?.[1],
+    'SALIDA_SIN_CHEQUEAR',
+    'sin heap sale con 99 (es lo PRIMERO que cierra esa rama), no con el código de tsc',
   );
 });

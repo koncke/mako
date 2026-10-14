@@ -44,7 +44,14 @@ const SALIDA_SIN_CHEQUEAR = 99;
 // Un cap NO esconde nada: si de verdad no alcanza, node lo dice ruidoso
 // («Reached heap limit»), que es lo contrario del fallo mudo que se arregla abajo.
 // Se declara acá arriba porque el piso de RAM se DERIVA de él.
-const CAP_HEAP_MB = 2048;
+//
+// ⚠️ 13/10/2026, 23:00: 2048 NO ALCANZA, y el «puede trabajar en 1,6» de arriba no estaba
+// medido: ese pico de 1.571 MB era de un tsc que el vigía MATÓ a mitad (docs/hallazgos-infra.md),
+// no de uno que terminó. Medido desde un worktree con origin/main, dos veces (una con la caché
+// incremental del clon copiada): «Mark-Compact 2040.5 -> 2031.5 MB … heap out of memory», o
+// sea más de 2 GB VIVOS después de un GC completo. Con 2048 no pasaba ningún push de la
+// máquina, con RAM o sin ella. El piso de RAM de abajo sube solo (≈ 4,3 GB).
+const CAP_HEAP_MB = 3072;
 
 /**
  * ¿El dueño del lock sigue vivo? `process.kill(pid, 0)` no mata: pregunta.
@@ -117,10 +124,10 @@ if (!turno) {
 // el trabajo PIDE, la admisión es un permiso para que lo maten. Con 2,0 GB y un
 // tsc sin cap pasó exactamente eso: 30 typechecks matados por el vigía en un día
 // y ningún push posible desde el clon. El piso tiene que cubrir las tres cosas:
-// el cap del heap (2,1 GB con overhead) + la zona roja del vigía (0,9) + margen.
+// el cap del heap (+0,1 de overhead) + la zona roja del vigía (0,9) + margen.
 // Bajarlo más no hace que se trabaje «al límite»: hace que no se trabaje.
 const ZONA_ROJA_VIGIA_GB = 0.9;  // ~/.claude/guardia/vigia.ps1 → $ROJA_MB
-const RAM_MIN_GB = CAP_HEAP_MB / 1024 + 0.1 + ZONA_ROJA_VIGIA_GB + 0.3;  // ≈ 3,3
+const RAM_MIN_GB = CAP_HEAP_MB / 1024 + 0.1 + ZONA_ROJA_VIGIA_GB + 0.3;  // ≈ 4,3
 const RAM_ESPERA_MAX_MS = 15 * 60 * 1000;
 
 /**
@@ -160,7 +167,7 @@ async function esperarRam() {
 if (!(await esperarRam())) {
   const libre = (freemem() / 1024 ** 3).toFixed(1);
   process.stderr.write('\n  ✖ NO CORRÍ EL TYPECHECK: NO HAY RAM, Y ARRANCARLO ASÍ ES UN KILL SEGURO.\n');
-  process.stderr.write(`    Quedan ${libre} GB disponibles y hace falta ${RAM_MIN_GB.toFixed(1)} (tsc capado pide ~2,1 y el\n`);
+  process.stderr.write(`    Quedan ${libre} GB disponibles y hace falta ${RAM_MIN_GB.toFixed(1)} (tsc capado pide ~${(CAP_HEAP_MB / 1024 + 0.1).toFixed(1)} y el\n`);
   process.stderr.write('    vigía mata al pesado más grande por debajo de 0,9). Esto NO es un error de tipos.\n');
   process.stderr.write('    Cerrá unos chats de Claude (cada uno son ~0,2-0,3 GB) y volvé a pushear. Si hace\n');
   process.stderr.write('    falta empujar igual: MAKO_TYPECHECK_SIN_ESPERA=1 git push (y puede morir mudo).\n\n');
@@ -180,9 +187,19 @@ const hijo = spawn(process.execPath, [`--max-old-space-size=${CAP_HEAP_MB}`, TSC
 // Se cuentan los bytes que tsc escribió, porque un tsc que falla SIEMPRE imprime:
 // exit != 0 con CERO salida no es un error de tipos, es alguien que lo mató.
 let bytes = 0;
+// ⚠️ Y UN «HEAP OUT OF MEMORY» TAMPOCO ES UN ERROR DE TIPOS. node SÍ imprime cuando se queda
+// sin heap (no es mudo), así que el conteo de bytes no lo distinguía y el push decía «hay
+// errores de tipos» sobre un tsc que no llegó a chequear nada (13/10/2026). Se mira la cola
+// de stderr.
+let colaErr = '';
 for (const [flujo, salida] of [[hijo.stdout, process.stdout], [hijo.stderr, process.stderr]]) {
-  flujo.on('data', (b) => { bytes += b.length; salida.write(b); });
+  flujo.on('data', (b) => {
+    bytes += b.length;
+    salida.write(b);
+    if (flujo === hijo.stderr) colaErr = (colaErr + b.toString()).slice(-4000);
+  });
 }
+const sinHeap = () => /heap out of memory|Reached heap limit|FATAL ERROR: .*heap/i.test(colaErr);
 
 /**
  * ⚠️ UN FALLO MUDO NO SE REPORTA COMO UN FALLO DE TIPOS.
@@ -220,6 +237,12 @@ function explicarMudo() {
 const cerrar = (code) => { soltar(); process.exit(code); };
 hijo.on('exit', (code, signal) => {
   if ((code ?? 1) !== 0 && bytes === 0) { explicarMudo(); cerrar(SALIDA_SIN_CHEQUEAR); return; }
+  if ((code ?? 1) !== 0 && sinHeap()) {
+    process.stderr.write(`\n  ✖ EL TYPECHECK NO TERMINÓ: se quedó sin heap (tope ${CAP_HEAP_MB} MB). NO son errores de tipos.\n`);
+    process.stderr.write('    Si se repite con RAM libre, el tope es corto para el proyecto: subilo arriba (CAP_HEAP_MB).\n\n');
+    cerrar(SALIDA_SIN_CHEQUEAR);
+    return;
+  }
   if (signal) process.stderr.write(`  [typecheck] tsc murió por señal ${signal}\n`);
   cerrar(code ?? 1);
 });

@@ -5711,5 +5711,26 @@ después **0,18 GB**. Cualquier frase del tipo «el problema es X» sobre esta m
 hora pegada o no sirve — es la regla de «una medición tiene fecha» aplicada al recurso más
 volátil que hay.
 
+⚠️ **Y DESPUÉS DEL CAP, SÍ FUE OOM: EL «TRABAJA EN 1,6» ERA EL PICO DE UN PROCESO MATADO.**
+(13/10/2026, 23:00, sesión CRM.) Con `--max-old-space-size=2048` el push desde un worktree
+limpio sobre origin/main murió dos veces con «Mark-Compact 2040.5 -> 2031.5 MB … FATAL
+ERROR: Ineffective mark-compacts near heap limit … heap out of memory» — más de 2 GB VIVOS
+después de un GC completo, o sea que no era el GC perezoso: el programa entero no entra.
+Una de las dos corridas fue con la caché incremental del clon copiada al worktree
+(`tsconfig.tsbuildinfo`, del 12/10): no alcanzó. El número que justificaba el cap («pico
+1.571 MB con cap de 1.500») era, según esta misma entrada, de un tsc que **el vigía mató**:
+el pico de algo que no terminó dice cuánto llegó a pedir, nunca cuánto necesita.
+
+Y el lock lo reportaba como «hay errores de tipos», porque node SÍ imprime al quedarse sin
+heap y el detector del fallo mudo contaba bytes. Con 35 commits de varias sesiones
+esperando en el `main` local del clon, **ningún push de la máquina pasaba**, con RAM o sin
+ella, y el mensaje mandaba a buscar errores de tipos que no existían.
+
+Lo que quedó: `CAP_HEAP_MB = 3072` (el piso de RAM sube solo a ≈ 4,3 GB) y la cola de
+stderr se mira: un «heap out of memory» sale con 99 («no pude chequear»), con su motivo.
+Probado en un push real y con un guard de 4 roturas. ⚠️ **Y la consecuencia, que es la que
+queda abierta:** con ~13 sesiones la RAM libre ronda 3,5-3,7 GB, debajo del piso. El lock
+espera sus 15 minutos y frena con el motivo correcto; lo que destraba es cerrar chats.
+
 **Vive en:** `scripts/typecheck-lock.mjs` · `tests/typecheck-lock.test.ts` ·
 `~/.claude/guardia/vigia.ps1` (sin tocar) · *2026-10-13*

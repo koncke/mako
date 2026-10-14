@@ -162,9 +162,12 @@ mata el node pesado más grande cuando quedan menos de 0,9 GB disponibles y lo h
 typechecks matados en un día** con 22 sesiones abiertas. El lock ya lo detecta y lo nombra
 con la línea del log; si lo ves, **NO corras `tsc` a mano para diagnosticar**: son otros 2-3
 GB fuera del lock y es lo que hace matar al próximo — ese fue el mecanismo que mantuvo el
-problema vivo una hora. Se espera, o se cierran chats. Y **nunca le subas el
-`--max-old-space-size`**: V8 toma todo lo que le des (un `tsc` suelto llega a 3,7 GB
-pudiendo trabajar en 1,6), así que subirlo lo convierte en el candidato número uno a morir.
+problema vivo una hora. Se espera, o se cierran chats. Y **el `--max-old-space-size` lo
+fija el lock (`CAP_HEAP_MB`), no un `tsc` suelto**: sin tope V8 toma todo lo que le des (un
+`tsc` suelto llega a 3,7 GB) y es el candidato número uno a morir. ⚠️ Pero el tope tampoco
+se BAJA a ojo: el chequeo completo pide más de 2 GB vivos (con 2048 murió «heap out of
+memory», 13/10/2026), y el «trabaja en 1,6» que justificaba bajarlo salió de un `tsc` que el
+vigía MATÓ a mitad. Un pico de un proceso que no terminó no mide lo que necesita.
 El detalle, en [docs/hallazgos-infra.md](docs/hallazgos-infra.md) → «El typecheck que
 "salía con 1 sin errores"».
 
