@@ -143,6 +143,35 @@ test('el lock distingue «no pude chequear» de «hay errores» con un código p
   assert.match(hook, /NO es un error de tipos/, 'y lo dice con todas las letras');
 });
 
+/**
+ * ⚠️ EL PISO DEPENDE DE SI EL VIGÍA ESTÁ VIVO, Y EL VIGÍA SE MUERE.
+ * Medido el 14/10/2026: murió a las 23:03Z —justo después de matar un tsc con 259 MB
+ * libres, o sea de la misma crisis que existe para prevenir— y estuvo caído SEIS HORAS,
+ * porque su tarea programada sólo dispara al iniciar sesión. El push que finalmente
+ * entró lo hizo con 4,68 GB, por debajo del piso de 5,3, justamente porque ya no había
+ * quién matara nada. O sea que el piso no estaba de más: los 0,9 de la zona roja son un
+ * impuesto que sólo se paga cuando el vigía está.
+ *
+ * Verificado rompiéndolo: con el piso fijo (sin el ternario), 1 fallo; con el fail-safe
+ * devolviendo false ante la duda, 1 fallo.
+ */
+test('el piso de RAM descuenta la zona roja cuando el vigía NO está corriendo', () => {
+  const src = leer('../scripts/typecheck-lock.mjs');
+  assert.match(src, /function vigiaVivo\(\)/, 'el lock mira si el vigía está vivo');
+  assert.match(
+    src,
+    /\(HAY_VIGIA \? ZONA_ROJA_VIGIA_GB : 0\)/,
+    'la zona roja entra al piso SÓLO si el vigía está corriendo (5,3 con él, 4,4 sin él)',
+  );
+  // Ante la duda se asume que SÍ está: equivocarse al revés es arrancar hacia un kill.
+  assert.match(
+    src,
+    /return \(r\.stdout \|\| ''\)\.trim\(\) !== 'no';/,
+    'cualquier respuesta que no sea un "no" explícito cuenta como vigía vivo (piso alto)',
+  );
+  assert.match(src, /catch \{ return true; \}/, 'si la consulta falla, se asume vigía vivo');
+});
+
 test('el heap de tsc va acotado, y el piso de RAM se deriva de ese cap', () => {
   // V8 crece hasta ~4 GB en esta máquina: un tsc suelto llegó a 3.765 MB. Capado es
   // menos matable, y si no alcanza falla ruidoso. (El «trabaja en 1.571» que decía acá

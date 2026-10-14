@@ -17,7 +17,7 @@
 // también corre su typecheck y también pesa 2,4 GB. Si algún día se cablea allá el
 // mismo script, los dos se turnan solos.
 
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { writeFileSync, readFileSync, unlinkSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -134,7 +134,31 @@ if (!turno) {
 // el cap del heap (+0,1 de overhead) + la zona roja del vigía (0,9) + margen.
 // Bajarlo más no hace que se trabaje «al límite»: hace que no se trabaje.
 const ZONA_ROJA_VIGIA_GB = 0.9;  // ~/.claude/guardia/vigia.ps1 → $ROJA_MB
-const RAM_MIN_GB = CAP_HEAP_MB / 1024 + 0.1 + ZONA_ROJA_VIGIA_GB + 0.3;  // ≈ 5,3
+
+/**
+ * ⚠️ EL PISO DEPENDE DE SI EL VIGIA ESTA VIVO, Y EL VIGIA SE MUERE.
+ * Medido el 14/10/2026: el vigía murió a las 23:03Z —justo después de matar un tsc con
+ * 259 MB libres, o sea de la misma crisis de RAM que existe para prevenir— y estuvo
+ * caído SEIS HORAS sin que nada lo levantara: su tarea programada sólo dispara al
+ * iniciar sesión. Nadie se enteró, y el push que finalmente entró lo hizo con 4,68 GB
+ * libres, por debajo del piso de 5,3, justamente porque no había quién matara nada.
+ *
+ * Así que los 0,9 GB de la zona roja son un impuesto que sólo se paga cuando el vigía
+ * está. Si no está, el piso baja a ~4,4 GB — la diferencia entre «imposible» y
+ * «posible» en esta máquina. Ante la duda se asume que SÍ está (piso alto): equivocarse
+ * para el otro lado es arrancar hacia un kill.
+ */
+function vigiaVivo() {
+  try {
+    const r = spawnSync('powershell', [
+      '-NoProfile', '-Command',
+      "if (Get-CimInstance Win32_Process -Filter \"Name='powershell.exe'\" | Where-Object { $_.CommandLine -like '*vigia.ps1*' }) { 'si' } else { 'no' }",
+    ], { encoding: 'utf8', timeout: 8000 });
+    return (r.stdout || '').trim() !== 'no';  // cualquier duda -> true
+  } catch { return true; }
+}
+const HAY_VIGIA = vigiaVivo();
+const RAM_MIN_GB = CAP_HEAP_MB / 1024 + 0.1 + (HAY_VIGIA ? ZONA_ROJA_VIGIA_GB : 0) + 0.3;  // 5,3 con vigía · 4,4 sin él
 const RAM_ESPERA_MAX_MS = 15 * 60 * 1000;
 
 /**
