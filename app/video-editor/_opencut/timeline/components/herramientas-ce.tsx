@@ -13,6 +13,7 @@
 import { useState } from "react";
 import {
 	AlignHorizontalJustifyStart,
+	AudioLines,
 	Bookmark,
 	ChevronDown,
 	Link,
@@ -35,6 +36,7 @@ import {
 	type HerramientaLinea,
 } from "@/app/video-editor/ce/ranuras";
 import { atajoDe, invokeAction, type TActionWithOptionalArgs } from "@/app/video-editor/_opencut/actions";
+import { objetivosDeSilencios } from "@/app/video-editor/_opencut/audio/borrar-silencios";
 import {
 	TIPOS_VINCULO,
 	useTimelineStore,
@@ -135,6 +137,10 @@ function IconoEliminar(_: { className?: string }) {
 const hayEnCabezal = ({ editor }: ContextoHerramienta) =>
 	objetivosEnCabezal({ editor }).length > 0;
 
+/** «Borrar silencios»: un clip con audio elegido, o el de la principal bajo el cabezal. */
+const hayClipConAudio = ({ editor, seleccion }: ContextoHerramienta) =>
+	objetivosDeSilencios({ editor, seleccion }).length > 0;
+
 const IZQUIERDA: HerramientaLinea[] = [
 	{
 		id: "linea-seleccionar",
@@ -195,6 +201,15 @@ const IZQUIERDA: HerramientaLinea[] = [
 		Icono: PanelRightDashed,
 		habilitada: hayEnCabezal,
 		ejecutar: ejecutar("split-right"),
+	},
+	{
+		id: "linea-borrar-silencios",
+		etiqueta: "Borrar silencios",
+		orden: 235,
+		lado: "izquierda",
+		Icono: AudioLines,
+		habilitada: hayClipConAudio,
+		ejecutar: ejecutar("borrar-silencios"),
 	},
 	{
 		id: "linea-eliminar",

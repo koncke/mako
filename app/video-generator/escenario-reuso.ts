@@ -63,8 +63,13 @@ export function claveDeLugar(lugar: string): string {
     .trim();
 }
 
-/** ¿Esta imagen sirve para filmar? Confirmada, con url Y con mediaId. */
-function sirve(m: MarcaImagen | undefined): m is MarcaImagen & { elegida: string; elegidaId: string } {
+/**
+ * ¿Esta imagen sirve para filmar? Confirmada, con url Y con mediaId.
+ *
+ * La usa también el «Avatar de IA» del Video Editor para listar los avatares
+ * (app/video-editor/avatar/avatares.ts): un avatar ES un escenario que sirve.
+ */
+export function sirveParaFilmar(m: MarcaImagen | undefined): m is MarcaImagen & { elegida: string; elegidaId: string } {
   return !!m?.confirmada && !!m.elegida && !!m.elegidaId;
 }
 
@@ -99,7 +104,7 @@ export function escenariosReusables(plan: PlanGuardado, historial: PlanGuardado[
       const suya = (viejo.escenas ?? []).find((e) => claveDeLugar(e.lugar) === clave);
       if (!suya) continue;
       const img = viejo.imagenes?.[String(suya.n)];
-      if (!sirve(img)) continue;
+      if (!sirveParaFilmar(img)) continue;
 
       out.push({
         escena: escena.n,

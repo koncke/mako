@@ -56,9 +56,11 @@ export function esVistaSinChrome(pathname: string | null | undefined): boolean {
     // ancho para navegar a lugares a los que nadie va a ir desde acá — lo único
     // que se hace en esta ventana es mirar entrar eventos y cerrarla.
     || /^\/integraciones\/escuchando\/?$/.test(p)
-    // El Video Editor ocupa la ventana entera, como CapCut. Su salida es el menú de
-    // su barra superior («Volver al inicio», con el `?ws=`): sin chrome no hay sidebar.
-    || /^\/video-editor\/[^/]+\/?$/.test(p)
+    // ⚠️ El Video Editor YA NO está acá. Iba a pantalla completa como CapCut (diseño
+    // §9) y Martín pidió lo contrario el 12/10 («que la barra lateral no desaparezca
+    // del todo mientras se edita», validado el 13/10): el editor se dibuja adentro
+    // del chrome de MaKo, con la barra lateral y la de secciones. Pantalla completa
+    // sigue existiendo, pero a pedido (el botón del reproductor).
     // MaKo Mobile (/m) dibuja SU cromo (header y barra inferior, app/m/layout.tsx):
     // el Sidebar, los banners y la esquina de avisos de escritorio no van. NO entra
     // en `isPublicLandingPath`: /m exige sesión, y esa lista significa «público».

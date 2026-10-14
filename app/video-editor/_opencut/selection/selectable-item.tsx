@@ -54,7 +54,7 @@ export const SelectableItem = forwardRef<HTMLDivElement, SelectableItemProps>(
 			isItemSelected && "ring-1 ring-primary rounded-sm bg-primary/10",
 			isItemHighlighted &&
 				(isItemSelected
-					? "rounded-sm shadow-[0_0_0_1px_hsl(var(--primary))]"
+					? "rounded-sm shadow-[0_0_0_1px_var(--primary)]"
 					: "ring-1 ring-primary/60 rounded-sm bg-primary/5"),
 		);
 

@@ -36,14 +36,21 @@ ByteDance. Se copian a mano sólo los rótulos que se usan.
 | 6 | **IA sin costo por default**: subtítulos automáticos con Whisper en el navegador (transformers.js); quitar fondo con un modelo de segmentación en el navegador. **Texto a voz** sólo con la key de ElevenLabs DEL CLIENTE (BYOK), con botón explícito y sin reintento | «Un default que cobra es un cobro silencioso»; «el Plan NUNCA paga IA»; Groq prohíbe exponer transcripción como servicio |
 | 7 | **Sin la API de Freesound** (su ToS prohíbe el uso «service bureau») y **biblioteca de música vacía** hasta tener licencia (Epidemic Connect o pack CC0 propio). Audio propio sí: Importar, Grabar, Extraer audio | Una pista sin licencia es un reclamo de copyright sobre la campaña del cliente (`lib/musica-catalogo.ts`) |
 | 8 | **Textos de pantalla en español NEUTRO (tú)**, como CapCut | AGENTS.md: el texto que ve el cliente no va en voseo; `tests/puente-panel-copy.test.ts` barre el port entero |
-| 9 | **Inicio** (`/video-editor`) adentro de MaKo, con la barra lateral; **editor** (`/video-editor/<id>`) a pantalla completa, sin chrome (`esVistaSinChrome`), con su propia salida que conserva el `?ws=` | CapCut es una ventana entera; el inicio es una tab más |
+| 9 | **Inicio** (`/video-editor`) y **editor** (`/video-editor/<id>`) adentro de MaKo, con la barra lateral y la de secciones; el editor llena el alto bajo las secciones y la pantalla completa es a pedido (botón del reproductor). ~~A pantalla completa sin chrome~~ hasta el 13/10 | Pedido de Martín del 12/10 (reunión 858545195 @96:17, validado el 13/10): «que la barra lateral no desaparezca del todo mientras se edita». Gana sobre «CapCut es una ventana entera» |
 | 10 | **Onboarding = estado vacío** («Crear proyecto»), sin entrada en el catálogo | La tab ES la herramienta (regla del 05/10, como /api-mako y el Dashboard) |
 
 **Fuera de alcance de v1** (no se dibujan, o se dibujan apagados con «Próximamente»):
-Plantillas (no hay catálogo), Avatar de IA, Dreamina, Archivos multimedia de IA, Retoque
+Plantillas (no hay catálogo), Dreamina, Archivos multimedia de IA, Retoque
 (belleza facial), Estabilización, Flujo óptico, Seguimiento de movimiento, Subtítulos
 bilingües, Música y Efectos de sonido de biblioteca (licencia), Compartir, todo lo «Pro» (el
 diamante no se copia). Si Martín quiere una, se reabre.
+
+**Reabiertas:** «Avatar de IA» (14/10, pedido de Martín): sólo «Biblioteca de avatares», generando con el
+Video Generator (`app/video-editor/avatar/`). Un avatar es un escenario confirmado de su historial.
+
+**Regla desde el 14/10 (Martín):** antes de construir una función se busca en la fuente —el relevamiento de
+CapCut y el de OpenCut (`docs/editor-video/`)— y se copia. Si no está para copiar ni para inspirarse, se le
+avisa a Martín ANTES de crearla.
 
 ---
 

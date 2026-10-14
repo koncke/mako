@@ -140,6 +140,10 @@ export const ACTIONS = {
 		description: "Borrar a la derecha",
 		category: "linea",
 	},
+	"borrar-silencios": {
+		description: "Borrar silencios",
+		category: "linea",
+	},
 	"delete-selected": {
 		description: "Eliminar",
 		category: "linea",

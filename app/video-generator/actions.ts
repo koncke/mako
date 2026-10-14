@@ -46,7 +46,9 @@ export type GenerarPlanActionOut =
  * (título, ritmo, el guion de corrido), no el JSON entero.
  */
 export async function generarPlanAction(
-  input: PedidoVideo & { anteriorId?: string },
+  // `clipsMinimos`: el piso de tomas cuando no es el del formato. Lo usa el
+  // «Avatar de IA» del Video Editor (app/video-editor/avatar/actions.ts).
+  input: PedidoVideo & { anteriorId?: string; clipsMinimos?: number },
 ): Promise<GenerarPlanActionOut> {
   const ctx = await ctxAdmin();
   if (!ctx.ok) return ctx;
@@ -67,7 +69,10 @@ export async function generarPlanAction(
     // La duración sale del guion: palabras habladas ÷ densidad de la puesta. Los
     // rótulos de sección no se cuentan porque no se pronuncian — contarlos
     // inflaría el largo y haría que un guion que entra parezca que no.
-    const cabida = cabidaDeGuion(puesta, soloHablado(guionTexto));
+    const piso = input.clipsMinimos != null
+      ? { ...puesta, clips: [Math.max(1, Math.round(input.clipsMinimos)), puesta.clips[1]] as [number, number] }
+      : puesta;
+    const cabida = cabidaDeGuion(piso, soloHablado(guionTexto));
 
     // Y el acento sale del CLIENTE, no del anuncio. Hoy se infiere de su zona
     // horaria; cuando el onboarding de la tab lo pregunte, ese valor gana.
@@ -88,6 +93,7 @@ export async function generarPlanAction(
       guionLiteral: guionTexto,
       adaptarVoz: input.adaptarVoz,
       cantidadClips: cabida.clips,
+      clipsMinimos: input.clipsMinimos,
       duracionTotalSeg: cabida.segundosReales,
       feedback: input.feedback,
     });

@@ -99,13 +99,13 @@ export function PreviewPanel({
 		<div
 			ref={panelRef}
 			className={cn(
-				"panel bg-background relative flex size-full min-h-0 min-w-0 flex-col overflow-hidden rounded-sm border",
+				"panel bg-background relative flex size-full min-h-0 min-w-0 flex-col overflow-hidden rounded-[7px]",
 				// Pantalla completa: el panel tapa el editor entero (ver
 				// use-pantalla-completa.ts: la raíz `.ce` es la que pasa a pantalla
 				// completa del navegador, para que los menús sigan viéndose). z 45:
 				// arriba de las capas de la línea de tiempo (hasta 40,
 				// timeline/components/layers.ts) y abajo de los menús (z-50).
-				pantalla.activa && "fixed inset-0 z-[45] rounded-none border-0",
+				pantalla.activa && "fixed inset-0 z-[45] rounded-none",
 			)}
 		>
 			{pantalla.activa ? null : <CabeceraReproductor />}
