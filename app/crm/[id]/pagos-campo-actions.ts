@@ -35,10 +35,10 @@ import {
   monedaDelNegocio, type CambioCampoDeal,
 } from '@/lib/pagos';
 import {
-  avisoDeConservadas, lineasDeCuotas, nombreCuota, ajustarSobre, planComoEstaba,
+  avisoDeConservadas, lineasDeCuotas, nombreCuota, ajustarSobre, planComoEstaba, planVacio,
   type CambioObligacion, type CambioVenta, type Obligaciones, type PlanUniforme,
 } from '@/lib/pagos-campo';
-import { cobradoDelLead, type Cobrado } from '@/lib/cobrado-lead';
+import { cobradoDelLead, esCuotaDevuelta, type Cobrado } from '@/lib/cobrado-lead';
 import { listarCobros } from '@/lib/cobros';
 import { mesesTranscurridos } from '@/lib/cobros-reglas';
 import { hoyEnWorkspace } from '@/lib/timezone';
@@ -224,8 +224,14 @@ export async function ajustarPlanAction(leadId: number, plan: Partial<PlanUnifor
     const v = ajustarSobre(planAntes, plan);
     if (!v.ok) return v;
     const antes = (await getPagosByLead(leadId)).filter((q) => !q.pagado);
+    // ⚠️ SIN PLAN EN LA BASE NO HAY CONTRA QUÉ AJUSTAR. Si el lead tiene cuotas impagas cargadas a mano (Editar deal,
+    // el wizard), aplicar un plan encima las duplicaría (insertarlas al lado) o las borraría (reimponerlo entero), y
+    // las dos cosas son plata. Se cambian en las cuotas, que es donde se cargaron.
+    if (planVacio(planAntes) && antes.some((q) => !esCuotaDevuelta(q))) {
+      return { ok: false, error: 'Las cuotas de este lead se cargaron a mano: cámbialas en las cuotas.', faltan: ['cuotas'] };
+    }
     const quien = await autor();
-    const { cambios } = await ajustarPlanPagos(leadId, v.plan, await hoyEnWorkspace());
+    const { cambios } = await ajustarPlanPagos(leadId, v.plan, await hoyEnWorkspace(), { antes: planAntes });
     await anotarEnHistorial(leadId, lineasDeCuotas(cambios), quien);
     const sinTocar = avisoDeConservadas(cambios);
     const partes = [

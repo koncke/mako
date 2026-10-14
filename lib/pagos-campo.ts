@@ -338,9 +338,21 @@ const mismaPlata = (a: number, b: number) => Math.abs(Number(a) - Number(b)) < 0
  * DEVUELTAS nunca aparecen en el resultado: son historia. Los números nuevos nunca chocan con uno que existe
  * (el índice único es (lead_id, numero)).
  */
-export function reconciliarCuotas(existentes: readonly CuotaExistente[], deseadas: readonly CuotaDeseada[], modo: ModoReconciliar): PlanDeCuotas {
+export function reconciliarCuotas(
+  existentes: readonly CuotaExistente[],
+  deseadas: readonly CuotaDeseada[],
+  modo: ModoReconciliar,
+  /**
+   * `soloNumeros` (sólo en 'slots'): las impagas que entran en juego. Las demás no se casan, no se actualizan y no
+   * se borran — es lo que usa un AJUSTE del plan (`diferenciaDePlan`) para no tocar una cuota movida a mano ni una
+   * que no es del plan. Los números nuevos igual evitan TODAS las que existen (el índice único es por número).
+   */
+  opts: { soloNumeros?: ReadonlySet<number> } = {},
+): PlanDeCuotas {
   const out: PlanDeCuotas = { actualizar: [], insertar: [], borrar: [], conservar: [] };
-  const impagas = existentes.filter((q) => !q.pagado && !q.devuelta).slice().sort((a, b) => a.numero - b.numero);
+  const impagas = existentes
+    .filter((q) => !q.pagado && !q.devuelta && (modo !== 'slots' || !opts.soloNumeros || opts.soloNumeros.has(q.numero)))
+    .slice().sort((a, b) => a.numero - b.numero);
   const pagadasNum = new Set(existentes.filter((q) => q.pagado).map((q) => q.numero));
   const usados = new Set(existentes.map((q) => q.numero));
   const libres = new Set(impagas.map((q) => q.id));
@@ -375,35 +387,47 @@ export function reconciliarCuotas(existentes: readonly CuotaExistente[], deseada
     const porNumero = new Map(impagas.map((q) => [q.numero, q]));
     for (const d of validas) {
       const n = d.numero;
-      if (n != null && pagadasNum.has(n)) continue; // la pagada cubre su número
+      // La pagada cubre su número. En un ajuste (`soloNumeros`), sólo si ese número era del plan: una pagada que no
+      // es del plan (el resto de un pago parcial) no reemplaza a la cuota nueva que cae en su número.
+      if (n != null && pagadasNum.has(n) && (!opts.soloNumeros || opts.soloNumeros.has(n))) continue;
       const q = n != null ? porNumero.get(n) : undefined;
       if (q && libres.has(q.id)) casar(q, d);
       else sinCasar.push(d);
     }
   } else {
-    // 'lista': las iguales primero (no cambian de id ni de nada), después por orden.
-    const resto: CuotaDeseada[] = [];
-    for (const d of validas) {
-      const q = impagas.find((x) => libres.has(x.id) && mismaPlata(x.monto_usd, d.monto_usd) && (x.fecha_esperada ?? null) === (d.fecha_esperada ?? null));
-      if (q) casar(q, d);
-      else resto.push(d);
-    }
-    // ⚠️ LAS PROTEGIDAS SE CASAN PRIMERO, cada una con una deseada (la de su mismo vencimiento si la hay; si no,
-    // la que sigue en orden). Una protegida no se puede borrar, así que si se queda sin deseada se conserva IGUAL
-    // y su deseada termina en `insertar`: la misma deuda contada dos veces. Pasaba (revisión del 14/10/2026):
-    // con A protegida, B y C de 1000 y [1500, 1500], las libres se llevaban las dos deseadas, A quedaba
-    // conservada y el total daba 4000 en vez de 2500. `casar` ya decide qué se le puede cambiar a una protegida
-    // (sólo la fecha si lo único que tiene es un link; nada si tiene un recordatorio) y lo dice en `conservar`.
-    const protegidas = impagas.filter((q) => libres.has(q.id) && prot(q).length > 0);
-    for (const q of protegidas) {
-      const i = resto.findIndex((d) => (d.fecha_esperada ?? null) === (q.fecha_esperada ?? null));
+    // ⚠️ LAS PROTEGIDAS SE CASAN PRIMERO, ANTES QUE LAS IGUALES, cada una con UNA deseada: (a) una igual, (b) una
+    // de su mismo vencimiento, (c) la que sigue en orden. Una protegida (link sin pagar, recordatorio corriendo) no
+    // se puede borrar, así que si se queda sin deseada se conserva IGUAL y la deuda se cuenta dos veces. Pasó dos
+    // veces en la revisión del 14/10/2026, y la segunda con el arreglo de la primera puesto:
+    //   · con las LIBRES casadas por orden antes que ella: A protegida, B y C de 1000, [1500, 1500] → 4000, no 2500;
+    //   · con las IGUALES antes que ella, al ACORTAR el plan: A el 01/11 con link, B el 01/12 y C el 01/01, pedidas
+    //     sólo las dos últimas → B y C iguales, A sin deseada → 1500, no 1000.
+    // `casar` decide qué se le puede cambiar (sólo la fecha si lo único que tiene es un link; nada si tiene un
+    // recordatorio) y lo deja en `conservar` con el porqué.
+    const igual = (q: CuotaExistente, d: CuotaDeseada) =>
+      mismaPlata(q.monto_usd, d.monto_usd) && (q.fecha_esperada ?? null) === (d.fecha_esperada ?? null);
+    const resto: CuotaDeseada[] = validas.slice();
+    const protegidas = impagas.filter((q) => prot(q).length > 0);
+    const tomar = (q: CuotaExistente, cond: (d: CuotaDeseada) => boolean) => {
+      if (!libres.has(q.id)) return;
+      const i = resto.findIndex(cond);
       if (i >= 0) casar(q, resto.splice(i, 1)[0]);
-    }
-    for (const q of protegidas) {
-      if (libres.has(q.id) && resto.length) casar(q, resto.shift()!);
-    }
-    // Después, por orden, sobre las que se pueden cambiar enteras.
+    };
+    for (const q of protegidas) tomar(q, (d) => igual(q, d));
+    for (const q of protegidas) tomar(q, (d) => (d.fecha_esperada ?? null) === (q.fecha_esperada ?? null));
+    // (c) prefiere una deseada que NO sea idéntica a una cuota libre: si se lleva la igual de otra, a las dos les
+    // cambia la identidad (la protegida toma esa fecha y la libre otra) sin que eso cambie la deuda.
+    const igualALibre = (d: CuotaDeseada) => impagas.some((x) => libres.has(x.id) && prot(x).length === 0 && igual(x, d));
+    for (const q of protegidas) tomar(q, (d) => !igualALibre(d));
+    for (const q of protegidas) tomar(q, () => true);
+    // Después las libres: las iguales (no cambian de id ni de nada) y por orden.
+    const porOrden: CuotaDeseada[] = [];
     for (const d of resto) {
+      const q = impagas.find((x) => libres.has(x.id) && igual(x, d));
+      if (q) casar(q, d);
+      else porOrden.push(d);
+    }
+    for (const d of porOrden) {
       const q = impagas.find((x) => libres.has(x.id) && prot(x).length === 0);
       if (q) casar(q, d);
       else sinCasar.push(d);
@@ -537,6 +561,35 @@ export function ajustarSobre(
     return { ok: false, error: 'Falta el día de pago de las cuotas (del 1 al 28).', faltan: ['dia_de_pago'] };
   }
   return v;
+}
+
+/** ¿No hay plan? (ni inicial ni cuotas): el lead tiene sus cuotas cargadas a mano, o ninguna. */
+export const planVacio = (p: PlanUniforme): boolean =>
+  !(p.cobro_inicial_usd && p.cobro_inicial_usd > 0) && !(p.monto_cuota_usd && p.monto_cuota_usd > 0 && (p.total_cuotas ?? 0) > 0);
+
+/**
+ * Lo que un AJUSTE cambia de verdad: las cuotas del plan nuevo cuyo monto o vencimiento difiere del anterior (o que
+ * el anterior no generaba), y los números del plan ANTERIOR que hay que tocar (`tocar`: los que cambian o ya no
+ * están). Con `reconciliarCuotas(…, 'slots', { soloNumeros: tocar })`, nada fuera de `tocar` se toca.
+ *
+ * ⚠️ REIMPONER EL PLAN ENTERO PISA LO QUE SE HIZO A MANO (revisión del 14/10/2026): con 1000 + 3×1000 el día 15,
+ * la cuota 2 movida al 20/12 y una cuota 4 de 200 (el resto de un pago parcial), cambiar sólo el inicial devolvía
+ * la 2 al 15/12 y BORRABA la 4: 3500 en vez de 3700. Una cuota cuyo número el plan anterior no generaba no es del
+ * plan: no se toca, y si el plan nuevo crece hasta ese número, la cuota nueva va en otro.
+ */
+export function diferenciaDePlan(antes: PlanUniforme, despues: PlanUniforme, base: string): { deseadas: CuotaDeseada[]; tocar: Set<number> } {
+  const a = new Map(cuotasDelPlan(antes, base).map((c) => [c.numero as number, c]));
+  const d = new Map(cuotasDelPlan(despues, base).map((c) => [c.numero as number, c]));
+  const deseadas: CuotaDeseada[] = [];
+  const tocar = new Set<number>();
+  for (const [n, c] of d) {
+    const x = a.get(n);
+    if (x && mismaPlata(x.monto_usd, c.monto_usd) && x.fecha_esperada === c.fecha_esperada) continue;
+    deseadas.push(c);
+    if (x) tocar.add(n);
+  }
+  for (const n of a.keys()) if (!d.has(n)) tocar.add(n);
+  return { deseadas, tocar };
 }
 
 /**

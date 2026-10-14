@@ -37,6 +37,17 @@
 //   · `planComoEstaba` sin limpiar un monto negativo                                        → 15 / 1
 //   · `ajustarPlanAction` sin el plan de la base                                            → 15 / 1
 //   · `guardar_cuotas` contestando «Listo» sin decir lo que no se tocó                      → 15 / 1
+//
+// Y la segunda ronda de la revisión de Pagos (mismo día), con 18 tests y la base en 18 / 0:
+//   · las iguales LIBRES casadas antes que las protegidas (acortar el plan duplicaba)       → 17 / 1
+//   · (c) sin preferir una deseada que no sea igual a una libre                             → 17 / 1
+//   · `diferenciaDePlan` reimponiendo todo el plan                                          → 17 / 1
+//   · 'slots' ignorando `soloNumeros` (borra la cuota que no es del plan)                    → 17 / 1
+//   · una pagada que no es del plan cubriendo el número de la cuota nueva                   → 17 / 1
+//   · `ajustarPlanPagos` sin la diferencia                                                  → 17 / 1
+//   · `ajustarPlanAction` sin rechazar un lead sin plan y con cuotas a mano                 → 17 / 1
+//   (sacar los pasos (a) y (b) de las protegidas NO cae: el (c) resuelve igual la plata; esos dos eligen
+//   la identidad más estable, no cambian la deuda.)
 // Correr: npx tsx --test tests/pagos-campo.test.ts
 // =============================================================================
 
@@ -44,8 +55,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  ajustarSobre, aplicarObligacion, avisoDeConservadas, cuotasDelPlan, etiquetaDePago, fusionarCampo, lineasDeCuotas, pagoEnMoneda, patchDeVenta,
-  planComoEstaba, reconciliarCuotas, rotuloCampoDeal, validarPlan, valorDeCampoDeal, type CuotaExistente,
+  ajustarSobre, aplicarObligacion, avisoDeConservadas, cuotasDelPlan, diferenciaDePlan, etiquetaDePago, fusionarCampo, lineasDeCuotas, pagoEnMoneda, patchDeVenta,
+  planComoEstaba, planVacio, reconciliarCuotas, rotuloCampoDeal, validarPlan, valorDeCampoDeal, type CuotaExistente,
 } from '../lib/pagos-campo';
 
 // ── 1. Campos del deal ────────────────────────────────────────────────────────
@@ -270,6 +281,20 @@ test('⚠️ lista: una protegida NUNCA deja su deseada en «insertar» (la mism
   assert.equal(rC.actualizar.length + rC.conservar.length + iguales + rC.insertar.length, deseadas.length);
 });
 
+test('⚠️ lista: ACORTAR el plan con una protegida al principio no deja tres cuotas donde se pidieron dos', () => {
+  // El segundo hueco de la revisión (14/10/2026, con el primer arreglo puesto): la pasada de «iguales» corría antes
+  // que las protegidas, se llevaba las dos deseadas con B y C, y A —con link o recordatorio— quedaba conservada al lado.
+  for (const motivo of ['link', 'recordatorio'] as const) {
+    const ex = [Q(1, 1, 500, '2026-11-01', { protegida: [motivo] }), Q(2, 2, 500, '2026-12-01'), Q(3, 3, 500, '2027-01-01')];
+    const r = reconciliarCuotas(ex, [{ monto_usd: 500, fecha_esperada: '2026-12-01' }, { monto_usd: 500, fecha_esperada: '2027-01-01' }], 'lista');
+    assert.equal(deudaDespues(ex, r), 1000, `con ${motivo}: dos cuotas, como se pidió`);
+    assert.deepEqual(r.insertar, []);
+    assert.deepEqual(r.borrar.map((b) => b.id), [2], 'se va la libre que la protegida reemplaza');
+    if (motivo === 'link') assert.deepEqual(r.actualizar.map((u) => [u.id, u.fecha_esperada]), [[1, '2026-12-01']], 'con link, la protegida toma la fecha');
+    else assert.deepEqual(r.conservar, [{ id: 1, numero: 1, motivo: 'recordatorio' }], 'con recordatorio se conserva y se avisa');
+  }
+});
+
 test('slots (plan uniforme): por número, la pagada cubre su número, y la que sobra se borra si no está protegida', () => {
   const ex = [Q(50, 0, 1000, '2026-10-01', { pagado: true }), Q(51, 1, 500, '2026-11-05'), Q(52, 2, 500, '2026-12-05'), Q(53, 3, 500, '2027-01-05', { protegida: ['recordatorio'] })];
   const deseadas = cuotasDelPlan({ cobro_inicial_usd: 1000, monto_cuota_usd: 600, total_cuotas: 2, dia_de_pago: 10 }, '2026-10-01');
@@ -324,6 +349,37 @@ test('⚠️ ajustar el plan escribe SÓLO lo que cambió, encima de lo que est�
   assert.deepEqual(planComoEstaba({ cobro_inicial_usd: '250', monto_cuota_usd: -5, total_cuotas: 9, dia_de_pago: 10 }), { cobro_inicial_usd: 250, monto_cuota_usd: null, total_cuotas: null, dia_de_pago: 10 });
 });
 
+test('⚠️ un ajuste aplica sólo la DIFERENCIA: no pisa una cuota movida a mano ni borra una que no es del plan', () => {
+  // El caso de la revisión: 1000 + 3×1000 el día 15, la cuota 2 movida a mano al 20/12 y una cuota 4 de 200 (el
+  // resto de un pago parcial). Cambiar sólo el inicial reimponía el plan entero: la 2 volvía al 15/12 y la 4 se borraba.
+  const antes = { cobro_inicial_usd: 1000, monto_cuota_usd: 1000, total_cuotas: 3, dia_de_pago: 15 };
+  const ex = [Q(10, 0, 1000, '2026-10-01'), Q(11, 1, 1000, '2026-11-15'), Q(12, 2, 1000, '2026-12-20'), Q(13, 3, 1000, '2027-01-15'), Q(14, 4, 200, '2027-01-30')];
+  const v = ajustarSobre(antes, { cobro_inicial_usd: 500 });
+  assert.ok(v.ok);
+  if (!v.ok) return;
+  const { deseadas, tocar } = diferenciaDePlan(antes, v.plan, '2026-10-01');
+  assert.deepEqual([...tocar], [0], 'sólo el número que cambió');
+  const r = reconciliarCuotas(ex, deseadas, 'slots', { soloNumeros: tocar });
+  assert.deepEqual(r.actualizar.map((u) => [u.id, u.monto_usd]), [[10, 500]]);
+  assert.deepEqual(r.borrar, [], 'la cuota 4 (no es del plan) y la 2 movida a mano quedan');
+  assert.equal(deudaDespues(ex, r), 3700);
+  // Si el plan CRECE hasta el número de una cuota que no es del plan (aunque esté cobrada), la nueva va en otro número.
+  const exPagada = [Q(20, 1, 1000, '2026-11-15'), Q(21, 2, 1000, '2026-12-15'), Q(22, 3, 200, '2026-12-30', { pagado: true })];
+  const antes2 = { cobro_inicial_usd: null, monto_cuota_usd: 1000, total_cuotas: 2, dia_de_pago: 15 };
+  const d2 = diferenciaDePlan(antes2, { ...antes2, total_cuotas: 3 }, '2026-10-01');
+  const r2 = reconciliarCuotas(exPagada, d2.deseadas, 'slots', { soloNumeros: d2.tocar });
+  assert.deepEqual(r2.insertar, [{ numero: 4, monto_usd: 1000, fecha_esperada: '2027-01-15' }]);
+  assert.deepEqual(r2.actualizar, []);
+  // ACHICAR borra sólo lo que el plan anterior generaba y el nuevo no.
+  const d3 = diferenciaDePlan(antes, { ...antes, total_cuotas: 2 }, '2026-10-01');
+  const r3 = reconciliarCuotas(ex, d3.deseadas, 'slots', { soloNumeros: d3.tocar });
+  assert.deepEqual(r3.borrar.map((b) => b.id), [13]);
+  assert.deepEqual(r3.actualizar, []);
+  // Sin plan en la base no hay contra qué ajustar: la acción lo rechaza (abajo, en el guard).
+  assert.equal(planVacio({ cobro_inicial_usd: null, monto_cuota_usd: null, total_cuotas: null, dia_de_pago: null }), true);
+  assert.equal(planVacio(antes), false);
+});
+
 test('el plan se valida como lo pide la base (1 a 6 cuotas, día 1 a 28) y el inicial 0 es «sin inicial»', () => {
   assert.deepEqual(validarPlan({ cobro_inicial_usd: 0, monto_cuota_usd: 250.555, total_cuotas: 3, dia_de_pago: 5 }),
     { ok: true, plan: { cobro_inicial_usd: null, monto_cuota_usd: 250.56, total_cuotas: 3, dia_de_pago: 5 } });
@@ -358,6 +414,10 @@ const fuente = (r: string) => readFileSync(new URL(r, import.meta.url), 'utf8').
 test('las acciones ajustan sobre la base y deshacen tal cual; la API y el wizard dicen lo que no se tocó', () => {
   const acciones = fuente('../app/crm/[id]/pagos-campo-actions.ts');
   assert.match(acciones, /const v = ajustarSobre\(planAntes, plan\);/, 'ajustarPlanAction valida el plan MEZCLADO con la base');
+  assert.match(acciones, /ajustarPlanPagos\(leadId, v\.plan, await hoyEnWorkspace\(\), \{ antes: planAntes \}\)/, 'y aplica sólo la diferencia con el plan anterior');
+  assert.match(acciones, /if \(planVacio\(planAntes\) && antes\.some\(/, 'sin plan en la base y con cuotas a mano, rechaza');
+  const pagos = fuente('../lib/pagos.ts');
+  assert.match(pagos, /diferenciaDePlan\(opts\.antes, plan, base\)/, 'ajustarPlanPagos con `antes` reconcilia sólo la diferencia');
   assert.match(acciones, /update\(\{ \.\.\.planComoEstaba\(plan\) \}\)/, 'el Deshacer devuelve el plan anterior tal cual');
   assert.doesNotMatch(acciones, /validarPlan\(plan/, 'ningún plan parcial se valida como plan entero');
   const api = fuente('../lib/api-mako/areas/crm.run.ts');

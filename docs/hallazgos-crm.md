@@ -8779,6 +8779,13 @@ deseada (la de su mismo vencimiento si la hay, si no la que sigue), porque es la
 `casar` ya decidía qué se le puede cambiar (sólo la fecha si lo único que tiene es un link; nada si tiene un
 recordatorio) y lo deja en `conservar` con el porqué. Resultado del caso: A en 1000, B en 1500, C borrada: 2500.
 
+⚠️ **Y la segunda vuelta también duplicaba** (otra vez lo cazó Pagos, con el primer arreglo puesto): la pasada de
+«iguales» corría ANTES que las protegidas. Al ACORTAR el plan —A el 01/11 con link, B el 01/12 y C el 01/01,
+pedidas sólo las dos últimas— B y C se llevaban las deseadas por ser idénticas y A quedaba conservada al lado:
+1500 en vez de 1000. Ahora las protegidas van antes que todo: (a) con una deseada igual, (b) con una de su mismo
+vencimiento, (c) con la que sigue, prefiriendo una que no sea idéntica a una libre (si no, a dos cuotas les cambia
+la identidad sin que cambie la deuda). Recién después las libres: iguales y por orden.
+
 La regla que queda: **en una reconciliación, lo que no se puede borrar tiene prioridad para casarse.** Si se
 deja para el final, sobra, y lo que sobra de una lista de deuda es deuda duplicada. Invariante del test: cada
 deseada termina en UNO de igual / actualizar / conservar / insertar, y nunca hay un insertar mientras quede una
@@ -8797,6 +8804,16 @@ base: una clave ausente se conserva, un `null` explícito vacía. Y si después 
 pago (un lead cuyas cuotas se cargaron a mano no tiene plan en la base), lo pide con `faltan` en vez de
 inventar el día 1.
 
+⚠️ **Mezclar con la base no alcanzaba: el ajuste reimponía el plan ENTERO.** `ajustarPlanPagos` reconcilia en
+'slots' con todas las cuotas del plan, así que cambiar sólo el inicial devolvía al día del plan una cuota que
+alguien movió a mano y borraba una cuota que no es del plan (el resto de un pago parcial): con 1000 + 3×1000, la 2
+movida al 20/12 y una 4 de 200, daba 3500 en vez de 3700. Ahora un AJUSTE aplica la DIFERENCIA
+(`diferenciaDePlan`): sólo los números del plan anterior que cambian o desaparecen entran en juego
+(`soloNumeros`), y una cuota nueva del plan no pisa ni el número de una cuota que no es del plan, aunque esté
+cobrada. El wizard de Ganado y la API `guardar_plan_pagos` siguen reimponiendo: ahí se ESTABLECE el plan.
+**Y sin plan en la base no hay contra qué diferenciar:** si el lead tiene cuotas impagas cargadas a mano, el
+ajuste se rechaza («cámbialas en las cuotas») en vez de duplicarlas o borrarlas.
+
 En el mismo pase, el Deshacer del ajuste: devolvía el plan anterior por `validarPlan`, que con un plan todo en
 null falla y lo descartaba en silencio — las cuotas volvían y quedaba escrito el plan que se quería deshacer.
 `planComoEstaba` lo escribe tal cual, cada campo limpio por separado.
@@ -8812,4 +8829,4 @@ dedup de la cobranza con un id que ya no cambia, el link vivo de una cuota cobra
 impagas vivas, una cuota nacida después de la foto que el modo porId borra, Editar deal que ignora en silencio y
 reactivar una suscripción sin su plazo.
 
-**Vive en:** `lib/pagos-campo.ts` (`reconciliarCuotas` modo 'lista', `ajustarSobre`, `planComoEstaba`) · `app/crm/[id]/pagos-campo-actions.ts` (`ajustarPlanAction`, `guardarCuotasAction`) · `lib/api-mako/areas/crm.run.ts` (`guardar_cuotas`) · `app/crm/actions.ts` (`completeStageMoveAction`) · `tests/pagos-campo.test.ts` · *2026-10-14 rama crm-bloques-b2*
+**Vive en:** `lib/pagos-campo.ts` (`reconciliarCuotas` modo 'lista' y `soloNumeros`, `ajustarSobre`, `diferenciaDePlan`, `planVacio`, `planComoEstaba`) · `lib/pagos.ts` (`ajustarPlanPagos` con `antes`) · `app/crm/[id]/pagos-campo-actions.ts` (`ajustarPlanAction`, `guardarCuotasAction`) · `lib/api-mako/areas/crm.run.ts` (`guardar_cuotas`) · `app/crm/actions.ts` (`completeStageMoveAction`) · `tests/pagos-campo.test.ts` · *2026-10-14 rama crm-bloques-b2*

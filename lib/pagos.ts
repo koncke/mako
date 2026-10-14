@@ -17,7 +17,7 @@ import { pasaAGanado } from './crm-curso-al-ganar-reglas';
 import { centavos, diferenciaPendiente, type RestoDeCobro } from './pagos-diferencia';
 import {
   aplicarObligacion, cuotasDelPlan, esCampoLeadDeal, esSeccionDeal, etiquetaDePago, fusionarCampo, pagoEnMoneda, patchDeVenta,
-  reconciliarCuotas, rotuloCampoDeal, rotuloObligacion, valorDeCampoDeal, CAMPOS_LEAD_DEAL, COLUMNA_SECCION, MONEDA_POR_DEFECTO,
+  diferenciaDePlan, reconciliarCuotas, rotuloCampoDeal, rotuloObligacion, valorDeCampoDeal, CAMPOS_LEAD_DEAL, COLUMNA_SECCION, MONEDA_POR_DEFECTO,
   type CambioObligacion, type CambioVenta, type CampoLeadDeal, type CuotaDeseada, type CuotaExistente, type FilaVenta,
   type ModoReconciliar, type Obligaciones, type PlanDeCuotas, type PlanUniforme, type Proteccion, type SeccionDeal,
 } from './pagos-campo';
@@ -182,9 +182,11 @@ async function escribirReconciliacion(leadId: number, plan: PlanDeCuotas): Promi
 }
 
 /** Reconcilia una lista de cuotas impagas y sincroniza lo cobrado. Devuelve lo que hizo (y lo que NO tocó). */
-export async function reconciliarYGuardar(leadId: number, deseadas: readonly CuotaDeseada[], modo: ModoReconciliar): Promise<PlanDeCuotas> {
+export async function reconciliarYGuardar(
+  leadId: number, deseadas: readonly CuotaDeseada[], modo: ModoReconciliar, opts: { soloNumeros?: ReadonlySet<number> } = {},
+): Promise<PlanDeCuotas> {
   await asegurarLeadDelNegocio(leadId);
-  const plan = reconciliarCuotas(await cuotasParaReconciliar(leadId), deseadas, modo);
+  const plan = reconciliarCuotas(await cuotasParaReconciliar(leadId), deseadas, modo, opts);
   await escribirReconciliacion(leadId, plan);
   await sincronizarTotalCobrado(leadId);
   return plan;
@@ -209,8 +211,12 @@ export type ResultadoPlan = { pagos: Pago[]; cambios: PlanDeCuotas };
  *
  * fecha base = fecha_cierre del lead (o hoy si no hay). El inicial vence en la fecha del cierre; la cuota N vence
  * el `dia_de_pago` del mes N siguiente (el calendario de siempre, `cuotasDelPlan`).
+ *
+ * Con `opts.antes` (el plan que había: un AJUSTE desde la ficha) se aplica sólo la DIFERENCIA (`diferenciaDePlan`):
+ * no se pisa una cuota movida a mano ni se borra una que no es del plan. Sin él (el wizard de Ganado, la API
+ * `guardar_plan_pagos`), el plan se reimpone entero, como siempre.
  */
-export async function ajustarPlanPagos(leadId: number, plan: PlanUniforme, hoy: string): Promise<ResultadoPlan> {
+export async function ajustarPlanPagos(leadId: number, plan: PlanUniforme, hoy: string, opts: { antes?: PlanUniforme } = {}): Promise<ResultadoPlan> {
   const supabase = (await getTenantDb());
   const { data: leadRow, error: leadErr } = await supabase.from('leads').select('fecha_cierre').eq('id', leadId).single();
   if (leadErr) throw new Error(`Error leyendo lead ${leadId}: ${leadErr.message}`);
@@ -224,7 +230,13 @@ export async function ajustarPlanPagos(leadId: number, plan: PlanUniforme, hoy: 
   }).eq('id', leadId);
   if (planErr) throw new Error(`Error guardando plan del lead ${leadId}: ${planErr.message}`);
 
-  const cambios = await reconciliarYGuardar(leadId, cuotasDelPlan(plan, base), 'slots');
+  let cambios: PlanDeCuotas;
+  if (opts.antes) {
+    const { deseadas, tocar } = diferenciaDePlan(opts.antes, plan, base);
+    cambios = await reconciliarYGuardar(leadId, deseadas, 'slots', { soloNumeros: tocar });
+  } else {
+    cambios = await reconciliarYGuardar(leadId, cuotasDelPlan(plan, base), 'slots');
+  }
   return { pagos: await getPagosByLead(leadId), cambios };
 }
 
