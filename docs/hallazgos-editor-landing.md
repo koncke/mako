@@ -799,6 +799,107 @@ cambio, con `curl` (0 landings publicadas ese día: no hubo nada que migrar).
   redirecciones con `has` siguen andando en la app), `https://hola-mako.com/l/x` (308 a hola-mako.site/x) y
   una landing publicada de prueba en el ws3 (abrirla, el formulario, el HTML libre, la vista previa privada).
 
+## Diseños con video: la grilla tipo VSL Funnel (14/10/2026)
+
+Pedido literal de Martín: «Por favor, que la mayoría de las plantillas sean con un VIDEO, porque deberían ser tipo
+VSL Funnel... Puedes inspirarte en otras plantillas de VSL Funnel e incluso en la misma plantilla de MaKo.»
+
+### El diagnóstico obvio era el equivocado: los 8 diseños ya eran casi el mismo
+
+- **Síntoma:** la grilla «Diseños» mostraba ocho miniaturas que sólo cambiaban de color.
+- **Causa:** los `hero: 'derecha' | 'fondo' | …` de `DISENOS_LANDING` describen dónde va la IMAGEN de acento, y
+  ninguna plantilla de copy trae `imagenSrc`: sin imagen, `specTarjeta` dibuja `'sin'`
+  (`lib/editor-landing/especificacion.ts` ~558). O sea que el «diseño» era el tema y nada más.
+- **Regla:** un eje de diseño que depende de un dato que las plantillas no traen no es un eje. Antes de sumar una
+  variante de layout, comprobá en la MINIATURA que se distinga.
+
+### El insertado vacío perdía de qué era
+
+- `attrsInsertado` y el saneo devolvían `proveedor: ''` con `src` vacío, así que un VSL sin pegar y una agenda sin
+  pegar eran el mismo nodo: el render no podía dibujar un ▶ para uno y no para el otro, y el editor decía lo mismo
+  en los dos («Pega el enlace de un video o de tu agenda»).
+- **Vive en:** lib/editor-landing/especificacion.ts (attrsInsertado), lib/editor-landing/validar.ts.
+
+### La miniatura es un cuadro 16/10 con overflow hidden
+
+- Un hero alto (Título display de 5em + 2.75em de padding) deja el video FUERA del cuadro sin un error: la miniatura
+  muestra el titular y nada más. Lo que se ve en la grilla se mide en el cuadro, no en la página.
+- **Vive en:** app/landing-generator/MiniaturaLanding.tsx (.gp-mini).
+
+### El test de insertar no cargaba los diseños en TipTap
+
+- `tests/editor-landing-insertar.test.ts` cargaba en el esquema de TipTap `PLANTILLAS` y `DISENOS_SECCION`, no los
+  cruces diseño × objetivo: un nodo que el saneo acepta y TipTap tira (se abre VACÍO y el autoguardado lo pisa)
+  pasaba en verde.
+
+### Un átomo vacío que no se dibuja deja vacía la COLUMNA que lo contiene
+
+- **Síntoma (verificación del 14/10):** en los diseños con el video al costado, publicar sin pegar el video sacaba
+  `<div class="gm-columna"></div>`: el texto apretado en 5/12 y 7/12 en blanco, en la publicada y en las
+  exportaciones. Borrar el video tampoco lo arreglaba (la columna exige un bloque y deja un párrafo vacío).
+- **Causa:** el render omite el insertado vacío (correcto: no hay hueco sin explicación), pero la columna que lo
+  envolvía no se enteraba. La regla «lo vacío no se dibuja» vale para el CONTENEDOR también.
+- **Vive en:** lib/editor-landing/render.ts (columnas), lib/editor-landing/disenos-landing.ts (rama 'costado').
+
+### El modo 'miniatura' no es sólo la grilla
+
+- `app/m/landing/[id]/page.tsx` usa el modo 'miniatura' como «lo que vería un visitante en su teléfono». Un
+  marcador que sólo tenía sentido en la grilla de Diseños (el ▶ del video sin pegar, el video al 52 %) aparecía ahí
+  como si la publicada lo tuviera. Antes de cambiar lo que dibuja un modo, grep de quién lo pide.
+
+### Probar un merge sin tocar el árbol
+
+- `git merge-tree --write-tree <a> <b>` dice si dos ramas chocan y en qué hunks, sin checkout ni índice: sirve con
+  varias sesiones en el clon. El merge de prueba de los diseños con video contra el botón de pago dio un solo
+  conflicto, en un comentario de cabecera.
+
+### Lo que dicen las referencias de VSL (para no volver a buscarlo)
+
+- **«VSL funnel» en ClickFunnels es un funnel de VENTA** (pedido, upsell, downsell); el de agendar es su
+  «Application Funnel». Un VSL para agendar llamada es el arquetipo high-ticket: titular → video → «Aplicar/Agendar»
+  → prueba → para quién es → FAQ → agenda.
+- **El titular va arriba del video y el botón justo debajo**; el video es el protagonista (60-70 % del ancho).
+- **Las páginas de webinar casi nunca llevan VSL en el hero**: llevan foto o un tráiler del host.
+- **Calendly no deja poner un video en su página de agenda**: el video tiene que ir en nuestra página.
+- **La landing de MaKo (app/vsl) es split**: texto a la izquierda, video a la derecha; el tema más parecido era
+  Commons, y un tema «MaKo» exigía sumar Geist a `FUENTES` y otra categoría en el test de temas (el cupo de
+  «aproximados» estaba lleno en 16).
+- **`app/vsl/landing-html.ts` no es lo que se ve**: `Landing.tsx` le cambia cosas al cargar (el fondo de los cupos,
+  títulos, secciones que saca). Para describir la landing de MaKo se lee lo que queda DESPUÉS de Landing.tsx.
+
+### Medir una miniatura sin `--window-size` mide otro layout
+
+- Chrome sin cabeza abre a 800 px de ancho: las columnas del hero salían APILADAS y el video al 96 %, que no es
+  lo que ve nadie en la grilla de escritorio. Con `--window-size=1780,1500`, dos columnas y el video al 50 %. El
+  layout de la miniatura depende de la ventana, no del cuadro: se mide con ventana de escritorio.
+
+### Trampas chicas que costaron una vuelta cada una
+
+- **Un atributo en el `saltear` de `attrsConMotivo` se descarta SIN motivo.** La pista de proveedor de los bloques
+  «Agenda» y «VSL» del menú desaparecía en el saneo sin que nada lo dijera. Cuando un atributo salteado empieza a
+  significar algo, se le suma su motivo (lib/editor-landing/validar.ts).
+- **Una lista cerrada no se chequea con `in`**: «toString» pasa como proveedor válido. Va `hasOwnProperty`
+  (`esProveedorEmbed`, lib/embeds.ts).
+- **Un tema que no es «medido» ni «aproximado» rompe el catálogo**: el test fija la lista exacta de los medidos y
+  un tope de aproximados. El tema `mako` lleva su flag `deMako` (lib/editor-landing/temas.ts).
+- **Un test que toma `DISENOS_LANDING[0]` como «el diseño neutro» cambia de sentido cuando cambia el orden del
+  catálogo**: se elige por propiedad (`video === null`).
+- **Un string compuesto que arma el cliente tiene que pasar la regex del server**: `pedidoDeDiseno` arma
+  `diseño:objetivo` desde el 12/10 y `sanearConfig` lo tiraba sin motivo (no aceptaba los dos puntos). La regex y
+  el armado van en el mismo test.
+- **La barra de la agencia («Estás viendo el dashboard de…», 50 px) le reserva su alto al body**: toda pantalla de
+  alto completo descuenta `var(--barra-agencia, 0px)` o el documento scrollea esos 50 px y la barra tapa la de
+  arriba (en el editor tapaba Publicar). Medido por la verificación con clics en el Chrome de Martín.
+
+### Lo que quedó sin hacer (diseños con video)
+
+- La SEGUNDA página de gracias del webinar y del lead magnet no lleva el video de «qué sigue».
+- En el teléfono, con el video al costado, el video queda debajo del texto y el botón (el orden de las columnas).
+- Al pegar HTML sin el JSON del editor, la pista del proveedor se pierde (`parseHTML` de nodos.ts cae a
+  `attrsInsertado({})`).
+- El ícono `play` del catálogo es de contorno; no hay uno relleno.
+- `app/admin/dev/landing-generator/bitacora.ts` sigue diciendo «34 temas» (ahora son 35).
+
 ## Lo que quedó sin hacer
 
 - **«Generar imagen con IA» por Google Flow** (decisión de Martín, 11/10). Bloqueo medido: el Flow nuevo
