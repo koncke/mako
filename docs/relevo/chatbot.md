@@ -88,6 +88,11 @@
 > lead desde el 10/10. O el alta de «Nuevo lead» no lo guardó (bug del CRM: medir `createLead` con ese teléfono, ¿duplicado?
 > ¿error tragado?), o lo borraron después de la llamada: se le preguntó a Martín. Sin lead no hay inscripción: la #213 no tenía
 > a quién mandarle.
+> **Bug 5, cierre del dato (13/10 ~24:50):** Martín: el lead «Marco Bustos» SÍ existía; Mauricio lo borró después porque era
+> de prueba. Con el lead se fueron su inscripción y todo rastro: la causa no se puede medir sobre ese lead. Siguiente: reproducir
+> en ws3 con una copia de la #213 (alta con «Nuevo lead», etapa de agenda, ver si inscribe y qué manda). Y un PEDIDO NUEVO de
+> Martín: «Yo como SuperAdmin quiero tener registro de todas las acciones que hace un usuario» (memoria
+> `registro-acciones-superadmin`; preguntado si lo hace este chat o el de Admin).
 > **PENDIENTE, en este orden:**
 > 1. **Plazos de etapa del CRM → plantilla de Automations** (pedido de Martín reenviado por el chat CRM, 12/10: «Si, pasa
 >    a una automatización eso de los plazos... Y ponlo como template en automations. Dile esto al chat de "Chatbot" que lo
