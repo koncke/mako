@@ -33,7 +33,9 @@ Workflows: tanda A `wf_d8dfde6d-689`; catálogo de bloques `wf_70de8f94-88b`, qu
 en wtcrm5 (los journals están en `~/.claude/projects/<proyecto>/debe2ade-…/subagents/workflows/<runId>/journal.jsonl`).
 Al terminar: se revisa cada rama, se mergea en `fb1410`, se corren los tests, se cosecha y se pushea.
 
-**ESTADO AL 14/10 ~12:15. TANDA B1 CORRIENDO: `wf_0132bb27-e06`** (script en el scratchpad de la sesión debe2ade,
+**ESTADO AL 14/10 ~12:20. TANDA B1 EN PAUSA (`wf_0132bb27-e06`), hasta que Estrategia 3 CUENTAS avise que entró su push** (la paré
+a los minutos y sin cambios en los worktrees: Estrategia necesita 4 GB libres para pushear, y fb1410 va en ese push. Se
+retoma con `resumeFromRunId`. La tanda B la INTEGRA Estrategia: se le pasa rama y hash, y NO se hace `pull --rebase`) (script en el scratchpad de la sesión debe2ade,
 `tanda-b1.js`; con tope de 3 agentes a la vez por RAM). Martín: «Si, avanza con todo y pushea» → las 7 decisiones del
 catálogo están TOMADAS (§1 de docs/diseno-ficha-bloques.md, `1f075a2b8`). Cinco frentes, cada uno en su worktree, que salen
 de `crm-bloques`:
