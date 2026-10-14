@@ -249,12 +249,13 @@ const TIENE_EMAIL: FilaCondicion = { campo: 'tiene_email' };
  */
 const RECIENTE: FilaCondicion = { campo: 'antiguedad', valor: 72 };
 /**
- * «Próxima reunión en ≤ 720 h»: tiene una reunión POR DELANTE (en los próximos 30 días). Va antes de cada mensaje que
- * habla de la reunión y no cuelga de una espera «antes de la reunión»: al prender, el CRON inscribe a todos los que están
- * en la etapa, también al que la tuvo hace un mes (AGENTS.md, «Un mensaje que habla de un MOMENTO se re-pregunta al
- * salir»).
+ * «Su reunión sigue en pie»: no se canceló, no tiene la asistencia marcada y no pasó (una fecha sin hora, hasta el final
+ * de su día). Va antes de cada mensaje que habla de la reunión: al prender, el CRON inscribe a todos los que están en la
+ * etapa, también al que la tuvo hace un mes (AGENTS.md, «Un mensaje que habla de un MOMENTO se re-pregunta al salir»).
+ * Desde el 14/10/2026 reemplaza a «Próxima reunión en ≤ 720 h», que leía una fecha sin hora como el mediodía (el bug 5
+ * de la guarda escondida) y no veía una cancelada; y es la condición VISIBLE de lo que el motor hacía por detrás.
  */
-const REUNION_POR_DELANTE: FilaCondicion = { campo: 'reunion_en', op: 'menor_igual', valor: 720 };
+const EN_PIE: FilaCondicion = { campo: 'reunion_en_pie' };
 /** «Sigue en la etapa del CRON»: la etapa la dice el CRON de la automatización (lib/condiciones-catalogo.ts). */
 const SIGUE_EN_LA_ETAPA: FilaCondicion = { campo: 'sigue_en_etapa_cron' };
 
@@ -312,7 +313,7 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
     cron: { pide: 'etapa_venta', ayuda: 'La etapa de quien agendó una reunión.' },
     pasos: [
       // 1. Recordatorios y equipo (todos salen solos). Cada renglón con un dato sin valor se va solo.
-      condicion('la_r', [[[REUNION_POR_DELANTE, TIENE_WHATSAPP], 'la_mk1']], null),
+      condicion('la_r', [[[EN_PIE, SIGUE_EN_LA_ETAPA, TIENE_WHATSAPP], 'la_mk1']], null),
       mako('la_mk1', '🎯 *Nuevo agendado*: {{nombre_completo}} reservó su {{reunion_cual}} para {{reunion_cuando}} a las {{reunion_hora}}.\nVino del anuncio "{{lead_utm_campaign}}".\n📱 {{lead_telefono}}\n✉️ {{lead_email}}\n{{lead_respuestas_agenda}}\n\n👉 {{link_lead}}', 'la_e24'),
       antesDeLaReunion('la_e24', DIA, 'la_w24'),
       whatsapp('la_w24', 'Hola {{nombre}}, te recuerdo tu reunión {{reunion_cuando}} a las {{reunion_hora}}.\nPara entrar: {{reunion_link}}', 'la_e60', { revisar: false }),
@@ -324,16 +325,16 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
       whatsapp('la_w15', 'Hola {{nombre}}, empezamos {{reunion_faltan}}.\nEntra aquí: {{reunion_link}}', null, { revisar: false }),
       // 2. Confirmar: a quien ya le escribiste no se le dice «te escribo por…». Las dos llegan a la MISMA espera.
       condicion('la_p', [
-        [[REUNION_POR_DELANTE, TIENE_WHATSAPP, YA_LE_ESCRIBISTE], 'la_wya'],
-        [[REUNION_POR_DELANTE, TIENE_WHATSAPP], 'la_wnuevo'],
+        [[EN_PIE, SIGUE_EN_LA_ETAPA, TIENE_WHATSAPP, YA_LE_ESCRIBISTE], 'la_wya'],
+        [[EN_PIE, SIGUE_EN_LA_ETAPA, TIENE_WHATSAPP], 'la_wnuevo'],
       ], null),
       whatsapp('la_wya', 'Hola {{nombre}}, ¡gracias por agendar! 🙌 Nos vemos {{reunion_cuando}} a las {{reunion_hora}}. ¿Me confirmas que vas a poder estar?', 'la_e1d', { revisar: false }),
       whatsapp('la_wnuevo', 'Hola {{nombre}}, te escribo por la reunión que agendaste para {{reunion_cuando}} a las {{reunion_hora}} 🙌 ¿Me confirmas que vas a poder estar?', 'la_e1d', { revisar: false }),
       esperar('la_e1d', DIA, 'la_c'),
-      condicion('la_c', [[[REUNION_POR_DELANTE], 'la_mk3']], null),
+      condicion('la_c', [[[EN_PIE, SIGUE_EN_LA_ETAPA], 'la_mk3']], null),
       mako('la_mk3', 'Agendó y no confirmó: {{nombre_completo}}. Conviene que le marques tú.\n📱 {{lead_telefono}}\n👉 {{link_lead}}', null),
       // 3. Email.
-      condicion('la_m', [[[REUNION_POR_DELANTE, TIENE_EMAIL], 'la_m1']], null),
+      condicion('la_m', [[[EN_PIE, SIGUE_EN_LA_ETAPA, TIENE_EMAIL], 'la_m1']], null),
       email('la_m1', 'Tu reunión quedó agendada', 'Te esperamos.',
         'Hola {{nombre}}:\n\nTu reunión quedó agendada para {{reunion_cuando}} a las {{reunion_hora}}.\n\nSi necesitas cambiarla, responde este correo y lo coordinamos.', 'la_me24', { revisar: false }),
       antesDeLaReunion('la_me24', DIA, 'la_m2'),
@@ -362,7 +363,7 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
       esperar('ln_e2d', 2 * DIA, 'ln_c'),
       // Si ya tiene otra reunión por delante, no se le insiste («si se cumple» termina). «Agendó» no sirve acá: la
       // reunión a la que faltó también cuenta como agendada.
-      condicion('ln_c', [[[REUNION_POR_DELANTE], null]], 'ln_w2'),
+      condicion('ln_c', [[[EN_PIE], null]], 'ln_w2'),
       whatsapp('ln_w2', '{{nombre}}, ¿lo reagendamos? Respóndeme por aquí y buscamos un horario que te quede bien.', null, { revisar: true }),
       email('ln_m1', '¿Reprogramamos tu reunión?', 'Buscamos otro horario en un minuto.',
         'Hola {{nombre}}:\n\nTe esperábamos en la reunión y no pudimos conectarnos.\n\nSi todavía te interesa, responde este correo y buscamos un nuevo horario.', null, { revisar: false }),

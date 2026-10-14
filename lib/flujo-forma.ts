@@ -46,7 +46,7 @@ export const esDatoDeReunion = (key: string): boolean => datoDe(key)?.fuente ===
 /**
  * ¿LO QUE SALE EN `id` VUELVE A MIRAR LA REUNIÓN? Sube por TODOS los padres (una tarjeta puede tener varios): cada
  * camino tiene que cruzar una espera «antes de la reunión» (la ancla el motor en la próxima reunión) o la rama de una
- * condición «Próxima reunión en» que lleva hasta acá. Una espera por TIEMPO corta el camino: después de esperar hay que
+ * condición «Próxima reunión en» o «Su reunión sigue en pie» (14/10/2026) que lleva hasta acá. Una espera por TIEMPO corta el camino: después de esperar hay que
  * volver a preguntar (AGENTS.md, «Un mensaje que habla de un MOMENTO se re-pregunta al salir»).
  */
 export function miraLaReunion(pasos: readonly PasoGrafo[], id: string, vistos: Set<string> = new Set()): boolean {
@@ -61,7 +61,7 @@ export function miraLaReunion(pasos: readonly PasoGrafo[], id: string, vistos: S
     if (c === 'condicion') {
       const rama = pa.puerto.startsWith('par') ? leerPuertoParalelo(pa.puerto)?.resultado ?? null : pa.puerto;
       const r = (p.ramas ?? []).find((x) => x.id === rama);
-      if (r?.filas.some((f) => f.campo === 'reunion_en' && !f.no)) return true;
+      if (r?.filas.some((f) => (f.campo === 'reunion_en' || f.campo === 'reunion_en_pie') && !f.no)) return true;
     }
     if (c === 'esperar') return p.espera?.modo === 'antes_reunion';
     if (c === 'inicio') return false;
