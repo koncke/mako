@@ -2737,6 +2737,10 @@ sino a los que la DECLARAN** — y esos dos conjuntos casi nunca son el mismo.
 - **El alcance va por PROPÓSITO, no por campo declarado.** Acá: `preparaUnaReunion(trigger)` en
   `lib/nutricion-familias.ts` cubre la familia entera de la post-agenda, y el guard de
   `tests/reunion-ya-paso.test.ts` falla si el motor vuelve a mirar solo `paso.ancla`.
+- **⚠️ Desde el 14/10/2026 esa pregunta NO va escondida en el motor** (Martín: «jamás que "mako" haga
+  cosas que no están en el flujo»). Va como una CONDITION visible delante del mensaje, y el
+  reintento la vuelve a pasar antes de mandar. La guarda de `procesarEnvios` se borra cuando eso
+  exista: plan en docs/diseno-mako-nada-por-detras.md §2.1-2.3.
 
 # Un DIAGNÓSTICO escrito de antemano deja de ser cierto sin avisar
 
@@ -7561,6 +7565,14 @@ es el camino que ya guarda el borrador al desmontar.
 componente y le cambia el ciclo de vida entero.
 
 # /automations (ex /chatbot) es un FLUJO CON RAMAS: lo que gobierna el código nuevo
+
+**MaKo no decide nada que no esté en el flujo** (Martín, 14/10/2026: «Si no es configurable el usuario,
+como yo, lo tomamos como un bug... Depreca absolutamente todas las cosas que MaKo haga por detrás»).
+Un «si X, no mandes / cerrá / pausá / reprogramá / no inscribas» nuevo NO se escribe en el motor. Va
+como condición del catálogo (`lib/condiciones-catalogo.ts`) u opción visible de una tarjeta, con su
+operación en la API de MaKo. Lo que ya existe escondido está inventariado (162 ítems, con el plan) en
+docs/diseno-mako-nada-por-detras.md. La corrección técnica (carreras, no mandar dos veces) no cuenta.
+Antes de una tarjeta nueva, mirá si las que hay ya la expresan: una rama sin flecha ya TERMINA.
 
 Desde el 08/10/2026 una automatización de la tab Automations (ex Chatbot, renombrada el
 09/10/2026: la pantalla vive en `app/automations/`, /chatbot redirige con la query entera y las
