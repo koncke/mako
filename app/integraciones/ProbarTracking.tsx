@@ -898,7 +898,8 @@ export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?:
 
           ⚠️ Y EL BOTÓN NO ABRE UN REPRODUCTOR ACÁ: crea (o reusa) el lead PRUEBA
           de ese producto y lleva a su ficha, que es donde el reproductor ya vive
-          (app/crm/lead-view/GrabacionModal.tsx). Pedido de Martín el 06/10/2026,
+          (en línea, en «Grabación de su visita» de la tab Tracking:
+          app/crm/lead-view/GrabacionCard.tsx). Pedido de Martín el 06/10/2026,
           textual: «que simplemente se cree un lead de PRUEBA en el CRM en ese
           producto. Con el nombre de PRUEBA. Y allí se podrá ver esa grabación.»
           El porqué, en app/integraciones/prueba-lead-actions.ts.

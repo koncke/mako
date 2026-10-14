@@ -1,34 +1,53 @@
 'use client';
 
 // =============================================================================
-// GrabacionModal — la grabación de sesión, reproducida DENTRO de la ficha
+// GrabacionEnLinea — la grabación de sesión, reproducida EN LÍNEA en la ficha
 // =============================================================================
 // Es lo único que el replay propio compra sobre Clarity: que la grabación se vea
 // acá y no en el panel de un tercero, en otra pestaña, filtrando por un uuid.
 //
-// ⚠️ ES UN POP-UP ADENTRO DE UN MODAL (la ficha del lead ya es uno), así que va con
-// `anidada`: la ficha NO se apaga detrás —es parte de la misma tarea— y registrarse
-// en la pila (`app/_components/pila-modales.ts`) es lo que hace que el Escape de la
-// ficha se abstenga. Sin eso, cerrar la grabación cerraría también la ficha, que es
-// el bug medido el 27/09/2026 con el detalle de una tarea. Mismo molde que
-// `NombrarVideosModal`.
+// (El archivo se sigue llamando GrabacionModal.tsx aunque ya no es un modal: lo
+// nombran por ruta tests/replay-envoltorio.test.ts y app/admin/dev/areas.ts.)
+//
+// ⚠️ VIVE ADENTRO DE «GRABACIÓN DE SU VISITA», DEBAJO DE LA FILA QUE SE TOCÓ, y no en
+// un pop-up. Hasta el 14/10/2026 era un `Modal` de 720 px fijos anidado sobre la ficha
+// (que ya es uno). Martín, ese día: «Mira como se ve el reproductor, completamente
+// roto... No hagas un desplegable de eso, que viva dentro de la sección "Grabación de
+// su visita" en tracking». Lo roto era la hoja de estilos del reproductor, que nadie
+// cargaba (lib/replay-reproductor.ts); en línea, además, el ancho es el de la tarjeta,
+// el alto sale de la pantalla que se grabó, y no hay una capa más que cerrar. La abre
+// y la pliega `GrabacionCard`, una a la vez.
+//
+// ⚠️ SIN `Modal` NO HAY PILA DE MODALES, y el Escape es de la FICHA. El de
+// app/crm/LeadSheet.tsx escucha en `window` y en captura, así que corre antes que
+// cualquier cosa de acá: con el foco en un botón del reproductor, Escape cierra la
+// ficha, igual que desde cualquier otra tarjeta. Frenarlo desde acá obligaría a
+// registrarse en `app/_components/pila-modales.ts`, que es declarar una capa que no
+// existe: la ficha dejaría de cerrarse con Escape mientras haya una grabación abierta,
+// esté donde esté el foco. Lo demás no choca: el reproductor usa Enter y Espacio en sus
+// botones (nativos) y las flechas en la barra de tiempo, que no toma foco; la página
+// grabada va `inert`, así que el Tab no se mete en el iframe (donde el Escape y la
+// trampa de foco de la ficha no llegan). En pantalla completa el Escape lo usa el
+// navegador para salir; no está medido en todos: uno que además se lo pase a la
+// página cerraría la ficha también.
 //
 // ⚠️ Y EL REPRODUCTOR NO ES LA ÚNICA PUERTA. Cuatro cosas distintas pueden fallar
 // —la descarga del cuerpo, el archivo del reproductor, que la grabación llegue
 // cortada, y que llegue sin la foto de la página— y cada una tiene su frase y su
-// salida. Un pop-up que se queda girando
-// es indistinguible de un producto roto, y «no se pudo» sin nada que apretar deja
-// un dato que existe del otro lado de una pared.
+// salida. Un recuadro que se queda girando es indistinguible de un producto roto, y
+// «no se pudo» sin nada que apretar deja un dato que existe del otro lado de una pared.
 // =============================================================================
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
-import { createPortal } from 'react-dom';
-import { Button, Modal, Spinner } from '@/app/_ui';
-import { REPLAY_MINIMO_EVENTOS, duracionCorta, parsearCuerpo, textoDelCorte, tieneFoto, type SesionDeLead } from '@/lib/replay-ficha';
+import { Button, Spinner } from '@/app/_ui';
+import { REPLAY_MINIMO_EVENTOS, parsearCuerpo, tieneFoto, type SesionDeLead } from '@/lib/replay-ficha';
 import { cargarReproductor, type CargaDelReproductor, type Reproductor } from '@/lib/replay-reproductor';
-import { useTzWorkspace } from './useTzWorkspace';
 
-const ANCHO = 720;
+/**
+ * Con qué ancho se monta si el recuadro todavía no mide nada: la ficha escondida detrás de
+ * otra capa (`display: none`) da 0. Al aparecer, el `ResizeObserver` lo corrige.
+ */
+const ANCHO_SIN_MEDIDA = 640;
 
 /**
  * Cuánto se espera el cuerpo de la grabación. Pesa 50-100 KB y baja en ~2 s (medido el
@@ -48,18 +67,18 @@ type Fase =
   | { k: 'sin_sellar' }
   | { k: 'sin_descarga' };
 
-const fmtTs = (iso: string, tz: string) => {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '—';
-  return new Intl.DateTimeFormat('es-MX', {
-    day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false, timeZone: tz,
-  }).format(d).replace(',', ' ·');
-};
-
 const aviso: CSSProperties = { fontSize: 12.5, color: 'var(--faint)', margin: '0 0 10px', lineHeight: 1.5 };
+const frase: CSSProperties = { fontSize: 13.5, color: 'var(--dim)', margin: 0, lineHeight: 1.5 };
 
-export function GrabacionModal({ sesion, onCerrar }: { sesion: SesionDeLead; onCerrar: () => void }) {
-  const tz = useTzWorkspace();
+/**
+ * El reproductor de UNA sesión, debajo de su fila. Sin encabezado: la fecha y la duración ya
+ * están en la fila, y la X para plegarlo también (`GrabacionCard`).
+ *
+ * ⚠️ EL CORTE TAMPOCO SE REPITE. En el pop-up iba arriba del reproductor («una grabación que
+ * termina en el minuto 10 se lee como que la persona se fue ahí, y la cortamos nosotros»); en
+ * línea ya lo dice el segundo renglón de la fila, justo encima.
+ */
+export function GrabacionEnLinea({ sesion }: { sesion: SesionDeLead }) {
   const [fase, setFase] = useState<Fase>({ k: 'bajando' });
   const [intento, setIntento] = useState(0);
   const lienzo = useRef<HTMLDivElement | null>(null);
@@ -87,8 +106,9 @@ export function GrabacionModal({ sesion, onCerrar }: { sesion: SesionDeLead; onC
     const l = listo.current;
     if (!nodo || !l || montado.current) return;
     try {
-      // El ancho se LEE del DOM (nunca se calcula) porque el modal lo fija.
-      montado.current = l.r.montar(nodo, l.eventos, nodo.clientWidth || ANCHO - 48);
+      // El ancho se LEE del DOM (nunca se calcula): es el de la tarjeta. El alto lo
+      // decide el reproductor con la pantalla grabada y el alto de la ventana.
+      montado.current = l.r.montar(nodo, l.eventos, nodo.clientWidth || ANCHO_SIN_MEDIDA, window.innerHeight);
     } catch {
       // El reproductor cargó y reventó con estos eventos: es el mismo callejón
       // que no tenerlo, así que la misma salida — decirlo y ofrecer el archivo.
@@ -154,6 +174,25 @@ export function GrabacionModal({ sesion, onCerrar }: { sesion: SesionDeLead; onC
     };
   }, [sesion.id, intento, intentarMontar]);
 
+  /**
+   * ⚠️ EL ANCHO ES EL DE LA TARJETA, Y LA TARJETA CAMBIA: la ventana se achica, la ficha se
+   * ensancha. El reproductor no se entera solo —sus medidas son props fijas—, así que se le
+   * avisa. Un ancho de 0 no es un ancho: es la ficha escondida detrás de otra capa, y
+   * achicarlo ahí lo dejaría en el mínimo al volver.
+   */
+  useEffect(() => {
+    if (fase.k !== 'listo') return;
+    const medir = () => {
+      const n = lienzo.current;
+      if (!n || !n.clientWidth) return;
+      montado.current?.medir(n.clientWidth, window.innerHeight);
+    };
+    const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(medir) : null;
+    if (lienzo.current) ro?.observe(lienzo.current);
+    window.addEventListener('resize', medir);
+    return () => { ro?.disconnect(); window.removeEventListener('resize', medir); };
+  }, [fase.k]);
+
   const bajarEventos = () => {
     const t = crudo.current;
     if (!t) return;
@@ -165,26 +204,10 @@ export function GrabacionModal({ sesion, onCerrar }: { sesion: SesionDeLead; onC
     setTimeout(() => URL.revokeObjectURL(url), 10_000);
   };
 
-  if (typeof document === 'undefined') return null;
-
-  const corte = textoDelCorte(sesion.corte);
-
-  return createPortal(
-    <Modal
-      titulo="Grabación de su visita"
-      encabezado={`${fmtTs(sesion.inicio, tz)} · ${duracionCorta(sesion.segundos)}`}
-      ancho={ANCHO}
-      anidada
-      sinFiletes
-      onCerrar={onCerrar}
-      pie={<Button variant="secondary" onClick={onCerrar}>Cerrar</Button>}
-    >
-      {/* ⚠️ EL CORTE SE DICE ANTES DE REPRODUCIR. Una grabación que termina en el
-          minuto 10 se lee como que la persona se fue ahí, y la cortamos nosotros. */}
-      {corte && <p style={aviso}>{corte}</p>}
-
+  return (
+    <div style={{ padding: '2px 0 16px' }}>
       {fase.k === 'bajando' && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '28px 0', color: 'var(--dim)', fontSize: 13.5 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '20px 0', color: 'var(--dim)', fontSize: 13.5 }}>
           <Spinner /> Trayendo la grabación…
         </div>
       )}
@@ -196,7 +219,9 @@ export function GrabacionModal({ sesion, onCerrar }: { sesion: SesionDeLead; onC
           {fase.ilegibles > 0 && (
             <p style={aviso}>Le faltan {fase.ilegibles} {fase.ilegibles === 1 ? 'pedazo' : 'pedazos'}: se va a ver con saltos.</p>
           )}
-          <div ref={refLienzo} style={{ width: '100%', minHeight: 320, borderRadius: 12, overflow: 'hidden', background: 'var(--surface-2)' }} />
+          {/* Sin alto propio: lo pone el reproductor (recuadro + controles). El `overflow`
+              contiene su `float: left` y le recorta las puntas al borde redondeado. */}
+          <div ref={refLienzo} style={{ width: '100%', borderRadius: 12, overflow: 'hidden', border: '1px solid var(--border)', background: 'var(--surface-2)' }} />
         </>
       )}
 
@@ -208,10 +233,10 @@ export function GrabacionModal({ sesion, onCerrar }: { sesion: SesionDeLead; onC
         </>
       )}
 
-      {fase.k === 'cortada' && <p style={{ fontSize: 13.5, color: 'var(--dim)', margin: 0, lineHeight: 1.5 }}>Llegó cortada y no alcanza para reproducirla.</p>}
-      {fase.k === 'sin_foto' && <p style={{ fontSize: 13.5, color: 'var(--dim)', margin: 0, lineHeight: 1.5 }}>Llegó sin la página y no se puede reproducir.</p>}
-      {fase.k === 'no_existe' && <p style={{ fontSize: 13.5, color: 'var(--dim)', margin: 0, lineHeight: 1.5 }}>Esta grabación ya no está.</p>}
-      {fase.k === 'sin_sellar' && <p style={{ fontSize: 13.5, color: 'var(--dim)', margin: 0, lineHeight: 1.5 }}>Todavía se está guardando. Se puede ver en unos minutos.</p>}
+      {fase.k === 'cortada' && <p style={frase}>Llegó cortada y no alcanza para reproducirla.</p>}
+      {fase.k === 'sin_foto' && <p style={frase}>Llegó sin la página y no se puede reproducir.</p>}
+      {fase.k === 'no_existe' && <p style={frase}>Esta grabación ya no está.</p>}
+      {fase.k === 'sin_sellar' && <p style={frase}>Todavía se está guardando. Se puede ver en unos minutos.</p>}
 
       {fase.k === 'sin_descarga' && (
         <>
@@ -219,7 +244,6 @@ export function GrabacionModal({ sesion, onCerrar }: { sesion: SesionDeLead; onC
           <Button variant="secondary" onClick={() => setIntento((n) => n + 1)}>Volver a intentar</Button>
         </>
       )}
-    </Modal>,
-    document.body,
+    </div>
   );
 }
