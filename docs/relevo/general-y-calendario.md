@@ -16,7 +16,7 @@ hallazgos de cada área; acá va qué quedó, dónde y qué espera.
 - Editando: Escritorio / Tablet / Celular (también el Dashboard). Crear una hoja no deja Deshacer. Las miniaturas de
   «¿Qué vas a crear hoy?» son la hoja dibujada con los componentes del editor, y cada tarjeta lleva sólo el título.
 
-**Estado de git (12:50):** commiteado en `main` local, **sin pushear** (lo pushea el orquestador). `npm test`: 9471 / 1;
+**Estado de git (13:10):** **pusheado** por el orquestador (`282173d6e..45fe2cb7f`, con `e6818ee0` y la cosecha `adf6e9c8`); el deploy estaba en Building. `npm test`: 9471 / 1;
 el rojo es `tests/cobranza.test.ts` («marcar el pago CORTA lo que está en vuelo»), sobre archivos que este chat no tocó
 y que estaban limpios en el árbol a las 12:41: es de HEAD, de otra sesión.
 

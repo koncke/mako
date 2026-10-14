@@ -168,8 +168,8 @@ fija el lock (`CAP_HEAP_MB`), no un `tsc` suelto**: sin tope V8 toma todo lo que
 se BAJA a ojo: el chequeo completo pide más de 2 GB vivos (con 2048 murió «heap out of
 memory», 13/10/2026), y el «trabaja en 1,6» que justificaba bajarlo salió de un `tsc` que el
 vigía MATÓ a mitad. Un pico de un proceso que no terminó no mide lo que necesita. ⚠️ **Y CRECE
-CON EL REPO:** el 14/10/2026 ya no entraba en 3072 (murió corriendo, con RAM libre) y va en
-4096, con el piso de RAM en ≈ 5,3 GB. Un «se quedó sin heap» con RAM libre se arregla subiendo
+CON EL REPO:** el 14/10/2026 ya no entraba en 3072 (murió corriendo, con RAM libre), esa tarde tampoco en
+4096 (el Image Editor portado), y va en 5120, con el piso de RAM en ≈ 6,3 GB. Un «se quedó sin heap» con RAM libre se arregla subiendo
 `CAP_HEAP_MB` (el piso sube solo), nunca con un `tsc` suelto ni salteando el hook.
 El detalle, en [docs/hallazgos-infra.md](docs/hallazgos-infra.md) → «El typecheck que
 "salía con 1 sin errores"».
