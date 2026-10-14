@@ -207,7 +207,7 @@ export async function pagarDesdeLanding(l: Pick<LandingDePago, 'ws' | 'slug' | '
     return { tipo: 'no-disponible', motivo };
   }
   const pasarela = pasarelaDeLanding(estado.conectadas)!;
-  const buscado = { productoId: p.productoId, pasarela, monto: producto!.montoUsd!, moneda: 'USD', tipo: producto!.tipo };
+  const buscado = { productoId: p.productoId, pasarela, monto: producto!.montoUsd!, moneda: 'USD', tipo: producto!.tipo, email: p.email, slug: l.slug };
 
   try {
     // El pendiente del MISMO lead Y producto (y precio): un doble clic, un «atrás» y otra vez, o la

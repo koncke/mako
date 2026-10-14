@@ -215,8 +215,11 @@ test('el lead del email: igualdad EXACTA (el _ no es comodín), sin mayúsculas,
 });
 
 test('se reusa el pendiente del MISMO producto, pasarela y precio; nunca el de otro producto o con el precio viejo', () => {
-  const b = { productoId: 12, pasarela: 'stripe' as const, monto: 990, moneda: 'USD', tipo: 'unico' as const };
-  const c = { estado: 'pendiente' as const, producto_id: 12, proveedor: 'stripe' as const, monto: 990, moneda: 'usd', tipo: 'unico' as const, token: 'a' };
+  const b = { productoId: 12, pasarela: 'stripe' as const, monto: 990, moneda: 'USD', tipo: 'unico' as const, email: 'ana@x.com', slug: 'mi-landing' };
+  const c = {
+    estado: 'pendiente' as const, producto_id: 12, proveedor: 'stripe' as const, monto: 990, moneda: 'usd', tipo: 'unico' as const, token: 'a',
+    email: 'Ana@X.com', alta_capa: null, creado_por: creadoPorLanding('Mi landing', 'mi-landing'),
+  };
   assert.equal(cobroReusable(c, b), true);
   assert.equal(cobroReusable({ ...c, producto_id: 13 }, b), false);
   assert.equal(cobroReusable({ ...c, monto: 890 }, b), false);
@@ -225,6 +228,22 @@ test('se reusa el pendiente del MISMO producto, pasarela y precio; nunca el de o
   // La lista viene del más nuevo al más viejo, y el más nuevo es de OTRO producto (`cobroPendienteDelLead` lo devolvería).
   assert.equal(cobroPendienteReusable([{ ...c, producto_id: 13, token: 'nuevo' }, c], b)?.token, 'a');
   assert.equal(creadoPorLanding('  Mi oferta ', 'mi-oferta'), 'Landing «Mi oferta» (mi-oferta)');
+});
+
+// Revisión de la tanda 4 (BAJA): el lead se elige por un email que nadie verifica, así que reusar un
+// pendiente que NO creó esta landing para este email le entregaba a quien tipeara el email de otro el
+// token de un cobro del dueño (y, con alta de MaKo, el cambio de email de la cuenta).
+test('sólo se reusa lo que creó ESTA landing para ESTE email, y nunca un cobro con alta de MaKo', () => {
+  const b = { productoId: 12, pasarela: 'stripe' as const, monto: 990, moneda: 'USD', tipo: 'unico' as const, email: 'ana@x.com', slug: 'mi-landing' };
+  const c = { estado: 'pendiente' as const, producto_id: 12, proveedor: 'stripe' as const, monto: 990, moneda: 'USD', tipo: 'unico' as const, email: 'ana@x.com', alta_capa: null, creado_por: creadoPorLanding('Mi landing', 'mi-landing') };
+  assert.equal(cobroReusable(c, b), true);
+  assert.equal(cobroReusable({ ...c, creado_por: creadoPorLanding('Otro título', 'mi-landing') }, b), true, 'cambiarle el título a la landing no huerfana su pendiente');
+  assert.equal(cobroReusable({ ...c, creado_por: 'Martín Koncke' }, b), false, 'el que armó el dueño desde la ficha o la API');
+  assert.equal(cobroReusable({ ...c, creado_por: null }, b), false);
+  assert.equal(cobroReusable({ ...c, creado_por: creadoPorLanding('Mi landing', 'otra-landing') }, b), false, 'el de OTRA landing');
+  assert.equal(cobroReusable({ ...c, alta_capa: 'pro' }, b), false, 'un alta de MaKo nunca sale de una landing');
+  assert.equal(cobroReusable({ ...c, email: 'otra@x.com' }, b), false, 'otro email cargado en el checkout');
+  assert.equal(cobroReusable({ ...c, email: null }, b), false);
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -388,4 +407,9 @@ test('el POST: 303 al link; y cada puerta corta antes de cobrar', async () => {
 //
 // REVISIÓN DE LA TANDA 4 (14/10/2026), mismo arnés, sólo ESTE archivo (base 16 / 0):
 //   19. `conEnlacesDelDominio` sin el `(?!/pagar/)`: el pago se muda al dominio → 15 / 1
+//   (base 17 / 0 desde acá)
+//   20. `cobroReusable` sin `alta_capa == null`                              → 16 / 1
+//   21. `cobroReusable` sin `esDeLaLanding` (reusa lo que armó el dueño)      → 16 / 1
+//   22. `cobroReusable` sin comparar el email                                 → 16 / 1
+//   23. `esDeLaLanding` por el texto entero (un título nuevo huerfana)        → 16 / 1
 // =============================================================================

@@ -153,15 +153,28 @@ export function leadPorEmail(candidatos: ReadonlyArray<{ id: number | string; em
   return ids.length ? { id: ids[0], ambiguo: ids.length > 1 } : null;
 }
 
-export type CobroBuscado = { productoId: number; pasarela: Pasarela; monto: number; moneda: string; tipo: TipoCobro };
+/** Lo que se va a cobrar, y para quién: el email que escribió el visitante y la landing de donde vino. */
+export type CobroBuscado = { productoId: number; pasarela: Pasarela; monto: number; moneda: string; tipo: TipoCobro; email: string; slug: string };
+type CobroComparable = Pick<Cobro, 'estado' | 'producto_id' | 'proveedor' | 'monto' | 'moneda' | 'tipo' | 'email' | 'alta_capa' | 'creado_por'>;
 
 /**
  * ¿Este cobro pendiente ya es lo que se va a cobrar? El MISMO producto, por la MISMA pasarela, al MISMO
  * precio. `cobroPendienteDelLead` devuelve el más nuevo de CUALQUIER producto, y un pendiente viejo con
  * el precio de antes cobraría lo que el catálogo ya no dice: los dos se comparan antes de reusar.
+ *
+ * ⚠️ Y SÓLO LO QUE CREÓ ESTA LANDING, PARA ESTE EMAIL (revisión de la tanda 4, BAJA). El lead se elige
+ * por un email que el visitante ESCRIBE y nadie verifica: sin esto, quien conoce el email de un lead
+ * recibía el 303 al token de un pendiente que le armó el DUEÑO desde la ficha o por la API
+ * (`crear_link_pago` pasa `productoId`), con el email de la ficha cargado en el checkout. Y un pendiente
+ * con alta de MaKo (`alta_capa`) habilita el cambio de email de app/pagar/cambio-email.ts: entregarlo
+ * sería entregar la cuenta. Lo que no creó una landing no se reusa NUNCA desde una landing.
  */
-export function cobroReusable(c: Pick<Cobro, 'estado' | 'producto_id' | 'proveedor' | 'monto' | 'moneda' | 'tipo'>, b: CobroBuscado): boolean {
+export function cobroReusable(c: CobroComparable, b: CobroBuscado): boolean {
+  const email = emailComparable(c.email);
   return c.estado === 'pendiente'
+    && c.alta_capa == null
+    && esDeLaLanding(c.creado_por, b.slug)
+    && email !== null && email === emailComparable(b.email)
     && c.producto_id === b.productoId
     && c.proveedor === b.pasarela
     && String(c.moneda).toUpperCase() === b.moneda.toUpperCase()
@@ -170,7 +183,7 @@ export function cobroReusable(c: Pick<Cobro, 'estado' | 'producto_id' | 'proveed
 }
 
 /** El primer pendiente reusable (la lista viene del más nuevo al más viejo), o null. */
-export function cobroPendienteReusable<C extends Pick<Cobro, 'estado' | 'producto_id' | 'proveedor' | 'monto' | 'moneda' | 'tipo'>>(pendientes: readonly C[], b: CobroBuscado): C | null {
+export function cobroPendienteReusable<C extends CobroComparable>(pendientes: readonly C[], b: CobroBuscado): C | null {
   return pendientes.find((c) => cobroReusable(c, b)) ?? null;
 }
 
@@ -178,4 +191,12 @@ export function cobroPendienteReusable<C extends Pick<Cobro, 'estado' | 'product
 export function creadoPorLanding(titulo: string, slug: string): string {
   const t = nombreLimpio(titulo).slice(0, 60) || slug;
   return `Landing «${t}» (${slug})`;
+}
+
+/**
+ * ¿Este `creado_por` lo escribió `creadoPorLanding` para ESA landing? Por el slug y no por el texto
+ * entero: si el dueño le cambia el título a la landing, el pendiente de ayer sigue siendo de ella.
+ */
+export function esDeLaLanding(creadoPor: string | null | undefined, slug: string): boolean {
+  return typeof creadoPor === 'string' && creadoPor.startsWith('Landing «') && creadoPor.endsWith(`» (${slug})`);
 }
