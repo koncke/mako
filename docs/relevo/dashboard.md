@@ -14,7 +14,9 @@
 - `35dc37f6` — **las plantillas se arman con los datos del negocio** (`/api/graficos/plantilla`: quita los vacíos y MaKo suma hasta 4
   con datos). Lo mismo para lo que arma MaKo con un pedido y para la API.
 - `29a39259` — el **código muerto de los bloques, borrado**.
-- `9966e7bc` — **«A quién cobrarle» en la tab General**. ⚠️ El chat GENERAL hizo otra (`CobranzaGeneral.tsx`) y resuelve cuál queda; avisa.
+- `9966e7bc` — **«A quién cobrarle» en la tab General**. Quedó ésta (`app/general/Cobranza.tsx`) y la del chat GENERAL se borró
+  (merge `11c2f4bd`, 14/10 ~02:20): ahora es el bloque `cobranza` de las vistas de /general, con el nombre de la vista al lado
+  (`alcance`) y recortada a sus funnels. Vacía, la vista de fábrica no la dibuja; una vista armada por la persona sí.
 - `25bd67c2` — **clic derecho en toda la tab** (opciones según dónde y en qué modo), el **botón de MaKo selectivo** (sólo tendencias
   por día/semana/mes, embudos y dispersión; ausente = lo del tipo, `conMako`) y **editable en el lugar**: editando, su clic abre lo
   que responde, las sugerencias y «Quitar el botón». La API: `pedido_mako`.
