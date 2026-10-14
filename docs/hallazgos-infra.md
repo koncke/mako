@@ -5605,6 +5605,14 @@ persona que lo investiga empeora la causa.
    (medido: pico 1.571 MB con cap de 1.500). Capado son ~2,1 GB privados, bastante menos
    matable — y si de verdad no alcanza, node lo dice ruidoso («Reached heap limit»), que es
    lo contrario de morir mudo.
+   > ⛔ **ESTE PUNTO 2 ESTÁ REFUTADO, y el número es FALSO: el typecheck NO trabaja en 1,6
+   > GB.** Ese pico de 1.571 MB era de un `tsc` que el vigía **mató a mitad** — leí el pico
+   > de un proceso interrumpido como si fuera lo que necesita uno que termina. Medido bien
+   > el 13/10 23:00 y el 14/10 00:40: no entra ni en 2048 ni en 3072, el tope quedó en 4096
+   > y el piso de RAM subió solo a ≈5,3 GB. Ver «Y DESPUÉS DEL CAP, SÍ FUE OOM» al final de
+   > esta entrada. Se deja el error a la vista porque la trampa es la que vale: **el pico de
+   > un proceso que no terminó no mide lo que ese trabajo necesita**, y se lee igual de
+   > convincente que una medición buena.
 3. **El piso de RAM se DERIVA, no se elige a mano:** cap del heap + zona roja del vigía +
    margen (≈ 3,3 GB). Estaba en 2,0.
 

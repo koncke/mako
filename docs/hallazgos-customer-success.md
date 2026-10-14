@@ -5419,5 +5419,5 @@ un `git grep` de toda lectura de `productos`/`.nombre` en el área, no buscando 
   Martín: si esa oferta puede nombrar el curso o tiene que esperar a que la renombren en Offer.
 - **El kanban de Customer Success sigue nombrando el SERVICIO como el producto** (`SelectorServicio`,
   `FichaEntrega`, /m/cs): no es el nombre del curso y no se tocó.
-- **El comentario de `depsReales.cursos`** (`lib/curso-invitar.ts`, de CURSOS) todavía dice «si no el
-  producto»; el código ya cae a «tu programa». Se le avisó. · *2026-10-14 Customer Success*
+- ~~El comentario de `depsReales.cursos` todavía dice «si no el producto»~~ — lo corrigió CURSOS en
+  a744e127. · *2026-10-14 Customer Success*
