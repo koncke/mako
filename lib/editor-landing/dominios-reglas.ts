@@ -12,14 +12,16 @@
 //     (`decidirHost`); la dirección de hoy de una landing escrita con la de antes (`urlLandingVigente`);
 //   · los registros DNS que hay que cargar, armados con lo que contesta Vercel (`registrosDns`), y el
 //     veredicto de «verificado» (`estaVerificado`, `queFalta`);
-//   · los tipos del pedido y de la respuesta de /api/landing-generator/dominio.
+//   · los tipos del pedido y de la respuesta de /api/landing-generator/dominio, y la query con que el
+//     proxy le pasa a esa ruta QUÉ se pidió en el dominio (`consultaDelDominio` ↔ `pedidoDelDominio`);
+//   · el dominio que SIRVE una landing, leído de su fila (`dominioQueSirve`, `dominioDeLectura`).
 //
 // SIN server-only, sin node:*, sin React: lo importan proxy.ts, la pantalla (DialogoPublicar) y el
 // test. Un `import` de node:crypto acá rompería el bundle del navegador.
 // =============================================================================
 
 import { rutaValida, slugValido } from './doc';
-import { ORIGEN_LANDINGS, esHostDeLandings } from './origen-landings';
+import { ORIGEN_LANDINGS, RUTA_PAGAR_LANDING, SUBRUTAS_FIJAS, esHostDeLandings, origenDelMismoHost } from './origen-landings';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Los hosts de MaKo
@@ -246,13 +248,24 @@ export const HEADER_DOMINIO = 'x-mako-dominio-landing';
 /** Lo que la página publicada necesita del dominio además de sus páginas: el HTML libre (T6). */
 export const PREFIJO_PASA = '/l/html';
 
+/**
+ * La sub-ruta fija del paso de pago (`/pagar/<productoId>`, tanda 4). Es la clave de `SUBRUTAS_FIJAS`
+ * (origen-landings.ts) y `SEGMENTO_PAGO` de pago-landing.ts, que no se importa acá a propósito (trae la
+ * moneda y las pasarelas, y a este módulo lo cargan proxy.ts y next.config.ts): el test ata los tres.
+ */
+export const SUBRUTA_PAGO = 'pagar';
+
 export type DecisionHost =
   /** Un host de MaKo (o ninguno): sigue el flujo de siempre (la app, o el cartel de mudanza). */
   | { tipo: 'app' }
   /** Una página del sitio: se reescribe a `RUTA_DOMINIO?ruta=<ruta>` ('' = la de inicio). */
   | { tipo: 'sitio'; ruta: string }
-  /** Algo que la página necesita (el HTML libre): pasa tal cual. */
+  /** El paso de pago (`/pagar/<producto>`): se reescribe a `RUTA_DOMINIO?ruta=pagar&bloque=<producto>`. */
+  | { tipo: 'pago'; producto: string }
+  /** Algo que la página necesita (el HTML libre, el POST del paso de pago): pasa tal cual. */
   | { tipo: 'pasar' }
+  /** El POST del paso de pago con un `Origin` de OTRO sitio: 403. */
+  | { tipo: 'prohibido' }
   /** Una ruta con mayúsculas que en minúsculas es válida: 308 a `destino`, en el MISMO dominio. */
   | { tipo: 'minusculas'; destino: string }
   /** Todo lo demás de la app, `/api` incluida: 404. */
@@ -285,25 +298,76 @@ export function tipoDeHost(hostCrudo: string | null | undefined): TipoHost {
  * siquiera las exentas del cartel de mudanza (cron, webhooks, track): el Pixel de la página habla
  * con hola-mako.com y los crons y webhooks llegan por los hosts de MaKo—.
  *
+ * Y EL PASO DE PAGO, como en hola-mako.site (Paquete 2 de la tanda 6, lo que la tanda 4 dejó sin
+ * hacer: «El paso de pago no se sirve EN el dominio propio»). Antes el botón de una landing con
+ * dominio sacaba al comprador a hola-mako.site justo antes de pagar. Ahora `/pagar/<producto>` (con la
+ * forma de `SUBRUTAS_FIJAS.pagar`) es 'pago', y el POST de su formulario —que postea RELATIVO, o sea
+ * a ESTE host— pasa con el MISMO contrato que en hola-mako.site (`decidirLandings`): sólo POST, sólo
+ * la ruta exacta `RUTA_PAGAR_LANDING`, y sólo con un `Origin` ausente o igual a `https://<este host>`
+ * (403 si no). La ruta lo vuelve a mirar en positivo (`origenDelPago` da 'dominio' y `esDelDominio`
+ * confirma que el dominio es el de ESA landing), con sus topes. `origin` es la cabecera del pedido:
+ * sin ella, el POST se decide como si no la trajera (la ruta, sin Origin, contesta 403).
+ * ⚠️ Una sub-ruta fija NUEVA de `SUBRUTAS_FIJAS` no entra sola acá: la ruta del dominio sabe servir
+ * sólo el paso de pago (en el dominio quedaría 404, que es lo seguro).
+ *
  * Que el dominio esté VERIFICADO y la landing publicada no se decide acá (necesita la base): lo
  * decide la ruta interna, que contesta 404 si no. Acá sólo se mira la forma del pedido.
  */
-export function decidirHost(hostCrudo: string | null | undefined, pathname: string, metodo: string): DecisionHost {
+export function decidirHost(hostCrudo: string | null | undefined, pathname: string, metodo: string, origin?: string | null): DecisionHost {
   // El de las landings tampoco es de un cliente: lo atiende `decidirLandings` antes de llegar acá.
   if (tipoDeHost(hostCrudo) !== 'propio') return { tipo: 'app' };
 
   const m = metodo.toUpperCase();
   if (pathname === PREFIJO_PASA || pathname.startsWith(PREFIJO_PASA + '/')) return LEER.has(m) ? { tipo: 'pasar' } : { tipo: 'metodo' };
+  if (pathname === RUTA_PAGAR_LANDING && m === 'POST') {
+    return origenDelMismoHost(origin, hostDeCabecera(hostCrudo)) ? { tipo: 'pasar' } : { tipo: 'prohibido' };
+  }
   if (pathname === '/api' || pathname.startsWith('/api/')) return { tipo: 'no-existe' };
   if (!LEER.has(m)) return { tipo: 'metodo' };
   if (pathname === '/' || pathname === '') return { tipo: 'sitio', ruta: '' };
 
   const seg = pathname.slice(1);
-  if (seg.includes('/')) return { tipo: 'no-existe' };
+  const partes = seg.split('/');
+  if (partes.length === 2 && partes[0] === SUBRUTA_PAGO) {
+    return SUBRUTAS_FIJAS[SUBRUTA_PAGO].test(partes[1]) ? { tipo: 'pago', producto: partes[1] } : { tipo: 'no-existe' };
+  }
+  if (partes.length > 1) return { tipo: 'no-existe' };
   if (rutaValida(seg)) return { tipo: 'sitio', ruta: seg };
   const min = seg.toLowerCase();
   if (min !== seg && rutaValida(min)) return { tipo: 'minusculas', destino: '/' + min };
   return { tipo: 'no-existe' };
+}
+
+/** Lo que el proxy reescribe a `RUTA_DOMINIO`: una página del sitio o el paso de pago. */
+export type PedidoDelDominio = Extract<DecisionHost, { tipo: 'sitio' } | { tipo: 'pago' }>;
+
+/**
+ * La query de la reescritura a `RUTA_DOMINIO` (con su `?`). Una página es `?ruta=<ruta>`; el paso de
+ * pago, `?ruta=pagar&bloque=<producto>` (lo que sería `/<slug>/pagar/<bloque>` en hola-mako.site). La
+ * arma SÓLO el proxy, desde cero: la query del visitante no viaja, así que un `?bloque=` escrito a mano
+ * en `/pagar` (una PÁGINA que se llama así) nunca llega a la ruta. La lee `pedidoDelDominio`.
+ */
+export function consultaDelDominio(p: PedidoDelDominio): string {
+  const q = new URLSearchParams();
+  if (p.tipo === 'pago') {
+    q.set('ruta', SUBRUTA_PAGO);
+    q.set('bloque', p.producto);
+  } else {
+    q.set('ruta', p.ruta);
+  }
+  return `?${q.toString()}`;
+}
+
+/**
+ * Lo que la ruta del dominio lee de la query que armó el proxy (`consultaDelDominio`): sin `bloque`,
+ * una página (la ruta la valida `responderPublico`); con `bloque`, el paso de pago, sólo con la forma
+ * de `SUBRUTAS_FIJAS.pagar`. null = nada que el proxy haya podido mandar: 404 sin tocar la base.
+ */
+export function pedidoDelDominio(q: URLSearchParams): PedidoDelDominio | null {
+  const ruta = q.get('ruta') ?? '';
+  const bloque = q.get('bloque');
+  if (bloque === null) return { tipo: 'sitio', ruta };
+  return ruta === SUBRUTA_PAGO && SUBRUTAS_FIJAS[SUBRUTA_PAGO].test(bloque) ? { tipo: 'pago', producto: bloque } : null;
 }
 
 /**
@@ -429,10 +493,18 @@ export function estaVerificado(c: Comprobacion): boolean {
  * Lo que falta, en una frase corta, o null si anda. `verificado` = lo que dice la fila: una vez
  * verificado no se vuelve atrás por una lectura (un DNS que parpadea apagaría un sitio que anda);
  * sólo se avisa.
+ *
+ * `vencido` = el reclamo PENDIENTE pasó `PLAZO_PENDIENTE_MS` (`pendienteVencido` con la fecha de la
+ * fila). Pendiente chico de la tanda 2: la pestaña «Dominios» no lo avisaba, y desde ese momento otra
+ * landing se lo puede quedar sin probar nada. Va ANTES que los registros porque es lo único que se
+ * pierde sin que la persona haga nada: mientras nadie lo tome, cargar el DNS todavía lo verifica
+ * (`comprobar` no mira la fecha). Quitarlo y añadirlo lo vuelve a reservar 72 h (`reclamar` pone la
+ * fecha; «Conectar de nuevo» con el mismo dominio NO la renueva). Uno verificado no vence nunca.
  */
-export function queFalta(c: Comprobacion, verificado: boolean): string | null {
+export function queFalta(c: Comprobacion, verificado: boolean, vencido = false): string | null {
   if (!c.enVercel) return 'Hay que conectarlo de nuevo';
   if (verificado) return c.apunta === false ? 'El DNS ya no apunta a MaKo' : null;
+  if (vencido) return 'Reserva vencida: conéctalo de nuevo';
   if (c.vercel === false || c.apunta === false || c.mako === false) return 'Faltan registros DNS';
   if (c.vercel === null || c.apunta === null || c.mako === null) return 'No pude leer el DNS';
   return null;
@@ -478,19 +550,41 @@ export const urlDeDominio = (d: string): string => `https://${d}`;
  * Sólo la base EXACTA seguida de un fin de URL (`/`, comillas, `?`, `#`, `&`, `<`, espacio o el final):
  * la base de `…/abc` no toca un enlace a `…/abcd`, que es OTRA landing.
  *
- * ⚠️ MENOS EL BOTÓN DE PAGO (`<base>/pagar/<productoId>`, tanda 4): reescrito quedaba
- * `https://<dominio>/pagar/<id>`, y en un dominio propio `decidirHost` contesta 404 a toda ruta de dos
- * segmentos (y a `/api/…`, adonde postea el paso). El visitante que tocaba «Pagar ahora» en el dominio
- * del cliente veía «Parece que esta página no existe (404)», mientras que en hola-mako.com/l/<slug> el
- * MISMO botón andaba — o sea que el dueño, probándolo, lo veía funcionar (revisión de la tanda 4, ALTA).
- * Así el paso se abre donde SÍ se sirve (la base de MaKo), y su POST sale con un Origin de MaKo.
- * `/pagar/` es `SEGMENTO_PAGO` de pago-landing.ts, escrito acá a mano a propósito: ese módulo trae la
- * moneda y las pasarelas, y éste lo importan proxy.ts y next.config.ts (el test ata los dos).
+ * EL BOTÓN DE PAGO TAMBIÉN (`<base>/pagar/<productoId>` → `https://<dominio>/pagar/<id>`). Desde la
+ * revisión de la tanda 4 se dejaba en la base de MaKo con un `(?!/pagar/)`, porque `decidirHost`
+ * contestaba 404 a toda ruta de dos segmentos y el comprador veía «Parece que esta página no existe»
+ * (en hola-mako.com/l/<slug> el MISMO botón andaba: el dueño, probándolo, lo veía funcionar). Paquete 2
+ * de la tanda 6: el dominio ya sirve el paso (`decidirHost` → 'pago', la ruta del dominio con su slug) y
+ * deja pasar su POST, así que el comprador no sale del dominio hasta el checkout. ⚠️ Antes de volver a
+ * exceptuar algo acá, lo que el proxy contesta a CADA enlace reescrito (el test lo recorre).
  */
 export function conEnlacesDelDominio(html: string, baseMako: string, baseDominio: string): string {
   if (!html || !baseMako || !baseDominio || baseMako === baseDominio) return html;
   const escapada = baseMako.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return html.replace(new RegExp(`${escapada}(?!/pagar/)(?=[/"'?#&<\\s]|$)`, 'g'), () => baseDominio);
+  return html.replace(new RegExp(`${escapada}(?=[/"'?#&<\\s]|$)`, 'g'), () => baseDominio);
+}
+
+/**
+ * El dominio que SIRVE una landing según su fila: sólo el VERIFICADO (uno pendiente todavía no sirve
+ * nada, y otra cuenta se lo puede quitar) y bien formado. Lo usan la lista del Panel (`aResumen`) y lo
+ * que se dice antes de despublicar (`antesDeDespublicar`, server.ts).
+ */
+export function dominioQueSirve(f: { dominio?: unknown; dominio_estado?: unknown } | null | undefined): string | null {
+  return f && f.dominio_estado === 'verificado' && typeof f.dominio === 'string' && dominioValido(f.dominio) ? f.dominio : null;
+}
+
+/**
+ * El dominio que sirve una landing, de una lectura APARTE de `dominio, dominio_estado` (Paquete 2 de la
+ * tanda 6, el resumen de despublicar). Tolera SÓLO la columna que falta (42703: sin la mig 0263 no hay
+ * dominio que nombrar), como `borrar`; cualquier otro error TIRA: «no pude leer» no es «no tiene
+ * dominio», y callarlo es volver a esconder que el dominio también deja de mostrarla.
+ */
+export function dominioDeLectura(data: unknown, error: { code?: string; message?: string } | null | undefined): string | null {
+  if (error) {
+    if (error.code === '42703') return null;
+    throw new Error(error.message || 'no pude leer el dominio de la landing');
+  }
+  return dominioQueSirve(data as { dominio?: unknown; dominio_estado?: unknown } | null);
 }
 
 /** El slug que devuelve la base para un dominio, si es uno que se puede servir. */

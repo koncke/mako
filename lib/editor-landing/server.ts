@@ -39,6 +39,7 @@ import { sanearContenido, sanearConfig, excedeTope } from './validar';
 import { sanearTemaPropio } from './temas';
 import { specADoc } from './spec-a-doc';
 import { soltarDominioDeVercel } from './dominios';
+import { dominioDeLectura, dominioQueSirve } from './dominios-reglas';
 import type { EstadoCobroLanding } from './pago-landing';
 import {
   MOTIVO, TOPE_VERSIONES_AUTO, TOPE_TEMAS, CLAVE_TEMAS, cambiosSinPublicar, candidatosSlug, esUrlMedida,
@@ -166,7 +167,7 @@ function aResumen(f: FilaResumen): LandingResumen {
     slug: f.slug,
     publicadoAt: f.publicado_at,
     // Sólo el VERIFICADO: uno pendiente todavía no sirve nada, y otra cuenta se lo puede quitar.
-    dominio: f.dominio_estado === 'verificado' && typeof f.dominio === 'string' && f.dominio ? f.dominio : null,
+    dominio: dominioQueSirve(f),
     primera: esNodo(f.primera) ? f.primera : null,
     // T1/T3: el ícono del renglón del Panel y la forma de la miniatura. Sin el campo (lo guardado
     // antes de la tanda 2) es una página: las mismas funciones que `sanearConfig`.
@@ -567,6 +568,43 @@ export async function borrar(idRaw: unknown): Promise<Resultado<'borrar'>> {
   } catch (e) {
     return falla(msg(e), 500);
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Antes de despublicar (lo que la API le dice a quien confirma)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type AntesDeDespublicar = {
+  version: number;
+  publicado_version: number | null;
+  /** Lo guardado ya no es lo publicado: volver a publicar sube ESE borrador, no lo que hoy está en internet. */
+  cambiosSinPublicar: boolean;
+  /** El dominio propio VERIFICADO, que también deja de mostrarla; null si no tiene. */
+  dominio: string | null;
+};
+
+/**
+ * Paquete 2 de la tanda 6 (lo que quedó de la tanda 4 de la API): el resumen de `despublicar_landing`
+ * sólo nombraba la URL de MaKo y callaba dos cosas: que el DOMINIO PROPIO también deja de mostrarla (su
+ * ruta sirve lo publicado, y despublicar lo borra) y que volver a publicar sube lo GUARDADO (publicar
+ * promueve el borrador), no lo que se despublicó. Esto es el motor; el texto y el runner son de la API.
+ *
+ * El dominio va en un select APARTE (`dominioDeLectura`): sin la mig 0263 la columna no existe (42703,
+ * se tolera como en `borrar`) y una columna que falta en el mismo select tiraría la lectura entera.
+ * ⚠️ Sólo LEE la fila: nunca `estadoDominio`, que sale a Vercel y al DNS y puede ESCRIBIR (verifica un
+ * pendiente). null = no existe (o es de otro negocio); un error de base TIRA.
+ */
+export async function antesDeDespublicar(ws: number, id: number): Promise<AntesDeDespublicar | null> {
+  const f = await leerFilaDoc(ws, id, 'id, version, publicado_at, publicado_version');
+  if (!f) return null;
+  const db = await getTenantDb();
+  const { data, error } = await db.from('landing_docs').select('dominio, dominio_estado').eq('workspace_id', ws).eq('id', id).maybeSingle();
+  return {
+    version: f.version,
+    publicado_version: f.publicado_version,
+    cambiosSinPublicar: cambiosSinPublicar(f),
+    dominio: dominioDeLectura(data, error),
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

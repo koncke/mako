@@ -308,13 +308,18 @@ export async function estadoDominio(idRaw: unknown, op: { verificar?: boolean } 
     if (!('fila' in cx)) return cx;
     const { ws, id, fila } = cx;
     if (!fila.dominio || !fila.dominio_estado) return { ok: true, dominio: null };
-    return { ok: true, dominio: await comprobar(ws, id, fila.dominio, fila.dominio_estado, fila.dominio_verificado_at, !!op.verificar) };
+    return { ok: true, dominio: await comprobar(ws, id, fila.dominio, fila.dominio_estado, fila.dominio_verificado_at, fila.dominio_reclamado_at, !!op.verificar) };
   } catch (e) {
     return deError(e, 'estado');
   }
 }
 
-async function comprobar(ws: number, id: number, d: string, estado: EstadoDominioPublico, verificadoAt: string | null, verificar: boolean): Promise<EstadoDominio> {
+/**
+ * `reclamadoAt` = la fecha del reclamo que guarda la fila (Paquete 2 de la tanda 6): con ella `queFalta`
+ * avisa «Reserva vencida» a un pendiente que pasó las 72 h, que antes la pestaña no decía. Sólo AVISA:
+ * la verificación no mira la fecha (si nadie lo tomó, cargar el DNS lo sigue verificando).
+ */
+async function comprobar(ws: number, id: number, d: string, estado: EstadoDominioPublico, verificadoAt: string | null, reclamadoAt: string | null, verificar: boolean): Promise<EstadoDominio> {
   const c = configVercel();
   const valorTxt = valorTxtMako(ws, id, d);
   let pd = await leerEnVercel(c, d);
@@ -352,7 +357,11 @@ async function comprobar(ws: number, id: number, d: string, estado: EstadoDomini
       dominio: d, apex: pd?.apexName, ipv4: dns?.ipv4, cname: dns?.cname, verificacionVercel: pd?.verified ? [] : pd?.verification,
       valorTxtMako: valorTxt, apunta: comp.apunta, vercel: comp.vercel, mako: estadoFinal === 'verificado' ? true : comp.mako,
     }),
-    falta: queFalta({ ...comp, mako: estadoFinal === 'verificado' ? true : comp.mako }, estadoFinal === 'verificado'),
+    falta: queFalta(
+      { ...comp, mako: estadoFinal === 'verificado' ? true : comp.mako },
+      estadoFinal === 'verificado',
+      estadoFinal === 'pendiente' && pendienteVencido(reclamadoAt, Date.now()),
+    ),
   };
 }
 
@@ -411,7 +420,8 @@ export async function conectarDominio(idRaw: unknown, dominioRaw: unknown): Prom
     }
     console.log(`[editor-landing:dominio] #${id} (ws ${ws}) conectó ${d}${agrego ? '' : ' (ya estaba en el proyecto)'}`);
     const estado = reclamado ? 'pendiente' : (fila.dominio_estado ?? 'pendiente');
-    return { ok: true, dominio: await comprobar(ws, id, d, estado, reclamado ? null : fila.dominio_verificado_at, false) };
+    // Un reclamo recién hecho no venció; un reintento sobre el mismo dominio conserva SU fecha (no la renueva).
+    return { ok: true, dominio: await comprobar(ws, id, d, estado, reclamado ? null : fila.dominio_verificado_at, reclamado ? null : fila.dominio_reclamado_at, false) };
   } catch (e) {
     return deError(e, 'conectar');
   }
