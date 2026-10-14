@@ -193,6 +193,15 @@ a la fuente del sistema. **Diagnóstico obvio equivocado:** al verificar las 499
   de tamaños (`dialogs/resizeSizes.ts`, ids camelCase) para Redimensionar, el popover de la página y el Inicio. El
   `presetId` es sólo un dato; nadie lo busca.
 
+## Un paquete «instalado en la máquina» no es un paquete del proyecto: el deploy de main murió por `qrcode`
+
+**Vive en:** `package.json` · `tests/image-editor-dependencias.test.ts`
+
+El primer deploy con el editor (`353c81a8`) quedó en Error: «Module not found: Can't resolve 'qrcode'». El QR de Doory lo importa y en el `node_modules` del clon estaba instalado SUELTO por otra sesión (extraneous): local compilaba, el typecheck pasaba y Vercel, que instala desde el lock, no lo tenía. Mientras no entró el arreglo (`fac319092`, del orquestador), todo deploy de main fallaba para todos los chats.
+
+- Al portar código, la lista de dependencias sale de BARRER sus imports contra `package.json`, no de lo que compila en la máquina: un paquete suelto de otra sesión tapa el faltante.
+- Lo fija `tests/image-editor-dependencias.test.ts` (probado: sin `qrcode` en package.json falla nombrándolo).
+
 ## Sumar ~65 mil líneas al repo subió el piso de RAM de CADA push
 
 **Vive en:** `scripts/typecheck-lock.mjs` (`CAP_HEAP_MB`) · AGENTS.md
