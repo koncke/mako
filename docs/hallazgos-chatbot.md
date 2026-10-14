@@ -4268,27 +4268,33 @@ el vigía de RAM (`~/.claude/guardia/vigia.ps1`) los mata con poca memoria libre
 un error de tipos. Los tests se corrieron en tandas de 10-12 archivos (1153 del área en verde). El typecheck queda para antes
 del push, cuando «Fallas en la PC» lo destrabe.
 
-### «No salió el mensaje»: una fecha SIN hora contaba como pasada desde el mediodía [motor · bug 5 del 13/10]
+### «No salió el mensaje»: el lead CONTESTÓ un mensaje a mano y eso frenó el flujo [motor · bug 5 del 13/10, corregido el 14/10]
 
-Síntoma: en la reunión del 13/10 Mauricio probó «Un Lead Agendó Llamada» (#213, ws1) con un lead cargado a mano y no le
-llegó nada. El lead ya no estaba: Mauricio lo borró después, y con él se fueron (en cascada) su inscripción y sus filas de
-`nutricion_envios`, incluida la del cierre «la reunión ya pasó». **Lo que sobrevivió fue `lead_audit`, que no tiene FK al
-lead:** el 2660 pasó a «agenda» con la R1 «2026-10-12» SIN hora el 13/10 a las 01:57 UTC (19:57 del 12/10 en México),
-volvió a «lead» y MaKo lo puso otra vez en «agenda» a las 02:05.
-Causa: el motor lee una fecha sola como el mediodía de México (`parseFechaJunta`) y, antes de mandar un paso de un flujo que
-prepara una reunión, cierra la inscripción si «la reunión ya pasó». A las 20:05 el mediodía ya había pasado. El reuso de la
-segunda vuelta tampoco arrancó (`reunionQuePreparaMs` = null por la misma regla). Le pasa a cualquier lead agendado para
-HOY después de las 12 sin que llegue la hora (alta a mano). Por Calendly no, porque trae la hora.
-El diagnóstico obvio era el flujo de Mauricio (las tarjetas que borró en la llamada); la reproducción del motor puro sobre
-el #241 andaba bien porque usaba un lead CON hora.
-**Regla:** el mediodía es una hora inventada para anclar un «N antes», no la hora en que una reunión pasa a ser pasado.
-Una fecha sola vale hasta que termina su día (`finDeLaReunionMs`, `reunionEnPie`). Un paso ANCLADO sigue necesitando una
-hora (`laReunionYaPaso(…, { anclada })`). Test: tests/reunion-fecha-sola-del-dia.test.ts, probado rompiéndolo.
+Síntoma: en la reunión del 13/10 Mauricio probó «Un Lead Agendó Llamada» (#213, ws1) con un lead de prueba (Marco
+Bustos, 2660) y el audio de los 5 minutos no salió. El lead se borró después y con él (en cascada) su inscripción y sus
+`nutricion_envios`. **Lo que sobrevive a un borrado:** `lead_audit` (sin FK), `notificaciones` (los avisos al equipo, con el
+texto entero) y `wa_mensajes` de OTROS números. La cronología, reconstruida con eso (UTC):
+- 01:57:24 pasado a mano a «agenda» con la R1 «2026-10-12» sin hora (el asistente de mover de etapa sólo pide la fecha).
+- 02:02:44 de vuelta a «lead» a mano. 02:05:09 reservó por Calendly: R1 el 13/10 a las 23:00, CON hora.
+- 02:05:16 `notificaciones` «chatbot-aviso-equipo» «Nuevo agendado: Marco Bustos»: es la tarjeta de MaKo de la #213. **El
+  flujo SÍ reinició con la reserva** (reuso `nada_le_llego`, `nutricion-reinscripcion.ts`).
+- 02:06:22 Mauricio le escribe A MANO desde su línea: «Marco te llegó un mensaje con un código?». 02:08:16 Marco contesta.
+- 02:08:18 aviso «Marco Bustos te escribió… la automatización todavía no le había mandado nada». El audio vencía ~02:10 y
+  no hay ningún mensaje automático a su número (…686 140 5022) entre 01:50 y 04:00.
+**Causa:** `pausarPorRespuesta` (lib/nutricion.ts): CUALQUIER mensaje entrante del lead pasa todas sus inscripciones
+activas a 'respondio' y les saca el próximo envío; sólo sobreviven los hilos del carril del recordatorio. Contestarle a
+Mauricio un código frenó la bienvenida. Es una regla que no está en ninguna tarjeta del lienzo.
+**El diagnóstico obvio era el equivocado, DOS veces:** primero «las tarjetas que borró en la llamada»; después (mío, 13/10)
+«una fecha sin hora cuenta como pasada desde el mediodía». Lo segundo es real (y quedó arreglado en `329d1443`), pero sólo
+explica la PRIMERA vuelta (01:57); la que importaba era la de Calendly. Lo que lo destrabó fue Martín recordando que
+habían reservado por Calendly, y los avisos de `notificaciones`, que nadie miraba para diagnosticar.
+**Trampas:** el cambio de etapa de una reserva se firma «MaKo» (`AUTOR_SISTEMA`) y no «Calendly» — se leyó como «MaKo lo
+movió». El teléfono de `evolution_contactos` (…686 280 5657) NO era el del lead: el del lead sale del aviso al equipo.
+**Regla (Martín, 14/10):** MaKo no decide nada que no esté en el flujo (memoria `mako-nada-por-detras`). La pausa por
+respuesta, «la reunión ya pasó» y las demás reglas escondidas pasan a condiciones u opciones visibles: inventario y plan
+en docs/diseno-mako-nada-por-detras.md.
 
-**Vive en:** `lib/nutricion-reinscripcion.ts` · `lib/nutricion.ts` (`procesarEnvios`, `inscribirEnSecuencia`)
-
-**Sin hacer:** borrar un lead es un hard delete (`deleteLead`, lib/leads.ts) y no deja quién ni qué. Martín lo pidió
-como registro de TODAS las acciones de un usuario para SuperAdmin (memoria `registro-acciones-superadmin`).
+**Vive en:** `lib/nutricion.ts` (`pausarPorRespuesta`, `procesarEnvios`) · `lib/nutricion-reinscripcion.ts` · `lib/leads.ts` (la reserva)
 
 ### Un Evento de MaKo que se ofrece sin emisor deja main en rojo, aunque el emisor «sea de otro chat» [avisos · 14/10]
 
@@ -4302,3 +4308,83 @@ evento entra con su emisor en el MISMO commit, aunque el emisor viva en el códi
 en lib/graficos-analisis-server.ts). Un link de ejemplo nombra una hoja real (`?hoja=marketing`).
 
 **Vive en:** `lib/avisos-catalogo.ts` · `lib/variables-aviso.ts` · `lib/graficos-analisis-server.ts`
+
+### «Si el lead contesta» es una CONDITION: que conteste no corta nada por su cuenta [motor · bug 5, 14/10]
+
+Lo que causó el bug 5 (`pausarPorRespuesta`: una respuesta frenaba todo salvo el carril) pasó primero a una opción de
+cada flecha del CRON («sigue» / «se corta», `si_contesta` en la tarjeta CRON, commit `c0c46bad`). Duró unas horas.
+Martín: «"Si el lead contesta" NO debería ir en el CRON, debería ser una CONDITION... Es obvio eso». Quedó así:
+- **El diagnóstico «falta una opción» era el equivocado.** Lo que el lead hace es un HECHO, y un hecho lo decide una
+  condición en el lugar exacto del camino. Una opción del CRON vuelve a esconder la regla en un panel que no está en el
+  dibujo, y además corta TODO el camino en vez de sólo el seguimiento que da por hecho que no contestó.
+- **`contesto` es de la INSCRIPCIÓN, no del lead.** «Te escribió alguna vez» (`respondio`) ya existía y es otra cosa: un
+  lead que escribió hace un mes entra a un seguimiento sin haber contestado ahí. El hecho es `contestoEnEsta` y lo pone
+  quien evalúa: el motor con `insc.estado === 'respondio'`, «Si responde» con true, «Probar» con lo escrito en el chat.
+- **Contestar sólo se ANOTA** ('respondio', con la posición, los hilos y el próximo envío intactos): sin tocar la posición
+  no hace falta el compare-and-set de antes (`pausarConCarril`, borrado). El motor mueve una 'respondio' igual que una
+  activa (`seMueveEnLaCorrida` ya no mira la respuesta).
+- **Dónde va la condición: DESPUÉS de cada espera.** Es donde un lead puede contestar antes de lo que sigue; lo que sale
+  sin espera de por medio sale antes de que pueda. Si el mensaje queda parado (un reintento), `condicionDeArriba` la
+  vuelve a pasar. Dos condiciones seguidas no se pueden guardar: si después de la espera ya hay una, la fila se SUMA con
+  «y» a cada grupo de cada rama (las «o» abren grupo).
+- **La quinta puerta, al revés:** para borrar una clave del dato no alcanza con sacarla del tipo; `normalizar` la borra
+  a mano (`delete … si_contesta`), si no viaja intacta en cada guardado.
+- **Migración:** scripts/migrar-contesto-condicion.ts, DESPUÉS del deploy (el código de antes no conoce `contesto`, la da
+  por no cumplida y el camino termina). En el dry run del 14/10: las 3 prendidas (#198, #213 ws1; #241 ws13) sólo pierden
+  la clave (sus «se corta» no tenían espera de por medio); a las apagadas de ws10, ws11 y ws15 se les pone la condición.
+
+**Vive en:** `lib/condiciones-catalogo.ts` (`contesto`) · `lib/nutricion.ts` (`pausarPorRespuesta`, `procesarEnvios`) · `lib/nutricion-grafo-motor.ts` · `lib/simulador-grafo.ts` · `lib/plantillas-automatizaciones.ts`
+
+### «Probar» con un contacto por escenario: las condiciones se deciden en el CLIENTE [probar · 14/10]
+
+Pedido de Martín: una barra de contactos (estilo WhatsApp o Instagram) con un escenario en cada uno, y elegir el escenario
+al probar por WhatsApp. Lo que costó o conviene saber:
+- **«Probar» decide cada condición en el navegador, también en la prueba DE VERDAD** (el server sólo manda lo que el
+  panel le pasa). Por eso el escenario se fuerza en un solo lugar, el `case 'condicion'` de `avanzar` (PanelProbar), y
+  vale igual para «Probar en WhatsApp». No hace falta tocar `/api/chat-agent/simulador`.
+- **Los escenarios salen del MISMO simulador** (`siguiente` + `elegir`, `escenariosDePrueba`), no de recorrer el grafo
+  aparte: con flechas en paralelo, «Ir a» y esperas, un recorrido propio inventaba caminos que la prueba no puede hacer.
+  El primero es el que elegiría el motor con el lead recién llegado (`elegirSalida` con `hechosDeLeadNuevo`).
+- **Un panel es UN canal:** el camino que sólo manda email no es un contacto de WhatsApp (`mensajes` cuenta los del canal).
+- **Las cajas, absolutas:** el chat se mide con `height: 100%` y contra un alto de flex es cero en Safari (AGENTS.md);
+  la barra y el chat van `position: absolute` dentro del cuerpo.
+- **SIN HACER:** la operación `probar_secuencia` de la API manda TODOS los pasos de una (el modelo de antes, sin camino):
+  ahí todavía no se elige un escenario. La API sí los lista (`escenarios_secuencia`). Vive en lib/setting-secuencias.ts
+  (`probarSecuencia`). La bandeja de email no tiene barra (es otra cara); su menú sí pide el escenario.
+
+**Vive en:** `lib/simulador-grafo.ts` (`escenariosDePrueba`) · `app/automations/PanelProbar.tsx` (`BarraEscenarios`, `MenuDestinos`)
+
+### El AI Step no contesta por redes: una respuesta de Instagram o Messenger sólo PAUSA [motor · 14/10]
+
+Lo encontró la investigación de TikTok (docs/diseno-tiktok-linkedin.md, fase 0). `pausarPorRespuesta` con origen social
+(`soloPausa`) sólo marca 'respondio' y se va: no hay «chatbot» en ningún canal social, aunque el lienzo deje armar un flujo
+de Instagram. Es el prerrequisito de TikTok. Y una trampa para sumar un canal: los ternarios binarios de
+`lib/canal-social.ts` (`plataformaDe`, `problemaDeAdjunto`, `logoSocialSvg`…) tratarían a `'tiktok'` como Messenger SIN
+avisar; van a `Record<CanalSocial, …>` para que el compilador obligue.
+
+**Vive en:** `lib/nutricion.ts` (`pausarPorRespuesta`, `asistirRespuesta`) · `lib/canal-social.ts` · `app/automations/EditorPasoIA.tsx` (`MEDIOS_OFRECIDOS`)
+
+### Una flecha no se podía soltar sobre la PASTILLA de una espera [lienzo · bug 4 del 13/10, 14/10]
+
+«Las líneas de conexión desde el botón de sumar no se sueltan ni se guardan» (Mauricio, 13/10). Una espera con un solo
+padre y una salida se dibuja como pastilla sobre la flecha (`colapsable`), y `tarjetaBajo` sólo aceptaba `[data-nodo]`:
+soltar la flecha sobre la pastilla caía al vacío. El caso de esa llamada: conectar el segundo audio de «Un Lead Agendó
+Llamada» a la espera de 2 h (la #213 terminó con los dos audios en esa espera). El dato siempre lo admitió (`conectar` a una
+espera); era el lienzo. Ahora la pastilla recibe la flecha (y se ve entera bajo el cursor). Con dos padres, la espera se
+dibuja como tarjeta. ⚠️ Sin ver la grabación (la cuenta 2 no accede a Fathom 858927676): es la causa más probable, no la
+medida; hay que confirmarlo con Mauricio después del deploy.
+
+**Vive en:** `app/_components/Lienzo.tsx` (`tarjetaBajo`, las pastillas) · `lib/flujo-conversacion.ts` (`colapsable`)
+
+### «Sola» con plata: la regla de tres puertas que nadie veía [AI Step · punto 1 del 13/10, 14/10]
+
+«La IA no permite configurar "hacer todo sola" en ciertos escenarios» (reunión del 13/10). La regla «con plata o en «Lo
+demás», nunca «Sola»» (decisión del 06/10: «el precio va siempre en borrador») estaba en TRES puertas que se repetían: el
+desplegable no ofrecía la opción, Publicar la frenaba («no puede salir sola») y `juntarPasosIA` la bajaba sola a «Para
+aprobar» en cada guardado; y la cuarta, el motor, frenaba el texto con plata. Cambiar una sola no alcanzaba. Ahora la
+persona elige en cualquier escenario con respuesta y el editor avisa (`avisoDeLibertad`); el motor no frena el precio en
+un escenario DE plata en «Sola». **La IA sigue prudente** (`libertadesDeFabrica`: lo que arma ✦ Armar y el conversor de
+lo de antes), y el conversor de un «Si responde» viejo también, porque ahí el freno del texto hacía que no saliera solo:
+convertido con la regla nueva, contestaría distinto.
+
+**Vive en:** `lib/ai-step-libertad.ts` · `lib/ai-step-armar.ts` · `lib/paso-ia-convertir.ts` · `lib/setter-conversacion.ts` (`puedeContestarSolo`) · `app/automations/EditorPasoIA.tsx`

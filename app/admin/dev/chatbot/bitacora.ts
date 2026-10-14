@@ -1514,4 +1514,26 @@ FEEDBACK PROBAR:
       "Corrección del diagnóstico del bug 5: la fecha sin hora explica la primera pasada (a mano, 19:57), pero la reserva por Calendly de las 02:05 traía la hora y aun así no reinició el flujo. Esa segunda regla escondida es parte del inventario.",
     ],
   },
+  {
+    fecha: "14 oct", hora: "08:30", chat: "chatbot", cuenta: "claude2",
+    actor: "martin", tipo: "prompt",
+    titulo: "Seguir con todo lo pendiente, y TikTok y LinkedIn en Automations",
+    pedido: "Continua con todo lo pendiente... Y también:\n\nImplementar TikTok y LinkedIn... Intentar automatizar el chatbot para TikTok y Linkedin, eso sería un gran diferencial, ya que Manychat no se conecta a esas apps...",
+    puntos: [
+      "Lo primero de lo pendiente fue el bug 5. «Si el lead contesta: sigue / se corta» quedó por camino del CRON, con «sigue» de fábrica (decisión de Martín del 14/10), en c0c46bad. La migración de las existentes es scripts/migrar-si-contesta.ts y va ANTES del deploy.",
+      "TikTok y LinkedIn salieron de una investigación con fuentes (workflow wf_5ff0c95d-2ac; plan en docs/diseno-tiktok-linkedin.md). TikTok se puede por Zernio, sólo para contestar: 10 mensajes en 48 h, sin escribir primero. LinkedIn no se puede de forma legal. ManyChat SÍ tiene TikTok desde enero de 2025.",
+      "Antes de TikTok falta que el AI Step conteste por redes: hoy una respuesta de Instagram o Messenger sólo pausa.",
+    ],
+  },
+  {
+    fecha: "14 oct", hora: "06:40", chat: "chatbot", cuenta: "claude2",
+    actor: "martin", tipo: "prompt",
+    titulo: "«Si el lead contesta» es una CONDITION; Probar con contactos por escenario; TikTok al lado de IG",
+    pedido: "1. En \"Probar\" para las automatizaciones que tengas varios casos, varias condiciones, ese chat de \"probar\" debería al lado tener la sidebar de diferentes contactos de WhatsApp o de IG o lo que sea, con el mismo diseño de esas apps, y justamente que ahí caigan los diferentes escenarios para la prueba. Y si puedo por WhatsApp, debo elegir un escenario para probarlo en caso de que tenga más de 1 escenario.\n2. \"Si el lead contesta\" NO debería ir en el CRON, debería ser una CONDITION... Es obvio eso.\n3. ¿Cómo podemos deprecar Zernio para tiktok? Pasar por aprobación?\n4. El botón de TikTok en el CRON como siempre, al lado del de IG...\n5. Y que pasó con LinkedIn?",
+    puntos: [
+      "«Si el lead contesta» rehecho como la condición «No contestó desde que entró» (`contesto`): que el lead conteste ya no corta nada por su cuenta. Se fueron el panel del CRON, `si_contesta` y la operación de la API. Las plantillas la traen en los seguimientos; las existentes se convierten con scripts/migrar-contesto-condicion.ts, después del deploy.",
+      "Borrada también la guarda escondida «la reunión ya pasó»: lo dice «Su reunión sigue en pie», y el reintento la vuelve a pasar.",
+      "TikTok sin Zernio = pedir la Business Messaging API directo a TikTok (app propia, revisión, Advanced Access por cuenta). LinkedIn: sin vía legal para DMs; queda afuera.",
+    ],
+  },
 ];

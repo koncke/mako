@@ -61,6 +61,14 @@ export const DEFS: readonly OperacionDef[] = [
     salida: 'json', canales: TODOS, costo: 'gratis', gating: { tab: TAB },
   },
   {
+    // LOS ESCENARIOS DE «PROBAR» (14/10/2026): los mismos contactos de la barra de Probar (`escenariosDePrueba`).
+    id: 'escenarios_secuencia', area: 'chatbot', tipo: 'lectura',
+    titulo: 'Escenarios de prueba de una secuencia',
+    descripcion: 'Los caminos distintos de UNA automatización por sus condiciones, los mismos que «Probar» muestra como contactos de su barra: qué sale en cada condición, en orden, y cuántos mensajes de WhatsApp le llegan por ese camino. El primero es el de un lead recién llegado por su CRON. Hasta 8; `faltan` dice cuántas ramas quedaron afuera. Úsala para saber qué conviene probar antes de prenderla. Pide antes el secuenciaId con listar_secuencias_nutricion.',
+    parametros: [pSecuenciaId],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: { tab: TAB },
+  },
+  {
     id: 'metricas_chatbot', area: 'chatbot', tipo: 'lectura',
     titulo: 'Métricas del chatbot (30 días)',
     descripcion: 'Los KPIs del chatbot en los últimos 30 días: por secuencia, mensajes enviados por WhatsApp y por email, respuestas, aperturas y clics de email, inscriptos activos y completados; y la serie diaria de 30 días. Úsala para «cuántos mensajes salieron esta semana» o «cuántos contestaron». Las aperturas y clics existen solo para email; «respuestas» es la cantidad de inscripciones pausadas porque el lead contestó.',

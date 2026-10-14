@@ -11,6 +11,10 @@
 // página del sitio, un correo o un teléfono), Estilo, y Eliminar; y para el grupo:
 // Alineación y «Añadir botón».
 //
+// Tanda 4 (14/10/2026): arriba del selector de destino, «Cobrar con MaKo» (CobroBoton.tsx): el botón
+// guarda `pago:<productoId>` y en la publicada cobra ese producto por la pasarela del negocio. El rótulo
+// del botón «Destino» dice qué cobra y, si hoy no puede, lo marca (el motivo en el `title`).
+//
 // La etiqueta del botón es el texto del nodo `boton` (`content: 'text*'`, sin marcas)
 // y se edita como cualquier texto. La forma pública (`.gm-botones[data-alinea]`) va en
 // el contentDOM (`useAtributosEnContenido`): los `a.gm-boton` tienen que quedar como
@@ -31,6 +35,8 @@ import {
 import { specBotones } from '@/lib/editor-landing/especificacion';
 import type { AttrsArbol } from '@/lib/editor-landing/grafico-svg';
 import { ALINEACIONES, NODO, VARIANTES_BOTON, type Alineacion, type VarianteBoton } from '@/lib/editor-landing/doc';
+import { TEXTO_NO_COBRA, describirCobro, esHrefPago, hrefDePago } from '@/lib/editor-landing/pago-landing';
+import { PanelCobro, useCobroLanding } from './CobroBoton';
 
 const NOMBRE_VARIANTE: Record<VarianteBoton, string> = { primario: 'Principal', secundario: 'Secundario', contorno: 'Contorno' };
 const ICONO_ALINEA: Record<Alineacion, string> = { izquierda: 'alinear-izquierda', centro: 'alinear-centro', derecha: 'alinear-derecha' };
@@ -65,6 +71,11 @@ export function BotonesVista(props: ReactNodeViewProps) {
   const alinea = (node.attrs.alinea as Alineacion) ?? 'izquierda';
   const secciones = useMemo(() => (activo ? seccionesDe(editor) : []), [activo, editor]);
   const paginas = useMemo(() => ctx.paginas.map((p) => ({ id: p.id, titulo: p.titulo || 'Página' })), [ctx.paginas]);
+  // Sólo se pide con un botón de PAGO elegido (el rótulo) o con el panel abierto: un grupo de botones
+  // comunes no lee el catálogo.
+  const esPago = !!boton && esHrefPago(boton.href);
+  const { estado: cobro } = useCobroLanding(activo && (esPago || panel?.tipo === 'destino'));
+  const rotuloCobro = boton ? describirCobro(boton.href, cobro) : null;
 
   const abrir = (tipo: PanelBotones['tipo'], ancla: HTMLElement) => setPanel((p) => (p && p.tipo === tipo ? null : { tipo, ancla }));
   const cerrar = () => setPanel(null);
@@ -131,8 +142,11 @@ export function BotonesVista(props: ReactNodeViewProps) {
             <>
               <span className="gmx-nv-sep" />
               <button type="button" className="gmx-btn" title="Destino" aria-expanded={panel?.tipo === 'destino'} onMouseDown={(e) => e.preventDefault()} onClick={(e) => abrir('destino', e.currentTarget)}>
-                <Icono nombre="enlace" />
-                <span style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis' }}>{boton.href && boton.href !== '#' ? describirDestino(boton.href, secciones, paginas) : 'Sin destino'}</span>
+                <Icono nombre={rotuloCobro ? 'tarjeta-credito' : 'enlace'} />
+                <span style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis' }} title={rotuloCobro?.motivo ? TEXTO_NO_COBRA[rotuloCobro.motivo] : undefined}>
+                  {rotuloCobro ? rotuloCobro.texto : boton.href && boton.href !== '#' ? describirDestino(boton.href, secciones, paginas) : 'Sin destino'}
+                </span>
+                {rotuloCobro?.motivo && <span style={{ color: 'var(--gmx-peligro)', display: 'inline-flex' }} aria-label={TEXTO_NO_COBRA[rotuloCobro.motivo]}><Icono nombre="advertencia" tam={14} /></span>}
               </button>
               <button type="button" className="gmx-btn" title="Estilo" aria-expanded={panel?.tipo === 'estilo'} onMouseDown={(e) => e.preventDefault()} onClick={(e) => abrir('estilo', e.currentTarget)}>
                 <Icono nombre="paleta" /><span>{NOMBRE_VARIANTE[boton.variante] ?? 'Principal'}</span><Icono nombre="chevron-abajo" tam={12} />
@@ -148,8 +162,14 @@ export function BotonesVista(props: ReactNodeViewProps) {
 
       {panel?.tipo === 'destino' && boton && (
         <Flotante ancla={panel.ancla} onCerrar={cerrar} etiqueta="Destino del botón" ancho={300}>
+          <PanelCobro
+            valor={boton.href}
+            onElegir={(id) => { ponerEnBoton({ href: hrefDePago(id), nuevaPestana: false }); cerrar(); }}
+            onQuitar={() => { ponerEnBoton({ href: '#', nuevaPestana: false }); cerrar(); }}
+          />
+          <div className="gmx-sep" />
           <SelectorDestino
-            valor={boton.href || null}
+            valor={esPago ? null : boton.href || null}
             nuevaPestana={boton.nuevaPestana}
             textoQuitar="Quitar destino"
             onElegir={(href, nueva) => { ponerEnBoton({ href, nuevaPestana: nueva && /^https?:/i.test(href) }); cerrar(); }}

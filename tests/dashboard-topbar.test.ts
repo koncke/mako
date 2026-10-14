@@ -147,10 +147,12 @@ test('el link compartido no guarda, ni edita, ni comparte, ni abre el detalle de
   // menú lo desmontaría), los dos con la guarda de guardable. «Editar» vuelve al azul.
   assert.match(EDITOR, /\{guardable && <BotonCompartir hojaId=\{hoja\.id\} titulo=\{hoja\.nombre\} abierto=\{compartir\} onCerrar=\{cerrarCompartir\} \/>\}/,
     'el modal de Compartir sin la guarda, o sin el modo controlado');
-  assert.match(EDITOR, /\{!soloMirar && \(\s*<button type="button" className="lk-pill lk-pill--azul" data-recorrido=\{editando \? 'dash-ver' : 'dash-editar'\}/,
+  // (14/10/2026: y no en blanco: «Si no tengo tabs no debería salir el botón de editar ni los 3 puntos».)
+  assert.match(EDITOR, /\{!soloMirar && !enBlanco && \(\s*<button type="button" className="lk-pill lk-pill--azul" data-recorrido=\{editando \? 'dash-ver' : 'dash-editar'\}/,
     '«Editar» no es el azul (punto 3)');
   const mas = bloque(EDITOR, "{menu?.tipo === 'mas' && (", '</Flotante>');
-  assert.match(mas, /\{guardable && \(\s*<>\s*<RenglonCompartir onClick=\{abrirCompartir\} \/>/, 'Compartir no está en el ⋮ (o sin la guarda)');
+  // 14/10/2026: en la tab General (el mismo editor con otro informe) no se comparte: Compartir habla del informe del Dashboard.
+  assert.match(mas, /\{guardable && !esGeneral && \(\s*<>\s*<RenglonCompartir onClick=\{abrirCompartir\} \/>/, 'Compartir no está en el ⋮ (o sin la guarda)');
   assert.doesNotMatch(mas, /<BotonCompartir/, 'el modal adentro del menú se desmonta al cerrarlo');
   assert.match(EDITOR, /const capaAbierta = [^;]*\bcompartir\b/, 'con el modal abierto, Suprimir borraría la tarjeta de atrás');
   assert.match(mas, /\{!soloMirar && \(\s*<>\s*<button[^>]*lk-opcion--mako/, 'el AI Analyst sin la guarda');
@@ -321,7 +323,9 @@ test('la barra de inserción: cada tipo del catálogo en UN lugar, en el orden d
     const tipos = l.clase === 'suelto' ? [l.tipo] : [...new Set(l.opciones.map((o) => o.tipo))];
     for (const t of tipos) lugaresDe.set(t, [...(lugaresDe.get(t) ?? []), i]);
   });
-  assert.deepEqual([...lugaresDe.keys()].sort(), TIPOS_ELEMENTO.map((t) => t.id).sort(), 'un tipo del catálogo sin lugar en la barra');
+  // El bloque de General (14/10/2026) no va en esta barra: tiene su botón propio, «Bloques de General», que sólo existe en
+  // la tab General (app/dashboard/EditorInforme.tsx, `esGeneral`). En el Dashboard no hay de dónde sacar lo que dibuja.
+  assert.deepEqual([...lugaresDe.keys()].sort(), TIPOS_ELEMENTO.map((t) => t.id).filter((t) => t !== 'general').sort(), 'un tipo del catálogo sin lugar en la barra');
   for (const [t, ls] of lugaresDe) assert.equal(ls.length, 1, `«${t}» está en ${ls.length} lugares`);
   const pos = (t: string) => lugaresDe.get(t)![0];
   const orden = ['insertado', 'imagen', 'texto', 'linea', 'seccion', 'ia'].map(pos);

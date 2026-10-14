@@ -27,6 +27,17 @@ import { specInsertado } from '@/lib/editor-landing/especificacion';
 import { htmlDeArbol } from '@/lib/editor-landing/grafico-svg';
 import { ALTO_EMBED_MAX, ALTO_EMBED_MIN, ALTO_EMBED_PASO, altoValido, claseDeProveedor, embedDe, nombreDeProveedor, porQueNoSeInserta } from '@/lib/embeds';
 
+/**
+ * Lo que dice el hueco vacío según su PISTA (14/10/2026): el VSL de un diseño pide «tu video» y se ve
+ * 16:9 con un ▶ (lo que va a ocupar el video); el bloque «Agenda», «tu agenda»; sin pista, como siempre.
+ * Los proveedores de la nota son los de lib/embeds.ts.
+ */
+const TEXTO_VACIO: Record<'video' | 'agenda' | 'otro', readonly [string, string]> = {
+  video: ['Pega el enlace de tu video', 'YouTube, Panda, Vimeo…'],
+  agenda: ['Pega el enlace de tu agenda', 'Calendly, Cal.com…'],
+  otro: ['Pega el enlace de un video o de tu agenda', 'YouTube, Vimeo, Loom, Calendly, Cal.com, Google Calendar…'],
+};
+
 export function InsertadoVista(props: ReactNodeViewProps) {
   const { node, editor, getPos, selected, updateAttributes } = props;
   const ctx = useEditorLanding();
@@ -36,6 +47,8 @@ export function InsertadoVista(props: ReactNodeViewProps) {
   const src = typeof node.attrs.src === 'string' ? node.attrs.src : '';
   const proveedor = typeof node.attrs.proveedor === 'string' ? node.attrs.proveedor : '';
   const agenda = claseDeProveedor(proveedor) === 'agenda';
+  // Vacío, el proveedor es la PISTA de qué va en el hueco (attrsInsertado, especificacion.ts).
+  const pista = src ? null : claseDeProveedor(proveedor);
   const alto = typeof node.attrs.alto === 'number' ? node.attrs.alto : null;
   const html = useMemo(() => (src ? htmlDeArbol(specInsertado(node.attrs, { modo: 'editor' })) : ''), [node.attrs, src]);
   const activo = (selected || !!ancla) && editor.isEditable;
@@ -88,11 +101,13 @@ export function InsertadoVista(props: ReactNodeViewProps) {
       {src ? (
         <div className="gmx-nv-marco" dangerouslySetInnerHTML={{ __html: html }} />
       ) : (
-        <div ref={vacio} className="gmx gmx-nv-marco gmx-nv-vacio" contentEditable={false}
+        <div ref={vacio} className="gmx gmx-nv-marco gmx-nv-vacio" data-clase={pista ?? undefined} contentEditable={false}
           onClick={(e) => { if (editor.isEditable) setAncla(e.currentTarget); }}>
-          <Icono nombre="insertar" tam={22} />
-          <span>Pega el enlace de un video o de tu agenda</span>
-          <span className="gmx-nota">YouTube, Vimeo, Loom, Calendly, Cal.com, Google Calendar…</span>
+          {pista === 'video'
+            ? <span className="gmx-nv-play"><Icono nombre="play" tam={22} /></span>
+            : <Icono nombre={pista === 'agenda' ? 'calendario' : 'insertar'} tam={22} />}
+          <span>{TEXTO_VACIO[pista ?? 'otro'][0]}</span>
+          <span className="gmx-nota">{TEXTO_VACIO[pista ?? 'otro'][1]}</span>
         </div>
       )}
 

@@ -9,7 +9,7 @@
 //
 //   · normalizar y validar lo que la persona escribe (`normalizarDominio`, `motivoDominioInvalido`);
 //   · qué hosts son de MaKo (`esHostDeMako`) y, para un host que NO lo es, qué contesta el proxy
-//     (`decidirHost`);
+//     (`decidirHost`); la dirección de hoy de una landing escrita con la de antes (`urlLandingVigente`);
 //   · los registros DNS que hay que cargar, armados con lo que contesta Vercel (`registrosDns`), y el
 //     veredicto de «verificado» (`estaVerificado`, `queFalta`);
 //   · los tipos del pedido y de la respuesta de /api/landing-generator/dominio.
@@ -19,16 +19,21 @@
 // =============================================================================
 
 import { rutaValida, slugValido } from './doc';
+import { ORIGEN_LANDINGS, esHostDeLandings } from './origen-landings';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Los hosts de MaKo
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Los dominios que son o fueron de MaKo, con todos sus subdominios. El canónico sirve la app; los
- * demás, el cartel de mudanza de proxy.ts. ⚠️ UNA MUDANZA DE DOMINIO SUMA EL ANTERIOR ACÁ (es un
- * renglón más del checklist de lib/app-url.ts): un dominio viejo que falte se trataría como el
+ * Los dominios DE LA APP que son o fueron de MaKo, con todos sus subdominios. El canónico sirve la
+ * app; los demás, el cartel de mudanza de proxy.ts. ⚠️ UNA MUDANZA DE DOMINIO SUMA EL ANTERIOR ACÁ
+ * (es un renglón más del checklist de lib/app-url.ts): un dominio viejo que falte se trataría como el
  * dominio de un cliente y contestaría 404 en vez de mandar a la gente al nuevo.
+ *
+ * ⚠️ hola-mako.site (las landings, tanda 4) NO va acá: es de MaKo pero no es la app. Lo que mira
+ * esta lista —el HSTS de MaKo y las redirecciones de next.config.ts, el cartel de mudanza— no se
+ * aplica en el dominio de las landings. «¿Es de MaKo?» (`esHostDeMako`) sí lo incluye.
  */
 export const DOMINIOS_DE_MAKO: readonly string[] = Object.freeze(['hola-mako.com', 'makodigital.app']);
 
@@ -37,9 +42,40 @@ const SUFIJO_VERCEL = 'vercel.app';
 
 const esOSubdominioDe = (host: string, base: string): boolean => host === base || host.endsWith('.' + base);
 
-/** ¿Este host es de MaKo (el canónico, uno viejo o un deploy de Vercel)? En positivo: lo demás es de un cliente. */
+/**
+ * ¿Este host es de MaKo (la app: el canónico, uno viejo o un deploy de Vercel; o el de las landings,
+ * hola-mako.site)? En positivo: lo demás es de un cliente.
+ *
+ * ⚠️ hola-mako.site TIENE que estar acá (tanda 4): `motivoDominioInvalido` y `dominioValido` miran
+ * esto, y `puedeSoltarseDeVercel` exige `dominioValido`. Sin él, cualquier admin podía «conectar»
+ * hola-mako.site a SU landing (Vercel lo da por verificado: ya está en el proyecto) — el mismo agujero
+ * que el 409 idempotente de la tanda 2 con un dominio de MaKo fuera de la lista.
+ */
 export function esHostDeMako(host: string): boolean {
-  return DOMINIOS_DE_MAKO.some((d) => esOSubdominioDe(host, d)) || esOSubdominioDe(host, SUFIJO_VERCEL);
+  return DOMINIOS_DE_MAKO.some((d) => esOSubdominioDe(host, d)) || esOSubdominioDe(host, SUFIJO_VERCEL) || esHostDeLandings(host);
+}
+
+/**
+ * La dirección de HOY de una página de landing nuestra escrita con la de ANTES de la mudanza (tanda 4):
+ * `https://<dominio de la app>/l/<slug>[/<ruta>]` → `https://hola-mako.site/<slug>[/<ruta>]`, con la
+ * query. Cualquier otra URL vuelve TAL CUAL: la de hoy, el dominio de un cliente, localhost, un preview,
+ * el HTML libre, el borrador, una con mayúsculas o con más segmentos.
+ *
+ * Es para COMPARAR, y se traducen las DOS puntas: una página que el negocio declaró antes de la mudanza
+ * (el producto de una landing, la página de gracias: `landing.config`) o una visita medida antes tiene la
+ * vieja, y lo que manda el Pixel desde el 14/10 tiene la nueva. Sin esto no coinciden y el lead cae en el
+ * embudo del negocio, o la de gracias deja de pasarlo a Ganado, sin un solo error (revisión de la tanda 4).
+ * No depende del entorno: en local y en los previews las landings viven en `<app>/l` y su host no es de
+ * `DOMINIOS_DE_MAKO`, así que no se tocan. Espera una URL ya NORMALIZADA (sin barra final).
+ */
+export function urlLandingVigente(url: string): string {
+  let u: URL;
+  try { u = new URL(url); } catch { return url; }
+  const host = hostDeCabecera(u.hostname).replace(/^www\./, '');
+  if (u.port || !DOMINIOS_DE_MAKO.includes(host)) return url;
+  const m = /^\/l\/([^/]+)(?:\/([^/]+))?$/.exec(u.pathname);
+  if (!m || !slugValido(m[1]) || !rutaValida(m[2] ?? '')) return url;
+  return `${ORIGEN_LANDINGS}/${m[1]}${m[2] ? `/${m[2]}` : ''}${u.search}${u.hash}`;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -176,6 +212,22 @@ export function textoDominioOcupado(dominio: string, estadoAjeno: string | null,
  */
 export const PATRON_HOSTS_DE_MAKO = `(?:[a-z0-9-]+\\.)*(?:${DOMINIOS_DE_MAKO.map((d) => d.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`;
 
+/**
+ * El patrón de los hosts donde corre la APP, para las redirecciones y reescrituras de next.config.ts
+ * (tanda 4): los de MaKo (`PATRON_HOSTS_DE_MAKO`), los deploys `*.vercel.app` (los previews), y
+ * `localhost` y una IPv4 (el dev local, también desde el teléfono por la red de la casa). Las
+ * redirecciones corren ANTES del proxy y no miran el host: en hola-mako.site, `/todo` (un slug válido)
+ * se iba a /plan antes de que el proxy lo leyera como la landing `todo`; en el dominio de un cliente,
+ * `/extension` llevaba a la ficha de la extensión de MaKo.
+ *
+ * ⚠️ NO es el del HSTS: `localhost` con HSTS de dos años le fuerza HTTPS a TODO puerto de localhost en
+ * el navegador del que desarrolla (si alguna vez lo sirve por https). El HSTS sigue con
+ * `PATRON_HOSTS_DE_MAKO`. Ni hola-mako.site ni un dominio de cliente entran en ninguno de los dos.
+ * Un host de desarrollo que no está acá (un túnel tipo ngrok) se queda sin esas redirecciones: es un
+ * 404 en /leads, no una pantalla de MaKo en el dominio de otro.
+ */
+export const PATRON_HOSTS_DE_LA_APP = `(?:${PATRON_HOSTS_DE_MAKO}|(?:[a-z0-9-]+\\.)*vercel\\.app|localhost|\\d{1,3}(?:\\.\\d{1,3}){3})`;
+
 // ─────────────────────────────────────────────────────────────────────────────
 // La decisión del proxy para un host que no es de MaKo
 // ─────────────────────────────────────────────────────────────────────────────
@@ -211,6 +263,23 @@ export type DecisionHost =
 const LEER = new Set(['GET', 'HEAD']);
 
 /**
+ * ¿Qué host es? (tanda 4) La primera pregunta del proxy, en positivo:
+ *   · 'landings' — hola-mako.site (y sus subdominios): SÓLO las landings publicadas, en cualquier
+ *     entorno; nunca la app, nunca la cookie de sesión (`decidirLandings`, origen-landings.ts);
+ *   · 'propio'   — un dominio bien formado que no es de MaKo: el de la landing de un cliente
+ *     (`decidirHost`, sólo en producción);
+ *   · 'app'      — lo demás: los hosts de MaKo, los previews, localhost, una IP o un host vacío.
+ */
+export type TipoHost = 'app' | 'landings' | 'propio';
+export function tipoDeHost(hostCrudo: string | null | undefined): TipoHost {
+  const host = hostDeCabecera(hostCrudo);
+  if (esHostDeLandings(host)) return 'landings';
+  // Un host que ni parece un dominio (vacío, una IP) sigue el flujo de siempre: el cartel de mudanza.
+  if (!host || !DOMINIO_RE.test(host) || esHostDeMako(host)) return 'app';
+  return 'propio';
+}
+
+/**
  * Qué contesta el proxy según el host. En un dominio de cliente se sirve SÓLO su landing: la raíz
  * y una página por segmento (`/gracias`), más el HTML libre. Nada de la app ni de `/api` —ni
  * siquiera las exentas del cartel de mudanza (cron, webhooks, track): el Pixel de la página habla
@@ -220,9 +289,8 @@ const LEER = new Set(['GET', 'HEAD']);
  * decide la ruta interna, que contesta 404 si no. Acá sólo se mira la forma del pedido.
  */
 export function decidirHost(hostCrudo: string | null | undefined, pathname: string, metodo: string): DecisionHost {
-  const host = hostDeCabecera(hostCrudo);
-  // Un host que ni parece un dominio (vacío, una IP) sigue el flujo de siempre: el cartel de mudanza.
-  if (!host || !DOMINIO_RE.test(host) || esHostDeMako(host)) return { tipo: 'app' };
+  // El de las landings tampoco es de un cliente: lo atiende `decidirLandings` antes de llegar acá.
+  if (tipoDeHost(hostCrudo) !== 'propio') return { tipo: 'app' };
 
   const m = metodo.toUpperCase();
   if (pathname === PREFIJO_PASA || pathname.startsWith(PREFIJO_PASA + '/')) return LEER.has(m) ? { tipo: 'pasar' } : { tipo: 'metodo' };
@@ -398,20 +466,31 @@ export const urlDeDominio = (d: string): string => `https://${d}`;
 
 /**
  * Los enlaces entre páginas de una foto publicada apuntan a la URL de MaKo
- * (`https://hola-mako.com/l/<slug>[/<ruta>]`: el render los resuelve con `urlBase` al publicar), así
- * que servida en el dominio propio el menú del sitio y los botones entre páginas sacarían al visitante
- * a hola-mako.com. Se reescriben AL SERVIR, no al publicar (integración de la tanda 2), por tres cosas:
+ * (`https://hola-mako.site/<slug>[/<ruta>]` desde la tanda 4; `https://hola-mako.com/l/<slug>…` en una
+ * foto de antes: el render los resuelve con `urlBase` al publicar), así que servida en el dominio
+ * propio el menú del sitio y los botones entre páginas sacarían al visitante del dominio. La ruta lo
+ * llama una vez por cada base conocida (`basesLandings`, lib/app-url.ts).
+ * Se reescriben AL SERVIR, no al publicar (integración de la tanda 2), por tres cosas:
  * vale también para lo publicado ANTES de verificar el dominio; no hace falta «volver a publicar al
  * verificar», que publicaría el BORRADOR guardado (publicar promueve lo guardado, AGENTS.md); y quitar
  * el dominio no deja una foto con enlaces a un dominio que ya no sirve nada.
  *
  * Sólo la base EXACTA seguida de un fin de URL (`/`, comillas, `?`, `#`, `&`, `<`, espacio o el final):
- * la base de `…/l/abc` no toca un enlace a `…/l/abcd`, que es OTRA landing.
+ * la base de `…/abc` no toca un enlace a `…/abcd`, que es OTRA landing.
+ *
+ * ⚠️ MENOS EL BOTÓN DE PAGO (`<base>/pagar/<productoId>`, tanda 4): reescrito quedaba
+ * `https://<dominio>/pagar/<id>`, y en un dominio propio `decidirHost` contesta 404 a toda ruta de dos
+ * segmentos (y a `/api/…`, adonde postea el paso). El visitante que tocaba «Pagar ahora» en el dominio
+ * del cliente veía «Parece que esta página no existe (404)», mientras que en hola-mako.com/l/<slug> el
+ * MISMO botón andaba — o sea que el dueño, probándolo, lo veía funcionar (revisión de la tanda 4, ALTA).
+ * Así el paso se abre donde SÍ se sirve (la base de MaKo), y su POST sale con un Origin de MaKo.
+ * `/pagar/` es `SEGMENTO_PAGO` de pago-landing.ts, escrito acá a mano a propósito: ese módulo trae la
+ * moneda y las pasarelas, y éste lo importan proxy.ts y next.config.ts (el test ata los dos).
  */
 export function conEnlacesDelDominio(html: string, baseMako: string, baseDominio: string): string {
   if (!html || !baseMako || !baseDominio || baseMako === baseDominio) return html;
   const escapada = baseMako.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return html.replace(new RegExp(`${escapada}(?=[/"'?#&<\\s]|$)`, 'g'), () => baseDominio);
+  return html.replace(new RegExp(`${escapada}(?!/pagar/)(?=[/"'?#&<\\s]|$)`, 'g'), () => baseDominio);
 }
 
 /** El slug que devuelve la base para un dominio, si es uno que se puede servir. */

@@ -36,8 +36,7 @@
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
-import { useWs } from '@/app/_ui/Link';
-import { conWs } from '@/lib/ws-tab';
+import { BotonIntegracion } from '@/app/_components/ConectarIntegracion';
 // «Conectar» AHÍ MISMO (décima tanda, GENERAL 6): el email en el modal de la tab; y conectar algo vacía la
 // lectura de los canales de la visita (`canalesDeLaVisita`), o el CRON seguiría diciendo «Conecta tu…».
 // Duodécima tanda (§2.11): Instagram y Messenger también, con el MISMO modal que la tarjeta (Zernio).
@@ -282,20 +281,16 @@ function useEstadoCanales(activo: boolean): EstadoCanales | null | undefined {
   return estado;
 }
 
-/**
- * SÓLO PAGOS: Stripe o Mercado Pago se conectan en /integraciones, que no cabe en un modal: se abre en una
- * VENTANA EMERGENTE —la pestaña de Automations sigue ahí— y al cerrarla se vuelve a preguntar. Con el `?ws=`
- * (AGENTS.md: un `window.open` también navega).
+/*
+ * PAGOS: Stripe o Mercado Pago se conectan con EL modal de /integraciones, abierto acá (`BotonIntegracion`,
+ * app/_components/ConectarIntegracion.tsx). Hasta el 14/10/2026 se abría /integraciones en una ventana emergente
+ * («no cabe en un modal»): cabe, es el mismo `ServicioModal` de la grilla. Martín, ese día: «para una integración
+ * jamás se debe salir de la tab». Al conectarse se vuelve a preguntar (`avisarMedioConectado`).
  *
  * ⚠️ HASTA LA DUODÉCIMA TANDA ACÁ SE CONECTABAN TAMBIÉN INSTAGRAM Y MESSENGER (la página de Facebook): el CRON
  * medía Graph y la tarjeta Zernio, dos verdades de «conectado». Los eventos llegan SÓLO por Zernio
  * (lib/disparadores-canales.ts), así que el CRON abre el modal de la tarjeta (`ConectarMedio`).
  */
-function abrirIntegraciones(ws: number | null) {
-  const v = window.open(conWs('/integraciones', ws), 'mako-integraciones', 'width=1100,height=820');
-  if (!v) { window.open(conWs('/integraciones', ws), '_blank'); return; }
-  const t = window.setInterval(() => { if (v.closed) { window.clearInterval(t); avisarMedioConectado(); } }, 1000);
-}
 
 /**
  * LOS EVENTOS DE UN CANAL (Instagram, Messenger, Email: CRON puntos 6, 7 y 8; y Pagos), en una grilla de dos
@@ -312,7 +307,6 @@ export function EventosDeCanal({ clase, d, estado, onElegir, disabled }: {
   const cargando = estado === undefined;
   const conectado = canal?.conectado === true;
   const motivo = cargando ? null : estado === null ? 'No pude comprobarlo' : (!conectado ? (canal?.motivo ?? 'Sin conectar') : null);
-  const ws = useWs();
   /** El modal abierto (ConectarMedio): el email, Instagram o Messenger. */
   const [conectar, setConectar] = useState<Medio | null>(null);
   const boton: CSSProperties = { border: 'none', background: 'none', padding: 0, font: 'inherit', color: 'var(--primary)', fontWeight: 600, cursor: 'pointer' };
@@ -326,12 +320,15 @@ export function EventosDeCanal({ clase, d, estado, onElegir, disabled }: {
       {motivo && (
         <div role="status" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: 'var(--warn)', fontFamily: SANS }}>
           <span>{motivo}</span>
-          {/* «CONECTAR» SIN SALIR DE LA PESTAÑA (décima tanda, GENERAL 6; duodécima, §2.11): el email, Instagram y
-              Messenger, en el modal de la tab (el MISMO de la tarjeta); los pagos, en una ventana emergente con
-              /integraciones (el `href` queda para el clic del medio, con el `?ws=`). */}
+          {/* «CONECTAR» SIN SALIR DE LA PESTAÑA (décima tanda, GENERAL 6; duodécima, §2.11; 14/10/2026): el email,
+              Instagram y Messenger, en el modal de la tab (el MISMO de la tarjeta); los pagos, en el modal de
+              Stripe o de Mercado Pago de /integraciones, abierto acá. */}
           {ofrecerConectar && (clase === 'pagos'
-            ? <a href={conWs('/integraciones', ws)} data-conectar-canal={clase} target="_blank" rel="noopener"
-              onClick={(e) => { e.preventDefault(); abrirIntegraciones(ws); }} style={{ color: 'var(--primary)', fontWeight: 600 }}>Conectar</a>
+            ? <span data-conectar-canal={clase}>Conectar{' '}
+              <BotonIntegracion servicio="stripe" style={{ color: 'var(--primary)', fontWeight: 600 }} onConectado={() => avisarMedioConectado()}>Stripe</BotonIntegracion>
+              {' o '}
+              <BotonIntegracion servicio="mercadopago" style={{ color: 'var(--primary)', fontWeight: 600 }} onConectado={() => avisarMedioConectado()}>Mercado Pago</BotonIntegracion>
+            </span>
             : <button type="button" data-conectar-canal={clase} aria-haspopup="dialog" onClick={() => setConectar(clase)} style={boton}>Conectar</button>)}
         </div>
       )}

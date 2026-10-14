@@ -397,7 +397,11 @@ export const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{1,58})[a-z0-9]$/;
 // `vista` es una carpeta FIJA de app/l (el link privado del borrador): una landing con ese slug
 // tendría sus páginas tapadas por la ruta fija (server-reglas.ts, RUTAS_DE_L, lo frena también).
 // `html` también (tanda 2): app/l/html/[docId]/[bloque] sirve el «HTML personalizado» publicado.
-export const SLUGS_RESERVADOS = new Set(['api', 'admin', 'login', 'app', 'mako', 'vsl', 'www', 'static', 'assets', 'nuevo', 'editar', 'vista', 'html']);
+// `cono-tx` y `cono-doc` (tanda 4): en hola-mako.site el slug es el PRIMER segmento, y el matcher de
+// proxy.ts no corre en `/cono-tx/…` ni `/cono-doc/…` (assets públicos de /conocimientos): las páginas
+// internas de una landing con ese slug no llegarían al proxy que las reescribe
+// (tests/editor-landing-origen.test.ts lo cruza con el matcher).
+export const SLUGS_RESERVADOS = new Set(['api', 'admin', 'login', 'app', 'mako', 'vsl', 'www', 'static', 'assets', 'nuevo', 'editar', 'vista', 'html', 'cono-tx', 'cono-doc']);
 
 export function slugDe(texto: string): string {
   return texto
@@ -416,6 +420,18 @@ export function rutaValida(r: string): boolean {
 }
 
 export const PREFIJO_PUBLICO = '/l';
-export function urlPublica(base: string, slug: string, ruta = ''): string {
-  return `${base.replace(/\/$/, '')}${PREFIJO_PUBLICO}/${slug}${ruta ? `/${ruta}` : ''}`;
+/**
+ * La ruta INTERNA de una landing en el host de la APP (`<base>/l/<slug>[/<ruta>]`: app/l/[slug]).
+ * ⚠️ NO es la dirección que se muestra, se copia o se manda: desde la tanda 4 (14/10/2026) las landings
+ * viven en hola-mako.site y esa sale de `urlPublicaLanding` (lib/app-url.ts) o, en el navegador, de
+ * `urlLandingEn` con la base que da el server (lib/editor-landing/origen-landings.ts). Sólo la usa
+ * pagina-publica.ts para el 308 a minúsculas en la misma ruta interna (tests/editor-landing-origen.test.ts
+ * lo fija).
+ * ⚠️ Hasta la revisión de la tanda 4 se llamaba `urlPublica(base, slug, ruta)` y armaba la dirección
+ *    que se mostraba. Se renombró para que una rama armada antes de la mudanza (la API de MaKo:
+ *    `urlPublica(APP_BASE_URL, slug)`) NO COMPILE al integrarse, en vez de seguir mandando
+ *    `hola-mako.com/l/<slug>` en silencio. Lo que se muestra, se copia o se manda: `urlPublicaLanding`.
+ */
+export function rutaInternaL(slug: string, ruta = ''): string {
+  return `${PREFIJO_PUBLICO}/${slug}${ruta ? `/${ruta}` : ''}`;
 }

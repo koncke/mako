@@ -40,6 +40,7 @@ import { partesExplicitas, pasosUsanAudio, problemaDePartes, sanearPartes } from
 import { partesDeMako, esTarjetaTalCual, armarAvisoDeTarjeta, resultadoDelAviso, textoDePreparadas, type PartePreparada } from '@/lib/mako-tarjeta';
 import { prepararPartesGrupo, problemaDePartesGrupo } from '@/lib/mako-tarjeta-envio';
 import { getSettingData, guardarEstrategia, probarSecuencia, muestraParaCriterio, productosConEtapas, TriggerInvalidoError } from '@/lib/setting-secuencias';
+import { flujoParaProbar, escenariosDePrueba, hechosDeLeadNuevo, leadNuevoDelCron } from '@/lib/simulador-grafo';
 import {
   PLANTILLAS, plantillaPorId, canalesDe, eleccionEnPalabras, CANALES_PLANTILLA, OBJETIVOS_PLANTILLA, type PlantillaAutomatizacion,
 } from '@/lib/plantillas-automatizaciones';
@@ -272,6 +273,8 @@ export const RUNNERS: Runners = {
           // EL AI STEP sí contesta, y lo que contesta vive ADENTRO de la tarjeta: sus escenarios van en `escenarios`
           // (`fichaPasoIA`), no como los casos de un «Si responde» (que no dirían su libertad).
           ramas: p.ramas ?? null, casos: esPasoIA(p) ? undefined : p.casos ?? null, si_no: p.si_no ?? null, paralelos_si_no: p.paralelos_si_no ?? null, destino: p.destino ?? null,
+          // El CRON: qué hace cada camino cuando el lead contesta (14/10/2026). Sin la clave, el de fábrica (sigue).
+          ...(p.nodo === 'inicio' ? { paralelos: p.paralelos ?? [] } : {}),
           ...(esPasoIA(p) ? fichaPasoIA(p) : {}),
         }) : esPasoAccion(p) ? ({
           // Un paso «⚡ Acción de MaKo» no manda un mensaje: corre esta operación del registro.
@@ -296,6 +299,26 @@ export const RUNNERS: Runners = {
           'Los [tu link …] salen literales al lead: nada los reemplaza.',
           'activa=true no garantiza envíos: mira estado_canal_whatsapp_chatbot.',
         ],
+      });
+    },
+  },
+
+  escenarios_secuencia: {
+    leer: async (input) => {
+      const id = num(input, 'secuenciaId');
+      const { secuencias } = await getSettingData();
+      const s = secuencias.find((x) => x.id === id);
+      if (!s) return errorLectura(noExiste(id));
+      // El MISMO flujo y el MISMO lead recién llegado que «Probar» (app/automations/PanelProbar.tsx).
+      const pasos = flujoParaProbar(s.pasos as PasoGrafo[], s.estrategia, { idDeClave: (clave) => secuencias.find((x) => x.clave === clave)?.id ?? null }).pasos;
+      const { escenarios, faltan } = escenariosDePrueba(pasos, {
+        hechos: hechosDeLeadNuevo(leadNuevoDelCron(s)),
+        cuenta: (p) => (p.canal ?? 'whatsapp') === 'whatsapp',
+      });
+      return json({
+        id: s.id, nombre: s.nombre,
+        escenarios: escenarios.map((e, k) => ({ numero: k + 1, camino: e.pasos, mensajes_whatsapp: e.mensajes })),
+        faltan,
       });
     },
   },

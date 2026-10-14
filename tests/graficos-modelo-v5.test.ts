@@ -244,7 +244,8 @@ test('los tipos nuevos: barra de proporción, línea de tiempo, tarjetas, mapa d
 // Rotura: dejar el rectángulo en TIPOS_ELEMENTO → 12 / 1 (éste). La sección sin forzar x=0/w=12 → 12 / 1 (éste).
 // La ficha aceptada en la hoja → 12 / 1 (éste). Sin el tope de cajas de IA → 12 / 1 (éste).
 test('elementos: fuera las formas; sección a lo ancho; IA, ficha y acción con sus objetos y topes', () => {
-  assert.deepEqual(TIPOS_ELEMENTO.map((t) => t.id).sort(), ['accion', 'enlace', 'entidad', 'flecha', 'ia', 'imagen', 'insertado', 'linea', 'seccion', 'texto', 'video']);
+  // 14/10/2026: 'general' = un bloque de la tab General (lib/general-piezas.ts), el mismo editor con otro informe.
+  assert.deepEqual(TIPOS_ELEMENTO.map((t) => t.id).sort(), ['accion', 'enlace', 'entidad', 'flecha', 'general', 'ia', 'imagen', 'insertado', 'linea', 'seccion', 'texto', 'video']);
   assert.equal(sanearElemento({ tipo: 'rectangulo' }), null);
   assert.equal(sanearElemento({ tipo: 'circulo' }), null);
 

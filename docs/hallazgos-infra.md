@@ -5855,3 +5855,45 @@ solo template.
 
 **Vive en:** `app/m/_ui/tema.ts` · `app/_components/TemaOscuroScript.tsx` · `tests/minificador-templates.test.ts` ·
 *2026-10-13 chat MaKo Mobile (cuenta 2)*
+
+## La zona del ws1 era Buenos Aires: los recordatorios decían la hora de otro país (bug 8, 14/10/2026)
+
+Síntoma (reunión del 13/10, Mauricio): «los temporizadores no coinciden con los textos» de los recordatorios por WhatsApp.
+El diagnóstico obvio era la plantilla o el cálculo de `{{reunion_faltan}}` (los dos estaban bien, medido). Lo que estaba mal
+era el DATO: `mako.timezone` del ws1 (Mauricio, Mexicali) era `America/Argentina/Buenos_Aires`, con origen «navegador» y
+`por: mbustos@elevate.com.mx`, escrito el 12/10 02:00 UTC por `detectarZonaAction`. La regla de quién cuenta como «el
+usuario» se cumplió (era la sesión de un admin propio): alguien entró con la cuenta de Mauricio desde Argentina, o su
+máquina tiene mal la zona. Medido en un envío real: la reunión de Guillermo (lead 2593) era a las 10:00 de Tijuana y los
+recordatorios dijeron «mañana a las 2:00 p. m.» y «empieza en 59 minutos, a las 2:00 p. m.». También corría con esa zona
+el horario de envío del negocio. Se corrigió a `America/Tijuana` con origen «persona» (la detección ya no la pisa).
+Las demás zonas medidas el 14/10 son coherentes (Leila en Cancún; Código Inmobiliario, Leandro y Martín en Argentina).
+**Regla:** una detección automática mide la máquina de quien mira, no al negocio: el navegador de un admin propio
+también puede estar en otro país. **Sin hacer:** cruzarla antes de escribir con señales del propio negocio (el país de
+su número de WhatsApp, la zona de su Calendly o de su cuenta de Meta) y no escribir si no coinciden.
+
+**Vive en:** `app/_components/zona-actions.ts` (`detectarZonaAction`) · `lib/timezone.ts` (`fijarZonaDelNegocio`) · `lib/zona-negocio-reglas.ts`
+
+## Mergear en el worktree de un push mientras corre su pre-push: el tsc lee un árbol MEZCLADO (14/10/2026)
+
+**Síntoma:** el push integrado se bloqueó con 13 «has no exported member» (`basesLandings`, `urlPublicaLanding`,
+`rutaInternaL`, `urlLandingVigente`) en archivos del Landing Generator, con los exports a la vista en el archivo.
+
+**Causa:** el pre-push corre `tsc` sobre el ÁRBOL DE TRABAJO, no sobre el commit que se pushea, y tarda ~3 min. El push
+salió a las 12:49:28 con HEAD `50a111b1c`; a las 12:49:46 el orquestador mergeó `landing-int` en el MISMO worktree
+(`11cecb1ee`). El `tsc` leyó `lib/app-url.ts` antes del merge y `lib/editor-landing/*.ts` después. Y lo que viaja es el
+HEAD del momento del push (`50a`), no lo que quedó en el disco: aun en verde, el push habría mandado otra cosa que la
+chequeada.
+
+⚠️ **El diagnóstico obvio era el equivocado:** «el merge de landing perdió los exports». Lo descarta un comando por lado:
+`git show 50a111b1c:lib/app-url.ts | grep -c basesLandings` → 0, en `11cecb1ee` → 5, en el disco → presentes.
+
+**Regla:** un worktree con un push en curso NO se toca —ni merge, ni checkout, ni edición— hasta que el push termine. Lo
+que haya que sumar espera al próximo, o va a otro worktree. Y ante un «no exported member» sobre un export que está en el
+archivo: `git show <commit>:<ruta>` de los dos lados, y la hora del merge contra la hora del push.
+
+**En la misma corrida había dos errores REALES**, del CRM juntado con Automations: `TS2589` en
+`lib/sugerencias-crm-server.ts:126` (va `as unknown as ConsultaPaginada`, como `lib/email-marketing.ts`) y el `id`
+opcional de un paso en `tests/sugerencias-crm.test.ts`. Arreglados en `b8b41ab8b`. Separar lo falso de lo real fue mirar
+qué archivos tocaba el merge de la carrera: los del CRM no estaban.
+
+**Vive en:** `.git/hooks/pre-push` (chequea el disco) · el procedimiento del push integrado, en `docs/relevo/estrategia-3-cuentas.md`

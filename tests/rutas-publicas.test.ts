@@ -173,3 +173,17 @@ test('las landings publicadas (/l) entran sin sesión, y sólo para LEER', () =>
   // El prefijo es «/l» más la barra: la tab del editor (con sesión) también empieza con «/l».
   for (const r of ['/landing-generator', '/landing-generator/12', '/landing-writer', '/lx']) assert.equal(esPublica(r), false, r);
 });
+
+test('el «Botón de pago» de una landing: el paso es de /l (sólo leer) y el POST es UNA ruta exacta de /api (tanda 4)', () => {
+  // El paso de nombre y email lo abre un visitante: entra por `/l`, y como no es /api/ sólo se LEE.
+  assert.equal(esPublica('/l/mi-landing/pagar/12'), true);
+  assert.equal(esPublicaSoloLeer('/l/mi-landing/pagar/12'), true);
+  // El formulario postea acá: público y de ESCRITURA (es /api/, el proxy no lo corta por método).
+  assert.equal(esPublica('/api/landing-generator/pagar'), true);
+  assert.equal(esPublicaSoloLeer('/api/landing-generator/pagar'), false);
+  assert.equal(esPublicaSoloLectura('/api/landing-generator/pagar'), false);
+  // El editor (con sesión) no se abre por la misma puerta: ni la ruta de los documentos ni sus vecinas.
+  for (const r of ['/api/landing-generator', '/api/landing-generator/ia', '/api/landing-generator/dominio', '/api/landing-generator/pagarx', '/api/landing-generator/cobro']) {
+    assert.equal(esPublica(r), false, r);
+  }
+});

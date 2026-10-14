@@ -28,7 +28,7 @@
 // Sin ninguna pasarela conectada no hay asistente: un renglón corto que lleva a /integraciones.
 
 import { useEffect, useState, type CSSProperties } from 'react';
-import Link from '@/app/_ui/Link';
+import { BotonIntegracion } from '@/app/_components/ConectarIntegracion';
 import { Button, ButtonLink, useOkFlash } from '@/app/_ui';
 import { WizardShell, wizardInput } from '@/app/_components/WizardShell';
 import { NOMBRE_PASARELA, type Pasarela, type TipoCobro } from '@/lib/cobros-tipos';
@@ -53,7 +53,8 @@ export function CobrarConLink({ lead, pasarelas, productos, onCreado }: {
     return (
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', fontSize: 13, color: 'var(--dim)', fontFamily: SANS }}>
         Conecta Stripe o Mercado Pago para cobrar con un link.
-        <Link href="/integraciones" style={{ color: 'var(--primary)', fontWeight: 600, textDecoration: 'none' }}>Conectar →</Link>
+        <BotonIntegracion servicio="stripe" style={{ color: 'var(--primary)', fontWeight: 600 }}>Stripe</BotonIntegracion>
+        <BotonIntegracion servicio="mercadopago" style={{ color: 'var(--primary)', fontWeight: 600 }}>Mercado Pago</BotonIntegracion>
       </span>
     );
   }

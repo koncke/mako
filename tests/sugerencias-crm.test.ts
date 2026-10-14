@@ -230,8 +230,8 @@ test('lo que se PROPONE es lo que se ejecuta: «Un Lead No Avanzó» dice el pla
   const p = plantillaPorId('lead-no-avanzo')!;
   const pasoDe = new Map(p.pasos.map((x) => [x.id, x]));
   let paso = p.pasos[0]; let minutos = 0; const vistos = new Set<string>();
-  while (paso && !paso.accion && !vistos.has(paso.id)) {
-    vistos.add(paso.id);
+  while (paso && !paso.accion && !vistos.has(String(paso.id))) {
+    vistos.add(String(paso.id));
     if (paso.nodo === 'esperar') minutos += paso.espera!.minutos;
     paso = pasoDe.get(String(paso.nodo === 'condicion' ? paso.ramas?.[0]?.siguiente : paso.siguiente))!;
   }

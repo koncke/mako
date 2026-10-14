@@ -82,12 +82,13 @@ import { OP_AVISAR, puedePisarFlujo } from '@/lib/flujo-legado';
 import {
   indiceActual, siguienteIndice, resolverControl, necesitaHechos, alcanzablesDesde, esPrimerPaso, minutosAntesDeReunion,
   saleSolo, siguienteSin, siguienteCon, hechosDeLead, esTablaInexistente, mediaDeAdjunto, camposDelFlujo, pasoDeEntrada,
+  condicionDeArriba, condicionSigueLlevando,
   esNodoDeControl, RELLENO_CONTROL, TOPE_SALTOS, esColumnaInexistente, etiquetasQueCuentan, barridoInscribe, irAEstaMisma,
   avisoSalio, frenadoPorAntiBan, anotarEnCorrida,
   filasDelFlujo, catalogoDeLead, resumenCursoDeAlumno, resumenPagos,
   // El CARRIL DEL RECORDATORIO (undécima tanda, M3 y M4), puro y con test (tests/motor-carril-recordatorio.test.ts).
   tieneCarril, esTarjetaMako, esHiloDelCarril, seMueveEnLaCorrida, pasaPorAntiBan, cuentaParaElCupo, decidirToqueDelCarril,
-  alResponder, estadoAlEscribir, aplazaParaNoTapar, APLAZO_SIN_TAPAR_MS,
+  estadoAlEscribir, aplazaParaNoTapar, APLAZO_SIN_TAPAR_MS,
   type FilaHechos, type RecientesPorCanal, type EnviadoEnCorrida, type FilaLeadCatalogo,
 } from '@/lib/nutricion-grafo-motor';
 import {
@@ -428,6 +429,20 @@ function haceDiasISO(dias: number): string {
 }
 
 // ── Secuencias ───────────────────────────────────────────────────────────────
+
+/**
+ * LAS AUTOMATIZACIONES PAUSADAS (apagadas, sin archivar): sus inscripciones se CONGELAN. Martín, 14/10/2026: «Pausar»
+ * → «Congela y sigue donde estaba» (al reactivar, cada lead sigue en su paso y lo vencido sale al reactivar). Hasta el
+ * 14/10 el motor no las encontraba entre las activas y CERRABA cada inscripción que le vencía (`!sec`: 'completada',
+ * sin rastro): pausar era terminar, y al reactivar nadie seguía. Una regla escondida. Si no se pueden leer, tira: la
+ * corrida no avanza, que es mejor que volver a cerrarlas.
+ */
+async function idsDePausadas(db: Awaited<ReturnType<typeof getTenantDb>>): Promise<number[]> {
+  const { data, error } = await db.from('nutricion_secuencias').select('id').eq('activa', false).is('archivada_at', null);
+  if (error) throw new Error(`las automatizaciones pausadas: ${error.message}`);
+  return ((data ?? []) as Array<{ id: number }>).map((r) => Number(r.id)).filter((n) => Number.isInteger(n) && n > 0);
+}
+
 export async function getSecuenciasActivas(): Promise<Secuencia[]> {
   const supabase = (await getTenantDb());
   const rows = await leerFilasDeSecuencias((cols) => supabase
@@ -607,6 +622,16 @@ export async function setSecuenciaActiva(id: number, activa: boolean): Promise<v
     .update({ activa, updated_at: ahoraISO() })
     .eq('id', id);
   if (error) throw new Error(`setSecuenciaActiva: ${error.message}`);
+  // «Pausar» CONGELA (14/10/2026, `idsDePausadas`): al reactivar, lo que venció durante la pausa sale YA. La columna se
+  // pone en «ahora» para que la vea el tick de cada minuto (mira lo que acaba de vencer); los hilos guardan cada uno su
+  // hora y ya están vencidos. Un error acá no deshace la activación: la corrida de cada hora lo levanta igual.
+  if (activa) {
+    const ahora = ahoraISO();
+    const { error: eV } = await supabase.from('nutricion_inscripciones')
+      .update({ proximo_envio_at: ahora, updated_at: ahora })
+      .eq('secuencia_id', id).in('estado', ['activa', 'respondio']).lt('proximo_envio_at', ahora);
+    if (eV) console.error(`[nutricion] reactivar la ${id}: lo vencido durante la pausa sale en la corrida de la hora (${eV.message})`);
+  }
 }
 
 /**
@@ -2291,7 +2316,9 @@ export async function inscribirEnSecuencia(
 
   const aTiempoOk = (await aTiempo(supabase, { antiguedad_max_horas: parseEstrategia(s.estrategia)?.antiguedad_max_horas ?? null, pasos }, [leadId])).length > 0;
   const entraAnclada = pasoDeEntrada(pasos)?.ancla === 'reunion';
-  const sinReunion = (entraAnclada || prepara) && laReunionYaPaso(lead, { anclada: entraAnclada });
+  // Sólo si ENTRA por un paso anclado (un «N antes de la reunión»: sin reunión no tiene a qué hora salir). Desde el
+  // 14/10/2026 un flujo que «prepara una reunión» ya no rechaza por su cuenta: lo dice su condición visible.
+  const sinReunion = entraAnclada && laReunionYaPaso(lead, { anclada: true });
   const fueraDelResiduo = s.trigger_tipo === TRIGGER_RESIDUO && !(await residuoVigente(supabase, [leadId])).has(leadId);
   let enLaOtraMitad = false;
   if (FAMILIA_POST_AGENDA.includes(s.trigger_tipo)) {
@@ -2377,8 +2404,13 @@ async function inscripcionesVencidas(): Promise<InscripcionVencida[]> {
     // Y LAS 'respondio' CON EL CARRIL VIVO (undécima tanda, M4): el lead contestó, pero sus recordatorios siguen.
     // `pausarPorRespuesta` les deja el próximo envío sólo a ésas (a las demás se lo saca), así que una 'respondio'
     // vencida es siempre una del carril.
+    // Lo de una pausada no sale (`idsDePausadas`): la vista previa tampoco lo cuenta.
+    const pausadas = await idsDePausadas(supabase);
     return await leerTodo<InscripcionVencida>(supabase, 'nutricion_inscripciones', 'id, lead_id, secuencia_id, paso_actual, nodo_actual', {
-      orden: 'id', filtros: (q) => q.in('estado', ['activa', 'respondio']).lte('proximo_envio_at', ahora) as ConsultaPaginada,
+      orden: 'id', filtros: (q) => {
+        const base = q.in('estado', ['activa', 'respondio']).lte('proximo_envio_at', ahora);
+        return (pausadas.length ? base.not('secuencia_id', 'in', `(${pausadas.join(',')})`) : base) as ConsultaPaginada;
+      },
     });
   } catch (e) {
     throw new Error(`inscripcionesVencidas: ${e instanceof Error ? e.message : String(e)}`);
@@ -3789,6 +3821,8 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
     return true;
   };
 
+  // «Pausar» CONGELA (14/10/2026): lo de una automatización pausada no se levanta (antes se cerraba por `!sec`).
+  const pausadas = await idsDePausadas(supabase);
   while ((!cupoLleno() || sinTopeWa.length > 0) && rondas < 6) {
     rondas += 1;
     // Una acción de esta vuelta dejó su inscripción con el paso siguiente ya vencido.
@@ -3804,6 +3838,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
     // Vía rápida de UN lead (enrolamiento por evento): reusa TODO el motor
     // (anti-ban, audio, borradores, gates) sin esperar la corrida del cron.
     if (opts?.soloLeadId) q = q.eq('lead_id', opts.soloLeadId);
+    if (pausadas.length) q = q.not('secuencia_id', 'in', `(${pausadas.join(',')})`);
     // El tick: sólo lo que venció hace poco (ver la firma). Lo que esta misma corrida acaba de
     // mover a un paso que ya toca vence AHORA, así que sigue adentro.
     if (opts?.vencidasDesde) q = q.gte('proximo_envio_at', opts.vencidasDesde);
@@ -3902,10 +3937,11 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       // ── LOS HILOS (segunda tanda): una fila nueva con varias raíces se reparte; con hilos, se
       // toma UNO —el vencido más antiguo que no se miró en esta corrida en esa tarjeta— y se lo
       // trata como el cursor de siempre. Si quedan otros vencidos, la fila vuelve a la cola.
-      // ── QUÉ PUEDE MOVER ESTA CORRIDA (undécima tanda, `seMueveEnLaCorrida`): de una fila en 'respondio' (el lead
-      // contestó), SÓLO su carril del recordatorio (M4); fuera del horario, el carril y «MaKo en WhatsApp» (M3 f).
+      // ── QUÉ PUEDE MOVER ESTA CORRIDA (undécima tanda, `seMueveEnLaCorrida`): fuera del horario, el carril y «MaKo en
+      // WhatsApp» (M3 f). Una fila en 'respondio' (el lead contestó) se mueve igual que una activa desde el 14/10/2026:
+      // lo que corta es la condición visible «No contestó desde que entró», que lee `contestoEnEsta` (abajo).
       const enRespuesta = insc.estado === 'respondio';
-      const seMueve = (i: number): boolean => !!sec && seMueveEnLaCorrida(sec.pasos, i, { enRespuesta, fueraDeHorario: fueraDeHorario != null });
+      const seMueve = (i: number): boolean => !!sec && seMueveEnLaCorrida(sec.pasos, i, { fueraDeHorario: fueraDeHorario != null });
       let hs = sanearHilos(insc.hilos);
       if (sec && !hs && esFilaNueva(insc) && raicesSalida(sec.pasos).length > 1) {
         hs = await repartirAlEntrar(supabase, insc, sec.pasos, (n) => proximoEnvioDePaso(nodoPorId(sec.pasos, n) ?? undefined, lead));
@@ -3913,9 +3949,8 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       }
       if (sec && hs) {
         const vencidos = hilosVencidos(hs, Date.now()).filter((x) => !hilosVistos.has(`${insc.id}:${x.h}:${x.nodo}`));
-        // Fuera del horario, los que no corren igual se quedan como están (salen al abrir). En una 'respondio' no se
-        // filtran: uno que no es del carril se cierra más abajo (no debería quedar ninguno: `alResponder`).
-        const libres = fueraDeHorario && !enRespuesta ? vencidos.filter((x) => seMueve(indicePorId(sec.pasos, x.nodo))) : vencidos;
+        // Fuera del horario, los que no corren igual se quedan como están (salen al abrir).
+        const libres = fueraDeHorario ? vencidos.filter((x) => seMueve(indicePorId(sec.pasos, x.nodo))) : vencidos;
         // Y los que se quedan, si la fila tiene el carril pendiente, se aplazan para no taparlo (`aplazaParaNoTapar`).
         for (const x of vencidos) {
           if (libres.includes(x) || !aplazaParaNoTapar(sec.pasos, sanearHilos(insc.hilos), x.h)) continue;
@@ -3956,15 +3991,8 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         }
         continue;
       }
-      if (!seMueve(idxLeido)) {
-        // Lo de una 'respondio' que no es del carril se CORTA (sigue en 'respondio', sin próximo envío): es lo que
-        // `pausarPorRespuesta` hace con todo lo demás. Fuera del horario, no se toca: sale al abrir.
-        if (enRespuesta) {
-          await escribir(insc, { estado: 'completada', proximo_envio_at: null }, { modo: 'cas' });
-          res.detalle.push({ lead_id: insc.lead_id, canal: pasoLeido.canal, estado: 'saltado', nota: 'el lead contestó: sólo siguen los recordatorios' });
-        }
-        continue;
-      }
+      // Fuera del horario, no se toca: sale al abrir.
+      if (!seMueve(idxLeido)) continue;
 
       // ── LOS NODOS DE CONTROL, ANTES DE LAS GUARDAS (diseño §2) ─────────────────────
       // Una condición, una espera o un «Ir a» no mandan nada: se RESUELVEN (`resolverControl`,
@@ -3974,7 +4002,8 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       if (esNodoDeControl(pasoLeido)) {
         const leidos = necesitaHechos(sec.pasos, idxLeido) ? await hechosDe(insc.lead_id) : null;
         // Los hechos son del LEAD (una lectura por lote); las etapas del CRON son de ESTA automatización.
-        const hechos = leidos ? conEtapasDelCron(leidos, sec.disparadores ?? disparadoresDe(sec), sec.funnel_id ?? null) : null;
+        // Y si el lead contestó desde que entró, también es de ESTA inscripción (`contestoEnEsta`, la condición `contesto`).
+        const hechos = leidos ? { ...conEtapasDelCron(leidos, sec.disparadores ?? disparadoresDe(sec), sec.funnel_id ?? null), contestoEnEsta: enRespuesta } : null;
         // Un flujo con carril ancla su DELAY «antes de la reunión» en la reunión CON HORA (M3 a; sin ella y con
         // fecha, `sin_hora` cierra ese hilo, M3 g). Uno sin carril no tiene esa espera: lo de siempre.
         const reunionConHoraMs = tieneCarril(sec.pasos) ? await reunionConHoraDe(lead) : undefined;
@@ -4061,12 +4090,8 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         insc.nodo_actual = idDe(destino, r.idx);
         if (!enSuHora) { res.detalle.push({ lead_id: insc.lead_id, canal: destino.canal, estado: 'saltado', nota: 'espera su hora' }); continue; }
         if (cupoLleno() && !sigueSinCupo(sec.pasos, r.idx)) { await aplazarSiTapa(insc, sec); continue; }
-        // Lo que esta corrida no puede mover (fuera del horario, o lo de una 'respondio' que no es del carril):
-        // queda en su tarjeta y sale al abrir; en una 'respondio', se corta.
-        if (!seMueve(r.idx)) {
-          if (enRespuesta) await escribir(insc, { estado: 'completada', proximo_envio_at: null }, { modo: 'cas' });
-          continue;
-        }
+        // Lo que esta corrida no puede mover (fuera del horario) queda en su tarjeta y sale al abrir.
+        if (!seMueve(r.idx)) continue;
       } else if (idxLeido !== insc.paso_actual || (insc.nodo_actual != null && insc.nodo_actual !== idDe(pasoLeido, idxLeido))) {
         // La fila decía otra posición que la del nodo (una fila que nunca avanzó, con la entrada
         // más abajo en el array; o un array reordenado): se alinea ANTES de seguir, porque todo
@@ -4078,6 +4103,29 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         insc.paso_actual = idxLeido;
         insc.nodo_actual = idDe(pasoLeido, idxLeido);
       }
+      // ── LA CONDICIÓN DE ARRIBA, OTRA VEZ (14/10/2026, §2.2 del plan «nada por detrás») ─────────
+      // La fila despertó PARADA en un mensaje (un reintento, un borrador que esperaba, el anti-ban, el horario): la
+      // condición que está justo arriba se vuelve a evaluar con los hechos de ahora. Si ya no lleva acá, este camino
+      // termina, con su rastro. Así «Su reunión sigue en pie» delante del mensaje vale también para el reintento, y la
+      // guarda escondida «la reunión ya pasó» se puede borrar (docs/diseno-mako-nada-por-detras.md §2.3).
+      if (!esNodoDeControl(pasoLeido)) {
+        const idxCond = condicionDeArriba(sec.pasos, insc.paso_actual);
+        if (idxCond != null) {
+          const leidos = await hechosDe(insc.lead_id);
+          const hechos = leidos ? { ...conEtapasDelCron(leidos, sec.disparadores ?? disparadoresDe(sec), sec.funnel_id ?? null), contestoEnEsta: enRespuesta } : null;
+          if (hechos && !condicionSigueLlevando(sec.pasos, idxCond, insc.paso_actual, hechos)) {
+            const ahora = sec.pasos[insc.paso_actual];
+            if (await escribir(insc, { estado: 'completada', proximo_envio_at: null }, { modo: 'cas', alcance: 'hilo' })) {
+              res.omitidos += 1;
+              await anotarCierreSinEnvio(insc, ahora, lead, 'la condición de arriba ya no lleva a este mensaje');
+              res.detalle.push({ lead_id: insc.lead_id, canal: ahora.canal, estado: 'omitido', nota: 'la condición de arriba ya no lleva a este mensaje' });
+            } else {
+              res.detalle.push({ lead_id: insc.lead_id, canal: ahora.canal, estado: 'saltado', nota: 'otra corrida ya movió esta inscripción' });
+            }
+            continue;
+          }
+        }
+      }
       // El nodo que se manda o se corre: el que se leyó, o al que llegó la resolución de arriba
       // (las dos ramas dejaron `paso_actual` en su índice).
       const paso = sec.pasos[insc.paso_actual];
@@ -4086,22 +4134,22 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       const minAntes = minutosAntesDeReunion(sec.pasos, insc.paso_actual);
       const anclada = paso.ancla === 'reunion' || minAntes != null;
 
-      // Pasos ANCLADOS a la reunión (#18): la agenda se re-valida AL MOMENTO de
-      // enviar, no solo al programar. (1) Sin reunión futura → la inscripción se
-      // cierra sin enviar (un recordatorio tardío es peor que ninguno). (2) Si el
-      // objetivo re-calculado quedó en el futuro (reagenda, drift por espera de
-      // canal), el paso se re-ancla y espera su hora.
-      // Lo de «sin reunión futura no hay nada que mandar» vale para el paso anclado Y para
-      // toda la post-agenda, cuyos pasos NO están anclados (salen 1 h y 24 h después de
-      // agendarse). Ver `preparaReunion`: con la línea caída, el reintento diario empujó a
-      // dos leads reales de Mauricio hasta DESPUÉS de su reunión. (Undécima tanda, M2: por la FORMA del flujo,
-      // así vale también para «Un Lead Agendó Llamada», colgado de la etapa «Agenda R1».)
-      if (anclada || preparaReunion(sec)) {
-        // Una fecha SIN hora vale hasta que termina su día salvo para un paso anclado (`laReunionYaPaso`, bug 5 del 13/10/2026).
-        if (laReunionYaPaso(lead, { anclada })) {
+      // Pasos ANCLADOS a la reunión (#18, el DELAY «N antes de la reunión»): sin reunión por delante, ESE camino
+      // termina sin enviar (un recordatorio tardío es peor que ninguno); si se movió, se re-ancla. Es lo que el DELAY
+      // dice que hace: sin una reunión no hay «N antes».
+      //
+      // ⚠️ DESDE EL 14/10/2026 YA NO HAY GUARDA ESCONDIDA para el resto del flujo («la reunión ya pasó» antes de cada
+      // mensaje de un flujo que `preparaReunion`). Martín: «jamás que "mako" haga cosas que no están en el flujo». Lo
+      // dice una CONDITION visible, «Su reunión sigue en pie», delante del mensaje (las plantillas la traen y las
+      // automatizaciones prendidas la recibieron: scripts/migrar-condicion-reunion.ts), y el reintento la vuelve a pasar
+      // antes de mandar (`condicionDeArriba`, arriba): el caso del 25/09 (la preparación empujada hasta después de la
+      // reunión por los reintentos) queda cubierto por ahí. Y cierra el CAMINO, no la inscripción: un recordatorio sin
+      // reunión no corta la bienvenida del camino de al lado.
+      if (anclada) {
+        if (laReunionYaPaso(lead, { anclada: true })) {
           res.omitidos += 1;
           res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'omitido', nota: 'la reunión ya pasó' });
-          await escribir(insc, { estado: 'completada', proximo_envio_at: null }, { modo: 'fila', alcance: 'inscripcion' });
+          await escribir(insc, { estado: 'completada', proximo_envio_at: null }, { modo: 'fila', alcance: 'hilo' });
           await anotarCierreSinEnvio(insc, paso, lead, 'la reunión ya pasó');
           continue;
         }
@@ -4938,22 +4986,21 @@ export async function pausarPorRespuesta(leadId: number, opts?: { texto?: string
     if (esColumnaInexistente({ message: msg })) throw new Error(`pausarPorRespuesta: no toqué al lead ${leadId}, falta una migración (${msg})`);
     console.error(`[nutricion] leer las secuencias antes de pausar al lead ${leadId}: ${msg}`);
   }
-  // ⚠️ UNA RESPUESTA NO APAGA EL CARRIL DEL RECORDATORIO (undécima tanda, M4). Las inscripciones de una
-  // automatización con DELAY «antes de la reunión» (`tieneCarril`) pasan a 'respondio' de a una, dejando vivos los
-  // hilos del carril con su próximo envío (`alResponder`); el motor mueve sólo ésos (`seMueveEnLaCorrida`). Las demás,
-  // como siempre, en un solo update. Sin poder leer las secuencias, todas como siempre: apagar un recordatorio es
-  // la dirección segura.
-  const conCarril = (secsActivas ?? []).filter((s) => tieneCarril(s.pasos));
-  let q = supabase
+  // ⚠️ QUE EL LEAD CONTESTE NO CORTA NADA POR SU CUENTA (14/10/2026). Hasta ese día era una regla escondida: cualquier
+  // mensaje del lead frenaba todo lo que tenía por delante salvo el carril del recordatorio (M4), y así no salió la
+  // bienvenida del bug 5. Martín: «"Si el lead contesta" NO debería ir en el CRON, debería ser una CONDITION». Acá
+  // sólo se ANOTA que contestó ('respondio', con su posición, sus hilos y su próximo envío intactos); lo que corta es
+  // la condición «No contestó desde que entró» (`contesto`) que la persona pone en el lienzo, y que el motor vuelve a
+  // pasar antes de mandar (`condicionDeArriba`). Sin tocar la posición no hace falta compare-and-set: si el motor la
+  // mueve a la vez, su escritura (contra 'activa') no pasa y la mueve la corrida que viene, ya en 'respondio'.
+  const { data, error } = await supabase
     .from('nutricion_inscripciones')
-    .update({ estado: 'respondio', proximo_envio_at: null, updated_at: ahoraISO() })
+    .update({ estado: 'respondio', updated_at: ahoraISO() })
     .eq('lead_id', leadId)
-    .eq('estado', 'activa');
-  if (conCarril.length) q = q.not('secuencia_id', 'in', `(${conCarril.map((s) => s.id).join(',')})`);
-  const { data, error } = await q.select('id, secuencia_id');
+    .eq('estado', 'activa')
+    .select('id, secuencia_id');
   if (error) throw new Error(`pausarPorRespuesta: ${error.message}`);
   const pausadas = (data ?? []) as Array<{ id: number; secuencia_id: number }>;
-  if (conCarril.length) pausadas.push(...await pausarConCarril(supabase, leadId, conCarril));
 
   // RESPUESTA A UNA SECUENCIA QUE YA TERMINÓ (#788). Una inscripción 'completada' sin
   // desenlace ya mandó todo y está esperando: o contesta o vence el silencio. Si contesta
@@ -5041,55 +5088,6 @@ export async function pausarPorRespuesta(leadId: number, opts?: { texto?: string
     if (!atendida) await seguirCharla(leadId, charla, opts?.texto, opts?.linea ?? null, opts?.origen === 'no_oficial' ? 'no_oficial' : 'oficial');
   } catch (e) { console.error(`[nutricion] modo asistido lead ${leadId} falló:`, e); }
   return respondidas.length;
-}
-
-/**
- * Pasa a 'respondio' las inscripciones ACTIVAS de un lead en automatizaciones CON CARRIL (undécima tanda, M4), de a
- * una y con compare-and-set (la posición leída y `hilos_rev`): lo que queda vivo lo decide `alResponder` (los hilos
- * del carril, con su próximo envío). Si el motor la movió entre la lectura y la escritura, se relee (hasta tres
- * veces); si sigue moviéndose, se pausa como siempre, sin próximo envío: apagar un recordatorio es la dirección
- * segura. Devuelve las que pausó. Una lectura o escritura que falla TIRA, como el update de siempre.
- */
-async function pausarConCarril(
-  db: Awaited<ReturnType<typeof getTenantDb>>, leadId: number, secs: readonly Secuencia[],
-): Promise<Array<{ id: number; secuencia_id: number }>> {
-  type Fila = { id: number; secuencia_id: number; paso_actual: number; nodo_actual: string | null; proximo_envio_at: string | null; hilos: unknown; hilos_rev: number | null; estado?: string };
-  const COLS = 'id, secuencia_id, paso_actual, nodo_actual, proximo_envio_at, hilos, hilos_rev, estado';
-  const porId = new Map(secs.map((s) => [s.id, s]));
-  const { data, error } = await db.from('nutricion_inscripciones').select(COLS)
-    .eq('lead_id', leadId).eq('estado', 'activa').in('secuencia_id', [...porId.keys()]);
-  if (error) throw new Error(`pausarPorRespuesta (carril): ${error.message}`);
-  const out: Array<{ id: number; secuencia_id: number }> = [];
-  for (const leida of (data ?? []) as Fila[]) {
-    const sec = porId.get(leida.secuencia_id);
-    if (!sec) continue;
-    let fila: Fila | null = leida;
-    let hecho = false;
-    for (let intento = 0; intento < 3 && fila && !hecho; intento++) {
-      const { update } = alResponder(sec.pasos, fila, ahoraISO());
-      const rev = Number(fila.hilos_rev) || 0;
-      const base = db.from('nutricion_inscripciones')
-        .update({ ...update, estado: 'respondio', hilos_rev: rev + 1, updated_at: ahoraISO() })
-        .eq('id', fila.id).eq('estado', 'activa').eq('hilos_rev', rev).eq('paso_actual', fila.paso_actual);
-      const { data: upd, error: e } = await (fila.nodo_actual == null ? base.is('nodo_actual', null) : base.eq('nodo_actual', fila.nodo_actual)).select('id');
-      if (e) throw new Error(`pausarPorRespuesta (carril, inscripción ${fila.id}): ${e.message}`);
-      if (((upd ?? []) as unknown[]).length) { hecho = true; break; }
-      const relectura: { data: unknown; error: { message: string } | null } = await db.from('nutricion_inscripciones').select(COLS).eq('id', fila.id).maybeSingle();
-      if (relectura.error) throw new Error(`pausarPorRespuesta (carril, inscripción ${fila.id}): ${relectura.error.message}`);
-      const otra = relectura.data as Fila | null;
-      fila = otra && otra.estado === 'activa' ? otra : null;
-    }
-    if (!hecho && fila) {
-      const { data: upd, error: e } = await db.from('nutricion_inscripciones')
-        .update({ estado: 'respondio', proximo_envio_at: null, hilos: null, updated_at: ahoraISO() })
-        .eq('id', fila.id).eq('estado', 'activa').select('id');
-      if (e) throw new Error(`pausarPorRespuesta (carril, inscripción ${fila.id}): ${e.message}`);
-      hecho = ((upd ?? []) as unknown[]).length > 0;
-      if (hecho) console.warn(`[nutricion] lead ${leadId}: la inscripción ${fila.id} se pausó sin su carril (se movía mientras contestaba)`);
-    }
-    if (hecho) out.push({ id: leida.id, secuencia_id: leida.secuencia_id });
-  }
-  return out;
 }
 
 /**
@@ -5580,7 +5578,8 @@ async function responderConGrafo(c: CtxRespuesta, medio: MedioAIStep = 'whatsapp
         }))?.get(leadId) ?? null;
       }
       if (!hechos) { hecho.push('No pude leer lo que la condición necesita: me detuve ahí.'); noPudoDecidir = true; break; }
-      id = elegirSalida(p, conEtapasDelCron(hechos, secuencia.disparadores ?? disparadoresDe(secuencia), secuencia.funnel_id ?? null)).destino;
+      // Adentro de «Si responde» el lead acaba de contestar (`contestoEnEsta`, la condición `contesto`).
+      id = elegirSalida(p, { ...conEtapasDelCron(hechos, secuencia.disparadores ?? disparadoresDe(secuencia), secuencia.funnel_id ?? null), contestoEnEsta: true }).destino;
       continue;
     }
     if (clase === 'ir_a') {

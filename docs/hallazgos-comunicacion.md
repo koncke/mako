@@ -9760,3 +9760,25 @@ documentos… Y aún escribir un mensaje abajo… en todos los chats que consuma
 **HECHO (12/10):** `enviarTexto`, `enviarMedia` y `enviarAudio` devuelven el motivo de `motivoDeEvolution(status, cuerpo)` (`lib/evolution-sonda.ts`, pura; la arma `evFetch` como `motivo`): con `exists:false`, «Ese número no tiene WhatsApp»; si no, el mensaje de Evolution, arriba o anidado; recién sin nada, «Evolution <status>». Test: `tests/evolution-motivo.test.ts`. Los envíos de la voz de MaKo (`lib/mako-grupo.ts`, `lib/mako-tarjeta.ts`) tienen su propio `ev` y no pasan por acá.
 
 **SIN HACER:** validar el número con `whatsappNumbers` al guardarlo (`guardarDestinoDeQuienPrueba`, `lib/prueba-paso.ts:63`). **Regla:** un 400 de Evolution se lee por su `detalle` antes de decir nada; «Evolution 400» solo no es un diagnóstico.
+
+## TikTok sí (sólo para contestar), LinkedIn no, y «ManyChat no tiene TikTok» es falso (14/10/2026)
+
+Corrida de sólo lectura del chat de Automations (`claude2`), con el plan en docs/diseno-tiktok-linkedin.md.
+- **TikTok por Zernio, desde el 11/09/2026:** se reciben y se contestan DMs (webhook `message.received`, el mismo `POST
+  /v1/inbox/conversations/{id}/messages` que ya usa `enviarDm`). Sólo para CONTESTAR: TikTok prohíbe que la empresa escriba
+  primero. Tope de 10 mensajes en 48 h desde el último del usuario. Texto (≤6.000) O imagen, nunca los dos (`400
+  PLATFORM_LIMITATION`). Cuenta Business registrada fuera del EEE, Suiza y el Reino Unido. Comentarios: leer y responder en
+  público sí; comentario → DM, no (por la vía oficial, sólo Vietnam, Indonesia y Tailandia).
+- **LinkedIn:** no hay DMs para terceros (sólo 6 partners en Páginas). Las herramientas que lo hacen entran con la sesión
+  del usuario y arriesgan su cuenta (§8.2 del Acuerdo de Usuario). La política de desarrolladores prohíbe que una IA conteste
+  y prohíbe llevar sus datos a un CRM. Comentarios de Páginas sí, por la Community Management API o Zernio (por sondeo).
+- **El diagnóstico obvio era el equivocado:** «ManyChat no se conecta a TikTok». ManyChat tiene TikTok desde el 21/01/2025
+  (EE.UU. desde el 04/11/2025); lo que no tiene es el comentario → DM. Lo que queda como diferencial es el AI Step atado al
+  CRM y al funnel, con el mismo flujo en todos los canales.
+- **Trampas para leer las fuentes:** WebFetch no lee la doc de TikTok for Business; se lee por
+  `business-api.tiktok.com/gateway/api/doc/client/node/get/v2/?identify_key=c0138ffadd90a955c1f0670a56fe348d1d40680b3c89461e09f78ed26785164b&doc_id=<id>`.
+  La ayuda de ManyChat da 403; se lee por `help.manychat.com/api/v2/help_center/en-us/articles/<id>.json`. El openapi.yaml de
+  Zernio todavía no lista TikTok: para TikTok se filtra por `accountId`, no por `platform`.
+- **Nada de Zernio se probó con tráfico real:** el 12/10 los ws10, 11 y 13 tenían `webhook_ok=false`.
+
+**Vive en:** `lib/zernio.ts` · `lib/zernio-entrante.ts` · `lib/canal-zernio.ts` · `lib/canal-social.ts` · `app/api/webhooks/zernio/route.ts`

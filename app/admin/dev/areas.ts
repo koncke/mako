@@ -102,27 +102,28 @@ export const AREAS: AreaDev[] = [
   {
     slug: 'general', titulo: 'General', familia: 'Operate', grupo: 'General',
     estado: 'listo', verEnApp: '/general',
-    alcance: 'La casa del cliente al entrar: hero de la meta, resumen del mes, semáforo del negocio y worklist de pendientes.',
+    alcance: 'La casa de cada persona al entrar: el editor del Dashboard con su propio informe, las plantillas de General y los bloques de siempre (el objetivo y la acción del día, los KPIs, el semáforo, el mes) más los nuevos (mi día, llamadas, prioridades, cobranza, funnel, publicaciones).',
     vive: [
       'app/general/page.tsx', 'app/general/actions.ts', 'lib/queries.ts', 'lib/pagos.ts', 'lib/meta-health.ts',
-      // Las vistas personalizables (13/10/2026): cada persona elige bloques, orden y funnels u ofertas.
-      'app/general/BarraVistas.tsx', 'app/general/NuevaVista.tsx', 'app/general/EditarVista.tsx',
-      'app/general/Cobranza.tsx', 'app/general/Bloques.tsx', 'app/api/general',
-      'lib/general-vistas-modelo.ts', 'lib/general-vistas.ts', 'lib/general-alcance.ts', 'lib/general-vistas-ia.ts',
+      // Desde el 14/10/2026 General es el editor del Dashboard con su propio informe y sus bloques (lib/general-piezas.ts).
+      'app/general/Cobranza.tsx', 'app/general/datos.ts', 'app/general/datos-tipos.ts', 'app/general/ProveedorGeneral.tsx', 'app/general/bloques/',
+      'lib/general-alcance.ts', 'lib/general-piezas.ts', 'lib/general-plantillas.ts',
+      'app/dashboard/ElementoGeneral.tsx',
     ],
     proyectos: ['Feature: General'],
   },
   {
     slug: 'calendario', titulo: 'Calendario', familia: 'Operate', grupo: 'General',
     estado: 'listo', verEnApp: '/calendario',
-    alcance: 'La tab Calendario: publicaciones, bloques de trabajo y llamadas propias, con las reuniones del CRM, la agenda de Google, los deadlines del Plan y el Quarter leídos de donde viven. Plantillas de semana y «¿Qué vas a crear hoy?» (MaKo propone, la persona confirma).',
+    alcance: 'La tab Calendario: publicaciones, bloques de trabajo y llamadas propias, con las reuniones del CRM, la agenda de Google, los deadlines del Plan, las próximas veces de lo que se repite, los cobros que vencen y el Quarter leídos de donde viven. Plantillas de semana, «Agendar llamada» (Calendly o Cal.com) y conectar Google sin salir de la tab.',
     vive: [
-      'app/calendario', 'app/api/calendario', 'lib/calendario.ts', 'lib/calendario-modelo.ts', 'lib/calendario-ia.ts',
+      'app/calendario', 'lib/calendario.ts', 'lib/calendario-modelo.ts', 'lib/calendario-google.ts', 'lib/calendario-google-modelo.ts',
+      'lib/agenda-link.ts', 'app/_components/ConectarIntegracion.tsx', 'lib/integracion-en-tab.ts',
       'lib/api-mako/areas/calendario.def.ts', 'lib/api-mako/areas/calendario.run.ts',
       'supabase/migrations/0271_calendario_eventos.sql', 'tests/calendario.test.ts',
     ],
     hallazgos: 'hallazgos-calendario',
-    nota: 'La agenda de Google se DIBUJA y nada más: ni la IA del Calendario ni su área de la API la leen (la agenda no pasa por IA). Y las reuniones del CRM tienen la fecha sin hora (fecha_junta_1) y con hora (junta_1_at) en dos columnas distintas.',
+    nota: 'La agenda de Google se DIBUJA y nada más: su área de la API no la lee (la agenda no pasa por IA; el Calendario ya no tiene IA propia). Las reuniones del CRM tienen la fecha sin hora (fecha_junta_1) y con hora (junta_1_at) en dos columnas, y una cancelada conserva la hora y pierde la fecha.',
   },
   {
     slug: 'foco-hoy', titulo: 'Foco / Hoy', familia: 'Operate', grupo: 'General',
@@ -595,7 +596,7 @@ export const AREAS: AreaDev[] = [
     // área con poca historia, da un área invisible (AGENTS.md, «Una ruta que apunta a la nada…»).
     slug: 'landing-generator', titulo: 'Landing Generator', familia: 'Sales Machine',
     estado: 'listo', verEnApp: '/landing-generator',
-    alcance: 'El editor de landings y presentaciones copiado de Gamma 5: Panel con una barra de documentos (landings, presentaciones y páginas de afuera analizadas, cada una con su «⋯»), la caja «¿Qué vas a crear hoy?» con dictado y las plantillas de cada tipo, y el Diagnóstico como recorrido con comentarios guardados y «Solucionar con IA» o «Replicar»; «Crear con IA» en dos pasos (esquema que se edita, secciones en tandas) desde el funnel, el perfil y —si la página ya pasó por el Landing Analyst— sus hallazgos; edición por secciones y bloques en TipTap (menú «/», barra de formato, 52 diseños, temas, comentarios, historial, Edición con IA); exportar a PDF, PNG, PPTX y HTML; y publicar como foto en hola-mako.com/l/<slug> o en el dominio del cliente, multipágina, con el Pixel de MaKo, el Píxel de Meta y el «HTML personalizado» servido aislado en /l/html. Una landing se ve como una página continua (secciones a sangre); las tarjetas con proporción son de las presentaciones.',
+    alcance: 'El editor de landings y presentaciones copiado de Gamma 5: Panel con una barra de documentos (landings, presentaciones y páginas de afuera analizadas, cada una con su «⋯»), la caja «¿Qué vas a crear hoy?» con dictado y las plantillas de cada tipo, y el Diagnóstico como recorrido con comentarios guardados y «Solucionar con IA» o «Replicar»; «Crear con IA» en dos pasos (esquema que se edita, secciones en tandas) desde el funnel, el perfil y —si la página ya pasó por el Landing Analyst— sus hallazgos; edición por secciones y bloques en TipTap (menú «/», barra de formato, 52 diseños, temas, comentarios, historial, Edición con IA); exportar a PDF, PNG, PPTX y HTML; y publicar como foto en hola-mako.site/<slug> o en el dominio del cliente, multipágina, con el Pixel de MaKo, el Píxel de Meta y el «HTML personalizado» servido aislado en /l/html. Una landing se ve como una página continua (secciones a sangre); las tarjetas con proporción son de las presentaciones.',
     vive: [
       'app/landing-generator', 'app/api/landing-generator', 'app/l', 'lib/editor-landing', 'lib/imagenes-stock.ts',
       'supabase/migrations/0246_editor_landing.sql', 'scripts/gen-iconos-landing.mjs', 'docs/diseno-editor-landing.md',

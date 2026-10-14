@@ -182,8 +182,8 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
 
   // ── Calendario (13/10/2026): se configura USÁNDOLO, como Offer ──
   // Lo que el Calendario necesita (el CRM, el Plan, el Quarter) ya está en MaKo: no se pregunta nada. Lo que lo deja
-  // listo es armar la primera semana —con una plantilla o con «¿Qué vas a crear hoy?»— y eso es el ensayo: MaKo
-  // propone, la persona confirma. Lo marca `crearEventosAction` (app/calendario/actions.ts).
+  // listo es agendar algo en la primera semana —a mano o con una plantilla—. Lo marca `crearEventosAction`
+  // (app/calendario/actions.ts). («¿Qué vas a crear hoy?» se fue el 14/10/2026: «eliminalo completamente».)
   // La agenda de Google va AL FINAL y opcional (lo aburrido al final, y sin ella el Calendario igual sirve): se cierra
   // cuando la agenda se LEE bien en la page (la prueba de vida), no cuando hay una credencial guardada.
   // Keys con prefijo `cal_`: un paso pelado colisionaría con otra tab por el registro compartido.

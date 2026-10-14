@@ -564,8 +564,8 @@ test('el modo de un rol está enchufado: la página, la ruta y la pantalla (leye
   assert.match(ed, /const guardable = !lecturaFallo && !soloLectura && !compartido;/, 'el rol podría guardar');
   assert.match(ed, /const soloMirar = soloLectura \|\| !!compartido;/, 'el rol dejó de ser «sólo mirar»');
   assert.match(ed, /\{!soloMirar && \(\s*<>\s*<button type="button" role="menuitem" className="lk-opcion lk-opcion--mako"/, 'el rol ve el AI Analyst');
-  // «Editar» en azul desde v5 (P4: `lk-pill lk-pill--azul`).
-  assert.match(ed, /\{!soloMirar && \(\s*<button type="button" className="lk-pill lk-pill--azul" data-recorrido=\{editando \? 'dash-ver' : 'dash-editar'\}/, 'el rol ve Editar');
+  // «Editar» en azul desde v5 (P4: `lk-pill lk-pill--azul`), y no en blanco (14/10/2026).
+  assert.match(ed, /\{!soloMirar && !enBlanco && \(\s*<button type="button" className="lk-pill lk-pill--azul" data-recorrido=\{editando \? 'dash-ver' : 'dash-editar'\}/, 'el rol ve Editar');
   assert.match(ed, /onDetalle=\{editando \|\| soloMirar \? undefined :/, 'el rol abre el detalle de un número (403)');
   // Desde el 13/10/2026 el botón sale también editando (abre su configuración) y sólo en los gráficos que lo llevan.
   assert.match(ed, /\{\(editando \|\| est\.resultado\) && !soloMirar && conMako\(c\) && /, 'el rol ve el chat de MaKo de cada gráfico');

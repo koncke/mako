@@ -26,7 +26,6 @@ import {
   type Cadencia, type MetricaObjetivo, type UnidadObjetivo, type FuenteKpi,
   type CandidatoKpi, fuenteKpi,
 } from '@/lib/objectives-modelo';
-import { guardarVistasGeneral } from '@/lib/general-vistas';
 
 const guard = () => requireRolWs([], { nav: 'general' });
 
@@ -217,22 +216,3 @@ export async function setObjetivoAction(key: string, value: string): Promise<voi
 // ─────────────────────────────────────────────────────────────────────────────
 // Las vistas de /general (13/10/2026)
 // ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Guarda las vistas ENTERAS de quien mira, con la versión que leyó la pantalla (compare-and-set,
- * lib/general-vistas.ts). `conflicto` = otra pestaña guardó en el medio: no se escribió nada.
- * El saneo es del server (`sanearVistas`): lo que manda el navegador vale por lo que dice el catálogo.
- * ⚠️ Un archivo `'use server'` sólo exporta funciones async: el tipo del resultado va escrito acá.
- */
-export async function guardarVistasAction(vistas: unknown, version: string | null): Promise<{ ok: true; version: string } | { ok: false; conflicto: boolean }> {
-  await guard();
-  try {
-    const r = await guardarVistasGeneral(vistas, typeof version === 'string' ? version : null);
-    if (!r.ok) return { ok: false, conflicto: true };
-    revalidatePath('/general');
-    return { ok: true, version: r.version };
-  } catch (e) {
-    console.error('[general] no pude guardar las vistas:', e instanceof Error ? e.message : e);
-    return { ok: false, conflicto: false };
-  }
-}

@@ -85,6 +85,8 @@ export function htmlDeMiniatura(variante: VarianteOptimizado, tema: Tema): strin
     ],
   }));
   const t = tarjeta([{ type: NODO.optimizado, attrs: { variante, columnas: 'auto', mostrarIconos: true }, content: items }], { id: 'mini' });
+  // Sin MARCADORES (render.ts) a propósito: es una muestra del diseño optimizado con ítems de
+  // ejemplo, sin insertados; pedirlos no cambiaría nada de lo que se dibuja.
   return htmlDeTarjeta(t, tema, { modo: 'miniatura' });
 }
 

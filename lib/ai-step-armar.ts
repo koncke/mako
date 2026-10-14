@@ -36,14 +36,15 @@ import {
   type CasoRespuesta, type MedioAIStep, type PasoGrafo,
 } from './flujo-grafo';
 import {
-  LIBERTADES, ROTULO_LIBERTAD, camposDeLibertad, conLibertad, libertadDeCaso, libertadesPermitidas, type Libertad,
+  LIBERTADES, ROTULO_LIBERTAD, camposDeLibertad, conLibertad, libertadDeCaso, libertadesPermitidas, libertadesDeFabrica, type Libertad,
 } from './ai-step-libertad';
 import { ESCENARIOS_TIPICOS, type EscenarioTipico } from './ai-step-escenarios';
 
 /** «✦ Armar» (todos los escenarios, de 2 a 6) o «✦ Otro con MaKo» (uno más). */
 export type ModoArmado = 'todo' | 'uno';
 /** «Lo demás» sólo puede avisar o dejar para aprobar: nunca sale sola. */
-export type LoDemasAIStep = Extract<Libertad, 'avisa' | 'aprueba'>;
+/** La libertad de «Lo demás». Desde el 14/10/2026 también «Sola» (la elige una persona; la IA no: ver `normalizarArmado`). */
+export type LoDemasAIStep = Libertad;
 /** Un escenario que armó MaKo, ya reparado. `responder` vacío = no contesta («Sólo te avisa»). */
 export type EscenarioArmado = { titulo: string; cuando: string; responder: string; libertad: Libertad };
 /** Lo que devuelve el armado: los escenarios y qué pasa con lo que no encaja en ninguno. */
@@ -114,7 +115,8 @@ const clave = (t: string): string => t.replace(/\s+/g, ' ').trim().toLowerCase()
  */
 export function libertadPosible(c: Pick<CasoRespuesta, 'titulo' | 'cuando' | 'responder' | 'cualquiera'>, pedida: unknown): Libertad {
   const l: Libertad = pedida === 'avisa' || pedida === 'sola' || pedida === 'aprueba' ? pedida : 'aprueba';
-  const permitidas = libertadesPermitidas(c);
+  // Lo que arma la IA, con la regla PRUDENTE (`libertadesDeFabrica`): con plata, nunca «Sola». La persona la sube a mano.
+  const permitidas = libertadesDeFabrica(c);
   if (permitidas.includes(l)) return l;
   return permitidas.includes('aprueba') ? 'aprueba' : 'avisa';
 }
@@ -192,7 +194,8 @@ export function conLibertadDe(casos: readonly CasoRespuesta[], id: string, l: Li
 /** La libertad de «Lo demás»: la de su caso `cualquiera`; sin él, «Sólo te avisa» (la forma única del default). */
 export function libertadDeLoDemas(casos: readonly CasoRespuesta[]): LoDemasAIStep {
   const c = casos.find((x) => x.cualquiera === true);
-  return c && libertadDeCaso(c) === 'aprueba' ? 'aprueba' : 'avisa';
+  const l = c ? libertadDeCaso(c) : 'avisa';
+  return l === 'aprueba' || l === 'sola' ? l : 'avisa';
 }
 
 /**
@@ -207,7 +210,7 @@ export function conLoDemas(casos: readonly CasoRespuesta[], l: LoDemasAIStep, id
   const base: CasoRespuesta = previo
     ? { ...previo, ...((previo.responder ?? '').trim() ? {} : { responder: GUIA_LO_DEMAS }) }
     : { id, titulo: ROTULO_LO_DEMAS, cuando: '', siguiente: null, cualquiera: true, responder: GUIA_LO_DEMAS };
-  return [...escenarios, conLibertad(base, 'aprueba')];
+  return [...escenarios, conLibertad(base, l === 'sola' ? 'sola' : 'aprueba')];
 }
 
 /**
@@ -263,5 +266,5 @@ export function opcionesDeLibertad(c: Pick<CasoRespuesta, 'titulo' | 'cuando' | 
   return LIBERTADES.map((l) => ({ value: l, label: ROTULO_LIBERTAD[l], disabled: !permitidas.includes(l) }));
 }
 
-/** Las opciones de «Lo demás»: las dos primeras (nunca «Sola», §2 punto 13). */
-export const OPCIONES_LO_DEMAS: readonly OpcionLibertad[] = (['avisa', 'aprueba'] as const).map((l) => ({ value: l, label: ROTULO_LIBERTAD[l], disabled: false }));
+/** Las opciones de «Lo demás»: las tres (era «nunca Sola», §2 punto 13; desde el 14/10/2026 se elige, con su aviso). */
+export const OPCIONES_LO_DEMAS: readonly OpcionLibertad[] = LIBERTADES.map((l) => ({ value: l, label: ROTULO_LIBERTAD[l], disabled: false }));

@@ -12,6 +12,7 @@ import { useSearchParams, usePathname } from 'next/navigation';
 import { empujeDeColumna } from './arrastre-columna';
 import { fotoVaciaDeArrastre, useArrastreCopia } from '@/app/plan/board/arrastre-copia';
 import { useRouter, useWs } from '@/app/_ui/Link';
+import { BotonIntegracion, VueltaDeGoogle } from '@/app/_components/ConectarIntegracion';
 import { BANDAS_KANBAN, claveFiltros, escribirFiltros, leerFiltros } from './filtros-guardados';
 import { ayudaDelTotal, textoDelTotal, totalDeColumna } from './total-columna';
 import { Fragment,
@@ -2832,6 +2833,9 @@ export function CrmBoard({
     // un título que no está. El esqueleto (app/crm/loading.tsx) lleva el mismo número.
     <main className="crm-hover" style={{ flex: 1, minWidth: 0, padding: '16px 44px 60px', display: 'flex', flexDirection: 'column' }} onContextMenu={alClicDerecho}>
       <CrmToolbarStyles />
+      {/* Conectar Google desde el reagendar abre el modal acá (14/10/2026, «para una integración jamás se debe salir de
+          la tab»): el OAuth vuelve a /crm con `?gcal=`, y si falló se vuelve a abrir el modal diciendo qué pasó. */}
+      <VueltaDeGoogle />
 
       {/* LA BARRA — UNA fila: funnel · vista · buscar · filtrar ····· + Nuevo lead · ⋯
           (puntos 22-26 del 12/10/2026). El funnel a la izquierda del todo, con su cubo (24);
@@ -3389,7 +3393,7 @@ export function CrmBoard({
             <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.55 }}>{reagOut.mensaje}</div>
             <div style={{ display: 'flex', gap: 8, marginTop: 16, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
               {reagOut.reconectar && (
-                <button type="button" onClick={() => router.push('/integraciones')} style={{ padding: '9px 15px', borderRadius: 10, border: '1px solid var(--primary)', background: 'var(--surface)', color: 'var(--primary)', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>Reconectar Google Calendar</button>
+                <BotonIntegracion servicio="google" style={{ padding: '9px 15px', borderRadius: 10, border: '1px solid var(--primary)', background: 'var(--surface)', color: 'var(--primary)', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>Reconectar Google Calendar</BotonIntegracion>
               )}
               <button type="button" onClick={cerrarQueHacer} style={{ padding: '9px 18px', borderRadius: 10, border: 'none', background: 'var(--ink)', color: 'var(--on-ink)', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>Listo</button>
             </div>
@@ -3677,9 +3681,9 @@ export function CrmBoard({
                 {/* Conectar la agenda va ACÁ y no en la pantalla de horarios: ahí ya
                     sería tarde para que sirva de algo. */}
                 {reagCal && !reagCal.puedeMover && (
-                  <button type="button" onClick={() => router.push('/integraciones')} style={{ alignSelf: 'center', padding: 0, border: 'none', background: 'none', color: 'var(--primary)', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS, textDecoration: 'underline' }}>
+                  <BotonIntegracion servicio="google" style={{ alignSelf: 'center', padding: 0, border: 'none', background: 'none', color: 'var(--primary)', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS, textDecoration: 'underline' }}>
                     {reagCal.conectado ? 'Reconectar para poder mover reuniones →' : 'Conectar Google Calendar →'}
-                  </button>
+                  </BotonIntegracion>
                 )}
               </div>
             )}

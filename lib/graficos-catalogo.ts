@@ -33,6 +33,7 @@ import {
   type Area, type ClaseDim, type Dimension, type Formato, type Fuente, type Metrica,
 } from './graficos-constructores';
 import { FUENTES_EXTRA } from './graficos-fuentes-extra';
+import { esPiezaGeneral, piezaPorFunnel, sanearOpciones, type OpcionesElegidas, type PiezaGeneral } from './general-piezas';
 import { idDeParte, idLibre, migrarBloquesV5 } from './graficos-migrar-v5';
 
 export { AREAS };
@@ -1086,8 +1087,8 @@ export type Bloque = {
  *   · `accion`   — un botón que corre una acción de ACCIONES_ELEMENTO (lib/graficos-acciones.ts): «Sincronizar
  *                  llamadas» en la hoja Closing.
  */
-export type TipoElemento = 'texto' | 'enlace' | 'imagen' | 'video' | 'insertado' | 'linea' | 'flecha' | 'seccion' | 'ia' | 'entidad' | 'accion';
-export type GrupoElemento = 'texto' | 'medios' | 'formas' | 'estructura' | 'mako' | 'entidad';
+export type TipoElemento = 'texto' | 'enlace' | 'imagen' | 'video' | 'insertado' | 'linea' | 'flecha' | 'seccion' | 'ia' | 'entidad' | 'accion' | 'general';
+export type GrupoElemento = 'texto' | 'medios' | 'formas' | 'estructura' | 'mako' | 'entidad' | 'general';
 export type InfoElemento = { id: TipoElemento; nombre: string; w: number; h: number; minW: number; minH: number; grupo: GrupoElemento };
 export const TIPOS_ELEMENTO: ReadonlyArray<InfoElemento> = [
   { id: 'texto', nombre: 'Texto', w: 12, h: 2, minW: 1, minH: 1, grupo: 'texto' },
@@ -1101,6 +1102,8 @@ export const TIPOS_ELEMENTO: ReadonlyArray<InfoElemento> = [
   { id: 'ia', nombre: 'Conclusiones de MaKo', w: 6, h: 8, minW: 3, minH: 3, grupo: 'mako' },
   { id: 'accion', nombre: 'Acción', w: 3, h: 2, minW: 2, minH: 1, grupo: 'mako' },
   { id: 'entidad', nombre: 'Ficha', w: 12, h: 10, minW: 3, minH: 2, grupo: 'entidad' },
+  // 14/10/2026: un bloque de la tab General (lib/general-piezas.ts). Sólo se ofrece en General; fuera de ahí dice que no.
+  { id: 'general', nombre: 'Bloque de General', w: 12, h: 10, minW: 3, minH: 3, grupo: 'general' },
 ];
 /** Cuántas cajas de «Conclusiones de MaKo» entran en una hoja: cada una gasta cuota de IA gratis al correr. */
 export const MAX_IA_POR_HOJA = 4;
@@ -1114,7 +1117,7 @@ export function minimoDeElemento(tipo: string): { w: number; h: number } {
   return { w: i?.minW ?? 1, h: i?.minH ?? 1 };
 }
 /** Lo más largo del texto de cada tipo: el párrafo de un Texto, el de un Enlace, el título de un Video. */
-const TOPE_TEXTO_ELEMENTO: Partial<Record<TipoElemento, number>> = { enlace: 300, video: 120, insertado: 120, seccion: 80, ia: 80, entidad: 80, accion: 80 };
+const TOPE_TEXTO_ELEMENTO: Partial<Record<TipoElemento, number>> = { enlace: 300, video: 120, insertado: 120, seccion: 80, ia: 80, entidad: 80, accion: 80, general: 80 };
 /** El tope del texto de un tipo: el MISMO para el saneo y para los campos de la pantalla (su `maxLength`). */
 export const topeDeTextoElemento = (tipo: TipoElemento): number => TOPE_TEXTO_ELEMENTO[tipo] ?? 2000;
 export type Elemento = {
@@ -1150,6 +1153,13 @@ export type Elemento = {
   entidad?: { tipo: 'llamada' | 'anuncio' | 'lead'; pieza: string };
   /** Acción: el id de ACCIONES_ELEMENTO (lib/graficos-acciones.ts) y el rótulo del botón. */
   accion?: { id: string; rotulo: string };
+  /**
+   * Bloque de General (14/10/2026): cuál (lib/general-piezas.ts). `texto` es su título; vacío = el de siempre.
+   * `funnel`: el funnel al que se ata, sólo en los bloques que saben (`piezaPorFunnel`); sin él, el de siempre.
+   * `opciones`: lo elegido en el panel (cuántas, cómo se ve…), sólo lo que el bloque declara (`opcionesDePieza`) y
+   * distinto de su default.
+   */
+  general?: { pieza: PiezaGeneral; funnel?: number; opciones?: OpcionesElegidas };
   x: number; y: number; w: number; h: number;
 };
 
@@ -1612,7 +1622,7 @@ export function sanearElemento(raw: unknown, ctx: ContextoSaneo = {}): Elemento 
   if (!info) return null;
   // ── El objeto de cada tipo nuevo (v5). Una ficha sólo vive en un pop-up (en la hoja no hay qué abrir), y
   //    una ficha o un botón sin lo que dicen ser no dibujan nada: se descartan.
-  const tipoEspecial: Pick<Elemento, 'seccion' | 'ia' | 'entidad' | 'accion'> = {};
+  const tipoEspecial: Pick<Elemento, 'seccion' | 'ia' | 'entidad' | 'accion' | 'general'> = {};
   if (info.id === 'seccion') {
     const s = esObj(o.seccion) ? o.seccion : {};
     tipoEspecial.seccion = { fondo: colorDe(s.fondo), plegable: s.plegable === true, abierto: s.abierto !== false };
@@ -1629,6 +1639,17 @@ export function sanearElemento(raw: unknown, ctx: ContextoSaneo = {}): Elemento 
     const id = typeof o.accion.id === 'string' && /^[a-z0-9_]{1,40}$/.test(o.accion.id) ? o.accion.id : '';
     if (!id) return null;
     tipoEspecial.accion = { id, rotulo: recortado(o.accion.rotulo, TOPE_ROTULO) };
+  } else if (info.id === 'general') {
+    // Un bloque de General vive en una hoja (en un pop-up no hay General que dibujar), y uno que no dice cuál, no dibuja nada.
+    const pieza = esObj(o.general) ? o.general.pieza : null;
+    if (ctx.enPopup || !esPiezaGeneral(pieza)) return null;
+    const funnel = esObj(o.general) ? Number(o.general.funnel) : NaN;
+    const opciones = sanearOpciones(pieza, esObj(o.general) ? o.general.opciones : null);
+    tipoEspecial.general = {
+      pieza,
+      ...(piezaPorFunnel(pieza) && Number.isInteger(funnel) && funnel > 0 ? { funnel } : {}),
+      ...(opciones ? { opciones } : {}),
+    };
   }
   const grosor = [1, 2, 3, 4].includes(Number(o.grosor)) ? (Number(o.grosor) as 1 | 2 | 3 | 4) : 2;
   // Una sección va SIEMPRE a lo ancho: agrupa FILAS enteras (decisión 2 de Martín), no hay grilla anidada.

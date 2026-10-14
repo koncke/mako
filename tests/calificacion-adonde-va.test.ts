@@ -43,6 +43,9 @@ test('la tarjeta dice «no le llega» sólo si no le llega, y lleva a conectarlo
   const UI = sinComentarios(leer('../app/crm/lead-view/CalificacionCard.tsx'));
   assert.match(UI, /const noLlega = adonde === 'sin_pixel' \|\| adonde === 'sin_token';/);
   assert.match(UI, /: noLlega\s*\? \(<>No le llega a Meta:/);
-  assert.match(UI, /href="\/integraciones\?abrir=meta"/);
-  assert.match(leer('../lib/integraciones-catalogo.ts'), /\{ key: 'meta',/, '«abrir=meta» sólo abre una tarjeta que exista');
+  // 14/10/2026 (Martín: «para una integración jamás se debe salir de la tab»): el «Conectar →» abre el modal de Meta
+  // de Integraciones AHÍ, no navega. Rotura (base en verde): volver a `<Link href="/integraciones?abrir=meta">` → 1 fallo.
+  assert.match(UI, /<BotonIntegracion servicio="meta" /);
+  assert.doesNotMatch(UI, /\/integraciones/);
+  assert.match(leer('../lib/integraciones-catalogo.ts'), /\{ key: 'meta',/, '«meta» sólo abre una tarjeta que exista');
 });

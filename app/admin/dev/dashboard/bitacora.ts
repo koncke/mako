@@ -325,4 +325,54 @@ export const BITACORA: Hito[] = [
     commits: [{ sha: '25bd67c', msg: 'Dashboard: clic derecho en toda la tab, y el botón de MaKo selectivo y editable en el lugar', lineas: 597, archivos: 20 }],
     archivos: ['lib/graficos-catalogo.ts', 'app/dashboard/MenuContextual.tsx', 'app/dashboard/EditorMako.tsx', 'app/dashboard/EditorInforme.tsx', 'lib/api-mako/areas/dashboard.def.ts', 'tests/dashboard-mako-contextual.test.ts'],
   },
+  {
+    fecha: '14 oct', hora: '04:47', chat: 'General', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'La pantalla en blanco con «¿Qué vas a crear hoy?» y las plantillas como páginas (pedido desde General)',
+    pedido: "Toda la topbar la deberías copiar de Dashboard menos la barra de busqueda y el filtro que no sirven en general...\nY lo mismo que en Dashboard, para un usuario nuevo, deberías proponerle un template. \n\nLo único es que en lugar del botón de \"nuevo dashboard\" te pido que pongas ahí el \"¿Qué vas a crear hoy?\"... Te pido que le digas esto mismo a dashboard.\n\nY los templates, la preview debería ser como los de landing generator, porque justamente se deberáin ver como una pagina... Lo mismo te pido que le digas a dashboard.\n\ny el botón de EDITAR no debería saltarme ningún modal como el que salta hoy en día, debería, al igual que dashboard, habilitar el menú de edición de la página y poder comenzar a editarla...\n\n— Y al rato: Hazlo bien, mira como está construido el dashboard...",
+    puntos: ["Lo pidió en el chat de General para General y para el Dashboard («Te pido que le digas esto mismo a dashboard»). Como es el mismo código, lo hizo el chat de General una vez, con el visto bueno de Graphics."],
+  },
+  {
+    fecha: '14 oct', hora: '05:06', chat: 'General', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'La pantalla en blanco es la caja con las plantillas, y cada plantilla se ve como una página',
+    puntos: [
+      "Quien nunca armó una hoja ve «¿Qué vas a crear hoy?» con las plantillas abajo, como la portada del Landing Generator. Es la misma pieza que el modal «Nueva hoja».",
+      "Cada plantilla muestra la miniatura de su página (cada gráfico en su lugar, con su título), «Usar plantilla» al pasar el mouse, y el nombre y la línea abajo. La miniatura no pide datos.",
+      "«Editar» en la pantalla en blanco ya no abre un modal: arranca una hoja en blanco, ya editándose.",
+    ],
+    commits: [{ sha: 'a98ab025', msg: 'Dashboard y General: la pantalla en blanco es «¿Qué vas a crear hoy?», y las plantillas se ven como páginas', lineas: 573, archivos: 9 }],
+    archivos: ['app/dashboard/NuevaHoja.tsx', 'app/dashboard/MiniaturaHoja.tsx', 'app/dashboard/EditorInforme.tsx', 'tests/dashboard-miniatura-hoja.test.ts'],
+  },
+  {
+    fecha: '14 oct', hora: '05:48', chat: 'General', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'En blanco sin Editar ni ⋮ ni filtros, y agrandar desde cualquier borde (pedido desde General, para las dos)',
+    pedido: "1. Si no tengo tabs no debería salir el botón de editar ni los 3 puntos. Lo mismo para dashboard... Y en el caso de dashboard tampoco el filtro ni la barra de busqueda.\n5. Debería poder editar el tamaño de un bloque desde cualquiera de sus costados, no solo de abajo a la derecha. Y elimina la flecha que aparece detrás del contorno azul... Esto también para dashboard.",
+    puntos: ["Los puntos 1 y 5 de una lista de once sobre General; los dos dicen «Lo mismo para dashboard» / «Esto también para dashboard»."],
+  },
+  {
+    fecha: '14 oct', hora: '07:09', chat: 'General', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'En blanco la barra es el título solo, y un gráfico se agranda desde sus ocho bordes',
+    puntos: [
+      "Sin hojas no hay «Editar», ⋮, filtro ni búsqueda: sólo «¿Qué vas a crear hoy?» y las plantillas en el medio.",
+      "Los ocho bordes agrandan; la «flecha» detrás del contorno azul era el adorno de react-grid-layout y se fue. Elegida, la tarjeta muestra un cuadradito en cada borde.",
+    ],
+    commits: [{ sha: 'c2cda971', msg: 'General: los bloques rediseñados con opciones, las tarjetas del Plan y los OKRs; el editor sin barra en blanco y con ocho bordes', lineas: 3936, archivos: 38 }],
+    archivos: ['app/dashboard/EditorInforme.tsx', 'app/dashboard/editor-css.ts', 'tests/dashboard-en-blanco.test.ts'],
+  },
+  {
+    fecha: '14 oct', hora: '11:54', chat: 'General', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'Ver la edición en celular, y crear una hoja sin Deshacer (pedido desde General, para las dos)',
+    pedido: "7. ... Si creo una hoja no debería aparecer el deshacer si no hago ninguna acción.\n8. En la edición, tal como lo tenemos en la edición de Landing Generator, tienes que poder visualizar en la versión mobile, etc... Eso es importante que se diseñe todo siempre pensado para ambos dispositivos... Dile esto también a dashboard.\n\n— Y a las 12:05: También, en la tab de ¿Que vas a hacer hoy?, los templates tienen que ser fieles a lo que se va a ver, no inventes esas imagenes, que se vea tal cual... Y elimina los subtitulos de cada template, solo el título",
+    puntos: ['Los puntos 7 y 8 de una lista de ocho sobre General, y el mensaje de las 12:05 sobre la galería de plantillas.'],
+  },
+  {
+    fecha: '14 oct', hora: '12:48', chat: 'General', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Escritorio, tablet y celular al editar; las plantillas se ven como van a quedar; crear una hoja sin Deshacer',
+    puntos: [
+      'Editando, la barra trae Escritorio / Tablet / Celular: la página se angosta al ancho del dispositivo y en el celular las tarjetas van una debajo de la otra.',
+      'La miniatura de cada plantilla es la hoja con los gráficos de verdad y números de ejemplo, no un dibujo. Cada tarjeta lleva sólo su título.',
+      'Crear una hoja ya no deja un Deshacer que la borra.',
+    ],
+    commits: [{ sha: 'e6818ee0', msg: 'General, tercera vuelta: los bloques son tarjetas de la hoja, la Meta objetivo y la Acción del día por separado, plantillas simples y la vista de celular al editar', lineas: 2679, archivos: 28 }],
+    archivos: ['app/dashboard/EditorInforme.tsx', 'app/dashboard/MiniaturaHoja.tsx', 'lib/graficos-muestra.ts', 'app/dashboard/NuevaHoja.tsx', 'app/_ui/usePilaDeshacer.ts', 'tests/dashboard-miniatura-hoja.test.ts'],
+  },
 ];

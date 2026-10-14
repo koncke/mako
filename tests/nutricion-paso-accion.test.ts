@@ -219,7 +219,8 @@ test('⚠️ la acción va DESPUÉS de las guardas de la inscripción y ANTES de
   // Después: lo que es de la inscripción entera (reunión pasada, residuo, antigüedad, condiciones).
   // (08/10/2026: «anclada» suma la espera «antes de la reunión» del flujo al `ancla` de siempre, y
   // «el primero» es `esPrimerPaso`, que con ramas no es el índice 0.)
-  for (const antes of ['if (anclada || preparaReunion(sec))', 'if (esPrimerPaso(sec.pasos, insc.paso_actual) && topeAntig != null', "if (paso.requiere === 'respondio') {"]) {
+  // (14/10/2026: la guarda de la reunión es SÓLO del paso anclado; el resto lo dice la condición visible.)
+  for (const antes of ['if (anclada) {', 'if (esPrimerPaso(sec.pasos, insc.paso_actual) && topeAntig != null', "if (paso.requiere === 'respondio') {"]) {
     const j = PROC.indexOf(antes);
     assert.ok(j > 0 && j < i, `la acción tiene que respetar «${antes}»`);
   }

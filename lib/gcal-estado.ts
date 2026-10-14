@@ -15,6 +15,25 @@
 //
 // El nonce sigue siendo lo único que Google ve (va como `state`); el workspace
 // vive en la cookie httpOnly que escribe el paso 1.
+//
+// Y desde el 14/10/2026 la cookie `gcal_volver` dice a QUÉ PANTALLA vuelve: el
+// modal de /integraciones se abre en cualquier tab (Martín: «para una
+// integración jamás se debe salir de la tab»), y el callback volvía siempre a
+// /integraciones — conectar Google desde el Calendario te dejaba en otra tab.
+
+import { volverSeguro } from './meta-login';
+
+/**
+ * A dónde vuelve el callback, con el resultado en `?gcal=`: la pantalla de la que
+ * salió (`volverSeguro`, la MISMA defensa del OAuth de Meta: sólo un path de esta
+ * app, sin el `?ws=`, que lo pone el callback) o /integraciones si no hay.
+ */
+export function destinoGcal(volver: string | null | undefined, motivo: string): string {
+  const u = new URL(volverSeguro(volver), 'https://x.invalid');
+  u.searchParams.delete('gcal');
+  u.searchParams.set('gcal', motivo);
+  return `${u.pathname}${u.search}`;
+}
 
 /** Valor de la cookie `gcal_state`: el nonce anti-CSRF y el workspace destino. */
 export function armarEstadoGcal(nonce: string, ws: number): string {

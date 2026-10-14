@@ -19,13 +19,23 @@
 
 import type { OperacionDef, Gating } from '../tipos';
 import { FUENTES_KPI, METRICA_LABEL } from '@/lib/objectives-modelo';
-import { BLOQUES_GENERAL, PLANTILLAS_GENERAL } from '@/lib/general-vistas-modelo';
+import { PIEZAS_GENERAL, opcionesDePieza } from '@/lib/general-piezas';
+import { PLANTILLAS_GENERAL } from '@/lib/general-plantillas';
 
 const GATING: Gating = { tab: 'general', rolMinimo: 'admin' };
 const TODOS = ['whatsapp', 'app', 'http'] as const;
 const FUENTES = FUENTES_KPI.map((f) => f.id);
 const METRICAS = Object.keys(METRICA_LABEL);
-const BLOQUES = BLOQUES_GENERAL.map((b) => b.id);
+const BLOQUES = PIEZAS_GENERAL.map((b) => b.id);
+/**
+ * Las opciones de los bloques, juntas: cada una con los bloques que la tienen y sus valores (14/10/2026). Cada bloque
+ * usa sólo las suyas; el runner rechaza la de otro bloque diciendo cuáles tiene.
+ */
+const CAMPOS_OPCIONES = [...new Set(PIEZAS_GENERAL.flatMap((p) => opcionesDePieza(p.id).map((o) => o.id)))].map((id) => ({
+  nombre: id, tipo: 'string' as const, max: 20,
+  descripcion: PIEZAS_GENERAL.flatMap((p) => opcionesDePieza(p.id).filter((o) => o.id === id)
+    .map((o) => `${p.id} (${o.nombre}): ${o.valores.map((v) => v.id).join(', ')}`)).join(' · '),
+}));
 const PLANTILLAS = PLANTILLAS_GENERAL.map((p) => p.id);
 
 export const DEFS: readonly OperacionDef[] = [
@@ -227,31 +237,61 @@ export const DEFS: readonly OperacionDef[] = [
     reversible: true,
     escribe: 'inserta hasta 8 filas en kpis con origen seed (se apagan una por una con apagar_kpi)',
   },
-  // ── Las vistas de /general (13/10/2026): cada persona elige bloques, orden y funnels u ofertas ──
-  // Son POR PERSONA: se nombra (email o nombre) o, si la cuenta tiene una sola persona admin, es ésa.
+  // ── El informe de /general (14/10/2026): el editor del Dashboard con su propio informe, POR PERSONA ──
+  // Reemplaza a las «vistas» del 13/10 (nadie había guardado una). Se nombra la persona (email o nombre) o, si la cuenta
+  // tiene una sola persona admin, es ésa. Escribe con el MISMO compare-and-set que la pantalla (lib/graficos-tablero.ts).
   {
-    id: 'listar_vistas_general', area: 'general', tipo: 'lectura',
-    titulo: 'Ver las vistas de General',
-    descripcion: 'Las vistas de la pantalla General de una persona (qué bloques ve, en qué orden y de qué funnels u ofertas), más los bloques, las plantillas, y los funnels y las ofertas del negocio (con su id) que existen para armar una nueva. Úsala antes de crear_vista_general.',
+    id: 'listar_hojas_general', area: 'general', tipo: 'lectura',
+    titulo: 'Ver las hojas de General',
+    descripcion: 'Las hojas de la pantalla General de una persona (cada una con sus bloques, gráficos y textos), más las plantillas, los bloques de General y los funnels del negocio (para atar un bloque a uno) que existen para armar o completar una. Úsala antes de crear_hoja_general o agregar_bloque_general.',
     parametros: [
       { nombre: 'persona', tipo: 'string', max: 120, descripcion: 'Email (o nombre) de la persona admin. Si se omite y la cuenta tiene una sola persona admin, es ésa.' },
     ],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: GATING,
   },
   {
-    id: 'crear_vista_general', area: 'general', tipo: 'accion', confirmacion: 'chat',
-    titulo: 'Crear una vista de General',
-    descripcion: 'Propone crear una vista nueva en la pantalla General de una persona: desde una plantilla (por id) o con una lista de bloques, y opcionalmente atada a funnels u ofertas (por id). Lo que no existe se saca. Pide los bloques y las plantillas con listar_vistas_general.',
+    id: 'crear_hoja_general', area: 'general', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Crear una hoja de General',
+    descripcion: 'Propone agregar una hoja nueva a la pantalla General de una persona, desde una plantilla de General (por id: la General de siempre, Bienvenida, Operación diaria, una por tipo de funnel…). Pide las plantillas con listar_hojas_general.',
     parametros: [
       { nombre: 'persona', tipo: 'string', max: 120, descripcion: 'Email (o nombre) de la persona admin. Si se omite y la cuenta tiene una sola persona admin, es ésa.' },
-      { nombre: 'plantilla', tipo: 'string', enum: PLANTILLAS, descripcion: 'id de la plantilla. Si viene, manda sobre «bloques».' },
-      { nombre: 'bloques', tipo: 'string[]', enum: BLOQUES, max: 8, descripcion: 'Los bloques, en el orden en que se ven.' },
-      { nombre: 'nombre', tipo: 'string', max: 40, descripcion: 'Cómo se llama la vista (default: el de la plantilla).' },
-      { nombre: 'funnels', tipo: 'string[]', max: 20, descripcion: 'ids de funnels (de listar_vistas_general). Vacío = todo el negocio.' },
-      { nombre: 'ofertas', tipo: 'string[]', max: 20, descripcion: 'ids de ofertas (de listar_vistas_general): suman los funnels que las venden.' },
+      { nombre: 'plantilla', tipo: 'string', obligatorio: true, enum: PLANTILLAS, descripcion: 'id de la plantilla de General.' },
+      { nombre: 'nombre', tipo: 'string', max: 60, descripcion: 'Cómo se llama la hoja (default: el de la plantilla).' },
     ],
     canales: TODOS, costo: 'gratis', gating: GATING,
     reversible: true,
-    escribe: 'agrega una vista a las de esa persona (app_settings general.vistas.<persona>), con compare-and-set',
+    escribe: 'agrega una hoja al informe de General de esa persona (app_settings general.informe.<persona>), con compare-and-set',
+  },
+  {
+    id: 'agregar_bloque_general', area: 'general', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Agregar un bloque a una hoja de General',
+    descripcion: 'Propone agregar UN bloque de General (el objetivo y la acción del día, los OKRs, los KPIs, el semáforo, las prioridades y los proyectos del Plan, mi día, las próximas llamadas, los pendientes del CRM, el funnel de hoy, a quién cobrarle, el mes o las próximas publicaciones) al final de una hoja de General, con sus opciones. «El funnel de hoy» y «A quién cobrarle» se pueden atar a UN funnel (sin funnel: el principal, o todo el negocio). Pide los ids y las opciones de cada bloque con listar_hojas_general.',
+    parametros: [
+      { nombre: 'persona', tipo: 'string', max: 120, descripcion: 'Email (o nombre) de la persona admin. Si se omite y la cuenta tiene una sola persona admin, es ésa.' },
+      { nombre: 'hoja', tipo: 'string', max: 40, descripcion: 'id de la hoja (de listar_hojas_general). Si se omite, la primera.' },
+      { nombre: 'bloque', tipo: 'string', obligatorio: true, enum: BLOQUES, descripcion: 'id del bloque de General.' },
+      { nombre: 'titulo', tipo: 'string', max: 80, descripcion: 'Un título propio para el bloque (vacío = el de siempre).' },
+      { nombre: 'funnel', tipo: 'string', max: 80, descripcion: 'Sólo para el funnel de hoy y a quién cobrarle: el funnel (su id o su nombre, de listar_hojas_general). Sin esto, el principal o todo el negocio.' },
+      { nombre: 'opciones', tipo: 'object', descripcion: 'Las opciones del bloque, como {opción: valor} (las de cada bloque, con sus valores, en listar_hojas_general). Una que el bloque no tiene es un error; sin esto, las de entrada.', campos: CAMPOS_OPCIONES },
+    ],
+    canales: TODOS, costo: 'gratis', gating: GATING,
+    reversible: true,
+    escribe: 'agrega un elemento (un bloque de General) a una hoja del informe de General de esa persona, con compare-and-set',
+  },
+  {
+    id: 'configurar_bloque_general', area: 'general', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Cambiar un bloque de una hoja de General',
+    descripcion: 'Propone cambiar las opciones de UN bloque que ya está en una hoja de General (cuántas tareas, cómo se ven los OKRs, cuántos días de llamadas…), su título o su funnel. Los ids de los bloques de cada hoja y las opciones de cada bloque salen de listar_hojas_general.',
+    parametros: [
+      { nombre: 'persona', tipo: 'string', max: 120, descripcion: 'Email (o nombre) de la persona admin. Si se omite y la cuenta tiene una sola persona admin, es ésa.' },
+      { nombre: 'hoja', tipo: 'string', obligatorio: true, max: 40, descripcion: 'id de la hoja (de listar_hojas_general).' },
+      { nombre: 'elemento', tipo: 'string', obligatorio: true, max: 40, descripcion: 'id del bloque en esa hoja (de listar_hojas_general).' },
+      { nombre: 'opciones', tipo: 'object', descripcion: 'Las opciones a cambiar, como {opción: valor}. Las que no pases quedan como están.', campos: CAMPOS_OPCIONES },
+      { nombre: 'titulo', tipo: 'string', max: 80, descripcion: 'Un título propio (texto vacío = el de siempre). Sin esto, no se toca.' },
+      { nombre: 'funnel', tipo: 'string', max: 80, descripcion: 'Sólo para el funnel de hoy y a quién cobrarle: el funnel (id o nombre), o «ninguno» para volver al principal o a todo el negocio.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: GATING,
+    reversible: true,
+    escribe: 'cambia un elemento (un bloque de General) de una hoja del informe de General de esa persona, con compare-and-set',
   },
 ];

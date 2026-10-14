@@ -6,15 +6,18 @@
 // WizardShell embebido (no tapa el sidebar), con el molde de OnboardingCarousels.
 // Los pasos NO se marcan con botones: los deriva la page al abrir
 // (./onboarding-datos.ts). Acá se dibuja lo que ya está y se manda a arreglar lo que
-// falta: la cuenta y la página se conectan en Integraciones; la primera campaña se
-// crea con el asistente de siempre, que este wizard deja abierto al terminar.
+// falta: la cuenta y la página se conectan con el modal de Meta de Integraciones, abierto ACÁ (14/10/2026, Martín:
+// «para una integración jamás se debe salir de la tab»); la primera campaña se crea con el asistente de siempre, que
+// este wizard deja abierto al terminar.
 //
 // «Lo configuro después», la ✕ y «Salir» llevan a la tab con estado de CLIENTE:
 // un router.refresh() re-corre el guard del server y devuelve el mismo wizard.
 
 import { useState } from 'react';
 import { WizardShell } from '../_components/WizardShell';
-import { ButtonLink } from '@/app/_ui';
+import { Button } from '@/app/_ui';
+import { useRouter } from '@/app/_ui/Link';
+import { useConectarIntegracion } from '../_components/ConectarIntegracion';
 import { Icon } from '../_components/icons';
 import type { SenalRecon } from '@/lib/queries';
 import { AVISO_FALTAN_PERMISOS_META } from '@/lib/meta-permisos';
@@ -24,7 +27,6 @@ import { CampanasBrowser } from './CampanasBrowser';
 const MONO = "'Geist Mono', monospace";
 const PASOS = ['cuenta', 'pagina', 'campana'] as const;
 type Paso = (typeof PASOS)[number];
-const LINK_META = '/integraciones?abrir=meta';
 
 /** Caja de contexto del paso (molde de la skill: surface-2 + eyebrow mono). */
 function Contexto({ eyebrow, children }: { eyebrow: string; children: React.ReactNode }) {
@@ -48,11 +50,15 @@ function Hecho({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** El botón que manda a arreglarlo, centrado (regla de la skill). */
+/** El botón que lo arregla, centrado (regla de la skill): el modal de Meta, ahí mismo. Al conectar, la page vuelve a
+ *  derivar los pasos (`router.refresh`). */
 function IrAConectar({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
+  const { abrir, modal } = useConectarIntegracion({ onConectado: () => router.refresh() });
   return (
     <div style={{ alignSelf: 'center' }}>
-      <ButtonLink href={LINK_META} icon={<Icon name="plug" size={16} />}>{children}</ButtonLink>
+      <Button icon={<Icon name="plug" size={16} />} onClick={() => abrir('meta')}>{children}</Button>
+      {modal}
     </div>
   );
 }

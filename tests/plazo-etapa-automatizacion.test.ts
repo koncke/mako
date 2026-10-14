@@ -103,6 +103,7 @@ test('la plantilla «Un Lead No Avanzó»: espera, pregunta por la etapa del CRO
 
 test('el motor evalúa con las etapas de ESA automatización, en los dos lugares donde decide', () => {
   const src = sinComentarios(leer('lib/nutricion.ts'));
-  assert.match(src, /const hechos = leidos \? conEtapasDelCron\(leidos, sec\.disparadores \?\? disparadoresDe\(sec\), sec\.funnel_id \?\? null\) : null;/);
-  assert.match(src, /elegirSalida\(p, conEtapasDelCron\(hechos, secuencia\.disparadores \?\? disparadoresDe\(secuencia\), secuencia\.funnel_id \?\? null\)\)/);
+  assert.match(src, /const hechos = leidos \? \{ \.\.\.conEtapasDelCron\(leidos, sec\.disparadores \?\? disparadoresDe\(sec\), sec\.funnel_id \?\? null\), contestoEnEsta: enRespuesta \} : null;/);
+  // (14/10/2026: adentro de «Si responde» además el lead acaba de contestar, `contestoEnEsta: true`.)
+  assert.match(src, /elegirSalida\(p, \{ \.\.\.conEtapasDelCron\(hechos, secuencia\.disparadores \?\? disparadoresDe\(secuencia\), secuencia\.funnel_id \?\? null\), contestoEnEsta: true \}\)/);
 });

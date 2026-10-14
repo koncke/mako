@@ -125,6 +125,15 @@ export const PUBLICOS = [
   // No es /api/, así que `esPublicaSoloLeer` la deja sólo en GET/HEAD/OPTIONS: los
   // formularios de la landing no postean acá — el opt-in lo manda el Pixel a /api/track/optin.
   '/l',
+  // ── El «Botón de pago» de una landing publicada (tanda 4, 14/10/2026) ──────────────────────────
+  // Lo postea el formulario de nombre y email del paso `/l/<slug>/pagar/<producto>` (que ya entra por
+  // `/l`, sólo GET): un VISITANTE sin cuenta de MaKo que quiere pagar. Crea (o reusa) el lead y el
+  // cobro del producto que la landing PUBLICADA ofrece y redirige al link de pago. Es la ruta EXACTA,
+  // no `/api/landing-generator` (ahí vive el editor, con sesión). NO LEE LA COOKIE: el workspace sale de
+  // la landing; y como el early-return se saltea el chequeo de Origin, la ruta lo mira ella misma en
+  // positivo (`origenDelPago`, lib/editor-landing/pago-landing.ts), con topes por IP y por email y un
+  // campo trampa (cada pedido crea un checkout en el Stripe del cliente).
+  '/api/landing-generator/pagar',
   // ── El agente (Claude) ──────────────────────────────────────────────────
   // Se listan UNA POR UNA y no como `/api/agente`, en positivo, porque en esa carpeta
   // conviven dos clases de ruta. Estas cuatro las llama el agente desde la máquina del

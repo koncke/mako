@@ -193,6 +193,8 @@ function medida(c: Componente): Medida {
     if (c.tipo === 'texto') return { forma: 'ancho', w: COLS, h: 2 };
     // Una sección agrupa FILAS enteras (va siempre a lo ancho): sola en su fila.
     if (c.tipo === 'seccion') return { forma: 'ancho', w: COLS, h: c.h };
+    // Un bloque de General (14/10/2026) trae su tamaño de la plantilla: cada bloque mide distinto.
+    if (c.tipo === 'general') return { forma: c.w >= COLS ? 'ancho' : 'normal', w: c.w, h: c.h };
     const e = TIPOS_ELEMENTO.find((x) => x.id === c.tipo);
     return { forma: 'normal', w: e?.w ?? 4, h: e?.h ?? 4 };
   }

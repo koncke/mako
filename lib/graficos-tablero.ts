@@ -44,10 +44,21 @@ import { getSupabaseServer } from './supabase';
 import { getWorkspaceActual } from './workspace';
 import { sanearTablero, type Tablero } from './graficos-catalogo';
 import { tableroInicial } from './graficos-plantillas';
+import { informeGeneralInicial } from './general-plantillas';
 
 const clave = (sub: string) => `graficos.tablero.${sub}`;
 /** El prefijo de `clave`: para listar los informes guardados de un workspace. */
 const PREFIJO_CLAVE = 'graficos.tablero.';
+
+/**
+ * DE QUÉ INFORME (14/10/2026): desde que la tab General es el mismo editor que el Dashboard, cada persona tiene DOS
+ * informes, el del Dashboard y el de General, con la misma forma, la misma lectura y el mismo compare-and-set. El de
+ * General vive en `general.informe.<sub>`, que NO empieza con `graficos.tablero.`: `listarTablerosGuardados` (la API de
+ * MaKo del Dashboard) no lo lista como si fuera otro Dashboard.
+ */
+export type Informe = 'dashboard' | 'general';
+const claveDe = (sub: string, informe: Informe) => (informe === 'general' ? `general.informe.${sub}` : clave(sub));
+const inicialDe = (informe: Informe) => (informe === 'general' ? informeGeneralInicial() : tableroInicial());
 
 /**
  * Lo que lee la pantalla. `version` es la huella de lo GUARDADO (`versionDe`; null = no guardó nada): el
@@ -127,9 +138,9 @@ async function wsDeLaLectura(): Promise<number> {
 
 type FilaSetting = { value: string | null; updated_at: string | null };
 
-async function filaDe(ws: number, sub: string): Promise<FilaSetting | null> {
+async function filaDe(ws: number, sub: string, informe: Informe = 'dashboard'): Promise<FilaSetting | null> {
   const { data, error } = await getSupabaseServer().from('app_settings').select('value, updated_at')
-    .eq('workspace_id', ws).eq('key', clave(sub)).maybeSingle();
+    .eq('workspace_id', ws).eq('key', claveDe(sub, informe)).maybeSingle();
   if (error) throw new Error(`No pude leer el informe: ${error.message}`);
   return (data as FilaSetting | null) ?? null;
 }
@@ -144,17 +155,17 @@ export type TableroVersionado = {
 };
 
 /** El informe de `sub` con su versión. ⚠️ Una lectura que falla TIRA: «no pude leer» no es «no guardó». */
-export async function leerTableroVersionado(sub: string): Promise<TableroVersionado> {
+export async function leerTableroVersionado(sub: string, informe: Informe = 'dashboard'): Promise<TableroVersionado> {
   const ws = await wsDeLaLectura();
-  const f = await filaDe(ws, sub);
+  const f = await filaDe(ws, sub, informe);
   const raw = f?.value ?? null;
   const version = versionDe(raw);
-  if (raw == null) return { estado: 'inicial', tablero: tableroInicial(), version, actualizado: f?.updated_at ?? null };
+  if (raw == null) return { estado: 'inicial', tablero: inicialDe(informe), version, actualizado: f?.updated_at ?? null };
   let t: Tablero | null = null;
   try { t = sanearTablero(JSON.parse(raw)); } catch { t = null; }
   return t
     ? { estado: 'propio', tablero: t, version, actualizado: f?.updated_at ?? null }
-    : { estado: 'inicial', tablero: tableroInicial(), version, actualizado: f?.updated_at ?? null };
+    : { estado: 'inicial', tablero: inicialDe(informe), version, actualizado: f?.updated_at ?? null };
 }
 
 /**
@@ -168,11 +179,11 @@ export type ResultadoGuardar = { ok: true; tablero: Tablero; version: string } |
  * `{ ok: false }` = alguien lo cambió en el medio (otra pestaña autoguardó): no se escribe nada.
  * ⚠️ El error de escritura NO se traga: tira, y el que llama lo dice.
  */
-export async function guardarTableroSi(sub: string, raw: unknown, version: string | null): Promise<ResultadoGuardar> {
+export async function guardarTableroSi(sub: string, raw: unknown, version: string | null, informe: Informe = 'dashboard'): Promise<ResultadoGuardar> {
   const t = sanearTablero(raw);
   if (!t) throw new Error('Tablero inválido');
   const ws = await wsDeLaLectura();
-  const actual = await filaDe(ws, sub);
+  const actual = await filaDe(ws, sub, informe);
   if (versionDe(actual?.value ?? null) !== version) return { ok: false };
   const ahora = new Date().toISOString();
   const db = getSupabaseServer();
@@ -182,16 +193,38 @@ export async function guardarTableroSi(sub: string, raw: unknown, version: strin
   if (!actual) {
     // No había fila: se crea sólo si sigue sin haberla (dos «sí» a la vez crean UNA).
     const { data, error } = await db.from('app_settings')
-      .upsert({ workspace_id: ws, key: clave(sub), value: valor, updated_at: ahora }, { onConflict: 'workspace_id,key', ignoreDuplicates: true })
+      .upsert({ workspace_id: ws, key: claveDe(sub, informe), value: valor, updated_at: ahora }, { onConflict: 'workspace_id,key', ignoreDuplicates: true })
       .select('key');
     if (error) throw new Error(`No pude guardar el informe: ${error.message}`);
     return data?.length ? { ok: true, tablero: t, version: nueva } : { ok: false };
   }
-  let q = db.from('app_settings').update({ value: valor, updated_at: ahora }).eq('workspace_id', ws).eq('key', clave(sub));
+  let q = db.from('app_settings').update({ value: valor, updated_at: ahora }).eq('workspace_id', ws).eq('key', claveDe(sub, informe));
   q = actual.updated_at == null ? q.is('updated_at', null) : q.eq('updated_at', actual.updated_at);
   const { data, error } = await q.select('key');
   if (error) throw new Error(`No pude guardar el informe: ${error.message}`);
   return data?.length ? { ok: true, tablero: t, version: nueva } : { ok: false };
+}
+
+// ── El informe de General (14/10/2026): las mismas dos puertas, con la otra clave ──────────────────────────────
+
+/** El informe de General de la persona con sesión, con su versión. Sin nada guardado, el inicial de General. */
+export async function leerInformeGeneral(): Promise<LecturaTablero> {
+  const s = await getUsuarioActual();
+  if (!s) return { estado: 'error', tablero: informeGeneralInicial(), version: null };
+  try {
+    const v = await leerTableroVersionado(s.sub, 'general');
+    return { estado: v.estado, tablero: v.tablero, version: v.version };
+  } catch (e) {
+    console.error(`[general] no pude leer el informe: ${e instanceof Error ? e.message : String(e)}`);
+    return { estado: 'error', tablero: informeGeneralInicial(), version: null };
+  }
+}
+
+/** El autoguardado del editor en General: el MISMO compare-and-set que el del Dashboard, sobre el informe de General. */
+export async function guardarInformeGeneralVersion(raw: unknown, version: string | null): Promise<ResultadoGuardar> {
+  const s = await getUsuarioActual();
+  if (!s) throw new Error('Sin sesión');
+  return guardarTableroSi(s.sub, raw, version, 'general');
 }
 
 export type InformeGuardadoCrudo = { sub: string; raw: string | null; actualizado: string | null };

@@ -4,6 +4,7 @@ activar_envio_real_email
 actualizar_avance_tarea
 adjuntar_grabaciones_fathom
 afinar_avatares
+agregar_bloque_general
 agregar_dependencia_plan
 agregar_escenario_secuencia
 agregar_filtro_dashboard
@@ -58,6 +59,7 @@ cobranza_lead
 comparar_agendas_meta_crm
 conectar_componentes_dashboard
 configurar_aviso_whatsapp
+configurar_bloque_general
 configurar_reporte
 configurar_seccion_reporte
 confirmaciones_crm_automatico
@@ -77,12 +79,13 @@ crear_etiqueta
 crear_evento_calendario
 crear_experimento
 crear_hoja_dashboard
+crear_hoja_general
+crear_landing_desde_diseno
 crear_lead_magnet
 crear_link_pago
 crear_modulo_curso
 crear_oferta_lead
 crear_secuencia_email
-crear_vista_general
 dar_estrella
 declarar_entradas_funnel
 desarchivar_secuencia
@@ -90,6 +93,7 @@ descartar_borrador_plan
 descartar_experimento
 descartar_item_plan_retro
 deshacer_item_plan_retro
+despublicar_landing
 destacados_periodo_retro
 detectar_fatiga_adsets
 detectar_piezas_landing
@@ -117,6 +121,7 @@ enviar_plantilla_a_meta
 enviar_prueba_broadcast
 envio_email_habilitado
 escenarios_ensayo
+escenarios_secuencia
 escribir_guion_anuncio
 esta_aviso_activo
 estado_analisis_lead
@@ -179,6 +184,7 @@ leer_resumen_objetivos
 leer_segundo_cerebro_como_archivos
 limites_formato_instagram
 link_agenda_calendly
+link_agenda_llamada
 link_configurar_integracion
 link_resumen_lead
 listar_analisis_landing
@@ -205,6 +211,7 @@ listar_conversiones_meta
 listar_creaciones
 listar_cursos
 listar_dependencias_plan
+listar_disenos_landing
 listar_etapas_email
 listar_etiquetas
 listar_etiquetas_whatsapp
@@ -219,11 +226,13 @@ listar_guiones_analizados
 listar_guiones_anuncio
 listar_guiones_para_video
 listar_guiones_valorados
+listar_hojas_general
 listar_horarios_reunion
 listar_identidades_meta
 listar_incidentes_meta
 listar_kpis
 listar_landings
+listar_landings_creadas
 listar_landings_detectadas
 listar_lead_magnets
 listar_leads
@@ -258,7 +267,6 @@ listar_triggers_email
 listar_videos_detectados
 listar_videos_landing
 listar_videos_panda
-listar_vistas_general
 marcar_asistencia_reunion
 marcar_calificado
 marcar_pago_cobrado
@@ -320,6 +328,7 @@ proponer_tareas_plan
 proponer_toggle_nutricion
 propuestas_lead_pendientes
 publicar_creacion
+publicar_landing
 quitar_componente_dashboard
 quitar_conector_dashboard
 quitar_dependencia_plan
@@ -402,6 +411,7 @@ ver_glosario_negocio
 ver_grabaciones_prueba
 ver_integracion
 ver_integraciones
+ver_landing_creada
 ver_metricas_video_panda
 ver_montaje_anuncio
 ver_mrr_activo
@@ -415,6 +425,7 @@ ver_plan
 ver_preferencias_notificaciones
 ver_prioridades_plan
 ver_propuesta_accion
+ver_proximas_recurrentes
 ver_proyecto_plan
 ver_publico_conjunto_meta
 ver_puente_flow

@@ -30,8 +30,8 @@ import { tabEnCapa } from '@/lib/capas';
 import { conectarDominio, estadoDominio, landingDeDominio, quitarDominio, type LandingDeDominio, type ResultadoDominio } from '@/lib/editor-landing/dominios';
 import { HEADER_DOMINIO, conEnlacesDelDominio, dominioValido, hostDeCabecera, urlDeDominio } from '@/lib/editor-landing/dominios-reglas';
 import { leerPublicado } from '@/lib/editor-landing/publicar';
-import { urlPublica } from '@/lib/editor-landing/doc';
-import { APP_BASE_URL } from '@/lib/app-url';
+import { urlLandingEn } from '@/lib/editor-landing/origen-landings';
+import { basesLandings } from '@/lib/app-url';
 import { CACHE_ERROR, paginaNoDisponible, paginaNoEncontrada, responderPublico } from '@/lib/editor-landing/pagina-publica';
 
 export const dynamic = 'force-dynamic';
@@ -103,7 +103,9 @@ export async function GET(req: NextRequest) {
       // viejo: si OTRA landing lo tomó en el medio, la lectura por slug traería la suya. Sólo se sirve
       // la landing de ESTE dominio (revisión de la tanda 2, BAJA).
       if (!sitio || sitio.docId !== docId) return null;
-      const html = conEnlacesDelDominio(sitio.pagina.html, urlPublica(APP_BASE_URL, slug), base);
+      // Cada base donde la foto pudo quedar escrita: hola-mako.site (tanda 4) y hola-mako.com/l (antes).
+      let html = sitio.pagina.html;
+      for (const b of basesLandings()) html = conEnlacesDelDominio(html, urlLandingEn(b, slug), base);
       return { ...sitio, pagina: { ...sitio.pagina, html } };
     },
   });

@@ -10,8 +10,9 @@
 // pintado: las landings y presentaciones del negocio (`listar`, lib/editor-landing/server.ts,
 // paginado), las landings de afuera ya analizadas (`listarAnalizadas`, lib/landing-analyst.ts:
 // la barra lateral las lista con su host como nombre), sus temas propios (para las miniaturas
-// con un tema `ws:<id>` y la galería) y la URL base del sitio público («Copiar enlace público»
-// y el cruce de las analizadas que son nuestras, panel-reglas.ts).
+// con un tema `ws:<id>` y la galería) y las bases de las landings publicadas («Copiar enlace
+// público» y el cruce de las analizadas que son nuestras, panel-reglas.ts; `basesLandings`,
+// lib/app-url.ts: hola-mako.site desde la tanda 4).
 //
 // La derecha que pide la URL (`?diagnostico=<id>`, `?analizar=<url>`, `?vista=plantillas|temas|
 // papelera`) se resuelve acá con `derechaDeQuery` (panel-reglas.ts, puro: un server component no
@@ -38,7 +39,7 @@ import { redirect } from 'next/navigation';
 import { Pagina } from '@/app/_ui';
 import { requireRolWs } from '@/lib/tab-access';
 import { rutaConWs } from '@/lib/workspace';
-import { APP_BASE_URL } from '@/lib/app-url';
+import { basesLandings } from '@/lib/app-url';
 import { listar, temas as leerTemasPropios } from '@/lib/editor-landing/server';
 import { listarAnalizadas } from '@/lib/landing-analyst';
 import { CSS_CONTENIDO } from '@/lib/editor-landing/css';
@@ -90,7 +91,10 @@ export default async function LandingGeneratorPage({ searchParams }: { searchPar
   else { errorTemas = rTemas.error; console.error('[landing-generator] temas propios:', rTemas.error); }
 
   const fuentes = urlFuentes([...TEMAS, ...propios.map((p) => temaPorId('ws:' + p.id, propios))]);
-  const derechaInicial = derechaDeQuery({ vista: uno(sp.vista), diagnostico: uno(sp.diagnostico), analizar: uno(sp.analizar) }, docs, APP_BASE_URL);
+  // Las bases de las landings las decide el SERVER (el navegador no sabe el entorno): la vigente
+  // primero (hola-mako.site en producción, tanda 4) y la de antes (hola-mako.com/l).
+  const bases = basesLandings();
+  const derechaInicial = derechaDeQuery({ vista: uno(sp.vista), diagnostico: uno(sp.diagnostico), analizar: uno(sp.analizar) }, docs, bases);
 
   return (
     <Pagina ancho="completo" densidad="compacta" style={{ padding: 0 }}>
@@ -103,7 +107,7 @@ export default async function LandingGeneratorPage({ searchParams }: { searchPar
         errorAnalizadas={errorAnalizadas}
         propios={propios}
         errorTemas={errorTemas}
-        base={APP_BASE_URL}
+        bases={bases}
         ahora={Date.now()}
         derechaInicial={derechaInicial}
       />
