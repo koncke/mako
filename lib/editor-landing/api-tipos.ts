@@ -204,7 +204,10 @@ export type PedidoDocs =
   | { accion: 'guardarTema'; tema: TemaPropio }
   | { accion: 'borrarTema'; temaId: string }
   | { accion: 'borradoresViejos' }                         // landing_drafts del generador anterior
-  | { accion: 'importarBorrador'; draftId: number };
+  | { accion: 'importarBorrador'; draftId: number }
+  // Tanda 4: con qué cobra el «Botón de pago» (las pasarelas conectadas y los productos activos del
+  // catálogo). Lo leen el control del botón y el aviso de Publicar (pago-landing.ts).
+  | { accion: 'cobro' };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // IA (POST /api/landing-generator/ia)

@@ -47,7 +47,7 @@ const ACCIONES: Record<docs.AccionDocs, true> = {
   slugDisponible: true, publicar: true, despublicar: true, sitioActivo: true, vistaPrevia: true,
   comentarios: true, comentar: true, resolverComentario: true, borrarComentario: true,
   analitica: true, temas: true, guardarTema: true, borrarTema: true,
-  borradoresViejos: true, importarBorrador: true,
+  borradoresViejos: true, importarBorrador: true, cobro: true,
 };
 
 const esAccion = (v: unknown): v is docs.AccionDocs => typeof v === 'string' && Object.prototype.hasOwnProperty.call(ACCIONES, v);
@@ -82,6 +82,7 @@ function ejecutar(p: PedidoDocs): Promise<docs.Resultado<docs.AccionDocs>> {
     case 'borrarTema': return docs.borrarTema(p.temaId);
     case 'borradoresViejos': return docs.borradoresViejos();
     case 'importarBorrador': return docs.importarBorrador(p.draftId);
+    case 'cobro': return docs.cobro();
     default: {
       const nunca: never = p;
       return Promise.resolve(docs.falla(`Acción desconocida: ${String((nunca as { accion?: unknown }).accion)}`));

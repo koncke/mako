@@ -39,6 +39,7 @@ import { sanearContenido, sanearConfig, excedeTope } from './validar';
 import { sanearTemaPropio } from './temas';
 import { specADoc } from './spec-a-doc';
 import { soltarDominioDeVercel } from './dominios';
+import type { EstadoCobroLanding } from './pago-landing';
 import {
   MOTIVO, TOPE_VERSIONES_AUTO, TOPE_TEMAS, CLAVE_TEMAS, cambiosSinPublicar, candidatosSlug, esUrlMedida,
   idValido, mezclarConfig, motivoSlugInvalido, prefiltroVisitas, primeraLibre, puedeBorrarse,
@@ -90,6 +91,7 @@ export type RespuestasDocs = CubreTodas<{
   borrarTema: { temas: TemaPropio[] };
   borradoresViejos: { borradores: BorradorViejo[] };
   importarBorrador: { doc: LandingCompleta };
+  cobro: { cobro: EstadoCobroLanding };
 }>;
 
 /** La respuesta de una acción tal como la ve la pantalla. */
@@ -957,6 +959,21 @@ export async function temasPropiosDe(ws: number): Promise<TemaPropio[]> {
     .eq('workspace_id', ws).eq('key', CLAVE_TEMAS).maybeSingle();
   if (error) throw new Error(`No pude leer los temas: ${error.message}`);
   return sanearTemasPropios((data as { value?: unknown } | null)?.value ?? null);
+}
+
+/**
+ * Tanda 4: con qué cobra el «Botón de pago» de ESTE workspace (las pasarelas conectadas y los productos
+ * ACTIVOS del catálogo). Import dinámico: pago-landing-server.ts importa `temasPropiosDe` de acá.
+ */
+export async function cobro(): Promise<Resultado<'cobro'>> {
+  const ws = await wsOFalla();
+  if (typeof ws !== 'number') return ws;
+  try {
+    const { estadoCobroLanding } = await import('./pago-landing-server');
+    return { ok: true, cobro: await estadoCobroLanding(ws) };
+  } catch (e) {
+    return falla(msg(e), 503);
+  }
 }
 
 export async function temas(): Promise<Resultado<'temas'>> {

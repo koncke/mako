@@ -30,6 +30,7 @@ import { htmlDePagina } from './render';
 import { temaPorId, urlFuentes } from './temas';
 import { CSS_CONTENIDO } from './css';
 import { TEXTO_PIDE_CONTRASENA, fuentesHtmlLibre, pideContrasena } from './html-libre';
+import { productosDePago } from './pago-landing';
 import {
   falla, leerFilaDoc, crearVersion, slugsOcupados, temasPropiosDe, limpiarContenido, limpiarConfig,
   type FallaHttp, type FilaDoc, type Resultado,
@@ -96,6 +97,11 @@ const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
  * con `?vista=` en el borrador), servida con la política sandbox que deja correr su JavaScript. La
  * foto publicada guarda además el HTML de esos bloques (`htmlLibre`), que es de donde los sirve esa
  * ruta: así se sirve lo PUBLICADO aunque el borrador cambie.
+ *
+ * Tanda 4: sólo la foto PUBLICADA (con fecha) lleva los botones de pago al paso de nombre y email
+ * (`pagos: true` del render), y guarda en `pagos` los productos que esos botones cobran
+ * (`productosDePago`): el POST de app/api/landing-generator/pagar no crea un cobro de nada que no
+ * esté ahí. La vista previa deja el botón en `#` (el link privado no cobra).
  */
 function armarFoto(f: Pick<FilaDoc, 'id' | 'titulo' | 'contenido' | 'config' | 'version'>, propios: TemaPropio[], publicadoAt: string | null, urlBase: string | null, vista: string | null): FotoPublicada {
   const donde = `${publicadoAt ? 'publicar' : 'vista previa'} #${f.id}`;
@@ -106,10 +112,13 @@ function armarFoto(f: Pick<FilaDoc, 'id' | 'titulo' | 'contenido' | 'config' | '
   const rutas = publicables.map((p) => ({ id: p.id, ruta: p.ruta }));
   const paginas = publicables.map((p) => {
     const meta = metaDePagina(p, config.sitio, f.titulo);
-    const html = htmlDePagina(p, config, tema, { modo: 'publico', paginas: rutas, ...(urlBase ? { urlBase } : {}), htmlLibre: { docId: f.id, vista } });
+    const html = htmlDePagina(p, config, tema, { modo: 'publico', paginas: rutas, ...(urlBase ? { urlBase } : {}), htmlLibre: { docId: f.id, vista }, pagos: publicadoAt !== null });
     return { ruta: p.ruta, titulo: meta.titulo, descripcion: meta.descripcion, html };
   });
-  return { v: 1, paginas, css: CSS_CONTENIDO, fuentes: urlFuentes([tema]), config, version: f.version, publicadoAt, htmlLibre: fuentesHtmlLibre(publicables) };
+  return {
+    v: 1, paginas, css: CSS_CONTENIDO, fuentes: urlFuentes([tema]), config, version: f.version, publicadoAt, htmlLibre: fuentesHtmlLibre(publicables),
+    ...(publicadoAt !== null ? { pagos: productosDePago(publicables) } : {}),
+  };
 }
 
 async function wsOFalla(): Promise<number | FallaHttp> {

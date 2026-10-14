@@ -35,6 +35,7 @@ import {
 import { HtmlCrudo, escaparTexto, htmlDeArbol, type AttrsArbol, type HijoArbol, type NodoArbol } from './grafico-svg';
 import { sanearConfig } from './validar';
 import { urlBloqueHtmlLibre } from './html-libre';
+import { productoDeHref, urlPasoPago } from './pago-landing';
 
 export { ORIGEN_IMAGENES, origenImagenes, srcPermitido, hrefPermitido } from './especificacion';
 export type { ModoRender } from './especificacion';
@@ -64,6 +65,13 @@ export type OpRender = {
    * privado) y su JavaScript corre. Sin esto, sale con `srcdoc` como siempre (exportar, miniaturas).
    */
   htmlLibre?: { docId: number; vista?: string | null };
+  /**
+   * Tanda 4: los botones de pago (`pago:<productoId>`, pago-landing.ts) llevan al paso de nombre y email
+   * de la PUBLICADA, `<urlBase>/pagar/<productoId>`. Sólo lo pide publicar.ts: en la vista previa del
+   * borrador, la exportación y las miniaturas no hay paso que sirva ese pedido (el link privado no
+   * cobra), y el botón queda en `#`.
+   */
+  pagos?: boolean;
 };
 
 /** La dirección de MaKo del sello «Hecho con MaKo». */
@@ -77,6 +85,8 @@ type Ctx = {
   modo: ModoRender;
   incluirOcultas: boolean;
   urlBase: string | null;
+  /** `op.pagos`: el botón de pago lleva al paso de la publicada (si no, `#`). */
+  pagos: boolean;
   rutas: Map<string, string>;
   /** La sección que tiene el formulario en lo que se está dibujando (red de `#t-formulario`). */
   formulario: string | null;
@@ -114,7 +124,7 @@ function ctxDe(op?: Partial<OpRender>, tema?: Tema, formulario: string | null = 
   for (const p of op?.paginas ?? []) {
     if (p && typeof p.id === 'string' && typeof p.ruta === 'string') rutas.set(p.id, p.ruta);
   }
-  const ctx: Ctx = { modo, incluirOcultas: op?.incluirOcultas === true, urlBase: baseValida(op?.urlBase), rutas, formulario, spec: { modo }, nodos: 0 };
+  const ctx: Ctx = { modo, incluirOcultas: op?.incluirOcultas === true, urlBase: baseValida(op?.urlBase), pagos: op?.pagos === true, rutas, formulario, spec: { modo }, nodos: 0 };
   ctx.spec = {
     modo,
     marcadores: modo === 'miniatura' && op?.marcadores === true,
@@ -138,6 +148,10 @@ function resolverHref(h: string, ctx: Ctx): string | null {
   // RED: un botón «al formulario» que nadie resolvió (`resolverAnclas` de ia-bloques.ts lo resuelve
   // al juntar las tandas y al aceptar una edición de la IA) apunta a la sección que lo tiene.
   if (h === ANCLA_FORMULARIO_PENDIENTE) return ctx.formulario ? `#t-${ctx.formulario}` : h;
+  // El botón de pago (tanda 4): con la MISMA base que las páginas del sitio. Sin paso que lo sirva (o
+  // sin base), `#`: un `pago:` crudo en un `<a>` haría que el navegador busque una aplicación.
+  const producto = productoDeHref(h);
+  if (producto !== null) return ctx.pagos && ctx.urlBase ? urlPasoPago(ctx.urlBase, producto) : '#';
   if (!h.startsWith('pagina:')) return h;
   const ruta = ctx.rutas.get(h.slice('pagina:'.length));
   if (ruta === undefined || !ctx.urlBase) return '#';
