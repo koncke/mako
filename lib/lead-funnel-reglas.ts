@@ -10,6 +10,8 @@
 // Sin 'use client' ni 'server-only': lo leen el server, el tablero, la ficha y la bandeja de
 // WhatsApp (el producto del «+ Agregar al CRM», `destinoDelAlta`).
 
+import { FUNNEL_DEFAULT_NOMBRE } from './funnel-fila';
+
 /** Un producto donde está el lead. `funnelId` es SIEMPRE un id real (la casa NULL ya resuelta al del negocio). */
 export type ProductoDelLead = {
   funnelId: number;
@@ -81,15 +83,25 @@ export function etapaDeEntrada(stages: readonly { key: string; kind?: string | n
 }
 
 /**
- * El nombre que ve la persona: el del PRODUCTO si lo hay, si no el del embudo.
+ * El nombre que ve la persona: el del CRM (el embudo), salvo que siga llamándose como lo
+ * bautizó la migración 0170 — ahí manda el del producto, si lo hay.
  *
  * ⚠️ UNA REGLA, UN LUGAR. Estaba copiada en 11 lugares (el selector del tablero, la ficha, el
  * registro de la API, el Pixel, las secuencias…), dos de ellos sin el `trim` —un producto con
- * nombre en blanco salía en blanco—. «Funnel principal» es el nombre que puso la migración 0170
- * y es el MISMO en todos los workspaces: no le dice nada a nadie, por eso manda el producto.
+ * nombre en blanco salía en blanco—.
+ *
+ * ⚠️ HASTA EL 13/10/2026 MANDABA SIEMPRE EL PRODUCTO, y por eso renombrar el CRM renombraba el
+ * producto — y con él el CURSO, que se titula con el producto. Martín: «desvincula lo que hace
+ * que se ponga automáticamente el nombre de ese CRM al nombre de un curso, porque ahora ya no
+ * debería ser así, sino que los cursos deberían tener el nombre de una OFERTA». Ahora el CRM
+ * tiene nombre propio (`funnels.nombre`, lo que escribe `renombrarFunnel`) y la migración 0269
+ * le copió a cada embudo el nombre que mostraba, así nadie ve un cambio. «Funnel principal»
+ * sigue sin decirle nada a nadie: ése es el único caso en que el producto todavía manda.
  */
 export function nombreVisible(f: { nombre: string; producto?: string | null }): string {
-  return f.producto?.trim() || f.nombre;
+  const propio = f.nombre?.trim();
+  if (propio && propio !== FUNNEL_DEFAULT_NOMBRE) return propio;
+  return f.producto?.trim() || propio || f.nombre;
 }
 
 /** Un producto tal como lo ofrece el alta desde una conversación de WhatsApp. */

@@ -365,51 +365,52 @@ export async function saveFunnelDefault(
 }
 
 /**
- * Renombra un embudo — y lo que se renombra puede NO SER el embudo.
+ * Renombra un CRM (un embudo). Escribe `funnels.nombre` y NADA MÁS.
  *
- * ⚠️ LA PANTALLA MUESTRA EL NOMBRE DEL PRODUCTO, no el del funnel. Todos los funnels de
- * todos los workspaces se llaman «Funnel principal» porque lo puso la migración 0170, y
- * `listarFunnels` lo tapa con el nombre del producto principal (vista `v_funnel_productos`).
- * O sea que escribir `funnels.nombre` y refrescar deja la pantalla EXACTAMENTE IGUAL: un
- * guardado que funciona, no da error, y no se ve. Es el modo de falla que ya se reportó
- * tres veces en esta tab con otro nombre.
- *
- * Así que se escribe donde se LEE: si el funnel tiene producto principal, se renombra el
- * producto; si no, el funnel.
+ * ⚠️ HASTA EL 13/10/2026 ESCRIBÍA EL PRODUCTO cuando el embudo tenía uno, porque la pantalla
+ * mostraba el nombre del producto (`nombreVisible`) y escribir el embudo no se veía. Con eso,
+ * renombrar el CRM renombraba el producto — y con él el curso, que se titula con el producto.
+ * Martín: «desvincula lo que hace que se ponga automáticamente el nombre de ese CRM al nombre de
+ * un curso». Ahora el CRM se muestra con su nombre propio (`nombreVisible`, y la 0269 le copió a
+ * cada embudo el nombre que mostraba), así que escribir acá SÍ se ve. Para el producto está
+ * `renombrarProducto`.
  *
  * ⚠️ Y el índice `funnels_nombre_uk` es único por workspace sobre `lower(btrim(nombre))`:
  * dos embudos no pueden llamarse igual ni cambiando mayúsculas. El choque se traduce a
  * una frase, porque el error crudo de Postgres no le dice nada a nadie.
  */
-export async function renombrarFunnel(funnelId: number, nombreCrudo: string): Promise<{ donde: 'producto' | 'funnel' }> {
-  const nombre = nombreCrudo.trim().replace(/\s+/g, ' ');
-  if (!nombre) throw new Error('El funnel necesita un nombre.');
-  if (nombre.length > 60) throw new Error('El nombre no puede pasar de 60 caracteres.');
+export async function renombrarFunnel(funnelId: number, nombreCrudo: string): Promise<{ donde: 'funnel' }> {
+  const nombre = sanearNombre(nombreCrudo, 'El CRM necesita un nombre.');
   const supabase = await getTenantDb();
-
-  // ¿Tiene producto principal? Ahí es donde hay que escribir.
-  let productoId: number | null = null;
-  try {
-    const { data } = await supabase
-      .from('v_funnel_productos').select('producto_id').eq('funnel_id', funnelId).eq('es_principal', true).limit(1);
-    productoId = ((data ?? []) as Array<{ producto_id: number }>)[0]?.producto_id ?? null;
-  } catch {
-    // La vista puede fallar sin que el renombre deje de tener sentido: se cae al funnel.
-    productoId = null;
-  }
-
-  if (productoId != null) {
-    const { data: tocadas, error } = await supabase.from('productos').update({ nombre }).eq('id', productoId).select('id');
-    if (error) throw new Error(traducirChoque(error.message, nombre));
-    if (!((tocadas ?? []) as unknown[]).length) throw new Error('No se pudo renombrar: ese funnel no es de este workspace.');
-    return { donde: 'producto' };
-  }
-
   const { data: tocadas, error } = await supabase
     .from('funnels').update({ nombre, updated_at: new Date().toISOString() }).eq('id', funnelId).select('id');
   if (error) throw new Error(traducirChoque(error.message, nombre));
-  if (!((tocadas ?? []) as unknown[]).length) throw new Error('No se pudo renombrar: ese funnel no es de este workspace.');
+  if (!((tocadas ?? []) as unknown[]).length) throw new Error('No se pudo renombrar: ese CRM no es de este workspace.');
   return { donde: 'funnel' };
+}
+
+/**
+ * Renombra un PRODUCTO (lo que vende el negocio, y el título del curso que cuelga de él). No
+ * toca el CRM: desde el 13/10/2026 son dos nombres (ver `renombrarFunnel`). Mismo saneo y mismo
+ * tope que el CRM, para que las dos pantallas no acepten nombres distintos.
+ */
+export async function renombrarProducto(productoId: number, nombreCrudo: string): Promise<void> {
+  const nombre = sanearNombre(nombreCrudo, 'El producto necesita un nombre.');
+  const supabase = await getTenantDb();
+  const { data: tocadas, error } = await supabase.from('productos').update({ nombre }).eq('id', productoId).select('id');
+  if (error) {
+    if (/duplicate key|unique constraint|23505/i.test(error.message)) throw new Error(`Ya tienes un producto que se llama «${nombre}».`);
+    throw new Error(`No se pudo renombrar: ${error.message}`);
+  }
+  if (!((tocadas ?? []) as unknown[]).length) throw new Error('Ese producto no es de este workspace.');
+}
+
+/** Espacios colapsados, sin vacío y con el tope de 60: lo mismo para un CRM que para un producto. */
+function sanearNombre(crudo: string, siVacio: string): string {
+  const nombre = String(crudo ?? '').trim().replace(/\s+/g, ' ');
+  if (!nombre) throw new Error(siVacio);
+  if (nombre.length > 60) throw new Error('El nombre no puede pasar de 60 caracteres.');
+  return nombre;
 }
 
 /** El choque del índice único, dicho en una frase que se entiende. */

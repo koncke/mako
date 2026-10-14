@@ -62,7 +62,7 @@ import { guardarEtapasEntrega, entregaDeProducto } from '@/lib/entrega-servicio'
 import { campoEntrega } from '@/lib/servicio-etapas';
 import { productosDelCliente } from './entrega';
 import { crearProductoConFunnel } from '@/lib/producto-con-funnel';
-import { renombrarFunnel, archivarFunnel, getPipelineStagesDeLead } from '@/lib/funnels';
+import { renombrarProducto, archivarFunnel, getPipelineStagesDeLead } from '@/lib/funnels';
 import type { EtapaEntrega, FaseEntrega } from '@/lib/servicio-etapas';
 import { anotarFichaAbierta } from './onboarding-clientes-sync';
 
@@ -819,14 +819,11 @@ async function embudosDelProducto(productoId: number): Promise<Array<{ id: numbe
 /**
  * Renombra un PRODUCTO desde el editor de etapas.
  *
- * ⚠️ «SE DEBE CAMBIAR EN TODOS LADOS, EN EL CRM Y AQUÍ. Y VICEVERSA» (Martín,
- * 05/10/2026). No hay sincronización que escribir: las dos pantallas leen el MISMO
- * campo, `productos.nombre` (el CRM lo pone encima del embudo con `productosPorFunnel`).
- * Lo que hay que garantizar es que las dos ESCRIBAN por el mismo camino: si el producto
- * tiene embudo, va por `renombrarFunnel` —el mismo que usa el título del editor del CRM,
- * con su saneo, su tope de 60 y su choque de nombres traducido—; si no tiene (productos
- * que nacieron en el catálogo antes de la cadena), se escribe el producto con el mismo
- * saneo. Dos caminos que validaran distinto aceptarían acá un nombre que el CRM rechaza.
+ * ⚠️ HASTA EL 13/10/2026 ERA «SE DEBE CAMBIAR EN TODOS LADOS, EN EL CRM Y AQUÍ. Y VICEVERSA»
+ * (Martín, 05/10/2026), y por eso iba por `renombrarFunnel`. Martín lo revirtió el 13/10:
+ * «desvincula lo que hace que se ponga automáticamente el nombre de ese CRM al nombre de un
+ * curso». Ahora el CRM y el producto tienen cada uno su nombre, y acá se escribe el producto
+ * por `renombrarProducto` (lib/funnels.ts), con el mismo saneo y el mismo tope que el CRM.
  */
 export async function renombrarServicioAction(productoId: number, nombreCrudo: string): Promise<
   { ok: true; nombre: string } | { ok: false; error: string }
@@ -837,16 +834,10 @@ export async function renombrarServicioAction(productoId: number, nombreCrudo: s
     const nombre = String(nombreCrudo ?? '').trim().replace(/\s+/g, ' ');
     if (!nombre) return { ok: false, error: 'El producto necesita un nombre.' };
     if (nombre.length > 60) return { ok: false, error: 'El nombre no puede pasar de 60 caracteres.' };
-    const embudos = await embudosDelProducto(productoId);
-    const conEmbudo = embudos.find((f) => f.activo) ?? embudos[0];
-    if (conEmbudo) {
-      await renombrarFunnel(conEmbudo.id, nombre);
-    } else {
-      const db = await getTenantDb();
-      const { data: tocadas, error } = await db.from('productos').update({ nombre }).eq('id', productoId).select('id');
-      if (error) return { ok: false, error: /duplicate key|unique constraint|23505/i.test(error.message) ? `Ya tienes un producto que se llama «${nombre}».` : `No se pudo renombrar: ${error.message}` };
-      if (!((tocadas ?? []) as unknown[]).length) return { ok: false, error: 'Ese producto no es de este workspace.' };
-    }
+    // ⚠️ DESDE EL 13/10/2026 SE RENOMBRA EL PRODUCTO, NUNCA EL CRM. Martín revirtió el «en todos
+    // lados» de arriba: «desvincula lo que hace que se ponga automáticamente el nombre de ese
+    // CRM al nombre de un curso». El CRM tiene nombre propio (lib/funnels.ts → renombrarFunnel).
+    await renombrarProducto(productoId, nombre);
     revalidatePath('/customer-success');
     revalidatePath('/crm');
     return { ok: true, nombre };
