@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { filaAOferta, esModeloOferta } from '../lib/oferta-modelo';
+import { entradaDelLink, idDeParametro } from '../app/offer/arbol';
 
 /**
  * La OFERTA de un lead en su tab Pagos (Martín, 13/10/2026, Pagos punto 1): un desplegable para
@@ -9,7 +10,9 @@ import { filaAOferta, esModeloOferta } from '../lib/oferta-modelo';
  *
  * Verificado rompiéndolo (base 5/0): asignar sin buscar la oferta en las del workspace, 1 fallo;
  * crear sin el candado de admin, 1 fallo; «Nueva oferta» al final del desplegable, 1 fallo; la ruta
- * sin el desplegable, 1 fallo; `filaAOferta` sin leer el modelo, 1 fallo.
+ * sin el desplegable, 1 fallo; `filaAOferta` sin leer el modelo, 1 fallo. Y con el link a Offer
+ * (base 7/0): el funnel del link sin desempatar, 1 fallo; la página sin leer el link, 1 fallo; el
+ * «Analizar» sin el candado del rol, 1 fallo.
  */
 
 const leer = (r: string) => readFileSync(new URL(r, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
@@ -45,6 +48,32 @@ test('las DOS puertas de la ficha muestran la oferta antes del deal', () => {
     const d = src.indexOf('<DealDetailsCard lead={lead}');
     assert.ok(o > 0 && d > o, `${p}: la oferta no está arriba del deal`);
   }
+});
+
+test('el link a Offer abre ESA oferta: su conversación más reciente, o una nueva para analizarla', () => {
+  const s = (id: number, updatedAt: string) => ({ id, titulo: '', estado: 'abierta', total: 0, updatedAt }) as never;
+  const arbol = {
+    funnels: [
+      { id: 1, nombre: 'A', ofertas: [{ id: 7, nombre: 'Mentoría', principal: true, sesiones: [s(30, '2026-10-01'), s(31, '2026-10-09')] }], sesionesNuevas: [] },
+      { id: 2, nombre: 'B', ofertas: [{ id: 7, nombre: 'Mentoría', principal: false, sesiones: [] }, { id: 8, nombre: 'Curso', principal: false, sesiones: [] }], sesionesNuevas: [] },
+    ],
+    sueltas: [],
+  };
+  assert.deepEqual(entradaDelLink(arbol, 7, 1), { tipo: 'sesion', id: 31 });
+  assert.deepEqual(entradaDelLink(arbol, 7, 2), { tipo: 'nueva', funnelId: 2, ofertaBaseId: 7 }, 'el funnel del link desempata');
+  assert.deepEqual(entradaDelLink(arbol, 8, null), { tipo: 'nueva', funnelId: 2, ofertaBaseId: 8 });
+  assert.deepEqual(entradaDelLink(arbol, 8, 99), { tipo: 'nueva', funnelId: 2, ofertaBaseId: 8 }, 'un funnel que no es suyo no la pierde');
+  assert.equal(entradaDelLink(arbol, 99, 1), null, 'una oferta de otro lado abre como siempre');
+  assert.equal(idDeParametro(['12', '3']), 12);
+  assert.equal(idDeParametro('12abc'), null);
+  const PAGE = sinComentarios(leer('../app/offer/page.tsx'));
+  assert.match(PAGE, /entradaDelLink\(leido\.arbol, idDeParametro\(q\.oferta\), idDeParametro\(q\.funnel\)\)/);
+  assert.match(PAGE, /analizarAlAbrir=\{pedido\?\.tipo === 'nueva'/);
+  assert.match(sinComentarios(leer('../app/offer/OfferApp.tsx')), /alAbrir\.current = null;\s*void nuevaSesion\(p\.funnelId, p\.ofertaBaseId\);/);
+});
+
+test('«Analizar oferta» sólo se le muestra a quien puede entrar a Offer', () => {
+  assert.match(UI, /\{elegida && puedeCrear && \(\s*<button type="button" onClick=\{analizar\}/);
 });
 
 test('el modelo de cobro se lee de la fila, y lo desconocido no se inventa', () => {

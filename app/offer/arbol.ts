@@ -27,7 +27,7 @@
 
 import type { DropdownGroup, DropdownOption, IconoDeOpcion } from '@/app/components/Dropdown';
 import type { ArbolOffer, OfferSesionResumen, OfferSesionVista } from '@/lib/offer-marco';
-import { fechaCorta } from './ayudas';
+import { fechaCorta, masReciente } from './ayudas';
 
 export const ARBOL_VACIO: ArbolOffer = { funnels: [], sueltas: [] };
 
@@ -68,6 +68,28 @@ export function leerValor(v: string): EleccionArbol | null {
     return funnelId == null || ofertaBaseId == null ? null : { tipo: 'nueva', funnelId, ofertaBaseId };
   }
   return null;
+}
+
+/** Un parámetro de la URL leído como id. Lo que no es un entero positivo, null. */
+export const idDeParametro = (v: string | string[] | undefined): number | null => entero(Array.isArray(v) ? v[0] : v);
+
+/**
+ * Lo que abre un link que nombra una oferta: el «Analizar oferta →» de la ficha del lead en el CRM
+ * (13/10/2026), `/offer?oferta=<id>&funnel=<id>`. La conversación más reciente de esa oferta si ya
+ * tiene una; si no, una nueva para analizarla (la misma que el «Analizar» del selector).
+ *
+ * El funnel del link desempata cuando la oferta cuelga de varios; sin él, o si no es uno de los suyos,
+ * el primero que la tenga. null = la oferta no está en el árbol (no es de este workspace, o no está
+ * ligada a ningún funnel): la pantalla abre como siempre, en la conversación más reciente.
+ */
+export function entradaDelLink(a: ArbolOffer, ofertaId: number | null, funnelId: number | null): EleccionArbol | null {
+  if (ofertaId == null) return null;
+  const con = a.funnels.filter((f) => f.ofertas.some((o) => o.id === ofertaId));
+  const f = con.find((x) => x.id === funnelId) ?? con[0];
+  const o = f?.ofertas.find((x) => x.id === ofertaId);
+  if (!f || !o) return null;
+  const ultima = masReciente(o.sesiones);
+  return ultima ? { tipo: 'sesion', id: ultima.id } : { tipo: 'nueva', funnelId: f.id, ofertaBaseId: ofertaId };
 }
 
 // ── El árbol que viene del servidor ──────────────────────────────────────────

@@ -99,7 +99,8 @@ export function OfertaDelLead({ leadId, funnelId, onCambio }: {
           disabled={ofertas == null}
           ariaLabel="La oferta del lead"
         />
-        {elegida && (
+        {/* Offer es del admin (requireRolWs([])): a otro rol el link lo rebotaría. */}
+        {elegida && puedeCrear && (
           <button type="button" onClick={analizar}
             style={{ background: 'none', border: 'none', padding: 2, cursor: 'pointer', fontFamily: SANS, fontSize: 13, fontWeight: 650, color: 'var(--primary)' }}>
             Analizar oferta →
