@@ -32,6 +32,7 @@ import { armarModulos, conHtmlSaneado, cursoSeLista, estiloQueViaja, esClaseCerr
 import { htmlsDeTareas } from '@/lib/curso';
 import { estilosDeProductos } from '@/lib/curso-estilo-datos';
 import { nombresDeCursos } from '@/lib/curso-nombre-datos';
+import { SIN_NOMBRE_ALUMNO } from '@/lib/curso-nombre';
 import { estiloVacio } from '@/lib/curso-estilo';
 import { sanearHtml } from '@/lib/html-seguro';
 import { tzActual } from '@/lib/timezone';
@@ -68,7 +69,7 @@ export default async function VistaAlumnoPage({ searchParams }: { searchParams: 
   // El producto tiene que ser de ESTE workspace: `getTenantDb` pone el filtro del inquilino.
   const db = await getTenantDb();
   const { data: prod } = productoId
-    ? await db.from('productos').select('id, nombre').eq('id', productoId).maybeSingle()
+    ? await db.from('productos').select('id').eq('id', productoId).maybeSingle()
     : { data: null };
   if (!productoId || !prod) {
     return (
@@ -133,8 +134,8 @@ export default async function VistaAlumnoPage({ searchParams }: { searchParams: 
     // (item 16 del audio del 08/10/2026, 03:00: el módulo publicado y vacío tiene que aparecer, como en
     // Skool, con su «Próximamente»).
     productos: cursoSeLista(cur.modulos, clases) ? [{
-      // El nombre del curso, como en el portal: el de su oferta (lib/curso-nombre.ts).
-      productoId, nombre: nombreCurso.get(productoId) ?? (prod as { nombre: string }).nombre, modulos,
+      // El nombre del curso, como en el portal: el de su oferta, nunca el del producto (lib/curso-nombre.ts).
+      productoId, nombre: nombreCurso.get(productoId) ?? SIN_NOMBRE_ALUMNO, modulos,
       // Lo mismo que le llega al alumno (`armarVistaAlumno`): las portadas de lo que se ve.
       estilo: estiloQueViaja(estilos.get(productoId) ?? estiloVacio(), modulos),
     }] : [],

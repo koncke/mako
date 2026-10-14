@@ -167,6 +167,18 @@ export const leadDe = (clave: string): number | null => { const c = leerClave(cl
 
 // ── Lecturas de base ──────────────────────────────────────────────────────────────
 
+/**
+ * El nombre del CURSO de un producto, para nombrar su comunidad cuando no tiene uno propio. ⚠️ NUNCA el
+ * del producto, que es el CRM (Martín, 14/10/2026: «no debe aparecer nunca como nombre del curso»,
+ * lib/curso-nombre.ts). Va con el workspace FIJO (`runWithWorkspace`): esto lo llama también el portal
+ * del alumno, y la lectura de la oferta es por inquilino. `null` = sin título ni oferta: «Comunidad».
+ */
+async function nombreDelCursoDe(ws: number, productoId: number): Promise<string | null> {
+  const [{ runWithWorkspace }, { nombresDeCursos }] = await Promise.all([import('./workspace'), import('./curso-nombre-datos')]);
+  const m = await runWithWorkspace(ws, () => nombresDeCursos([productoId], { conTitulo: true })).catch(() => new Map<number, string>());
+  return m.get(productoId) ?? null;
+}
+
 /** ¿El producto es de este workspace? Lo pregunta la action del equipo antes de armar el actor. */
 export async function productoDelWorkspace(ws: number, productoId: number): Promise<{ id: number; nombre: string } | null> {
   if (!Number.isInteger(productoId) || productoId <= 0) return null;
@@ -724,10 +736,10 @@ function yoVista(a: Actor, info: Map<string, Info>, puntos: number, nombres: rea
  *    columna dice «—», en vez de un «0 miembros» que se leería como una comunidad vacía.
  */
 export async function inicioComunidad(a: Actor): Promise<ComunidadVista> {
-  const [ajustes, categorias, producto, puntosYo] = await Promise.all([
+  const [ajustes, categorias, nombreCurso, puntosYo] = await Promise.all([
     leerAjustes(a.ws, a.productoId),
     categoriasDe(a.ws, a.productoId),
-    productoDelWorkspace(a.ws, a.productoId),
+    nombreDelCursoDe(a.ws, a.productoId),
     contarPuntos(a.ws, a.productoId, a.clave),
   ]);
   const infoYo = await infoDeMiembros(a.ws, [a.clave], new Map([[a.clave, a.nombre]]));
@@ -756,7 +768,7 @@ export async function inicioComunidad(a: Actor): Promise<ComunidadVista> {
 
   return {
     productoId: a.productoId,
-    nombre: ajustes.nombre ?? producto?.nombre ?? 'Comunidad',
+    nombre: ajustes.nombre ?? nombreCurso ?? 'Comunidad',
     descripcion: ajustes.descripcion,
     categorias,
     yo,
@@ -1670,10 +1682,10 @@ export async function guardarNombresNivel(a: Actor, raw: unknown): Promise<Resul
  * = no se pudo leer la entrega), como en la columna lateral.
  */
 export async function aboutComunidad(a: Actor): Promise<AboutVista> {
-  const [{ data, error }, producto] = await Promise.all([
+  const [{ data, error }, nombreCurso] = await Promise.all([
     de(a.ws, 'comunidad_ajustes').select('nombre, descripcion, about, reglas, nivel_para_postear, zona_horaria')
       .eq('producto_id', a.productoId).maybeSingle(),
-    productoDelWorkspace(a.ws, a.productoId),
+    nombreDelCursoDe(a.ws, a.productoId),
   ]);
   if (error) throw new Error(error.message);
   const f = data as { nombre: string | null; descripcion: string | null; about: unknown; reglas: string | null; nivel_para_postear: number | null; zona_horaria: string | null } | null;
@@ -1696,7 +1708,7 @@ export async function aboutComunidad(a: Actor): Promise<AboutVista> {
   }
   const nombrePropio = f?.nombre?.trim() || null;
   return {
-    nombre: nombrePropio ?? producto?.nombre ?? 'Comunidad',
+    nombre: nombrePropio ?? nombreCurso ?? 'Comunidad',
     nombrePropio,
     descripcion: f?.descripcion ?? '',
     texto: textoDeAbout(f?.about),

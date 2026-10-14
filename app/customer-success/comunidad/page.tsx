@@ -17,6 +17,8 @@ import { requireCapa } from '@/lib/tab-access';
 import { inicioComunidad, feedComunidad, productoDelPost } from '@/lib/comunidad-datos';
 import { getWorkspaceActual } from '@/lib/workspace';
 import { productosDeLaEntrega } from '../entrega';
+import { nombresDeCursos } from '@/lib/curso-nombre-datos';
+import { SIN_NOMBRE_EQUIPO } from '@/lib/curso-nombre';
 import { actorDelEquipo } from './actor';
 import { ComunidadEquipo } from './ComunidadEquipo';
 import { lineaOnboarding } from './onboarding-comunidad';
@@ -40,7 +42,10 @@ export default async function ComunidadPage({ searchParams }: { searchParams: Pr
   // Los productos de Customer Success: la MISMA lista que el kanban y el Curso.
   let productos: Array<{ id: number; nombre: string }> = [];
   try {
-    productos = await productosDeLaEntrega();
+    // Cada comunidad se nombra como su CURSO, nunca como el producto (que es el CRM): lib/curso-nombre.ts.
+    const lista = await productosDeLaEntrega();
+    const nombres = await nombresDeCursos(lista.map((p) => p.id), { conTitulo: true }).catch(() => new Map<number, string>());
+    productos = lista.map((p) => ({ id: p.id, nombre: nombres.get(p.id) ?? SIN_NOMBRE_EQUIPO }));
   } catch (e) {
     return <ComunidadEquipo productos={[]} productoId={null} inicial={null} error={mensaje(e, 'No pude leer tus productos.')} onboarding={null} />;
   }
