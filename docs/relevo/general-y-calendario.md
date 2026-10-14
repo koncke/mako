@@ -3,6 +3,21 @@
 **Al 14/10/2026 (~04:30), claude2.** Lo escribe el chat que hizo el trabajo (primera mano). Lo que costó está en los
 hallazgos de cada área; acá va qué quedó, dónde y qué espera.
 
+## Verificación 14/10/2026 ~15:55 (claude1, chat «General» nuevo)
+
+Medido, no leído: `c23cb620` (sexta vuelta) y `78fe8132` (Dashboard sin hojas) son ancestros de `origin/main`
+(`ab2641963`), y el árbol del clon está limpio. **No hay nada de General ni del Calendario a medias.**
+
+Lo abierto, con quién lo destraba:
+
+- **Las tareas de Google**: esperan a Google, no a código. No se pudo ver si aprobó la verificación (Claude in Chrome
+  desconectado; el Gmail de las sesiones es el de Mauricio). Y `tasks.readonly` es un permiso nuevo: puede pedir otra
+  ronda (el detalle, en `docs/hallazgos-calendario.md` → «Lo que quedó SIN hacer»).
+- **Sin mirar en un navegador**: /calendario con una agenda real y «Prioridades del Plan» (llega con `next/dynamic`, el
+  arnés no lo dibuja). Hace falta Chrome conectado.
+- **Decisiones de Martín** (siguen igual): la hoja de Mauricio (un clic en «＋ Nueva hoja»), quién ve el Calendario, y si
+  «A quién cobrarle» se saca del Dashboard.
+
 ## Actualización 14/10/2026 14:55 (claude2, el mismo chat; la cuenta al 95% semanal)
 
 **General, sexta vuelta** (`c23cb620`): cada bloque y cada plantilla mirados en captura (escritorio y 364 px) y corregidos:

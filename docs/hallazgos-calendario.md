@@ -172,6 +172,12 @@ arrastre; mover y estirar arrastrando.
   del proyecto `mako-500317`) y al pedido de `GCAL_SCOPE` (lib/google-calendar.ts); la lectura es
   `GET tasks/v1/users/@me/lists` y `lists/{id}/tasks?dueMin&dueMax&showCompleted=true`. La API de Tasks no da la HORA de
   una tarea (sólo el día): se dibujan como de todo el día, con su casilla, en un calendario «Tareas».
+  ⚠️ **«Después de la aprobación» no es «al día siguiente».** Lo que está en revisión desde el 10/10 son `calendar.events` y
+  `calendar.readonly`; `tasks.readonly` es un permiso NUEVO. Si la consola lo marca sensible al agregarlo en Data Access
+  (la página de la API de Tasks no lo dice; no está medido), es otra ronda de verificación. Y `GCAL_SCOPE` no lo pide
+  antes de que Google lo apruebe: pedirlo antes le vuelve a mostrar «Google no verificó esta app» a todo el que conecte su
+  agenda. El estado de la verificación se mira en la consola o en martinkoncke@gmail.com: el Gmail conectado a las
+  sesiones es el de Mauricio (medido el 14/10/2026, ~15:55, claude1).
 - **Invitar gente, la videollamada nueva y la repetición** al crear un evento de Google desde acá (Google los tiene en
   «Más opciones»). Mover o borrar UNA ocurrencia de una serie funciona (es la instancia); cambiar la serie entera, no.
 - **Buscar** (la lupa de Google) no está.
