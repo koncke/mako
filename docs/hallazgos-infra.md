@@ -47,6 +47,19 @@ como RUTA EXACTA a `PUBLICOS` (las dos rutas, no la carpeta) junto con los archi
 cookie, mirando que no haya `Location`. **Vive en:** proxy.ts · lib/rutas-publicas.ts. El resto del relevamiento de las
 tiendas, en hallazgos-mobile.md → «El prototipo v3 y el relevamiento de las tiendas».
 
+## `revalidatePath('/x')` refresca la pantalla que llamó la action, aunque sea otra ruta (14/10/2026)
+
+Medido al verificar el tablero de Clientes del teléfono. `moverEntregaAction` llama a
+`revalidatePath('/customer-success')`, y la pantalla que la llamó era /m/cs: igual volvió re-renderizada. En Next 16.2,
+`revalidatePath` marca la respuesta de la server action como revalidada sin mirar la ruta (revalidate.js lo dice en un
+TODO), y el cliente vuelve a pedir el árbol de la página actual.
+
+- **No hace falta un `router.refresh()` después de una action que revalida.** Ponerlo es un viaje de más.
+- **La trampa es al revés:** una action que NO revalida (la idempotente: `cambio: false`, «ya estaba ahí») deja la
+  pantalla vieja. Ahí sí va `router.refresh()`.
+- Un comentario que dice «la action revalida otra ruta, así que esta pantalla no se entera» está mal desde Next 16.
+  Si un día lo arreglan (el TODO), lo que hoy se refresca solo deja de hacerlo.
+
 ## Supabase: leer y escribir sin perder datos
 
 ### ⚠️ `getSetting` devuelve `null` tanto si falló la lectura como si no hay fila, y eso expulsa a un cliente onboardeado al wizard

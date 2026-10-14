@@ -107,6 +107,10 @@ export function KanbanM(p: KanbanMProps) {
   const [agarrada, setAgarrada] = useState<string | null>(null);
   const [moviendo, setMoviendo] = useState<string | null>(null);
   const presion = useRef<{ id: string; x: number; y: number; t: ReturnType<typeof setTimeout>; largo: boolean } | null>(null);
+  // Las tarjetas con un mover (o un deshacer) en vuelo: no se vuelven a mover hasta que el server
+  // conteste. Sin esto, mover dos veces la misma antes de que vuelva la primera dejaba al Deshacer
+  // de la segunda con un «antes» que el server ya había pisado (verificado el 14/10/2026).
+  const enVuelo = useRef(new Set<string>());
 
   // Por la FIRMA (id:columna de cada una) y no por la identidad del array: una pantalla que arma
   // las tarjetas en cada render no tiene que acordarse de memorizarlas para que mover no rebote.
@@ -163,7 +167,7 @@ export function KanbanM(p: KanbanMProps) {
   const destinos = tarjetaMovida && p.moverA ? new Set(p.moverA(tarjetaMovida.id)) : new Set<string>();
 
   // ── El gesto: tocar abre; mantener presionado abre «Mover a…» ─────────────
-  const puedeMover = (id: string) => !!p.onMover && !!p.moverA && p.moverA(id).length > 0;
+  const puedeMover = (id: string) => !!p.onMover && !!p.moverA && !enVuelo.current.has(id) && p.moverA(id).length > 0;
   const abajo = (e: PointerEvent, id: string) => {
     if (e.button > 0 || !puedeMover(id)) return;
     const x = e.clientX, y = e.clientY;
@@ -199,25 +203,38 @@ export function KanbanM(p: KanbanMProps) {
 
   const mover = async (id: string, destino: string) => {
     const antes = tarjetas.find((t) => t.id === id)?.col;
-    if (!antes || antes === destino || !p.onMover) return;
+    if (!antes || antes === destino || !p.onMover || enVuelo.current.has(id)) return;
     setMoviendo(null);
-    const aplicar = () => { setSeVa(null); ponerEn(id, destino); latir(destino); };
+    enVuelo.current.add(id);
+    // ⚠️ EL TIMER DE LA SALIDA SE CANCELA SI MOVER FALLA. Sin red, la action rechaza en el acto:
+    // la rama de error devolvía la tarjeta y 220 ms después el timer la volvía a poner en el
+    // destino, para siempre (un refresh trae la misma firma y no limpia nada). Medido el 14/10/2026.
+    let salida: ReturnType<typeof setTimeout> | null = null;
+    const aplicar = () => { salida = null; setSeVa(null); ponerEn(id, destino); latir(destino); };
     if (sinMovimiento()) aplicar();
-    else { setSeVa(id); setTimeout(aplicar, 220); }
-    haptico('success');
+    else { setSeVa(id); salida = setTimeout(aplicar, 220); }
     let r: ResultadoMover;
     try { r = await p.onMover(id, destino); } catch { r = { ok: false, error: 'No se pudo mover' }; }
     if (!r.ok) {
+      if (salida) { clearTimeout(salida); salida = null; }
+      setSeVa(null);
       ponerEn(id, antes); latir(antes); setLlego(id);
+      enVuelo.current.delete(id);
       haptico('error');
       toast(r.error);
       return;
     }
+    enVuelo.current.delete(id);
+    haptico('success');
     const deshacer = r.deshacer;
     toast(p.fraseMovida ? p.fraseMovida(tituloDe(destino)) : `Pasó a ${tituloDe(destino)}`, deshacer ? {
       deshacer: () => {
+        if (enVuelo.current.has(id)) return;
+        enVuelo.current.add(id);
+        if (salida) { clearTimeout(salida); salida = null; setSeVa(null); }
         ponerEn(id, antes); latir(antes); setLlego(id);
-        void deshacer().then((ok) => {
+        void deshacer().catch(() => false).then((ok) => {
+          enVuelo.current.delete(id);
           if (ok) { toast('Volvió'); return; }
           ponerEn(id, destino); latir(destino);
           toast('No se pudo deshacer');

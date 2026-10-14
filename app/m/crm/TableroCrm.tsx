@@ -11,7 +11,9 @@
 //   · El tablero (KanbanM): las columnas del funnel con su conteo y su plata.
 //   · Tocar una tarjeta abre la ficha; mantenerla presionada, «Mover a…» con las etapas a las que
 //     el teléfono PUEDE moverla (las de cobro, Ganado y las que piden wizard, en la computadora:
-//     seMueveEnElTelefono, y el server lo vuelve a chequear en moverEtapaAction).
+//     seMueveEnElTelefono). Y sólo si de su columna se SALE desde el teléfono (seSacaEnElTelefono:
+//     no desde un desenlace ni desde Nutrición manual, porque el Deshacer no repone el monto, el
+//     motivo ni el plazo). El server vuelve a chequear las dos cosas en moverEtapaAction.
 //   · La lupa (la UNA acción del encabezado) abre el buscador en un sheet.
 // =============================================================================
 
@@ -49,6 +51,7 @@ export function TableroCrm({ datos }: { datos: TableroCrmM }) {
   ), []);
 
   const movibles = useMemo(() => new Set(datos.columnas.filter((c) => c.movible).map((c) => c.key)), [datos.columnas]);
+  const deDondeSale = useMemo(() => new Set(datos.columnas.filter((c) => c.sale).map((c) => c.key)), [datos.columnas]);
   const columnas: ColumnaKanban[] = useMemo(
     () => datos.columnas.map((c) => ({ key: c.key, titulo: c.titulo, total: c.total ?? undefined, cuantos: c.cuantos })),
     [datos.columnas],
@@ -74,6 +77,8 @@ export function TableroCrm({ datos }: { datos: TableroCrmM }) {
     const leadId = Number(id);
     const r = await moverEtapaAction(leadId, datos.funnelId, destino);
     if (!r.ok) return { ok: false, error: r.error };
+    // Ya estaba ahí: el server refrescó y la tarjeta queda donde está, sin Deshacer.
+    if (!r.cambio) return { ok: true };
     return {
       ok: true,
       deshacer: async () => {
@@ -102,6 +107,7 @@ export function TableroCrm({ datos }: { datos: TableroCrmM }) {
         arriba={selector}
         moverA={(id) => {
           const actualCol = datos.tarjetas.find((t) => String(t.id) === id)?.col;
+          if (!actualCol || !deDondeSale.has(actualCol)) return [];
           return datos.columnas.filter((c) => movibles.has(c.key) && c.key !== actualCol).map((c) => c.key);
         }}
         onMover={mover}

@@ -11,6 +11,7 @@
 import { coincideBusqueda } from '@/lib/buscar-texto';
 import { numeroCanonico } from '@/lib/contacto-lead';
 import { pideWizardAlElegir } from '@/app/crm/mover-etapa';
+import { terminalEstadoFor } from '@/lib/pipeline';
 
 // ── Buscador ──────────────────────────────────────────────────────────────────
 
@@ -92,8 +93,28 @@ export function seMueveEnElTelefono(stages: readonly EtapaM[], key: string): boo
   return !pideWizardAlElegir(comoLite(stages), key);
 }
 
-/** A qué etapas se puede mover desde aquí (sin la actual), en el orden del embudo. */
+/**
+ * ¿Se puede SACAR un lead de esta etapa desde el teléfono? Lo mismo que para entrar, y además NO
+ * desde un desenlace (Ganado, Perdido, Descalificado, No responde).
+ *
+ * ⚠️ POR EL DESHACER (verificado el 14/10/2026 con el tablero v3). Mover a un lead fuera de un
+ * desenlace borra el monto, el motivo y la fecha de cierre (lib/lead-desenlace.ts), y salir de
+ * «Nutrición - Manual» borra su plazo. El Deshacer del teléfono vuelve la ETAPA pero no esos datos:
+ * un Ganado de US$4.200 movido y deshecho quedaba Ganado SIN monto, y Revenue perdía la venta. El
+ * escritorio sí los repone (CrmBoard guarda monto y motivo en `undoInfo`). Hasta que el teléfono
+ * los reponga, esos leads se mueven en la computadora.
+ *
+ * Una etapa que el funnel ya no tiene se lee como la columna en la que la DIBUJA el tablero
+ * (`etapaEnTablero`): ahí la ve la persona, y desde ahí se mueve.
+ */
+export function seSacaEnElTelefono(stages: readonly EtapaM[], actual: string | null): boolean {
+  const k = etapaEnTablero(actual ?? '', stages.map((s) => s.key));
+  return seMueveEnElTelefono(stages, k) && terminalEstadoFor(k) === 'abierto';
+}
+
+/** A qué etapas se puede mover desde aquí (sin la actual), en el orden del embudo. Ninguna si de la actual no se sale. */
 export function etapasMovibles(stages: readonly EtapaM[], actual: string | null): EtapaM[] {
+  if (!seSacaEnElTelefono(stages, actual)) return [];
   // Sólo lo que el sheet necesita: las etapas del embudo traen colores y columnas que no viajan.
   return stages.filter((s) => s.key !== actual && seMueveEnElTelefono(stages, s.key)).map((s) => ({ key: s.key, label: s.label, kind: s.kind ?? null }));
 }

@@ -1081,6 +1081,20 @@ duplicación deliberada, no un bug.
 
 ---
 
+## El Deshacer de un movimiento no repone el plazo de «Nutrición - Manual» (también en escritorio) (14/10/2026)
+
+Lo encontró la verificación del tablero del teléfono. Salir de `manual` borra `nutricion_manual_deadline`
+(lib/leads.ts, `setPipelineStage`, cuando el destino no es manual). Al deshacer, `undoStageMoveAction` llama a
+`setPipelineStage(id, 'manual', { monto, motivo })` sin plazo, y escribe `nutricion_manual_deadline = null`. El lead
+queda en manual SIN fecha. El CRM automático (lib/crm-auto-plan.ts) y el «Venció…» del worklist dependen de esa
+fecha, así que queda aparcado para siempre: el estado que el wizard de manual existe para impedir.
+
+- **El teléfono ya no lo produce**: de manual no se sale desde el teléfono (`seSacaEnElTelefono`, hallazgos-mobile).
+- **El escritorio sí** (CrmBoard.tsx, `undoMove` → `undoStageMoveAction`). El monto y el motivo los repone, porque
+  los guarda en `undoInfo`; el plazo no.
+- **Arreglo pendiente:** guardar el plazo en `undoInfo`, que `undoStageMoveAction` acepte `opts.deadline` y lo pase a
+  `setPipelineStage`. Vive en app/crm/actions.ts y app/crm/CrmBoard.tsx.
+
 ## El funnel: de dónde salen las etapas
 
 ### ⚠️ El editor de funnel nunca tuvo botón de Deshacer

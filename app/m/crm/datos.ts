@@ -34,7 +34,7 @@ import { mapToCrmLead, etapasDelTablero } from '@/app/crm/crm-map';
 import { canalDeLead } from '@/app/crm/origen-lead';
 import { getLeadAuditAction } from '@/app/crm/actions';
 import {
-  cuandoEnLista, etapaEnTablero, lineaActividad, llegoPor, proximaLlamada, seMueveEnElTelefono,
+  cuandoEnLista, etapaEnTablero, lineaActividad, llegoPor, proximaLlamada, seMueveEnElTelefono, seSacaEnElTelefono,
   FUERA_DE_ACTIVIDAD, type LineaActividad,
 } from './reglas';
 
@@ -119,7 +119,8 @@ export type TableroCrmM = {
   funnelId: number | null;
   /** El selector: el del negocio primero. Con uno solo, no hay selector. */
   funnels: Array<{ id: number | null; nombre: string }>;
-  columnas: Array<{ key: string; titulo: string; total: string | null; cuantos: number; movible: boolean }>;
+  /** `movible`: se puede llevar un lead ACÁ desde el teléfono; `sale`: se puede sacar uno de acá. */
+  columnas: Array<{ key: string; titulo: string; total: string | null; cuantos: number; movible: boolean; sale: boolean }>;
   tarjetas: TarjetaCrmM[];
 };
 
@@ -144,7 +145,10 @@ export async function tableroCrm(funnelPedido: number | null): Promise<TableroCr
     const stages = [...stagesRaw].sort((a, b) =>
       (BANDA_ORDEN.indexOf(a.band ?? 'pipeline') - BANDA_ORDEN.indexOf(b.band ?? 'pipeline')) || ((a.col ?? 0) - (b.col ?? 0)));
     const tablero = etapasDelTablero(stages);
-    const keys = stages.map((s) => s.key);
+    // ⚠️ LA COLUMNA DE CADA LEAD SE CUENTA CON LAS ETAPAS EN EL ORDEN DEL FUNNEL, no en el de las
+    // columnas: una etapa que el funnel ya no tiene cae a la PRIMERA (etapaEnTablero), y la primera
+    // es la del funnel, la misma que usan CrmBoard y moverEtapaAction.
+    const keys = stagesRaw.map((s) => s.key);
     // El más nuevo arriba (el orden de llegada de escritorio); después, el orden manual de cada columna.
     const crm = leads.map((l) => mapToCrmLead(l, campMap, tablero))
       .sort((a, b) => (Date.parse(b.createdISO ?? '') || 0) - (Date.parse(a.createdISO ?? '') || 0));
@@ -175,7 +179,10 @@ export async function tableroCrm(funnelPedido: number | null): Promise<TableroCr
       columnas: stages.map((s) => {
         const cs = porCol.get(s.key) ?? [];
         const t = totalDeColumna(s.key, cs);
-        return { key: s.key, titulo: s.label, total: t ? textoDelTotal(t) : null, cuantos: cs.length, movible: seMueveEnElTelefono(lite, s.key) };
+        return {
+          key: s.key, titulo: s.label, total: t ? textoDelTotal(t) : null, cuantos: cs.length,
+          movible: seMueveEnElTelefono(lite, s.key), sale: seSacaEnElTelefono(lite, s.key),
+        };
       }),
       tarjetas,
     };

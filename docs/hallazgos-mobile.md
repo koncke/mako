@@ -37,6 +37,29 @@ como tablero) y c2f6863a0 (el Plan con las cuatro vistas de escritorio).
 - **Proyectos en escritorio NO es un kanban**: es una grilla de tarjetas (`ProyectosView`). El teléfono los agrupa por
   los cuatro escalones de prioridad porque así quedó en el prototipo v3 que aprobó Martín.
 
+**Lo que encontró la verificación de mover y deshacer** (3 agentes, sólo lectura, después del push; arreglado en el
+commit siguiente):
+- **El Deshacer del teléfono BORRABA LA VENTA.** Mover a un lead FUERA de Ganado borra el monto, el motivo y la fecha
+  de cierre (lib/lead-desenlace.ts). El Deshacer vuelve la etapa pero no esos datos: un Ganado de US$4.200 movido y
+  deshecho quedaba Ganado sin monto, y Revenue perdía la venta. Salir de «Nutrición - Manual» borra su plazo igual.
+  La regla del teléfono miraba sólo el DESTINO. Ahora también el ORIGEN: `seSacaEnElTelefono` (app/m/crm/reglas.ts)
+  no deja sacar a un lead de un desenlace, de un cobro ni de manual. La usan el tablero, la ficha y el server.
+- **Deshacer a la etapa CRUDA escribía una que el funnel no tiene.** Un lead dibujado por fallback (su etapa ya no
+  está en el funnel) volvía a `pipeline_stage` con la etapa vieja, y en escritorio pasaba a «fuera del funnel». Y la
+  de un agregado huérfano hacía fallar el Deshacer siempre. Ahora `antes` es la columna DIBUJADA (`etapaEnTablero`),
+  como hace CrmBoard. Y la columna de cada lead se cuenta con las etapas en el orden del FUNNEL, no en el de las
+  columnas, porque la «primera» del fallback es la del funnel.
+- **El timer de 220 ms de KanbanM resucitaba un mover fallido.** Sin red, la action rechaza en el acto: la tarjeta
+  volvía y 220 ms después el timer la ponía en el destino. Un refresh no lo corregía: trae la misma firma y no limpia
+  nada. Ahora el timer se cancela al fallar, y una tarjeta con un mover o un deshacer en vuelo no se vuelve a mover.
+- **El Deshacer de Clientes reponía lo que CREÍA el teléfono.** Si MaKo (el curso) u otra persona había movido al
+  cliente, deshacer borraba ese avance y le ponía un reloj viejo. El server ya devuelve de dónde venía (`r.desde`).
+  Ahora el Deshacer se ofrece sólo si coincide con la pantalla, y nunca desde una etapa borrada. Con
+  `cambio: false` se pide `router.refresh()` en vez de pintar un reloj inventado.
+- **El diagnóstico obvio era el equivocado:** el comentario de CustomerSuccessM decía que la action «revalida
+  /customer-success, no esta ruta». Es falso: `revalidatePath` revalida la respuesta entera (ver hallazgos-infra), así
+  que /m/cs vuelve fresca después de cada movimiento que cambió algo. Sólo `cambio: false` la dejaba vieja.
+
 **Lo que quedó sin hacer** (esta tanda):
 - **More tiene sólo las secciones que ya existían** (Ads, Dashboard, Landing, Automations, Video, Clientes, MaKo).
   Las otras 9 pantallas del prototipo v3 (Calendario, Second Brain, Experiments, Offer, Copywriting, Curso, Comunidad,

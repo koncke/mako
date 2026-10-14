@@ -18,12 +18,20 @@
 // (`sacarDeEntregaAction`) y vuelve a la primera por la regla del reparto. Es lo que hace
 // `moverEntrega` en app/customer-success/ClientesApp.tsx: revertir sólo la pantalla mentiría.
 //
-// ⚠️ LO MOVIDO SE PINTA ENCIMA DE LO QUE TRAJO EL SERVER (`MovidosCs`), sin `router.refresh()`:
-// la action revalida /customer-success, no esta ruta. Cuando la página vuelve a pedir datos
-// (tirar para refrescar) los props son nuevos y el overlay se limpia: manda la base.
+// ⚠️ LO MOVIDO SE PINTA ENCIMA DE LO QUE TRAJO EL SERVER (`MovidosCs`). Cuando la página vuelve a
+// pedir datos los props son nuevos y el overlay se limpia: manda la base. Y vuelve a pedirlos sola
+// después de cada movimiento que CAMBIÓ algo: `revalidatePath('/customer-success')` marca la
+// respuesta como revalidada sin mirar la ruta (Next 16, el TODO de revalidate.js), así que /m/cs
+// vuelve re-renderizada. Con `cambio: false` la action NO revalida: ahí se pide `router.refresh()`.
+//
+// ⚠️ EL DESHACER SE OFRECE SÓLO SI LA PANTALLA ESTABA AL DÍA (verificado el 14/10/2026). Repone la
+// `previa` que creía el teléfono; si el server dice que el cliente venía de OTRA etapa (`r.desde`:
+// MaKo lo movió por el curso, otra persona lo movió en la computadora), deshacer borraría ese avance
+// y le pondría un reloj viejo. Tampoco si venía de una etapa que ya no existe: el server la rechaza.
 // =============================================================================
 
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from '@/app/_ui/Link';
 import { Button } from '@/app/_ui/Button';
 import { Icon } from '@/app/_components/icons';
 import { haptico } from '@/lib/haptico';
@@ -44,6 +52,7 @@ const MAX_SEGMENTADO = 3;
 
 export function CustomerSuccessM({ servicios, clientes }: { servicios: ServicioCs[]; clientes: ClienteCs[] }) {
   const toast = useToastM();
+  const router = useRouter();
   const { enLinea } = useConexion();
 
   const [servId, setServId] = useState<number | null>(servicios[0]?.id ?? null);
@@ -106,11 +115,11 @@ export function CustomerSuccessM({ servicios, clientes }: { servicios: ServicioC
       const r = await moverEntregaAction(leadId, productoId, destino.key);
       if (!r.ok) { haptico('error'); setError(r.error); return; }
       setAbierto(false);
-      // Un movimiento que no movió nada no se anuncia ni se pinta.
-      if (!r.cambio) return;
+      // No movió nada: la pantalla estaba vieja. Se pide la base y se dice, sin pintar un reloj inventado.
+      if (!r.cambio) { router.refresh(); toast(`Ya estaba en ${r.rotulo}`); return; }
       haptico('success');
       setMovs((v) => ({ ...v, [claveMov(productoId, leadId)]: { etapa: r.hacia, desde: new Date().toISOString() } }));
-      toast(`En ${r.rotulo}`, { deshacer: () => deshacer(leadId, productoId, previa) });
+      toast(`En ${r.rotulo}`, sePuedeDeshacer(previa, r.desde) ? { deshacer: () => deshacer(leadId, productoId, previa) } : undefined);
     } catch {
       haptico('error');
       setError('No se pudo mover. Vuelve a intentar.');
@@ -118,6 +127,13 @@ export function CustomerSuccessM({ servicios, clientes }: { servicios: ServicioC
       setOcupado(null);
     }
   };
+
+  /**
+   * ¿El Deshacer repondría lo que había de verdad? Sólo si el server dice que venía de la etapa que
+   * creía la pantalla (`desde` es null si no tenía fila) y esa etapa sigue existiendo.
+   */
+  const sePuedeDeshacer = (previa: FilaCs | null, desde: string | null) =>
+    (previa?.etapa ?? null) === desde && (!previa || s.etapas.some((e) => e.key === previa.etapa));
 
   /** Mover desde «Mover a…» del tablero: KanbanM ya lo pintó; acá se escribe y se anota. */
   const moverDesdeTablero = async (id: string, destino: string): Promise<ResultadoMover> => {
@@ -128,9 +144,11 @@ export function CustomerSuccessM({ servicios, clientes }: { servicios: ServicioC
     try {
       const r = await moverEntregaAction(leadId, productoId, destino);
       if (!r.ok) return { ok: false, error: r.error };
-      // `cambio: false` = ya estaba ahí: se queda donde lo pintó el tablero, sin Deshacer.
-      setMovs((v) => ({ ...v, [claveMov(productoId, leadId)]: { etapa: r.hacia, desde: r.cambio ? new Date().toISOString() : previa?.desde ?? new Date().toISOString() } }));
-      if (!r.cambio) return { ok: true };
+      // `cambio: false` = ya estaba ahí (la pantalla estaba vieja): se pide la base y no se pinta un
+      // reloj (el `desde` de la previa era de OTRA etapa), y sin Deshacer.
+      if (!r.cambio) { router.refresh(); return { ok: true }; }
+      setMovs((v) => ({ ...v, [claveMov(productoId, leadId)]: { etapa: r.hacia, desde: new Date().toISOString() } }));
+      if (!sePuedeDeshacer(previa, r.desde)) return { ok: true };
       return {
         ok: true,
         deshacer: async () => {

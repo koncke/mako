@@ -38,7 +38,7 @@ import { productosDelLead, etapasDeProducto, moverEtapaEnProducto } from '@/lib/
 import { idDelFunnelDefault } from '@/lib/funnels';
 import { etapaVigenteDe } from '@/lib/funnel-etapas';
 import { buscarLeads, notasDeLead } from '@/lib/crm-movil';
-import { comoLite, seMueveEnElTelefono, MIN_BUSQUEDA, type EtapaM, type FilaLeadM } from './reglas';
+import { comoLite, etapaEnTablero, seMueveEnElTelefono, seSacaEnElTelefono, MIN_BUSQUEDA, type EtapaM, type FilaLeadM } from './reglas';
 import { addLeadNoteAction, setLeadStageAction, undoStageMoveAction } from '@/app/crm/actions';
 import { TOPE_NOTA } from '@/app/crm/notas-reglas';
 
@@ -102,7 +102,8 @@ export async function notaLeadAction(leadId: number, texto: string): Promise<{ o
   }
 }
 
-type ResMover = { ok: true; antes: string; esCasa: boolean; pendientes: string[] } | { ok: false; error: string };
+/** `cambio: false` = ya estaba ahí (la pantalla estaba vieja): no hay nada que deshacer. */
+type ResMover = { ok: true; antes: string; esCasa: boolean; pendientes: string[]; cambio: boolean } | { ok: false; error: string };
 
 /**
  * Mueve el lead a `etapa` en el producto `funnelId` (null = el del negocio). Decide en
@@ -123,18 +124,32 @@ export async function moverEtapaAction(leadId: number, funnelId: number | null, 
     const stages = (await etapasDeProducto(fid)) as EtapaM[];
     if (!seMueveEnElTelefono(stages, etapa)) return { ok: false, error: 'Esa, en la computadora' };
 
+    // La etapa de ANTES como la DIBUJA el tablero: una que el funnel ya no tiene cae a la primera
+    // columna (etapaEnTablero). Es a donde vuelve el Deshacer, como en escritorio (`from` =
+    // effStage): volver a la etapa cruda escribía en pipeline_stage una que el funnel no tiene, y la
+    // de un agregado huérfano hacía fallar el Deshacer siempre (verificado el 14/10/2026).
+    const keys = stages.map((s) => s.key);
+    const cruda = prod.esCasa
+      ? (etapaCasa && keys.includes(etapaCasa) ? etapaCasa : etapaVigenteDe(lead, comoLite(stages)))
+      : (prod.etapa ?? '');
+    const antes = etapaEnTablero(cruda, keys);
+    // ⚠️ EL ORIGEN TAMBIÉN: de un desenlace o de una etapa con datos propios no se sale desde acá
+    // (seSacaEnElTelefono explica por qué: el Deshacer no repone el monto, el motivo ni el plazo).
+    if (!seSacaEnElTelefono(stages, antes)) return { ok: false, error: 'Ése, en la computadora' };
+    // Ya estaba ahí (la pantalla estaba vieja): no es un error. Se refresca para que la pantalla
+    // diga lo mismo que la base, y no se ofrece Deshacer.
+    if (antes === etapa) { refresh(); return { ok: true, antes, esCasa: prod.esCasa, pendientes: [], cambio: false }; }
+
     if (!prod.esCasa) {
-      const r = await moverEtapaEnProducto(leadId, fid, etapa);
+      await moverEtapaEnProducto(leadId, fid, etapa);
       refresh();
-      return { ok: true, antes: r.antes, esCasa: false, pendientes: [] };
+      return { ok: true, antes, esCasa: false, pendientes: [], cambio: true };
     }
-    const antes = etapaCasa && stages.some((s) => s.key === etapaCasa) ? etapaCasa : etapaVigenteDe(lead, comoLite(stages));
-    if (antes === etapa) return { ok: false, error: 'Ya está ahí' };
     // Sin opts: el teléfono NUNCA manda calificado ni asistencia (van a Meta y no se deshacen).
     const r = await setLeadStageAction(leadId, etapa);
     refresh();
     if (!r.ok) return { ok: false, error: r.mensaje?.slice(0, 90) || 'No se pudo mover' };
-    return { ok: true, antes, esCasa: true, pendientes: (r.pendientes ?? []).map((p) => p.label) };
+    return { ok: true, antes, esCasa: true, pendientes: (r.pendientes ?? []).map((p) => p.label), cambio: true };
   } catch (e) {
     console.error(`[m/crm] mover ${leadId}: ${e instanceof Error ? e.message : String(e)}`);
     return { ok: false, error: corto(e, 'No se pudo mover') };
