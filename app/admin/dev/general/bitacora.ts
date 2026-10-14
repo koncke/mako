@@ -395,4 +395,21 @@ export const BITACORA: Hito[] = [
       'lib/graficos-tablero.ts', 'lib/graficos-catalogo.ts', 'lib/api-mako/areas/general.run.ts', 'tests/general-editor.test.ts',
     ],
   },
+  {
+    fecha: '14 oct', hora: '04:47', chat: 'General', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'La barra del Dashboard sin búsqueda ni filtro, y una plantilla para quien empieza',
+    pedido: "Toda la topbar la deberías copiar de Dashboard menos la barra de busqueda y el filtro que no sirven en general...\nY lo mismo que en Dashboard, para un usuario nuevo, deberías proponerle un template. \n\nLo único es que en lugar del botón de \"nuevo dashboard\" te pido que pongas ahí el \"¿Qué vas a crear hoy?\"... Te pido que le digas esto mismo a dashboard.\n\nY los templates, la preview debería ser como los de landing generator, porque justamente se deberáin ver como una pagina... Lo mismo te pido que le digas a dashboard.\n\ny el botón de EDITAR no debería saltarme ningún modal como el que salta hoy en día, debería, al igual que dashboard, habilitar el menú de edición de la página y poder comenzar a editarla...\n\n— Y al rato: Hazlo bien, mira como está construido el dashboard...",
+    puntos: ["Con dos capturas: la barra del Dashboard y el modal «Personalizar vista» de las vistas (de antes del deploy de 46958506)."],
+  },
+  {
+    fecha: '14 oct', hora: '05:06', chat: 'General', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'General arranca en blanco con sus plantillas, y su barra es la del Dashboard',
+    puntos: [
+      "Quien nunca armó su General ve «¿Qué vas a crear hoy?» con las plantillas de General como páginas, igual que el Dashboard.",
+      "La barra es la del Dashboard sin la búsqueda ni el filtro: el título, Editar y el ⋮. Editar habilita la edición en el lugar, sin modal.",
+      "La API de MaKo y el análisis programado ven lo mismo que la pantalla: sin hojas hasta que se crea la primera.",
+    ],
+    commits: [{ sha: 'a98ab025', msg: 'Dashboard y General: la pantalla en blanco es «¿Qué vas a crear hoy?», y las plantillas se ven como páginas', lineas: 573, archivos: 9 }],
+    archivos: ['app/general/page.tsx', 'app/dashboard/EditorInforme.tsx', 'lib/api-mako/areas/general.run.ts', 'lib/graficos-analisis-server.ts'],
+  },
 ];

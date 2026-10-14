@@ -587,6 +587,20 @@ editor sabe dibujar de más:
   tipa (`Hito` exige `puntos`), se escribió después del chequeo, y el hito de un pedido sin `puntos` llegó al pre-push
   del orquestador (lo arregló en `46958506`). Lo que se escribe en la cosecha entra a la lista y se vuelve a chequear.
 
+**Segunda vuelta, el mismo día (04:47).** Martín: «Toda la topbar la deberías copiar de Dashboard menos la barra de
+busqueda y el filtro que no sirven en general... Y lo mismo que en Dashboard, para un usuario nuevo, deberías proponerle un
+template». Quedó así: la barra de General es la del Dashboard sin `BarraControles` (título, Editar, ⋮), y quien nunca armó
+la suya arranca EN BLANCO como el Dashboard (`sinPaginas`), con la caja y las plantillas de General como páginas (la entrada
+de docs/hallazgos-graficos.md, «La pantalla en blanco es "¿Qué vas a crear hoy?"»). Dos cosas que se mueven con eso:
+
+- **La API de MaKo lee el informe como lo ve la pantalla** (`informeDe`, lib/api-mako/areas/general.run.ts): sin hojas para
+  quien nunca armó el suyo. Leyendo el crudo, `crear_hoja_general` guardaba la General de siempre JUNTO con la nueva, una
+  hoja que la persona nunca vio.
+- **El análisis programado ya no mira la General de siempre** de quien no guardó nada (lib/graficos-analisis-server.ts): sin
+  informe guardado, cero hojas de General.
+- El modal «Personalizar vista» que Martín vio al apretar Editar era la versión de las VISTAS: la captura es de antes del
+  deploy de 46958506.
+
 **Vive en:** `app/general/page.tsx` · `app/general/piezas.tsx` · `app/dashboard/ElementoGeneral.tsx` ·
 `app/dashboard/EditorInforme.tsx` · `app/dashboard/Elemento.tsx` · `lib/general-piezas.ts` · `lib/general-plantillas.ts` ·
 `lib/general-alcance.ts` · `lib/graficos-tablero.ts` · `lib/graficos-catalogo.ts` · `lib/graficos-analisis-server.ts` ·
