@@ -35,7 +35,15 @@ Al terminar: se revisa cada rama, se mergea en `fb1410`, se corren los tests, se
 
 **ESTADO AL 14/10 ~12:20. TANDA B1 EN PAUSA (`wf_0132bb27-e06`), hasta que Estrategia 3 CUENTAS avise que entró su push** (la paré
 a los minutos y sin cambios en los worktrees: Estrategia necesita 4 GB libres para pushear, y fb1410 va en ese push. Se
-retoma con `resumeFromRunId`. La tanda B la INTEGRA Estrategia: se le pasa rama y hash, y NO se hace `pull --rebase`) (script en el scratchpad de la sesión debe2ade,
+retoma con `resumeFromRunId`. La tanda B la INTEGRA Estrategia: se le pasa rama y hash, y NO se hace `pull --rebase`)
+**ANTES DE RETOMAR:**
+1. Con el push de Estrategia ya adentro (trae fb1410 y su choque resuelto), mergear `origin/main` en `crm-bloques`, SIN
+   rebase.
+2. Llevar `crm-bloques-b1..b5` al `crm-bloques` nuevo. Están vacías: `git -C C:/Users/marti/wtc-bN reset --hard crm-bloques`
+   después de ver que siguen sin commits.
+El chat de Automations pidió esto el 14/10: sus cambios en plantillas-automatizaciones, condiciones-catalogo, el motor
+y chatbot.def/run entraron en `282173d6e`, y sin el merge volvería lo que borró. Sus reglas para b5 ya están en el
+prompt de `tanda-b1.js`. (script en el scratchpad de la sesión debe2ade,
 `tanda-b1.js`; con tope de 3 agentes a la vez por RAM). Martín: «Si, avanza con todo y pushea» → las 7 decisiones del
 catálogo están TOMADAS (§1 de docs/diseno-ficha-bloques.md, `1f075a2b8`). Cinco frentes, cada uno en su worktree, que salen
 de `crm-bloques`:
