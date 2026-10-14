@@ -35,6 +35,13 @@
 > recién cuando la IA terminó (@64:00); (10) el error de crear con IA con su causa (@65:34); (11) guardar o subir un audio
 > en WhatsApp rápido (@75:18). «De punta a punta» = código, migración, API de MaKo si es capacidad nueva, tests probados
 > rompiéndolos, verlo en ws3, bitácora con el pedido literal, relevo y hallazgos.
+> **Bug 5, diagnóstico en curso (13/10 ~23:30, medido en la base):** la #241 de ws13 («Un Lead Agendó Llamada»: aviso al
+> grupo → espera 5 min → WhatsApp «Hola {{nombre}}… Joan te saluda!») tiene 12 inscripciones y las 12 quedan `completada` a
+> los ~2 s de entrar, con `paso_actual` 0 o 1, `ultimo_paso_at` NULL y sin `proximo_envio_at`: no pasan por la espera ni
+> mandan el WhatsApp. La #213 de ws1 NO es esto (su condición «Ya le escribiste» sigue por las dos ramas). Fathom de la
+> llamada 858927676: «call_id not found or access denied» con esta cuenta. Siguiente: ver en lib/nutricion.ts por qué una
+> inscripción se cierra después de la tarjeta de aviso (la acción `avisar_al_equipo` como primera tarjeta) en vez de agendar
+> la espera.
 > **PENDIENTE, en este orden:**
 > 1. **Plazos de etapa del CRM → plantilla de Automations** (pedido de Martín reenviado por el chat CRM, 12/10: «Si, pasa
 >    a una automatización eso de los plazos... Y ponlo como template en automations. Dile esto al chat de "Chatbot" que lo
