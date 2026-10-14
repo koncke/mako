@@ -42,7 +42,7 @@
 //     acción y los conectores. La FICHA (`entidad`) vive sólo adentro de un pop-up y la API no arma pop-ups.
 
 import {
-  AGRUPAR, CAMPOS, FUENTES, MAX_COMPONENTES, MAX_CONECTORES, MAX_CONTROLES, MAX_HOJAS, MAX_IA_POR_HOJA, PRESETS, TIPOS, TIPOS_CONTROL,
+  AGRUPAR, CAMPOS, FUENTES, MAX_ARCHIVADAS, MAX_COMPONENTES, MAX_CONECTORES, MAX_CONTROLES, MAX_HOJAS, MAX_IA_POR_HOJA, PRESETS, TIPOS, TIPOS_CONTROL,
   TIPOS_ELEMENTO, TOPE_PEDIDO_IA, campoDe, camposDeFuente, desglosesPara, dimensionDe, dimensionesPara, emojiValido,
   conMako, esElemento, esGrafico, fuenteDe, metricasPara, nombrePreset, nuevoId, rangoDe, sanearComponente,
   sanearControlVista, sanearControles, sanearElemento, sanearGrafico, sanearHoja, tipoDe, tituloDe,
@@ -836,7 +836,8 @@ export function aplicarCambio(t: Tablero, c: Cambio): Aplicado {
     }
     case 'borrar_hoja':
       if (t.hojas.length <= 1) return { ok: false, error: 'Es la única hoja del informe: no se puede borrar.' };
-      return { ok: true, tablero: { ...t, hojas: t.hojas.filter((x) => x.id !== h.id) } };
+      // Como en la pantalla (14/10/2026): borrar ARCHIVA. La hoja queda en «Archivados» del desplegable de hojas.
+      return { ok: true, tablero: { ...t, hojas: t.hojas.filter((x) => x.id !== h.id), archivadas: [h, ...(t.archivadas ?? []).filter((x) => x.id !== h.id)].slice(0, MAX_ARCHIVADAS) } };
     case 'agregar_componente': {
       if (h.componentes.length >= MAX_COMPONENTES) return { ok: false, error: `La hoja ya tiene ${MAX_COMPONENTES} componentes: es el máximo.` };
       const comp = sanearComponente(c.componente);

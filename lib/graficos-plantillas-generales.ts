@@ -40,6 +40,8 @@ export type DefinicionGeneral = {
   /** El control de período de arriba de la hoja: lo que muestra de entrada. */
   periodo: Preset;
   piezas: PiezaPlantilla[];
+  /** El tema de la hoja (la plantilla de lib/graficos-temas.ts). Ausente = el de MaKo. Lo usan las de General. */
+  tema?: string;
 };
 
 /** Una pieza (en la forma de la IA) → el componente crudo que entiende el catálogo, con su id. */
@@ -67,6 +69,7 @@ export function plantilla(d: DefinicionGeneral): PlantillaHoja {
         id: id(d.id), nombre: d.nombre, emoji: d.emoji, subtitulo: d.subtitulo,
         controles: [{ id: id(`${d.id}-periodo`), tipo: 'periodo', preset: d.periodo }],
         componentes: acomodar(componentes),
+        ...(d.tema ? { tema: { plantilla: d.tema, acento: null, fuente: null } } : {}),
       };
     },
   };

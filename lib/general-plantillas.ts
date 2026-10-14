@@ -38,9 +38,6 @@ const parte = (local: string, t: string): PiezaPlantilla =>
 /** Un número del período, comparado con el anterior. */
 const numero = (local: string, fuente: string, metrica: string, titulo: string, extra: Record<string, unknown> = {}): PiezaPlantilla =>
   ({ local, tipo: 'numero', fuente, metricas: [metrica], dimension: null, titulo, comparar: true, ...extra });
-/** Un número con su evolución diaria abajo (los de plata: se lee si viene subiendo). */
-const tendencia = (local: string, fuente: string, metrica: string, titulo: string, extra: Record<string, unknown> = {}): PiezaPlantilla =>
-  ({ local, tipo: 'numero_tendencia', fuente, metricas: [metrica], dimension: null, titulo, comparar: true, ...extra });
 
 /**
  * La tercera vuelta (14/10/2026). Martín, con las capturas de una hoja recién creada: «Mucho espacio en blanco en el
@@ -57,21 +54,27 @@ const tendencia = (local: string, fuente: string, metrica: string, titulo: strin
  *   · DE A DOS: los bloques van en pares de media hoja con el MISMO alto (`acomodar` estira la fila al más alto, y un
  *     bloque estirado es espacio en blanco); a lo ancho sólo lo que se lee mejor así (una tabla, una serie, el mes).
  *   · TÍTULOS DE PARTE (`parte`) cuando la hoja tiene más de un tema.
+ * Y la quinta vuelta (14/10/2026, Martín: «que las plantillas de GENERAL, no se parezcan tanto a un dashboard... Está bien
+ * que tengan algún que otro gráfico, pero aquí en general todo tiene que ser más minimalista, textos enormes, cosas
+ * grandes... Ya si quiere profundizar entra a dashboard»):
+ *   · BLOQUES ANTES QUE GRÁFICOS: un bloque de General dice una cosa en grande; los gráficos quedan para lo que un bloque
+ *     no tiene (los números de Meta, los alumnos), y sin tablas ni series que se leen como un Dashboard.
+ *   · CON EL TEMA «General» (lib/graficos-temas.ts): tarjetas que flotan sin borde ni filete, el título y el número más
+ *     grandes y la etiqueta en la letra de la hoja. Es lo que hace que la hoja se lea como la tab General y no como el
+ *     Dashboard aunque traiga un número del catálogo; el tema se cambia como en cualquier hoja.
  */
+const TEMA = 'general';
+
 export const DEFINICIONES_GENERAL: readonly DefinicionGeneral[] = [
   {
     // La General de siempre, y la hoja con que arranca quien nunca armó la suya: el norte arriba (la meta y la acción
     // del día, cada una su bloque), la plata del mes en números, y lo que hay que atender hoy.
     id: 'general', nombre: 'General', emoji: '🧭',
     linea: 'Tu meta, la acción del día, la plata del mes y lo que hay que atender hoy.',
-    subtitulo: '', periodo: 'este_mes',
+    subtitulo: '', tema: TEMA, periodo: 'este_mes',
     piezas: [
       bloque('cabecera'), bloque('accion'),
-      parte('mes', 'El mes'),
-      tendencia('cobrado', 'negocio', 'cobrado', 'Cobrado'),
-      tendencia('vendido', 'negocio', 'vendido', 'Vendido'),
-      tendencia('gasto', 'negocio', 'gasto', 'Inversión en anuncios'),
-      tendencia('cpl', 'negocio', 'cpl', 'Costo por lead'),
+      bloque('mes'),
       parte('hoy', 'Hoy'),
       bloque('llamadas'), bloque('cobranza'),
     ],
@@ -79,7 +82,7 @@ export const DEFINICIONES_GENERAL: readonly DefinicionGeneral[] = [
   {
     id: 'bienvenida', nombre: 'Bienvenida', emoji: '👋',
     linea: 'Te saluda por tu nombre y te deja lo de hoy: qué hacer, tu día y tus compromisos.',
-    subtitulo: '', periodo: 'este_mes',
+    subtitulo: '', tema: TEMA, periodo: 'este_mes',
     piezas: [
       texto('hola', '{{saludo}}, {{nombre}}', 'xl'),
       texto('hoy', 'Hoy es {{fecha}} · {{trimestre}}', 'm'),
@@ -90,7 +93,7 @@ export const DEFINICIONES_GENERAL: readonly DefinicionGeneral[] = [
   {
     id: 'foco', nombre: 'Foco de la semana', emoji: '🎯',
     linea: 'Tus OKRs y lo que hay que hacer para cumplirlos: las tareas, los deadlines y los proyectos.',
-    subtitulo: '', periodo: 'este_mes',
+    subtitulo: '', tema: TEMA, periodo: 'este_mes',
     piezas: [
       bloque('objetivos'),
       parte('hacer', 'Lo que hay que hacer'),
@@ -102,53 +105,53 @@ export const DEFINICIONES_GENERAL: readonly DefinicionGeneral[] = [
     // El caso de la reunión del 12/10 (el Plan, la cobranza y el CRM en la pantalla de lo que se hace hoy).
     id: 'operacion', nombre: 'Operación diaria', emoji: '⚡',
     linea: 'Las prioridades del Plan, a quién cobrarle, las llamadas y cómo está el funnel.',
-    subtitulo: '', periodo: 'ult30',
+    subtitulo: '', tema: TEMA, periodo: 'ult30',
     piezas: [
       bloque('prioridades'),
       parte('clientes', 'Clientes'),
       bloque('cobranza'), bloque('llamadas'),
-      bloque('funnel', { w: 12, h: 5, opciones: { estilo: 'barras' } }),
+      bloque('funnel', { w: 12, h: 7, opciones: { estilo: 'barras' } }),
     ],
   },
   {
     id: 'ventas', nombre: 'Ventas del mes', emoji: '📈',
     linea: 'El mes contra el anterior, el funnel de hoy y lo que está en rojo.',
-    subtitulo: '', periodo: 'este_mes',
+    subtitulo: '', tema: TEMA, periodo: 'este_mes',
     piezas: [
       bloque('mes'),
-      bloque('funnel'), bloque('semaforo', { h: 8 }),
+      bloque('funnel', { h: 7, opciones: { estilo: 'barras' } }), bloque('semaforo', { h: 7 }),
     ],
   },
   {
     id: 'cobros', nombre: 'Cobros', emoji: '💳',
     linea: 'Lo cobrado y lo pendiente del mes, y a quién cobrarle primero.',
-    subtitulo: '', periodo: 'este_mes_completo',
+    subtitulo: '', tema: TEMA, periodo: 'este_mes_completo',
     piezas: [
       numero('cobrado', 'pagos', 'cobrado', 'Cobrado', { fecha: 'pago' }),
       numero('pendiente', 'pagos', 'pendiente', 'Por cobrar', { comparar: false }),
       numero('vence', 'pagos', 'monto', 'Vence en el mes', { comparar: false }),
-      bloque('cobranza'),
-      { local: 'semanas', tipo: 'columnas', fuente: 'pagos', dimension: 'semana', metricas: ['cobrado', 'pendiente'], titulo: 'Cobrado y por cobrar, por semana' },
+      // Sin las columnas por semana (la quinta vuelta: «que no se parezcan tanto a un dashboard»): los tres números y la
+      // lista de a quién cobrarle, a lo ancho.
+      bloque('cobranza', { w: 12, h: 8 }),
     ],
   },
   {
     id: 'anuncios', nombre: 'Anuncios', emoji: '📣',
-    linea: 'Cuánto inviertes en Meta, cuántos leads te trae y qué campaña rinde.',
-    subtitulo: '', periodo: 'ult30',
+    linea: 'Cuánto inviertes en Meta, cuántos leads te trae y dónde están.',
+    subtitulo: '', tema: TEMA, periodo: 'ult30',
     piezas: [
       numero('gasto', 'meta', 'gasto', 'Inversión'),
       numero('leads', 'meta', 'leads', 'Leads'),
       numero('cpl', 'meta', 'cpl', 'Costo por lead'),
       numero('ctr', 'meta', 'ctr', 'CTR'),
-      { local: 'por-dia', tipo: 'serie', fuente: 'meta', dimension: 'dia', metricas: ['leads'], titulo: 'Leads por día' },
-      { local: 'campanas', tipo: 'tabla_barras', fuente: 'meta', dimension: 'campana', metricas: ['gasto', 'leads', 'cpl'], titulo: 'Tus campañas' },
+      bloque('funnel', { w: 12, h: 7, opciones: { estilo: 'barras' } }),
     ],
   },
   // ── Una por tipo de funnel (lo que mira cada negocio, según cómo vende) ──
   {
     id: 'funnel-llamadas', nombre: 'Funnel de llamadas', emoji: '📞',
     linea: 'Tus llamadas de la semana y cuánto agendas, asisten y cierras.',
-    subtitulo: '', periodo: 'ult30',
+    subtitulo: '', tema: TEMA, periodo: 'ult30',
     piezas: [
       bloque('llamadas'), bloque('agenda'),
       parte('cierre', 'Cómo cierras'),
@@ -156,26 +159,24 @@ export const DEFINICIONES_GENERAL: readonly DefinicionGeneral[] = [
       numero('asistencia', 'leads', 'tasa_asistencia', 'Tasa de asistencia', { fecha: 'agenda' }),
       numero('cierre', 'leads', 'tasa_cierre', 'Tasa de cierre', { fecha: 'agenda' }),
       numero('vendido', 'leads', 'vendido', 'Vendido', { fecha: 'cierre' }),
-      { local: 'closers', tipo: 'tabla_barras', fuente: 'llamadas_venta', dimension: 'closer', metricas: ['llamadas', 'ganadas', 'tasa_cierre'], titulo: 'Tus closers' },
     ],
   },
   {
     id: 'funnel-whatsapp', nombre: 'Ventas por WhatsApp', emoji: '💬',
     linea: 'Cuántos escriben, qué tan rápido respondes y cuántos compran.',
-    subtitulo: '', periodo: 'ult30',
+    subtitulo: '', tema: TEMA, periodo: 'ult30',
     piezas: [
       numero('chats', 'conversaciones', 'chats', 'Chats'),
       numero('sin-responder', 'conversaciones', 'sin_responder', 'Esperando respuesta', { fecha: 'actual', comparar: false }),
       numero('respuesta', 'conversaciones', 'mediana_respuesta', 'Tiempo de respuesta'),
       numero('ventas', 'leads', 'cierres', 'Ventas'),
-      { local: 'por-dia', tipo: 'serie', fuente: 'whatsapp', dimension: 'dia', metricas: ['recibidos', 'enviados'], titulo: 'Mensajes por día' },
-      bloque('funnel', { h: 5, opciones: { estilo: 'barras' } }), bloque('pendientes', { h: 5 }),
+      bloque('funnel', { h: 7, opciones: { estilo: 'barras' } }), bloque('pendientes', { h: 7 }),
     ],
   },
   {
     id: 'lanzamiento', nombre: 'Contenido y lanzamiento', emoji: '🚀',
     linea: 'Lo que publicas esta semana, y cuántos ven tu página y tu video y se registran.',
-    subtitulo: '', periodo: 'ult7',
+    subtitulo: '', tema: TEMA, periodo: 'ult7',
     piezas: [
       bloque('publicaciones'),
       parte('atencion', 'La atención'),
@@ -183,13 +184,12 @@ export const DEFINICIONES_GENERAL: readonly DefinicionGeneral[] = [
       numero('play', 'vsl', 'play_rate', 'Le dan play al video'),
       numero('leads', 'leads', 'leads', 'Registros'),
       numero('gasto', 'negocio', 'gasto', 'Inversión en anuncios'),
-      { local: 'por-dia', tipo: 'serie', fuente: 'visitas', dimension: 'dia', metricas: ['visitantes'], titulo: 'Visitantes por día' },
     ],
   },
   {
     id: 'servicio', nombre: 'Agencia o servicio', emoji: '🤝',
     linea: 'Tus clientes en cada etapa de la entrega y lo que te deben.',
-    subtitulo: '', periodo: 'este_mes',
+    subtitulo: '', tema: TEMA, periodo: 'este_mes',
     piezas: [
       numero('clientes', 'cartera', 'clientes', 'Clientes activos', { comparar: false }),
       numero('atencion', 'cartera', 'atencion', 'Piden atención', { comparar: false }),
@@ -201,13 +201,12 @@ export const DEFINICIONES_GENERAL: readonly DefinicionGeneral[] = [
   {
     id: 'curso', nombre: 'Curso o comunidad', emoji: '🎓',
     linea: 'Cuántos alumnos avanzan y qué tanto, junto a lo que vendes.',
-    subtitulo: '', periodo: 'ult30',
+    subtitulo: '', tema: TEMA, periodo: 'ult30',
     piezas: [
       numero('alumnos', 'avance_cursos', 'alumnos', 'Alumnos activos', { comparar: false }),
       numero('clases', 'avance_cursos', 'clases', 'Clases vistas'),
       numero('avance', 'avance_cursos', 'pct', 'Avance promedio', { comparar: false }),
       numero('ventas', 'leads', 'cierres', 'Ventas'),
-      { local: 'por-dia', tipo: 'serie', fuente: 'avance_cursos', dimension: 'dia', metricas: ['clases'], titulo: 'Clases vistas por día' },
       bloque('publicaciones'),
     ],
   },

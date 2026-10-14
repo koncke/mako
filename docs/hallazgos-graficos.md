@@ -608,6 +608,36 @@ no debería aparecer el deshacer si no hago ninguna acción».
 `tests/dashboard-miniatura-hoja.test.ts` · `tests/general-bloques.test.ts`.
 *14/10/2026, claude2 (e6818ee0), desde el chat de General.*
 
+## Eliminar una hoja la archiva, se pueden eliminar todas, y la marca de MaKo no navega (14/10/2026)
+
+**El pedido** (Martín, 13:26): «Me debería dejar eliminar todas las hojas, también para dashboard. Y en el desplegable de las
+hojas, un texto que diga "Archivados" y ahí la opción de eliminar permanentemente... como un texto sutil abajo de todas las
+opciones», «Las miniaturas y el título de abajo, deberían estar englobadas en un contendor... con una sombra... Lo mismo
+para dashboard» y «Cuando clickeo en MaKo en la sidebar, me redirecciona a general, que no pase eso».
+
+**Lo que no se ve en el código:**
+
+- **«Sin hojas» no se puede guardar como `hojas: []`**: `sanearTablero` devuelve siempre una («Página 1» vacía) y media
+  app lee `hojas[0]`. Eliminar la última guarda esa vacía con la marca `enBlanco`, y la pantalla vuelve a «¿Qué vas a crear
+  hoy?» (`sinPaginas` en las dos páginas). Crear o restaurar una hoja saca la marca (`sinBlanco`).
+- **Los que leen el informe por fuera no tienen que ver esa vacía**: `leerTableroVisible` (la API de MaKo y los links
+  compartidos) la devuelve como un informe SIN hojas. Lo que escriba la API después sale sin la marca.
+  ⚠️ **Y la PANTALLA lee crudo (`leerTableroVersionado`).** La primera versión normalizaba en la lectura de TODOS, y el
+  Dashboard de quien eliminó todas sus hojas leía `hojas[0]` de una lista vacía. Lo cazó mirar la pantalla, no un test: la
+  normalización vive sólo en la lectura de afuera, y `tests/dashboard-archivadas.test.ts` fija los dos lados.
+- **Las archivadas comparten el espacio de ids con las hojas**: el saneo las desduplica entre las dos listas, o restaurar una
+  chocaría con otra. Van con tope (`MAX_ARCHIVADAS`, 20): entra una y se va la más vieja.
+- **Borrar de Archivados es un segundo clic sobre el mismo botón**, que pasa a decir «Eliminar para siempre» (la consecuencia
+  pegada al botón). Y la API de MaKo (`borrar_hoja_dashboard`) archiva igual que la pantalla.
+- **La marca de la barra lateral es un `<span>`**: el link a /general se fue; la geometría (el aire hasta OPERATE como
+  margen) se quedó, con su test.
+
+**Vive en:** `lib/graficos-catalogo.ts` (`Tablero`, `sanearTablero`, `hojasVisibles`) · `lib/graficos-tablero.ts` ·
+`app/dashboard/EditorInforme.tsx` (`eliminarHoja`, `restaurarHoja`, `borrarArchivada`) · `app/dashboard/Cabecera.tsx`
+(`MenuHojas`) · `app/dashboard/NuevaHoja.tsx` · `app/_components/Sidebar.tsx` · `lib/api-mako/areas/dashboard.helpers.ts` ·
+`tests/dashboard-archivadas.test.ts` · `tests/barra-clic-operate.test.ts`.
+*14/10/2026, claude2.*
+
 ## Lo que quedó sin hacer
 
 - **Las miniaturas de «¿Qué vas a crear hoy?» muestran datos de EJEMPLO** (lib/graficos-muestra.ts), no los del negocio:

@@ -239,7 +239,9 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo }: { g: G; 
               color: v == null ? 'var(--faint)' : tono && v > 0 ? tono : 'var(--ink)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap',
             }}>{texto}</span>
             {chip && (
-              <span title="Contra el período anterior" style={{ display: 'inline-flex', alignItems: 'center', fontFamily: MONO, fontSize: LETRA.tick, fontWeight: 600, padding: '4px 10px', borderRadius: 8, background: 'var(--surface-2)', color: 'var(--dim)', whiteSpace: 'nowrap' }}>{chip}</span>
+              // La comparación habla en la letra de la etiqueta del tema: en mono sólo si la etiqueta va en mono (en el tema
+              // «General», que es para leer de una pasada, «↑ 1,3×» en mono se leía como un dato técnico).
+              <span title="Contra el período anterior" style={{ display: 'inline-flex', alignItems: 'center', fontFamily: e.kpiEtiqueta === 'mono' ? MONO : 'inherit', fontSize: LETRA.tick, fontWeight: 600, padding: '4px 10px', borderRadius: 8, background: 'var(--surface-2)', color: 'var(--dim)', whiteSpace: 'nowrap' }}>{chip}</span>
             )}
           </div>
           {secundaria && <div className="gr-numero-sec" title={secundaria}>{secundaria}</div>}

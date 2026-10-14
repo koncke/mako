@@ -42,7 +42,7 @@ import { getTramoJ1J2Reciente } from '@/lib/queries';
 import { pendientesOnboarding } from '@/lib/onboarding-pendientes';
 import { objetivoPorId, registroKpiExistente, sanearObjetivo, sanearKpi, type ObjetivoFila } from './general.helpers';
 import { getSupabaseServer } from '@/lib/supabase';
-import { leerTableroVersionado, guardarTableroSi } from '@/lib/graficos-tablero';
+import { leerTableroVisible, guardarTableroSi } from '@/lib/graficos-tablero';
 import { instanciarPlantilla } from '@/lib/graficos-plantillas';
 import { MAX_HOJAS, abajoDeTodo, esElemento, esGrafico, nuevoId, sanearElemento, tituloDe } from '@/lib/graficos-catalogo';
 import { PIEZAS_GENERAL, esPiezaGeneral, opcionesDePieza, piezaGeneral, piezaPorFunnel, sanearOpciones, type OpcionesElegidas, type PiezaGeneral } from '@/lib/general-piezas';
@@ -927,7 +927,7 @@ function opcionesPedidas(pieza: PiezaGeneral, crudo: unknown): { opciones?: Opci
  * sola, igual que crearla en la pantalla.
  */
 async function informeDe(sub: string) {
-  const l = await leerTableroVersionado(sub, 'general');
+  const l = await leerTableroVisible(sub, 'general');
   return l.estado === 'inicial' ? { ...l, tablero: { ...l.tablero, hojas: [] } } : l;
 }
 

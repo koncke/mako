@@ -169,6 +169,21 @@ export async function leerTableroVersionado(sub: string, informe: Informe = 'das
 }
 
 /**
+ * El informe como lo ve quien lo lee POR FUERA de la pantalla: la API de MaKo y los links compartidos. Con TODAS las hojas
+ * eliminadas (`enBlanco`, lib/graficos-catalogo.ts) es un informe SIN hojas: la vacía que viaja por dentro es de la pantalla.
+ * Lo que se escriba después (una hoja nueva por la API) sale sin la marca, y la pantalla deja de estar en blanco.
+ * ⚠️ LA PANTALLA NO LEE POR ACÁ (lee `leerTableroVersionado` crudo): las páginas del Dashboard y de General leen
+ *    `hojas[0]` y deciden la pantalla en blanco con `enBlanco`. Normalizarlo en la lectura de todos (14/10/2026, c73755ec)
+ *    dejaba al Dashboard de quien eliminó todas sus hojas leyendo `hojas[0]` de una lista vacía.
+ */
+export async function leerTableroVisible(sub: string, informe: Informe = 'dashboard'): Promise<TableroVersionado> {
+  const l = await leerTableroVersionado(sub, informe);
+  const t = l.tablero;
+  const visible = t?.enBlanco ? { v: 3 as const, nombre: t.nombre, hojas: [], ...(t.archivadas ? { archivadas: t.archivadas } : {}) } : t;
+  return { ...l, tablero: visible };
+}
+
+/**
  * Lo que contesta un guardado con versión. `version` es la huella de lo que quedó guardado: el que guarda la
  * usa en el PRÓXIMO guardado (si no, su segundo autoguardado chocaría contra el primero).
  */

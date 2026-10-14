@@ -41,11 +41,14 @@ function paddingAbajo(estilo: string): number {
   return v.length >= 3 ? v[2] : v[0];
 }
 
-test('el link de la marca mide lo que mide el logo: sin colchón de abajo y sin estirarse', () => {
+// Desde el 14/10/2026 la marca NO es un link (Martín: «si clickeo MaKo no pase nada»): se fija eso, y que la geometría
+// de antes se quedó (el aire hasta OPERATE es margen). PROBADO ROMPIÉNDOLO: con el <Link href="/general"> de vuelta,
+// 1 fallo (éste) y el resto pasa.
+test('la marca no es un link, mide lo que mide el logo y no se estira', () => {
   for (const open of [true, false]) {
     const html = renderToStaticMarkup(createElement(Marca, { open }));
-    assert.match(html, /href="\/general"/, 'la marca dejó de ir a /general');
-    const estilo = estiloDe(html, 'a', 'mk-marca');
+    assert.doesNotMatch(html, /href=|<a\b/, 'la marca volvió a ser un link');
+    const estilo = estiloDe(html, 'span', 'mk-marca');
     const abajo = paddingAbajo(estilo);
     assert.ok(abajo <= 4, `${open ? 'abierta' : 'plegada'}: el link tiene ${abajo} px de padding abajo, y ese aire es clicable a /general`);
     assert.match(estilo, /align-self:/, `${open ? 'abierta' : 'plegada'}: sin align-self, el link se estira a todo el ancho`);

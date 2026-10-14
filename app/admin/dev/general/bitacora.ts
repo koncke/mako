@@ -458,4 +458,51 @@ export const BITACORA: Hito[] = [
     commits: [{ sha: 'e6818ee0', msg: 'General, tercera vuelta: los bloques son tarjetas de la hoja, la Meta objetivo y la Acción del día por separado, plantillas simples y la vista de celular al editar', lineas: 2679, archivos: 28 }],
     archivos: ['app/general/bloques/Meta.tsx', 'app/general/bloques/Plan.tsx', 'app/general/bloques/comun.tsx', 'app/dashboard/ElementoGeneral.tsx', 'lib/general-piezas.ts', 'lib/general-plantillas.ts', 'app/general/datos.ts', 'tests/general-bloques.test.ts'],
   },
+  {
+    fecha: '14 oct', hora: '13:26', chat: 'General', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'General de un vistazo: textos enormes, mobile, Archivados y la marca de MaKo quieta',
+    pedido: "1. Hay cosas que faltan... Las miniaturas y el título de abajo, deberían estar englobadas en un contendor, para que se entienda que ese título corresponde a esa miniatura... Y me gustaría que esos bloques tengan como una sombra, que se separe del fondo. Lo mismo para dashboard.\n2. El diseño mobile no se ve bien de los bloques... Tienes que rediseñar cada bloque para que se vea bien en mobile.\n3. Elimina\n4. Cuando clickeo en MaKo en la sidebar, me redirecciona a general, que no pase eso, que si clickeo MaKo no pase nada.\n5. Me debería dejar eliminar todas las hojas, también para dashboard. Y en el desplegable de las hojas, un texto que diga \"Archivados\" y ahí la opción de eliminar permanentemente. El \"archivados\" como un texto sutil abajo de todas las opciones, como lo tenemos en los filtros del CRM con \"Eliminar filtros\".\n6. Rediseña bloque por bloque, sacale una captura o algo y date feedback a vos mismo para perfeccionarlo en diseño. Por ejemplo, el bloque del semáforo tiene un espacio en blanco grande e innecesario... Haz esto también para mobile, que se vea bien. Y sobre todo lo que quiero, es que las plantillas de GENERAL, no se parezcan tanto a un dashboard... Está bien que tengan algún que otro gráfico, pero aquí en general todo tiene que ser más minimalista, textos enormes, cosas grandes, porque justamente es para ver de una pasada lo que el usuario quiera ver... Ya si quiere profundizar entra a dashboard.",
+    puntos: ['Con dos capturas de «¿Qué vas a crear hoy?». El punto 3 llegó cortado («Elimina»): se le preguntó qué.'],
+  },
+  {
+    fecha: '14 oct', hora: '13:58', chat: 'General', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Cada bloque con una cosa en grande, plantillas de bloques, y las hojas se archivan',
+    puntos: [
+      'Mirado en ws3 antes de tocar: la Acción del día con un hueco, el semáforo con media tarjeta en blanco, el funnel con diez etapas en cero y «El mes» con barra de scroll. Los cuatro, arreglados.',
+      'Cada bloque tiene una cosa en grande y su letra se adapta al ancho del bloque: se ve bien en media hoja y en el celular. En el celular los números van de a dos.',
+      'Las plantillas de General son bloques antes que gráficos: sin tablas ni series.',
+      'Eliminar una hoja la archiva (también la última); «Archivados» al pie del desplegable, para restaurar o eliminar para siempre.',
+      'Las plantillas de «¿Qué vas a crear hoy?» son tarjetas con sombra, y la marca de MaKo ya no lleva a General.',
+    ],
+    commits: [{ sha: 'c73755ec', msg: 'General, quinta vuelta: bloques de un vistazo y en grande, Archivados para las hojas, y la marca de MaKo sin navegar', lineas: 569, archivos: 25 }],
+    archivos: ['app/general/bloques/', 'app/general/Cobranza.tsx', 'lib/general-plantillas.ts', 'app/dashboard/EditorInforme.tsx', 'app/dashboard/Cabecera.tsx', 'lib/graficos-catalogo.ts', 'tests/dashboard-archivadas.test.ts'],
+  },
+  {
+    fecha: '14 oct', hora: '14:10', chat: 'General', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'Ignorar el punto 3 y rediseñar de verdad bloque por bloque',
+    pedido: "Ignora el punto 3, y continua con el resto, porque no veo que hayas modificado bloque por bloque y las cosas que te pedi, no esta pusheado eso aun?",
+    puntos: ['La quinta vuelta ya estaba en producción; lo que faltaba era mirar cada bloque en captura.'],
+  },
+  {
+    fecha: '14 oct', hora: '14:16', chat: 'General', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'Las plantillas también: que se vean como la tab General, no como un dashboard',
+    pedido: "No solo los bloques, sino los templates, con el feedback que te di que se vea como una tab general, no como un dashboard... Cosas grandes, textos grandes, que sea simple de leer",
+    puntos: ['Lo contestó la sexta vuelta de las 14:50: las plantillas nacen con el tema «General», sin bordes y con números grandes.'],
+  },
+  {
+    fecha: '14 oct', hora: '14:50', chat: 'General', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Cada bloque mirado en captura, listas sin filas cortadas y las plantillas con el tema General',
+    puntos: [
+      'Se dibujó cada bloque y cada plantilla con datos de ejemplo, en escritorio y a 364 px, y se corrigió lo que mostraban las capturas.',
+      'Una lista muestra sólo las filas que entran enteras; las tarjetas que se repiten llenan el ancho; lo que no llena el alto va centrado.',
+      'KPIs con el número en grande y su compromiso («14 de 20») y barras que llenan el bloque; tareas y proyectos que no se cortan en el celular.',
+      'Las plantillas nacen con el tema nuevo «General»: sin bordes, la tarjeta flota y los números grandes. «Cobros» sin sus columnas por semana.',
+      'Arreglo aparte: eliminar todas las hojas dejaba al Dashboard sin poder abrirse; la pantalla vuelve a leer el informe tal cual.',
+    ],
+    commits: [
+      { sha: '78fe8132', msg: 'Dashboard: la pantalla vuelve a leer el informe crudo; sólo la API y los links lo ven sin hojas', lineas: 73, archivos: 9 },
+      { sha: 'c23cb620', msg: 'General, sexta vuelta: bloque por bloque con capturas, listas sin filas cortadas y las plantillas con el tema General', lineas: 287, archivos: 16 },
+    ],
+    archivos: ['app/general/bloques/', 'app/general/KpisCard.tsx', 'app/general/Cobranza.tsx', 'lib/general-plantillas.ts', 'lib/graficos-temas.ts', 'lib/graficos-tablero.ts', 'tests/general-bloques.test.ts'],
+  },
 ];

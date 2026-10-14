@@ -43,10 +43,10 @@ export function BloquePendientes({ d }: { d: DatosGeneral['pendientes'] }) {
       <Cabeza titulo="Pendientes del CRM" href="/crm" link={estado === 'por-marcar' ? 'Marcar en el CRM' : undefined} />
       {estado === 'por-marcar' ? (
         // El número, la barra partida por tipo y la leyenda, uno debajo del otro: entra en media hoja sin saltos.
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}>
+        <div className="gb-centro" style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}>
           <span style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-            <span className="gb-num" style={{ fontSize: 34, fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1, color: 'var(--bad)' }}>{p.total}</span>
-            <span style={{ fontSize: 13, color: 'var(--dim)' }}>{p.total === 1 ? 'lead sin marcar' : 'leads sin marcar'}</span>
+            <span className="gb-num" style={{ fontSize: 'clamp(44px, 13cqi, 80px)', fontWeight: 750, letterSpacing: '-0.035em', lineHeight: 0.95, color: 'var(--bad)' }}>{p.total}</span>
+            <span style={{ fontSize: 'clamp(14px, 3cqi, 18px)', color: 'var(--dim)' }}>{p.total === 1 ? 'lead sin marcar' : 'leads sin marcar'}</span>
           </span>
           <div aria-hidden style={{ display: 'flex', height: 10, borderRadius: 999, overflow: 'hidden', background: 'var(--gb-losa-2)' }}>
             {tipos.map((t) => <span key={t.k} style={{ width: `${(t.n / total) * 100}%`, background: t.c }} />)}
@@ -129,6 +129,8 @@ function Barras({ c }: { c: ConteoFunnel }) {
 }
 
 const CuerpoFunnel = ({ c, estilo }: { c: ConteoFunnel; estilo: string }) => (estilo === 'barras' ? <Barras c={c} /> : <Embudo c={c} />);
+/** Con muchas etapas, sólo las que tienen leads: diez renglones en cero no dicen nada y no entran. */
+const conLeads = (c: ConteoFunnel): ConteoFunnel => (c.etapas.length > 6 ? { ...c, etapas: c.etapas.filter((e) => e.n > 0) } : c);
 
 export function BloqueFunnel({ d, funnel, op }: { d: DatosGeneral['funnels']; funnel: number | null; op?: OpcionesElegidas }) {
   if (!d.ok) return <Fallo titulo="Tu funnel hoy" error={d.error} />;
@@ -139,11 +141,16 @@ export function BloqueFunnel({ d, funnel, op }: { d: DatosGeneral['funnels']; fu
   const c = f?.conteo ?? null;
   return (
     <div className="gb">
-      <Cabeza titulo="Tu funnel hoy" extra={c ? `${c.nombre} · ${fmtNum(c.total)} leads` : null} href="/crm" link="Abrir el CRM" />
+      <Cabeza titulo="Tu funnel hoy" extra={c?.nombre ?? null} href="/crm" link="Abrir el CRM" />
       {c && c.total > 0 ? (
         <>
-          <CuerpoFunnel c={c} estilo={estilo} />
-          {c.sinEtapa > 0 && <span style={{ marginTop: 8, fontSize: 12.5, color: 'var(--faint)' }}>{c.sinEtapa} en una etapa que el funnel ya no tiene</span>}
+          {/* El total, de un vistazo (la quinta vuelta: «textos enormes, cosas grandes»). */}
+          <span style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 12 }}>
+            <span className="gb-num" style={{ fontSize: 'clamp(36px, 10cqi, 64px)', fontWeight: 750, letterSpacing: '-0.035em', lineHeight: 0.95 }}>{fmtNum(c.total)}</span>
+            <span style={{ fontSize: 'clamp(14px, 3cqi, 18px)', color: 'var(--dim)' }}>{c.total === 1 ? 'lead' : 'leads'} en el funnel</span>
+          </span>
+          {conLeads(c).etapas.length ? <CuerpoFunnel c={conLeads(c)} estilo={estilo} /> : null}
+          {c.sinEtapa > 0 && <span style={{ marginTop: 8, fontSize: 12.5, color: 'var(--faint)' }}>{c.sinEtapa === c.total ? 'Todos están' : `${c.sinEtapa} están`} en una etapa que el funnel ya no tiene</span>}
         </>
       ) : (
         <Placeholder muestra={<CuerpoFunnel c={FUNNEL_MUESTRA} estilo={estilo} />}
@@ -169,7 +176,7 @@ export function BloqueCobranza({ d, funnel, funnels, op }: { d: DatosGeneral['co
   const soloVencidas = opcionDe('cobranza', op, 'cuales') === 'vencidas';
   const nombreFunnel = funnel && funnels.ok ? funnels.d.find((f) => f.id === funnel)?.nombre ?? null : null;
   const vacio = (
-    <Placeholder muestra={<Cobranza filas={COBROS_MUESTRA.slice(0, Math.min(4, limite))} tz="" error={null} muestra />}
+    <Placeholder muestra={<Cobranza filas={COBROS_MUESTRA.slice(0, Math.min(4, limite))} tz="" error={null} muestra sinCabeza />}
       texto={soloVencidas ? 'Ninguna cuota vencida.' : 'Nadie con cuotas por cobrar.'} accion={{ href: '/crm', rotulo: 'Abrir el CRM' }} />
   );
   if (!d.ok) return <Cobranza filas={[]} tz="" error={d.error} alcance={nombreFunnel} />;
@@ -202,7 +209,6 @@ function ResumenMes({ c, desgloses, comparar }: { c: ResumenComparativo; desglos
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: 12 }}>
       {items.map((it) => {
         const dg = desgloses[it.label];
-        const tope = Math.max(it.m.actual, it.m.anterior, 1);
         const sube = it.m.actual > it.m.anterior;
         const igual = it.m.actual === it.m.anterior;
         const color = igual ? 'var(--faint)' : it.invertir ? 'var(--dim)' : sube ? 'var(--good)' : 'var(--bad)';
@@ -213,24 +219,11 @@ function ResumenMes({ c, desgloses, comparar }: { c: ResumenComparativo; desglos
           <>
             <span style={{ fontSize: 13, color: 'var(--dim)' }}>{it.label}</span>
             <span style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-              <span className="gb-num" style={{ fontWeight: 700, fontSize: 24, color: 'var(--ink)', letterSpacing: '-0.02em' }}>{it.f(it.m.actual)}</span>
+              <span className="gb-num" style={{ fontWeight: 750, fontSize: 'clamp(26px, 4.4cqi, 44px)', color: 'var(--ink)', letterSpacing: '-0.03em', lineHeight: 1 }}>{it.f(it.m.actual)}</span>
               {comparar && delta != null && !igual && <span className="gb-num" style={{ fontSize: 12.5, fontWeight: 700, color }}>{delta > 0 ? '▲' : '▼'} {Math.abs(delta)}%</span>}
             </span>
-            {comparar && (
-              <>
-                {/* ⚠️ La barra recesiva va en `--faint` (contra `--surface-2`, `--border-strong` es invisible), y el valor
-                    anterior va en texto: el color nunca es el único portador de un dato. */}
-                <span style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <span style={{ display: 'block', height: 6, borderRadius: 999, background: 'var(--gb-losa-2)', overflow: 'hidden' }}>
-                    <span style={{ display: 'block', height: '100%', borderRadius: 999, width: `${Math.min(100, (it.m.actual / tope) * 100)}%`, background: color }} />
-                  </span>
-                  <span style={{ display: 'block', height: 6, borderRadius: 999, background: 'var(--gb-losa-2)', overflow: 'hidden' }}>
-                    <span style={{ display: 'block', height: '100%', borderRadius: 999, width: `${Math.min(100, (it.m.anterior / tope) * 100)}%`, background: 'var(--faint)' }} />
-                  </span>
-                </span>
-                <span style={{ fontSize: 12, color: 'var(--faint)' }}>{c.etiqueta_anterior}: {it.f(it.m.anterior)}</span>
-              </>
-            )}
+            {/* Sin las dos barras de antes (eran un gráfico del Dashboard): el anterior en texto, que es lo que se lee. */}
+            {comparar && <span style={{ fontSize: 12.5, color: 'var(--faint)' }}>{c.etiqueta_anterior}: {it.f(it.m.anterior)}</span>}
           </>
         );
         return dg

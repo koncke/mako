@@ -26,7 +26,15 @@ sea original de MaKo, pero quiero la plantilla para ir trabajando».**
   rompiéndolo; el inicio dibujado en un dev server local (captura). **NO verificado:** el editor abierto —
   el dev server local pasa los 5 GB al compilarlo y el vigía de RAM lo mata. Se mira en producción.
 
-## Actualización 14/10 tarde (cuenta claude2 al 88% semanal)
+## EN MAIN desde el 14/10 13:26 (`353c81a8`, tandas 1 y 2) — cuenta claude2 al 89% semanal
+
+Lo pusheó el orquestador en su push integrado. El primer deploy murió por `qrcode` sin declarar; con su arreglo (`fac319092`) quedó Ready en producción.
+
+**Falta verificarlo a mano con la cuenta de Martín**: el Chrome conectado a Claude in Chrome tiene la sesión de Leandro (rol usuario, ws 10), y el guard lo rebota a /crm — que es lo correcto y prueba el candado, pero no deja ver el editor. Qué mirar: crear un diseño, texto, imagen subida, plantilla, descargar PNG/PDF, y que el crédito de Doory aparezca.
+
+Lo de abajo es la historia de cómo se llegó.
+
+## Actualización 14/10 tarde
 
 - **La tanda 1 NO está en main todavía**: cada push lo frenó la RAM (el vigía mata el typecheck del pre-push). Hay un reintento corriendo desde un worktree LIMPIO, `C:/dev/wt-canva-push` (detached en `aa8ea32b`), con `scratchpad/scripts/push-con-ram.sh`: espera 6 GB libres, integra origin/main y pushea; hasta 8 intentos. Si se cortó, se relanza con `sh <script> <log>` desde cualquier chat.
 - **La tanda 2 (re-vestido de Canva + catálogo) está COMMITEADA** (`bef0ad47`, rama `editor-imagen`): typecheck acotado 0 errores, 59/59 tests. Sin ver en el navegador. Se le pidió al orquestador (Estrategia 3 cuentas) que la sume a su próximo push integrado; si no lo hizo, desde `C:/dev/wt-canva`: `git fetch && git merge origin/main` y push.
@@ -42,6 +50,8 @@ sea original de MaKo, pero quiero la plantilla para ir trabajando».**
 
 ## Decisiones que esperan a Martín
 
+- ¿«Image» también en la barra mirando un cliente (`?ws=`)? Hoy no, por su regla del 01/08. El cambio está hecho y sin
+  pushear en la rama `opcion-image-en-clientes` (`8cd57c7e`); si dice que sí, se trae con cherry-pick.
 - ¿Le escribimos a Siam pidiendo licencia MIT para sacar el cartel?
 - ¿Unsplash (key de MaKo) para las fotos? ¿Modelo para quitar fondo de objetos?
 - Una pestaña de Canva quedó abierta en el grupo de los agentes (`canva.com/design/DAHX-ICTUd4`): si se

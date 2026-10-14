@@ -26,7 +26,7 @@ export const masDias = (n: number): string => { const d = new Date(); d.setDate(
 const a = (dias: number, h: number, m = 0): string => { const d = new Date(); d.setDate(d.getDate() + dias); d.setHours(h, m, 0, 0); return d.toISOString(); };
 
 export const OKRS_MUESTRA: OkrVista[] = [
-  { id: 'm1', titulo: 'Facturar US$30.000 en el trimestre', metrica: 'cash_usd', metricaLabel: 'Cobrado', unidad: 'usd', metaValor: 30000, quarter: 4, avanceManual: null, actual: 18600, pct: 62, atrasado: false, fraccion: 0.55, principal: true },
+  { id: 'm1', titulo: 'Facturar $30,000 en el trimestre', metrica: 'cash_usd', metricaLabel: 'Cobrado', unidad: 'usd', metaValor: 30000, quarter: 4, avanceManual: null, actual: 18600, pct: 62, atrasado: false, fraccion: 0.55, principal: true },
   { id: 'm2', titulo: 'Cerrar 40 clientes nuevos', metrica: 'cierres', metricaLabel: 'Cierres', unidad: 'cantidad', metaValor: 40, quarter: 4, avanceManual: null, actual: 17, pct: 43, atrasado: true, fraccion: 0.55, principal: false },
   { id: 'm3', titulo: '120 reuniones agendadas', metrica: 'agendas', metricaLabel: 'Reuniones agendadas', unidad: 'cantidad', metaValor: 120, quarter: 4, avanceManual: null, actual: 74, pct: 62, atrasado: false, fraccion: 0.55, principal: false },
 ];
@@ -84,10 +84,10 @@ export const FUNNEL_MUESTRA: ConteoFunnel = {
 };
 
 export const COBROS_MUESTRA: CobroM[] = [
-  { leadId: -1, pagoId: -1, nombre: 'Ana Gómez', linea: 'US$500 · venció hace 3 días', urgencia: 'vencida' },
-  { leadId: -2, pagoId: -2, nombre: 'Carlos Ruiz', linea: 'US$750 · vence mañana', urgencia: 'pronto' },
-  { leadId: -3, pagoId: -3, nombre: 'Marta Díaz', linea: 'US$300 · vence el vie', urgencia: null },
-  { leadId: -4, pagoId: -4, nombre: 'Jorge Peña', linea: 'US$1.000 · vence en 9 días', urgencia: null },
+  { leadId: -1, pagoId: -1, nombre: 'Ana Gómez', linea: '$500 · venció hace 3 días', urgencia: 'vencida' },
+  { leadId: -2, pagoId: -2, nombre: 'Carlos Ruiz', linea: '$750 · vence mañana', urgencia: 'pronto' },
+  { leadId: -3, pagoId: -3, nombre: 'Marta Díaz', linea: '$300 · vence el vie', urgencia: null },
+  { leadId: -4, pagoId: -4, nombre: 'Jorge Peña', linea: '$1,000 · vence en 9 días', urgencia: null },
 ];
 
 export const MES_MUESTRA: ResumenComparativo = {
@@ -107,12 +107,12 @@ export const ALERTAS_MUESTRA: AlertaVista[] = [
 /** La Meta objetivo de ejemplo (lo que se pisa sobre los datos de verdad del bloque: el período y la capacidad son reales). */
 export const META_MUESTRA = {
   objetivo: {
-    id: 'mo', anio: 2026, quarter: 4, titulo: 'Facturar US$30.000 en el trimestre', metrica: 'cash_usd', metaValor: 30000, unidad: 'usd',
+    id: 'mo', anio: 2026, quarter: 4, titulo: 'Facturar $30,000 en el trimestre', metrica: 'cash_usd', metaValor: 30000, unidad: 'usd',
     avanceManual: null, orden: 0, estado: 'activo', origen: 'muestra', actual: 18600, pct: 62, desde: '2026-10-01', hasta: '2026-12-31',
     ritmo: { esperado: 16500, desvio: 2100, desvioPct: 13, llegadaEstimada: null, alDia: true },
   } as ObjectiveConAvance,
   desglose: null,
-  complemento: { label: 'Vendido', valor: 'US$24.000', pie: '', desglose: null },
+  complemento: { label: 'Vendido', valor: '$24,000', pie: '', desglose: null },
   fraccion: 0.55,
 };
 

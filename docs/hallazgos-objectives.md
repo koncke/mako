@@ -721,7 +721,100 @@ fue una línea de clase (`lk-comp--general`) y que el título de un bloque use l
 `tests/general-bloques.test.ts`.
 *14/10/2026, claude2 (e6818ee0).*
 
+## General, quinta vuelta: de un vistazo, en grande, y medido en pantalla (14/10/2026)
+
+**El pedido** (Martín, 13:26, con dos capturas de «¿Qué vas a crear hoy?»): «Rediseña bloque por bloque, sacale una captura
+o algo y date feedback a vos mismo para perfeccionarlo en diseño. Por ejemplo, el bloque del semáforo tiene un espacio en
+blanco grande e innecesario... Haz esto también para mobile... las plantillas de GENERAL, no se parezcan tanto a un
+dashboard... aquí en general todo tiene que ser más minimalista, textos enormes, cosas grandes, porque justamente es para ver
+de una pasada lo que el usuario quiera ver... Ya si quiere profundizar entra a dashboard» y «El diseño mobile no se ve bien
+de los bloques».
+
+**Lo que se vio en las capturas (ws3, producción, con «Editar → Celular»)** y lo que salió:
+
+- **La Acción del día tenía un hueco del alto de la tarjeta entre la razón y el botón**: el botón iba al pie con
+  `marginTop: auto`. Va pegado a la razón.
+- **El semáforo dejaba media tarjeta en blanco**: la columna de lámparas medía lo que la tarjeta y la lista tenía tres
+  renglones. Ahora el titular manda («2 cosas para atender», en grande y del color del semáforo), las lámparas van en fila
+  al lado, y el bloque pide 6 filas.
+- **«Tu funnel hoy» mostraba diez etapas en cero y una barra de scroll**, con «2 leads» arriba: los dos estaban en etapas
+  que el funnel ya no tiene. Con más de 6 etapas se dibujan sólo las que tienen leads, el total va en grande y lo que no
+  tiene etapa se dice.
+- **«El mes» tenía barra de scroll y dos barras por métrica** (un gráfico del Dashboard): cuatro números grandes y el
+  anterior en texto.
+- **«A quién cobrarle» vacío repetía su título**: la muestra del placeholder es el componente entero, con su cabecera.
+  La muestra va `sinCabeza`.
+- **En el celular, cuatro números del mes eran cuatro tarjetas a lo ancho**: la pila pone los números de a dos.
+
+**La regla que queda: en General, cada bloque tiene UNA cosa en grande** (el número de la meta, la acción, cuántas cosas
+para atender, cuántos por cobrar, la próxima llamada, los leads sin marcar, el total del funnel) **y su letra va en `cqi`**:
+`.gen-pieza` lleva `container-type: inline-size`, así que la misma letra crece en una tarjeta ancha y baja en media hoja o
+en el teléfono, sin media queries y sin tocar el estilo en línea. ⚠️ Un bloque que se dibuja FUERA de `.gen-pieza` (la
+vista previa del menú) necesita su propio contenedor (`.lk-bloque-escala`): sin uno, `cqi` se mide contra la ventana.
+Y las plantillas de General son bloques antes que gráficos: sin tablas ni series, y como mucho cuatro números.
+
+**Vive en:** `app/general/bloques/` (`Meta.tsx`, `Norte.tsx`, `Negocio.tsx`, `Agenda.tsx`, `Plan.tsx`) ·
+`app/general/Cobranza.tsx` · `app/dashboard/ElementoGeneral.tsx` · `app/dashboard/editor-css.ts` (`.lk-pila`) ·
+`lib/general-plantillas.ts` · `tests/general-bloques.test.ts`.
+*14/10/2026, claude2.*
+
+## General, sexta vuelta: bloque por bloque con capturas, y las plantillas con el tema General (14/10/2026)
+
+**El pedido** (Martín, 14:10 y 14:16): «no veo que hayas modificado bloque por bloque y las cosas que te pedi» y «No solo
+los bloques, sino los templates, con el feedback que te di que se vea como una tab general, no como un dashboard... Cosas
+grandes, textos grandes, que sea simple de leer».
+
+**Cómo se miró, y sirve para la próxima:** un arnés fuera del repo dibuja cada bloque con los datos de ejemplo de
+`muestras.ts` a su tamaño de escritorio y a 364 px (el celular), y cada plantilla armada con `lugarEnMiniatura`, con la
+hoja de estilos de la app; Playwright saca una captura por sección. Corre los componentes en Node con `tsx` y tres stubs:
+`server-only` vacío, todo módulo `'use server'` reemplazado por acciones que no hacen nada, y el `Link` de la casa como un
+`<a>`. ⚠️ Lo que llega con `next/dynamic` (las tarjetas del Plan de «Prioridades del Plan») NO se dibuja ahí: ese bloque se
+mira en el navegador.
+
+**Lo que mostraron las capturas, y lo que salió:**
+
+- **Las listas se cortaban a la mitad** (deadlines, a quién cobrarle): una tarjeta de alto fijo con `overflow: auto`
+  dibujaba media fila y un scroll adentro. Ahora una lista muestra sólo las filas que ENTRAN enteras (`gb-cabe`, una
+  columna flex que envuelve: lo que no entra pasa a una segunda columna que queda afuera). ⚠️ Necesita un alto DEFINIDO
+  (la cadena `lk-comp` → `.gen-pieza` → `.gb`, todas flex con `min-height: 0`); en la pila del celular el bloque mide lo
+  que dibuja y se ve la lista entera. Y el costo: si la última fila no entra por un par de píxeles, queda un hueco del
+  alto de una fila — se arregla con el alto del bloque, no sacando la regla.
+- **Lo repetido no llenaba la fila**: OKRs, proyectos y publicaciones usaban `repeat(auto-fill, …)`, que crea las
+  columnas aunque estén vacías (tres OKRs en una hoja entera dejaban un tercio libre). Va `auto-fit`.
+- **Lo que no llena el alto va centrado** (`gb-centro`): la Acción del día al lado de la Meta objetivo, los OKRs, los
+  pendientes.
+- **Los KPIs eran bloques de color de 350 px de ancho y 132 px de alto fijos**, con el número en 15 px: las barras llenan el
+  alto del bloque con un ancho tope, y arriba el número en grande «14 de 20».
+- **En el celular, la fila de una tarea partía el proyecto y el deadline en «vi…»**: la línea envuelve.
+- **La muestra escribía la plata en otro formato que la app** («US$30.000» contra el `$18,600` de `fmtUSD`): los ejemplos
+  usan el formato del formateador.
+- **El tamaño de cada bloque, al de su contenido**: OKRs 5 filas, Proyectos 6, Publicaciones 5, Pendientes 6, y el funnel
+  en barras pide 7 (con 6, «Ganado» —lo único que importa del funnel— quedaba afuera).
+
+**Las plantillas se leen como General y no como el Dashboard por el TEMA, no por sacar gráficos:** el tema nuevo
+«General» (lib/graficos-temas.ts) va sin borde ni filete, la tarjeta flota, el título y el número del catálogo más grandes
+(52 px: con 60 la comparación se caía abajo en una tarjeta de un tercio) y la etiqueta en la letra de la hoja. Las doce
+plantillas nacen con él (`tema` en `DefinicionGeneral`), y la comparación «↑ 1,3×» deja de ir en mono cuando la etiqueta
+no va en mono. «Cobros» perdió sus columnas por semana.
+
+**Vive en:** `app/general/bloques/comun.tsx` (`gb-cabe`, `gb-centro`) · `app/general/bloques/` · `app/general/KpisCard.tsx` ·
+`app/general/Cobranza.tsx` · `lib/general-piezas.ts` · `lib/general-plantillas.ts` · `lib/graficos-plantillas-generales.ts`
+(`tema`) · `lib/graficos-temas.ts` · `app/dashboard/Grafico.tsx` · `tests/general-bloques.test.ts`.
+*14/10/2026, claude2.*
+
 ## Lo que quedó sin hacer
+
+- **El Dashboard, con el mismo tratamiento (pedido de Martín del 14/10, 14:34).** «Dale este mismo feedback al
+  dashboard... Que rediseñe bloque por bloque y que tenga en cuenta mobile. Que vaya viendo con datos ficticios o con algun
+  dato de algun workspace que todo se vea bien en diseño. Tanto bloques como las plantillas.» No se arrancó: la cuenta
+  estaba al 95% semanal. El método es el arnés de la sexta vuelta (arriba), con los gráficos del catálogo dibujados con
+  `CuerpoGrafico` + `resultadoDeMuestra` (lib/graficos-muestra.ts) en vez de los bloques, y las plantillas de
+  `PLANTILLAS_HOJA` (lib/graficos-plantillas.ts). Vive en `app/dashboard/`.
+- **La plata se escribe en dos formatos en la misma hoja (14/10/2026).** Los gráficos del catálogo («US$2.882», con punto)
+  y los bloques de General y el resto de la app (`fmtUSD`, lib/format.ts: «$18,600», con coma). Una hoja de General con un
+  número del catálogo al lado de un bloque muestra los dos. Unificarlo es elegir uno y cambiar el otro formateador; toca al
+  Dashboard entero.
+- **«Prioridades del Plan» no se miró en el arnés**: sus tarjetas llegan con `next/dynamic`. Se mira en el navegador.
 
 - **«Fondo: Oscuro» no da vuelta los colores FIJOS de un bloque (14/10/2026).** Lo que usa los tokens de la casa se da
   vuelta solo; los tipos de «Pendientes del CRM» (`TIPOS_PENDIENTE`, app/general/bloques/Negocio.tsx), los formatos de las

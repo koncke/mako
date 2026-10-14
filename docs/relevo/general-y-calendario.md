@@ -3,6 +3,29 @@
 **Al 14/10/2026 (~04:30), claude2.** Lo escribe el chat que hizo el trabajo (primera mano). Lo que costó está en los
 hallazgos de cada área; acá va qué quedó, dónde y qué espera.
 
+## Actualización 14/10/2026 14:55 (claude2, el mismo chat; la cuenta al 95% semanal)
+
+**General, sexta vuelta** (`c23cb620`): cada bloque y cada plantilla mirados en captura (escritorio y 364 px) y corregidos:
+listas sin filas cortadas (`gb-cabe`), tarjetas que llenan el ancho, KPIs en grande, y las plantillas con el tema nuevo
+«General». Lo que costó y el método del arnés, en `docs/hallazgos-objectives.md` → «General, sexta vuelta».
+**Arreglo que tiene que salir YA** (`78fe8132`): `c73755ec` (en producción) normalizaba «se eliminaron todas» en la lectura
+de la pantalla, y el Dashboard de quien eliminó todas sus hojas leía `hojas[0]` de una lista vacía. Ahora sólo la API y
+los links leen la versión normalizada (`leerTableroVisible`).
+**Sin pushear** al escribir esto: se le pidió al orquestador (Estrategia 3 CUENTAS).
+**Pedido de Martín sin arrancar** (14:34): «Dale este mismo feedback al dashboard... Que rediseñe bloque por bloque y que
+tenga en cuenta mobile... Tanto bloques como las plantillas.» Es trabajo grande y la cuenta estaba al 95%: lo toma el
+próximo chat, con el método de la sexta vuelta (gráficos con `CuerpoGrafico` + `resultadoDeMuestra`, plantillas de
+`PLANTILLAS_HOJA`). No hay un chat del Dashboard abierto.
+
+## Actualización 14/10/2026 14:00 (claude2, el mismo chat)
+
+**General, quinta vuelta** (`c73755ec`): los seis puntos de las 13:26 (textuales en la bitácora de General). Cada bloque con
+una cosa en grande y la letra en `cqi` (se adapta a media hoja y al celular), plantillas de bloques sin tablas ni series,
+las hojas se archivan (también la última) con «Archivados» al pie del desplegable, las plantillas de «¿Qué vas a crear
+hoy?» como tarjetas con sombra, y la marca de MaKo sin link. **El punto 3 llegó cortado («Elimina») y se le preguntó qué
+eliminar.** **En producción** (push del orquestador `fac319092..2e4b7a5d4`, deploy Ready a las 14:00). Rojo ajeno a las 13:55:
+`tests/integracion-sin-salir.test.ts` por dos links del Landing Generator (`faa061ef`).
+
 ## Actualización 14/10/2026 12:50 (claude2, el mismo chat)
 
 **General, cuarta vuelta** (`e6818ee0` + su cosecha): los 8 puntos de Martín de las 11:54 y el de las 12:05 sobre

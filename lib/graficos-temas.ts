@@ -143,6 +143,18 @@ export const PLANTILLAS_TEMA: readonly PlantillaTema[] = [
     fuente: 'inter',
   },
   {
+    // El de las plantillas de General (14/10/2026, Martín: «que las plantillas de GENERAL, no se parezcan tanto a un
+    // dashboard... textos enormes, cosas grandes, porque justamente es para ver de una pasada»): sin bordes ni filete,
+    // la tarjeta flota, el título y el número más grandes y la etiqueta en la letra de la hoja (no en mono).
+    id: 'general', nombre: 'General', linea: 'Números enormes y tarjetas que flotan, para leer de una pasada.',
+    paleta: PALETA_MAKO,
+    tarjeta: { fondo: 'surface', borde: 'no', radio: 20, sombra: true, filete: false },
+    titulo: { tam: 20, peso: 600, mayus: false },
+    kpi: { etiqueta: 'letra', tamValor: 52 },
+    graficos: { etiquetas: true, leyenda: 'arriba', cuadricula: false, ejes: true, trazo: 4, radioBarra: 10, compacto: false },
+    fuente: 'geist',
+  },
+  {
     id: 'editorial', nombre: 'Editorial', linea: 'Títulos con serif, como un informe impreso.',
     paleta: ['#3E6E9E', '#B5762A', '#2F7D6D', '#6B4FA0', '#B04848', '#3E8A4F', '#9A4D7C', '#3A86A8'],
     tarjeta: { fondo: 'surface', borde: 'suave', radio: 4, sombra: false, filete: true },

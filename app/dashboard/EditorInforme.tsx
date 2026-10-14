@@ -97,8 +97,8 @@ import { useHojasDeFuentes } from '@/app/_cursos/SelectorFuente';
 import { useFocoInicial } from '@/app/customer-success/curso/dialogo-foco';
 import { conWs } from '@/lib/ws-tab';
 import {
-  AREAS, COLS, FUENTES, MAX_COMPONENTES, MAX_CONECTORES, MAX_CONTROLES, MAX_HOJAS, MAX_IA_POR_HOJA, MAX_POPUP, TIPOS_ELEMENTO,
-  abajoDeTodo, campoDe, efectivoDe, esElemento, esGrafico, minimoDeElemento, nuevoControlVista, nuevoElemento, nuevoGrafico, nuevoId,
+  AREAS, COLS, FUENTES, MAX_ARCHIVADAS, MAX_COMPONENTES, MAX_CONECTORES, MAX_CONTROLES, MAX_HOJAS, MAX_IA_POR_HOJA, MAX_POPUP, TIPOS_ELEMENTO,
+  abajoDeTodo, campoDe, efectivoDe, esElemento, esGrafico, hojaVacia, minimoDeElemento, nuevoControlVista, nuevoElemento, nuevoGrafico, nuevoId,
   sanearComponente, sanearControlVista, sanearControles, sanearElemento, tituloDe, tonoDe,
   type Componente, type Conector, type ControlVista, type Efectivo, type Elemento, type Grafico, type Hoja, type Tablero, type TipoElemento, type ValorControl, type VistaValores,
 } from '@/lib/graficos-catalogo';
@@ -166,6 +166,8 @@ const ANCHO_PILA = 640;
  * guarda: es cómo se mira mientras se edita, y al apretar «Ver» vuelve al escritorio.
  */
 type Dispositivo = 'escritorio' | 'tableta' | 'movil';
+/** El informe sin la marca de «se eliminaron todas las hojas»: al crear o restaurar una, la pantalla deja de estar en blanco. */
+const sinBlanco = (t: Tablero): Tablero => { const { enBlanco: _enBlanco, ...resto } = t; return resto; };
 const DISPOSITIVOS: ReadonlyArray<{ id: Dispositivo; nombre: string; Icono: () => ReactNode }> = [
   { id: 'escritorio', nombre: 'Vista de escritorio', Icono: SvgEscritorio },
   { id: 'tableta', nombre: 'Vista de tablet', Icono: SvgTableta },
@@ -614,7 +616,7 @@ export function EditorInforme({
     // ninguna acción»): con `mutar`, el Deshacer de la hoja nueva la borraba y volvía a la de antes. Se guarda (el
     // guardado mira el tablero, no la pila) y la pila se vacía: un paso viejo deshecho después restauraría un tablero
     // SIN la hoja nueva. Quitar una hoja se hace con su ⋮.
-    setTablero((tt) => ({ ...tt, hojas: enBlanco ? [nueva] : [...tt.hojas, nueva] }));
+    setTablero((tt) => ({ ...sinBlanco(tt), hojas: enBlanco ? [nueva] : [...tt.hojas, nueva] }));
     vaciar();
     setEnBlanco(false);
     setNuevaHoja(false);
@@ -643,11 +645,39 @@ export function EditorInforme({
       .then(() => show('Dashboard copiado'))
       .catch((e: unknown) => show(e instanceof Error && e.message !== 'sin portapapeles' ? e.message : 'No se pudo copiar', undefined, 'bad'));
   };
+  /**
+   * Eliminar una hoja la ARCHIVA (14/10/2026, Martín: «Me debería dejar eliminar todas las hojas... Y en el desplegable de
+   * las hojas, un texto que diga "Archivados" y ahí la opción de eliminar permanentemente»). Con la última, la pantalla
+   * vuelve a «¿Qué vas a crear hoy?» (`enBlanco` en el informe: por dentro viaja una hoja vacía que no se muestra).
+   */
   const eliminarHoja = (id: string) => {
-    if (tablero.hojas.length <= 1) return;
+    const h = tablero.hojas.find((x) => x.id === id);
+    if (!h) return;
     const i = tablero.hojas.findIndex((x) => x.id === id);
-    mutar((t) => ({ ...t, hojas: t.hojas.filter((x) => x.id !== id) }));
-    if (id === hoja.id) irAHoja(tablero.hojas[i === 0 ? 1 : i - 1].id);
+    const ultima = tablero.hojas.length <= 1;
+    mutar((t) => ({
+      ...t,
+      hojas: ultima ? [hojaVacia('Página 1')] : t.hojas.filter((x) => x.id !== id),
+      archivadas: [h, ...(t.archivadas ?? []).filter((x) => x.id !== id)].slice(0, MAX_ARCHIVADAS),
+      ...(ultima ? { enBlanco: true as const } : {}),
+    }));
+    if (ultima) { setEnBlanco(true); setEditando(false); setSelId(null); }
+    else if (id === hoja.id) irAHoja(tablero.hojas[i === 0 ? 1 : i - 1].id);
+    show('Hoja archivada', () => { pila.deshacer(); if (ultima) { setEnBlanco(false); irAHoja(h.id); } });
+  };
+  /** Una hoja de Archivados vuelve al final (o es la única, si se habían eliminado todas). */
+  const restaurarHoja = (id: string) => {
+    const h = (tablero.archivadas ?? []).find((x) => x.id === id);
+    if (!h) return;
+    if (!enBlanco && tablero.hojas.length >= MAX_HOJAS) { show('Máximo de hojas'); return; }
+    mutar((t) => ({ ...sinBlanco(t), hojas: enBlanco ? [h] : [...t.hojas, h], archivadas: (t.archivadas ?? []).filter((x) => x.id !== id) }));
+    setEnBlanco(false);
+    irAHoja(h.id);
+    show('Hoja restaurada');
+  };
+  /** Borrar de Archivados es para siempre (el Deshacer de esta pantalla la devuelve mientras siga abierta). */
+  const borrarArchivada = (id: string) => {
+    mutar((t) => ({ ...t, archivadas: (t.archivadas ?? []).filter((x) => x.id !== id) }));
     show('Hoja eliminada', () => pila.deshacer());
   };
   const moverHoja = (id: string, delta: number) => mutar((t) => {
@@ -1151,7 +1181,7 @@ export function EditorInforme({
       {/* ── La topbar, como la de Looker: el título de la hoja (con su desplegable) y a la derecha los
              filtros, Compartir, Editar y el ⋮ ── */}
       <BarraSuperior
-        hoja={hojaTop} editable={guardable && !enBlanco} conHojas={!enBlanco && (puedeNuevaHoja || tablero.hojas.length > 1)}
+        hoja={hojaTop} editable={guardable && !enBlanco} conHojas={enBlanco ? guardable && !!tablero.archivadas?.length : puedeNuevaHoja || tablero.hojas.length > 1 || (guardable && !!tablero.archivadas?.length)}
         hojasAbierto={menu?.tipo === 'hojas'} emojiAbierto={menu?.tipo === 'emoji'} periodo={periodoDeHoja(hojaTop, vista, hoy)}
         onHojas={(ancla) => alternarMenu('hojas', ancla)} onEmoji={(ancla) => alternarMenu('emoji', ancla)} onCambiar={cambiarCabecera}
         derecha={(
@@ -1433,8 +1463,11 @@ export function EditorInforme({
       {menu?.tipo === 'hojas' && (
         <Flotante ancla={menu.ancla} onCerrar={() => setMenu(null)} ancho={300}>
           <MenuHojas
-            hojas={tablero.hojas} activa={hoja.id} puedeNueva={puedeNuevaHoja}
+            hojas={enBlanco ? [] : tablero.hojas} activa={hoja.id} puedeNueva={puedeNuevaHoja && !enBlanco}
             acciones={guardable ? { onRenombrar: renombrarHoja, onDuplicar: duplicarHoja, onCopiar: copiarHoja, onMover: moverHoja, onEliminar: eliminarHoja } : null}
+            archivadas={guardable ? tablero.archivadas ?? [] : []}
+            onRestaurar={(id) => { setMenu(null); restaurarHoja(id); }}
+            onBorrarArchivada={borrarArchivada}
             onIr={(id) => { setMenu(null); irAHoja(id); }}
             onNueva={() => { setMenu(null); setNuevaHoja(true); }}
           />

@@ -284,16 +284,22 @@ test('las plantillas: simples, cada dato una vez, de a dos sin estirar, y con t�
     assert.ok([...porFila.values()].some((n) => n > 1), `${d.id}: todo nace a lo ancho`);
   }
   assert.ok(conTitulos >= 5, `sólo ${conTitulos} plantillas con títulos de parte`);
-  // La General arranca con la plata del mes y lo que cuesta conseguirla.
+  // La General arranca con la plata del mes en GRANDE: el bloque «El mes», no cuatro gráficos (la quinta vuelta: «que las
+  // plantillas de GENERAL, no se parezcan tanto a un dashboard»).
   const general = DEFINICIONES_GENERAL.find((d) => d.id === 'general')!;
-  for (const m of ['cobrado', 'vendido', 'gasto']) assert.ok(general.piezas.some((p) => (p as { metricas?: string[] }).metricas?.[0] === m), `la General sin «${m}»`);
+  assert.ok(general.piezas.some((p) => (p.elemento as { general?: { pieza: string } } | undefined)?.general?.pieza === 'mes'), 'la General sin «El mes»');
+  // Y ninguna plantilla de General trae tablas ni series: «Ya si quiere profundizar entra a dashboard».
+  for (const d of DEFINICIONES_GENERAL) {
+    for (const p of d.piezas) assert.ok(!['tabla', 'tabla_barras', 'serie'].includes(String((p as { tipo?: string }).tipo)), `${d.id}/${p.local}: un gráfico de Dashboard`);
+    assert.ok(d.piezas.filter((p) => (p as { tipo?: string }).tipo).length <= 4, `${d.id}: más de 4 gráficos`);
+  }
 });
 
 test('crear una hoja no se deshace, y la edición se mira en tablet y en celular', async () => {
   const editor = leer('app/dashboard/EditorInforme.tsx');
   const crear = editor.slice(editor.indexOf('const crearHoja = useCallback('), editor.indexOf('const duplicarHoja'));
   assert.ok(crear.length > 200 && crear.length < 1500, `el recorte mide ${crear.length}`);
-  assert.match(crear, /setTablero\(\(tt\) => \(\{ \.\.\.tt, hojas: enBlanco \? \[nueva\] : \[\.\.\.tt\.hojas, nueva\] \}\)\);\s*vaciar\(\);/);
+  assert.match(crear, /setTablero\(\(tt\) => \(\{ \.\.\.sinBlanco\(tt\), hojas: enBlanco \? \[nueva\] : \[\.\.\.tt\.hojas, nueva\] \}\)\);\s*vaciar\(\);/);
   assert.doesNotMatch(crear, /mutar\(/, 'crear la hoja volvió a apilar un deshacer');
   assert.match(leer('app/_ui/usePilaDeshacer.ts'), /const vaciar = useCallback\(\(\) => \{/);
   // La vista por dispositivo: sólo editando, la página al ancho del dispositivo.
@@ -305,4 +311,41 @@ test('crear una hoja no se deshace, y la edición se mira en tablet y en celular
   assert.match(CSS, /\.lk-pagina\[data-dispositivo="tableta"\] \{ width: 820px;/);
   // En la pila del celular un bloque de General mide lo que dibuja.
   assert.match(editor, /const lugar = bloque && enPila \? \{ \.\.\.base, height: 'auto' \} : base;/);
+});
+
+// La quinta vuelta, bloque por bloque con capturas (14/10/2026, Martín: «Rediseña bloque por bloque, sacale una captura o
+// algo y date feedback a vos mismo... Haz esto también para mobile» y «No solo los bloques, sino los templates... que se
+// vea como una tab general, no como un dashboard... Cosas grandes, textos grandes, que sea simple de leer»).
+// PROBADO ROMPIÉNDOLO (14/10/2026; base 15 / 0), cada rotura -> 14 / 1 en este test:
+//   · `.gb-cabe` sin `flex-wrap:wrap` (la fila que no entra se dibuja cortada)                   -> «una lista muestra…»
+//   · «Próximos deadlines» con su lista en un `<div>` pelado otra vez                            -> «una lista muestra…»
+//   · los OKRs con `auto-fill` otra vez (un tercio vacío a la derecha)                          -> «una lista muestra…»
+//   · la plantilla General sin `tema: TEMA`                                                     -> «una lista muestra…»
+test('una lista muestra sólo filas enteras, lo repetido llena el ancho, y las plantillas usan el tema General', async () => {
+  const comun = leer('app/general/bloques/comun.tsx');
+  assert.match(comun, /\.gb-cabe\{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;flex-wrap:wrap;align-content:flex-start;overflow:hidden\}/);
+  assert.match(comun, /\.gb-cabe>\*\{flex:none;width:100%;box-sizing:border-box\}/);
+  // Cada lista de un bloque de alto fijo va en `gb-cabe`.
+  const plan = leer('app/general/bloques/Plan.tsx');
+  const vence = plan.slice(plan.indexOf('function ListaVence('), plan.indexOf('const opcionesDeadlines'));
+  assert.ok(vence.length > 300 && vence.length < 3000, `el recorte mide ${vence.length}`);
+  assert.match(vence, /<div className="gb-cabe">/, 'los deadlines sin `gb-cabe`');
+  assert.match(plan, /<div className="gb-cabe">\s*\{tareas\.map\(\(t, i\) => \(\s*<FilaTarea/, 'las tareas sin `gb-cabe`');
+  const agenda = leer('app/general/bloques/Agenda.tsx');
+  assert.equal((agenda.match(/className="gb-cabe"/g) ?? []).length, 3, 'Mi día (línea y lista) y las llamadas');
+  assert.match(leer('app/general/bloques/Norte.tsx'), /<div className="gb-cabe">\s*\{vistas\.map\(/, 'el semáforo sin `gb-cabe`');
+  assert.match(leer('app/general/Cobranza.tsx'), /<ul style=\{S\.lista\} className=\{todas \? undefined : 'gb-cabe'\}>/);
+  // Lo que se repite en una fila la llena: ninguna grilla de un bloque con `auto-fill`.
+  for (const f of ['Norte.tsx', 'Plan.tsx', 'Agenda.tsx', 'Negocio.tsx']) {
+    assert.doesNotMatch(leer(`app/general/bloques/${f}`), /repeat\(auto-fill/, `${f}: una grilla con auto-fill deja huecos a la derecha`);
+  }
+  // Las plantillas de General nacen con el tema General, y el tema existe.
+  const { PLANTILLAS_TEMA } = await import('../lib/graficos-temas');
+  const tema = PLANTILLAS_TEMA.find((p) => p.id === 'general');
+  assert.ok(tema && tema.tarjeta.borde === 'no' && tema.tarjeta.sombra && !tema.tarjeta.filete && tema.kpi.etiqueta === 'letra', 'el tema General no es el de leer de una pasada');
+  for (const d of DEFINICIONES_GENERAL) {
+    assert.equal(d.tema, 'general', `${d.id}: sin el tema General`);
+    const hoja = PLANTILLAS_GENERAL.find((p) => p.id === d.id)!.armar((l) => l) as { tema?: { plantilla: string } };
+    assert.equal(hoja.tema?.plantilla, 'general', `${d.id}: la hoja nace sin su tema`);
+  }
 });

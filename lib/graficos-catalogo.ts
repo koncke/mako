@@ -1213,7 +1213,18 @@ export type Hoja = {
   /** v5: las flechas que unen componentes (hasta MAX_CONECTORES). Ausente = ninguna. */
   conectores?: Conector[];
 };
-export type Tablero = { v: 3; nombre: string; hojas: Hoja[] };
+/**
+ * `archivadas` (14/10/2026, Martín: «Me debería dejar eliminar todas las hojas, también para dashboard. Y en el
+ * desplegable de las hojas, un texto que diga "Archivados" y ahí la opción de eliminar permanentemente»): eliminar una
+ * hoja la ARCHIVA; de Archivados se restaura o se borra para siempre. `enBlanco`: se eliminaron TODAS, y la pantalla
+ * vuelve a «¿Qué vas a crear hoy?». Por dentro sigue viajando una hoja vacía (la pantalla lee `hojas[0]`), que no se
+ * muestra ni la cuentan quienes listan hojas (la API de MaKo, el análisis programado).
+ */
+export type Tablero = { v: 3; nombre: string; hojas: Hoja[]; archivadas?: Hoja[]; enBlanco?: true };
+/** Cuántas hojas archivadas se guardan: la más vieja se va cuando entra una más. */
+export const MAX_ARCHIVADAS = 20;
+/** Las hojas que se MUESTRAN de un informe: ninguna si se eliminaron todas. */
+export const hojasVisibles = (t: Pick<Tablero, 'hojas' | 'enBlanco'>): Hoja[] => (t.enBlanco ? [] : t.hojas);
 
 export const NOMBRE_INICIAL = 'Dashboard';
 export const COLS = 12;
@@ -1795,9 +1806,23 @@ export function sanearTablero(raw: unknown): Tablero | null {
     vistas.add(s.id);
     hojas.push(s);
   }
-  if (!hojas.length) hojas.push(hojaVacia('Página 1'));
+  const sinHojas = !hojas.length;
+  if (sinHojas) hojas.push(hojaVacia('Página 1'));
   const nombre = typeof o.nombre === 'string' && o.nombre.trim() ? o.nombre.trim().slice(0, 80) : NOMBRE_INICIAL;
-  return { v: 3, nombre, hojas };
+  // Las archivadas, saneadas como cualquier hoja y con su id único entre TODAS (restaurar una no puede chocar).
+  const archivadas: Hoja[] = [];
+  const crudasArch = (raw as { archivadas?: unknown }).archivadas;
+  if (Array.isArray(crudasArch)) {
+    for (const [i, h] of crudasArch.slice(0, MAX_ARCHIVADAS).entries()) {
+      const s = sanearHoja(h, i);
+      if (!s) continue;
+      if (vistas.has(s.id)) s.id = nuevoId();
+      vistas.add(s.id);
+      archivadas.push(s);
+    }
+  }
+  const enBlanco = (raw as { enBlanco?: unknown }).enBlanco === true;
+  return { v: 3, nombre, hojas, ...(archivadas.length ? { archivadas } : {}), ...(enBlanco ? { enBlanco: true as const } : {}) };
 }
 
 /** El primer hueco libre: abajo de todo. La grilla compacta hacia arriba sola. */

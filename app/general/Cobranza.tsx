@@ -37,7 +37,7 @@ import { TituloBloque } from './bloques/comun';
 const COLOR: Record<'vencida' | 'pronto' | 'al-dia', string> = { vencida: 'var(--bad)', pronto: 'var(--warn-fill)', 'al-dia': 'var(--faint)' };
 const inicial = (n: string) => n.trim().split(/\s+/).slice(0, 2).map((p) => p[0]?.toUpperCase() ?? '').join('') || '·';
 
-export function Cobranza({ filas, tz, error, alcance = null, limite = Infinity, vacio = null, muestra = false }: {
+export function Cobranza({ filas, tz, error, alcance = null, limite = Infinity, vacio = null, muestra = false, sinCabeza = false }: {
   filas: CobroM[]; tz: string; error: string | null;
   /** Un rótulo al lado del título (lo que la hoja mira, si no es todo el negocio). */
   alcance?: string | null;
@@ -47,6 +47,8 @@ export function Cobranza({ filas, tz, error, alcance = null, limite = Infinity, 
   vacio?: ReactNode;
   /** La vista previa: sin acciones. */
   muestra?: boolean;
+  /** Sin el título ni el conteo: la muestra de su placeholder (el bloque ya puso su cabecera arriba). */
+  sinCabeza?: boolean;
 }) {
   const { toast, show, clear } = useToast();
   const router = useRouter();
@@ -100,22 +102,28 @@ export function Cobranza({ filas, tz, error, alcance = null, limite = Infinity, 
   return (
     <div data-cobranza-general="" className="gb" style={S.raiz}>
       {/* La cabecera de un bloque de la hoja (./bloques/comun.tsx): el título del tema, el alcance y los dos conteos. */}
-      <div className="gb-cab">
-        <TituloBloque>A quién cobrarle</TituloBloque>
-        {alcance && <span className="gb-cab-extra">{alcance}</span>}
-        {!error && vivas.length > 0 && (
-          <span style={{ display: 'flex', gap: 6, marginLeft: 'auto', flex: 'none' }}>
-            <span className="gb-chip">{vivas.length} por cobrar</span>
-            {vencidas > 0 && <span className="gb-chip" style={{ color: 'var(--bad)', background: 'color-mix(in srgb, var(--bad) 12%, transparent)' }}>{vencidas} {vencidas === 1 ? 'vencida' : 'vencidas'}</span>}
-          </span>
-        )}
-      </div>
+      {!sinCabeza && (
+        <div className="gb-cab">
+          <TituloBloque>A quién cobrarle</TituloBloque>
+          {alcance && <span className="gb-cab-extra">{alcance}</span>}
+        </div>
+      )}
+      {/* Cuántos hay por cobrar, en grande (la quinta vuelta: «textos enormes»), y cuántos ya vencieron. */}
+      {!sinCabeza && !error && vivas.length > 0 && (
+        <span style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', marginBottom: 6 }}>
+          <span style={{ fontSize: 'clamp(36px, 10cqi, 64px)', fontWeight: 750, letterSpacing: '-0.035em', lineHeight: 0.95, fontVariantNumeric: 'tabular-nums' }}>{vivas.length}</span>
+          <span style={{ fontSize: 'clamp(14px, 3cqi, 18px)', color: 'var(--dim)' }}>por cobrar</span>
+          {vencidas > 0 && <span style={{ fontSize: 'clamp(14px, 3cqi, 18px)', fontWeight: 600, color: 'var(--bad)' }}>· {vencidas} {vencidas === 1 ? 'vencida' : 'vencidas'}</span>}
+        </span>
+      )}
       {error ? (
         <span style={S.dim}>{error}</span>
       ) : !vivas.length ? (
         vacio ?? <span style={S.dim}>Nadie con cuotas por cobrar.</span>
       ) : (
-        <ul style={S.lista}>
+        // Sólo las filas que entran enteras (`gb-cabe`, ./bloques/comun.tsx); con «Ver las N» abierto, la lista crece y
+        // el bloque scrollea.
+        <ul style={S.lista} className={todas ? undefined : 'gb-cabe'}>
           {vistas.map((f) => {
             const c = COLOR[f.urgencia ?? 'al-dia'];
             return (
