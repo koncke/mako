@@ -763,6 +763,49 @@ export function mensajesDelRecorrido<P extends PasoGrafo>(pasos: readonly P[], l
 }
 
 /**
+ * LOS MENSAJES DE UN ESCENARIO (14/10/2026: `probar_secuencia` de la API manda los de UNO, no todos los pasos): el
+ * MISMO recorrido de `escenariosDePrueba`, eligiendo en cada condición lo que el escenario eligió (`elecciones`, por
+ * nodo). Una condición que el escenario no nombra corta ahí: no se inventa un camino. Lo que no es un mensaje no se
+ * devuelve.
+ */
+export function mensajesDelEscenario<P extends PasoGrafo>(pasos: readonly P[], elecciones: Readonly<Record<string, string>>, nombres: NombresSim = {}): P[] {
+  let st = iniciar(pasos);
+  const out: P[] = [];
+  for (let vuelta = 0; vuelta < TOPE_EVENTOS * 2 + 4; vuelta++) {
+    if (st.eligiendo) {
+      const puerto = elecciones[st.eligiendo.nodo];
+      if (!puerto || !st.eligiendo.opciones.some((o) => o.puerto === puerto)) break;
+      st = elegir(st, puerto);
+      continue;
+    }
+    const r = siguiente(pasos, st, nombres);
+    st = r.estado;
+    if (r.evento?.t === 'mensaje') { out.push(r.evento.paso); continue; }
+    if (r.evento?.t === 'fin') break;
+    if (!r.evento && !st.eligiendo) break;
+  }
+  return out;
+}
+
+/**
+ * LOS ESCENARIOS DE UNA AUTOMATIZACIÓN GUARDADA, como los arma «Probar»: el MISMO flujo (`flujoParaProbar`) y el MISMO
+ * lead recién llegado por su CRON (`leadNuevoDelCron`). Lo leen `escenarios_secuencia` y `probar_secuencia` de la API
+ * (lib/api-mako/areas/chatbot.run.ts) y la prueba en vivo (lib/setting-secuencias.ts): una regla, un lugar.
+ * `mensajes` cuenta los de WhatsApp, como dice `escenarios_secuencia`.
+ */
+export function escenariosDeLaSecuencia(
+  s: Parameters<typeof leadNuevoDelCron>[0] & { pasos: readonly PasoGrafo[]; estrategia: unknown },
+  idDeClave: (clave: string) => number | null,
+): { pasos: PasoGrafo[]; escenarios: EscenarioPrueba[]; faltan: number } {
+  const pasos = flujoParaProbar(s.pasos as PasoGrafo[], s.estrategia as EstrategiaLegada, { idDeClave }).pasos;
+  const { escenarios, faltan } = escenariosDePrueba(pasos, {
+    hechos: hechosDeLeadNuevo(leadNuevoDelCron(s)),
+    cuenta: (p) => (p.canal ?? 'whatsapp') === 'whatsapp',
+  });
+  return { pasos, escenarios, faltan };
+}
+
+/**
  * El contacto del lead de la prueba de UN canal: el primero (en el orden de la cabecera) con el que
  * le llega algún mensaje de ese canal. `esDelCanal` lo decide quien prueba (el panel), y `propio`
  * es el dato que ese canal necesita: `tieneEmail` para el email, `tieneTelefono` para WhatsApp. Si
