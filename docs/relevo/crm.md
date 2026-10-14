@@ -20,6 +20,14 @@ seguían trabados por RAM (el typecheck completo ya pide ≈ 5,3 GB libres: el t
   (`5b480d1e`, `c49fe3c5`) y esta cosecha. **Se pasa a la rama del push con un cherry-pick** cuando
   `wtcrm2` llegue, o se pushea desde acá si `wtcrm2` ya está en `origin`.
 
+**AL 14/10 ~03:30 YA ESTÁ ARMADO:** `C:/Users/marti/wtcrm4` es una copia limpia sobre origin/main
+`e4c8a6d7` con los 29 commits del CRM ya pasados (sin un choque) y cuatro más: los tres bugs que
+encontró Automations (T1 con la R1 cancelada, `setPipelineStage` sin inscribir por etapa, la reserva
+firmada por MaKo) y la hora al mover a mano. Tests: 7907 verdes y 2 rojos ajenos (SelectorFuente de
+`901e5cf7` y el área de `dashboard-analisis-listo`). Turno de push: el 2, después de GENERAL; ahí se sube
+encima del origin/main nuevo, se corrigen los hashes de la bitácora y se pushea con
+`MAKO_TYPECHECK_SIN_ESPERA=1 git push` con 4,8 GB libres o más.
+
 **⚠️ CÓMO SALE (acordado con Estrategia 3 CUENTAS el 14/10 ~02:45):** Estrategia pushea UNA vez el
 main del clon + origin desde `C:/dev/wt-push-1410`. Cuando avise, en un worktree limpio sobre el
 origin/main nuevo se cherry-pickean SÓLO los commits del CRM, en este orden (wtcrm3 trae además copias

@@ -2195,4 +2195,31 @@ export const BITACORA: Hito[] = [
     commits: [],
     archivos: ['lib/oferta-lead.ts', 'lib/api-mako/areas/crm.def.ts', 'lib/api-mako/areas/crm.run.ts', 'lib/api-mako/rest.ts', 'docs/api-mako.md'],
   },
+  {
+    fecha: '14 oct', hora: '03:00', chat: 'Automations', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Mover a mano pregunta la hora',
+    pedido: 'con respecto a la fecha, si, sería bueno que si se mueve a mano, se pregunte la hora',
+    puntos: ['Lo pasó el chat de Automations: sin la hora, el «1 h antes» no sale nunca a un agendado a mano.'],
+    commits: [],
+    archivos: [],
+  },
+  {
+    fecha: '14 oct', hora: '03:20', chat: 'CRM', cuenta: 'claude2',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Tres cosas que MaKo hacía «por detrás» mal, y la hora al mover a mano',
+    puntos: [
+      'T1 ya no propone No Show a quien CANCELÓ la R1.',
+      'Mover de etapa desde el tablero, el ⚡ o una confirmación inscribe en la automatización de esa etapa en el acto.',
+      'La etapa que limpia una reserva la firma Calendly o Cal.com, no MaKo.',
+      'El paso de la fecha de la reunión pregunta la hora (opcional), en la zona del negocio.',
+    ],
+    commits: [],
+    archivos: [
+      'lib/crm-auto-plan.ts — T1',
+      'lib/leads.ts — setPipelineStage, auditarEtapaDeLaReserva',
+      'app/crm/horarios-respuesta.ts — instanteDeReunionManual',
+      'app/crm/StageMoveDialog.tsx — FechaYHora',
+    ],
+  },
 ];
