@@ -1,0 +1,38 @@
+.banner {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--cv-space-3);
+  padding: 8px var(--cv-space-4);
+  border-bottom: 1px solid var(--cv-color-warning);
+  background: var(--cv-color-warning-soft);
+  color: var(--cv-color-text);
+  font: 500 var(--cv-text-sm) / 1.35 var(--cv-font-sans);
+}
+.icon {
+  flex: none;
+  color: var(--cv-color-warning);
+}
+.text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+.text strong {
+  font-weight: 700;
+}
+.text span {
+  color: var(--cv-color-text-muted);
+  font-size: var(--cv-text-xs);
+}
+.actions {
+  display: flex;
+  gap: var(--cv-space-2);
+  flex-wrap: wrap;
+}
+@media (max-width: 720px) {
+  .banner {
+    flex-wrap: wrap;
+  }
+}

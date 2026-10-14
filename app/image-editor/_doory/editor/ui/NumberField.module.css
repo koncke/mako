@@ -1,0 +1,62 @@
+.field {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 var(--cv-space-2);
+  border: 1px solid var(--cv-color-border-strong);
+  border-radius: var(--cv-radius-md);
+  background: var(--cv-color-surface);
+  transition: border-color var(--cv-duration-fast) var(--cv-ease-out), box-shadow var(--cv-duration-fast) var(--cv-ease-out);
+}
+
+.field:focus-within {
+  border-color: var(--cv-color-brand);
+  box-shadow: var(--cv-focus-ring);
+}
+
+.disabled {
+  opacity: 0.45;
+}
+
+.label {
+  flex: none;
+  color: var(--cv-color-text-subtle);
+  font: 600 var(--cv-text-xs) / 1 var(--cv-font-sans);
+  user-select: none;
+}
+
+.scrub {
+  cursor: ew-resize;
+  touch-action: none;
+}
+
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--cv-color-text);
+  font: 600 var(--cv-text-sm) / 1 var(--cv-font-sans);
+  font-variant-numeric: tabular-nums;
+}
+
+.suffix {
+  color: var(--cv-color-text-subtle);
+  font: 500 var(--cv-text-xs) / 1 var(--cv-font-sans);
+}
+
+.glyph {
+  display: inline-flex;
+  color: var(--cv-color-text-subtle);
+}

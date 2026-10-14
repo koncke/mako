@@ -1,0 +1,101 @@
+.btn {
+  --btn-h: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--cv-space-2);
+  height: var(--btn-h);
+  min-width: var(--btn-h);
+  padding: 0 var(--cv-space-3);
+  border: 1px solid transparent;
+  border-radius: var(--cv-radius-md);
+  background: transparent;
+  color: var(--cv-color-text);
+  font: 500 var(--cv-text-sm) / 1 var(--cv-font-sans);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background var(--cv-duration-fast) var(--cv-ease-out),
+    border-color var(--cv-duration-fast) var(--cv-ease-out),
+    color var(--cv-duration-fast) var(--cv-ease-out),
+    transform var(--cv-duration-fast) var(--cv-ease-out);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn:focus-visible {
+  outline: none;
+  box-shadow: var(--cv-focus-ring);
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn svg {
+  flex: none;
+}
+
+.sm {
+  --btn-h: 30px;
+  padding: 0 var(--cv-space-2);
+  font-size: var(--cv-text-xs);
+}
+
+.icon {
+  padding: 0;
+  width: var(--btn-h);
+}
+
+.default {
+  background: var(--cv-color-surface);
+  border-color: var(--cv-color-border-strong);
+}
+.default:hover:not(:disabled) {
+  background: var(--cv-color-bg-muted);
+}
+
+.ghost:hover:not(:disabled) {
+  background: var(--cv-color-bg-muted);
+}
+.ghost:active:not(:disabled) {
+  background: var(--cv-color-border);
+}
+
+.soft {
+  background: var(--cv-color-brand-soft);
+  color: var(--cv-color-brand);
+}
+.soft:hover:not(:disabled) {
+  background: var(--cv-color-brand-soft-hover);
+}
+
+.primary {
+  border-radius: 999px;
+  background: var(--cv-color-cta);
+  color: var(--cv-color-on-cta);
+  font-weight: 800;
+  box-shadow: 2px 2px 0 var(--cv-color-cta-shadow);
+}
+.primary:hover:not(:disabled) {
+  background: var(--cv-color-cta-hover);
+  box-shadow: 3px 3px 0 var(--cv-color-cta-shadow);
+  transform: translate(-1px, -1px);
+}
+.primary:active:not(:disabled) {
+  background: var(--cv-color-brand-active);
+  transform: translateY(0.5px);
+}
+
+.danger {
+  color: var(--cv-color-danger);
+}
+.danger:hover:not(:disabled) {
+  background: var(--cv-color-danger-soft);
+}
+
+.pressed,
+.ghost.pressed:hover:not(:disabled) {
+  background: var(--cv-color-brand-soft);
+  color: var(--cv-color-brand);
+}

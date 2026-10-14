@@ -1,0 +1,168 @@
+.inicio {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  padding: 32px 40px 48px;
+  background: var(--cv-color-surface);
+  min-height: 100%;
+}
+
+.cabecera {
+  display: flex;
+  justify-content: center;
+  padding: 48px 16px;
+  border-radius: 16px;
+  background: linear-gradient(90deg, #00c4cc 0%, #7d2ae8 100%);
+}
+
+.cabecera h1 {
+  color: #ffffff;
+  font-family: var(--cv-font-sans);
+  font-size: 36px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.seccion h2 {
+  font-family: var(--cv-font-sans);
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+
+.tamanos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 16px;
+}
+
+.tamano,
+.personalizado {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid var(--cv-color-border);
+  border-radius: 12px;
+  background: var(--cv-color-surface);
+  text-align: left;
+}
+
+.tamano:hover {
+  border-color: #7d2ae8;
+}
+
+.forma {
+  display: block;
+  width: auto;
+  height: 72px;
+  max-width: 100%;
+  border-radius: 4px;
+  background: var(--cv-color-bg-muted);
+}
+
+.nombre {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--cv-color-text);
+}
+
+.medidas {
+  font-size: 12px;
+  color: var(--cv-color-text-muted);
+}
+
+.personalizado {
+  grid-column: span 2;
+}
+
+.campos {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.campos label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  color: var(--cv-color-text-muted);
+}
+
+.campos input {
+  width: 80px;
+  padding: 6px 8px;
+  border: 1px solid var(--cv-color-border-strong);
+  border-radius: 6px;
+}
+
+.primario {
+  margin-top: 4px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: #8b3dff;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.primario:disabled {
+  opacity: 0.5;
+}
+
+.vacio {
+  color: var(--cv-color-text-muted);
+}
+
+.grilla {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 20px;
+}
+
+.tarjeta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.miniatura {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 160px;
+  padding: 12px;
+  border-radius: 10px;
+  background: var(--cv-color-bg-muted);
+  overflow: hidden;
+}
+
+.miniatura img {
+  max-height: 136px;
+  width: auto;
+  box-shadow: var(--cv-shadow-sm);
+}
+
+.vacia {
+  display: block;
+  height: 120px;
+  background: #ffffff;
+  box-shadow: var(--cv-shadow-sm);
+}
+
+.pie {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.titulo {
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

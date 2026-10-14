@@ -1,0 +1,88 @@
+.root {
+  /*
+   * The editor's names for its colours and metrics, mapped onto the Doory tokens: the chrome
+   * stylesheets (chrome/ed.module.css and friends) are written against these, so re-theming is one place.
+   */
+  --ed-bg: var(--cv-color-bg-subtle);
+  --ed-surface: var(--cv-color-surface);
+  --ed-surface-2: var(--cv-color-bg-subtle);
+  --ed-surface-3: var(--cv-color-bg-muted);
+  --ed-surface-hover: var(--cv-color-bg-muted);
+  --ed-border: var(--cv-color-border);
+  --ed-border-light: var(--cv-color-bg-muted);
+  --ed-text: var(--cv-color-text);
+  --ed-text-dim: var(--cv-color-text-muted);
+  --ed-accent: var(--cv-color-brand);
+  --ed-accent-hover: var(--cv-color-brand-hover);
+  --ed-accent-glow: var(--cv-color-brand-soft);
+  --ed-canvas-bg: var(--cv-color-canvas-workspace);
+  --ed-danger: var(--cv-color-danger);
+  --ed-danger-dim: var(--cv-color-danger-soft);
+  --ed-radius: 12px;
+  --ed-radius-sm: 8px;
+  --ed-topbar-h: 54px;
+  --ed-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --ed-dur: 0.18s;
+
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--ed-bg);
+  color: var(--ed-text);
+  font-family: var(--cv-font-sans);
+  font-size: var(--cv-text-base);
+  line-height: var(--cv-leading-normal);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.root *,
+.root *::before,
+.root *::after {
+  box-sizing: border-box;
+}
+
+.root button,
+.root input,
+.root select,
+.root textarea {
+  font-family: inherit;
+}
+
+.body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: row;
+}
+
+.main {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.live {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .root *,
+  .root *::before,
+  .root *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

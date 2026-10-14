@@ -299,9 +299,14 @@ export const FAMILIAS: NavFamilia[] = [
           ],
         },
         {
-          key: 'image', label: 'Image', href: '/image-generator', icon: 'imagegen',
-          match: (p) => starts('/image-generator')(p) || starts('/thumbnails')(p) || starts('/carousels')(p),
+          key: 'image', label: 'Image', href: '/image-editor', icon: 'imagegen',
+          match: (p) => starts('/image-editor')(p) || starts('/image-generator')(p) || starts('/thumbnails')(p) || starts('/carousels')(p),
           secciones: [
+            // La copia de Canva (14/10/2026, Martín: «implementes end to end un "Canva" dentro de MaKo… Dejalo en
+            // "Content Machine" en una tab que sea "Image"»): Doory portado y re-vestido como Canva. Sólo el super
+            // admin hasta que Martín lo valide; quién entra lo decide app/image-editor/acceso.ts (`adminOnly` sólo
+            // esconde la fila).
+            { key: 'image-editor', adminOnly: true, label: 'Image Editor', seccion: 'Editor', href: '/image-editor', icon: 'imagegen', match: starts('/image-editor') },
             { key: 'image-generator', adminOnly: true, label: 'Image Generator', seccion: 'Crear con IA', href: '/image-generator', icon: 'imagegen', comingSoon: true, match: starts('/image-generator') },
             { key: 'thumbnails', adminOnly: true, label: 'Thumbnails', href: '/thumbnails', icon: 'thumbnail', comingSoon: true, match: starts('/thumbnails') },
             { key: 'carousels', adminOnly: true, label: 'Carousels', href: '/carousels', icon: 'carousel', match: starts('/carousels') },

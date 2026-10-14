@@ -1,0 +1,51 @@
+.panel {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: var(--cv-z-drawer);
+  max-width: calc(100vw - 16px);
+  max-height: calc(100vh - 16px);
+  overflow: auto;
+  padding: var(--cv-space-3);
+  border: 1.5px solid var(--cv-ink);
+  border-radius: var(--cv-radius-lg);
+  background: var(--cv-color-surface-raised);
+  color: var(--cv-color-text);
+  box-shadow: 4px 4px 0 var(--cv-pastel-butter), var(--cv-shadow-md);
+  animation: pop-in var(--cv-duration-base) var(--cv-ease-out);
+  overscroll-behavior: contain;
+}
+
+/* Toolbar popovers and drawers: no padding of their own. */
+.plain {
+  padding: 0;
+  border-radius: 14px;
+  box-shadow: 4px 4px 0 var(--cv-pastel-butter), 0 16px 40px rgb(43 28 23 / 0.12);
+  animation: pop-in 140ms var(--cv-ease-out);
+}
+
+.cover {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--cv-z-drawer) - 1);
+  background: transparent;
+}
+
+/* Hidden until placed. `opacity`, not `visibility`: visibility is inherited, so children with `transition: all` would
+   still report `hidden` for the first frame and refuse focus when the panel takes focus as it opens. */
+.panel:not([data-placed]) {
+  opacity: 0;
+  pointer-events: none;
+  animation: none;
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.985);
+  }
+}
+
+.panel:focus {
+  outline: none;
+}

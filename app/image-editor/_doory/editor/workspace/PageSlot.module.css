@@ -1,0 +1,201 @@
+.slot {
+  position: relative;
+  flex: none;
+}
+
+.header {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cv-space-2);
+  padding: 0 2px 6px;
+}
+
+.lead {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.name {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  /* The name gives way to the chips beside it, but never below the number and a few letters. */
+  min-width: 68px;
+  max-width: 100%;
+  padding: 3px 8px 3px 4px;
+  border: 0;
+  border-radius: var(--cv-radius-sm);
+  background: transparent;
+  color: var(--cv-color-text-muted);
+  font: 600 var(--cv-text-xs) / 1 var(--cv-font-sans);
+  cursor: pointer;
+}
+.name:hover:not(:disabled) {
+  background: var(--cv-color-bg-muted);
+  color: var(--cv-color-text);
+}
+.name:disabled {
+  cursor: default;
+}
+.name:focus-visible {
+  outline: none;
+  box-shadow: var(--cv-focus-ring);
+}
+
+.count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 6px;
+  background: var(--cv-color-bg-muted);
+  color: var(--cv-color-text-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+[data-active] .count {
+  background: var(--cv-color-brand);
+  color: var(--cv-color-on-brand);
+}
+[data-active] .name {
+  color: var(--cv-color-text);
+}
+
+.label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.size {
+  padding: 3px 8px;
+  border: 0;
+  border-radius: var(--cv-radius-sm);
+  background: transparent;
+  color: var(--cv-color-text-muted);
+  font: 500 var(--cv-text-xs) / 1 var(--cv-font-sans);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.sizeButton {
+  cursor: pointer;
+}
+.sizeButton:hover,
+.sizeButton[aria-expanded='true'] {
+  background: var(--cv-color-bg-muted);
+  color: var(--cv-color-text);
+}
+.sizeButton:focus-visible {
+  outline: none;
+  box-shadow: var(--cv-focus-ring);
+}
+
+.nameInput {
+  height: 26px;
+  padding: 0 8px;
+  border: 1px solid var(--cv-color-brand);
+  border-radius: var(--cv-radius-sm);
+  background: var(--cv-color-surface);
+  color: var(--cv-color-text);
+  font: 600 var(--cv-text-xs) / 1 var(--cv-font-sans);
+  box-shadow: var(--cv-focus-ring);
+  outline: none;
+}
+
+.actions {
+  display: flex;
+  flex: none;
+  gap: 1px;
+  opacity: 0;
+  transition: opacity var(--cv-duration-base) var(--cv-ease-out);
+}
+.slot:hover .actions,
+.slot:focus-within .actions,
+[data-active] .actions {
+  opacity: 1;
+}
+@media (hover: none) {
+  .actions {
+    opacity: 1;
+  }
+}
+
+/* A page without a time shows its clock only where the page's other controls show. */
+.time[data-unset] {
+  opacity: 0;
+}
+.slot:hover .time,
+.slot:focus-within .time,
+[data-active] .time {
+  opacity: 1;
+}
+@media (hover: none) {
+  .time {
+    opacity: 1;
+  }
+}
+
+.artboard {
+  position: relative;
+  z-index: 1;
+  background: var(--cv-color-surface);
+  box-shadow: var(--cv-shadow-artboard);
+  outline: 2px solid transparent;
+  transition: outline-color var(--cv-duration-base) var(--cv-ease-out);
+  user-select: none;
+}
+[data-multi][data-active] .artboard {
+  outline-color: color-mix(in srgb, var(--cv-color-brand) 30%, transparent);
+}
+
+.snapshot {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  animation: fade-in var(--cv-duration-base) var(--cv-ease-out);
+}
+
+.host {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+}
+
+.skeleton {
+  position: absolute;
+  inset: 0;
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  padding: var(--cv-space-6);
+  color: var(--cv-color-text-subtle);
+  font: 500 var(--cv-text-sm) / 1.5 var(--cv-font-sans);
+  text-align: center;
+  pointer-events: none;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.header[hidden] {
+  display: none;
+}

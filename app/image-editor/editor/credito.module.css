@@ -1,0 +1,26 @@
+.credito {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex: none;
+  min-height: 28px;
+  padding: 4px 12px;
+  background: var(--cv-color-bg-subtle);
+  border-bottom: 1px solid var(--cv-color-border);
+  color: var(--cv-color-text-muted);
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.credito a {
+  color: inherit;
+  text-decoration: underline;
+}
+
+.cerrar {
+  font-size: 16px;
+  line-height: 1;
+  padding: 0 4px;
+  color: var(--cv-color-text-muted);
+}

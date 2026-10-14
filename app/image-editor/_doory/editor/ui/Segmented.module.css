@@ -1,0 +1,45 @@
+.group {
+  display: inline-flex;
+  padding: 3px;
+  gap: 2px;
+  border-radius: var(--cv-radius-md);
+  background: var(--cv-color-bg-muted);
+}
+
+.option {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 32px;
+  height: 30px;
+  padding: 0 var(--cv-space-3);
+  border-radius: calc(var(--cv-radius-md) - 3px);
+  color: var(--cv-color-text-muted);
+  font: 600 var(--cv-text-xs) / 1 var(--cv-font-sans);
+  cursor: pointer;
+  transition: background var(--cv-duration-fast) var(--cv-ease-out), color var(--cv-duration-fast) var(--cv-ease-out);
+}
+
+.option:hover {
+  color: var(--cv-color-text);
+}
+
+.on {
+  background: var(--cv-color-surface);
+  color: var(--cv-color-brand);
+  box-shadow: var(--cv-shadow-sm);
+}
+
+.radio {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.option:has(.radio:focus-visible) {
+  box-shadow: var(--cv-focus-ring);
+}

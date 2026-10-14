@@ -1,0 +1,45 @@
+.rulers {
+  --ruler-bg: var(--cv-color-surface);
+  --ruler-fg: var(--cv-color-text-subtle);
+  --ruler-accent: var(--cv-selection-color);
+  position: absolute;
+  inset: 0;
+  z-index: 7;
+  pointer-events: none;
+}
+
+.corner {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 24px;
+  height: 24px;
+  background: var(--cv-color-surface);
+  border-right: 1px solid var(--cv-color-border);
+  border-bottom: 1px solid var(--cv-color-border);
+}
+
+.ruler {
+  position: absolute;
+  pointer-events: auto;
+  background: var(--cv-color-surface);
+}
+.h {
+  left: 24px;
+  top: 0;
+  border-bottom: 1px solid var(--cv-color-border);
+  cursor: row-resize;
+}
+.v {
+  left: 0;
+  top: 24px;
+  border-right: 1px solid var(--cv-color-border);
+  cursor: col-resize;
+}
+
+.dragLine {
+  display: none;
+  position: absolute;
+  background: var(--cv-guide-color);
+  pointer-events: none;
+}
