@@ -31,6 +31,7 @@ import { modulosDelCurso } from '@/lib/curso-modulos-datos';
 import { armarModulos, conHtmlSaneado, cursoSeLista, estiloQueViaja, esClaseCerrada, type VistaAlumno } from '@/lib/curso-portal';
 import { htmlsDeTareas } from '@/lib/curso';
 import { estilosDeProductos } from '@/lib/curso-estilo-datos';
+import { nombresDeCursos } from '@/lib/curso-nombre-datos';
 import { estiloVacio } from '@/lib/curso-estilo';
 import { sanearHtml } from '@/lib/html-seguro';
 import { tzActual } from '@/lib/timezone';
@@ -79,13 +80,14 @@ export default async function VistaAlumnoPage({ searchParams }: { searchParams: 
 
   // Para DIBUJAR (la tolerante): una vista previa con las etapas de fábrica por una lectura caída es
   // un susto, no una decisión — nada de acá le abre ni le cierra nada a un alumno.
-  const [cur, clases, adminId, estilos, tz] = await Promise.all([
+  const [cur, clases, adminId, estilos, tz, nombreCurso] = await Promise.all([
     modulosDelCurso(productoId),
     clasesDelProducto(productoId),
     adminDeWorkspaceActual(),
     // Cómo se ve el curso: la vista previa es justamente para mirar eso.
     estilosDeProductos([productoId]),
     tzActual(),
+    nombresDeCursos([productoId]).catch(() => new Map<number, string>()),
   ]);
   const cfg = cur.entrega;
   // El día uno: la primera etapa del kanban (ver la cabecera).
@@ -131,7 +133,8 @@ export default async function VistaAlumnoPage({ searchParams }: { searchParams: 
     // (item 16 del audio del 08/10/2026, 03:00: el módulo publicado y vacío tiene que aparecer, como en
     // Skool, con su «Próximamente»).
     productos: cursoSeLista(cur.modulos, clases) ? [{
-      productoId, nombre: (prod as { nombre: string }).nombre, modulos,
+      // El nombre del curso, como en el portal: el de su oferta (lib/curso-nombre.ts).
+      productoId, nombre: nombreCurso.get(productoId) ?? (prod as { nombre: string }).nombre, modulos,
       // Lo mismo que le llega al alumno (`armarVistaAlumno`): las portadas de lo que se ve.
       estilo: estiloQueViaja(estilos.get(productoId) ?? estiloVacio(), modulos),
     }] : [],

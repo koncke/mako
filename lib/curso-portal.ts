@@ -611,12 +611,13 @@ export async function armarVistaAlumno(
 ): Promise<VistaAlumno> {
   const lider = opts.lider ?? null;
   const alcance = opts.alcance ?? null;
-  const [datos, modulosDatos, { getTenantDb }, { estilosDeProductos }, { sanearHtml }] = await Promise.all([
+  const [datos, modulosDatos, { getTenantDb }, { estilosDeProductos }, { sanearHtml }, { nombresDeCursos }] = await Promise.all([
     import('./curso-datos'),
     import('./curso-modulos-datos'),
     import('./workspace'),
     import('./curso-estilo-datos'),
     import('./html-seguro'),
+    import('./curso-nombre-datos'),
   ]);
   const db = await getTenantDb();
   const [{ productos, casa }, avance, { data: lead }] = await Promise.all([
@@ -627,9 +628,9 @@ export async function armarVistaAlumno(
   const nombre = lider != null ? null : primerNombre((lead as { nombre: string | null } | null)?.nombre);
   if (!productos.length) return { nombre, area: lider, productos: [] };
 
-  const { data: filasProd, error } = await db.from('productos').select('id, nombre').in('id', productos);
-  if (error) throw new Error(error.message);
-  const nombreDe = new Map(((filasProd ?? []) as Array<{ id: number; nombre: string }>).map((p) => [Number(p.id), p.nombre]));
+  // El nombre de cada curso: el de su OFERTA, no el del CRM (lib/curso-nombre.ts, 13/10/2026). El
+  // título puesto a mano lo aplica el dibujo encima, como siempre.
+  const nombreDe = await nombresDeCursos(productos);
   // Cómo se ve cada curso. Si la lectura falla vuelve el de siempre: es cosmético (ver ahí).
   const estilos = await estilosDeProductos(productos);
 

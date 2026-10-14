@@ -223,7 +223,8 @@ test('5: la PÁGINA de la vista previa le pasa al portal TODAS las correctas', (
   const pagina = leer('app/customer-success/curso/vista/page.tsx');
   assert.match(pagina, /<PortalAlumno token="" vista=\{conCorrectasDelEquipo\(vista, clases\)\} vistaPrevia/);
   // `clases` es la de la base (con las correctas), no la vista armada.
-  assert.match(pagina, /const \[cur, clases, adminId, estilos, tz\] = await Promise\.all\(\[\s*modulosDelCurso\(productoId\),\s*clasesDelProducto\(productoId\),/);
+  // (13/10/2026: la lista suma `nombreCurso`, el nombre del curso por su oferta, tests/curso-nombre.test.ts.)
+  assert.match(pagina, /const \[cur, clases, adminId, estilos, tz, nombreCurso\] = await Promise\.all\(\[\s*modulosDelCurso\(productoId\),\s*clasesDelProducto\(productoId\),/);
 });
 
 // ── 2: la escala y las estrellas, centradas ──────────────────────────────────

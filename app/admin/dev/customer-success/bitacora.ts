@@ -895,4 +895,32 @@ export const BITACORA: Hito[] = [
       "lib/transcribe.ts + tests/transcribe-degenerado.test.ts — el detector de bucles",
     ],
   },
+  {
+    fecha: "13 oct", hora: "20:10", chat: "Customer Success", cuenta: "claude2",
+    actor: "martin", tipo: "prompt",
+    titulo: "El feedback de las 3 reuniones, de punta a punta",
+    pedido: "Ahora pasale todos los feedback de las 3 reuniones a los chats y diles que lo implementen completo... De punta a punta [llegó por «Estrategia 3 CUENTAS»; a esta área: el goteo de clases atado al kanban que va a probar Mauricio y la reunión de cierre del viernes 16/10. Y por el chat del CRM: «desvincula lo que hace que se ponga automáticamente el nombre de ese CRM al nombre de un curso, porque ahora ya no debería ser así, sino que los cursos deberían tener el nombre de una OFERTA»]",
+    puntos: [
+      "El upsell a Teriyaki y los tres de Mauricio son ventas suyas, no código: los carga el Perro Guardián.",
+    ],
+  },
+  {
+    fecha: "13 oct", hora: "23:56", chat: "Customer Success", cuenta: "claude2",
+    actor: "claude", tipo: "investigacion",
+    titulo: "El goteo atado al kanban, verificado en el ws3; el curso se llama como su oferta",
+    puntos: [
+      "Con las funciones reales en el ws3: mover la tarjeta abre la etapa en el portal, y mandar la tarea obligatoria mueve la tarjeta solo y abre la siguiente. No hubo nada roto.",
+      "Dos cosas que van a sorprender: un candado propio en un módulo-etapa reemplaza a la etapa, y mover hacia atrás vuelve a cerrar.",
+      "Queda un curso de prueba en el ws3 (producto 43, alumno 2664) para mirarlo en la pantalla.",
+      "El nombre del curso: el título a mano, si no la oferta principal, si no el producto. Hoy nadie ve un cambio.",
+      "El relevo trae lo cerrado y lo que falta para la reunión del viernes 16/10.",
+    ],
+    commits: [
+      { sha: "b8b7c735", msg: "Curso: el nombre del curso sale de su OFERTA, no del CRM", lineas: 202, archivos: 9 },
+    ],
+    archivos: [
+      "lib/curso-nombre.ts + lib/curso-nombre-datos.ts + tests/curso-nombre.test.ts — el nombre por oferta",
+      "docs/relevo/customer-success.md — la reunión del viernes y la prueba de Mauricio",
+    ],
+  },
 ];

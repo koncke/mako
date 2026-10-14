@@ -37,6 +37,7 @@ import { puedeUsarCs } from './puerta';
 import { productosDelCliente } from './entrega';
 import { getUsuarioActual } from '@/lib/auth';
 import { listProductos } from '@/lib/productos';
+import { nombresDeCursos } from '@/lib/curso-nombre-datos';
 import { entregasDeProductos } from '@/lib/entrega-servicio';
 import { colorDeEtapa } from '@/lib/servicio-etapas';
 import { emailNormalizado, emailUtilizable } from '@/lib/agencia-altas';
@@ -138,12 +139,15 @@ type CursoConClases = { productoId: number; nombre: string; clases: Clase[] };
 /** De esos productos, los que tienen al menos una clase, con su nombre y sus clases (en ese orden). */
 async function cursosDe(ids: readonly number[]): Promise<CursoConClases[]> {
   if (!ids.length) return [];
-  const [catalogo, clases] = await Promise.all([
+  // El nombre de cada curso como lo ve el alumno: el título puesto a mano o el de su OFERTA, no el del
+  // CRM (lib/curso-nombre.ts, 13/10/2026). Si no se puede leer, el del catálogo, como antes.
+  const [catalogo, clases, nombresCurso] = await Promise.all([
     listProductos(false),
     Promise.all(ids.map(async (id) => [id, await clasesDelProducto(id)] as const)),
+    nombresDeCursos(ids, { conTitulo: true }).catch(() => new Map<number, string>()),
   ]);
   const nombre = new Map(catalogo.map((p) => [Number(p.id), p.nombre]));
-  return clases.filter(([, cs]) => cs.length > 0).map(([id, cs]) => ({ productoId: id, nombre: nombre.get(id) ?? 'Producto', clases: cs }));
+  return clases.filter(([, cs]) => cs.length > 0).map(([id, cs]) => ({ productoId: id, nombre: nombresCurso.get(id) ?? nombre.get(id) ?? 'Producto', clases: cs }));
 }
 
 /**
