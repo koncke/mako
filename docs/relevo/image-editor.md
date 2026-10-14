@@ -26,7 +26,11 @@ sea original de MaKo, pero quiero la plantilla para ir trabajando».**
   rompiéndolo; el inicio dibujado en un dev server local (captura). **NO verificado:** el editor abierto —
   el dev server local pasa los 5 GB al compilarlo y el vigía de RAM lo mata. Se mira en producción.
 
-## Actualización 14/10 tarde (cuenta claude2 al 88% semanal)
+## EN MAIN desde el 14/10 13:26 (`353c81a8`, tandas 1 y 2) — cuenta claude2 al 89% semanal
+
+Lo pusheó el orquestador en su push integrado. Lo de abajo es la historia de cómo se llegó.
+
+## Actualización 14/10 tarde
 
 - **La tanda 1 NO está en main todavía**: cada push lo frenó la RAM (el vigía mata el typecheck del pre-push). Hay un reintento corriendo desde un worktree LIMPIO, `C:/dev/wt-canva-push` (detached en `aa8ea32b`), con `scratchpad/scripts/push-con-ram.sh`: espera 6 GB libres, integra origin/main y pushea; hasta 8 intentos. Si se cortó, se relanza con `sh <script> <log>` desde cualquier chat.
 - **La tanda 2 (re-vestido de Canva + catálogo) está COMMITEADA** (`bef0ad47`, rama `editor-imagen`): typecheck acotado 0 errores, 59/59 tests. Sin ver en el navegador. Se le pidió al orquestador (Estrategia 3 cuentas) que la sume a su próximo push integrado; si no lo hizo, desde `C:/dev/wt-canva`: `git fetch && git merge origin/main` y push.
