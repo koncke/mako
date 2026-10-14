@@ -12,6 +12,7 @@
 //
 //   1. TIRA DEL Q   el norte en UNA línea, con la capacidad instalada al lado
 //   2. AHORA        LA acción prioritaria con sus seis campos y su origen
+//   2b. COBRAR      a quién cobrarle, con «Marcar cobrada» (13/10/2026: «en la tab general, la cobranza»; ./Cobranza.tsx)
 //   3. KPIs         lo que se hace o no se hace en el período   ← lo nuevo
 //   4. lo de antes  semáforo, mes y pendientes, plegados
 //
@@ -49,6 +50,10 @@ import { Icon } from '../_components/icons';
 import { requireRolWs } from '@/lib/tab-access';
 import { Cabecera } from './Cabecera';
 import { KpisCard, type KpiVista } from './KpisCard';
+import { Cobranza } from './Cobranza';
+import { leerAQuienCobrar } from '@/lib/datos-comercial-server';
+import { fmtValor } from '@/lib/graficos-agregar';
+import { textoVence, type CobroM } from '@/app/m/dashboard/modelo';
 
 /** La fórmula de una sección de este producto. Literal, y la misma de /comercial y /marketing. */
 const SECCION: CSSProperties = {
@@ -128,11 +133,12 @@ export default async function GeneralPage() {
   const v = await leerVistaGeneral();
   const { qt, progreso, objetivos, objetivoPrincipal, kpis, candidatos, capacidad, foco, pendientes, comparativo, plata } = v;
 
-  // Desgloses del bloque plegado, en una sola ola.
+  // Desgloses del bloque plegado, en una sola ola. Y «A quién cobrarle» (nunca tira: el error viene adentro).
   const mtd = compareMTD(v.ayer);
   let mtdBreak: RevenueBreakdowns = { sold: [], cash: [], outstanding: [] };
   let agendasMTD: AgendaItem[] = [];
   let senalesMTD: SenalRecon[] = [];
+  const cobranzaLeida = leerAQuienCobrar();
   try {
     const [mtdB, agMTD, senMTD] = await Promise.all([
       getRevenueBreakdowns(mtd.actualInicio, mtd.actualFin),
@@ -143,6 +149,14 @@ export default async function GeneralPage() {
   } catch {
     // degradación elegante: las cards muestran los números sin desglose.
   }
+  const cobranza = await cobranzaLeida;
+  // Sólo las filas con una cuota que marcar («Marcar cobrada» marca la PRÓXIMA), con el MISMO renglón que el teléfono
+  // (app/m/dashboard/datos.ts: «US$500 · vence el jue»). Lo fija tests/general-cobranza.test.ts.
+  const cobros: CobroM[] = cobranza.ok ? cobranza.datos.filas.flatMap((f) => (f.cuota ? [{
+    leadId: f.leadId, pagoId: f.cuota.pagoId, nombre: f.nombre,
+    linea: `${fmtValor(f.cuota.monto, 'usd')} · ${textoVence(f.cuota.vence, f.dias)}`,
+    urgencia: f.urgencia,
+  }] : [])) : [];
 
   // ── Semáforo: las mismas seis reglas de siempre (armadas en la lib) ──
   const alertas: Alerta[] = v.alertas.map(alertaDeEscritorio);
@@ -255,6 +269,15 @@ export default async function GeneralPage() {
           desglose={heroDesglose}
           complemento={heroComplemento}
         />
+
+        {/* «A quién cobrarle» (reunión con Mauricio del 12/10: «en la tab general, la cobranza»): es algo que se HACE hoy,
+            así que va arriba, con la acción del día. Un negocio que no cobra en cuotas no la ve (sin filas y sin error,
+            una sección vacía es ruido); si la lectura falla, la sección está y lo dice. */}
+        {(cobros.length > 0 || !cobranza.ok) && (
+          <section style={SECCION}>
+            <Cobranza filas={cobros} tz={cobranza.ok ? cobranza.datos.tz : ''} error={cobranza.ok ? null : 'No pude leer la cobranza.'} />
+          </section>
+        )}
 
         <section style={SECCION}>
           <KpisCard

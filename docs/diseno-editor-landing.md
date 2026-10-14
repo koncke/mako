@@ -113,7 +113,7 @@ sitio: nav.gm-nav · footer.gm-pie · a.gm-marca («Hecho con MaKo»)
   «Tienes cambios que publicar» = `updated_at > publicado_at`. Slug: `slugValido` de `doc.ts`, único
   global, primer reclamante gana.
 - La página publicada carga el **Pixel de MaKo** del workspace (`lineaCargador(getOrCreateLandingToken(ws))`):
-  la mide el Landing Analyst y el bloque Formulario entra al CRM por el opt-in que el Pixel ya captura
+  la miden el Diagnóstico y la hoja Landing del Dashboard, y el bloque Formulario entra al CRM por el opt-in que el Pixel ya captura
   (`<form>` real con `type=email`/`type=tel`/`name=nombre`; un script inline propio sólo hace
   `preventDefault` y muestra el mensaje de éxito o redirige — nunca un GET con datos en la URL). La
   vista previa del editor y el link privado **no** cargan el Pixel.
@@ -136,8 +136,8 @@ sitio: nav.gm-nav · footer.gm-pie · a.gm-marca («Hecho con MaKo»)
   reintento propio** (presenton reintenta hasta 12 veces: no se copia).
 - Prompts en el registro editable (`lib/prompt-registry.ts`, grupo «Editor de landings»), en español
   NEUTRO (el guard de voseo barre los strings), con `brandSystem` y el bloque de idioma del copy del
-  cliente. Contexto del negocio: el mismo brief del generador anterior (funnel + perfil + diagnóstico
-  del Landing Analyst si hay `basadoEnUrl`) — se exportan de `lib/landing-writer.ts`, no se copian.
+  cliente. Contexto del negocio: el mismo brief del generador anterior (funnel + perfil + el
+  Diagnóstico de esa página si hay `basadoEnUrl`) — se exportan de `lib/landing-writer.ts`, no se copian.
 - **Gramática de la IA** (`lib/editor-landing/ia-bloques.ts`, puro, con test): la IA no escribe
   JSON de ProseMirror; escribe bloques simples (`{t:'h2', texto}`, `{t:'optimizado', variante, items}`…
   con `**negrita**`, `*cursiva*` y `[link](url)` en el texto) que el código convierte a tarjetas, y
@@ -185,7 +185,7 @@ dependencias se fijan en versiones con más de dos semanas.
   al restaurar, a mano («Guardar versión») y sola cada 10 minutos de edición (el server decide).
 - Análisis: visitas, visitantes y leads de los últimos 30 días de las URLs publicadas
   (`landing_visits`, `normalizarUrl`), el alcance por sección si el Pixel lo midió (`null` = no
-  medido, nunca 0) y el link al Landing Analyst.
+  medido, nunca 0) y el link al Diagnóstico.
 - Presentar: pantalla completa, una sección por vez, flechas, Esc, «Destacar» (S) y notas del orador.
 
 ## D9. La tab
@@ -193,7 +193,8 @@ dependencias se fijan en versiones con más de dos semanas.
 - La key del nav sigue siendo `landing-writer` (contrato en la base). Rutas: `/landing-generator`
   (Panel), `/landing-generator/crear` (crear con IA), `/landing-generator/<id>` (editor a pantalla
   completa). `/landing-writer` redirige reenviando la query (hoy la pierde: bug del deep link).
-- El deep link del Landing Analyst (`?url=`) abre «Crear» con esa landing de base.
+- El deep link `?url=` (el que usaba el Landing Analyst, hoy retirado: su análisis es el Diagnóstico de
+  esta tab) abre «Crear» con esa landing de base.
 - Onboarding: los pasos `generar` y `guardar` se siguen marcando (primera generación, primer
   guardado); se suma `lg_publicar` OPCIONAL.
 - `lib/mako-capacidades.ts`, `app/admin/dev/areas.ts` (con `hallazgos`), la bitácora del área con

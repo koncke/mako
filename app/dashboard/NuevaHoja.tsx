@@ -1,54 +1,76 @@
 'use client';
 
 // =============================================================================
-// NuevaHoja — el modal de «Nueva hoja»: Pídeselo a MaKo, en blanco, o una plantilla (punto 19)
+// NuevaHoja — el modal de «Nueva hoja»: «¿Qué vas a crear hoy?», en blanco, lo copiado, o una plantilla (punto 19)
 // =============================================================================
 // Martín, 11/10/2026: «Al momento de crear un nuevo lienzo, replica el modal que tenemos en
 // "Automations", en donde al principio tenemos la opción de "Pídeselo a MaKo" y abajo se le ofrece
 // TEMPLATES». El molde es la galería v2 de Automations (docs/diseno-automations-galeria-v2.md §1 y
-// §2), no la de hoy: sin rótulos de sección, el pedido ADENTRO del modal con su micrófono, el
-// buscador, y «Hoja en blanco» primera siempre (ningún texto la saca).
+// §2): sin rótulos de sección, el pedido ADENTRO del modal con su micrófono, el buscador, y «Hoja en
+// blanco» primera siempre (ningún texto la saca).
 //
-// `onCrear` recibe la hoja YA saneada con ids nuevos (y, si la armó MaKo, el primer aviso de lo que
-// ajustó, para el toast). El editor la agrega con `mutar` (una foto de deshacer) y la abre. Después
-// de `onCrear` el modal llama a `onCerrar`: que el editor también lo cierre no rompe nada.
+// 13/10/2026 — «¿QUÉ VAS A CREAR HOY?» EN LUGAR DE «PÍDESELO A MaKo». Martín (12/10/2026, por el chat Chatbot),
+// textual: «pasale la sección de "¿Qué vamos a hacer hoy?" al chat de graphics para que lo implemente tal cual en lo
+// que se tiene hoy de "Pídeselo a MaKo". Tiene que ser funcional, es decir, que los dashboards también deberían poder
+// copiarse y enviarse con ese token». ES LA CAJA de Automations y del Landing Generator (`CajaPedido`,
+// app/landing-generator/CajaPedido.tsx), no una copia: el título, la tarjeta blanca, el ejemplo que se escribe solo
+// (para mientras la caja tiene el foco y vuelve si se sale sin escribir: lo decide la caja), el «+», el micrófono de la
+// casa y el ↑. El «+», como en «Nueva automatización» (app/automations/ChatMako.tsx, `BarraPideselo`):
+//   · «Subir archivo o imagen»: lo lee el server con el lector de la casa (la ruta de Automations,
+//     app/automations/archivo-pedido-cliente.ts; una imagen, por visión) y queda como chip arriba del campo. Al enviar,
+//     va al pedido con lo escrito (`pedidoConArchivo`, dentro del tope del pedido de una hoja).
+//   · «Pegar un dashboard»: lee el portapapeles. Lo mismo que pegar con Ctrl+V en el campo.
+// UN DASHBOARD PEGADO: el token («MAKO-DASH-…», «Copiar dashboard» del ⋮ de una hoja) SALE del campo y en su lugar se
+// lee «Dashboard copiado: <nombre>» (lo da el server). El ↑ lo agrega al informe con ids nuevos (`hojaConIdsNuevos`,
+// lib/graficos-copia.ts); lo que se vació al copiarlo o al traerlo de otro negocio va en el toast. Y si al abrir hay uno
+// en el portapapeles, la grilla ofrece «Pegar lo copiado» (como la galería de Automations).
 //
-// ⚠️ LO QUE SE COPIÓ DE AUTOMATIONS ES LA FORMA, NO EL CÓDIGO. Allá la tarjeta y la caja de pedido
-//    son CSS y componentes locales que otra sesión está rehaciendo (la décima tanda): de ahí se
-//    IMPORTA lo exportado (`BotonDictar`, `CSS_NUEVO`) y lo demás vive acá con otro prefijo de clase.
+// UNA PLANTILLA SE ARMA CON LOS DATOS DEL NEGOCIO (reunión del 12/10, 103:41: «no crear un montón de gráficos vacíos»):
+// la ruta app/api/graficos/plantilla quita los gráficos que quedarían vacíos y MaKo suma otros sobre lo que sí tiene
+// (lib/graficos-con-datos*). Mientras, el mismo «pensando» que el pedido, con Cancelar.
+//
+// `onCrear` recibe la hoja YA saneada con ids nuevos (y, si la armó MaKo o se pegó, el primer aviso, para el toast). El
+// editor la agrega con `mutar` (una foto de deshacer) y la abre. Después de `onCrear` el modal llama a `onCerrar`: que
+// el editor también lo cierre no rompe nada.
+//
 // ⚠️ EL ESTADO «PENSANDO» VA ADENTRO DEL MODAL, no en una capa por portal: la de Automations es
 //    `zIndex: 125` y un Modal de la pila arranca en 130 (app/_components/pila-modales.ts), así que
 //    encima de éste quedaría DEBAJO, sin un error.
 // ⚠️ CANCELAR SALE GRATIS: la ruta no escribe nada (app/api/graficos/ia/route.ts). Cerrar el modal
 //    corta el pedido.
-// ⚠️ `onCerrar` CON IDENTIDAD FIJA (`useCerrarEstable`) y el foco con `useFocoInicial`: con una
-//    flecha nueva por render el textarea pierde el foco con cada letra, y `autoFocus` no llega porque
-//    la caja nace escondida (AGENTS.md, «Todo `<Modal>`…»).
+// ⚠️ `onCerrar` CON IDENTIDAD FIJA (`useCerrarEstable`): con una flecha nueva por render el campo pierde el foco con
+//    cada letra (AGENTS.md, «Todo `<Modal>`…»). Y SIN FOCO AL ABRIR, a propósito: el ejemplo de la caja se escribe
+//    solo MIENTRAS la caja no tiene el foco (decimoquinta tanda de Automations, punto 6); con el foco puesto al abrir,
+//    no se movería nunca. «Nueva automatización» tampoco lo pone.
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Modal } from '@/app/_ui/Modal';
 import { Button } from '@/app/_ui/Button';
-import { BotonMako } from '@/app/_ui/BotonMako';
 import Link from '@/app/_ui/Link';
-import { MakoStar } from '@/app/_components/MakoBrand';
-import { BotonDictar } from '@/app/plan/board/CrearTareaModal';
+import { IconoMenu } from '@/app/_ui/iconos-menu';
+import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
+import { CajaPedido, ChipCaja, CSS_CAJA_PEDIDO, CSS_TOKENS_CASA, TITULO_CAJA } from '@/app/landing-generator/CajaPedido';
+import { Ico } from '@/app/landing-generator/Ico';
 import { CSS_NUEVO } from '@/app/automations/NuevoPlaceholder';
-import { useCerrarEstable, useFocoInicial } from '@/app/customer-success/curso/dialogo-foco';
+import { ACCEPT_ARCHIVO_FLUJO, pedidoConArchivo } from '@/app/automations/CrearConIA';
+import { leerArchivoParaPedido } from '@/app/automations/archivo-pedido-cliente';
+import { useCerrarEstable } from '@/app/customer-success/curso/dialogo-foco';
 import { GRAMATICA } from '@/lib/mako-gramatica';
 import { FUENTES, hojaVacia, sanearHoja, type Hoja } from '@/lib/graficos-catalogo';
-import { PLANTILLAS_HOJA, instanciarPlantilla } from '@/lib/graficos-plantillas';
+import { PLANTILLAS_HOJA, instanciarPlantilla, type PlantillaHoja } from '@/lib/graficos-plantillas';
 import { filtrarPlantillasHoja } from '@/lib/graficos-plantillas-generales';
 import { TOPE_PEDIDO_IA } from '@/lib/graficos-ia';
+import { dashPegado, hojaConIdsNuevos, rotuloDashPegado } from '@/lib/graficos-copia';
+import { leerDashPegado } from './copia-dash-cliente';
 
 /** El tope de la ruta (`maxDuration = 120`) + margen: el `fetch` no puede esperar para siempre. */
 const TOPE_CLIENTE_MS = 125_000;
-const ID_PEDIDO = 'nueva-hoja-pedido';
 
 /**
  * Los ejemplos del placeholder: GENÉRICOS a propósito. Lo que mira un negocio cualquiera, sin el
  * nombre de una campaña, un producto ni un cliente (AGENTS.md: un ejemplo de UI es ficticio por regla).
  */
-const EJEMPLOS_HOJA = [
+export const EJEMPLOS_HOJA = [
   'Cuánto gasto en anuncios y cuánto me cuesta cada lead',
   'Los leads de la semana, por origen y por etapa',
   'Lo que cobré este mes y lo que falta cobrar',
@@ -56,52 +78,29 @@ const EJEMPLOS_HOJA = [
   'Las llamadas de mis closers y cuántas cierran',
 ] as const;
 const PLACEHOLDER_QUIETO = 'Escribe o dicta qué quieres ver';
+/** El placeholder con un archivo adjunto (el ejemplo no se mueve: el pedido ya es el archivo). */
+const PLACEHOLDER_ARCHIVO = 'Qué armar con el archivo (opcional)';
+/** El pedido cuando sólo se subió el archivo, sin escribir nada. */
+const PEDIDO_SOLO_ARCHIVO = 'Arma la hoja con lo que dice este archivo.';
 
-// El ritmo del ejemplo que se escribe solo: el de «Generar con IA» de Automations.
-const MS_LETRA = 60;
-const MS_BORRAR = 28;
-const MS_JITTER = 40;
-const MS_QUIETA = 1900;
+/** El «+» de la caja: subir un archivo o una imagen, y pegar un dashboard copiado. */
+const MAS_ARCHIVO = 'archivo';
+const MAS_PEGAR = 'pegar';
+const ACCIONES_MAS: DropdownOption[] = [
+  { value: MAS_ARCHIVO, label: 'Subir archivo o imagen', icono: 'subir' },
+  { value: MAS_PEGAR, label: 'Pegar un dashboard', icono: 'copiar' },
+];
+/** Lo que dice la caja cuando el token no existe (o no se pudo preguntar). */
+const NO_ES_DASH = 'No encontré ese dashboard.';
+/** «Pegar un dashboard» sin un dashboard en el portapapeles. */
+const SIN_DASH_COPIADO = 'No hay un dashboard copiado.';
+/** «Pegar un dashboard» sin permiso para leer el portapapeles. */
+const PEGALO_A_MANO = 'Pega el dashboard en la caja (Ctrl+V).';
+/** El toast cuando una plantilla entra sin poder medir los datos del negocio (la ruta no contestó). */
+const SIN_MEDIR = 'Sin medir tus datos';
 
-/**
- * El ejemplo que se escribe y se borra. Arranca con el primero COMPLETO (el HTML del server y el del
- * cliente coinciden) y con `activo` en false deja de moverse para siempre: el primer toque a la caja
- * lo apaga. Con `prefers-reduced-motion` no se mueve nunca.
- * ⚠️ Es el mecanismo de `useEjemploQueSeEscribe` (app/automations/CrearConIA.tsx), que no se exporta
- *    y vive en un archivo que otra sesión está rehaciendo. Cuando se exporte con los ejemplos por
- *    parámetro, esta copia se borra y se importa aquél.
- */
-function useEjemplo(ejemplos: readonly string[], activo: boolean): string {
-  const [i, setI] = useState(0);
-  const [largo, setLargo] = useState<number>(ejemplos[0].length);
-  const [borrando, setBorrando] = useState(false);
-  const [quieto, setQuieto] = useState(false);
-  useEffect(() => {
-    try {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) setQuieto(true);
-    } catch { /* sin matchMedia */ }
-  }, []);
-  useEffect(() => {
-    if (!activo || quieto) return;
-    const frase = ejemplos[i];
-    if (!borrando && largo === frase.length) {
-      const t = setTimeout(() => setBorrando(true), MS_QUIETA);
-      return () => clearTimeout(t);
-    }
-    if (borrando && largo === 0) {
-      const t = setTimeout(() => { setBorrando(false); setI((x) => (x + 1) % ejemplos.length); }, 280);
-      return () => clearTimeout(t);
-    }
-    const t = setTimeout(() => setLargo((l) => l + (borrando ? -1 : 1)), (borrando ? MS_BORRAR : MS_LETRA) + Math.random() * MS_JITTER);
-    return () => clearTimeout(t);
-  }, [ejemplos, activo, quieto, i, largo, borrando]);
-  return ejemplos[i].slice(0, largo);
-}
-
-type Estado =
-  | { t: 'quieto'; error?: string; link?: string }
-  | { t: 'pensando'; desde: number };
+/** El archivo de la caja: leyéndose, leído (con su texto) o que no se pudo leer. */
+type ArchivoCaja = { nombre: string; imagen: boolean } & ({ estado: 'leyendo' } | { estado: 'listo'; texto: string } | { estado: 'error' });
 
 // Sin backticks acá adentro: es un template literal. Sólo tokens de la app (se dan vuelta en oscuro).
 const CSS = `
@@ -118,7 +117,7 @@ const CSS = `
 
 export function NuevaHoja({ onCerrar, onCrear, enBlanco = 'Página nueva' }: {
   onCerrar: () => void;
-  /** La hoja nueva, saneada y con ids nuevos. `aviso`: lo primero que MaKo ajustó, para el toast. */
+  /** La hoja nueva, saneada y con ids nuevos. `aviso`: lo primero que MaKo ajustó (o lo que se vació al pegar), para el toast. */
   onCrear: (h: Hoja, aviso?: string) => void;
   /** El nombre de la «Hoja en blanco» (el editor le pasa «Página N»). */
   enBlanco?: string;
@@ -128,26 +127,25 @@ export function NuevaHoja({ onCerrar, onCrear, enBlanco = 'Página nueva' }: {
   // el informe de entonces).
   const props = useRef({ onCrear, enBlanco });
   useEffect(() => { props.current = { onCrear, enBlanco }; });
-  useFocoInicial(ID_PEDIDO);
 
   const [pedido, setPedido] = useState('');
-  const [estado, setEstado] = useState<Estado>({ t: 'quieto' });
+  /** Desde cuándo piensa MaKo (null = no piensa). */
+  const [desde, setDesde] = useState<number | null>(null);
+  const [error, setError] = useState<{ texto: string; link?: string } | null>(null);
   const [ahora, setAhora] = useState(() => Date.now());
   const [busca, setBusca] = useState('');
-  /** El placeholder ya no se mueve: alguien tocó la caja. No vuelve. */
-  const [tocada, setTocada] = useState(false);
-  const pensando = estado.t === 'pensando';
-  const ejemplo = useEjemplo(EJEMPLOS_HOJA, !tocada && !pedido);
+  /** El dashboard pegado en la caja: su token y su nombre (null mientras el server contesta). */
+  const [dash, setDash] = useState<{ token: string; nombre: string | null } | null>(null);
+  const [archivo, setArchivo] = useState<ArchivoCaja | null>(null);
+  /** El dashboard que había en el portapapeles al abrir: la grilla ofrece «Pegar lo copiado». */
+  const [copiado, setCopiado] = useState<{ token: string; nombre: string } | null>(null);
+  /** La plantilla que se está armando con los datos del negocio (su nombre); null = lo que piensa es el pedido. */
+  const [armando, setArmando] = useState<string | null>(null);
+  const pensando = desde != null;
   const ctrl = useRef<AbortController | null>(null);
-  const campoRef = useRef<HTMLTextAreaElement | null>(null);
-
-  // El campo crece con lo que tiene (hasta 5 renglones), también cuando lo llena el dictado.
-  useEffect(() => {
-    const t = campoRef.current;
-    if (!t) return;
-    t.style.height = 'auto';
-    t.style.height = `${Math.min(t.scrollHeight, 132)}px`;
-  }, [pedido]);
+  const subida = useRef<AbortController | null>(null);
+  const vezDash = useRef(0);
+  const elegirArchivo = useRef<HTMLInputElement>(null);
 
   // El reloj de lo que lleva: progreso real (GRAMATICA.analizando), sólo mientras piensa.
   useEffect(() => {
@@ -156,8 +154,22 @@ export function NuevaHoja({ onCerrar, onCrear, enBlanco = 'Página nueva' }: {
     return () => clearInterval(t);
   }, [pensando]);
 
-  // Cerrar el modal corta el pedido: la ruta no escribió nada, así que no queda nada a medias.
-  useEffect(() => () => ctrl.current?.abort(), []);
+  // Cerrar el modal corta el pedido y la subida: la ruta no escribió nada, así que no queda nada a medias.
+  useEffect(() => () => { ctrl.current?.abort(); subida.current?.abort(); }, []);
+
+  // LO COPIADO, si hay (como «Pegar lo copiado» de la galería de Automations). Leer el portapapeles puede pedir
+  // permiso: si no lo dan, la tarjeta no aparece. Una vez, al abrir.
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !navigator.clipboard?.readText) return;
+    let vivo = true;
+    navigator.clipboard.readText().then(async (t) => {
+      const p = dashPegado(t);
+      if (!p) return;
+      const r = await leerDashPegado(p.token);
+      if (vivo && r) setCopiado({ token: p.token, nombre: r.nombre });
+    }).catch(() => { /* sin permiso: no se ofrece */ });
+    return () => { vivo = false; };
+  }, []);
 
   /** Lo que sea que se eligió: la hoja al editor, y el modal se cierra. */
   const crear = (h: Hoja, aviso?: string) => {
@@ -170,17 +182,121 @@ export function NuevaHoja({ onCerrar, onCrear, enBlanco = 'Página nueva' }: {
   const cancelar = () => {
     ctrl.current?.abort();
     ctrl.current = null;
-    setEstado({ t: 'quieto' });
+    setDesde(null);
+    setArmando(null);
   };
 
-  const enviar = async () => {
-    const texto = pedido.trim();
-    if (!texto || pensando) return;
-    setTocada(true);
+  /**
+   * UNA PLANTILLA, ARMADA CON LOS DATOS DEL NEGOCIO (Martín, reunión del 12/10, 103:41: «al momento de crear un
+   * template, debería analizar qué métricas tiene ese negocio disponible… y no crear un montón de gráficos vacíos»).
+   * La ruta (app/api/graficos/plantilla) mide cada gráfico con el lector de la pantalla, quita los vacíos y MaKo suma
+   * otros sobre lo que sí tiene; el toast dice cuántos. Si la ruta no contesta, entra la plantilla tal cual y se dice:
+   * no poder medir no es razón para no crearla. Cancelar no crea nada.
+   */
+  const armarPlantilla = async (p: PlantillaHoja) => {
+    if (pensando) return;
     const c = new AbortController();
     ctrl.current = c;
     const tope = setTimeout(() => c.abort(), TOPE_CLIENTE_MS);
-    setEstado({ t: 'pensando', desde: Date.now() });
+    setError(null);
+    setArmando(p.nombre);
+    setDesde(Date.now());
+    setAhora(Date.now());
+    try {
+      const res = await fetch('/api/graficos/plantilla', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plantilla: p.id }), signal: c.signal,
+      });
+      const j = await res.json().catch(() => null) as { ok?: boolean; hoja?: unknown; aviso?: unknown } | null;
+      if (ctrl.current !== c) return;
+      // Lo que llega por la red se vuelve a sanear: la hoja vale por lo que dice el catálogo de acá.
+      const h = j?.ok ? sanearHoja(j.hoja, 0) : null;
+      setDesde(null);
+      setArmando(null);
+      if (!h) { crear(instanciarPlantilla(p), SIN_MEDIR); return; }
+      crear(h, typeof j?.aviso === 'string' ? j.aviso : undefined);
+    } catch {
+      if (ctrl.current !== c) return;
+      setDesde(null);
+      setArmando(null);
+      crear(instanciarPlantilla(p), SIN_MEDIR);
+    } finally {
+      clearTimeout(tope);
+      if (ctrl.current === c) ctrl.current = null;
+    }
+  };
+
+  // ── Lo que se suma al pedido: un archivo, o un dashboard pegado ──────────────────────────────
+  const quitarArchivo = () => { subida.current?.abort(); subida.current = null; setArchivo(null); };
+  const quitarDash = () => { vezDash.current++; setDash(null); };
+  const ponerDash = (token: string) => {
+    const vez = ++vezDash.current;
+    quitarArchivo();
+    setError(null);
+    setDash({ token, nombre: null });
+    void leerDashPegado(token).then((r) => {
+      if (vezDash.current !== vez) return;
+      if (!r) { setDash(null); setError({ texto: NO_ES_DASH }); return; }
+      setDash({ token, nombre: r.nombre });
+    });
+  };
+  /** Lo escrito o pegado en el campo: un token de un dashboard sale del texto y queda como «Dashboard copiado: …». */
+  const alEscribir = (v: string) => {
+    const p = dashPegado(v);
+    if (p) { setPedido(p.resto); ponerDash(p.token); return; }
+    setPedido(v);
+  };
+  const pegarDelPortapapeles = () => {
+    if (typeof navigator === 'undefined' || !navigator.clipboard?.readText) { setError({ texto: PEGALO_A_MANO }); return; }
+    navigator.clipboard.readText().then((t) => {
+      const p = dashPegado(t);
+      if (!p) { setError({ texto: SIN_DASH_COPIADO }); return; }
+      ponerDash(p.token);
+    }).catch(() => setError({ texto: PEGALO_A_MANO }));
+  };
+  const subir = (file: File) => {
+    quitarDash();
+    quitarArchivo();
+    setError(null);
+    const base = { nombre: file.name, imagen: file.type.startsWith('image/') };
+    const ac = new AbortController();
+    subida.current = ac;
+    setArchivo({ ...base, estado: 'leyendo' });
+    void leerArchivoParaPedido(file, ac.signal).then((r) => {
+      if (ac.signal.aborted) return;
+      if (!r.ok) { setArchivo({ ...base, estado: 'error' }); setError({ texto: r.error }); return; }
+      setArchivo({ ...base, estado: 'listo', texto: r.texto });
+    });
+  };
+  const alMas = (v: string) => {
+    if (v === MAS_ARCHIVO) elegirArchivo.current?.click();
+    else if (v === MAS_PEGAR) pegarDelPortapapeles();
+  };
+
+  /** EL DASHBOARD PEGADO entra al informe con ids nuevos (lo resuelto ya está en memoria: no vuelve a preguntar). */
+  const pegarDash = async (token: string) => {
+    setError(null);
+    const r = await leerDashPegado(token);
+    if (!r) { setError({ texto: NO_ES_DASH }); return; }
+    crear(hojaConIdsNuevos(r.hoja), r.aviso ?? undefined);
+  };
+
+  /** ¿Se puede mandar? Un dashboard con nombre, un archivo leído, o algo escrito (y nada leyéndose). */
+  const listo = dash ? !!dash.nombre : archivo ? archivo.estado === 'listo' : !!pedido.trim();
+
+  const enviar = async () => {
+    if (pensando || !listo) return;
+    if (dash) { void pegarDash(dash.token); return; }
+    const escrito = pedido.trim();
+    const texto = archivo?.estado === 'listo'
+      ? pedidoConArchivo(escrito || PEDIDO_SOLO_ARCHIVO, { nombre: archivo.nombre, texto: archivo.texto }, TOPE_PEDIDO_IA)
+      : escrito;
+    if (!texto) return;
+    const c = new AbortController();
+    ctrl.current = c;
+    const tope = setTimeout(() => c.abort(), TOPE_CLIENTE_MS);
+    setError(null);
+    setDesde(Date.now());
     setAhora(Date.now());
     try {
       const res = await fetch('/api/graficos/ia', {
@@ -189,17 +305,18 @@ export function NuevaHoja({ onCerrar, onCrear, enBlanco = 'Página nueva' }: {
       });
       const j = await res.json().catch(() => null) as { ok?: boolean; hoja?: unknown; avisos?: unknown; error?: string; link?: string } | null;
       if (ctrl.current !== c) return;
-      if (!res.ok || !j?.ok) { setEstado({ t: 'quieto', error: j?.error || `Error ${res.status}`, link: j?.link }); return; }
+      if (!res.ok || !j?.ok) { setDesde(null); setError({ texto: j?.error || `Error ${res.status}`, link: j?.link }); return; }
       // Lo que llega por la red se vuelve a sanear: la hoja vale por lo que dice el catálogo de acá.
       const h = sanearHoja(j.hoja, 0);
-      if (!h || !h.componentes.length) { setEstado({ t: 'quieto', error: 'Llegó una hoja vacía. Prueba de nuevo.' }); return; }
+      if (!h || !h.componentes.length) { setDesde(null); setError({ texto: 'Llegó una hoja vacía. Prueba de nuevo.' }); return; }
       const avisos = Array.isArray(j.avisos) ? j.avisos.filter((x): x is string => typeof x === 'string' && x.trim() !== '') : [];
-      setEstado({ t: 'quieto' });
+      setDesde(null);
       crear(h, avisos[0]);
     } catch {
       // Cancelar no es un error: la caja vuelve con el pedido escrito.
       if (ctrl.current !== c) return;
-      setEstado({ t: 'quieto', error: c.signal.aborted ? 'Tardó demasiado. Prueba de nuevo.' : 'Sin conexión. Prueba de nuevo.' });
+      setDesde(null);
+      setError({ texto: c.signal.aborted ? 'Tardó demasiado. Prueba de nuevo.' : 'Sin conexión. Prueba de nuevo.' });
     } finally {
       clearTimeout(tope);
       if (ctrl.current === c) ctrl.current = null;
@@ -207,60 +324,43 @@ export function NuevaHoja({ onCerrar, onCrear, enBlanco = 'Página nueva' }: {
   };
 
   const plantillas = useMemo(() => filtrarPlantillasHoja(PLANTILLAS_HOJA, busca), [busca]);
-  const segundos = estado.t === 'pensando' ? Math.max(0, Math.round((ahora - estado.desde) / 1000)) : 0;
-  const parar = () => { if (!tocada) setTocada(true); };
+  const segundos = desde != null ? Math.max(0, Math.round((ahora - desde) / 1000)) : 0;
 
   return (
     <Modal titulo="Nueva hoja" ancho={980} sinFiletes onCerrar={cerrar}>
       <style>{CSS_NUEVO}</style>
       <style>{CSS}</style>
       <div data-nueva-hoja="" style={S.todo}>
-        {/* 1 · Pídeselo a MaKo */}
-        <form style={S.caja} data-pedido-mako="" onSubmit={(e) => { e.preventDefault(); void enviar(); }}
-          onPointerDownCapture={parar} onFocusCapture={parar}>
-          <div style={S.encabezado}>
-            <MakoStar size={18} animate={pensando} />
-            <label htmlFor={ID_PEDIDO} style={S.titulo}>Pídeselo a MaKo</label>
-          </div>
-          <div style={S.fila}>
-            <textarea
-              ref={campoRef}
-              id={ID_PEDIDO}
-              value={pedido}
-              onChange={(e) => { setPedido(e.target.value); parar(); }}
-              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void enviar(); } }}
-              placeholder={tocada ? PLACEHOLDER_QUIETO : ejemplo}
-              aria-label="Qué quieres ver en la hoja"
-              rows={2}
-              maxLength={TOPE_PEDIDO_IA}
-              disabled={pensando}
-              style={S.campo}
-            />
-            <BotonDictar titulo="Dictar el pedido" valor={pedido} onValor={(v) => { setPedido(v); parar(); }}
-              onError={(m) => setEstado({ t: 'quieto', error: m })} />
-          </div>
-          {estado.t === 'quieto' && estado.error && (
-            <p role="alert" style={S.error}><TextoConLink texto={estado.error} link={estado.link} /></p>
+        {/* 1 · ¿Qué vas a crear hoy? (la caja de Automations y del Landing Generator, la MISMA) */}
+        <div className="gp cp-casa" data-pedido-mako="">
+          <style>{CSS_TOKENS_CASA + CSS_CAJA_PEDIDO}</style>
+          <CajaPedido titulo={{ texto: TITULO_CAJA, nivel: 2 }} valor={pedido} onValor={alEscribir} onEnviar={() => { void enviar(); }}
+            listo={listo} ejemplos={EJEMPLOS_HOJA} animar={!archivo} placeholderQuieto={archivo ? PLACEHOLDER_ARCHIVO : PLACEHOLDER_QUIETO}
+            etiqueta="Qué quieres ver en la hoja" tope={TOPE_PEDIDO_IA} deshabilitado={pensando}
+            onError={(m) => setError(m ? { texto: m } : null)}
+            adjunto={archivo ? (
+              <ChipCaja icono={archivo.imagen ? 'imagen' : 'archivo'} texto={archivo.nombre} error={archivo.estado === 'error'}
+                detalle={archivo.estado === 'leyendo' ? 'Leyendo…' : null} onQuitar={quitarArchivo} etiquetaQuitar="Quitar el archivo" />
+            ) : null}
+            enLugarDelCampo={dash ? (
+              <ChipCaja icono="grafico" texto={rotuloDashPegado(dash.nombre ?? '…')} onQuitar={quitarDash} etiquetaQuitar="Quitar el dashboard" />
+            ) : null}
+            antes={(
+              <Dropdown value="" resetAfterSelect sinFlecha search={false} ariaLabel="Agregar" disabled={pensando}
+                botonLabel={<Ico n="mas" t={16} />} options={ACCIONES_MAS} onChange={alMas} menuMinAncho={240}
+                buttonStyle={BOTON_MAS} />
+            )} />
+          <input ref={elegirArchivo} type="file" accept={ACCEPT_ARCHIVO_FLUJO} hidden tabIndex={-1} aria-hidden
+            onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) subir(f); }} />
+          {pensando && (
+            <div role="status" aria-live="polite" style={S.estado}>
+              <span style={S.rotulo}>✦ {GRAMATICA.analizando.rotulo}</span>
+              <span style={S.dim}>· {armando ? `${armando} con tus datos` : `${FUENTES.length} conjuntos de datos`} · {segundos} s · hasta {Math.round(TOPE_CLIENTE_MS / 60_000)} min</span>
+              <span style={{ marginLeft: 'auto' }}><Button variant="tertiary" size="sm" onClick={cancelar}>Cancelar</Button></span>
+            </div>
           )}
-          <div style={S.pie}>
-            {pensando ? (
-              <>
-                <span role="status" aria-live="polite" style={S.estado}>
-                  <span style={S.rotulo}>✦ {GRAMATICA.analizando.rotulo}</span>
-                  <span style={S.dim}> · {FUENTES.length} conjuntos de datos · {segundos} s · hasta {Math.round(TOPE_CLIENTE_MS / 60_000)} min</span>
-                </span>
-                <Button variant="tertiary" size="sm" onClick={cancelar}>Cancelar</Button>
-              </>
-            ) : (
-              <>
-                <span />
-                {/* El botón de MaKo CHICO: sólo el logo sobre negro (tanda de la topbar, punto 3). Enter
-                    también crea (el `onKeyDown` del campo). */}
-                <BotonMako lado={36} title="Crear la hoja con MaKo" deshabilitado={!pedido.trim()} onClick={() => { void enviar(); }} />
-              </>
-            )}
-          </div>
-        </form>
+          {error && <p role="alert" style={S.error}><TextoConLink texto={error.texto} link={error.link} /></p>}
+        </div>
 
         {/* 2 · El buscador */}
         <label className="nh-buscar">
@@ -270,16 +370,24 @@ export function NuevaHoja({ onCerrar, onCrear, enBlanco = 'Página nueva' }: {
           <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar plantilla" aria-label="Buscar plantilla" />
         </label>
 
-        {/* 3 · La grilla: «Hoja en blanco» primera SIEMPRE, después las plantillas */}
+        {/* 3 · La grilla: «Hoja en blanco» primera SIEMPRE, lo copiado y después las plantillas */}
         <div className="nh-grilla">
           <button type="button" className="mk-nuevo nh-blanco" data-empezar="blanco"
             onClick={() => crear(hojaVacia(props.current.enBlanco))}>
             <span aria-hidden className="mk-nuevo__mas" style={{ fontSize: 22, lineHeight: 1 }}>＋</span>
             Hoja en blanco
           </button>
+          {copiado && (
+            <button type="button" className="nh-tarjeta" data-pegar="" disabled={pensando}
+              onClick={() => { void pegarDash(copiado.token); }}>
+              <span aria-hidden style={{ lineHeight: 1 }}><IconoMenu nombre="copiar" size={28} /></span>
+              <span style={S.nombre}>Pegar lo copiado</span>
+              <span style={S.linea}>«{copiado.nombre}»</span>
+            </button>
+          )}
           {plantillas.map((p) => (
-            <button key={p.id} type="button" className="nh-tarjeta" data-plantilla={p.id}
-              onClick={() => crear(instanciarPlantilla(p))}>
+            <button key={p.id} type="button" className="nh-tarjeta" data-plantilla={p.id} disabled={pensando}
+              onClick={() => { void armarPlantilla(p); }}>
               <span aria-hidden style={{ fontSize: 28, lineHeight: 1 }}>{p.emoji}</span>
               <span style={S.nombre}>{p.nombre}</span>
               <span style={S.linea}>{p.linea}</span>
@@ -300,26 +408,20 @@ function TextoConLink({ texto, link }: { texto: string; link?: string }) {
   return <>{texto.slice(0, i)}<Link href={link} style={S.link}>Integraciones</Link>{texto.slice(i + 'Integraciones'.length)}</>;
 }
 
+/** El «+» de la caja (`.gp-cc-mas` de CajaPedido) con el desplegable de la casa: 34 redondo, el azul de Gamma (el de Automations). */
+const BOTON_MAS: CSSProperties = {
+  width: 34, height: 34, padding: 0, border: 0, borderRadius: 9999, justifyContent: 'center',
+  background: 'var(--gp-azul-50)', color: 'var(--gp-azul-600)',
+};
+
 // Sólo tokens que existen en claro y en oscuro (app/globals.css → [data-tema="oscuro"]).
 const S: Record<string, CSSProperties> = {
   todo: { display: 'flex', flexDirection: 'column', gap: 16 },
-  caja: {
-    display: 'flex', flexDirection: 'column', gap: 10, padding: '14px 18px 14px', borderRadius: 16,
-    background: 'var(--mako-bg)', border: '1px solid var(--mako-border)',
-  },
-  encabezado: { display: 'flex', alignItems: 'center', gap: 8 },
-  titulo: { fontSize: 15, fontWeight: 700, color: 'var(--ink)' },
-  fila: { display: 'flex', alignItems: 'flex-end', gap: 8 },
-  campo: {
-    flex: 1, minWidth: 0, boxSizing: 'border-box', resize: 'none', padding: '10px 0', border: 'none',
-    borderBottom: '2px solid var(--mako-border)', background: 'transparent', color: 'var(--ink)', font: 'inherit',
-    fontSize: 16, lineHeight: 1.4, outline: 'none', overflowY: 'auto',
-  },
-  pie: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, minHeight: 36 },
-  estado: { display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: 2, minWidth: 0 },
+  // El renglón de «pensando» y el del error van a lo ancho de la caja (los 720 de CSS_CAJA_PEDIDO).
+  estado: { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 4, width: '100%', maxWidth: 720, minHeight: 36, margin: '-6px 0 0' },
   rotulo: { fontSize: 14, fontWeight: 600, color: 'var(--mako-ink)' },
   dim: { fontSize: 13, color: 'var(--dim)' },
-  error: { margin: 0, fontSize: 13, lineHeight: 1.4, color: 'var(--bad)' },
+  error: { margin: '-6px 0 0', width: '100%', maxWidth: 720, fontSize: 13, lineHeight: 1.4, color: 'var(--bad)' },
   link: { color: 'var(--primary)', fontWeight: 600, textDecoration: 'underline' },
   nombre: { fontSize: 15, fontWeight: 700, lineHeight: 1.25 },
   linea: { fontSize: 13, color: 'var(--dim)', lineHeight: 1.4 },

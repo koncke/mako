@@ -33,7 +33,7 @@ import { MakoChat } from '@/app/_components/MakoChat';
 import { useCapaModal } from '@/app/_components/pila-modales';
 import { BotonMako } from '@/app/_ui/BotonMako';
 import { BotonCerrar, RADIO_CAJA } from '@/app/_ui/BotonBorrar';
-import { Capa } from './bloques/piezas';
+import { Capa } from './piezas';
 import { Dropdown } from '@/app/components/Dropdown';
 import { esGrafico, tituloDe, type Hoja, type VistaValores } from '@/lib/graficos-catalogo';
 import { fmtValor, type Resultado } from '@/lib/graficos-agregar';
@@ -526,23 +526,31 @@ export function LogoMako({ lado = 22 }: { lado?: number }) {
  *
  * ⚠️ Es una VARIANTE LOCAL, no un cambio a `MakoButton` (app/_components/ChartIA.tsx): ése lo usan el Ads
  *    Manager y Marketing, que no pidieron nada. El modal es el mismo: el chat con el gráfico aislado.
- * ⚠️ La capa va por PORTAL (`Capa`, ./bloques/piezas.tsx): la tarjeta recorta (`overflow: hidden`) y un
+ * ⚠️ La capa va por PORTAL (`Capa`, ./piezas.tsx): la tarjeta recorta (`overflow: hidden`) y un
  *    portal de React sigue burbujeando hasta la tarjeta (un clic la seleccionaría y un mousedown la
  *    arrastraría): `Capa` frena los eventos y lleva la clase de no arrastrar.
  */
-export function ChatMakoGrafico({ chartKey, titulo, contexto }: { chartKey: string; titulo: string; contexto: string }) {
+export function ChatMakoGrafico({ chartKey, titulo, contexto, sugerencias }: { chartKey: string; titulo: string; contexto: string; sugerencias?: string[] }) {
   const [abierto, setAbierto] = useState(false);
   const cerrar = useCallback(() => setAbierto(false), []);
   return (
     <>
       <BotonMako lado={26} title="Conclusiones con MaKo" encendido={abierto} onClick={() => setAbierto(true)} />
-      {abierto && <Capa><CapaChatMako chartKey={chartKey} titulo={titulo} contexto={contexto} onCerrar={cerrar} /></Capa>}
+      {abierto && <Capa><CapaChatMako chartKey={chartKey} titulo={titulo} contexto={contexto} sugerencias={sugerencias} onCerrar={cerrar} /></Capa>}
     </>
   );
 }
 
+/**
+ * El chat de MaKo de un gráfico abierto DESDE AFUERA del botón (el clic derecho, «Preguntarle a MaKo»): el mismo modal,
+ * con quien lo abre dueño de cuándo se cierra.
+ */
+export function ChatMakoAbierto(p: { chartKey: string; titulo: string; contexto: string; sugerencias?: string[]; onCerrar: () => void }) {
+  return <Capa><CapaChatMako {...p} /></Capa>;
+}
+
 /** El modal del chat: en la pila de capas (su z y su Escape, que frena a los demás). */
-function CapaChatMako({ chartKey, titulo, contexto, onCerrar }: { chartKey: string; titulo: string; contexto: string; onCerrar: () => void }) {
+function CapaChatMako({ chartKey, titulo, contexto, sugerencias, onCerrar }: { chartKey: string; titulo: string; contexto: string; sugerencias?: string[]; onCerrar: () => void }) {
   const capa = useCapaModal(true);
   const esArriba = capa.esElDeArriba;
   useEffect(() => {
@@ -568,7 +576,7 @@ function CapaChatMako({ chartKey, titulo, contexto, onCerrar }: { chartKey: stri
           <BotonCerrar onClick={onCerrar} />
         </div>
         <div style={{ flex: 1, minHeight: 0 }}>
-          <MakoChat chartKey={chartKey} titulo={titulo} contexto={contexto} sidebar />
+          <MakoChat chartKey={chartKey} titulo={titulo} contexto={contexto} sugerencias={sugerencias?.length ? sugerencias : undefined} sidebar />
         </div>
       </div>
     </div>

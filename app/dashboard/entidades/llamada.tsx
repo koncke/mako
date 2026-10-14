@@ -4,8 +4,8 @@
 // entidades/llamada — la ficha de UNA llamada, partida en piezas (tanda v5, I3 del contrato)
 // =============================================================================
 // Martín (12/10/2026): el pop-up es una mini-hoja, y la plantilla «Llamada» es la ficha de hoy partida en piezas
-// que quien arma el pop-up pone donde quiere. Esto era el adentro de app/dashboard/bloques/extra/FichaLlamada.tsx
-// (el port del detalle de la tab Closing): se mudó acá ENTERO, y la ficha de siempre (la del `?llamada=` y la del
+// que quien arma el pop-up pone donde quiere. Esto era el adentro de ./FichaLlamada.tsx (el port del detalle de
+// la tab Closing): se mudó acá ENTERO, y la ficha de siempre (la del `?llamada=` y la del
 // «Ver llamada» del detalle) es ahora un Modal que monta `CuerpoFichaLlamada` y `PieFichaLlamada`. Una sola
 // implementación de cada sección: la pieza suelta y la ficha entera dibujan lo mismo.
 //
@@ -17,20 +17,20 @@
 //   · UNA LECTURA POR LLAMADA, la compartan cuantas piezas la compartan (`useLlamada`, un store por recording_id
 //     con `useSyncExternalStore`): un pop-up con seis piezas no pide seis veces GET /api/closing/llamada. Después
 //     de una tarea (re-analizar, revisar) se vuelve a pedir y se enteran todas.
-//   · Cada pedido lleva `signal` con el tope de su ruta (TOPE_MS, ../bloques/extra/llamadas-modelo.ts).
+//   · Cada pedido lleva `signal` con el tope de su ruta (TOPE_MS, lib/llamadas-modelo.ts).
 //   · Lo que se dijo (el transcript) se trae de Fathom EN VIVO al abrir esa pieza, una vez por pestaña.
 //   · Las TAREAS (revisar, re-analizar) son de admin y closer y las rutas lo vuelven a mirar
 //     (app/api/closing/puerta.ts). `soloLectura` las apaga (un link compartido no llega acá: el pop-up no se sirve).
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react';
-import { Button, ButtonLink, Spinner, Tabs } from '@/app/_ui';
+import { Button, ButtonLink, MONO, Spinner, Tabs } from '@/app/_ui';
 import type { ClosingDim, ClosingEdit, ClosingEvidence, ClosingMoment, ClosingObjection, Tone } from '@/lib/closing';
-import { MONO, colorPuntaje, suave } from '../bloques/extra/piezas-extra';
+import { colorPuntaje, suave } from '../piezas';
 import {
   GRUPOS_DIM, TONO_ROTULO, TOPE_MS, colorDeTono, enMinutos, estadoDeLlamada, fechaDdMm, fmtPuntaje, linkAlSegundo, marcasDeTranscript,
   mmss, nombreDeLlamada, partirResumen, postearTarea, promedio, puntajeEnVivo, reproductorFathom, esLinkHttp,
   type LineaTranscript, type LlamadaFicha,
-} from '../bloques/extra/llamadas-modelo';
+} from '@/lib/llamadas-modelo';
 
 export const CSS_FICHA = `
 .fl-boton { font: inherit; font-size: 12.5px; font-weight: 600; color: var(--primary); background: none; border: none; padding: 0; cursor: pointer; text-align: left; }
@@ -563,7 +563,7 @@ type Aviso = { tono: 'bad' | 'warn'; texto: string } | null;
 
 /**
  * El estado de la ficha entera: la lectura compartida, la vista, la revisión y las tareas. Lo usan el Modal de
- * siempre (../bloques/extra/FichaLlamada.tsx) y la pieza `completo` del pop-up.
+ * siempre (./FichaLlamada.tsx) y la pieza `completo` del pop-up.
  */
 export function useFichaLlamada(recordingId: number, opts: { onCambio?: () => void; soloLectura?: boolean; revisarAlAbrir?: boolean; aviso?: (t: string, tono: 'good' | 'bad') => void }) {
   const lectura = useLlamada(recordingId);

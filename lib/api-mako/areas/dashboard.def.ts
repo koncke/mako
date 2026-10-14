@@ -99,7 +99,7 @@ const filtros: Parametro = {
 };
 const titulo: Parametro = { nombre: 'titulo', tipo: 'string', max: 80, rotulo: 'Título', descripcion: 'El título que se ve arriba. Sin título, se arma solo con la métrica y la dimensión; al editar, «-» lo saca.' };
 // El rótulo dice «IA» y no «MaKo»: tests/editor-acciones.test.ts frena una mayúscula pegada («aK») en un rótulo.
-const mako: Parametro = { nombre: 'mako', tipo: 'boolean', rotulo: 'Botón de IA', descripcion: 'false = la tarjeta va sin el botón para preguntarle a MaKo; true lo vuelve a poner. Sin esto, como está (de entrada, prendido).' };
+const mako: Parametro = { nombre: 'mako', tipo: 'boolean', rotulo: 'Botón de IA', descripcion: 'true = la tarjeta lleva el botón para preguntarle a MaKo; false = va sin. Sin esto, como está (de entrada sólo lo llevan las tendencias en el tiempo, los embudos y la dispersión).' };
 
 // ── Las operaciones ──────────────────────────────────────────────────────────────────────────
 
@@ -194,7 +194,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'crear_hoja_dashboard', area: 'metricas', tipo: 'accion',
     titulo: 'Crear una hoja del Dashboard',
-    descripcion: 'Crea una hoja nueva en el informe del Dashboard de una persona. Tres formas: desde una plantilla (`plantilla`: marketing, comercial, closing, ads-analyst…; la lista en ver_catalogo_dashboard), en blanco (sin plantilla ni pedido), o con un `pedido` en palabras para que MaKo la arme con IA gratis («los leads por campaña y el CAC de los últimos 90 días»). Con pedido, MaKo la arma ANTES de proponerla y el resumen dice qué gráficos tiene. Devuelve el id de la hoja. No corre en una automatización.',
+    descripcion: 'Crea una hoja nueva en el informe del Dashboard de una persona. Tres formas: desde una plantilla (`plantilla`: marketing, comercial, closing, ads-analyst…; la lista en ver_catalogo_dashboard), en blanco (sin plantilla ni pedido), o con un `pedido` en palabras para que MaKo la arme con IA gratis («los leads por campaña y el CAC de los últimos 90 días»). Con pedido, MaKo la arma ANTES de proponerla y el resumen dice qué gráficos tiene. Con plantilla o pedido, la hoja sale sin los gráficos que quedarían vacíos en este negocio, y a una plantilla MaKo le suma gráficos sobre los datos que sí tiene. Devuelve el id de la hoja. No corre en una automatización.',
     parametros: [
       persona,
       { nombre: 'plantilla', tipo: 'string', max: 40, rotulo: 'Plantilla', ejemplo: 'comercial', descripcion: 'El id de una plantilla de hoja (de ver_catalogo_dashboard).' },
@@ -275,6 +275,7 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'limite', tipo: 'number', entero: true, minimo: 3, maximo: 50, rotulo: 'Límite', descripcion: 'Cuántos grupos de una categoría se muestran.' },
       { nombre: 'comparar', tipo: 'boolean', rotulo: 'Comparar', descripcion: 'true = muestra el cambio contra el período anterior.' },
       mako,
+      { nombre: 'pedido_mako', tipo: 'string', max: 600, rotulo: 'Qué responde el botón', descripcion: 'Lo que el botón de MaKo de este gráfico responde primero al abrirse («por qué subió o bajó, y qué hacer»). «-» lo saca (vuelve el análisis de siempre).' },
       { ...filtros, vaciaEsValor: true, descripcion: 'Los filtros que DEFINEN el gráfico: no se dibujan y ganan sobre los de la hoja en el mismo campo. Reemplaza los que tenía; una lista vacía los saca.' },
     ],
     confirmacion: 'chat', reversible: true,

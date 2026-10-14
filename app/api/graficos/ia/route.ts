@@ -24,6 +24,8 @@ import { getCapaActual, getRolWsEfectivo } from '@/lib/workspace';
 import { tabEnCapa } from '@/lib/capas';
 import { TOPE_PEDIDO_IA } from '@/lib/graficos-ia';
 import { generarHojaIA } from '@/lib/graficos-ia-generar';
+import { hojaConDatos } from '@/lib/graficos-con-datos-server';
+import { hoyEnTijuana } from '@/lib/date-utils';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -51,5 +53,11 @@ export async function POST(req: Request) {
   const r = await generarHojaIA(pedido, inicio);
   if ('error' in r) return NextResponse.json({ ok: false, error: r.error, ...(r.link ? { link: r.link } : {}) }, { status: 502 });
   if (r.correcciones.length) console.log('[graficos/ia] hoja aceptada con correcciones:', r.correcciones.join(' | '));
-  return NextResponse.json({ ok: true, hoja: r.hoja, avisos: r.avisos });
+  // Sin los gráficos que quedarían vacíos en ESTE negocio (Martín, 12/10: «no crear un montón de gráficos vacíos»).
+  // Sólo poda: lo armó MaKo con el pedido, no hay qué sumar. Si no queda tiempo para medir, sale como vino.
+  const conDatos = Date.now() - inicio < 100_000
+    ? await hojaConDatos(r.hoja, { hoy: hoyEnTijuana(), hastaMs: inicio + 115_000 }).catch(() => null)
+    : null;
+  const avisos = conDatos?.aviso ? [conDatos.aviso, ...r.avisos] : r.avisos;
+  return NextResponse.json({ ok: true, hoja: conDatos?.hoja ?? r.hoja, avisos });
 }

@@ -502,6 +502,11 @@ Reglas que salen de eso:
   en `22528fd5`, que es el único con el bloque pegado. El trailer se ve perfecto leyendo
   el mensaje a ojo — por eso nadie lo notó — y cualquier herramienta que cuente commits
   por cuenta lee **0**. Es el modo de falla de siempre: no da error, da un cero plausible.
+  ⚠️ **Y «pegado» es entre ELLOS: ANTES del bloque va una línea en blanco.** Pegado al último
+  párrafo del cuerpo, el bloque deja de ser «sólo trailers» y git no parsea NINGUNO de los dos.
+  Medido el 13/10/2026 (`ff7f90ef`, reescrito como `a30282bf`): las dos claves daban vacío.
+  Se comprueba en un comando, después de commitear:
+  `git log -1 --format='%(trailers:key=Claude-Cuenta,valueonly)'`.
 
 - ⚠️ **Antes de firmar, RELEÉ el marcador; lo que te inyectó el hook es una foto del
   arranque.** El contexto de `SessionStart` se calcula una vez y no se entera si Martín

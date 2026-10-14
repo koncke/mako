@@ -9,7 +9,7 @@
 // lo llaman la pantalla (app/dashboard/EditorInforme.tsx), la primera pintada del server
 // (app/dashboard/page.tsx) y los tests (tests/dashboard-pantalla.test.ts).
 //
-//   · `pedidosDeHoja` arma el pedido de datos de cada gráfico y de cada bloque con `efectivoDe` (el
+//   · `pedidosDeHoja` arma el pedido de datos de cada gráfico con `efectivoDe` (el
 //     período, los filtros y el «agrupar por» que resuelve lib/graficos-catalogo.ts). Lo usan las DOS
 //     puntas: si page.tsx armara el suyo, la primera pintada y la pantalla pedirían cosas distintas y
 //     la firma de lo que ya llegó no coincidiría nunca (se pediría todo dos veces).
@@ -27,7 +27,7 @@
 
 import {
   PRESET_AUTOMATICO, campoDe, conVista, efectivoDe, esBloque, esElemento, esGrafico, fuenteDe, nombrePreset, rangoDe, tipoDe, tituloDe,
-  type Bloque, type Componente, type ControlVista, type Efectivo, type FiltroDim, type Grafico, type Hoja, type VistaValores,
+  type Componente, type ControlVista, type Efectivo, type FiltroDim, type Grafico, type Hoja, type VistaValores,
 } from '@/lib/graficos-catalogo';
 import { fmtValor, type Resultado } from '@/lib/graficos-agregar';
 import { Alias, dimensionPublica, etiquetaSegura } from '@/lib/graficos-analisis';
@@ -39,8 +39,6 @@ import type { Formato } from '@/lib/graficos-constructores';
 
 /** Lo que va por gráfico a /api/graficos {accion:'datos'} (el server lo vuelve a sanear todo). */
 export type PedidoGrafico = { grafico: Grafico; desde: string; hasta: string; filtros: FiltroDim[]; agrupar: Efectivo['agrupar'] };
-/** Lo que va por bloque a /api/graficos {accion:'bloques'}. */
-export type PedidoBloqueHoja = { id: string; bloque: string; desde: string; hasta: string };
 
 /**
  * Lo que decide los DATOS de un gráfico. Moverlo, cambiarle el título o el objetivo no pide nada;
@@ -53,14 +51,8 @@ export function firmaDe(g: Grafico, ef: Efectivo, version: number): string {
   ].join('|');
 }
 
-/** Un bloque lee su propia ventana: sólo el período y la versión deciden. */
-export function firmaDeBloque(b: Bloque, ef: Efectivo, version: number): string {
-  return [b.bloque, ef.desde, ef.hasta, version].join('|');
-}
-
 export type PedidosHoja = {
   graficos: Array<{ g: Grafico; ef: Efectivo; firma: string; pedido: PedidoGrafico }>;
-  bloques: Array<{ b: Bloque; ef: Efectivo; firma: string; pedido: PedidoBloqueHoja }>;
 };
 
 /**
@@ -95,16 +87,15 @@ export function conBusqueda<T extends Grafico>(g: T): T {
  * dibujan nada y tienen que ver también lo plegado.
  */
 export function pedidosDeHoja(hoja: Hoja, vista: VistaValores, hoy: string, version: number, ocultos?: ReadonlySet<string>): PedidosHoja {
-  const out: PedidosHoja = { graficos: [], bloques: [] };
+  const out: PedidosHoja = { graficos: [] };
   for (const c of hoja.componentes) {
     if (ocultos?.has(c.id)) continue;
+    // Sólo los gráficos piden datos: un elemento no lee nada, y un bloque ya no llega (v5: el saneo los
+    // convierte en gráficos, lib/graficos-migrar-v5.ts).
     if (esGrafico(c)) {
       // El efectivo con la barra de búsqueda; el gráfico que viaja, el GUARDADO (el server sanea igual).
       const ef = efectivoDe(conBusqueda(c), hoja, vista, hoy);
       out.graficos.push({ g: c, ef, firma: firmaDe(c, ef, version), pedido: { grafico: c, desde: ef.desde, hasta: ef.hasta, filtros: ef.filtros, agrupar: ef.agrupar } });
-    } else if (esBloque(c)) {
-      const ef = efectivoDe(c, hoja, vista, hoy);
-      out.bloques.push({ b: c, ef, firma: firmaDeBloque(c, ef, version), pedido: { id: c.id, bloque: c.bloque, desde: ef.desde, hasta: ef.hasta } });
     }
   }
   return out;
@@ -220,6 +211,10 @@ export function contextoDeGrafico(g: Grafico, r: Resultado, ef: Pick<Efectivo, '
   if (limpio.fuera > 0) lineas.push(`Hay ${limpio.fuera} grupos más que no entran en el gráfico.`);
   if (cols.length) lineas.push(`Total: ${cols.map((c, i) => `${c.nombre} ${fmt(limpio.totales[i] ?? null, c.formato)}`).join(' · ')}.`);
   if (limpio.anterior?.length) lineas.push(`Período anterior del mismo largo: ${cols.map((c, i) => `${c.nombre} ${fmt(limpio.anterior![i] ?? null, c.formato)}`).join(' · ')}.`);
+  // Lo que quien armó la hoja le pidió al botón de MaKo de ESTE gráfico (13/10/2026, `Grafico.makoIA`): va al final, como
+  // un dato entre comillas, y lo responde primero (el prompt del análisis, `chart_insights.prompt_analisis`, lee el contexto).
+  const pedido = g.makoIA?.pedido.trim();
+  if (pedido) lineas.push(`\nQuien armó este gráfico pide que respondas, antes que nada: «${pedido.replace(/[«»]/g, '"')}»`);
   return lineas.join('\n');
 }
 

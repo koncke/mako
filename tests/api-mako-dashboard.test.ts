@@ -510,11 +510,16 @@ test('v5: el período de un gráfico se escribe como control FIJO (y «auto» lo
 });
 
 // Rotura 19.
-test('v5: el botón de MaKo se apaga y se prende por gráfico (ausente = prendido)', () => {
+// 13/10/2026: se guardan los DOS valores (ausente = lo del tipo, `conMako`), y `pedido_mako` cambia lo que responde.
+test('el botón de MaKo se apaga y se prende por gráfico, y se le cambia lo que responde', () => {
   const a = armarGrafico({ tipo: 'numero', conjunto: 'leads', metricas: ['leads'], mako: false }, null);
   assert.ok(a.ok && a.grafico.mako === false);
   const b = armarGrafico({ mako: true }, a.grafico);
-  assert.ok(b.ok && b.grafico.mako === undefined, 'prenderlo es sacar la marca');
+  assert.ok(b.ok && b.grafico.mako === true, 'prenderlo es elegirlo: con lo de entrada SIN botón, sacar la marca lo dejaría apagado');
+  const p = armarGrafico({ pedidoMako: 'Por qué bajó' }, b.grafico);
+  assert.ok(p.ok && p.grafico.makoIA?.pedido === 'Por qué bajó');
+  const sin = armarGrafico({ pedidoMako: '' }, p.grafico);
+  assert.ok(sin.ok && sin.grafico.makoIA === undefined, 'un pedido vacío vuelve al análisis de siempre');
   const c = armarGrafico({ titulo: 'Leads' }, a.grafico);
   assert.ok(c.ok && c.grafico.mako === false, 'sin pedirlo, como estaba');
 });
@@ -607,7 +612,7 @@ test('v5: por HTTP tampoco nombran personas las COLUMNAS EXTRA de una tabla, y u
 // Rotura 23.
 test('v5: la hoja en palabras dice lo nuevo — lo que define un gráfico, el botón de MaKo, el pop-up, los elementos y los conectores', () => {
   const h = hojaDe([
-    { id: 'g-a', tipo: 'numero', fuente: 'leads', metricas: ['leads'], titulo: 'Ganados', mako: false, alClic: 'popup', popup: { titulo: 'Lead', componentes: [{ id: 'p-t', clase: 'elemento', tipo: 'texto', texto: 'x' }] } },
+    { id: 'g-a', tipo: 'numero', fuente: 'leads', metricas: ['leads'], titulo: 'Ganados', mako: true, makoIA: { pedido: 'Por qué bajó', sugerencias: [] }, alClic: 'popup', popup: { titulo: 'Lead', componentes: [{ id: 'p-t', clase: 'elemento', tipo: 'texto', texto: 'x' }] } },
     { id: 's1', clase: 'elemento', tipo: 'seccion', texto: 'Cobranza', seccion: { plegable: true, abierto: false }, y: 4 },
     { id: 'ia1', clase: 'elemento', tipo: 'ia', texto: 'Qué pasa', ia: { pedido: 'Qué frena', vista: 'hallazgos' }, y: 6 },
     { id: 'b1', clase: 'elemento', tipo: 'accion', accion: { id: 'sincronizar_llamadas', rotulo: 'Traer llamadas' }, y: 14 },
@@ -621,7 +626,8 @@ test('v5: la hoja en palabras dice lo nuevo — lo que define un gráfico, el bo
     ],
   });
   assert.match(md, /Lo define: Etapa: Ganado/);
-  assert.match(md, /sin el botón de MaKo/);
+  // Desde el 13/10/2026 el botón va sólo donde suma: la hoja dice cuándo lo LLEVA y qué responde.
+  assert.match(md, /con el botón de MaKo \(responde: «Por qué bajó»\)/);
   assert.match(md, /abre un pop-up «Lead»/);
   assert.match(md, /Sección: Cobranza · se pliega, cerrada de entrada/);
   assert.match(md, /Conclusiones de MaKo: Qué pasa · muestra hallazgos.*pide «Qué frena»/);

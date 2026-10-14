@@ -14,7 +14,7 @@
 // Lo que no se ve:
 //   · La FICHA del lead (LeadEditModal) se dibuja en lugar de esta caja, no encima: vive en z 80 y la pila
 //     de modales de app/_ui arranca en 130, así que encima quedaría tapada. Al cerrarla vuelve el detalle.
-//   · «Ver llamada» hace lo mismo con la ficha de la LLAMADA (bloques/extra/FichaLlamada.tsx: el detalle de
+//   · «Ver llamada» hace lo mismo con la ficha de la LLAMADA (entidades/FichaLlamada.tsx: el detalle de
 //     la tab Closing, que se eliminó, con sus tareas). En lugar de esta caja, no encima: abrir un Modal
 //     encima de otro apaga el de abajo (la pila), y al cerrarla vuelve el detalle. Una tarea de la ficha
 //     (revisar, re-analizar) refresca la lista y la hoja con `recargar`.
@@ -33,7 +33,7 @@ import { etiquetaTiempo, fmtValor } from '@/lib/graficos-agregar';
 import { fuenteDe, metricaDe, tituloDe, type Efectivo, type Grafico, type Hoja } from '@/lib/graficos-catalogo';
 import { accionesDeFila, campoParaFiltrar, esDimensionTiempo, type AccionFila, type FilaDetalle, type RespuestaDetalle, type SelDetalle } from '@/lib/graficos-acciones';
 import type { TemaHoja } from '@/lib/graficos-temas';
-import { FichaLlamada } from './bloques/extra/FichaLlamada';
+import { FichaLlamada } from './entidades/FichaLlamada';
 
 // Code-split, como en app/_components/Desglose.tsx: la ficha del CRM se baja al abrirla.
 const LeadEditModal = dynamic(() => import('@/app/crm/LeadEditModal').then((m) => m.LeadEditModal), { ssr: false });

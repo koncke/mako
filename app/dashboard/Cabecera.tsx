@@ -114,6 +114,8 @@ export function BarraSuperior({ hoja, editable, conHojas, hojasAbierto, emojiAbi
 export type AccionesHoja = {
   onRenombrar: (id: string, nombre: string) => void;
   onDuplicar: (id: string) => void;
+  /** «Copiar dashboard»: el TOKEN de la hoja al portapapeles, para pegarla en «Nueva hoja» de otro informe o negocio. */
+  onCopiar: (id: string) => void;
   onMover: (id: string, delta: number) => void;
   onEliminar: (id: string) => void;
 };
@@ -121,8 +123,8 @@ export type AccionesHoja = {
 /**
  * El desplegable de las hojas: «＋ Nueva hoja» PRIMERA siempre (punto 1; el placeholder punteado de
  * Automations, importado), después las hojas —la abierta marcada— y, pasadas siete, el buscador de la
- * casa (`conBuscador`). Cada hoja lleva su ⋮ (y clic derecho) con Renombrar, Duplicar, Subir, Bajar y
- * Eliminar.
+ * casa (`conBuscador`). Cada hoja lleva su ⋮ (y clic derecho) con Renombrar, Duplicar, Copiar dashboard (el
+ * token para pegarla en otro lado, lib/graficos-copia.ts), Subir, Bajar y Eliminar.
  *
  * Tanda v5 (12/10/2026), punto 5: «el ⋮ queda en blanco» y «reemplaza las opciones».
  *   · LA FILA ENTERA se pinta (el hover y la abierta), no sólo el botón de la hoja: el ⋮, el espacio entre
@@ -173,6 +175,7 @@ export function MenuHojas({ hojas, activa, puedeNueva, acciones, onIr, onNueva }
         <div className="lk-lista" role="menu" aria-label={`Opciones de ${deOpciones.nombre}`}>
           {op('Renombrar', 'renombrar', () => setRenombrando(deOpciones.id))}
           {op('Duplicar', 'duplicar', () => acciones.onDuplicar(deOpciones.id), hojas.length >= MAX_HOJAS)}
+          {op('Copiar dashboard', 'copiar', () => acciones.onCopiar(deOpciones.id))}
           {op('Subir', 'arriba', () => acciones.onMover(deOpciones.id, -1), i <= 0)}
           {op('Bajar', 'abajo', () => acciones.onMover(deOpciones.id, 1), i >= hojas.length - 1)}
           <div className="lk-sep-h" />

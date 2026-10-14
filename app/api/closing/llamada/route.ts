@@ -1,8 +1,9 @@
 // =============================================================================
 // GET /api/closing/llamada?recording_id=N — el detalle de UNA llamada, para su ficha en el Dashboard
 // =============================================================================
-// Lo pide app/dashboard/bloques/extra/FichaLlamada.tsx al abrirse (la lista del bloque «Las llamadas» es
-// compacta a propósito: el análisis entero de cada llamada se baja cuando alguien la abre).
+// Lo pide la ficha de una llamada al abrirse (`useLlamada`, app/dashboard/entidades/llamada.tsx: una lectura
+// por llamada, la compartan cuantas piezas la compartan). La tabla de llamadas es compacta a propósito: el
+// análisis entero de cada llamada se baja cuando alguien la abre.
 //
 // Puerta (./puerta.ts): sesión, admin o closer, el Dashboard en la capa y Fathom conectado. La fila se lee
 // con `leerLlamada` (lib/api-mako/areas/closing.helpers.ts, por getTenantDb: una llamada de otro workspace
@@ -13,7 +14,7 @@
 
 import type { NextRequest } from 'next/server';
 import { leerLlamada } from '@/lib/api-mako/areas/closing.helpers';
-import { fichaDe } from '@/app/dashboard/bloques/extra/llamadas-modelo';
+import { fichaDe } from '@/lib/llamadas-modelo';
 import { puertaClosing } from '../puerta';
 
 export const dynamic = 'force-dynamic';

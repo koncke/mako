@@ -32,6 +32,7 @@ import { parseJsonObject } from './json-del-modelo';
 import { PROVS_CREAR_IA, PROVS_GRATIS_PIN, MODELOS_CREAR_IA, salidaParaIA, falloDeIA, type FalloIA } from './flujo-ia';
 import { FEATURE_HOJA_IA, HOJA_IA_SYSTEM_TEMPLATE, deIAHoja, userDeHoja, type ResultadoHojaIA } from './graficos-ia';
 import { porLaRedDePlataforma } from './graficos-ia-red';
+import { FUENTES } from './graficos-catalogo';
 
 /** Lo que tiene la cascada para contestar, por defecto (el de la ruta: deja aire para traducir y responder). */
 export const PLAZO_MODELO_MS = 100_000;
@@ -72,9 +73,10 @@ async function pasada(p: {
  * La hoja que pide `pedido`, o el motivo honesto por el que no salió. `inicio` es el arranque del pedido
  * (ms epoch); `plazoMs`, cuánto tiene la cascada desde ahí (por defecto, el de la ruta).
  */
-export async function generarHojaIA(pedido: string, inicio: number, opts: { plazoMs?: number } = {}): Promise<ResultadoHojaIA | FalloIA> {
+export async function generarHojaIA(pedido: string, inicio: number, opts: { plazoMs?: number; soloFuentes?: readonly string[] } = {}): Promise<ResultadoHojaIA | FalloIA> {
   const system = await getPromptText('dashboard.hoja-ia.system', HOJA_IA_SYSTEM_TEMPLATE);
-  const user = userDeHoja(pedido);
+  // `soloFuentes` (13/10/2026): el catálogo con sólo esos conjuntos (los que tienen datos, lib/graficos-con-datos-server.ts).
+  const user = opts.soloFuentes ? userDeHoja(pedido, FUENTES.filter((f) => opts.soloFuentes!.includes(f.id))) : userDeHoja(pedido);
   // El pin de /modelos-ia va PRIMERO y el resto atrás (con el pin solo, una key bloqueada dejaba la
   // feature sin nadie a quien caer). Un pin pago (Claude, OpenAI) no se usa: esta feature no cobra.
   const pin = await overrideDeFeature(FEATURE_HOJA_IA).catch(() => null);

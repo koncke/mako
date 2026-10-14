@@ -146,10 +146,10 @@ const NIVELES: readonly Nivel[] = [
   { nombresCampos: false, nombresTipos: false },
 ];
 
-function armarCatalogo(n: Nivel): string {
+function armarCatalogo(n: Nivel, fuentes: readonly Fuente[]): string {
   return [
     'CONJUNTOS (id «nombre» | fechas | dim = dimensiones | met = métricas; tiempo = dia, semana, mes; ÷ = no se suma):',
-    ...FUENTES.map((f) => `- ${lineaFuente(f, n)}`),
+    ...fuentes.map((f) => `- ${lineaFuente(f, n)}`),
     '',
     'TIPOS (id [lo que pide]):',
     ...TIPOS.map((t) => `- ${lineaTipo(t, n)}`),
@@ -161,18 +161,22 @@ function armarCatalogo(n: Nivel): string {
  * cada uno. Ids y nombres, nada de datos. Si ni el más apretado entra en el tope, viaja igual (y el test
  * avisa): mejor sin Groq que sin hoja.
  */
-export function catalogoParaIA(): string {
+export function catalogoParaIA(fuentes: readonly Fuente[] = FUENTES): string {
   let ultimo = '';
   for (const n of NIVELES) {
-    ultimo = armarCatalogo(n);
+    ultimo = armarCatalogo(n, fuentes);
     if (ultimo.length <= TOPE_CATALOGO_CARACTERES) return ultimo;
   }
   return ultimo;
 }
 
-/** El mensaje user: el catálogo y el pedido, envuelto como dato (nunca como instrucción). */
-export function userDeHoja(pedido: string): string {
-  return `${catalogoParaIA()}\n\nEL PEDIDO:\n${contenidoNoConfiable(pedido.slice(0, TOPE_PEDIDO_IA), 'pedido')}`;
+/**
+ * El mensaje user: el catálogo y el pedido, envuelto como dato (nunca como instrucción). `fuentes`: los conjuntos que
+ * ve el modelo (13/10/2026: al sumar gráficos a una plantilla, SÓLO los que tienen datos en ese negocio,
+ * lib/graficos-con-datos-server.ts). Sin esto, todos.
+ */
+export function userDeHoja(pedido: string, fuentes: readonly Fuente[] = FUENTES): string {
+  return `${catalogoParaIA(fuentes)}\n\nEL PEDIDO:\n${contenidoNoConfiable(pedido.slice(0, TOPE_PEDIDO_IA), 'pedido')}`;
 }
 
 // ── El lugar: la grilla de 12 columnas, por código ──────────────────────────────────────────

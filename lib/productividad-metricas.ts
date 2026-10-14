@@ -5,8 +5,8 @@
 // estancadas y deadlines corridos. Vivía en el `useMemo` de GraphicsView
 // (app/plan/board/Graphics.tsx, `'use client'`) y se mudó acá el 11/10/2026 para que
 // el Dashboard cuente EXACTAMENTE igual: lo usan los conjuntos `proyectos` y
-// `ejecucion` (lib/graficos-datos-extra.ts) y los bloques de la plantilla
-// «Productividad» (lib/graficos-bloques-extra.ts). Un `.tsx` con `'use client'` no le
+// `ejecucion` (lib/graficos-datos-extra.ts; hasta v5, también los bloques de la plantilla
+// «Productividad»). Un `.tsx` con `'use client'` no le
 // exporta valores al server (AGENTS.md, «'use client' es una frontera de DATOS»).
 //
 // SIN `server-only`, a propósito (lo usan la pantalla, el server y los tests).

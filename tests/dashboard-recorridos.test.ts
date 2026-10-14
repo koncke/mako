@@ -37,7 +37,7 @@
 //    final, 7 / 0:
 //   · el pop-up abierto que no cuenta como capa           -> 6 / 1  «el de mirar se abre mirando…»
 //   · dash-mako anclado al primer gráfico a secas          -> 6 / 1  «…lo que aparece al pasar el cursor se ve»
-//   · `primerConMako` sin mirar `c.mako !== false`         -> 6 / 1  el mismo
+//   · `primerConMako` sin mirar `conMako(c)` (era `c.mako !== false` hasta el 13/10) -> 6 / 1  el mismo
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -182,9 +182,9 @@ test('mientras corre un recorrido, lo que aparece al pasar el cursor se ve (si n
   // La regla mira `.lk-mako`: el chat de MaKo de cada gráfico sigue envuelto en esa clase (con el botón chico).
   // Desde v5 el botón se apaga por gráfico (punto 15: `mako: false`): el paso se ancla al primer gráfico que
   // LO TIENE. Anclado al primero a secas, con ése apagado el paso se salteaba en silencio.
-  assert.match(EDITOR, /<span className="lk-mako" data-recorrido=\{c\.id === primerConMako \? 'dash-mako' : undefined\}>\s*<ChatMakoGrafico /);
+  assert.match(EDITOR, /<span className="lk-mako" data-recorrido=\{c\.id === primerConMako \? 'dash-mako' : undefined\}[\s\S]{0,400}?<ChatMakoGrafico /);
   const primero = EDITOR.match(/const primerConMako = [^\n]*/)?.[0] ?? '';
-  assert.match(primero, /c\.mako !== false/, 'el paso se ancla a un gráfico con el botón apagado');
+  assert.match(primero, /conMako\(c\)/, 'el paso se ancla a un gráfico con el botón apagado');
   assert.match(primero, /datos\[c\.id\]\?\.resultado/, 'el botón sólo se dibuja con datos: anclado a uno sin datos, el paso apunta a la nada');
   // Y el recorrido sigue montándose en el body como `.mk-rec`, que es lo que esa regla mira.
   const rec = sinComentarios(leer('app/_ui/Recorrido.tsx'));

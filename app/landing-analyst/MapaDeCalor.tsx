@@ -20,8 +20,9 @@
 // Celular y computadora NUNCA se mezclan: son dos páginas distintas.
 //
 // ⚠️ DESDE v5 (12/10/2026) EL DASHBOARD NO USA ESTE COMPONENTE: el gráfico «Mapa de calor de página» lo dibuja
-// app/dashboard/MapaCalor.tsx (en vivo, con el período y los filtros de la hoja). Éste queda sólo para el bloque
-// viejo de la hoja Landing (app/dashboard/bloques/extra/BloquesLanding.tsx); se borra cuando se borre ese bloque.
+// app/dashboard/MapaCalor.tsx (en vivo, con el período y los filtros de la hoja). Éste quedaba sólo para el bloque
+// viejo de la hoja Landing (BloquesLanding.tsx), que se borró el 13/10/2026: HOY NO LO MONTA NADIE. Falta
+// borrarlo con lo que cuelga de él (sus tests y sus rutas /api/landing-analyst/mapa*, si nadie más las usa).
 // El calor y su escala ya son los del Dashboard (app/dashboard/MapaCalorPiezas.tsx).
 // =============================================================================
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';

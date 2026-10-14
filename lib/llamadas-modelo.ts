@@ -2,26 +2,28 @@
 // llamadas-modelo — lo que la hoja Closing sabe de una llamada, sin React y sin server
 // =============================================================================
 // Martín, 11/10/2026: Closing Analyst va COMPLETO al Dashboard y la tab se elimina. Lo que la tab hacía
-// adentro de sus componentes (app/closing/ClosingBrowser.tsx: el nombre de una llamada, la búsqueda y el
-// orden de la lista, el reproductor de Fathom, el salto al segundo, las marcas del transcript, el puntaje
-// que se recalcula al revisar) vive acá, PURO, para que tenga test y para que el nombre de una llamada sea
-// UNO en la lista, en el detalle de un número y en la ficha.
+// adentro de sus componentes (app/closing/ClosingBrowser.tsx: el nombre de una llamada, el reproductor de
+// Fathom, el salto al segundo, las marcas del transcript, el puntaje que se recalcula al revisar) vive acá,
+// PURO, para que tenga test y para que el nombre de una llamada sea UNO en la tabla de llamadas, en el
+// detalle de un número y en la ficha.
 //
-// Lo usan: el bloque «Las llamadas» (./BloquesClosing.tsx), la ficha (./FichaLlamada.tsx), el lector del
-// conjunto `llamadas_venta` (lib/graficos-datos-extra.ts), el del bloque (lib/graficos-bloques-extra.ts) y
-// GET /api/closing/llamada (`fichaDe`).
+// Lo usan: la ficha de una llamada (app/dashboard/entidades/llamada.tsx y ./FichaLlamada.tsx de esa misma
+// carpeta), el botón «Sincronizar llamadas» (app/dashboard/ElementoAccion.tsx), el lector del conjunto
+// `llamadas_venta` (lib/graficos-datos-extra.ts) y GET /api/closing/llamada (`fichaDe`).
+// Hasta el 13/10/2026 vivía en la carpeta `bloques/extra/` del Dashboard, con el bloque «Las llamadas»; los bloques se
+// fueron en v5 y, con ellos, la búsqueda y el orden de su lista (la tabla de llamadas busca con la barra de
+// cualquier tabla). Vive en lib/ porque la leen el server y la pantalla.
 //
 // ⚠️ Sin 'use client' (lo importa el server) y sin server-only (lo importan la pantalla y los tests). Los
 //    tipos de lib/closing.ts entran con `import type`, que se borra al compilar.
 
 import type { ClosingAnalysisRow, ClosingAnnotation, ClosingDim, DimGroup, Tone } from '@/lib/closing';
-import type { FilaLlamada } from '@/lib/graficos-bloques-extra-catalogo';
 import { embedDe } from '@/lib/embeds';
 
 // ── Cuánto se espera a cada ruta ─────────────────────────────────────────────────────────
 
 /**
- * El tope de cada pedido de la ficha y del bloque: el `maxDuration` de su ruta más un margen. Un tope que
+ * El tope de cada pedido de la ficha y de sus tareas: el `maxDuration` de su ruta más un margen. Un tope que
  * vive en la RUTA no protege a la pantalla (AGENTS.md): sin `signal`, una conexión caída deja el giro para
  * siempre. tests/graficos-closing.test.ts lee el `maxDuration` de cada ruta y exige que esto lo supere.
  */
@@ -211,40 +213,9 @@ export function marcasDeTranscript(lineas: ReadonlyArray<LineaTranscript>, anota
   return out;
 }
 
-// ── La lista ─────────────────────────────────────────────────────────────────────────────
+// ── Sincronizar ──────────────────────────────────────────────────────────────────────────
 
-export type OrdenLlamadas = 'fecha' | 'puntaje' | 'duracion';
-export type FiltroLlamadas = { q: string; tipo: 'todas' | 'R1' | 'R2'; closer: string | null; tono: Tone | null; orden: OrdenLlamadas };
-export const FILTRO_INICIAL: FiltroLlamadas = { q: '', tipo: 'todas', closer: null, tono: null, orden: 'fecha' };
-
-const sinAcentos = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
-
-/**
- * La lista con los filtros de la tab: texto (lead, empresa, título y email, sin distinguir acentos), R1 o R2,
- * closer y desenlace; ordenada por fecha (lo más nuevo primero, sin fecha al final), puntaje o duración
- * (lo que no tiene número, al final). El empate lo rompe el id: dos pintadas dan el mismo orden.
- */
-export function filtrarLlamadas(xs: ReadonlyArray<FilaLlamada>, f: FiltroLlamadas): FilaLlamada[] {
-  const q = sinAcentos(f.q.trim());
-  const out = xs.filter((c) => {
-    if (f.tipo !== 'todas' && c.tipo !== f.tipo) return false;
-    if (f.closer != null && c.closer !== f.closer) return false;
-    if (f.tono != null && c.tono !== f.tono) return false;
-    if (q && !sinAcentos([c.nombre, c.empresa, c.titulo, c.email].filter(Boolean).join(' ')).includes(q)) return false;
-    return true;
-  });
-  return out.sort((a, b) => {
-    if (f.orden === 'puntaje') return (b.puntaje ?? -1) - (a.puntaje ?? -1) || b.id - a.id;
-    if (f.orden === 'duracion') return (b.minutos ?? -1) - (a.minutos ?? -1) || b.id - a.id;
-    return (a.fecha == null ? 1 : 0) - (b.fecha == null ? 1 : 0) || String(b.fecha ?? '').localeCompare(String(a.fecha ?? '')) || b.id - a.id;
-  });
-}
-
-/** Los closers de la lista, sin repetir y en orden alfabético (el desplegable de la lista). */
-export const closersDeLista = (xs: ReadonlyArray<FilaLlamada>): string[] =>
-  [...new Set(xs.map((c) => c.closer).filter((c): c is string => !!c))].sort((a, b) => a.localeCompare(b, 'es'));
-
-/** Lo que dice la línea del bloque después de sincronizar (la respuesta de POST /api/closing/sync). */
+/** Lo que dice el aviso del botón «Sincronizar llamadas» al terminar (la respuesta de POST /api/closing/sync). */
 export function textoDeSync(j: { ventas?: unknown; servicio?: unknown; restantes?: unknown }): string {
   const n = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
   return `${n(j.ventas)} de venta · ${n(j.servicio)} de servicio${n(j.restantes) > 0 ? ` · quedan ${n(j.restantes)}` : ''}`;

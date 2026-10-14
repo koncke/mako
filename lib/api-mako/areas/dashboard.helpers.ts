@@ -44,7 +44,7 @@
 import {
   AGRUPAR, CAMPOS, FUENTES, MAX_COMPONENTES, MAX_CONECTORES, MAX_CONTROLES, MAX_HOJAS, MAX_IA_POR_HOJA, PRESETS, TIPOS, TIPOS_CONTROL,
   TIPOS_ELEMENTO, TOPE_PEDIDO_IA, campoDe, camposDeFuente, desglosesPara, dimensionDe, dimensionesPara, emojiValido,
-  esElemento, esGrafico, fuenteDe, metricasPara, nombrePreset, nuevoId, rangoDe, sanearComponente,
+  conMako, esElemento, esGrafico, fuenteDe, metricasPara, nombrePreset, nuevoId, rangoDe, sanearComponente,
   sanearControlVista, sanearControles, sanearElemento, sanearGrafico, sanearHoja, tipoDe, tituloDe,
   type Componente, type ConfigIA, type Conector, type ControlVista, type Elemento, type FiltroDim, type Fuente, type Grafico, type Hoja,
   type Preset, type Tablero,
@@ -287,8 +287,10 @@ export type EntradaGrafico = {
   tipo?: string; conjunto?: string; metricas?: string[]; dimension?: string | null; desglose?: string | null;
   fecha?: string; periodo?: string; desde?: string; hasta?: string; titulo?: string; subtitulo?: string;
   limite?: number; comparar?: boolean; orden?: 'asc' | 'desc';
-  /** El botón de MaKo de la tarjeta (v5): `false` lo apaga; sin esto, como estaba (ausente = prendido). */
+  /** El botón de MaKo de la tarjeta: `true` lo pone, `false` lo saca; sin esto, como estaba (`conMako`: ausente = lo del tipo). */
   mako?: boolean;
+  /** Lo que el botón de MaKo responde primero al abrirse (`makoIA.pedido`, 13/10/2026); '' lo saca. */
+  pedidoMako?: string;
 };
 export type GraficoArmado = { ok: true; grafico: Grafico; notas: string[] } | ({ ok: false } & ErrorPedido);
 
@@ -392,8 +394,10 @@ export function armarGrafico(e: EntradaGrafico, base: Grafico | null, lugar: { x
     ...(e.limite !== undefined ? { limite: e.limite } : {}),
     ...(e.comparar !== undefined ? { comparar: e.comparar } : {}),
     ...(e.orden !== undefined ? { ordenAsc: e.orden === 'asc' } : {}),
-    // El botón de MaKo: sólo se guarda apagado (`sanearGrafico`); prenderlo es sacar la marca.
+    // El botón de MaKo: desde el 13/10/2026 se guardan los dos valores (ausente = lo del tipo, `conMako`).
     ...(e.mako !== undefined ? { mako: e.mako } : {}),
+    // Lo que responde primero: cambia el pedido y conserva las sugerencias que tenía (`sanearGrafico` lo recorta).
+    ...(e.pedidoMako !== undefined ? { makoIA: { pedido: e.pedidoMako, sugerencias: base?.makoIA?.sugerencias ?? [] } } : {}),
     // Un tipo nuevo cambia el orden de las métricas: la de orden se reinicia si ya no está.
     ordenMetrica: base?.ordenMetrica && mets.includes(base.ordenMetrica) ? base.ordenMetrica : null,
     ...(base ? {} : { x: lugar.x, y: lugar.y, w: info.w, h: info.h }),
@@ -1176,7 +1180,8 @@ function extrasDeGrafico(g: Grafico): string {
   const out: string[] = [];
   const p = periodoDeGrafico(g);
   if (p.periodo !== 'auto') out.push(`período propio: ${periodoEnPalabras(p.periodo, p.desde, p.hasta)}`);
-  if (g.mako === false) out.push('sin el botón de MaKo');
+  // Desde el 13/10/2026 lo de entrada es SIN botón salvo las tendencias, los embudos y la dispersión: se dice cuando lo LLEVA.
+  if (conMako(g)) out.push(g.makoIA?.pedido ? `con el botón de MaKo (responde: ${comillas(g.makoIA.pedido.slice(0, 120))})` : 'con el botón de MaKo');
   if (g.popup) out.push(`al hacer clic abre un pop-up${g.popup.titulo ? ` ${comillas(g.popup.titulo)}` : ''} (${g.popup.componentes.length} ${g.popup.componentes.length === 1 ? 'pieza' : 'piezas'}, se arma en la pantalla)`);
   else if (g.alClic === 'nada') out.push('el clic no abre nada');
   return out.length ? ` · ${out.join(' · ')}` : '';

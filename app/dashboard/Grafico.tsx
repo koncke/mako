@@ -44,7 +44,7 @@ import {
   ordenarPorValores, textoConMuestra, usaPaneles,
 } from '@/lib/graficos-gordo';
 import dynamic from 'next/dynamic';
-import { chipComparar, fmtValor, histograma, OTROS, type FilaResultado, type Resultado } from '@/lib/graficos-agregar';
+import { chipComparar, fmtValor, histograma, OTROS, sinDatos, type FilaResultado, type Resultado } from '@/lib/graficos-agregar';
 import { EstilosGraficos } from './graficos/estilos';
 import { AreaMedida } from './graficos/medida';
 import { CapaEtiquetas, type SerieEtiqueta } from './graficos/Etiquetas';
@@ -91,9 +91,8 @@ function Mensaje({ children }: { children: ReactNode }) {
   return <div style={{ flex: 1, display: 'grid', placeItems: 'center', color: 'var(--faint)', fontSize: 'var(--fs-md)', textAlign: 'center', padding: 8 }}>{children}</div>;
 }
 
-function vacio(r: Resultado): boolean {
-  return !r.filas.length ? r.totales.every((v) => !v) : r.filas.every((f) => f.valores.every((v) => !v));
-}
+/** «Sin datos en este período»: la MISMA regla con que una plantilla se arma sin gráficos vacíos (lib/graficos-agregar.ts). */
+const vacio = sinDatos;
 
 /** Una caja que abre algo al clic (y con Enter o espacio). Sin `al`, la misma caja muda: nada de mano. */
 function Clic({ al, etiqueta, estilo, children }: { al: (() => void) | null; etiqueta: string; estilo: CSSProperties; children: ReactNode }) {
