@@ -106,7 +106,7 @@ import { getUltimoInsightGenerado, faltantesParaInsights, type LeadInsightGen } 
 import { duracionDeReunionEnAgendaMin, moverEventoDeReunion, permisoCalendarioGoogle } from '@/lib/google-calendar';
 import { motivoFijo } from '@/lib/agenda-sin-ia';
 import { etapaVigenteDe } from '@/lib/funnel-etapas';
-import { DURACION_DEFECTO_MIN, instanteDeLocal } from './horarios-respuesta';
+import { DURACION_DEFECTO_MIN, instanteDeLocal, instanteDeReunionManual } from './horarios-respuesta';
 import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 import type { Step } from '@/lib/stage-requirements';
 import { getSupabaseServer } from '@/lib/supabase';
@@ -333,6 +333,9 @@ export type StageMoveCuota = { monto: number; fecha: string | null };
 export type StageMoveData = {
   fechaJ1?: string | null;
   fechaJ2?: string | null;
+  /** La hora de la reunión ('HH:MM', opcional), en la zona del negocio (14/10/2026). */
+  horaJ1?: string | null;
+  horaJ2?: string | null;
   fathom?: FathomLink[];
   monto?: number | null;
   motivo?: string | null;
@@ -580,6 +583,17 @@ export async function completeStageMoveAction(id: number, to: string, d: StageMo
     if (meta.closer === undefined && !before?.closer?.trim()) meta.closer = solo;
   }
   if (Object.keys(meta).length) await saveLeadMeta(id, meta);
+  // 1b) La HORA de la reunión cargada a mano (Martín, 14/10/2026): sin `junta_N_at` el «1 h antes» de
+  //     Automations no sale nunca. Va con la fecha que vino, en la zona del negocio (instanteDeReunionManual).
+  if (d.fechaJ1 !== undefined || d.fechaJ2 !== undefined) {
+    const wsHora = await getWorkspaceActual();
+    const tzHora = wsHora != null ? await tzDeWorkspace(wsHora).catch(() => TZ_DEFAULT) : TZ_DEFAULT;
+    const horas: Record<string, string | null> = {};
+    if (d.fechaJ1 !== undefined) horas.junta_1_at = instanteDeReunionManual(d.fechaJ1, d.horaJ1, tzHora, before?.junta_1_at);
+    if (d.fechaJ2 !== undefined) horas.junta_2_at = instanteDeReunionManual(d.fechaJ2, d.horaJ2, tzHora, before?.junta_2_at);
+    const { error: horaErr } = await (await getTenantDb()).from('leads').update(horas).eq('id', id);
+    if (horaErr) console.error(`[leads] la hora de la reunión del lead ${id} no se guardó: ${horaErr.message}`);
+  }
 
   // 2) Asistencias + calificado por updateLead (invariantes + CAPI: marcar
   //    calificado=true manda SubmitApplication + QualifiedLead a Meta, con o sin
