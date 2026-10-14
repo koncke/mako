@@ -2,6 +2,24 @@
 
 <sub>Escrito por el chat que la construyó (cuenta claude3), 12/10/2026 ~07:45 UTC. Primera mano.</sub>
 
+## Medido el 14/10/2026 (chat «Offer», cuenta claude1) — leer antes que lo de abajo
+
+- **Uso real en prod** (`offer_sesiones`, solo lectura): 3 conversaciones en total. Sólo UNA llegó a
+  una oferta: la de **Leila (ws11)**, el 12/10 18:52-19:04 UTC, 36 mensajes, 1 documento, versión 1 en
+  PDF, y nunca la pulió ni la guardó como su oferta. Las de ws1 y ws10 tienen 1 mensaje (se abrieron y
+  nada más). Sólo 1 lead del CRM tiene `oferta_id` puesto.
+- **En esa conversación real se ven aplicadas** las decisiones 7 (foco), 8 (cobro), 10
+  («Lo que propuso MaKo») y 12 («¿La pulimos?» con el PDF de la versión).
+- **Y salió un número imposible**: «Cierras el 170% de las llamadas calificadas», que además le
+  aconsejó subir el precio. Detalle en `docs/hallazgos-offer.md` → «Lo que quedó SIN hacer».
+- **Offer no tiene NINGUNA operación en la API de MaKo** (sólo están las del lead: `oferta_del_lead`,
+  `asignar_oferta_lead`, `crear_oferta_lead`), y la regla de Martín del 13/10 es que toda feature va ahí.
+- **La bitácora de `/admin/dev/products-offers` termina el 12/10 05:48** (el prompt de las 13
+  respuestas): faltan los hitos de lo que se hizo el 12, el 13 y el 14/10, y el pedido literal de la voz
+  de marca.
+- Después de este relevo entraron dos commits de la cuenta claude2 (14/10): la oferta del lead en Pagos
+  (`81a28c18e`, mig 0272) y `/offer?oferta=&funnel=` que abre ESA oferta (`4ca15b9ac`).
+
 ## Dónde quedó
 
 - **v1** (`18b48ced`): `/offer` = chat con IA → diagnóstico de 9 dimensiones → oferta nueva → PDF.
