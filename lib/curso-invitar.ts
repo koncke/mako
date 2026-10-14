@@ -159,7 +159,7 @@ export type DepsInvitar = {
    * es cliente (la regla del kanban) — `null` si no lo es —, y `[]` si todavía no tiene clases. Sin
    * producto: los que VE (`productosDelAlumno`) que tienen clases.
    */
-  cursos(leadId: number, productoId: number | null): Promise<string[] | null>;
+  cursos(leadId: number, productoId: number | null, cualquierEtapa?: boolean): Promise<string[] | null>;
   /** El link de entrada de la versión vigente, CREANDO el acceso si no estaba. `null` = cortado o sin secreto. */
   linkDeEntrada(leadId: number, ws: number, autor: string): Promise<string | null>;
   /** El reclamo sin sesión (compare-and-set). Con `productoId`, «nadie lo invitó a ESE producto». */
@@ -199,6 +199,26 @@ export async function invitarAlCurso(
     canales?: unknown;
     /** A QUÉ curso (ver la cabecera, «A UN CURSO, NO A TODOS»). Sin él, lo de antes. */
     productoId?: number | null;
+    /**
+     * INVITAR A ALGUIEN QUE TODAVÍA NO COMPRÓ. Pedido de Martín el 13/10/2026: «Incluir un buscador
+     * de leads en la ventana de invitación a cursos que permita seleccionar contactos en cualquier
+     * etapa del embudo y no solo los ganados» (Fathom 858545195 @91:40).
+     *
+     * ⚠️ VA EN POSITIVO Y SÓLO LO PONE EL CAMINO MANUAL. Lo levanta una persona que eligió a ese
+     *    lead en un buscador y apretó invitar; el camino AUTOMÁTICO —`crm-curso-al-ganar`, que se
+     *    dispara al pasar a Ganado— nunca lo manda, porque ahí la precondición ES haber ganado.
+     *    Sin este reparto, «ganar» dejaría de ser lo que abre el curso y cualquier webhook podría
+     *    darle acceso a un lead frío sin que nadie lo decidiera.
+     *
+     * ⚠️ Y LEVANTA LAS DOS GUARDAS, que son dos preguntas distintas: estar en Ganado, y ser cliente
+     *    de ESE producto (un ganado de otro producto no es cliente de éste). Levantar sólo la
+     *    primera deja el error «No es cliente de ese producto» y el buscador no invita a nadie —
+     *    que es exactamente la mitad que se olvida.
+     *
+     * Lo que NO levanta, a propósito: el acceso cortado, el email que no sirve y el curso sin
+     * clases. Ésas no son «todavía no compró»: son que no hay a dónde mandarlo.
+     */
+    cualquierEtapa?: boolean;
   },
   deps?: DepsInvitar,
 ): Promise<IntentoInvitar> {
@@ -207,6 +227,11 @@ export async function invitarAlCurso(
   const productoId = p.productoId ?? null;
   const autor = (p.autor ?? '').trim() || 'MaKo';
   const reenviar = p.reenviar === true;
+  const cualquierEtapa = p.cualquierEtapa === true;
+  // ⚠️ Sin producto, el permiso no tiene a qué abrirle: `productosDelAlumno` de alguien que no compró
+  // devuelve vacío y el intento terminaría en «el curso todavía no tiene clases» — un motivo que
+  // manda a cargar clases cuando lo que falta es decir A CUÁL. Se falla acá, antes de escribir nada.
+  if (cualquierEtapa && p.productoId == null) return { tipo: 'error', error: 'Falta a qué curso invitarlo.' };
   const conWhatsapp = canalesDeInvitacion(p.canales).includes('whatsapp');
   try {
     const d = deps ?? (await depsReales());
@@ -215,7 +240,8 @@ export async function invitarAlCurso(
 
       const lead = await d.lead(p.leadId);
       if (!lead) return { tipo: 'error', error: 'Ese cliente no existe.' };
-      if (!lead.ganado) return { tipo: 'no', motivo: 'no-ganado' };
+      // Con el permiso puesto, la etapa del embudo no decide: una persona eligió a este lead.
+      if (!lead.ganado && !cualquierEtapa) return { tipo: 'no', motivo: 'no-ganado' };
 
       const previo = await d.acceso(p.leadId);
       if (previo?.revocado) return { tipo: 'no', motivo: 'cortado' };
@@ -227,7 +253,7 @@ export async function invitarAlCurso(
       if (!reenviar && yaInvitado) return { tipo: 'no', motivo: 'ya-invitado' };
       if (!reenviar && yaEntro) return { tipo: 'no', motivo: 'ya-entro' };
 
-      const cursos = await d.cursos(p.leadId, productoId);
+      const cursos = await d.cursos(p.leadId, productoId, cualquierEtapa);
       if (cursos === null) return { tipo: 'error', error: 'No es cliente de ese producto.' };
       if (!cursos.length) return { tipo: 'no', motivo: 'sin-clases' };
 
@@ -324,9 +350,10 @@ export function aContrato(r: IntentoInvitar): ResultadoInvitarSinSesion {
  * request y sin argumento: en un cron que recorre inquilinos contestaría la del primero para todos.
  */
 async function depsReales(): Promise<DepsInvitar> {
-  const [workspace, datos, alumno, invitaciones, capas, appUrl, productos, entrega] = await Promise.all([
+  const [workspace, datos, alumno, invitaciones, capas, appUrl, entrega, nombreDeCurso] = await Promise.all([
     import('./workspace'), import('./curso-datos'), import('./alumno-acceso'), import('./invitaciones'),
-    import('./capas'), import('./app-url'), import('./productos'), import('@/app/customer-success/entrega'),
+    import('./capas'), import('./app-url'), import('@/app/customer-success/entrega'),
+    import('./curso-nombre-datos'),
   ]);
   return {
     enWorkspace: (ws, fn) => workspace.runWithWorkspace(ws, fn),
@@ -348,21 +375,32 @@ async function depsReales(): Promise<DepsInvitar> {
       const a = await datos.accesoDe(leadId);
       return a ? { revocado: a.revocado, invitacionEnviadaAt: a.invitacionEnviadaAt, ingresos: a.ingresos, productos: a.productos } : null;
     },
-    cursos: async (leadId, productoId) => {
+    cursos: async (leadId, productoId, cualquierEtapa) => {
       // Con producto: ¿es cliente de ése? (la regla del KANBAN, `productosDelCliente`: todavía no lo
       // abre su acceso, justamente se lo está invitando). Sin producto: los que VE (`productosDelAlumno`,
       // la regla del portal), así el mail nunca nombra un curso que su acceso no le abre.
+      //
+      // ⚠️ CON `cualquierEtapa` MANDA EL PRODUCTO ELEGIDO, no de quién es cliente: el caso entero es
+      //    invitar a alguien que todavía NO compró, así que preguntar de qué es cliente devolvería
+      //    `null` siempre y el buscador no invitaría a nadie. Exige el producto a propósito —sin él
+      //    no hay a qué curso invitarlo, y abrirle «los que ve» sería ninguno—.
       const ids = productoId != null
-        ? ((await entrega.productosDelCliente(leadId)).productos.includes(productoId) ? [productoId] : null)
+        ? (cualquierEtapa || (await entrega.productosDelCliente(leadId)).productos.includes(productoId) ? [productoId] : null)
         : await datos.productosDelAlumno(leadId);
       if (ids == null) return null;
       if (!ids.length) return [];
-      const [catalogo, conClases] = await Promise.all([
-        productos.listProductos(false),
-        Promise.all(ids.map(async (id) => ((await datos.clasesDelProducto(id)).length > 0 ? id : null))),
-      ]);
-      const nombre = new Map(catalogo.map((x) => [Number(x.id), (x.nombre ?? '').trim()]));
-      return conClases.filter((id): id is number => id != null).map((id) => nombre.get(id) || 'tu programa');
+      const conClases = (await Promise.all(
+        ids.map(async (id) => ((await datos.clasesDelProducto(id)).length > 0 ? id : null)),
+      )).filter((id): id is number => id != null);
+      if (!conClases.length) return [];
+      // ⚠️ EL NOMBRE SALE DE `nombresDeCursos`, NO DE `productos.nombre`. Pedido de Martín del
+      //    13/10/2026: «los cursos deberían tener el nombre de una OFERTA». Esa función es el ÚNICO
+      //    lugar que lo decide (el título puesto a mano, si no la oferta principal única y activa, si
+      //    no el producto), y ya la usan el portal, el editor, la vista previa y la ficha. Este era el
+      //    último call site que leía la tabla cruda — o sea el único por el que el curso podía
+      //    llamarse distinto en el MAIL que en la pantalla, y el mail es lo que ve el alumno primero.
+      const nombre = await nombreDeCurso.nombresDeCursos(conClases, { conTitulo: true });
+      return conClases.map((id) => nombre.get(id)?.trim() || 'tu programa');
     },
     linkDeEntrada: (leadId, ws, autor) => alumno.linkDeEntradaAlumno(leadId, ws, autor),
     reclamar: (leadId, productoId) => datos.reclamarInvitacion(leadId, new Date(), productoId),

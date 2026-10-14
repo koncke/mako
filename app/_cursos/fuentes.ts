@@ -43,7 +43,20 @@ export type FuenteCurso = {
   pila: string;
   /** La hoja de Google que la trae. `null` = ya está cargada (la del curso de siempre). */
   hoja: string | null;
+  /**
+   * El cajón del menú. Es lo que convierte una lista de 24 en una BIBLIOTECA: sin agrupar, elegir
+   * entre 24 nombres es peor que elegir entre 7 — hay que leerlos todos para descartar.
+   *
+   * ⚠️ «Para títulos» NO es un cajón más: es una ADVERTENCIA. Esas cansan en el tercer párrafo, y la
+   *    fuente del curso pinta TODO (las descripciones, las tareas, el papel de una clase), no sólo los
+   *    títulos. Van últimas y el menú lo dice.
+   */
+  grupo: Grupo;
 };
+
+/** Los cajones, en el orden del menú. */
+export type Grupo = 'Sin serif' | 'Con serif' | 'De máquina' | 'Para títulos';
+export const GRUPOS: readonly Grupo[] = ['Sin serif', 'Con serif', 'De máquina', 'Para títulos'];
 
 const GOOGLE = 'https://fonts.googleapis.com/css2?display=swap&family=';
 
@@ -51,23 +64,126 @@ const GOOGLE = 'https://fonts.googleapis.com/css2?display=swap&family=';
 export const FUENTE_DEFAULT = 'archivo';
 
 /**
- * EL CATÁLOGO, CERRADO. Siete, con buena lectura en párrafos largos (una descripción, una tarea): la
- * neutra de siempre, una clara, una geométrica, una redondeada, una serif, una pensada para baja
- * visión y una de máquina. Una display o una manuscrita se ven bien en un título y cansan en el
- * tercer párrafo; por eso no están.
+ * EL CATÁLOGO, CERRADO: 24 familias en cuatro cajones.
  *
- * ⚠️ El orden es el del menú. El id es lo que está guardado en la base: cambiar uno deja a los cursos
- *    que lo eligieron con la de siempre (el saneo de la lectura lo descarta), sin error.
+ * Nació con SIETE el 08/10/2026, elegidas por lectura en párrafos largos. El 13/10 Martín pidió «una
+ * biblioteca de tipografías seleccionables dentro de la configuración visual del módulo de cursos»
+ * (Fathom 858545195 @88:21), así que creció — y con el buscador y los cajones de abajo, que es lo que
+ * hace que 24 se elijan más rápido que 7 sin ellos.
+ *
+ * ⚠️ LAS SIETE PRIMERAS CONSERVAN SU `id` Y SU ORDEN. El id es lo que está guardado en
+ *    `curso_estilo`: renombrar uno deja a los cursos que lo eligieron con la de siempre, sin error y
+ *    sin que nadie se entere.
+ *
+ * ⚠️ Y LA DE SIEMPRE SIGUE PRIMERA, pero ya nadie depende de esa POSICIÓN: el default se nombra
+ *    (`FUENTE_DEFAULT`). Antes el selector hacía `f.id === FUENTES[0].id` para mandar `null`, así que
+ *    agregar una familia arriba habría dejado de borrar la fila — el curso quedaría guardando «archivo»
+ *    como si fuera una elección, y «nadie lo eligió» y «eligió lo de siempre» volverían a mezclarse.
+ *
+ * ⚠️ AHORA SÍ ENTRAN LAS FAMILIAS DE LA HOJA DEL ORIGEN (Hanken, Bricolage, Instrument Serif), y es una
+ *    PREMISA QUE CAMBIÓ: estaban excluidas porque sus `@font-face` apuntaban a `/_next/static/media/*`
+ *    del sitio de origen y daban 404, así que elegirlas dibujaba la de respaldo sin decirlo. El
+ *    13/10/2026 esos 38 `@font-face` se sacaron de `public/cono-doc/ugc.css` y la hoja los pide a
+ *    Google (hallazgos-conocimiento, «La hoja del curso pedía 38 fuentes al dominio del ORIGEN»).
+ *    Igual van con su `hoja` propia y no con `null`: el selector y el curso se dibujan en pantallas
+ *    donde la hoja del material puede no estar cargada.
+ *
+ * ⚠️ Lo que NO entra: nada que no esté en Google Fonts (la única forma de cargarla es una hoja
+ *    pública), y ninguna familia con menos de 400/700 reales — una negrita sintética en un título se
+ *    ve sucia y no hay forma de saberlo desde acá.
  */
 export const FUENTES: readonly FuenteCurso[] = [
-  { id: 'archivo', nombre: 'Archivo', tipo: 'Neutra', pila: '"Archivo", "Archivo Fallback", system-ui, sans-serif', hoja: null },
-  { id: 'inter', nombre: 'Inter', tipo: 'Clara', pila: '"Inter", system-ui, "Segoe UI", sans-serif', hoja: `${GOOGLE}Inter:ital,wght@0,400..800;1,400..800` },
-  { id: 'poppins', nombre: 'Poppins', tipo: 'Geométrica', pila: '"Poppins", system-ui, "Segoe UI", sans-serif', hoja: `${GOOGLE}Poppins:ital,wght@0,400;0,600;0,700;0,800;1,400;1,600` },
-  { id: 'nunito', nombre: 'Nunito', tipo: 'Redondeada', pila: '"Nunito", system-ui, "Segoe UI", sans-serif', hoja: `${GOOGLE}Nunito:ital,wght@0,400..900;1,400..900` },
-  { id: 'lora', nombre: 'Lora', tipo: 'Serif', pila: '"Lora", Georgia, "Times New Roman", serif', hoja: `${GOOGLE}Lora:ital,wght@0,400..700;1,400..700` },
-  { id: 'atkinson', nombre: 'Atkinson', tipo: 'Muy legible', pila: '"Atkinson Hyperlegible", system-ui, "Segoe UI", sans-serif', hoja: `${GOOGLE}Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700` },
-  { id: 'maquina', nombre: 'Plex Mono', tipo: 'De máquina', pila: '"IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace', hoja: `${GOOGLE}IBM+Plex+Mono:ital,wght@0,400;0,600;0,700;1,400` },
+  // ── Sin serif ───────────────────────────────────────────────────────────────────────────
+  { id: 'archivo', nombre: 'Archivo', tipo: 'Neutra', grupo: 'Sin serif', pila: '"Archivo", "Archivo Fallback", system-ui, sans-serif', hoja: null },
+  { id: 'inter', nombre: 'Inter', tipo: 'Clara', grupo: 'Sin serif', pila: '"Inter", system-ui, "Segoe UI", sans-serif', hoja: `${GOOGLE}Inter:ital,wght@0,400..800;1,400..800` },
+  { id: 'poppins', nombre: 'Poppins', tipo: 'Geométrica', grupo: 'Sin serif', pila: '"Poppins", system-ui, "Segoe UI", sans-serif', hoja: `${GOOGLE}Poppins:ital,wght@0,400;0,600;0,700;0,800;1,400;1,600` },
+  { id: 'nunito', nombre: 'Nunito', tipo: 'Redondeada', grupo: 'Sin serif', pila: '"Nunito", system-ui, "Segoe UI", sans-serif', hoja: `${GOOGLE}Nunito:ital,wght@0,400..900;1,400..900` },
+  { id: 'atkinson', nombre: 'Atkinson', tipo: 'Muy legible', grupo: 'Sin serif', pila: '"Atkinson Hyperlegible", system-ui, "Segoe UI", sans-serif', hoja: `${GOOGLE}Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700` },
+  { id: 'hanken', nombre: 'Hanken Grotesk', tipo: 'Sobria', grupo: 'Sin serif', pila: '"Hanken Grotesk", system-ui, "Segoe UI", sans-serif', hoja: `${GOOGLE}Hanken+Grotesk:ital,wght@0,300..900;1,300..900` },
+  { id: 'dmsans', nombre: 'DM Sans', tipo: 'Compacta', grupo: 'Sin serif', pila: '"DM Sans", system-ui, "Segoe UI", sans-serif', hoja: `${GOOGLE}DM+Sans:ital,opsz,wght@0,9..40,400..800;1,9..40,400..800` },
+  { id: 'worksans', nombre: 'Work Sans', tipo: 'De oficio', grupo: 'Sin serif', pila: '"Work Sans", system-ui, "Segoe UI", sans-serif', hoja: `${GOOGLE}Work+Sans:ital,wght@0,400..800;1,400..800` },
+  { id: 'figtree', nombre: 'Figtree', tipo: 'Amable', grupo: 'Sin serif', pila: '"Figtree", system-ui, "Segoe UI", sans-serif', hoja: `${GOOGLE}Figtree:ital,wght@0,400..900;1,400..900` },
+  { id: 'rubik', nombre: 'Rubik', tipo: 'Serena', grupo: 'Sin serif', pila: '"Rubik", system-ui, "Segoe UI", sans-serif', hoja: `${GOOGLE}Rubik:ital,wght@0,400..900;1,400..900` },
+  { id: 'karla', nombre: 'Karla', tipo: 'Con carácter', grupo: 'Sin serif', pila: '"Karla", system-ui, "Segoe UI", sans-serif', hoja: `${GOOGLE}Karla:ital,wght@0,400..800;1,400..800` },
+  { id: 'publicsans', nombre: 'Public Sans', tipo: 'Institucional', grupo: 'Sin serif', pila: '"Public Sans", system-ui, "Segoe UI", sans-serif', hoja: `${GOOGLE}Public+Sans:ital,wght@0,400..800;1,400..800` },
+
+  // ── Con serif ───────────────────────────────────────────────────────────────────────────
+  { id: 'lora', nombre: 'Lora', tipo: 'Serif', grupo: 'Con serif', pila: '"Lora", Georgia, "Times New Roman", serif', hoja: `${GOOGLE}Lora:ital,wght@0,400..700;1,400..700` },
+  { id: 'merriweather', nombre: 'Merriweather', tipo: 'Para leer', grupo: 'Con serif', pila: '"Merriweather", Georgia, "Times New Roman", serif', hoja: `${GOOGLE}Merriweather:ital,wght@0,300..900;1,300..900` },
+  { id: 'sourceserif', nombre: 'Source Serif', tipo: 'De pantalla', grupo: 'Con serif', pila: '"Source Serif 4", Georgia, "Times New Roman", serif', hoja: `${GOOGLE}Source+Serif+4:ital,opsz,wght@0,8..60,400..700;1,8..60,400..700` },
+  { id: 'crimson', nombre: 'Crimson Pro', tipo: 'De libro', grupo: 'Con serif', pila: '"Crimson Pro", Georgia, "Times New Roman", serif', hoja: `${GOOGLE}Crimson+Pro:ital,wght@0,400..700;1,400..700` },
+  { id: 'bitter', nombre: 'Bitter', tipo: 'Robusta', grupo: 'Con serif', pila: '"Bitter", Georgia, "Times New Roman", serif', hoja: `${GOOGLE}Bitter:ital,wght@0,400..800;1,400..800` },
+  { id: 'eb', nombre: 'EB Garamond', tipo: 'Clásica', grupo: 'Con serif', pila: '"EB Garamond", Garamond, Georgia, serif', hoja: `${GOOGLE}EB+Garamond:ital,wght@0,400..700;1,400..700` },
+
+  // ── De máquina ──────────────────────────────────────────────────────────────────────────
+  { id: 'maquina', nombre: 'Plex Mono', tipo: 'De máquina', grupo: 'De máquina', pila: '"IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace', hoja: `${GOOGLE}IBM+Plex+Mono:ital,wght@0,400;0,600;0,700;1,400` },
+  { id: 'jetbrains', nombre: 'JetBrains Mono', tipo: 'De código', grupo: 'De máquina', pila: '"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace', hoja: `${GOOGLE}JetBrains+Mono:ital,wght@0,400..800;1,400..800` },
+  { id: 'spline', nombre: 'Spline Mono', tipo: 'Mono suave', grupo: 'De máquina', pila: '"Spline Sans Mono", ui-monospace, Menlo, Consolas, monospace', hoja: `${GOOGLE}Spline+Sans+Mono:ital,wght@0,300..700;1,300..700` },
+
+  // ── Para títulos ────────────────────────────────────────────────────────────────────────
+  // ⚠️ Cansan en un párrafo largo, y la fuente del curso pinta TODO. El menú lo advierte.
+  { id: 'bricolage', nombre: 'Bricolage', tipo: 'Llamativa', grupo: 'Para títulos', pila: '"Bricolage Grotesque", system-ui, "Segoe UI", sans-serif', hoja: `${GOOGLE}Bricolage+Grotesque:opsz,wght@12..96,400..800` },
+  { id: 'instrument', nombre: 'Instrument', tipo: 'De revista', grupo: 'Para títulos', pila: '"Instrument Serif", Georgia, "Times New Roman", serif', hoja: `${GOOGLE}Instrument+Serif:ital@0;1` },
+  { id: 'fraunces', nombre: 'Fraunces', tipo: 'Expresiva', grupo: 'Para títulos', pila: '"Fraunces", Georgia, "Times New Roman", serif', hoja: `${GOOGLE}Fraunces:ital,opsz,wght@0,9..144,400..900;1,9..144,400..900` },
 ];
+
+/**
+ * El BUSCADOR de la biblioteca. Puro: lo ejecuta el test sin React y sin DOM.
+ *
+ * Sin acentos y sin mayúsculas, y por TÉRMINOS sueltos: buscar «mono maquina» tiene que encontrar
+ * «Plex Mono / De máquina». Un buscador que exige tildes es un buscador que no se usa — la misma
+ * regla que el de Conocimientos (app/conocimientos/CursoPortal.tsx).
+ *
+ * El pajar es el nombre, el tipo Y el grupo: quien escribe «serif» está pidiendo el cajón, no una
+ * familia, y quien escribe «titulo» está pidiendo las de títulos.
+ *
+ * ⚠️ DEVUELVE EL CATÁLOGO ENTERO con la consulta vacía, y NUNCA filtra la elegida hacia afuera: un
+ *    menú donde la fuente que está puesta desaparece al tipear es un menú donde no se puede ver qué
+ *    hay elegido. De eso se encarga `agrupar`, que la vuelve a meter en su cajón.
+ */
+const sinTildes = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
+/**
+ * Con qué palabras se busca cada cajón. NO es el nombre del cajón, y ésa es toda la gracia:
+ * «Sin serif» CONTIENE la palabra «serif», así que buscar `serif` —que es lo que más se va a
+ * buscar— devolvía 19 de 24, o sea nada. Medido al estrenar el buscador.
+ *
+ * Acá cada cajón trae los nombres con los que la gente lo pide, y el de las sans NUNCA la palabra
+ * «serif»: quien escribe `serif` quiere las de remate, y quien escribe `sans` o `palo seco`, las
+ * otras. Lo fija un test.
+ */
+const PALABRAS_GRUPO: Record<Grupo, string> = {
+  'Sin serif': 'sans palo seco',
+  'Con serif': 'serif remate',
+  'De máquina': 'mono monoespaciada maquina',
+  'Para títulos': 'titulos display',
+};
+
+export function buscarFuentes(q: string, lista: readonly FuenteCurso[] = FUENTES): FuenteCurso[] {
+  const terminos = sinTildes(String(q ?? '')).split(/\s+/).filter(Boolean);
+  if (!terminos.length) return [...lista];
+  return lista.filter((f) => {
+    const heno = sinTildes(`${f.nombre} ${f.tipo} ${PALABRAS_GRUPO[f.grupo]}`);
+    return terminos.every((t) => heno.includes(t));
+  });
+}
+
+/**
+ * Lo que dibuja el menú: los cajones en su orden, sin los vacíos, y con la ELEGIDA siempre adentro
+ * aunque la búsqueda la haya dejado afuera (ver arriba).
+ *
+ * Devuelve pares para que el componente no tenga que saber el orden de `GRUPOS`.
+ */
+export function agrupar(fuentes: readonly FuenteCurso[], elegida?: string | null): Array<[Grupo, FuenteCurso[]]> {
+  const dentro = new Set(fuentes.map((f) => f.id));
+  const conLaElegida = elegida && !dentro.has(elegida)
+    ? [...fuentes, ...FUENTES.filter((f) => f.id === elegida)]
+    : [...fuentes];
+  return GRUPOS
+    .map((g): [Grupo, FuenteCurso[]] => [g, conLaElegida.filter((f) => f.grupo === g)])
+    .filter(([, fs]) => fs.length > 0);
+}
+
 
 /**
  * El id guardable, o `null`. EN POSITIVO: sólo un id del catálogo, escrito tal cual. Lo de siempre
