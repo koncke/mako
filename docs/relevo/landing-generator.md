@@ -66,7 +66,45 @@ porque estabamos llegando al limite semanal, dile a esos chats que continuen y c
 - `VERCEL_API_TOKEN` y `VERCEL_TEAM_SLUG` cargadas en producción por la API de Vercel (14/10, `target: production`,
   encrypted). Entran con el próximo deploy de producción.
 
-**En curso (worktrees):** botón de pago por la pasarela de MaKo en `wt-gamma` (rama `gamma-editor`); /l/html en
-makodigital.app + redirecciones con `has: host` en `C:/dev/wt-landing-dom` (rama `landing-dominio`); verificación con
-clics en /landing-generator?ws=3 (producción). Coordinado con «Integraciones» (dueño de lib/cobros.ts: siete reglas para
-llamar a crearCobro desde una ruta pública) y avisado por «CRM» (tocó app/api/track/optin/route.ts, sin pushear).
+**Cerrado el 14/10 a pedido de Martín («que se pushee todo y que los chats cierren»): NO se escribió código.** Los
+agentes no llegaron a arrancar: la guardia de RAM los frenó toda la tanda (entre 1,1 y 2,4 GB libres, con 22 chats abiertos).
+`wt-gamma` (rama `gamma-editor`) quedó al día con origin/main y sin cambios; el worktree `C:/dev/wt-landing-dom` se borró.
+
+**Lo que falta, en este orden (todo sin empezar):**
+1. **Mirarlo con clics** en `/landing-generator?ws=3` (producción): la barra «＋ | ✨ | ▾» en una sección del medio y en la
+   última, el pop-up «¿De qué quieres crearla?» desde el Panel y desde la caja, el agente plegado y reabierto (✨ y Ctrl+E),
+   la tira de miniaturas con 6-9 secciones con imágenes (sin «ResizeObserver loop») y Presentar. Detalle de cada uno en la
+   Tanda 2 y la Tanda 3 de este archivo.
+2. **Botón de pago por la pasarela de MaKo.** Hoy el botón es un nodo `boton` con el link pegado
+   (`lib/editor-landing/catalogo-bloques.ts:121`, `disenos-landing.ts:76-110`, `app/landing-generator/editor/insertar.ts`).
+   Con lo decidido (nombre y email antes del checkout): una ruta pública bajo `/api/`, con su ruta exacta en
+   `lib/rutas-publicas.ts`. Lee la landing PUBLICADA, reusa el lead por `emailComparable` o lo crea por el camino del
+   opt-in (`app/api/track/optin`), y llama a `crearCobro` (`lib/cobros.ts`). Las siete reglas de «Integraciones»:
+   - sólo `productoId` sale de la landing; monto, moneda, montoUsd y altaCapa nunca salen del request;
+   - nunca `altaCapa` desde una landing;
+   - `cobroPendienteDelLead` no filtra por producto: comparar antes de reusar;
+   - ante LeadDuplicadoError, reusar el lead que ya existe;
+   - error genérico al visitante, y el real donde lo lea el dueño;
+   - tope por IP y por email;
+   - nada de server action ni de POST a `app/l/**`.
+3. **/l/html desde makodigital.app** (decidido). El origen va en UN lugar (junto a `lib/app-url.ts` o en
+   `lib/editor-landing/html-libre.ts`). En ese host sólo se sirve `/l/html/*`; el resto sigue con la mudanza 410 de
+   `proxy.ts` (`respuestaMudanza`). Se tocan el iframe de `especificacion.ts` y la CSP de `pagina-publica.ts`; con dominio
+   propio, como hoy. Van también las redirecciones de `next.config.ts` con `has: host` de MaKo y los estáticos en el dominio
+   del cliente (Tanda 2 → «Lo que quedó sin hacer»). ⚠️ Con el token de Vercel ya cargado, «Dominios» queda vivo en el
+   próximo deploy, y esos dos agujeros pasan a ser reales.
+4. **Imágenes por Flow**: medir en ws3 (proporción, costo, semilla, URL vencida) y recién ahí parchear la extensión. Martín
+   dijo «ahora no, más tarde»: preguntarle antes de pasar su extensión a ws3. El plan completo está en el scratchpad de la
+   sesión f3876a09 (`plan-flow-imagenes.md`) y resumido en `docs/hallazgos-editor-landing.md` → «Lo que quedó sin hacer».
+5. **Feedback de las reuniones del 13/10.** Está VALIDADO y es «de punta a punta». Fuente:
+   `C:/Users/marti/Downloads/mako-feedback-y-tareas.md`.
+   a. El importador por URL («Sales Machine») no extrae bien el texto de páginas externas (Fathom 858927676 @43:13).
+   b. Que el análisis de una landing interactúe con lo dinámico (desplegables, botones, calendarios) (858545195 @49:44).
+   c. Discutir el feedback del análisis con MaKo en el chat, y un botón «Aplicar cambios» (858545195 @50:27).
+   d. En «Replicar en el editor», un selector de formato antes de mandar al editor: presentación, landing o página web
+      (858545195 @59:48).
+   «De punta a punta» incluye el código, la capacidad en la API de MaKo si es nueva, tests probados rompiéndolos, mirarlo
+   en ws3, el pedido literal en la bitácora de /admin/dev, y el relevo y los hallazgos al cerrar.
+
+Coordinación: «Integraciones» es el dueño de `lib/cobros*` (no tocarlo). «CRM» tocó `app/api/track/optin/route.ts`
+(guarda `leads.optin_respuestas`, mig 0274) en su worktree.
