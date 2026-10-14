@@ -2,13 +2,14 @@
 // comun — lo que comparten las piezas de la copia de Google Calendar: de qué calendario es cada renglón y su color
 // =============================================================================
 // En la barra lateral, como en Google, cada renglón cuelga de UN calendario con su casilla de color:
-//   · «Mis calendarios» (MaKo): Publicaciones, Llamadas, Bloques de trabajo, el Plan y los Objetivos — las capas de
+//   · «Mis calendarios» (MaKo): Publicaciones, Llamadas, Bloques de trabajo, el Plan, Se repite, Cobros y los Objetivos — las capas de
 //     siempre (lib/calendario-modelo.ts), con un color de la paleta de Google para que se lean como calendarios.
 //   · La cuenta de Google conectada: cada uno de sus calendarios, con el color que le dio Google.
 // La llave de un calendario es `mk:<capa>` o `g:<id de Google>`, y es lo que se prende y apaga.
 // =============================================================================
 
 import { CAPAS_CALENDARIO, type CapaCalendario, type ItemCalendario } from '@/lib/calendario-modelo';
+import { ROTULO_RECURRENTE } from '@/lib/plan-recurrentes';
 
 /** El color de cada calendario de MaKo, de la paleta de eventos de Google (los mismos hex que su web). */
 export const COLOR_CAPA: Record<CapaCalendario, string> = {
@@ -16,6 +17,8 @@ export const COLOR_CAPA: Record<CapaCalendario, string> = {
   llamadas: '#039be5',
   bloques: '#33b679',
   plan: '#f4511e',
+  recurrentes: '#7986cb',
+  cobros: '#0b8043',
   objetivos: '#616161',
 };
 
@@ -25,6 +28,8 @@ export const NOMBRE_CAPA: Record<CapaCalendario, string> = {
   llamadas: 'Llamadas',
   bloques: 'Bloques de trabajo',
   plan: 'Plan',
+  recurrentes: ROTULO_RECURRENTE,
+  cobros: 'Cobros',
   objetivos: 'Objetivos',
 };
 

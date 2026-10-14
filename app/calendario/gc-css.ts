@@ -65,7 +65,9 @@ export const CSS_GC = `
 .gc-casilla{width:18px;height:18px;flex:none;border-radius:3px;border:2px solid;display:grid;place-items:center;color:#fff}
 .gc-cal-nombre{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .gc-aviso{margin:4px 12px 0 26px;font-size:12px;line-height:1.45;color:var(--gc-gris)}
-.gc-aviso a{color:var(--gc-azul);font-weight:500;text-decoration:none}
+.gc-aviso a,.gc-aviso-boton{color:var(--gc-azul);font-weight:500;text-decoration:none}
+.gc-aviso-boton{appearance:none;background:none;border:0;padding:0;margin:0;font:inherit;cursor:pointer;text-align:inherit;display:inline}
+.gc-aviso-boton:hover{text-decoration:underline}
 .gc-aviso--mal{color:var(--warn)}
 .gc-hoja{flex:1;min-width:0;background:var(--gc-hoja);border-radius:24px 24px 0 0;margin-right:16px;display:flex;flex-direction:column;overflow:hidden}
 .gc-hoja[data-lado="no"]{margin-left:16px}

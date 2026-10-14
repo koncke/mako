@@ -44,7 +44,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Button } from '@/app/_ui';
-import Link from '@/app/_ui/Link';
+import { LinkIntegracion } from '@/app/_components/ConectarIntegracion';
 import { MakoLogo } from '@/app/_components/MakoBrand';
 import { avisarCambioEtiquetas } from '@/app/_components/etiquetas-cliente';
 import { transcribirNota } from '@/app/_components/useDictar';
@@ -485,12 +485,16 @@ function FasesIA({ estado, segundos, onCancelar }: {
   );
 }
 
-/** El error, con la palabra «Integraciones» convertida en el link a donde se arregla (si lo hay). */
+/**
+ * El error, con la palabra «Integraciones» convertida en el lugar donde se arregla (si lo hay). Un link que nombra una
+ * integración (`/integraciones?abrir=gemini`) abre SU modal acá (`LinkIntegracion`, 14/10/2026: «para una integración
+ * jamás se debe salir de la tab»); cualquier otro sigue siendo un link.
+ */
 function TextoConLink({ texto, link }: { texto: string; link?: string }) {
   if (!link) return <>{texto}</>;
   const i = texto.indexOf('Integraciones');
-  if (i < 0) return <>{texto} <Link href={link} style={S.link}>Abrir</Link></>;
-  return <>{texto.slice(0, i)}<Link href={link} style={S.link}>Integraciones</Link>{texto.slice(i + 'Integraciones'.length)}</>;
+  if (i < 0) return <>{texto} <LinkIntegracion href={link} style={S.link}>Abrir</LinkIntegracion></>;
+  return <>{texto.slice(0, i)}<LinkIntegracion href={link} style={S.link}>Integraciones</LinkIntegracion>{texto.slice(i + 'Integraciones'.length)}</>;
 }
 
 // ── «Pídeselo a MaKo»: la caja del modal «Nueva automatización» ─────────────────────────────────────

@@ -31,7 +31,7 @@
 // por una lectura caída).
 
 import { useEffect, useState, type CSSProperties } from 'react';
-import Link from '@/app/_ui/Link';
+import { BotonIntegracion } from '@/app/_components/ConectarIntegracion';
 import { adondeVaLaCalificacionAction } from '../calificacion-actions';
 import type { AdondeVaLaCalificacion } from '@/lib/meta-capi-payload';
 import type { Lead } from '@/lib/leads';
@@ -64,7 +64,7 @@ export function CalificacionCard({ lead }: { lead: Lead }) {
             {noVino
               ? 'No asistió a la reunión 1, así que no hay nada que calificar.'
               : noLlega
-                ? (<>No le llega a Meta: {adonde === 'sin_pixel' ? 'falta el píxel' : 'falta el token'}. <Link href="/integraciones?abrir=meta" style={{ color: 'var(--primary)', fontWeight: 600 }}>Conectar →</Link></>)
+                ? (<>No le llega a Meta: {adonde === 'sin_pixel' ? 'falta el píxel' : 'falta el token'}. <BotonIntegracion servicio="meta" style={{ color: 'var(--primary)', fontWeight: 600 }}>Conectar →</BotonIntegracion></>)
                 : 'Meta aprende de esto para traerte leads parecidos.'}
           </div>
         </div>

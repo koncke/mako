@@ -29,6 +29,8 @@ export const RUTAS_REST: readonly RutaRest[] = [
   // ── calendario (13/10/2026) ─────────────────────────────────────────────────
   ['GET', '/calendario/eventos', 'listar_eventos_calendario'],
   ['POST', '/calendario/eventos', 'crear_evento_calendario'],
+  ['GET', '/calendario/links-agenda', 'link_agenda_llamada'],
+  ['GET', '/calendario/recurrentes', 'ver_proximas_recurrentes'],
   // ── general ───────────────────────────────────────────────────────────────
   ['GET', '/general/arranque/pendientes', 'listar_pendientes_arranque'],
   ['GET', '/general/capacidad', 'ver_capacidad_instalada'],

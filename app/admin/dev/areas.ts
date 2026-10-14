@@ -115,14 +115,15 @@ export const AREAS: AreaDev[] = [
   {
     slug: 'calendario', titulo: 'Calendario', familia: 'Operate', grupo: 'General',
     estado: 'listo', verEnApp: '/calendario',
-    alcance: 'La tab Calendario: publicaciones, bloques de trabajo y llamadas propias, con las reuniones del CRM, la agenda de Google, los deadlines del Plan y el Quarter leídos de donde viven. Plantillas de semana y «¿Qué vas a crear hoy?» (MaKo propone, la persona confirma).',
+    alcance: 'La tab Calendario: publicaciones, bloques de trabajo y llamadas propias, con las reuniones del CRM, la agenda de Google, los deadlines del Plan, las próximas veces de lo que se repite, los cobros que vencen y el Quarter leídos de donde viven. Plantillas de semana, «Agendar llamada» (Calendly o Cal.com) y conectar Google sin salir de la tab.',
     vive: [
-      'app/calendario', 'app/api/calendario', 'lib/calendario.ts', 'lib/calendario-modelo.ts', 'lib/calendario-ia.ts',
+      'app/calendario', 'lib/calendario.ts', 'lib/calendario-modelo.ts', 'lib/calendario-google.ts', 'lib/calendario-google-modelo.ts',
+      'lib/agenda-link.ts', 'app/_components/ConectarIntegracion.tsx', 'lib/integracion-en-tab.ts',
       'lib/api-mako/areas/calendario.def.ts', 'lib/api-mako/areas/calendario.run.ts',
       'supabase/migrations/0271_calendario_eventos.sql', 'tests/calendario.test.ts',
     ],
     hallazgos: 'hallazgos-calendario',
-    nota: 'La agenda de Google se DIBUJA y nada más: ni la IA del Calendario ni su área de la API la leen (la agenda no pasa por IA). Y las reuniones del CRM tienen la fecha sin hora (fecha_junta_1) y con hora (junta_1_at) en dos columnas distintas.',
+    nota: 'La agenda de Google se DIBUJA y nada más: su área de la API no la lee (la agenda no pasa por IA; el Calendario ya no tiene IA propia). Las reuniones del CRM tienen la fecha sin hora (fecha_junta_1) y con hora (junta_1_at) en dos columnas, y una cancelada conserva la hora y pierde la fecha.',
   },
   {
     slug: 'foco-hoy', titulo: 'Foco / Hoy', familia: 'Operate', grupo: 'General',

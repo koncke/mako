@@ -129,8 +129,13 @@ test('sin conectar: TODOS apagados, con el motivo y «Conectar» ahí mismo (Ins
   assert.equal(botonesApagados(ms), cuantos(ms, /<button/g) - 1);
   assert.match(ms, /<button type="button" data-conectar-canal="messenger" aria-haspopup="dialog"[^>]*>Conectar<\/button>/);
   assert.doesNotMatch(ms, /href="\/integraciones"/, 'Messenger volvió a mandar a la página de Facebook');
-  // Los pagos: Stripe o Mercado Pago no caben en un modal (siguen en /integraciones, en una ventana).
-  assert.match(eventos('pagos', ESTADO(false)), /<a href="\/integraciones" data-conectar-canal="pagos"/);
+  // Los pagos: desde el 14/10/2026 el modal de Stripe o de Mercado Pago de /integraciones, ABIERTO ACÁ (Martín: «para
+  // una integración jamás se debe salir de la tab»); antes, /integraciones en una ventana emergente. Rotura (base en
+  // verde): volver al `<a href="/integraciones">` → 1 fallo.
+  const pg = eventos('pagos', ESTADO(false));
+  assert.match(pg, /<span data-conectar-canal="pagos">Conectar <button type="button" data-conectar-integracion="stripe"[^>]*>Stripe<\/button>/);
+  assert.match(pg, /<button type="button" data-conectar-integracion="mercadopago"[^>]*>Mercado Pago<\/button>/);
+  assert.doesNotMatch(pg, /\/integraciones/);
   // Con Zernio, «no pude comprobarlo» del canal es casi siempre la key mala o la cuenta pausada: el modal lo
   // resuelve, así que Instagram ofrece «Conectar» también ahí (el email y los pagos no).
   assert.match(eventos('instagram', ESTADO(null)), /data-conectar-canal="instagram"/);

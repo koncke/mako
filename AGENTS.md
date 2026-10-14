@@ -2234,6 +2234,32 @@ largos»). Vale para `tutorial.pasos` y para `AYUDA_CAMPO[*].pasos` (`lib/metodo
 Lo fija `tests/tutoriales-legibles.test.ts`. Su extractor lleva un piso: buscaba 6 espacios, los pasos están a 8, y
 pasaba en verde leyendo cero líneas.
 
+# Para conectar una integración JAMÁS se sale de la tab: el modal de /integraciones se abre AHÍ
+
+Martín, 14/10/2026, textual: **«Esto significa también el botón de "Conectar" si no lo tiene conectado debería saltar el
+pop-up ahí. Esto como regla siempre, en todas las tabs, para una integración jamás se debe salir de la tab.»** Antes lo
+había pedido para Automations: «No crees un nuevo modal de conectar la API, reutiliza exactamente el mismo que ya
+tenemos en integraciones» (12/10/2026).
+
+- **Un «Conectar»/«Reconectar» abre EL modal de la grilla, montado en la tab**, con la pieza única
+  `app/_components/ConectarIntegracion.tsx`: `BotonIntegracion` (un botón), `LinkIntegracion` (un link que arma lib/,
+  como el `/integraciones?abrir=gemini` del fallo de la IA: si nombra una integración abre su modal, si no sigue siendo
+  link) y `useConectarIntegracion()` (para abrirlo sola, como el Calendario al entrar sin Google). Por debajo es
+  `ServicioSuelto` → `ServicioModal`: nunca un segundo formulario para la misma credencial.
+- **Si la tab NECESITA la integración para servir, el modal salta al entrar** (una vez por sesión y por negocio, y se
+  cierra). Molde: `app/calendario/CalendarioApp.tsx`.
+- **Un OAuth que sale de la pestaña vuelve a la MISMA tab** con su `?ws=`: Meta y Google llevan `?volver=`
+  (`volverDeLaPestana`, lib/integracion-en-tab.ts), el paso 1 lo guarda saneado en una cookie y el callback vuelve ahí
+  (`destinoGcal`, lib/gcal-estado.ts). Una tab que ofrece conectar Google monta `VueltaDeGoogle` (o
+  `useVueltaDeGoogle`): con un fallo, el modal se vuelve a abrir diciendo qué pasó.
+- **El modal va por portal al `body` y anotado en la pila** (la pieza ya lo hace): abierto desde adentro de un `<Modal>`
+  o de una tarjeta con su propio `onClick`, un `position: fixed` bajo un `transform` se ubica mal, el Escape lo
+  contestaba el de abajo y el clic burbujeaba por el árbol de React hasta quien lo montó.
+- **Lo que SÍ sigue siendo un link a /integraciones** es ir a MIRAR (el saldo de la IA), la landing y el agente de
+  Claude (su modal necesita datos que sólo arma la página: `SIN_MODAL_SUELTO`) y lo que viaja afuera (un WhatsApp, un
+  mail: ahí no hay tab). `tests/integracion-sin-salir.test.ts` barre `app/` y falla con un link nuevo a /integraciones
+  que no esté en su lista, con su porqué.
+
 # Una creación publicada es la DEFINICIÓN, y cada tipo se enchufa en UN lugar
 
 Las estrellas (pedido de Martín del 13/10/2026: «para que los usuarios hagan sus creaciones y otros usuarios puedan
