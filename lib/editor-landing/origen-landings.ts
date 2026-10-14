@@ -28,7 +28,7 @@
 // =============================================================================
 
 import { PREFIJO_PUBLICO, rutaValida, slugValido } from './doc';
-import { PREFIJO_HTML_LIBRE, RE_ID_BLOQUE, RE_TOKEN_VISTA } from './html-libre';
+import { PREFIJO_HTML_LIBRE, RE_TOKEN_VISTA } from './html-libre';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // El host
@@ -112,24 +112,22 @@ export function slugDeUrlLanding(url: string | null | undefined, bases: readonly
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * La única ruta de /api que contesta en el host de las landings: el cobro de un bloque «Pagar» de
- * una landing (lo construye otro paquete: app/api/landing-generator/pagar + app/l/[slug]/pagar/[bloque]).
- * Sólo POST: la página que lo dispara se sirve en ESTE host y le postea a su propio origen.
+ * Las sub-rutas FIJAS de una landing con un tercer segmento (`/<slug>/<fija>/<id>`, con la forma del
+ * id). HOY NINGUNA. ⚠️ Una carpeta fija nueva bajo `app/l/[slug]/` se suma ACÁ, con su test, el MISMO
+ * día que la carpeta existe: en hola-mako.site sólo se reescribe lo que tiene una forma conocida, y
+ * declarar una que no existe manda al not-found de la APP (con su layout) en el dominio de los clientes.
+ * Pasó con `pagar` (revisión de la tanda 4): el paquete del pago de un bloque todavía no existe, y
+ * `/<slug>/pagar/<id>` se reescribía a una ruta que no hay. Lo mismo vale para su POST
+ * (`/api/landing-generator/pagar`): hoy es un 404 como todo /api. Cuando llegue, lo suma ese paquete
+ * con `Origin` exigido (ausente o igual a `https://<host del pedido>`; 403 si no), tope por IP e
+ * idempotencia por bloque y visitante, y el monto, la moneda y el workspace nunca del pedido.
  */
-export const RUTA_PAGAR_LANDING = '/api/landing-generator/pagar';
-
-/**
- * Las sub-rutas FIJAS de una landing con un tercer segmento (`/<slug>/<fija>/<id>`). Hoy, la página
- * de pago de un bloque (`app/l/[slug]/pagar/[bloque]`). ⚠️ Una carpeta fija nueva bajo
- * `app/l/[slug]/` se suma ACÁ: en hola-mako.site sólo se reescribe lo que tiene una forma conocida
- * (lo demás caería en el not-found de la APP, con su layout, en el dominio de los clientes).
- */
-export const SUBRUTAS_FIJAS: Readonly<Record<string, RegExp>> = Object.freeze({ pagar: RE_ID_BLOQUE });
+export const SUBRUTAS_FIJAS: Readonly<Record<string, RegExp>> = Object.freeze({});
 
 export type DecisionLandings =
   /** Una página de una landing (o del borrador): se REESCRIBE a la ruta interna `destino` (la query viaja). */
   | { tipo: 'reescribir'; destino: string }
-  /** Algo que la página pide a su propio host (el HTML libre, el POST del pago): pasa tal cual. */
+  /** Algo que la página pide a su propio host (hoy, sólo el HTML libre): pasa tal cual. */
   | { tipo: 'pasar' }
   /** Mismo host, otra dirección (mayúsculas, el `/l/…` de antes): 308 a `destino`, con la query. */
   | { tipo: 'redirigir'; destino: string }
@@ -152,16 +150,15 @@ const enMinusculas = (seg: string, vale: (s: string) => boolean): string | null 
 
 /**
  * Qué contesta el proxy a un pedido en hola-mako.site. Sólo se sirven las landings: `/<slug>`,
- * `/<slug>/<ruta>`, `/<slug>/pagar/<bloque>`, el borrador `/vista/<token>[/<ruta>]` y el HTML libre
+ * `/<slug>/<ruta>`, las sub-rutas de `SUBRUTAS_FIJAS` (hoy ninguna), el borrador `/vista/<token>[/<ruta>]` y el HTML libre
  * `/l/html/…` (que se pide RELATIVO desde la página, así que viaja con ella a su host). La raíz manda
- * a MaKo. Nada de la app ni de /api salvo el POST del pago: ni el Pixel ni /api/track pasan por acá
+ * a MaKo. Nada de la app ni de /api: ni el Pixel ni /api/track pasan por acá
  * (la página los pide ABSOLUTOS a hola-mako.com, `lineaCargador` de lib/pixel-cargador.ts).
  *
  * Que la landing EXISTA y esté publicada no se decide acá: lo decide la ruta interna (404 si no).
  */
 export function decidirLandings(pathname: string, metodo: string): DecisionLandings {
   const m = metodo.toUpperCase();
-  if (pathname === RUTA_PAGAR_LANDING) return m === 'POST' ? { tipo: 'pasar' } : { tipo: 'metodo' };
   if (esPrefijo(pathname, '/api')) return { tipo: 'no-existe' };
   if (!LEER.has(m)) return { tipo: 'metodo' };
   if (pathname === '/' || pathname === '') return { tipo: 'raiz' };
@@ -169,7 +166,18 @@ export function decidirLandings(pathname: string, metodo: string): DecisionLandi
   // El HTML libre: la página lo pide relativo (`/l/html/<doc>/<bloque>`) y llega a ESTE host.
   if (esPrefijo(pathname, PREFIJO_HTML_LIBRE)) return { tipo: 'pasar' };
   // `/l/<algo>` es la dirección de la APP: acá es `/<algo>`. Un slug no puede ser `l` (3 o más).
-  if (esPrefijo(pathname, PREFIJO_PUBLICO)) return { tipo: 'redirigir', destino: pathname.slice(PREFIJO_PUBLICO.length) || '/' };
+  // ⚠️ Lo que queda se decide con las MISMAS reglas que una dirección directa, y sólo se redirige a
+  //    una landing (o a la raíz): `/l//evil.com` dejaba `//evil.com`, que en una `Location` es una
+  //    URL relativa al protocolo, o sea OTRO host. Era una redirección abierta con la marca de MaKo, y
+  //    desde la app se llegaba con `hola-mako.com/l/l//evil.com` (revisión de la tanda 4).
+  if (esPrefijo(pathname, PREFIJO_PUBLICO)) {
+    const resto = pathname.slice(PREFIJO_PUBLICO.length) || '/';
+    const d = decidirLandings(resto, m);
+    if (d.tipo === 'reescribir') return { tipo: 'redirigir', destino: resto };
+    if (d.tipo === 'redirigir') return d;
+    if (d.tipo === 'raiz') return { tipo: 'redirigir', destino: '/' };
+    return { tipo: 'no-existe' };
+  }
 
   const segs = pathname.slice(1).split('/');
   if (segs.some((s) => !s)) return { tipo: 'no-existe' };
@@ -197,6 +205,20 @@ export function decidirLandings(pathname: string, metodo: string): DecisionLandi
   const rutaMin = rutaValida(ruta) ? ruta : enMinusculas(ruta, rutaValida);
   if (!slugMin || rutaMin === null) return { tipo: 'no-existe' };
   return { tipo: 'redirigir', destino: `/${slugMin}${rutaMin ? `/${rutaMin}` : ''}` };
+}
+
+/**
+ * La `Location` de un 308 que NO cambia de host: la ruta `destino` más la query, en `https://<host>`
+ * (`host` ya normalizado: minúsculas, sin puerto). null si el resultado cae en OTRO host: `//evil.com`
+ * (y `/\evil.com`, que el parser lee igual) es una URL relativa al protocolo, y `new URL(destino, base)`
+ * la saca de MaKo. Lo usa el proxy en los dos 308 que arma con la ruta del pedido (hola-mako.site y el
+ * dominio de un cliente): aunque una decisión se equivoque mañana, la redirección no sale del host.
+ */
+export function redireccionEnElHost(destino: string, search: string, host: string): string | null {
+  if (!destino.startsWith('/') || !host) return null;
+  let u: URL;
+  try { u = new URL(destino + search, `https://${host}`); } catch { return null; }
+  return u.host === host ? u.toString() : null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

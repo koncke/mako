@@ -23,20 +23,23 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { NextRequest } from 'next/server';
+import { tryToParsePath } from 'next/dist/lib/try-to-parse-path';
 
 process.env.NEXT_PUBLIC_SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://proyecto.supabase.co';
 process.env.AUTH_SECRET = process.env.AUTH_SECRET || 'secreto-de-prueba-de-las-landings-0123456789abcdef';
 
 import {
-  HOST_LANDINGS, ORIGEN_LANDINGS, RUTA_PAGAR_LANDING, baseLandingsPara, basesLandingsPara, decidirLEnApp, decidirLandings,
-  esHostDeLandings, slugDeUrlLanding, urlLandingEn, urlVistaEn, type DecisionLandings,
+  HOST_LANDINGS, ORIGEN_LANDINGS, SUBRUTAS_FIJAS, baseLandingsPara, basesLandingsPara, decidirLEnApp, decidirLandings,
+  esHostDeLandings, redireccionEnElHost, slugDeUrlLanding, urlLandingEn, urlVistaEn, type DecisionLandings,
 } from '../lib/editor-landing/origen-landings';
 import {
-  HEADER_DOMINIO, PATRON_HOSTS_DE_LA_APP, PATRON_HOSTS_DE_MAKO, decidirHost, tipoDeHost,
+  HEADER_DOMINIO, PATRON_HOSTS_DE_LA_APP, PATRON_HOSTS_DE_MAKO, decidirHost, tipoDeHost, urlLandingVigente,
 } from '../lib/editor-landing/dominios-reglas';
+import { normalizarUrl as normalizarUrlPagina } from '../lib/landing-paginas';
+import { normalizarUrl as normalizarUrlAnalisis } from '../lib/landing-url';
 import { APP_BASE_URL, baseLandings, basesLandings, urlPublicaLanding, urlVistaLanding } from '../lib/app-url';
 import { CABECERAS_HTML_LIBRE } from '../lib/editor-landing/html-libre';
 import { armarDocumento, responderPublico, type LecturaPublica } from '../lib/editor-landing/pagina-publica';
@@ -84,7 +87,6 @@ test('decidirLandings: las landings, su borrador y su HTML libre; la raíz manda
   const casos: [string, string, DecisionLandings][] = [
     ['/mi-landing', 'GET', { tipo: 'reescribir', destino: '/l/mi-landing' }],
     ['/mi-landing/gracias', 'HEAD', { tipo: 'reescribir', destino: '/l/mi-landing/gracias' }],
-    ['/mi-landing/pagar/bloque_1-A', 'GET', { tipo: 'reescribir', destino: '/l/mi-landing/pagar/bloque_1-A' }],
     // `/todo` y `/leads` son slugs válidos: con las redirecciones de next.config SIN host se iban a la app.
     ['/todo', 'GET', { tipo: 'reescribir', destino: '/l/todo' }],
     ['/leads', 'GET', { tipo: 'reescribir', destino: '/l/leads' }],
@@ -94,16 +96,31 @@ test('decidirLandings: las landings, su borrador y su HTML libre; la raíz manda
     ['/Mi-Landing', 'GET', { tipo: 'redirigir', destino: '/mi-landing' }],
     ['/Mi-Landing/Gracias', 'GET', { tipo: 'redirigir', destino: '/mi-landing/gracias' }],
     ['/mi-landing/Gracias', 'GET', { tipo: 'redirigir', destino: '/mi-landing/gracias' }],
-    ['/Mi-Landing/pagar/AbC', 'GET', { tipo: 'redirigir', destino: '/mi-landing/pagar/AbC' }],
     [`/vista/${TOKEN}/Gracias`, 'GET', { tipo: 'redirigir', destino: `/vista/${TOKEN}/gracias` }],
     // La dirección de la app (/l/…) es la de acá sin el /l.
     ['/l/mi-landing/gracias', 'GET', { tipo: 'redirigir', destino: '/mi-landing/gracias' }],
     ['/l', 'GET', { tipo: 'redirigir', destino: '/' }],
+    ['/l/', 'GET', { tipo: 'redirigir', destino: '/' }],
+    [`/l/vista/${TOKEN}`, 'GET', { tipo: 'redirigir', destino: `/vista/${TOKEN}` }],
+    // Lo que queda después de /l se decide como una dirección directa: mayúsculas en UN salto, y
+    // nada que no sea una landing. `//evil.com` en una Location es OTRO host (la redirección abierta
+    // de la revisión de la tanda 4); `/l/\evil.com` llega al proxy como `/l//evil.com`.
+    ['/l/Mi-Landing', 'GET', { tipo: 'redirigir', destino: '/mi-landing' }],
+    ['/l/l/mi-landing', 'GET', { tipo: 'redirigir', destino: '/mi-landing' }],
+    ['/l//evil.com', 'GET', { tipo: 'no-existe' }],
+    ['/l//evil.com/x', 'HEAD', { tipo: 'no-existe' }],
+    ['/l/\\evil.com', 'GET', { tipo: 'no-existe' }],
+    ['/l/l//evil.com', 'GET', { tipo: 'no-existe' }],
+    ['/l/%2F%2Fevil.com', 'GET', { tipo: 'no-existe' }],
+    ['/l/api/track/optin', 'GET', { tipo: 'no-existe' }],
+    ['/l/crm/12', 'GET', { tipo: 'no-existe' }],
     // Lo que la página le pide a su propio host.
     ['/l/html/12/h1abc', 'GET', { tipo: 'pasar' }],
     ['/l/html/12/h1abc', 'POST', { tipo: 'metodo' }],
-    [RUTA_PAGAR_LANDING, 'POST', { tipo: 'pasar' }],
-    [RUTA_PAGAR_LANDING, 'GET', { tipo: 'metodo' }],
+    // El pago de un bloque todavía no existe (ni la página ni su POST): no se declara en el proxy.
+    ['/api/landing-generator/pagar', 'POST', { tipo: 'no-existe' }],
+    ['/mi-landing/pagar/bloque_1-A', 'GET', { tipo: 'no-existe' }],
+    ['/Mi-Landing/pagar/AbC', 'GET', { tipo: 'no-existe' }],
     ['/', 'GET', { tipo: 'raiz' }],
     // Nada de /api (el Pixel y /api/track van ABSOLUTOS a hola-mako.com) ni de la app.
     ['/api/track/optin', 'POST', { tipo: 'no-existe' }],
@@ -127,6 +144,19 @@ test('decidirLandings: las landings, su borrador y su HTML libre; la raíz manda
     ['/_next/static/x.js', 'GET', { tipo: 'no-existe' }],
   ];
   for (const [ruta, metodo, esperado] of casos) assert.deepEqual(decidirLandings(ruta, metodo), esperado, `${metodo} ${ruta}`);
+  // Una sub-ruta fija se declara el día que su carpeta existe (`pagar` se declaró antes: revisión de la tanda 4).
+  for (const k of Object.keys(SUBRUTAS_FIJAS)) assert.ok(existsSync(join(RAIZ, 'app', 'l', '[slug]', k)), `SUBRUTAS_FIJAS declara «${k}» y no hay app/l/[slug]/${k}`);
+});
+
+test('redireccionEnElHost: un 308 nunca sale del host del pedido (`//otro.com` es OTRO host en una Location)', () => {
+  assert.equal(redireccionEnElHost('/mi-landing', '?utm_source=fb', 'hola-mako.site'), 'https://hola-mako.site/mi-landing?utm_source=fb');
+  assert.equal(redireccionEnElHost('/', '', 'promo.tunegocio.com'), 'https://promo.tunegocio.com/');
+  // Raro pero del mismo host: se queda.
+  assert.equal(redireccionEnElHost('/%2F%2Fevil.com', '', 'hola-mako.site'), 'https://hola-mako.site/%2F%2Fevil.com');
+  for (const d of ['//evil.com', '//evil.com/x', '/\\evil.com', '\\\\evil.com', 'https://evil.com/', 'evil.com', '', '//hola-mako.site.evil.com']) {
+    assert.equal(redireccionEnElHost(d, '?a=1', 'hola-mako.site'), null, JSON.stringify(d));
+  }
+  assert.equal(redireccionEnElHost('/x', '', ''), null, 'sin host no hay a dónde');
 });
 
 test('decidirLEnApp: en la app, /l/<…> se muda a hola-mako.site con la query; /l/html deja de servirse', () => {
@@ -138,7 +168,7 @@ test('decidirLEnApp: en la app, /l/<…> se muda a hola-mako.site con la query; 
   assert.deepEqual(decidirLEnApp('/l/html', ''), { tipo: 'no-existe' });
   for (const p of ['/landing-generator', '/login', '/', '/lx/a', '/api/l/x']) assert.deepEqual(decidirLEnApp(p, ''), { tipo: 'seguir' }, p);
   // Ida y vuelta: lo que la app manda a hola-mako.site es lo que hola-mako.site reescribe a la MISMA ruta interna.
-  for (const interna of ['/l/mi-landing', '/l/mi-landing/gracias', `/l/vista/${TOKEN}/gracias`, '/l/mi-landing/pagar/b1']) {
+  for (const interna of ['/l/mi-landing', '/l/mi-landing/gracias', `/l/vista/${TOKEN}/gracias`]) {
     const d = decidirLEnApp(interna, '');
     assert.equal(d.tipo, 'mudar');
     const u = new URL((d as { destino: string }).destino);
@@ -165,6 +195,33 @@ test('la base: hola-mako.site en producción, <app>/l en local y en los previews
   assert.equal(slugDeUrlLanding('https://hola-mako.site/vista', bases), null, 'un reservado no es un slug');
   assert.equal(slugDeUrlLanding('https://otra.com/oferta', bases), null);
   assert.equal(slugDeUrlLanding(null, bases), null);
+});
+
+test('urlLandingVigente: la página de antes de la mudanza es la de hoy (para comparar, las DOS puntas)', () => {
+  const casos: [string, string][] = [
+    ['https://hola-mako.com/l/mi-oferta', 'https://hola-mako.site/mi-oferta'],
+    ['https://www.hola-mako.com/l/mi-oferta/gracias?plan=pro', 'https://hola-mako.site/mi-oferta/gracias?plan=pro'],
+    ['http://hola-mako.com/l/mi-oferta', 'https://hola-mako.site/mi-oferta'],
+    ['https://makodigital.app/l/mi-oferta', 'https://hola-mako.site/mi-oferta'],
+  ];
+  for (const [vieja, hoy] of casos) assert.equal(urlLandingVigente(vieja), hoy, vieja);
+  // Todo lo demás, tal cual: la de hoy, un cliente, local, un preview, el HTML libre, el borrador,
+  // mayúsculas, más segmentos, otro puerto, un host parecido, lo que no es una URL.
+  for (const igual of [
+    'https://hola-mako.site/mi-oferta', 'https://tunegocio.com/l/mi-oferta', 'http://localhost:3000/l/mi-oferta',
+    'https://mako-git-x.vercel.app/l/mi-oferta', 'https://hola-mako.com/l/html/12/h1abc', `https://hola-mako.com/l/vista/${TOKEN}`,
+    'https://hola-mako.com/l/Mi-Oferta', 'https://hola-mako.com/l/mi-oferta/pagar/b1', 'https://hola-mako.com:8443/l/mi-oferta',
+    'https://hola-mako.com.evil.tld/l/mi-oferta', 'https://app.hola-mako.com/l/mi-oferta', 'https://hola-mako.com/crm', 'https://hola-mako.com/l', 'no es una url',
+  ]) assert.equal(urlLandingVigente(igual), igual, igual);
+  // El caso de la revisión, con los normalizadores DE VERDAD de cada consumidor: la página que el negocio
+  // declaró antes de la mudanza (`landing.config`, lib/landing-paginas) y la que manda el Pixel hoy;
+  // la URL que analiza el Diagnóstico (lib/landing-url) y una visita medida antes.
+  const declarada = normalizarUrlPagina('https://hola-mako.com/l/mi-oferta/gracias');
+  const pixelHoy = normalizarUrlPagina('https://hola-mako.site/mi-oferta/gracias?utm_source=fb&fbclid=1');
+  assert.ok(declarada && pixelHoy);
+  assert.notEqual(declarada, pixelHoy, 'el control: sin traducir no coinciden');
+  assert.equal(urlLandingVigente(declarada), urlLandingVigente(pixelHoy));
+  assert.equal(urlLandingVigente(normalizarUrlAnalisis('https://www.hola-mako.com/l/mi-oferta/')), urlLandingVigente(normalizarUrlAnalisis('https://hola-mako.site/mi-oferta?utm_source=fb')));
 });
 
 test('lib/app-url.ts: la base VIGENTE sale de VERCEL_ENV, y en el navegador tira (ahí no se sabe el entorno)', () => {
@@ -260,7 +317,7 @@ test('proxy en hola-mako.site: reescribe a app/l sin el workspace ni el dominio,
       const html = pedir('https://hola-mako.site/l/html/12/h1abc', 'GET', { [WS_HEADER]: '9' });
       assert.ok(pasa(html), 'el HTML libre pasa');
       assert.ok(!sobrescritas(html).includes(WS_HEADER));
-      assert.ok(pasa(pedir(`https://hola-mako.site${RUTA_PAGAR_LANDING}`, 'POST', { cookie })), 'el POST del pago pasa');
+      assert.equal(pedir('https://hola-mako.site/api/landing-generator/pagar', 'POST', { cookie }).status, 404, 'ningún POST pasa (el del pago, cuando exista)');
     });
   }
 });
@@ -286,6 +343,12 @@ test('proxy en hola-mako.site: la raíz a MaKo, mayúsculas y /l/… en el mismo
   }
   // `/login` es un slug válido de 5 letras: se reescribe a la landing «login»… que no puede existir (reservado).
   assert.equal(decidirLandings('/login', 'GET').tipo, 'no-existe');
+  // La redirección abierta de la revisión: ninguna de estas sale de hola-mako.site (404, sin Location).
+  for (const u of ['https://hola-mako.site/l//evil.com', 'https://hola-mako.site/l/\\evil.com', 'https://hola-mako.site/l/l//evil.com', 'https://hola-mako.site//evil.com']) {
+    const r = pedir(u);
+    assert.equal(r.status, 404, u);
+    assert.equal(r.headers.get('location'), null, u);
+  }
 });
 
 test('proxy en la app: en producción /l/<…> → 308 a hola-mako.site y /l/html → 404; en local, como siempre', () => {
@@ -301,6 +364,14 @@ test('proxy en la app: en producción /l/<…> → 308 a hola-mako.site y /l/htm
     assert.equal(pedir('https://makodigital.app/crm').status, 410, 'lo demás de un host viejo sigue mudándose');
     // El dominio de un cliente sigue con lo suyo (la ruta interna), no con la mudanza.
     assert.ok(pedir('https://promo.tunegocio.com/').headers.get('x-middleware-rewrite'));
+    // La cadena que arrancaba en la app (`/l/l//evil.com` → hola-mako.site/l//evil.com → evil.com):
+    // el primer salto queda en hola-mako.site y el segundo es un 404.
+    const ida = pedir('https://hola-mako.com/l/l//evil.com');
+    const salto = new URL(ida.headers.get('location') ?? 'http://x/');
+    assert.equal(salto.host, HOST_LANDINGS);
+    const vuelta = pedir(salto.toString());
+    assert.equal(vuelta.status, 404);
+    assert.equal(vuelta.headers.get('location'), null);
   });
   conEntorno(undefined, () => {
     const local = pedir('http://localhost:3000/l/mi-landing');
@@ -321,6 +392,26 @@ test('un prefijo que el matcher del proxy saltea no puede ser un slug (en hola-m
     const seg = a.split('/')[0];
     if (SLUG_RE.test(seg)) assert.ok(SLUGS_RESERVADOS.has(seg), `«${seg}» es un slug válido que el proxy no ve: sus páginas no se reescribirían`);
   }
+  // Comparar el TEXTO de cada alternativa no ve sus comodines: `favicon.ico` sin escapar dejaba afuera
+  // `favicon-ico-promo` (revisión de la tanda 4). Acá el matcher se COMPILA como lo compila Next
+  // (`tryToParsePath`, lo mismo que usa `getMiddlewareMatchers`) y se prueba con slugs que se parecen a
+  // cada alternativa: todo slug que se puede publicar tiene que pasar por el proxy, con y sin página.
+  const re = new RegExp(tryToParsePath(m).regexStr ?? '^$');
+  assert.ok(re.test('/mi-landing') && !re.test('/_next/static/x.js') && !re.test('/cono-tx/a.json'), 'el control: esto no compiló el matcher');
+  const muestras = new Set(['favicon-ico', 'faviconxico-promo', 'favicon-ico-promo', 'vertical', 'cono-txt', 'cono-docs']);
+  for (const a of alternativas) {
+    const base = a.replace(/\\/g, '').replace(/\/$/, '');
+    for (const s of [base, base.replace(/[^a-z0-9-]/g, '-'), base.replace(/[^a-z0-9-]/g, 'x'), `${base.replace(/[^a-z0-9-]/g, '-')}-promo`, `${base.replace(/[^a-z0-9-]/g, 'x')}x`]) {
+      muestras.add(s.replace(/^-+|-+$/g, ''));
+    }
+  }
+  const vistas: string[] = [];
+  for (const s of muestras) {
+    if (!SLUG_RE.test(s) || SLUGS_RESERVADOS.has(s)) continue;
+    vistas.push(s);
+    for (const p of [`/${s}`, `/${s}/gracias`]) assert.ok(re.test(p), `«${p}» es una landing que se puede publicar y el proxy no la ve`);
+  }
+  assert.ok(vistas.includes('favicon-ico') && vistas.length >= 10, `probé ${JSON.stringify(vistas)}`);
 });
 
 // ── 5 · next.config.ts ──────────────────────────────────────────────────────────
@@ -390,8 +481,17 @@ test('la URL pública de una landing sale de UN lugar: nadie usa la ruta interna
   for (const f of archivos) {
     let src: string;
     try { src = sinComentarios(leer(f)); } catch { continue; }
-    // `urlPublica` de doc.ts es la ruta INTERNA (/l/<slug>): sólo el 308 a minúsculas de pagina-publica.
-    if (/import\s*\{[^}]*\burlPublica\b[^}]*\}\s*from\s*'[^']*editor-landing\/doc'/.test(src) && f !== 'lib/editor-landing/pagina-publica.ts') malos.push(`${f}: importa urlPublica`);
+    // `rutaInternaL` de doc.ts es la ruta INTERNA (/l/<slug>): sólo el 308 a minúsculas de pagina-publica.
+    // `urlPublica` era su nombre antes de la mudanza: una rama vieja que lo importe ya no compila, y acá
+    // además se nombra (revisión de la tanda 4: la API de MaKo seguía armando hola-mako.com/l/<slug>).
+    // Adentro de lib/editor-landing se importa como './doc': el patrón de afuera no lo ve (medido al romperlo).
+    const deDoc = f.startsWith('lib/editor-landing/')
+      ? /import\s*\{([^}]*)\}\s*from\s*'(?:[^']*editor-landing\/doc|\.\/doc)'/g
+      : /import\s*\{([^}]*)\}\s*from\s*'[^']*editor-landing\/doc'/g;
+    for (const [, nombres] of src.matchAll(deDoc)) {
+      if (/\burlPublica\b/.test(nombres)) malos.push(`${f}: importa urlPublica (la dirección de antes de la mudanza)`);
+      if (/\brutaInternaL\b/.test(nombres) && f !== 'lib/editor-landing/pagina-publica.ts') malos.push(`${f}: importa rutaInternaL`);
+    }
     if (/\bPREFIJO_PUBLICO\b/.test(src) && !PERMITIDOS_PREFIJO.has(f)) malos.push(`${f}: arma con PREFIJO_PUBLICO`);
     if (/[`'"]\/l\/(?:\$\{|[`'"]\s*\+)/.test(src)) malos.push(`${f}: arma «/l/…» a mano`);
     if (/hola-mako\.(?:com|site)\/l\/\$\{|hola-mako\.site\/\$\{/.test(src)) malos.push(`${f}: escribe el dominio de las landings a mano`);
@@ -422,4 +522,22 @@ test('la URL pública de una landing sale de UN lugar: nadie usa la ruta interna
 //   · `cono-doc` fuera de SLUGS_RESERVADOS                    → 14 / 1 «un prefijo que el matcher del proxy saltea…»
 // Lo que este archivo NO ve y ven otros: esHostDeMako sin hola-mako.site (14 / 0 acá; 22 / 3 en
 // editor-landing-dominios), el prefiltro y urlsAMedir (editor-landing-server), docDeUrl (editor-landing-panel).
+//
+// PROBADO ROMPIÉNDOLO OTRA VEZ (14/10/2026, los arreglos de la revisión adversarial), con el mismo
+// arnés (sha256 igual después de cada una). Base: 17 pass / 0 fail.
+//   · `/l/<…>` sin decidir lo que queda (la línea de antes)   → 15 / 2 «decidirLandings…», «proxy en hola-mako.site: la raíz…»
+//   · redireccionEnElHost sin comparar el host               → 16 / 1 «redireccionEnElHost…»
+//   · las dos juntas (la redirección abierta entera)         → 13 / 4 «decidirLandings…», «redireccionEnElHost…»,
+//     «proxy en hola-mako.site: la raíz…», «proxy en la app…» (la cadena `hola-mako.com/l/l//evil.com`)
+//     ⚠️ Son dos capas a propósito: con sólo la segunda rota el proxy sigue en 404; con sólo la primera,
+//     el 308 queda en hola-mako.site (`/l/l//evil.com` → `/l//evil.com`) y la segunda corta el salto a evil.com.
+//   · `favicon.ico` sin escapar en el matcher                → 16 / 1 «un prefijo que el matcher del proxy saltea…»
+//     (la versión anterior de ese test, que comparaba el TEXTO de cada alternativa, daba verde con el comodín)
+//   · `pagar` de vuelta en SUBRUTAS_FIJAS                     → 16 / 1 «decidirLandings…»
+//   · el POST del pago pasando otra vez                       → 15 / 2 «decidirLandings…», «proxy en hola-mako.site: reescribe…»
+//   · urlLandingVigente traduciendo cualquier host            → 16 / 1 «urlLandingVigente…»
+//   · urlLandingVigente sin sacar el `www.`                   → 16 / 1 «urlLandingVigente…»
+//   · pagina-publica importando `urlPublica` desde './doc'    → 16 / 1 «la URL pública…» (con el patrón de antes: 17 / 0,
+//     el guard sólo miraba `…editor-landing/doc` y adentro de lib/editor-landing se importa como './doc')
+//   · Inicio.tsx importando `urlPublica` / `rutaInternaL`     → 16 / 1 cada una «la URL pública…»
 // =============================================================================

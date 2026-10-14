@@ -427,7 +427,11 @@ export const PREFIJO_PUBLICO = '/l';
  * `urlLandingEn` con la base que da el server (lib/editor-landing/origen-landings.ts). Sólo la usa
  * pagina-publica.ts para el 308 a minúsculas en la misma ruta interna (tests/editor-landing-origen.test.ts
  * lo fija).
+ * ⚠️ Hasta la revisión de la tanda 4 se llamaba `urlPublica(base, slug, ruta)` y armaba la dirección
+ *    que se mostraba. Se renombró para que una rama armada antes de la mudanza (la API de MaKo:
+ *    `urlPublica(APP_BASE_URL, slug)`) NO COMPILE al integrarse, en vez de seguir mandando
+ *    `hola-mako.com/l/<slug>` en silencio. Lo que se muestra, se copia o se manda: `urlPublicaLanding`.
  */
-export function urlPublica(base: string, slug: string, ruta = ''): string {
-  return `${base.replace(/\/$/, '')}${PREFIJO_PUBLICO}/${slug}${ruta ? `/${ruta}` : ''}`;
+export function rutaInternaL(slug: string, ruta = ''): string {
+  return `${PREFIJO_PUBLICO}/${slug}${ruta ? `/${ruta}` : ''}`;
 }

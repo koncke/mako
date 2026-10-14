@@ -9,7 +9,7 @@
 //
 //   · normalizar y validar lo que la persona escribe (`normalizarDominio`, `motivoDominioInvalido`);
 //   · qué hosts son de MaKo (`esHostDeMako`) y, para un host que NO lo es, qué contesta el proxy
-//     (`decidirHost`);
+//     (`decidirHost`); la dirección de hoy de una landing escrita con la de antes (`urlLandingVigente`);
 //   · los registros DNS que hay que cargar, armados con lo que contesta Vercel (`registrosDns`), y el
 //     veredicto de «verificado» (`estaVerificado`, `queFalta`);
 //   · los tipos del pedido y de la respuesta de /api/landing-generator/dominio.
@@ -19,7 +19,7 @@
 // =============================================================================
 
 import { rutaValida, slugValido } from './doc';
-import { esHostDeLandings } from './origen-landings';
+import { ORIGEN_LANDINGS, esHostDeLandings } from './origen-landings';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Los hosts de MaKo
@@ -53,6 +53,29 @@ const esOSubdominioDe = (host: string, base: string): boolean => host === base |
  */
 export function esHostDeMako(host: string): boolean {
   return DOMINIOS_DE_MAKO.some((d) => esOSubdominioDe(host, d)) || esOSubdominioDe(host, SUFIJO_VERCEL) || esHostDeLandings(host);
+}
+
+/**
+ * La dirección de HOY de una página de landing nuestra escrita con la de ANTES de la mudanza (tanda 4):
+ * `https://<dominio de la app>/l/<slug>[/<ruta>]` → `https://hola-mako.site/<slug>[/<ruta>]`, con la
+ * query. Cualquier otra URL vuelve TAL CUAL: la de hoy, el dominio de un cliente, localhost, un preview,
+ * el HTML libre, el borrador, una con mayúsculas o con más segmentos.
+ *
+ * Es para COMPARAR, y se traducen las DOS puntas: una página que el negocio declaró antes de la mudanza
+ * (el producto de una landing, la página de gracias: `landing.config`) o una visita medida antes tiene la
+ * vieja, y lo que manda el Pixel desde el 14/10 tiene la nueva. Sin esto no coinciden y el lead cae en el
+ * embudo del negocio, o la de gracias deja de pasarlo a Ganado, sin un solo error (revisión de la tanda 4).
+ * No depende del entorno: en local y en los previews las landings viven en `<app>/l` y su host no es de
+ * `DOMINIOS_DE_MAKO`, así que no se tocan. Espera una URL ya NORMALIZADA (sin barra final).
+ */
+export function urlLandingVigente(url: string): string {
+  let u: URL;
+  try { u = new URL(url); } catch { return url; }
+  const host = hostDeCabecera(u.hostname).replace(/^www\./, '');
+  if (u.port || !DOMINIOS_DE_MAKO.includes(host)) return url;
+  const m = /^\/l\/([^/]+)(?:\/([^/]+))?$/.exec(u.pathname);
+  if (!m || !slugValido(m[1]) || !rutaValida(m[2] ?? '')) return url;
+  return `${ORIGEN_LANDINGS}/${m[1]}${m[2] ? `/${m[2]}` : ''}${u.search}${u.hash}`;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -80,7 +80,7 @@
 import { createHash } from 'node:crypto';
 import { CONFIG_DEFAULT, type ConfigLanding } from './api-tipos';
 import { CSS_CONTENIDO } from './css';
-import { PREFIJO_PUBLICO, rutaValida, slugValido, urlPublica } from './doc';
+import { PREFIJO_PUBLICO, rutaInternaL, rutaValida, slugValido } from './doc';
 import { origenImagenes } from './especificacion';
 import { baseLandingsPara, urlLandingEn, urlVistaEn } from './origen-landings';
 import { APP_BASE_URL, baseLandings } from '../app-url';
@@ -697,7 +697,7 @@ export async function responderPublico(req: Request, pedido: PedidoPublico, dep:
       // La ruta INTERNA (/l/…) del host que contestó: en hola-mako.site las mayúsculas ya las corrige el
       // proxy antes de reescribir (`decidirLandings`), así que esto sólo corre en local y en los previews.
       const u = new URL(req.url);
-      u.pathname = urlPublica('', slugMin, rutaMin);
+      u.pathname = rutaInternaL(slugMin, rutaMin);
       return new Response(null, { status: 308, headers: { Location: u.toString(), 'Cache-Control': CACHE_ERROR } });
     }
     if (!slugValido(slug) || !rutaValida(ruta)) return respuestaError(404, sinCuerpo);

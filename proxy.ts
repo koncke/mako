@@ -23,7 +23,7 @@ import { SESSION_COOKIE, gateConfigurado, verificarToken } from './lib/auth-sess
 import { WS_HEADER, WS_PARAM, parseWs } from './lib/ws-tab';
 import { esPublica, esPublicaSoloLeer, decidirRutaAlumno } from './lib/rutas-publicas';
 import { HEADER_DOMINIO, RUTA_DOMINIO, decidirHost, hostDeCabecera, paginaNoExisteDominio, tipoDeHost } from './lib/editor-landing/dominios-reglas';
-import { decidirLEnApp, decidirLandings } from './lib/editor-landing/origen-landings';
+import { decidirLEnApp, decidirLandings, redireccionEnElHost } from './lib/editor-landing/origen-landings';
 import { MOVIL_ACTIVO, pedidoMovil } from './lib/movil-desvio';
 import { VISTA_COOKIE, tipoDeDispositivo, vaAMovil } from './lib/movil-dispositivo';
 
@@ -174,12 +174,21 @@ function respuestaDominioPropio(req: NextRequest, pathname: string): NextRespons
       return NextResponse.next({ request: { headers: conDominio() } });
     case 'minusculas':
       // En el MISMO dominio y con la query intacta (los utm_* son la atribución del anuncio).
-      return NextResponse.redirect(new URL(d.destino + req.nextUrl.search, `https://${host}`), 308);
+      return redirigirEnElHost(req, d.destino);
     case 'metodo':
       return new NextResponse('Method Not Allowed', { status: 405, headers: { allow: 'GET, HEAD' } });
     default:
       return noExisteFueraDeLaApp();
   }
+}
+
+/**
+ * Un 308 en el MISMO host del pedido, con la query intacta. Si el destino saliera del host (`//otro.com`
+ * es una URL relativa al protocolo: la redirección abierta de la revisión de la tanda 4), 404.
+ */
+function redirigirEnElHost(req: NextRequest, destino: string): NextResponse {
+  const location = redireccionEnElHost(destino, req.nextUrl.search, hostDeCabecera(req.headers.get('host')));
+  return location ? NextResponse.redirect(location, 308) : noExisteFueraDeLaApp();
 }
 
 /** El 404 de un host que no es la app (el dominio de un cliente, hola-mako.site): sin enumerar nada. */
@@ -198,7 +207,8 @@ function noExisteFueraDeLaApp(): NextResponse {
 //
 // ⚠️ ACÁ NO CORRE NADA DE LA APP, y es a propósito: ni el gate, ni la cookie de sesión (no se lee:
 // la de MaKo es de hola-mako.com y el navegador no la manda a este host), ni el `?ws=`, ni el cartel
-// de mudanza, ni MaKo Mobile. Sólo GET/HEAD, salvo el POST del pago de un bloque. Y en CUALQUIER
+// de mudanza, ni MaKo Mobile. Sólo GET/HEAD (ningún POST: el del pago de un bloque lo suma su paquete,
+// con su test y el `Origin` exigido, el día que exista: `SUBRUTAS_FIJAS`). Y en CUALQUIER
 // entorno: el host ya lo decide (un preview no tiene este dominio). Los headers internos se borran
 // igual: una reescritura que llevara el del workspace o el del dominio propio es el IDOR de `seguir`.
 function respuestaLandings(req: NextRequest, pathname: string): NextResponse {
@@ -219,7 +229,7 @@ function respuestaLandings(req: NextRequest, pathname: string): NextResponse {
       return NextResponse.next({ request: { headers: limpios() } });
     case 'redirigir':
       // En el MISMO host y con la query intacta (los utm_* son la atribución del anuncio).
-      return NextResponse.redirect(new URL(d.destino + req.nextUrl.search, `https://${hostDeCabecera(req.headers.get('host'))}`), 308);
+      return redirigirEnElHost(req, d.destino);
     case 'raiz':
       // 307 y no 308: el día que hola-mako.site tenga su portada propia, nadie la tiene cacheada.
       return NextResponse.redirect(`https://${HOST_CANONICO}/`, 307);
@@ -472,6 +482,11 @@ function denegarRol(req: NextRequest, pathname: string) {
 //
 // Son assets públicos de verdad: no llevan ningún dato de sesión, y el que tiene el
 // videoId ya tiene el video.
+//
+// ⚠️ El punto de `favicon\\.ico` va ESCAPADO: suelto es un comodín, y el lookahead dejaba fuera del
+// proxy todo lo que empezara con `favicon` + cualquier carácter + `ico`. En hola-mako.site el primer
+// segmento es el slug, y `favicon-ico-promo` es uno válido: caía en el 404 de la APP en vez de su
+// landing (revisión de la tanda 4; el test compila el matcher como Next y lo cruza con slugs).
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|cono-tx/|cono-doc/|ve/|.*\\.(?:png|jpe?g|svg|webp|gif|ico|css|js|woff2?|webmanifest)$).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon\\.ico|cono-tx/|cono-doc/|ve/|.*\\.(?:png|jpe?g|svg|webp|gif|ico|css|js|woff2?|webmanifest)$).*)'],
 };
