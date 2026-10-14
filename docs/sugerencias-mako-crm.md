@@ -42,6 +42,7 @@ todavía.
 | Creás un CRM de **webinar** | Recordatorio del webinar y la grabación a los que no fueron | webinar |
 | Creás la etapa de **pago** | Cobrar con link y mover el lead solo cuando paga | llamada, carrito |
 | Creás o usás **Ganado** | Bienvenida al cliente, invitarlo al curso si el producto tiene clases y pedirle los datos fiscales | todos |
+| Un lead **cae a Ganado** y su producto tiene clases (pedido del 14/10, vía Customer Success) | Crear la automatización que lo invita solo al curso. Hoy existe el interruptor «Invitar al curso al ganar» en el «⋯» de Ganado: la sugerencia lleva a eso o a la plantilla de Automations, no a un segundo interruptor | los que tienen curso |
 | Creás **Perdido** | Pedir el motivo y volver a escribirle a los 30 días | todos |
 
 ## 2. Cuando repetís un gesto

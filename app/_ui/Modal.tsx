@@ -188,7 +188,18 @@ export function Modal({
       // `display: none` y NO desmontar: es la regla de la pila de modales. Un
       // modal desmontado pierde lo que tenía adentro a medio hacer.
       style={{ zIndex: capa.z, display: capa.visible ? 'flex' : 'none' }}
-      onMouseDown={(e) => { if (e.target === e.currentTarget) onCerrar(); }}
+      onMouseDown={(e) => {
+        if (e.target !== e.currentTarget) return;
+        // ⚠️ LO QUE SE ESTABA ESCRIBIENDO SE GUARDA ANTES DE CERRAR (13/10/2026). Martín: «si edito
+        // un nombre, y no le doy "enter" no se guarda el cambio... si doy click afuera de ese
+        // editable, ya debería guardarse». Cerrar en el `mousedown` desmonta el modal ANTES de que
+        // el navegador mueva el foco, y un campo que se va del DOM con el foco adentro no dispara
+        // su `blur`: el `onBlur` que guarda (el nombre de una etapa, el del CRM) no corría nunca.
+        // `blur()` lo dispara en el acto, y recién ahí se cierra.
+        const activo = document.activeElement;
+        if (activo instanceof HTMLElement && cajaRef.current?.contains(activo)) activo.blur();
+        onCerrar();
+      }}
     >
       <div
         ref={cajaRef}
