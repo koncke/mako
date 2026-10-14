@@ -111,8 +111,8 @@ import { tabEnCapa } from '@/lib/capas';
 
 /**
  * «Marcar cobrada» la usa quien tenga acceso a la tab desde la que se marca (Martín, 11/10/2026:
- * «Cualquiera con acceso a esa tab»): el CRM (cualquier rol cuya capa lo incluya: la ficha del lead) o el
- * Dashboard (admin, con la tab en la capa: «A quién cobrarle» y el detalle de un número). Sin sesión,
+ * «Cualquiera con acceso a esa tab»): el CRM (cualquier rol cuya capa lo incluya: la ficha del lead), el
+ * Dashboard (admin, con la tab en la capa: el detalle de un número) o General (admin: «A quién cobrarle»). Sin sesión,
  * nadie: la action no tenía ninguna guarda y la podía llamar cualquiera que conociera su id.
  * Y la cuota tiene que ser DE ESE lead: el par (cuota, lead) lo arma el navegador, y la action escribía el
  * historial en el lead que le pasaran. No exportada: es un archivo 'use server'.
@@ -123,7 +123,9 @@ async function exigirAccesoAMarcarPago(pagoId: number, leadId: number): Promise<
   const capa = await getCapaActual();
   const porCrm = tabEnCapa('crm', capa);
   const porDashboard = rol === 'admin' && tabEnCapa('graphics', capa);
-  if (!porCrm && !porDashboard) throw new Error('No tienes acceso a la cobranza de esta cuenta.');
+  // 13/10/2026: también desde la tab General («A quién cobrarle», app/general/Cobranza.tsx), que es sólo del admin.
+  const porGeneral = rol === 'admin' && tabEnCapa('general', capa);
+  if (!porCrm && !porDashboard && !porGeneral) throw new Error('No tienes acceso a la cobranza de esta cuenta.');
   const ws = await getWorkspaceActual();
   const db = await getTenantDb();
   const { data, error } = await db.from('pagos').select('lead_id').eq('id', pagoId).eq('workspace_id', ws ?? -1).maybeSingle();

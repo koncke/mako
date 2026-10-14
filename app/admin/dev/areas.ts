@@ -103,7 +103,7 @@ export const AREAS: AreaDev[] = [
     slug: 'general', titulo: 'General', familia: 'Operate', grupo: 'General',
     estado: 'listo', verEnApp: '/general',
     alcance: 'La casa del cliente al entrar: hero de la meta, resumen del mes, semáforo del negocio y worklist de pendientes.',
-    vive: ['app/general/page.tsx', 'app/general/actions.ts', 'lib/queries.ts', 'lib/pagos.ts', 'lib/meta-health.ts'],
+    vive: ['app/general/page.tsx', 'app/general/actions.ts', 'app/general/Cobranza.tsx', 'lib/queries.ts', 'lib/pagos.ts', 'lib/meta-health.ts'],
     proyectos: ['Feature: General'],
   },
   {

@@ -105,6 +105,19 @@ async function leido<T>(nombre: string, leer: () => Promise<T>): Promise<Leido<T
  * Outstanding mira hacia adelante (hasta el fin de mes del período, `ventanaOutstanding`); lo vendido y lo
  * cobrado se acotan adentro (`hastaHoy`). Si no se puede ni averiguar el negocio, rechaza.
  */
+/**
+ * «A quién cobrarle» de TODO lo pendiente, sin ventana: la lista operativa de la tab General (reunión con Mauricio del
+ * 12/10/2026: «el cobranza yo lo veo más operativo»). La misma lectura y el mismo orden que la del teléfono y que el
+ * conjunto «Clientes por cobrar» del Dashboard con el período «Todo»; nunca tira (el error va en el `Leido`).
+ */
+export async function leerAQuienCobrar(): Promise<Leido<DatosCobranza>> {
+  return leido('cobranza', async () => {
+    const c = await contexto();
+    const out = await getOutstandingDetalle(c.hoy, null, null);
+    return { filas: armarCobranza(out.items, c.hoy).filas, tz: c.tz };
+  });
+}
+
 export async function leerComercial(desde: string, hasta: string): Promise<{ revenue: Leido<DatosRevenue>; cobranza: Leido<DatosCobranza> }> {
   const ctx = await contexto();
   const [revenue, cobranza] = await Promise.all([
