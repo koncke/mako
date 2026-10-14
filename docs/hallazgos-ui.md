@@ -3665,3 +3665,29 @@ siempre el borde: se suma `offsetHeight - clientHeight`.
 **Vive en:** `app/_components/pila-modales.ts` (`decidirVisible`) · `app/_ui/Modal.tsx` ·
 `app/whatsapp/_shared/ComposerWhatsApp.tsx`. El resto, en [hallazgos-chatbot.md](hallazgos-chatbot.md) → «Decimotercera
 tanda».
+
+---
+
+## Un `Dropdown` adentro de un popover que se cierra con el clic de afuera: la lista va ADENTRO del popover (14/10/2026)
+
+**Síntoma (anticipado, no medido en el navegador):** el selector de fuente del curso pasó a ser el `Dropdown` de la casa
+(«que sea uno como cualquier otro», Martín), y vive adentro del menú de la marca del curso (`MenuMarca`,
+`app/_cursos/CursoUgc.tsx`). Ese menú se cierra con cualquier `mousedown` FUERA de su caja (escuchado en `document`, en
+captura) y cuando el foco se va a otro lado. El `Dropdown` monta su lista en un portal a `document.body`: el primer clic en
+una opción es un `mousedown` fuera del menú, el menú se desmonta con el desplegable adentro, y la opción no se elige. No
+da error: se lee como un clic que no registró.
+
+**La regla:** un `Dropdown` dentro de una capa que se cierra por «clic afuera» o por «foco afuera» recibe `portalTo` con el
+elemento de esa capa. La lista sigue siendo `position: fixed` (el popover no tiene `transform`, así que su `overflow` no la
+recorta) y los dos chequeos de «afuera» la cuentan como adentro. Molde: `SelectorFuente`
+(`app/_cursos/SelectorFuente.tsx`), que busca la capa con `closest('.ugc-menu')` en un ref de callback.
+
+**Y lo que el `Dropdown` ganó para eso: `fuente` en cada opción** (la letra del título del renglón, como el selector de Google
+Docs), con `data-fuente` en el renglón para que quien carga las hojas de esas letras encuentre lo que se dibuja. Es opcional:
+las pantallas que no la pasan quedan exactamente igual.
+
+**Sin medir:** el Escape. El menú de la marca escucha el Escape en captura y se cierra entero, así que con la lista abierta
+un Escape cierra las dos cosas en vez de sólo la lista.
+
+**Vive en:** `app/components/Dropdown.tsx` (`fuente`, `portalTo`) · `app/_cursos/SelectorFuente.tsx` · `app/_cursos/CursoUgc.tsx`
+(`MenuMarca`) · *2026-10-14 Customer Success*

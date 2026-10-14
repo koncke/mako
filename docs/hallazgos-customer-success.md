@@ -5444,3 +5444,40 @@ dar cero usos en el fuente.
 
 **Vive en:** `app/customer-success/curso/InvitarAlCurso.tsx` · `tests/curso-invitar.test.ts` ·
 `app/customer-success/curso/InvitarAlumnos.tsx` · *2026-10-14 Customer Success*
+
+---
+
+## La fuente en un desplegable como el de Google Docs, y los comentarios en cada clase (14/10/2026)
+
+Martín, sobre el menú de la marca del curso: «Mejora el desplegable de las tipografías, que sea uno como cualquier otro,
+copialo de como lo tiene google docs... Pero no inventes cosas... Y la opción de comentarios no debería ir allí, debería ir en
+la edición de cada clase». Commit 0255c855.
+
+**«Copiar Docs sin inventar» se decidió por lo que Docs TIENE, no por lo que se le parece.** Se copió el botón con la fuente
+elegida y la lista alfabética con cada nombre escrito con su letra. No se copió lo que acá no existe («Más fuentes», el submenú
+de pesos). Se sacó lo inventado del 13/10: la palabra al lado de cada fuente («Neutra», «Clara»…) y los cuatro cajones. Y
+no lleva tilde en la elegida aunque Docs sí, porque el desplegable de la casa no lo lleva por pedido de Martín (29/09): «como
+cualquier otro» le gana a «como Docs» en lo que se contradicen. El catálogo conserva `tipo` porque lo muestra el Dashboard
+(`TIPOGRAFIAS`, lib/graficos-temas.ts).
+
+**La lista se monta ADENTRO del menú de la marca** (`portalTo`): ese menú se cierra con un `mousedown` fuera de su caja (ver
+hallazgos-ui, «Un Dropdown adentro de un popover…»). Y la carga perezosa de las hojas sobrevivió al cambio con un
+`MutationObserver`: la lista del desplegable aparece al abrir y cambia al buscar, y un renglón nuevo sin observar quedaría
+dibujado con la letra de respaldo — una muestra que miente.
+
+**Los comentarios pasaron a ser de cada clase** (`comentarios:clase:<id>`, el mismo molde que `portada:clase:<id>`), con su
+interruptor en el «…» de la clase, en una sección propia donde el módulo lleva la del kanban. **Lo que hizo barato el cambio
+fue MEDIR antes**: ninguna fila `comentarios` en prod, así que no hubo migración de datos ni regla de «heredar del curso». Sin
+esa medición, la salida prudente era mantener el ajuste del curso como default de las clases, y eso deja un ajuste que nadie
+puede ver ni cambiar. Se tocaron los cuatro lectores (el portal, el editor, el server que hace cumplir el ajuste y la
+validación al guardar) y la papelera, que ahora borra también esa fila al purgar una clase.
+
+**Vive en:** `app/_cursos/SelectorFuente.tsx` · `app/_cursos/fuentes.ts` · `lib/curso-estilo.ts` (`comentariosClase`,
+`comentariosDeClase`) · `lib/comunidad-datos.ts` (`comentariosDeLaClase`) · `app/customer-success/curso/MenuCurso.tsx` ·
+`app/customer-success/curso/estructura.ts`
+
+### Lo que quedó SIN hacer
+
+- **Verlo en el navegador**: el desplegable adentro del menú oscuro del curso (que el clic elija y no cierre el menú) y el
+  interruptor en el «…» de una clase. Es visual: lo mira Martín.
+- **El Escape con la lista abierta** cierra también el menú de la marca (sin medir; ver hallazgos-ui). · *2026-10-14 Customer Success*

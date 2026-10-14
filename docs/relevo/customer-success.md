@@ -62,7 +62,10 @@ Se lee en cinco minutos. Medido el 13/10/2026; lo que no se midió, lo dice.
 - **La invitación** por mail (con el remitente del negocio) y, si se elige, por WhatsApp. Y desde el
   14/10 (901e5cf7, hecho por CURSOS y traspasado acá) una pestaña «Del embudo» que invita a un lead
   de cualquier etapa: abre el curso, no lo hace cliente ni lo mueve en el kanban.
-- **24 tipografías** para el curso (eran 7), con buscador (901e5cf7).
+- **24 tipografías** para el curso (eran 7, 901e5cf7), y desde el 14/10 en un desplegable como el de
+  Google Docs: la fuente elegida en el botón y la lista alfabética con cada nombre en su letra (0255c855).
+- **Los comentarios son de cada clase** (14/10, 0255c855): se prenden en el «…» de la clase, ya no en el
+  menú de la marca. Apagados por default; ningún curso los tenía prendidos.
 - **El editor**: la lección se guarda a mano con aviso al salir, papelera con Deshacer, tareas en
   contenedores con quiz, escala, archivos, audio y agenda, videos por embed.
 - **El nombre del curso sale de su OFERTA** (13/10) y **nunca del producto, que es el CRM** (14/10):
@@ -81,8 +84,9 @@ Se lee en cinco minutos. Medido el 13/10/2026; lo que no se midió, lo dice.
   (`invitar_al_curso`, sólo ganados: invitar a quien no compró queda en la pantalla) la suma la
   sesión **API de MaKo** en su rama (`api-acciones-1310`, worktree C:/dev/mako-api2) y avisa al
   commitear. (El área `calendario` sin commitear que se ve en el clon el 14/10 no es suya.)
-- **Ver en la pantalla del ws3** la pestaña «Del embudo» y la biblioteca de tipografías: CURSOS no
-  pudo (RAM), y yo tampoco.
+- **Ver en la pantalla del ws3** la pestaña «Del embudo», el desplegable de la fuente (que elegir una
+  no cierre el menú de la marca) y el interruptor de comentarios en el «…» de una clase. Nadie lo pudo
+  mirar todavía (RAM).
 - **Las ventas no son código**: el upsell a Teriyaki y los tres upsells de Mauricio son tareas suyas
   de venta, y las carga el Perro Guardián.
 

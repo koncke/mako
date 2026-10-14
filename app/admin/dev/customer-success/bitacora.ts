@@ -980,4 +980,30 @@ export const BITACORA: Hito[] = [
       "lib/curso-invitar.ts — el permiso cualquierEtapa, y el mail con el nombre del curso",
     ],
   },
+  {
+    fecha: "14 oct", hora: "02:10", chat: "Customer Success", cuenta: "claude2",
+    actor: "martin", tipo: "prompt",
+    titulo: "El desplegable de las tipografías como el de Google Docs, y los comentarios en cada clase",
+    pedido: "Mejora el desplegable de las tipografías, que sea uno como cualquier otro, copialo de como lo tiene google docs... Pero no inventes cosas...\n\nY la opción de comentarios no debería ir allí, debería ir en la edición de cada clase. [con una captura del menú de la marca del curso: Cursos, Color, Fuente con su buscador y los rótulos «NEUTRA», «CLARA»…, y Clases · Comentarios en las clases]",
+    puntos: [],
+  },
+  {
+    fecha: "14 oct", hora: "02:30", chat: "Customer Success", cuenta: "claude2",
+    actor: "claude", tipo: "implementacion",
+    titulo: "La fuente en el desplegable de la casa, cada nombre con su letra; los comentarios en el «…» de cada clase",
+    puntos: [
+      "La fuente: un botón con la elegida y la lista alfabética, cada nombre escrito con su propia letra, como en Google Docs. Con el buscador y la marca de lo elegido de cualquier desplegable.",
+      "Salió lo inventado: la palabra al lado de cada fuente y los cuatro grupos. No se copió lo que acá no existe («Más fuentes», los pesos).",
+      "Los comentarios se prenden en cada clase, en su «…». Salió el interruptor del menú de la marca. Ningún curso los tenía prendidos.",
+      "Nada se miró en el navegador todavía.",
+    ],
+    commits: [
+      { sha: "0255c855", msg: "Curso: la fuente se elige en un desplegable como el de Google Docs, y los comentarios son de cada clase", lineas: 640, archivos: 17 },
+    ],
+    archivos: [
+      "app/_cursos/SelectorFuente.tsx + app/components/Dropdown.tsx (fuente) — el desplegable",
+      "lib/curso-estilo.ts + lib/comunidad-datos.ts — los comentarios de cada clase",
+      "app/customer-success/curso/MenuCurso.tsx + estructura.ts — el interruptor en el «…» de la clase",
+    ],
+  },
 ];
