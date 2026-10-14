@@ -83,9 +83,10 @@ export const RE_TOKEN_VISTA = /^[A-Za-z0-9_-]{43}$/;
 
 /**
  * La URL (relativa al host) de un bloque: la publicada, o la del borrador si viene el token del link
- * privado (`?vista=<token>`). RELATIVA a propósito: así sirve en hola-mako.com y en el dominio propio
- * del cliente (T7) — en los dos, el iframe pide al mismo host que la página. null si algo no tiene
- * la forma: el render cae entonces al `srcdoc` de siempre.
+ * privado (`?vista=<token>`). RELATIVA a propósito: así sirve en hola-mako.site (tanda 4), en el
+ * dominio propio del cliente (T7) y en local — en todos, el iframe pide al mismo host que la página
+ * (y `frame-ancestors 'self'` exige justo eso). null si algo no tiene la forma: el render cae
+ * entonces al `srcdoc` de siempre.
  */
 export function urlBloqueHtmlLibre(docId: unknown, idBloque: unknown, vista?: string | null): string | null {
   const doc = typeof docId === 'number' ? String(docId) : docId;
@@ -113,8 +114,11 @@ export function urlBloqueHtmlLibre(docId: unknown, idBloque: unknown, vista?: st
  * viéndose (srcdoc, detrás de la sesión y sin `allow-forms`): ahí es donde se arregla.
  *
  * ⚠️ ES UN FRENO, NO UNA BARRERA: un script puede armar la palabra por partes, o disfrazar un campo de
- * texto. Lo que lo cierra de verdad es servir /l/html desde un dominio aparte, sólo para contenido de
- * usuarios (como `githubusercontent`): queda anotado en docs/hallazgos-editor-landing.md («Tanda 2»).
+ * texto. Lo de fondo era servir el contenido de los clientes desde un dominio aparte (como
+ * `githubusercontent`): hecho en la tanda 4 (14/10/2026) — la landing y su /l/html viven en
+ * hola-mako.site (o en el dominio del cliente), y en producción hola-mako.com ya no sirve /l/html
+ * (proxy.ts, `decidirLEnApp`). El freno se queda: una página que pide contraseñas igual puede hacer
+ * que Safe Browsing marque hola-mako.site, que es donde viven TODAS las landings.
  */
 const RE_PIDE_CONTRASENA = /type\s*[=:]\s*["'`]?\s*password\b|setAttribute\s*\(\s*["'`]type["'`]\s*,\s*["'`]password\b/i;
 export function pideContrasena(html: unknown): boolean {

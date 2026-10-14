@@ -256,16 +256,17 @@ en el navegador y un revisor adversarial; acá va lo que costó.
 - **`VERCEL_API_TOKEN` y `VERCEL_TEAM_SLUG` en producción**: sin ellas la pestaña dice «no está activado en
   MaKo». El token de `.env.local` es de mbustos (un cliente): decide Martín cuál va. `lib/editor-landing/dominios.ts`
   (`configVercel`).
-- **Las redirecciones de `next.config.ts` corren antes del proxy en un dominio de cliente** (`/extension`,
-  `/leads`, `/todo`, `/graphics`, `/script-analyst`): van con `has: host` de MaKo, que también tiene que
-  aceptar `localhost` y los `*.vercel.app`. `next.config.ts` (`redirects`).
+- ~~**Las redirecciones de `next.config.ts` corren antes del proxy en un dominio de cliente**~~: hecho en la
+  tanda 4 (`has: host` de la app con `.map(enLaApp)`, abajo).
 - **El matcher de `proxy.ts` no corre en rutas con sufijo de archivo**: en el dominio del cliente se sirven
   `/_next/*`, el `favicon.ico` de MaKo, `/m.js`, `/sw.js`. Un rewrite `beforeFiles` con `missing` host de MaKo
-  hacia un 404. `proxy.ts` (matcher), `next.config.ts`.
-- **Servir `/l/html` desde un dominio aparte, sólo para contenido de usuarios**: lo de fondo contra el
-  phishing. `lib/editor-landing/html-libre.ts`, `especificacion.ts`.
+  hacia un 404. `proxy.ts` (matcher), `next.config.ts`. Medido en la tanda 4 y sigue pendiente (por qué, abajo).
+- ~~**Servir `/l/html` desde un dominio aparte, sólo para contenido de usuarios**~~: hecho en la tanda 4 (las
+  landings y su `/l/html` viven en hola-mako.site; en producción hola-mako.com ya no lo sirve).
 - **Los popups del bloque heredan el sandbox** (un checkout ajeno puede fallar): decidir con Martín
-  `allow-popups-to-escape-sandbox`. `html-libre.ts` (`SANDBOX_PUBLICO`).
+  `allow-popups-to-escape-sandbox`. `html-libre.ts` (`SANDBOX_PUBLICO`). Con las landings en hola-mako.site el
+  riesgo de aflojarlo es menor (un popup sin sandbox que cargue algo de su propio host ya no corre con el
+  origen de la app ni con su cookie), pero sigue siendo su decisión.
 - **La pestaña «Dominios» no avisa que una reserva venció** (`queFalta` no lo sabe); el `www.` no se agrega
   solo; los subdominios `<slug>.hola-mako.com` quedan para Martín. `dominios-reglas.ts`.
 - **«Probar nuevo diseño» no recibe el formato** (el server `disenos` no toma params) y **el PDF de una
@@ -273,9 +274,9 @@ en el navegador y un revisor adversarial; acá va lo que costó.
 - **Las rutas `analyze`, `sync` y `pulso` del Landing Analyst no miran el rol** (quedó como tarea aparte).
   `app/api/landing-analyst/*`.
 - **Una página armada como app** (`html/body` al 100% con scroll interno) queda en 400 px por sección en la
-  copia fiel. **Sólo se analiza la página de inicio**, el puntaje de una landing nuestra no se guarda, y una
-  landing con dominio propio analizada en `https://<dominio>` aparece «de afuera» (`LandingResumen` no trae el
-  dominio). `replicar-reglas.ts`, `diagnostico.ts`, `panel-reglas.ts`.
+  copia fiel. **Sólo se analiza la página de inicio** y el puntaje de una landing nuestra no se guarda.
+  `replicar-reglas.ts`, `diagnostico.ts`. ~~Una landing con dominio propio analizada en `https://<dominio>`
+  aparece «de afuera»~~: hecho en la tanda 4 (`LandingResumen.dominio`, sólo el verificado; `docDeUrl`).
 - **Verlo con clics**: la tira en Chrome de Windows (6-9 secciones con imágenes, al borde de scrollear, sin
   «ResizeObserver loop» en la consola), Presentar, guardar sugerencias reales (con la 0264 ya aplicada) y la
   conexión real a Vercel. Y la cascada de IA del ws1: el Landing Analyst no tiene un proveedor gratis que
@@ -433,6 +434,187 @@ del registro (`lib/api-mako/areas/landing.def.ts` / `.run.ts`, lo puro en `landi
 - **Verlo con clics**: proponer `publicar_landing` desde el chat de la app y confirmarlo en
   `/mako/revisar` (el formulario muestra Landing y Dirección). Con una landing que NUNCA se publicó: MaKo
   tiene que volver con la dirección sugerida en la propuesta y el campo «Dirección» tiene que verse lleno.
+
+## Tanda 4 (14/10/2026): las landings en hola-mako.site y el dominio del cliente
+
+Decisión de Martín: «Las landings enteras, como gamma.site». Compró hola-mako.site; una landing publicada vive
+en `https://hola-mako.site/<slug>` y la app sigue en hola-mako.com. El porqué: lo que publica un cliente (HTML
+personalizado con JavaScript, «Replicar» que copia páginas ajenas) no puede vivir bajo el dominio de la app ni
+el del mail; si Safe Browsing marca una página, que marque hola-mako.site. Diseño:
+[diseno-editor-landing.md](diseno-editor-landing.md) → «Tanda 4». Medido en producción el 14/10, antes del
+cambio, con `curl` (0 landings publicadas ese día: no hubo nada que migrar).
+
+- **hola-mako.site ya respondía, y el proxy lo trataba como el dominio de un CLIENTE.** `hola-mako.site/`
+  daba 404 con `X-Matched-Path: /api/landing-generator/dominio`: `esHostDeMako` sólo conocía la app, y todo
+  host que no es de MaKo es un dominio propio. Peor: `motivoDominioInvalido('hola-mako.site')` daba null.
+  **El diagnóstico obvio («cualquier admin se lo quedaba») era el equivocado**: sin el TXT `_mako` con el HMAC
+  de SU landing (el DNS lo carga sólo Martín, en Porkbun) nunca se verifica ni se sirve, y sin la marca no se
+  suelta de Vercel. Lo que sí podía es RESERVARLO 72 h como pendiente. **Regla: un dominio que MaKo suma al
+  proyecto de Vercel entra a `esHostDeMako` el mismo día** (la app en `DOMINIOS_DE_MAKO`; el de las landings
+  por `esHostDeLandings`, que NO entra al patrón del HSTS ni al de las redirecciones).
+  **Vive en:** `lib/editor-landing/dominios-reglas.ts` (`esHostDeMako`, `tipoDeHost`), `origen-landings.ts`.
+- **Las redirecciones de next.config.ts corren antes del proxy y TAPABAN slugs.** Medido: `hola-mako.site/leads`
+  → 307 a `/crm` y `/extension` → 307 al zip de la extensión. En hola-mako.site el primer segmento ES el slug, y
+  `todo`, `leads`, `graphics`, `extension` o `script-analyst` son slugs válidos: esa landing nunca llegaba al
+  proxy. **Regla: lo de la app en next.config va con `has: host` de la app, puesto por `.map(enLaApp)` a la
+  lista ENTERA** (una redirección nueva lo hereda). El patrón de la app (`PATRON_HOSTS_DE_LA_APP`) acepta
+  `*.vercel.app`, `localhost` y una IPv4 (el dev desde el teléfono); el del HSTS (`PATRON_HOSTS_DE_MAKO`) NO:
+  HSTS de dos años en `localhost` le fuerza HTTPS a todo puerto de localhost del que desarrolla. Un túnel
+  (ngrok) queda sin las redirecciones: un 404 en /leads, no una pantalla de MaKo en el dominio de otro.
+  **Vive en:** `next.config.ts`, `dominios-reglas.ts`.
+- **El navegador no sabe en qué entorno corre.** La base de las landings depende de `VERCEL_ENV`, que no es
+  `NEXT_PUBLIC_*`: en un componente cliente es `undefined` y daría la base de LOCAL en producción, en silencio
+  (el diálogo Publicar mostraba `hola-mako.com/l/` armándolo con `APP_BASE_URL`). **Regla: la base la calcula
+  el server** (`baseLandings`, `basesLandings`, `urlPublicaLanding` en `lib/app-url.ts`, que TIRAN en el
+  navegador) **y baja por props** (`LandingCompleta.baseLandings`, la prop `bases` del Panel). Lo puro (cómo se
+  arma una URL con una base) está en `origen-landings.ts` y sí se usa en el navegador.
+- **El Pixel mide la URL que ve el visitante, no la ruta interna.** `landing_visits.landing_url` es
+  `location.href` = `hola-mako.site/<slug>`, aunque el proxy reescriba a `/l/<slug>`. El prefiltro de la
+  analítica (`%/l/<slug>%`) dejaba afuera todo lo nuevo sin un error. **Regla: mudar la URL pública toca
+  `urlsAMedir` (una URL por página Y por base: lo medido antes sigue siendo de la landing) y `prefiltroVisitas`
+  (`%/<slug>%`).** **Vive en:** `server-reglas.ts`, `server.ts` (`analitica`).
+- **La foto guarda los enlaces entre páginas ABSOLUTOS, con la base del día en que se publicó.** Lo publicado
+  antes trae `hola-mako.com/l/<slug>/…`: en la app redirige (308, con la query); en el dominio propio la ruta
+  reescribe las DOS bases (`basesLandings` + `conEnlacesDelDominio`). Nunca se asume que la foto tiene la base
+  vigente. **Vive en:** `publicar.ts`, `app/api/landing-generator/dominio`.
+- **`/l/html` bajo hola-mako.com: nadie de la app lo usa** (el editor y el Diagnóstico dibujan el bloque con
+  `srcdoc`: el render sin `htmlLibre`). En producción, en la app, 404; la página y su iframe viven juntos en
+  hola-mako.site (o en el dominio del cliente), y `frame-ancestors 'self'` exige justo eso. Cierra «servir
+  /l/html desde un dominio aparte». El freno `pideContrasena` se queda: ahora una página de phishing haría marcar
+  hola-mako.site ENTERO, que es donde viven todas las landings. **Vive en:** `proxy.ts` (`respuestaLEnApp`),
+  `origen-landings.ts` (`decidirLEnApp`).
+- **En hola-mako.site sólo se reescribe lo que tiene una forma conocida**: `/<slug>`, `/<slug>/<ruta>`,
+  `/vista/<token>[/<ruta>]` y las sub-rutas de `SUBRUTAS_FIJAS` (hoy ninguna: ver la revisión, abajo); `/l/html`
+  pasa. Lo demás reescrito a `/l/…` caería en el not-found de la APP, con su
+  layout y sus `/_next`, en el dominio de los clientes. **Regla: una carpeta fija nueva bajo `app/l/[slug]/` se
+  suma a `SUBRUTAS_FIJAS` el día que existe.** Las mayúsculas se corrigen en el proxy ANTES de reescribir (el 308 de
+  `responderPublico` arma la `Location` con `req.url`, que después de una reescritura es la ruta interna).
+  Y ahí no corre nada de la app: ni el gate, ni la cookie (la de MaKo es de hola-mako.com), ni el `?ws=` (el
+  test lo prueba con una sesión de admin válida), ni el cartel de mudanza, ni MaKo Mobile.
+- **En hola-mako.site el slug es el primer segmento, y el matcher del proxy saltea `cono-tx/` y `cono-doc/`**
+  (los assets públicos de /conocimientos): `/cono-tx/gracias` de una landing con ese slug no pasaba por el
+  proxy y caía en el not-found de la app. Se reservaron los dos (`SLUGS_RESERVADOS`) y un test cruza cada
+  prefijo del matcher con la lista. **Regla: un prefijo nuevo en el matcher de `proxy.ts` con forma de slug
+  va a `SLUGS_RESERVADOS`.**
+- **El Panel reconoce también el dominio propio** (`LandingResumen.dominio`, sólo el VERIFICADO: uno pendiente
+  no sirve nada y otra cuenta se lo puede quitar). Antes de sumar `dominio, dominio_estado` a la lista del
+  Panel (un `select` con una columna que falta tumba el Panel entero) se midió que la 0263 está en
+  producción SIN tocar la base: `hola-mako.site/` contestaba 404 desde la ruta del dominio, que filtra por esas
+  dos columnas y contesta 503 si la consulta falla. **Vive en:** `server.ts` (`COLS_RESUMEN`, `aResumen`),
+  `panel-reglas.ts` (`docDeUrl`).
+- **La raíz de hola-mako.site va a hola-mako.com con 307** (decidido): no es de nadie, y un 308 quedaría
+  cacheado el día que tenga portada propia. `/l/<…>` en hola-mako.site es un 308 a `/<…>` en el mismo host.
+- **Lo que una landing le pide a SU host (medido con el documento armado y en producción):** sólo el iframe de
+  `/l/html` (relativo a propósito) y lo que el navegador pide solo (`/favicon.ico` si el sitio no tiene
+  favicon). El cargador del Pixel, `/api/track/*` y el grabador van ABSOLUTOS a hola-mako.com
+  (`lineaCargador(token, appBaseUrl)`); fuentes de Google; imágenes del bucket. Un test lo fija.
+- **Trampas de Vercel medidas**: el `has: host` de next.config SÍ se aplica en producción (hola-mako.com trae el
+  HSTS con `includeSubDomains`); y Vercel pone su PROPIO `Strict-Transport-Security: max-age=63072000` (sin
+  `includeSubDomains`) en cualquier dominio, también en hola-mako.site y en el de un cliente: lo que la tanda 2
+  sacó fue el `includeSubDomains`, no el HSTS.
+- **Entorno de la corrida: en un worktree, lo que sacó git está en CRLF y lo que crea Write en LF, y el
+  `grep` de Git Bash no ve los `\r`** (`grep -c $'\r'` dio 0 sobre archivos CRLF; `node` con
+  `readFileSync(...).includes('\r\n')` dijo la verdad). Un arnés de roturas con anclas `\n` encontró las del
+  archivo nuevo y no las de `proxy.ts` ni `next.config.ts` («el ancla aparece 0 veces»): el ancla tiene que
+  seguir el fin de línea de CADA archivo. Edit conserva el CRLF del archivo que toca.
+- **El build de un worktree en `C:/dev` NO corre con la receta de AGENTS.md** (la raíz de Turbopack en una
+  carpeta que contenga al worktree y al clon): con el clon en `C:/Users/…/OneDrive/…` la única carpeta común
+  es la unidad, y con `root: 'C:/'` (y `'C:\\'`) Turbopack aborta con «Symlink [project]/node_modules is in a
+  symlink loop: ["node_modules"]». `next build --webpack` tampoco: el repo no compila con webpack
+  (`node:crypto` en `lib/cripto-credenciales.ts` ← `lib/credenciales.ts`, ajeno a este cambio). Lo único que
+  ese intento sí probó es que next.config.ts CARGA y valida sus redirecciones con `has` (el build llegó a
+  compilar). El build va en el clon, al integrar. No quedaron enlaces en `.next` (medido con
+  `Get-ChildItem -Attributes ReparsePoint`).
+
+### La revisión adversarial de la tanda 4 (14/10/2026)
+
+- **Una redirección que arma su destino con la ruta del pedido es una redirección abierta si no se valida lo
+  que queda.** Síntoma: `hola-mako.site/l//evil.com` → 308 a `https://evil.com/`, y desde la app
+  `hola-mako.com/l/l//evil.com` llegaba en dos saltos (un link con la marca de MaKo, bueno para phishing).
+  Causa: la rama `/l/<…>` de `decidirLandings` devolvía lo que quedaba sin mirarlo, ANTES del corte de
+  segmentos vacíos, y el proxy armaba la Location con `new URL(destino, 'https://<host>')`: `//evil.com` es
+  una URL relativa al protocolo. `/l/\evil.com` llega igual (el parser lo lee como `/l//evil.com`). **El
+  diagnóstico tranquilizador («Next normaliza el `//`») no alcanza**: `next start` sí lo manda con un 308
+  antes del proxy (`resolve-routes`), pero nadie midió Vercel, y `new NextRequest(…).nextUrl.pathname` de
+  `https://hola-mako.site/l//evil.com` es `/l//evil.com` (medido). **Regla: lo que queda después de un
+  prefijo se decide con las mismas reglas que una dirección directa, y todo 308 que el proxy arma con la
+  ruta del pedido pasa por `redireccionEnElHost`** (null si la Location cambia de host → 404). Son dos capas
+  a propósito, cada una con su test. **Vive en:** `origen-landings.ts` (`decidirLandings`,
+  `redireccionEnElHost`), `proxy.ts` (`redirigirEnElHost`, también el 308 a minúsculas del dominio propio).
+- **Un test que compara el TEXTO de un patrón no ve sus comodines.** `favicon.ico` iba sin escapar en el
+  matcher del proxy: el `.` dejaba afuera `favicon-ico-promo` (un slug válido, que caía en el 404 de la app),
+  y el test que cruzaba cada alternativa con `SLUG_RE` como texto daba verde. Ahora el test COMPILA el
+  matcher y lo prueba con slugs parecidos a cada alternativa. Trampas medidas: `getMiddlewareMatchers` no
+  se puede importar en un test («Invariant: AsyncLocalStorage accessed in runtime where it is not
+  available»); `tryToParsePath` (`next/dist/lib/try-to-parse-path`, lo que usa por dentro) sí. Y
+  path-to-regexp conserva el `\.` dentro del grupo (el `.*\.(?:png|…)` ya dependía de eso). Otra: el Bash
+  del entorno se come las barras de un heredoc (un `'favicon\\.ico'` llegó como `'favicon\.ico'`): un
+  script con barras se escribe con Write. **Regla: un prefijo nuevo en el matcher va con los puntos
+  escapados; el test lo cruza solo.** **Vive en:** `proxy.ts` (`config.matcher`).
+- **No se declara en el proxy una ruta que todavía no existe.** `pagar` en `SUBRUTAS_FIJAS` y el POST de
+  `/api/landing-generator/pagar` estaban declarados para un paquete que no existe en ninguna rama:
+  `/<slug>/pagar/<id>` se reescribía a una ruta inexistente (el not-found de la app, con su layout, en el
+  dominio de los clientes) y el POST pasaba sin que nadie mirara el `Origin`. Se sacaron; el test exige que
+  cada clave de `SUBRUTAS_FIJAS` tenga su carpeta en `app/l/[slug]/`. **El contrato para cuando llegue el
+  pago:** `Origin` ausente o igual a `https://<host del pedido>` (403 si no), tope por IP, idempotencia por
+  bloque y visitante, y el monto, la moneda y el workspace nunca del pedido (por `lib/cobros.ts`).
+  **Vive en:** `origen-landings.ts` (`SUBRUTAS_FIJAS`).
+- **Para que una rama paralela no compile con la semántica vieja, se renombra.** `urlPublica(base, slug,
+  ruta)` siguió exportada con la misma firma después de la mudanza, y la rama de la API de MaKo
+  (`lib/api-mako/areas/landing-editor.helpers.ts:31` en `landing-api`) arma con ella `url_publica` y lo que
+  devuelve `publicar_landing`: al integrar compilaba y la API contestaba `hola-mako.com/l/<slug>`. **El
+  diagnóstico del revisor («nada lo hace cumplir, es un comentario») era a medias**: el guard del test sí
+  veía un `import { urlPublica } from '@/lib/editor-landing/doc'` de afuera, pero NO uno de adentro de
+  `lib/editor-landing` (`from './doc'`): roto a propósito dio 17 / 0. Ahora es `rutaInternaL(slug, ruta)` y
+  el guard mira las dos formas. **Regla: cuando cambia lo que DEVUELVE una función compartida y hay ramas
+  en paralelo, se le cambia el nombre (o la firma), no sólo el comentario.** **Vive en:** `doc.ts`,
+  `pagina-publica.ts`.
+- **Mudar la URL pública tiene más consumidores que la analítica.** Lo que manda el Pixel (`location.href`,
+  hoy `hola-mako.site/<slug>`) se compara por IGUALDAD con: (a) las páginas que el negocio declaró
+  (`landing.config`): el producto de una landing (`landingDe` → `funnelsDeLanding`, el alta por opt-in) y la
+  página de gracias (`paginaDeGracias`, que pasa a Ganado); (b) el comportamiento del Diagnóstico
+  (`getComportamiento`, igualdad exacta sobre `landing_visits`). Algo declarado o medido como
+  `hola-mako.com/l/<slug>` deja de coincidir: el lead cae en el embudo del negocio, la de gracias no lo pasa
+  a Ganado y el Diagnóstico dice «sin datos» (y la IA analiza creyendo que nadie la vio), todo sin un error.
+  Hoy el impacto es chico (0 landings publicadas el 14/10, medido antes del cambio), pero cualquier landing
+  publicada antes del deploy queda así. La pieza es `urlLandingVigente` (`dominios-reglas.ts`, con test): la
+  dirección de hoy de una escrita con la de antes; se aplica a LAS DOS PUNTAS de la comparación. El
+  cableado vive en archivos de otras áreas (Pixel/Integraciones y Landing Analyst) y quedó para la sesión
+  principal (abajo). **Regla: mudar la URL pública es buscar todo lo que compara una URL de landing por
+  igualdad (`normalizarUrl(…) ===`), no sólo lo que la muestra o la mide.**
+
+### Lo que quedó sin hacer (tanda 4)
+
+- **Cablear `urlLandingVigente` en las comparaciones de otras áreas** (la revisión, arriba). Dos cambios:
+  `lib/landing-config.ts` (`landingDe`): `const k = urlLandingVigente(u); return configs.find((c) => c.url
+  === u || urlLandingVigente(c.url) === k) ?? null;` y `lib/landing-gracias-reglas.ts` (`paginaDeGracias`):
+  comparar `sinParametros(urlLandingVigente(c.url)) === sinParametros(urlLandingVigente(u))`; y
+  `lib/landing-analyst.ts` (`getComportamiento`): `const clave = urlLandingVigente(url)` y comparar
+  `urlLandingVigente(norm(v.landing_url))` contra `clave` en `mias` y en `compartidos` (así las dos bases son
+  la MISMA página y no «otra landing»). Con eso el Diagnóstico (`diagnostico-server.ts`) no cambia. Cada uno
+  con su test en su área.
+- **Al integrar la rama `landing-api`**: `lib/api-mako/areas/landing-editor.helpers.ts:31` deja de compilar
+  (a propósito); va `urlPublicaLanding(slug, ruta)` de `lib/app-url.ts`.
+
+- **Los estáticos de MaKo se sirven en hola-mako.site y en el dominio de un cliente** (el matcher de `proxy.ts`
+  no corre en rutas con sufijo). Medido el 14/10 en hola-mako.site: `/_next/static/chunks/…js` 200,
+  `/favicon.ico` 200 (el de MaKo), `/sw.js` 200; `/m.js` 404 y `/robots.txt` 404. Una landing no necesita
+  ninguno (arriba), así que bloquearlos no rompe una landing; lo que NO se hizo es el bloqueo: un rewrite
+  `beforeFiles` con `missing` host de la app, si el patrón no matchea en Vercel como en Next local, deja a la
+  APP sin su JavaScript. No exponen datos (son archivos públicos). Si se hace: medir antes con un preview y
+  `curl` en los dos hosts. `next.config.ts`, `proxy.ts` (matcher).
+- **El pago de un bloque** (`/<slug>/pagar/<bloque>` y el POST de `/api/landing-generator/pagar`) no existe en
+  ninguna rama (medido el 14/10 en los worktrees), así que hoy es 404 en hola-mako.site y en el dominio propio.
+  Lo suma su paquete en los DOS hosts (`SUBRUTAS_FIJAS` en origen-landings.ts y `decidirHost` en
+  dominios-reglas.ts), con el contrato de la revisión (abajo): `Origin` exigido, tope por IP, idempotencia.
+- **Textos que todavía dicen `hola-mako.com/l/<…>`** en archivos de otras áreas: `lib/mako-capacidades.ts:73`
+  (lo que MaKo cuenta de la tab) y `app/admin/dev/areas.ts:598` (el alcance del área). Los cambia la sesión
+  principal. El comentario de `/l` en `lib/rutas-publicas.ts` también (en producción el proxy la muda antes).
+- **HSTS propio para hola-mako.site** (con o sin `includeSubDomains`): hoy sólo el de Vercel. Decide Martín.
+- **Verlo en producción después del deploy**: `curl -sI https://hola-mako.site/` (307 a hola-mako.com),
+  `https://hola-mako.site/leads` (404 de landing, no 307), `https://hola-mako.com/leads` (307 a /crm: las
+  redirecciones con `has` siguen andando en la app), `https://hola-mako.com/l/x` (308 a hola-mako.site/x) y
+  una landing publicada de prueba en el ws3 (abrirla, el formulario, el HTML libre, la vista previa privada).
 
 ## Lo que quedó sin hacer
 

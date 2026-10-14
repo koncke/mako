@@ -44,8 +44,8 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { BotonBorrar } from '@/app/_ui/BotonBorrar';
-import { APP_BASE_URL } from '@/lib/app-url';
-import { PREFIJO_PUBLICO, slugDe, slugValido, textoDe, tituloDeTarjeta, type JsonNodo } from '@/lib/editor-landing/doc';
+import { slugDe, slugValido, textoDe, tituloDeTarjeta, type JsonNodo } from '@/lib/editor-landing/doc';
+import { slugDeUrlLanding, urlLandingEn } from '@/lib/editor-landing/origen-landings';
 import { hrefPermitido } from '@/lib/editor-landing/especificacion';
 import type { BotonNav, ConfigLanding, EnlaceNav } from '@/lib/editor-landing/api-tipos';
 import {
@@ -59,19 +59,28 @@ import {
   cambiarSitio, copiarTexto, pedir, sinAcentos, useConfigViva, useConfirmaGma, useFijo, useRebote,
 } from './piezas-gma';
 
-const HOST = (() => { try { return new URL(APP_BASE_URL).host; } catch { return 'hola-mako.com'; } })();
+/**
+ * La base de las landings como se DIBUJA: sin el protocolo (`hola-mako.site`, o `localhost:3000/l` en
+ * local). La base la da el server (`baseLandings` del contexto, tanda 4): antes se armaba acá con
+ * APP_BASE_URL + `/l`, y en producción la dirección que se mostraba era la de la app.
+ */
+export function baseDibujada(base: string): string {
+  return base.replace(/^https?:\/\//, '').replace(/\/+$/, '');
+}
+
+/** El host de la base (lo que muestran la vista previa de Google y la de compartir). */
+function hostDeBase(base: string): string {
+  try { return new URL(base).host; } catch { return baseDibujada(base); }
+}
 
 /** Lo que se escribe en el campo de la dirección, ya en forma de slug (sin recortar guiones mientras se tipea). */
 export function slugEscrito(v: string): string {
   return sinAcentos(v).replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '').replace(/-{2,}/g, '-').slice(0, 60);
 }
 
-/** El slug de una URL pública (`…/l/<slug>` o `…/l/<slug>/<ruta>`), o null. */
-export function slugDeUrl(url: string | null): string | null {
-  if (!url) return null;
-  const tras = url.split(PREFIJO_PUBLICO + '/')[1];
-  const s = tras ? tras.split(/[/?#]/)[0] : '';
-  return s || null;
+/** El slug de una URL pública (`<base>/<slug>` o `<base>/<slug>/<ruta>`), o null. */
+export function slugDeUrl(url: string | null, base: string): string | null {
+  return slugDeUrlLanding(url, [base]);
 }
 
 /** Sólo los dígitos, hasta 20 (el id de un Píxel de Meta). */
@@ -210,8 +219,10 @@ export function DialogoPublicar({ onCerrar }: { onCerrar?: () => void } = {}) {
 
 function DialogoPublicarAbierto({ onCerrar }: { onCerrar?: () => void }) {
   const {
-    docId, titulo, guardarAhora, setDialogo, urlPublica, cambiosSinPublicar, estado, recargar, avisar, paginas, contenido,
+    docId, titulo, guardarAhora, setDialogo, urlPublica, baseLandings, cambiosSinPublicar, estado, recargar, avisar, paginas, contenido,
   } = useEditorLanding();
+  const prefijo = baseDibujada(baseLandings) + '/';
+  const host = hostDeBase(baseLandings);
   const { config, cambiar } = useConfigViva();
   const { confirmar, nodoConfirma } = useConfirmaGma();
   const cerrar = useFijo(() => (onCerrar ? onCerrar() : setDialogo(null)));
@@ -240,7 +251,7 @@ function DialogoPublicarAbierto({ onCerrar }: { onCerrar?: () => void }) {
         setSlug(r.doc.slug ?? slugDe(titulo));
         if (r.doc.urlPublica) setUrl(r.doc.urlPublica);
       } else {
-        const s = slugDeUrl(urlPublica);
+        const s = slugDeUrl(urlPublica, baseLandings);
         // Sin la lectura no se sabe la fecha: alcanza con saber si hay una dirección publicada.
         setInfo({ slug: s, sitioActivo: null, publicadoAt: urlPublica ? new Date(0).toISOString() : null });
         setSlug(s ?? slugDe(titulo));
@@ -342,17 +353,17 @@ function DialogoPublicarAbierto({ onCerrar }: { onCerrar?: () => void }) {
   const tituloBusqueda = sitio.seoTitulo.trim() || titulo || 'Landing';
   const inicio = contenido.paginas.find((p) => p.ruta === '') ?? paginas[0];
   const descripcionBusqueda = sitio.seoDescripcion.trim() || (inicio ? textoDe(inicio.doc as JsonNodo, ' ').replace(/\s+/g, ' ').trim().slice(0, 160) : '');
-  const urlVista = url ?? `https://${HOST}${PREFIJO_PUBLICO}/${slug || 'tu-pagina'}`;
+  const urlVista = url ?? urlLandingEn(baseLandings, slug || 'tu-pagina');
 
   let cuerpo: ReactNode;
   if (pestana === 'dominio') {
-    cuerpo = <SeccionDominio docId={docId} urlMako={url} publicado={publicado} confirmar={confirmar} avisar={avisar} />;
+    cuerpo = <SeccionDominio docId={docId} urlMako={url} prefijo={prefijo} publicado={publicado} confirmar={confirmar} avisar={avisar} />;
   } else if (pestana === 'ajustes') {
     cuerpo = (
       <>
         <Campo etiqueta="Dirección" htmlFor="gmp-slug">
           <div className="gmp-direccion">
-            <span>{HOST}{PREFIJO_PUBLICO}/</span>
+            <span>{prefijo}</span>
             <input id="gmp-slug" value={slug} spellCheck={false} autoComplete="off" aria-label="Dirección de la página"
               onChange={(e) => setSlug(slugEscrito(e.target.value))} onBlur={() => setSlug((s) => s.replace(/^-+|-+$/g, ''))} />
           </div>
@@ -463,7 +474,7 @@ function DialogoPublicarAbierto({ onCerrar }: { onCerrar?: () => void }) {
         <div className="gmp-google" aria-label="Vista previa de la búsqueda">
           <div className="gmp-google-sitio">
             <i style={sitio.favicon ? { backgroundImage: `url("${sitio.favicon}")` } : undefined} />
-            <div><div>{sitio.nombre.trim() || HOST}</div><div className="gmp-google-url">{urlVista.replace(/^https?:\/\//, '')}</div></div>
+            <div><div>{sitio.nombre.trim() || host}</div><div className="gmp-google-url">{urlVista.replace(/^https?:\/\//, '')}</div></div>
           </div>
           <div className="gmp-google-tit">{tituloBusqueda}</div>
           <div className="gmp-google-desc">{descripcionBusqueda || ' '}</div>
@@ -474,7 +485,7 @@ function DialogoPublicarAbierto({ onCerrar }: { onCerrar?: () => void }) {
             {!sitio.ogImagen && <Icono nombre="imagen" tam={26} />}
           </div>
           <div className="gmp-og-cuerpo">
-            <div className="gmp-og-dom">{HOST}</div>
+            <div className="gmp-og-dom">{host}</div>
             <div className="gmp-og-tit">{tituloBusqueda}</div>
             {descripcionBusqueda && <div className="gmp-og-desc">{descripcionBusqueda}</div>}
           </div>
@@ -549,9 +560,11 @@ const PARA_REGISTRO: Record<RegistroDns['para'], string> = {
  * AL ABRIRLA (mira Vercel y el DNS en ese momento), no con cada apertura del diálogo. Lo que dice
  * «Verificado» lo decide el server; la pantalla sólo pinta lo que contesta.
  */
-function SeccionDominio({ docId, urlMako, publicado, confirmar, avisar }: {
+function SeccionDominio({ docId, urlMako, prefijo, publicado, confirmar, avisar }: {
   docId: number;
   urlMako: string | null;
+  /** La base de las landings como se dibuja, con la barra (`hola-mako.site/`). */
+  prefijo: string;
   publicado: boolean;
   confirmar: (p: { titulo: string; texto: string; boton: string; peligro?: boolean }) => Promise<boolean>;
   avisar: (texto: string) => void;
@@ -622,7 +635,7 @@ function SeccionDominio({ docId, urlMako, publicado, confirmar, avisar }: {
         <Icono nombre="enlace" tam={15} />
         {urlMako
           ? <a className="gmp-dom-nombre" href={urlMako} target="_blank" rel="noopener noreferrer">{urlMako.replace(/^https?:\/\//, '')}</a>
-          : <span className="gmp-dom-nombre">{HOST}{PREFIJO_PUBLICO}/…</span>}
+          : <span className="gmp-dom-nombre">{prefijo}…</span>}
         <span className="gmp-dom-sub">De MaKo</span>
       </div>
 

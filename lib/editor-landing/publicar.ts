@@ -24,8 +24,8 @@ import 'server-only';
 import { getTenantDb, getWorkspaceActual } from '../workspace';
 import { getSupabaseServer } from '../supabase';
 import { getUsuarioActual } from '../auth';
-import { APP_BASE_URL } from '../app-url';
-import { slugValido, rutaValida, urlPublica } from './doc';
+import { urlPublicaLanding, urlVistaLanding } from '../app-url';
+import { slugValido, rutaValida } from './doc';
 import { htmlDePagina } from './render';
 import { temaPorId, urlFuentes } from './temas';
 import { CSS_CONTENIDO } from './css';
@@ -36,7 +36,7 @@ import {
 } from './server';
 import {
   MOTIVO, idValido, leerFoto, metaDePagina, motivoSlugInvalido, paginasParaPublicar, slugPedido,
-  urlVistaPrevia, vistaTokenValido, type FotoPublicada, type PaginaPublicada,
+  vistaTokenValido, type FotoPublicada, type PaginaPublicada,
 } from './server-reglas';
 import type { ConfigLanding, TemaPropio } from './api-tipos';
 
@@ -85,6 +85,11 @@ const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
  * página (pagina-publica.ts) sólo redirige a http(s). La vista previa pasa la del link privado
  * (`/l/vista/<token>`): sus otras páginas se sirven en app/l/vista/[token]/[ruta], y así el menú
  * del sitio y los botones entre páginas de un borrador no llevan a lo publicado.
+ *
+ * ⚠️ Tanda 4: las dos salen de lib/app-url.ts (`urlPublicaLanding`, `urlVistaLanding`), y en
+ * producción son de hola-mako.site (`https://hola-mako.site/<slug>`, `…/vista/<token>`). La foto
+ * guarda esos enlaces ABSOLUTOS: lo publicado antes de la mudanza los trae a hola-mako.com/l/…, que
+ * redirige (308) y que la ruta del dominio propio también reescribe (`basesLandings`).
  *
  * `vista` (T6, tanda 2) es el token del link privado en la vista previa y null al publicar: con él
  * el render dibuja cada bloque «Formato libre (HTML)» como un iframe a SU URL (/l/html/<docId>/<bloque>,
@@ -142,7 +147,7 @@ export async function publicar(idRaw: unknown, versionRaw: unknown, slugRaw: unk
 
     const propios = await temasPropiosDe(ws);
     const publicadoAt = new Date().toISOString();
-    const foto = armarFoto(f, propios, publicadoAt, urlPublica(APP_BASE_URL, slug), null);
+    const foto = armarFoto(f, propios, publicadoAt, urlPublicaLanding(slug), null);
     if (!foto.paginas.length) return falla('No hay nada para publicar');
     // Un bloque HTML que pide una contraseña no se publica en hola-mako.com (revisión de la tanda 2:
     // html-libre.ts, `pideContrasena`). La ruta tampoco lo sirve; acá se dice antes de publicar.
@@ -175,8 +180,9 @@ export async function publicar(idRaw: unknown, versionRaw: unknown, slugRaw: unk
       await marcarPasoTab('landing-writer', 'lg_publicar');
     } catch { /* accesorio a la publicación (el paso es opcional y lo declara el catálogo de la tab) */ }
 
-    console.log(`[editor-landing] publicada #${id} v${version} en /l/${slug} (${foto.paginas.length} página(s))`);
-    return { ok: true, url: urlPublica(APP_BASE_URL, slug), slug, publicadoAt, version };
+    const url = urlPublicaLanding(slug);
+    console.log(`[editor-landing] publicada #${id} v${version} en ${url} (${foto.paginas.length} página(s))`);
+    return { ok: true, url, slug, publicadoAt, version };
   } catch (e) {
     return falla(msg(e), 500);
   }
@@ -267,5 +273,5 @@ export async function leerVistaPrevia(token: string, ruta = ''): Promise<SitioPu
   const f = data as (Pick<FilaDoc, 'id' | 'workspace_id' | 'titulo' | 'contenido' | 'config' | 'version' | 'papelera_at'>) | null;
   if (!f || f.papelera_at) return null;
   const ws = Number(f.workspace_id);
-  return sitioDe(ws, Number(f.id), f.titulo, armarFoto(f, await temasPropiosDe(ws), null, urlVistaPrevia(APP_BASE_URL, token), token), ruta);
+  return sitioDe(ws, Number(f.id), f.titulo, armarFoto(f, await temasPropiosDe(ws), null, urlVistaLanding(token), token), ruta);
 }
