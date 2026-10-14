@@ -9,7 +9,7 @@ hallazgos de cada área; acá va qué quedó, dónde y qué espera.
 una cosa en grande y la letra en `cqi` (se adapta a media hoja y al celular), plantillas de bloques sin tablas ni series,
 las hojas se archivan (también la última) con «Archivados» al pie del desplegable, las plantillas de «¿Qué vas a crear
 hoy?» como tarjetas con sombra, y la marca de MaKo sin link. **El punto 3 llegó cortado («Elimina») y se le preguntó qué
-eliminar.** Commiteado en `main` local; el push lo hace el orquestador. Rojo ajeno a las 13:55:
+eliminar.** **En producción** (push del orquestador `fac319092..2e4b7a5d4`, deploy Ready a las 14:00). Rojo ajeno a las 13:55:
 `tests/integracion-sin-salir.test.ts` por dos links del Landing Generator (`faa061ef`).
 
 ## Actualización 14/10/2026 12:50 (claude2, el mismo chat)
