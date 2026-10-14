@@ -70,8 +70,9 @@ Se lee en cinco minutos. Medido el 13/10/2026; lo que no se midió, lo dice.
   «+ Nuevo campo», reabrir el tutorial, fuente en Conocimientos, autoplay de Panda, ideas).
 - **Que alguien lo vea en la pantalla**: todo se verificó con las funciones reales o en bancos de
   prueba, nunca clickeando la app andando. Desde el 13/10 hay con qué: el fixture del ws3 (abajo).
-- **De otros chats**: el buscador de leads en cualquier etapa al invitar y el mail que nombra el
-  curso por su oferta los hace **CURSOS**; la invitación al ganar en un producto agregado, el **CRM**.
+- **De otros chats**: la invitación al ganar en un producto agregado, el **CRM**. (CURSOS ya hizo el
+  buscador de leads en cualquier etapa al invitar —pestaña «Del embudo»— y el mail que nombra el
+  curso por su oferta, el 13/10.)
 - **Las ventas no son código**: el upsell a Teriyaki y los tres upsells de Mauricio son tareas suyas
   de venta, y las carga el Perro Guardián.
 

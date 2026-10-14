@@ -5380,8 +5380,8 @@ dejaría el viejo hasta recargar.
 
 ### Lo que quedó SIN hacer
 
-- **El mail de invitación** sigue nombrando el curso por el producto (`depsReales.cursos`,
-  `lib/curso-invitar.ts`): el archivo lo tiene abierto la sesión CURSOS y se le pasó el cambio.
+- ~~**El mail de invitación** sigue nombrando el curso por el producto~~ — lo cerró la sesión CURSOS el
+  13/10: `depsReales.cursos` (`lib/curso-invitar.ts`) llama a `nombresDeCursos(conClases, { conTitulo: true })`.
 - **Mirarlo en la pantalla** con el fixture del ws3.
 - **Rojos ajenos medidos el 13/10 ~20:30**, sobre archivos sin commitear de otras sesiones:
   `tests/curso-apariencia.test.ts` (dos, sobre `app/_cursos/fuentes.ts`) y `tests/curso-invitar-reglas.test.ts`
