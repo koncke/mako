@@ -6,12 +6,16 @@
 // ./diagnostico.ts, con test: un módulo `server-only` no lo importa ningún test.
 //
 // LOS DOS CAMINOS DEL ANÁLISIS, como pide T5 (docs/diseno-editor-landing.md):
-//   · una landing NUESTRA (`docId`): su texto sale del CONTENIDO guardado (las secciones visibles de la
-//     página de inicio, en orden: `bloquesDeTexto`), no de bajar la página. Se analiza con el MISMO
-//     análisis del Landing Analyst (`analizarCopy`: su prompt editable, su modelo y el cruce con el
-//     comportamiento de la URL publicada si la hay) pero NO se guarda en landing_analyses: esa tabla es
-//     de páginas por URL y la lista del Panel las mostraría como «de afuera». Cada cita se ubica en su
-//     sección con `ubicarCitaEnBloques` (eso es lo que «Solucionar con IA» edita).
+//   · una landing NUESTRA (`docId`): su texto sale del CONTENIDO guardado (las secciones visibles, en
+//     orden: `bloquesDeTexto`), no de bajar la página. Se analiza con el MISMO análisis del Landing
+//     Analyst (`analizarCopy`: su prompt editable, su modelo y el cruce con el comportamiento de la URL
+//     publicada si la hay) pero NO se guarda en landing_analyses: esa tabla es de páginas por URL y la
+//     lista del Panel las mostraría como «de afuera». Cada cita se ubica en su sección con
+//     `ubicarCitaEnBloques` (eso es lo que «Solucionar con IA» edita).
+//     Tanda 6 (los pendientes de la tanda 2, «Sólo se analiza la página de inicio y el puntaje de una
+//     landing nuestra no se guarda»): se analizan TODAS sus páginas (`textoDeLanding`), su último
+//     veredicto queda en `landing_docs.diagnostico` (mig 0281, tolerando que falte) y, si la persona la
+//     leyó en su navegador, lo que se probó ahí entra al análisis (diagnostico-guardado.ts).
 //   · una landing de AFUERA (`url`): `analizarLanding`, exactamente como hoy (baja la página con la
 //     guarda anti-SSRF, cruza el comportamiento y guarda la fila de landing_analyses). Tanda 6: o con su
 //     `lectura` hecha en el navegador de la persona (lectura-tipos.ts), que reemplaza la bajada; y si la
@@ -28,17 +32,17 @@ import { getTenantDb, getWorkspaceActual } from '../workspace';
 import { leerTodo } from '../supabase-paginado';
 import { analizarCopy, analizarLanding, getComportamiento, type LandingComportamiento } from '../landing-analyst';
 import { errorDeCascada } from '../ai-cheap';
-import type { LandingExtraida } from '../landing-fetch';
 import { normalizarUrl } from '../landing-url';
 import { abrir } from './server';
 import { sanearLectura } from './lectura-reglas';
 import type { Lectura, MotivoEnNavegador } from './lectura-tipos';
 import {
-  TOPES_DIAGNOSTICO, bloquesDeTexto, claveSugerencia, contarPalabras, estadoValido, normalizarHallazgos,
-  objetivoDe, paginaPrincipal, resumenDeAnalisis, textoParaAnalisis, ubicarCitaEnBloques,
+  TOPES_DIAGNOSTICO, claveSugerencia, estadoValido, normalizarHallazgos,
+  objetivoDe, resumenDeAnalisis, ubicarCitaEnBloques,
   type EstadoSugerencia, type HallazgoDiagnostico, type ResumenDiagnostico, type RespuestaListaDiagnostico,
   type Sugerencia,
 } from './diagnostico';
+import { aColumna, deColumna, esColumnaQueFalta, paginaDeNuestra, textoDeLanding } from './diagnostico-guardado';
 
 export type FallaDiagnostico = { ok: false; error: string; status: number; pegable?: boolean; enNavegador?: true; motivo?: MotivoEnNavegador };
 export type ResultadoLista = RespuestaListaDiagnostico | FallaDiagnostico;
@@ -113,6 +117,44 @@ async function resumenGuardado(url: string): Promise<ResumenDiagnostico | null> 
   return resumenDeAnalisis({ score: f.score, veredicto: f.veredicto, resumen: f.resumen }, f.analyzed_at ?? null);
 }
 
+/**
+ * El último veredicto de una landing NUESTRA (`landing_docs.diagnostico`, mig 0281), o null.
+ *
+ * ⚠️ EN UN SELECT APARTE, A PROPÓSITO: nunca en `COLS_RESUMEN` ni en el select del Panel. Con la 0281
+ *    sin aplicar, PostgREST rechaza la consulta ENTERA (42703) y con ella se caería el Panel. Acá, una
+ *    columna que falta es «sin puntaje» (y queda en el log); cualquier otro error TIRA, como los
+ *    comentarios.
+ */
+async function resumenDeNuestra(ws: number, docId: number): Promise<ResumenDiagnostico | null> {
+  const db = await getTenantDb();
+  const { data, error } = await db.from('landing_docs').select('diagnostico').eq('workspace_id', ws).eq('id', docId).maybeSingle();
+  if (error) {
+    if (!esColumnaQueFalta(error)) throw new Error(error.message);
+    console.warn(`[landing-generator/diagnostico] falta landing_docs.diagnostico (mig 0281): el puntaje no se lee (${error.message})`);
+    return null;
+  }
+  return deColumna((data as { diagnostico?: unknown } | null)?.diagnostico);
+}
+
+/**
+ * Guarda el veredicto de una landing NUESTRA. Nunca tira: el análisis ya se pagó y los comentarios ya
+ * se guardaron, y fallar acá los escondería detrás de un error. Sin la 0281 lo dice el log; con otro
+ * error, también (y el puntaje se ve igual en esta respuesta, sólo no queda para la próxima vez).
+ * No toca `version` ni `updated_at`: diagnosticar no es editar (ni reordena el Panel ni le gana un
+ * guardado a la pantalla abierta).
+ */
+async function guardarResumenDeNuestra(ws: number, docId: number, analysis: unknown, fecha: string): Promise<void> {
+  try {
+    const db = await getTenantDb();
+    const { error } = await db.from('landing_docs').update({ diagnostico: aColumna(analysis, fecha) }).eq('workspace_id', ws).eq('id', docId);
+    if (!error) return;
+    if (esColumnaQueFalta(error)) console.warn(`[landing-generator/diagnostico] falta landing_docs.diagnostico (mig 0281): el puntaje de #${docId} no se guarda (${error.message})`);
+    else console.error(`[landing-generator/diagnostico] no pude guardar el puntaje de #${docId}: ${error.message}`);
+  } catch (e) {
+    console.error(`[landing-generator/diagnostico] no pude guardar el puntaje de #${docId}: ${msg(e)}`);
+  }
+}
+
 /** Guarda los hallazgos nuevos (los repetidos, por su clave, no se tocan). Devuelve cuántos entraron. */
 async function guardarHallazgos(ws: number, obj: Objetivo, hallazgos: ReadonlyArray<{ h: HallazgoDiagnostico; seccionId: string | null }>): Promise<number> {
   if (!hallazgos.length) return 0;
@@ -142,7 +184,8 @@ export async function listar(p: { docId?: unknown; url?: unknown }): Promise<Res
     if ('docId' in obj) {
       const r = await abrir(obj.docId);
       if (!r.ok) return falla(r.error, r.status);
-      return { ok: true, sugerencias: await leerSugerencias(ws, obj), resumen: null, url: null };
+      const [sugerencias, resumen] = await Promise.all([leerSugerencias(ws, obj), resumenDeNuestra(ws, obj.docId)]);
+      return { ok: true, sugerencias, resumen, url: null };
     }
     const [sugerencias, resumen] = await Promise.all([leerSugerencias(ws, obj), resumenGuardado(obj.url)]);
     return { ok: true, sugerencias, resumen, url: obj.url };
@@ -157,15 +200,17 @@ export async function listar(p: { docId?: unknown; url?: unknown }): Promise<Res
  * Tanda 6: de una landing de afuera, `lectura` (la página leída en el navegador de la persona) reemplaza
  * la bajada, y la URL se baja TAL CUAL la pegó (`leer`): la normalizada (sin www ni query) es la LLAVE de
  * landing_analyses, no una dirección, y hay hosts que sólo existen con www.
+ * De una NUESTRA, la lectura se sanea ANTES de separar los caminos (antes el corte del `docId` la tiraba
+ * sin mirarla): el texto lo sigue poniendo el documento, y lo que se probó en el navegador se suma.
  */
 export async function analizar(p: { docId?: unknown; url?: unknown; texto?: unknown; lectura?: unknown }): Promise<ResultadoLista> {
   const ws = await wsOFalla();
   if (typeof ws !== 'number') return ws;
   const obj = objetivoDe(p);
   if (!obj) return falla('Elige una landing o pega un enlace.');
-  if ('docId' in obj) return analizarNuestra(ws, obj);
   const lectura = p.lectura === undefined || p.lectura === null ? null : sanearLectura(p.lectura);
   if (p.lectura !== undefined && p.lectura !== null && !lectura) return falla('La lectura de la página llegó vacía.');
+  if ('docId' in obj) return analizarNuestra(ws, obj, lectura);
   return analizarDeAfuera(ws, obj, {
     texto: typeof p.texto === 'string' ? p.texto : undefined,
     lectura: lectura ?? undefined,
@@ -173,13 +218,12 @@ export async function analizar(p: { docId?: unknown; url?: unknown; texto?: unkn
   });
 }
 
-async function analizarNuestra(ws: number, obj: { docId: number }): Promise<ResultadoLista> {
+async function analizarNuestra(ws: number, obj: { docId: number }, lectura: Lectura | null): Promise<ResultadoLista> {
   const r = await abrir(obj.docId);
   if (!r.ok) return falla(r.error, r.status);
   const doc = r.doc;
-  const bloques = bloquesDeTexto(paginaPrincipal(doc.contenido));
-  const texto = textoParaAnalisis(bloques);
-  const palabras = contarPalabras(texto);
+  // Todas las páginas, cada una con su renglón; los bloques de todas ubican cada cita en su sección.
+  const { bloques, texto, palabras, paginas, afuera } = textoDeLanding(doc.contenido);
   if (palabras < TOPES_DIAGNOSTICO.palabras) return falla('Tiene muy poco texto para diagnosticarla.');
 
   let url: string | null = null;
@@ -188,28 +232,21 @@ async function analizarNuestra(ws: number, obj: { docId: number }): Promise<Resu
     // Publicada: el comportamiento real de su URL (visitas, scroll, agendas). Sin publicar: «sin
     // datos», y el prompt del Landing Analyst ya sabe decirlo sin inventar.
     const comp = url ? await getComportamiento(url) : SIN_COMPORTAMIENTO;
-    const pagina: LandingExtraida = {
-      url: url ?? `Borrador sin publicar: «${doc.titulo}»`,
-      urlFinal: url ?? `Borrador sin publicar: «${doc.titulo}»`,
-      titulo: doc.config.sitio.seoTitulo || doc.titulo,
-      descripcion: doc.config.sitio.seoDescripcion,
-      bloques: [],
-      texto,
-      palabras,
-      htmlBytes: 0,
-      fetchMs: 0,
-      // El texto salió del documento, no de una página que no se pudo leer.
-      bloqueada: false,
-    };
+    const pagina = paginaDeNuestra({
+      titulo: doc.titulo, seoTitulo: doc.config.sitio.seoTitulo, seoDescripcion: doc.config.sitio.seoDescripcion,
+      url, texto, palabras, lectura,
+    });
     const res = await analizarCopy(pagina, comp);
     if (!res.ok) return falla(await textoDeFalloIA(res.error), 502);
     const hallazgos = normalizarHallazgos(res.analysis).map((h) => ({ h, seccionId: ubicarCitaEnBloques(h.cita, bloques) }));
     const nuevas = await guardarHallazgos(ws, obj, hallazgos);
-    console.log(`[landing-generator/diagnostico] doc #${obj.docId}: ${hallazgos.length} hallazgos, ${nuevas} nuevos, ${hallazgos.filter((x) => !x.seccionId).length} sin ubicar`);
+    const fecha = new Date().toISOString();
+    await guardarResumenDeNuestra(ws, obj.docId, res.analysis, fecha);
+    console.log(`[landing-generator/diagnostico] doc #${obj.docId}: ${paginas} páginas${afuera ? ` (${afuera} afuera por el tope)` : ''}${lectura ? ', con lectura del navegador' : ''}, ${hallazgos.length} hallazgos, ${nuevas} nuevos, ${hallazgos.filter((x) => !x.seccionId).length} sin ubicar`);
     return {
       ok: true,
       sugerencias: await leerSugerencias(ws, obj),
-      resumen: resumenDeAnalisis(res.analysis, new Date().toISOString()),
+      resumen: resumenDeAnalisis(res.analysis, fecha),
       url: null,
       nuevas,
     };
