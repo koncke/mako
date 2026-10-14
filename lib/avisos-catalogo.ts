@@ -1024,13 +1024,14 @@ https://hola-mako.com/crm/123/resumen
     prioridad: 'baja', semaforo: 'na', requiereRespuesta: false, yaImplementado: 'si',
     // 13/10/2026: un EVENTO de MaKo (`analisis_listo`, lib/disparadores.ts). Sale SÓLO por la automatización «El AI
     // Analyst Terminó» que el negocio agrega de la galería (`mako-analisis`), con los datos citables del análisis
-    // (`{{analisis_hoja}}`, `{{analisis_resumen}}`, `{{analisis_hallazgos}}`, `{{analisis_link}}`). Lo emite el Dashboard.
+    // (`{{analisis_hoja}}`, `{{analisis_resumen}}`, `{{analisis_hallazgos}}`, `{{analisis_link}}`). Lo emite el Dashboard
+    // (`avisarAnalisisListo`, lib/graficos-analisis-server.ts).
     disparador: 'El AI Analyst del Dashboard termina de analizar una hoja.',
-    ejemplo: `📊 *Análisis listo*: Ventas de octubre
+    ejemplo: `📊 *Análisis listo*: Marketing
 
 Las agendas subieron 18% y el costo por lead bajó a US$ 4,10.
 
-👉 https://hola-mako.com/dashboard?hoja=12
+👉 https://hola-mako.com/dashboard?hoja=marketing
 
 — MaKo`,
   },

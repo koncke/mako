@@ -52,7 +52,7 @@ import type { QueTablero } from './tablero-actual';
 import {
   ANALISTA_SYSTEM_TEMPLATE, FEATURE_ANALISTA, MAX_TOKENS_SALIDA, agruparParaModelo, idComprimido, primeraCorrida,
   puedeArrancar, sanearCronAnalisis, sanearSalida, serializarHoja, siguienteCorrida, textoParaModelo, vistaDeFila,
-  type EstadoLectura, type FilaAnalisis, type ItemAnalisis, type Origen, type VistaAnalisis,
+  type EstadoLectura, type FilaAnalisis, type ItemAnalisis, type Origen, type SalidaAnalisis, type VistaAnalisis,
 } from './graficos-analisis';
 
 const T = 'dashboard_analisis';
@@ -388,12 +388,38 @@ export async function analizarHoja(p: PedidoAnalisis): Promise<{ ok: boolean; er
         modelo: r.modelo, corridas: p.corridasPrevias + 1,
       });
       if (!ok) console.info(`[analista] hoja ${p.hoja.id}: la corrida se canceló, el resultado no se guarda`);
+      else await avisarAnalisisListo(p, salida);
       return { ok };
     } catch (e) {
       console.error(`[analista] hoja ${p.hoja.id}: ${msg(e)}`);
       return await fallar('No pude analizar la hoja. Prueba de nuevo.');
     }
   });
+}
+
+/**
+ * EL EVENTO DE MAKO «El AI Analyst termina un análisis» (`analisis_listo`, lib/disparadores.ts; aviso
+ * `dashboard-analisis-listo`). Sale SIEMPRE, con el origen como dato (Martín, 13/10/2026: «eso debería ser una
+ * configuración de automations del usuario»): lo que se hace con él lo arma el negocio con la plantilla «El AI Analyst
+ * Terminó». Sin esa automatización no sale nada. Los datos van por CÓDIGO (`valoresDelAnalisis`), no los redacta un
+ * modelo. Nunca tira: el análisis ya quedó guardado y un aviso que no sale no lo deshace.
+ */
+async function avisarAnalisisListo(p: PedidoAnalisis, salida: SalidaAnalisis): Promise<void> {
+  try {
+    const [{ emitirDelCatalogo }, { valoresDelAnalisis }, { linkApp }] = await Promise.all([
+      import('./avisos'), import('./variables-del-lead'), import('./app-url'),
+    ]);
+    const datos = valoresDelAnalisis({
+      hoja: p.hoja.nombre,
+      resumen: salida.resumen,
+      hallazgos: salida.hallazgos.map((h) => `${h.titulo}: ${h.texto}`),
+      link: linkApp(`/dashboard?hoja=${encodeURIComponent(p.hoja.id)}`, p.ws),
+      origen: p.origen === 'cron' ? 'cron' : 'mano',
+    });
+    await emitirDelCatalogo('dashboard-analisis-listo', { ws: p.ws, datos });
+  } catch (e) {
+    console.error(`[analista] hoja ${p.hoja.id}: el aviso del análisis no salió: ${msg(e)}`);
+  }
 }
 
 // ── El cron: la MISMA función drena las dos tablas ────────────────────────────────────────────

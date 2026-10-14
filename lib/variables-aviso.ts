@@ -310,11 +310,11 @@ export const VARIABLES_AVISO: VariableAviso[] = [
   // en automations y consumir esto»). Lo pasa el emisor (`analizarHoja`, lib/graficos-analisis-server.ts) armado con
   // `valoresDelAnalisis` (lib/variables-del-lead.ts). NO es `{{mensaje_mako}}`: son datos citables, cada uno en su renglón
   // (un dato sin valor se lleva el renglón). Los hallazgos llegan SIN nombres de personas (los filtra el Dashboard).
-  { key: 'analisis_hoja', label: 'Hoja analizada', ejemplo: 'Ventas de octubre', alcance: 'analisis', grupo: 'dashboard', fuente: 'analisis', soloPara: 'equipo' },
+  { key: 'analisis_hoja', label: 'Hoja analizada', ejemplo: 'Marketing', alcance: 'analisis', grupo: 'dashboard', fuente: 'analisis', soloPara: 'equipo' },
   { key: 'analisis_resumen', label: 'Resumen del análisis', ejemplo: 'Las agendas subieron 18% y el costo por lead bajó a US$ 4,10.', alcance: 'analisis', grupo: 'dashboard', fuente: 'analisis', soloPara: 'equipo' },
   { key: 'analisis_hallazgos', label: 'Hallazgos', ejemplo: '• El anuncio «Testimonio 3» trae la mitad de las agendas\n• Los martes se agenda el doble', alcance: 'analisis', grupo: 'dashboard', fuente: 'analisis', soloPara: 'equipo' },
   { key: 'analisis_origen', label: 'Programado o a mano', ejemplo: 'Programado', alcance: 'analisis', grupo: 'dashboard', fuente: 'analisis', soloPara: 'equipo' },
-  { key: 'analisis_link', label: 'Link al análisis', ejemplo: 'https://hola-mako.com/dashboard?hoja=12', alcance: 'analisis', grupo: 'dashboard', fuente: 'analisis', soloPara: 'equipo' },
+  { key: 'analisis_link', label: 'Link al análisis', ejemplo: 'https://hola-mako.com/dashboard?hoja=marketing', alcance: 'analisis', grupo: 'dashboard', fuente: 'analisis', soloPara: 'equipo' },
 
   // ── Campaña: de dónde vino. Son nombres internos (de la campaña, del anuncio): para el equipo.
   { key: 'lead_origen', label: 'Por dónde entró', ejemplo: 'instant_form', alcance: 'lead', grupo: 'campana', fuente: 'ficha', soloPara: 'equipo' },
