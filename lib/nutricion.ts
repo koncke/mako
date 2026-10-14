@@ -75,13 +75,14 @@ import { esPasoAccion, sanearAccion, correrPasoAccion, type AccionDelPaso } from
 import {
   normalizar, validarGrafo, claseDe, idDe, indicePorId, raizRespuesta, raizSalida, antiguedadDeEntrada, elegirSalida,
   escenariosDeRespuesta, expandirPasoIA, nodoPorId, siguienteDe, TOPE_NODOS, HILO_PRINCIPAL, TOPE_HILOS, raicesSalida,
-  juntarPasosIA, escuchaPor, extrasDeCaso, type MedioAIStep,
+  juntarPasosIA, escuchaPor, extrasDeCaso, algunCaminoSigue, type MedioAIStep,
   type Espera, type RamaCondicion, type CasoRespuesta, type DestinoIrA, type HechosLead, type PasoGrafo, type FilaCondicion,
 } from '@/lib/flujo-grafo';
 import { OP_AVISAR, puedePisarFlujo } from '@/lib/flujo-legado';
 import {
   indiceActual, siguienteIndice, resolverControl, necesitaHechos, alcanzablesDesde, esPrimerPaso, minutosAntesDeReunion,
   saleSolo, siguienteSin, siguienteCon, hechosDeLead, esTablaInexistente, mediaDeAdjunto, camposDelFlujo, pasoDeEntrada,
+  condicionDeArriba, condicionSigueLlevando,
   esNodoDeControl, RELLENO_CONTROL, TOPE_SALTOS, esColumnaInexistente, etiquetasQueCuentan, barridoInscribe, irAEstaMisma,
   avisoSalio, frenadoPorAntiBan, anotarEnCorrida,
   filasDelFlujo, catalogoDeLead, resumenCursoDeAlumno, resumenPagos,
@@ -262,6 +263,8 @@ export type PasoSecuencia = {
   destino?: DestinoIrA | null;
   /** «Sale sola» POR MENSAJE: true = borrador, false = sale, ausente = lo de la secuencia. */
   revisar?: boolean;
+  /** Sólo el inicio: qué hace cada camino cuando el lead contesta (`siContestaDe`, 14/10/2026). Lo guarda `camposDelFlujo`. */
+  si_contesta?: PasoGrafo['si_contesta'];
 };
 
 export type Secuencia = {
@@ -428,6 +431,20 @@ function haceDiasISO(dias: number): string {
 }
 
 // ── Secuencias ───────────────────────────────────────────────────────────────
+
+/**
+ * LAS AUTOMATIZACIONES PAUSADAS (apagadas, sin archivar): sus inscripciones se CONGELAN. Martín, 14/10/2026: «Pausar»
+ * → «Congela y sigue donde estaba» (al reactivar, cada lead sigue en su paso y lo vencido sale al reactivar). Hasta el
+ * 14/10 el motor no las encontraba entre las activas y CERRABA cada inscripción que le vencía (`!sec`: 'completada',
+ * sin rastro): pausar era terminar, y al reactivar nadie seguía. Una regla escondida. Si no se pueden leer, tira: la
+ * corrida no avanza, que es mejor que volver a cerrarlas.
+ */
+async function idsDePausadas(db: Awaited<ReturnType<typeof getTenantDb>>): Promise<number[]> {
+  const { data, error } = await db.from('nutricion_secuencias').select('id').eq('activa', false).is('archivada_at', null);
+  if (error) throw new Error(`las automatizaciones pausadas: ${error.message}`);
+  return ((data ?? []) as Array<{ id: number }>).map((r) => Number(r.id)).filter((n) => Number.isInteger(n) && n > 0);
+}
+
 export async function getSecuenciasActivas(): Promise<Secuencia[]> {
   const supabase = (await getTenantDb());
   const rows = await leerFilasDeSecuencias((cols) => supabase
@@ -607,6 +624,16 @@ export async function setSecuenciaActiva(id: number, activa: boolean): Promise<v
     .update({ activa, updated_at: ahoraISO() })
     .eq('id', id);
   if (error) throw new Error(`setSecuenciaActiva: ${error.message}`);
+  // «Pausar» CONGELA (14/10/2026, `idsDePausadas`): al reactivar, lo que venció durante la pausa sale YA. La columna se
+  // pone en «ahora» para que la vea el tick de cada minuto (mira lo que acaba de vencer); los hilos guardan cada uno su
+  // hora y ya están vencidos. Un error acá no deshace la activación: la corrida de cada hora lo levanta igual.
+  if (activa) {
+    const ahora = ahoraISO();
+    const { error: eV } = await supabase.from('nutricion_inscripciones')
+      .update({ proximo_envio_at: ahora, updated_at: ahora })
+      .eq('secuencia_id', id).in('estado', ['activa', 'respondio']).lt('proximo_envio_at', ahora);
+    if (eV) console.error(`[nutricion] reactivar la ${id}: lo vencido durante la pausa sale en la corrida de la hora (${eV.message})`);
+  }
 }
 
 /**
@@ -2377,8 +2404,13 @@ async function inscripcionesVencidas(): Promise<InscripcionVencida[]> {
     // Y LAS 'respondio' CON EL CARRIL VIVO (undécima tanda, M4): el lead contestó, pero sus recordatorios siguen.
     // `pausarPorRespuesta` les deja el próximo envío sólo a ésas (a las demás se lo saca), así que una 'respondio'
     // vencida es siempre una del carril.
+    // Lo de una pausada no sale (`idsDePausadas`): la vista previa tampoco lo cuenta.
+    const pausadas = await idsDePausadas(supabase);
     return await leerTodo<InscripcionVencida>(supabase, 'nutricion_inscripciones', 'id, lead_id, secuencia_id, paso_actual, nodo_actual', {
-      orden: 'id', filtros: (q) => q.in('estado', ['activa', 'respondio']).lte('proximo_envio_at', ahora) as ConsultaPaginada,
+      orden: 'id', filtros: (q) => {
+        const base = q.in('estado', ['activa', 'respondio']).lte('proximo_envio_at', ahora);
+        return (pausadas.length ? base.not('secuencia_id', 'in', `(${pausadas.join(',')})`) : base) as ConsultaPaginada;
+      },
     });
   } catch (e) {
     throw new Error(`inscripcionesVencidas: ${e instanceof Error ? e.message : String(e)}`);
@@ -3789,6 +3821,8 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
     return true;
   };
 
+  // «Pausar» CONGELA (14/10/2026): lo de una automatización pausada no se levanta (antes se cerraba por `!sec`).
+  const pausadas = await idsDePausadas(supabase);
   while ((!cupoLleno() || sinTopeWa.length > 0) && rondas < 6) {
     rondas += 1;
     // Una acción de esta vuelta dejó su inscripción con el paso siguiente ya vencido.
@@ -3804,6 +3838,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
     // Vía rápida de UN lead (enrolamiento por evento): reusa TODO el motor
     // (anti-ban, audio, borradores, gates) sin esperar la corrida del cron.
     if (opts?.soloLeadId) q = q.eq('lead_id', opts.soloLeadId);
+    if (pausadas.length) q = q.not('secuencia_id', 'in', `(${pausadas.join(',')})`);
     // El tick: sólo lo que venció hace poco (ver la firma). Lo que esta misma corrida acaba de
     // mover a un paso que ya toca vence AHORA, así que sigue adentro.
     if (opts?.vencidasDesde) q = q.gte('proximo_envio_at', opts.vencidasDesde);
@@ -3961,7 +3996,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         // `pausarPorRespuesta` hace con todo lo demás. Fuera del horario, no se toca: sale al abrir.
         if (enRespuesta) {
           await escribir(insc, { estado: 'completada', proximo_envio_at: null }, { modo: 'cas' });
-          res.detalle.push({ lead_id: insc.lead_id, canal: pasoLeido.canal, estado: 'saltado', nota: 'el lead contestó: sólo siguen los recordatorios' });
+          res.detalle.push({ lead_id: insc.lead_id, canal: pasoLeido.canal, estado: 'saltado', nota: 'el lead contestó: este camino se corta' });
         }
         continue;
       }
@@ -4077,6 +4112,29 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         }
         insc.paso_actual = idxLeido;
         insc.nodo_actual = idDe(pasoLeido, idxLeido);
+      }
+      // ── LA CONDICIÓN DE ARRIBA, OTRA VEZ (14/10/2026, §2.2 del plan «nada por detrás») ─────────
+      // La fila despertó PARADA en un mensaje (un reintento, un borrador que esperaba, el anti-ban, el horario): la
+      // condición que está justo arriba se vuelve a evaluar con los hechos de ahora. Si ya no lleva acá, este camino
+      // termina, con su rastro. Así «Su reunión sigue en pie» delante del mensaje vale también para el reintento, y la
+      // guarda escondida «la reunión ya pasó» se puede borrar (docs/diseno-mako-nada-por-detras.md §2.3).
+      if (!esNodoDeControl(pasoLeido)) {
+        const idxCond = condicionDeArriba(sec.pasos, insc.paso_actual);
+        if (idxCond != null) {
+          const leidos = await hechosDe(insc.lead_id);
+          const hechos = leidos ? conEtapasDelCron(leidos, sec.disparadores ?? disparadoresDe(sec), sec.funnel_id ?? null) : null;
+          if (hechos && !condicionSigueLlevando(sec.pasos, idxCond, insc.paso_actual, hechos)) {
+            const ahora = sec.pasos[insc.paso_actual];
+            if (await escribir(insc, { estado: 'completada', proximo_envio_at: null }, { modo: 'cas', alcance: 'hilo' })) {
+              res.omitidos += 1;
+              await anotarCierreSinEnvio(insc, ahora, lead, 'la condición de arriba ya no lleva a este mensaje');
+              res.detalle.push({ lead_id: insc.lead_id, canal: ahora.canal, estado: 'omitido', nota: 'la condición de arriba ya no lleva a este mensaje' });
+            } else {
+              res.detalle.push({ lead_id: insc.lead_id, canal: ahora.canal, estado: 'saltado', nota: 'otra corrida ya movió esta inscripción' });
+            }
+            continue;
+          }
+        }
       }
       // El nodo que se manda o se corre: el que se leyó, o al que llegó la resolución de arriba
       // (las dos ramas dejaron `paso_actual` en su índice).
@@ -4938,12 +4996,12 @@ export async function pausarPorRespuesta(leadId: number, opts?: { texto?: string
     if (esColumnaInexistente({ message: msg })) throw new Error(`pausarPorRespuesta: no toqué al lead ${leadId}, falta una migración (${msg})`);
     console.error(`[nutricion] leer las secuencias antes de pausar al lead ${leadId}: ${msg}`);
   }
-  // ⚠️ UNA RESPUESTA NO APAGA EL CARRIL DEL RECORDATORIO (undécima tanda, M4). Las inscripciones de una
-  // automatización con DELAY «antes de la reunión» (`tieneCarril`) pasan a 'respondio' de a una, dejando vivos los
-  // hilos del carril con su próximo envío (`alResponder`); el motor mueve sólo ésos (`seMueveEnLaCorrida`). Las demás,
-  // como siempre, en un solo update. Sin poder leer las secuencias, todas como siempre: apagar un recordatorio es
-  // la dirección segura.
-  const conCarril = (secsActivas ?? []).filter((s) => tieneCarril(s.pasos));
+  // ⚠️ LO QUE SIGUE CUANDO EL LEAD CONTESTA LO DICE CADA CAMINO DEL CRON (14/10/2026, «Si contesta: se corta / sigue»;
+  // hasta entonces era una regla escondida: sólo el carril del recordatorio seguía, M4). Las inscripciones de una
+  // automatización con algún camino que SIGUE (`algunCaminoSigue`) pasan a 'respondio' de a una, dejando vivos esos
+  // hilos con su próximo envío (`alResponder`); el motor mueve sólo ésos (`seMueveEnLaCorrida`). Las demás, en un solo
+  // update. Sin poder leer las secuencias, todas se cortan: no avanzarle una secuencia a quien contestó es lo seguro.
+  const conCarril = (secsActivas ?? []).filter((s) => algunCaminoSigue(s.pasos));
   let q = supabase
     .from('nutricion_inscripciones')
     .update({ estado: 'respondio', proximo_envio_at: null, updated_at: ahoraISO() })

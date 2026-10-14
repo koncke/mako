@@ -1514,4 +1514,15 @@ FEEDBACK PROBAR:
       "Corrección del diagnóstico del bug 5: la fecha sin hora explica la primera pasada (a mano, 19:57), pero la reserva por Calendly de las 02:05 traía la hora y aun así no reinició el flujo. Esa segunda regla escondida es parte del inventario.",
     ],
   },
+  {
+    fecha: "14 oct", hora: "08:30", chat: "chatbot", cuenta: "claude2",
+    actor: "martin", tipo: "prompt",
+    titulo: "Seguir con todo lo pendiente, y TikTok y LinkedIn en Automations",
+    pedido: "Continua con todo lo pendiente... Y también:\n\nImplementar TikTok y LinkedIn... Intentar automatizar el chatbot para TikTok y Linkedin, eso sería un gran diferencial, ya que Manychat no se conecta a esas apps...",
+    puntos: [
+      "Lo primero de lo pendiente fue el bug 5. «Si el lead contesta: sigue / se corta» quedó por camino del CRON, con «sigue» de fábrica (decisión de Martín del 14/10), en c0c46bad. La migración de las existentes es scripts/migrar-si-contesta.ts y va ANTES del deploy.",
+      "TikTok y LinkedIn salieron de una investigación con fuentes (workflow wf_5ff0c95d-2ac; plan en docs/diseno-tiktok-linkedin.md). TikTok se puede por Zernio, sólo para contestar: 10 mensajes en 48 h, sin escribir primero. LinkedIn no se puede de forma legal. ManyChat SÍ tiene TikTok desde enero de 2025.",
+      "Antes de TikTok falta que el AI Step conteste por redes: hoy una respuesta de Instagram o Messenger sólo pausa.",
+    ],
+  },
 ];

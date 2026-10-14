@@ -44,6 +44,7 @@ buscar_lugares_meta
 buscar_tareas_plan
 buscar_tutorial
 cambiar_espera_paso
+cambiar_si_contesta_secuencia
 cancelar_accion
 cancelar_analisis_dashboard
 cancelar_programacion_broadcast

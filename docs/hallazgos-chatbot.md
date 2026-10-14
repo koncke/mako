@@ -4308,3 +4308,43 @@ evento entra con su emisor en el MISMO commit, aunque el emisor viva en el códi
 en lib/graficos-analisis-server.ts). Un link de ejemplo nombra una hoja real (`?hoja=marketing`).
 
 **Vive en:** `lib/avisos-catalogo.ts` · `lib/variables-aviso.ts` · `lib/graficos-analisis-server.ts`
+
+### «Si el lead contesta: sigue / se corta», por camino del CRON [motor · bug 5, 14/10]
+
+Lo que causó el bug 5 (`pausarPorRespuesta`: una respuesta frenaba todo salvo el carril) pasó a una opción de cada camino
+del CRON, con «sigue» de fábrica (decisión de Martín). Vive en la tarjeta CRON (`si_contesta`, la clave es la del hilo del
+motor: `p` o la primera tarjeta de la flecha en paralelo) y la leen con la MISMA función (`sigueSiContesta`) el motor y
+«Probar». Commit `c0c46bad`. Trampas que costaron:
+- **La quinta puerta, otra vez:** `camposDelFlujo` reconstruye cada paso campo por campo; sin su línea, el primer guardado
+  borraba la opción. También la copia de flujo (`conDestinos`, las claves son ids que se remapean al pegar).
+- **La opción es de la FLECHA, no de la tarjeta:** el ＋ del medio de una flecha del CRON cambia su primera tarjeta, así
+  que la opción se muda en `conectarParalelo`. Guardarla en la primera tarjeta se perdía en la primera inserción.
+- **Sin tarjeta CRON en el dato** (una sola flecha), elegir la opción la crea, como la primera flecha en paralelo.
+- **«Probar» va de a un evento:** lo que sigue espera a que termine la respuesta (`salidaQueSigue`); el motor lo corre a la vez.
+- **Migración:** scripts/migrar-si-contesta.ts (las existentes con lo de hoy, la bienvenida de «Un Lead Agendó Llamada» a
+  «sigue»). Va ANTES del deploy: el código de antes ignora la clave.
+- Lo que NO hace: una inscripción que ya estaba en 'respondio' no se reanuda.
+
+**Vive en:** `lib/flujo-grafo.ts` · `lib/nutricion-grafo-motor.ts` · `lib/nutricion.ts` · `lib/simulador-grafo.ts` · `app/automations/SiContestaCaminos.tsx`
+
+### El AI Step no contesta por redes: una respuesta de Instagram o Messenger sólo PAUSA [motor · 14/10]
+
+Lo encontró la investigación de TikTok (docs/diseno-tiktok-linkedin.md, fase 0). `pausarPorRespuesta` con origen social
+(`soloPausa`) sólo marca 'respondio' y se va: no hay «chatbot» en ningún canal social, aunque el lienzo deje armar un flujo
+de Instagram. Es el prerrequisito de TikTok. Y una trampa para sumar un canal: los ternarios binarios de
+`lib/canal-social.ts` (`plataformaDe`, `problemaDeAdjunto`, `logoSocialSvg`…) tratarían a `'tiktok'` como Messenger SIN
+avisar; van a `Record<CanalSocial, …>` para que el compilador obligue.
+
+**Vive en:** `lib/nutricion.ts` (`pausarPorRespuesta`, `asistirRespuesta`) · `lib/canal-social.ts` · `app/automations/EditorPasoIA.tsx` (`MEDIOS_OFRECIDOS`)
+
+### Una flecha no se podía soltar sobre la PASTILLA de una espera [lienzo · bug 4 del 13/10, 14/10]
+
+«Las líneas de conexión desde el botón de sumar no se sueltan ni se guardan» (Mauricio, 13/10). Una espera con un solo
+padre y una salida se dibuja como pastilla sobre la flecha (`colapsable`), y `tarjetaBajo` sólo aceptaba `[data-nodo]`:
+soltar la flecha sobre la pastilla caía al vacío. El caso de esa llamada: conectar el segundo audio de «Un Lead Agendó
+Llamada» a la espera de 2 h (la #213 terminó con los dos audios en esa espera). El dato siempre lo admitió (`conectar` a una
+espera); era el lienzo. Ahora la pastilla recibe la flecha (y se ve entera bajo el cursor). Con dos padres, la espera se
+dibuja como tarjeta. ⚠️ Sin ver la grabación (la cuenta 2 no accede a Fathom 858927676): es la causa más probable, no la
+medida; hay que confirmarlo con Mauricio después del deploy.
+
+**Vive en:** `app/_components/Lienzo.tsx` (`tarjetaBajo`, las pastillas) · `lib/flujo-conversacion.ts` (`colapsable`)

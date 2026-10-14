@@ -23,7 +23,7 @@ import {
   CAMPOS_CONDICION, TOPE_CASOS, TOPE_NODOS, TOPE_RESPONDER, TOPE_INSTRUCCIONES, TOPE_OTRA_AVISO,
   TOPE_OBJETIVO, TOPE_EJEMPLOS, TOPE_EJEMPLO, TOPE_ESCENARIOS_AI_STEP, MEDIOS_AI_STEP,
   claseDe, idDe, indicePorId, siguienteDe, puertosDe, raizSalida, raizRespuesta, elegirSalida, esPasoIA,
-  normalizar, nuevoId, paralelosDeResultado, aristasDeVuelta, padresSinVuelta,
+  normalizar, nuevoId, paralelosDeResultado, aristasDeVuelta, padresSinVuelta, sigueSiContesta, HILO_PRINCIPAL,
   type PasoGrafo, type HechosLead, type FilaCondicion, type RamaCondicion, type CasoRespuesta, type Espera, type DestinoIrA,
   type EjemploCaso, type MedioAIStep,
 } from './flujo-grafo';
@@ -31,7 +31,7 @@ import {
 import { conLibertad, libertadesPermitidas } from './ai-step-libertad';
 import { TRIGGER_ETIQUETA } from './nutricion-etapa';
 import { condicionPorId, reunionesDeFila, TOPE_REUNIONES, type HechosCatalogo } from './condiciones-catalogo';
-import { parseFechaJunta, reunionFuturaMs, proximaReunion, soloQuedaElCarril, type FilaReunion } from './nutricion-reinscripcion';
+import { parseFechaJunta, reunionFuturaMs, proximaReunion, soloQuedaElCarril, finDeLaReunionMs, type FilaReunion } from './nutricion-reinscripcion';
 // El CARRIL DEL RECORDATORIO (undécima tanda, M3 y M4): la marca y la tolerancia del emisor de hoy, los hilos
 // de una inscripción y la operación de la tarjeta «MaKo en WhatsApp». Los cuatro son puros.
 import { claveDelCarril, TOLERANCIA_MIN, type CualReunion } from './recordatorio-lead';
@@ -384,6 +384,36 @@ export function minutosAntesDeReunion(pasos: readonly PasoGrafo[], idx: number):
   return max;
 }
 
+// ── LA CONDICIÓN DE ARRIBA, OTRA VEZ ANTES DE MANDAR (14/10/2026, §2.2 de docs/diseno-mako-nada-por-detras.md) ──
+// Un mensaje que no sale en la corrida en que se llegó a él (un fallo que reintenta en 4 o 24 h, un borrador que espera,
+// el anti-ban, el horario) queda parado EN el mensaje: la condición de arriba ya no se vuelve a mirar. Por eso existía la
+// guarda escondida «la reunión ya pasó» (el caso del 25/09: con la línea caída, el reintento empujó la preparación
+// hasta DESPUÉS de la reunión). Para borrarla y que lo decida una condición VISIBLE (Martín: «jamás que "mako" haga
+// cosas que no están en el flujo»), antes de mandar se vuelve a evaluar la condición que está JUSTO arriba.
+
+/**
+ * La CONDICIÓN que está justo arriba del mensaje `idx` (su único padre), o null. Basta un nivel: dos condiciones
+ * seguidas no se pueden guardar (`problemasDeForma`). Con dos padres (dos caminos que llegan) no se elige: null.
+ */
+export function condicionDeArriba(pasos: readonly PasoGrafo[], idx: number): number | null {
+  const p = pasos[idx];
+  if (!p) return null;
+  const padres = padresSinVuelta(pasos, idDe(p, idx));
+  if (padres.length !== 1) return null;
+  const i = indicePorId(pasos, padres[0].id);
+  return i >= 0 && claseDe(pasos[i]) === 'condicion' ? i : null;
+}
+
+/** ¿La condición `idxCondicion`, evaluada con los hechos de AHORA, sigue llevando al mensaje `idx`? (Su salida o sus flechas en paralelo.) */
+export function condicionSigueLlevando(pasos: readonly PasoGrafo[], idxCondicion: number, idx: number, hechos: HechosLead): boolean {
+  const c = pasos[idxCondicion];
+  const p = pasos[idx];
+  if (!c || !p) return false;
+  const id = idDe(p, idx);
+  const s = elegirSalida(c, hechos);
+  return s.destino === id || paralelosDeResultado(c, s.puerto).includes(id);
+}
+
 // ── EL CARRIL DEL RECORDATORIO (undécima tanda, M3 y M4) ────────────────────────────
 // Pedido de Martín (11/10/2026, punto 8): «"Recordatorio de reunión" NO debería ser un flujo aparte, para eso ya
 // tenemos el flujo de "Agendó reunión", los recordatorios se pueden configurar allí mismo con DELAY». El
@@ -440,16 +470,17 @@ export function esHiloDelCarril(pasos: readonly PasoGrafo[], idx: number): boole
 
 /**
  * ¿Esta corrida puede MOVER la tarjeta `idx` de una inscripción?
- *  · `enRespuesta` (la inscripción está en 'respondio': el lead contestó): SÓLO el carril (M4). Lo demás —el
- *    «no confirmó», el «¿alcanzaste a ver el video?», el AI Step— se corta como siempre.
+ *  · `enRespuesta` (la inscripción está en 'respondio': el lead contestó): SÓLO lo de un camino que SIGUE cuando el
+ *    lead contesta (`sigueSiContesta`, la opción de la flecha del CRON, 14/10/2026). Hasta el 14/10 era «sólo el
+ *    carril» y no se veía en ningún lado: así no salió la bienvenida del bug 5.
  *  · `fueraDeHorario` (el horario de envío del negocio está cerrado, o no se pudo leer): el carril y las
  *    tarjetas «MaKo en WhatsApp» (M3 f; decisiones §9.6 y §9.7: el aviso al equipo sale a cualquier hora,
  *    como el del webhook). Lo demás espera a que abra, como siempre.
  *  · Si no, todo.
  */
 export function seMueveEnLaCorrida(pasos: readonly PasoGrafo[], idx: number, o: { enRespuesta: boolean; fueraDeHorario: boolean }): boolean {
+  if (o.enRespuesta && !sigueSiContesta(pasos, idx)) return false;
   if (esHiloDelCarril(pasos, idx)) return true;
-  if (o.enRespuesta) return false;
   if (o.fueraDeHorario) return esTarjetaMako(pasos[idx]);
   return true;
 }
@@ -552,10 +583,11 @@ export function decidirToqueDelCarril(p: {
 }
 
 /**
- * LO QUE QUEDA VIVO cuando el lead CONTESTA (M4). `pausarPorRespuesta` pasa la inscripción a 'respondio' y
- * le sacaba el próximo envío a TODO: con el recordatorio adentro del flujo, contestar «ok, ahí estaré» apagaba
- * el «1 h antes» (el emisor de hoy lo mandaba igual). Quedan los hilos del CARRIL con su próximo envío; los demás
- * se cortan, como siempre. Devuelve las columnas a escribir (con `estado: 'respondio'`) y si quedó carril.
+ * LO QUE QUEDA VIVO cuando el lead CONTESTA. `pausarPorRespuesta` pasa la inscripción a 'respondio' y le saca el
+ * próximo envío a lo que se CORTA. Qué se corta lo dice cada camino del CRON (`sigueSiContesta`, 14/10/2026: «Opción
+ * en cada camino, sigue de fábrica»); hasta el 14/10 quedaba sólo el carril del recordatorio (M4), una regla que no
+ * se veía en el lienzo. Devuelve las columnas a escribir (con `estado: 'respondio'`) y si quedó algo vivo (`carril`,
+ * el nombre de siempre).
  *
  *  · con hilos: sólo los del carril, y las columnas de siempre resumen el que vence primero;
  *  · una fila NUEVA de varias raíces (todavía no repartida): sus raíces del carril, como las repartiría el motor;
@@ -566,7 +598,7 @@ export function alResponder(
   fila: { paso_actual: number; nodo_actual?: string | null; proximo_envio_at?: string | null; hilos?: unknown },
   ahoraIso: string,
 ): { carril: boolean; update: Record<string, unknown> } {
-  const enCarril = (x: Hilo): boolean => esHiloDelCarril(pasos, indicePorId(pasos, x.nodo));
+  const enCarril = (x: Hilo): boolean => sigueSiContesta(pasos, indicePorId(pasos, x.nodo));
   const conHilos = (hs: Hilo[]): { carril: boolean; update: Record<string, unknown> } => {
     const vivos = hs.filter(enCarril);
     if (!vivos.length) return { carril: false, update: { proximo_envio_at: null, hilos: null } };
@@ -582,7 +614,7 @@ export function alResponder(
     if (ini) return conHilos(ini);
   }
   const idx = indiceActual(pasos, fila);
-  if (idx >= 0 && esHiloDelCarril(pasos, idx) && fila.proximo_envio_at) return { carril: true, update: { proximo_envio_at: fila.proximo_envio_at } };
+  if (idx >= 0 && sigueSiContesta(pasos, idx) && fila.proximo_envio_at) return { carril: true, update: { proximo_envio_at: fila.proximo_envio_at } };
   return { carril: false, update: { proximo_envio_at: null } };
 }
 
@@ -739,6 +771,19 @@ const msJunta = (x: string | null | undefined): number | null => {
 };
 
 /**
+ * Una reunión de la ficha. CANCELADA (la hora quedó, la fecha no: `junta_X_at` puesta y `fecha_junta_X` LEÍDA en null)
+ * cuenta como que no hay reunión — Martín, 14/10/2026: «Cancelada = no agendó». Hasta el 14/10 se leía la hora de una
+ * cancelada y la condición «Tiene reunión agendada» (y «Agendó») seguía diciendo que sí. `=== null`, no «falsy»: un
+ * objeto sin la fecha (`undefined`) no afirma que se canceló.
+ */
+function lugarDeFicha(at: string | null | undefined, fecha: string | null | undefined, asistio: boolean | null | undefined): { fechaMs: number | null; asistio: boolean | null; finMs: number | null } {
+  const cancelada = !!at && fecha === null;
+  const x = cancelada ? null : (at ?? fecha);
+  const fin = x ? finDeLaReunionMs(x) : NaN;
+  return { fechaMs: msJunta(x), asistio: asistio ?? null, finMs: Number.isFinite(fin) ? fin : null };
+}
+
+/**
  * El bloque `lead` del catálogo. Las reuniones se leen con la MISMA regla que el motor
  * (`parseFechaJunta`: una fecha sin hora es el mediodía de México) y la próxima con
  * `reunionFuturaMs`, la que usa el ancla «antes de la reunión».
@@ -754,8 +799,8 @@ export function catalogoDeLead(f: FilaLeadCatalogo, ahoraMs: number): NonNullabl
     emailBaja: f.email_opt_out === true,
     ventaTipo: f.venta_tipo ?? null,
     tieneFechaAgenda: !!f.fecha_agenda,
-    r1: { fechaMs: msJunta(f.junta_1_at ?? f.fecha_junta_1), asistio: f.asistio_j1 ?? null },
-    r2: { fechaMs: msJunta(f.junta_2_at ?? f.fecha_junta_2), asistio: f.asistio_j2 ?? null },
+    r1: lugarDeFicha(f.junta_1_at, f.fecha_junta_1, f.asistio_j1),
+    r2: lugarDeFicha(f.junta_2_at, f.fecha_junta_2, f.asistio_j2),
     cerro: f.cerro ?? null,
     tieneFechaCierre: !!f.fecha_cierre,
     confirmoCompra: !!f.fecha_confirmacion,
@@ -1198,7 +1243,7 @@ function sanearDestino(x: unknown): DestinoIrA | null {
 }
 
 /** Los campos que son SÓLO del flujo (los demás —canal, cuerpo, tipo…— los sanea el motor). */
-export type CamposFlujo = Pick<PasoGrafo, 'id' | 'siguiente' | 'paralelos' | 'nodo' | 'espera' | 'ramas' | 'casos' | 'suelta' | 'si_no' | 'paralelos_si_no' | 'destino' | 'revisar' | 'paso_ia' | 'instrucciones' | 'otra_aviso' | 'medio'
+export type CamposFlujo = Pick<PasoGrafo, 'id' | 'siguiente' | 'paralelos' | 'nodo' | 'espera' | 'ramas' | 'casos' | 'suelta' | 'si_no' | 'paralelos_si_no' | 'destino' | 'revisar' | 'paso_ia' | 'instrucciones' | 'otra_aviso' | 'medio' | 'si_contesta'
   // Undécima tanda: lo del OBJETIVO del AI Step (la quinta puerta: sin esto el primer guardado lo borraba).
   | 'objetivo' | 'audio' | 'ejemplos'>;
 
@@ -1273,6 +1318,13 @@ export function camposDelFlujo(p: unknown): CamposFlujo {
   // ⚠️ LA QUINTA PUERTA (AGENTS.md): `setSecuenciaPasos` reconstruye cada paso campo por campo, y
   // sin esta línea BORRABA las flechas en paralelo en el primer guardado, sin error.
   if (!nodo || nodo === 'esperar' || nodo === 'inicio') { const par = sanearParalelos(o.paralelos); if (par) out.paralelos = par; }
+  // SI CONTESTA (14/10/2026), la quinta puerta otra vez: sin esto el primer guardado borraba la opción de cada camino
+  // y todo volvía a la de fábrica. Las claves que no son caminos las limpia `normalizar`.
+  if (nodo === 'inicio' && o.si_contesta && typeof o.si_contesta === 'object' && !Array.isArray(o.si_contesta)) {
+    const sc: Record<string, 'corta' | 'sigue'> = {};
+    for (const [k, v] of Object.entries(o.si_contesta as Record<string, unknown>)) if ((k === HILO_PRINCIPAL || idValido(k)) && (v === 'corta' || v === 'sigue')) sc[k] = v;
+    if (Object.keys(sc).length) out.si_contesta = sc;
+  }
   return out;
 }
 

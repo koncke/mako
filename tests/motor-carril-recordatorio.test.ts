@@ -67,7 +67,9 @@ const F: PasoGrafo[] = [
   msg('u11t60', { siguiente: 'u11e15' }),
   antes('u11e15', 15, 'u11t15'),
   msg('u11t15', { siguiente: null }),
-  ctl('entrada', { nodo: 'inicio', siguiente: 'nvlvg08', paralelos: ['u11aviso', 'u11e1440'] }),
+  // «Si el lead contesta» por camino (14/10/2026): la forma de la undécima, explícita — la preparación y el aviso se
+  // cortan, el carril sigue. Hasta el 14/10 eso lo decidía el motor por su cuenta (sólo el carril seguía).
+  ctl('entrada', { nodo: 'inicio', siguiente: 'nvlvg08', paralelos: ['u11aviso', 'u11e1440'], si_contesta: { p: 'corta', u11aviso: 'corta', u11e1440: 'sigue' } }),
 ];
 const I = (id: string): number => indicePorId(F, id);
 
@@ -235,7 +237,7 @@ test('un hilo FRENADO no tapa al carril: se aplaza, y el tick ve el recordatorio
   assert.match(PROC, /nota: 'msg <20h' \}\);\s*await aplazarSiTapa\(insc, sec\);\s*continue;/);
 });
 
-test('M4: una RESPUESTA deja vivo el hilo del carril y corta los demás', () => {
+test('M4: una RESPUESTA deja vivo el hilo del carril y corta los demás (con «se corta» en los otros caminos)', () => {
   const ahora = '2026-10-12T20:00:00.000Z';
   // La inscripción 201 repartida: la preparación en o1, el carril esperando el «1 h antes».
   const fila = {
@@ -257,7 +259,7 @@ test('M4: una RESPUESTA deja vivo el hilo del carril y corta los demás', () => 
   const nueva = alResponder(F, { paso_actual: 0, nodo_actual: null, proximo_envio_at: ahora, hilos: null }, ahora);
   assert.equal(nueva.carril, true);
   assert.deepEqual((nueva.update.hilos as Array<{ h: string }>).map((x) => x.h), ['u11e1440']);
-  // Un solo cursor: en el carril sigue tal cual; fuera, sin próximo envío.
+  // Un solo cursor: en el carril sigue tal cual; fuera, sin próximo envío. (Sin CRON en el dato: el de fábrica, «sigue».)
   const soloCarril: PasoGrafo[] = [antes('e1', 60, 'm1'), msg('m1', { siguiente: null })];
   assert.deepEqual(alResponder(soloCarril, { paso_actual: 1, nodo_actual: 'm1', proximo_envio_at: ahora }, ahora), { carril: true, update: { proximo_envio_at: ahora } });
   assert.deepEqual(alResponder(F, { paso_actual: I('o1'), nodo_actual: 'o1', proximo_envio_at: ahora }, ahora), { carril: false, update: { proximo_envio_at: null } });
@@ -280,7 +282,8 @@ test('M4: una RESPUESTA deja vivo el hilo del carril y corta los demás', () => 
   // El cableado: `pausarPorRespuesta` pausa aparte las del carril; la cola y la vista previa levantan las
   // 'respondio' vencidas; el desenlace las espera; toda escritura de la posición compara contra lo leído.
   const pausar = cuerpo(NUTRI, 'export async function pausarPorRespuesta(');
-  assert.match(pausar, /const conCarril = \(secsActivas \?\? \[\]\)\.filter\(\(s\) => tieneCarril\(s\.pasos\)\);/);
+  // Desde el 14/10/2026 pasa de a una la que tiene ALGÚN camino que sigue cuando el lead contesta (`algunCaminoSigue`).
+  assert.match(pausar, /const conCarril = \(secsActivas \?\? \[\]\)\.filter\(\(s\) => algunCaminoSigue\(s\.pasos\)\);/);
   assert.match(pausar, /if \(conCarril\.length\) q = q\.not\('secuencia_id', 'in', /);
   assert.match(pausar, /pausadas\.push\(\.\.\.await pausarConCarril\(supabase, leadId, conCarril\)\)/);
   assert.match(cuerpo(NUTRI, 'async function pausarConCarril('), /const \{ update \} = alResponder\(sec\.pasos, fila, ahoraISO\(\)\);/);

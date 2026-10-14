@@ -88,6 +88,25 @@
 > lead desde el 10/10. O el alta de «Nuevo lead» no lo guardó (bug del CRM: medir `createLead` con ese teléfono, ¿duplicado?
 > ¿error tragado?), o lo borraron después de la llamada: se le preguntó a Martín. Sin lead no hay inscripción: la #213 no tenía
 > a quién mandarle.
+> **ORDEN DEL DEPLOY de «nada por detrás» (14/10 ~10:00), en DOS pasos:**
+> 1. Push con `c0c46bad` (si contesta) + la condición `reunion_en_pie` + el reintento (§2.2). ANTES:
+>    `ENV_FILE=C:/dev/mako-api/.env.local node --import tsx scripts/migrar-si-contesta.ts --apply`.
+> 2. Con eso desplegado: `... scripts/migrar-condicion-reunion.ts --apply` (dry run medido: sólo las PRENDIDAS, #213 ws1 y
+>    #241 ws13; la #249 del ws11 y la #210 del ws4 están apagadas y no se tocan). Recién después, un commit que borra la
+>    guarda escondida (`if (anclada || preparaReunion(sec))` → sólo `anclada`, y el `sinReunion` de la inscripción a mano;
+>    tests reunion-ya-paso, motor-entrada-etapa, nutricion-inscripcion-manual, reunion-fecha-sola-del-dia) y su push.
+> ⚠️ Al revés corta los flujos: el código de producción no conoce `reunion_en_pie` (la fila no se cumple).
+> Hallazgo de la corrida: la #249 («Seguimiento a leads que no cierran», CRON en No compró + Agenda + Facturando) caía bajo
+> la guarda y se le cortaba todo el seguimiento de después de la reunión. Al borrarla, hace lo que dice su lienzo.
+> **14/10 ~08:30 — Martín, directo en este chat: «Continua con todo lo pendiente... Y también: Implementar TikTok y
+> LinkedIn».** Hecho: (1) «Si el lead contesta» por camino, `c0c46bad` (sin push todavía; el push es por turno con «Estrategia
+> 3 CUENTAS»). ⚠️ ANTES del deploy correr `ENV_FILE=C:/dev/mako-api/.env.local node --import tsx scripts/migrar-si-contesta.ts
+> --apply` (dry run medido: 10 automatizaciones; #213, #241 y #210 con la bienvenida en «sigue»). Verlo en ws3 después del
+> deploy. (2) TikTok/LinkedIn investigado: docs/diseno-tiktok-linkedin.md. TikTok sí, por Zernio, sólo para contestar; LinkedIn
+> no (sin vía legal); ManyChat YA tiene TikTok. Para arrancar TikTok hace falta de Martín: una cuenta TikTok Business de
+> prueba (LATAM) para ws3, el cupo de Zernio y dónde va el botón TikTok en la grilla de CRON (hoy 4+3). Fase 0 (que el AI Step
+> conteste por Instagram/Messenger) no depende de eso. Sigue en el orden: `reunion_en_pie` (§2.1), el reintento (§2.2),
+> migración y borrar la guarda (§2.3), «Pausar» congela, protecciones configurables y visibles, bugs 4 y 8.
 > **CIERRE (14/10 ~07:00, pedido de Martín vía «Estrategia 3 CUENTAS»: «que se pushee todo y que los chats cierren»).**
 > Hecho y en main (e4c8a6d7): bug 5 de la fecha sin hora (329d1443), el emisor del AI Analyst (60186944). Commiteado sin
 > push en la rama `undecima`: la cosecha del inventario (6b9363f4) y este cierre. **Martín DECIDIÓ las cuatro preguntas**

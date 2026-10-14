@@ -202,8 +202,12 @@ export type HechosCatalogo = {
     emailBaja: boolean;
     ventaTipo: string | null;
     tieneFechaAgenda: boolean;
-    r1: { fechaMs: number | null; asistio: boolean | null };
-    r2: { fechaMs: number | null; asistio: boolean | null };
+    /**
+     * Las dos reuniones de la ficha. `fechaMs` null también si se CANCELÓ (Martín, 14/10/2026: «Cancelada = no agendó»).
+     * `finMs`: hasta cuándo «todavía no pasó» (la hora; una fecha sola, el final de su día: `finDeLaReunionMs`).
+     */
+    r1: { fechaMs: number | null; asistio: boolean | null; finMs?: number | null };
+    r2: { fechaMs: number | null; asistio: boolean | null; finMs?: number | null };
     cerro: boolean | null;
     tieneFechaCierre: boolean;
     confirmoCompra: boolean;
@@ -270,7 +274,7 @@ const agendoDe = (l: NonNullable<HechosCatalogo['lead']>) => l.r1.fechaMs != nul
 // ── Las reuniones (cuarta tanda, punto 5) ─────────────────────────────────────────
 
 /** Lo que la ficha sabe de UNA reunión: uno de sus dos lugares (`r1` / `r2` del bloque `lead`). */
-type LugarReunion = { fechaMs: number | null; asistio: boolean | null };
+type LugarReunion = { fechaMs: number | null; asistio: boolean | null; finMs?: number | null };
 
 /** Cuántas etapas de reunión se guardan por fila: más que esto es un dato roto, no una elección. */
 export const TOPE_REUNIONES = 12;
@@ -348,6 +352,19 @@ function proximaEntre(f: FilaCondicion, h: HechosLead): number | null {
   // `> ahora`: la misma regla que `reunionFuturaMs` (lib/nutricion-reinscripcion.ts).
   const fut = s.map((x) => x.fechaMs).filter((ms): ms is number => ms != null && ms > h.ahoraMs);
   return fut.length ? Math.min(...fut) : null;
+}
+
+/**
+ * «SU REUNIÓN SIGUE EN PIE» (14/10/2026): alguna de las elegidas (sin etapas, la R1 o la R2) no se canceló, no tiene
+ * la asistencia marcada y todavía no pasó (`finMs`: la hora, o el final del día de una fecha sola). Es la pregunta que
+ * hacía escondida el motor antes de cada mensaje de un flujo de reunión («la reunión ya pasó», `laReunionYaPaso`):
+ * Martín, 14/10/2026: «Debería justamente existir una CONDITION en el flujo que pueda pausar en el envio si se canceló o
+ * ya pasó la reunión». Sin datos del lead, «no sé».
+ */
+function enPieEntre(f: FilaCondicion, h: HechosLead): boolean | null {
+  const s = lugaresDeFila(f, h);
+  if (!s) return null;
+  return s.some((x) => x.fechaMs != null && x.asistio == null && x.finMs != null && x.finMs > h.ahoraMs);
 }
 
 /** Los embudos que nombran las filas con etapas de reunión: la fuente `reuniones` lee sólo ésos. */
@@ -546,6 +563,10 @@ export const CONDICIONES: readonly DefCondicion[] = [
   {
     id: 'reunion_en', reuniones: true, seccion: 'Agenda y llamadas', ambito: 'adquisicion', rotulo: ['Próxima reunión en', 'Próxima reunión en'], negable: false, valor: { t: 'numero', unidad: ' h', def: 24, min: 1, max: 720 }, fuentes: ['lead'],
     evaluar: (f, h) => { const r = proximaEntre(f, h); return r == null ? null : compara(f, (r - h.ahoraMs) / 3_600_000); },
+  },
+  {
+    id: 'reunion_en_pie', reuniones: true, seccion: 'Agenda y llamadas', ambito: 'adquisicion', rotulo: ['Su reunión sigue en pie', 'Su reunión ya pasó o se canceló'], negable: true, valor: NINGUNO, fuentes: ['lead'],
+    evaluar: enPieEntre,
   },
   // ⚠️ LAS DE «R1» / «R2» QUEDAN RETIRADAS (cuarta tanda, punto 5: «no tiene sentido diferenciar "R1"
   // de "R2"»). Se siguen evaluando para los flujos que ya las tienen; para lo nuevo están la familia de
