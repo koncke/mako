@@ -12,7 +12,7 @@ vigía mata los `tsc`). Dos ramas:
 
 - **`graphics-1310`** (`C:/dev/wt-graphics`), commits listos para pushear:
   - `a30282bf` — **«¿Qué vas a crear hoy?» en «Nueva hoja»** (la caja de Automations, la misma) y **«Copiar dashboard»** con un token
-    `MAKO-DASH-…` (mig **0266** `dashboard_copias`, YA APLICADA en prod). Viaja la definición, sin personas; en otro negocio se vacían
+    `MAKO-DASH-…` (mig **0268** `dashboard_copias`, YA APLICADA en prod). Viaja la definición, sin personas; en otro negocio se vacían
     los filtros para mirar que eran de allá. También: Landing Analyst → «Diagnóstico» en tres textos sueltos.
   - `35dc37f6` — feedback de la reunión del 12/10: el **botón de MaKo no sale editando**, y **las plantillas se arman con los datos del
     negocio** (`/api/graficos/plantilla`: quita los vacíos y MaKo suma hasta 4 con datos). Lo mismo para lo que arma MaKo con un pedido y

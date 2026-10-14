@@ -423,7 +423,7 @@ ola 2: topbar/filtros, edición, IA y entidades, mapa de calor; ola 3: plantilla
 ## Copiar un dashboard con un token, y «¿Qué vas a crear hoy?» en «Nueva hoja» (13/10/2026)
 
 **Vive en:** `lib/graficos-copia.ts` (puro, con test), `lib/graficos-copia-server.ts`, `app/api/graficos/copia/route.ts`,
-`app/dashboard/copia-dash-cliente.ts`, `app/dashboard/NuevaHoja.tsx`, mig 0266 (`dashboard_copias`), `lib/token-copia.ts`
+`app/dashboard/copia-dash-cliente.ts`, `app/dashboard/NuevaHoja.tsx`, mig 0268 (`dashboard_copias`; se escribió 0266 y se renumeró: otra sesión la había tomado), `lib/token-copia.ts`
 
 Es «Copiar flujo» de Automations (mig 0265) para una hoja: el ⋮ de la hoja guarda la copia y el portapapeles lleva
 `MAKO-DASH-…`; pegarlo en la caja de «Nueva hoja» la agrega con ids nuevos. Lo que costó:

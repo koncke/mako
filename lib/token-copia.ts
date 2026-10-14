@@ -9,7 +9,7 @@
 //
 // ⚠️ lib/flujo-copia.ts todavía tiene su propia copia de esta mecánica (con `MAKO-FLUJO-`): la escribió otra sesión el
 // mismo día y no se tocó para no pisarle el archivo. Cuando se toque, que delegue acá (mismo alfabeto, mismo largo,
-// mismo regex: el check de la mig 0265 y el de la 0266 dicen lo mismo).
+// mismo regex: el check de la mig 0265 y el de la 0268 dicen lo mismo).
 //
 // Puro y sin `server-only`: lo usan la pantalla (reconocer un token pegado), la ruta (acuñarlo) y el test.
 // =============================================================================

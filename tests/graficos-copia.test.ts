@@ -1,5 +1,5 @@
 // =============================================================================
-// Copiar un dashboard con un TOKEN (lib/graficos-copia.ts, app/api/graficos/copia, mig 0266) y la caja
+// Copiar un dashboard con un TOKEN (lib/graficos-copia.ts, app/api/graficos/copia, mig 0268) y la caja
 // «¿Qué vas a crear hoy?» de «Nueva hoja» (app/dashboard/NuevaHoja.tsx)
 // =============================================================================
 // Martín (12/10/2026): «pasale la sección de "¿Qué vamos a hacer hoy?" al chat de graphics para que lo implemente tal
@@ -116,8 +116,8 @@ test('el token: MAKO-DASH- y 10 letras de Crockford; se encuentra en una frase y
   assert.equal(avisoDeVaciados(3), '3 filtros vaciados');
 });
 
-test('la migración 0266 acepta EXACTAMENTE el token que se acuña, y lleva su revoke', () => {
-  const sql = leer('supabase/migrations/0266_dashboard_copias.sql');
+test('la migración 0268 acepta EXACTAMENTE el token que se acuña, y lleva su revoke', () => {
+  const sql = leer('supabase/migrations/0268_dashboard_copias.sql');
   const m = /check \(token ~ '([^']+)'\)/.exec(sql);
   assert.ok(m, 'falta el check del token');
   const re = new RegExp(m[1]);

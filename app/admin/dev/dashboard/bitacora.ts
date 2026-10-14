@@ -279,7 +279,7 @@ export const BITACORA: Hito[] = [
       'Los textos que todavía decían Landing Analyst ahora dicen Diagnóstico.',
     ],
     commits: [{ sha: 'a30282b', msg: 'Dashboard: «¿Qué vas a crear hoy?» en «Nueva hoja» y copiar un dashboard con un token MAKO-DASH', lineas: 1117, archivos: 15 }],
-    archivos: ['app/dashboard/NuevaHoja.tsx', 'app/dashboard/Cabecera.tsx', 'app/dashboard/EditorInforme.tsx', 'lib/graficos-copia.ts', 'lib/graficos-copia-server.ts', 'app/api/graficos/copia/route.ts', 'supabase/migrations/0266_dashboard_copias.sql'],
+    archivos: ['app/dashboard/NuevaHoja.tsx', 'app/dashboard/Cabecera.tsx', 'app/dashboard/EditorInforme.tsx', 'lib/graficos-copia.ts', 'lib/graficos-copia-server.ts', 'app/api/graficos/copia/route.ts', 'supabase/migrations/0268_dashboard_copias.sql'],
   },
   {
     fecha: '13 oct', hora: '19:37', chat: CH, cuenta: 'claude2', actor: 'claude', tipo: 'cosecha',

@@ -1,5 +1,5 @@
 // =============================================================================
-// graficos-copia-server — guardar y leer un dashboard copiado detrás de su token (tabla `dashboard_copias`, mig 0266)
+// graficos-copia-server — guardar y leer un dashboard copiado detrás de su token (tabla `dashboard_copias`, mig 0268)
 // =============================================================================
 // Las reglas de qué viaja viven en lib/graficos-copia.ts (puro, con test); acá sólo la tabla. Es el molde de
 // lib/flujo-copia-negocio.ts (`flujo_copias`, mig 0265): la tabla NO es de un inquilino (la lee cualquier negocio que
@@ -16,7 +16,7 @@ import { hojaDeCopia, tokenDashDeBytes, tokenDashDeTexto } from './graficos-copi
 import type { Hoja } from './graficos-catalogo';
 
 const TABLA = 'dashboard_copias';
-export const FALTA_TABLA_DASH = 'Falta la migración 0266 (dashboard_copias).';
+export const FALTA_TABLA_DASH = 'Falta la migración 0268 (dashboard_copias).';
 export class FaltaTablaDashError extends Error {
   constructor() { super(FALTA_TABLA_DASH); this.name = 'FaltaTablaDashError'; }
 }

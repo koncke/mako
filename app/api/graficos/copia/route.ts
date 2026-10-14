@@ -1,8 +1,8 @@
-// POST /api/graficos/copia — «Copiar dashboard» y pegarlo con su TOKEN (lib/graficos-copia.ts, mig 0266)
+// POST /api/graficos/copia — «Copiar dashboard» y pegarlo con su TOKEN (lib/graficos-copia.ts, mig 0268)
 //        { action: 'copiar', hoja }   → guarda la hoja (sin los filtros sobre personas) → { token, nombre, vaciados }
 //        { action: 'leer', copia }    → el dashboard detrás del token, listo para ESTE negocio → { nombre, hoja, vaciados }
 //                                        (`copia`: el token, o un texto que lo trae)
-//        503 con `falta` si la tabla no está (la migración 0266 todavía no se aplicó).
+//        503 con `falta` si la tabla no está (la migración 0268 todavía no se aplicó).
 //
 // Pedido de Martín (12/10/2026): «los dashboards también deberían poder copiarse y enviarse con ese token». El molde es
 // «Copiar flujo» de Automations (`copiar_flujo` / `leer_copia` en POST /api/chat-agent/secuencias).

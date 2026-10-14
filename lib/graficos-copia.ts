@@ -6,7 +6,7 @@
 // decir, que los dashboards también deberían poder copiarse y enviarse con ese token».
 //
 // Es el mismo patrón que «Copiar flujo» de Automations (lib/flujo-copia.ts, mig 0265): el ⋮ de una hoja tiene «Copiar
-// dashboard», el server guarda la copia en `dashboard_copias` (mig 0266, lib/graficos-copia-server.ts) y al
+// dashboard», el server guarda la copia en `dashboard_copias` (mig 0268, lib/graficos-copia-server.ts) y al
 // portapapeles va un token corto («MAKO-DASH-…»). Pegarlo en la caja de «Nueva hoja» dice «Dashboard copiado:
 // <nombre>» y el ↑ lo agrega al informe de quien pega, en su negocio.
 //
@@ -36,7 +36,7 @@ import { sacarToken, tokenDeBytesCon, tokenEnTexto } from './token-copia';
 
 // ── El token ────────────────────────────────────────────────────────────────────────────────────
 
-/** El comienzo de todo token de un dashboard (dice qué es, también en un WhatsApp). El check de la mig 0266 es éste. */
+/** El comienzo de todo token de un dashboard (dice qué es, también en un WhatsApp). El check de la mig 0268 es éste. */
 export const PREFIJO_TOKEN_DASH = 'MAKO-DASH-';
 export const tokenDashDeBytes = (bytes: ArrayLike<number>): string => tokenDeBytesCon(PREFIJO_TOKEN_DASH, bytes);
 /** El token de un dashboard que hay en un texto (pegado solo o en una frase), normalizado. Si no, null. */

@@ -1,8 +1,8 @@
 -- =============================================================================
--- 0266 — Los dashboards copiados con «Copiar dashboard», guardados detrás de un TOKEN (Dashboard, 13/10/2026)
+-- 0268 — Los dashboards copiados con «Copiar dashboard», guardados detrás de un TOKEN (Dashboard, 13/10/2026)
 -- =============================================================================
 -- ⚠️ ORDEN DE DESPLIEGUE: ANTES o JUNTO con el deploy que trae POST /api/graficos/copia (lib/graficos-copia-server.ts).
--- Sin ella NADA SE ROMPE: la ruta contesta 503 con «Falta la migración 0266 (dashboard_copias).», «Copiar dashboard»
+-- Sin ella NADA SE ROMPE: la ruta contesta 503 con «Falta la migración 0268 (dashboard_copias).», «Copiar dashboard»
 -- dice que no se pudo y pegar un token dice que no lo encontró. Agrega y no saca nada: la versión desplegada no la
 -- nombra, así que aplicarla antes no le molesta a nadie.
 --
