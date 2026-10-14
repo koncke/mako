@@ -360,4 +360,36 @@ export const BITACORA: Hito[] = [
     ],
     archivos: ['app/general/page.tsx', 'app/general/Cobranza.tsx', 'tests/general-cobranza.test.ts', 'docs/hallazgos-objectives.md'],
   },
+  {
+    fecha: '14 oct', hora: '02:41', chat: 'General', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'General personalizable de verdad: el editor del Dashboard, con plantillas',
+    pedido: 'La personalización que hiciste en GENERAL es nula...\nMirá que tienes de donde inspirarte, pero no lo hiciste...\n\nTenemos un constructor de landing y gráficos para poder personalizar la tab general... Te pido por favor que lo hagas bien. Que todo sea personalizable, intenta replicar lo que tenemos en dashboard, solo que claro, aquí no hace falta tantos gráficos y tiene otro objetivo la tab... Teniendo eso en cuenta, también crea templates...\nMe imagino una que diga "Bienvenido NOMBRE..."\nLos bloques también deberían ser editables.',
+    puntos: [
+      'Con una captura del modal «Nueva hoja» del Dashboard. Las «vistas» del 13/10 (elegir bloques fijos de una lista) eran lo que se rechazaba.',
+    ],
+  },
+  {
+    fecha: '14 oct', hora: '03:19', chat: 'General', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Todos los bloques que alguien querría ver, con los distintos funnels',
+    pedido: 'Piensa en todos los bloques que un usuario, con los diferentes funnels que tenemos y en general, todo lo que un usuario podría llegar a querer ver en una tab general, para hacer el editable',
+  },
+  {
+    fecha: '14 oct', hora: '04:13', chat: 'General', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'General es el editor del Dashboard, con su informe, sus bloques y sus plantillas',
+    puntos: [
+      'Hojas, «Nueva hoja» con «¿Qué vas a crear hoy?», mover, agrandar, estilos, filtros y todo el catálogo de gráficos: el mismo editor que el Dashboard, con un informe aparte por persona. Quien nunca armó el suyo ve la General de siempre.',
+      'Doce bloques de General como un elemento más (el objetivo y la acción del día, objetivos, KPIs, semáforo, mi día, próximas llamadas, prioridades del Plan, pendientes del CRM, tu funnel hoy, a quién cobrarle, el mes, próximas publicaciones): se mueven, se duplican y se les cambia el título. «Tu funnel hoy» y «A quién cobrarle» se atan a un funnel desde su panel.',
+      'Plantillas: la General de siempre, Bienvenida («{{saludo}}, {{nombre}}»: los textos entienden variables), Operación diaria, Foco, una por tipo de funnel (llamadas, WhatsApp, lanzamiento, servicio, curso) y Ventas.',
+      'API de MaKo: listar, crear hoja y agregar bloque (con funnel). Las vistas, su IA y su ruta se retiraron.',
+    ],
+    commits: [{ sha: '56efcbaa', msg: 'General: el editor del Dashboard con su propio informe, bloques y plantillas', lineas: 4169, archivos: 42 }],
+    archivos: [
+      'app/general/page.tsx', 'app/general/piezas.tsx', 'app/dashboard/ElementoGeneral.tsx', 'app/dashboard/EditorInforme.tsx',
+      'app/dashboard/Elemento.tsx', 'lib/general-piezas.ts', 'lib/general-plantillas.ts', 'lib/general-alcance.ts',
+      'lib/graficos-tablero.ts', 'lib/graficos-catalogo.ts', 'lib/api-mako/areas/general.run.ts', 'tests/general-editor.test.ts',
+    ],
+  },
 ];
