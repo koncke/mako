@@ -5754,3 +5754,72 @@ con ~15 chats abiertos ese piso casi nunca está libre; lo que destraba un push 
 
 **Vive en:** `scripts/typecheck-lock.mjs` · `tests/typecheck-lock.test.ts` ·
 `~/.claude/guardia/vigia.ps1` (sin tocar) · *2026-10-13*
+
+## El desenlace: el vigía murió de la crisis que vigila, y el tsc mudo SÍ tapaba errores (14/10/2026)
+
+El push entró a las ~05:10Z (`aa625b20..e4c8a6d7`, 49 commits). Tres cosas que sólo se
+supieron al final, y las tres corrigen lo que esta misma entrada afirmaba.
+
+### 1. ⛔ CORRECCIÓN: sí había errores de tipos. Cinco.
+
+Esta entrada decía «no hay errores de tipos: lo que había eran kills», apoyada en una
+medición buena (`tsc --noEmit` directo salió en 0 a las 18:40). Era cierta **sobre
+`origin/main` a esa hora**, y falsa sobre lo que se estaba acumulando: el push final
+encontró **5 errores reales** en `InvitarAlCurso.tsx`, `InvitarAlumnos.tsx`,
+`EditorInforme.tsx`, `lib/graficos-copia.ts` y dos tests (arreglados en `e4c8a6d7`).
+
+**Eso es un costo del fallo mudo que no se había nombrado.** No sólo hizo perder horas a
+cinco sesiones: durante esas horas **todo el mundo siguió commiteando a ciegas**, porque
+el único chequeo de tipos de la casa estaba inutilizable. Un guard roto no deja el sistema
+como estaba: lo deja peor de forma acumulativa, y la deuda aparece junta al final.
+
+⚠️ **Y la trampa de medición que me llevó a afirmarlo: «el árbol compila» tiene FECHA y
+SUJETO.** Un verde sobre `origin/main` a las 18:40 no dice nada de 49 commits que todavía
+no estaban ahí. Al citar un typecheck en verde hay que decir **sobre qué commit** corrió.
+
+### 2. El vigía murió a las 23:03Z, de la propia crisis, y estuvo caído SEIS HORAS
+
+Medido en el log: su última línea fue `MATO pid 30356 … libre antes 259 MB` a las
+**23:03:00Z**, y la siguiente es `arranca` a las **05:06:43Z**, cuando lo reiniciaron a
+mano. En el medio, nada: el proceso que existe para evitar que la máquina se quede sin RAM
+**se murió porque la máquina se quedó sin RAM**, en su peor momento.
+
+Nadie se enteró, y la causa es de configuración: su tarea programada tiene **un solo
+disparador, `AtLogon`**. Si el proceso muere, no vuelve hasta el próximo inicio de sesión.
+Es exactamente la regla que este documento ya tiene escrita para la cola de cursos —*todo
+proceso largo necesita algo que lo MIRE, no sólo que lo lance*— sin aplicar al vigilante
+mismo. **El que vigila no se vigila solo**, y su muerte es silenciosa por partida doble:
+no escribe nada al morir, y lo que deja de pasar (que maten procesos) no se nota.
+
+⚠️ **Y ESTO PARTE LA NOCHE EN DOS, lo que explica dos diagnósticos que parecían chocar.**
+Hasta las 23:03 los typechecks morían **matados**: exit 1, cero salida, mudos. Desde las
+23:03 morían de **OOM real**: «Mark-Compact … heap out of memory», ruidoso. Por eso la
+sesión que midió a las 23:15 y a las 00:40 pudo diagnosticar bien el heap y subir el tope
+a 4096, y por eso lo que yo medí antes eran kills. **Los dos teníamos razón sobre momentos
+distintos, y el componente que cambió fue uno que se murió sin avisar** — el caso más duro
+de «una medición tiene fecha»: no cambió el árbol ni la carga, cambió quién estaba vivo.
+
+### 3. El piso de 5,3 GB no estaba de más: es CONDICIONAL
+
+El push entró con **4,68 GB libres**, por debajo del piso, y pasó. La lectura fácil es
+«el piso era demasiado alto»; la medida es otra: pasó **porque el vigía estaba muerto**.
+El piso es `heap (4,0) + overhead (0,1) + zona roja del vigía (0,9) + margen (0,3)`, y ese
+tercer término es un impuesto que **sólo se paga cuando hay vigía**. Sin él: 4,4 GB — y
+tenían 4,68.
+
+Así que el lock ahora lo pregunta (`vigiaVivo()`): 5,3 GB con vigía vivo, 4,4 sin él, y
+ante cualquier duda asume que está (piso alto), porque equivocarse para el otro lado es
+arrancar hacia un kill. De paso, es la única pieza del sistema que se entera de que el
+vigía se cayó.
+
+⚠️ **La lección general: un umbral que suma el gatillo de OTRA guarda deja de ser válido
+cuando esa guarda no está.** Un número calibrado contra un componente tiene que preguntar
+si ese componente existe, o miente en las dos direcciones — de más cuando el otro se cayó
+(bloquea trabajo que entraría), y de menos el día que alguien lo endurezca.
+
+**Lo que sigue pendiente, y es decisión de Martín:** que el vigía tenga quien lo levante
+(hoy, si muere, hay que reiniciarlo a mano) y que prefiera matar los `tsc` que corren
+FUERA del lock antes que el del pre-push.
+
+**Vive en:** `scripts/typecheck-lock.mjs` → `vigiaVivo()` · `~/.claude/guardia/vigia.ps1`
+(tarea `mako-vigia-ram`, disparador sólo `AtLogon`) · *2026-10-14*
