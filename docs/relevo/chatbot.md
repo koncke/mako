@@ -88,6 +88,12 @@
 > lead desde el 10/10. O el alta de «Nuevo lead» no lo guardó (bug del CRM: medir `createLead` con ese teléfono, ¿duplicado?
 > ¿error tragado?), o lo borraron después de la llamada: se le preguntó a Martín. Sin lead no hay inscripción: la #213 no tenía
 > a quién mandarle.
+> **Bug 5, CAUSA y arreglo (14/10 ~00:30, commit 329d1443):** lo que sobrevivió del lead borrado es `lead_audit` (sin FK):
+> el 2660 pasó a «agenda» con la R1 «2026-10-12» SIN hora a las 19:57 de México. El motor lee una fecha sola como mediodía
+> y cerró la inscripción por «la reunión ya pasó». Ahora una fecha sola vale hasta el final del día (`laReunionYaPaso`).
+> Hallazgo en docs/hallazgos-chatbot.md. Falta verlo en ws3 (alta a mano con R1 de hoy, después de las 12).
+> **Pedido de Martín (13/10, durante esto):** «se pueden enviar los videos redondos de WhatsApp, si podemos agregar esa
+> opción a las automatizaciones». Medido: nuestro Evolution (2.3.7) tiene `/message/sendPtv`. Sin hacer.
 > **Bug 5, cierre del dato (13/10 ~24:50):** Martín: el lead «Marco Bustos» SÍ existía; Mauricio lo borró después porque era
 > de prueba. Con el lead se fueron su inscripción y todo rastro: la causa no se puede medir sobre ese lead. Siguiente: reproducir
 > en ws3 con una copia de la #213 (alta con «Nuevo lead», etapa de agenda, ver si inscribe y qué manda). Y un PEDIDO NUEVO de

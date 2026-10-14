@@ -4267,3 +4267,25 @@ entra EN la etapa del CRON. Sin un CRON de etapa es «no sé». Medido el 13/10:
 el vigía de RAM (`~/.claude/guardia/vigia.ps1`) los mata con poca memoria libre (2,8 GB medidos). Un «exit 1» sin texto NO es
 un error de tipos. Los tests se corrieron en tandas de 10-12 archivos (1153 del área en verde). El typecheck queda para antes
 del push, cuando «Fallas en la PC» lo destrabe.
+
+### «No salió el mensaje»: una fecha SIN hora contaba como pasada desde el mediodía [motor · bug 5 del 13/10]
+
+Síntoma: en la reunión del 13/10 Mauricio probó «Un Lead Agendó Llamada» (#213, ws1) con un lead cargado a mano y no le
+llegó nada. El lead ya no estaba: Mauricio lo borró después, y con él se fueron (en cascada) su inscripción y sus filas de
+`nutricion_envios`, incluida la del cierre «la reunión ya pasó». **Lo que sobrevivió fue `lead_audit`, que no tiene FK al
+lead:** el 2660 pasó a «agenda» con la R1 «2026-10-12» SIN hora el 13/10 a las 01:57 UTC (19:57 del 12/10 en México),
+volvió a «lead» y MaKo lo puso otra vez en «agenda» a las 02:05.
+Causa: el motor lee una fecha sola como el mediodía de México (`parseFechaJunta`) y, antes de mandar un paso de un flujo que
+prepara una reunión, cierra la inscripción si «la reunión ya pasó». A las 20:05 el mediodía ya había pasado. El reuso de la
+segunda vuelta tampoco arrancó (`reunionQuePreparaMs` = null por la misma regla). Le pasa a cualquier lead agendado para
+HOY después de las 12 sin que llegue la hora (alta a mano). Por Calendly no, porque trae la hora.
+El diagnóstico obvio era el flujo de Mauricio (las tarjetas que borró en la llamada); la reproducción del motor puro sobre
+el #241 andaba bien porque usaba un lead CON hora.
+**Regla:** el mediodía es una hora inventada para anclar un «N antes», no la hora en que una reunión pasa a ser pasado.
+Una fecha sola vale hasta que termina su día (`finDeLaReunionMs`, `reunionEnPie`). Un paso ANCLADO sigue necesitando una
+hora (`laReunionYaPaso(…, { anclada })`). Test: tests/reunion-fecha-sola-del-dia.test.ts, probado rompiéndolo.
+
+**Vive en:** `lib/nutricion-reinscripcion.ts` · `lib/nutricion.ts` (`procesarEnvios`, `inscribirEnSecuencia`)
+
+**Sin hacer:** borrar un lead es un hard delete (`deleteLead`, lib/leads.ts) y no deja quién ni qué. Martín lo pidió
+como registro de TODAS las acciones de un usuario para SuperAdmin (memoria `registro-acciones-superadmin`).
