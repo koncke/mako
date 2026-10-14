@@ -7,8 +7,8 @@
 > **14/10/2026, 03:40 — CERRADO por pedido de Martín** («que se pushee todo y que los chats cierren lo que están
 > haciendo. Nada más»). Cuenta 2, chat «API de MaKo».
 >
-> **Para PUSHEAR (lo pushea Estrategia con todo junto): rama `estrellas-1410` = `e49c2062`**, sobre
-> `origin/main` = `e4c8a6d7`, worktree `C:/dev/push-estrellas`. Cuatro commits:
+> **Para PUSHEAR (lo pushea Estrategia con todo junto): rama `estrellas-1410` = `e8d94c07`** (incluye
+> el merge de `origin/main` = `74a56363`, con el área calendario al lado de creaciones), worktree `C:/dev/push-estrellas`. Cuatro commits:
 > 1. El token detallado deja de valer cuando su creador pierde el acceso (cierra la fila de § 3.2).
 > 2-3. Las ESTRELLAS: mig **0273** (YA APLICADA en prod), `lib/creaciones*.ts`, la galería `/creaciones`,
 >    BotonEstrella, PublicarCreacion; el id de lo publicado es texto.
