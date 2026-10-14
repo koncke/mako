@@ -175,9 +175,10 @@ function FilaTarea({ t, puesto, proyecto, hoy, onOpen, onCompletar }: {
       <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
         <span title={t.title} style={{ fontSize: 'clamp(14.5px, 3cqi, 17px)', fontWeight: 600, color: 'var(--ink)', lineHeight: 1.3, overflow: 'hidden', display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2 }}>{t.title}</span>
         {(proyecto || t.deadline) && (
-          <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+          // Envuelve en vez de apretar: en el celular el proyecto y el deadline se partían en «vi…» y «Lanzar la ofert…».
+          <span style={{ display: 'flex', alignItems: 'center', gap: '4px 8px', minWidth: 0, flexWrap: 'wrap' }}>
             {proyecto && <ChipProyecto l={proyecto} />}
-            {t.deadline && <LineaDeadline iso={t.deadline} hoy={hoy} tam={12} mono={false} color="var(--dim)" style={{ flex: '0 1 auto' }} />}
+            {t.deadline && <LineaDeadline iso={t.deadline} hoy={hoy} tam={12} mono={false} color="var(--dim)" style={{ flex: 'none' }} />}
           </span>
         )}
       </span>
@@ -207,7 +208,7 @@ function ListaTareas({ tareas, etiquetas, hoy, vista, conProyecto, onOpen, onOpe
     );
   }
   return (
-    <div>
+    <div className="gb-cabe">
       {tareas.map((t, i) => (
         <FilaTarea key={t.id} t={t} puesto={i + 1} proyecto={de(t)[0] ?? null} hoy={hoy} onOpen={() => onOpen(t.id)} onCompletar={() => onCompletar(t)} />
       ))}
@@ -280,17 +281,20 @@ function TarjetaProyecto({ l, prog, principal, hoy, onOpen }: {
       </span>
       <span style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '20px 12px 12px', minWidth: 0, flex: 1 }}>
         <span style={{ display: 'flex', alignItems: 'flex-start', gap: 6, minWidth: 0 }}>
-          <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.3, overflow: 'hidden', display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2 }}>{l.name}</span>
+          <span style={{ flex: 1, minWidth: 0, fontSize: 15, fontWeight: 650, color: 'var(--ink)', lineHeight: 1.3, overflow: 'hidden', display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2 }}>{l.name}</span>
           {principal && <span className="gb-chip" style={{ flex: 'none', color: 'var(--primary)' }}>Principal</span>}
         </span>
         <span style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
           <span aria-hidden style={{ display: 'block', height: 6, borderRadius: 999, background: 'var(--gb-losa-2)', overflow: 'hidden' }}>
             <span style={{ display: 'block', height: '100%', width: `${Math.min(100, prog.pct)}%`, borderRadius: 999, background: l.color }} />
           </span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--dim)', minWidth: 0 }}>
-            <span className="gb-num" style={{ flex: 'none' }}>{prog.total ? `${prog.done}/${prog.total} · ${prog.pct}%` : 'Sin tareas'}</span>
-            {l.deadline && <LineaDeadline iso={l.deadline} hoy={hoy} tam={12} mono={false} color="var(--dim)" style={{ flex: '0 1 auto', marginLeft: 'auto' }} />}
+          {/* El avance en grande y el deadline en su propio renglón: los dos en una fila se cortaban en «vie …» y
+              «faltan 9 dí…» en cuanto la tarjeta medía menos de 300 px. */}
+          <span style={{ display: 'flex', alignItems: 'baseline', gap: 6, minWidth: 0 }}>
+            <span className="gb-num" style={{ flex: 'none', fontSize: 17, fontWeight: 750, color: 'var(--ink)', letterSpacing: '-0.01em' }}>{prog.total ? `${prog.pct}%` : '—'}</span>
+            <span className="gb-num" style={{ fontSize: 12.5, color: 'var(--dim)' }}>{prog.total ? `${prog.done} de ${prog.total} tareas` : 'Sin tareas'}</span>
           </span>
+          {l.deadline && <LineaDeadline iso={l.deadline} hoy={hoy} tam={12.5} mono={false} color="var(--dim)" />}
         </span>
       </span>
     </div>
@@ -299,7 +303,7 @@ function TarjetaProyecto({ l, prog, principal, hoy, onOpen }: {
 
 function Grilla({ proyectos, tareas, objetivoId, hoy, onOpen }: { proyectos: Label[]; tareas: BoardTask[]; objetivoId: string | null; hoy: string; onOpen: (id: string) => void }) {
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12, alignItems: 'stretch' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, alignItems: 'stretch' }}>
       {proyectos.map((l) => (
         <TarjetaProyecto key={l.id} l={l} prog={projProgress(tareas, l.id)} principal={l.id === objetivoId} hoy={hoy} onOpen={() => onOpen(l.id)} />
       ))}
@@ -361,7 +365,7 @@ const MES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct
 
 function ListaVence({ items, hoy, onOpen }: { items: Vence[]; hoy: string; onOpen: (v: Vence) => void }) {
   return (
-    <div>
+    <div className="gb-cabe">
       {items.map((v) => {
         const p = plazoTexto(diasHasta(v.deadline, hoy));
         const [, m, dd] = v.deadline.split('-').map(Number);

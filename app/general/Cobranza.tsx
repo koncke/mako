@@ -121,7 +121,9 @@ export function Cobranza({ filas, tz, error, alcance = null, limite = Infinity, 
       ) : !vivas.length ? (
         vacio ?? <span style={S.dim}>Nadie con cuotas por cobrar.</span>
       ) : (
-        <ul style={S.lista}>
+        // Sólo las filas que entran enteras (`gb-cabe`, ./bloques/comun.tsx); con «Ver las N» abierto, la lista crece y
+        // el bloque scrollea.
+        <ul style={S.lista} className={todas ? undefined : 'gb-cabe'}>
           {vistas.map((f) => {
             const c = COLOR[f.urgencia ?? 'al-dia'];
             return (

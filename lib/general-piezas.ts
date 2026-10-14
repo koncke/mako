@@ -81,7 +81,7 @@ export const PIEZAS_GENERAL = [
     ],
   },
   {
-    id: 'objetivos', nombre: 'OKRs', icono: 'grafico', linea: 'Cada OKR con su avance, contra el tiempo que pasó.', w: 12, h: 6,
+    id: 'objetivos', nombre: 'OKRs', icono: 'grafico', linea: 'Cada OKR con su avance, contra el tiempo que pasó.', w: 12, h: 5,
     opciones: [
       { id: 'estilo', nombre: 'Cómo se ven', def: 'anillos', valores: [{ id: 'anillos', nombre: 'Anillos', icono: 'grafico' }, { id: 'barras', nombre: 'Barras', icono: 'numero' }] },
       { id: 'cuales', nombre: 'Cuáles', def: 'todos', valores: [{ id: 'todos', nombre: 'Todos' }, { id: 'trimestre', nombre: 'Del trimestre' }, { id: 'anio', nombre: 'Del año' }] },
@@ -130,7 +130,7 @@ export const PIEZAS_GENERAL = [
     ],
   },
   {
-    id: 'proyectos', nombre: 'Proyectos del Plan', icono: 'producto', linea: 'Los proyectos que más importan, con su avance y su deadline.', w: 12, h: 7,
+    id: 'proyectos', nombre: 'Proyectos del Plan', icono: 'producto', linea: 'Los proyectos que más importan, con su avance y su deadline.', w: 12, h: 6,
     opciones: [
       { id: 'cuantos', nombre: 'Cuántos', def: '4', valores: [{ id: '2', nombre: '2' }, { id: '3', nombre: '3' }, { id: '4', nombre: '4' }, { id: '6', nombre: '6' }] },
       { id: 'orden', nombre: 'Cuáles', def: 'prioridad', valores: [{ id: 'prioridad', nombre: 'Los más prioritarios', icono: 'arriba' }, { id: 'deadline', nombre: 'Los que vencen antes', icono: 'calendario' }] },
@@ -152,7 +152,7 @@ export const PIEZAS_GENERAL = [
       FONDO,
     ],
   },
-  { id: 'pendientes', nombre: 'Pendientes del CRM', icono: 'check', linea: 'Los leads que falta marcar para que el tablero sea confiable.', w: 6, h: 4, opciones: [FONDO] },
+  { id: 'pendientes', nombre: 'Pendientes del CRM', icono: 'check', linea: 'Los leads que falta marcar para que el tablero sea confiable.', w: 6, h: 6, opciones: [FONDO] },
   {
     id: 'funnel', nombre: 'Tu funnel hoy', icono: 'etapa', linea: 'Cuántos leads hay ahora en cada etapa de tu funnel.', w: 6, h: 8, porFunnel: true,
     opciones: [
@@ -176,7 +176,7 @@ export const PIEZAS_GENERAL = [
     ],
   },
   {
-    id: 'publicaciones', nombre: 'Próximas publicaciones', icono: 'imagen', linea: 'Lo que tienes planeado publicar.', w: 12, h: 6,
+    id: 'publicaciones', nombre: 'Próximas publicaciones', icono: 'imagen', linea: 'Lo que tienes planeado publicar.', w: 12, h: 5,
     opciones: [
       { id: 'dias', nombre: 'Los próximos', def: '7', valores: [{ id: '7', nombre: '7 días' }, { id: '14', nombre: '14 días' }] },
       { id: 'vista', nombre: 'Cómo se ve', def: 'tarjetas', valores: [{ id: 'tarjetas', nombre: 'Tarjetas', icono: 'imagen' }, { id: 'lista', nombre: 'Lista', icono: 'texto' }] },

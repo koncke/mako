@@ -17,6 +17,14 @@
 // que se da vuelta sola con el fondo oscuro. Y las tarjetas que vienen del Plan heredan los colores de la hoja
 // (`gb-plan`: su `--surface` pasa a ser la losa sobre el fondo de la hoja, y sin borde).
 //
+// La quinta vuelta, bloque por bloque y con capturas (14/10/2026, Martín: «Rediseña bloque por bloque, sacale una captura
+// o algo y date feedback a vos mismo... el bloque del semáforo tiene un espacio en blanco grande e innecesario»):
+//   · UNA LISTA MUESTRA SÓLO FILAS ENTERAS (`gb-cabe`): en una tarjeta de alto fijo, la fila que no entra no se dibuja
+//     cortada a la mitad (se leía como un bloque roto). Es una columna flex que envuelve: lo que no entra pasa a una
+//     segunda columna, que queda afuera. En la pila del celular el bloque mide lo que dibuja y se ve la lista entera.
+//   · LO QUE NO LLENA EL ALTO VA CENTRADO (`gb-centro`), no pegado arriba con un hueco abajo.
+//   · LO QUE SE REPITE EN LA FILA LLENA EL ANCHO (`auto-fit`, no `auto-fill`): con `auto-fill` tres OKRs en una hoja
+//     entera dejaban un tercio vacío a la derecha.
 // ⚠️ «No pude leer» NO es un placeholder: es un fallo nuestro y se dice (`Fallo`). El placeholder es «todavía no hay».
 // ⚠️ LO QUE DEPENDE DE LA HORA SE DIBUJA DESPUÉS DE MONTAR (`useAhora`, y la muestra de un placeholder): el bloque se
 //    dibuja también en el server, y una hora o una fecha de ejemplo que cambie entre los dos rompe la hidratación.
@@ -32,7 +40,7 @@ import { useTituloPropio } from '../../dashboard/ElementoGeneral';
 export const CSS_BLOQUES = `
 .gb{--gb-losa:color-mix(in srgb,var(--ink) 4.5%,transparent);--gb-losa-2:color-mix(in srgb,var(--ink) 8%,transparent);
   display:flex;flex-direction:column;min-width:0;min-height:0;flex:1;font-family:inherit;color:var(--ink)}
-.gb-cab{display:flex;align-items:baseline;gap:10px;margin-bottom:14px;min-width:0}
+.gb-cab{display:flex;align-items:baseline;gap:10px;margin-bottom:12px;min-width:0}
 .gb-tit{margin:0;min-width:0;flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
   font-size:var(--dash-titulo-tam,19px);font-weight:var(--dash-titulo-peso,600);text-transform:var(--dash-titulo-mayus,none);
   letter-spacing:var(--dash-titulo-espacio,-0.015em);line-height:1.25;color:var(--ink)}
@@ -46,6 +54,9 @@ a.gb-losa,button.gb-losa,.gb-losa[role=button]{transition:background .12s}
 a.gb-losa:hover,button.gb-losa:hover,.gb-losa[role=button]:hover{background:var(--gb-losa-2)}
 .gb-fila{display:flex;align-items:center;gap:12px;min-width:0;padding:10px 0;border-top:1px solid var(--border);text-decoration:none;color:inherit}
 .gb-fila:first-child{border-top:none;padding-top:2px}
+.gb-cabe{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;flex-wrap:wrap;align-content:flex-start;overflow:hidden}
+.gb-cabe>*{flex:none;width:100%;box-sizing:border-box}
+.gb-centro{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;justify-content:center}
 .gb-ph{position:relative;flex:1;min-height:110px;display:flex;flex-direction:column}
 .gb-ph-fondo{flex:1;opacity:.5;filter:saturate(.6);pointer-events:none;user-select:none;overflow:hidden;
   -webkit-mask-image:linear-gradient(180deg,#000 50%,transparent 96%);mask-image:linear-gradient(180deg,#000 50%,transparent 96%)}

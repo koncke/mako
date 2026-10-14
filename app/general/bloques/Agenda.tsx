@@ -62,15 +62,16 @@ function LineaDeTiempo({ c, items }: { c: Cal; items: ItemCalendario[] }) {
   });
   if (marcaAhora) { if (iAhora >= 0) filas.splice(iAhora, 0, marcaAhora); else if (conHora.length) filas.push(marcaAhora); }
   return (
-    <div style={{ display: 'flex', flexDirection: 'column' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
       {todoElDia.length > 0 && (
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10, paddingLeft: 68 }}>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10, paddingLeft: 68, flex: 'none' }}>
           {todoElDia.map((it) => (
             <Link key={it.id} href={destino(it)} className="gb-chip" style={{ background: colorDe(it), color: '#fff', borderColor: 'transparent', textDecoration: 'none' }}>{it.titulo}</Link>
           ))}
         </div>
       )}
-      {filas}
+      {/* Sólo lo que entra entero (`gb-cabe`, ./comun.tsx). */}
+      <div className="gb-cabe">{filas}</div>
     </div>
   );
 }
@@ -82,7 +83,7 @@ const META: CSSProperties = { fontSize: 12.5, color: 'var(--dim)', flex: 'none' 
 function ListaSimple({ c, items, conDia = false }: { c: Cal; items: ItemCalendario[]; conDia?: boolean }) {
   const manana = sumarDias(c.hoy, 1);
   return (
-    <div>
+    <div className="gb-cabe">
       {items.map((it) => (
         <Link key={it.id} href={destino(it)} className="gb-fila" style={FILA}>
           <span aria-hidden style={{ width: 10, height: 10, borderRadius: 3, background: colorDe(it), flex: 'none' }} />
@@ -141,7 +142,7 @@ function llamadasDe(c: Cal, dias: number, ahora: string | null): ItemCalendario[
 function TarjetasLlamadas({ c, items }: { c: Cal; items: ItemCalendario[] }) {
   const manana = sumarDias(c.hoy, 1);
   return (
-    <div>
+    <div className="gb-cabe">
       {items.map((it, i) => {
         const dia = diaDe(it.inicio, c.tz);
         const color = colorDe(it);
@@ -212,7 +213,7 @@ const publicacionesDe = (c: Cal, dias: number) => {
 function TarjetasPublicaciones({ c, items }: { c: Cal; items: ItemCalendario[] }) {
   const manana = sumarDias(c.hoy, 1);
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: 10 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 12 }}>
       {items.map((it) => {
         const color = it.formato ? COLOR_FORMATO[it.formato] : colorDe(it);
         return (
@@ -223,7 +224,7 @@ function TarjetasPublicaciones({ c, items }: { c: Cal; items: ItemCalendario[] }
                 <span className="gb-chip" style={{ background: `color-mix(in srgb, ${color} 16%, transparent)`, color }}>{it.formato ? ROTULO_FORMATO[it.formato] : 'Publicación'}</span>
                 <span style={{ fontSize: 12, color: 'var(--dim)' }} className="gb-num">{diaCorto(diaDe(it.inicio, c.tz), c.hoy, manana)}</span>
               </span>
-              <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.3, overflow: 'hidden', display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 3 }}>{it.titulo}</span>
+              <span style={{ fontSize: 15.5, fontWeight: 650, color: 'var(--ink)', lineHeight: 1.3, overflow: 'hidden', display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 3 }}>{it.titulo}</span>
               {!it.diaCompleto && <span style={{ fontSize: 12, color: 'var(--faint)' }} className="gb-num">{horaDe(it.inicio, c.tz)}</span>}
             </span>
           </Link>

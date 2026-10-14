@@ -43,7 +43,7 @@ export function BloquePendientes({ d }: { d: DatosGeneral['pendientes'] }) {
       <Cabeza titulo="Pendientes del CRM" href="/crm" link={estado === 'por-marcar' ? 'Marcar en el CRM' : undefined} />
       {estado === 'por-marcar' ? (
         // El número, la barra partida por tipo y la leyenda, uno debajo del otro: entra en media hoja sin saltos.
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}>
+        <div className="gb-centro" style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}>
           <span style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
             <span className="gb-num" style={{ fontSize: 'clamp(44px, 13cqi, 80px)', fontWeight: 750, letterSpacing: '-0.035em', lineHeight: 0.95, color: 'var(--bad)' }}>{p.total}</span>
             <span style={{ fontSize: 'clamp(14px, 3cqi, 18px)', color: 'var(--dim)' }}>{p.total === 1 ? 'lead sin marcar' : 'leads sin marcar'}</span>

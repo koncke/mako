@@ -190,13 +190,15 @@ const COLOR: Record<Foco['nivel'], string> = { rojo: 'var(--bad)', ambar: 'var(-
 
 function CuerpoAccion({ foco, conRazon }: { foco: Foco; conRazon: boolean }) {
   const [abierto, setAbierto] = useState(false);
+  // Centrada en el alto (`gb-centro`): al lado de la Meta objetivo mide lo mismo que ella, y pegada arriba dejaba un
+  // hueco del tercio de la tarjeta abajo del botón (la captura de la quinta vuelta).
   return (
-    <>
-      <p style={{ display: 'flex', alignItems: 'flex-start', gap: 12, margin: 0, fontSize: 'clamp(22px, 5.6cqi, 36px)', fontWeight: 700, lineHeight: 1.2, letterSpacing: '-0.02em', color: 'var(--ink)' }}>
+    <div className="gb-centro">
+      <p style={{ display: 'flex', alignItems: 'flex-start', gap: 12, margin: 0, fontSize: 'clamp(24px, 6.4cqi, 40px)', fontWeight: 700, lineHeight: 1.18, letterSpacing: '-0.022em', color: 'var(--ink)' }}>
         <span aria-hidden style={{ flex: 'none', width: 12, height: 12, borderRadius: '50%', background: COLOR[foco.nivel], marginTop: '0.4em' }} />
         <span style={{ minWidth: 0 }}>{foco.accion}</span>
       </p>
-      {conRazon && <p style={{ margin: '10px 0 0', paddingLeft: 24, fontSize: 'clamp(14px, 2.6cqi, 16px)', lineHeight: 1.5, color: 'var(--dim)' }}>{foco.razon}</p>}
+      {conRazon && <p style={{ margin: '12px 0 0', paddingLeft: 24, fontSize: 'clamp(14.5px, 3cqi, 18px)', lineHeight: 1.45, color: 'var(--dim)' }}>{foco.razon}</p>}
       {/* El botón va pegado a la razón, no al pie: abajo de todo dejaba un hueco del alto de la tarjeta en el medio. */}
       <div style={{ paddingTop: 16, paddingLeft: 24, display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
         {/* Si la acción nombra una integración (`/integraciones?abrir=…`), abre su modal acá: nunca se sale de la tab. */}
@@ -214,7 +216,7 @@ function CuerpoAccion({ foco, conRazon }: { foco: Foco; conRazon: boolean }) {
           <dt style={{ color: 'var(--dim)' }}>Se revisa</dt><dd style={{ margin: 0 }}>{foco.siguienteRevision}</dd>
         </dl>
       )}
-    </>
+    </div>
   );
 }
 
