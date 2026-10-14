@@ -670,7 +670,7 @@ disponibles en General». Lo que no se ve en el código y gobierna lo que venga:
 - **El «Conectar» del semáforo SIN FUENTES sigue yendo a /integraciones, a propósito.** No nombra UNA integración (una
   fuente puede ser Meta, el CRM, un pago…), y abrir la grilla entera es lo que hace la pieza de la regla nueva
   (`LinkIntegracion`, app/_components/ConectarIntegracion.tsx) con un link que no nombra ninguna. Las alertas del
-  semáforo, la acción del día y «Conectar una IA» del AI Analyst sí abren su modal ahí mismo (0b4f318d en adelante).
+  semáforo, la acción del día y «Conectar una IA» del AI Analyst sí abren su modal ahí mismo (abd91fdb).
 - **El Today de MaKo Mobile no mira el informe de General**: dibuja lo de siempre. Para la misma personalización en el
   teléfono, lee `leerInformeGeneral()` y dibuja sus bloques. Vive en `app/m/hoy`.
 - **Más de 8 funnels**: los bloques que se atan a uno se arman hasta 8 (`TOPE_FUNNELS`, app/general/datos.ts); el

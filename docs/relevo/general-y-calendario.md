@@ -3,6 +3,27 @@
 **Al 14/10/2026 (~04:30), claude2.** Lo escribe el chat que hizo el trabajo (primera mano). Lo que costó está en los
 hallazgos de cada área; acá va qué quedó, dónde y qué espera.
 
+## Actualización 14/10/2026 10:40 (claude2, el mismo chat)
+
+**Lo que se hizo después de lo de abajo** (los pedidos literales, en las bitácoras de General y del Calendario):
+
+- **General, tercera vuelta** (`c2cda971` + cosecha `774c2882`): los 11 puntos de Martín. Bloques rediseñados con
+  opciones y placeholder, las tarjetas del Plan, «OKRs», menú «Bloques de General» de a 3 con vista previa, menos
+  gráficos y datos en General, sin código/MaKo/Acción; en blanco sin Editar/⋮/filtros y 8 bordes (también en el
+  Dashboard). Se borró la única General guardada (la «Página 1» de la captura, ws 9), con respaldo en el scratchpad.
+- **Calendario** (`184c0b37`, lo hizo un agente de este chat): sin «¿Qué vas a crear hoy?», conectar Google sin salir de
+  la tab (la pieza reusable `app/_components/ConectarIntegracion.tsx`), «Agendar llamada», lo que se repite y los cobros.
+  Su cosecha va en un commit propio.
+- **La API de MaKo** (`0b4f318d`): referencia y snapshot regenerados con las tres operaciones nuevas.
+- **Integraciones sin salir de la tab en General y el AI Analyst** (`abd91fdb`).
+
+**Estado de git (10:40):** todo en `main` local, **NADA pusheado**: lo pushea el orquestador («Estrategia 3 CUENTAS»),
+y la app se cayó dos veces en el medio (06:10 y 07:17). Si al entrar no está en `origin/main`
+(`git merge-base --is-ancestor abd91fdb origin/main`), hay que pedírselo de nuevo.
+
+**Falta verlo en pantalla** (en ws3, después del deploy): los bloques nuevos, el menú con vistas previas, los 8 bordes
+y el Calendario.
+
 ## Los pedidos (textuales)
 
 **13/10:** «Dale, arrancá con el Calendario, pero que sea en otra tab, no en GENERAL. Soluciona las cosas que pidió
