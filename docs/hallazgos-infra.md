@@ -33,6 +33,20 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ---
 
+## `/.well-known/` no se sirve: el proxy lo manda a /login (14/10/2026)
+
+**Síntoma (anticipado, sin pasar todavía):** para publicar MaKo en Play Store (TWA) y en el App Store, el dominio tiene
+que servir `/.well-known/assetlinks.json` y `/.well-known/apple-app-site-association` con 200, tipo JSON y sin redirección.
+Hoy un pedido sin sesión a cualquiera de los dos termina en `/login`: la TWA abre con la barra del navegador a la vista
+(se ve como un sitio, no como una app) y iOS no verifica el dominio (ni los universal links ni las passkeys del 2FA,
+cuyo RP ID es `hola-mako.com`). No da error en ningún lado: se ve «casi bien».
+
+**Causa:** el matcher de `proxy.ts` excluye `.png`, `.js` y `.webmanifest`, pero no `.json` ni las rutas sin extensión
+(el archivo de Apple no tiene), y `PUBLICOS` (`lib/rutas-publicas.ts`) no incluye `/.well-known`. **La regla:** se suma
+como RUTA EXACTA a `PUBLICOS` (las dos rutas, no la carpeta) junto con los archivos, y se verifica con `curl -sI` sin
+cookie, mirando que no haya `Location`. **Vive en:** proxy.ts · lib/rutas-publicas.ts. El resto del relevamiento de las
+tiendas, en hallazgos-mobile.md → «El prototipo v3 y el relevamiento de las tiendas».
+
 ## Supabase: leer y escribir sin perder datos
 
 ### ⚠️ `getSetting` devuelve `null` tanto si falló la lectura como si no hay fila, y eso expulsa a un cliente onboardeado al wizard
@@ -5924,3 +5938,29 @@ no dice nada de si está declarado.
 comentarios).
 
 **Vive en:** `package.json` · `package-lock.json` · `app/image-editor/_doory/editor/engine/objects/qr.ts`
+
+## El tsc «acotado» con `files` chequeaba el repo ENTERO: `extends` hereda el `include` (14/10/2026)
+
+**Síntoma:** un tsconfig temporal que extiende el del repo y lista sólo los archivos de la rama en
+`"files"` se quedaba sin heap con 2 GB, igual que el completo. Y peor: dio «0 errores» con un
+error de tipos metido a propósito, porque el vigía lo mató (salida 1, sin texto) y el script que
+contaba errores leyó cero.
+
+**Causa:** en un tsconfig, `files`, `include` y `exclude` se heredan del que se extiende **cada uno
+por separado**. Poner `files` no apaga el `include` del repo: lo suma. El «acotado» era el completo.
+
+**Regla:** el tsconfig acotado lleva `"include": []` además de `"files"`:
+
+```json
+{ "extends": "<repo>/tsconfig.json", "compilerOptions": { "noEmit": true, "incremental": false },
+  "include": [], "files": ["<repo>/next-env.d.ts", "<repo>/app/…/Tocado.tsx"] }
+```
+
+Medido: con eso, un módulo puro y su test chequean con 1,5 GB de heap en segundos, y cinco archivos
+del Plan con todo lo que importan (829 archivos de `app/` y `lib/`, `BoardShell.tsx` incluido)
+terminan con 2 GB. Y **un verde de un tsc se prueba rompiéndolo como un test**: metiendo un error,
+la corrida tiene que salir con 2 y el error impreso. Una salida 1 sin una línea es el vigía, no un
+resultado (ver «El typecheck que "salía con 1 sin errores"»).
+
+**Vive en:** el tsconfig temporal de cada chat (scratchpad) · la memoria `pc-techo-ram-chrome`, que
+enseñaba la receta sin el `include` · *2026-10-14 Plan - Perro Guardián*

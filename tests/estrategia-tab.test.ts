@@ -144,7 +144,7 @@ test('el runway cuenta contra el «hoy» de Buenos Aires y dice VENCIDO, no «0 
   assert.equal(textoPlazo(0), 'hoy');
   assert.equal(textoPlazo(-1), 'venció ayer');
   assert.equal(textoPlazo(22), '22 días');
-  const page = sinComentarios(leer('app/admin/runway/page.tsx'));
+  const page = sinComentarios(leer('app/admin/runway/foto/page.tsx'));
   // Adentro del componente y en hora de acá, igual que Strategy.
   assert.match(page, /export default async function[\s\S]*const hoy = hoyAR\(\)/);
   assert.doesNotMatch(page, /toISOString/, 'el runway volvió a contar en UTC');

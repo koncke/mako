@@ -6,6 +6,31 @@ el briefing anterior (`b5f7fb55`, 10/10 17:10) con todo verificado contra el ár
 **Rutas de esta área:** `app/crm/**`, `lib/leads.ts`, `lib/funnel*.ts`, `lib/crm*.ts`,
 `lib/lead-*.ts`, `lib/campana-*.ts`, `lib/etiquetas*.ts`, `lib/pipeline.ts`.
 
+## 0-Ω3. 14/10/2026 ~16:30 (chat «CRM», cuenta `claude1`): las dos ALTAS de b2, ARREGLADAS
+
+**Al ~17:30, b2 está en `fca716101`** (`c27eb4323` → `906c36467` → `fca716101`), sin pushear ni mergear:
+- `906c36467`: la segunda vuelta de la revisión de Pagos. Acortar el plan con una cuota protegida ya no duplica, y
+  un ajuste del plan aplica sólo la DIFERENCIA (no pisa una cuota movida a mano ni borra una que no es del plan).
+  Un lead sin plan y con cuotas a mano: el ajuste se rechaza.
+- `fca716101`: tres de las seis medias: «Sin cobro» con impagas, la cuota que la pantalla no vio, y Editar deal que
+  decía «guardados». **Las otras tres las toma el chat «Pagos»** en su rama `pagos-b2-medias` (sale de
+  `906c36467`): el dedup de la cobranza, el link vivo de una cuota cobrada a mano y el plazo de una suscripción
+  al cancelar y reactivar. Cuando pase el hash, se mergea en b2.
+- Tests `pagos-campo` 19/0 (22 roturas en rojo en total), pagos/cobros/API 203/203, tsc acotado 0.
+
+Lo de abajo es de las 16:30:
+En `crm-bloques-b2` @ `c27eb4323` (`wtc-b2`), sin pushear y sin mergear en `crm-bloques`:
+- **Modo 'lista'** (wizard de Ganado, API `guardar_cuotas`): las cuotas protegidas se casan PRIMERO, así que
+  ya no duplican la deuda. La API y el wizard dicen lo que no se tocó (el wizard, en el historial y en `sinTocar`;
+  mostrarlo en pantalla es de B2).
+- **`ajustarPlanAction`**: mezcla el parcial con el plan de la base (`ajustarSobre`) y pide el día de pago si falta.
+  El Deshacer escribe el plan anterior tal cual (`planComoEstaba`).
+- Tests `pagos-campo` 16/0 con 8 roturas; pagos/cobros/API 197/197; tsc acotado 0. Cosecha en el
+  `docs/hallazgos-crm.md` de la rama. «Pagos» revisa el diff.
+
+**Sigue, en el orden de abajo:** las seis medias de b2, el armador de b1 y b5, revisar b1/b5, mergear b1..b5 en
+`crm-bloques` y pasárselo a Estrategia 3 cuentas.
+
 ## 0-Ω2. 14/10/2026 de madrugada (chat «CRM», cuenta `claude2`): el feedback del 14/10 03:06, EN CURSO
 
 El pedido textual está en `app/admin/dev/crm/bitacora.ts` (hito del 14/10 03:06). Más dos mensajes después:
@@ -32,6 +57,78 @@ worktrees, uno por frente, cada uno con su rama `fb1410-aN` encima de `fb1410` (
 Workflows: tanda A `wf_d8dfde6d-689`; catálogo de bloques `wf_70de8f94-88b`, que deja `docs/diseno-ficha-bloques.md`
 en wtcrm5 (los journals están en `~/.claude/projects/<proyecto>/debe2ade-…/subagents/workflows/<runId>/journal.jsonl`).
 Al terminar: se revisa cada rama, se mergea en `fb1410`, se corren los tests, se cosecha y se pushea.
+
+**CIERRE DEL 14/10 ~15:10: la cuenta claude2 llegó al 98% semanal.** Frené la tanda B1 (`wf_0132bb27-e06`) y NO se pusheó
+nada de la tanda B. En producción está hasta la tanda A (fb1410, en `45fe2cb7f`, deploy Ready). Lo que devolvió cada agente
+(contrato del motor, pendientes, hallazgos, revisiones) está volcado en **docs/relevo/crm-tanda-b1.md**.
+Estado de cada frente; todos salen de `crm-bloques` @ `2c19b2d69`:
+- **b1, motor** (`wtc-b1`, rama `crm-bloques-b1`): TERMINADO en 5 commits, de `1c930ec33` a `d04040305`: catálogo, plantillas, config por
+  funnel, avisos por funnel, ops ver/cambiar_ficha_funnel y los dos ignorados. Le falta su revisión.
+- **b1, armador**: A MEDIAS, en el commit `3eb46606a` («WIP — NO INTEGRAR»): armador, registros por tab, Personalizar y las dos
+  puertas, y se fueron ResumenModal y resumen-actions. NO se corrieron sus tests y falta borrar AvisosDatosModal. Hay que retomarlo
+  con el prompt ARMADOR de `tanda-b1.js` (scratchpad de la sesión debe2ade; se reconstruye con este relevo) y una nota de que
+  lo del commit WIP es suyo.
+- **b2, Pagos campo por campo** (`wtc-b2`): 5 commits, `f3a36ffa3`..`0952106fc`. **La revisión dice que NO va tal cual: dos fallas
+  ALTAS de plata.** Una: `ajustarPlanAction` recibe un Partial y lo escribe como el plan entero, y borra cuotas o corre los
+  vencimientos. Otra: en el modo 'lista', una cuota protegida termina en «insertar». Hay además seis medias (dedup de la cobranza
+  con un id que sobrevive, un link vivo de una cuota cobrada a mano, «Sin cobro» con impagas vivas, una cuota nacida después de
+  la foto, Editar deal que ignora en silencio, cancelar pisa el plazo). El detalle está en crm-tanda-b1.md. Trae migración XXXX.
+- **b3, «Nuevo CRM»** (`wtc-b3`): 3 commits, `54b6bde61`..`8b3392d15`: presets, el modal por tipo y las ops tipos_de_crm/crear_crm.
+  No tiene revisión (no era invisible).
+- **b4, captura** (`wtc-b4`): 2 commits, `6b11f7602` y `cab2e72d3`. La revisión dice que va bien, con una media: la etapa
+  efectiva de MaKo se calcula contra el funnel del negocio y no contra el del lead. Trae migración XXXX (`leads.pagina_registro` y
+  `entrada_social`, que va ANTES o JUNTO con el deploy).
+- **b5, plantillas del CRM automático** (`wtc-b5`): las piezas en `5129d8dde`, y las plantillas, la galería y las ops A MEDIAS en
+  `87889880f` («WIP — NO INTEGRAR»), sin tests corridos ni revisión. Tiene que respetar las reglas que mandó Automations (están en
+  el prompt de b5).
+**Orden para el que siga:**
+1. Retomar el armador de b1 y b5 (o relanzar `tanda-b1.js` con `resumeFromRunId`: los frentes terminados salen del caché).
+2. Arreglar las dos altas y las medias de b2.
+3. Revisar b1 (motor y armador) y b5.
+4. Mergear b1..b5 en `crm-bloques` (sin rebase), numerar las migraciones XXXX con la regla de AGENTS.md y correr los tests de lo
+   tocado.
+5. Pasarle a Estrategia 3 CUENTAS la rama y el hash: integra ella.
+6. Recién después, la **tanda B2**: los bloques de cada tab sobre los registros del armador, la salida de «Editar deal», CS y el clic
+   derecho dentro de la ficha.
+Con claude2 al 98%, esto lo tiene que hacer otra cuenta o esperar al reinicio del 20/10.
+
+**ESTADO AL 14/10 ~13:15. TANDA B1 CORRIENDO OTRA VEZ (`wf_0132bb27-e06`, el mismo run).** fb1410 ya está en origin/main
+(`45fe2cb7f`), y `crm-bloques` mergeó origin/main sin rebase en `2c19b2d69`, la base de los cinco frentes. Uso semanal de
+claude2: 88%. Antes de la B2, medir de nuevo. Lo de abajo es la historia de la pausa:
+**ESTADO AL 14/10 ~12:20. TANDA B1 EN PAUSA (`wf_0132bb27-e06`), hasta que Estrategia 3 CUENTAS avise que entró su push** (la paré
+a los minutos y sin cambios en los worktrees: Estrategia necesita 4 GB libres para pushear, y fb1410 va en ese push. Se
+retoma con `resumeFromRunId`. La tanda B la INTEGRA Estrategia: se le pasa rama y hash, y NO se hace `pull --rebase`)
+**ANTES DE RETOMAR:**
+1. Con el push de Estrategia ya adentro (trae fb1410 y su choque resuelto), mergear `origin/main` en `crm-bloques`, SIN
+   rebase.
+2. Llevar `crm-bloques-b1..b5` al `crm-bloques` nuevo. Están vacías: `git -C C:/Users/marti/wtc-bN reset --hard crm-bloques`
+   después de ver que siguen sin commits.
+El chat de Automations pidió esto el 14/10: sus cambios en plantillas-automatizaciones, condiciones-catalogo, el motor
+y chatbot.def/run entraron en `282173d6e`, y sin el merge volvería lo que borró. Sus reglas para b5 ya están en el
+prompt de `tanda-b1.js`. (script en el scratchpad de la sesión debe2ade,
+`tanda-b1.js`; con tope de 3 agentes a la vez por RAM). Martín: «Si, avanza con todo y pushea» → las 7 decisiones del
+catálogo están TOMADAS (§1 de docs/diseno-ficha-bloques.md, `1f075a2b8`). Cinco frentes, cada uno en su worktree, que salen
+de `crm-bloques`:
+- `wtc-b1` el motor (lib/ficha/**, config por funnel, avisos por funnel, el arreglo de los dos ignorados, ops
+  ver/cambiar_ficha_funnel) y después el armador (un solo armador para las dos puertas, el modo Personalizar, y se van
+  ResumenModal y AvisosDatosModal).
+- `wtc-b2` Pagos campo por campo (merge, cuotas por id, lo cobrado puro, la moneda).
+- `wtc-b3` los tipos de «Nuevo CRM».
+- `wtc-b4` la captura (el @ de IG, la primera entrada social, la página de registro, lo que lee MaKo).
+- `wtc-b5` las plantillas T1/T2/T3/T6 en Automations (avisado al chat de Automations).
+Si se corta: relanzar con `resumeFromRunId`. Después: revisar, mergear en `crm-bloques`, numerar las migraciones `XXXX`,
+tests, y lanzar la **tanda B2**: los bloques de cada tab sobre los registros que deja b1 (Resumen, charlas, Reuniones y
+Tracking, Pagos sin «Editar deal», CS). Después cosecha y push: Martín pidió pushear.
+
+**ESTADO AL 14/10 ~11:20.** Los puntos 1 a 5 de abajo están HECHOS: `fb1410` @ `adaa18103` (tests 1478/0) está en manos
+de Estrategia 3 CUENTAS, que la suma al push que sigue al de General y Automations. **No mover `fb1410`.** Los worktrees
+`wtc-a1..a6` están borrados, pero sus ramas quedan. La tanda B va en la rama `crm-bloques`, en el mismo worktree `wtcrm5`.
+`edcf28e3c` es el catálogo `docs/diseno-ficha-bloques.md`: 54 bloques y 8 plantillas por tipo de funnel, más el respaldo y la
+de CS. Trae los tipos nuevos de «Nuevo CRM» y 7 decisiones, que están esperando la respuesta de Martín.
+Corregí dos cosas a mano. El estilo de la ficha (tipografía, tarjetas y colores) lo pidió él el 13/10, así que no es una
+decisión: se reusa `TemaHoja`. «Editar deal →» se va en la tanda B, al cierre.
+Queda pendiente para la tanda B: la API (`ignorar_datos_sin_marcar`) escribe `pendientes_ignorados` y el panel escribe
+`datos_ignorados`, así que lo que ignora MaKo no se puede volver a mostrar desde «Ver más» (docs/hallazgos-crm.md:63).
 
 **ESTADO AL 14/10 ~06:35 (la app se cayó a las 04:27 y a las 06:10).** La tanda A TERMINÓ y está en `fb1410`
 (cherry-pick de las seis ramas, sin choques): `c76f48bb2` reproductor en línea · `f52234dc3`+`fa9d5ca75` etiquetas ·

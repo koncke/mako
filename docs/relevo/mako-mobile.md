@@ -3,6 +3,74 @@
 <sub>Escrito por el chat «MaKo Mobile» (cuenta 3) el 11/10/2026 a las 15:00, al cruzar el 85% de uso
 semanal. Material de primera mano: lo hizo este chat.</sub>
 
+## 🆕🆕 14/10/2026 ~18:00 (cuenta 1) — PROTOTIPO v3 con el feedback de Martín, y el relevamiento de las tiendas
+
+Martín rechazó el v1 por siete puntos (relevados por «Estrategia 3 cuentas»): sin referencias; el CRM no lleva «Hoy»;
+General tiene que ser ÉPICA y todo tenía demasiado texto; faltaba la tab **Chats** (todos los chats juntos); el Plan no
+se cambia (destilar el escritorio, no rediseñar); More no seguía las familias de la sidebar y la mitad no estaba
+diseñada; el ícono del medio de la barra es General y es la que abre. **El v3 los resuelve los siete**, en el MISMO link
+(https://claude.ai/artifact/XchrEDjJiTajd9Hq8nhAi8, versión 2; archivo docs/prototipos/mako-mobile-tableros.html):
+barra CRM · Chats · General · Plan · More; cada una de las 14 pantallas de More sale del relevamiento de su tab de
+escritorio (vistas, orden y rótulos reales); Chats sigue el diseño de escritorio que está SIN COMMITEAR en
+`C:/dev/wt-chats` (la rama `chats-1410` no tiene commits). Las referencias van en el costado del prototipo. La regla
+quedó en AGENTS.md («EL TELÉFONO DESTILA EL ESCRITORIO»). **Espera su OK; la tanda 1 de código NO empezó.**
+
+**Tiendas (encargo nuevo, sólo relevado):** Play por TWA (Bubblewrap) y App Store por Capacitor. Lo que frena, en
+hallazgos-mobile.md: `/.well-known` bloqueado por el proxy, el login de Google bloqueado en WKWebView, el Web Push que no
+anda en iOS empaquetado, el borrado de cuenta que falta, Sign in with Apple vs. invitaciones, y la prueba de 12 testers
+× 14 días de Play con cuenta personal. Lo que hace Martín: elegir titular (persona u organización con D-U-N-S), abrir
+las dos cuentas (US$25 y US$99/año), conseguir Mac o compilación en la nube y 15-20 testers con Android.
+
+## 🆕 14/10/2026 ~16:30 (cuenta 1) — PEDIDO NUEVO: TODAS las tabs y TODOS los kanban en el teléfono. Plan propuesto, SIN código todavía
+
+Pedido de Martín, relevado por «Estrategia 3 cuentas» (textual en lo que importa): «Implementá TODAS las tabs que
+construimos, todo» · «quiero que TODOS los kanban que hay en MaKo se vean en mobile de alguna forma» (CRM, Customer
+Success y Plan; «de alguna forma» queda a criterio) · «agarrá referencias de otras apps… Preocupate MUCHO por el diseño»
+(skills `thumb-first`, `thumb-first-design`, `mobile-native`, en `.claude/skills/`) · la publicación
+https://www.instagram.com/p/DeBds9diCoY/ (de @junaid_jamel, «How to Avoid Overbuilding Your App»: «Build what matters
+now. Let the product earn the rest». Sin sesión sólo se lee la portada y el texto; las demás láminas no).
+
+**Medido en `origin/main` (ab2641963):** LAS MISMAS RUTAS ya están (7b82bcde), `MOVIL_ACTIVO = true`, 21 páginas en
+`app/m`. Tienen teléfono: Today, CRM (lista + ficha + chat), Plan (Hoy · Semana · Prioridades), Inbox, More, Dashboard
+(una pantalla PROPIA, no las hojas que se arman en el editor), Ads Manager, Customer Success (la entrega como lista
+agrupada), Automations, Video Generator, Landing Generator, MaKo y Cuenta. **Sin teléfono, construidas y visibles para
+clientes:** General (en el teléfono es Today, que no lee el informe de General), Calendario, WhatsApp, Email, Second
+Brain, Experiments, Offer, Ads Writer, Curso y Comunidad. Sólo super admin: Video Editor, Image Editor, Reels, Carousels,
+Stories, Agencia, Mensajes, Conocimientos. Ningún kanban se ve como tablero: CRM y CS son listas, Plan no tiene tablero.
+
+**Plan propuesto (espera el OK de Martín):**
+1. Un patrón de tablero para los tres (`KanbanM` en `app/m/_ui`): una columna por pantalla con la siguiente asomando
+   (scroll-snap), arriba el riel de etapas con su conteo, mover con mantener apretado → barra de destinos abajo, y
+   «Mover a…» en el sheet como salida visible, con Deshacer por el mismo camino del server. Referencias: Pipedrive,
+   Trello, Linear y HubSpot en el teléfono. CRM: segmentado «Hoy | Tablero»; CS: tablero por etapa de entrega y
+   segmentado por producto; Plan: «Tablero» con las bandas de prioridad.
+2. General en el teléfono = el informe de General en la pila del celular (los mismos bloques del editor), y Dashboard =
+   las hojas reales en pila, no la pantalla propia de hoy.
+3. Cada tab que falta, con UNA acción clara en el teléfono y el resto «en la computadora»: WhatsApp (copia de WhatsApp),
+   Calendario (copia de Google Calendar: Programación + Día + crear), Comunidad (copia de la app de Skool), Offer (el
+   chat y el PDF), Email (números y pausar/mandar), Ads Writer (pedir dictando y copiar), Second Brain (buscar y
+   capturar), Experiments (estado y registrar resultado), Curso (módulos, publicar/ocultar, avance).
+4. Tandas: (1) kanbans + General + Dashboard → (2) WhatsApp, Calendario, Comunidad, Offer → (3) Email, Ads Writer,
+   Second Brain, Experiments, Curso → (4) las de super admin.
+5. Antes del código, un prototipo HTML del tablero en los tres y de General, para mirarlo en el teléfono.
+
+**HECHO el prototipo (14/10 ~16:20), ESPERANDO A MARTÍN:** `docs/prototipos/mako-mobile-tableros.html`, publicado privado
+en https://claude.ai/artifact/XchrEDjJiTajd9Hq8nhAi8 (`#crm-tablero`, `#crm-mover`, `#crm-deshacer`, `#cs`,
+`#plan-tablero`, `#general` abren cada estado). Pasó por `thumb-first-design` (auditoría) y `mobile-native`, y se miró a
+390 px en Chrome headless. Lo que cambió por esas pasadas: zonas de toque de 44 (barra de etapas, selector, «Marcar
+cobrada»), la barra lleva el CONTEO de cada etapa (dónde está la gente sin recorrer las columnas, la objeción de NN/g al
+carrusel), el conteo de la etapa destino late al mover (a dónde fue la tarjeta), la tarjeta casi no se levanta al
+mantenerla (un menú, no un arrastre que después no sigue al dedo), y `-webkit-touch-callout: none` en todos los controles.
+
+**Recortado con la lente de la publicación («no construir de más»):** sin arrastrar tarjetas con el dedo (mantener →
+«Mover a…» y el detalle alcanzan, y no se rompen); un solo patrón para los tres tableros con un selector a la izquierda
+(funnel, producto o Tareas/Proyectos), en vez de tres diseños; Ads Writer, Reels, Carousels y Stories comparten una
+pantalla de «pedir y copiar»; el Video Editor y el Image Editor NO van al teléfono (se quedan con «se usa en la
+computadora»); Second Brain sólo busca y captura; Email sólo números y pausar.
+
+**Decisiones del diseño que puede querer cambiar (forks):** el CRM abre en «Hoy» y no en «Tablero» (escritorio abre en
+el kanban); una columna por pantalla y no dos angostas; mover con un menú y no arrastrando.
+
 ## ⚠️⚠️⚠️⚠️⚠️⚠️ 13/10 (cuenta 2) — LAS MISMAS RUTAS, HECHO; el CRM que abría vacío y un script roto en producción
 
 Retomado por pedido de Martín («En la cuenta 3 quedaron muchos pendientes… dile a esos chats que continuen y cierren lo

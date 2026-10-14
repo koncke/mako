@@ -26,6 +26,7 @@ import { getWorkspaceActual } from './workspace';
 import { OWNER_WS } from './auth-session';
 import { ENVS_METODO, servicioDeEnv, servicioMetodo } from './metodo-catalogo';
 import { ROUTING_CREDS, upsertRouting, borrarRoutingDeWs } from './webhook-routing';
+import { identificadorDeRuteo } from './ruteo-hash';
 import { esClaveDeCuenta } from './ia-keys';
 import { problemaDeRemitenteGuardado } from './email-remitente';
 
@@ -372,7 +373,8 @@ export async function guardarCredencial(ws: number, clave: string, valor: string
   // Y sin el fail-closed, pegar el identificador de otro le secuestraba los
   // webhooks — los identificadores son públicos, no hace falta robar nada.
   if (ROUTING_CREDS[clave]) {
-    const r = await upsertRouting(ROUTING_CREDS[clave], valor, ws);
+    // Un SECRETO que rutea (el hottok de Hotmart, la clave de Skool) va como su hash: lib/ruteo-hash.ts.
+    const r = await upsertRouting(ROUTING_CREDS[clave], identificadorDeRuteo(clave, valor), ws);
     if (r === 'ocupado') throw new IdentificadorOcupadoError(clave);
     // 'error' NO frena el guardado: es un problema de base, no del usuario. La
     // credencial se guarda y el índice se re-siembra en el próximo boot.

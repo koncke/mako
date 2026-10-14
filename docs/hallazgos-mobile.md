@@ -7,6 +7,53 @@ Corridas del 11/10/2026: la v1 (relevo de 7 agentes + 11 de implementación + 1 
 el diseño v2 a la tarde, y a la noche la implementación v2 (12 agentes + la integración) con el desvío
 de teléfonos PRENDIDO. Lo de la v2 está en su propia sección, más abajo.
 
+## El prototipo v3 y el relevamiento de las tiendas (14/10/2026, tarde)
+
+- **El v1 se rechazó por REINVENTAR, no por feo.** Martín: el CRM no lleva «Hoy» (ya está el Plan), el Plan no se
+  cambia (sus vistas son Prioridades · Tareas · Proyectos · Recurrentes), More tiene que seguir las familias de la
+  sidebar, faltaba la tab Chats, General va al medio de la barra y como la que abre, y TODO tenía demasiado texto. La
+  regla quedó en AGENTS.md (sección MaKo Mobile). Lo que la hizo posible en el v3: relevar CADA tab de escritorio con
+  sus rótulos reales antes de dibujar (tres lectores en paralelo, ~10 min) en vez de diseñar desde el v2.
+- **«Hay una rama `chats-1410`» no quería decir que hubiera trabajo en ella.** La rama tiene CERO commits propios (sale
+  de origin/main y `git diff origin/main...chats-1410` es vacío). La bandeja Chats (copia de respond.io) existe SIN
+  COMMITEAR en el worktree `C:/dev/wt-chats`: ~55 archivos (app/chats, app/api/chats, lib/chats*, migración 0275,
+  docs/diseno-chats.md). El relevo general decía «sin trabajo nuevo sobre origin», cierto en commits y ciego al disco.
+  El teléfono sigue ese diseño (bandejas Todos · Míos · Sin asignar · MaKo · Canales, un contacto con todos sus
+  canales). **Vive en:** C:/dev/wt-chats/docs/diseno-chats.md.
+- **Pinterest y Dribbble no se leen sin navegador.** WebFetch devuelve «Instagram»/nada; curl a Dribbble, 0 bytes. Una
+  búsqueda de Pinterest SÍ se ve en Chrome headless (los pins quedan detrás de un cartel de login, pero se leen los
+  patrones). Las referencias de apps (Pipedrive, HubSpot, Kommo, Beeper, Stripe, Shopify) salen de su documentación.
+- **Publicar en las tiendas, lo que frena aunque hoy no dé error** (relevado con fuentes oficiales, sin código):
+  - el proxy manda a `/login` todo lo que no está en `PUBLICOS`, así que `/.well-known/assetlinks.json` (Android) y
+    `apple-app-site-association` (iOS) no se sirven: la TWA abre con la barra del navegador y iOS no verifica el dominio
+    (ver hallazgos-infra.md);
+  - Google bloquea su login dentro de un WKWebView (`disallowed_useragent`) y en MaKo es la ÚNICA forma de entrar: en
+    iOS el login va por el navegador del sistema (ASWebAuthenticationSession) con traspaso de sesión;
+  - el Web Push con VAPID no anda en WKWebView: en iOS hace falta APNs del lado del servidor;
+  - no hay «Eliminar mi cuenta» dentro de la app (lo exigen Google y Apple; /privacidad dice «escríbenos»);
+  - Sign in with Apple (guía 4.8, si no se argumenta la excepción de app de negocio) da un correo de reenvío que no
+    coincide con el email invitado en `usuarios`;
+  - Play con cuenta PERSONAL exige una prueba cerrada de 12 testers durante 14 días antes de producción; Apple exige
+    Xcode 26 / SDK de iOS 26 desde el 28/04/2026 (Mac o compilación en la nube).
+  - Las passkeys del 2FA (rama `2fa-tanda1`, chat Ciberseguridad) usan RP ID `hola-mako.com`: en una TWA andan solas;
+    en un WKWebView de Capacitor necesitan `webcredentials` en el apple-app-site-association del dominio raíz.
+
+## Los tableros en el teléfono: el prototipo y cómo se miró (14/10/2026)
+
+- **Un tablero en 390 px:** una columna por pantalla con la siguiente asomando (scroll-snap nativo, sin JS de gesto),
+  y arriba una barra de UN renglón con un tramo y el conteo por etapa. Una barra de navegación que se scrollea de costado
+  está prohibida en esta casa; con N tramos de ancho fijo entra cualquier cantidad de etapas. Mover es mantener presionada
+  la tarjeta → «Mover a…», o el detalle; nunca arrastrar. **Vive en:** docs/prototipos/mako-mobile-tableros.html.
+- **El ancho de una columna se mide con `offsetWidth`, no con `getBoundingClientRect`.** Dentro de algo escalado con
+  `transform` (la escena del prototipo, y cualquier vista previa de teléfono en un editor), el rect viene escalado y
+  `scrollLeft` no, así que «qué columna estoy viendo» sale mal sin un error.
+- **Chrome headless con `--screenshot` y `--virtual-time-budget` puede no terminar nunca** (una de siete capturas colgó
+  tres minutos con el mismo archivo). Cada captura va con `timeout 45`, `--mute-audio`, un perfil en el scratchpad, y al
+  terminar se paran los `chrome.exe` de ese perfil.
+- **Una publicación de Instagram se lee sin sesión** pidiendo `/p/<id>/embed/captioned/` con el user-agent
+  `facebookexternalhit/1.1`: trae el texto y la portada (las demás láminas de un carrusel, no). WebFetch y la página
+  normal devuelven sólo «Instagram».
+
 ## LAS MISMAS RUTAS (13/10/2026): /m es la carpeta interna, nunca una URL
 
 Martín, 12/10/2026 09:26, mirando /m/hoy en su celular: «lo que esta mal es que funcione por rutas, eso no debe ser

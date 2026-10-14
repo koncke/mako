@@ -170,10 +170,82 @@ export function sugerirNumero(col: FilaLugar[], yo: { id: string; num: number },
 }
 
 /**
- * Lo que una vecina corrida le hace a su `scoreBase`: lo mismo que a su número. El Perro
- * re-curva cada día desde la BASE (`recurvarPlanOwner`), así que correr sólo el número que se
- * ve se deshace en la próxima corrida y la soltada vuelve a quedar mal ubicada al día
- * siguiente, que se lee como que se movió sola.
+ * Lo que una vecina corrida le hace a su `scoreBase`: lo mismo que a su número, para que el
+ * juicio del Perro sobre ella se mueva junto con lo que se ve.
+ *
+ * ⚠️ ESTO NO ES LO QUE SOSTIENE EL LUGAR DE LA SOLTADA, aunque hasta el 14/10/2026 este
+ * comentario decía que sí. El reparto del Perro (`recurvarPlanOwner`) no lee el número de la
+ * base: reparte por RANKING sobre una pirámide fija, así que la vecina corrida volvía al
+ * número de su puesto y quedaba otra vez encima. Medido sobre el tablero real: 240 de 513
+ * lugares se deshacían en la primera corrida. Lo que lo sostiene es `respetarFijadas`.
  */
 export const baseCorrida = (base: number | undefined | null, c: Corrimiento): number =>
   Math.max(1, Math.min(100, (base ?? c.antes) + (c.despues - c.antes)));
+
+/** Una tarea en el reparto diario del Perro: el número que se ve HOY y si está fijada a mano. */
+export type FilaReparto = { id: string; num: number; mostrado: number; manual: boolean };
+
+/**
+ * Cuántos puntos tiene que poner el Perro a una tarjeta del OTRO lado de una fijada para que la
+ * cruce. Menos que eso es ruido del reparto, no un juicio: ver `respetarFijadas`.
+ */
+export const MARGEN_CRUCE = 3;
+
+/**
+ * EL REPARTO DEL PERRO SIN PASARLE POR ENCIMA A LO FIJADO A MANO.
+ *
+ * `recurvarPlanOwner` reparte cada día los números de las tareas por RANKING sobre una pirámide
+ * fija (`curveTaskScores`), y a las fijadas (`score_manual`) no les escribe nada. Lo que no
+ * hacía es mirar DÓNDE quedaban las otras respecto de ellas, y un arrastre se deshacía solo:
+ * la vecina que se corrió de 92 a 91 para hacerle lugar a la soltada volvía a 92, el número de
+ * su puesto, y quedaba otra vez encima. Medido sobre el tablero real el 14/10/2026: de 513
+ * lugares donde se puede soltar una tarjeta, 240 se deshacían en la primera corrida, que además
+ * se dispara con cada alta de tareas. Correr también la base (`baseCorrida`) no lo evitaba.
+ *
+ * La regla: una tarjeta no fijada se queda del lado de la fijada en que HOY se ve, salvo que el
+ * Perro la ponga claramente del otro lado —`MARGEN_CRUCE` puntos o más—. Si se queda, se le
+ * recorta el número lo justo: las de arriba no bajan de la fijada y las de abajo no la pasan,
+ * con el mismo desempate por `num` del Kanban.
+ *
+ * ⚠️ POR QUÉ UN MARGEN Y NO EL ORDEN DEL PERRO. Se probaron cuatro formas de ubicar a la
+ * fijada en el orden de mañana y en todas quedaban lugares deshechos (65, 103, 80 y 28 de 513):
+ * el ranking del Perro distingue tarjetas que en pantalla se ven con el mismo número —y el
+ * Kanban las desempata por `num`, o sea muchas veces al revés—, y la fijada, que entra al
+ * ranking con su número contra la BASE de las demás (otra escala: 5 de 174 tareas tienen base =
+ * número visible), ocupa un puesto casi al azar y corre uno a todas las del medio. Las dos
+ * cosas mueven a una vecina 1 o 2 puntos sin que nadie haya cambiado de opinión. Un juicio
+ * nuevo del Perro —un deadline que se acerca, una dependencia— mueve más que eso, y cruza.
+ *
+ * El margen se midió, no se eligió: con 1 se deshacían 169 de 513, con 2 cuatro, con 3 ninguno.
+ * Y el recorte es chico: por corrida toca p50 1 tarjeta, p90 2 y como máximo 4, y ninguna
+ * cambia de columna por eso.
+ *
+ * Sin fijadas devuelve el reparto tal cual: el tablero que nadie tocó a mano no cambia.
+ *
+ * @param filas las que compiten (sin las que se repiten), fijadas incluidas
+ * @param curva el reparto de siempre, id → número
+ * @returns id → número de las NO fijadas; las fijadas no se escriben
+ */
+export function respetarFijadas(filas: FilaReparto[], curva: Record<string, number>, margen = MARGEN_CRUCE): Record<string, number> {
+  const out: Record<string, number> = {};
+  const libres = filas.filter((f) => !f.manual && curva[f.id] != null);
+  for (const u of libres) out[u.id] = curva[u.id];
+  const hoy = (f: FilaReparto): FilaLugar => ({ id: f.id, score: f.mostrado, num: f.num });
+  // En el orden en que se ven: si dos fijadas piden cosas incompatibles a la misma tarjeta, que
+  // gane la de más abajo es lo mismo para todas las corridas.
+  const fijadas = filas.filter((f) => f.manual).sort((a, b) => (vaAntes(hoy(a), hoy(b)) ? -1 : vaAntes(hoy(b), hoy(a)) ? 1 : 0));
+  for (const u of libres) {
+    const juicio = out[u.id];
+    let v = juicio;
+    for (const m of fijadas) {
+      const n = m.mostrado;
+      if (vaAntes(hoy(u), hoy(m))) {
+        if (juicio > n - margen) v = Math.max(v, u.num > m.num ? n : n + 1);
+      } else if (juicio < n + margen) {
+        v = Math.min(v, u.num < m.num ? n : n - 1);
+      }
+    }
+    out[u.id] = Math.max(1, Math.min(100, v));
+  }
+  return out;
+}

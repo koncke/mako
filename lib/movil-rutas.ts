@@ -226,6 +226,8 @@ export function rutaMovil(href: string | null | undefined): string | null {
   if (p === '/general' || p === '/focus' || p === '/inicio') return HOME_MOVIL;
   if (p === '/mako/pendientes' || p.startsWith('/mako/revisar') || p.startsWith('/crm/revisar') || p.startsWith('/plan/revisar')) return '/m/inbox';
   if (p === '/mako' || p === '/mako-doer') return '/m/mako';
+  // El tablero de decisiones del super admin (14/10/2026): Martín lo lee desde el teléfono.
+  if (p === '/admin/runway') return '/m/decisiones';
   // Las pantallas que SÓLO existen en el teléfono, con la URL que muestran (`SOLO_TELEFONO`).
   const chat = p.match(/^\/crm\/(\d+)\/chat$/);
   if (chat) return `/m/crm/${chat[1]}/chat`;
@@ -329,6 +331,7 @@ export function rutaEscritorio(href: string): string {
   else if (p === '/m/plan') destino = '/plan';
   else if (p === RUTA_MAS) destino = '/mas';
   else if (p === '/m/mako') destino = '/mako';
+  else if (p === '/m/decisiones') destino = '/admin/runway';
   else if (p === '/m/cuenta/instalar') destino = '/perfil/instalar';
   else if (p === '/m/cuenta') destino = '/perfil';
   else if (p === '/m/configurar') destino = '/configurar';

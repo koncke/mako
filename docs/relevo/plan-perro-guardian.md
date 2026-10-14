@@ -23,13 +23,21 @@ chat lo suyo (memoria `cerebro-reparte-a-chats`). No antes.
 | Los dos tramos de reunión sin leer: uno no era Google, era el detalle sin su comilla de apertura (arreglado en `repararJson`) | `aed3ccb7` |
 | Borrado de lo que el alta sin preguntas dejó sin call site: `PreguntaCampo` y tres textos del contrato de preguntas | el commit de este relevo |
 
+**Cerrado después, el 14/10 a la tarde (cuenta `claude1`):**
+- **Las TABLAS corren a las de abajo** al arrastrar una fila, igual que el Kanban (la tabla de
+  Tareas y la de adentro de un proyecto). Tenía una segunda mitad: la tabla desempataba por orden
+  de llegada y no por `num`. Detalle en `docs/hallazgos-plan.md` → «La tabla de tareas, el mismo
+  gesto». Sin verificar con un arrastre: no había RAM.
+- La línea de AGENTS.md que nombraba `PreguntaCampo`, corregida.
+- **La corrida del Perro ya no deshace el arrastre.** Era más grave que «re-empatar»: medido,
+  240 de 513 arrastres se deshacían en la primera corrida (cada día y con cada alta). Ahora 0
+  (`respetarFijadas`). El porqué y lo que falló antes, en `docs/hallazgos-plan.md` → «La corrida
+  del Perro deshacía el arrastre».
+
 **Lo que sigue en la cola, sin tocar:**
-- **Las TABLAS no corren a las de abajo** al arrastrar una fila (`useArrastreFilas`,
-  `app/plan/board/Tablas.tsx`): el Kanban sí. No se empezó: el cierre llegó antes.
-- **El Perro puede re-empatar** a una tarjeta fijada (`recurvarPlanOwner`).
-- ⚠️ **AGENTS.md todavía nombra `PreguntaCampo`** como consumidor de `lib/preguntas-contrato.ts`
-  en la tabla de «Una cosa, un lugar». No lo corregí porque AGENTS.md tenía trabajo ajeno sin
-  commitear; es una línea.
+- `puntuarPlan` (la re-puntuación completa con el modelo, `lib/mako-guardian.ts`) también curva
+  con `curveTaskScores` y no pasa por `respetarFijadas`: no se midió si respeta a las fijadas.
+- Nada de lo del arrastre se probó con un arrastre en un navegador (sin RAM para un dev server).
 
 **Una trampa medida que sirve para el que pushee:** `tsc --noEmit` sobre el proyecto entero sale
 con código 1 sin un solo error (también con 6 GB de heap), pero el MISMO tsc con un `include`

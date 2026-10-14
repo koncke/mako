@@ -298,9 +298,21 @@ Lo que no quedó del todo:
   OpenAI (lo mismo que hoy le pasa al Archivero y al importador del Plan). La conversación, el
   diagnóstico y la oferta nunca pagan. Cerrarlo es un `sinPago` en `leerDocumentoIA` y
   `transcribirAudio` (`lib/ai-cheap.ts`), que es un archivo compartido.
-- **Un binario puede quedar en Storage** si la persona cambia de conversación justo mientras un
-  archivo se sube: 'leer' es lo único que lo borra y ya no se llama. Falta una acción
-  'descartar-subida' con la misma validación de path.
+- ~~**Un binario puede quedar en Storage** si la persona cambia de conversación justo mientras un
+  archivo se sube~~ — **CERRADO el 13/10/2026** con la acción `'descartar-subida'` (ver «El audio se
+  re-subía en cada reintento» más abajo).
+- ⚠️ **El aviso de precio afirmó «Cierras el 170% de las llamadas calificadas»** en la primera
+  conversación real de un cliente (ws11, 12/10/2026 19:04 UTC, la única con una conclusión en prod al
+  14/10). Un porcentaje arriba de 100 es imposible, y encima de ese número el aviso aconseja SUBIR EL
+  PRECIO. La causa probable (no medida sobre sus datos): `tasa_cierre_sobre_calificados` divide los
+  cierres por los calificados, y `lib/analisis-negocio.ts` ya avisa que «Calificados es un piso» cuando
+  hay asistentes sin la calificación marcada; Offer usa la tasa sin mirar eso ni topearla. Lo mismo
+  muerde a `alertasEmbudo`, que con `cierreCalificados ?? cierreAsistencias` puede tapar un cierre
+  malo con uno inflado. Falta: descartar la tasa sobre calificados cuando `sin_marcar > 0` o cuando
+  pasa de 1, caer a la de asistencias, y su test probado rompiéndolo. Es la regla «un mensaje que sale
+  solo no puede AFIRMAR lo que no verificó». **Vive en:** `lib/offer-reglas.ts` (`alertasPrecio`,
+  `alertasEmbudo`) · `lib/offer-contexto.ts` (arma `TasasEmbudo`) · `lib/analisis-negocio.ts`.
+  *14/10/2026, cuenta claude1.*
 
 - **La lectura de la última oferta analizada no está declarada en la API de MaKo**
   (`lib/api-mako/areas/negocio.def.ts`): MaKo por WhatsApp no sabe que existe la conclusión.

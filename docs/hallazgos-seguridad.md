@@ -438,6 +438,38 @@ Dos corolarios del mismo arreglo:
 
 ## Guards, roles y sesión
 
+### ⚠️ El 2FA del login YA está escrito a medias, y tiene tres trampas antes de retomarlo (14/10/2026)
+
+**No se arranca de cero.** La mig `0266_segundo_factor.sql` está en `main` y aplicada en prod (seis tablas
+por USUARIO, sin `workspace_id`, más `usuarios.mfa_activo`). El código (TOTP, passkeys, códigos por
+WhatsApp y por correo, 10 de recuperación, «recordar este dispositivo», freno de 8 fallos contado en la
+base, super admin obligatorio) vive en `refs/wip/2fa-login-2026-10-13` (`edbdf3921`, +2.912 líneas), sin
+typecheck completo ni prueba en el navegador. Qué falta, en `docs/relevo/super-admin.md`.
+
+1. **El código por WhatsApp del WIP le llega a OTRO número en Argentina y México.** `validarTelefono`
+   guarda dígitos y `enviarAPersonaMaKo` los manda pelados (`soloDigitos`), así que Evolution
+   (`createJid`) le saca el tercer dígito a todo número de 13 que empiece con 52 o 54: `549…` sale como
+   `54…`. No da error: el WhatsApp sale, a nadie. Es la regla de AGENTS.md («un número que dio WhatsApp
+   viaja como jid»): se canoniza al ENROLAR con `whatsappNumbers` y se manda el jid (`jidCanonico`).
+   **Vive en:** `lib/mfa.ts` (WIP, `mandarCodigo`) · `lib/mako-grupo.ts:524`.
+2. **El motor de Automations no puede mandarle nada a una PERSONA de `usuarios`.** Sus destinos son el
+   grupo del negocio, un lead o la lista de destinatarios del workspace. Mandar el código por una
+   automatización del SuperAdmin necesita un destino nuevo («a la persona del evento»). Y el camino
+   obvio, `emitirDelCatalogo`, tiene dos filos: sin `ws` cae a `getWorkspaceActual() ?? OWNER_WS`
+   (`lib/avisos.ts:505`), que en un login SIN sesión es el ws1, un cliente; y si pasa por `emitirAviso`
+   el código queda copiado en `notificaciones`, `mako_doer_conv`, un Web Push a los admins y
+   `avisos_cola`. **Regla:** un secreto de un solo uso viaja con el `ws` explícito, fail-closed, por un
+   envío que no deja copia; la base guarda sólo su HMAC.
+3. **Una automatización pausada apaga ese método sin un error.** `emitirPorEvento` sin filas activas
+   contesta `ok` y no manda nada (`lib/aviso-evento.ts:330-335`), y un dato vacío borra su renglón: sacar
+   `{{codigo}}` de la plantilla manda un correo sin código. El segundo paso tiene que mirar cuántas filas
+   corrieron y decir «no pude mandarlo, usa otro método»; Publicar exige `{{codigo}}` y ningún DELAY (un
+   DELAY lo manda al cron de 5 minutos y guarda los datos en `flujo_corridas`).
+
+**El diagnóstico obvio equivocado:** «código por correo» suena a segundo factor y no lo es si va al
+MISMO correo con el que se entra: el login ES esa cuenta de Google, y quien la robó lee el código. La
+0266 ya lo exige distinto (`email_respaldo`). Google tampoco ofrece el correo como segundo paso.
+
 ### ⚠️ Ningún guard que mire el eje de workspace puede restringir a la agencia: el único que sirve es `getSesionAdmin()`
 
 Tres guards con nombre de «solo la agencia» y ninguno lo cumple, por la misma razón de

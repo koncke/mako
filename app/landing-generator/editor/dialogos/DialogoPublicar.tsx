@@ -43,7 +43,10 @@
 //
 // Tanda 4 (14/10/2026): si un «Botón de pago» de la landing no va a poder cobrar (sin Stripe, un
 // producto inactivo o sin precio), lo dice ANTES de publicar, debajo de la caja de estado (`avisoDeCobro`,
-// lib/editor-landing/pago-landing.ts). No frena el botón: publicar sigue siendo de la persona.
+// lib/editor-landing/pago-landing.ts). No frena el botón: publicar sigue siendo de la persona. Si el
+// arreglo es conectar Stripe, «Conectar Stripe» abre EL modal de /integraciones encima de éste, sin salir
+// del editor (AGENTS.md «Para conectar una integración JAMÁS se sale de la tab»), y al conectarla se
+// relee el estado del cobro: el aviso se va solo.
 // Lo mismo, en el mismo lugar, si un VIDEO quedó sin su enlace (el VSL que trae el diseño, vacío): la
 // publicada no lo dibuja y el hero sale sin video (`avisoDeVideo`, lib/editor-landing/especificacion.ts).
 // =============================================================================
@@ -59,7 +62,7 @@ import {
   type EstadoDominio, type PedidoDominio, type RegistroDns, type RespuestaDominio,
 } from '@/lib/editor-landing/dominios-reglas';
 import { PLAZO_DOCS_MS, postJson } from '../../cliente';
-import Link from '@/app/_ui/Link';
+import { BotonIntegracion } from '@/app/_components/ConectarIntegracion';
 import { avisoDeCobro, productosDePago } from '@/lib/editor-landing/pago-landing';
 import { useCobroLanding } from '../nodos/CobroBoton';
 import { useEditorLanding } from '../contexto';
@@ -290,7 +293,7 @@ function DialogoPublicarAbierto({ onCerrar }: { onCerrar?: () => void }) {
   const paginasVivas = useMemo(() => contenido.paginas.map((p) => (p.id === paginaActual && editor && !editor.isDestroyed
     ? { ...p, doc: editor.getJSON() as typeof p.doc } : p)), [contenido, paginaActual, editor]);
   const hayPagos = useMemo(() => productosDePago(paginasVivas).length > 0, [paginasVivas]);
-  const { estado: cobro } = useCobroLanding(hayPagos);
+  const { estado: cobro, recargar: recargarCobro } = useCobroLanding(hayPagos);
   const avisoCobro = hayPagos && cobro ? avisoDeCobro(paginasVivas, cobro) : null;
   // Un video sin su enlace (el VSL vacío de un diseño): se avisa y no se frena.
   const avisoVideo = useMemo(() => avisoDeVideo(paginasVivas), [paginasVivas]);
@@ -538,7 +541,7 @@ function DialogoPublicarAbierto({ onCerrar }: { onCerrar?: () => void }) {
       {avisoCobro && (
         <p className="gmp-error" style={{ margin: '-6px 0 12px' }} role="status">
           {avisoCobro.texto}
-          {avisoCobro.integraciones && <>{' '}<Link href="/integraciones" target="_blank" rel="noopener noreferrer">Integraciones</Link></>}
+          {avisoCobro.integraciones && <>{' '}<BotonIntegracion servicio="stripe" onConectado={recargarCobro} style={{ color: 'var(--gmp-azul)', fontWeight: 600 }}>Conectar Stripe</BotonIntegracion></>}
         </p>
       )}
       {avisoVideo && (

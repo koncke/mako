@@ -227,3 +227,27 @@ con IA en la tab, el «+», el link en el chat, las tarjetas). Si la cuenta se c
 --oneline origin/main..HEAD` dice qué quedó commiteado; el journal está en
 `~/.claude/projects/C--Users-marti-OneDrive-Escritorio-dashboard-marketing-main/b8862985-74eb-48c0-a235-c3eee83116be/subagents/workflows/wf_8f7c15cf-56d/`.
 NO se pushea a medias. Copiar el estilo de la original al replicar queda para después.
+
+## Tanda 6 — retomada (14/10 ~16:15 AR, cuenta claude1, chat «Landing Generator»)
+
+Pedido de Martín (por «Estrategia 3 cuentas»): cerrar lo pendiente del área al 100%, y primero el rojo de main.
+
+**El rojo de `tests/integracion-sin-salir.test.ts`** (el barrido: `DialogoPublicar.tsx:541` y `CobroBoton.tsx:110` con
+`<Link href="/integraciones" target="_blank">` para conectar Stripe) ya tenía arreglo en `landing-t6` (`3a439cd95` +
+`1c9bb8beb`). Se pasaron SOLOS a la rama `landing-rojo` (worktree `C:/dev/wt-landing-rojo`, = origin/main + 2 commits,
+`0be209e23` y `8be4a7da4`): test 5/5, `tests/editor-landing-*` + `integracion-*` 462/0. **SIN PUSHEAR**: tres intentos
+cortados por RAM (no son errores de tipos; con ~20 chats quedaban 0,2-0,9 GB libres). Para pushearlo:
+`cd C:/dev/wt-landing-rojo && git fetch -q && git rebase origin/main && MAKO_TYPECHECK_SIN_ESPERA=1 git push origin HEAD:main`
+con el vigía pausado (receta en `docs/relevo/estrategia-3-cuentas.md`). Cuando `landing-t6` entre a main, los dos
+commits llegan iguales (el merge no choca).
+
+**Lo de la tanda 6 que quedó del corte:** las Piezas (lector en el navegador, extractor/replicar en el server, los [ ]
+resaltados) estaban commiteadas; la Pantalla no había escrito nada (0 ediciones), y Verificar/Corregir no corrieron.
+`landing-t6` ya tiene origin/main mergeado (`ed681504d`, sin conflictos).
+
+**Corriendo ahora: workflow `wf_2247d576-3c7`** (journal en
+`~/.claude/projects/C--Users-marti-OneDrive-Escritorio-dashboard-marketing-main/4eb065fe-fc85-48d6-8d4f-36ed902824c9/subagents/workflows/wf_2247d576-3c7/`;
+los contratos de las Piezas en `C:/dev/landing-t6-piezas.json`; typecheck acotado de la rama: `node C:/dev/tsc-landing.mjs`).
+Hace: la Pantalla (pedidos 2-6) + un triage de TODO el «sin hacer» del área → carril pantalla: «Aplicar» del Diagnóstico
+(decisión c) · carril motor: copiar el estilo al replicar (decisión d) y los paquetes del backlog → verificación (suite,
+tipos, seguridad, completitud) → corrección. NO se pushea a medias.

@@ -366,4 +366,32 @@ export const BITACORA: Hito[] = [
       'docs/hallazgos-planes-y-cobro.md — «Partir Strategy en tabs»; y una entrada en objectives, ads, landing, crm y ui',
     ],
   },
+  {
+    fecha: '14 oct', hora: '16:38', chat: 'Estrategia de ventas MaKo', cuenta: 'claude1',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Runway pasa a ser el tablero donde contesta las decisiones de todos los chats',
+    pedido: 'quiero que rediseñes esa tab para que se lea muy simple. Quiero texto grande, menos texto, tarjetas, etc... Quiero leerlo simple.',
+    puntos: ['Llegó por el chat «Estrategia 3 cuentas», que junta las preguntas de todos los chats: una decisión por tarjeta, con el chat, la pregunta en una línea, las opciones, qué destraba y si está contestada; en la compu y en el teléfono.'],
+  },
+  {
+    fecha: '14 oct', hora: '16:44', chat: 'Estrategia de ventas MaKo', cuenta: 'claude1',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El tablero de decisiones: 55 tarjetas publicadas, se contestan con un toque',
+    puntos: [
+      '`/admin/runway` muestra una tarjeta por decisión, agrupadas en «Frenan a un chat», «Cuestan dinero o clientes», «Criterio, sin apuro» y «Para saber»; la recomendada va marcada y siempre se puede escribir otra respuesta. Las contestadas bajan plegadas, con «Nueva» hasta que el chat la recoge.',
+      'En el teléfono es la misma pantalla (`/admin/runway` ↔ `/m/decisiones`); la foto vieja del lanzamiento se mudó a `/admin/runway/foto`.',
+      'Los chats publican y leen con `scripts/decisiones.ts` (todo o nada: si una no valida, no se publica ninguna). La tabla (mig 0277) es de plataforma, sin workspace.',
+      '⚠️ **Lo encontró mirarlo dibujado, no los tests:** la marca «Recomendada» al costado de la opción le comía el ancho y una opción de cinco palabras salía en cuatro renglones; y el porqué iba antes de la pregunta. Los 9 tests dibujaban la tarjeta y daban verde.',
+    ],
+    commits: [
+      { sha: '86e0078a', msg: 'Runway: el tablero de decisiones de Martín (una por tarjeta, en compu y teléfono)', lineas: 2503, archivos: 14 },
+      { sha: '8057e855', msg: 'Runway: la pregunta primero y la «Recomendada» arriba de la opción', lineas: 20, archivos: 2 },
+    ],
+    archivos: [
+      'app/admin/runway/decisiones.ts — el modelo y el saneo de lo que se publica (rechaza con motivo, nunca recorta; link de afuera sólo claude.ai, por origin)',
+      'app/admin/runway/Tablero.tsx, TarjetaDecision.tsx, decisiones.css — la pantalla',
+      'lib/admin-decisiones.ts, app/admin/runway/acciones.ts — leer y contestar, con el guard del super admin',
+      'scripts/decisiones.ts — publicar / contestadas / recoger / retirar / listar',
+    ],
+  },
 ];

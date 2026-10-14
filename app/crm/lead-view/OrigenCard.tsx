@@ -66,6 +66,10 @@ function labelOrigen(origen: string | null): { texto: string; color: string } {
     // link. «Llegó», no «escribió»: con un comentario no escribió nada (duodécima tanda, 12/10/2026).
     case 'instagram': return { texto: 'Llegó por Instagram', color: 'var(--good)' };
     case 'messenger': return { texto: 'Llegó por Messenger', color: 'var(--good)' };
+    // Las fuentes que avisan del Leads Scraper (14/10/2026, lib/fuentes-leads.ts). Hotmart crea al que
+    // compró Y al que abandonó el carrito, así que la ficha no afirma «compró»: eso está en su historial.
+    case 'hotmart': return { texto: 'Llegó por Hotmart', color: 'var(--good)' };
+    case 'skool': return { texto: 'Pidió entrar a tu Skool', color: 'var(--good)' };
     // ⚠️ EL DEFAULT YA NO AFIRMA NADA. Decía «Orgánico / manual», que son dos hechos
     // del negocio —llegó solo, o lo cargamos nosotros— sobre una columna vacía, de la
     // que no se sabe ninguno de los dos. Con las cuatro altas estampando, acá sólo
