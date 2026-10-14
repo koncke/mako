@@ -335,13 +335,17 @@ hola-mako.site y no hola-mako.com. Lo que costó y lo medido: [hallazgos-editor-
   (`LandingCompleta.baseLandings`, la prop `bases` del Panel). Todo lo que muestra, copia, manda o mide la URL
   de una landing pasa por ahí (la publicación y los enlaces entre páginas de la foto, la vista previa
   privada, la canónica, la analítica, el diálogo Publicar, «Copiar enlace», el cruce del Panel, la ruta del
-  dominio propio). `urlPublica` de `doc.ts` queda como la ruta INTERNA (`/l/<slug>`).
+  dominio propio). La ruta INTERNA (`/l/<slug>`) es `rutaInternaL` de `doc.ts` (hasta la revisión se llamaba
+  `urlPublica`: se renombró para que una rama vieja que la usa como dirección pública no compile).
 - **L2 · El proxy decide por HOST, primero que nada** (`tipoDeHost`: `app` | `landings` | `propio`). En
-  hola-mako.site (`decidirLandings`): `/<slug>`, `/<slug>/<ruta>`, `/<slug>/pagar/<bloque>` y
-  `/vista/<token>[/<ruta>]` se REESCRIBEN a `app/l` (la URL que ve el visitante no cambia); `/l/html/…` pasa;
-  el POST de `/api/landing-generator/pagar` pasa; `/l/<…>` es un 308 a `/<…>`; la raíz, un 307 a
-  hola-mako.com; lo demás, 404. Sin gate, sin cookie, sin `?ws=`, sin mudanza, sólo GET/HEAD (salvo el pago),
-  en cualquier entorno. Las rutas de `app/l` no cambian: siguen siendo el destino interno.
+  hola-mako.site (`decidirLandings`): `/<slug>`, `/<slug>/<ruta>` y `/vista/<token>[/<ruta>]` se REESCRIBEN
+  a `app/l` (la URL que ve el visitante no cambia); `/l/html/…` pasa; `/l/<…>` es un 308 a `/<…>` SÓLO si
+  `/<…>` es una landing (lo que queda se decide con las mismas reglas: `/l//evil.com` es 404); la raíz, un
+  307 a hola-mako.com; lo demás, 404. Todo 308 que arma el proxy con la ruta del pedido pasa por
+  `redireccionEnElHost` (nunca sale del host). Sin gate, sin cookie, sin `?ws=`, sin mudanza, sólo GET/HEAD,
+  en cualquier entorno. Las rutas de `app/l` no cambian: siguen siendo el destino interno. Las sub-rutas
+  fijas (`SUBRUTAS_FIJAS`) hoy son ninguna: el pago de un bloque (`/<slug>/pagar/<id>` y su POST) las suma
+  el día que exista, con su test y el `Origin` exigido.
 - **L3 · La app muda lo viejo.** En producción, en un host de la app, `/l/<…>` es un 308 a
   `https://hola-mako.site/<…>` con la query entera (`decidirLEnApp`), antes del cartel de mudanza; en local y
   en los previews `/l` sigue sirviendo.
@@ -353,7 +357,7 @@ hola-mako.site y no hola-mako.com. Lo que costó y lo medido: [hallazgos-editor-
   `localhost`, una IPv4), puesto por `.map(enLaApp)` a la lista entera. El HSTS sigue con
   `PATRON_HOSTS_DE_MAKO` (sin localhost, sin hola-mako.site). Las cabeceras de `/l/html` no llevan host.
 - **L6 · Lo que una landing pide a su host es sólo su HTML libre.** El Pixel, `/api/track` y el grabador van
-  ABSOLUTOS a hola-mako.com; por eso en hola-mako.site no pasa ningún `/api` salvo el pago. Los estáticos de
+  ABSOLUTOS a hola-mako.com; por eso en hola-mako.site no pasa ningún `/api`. Los estáticos de
   MaKo (`/_next`, `favicon.ico`, `sw.js`) siguen sirviéndose en hosts ajenos: medido y pendiente
   (hallazgos, «Lo que quedó sin hacer (tanda 4)»).
 - **L7 · Reconocer «una landing nuestra» por URL** acepta las dos bases (`basesLandings`: hola-mako.site y
