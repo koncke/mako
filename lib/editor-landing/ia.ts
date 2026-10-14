@@ -533,19 +533,38 @@ export async function texto(p: PedidoTexto): Promise<ResultadoIA<{ texto: string
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
+ * El formato de la landing en «Probar nuevo diseño» (tanda 6; pendiente de la tanda 2: «"Probar nuevo
+ * diseño" no recibe el formato»). Sin él, en una PRESENTACIÓN proponía secciones de página que no
+ * entran en la diapositiva. Va al slot `{{formato}}` detrás de FORMATO_DISENOS (es el único slot que
+ * tiene disenosSystem): el prompt editable no cambia.
+ *
+ * ⚠️ NO SON `REGLAS_DIAPOSITIVAS_EDITAR` NI `REGLAS_PAGINA` (las de editar), A PROPÓSITO: las dos piden
+ *    algo que acá contradice el pedido. «Si no entra, pártelo en dos», cuando cada tarjeta devuelta es
+ *    UNA alternativa (partida, cada mitad pierde texto y `conservaElTexto` las descarta); y «cada una
+ *    lleva el copy que una página necesita para convencer», cuando acá el texto se conserva palabra por
+ *    palabra. Es la regla de GRAMATICA_IA: el formato de un pedido no contradice al system.
+ */
+const REGLAS_DISENOS = {
+  diapositiva: 'Es una PRESENTACIÓN: la sección es UNA diapositiva de tamaño fijo, con una sola idea. Cada alternativa tiene que entrar ENTERA en la diapositiva (estructuras compactas: columnas, un diseño optimizado, cajas), nunca algo que se lea con scroll. No la partas en dos: cada tarjeta que devuelves es una alternativa completa.',
+  pagina: 'Es una LANDING, una página que se lee de corrido con scroll; NO es una presentación: ninguna alternativa se arma ni se nombra como diapositiva.',
+} as const;
+
+/**
  * Hasta 3 alternativas de UNA sección que dicen lo mismo con otra forma. Cada una
  * sale con el id de la original (la reemplaza al elegirla), conserva su imagen y
  * sus notas, y pasa el chequeo de que el texto se conservó (`conservaElTexto`).
+ * `params.formato` decide si las alternativas son diapositivas o secciones de página.
  */
-export async function disenos(p: { tarjeta: unknown }): Promise<ResultadoIA<{ opciones: JsonNodo[] }>> {
+export async function disenos(p: { tarjeta: unknown; params?: Partial<ParamsGeneracion> }): Promise<ResultadoIA<{ opciones: JsonNodo[] }>> {
   const t0 = Date.now();
   if (!esTarjeta(p.tarjeta)) return invalido('Falta la sección.');
   const original = p.tarjeta;
   if (attrsDe(original).bloqueadaIA === true) return invalido('Esa sección está bloqueada.');
   const formularioId = idTarjetaConFormulario([original]);
   const vista = tarjetaABloques(original, { formularioId });
+  const formato = `${FORMATO_DISENOS}\n${esDiapositivas(p.params) ? REGLAS_DISENOS.diapositiva : REGLAS_DISENOS.pagina}`;
   try {
-    const sys = await system(PROMPTS_EDITOR.disenosSystem, { gramatica: GRAMATICA_IA, formato: FORMATO_DISENOS });
+    const sys = await system(PROMPTS_EDITOR.disenosSystem, { gramatica: GRAMATICA_IA, formato });
     const user = await renderPrompt(PROMPTS_EDITOR.disenosUser.key, PROMPTS_EDITOR.disenosUser.tpl, {
       seccion: contenidoNoConfiable(JSON.stringify(vista, null, 1), 'seccion'),
     });

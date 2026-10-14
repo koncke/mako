@@ -58,7 +58,7 @@ export async function POST(req: Request) {
       case 'texto':
         return responder(await texto({ tipo: body.tipo, texto: body.texto, contexto: body.contexto, tono: body.tono, idioma: body.idioma }));
       case 'disenos':
-        return responder(await disenos({ tarjeta: body.tarjeta }));
+        return responder(await disenos({ tarjeta: body.tarjeta, params: body.params }));
       case 'notas':
         return responder(await notas({ tarjeta: body.tarjeta }));
       default:

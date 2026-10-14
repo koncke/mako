@@ -251,7 +251,8 @@ export type PedidoIA =
   | { accion: 'secciones'; esquema: Esquema; indices: number[]; params: ParamsGeneracion; temaId: string }
   | { accion: 'editar'; instruccion: string; tarjetas: JsonNodo[]; alcance: 'landing' | 'seccion'; params?: Partial<ParamsGeneracion> }
   | { accion: 'texto'; tipo: AccionTexto; texto: string; contexto?: string; tono?: string; idioma?: string }
-  | { accion: 'disenos'; tarjeta: JsonNodo }
+  /** `params.formato` (tanda 6): en una presentación las alternativas son diapositivas, no secciones de página. */
+  | { accion: 'disenos'; tarjeta: JsonNodo; params?: Partial<ParamsGeneracion> }
   | { accion: 'notas'; tarjeta: JsonNodo };
 
 export type RespuestaIA =

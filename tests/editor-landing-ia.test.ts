@@ -469,6 +469,39 @@ test('los prompts no nombran formas rioplatenses (el guard de voseo barre lib/) 
   assert.match(reglas, /tratando al lector de «tú»/);
 });
 
+// Tanda 6 (pendiente de la tanda 2: «"Probar nuevo diseño" no recibe el formato»): en una
+// presentación proponía secciones de página. Roturas (14/10/2026, el archivo entero con la base en
+// 25 pasan / 0 fallan; en las cinco el que falla es éste):
+//   · ia.ts: `esDiapositivas(undefined)` (el formato no se mira, lo de antes)  -> 24 pasan / 1 falla
+//   · la ruta no pasa `params` a disenos                                       -> 24 / 1
+//   · el system recibe FORMATO_DISENOS solo (sin las reglas)                   -> 24 / 1
+//   · la regla de diapositiva copiada de editar («si no entra, pártelo en dos») -> 24 / 1
+//   · api-tipos sin `params` en el pedido de disenos                           -> 24 / 1
+test('«Probar nuevo diseño» recibe el formato: diapositivas en una presentación, sin contradecir el pedido', () => {
+  const tipos = sinComentarios(leer('lib/editor-landing/api-tipos.ts'));
+  assert.match(tipos, /\{ accion: 'disenos'; tarjeta: JsonNodo; params\?: Partial<ParamsGeneracion> \}/);
+  const ruta = sinComentarios(leer('app/api/landing-generator/ia/route.ts'));
+  assert.match(ruta, /disenos\(\{ tarjeta: body\.tarjeta, params: body\.params \}\)/);
+  const ia = sinComentarios(leer('lib/editor-landing/ia.ts'));
+  const i = ia.indexOf('export async function disenos(');
+  const fn = ia.slice(i, ia.indexOf('\nexport async function notas(', i));
+  assert.ok(i > 0 && fn.length > 300);
+  assert.match(fn, /const formato = `\$\{FORMATO_DISENOS\}\\n\$\{esDiapositivas\(p\.params\) \? REGLAS_DISENOS\.diapositiva : REGLAS_DISENOS\.pagina\}`;/);
+  assert.match(fn, /system\(PROMPTS_EDITOR\.disenosSystem, \{ gramatica: GRAMATICA_IA, formato \}\)/);
+  // Las reglas: una presentación es UNA diapositiva y no se parte; una landing no es una presentación.
+  const reglas = ia.slice(ia.indexOf('const REGLAS_DISENOS = {'), ia.indexOf('} as const;', ia.indexOf('const REGLAS_DISENOS = {')));
+  const diapositiva = /diapositiva: '([^']+)'/.exec(reglas)?.[1] ?? '';
+  const pagina = /pagina: '([^']+)'/.exec(reglas)?.[1] ?? '';
+  assert.match(diapositiva, /PRESENTACIÓN/);
+  assert.match(diapositiva, /entrar ENTERA en la diapositiva/);
+  assert.match(diapositiva, /No la partas en dos/, 'cada tarjeta devuelta es UNA alternativa');
+  assert.match(pagina, /NO es una presentación/);
+  for (const r of [diapositiva, pagina]) {
+    assert.doesNotMatch(r, /p[áa]rtelo|copy que una p[áa]gina necesita/i, 'una regla de editar que acá contradice el pedido');
+    assert.doesNotMatch(r, /(?<!\p{L})(vos|tenés|querés|podés|partí|armá)(?!\p{L})/iu);
+  }
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Las rutas
 // ─────────────────────────────────────────────────────────────────────────────
