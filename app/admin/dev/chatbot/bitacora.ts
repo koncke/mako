@@ -1551,4 +1551,17 @@ FEEDBACK PROBAR:
     ],
     archivos: ["docs/hallazgos-chatbot.md — «TikTok fase 0»", "docs/diseno-tiktok-linkedin.md §4"],
   },
+  {
+    fecha: "14 oct", hora: "17:25", chat: "Chatbot", cuenta: "claude1",
+    actor: "claude", tipo: "implementacion",
+    titulo: "«Probar en vivo» por la API: UN escenario, no todos los pasos",
+    puntos: [
+      "probar_secuencia mandaba cada mensaje del array: con una condición, el «Sí» y el «No» juntos. Ahora manda el camino de un escenario, el mismo de «Probar» y de escenarios_secuencia; con varios, pide cuál.",
+      "Un paso de Instagram o Messenger se mandaba como email: ahora se saltea con su aviso.",
+    ],
+    commits: [
+      { sha: "f72e7a3b4", msg: "Automations: probar_secuencia manda UN escenario", lineas: 249, archivos: 7 },
+    ],
+    archivos: ["docs/hallazgos-chatbot.md — «probar_secuencia manda UN escenario»"],
+  },
 ];

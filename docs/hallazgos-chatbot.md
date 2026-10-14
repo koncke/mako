@@ -4432,3 +4432,21 @@ Lo que quedó sin hacer, con su archivo:
   (dos archivos del editor de landings) y `tests/cobranza.test.ts`.
 
 **Vive en:** `lib/nutricion.ts` (`pausarPorRespuesta`, `contextoDeRespuesta`, `redactarRespuesta`, `contestarSolaPorRedes`, `mandarMensajeDeRespuesta`) · `lib/canal-social.ts` (`filasDeCharlaSocial`) · `lib/canal-zernio.ts` (`charlaSocialDelLead`) · `lib/zernio-entrante.ts` · `app/api/webhooks/zernio/route.ts` · `lib/simulador-grafo.ts` · `app/automations/PanelProbar.tsx` · `app/automations/EditorPasoIA.tsx` · `lib/flujo-ia.ts`
+
+## `probar_secuencia` manda UN escenario (14/10/2026)
+
+Lo hecho está en `f72e7a3b4`.
+
+- **Mandar «todos los pasos» de un flujo con ramas es mandar una prueba que ningún lead recibe.** La prueba en vivo
+  (`probarSecuencia`, la de la API) recorría el ARRAY: con una condición, el dueño recibía el «Sí» y el «No» juntos, y el
+  `[PRUEBA n/N]` contaba las tarjetas del array, no los mensajes del camino. Ahora manda los de UN escenario
+  (`escenarioDePrueba` → `mensajesDelEscenario`), los MISMOS de «Probar» y de `escenarios_secuencia`
+  (`escenariosDeLaSecuencia`, una regla, un lugar). Con más de un escenario, la API pide cuál (en `preparar()`: se sabe
+  sin escribir); el número sale de `escenarios_secuencia`.
+- **Un paso de Instagram o Messenger se mandaba como EMAIL.** El bucle era `if (whatsapp) {…} else {email}`: todo lo
+  que no fuera WhatsApp caía al email, con el asunto vacío. Ahora se saltea con su aviso (Meta no deja escribir primero).
+
+Lo que quedó sin hacer: la acción `probar` de `app/api/chat-agent/secuencias/route.ts` no tiene quién la llame en la
+app (medido el 14/10: el único `action: 'probar'` es de otra ruta); prueba el escenario 1.
+
+**Vive en:** `lib/setting-secuencias.ts` (`escenarioDePrueba`, `probarSecuencia`) · `lib/simulador-grafo.ts` (`mensajesDelEscenario`, `escenariosDeLaSecuencia`) · `lib/api-mako/areas/chatbot.run.ts` · `lib/api-mako/areas/chatbot.def.ts`
