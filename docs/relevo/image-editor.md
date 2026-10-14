@@ -50,6 +50,8 @@ Lo de abajo es la historia de cómo se llegó.
 
 ## Decisiones que esperan a Martín
 
+- ¿«Image» también en la barra mirando un cliente (`?ws=`)? Hoy no, por su regla del 01/08. El cambio está hecho y sin
+  pushear en la rama `opcion-image-en-clientes` (`8cd57c7e`); si dice que sí, se trae con cherry-pick.
 - ¿Le escribimos a Siam pidiendo licencia MIT para sacar el cartel?
 - ¿Unsplash (key de MaKo) para las fotos? ¿Modelo para quitar fondo de objetos?
 - Una pestaña de Canva quedó abierta en el grupo de los agentes (`canva.com/design/DAHX-ICTUd4`): si se
