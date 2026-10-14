@@ -90,7 +90,7 @@ export type FijoDeCanal = typeof TRIGGER_INSTAGRAM | typeof TRIGGER_MESSENGER | 
 // ── El objetivo y el canal: el filtro de la galería (décima tanda) ──────────────────────────────────
 
 /** Para qué sirve una plantilla. A MANO en cada una: no se deduce. */
-export type ObjetivoPlantilla = 'captar' | 'agendar' | 'reunion' | 'recuperar' | 'vender' | 'clientes' | 'cobrar';
+export type ObjetivoPlantilla = 'captar' | 'agendar' | 'reunion' | 'recuperar' | 'vender' | 'clientes' | 'cobrar' | 'medir';
 
 /** El grupo «Objetivo» del filtro, en este orden (el del embudo: de captar a cobrar). */
 export const OBJETIVOS_PLANTILLA: ReadonlyArray<{ id: ObjetivoPlantilla; label: string }> = [
@@ -101,6 +101,7 @@ export const OBJETIVOS_PLANTILLA: ReadonlyArray<{ id: ObjetivoPlantilla; label: 
   { id: 'vender', label: 'Vender' },
   { id: 'clientes', label: 'Clientes' },
   { id: 'cobrar', label: 'Cobrar' },
+  { id: 'medir', label: 'Medir' },
 ];
 
 /** Por dónde sale una plantilla. `mako` = «MaKo en WhatsApp» (el grupo del negocio). */
@@ -489,6 +490,21 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
     cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'pago_recibido' },
     pasos: [
       mako('mp_aviso', '💰 *Entró un pago*: {{nombre_completo}} pagó *{{pago_monto}}* por {{pago_pasarela}}.\n🧾 {{pago_concepto}}\n{{pago_tipo}}\n🧪 {{pago_modo}}\n{{pago_alta}}\n\n👉 {{link_lead}}', null),
+    ],
+  },
+  {
+    // (8b) «El AI Analyst terminó» (13/10/2026, la tarea del Dashboard en Automations): el análisis de una hoja del
+    // Dashboard, con sus datos citables (la hoja, el resumen, los hallazgos y el link), que pasa el Dashboard armados con
+    // `valoresDelAnalisis`. No es de un lead: el análisis es del negocio. Cada dato en su renglón (sin valor, se va).
+    id: 'mako-analisis',
+    nombre: 'El AI Analyst Terminó',
+    emoji: '📊',
+    linea: 'Te avisa en el grupo cuando el AI Analyst termina de analizar una hoja del Dashboard.',
+    origen: 'el aviso «Análisis del Dashboard listo» (dashboard-analisis-listo), con los datos del análisis',
+    objetivo: 'medir',
+    cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'analisis_listo' },
+    pasos: [
+      mako('ma_aviso', '📊 *Análisis listo*: {{analisis_hoja}}\n\n{{analisis_resumen}}\n\n{{analisis_hallazgos}}\n\n👉 {{analisis_link}}', null),
     ],
   },
   {

@@ -192,7 +192,7 @@ export const EVENTOS_PAGO: readonly EventoCanal[] = [
 ];
 
 /** Cuál de los «Eventos de MaKo» (`EVENTOS_MAKO`). */
-export type SubtipoMako = 'reunion_pronto' | 'lead_contesta' | 'cuota_vencida' | 'lead_agendo' | 'pago_recibido';
+export type SubtipoMako = 'reunion_pronto' | 'lead_contesta' | 'cuota_vencida' | 'lead_agendo' | 'pago_recibido' | 'analisis_listo';
 
 /**
  * LOS EVENTOS DE MAKO (11/10/2026, docs/diseno-mako-en-whatsapp-unificado.md §1): cada uno es un aviso del
@@ -212,7 +212,7 @@ export type SubtipoMako = 'reunion_pronto' | 'lead_contesta' | 'cuota_vencida' |
  * `eventoDeFila` devolvería null para las filas vivas (#239, #240) entre el deploy y el script de la ola 4, y sus avisos
  * dejarían de salir. Ni `apagado`: eso las frenaría al guardar.
  */
-export type EventoMako = EventoCanal & { subtipo: SubtipoMako; aviso: string; trae: ReadonlyArray<'lead' | 'mensaje' | 'cuota' | 'pago' | 'escrito'>; retirado?: true };
+export type EventoMako = EventoCanal & { subtipo: SubtipoMako; aviso: string; trae: ReadonlyArray<'lead' | 'mensaje' | 'cuota' | 'pago' | 'escrito' | 'analisis'>; retirado?: true };
 export const EVENTOS_MAKO: readonly EventoMako[] = [
   { subtipo: 'reunion_pronto', aviso: 'reunion-recordatorio', label: 'Falta media hora para una reunión', trae: ['lead', 'mensaje'], retirado: true },
   { subtipo: 'lead_contesta', aviso: 'wa-mensaje-entrante', label: 'Un lead contesta y MaKo no le respondió', trae: ['lead', 'escrito', 'mensaje'] },
@@ -225,6 +225,10 @@ export const EVENTOS_MAKO: readonly EventoMako[] = [
   // La pasarela de pagos (11/10/2026): el aviso «Entró un pago» lo arma lib/cobros.ts cuando Stripe o Mercado Pago
   // confirman un cobro creado en MaKo. Al equipo (el grupo de MaKo), no al lead: al lead le escribe el CRON «Pagos».
   { subtipo: 'pago_recibido', aviso: 'pago-recibido', label: 'Entra un pago', trae: ['lead', 'pago', 'mensaje'] },
+  // EL DASHBOARD (13/10/2026, pedido de Martín reenviado por Graphics: «que se pueda configurar en automations y
+  // consumir esto»): lo emite el AI Analyst al terminar (`analizarHoja`, lib/graficos-analisis-server.ts) con los datos
+  // de `valoresDelAnalisis`. No es de un lead: el análisis es del negocio, y la automatización le avisa al grupo.
+  { subtipo: 'analisis_listo', aviso: 'dashboard-analisis-listo', label: 'El AI Analyst termina un análisis', trae: ['analisis'] },
 ];
 
 /**
