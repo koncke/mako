@@ -78,8 +78,9 @@ Se lee en cinco minutos. Medido el 13/10/2026; lo que no se midió, lo dice.
 - **De otros chats**: la invitación al ganar en un producto agregado, y la sugerencia de crear la
   automatización de la invitación al curso cuando un lead cae a Ganado (pedido del 14/10, anotado en
   docs/sugerencias-mako-crm.md para validar), son del **CRM**. Invitar al curso por la API de MaKo
-  (`invitar_al_curso`, sólo ganados: invitar a quien no compró queda en la pantalla) está coordinado
-  con la sesión **API de MaKo**, que tiene el registro abierto.
+  (`invitar_al_curso`, sólo ganados: invitar a quien no compró queda en la pantalla) la suma la
+  sesión **API de MaKo** en su rama (`api-acciones-1310`, worktree C:/dev/mako-api2) y avisa al
+  commitear. (El área `calendario` sin commitear que se ve en el clon el 14/10 no es suya.)
 - **Ver en la pantalla del ws3** la pestaña «Del embudo» y la biblioteca de tipografías: CURSOS no
   pudo (RAM), y yo tampoco.
 - **Las ventas no son código**: el upsell a Teriyaki y los tres upsells de Mauricio son tareas suyas
