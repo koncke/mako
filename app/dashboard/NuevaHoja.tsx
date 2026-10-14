@@ -54,7 +54,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Modal } from '@/app/_ui/Modal';
 import { Button } from '@/app/_ui/Button';
-import Link from '@/app/_ui/Link';
+import { LinkIntegracion } from '@/app/_components/ConectarIntegracion';
 import { IconoMenu } from '@/app/_ui/iconos-menu';
 import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
 import { CajaPedido, ChipCaja, CSS_CAJA_PEDIDO, CSS_TOKENS_CASA, TITULO_CAJA } from '@/app/landing-generator/CajaPedido';
@@ -453,12 +453,15 @@ export function CrearHoja({ onCrear, onListo, enBlanco = 'Página nueva', inform
   );
 }
 
-/** El error, con la palabra «Integraciones» convertida en el link a donde se arregla (si lo hay). */
+/**
+ * El error, con la palabra «Integraciones» convertida en el link a donde se arregla (si lo hay). Si el link nombra una
+ * integración (`/integraciones?abrir=gemini`), abre su modal acá: conectar nunca saca de la tab (regla del 14/10/2026).
+ */
 function TextoConLink({ texto, link }: { texto: string; link?: string }) {
   if (!link) return <>{texto}</>;
   const i = texto.indexOf('Integraciones');
-  if (i < 0) return <>{texto} <Link href={link} style={S.link}>Abrir</Link></>;
-  return <>{texto.slice(0, i)}<Link href={link} style={S.link}>Integraciones</Link>{texto.slice(i + 'Integraciones'.length)}</>;
+  if (i < 0) return <>{texto} <LinkIntegracion href={link} style={S.link}>Abrir</LinkIntegracion></>;
+  return <>{texto.slice(0, i)}<LinkIntegracion href={link} style={S.link}>Integraciones</LinkIntegracion>{texto.slice(i + 'Integraciones'.length)}</>;
 }
 
 /** El «+» de la caja (`.gp-cc-mas` de CajaPedido) con el desplegable de la casa: 34 redondo, el azul de Gamma (el de Automations). */
