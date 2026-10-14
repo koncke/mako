@@ -82,6 +82,12 @@
 > plantilla «El AI Analyst Terminó» (avisarle a Graphics); y NUEVO: automatizaciones internas de MaKo (ej. un cliente no pagó
 > su suscripción) se configuran en SuperAdmin, con una tarjeta que sólo tiene SuperAdmin: «MaKo a todos los grupos» (manda a
 > los grupos de MaKo de todos los clientes); (3) ⚡ Acción con acciones del Dashboard y de TODAS las tabs (pensar cuáles).
+> **Bug 5, el lead de prueba (13/10 ~24:40, medido):** Martín: «lo creamos con el botón de "nuevo lead" en el workspace de
+> Mauricio», nombre «Marco Bustos». NO EXISTE en `leads` (ni en ws1 ni en otro), ni en `propuestas`, ni con su teléfono
+> (5216862805657). El único rastro es un contacto de WhatsApp de ws1 en `evolution_contactos` (del 29/09). En ws1 no se creó NINGÚN
+> lead desde el 10/10. O el alta de «Nuevo lead» no lo guardó (bug del CRM: medir `createLead` con ese teléfono, ¿duplicado?
+> ¿error tragado?), o lo borraron después de la llamada: se le preguntó a Martín. Sin lead no hay inscripción: la #213 no tenía
+> a quién mandarle.
 > **PENDIENTE, en este orden:**
 > 1. **Plazos de etapa del CRM → plantilla de Automations** (pedido de Martín reenviado por el chat CRM, 12/10: «Si, pasa
 >    a una automatización eso de los plazos... Y ponlo como template en automations. Dile esto al chat de "Chatbot" que lo
