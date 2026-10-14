@@ -40,7 +40,7 @@ pendiente que no dependa de Martín y dejarle en una línea las opciones de lo q
 
 ## Lo que sigue (no depende de él)
 
-1. Las 10 plantillas con el texto del lienzo en español y sus miniaturas redibujadas (el banco sirve).
+1. ~~Las 10 plantillas en español~~: hecho el 14/10 (texto del lienzo y miniaturas, medidas en la hoja de contactos).
 2. Tanda 5: lo de Canva que Doory no trae (lista en `docs/hallazgos-editor-imagen.md`, al final).
 3. Tanda 4: alojar las fuentes (hoy jsDelivr). Marca, versiones, compartir y comentarios con tablas propias.
 4. `docs/editor-imagen/relevamiento-canva-funciones.md` (el agente se cortó con la caída del 14/10).

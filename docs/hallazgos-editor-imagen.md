@@ -309,6 +309,22 @@ Quedó anotado como riesgo («si el pre-push pasa ESLint por `_doory/`, frena ah
 corre tipos, el contrato de las skills y el snapshot de la API, **no ESLint**, y `next build` 16 tampoco lintea.
 El `setState` en el efecto es el patrón de Doory para resetear el selector cuando cambia el objeto; se deja.
 
+## Las plantillas en español: un texto más largo desborda su caja, y eso se MIDE
+
+**Vive en:** `scripts/image-editor/traducir-plantillas.mjs` (`T` y `AJUSTES`) · `public/cv/plantillas/*.webp`
+
+El 14/10 el texto del lienzo de las 10 plantillas pasó a español neutro (89 textos, por igualdad exacta con el
+original; un texto en mayúsculas guarda el original en `caseSource` y se traduce ése). En la hoja de contactos de las
+miniaturas redibujadas, dos se rompían: «OFERTA» (por «SALE») se cortaba en «OFERT» y «al atardecer» (por «Sessions»)
+se montaba sobre los datos. No se adivina el tamaño: se mide con la fuente real (`measureText` con la fuente de
+jsDelivr cargada en la página): «OFERTA» en Anton a 500 px = 1321 px contra 990 de caja → 360 px (951, el aire que
+tenía «SALE»); «al atardecer» en Playfair itálica a 190 px = 969 contra 920 → «al ocaso» (639).
+
+- Las miniaturas salen del propio editor: cada plantilla (su primera página) se abre en el banco, se «descarga» en PNG
+  capturando el `Blob` de `URL.createObjectURL`, y en la misma página se baja a WebP de 720 px de lado mayor.
+- Regla: traducir una plantilla = mirar la hoja de contactos; un texto que no entra se arregla en `AJUSTES` con la
+  medida escrita, no a ojo.
+
 ## Lo que quedó SIN hacer (con el archivo donde vive)
 
 - **Mirarlo en producción con la sesión de Martín** (la cáscara: la tab, la barra lateral, el `?ws=`): el banco ve
@@ -319,8 +335,6 @@ El `setState` en el efecto es el patrón de Doory para resetear el selector cuan
   (`chrome/RielCanva.tsx`); la mini-barra pegada a la selección (falta la posición en pantalla del objeto); las marcas
   de la regla con la posición del elemento (`workspace/Rulers.tsx`); el «⋯» por mosaico de la cuadrícula
   (`workspace/PageGrid.tsx`); «Editando ▾» y el avatar (no hay modos ni co-edición); en Proyectos, «Carpetas».
-- **El texto del lienzo de las 10 plantillas sigue en inglés** (`mako/plantillas/*.json`): traducirlo pide volver a
-  dibujar las miniaturas (`public/cv/plantillas/*.webp`); el banco de arriba ya sirve para eso.
 - **Las fuentes salen de jsDelivr**, no de un almacenamiento propio (tanda 4).
 - **Marca, versiones, compartir y comentarios**: en `null` (`mako/adaptadorNube.ts`); piden tablas propias.
 - **Un SVG subido se guarda como PNG** (`mako/nube.ts` → `aRaster`): para conservarlo vectorial hay que sanearlo
