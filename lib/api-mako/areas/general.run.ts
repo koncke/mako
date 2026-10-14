@@ -718,7 +718,7 @@ export const RUNNERS: Runners = {
       const pedido = str(input, 'persona');
       const e = elegirPersona(admins, pedido);
       if (!e.ok) return json({ ...base, error: e.error });
-      const l = await leerTableroVersionado(e.persona.sub, 'general');
+      const l = await informeDe(e.persona.sub);
       const quien = ctx.canal === 'http' && !pedido ? 'la única persona admin de la cuenta' : `${e.persona.nombre || e.persona.email} (${e.persona.email})`;
       return json({
         ...base, persona: quien, guardado: l.estado === 'propio',
@@ -741,7 +741,7 @@ export const RUNNERS: Runners = {
       const id = str(input, 'plantilla') ?? '';
       const p = PLANTILLAS_GENERAL.find((x) => x.id === id);
       if (!p) return { error: `La plantilla «${id}» no existe. Son: ${PLANTILLAS_GENERAL.map((x) => x.id).join(', ')}.` };
-      const l = await leerTableroVersionado(e.persona.sub, 'general');
+      const l = await informeDe(e.persona.sub);
       if (l.tablero.hojas.length >= MAX_HOJAS) return { error: `Esa persona ya tiene ${MAX_HOJAS} hojas en General, el tope: que borre una antes.` };
       const nombre = (str(input, 'nombre') ?? p.nombre).slice(0, 60);
       return { payload: { sub: e.persona.sub, plantilla: p.id, nombre }, resumen: `Crear la hoja «${nombre}» en General (plantilla ${p.nombre}).` };
@@ -752,7 +752,7 @@ export const RUNNERS: Runners = {
         const p = PLANTILLAS_GENERAL.find((x) => x.id === payload.plantilla);
         if (!p) return { ok: false, resumen: 'Esa plantilla ya no existe: no se creó.' };
         // Se relee al ejecutar: entre la propuesta y el «sí» la persona pudo cambiar su General en la pantalla.
-        const actual = await leerTableroVersionado(sub, 'general');
+        const actual = await informeDe(sub);
         if (actual.tablero.hojas.length >= MAX_HOJAS) return { ok: false, resumen: `Ya tiene ${MAX_HOJAS} hojas en General: no se creó.` };
         const hoja = { ...instanciarPlantilla(p), nombre: String(payload.nombre ?? p.nombre).slice(0, 60) };
         const g = await guardarTableroSi(sub, { ...actual.tablero, hojas: [...actual.tablero.hojas, hoja] }, actual.version, 'general');
@@ -772,9 +772,10 @@ export const RUNNERS: Runners = {
       if (!e.ok) return { error: e.error };
       const pieza = str(input, 'bloque');
       if (!esPiezaGeneral(pieza)) return { error: `El bloque «${pieza ?? ''}» no existe. Son: ${PIEZAS_GENERAL.map((x) => x.id).join(', ')}.` };
-      const l = await leerTableroVersionado(e.persona.sub, 'general');
+      const l = await informeDe(e.persona.sub);
       const hojaId = str(input, 'hoja');
       const hoja = hojaId ? l.tablero.hojas.find((h) => h.id === hojaId) : l.tablero.hojas[0];
+      if (!l.tablero.hojas.length) return { error: 'Esa persona todavía no armó su General: crea una hoja primero con crear_hoja_general.' };
       if (!hoja) return { error: `No hay una hoja «${hojaId}» en su General. Pide los ids con listar_hojas_general.` };
       const titulo = (str(input, 'titulo') ?? '').slice(0, 80);
       // El funnel: sólo en los bloques que saben atarse a uno, y uno que EXISTE (por id o por nombre exacto).
@@ -799,7 +800,7 @@ export const RUNNERS: Runners = {
         const sub = String(payload.sub);
         const pieza = payload.pieza;
         if (!esPiezaGeneral(pieza)) return { ok: false, resumen: 'Ese bloque ya no existe: no se agregó.' };
-        const actual = await leerTableroVersionado(sub, 'general');
+        const actual = await informeDe(sub);
         const hoja = actual.tablero.hojas.find((h) => h.id === payload.hojaId);
         if (!hoja) return { ok: false, resumen: 'Esa hoja ya no está en su General: no se agregó.' };
         const info = piezaGeneral(pieza);
@@ -820,6 +821,16 @@ export const RUNNERS: Runners = {
     },
   },
 };
+
+/**
+ * El informe de General de una persona como lo ve SU pantalla (14/10/2026): quien nunca armó el suyo, SIN hojas. La General
+ * de siempre viaja por dentro de la pantalla en blanco y no se guarda, así que crear la primera hoja por la API deja ésa
+ * sola, igual que crearla en la pantalla.
+ */
+async function informeDe(sub: string) {
+  const l = await leerTableroVersionado(sub, 'general');
+  return l.estado === 'inicial' ? { ...l, tablero: { ...l.tablero, hojas: [] } } : l;
+}
 
 /** Las personas ADMIN de la cuenta (General es sólo del admin): no suspendidas y con email. */
 async function adminsDeLaCuenta(ws: number): Promise<PersonaGeneral[]> {

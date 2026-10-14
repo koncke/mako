@@ -40,7 +40,6 @@ import { efectivoDe, esBloque, esGrafico, sanearTablero, tituloDe, type Grafico,
 import { datosDeGraficos, hastaDeFuente, type DatosGrafico, type PedidoDatos } from './graficos-datos';
 import { cortarEnHoy } from './graficos-agregar';
 import { tableroInicial } from './graficos-plantillas';
-import { informeGeneralInicial } from './general-plantillas';
 import { getSettingEstricto } from './settings';
 import { chatCheapCascade, CASCADA_DOCS, MODELO_DOCS, docsIADisponible, errorDeCascada, type ProvName } from './ai-cheap';
 import { overrideDeFeature } from './model-registry';
@@ -441,8 +440,9 @@ export async function leerInformeGuardado(usuario: string): Promise<Tablero> {
   // de General también tiene que encontrarla, o el cron le saca el horario («La hoja ya no existe»). Las hojas de los
   // dos informes van juntas: los callers buscan por id, y los ids de un informe no se repiten en el otro.
   const rawGeneral = await getSettingEstricto(claveInformeGeneral(usuario));
-  const general = rawGeneral == null ? informeGeneralInicial() : (sanearTablero(JSON.parse(rawGeneral)) ?? informeGeneralInicial());
-  return { ...dash, hojas: [...dash.hojas, ...general.hojas] };
+  // Sin informe de General guardado no hay hojas de General (14/10/2026: quien nunca armó el suyo ve la pantalla en blanco).
+  const general = rawGeneral == null ? [] : (sanearTablero(JSON.parse(rawGeneral))?.hojas ?? []);
+  return { ...dash, hojas: [...dash.hojas, ...general] };
 }
 
 /** La clave del informe de General de una persona (la misma que lib/graficos-tablero.ts, `claveDe`). */

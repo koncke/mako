@@ -98,7 +98,7 @@ import { useFocoInicial } from '@/app/customer-success/curso/dialogo-foco';
 import { conWs } from '@/lib/ws-tab';
 import {
   AREAS, COLS, FUENTES, MAX_COMPONENTES, MAX_CONECTORES, MAX_CONTROLES, MAX_HOJAS, MAX_IA_POR_HOJA, MAX_POPUP, TIPOS_ELEMENTO,
-  abajoDeTodo, campoDe, efectivoDe, esElemento, esGrafico, minimoDeElemento, nuevoControlVista, nuevoElemento, nuevoGrafico, nuevoId,
+  abajoDeTodo, campoDe, efectivoDe, esElemento, esGrafico, hojaVacia, minimoDeElemento, nuevoControlVista, nuevoElemento, nuevoGrafico, nuevoId,
   sanearComponente, sanearControlVista, sanearControles, sanearElemento, tituloDe, tonoDe,
   type Componente, type Conector, type ControlVista, type Efectivo, type Elemento, type Grafico, type Hoja, type Tablero, type TipoElemento, type ValorControl, type VistaValores,
 } from '@/lib/graficos-catalogo';
@@ -112,7 +112,7 @@ import type { DatosGrafico } from '@/lib/graficos-datos';
 import { accionInicial, entidadDeGrafico, piezaInicial, type SelDetalle } from '@/lib/graficos-acciones';
 import { CuerpoGrafico, esTarjetaNumero, ocultaSiCero, type EstadoDatos } from './Grafico';
 import { CuerpoElemento, IconoElemento, PropsElemento, type ContextoElemento } from './Elemento';
-import { NuevaHoja } from './NuevaHoja';
+import { CrearHoja, NuevaHoja } from './NuevaHoja';
 import { ChatMakoGrafico, LogoMako, PanelAnalista, PuntoNuevo, useAnalisisNuevo } from './PanelAnalista';
 import { BarraControles } from './BarraControles';
 import { MenuFiltro } from './MenuFiltro';
@@ -896,6 +896,12 @@ export function EditorInforme({
   const primerGrafico = ordenados.find(esGrafico)?.id ?? null;
   const primerConMako = ordenados.find((c): c is Grafico => esGrafico(c) && conMako(c) && !!datos[c.id]?.resultado)?.id ?? null;
   const alternarEdicion = () => { setEditando((v) => !v); setSelId(null); setConSel(null); setConectando(null); setEditPopup(null); setMenu(null); setDetalle(null); };
+  /**
+   * «Editar» en la pantalla en blanco (14/10/2026). Martín: «el botón de EDITAR no debería saltarme ningún modal..., debería,
+   * al igual que dashboard, habilitar el menú de edición de la página y poder comenzar a editarla». La caja y las
+   * plantillas ya están en la pantalla; Editar arranca una hoja en blanco, ya editándose.
+   */
+  const empezarEnBlanco = () => { crearHoja(hojaVacia('Página 1')); setEditando(true); };
   const puedeNuevaHoja = guardable && tablero.hojas.length < MAX_HOJAS;
   /**
    * Un elemento de la barra de inserción (o de su menú), agregado al lienzo. `inicial` es lo que trae una variante
@@ -1123,16 +1129,20 @@ export function EditorInforme({
         onHojas={(ancla) => alternarMenu('hojas', ancla)} onEmoji={(ancla) => alternarMenu('emoji', ancla)} onCambiar={cambiarCabecera}
         derecha={(
           <>
-            {/* Los filtros de la hoja, SIEMPRE a la vista (punto 7); agregarlos y quitarlos, sólo editando. */}
+            {/* Los filtros de la hoja, SIEMPRE a la vista (punto 7); agregarlos y quitarlos, sólo editando. En General no
+                van (14/10/2026, Martín: «Toda la topbar la deberías copiar de Dashboard menos la barra de busqueda y el
+                filtro que no sirven en general»): su barra es el título, Editar y el ⋮. */}
+            {!esGeneral && (
             <div className="lk-top-filtros" data-recorrido="dash-controles">
               <BarraControles
                 hoja={hojaTop} vista={vista} editando={editando} guardable={guardable} hoy={hoy} compartido={compartido}
                 onVista={onVista} onAgregar={agregarControl} onCambiar={cambiarControl} onQuitar={quitarControl} onRestablecer={restablecerVista}
               />
             </div>
+            )}
             {/* «Editar» en azul (punto 3 de v5). Compartir se fue al ⋮. */}
             {!soloMirar && (
-              <button type="button" className="lk-pill lk-pill--azul" data-recorrido={editando ? 'dash-ver' : 'dash-editar'} disabled={!guardable && !editando} onClick={enBlanco ? () => setNuevaHoja(true) : alternarEdicion}>
+              <button type="button" className="lk-pill lk-pill--azul" data-recorrido={editando ? 'dash-ver' : 'dash-editar'} disabled={!guardable && !editando} onClick={enBlanco ? empezarEnBlanco : alternarEdicion}>
                 {editando ? <><SvgOjo /> Ver</> : <><SvgLapiz /> Editar</>}
               </button>
             )}
@@ -1208,8 +1218,11 @@ export function EditorInforme({
               </nav>
             )}
             {enBlanco ? (
-              <div className="lk-vacio lk-en-blanco">
-                <button type="button" className="lk-pill lk-pill--azul" onClick={(e) => { e.stopPropagation(); setNuevaHoja(true); }} disabled={!guardable}>{esGeneral ? '＋ Nueva hoja' : '＋ Nuevo Dashboard'}</button>
+              // 14/10/2026 — Martín (para General y para el Dashboard): «en lugar del botón de "nuevo dashboard" te pido que
+              // pongas ahí el "¿Qué vas a crear hoy?"». La caja y, abajo, las plantillas como páginas: la portada del Landing
+              // Generator. Es la MISMA pieza que el modal «Nueva hoja» (`CrearHoja`, ./NuevaHoja.tsx), sin foco al abrir.
+              <div className="lk-en-blanco lk-en-blanco-crear" onClick={(e) => e.stopPropagation()}>
+                {guardable && <CrearHoja onCrear={crearHoja} enBlanco="Página 1" informe={informe} />}
               </div>
             ) : !lienzo.componentes.length ? (
               <div className="lk-vacio">
