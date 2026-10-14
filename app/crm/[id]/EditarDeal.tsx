@@ -57,9 +57,12 @@ export function EditarDeal({ lead, stages, pagos, onDone, onCancel }: {
     setFeedback(null);
     startTransition(async () => {
       try {
-        await dealRef.current?.save();
+        const r = await dealRef.current?.save();
         router.refresh();
-        if (onDone) onDone(); else setFeedback({ kind: 'ok', msg: 'Cambios guardados' });
+        // Lo que no se pudo cambiar se dice y la pantalla queda abierta: «Cambios guardados» sobre una cuota que sigue
+        // cobrando el monto de antes era mentir (revisión del 14/10/2026).
+        if (r && r.sinTocar) setFeedback({ kind: 'err', msg: `No se cambió: ${r.sinTocar}` });
+        else if (onDone) onDone(); else setFeedback({ kind: 'ok', msg: 'Cambios guardados' });
       } catch (err) {
         setFeedback({ kind: 'err', msg: err instanceof Error ? err.message : String(err) });
       }

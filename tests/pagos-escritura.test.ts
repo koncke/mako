@@ -65,7 +65,8 @@ test('⚠️ ningún escritor de cuotas borra e inserta: el único delete es el 
   assert.match(bloque(PAGOS, 'export async function saveLeadPlanManual('), /return reconciliarYGuardar\(leadId, p\.cuotas\.map\([\s\S]{0,160}\), 'lista'\);/);
   assert.match(bloque(PAGOS, 'export async function savePlanPagos('), /ajustarPlanPagos\(/);
   assert.match(bloque(PAGOS, 'export async function ajustarPlanPagos('), /reconciliarYGuardar\(leadId, cuotasDelPlan\(plan, base\), 'slots'\)/);
-  assert.match(bloque(PAGOS, 'export async function guardarCuotasPorId('), /reconciliarYGuardar\(leadId, cuotas, 'porId'\)/);
+  // `[,)]`: desde el 14/10 lleva `opts` (los ids que vio la pantalla); lo que se fija es que pase por la reconciliación.
+  assert.match(bloque(PAGOS, 'export async function guardarCuotasPorId('), /reconciliarYGuardar\(leadId, cuotas, 'porId'[,)]/);
 });
 
 test('⚠️ lo que protege a una cuota se lee FAIL-CLOSED', () => {

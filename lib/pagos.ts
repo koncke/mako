@@ -183,7 +183,7 @@ async function escribirReconciliacion(leadId: number, plan: PlanDeCuotas): Promi
 
 /** Reconcilia una lista de cuotas impagas y sincroniza lo cobrado. Devuelve lo que hizo (y lo que NO tocó). */
 export async function reconciliarYGuardar(
-  leadId: number, deseadas: readonly CuotaDeseada[], modo: ModoReconciliar, opts: { soloNumeros?: ReadonlySet<number> } = {},
+  leadId: number, deseadas: readonly CuotaDeseada[], modo: ModoReconciliar, opts: { soloNumeros?: ReadonlySet<number>; vistos?: ReadonlySet<number> } = {},
 ): Promise<PlanDeCuotas> {
   await asegurarLeadDelNegocio(leadId);
   const plan = reconciliarCuotas(await cuotasParaReconciliar(leadId), deseadas, modo, opts);
@@ -198,8 +198,12 @@ export async function reconciliarYGuardar(
  * pagar o un recordatorio corriendo, que se conserva y se devuelve en `conservar`. NO gana el lead: ganarlo es
  * mover de etapa, no guardar cuotas.
  */
-export async function guardarCuotasPorId(leadId: number, cuotas: ReadonlyArray<{ id?: number | null; monto_usd: number; fecha_esperada: string | null }>): Promise<PlanDeCuotas> {
-  return reconciliarYGuardar(leadId, cuotas, 'porId');
+export async function guardarCuotasPorId(
+  leadId: number,
+  cuotas: ReadonlyArray<{ id?: number | null; monto_usd: number; fecha_esperada: string | null }>,
+  opts: { vistos?: ReadonlySet<number> } = {},
+): Promise<PlanDeCuotas> {
+  return reconciliarYGuardar(leadId, cuotas, 'porId', opts);
 }
 
 export type ResultadoPlan = { pagos: Pago[]; cambios: PlanDeCuotas };
@@ -1207,8 +1211,10 @@ export async function escribirVenta(leadId: number, cambio: CambioVenta, opts: {
   if (!fila) return { ok: false, error: 'No encontré ese lead en este negocio.' };
   const tipo = ventaTipoDe(fila.venta_tipo as string | null);
   if (opts.tipoVisto && opts.tipoVisto !== tipo) return { ok: false, error: 'El tipo de venta cambió en otra pantalla. Recarga la ficha.' };
-  const cobradas = (await getPagosByLead(leadId)).filter((q) => q.pagado).length;
-  const p = patchDeVenta(fila as FilaVenta, cambio, { hayCobradas: cobradas > 0 });
+  const cuotas = await getPagosByLead(leadId);
+  const cobradas = cuotas.filter((q) => q.pagado).length;
+  const impagas = cuotas.filter((q) => !q.pagado && !esCuotaDevuelta(q)).length;
+  const p = patchDeVenta(fila as FilaVenta, cambio, { hayCobradas: cobradas > 0, impagas });
   if (!p.ok) {
     if ('usarQuitarSinCobro' in p && p.usarQuitarSinCobro) {
       const q = await quitarSinCobro(leadId, opts.autor);

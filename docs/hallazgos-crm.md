@@ -8824,9 +8824,20 @@ su porqué («reusar la protegida perdería la cuota pedida»). Un test verde so
 forma más cara de estar seguro: la pregunta que lo desarma es **¿cuánto debe el cliente después?**, y el test
 nuevo la hace (`deudaDespues`).
 
-**Sin hacer (las seis medias de la misma revisión, en `docs/relevo/crm-tanda-b1.md` → «Revisión de b2»):** el
-dedup de la cobranza con un id que ya no cambia, el link vivo de una cuota cobrada a mano, «Sin cobro» con
-impagas vivas, una cuota nacida después de la foto que el modo porId borra, Editar deal que ignora en silencio y
-reactivar una suscripción sin su plazo.
+**Tres de las seis medias de la misma revisión, también arregladas** (las del CRM; las otras tres —el dedup de la
+cobranza con un id que ya no cambia, el link vivo de una cuota cobrada a mano y el plazo de una suscripción al
+cancelarla y reactivarla— las toma el chat de Pagos en su rama, que sale de ésta):
+- **«Sin cobro» con cuotas impagas:** se niega con «quítalas antes» en las dos puertas (el bloque y la API
+  `editar_venta_lead`). Quedaban vivas: la cobranza le recordaba la deuda a un becado y el Outstanding la contaba.
+- **Una cuota que la pantalla no vio no se borra.** El modo porId daba por quitada toda impaga que no venía en la
+  lista, y una que nació DESPUÉS de abrir la pantalla (el resto de un pago parcial, una de MaKo) desaparecía. Las
+  pantallas mandan los ids que tenían cargados (`vistos`); la que no está ahí se conserva con el motivo «apareció
+  después de abrir la pantalla». El Deshacer de un ajuste lleva los ids de DESPUÉS del ajuste, por lo mismo.
+- **Editar deal ya no dice «Cambios guardados» sobre lo que no tocó:** `saveCuotasAction` devuelve `sinTocar` y la
+  barra lo muestra en rojo, sin cerrar.
 
-**Vive en:** `lib/pagos-campo.ts` (`reconciliarCuotas` modo 'lista' y `soloNumeros`, `ajustarSobre`, `diferenciaDePlan`, `planVacio`, `planComoEstaba`) · `lib/pagos.ts` (`ajustarPlanPagos` con `antes`) · `app/crm/[id]/pagos-campo-actions.ts` (`ajustarPlanAction`, `guardarCuotasAction`) · `lib/api-mako/areas/crm.run.ts` (`guardar_cuotas`) · `app/crm/actions.ts` (`completeStageMoveAction`) · `tests/pagos-campo.test.ts` · *2026-10-14 rama crm-bloques-b2*
+Dos guards que fijaban el texto EXACTO de una llamada se pusieron rojos por un argumento nuevo legítimo
+(`tests/guardar-sin-bloquear` y `tests/pagos-escritura`): se aflojaron para fijar lo que importa —que pase por la
+reconciliación, que devuelva los pendientes— y no la forma de la línea.
+
+**Vive en:** `lib/pagos-campo.ts` (`reconciliarCuotas` modo 'lista' y `soloNumeros`, `ajustarSobre`, `diferenciaDePlan`, `planVacio`, `planComoEstaba`) · `lib/pagos.ts` (`ajustarPlanPagos` con `antes`) · `app/crm/[id]/pagos-campo-actions.ts` (`ajustarPlanAction`, `guardarCuotasAction`) · `lib/api-mako/areas/crm.run.ts` (`guardar_cuotas`) · `lib/api-mako/areas/cobros.run.ts` (`editar_venta_lead`) · `app/crm/actions.ts` (`completeStageMoveAction`) · `app/crm/[id]/deal-actions.ts` (`saveCuotasAction`) · `app/crm/[id]/DealDetailsCard.tsx` · `app/crm/[id]/EditarDeal.tsx` · `tests/pagos-campo.test.ts` · *2026-10-14 rama crm-bloques-b2*

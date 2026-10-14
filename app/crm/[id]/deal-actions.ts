@@ -308,7 +308,15 @@ export type CuotaInput = {
  * esta función. Con el filtro de `!c.pagado` solo, ese cobro se perdía entero:
  * sin error, sin fila y con el botón diciendo que se había guardado.
  */
-export async function saveCuotasAction(leadId: number, cuotas: CuotaInput[]): Promise<void> {
+export async function saveCuotasAction(
+  leadId: number,
+  cuotas: CuotaInput[],
+  /**
+   * Los ids de las impagas que la pantalla TENÍA cargadas. Una que no vino en la lista se borra sólo si estaba acá
+   * (la persona la quitó); una que nació después (el resto de un pago parcial, una cuota de MaKo) se conserva.
+   */
+  idsVistos?: number[],
+): Promise<{ sinTocar: string | null }> {
   if (!(await haySesion())) throw new Error(SIN_SESION);
   const nuevas = cuotas.filter((c) => !c.pagado && Number(c.monto) > 0);
   const cobradas = cuotas.filter((c) => c.pagado && c.id == null && Number(c.monto) > 0);
@@ -339,7 +347,8 @@ export async function saveCuotasAction(leadId: number, cuotas: CuotaInput[]): Pr
     if (error) throw new Error(`Error registrando el cobro del lead ${leadId}: ${error.message}`);
   }
 
-  const cambios = await guardarCuotasPorId(leadId, nuevas.map((c) => ({ id: c.id ?? null, monto_usd: Number(c.monto), fecha_esperada: c.fecha })));
+  const vistos = Array.isArray(idsVistos) ? new Set(idsVistos.filter((x) => Number.isInteger(x) && x > 0)) : undefined;
+  const cambios = await guardarCuotasPorId(leadId, nuevas.map((c) => ({ id: c.id ?? null, monto_usd: Number(c.monto), fecha_esperada: c.fecha })), { vistos });
 
   // El cobro deja su propia fila en el historial: es un hecho distinto del plan
   // de cuotas, y es el único rastro de que la plata entró por este botón.
@@ -356,6 +365,9 @@ export async function saveCuotasAction(leadId: number, cuotas: CuotaInput[]): Pr
   revalidarLead(leadId);
   revalidatePath('/dashboard');
   revalidatePath('/general');
+  // ⚠️ LO QUE NO SE TOCÓ VUELVE A LA PANTALLA (revisión del 14/10/2026): devolvía void, y Editar deal decía
+  // «Cambios guardados» sobre una cuota con un recordatorio corriendo que seguía cobrando el monto de antes.
+  return { sinTocar };
 }
 
 export type PagoManualInput = {

@@ -48,6 +48,15 @@
 //   · `ajustarPlanAction` sin rechazar un lead sin plan y con cuotas a mano                 → 17 / 1
 //   (sacar los pasos (a) y (b) de las protegidas NO cae: el (c) resuelve igual la plata; esos dos eligen
 //   la identidad más estable, no cambian la deuda.)
+//
+// Y tres de las seis medias (las de este archivo y las actions; las otras tres son del chat de Pagos), con 19 tests
+// y la base en 19 / 0:
+//   · «Sin cobro» aceptado con cuotas impagas vivas                                         → 18 / 1
+//   · porId borrando una impaga que la pantalla no vio (nació después de abrirla)           → 18 / 1
+//   · la API `editar_venta_lead` sin contar las impagas                                     → 18 / 1
+//   · `saveCuotasAction` sin devolver lo que no tocó                                        → 18 / 1
+//   · Editar deal sin mandar los ids que vio                                                → 18 / 1
+//   · Editar deal diciendo «Cambios guardados» sobre lo que no se tocó                      → 18 / 1
 // Correr: npx tsx --test tests/pagos-campo.test.ts
 // =============================================================================
 
@@ -129,54 +138,59 @@ test('obligaciones: una pestaña vieja no edita ni quita el renglón equivocado'
 
 test('la venta: el monto va a la columna de SU tipo, con el compare-and-set y su Deshacer', () => {
   const unico = { venta_tipo: 'unico', monto_cierre_usd: 1500, suscripcion_monto_usd: null, suscripcion_meses: null };
-  const r = patchDeVenta(unico, { campo: 'monto', valor: 1800 }, { hayCobradas: false });
+  const r = patchDeVenta(unico, { campo: 'monto', valor: 1800 }, { hayCobradas: false, impagas: 0 });
   assert.ok(r.ok);
   assert.deepEqual(r.patch, { monto_cierre_usd: 1800 });
   assert.equal(r.tipoEsperado, 'unico');
   assert.deepEqual(r.deshacer, [{ campo: 'monto', valor: 1500 }]);
 
   const sus = { venta_tipo: 'suscripcion', monto_cierre_usd: null, suscripcion_monto_usd: 444, suscripcion_meses: null };
-  const m = patchDeVenta(sus, { campo: 'monto', valor: 500 }, { hayCobradas: true });
+  const m = patchDeVenta(sus, { campo: 'monto', valor: 500 }, { hayCobradas: true, impagas: 0 });
   assert.ok(m.ok);
   assert.deepEqual(m.patch, { suscripcion_monto_usd: 500 }, 'la plata de una suscripción es su mensualidad, no el monto de cierre');
   assert.equal(m.tipoEsperado, 'suscripcion');
-  const p = patchDeVenta(sus, { campo: 'plazo', valor: 6 }, { hayCobradas: true });
+  const p = patchDeVenta(sus, { campo: 'plazo', valor: 6 }, { hayCobradas: true, impagas: 0 });
   assert.ok(p.ok);
   assert.deepEqual(p.patch, { suscripcion_meses: 6 });
-  assert.equal(patchDeVenta(unico, { campo: 'plazo', valor: 6 }, { hayCobradas: false }).ok, false, 'un pago único no tiene plazo');
-  assert.equal(patchDeVenta(unico, { campo: 'monto', valor: -5 }, { hayCobradas: false }).ok, false);
+  assert.equal(patchDeVenta(unico, { campo: 'plazo', valor: 6 }, { hayCobradas: false, impagas: 0 }).ok, false, 'un pago único no tiene plazo');
+  assert.equal(patchDeVenta(unico, { campo: 'monto', valor: -5 }, { hayCobradas: false, impagas: 0 }).ok, false);
   const becado = { venta_tipo: 'sin_cobro', monto_cierre_usd: null };
-  assert.equal(patchDeVenta(becado, { campo: 'monto', valor: 100 }, { hayCobradas: false }).ok, false, 'un becado no tiene monto');
+  assert.equal(patchDeVenta(becado, { campo: 'monto', valor: 100 }, { hayCobradas: false, impagas: 0 }).ok, false, 'un becado no tiene monto');
 });
 
 test('la venta: cambiar el tipo escribe lo mismo que el wizard, y salir de becado es «Quitar Sin cobro»', () => {
   const unico = { venta_tipo: 'unico', monto_cierre_usd: 1500, suscripcion_monto_usd: null, suscripcion_meses: null };
-  const aSus = patchDeVenta(unico, { campo: 'tipo', valor: 'suscripcion' }, { hayCobradas: false });
+  const aSus = patchDeVenta(unico, { campo: 'tipo', valor: 'suscripcion' }, { hayCobradas: false, impagas: 0 });
   assert.ok(aSus.ok);
   assert.deepEqual(aSus.patch, { venta_tipo: 'suscripcion', monto_cierre_usd: null, suscripcion_monto_usd: null, suscripcion_meses: null },
     'una suscripción no tiene monto de cierre: contarlo inflaba el revenue único');
   assert.deepEqual(aSus.deshacer, [{ campo: 'tipo', valor: 'unico' }, { campo: 'monto', valor: 1500 }]);
 
   const sus = { venta_tipo: 'suscripcion', monto_cierre_usd: null, suscripcion_monto_usd: 444, suscripcion_meses: 6 };
-  const aUnico = patchDeVenta(sus, { campo: 'tipo', valor: 'unico' }, { hayCobradas: true });
+  const aUnico = patchDeVenta(sus, { campo: 'tipo', valor: 'unico' }, { hayCobradas: true, impagas: 0 });
   assert.ok(aUnico.ok);
   assert.deepEqual(aUnico.patch, { venta_tipo: 'unico', suscripcion_monto_usd: null, suscripcion_meses: null });
   assert.deepEqual(aUnico.deshacer, [{ campo: 'tipo', valor: 'suscripcion' }, { campo: 'monto', valor: 444 }, { campo: 'plazo', valor: 6 }]);
 
-  const aBecado = patchDeVenta(unico, { campo: 'tipo', valor: 'sin_cobro' }, { hayCobradas: false });
+  const aBecado = patchDeVenta(unico, { campo: 'tipo', valor: 'sin_cobro' }, { hayCobradas: false, impagas: 0 });
   assert.ok(aBecado.ok);
   assert.deepEqual(aBecado.patch, { venta_tipo: 'sin_cobro', monto_cierre_usd: null, suscripcion_monto_usd: null, suscripcion_meses: null }, 'NULL, nunca 0');
   assert.deepEqual(aBecado.deshacer, [{ campo: 'tipo', valor: 'unico' }, { campo: 'monto', valor: 1500 }]);
-  assert.equal(patchDeVenta(unico, { campo: 'tipo', valor: 'sin_cobro' }, { hayCobradas: true }).ok, false, 'con plata cobrada no puede ser becado');
+  assert.equal(patchDeVenta(unico, { campo: 'tipo', valor: 'sin_cobro' }, { hayCobradas: true, impagas: 0 }).ok, false, 'con plata cobrada no puede ser becado');
+  // Y con cuotas SIN cobrar tampoco (revisión del 14/10/2026): quedaban vivas y la cobranza le seguía recordando a
+  // un becado. Primero se quitan.
+  const conImpagas = patchDeVenta(unico, { campo: 'tipo', valor: 'sin_cobro' }, { hayCobradas: false, impagas: 3 });
+  assert.equal(conImpagas.ok, false);
+  if (!conImpagas.ok) assert.match(conImpagas.error, /3 cuotas sin cobrar/);
 
-  const salir = patchDeVenta({ venta_tipo: 'sin_cobro' }, { campo: 'tipo', valor: 'unico' }, { hayCobradas: false });
+  const salir = patchDeVenta({ venta_tipo: 'sin_cobro' }, { campo: 'tipo', valor: 'unico' }, { hayCobradas: false, impagas: 0 });
   assert.equal(salir.ok, false);
   assert.equal((salir as { usarQuitarSinCobro?: boolean }).usarQuitarSinCobro, true);
-  assert.equal(patchDeVenta({ venta_tipo: 'sin_cobro' }, { campo: 'tipo', valor: 'suscripcion' }, { hayCobradas: false }).ok, false);
-  const igual = patchDeVenta(unico, { campo: 'tipo', valor: 'unico' }, { hayCobradas: false });
+  assert.equal(patchDeVenta({ venta_tipo: 'sin_cobro' }, { campo: 'tipo', valor: 'suscripcion' }, { hayCobradas: false, impagas: 0 }).ok, false);
+  const igual = patchDeVenta(unico, { campo: 'tipo', valor: 'unico' }, { hayCobradas: false, impagas: 0 });
   assert.ok(igual.ok && igual.nada);
   // La fecha no depende del tipo: sin compare-and-set.
-  const f = patchDeVenta(unico, { campo: 'fecha', valor: '2026-10-14' }, { hayCobradas: false });
+  const f = patchDeVenta(unico, { campo: 'fecha', valor: '2026-10-14' }, { hayCobradas: false, impagas: 0 });
   assert.ok(f.ok);
   assert.equal(f.tipoEsperado, null);
 });
@@ -199,6 +213,20 @@ test('porId: la que trae id se actualiza POR ID, la nueva se inserta, la quitada
   assert.deepEqual(r.insertar, [{ numero: 4, monto_usd: 700, fecha_esperada: '2027-02-01' }]);
   assert.deepEqual(r.borrar.map((b) => b.id), [13]);
   assert.deepEqual(r.conservar, []);
+});
+
+test('⚠️ porId: una impaga que la pantalla NO VIO no se borra (nació después de abrirla)', () => {
+  // El caso de la revisión: la pestaña A abre Editar deal; desde la B se cobra de menos la cuota 2 y nace la 5 con
+  // los 200 que quedan. A guarda un cambio de fecha: sin `vistos`, la 5 no venía en la lista y se borraba.
+  const ex = [Q(1, 1, 500, '2026-11-01'), Q(2, 2, 300, '2026-12-01', { pagado: true }), Q(3, 3, 500, '2027-01-01'), Q(5, 5, 200, '2026-12-01')];
+  const vistos = new Set([1, 3]); // lo que A tenía cargado (las impagas al abrir)
+  const r = reconciliarCuotas(ex, [{ id: 1, monto_usd: 500, fecha_esperada: '2026-11-15' }], 'porId', { vistos });
+  assert.deepEqual(r.actualizar.map((u) => [u.id, u.fecha_esperada]), [[1, '2026-11-15']]);
+  assert.deepEqual(r.borrar.map((b) => b.id), [3], 'la 3 la vio y la quitó: se borra');
+  assert.deepEqual(r.conservar, [{ id: 5, numero: 5, motivo: 'nueva' }], 'la 5 nació después: queda, y se avisa');
+  assert.match(avisoDeConservadas(r) ?? '', /Cuota 5: apareció después de abrir la pantalla/);
+  // Sin `vistos`, lo de siempre (la que no vino se borra).
+  assert.deepEqual(reconciliarCuotas(ex, [{ id: 1, monto_usd: 500, fecha_esperada: '2026-11-15' }], 'porId').borrar.map((b) => b.id), [3, 5]);
 });
 
 test('⚠️ una cuota con un link sin pagar o con un recordatorio corriendo NO se borra ni cambia lo que no puede', () => {
@@ -418,6 +446,17 @@ test('las acciones ajustan sobre la base y deshacen tal cual; la API y el wizard
   assert.match(acciones, /if \(planVacio\(planAntes\) && antes\.some\(/, 'sin plan en la base y con cuotas a mano, rechaza');
   const pagos = fuente('../lib/pagos.ts');
   assert.match(pagos, /diferenciaDePlan\(opts\.antes, plan, base\)/, 'ajustarPlanPagos con `antes` reconcilia sólo la diferencia');
+  // Las tres medias: «Sin cobro» cuenta las impagas en las dos puertas; las pantallas mandan lo que vieron; Editar
+  // deal devuelve y muestra lo que no tocó.
+  assert.match(pagos, /patchDeVenta\(fila as FilaVenta, cambio, \{ hayCobradas: cobradas > 0, impagas \}\)/);
+  assert.match(fuente('../lib/api-mako/areas/cobros.run.ts'), /patchDeVenta\(fila, c, \{ hayCobradas: cobradas > 0, impagas \}\)/);
+  assert.match(acciones, /guardarCuotasPorId\([\s\S]*?\{ vistos \}\);/, 'guardarCuotasAction pasa los ids que vio la pantalla');
+  assert.match(acciones, /vistos: despues\.filter\(\(q\) => !q\.pagado\)\.map\(\(q\) => q\.id\)/, 'el Deshacer del ajuste lleva lo que quedó después');
+  const deal = fuente('../app/crm/[id]/deal-actions.ts');
+  assert.match(deal, /\{ vistos \}\);/, 'saveCuotasAction pasa los ids que vio Editar deal');
+  assert.match(deal, /return \{ sinTocar \};/, 'saveCuotasAction devuelve lo que no tocó');
+  assert.match(fuente('../app/crm/[id]/DealDetailsCard.tsx'), /saveCuotasAction\([\s\S]*?draft\.vistos\)/);
+  assert.match(fuente('../app/crm/[id]/EditarDeal.tsx'), /if \(r && r\.sinTocar\) setFeedback\(\{ kind: 'err'/, 'Editar deal no dice «guardados» sobre lo que no se tocó');
   assert.match(acciones, /update\(\{ \.\.\.planComoEstaba\(plan\) \}\)/, 'el Deshacer devuelve el plan anterior tal cual');
   assert.doesNotMatch(acciones, /validarPlan\(plan/, 'ningún plan parcial se valida como plan entero');
   const api = fuente('../lib/api-mako/areas/crm.run.ts');

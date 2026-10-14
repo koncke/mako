@@ -36,6 +36,7 @@ import { TAG } from '@/lib/cache';
 import { getTenantDb } from '@/lib/workspace';
 import { hoyEnWorkspace } from '@/lib/timezone';
 import { ventaTipoDe, type VentaTipo } from '@/lib/venta-tipo';
+import { esCuotaDevuelta } from '@/lib/cobrado-lead';
 import {
   anotarEnHistorial, cambiarEstadoSuscripcionManual, cortarRecordatoriosDeCuota, editarCuota, escribirCampoDeal, escribirObligacion,
   escribirVenta, getPagosByLead, guardarMonedaDelNegocio, monedaDelNegocio, proteccionesDeCuotas, type CambioCampoDeal,
@@ -410,11 +411,13 @@ export const RUNNERS: Runners = {
       }
       if (!cambios.length) return { error: 'Pasa al menos uno: tipo, montoUsd, plazoMeses o fechaCierre.', faltan: ['tipo', 'montoUsd', 'plazoMeses', 'fechaCierre'] };
       // Se prueban EN ORDEN sobre una copia de la fila: el monto después de pasar a suscripción es la mensualidad.
-      const cobradas = (await getPagosByLead(lead.id).catch(() => [])).filter((q) => q.pagado).length;
+      const cuotasLead = await getPagosByLead(lead.id).catch(() => []);
+      const cobradas = cuotasLead.filter((q) => q.pagado).length;
+      const impagas = cuotasLead.filter((q) => !q.pagado && !esCuotaDevuelta(q)).length;
       const fila: FilaVenta = { venta_tipo: lead.venta_tipo ?? 'unico', monto_cierre_usd: lead.monto_cierre_usd, suscripcion_monto_usd: lead.suscripcion_monto_usd ?? null, suscripcion_meses: lead.suscripcion_meses ?? null, fecha_cierre: lead.fecha_cierre };
       const lineas: string[] = [];
       for (const c of cambios) {
-        const p = patchDeVenta(fila, c, { hayCobradas: cobradas > 0 });
+        const p = patchDeVenta(fila, c, { hayCobradas: cobradas > 0, impagas });
         if (!p.ok) {
           if ('usarQuitarSinCobro' in p && p.usarQuitarSinCobro) { fila.venta_tipo = 'unico'; lineas.push('sacarlo de «Sin cobro» (pago único)'); continue; }
           return { error: p.error };

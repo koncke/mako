@@ -213,7 +213,7 @@ const num = (v: unknown): number | null => (v == null || v === '' ? null : Numbe
  *
  * `deshacer` son los cambios que vuelven la fila a como estaba, en orden.
  */
-export function patchDeVenta(fila: FilaVenta, c: CambioVenta, opts: { hayCobradas: boolean }): Resultado<{
+export function patchDeVenta(fila: FilaVenta, c: CambioVenta, opts: { hayCobradas: boolean; impagas: number }): Resultado<{
   patch: Record<string, unknown>; tipoEsperado: VentaTipo | null; nada: boolean; deshacer: CambioVenta[];
 }> | { ok: false; error: string; usarQuitarSinCobro: true } {
   const tipo = ventaTipoDe(fila.venta_tipo);
@@ -266,6 +266,10 @@ export function patchDeVenta(fila: FilaVenta, c: CambioVenta, opts: { hayCobrada
     }
     if (hacia === VENTA_SIN_COBRO) {
       if (opts.hayCobradas) return { ok: false, error: 'Ya tiene pagos cobrados: no puede ser un becado.' };
+      // ⚠️ Y TAMPOCO CON CUOTAS SIN COBRAR (revisión del 14/10/2026): quedaban vivas, la cobranza le seguía
+      // recordando a un becado y el Outstanding las contaba. Primero se quitan (las protegidas, cortando su
+      // recordatorio o su link), después se declara.
+      if (opts.impagas > 0) return { ok: false, error: `Tiene ${opts.impagas === 1 ? 'una cuota' : `${opts.impagas} cuotas`} sin cobrar: quítalas antes de pasarlo a «Sin cobro».` };
       // Volver de un becado es «Quitar Sin cobro» (queda en pago único) y, si era suscripción, el tipo otra vez.
       const desdeBecado: CambioVenta[] = [{ campo: 'tipo', valor: 'unico' }, ...(tipo === 'suscripcion' ? volver : volver.slice(1))];
       return {
@@ -321,7 +325,8 @@ export type CuotaDeseada = { id?: number | null; numero?: number | null; monto_u
  */
 export type ModoReconciliar = 'porId' | 'lista' | 'slots';
 
-export type MotivoConservada = Proteccion;
+/** Por qué una cuota no se tocó: su link, su recordatorio, o que apareció DESPUÉS de que la pantalla la cargó. */
+export type MotivoConservada = Proteccion | 'nueva';
 
 export type PlanDeCuotas = {
   actualizar: Array<{ id: number; numero: number; monto_usd: number; fecha_esperada: string | null; antes: { monto_usd: number; fecha_esperada: string | null } }>;
@@ -347,7 +352,15 @@ export function reconciliarCuotas(
    * se borran — es lo que usa un AJUSTE del plan (`diferenciaDePlan`) para no tocar una cuota movida a mano ni una
    * que no es del plan. Los números nuevos igual evitan TODAS las que existen (el índice único es por número).
    */
-  opts: { soloNumeros?: ReadonlySet<number> } = {},
+  opts: {
+    soloNumeros?: ReadonlySet<number>;
+    /**
+     * `vistos` (sólo en 'porId'): los ids de las impagas que la PANTALLA tenía cargadas. Una impaga que no vino en la
+     * lista se borra sólo si la pantalla la vio (la persona la quitó); si no la vio —nació después: el resto de un
+     * pago parcial, una cuota que agregó MaKo— se conserva y se avisa. Sin `vistos`, lo de siempre.
+     */
+    vistos?: ReadonlySet<number>;
+  } = {},
 ): PlanDeCuotas {
   const out: PlanDeCuotas = { actualizar: [], insertar: [], borrar: [], conservar: [] };
   const impagas = existentes
@@ -434,9 +447,10 @@ export function reconciliarCuotas(
     }
   }
 
-  // Las impagas que nadie pidió: se borran, salvo las protegidas.
+  // Las impagas que nadie pidió: se borran, salvo las protegidas y —en 'porId'— las que la pantalla no vio.
   for (const q of impagas) {
     if (!libres.has(q.id)) continue;
+    if (modo === 'porId' && opts.vistos && !opts.vistos.has(q.id)) { out.conservar.push({ id: q.id, numero: q.numero, motivo: 'nueva' }); continue; }
     const p = prot(q);
     if (p.length) out.conservar.push({ id: q.id, numero: q.numero, motivo: p.includes('link') ? 'link' : 'recordatorio' });
     else out.borrar.push({ id: q.id, numero: q.numero, monto_usd: Number(q.monto_usd), fecha_esperada: q.fecha_esperada ?? null });
@@ -478,6 +492,7 @@ export function lineasDeCuotas(plan: PlanDeCuotas): Array<{ campo: string; valor
 const MOTIVO_CONSERVADA: Readonly<Record<MotivoConservada, string>> = {
   link: 'tiene un link sin pagar',
   recordatorio: 'tiene un recordatorio en curso',
+  nueva: 'apareció después de abrir la pantalla',
 };
 
 /** «Cuota 3: tiene un link sin pagar»: lo que NO se tocó, dicho para la persona (y para el historial). */
