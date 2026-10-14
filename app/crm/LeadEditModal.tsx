@@ -15,7 +15,8 @@ import { getLeadFullAction, type LeadFullData } from './actions';
 // El ancho del esqueleto es EL MISMO de la ficha (punto 14 del 12/10/2026: la ficha pasó de
 // 760 a más ancha). Con un número propio acá, la caja abría a 760 y medio segundo después
 // saltaba al ancho de la ficha — y el lead recién creado (punto 27) abre justo por este esqueleto.
-import { ANCHO_FICHA_LEAD, ALTO_FICHA_LEAD, MARGEN_FICHA_LEAD } from './lead-view/ficha-medidas';
+import { ANCHO_FICHA_LEAD, ALTO_FICHA_LEAD, MARGEN_FICHA_LEAD } from './lead-view/ficha-medidas';
+import type { StepId } from '@/lib/stage-requirements';
 
 const SANS = "'Geist', sans-serif";
 const overlay: CSSProperties = { position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(18,21,27,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: `${MARGEN_FICHA_LEAD}px 20px` };
@@ -31,12 +32,15 @@ export function LeadEditModal({
   leadId,
   seed,
   focus,
+  solucionar,
   onClose,
 }: {
   leadId: number;
   seed?: LeadSeed;
   /** Compat con los desgloses: sección pedida → tab del preview. */
   focus?: string;
+  /** Abrir YA llevando a ese dato sin marcar (lo pide «A revisar»). */
+  solucionar?: StepId;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -101,5 +105,5 @@ export function LeadEditModal({
   // focus viejo de los desgloses → tab del preview.
   const initialTab = focus === 'plan-pagos' ? 'cobranza' : 'resumen';
 
-  return <LeadSheet data={data} onClose={close} initialTab={initialTab} />;
+  return <LeadSheet data={data} onClose={close} initialTab={initialTab} solucionarAlAbrir={solucionar} />;
 }

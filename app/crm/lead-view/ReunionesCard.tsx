@@ -26,6 +26,7 @@ import { InsightsLlamadaCard } from './InsightsLlamadaCard';
 // Los campos que se editan EN EL LUGAR (fecha, sí/no, persona). Acá NO hay modo
 // edición: cada dato se corrige donde se lee. Ver app/crm/campo-inline.ts.
 import { CajaCampo, FechaEditable, TriEditable, PersonaEditable, EnlaceFathomEditable } from './CampoEditable';
+import { marcaDato } from '@/lib/datos-aviso';
 // El candado de «calificado» es UNO y vive en lib/calificado-reunion.ts: esta
 // tarjeta y la de Tracking tienen que bloquear en el mismo caso.
 import { calificadoSeDescarta } from '@/lib/calificado-reunion';
@@ -62,6 +63,7 @@ function BloqueReunion({ titulo, leadId, campoFecha, campoFathom, fecha, fallbac
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
           <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>{titulo}</span>
+          <span data-recorrido={marcaDato(reunion === 'R1' ? 'fechaJ1' : 'fechaJ2')}>
           <FechaEditable
             leadId={leadId}
             campo={campoFecha}
@@ -70,6 +72,7 @@ function BloqueReunion({ titulo, leadId, campoFecha, campoFathom, fecha, fallbac
             titulo={`Fecha de la ${titulo.toLowerCase()}`}
             estilo={{ fontFamily: MONO, fontSize: 12.5, color: fecha || fallbackFecha ? 'var(--dim)' : 'var(--faint)' }}
           />
+          </span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>{chips}</div>
       </div>
@@ -79,7 +82,7 @@ function BloqueReunion({ titulo, leadId, campoFecha, campoFathom, fecha, fallbac
           siendo el mismo recuadro de antes: lo que cambió es que la URL se sobrescribe
           con un click y el «Abrir →» quedó al lado en vez de envolver todo. */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginTop: 12 }}>
-        <CajaCampo style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', padding: '9px 13px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)' }}>
+        <CajaCampo marca={marcaDato(reunion === 'R1' ? 'fathomR1' : 'fathomR2')} style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', padding: '9px 13px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)' }}>
           <span style={{ flex: 'none', fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>Grabación (Fathom)</span>
           <span style={{ flex: 1, minWidth: 160 }}>
             <EnlaceFathomEditable leadId={leadId} campo={campoFathom} url={slot?.url ?? null} titulo={`Link de Fathom de la ${titulo.toLowerCase()}`} />
@@ -157,7 +160,7 @@ export function ReunionesCard({ lead, respuestas, equipo = [], closerDetectado }
                 `fecha_junta_1`, o sea que el click guardaría y el chip volvería solo a
                 «Sin marcar». La salida está al lado — la fecha de arriba se corrige con
                 un click y con eso esto se habilita. */}
-            <TriEditable leadId={lead.id} campo="asistio_j1" valor={lead.asistio_j1} si="Asistió" no="No asistió" titulo="¿Asistió a la reunión 1?" bloqueado={!lead.fecha_junta_1} />
+            <span data-recorrido={marcaDato('asistenciaR1')}><TriEditable leadId={lead.id} campo="asistio_j1" valor={lead.asistio_j1} si="Asistió" no="No asistió" titulo="¿Asistió a la reunión 1?" bloqueado={!lead.fecha_junta_1} /></span>
             {/* ⚠️ «Calificado» YA NO SE ESCONDE CUANDO NO ASISTIÓ, y no es un detalle:
                 el MISMO dato se marca ahora en la pestaña Tracking (hay funnels sin
                 reuniones, y es la señal que viaja a Meta). Si acá apareciera y
@@ -165,7 +168,7 @@ export function ReunionesCard({ lead, respuestas, equipo = [], closerDetectado }
                 respuestas según la pestaña. Las dos usan el mismo control, la misma
                 columna y el mismo candado: sólo se bloquea cuando CONSTA que no vino,
                 que es el único caso en que `updateLead` descarta el dato. */}
-            <TriEditable leadId={lead.id} campo="calificado" valor={lead.calificado} si="Calificado" no="No calificado" titulo="¿Era un lead calificado?" bloqueado={calificadoSeDescarta(lead)} />
+            <span data-recorrido={marcaDato('calificado')}><TriEditable leadId={lead.id} campo="calificado" valor={lead.calificado} si="Calificado" no="No calificado" titulo="¿Era un lead calificado?" bloqueado={calificadoSeDescarta(lead)} /></span>
           </>}
           fathom={fathomR1}
           respuestas={r1}
@@ -178,7 +181,7 @@ export function ReunionesCard({ lead, respuestas, equipo = [], closerDetectado }
             campoFecha="fecha_junta_2"
             campoFathom="fathom_r2"
             fecha={lead.fecha_junta_2}
-            chips={<TriEditable leadId={lead.id} campo="asistio_j2" valor={lead.asistio_j2} si="Asistió" no="No asistió" titulo="¿Asistió a la reunión 2?" bloqueado={!lead.fecha_junta_2} />}
+            chips={<span data-recorrido={marcaDato('asistenciaR2')}><TriEditable leadId={lead.id} campo="asistio_j2" valor={lead.asistio_j2} si="Asistió" no="No asistió" titulo="¿Asistió a la reunión 2?" bloqueado={!lead.fecha_junta_2} /></span>}
             fathom={fathomR2}
             respuestas={r2}
           />
@@ -227,7 +230,7 @@ export function ReunionesCard({ lead, respuestas, equipo = [], closerDetectado }
             />
           </div>
         </CajaCampo>
-        <CajaCampo style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '13px 15px' }}>
+        <CajaCampo marca={marcaDato('closer')} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '13px 15px' }}>
           {/* Closer: si está vacío pero Fathom detectó uno, lo ofrecemos como sugerencia
               en el lugar del valor — elegirlo del desplegable es lo que lo guarda. */}
           <span style={{ fontSize: 11.5, color: 'var(--dim)' }}>Closer</span>
@@ -235,7 +238,7 @@ export function ReunionesCard({ lead, respuestas, equipo = [], closerDetectado }
             <PersonaEditable leadId={lead.id} campo="closer" valor={lead.closer ?? null} equipo={equipo} hint={closerDetectado && !lead.closer ? `${closerDetectado} (de Fathom)` : undefined} />
           </div>
         </CajaCampo>
-        <CajaCampo style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '13px 15px' }}>
+        <CajaCampo marca={marcaDato('setter')} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '13px 15px' }}>
           <span style={{ fontSize: 11.5, color: 'var(--dim)' }}>Setter</span>
           <div style={{ marginTop: 3 }}>
             <PersonaEditable leadId={lead.id} campo="setter" valor={lead.setter ?? null} equipo={equipo} />

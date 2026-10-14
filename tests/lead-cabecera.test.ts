@@ -142,8 +142,12 @@ test('el pop-up: la cruz va sobre la portada, el pie no tiene «Cerrar» y «Bor
   assert.doesNotMatch(SHEET, />Cerrar<\/button>/, 'volvió el «Cerrar» del pie');
   assert.match(SHEET, /<BotonBorrar texto="Borrar lead"/);
   assert.match(BODY, /<BotonBorrar texto="Borrar lead"/);
-  // La ruta no tiene cruz: es una pantalla, se vuelve con «Volver».
-  assert.doesNotMatch(BODY, /onCerrar=/);
+  // La ruta no tiene cruz: es una pantalla, se vuelve con «Volver». (Desde el 13/10/2026 la ruta
+  // monta el señalador y el modal de avisos, que sí se cierran: lo que se mira es la CABECERA.)
+  const iCab = BODY.indexOf('<CabeceraLead');
+  const cab = BODY.slice(iCab, BODY.indexOf('\n      />', iCab));
+  assert.ok(iCab > 0 && cab.length > 100, 'no encontré la cabecera de la ruta');
+  assert.doesNotMatch(cab, /onCerrar=/);
 });
 
 // ── 14 y 16 · Ancho y pestañas pegadas ─────────────────────────────────────────

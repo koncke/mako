@@ -36,11 +36,15 @@
 // Facturando…»). Queda lo que hace falta para decidir: QUÉ lead, QUÉ cambió y los
 // dos botones. El porqué sigue estando, a un toque, para cuando algo no cierre.
 
-import { Suspense, useCallback, useEffect, useState, type CSSProperties } from 'react';
+import { Suspense, useCallback, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import dynamic from 'next/dynamic';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useRouter } from '@/app/_ui/Link';
 import { esVistaSinChrome } from './PublicRouteGate';
+import { IconoMenu } from '@/app/_ui/iconos-menu';
+import { ignorarDatoAction } from '@/app/crm/datos-sin-marcar-actions';
+import { NO_IGNORABLES } from '@/lib/datos-aviso';
+import type { StepId } from '@/lib/stage-requirements';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
@@ -51,7 +55,21 @@ const MONO = "'Geist Mono', monospace";
  */
 const LeadEditModal = dynamic(() => import('@/app/crm/LeadEditModal').then((m) => m.LeadEditModal), { ssr: false });
 
-type SinMarcarItem = { lead_id: number; lead_nombre: string; mensaje: string };
+/** El modal de «de qué datos te avisa MaKo», cargado recién al abrirlo (por lo mismo que la ficha). */
+const AvisosDatosModal = dynamic(() => import('@/app/crm/lead-view/AvisosDatosModal').then((m) => m.AvisosDatosModal), { ssr: false });
+
+/**
+ * Una fila: UN DATO de un lead (13/10/2026), o el lead entero cuando lo que falta no es un dato
+ * (una nutrición manual vencida: sin `paso`, sólo se abre la ficha). Lo arma
+ * /api/datos-sin-marcar-count.
+ */
+type FilaRevisar = { lead_id: number; lead_nombre: string; mensaje: string; paso?: { id: StepId; label: string } };
+type Ignorado = { lead_id: number; lead_nombre: string; paso: { id: StepId; label: string } };
+
+const iconoBtn: CSSProperties = {
+  display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, flex: 'none',
+  borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--dim)', cursor: 'pointer', padding: 0,
+};
 
 function Tarjeta() {
   const pathname = usePathname();
@@ -73,8 +91,12 @@ function Tarjeta() {
   // por la que la mudanza había quedado a medias. El endpoint ya existía y ya lo
   // consume el Sidebar, así que no hay una segunda definición de «sin marcar».
   const [sinMarcar, setSinMarcar] = useState(0);
-  const [sinMarcarLista, setSinMarcarLista] = useState<SinMarcarItem[]>([]);
-  const [ficha, setFicha] = useState<{ id: number; nombre: string } | null>(null);
+  const [filas, setFilas] = useState<FilaRevisar[]>([]);
+  const [ignorados, setIgnorados] = useState<Ignorado[]>([]);
+  const [verMas, setVerMas] = useState(false);
+  const [config, setConfig] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [ficha, setFicha] = useState<{ id: number; nombre: string; paso?: StepId } | null>(null);
   // Sube cuando se cierra una ficha: lo que se arregló adentro sale de la lista.
   const [releer, setReleer] = useState(0);
 
@@ -91,7 +113,8 @@ function Tarjeta() {
       .then((d) => {
         if (!vivo) return;
         setSinMarcar(Number(d?.total) || 0);
-        setSinMarcarLista(Array.isArray(d?.items) ? (d.items as SinMarcarItem[]) : []);
+        setFilas(Array.isArray(d?.items) ? (d.items as FilaRevisar[]) : []);
+        setIgnorados(Array.isArray(d?.ignorados) ? (d.ignorados as Ignorado[]) : []);
         setCargado(true);
       })
       .catch(() => { /* sin contador no se dibuja la fila: no hay nada que afirmar */ });
@@ -110,6 +133,19 @@ function Tarjeta() {
     qs.set('pendientes', '1');
     router.push(`/crm?${qs.toString()}`);
   }, [router, funnelParam]);
+
+  /**
+   * Ignorar (o volver a avisar) UN dato de un lead, en el lugar. La lista se arregla al toque y
+   * se relee después: el número de arriba es el del server, no una resta de la pantalla.
+   */
+  const ignorar = useCallback((leadId: number, paso: { id: StepId; label: string }, si: boolean, nombre: string) => {
+    setError(null);
+    if (si) setFilas((xs) => xs.filter((x) => !(x.lead_id === leadId && x.paso?.id === paso.id)));
+    else setIgnorados((xs) => xs.filter((x) => !(x.lead_id === leadId && x.paso.id === paso.id)));
+    void ignorarDatoAction(leadId, paso.id, si)
+      .then((r) => { if (!r.ok) setError(r.error); setReleer((n) => n + 1); })
+      .catch(() => { setError(`No se pudo guardar (${nombre}).`); setReleer((n) => n + 1); });
+  }, []);
 
   if (!enCrm || !cargado || sinMarcar === 0) return null;
 
@@ -136,41 +172,71 @@ function Tarjeta() {
     );
   }
 
+  const fila = (key: string, nombre: string, detalle: string, acciones: ReactNode) => (
+    <li key={key} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderTop: '1px solid var(--border)' }}>
+      <span style={{ flex: 1, minWidth: 0 }}>
+        <span style={{ display: 'block', fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nombre}</span>
+        <span style={{ display: 'block', fontSize: 12.5, color: 'var(--dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{detalle}</span>
+      </span>
+      {acciones}
+    </li>
+  );
+
   return (
     <section aria-label={`A revisar: ${total}`} style={{ ...marco, display: 'flex', flexDirection: 'column', maxHeight: 'min(520px, calc(100vh - 40px))', flex: '0 1 auto', minHeight: 0 }}>
       <div style={{ flex: '0 0 auto', display: 'flex', alignItems: 'center', gap: 9, padding: '13px 15px', borderBottom: '1px solid var(--border)' }}>
         <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>A revisar</span>
+        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 19, height: 19, padding: '0 5px', borderRadius: 999, background: 'var(--warn)', color: '#fff', fontFamily: MONO, fontSize: 11, fontWeight: 700, lineHeight: 1 }}>{total}</span>
+        {/* El engranaje: de qué datos avisa MaKo (13/10/2026: «en el título del desplegable»). */}
+        <button type="button" onClick={() => setConfig(true)} title="Elegir de qué datos te avisa MaKo" aria-label="Elegir de qué datos te avisa MaKo"
+          style={{ ...iconoBtn, border: 'none', background: 'none', marginLeft: 'auto' }}>
+          <IconoMenu nombre="configurar" size={16} />
+        </button>
         <button type="button" onClick={() => setAbierta(false)} aria-label="Plegar"
-          style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--dim)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: SANS, padding: 4 }}>Después</button>
+          style={{ background: 'none', border: 'none', color: 'var(--dim)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: SANS, padding: 4 }}>Después</button>
       </div>
-      <div style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto', padding: '0 15px 15px' }}>
-        {/* ⚠️ LOS DATOS QUE FALTAN SE RESUELVEN ACÁ, SIN IR A OTRA TAB (tercer feedback del
-            12/10/2026, punto 4: «A revisar» sin ir a otra tab). Hasta entonces era una fila que
-            llevaba a la cola (`?pendientes=1`). Ahora lista los primeros y cada uno abre SU
-            ficha encima de la página; la cola entera sigue a un clic («Ver todos»). Desaparece
-            en cero: un renglón que dice «0» es ruido fijo. */}
-        {sinMarcar > 0 && (
-          <>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 13, marginBottom: 2 }}>
-              <span style={{ fontSize: 11, fontFamily: MONO, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' }}>Sin marcar</span>
-              <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 19, height: 19, padding: '0 5px', borderRadius: 999, background: 'var(--warn)', color: '#fff', fontFamily: MONO, fontSize: 11, fontWeight: 700, lineHeight: 1 }}>{sinMarcar}</span>
-              <button type="button" onClick={() => { setAbierta(false); irAPendientes(); }}
-                style={{ marginLeft: 'auto', background: 'none', border: 'none', padding: 2, cursor: 'pointer', fontFamily: SANS, fontSize: 13, fontWeight: 700, color: 'var(--primary)' }}>Ver todos</button>
-            </div>
-            {sinMarcarLista.map((p) => (
-              <button key={p.lead_id} type="button" onClick={() => setFicha({ id: p.lead_id, nombre: p.lead_nombre })}
-                style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2, marginTop: 6, padding: '9px 12px', borderRadius: 10, cursor: 'pointer', textAlign: 'left', fontFamily: SANS, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-                <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>{p.lead_nombre}</span>
-                <span style={{ fontSize: 12.5, color: 'var(--dim)', width: '100%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.mensaje}</span>
+      <div style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto', padding: '4px 15px 12px' }}>
+        {/* ⚠️ UNA FILA POR DATO, con «solucionar» e «ignorar» (13/10/2026: «Todo esto también
+            afecta al desplegable que aparece en el CRM debajo a la derecha de "A revisar"»).
+            Solucionar abre la ficha encima de la página y la lleva a ESE dato; la cola entera
+            sigue a un clic («Ver todos»). Lo ignorado se esconde detrás de «Ver más». */}
+        {error && <p role="alert" style={{ margin: '8px 0 0', fontSize: 12.5, color: 'var(--bad)', fontWeight: 600 }}>{error}</p>}
+        <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+          {filas.map((p, i) => fila(`${p.lead_id}:${p.paso?.id ?? i}`, p.lead_nombre, p.mensaje, (
+            <>
+              <button type="button" style={iconoBtn} onClick={() => setFicha({ id: p.lead_id, nombre: p.lead_nombre, paso: p.paso?.id })}
+                title={p.paso ? `Completar: ${p.paso.label}` : 'Abrir la ficha'} aria-label={p.paso ? `Completar ${p.paso.label} de ${p.lead_nombre}` : `Abrir la ficha de ${p.lead_nombre}`}>
+                <IconoMenu nombre="editar" size={15} />
               </button>
-            ))}
-          </>
-        )}
+              {p.paso && !NO_IGNORABLES.has(p.paso.id) && (
+                <button type="button" style={iconoBtn} onClick={() => ignorar(p.lead_id, p.paso!, true, p.lead_nombre)}
+                  title={`Ignorar: no avisar de ${p.paso.label}`} aria-label={`Ignorar ${p.paso.label} de ${p.lead_nombre}`}>
+                  <IconoMenu nombre="silenciar" size={15} />
+                </button>
+              )}
+            </>
+          )))}
+          {verMas && ignorados.map((x) => fila(`ign:${x.lead_id}:${x.paso.id}`, x.lead_nombre, `${x.paso.label} · Ignorado`, (
+            <button type="button" style={iconoBtn} onClick={() => ignorar(x.lead_id, x.paso, false, x.lead_nombre)}
+              title={`Volver a avisar de ${x.paso.label}`} aria-label={`Volver a avisar de ${x.paso.label} de ${x.lead_nombre}`}>
+              <IconoMenu nombre="avisar" size={15} />
+            </button>
+          )))}
+        </ul>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingTop: 9, borderTop: '1px solid var(--border)' }}>
+          {!verMas && ignorados.length > 0 && (
+            <button type="button" onClick={() => setVerMas(true)}
+              style={{ background: 'none', border: 'none', padding: 2, cursor: 'pointer', fontFamily: SANS, fontSize: 13, fontWeight: 600, color: 'var(--primary)' }}>Ver más</button>
+          )}
+          <button type="button" onClick={() => { setAbierta(false); irAPendientes(); }}
+            style={{ marginLeft: 'auto', background: 'none', border: 'none', padding: 2, cursor: 'pointer', fontFamily: SANS, fontSize: 13, fontWeight: 700, color: 'var(--primary)' }}>Ver todos</button>
+        </div>
       </div>
       {ficha && (
-        <LeadEditModal leadId={ficha.id} seed={{ nombre: ficha.nombre }}
+        <LeadEditModal leadId={ficha.id} seed={{ nombre: ficha.nombre }} solucionar={ficha.paso}
           onClose={() => { setFicha(null); setReleer((n) => n + 1); router.refresh(); }} />
       )}
+      {config && <AvisosDatosModal onCerrar={() => setConfig(false)} onGuardado={() => setReleer((n) => n + 1)} />}
     </section>
   );
 }

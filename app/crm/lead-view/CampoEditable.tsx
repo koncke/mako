@@ -102,9 +102,10 @@ function abrirCampoEn(caja: HTMLElement): void {
 
 /**
  * El recuadro de UN campo de la ficha. Un clic en cualquier parte abre la edición (punto 7).
- * `style` es el recuadro de quien la monta (cada tarjeta tiene el suyo).
+ * `style` es el recuadro de quien la monta (cada tarjeta tiene el suyo). `marca` es el
+ * `data-recorrido` que busca «solucionar» un dato sin marcar (`marcaDato`, lib/datos-aviso.ts).
  */
-export function CajaCampo({ children, style }: { children: ReactNode; style?: CSSProperties }) {
+export function CajaCampo({ children, style, marca }: { children: ReactNode; style?: CSSProperties; marca?: string }) {
   /**
    * ⚠️ ¿El campo ya estaba ABIERTO cuando bajó el dedo? Entonces este clic es para SALIR: el
    * `pointerdown` le quita el foco (y el campo guarda y se cierra), y si el `click` que sigue lo
@@ -131,7 +132,7 @@ export function CajaCampo({ children, style }: { children: ReactNode; style?: CS
     abrirCampoEn(caja);
   };
   return (
-    <div className="campo-caja" onPointerDownCapture={alBajar} onClick={alTocar} style={style}>
+    <div className="campo-caja" onPointerDownCapture={alBajar} onClick={alTocar} style={style} data-recorrido={marca}>
       <style dangerouslySetInnerHTML={{ __html: CSS_CAJA }} />
       {children}
     </div>

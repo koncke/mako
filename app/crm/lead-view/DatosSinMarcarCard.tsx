@@ -1,76 +1,248 @@
 'use client';
 
 // =============================================================================
-// DatosSinMarcarCard — el aviso de «datos sin marcar» de la ficha
+// DatosSinMarcarCard — «N sin marcar · Ver →» y su desplegable
 // =============================================================================
-// Mismo aviso en la ficha (todas las tabs) y en el modal. Vive en el header,
-// debajo del desplegable de etapa.
+// Feedback del detalle del lead (Martín, 13/10/2026, punto 1), textual: «el botón de "Datos sin
+// marcar" debería decir "ver ->" y al darle click, si hay más de un dato sin marcar, debería
+// saltarme un desplegable con los títulos de los datos sin marcar, y en ese desplegable, si el
+// botón con ícono para "solucionar" y otro ícono para "ignorar"... todos los ignorados como
+// también los resueltos, pasan a esconderse, para ver los escondidos, abajo debe estar un botón
+// de texto sutil... que diga "Ver más"... En caso de que todos sean resueltos e ignorados, no
+// salta el botón de "ver más" sino que todo se ve en el desplegable directamente».
 //
-// ⚠️ UN SOLO RENGLÓN, SIEMPRE. Es una regla, no un objetivo: «Solucionar siempre
-// en 1 sola línea, si tienes que acortar la frase hazlo, pero siempre en 1 sola
-// línea» (27/09/2026). Por eso `flexWrap: 'nowrap'` — esa es la garantía dura,
-// que no depende de ninguna medición. Lo que las medidas deciden es el TEXTO, no
-// si envuelve.
+// Y «Elimina completamente el pop-up que salta al darle el botón de "solucionar"»: solucionar ya
+// no abre el asistente; te lleva al dato (onSolucionar → la ficha cambia de tab y lo señala).
+// El asistente queda de respaldo para un dato cuyo campo no está en la ficha (ver la ficha).
 //
-// ⚠️ Y LA MEDICIÓN ANTERIOR ESTABA MAL POR LA FUENTE. Se midió en una página con
-// `font-family: 'Geist', system-ui, sans-serif` SIN que Geist estuviera cargada,
-// así que midió system-ui: 205,8 px, que entraba en los 210 del desplegable. Con
-// Geist de verdad el mismo contenido mide **214,6** y se parte en dos, que es
-// exactamente lo que se reportó. Medir con otra fuente es medir otra cosa —
-// `document.fonts.load(...)` + `document.fonts.ready` antes de leer un ancho.
+// ⚠️ EL RENGLÓN SIGUE EN UNA SOLA LÍNEA («Solucionar siempre en 1 sola línea», 27/09/2026):
+// «999 sin marcar» + «Ver →» mide menos que el «Solucionar →» que medía 192,7 con Geist.
 //
-// Medido el 27/09/2026 con Geist cargada, contra los 210 px del desplegable:
-//
-//   «6 datos sin marcar» + «Solucionar →»     214,6  ✗  (lo que se partía)
-//   «6 sin marcar»       + «Solucionar →»     176,9  ✓  33 px de holgura
-//   «999 sin marcar»     + «Solucionar →»     192,7  ✓  17 px con tres dígitos
-//   «6 sin marcar · ignorados» + 2 acciones   312,5  ✗
-//   «6 sin marcar»       + «Reactivar»        154,8  ✓
-//
-// De ahí sale el copy: se fue la palabra «datos» —el renglón ya está debajo de la
-// etapa del lead, no hace falta decir de qué son— y en el caso ignorado queda la
-// única acción que importa en ese estado. El estado se dice con el color y con el
-// `title`, que no ocupan ancho.
-//
-// Lo que NO se puede volver a poner acá: la lista de nombres. Vive en el `title`.
-//
-// ⚠️ Y SE FUE «REACTIVAR» (06/10/2026). Con los avisos ignorados en el worklist, la ficha
-// apagaba el renglón y cambiaba «Solucionar» por «Reactivar». Martín: «Elimina lo de
-// "Reactivar" en el detalle del lead, eso no tiene sentido, que siempre esté el mensaje
-// sutil». Ignorar es una decisión sobre la LISTA del CRM (que ese lead no aparezca en
-// «datos sin marcar»), no sobre la ficha: acá el renglón es siempre el mismo, y completar
-// sigue estando a un clic. El estado ignorado se lee y se cambia desde el worklist.
+// ⚠️ QUÉ AVISA Y QUÉ SE ESCONDE NO SE DECIDE ACÁ: llega partido del server (`partirDatos`,
+// lib/datos-aviso.ts), con los ignorados de este lead y lo que el negocio apagó. Ignorar acá
+// actualiza la lista en el lugar y le pide a la ficha que relea.
+// =============================================================================
 
-import type { CSSProperties } from 'react';
-import type { Step } from '@/lib/stage-requirements';
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
+import { createPortal } from 'react-dom';
+import { useCapaModal } from '@/app/_components/pila-modales';
+import { ubicarPanel } from '@/app/_components/PortadaPicker';
+import { IconoMenu } from '@/app/_ui/iconos-menu';
+import { Toast, useToast } from '@/app/_ui/Toast';
+import { ignorarDatoAction } from '../datos-sin-marcar-actions';
+import type { DatoDeLaFicha, EstadoDatos } from '@/lib/datos-aviso';
+import type { StepId } from '@/lib/stage-requirements';
 
 const SANS = "'Geist', sans-serif";
 
 const accion: CSSProperties = {
   flex: 'none', background: 'none', border: 'none', padding: 0, cursor: 'pointer',
-  fontSize: 12.5, fontWeight: 650, fontFamily: SANS, whiteSpace: 'nowrap',
+  fontSize: 12.5, fontWeight: 650, fontFamily: SANS, whiteSpace: 'nowrap', color: 'var(--primary)',
 };
 
-export function DatosSinMarcarCard({ faltantes, onSolucionar, label = 'Solucionar →' }: {
-  faltantes: Step[];
-  onSolucionar: () => void;
-  label?: string;
+const iconoBtn: CSSProperties = {
+  display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, flex: 'none',
+  borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--dim)', cursor: 'pointer', padding: 0,
+};
+
+const ROTULO: Record<DatoDeLaFicha['estado'], string> = {
+  falta: '', ignorado: 'Ignorado', sin_aviso: 'Sin aviso', resuelto: 'Listo',
+};
+
+/** Mueve un dato entre «avisa» e «ignorado» en el lugar, sin esperar al server. */
+function conIgnoradoLocal(d: EstadoDatos, id: StepId, ignorar: boolean): EstadoDatos {
+  const todos = [...d.avisar, ...d.ocultos];
+  const uno = todos.find((x) => x.id === id);
+  if (!uno) return d;
+  const resto = (xs: DatoDeLaFicha[]) => xs.filter((x) => x.id !== id);
+  if (ignorar) return { avisar: resto(d.avisar), ocultos: [{ ...uno, estado: 'ignorado' }, ...resto(d.ocultos)] };
+  return { avisar: [...d.avisar, { ...uno, estado: 'falta' }], ocultos: resto(d.ocultos) };
+}
+
+export function DatosSinMarcarCard({ leadId, datos, onSolucionar, onConfigurar, onCambio }: {
+  leadId: number;
+  datos: EstadoDatos;
+  /** Llevar al dato: la ficha cambia de tab y lo señala. */
+  onSolucionar: (id: StepId) => void;
+  /** Abre «de qué datos te avisa MaKo». Sin esto no se dibuja el engranaje. */
+  onConfigurar?: () => void;
+  /** Después de ignorar: la ficha relee (el número del tablero y «A revisar» cambian). */
+  onCambio?: () => void;
 }) {
-  if (!faltantes.length) return null;
-  const nombres = faltantes.map((f) => f.label).join(' · ');
+  const [local, setLocal] = useState(datos);
+  useEffect(() => { setLocal(datos); }, [datos]);
+  const [abierto, setAbierto] = useState(false);
+  const [verMas, setVerMas] = useState(false);
+  const anclaRef = useRef<HTMLDivElement>(null);
+  const { toast, show, clear } = useToast();
+
+  const faltaAlgo = local.avisar.length > 0 || local.ocultos.some((o) => o.estado !== 'resuelto');
+  if (!faltaAlgo && !toast) return null;
+
+  const abrir = () => {
+    // Un solo dato que avisa y nada escondido: no hay nada que elegir, se va derecho a él.
+    if (local.avisar.length === 1 && local.ocultos.length === 0) { onSolucionar(local.avisar[0].id); return; }
+    setVerMas(false);
+    setAbierto((v) => !v);
+  };
+
+  const ignorar = (id: StepId, si: boolean) => {
+    const antes = local;
+    setLocal(conIgnoradoLocal(local, id, si));
+    void ignorarDatoAction(leadId, id, si).then((r) => {
+      if (!r.ok) { setLocal(antes); show(r.error, undefined, 'bad'); return; }
+      onCambio?.();
+      show(si ? 'Dato ignorado' : 'Vuelve a avisar', si ? () => ignorar(id, false) : undefined);
+    }).catch(() => { setLocal(antes); show('No se pudo guardar', undefined, 'bad'); });
+  };
+
+  const n = local.avisar.length;
   return (
-    <div
-      // La lista entera, a un hover y a cero píxeles de ancho.
-      title={nombres}
-      style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'nowrap', fontFamily: SANS, fontSize: 12.5, lineHeight: 1.4 }}
-    >
-      <span aria-hidden style={{ flex: 'none', width: 6, height: 6, borderRadius: 999, background: 'var(--warn)' }} />
-      <span style={{ flex: 'none', color: 'var(--ink)', fontWeight: 650, whiteSpace: 'nowrap' }}>
-        {faltantes.length} sin marcar
-      </span>
-      <button type="button" onClick={onSolucionar} style={{ ...accion, color: 'var(--primary)' }}>
-        {label}
-      </button>
-    </div>
+    <>
+      {faltaAlgo && (
+        <div
+          ref={anclaRef}
+          title={[...local.avisar].map((f) => f.label).join(' · ') || undefined}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'nowrap', fontFamily: SANS, fontSize: 12.5, lineHeight: 1.4 }}
+        >
+          <span aria-hidden style={{ flex: 'none', width: 6, height: 6, borderRadius: 999, background: n ? 'var(--warn)' : 'var(--faint)' }} />
+          <span style={{ flex: 'none', color: n ? 'var(--ink)' : 'var(--dim)', fontWeight: 650, whiteSpace: 'nowrap' }}>
+            {n ? `${n} sin marcar` : 'Datos ignorados'}
+          </span>
+          <button type="button" onClick={abrir} aria-expanded={abierto} style={accion}>Ver →</button>
+        </div>
+      )}
+      {abierto && (
+        <Desplegable
+          ancla={anclaRef.current}
+          datos={local}
+          verMas={verMas}
+          onVerMas={() => setVerMas(true)}
+          onSolucionar={(id) => { setAbierto(false); onSolucionar(id); }}
+          onIgnorar={ignorar}
+          onConfigurar={onConfigurar ? () => { setAbierto(false); onConfigurar(); } : undefined}
+          onCerrar={() => setAbierto(false)}
+        />
+      )}
+      <Toast state={toast} onClose={clear} />
+    </>
+  );
+}
+
+function Desplegable({ ancla, datos, verMas, onVerMas, onSolucionar, onIgnorar, onConfigurar, onCerrar }: {
+  ancla: HTMLElement | null;
+  datos: EstadoDatos;
+  verMas: boolean;
+  onVerMas: () => void;
+  onSolucionar: (id: StepId) => void;
+  onIgnorar: (id: StepId, ignorar: boolean) => void;
+  onConfigurar?: () => void;
+  onCerrar: () => void;
+}) {
+  const [montado, setMontado] = useState(false);
+  const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const capa = useCapaModal(true, { anidada: true });
+  const arriba = capa.esElDeArriba;
+  const onCerrarRef = useRef(onCerrar);
+  useEffect(() => { onCerrarRef.current = onCerrar; });
+
+  useEffect(() => { setMontado(true); }, []);
+
+  const recolocar = useCallback(() => {
+    const p = panelRef.current;
+    if (!p) return;
+    const caja = p.getBoundingClientRect();
+    const a = ancla?.isConnected ? ancla.getBoundingClientRect() : null;
+    const ventana = { ancho: window.innerWidth, alto: window.innerHeight };
+    setPos(a ? ubicarPanel(a, { ancho: caja.width, alto: caja.height }, ventana)
+      : { left: Math.max(10, (ventana.ancho - caja.width) / 2), top: Math.max(10, (ventana.alto - caja.height) / 2) });
+  }, [ancla]);
+
+  // `montado` y `verMas` en las deps: el portal no existe en el primer render, y «Ver más»
+  // cambia el alto del panel (si abre hacia arriba, hay que volver a ubicarlo).
+  useEffect(() => {
+    recolocar();
+    window.addEventListener('resize', recolocar);
+    window.addEventListener('scroll', recolocar, true);
+    return () => { window.removeEventListener('resize', recolocar); window.removeEventListener('scroll', recolocar, true); };
+  }, [recolocar, montado, verMas]);
+
+  useEffect(() => {
+    const fuera = (e: MouseEvent) => {
+      const t = e.target as Node | null;
+      if (!t || panelRef.current?.contains(t) || ancla?.contains(t)) return;
+      onCerrarRef.current();
+    };
+    // ⚠️ `stopImmediatePropagation`: el Escape de la ficha vive en `document` y en captura, y
+    // sin esto cerrar el desplegable cerraría también la ficha (AGENTS.md, popovers anclados).
+    const tecla = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || !arriba()) return;
+      e.stopImmediatePropagation(); e.preventDefault(); onCerrarRef.current();
+    };
+    document.addEventListener('mousedown', fuera, true);
+    document.addEventListener('keydown', tecla, true);
+    return () => { document.removeEventListener('mousedown', fuera, true); document.removeEventListener('keydown', tecla, true); };
+  }, [ancla, arriba]);
+
+  if (!montado) return null;
+
+  // Si no queda nada que avise, lo escondido se ve directo: no hay «Ver más» que apretar.
+  const mostrarOcultos = verMas || datos.avisar.length === 0;
+  const fila = (d: DatoDeLaFicha) => {
+    const falta = d.estado !== 'resuelto';
+    return (
+      <li key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 4px', borderTop: '1px solid var(--border)' }}>
+        <span style={{ flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: 600, color: falta ? 'var(--ink)' : 'var(--dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.label}</span>
+        {d.estado !== 'falta' && <span style={{ flex: 'none', fontSize: 12, color: 'var(--faint)' }}>{ROTULO[d.estado]}</span>}
+        {falta && (
+          <button type="button" style={iconoBtn} onClick={() => onSolucionar(d.id)} title={`Completar: ${d.label}`} aria-label={`Completar ${d.label}`}>
+            <IconoMenu nombre="editar" size={15} />
+          </button>
+        )}
+        {d.estado === 'falta' && d.ignorable && (
+          <button type="button" style={iconoBtn} onClick={() => onIgnorar(d.id, true)} title={`Ignorar: no avisar de ${d.label}`} aria-label={`Ignorar ${d.label}`}>
+            <IconoMenu nombre="silenciar" size={15} />
+          </button>
+        )}
+        {d.estado === 'ignorado' && (
+          <button type="button" style={iconoBtn} onClick={() => onIgnorar(d.id, false)} title={`Volver a avisar de ${d.label}`} aria-label={`Volver a avisar de ${d.label}`}>
+            <IconoMenu nombre="avisar" size={15} />
+          </button>
+        )}
+      </li>
+    );
+  };
+
+  return createPortal(
+    <div ref={panelRef} role="dialog" aria-label="Datos sin marcar" tabIndex={-1}
+      style={{
+        position: 'fixed', zIndex: capa.z, left: pos?.left ?? 0, top: pos?.top ?? 0,
+        opacity: pos ? 1 : 0, pointerEvents: pos ? undefined : 'none',
+        width: 320, maxWidth: 'calc(100vw - 20px)', maxHeight: 'min(440px, calc(100vh - 20px))', overflowY: 'auto',
+        background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 13,
+        boxShadow: '0 16px 40px rgba(18,21,27,.18)', padding: '10px 12px', fontFamily: SANS,
+      }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingBottom: 6 }}>
+        <span style={{ flex: 1, fontSize: 13.5, fontWeight: 700, color: 'var(--ink)' }}>Datos sin marcar</span>
+        {onConfigurar && (
+          <button type="button" style={{ ...iconoBtn, border: 'none', background: 'none' }} onClick={onConfigurar}
+            title="Elegir de qué datos te avisa MaKo" aria-label="Elegir de qué datos te avisa MaKo">
+            <IconoMenu nombre="configurar" size={16} />
+          </button>
+        )}
+      </div>
+      <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+        {datos.avisar.map(fila)}
+        {mostrarOcultos && datos.ocultos.map(fila)}
+      </ul>
+      {!mostrarOcultos && datos.ocultos.length > 0 && (
+        <button type="button" onClick={onVerMas}
+          style={{ display: 'block', width: '100%', marginTop: 4, padding: '9px 4px 3px', border: 'none', borderTop: '1px solid var(--border)', background: 'none', cursor: 'pointer', fontFamily: SANS, fontSize: 13, fontWeight: 600, color: 'var(--primary)' }}>
+          Ver más
+        </button>
+      )}
+    </div>,
+    document.body,
   );
 }

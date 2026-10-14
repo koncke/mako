@@ -53,7 +53,7 @@ import { DEFAULT_PIPELINE, generateFunnel, terminalEstadoFor, NUTRI_KEYS, derive
 // recorrido de ESE lead.
 import { getPipelineStagesDeLead, idDelFunnelDefault } from './funnels';
 import { AUTOR_SISTEMA, CAMPO_ETAPA, cambioDeEtapa, marcarEtapaVista } from './etapa-historial';
-import { stepsForStage, funnelReqInfo, type Step } from './stage-requirements';
+import { stepsForStage, funnelReqInfo, pasosResueltos, type Step, type StageReqValues } from './stage-requirements';
 import type { VentaTipo } from './venta-tipo';
 // La etapa de ORIGEN de un movimiento se deriva con la MISMA función que usa la
 // ficha (override chequeado contra el funnel vigente): con el override crudo, el
@@ -247,6 +247,7 @@ export type Lead = {
   comprobante_omitido?: boolean | null;      // no se suben los comprobantes de pago
   empresa_omitido?: boolean | null;          // "Empresa" ignorada: no cuenta en el worklist del CRM
   pendientes_ignorados?: string | null;      // "Datos sin marcar" ignorados a nivel lead (mig 0109): no notifican ni cuentan; timestamp de cuándo se ignoró
+  datos_ignorados?: string[] | null;         // los datos sin marcar ignorados UNO POR UNO (mig 0270): ids de paso (StepId); no avisan, siguen faltando
   r2_agenda_externa_motivo?: string | null;  // la R2 se agendó fuera de Calendly (motivo) → satisface respuestas R2
 
   // Contrato subido (migración 0029): archivo en Storage + nombre original.
@@ -3076,8 +3077,25 @@ export async function saveLeadMeta(id: number, meta: LeadMetaInput): Promise<voi
 export function faltantesDeLead(
   lead: Lead,
   tienePlan?: boolean,
-  extra?: { comprobantesFaltantes?: number; r2RespuestasOk?: boolean; pipeline?: Stage[]; grabable?: boolean },
+  extra?: ExtraRequisitos,
 ): Step[] {
+  const { stage, v } = requisitosDeLead(lead, tienePlan, extra);
+  return stepsForStage(stage, v);
+}
+
+/**
+ * Lo que la etapa del lead pide y YA está cargado (los «resueltos» del desplegable de la ficha).
+ * Sale de los MISMOS valores que `faltantesDeLead` y de la misma regla (`pasosResueltos`).
+ */
+export function resueltosDeLead(lead: Lead, tienePlan?: boolean, extra?: ExtraRequisitos): Step[] {
+  const { stage, v } = requisitosDeLead(lead, tienePlan, extra);
+  return pasosResueltos(stage, v);
+}
+
+type ExtraRequisitos = { comprobantesFaltantes?: number; r2RespuestasOk?: boolean; pipeline?: Stage[]; grabable?: boolean };
+
+/** La etapa vigente del lead y los valores con que se evalúan sus requisitos. UNA sola vez. */
+function requisitosDeLead(lead: Lead, tienePlan?: boolean, extra?: ExtraRequisitos): { stage: string; v: StageReqValues } {
   // El override manual (pipeline_stage) vale SOLO si esa etapa sigue existiendo en
   // el funnel del workspace; si no, se deriva del estado del lead — la misma regla
   // que usa el board (crm-map). Sin este chequeo, un lead parado en una etapa que
@@ -3096,7 +3114,7 @@ export function faltantesDeLead(
   // Un lead en NUTRICIÓN (no agendó / se enfrió / manual) es un contacto frío: no
   // tiene sentido exigirle "Empresa" como dato sin marcar. undefined → se saltea.
   const enNutricion = NUTRI_KEYS.includes(stage);
-  return stepsForStage(stage, {
+  return { stage, v: {
     fechaJ1: lead.fecha_junta_1,
     asistioJ1: lead.asistio_j1,
     calificado: lead.calificado,
@@ -3142,7 +3160,7 @@ export function faltantesDeLead(
     nivel: info?.nivel,
     numReuniones: info?.numReuniones,
     esVenta: info?.esVenta,
-  });
+  } };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

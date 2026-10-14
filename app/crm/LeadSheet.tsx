@@ -15,6 +15,10 @@ import { useRouter } from '@/app/_ui/Link';
 import { deriveStageKey, stageMeta, nutricionPositivaDe, type Stage } from '@/lib/pipeline';
 import { tieneEtapaDeReunion } from '@/lib/etapa-reunion';
 import { DatosSinMarcarCard } from './lead-view/DatosSinMarcarCard';
+import { AvisosDatosModal } from './lead-view/AvisosDatosModal';
+import { Senalar } from '@/app/_ui/Senalar';
+import { TAB_DE_DATO, marcaDato } from '@/lib/datos-aviso';
+import type { StepId } from '@/lib/stage-requirements';
 import { buildJourney } from '@/lib/journey';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { deleteLeadInlineAction, getLeadFullAction, type LeadFullData } from './actions';
@@ -54,14 +58,18 @@ const SANS = "'Geist', sans-serif";
 const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '22px 24px' };
 const sectLabel: CSSProperties = { fontFamily: MONO, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' };
 
-export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; onClose: () => void; initialTab?: string }) {
+export function LeadSheet({ data, onClose, initialTab, solucionarAlAbrir }: {
+  data: LeadFullData; onClose: () => void; initialTab?: string;
+  /** Abrir llevando a ese dato sin marcar («A revisar» del CRM, 13/10/2026). Se aplica UNA vez. */
+  solucionarAlAbrir?: StepId;
+}) {
   // ⚠️ LA FICHA SE RELEE CUANDO CAMBIA LA CASA DEL LEAD. Sus datos los trajo una action al abrir
   // (LeadEditModal) y el `router.refresh()` no los toca: si desde el desplegable de productos se
   // quita la casa, la etapa, las etapas y el chip de acá serían los del producto anterior. Sólo
   // vale mientras sea el MISMO lead: si la ficha pasa a mostrar otro, mandan sus datos.
   const [fresca, setFresca] = useState<LeadFullData | null>(null);
   const vigente = fresca && fresca.lead.id === data.lead.id ? fresca : data;
-  const { lead, stages, pagos, vslEng, campana, adNombre, adId, visitas, insights, tracking, pixelPuesto, respuestas, respuestasForm, cohorte, insightGen, faltantesInsight, faltantes, equipo, closerDetectado, videos: videosLanding, replay, productos, fotoEmail } = vigente;
+  const { lead, stages, pagos, vslEng, campana, adNombre, adId, visitas, insights, tracking, pixelPuesto, respuestas, respuestasForm, cohorte, insightGen, faltantesInsight, faltantes, datos, equipo, closerDetectado, videos: videosLanding, replay, productos, fotoEmail } = vigente;
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -199,6 +207,32 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
   // movimiento es que `moveTo` apunte a la etapa ACTUAL, igual que en la ruta.
   const solucionar = () => setMoveTo(stageKey);
   const completandoDatos = moveTo === stageKey;
+
+  // ⚠️ «SOLUCIONAR» UN DATO LLEVA AL DATO, NO ABRE EL ASISTENTE (13/10/2026). Martín: «Elimina
+  // completamente el pop-up que salta al darle el botón de "solucionar"... me tiene que redirijir
+  // al dato que falta, ya sea cambiando de tab o desplazando a donde está el dato... y marcarse
+  // donde falta, como lo hacemos con los tutoriales». Cambia a la tab donde vive su campo
+  // (TAB_DE_DATO, lib/datos-aviso.ts) y lo señala (<Senalar>, que busca la marca del campo).
+  // El asistente queda SÓLO de respaldo: la tab no está en este lead (un funnel sin reuniones) o
+  // el campo no se dibujó (la R2 todavía no existe) — ahí es el único lugar que lo sabe pedir.
+  const [irATab, setIrATab] = useState<{ key: string; n: number } | null>(null);
+  const [senal, setSenal] = useState<{ id: StepId; label: string } | null>(null);
+  const [configAvisos, setConfigAvisos] = useState(false);
+  const solucionarDato = (id: StepId) => {
+    const tab = TAB_DE_DATO[id];
+    const hay = tab === 'resumen' || (tab === 'reuniones' && verReuniones) || (tab === 'cobranza' && verPagos);
+    if (!hay) { solucionar(); return; }
+    const d = [...(datos?.avisar ?? []), ...(datos?.ocultos ?? [])].find((x) => x.id === id);
+    setIrATab({ key: tab, n: Date.now() });
+    setSenal({ id, label: d?.label ?? 'este dato' });
+  };
+  const yaSolucionado = useRef(false);
+  useEffect(() => {
+    if (!solucionarAlAbrir || yaSolucionado.current) return;
+    yaSolucionado.current = true;
+    solucionarDato(solucionarAlAbrir);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- una vez, al abrir
+  }, [solucionarAlAbrir]);
   // Nutrición positiva (derivada): el lead avanza dentro de su etapa.
   const nutriPos = nutricionPositivaDe(lead, new Date().toISOString().slice(0, 10));
 
@@ -224,6 +258,10 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
       {/* Lo que contestó en el formulario de Meta. Hasta el 07/10/2026 sólo lo dibujaba la
           ruta, y el tablero abre ESTE pop-up: en el uso diario no se veía. Las respuestas
           llegan resueltas del server (`respuestasForm`, getLeadFullAction). */}
+      {/* ⚠️ «¿ERA CALIFICADO?» VIVE EN RESUMEN DESDE EL 13/10/2026, no en Tracking. Martín: «quiero
+          que en esta tab se configure la opción de "¿Era cualificado?" para alimentar a CAPI... Que no
+          esté más en tracking». La MISMA tarjeta que la ruta /crm/[id]. */}
+      <CalificacionCard lead={lead} />
       <RespuestasFormulario respuestas={respuestasForm ?? []} />
       {/* ⚠️ Las notas NO son una pestaña: son parte de lo que mirás del lead. Como
           pestaña propia se escribieron 4 en toda la base — no porque no sirvan,
@@ -306,8 +344,9 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
           acciones={
             <>
               <FunnelYEtapa ficha={fichaProd} etapasCasa={stages} etapaCasa={stageKey} onElegirCasa={pickStage} ariaLabel="Cambiar etapa o funnel" />
-              {faltantes.length > 0 && (
-                <DatosSinMarcarCard faltantes={faltantes} onSolucionar={solucionar} />
+              {datos && (
+                <DatosSinMarcarCard leadId={lead.id} datos={datos} onSolucionar={solucionarDato}
+                  onConfigurar={() => setConfigAvisos(true)} onCambio={releer} />
               )}
             </>
           }
@@ -320,6 +359,7 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '0 clamp(16px,4vw,28px) clamp(14px,4vw,20px)' }}>
           <LeadTabs
             initial={initialTab}
+            irA={irATab}
             fija={{ fondo: 'var(--surface)' }}
             tabs={[
               { key: 'resumen', label: 'Resumen', content: tabResumen },
@@ -342,7 +382,7 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
               // «La tab de "Tracking" recién debería salir si configuré una campaña vinculado a ese
               // funnel, sino que no aparezca»). Lo decide el server (`verTracking`, getLeadFullAction →
               // lib/tracking-ficha-server.ts) y con la lectura caída la pestaña SE DIBUJA.
-              ...(verTracking ? [{ key: 'comportamiento', label: 'Tracking', content: <><OrigenCard lead={lead} vslEng={vslEng} campana={campana} adNombre={adNombre} adId={adId} /><CalificacionCard lead={lead} /><ComportamientoCard visitas={visitas.total_visitas} dias={visitas.dias_distintos} plays={vslEng.plays} maxPct={vslEng.sin_datos ? null : vslEng.max_pct} tieneVisitor={!!lead.visitor_id} porVideo={vslEng.porVideo} videos={videosLanding} eventos={tracking} pixelPuesto={pixelPuesto} replay={replay} /></> }] : []),
+              ...(verTracking ? [{ key: 'comportamiento', label: 'Tracking', content: <><OrigenCard lead={lead} vslEng={vslEng} campana={campana} adNombre={adNombre} adId={adId} /><ComportamientoCard visitas={visitas.total_visitas} dias={visitas.dias_distintos} plays={vslEng.plays} maxPct={vslEng.sin_datos ? null : vslEng.max_pct} tieneVisitor={!!lead.visitor_id} porVideo={vslEng.porVideo} videos={videosLanding} eventos={tracking} pixelPuesto={pixelPuesto} replay={replay} /></> }] : []),
               // ⚠️ SÓLO SI EL FUNNEL TIENE UNA ETAPA DE REUNIÓN (punto 13, 12/10/2026: «Si en mi funnel no
               // tengo ninguna etapa marcada como "reunión" no debería aparecer la tab de "reuniones"»).
               // Marcada, o con un nombre que lo dice («Agenda R1», «Llamada»): `tieneEtapaDeReunion`.
@@ -410,6 +450,17 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
           y no el DOM. Da igual cuando mover de etapa cierra la ficha de todos modos, y
           deja de dar igual con «Completar datos», donde la ficha tiene que quedar.
           Es el gemelo por CLICK del Escape que `profundidadModales()` ya resuelve. */}
+      {senal && (
+        <Senalar objetivo={marcaDato(senal.id)} texto={`Falta: ${senal.label}`}
+          onCerrar={() => setSenal(null)} onNoEsta={solucionar} />
+      )}
+      {/* Envuelto por lo mismo que el wizard de abajo: un clic adentro no puede llegar al fondo de
+          la ficha, que la cierra (los eventos de React suben por el árbol, no por el DOM). */}
+      {configAvisos && (
+        <div onClick={(e) => e.stopPropagation()}>
+          <AvisosDatosModal onCerrar={() => setConfigAvisos(false)} onGuardado={releer} />
+        </div>
+      )}
       {moveTo && (
         <div onClick={(e) => e.stopPropagation()}>
           <StageMoveDialog

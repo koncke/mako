@@ -108,6 +108,8 @@ import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 import type { Step } from '@/lib/stage-requirements';
 import { getSupabaseServer } from '@/lib/supabase';
 import { getTenantDb, getWorkspaceActual, getRolWsEfectivo, getCapaActual, rutaConWs } from '@/lib/workspace';
+import { estadoDatosDeLead } from '@/lib/datos-aviso-config';
+import type { EstadoDatos } from '@/lib/datos-aviso';
 import { tabEnCapa } from '@/lib/capas';
 
 /**
@@ -227,6 +229,11 @@ export type LeadFullData = {
   faltantesInsight: Step[];
   /** Datos sin marcar de la etapa actual (completos: incluye tel/empresa/deal). */
   faltantes: Step[];
+  /**
+   * Lo mismo, partido en lo que AVISA y lo escondido detrás de «Ver más» (ignorado, sin aviso,
+   * resuelto). Lo dibuja el desplegable de la ficha (lib/datos-aviso.ts, 13/10/2026).
+   */
+  datos?: EstadoDatos;
   equipo: MiembroEquipo[];
   closerDetectado: string | null;
   /** Los productos, para el desplegable de la ficha (el mismo de la ruta /crm/[id]). */
@@ -301,13 +308,15 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   const faltantesInsight = faltantesParaInsights(lead, pagos.length > 0, stages);
   // Un cobro confirmado por la pasarela no pide comprobante (lib/pago-comprobante.ts).
   const comprobantesFaltantes = pagos.filter(faltaComprobante).length;
-  const faltantes = faltantesDeLead(lead, pagos.length > 0, { comprobantesFaltantes, r2RespuestasOk: respuestas.R2.length > 0, pipeline: stages, grabable });
+  const extraReq = { comprobantesFaltantes, r2RespuestasOk: respuestas.R2.length > 0, pipeline: stages, grabable };
+  const faltantes = faltantesDeLead(lead, pagos.length > 0, extraReq);
+  const datos = await estadoDatosDeLead(lead, faltantes, pagos.length > 0, extraReq);
   const closerDetectado = insights.find((i) => i.closer?.trim())?.closer ?? null;
   // El NOMBRE DEL PRODUCTO, no el del embudo: «Funnel principal» es el que puso la migración
   // y es el mismo en todos los workspaces (mismo criterio que el selector del tablero).
   const productos = funnels.map((f) => ({ id: f.id, nombre: nombreVisible(f), esDefault: f.esDefault }));
   const fotoEmail = lead.email?.trim() ? urlGravatar(lead.email, 160) : null;
-  return { lead, stages, pagos, vslEng, videos, replay, campana, adNombre, adId: adIdCand, visitas, insights, tracking, pixelPuesto, respuestas, respuestasForm: respuestasPropias(lead.meta_field_data), cohorte: cohorteDeLead(lead), insightGen, faltantesInsight, faltantes, equipo, closerDetectado, productos, fotoEmail, cobro, verTracking: await verTrackingP };
+  return { lead, stages, pagos, vslEng, videos, replay, campana, adNombre, adId: adIdCand, visitas, insights, tracking, pixelPuesto, respuestas, respuestasForm: respuestasPropias(lead.meta_field_data), cohorte: cohorteDeLead(lead), insightGen, faltantesInsight, faltantes, datos, equipo, closerDetectado, productos, fotoEmail, cobro, verTracking: await verTrackingP };
 }
 
 /** Cuota explícita del plan (modelo simple: monto + fecha). */

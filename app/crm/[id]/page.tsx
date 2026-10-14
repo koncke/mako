@@ -44,6 +44,7 @@ import { verTrackingDeLead } from '@/lib/tracking-ficha-server';
 import { getUltimoInsightGenerado, faltantesParaInsights } from '@/lib/lead-insights';
 import { respuestasPropias } from '@/lib/meta-leads-campos';
 import { faltantesDeLead } from '@/lib/leads';
+import { estadoDatosDeLead } from '@/lib/datos-aviso-config';
 import { getPipelineStagesDeLead, listarFunnels } from '@/lib/funnels';
 import { nombreVisible } from '@/lib/lead-funnel-reglas';
 import { urlGravatar } from '@/lib/gravatar';
@@ -157,7 +158,10 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
   // "Datos sin marcar": todo lo que la etapa actual adeuda (posible de conseguir). Un cobro confirmado
   // por la pasarela no pide comprobante (lib/pago-comprobante.ts).
   const comprobantesFaltantes = pagos.filter(faltaComprobante).length;
-  const faltantes = faltantesDeLead(lead, pagos.length > 0 ? true : undefined, { comprobantesFaltantes, r2RespuestasOk: respuestas.R2.length > 0, pipeline: stages });
+  const extraReq = { comprobantesFaltantes, r2RespuestasOk: respuestas.R2.length > 0, pipeline: stages };
+  const faltantes = faltantesDeLead(lead, pagos.length > 0 ? true : undefined, extraReq);
+  // Partido en lo que avisa y lo escondido (13/10/2026): la MISMA función que el pop-up.
+  const datos = await estadoDatosDeLead(lead, faltantes, pagos.length > 0 ? true : undefined, extraReq);
   const cuotasPendientes = pagos.filter((p) => !p.pagado).length;
   // Nutrición positiva (derivada): el lead avanza y está en su ventana informativa.
   const nutriPos = nutricionPositivaDe(lead, new Date().toISOString().slice(0, 10));
@@ -180,6 +184,7 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
           nombre={lead.nombre}
           stageLabel={sm?.label ?? lead.estado_lead}
           faltantes={faltantes}
+          datos={datos}
           equipo={equipo}
           productos={productos}
           fotoEmail={lead.email?.trim() ? urlGravatar(lead.email, 160) : null}
@@ -241,6 +246,9 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
 
                       La pieza es la MISMA que dibuja el pop-up del tablero (07/10/2026):
                       lead-view/RespuestasFormulario.tsx. */}
+                  {/* «¿Era calificado?» va en Resumen desde el 13/10/2026 (Martín: «Que no esté más
+                      en tracking»). La MISMA tarjeta que el pop-up del tablero. */}
+                  <CalificacionCard lead={lead} />
                   <RespuestasFormulario respuestas={respuestasForm} />
                   <NotasCard leadId={lead.id} />
                   {/* ⚠️ LAS MISMAS DOS TARJETAS QUE EL MODAL, y acá es la primera vez
@@ -275,7 +283,6 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
               content: (
                 <>
                   <OrigenCard lead={lead} vslEng={vslEng} campana={campanaResuelta} adNombre={adResuelto} adId={adIdCand} />
-                  <CalificacionCard lead={lead} />
                   <ComportamientoCard visitas={visitas.total_visitas} dias={visitas.dias_distintos} plays={vslEng.plays} maxPct={vslEng.sin_datos ? null : vslEng.max_pct} tieneVisitor={!!lead.visitor_id} porVideo={vslEng.porVideo} videos={videosLanding} eventos={trackingEventos} pixelPuesto={pixelPuesto} replay={replay} />
                 </>
               ),

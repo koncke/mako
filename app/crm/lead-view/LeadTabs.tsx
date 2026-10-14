@@ -6,7 +6,7 @@
 // Genérico: recibe la lista de tabs con su contenido (ReactNode, server
 // components incluidos). Lo usan la ruta /crm/[id] y el modal de preview.
 
-import { useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 
 const SANS = "'Geist', sans-serif";
 
@@ -17,7 +17,7 @@ export type LeadTabDef = {
   badge?: number;
 };
 
-export function LeadTabs({ tabs, initial, onChange, actions, fija }: {
+export function LeadTabs({ tabs, initial, onChange, actions, fija, irA }: {
   tabs: LeadTabDef[];
   initial?: string;
   onChange?: (key: string) => void;
@@ -36,12 +36,24 @@ export function LeadTabs({ tabs, initial, onChange, actions, fija }: {
    * con `overflow`: la raíz de LeadTabs no lleva ninguno.
    */
   fija?: { fondo: string };
+  /**
+   * Cambiar de tab DESDE AFUERA: «solucionar» un dato sin marcar lleva a la tab donde vive su
+   * campo (13/10/2026). `n` cambia en cada pedido, así pedir dos veces la misma tab vuelve a
+   * correr el efecto aunque ya se esté ahí.
+   */
+  irA?: { key: string; n: number } | null;
 }) {
   const initKey = initial && tabs.some((t) => t.key === initial) ? initial : tabs[0]?.key ?? '';
   const [tab, setTab] = useState<string>(initKey);
   // Las tabs ya visitadas quedan MONTADAS (ocultas con display:none): cambiar de
   // tab no descarta estado del cliente (insight recién generado, chat cargado).
   const [visitadas, setVisitadas] = useState<string[]>([initKey]);
+  useEffect(() => {
+    if (!irA || !tabs.some((t) => t.key === irA.key)) return;
+    setTab(irA.key);
+    setVisitadas((v) => (v.includes(irA.key) ? v : [...v, irA.key]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sólo cuando llega un pedido nuevo
+  }, [irA?.n]);
 
   const tabBtn = (active: boolean): CSSProperties => ({
     position: 'relative', padding: '11px 2px', marginRight: 22, border: 'none', background: 'transparent',

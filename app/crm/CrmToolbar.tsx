@@ -46,6 +46,7 @@ import { BANDAS_KANBAN } from './filtros-guardados';
 // El CUBO del desplegable de funnels (punto 24): el ícono `producto` del set de los menús, el
 // mismo que dibuja un funnel en el resto de la app. No se dibuja uno propio.
 import { IconoMenu } from '@/app/_ui/iconos-menu';
+import { AvisosDatosModal } from './lead-view/AvisosDatosModal';
 
 const SANS = "'Geist', sans-serif";
 
@@ -285,6 +286,10 @@ export function AccionesHeader({ onImportar, onExportar, onNuevo, onEditarEtapas
   onEditarEtapas: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  // «De qué datos te avisa MaKo» (13/10/2026: «en el título del desplegable como en los 3 puntos
+  // de la tab CRM una opción para configurar esto»). El MISMO modal que el engranaje de la ficha.
+  const [avisos, setAvisos] = useState(false);
+  const router = useRouter();
   useEscape(open, () => setOpen(false));
   // El estado vive acá arriba, no dentro del panel: colgado del panel, cada vez que se
   // abre el menú saldría un GET nuevo a /api/crm-auto.
@@ -336,6 +341,9 @@ export function AccionesHeader({ onImportar, onExportar, onNuevo, onEditarEtapas
             <MenuItem icon={<FunnelIcon size={15} />} label="Editar las etapas"
               desc="Cambia el nombre, el orden y cuáles hay"
               onClick={() => { setOpen(false); onEditarEtapas(); }} />
+            <MenuItem icon={<IconoMenu nombre="avisar" size={15} />} label="Avisos de datos sin marcar"
+              desc="Elige de qué datos te avisa MaKo"
+              onClick={() => { setOpen(false); setAvisos(true); }} />
             {/* ⚠️ EL DIVISOR VA ADENTRO DE LA CONDICIÓN. Suelto, el que no es admin
                 (para quien /api/crm-auto responde 403 y `on` queda en null) vería una
                 rayita separando la nada — que es exactamente lo que pasaba en el header
@@ -354,6 +362,7 @@ export function AccionesHeader({ onImportar, onExportar, onNuevo, onEditarEtapas
           </div>
         </>}
       </span>
+      {avisos && <AvisosDatosModal onCerrar={() => setAvisos(false)} onGuardado={() => router.refresh()} />}
     </div>
   );
 }

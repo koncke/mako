@@ -231,8 +231,9 @@ test('un clic en cualquier parte de la tarjeta abre el campo, y un clic de un po
     ['app/crm/lead-view/MotivoYPlazoCard.tsx', 2],
     ['app/crm/lead-view/CalificacionCard.tsx', 1],
   ];
-  for (const [f, n] of usos) assert.equal((fuente(f).match(/<CajaCampo style=/g) ?? []).length, n, f);
-  assert.match(fuente('app/crm/lead-view/InfoPrincipalCard.tsx'), /editable \? <CajaCampo style=\{celda\}>/);
+  // (Desde el 13/10/2026 una caja puede llevar `marca`: lo que busca «solucionar» un dato sin marcar.)
+  for (const [f, n] of usos) assert.equal((fuente(f).match(/<CajaCampo (?:marca=\{[^}]*\} )?style=/g) ?? []).length, n, f);
+  assert.match(fuente('app/crm/lead-view/InfoPrincipalCard.tsx'), /editable \? <CajaCampo style=\{celda\}(?: marca=\{marca\})?>/);
 });
 
 // ── 4 · Las notas (punto 17) ─────────────────────────────────────────────────

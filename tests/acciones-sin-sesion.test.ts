@@ -52,6 +52,19 @@ test('el proxy usa esPublicaSoloLeer en la rama pública', () => {
   assert.match(rama, /\['GET', 'HEAD', 'OPTIONS'\]/);
 });
 
+// Desde el 13/10/2026 «A revisar» monta las de los datos sin marcar (ignorar un dato, qué avisa).
+// Probado rompiéndolo: sin `haySesion()` en ignorarDatoAction, 1 fallo.
+test('las acciones de «A revisar» (datos sin marcar) exigen sesión adentro', () => {
+  const src = sinComentarios(leer('app/crm/datos-sin-marcar-actions.ts'));
+  for (const fn of ['ignorarDatoAction', 'avisosDatosAction', 'guardarAvisosDatosAction']) {
+    const ini = src.indexOf(`export async function ${fn}`);
+    assert.ok(ini >= 0, `no encontré ${fn}`);
+    const fin = src.indexOf('\nexport ', ini + 10);
+    const cuerpo = src.slice(ini, fin < 0 ? undefined : fin);
+    assert.match(cuerpo, /haySesion\(\)/, `${fn} tiene que cortar sin sesión: la monta el layout y su id viaja en todas las páginas`);
+  }
+});
+
 test('las acciones del layout (confirmaciones de MaKo) exigen sesión adentro', () => {
   const src = sinComentarios(leer('app/crm/mako-confirm-actions.ts'));
   for (const fn of ['listConfirmacionesAction', 'resolverConfirmacionAction']) {

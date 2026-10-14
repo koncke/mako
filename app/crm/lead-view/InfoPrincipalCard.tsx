@@ -26,6 +26,7 @@ import { saveLeadMetaAction } from '../actions';
 import { hrefDeWeb } from '@/lib/contacto-lead';
 import { linkInstagram, usuarioInstagram } from '../campo-inline';
 import { CajaCampo, InstagramEditable, MontoEditable, TelefonoEditable } from './CampoEditable';
+import { marcaDato } from '@/lib/datos-aviso';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -101,7 +102,7 @@ function EnviarNoOficial({ leadId, nombre, telefono }: { leadId: number; nombre:
 /** El recuadro de cada dato: el mismo en las celdas que copian y en las que no. */
 const celda: CSSProperties = { display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 15px' };
 
-function Row({ label, value, copyKey, copied, onCopy, extra, onGuardar, editor, copiable = true }: {
+function Row({ label, value, copyKey, copied, onCopy, extra, onGuardar, editor, copiable = true, marca }: {
   label: string; value: string | null; copyKey: string; copied: string;
   onCopy: (text: string, key: string) => void; extra?: ReactNode;
   /** Presente = el valor se corrige acá mismo. Ausente = solo se copia. */
@@ -110,6 +111,8 @@ function Row({ label, value, copyKey, copied, onCopy, extra, onGuardar, editor, 
   editor?: ReactNode;
   /** El botón de copiar. Sin él para lo que no se pega en otro lado (el ingreso estimado). */
   copiable?: boolean;
+  /** Lo que busca «solucionar» un dato sin marcar (`data-recorrido`). */
+  marca?: string;
 }) {
   const has = !!value?.trim();
   const iconBtn: CSSProperties = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', cursor: 'pointer', flex: 'none' };
@@ -154,7 +157,7 @@ function Row({ label, value, copyKey, copied, onCopy, extra, onGuardar, editor, 
       {has && extra}
     </>
   );
-  return editable ? <CajaCampo style={celda}>{contenido}</CajaCampo> : <div style={celda}>{contenido}</div>;
+  return editable ? <CajaCampo style={celda} marca={marca}>{contenido}</CajaCampo> : <div style={celda} data-recorrido={marca}>{contenido}</div>;
 }
 
 export function InfoPrincipalCard({ leadId, nombre, empresa, email, telefono, web = null, cohorte, ingresoEstimado, instagram }: {
@@ -270,7 +273,7 @@ export function InfoPrincipalCard({ leadId, nombre, empresa, email, telefono, we
       {/* 2×2 fijo (nombre|empresa / teléfono|email) — nunca 3 arriba y 1 abajo. */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '16px 24px' }}>
         <Row label="Nombre" value={nombre} copyKey="nombre" copied={copied} onCopy={copy} onGuardar={guardar('nombre', nombre)} />
-        <Row label="Empresa" value={empresa} copyKey="empresa" copied={copied} onCopy={copy} onGuardar={guardar('empresa', empresa)} />
+        <Row label="Empresa" value={empresa} copyKey="empresa" copied={copied} onCopy={copy} onGuardar={guardar('empresa', empresa)} marca={marcaDato('empresa')} />
         {/* ⚠️ EL TELÉFONO SE EDITA CON EL PAÍS PRIMERO (punto 5 del 12/10/2026): «siempre en todos
             lados que pida telefono, primero tiene que ir la numeración que ya tenemos con las
             banderas». `TelefonoEditable` no reescribe el formato guardado si los dígitos no
@@ -278,6 +281,7 @@ export function InfoPrincipalCard({ leadId, nombre, empresa, email, telefono, we
             deshacer y su línea en el historial). */}
         <Row
           label="Teléfono"
+          marca={marcaDato('telefono')}
           value={telefono && telefono !== '—' ? telefono : null} copyKey="tel" copied={copied} onCopy={copy}
           editor={<TelefonoEditable valor={telefono && telefono !== '—' ? telefono : null} onGuardar={guardar('telefono', telefono)} />}
           extra={telefono && telefono !== '—' ? <EnviarNoOficial leadId={leadId} nombre={nombre} telefono={telefono} /> : null}

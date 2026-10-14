@@ -140,11 +140,14 @@ test('el pop-up tiene el desplegable de producto, y las dos puertas muestran el 
 });
 
 // ── 5. Sin «Reactivar» ─────────────────────────────────────────────────────────
+// ⚠️ EL 13/10/2026 MARTÍN PIDIÓ IGNORAR CADA DATO DESDE LA FICHA («en ese desplegable... otro
+// ícono para "ignorar"»), así que «ignorado» ya no está prohibido acá. Lo que sigue prohibido es
+// el «Reactivar» del 06/10: el renglón no cambia de botón, dice «Ver →» siempre.
 test('el aviso de datos sin marcar es siempre el mismo: sin «Reactivar»', () => {
   const card = sinComentarios(leer('app/crm/lead-view/DatosSinMarcarCard.tsx'));
-  assert.doesNotMatch(card, /Reactivar|onReactivar|ignorado/);
+  assert.doesNotMatch(card, /Reactivar|onReactivar/);
   for (const f of ['app/crm/LeadSheet.tsx', 'app/crm/[id]/LeadDetailBody.tsx']) {
-    assert.match(sinComentarios(leer(f)), /<DatosSinMarcarCard faltantes=\{faltantes\} onSolucionar=\{solucionar\} \/>/);
+    assert.match(sinComentarios(leer(f)), /<DatosSinMarcarCard leadId=\{lead\.id\} datos=\{datos\} onSolucionar=\{solucionarDato\}/);
   }
 });
 

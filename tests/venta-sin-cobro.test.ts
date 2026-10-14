@@ -104,7 +104,7 @@ test('los CUATRO caminos que arman los valores pasan el tipo de venta', () => {
   // esa pantalla (docs/hallazgos-crm.md, «El worklist no bajaba la columna»).
   const leads = fuente('lib/leads.ts');
   assert.match(bloque(leads, 'export function faltantesParaMover('), /ventaTipo:\s*lead\.venta_tipo/, 'faltantesParaMover (MaKo, crons)');
-  assert.match(bloque(leads, 'export function faltantesDeLead('), /ventaTipo:\s*lead\.venta_tipo/, 'faltantesDeLead («Datos sin marcar»)');
+  assert.match(bloque(leads, 'function requisitosDeLead('), /ventaTipo:\s*lead\.venta_tipo/, 'faltantesDeLead («Datos sin marcar»)');
   // El wizard: el tipo EFECTIVO, lo recién elegido gana sobre lo guardado.
   assert.match(bloque(fuente('app/crm/actions.ts'), 'function valoresDeRequisitos('),
     /ventaTipo:\s*d\.ventaTipo \?\? before\?\.venta_tipo/, 'valoresDeRequisitos (lo que el server exige)');
