@@ -313,4 +313,16 @@ export const BITACORA: Hito[] = [
     pedido: 'Creo que no se pusheó, porque aún no veo lo de «¿Qué vas a crear hoy?»...\n\nTambién te pido que implementes el click derecho en toda la tab, con diferentes acciones... Y que el botón de la IA de MaKo NO se abra al estar en modo edición, sino que se pueda editar allí justamente... Que se pueda editar el prompt, lo que debe responder, eliminar el botón de IA de ese grafico, etc... Y por favor, borra ese botón de la mayoría de gráficos, es muy molesto que esté en todos. Se selectivo.',
     puntos: ['No se había pusheado: el typecheck del pre-push no tenía RAM para correr (no era un error de tipos).'],
   },
+  {
+    fecha: '13 oct', hora: '23:58', chat: CH, cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Clic derecho en toda la tab, y el botón de MaKo sólo donde suma y editable en el lugar',
+    puntos: [
+      'El botón de MaKo sale de entrada sólo en las tendencias por día, semana o mes, los embudos y la dispersión: en las plantillas, 21 de 157 gráficos.',
+      'Editando, su clic abre qué tiene que responder, las preguntas sugeridas y «Quitar el botón». Mirando, abre el chat como siempre.',
+      'Clic derecho en el lienzo, un gráfico o un texto, mirando y editando, con las acciones de cada lugar. En un campo de texto sigue el del navegador.',
+      'La API de MaKo puede cambiar lo que responde el botón (`pedido_mako`).',
+    ],
+    commits: [{ sha: '25bd67c', msg: 'Dashboard: clic derecho en toda la tab, y el botón de MaKo selectivo y editable en el lugar', lineas: 597, archivos: 20 }],
+    archivos: ['lib/graficos-catalogo.ts', 'app/dashboard/MenuContextual.tsx', 'app/dashboard/EditorMako.tsx', 'app/dashboard/EditorInforme.tsx', 'lib/api-mako/areas/dashboard.def.ts', 'tests/dashboard-mako-contextual.test.ts'],
+  },
 ];
