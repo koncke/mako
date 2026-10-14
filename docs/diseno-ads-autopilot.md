@@ -155,7 +155,17 @@ cuarta sub-tab: el ternario de `CampanasBrowser` la trataría como Anuncios.
 
 ## Lo que queda afuera, con su archivo
 
-- Filmar variaciones de hook solas: depende del pipeline de video sin sesión (app/video-generator/video-action.ts).
+- **Filmar variaciones de hook solas: es de «Content Machine»** (lo aceptó el 14/10, y también el
+  contrato: `lib/video-variaciones.ts` con `pedirVariacionesHook(ws, { planId, toma, n })` y
+  `estadoVariaciones(ws, planId)`, sin reintento de lo que gasta créditos). Tiene cuatro bloqueos,
+  en este orden: (1) el puente no trae el video del Flow nuevo (`mediaDeFlow` da null con el payload
+  posicional de BOQ), (2) mudar el núcleo de `generarTomaAction`/`estadoTomaAction` a `lib/` con el ws
+  explícito y un cron que lo avance, (3) un generador de N ganchos y una tabla propia para las
+  variaciones (el historial topea en 10), (4) el worker de montaje, sólo si la variación sale como
+  anuncio completo (encenderlo es decisión de infra y de plata de Martín). Lo que ya está: una
+  variación guardada como toma con url aparece sola en «Mis creativos» (`creativosDeTomas`). ⚠️ Filmar
+  no necesita la pantalla de MaKo, pero sí el navegador del cliente con la extensión y una pestaña de
+  Flow: sin puente conectado la variación espera, y la decisión «material» tiene que poder decirlo.
 - Gasto de HOY: no hay lectura intradía (app/api/entity-insights/route.ts es por entidad).
 - `ads_management` de la app MaKo: en revisión de Meta; el Autopilot escribe sólo donde el token tenga el permiso.
 - Los flujos todavía pueden correr `proponer_presupuesto_*` sin tope (lib/api-mako/flujo.ts no mira `costo`): anotado en docs/hallazgos-planes-y-cobro.md; es del núcleo de la API.
