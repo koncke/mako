@@ -5338,3 +5338,51 @@ de la noche del 08/10 y `tests/modal-foco.test.ts`: `/admin/dev/customer-success
 - **El renombrar, el menú «…» y la obligatoria no revalidan** (el Atrás puede mostrarlos viejos): se dejó a
   propósito; revalidar cada acción inmediata hace parpadear el editor.
 - **Nada de esto se abrió en la app real**: el ws3 sigue con 0 productos. · *2026-10-13 Customer Success*
+
+---
+
+## El goteo atado al kanban, verificado de punta a punta en el ws3; y el curso se llama como su OFERTA (13/10/2026)
+
+Martín, por «Estrategia 3 CUENTAS»: «pasale todos los feedback de las 3 reuniones a los chats y diles que
+lo implementen completo... De punta a punta». A esta área le tocó: Mauricio va a probar la liberación de
+clases atada al movimiento de tarjetas (Fathom 858473424 @30:53), y antes había que comprobar que anda.
+
+**Funciona, y no hubo nada que arreglar.** Se probó con las MISMAS funciones que usa la app, en el ws3:
+`crearProductoConFunnel` → `crearClase` en tres etapas → `createLead` → `moverClienteDeEtapa` (el choke
+point que llama el arrastre del kanban, `app/customer-success/actions.ts:497`) → `armarVistaAlumno` y
+`claseDelAlumno` (lo que lee el portal, que es `force-dynamic`: no hay caché que tape el cambio). Mover la
+tarjeta abre la etapa; `guardarTarea` + `alEnviarTarea` (la ruta del alumno) con la tarea obligatoria
+mueve la tarjeta solo y abre la siguiente. **La pantalla no se miró**: con la RAM en zona roja no se
+levantó ni el dev server ni Chrome.
+
+**Dos comportamientos que no son bugs y van a sorprender** (los dos por diseño, D2):
+- **Un candado propio en un módulo-etapa REEMPLAZA a la etapa.** «Público» lo abre para todos; en
+  Privado, «A mano» o «Días después de entrar» hacen que llegar a la etapa no abra nada. Medido: con «A
+  mano», el módulo quedó cerrado con la tarjeta en su etapa.
+- **Mover la tarjeta hacia atrás vuelve a cerrar lo de adelante**: el estado de una etapa sale de su
+  POSICIÓN (`estadosDeEtapas`), no de un registro de lo que ya se abrió.
+
+**El fixture queda en el ws3**, que hasta hoy tenía cero productos y era la razón por la que nada del
+curso se había visto en la app real: producto 43 «Prueba goteo kanban» (oferta 16, embudo 30), lead 2664
+sin teléfono ni email, clases 165-167. El script vive en el scratchpad de la sesión; el método es la
+cadena de funciones de arriba.
+
+**El curso se llama como su OFERTA** (`lib/curso-nombre.ts`, b8b7c735). Martín, por el CRM: «los cursos
+deberían tener el nombre de una OFERTA». Orden: el título puesto a mano; si no, la oferta principal si hay
+UNA activa; si no, el producto. Con dos principales distintas no se adivina. Medido en prod: 12 productos
+con una principal, 9 con ninguna, ninguno con dos; y hoy nadie ve un cambio (el ws1 ya tenía puesto a mano
+el mismo nombre que su oferta). ⚠️ El lector (`nombresDeCursos`) devuelve el nombre SIN el título a mano
+salvo con `conTitulo`: el editor y el portal lo dibujan encima, y si viniera adentro, borrar el título
+dejaría el viejo hasta recargar.
+
+**Vive en:** `lib/cs-mover-etapa.ts` · `lib/curso-portal.ts` · `lib/curso-bloqueo.ts` · `lib/curso-avance.ts` ·
+`lib/curso-nombre.ts` · `lib/curso-nombre-datos.ts` · `app/customer-success/curso/bloqueo-editor.ts`
+
+### Lo que quedó SIN hacer
+
+- **El mail de invitación** sigue nombrando el curso por el producto (`depsReales.cursos`,
+  `lib/curso-invitar.ts`): el archivo lo tiene abierto la sesión CURSOS y se le pasó el cambio.
+- **Mirarlo en la pantalla** con el fixture del ws3.
+- **Rojos ajenos medidos el 13/10 ~20:30**, sobre archivos sin commitear de otras sesiones:
+  `tests/curso-apariencia.test.ts` (dos, sobre `app/_cursos/fuentes.ts`) y `tests/curso-invitar-reglas.test.ts`
+  («la invitación a UN producto…», sobre `lib/curso-invitar.ts`). · *2026-10-13 Customer Success*

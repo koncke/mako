@@ -42,6 +42,59 @@ Conocimientos: `app/_cursos/CursoUgc.tsx`.
 
 ---
 
+## ★ Para la reunión de cierre de Customer Success: viernes 16/10, 4 PM de México
+
+Se lee en cinco minutos. Medido el 13/10/2026; lo que no se midió, lo dice.
+
+### Lo que quedó CERRADO en la etapa
+
+- **El curso vive en MaKo**: el negocio lo arma en la tab Curso y el alumno lo ve en un portal
+  personal, con su link, **sin cuenta de MaKo**. Whop salió del producto.
+- **Módulos y candados**: cada etapa del kanban es un módulo, y además hay módulos sueltos. Un
+  módulo o una clase se abre al llegar a su etapa, al terminar el anterior, N días después de
+  entrar, en una fecha, con la tarea de otra clase, con un nivel de la comunidad o a mano.
+- **El goteo atado al kanban, VERIFICADO DE PUNTA A PUNTA el 13/10 en el ws3** (lo que va a probar
+  Mauricio, ver abajo): mover la tarjeta abre la etapa en el portal, y mandar las tareas
+  obligatorias de la etapa mueve la tarjeta solo y abre la siguiente.
+- **La comunidad tipo Skool** por producto (posts, comentarios, niveles, ranking, eventos,
+  moderación) y los comentarios por clase.
+- **El acceso por producto**: cada alumno ve sólo los cursos a los que se lo invitó.
+- **La invitación** por mail (con el remitente del negocio) y, si se elige, por WhatsApp.
+- **El editor**: la lección se guarda a mano con aviso al salir, papelera con Deshacer, tareas en
+  contenedores con quiz, escala, archivos, audio y agenda, videos por embed.
+- **El nombre del curso sale de su OFERTA** (13/10), ya no del CRM.
+
+### Lo que FALTA
+
+- **Decisiones de Martín**: las de §6 (Leandro, Brigitte, el PAS, Teresa, las correctas del quiz,
+  «+ Nuevo campo», reabrir el tutorial, fuente en Conocimientos, autoplay de Panda, ideas).
+- **Que alguien lo vea en la pantalla**: todo se verificó con las funciones reales o en bancos de
+  prueba, nunca clickeando la app andando. Desde el 13/10 hay con qué: el fixture del ws3 (abajo).
+- **De otros chats**: el buscador de leads en cualquier etapa al invitar y el mail que nombra el
+  curso por su oferta los hace **CURSOS**; la invitación al ganar en un producto agregado, el **CRM**.
+- **Las ventas no son código**: el upsell a Teriyaki y los tres upsells de Mauricio son tareas suyas
+  de venta, y las carga el Perro Guardián.
+
+### Para la prueba de Mauricio del goteo (Fathom 858473424 @30:53)
+
+- **Cómo se configura**: tab Curso → el «…» del módulo → «Público | Privado». Un módulo que es una
+  etapa del kanban arranca en **Privado → «Se abre: Al llegar a su etapa»**: no hay que tocar nada
+  para que el kanban libere.
+- ⚠️ **Si elige «Público», se abre para todos sin mirar la etapa**; y si en Privado elige otra
+  condición («A mano», «Días después de entrar»…), **la etapa deja de importar**: llega la tarjeta
+  y sigue cerrado. Medido: con «A mano» quedó cerrado estando en su etapa.
+- ⚠️ **Mover la tarjeta HACIA ATRÁS vuelve a cerrar** lo de adelante (el estado sale de la posición).
+- ⚠️ **Que pruebe con un cliente de prueba, no con uno real**: en el ws1 el WhatsApp está prendido,
+  y mover una tarjeta enrola en las secuencias de entrega de esa etapa (si tiene), y completar una
+  etapa le avisa al alumno por WhatsApp. En el ws3 ese aviso no salió («envío de WhatsApp
+  apagado»). Lo del ws1 está heredado de un briefing anterior; no lo volví a medir.
+- **El fixture del ws3** (Cliente de Prueba): producto 43 «Prueba goteo kanban» (oferta 16, embudo
+  30), alumno lead 2664 «Alumno de prueba goteo» (sin teléfono ni email: no le sale nada), clases
+  165 (Onboarding, obligatoria con una tarea ya enviada), 166 (Arranque) y 167 (Hito 1). Hoy está
+  en «Arranque».
+
+---
+
 ## 0. 13/10/2026: lo planificado que se cerró, y lo que sigue
 
 Pedido de Martín (por «Estrategia 3 CUENTAS»): «dile a esos chats que continúen y cierren lo que ya
