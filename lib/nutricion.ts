@@ -82,6 +82,7 @@ import { OP_AVISAR, puedePisarFlujo } from '@/lib/flujo-legado';
 import {
   indiceActual, siguienteIndice, resolverControl, necesitaHechos, alcanzablesDesde, esPrimerPaso, minutosAntesDeReunion,
   saleSolo, siguienteSin, siguienteCon, hechosDeLead, esTablaInexistente, mediaDeAdjunto, camposDelFlujo, pasoDeEntrada,
+  condicionDeArriba, condicionSigueLlevando,
   esNodoDeControl, RELLENO_CONTROL, TOPE_SALTOS, esColumnaInexistente, etiquetasQueCuentan, barridoInscribe, irAEstaMisma,
   avisoSalio, frenadoPorAntiBan, anotarEnCorrida,
   filasDelFlujo, catalogoDeLead, resumenCursoDeAlumno, resumenPagos,
@@ -3963,7 +3964,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         // `pausarPorRespuesta` hace con todo lo demás. Fuera del horario, no se toca: sale al abrir.
         if (enRespuesta) {
           await escribir(insc, { estado: 'completada', proximo_envio_at: null }, { modo: 'cas' });
-          res.detalle.push({ lead_id: insc.lead_id, canal: pasoLeido.canal, estado: 'saltado', nota: 'el lead contestó: sólo siguen los recordatorios' });
+          res.detalle.push({ lead_id: insc.lead_id, canal: pasoLeido.canal, estado: 'saltado', nota: 'el lead contestó: este camino se corta' });
         }
         continue;
       }
@@ -4079,6 +4080,29 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         }
         insc.paso_actual = idxLeido;
         insc.nodo_actual = idDe(pasoLeido, idxLeido);
+      }
+      // ── LA CONDICIÓN DE ARRIBA, OTRA VEZ (14/10/2026, §2.2 del plan «nada por detrás») ─────────
+      // La fila despertó PARADA en un mensaje (un reintento, un borrador que esperaba, el anti-ban, el horario): la
+      // condición que está justo arriba se vuelve a evaluar con los hechos de ahora. Si ya no lleva acá, este camino
+      // termina, con su rastro. Así «Su reunión sigue en pie» delante del mensaje vale también para el reintento, y la
+      // guarda escondida «la reunión ya pasó» se puede borrar (docs/diseno-mako-nada-por-detras.md §2.3).
+      if (!esNodoDeControl(pasoLeido)) {
+        const idxCond = condicionDeArriba(sec.pasos, insc.paso_actual);
+        if (idxCond != null) {
+          const leidos = await hechosDe(insc.lead_id);
+          const hechos = leidos ? conEtapasDelCron(leidos, sec.disparadores ?? disparadoresDe(sec), sec.funnel_id ?? null) : null;
+          if (hechos && !condicionSigueLlevando(sec.pasos, idxCond, insc.paso_actual, hechos)) {
+            const ahora = sec.pasos[insc.paso_actual];
+            if (await escribir(insc, { estado: 'completada', proximo_envio_at: null }, { modo: 'cas', alcance: 'hilo' })) {
+              res.omitidos += 1;
+              await anotarCierreSinEnvio(insc, ahora, lead, 'la condición de arriba ya no lleva a este mensaje');
+              res.detalle.push({ lead_id: insc.lead_id, canal: ahora.canal, estado: 'omitido', nota: 'la condición de arriba ya no lleva a este mensaje' });
+            } else {
+              res.detalle.push({ lead_id: insc.lead_id, canal: ahora.canal, estado: 'saltado', nota: 'otra corrida ya movió esta inscripción' });
+            }
+            continue;
+          }
+        }
       }
       // El nodo que se manda o se corre: el que se leyó, o al que llegó la resolución de arriba
       // (las dos ramas dejaron `paso_actual` en su índice).

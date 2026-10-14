@@ -384,6 +384,36 @@ export function minutosAntesDeReunion(pasos: readonly PasoGrafo[], idx: number):
   return max;
 }
 
+// ── LA CONDICIÓN DE ARRIBA, OTRA VEZ ANTES DE MANDAR (14/10/2026, §2.2 de docs/diseno-mako-nada-por-detras.md) ──
+// Un mensaje que no sale en la corrida en que se llegó a él (un fallo que reintenta en 4 o 24 h, un borrador que espera,
+// el anti-ban, el horario) queda parado EN el mensaje: la condición de arriba ya no se vuelve a mirar. Por eso existía la
+// guarda escondida «la reunión ya pasó» (el caso del 25/09: con la línea caída, el reintento empujó la preparación
+// hasta DESPUÉS de la reunión). Para borrarla y que lo decida una condición VISIBLE (Martín: «jamás que "mako" haga
+// cosas que no están en el flujo»), antes de mandar se vuelve a evaluar la condición que está JUSTO arriba.
+
+/**
+ * La CONDICIÓN que está justo arriba del mensaje `idx` (su único padre), o null. Basta un nivel: dos condiciones
+ * seguidas no se pueden guardar (`problemasDeForma`). Con dos padres (dos caminos que llegan) no se elige: null.
+ */
+export function condicionDeArriba(pasos: readonly PasoGrafo[], idx: number): number | null {
+  const p = pasos[idx];
+  if (!p) return null;
+  const padres = padresSinVuelta(pasos, idDe(p, idx));
+  if (padres.length !== 1) return null;
+  const i = indicePorId(pasos, padres[0].id);
+  return i >= 0 && claseDe(pasos[i]) === 'condicion' ? i : null;
+}
+
+/** ¿La condición `idxCondicion`, evaluada con los hechos de AHORA, sigue llevando al mensaje `idx`? (Su salida o sus flechas en paralelo.) */
+export function condicionSigueLlevando(pasos: readonly PasoGrafo[], idxCondicion: number, idx: number, hechos: HechosLead): boolean {
+  const c = pasos[idxCondicion];
+  const p = pasos[idx];
+  if (!c || !p) return false;
+  const id = idDe(p, idx);
+  const s = elegirSalida(c, hechos);
+  return s.destino === id || paralelosDeResultado(c, s.puerto).includes(id);
+}
+
 // ── EL CARRIL DEL RECORDATORIO (undécima tanda, M3 y M4) ────────────────────────────
 // Pedido de Martín (11/10/2026, punto 8): «"Recordatorio de reunión" NO debería ser un flujo aparte, para eso ya
 // tenemos el flujo de "Agendó reunión", los recordatorios se pueden configurar allí mismo con DELAY». El
