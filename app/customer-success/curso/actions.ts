@@ -152,9 +152,9 @@ export async function guardarEstiloCursoAction(productoId: number, ajuste: Ajust
     if (!a) return { ok: false, error: 'Ese ajuste no existe.' };
     const ajeno = await productoPropio(Number(productoId));
     if (ajeno) return { ok: false, error: ajeno };
-    // La portada de una clase se ata a una clase de ESE producto: un id ajeno dejaría una fila
-    // basura que nadie dibuja (y que nombra una clase de otro curso).
-    if (a.tipo === 'portada-clase' && !(await claseEsDelProducto(a.clase, Number(productoId)))) {
+    // La portada y los comentarios de una clase se atan a una clase de ESE producto: un id ajeno dejaría
+    // una fila basura que nadie dibuja (y que nombra una clase de otro curso).
+    if ((a.tipo === 'portada-clase' || a.tipo === 'comentarios-clase') && !(await claseEsDelProducto(a.clase, Number(productoId)))) {
       return { ok: false, error: 'Esa clase ya no existe.' };
     }
     const u = await getUsuarioActual();

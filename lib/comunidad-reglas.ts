@@ -475,7 +475,7 @@ export function puedeComentarLaClase(p: {
   /** El producto de la clase, o `null` si no existe (borrada, en la papelera o de otro negocio). */
   productoDeLaClase: number | null;
   productoDelActor: number;
-  /** Sólo alumno: el ajuste «Comentarios en las clases» del curso (lib/curso-estilo.ts). */
+  /** Sólo alumno: los comentarios de ESTA clase, prendidos en su «…» (lib/curso-estilo.ts, `comentariosClase`). */
   comentariosPrendidos: boolean;
   /** Sólo alumno: la clase se le ABRE (la decisión del portal fue `ok` y está abierta). */
   abiertaParaElAlumno: boolean;

@@ -242,7 +242,8 @@ test('al alumno sólo le viajan las portadas de las clases que ve (no las de una
   assert.match(sinComentarios(leer('app/customer-success/curso/vista/page.tsx')), /estilo: estiloQueViaja\(/);
   // Desde el 08/10/2026 borrar una clase la manda a la PAPELERA (mig 0223) y su portada se borra cuando
   // la PURGA la borra de verdad: el «Deshacer» la tiene que devolver con su portada.
-  assert.match(sinComentarios(leer('lib/curso-papelera.ts')), /from\('curso_estilo'\)\.delete\(\)[^;]*\.eq\('clave', `portada:clase:\$\{c\.id\}`\)/,
+  // (14/10/2026: con sus comentarios, que también son un ajuste de estilo de la clase.)
+  assert.match(sinComentarios(leer('lib/curso-papelera.ts')), /from\('curso_estilo'\)\.delete\(\)[^;]*\.in\('clave', \[`portada:clase:\$\{c\.id\}`, `comentarios:clase:\$\{c\.id\}`\]\)/,
     'purgar una clase borra su portada');
 });
 

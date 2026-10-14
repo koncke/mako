@@ -32,11 +32,12 @@ test('el menú de un módulo y el de una clase tienen la MISMA forma: lo de arri
   assert.deepEqual(seccionesDelMenu('modulo'), [ARRIBA, ['acceso'], ['kanban'], ['eliminar']]);
   // «Obligatoria para avanzar» (audio del 08/10/2026, item 7) va ADENTRO de la sección del acceso de la clase:
   // el orden de Martín sigue siendo arriba | acceso | eliminar.
-  assert.deepEqual(seccionesDelMenu('clase'), [ARRIBA, ['acceso', 'obligatoria'], ['eliminar']]);
-  // Lo que no es del kanban es IGUAL en los dos, en el mismo orden: el de la clase es el del módulo
-  // sin la sección del kanban (y con la obligatoria, que es sólo de una clase).
+  // «Comentarios» (14/10/2026) lleva su sección donde el módulo lleva la del kanban: lo propio de cada uno.
+  assert.deepEqual(seccionesDelMenu('clase'), [ARRIBA, ['acceso', 'obligatoria'], ['comentarios'], ['eliminar']]);
+  // Lo que no es propio es IGUAL en los dos, en el mismo orden: el de la clase es el del módulo sin la
+  // sección del kanban, y sin la de los comentarios ni la obligatoria, que son sólo de una clase.
   assert.deepEqual(seccionesDelMenu('modulo').filter((s) => !s.includes('kanban')),
-    seccionesDelMenu('clase').map((s) => s.filter((k) => k !== 'obligatoria')));
+    seccionesDelMenu('clase').filter((s) => !s.includes('comentarios')).map((s) => s.filter((k) => k !== 'obligatoria')));
 });
 
 // ── Lo que se DIBUJA ─────────────────────────────────────────────────────────
@@ -77,6 +78,20 @@ test('el menú de un MÓDULO se dibuja en ese orden, con la línea entre seccion
 test('el menú de una CLASE se dibuja igual, sin la sección del kanban', () => {
   assert.deepEqual(renglones(dibujarClase()),
     ['Renombrar', 'Portada', 'Mover antes', 'Mover después', '|', 'Acceso', '|', 'Eliminar clase']);
+});
+
+// 14/10/2026: «la opción de comentarios no debería ir allí [el menú de la marca], debería ir en la edición
+// de cada clase». Un interruptor con su sección, donde el módulo lleva la del kanban.
+test('«Comentarios» en el menú de la clase: su propia sección, antes de eliminar, y se prende ahí mismo', () => {
+  const pedidos: boolean[] = [];
+  const c = (prendidos: boolean) => ({ prendidos, onCambiar: (v: boolean) => { pedidos.push(v); } });
+  assert.deepEqual(renglones(dibujarClase({ comentarios: c(false) })),
+    ['Renombrar', 'Portada', 'Mover antes', 'Mover después', '|', 'Acceso', '|', 'Comentarios', '|', 'Eliminar clase']);
+  assert.match(dibujarClase({ comentarios: c(true) }), /role="switch" aria-checked="true" class="cu-menu-switch"(?![^>]*disabled)[^>]*>\s*<span class="cu-menu-switch-t">Comentarios<\/span>/);
+  assert.match(dibujarClase({ comentarios: c(false) }), /role="switch" aria-checked="false" class="cu-menu-switch"[^>]*>\s*<span class="cu-menu-switch-t">Comentarios<\/span>/);
+  // Sin el estilo leído no se dibuja (no se edita encima de algo que no se pudo leer), y el módulo no lo tiene.
+  assert.doesNotMatch(dibujarClase(), /Comentarios/);
+  assert.doesNotMatch(dibujarModulo(), /Comentarios/);
 });
 
 // Audio del 08/10/2026, item 7 (13:00): «ese botón tal vez no se debería configurar ahí [en la tarea], sino
@@ -225,3 +240,9 @@ test('cada gesto de la estructura ofrece «Deshacer», y deshacer vuelve a escri
 // Sexta tanda, segunda pasada (09/10/2026, parte «barrido»): los renglones llevan su ícono del set de la
 // casa y la aserción de «Eliminar módulo» admite el <svg> antes del texto. Base 10 / 0 con el ícono puesto;
 // sacando el `disabled` de la entrada (el bug que la aserción caza) → 9 / 1, igual que antes del ícono.
+
+// Probado rompiéndolo el 14/10/2026 (scratchpad romper-1410.py: una rotura por vez, restaurada de MEMORIA
+// y comparada con md5; nunca git), corriendo juntos curso-comentarios-clase, curso-menu-estructura y
+// curso-apariencia. Sano: 41 pass / 0 fail. Cada rotura, sola:
+//    C7 el menú de la clase no dibuja «Comentarios»                            → 40 / 1 «"Comentarios" en el menú de la clase…»
+//    C8 la estructura sin la sección de los comentarios                        → 39 / 2 ese y «el menú de un módulo y el de una clase…»

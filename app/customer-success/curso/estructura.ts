@@ -99,7 +99,7 @@ export function clasesConDevueltas(clases: readonly Clase[], vuelven: readonly C
 // ── El menú «…» (08/10/2026, item 15) ─────────────────────────────────────────
 
 /** Lo que puede tener el menú «…» de un módulo o de una clase. */
-export type ItemMenuEstructura = 'renombrar' | 'portada' | 'mover-antes' | 'mover-despues' | 'acceso' | 'obligatoria' | 'kanban' | 'eliminar';
+export type ItemMenuEstructura = 'renombrar' | 'portada' | 'mover-antes' | 'mover-despues' | 'acceso' | 'obligatoria' | 'kanban' | 'comentarios' | 'eliminar';
 
 /**
  * EL MENÚ «…» ES UNO Y TIENE LA MISMA FORMA para un módulo y para una clase. Pedido de Martín
@@ -118,12 +118,16 @@ export type ItemMenuEstructura = 'renombrar' | 'portada' | 'mover-antes' | 'move
  *    (audio del 08/10/2026, 13:00: «ese botón tal vez no se debería configurar ahí [en la tarea], sino
  *    que se debería configurar en el desplegable de cada clase»). Es de la misma familia —qué hace falta
  *    para seguir— y una sección más rompía el orden que pidió Martín: arriba | acceso | eliminar.
+ * ⚠️ «COMENTARIOS» SÍ LLEVA SU SECCIÓN, entre el acceso y eliminar (14/10/2026: «la opción de comentarios
+ *    no debería ir allí [en el menú de la marca], debería ir en la edición de cada clase»). No es de quién
+ *    entra ni de qué hace falta para seguir: es una pieza de la clase. Va donde el módulo lleva la del
+ *    kanban, así los dos menús siguen con la misma forma: arriba | acceso | lo propio | eliminar.
  */
 export function seccionesDelMenu(tipo: 'modulo' | 'clase'): ItemMenuEstructura[][] {
   const arriba: ItemMenuEstructura[] = ['renombrar', 'portada', 'mover-antes', 'mover-despues'];
   return tipo === 'modulo'
     ? [arriba, ['acceso'], ['kanban'], ['eliminar']]
-    : [arriba, ['acceso', 'obligatoria'], ['eliminar']];
+    : [arriba, ['acceso', 'obligatoria'], ['comentarios'], ['eliminar']];
 }
 
 /** La portada elegida del módulo, mudada a su clave nueva (lo mismo que hizo el server). */

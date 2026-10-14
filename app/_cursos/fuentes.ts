@@ -37,24 +37,22 @@ export type FuenteCurso = {
   id: string;
   /** El nombre de la familia, que es además la muestra del menú (se dibuja con ella misma). */
   nombre: string;
-  /** Una palabra que la distingue en el menú. */
+  /** Una palabra que la distingue. NO se dibuja en el curso desde el 14/10/2026 (salió por inventada); la
+   *  muestra el Dashboard (`TIPOGRAFIAS`, lib/graficos-temas.ts). */
   tipo: string;
   /** La pila CSS entera, con respaldos parecidos (una serif cae a una serif). */
   pila: string;
   /** La hoja de Google que la trae. `null` = ya está cargada (la del curso de siempre). */
   hoja: string | null;
   /**
-   * El cajón del menú. Es lo que convierte una lista de 24 en una BIBLIOTECA: sin agrupar, elegir
-   * entre 24 nombres es peor que elegir entre 7 — hay que leerlos todos para descartar.
-   *
-   * ⚠️ «Para títulos» NO es un cajón más: es una ADVERTENCIA. Esas cansan en el tercer párrafo, y la
-   *    fuente del curso pinta TODO (las descripciones, las tareas, el papel de una clase), no sólo los
-   *    títulos. Van últimas y el menú lo dice.
+   * Su familia (sin serif, con serif, de máquina, para títulos). Desde el 14/10/2026 NO arma cajones en el
+   * menú —el desplegable es una lista alfabética, como el de Google Docs—: da las palabras con que se la
+   * encuentra en el buscador (`palabrasDeBusqueda`), así «serif» trae las de remate.
    */
   grupo: Grupo;
 };
 
-/** Los cajones, en el orden del menú. */
+/** Las familias de letra del catálogo. */
 export type Grupo = 'Sin serif' | 'Con serif' | 'De máquina' | 'Para títulos';
 export const GRUPOS: readonly Grupo[] = ['Sin serif', 'Con serif', 'De máquina', 'Para títulos'];
 
@@ -127,20 +125,6 @@ export const FUENTES: readonly FuenteCurso[] = [
   { id: 'fraunces', nombre: 'Fraunces', tipo: 'Expresiva', grupo: 'Para títulos', pila: '"Fraunces", Georgia, "Times New Roman", serif', hoja: `${GOOGLE}Fraunces:ital,opsz,wght@0,9..144,400..900;1,9..144,400..900` },
 ];
 
-/**
- * El BUSCADOR de la biblioteca. Puro: lo ejecuta el test sin React y sin DOM.
- *
- * Sin acentos y sin mayúsculas, y por TÉRMINOS sueltos: buscar «mono maquina» tiene que encontrar
- * «Plex Mono / De máquina». Un buscador que exige tildes es un buscador que no se usa — la misma
- * regla que el de Conocimientos (app/conocimientos/CursoPortal.tsx).
- *
- * El pajar es el nombre, el tipo Y el grupo: quien escribe «serif» está pidiendo el cajón, no una
- * familia, y quien escribe «titulo» está pidiendo las de títulos.
- *
- * ⚠️ DEVUELVE EL CATÁLOGO ENTERO con la consulta vacía, y NUNCA filtra la elegida hacia afuera: un
- *    menú donde la fuente que está puesta desaparece al tipear es un menú donde no se puede ver qué
- *    hay elegido. De eso se encarga `agrupar`, que la vuelve a meter en su cajón.
- */
 const sinTildes = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
 /**
@@ -159,31 +143,19 @@ const PALABRAS_GRUPO: Record<Grupo, string> = {
   'Para títulos': 'titulos display',
 };
 
-export function buscarFuentes(q: string, lista: readonly FuenteCurso[] = FUENTES): FuenteCurso[] {
-  const terminos = sinTildes(String(q ?? '')).split(/\s+/).filter(Boolean);
-  if (!terminos.length) return [...lista];
-  return lista.filter((f) => {
-    const heno = sinTildes(`${f.nombre} ${f.tipo} ${PALABRAS_GRUPO[f.grupo]}`);
-    return terminos.every((t) => heno.includes(t));
-  });
-}
-
 /**
- * Lo que dibuja el menú: los cajones en su orden, sin los vacíos, y con la ELEGIDA siempre adentro
- * aunque la búsqueda la haya dejado afuera (ver arriba).
+ * Las palabras OCULTAS con que se encuentra una fuente en el buscador del desplegable (el campo `buscar`
+ * del `Dropdown` de la casa, que ya ignora tildes y mayúsculas): las de su cajón. No se dibujan.
  *
- * Devuelve pares para que el componente no tenga que saber el orden de `GRUPOS`.
+ * ⚠️ SIN `tipo` («Neutra», «Clara»…), desde el 14/10/2026: esa palabra se dibujaba al lado de cada fuente
+ *    y salió por inventada (Martín: «copialo de como lo tiene google docs... Pero no inventes cosas»).
+ *    El catálogo la sigue teniendo porque la usa el Dashboard (`TIPOGRAFIAS`, lib/graficos-temas.ts).
+ *    Y `agrupar` y `buscarFuentes`, que armaban los cuatro cajones y su buscador propio, se fueron con
+ *    el selector viejo: el desplegable de la casa es una lista, con su buscador.
  */
-export function agrupar(fuentes: readonly FuenteCurso[], elegida?: string | null): Array<[Grupo, FuenteCurso[]]> {
-  const dentro = new Set(fuentes.map((f) => f.id));
-  const conLaElegida = elegida && !dentro.has(elegida)
-    ? [...fuentes, ...FUENTES.filter((f) => f.id === elegida)]
-    : [...fuentes];
-  return GRUPOS
-    .map((g): [Grupo, FuenteCurso[]] => [g, conLaElegida.filter((f) => f.grupo === g)])
-    .filter(([, fs]) => fs.length > 0);
+export function palabrasDeBusqueda(f: FuenteCurso): string {
+  return sinTildes(PALABRAS_GRUPO[f.grupo]);
 }
-
 
 /**
  * El id guardable, o `null`. EN POSITIVO: sólo un id del catálogo, escrito tal cual. Lo de siempre

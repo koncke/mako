@@ -1,9 +1,10 @@
 'use client';
 
 /**
- * La FUENTE del curso en el navegador: cargar la hoja de una familia cuando hace falta, y la
- * BIBLIOTECA que va en el menú de la marca, debajo del color (item 3 del 08/10/2026). El catálogo y
- * las reglas (qué se guarda, qué variables se pintan, cómo se busca) son puros y viven en ./fuentes.ts.
+ * La FUENTE del curso en el navegador: cargar la hoja de una familia cuando hace falta, y el
+ * DESPLEGABLE que va en el menú de la marca, debajo del color (item 3 del 08/10/2026). El catálogo y
+ * las reglas (qué se guarda, qué variables se pintan, con qué palabras se busca) son puros y viven en
+ * ./fuentes.ts.
  *
  * ⚠️ CADA FAMILIA ENTRA UNA SOLA VEZ, con un `<link>` de id propio en el `<head>`, como la hoja del
  *    curso (`useCssUgc`, ./CursoUgc.tsx). Nunca se arma una hoja «sólo con las letras de la muestra»
@@ -11,21 +12,34 @@
  *    después de la completa le gana —el curso dibujaría con la de respaldo todas las letras que no
  *    estaban en la muestra, sin un error—.
  *
+ * ── Un desplegable como cualquier otro, copiado del de Google Docs (14/10/2026) ──────────────
+ * Martín, mirando la biblioteca de 24 que salió el 13/10: «Mejora el desplegable de las tipografías,
+ * que sea uno como cualquier otro, copialo de como lo tiene google docs... Pero no inventes cosas».
+ * Lo que se copió de Docs: un BOTÓN con la fuente elegida, y al abrirlo la lista con CADA NOMBRE
+ * ESCRITO CON SU PROPIA LETRA, en orden alfabético. Lo que NO se copió porque acá no existe: «Más
+ * fuentes» (el diálogo de Docs para sumar familias) y el submenú de pesos de cada una. Y lo que se
+ * SACÓ por inventado: la palabra de al lado de cada fuente («Neutra», «Clara»…) y los cuatro cajones.
+ * Es el `Dropdown` de la casa (app/components/Dropdown.tsx), con su buscador (más de 7 opciones) y su
+ * marca de lo elegido; lo único que se le sumó es `fuente` en cada opción.
+ *
+ * ⚠️ LA LISTA SE MONTA ADENTRO DEL MENÚ DE LA MARCA (`portalTo`), no en el `body`. Ese menú se cierra con
+ *    cualquier `mousedown` fuera de su caja y cuando el foco se va (`MenuMarca`, ./CursoUgc.tsx): con la
+ *    lista en el `body`, el primer clic en una fuente cerraba el menú entero antes de elegirla.
+ *
  * ── Por qué la hoja de cada fuente se pide AL VERSE (13/10/2026) ──────────────────────────────
- * El catálogo pasó de 7 a 24 familias («una biblioteca de tipografías seleccionables», Martín). Cada
- * renglón se dibuja CON SU PROPIA LETRA —que es lo que lo vuelve elegible de un vistazo—, así que
+ * Cada renglón se dibuja CON SU PROPIA LETRA —que es lo que lo vuelve elegible de un vistazo—, así que
  * cada renglón visible baja su `.woff2`. Con 24 eso es bajar las 24 al abrir un menú donde se va a
  * elegir una: medido en el catálogo viejo, el latino normal pesa entre 6 KB (Poppins) y 92 KB (Inter).
- * Por eso la hoja de un renglón se pide cuando ese renglón ENTRA EN PANTALLA, y la biblioteca abre
- * pidiendo las seis o siete que se ven.
+ * Por eso la hoja de un renglón se pide cuando ese renglón ENTRA EN PANTALLA.
  *
  * ⚠️ Y SI NO HAY `IntersectionObserver`, SE PIDEN TODAS. Un renglón cuya hoja no llegó se dibuja con
  *    la de respaldo, o sea con la letra de otra: la muestra MIENTE, que es peor que tardar. La
  *    degradación va hacia lo correcto y lento, nunca hacia lo rápido y falso.
  */
 
-import { useEffect, useId, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { FUENTES, FUENTE_DEFAULT, agrupar, buscarFuentes, fuenteDe, type FuenteCurso } from './fuentes';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
+import { FUENTES, FUENTE_DEFAULT, fuenteDe, palabrasDeBusqueda, type FuenteCurso } from './fuentes';
 
 /** El id del `<link>` de una familia. Uno por familia: lo buscan las dos puntas antes de crear otro. */
 const idHoja = (f: FuenteCurso) => `ugc-fuente-${f.id}`;
@@ -46,7 +60,7 @@ export function cargarHojaDeFuente(f: FuenteCurso): void {
  * nada). En un efecto: el `<head>` no se toca al dibujar en el server.
  *
  * ⚠️ Esto pide TODAS las que le pasen, de una. Es lo correcto para una lista corta y conocida (el
- *    panel de estilo del Dashboard le pasa su propio catálogo); la biblioteca de acá abajo NO lo usa,
+ *    panel de estilo del Dashboard le pasa su propio catálogo); el desplegable de acá abajo NO lo usa,
  *    porque con 24 familias sería bajarlas todas para elegir una.
  */
 export function useHojasDeFuentes(ids: ReadonlyArray<string | null | undefined>): void {
@@ -57,108 +71,75 @@ export function useHojasDeFuentes(ids: ReadonlyArray<string | null | undefined>)
 }
 
 /**
- * Pide la hoja de cada renglón cuando ese renglón entra en pantalla. Devuelve el `ref` del contenedor
- * que scrollea; cada renglón se marca con `data-fuente="<id>"`.
+ * Pide la hoja de cada renglón `[data-fuente]` cuando ENTRA EN PANTALLA, adentro de `caja` (el menú de la
+ * marca, donde se monta la lista del desplegable).
  *
- * ⚠️ El observer se REARMA cuando cambia la lista dibujada (la búsqueda), porque los nodos que mira
- *    son otros. Sin eso, filtrar deja renglones nuevos sin pedir su hoja y la muestra queda en la
- *    letra de respaldo — que es exactamente la mentira que esta pantalla no puede permitirse.
+ * ⚠️ LOS RENGLONES APARECEN Y DESAPARECEN SOLOS: la lista existe sólo abierta, y el buscador la cambia.
+ *    Por eso un `MutationObserver` mira la caja y cada renglón nuevo se suma al observer de pantalla. Sin
+ *    eso, un renglón que aparece al buscar se queda sin su hoja y la muestra queda en la letra de respaldo
+ *    — que es exactamente la mentira que esta pantalla no puede permitirse.
  */
-function useHojasAlVerse(contenedor: React.RefObject<HTMLDivElement | null>, firma: string): void {
+function useHojasAlVerse(caja: HTMLElement | null): void {
   useEffect(() => {
-    const caja = contenedor.current;
     if (!caja) return;
     const pedir = (el: Element) => {
       const id = el.getAttribute('data-fuente');
       if (id) cargarHojaDeFuente(fuenteDe(id));
     };
-    const filas = Array.from(caja.querySelectorAll('[data-fuente]'));
     // Sin el observer no hay forma de saber qué se ve: se piden todas. Lento y honesto.
-    if (typeof IntersectionObserver === 'undefined') { filas.forEach(pedir); return; }
-    const obs = new IntersectionObserver((entradas) => {
+    const enPantalla = typeof IntersectionObserver === 'undefined' ? null : new IntersectionObserver((entradas) => {
       for (const e of entradas) {
         if (!e.isIntersecting) continue;
         pedir(e.target);
-        obs.unobserve(e.target);   // una vez pedida, deja de mirarse
+        enPantalla?.unobserve(e.target);   // una vez pedida, deja de mirarse
       }
-    }, { root: caja, rootMargin: '120px' });
-    filas.forEach((f) => obs.observe(f));
-    return () => obs.disconnect();
-  }, [contenedor, firma]);
+    }, { rootMargin: '120px' });
+    const mirados = new WeakSet<Element>();
+    const mirar = () => {
+      for (const el of Array.from(caja.querySelectorAll('[data-fuente]'))) {
+        if (mirados.has(el)) continue;
+        mirados.add(el);
+        if (enPantalla) enPantalla.observe(el); else pedir(el);
+      }
+    };
+    mirar();
+    const cambios = new MutationObserver(mirar);
+    cambios.observe(caja, { childList: true, subtree: true });
+    return () => { cambios.disconnect(); enPantalla?.disconnect(); };
+  }, [caja]);
 }
 
+/** Las 24, en orden alfabético como en Docs, cada una escrita con ella misma. */
+const OPCIONES: DropdownOption[] = [...FUENTES]
+  .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
+  .map((f) => ({ value: f.id, label: f.nombre, fuente: f.pila, buscar: palabrasDeBusqueda(f) }));
+
 /**
- * La BIBLIOTECA del menú de la marca: 24 familias en cuatro cajones, cada una escrita CON ELLA MISMA
- * (la muestra) y con una palabra que la distingue. Va adentro del menú, así que se monta sólo al
- * abrirlo.
+ * El DESPLEGABLE de la fuente del curso, en el menú de la marca.
  *
  * `onElegir` recibe el id; elegir la de siempre manda `null` (borra la fila, como el color).
  *
- * ⚠️ EL `null` SALE DE `FUENTE_DEFAULT`, NO DE `FUENTES[0]`. La versión anterior comparaba contra el
- *    primero del array: con una familia nueva arriba, elegir «la de siempre» habría guardado su id en
- *    vez de borrar la fila, y «nadie la eligió» y «eligió la de siempre» volvían a ser el mismo valor.
+ * ⚠️ EL `null` SALE DE `FUENTE_DEFAULT`, NO DE LA POSICIÓN EN LA LISTA. Una versión anterior comparaba
+ *    contra el primero del array: con una familia nueva arriba, elegir «la de siempre» habría guardado su
+ *    id en vez de borrar la fila, y «nadie la eligió» y «eligió la de siempre» volvían a ser el mismo valor.
  */
 export function SelectorFuente({ actual, onElegir, disabled }: {
   actual: string | null | undefined;
   onElegir: (id: string | null) => void;
   disabled?: boolean;
 }) {
-  const [q, setQ] = useState('');
-  const caja = useRef<HTMLDivElement>(null);
-  const idBuscador = useId();
   const elegida = fuenteDe(actual).id;
-
-  const cajones = useMemo(() => agrupar(buscarFuentes(q), elegida), [q, elegida]);
-  const cuantas = cajones.reduce((n, [, fs]) => n + fs.length, 0);
-  useHojasAlVerse(caja, `${q}|${elegida}`);
+  // Dónde se monta la lista: el menú de la marca que contiene al desplegable (ver la cabecera).
+  const [menu, setMenu] = useState<HTMLElement | null>(null);
+  const anclar = useCallback((el: HTMLDivElement | null) => setMenu(el?.closest<HTMLElement>('.ugc-menu') ?? null), []);
+  useHojasAlVerse(menu);
+  const opciones = useMemo(() => OPCIONES, []);
 
   return (
-    <div className="ugc-fuentes" role="group" aria-label="Fuente del curso">
-      {/* El buscador es lo que hace que 24 se elijan más rápido que 7 sin él. Los estilos van en
-          línea a propósito y NO en app/_cursos/estilos.ts: ese archivo lo está editando otra sesión
-          ahora mismo, y commitearlo me llevaría su trabajo adentro. Cuando lo suelten, se mudan. */}
-      <input
-        id={idBuscador} type="search" value={q} onChange={(e) => setQ(e.target.value)}
-        disabled={disabled || undefined} placeholder="Buscar tipografía" aria-label="Buscar tipografía"
-        style={{
-          width: '100%', boxSizing: 'border-box', margin: '2px 0 6px', padding: '7px 9px',
-          borderRadius: 8, border: '1.5px solid var(--u-line, rgba(0,0,0,.18))',
-          background: 'var(--u-card, #fff)', color: 'var(--u-ink, inherit)',
-          font: '600 12.5px/1.2 var(--font-jetbrains), ui-monospace, monospace',
-        }}
-      />
-
-      <div ref={caja} style={{ maxHeight: 240, overflowY: 'auto', overscrollBehavior: 'contain' }}>
-        {cajones.map(([grupo, fs]) => (
-          <div key={grupo}>
-            <div style={{
-              padding: '6px 2px 3px', font: '700 10px/1 var(--font-jetbrains), ui-monospace, monospace',
-              letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--u-ink-60, var(--dim))',
-            }}>
-              {grupo}
-              {/* La fuente del curso pinta TODO, no sólo los títulos: la advertencia va donde se
-                  elige, no en un hallazgo. Cuatro palabras, que es lo que entra en un rótulo. */}
-              {grupo === 'Para títulos' && <span style={{ textTransform: 'none', letterSpacing: 0, fontWeight: 600 }}> · cansan en textos largos</span>}
-            </div>
-            {fs.map((f) => (
-              <button key={f.id} type="button" data-fuente={f.id}
-                className={`ugc-menu-item ugc-fuente-op${f.id === elegida ? ' on' : ''}`}
-                aria-pressed={f.id === elegida} disabled={disabled || undefined}
-                onClick={() => { if (f.id !== elegida) onElegir(f.id === FUENTE_DEFAULT ? null : f.id); }}>
-                <span className="ugc-fuente-nombre" style={{ fontFamily: f.pila } as CSSProperties}>{f.nombre}</span>
-                <span className="ugc-fuente-tipo">{f.tipo}</span>
-              </button>
-            ))}
-          </div>
-        ))}
-
-        {/* Una frase, y dice dónde se arregla. Nunca una lista vacía y muda. */}
-        {cuantas === 0 && (
-          <p style={{ margin: '10px 2px', font: '600 12px/1.4 inherit', color: 'var(--u-ink-60, var(--dim))' }}>
-            Ninguna se llama así. Probá «serif», «mono» o «títulos».
-          </p>
-        )}
-      </div>
+    <div ref={anclar} className="ugc-fuentes">
+      <Dropdown value={elegida} options={opciones} width="100%" ariaLabel="Fuente del curso" disabled={disabled}
+        portalTo={menu}
+        onChange={(id) => { if (id !== elegida) onElegir(id === FUENTE_DEFAULT ? null : id); }} />
     </div>
   );
 }

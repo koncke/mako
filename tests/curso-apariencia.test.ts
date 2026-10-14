@@ -48,7 +48,7 @@ import {
   ajusteDe, ajusteValido, armarEstilo, claveDe, conAjuste, estiloVacio, sanearAjuste, valorDe,
 } from '../lib/curso-estilo';
 import { estiloQueViaja } from '../lib/curso-portal';
-import { FUENTES, FUENTE_DEFAULT, GRUPOS, agrupar, buscarFuentes, fuenteDe, fuenteGuardable, varsDeFuente } from '../app/_cursos/fuentes';
+import { FUENTES, FUENTE_DEFAULT, GRUPOS, fuenteDe, fuenteGuardable, palabrasDeBusqueda, varsDeFuente } from '../app/_cursos/fuentes';
 import { CSS_UGC } from '../app/_cursos/estilos';
 
 const RAIZ = join(__dirname, '..');
@@ -142,69 +142,70 @@ test('la BIBLIOTECA: cerrada, la de siempre primero y sin hoja, cada una con su 
   for (const g of GRUPOS) assert.ok(FUENTES.filter((f) => f.grupo === g).length >= 3, `el cajón ${g} tiene menos de 3`);
 });
 
-test('el buscador: sin tildes, por términos, y «serif» NO trae las sans', () => {
+test('el buscador (el del desplegable de la casa): «serif» NO trae las sans, y las palabras no se dibujan', () => {
   // ⚠️ EL CASO QUE LO DEFINE. El cajón «Sin serif» CONTIENE la palabra «serif», así que con el grupo
   // crudo en el pajar buscar `serif` —que es lo que más se va a buscar— devolvía 19 de 24, o sea
-  // nada. Medido al estrenar el buscador. Por eso cada cajón se busca por sus propias palabras.
-  const nombres = (q: string) => buscarFuentes(q).map((f) => f.nombre);
-  assert.ok(buscarFuentes('serif').length <= 8, `«serif» trae ${buscarFuentes('serif').length}: está matcheando las sans`);
-  assert.ok(nombres('serif').includes('Lora'));
-  assert.ok(!nombres('serif').includes('Inter'), '«serif» no puede traer una sans');
-  assert.ok(nombres('sans').includes('Inter'));
-
-  // Sin tildes y por términos sueltos, en cualquier orden.
-  assert.deepEqual(nombres('maquina'), nombres('máquina'));
-  assert.ok(nombres('mono maquina').length > 0);
-  assert.deepEqual(nombres('maquina mono'), nombres('mono maquina'));
-  assert.deepEqual(nombres('LORA'), ['Lora']);
-
-  // Vacío = el catálogo entero (un menú que arranca vacío no se puede explorar).
-  assert.equal(buscarFuentes('').length, FUENTES.length);
-  assert.equal(buscarFuentes('   ').length, FUENTES.length);
-  assert.equal(buscarFuentes('zzzz').length, 0);
-});
-
-test('agrupar: los cajones en orden, sin vacíos, y la ELEGIDA nunca desaparece', () => {
-  const todos = agrupar(FUENTES);
-  assert.deepEqual(todos.map(([g]) => g), [...GRUPOS], 'los cajones salen en el orden del catálogo');
-  assert.equal(todos.reduce((n, [, fs]) => n + fs.length, 0), FUENTES.length, 'se perdió alguna por el camino');
-
-  // Un cajón sin resultados no se dibuja: un rótulo con nada abajo se lee como que algo falló.
-  assert.ok(agrupar(buscarFuentes('mono')).every(([, fs]) => fs.length > 0));
-
-  // ⚠️ La elegida VUELVE aunque la búsqueda la deje afuera: un menú donde la fuente que está puesta
-  // desaparece al tipear es un menú donde no se puede ver qué hay elegido.
-  assert.deepEqual(agrupar(buscarFuentes('zzzz'), 'lora').flatMap(([, fs]) => fs.map((f) => f.id)), ['lora']);
-  // Y no se duplica si la búsqueda ya la traía.
-  assert.deepEqual(agrupar(buscarFuentes('lora'), 'lora').flatMap(([, fs]) => fs.map((f) => f.id)), ['lora']);
+  // nada. Medido al estrenar el buscador (13/10). Desde el 14/10 el buscador es el del `Dropdown` de la
+  // casa, que mira `label` y `buscar` sin tildes ni mayúsculas: acá se reproduce ESA cuenta.
+  const norm = (t: string) => t.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
+  const busca = (q: string) => FUENTES.filter((f) => norm(`${f.nombre} ${palabrasDeBusqueda(f)}`).includes(norm(q))).map((f) => f.nombre);
+  assert.ok(busca('serif').length <= 8, `«serif» trae ${busca('serif').length}: está matcheando las sans`);
+  assert.ok(busca('serif').includes('Lora'));
+  assert.ok(!busca('serif').includes('Inter'), '«serif» no puede traer una sans');
+  assert.ok(busca('sans').includes('Inter'));
+  assert.deepEqual(busca('maquina'), busca('máquina'));
+  assert.deepEqual(busca('LORA'), ['Lora']);
+  for (const f of FUENTES) {
+    assert.equal(palabrasDeBusqueda(f).includes('serif'), f.grupo === 'Con serif', `${f.nombre}: «serif» en un cajón que no es el de remate`);
+  }
 });
 
 test('el menú pide la hoja de cada fuente AL VERSE, no las 24 de una', () => {
   // Con 24 muestras dibujadas —cada una con su propia letra— cargar todo al abrir baja 24 .woff2 para
   // elegir uno. Medido en el catálogo viejo: entre 6 KB (Poppins) y 92 KB (Inter) cada una.
   const SEL = sinComentarios(leer('app/_cursos/SelectorFuente.tsx'));
-  assert.match(SEL, /new IntersectionObserver/, 'la biblioteca tiene que pedir la hoja de cada renglón al verse');
-  assert.match(SEL, /data-fuente=\{f\.id\}/, 'cada renglón se marca para que el observer lo encuentre');
+  assert.match(SEL, /new IntersectionObserver/, 'cada renglón tiene que pedir su hoja al verse');
+  // Desde el 14/10 la lista es la del `Dropdown` de la casa: aparece al abrir y cambia al buscar, así que
+  // un MutationObserver suma cada renglón nuevo. Sin él, uno que aparece al buscar queda sin su hoja.
+  assert.match(SEL, /new MutationObserver\(mirar\)/);
+  assert.match(SEL, /caja\.querySelectorAll\('\[data-fuente\]'\)/);
+  // Los renglones se marcan solos: la opción trae `fuente` y el Dropdown pone `data-fuente` con su valor.
+  assert.match(sinComentarios(leer('app/components/Dropdown.tsx')), /data-fuente=\{o\.fuente \? o\.value : undefined\}/);
 
-  // ⚠️ QUE LA FUNCIÓN EXISTA NO ES QUE SE LLAME, y la primera versión de este test daba VERDE con el
-  // menú volviendo a pedir las 24 de una: `useHojasAlVerse` seguía DEFINIDA en el archivo, sólo que
-  // sin call site. Es «un guard de cableado no reemplaza a un test de la función», del otro lado.
-  // Medido rompiéndolo: 13 pass / 0 fail con el bug puesto.
-  // El cierre es lo que ABRE lo siguiente, no un `}` contado a mano: el primero que aparece cierra el
-  // tipo de las props, no la función, y el recorte se queda en la firma.
+  // ⚠️ QUE LA FUNCIÓN EXISTA NO ES QUE SE LLAME: la primera versión de este test daba VERDE con el
+  // menú volviendo a pedir las 24 de una (13/10, 13 pass / 0 fail con el bug puesto).
   const cuerpo = bloque(SEL, 'export function SelectorFuente(', 'export const CUANTAS_FUENTES');
-  assert.match(cuerpo, /useHojasAlVerse\(caja,/, 'el menú no llama a la carga perezosa: la escribió y no la usa');
+  assert.match(cuerpo, /useHojasAlVerse\(menu\);/, 'el desplegable no llama a la carga perezosa');
   assert.doesNotMatch(cuerpo, /useHojasDeFuentes\(/, 'eso vuelve a pedir las 24 hojas al abrir el menú');
 
   // ⚠️ Y SIN OBSERVER SE PIDEN TODAS: un renglón cuya hoja no llegó se dibuja con la letra de OTRA,
   // o sea la muestra MIENTE. La degradación va hacia lo correcto y lento, nunca hacia lo rápido y falso.
   assert.match(SEL, /typeof IntersectionObserver === 'undefined'/, 'falta el camino sin observer');
 
-  // ⚠️ Y el `null` sale del NOMBRE del default, no de `FUENTES[0]`: con una familia nueva arriba,
-  // elegir «la de siempre» guardaría su id en vez de borrar la fila, y «nadie la eligió» y «eligió la
-  // de siempre» volverían a ser el mismo valor.
-  assert.match(SEL, /f\.id === FUENTE_DEFAULT \? null : f\.id/);
-  assert.doesNotMatch(SEL, /FUENTES\[0\]/, 'el default no se toma por posición');
+  // ⚠️ Y el `null` sale del NOMBRE del default, no de la posición en la lista.
+  assert.match(cuerpo, /onElegir\(id === FUENTE_DEFAULT \? null : id\)/);
+  assert.doesNotMatch(SEL, /FUENTES\[0\]|OPCIONES\[0\]/, 'el default no se toma por posición');
+});
+
+test('un desplegable como cualquier otro, copiado del de Google Docs, sin inventar (14/10/2026)', () => {
+  // Martín: «Mejora el desplegable de las tipografías, que sea uno como cualquier otro, copialo de como lo
+  // tiene google docs... Pero no inventes cosas».
+  const SEL = sinComentarios(leer('app/_cursos/SelectorFuente.tsx'));
+  const cuerpo = bloque(SEL, 'export function SelectorFuente(', 'export const CUANTAS_FUENTES');
+  // El de la casa, no uno propio.
+  assert.match(SEL, /import \{ Dropdown, type DropdownOption \} from '@\/app\/components\/Dropdown';/);
+  assert.match(cuerpo, /<Dropdown value=\{elegida\} options=\{opciones\}/);
+  assert.doesNotMatch(cuerpo, /<input|<button/, 'el selector volvió a armar su propia lista');
+  // Como Docs: en orden alfabético, cada nombre escrito con su propia letra.
+  assert.match(SEL, /\.sort\(\(a, b\) => a\.nombre\.localeCompare\(b\.nombre, 'es'\)\)/);
+  assert.match(SEL, /\(\{ value: f\.id, label: f\.nombre, fuente: f\.pila, buscar: palabrasDeBusqueda\(f\) \}\)/);
+  assert.match(sinComentarios(leer('app/components/Dropdown.tsx')), /\.\.\.\(o\.fuente \? \{ fontFamily: o\.fuente \} : \{\}\)/);
+  // Sin lo inventado: ni la palabra de al lado de cada fuente ni los cajones.
+  assert.doesNotMatch(SEL, /f\.tipo|\bgrupo\b|agrupar|GRUPOS/, 'volvió algo inventado al desplegable');
+  // ⚠️ LA LISTA SE MONTA ADENTRO DEL MENÚ DE LA MARCA: ese menú se cierra con un `mousedown` fuera de su
+  // caja, y con la lista en el `body` el primer clic en una fuente lo cerraba entero.
+  assert.match(cuerpo, /setMenu\(el\?\.closest<HTMLElement>\('\.ugc-menu'\) \?\? null\)/);
+  assert.match(cuerpo, /portalTo=\{menu\}/);
 });
 
 test('las variables: la de siempre no pinta nada; otra redefine --font-archivo y --ugc-fuente', () => {
@@ -239,12 +240,11 @@ test('la eligen en el menú de la marca, al lado del color, y la ven el editor, 
   assert.match(menu, /<SelectorFuente actual=\{estilo\.fuente\} onElegir=\{\(id\) => void cambiarAspecto\(\{ tipo: 'fuente' \}, id, 'Fuente cambiada'\)\} \/>/);
   assert.match(app, /\sfuente=\{estilo\.fuente\}/, 'el editor no le pasa la fuente al dibujo');
   assert.match(sinComentarios(leer('app/compartido/curso/[token]/PortalAlumno.tsx')), /\sfuente=\{estilo\?\.fuente\}/, 'el alumno no ve la fuente');
-  // El selector escribe cada muestra con su propia letra. Las HOJAS ya no se piden todas al abrir:
-  // con 24 familias eso baja 24 .woff2 para elegir una, así que cada renglón pide la suya al verse.
-  // El cómo —y su degradación sin IntersectionObserver— lo fija el test de la biblioteca, más arriba.
+  // El selector escribe cada muestra con su propia letra (la opción trae `fuente`). Las HOJAS no se
+  // piden todas al abrir: cada renglón pide la suya al verse (el test de la carga, más arriba).
   const sel = sinComentarios(leer('app/_cursos/SelectorFuente.tsx'));
-  assert.match(sel, /style=\{\{ fontFamily: f\.pila \}/);
-  assert.match(sel, /onElegir\(f\.id === FUENTE_DEFAULT \? null : f\.id\)/, 'la de siempre tiene que mandar null (borrar la fila)');
+  assert.match(sel, /fuente: f\.pila/);
+  assert.match(sel, /onElegir\(id === FUENTE_DEFAULT \? null : id\)/, 'la de siempre tiene que mandar null (borrar la fila)');
 });
 
 test('la descripción y la tarea van con la letra del curso: los campos de la app ya no traen la suya', () => {
@@ -319,3 +319,13 @@ test('la vista previa: sin el desplegable de la etapa, «Vista del alumno» a la
   assert.match(page, /const etapa = cfg\.etapas\[0\]\?\.key \?\? null;/, 'la vista previa es la del día uno');
   assert.match(page, /<BarraVistaPrevia productoId=\{productoId\} anotar=\{adminId != null\} \/>/);
 });
+
+// Probado rompiéndolo el 14/10/2026 (scratchpad romper-1410.py: una rotura por vez, restaurada de MEMORIA
+// y comparada con md5; nunca git), corriendo juntos curso-comentarios-clase, curso-menu-estructura y
+// curso-apariencia. Sano: 41 pass / 0 fail. Cada rotura, sola:
+//  · el desplegable de la fuente, como el de Google Docs (14/10: «que sea uno como cualquier otro»):
+//    F11 el Dropdown sin la letra de cada renglón                              → 40 / 1 «un desplegable como cualquier otro…»
+//    F12 la lista montada en el body (sin `portalTo`)                          → 40 / 1 el mismo
+//    F13 el desplegable pide las 24 hojas al abrir                             → 40 / 1 «el menú pide la hoja de cada fuente AL VERSE…»
+//    F14 sin el MutationObserver (los renglones nuevos al buscar)              → 40 / 1 el mismo
+//    F15 vuelve la palabra inventada debajo de cada fuente                     → 40 / 1 «un desplegable como cualquier otro…»

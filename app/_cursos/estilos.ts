@@ -288,13 +288,9 @@ export const CSS_UGC = `
 .ahdoc.ahdoc--ugc .ugc .ugc-content :where(input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="range"]):not([type="file"])) {
   font-family: var(--ugc-fuente);
 }
-/* El selector del menu de la marca: cada fuente escrita con ella misma, y una palabra que la distingue. */
-.ahdoc.ahdoc--ugc .ugc .ugc-fuentes { display: flex; flex-direction: column; padding: 0 0 4px; }
-.ahdoc.ahdoc--ugc .ugc .ugc-fuente-op { justify-content: space-between; }
-.ahdoc.ahdoc--ugc .ugc .ugc-fuente-nombre { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; font-weight: 600; }
-.ahdoc.ahdoc--ugc .ugc .ugc-fuente-tipo {
-  flex: none; font: 600 9.5px/1 var(--font-jetbrains), monospace; letter-spacing: .08em; text-transform: uppercase; opacity: .62;
-}
+/* El desplegable de la fuente en el menu de la marca (14/10/2026): el Dropdown de la casa, con cada fuente
+ * escrita con ella misma, como el de Google Docs (app/_cursos/SelectorFuente.tsx). Solo el aire alrededor. */
+.ahdoc.ahdoc--ugc .ugc .ugc-fuentes { padding: 2px 4px 6px; }
 
 /* ── Mientras corre un RECORRIDO (app/_ui/Recorrido.tsx, que se monta en el body como .mk-rec) ──────
  * Los controles que aparecen al pasar el cursor (el ... de una tarjeta, Portada) se muestran: el

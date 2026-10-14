@@ -9,11 +9,13 @@
 //   · el CANDADO: un alumno que no puede ver la clase no ve ni comenta sus comentarios, y una clase de
 //     otro producto o de otro negocio no se comenta (la regla pura `puedeComentarLaClase`, EJECUTADA, y
 //     que la capa de datos la use en la puerta de TODO post: `postDe`);
-//   · el AJUSTE: apagado por default, y sólo «si» lo prende (lib/curso-estilo.ts, EJECUTADO);
+//   · el AJUSTE, que es de CADA CLASE desde el 14/10/2026: apagado por default, y sólo «si» lo prende
+//     (lib/curso-estilo.ts, EJECUTADO);
 //   · que los hilos de clase NO salgan en el feed ni en la búsqueda, ni se editen, borren o fijen enteros
 //     (su «autor» es quien comentó primero: borrarlo se llevaría los comentarios de todos);
 //   · la migración: idempotente, FK en cascada con su DO, un hilo por clase, y su orden de despliegue;
-//   · los dos montajes (portal y editor) con el ajuste, y la caja adentro de la hoja del curso.
+//   · los dos montajes (portal y editor) con el ajuste DE LA CLASE, el interruptor en el «…» de la clase
+//     (no en el menú de la marca), y la caja adentro de la hoja del curso.
 // Lo que se LEE del fuente se lee SIN comentarios y POR FUNCIÓN (AGENTS.md: un guard que lee el archivo
 // entero encuentra lo que el archivo dice de sí).
 //
@@ -25,7 +27,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  ajusteDe, ajusteValido, armarEstilo, claveDe, comentariosPrendidos, conAjuste, estiloVacio, sanearAjuste, valorDe,
+  ajusteDe, ajusteValido, armarEstilo, claveDe, comentariosDeClase, conAjuste, estiloVacio, sanearAjuste, soloDeClases, valorDe,
 } from '../lib/curso-estilo';
 import { puedeComentarLaClase } from '../lib/comunidad-reglas';
 import { marcasDeVoseo } from '../lib/puestas-data';
@@ -77,24 +79,32 @@ test('el EQUIPO ve el hilo de una clase de su producto con el ajuste apagado (mo
 
 // ── El ajuste del curso ──────────────────────────────────────────────────────────
 
-test('«Comentarios en las clases»: apagado por default, y SÓLO «si» lo prende', () => {
-  assert.equal(estiloVacio().comentarios, null);
-  assert.equal(comentariosPrendidos(estiloVacio()), false);
-  assert.equal(comentariosPrendidos(null), false);
-  assert.deepEqual(ajusteDe('comentarios'), { tipo: 'comentarios' });
-  assert.deepEqual(ajusteValido({ tipo: 'comentarios' }), { tipo: 'comentarios' });
-  assert.equal(claveDe({ tipo: 'comentarios' }), 'comentarios');
-  assert.equal(sanearAjuste({ tipo: 'comentarios' }, 'si'), 'si');
+test('los comentarios son de CADA CLASE: apagados por default, SÓLO «si» los prende, y una clase no prende a otra', () => {
+  const a7 = { tipo: 'comentarios-clase', clase: 7 } as const;
+  assert.deepEqual(estiloVacio().comentariosClase, {});
+  assert.equal(comentariosDeClase(estiloVacio(), 7), false);
+  assert.equal(comentariosDeClase(null, 7), false);
+  assert.deepEqual(ajusteDe('comentarios:clase:7'), a7);
+  assert.deepEqual(ajusteValido({ tipo: 'comentarios-clase', clase: '7' }), a7);
+  assert.equal(ajusteValido({ tipo: 'comentarios-clase', clase: 0 }), null);
+  assert.equal(claveDe(a7), 'comentarios:clase:7');
+  assert.equal(sanearAjuste(a7, 'si'), 'si');
   for (const raro of [true, 'true', '1', 'SI', 'sí', null, undefined, {}]) {
-    assert.equal(sanearAjuste({ tipo: 'comentarios' }, raro), null, `«${String(raro)}» prendió el chat`);
+    assert.equal(sanearAjuste(a7, raro), null, `«${String(raro)}» prendió el chat`);
   }
-  const e = armarEstilo([{ clave: 'comentarios', valor: 'si' }]);
-  assert.equal(e.comentarios, 'si');
-  assert.equal(comentariosPrendidos(e), true);
-  assert.equal(armarEstilo([{ clave: 'comentarios', valor: 'quizas' }]).comentarios, null, 'una fila rota prende el chat');
-  assert.equal(valorDe(e, { tipo: 'comentarios' }), 'si');
-  assert.equal(conAjuste(e, { tipo: 'comentarios' }, null).comentarios, null, 'apagarlo no lo apaga');
-  assert.equal(conAjuste(estiloVacio(), { tipo: 'comentarios' }, 'si').comentarios, 'si');
+  const e = armarEstilo([{ clave: 'comentarios:clase:7', valor: 'si' }]);
+  assert.equal(comentariosDeClase(e, 7), true);
+  assert.equal(comentariosDeClase(e, 8), false, 'prender una clase prendió otra');
+  assert.equal(comentariosDeClase(armarEstilo([{ clave: 'comentarios:clase:7', valor: 'quizas' }]), 7), false, 'una fila rota prende el chat');
+  assert.equal(valorDe(e, a7), 'si');
+  assert.equal(comentariosDeClase(conAjuste(e, a7, null), 7), false, 'apagarlo no lo apaga');
+  assert.equal(comentariosDeClase(conAjuste(estiloVacio(), a7, 'si'), 7), true);
+  // ⚠️ LA CLAVE VIEJA DEL CURSO ENTERO YA NO VALE (14/10/2026: «la opción de comentarios no debería ir
+  //    allí, debería ir en la edición de cada clase»). Una fila vieja no prende ninguna clase.
+  assert.equal(ajusteDe('comentarios'), null);
+  assert.deepEqual(armarEstilo([{ clave: 'comentarios', valor: 'si' }]).comentariosClase, {});
+  // Lo que viaja al alumno: sólo los de las clases que se le abren (como las portadas).
+  assert.deepEqual(soloDeClases(armarEstilo([{ clave: 'comentarios:clase:7', valor: 'si' }, { clave: 'comentarios:clase:9', valor: 'si' }]), new Set([7])).comentariosClase, { 7: 'si' });
 });
 
 // ── La capa de datos (lib/comunidad-datos.ts) ────────────────────────────────────
@@ -115,13 +125,15 @@ test('un comentario de un hilo que el alumno no ve no se likea, responde, edita 
 test('la lectura de la clase la DECIDE la regla pura, con el candado del portal', () => {
   const c = cuerpo(DATOS, 'leerClaseParaComentar');
   assert.match(c, /const mismoWorkspace = \(await getWorkspaceActual\(\)\) === a\.ws;/);
-  assert.ok(antesQue(c, 'comentariosDelCurso(', 'claseDelAlumno('), 'el candado se evalúa con los comentarios apagados');
+  assert.ok(antesQue(c, 'comentariosDeLaClase(a.ws, a.productoId, claseId)', 'claseDelAlumno('), 'el candado se evalúa con los comentarios apagados');
   assert.match(c, /claseDelAlumno\(a\.leadId, claseId, \{ exigeAbierta: true, alcance: a\.alcance \?\? null \}\)/);
   assert.match(c, /abiertaParaElAlumno: ok != null && ok\.abierta === true/);
   assert.equal((c.match(/puedeComentarLaClase\(\{/g) ?? []).length, 2, 'el equipo o el alumno deciden sin la regla');
   assert.match(c, /productoDeLaClase: c\?\.productoId \?\? null/);
-  // El ajuste se lee ESTRICTO: decide si un alumno lee el hilo.
-  assert.match(cuerpo(DATOS, 'comentariosDelCurso'), /if \(error\) throw new Error\(error\.message\);/);
+  // El ajuste se lee ESTRICTO (decide si un alumno lee el hilo), y es el de ESA clase.
+  const ajuste = cuerpo(DATOS, 'comentariosDeLaClase');
+  assert.match(ajuste, /if \(error\) throw new Error\(error\.message\);/);
+  assert.match(ajuste, /const ajuste: Ajuste = \{ tipo: 'comentarios-clase', clase: claseId \};/);
 });
 
 test('los hilos de clase NO salen en el feed ni en la búsqueda', () => {
@@ -248,28 +260,40 @@ test('la 0227: columna, FK en cascada idempotente, UN hilo por clase, RLS y su o
 
 // ── Los montajes ────────────────────────────────────────────────────────────────
 
-test('el portal del alumno monta los comentarios SÓLO con el ajuste prendido, y nunca al líder de un área', () => {
+test('el portal del alumno monta los comentarios SÓLO en las clases que los tienen prendidos, y nunca al líder de un área', () => {
   const p = sinComentarios(leer('app/compartido/curso/[token]/PortalAlumno.tsx'));
-  assert.match(p, /const conComentarios = comentariosPrendidos\(producto\.estilo\) && !lider;/);
-  assert.match(p, /despues: conComentarios\s*\?\s*<ComentariosClase key=\{c\.id\} api=\{apiComentarios\} claseId=\{c\.id\} vistaPrevia=\{vistaPrevia\} \/>/);
-  // La API del alumno es la de SU token y SU producto; en la vista previa no hay API (no se pide nada).
-  assert.match(p, /conComentarios && !vistaPrevia \? apiDelAlumno\(token, producto\.productoId\) : null/);
+  assert.match(p, /const conComentarios = \(claseId: number\) => !lider && comentariosDeClase\(producto\.estilo, claseId\);/);
+  assert.match(p, /despues: conComentarios\(c\.id\)\s*\?\s*<ComentariosClase key=\{c\.id\} api=\{apiComentarios\} claseId=\{c\.id\} vistaPrevia=\{vistaPrevia\} \/>/);
+  // La API del alumno es la de SU token y SU producto, si alguna clase la usa; en la vista previa no hay API.
+  assert.match(p, /const algunaConComentarios = !lider && clases\.some\(\(c\) => comentariosDeClase\(producto\.estilo, c\.ugc\.id\)\);/);
+  assert.match(p, /algunaConComentarios && !vistaPrevia \? apiDelAlumno\(token, producto\.productoId\) : null/);
 });
 
-test('el editor: los comentarios debajo de la lección con el ajuste, y el interruptor en el menú de la marca', () => {
+test('el editor: los comentarios debajo de la lección con el ajuste de ESA clase, y el interruptor en su «…» (no en la marca)', () => {
   const app = sinComentarios(leer('app/customer-success/curso/CursoApp.tsx'));
-  assert.match(app, /if \(!comentariosPrendidos\(estiloActual\) \|\| !apiComunidad\) return l;/);
+  assert.match(app, /if \(!comentariosDeClase\(estiloActual, c\.id\) \|\| !apiComunidad\) return l;/);
   assert.match(app, /<ComentariosClase key=\{c\.id\} api=\{apiComunidad\} claseId=\{c\.id\}/);
   // «Ver en Comunidad» es un <a> adentro del curso: lleva el ?ws= (AGENTS.md, las cinco formas de navegar).
   assert.match(app, /linkComunidad=\{\(postId\) => conWs\(`\/customer-success\/comunidad\?producto=\$\{c\.productoId\}&post=\$\{postId\}`, wsPestana\)\}/);
-  // El interruptor: del CURSO (como el color), con su Deshacer por el mismo camino, y de quien edita.
+  // El interruptor: YA NO en el menú de la marca (14/10/2026), sino en el «…» de cada clase, con su
+  // Deshacer por el mismo camino que la portada, y sólo con el estilo leído.
   const marca = app.slice(app.indexOf('const menuMarca = '), app.indexOf('if (!servicio) {', app.indexOf('const menuMarca = ')));
   assert.ok(marca.length > 500 && marca.length < 9000, `el recorte del menú mide ${marca.length}`);
-  assert.match(marca, /cambiarAspecto\(\{ tipo: 'comentarios' \}, comentariosPrendidos\(estilo\) \? null : 'si',/);
-  assert.match(marca, /role="switch" aria-checked=\{comentariosPrendidos\(estilo\)\}/);
-  assert.ok(antesQue(marca, '{puedeEditar && !estiloError && (', "tipo: 'comentarios'"), 'el interruptor quedó afuera del bloque de quien edita');
+  assert.doesNotMatch(marca, /comentarios/i, 'los comentarios volvieron al menú de la marca');
+  const menuClase = app.slice(app.indexOf('const menuClase = '), app.indexOf('const cambiarObligatoria = '));
+  assert.ok(menuClase.length > 500 && menuClase.length < 6000, `el recorte del menú de la clase mide ${menuClase.length}`);
+  assert.match(menuClase, /comentarios=\{estiloError \? undefined : \{\s*prendidos: comentariosDeClase\(estilo, c\.id\),/);
+  assert.match(menuClase, /cambiarAspecto\(\{ tipo: 'comentarios-clase', clase: c\.id \}, v \? 'si' : null,/);
   // El hook de la API va ANTES de cualquier return de la pantalla.
   assert.ok(antesQue(app, 'const apiComunidad = useMemo(', 'if (errorEntrega) {'), 'un hook detrás de un return');
+});
+
+test('guardar los comentarios de una clase exige una clase de ESE producto, y la papelera los borra con la clase', () => {
+  // Un id ajeno dejaría una fila basura que nombra una clase de otro curso (la misma guarda que la portada).
+  assert.match(sinComentarios(leer('app/customer-success/curso/actions.ts')),
+    /if \(\(a\.tipo === 'portada-clase' \|\| a\.tipo === 'comentarios-clase'\) && !\(await claseEsDelProducto\(a\.clase, Number\(productoId\)\)\)\) \{/);
+  // Al purgar una clase de la papelera se van sus dos ajustes de estilo, no sólo la portada.
+  assert.match(sinComentarios(leer('lib/curso-papelera.ts')), /\.in\('clave', \[`portada:clase:\$\{c\.id\}`, `comentarios:clase:\$\{c\.id\}`\]\)/);
 });
 
 test('la caja va adentro de la hoja del curso: todo acotado a «.ahdoc .ugc», sin Modal ni Confirm, y en neutro', () => {
@@ -319,3 +343,16 @@ test('la caja va adentro de la hoja del curso: todo acotado a «.ahdoc .ugc», s
 //   R3 `verificarComunidad` acepta el hilo de una clase como «ya publiqué»            → 15 / 1
 //   R4 `ultimoPostFijado` sin el filtro                                               → 15 / 1
 //   R5 el feed sin el filtro → 14 / 2 (cae también «NO salen en el feed…»)
+
+// Probado rompiéndolo el 14/10/2026 (scratchpad romper-1410.py: una rotura por vez, restaurada de MEMORIA
+// y comparada con md5; nunca git), corriendo juntos curso-comentarios-clase, curso-menu-estructura y
+// curso-apariencia. Sano: 41 pass / 0 fail. Cada rotura, sola:
+//  · los comentarios de CADA CLASE (14/10: «debería ir en la edición de cada clase»):
+//    C1 `comentariosDeClase` sin mirar la clase (prender una prende todas)   → 40 / 1 «los comentarios son de CADA CLASE…»
+//    C2 la clave vieja del curso entero vuelve a valer                         → 40 / 1 el mismo
+//    C3 `soloDeClases` deja viajar los de clases cerradas                      → 40 / 1 el mismo
+//    C4 el server lee el ajuste de otra clase                                  → 40 / 1 «la lectura de la clase…»
+//    C5 el portal monta el hilo en todas las clases                            → 40 / 1 «el portal del alumno…»
+//    C6 el interruptor vuelve al menú de la marca                              → 40 / 1 «el editor…»
+//    C9 guardar sin validar que la clase sea del producto                      → 40 / 1 «guardar los comentarios…»
+//    C10 la papelera deja la fila de los comentarios                           → 40 / 1 el mismo

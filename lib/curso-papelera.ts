@@ -63,9 +63,10 @@ export async function purgarPapeleraDelCurso(
         const e1 = await sb.from('curso_desbloqueos').delete().eq('workspace_id', c.workspace_id).eq('producto_id', c.producto_id)
           .eq('objeto', 'clase').eq('clave', String(c.id));
         if (e1.error) console.warn(`[curso-papelera] no pude limpiar lo abierto a mano de la clase ${c.id}: ${e1.error.message}`);
+        // Su portada y sus comentarios prendidos (los dos ajustes de estilo que nombran una clase).
         const e2 = await sb.from('curso_estilo').delete().eq('workspace_id', c.workspace_id).eq('producto_id', c.producto_id)
-          .eq('clave', `portada:clase:${c.id}`);
-        if (e2.error) console.warn(`[curso-papelera] no pude borrar la portada de la clase ${c.id}: ${e2.error.message}`);
+          .in('clave', [`portada:clase:${c.id}`, `comentarios:clase:${c.id}`]);
+        if (e2.error) console.warn(`[curso-papelera] no pude borrar la portada ni los comentarios de la clase ${c.id}: ${e2.error.message}`);
       }
     }
 

@@ -50,7 +50,7 @@ import { Pagina, EmptyState } from '@/app/_ui';
 import { useRouter } from '@/app/_ui/Link';
 import { HtmlSeguro, idDeRef } from '@/app/_ui/HtmlSeguro';
 import CursoUgc, { ChipUgc, ItemMenuUgc, TituloMenuUgc } from '@/app/_cursos/CursoUgc';
-import { comentariosPrendidos, disposicionDe, tapaDe } from '@/lib/curso-estilo';
+import { comentariosDeClase, disposicionDe, tapaDe } from '@/lib/curso-estilo';
 import { urlAdjuntoDelAlumno } from '@/lib/curso-adjuntos-reglas';
 import type { LeccionUgc } from '@/app/_cursos/tipos';
 import { navegar, sembrar, usePosicion } from '@/app/conocimientos/posicion';
@@ -157,13 +157,15 @@ function Producto({ token, vista, producto, vistaPrevia, urlsAdjuntos, onProduct
   const modulos = useMemo(() => modulosDelPortal(producto), [producto]);
   const clases = useMemo(() => clasesDelPortal(producto), [producto]);
   const porId = useMemo(() => new Map(clases.map((c) => [c.ugc.id, c])), [clases]);
-  // LOS COMENTARIOS DE CADA CLASE (item 13 del audio del 08/10/2026, mig 0227), si el equipo los prendió
-  // en el menú de la marca. NO al líder de un área: su link no abre la comunidad (`actorDelAlumno`), y
-  // los comentarios son de ella. La vista previa del equipo dibuja el recuadro sin pedir nada.
-  const conComentarios = comentariosPrendidos(producto.estilo) && !lider;
+  // LOS COMENTARIOS DE CADA CLASE (item 13 del audio del 08/10/2026, mig 0227), en las clases donde el
+  // equipo los prendió (en el «…» de cada una, desde el 14/10/2026). NO al líder de un área: su link no
+  // abre la comunidad (`actorDelAlumno`), y los comentarios son de ella. La vista previa del equipo
+  // dibuja el recuadro sin pedir nada.
+  const conComentarios = (claseId: number) => !lider && comentariosDeClase(producto.estilo, claseId);
+  const algunaConComentarios = !lider && clases.some((c) => comentariosDeClase(producto.estilo, c.ugc.id));
   const apiComentarios = useMemo(
-    () => (conComentarios && !vistaPrevia ? apiDelAlumno(token, producto.productoId) : null),
-    [conComentarios, vistaPrevia, token, producto.productoId],
+    () => (algunaConComentarios && !vistaPrevia ? apiDelAlumno(token, producto.productoId) : null),
+    [algunaConComentarios, vistaPrevia, token, producto.productoId],
   );
   const { etapa: actual, i: iActual } = etapaActual(producto);
   const agenda = lider ? null : agendaVigente(producto);
@@ -246,7 +248,7 @@ function Producto({ token, vista, producto, vistaPrevia, urlsAdjuntos, onProduct
       debajoDelVideo: c.video?.tipo === 'afuera' ? reproductor : undefined,
       papel,
       // Debajo de la lección, a lo ancho. Una clase CERRADA no llega acá (sale arriba, sin nada).
-      despues: conComentarios
+      despues: conComentarios(c.id)
         ? <ComentariosClase key={c.id} api={apiComentarios} claseId={c.id} vistaPrevia={vistaPrevia} />
         : undefined,
     };

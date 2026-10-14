@@ -112,7 +112,7 @@ function renderOption(
       {o.color && <span style={{ width: 9, height: 9, borderRadius: '50%', background: o.color, flex: 'none' }} />}
       {o.crear && <span aria-hidden style={{ flex: 'none', fontSize: 13, lineHeight: 1 }}>＋</span>}
       <span style={{ minWidth: 0, flex: 1 }}>
-        <span style={{ display: 'block', fontWeight: on ? 700 : 600, color: on ? (varios ? 'var(--ink)' : 'var(--primary)') : undefined, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{o.label}</span>
+        <span style={{ display: 'block', fontWeight: on ? 700 : 600, color: on ? (varios ? 'var(--ink)' : 'var(--primary)') : undefined, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', ...(o.fuente ? { fontFamily: o.fuente } : {}) }}>{o.label}</span>
         {(!enColumna || conSub) && o.sub && <span style={{ display: 'block', fontSize: 12, color: 'var(--dim)', marginTop: 1, lineHeight: 1.3 }}>{o.sub}</span>}
       </span>
       {/* ⚠️ ACÁ HABÍA UN ✓ y se fue el 29/09/2026: «no pongas un check, solo haz que sea
@@ -189,6 +189,7 @@ function renderOption(
   if (!o.acciones?.length) {
     return (
       <button key={o.value} type="button" disabled={o.disabled} onClick={elegir}
+        data-fuente={o.fuente ? o.value : undefined}
         // Un renglón que se prende y se apaga es un botón de dos estados: `aria-pressed`
         // dice cuál, sin tener que declararle un rol a éste solo (ningún renglón de este
         // menú declara el suyo, y uno solo con rol es peor que ninguno).
@@ -261,6 +262,15 @@ export type DropdownAccion = { icono: ReactNode; title: string; tone?: 'bad'; on
   cierra?: boolean };
 
 export type DropdownOption = { value: string; label: string; /** Un ícono antes del título, a 18 px: el NOMBRE de uno del set de la casa (`'duplicar'`, app/_ui/iconos-menu.tsx), una URL o `data:` de un SVG (un logo), o un dibujo propio. Una persona va con `avatar`; una etapa o una etiqueta del negocio, con `color` (no se estandarizan). */ icono?: IconoDeOpcion; sub?: string; /** Texto extra que la búsqueda mira, además del título y el subtítulo. Para cuando el dato que uno recuerda no está escrito en el renglón (un token, un alias, un código). */ buscar?: string; color?: string; disabled?: boolean; /** Avatar de persona: URL de foto, o null = sin foto (iniciales). undefined = no es persona (no muestra avatar). */ avatar?: string | null; /** true = imagen rectangular con esquinas suaves (banderas), no círculo. */ avatarCuadrado?: boolean; /** Acciones propias del renglón. Con esto el renglón deja de ser un <button>. */ acciones?: DropdownAccion[];
+  /**
+   * La LETRA con que se dibuja el título del renglón (una pila CSS de `font-family`). Para un selector de
+   * fuentes, que muestra cada una escrita con ella misma, como el de Google Docs (14/10/2026: «Mejora el
+   * desplegable de las tipografías, que sea uno como cualquier otro, copialo de como lo tiene google
+   * docs»). El botón cerrado sigue con la letra de la app, como en Docs. El renglón lleva además
+   * `data-fuente` con su `value`: quien carga las hojas de esas letras encuentra ahí lo que se dibuja
+   * (app/_cursos/SelectorFuente.tsx las pide al verse).
+   */
+  fuente?: string;
   /**
    * La salida para CREAR uno nuevo, no una opción más de la lista.
    *

@@ -100,7 +100,7 @@ import { ModalInvitarAlumnos } from './InvitarAlumnos';
 import { NuevoProducto } from './NuevoProducto';
 import { ComentariosClase } from '@/app/_cursos/ComentariosClase';
 import { apiDelEquipo } from '../comunidad/api-equipo';
-import { comentariosPrendidos } from '@/lib/curso-estilo';
+import { comentariosDeClase } from '@/lib/curso-estilo';
 import type { ClaseUgc, ControlMenuUgc, ModuloUgc } from '@/app/_cursos/tipos';
 // La fuente del curso, en el menú de la marca al lado del color (item 3 del 08/10/2026).
 import { SelectorFuente } from '@/app/_cursos/SelectorFuente';
@@ -898,9 +898,10 @@ export function CursoApp({
     const l = leccionDelEditor(c, ctx);
     // LOS COMENTARIOS DE LA CLASE (item 13 del audio del 08/10/2026, minuto 15:00: «un apartado de chat…
     // para chatear acerca de esa clase»), en el hueco de abajo de la lección: el equipo los lee y contesta
-    // acá, y los ve también en la tab Comunidad («Ver en Comunidad», `?post=`). Sólo con el ajuste
-    // prendido en el menú de la marca. Lo que ya traiga la lección en ese hueco va primero.
-    if (!comentariosPrendidos(estiloActual) || !apiComunidad) return l;
+    // acá, y los ve también en la tab Comunidad («Ver en Comunidad», `?post=`). Sólo con los comentarios
+    // de ESTA clase prendidos en su «…» (desde el 14/10/2026; antes era un ajuste del curso entero, en el
+    // menú de la marca). Lo que ya traiga la lección en ese hueco va primero.
+    if (!comentariosDeClase(estiloActual, c.id) || !apiComunidad) return l;
     return {
       ...l,
       despues: (
@@ -974,7 +975,14 @@ export function CursoApp({
           prendida: c.obligatoria,
           motivo: motivoObligatoria({ prendida: c.obligatoria, tareaGuardada: tieneTarea(c), tareaEnBorrador: enBorrador }),
           onCambiar: (v) => { void cambiarObligatoria(c, v); },
-        } : undefined} />
+        } : undefined}
+        // Los comentarios de ESTA clase (14/10/2026, antes eran del curso entero). Inmediato y con su
+        // «Deshacer», por el mismo camino que la portada. Sin el estilo leído, no se ofrece: se editaría
+        // encima de algo que no se pudo leer.
+        comentarios={estiloError ? undefined : {
+          prendidos: comentariosDeClase(estilo, c.id),
+          onCambiar: (v) => void cambiarAspecto({ tipo: 'comentarios-clase', clase: c.id }, v ? 'si' : null, v ? 'Comentarios prendidos' : 'Comentarios apagados'),
+        }} />
     );
   };
 
@@ -1089,16 +1097,9 @@ export function CursoApp({
           {/* Cada fuente escrita con ella misma; cambia el curso entero, el del alumno también. No
               cierra el menú: se prueba mirando, como el color. */}
           <SelectorFuente actual={estilo.fuente} onElegir={(id) => void cambiarAspecto({ tipo: 'fuente' }, id, 'Fuente cambiada')} />
-          {/* «Comentarios en las clases» (item 13 del audio del 08/10/2026): un ajuste del CURSO, como el
-              color, APAGADO por default (lib/curso-estilo.ts). Prendido, cada clase tiene sus comentarios
-              debajo de la lección, en el portal y acá. Con su «Deshacer» por el mismo camino. */}
-          <div className="ugc-menu-sep" />
-          <TituloMenuUgc>Clases</TituloMenuUgc>
-          <button type="button" className="ugc-menu-item" role="switch" aria-checked={comentariosPrendidos(estilo)}
-            onClick={() => void cambiarAspecto({ tipo: 'comentarios' }, comentariosPrendidos(estilo) ? null : 'si',
-              comentariosPrendidos(estilo) ? 'Comentarios apagados' : 'Comentarios prendidos')}>
-            <span aria-hidden>{comentariosPrendidos(estilo) ? '☑' : '☐'}</span> Comentarios en las clases
-          </button>
+          {/* ⚠️ «Comentarios en las clases» YA NO VA ACÁ (14/10/2026). Martín: «la opción de comentarios no
+              debería ir allí, debería ir en la edición de cada clase». Es un interruptor del «…» de cada
+              clase (./MenuCurso.tsx, `comentarios`). */}
         </>
       )}
     </>

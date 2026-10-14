@@ -14,6 +14,7 @@
 //   (sólo una clase) Obligatoria para avanzar — un interruptor, en la misma sección (audio del 08/10/2026)
 //   ───
 //   (sólo un módulo) Etapa del kanban — un interruptor
+//   (sólo una clase) Comentarios — un interruptor (14/10/2026: era del curso entero, en el menú de la marca)
 //   ───
 //   Eliminar módulo / Eliminar clase (en rojo)
 //
@@ -121,7 +122,13 @@ export function MenuModulo({ modulo, entrada, clases, ctl, ocupado, onPortada, o
  */
 export type ObligatoriaMenu = { prendida: boolean; motivo: string | null; onCambiar: (v: boolean) => void };
 
-export function MenuClase({ clase, clases, ctl, ocupado, onPortada, onRenombrar, onMover, onBloqueo, onEliminar, obligatoria }: {
+/**
+ * Los COMENTARIOS de una clase (14/10/2026). Martín: «la opción de comentarios no debería ir allí [el menú
+ * de la marca], debería ir en la edición de cada clase». Sin esto el menú no lo dibuja (sin el estilo leído).
+ */
+export type ComentariosMenu = { prendidos: boolean; onCambiar: (v: boolean) => void };
+
+export function MenuClase({ clase, clases, ctl, ocupado, onPortada, onRenombrar, onMover, onBloqueo, onEliminar, obligatoria, comentarios }: {
   clase: ClaseParaMenu & { bloqueo?: Bloqueo | null };
   clases: readonly ClaseParaMenu[];
   ctl: ControlMenuUgc;
@@ -133,6 +140,7 @@ export function MenuClase({ clase, clases, ctl, ocupado, onPortada, onRenombrar,
   onBloqueo: (b: Bloqueo | null) => Guardado;
   onEliminar: () => void;
   obligatoria?: ObligatoriaMenu;
+  comentarios?: ComentariosMenu;
 }) {
   return (
     <Secciones tipo="clase" items={{
@@ -141,6 +149,7 @@ export function MenuClase({ clase, clases, ctl, ocupado, onPortada, onRenombrar,
       acceso: <AccesoMenu objeto="clase" valor={clase.bloqueo ?? null} propia={clase.id} ocupado={ocupado} onGuardar={onBloqueo}
         clases={clasesParaTarea(clases, { clase: clase.id })} />,
       obligatoria: obligatoria ? <InterruptorObligatoria o={obligatoria} ocupado={ocupado} /> : null,
+      comentarios: comentarios ? <InterruptorComentarios c={comentarios} ocupado={ocupado} /> : null,
       eliminar: <ItemMenuUgc peligro icono="borrar" disabled={ocupado} onClick={() => { ctl.cerrar(); onEliminar(); }}>Eliminar clase</ItemMenuUgc>,
     }} />
   );
@@ -164,6 +173,22 @@ function InterruptorObligatoria({ o, ocupado }: { o: ObligatoriaMenu; ocupado: b
         <span className="cu-menu-switch-pista" aria-hidden><span className="cu-menu-switch-bola" /></span>
       </button>
       <p className="ugc-menu-nota">{o.motivo ?? AYUDA_OBLIGATORIA}</p>
+    </div>
+  );
+}
+
+/**
+ * «Comentarios» de una clase: el mismo interruptor que «Obligatoria» y que el del kanban. INMEDIATO y con
+ * «Deshacer» (lo resuelve la pantalla). NO CIERRA EL MENÚ: no abre ninguna pregunta, y se ve prenderse.
+ */
+function InterruptorComentarios({ c, ocupado }: { c: ComentariosMenu; ocupado: boolean }) {
+  return (
+    <div className="ugc-menu-bloque" data-menu-comentarios>
+      <button type="button" role="switch" aria-checked={c.prendidos} className="cu-menu-switch" disabled={ocupado}
+        onClick={() => c.onCambiar(!c.prendidos)}>
+        <span className="cu-menu-switch-t">Comentarios</span>
+        <span className="cu-menu-switch-pista" aria-hidden><span className="cu-menu-switch-bola" /></span>
+      </button>
     </div>
   );
 }

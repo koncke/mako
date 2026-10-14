@@ -1203,13 +1203,14 @@ type ClaseComentable = { id: number; titulo: string };
 const CLASES_DEL_ACTOR = new WeakMap<Actor, Map<number, Promise<ClaseComentable | null>>>();
 
 /**
- * ¿El curso del producto tiene prendidos los comentarios de las clases? Sin fila, no (es el default).
+ * ¿ESTA clase tiene prendidos sus comentarios? Sin fila, no (es el default). Desde el 14/10/2026 el ajuste
+ * es de cada clase y no del curso entero (lib/curso-estilo.ts, `comentariosClase`).
  * ⚠️ TIRA SI NO PUEDE LEER, y no devuelve «apagado»: esto DECIDE si un alumno lee el hilo (AGENTS.md,
  *    «una lectura que cae al default sirve para dibujar, nunca para decidir»). Quien llama contesta su
  *    error, que se reintenta; un hilo abierto de más no se cierra.
  */
-async function comentariosDelCurso(ws: number, productoId: number): Promise<boolean> {
-  const ajuste: Ajuste = { tipo: 'comentarios' };
+async function comentariosDeLaClase(ws: number, productoId: number, claseId: number): Promise<boolean> {
+  const ajuste: Ajuste = { tipo: 'comentarios-clase', clase: claseId };
   const { data, error } = await getSupabaseServer().from('curso_estilo').select('valor')
     .eq('workspace_id', ws).eq('producto_id', productoId).eq('clave', claveDe(ajuste)).maybeSingle();
   if (error) throw new Error(error.message);
@@ -1236,7 +1237,7 @@ async function leerClaseParaComentar(a: Actor, claseId: number): Promise<ClaseCo
     return si && c ? { id: c.id, titulo: c.titulo } : null;
   }
   // Apagados, no se evalúa el candado (la lectura más cara): la regla ya dice que no.
-  const prendidos = a.leadId != null && (await comentariosDelCurso(a.ws, a.productoId));
+  const prendidos = a.leadId != null && (await comentariosDeLaClase(a.ws, a.productoId, claseId));
   if (!prendidos || a.leadId == null) return null;
   const { claseDelAlumno } = await import('./curso-portal');
   const r = await claseDelAlumno(a.leadId, claseId, { exigeAbierta: true, alcance: a.alcance ?? null });
