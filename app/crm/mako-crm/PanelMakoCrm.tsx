@@ -22,6 +22,12 @@
 //   · «HACERLO» Y «AHORA NO» los decide el server por ID (app/api/crm/mako/route.ts): la pantalla no
 //     elige plantilla ni etapa. A quien no es admin no se le ofrece lo que es del admin (`hacer`,
 //     `callar`). Lo creado nace PAUSADO y la fila deja el link para abrirlo en /automations.
+//   · LO CALLADO TIENE VUELTA: debajo de las sugerencias, «Calladas (N)» despliega lo que el equipo
+//     calló en ESTE CRM con «Volver a mostrar» en cada una. Del admin, como «Ahora no».
+//   · ⚠️ UN PANEL POR CRM (`key`): cambiar de CRM desmonta el de antes, con su chat, y el nuevo nace
+//     plegado. Con el mismo componente vivo, el chat ya montado recibía el CRM nuevo y cargaba SU hilo
+//     con el panel plegado, y cargar el hilo escribe. Un efecto que desmonta no alcanza: el efecto del
+//     chat (hijo) corre ANTES que el del panel, con el CRM nuevo, y el GET ya salió.
 // =============================================================================
 
 import { useCallback, useEffect, useState, type CSSProperties } from 'react';
@@ -49,14 +55,34 @@ const CARA_BOTON: CSSProperties = {
   boxShadow: '0 2px 8px rgba(0,0,0,.06)',
 };
 
-type Respuesta = { crm: { id: number; nombre: string }; sugerencias: SugerenciaDePantalla[]; callar: boolean };
+type Respuesta = {
+  crm: { id: number; nombre: string }; sugerencias: SugerenciaDePantalla[];
+  /** null = lo callado no se pudo leer */
+  calladas: SugerenciaDePantalla[] | null;
+  callar: boolean;
+};
 type Hecha = { href: string; nombre: string; aviso: string | null };
+type AccionFila = 'hacer' | 'ahora_no' | 'volver_a_mostrar';
 
+/** Lo que vuelve a la lista entra en su clase: las del tablero (3) primero, como las ordena el motor. */
+const conDeVuelta = (xs: readonly SugerenciaDePantalla[], s: SugerenciaDePantalla): SugerenciaDePantalla[] => {
+  if (xs.some((x) => x.id === s.id)) return [...xs];
+  const i = s.clase === 3 ? xs.filter((x) => x.clase === 3).length : xs.length;
+  return [...xs.slice(0, i), s, ...xs.slice(i)];
+};
+
+/** Otro CRM es entrar de nuevo: otro panel, plegado y sin chat montado (ver la cabecera). */
 export function PanelMakoCrm({ funnelId }: { funnelId: number | null }) {
+  return <PanelDeUnCrm key={funnelId ?? 'principal'} funnelId={funnelId} />;
+}
+
+function PanelDeUnCrm({ funnelId }: { funnelId: number | null }) {
   const [abierto, setAbierto] = useState(false);
-  /** El chat se monta la PRIMERA vez que se abre y se queda: un turno en curso sigue si se pliega. */
+  /** El chat se monta la PRIMERA vez que se abre y se queda mientras sea este CRM: un turno en curso sigue si se pliega. */
   const [montado, setMontado] = useState(false);
   const [sugs, setSugs] = useState<SugerenciaDePantalla[] | null>(null);
+  const [calladas, setCalladas] = useState<SugerenciaDePantalla[]>([]);
+  const [verCalladas, setVerCalladas] = useState(false);
   const [callar, setCallar] = useState(false);
   const [errorSugs, setErrorSugs] = useState<string | null>(null);
   const [hechas, setHechas] = useState<Record<string, Hecha>>({});
@@ -64,11 +90,9 @@ export function PanelMakoCrm({ funnelId }: { funnelId: number | null }) {
   const [errorFila, setErrorFila] = useState<Record<string, string>>({});
   const [pedido, setPedido] = useState<{ texto: string; vez: number } | null>(null);
 
-  // ── Las sugerencias: UNA vez por CRM, al montarse (el server las tiene calculadas) ──
+  // ── Las sugerencias: UNA vez, al montarse (el server las tiene calculadas) ──
   useEffect(() => {
     let vivo = true;
-    // Otro CRM es entrar de nuevo: plegado, como siempre al entrar.
-    setAbierto(false); setSugs(null); setHechas({}); setErrorFila({});
     void (async () => {
       let status = 0; let cuerpo = '';
       try {
@@ -79,6 +103,7 @@ export function PanelMakoCrm({ funnelId }: { funnelId: number | null }) {
       const l = leerRespuesta<Respuesta>(status, cuerpo);
       if (!l.ok) { setSugs([]); setErrorSugs('No pude cargar las sugerencias.'); return; }
       setSugs(l.datos.sugerencias ?? []);
+      setCalladas(l.datos.calladas ?? []);
       setCallar(l.datos.callar === true);
       setErrorSugs(null);
     })();
@@ -97,7 +122,7 @@ export function PanelMakoCrm({ funnelId }: { funnelId: number | null }) {
 
   const sacar = (id: string) => setSugs((xs) => (xs ?? []).filter((x) => x.id !== id));
 
-  const pedirAlServer = async (accion: 'hacer' | 'ahora_no', s: SugerenciaDePantalla) => {
+  const pedirAlServer = async (accion: AccionFila, s: SugerenciaDePantalla) => {
     if (ocupada) return;
     setOcupada(`${accion}:${s.id}`);
     setErrorFila((m) => { const n = { ...m }; delete n[s.id]; return n; });
@@ -117,7 +142,9 @@ export function PanelMakoCrm({ funnelId }: { funnelId: number | null }) {
         setErrorFila((m) => ({ ...m, [s.id]: l.reintentable ? l.error : 'No sé si se hizo. Recarga para ver.' }));
         return;
       }
-      if (accion === 'ahora_no') { sacar(s.id); return; }
+      if (accion === 'ahora_no') { sacar(s.id); setCalladas((xs) => [...xs.filter((x) => x.id !== s.id), s]); return; }
+      // `cambio: false` (otra persona ya la había vuelto a mostrar, o venció) también deja la fila a la vista.
+      if (accion === 'volver_a_mostrar') { setCalladas((xs) => xs.filter((x) => x.id !== s.id)); setSugs((xs) => conDeVuelta(xs ?? [], s)); return; }
       if (l.datos.href) setHechas((m) => ({ ...m, [s.id]: { href: l.datos.href!, nombre: l.datos.nombre ?? 'La automatización', aviso: l.datos.aviso ?? null } }));
     } finally {
       setOcupada(null);
@@ -164,7 +191,7 @@ export function PanelMakoCrm({ funnelId }: { funnelId: number | null }) {
             <IconButton title="Cerrar MaKo" onClick={cerrar}><IconoMenu nombre="cerrar" /></IconButton>
           </header>
 
-          {(visibles.length > 0 || Object.keys(hechas).length > 0 || errorSugs) && (
+          {(visibles.length > 0 || Object.keys(hechas).length > 0 || errorSugs || (callar && calladas.length > 0)) && (
             <section aria-label="Sugerencias" style={{ maxHeight: '42%', overflowY: 'auto', borderBottom: '1px solid var(--border)', padding: '6px 0' }}>
               {errorSugs && <p role="status" style={{ margin: '8px 14px', fontSize: 13, color: 'var(--dim)' }}>{errorSugs}</p>}
               {(sugs ?? []).map((s) => {
@@ -192,6 +219,23 @@ export function PanelMakoCrm({ funnelId }: { funnelId: number | null }) {
                   </div>
                 );
               })}
+              {callar && calladas.length > 0 && (
+                <div style={{ padding: '4px 14px 6px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 6 }}>
+                  <Button variant="tertiary" size="sm" aria-expanded={verCalladas} onClick={() => setVerCalladas((v) => !v)}>
+                    Calladas ({calladas.length})
+                  </Button>
+                  {verCalladas && calladas.map((s) => {
+                    const enCurso = ocupada === `volver_a_mostrar:${s.id}`;
+                    return (
+                      <div key={s.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 6, paddingBottom: 4 }}>
+                        <p style={{ margin: 0, fontSize: 13, lineHeight: 1.4, color: 'var(--dim)', overflowWrap: 'anywhere' }}>{s.texto}</p>
+                        <Button variant="secondary" size="sm" loading={enCurso} disabled={!!ocupada && !enCurso} onClick={() => void pedirAlServer('volver_a_mostrar', s)}>Volver a mostrar</Button>
+                        {errorFila[s.id] && <p role="alert" style={{ margin: 0, fontSize: 12.5, color: 'var(--warn)' }}>{errorFila[s.id]}</p>}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </section>
           )}
 

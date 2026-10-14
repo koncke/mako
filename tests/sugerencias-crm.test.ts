@@ -8,8 +8,9 @@
 //   1. EL MOTOR (lib/sugerencias-crm.ts, puro): cada etapa del CRM sin su automatización trae la suya
 //      (clase 1), el tablero trae lo suyo con sus umbrales (clase 3), y NUNCA propone lo que ya existe
 //      (por disparador, con la lista de CRON entera). Lo que no se pudo leer no sugiere nada.
-//   2. LO QUE «HACERLO» CREA: el CRON que viaja es el que la galería entiende (`disparadorDeEleccion`).
-//   3. LO CALLADO: por CRM, con vencimiento y con tope.
+//   2. LO QUE «HACERLO» CREA: el CRON que viaja es el que la galería entiende (`disparadorDeEleccion`),
+//      y el texto promete lo que la plantilla hace (su plazo, sacado de su grafo).
+//   3. LO CALLADO: por CRM, con vencimiento y con tope; se lista y se vuelve a mostrar.
 //   4. EL CHAT: una conversación por persona y por CRM; lo que lee MaKo son lecturas reales, gratis.
 //   5. EL CABLEADO (sobre el fuente, sin comentarios): la página no calcula; el GET del botón no
 //      escribe; «Hacerlo» y «Ahora no» son del admin y la cuenta fresca decide; el rincón marcado.
@@ -24,6 +25,20 @@
 //   · `chartKeyDelCrm` aceptando una base que ya es de un lead                               → 15 / 1
 //   · la ruta llamando `hacerSugerencia` / `ahoraNo` sin mirar el rol                        → 15 / 1
 //   · `hacerSugerencia` con la caché de respaldo (`CACHE.get(…) ?? await calcular(…)`)        → 15 / 1
+//
+// La revisión del 14/10 (lo propuesto = lo creado, «Ahora no» con vuelta, un panel por CRM). Base:
+// 18 pasan / 0 fallan, con un arnés propio que rompe UNA cosa, corre este archivo y restaura de
+// memoria (al final, 18 / 0 otra vez). Cada rotura la cazó el test que la nombra → 17 / 1:
+//   · `esperaDePlantilla` con un plazo fijo ('2 días') en vez del de la plantilla
+//   · la clase 1 de vuelta a «más de lo previsto» · la clase 3 de vuelta a «¿Te aviso?»
+//   · `conEtapa` cortando la línea al final en vez de la etapa (la pregunta quedaba a medias)
+//   · `sinCallada` sin sacar la clave · `sinCallada` sacándola de TODOS los CRM
+//   · leer lo callado con «no pude leer» como «nada callado» · la lista sin su null
+//   · `volverAMostrar` escribiendo sin mirar si HOY está callada · leyendo sin estricto
+//   · la ruta con «volver a mostrar» en su propia rama antes del rol · con el corte de rol
+//     exceptuándola · el GET sin la lista de calladas
+//   · `volver_a_mostrar_sugerencia` sin `rolMinimo: 'admin'` · `sugerencias_crm` sin lo callado
+//   · el panel sin la `key` por CRM · «Calladas» a la vista de quien no es admin
 // =============================================================================
 
 import { test } from 'node:test';
@@ -31,12 +46,13 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  sugerenciasDelCrm, yaExiste, diasParadosDe, plantillaDeClave, parsearCalladas, conCallada, sinCalladas, claveCallada,
-  dePantalla, UMBRALES_SUGERENCIAS, TOPE_TEXTO, CLAVE_CALLADAS,
+  sugerenciasDelCrm, yaExiste, diasParadosDe, plantillaDeClave, parsearCalladas, conCallada, sinCalladas, sinCallada, estaCallada, claveCallada,
+  dePantalla, esperaDePlantilla, UMBRALES_SUGERENCIAS, TOPE_TEXTO, CLAVE_CALLADAS,
   type EntradaSugerencias, type LeadSug, type AutomatizacionSug, type Sugerencia,
 } from '../lib/sugerencias-crm';
 import { generateFunnel, DEFAULT_PIPELINE } from '../lib/pipeline';
-import { plantillaPorId, disparadorDeEleccion } from '../lib/plantillas-automatizaciones';
+import { plantillaPorId, disparadorDeEleccion, canalesDe } from '../lib/plantillas-automatizaciones';
+import { textoDuracion } from '../lib/espera-duracion';
 import { chartKeyDelCrm, SUFIJO_CRM, LECTURAS_DEL_CRM, lecturasDe, contextoDelCrm } from '../app/crm/mako-crm/chat-reglas';
 import { chartKeyDelLead, TOPE_CONTEXTO } from '../lib/mako-analyst-lead-reglas';
 import { PREFIJO_CHART_MOVIL, chartKeyDePersona } from '../lib/mako-turno-app-reglas';
@@ -208,6 +224,43 @@ test('el orden, el tope y las líneas: clase 3 primero, una por id, cortas y en 
   }
 });
 
+test('lo que se PROPONE es lo que se ejecuta: «Un Lead No Avanzó» dice el plazo de SU definición', () => {
+  // El plazo, sacado del grafo de la plantilla por OTRO camino que el motor: desde su primera tarjeta,
+  // sumando las esperas hasta la que avisa. Es lo que hace la automatización que «Hacerlo» crea.
+  const p = plantillaPorId('lead-no-avanzo')!;
+  const pasoDe = new Map(p.pasos.map((x) => [x.id, x]));
+  let paso = p.pasos[0]; let minutos = 0; const vistos = new Set<string>();
+  while (paso && !paso.accion && !vistos.has(paso.id)) {
+    vistos.add(paso.id);
+    if (paso.nodo === 'esperar') minutos += paso.espera!.minutos;
+    paso = pasoDe.get(String(paso.nodo === 'condicion' ? paso.ramas?.[0]?.siguiente : paso.siguiente))!;
+  }
+  assert.ok(paso?.accion && canalesDe(p).includes('mako'), 'la plantilla no termina en un aviso al grupo: «te aviso» sería falso');
+  const plazo = textoDuracion(minutos * 60);
+  assert.equal(esperaDePlantilla('lead-no-avanzo'), plazo);
+  // N del mapa (7 en llamada) distinto del plazo de la plantilla, y una etapa con su plazo de CRM (4).
+  const e = base({
+    funnel: { id: 7, canal: 'llamadas', entradas: [], productoId: null, etapasEntrega: [] },
+    leads: Array.from({ length: 6 }, () => lead({ creado: hace(10) })), plazos: { agendaj2: 4 },
+  });
+  const noAvanzo = (x: EntradaSugerencias) => todas(x).filter((s) => s.accion.tipo === 'plantilla' && s.accion.plantilla === 'lead-no-avanzo');
+  assert.deepEqual(noAvanzo(e).map((s) => s.clase), [3, 1]);
+  for (const s of noAvanzo(e)) {
+    assert.ok(s.texto.includes(`pasa ${plazo}`), `«${s.texto}» no dice el plazo de la plantilla (${plazo})`);
+    assert.ok(!/más de lo previsto|¿Te aviso\?$/.test(s.texto), `«${s.texto}» promete otra cosa`);
+  }
+  // El conteo sigue con el N del mapa: es lo que se MIDIÓ, y no se ofrece como lo que hará.
+  assert.match(noAvanzo(e)[0].texto, /^6 leads parados en «Lead entrante» hace más de 7 días\. ¿Te aviso si uno pasa .+ ahí\?$/);
+  // Una etapa larga se acorta ELLA: la promesa entra entera y la línea no pasa el tope.
+  const larga = 'Leads que llegaron por el formulario del anuncio de octubre y todavía no contestan nada';
+  const etapas = stages.map((s) => (s.key === 'lead' || s.key === 'agendaj2' ? { ...s, label: larga } : s));
+  for (const s of noAvanzo({ ...e, etapas })) {
+    assert.ok(s.texto.length <= TOPE_TEXTO, `«${s.texto}» pasa de ${TOPE_TEXTO}`);
+    assert.ok(s.texto.includes(`pasa ${plazo}`) && s.texto.includes('…»'), `la etapa larga se comió la promesa: «${s.texto}»`);
+    if (s.clase === 3) assert.match(s.texto, /ahí\?$/, `la etapa larga cortó la pregunta: «${s.texto}»`);
+  }
+});
+
 // --- 3. Lo callado -----------------------------------------------------------------------
 
 test('«Ahora no» calla 30 días en ESE CRM, vence solo, tiene tope y descarta lo que no entiende', () => {
@@ -227,6 +280,36 @@ test('«Ahora no» calla 30 días en ESE CRM, vence solo, tiene tope y descarta 
   assert.ok(claveCallada(1, 's249') in mucho);
   assert.deepEqual(parsearCalladas('{"7|ok":"2026-11-01T00:00:00.000Z","basura":"x","8|a":"no-es-fecha"}'), { '7|ok': '2026-11-01T00:00:00.000Z' });
   assert.deepEqual(parsearCalladas('no es json'), {});
+});
+
+test('lo callado tiene VUELTA: se lista con hasta cuándo y «Volver a mostrar» la saca sólo de ESE CRM', () => {
+  const sugs = [{ id: 'a' }, { id: 'b' }, { id: 'c' }];
+  let m = conCallada({}, claveCallada(7, 'c'), 30, AHORA);
+  m = conCallada(m, claveCallada(7, 'a'), 30, AHORA);
+  m = conCallada(m, claveCallada(9, 'a'), 30, AHORA);
+  const r = sinCalladas(sugs, m, 7, AHORA);
+  assert.deepEqual(r.visibles.map((x) => x.id), ['b']);
+  assert.deepEqual(r.lista.map((x) => x.s.id), ['a', 'c'], 'las calladas no salen en el orden del motor');
+  assert.equal(r.lista[0].hasta, m[claveCallada(7, 'a')]);
+  assert.equal(r.calladas, 2);
+  const vuelta = sinCallada(m, claveCallada(7, 'a'), AHORA);
+  assert.ok(!estaCallada(vuelta, claveCallada(7, 'a'), AHORA), '«Volver a mostrar» no la sacó');
+  assert.ok(estaCallada(vuelta, claveCallada(9, 'a'), AHORA), 'volver a mostrar en el CRM 7 la sacó también del 9');
+  assert.ok(estaCallada(vuelta, claveCallada(7, 'c'), AHORA), 'se llevó otra callada del mismo CRM');
+  // Lo vencido no se lista (ya se ve) y se limpia al escribir.
+  const vieja = { ...m, [claveCallada(7, 'b')]: new Date(AHORA - 1000).toISOString() };
+  assert.deepEqual(sinCalladas(sugs, vieja, 7, AHORA).lista.map((x) => x.s.id), ['a', 'c']);
+  assert.ok(!(claveCallada(7, 'b') in sinCallada(vieja, claveCallada(7, 'a'), AHORA)), 'lo vencido sobrevivió');
+  // La API: lo callado viene en la lectura; volver a mostrar es una acción del ADMIN que se confirma.
+  const def = porId('volver_a_mostrar_sugerencia');
+  assert.ok(def && def.tipo === 'accion' && def.confirmacion === 'chat', 'volver_a_mostrar_sugerencia no es una acción que se confirma');
+  const quien = (rol: Vista['rol']): Vista => ({ canal: 'app', alcance: 'proponer', ws: 9, rol, tabs: null });
+  assert.ok(visible(def!, quien('admin')));
+  assert.ok(!visible(def!, quien('miembro')), 'un closer puede volver a mostrar lo que calló el admin');
+  const run = sinComentarios(leer('lib/api-mako/areas/crm.run.ts'));
+  const lectura = run.slice(run.indexOf('  sugerencias_crm: {'), run.indexOf('  volver_a_mostrar_sugerencia: {'));
+  assert.match(lectura, /calladas: r\.calladas\?\.map\(/, 'sugerencias_crm no devuelve lo callado');
+  assert.match(run.slice(run.indexOf('  volver_a_mostrar_sugerencia: {')), /await volverAMostrar\(ctx\.ws, Number\(payload\.embudoId\), String\(payload\.sugerenciaId\)\)/);
 });
 
 test('a la pantalla: sin plantilla ni etapa, y sin «Hacerlo» de admin para quien no lo es', () => {
@@ -310,7 +393,15 @@ test('la ruta: privada, quién y qué CRM ANTES de todo, el GET del botón no es
   assert.ok(post.indexOf('chatDelRequest(') < post.indexOf("body.action === 'send'"), 'corre algo antes de saber quién pregunta');
   const admin = post.indexOf("c.persona.rol !== 'admin'");
   assert.ok(admin > 0 && admin < post.indexOf('hacerSugerencia(') && admin < post.indexOf('ahoraNo('), '«Hacerlo» o «Ahora no» corren sin mirar el rol');
+  // «Volver a mostrar» deshace lo callado para todo el equipo: del admin, detrás del MISMO corte, que
+  // es la PRIMERA línea de la rama de las tres y no exceptúa a ninguna.
+  const volver = post.indexOf('volverAMostrar(');
+  assert.ok(volver > 0 && admin < volver && post.indexOf('chatDelRequest(') < volver, '«Volver a mostrar» corre sin mirar la sesión o el rol');
+  assert.equal((post.match(/volverAMostrar\(/g) ?? []).length, 1, '«Volver a mostrar» tiene otra rama');
+  assert.match(post, /if \(body\.action === 'hacer' \|\| body\.action === 'ahora_no' \|\| body\.action === 'volver_a_mostrar'\) \{\n\s+if \(c\.persona\.rol !== 'admin'\) return json\(\{ ok: false, error: 'Esto lo decide el admin de la cuenta\.' \}, 403\);\n/);
   assert.ok(!/body\.(plantilla|disparador|etapa)/.test(post), 'la ruta deja que la pantalla elija qué se crea');
+  // El GET del botón trae lo callado de ESE CRM (null = no se pudo leer, no «nada»).
+  assert.match(get, /calladas: r \? r\.calladas\?\.map\(\(x\) => dePantalla\(x\.sugerencia, admin\)\) \?\? null : \[\]/);
 });
 
 test('el server: cuenta FRESCA antes de crear, por la puerta de la galería, la caché con el ws, y lo callado leído aparte', () => {
@@ -322,12 +413,21 @@ test('el server: cuenta FRESCA antes de crear, por la puerta de la galería, la 
   assert.ok(hacer.indexOf('await calcular(') < hacer.indexOf('crearDesdePlantilla('), 'crea antes de contar');
   assert.match(hacer, /setPasos: setSecuenciaPasos,\s+setDisparadores: guardarDisparadores,/);
   assert.match(s, /const claveCache = \(ws: number, crmId: number\) => `\$\{ws\}:\$\{crmId\}`;/);
-  // Lo callado no se cachea: se lee en cada pedido; y al escribir, ESTRICTO y con compare-and-set.
+  // Lo callado no se cachea: se lee en cada pedido (estricto: «no pude leer» viaja como null, no como
+  // «nada callado»); y al escribir, ESTRICTO y con compare-and-set.
   const ver = s.slice(s.indexOf('export async function sugerenciasDeUnCrm'), s.indexOf('async function callar'));
-  assert.match(ver, /parsearCalladas\(await getSetting\(CLAVE_CALLADAS\)\)/);
+  assert.match(ver, /await getSettingEstricto\(CLAVE_CALLADAS\)\.then\(parsearCalladas, avisar\(/);
+  assert.match(ver, /calladas: mapa \? lista\.map\(/);
   const callar = s.slice(s.indexOf('async function callar'), s.indexOf('export type FalloSugerencia'));
   assert.match(callar, /getSettingEstricto\(CLAVE_CALLADAS\)/);
   assert.match(callar, /cambiarSettingSi\(CLAVE_CALLADAS, crudo, nuevo\)/);
+  // «Volver a mostrar»: la misma lectura estricta y el mismo compare-and-set, y sólo si HOY está callada.
+  const volver = s.slice(s.indexOf('export async function volverAMostrar'), s.indexOf('// ── Hacerlo'));
+  assert.ok(volver.length > 0, 'no encontré volverAMostrar');
+  assert.match(volver, /const crudo = await getSettingEstricto\(CLAVE_CALLADAS\);/);
+  assert.match(volver, /if \(!estaCallada\(mapa, clave, ahora\)\) return \{ ok: true, cambio: false \};/);
+  assert.match(volver, /cambiarSettingSi\(CLAVE_CALLADAS, crudo, JSON\.stringify\(sinCallada\(mapa, clave, ahora\)\)\)/);
+  assert.match(volver, /const clave = claveCallada\(crm\.id, sugerenciaId\);/);
 });
 
 test('el chat: permiso del CRM, el hilo sólo al abrir, y el rincón marcado', () => {
@@ -340,6 +440,16 @@ test('el chat: permiso del CRM, el hilo sólo al abrir, y el rincón marcado', (
   assert.match(panel, /dynamic\(\(\) => import\('\.\/ChatMakoCrm'\)/);
   assert.match(panel, /\{montado && \(/);
   assert.ok(!panel.includes('hilo=1') && chat.includes('&hilo=1'), 'el botón plegado pide el hilo');
+  // UN PANEL POR CRM: lo exportado sólo monta el de ESE CRM con su `key`. Sin la key, cambiar de CRM con
+  // el chat ya montado y el panel plegado le pasa el CRM nuevo al chat, que carga (y escribe) su hilo.
+  const exportado = panel.slice(panel.indexOf('export function PanelMakoCrm'), panel.indexOf('function PanelDeUnCrm'));
+  assert.match(exportado, /return <PanelDeUnCrm key=\{funnelId \?\? 'principal'\} funnelId=\{funnelId\} \/>;/);
+  assert.ok(!/use(State|Effect|Callback)\(/.test(exportado), 'el envoltorio guarda estado: sobrevive al cambio de CRM');
+  assert.equal((panel.match(/<ChatMakoCrm /g) ?? []).length, 1);
+  assert.ok(panel.indexOf('<ChatMakoCrm ') > panel.indexOf('function PanelDeUnCrm'), 'el chat se monta fuera del panel de UN CRM');
+  // «Calladas (N)» y «Volver a mostrar»: del admin, como «Ahora no».
+  assert.match(panel, /\{callar && calladas\.length > 0 && \(/);
+  assert.match(panel, /onClick=\{\(\) => void pedirAlServer\('volver_a_mostrar', s\)\}>Volver a mostrar</);
   // Los dos fetch del botón y los del chat con corte.
   for (const [nombre, src] of [['panel', panel], ['chat', chat]] as const) {
     // Cada `fetch(` con su corte antes del siguiente `fetch(` (y dentro de sus primeros 600 caracteres).

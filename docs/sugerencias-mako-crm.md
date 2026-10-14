@@ -11,7 +11,8 @@ todavía.
 - Cada sugerencia es **una línea** y dos botones: **«Hacerlo»** y **«Ahora no»**.
 - «Hacerlo» abre el chat con la automatización ya armada (por el mismo camino que «Crear con
   IA») y, si hace falta, crea la etapa que falta. Queda **sin publicar** hasta que la publiques.
-- «Ahora no» la calla 30 días para ese CRM.
+- «Ahora no» la calla 30 días para ese CRM. Tiene vuelta: «Calladas (N)», debajo de las
+  sugerencias, la lista con «Volver a mostrar» (del admin, como «Ahora no»).
 
 ## Qué la dispara: cuatro clases de disparo
 

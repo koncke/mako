@@ -15,7 +15,8 @@
 //     llevan a la ficha del lead (que sí los acepta).
 //   · EL HILO SE CARGA AL MONTAR, y este componente se monta recién cuando la persona ABRE el panel
 //     (PanelMakoCrm.tsx): abrir el hilo ESCRIBE (`pendientesVigentes` vence lo vencido), y el botón
-//     plegado vive en cada carga de /crm.
+//     plegado vive en cada carga de /crm. Y es de UN CRM: al cambiar de CRM el panel se desmonta entero
+//     (su `key`), así que un `funnelId` nuevo nunca llega acá con el panel plegado.
 //   · `pedido`: el «Hacerlo» de una sugerencia que se revisa en el chat lo manda como un mensaje más.
 //   · Lo confirmado en una tarjeta cambia el tablero: se relee con `router.refresh()`, que es como el
 //     tablero se resincroniza con la verdad (app/crm/CrmBoard.tsx).

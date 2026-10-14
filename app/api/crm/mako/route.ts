@@ -1,12 +1,14 @@
 // =============================================================================
 // /api/crm/mako — el chat de MaKo al costado del CRM y sus sugerencias
 // =============================================================================
-// GET  ?funnel=N                → { ok, crm, sugerencias, calladas, callar }  (lo del botón plegado)
+// GET  ?funnel=N                → { ok, crm, sugerencias, calladas, callar }  (lo del botón plegado;
+//                                  `calladas`: las de «Ahora no» de ESE CRM, null si no se pudo leer)
 // GET  ?funnel=N&hilo=1         → { ok, crm, sesion, mensajes, propuestas }   (al ABRIR el panel)
 // POST { action:'send', funnel, sessionId?, mensaje }                 → RespuestaTurno
 // POST { action:'confirmar'|'cancelar', funnel, sessionId, pendienteId } → ResultadoTarjeta
 // POST { action:'hacer', funnel, sugerencia }                          → { ok, secuenciaId, nombre, aviso, href }
 // POST { action:'ahora_no', funnel, sugerencia }                       → { ok }
+// POST { action:'volver_a_mostrar', funnel, sugerencia }               → { ok, cambio }
 //
 // Sin `funnel` (o con uno que no es del workspace), el CRM del negocio: lo que dibuja /crm sin `?funnel=`.
 //
@@ -19,10 +21,10 @@
 // hilo (`abrirDelCrm`) sí escribe —`pendientesVigentes` vence lo vencido antes de leer— y por eso va
 // aparte, recién cuando la persona abre el panel.
 //
-// ⚠️ «HACERLO» Y «AHORA NO» SON DEL ADMIN, y se miran ACÁ (la pantalla sólo esconde el botón): crear
-// automatizaciones es suyo (POST /api/chat-agent/secuencias es admin-only), y callar una sugerencia la
-// calla para todo el equipo. La pantalla manda el ID de la sugerencia, nunca la plantilla ni la etapa:
-// qué se crea lo decide la cuenta fresca del server (lib/sugerencias-crm-server.ts).
+// ⚠️ «HACERLO», «AHORA NO» Y «VOLVER A MOSTRAR» SON DEL ADMIN, y se miran ACÁ (la pantalla sólo esconde
+// el botón): crear automatizaciones es suyo (POST /api/chat-agent/secuencias es admin-only), y callar
+// una sugerencia (o deshacerlo) es para todo el equipo. La pantalla manda el ID de la sugerencia, nunca
+// la plantilla ni la etapa: qué se crea lo decide la cuenta fresca del server (lib/sugerencias-crm-server.ts).
 //
 // ⚠️ CONFIRMAR VA POR ACÁ Y NO POR UNA SERVER ACTION (como en /api/crm/analyst): el techo de una action
 // lo pone la PÁGINA que la monta, y confirmar puede correr una acción lenta con la pendiente reclamada.
@@ -31,7 +33,7 @@
 
 import type { NextRequest } from 'next/server';
 import { chatDelRequest, abrirDelCrm, turnoDelCrm, tarjetaDelCrm, type ChatDelCrm } from '@/app/crm/mako-crm/chat-server';
-import { sugerenciasDeUnCrm, hacerSugerencia, ahoraNo } from '@/lib/sugerencias-crm-server';
+import { sugerenciasDeUnCrm, hacerSugerencia, ahoraNo, volverAMostrar } from '@/lib/sugerencias-crm-server';
 import { dePantalla } from '@/lib/sugerencias-crm';
 
 export const dynamic = 'force-dynamic';
@@ -56,7 +58,7 @@ export async function GET(req: NextRequest) {
     return json({
       ok: true, crm,
       sugerencias: (r?.sugerencias ?? []).map((s) => dePantalla(s, admin)),
-      calladas: r?.calladas ?? 0,
+      calladas: r ? r.calladas?.map((x) => dePantalla(x.sugerencia, admin)) ?? null : [],
       callar: admin,
     });
   } catch (e) {
@@ -89,13 +91,15 @@ export async function POST(req: NextRequest) {
       if (sessionId == null || pendienteId == null) return json({ ok: false, error: 'Acción inválida' }, 400);
       return json({ ...(await tarjetaDelCrm(c, body.action, sessionId, pendienteId)) });
     }
-    if (body.action === 'hacer' || body.action === 'ahora_no') {
+    if (body.action === 'hacer' || body.action === 'ahora_no' || body.action === 'volver_a_mostrar') {
       if (c.persona.rol !== 'admin') return json({ ok: false, error: 'Esto lo decide el admin de la cuenta.' }, 403);
       const id = idSugerencia(body.sugerencia);
       if (!id) return json({ ok: false, error: 'Falta la sugerencia.' }, 400);
       const r = body.action === 'hacer'
         ? await hacerSugerencia(c.persona.ws, c.crm.id, id)
-        : await ahoraNo(c.persona.ws, c.crm.id, id);
+        : body.action === 'ahora_no'
+          ? await ahoraNo(c.persona.ws, c.crm.id, id)
+          : await volverAMostrar(c.persona.ws, c.crm.id, id);
       if (!r.ok) return json({ ok: false, error: r.error }, r.status);
       return json({ ...r });
     }

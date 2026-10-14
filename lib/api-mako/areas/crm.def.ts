@@ -372,9 +372,23 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'sugerencias_crm', area: 'crm', tipo: 'lectura',
     titulo: 'Sugerencias de MaKo para un CRM',
-    descripcion: 'La foto de UN CRM del negocio y lo que MaKo le sugiere: sus etapas en orden con cuántos leads hay en cada una, cómo vende y cómo le llega la gente, y una lista corta de sugerencias de una línea cada una. Cada sugerencia dice qué hacer: crear una automatización de la galería (con su plantilla y la etapa donde arranca: nace pausada; se crea con crear_automatizacion_desde_plantilla), abrir una pantalla (conectar Fathom) o revisar algo en el chat. Salen de las etapas que no tienen su automatización (reunión, entrada, pago, Ganado, plazos, cuotas) y del estado del tablero (leads parados en la entrada, reuniones pasadas sin asistencia, ganados sin cobro, nutriciones manuales vencidas). Nunca sugiere una automatización que ya existe en esa etapa. Lo que el equipo calló con «Ahora no» no vuelve en 30 días. Sin embudoId, el CRM principal.',
+    descripcion: 'La foto de UN CRM del negocio y lo que MaKo le sugiere: sus etapas en orden con cuántos leads hay en cada una, cómo vende y cómo le llega la gente, y una lista corta de sugerencias de una línea cada una. Cada sugerencia dice qué hacer: crear una automatización de la galería (con su plantilla y la etapa donde arranca: nace pausada; se crea con crear_automatizacion_desde_plantilla), abrir una pantalla (conectar Fathom) o revisar algo en el chat. Salen de las etapas que no tienen su automatización (reunión, entrada, pago, Ganado, plazos, cuotas) y del estado del tablero (leads parados en la entrada, reuniones pasadas sin asistencia, ganados sin cobro, nutriciones manuales vencidas). Nunca sugiere una automatización que ya existe en esa etapa. Lo que el equipo calló con «Ahora no» no vuelve en 30 días: viene aparte, en calladas, con hasta cuándo, y se vuelve a mostrar con volver_a_mostrar_sugerencia. Sin embudoId, el CRM principal.',
     parametros: [{ nombre: 'embudoId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el CRM, por el id de su embudo (de productos_del_lead). Sin él, el CRM principal del negocio.' }],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB,
+  },
+  // Deshacer el «Ahora no» del panel del CRM (14/10/2026): lo callado lo calla para todo el equipo 30 días, y
+  // sin esto no tenía vuelta. Del admin, como en el panel (app/api/crm/mako/route.ts). Escribe por
+  // `volverAMostrar` (lib/sugerencias-crm-server.ts), con el mismo compare-and-set que callar.
+  {
+    id: 'volver_a_mostrar_sugerencia', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Volver a mostrar una sugerencia',
+    descripcion: 'PROPONE deshacer el «Ahora no» de una sugerencia de MaKo en UN CRM (queda pendiente hasta el «sí»): vuelve a la lista de sugerencias de ese CRM para todo el equipo. En los otros CRM no cambia nada. El id sale de las calladas de sugerencias_crm. Solo el administrador.',
+    parametros: [
+      { nombre: 'sugerenciaId', tipo: 'string', obligatorio: true, max: 120, descripcion: 'el id de la sugerencia callada (de las calladas de sugerencias_crm), por ejemplo lead-agendo:agenda.' },
+      { nombre: 'embudoId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el CRM, por el id de su embudo (el mismo que se le pasó a sugerencias_crm). Sin él, el CRM principal del negocio.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    reversible: true, escribe: 'saca la sugerencia de lo callado de ese CRM (la configuración del negocio)',
   },
 
   // ── Acciones heredadas ─────────────────────────────────────────────────────────

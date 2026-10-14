@@ -73,7 +73,7 @@ import { linkApp, APP_BASE_URL } from '@/lib/app-url';
 import { ofertasDelLead, asignarOfertaAlLead, crearOfertaParaLead } from '@/lib/oferta-lead';
 import { validarOfertaNueva } from '@/lib/oferta-modelo';
 import { usuarioInstagram } from '@/app/crm/campo-inline';
-import { sugerenciasDeUnCrm } from '@/lib/sugerencias-crm-server';
+import { sugerenciasDeUnCrm, volverAMostrar } from '@/lib/sugerencias-crm-server';
 import { plantillaPorId } from '@/lib/plantillas-automatizaciones';
 import {
   invalidar, hoyDelWorkspace, esFechaIso, etapasDelFunnelDefault, etapasDelFunnelDeLead, faltantesDeUnLead, leadsFiltrados, conteoPorEtapa,
@@ -716,10 +716,30 @@ export const RUNNERS: Runners = {
           ...(s.accion.tipo === 'link' ? { pantalla: s.accion.href } : {}),
           ...(s.accion.tipo === 'chat' ? { revisar: s.accion.pedido } : {}),
         })),
-        calladas_por_ahora_no: r.calladas,
+        // Lo callado con «Ahora no» en ESTE CRM, con hasta cuándo: se deshace con volver_a_mostrar_sugerencia.
+        calladas: r.calladas?.map(({ sugerencia: s, hasta }) => ({ id: s.id, texto: s.texto, etapa: s.etapa, hasta })) ?? null,
+        ...(r.calladas == null ? { nota_calladas: 'No se pudo leer lo callado: se muestran todas y calladas viene en null (no es «ninguna»).' } : {}),
         calculado_at: r.calculadoAt,
       });
     },
+  },
+  volver_a_mostrar_sugerencia: {
+    preparar: async (input, ctx) => {
+      const r = await sugerenciasDeUnCrm(ctx.ws, n(input.embudoId) ?? null);
+      if (!r) return { error: 'Este negocio todavía no tiene un CRM.' };
+      if (!r.calladas) return { error: 'No pude leer lo callado de este CRM. Intenta de nuevo.' };
+      const id = String(input.sugerenciaId ?? '').trim();
+      const c = r.calladas.find((x) => x.sugerencia.id === id);
+      if (!c) return { error: `«${id}» no está callada en «${r.crm.nombre}».`, disponibles: r.calladas.map((x) => ({ id: x.sugerencia.id, texto: x.sugerencia.texto })) };
+      return { payload: { embudoId: r.crm.id, sugerenciaId: id }, resumen: `Volver a mostrar en «${r.crm.nombre}»: «${c.sugerencia.texto}».` };
+    },
+    ejecutar: (payload, ctx) => seguro('volver a mostrar la sugerencia', async () => {
+      const v = await volverAMostrar(ctx.ws, Number(payload.embudoId), String(payload.sugerenciaId));
+      if (!v.ok) return { ok: false, resumen: v.error };
+      // Sin cambio, «Listo» sería un éxito falso: ya estaba a la vista (otra persona o venció).
+      if (!v.cambio) return { ok: false, resumen: 'Esa sugerencia ya estaba a la vista: no se cambió nada.' };
+      return { ok: true, resumen: 'Listo: la sugerencia vuelve a la lista de ese CRM.' };
+    }),
   },
 
   // ── Acciones heredadas ──────────────────────────────────────────────────────

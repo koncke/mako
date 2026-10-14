@@ -13,7 +13,9 @@
 //
 // ⚠️ LO CALLADO NO SE CACHEA: se lee de `app_settings` en cada pedido (una fila) y se aplica sobre lo
 // calculado. Con eso «Ahora no» y lo recién hecho se ven en TODAS las instancias del server, no sólo en
-// la que atendió el clic (cada instancia tiene su propia caché).
+// la que atendió el clic (cada instancia tiene su propia caché). Y lo callado VUELVE: viaja aparte
+// (`calladas`, lo que se vería si no estuviera callado) y «Volver a mostrar» (`volverAMostrar`) lo saca
+// del mapa con el mismo compare-and-set con que «Ahora no» lo puso.
 //
 // ⚠️ «HACERLO» CALCULA DE NUEVO, SIN CACHÉ, y crea sólo lo que la cuenta fresca todavía sugiere: la
 // pantalla manda el ID de la sugerencia, nunca la plantilla ni la etapa (un cliente no elige qué se
@@ -39,7 +41,7 @@ import { credWs } from '@/lib/credenciales';
 import { estadoMedios } from '@/lib/disparadores-canales';
 import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 import { hoyEnTz } from '@/lib/date-utils';
-import { getSetting, getSettingEstricto, cambiarSettingSi } from '@/lib/settings';
+import { getSettingEstricto, cambiarSettingSi } from '@/lib/settings';
 import { esColumnaInexistente } from '@/lib/nutricion-grafo-motor';
 import { crearDesdePlantilla, PlantillaInvalidaError, type DbPlantilla } from '@/lib/plantilla-crear';
 import { setSecuenciaPasos, PasosInvalidosError } from '@/lib/nutricion';
@@ -47,7 +49,7 @@ import { guardarDisparadores } from '@/lib/disparadores-guardar';
 import { TriggerInvalidoError } from '@/lib/setting-secuencias';
 import { plantillaPorId } from '@/lib/plantillas-automatizaciones';
 import {
-  sugerenciasDelCrm, sinCalladas, parsearCalladas, conCallada, claveCallada,
+  sugerenciasDelCrm, sinCalladas, parsearCalladas, conCallada, sinCallada, estaCallada, claveCallada,
   CLAVE_CALLADAS, UMBRALES_SUGERENCIAS,
   type AutomatizacionSug, type EntradaSugerencias, type LeadSug, type Sugerencia,
 } from '@/lib/sugerencias-crm';
@@ -87,8 +89,11 @@ export type SugerenciasDeUnCrm = {
   crm: CrmDeLaPantalla;
   foto: FotoCrm;
   sugerencias: Sugerencia[];
-  /** cuántas se callaron («Ahora no» o recién hechas) */
-  calladas: number;
+  /**
+   * Las calladas en ESTE CRM («Ahora no» o recién hechas) que hoy se verían, en el orden del motor y
+   * con hasta cuándo. null = lo callado no se pudo leer (no es «no hay»): se muestra todo.
+   */
+  calladas: Array<{ sugerencia: Sugerencia; hasta: string }> | null;
   calculadoAt: string;
 };
 
@@ -202,10 +207,15 @@ export async function sugerenciasDeUnCrm(ws: number, crmPedido: number | null, o
     const previo = CACHE.get(k);
     const calc = !o.fresco && previo && Date.now() - previo.at < TTL_MS ? previo : await calcular(ws, crm);
     CACHE.set(k, calc);
-    // Lo callado es para DIBUJAR: si no se puede leer, se muestra todo (crear igual pasa por la cuenta fresca).
-    const mapa = parsearCalladas(await getSetting(CLAVE_CALLADAS));
-    const { visibles, calladas } = sinCalladas(calc.todas, mapa, crm.id, Date.now());
-    return { crm: calc.crm, foto: calc.foto, sugerencias: visibles.slice(0, UMBRALES_SUGERENCIAS.tope), calladas, calculadoAt: new Date(calc.at).toISOString() };
+    // Lo callado es para DIBUJAR: si no se puede leer, se muestra todo (crear igual pasa por la cuenta
+    // fresca). Se lee ESTRICTO para no decir «no hay nada callado» cuando fue «no pude leer».
+    const mapa = await getSettingEstricto(CLAVE_CALLADAS).then(parsearCalladas, avisar('leer lo callado'));
+    const { visibles, lista } = sinCalladas(calc.todas, mapa ?? {}, crm.id, Date.now());
+    return {
+      crm: calc.crm, foto: calc.foto, sugerencias: visibles.slice(0, UMBRALES_SUGERENCIAS.tope),
+      calladas: mapa ? lista.map(({ s, hasta }) => ({ sugerencia: s, hasta })) : null,
+      calculadoAt: new Date(calc.at).toISOString(),
+    };
   });
 }
 
@@ -236,6 +246,27 @@ export async function ahoraNo(ws: number, crmPedido: number | null, sugerenciaId
     if (!calc?.todas.some((s) => s.id === sugerenciaId)) return { ok: false, error: 'Esa sugerencia ya no está.', status: 409 };
     await callar(r.crm.id, sugerenciaId, UMBRALES_SUGERENCIAS.callarDias);
     return { ok: true };
+  });
+}
+
+/**
+ * «Volver a mostrar»: deshace el «Ahora no» de una sugerencia en ESTE CRM, con el mismo compare-and-set
+ * y la misma lectura ESTRICTA que callar (con «no pude leer» como `{}` se borraría todo lo callado).
+ * `cambio: false` = ya no estaba callada (otra persona la volvió a mostrar o venció): no se escribió nada.
+ */
+export async function volverAMostrar(ws: number, crmPedido: number | null, sugerenciaId: string): Promise<{ ok: true; cambio: boolean } | FalloSugerencia> {
+  return runWithWorkspace(ws, async () => {
+    const crm = await crmDeLaPantalla(crmPedido);
+    if (!crm) return { ok: false, error: 'No encuentro ese CRM.', status: 404 };
+    const clave = claveCallada(crm.id, sugerenciaId);
+    for (let intento = 0; intento < 4; intento++) {
+      const crudo = await getSettingEstricto(CLAVE_CALLADAS);
+      const mapa = parsearCalladas(crudo);
+      const ahora = Date.now();
+      if (!estaCallada(mapa, clave, ahora)) return { ok: true, cambio: false };
+      if (await cambiarSettingSi(CLAVE_CALLADAS, crudo, JSON.stringify(sinCallada(mapa, clave, ahora)))) return { ok: true, cambio: true };
+    }
+    return { ok: false, error: 'Otra persona estaba cambiando lo callado. Intenta de nuevo.', status: 409 };
   });
 }
 

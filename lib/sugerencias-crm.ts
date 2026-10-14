@@ -52,6 +52,7 @@ import { TRIGGER_ETAPA, TRIGGER_ENTREGA } from './nutricion-etapa';
 import { PLANTILLAS, PLANTILLAS_REEMPLAZADAS, plantillaPorId, canalesDe } from './plantillas-automatizaciones';
 import { etapaNoShowDe, TERMINAL_DEL_PIPELINE, type FunnelTransition, type Stage } from './pipeline';
 import { etapaDeEntrada } from './lead-funnel-reglas';
+import { textoDuracion } from './espera-duracion';
 
 // ── Los umbrales ─────────────────────────────────────────────────────────────
 
@@ -196,6 +197,24 @@ export function diasParadosDe(canal: string | null, entradas: readonly string[])
   return d.landing;
 }
 
+// ── Lo que espera la plantilla: lo que la sugerencia PROMETE ─────────────────
+
+/**
+ * Cuánto espera una plantilla de la galería antes de hacer algo (su primer «Esperar» por tiempo), en
+ * el texto de la pastilla del lienzo («3 días», «36 h»): leído de SU definición, nunca copiado a mano.
+ * null = la plantilla no espera.
+ *
+ * ⚠️ «Un Lead No Avanzó» espera un plazo FIJO desde que el lead entra a la etapa y avisa después: ni
+ * el plazo de la etapa (`funnels.data.umbrales.porEtapa`) ni el N de los parados del mapa. La
+ * sugerencia que la crea dice ESE plazo; prometer «más de lo previsto» o «hace más de N días» era
+ * ofrecer una automatización que hace otra cosa (revisión del 14/10/2026).
+ */
+export function esperaDePlantilla(plantilla: string): string | null {
+  const paso = plantillaPorId(plantilla)?.pasos.find((x) => x.nodo === 'esperar' && x.espera?.modo === 'tiempo');
+  const minutos = Number(paso?.espera?.minutos);
+  return minutos > 0 ? textoDuracion(minutos * 60) : null;
+}
+
 // ── De qué plantilla nació una automatización ────────────────────────────────
 
 /** Los ids de la galería, el más largo primero: `startsWith` no confunde `lead-no-asistio` con otro. */
@@ -260,6 +279,17 @@ const DIA_MS = 86_400_000;
 const dia = (s: string | null | undefined): string => String(s ?? '').slice(0, 10);
 const comillas = (s: string) => `«${s.trim()}»`;
 const corto = (s: string): string => (s.length <= TOPE_TEXTO ? s : `${s.slice(0, TOPE_TEXTO - 1).trimEnd()}…`);
+/**
+ * Una línea con una etapa entre comillas en el MEDIO: si no entra, se acorta la ETAPA y no lo que se
+ * ofrece («¿Te aviso si…?»). Cortar la línea al final dejaba una etapa larga y la promesa a medias.
+ */
+const conEtapa = (armar: (etapa: string) => string, etapa: string): string => {
+  const entera = armar(comillas(etapa));
+  if (entera.length <= TOPE_TEXTO) return entera;
+  const e = etapa.trim();
+  const queda = Math.max(1, e.length - (entera.length - TOPE_TEXTO) - 1);
+  return corto(armar(comillas(`${e.slice(0, queda).trimEnd()}…`)));
+};
 
 /** Las entradas a las que les sirve «Un Lead Entró» («Gracias por dejarnos tus datos»). Sin declarar, también. */
 const ENTRA_DEJANDO_DATOS = new Set(['landing', 'formulario_anuncio']);
@@ -300,14 +330,17 @@ export function sugerenciasDelCrm(e: EntradaSugerencias, tope: number = UMBRALES
 
   const entrada = etapaDeEntrada(pipeline);
   const leads = e.leads;
+  // Lo que espera «Un Lead No Avanzó» (su definición): es lo que se ofrece. Sin espera, no hay qué prometer.
+  const plazoNoAvanzo = esperaDePlantilla('lead-no-avanzo');
 
   // ── CLASE 3: el tablero ──────────────────────────────────────────────────────
   if (leads) {
-    if (entrada) {
+    if (entrada && plazoNoAvanzo) {
+      // El conteo usa el N del mapa; lo que se OFRECE es lo que la plantilla hace (`plazoNoAvanzo`).
       const dias = diasParadosDe(e.funnel.canal, e.funnel.entradas);
       const parados = leads.filter((l) => l.etapa === entrada && l.creado && e.ahora - Date.parse(l.creado) > dias * DIA_MS).length;
       if (parados >= U.paradosMinimo) {
-        enEtapa(3, 'lead-no-avanzo', entrada, `${parados} leads parados en ${comillas(label(entrada))} hace más de ${dias} días. ¿Te aviso?`);
+        enEtapa(3, 'lead-no-avanzo', entrada, conEtapa((et) => `${parados} leads parados en ${et} hace más de ${dias} días. ¿Te aviso si uno pasa ${plazoNoAvanzo} ahí?`, label(entrada)));
       }
     }
     if (e.conectado.fathom === false) {
@@ -368,8 +401,8 @@ export function sugerenciasDelCrm(e: EntradaSugerencias, tope: number = UMBRALES
     });
   }
   for (const [key, dias] of Object.entries(e.plazos)) {
-    if (!e.etapas.some((s) => s.key === key) || !(dias > 0)) continue;
-    enEtapa(1, 'lead-no-avanzo', key, `Avisarte si un lead se queda en ${comillas(label(key))} más de lo previsto`);
+    if (!plazoNoAvanzo || !e.etapas.some((s) => s.key === key) || !(dias > 0)) continue;
+    enEtapa(1, 'lead-no-avanzo', key, conEtapa((et) => `Avisarte si un lead pasa ${plazoNoAvanzo} en ${et}`, label(key)));
   }
   if (e.cuotas && e.cuotas.pendientes > 0) cobranza(1, 'Avisarte cuando vence una cuota sin cobrar');
 
@@ -406,11 +439,31 @@ export function conCallada(mapa: Readonly<Record<string, string>>, clave: string
   return Object.fromEntries(vivas.slice(0, TOPE_CALLADAS));
 }
 
-/** Las que siguen a la vista en ESTE CRM, y cuántas se callaron. */
-export function sinCalladas<S extends Pick<Sugerencia, 'id'>>(sugs: readonly S[], mapa: Readonly<Record<string, string>>, funnelId: number, ahora: number): { visibles: S[]; calladas: number } {
-  const visibles = sugs.filter((s) => {
-    const hasta = mapa[claveCallada(funnelId, s.id)];
-    return !(hasta && Date.parse(hasta) > ahora);
-  });
-  return { visibles, calladas: sugs.length - visibles.length };
+/** ¿Está callada (y sin vencer) esta clave? */
+export const estaCallada = (mapa: Readonly<Record<string, string>>, clave: string, ahora: number): boolean => {
+  const hasta = mapa[clave];
+  return !!hasta && Date.parse(hasta) > ahora;
+};
+
+/**
+ * «Volver a mostrar»: el mapa SIN esa clave (y sin las vencidas). Deshace el «Ahora no» en ESE CRM
+ * sólo: la misma sugerencia callada en otro CRM sigue callada.
+ */
+export function sinCallada(mapa: Readonly<Record<string, string>>, clave: string, ahora: number): Record<string, string> {
+  return Object.fromEntries(Object.entries(mapa).filter(([k, v]) => k !== clave && Date.parse(v) > ahora));
+}
+
+/**
+ * Las que siguen a la vista en ESTE CRM, cuántas se callaron y CUÁLES (con hasta cuándo), en el orden
+ * del motor: lo callado se ve y se deshace («Calladas» en el panel, `sugerencias_crm` en la API).
+ */
+export function sinCalladas<S extends Pick<Sugerencia, 'id'>>(sugs: readonly S[], mapa: Readonly<Record<string, string>>, funnelId: number, ahora: number): { visibles: S[]; calladas: number; lista: Array<{ s: S; hasta: string }> } {
+  const visibles: S[] = [];
+  const lista: Array<{ s: S; hasta: string }> = [];
+  for (const s of sugs) {
+    const clave = claveCallada(funnelId, s.id);
+    if (estaCallada(mapa, clave, ahora)) lista.push({ s, hasta: mapa[clave] });
+    else visibles.push(s);
+  }
+  return { visibles, calladas: lista.length, lista };
 }

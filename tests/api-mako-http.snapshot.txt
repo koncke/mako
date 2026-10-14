@@ -440,3 +440,4 @@ verificar_dominio_envio
 verificar_ganadores_reusables
 verificar_pagina_pixel
 vista_experimentos
+volver_a_mostrar_sugerencia
