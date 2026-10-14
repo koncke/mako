@@ -6,6 +6,54 @@ el briefing anterior (`b5f7fb55`, 10/10 17:10) con todo verificado contra el ár
 **Rutas de esta área:** `app/crm/**`, `lib/leads.ts`, `lib/funnel*.ts`, `lib/crm*.ts`,
 `lib/lead-*.ts`, `lib/campana-*.ts`, `lib/etiquetas*.ts`, `lib/pipeline.ts`.
 
+## 0-Ω2. 14/10/2026 de madrugada (chat «CRM», cuenta `claude2`): el feedback del 14/10 03:06, EN CURSO
+
+El pedido textual está en `app/admin/dev/crm/bitacora.ts` (hito del 14/10 03:06). Más dos mensajes después:
+«Piensa en todos los bloques que un usuario, con los diferentes funnels que tenemos… podría llegar a querer ver en
+las tab personalizables de pagos y resumen... Y piensa si deberíamos personalizar otras tabs también, yo creo que si»,
+y «También los funnels organico, de Instagram, linkedin, DM Funnel, YouTube, lead magnet, etc... Eso es importante, y
+revisa si deberíamos cambiar las configuraciones de "Nuevo CRM" para agregar más casos».
+
+**Dónde está el trabajo.** Rama `fb1410` en `C:/Users/marti/wtcrm5` (sobre origin/main `92a2be21`). La tanda A corre en seis
+worktrees, uno por frente, cada uno con su rama `fb1410-aN` encima de `fb1410` (con junction a node_modules; sacarlo con
+`cmd /c rmdir` antes de borrar el worktree):
+- `wtc-a1`: el reproductor de la grabación EN LÍNEA en Tracking. Causa medida: `public/replay/1/player.css` nunca se
+  cargaba, y la escala quedaba en 1.
+- `wtc-a2`: la etiqueta vuelve al diseño de antes de `a98318cb`, en el renglón del nombre. La primera se ve normal, «+N» con 2
+  o más, y vuelve la píldora «＋ Etiqueta».
+- `wtc-a3`: «A revisar» con una fila por lead (foto, número de datos), revisar azul con flecha, ignorar con X (ignora todos
+  los ignorables del lead), X para cerrar, y se cierra con un clic afuera o con Escape.
+- `wtc-a4`: el ⋯ del CRM sin subtítulos, sin «Avisos» ni «Resumen», y sin el interruptor del CRM automático (el MOTOR sigue:
+  lo pidió Automations).
+- `wtc-a5`: el clic derecho en el TABLERO (tarjeta, fila, columna, fondo, selección), con la pieza genérica
+  `app/_ui/MenuContextual.tsx`. Falta el de la FICHA: va con el constructor.
+- `wtc-a6`: el chat de MaKo al costado del CRM, plegado, con las sugerencias de `docs/sugerencias-mako-crm.md` («Hacerlo»
+  crea la automatización pausada desde la plantilla) y la lectura `sugerencias_crm` en la API.
+Workflows: tanda A `wf_d8dfde6d-689`; catálogo de bloques `wf_70de8f94-88b`, que deja `docs/diseno-ficha-bloques.md`
+en wtcrm5 (los journals están en `~/.claude/projects/<proyecto>/debe2ade-…/subagents/workflows/<runId>/journal.jsonl`).
+Al terminar: se revisa cada rama, se mergea en `fb1410`, se corren los tests, se cosecha y se pushea.
+
+**Lo que viene después (tanda B): el CONSTRUCTOR POR BLOQUES.** Martín: «no los hagas con un modal diferente… Que replique la
+edición que tenemos en "Dashboard" y "Landing Generator", que sea un constructor por bloques… con templates… que pueda
+elegir que bloques poner, que diseño, tamaño». Va para Resumen, Pagos y las tabs que proponga el catálogo. Ahí mismo se
+eligen los avisos de «datos sin marcar», y se borran ResumenModal, AvisosDatosModal y los engranajes. En Pagos se edita TODO
+en la tab y se depreca «Editar deal →» en todos lados: EditarDeal, `?edit=1` y el «Completar con IA», que está roto en 2 de
+las 3 puertas. Lo medido por el relevamiento `wf_7c6f7f1e-959`:
+- la cáscara de grilla del Dashboard NO está extraída: son ~450 líneas mezcladas en `app/dashboard/EditorInforme.tsx`.
+- La grilla fija de 30 px choca con tarjetas de alto variable.
+- El Landing es TipTap: no sirve para la ficha.
+- Las cuotas: `saveCuotasAction` cierra el lead como ganado en cada guardado (`lib/pagos.ts:224`).
+- `saveDealSectionsAction` reemplaza la sección entera.
+- Las dos puertas montan la ficha a mano por duplicado (hace falta UN renderer).
+
+**Pendiente con Automations.** Martín: «elimina el botón de "CRM Automático"... Si quedó algo pendiente, llevalo como template a
+automations». Mapeo medido de las reglas del motor contra las plantillas:
+- **T2** (no agendó → No Agenda → Reactivación) y **T6** (perdido o no responde a los 30 días → Reactivación) se arman con las
+  piezas de hoy, pero la galería no tiene cómo pedir la ETAPA DESTINO del ⚡ Mover (es obligatoria).
+- **T3** (nutrición manual vencida) pierde la fecha límite por lead: no hay condición sobre ese dato.
+- **T1** (no show por Fathom) no tiene piezas: una espera «N horas después de la reunión» y la condición «asistencia sin marcar».
+- El motor NO se apaga hasta que esas plantillas existan (`KEY_CRM_AUTO`).
+
 ## 0-Ω. Noche del 13 al 14/10/2026 (chat «CRM», cuenta `claude2`): el feedback del detalle del lead
 
 Martín lo pidió directo (el texto literal está en `app/admin/dev/crm/bitacora.ts`, hito del 13/10
