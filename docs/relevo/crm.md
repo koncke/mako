@@ -9,39 +9,48 @@ el briefing anterior (`b5f7fb55`, 10/10 17:10) con todo verificado contra el ár
 ## 0-Ω. Noche del 13 al 14/10/2026 (chat «CRM», cuenta `claude2`): el feedback del detalle del lead
 
 Martín lo pidió directo (el texto literal está en `app/admin/dev/crm/bitacora.ts`, hito del 13/10
-22:57). **Nada de esto está en producción todavía:** al cierre de la ventana los pushes de TODA la
-máquina estaban trabados por RAM (el typecheck completo pide ~4,3 GB libres y había 2,2-3,6). Los
-commits viven en el worktree `C:/Users/marti/wtcrm2` (encima del `main` local del clon, con los 36
-commits de las otras sesiones) y un script de fondo pushea solo cuando haya RAM
-(`scratchpad/push-cuando-haya-ram.sh`). **Las dos migraciones ya están APLICADAS en prod** (0269 y
-0270): son de las que van antes del deploy.
+22:57). **Nada de esto está en producción todavía:** al 14/10 01:10 los pushes de TODA la máquina
+seguían trabados por RAM (el typecheck completo ya pide ≈ 5,3 GB libres: el tope del heap subió a
+4096 el 14/10). Hay DOS worktrees con trabajo sin publicar:
+
+- `C:/Users/marti/wtcrm2` (HEAD `ae5912be`): `origin/main` + los commits de todas las sesiones +
+  los del CRM hasta la cabecera compacta. Un script de fondo lo pushea cuando haya RAM
+  (`scratchpad/push-cuando-haya-ram.sh`; sale con 2 si `origin/main` se movió → rebasar y relanzar).
+- `C:/Users/marti/wtcrm3` (HEAD `c49fe3c5`): encima de `ae5912be`, la oferta del lead
+  (`5b480d1e`, `c49fe3c5`) y esta cosecha. **Se pasa a la rama del push con un cherry-pick** cuando
+  `wtcrm2` llegue, o se pushea desde acá si `wtcrm2` ya está en `origin`.
+
+**Las tres migraciones ya están APLICADAS en prod** (0269, 0270 y 0272): son de las que van antes del
+deploy. Los hashes de abajo son los de DESPUÉS del rebase del 14/10.
 
 ### ✅ Hecho (commits locales, con tests probados rompiéndolos)
 
-- «A revisar» sólo con datos sin marcar, sin la «Mk» ni «MaKo movió» (`9f0f77de`). **El motor
+- «A revisar» sólo con datos sin marcar, sin la «Mk» ni «MaKo movió» (`5d4e308b`). **El motor
   (lib/crm-auto.ts) sigue corriendo**: lo reemplazan las plantillas que se le pidieron al chat de
   Automations, y recién ahí se apaga (flag por workspace `KEY_CRM_AUTO`).
-- «Nuevo CRM» arriba del desplegable, «CRM eliminados» (`9f0f77de`).
-- El CRM con nombre propio: renombrarlo ya no renombra el producto ni el curso (`6f8f64c6`, mig 0269).
-- La grabación de la visita: montaba en un rAF antes de que existiera el recuadro (`ca01e16f`).
+- «Nuevo CRM» arriba del desplegable, «CRM eliminados» (`5d4e308b`).
+- El CRM con nombre propio: renombrarlo ya no renombra el producto ni el curso (`85552622`, mig 0269).
+- La grabación de la visita: montaba en un rAF antes de que existiera el recuadro (`23fdf8a2`).
 - Datos sin marcar v2: «Ver →», solucionar que lleva al dato y lo señala, ignorar por dato, «Ver
-  más», de qué avisa MaKo, «A revisar» por dato, y «¿Era calificado?» en Resumen (`94735afd`, mig 0270).
+  más», de qué avisa MaKo, «A revisar» por dato, y «¿Era calificado?» en Resumen (`f33f873c`, mig 0270).
 - El mapa de sugerencias de MaKo: `docs/sugerencias-mako-crm.md`, **esperando que Martín lo valide**.
+- Autoguardado: lo que se perdía era cerrar un modal con un clic en el fondo (`f86e50d2`).
+- Cabecera compacta: etiquetas al lado del nombre con «+N» (`ae5912be`).
+- Pagos punto 1: la OFERTA del lead (desplegable, «Nueva oferta» con nombre, modelo y ticket, y
+  «Analizar oferta →» que abre ESA en Offer) (`5b480d1e`, `c49fe3c5`, mig 0272). Toqué tres archivos
+  de Offer (`page.tsx`, `OfferApp.tsx`, `arbol.ts`) porque no había chat de Offer vivo para pedírselo.
 
 **Sin mirar en el navegador** (la máquina sin RAM para un `next dev`): lo primero al haber deploy
 es abrir una ficha con datos sin marcar y probar «Ver →», solucionar, ignorar y el engranaje.
 
 ### ⏳ Lo que falta del mismo pedido (en este orden)
 
-1. **Autoguardado al salir de un campo.** `EditableInline` y los campos de la ficha YA guardan en
-   `blur`; no se encontró el caso leyendo. Hay que reproducirlo en el navegador (¿qué campo? ¿cómo
-   salió?). Sospecha: cerrar un modal con `mousedown` en el fondo desmonta el campo antes del blur.
-2. **Cabecera más compacta**: etiquetas al lado del título, «+2» con desplegable.
+1. ~~Autoguardado~~ y 2. ~~cabecera compacta~~: hechos (arriba).
 3. **Tarjetas del lead personalizables** (plantillas, campos, arrastrar, vista en vivo) en los tres puntos.
 4. **Resumen personalizable** (IG, YouTube, web, LinkedIn, dirección, sexo, respuestas del form).
 5. **CAPI**: revisar cómo se elige qué píxel y qué evento alimenta «¿Era calificado?».
-6. **Pagos**: desplegable de OFERTA con alta en el lugar (nombre, modelo, ticket) y «Analizar oferta»
-   → Offer; y la tab personalizable como Reuniones. Coordinar con Integraciones (worktree
+6. **Pagos**: ~~el desplegable de OFERTA~~ (hecho); falta la tab personalizable como Reuniones
+   (tipografía, tamaño de tarjetas, colores). Coordinar con Integraciones (worktree
    `C:/dev/wt-pagos`, rama `pagos-pasarela`).
 7. **El chat de MaKo al costado del CRM con las sugerencias**: después de que Martín valide el mapa.
 8. Del lote de Estrategia: Leads Scraper (sólo fuentes legítimas) y los tipos de funnel que faltan.

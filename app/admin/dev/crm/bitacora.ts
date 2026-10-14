@@ -2046,8 +2046,8 @@ export const BITACORA: Hito[] = [
       'El mapa de sugerencias de MaKo, para que lo valide antes de construirlo: docs/sugerencias-mako-crm.md.',
     ],
     commits: [
-      { sha: '9f0f77de', msg: '«A revisar» sólo con los datos sin marcar, y «Nuevo CRM» arriba del desplegable', lineas: 227, archivos: 5 },
-      { sha: '6f8f64c6', msg: 'El CRM tiene nombre propio: renombrarlo ya no renombra el producto ni el curso', lineas: 238, archivos: 6 },
+      { sha: '5d4e308b', msg: '«A revisar» sólo con los datos sin marcar, y «Nuevo CRM» arriba del desplegable', lineas: 227, archivos: 5 },
+      { sha: '85552622', msg: 'El CRM tiene nombre propio: renombrarlo ya no renombra el producto ni el curso', lineas: 238, archivos: 6 },
       { sha: 'e57d8630', msg: 'Mapa de las sugerencias de MaKo en el CRM, para que Martín lo valide', lineas: 84, archivos: 1 },
     ],
     archivos: [
@@ -2074,7 +2074,7 @@ export const BITACORA: Hito[] = [
       'Medido en producción: el requestAnimationFrame del montaje corría antes de que React dibujara el recuadro y salía callado. La grabación andaba montada a mano.',
       'Ahora monta el que llega segundo (lo bajado o el recuadro), y el cuerpo tiene tope de 30 s.',
     ],
-    commits: [{ sha: 'ca01e16f', msg: 'La grabación de la visita se quedaba en un recuadro gris: se monta cuando el recuadro existe', lineas: 119, archivos: 2 }],
+    commits: [{ sha: '23fdf8a2', msg: 'La grabación de la visita se quedaba en un recuadro gris: se monta cuando el recuadro existe', lineas: 119, archivos: 2 }],
     archivos: ['app/crm/lead-view/GrabacionModal.tsx — intentarMontar, refLienzo', 'tests/grabacion-montaje.test.ts'],
   },
   {
@@ -2089,7 +2089,7 @@ export const BITACORA: Hito[] = [
       '«A revisar»: una fila por dato, con solucionar (abre la ficha en ese dato) e ignorar.',
       '«¿Era calificado?» pasa de Tracking a Resumen.',
     ],
-    commits: [{ sha: '94735afd', msg: 'Datos sin marcar: «Ver →» abre la lista con solucionar e ignorar, y se elige de qué avisa MaKo', lineas: 1685, archivos: 36 }],
+    commits: [{ sha: 'f33f873c', msg: 'Datos sin marcar: «Ver →» abre la lista con solucionar e ignorar, y se elige de qué avisa MaKo', lineas: 1685, archivos: 36 }],
     archivos: [
       'lib/datos-aviso.ts — partirDatos, avisables, TAB_DE_DATO',
       'lib/stage-requirements.ts — pasosResueltos',
@@ -2098,6 +2098,50 @@ export const BITACORA: Hito[] = [
       'app/_ui/Senalar.tsx — el señalador',
       'app/crm/lead-view/AvisosDatosModal.tsx',
       'supabase/migrations/0270_lead_datos_ignorados.sql',
+    ],
+  },
+  {
+    fecha: '14 oct', hora: '00:35', chat: 'CRM', cuenta: 'claude2',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Lo escrito se perdía al cerrar un modal con un clic en el fondo',
+    puntos: [
+      'Medido en producción: el nombre del lead sí se guardaba al salir del campo. Lo que se perdía era cerrar el modal con un clic afuera.',
+      'El fondo cerraba en el mousedown y desmontaba el campo antes de su blur. Ahora saca el foco primero, y el campo guarda.',
+    ],
+    commits: [{ sha: 'f86e50d2', msg: 'Cerrar un modal con un clic en el fondo guarda lo que se estaba escribiendo', lineas: 50, archivos: 3 }],
+    archivos: ['app/_ui/Modal.tsx — el fondo saca el foco antes de cerrar', 'tests/modal-guarda-al-cerrar.test.ts'],
+  },
+  {
+    fecha: '14 oct', hora: '00:40', chat: 'CRM', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Cabecera del lead más compacta: las etiquetas al lado del nombre, con «+N»',
+    puntos: [
+      'Las etiquetas pasan al renglón del nombre; las que no entran quedan en un «+N» que abre la lista.',
+      'La portada baja de alto. Las dos puertas de la ficha montan lo mismo.',
+    ],
+    commits: [{ sha: 'ae5912be', msg: 'Ficha del lead más compacta: las etiquetas al lado del nombre con «+N», y la portada más baja', lineas: 92, archivos: 6 }],
+    archivos: ['app/crm/lead-view/EtiquetasDelLead.tsx — compacto', 'app/crm/lead-view/CabeceraLead.tsx — el hueco junto al título'],
+  },
+  {
+    fecha: '14 oct', hora: '00:59', chat: 'CRM', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Pagos: la oferta del lead arriba, con «Nueva oferta» y «Analizar oferta →»',
+    puntos: [
+      'Un desplegable con las ofertas de Offer. «Nueva oferta» va arriba y pide nombre, cómo se cobra y el ticket.',
+      'La oferta nueva queda ligada al CRM del lead, así aparece en Offer. Crear es del admin.',
+      '«Analizar oferta →» abre ESA oferta en Offer: su conversación, o una nueva para analizarla.',
+      'Migración 0272 aplicada: leads.oferta_id y ofertas.modelo (pago único o suscripción).',
+    ],
+    commits: [
+      { sha: '5b480d1e', msg: 'Pagos del lead: la oferta arriba, con «Nueva oferta» y «Analizar oferta →»', lineas: 435, archivos: 8 },
+      { sha: 'c49fe3c5', msg: 'Offer abre la oferta que nombra el link: «Analizar oferta →» del lead cae en ESA', lineas: 86, archivos: 5 },
+    ],
+    archivos: [
+      'app/crm/lead-view/OfertaDelLead.tsx',
+      'app/crm/oferta-lead-actions.ts — asignar, crear desde el lead',
+      'app/offer/arbol.ts — entradaDelLink',
+      'supabase/migrations/0272_lead_oferta.sql',
+      'tests/oferta-del-lead.test.ts',
     ],
   },
 ];

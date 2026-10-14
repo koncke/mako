@@ -54,6 +54,14 @@ en el cuerpo de `export function faltantesDeLead`; al mudar esa lectura a `requi
 faltan y resueltos compartan los valores) los dos dieron rojo con el código bien. Se movieron a la
 función que LEE el lead.
 
+**Una oferta creada fuera de Offer que no se liga a un CRM no existe para Offer**, y el link que la
+nombra no falla: abre la conversación más reciente de OTRA oferta. El árbol de Offer sale de
+`funnel_ofertas` (`construirArbol`), no de la tabla `ofertas`. Por eso «Nueva oferta» de la ficha del
+lead llama a `ligarOfertaAFunnel` con el CRM del lead (o el del negocio), y `/offer?oferta=` sólo
+abre una que esté en el árbol (`entradaDelLink` → null si no). Y `leads.oferta_id` es una FK que mira
+que la oferta EXISTA, no que sea del workspace: se valida contra `listarOfertas()`.
+**Vive en:** `app/crm/oferta-lead-actions.ts` · `app/offer/arbol.ts` · `tests/oferta-del-lead.test.ts`
+
 **Lo que quedó sin hacer**, con el archivo: ver `docs/relevo/crm.md` §0-Ω.
 
 ## Configurar el funnel: qué es seguro tocar y qué no
