@@ -918,8 +918,10 @@ test('la prueba abre una ventana de prueba de MaKo ENCIMA de la landing', () => 
   const iLanding = panel.indexOf('mko_test=${id}');
   const iVentana = panel.indexOf('/integraciones/escuchando?p=');
   assert.ok(iVentana > 0 && iLanding > iVentana, 'la ventana de MaKo se abre primero: es la única cuyo bloqueo se puede detectar');
-  assert.ok(/if \(!chico\) \{/.test(panel), 'si el navegador la bloquea, la prueba NO puede arrancar');
-  assert.ok(/Permite las ventanas emergentes/.test(panel), 'y hay que decir cómo se arregla');
+  // Tanda 6 (14/10/2026): también si la cierra un bloqueador al instante, y el aviso es el de la flecha a
+  // la barra (app/landing-generator/lector/AvisoVentanasBloqueadas.tsx, tests/editor-landing-lector.test.ts).
+  assert.ok(/if \(!chico \|\| chico\.closed\) \{/.test(panel), 'si el navegador la bloquea, la prueba NO puede arrancar');
+  assert.ok(/<AvisoVentanasBloqueadas abierto=\{sinPermiso\}/.test(panel), 'y hay que decir cómo se arregla');
   assert.ok(/chico\?\.focus\(\)|chico\.focus\(\)/.test(panel), 'sin el focus, la ventana queda debajo de la landing');
   // La pestaña de atrás NO cambia: sigue mostrando la misma prueba. Un panel que
   // se reemplaza por «esto corre en otro lado» obliga a volver para enterarse de

@@ -27,6 +27,7 @@ import { analizarLandingAction } from './landing-config-actions';
 import { finPruebaAction } from './landing-actions';
 import { leadDePruebaAction } from './prueba-lead-actions';
 import { conWs, wsDeBusqueda } from '@/lib/ws-tab';
+import { AvisoVentanasBloqueadas } from '@/app/landing-generator/lector/AvisoVentanasBloqueadas';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
@@ -482,7 +483,8 @@ export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?:
       'mako_prueba',
       `width=440,height=${alto},left=${Math.max(0, window.screen.availWidth - 470)},top=60,noopener=no`,
     );
-    if (!chico) {
+    // `chico.closed`: un bloqueador que deja abrir y cierra al instante es lo mismo que uno que no deja.
+    if (!chico || chico.closed) {
       // No se abre la landing: dejarla abierta midiendo una prueba que nadie
       // puede mirar es peor que no empezar.
       setSinPermiso(true);
@@ -490,6 +492,8 @@ export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?:
       return;
     }
     ventana.current = chico;
+    // Se abrió: si el aviso de las ventanas seguía arriba de un intento anterior, ya no dice la verdad.
+    setSinPermiso(false);
     window.open(`${base}${sep}mko_test=${id}${hash ? `#${hash}` : ''}`, '_blank', 'noopener');
 
     // Y ENCIMA, una ventana de prueba de MaKo. Para verificar que un click se
@@ -512,18 +516,13 @@ export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?:
     setActivo(true);
   };
 
-  const avisoPermiso = sinPermiso && (
-    <div style={{ marginTop: 12, padding: '13px 15px', borderRadius: 11, border: '1px solid var(--warn)', background: 'var(--warn-bg)' }}>
-      <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)' }}>Permite las ventanas emergentes</div>
-      <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 4, lineHeight: 1.55 }}>
-        Tu navegador bloqueó la ventana de la prueba, y sin ella no hay dónde ver los eventos
-        mientras usas tu página. <b>No empezamos la prueba</b> para no dejarte una pestaña abierta
-        midiendo algo que no puedes mirar.
-        <br />
-        En Chrome: el ícono con la ventanita tachada, a la derecha de la barra de direcciones →
-        <b> Permitir siempre</b> → vuelve aquí y aprieta Probar.
-      </div>
-    </div>
+  // El aviso con la FLECHA a la barra del navegador (tanda 6, 14/10/2026). Pedido de Martín: «Me imagino
+  // como el mensaje que tenemos en Video Generator que es una flecha apuntando arriba con el mensaje. Esto
+  // para ambos, para esto y para el pixel hazlo.» El mismo componente que el lector de landings
+  // (app/landing-generator/lector/AvisoVentanasBloqueadas.tsx). La prueba sigue SIN empezar: sin la
+  // ventana no hay dónde ver los eventos, y la landing no se abre.
+  const avisoPermiso = (
+    <AvisoVentanasBloqueadas abierto={sinPermiso} onCerrar={() => setSinPermiso(false)} texto="La prueba se mira en una ventana: elige «Permitir siempre»." />
   );
 
   const avisoViejo = bloqueo && (
