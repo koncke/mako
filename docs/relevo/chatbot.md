@@ -49,6 +49,19 @@
 > de prueba en esa ventana (sólo #778 y #23, ganados, sin inscribirse). Falta saber QUÉ se probó: la transcripción de Fathom
 > no se puede leer con la cuenta 2 (se le pidió a Martín). Hipótesis a medir con ese dato: (a) el lead ya estaba inscripto
 > (una inscripción por lead y automatización), (b) una espera en minutos espera al cron (cada cuánto corre el motor).
+> **13/10 ~24:00 — dos pedidos nuevos de Martín (validados):**
+> (A) «toda feature nueva va a la API de MaKo» (memoria `api-mako-con-cada-feature`): las plantillas nuevas ya salen solas
+>  (`IDS_PLANTILLAS` sale de la galería; docs y plugin al día). FALTA lo grande: en main la API sólo edita automatizaciones SIN
+>  ramas, así que tarjetas y condiciones (IG, AI Step, MaKo en WhatsApp, «Sigue en la etapa del CRON») no se configuran por la
+>  API; esas operaciones están en la rama sin subir `wip/api-acciones-0910` (C:/dev/mako-api): se propuso tomar su parte de
+>  Automations después de los bugs 5, 4 y 8. Bug 5 confirmado por Martín: «Un Lead Agendó Llamada» de Mauricio (#213 ws1).
+> (B) Del chat CRM: lo que hace el «CRM automático» (lib/crm-auto.ts, reglas T1-T6 en `AUTO_REGLAS` lib/pipeline.ts:388, flag
+>  `KEY_CRM_AUTO`, cron /api/cron/crm-automatico) pasa a Automations: (1) plantillas que muevan de etapa y hagan las acciones,
+>  una por categoría; (2) revisar si hoy Automations tiene todo (mover etapa, asistencia/grabación de Fathom, días sin agendar,
+>  el chat de WhatsApp) y decirle a Martín qué falta; (3) elegir un EVENTO de Calendly o Cal.com y atarlo a cada etapa de
+>  reunión. El CRM NO apaga el motor hasta que las plantillas lo reemplacen (avisarle, o apagarlo con el flag por workspace).
+>  La puerta para crear desde una plantilla: la op `crear_automatizacion_desde_plantilla` (API) o `POST /api/chat-agent/secuencias`
+>  `{ action: 'crear_desde_plantilla', plantilla, disparador? }` → `crearDesdePlantilla` (lib/plantilla-crear.ts).
 > **PENDIENTE, en este orden:**
 > 1. **Plazos de etapa del CRM → plantilla de Automations** (pedido de Martín reenviado por el chat CRM, 12/10: «Si, pasa
 >    a una automatización eso de los plazos... Y ponlo como template en automations. Dile esto al chat de "Chatbot" que lo
