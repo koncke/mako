@@ -4,36 +4,47 @@
 `app/api-mako/**` (la tab que la muestra y acuña los tokens).
 **Ventana:** 05/10/2026 → 10/10/2026. **Escrito el 10/10/2026 sobre `origin/main` = `9862c146`.**
 
-> **14/10/2026, 01:10 — EN CURSO (cuenta 2, chat «API de MaKo»).** Todo vive en la rama
-> **`api-acciones-1310`**, worktree **`C:/dev/mako-api2`** (nacida de `origin/main` = `cf494e2a`,
-> `node_modules` como junction al del clon). NADA de eso está en main ni pusheado.
+> **14/10/2026, 03:40 — CERRADO por pedido de Martín** («que se pushee todo y que los chats cierren lo que están
+> haciendo. Nada más»). Cuenta 2, chat «API de MaKo».
 >
-> **Commiteado en la rama (local):**
-> - El token detallado deja de valer cuando su creador pierde el acceso (`lib/api-mako/tokens-creador.ts`,
->   `creadorVigente` en `tokens.ts`, el 401 en `http.ts`): cierra la fila de § 3.2.
-> - Las ESTRELLAS (punto 10 de Martín, 13/10): mig **0273** (no 0266: 0266-0272 ya los tienen otros
->   worktrees), `lib/creaciones*.ts`, `app/creaciones/` (galería /creaciones, BotonEstrella,
->   PublicarCreacion) y el área `creaciones` de la API (8 operaciones, sin registrar todavía). Se les
->   pasó el contrato de enchufe a Automations, Graphics y Content Machine.
+> **Para PUSHEAR (lo pushea Estrategia con todo junto): rama `estrellas-1410` = `e49c2062`**, sobre
+> `origin/main` = `e4c8a6d7`, worktree `C:/dev/push-estrellas`. Cuatro commits:
+> 1. El token detallado deja de valer cuando su creador pierde el acceso (cierra la fila de § 3.2).
+> 2-3. Las ESTRELLAS: mig **0273** (YA APLICADA en prod), `lib/creaciones*.ts`, la galería `/creaciones`,
+>    BotonEstrella, PublicarCreacion; el id de lo publicado es texto.
+> 4. El área `creaciones` registrada (8 ops, REST estilo GitHub, docs y snapshot regenerados), la cosecha
+>    (`docs/hallazgos-creaciones.md`, dos reglas en AGENTS.md) y un «Probá» de CURSOS que tenía rojo el guard
+>    de voseo en main.
+> Tests: los 251 de la API y los guards tocados, en verde. **Sin typecheck completo** (orden de Estrategia por la
+> RAM: lo corre el pre-push de quien pushee) **y sin verificar en el navegador** (no hubo RAM para un `next dev`).
+> **Cuando entre a main, avisarles a Automations y Graphics** (ponen su botón «Publicar» y el enchufe de
+> dashboard). Content Machine espera una decisión de Martín sobre qué es un «formato» (ver
+> `docs/hallazgos-creaciones.md`).
 >
-> **Sin commitear en la rama:** el registro de `comunidad` y `creaciones` (tipos, registro, runners,
-> `mako-intencion`, 10 filas REST de creaciones) y el esqueleto del guard del punto 5
-> (`scripts/api-cobertura.mjs` = inventario de 1273 capacidades, `lib/api-mako/cobertura.ts`,
-> `tests/api-mako-cobertura.test.ts`; falta clasificarlas). Y el trabajo de los agentes: la corrida
-> `wf_8cb38f84-f1e` se cortó a la 1ª pasada por el límite de sesión (2 de 15 agentes cerraron:
-> comunidad y plan) y se relanzó con `resumeFromRunId` **de a 2** (pedido de Estrategia por la RAM).
-> **A las 02:55 del 14/10 se PAUSÓ** (TaskStop) a pedido de Estrategia: dos agentes tenían tomado el lock del
-> typecheck y el push integrado de 8 chats esperaba esa RAM. Se retoma con `resumeFromRunId` cuando Estrategia
-> avise que entró; hasta entonces, ningún tsc completo desde este worktree.
-> Los cortados dejaron su trabajo en el árbol y lo retoman. Customer Success pidió `invitar_al_curso`
-> (área curso): va en esa corrida (`areas/curso.json` del scratchpad `3e9e0b4f…`).
+> **A MEDIAS — NO SE PUSHEA: rama `wip/api-acciones-1410` = `b85971b9`**, worktree `C:/dev/mako-api2` (encima
+> de `api-acciones-1310`, que tiene los mismos commits de las estrellas). Lo que falta, área por área:
+> - **comunidad** (41 ops) y **plan** (28 ops): implementadas, tests de su área en verde. Faltan: integrar sus
+>   filas REST (las trae el journal de la corrida; `integrar-rest-1310.ts` del scratchpad `3e9e0b4f…` las
+>   escribe), el título «Exportación» en `recursos.ts`, regenerar docs y snapshot, y la revisión de seguridad
+>   (los dos revisores se cortaron). **Comunidad tiene un bloqueante abierto: 11 escrituras «firmadas»
+>   (publicar, comentar, likes, votar, seguir, perfil…) no tienen persona con un token detallado** y hoy
+>   fallan al proponer. Y `lib/doer-herramientas.ts:117-123` dice que `cambiar_fecha_tarea_plan` no existe:
+>   ahora existe sólo por HTTP (revisar el comentario).
+> - **crm, curso, video, cs, chatbot, ads, negocio, equipo, landing+contenido, email+whatsapp** y el grupo
+>   **metricas/closing/mako/general/experimentos/integraciones**: trabajo a medias de los agentes que cortó el
+>   límite de sesión. **curso** incluye `invitar_al_curso`, pedido por Customer Success (sin `cualquierEtapa`: por
+>   la API sólo ganados; el diseño está en `areas/curso.json` del scratchpad).
+> - **El guard del punto 5** (`scripts/api-cobertura.mjs`, `lib/api-mako/cobertura.ts`,
+>   `tests/api-mako-cobertura.test.ts`): inventario de 1273 capacidades, 295 cubiertas por regla de carpeta y 55
+>   tabs declaradas. **Faltan clasificar 931** (acciones de servidor y rutas de /api) y declarar lo que no tenga
+>   operación: hoy, deuda medida en Offer y Landing Generator; a revisar Instagram en Automations, pagos y Mobile.
+>   El test falla a propósito hasta entonces.
 >
-> **Al terminar la corrida:** integrar filas REST + títulos (`integrar-rest-1310.ts` del scratchpad),
-> docs y snapshot, suite, typecheck, build, e2e en ws 9; aplicar la 0273 en prod ANTES del deploy;
-> clasificar las 1273 capacidades del guard (de a 2) y declarar lo que falte (Instagram en Automations,
-> pagos, Offer, Landing Generator, Video Editor, Mobile); cosecha y merge.
-> **Si este chat se corta:** la rama y el árbol están en `C:/dev/mako-api2`; la rama vieja
-> `C:/dev/mako-api` sigue intacta como referencia.
+> **Cómo se retoma:** `Workflow({scriptPath: "C:/Users/marti/.claude/projects/C--Users-marti-OneDrive-Escritorio-dashboard-marketing-main-dashboard-marketing/3e9e0b4f-a156-403b-a930-b0dc660360b4/workflows/scripts/api-mako-acciones-1310-wf_8cb38f84-f1e.js", resumeFromRunId: "wf_8cb38f84-f1e"})`
+> con `limite: 2` en los args (los que terminaron vuelven del caché; los prompts de los pendientes ya dicen
+> «sin tsc completo» y «retomá lo que quedó en el árbol»). El worktree tiene que estar en `wip/api-acciones-1410`.
+> Después: integrar REST, docs, snapshot, suite, typecheck, build, e2e en ws 9, revisión, clasificar el guard (de
+> a 2), cosecha y merge. **Ojo con el número de migración:** mirar también los otros worktrees.
 
 **Qué es esto, para quien nunca lo vio.** MaKo es la plataforma de Martín (marketing, CRM,
 automatizaciones, cursos). Cada negocio cliente es un **workspace** (`ws`): «ws 9» es el workspace
