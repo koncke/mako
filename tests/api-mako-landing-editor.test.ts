@@ -43,6 +43,9 @@
 //   · urlDeLanding con `${APP_BASE_URL}/l/<slug>` (lo de antes de integrar)           -> 15 / 1
 //   · el runner de publicar con `urlPublicaLanding(r.slug)` sin urlDeLanding          -> 15 / 1
 //   · publicar() (publicar.ts) devolviendo otra dirección que la de la API            -> 15 / 1
+// El aviso del video sin enlace en el resumen de publicar (base 17 pass + 1 todo):
+//   · el runner de publicar sin `avisoDeVideo(publicables)`                          -> 16 / 1
+//   · resumenPublicar ignorando `faltaVideo`                                          -> 16 / 1
 // El `todo` (punto 4, «publicá la landing…») NO es una rotura: falla hoy porque el clasificador
 // no reconoce el pedido. Es el BLOQUEANTE de lib/mako-intencion.ts (docs/hallazgos-editor-landing.md,
 // «Tanda 4»); con el parche aplicado pasa y se le saca el `todo`. Medido el 14/10 con el parche en
@@ -64,6 +67,7 @@ import { herramientasDelTurno } from '../lib/doer-herramientas';
 import { DISENOS_LANDING, OBJETIVOS_LANDING } from '../lib/editor-landing/disenos-landing';
 import { pedidoDeDiseno, plantillasDe } from '../app/landing-generator/crear/tipo';
 import { APP_BASE_URL, urlPublicaLanding } from '../lib/app-url';
+import { TEXTO_FALTA_VIDEO, avisoDeVideo } from '../lib/editor-landing/especificacion';
 import type { LandingResumen } from '../lib/editor-landing/api-tipos';
 import type { Sugerencia } from '../lib/editor-landing/diagnostico';
 import {
@@ -314,6 +318,20 @@ test('«ya está publicada así»: misma dirección, lo último guardado y el si
   // A una persona se le deja republicar sin cambios (como la pantalla), y el resumen se lo dice.
   assert.match(resumenPublicar(fila(), 'webinar', 'landing'), /sin cambios guardados nuevos/);
   assert.doesNotMatch(resumenPublicar(fila({ publicado_version: 6 }), 'webinar', 'landing'), /sin cambios guardados nuevos/);
+});
+
+// Integración de la tanda 4 (14/10/2026): una landing creada por la API desde un diseño trae el VSL
+// VACÍO (crear_landing_desde_diseno); publicada así, el inicio sale sin video. El diálogo Publicar lo
+// avisa sin frenar (`avisoDeVideo`); la API, en el resumen que la persona confirma, igual.
+test('publicar por la API avisa, como la pantalla, si un video quedó sin su enlace (y no frena)', () => {
+  const nueva = pedidoDeCrear(DISENOS_LANDING.find((d) => d.video)!.id, 'webinar', null);
+  assert.ok(nueva?.contenido, 'el alta de un diseño con video');
+  const paginas = nueva.contenido.paginas;
+  assert.equal(avisoDeVideo(paginas), TEXTO_FALTA_VIDEO, 'lo creado por la API trae el VSL vacío');
+  assert.ok(resumenPublicar(fila(), 'webinar', 'landing', avisoDeVideo(paginas)).includes(TEXTO_FALTA_VIDEO));
+  assert.ok(!resumenPublicar(fila(), 'webinar', 'landing', null).includes(TEXTO_FALTA_VIDEO));
+  // El runner lo calcula sobre lo MISMO que se publica (`publicables`) y no corta: devuelve el payload.
+  assert.match(runnerDe('publicar_landing'), /return \{ payload: \{ id, slug \}, resumen: resumenPublicar\(fila, slug, formatoParaApi\([^)]*\), avisoDeVideo\(publicables\)\) \};/);
 });
 
 test('el alta de crear es EXACTAMENTE la de la pantalla (pedidoDeDiseno), con el título encima', () => {

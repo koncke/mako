@@ -374,6 +374,43 @@ export function attrsInsertado(raw: unknown): AttrsInsertado {
   return { src: e.src, proveedor: e.proveedor, alto: agenda ? altoDeEmbed(r.alto) ?? e.alto ?? null : null };
 }
 
+/** El aviso de Publicar cuando un video quedó sin su enlace (corto: lo dibuja el diálogo). */
+export const TEXTO_FALTA_VIDEO = 'Falta el enlace del video';
+
+/**
+ * ¿Cuántos VIDEOS quedaron sin pegar? Un `insertado` con la pista de un proveedor de video (el VSL que
+ * trae un diseño, «Video de YouTube…»: `attrsInsertado` la conserva en el hueco vacío) y sin `src`. Lo
+ * pregunta el diálogo Publicar ANTES de publicar (integración de la tanda 4): la publicada no dibuja
+ * un insertado vacío (render.ts), así que el hero de un diseño con VSL sale sin video y nadie lo dice.
+ * Una agenda vacía no cuenta (no tiene pista de video), ni una sección OCULTA (no se publica). Se lee
+ * con `attrsInsertado`, la MISMA regla del saneo y del render: un enlace que no es de la lista ya no
+ * está, y una pista inventada sale ''.
+ */
+export function videosSinEnlace(paginas: ReadonlyArray<{ doc?: { content?: unknown } } | null | undefined>): number {
+  let n = 0;
+  const recorrer = (nodos: unknown, prof: number): void => {
+    if (!Array.isArray(nodos) || prof > 40) return;
+    for (const x of nodos) {
+      if (!x || typeof x !== 'object' || Array.isArray(x)) continue;
+      const nodo = x as { type?: unknown; attrs?: unknown; content?: unknown };
+      const attrs = nodo.attrs && typeof nodo.attrs === 'object' ? nodo.attrs as Record<string, unknown> : {};
+      if (nodo.type === NODO.tarjeta && attrs.oculta === true) continue;
+      if (nodo.type === NODO.insertado) {
+        const a = attrsInsertado(attrs);
+        if (!a.src && claseDeProveedor(a.proveedor) === 'video') n++;
+        continue;
+      }
+      recorrer(nodo.content, prof + 1);
+    }
+  };
+  for (const p of paginas ?? []) recorrer(p?.doc?.content, 0);
+  return n;
+}
+
+/** El aviso de Publicar, o null si no falta ningún video. */
+export const avisoDeVideo = (paginas: Parameters<typeof videosSinEnlace>[0]): string | null =>
+  videosSinEnlace(paginas) > 0 ? TEXTO_FALTA_VIDEO : null;
+
 /** Rótulo por default de cada tipo de campo (el que la persona ve si no escribió otro). */
 export const ETIQUETA_CAMPO: Record<TipoCampo, string> = {
   nombre: 'Nombre', email: 'Correo electrónico', telefono: 'Teléfono', empresa: 'Empresa',

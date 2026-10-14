@@ -53,6 +53,7 @@ import { publicar as publicarEnEditor, despublicar as despublicarEnEditor } from
 import { listar as comentariosDelDiagnostico } from '@/lib/editor-landing/diagnostico-server';
 import { paginasParaPublicar } from '@/lib/editor-landing/server-reglas';
 import { fuentesHtmlLibre, pideContrasena, TEXTO_PIDE_CONTRASENA } from '@/lib/editor-landing/html-libre';
+import { avisoDeVideo } from '@/lib/editor-landing/especificacion';
 import type { Sugerencia } from '@/lib/editor-landing/diagnostico';
 import { PREFIJO_FLUJO } from '../canal';
 import {
@@ -907,7 +908,8 @@ export const RUNNERS: Runners = {
       const publicables = paginasParaPublicar(docsEditor.limpiarContenido(f.contenido, `api publicar #${id}`).contenido);
       if (!publicables.length) return { error: `«${f.titulo}» no tiene páginas para publicar.` };
       if (Object.values(fuentesHtmlLibre(publicables)).some(pideContrasena)) return { error: `Un bloque «HTML personalizado» de «${f.titulo}» pide una contraseña. ${TEXTO_PIDE_CONTRASENA}` };
-      return { payload: { id, slug }, resumen: resumenPublicar(fila, slug, formatoParaApi(f.config as { formato?: unknown })) };
+      // Lo que el diálogo Publicar avisa (sin frenar), también acá: un VSL vacío sale sin video.
+      return { payload: { id, slug }, resumen: resumenPublicar(fila, slug, formatoParaApi(f.config as { formato?: unknown }), avisoDeVideo(publicables)) };
     },
     ejecutar: async (payload, ctx): Promise<Ejecutado> => {
       const id = Number(payload.id);

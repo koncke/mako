@@ -34,11 +34,22 @@
 // ── Revisión del 14/10/2026: las roturas con las que dos verificadores dejaban esto en verde (base: 13 / 0) ──
 //   · al centro, video y botón justo debajo del titular y el subtítulo DEBAJO ..... 12 / 1
 //   · al costado, vuelve el «Título» display con anchos [8,4] .................... 12 / 1
+// ── «Falta el enlace del video» en Publicar (integración de la tanda 4, 14/10/2026; arnés en memoria,
+//    sha256 igual después de cada una; base: 15 / 0) ──
+//   · cuenta cualquier insertado vacío (la agenda también) ......................... 14 / 1
+//   · no saltea las secciones ocultas ............................................. 14 / 1
+//   · lee la pista cruda en vez de `attrsInsertado` (una inventada cuenta) ......... 14 / 1
+//   · no entra a las columnas (el VSL al costado no se ve) ......................... 14 / 1
+//   · el diálogo mira sólo la página abierta ....................................... 14 / 1
+//   · el aviso frena el botón Publicar ............................................. 14 / 1
 // =============================================================================
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { sanearConfig, sanearContenido } from '../lib/editor-landing/validar';
+import { TEXTO_FALTA_VIDEO, avisoDeVideo, videosSinEnlace } from '../lib/editor-landing/especificacion';
 import { TEMAS } from '../lib/editor-landing/temas';
 import { PLANTILLAS } from '../lib/editor-landing/plantillas';
 import { NODO, type JsonNodo, type LandingContenido } from '../lib/editor-landing/doc';
@@ -275,4 +286,48 @@ test('cada objetivo tiene su ícono y su nombre', () => {
     assert.ok(o.nombre.trim(), o.id);
     assert.ok(o.icono && o.icono !== 'objetivo', `${o.id}: sin ícono propio`);
   }
+});
+
+// ── «Falta el enlace del video» en Publicar (integración de la tanda 4, 14/10/2026) ──────────────
+// La publicada no dibuja un insertado vacío (render.ts): un diseño con VSL publicado sin pegar el
+// enlace sale con el hero SIN video y nadie lo dice. Publicar lo avisa antes, sin frenar.
+const conVideoPegado = (c: LandingContenido): LandingContenido => JSON.parse(JSON.stringify(c), (k, v) =>
+  v && typeof v === 'object' && v.type === NODO.insertado && v.attrs?.proveedor === 'youtube'
+    ? { ...v, attrs: { ...v.attrs, src: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' } } : v);
+const insertado = (attrs: Record<string, unknown>, tarjeta: Record<string, unknown> = {}): LandingContenido => ({
+  v: 1,
+  paginas: [{ id: 'p1', titulo: 'Inicio', ruta: '', doc: { type: 'doc', content: [{ type: NODO.tarjeta, attrs: { id: 't1', ...tarjeta }, content: [{ type: NODO.insertado, attrs }] }] } }],
+} as LandingContenido);
+
+test('Publicar avisa «Falta el enlace del video» si un video quedó sin pegar (y nada más)', () => {
+  assert.ok(TEXTO_FALTA_VIDEO.split(/\s+/).length <= 6, 'el aviso es una frase corta');
+  for (const d of DISENOS_LANDING) {
+    for (const o of OBJETIVOS_LANDING) {
+      const c = landingDesde(d, o.id)!;
+      const tieneVideo = nodos(c).some((n) => n.type === NODO.insertado && n.attrs?.proveedor === 'youtube');
+      // Todo diseño con video trae el VSL vacío: avisa. Minimal, sólo si el objetivo puso el suyo.
+      if (d.video) assert.ok(tieneVideo, `${d.id} × ${o.id}: el diseño con video no trae el VSL`);
+      assert.equal(avisoDeVideo(c.paginas), tieneVideo ? TEXTO_FALTA_VIDEO : null, `${d.id} × ${o.id}`);
+      // Con el enlace pegado, nada (la agenda vacía de «agenda-llamada» no es un video).
+      assert.equal(avisoDeVideo(conVideoPegado(c).paginas), null, `${d.id} × ${o.id}, con el video pegado`);
+    }
+  }
+  // Una agenda vacía no es un video; una sección oculta no se publica; una pista inventada o un enlace
+  // que no es de la lista no cuentan (el saneo ya los dejó vacíos y sin pista).
+  assert.equal(videosSinEnlace(insertado({ src: '', proveedor: 'calendly' }).paginas), 0);
+  assert.equal(videosSinEnlace(insertado({ src: '', proveedor: 'youtube' }).paginas), 1);
+  assert.equal(videosSinEnlace(insertado({ src: '', proveedor: 'vimeo' }).paginas), 1);
+  assert.equal(videosSinEnlace(insertado({ src: '', proveedor: 'youtube' }, { oculta: true }).paginas), 0);
+  assert.equal(videosSinEnlace(insertado({ src: '', proveedor: 'youtubee' }).paginas), 0);
+  assert.equal(videosSinEnlace(insertado({ src: 'https://vimeo.com/76979871', proveedor: 'vimeo' }).paginas), 0);
+  assert.equal(videosSinEnlace([]), 0);
+});
+
+test('el diálogo Publicar dibuja el aviso del video donde el de cobro, y no frena el botón', () => {
+  const src = readFileSync(join(__dirname, '..', 'app/landing-generator/editor/dialogos/DialogoPublicar.tsx'), 'utf8').replace(/\r\n/g, '\n');
+  assert.match(src, /const avisoVideo = useMemo\(\(\) => avisoDeVideo\(paginasVivas\), \[paginasVivas\]\);/, 'mira TODAS las páginas, la abierta en vivo');
+  // Justo debajo del aviso de cobro, con la misma forma.
+  assert.match(src, /\{avisoCobro && \([\s\S]{0,400}?<\/p>\n\s*\)\}\n\s*\{avisoVideo && \(\n\s*<p className="gmp-error" style=\{\{ margin: '-6px 0 12px' \}\} role="status">\{avisoVideo\}<\/p>/);
+  const puede = /const puedePublicar = ([^;]+);/.exec(src)?.[1] ?? '';
+  assert.ok(puede && !/aviso/.test(puede), `publicar no depende de los avisos: ${puede}`);
 });

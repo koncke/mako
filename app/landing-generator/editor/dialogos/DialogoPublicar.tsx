@@ -44,13 +44,15 @@
 // Tanda 4 (14/10/2026): si un «Botón de pago» de la landing no va a poder cobrar (sin Stripe, un
 // producto inactivo o sin precio), lo dice ANTES de publicar, debajo de la caja de estado (`avisoDeCobro`,
 // lib/editor-landing/pago-landing.ts). No frena el botón: publicar sigue siendo de la persona.
+// Lo mismo, en el mismo lugar, si un VIDEO quedó sin su enlace (el VSL que trae el diseño, vacío): la
+// publicada no lo dibuja y el hero sale sin video (`avisoDeVideo`, lib/editor-landing/especificacion.ts).
 // =============================================================================
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { BotonBorrar } from '@/app/_ui/BotonBorrar';
 import { slugDe, slugValido, textoDe, tituloDeTarjeta, type JsonNodo } from '@/lib/editor-landing/doc';
 import { slugDeUrlLanding, urlLandingEn } from '@/lib/editor-landing/origen-landings';
-import { hrefPermitido } from '@/lib/editor-landing/especificacion';
+import { avisoDeVideo, hrefPermitido } from '@/lib/editor-landing/especificacion';
 import type { BotonNav, ConfigLanding, EnlaceNav } from '@/lib/editor-landing/api-tipos';
 import {
   RUTA_DOMINIO, motivoDominioInvalido, normalizarDominio, urlDeDominio,
@@ -290,6 +292,8 @@ function DialogoPublicarAbierto({ onCerrar }: { onCerrar?: () => void }) {
   const hayPagos = useMemo(() => productosDePago(paginasVivas).length > 0, [paginasVivas]);
   const { estado: cobro } = useCobroLanding(hayPagos);
   const avisoCobro = hayPagos && cobro ? avisoDeCobro(paginasVivas, cobro) : null;
+  // Un video sin su enlace (el VSL vacío de un diseño): se avisa y no se frena.
+  const avisoVideo = useMemo(() => avisoDeVideo(paginasVivas), [paginasVivas]);
 
   const publicado = !!info?.publicadoAt || !!url;
   const pendientes = cambiosSinPublicar || estado === 'sin-guardar' || estado === 'guardando';
@@ -536,6 +540,9 @@ function DialogoPublicarAbierto({ onCerrar }: { onCerrar?: () => void }) {
           {avisoCobro.texto}
           {avisoCobro.integraciones && <>{' '}<Link href="/integraciones" target="_blank" rel="noopener noreferrer">Integraciones</Link></>}
         </p>
+      )}
+      {avisoVideo && (
+        <p className="gmp-error" style={{ margin: '-6px 0 12px' }} role="status">{avisoVideo}</p>
       )}
       {url && (
         <div className="gmp-url-pub">

@@ -186,8 +186,13 @@ export function yaPublicadaAsi(f: FilaPublicable, slug: string): boolean {
   return !!f.publicado_at && f.sitio_activo && f.slug === slug && f.publicado_version === f.version;
 }
 
-/** Lo que lee la persona antes de confirmar (y el modelo): QUÉ va a pasar, con la dirección exacta. */
-export function resumenPublicar(f: FilaPublicable, slug: string, formato: 'landing' | 'presentacion'): string {
+/**
+ * Lo que lee la persona antes de confirmar (y el modelo): QUÉ va a pasar, con la dirección exacta.
+ * `faltaVideo` es el aviso del diálogo Publicar (`avisoDeVideo`, especificacion.ts): una landing creada
+ * por la API desde un diseño trae el VSL VACÍO y, publicada así, el inicio sale sin video. Se dice y
+ * no se frena, como en la pantalla.
+ */
+export function resumenPublicar(f: FilaPublicable, slug: string, formato: 'landing' | 'presentacion', faltaVideo: string | null = null): string {
   const que = formato === 'presentacion' ? 'la presentación' : 'la landing';
   const partes = [`Publicar ${que} «${f.titulo}» en ${urlDeLanding(slug)}`];
   if (f.publicado_at) partes.push(`con lo último guardado (reemplaza lo publicado el ${f.publicado_at.slice(0, 10)})`);
@@ -196,7 +201,7 @@ export function resumenPublicar(f: FilaPublicable, slug: string, formato: 'landi
   // A una PERSONA se le deja republicar sin cambios, como el botón de la pantalla: la foto vuelve a
   // tomar lo que cambia sin subir la versión (los temas propios del negocio). Se le dice.
   else if (yaPublicadaAsi(f, slug)) partes.push('— sin cambios guardados nuevos: se vuelve a armar y toma los temas propios de hoy');
-  return `${partes.join(' ')}.`;
+  return `${partes.join(' ')}.${faltaVideo ? ` ${faltaVideo}: se publica sin ese video (se pega en el editor).` : ''}`;
 }
 
 /** Lo que devuelve `slugDisponible` (lib/editor-landing/server.ts) cuando contesta. */
