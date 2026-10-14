@@ -90,7 +90,7 @@ Las zonas que lo vieron van entre corchetes: I (inscripción), E (envío), G (gr
 | canal-apagado-omite-o-espera [E,G] | Omite o espera 24 h según lo que quede después. En el carril se pierde. IG y Messenger cuentan siempre como prendidos. | `nutricion.ts:4368-4396, 4453-4456` | Una sola regla visible al lado del interruptor: «canal apagado = ese mensaje se saltea». |
 | mako-tarjeta-fuera-de-horario [E,G] | «MaKo en WhatsApp» sale fuera de horario, aunque el horario no se pueda leer. | `nutricion.ts:3486-3496, 3813-3814` | Una casilla en Configuraciones › Horario, «Los avisos al equipo salen igual», prendida de fábrica. |
 | mako-tarjeta-dedup-12h [E,F] | Dedup de 12 h por lead entre automatizaciones (la tarjeta de antes, «Si responde», la API). En Notificaciones no se baja de 12 h. | `mako-tarjeta.ts:362-385`; `avisos.ts:195-210` | Pasar las tarjetas de antes a `partes` y quitar el dedup. Si hace falta espaciar, se hace con DELAY y condición. |
-| pausar-automatizacion-cierra (+ corrida-evento «se pausó») [I,G,F] | «Pausar» cierra como 'completada', sin rastro, a cada inscripción que vence. Al reactivar, nadie retoma. | `nutricion.ts:431-438, 3939-3957`; `flujos.ts:283-294` | **Pausar = congelar**: el motor saltea las vencidas de una pausada sin tocarlas. Al reactivar hay que decidir si se reprograman o se descartan. |
+| ~~pausar-automatizacion-cierra~~ **HECHO (14/10): «Pausar» congela; al reactivar sale lo vencido** (falta la corrida-evento «se pausó») [I,G,F] | «Pausar» cierra como 'completada', sin rastro, a cada inscripción que vence. Al reactivar, nadie retoma. | `nutricion.ts:431-438, 3939-3957`; `flujos.ts:283-294` | **Pausar = congelar**: el motor saltea las vencidas de una pausada sin tocarlas. Al reactivar hay que decidir si se reprograman o se descartan. |
 
 ### E. Inscripción
 
@@ -115,7 +115,7 @@ Las zonas que lo vieron van entre corchetes: I (inscripción), E (envío), G (gr
 
 ## 2. Propuesta mínima en Automations
 
-### 2.1 La condición nueva `reunion_en_pie`: una sola pregunta
+### 2.1 La condición nueva `reunion_en_pie`: una sola pregunta — HECHO (14/10, sin push)
 
 Junta lo que hoy hacen la guarda (`nutricion.ts:4099`), el rechazo manual (`:2294`), el `sin_reunion` en lo que no es su hilo, el corte del AI Step (`:5140`), `REUNION_POR_DELANTE` (`plantillas-automatizaciones.ts:315, 327-328, 333, 336, 365`), `r1_pendiente` (la retirada, con 12 h de gracia, `condiciones-catalogo.ts:553-560`) y el `>= hoy` de `agendado_sin_confirmar`.
 
@@ -131,7 +131,7 @@ En `CONDICIONES`, sección 'Agenda y llamadas', junto a `reunion_en` (`condicion
 - **Bug de lectura, de paso:** que `r1.fechaMs`/`r2.fechaMs` den null en una cancelada. Arregla `reunion_agendada` y `reunion_en` con etapas. Ojo: también cambia `agendo` (vía `agendoDe`) y por lo tanto `form_sin_agenda`, `vsl_sin_agendar` y `vsl_poco`. Un cancelado pasa a «no agendó»; lo tiene que validar Martín.
 - **«Probar»:** el lead de prueba no tiene reunión (`simulador-grafo.ts:256`). Darle una (por ejemplo, mañana a las 10:00), o «Un Lead Agendó Llamada» no muestra nada.
 
-### 2.2 Regla técnica previa: el reintento vuelve a pasar por su condición
+### 2.2 Regla técnica previa: el reintento vuelve a pasar por su condición — HECHO (14/10, sin push)
 
 Hoy un fallo (+4 h o +24 h, `nutricion.ts:4854`), un borrador que espera (6 h) o el anti-ban dejan la fila parada en el mensaje, y la condición de arriba no se vuelve a evaluar. La guarda escondida existía justamente por eso (AGENTS.md:2678-2700, el caso del 25/09).
 
@@ -141,7 +141,7 @@ Con esto se pueden borrar después también la segunda mirada de la antigüedad 
 
 **Rastro:** cuando una condición termina un camino que tenía un mensaje por delante, dejar un 'omitido' con el texto de la fila (`textoCondicion`). Hoy sólo queda en el primer paso (`nutricion.ts:4004-4010`), y sin rastro el bug 5 no se pudo diagnosticar.
 
-### 2.3 Migración: qué tiene que llevar la condición explícita para no cambiar de comportamiento
+### 2.3 Migración: qué tiene que llevar la condición explícita para no cambiar de comportamiento — script listo (scripts/migrar-condicion-reunion.ts), corre después del deploy
 
 **Plantilla `lead-agendo`** (`plantillas-automatizaciones.ts:313-347`). Sea `EN_PIE = { campo: 'reunion_en_pie' }`:
 - `la_r`, las dos ramas de `la_p`, `la_c` y `la_m`: cambiar `REUNION_POR_DELANTE` por `EN_PIE, SIGUE_EN_LA_ETAPA` en la misma rama (es un AND, sin tarjetas nuevas).

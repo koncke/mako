@@ -431,6 +431,20 @@ function haceDiasISO(dias: number): string {
 }
 
 // ── Secuencias ───────────────────────────────────────────────────────────────
+
+/**
+ * LAS AUTOMATIZACIONES PAUSADAS (apagadas, sin archivar): sus inscripciones se CONGELAN. Martín, 14/10/2026: «Pausar»
+ * → «Congela y sigue donde estaba» (al reactivar, cada lead sigue en su paso y lo vencido sale al reactivar). Hasta el
+ * 14/10 el motor no las encontraba entre las activas y CERRABA cada inscripción que le vencía (`!sec`: 'completada',
+ * sin rastro): pausar era terminar, y al reactivar nadie seguía. Una regla escondida. Si no se pueden leer, tira: la
+ * corrida no avanza, que es mejor que volver a cerrarlas.
+ */
+async function idsDePausadas(db: Awaited<ReturnType<typeof getTenantDb>>): Promise<number[]> {
+  const { data, error } = await db.from('nutricion_secuencias').select('id').eq('activa', false).is('archivada_at', null);
+  if (error) throw new Error(`las automatizaciones pausadas: ${error.message}`);
+  return ((data ?? []) as Array<{ id: number }>).map((r) => Number(r.id)).filter((n) => Number.isInteger(n) && n > 0);
+}
+
 export async function getSecuenciasActivas(): Promise<Secuencia[]> {
   const supabase = (await getTenantDb());
   const rows = await leerFilasDeSecuencias((cols) => supabase
@@ -610,6 +624,16 @@ export async function setSecuenciaActiva(id: number, activa: boolean): Promise<v
     .update({ activa, updated_at: ahoraISO() })
     .eq('id', id);
   if (error) throw new Error(`setSecuenciaActiva: ${error.message}`);
+  // «Pausar» CONGELA (14/10/2026, `idsDePausadas`): al reactivar, lo que venció durante la pausa sale YA. La columna se
+  // pone en «ahora» para que la vea el tick de cada minuto (mira lo que acaba de vencer); los hilos guardan cada uno su
+  // hora y ya están vencidos. Un error acá no deshace la activación: la corrida de cada hora lo levanta igual.
+  if (activa) {
+    const ahora = ahoraISO();
+    const { error: eV } = await supabase.from('nutricion_inscripciones')
+      .update({ proximo_envio_at: ahora, updated_at: ahora })
+      .eq('secuencia_id', id).in('estado', ['activa', 'respondio']).lt('proximo_envio_at', ahora);
+    if (eV) console.error(`[nutricion] reactivar la ${id}: lo vencido durante la pausa sale en la corrida de la hora (${eV.message})`);
+  }
 }
 
 /**
@@ -2380,8 +2404,13 @@ async function inscripcionesVencidas(): Promise<InscripcionVencida[]> {
     // Y LAS 'respondio' CON EL CARRIL VIVO (undécima tanda, M4): el lead contestó, pero sus recordatorios siguen.
     // `pausarPorRespuesta` les deja el próximo envío sólo a ésas (a las demás se lo saca), así que una 'respondio'
     // vencida es siempre una del carril.
+    // Lo de una pausada no sale (`idsDePausadas`): la vista previa tampoco lo cuenta.
+    const pausadas = await idsDePausadas(supabase);
     return await leerTodo<InscripcionVencida>(supabase, 'nutricion_inscripciones', 'id, lead_id, secuencia_id, paso_actual, nodo_actual', {
-      orden: 'id', filtros: (q) => q.in('estado', ['activa', 'respondio']).lte('proximo_envio_at', ahora) as ConsultaPaginada,
+      orden: 'id', filtros: (q) => {
+        const base = q.in('estado', ['activa', 'respondio']).lte('proximo_envio_at', ahora);
+        return (pausadas.length ? base.not('secuencia_id', 'in', `(${pausadas.join(',')})`) : base) as ConsultaPaginada;
+      },
     });
   } catch (e) {
     throw new Error(`inscripcionesVencidas: ${e instanceof Error ? e.message : String(e)}`);
@@ -3792,6 +3821,8 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
     return true;
   };
 
+  // «Pausar» CONGELA (14/10/2026): lo de una automatización pausada no se levanta (antes se cerraba por `!sec`).
+  const pausadas = await idsDePausadas(supabase);
   while ((!cupoLleno() || sinTopeWa.length > 0) && rondas < 6) {
     rondas += 1;
     // Una acción de esta vuelta dejó su inscripción con el paso siguiente ya vencido.
@@ -3807,6 +3838,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
     // Vía rápida de UN lead (enrolamiento por evento): reusa TODO el motor
     // (anti-ban, audio, borradores, gates) sin esperar la corrida del cron.
     if (opts?.soloLeadId) q = q.eq('lead_id', opts.soloLeadId);
+    if (pausadas.length) q = q.not('secuencia_id', 'in', `(${pausadas.join(',')})`);
     // El tick: sólo lo que venció hace poco (ver la firma). Lo que esta misma corrida acaba de
     // mover a un paso que ya toca vence AHORA, así que sigue adentro.
     if (opts?.vencidasDesde) q = q.gte('proximo_envio_at', opts.vencidasDesde);
