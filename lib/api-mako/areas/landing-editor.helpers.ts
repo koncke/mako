@@ -12,9 +12,9 @@
 // Español neutro (lo lee el cliente).
 // =============================================================================
 
-import { APP_BASE_URL } from '@/lib/app-url';
+import { urlPublicaLanding } from '@/lib/app-url';
 import { formatoDe, type LandingResumen, type PedidoDocs } from '@/lib/editor-landing/api-tipos';
-import { tarjetasDe, urlPublica, type LandingContenido } from '@/lib/editor-landing/doc';
+import { tarjetasDe, type LandingContenido } from '@/lib/editor-landing/doc';
 import { bloquesDeTexto, type Sugerencia } from '@/lib/editor-landing/diagnostico';
 import { DISENOS_LANDING, OBJETIVOS_LANDING } from '@/lib/editor-landing/disenos-landing';
 import { pedidoDeDiseno, plantillasDe } from '@/app/landing-generator/crear/tipo';
@@ -23,12 +23,16 @@ import { pedidoDeDiseno, plantillasDe } from '@/app/landing-generator/crear/tipo
  * LA dirección pública de una landing del editor. UNA función: la lista, la lectura y lo que
  * devuelve publicar salen de acá.
  *
- * ⚠️ pasar a urlPublicaLanding al integrar. Otro constructor (14/10/2026) muda las landings
- * publicadas a https://hola-mako.site/<slug> con una función propia; hasta que esté en main,
- * esto arma la de hoy (`urlPublica` de doc.ts, la misma que usan `aCompleta` y `publicar`).
+ * Es `urlPublicaLanding` (lib/app-url.ts): `https://hola-mako.site/<slug>` en producción y
+ * `<app>/l/<slug>` en local y en los previews (tanda 4, integración del 14/10/2026). La MISMA que
+ * devuelve `publicar()` (publicar.ts) y que `aCompleta` (server.ts) le da al diálogo Publicar: lo
+ * que contesta la API y lo que ve la persona en la pantalla no pueden ser dos direcciones.
+ * ⚠️ `urlPublicaLanding` TIRA en el navegador (no sabe el entorno). Acá no importa: este módulo lo
+ * importan sólo landing.run.ts (server) y su test (node); sigue sin `server-only` (app-url.ts no lo
+ * lleva). Si algún día lo importa un componente cliente, la dirección le llega por props.
  */
 export function urlDeLanding(slug: string, ruta = ''): string {
-  return urlPublica(APP_BASE_URL, slug, ruta);
+  return urlPublicaLanding(slug, ruta);
 }
 
 /** «landing» o «presentacion»: lo que la persona llama al documento (la pantalla elige igual). */

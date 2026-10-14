@@ -38,6 +38,11 @@
 //   · siFallaNuestra con `> 500` (un 500 de la base salía como 400 crudo)             -> 13 / 1
 //   · listar_landings_creadas sin siFallaNuestra                                       -> 13 / 1
 //   · resumenPublicar sin la nota «sin cambios guardados nuevos»                      -> 13 / 1
+// Integración con hola-mako.site (14/10/2026), base 16 pass + 1 todo, restaurado de memoria (sha256
+// igual) después de cada una:
+//   · urlDeLanding con `${APP_BASE_URL}/l/<slug>` (lo de antes de integrar)           -> 15 / 1
+//   · el runner de publicar con `urlPublicaLanding(r.slug)` sin urlDeLanding          -> 15 / 1
+//   · publicar() (publicar.ts) devolviendo otra dirección que la de la API            -> 15 / 1
 // El `todo` (punto 4, «publicá la landing…») NO es una rotura: falla hoy porque el clasificador
 // no reconoce el pedido. Es el BLOQUEANTE de lib/mako-intencion.ts (docs/hallazgos-editor-landing.md,
 // «Tanda 4»); con el parche aplicado pasa y se le saca el `todo`. Medido el 14/10 con el parche en
@@ -58,8 +63,7 @@ import { clasificarIntencion } from '../lib/mako-intencion';
 import { herramientasDelTurno } from '../lib/doer-herramientas';
 import { DISENOS_LANDING, OBJETIVOS_LANDING } from '../lib/editor-landing/disenos-landing';
 import { pedidoDeDiseno, plantillasDe } from '../app/landing-generator/crear/tipo';
-import { urlPublica } from '../lib/editor-landing/doc';
-import { APP_BASE_URL } from '../lib/app-url';
+import { APP_BASE_URL, urlPublicaLanding } from '../lib/app-url';
 import type { LandingResumen } from '../lib/editor-landing/api-tipos';
 import type { Sugerencia } from '../lib/editor-landing/diagnostico';
 import {
@@ -147,10 +151,37 @@ test('los runners corren por el server de la pantalla: ningún acceso a la base 
 
 test('la dirección pública sale de UNA función (urlDeLanding): el día que se muda, se cambia en un lugar', () => {
   const run = sinComentarios(leer('lib/api-mako/areas/landing.run.ts'));
-  assert.ok(!/urlPublica\(/.test(run), 'landing.run.ts arma una URL pública sin urlDeLanding');
+  assert.ok(!/\b(?:urlPublica|urlPublicaLanding|rutaInternaL|urlLandingEn)\(/.test(run), 'landing.run.ts arma una URL pública sin urlDeLanding');
   for (const id of ['ver_landing_creada', 'despublicar_landing', 'publicar_landing']) assert.match(runnerDe(id), /urlDeLanding\(/, id);
-  // Hoy es la de doc.ts (la que usan aCompleta y publicar). ⚠️ pasar a urlPublicaLanding al integrar.
-  assert.equal(urlDeLanding('mi-oferta'), urlPublica(APP_BASE_URL, 'mi-oferta'));
+});
+
+// Integración de la tanda 4 (14/10/2026): las publicadas viven en https://hola-mako.site/<slug>. Antes
+// de integrar, urlDeLanding armaba `hola-mako.com/l/<slug>`, que en producción es un 308: la URL que el
+// dueño pega en un anuncio redirigía, y la que contestaba la API no era la del diálogo Publicar.
+test('urlDeLanding es la dirección PÚBLICA real, y la MISMA que muestra el diálogo Publicar', () => {
+  const conEntorno = <T>(valor: string | undefined, f: () => T): T => {
+    const antes = process.env.VERCEL_ENV;
+    if (valor === undefined) delete process.env.VERCEL_ENV; else process.env.VERCEL_ENV = valor;
+    try { return f(); } finally { if (antes === undefined) delete process.env.VERCEL_ENV; else process.env.VERCEL_ENV = antes; }
+  };
+  conEntorno('production', () => {
+    assert.equal(urlDeLanding('mi-oferta'), 'https://hola-mako.site/mi-oferta');
+    assert.equal(urlDeLanding('mi-oferta', 'gracias'), 'https://hola-mako.site/mi-oferta/gracias');
+    assert.equal(urlDeLanding('mi-oferta'), urlPublicaLanding('mi-oferta'));
+  });
+  for (const env of [undefined, 'preview']) {
+    conEntorno(env, () => assert.equal(urlDeLanding('mi-oferta'), `${APP_BASE_URL}/l/mi-oferta`, String(env)));
+  }
+  // La cadena hasta la pantalla: publicar() devuelve `urlPublicaLanding(slug)` y el diálogo la muestra
+  // (`setUrl(r.url)`); al abrir, la de `aCompleta` (server.ts), que sale de la MISMA función.
+  const publicar = sinComentarios(leer('lib/editor-landing/publicar.ts'));
+  assert.match(publicar, /const url = urlPublicaLanding\(slug\);[\s\S]{0,200}return \{ ok: true, url, slug,/);
+  assert.match(sinComentarios(leer('lib/editor-landing/server.ts')), /urlPublica: f\.slug && f\.publicado_at \? urlPublicaLanding\(f\.slug\) : null/);
+  const dialogo = sinComentarios(leer('app/landing-generator/editor/dialogos/DialogoPublicar.tsx'));
+  assert.match(dialogo, /setUrl\(r\.url\)/);
+  assert.match(dialogo, /if \(r\.doc\.urlPublica\) setUrl\(r\.doc\.urlPublica\)/);
+  // Los helpers siguen sin `server-only` (lo importa este test) y la sacan de app-url.ts, no armada a mano.
+  assert.match(sinComentarios(leer('lib/api-mako/areas/landing-editor.helpers.ts')), /import \{ urlPublicaLanding \} from '@\/lib\/app-url';/);
 });
 
 test('crear no corre en una automatización, y publicar/despublicar dicen «ya está así»', () => {
