@@ -7,6 +7,7 @@
 > **14/10/2026, 03:40 — CERRADO por pedido de Martín** («que se pushee todo y que los chats cierren lo que están
 > haciendo. Nada más»). Cuenta 2, chat «API de MaKo».
 >
+> **✅ ENTRÓ A MAIN el 14/10 (1ac180f2..92a2be21, lo pusheó Estrategia).** Lo de abajo queda como registro.
 > **Para PUSHEAR (lo pushea Estrategia con todo junto): rama `estrellas-1410` = `e8d94c07`** (incluye
 > el merge de `origin/main` = `74a56363`, con el área calendario al lado de creaciones), worktree `C:/dev/push-estrellas`. Cuatro commits:
 > 1. El token detallado deja de valer cuando su creador pierde el acceso (cierra la fila de § 3.2).
