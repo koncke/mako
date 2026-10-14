@@ -244,7 +244,7 @@ export async function responderPasoPago(req: Request, pedido: { slug: string; bl
 }
 
 /** Lo que devuelve `pagarDesdeLanding` (pago-landing-server.ts), con la forma que esta decisión necesita. */
-export type ResultadoDelPago = { tipo: 'redirigir'; url: string } | { tipo: 'no-disponible' } | { tipo: 'fallo' };
+export type ResultadoDelPago = { tipo: 'redirigir'; url: string } | { tipo: 'no-disponible' } | { tipo: 'demasiados' } | { tipo: 'fallo' };
 
 export type DepPagoPost = {
   appBaseUrl: string;
@@ -347,5 +347,7 @@ export async function responderPagoPost(req: Request, dep: DepPagoPost): Promise
   }
   if (r.tipo === 'redirigir') return new Response(null, { status: 303, headers: { Location: r.url, 'Cache-Control': 'no-store' } });
   if (r.tipo === 'no-disponible') return aviso(409, TEXTO_NO_DISPONIBLE, 'Ya tenemos tus datos.');
+  // El techo de la landing en la hora (contado en la base, `ejecutarPago`): no se escribió nada.
+  if (r.tipo === 'demasiados') return aviso(429, TEXTO_DEMASIADOS);
   return aviso(502, TEXTO_FALLO);
 }

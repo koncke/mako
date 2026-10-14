@@ -1,10 +1,11 @@
 // =============================================================================
 // editor-landing/pago-landing-server — el «Botón de pago» contra la base y la pasarela
 // =============================================================================
-// Tanda 4 (14/10/2026). Lo que decide vive en pago-landing.ts (puro, con test); acá sólo se lee y se
-// escribe, en este orden: la landing PUBLICADA (por slug, cliente crudo), el catálogo y las pasarelas
-// del workspace DE LA LANDING, el lead de ese email (o uno nuevo por el mismo camino que el opt-in),
-// y el cobro (`crearCobro`, lib/cobros.ts: el único escritor de `cobros`).
+// Tanda 4 (14/10/2026). Lo que decide vive en pago-landing.ts y pago-pedido.ts (puros, con test); acá
+// sólo se lee y se escribe: la landing PUBLICADA (por slug, cliente crudo), el catálogo y las pasarelas
+// del workspace DE LA LANDING, el techo y el candado (`landing_pago_pedidos`, mig 0276), la propuesta
+// cuando no se puede cobrar, el lead de ese email (o uno nuevo por el mismo camino que el opt-in), y el
+// cobro (`crearCobro`, lib/cobros.ts: el único escritor de `cobros`).
 //
 // ⚠️ SIN SESIÓN: lo llaman el paso público (app/l/[slug]/pagar/[bloque]) y el POST público
 //    (app/api/landing-generator/pagar). El workspace sale de la FILA de la landing, nunca de un
@@ -19,25 +20,25 @@
 // =============================================================================
 
 import 'server-only';
+import { createHash } from 'node:crypto';
 import { getSupabaseServer } from '../supabase';
 import { getTenantDb, runWithWorkspace } from '../workspace';
 import { APP_BASE_URL } from '../app-url';
 import { listProductos } from '../productos';
 import { createLead, logLeadEvent } from '../leads';
-import { esLeadDuplicado } from '../leads-duplicados';
+import { emailComparable, esLeadDuplicado } from '../leads-duplicados';
 import { idDelFunnelDefault } from '../funnels';
 import { funnelPrincipalDeLanding } from '../landing-funnel';
 import { casaParaEscribir } from '../lead-funnel-reglas';
 import { crearCobro, linkDelCobro, listarCobros, pasarelasConectadas } from '../cobros';
+import { crearPropuesta } from '../propuestas';
 import { slugValido, urlPublica } from './doc';
 import { leerFoto } from './server-reglas';
 import { sanearConfig } from './validar';
 import { temaPorId, estiloDeTema, type Tema } from './temas';
 import { urlsDeFuentes } from './pagina-publica';
-import {
-  TEXTO_NO_COBRA, motivoNoCobra, pasarelaDeLanding, productosDeFoto, type EstadoCobroLanding, type MotivoNoCobra, type ProductoDePago,
-} from './pago-landing';
-import { cobroPendienteReusable, creadoPorLanding, leadPorEmail } from './pago-pedido';
+import { TEXTO_NO_COBRA, productosDeFoto, type EstadoCobroLanding, type MotivoNoCobra, type ProductoDePago } from './pago-landing';
+import { creadoPorLanding, ejecutarPago, leadPorEmail, type DepCandado, type ResultadoPago } from './pago-pedido';
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
@@ -152,10 +153,13 @@ async function leadDeEmail(email: string): Promise<{ id: number; ambiguo: boolea
  * ⚠️ NO CAE A PROPUESTA, A DIFERENCIA DEL OPT-IN. El opt-in, ante un duplicado, deja una propuesta y
  * no hay `leadId`; un cobro EXIGE un lead. Por eso el duplicado se resuelve ANTES (por email exacto) y,
  * si igual choca (otro pedido lo creó en el medio), se vuelve a buscar y se reusa.
+ * ⚠️ SÓLO SE LLAMA CON EL CANDADO TOMADO (`ejecutarPago`): «buscar y, si no está, crear» sin candado
+ * dejaba dos fichas de la misma persona ante un doble clic (revisión de la tanda 4, MEDIA). La red del
+ * duplicado de abajo queda para lo que el candado no cubre (la mig 0276 sin aplicar, un alta a mano).
  * ⚠️ Y SE CREA AUNQUE EL NEGOCIO NO HAYA DECLARADO LA LANDING COMO ENTRADA DE LEADS (la puerta de
- * `entradas` del opt-in): acá la persona escribió su nombre y su email para PAGAR un producto que el
- * negocio puso en su página. Sin ficha no hay cobro, y perder a alguien con la tarjeta en la mano es
- * lo único peor que un lead de más.
+ * `entradas` del opt-in) — pero SÓLO cuando el producto se puede cobrar: acá la persona escribió su
+ * nombre y su email para PAGAR, sin ficha no hay cobro, y perder a alguien con la tarjeta en la mano es
+ * lo único peor que un lead de más. Si hoy no se puede cobrar, no se llama: queda una propuesta.
  */
 export async function leadDeQuienPaga(l: Pick<LandingDePago, 'ws' | 'slug'>, p: { nombre: string; email: string; autor: string }): Promise<{ leadId: number; nuevo: boolean }> {
   return runWithWorkspace(l.ws, async () => {
@@ -181,53 +185,123 @@ export async function leadDeQuienPaga(l: Pick<LandingDePago, 'ws' | 'slug'>, p: 
 // ─────────────────────────────────────────────────────────────────────────────
 // Pagar
 // ─────────────────────────────────────────────────────────────────────────────
+// El ORDEN (el techo de la hora, el candado, la propuesta si no se puede cobrar, el lead y el cobro) vive
+// en `ejecutarPago` (pago-pedido.ts, puro y con test). Acá sólo se enchufan las lecturas y las escrituras.
 
-export type ResultadoPago =
-  | { tipo: 'redirigir'; url: string; reusado: boolean }
-  /** No se puede cobrar ese producto hoy: el motivo quedó en el historial del lead. */
-  | { tipo: 'no-disponible'; motivo: MotivoNoCobra }
-  /** Falló la pasarela o la base: el motivo quedó en el historial (si hay lead) y en el log. */
-  | { tipo: 'fallo' };
+export type { ResultadoPago };
+
+/**
+ * `landing_pago_pedidos` (mig 0276): el candado por (negocio, email) y el techo por landing y hora. Sin la
+ * migración aplicada, `ejecutarPago` corre como antes (sin candado ni techo) y lo dice en el log.
+ */
+const TABLA_PEDIDOS = 'landing_pago_pedidos';
+
+/** La tabla no está: PostgREST la nombra con PGRST205 y Postgres con 42P01. Una columna que falta NO es esto. */
+const faltaLaTabla = (e: { code?: string | null } | null | undefined): boolean => !!e && (e.code === 'PGRST205' || e.code === '42P01');
+
+/**
+ * La llave del candado: el NEGOCIO y el email comparable, en sha256 — la tabla no guarda el email. Por
+ * negocio y no por landing: la ficha es del negocio, y dos landings suyas a la vez también la duplicarían.
+ */
+function claveDeCandado(ws: number, email: string): string {
+  return createHash('sha256').update(`${ws}:${emailComparable(email) ?? email.trim().toLowerCase()}`).digest('hex');
+}
+
+/** Los pedidos de esta landing en la última hora (el techo). null = sin la tabla. Tira = la base falló. */
+async function usosDeLaHora(docId: number): Promise<number | null> {
+  const desde = new Date(Date.now() - 3_600_000).toISOString();
+  // Sin `head: true`: un HEAD que falla vuelve sin cuerpo, y sin el código no se distingue la tabla que falta.
+  const { count, error } = await getSupabaseServer().from(TABLA_PEDIDOS)
+    .select('id', { count: 'exact' }).eq('doc_id', docId).gte('created_at', desde).limit(1);
+  if (faltaLaTabla(error)) return null;
+  if (error) throw new Error(`No pude contar los pedidos de la landing ${docId}: ${error.message}`);
+  return count ?? 0;
+}
+
+/** El candado, contra la base: un INSERT que choca (23505) con el índice único parcial de los pedidos EN CURSO. */
+function candadoDePago(docId: number, clave: string, log: DepCandado['log']): DepCandado {
+  const db = () => getSupabaseServer().from(TABLA_PEDIDOS);
+  const cerrar = (resultado: string) => ({ en_curso: false, resultado: resultado.slice(0, 40), terminado_at: new Date().toISOString() });
+  return {
+    tomar: async () => {
+      const { data, error } = await db().insert({ doc_id: docId, clave }).select('id').single();
+      if (!error && data) return { tipo: 'tomado', id: Number((data as { id: number }).id) };
+      if (faltaLaTabla(error)) return { tipo: 'sin-tabla' };
+      if (error?.code !== '23505') throw new Error(`No pude tomar el candado del pago: ${error?.message ?? 'sin respuesta'}`);
+      const { data: otro, error: e2 } = await db().select('id, created_at').eq('clave', clave).eq('en_curso', true).maybeSingle();
+      if (e2) throw new Error(`No pude leer el candado del pago: ${e2.message}`);
+      // Lo soltaron entre el INSERT y esta lectura: se vuelve a intentar en el próximo paso.
+      if (!otro) return { tipo: 'ocupado', id: 0, desde: Date.now() };
+      const f = otro as { id: number; created_at: string };
+      const desde = Date.parse(f.created_at);
+      return { tipo: 'ocupado', id: Number(f.id), desde: Number.isFinite(desde) ? desde : Date.now() };
+    },
+    soltar: async (id, resultado) => {
+      const { error } = await db().update(cerrar(resultado)).eq('id', id);
+      if (error) throw new Error(error.message);
+    },
+    // Compare-and-set: sólo si SIGUE tomado (otro pedido pudo soltarlo o vencerlo en el medio).
+    vencer: async (id) => {
+      if (!id) return;
+      const { error } = await db().update(cerrar('vencido')).eq('id', id).eq('en_curso', true);
+      if (error) throw new Error(`No pude soltar el candado vencido ${id}: ${error.message}`);
+    },
+    esperar: (ms) => new Promise((r) => setTimeout(r, ms)),
+    ahora: () => Date.now(),
+    log,
+  };
+}
+
+/**
+ * Cuando hoy no se puede cobrar (sin Stripe, sin precio, el producto inactivo): una PROPUESTA de contacto,
+ * nunca una ficha (revisión de la tanda 4, MEDIA). El dueño la ve en /crm/revisar con el motivo en el
+ * resumen y le llega el aviso de siempre; al confirmarla, el lead nace en el producto principal de la
+ * página. La `ref` hace que el mismo email pidiendo el mismo producto en la misma landing no se duplique.
+ */
+async function proponerQuienQuisoPagar(
+  l: Pick<LandingDePago, 'ws' | 'docId' | 'slug'>,
+  p: { productoId: number; nombre: string; email: string },
+  motivo: MotivoNoCobra,
+  quePide: string,
+): Promise<void> {
+  const pagina = urlPublica(APP_BASE_URL, l.slug);
+  const principal = await funnelPrincipalDeLanding(l.ws, pagina);
+  await crearPropuesta({
+    ws: l.ws,
+    tipo: 'lead',
+    origen: 'landing',
+    ref: `landing-pago:${l.docId}:${p.productoId}:${emailComparable(p.email) ?? p.email}`,
+    resumen: `${p.nombre} quiso pagar ${quePide} y no se pudo: ${TEXTO_NO_COBRA[motivo]}`,
+    datos: {
+      leads: [{ nombre: p.nombre, email: p.email, origen: 'landing', pagina }],
+      funnels: [principal],
+      pago: { productoId: p.productoId, motivo },
+    },
+  });
+}
 
 /**
  * El cobro de un producto de la landing para quien escribió su nombre y email. El producto YA está
  * validado contra la foto publicada (lo hace la ruta). Tira si la base no contesta antes de tener lead.
  */
-export async function pagarDesdeLanding(l: Pick<LandingDePago, 'ws' | 'slug' | 'titulo'>, p: { productoId: number; nombre: string; email: string }): Promise<ResultadoPago> {
+export async function pagarDesdeLanding(
+  l: Pick<LandingDePago, 'ws' | 'docId' | 'slug' | 'titulo'>,
+  p: { productoId: number; nombre: string; email: string },
+): Promise<ResultadoPago> {
   const autor = creadoPorLanding(l.titulo, l.slug);
-  const estado = await estadoCobroLanding(l.ws);
-  const producto = estado.productos.find((x) => x.id === p.productoId) ?? null;
-  const motivo = motivoNoCobra({ conectadas: estado.conectadas, producto });
-  const { leadId } = await leadDeQuienPaga(l, { nombre: p.nombre, email: p.email, autor });
-  const quePide = producto ? `«${producto.nombre}»` : `el producto #${p.productoId}`;
-
-  if (motivo) {
-    await runWithWorkspace(l.ws, () => logLeadEvent(leadId, 'Pago desde la landing', `Quiso pagar ${quePide} y no se pudo: ${TEXTO_NO_COBRA[motivo]}`, autor));
-    console.warn(`[landing-pagar] ws=${l.ws} /l/${l.slug} producto=${p.productoId} no cobra: ${motivo}`);
-    return { tipo: 'no-disponible', motivo };
-  }
-  const pasarela = pasarelaDeLanding(estado.conectadas)!;
-  const buscado = { productoId: p.productoId, pasarela, monto: producto!.montoUsd!, moneda: 'USD', tipo: producto!.tipo, email: p.email, slug: l.slug };
-
-  try {
-    // El pendiente del MISMO lead Y producto (y precio): un doble clic, un «atrás» y otra vez, o la
-    // misma persona dos días después, siguen en el mismo checkout. `listarCobros` y no
-    // `cobroPendienteDelLead`: ése devuelve el más nuevo de CUALQUIER producto.
-    const pendientes = await listarCobros(l.ws, { leadId, estado: 'pendiente', limite: 50 });
-    const ya = cobroPendienteReusable(pendientes, buscado);
-    if (ya) return { tipo: 'redirigir', url: linkDelCobro(ya.token), reusado: true };
-
-    // Sin `monto`, `moneda`, `montoUsd` ni `altaCapa`: el precio lo pone el catálogo (`crearCobro` lo
-    // lee del producto) y una landing no da de alta cuentas de MaKo (ver la cabecera).
-    const r = await crearCobro(l.ws, { leadId, productoId: p.productoId, pasarela, email: p.email, nombre: p.nombre, creadoPor: autor });
-    if (r.ok) return { tipo: 'redirigir', url: r.link, reusado: false };
-    // El error de `crearCobro` está escrito para el DUEÑO: va a su historial, nunca a la pantalla del visitante.
-    await runWithWorkspace(l.ws, () => logLeadEvent(leadId, 'Pago desde la landing', `No se pudo abrir el pago de ${quePide}: ${r.error}`, autor));
-    console.error(`[landing-pagar] ws=${l.ws} /l/${l.slug} producto=${p.productoId} lead=${leadId}: ${r.error}`);
-    return { tipo: 'fallo' };
-  } catch (e) {
-    await runWithWorkspace(l.ws, () => logLeadEvent(leadId, 'Pago desde la landing', `No se pudo abrir el pago de ${quePide}: falló la conexión. Prueba el link desde la ficha.`, autor));
-    console.error(`[landing-pagar] ws=${l.ws} /l/${l.slug} producto=${p.productoId} lead=${leadId} (excepción): ${msg(e)}`);
-    return { tipo: 'fallo' };
-  }
+  const log: DepCandado['log'] = (nivel, texto) => console[nivel](`[landing-pagar] ws=${l.ws} /l/${l.slug} producto=${p.productoId} ${texto}`);
+  return ejecutarPago({ productoId: p.productoId, email: p.email, slug: l.slug }, {
+    usosDeLaHora: () => usosDeLaHora(l.docId),
+    estado: () => estadoCobroLanding(l.ws),
+    candado: candadoDePago(l.docId, claveDeCandado(l.ws, p.email), log),
+    proponer: (motivo, quePide) => proponerQuienQuisoPagar(l, p, motivo, quePide),
+    lead: async () => (await leadDeQuienPaga(l, { nombre: p.nombre, email: p.email, autor })).leadId,
+    pendientes: (leadId) => listarCobros(l.ws, { leadId, estado: 'pendiente', limite: 50 }),
+    crear: async (leadId, pasarela) => {
+      const r = await crearCobro(l.ws, { leadId, productoId: p.productoId, pasarela, email: p.email, nombre: p.nombre, creadoPor: autor });
+      return r.ok ? { ok: true, link: r.link } : { ok: false, error: r.error };
+    },
+    linkDe: linkDelCobro,
+    historial: (leadId, texto) => runWithWorkspace(l.ws, () => logLeadEvent(leadId, 'Pago desde la landing', texto, autor)),
+  });
 }
