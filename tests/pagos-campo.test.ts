@@ -13,26 +13,28 @@
 //   6. un pago en otra moneda guarda la moneda y su valor en dólares DECLARADO, y sin moneda es USD.
 //
 // PROBADO ROMPIÉNDOLO (14/10/2026), una rotura por vez sobre lib/pagos-campo.ts con un script que reemplaza,
-// corre y restaura byte a byte. Con el código como está: 12 pases, 0 fallos. Rota (pases / fallos):
-//   · `fusionarCampo` devolviendo `{ [campo]: valor }` (el reemplazo de antes)              → 11 / 1
-//   · `aplicarObligacion` sin el chequeo de `esperado`                                       → 11 / 1
-//   · `patchDeVenta` a suscripción sin `monto_cierre_usd: null`                              → 11 / 1
-//   · `patchDeVenta` a «sin cobro» sin el `if (opts.hayCobradas)`                            → 11 / 1
-//   · `casar` sin el `if (p.includes('recordatorio'))` (una cuota con recordatorio se edita) → 11 / 1
-//   · el bucle final sin el `if (p.length)` (se borra una cuota con link o recordatorio)     → 10 / 2
-//   · el modo 'lista' casando por orden también sobre las protegidas                         → 11 / 1
-//     (la primera vez dio 12 / 0: el caso tenía la libre ANTES de la protegida; se sumó el r3)
-//   · el número nuevo sin contar las que se van a borrar (choca el índice único)             → 10 / 2
-//   · `pagoEnMoneda` aceptando otra moneda sin el valor en dólares                           → 11 / 1
-//   · `pagoEnMoneda` leyendo «sin moneda» como la del negocio (devolviendo 'MXN')            → 11 / 1
+// corre y restaura byte a byte. Con el código como está: 13 pases, 0 fallos. Rota (pases / fallos):
+//   · `fusionarCampo` devolviendo `{ [campo]: valor }` (el reemplazo de antes)              → 12 / 1
+//   · `aplicarObligacion` sin el chequeo de `esperado`                                       → 12 / 1
+//   · `patchDeVenta` a suscripción sin `monto_cierre_usd: null`                              → 12 / 1
+//   · `patchDeVenta` a «sin cobro» sin el `if (opts.hayCobradas)`                            → 12 / 1
+//   · `casar` sin el `if (p.includes('recordatorio'))` (una cuota con recordatorio se edita) → 12 / 1
+//   · el bucle final sin el `if (p.length)` (se borra una cuota con link o recordatorio)     →  9 / 4
+//   · el modo 'lista' casando por orden también sobre las protegidas                         → 12 / 1
+//     (la primera vez no cayó: el caso tenía la libre ANTES de la protegida; se sumó el r3)
+//   · el número nuevo sin contar las que se van a borrar (choca el índice único)             → 10 / 3
+//   · `pagoEnMoneda` aceptando otra moneda sin el valor en dólares                           → 12 / 1
+//   · `pagoEnMoneda` leyendo «sin moneda» como la del negocio (devolviendo 'MXN')            → 12 / 1
+//   · `lineasDeCuotas` sin las líneas de las cuotas quitadas                                 → 12 / 1
+//   · `avisoDeConservadas` callado aunque haya cuotas sin tocar                              → 12 / 1
 // Correr: npx tsx --test tests/pagos-campo.test.ts
 // =============================================================================
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  aplicarObligacion, cuotasDelPlan, etiquetaDePago, fusionarCampo, pagoEnMoneda, patchDeVenta, reconciliarCuotas,
-  rotuloCampoDeal, validarPlan, valorDeCampoDeal, type CuotaExistente,
+  aplicarObligacion, avisoDeConservadas, cuotasDelPlan, etiquetaDePago, fusionarCampo, lineasDeCuotas, pagoEnMoneda, patchDeVenta,
+  reconciliarCuotas, rotuloCampoDeal, validarPlan, valorDeCampoDeal, type CuotaExistente,
 } from '../lib/pagos-campo';
 
 // ── 1. Campos del deal ────────────────────────────────────────────────────────
@@ -232,6 +234,21 @@ test('slots (plan uniforme): por número, la pagada cubre su número, y la que s
   const r2 = reconciliarCuotas([Q(60, 1, 500, '2026-11-10')], cuotasDelPlan({ cobro_inicial_usd: null, monto_cuota_usd: 500, total_cuotas: 2, dia_de_pago: 10 }, '2026-10-01'), 'slots');
   assert.deepEqual(r2.insertar, [{ numero: 2, monto_usd: 500, fecha_esperada: '2026-12-10' }]);
   assert.deepEqual(r2.actualizar, []);
+});
+
+test('el historial de una reconciliación: una línea por cuota con su antes y su después, y lo que no se tocó con el porqué', () => {
+  const r = reconciliarCuotas(
+    [Q(81, 0, 1000, '2026-10-01'), Q(82, 1, 500, '2026-11-01'), Q(83, 2, 500, '2026-12-01', { protegida: ['link'] })],
+    [{ id: 81, monto_usd: 900, fecha_esperada: '2026-10-01' }, { id: null, monto_usd: 300, fecha_esperada: null }],
+    'porId',
+  );
+  assert.deepEqual(lineasDeCuotas(r), [
+    { campo: 'Cobro inicial', valor_anterior: 'USD 1000 · vence 01/10/2026', valor_nuevo: 'USD 900 · vence 01/10/2026' },
+    { campo: 'Cuota 3', valor_anterior: null, valor_nuevo: 'USD 300 · vence sin fecha' },
+    { campo: 'Cuota 1', valor_anterior: 'USD 500 · vence 01/11/2026', valor_nuevo: null },
+  ]);
+  assert.equal(avisoDeConservadas(r), 'Cuota 2: tiene un link sin pagar');
+  assert.equal(avisoDeConservadas({ actualizar: [], insertar: [], borrar: [], conservar: [] }), null);
 });
 
 // ── 5. El plan ────────────────────────────────────────────────────────────────
