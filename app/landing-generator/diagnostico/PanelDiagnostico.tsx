@@ -30,10 +30,24 @@
 //     aplicar (D8) y guarda con la versión que abrió: si alguien guardó en el medio, lo dice y no pisa.
 //   · «Replicar en el editor» crea una landing NUEVA, así que se navega DURO (AGENTS.md, «si lo que
 //     cambió es QUÉ EXISTE…»), con el `?ws=`.
+//
+// TANDA 6 (14/10/2026). Martín: «El mimso error que nos saltaba con Mauricio "No pude leer el texto de esa
+// página.". Soluciona eso...», y sus decisiones del mismo día:
+//   · cuando el server no puede leer la página (`enNavegador`: una app que se arma en el navegador, o una que
+//     le contesta 403), el análisis ofrece leerla EN EL NAVEGADOR de la persona (con el Pixel si está, si no
+//     en una ventana emergente; con las emergentes bloqueadas no se abre nada y se ve el aviso con la flecha)
+//     o pegar su texto (../lector/LeerOPegar.tsx). La lectura va en el campo `lectura` del pedido;
+//   · «Replicar en el editor» pregunta 3 formatos (Presentación = diapositivas, Landing = secciones
+//     editables, Página web = la copia idéntica) y postea `{ url, formato, lectura?, texto? }`
+//     (../crear/Replicar.tsx, `useReplicar`). Si la página ya se leyó en el navegador para el análisis, esa
+//     lectura se reusa: no se abre otra ventana;
+//   · la página de afuera viaja TAL CUAL la pegó la persona (con su www y su query) a la vista, al análisis y
+//     a Replicar: hay hosts que sólo existen así. La normalizada es sólo la LLAVE de los comentarios y de
+//     landing_analyses (y el nombre que se muestra).
 // =============================================================================
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import Link, { useWs } from '@/app/_ui/Link';
+import Link from '@/app/_ui/Link';
 import { CSS_CONTENIDO } from '@/lib/editor-landing/css';
 import { htmlDePagina } from '@/lib/editor-landing/render';
 import { temaPorId, urlFuentes } from '@/lib/editor-landing/temas';
@@ -43,10 +57,13 @@ import {
   instruccionDeSugerencia, objetivoDe, ordenarParaRecorrido, paginaPrincipal, tarjetaDeRecorrido,
   type EstadoSugerencia, type PedidoDiagnostico, type RespuestaDiagnostico, type RespuestaListaDiagnostico, type Sugerencia,
 } from '@/lib/editor-landing/diagnostico';
-import type { RespuestaReplicar } from '@/lib/editor-landing/replicar-reglas';
+import type { Lectura } from '@/lib/editor-landing/lectura-tipos';
+import { FORMATOS_REPLICAR, NOMBRE_FORMATO_REPLICAR, type FormatoReplicar } from '@/lib/editor-landing/replicar-reglas';
 import { MOTIVO_ANTES_DE_IA, anclasResueltas, huella, idDe, planDeAplicacion } from '../editor/diff-tarjetas';
-import { PLAZO_IA_MS, pedirDocs, pedirIA, postJson, type FallaPedido } from '../cliente';
-import { Filtros, Ico, ItemMenu, MenuFlotante, irDuro, useAviso } from '../MiniaturaLanding';
+import { pedirDocs, pedirIA, postJson, type FallaPedido } from '../cliente';
+import { Filtros, Ico, ItemMenu, MenuFlotante, useAviso } from '../MiniaturaLanding';
+import { ICONO_FORMATO, useReplicar } from '../crear/Replicar';
+import { LeerOPegar } from '../lector/LeerOPegar';
 import { RecorridoDiagnostico, type PasoDiagnostico } from './RecorridoDiagnostico';
 import { VistaNuestra } from './VistaNuestra';
 import { VistaAfuera } from './VistaAfuera';
@@ -82,7 +99,6 @@ export default function PanelDiagnostico(props: Props) {
 }
 
 function PanelInterno({ docId, url, onCerrar, onAnalizada }: Props) {
-  const ws = useWs();
   const deNuestra = docId != null;
   const objetivo = useMemo(() => (deNuestra ? { docId } : { url: url ?? '' }), [deNuestra, docId, url]);
 
@@ -92,7 +108,10 @@ function PanelInterno({ docId, url, onCerrar, onAnalizada }: Props) {
   const [analizando, setAnalizando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pegable, setPegable] = useState(false);
-  const [pegado, setPegado] = useState('');
+  /** El server no la pudo leer, pero el navegador de la persona sí puede (tanda 6, `enNavegador`). */
+  const [enNavegador, setEnNavegador] = useState(false);
+  /** La última lectura del navegador de ESTA página: Replicar la reusa (no abre otra ventana). */
+  const ultimaLectura = useRef<Lectura | null>(null);
   const [doc, setDoc] = useState<LandingCompleta | null>(null);
   const [temas, setTemas] = useState<TemaPropio[]>([]);
   const [filtro, setFiltro] = useState<EstadoSugerencia>('pendiente');
@@ -105,7 +124,8 @@ function PanelInterno({ docId, url, onCerrar, onAnalizada }: Props) {
   const [recorrido, setRecorrido] = useState<{ abierto: boolean; desde: number; pasos: PasoDiagnostico[] }>({ abierto: false, desde: 0, pasos: [] });
   const [quiereRecorrido, setQuiereRecorrido] = useState(false);
   const [menuReplicar, setMenuReplicar] = useState<HTMLElement | null>(null);
-  const [replicando, setReplicando] = useState(false);
+  const { estado: estadoReplicar, replicar: pedirReplica } = useReplicar();
+  const replicando = estadoReplicar.fase === 'replicando';
   const controlRef = useRef<ControlVista | null>(null);
   const { avisar, nodo: aviso } = useAviso();
 
@@ -114,16 +134,20 @@ function PanelInterno({ docId, url, onCerrar, onAnalizada }: Props) {
     if (r.resumen) setResumen(r.resumen);
   }, []);
 
-  const analizar = useCallback(async (texto?: string) => {
+  /** Analiza. `texto`: el copy pegado; `lectura`: la página leída en el navegador (tanda 6). */
+  const analizar = useCallback(async (extra: { texto?: string; lectura?: Lectura } = {}) => {
     setAnalizando(true);
     setError(null);
     setPegable(false);
-    const r = await pedirDiagnostico({ accion: 'analizar', ...objetivo, ...(texto ? { texto } : {}) }, PLAZO_ANALISIS_MS);
+    setEnNavegador(false);
+    if (extra.lectura) ultimaLectura.current = extra.lectura;
+    const r = await pedirDiagnostico({ accion: 'analizar', ...objetivo, ...(extra.texto ? { texto: extra.texto } : {}), ...(extra.lectura ? { lectura: extra.lectura } : {}) }, PLAZO_ANALISIS_MS);
     setAnalizando(false);
     if (!esLista(r)) {
-      const f = r as { error?: string; pegable?: boolean };
+      const f = r as { error?: string; pegable?: boolean; enNavegador?: boolean };
       setError(f.error ?? 'No se pudo analizar.');
       setPegable(f.pegable === true);
+      setEnNavegador(f.enNavegador === true);
       return;
     }
     aplicarLista(r);
@@ -161,9 +185,11 @@ function PanelInterno({ docId, url, onCerrar, onAnalizada }: Props) {
   const pagina = useMemo(() => (doc ? paginaPrincipal(doc.contenido) : null), [doc]);
   const html = useMemo(() => (doc && tema && pagina ? htmlDePagina(pagina, doc.config, tema, { modo: 'exportar' }) : ''), [doc, tema, pagina]);
   const objetivos = useMemo<ObjetivoVista[]>(() => sugerencias.map((s) => ({ id: s.id, cita: s.cita, seccionId: s.seccionId })), [sugerencias]);
-  // La URL normalizada como la del server (sin query, sin www): el iframe se pide UNA vez, con la misma
-  // dirección que la llave de los comentarios y de landing_analyses.
+  // La URL normalizada como la del server (sin query, sin www): la LLAVE de los comentarios y de
+  // landing_analyses, y el nombre que se muestra. La que se BAJA (la vista, el lector, Replicar) es la
+  // pegada (`urlPegada`), tal cual: hay hosts que sólo existen con www (tanda 6).
   const urlVista = useMemo(() => { const o = url ? objetivoDe({ url }) : null; return o && 'url' in o ? o.url : null; }, [url]);
+  const urlPegada = urlVista && url ? url.trim() : null;
   const onUbicar = useCallback(() => setUbicadas((t) => t + 1), []);
 
   // ── El recorrido ───────────────────────────────────────────────────────────
@@ -263,14 +289,14 @@ function PanelInterno({ docId, url, onCerrar, onAnalizada }: Props) {
   }, [arreglos, docId, cambiarEstado, avisar]);
 
   // ── Replicar (una de afuera) ────────────────────────────────────────────────
-  const replicar = useCallback(async (modo: 'bloques' | 'fiel') => {
+  // Los 3 formatos (decisión d de Martín). Con la página ya leída en el navegador, la lectura viaja y el
+  // server no la baja de nuevo (la «Página web» necesita el HTML: ésa no la usa).
+  const replicar = useCallback((formato: FormatoReplicar) => {
     setMenuReplicar(null);
-    if (!urlVista) return;
-    setReplicando(true);
-    const r = await postJson<RespuestaReplicar>('/api/landing-generator/replicar', { url: urlVista, modo }, PLAZO_IA_MS);
-    if (!r.ok) { setReplicando(false); setError(r.error); return; }
-    irDuro(`/landing-generator/${r.id}`, ws);
-  }, [urlVista, ws]);
+    if (!urlPegada) return;
+    const lectura = ultimaLectura.current;
+    void pedirReplica(urlPegada, formato, lectura && formato !== 'web' ? { lectura } : {});
+  }, [urlPegada, pedirReplica]);
 
   // ── Lo que se dibuja ───────────────────────────────────────────────────────
   const cuenta = (e: EstadoSugerencia) => sugerencias.filter((s) => s.estado === e).length;
@@ -298,14 +324,14 @@ function PanelInterno({ docId, url, onCerrar, onAnalizada }: Props) {
           <button type="button" className="gp-btn gp-btn-primario" disabled={!pendientes.length || analizando} onClick={() => abrirRecorrido()}>
             <Ico n="play" t={14} /> Ver recorrido
           </button>
-          <button type="button" className="gp-btn gp-btn-contorno" disabled={analizando || cargando} onClick={() => void analizar(pegado.trim() || undefined)}>
+          <button type="button" className="gp-btn gp-btn-contorno" disabled={analizando || cargando} onClick={() => void analizar()}>
             <Ico n="refrescar" t={14} /> {sugerencias.length || resumen ? 'Volver a analizar' : 'Analizar'}
           </button>
           {deNuestra && docId != null && (
             <Link href={`/landing-generator/${docId}`} className="gp-btn gp-btn-contorno"><Ico n="lapiz" t={14} /> Abrir en el editor</Link>
           )}
           {!deNuestra && (
-            <button type="button" className="gp-btn gp-btn-contorno" disabled={replicando || !urlVista} aria-haspopup="menu" aria-expanded={!!menuReplicar} onClick={(e) => setMenuReplicar(menuReplicar ? null : e.currentTarget)}>
+            <button type="button" className="gp-btn gp-btn-contorno" disabled={replicando || !urlPegada} aria-haspopup="menu" aria-expanded={!!menuReplicar} onClick={(e) => setMenuReplicar(menuReplicar ? null : e.currentTarget)}>
               {replicando ? <span className="gp-giro" aria-hidden /> : <Ico n="copiar" t={14} />} Replicar en el editor <Ico n="chevron-abajo" t={12} />
             </button>
           )}
@@ -313,10 +339,24 @@ function PanelInterno({ docId, url, onCerrar, onAnalizada }: Props) {
         </div>
       </header>
       {replicando && <p className="gdg-cab-nota">Replicando… puede tardar unos minutos.</p>}
+      {estadoReplicar.fase === 'falla' && urlPegada && (estadoReplicar.enNavegador || estadoReplicar.pegable) ? (
+        <LeerOPegar
+          key={`replicar|${estadoReplicar.formato}`}
+          url={urlPegada}
+          error={estadoReplicar.error}
+          enNavegador={estadoReplicar.enNavegador}
+          ocupado={replicando}
+          accionTexto="Replicar este texto"
+          texto="MaKo no pudo leerla para replicarla."
+          onLectura={(lectura) => { ultimaLectura.current = lectura; void pedirReplica(urlPegada, estadoReplicar.formato, { lectura }); }}
+          onTexto={(texto) => void pedirReplica(urlPegada, estadoReplicar.formato, { texto })}
+        />
+      ) : estadoReplicar.fase === 'falla' ? <p className="gdg-error" role="alert">{estadoReplicar.error}</p> : null}
       {menuReplicar && (
-        <MenuFlotante ancla={menuReplicar} onCerrar={() => setMenuReplicar(null)} ancho={260} alinear="derecha">
-          <ItemMenu icono="grilla-mas" texto="Como bloques editables" sub="El texto, en secciones del editor" onClick={() => void replicar('bloques')} />
-          <ItemMenu icono="diseno" texto="Copia fiel (HTML)" sub="Su HTML y sus estilos" onClick={() => void replicar('fiel')} />
+        <MenuFlotante ancla={menuReplicar} onCerrar={() => setMenuReplicar(null)} ancho={220} alinear="derecha">
+          {FORMATOS_REPLICAR.map((f) => (
+            <ItemMenu key={f} icono={ICONO_FORMATO[f]} texto={NOMBRE_FORMATO_REPLICAR[f]} onClick={() => replicar(f)} />
+          ))}
         </MenuFlotante>
       )}
 
@@ -326,8 +366,8 @@ function PanelInterno({ docId, url, onCerrar, onAnalizada }: Props) {
             ? (html
               ? <VistaNuestra html={html} objetivos={objetivos} controlRef={controlRef} senal={senal} onUbicar={onUbicar} />
               : <div className="gdg-vista gdg-vista-cargando gp-brillo" aria-hidden />)
-            : (urlVista
-              ? <VistaAfuera url={urlVista} objetivos={objetivos} controlRef={controlRef} senal={senal} onUbicar={onUbicar} />
+            : (urlPegada
+              ? <VistaAfuera url={urlPegada} objetivos={objetivos} controlRef={controlRef} senal={senal} onUbicar={onUbicar} />
               : <div className="gdg-vista" />)}
         </div>
 
@@ -345,19 +385,20 @@ function PanelInterno({ docId, url, onCerrar, onAnalizada }: Props) {
           {analizando && (
             <p className="gdg-trabajando"><span className="gp-giro" aria-hidden /> Analizando… puede tardar 1-2 minutos.</p>
           )}
-          {error && <p className="gdg-error" role="alert">{error}</p>}
-          {pegable && (
-            <div className="gdg-pegar">
-              <textarea
-                className="gdg-pegar-texto"
-                value={pegado}
-                onChange={(e) => setPegado(e.target.value)}
-                placeholder="Pega aquí el texto de la página, de arriba a abajo"
-                rows={6}
-              />
-              <button type="button" className="gp-btn gp-btn-primario" disabled={analizando || !pegado.trim()} onClick={() => void analizar(pegado.trim())}>Analizar este texto</button>
-            </div>
-          )}
+          {/* Tanda 6: el «No pude leer…» ya no es un callejón. Si el server no pudo, leerla en el navegador de la
+              persona o pegar su texto (LeerOPegar). Una landing NUESTRA se lee de su contenido: nunca llega acá. */}
+          {error && (pegable || enNavegador) && urlPegada ? (
+            <LeerOPegar
+              key={`analizar|${enNavegador ? 'n' : 'p'}`}
+              url={urlPegada}
+              error={error}
+              enNavegador={enNavegador}
+              ocupado={analizando}
+              accionTexto="Analizar este texto"
+              onLectura={(lectura) => void analizar({ lectura })}
+              onTexto={(texto) => void analizar({ texto })}
+            />
+          ) : error ? <p className="gdg-error" role="alert">{error}</p> : null}
           {cargando && !analizando && <p className="gdg-vacio"><span className="gp-giro" aria-hidden /></p>}
           {!cargando && !analizando && !error && !sugerencias.length && resumen && <p className="gdg-vacio">MaKo no encontró nada que señalar.</p>}
           {!cargando && sugerencias.length > 0 && !visibles.length && <p className="gdg-vacio">No hay comentarios aquí.</p>}
@@ -430,8 +471,6 @@ const CSS_PANEL_DIAGNOSTICO = `
 .gdg-trabajando, .gdg-com-trabajando { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 13.5px; color: var(--gp-tenue, #6b6b72); }
 .gdg-error, .gdg-com-error { margin: 0; padding: 10px 12px; border-radius: 8px; background: var(--gp-peligro-fondo, #fdecec); color: var(--gp-peligro, #b42318); font-size: 13.5px; }
 .gdg-vacio { margin: 0; padding: 24px 0; text-align: center; color: var(--gp-tenue, #6b6b72); font-size: 14px; }
-.gdg-pegar { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
-.gdg-pegar-texto { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--gp-borde, #e4e4e7); border-radius: 8px; font: inherit; font-size: 13.5px; resize: vertical; background: var(--gp-superficie, #fff); color: var(--gp-texto, #27272a); }
 .gdg-com { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border: 1px solid var(--gp-borde, #e4e4e7); border-radius: 12px; background: var(--gp-superficie, #fff); transition: border-color .15s, box-shadow .15s; }
 .gdg-com[data-activa="si"] { border-color: var(--gp-azul-500, #3b82f6); box-shadow: 0 0 0 1px var(--gp-azul-500, #3b82f6); }
 .gdg-com[data-estado="resuelta"], .gdg-com[data-estado="descartada"] { opacity: .78; }

@@ -299,9 +299,10 @@ test('archivar es la Papelera con un Deshacer que devuelve la MISMA landing; eli
 
 test('la derecha: la caja de crear por default, el Diagnóstico montado AHÍ (con key por landing) y la URL al día', () => {
   const src = sinComentarios(leer(INICIO));
-  assert.match(src, /^import CajaCrear from '\.\/CajaCrear';$/m);
+  assert.match(src, /^import CajaCrear, \{ type AccionCaja \} from '\.\/CajaCrear';$/m);
   assert.match(src, /^import PanelDiagnostico from '\.\/diagnostico\/PanelDiagnostico';$/m);
-  assert.match(src, /\} else \{\s*contenido = <CajaCrear \/>;\s*\}/, 'la caja no es lo que se ve por default');
+  // Tanda 6: la caja le pasa al Panel lo que se eligió (Crear con IA, Analizar, Replicar) para abrirlo AHÍ.
+  assert.match(src, /\} else \{\s*contenido = <CajaCrear onAccion=\{alAccion\} \/>;\s*\}/, 'la caja no es lo que se ve por default');
   assert.match(src, /<PanelDiagnostico key=\{`\$\{derecha\.docId \?\? ''\}\|\$\{derecha\.url \?\? ''\}`\} docId=\{derecha\.docId\} url=\{derecha\.url\} onCerrar=\{cerrarDiagnostico\} onAnalizada=\{sumarAnalizada\} \/>/);
   // Integración (12/10/2026, PEDIDO 3 del Panel): una página de afuera recién analizada entra a la
   // barra sin recargar, comparada normalizada (no se duplica el renglón). Probado rompiéndolo: sin
@@ -325,7 +326,8 @@ test('las páginas: el Panel lee las analizadas DESPUÉS del guard y resuelve la
   assert.ok(guard > 0 && page.indexOf('listarAnalizadas()') > guard, 'la lectura corre antes del guard');
   // Tanda 4: las bases las da el server (`basesLandings`), y van a la derecha Y a la pantalla.
   assert.match(page, /const bases = basesLandings\(\);/);
-  assert.match(page, /derechaDeQuery\(\{ vista: uno\(sp\.vista\), diagnostico: uno\(sp\.diagnostico\), analizar: uno\(sp\.analizar\) \}, docs, bases\)/);
+  // Tanda 6: toda la query de la derecha (también `?paso=` y los links viejos de /crear) por `consultaDerecha`.
+  assert.match(page, /derechaDeQuery\(consultaDerecha\(sp\), docs, bases\)/);
   assert.match(page, /bases=\{bases\}/);
   assert.match(page, /analizadas=\{analizadas\}/);
   assert.match(page, /derechaInicial=\{derechaInicial\}/);
@@ -398,6 +400,9 @@ test('ni la pantalla, ni las páginas, ni las reglas tienen voseo (el guard del 
 //  21. voseo («Mirá tu landing») en panel-reglas.ts                           → 19 / 1 (20)
 //  22. urlDeBusqueda acepta cualquier dominio (también un nombre con punto)   → 19 / 1 (7)
 //  23. el Diagnóstico vacío monta el panel sin landing (en vez de la caja)    → 19 / 1 (16)
+// Tanda 6 (14/10/2026): dos aserciones de la pantalla cambiaron de forma (la caja recibe `onAccion` y la
+// página lee la derecha con `consultaDerecha`); lo nuevo de la derecha lo fija
+// tests/editor-landing-crear-panel.test.ts, con sus roturas.
 // Restaurado: 20 / 0.
 //
 // Tanda 4 (14/10/2026, hola-mako.site): base 20 / 0. Rota con el arnés de editor-landing-origen:

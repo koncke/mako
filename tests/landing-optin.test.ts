@@ -978,7 +978,9 @@ test('«qué es cada video» es un PASO de la prueba, no un formulario colgado',
     /const hayVideos = candidatosVideo\.length > 0/.test(panel),
     'el lápiz para corregir la identificación mira la misma lista que la puerta, o se abre una y la otra no',
   );
-  assert.ok(/if \(paso !== 'videos' && sinNombre\.length > 0\) \{ setPaso\('videos'\); return; \}/.test(panel),
+  // Tanda 6 (14/10/2026): la condición se lee ANTES de abrir la ventana de la prueba (que se abre en el clic,
+  // sin ningún `await` antes): con el paso de los videos por delante no hace falta ventana.
+  assert.ok(/const vaAVideos = paso !== 'videos' && sinNombre\.length > 0;/.test(panel) && /if \(vaAVideos\) \{ setPaso\('videos'\); return; \}/.test(panel),
     'con videos sin nombre, «Probar» tiene que preguntar ANTES de los pasos');
   // ⚠️ Y «Siguiente» NO exige contestar: un paso que bloquea sobre algo opcional
   // convierte la prueba en un trámite. La pregunta vuelve sola la próxima vez,
@@ -1658,7 +1660,7 @@ test('un video oculto no vuelve a pedir que lo identifiques', () => {
   assert.ok(/!ocultosVideo\.includes\(d\.id\)/.test(panel), 'un video oculto no puede contar como «sin nombre»');
   // Y es lo que gobierna el salto al paso: si esto se rompe, la prueba vuelve a
   // frenarse en una pregunta ya contestada.
-  assert.ok(/if \(paso !== 'videos' && sinNombre\.length > 0\)/.test(panel), 'el paso se dispara por los que faltan identificar');
+  assert.ok(/const vaAVideos = paso !== 'videos' && sinNombre\.length > 0;/.test(panel), 'el paso se dispara por los que faltan identificar');
 });
 
 test('cerrar la ventana de la prueba la TERMINA, y avisa', () => {

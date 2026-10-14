@@ -420,6 +420,36 @@ export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?:
   // sección sin su acción y sin explicar qué la reemplazó. La persona viene a
   // probar; lo que corresponde es dejarla intentar y decirle ahí por qué todavía no.
   const arrancar = async () => {
+    // Si hay videos sin nombre, esa es la primera pantalla — no los pasos de la
+    // prueba. Se pregunta UNA vez por corrida: `paso` ya en 'videos' significa
+    // que la persona vino de ahí y apretó Siguiente, con o sin contestar.
+    const vaAVideos = paso !== 'videos' && sinNombre.length > 0;
+
+    // ⚠️ LA VENTANA DE LA PRUEBA SE ABRE EN EL CLIC, ANTES DE CUALQUIER `await` (tanda 6, 14/10/2026). Pedido
+    // de Martín: «previo a abrir la página, es muy importante que si el usuario no tiene la opción de
+    // "habilitar ventanas emergentes" de Chrome, no continue, no abra la página, sino que indique dentro de
+    // MaKo que lo tiene que habilitar». Antes se abría DESPUÉS del fetch de abajo: si tardaba unos segundos,
+    // Chrome ya no lo contaba como gesto de la persona, bloqueaba la ventana aunque las emergentes estuvieran
+    // habilitadas, y el aviso de la flecha decía algo falso. Ahora se abre vacía (`about:blank`) en el clic,
+    // con su nombre (dos pruebas reusan la misma), y recién después del chequeo navega. Si la prueba no
+    // arranca (código viejo), se cierra. Cuando el clic lleva a nombrar los videos no hace falta ventana.
+    let chico: Window | null = null;
+    if (!vaAVideos) {
+      const alto = Math.min(760, Math.max(420, window.screen.availHeight - 120));
+      chico = window.open('about:blank', 'mako_prueba', `width=440,height=${alto},left=${Math.max(0, window.screen.availWidth - 470)},top=60,noopener=no`);
+      // `chico.closed`: un bloqueador que deja abrir y cierra al instante es lo mismo que uno que no deja.
+      if (!chico || chico.closed) {
+        // No se abre la landing: dejarla abierta midiendo una prueba que nadie
+        // puede mirar es peor que no empezar.
+        setSinPermiso(true);
+        setPrueba(null);
+        return;
+      }
+      // Se abrió: si el aviso de las ventanas seguía arriba de un intento anterior, ya no dice la verdad.
+      setSinPermiso(false);
+    }
+    const cerrarVentana = () => { try { if (chico && !chico.closed) chico.close(); } catch { /* ya no es nuestra */ } };
+
     // ⚠️ SE VUELVE A PREGUNTAR, no se le cree a lo que se leyó al abrir el modal.
     // El caso real: la persona actualiza el código, recarga su landing y aprieta
     // «Probar» — pero el `previo` es de cuando abrió la pantalla, así que le
@@ -432,12 +462,11 @@ export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?:
       if (r?.ok) { viejo = !!r.codigoViejo; setPrevio((p) => (p ? { ...p, codigoViejo: viejo, urls: r.urls ?? p.urls } : p)); }
     } catch { /* sin respuesta, vale lo último que sabíamos */ }
     setOcupado(false);
-    if (viejo) { setBloqueo(true); return; }
+    if (viejo) { cerrarVentana(); setBloqueo(true); return; }
 
-    // Si hay videos sin nombre, esa es la primera pantalla — no los pasos de la
-    // prueba. Se pregunta UNA vez por corrida: `paso` ya en 'videos' significa
-    // que la persona vino de ahí y apretó Siguiente, con o sin contestar.
-    if (paso !== 'videos' && sinNombre.length > 0) { setPaso('videos'); return; }
+    if (vaAVideos) { setPaso('videos'); return; }
+    // La persona cerró la ventana mientras se chequeaba: sin ella no hay dónde mirar la prueba.
+    if (!chico || chico.closed) { setPrueba(null); return; }
 
     const u = url.trim();
     // Probar una página la GUARDA. Si no, la próxima vez hay que volver a
@@ -455,7 +484,8 @@ export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?:
     // El hash va SIEMPRE al final: `pagina.com/#registro?mko_test=x` deja el
     // parámetro adentro del hash y `location.search` no lo ve nunca.
     const [base, hash] = u.split('#');
-    // ⚠️ LA VENTANA DE MaKo SE ABRE PRIMERO, Y SI NO ABRE NO HAY PRUEBA.
+    // ⚠️ LA VENTANA DE MaKo VA PRIMERO, Y SI NO ABRE NO HAY PRUEBA (se abrió en el
+    // clic, arriba; acá navega a la prueba).
     //
     // Antes se abría la landing y después esta, y si el navegador bloqueaba las
     // emergentes la prueba arrancaba igual: la landing quedaba abierta midiendo y
@@ -466,34 +496,28 @@ export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?:
     // Se abre primero para poder DETECTAR el bloqueo: la landing va con
     // `noopener`, que devuelve `null` siempre, así que con ella no se puede saber.
     // Y como el foco se le devuelve al final, sigue quedando arriba.
-    const alto = Math.min(760, Math.max(420, window.screen.availHeight - 120));
-    const chico = window.open(
-      // La landing va con el marcador: sin ella la ventana arma los chequeos a
-      // ciegas. Ver el comentario en escuchando/page.tsx.
-      //
-      // ⚠️ Y EL `?ws=` TAMBIÉN, que faltaba. El workspace de una pestaña viaja
-      // ÚNICAMENTE por la URL —no hay cookie que lo cubra, a propósito: una
-      // cookie es del navegador y le cambiaría el contexto a todas las pestañas
-      // abiertas (ver lib/ws-tab.ts)—. Abriendo la ventana sin él, el super
-      // admin que está mirando a un cliente con `?ws=13` recibía una ventana
-      // resuelta a SU propio workspace: la prueba de un cliente, con los datos
-      // de otro, y sin nada que lo dijera. Es justo el flujo con el que se miran
-      // las pruebas de los clientes.
-      conWs(`/integraciones/escuchando?p=${id}&l=${encodeURIComponent(u)}`, wsDeBusqueda(window.location.search)),
-      'mako_prueba',
-      `width=440,height=${alto},left=${Math.max(0, window.screen.availWidth - 470)},top=60,noopener=no`,
-    );
-    // `chico.closed`: un bloqueador que deja abrir y cierra al instante es lo mismo que uno que no deja.
-    if (!chico || chico.closed) {
-      // No se abre la landing: dejarla abierta midiendo una prueba que nadie
-      // puede mirar es peor que no empezar.
-      setSinPermiso(true);
+    try {
+      chico.location.replace(
+        // La landing va con el marcador: sin ella la ventana arma los chequeos a
+        // ciegas. Ver el comentario en escuchando/page.tsx.
+        //
+        // ⚠️ Y EL `?ws=` TAMBIÉN, que faltaba. El workspace de una pestaña viaja
+        // ÚNICAMENTE por la URL —no hay cookie que lo cubra, a propósito: una
+        // cookie es del navegador y le cambiaría el contexto a todas las pestañas
+        // abiertas (ver lib/ws-tab.ts)—. Abriendo la ventana sin él, el super
+        // admin que está mirando a un cliente con `?ws=13` recibía una ventana
+        // resuelta a SU propio workspace: la prueba de un cliente, con los datos
+        // de otro, y sin nada que lo dijera. Es justo el flujo con el que se miran
+        // las pruebas de los clientes.
+        conWs(`/integraciones/escuchando?p=${id}&l=${encodeURIComponent(u)}`, wsDeBusqueda(window.location.search)),
+      );
+    } catch {
+      // La ventana que quedó con ese nombre ya no es nuestra (otro origen): sin ella no hay dónde mirar.
+      cerrarVentana();
       setPrueba(null);
       return;
     }
     ventana.current = chico;
-    // Se abrió: si el aviso de las ventanas seguía arriba de un intento anterior, ya no dice la verdad.
-    setSinPermiso(false);
     window.open(`${base}${sep}mko_test=${id}${hash ? `#${hash}` : ''}`, '_blank', 'noopener');
 
     // Y ENCIMA, una ventana de prueba de MaKo. Para verificar que un click se

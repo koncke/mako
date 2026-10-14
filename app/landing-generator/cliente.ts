@@ -122,6 +122,40 @@ export function pedirImagenes<T = { ok: true; [k: string]: unknown }>(cuerpo: Pe
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Un archivo → su texto (Importar y el «+» de la caja)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** La ruta que lee un archivo (multipart, nunca una server action: tope de 1 MB) y su tope de subida. */
+export const RUTA_IMPORTAR = '/api/landing-generator/importar';
+export const TOPE_IMPORTAR_BYTES = 15 * 1024 * 1024;
+/** /api/landing-generator/importar corta a 300 s (un PDF escaneado o una imagen se leen con IA). */
+export const PLAZO_IMPORTAR_MS = 305_000;
+
+/**
+ * Sube un archivo (PowerPoint, Word, PDF, una imagen…) y devuelve su TEXTO, leído por el server con el
+ * lector de la casa (`archivoATexto`). Lo usan «Importar» de Crear con IA y el «+» de la caja
+ * «¿Qué vas a crear hoy?» (tanda 6: Martín, «que en ese + solo quede la opción de importar archivo y
+ * otras opciones así, para subir imagen»). Nunca tira: toda falla vuelve con un texto corto.
+ */
+export async function leerArchivo(f: File, signal?: AbortSignal): Promise<{ ok: true; texto: string } | { ok: false; error: string }> {
+  if (f.size > TOPE_IMPORTAR_BYTES) return { ok: false, error: 'El archivo pesa más de 15 MB.' };
+  const form = new FormData();
+  form.append('file', f);
+  const senal = conPlazo(PLAZO_IMPORTAR_MS, signal);
+  try {
+    // El ?ws= lo pega WsFetch.
+    const res = await fetch(RUTA_IMPORTAR, { method: 'POST', body: form, signal: senal });
+    const j = (await res.json().catch(() => null)) as { ok?: boolean; texto?: unknown; error?: string } | null;
+    if (!j?.ok || typeof j.texto !== 'string' || !j.texto.trim()) return { ok: false, error: j?.error || `No se pudo leer el archivo (${res.status}).` };
+    return { ok: true, texto: j.texto };
+  } catch {
+    if (signal?.aborted) return { ok: false, error: 'Detenido' };
+    if (senal.aborted) return { ok: false, error: 'Tardó demasiado. Prueba con un archivo más chico.' };
+    return { ok: false, error: 'Sin conexión. Vuelve a intentar.' };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Lo que se recuerda en ESTE navegador (comodidades, nunca datos)
 // ─────────────────────────────────────────────────────────────────────────────
 // localStorage puede venir vacío o tirar (ventana privada, datos bloqueados): todo va en

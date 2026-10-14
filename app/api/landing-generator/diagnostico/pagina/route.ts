@@ -62,5 +62,7 @@ export async function GET(req: NextRequest) {
       origen: req.nextUrl.origin,
     });
   }
-  return responderPaginaDiagnostico(req, q.get('url'), { bajar: htmlDePagina });
+  // La vista previa también baja la URL TAL CUAL la pegó la persona (tanda 6): normalizada pierde el www y el
+  // query, y hay hosts que sólo existen con www. El panel le pasa la pegada (PanelDiagnostico.tsx, `urlPegada`).
+  return responderPaginaDiagnostico(req, q.get('url'), { bajar: (url) => htmlDePagina(url, { talCual: true }) });
 }
