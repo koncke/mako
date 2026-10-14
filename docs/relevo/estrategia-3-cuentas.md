@@ -36,7 +36,9 @@ de primera mano: este chat coordinó los pushes del 13 y el 14/10. Reemplaza a e
 - **CRM arranca la tanda B**: la integra el orquestador, y que el CRM NO rebasee su rama.
 - **En cola para el próximo push (sin apuro, no cambia producción):** la rama `editor-imagen` (HEAD `7f696486`,
   ff sobre `fac319092`): docs del Image Editor y `tests/image-editor-dependencias.test.ts`. Se lleva el HEAD
-  de la rama, no un sha fijo.
+  de la rama, no un sha fijo (14:15: `6800964de`, docs + tests + la regla de la capa superadmin en
+  AGENTS.md). La rama `opcion-image-en-clientes` NO va: espera la decisión de Martín (ver la tab Image
+  mirando un cliente).
 - **Nunca** pushear `wip/api-acciones-1410` («A MEDIAS») ni `api-acciones-1310`.
 - **Rojo conocido en HEAD:** `tests/cobranza.test.ts` (lo reportó General; no frena el push).
 - **Martín tiene que confirmar el borrador de 50 tareas** del Perro: https://hola-mako.com/plan/revisar/propmv7rwo1dkj2i6
