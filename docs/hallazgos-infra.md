@@ -33,6 +33,20 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ---
 
+## `/.well-known/` no se sirve: el proxy lo manda a /login (14/10/2026)
+
+**Síntoma (anticipado, sin pasar todavía):** para publicar MaKo en Play Store (TWA) y en el App Store, el dominio tiene
+que servir `/.well-known/assetlinks.json` y `/.well-known/apple-app-site-association` con 200, tipo JSON y sin redirección.
+Hoy un pedido sin sesión a cualquiera de los dos termina en `/login`: la TWA abre con la barra del navegador a la vista
+(se ve como un sitio, no como una app) y iOS no verifica el dominio (ni los universal links ni las passkeys del 2FA,
+cuyo RP ID es `hola-mako.com`). No da error en ningún lado: se ve «casi bien».
+
+**Causa:** el matcher de `proxy.ts` excluye `.png`, `.js` y `.webmanifest`, pero no `.json` ni las rutas sin extensión
+(el archivo de Apple no tiene), y `PUBLICOS` (`lib/rutas-publicas.ts`) no incluye `/.well-known`. **La regla:** se suma
+como RUTA EXACTA a `PUBLICOS` (las dos rutas, no la carpeta) junto con los archivos, y se verifica con `curl -sI` sin
+cookie, mirando que no haya `Location`. **Vive en:** proxy.ts · lib/rutas-publicas.ts. El resto del relevamiento de las
+tiendas, en hallazgos-mobile.md → «El prototipo v3 y el relevamiento de las tiendas».
+
 ## Supabase: leer y escribir sin perder datos
 
 ### ⚠️ `getSetting` devuelve `null` tanto si falló la lectura como si no hay fila, y eso expulsa a un cliente onboardeado al wizard

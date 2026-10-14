@@ -3,6 +3,24 @@
 <sub>Escrito por el chat «MaKo Mobile» (cuenta 3) el 11/10/2026 a las 15:00, al cruzar el 85% de uso
 semanal. Material de primera mano: lo hizo este chat.</sub>
 
+## 🆕🆕 14/10/2026 ~18:00 (cuenta 1) — PROTOTIPO v3 con el feedback de Martín, y el relevamiento de las tiendas
+
+Martín rechazó el v1 por siete puntos (relevados por «Estrategia 3 cuentas»): sin referencias; el CRM no lleva «Hoy»;
+General tiene que ser ÉPICA y todo tenía demasiado texto; faltaba la tab **Chats** (todos los chats juntos); el Plan no
+se cambia (destilar el escritorio, no rediseñar); More no seguía las familias de la sidebar y la mitad no estaba
+diseñada; el ícono del medio de la barra es General y es la que abre. **El v3 los resuelve los siete**, en el MISMO link
+(https://claude.ai/artifact/XchrEDjJiTajd9Hq8nhAi8, versión 2; archivo docs/prototipos/mako-mobile-tableros.html):
+barra CRM · Chats · General · Plan · More; cada una de las 14 pantallas de More sale del relevamiento de su tab de
+escritorio (vistas, orden y rótulos reales); Chats sigue el diseño de escritorio que está SIN COMMITEAR en
+`C:/dev/wt-chats` (la rama `chats-1410` no tiene commits). Las referencias van en el costado del prototipo. La regla
+quedó en AGENTS.md («EL TELÉFONO DESTILA EL ESCRITORIO»). **Espera su OK; la tanda 1 de código NO empezó.**
+
+**Tiendas (encargo nuevo, sólo relevado):** Play por TWA (Bubblewrap) y App Store por Capacitor. Lo que frena, en
+hallazgos-mobile.md: `/.well-known` bloqueado por el proxy, el login de Google bloqueado en WKWebView, el Web Push que no
+anda en iOS empaquetado, el borrado de cuenta que falta, Sign in with Apple vs. invitaciones, y la prueba de 12 testers
+× 14 días de Play con cuenta personal. Lo que hace Martín: elegir titular (persona u organización con D-U-N-S), abrir
+las dos cuentas (US$25 y US$99/año), conseguir Mac o compilación en la nube y 15-20 testers con Android.
+
 ## 🆕 14/10/2026 ~16:30 (cuenta 1) — PEDIDO NUEVO: TODAS las tabs y TODOS los kanban en el teléfono. Plan propuesto, SIN código todavía
 
 Pedido de Martín, relevado por «Estrategia 3 cuentas» (textual en lo que importa): «Implementá TODAS las tabs que

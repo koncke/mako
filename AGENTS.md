@@ -7974,6 +7974,15 @@ técnicas están en [docs/diseno-mako-mobile.md](docs/diseno-mako-mobile.md), lo
 [docs/diseno-mako-mobile-v2.md](docs/diseno-mako-mobile-v2.md) con su prototipo, y lo que costó en
 [docs/hallazgos-mobile.md](docs/hallazgos-mobile.md).
 
+- **EL TELÉFONO DESTILA EL ESCRITORIO, NO LO REDISEÑA (14/10/2026, Martín, al rechazar el prototipo v1).** Textual:
+  «en el celular todo se ve SIMILAR al escritorio, pero con menos texto y menos cosas». Una pantalla de app/m tiene las
+  MISMAS vistas, en el MISMO orden y con los MISMOS rótulos que su tab de escritorio (el Plan es Prioridades · Tareas ·
+  Proyectos · Recurrentes, no «Hoy · Semana»; el CRM es su tablero, sin un «Hoy» que ya está en el Plan); lo que se
+  recorta es texto y piezas, nunca la estructura. More sigue las FAMILIAS de la sidebar (Operate, Analyze, Sales
+  Machine, Content Machine, Customer Success) en su orden, y no repite lo que ya está en la barra (CRM · Chats ·
+  General · Plan · More, con General AL MEDIO y como la que abre). Antes de dibujar una pantalla nueva: relevar la de
+  escritorio y buscar referencias de apps reales (son parte del pedido). El prototipo vigente:
+  docs/prototipos/mako-mobile-tableros.html.
 - **LAS MISMAS RUTAS (13/10/2026, decisión de Martín): /m es la carpeta INTERNA, nunca una URL.** Un teléfono abre
   /crm, /general, /plan… y el proxy le sirve la página de /m en esa misma URL (`pedidoMovil`, lib/movil-desvio.ts);
   una URL /m vieja se redirige a la de escritorio. Adentro de /m todo sigue hablando en rutas /m: al NAVEGAR, `conWs`
