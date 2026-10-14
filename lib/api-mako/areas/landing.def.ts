@@ -36,6 +36,8 @@ import type { OperacionDef, Gating } from '../tipos';
 // salen de la misma lista que la pantalla. Copiarlos a mano es un enum que se desincroniza.
 import { DISENOS_LANDING, OBJETIVOS_LANDING } from '@/lib/editor-landing/disenos-landing';
 import { TOPES } from '@/lib/editor-landing/doc';
+// Los formatos de «Replicar» (tanda 6): la MISMA lista que la ruta y la pantalla (replicar-reglas.ts, puro).
+import { FORMATOS_REPLICAR } from '@/lib/editor-landing/replicar-reglas';
 
 const TODOS = ['whatsapp', 'app', 'http'] as const;
 /** Sin http: lo que trae rastros de personas (nombres de quien dejó sus datos,
@@ -316,7 +318,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'analizar_landing', area: 'landing', tipo: 'accion', confirmacion: 'chat', reversible: false,
     titulo: 'Diagnosticar una landing con MaKo',
-    descripcion: 'Baja la página, lee su copy, lo cruza con el comportamiento medido de esa URL y le pide a la IA un diagnóstico completo (score, hallazgos con arreglo escrito, dimensiones). Hay UN diagnóstico por URL: analizar de nuevo reemplaza el anterior y ese se pierde. Si la página se arma en el navegador y no tiene texto legible, falla pidiendo el texto: vuelve a proponerla con `texto` pegado por el dueño. Úsala cuando pidan «analiza mi landing» o refrescar un diagnóstico viejo; nunca sobre una URL que solo apareció en listar_landings_detectadas sin preguntar. Gasta IA y tarda hasta unos minutos: por eso no sale por la API (se propone y se confirma por WhatsApp o en la app).',
+    descripcion: 'Baja la página, lee su copy, lo cruza con el comportamiento medido de esa URL y le pide a la IA un diagnóstico completo (score, hallazgos con arreglo escrito, dimensiones). Hay UN diagnóstico por URL: analizar de nuevo reemplaza el anterior y ese se pierde. Si la página se arma en el navegador (sin texto en el HTML) o no deja que MaKo la lea sola, falla con `en_navegador` y su `motivo`: la persona la diagnostica en Landing Generator → Diagnóstico, que la lee desde su navegador, o vuelves a proponerla con `texto` pegado por el dueño. Úsala cuando pidan «analiza mi landing» o refrescar un diagnóstico viejo; nunca sobre una URL que solo apareció en listar_landings_detectadas sin preguntar. Gasta IA y tarda hasta unos minutos: por eso no sale por la API (se propone y se confirma por WhatsApp o en la app).',
     parametros: [
       { nombre: 'url', tipo: 'string', obligatorio: true, max: 500, descripcion: 'La dirección completa de la landing.' },
       { nombre: 'texto', tipo: 'string', max: 30000, descripcion: 'El contenido de la página pegado por el dueño, de arriba a abajo (mínimo 40 palabras), cuando no se puede descargar. Saltea la bajada, no el análisis.' },
@@ -338,6 +340,22 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     canales: TODOS, costo: 'gratis', gating: G_WRITER,
     escribe: 'una fila nueva en landing_docs: el borrador de la landing, sin publicar',
+  },
+  // Tanda 6 (14/10/2026). Decisión de Martín: «Replicar» pregunta 3 formatos (Presentación, Landing,
+  // Página web) y toda feature nueva va a la API de MaKo. Crea un BORRADOR (reversible: va a la
+  // papelera), como crear_landing_desde_diseno → chat. Gasta IA (salvo «web») y por bloques corre
+  // hasta 240 s: más que el techo de 60 s de la ruta HTTP, como analizar_landing → sin http.
+  {
+    id: 'replicar_landing', area: 'landing', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Replicar una landing de afuera',
+    descripcion: 'Copia una página pública de afuera en una landing NUEVA del editor del Landing Generator, en uno de tres formatos: «presentacion» (diapositivas 16:9 con el texto condensado), «landing» (secciones editables con el texto tal cual) o «web» (la copia idéntica de la página, en secciones de HTML personalizado). Las imágenes quedan como huecos para elegir, sin fotos de stock al azar. Queda como borrador sin publicar (se puede mandar a la papelera). Úsala cuando pidan copiar, clonar o replicar una landing que viste en otro lado; pregunta el formato si no lo dijeron. Si la página se arma en el navegador o no deja que MaKo la lea sola, falla con `en_navegador`: la persona la replica desde el Landing Generator (la lee su navegador) o vuelves a proponerla con `texto` pegado por el dueño (sólo «presentacion» o «landing»). Gasta IA (salvo «web») y tarda hasta unos minutos: por eso no sale por la API. No corre en una automatización. No son las declaradas (listar_landings) ni las versiones viejas (listar_borradores_landing). Devuelve el id y el link al editor.',
+    parametros: [
+      { nombre: 'url', rotulo: 'Página', tipo: 'string', obligatorio: true, max: 2000, descripcion: 'La dirección completa de la página a replicar, con o sin https (se baja tal cual, con su www).' },
+      { nombre: 'formato', rotulo: 'Formato', tipo: 'string', obligatorio: true, enum: FORMATOS_REPLICAR, descripcion: 'presentacion = diapositivas 16:9 con el texto condensado; landing = secciones editables con el texto tal cual; web = la copia idéntica de la página.' },
+      { nombre: 'texto', rotulo: 'Texto', tipo: 'string', max: 30000, descripcion: 'El contenido de la página pegado por el dueño, de arriba a abajo, cuando MaKo no la puede leer sola. Reemplaza la bajada. Sólo con «presentacion» o «landing».' },
+    ],
+    canales: SIN_HTTP, costo: 'ia', gating: G_WRITER, lenta: true,
+    escribe: 'una fila nueva en landing_docs: el borrador de la landing replicada, sin publicar (va a la papelera como cualquier otra)',
   },
   {
     id: 'despublicar_landing', area: 'landing', tipo: 'accion', confirmacion: 'chat', reversible: true,

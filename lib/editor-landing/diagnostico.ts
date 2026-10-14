@@ -38,6 +38,7 @@ import { baseDeDocumento, sinRastreadores, urlParaReplicar } from './replicar-re
 import { normalizarUrl } from '../landing-url';
 // Tipos de un módulo server-only: se borran al compilar, no arrastran nada al navegador.
 import type { LandingHallazgo, Severidad } from '../landing-analyst';
+import type { Lectura, MotivoEnNavegador } from './lectura-tipos';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // El contrato
@@ -72,8 +73,14 @@ export type ResumenDiagnostico = { score: number | null; veredicto: string | nul
 /** POST /api/landing-generator/diagnostico — un `accion` por operación. Va `docId` o `url`, nunca los dos. */
 export type PedidoDiagnostico =
   | { accion: 'listar'; docId?: number; url?: string }
-  /** `texto`: el copy pegado a mano cuando la página de afuera se arma en el navegador. */
-  | { accion: 'analizar'; docId?: number; url?: string; texto?: string }
+  /**
+   * `texto`: el copy pegado a mano cuando la página de afuera se arma en el navegador.
+   * `lectura` (tanda 6): la página de afuera LEÍDA en el navegador de la persona (con el Pixel o en la
+   * ventana emergente, lectura-tipos.ts): no se baja nada, y el análisis suma lo que se probó (a dónde
+   * lleva cada botón, si el calendario cargó). Con `docId` no se usa: una landing nuestra se lee de su
+   * contenido guardado.
+   */
+  | { accion: 'analizar'; docId?: number; url?: string; texto?: string; lectura?: Lectura }
   | { accion: 'estado'; id: number; estado: EstadoSugerencia };
 
 export type RespuestaListaDiagnostico = {
@@ -88,8 +95,12 @@ export type RespuestaListaDiagnostico = {
 export type RespuestaDiagnostico =
   | RespuestaListaDiagnostico
   | { ok: true; sugerencia: Sugerencia }
-  /** `pegable`: la página no se puede leer sola; pegando su texto sí se analiza. */
-  | { ok: false; error: string; pegable?: boolean };
+  /**
+   * `pegable`: la página no se puede leer sola; pegando su texto sí se analiza. `enNavegador` y
+   * `motivo` (tanda 6): y leyéndola en el navegador de la persona también (se arma con JavaScript, o
+   * le contesta 401/403/429 a nuestro servidor).
+   */
+  | { ok: false; error: string; pegable?: boolean; enNavegador?: true; motivo?: MotivoEnNavegador };
 
 /** La ruta del documento aislado de una landing de afuera (app/api/landing-generator/diagnostico/pagina). */
 export const RUTA_PAGINA_DIAGNOSTICO = '/api/landing-generator/diagnostico/pagina';

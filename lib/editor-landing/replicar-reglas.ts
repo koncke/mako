@@ -6,7 +6,8 @@
 // libremente con "HTML personalizado", esto permitirá copiar otras landing». Decisiones T5 y T6 en
 // docs/diseno-editor-landing.md.
 //
-// Dos formas de replicar (las elige la persona):
+// Dos formas de replicar (tanda 2; desde la tanda 6, tres formatos que van por estas dos: ver
+// `configDeReplica` más abajo):
 //   · «Como bloques editables»: el texto de la página (el extractor del Landing Analyst) pasa por el
 //     esquema en modo «Conservar» y las secciones de la IA (lib/editor-landing/ia.ts). Queda una
 //     landing NUESTRA, editable bloque por bloque, con el copy tal cual.
@@ -29,16 +30,98 @@
 
 import { NODO, TOPES, nuevoId, tarjeta, type JsonNodo, type LandingContenido } from './doc';
 import { pideContrasena } from './html-libre';
+import type { ConfigLanding, ParamsGeneracion } from './api-tipos';
+import type { Lectura, SeLeeEnNavegador } from './lectura-tipos';
 
+/**
+ * Los dos modos de la tanda 2. Desde la tanda 6 los elige `formato` (abajo); se siguen aceptando en el
+ * pedido mientras dure un deploy (una pestaña abierta con la pantalla vieja manda `modo`).
+ */
 export const MODOS_REPLICAR = ['bloques', 'fiel'] as const;
 export type ModoReplicar = (typeof MODOS_REPLICAR)[number];
 
-/** Lo que manda la pantalla a POST /api/landing-generator/replicar. */
-export type PedidoReplicar = { url: string; modo: ModoReplicar };
+// ─────────────────────────────────────────────────────────────────────────────
+// El formato (tanda 6)
+// ─────────────────────────────────────────────────────────────────────────────
+// Decisión de Martín (14/10/2026, docs/relevo/landing-generator.md, «Tanda 6» punto d): «Replicar en el
+// editor» pregunta 3 formatos: Presentación (diapositivas), Landing (secciones editables) y Página web
+// (la copia idéntica de hoy). Ninguno pone fotos de stock al azar: las imágenes quedan como huecos para
+// elegir (`fuenteImagenes: 'marcadores'`). Antes «Como bloques» buscaba en el stock lo que la IA
+// describía, y una landing replicada salía con caras de banco de imágenes donde el original tenía las
+// suyas.
+
+export const FORMATOS_REPLICAR = ['presentacion', 'landing', 'web'] as const;
+export type FormatoReplicar = (typeof FORMATOS_REPLICAR)[number];
+/** El nombre de cada formato, como lo dice la pantalla (y la API de MaKo al proponer). */
+export const NOMBRE_FORMATO_REPLICAR: Record<FormatoReplicar, string> = {
+  presentacion: 'Presentación',
+  landing: 'Landing',
+  web: 'Página web',
+};
+
+/**
+ * El formato pedido. Sin `formato`, el `modo` viejo de la tanda 2 («bloques» = Landing, «fiel» = Página
+ * web) mientras dure el deploy. null si no es ninguno.
+ */
+export function formatoReplicar(raw: unknown, modoViejo?: unknown): FormatoReplicar | null {
+  if ((FORMATOS_REPLICAR as readonly unknown[]).includes(raw)) return raw as FormatoReplicar;
+  if (raw !== undefined && raw !== null && raw !== '') return null;
+  const modo = modoReplicar(modoViejo);
+  return modo === 'fiel' ? 'web' : modo === 'bloques' ? 'landing' : null;
+}
+
+/** Cómo se arma la réplica de un formato: por qué camino, con qué parámetros de la IA y con qué configuración nace. */
+export type ConfigReplica = {
+  formato: FormatoReplicar;
+  /** 'fiel' = el HTML de la página en secciones «HTML personalizado»; 'bloques' = su texto + las secciones de la IA. */
+  via: 'fiel' | 'bloques';
+  /** Los parámetros de la IA (sólo por bloques). `formato` va crudo: ia.ts lo lee del pedido (`esDiapositivas`). */
+  params: Partial<ParamsGeneracion> | null;
+  /** La configuración con que nace la landing nueva (formato, proporción y de dónde salió). */
+  config: Partial<ConfigLanding>;
+};
+
+/**
+ * La receta de cada formato, PURA (el test la fija):
+ *   · Presentación: diapositivas 16:9 con el texto CONDENSADO (una idea por diapositiva: las reglas de
+ *     diapositivas de ia.ts entran solas con `formato: 'presentacion'`);
+ *   · Landing: las secciones editables con el texto TAL CUAL («Conservar»: el esquema no pasa por la IA);
+ *   · Página web: la copia idéntica de hoy (`copiaFiel`).
+ * Las dos por bloques, con marcadores en vez de fotos de stock. `basadoEnUrl` en el origen es lo que
+ * muestra «Ver instrucción de origen».
+ */
+export function configDeReplica(formato: FormatoReplicar, url: string): ConfigReplica {
+  const origen: NonNullable<ConfigLanding['origen']> = { modo: 'importar', basadoEnUrl: url };
+  if (formato === 'presentacion') {
+    return {
+      formato,
+      via: 'bloques',
+      params: { modoTexto: 'condensar', fuenteImagenes: 'marcadores', formato: 'presentacion', textoPorSeccion: 'breve', cantidad: 10 },
+      config: { formato: 'presentacion', proporcion: '16:9', origen },
+    };
+  }
+  if (formato === 'landing') {
+    return {
+      formato,
+      via: 'bloques',
+      params: { modoTexto: 'conservar', fuenteImagenes: 'marcadores', formato: 'pagina' },
+      config: { formato: 'pagina', origen },
+    };
+  }
+  return { formato, via: 'fiel', params: null, config: { formato: 'pagina', origen } };
+}
+
+/**
+ * Lo que manda la pantalla a POST /api/landing-generator/replicar (tanda 6). `lectura`: la página ya
+ * leída en el navegador (cuando el server contestó `enNavegador`); `texto`: el texto pegado por la
+ * persona. Cualquiera de los dos reemplaza la bajada, y sólo valen para Presentación y Landing (la
+ * copia idéntica necesita el HTML). `modo` es el pedido viejo (tanda 2), aceptado durante el deploy.
+ */
+export type PedidoReplicar = { url: string; formato: FormatoReplicar; lectura?: Lectura; texto?: string } | { url: string; modo: ModoReplicar };
 /** Lo que contesta: el id de la landing nueva (la pantalla la abre en el editor). */
 export type RespuestaReplicar =
-  | { ok: true; id: number; titulo: string; secciones: number; aviso?: string }
-  | { ok: false; error: string };
+  | { ok: true; id: number; titulo: string; secciones: number; formato: FormatoReplicar; aviso?: string }
+  | ({ ok: false; error: string } & Partial<SeLeeEnNavegador>);
 
 /** Partes de la página como máximo (las de más se juntan). Una landing larga ronda las 12-15. */
 export const MAX_SECCIONES_FIEL = 24;
@@ -434,13 +517,14 @@ function documento(p: Partes, head: string, base: string, cuerpo: string): strin
 /**
  * La página de afuera → los documentos de las secciones «HTML personalizado». Partida en secciones si
  * se puede y entra (cada una ≤ `TOPES.htmlLibre`, todas ≤ `PRESUPUESTO_FIEL`); si no, ENTERA en una
- * sola; y si ni así entra, un error que lo dice (la otra forma, «Como bloques», sigue disponible).
+ * sola; y si ni así entra, un error que lo dice (el formato «Landing», el texto en secciones, sigue disponible).
  */
 export function copiaFiel(html: string, urlPedida: string): CopiaFiel {
   if (typeof html !== 'string' || !html.trim()) return { ok: false, error: 'La página vino vacía.' };
   // Un login copiado tal cual, servido en hola-mako.com, es phishing con nuestra barra de direcciones
-  // (revisión de la tanda 2): esa página no se copia fiel. «Como bloques» reescribe el contenido.
-  if (pideContrasena(html)) return { ok: false, error: 'Esa página pide una contraseña y MaKo no la copia tal cual. Prueba «Como bloques».' };
+  // (revisión de la tanda 2): esa página no se copia fiel. El formato «Landing» reescribe el contenido
+  // (en la tanda 2 se llamaba «Como bloques»).
+  if (pideContrasena(html)) return { ok: false, error: 'Esa página pide una contraseña y MaKo no la copia tal cual. Prueba el formato «Landing».' };
   const host = (() => { try { return new URL(urlPedida).hostname.replace(/^www\./, ''); } catch { return 'Landing'; } })();
   const titulo = tituloDeDocumento(html, host);
   const base = baseDeDocumento(html, urlPedida);
@@ -459,7 +543,7 @@ export function copiaFiel(html: string, urlPedida: string): CopiaFiel {
   }
   const entero = documento(p, head, base, cuerpo.trim());
   if (!textoVisible(cuerpo) && !RE_MEDIO.test(cuerpo)) return { ok: false, error: 'La página no trae nada para copiar.' };
-  if (entero.length > TOPES.htmlLibre) return { ok: false, error: 'La página pesa demasiado para copiarla fiel. Prueba «Como bloques».' };
+  if (entero.length > TOPES.htmlLibre) return { ok: false, error: 'La página pesa demasiado para copiarla tal cual. Prueba el formato «Landing».' };
   return { ok: true, titulo, documentos: [entero], partida: false };
 }
 

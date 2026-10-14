@@ -13,7 +13,9 @@
 //     de páginas por URL y la lista del Panel las mostraría como «de afuera». Cada cita se ubica en su
 //     sección con `ubicarCitaEnBloques` (eso es lo que «Solucionar con IA» edita).
 //   · una landing de AFUERA (`url`): `analizarLanding`, exactamente como hoy (baja la página con la
-//     guarda anti-SSRF, cruza el comportamiento y guarda la fila de landing_analyses).
+//     guarda anti-SSRF, cruza el comportamiento y guarda la fila de landing_analyses). Tanda 6: o con su
+//     `lectura` hecha en el navegador de la persona (lectura-tipos.ts), que reemplaza la bajada; y si la
+//     página no se lee desde el server, la falla dice `enNavegador` para que el panel ofrezca el lector.
 // Los dos guardan cada hallazgo como una fila de `landing_sugerencias` (mig 0264), con la clave que
 // hace que volver a analizar no repita lo que ya está (tampoco lo descartado).
 //
@@ -29,6 +31,8 @@ import { errorDeCascada } from '../ai-cheap';
 import type { LandingExtraida } from '../landing-fetch';
 import { normalizarUrl } from '../landing-url';
 import { abrir } from './server';
+import { sanearLectura } from './lectura-reglas';
+import type { Lectura, MotivoEnNavegador } from './lectura-tipos';
 import {
   TOPES_DIAGNOSTICO, bloquesDeTexto, claveSugerencia, contarPalabras, estadoValido, normalizarHallazgos,
   objetivoDe, paginaPrincipal, resumenDeAnalisis, textoParaAnalisis, ubicarCitaEnBloques,
@@ -36,11 +40,11 @@ import {
   type Sugerencia,
 } from './diagnostico';
 
-export type FallaDiagnostico = { ok: false; error: string; status: number; pegable?: boolean };
+export type FallaDiagnostico = { ok: false; error: string; status: number; pegable?: boolean; enNavegador?: true; motivo?: MotivoEnNavegador };
 export type ResultadoLista = RespuestaListaDiagnostico | FallaDiagnostico;
 export type ResultadoEstado = { ok: true; sugerencia: Sugerencia } | FallaDiagnostico;
 
-const falla = (error: string, status = 400, extra: { pegable?: boolean } = {}): FallaDiagnostico => ({ ok: false, error, status, ...extra });
+const falla = (error: string, status = 400, extra: { pegable?: boolean; enNavegador?: true; motivo?: MotivoEnNavegador } = {}): FallaDiagnostico => ({ ok: false, error, status, ...extra });
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 /**
@@ -147,13 +151,26 @@ export async function listar(p: { docId?: unknown; url?: unknown }): Promise<Res
   }
 }
 
-/** POST {accion:'analizar'}: analiza, guarda lo nuevo y devuelve la lista entera. */
-export async function analizar(p: { docId?: unknown; url?: unknown; texto?: unknown }): Promise<ResultadoLista> {
+/**
+ * POST {accion:'analizar'}: analiza, guarda lo nuevo y devuelve la lista entera.
+ *
+ * Tanda 6: de una landing de afuera, `lectura` (la página leída en el navegador de la persona) reemplaza
+ * la bajada, y la URL se baja TAL CUAL la pegó (`leer`): la normalizada (sin www ni query) es la LLAVE de
+ * landing_analyses, no una dirección, y hay hosts que sólo existen con www.
+ */
+export async function analizar(p: { docId?: unknown; url?: unknown; texto?: unknown; lectura?: unknown }): Promise<ResultadoLista> {
   const ws = await wsOFalla();
   if (typeof ws !== 'number') return ws;
   const obj = objetivoDe(p);
   if (!obj) return falla('Elige una landing o pega un enlace.');
-  return 'docId' in obj ? analizarNuestra(ws, obj) : analizarDeAfuera(ws, obj, typeof p.texto === 'string' ? p.texto : undefined);
+  if ('docId' in obj) return analizarNuestra(ws, obj);
+  const lectura = p.lectura === undefined || p.lectura === null ? null : sanearLectura(p.lectura);
+  if (p.lectura !== undefined && p.lectura !== null && !lectura) return falla('La lectura de la página llegó vacía.');
+  return analizarDeAfuera(ws, obj, {
+    texto: typeof p.texto === 'string' ? p.texto : undefined,
+    lectura: lectura ?? undefined,
+    leer: typeof p.url === 'string' ? p.url : undefined,
+  });
 }
 
 async function analizarNuestra(ws: number, obj: { docId: number }): Promise<ResultadoLista> {
@@ -201,11 +218,16 @@ async function analizarNuestra(ws: number, obj: { docId: number }): Promise<Resu
   }
 }
 
-async function analizarDeAfuera(ws: number, obj: { url: string }, texto?: string): Promise<ResultadoLista> {
+async function analizarDeAfuera(ws: number, obj: { url: string }, entrada: { texto?: string; lectura?: Lectura; leer?: string }): Promise<ResultadoLista> {
   try {
-    const res = await analizarLanding(obj.url, texto);
+    const res = await analizarLanding(obj.url, entrada.texto, { lectura: entrada.lectura, leer: entrada.leer });
     // No es un 500: la página de afuera falló (404, armada en el navegador, plazo), no nuestro server.
-    if (!res.ok) return falla(await textoDeFalloIA(res.error), 200, { pegable: res.pegable === true });
+    if (!res.ok) {
+      return falla(await textoDeFalloIA(res.error), 200, {
+        pegable: res.pegable === true,
+        ...(res.enNavegador && res.motivo ? { enNavegador: true as const, motivo: res.motivo } : {}),
+      });
+    }
     const row = res.row;
     const url = row.url;
     const destino = { url };

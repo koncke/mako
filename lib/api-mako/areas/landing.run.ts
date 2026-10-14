@@ -54,6 +54,9 @@ import { listar as comentariosDelDiagnostico } from '@/lib/editor-landing/diagno
 import { paginasParaPublicar } from '@/lib/editor-landing/server-reglas';
 import { fuentesHtmlLibre, pideContrasena, TEXTO_PIDE_CONTRASENA } from '@/lib/editor-landing/html-libre';
 import { avisoDeVideo } from '@/lib/editor-landing/especificacion';
+// «Replicar» (tanda 6): el MISMO server que la ruta de la pantalla (app/api/landing-generator/replicar).
+import { replicar as replicarEnEditor } from '@/lib/editor-landing/replicar';
+import { NOMBRE_FORMATO_REPLICAR, formatoReplicar, urlParaReplicar } from '@/lib/editor-landing/replicar-reglas';
 import type { Sugerencia } from '@/lib/editor-landing/diagnostico';
 import { PREFIJO_FLUJO } from '../canal';
 import {
@@ -676,10 +679,14 @@ export const RUNNERS: Runners = {
         const texto = typeof payload.texto === 'string' ? payload.texto : undefined;
         const r = await analizarLanding(url, texto);
         if (!r.ok) {
+          // Tanda 6: la página que se arma en el navegador (o que nos rechaza) se lee en el navegador de
+          // la persona, que acá no hay: se dice dónde está esa salida y la de siempre (el texto pegado).
           return {
             ok: false,
-            resumen: r.pegable ? `${r.error} (Vuelve a proponer analizar_landing con el texto en «texto».)` : `No se pudo analizar ${r.url}: ${r.error}`,
-            datos: { url: r.url, necesita_texto: r.pegable === true },
+            resumen: r.enNavegador
+              ? `${r.error} Se diagnostica desde Landing Generator → Diagnóstico, que la lee desde el navegador de la persona; o vuelve a proponer analizar_landing con el texto en «texto».`
+              : r.pegable ? `${r.error} (Vuelve a proponer analizar_landing con el texto en «texto».)` : `No se pudo analizar ${r.url}: ${r.error}`,
+            datos: { url: r.url, necesita_texto: r.pegable === true, ...(r.enNavegador ? { en_navegador: true, motivo: r.motivo } : {}) },
           };
         }
         const altos = (r.row.hallazgos ?? []).filter((h) => h.severidad === 'alta').length;
@@ -727,6 +734,56 @@ export const RUNNERS: Runners = {
         };
       } catch (e) {
         return { ok: false, resumen: `No se pudo crear la landing (${mensaje(e)}).` };
+      }
+    },
+  },
+
+  // Tanda 6: «Replicar» con formato. Corre por el MISMO `replicar` que la pantalla (lib/editor-landing/
+  // replicar.ts): la bajada con su guarda anti-SSRF, la IA en tandas, `crear` con el saneo y el autor.
+  replicar_landing: {
+    preparar: async (input, ctx): Promise<Preparado> => {
+      if (enFlujo(ctx)) return { error: 'Replicar una landing no corre en una automatización: un flujo corre una vez por cada lead y crearía una copia por cada uno. Replícala desde el Landing Generator o pídesela a MaKo en el chat.' };
+      const crudo = str(input, 'url');
+      if (!crudo) return { error: 'Falta la dirección de la página a replicar.', faltan: ['url'] };
+      const url = urlParaReplicar(crudo);
+      if (!url) return { error: 'Esa no es una dirección válida. Pide la URL completa de la página.' };
+      if (hostNoPublico(url)) return { error: 'Esa dirección no es una página pública (IP o red interna).' };
+      const formato = formatoReplicar(str(input, 'formato'));
+      if (!formato) return { error: 'Falta el formato: presentacion, landing o web.', faltan: ['formato'] };
+      const texto = str(input, 'texto');
+      if (texto && formato === 'web') return { error: 'La copia idéntica («web») necesita la página, no su texto. Con el texto pegado, elige «landing» o «presentacion».' };
+      if (texto && texto.split(/\s+/).filter(Boolean).length < 40) {
+        return { error: 'El texto pegado es muy corto para armar la landing (mínimo 40 palabras). Pide el contenido completo, de arriba a abajo.' };
+      }
+      return {
+        payload: { url, formato, ...(texto ? { texto } : {}) },
+        resumen: `Replicar ${url} como ${NOMBRE_FORMATO_REPLICAR[formato]} en el editor del Landing Generator${texto ? ', con el texto pegado' : ''}: crea un borrador nuevo, sin publicar.${formato === 'web' ? '' : ' Usa IA y tarda hasta unos minutos.'}`,
+      };
+    },
+    ejecutar: async (payload, ctx): Promise<Ejecutado> => {
+      const url = String(payload.url ?? '');
+      const formato = formatoReplicar(payload.formato);
+      if (!formato) return { ok: false, resumen: 'Ese formato no existe.' };
+      try {
+        const r = await replicarEnEditor({ url, formato, texto: typeof payload.texto === 'string' ? payload.texto : undefined });
+        if (!r.ok) {
+          if (r.enNavegador) {
+            return {
+              ok: false,
+              resumen: `${r.error} Se replica desde el Landing Generator, que la lee desde el navegador de la persona; o vuelve a proponer replicar_landing con el texto en «texto» (formato «landing» o «presentacion»).`,
+              datos: { url, en_navegador: true, motivo: r.motivo, necesita_texto: true },
+            };
+          }
+          return { ok: false, resumen: `No se pudo replicar ${url} (${r.error}).` };
+        }
+        const link = linkEditor(r.id, ctx.ws);
+        return {
+          ok: true,
+          resumen: `Listo: «${r.titulo}» quedó como ${NOMBRE_FORMATO_REPLICAR[r.formato]} en el editor (id ${r.id}, ${r.secciones} ${r.formato === 'presentacion' ? 'diapositivas' : 'secciones'}), sin publicar.${r.aviso ? ` ${r.aviso}` : ''} Se revisa y se adapta en el editor: ${link}`,
+          datos: { id: r.id, titulo: r.titulo, formato: r.formato, secciones: r.secciones, link },
+        };
+      } catch (e) {
+        return { ok: false, resumen: `No se pudo replicar la página (${mensaje(e)}).` };
       }
     },
   },

@@ -10,6 +10,7 @@
 
 import type { JsonNodo, LandingContenido } from './doc';
 import type { ObjetivoLanding } from '../landing-spec';
+import type { FallaEnNavegador, Lectura } from './lectura-tipos';
 
 export type Falla = { ok: false; error: string; conflicto?: boolean; versionActual?: number };
 
@@ -240,8 +241,13 @@ export type Esquema = { titulo: string; secciones: SeccionEsquema[] };
 export const ACCIONES_TEXTO = ['mejorar', 'corregir', 'acortar', 'ampliar', 'simplificar', 'especifico', 'tono', 'traducir', 'continuar'] as const;
 export type AccionTexto = (typeof ACCIONES_TEXTO)[number];
 
+/**
+ * `esquema` en modo «importar» (tanda 6): `url` (se baja TAL CUAL, con su www y su query) o `lectura`
+ * (la página ya leída en el navegador de la persona, lectura-tipos.ts: no se baja nada). Si la página
+ * no se lee desde el server, la respuesta es `FallaEnNavegador` (HTTP 422).
+ */
 export type PedidoIA =
-  | { accion: 'esquema'; modo: 'generar' | 'pegar' | 'importar'; prompt?: string; texto?: string; url?: string; params: ParamsGeneracion }
+  | { accion: 'esquema'; modo: 'generar' | 'pegar' | 'importar'; prompt?: string; texto?: string; url?: string; lectura?: Lectura; params: ParamsGeneracion }
   | { accion: 'secciones'; esquema: Esquema; indices: number[]; params: ParamsGeneracion; temaId: string }
   | { accion: 'editar'; instruccion: string; tarjetas: JsonNodo[]; alcance: 'landing' | 'seccion'; params?: Partial<ParamsGeneracion> }
   | { accion: 'texto'; tipo: AccionTexto; texto: string; contexto?: string; tono?: string; idioma?: string }
@@ -254,6 +260,8 @@ export type RespuestaIA =
   | { ok: true; texto: string }
   | { ok: true; opciones: JsonNodo[] }
   | { ok: true; notas: string }
+  /** Tanda 6: «Importar» de una página que se arma en el navegador o que nos rechaza (`pegable`, `enNavegador`, `motivo`). */
+  | FallaEnNavegador
   | Falla;
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -498,11 +498,13 @@ test('copia fiel: lo que no se deja partir va entero; lo que no entra, error; la
   assert.ok(pesada.ok && !pesada.partida, 'cuatro copias del head no entran: una sola');
 });
 
-test('copia fiel: una página que pide una contraseña no se copia tal cual (y «Como bloques» queda)', () => {
+test('copia fiel: una página que pide una contraseña no se copia tal cual (y el formato «Landing» queda)', () => {
   const login = PAGINA.replace('<button>Agenda</button>', '<form action="/login"><input type="password" name="clave"><button>Entrar</button></form>');
   const c = copiaFiel(login, 'https://banco.com/login');
   assert.equal(c.ok, false);
-  if (!c.ok) assert.match(c.error, /pide una contraseña.*«Como bloques»/);
+  // Tanda 6: los formatos de Replicar son Presentación, Landing y Página web; «Como bloques» ya no existe.
+  // Probado rompiéndolo (14/10/2026): con el mensaje viejo («Prueba «Como bloques».») -> 34 pasan / 1 falla.
+  if (!c.ok) assert.match(c.error, /pide una contraseña.*«Landing»/);
   assert.equal(copiaFiel(PAGINA, 'https://ejemplo.com/oferta').ok, true, 'la de siempre sí');
 });
 
