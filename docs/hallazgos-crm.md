@@ -8389,3 +8389,16 @@ Lo que no se ve en el código:
 **Vive en:** `lib/etapa-banda.ts` · `lib/pipeline.ts` (`esNutricionPropia`, `recorridoDe`, `generateFunnel`) ·
 `lib/etapa-reunion.ts` (`puedeTenerTipo`, `conTipo`) · `app/crm/actions.ts` · `app/crm/EtapasModal.tsx` ·
 `tests/crm-etapas-banda-12-10.test.ts` · *2026-10-12, chat «CRM» (claude3), sin agentes*
+
+## Pasar un lead a «Agenda» a mano pide la FECHA de la reunión y nunca la HORA (13/10/2026)
+
+Lo encontró el chat de Automations (`claude2`) buscando por qué no salió «Un Lead Agendó Llamada» en el ws1 (bug 5 de la
+reunión del 13/10). El asistente de mover de etapa (`StageMoveData`, app/crm/actions.ts) trae `fechaJ1` / `fechaJ2` y
+no trae hora: graba `fecha_junta_1` y deja `junta_1_at` en null. Sólo Calendly (y «Reagendar», que sí acepta hora) la pone.
+Consecuencias en Automations: un recordatorio «1 hora antes de la reunión» no tiene a qué hora anclarse, y a un lead agendado
+a mano no le llega nunca. Hasta el arreglo del 13/10 (`laReunionYaPaso`, lib/nutricion-reinscripcion.ts), una R1 de HOY
+cargada después de las 12 hacía que MaKo diera la reunión por pasada y cortara el flujo entero, también el primer mensaje.
+**Sin hacer:** pedir también la hora (opcional) en ese paso del asistente, igual que «Reagendar» (`instanteDeLocal` con la
+zona del workspace). Ojo: la hora de una reunión NO entra en `lead_audit` (`AUDIT_FIELDS` tiene la fecha y no `junta_1_at`).
+
+**Vive en:** `app/crm/actions.ts` (`StageMoveData`, el paso de la reunión del asistente) · `lib/leads.ts` (`AUDIT_FIELDS`)

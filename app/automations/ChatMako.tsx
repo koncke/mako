@@ -75,6 +75,12 @@ export type ChatMakoProps = {
   secuenciaId: number;
   /** El borrador LOCAL del lienzo (puede tener cambios sin publicar). VACÍO = MaKo CREA sobre esta fila. */
   pasos: readonly PasoGrafo[];
+  /**
+   * Cuántas tarjetas tiene lo PUBLICADO. Con alguna, MaKo no crea aunque el borrador esté vacío: crear escribe encima en
+   * el server, que contesta 409 (no se pisa un flujo publicado: puede tener leads adentro). Edita sobre el borrador vacío,
+   * y lo que arma queda en el borrador hasta Publicar.
+   */
+  publicadas?: number;
   /** `false` = no lo aplicó (editar sobre un lienzo que cambió): el pedido vuelve a la barra. */
   onListo: (r: ListoCrearIA) => boolean | void;
   /** El ✕ del chat. */
@@ -151,7 +157,7 @@ const esCampo = (t: EventTarget | null): boolean =>
   t instanceof HTMLElement && (t.isContentEditable || t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT');
 
 export function ChatMako(p: ChatMakoProps) {
-  const crea = p.pasos.length === 0;
+  const crea = p.pasos.length === 0 && !(p.publicadas ?? 0);
   const [mensajes, setMensajes] = useState<MensajeChatMako[]>(() => [...(p.inicial ?? [])]);
   /** La ronda que espera respuesta (la pregunta de ahora, el pedido original y lo ya contestado). */
   const [ronda, setRonda] = useState<RondaMako | null>(() => rondaAbierta(p.inicial ?? []));

@@ -46,6 +46,20 @@ export function parseFechaJunta(x: string): number {
   return Date.parse(/^\d{4}-\d{2}-\d{2}$/.test(x) ? `${x}T12:00:00${OFFSET_MX}` : x);
 }
 
+/**
+ * HASTA CUÁNDO UNA REUNIÓN «TODAVÍA NO PASÓ». Con hora, su hora. Con una FECHA SOLA, el final de ese día en
+ * México: el mediodía de `parseFechaJunta` es una hora inventada para anclar un «N antes», no la hora en que la
+ * reunión pasa a ser pasado.
+ *
+ * Bug 5 del feedback del 13/10/2026 («no salió el mensaje» de «Un Lead Agendó Llamada», ws1): Mauricio cargó a
+ * mano un lead de prueba con la R1 «2026-10-12», sin hora, a las 20:05 de ese día. Mediodía ya había pasado, así
+ * que para el motor la reunión «ya pasó» y cerró la inscripción sin mandar nada. Lo mismo le pasa a cualquier
+ * lead que se agenda para HOY después de las 12 sin que llegue la hora (alta a mano, «Nuevo lead»).
+ */
+export function finDeLaReunionMs(x: string): number {
+  return Date.parse(/^\d{4}-\d{2}-\d{2}$/.test(x) ? `${x}T23:59:59${OFFSET_MX}` : x);
+}
+
 /** La fila del lead con lo que hace falta para decir cuál es su próxima reunión (todo opcional: `JuntasLead` y más). */
 export type FilaReunion = JuntasLead & {
   asistio_j1?: boolean | null; asistio_j2?: boolean | null;
@@ -141,7 +155,40 @@ export function reunionQuePreparaMs(juntas: JuntasLead | null | undefined, ahora
   const r1 = juntas?.junta_1_at ?? juntas?.fecha_junta_1;
   if (!r1) return null;
   const ms = parseFechaJunta(r1);
-  return Number.isFinite(ms) && ms > ahoraMs ? ms : null;
+  // Una fecha sola sigue en pie hasta que termina su día (`finDeLaReunionMs`); se devuelve igual el mediodía, que
+  // es la identidad de la reunión (`diaDeReunion`) para el reuso.
+  return Number.isFinite(ms) && finDeLaReunionMs(r1) > ahoraMs ? ms : null;
+}
+
+/**
+ * ¿HAY UNA REUNIÓN QUE TODAVÍA NO PASÓ? La regla laxa de `reunionFuturaMs` (la R1 o la R2; una cancelada no
+ * cuenta), con el corte de `finDeLaReunionMs`: una fecha sin hora vale hasta que termina su día. Pura.
+ */
+export function reunionEnPie(juntas: JuntasLead | null | undefined, ahoraMs: number = Date.now()): boolean {
+  if (!juntas) return false;
+  const pares: Array<[string | null | undefined, string | null | undefined]> = [
+    [juntas.junta_1_at, juntas.fecha_junta_1],
+    [juntas.junta_2_at, juntas.fecha_junta_2],
+  ];
+  for (const [at, fecha] of pares) {
+    if (at && fecha === null) continue; // cancelada: la hora quedó, la fecha no
+    const x = at ?? fecha;
+    if (x && finDeLaReunionMs(x) > ahoraMs) return true;
+  }
+  return false;
+}
+
+/**
+ * ¿YA PASÓ LA REUNIÓN, para el paso que se va a mandar? Lo pregunta el motor antes de mandar un paso de un flujo
+ * que prepara una reunión, y la inscripción a mano antes de inscribir.
+ *
+ *  · ANCLADO («N antes de la reunión»): necesita una hora a la que anclarse, así que manda `reunionFuturaMs` de
+ *    siempre (una fecha sola, el mediodía). Pasado el mediodía de una fecha sin hora, un «1 h antes» ya no tiene
+ *    a qué hora salir.
+ *  · EL RESTO (la bienvenida de «Un Lead Agendó Llamada»): sólo que la reunión no haya pasado (`reunionEnPie`).
+ */
+export function laReunionYaPaso(juntas: JuntasLead | null | undefined, o: { anclada: boolean }, ahoraMs: number = Date.now()): boolean {
+  return o.anclada ? reunionFuturaMs(juntas, ahoraMs) == null : !reunionEnPie(juntas, ahoraMs);
 }
 
 /**

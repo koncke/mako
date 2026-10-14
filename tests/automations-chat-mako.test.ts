@@ -291,7 +291,8 @@ test('la barra vieja («Pídele un cambio» + «Agregar») ya no se monta: en su
   assert.doesNotMatch(html, />Agregar<\/button>/, 'volvió el «Agregar» de la barra');
   assert.match(html, /<textarea[^>]*placeholder="Pídele un cambio"/);
   assert.doesNotMatch(PERFIL, /<CrearConIA\b/);
-  assert.match(PERFIL, /<ChatMako secuenciaId=\{secuencia\.id\} pasos=\{pasos\} onListo=\{alListoIA\} /);
+  // 13/10/2026: entre `pasos` y `onListo` va `publicadas` (con algo publicado, MaKo no crea: el 409 de la decimotercera).
+  assert.match(PERFIL, /<ChatMako secuenciaId=\{secuencia\.id\} pasos=\{pasos\} publicadas=\{secuencia\.pasos\?\.length \?\? 0\} onListo=\{alListoIA\} /);
   const galeria = sinComentarios(leer('app/automations/GaleriaPlantillas.tsx'));
   assert.doesNotMatch(galeria, /<CrearConIA\b|<ChatMako\b/);
   // Decimotercera (punto 2): la galería sólo PIDE; la fila nace en la tab y MaKo trabaja en su lienzo.

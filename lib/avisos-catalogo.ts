@@ -1020,6 +1020,21 @@ https://hola-mako.com/crm/123/resumen
 — MaKo`,
   },
   {
+    id: 'dashboard-analisis-listo', titulo: 'Análisis del Dashboard listo', categoria: 'aviso',
+    prioridad: 'baja', semaforo: 'na', requiereRespuesta: false, yaImplementado: 'si',
+    // 13/10/2026: un EVENTO de MaKo (`analisis_listo`, lib/disparadores.ts). Sale SÓLO por la automatización «El AI
+    // Analyst Terminó» que el negocio agrega de la galería (`mako-analisis`), con los datos citables del análisis
+    // (`{{analisis_hoja}}`, `{{analisis_resumen}}`, `{{analisis_hallazgos}}`, `{{analisis_link}}`). Lo emite el Dashboard.
+    disparador: 'El AI Analyst del Dashboard termina de analizar una hoja.',
+    ejemplo: `📊 *Análisis listo*: Ventas de octubre
+
+Las agendas subieron 18% y el costo por lead bajó a US$ 4,10.
+
+👉 https://hola-mako.com/dashboard?hoja=12
+
+— MaKo`,
+  },
+  {
     id: 'cierre-venta', titulo: 'Cierre de venta nuevo', categoria: 'aviso',
     prioridad: 'media', semaforo: 'na', requiereRespuesta: false, yaImplementado: 'no',
     disparador: 'Motor CRM marca un lead como ganado.',

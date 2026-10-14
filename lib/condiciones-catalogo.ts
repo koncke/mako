@@ -518,6 +518,13 @@ export const CONDICIONES: readonly DefCondicion[] = [
 
   // ── Etapa y pipeline ──
   { id: 'etapa', seccion: 'Etapa y pipeline', ambito: 'adquisicion', rotulo: ['Está en la etapa', 'No está en la etapa'], negable: true, valor: LEGADO, fuentes: ['lead', 'productos'] },
+  // «SIGUE EN LA ETAPA DEL CRON» (12/10/2026, los plazos de etapa como plantilla): la etapa la dice el CRON de la
+  // automatización, no la fila, así que cambiar el CRON no deja la condición vieja. Ver `sigueEnEtapaDelCron`.
+  {
+    id: 'sigue_en_etapa_cron', seccion: 'Etapa y pipeline', seccionEntrega: 'Etapa de entrega', ambito: 'ambos',
+    rotulo: ['Sigue en la etapa del CRON', 'Ya no está en la etapa del CRON'], negable: true, valor: NINGUNO, fuentes: ['lead', 'productos', 'entrega'],
+    evaluar: (_f, h) => sigueEnEtapaDelCron(h),
+  },
   {
     id: 'en_producto', seccion: 'Etapa y pipeline', ambito: 'adquisicion', rotulo: ['Está en el funnel de', 'No está en el funnel de'], negable: true, valor: { t: 'lista', catalogo: 'producto' }, fuentes: ['lead', 'productos'],
     evaluar: (f, h) => { const id = num(f); return id == null || !h.etapasPorProducto ? null : h.etapasPorProducto.has(id); },
@@ -1046,6 +1053,32 @@ export function problemaDeFila(f: FilaCondicion): string | null {
  * Una fila del catálogo NUEVO (las nueve de antes las decide `cumpleFila`). Desconocida o sin
  * dato = NO SE CUMPLE, ni negada. `no` sólo cuenta en las negables.
  */
+/**
+ * ¿El lead sigue en alguna de las etapas del CRON de la automatización? `null` = no se sabe: la automatización no tiene
+ * un CRON de etapa (o quien evalúa no lo pasó), o falta el dato del lead en ese kanban. Con varios CRON alcanza uno.
+ * La entrega se guarda como `${producto}:${etapa}` (`catalogo.entrega`); sin producto, cualquier producto.
+ */
+export function sigueEnEtapaDelCron(h: HechosLead): boolean | null {
+  const cron = h.etapasDelCron;
+  if (!cron || !cron.length) return null;
+  let sinDato = false;
+  for (const c of cron) {
+    if (c.tipo === 'venta') {
+      const e = c.funnelId != null ? (h.etapasPorProducto?.get(c.funnelId) ?? null) : h.etapa;
+      if (e == null) { sinDato = true; continue; }
+      if (c.keys.includes(e)) return true;
+    } else {
+      const e = h.catalogo?.entrega;
+      if (!e) { sinDato = true; continue; }
+      const enAlguna = c.productoId != null
+        ? c.keys.some((k) => e.has(`${c.productoId}:${k}`))
+        : [...e].some((x) => c.keys.includes(x.slice(x.indexOf(':') + 1)));
+      if (enAlguna) return true;
+    }
+  }
+  return sinDato ? null : false;
+}
+
 export function cumpleCatalogo(f: FilaCondicion, h: HechosLead): boolean {
   const c = condicionPorId(f.campo);
   if (!c?.evaluar) return false;

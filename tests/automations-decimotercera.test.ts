@@ -96,7 +96,8 @@ test('punto 2: «Pídeselo a MaKo» cierra el modal y crea la fila por la puerta
   const pedidoEf = tramo(CHAT, 'const pedidoInicial = p.pedidoInicial?.trim() || null;', '}, [pedidoInicial]);', 700);
   assert.match(pedidoEf, /if \(!pedidoInicial \|\| pedidoUsado\.current === pedidoInicial\) return;/);
   assert.match(pedidoEf, /void turnoRef\.current\(pedidoInicial, null, 'afuera'\);/);
-  assert.match(CHAT, /const crea = p\.pasos\.length === 0;/);
+  // 13/10/2026: crea sólo si TAMBIÉN lo publicado está vacío (si no, el server contesta 409: tests/automations-pendientes-decimotercera.test.ts).
+  assert.match(CHAT, /const crea = p\.pasos\.length === 0 && !\(p\.publicadas \?\? 0\);/);
   assert.match(tramo(CHAT, 'const turno = async (', '\n  };', 7_000), /const modo = crea \? 'crear' : 'editar';/);
   assert.match(CHAT, /useEffect\(\(\) => \{\n\s+if \(conPedido\) return;/);
   // La ruta crea SOBRE la fila (vacía y pausada) y anota el turno y el final en SU chat.

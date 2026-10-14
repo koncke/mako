@@ -70,7 +70,7 @@ export function datosDelEvento(sub: unknown): ContextoDatos {
   if (!ev) return { conLead: false, destino: 'equipo' };
   return {
     conLead: ev.trae.includes('lead'), conCuota: ev.trae.includes('cuota'), conMensaje: conMensaje(ev),
-    conPago: ev.trae.includes('pago'), conEscrito: ev.trae.includes('escrito'), destino: 'equipo',
+    conPago: ev.trae.includes('pago'), conEscrito: ev.trae.includes('escrito'), conAnalisis: ev.trae.includes('analisis'), destino: 'equipo',
   };
 }
 

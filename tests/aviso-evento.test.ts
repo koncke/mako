@@ -83,10 +83,10 @@ const FIRMA_COBRANZA = 'mk_entrada:mensaje>mk_e48:esperar>mk_48:mensaje>mk_e72:e
 
 // Desde la décima tanda (GENERAL 7, 11/10/2026) son CUATRO: el aviso de nuevo agendado (`lead_agendo`) pasó a ser un
 // evento (docs/diseno-automations-galeria-v2.md §5).
-test('EVENTOS_MAKO: cinco, cada subtipo se guarda, cada aviso existe y es UNO de `AVISOS_POR_EVENTO`', () => {
+test('EVENTOS_MAKO: seis (13/10: el AI Analyst del Dashboard), cada subtipo se guarda, cada aviso existe y es UNO de `AVISOS_POR_EVENTO`', () => {
   // El quinto, «Entra un pago» (11/10/2026): lo emite la pasarela de pagos (lib/cobros.ts).
-  assert.deepEqual(EVENTOS_MAKO.map((e) => e.subtipo), ['reunion_pronto', 'lead_contesta', 'cuota_vencida', 'lead_agendo', 'pago_recibido']);
-  assert.deepEqual(EVENTOS_MAKO.map((e) => e.aviso), ['reunion-recordatorio', 'wa-mensaje-entrante', 'cuota-vencida', 'reunion-nuevo-agendado', 'pago-recibido']);
+  assert.deepEqual(EVENTOS_MAKO.map((e) => e.subtipo), ['reunion_pronto', 'lead_contesta', 'cuota_vencida', 'lead_agendo', 'pago_recibido', 'analisis_listo']);
+  assert.deepEqual(EVENTOS_MAKO.map((e) => e.aviso), ['reunion-recordatorio', 'wa-mensaje-entrante', 'cuota-vencida', 'reunion-nuevo-agendado', 'pago-recibido', 'dashboard-analisis-listo']);
   for (const e of EVENTOS_MAKO) {
     // El subtipo pasa el saneo del CRON (el id crudo, con guion, no pasaría).
     assert.equal(sanearDisparador({ id: 'd1', trigger_tipo: TRIGGER_AVISO_MAKO, subtipo: e.subtipo })?.subtipo, e.subtipo, e.subtipo);
@@ -104,11 +104,13 @@ test('los datos del «{ }»: el lead en los tres, la cuota en la cobranza y «Lo
   // Undécima tanda (11/10/2026, punto 4): además el PAGO en «Entra un pago» (`conPago`) y lo que ESCRIBIÓ el lead
   // en la charla (`conEscrito`): los datos citables que reemplazan a `{{mensaje_mako}}`. `conMensaje` se queda
   // hasta la limpieza (las filas vivas lo siguen resolviendo).
-  assert.deepEqual(datosDelEvento('reunion_pronto'), { conLead: true, conCuota: false, conMensaje: true, conPago: false, conEscrito: false, destino: 'equipo' });
-  assert.deepEqual(datosDelEvento('lead_contesta'), { conLead: true, conCuota: false, conMensaje: true, conPago: false, conEscrito: true, destino: 'equipo' });
-  assert.deepEqual(datosDelEvento('cuota_vencida'), { conLead: true, conCuota: true, conMensaje: false, conPago: false, conEscrito: false, destino: 'equipo' });
-  assert.deepEqual(datosDelEvento('lead_agendo'), { conLead: true, conCuota: false, conMensaje: true, conPago: false, conEscrito: false, destino: 'equipo' });
-  assert.deepEqual(datosDelEvento('pago_recibido'), { conLead: true, conCuota: false, conMensaje: true, conPago: true, conEscrito: false, destino: 'equipo' });
+  assert.deepEqual(datosDelEvento('reunion_pronto'), { conLead: true, conCuota: false, conMensaje: true, conPago: false, conEscrito: false, conAnalisis: false, destino: 'equipo' });
+  assert.deepEqual(datosDelEvento('lead_contesta'), { conLead: true, conCuota: false, conMensaje: true, conPago: false, conEscrito: true, conAnalisis: false, destino: 'equipo' });
+  assert.deepEqual(datosDelEvento('cuota_vencida'), { conLead: true, conCuota: true, conMensaje: false, conPago: false, conEscrito: false, conAnalisis: false, destino: 'equipo' });
+  assert.deepEqual(datosDelEvento('lead_agendo'), { conLead: true, conCuota: false, conMensaje: true, conPago: false, conEscrito: false, conAnalisis: false, destino: 'equipo' });
+  assert.deepEqual(datosDelEvento('pago_recibido'), { conLead: true, conCuota: false, conMensaje: true, conPago: true, conEscrito: false, conAnalisis: false, destino: 'equipo' });
+  // El AI Analyst (13/10/2026): sin lead (el análisis es del negocio), con los datos del análisis.
+  assert.deepEqual(datosDelEvento('analisis_listo'), { conLead: false, conCuota: false, conMensaje: false, conPago: false, conEscrito: false, conAnalisis: true, destino: 'equipo' });
   assert.deepEqual(datosDelEvento('no_existe'), { conLead: false, destino: 'equipo' });
   // Y lo que cada uno trae es lo que el «{ }» ofrece: el pago sólo en el pago, lo escrito sólo en la charla.
   const de = (sub: string) => variablesPara(datosDelEvento(sub)).map((v) => v.key);
@@ -157,13 +159,13 @@ test('el CRON: clase «mako», su texto es el label, no es un botón de la prime
 // `{{mensaje_mako}}`) → 23 / 1 (los datos del «{ }»). Y R19 (`problemaDeCambio` deja nacer una fila NUEVA con un
 // evento retirado, al pegar o duplicar) → 23 / 1 (problemaDeCambio).
 test('los retirados (el nuevo agendado y la media hora antes) no se ofrecen, y siguen vivos para las filas que los usan', () => {
-  assert.deepEqual(EVENTOS_MAKO_OFRECIDOS.map((e) => e.subtipo), ['lead_contesta', 'cuota_vencida', 'pago_recibido']);
+  assert.deepEqual(EVENTOS_MAKO_OFRECIDOS.map((e) => e.subtipo), ['lead_contesta', 'cuota_vencida', 'pago_recibido', 'analisis_listo']);
   assert.deepEqual(EVENTOS_MAKO.filter((e) => e.retirado).map((e) => e.subtipo), ['reunion_pronto', 'lead_agendo']);
   // EL SELECTOR DEL CRON los ofrece así (enchufado en el cierre de la ola 3: dibujaba `eventosDe`, con los retirados):
   // sin los retirados, salvo el que la fila YA tiene (la viva de antes se ve elegida hasta el script). Probado
   // rompiéndolo (11/10/2026, wf-undecima/enchufador/roturas.cjs): `eventosOfrecidos` = `eventosDe` → 23 / 1 (base 24 / 0).
-  assert.deepEqual(eventosOfrecidos('mako', null).map((e) => e.subtipo), ['lead_contesta', 'cuota_vencida', 'pago_recibido']);
-  assert.deepEqual(eventosOfrecidos('mako', 'lead_agendo').map((e) => e.subtipo), ['lead_contesta', 'cuota_vencida', 'lead_agendo', 'pago_recibido']);
+  assert.deepEqual(eventosOfrecidos('mako', null).map((e) => e.subtipo), ['lead_contesta', 'cuota_vencida', 'pago_recibido', 'analisis_listo']);
+  assert.deepEqual(eventosOfrecidos('mako', 'lead_agendo').map((e) => e.subtipo), ['lead_contesta', 'cuota_vencida', 'lead_agendo', 'pago_recibido', 'analisis_listo']);
   assert.deepEqual(eventosOfrecidos('pagos', null), eventosDe('pagos'), 'las otras clases, como siempre');
   assert.match(leer('app/automations/EditorDisparadores.tsx'), /\{eventosOfrecidos\(clase, d\.subtipo\)\.map\(\(ev\) => \{/);
   assert.doesNotMatch(leer('app/automations/EditorDisparadores.tsx'), /eventosDe\(clase\)/, 'el selector volvió a ofrecer los retirados');

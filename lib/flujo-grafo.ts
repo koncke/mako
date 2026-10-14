@@ -1493,12 +1493,27 @@ function reglasDeHilos(pasos: readonly PasoGrafo[], ids: readonly string[], resp
 // ── Evaluar (motor y simulador) ───────────────────────────────────────────────────
 
 /** Lo que el motor sabe del lead en el momento de decidir. Lo junta el motor en batch. */
+/**
+ * Las etapas de UN CRON de la automatización que se está evaluando: las de venta de un embudo (`funnelId` null = la
+ * casa del lead) o las de la entrega de un producto (`productoId` null = cualquiera). Las arma `etapasDelCron`
+ * (lib/disparadores.ts) desde la lista de CRON de la fila.
+ */
+export type EtapasDelCron =
+  | { tipo: 'venta'; funnelId: number | null; keys: readonly string[] }
+  | { tipo: 'entrega'; productoId: number | null; keys: readonly string[] };
+
 export type HechosLead = {
   etiquetas: ReadonlySet<number>;
   /** Etapa de la casa (key). */
   etapa: string | null;
   /** Etapa por producto (funnel_id → key), para `etapa` con funnel_id. */
   etapasPorProducto?: ReadonlyMap<number, string>;
+  /**
+   * Las etapas de los CRON de la automatización que se evalúa (para «Sigue en la etapa del CRON»). NO es un dato del
+   * lead: es de la automatización, y la pone quien evalúa (el motor por fila, «Probar» con el lead de prueba). Ausente
+   * = no se sabe, y la condición da «no sé».
+   */
+  etapasDelCron?: ReadonlyArray<EtapasDelCron> | null;
   agendo: boolean;
   pago: boolean;
   yaContactado: boolean;

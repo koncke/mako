@@ -102,7 +102,10 @@ test('⚠️ con «Probar» abierto, cada rearranque mira el MISMO freno que Pub
   // Y el lienzo le pasa el freno al panel, calculado con la misma función que Publicar.
   const perfil = fuente('app/automations/SecuenciaPerfil.tsx');
   assert.match(perfil, /const frenoLocal = useMemo\(\(\) => frenoDeEsta\(pasos\), \[pasos, frenoDeEsta\]\);/);
-  assert.match(perfil, /freno: frenoLocal, frenar: frenarDesdeProbar,/, 'el lienzo no le pasa el freno al panel');
+  // 13/10/2026: lo que viaja es `frenoProbar` = la forma (`frenoLocal`) o, si no, un medio sin conectar (el pendiente de la
+  // decimotercera: tests/automations-pendientes-decimotercera.test.ts).
+  assert.match(perfil, /freno: frenoProbar, frenar: frenarDesdeProbar,/, 'el lienzo no le pasa el freno al panel');
+  assert.match(perfil, /if \(frenoLocal\) return frenoLocal;/, 'el freno del panel dejó de mirar la forma primero');
 });
 
 test('«Desconectar» SÍ cuenta la flecha del CRON a la que escucha (10/10/2026: la deja suelta)', () => {
