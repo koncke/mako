@@ -258,6 +258,7 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['DELETE', '/chatbot/secuencias/{secuenciaId}', 'archivar_secuencia'],
   ['GET', '/chatbot/secuencias/{secuenciaId}', 'ficha_secuencia_mensajes'],
   ['PUT', '/chatbot/secuencias/{secuenciaId}/activacion', 'proponer_toggle_nutricion'],
+  ['PUT', '/chatbot/secuencias/{secuenciaId}/caminos/{camino}', 'cambiar_si_contesta_secuencia'],
   ['POST', '/chatbot/secuencias/{secuenciaId}/escenarios', 'agregar_escenario_secuencia'],
   ['PATCH', '/chatbot/secuencias/{secuenciaId}/estrategia', 'guardar_estrategia_secuencia'],
   ['PUT', '/chatbot/secuencias/{secuenciaId}/pasos', 'editar_pasos_secuencia_mensajes'],

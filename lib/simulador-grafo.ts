@@ -51,7 +51,7 @@ import {
   type PasoGrafo, type NombresParaTexto, type HechosLead,
   claseDe, idDe, indicePorId, nodoPorId, normalizar, puertosDe, raicesSalida, raizRespuesta,
   textoEspera, textoRama, TOPE_HILOS, RESULTADO_SI_NO, paralelosDeResultado, elegirSalida, expandirPasoIA,
-  extrasDeCaso,
+  extrasDeCaso, sigueSiContesta,
 } from './flujo-grafo';
 
 /**
@@ -119,6 +119,12 @@ export type EstadoSim = {
   eligiendo: { nodo: string; opciones: OpcionRama[]; hilo: number } | null;
   /** Una respuesta del lead pausó la salida: ya no corre (salvo un «Ir a» desde «Si responde»). */
   salidaPausada: boolean;
+  /**
+   * Los hilos de la salida que SIGUEN cuando el lead contesta (la opción de su camino en el CRON, 14/10/2026, la
+   * misma `sigueSiContesta` del motor). Esperan a que termine la respuesta y ahí vuelven a correr; sin «Si
+   * responde», vuelven enseguida. En el motor corren a la vez: la prueba va de a un evento.
+   */
+  salidaQueSigue?: HiloSim[];
   terminado: boolean;
   saltos: number;
   eventos: number;
@@ -515,6 +521,8 @@ export function siguiente<P extends PasoGrafo>(
   let st = estado;
   for (let vuelta = 0; vuelta <= TOPE_VUELTAS_MUDAS; vuelta++) {
     if (!st.hilos.length) {
+      // Terminó la respuesta y hay caminos de la salida que SIGUEN cuando el lead contesta: vuelven a correr.
+      if (st.rama === 'respuesta' && st.salidaQueSigue?.length) { st = reanudarSalida(st); continue; }
       return fin(st, st.rama === 'respuesta' ? 'Fin de la respuesta' : st.eventos === 0 ? 'Sin tarjetas' : 'Fin');
     }
     if (st.eventos >= TOPE_EVENTOS) return fin(st, 'Se repite: fin de la prueba');
@@ -543,16 +551,33 @@ export function elegir(estado: EstadoSim, puerto: string): EstadoSim {
 }
 
 /**
- * El lead escribió: la salida se PAUSA entera —todos sus hilos—, como en el motor
- * (`pausarPorRespuesta`). Mientras la salida corre el lead no respondió; por eso las condiciones
- * de la salida no tienen «respondió». Si estaba corriendo «Si responde», esa respuesta se corta:
- * el turno nuevo la reemplaza.
+ * El lead escribió: se CORTAN los hilos de la salida cuyo camino dice «se corta», como en el motor
+ * (`pausarPorRespuesta` + `alResponder`), y los que dicen «sigue» quedan en `salidaQueSigue` (con `pasos`; sin
+ * ellos, la salida se pausa entera, como antes del 14/10). Si estaba corriendo «Si responde», esa respuesta se
+ * corta: el turno nuevo la reemplaza. `pausoLaSalida` = se cortó algo; `siguen` = cuántos hilos siguen.
  */
-export function pausarPorRespuesta(estado: EstadoSim): { estado: EstadoSim; pausoLaSalida: boolean } {
+export function pausarPorRespuesta(estado: EstadoSim, pasosIn?: readonly PasoGrafo[]): { estado: EstadoSim; pausoLaSalida: boolean; siguen: number } {
   const corria = estado.rama === 'salida' && !estado.salidaPausada && !estado.terminado && estado.hilos.length > 0;
+  const pasos = pasosIn ? recorrido(pasosIn) : null;
+  const siguenAhora = corria && pasos ? estado.hilos.filter((h) => sigueSiContesta(pasos, indicePorId(pasos, h.cursor))) : [];
+  const salidaQueSigue = corria ? siguenAhora : (estado.salidaQueSigue ?? []);
   return {
-    estado: { ...estado, salidaPausada: estado.salidaPausada || estado.rama === 'salida', eligiendo: null, ...(estado.rama === 'respuesta' ? { terminado: true, hilos: [] } : {}) },
-    pausoLaSalida: corria,
+    estado: {
+      ...estado, salidaPausada: estado.salidaPausada || estado.rama === 'salida', eligiendo: null,
+      ...(estado.rama === 'respuesta' ? { terminado: true, hilos: [] } : {}),
+      salidaQueSigue: salidaQueSigue.length ? salidaQueSigue : undefined,
+    },
+    pausoLaSalida: corria && siguenAhora.length < estado.hilos.length,
+    siguen: salidaQueSigue.length,
+  };
+}
+
+/** La salida que seguía vuelve a correr (terminó la respuesta, o no hay «Si responde»): desde «ahora». */
+function reanudarSalida(estado: EstadoSim): EstadoSim {
+  const vivos = estado.salidaQueSigue ?? [];
+  return {
+    ...estado, rama: 'salida', salidaPausada: false, terminado: false, eligiendo: null, salidaQueSigue: undefined,
+    hilos: vivos.map((h) => ({ ...h, reloj: Math.max(h.reloj, estado.ahora) })),
   };
 }
 
@@ -570,7 +595,11 @@ export function entrarEnRespuesta(
   // Por el flujo EXPANDIDO (`recorrido`): un caso de un AI Step no tiene `siguiente` en la tarjeta.
   const pasos = recorrido(pasosIn);
   const r = nodoPorId(pasos, raizRespuesta(pasos));
-  if (!r) return { estado: { ...estado, terminado: true, hilos: [], eligiendo: null }, sinRespuesta: true, caso: null };
+  if (!r) {
+    // Sin «Si responde» MaKo no contesta, pero lo que SIGUE cuando el lead contesta vuelve a correr.
+    if (estado.salidaQueSigue?.length) return { estado: reanudarSalida(estado), sinRespuesta: true, caso: null };
+    return { estado: { ...estado, terminado: true, hilos: [], eligiendo: null }, sinRespuesta: true, caso: null };
+  }
   const c = casoId ? (r.casos ?? []).find((x) => x.id === casoId) ?? null : null;
   const caso: CasoElegido = c ? { id: c.id, titulo: c.titulo, cuando: c.cuando } : { id: null, titulo: 'Otra cosa', cuando: '' };
   const destino = c ? c.siguiente ?? null : r.si_no ?? null;

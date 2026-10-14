@@ -75,7 +75,7 @@ import { esPasoAccion, sanearAccion, correrPasoAccion, type AccionDelPaso } from
 import {
   normalizar, validarGrafo, claseDe, idDe, indicePorId, raizRespuesta, raizSalida, antiguedadDeEntrada, elegirSalida,
   escenariosDeRespuesta, expandirPasoIA, nodoPorId, siguienteDe, TOPE_NODOS, HILO_PRINCIPAL, TOPE_HILOS, raicesSalida,
-  juntarPasosIA, escuchaPor, extrasDeCaso, type MedioAIStep,
+  juntarPasosIA, escuchaPor, extrasDeCaso, algunCaminoSigue, type MedioAIStep,
   type Espera, type RamaCondicion, type CasoRespuesta, type DestinoIrA, type HechosLead, type PasoGrafo, type FilaCondicion,
 } from '@/lib/flujo-grafo';
 import { OP_AVISAR, puedePisarFlujo } from '@/lib/flujo-legado';
@@ -262,6 +262,8 @@ export type PasoSecuencia = {
   destino?: DestinoIrA | null;
   /** «Sale sola» POR MENSAJE: true = borrador, false = sale, ausente = lo de la secuencia. */
   revisar?: boolean;
+  /** Sólo el inicio: qué hace cada camino cuando el lead contesta (`siContestaDe`, 14/10/2026). Lo guarda `camposDelFlujo`. */
+  si_contesta?: PasoGrafo['si_contesta'];
 };
 
 export type Secuencia = {
@@ -4938,12 +4940,12 @@ export async function pausarPorRespuesta(leadId: number, opts?: { texto?: string
     if (esColumnaInexistente({ message: msg })) throw new Error(`pausarPorRespuesta: no toqué al lead ${leadId}, falta una migración (${msg})`);
     console.error(`[nutricion] leer las secuencias antes de pausar al lead ${leadId}: ${msg}`);
   }
-  // ⚠️ UNA RESPUESTA NO APAGA EL CARRIL DEL RECORDATORIO (undécima tanda, M4). Las inscripciones de una
-  // automatización con DELAY «antes de la reunión» (`tieneCarril`) pasan a 'respondio' de a una, dejando vivos los
-  // hilos del carril con su próximo envío (`alResponder`); el motor mueve sólo ésos (`seMueveEnLaCorrida`). Las demás,
-  // como siempre, en un solo update. Sin poder leer las secuencias, todas como siempre: apagar un recordatorio es
-  // la dirección segura.
-  const conCarril = (secsActivas ?? []).filter((s) => tieneCarril(s.pasos));
+  // ⚠️ LO QUE SIGUE CUANDO EL LEAD CONTESTA LO DICE CADA CAMINO DEL CRON (14/10/2026, «Si contesta: se corta / sigue»;
+  // hasta entonces era una regla escondida: sólo el carril del recordatorio seguía, M4). Las inscripciones de una
+  // automatización con algún camino que SIGUE (`algunCaminoSigue`) pasan a 'respondio' de a una, dejando vivos esos
+  // hilos con su próximo envío (`alResponder`); el motor mueve sólo ésos (`seMueveEnLaCorrida`). Las demás, en un solo
+  // update. Sin poder leer las secuencias, todas se cortan: no avanzarle una secuencia a quien contestó es lo seguro.
+  const conCarril = (secsActivas ?? []).filter((s) => algunCaminoSigue(s.pasos));
   let q = supabase
     .from('nutricion_inscripciones')
     .update({ estado: 'respondio', proximo_envio_at: null, updated_at: ahoraISO() })

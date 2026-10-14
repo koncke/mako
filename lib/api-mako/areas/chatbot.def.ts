@@ -275,6 +275,18 @@ export const DEFS: readonly OperacionDef[] = [
     canales: TODOS, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
   },
   {
+    id: 'cambiar_si_contesta_secuencia', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Qué hace un camino si el lead contesta',
+    descripcion: 'PROPONE elegir qué hace un CAMINO de una automatización —cada flecha que sale de su CRON— cuando el lead contesta: «sigue» (lo que falta de ese camino sigue saliendo; es el de fábrica) o «corta» (deja de salir). Pide antes el secuenciaId y los caminos con ficha_secuencia_mensajes: la tarjeta del CRON (tipo «inicio») dice sus `paralelos` y su `si_contesta`. El camino principal es «p»; cada flecha en paralelo se nombra con el id de su primera tarjeta. Sin tarjeta CRON (una sola flecha), el único camino es «p».',
+    parametros: [
+      pSecuenciaId,
+      { nombre: 'camino', tipo: 'string', obligatorio: true, descripcion: '«p» para el camino principal del CRON, o el id de la primera tarjeta de una flecha en paralelo.' },
+      { nombre: 'valor', tipo: 'string', obligatorio: true, enum: ['sigue', 'corta'], descripcion: 'sigue = lo que falta de ese camino sigue saliendo aunque el lead conteste; corta = deja de salir.' },
+    ],
+    reversible: true, escribe: 'cambia si_contesta de la tarjeta CRON (pasos) en nutricion_secuencias; sin tarjeta CRON, la crea',
+    canales: TODOS, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
+  },
+  {
     id: 'asignar_audio_paso', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Asignar un audio a un paso',
     descripcion: 'PROPONE convertir un paso de una secuencia en nota de voz con un audio de la biblioteca, o quitarle el audio para que vuelva a ser texto (omite audioId). Un paso de audio va siempre por WhatsApp no oficial y el texto del paso pasa a ser el pie que sale después del audio; a los leads que todavía no son clientes NO se les envía solo: queda como borrador para que alguien lo mande. Pide antes el audioId con listar_audios y el orden con ficha_secuencia_mensajes.',
