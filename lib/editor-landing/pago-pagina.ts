@@ -27,8 +27,11 @@ import { slugValido } from './doc';
 import { motivoNoCobra, notaDePasarela, pasarelaDeLanding, precioDe, productoDeSegmento, type EstadoCobroLanding } from './pago-landing';
 import {
   CAMPO_TRAMPA, RUTA_POST_PAGO, TEXTO_DEMASIADOS, TEXTO_FALLA_CAMPO, TEXTO_FALLO, TEXTO_NO_DISPONIBLE, TOPE_EMAIL, TOPE_NOMBRE,
-  leerPedidoPago, origenDelPago, type PedidoPago,
+  leerPedidoPago, origenDelPago, type LecturaPedidoPago, type PedidoPago,
 } from './pago-pedido';
+
+/** El pedido que volvió por un CAMPO (nombre o email): trae lo escrito para volver a dibujarlo. */
+type FallaDeCampo = Extract<LecturaPedidoPago, { falla: 'nombre' | 'email' }>;
 
 /** Los checkouts adonde termina la cadena de redirecciones (`form-action`). */
 export const ORIGENES_CHECKOUT: readonly string[] = Object.freeze([
@@ -293,12 +296,18 @@ export async function responderPagoPost(req: Request, dep: DepPagoPost): Promise
   try { crudo = await req.text(); } catch { crudo = ''; }
   if (crudo.length > TOPE_CUERPO_PAGO) return aviso(413, TEXTO_FALLO);
   const lectura = leerPedidoPago(new URLSearchParams(crudo));
-  if (!lectura.ok && (lectura.falla === 'forma' || lectura.falla === 'trampa')) {
+  // Dos casos que siguen: el pedido entero, o un CAMPO que no sirve (vuelve el formulario). TypeScript no
+  // angosta la unión después de un `return`, así que cada uno va en su variable.
+  let pedido: PedidoPago | null = null;
+  let campoMal: FallaDeCampo | null = null;
+  if (lectura.ok) pedido = lectura.pedido;
+  else if (lectura.falla === 'nombre' || lectura.falla === 'email') campoMal = lectura;
+  else {
     if (lectura.falla === 'trampa') console.warn('[landing-pagar] el campo trampa vino lleno: no se crea nada');
     return aviso(400, TEXTO_FALLO);
   }
-  const slug = lectura.ok ? lectura.pedido.slug : lectura.slug;
-  const productoId = lectura.ok ? lectura.pedido.productoId : lectura.productoId;
+  const slug = pedido ? pedido.slug : campoMal!.slug;
+  const productoId = pedido ? pedido.productoId : campoMal!.productoId;
 
   let landing: LandingDelPaso | null;
   try {
@@ -310,7 +319,7 @@ export async function responderPagoPost(req: Request, dep: DepPagoPost): Promise
   }
   if (!landing || !landing.productos.includes(productoId)) return aviso(404, TEXTO_NO_DISPONIBLE);
 
-  if (!lectura.ok) {
+  if (campoMal) {
     // Un campo que no sirve: el MISMO formulario, con el error y con lo que ya escribió.
     let detalle: DetalleDelPaso;
     try { detalle = await dep.detalle(landing); } catch { return aviso(503, TEXTO_FALLO); }
@@ -323,15 +332,15 @@ export async function responderPagoPost(req: Request, dep: DepPagoPost): Promise
       volver: volverDe(req, origenCrudo),
       producto: { nombre: producto.nombre, precio: precioDe(producto) }, slug: landing.slug, productoId,
       nota: cobra && pasarela ? notaDePasarela(pasarela) : null,
-      error: TEXTO_FALLA_CAMPO[lectura.falla], valores: lectura.valores,
+      error: TEXTO_FALLA_CAMPO[campoMal.falla], valores: campoMal.valores,
     }));
   }
 
-  if (!dep.limitar(`landing-pagar:email:${lectura.pedido.email}`, TOPE_EMAIL_PEDIDOS.max, TOPE_EMAIL_PEDIDOS.ventanaMs)) return aviso(429, TEXTO_DEMASIADOS);
+  if (!dep.limitar(`landing-pagar:email:${pedido!.email}`, TOPE_EMAIL_PEDIDOS.max, TOPE_EMAIL_PEDIDOS.ventanaMs)) return aviso(429, TEXTO_DEMASIADOS);
 
   let r: ResultadoDelPago;
   try {
-    r = await dep.pagar(landing, lectura.pedido);
+    r = await dep.pagar(landing, pedido!);
   } catch (e) {
     console.error(`[landing-pagar] /l/${slug} producto=${productoId}: ${e instanceof Error ? e.message : String(e)}`);
     return aviso(503, TEXTO_FALLO);

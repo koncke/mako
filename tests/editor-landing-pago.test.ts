@@ -89,7 +89,7 @@ test('«Editar con IA» devuelve el botón de pago TAL CUAL (antes volvía apunt
   const t = tarjeta([{ type: 'heading', attrs: { level: 2, variante: null }, content: [{ type: 'text', text: 'Comprar' }] }, botones(boton('pago:12'), boton('https://otro.com', 'Más'))]);
   const ida = tarjetaABloques(t);
   const vuelta = bloquesATarjeta(ida, { base: t });
-  const hrefs = JSON.stringify(vuelta).match(/"href":"[^"]*"/g) ?? [];
+  const hrefs: string[] = JSON.stringify(vuelta).match(/"href":"[^"]*"/g) ?? [];
   assert.ok(hrefs.includes('"href":"pago:12"'), hrefs.join(' '));
 });
 
