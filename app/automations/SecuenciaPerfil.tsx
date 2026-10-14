@@ -44,7 +44,8 @@ import { esPasoAccion } from '@/lib/nutricion-paso-accion';
 import { chatAlCostado } from '@/lib/crear-ia-lugar';
 import { resumenAvisos, edicionVigente, edicionTocaPasos } from '@/lib/flujo-ia-cliente';
 import { TOPE_NOMBRE_SECUENCIA, nombreParaGuardar, type Objetivo } from '@/lib/setting-estrategia';
-import { normalizar, esNodoMensaje } from '@/lib/flujo-grafo';
+import { normalizar, esNodoMensaje, fijarSiContesta } from '@/lib/flujo-grafo';
+import { SiContestaCaminos } from './SiContestaCaminos';
 import { eliminar } from '@/lib/flujo-edicion';
 import { MakoLogo } from '@/app/_components/MakoBrand';
 import type { Muelles } from '@/lib/lienzo-grafo';
@@ -1212,7 +1213,10 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
             lista={crons.lista} editando={cronAbierto} onEditar={setCronAbierto} onGuardar={crons.guardar}
             productos={productos} etiquetas={etiquetas} disparadores={disparadores} etiquetaEtapa={etiquetaEtapa}
             tz={tz} busy={busy != null} rolAdmin={rolAdmin}
-            pie={lineasWa.length > 1 ? (() => {
+            pie={<>
+              {/* «Si el lead contesta» por camino (14/10/2026): lo que era la pausa escondida del motor. */}
+              <SiContestaCaminos pasos={pasos} editable={rolAdmin} onFijar={(clave, valor) => onPasos((prev) => fijarSiContesta(prev, clave, valor), true)} />
+              {lineasWa.length > 1 ? (() => {
               // ⚠️ La línea guardada entra SIEMPRE a las opciones, aunque se haya ido: un
               // `value` que no está entre sus opciones se dibuja como la primera y el primer
               // clic lo pisa (AGENTS.md, el `<select>` que borra datos).
@@ -1239,7 +1243,8 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
                   {caidaLaSec && <div style={{ fontSize: 11.5, color: 'var(--warn)' }}>Número desconectado</div>}
                 </div>
               );
-            })() : undefined}
+            })() : null}
+            </>}
           />
         )}
       />

@@ -1156,10 +1156,15 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
     // Un turno nuevo del lead: lo que «Si responde» conteste ahora sale de verdad otra vez.
     turnoLead.current += 1;
     setTyping(null); setOpciones(null);
-    const p = pausarPorRespuesta(simRef.current);
+    // Con el flujo: lo de un camino que SIGUE cuando el lead contesta no se corta (la opción del CRON, 14/10/2026).
+    const p = pausarPorRespuesta(simRef.current, flujoRef.current);
     simRef.current = p.estado;
     if (p.pausoLaSalida) sistema('⏸ Se pausa');
-    if (!raizRespuesta(flujoRef.current)) { sistema('MaKo no contesta'); return null; }
+    if (!raizRespuesta(flujoRef.current)) {
+      sistema('MaKo no contesta');
+      if (p.siguen) { simRef.current = entrarEnRespuesta(flujoRef.current, simRef.current, null).estado; luego(PILDORA_MS, avanzar); }
+      return null;
+    }
     const r0 = run.current;
     setTyping({ lado: 'left', autor: firma() });
     const j = await postar({ action: 'clasificar', pasos: flujoRef.current, ...cuerpo });

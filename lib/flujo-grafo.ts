@@ -337,6 +337,16 @@ export const HILO_PRINCIPAL = 'p';
 export const HILO_RESPUESTA = 'r';
 
 /** Los campos que este módulo lee de un paso. El resto del paso viaja intacto. */
+/**
+ * QUÉ HACE UN CAMINO CUANDO EL LEAD CONTESTA (14/10/2026). Era una regla escondida del motor: cualquier mensaje
+ * del lead frenaba TODO lo que tenía por delante (`pausarPorRespuesta`, lib/nutricion.ts), y así no salió el audio
+ * de bienvenida del bug 5 (el lead le contestó a Mauricio un mensaje a mano). Martín: «jamás que "mako" haga cosas
+ * que no están en el flujo», y eligió «Opción en cada camino, sigue de fábrica».
+ */
+export type SiContesta = 'corta' | 'sigue';
+/** Lo que hace un camino que nadie configuró. Las automatizaciones de antes del 14/10 se migraron con su valor de hoy. */
+export const SI_CONTESTA_DE_FABRICA: SiContesta = 'sigue';
+
 export type PasoGrafo = {
   id?: string;
   siguiente?: string | null;
@@ -346,6 +356,12 @@ export type PasoGrafo = {
    */
   paralelos?: string[];
   nodo?: 'esperar' | 'condicion' | 'respuesta' | 'ir_a' | 'inicio';
+  /**
+   * Sólo el inicio (la tarjeta CRON): qué hace CADA camino de la salida cuando el lead contesta. La clave es la del
+   * camino (`caminosDeSalida`): `HILO_PRINCIPAL` para la flecha principal del CRON y el id de la primera tarjeta para
+   * cada flecha en paralelo, como los hilos del motor. Ausente = `SI_CONTESTA_DE_FABRICA`.
+   */
+  si_contesta?: Record<string, SiContesta>;
   espera?: Espera;
   ramas?: RamaCondicion[];
   casos?: CasoRespuesta[];
@@ -777,6 +793,80 @@ export function hiloDe(pasos: readonly PasoGrafo[]): Map<string, string> {
   return hilo;
 }
 
+// ── SI CONTESTA: lo que hace cada camino cuando el lead escribe (14/10/2026) ───────────────────────
+
+/** Los CAMINOS de la salida, uno por flecha del CRON: su clave (la del hilo del motor) y su primera tarjeta. */
+export function caminosDeSalida(pasos: readonly PasoGrafo[]): Array<{ clave: string; raiz: string }> {
+  return raicesSalida(pasos).slice(0, TOPE_HILOS).map((raiz, k) => ({ clave: k === 0 ? HILO_PRINCIPAL : raiz, raiz }));
+}
+
+/**
+ * A qué CAMINO del CRON pertenece cada tarjeta. Como `hiloDe`, salvo que una flecha en paralelo de ADENTRO de un
+ * camino sigue siendo de ese camino: la opción es de la flecha del CRON, no de cada hilo que nace después. Una
+ * tarjeta a la que llegan dos caminos es del primero (el principal antes que los paralelos). «Si responde», lo que
+ * cuelga de ella y las sueltas no son de ningún camino.
+ */
+export function caminoDe(pasos: readonly PasoGrafo[]): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const c of caminosDeSalida(pasos)) {
+    const pila = [c.raiz];
+    while (pila.length) {
+      const id = pila.pop()!;
+      if (out.has(id)) continue;
+      const i = indicePorId(pasos, id);
+      if (i < 0 || claseDe(pasos[i]) === 'respuesta' || claseDe(pasos[i]) === 'inicio') continue;
+      out.set(id, c.clave);
+      for (const pt of puertosDe(pasos, i)) if (pt.destino && !out.has(pt.destino)) pila.push(pt.destino);
+    }
+  }
+  return out;
+}
+
+/** Lo que hace el camino `clave` cuando el lead contesta: lo de su CRON, o el de fábrica. */
+export function siContestaDe(pasos: readonly PasoGrafo[], clave: string): SiContesta {
+  const ini = indiceInicio(pasos);
+  const v = ini >= 0 ? pasos[ini].si_contesta?.[clave] : undefined;
+  return v === 'corta' || v === 'sigue' ? v : SI_CONTESTA_DE_FABRICA;
+}
+
+/** ¿La tarjeta `idx` sigue cuando el lead contesta? La opción de SU camino. Fuera de los caminos (sueltas, «Si responde»), no. */
+export function sigueSiContesta(pasos: readonly PasoGrafo[], idx: number): boolean {
+  const p = pasos[idx];
+  if (!p) return false;
+  const clave = caminoDe(pasos).get(idDe(p, idx));
+  return clave != null && siContestaDe(pasos, clave) === 'sigue';
+}
+
+/** ¿Algún camino sigue cuando el lead contesta? (El motor pausa de a una sólo las que tienen algo que sigue.) */
+export function algunCaminoSigue(pasos: readonly PasoGrafo[]): boolean {
+  return caminosDeSalida(pasos).some((c) => siContestaDe(pasos, c.clave) === 'sigue');
+}
+
+/**
+ * Fija lo que hace un camino cuando el lead contesta. Sin tarjeta de inicio (una sola flecha del CRON), la CREA,
+ * como cuando se agrega la primera flecha en paralelo desde el CRON (`insertarNodo`): es la tarjeta CRON del dato.
+ * Un camino que no existe no cambia nada.
+ */
+export function fijarSiContesta<P extends PasoGrafo>(pasosIn: readonly P[], clave: string, valor: SiContesta): P[] {
+  const pasos = normalizar(pasosIn);
+  if (!caminosDeSalida(pasos).some((c) => c.clave === clave)) return pasos;
+  const ini = indiceInicio(pasos);
+  if (ini < 0) {
+    const principal = raizSalida(pasos);
+    if (!principal) return pasos;
+    return [...pasos, { id: ID_INICIO, nodo: 'inicio', siguiente: principal, si_contesta: { [clave]: valor } } as unknown as P];
+  }
+  return pasos.map((p, i) => (i === ini ? { ...p, si_contesta: { ...(p.si_contesta ?? {}), [clave]: valor } } : p));
+}
+
+/** Las opciones válidas de un inicio: sólo de sus caminos (`claves`) y con un valor que existe. Vacío = sin el campo. */
+function siContestaLimpio(x: unknown, claves: readonly string[]): Record<string, SiContesta> | undefined {
+  if (!x || typeof x !== 'object' || Array.isArray(x)) return undefined;
+  const out: Record<string, SiContesta> = {};
+  for (const [k, v] of Object.entries(x as Record<string, unknown>)) if (claves.includes(k) && (v === 'corta' || v === 'sigue')) out[k] = v;
+  return Object.keys(out).length ? out : undefined;
+}
+
 /** El nodo «Si responde», si la automatización tiene uno (con varios AI Step, el PRIMERO: `raicesRespuesta`). */
 export function raizRespuesta(pasos: readonly PasoGrafo[]): string | null {
   // Una «Si responde» SUELTA (le borraron la flecha del CRON) no escucha: no es raíz de nada.
@@ -975,10 +1065,22 @@ export function normalizar<P extends PasoGrafo>(pasos: readonly P[]): P[] {
       : [];
     // Un inicio sin salida principal y con paralelos PROMUEVE el primero: la principal es la que
     // leen `raizSalida` y el «Solo a leads recientes», y no puede quedar vacía con hilos vivos.
-    if (c === 'inicio' && out.siguiente == null && par.length) { out.siguiente = par[0]; par = par.slice(1); }
+    let promovido: string | null = null;
+    if (c === 'inicio' && out.siguiente == null && par.length) { out.siguiente = par[0]; promovido = par[0]; par = par.slice(1); }
     par = par.filter((d) => d !== out.siguiente);
     if (par.length) out.paralelos = par;
     else delete out.paralelos;
+    // SI CONTESTA (14/10/2026): sólo en el inicio y sólo de sus caminos. El paralelo que pasa a principal se lleva
+    // su opción a la clave del principal.
+    if (c === 'inicio') {
+      const crudo = (p.si_contesta && typeof p.si_contesta === 'object' ? { ...p.si_contesta } : undefined) as Record<string, unknown> | undefined;
+      if (crudo && promovido && crudo[promovido] !== undefined && crudo[HILO_PRINCIPAL] === undefined) crudo[HILO_PRINCIPAL] = crudo[promovido];
+      const sc = siContestaLimpio(crudo, [HILO_PRINCIPAL, ...par]);
+      if (sc) out.si_contesta = sc;
+      else delete out.si_contesta;
+    } else {
+      delete out.si_contesta;
+    }
     if (c === 'condicion') {
       out.ramas = (p.ramas ?? []).map((r, k) => {
         // Las flechas en paralelo de cada resultado (cuarta tanda, punto 8), con la misma limpieza
@@ -1767,6 +1869,15 @@ function conectarParalelo<P extends PasoGrafo>(p: P, pp: { destino: string | nul
   const q = { ...p };
   if (nueva.length) q.paralelos = [...nueva];
   else delete q.paralelos;
+  // SI CONTESTA (14/10/2026): la opción es de la FLECHA del CRON y su clave es la primera tarjeta. Insertar una
+  // tarjeta en el medio de la flecha (el ＋) cambia esa tarjeta: la opción se muda con la flecha; sacar la flecha
+  // se la lleva.
+  if (claseDe(p) === 'inicio' && pp.destino && q.si_contesta?.[pp.destino] !== undefined) {
+    const { [pp.destino]: v, ...resto } = q.si_contesta;
+    const sc: Record<string, SiContesta> = destino ? { ...resto, [destino]: v } : resto;
+    if (Object.keys(sc).length) q.si_contesta = sc;
+    else delete q.si_contesta;
+  }
   return q;
 }
 

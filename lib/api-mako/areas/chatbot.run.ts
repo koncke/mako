@@ -17,7 +17,7 @@ import { crearRunnerAcciones, ejecutarAccion } from '@/lib/mako-doer-acciones';
 import { getSecuenciasConStats, setSecuenciaPasos, planificarInscripciones, planificarEnvios, inscribirEnSecuencia, PasosInvalidosError, type PasoSecuencia, type InscripcionManual } from '@/lib/nutricion';
 import { motivoNoInscribe } from '@/lib/nutricion-inscripcion-manual';
 import { esPasoAccion } from '@/lib/nutricion-paso-accion';
-import { claseDe, idDe, siguienteDe, raizRespuesta, esPasoIA, medioDe, juntarPasosIA, nodoPorId, type PasoGrafo } from '@/lib/flujo-grafo';
+import { claseDe, idDe, siguienteDe, raizRespuesta, esPasoIA, medioDe, juntarPasosIA, nodoPorId, caminosDeSalida, siContestaDe, fijarSiContesta, type PasoGrafo } from '@/lib/flujo-grafo';
 import { libertadDeCaso, ROTULO_LIBERTAD } from '@/lib/ai-step-libertad';
 import { libertadDeLoDemas } from '@/lib/ai-step-armar';
 import { esLineal, esNodoDeControl, relinear, tieneTarjetasDeControl, agregarCasoAlGrafo } from '@/lib/nutricion-grafo-motor';
@@ -272,6 +272,8 @@ export const RUNNERS: Runners = {
           // EL AI STEP sí contesta, y lo que contesta vive ADENTRO de la tarjeta: sus escenarios van en `escenarios`
           // (`fichaPasoIA`), no como los casos de un «Si responde» (que no dirían su libertad).
           ramas: p.ramas ?? null, casos: esPasoIA(p) ? undefined : p.casos ?? null, si_no: p.si_no ?? null, paralelos_si_no: p.paralelos_si_no ?? null, destino: p.destino ?? null,
+          // El CRON: qué hace cada camino cuando el lead contesta (14/10/2026). Sin la clave, el de fábrica (sigue).
+          ...(p.nodo === 'inicio' ? { paralelos: p.paralelos ?? [], si_contesta: p.si_contesta ?? {} } : {}),
           ...(esPasoIA(p) ? fichaPasoIA(p) : {}),
         }) : esPasoAccion(p) ? ({
           // Un paso «⚡ Acción de MaKo» no manda un mensaje: corre esta operación del registro.
@@ -652,6 +654,30 @@ export const RUNNERS: Runners = {
       }
       await setSecuenciaPasos(id, s.pasos.map((p) => (p.orden === orden ? { ...p, delay_horas: horas } : p)));
       return { ok: true, resumen: `Paso ${orden} de «${s.nombre}» ahora espera ${horas} h. Los envíos ya programados no se recalculan.` };
+    },
+  },
+
+  cambiar_si_contesta_secuencia: {
+    preparar: async (input) => {
+      const id = num(input, 'secuenciaId');
+      const camino = String(input.camino ?? '').trim();
+      const valor = input.valor === 'corta' ? 'corta' : input.valor === 'sigue' ? 'sigue' : null;
+      if (!valor) return { error: 'El valor es «sigue» o «corta».' };
+      const s = await secuenciaVigente(id);
+      if (!s) return { error: noExiste(id) };
+      const caminos = caminosDeSalida(s.pasos as PasoGrafo[]);
+      const k = caminos.findIndex((c) => c.clave === camino);
+      if (k < 0) return { error: `«${s.nombre}» no tiene el camino «${camino}». Tiene: ${caminos.map((c) => c.clave).join(', ') || 'ninguno'} (ficha_secuencia_mensajes).` };
+      const antes = siContestaDe(s.pasos as PasoGrafo[], camino);
+      const decir = (v: string) => (v === 'sigue' ? 'sigue' : 'se corta');
+      return { payload: { secuenciaId: id, camino, valor }, resumen: `«${s.nombre}», camino ${k + 1}: si el lead contesta, ${decir(antes)} → ${decir(valor)}` };
+    },
+    ejecutar: async (payload) => {
+      const id = Number(payload.secuenciaId); const camino = String(payload.camino); const valor = payload.valor === 'corta' ? 'corta' : 'sigue';
+      const s = await secuenciaVigente(id);
+      if (!s || !caminosDeSalida(s.pasos as PasoGrafo[]).some((c) => c.clave === camino)) return { ok: false, resumen: 'La automatización o ese camino ya no existen.' };
+      await setSecuenciaPasos(id, fijarSiContesta(s.pasos as PasoGrafo[], camino, valor) as PasoSecuencia[]);
+      return { ok: true, resumen: `«${s.nombre}»: si el lead contesta, ese camino ahora ${valor === 'sigue' ? 'sigue' : 'se corta'}. Vale para las respuestas que lleguen desde ahora.` };
     },
   },
 
