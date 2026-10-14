@@ -108,3 +108,20 @@ agentes no llegaron a arrancar: la guardia de RAM los frenó toda la tanda (entr
 
 Coordinación: «Integraciones» es el dueño de `lib/cobros*` (no tocarlo). «CRM» tocó `app/api/track/optin/route.ts`
 (guarda `leads.optin_respuestas`, mig 0274) en su worktree.
+
+## Tanda 5 (14/10/2026, cuenta claude2) — en curso
+
+Pedido de Martín (14/10, textual): «Ya compré: hola-mako.site. Implementalo allí y termina todo lo pendiente» y «Menos el
+tema de las imagenes». Y a «¿Qué va en hola-mako.site?» eligió **«Las landings enteras, como gamma.site»**: lo publicado
+pasa a `hola-mako.site/<slug>`, la app sigue en hola-mako.com y una landing con dominio propio sigue en el suyo. (Esto
+reemplaza lo de makodigital.app de la tanda 4.)
+
+**Hecho (14/10):** hola-mako.site y www.hola-mako.site (308 al apex) agregados al proyecto `mako` de Vercel por la API, y el
+DNS en Porkbun por su API: se borraron los dos registros de estacionamiento (ALIAS @ y CNAME * a pixie.porkbun.com) y se
+crearon A @ → 216.150.1.1 y 216.150.16.1 y CNAME www → 2db067c06ef29ee8.vercel-dns-016.com (los valores que devolvió
+Vercel para ESTE dominio). El certificado lo saca Vercel solo.
+
+**En curso (workflow wf_ca07ec02-714):** verificación con clics en ws3; botón de pago en `wt-gamma` (rama `gamma-editor`);
+landings en hola-mako.site + redirecciones/estáticos del dominio del cliente en `C:/dev/wt-landing-dom` (rama
+`landing-dom`); el área «landing» de la API de MaKo en `C:/dev/wt-landing-api` (rama `landing-api`); y el relevo de los
+cuatro pedidos de las reuniones (a-d) para construirlos después. Las imágenes por Flow quedan afuera por pedido de Martín.
