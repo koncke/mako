@@ -177,6 +177,12 @@ export type FotoPublicada = {
    * Opcional: una foto anterior a la tanda 2 no lo trae (y su página dibuja el bloque con srcdoc).
    */
   htmlLibre?: Record<string, string>;
+  /**
+   * Tanda 4: los productos que cobran los «Botón de pago» de lo publicado (`productosDePago`,
+   * pago-landing.ts). De acá lo lee el paso de pago (`productosDeFoto`, sobre la fila CRUDA: `leerFoto`
+   * no lo copia, igual que `htmlLibre`). Opcional: una foto anterior no lo trae y no cobra nada.
+   */
+  pagos?: number[];
 };
 
 /**

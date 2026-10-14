@@ -50,6 +50,7 @@ import {
 } from './doc';
 import { altoDeEmbed, atributosDeIframe, claseDeProveedor, embedDe, nombreDeProveedor } from '../embeds';
 import { SANDBOX_PUBLICO } from './html-libre';
+import { hrefPagoValido } from './pago-landing';
 import {
   arbolDeGrafico, htmlDeArbol, normalizarGrafico, type AttrsArbol, type HijoArbol, type NodoArbol,
 } from './grafico-svg';
@@ -304,9 +305,15 @@ export function attrsBotones(raw: unknown): AttrsBotones {
   return { alinea: enLista(ALINEACIONES, obj(raw).alinea, 'izquierda') };
 }
 
+/**
+ * Un BOTÓN acepta además `pago:<productoId>` (tanda 4: el «Botón de pago» cobrado por la pasarela de
+ * MaKo, pago-landing.ts). Sólo el botón: un enlace de texto, una imagen o la barra del sitio siguen con
+ * `hrefSeguro`, que no lo conoce — un `pago:` ahí no tendría quién lo resuelva. Va en el `href` que
+ * ya existía y no en un atributo nuevo: el esquema de TipTap, el saneo y el pegado lo leen igual.
+ */
 export function attrsBoton(raw: unknown): AttrsBoton {
   const r = obj(raw);
-  return { href: hrefSeguro(r.href) ?? '', variante: enLista(VARIANTES_BOTON, r.variante, 'primario'), nuevaPestana: bool(r.nuevaPestana) };
+  return { href: hrefSeguro(r.href) ?? hrefPagoValido(r.href) ?? '', variante: enLista(VARIANTES_BOTON, r.variante, 'primario'), nuevaPestana: bool(r.nuevaPestana) };
 }
 
 export function attrsRecuadro(raw: unknown): AttrsRecuadro {
@@ -653,8 +660,13 @@ export function specBotones(raw: unknown): NodoArbol {
 /** `a.gm-boton[data-variante]`. Sin destino permitido, el `<a>` sale sin href. */
 export function specBoton(raw: unknown, ctx?: CtxSpec): NodoArbol {
   const a = attrsBoton(raw);
-  const href = hrefDe(a.href, ctx);
-  const nueva = a.nuevaPestana && !!href && esExterno(href);
+  // `pago:<id>` no pasa por `hrefSeguro` (no lo conoce): lo resuelve render.ts (`resolverHref`) al paso
+  // de nombre y email de la publicada, o a `#` donde no hay paso (vista previa, exportar). Sin
+  // resolvedor (el DOM del editor) se escribe como se guardó, igual que `pagina:<id>`.
+  const pago = hrefPagoValido(a.href);
+  const href = pago ? (ctx?.resolverHref ? ctx.resolverHref(pago) ?? undefined : pago) : hrefDe(a.href, ctx);
+  // El paso de pago abre en la MISMA pestaña: es el camino de compra, no un sitio de afuera.
+  const nueva = !pago && a.nuevaPestana && !!href && esExterno(href);
   return el('a', {
     class: 'gm-boton', 'data-variante': a.variante, href,
     target: nueva ? '_blank' : undefined, rel: nueva ? 'noopener noreferrer' : undefined,

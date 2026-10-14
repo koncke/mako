@@ -54,6 +54,7 @@ import { NOMBRES_ICONO } from './iconos';
 // importan, no se copian (AGENTS.md, «Una cosa, un lugar»).
 import { hrefPermitido, srcImagen, NORMALIZAR_NODOS, NORMALIZAR_MARCAS, ETIQUETA_CAMPO } from './especificacion';
 import { compactar } from './validar';
+import { hrefPagoValido } from './pago-landing';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // La gramática (tipos)
@@ -597,7 +598,11 @@ function destinoBoton(v: unknown, ctx: Ctx, donde: string): string {
     ctx.d?.push(`${donde}: la sección ${sec[1]} no existe; el botón queda sin destino`);
     return '#';
   }
-  const h = s ? hrefPermitido(s) : null;
+  // Tanda 4: el botón cobrado por MaKo (`pago:<productoId>`) vuelve TAL CUAL de la IA. Sin esto,
+  // «Editar con IA» sobre una sección con el botón de pago lo devolvía apuntando al formulario: el
+  // cobro se perdía en silencio (tests/editor-landing-pago.test.ts). Que el producto exista y se pueda
+  // cobrar lo dicen el control del botón y el aviso de Publicar, no la gramática.
+  const h = s ? hrefPermitido(s) ?? hrefPagoValido(s) : null;
   if (h) return h;
   if (s) ctx.d?.push(`${donde}: destino no válido «${s.slice(0, 80)}»`);
   // Sin destino válido, al formulario (lo normal en una landing), o pendiente si no se sabe dónde está.
