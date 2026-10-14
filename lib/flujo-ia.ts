@@ -98,7 +98,7 @@ import { esTopeDeTamano } from './fallo-ia-texto';
 import type { ProvName } from './ai-cheap';
 // Cómo se escribe un disparador de VARIAS etapas (cuarta tanda, punto 14): UNA forma, la del
 // desplegable del CRON. Puro: lib/flujo-conversacion.ts no importa nada con `server-only`.
-import { kanbanDeValor, valorDeVarios, separarValor, MENU_MAS, esperaAntesDe } from './flujo-conversacion';
+import { kanbanDeValor, valorDeVarios, separarValor, MENU_MAS, esperaAntesDe, errorLegible } from './flujo-conversacion';
 // Undécima tanda: las filas del catálogo, los datos del «{ }», la tarjeta MaKo por partes, la forma de hoy y la galería.
 // Duodécima: el desplegable de condiciones por ámbito (`seccionesDeCondiciones`) y las opciones de una de lista.
 import {
@@ -3059,6 +3059,21 @@ export function falloDeIA(errores: readonly string[], hayIA: boolean): FalloIA {
   const texto = partes.length > 1 ? `${partes[0]} y ${partes[1]}` : partes[0];
   if (key) return { error: `${texto}. Cámbiala en Integraciones.`, link: `/integraciones?abrir=${key[0]}` };
   return { error: `${texto}. Prueba en un rato.` };
+}
+
+/**
+ * QUÉ QUEDÓ MAL, DICHO (punto 10 del feedback del 13/10/2026: «ante un fallo en la generación por IA de un flujo,
+ * devuelva una descripción técnica específica en lugar de un aviso genérico»). Hasta el 14/10 decía «MaKo armó el
+ * flujo pero quedó mal» y el detalle iba sólo al log, porque los errores de `validarGrafo` traen ids internos («tarjetas
+ * sueltas: m2»). Ahora va el primero (y cuántos más), con cada id cambiado por el nombre de su tarjeta (`errorLegible`,
+ * el mismo de Publicar). Pura.
+ */
+export function falloDeRevision(errores: readonly string[], pasos: readonly PasoGrafo[]): string {
+  const TOPE = 160;
+  const primero = errorLegible(String(errores[0] ?? '').trim(), pasos).replace(/\s+/g, ' ');
+  const corto = primero.length > TOPE ? `${primero.slice(0, TOPE - 1).trimEnd()}…` : primero;
+  const mas = errores.length > 1 ? ` (y ${errores.length - 1} más)` : '';
+  return `MaKo armó el flujo pero quedó mal: ${corto}${mas}. Prueba de nuevo o cambia una palabra del pedido.`;
 }
 
 // ── El stream de la ruta (lo lee app/automations/stream-ia.ts) ──────────────────────
