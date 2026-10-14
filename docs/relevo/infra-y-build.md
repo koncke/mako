@@ -2,7 +2,8 @@
 
 **Área:** cómo se compila, qué frena un push, cuántos tests hay y cómo se corren, y las
 trampas de que haya varias sesiones de Claude sobre el MISMO clon.
-**Ventana:** 05/10/2026 12:33 (`6785dc16`) → 10/10/2026 19:07 (`bf40ad44`).
+**Ventana:** 05/10/2026 12:33 (`6785dc16`) → 10/10/2026 19:07 (`bf40ad44`), más la del
+**13-14/10** que se cuenta abajo (`cec40332` → `935ee3cc`).
 **Rutas:** `scripts/`, `tests/`, `next.config.ts`, `package.json`, `.gitattributes`,
 `.claude/`, `AGENTS.md`.
 
@@ -13,6 +14,82 @@ en la máquina de Martín. Si eso no corre, nada corre.
 
 Commits de la ventana que caen en estas rutas: `tests/` 437, `AGENTS.md` 67, `scripts/` 20,
 `package.json` 3, `next.config.ts` 1, `.gitattributes` 1, `.claude/` 1.
+
+---
+
+## 0. ÚLTIMA VENTANA (13-14/10/2026): el typecheck «salía con 1 sin errores» y nadie podía pushear
+
+Si entrás a esta área, esto es lo que pasó anoche y lo que quedó. El detalle medido está en
+`docs/hallazgos-infra.md` → «El typecheck que "salía con 1 sin errores"» y «El desenlace».
+
+**El síntoma:** `tsc --noEmit` salía con **código 1 sin imprimir una sola línea**, y el
+pre-push lo reportaba como «hay errores de tipos». Ningún push de la máquina pasaba: llegó a
+haber 49 commits esperando, de 6 chats.
+
+**La causa, y es de la máquina, no del repo:** el vigía de RAM
+(`~/.claude/guardia/vigia.ps1`) mata el node pesado más grande cuando quedan menos de 0,9 GB
+disponibles, y lo hace con `taskkill /F`, que **en Windows deja código 1 y cero salida**. Se
+midieron **46 typechecks matados en un día** con 21 sesiones abiertas.
+
+⚠️ **Y el fallo mudo era el que mantenía el problema vivo.** Cada sesión bloqueada corría
+`tsc` A MANO para diagnosticar —lo razonable cuando el mensaje no dice nada—, fuera del
+lock, y eso pedía otros 2-3 GB y hacía matar al del vecino. **Cinco chats distintos llegaron
+al mismo diagnóstico en paralelo**, cada uno pagando su propio tsc. Si ves el mensaje nuevo,
+no investigues: esperá o cerrá chats.
+
+**Qué cambió en el código (todo en `scripts/typecheck-lock.mjs`, con 10 guards en
+`tests/typecheck-lock.test.ts` probados rompiendo cada afirmación):**
+
+| | |
+|---|---|
+| El fallo mudo se nombra | Se cuentan los bytes que escribió tsc. Un exit ≠ 0 con CERO salida no es un error de tipos (un tsc que falla siempre imprime): busca en `guardia.log` la línea `MATO pid <su hijo>` y la imprime |
+| Código de salida propio | **99 = «no pude chequear»**, distinto de «hay errores». El hook lo mira y dice «cerrá chats», no «corregí los tipos». Cualquier ≠ 0 sigue bloqueando |
+| Heap acotado | `--max-old-space-size=4096`. Subió de 2048 → 3072 → 4096 **con medición cada vez**: el programa está justo en 3 GB (4.278 archivos, 57 MB de TypeScript) y crece |
+| Sin RAM, frena | Espera hasta 15 min y **no arranca** hacia un kill. Antes corría igual y quemaba 2 GB que les faltaban a los demás. Salida de emergencia escrita: `MAKO_TYPECHECK_SIN_ESPERA=1` |
+| El piso es condicional | `heap + overhead + zona roja del vigía + margen`: **5,3 GB con el vigía vivo, 4,4 sin él**. El lock pregunta (`vigiaVivo()`) y ante la duda asume que está |
+
+**Tres cosas que si no sabés te hacen perder la noche:**
+
+1. **NUNCA le subas el `--max-old-space-size` a mano.** V8 toma todo lo que le des, así que
+   subirlo convierte al tsc en el proceso más grande de la máquina — justo al que el vigía
+   elige. Dos sesiones lo propusieron (4096, 8192) como arreglo y es lo contrario.
+2. **OOM y kill se distinguen sin ambigüedad.** Un OOM de node **imprime** «Reached heap
+   limit» y sale por abort; un `taskkill /F` sale con 1 y **cero bytes**. Si la salida está
+   vacía, no fue memoria del proceso: fue memoria de la máquina.
+3. **El vigía se muere, y nadie se entera.** Murió a las 23:03Z de la propia crisis (259 MB
+   libres) y estuvo **6 horas** caído: su tarea tiene un único disparador, `AtLogon`. Eso
+   partió la noche en dos —antes de las 23:03 los typechecks morían matados, después de OOM
+   real— y es lo que hizo que dos diagnósticos correctos parecieran chocar.
+
+**Y UN ERROR MÍO QUE CONVIENE NO REPETIR:** afirmé «no hay errores de tipos» apoyado en un
+`tsc` que salió en 0 a las 18:40. Era cierto **sobre `origin/main` a esa hora** y falso
+sobre lo que se acumulaba: el push final encontró **5 errores reales** (`e4c8a6d7`). Un
+verde tiene FECHA y SUJETO: al citar un typecheck, decí sobre qué commit corrió. Y el costo
+de fondo es ese — mientras el guard estuvo roto, todos siguieron commiteando a ciegas y la
+deuda apareció junta al final.
+
+### Lo que quedó SIN hacer, y es decisión de Martín
+
+1. **NO HAY CI, y es la causa raíz.** No existe `.github/workflows` ni husky: el typecheck
+   no tiene dónde correr que no sea la notebook de 16 GB compartida por ~20 sesiones. Un
+   workflow de GitHub Actions lo saca de ahí para siempre — runner Linux 2-core a
+   **US$0,006/min** con **7 GB de RAM** (entra el heap de 4 GB que no entra en la máquina),
+   2.000 min/mes incluidos en repo privado Free y 3.000 en Team; con el volumen de hoy son
+   **~US$6/mes o gratis**. Se lo propuse el 14/10 y no contestó. **Es lo que más ahorra.**
+2. **Que alguien levante al vigía.** Hoy, si muere, hay que reiniciarlo a mano
+   (`Start-ScheduledTask -TaskName mako-vigia-ram`) y nadie se enteró en 6 horas.
+3. **Que el vigía no mate el `tsc` del pre-push** (que prefiera los que corren FUERA del
+   lock). Hoy matar ése garantiza que nadie pueda pushear y la sesión reintenta, así que el
+   ciclo no converge. Lo pidieron dos chats; es config de la máquina de Martín y por eso no
+   se tocó.
+
+⚠️ Y una trampa de proceso que pagué: **commitear por ruta explícita NO alcanza, lo que se
+mira es el HUNK.** `AGENTS.md` tenía 3 hunks y me llevé 2 ajenos en `8e7c6fc2` (uno
+documentaba un arreglo del `<Modal>` cuyo código todavía no estaba commiteado). Al ir a
+revertirlo **HEAD ya no era mío**, así que un `reset --soft HEAD~1` le pisaba el commit a
+otra sesión: el guard de «nunca `--amend` sin mirar que HEAD siga siendo tuyo» lo frenó. Se
+resolvió avisando al dueño, que commiteó su código (`f729063e`). **Contá los hunks ANTES de
+commitear, no en el mismo comando.**
 
 ---
 
