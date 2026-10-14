@@ -60,6 +60,7 @@ import { ACCIONES_ELEMENTO, accionElementoDisponible, type RespuestaDetalle } fr
 import { puedeConectar } from '@/lib/graficos-conectores';
 import { textoCron } from '@/lib/cron-aviso';
 import { esFechaValida } from '@/lib/date-utils';
+import { esPiezaGeneral, piezaGeneral } from '@/lib/general-piezas';
 import { insertableDe, videoDe } from '@/lib/embeds';
 import type { Formato } from '@/lib/graficos-constructores';
 import type { SalidaCaja, VistaCaja } from '@/lib/graficos-ia-elemento';
@@ -176,7 +177,9 @@ export function nombreDeComponente(c: Componente): string {
   if (esElemento(c)) {
     // Un botón se llama por su rótulo (v5): su `texto` puede venir vacío.
     const t = (c.tipo === 'accion' && c.accion?.rotulo ? c.accion.rotulo : c.texto).replace(/\s+/g, ' ').trim();
-    const tipo = TIPOS_ELEMENTO.find((x) => x.id === c.tipo)?.nombre ?? c.tipo;
+    // Un bloque de General (14/10/2026) se llama por el bloque que es, y por su título si se lo cambiaron.
+    const pieza = c.tipo === 'general' ? c.general?.pieza : undefined;
+    const tipo = esPiezaGeneral(pieza) ? piezaGeneral(pieza).nombre : TIPOS_ELEMENTO.find((x) => x.id === c.tipo)?.nombre ?? c.tipo;
     return t ? `${tipo}: ${t.slice(0, 60)}` : tipo;
   }
   return tituloDe(c);
@@ -598,8 +601,11 @@ export function urlParaCanal(url: string | undefined, http: boolean): string {
   return esGrabacionDeLlamada(url) ? 'una grabación de llamada (no sale por la API)' : url;
 }
 
-/** Los tipos de elemento que la API sabe insertar: todos menos la FICHA, que vive sólo adentro de un pop-up. */
-export const ELEMENTOS_DE_LA_API = TIPOS_ELEMENTO.filter((x) => x.id !== 'entidad').map((x) => x.id);
+/**
+ * Los tipos de elemento que la API sabe insertar: todos menos la FICHA, que vive sólo adentro de un pop-up, y el bloque
+ * de General (14/10/2026), que se dibuja sólo en la tab General y se pone con agregar_bloque_general.
+ */
+export const ELEMENTOS_DE_LA_API = TIPOS_ELEMENTO.filter((x) => x.id !== 'entidad' && x.id !== 'general').map((x) => x.id);
 /** Lo que muestra una caja «Conclusiones de MaKo», cuánto escribe y cómo (los de `ConfigIA`). */
 export const MUESTRAS_IA: readonly ConfigIA['vista'][] = ['resumen', 'hallazgos', 'recomendaciones', 'texto'];
 export const LARGOS_IA: readonly ConfigIA['largo'][] = ['corto', 'medio', 'largo'];
@@ -627,6 +633,7 @@ export function armarElemento(e: EntradaElemento, y: number, hoja?: Hoja): { ok:
   const info = TIPOS_ELEMENTO.find((x) => x.id === e.tipo);
   if (!info) return { ok: false, error: `El tipo de elemento ${comillas(e.tipo)} no existe.`, disponibles: ELEMENTOS_DE_LA_API };
   if (info.id === 'entidad') return { ok: false, error: 'Una ficha va sólo adentro del pop-up de un gráfico, y los pop-ups se arman en la pantalla.', disponibles: ELEMENTOS_DE_LA_API };
+  if (info.id === 'general') return { ok: false, error: 'Un bloque de General va sólo en la tab General: se pone con agregar_bloque_general.', disponibles: ELEMENTOS_DE_LA_API };
   const especial: Pick<Elemento, 'seccion' | 'ia' | 'accion'> = {};
   if (info.id === 'seccion') {
     if (e.fondo !== undefined && !(Number.isInteger(e.fondo) && e.fondo >= 0 && e.fondo < 8)) return { ok: false, error: 'El fondo de una sección es un color de la paleta, de 0 a 7.' };
@@ -1002,6 +1009,7 @@ export function catalogoJson(p: { conjunto?: string; seccion?: SeccionCatalogo }
     elementos: TIPOS_ELEMENTO.map((x) => ({
       id: x.id, nombre: x.nombre,
       ...(x.id === 'entidad' ? { solo_en_popup: true } : {}),
+      ...(x.id === 'general' ? { solo_en_general: true } : {}),
       ...(x.id === 'accion' ? { acciones: ACCIONES_DE_HOJA.map((id) => ({ id, nombre: ACCIONES_ELEMENTO.find((a) => a.id === id)!.titulo })) } : {}),
     })),
     periodos: PRESETS.map((x) => ({ id: x.id, nombre: x.nombre })),

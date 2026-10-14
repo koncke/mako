@@ -38,6 +38,7 @@ import {
 } from './graficos-catalogo';
 import { ARMADO, PLANTILLAS_ANALYSTS, PLANTILLAS_POPUP, POPUP_ANUNCIO } from './graficos-plantillas-analysts';
 import { PLANTILLAS_GENERALES } from './graficos-plantillas-generales';
+import { PLANTILLAS_GENERAL } from './general-plantillas';
 import type { RolWorkspace } from './auth-session';
 import { CAPA_DE_HOJA_DE_ROL } from './graficos-roles';
 
@@ -190,7 +191,8 @@ const PLANTILLAS_REEMPLAZADAS: ReadonlyMap<string, string> = new Map([['whatsapp
 
 export const plantillaHojaDe = (id: string) => {
   const vigente = PLANTILLAS_REEMPLAZADAS.get(id) ?? id;
-  return PLANTILLAS_HOJA.find((p) => p.id === vigente);
+  // 14/10/2026: también las de la tab General (lib/general-plantillas.ts), que arma la MISMA ruta de plantillas.
+  return PLANTILLAS_HOJA.find((p) => p.id === vigente) ?? PLANTILLAS_GENERAL.find((p) => p.id === vigente);
 };
 
 /** Una hoja de la galería con ids NUEVOS (la hoja y cada componente y control): se puede agregar dos veces. */

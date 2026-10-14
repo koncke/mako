@@ -19,9 +19,8 @@
 
 import { requireRolWs } from '@/lib/tab-access';
 import { Pagina } from '@/app/_ui';
-import { Icon } from '../_components/icons';
 import { hoyEnWorkspace } from '@/lib/timezone';
-import { leerCalendario, zonaDelCalendario } from '@/lib/calendario';
+import { leerCalendario, zonaDelCalendario, type LecturaCalendario } from '@/lib/calendario';
 import { esVistaCalendario, rangoDeVista } from '@/lib/calendario-modelo';
 import { getEstadoTab, marcarPasoTab } from '@/lib/tab-onboarding-state';
 import { CalendarioApp } from './CalendarioApp';
@@ -37,26 +36,25 @@ export default async function CalendarioPage({ searchParams }: { searchParams: P
   const vista = esVistaCalendario(pedida) ? pedida : 'semana';
   const fecha = typeof sp?.fecha === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(sp.fecha) ? sp.fecha : hoy;
   const rango = rangoDeVista(vista, fecha);
+  // El Año no dibuja eventos (Google tampoco): no se lee nada.
   const [lectura, estado] = await Promise.all([
-    leerCalendario(rango.desde, rango.hasta, tz),
+    vista === 'anio' ? Promise.resolve<LecturaCalendario>({ items: [], fallos: {}, google: null }) : leerCalendario(rango.desde, rango.hasta, tz),
     getEstadoTab('calendario').catch(() => null),
   ]);
 
   // «Tu agenda de Google»: la prueba de vida es haberla LEÍDO (no que haya una credencial guardada).
-  if (estado && !estado.steps.cal_agenda?.done && lectura.fallos.google == null) {
+  // (`lectura.google` sólo existe si Google contestó: el Año no lee nada y no puede cerrar este paso.)
+  if (estado && !estado.steps.cal_agenda?.done && lectura.google != null) {
     await marcarPasoTab('calendario', 'cal_agenda').catch(() => null);
   }
   const pendiente = !!estado && !estado.steps.cal_semana?.done;
 
+  // La copia de Google Calendar ocupa la pantalla entera y scrollea POR DENTRO (la grilla de horas, el mes): `flex: 'none'`
+  // + el alto + `overflow: hidden`, LOS TRES, como el Dashboard (Pagina trae `flex: 1`, que anula el alto; AGENTS.md).
   return (
-    <Pagina ancho="completo">
-      <header style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 22 }}>
-        <h1 style={{ display: 'flex', alignItems: 'center', gap: 12, fontWeight: 600, fontSize: 40, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>
-          <span style={{ display: 'inline-flex', color: 'var(--accent)' }}><Icon name="calendario" size={30} /></span>
-          Calendario
-        </h1>
-      </header>
-      <CalendarioApp vista={vista} fecha={fecha} hoy={hoy} tz={tz} dias={rango.dias} items={lectura.items} fallos={lectura.fallos} pendienteOnboarding={pendiente} />
+    <Pagina ancho="completo" densidad="compacta" style={{ padding: 0, flex: 'none', height: '100dvh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      <CalendarioApp vista={vista} fecha={fecha} hoy={hoy} tz={tz} dias={rango.dias} items={lectura.items} fallos={lectura.fallos}
+        google={lectura.google} pendienteOnboarding={pendiente} />
     </Pagina>
   );
 }

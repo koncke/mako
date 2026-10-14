@@ -142,9 +142,6 @@ export const CATALOGO_MODELOS: FeatureModelo[] = [
   { feature: 'experimentos', label: 'Experimentos / Retro del negocio', grupo: 'Análisis', def: GEMINI(), recomendado: GEMINI(), nota: 'El análisis más pesado del producto. Bajó a Gemini con el veto: sin corridas desde el 5/7. Si vuelve a hacer falta Opus, va con fila y fecha en lib/veto-claude.ts.' },
   // El Dashboard (11/10/2026): las dos van GRATIS y sin fallback pago. Lo que sale se VE (una hoja que
   // se puede deshacer, un análisis que se puede volver a pedir) y pasa por un saneo determinista.
-  // /general (13/10/2026): «¿Qué vas a crear hoy?» en Nueva vista. Gratis y sin fallback pago: elige bloques de un
-  // catálogo de ocho y lo revalida `deIAVista` (lib/general-vistas-modelo.ts). Lo que sale se ve y se edita.
-  { feature: 'general-vista-ia', label: 'Armar una vista de General con IA', grupo: 'Análisis', def: GEMINI(), recomendado: GEMINI(), pii: false, nota: '«¿Qué vas a crear hoy?» en Nueva vista de General: elige bloques del catálogo y los funnels u ofertas que nombra la persona. Los ids los revalida el código (lib/general-vistas-modelo.ts).' },
   // El Calendario (13/10/2026): «¿Qué vas a crear hoy?» propone eventos de la semana. Gratis y sin fallback pago.
   // ⚠️ El modelo ve el pedido y las fechas de la semana, NUNCA la agenda (la agenda no pasa por IA).
   { feature: 'calendario-ia', label: 'Proponer eventos del Calendario con IA', grupo: 'Análisis', def: GEMINI(), recomendado: GEMINI(), pii: false, nota: '«¿Qué vas a crear hoy?» del Calendario: propone publicaciones, bloques y llamadas para la semana. No ve la agenda; la persona confirma antes de que se agende (lib/calendario-ia.ts).' },

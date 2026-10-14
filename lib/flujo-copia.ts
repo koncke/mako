@@ -118,6 +118,12 @@ function conDestinos(p: PasoCopiado, f: (id: string) => string | null): PasoCopi
   if ('si_no' in p) out.si_no = uno(p.si_no) as string | null;
   if (Array.isArray(p.paralelos)) out.paralelos = lista(p.paralelos) as string[];
   if (Array.isArray(p.paralelos_si_no)) out.paralelos_si_no = lista(p.paralelos_si_no) as string[];
+  // SI CONTESTA (14/10/2026): las claves de los caminos en paralelo son ids de tarjetas (la del principal, 'p', no).
+  if (p.si_contesta && typeof p.si_contesta === 'object' && !Array.isArray(p.si_contesta)) {
+    const sc: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(p.si_contesta as Record<string, unknown>)) { const d = k === 'p' ? k : f(k); if (d) sc[d] = v; }
+    out.si_contesta = sc as PasoCopiado['si_contesta'];
+  }
   if (Array.isArray(p.ramas)) out.ramas = p.ramas.map((r) => ({ ...r, siguiente: uno(r.siguiente) as string | null, ...(Array.isArray(r.paralelos) ? { paralelos: lista(r.paralelos) as string[] } : {}) }));
   if (Array.isArray(p.casos)) out.casos = p.casos.map((c) => ({ ...c, siguiente: uno(c.siguiente) as string | null }));
   if (p.destino && typeof p.destino === 'object' && 'nodo' in p.destino) {

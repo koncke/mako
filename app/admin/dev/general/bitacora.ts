@@ -360,4 +360,56 @@ export const BITACORA: Hito[] = [
     ],
     archivos: ['app/general/page.tsx', 'app/general/Cobranza.tsx', 'tests/general-cobranza.test.ts', 'docs/hallazgos-objectives.md'],
   },
+  {
+    fecha: '14 oct', hora: '02:41', chat: 'General', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'General personalizable de verdad: el editor del Dashboard, con plantillas',
+    pedido: 'La personalización que hiciste en GENERAL es nula...\nMirá que tienes de donde inspirarte, pero no lo hiciste...\n\nTenemos un constructor de landing y gráficos para poder personalizar la tab general... Te pido por favor que lo hagas bien. Que todo sea personalizable, intenta replicar lo que tenemos en dashboard, solo que claro, aquí no hace falta tantos gráficos y tiene otro objetivo la tab... Teniendo eso en cuenta, también crea templates...\nMe imagino una que diga "Bienvenido NOMBRE..."\nLos bloques también deberían ser editables.',
+    puntos: [
+      'Con una captura del modal «Nueva hoja» del Dashboard. Las «vistas» del 13/10 (elegir bloques fijos de una lista) eran lo que se rechazaba.',
+    ],
+  },
+  {
+    fecha: '14 oct', hora: '03:19', chat: 'General', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Todos los bloques que alguien querría ver, con los distintos funnels',
+    pedido: 'Piensa en todos los bloques que un usuario, con los diferentes funnels que tenemos y en general, todo lo que un usuario podría llegar a querer ver en una tab general, para hacer el editable',
+    puntos: [
+      'Lo contestó la tanda de las 04:13: los doce bloques de General como elementos del editor, y una plantilla por tipo de funnel.',
+    ],
+  },
+  {
+    fecha: '14 oct', hora: '04:13', chat: 'General', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'General es el editor del Dashboard, con su informe, sus bloques y sus plantillas',
+    puntos: [
+      'Hojas, «Nueva hoja» con «¿Qué vas a crear hoy?», mover, agrandar, estilos, filtros y todo el catálogo de gráficos: el mismo editor que el Dashboard, con un informe aparte por persona. Quien nunca armó el suyo ve la General de siempre.',
+      'Doce bloques de General como un elemento más (el objetivo y la acción del día, objetivos, KPIs, semáforo, mi día, próximas llamadas, prioridades del Plan, pendientes del CRM, tu funnel hoy, a quién cobrarle, el mes, próximas publicaciones): se mueven, se duplican y se les cambia el título. «Tu funnel hoy» y «A quién cobrarle» se atan a un funnel desde su panel.',
+      'Plantillas: la General de siempre, Bienvenida («{{saludo}}, {{nombre}}»: los textos entienden variables), Operación diaria, Foco, una por tipo de funnel (llamadas, WhatsApp, lanzamiento, servicio, curso) y Ventas.',
+      'API de MaKo: listar, crear hoja y agregar bloque (con funnel). Las vistas, su IA y su ruta se retiraron.',
+    ],
+    commits: [{ sha: '56efcbaa', msg: 'General: el editor del Dashboard con su propio informe, bloques y plantillas', lineas: 4169, archivos: 42 }],
+    archivos: [
+      'app/general/page.tsx', 'app/general/piezas.tsx', 'app/dashboard/ElementoGeneral.tsx', 'app/dashboard/EditorInforme.tsx',
+      'app/dashboard/Elemento.tsx', 'lib/general-piezas.ts', 'lib/general-plantillas.ts', 'lib/general-alcance.ts',
+      'lib/graficos-tablero.ts', 'lib/graficos-catalogo.ts', 'lib/api-mako/areas/general.run.ts', 'tests/general-editor.test.ts',
+    ],
+  },
+  {
+    fecha: '14 oct', hora: '04:47', chat: 'General', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'La barra del Dashboard sin búsqueda ni filtro, y una plantilla para quien empieza',
+    pedido: "Toda la topbar la deberías copiar de Dashboard menos la barra de busqueda y el filtro que no sirven en general...\nY lo mismo que en Dashboard, para un usuario nuevo, deberías proponerle un template. \n\nLo único es que en lugar del botón de \"nuevo dashboard\" te pido que pongas ahí el \"¿Qué vas a crear hoy?\"... Te pido que le digas esto mismo a dashboard.\n\nY los templates, la preview debería ser como los de landing generator, porque justamente se deberáin ver como una pagina... Lo mismo te pido que le digas a dashboard.\n\ny el botón de EDITAR no debería saltarme ningún modal como el que salta hoy en día, debería, al igual que dashboard, habilitar el menú de edición de la página y poder comenzar a editarla...\n\n— Y al rato: Hazlo bien, mira como está construido el dashboard...",
+    puntos: ["Con dos capturas: la barra del Dashboard y el modal «Personalizar vista» de las vistas (de antes del deploy de 46958506)."],
+  },
+  {
+    fecha: '14 oct', hora: '05:06', chat: 'General', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'General arranca en blanco con sus plantillas, y su barra es la del Dashboard',
+    puntos: [
+      "Quien nunca armó su General ve «¿Qué vas a crear hoy?» con las plantillas de General como páginas, igual que el Dashboard.",
+      "La barra es la del Dashboard sin la búsqueda ni el filtro: el título, Editar y el ⋮. Editar habilita la edición en el lugar, sin modal.",
+      "La API de MaKo y el análisis programado ven lo mismo que la pantalla: sin hojas hasta que se crea la primera.",
+    ],
+    commits: [{ sha: 'a98ab025', msg: 'Dashboard y General: la pantalla en blanco es «¿Qué vas a crear hoy?», y las plantillas se ven como páginas', lineas: 573, archivos: 9 }],
+    archivos: ['app/general/page.tsx', 'app/dashboard/EditorInforme.tsx', 'lib/api-mako/areas/general.run.ts', 'lib/graficos-analisis-server.ts'],
+  },
 ];

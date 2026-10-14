@@ -6,8 +6,8 @@
 //   · PROPIOS   — `calendario_eventos` (mig 0271): lo que se agenda en el Calendario.
 //   · CRM       — las reuniones de los leads: `junta_1_at` / `junta_2_at` (el ISO con hora que deja Calendly o
 //                 Cal.com); sin hora, `fecha_junta_1` / `fecha_junta_2` como día completo. Lleva a la ficha.
-//   · GOOGLE    — la agenda conectada (`eventosEntre`, lib/google-calendar.ts), sin las que ya son una reunión del
-//                 CRM (`sinDuplicarLlamadas`). ⚠️ No viaja a ningún modelo: sólo se dibuja.
+//   · GOOGLE    — TODOS los calendarios de la cuenta conectada (lib/calendario-google.ts, 14/10/2026). Las que ya son una reunión del
+//                 CRM las saca la pantalla (`sinDuplicarLlamadas`). ⚠️ No viaja a ningún modelo: sólo se dibuja.
 //   · PLAN      — los deadlines de las tareas abiertas y de los proyectos (`tableroDelPlan`, lib/plan-hoy.ts: la
 //                 misma lectura del tablero que el teléfono). Sin las recurrentes: no tienen deadline.
 //   · OBJETIVOS — el inicio y el fin de cada Quarter del rango, y los objetivos que cierran con él.
@@ -21,12 +21,14 @@ import { getTenantDb, getWorkspaceActual } from './workspace';
 import { tzDeWorkspace, TZ_DEFAULT } from './timezone';
 import { leerTodo } from './supabase-paginado';
 import { instanteDe } from './cron-aviso';
-import { eventosEntre, googleCalendarConectado } from './google-calendar';
+import { googleCalendarConectado, googleCalendarDueno } from './google-calendar';
+import { leerAgendaGoogle } from './calendario-google';
+import type { CalendarioGoogle } from './calendario-google-modelo';
 import { tableroDelPlan } from './plan-hoy';
 import { listObjectives } from './objectives';
 import { esRecurrente } from './plan-recurrentes';
 import {
-  itemDeFila, filaDeEntrada, sinDuplicarLlamadas, quartersDelRango, MAX_LOTE, esTipoEvento, esFormato, TOPE_TITULO, TOPE_NOTAS,
+  itemDeFila, filaDeEntrada, quartersDelRango, MAX_LOTE, esTipoEvento, esFormato, TOPE_TITULO, TOPE_NOTAS,
   type ItemCalendario, type FilaEvento, type EntradaEvento,
 } from './calendario-modelo';
 
@@ -39,7 +41,10 @@ export type FallosCalendario = {
   objetivos?: boolean;
 };
 
-export type LecturaCalendario = { items: ItemCalendario[]; fallos: FallosCalendario };
+/** La cuenta de Google conectada: sus calendarios (la barra lateral), si se puede escribir y lo que no se pudo leer. */
+export type GoogleDelCalendario = { calendarios: CalendarioGoogle[]; puedeEscribir: boolean; fallaron: string[]; recortado: boolean; cuenta: string | null };
+
+export type LecturaCalendario = { items: ItemCalendario[]; fallos: FallosCalendario; google: GoogleDelCalendario | null };
 
 const COLS = 'id, tipo, formato, titulo, notas, inicio, fin, dia_completo, estado';
 
@@ -53,14 +58,17 @@ export async function leerCalendario(desde: string, hasta: string, tz: string): 
   const desdeIso = inicioDelDia(desde, tz);
   const hastaIso = inicioDelDia(hasta, tz);
   const fallos: FallosCalendario = {};
+  const meta: { google: GoogleDelCalendario | null } = { google: null };
   const [propios, crm, google, plan, objetivos] = await Promise.all([
     leerPropios(desdeIso, hastaIso).catch((e) => { console.error('[calendario] propios:', msg(e)); fallos.propios = true; return [] as ItemCalendario[]; }),
     leerCrm(desde, hasta, desdeIso, hastaIso, tz).catch((e) => { console.error('[calendario] crm:', msg(e)); fallos.crm = true; return [] as ItemCalendario[]; }),
-    leerGoogle(desdeIso, hastaIso, tz, fallos),
+    leerGoogle(desdeIso, hastaIso, tz, fallos, meta),
     leerPlan(desde, hasta, tz).catch((e) => { console.error('[calendario] plan:', msg(e)); fallos.plan = true; return [] as ItemCalendario[]; }),
     leerObjetivos(desde, hasta, tz).catch((e) => { console.error('[calendario] objetivos:', msg(e)); fallos.objetivos = true; return [] as ItemCalendario[]; }),
   ]);
-  return { items: [...propios, ...crm, ...sinDuplicarLlamadas(crm, google), ...plan, ...objetivos], fallos };
+  // Los de Google van TODOS: si una reunión del CRM y su evento de Google son la misma, lo decide la pantalla según qué
+  // calendarios están prendidos (`sinDuplicarLlamadas`). Apagando las llamadas del CRM, el de Google tiene que verse.
+  return { items: [...propios, ...crm, ...google, ...plan, ...objetivos], fallos, google: meta.google };
 }
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
@@ -102,15 +110,20 @@ async function leerCrm(desde: string, hasta: string, desdeIso: string, hastaIso:
   return out;
 }
 
-async function leerGoogle(desdeIso: string, hastaIso: string, tz: string, fallos: FallosCalendario): Promise<ItemCalendario[]> {
+/**
+ * TODOS los calendarios de la cuenta de Google conectada y sus eventos (14/10/2026: la copia fiel de Google Calendar).
+ * Se leen todos, no sólo los tildados: prender uno en la barra lateral no tiene que esperar otra lectura. Arranca
+ * prendido lo que la persona tiene tildado en Google.
+ */
+async function leerGoogle(desdeIso: string, hastaIso: string, tz: string, fallos: FallosCalendario, meta: { google: GoogleDelCalendario | null }): Promise<ItemCalendario[]> {
   try {
     if (!(await googleCalendarConectado())) { fallos.google = 'sin-conexion'; return []; }
-    const r = await eventosEntre(desdeIso, hastaIso);
+    const r = await leerAgendaGoogle(desdeIso, hastaIso, tz, 'todos');
     if (!r.ok) { fallos.google = r.codigo === 'sin-conexion' ? 'sin-conexion' : 'error'; return []; }
+    meta.google = { calendarios: r.calendarios, puedeEscribir: r.puedeEscribir, fallaron: r.fallaron, recortado: r.recortado, cuenta: await googleCalendarDueno().catch(() => null) };
     return r.eventos.map((e) => ({
-      id: `google:${e.id}`, fuente: 'google' as const, capa: 'llamadas' as const, titulo: e.titulo,
-      inicio: e.inicioIso ?? (e.fecha ? inicioDelDia(e.fecha, tz) : desdeIso),
-      fin: e.finIso, diaCompleto: e.diaCompleto, href: null, detalle: 'Google Calendar',
+      id: `google:${e.calendarioId}:${e.id}`, fuente: 'google' as const, capa: 'llamadas' as const, titulo: e.titulo,
+      inicio: e.inicio, fin: e.fin, diaCompleto: e.diaCompleto, href: e.enlace, detalle: null, google: e,
     }));
   } catch (e) {
     console.error('[calendario] google:', msg(e));

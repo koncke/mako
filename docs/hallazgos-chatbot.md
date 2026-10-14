@@ -4268,27 +4268,33 @@ el vigía de RAM (`~/.claude/guardia/vigia.ps1`) los mata con poca memoria libre
 un error de tipos. Los tests se corrieron en tandas de 10-12 archivos (1153 del área en verde). El typecheck queda para antes
 del push, cuando «Fallas en la PC» lo destrabe.
 
-### «No salió el mensaje»: una fecha SIN hora contaba como pasada desde el mediodía [motor · bug 5 del 13/10]
+### «No salió el mensaje»: el lead CONTESTÓ un mensaje a mano y eso frenó el flujo [motor · bug 5 del 13/10, corregido el 14/10]
 
-Síntoma: en la reunión del 13/10 Mauricio probó «Un Lead Agendó Llamada» (#213, ws1) con un lead cargado a mano y no le
-llegó nada. El lead ya no estaba: Mauricio lo borró después, y con él se fueron (en cascada) su inscripción y sus filas de
-`nutricion_envios`, incluida la del cierre «la reunión ya pasó». **Lo que sobrevivió fue `lead_audit`, que no tiene FK al
-lead:** el 2660 pasó a «agenda» con la R1 «2026-10-12» SIN hora el 13/10 a las 01:57 UTC (19:57 del 12/10 en México),
-volvió a «lead» y MaKo lo puso otra vez en «agenda» a las 02:05.
-Causa: el motor lee una fecha sola como el mediodía de México (`parseFechaJunta`) y, antes de mandar un paso de un flujo que
-prepara una reunión, cierra la inscripción si «la reunión ya pasó». A las 20:05 el mediodía ya había pasado. El reuso de la
-segunda vuelta tampoco arrancó (`reunionQuePreparaMs` = null por la misma regla). Le pasa a cualquier lead agendado para
-HOY después de las 12 sin que llegue la hora (alta a mano). Por Calendly no, porque trae la hora.
-El diagnóstico obvio era el flujo de Mauricio (las tarjetas que borró en la llamada); la reproducción del motor puro sobre
-el #241 andaba bien porque usaba un lead CON hora.
-**Regla:** el mediodía es una hora inventada para anclar un «N antes», no la hora en que una reunión pasa a ser pasado.
-Una fecha sola vale hasta que termina su día (`finDeLaReunionMs`, `reunionEnPie`). Un paso ANCLADO sigue necesitando una
-hora (`laReunionYaPaso(…, { anclada })`). Test: tests/reunion-fecha-sola-del-dia.test.ts, probado rompiéndolo.
+Síntoma: en la reunión del 13/10 Mauricio probó «Un Lead Agendó Llamada» (#213, ws1) con un lead de prueba (Marco
+Bustos, 2660) y el audio de los 5 minutos no salió. El lead se borró después y con él (en cascada) su inscripción y sus
+`nutricion_envios`. **Lo que sobrevive a un borrado:** `lead_audit` (sin FK), `notificaciones` (los avisos al equipo, con el
+texto entero) y `wa_mensajes` de OTROS números. La cronología, reconstruida con eso (UTC):
+- 01:57:24 pasado a mano a «agenda» con la R1 «2026-10-12» sin hora (el asistente de mover de etapa sólo pide la fecha).
+- 02:02:44 de vuelta a «lead» a mano. 02:05:09 reservó por Calendly: R1 el 13/10 a las 23:00, CON hora.
+- 02:05:16 `notificaciones` «chatbot-aviso-equipo» «Nuevo agendado: Marco Bustos»: es la tarjeta de MaKo de la #213. **El
+  flujo SÍ reinició con la reserva** (reuso `nada_le_llego`, `nutricion-reinscripcion.ts`).
+- 02:06:22 Mauricio le escribe A MANO desde su línea: «Marco te llegó un mensaje con un código?». 02:08:16 Marco contesta.
+- 02:08:18 aviso «Marco Bustos te escribió… la automatización todavía no le había mandado nada». El audio vencía ~02:10 y
+  no hay ningún mensaje automático a su número (…686 140 5022) entre 01:50 y 04:00.
+**Causa:** `pausarPorRespuesta` (lib/nutricion.ts): CUALQUIER mensaje entrante del lead pasa todas sus inscripciones
+activas a 'respondio' y les saca el próximo envío; sólo sobreviven los hilos del carril del recordatorio. Contestarle a
+Mauricio un código frenó la bienvenida. Es una regla que no está en ninguna tarjeta del lienzo.
+**El diagnóstico obvio era el equivocado, DOS veces:** primero «las tarjetas que borró en la llamada»; después (mío, 13/10)
+«una fecha sin hora cuenta como pasada desde el mediodía». Lo segundo es real (y quedó arreglado en `329d1443`), pero sólo
+explica la PRIMERA vuelta (01:57); la que importaba era la de Calendly. Lo que lo destrabó fue Martín recordando que
+habían reservado por Calendly, y los avisos de `notificaciones`, que nadie miraba para diagnosticar.
+**Trampas:** el cambio de etapa de una reserva se firma «MaKo» (`AUTOR_SISTEMA`) y no «Calendly» — se leyó como «MaKo lo
+movió». El teléfono de `evolution_contactos` (…686 280 5657) NO era el del lead: el del lead sale del aviso al equipo.
+**Regla (Martín, 14/10):** MaKo no decide nada que no esté en el flujo (memoria `mako-nada-por-detras`). La pausa por
+respuesta, «la reunión ya pasó» y las demás reglas escondidas pasan a condiciones u opciones visibles: inventario y plan
+en docs/diseno-mako-nada-por-detras.md.
 
-**Vive en:** `lib/nutricion-reinscripcion.ts` · `lib/nutricion.ts` (`procesarEnvios`, `inscribirEnSecuencia`)
-
-**Sin hacer:** borrar un lead es un hard delete (`deleteLead`, lib/leads.ts) y no deja quién ni qué. Martín lo pidió
-como registro de TODAS las acciones de un usuario para SuperAdmin (memoria `registro-acciones-superadmin`).
+**Vive en:** `lib/nutricion.ts` (`pausarPorRespuesta`, `procesarEnvios`) · `lib/nutricion-reinscripcion.ts` · `lib/leads.ts` (la reserva)
 
 ### Un Evento de MaKo que se ofrece sin emisor deja main en rojo, aunque el emisor «sea de otro chat» [avisos · 14/10]
 
@@ -4302,3 +4308,43 @@ evento entra con su emisor en el MISMO commit, aunque el emisor viva en el códi
 en lib/graficos-analisis-server.ts). Un link de ejemplo nombra una hoja real (`?hoja=marketing`).
 
 **Vive en:** `lib/avisos-catalogo.ts` · `lib/variables-aviso.ts` · `lib/graficos-analisis-server.ts`
+
+### «Si el lead contesta: sigue / se corta», por camino del CRON [motor · bug 5, 14/10]
+
+Lo que causó el bug 5 (`pausarPorRespuesta`: una respuesta frenaba todo salvo el carril) pasó a una opción de cada camino
+del CRON, con «sigue» de fábrica (decisión de Martín). Vive en la tarjeta CRON (`si_contesta`, la clave es la del hilo del
+motor: `p` o la primera tarjeta de la flecha en paralelo) y la leen con la MISMA función (`sigueSiContesta`) el motor y
+«Probar». Commit `c0c46bad`. Trampas que costaron:
+- **La quinta puerta, otra vez:** `camposDelFlujo` reconstruye cada paso campo por campo; sin su línea, el primer guardado
+  borraba la opción. También la copia de flujo (`conDestinos`, las claves son ids que se remapean al pegar).
+- **La opción es de la FLECHA, no de la tarjeta:** el ＋ del medio de una flecha del CRON cambia su primera tarjeta, así
+  que la opción se muda en `conectarParalelo`. Guardarla en la primera tarjeta se perdía en la primera inserción.
+- **Sin tarjeta CRON en el dato** (una sola flecha), elegir la opción la crea, como la primera flecha en paralelo.
+- **«Probar» va de a un evento:** lo que sigue espera a que termine la respuesta (`salidaQueSigue`); el motor lo corre a la vez.
+- **Migración:** scripts/migrar-si-contesta.ts (las existentes con lo de hoy, la bienvenida de «Un Lead Agendó Llamada» a
+  «sigue»). Va ANTES del deploy: el código de antes ignora la clave.
+- Lo que NO hace: una inscripción que ya estaba en 'respondio' no se reanuda.
+
+**Vive en:** `lib/flujo-grafo.ts` · `lib/nutricion-grafo-motor.ts` · `lib/nutricion.ts` · `lib/simulador-grafo.ts` · `app/automations/SiContestaCaminos.tsx`
+
+### El AI Step no contesta por redes: una respuesta de Instagram o Messenger sólo PAUSA [motor · 14/10]
+
+Lo encontró la investigación de TikTok (docs/diseno-tiktok-linkedin.md, fase 0). `pausarPorRespuesta` con origen social
+(`soloPausa`) sólo marca 'respondio' y se va: no hay «chatbot» en ningún canal social, aunque el lienzo deje armar un flujo
+de Instagram. Es el prerrequisito de TikTok. Y una trampa para sumar un canal: los ternarios binarios de
+`lib/canal-social.ts` (`plataformaDe`, `problemaDeAdjunto`, `logoSocialSvg`…) tratarían a `'tiktok'` como Messenger SIN
+avisar; van a `Record<CanalSocial, …>` para que el compilador obligue.
+
+**Vive en:** `lib/nutricion.ts` (`pausarPorRespuesta`, `asistirRespuesta`) · `lib/canal-social.ts` · `app/automations/EditorPasoIA.tsx` (`MEDIOS_OFRECIDOS`)
+
+### Una flecha no se podía soltar sobre la PASTILLA de una espera [lienzo · bug 4 del 13/10, 14/10]
+
+«Las líneas de conexión desde el botón de sumar no se sueltan ni se guardan» (Mauricio, 13/10). Una espera con un solo
+padre y una salida se dibuja como pastilla sobre la flecha (`colapsable`), y `tarjetaBajo` sólo aceptaba `[data-nodo]`:
+soltar la flecha sobre la pastilla caía al vacío. El caso de esa llamada: conectar el segundo audio de «Un Lead Agendó
+Llamada» a la espera de 2 h (la #213 terminó con los dos audios en esa espera). El dato siempre lo admitió (`conectar` a una
+espera); era el lienzo. Ahora la pastilla recibe la flecha (y se ve entera bajo el cursor). Con dos padres, la espera se
+dibuja como tarjeta. ⚠️ Sin ver la grabación (la cuenta 2 no accede a Fathom 858927676): es la causa más probable, no la
+medida; hay que confirmarlo con Mauricio después del deploy.
+
+**Vive en:** `app/_components/Lienzo.tsx` (`tarjetaBajo`, las pastillas) · `lib/flujo-conversacion.ts` (`colapsable`)

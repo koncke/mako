@@ -457,6 +457,10 @@ escriben en `notificaciones`, que sigue sin existir en producción (la 0048 nunc
 
 ## /general personalizable: cada persona elige sus VISTAS, y un bloque que no filtra no finge (13/10/2026)
 
+> ⚠️ **Reemplazada el 14/10/2026** por [General es el editor del Dashboard con su propio informe](#general-es-el-editor-del-dashboard-con-su-propio-informe-14102026):
+> las vistas, su IA y su ruta se retiraron. Queda por lo que enseñaron (el alcance que no matchea nada, el semáforo que
+> dependía de la cabecera). Los archivos que nombra ya no existen, salvo `lib/general-alcance.ts` y `app/general/Bloques.tsx`.
+
 **El pedido.** Martín: «Que los usuarios puedan elegir que ver, si quieren ver "Prioridades" del PLAN, como el
 caso de Mauricio, las cuotas a cobrar... Otros querrán ver su objetivo», y en el mismo turno: «Que hayan templates
 de tab general. Y que se puedan crear más de una, e incluso asignarles ofertas y/o funnels». Y Mauricio, en la
@@ -528,14 +532,97 @@ no que se analiza. Es la lista del teléfono en escritorio, y lo que importa al 
 - **Un negocio que no cobra en cuotas no ve la sección**: sin filas y sin error es ruido en la pantalla de lo que se hace hoy. Si
   la lectura falla, la sección está y lo dice.
 
+## General es el editor del Dashboard con su propio informe (14/10/2026)
+
+**El pedido.** Martín, al ver las vistas del 13/10: «La personalización que hiciste en GENERAL es nula... Mirá que
+tienes de donde inspirarte, pero no lo hiciste... Tenemos un constructor de landing y gráficos para poder personalizar
+la tab general... intenta replicar lo que tenemos en dashboard, solo que claro, aquí no hace falta tantos gráficos y
+tiene otro objetivo la tab... también crea templates... Me imagino una que diga "Bienvenido NOMBRE..." Los bloques
+también deberían ser editables». Y después: «Piensa en todos los bloques que un usuario, con los diferentes funnels
+que tenemos... podría llegar a querer ver».
+
+**El diagnóstico obvio era el equivocado, y lo había elegido yo.** El 13/10 se leyó «que los usuarios puedan elegir
+qué ver» como «elegir bloques de una lista y ordenarlos»: una máquina nueva (vistas, su IA, su ruta, su barra) al lado
+de un editor que ya hacía todo eso y más. El pedido nombraba la fuente («tenemos de donde inspirarte») y la fuente era
+el Dashboard. Antes de construir una personalización, la pregunta es **qué pantalla del producto ya la tiene**: si
+existe, la segunda es la misma con otro dato, no otra máquina (AGENTS.md, «Antes de construir una máquina nueva…»).
+
+**Cómo quedó.** `/general` monta `EditorInforme` con `informe="general"`. Lo único que cambia es el DATO y lo que el
+editor sabe dibujar de más:
+
+- **El informe es otro**: `general.informe.<sub>` (`claveDe`/`inicialDe` en lib/graficos-tablero.ts), con el mismo
+  compare-and-set por versión. Quien nunca armó el suyo ve `informeGeneralInicial()` (ids fijos), y **mirar no lo
+  guarda**. Un informe guardado sin hojas vuelve a la inicial: General nunca queda en blanco.
+- **Los bloques de General son un ELEMENTO** (`tipo: 'general'`, lib/general-piezas.ts). El editor no aprende a leer
+  el objetivo, los KPIs ni el Plan: el server de /general los arma con las lecturas de siempre (app/general/piezas.tsx)
+  y viajan ya dibujados por contexto (`ContextoGeneral`, app/dashboard/ElementoGeneral.tsx). Un componente de cliente
+  puede recibir JSX armado en el server como prop, y eso es lo que evita duplicar cinco lecturas en el cliente.
+- **Se arman TODOS los bloques, no los de la hoja abierta**: se puede insertar cualquiera mientras se edita y cambiar de
+  hoja no vuelve al server. Cada lectura falla sola y su bloque lo dice.
+- **El funnel se elige por bloque** («Tu funnel hoy», «A quién cobrarle»: `piezaPorFunnel`). El server arma UNA
+  variante por funnel (hasta 8) con `clavePieza(pieza, funnel)`, y el elemento la busca con la MISMA función: elegir en
+  el panel cambia el bloque sin volver al server. Para la cobranza se pregunta de qué funnel es cada CLIENTE CON CUOTAS
+  (`funnelsDeLeads`, la lista chica), nunca los ids de todos los leads del negocio.
+- **Los textos entienden variables** (`{{saludo}}`, `{{nombre}}`, `{{negocio}}`, `{{fecha}}`, `{{trimestre}}`): se
+  resuelven al DIBUJAR (`conVariables`), nunca se guardan resueltas, y la que no tiene valor queda cruda.
+
+**Las trampas que salieron:**
+
+- **Parametrizar el editor rompió SIETE tests anclados por regex** (la guía, el ⋮ Compartir, el AI Analyst, la lista de
+  tipos de elemento). Ninguno era un bug: eran guards que leen el fuente del editor. Se actualizaron con su porqué; la
+  lección es que **sumar una variante a un componente que tiene guards de fuente es tocar esos guards en el mismo
+  commit**, y correr `tests/graficos*` y `tests/dashboard-*` antes de dar el editor por terminado.
+- **Un tipo de elemento nuevo aparece SOLO en todas las listas que derivan de `TIPOS_ELEMENTO`**, incluidas las que no
+  pueden dibujarlo: la API del Dashboard lo ofrecía en `insertar_elemento_dashboard` y fallaba con «No pude armar el
+  elemento» (el saneo lo tira sin pieza). Se sacó de `ELEMENTOS_DE_LA_API` con un error que dice dónde va, y el
+  catálogo lo marca `solo_en_general`. Lo mismo vale para los links compartidos (`ELEMENTOS_QUE_NO_SALEN`).
+- **El análisis programado (cron) lee los informes guardados**, y el de General vive en otra clave:
+  `leerInformeGuardado` (lib/graficos-analisis-server.ts) junta las hojas de los dos, o las cajas de Conclusiones de
+  una hoja de General no correrían nunca.
+- **Un pop-up no tiene General que dibujar**: el saneo tira un bloque de General con `enPopup`. Copiar una hoja de
+  General al Dashboard deja los bloques diciendo «se ve en la tab General»: aceptado, no se migran.
+- **El tsc del chequeo angosto murió sin imprimir nada con 2 GB libres** (el vigía de RAM). Con 2,9 GB y
+  `--max-old-space-size=2560` pasó. No era el código: AGENTS.md, «si el pre-push falla sin imprimir una sola línea».
+- **Y un chequeo angosto cubre los archivos de SU lista, a la hora en que corrió.** La bitácora de `/admin/dev` también
+  tipa (`Hito` exige `puntos`), se escribió después del chequeo, y el hito de un pedido sin `puntos` llegó al pre-push
+  del orquestador (lo arregló en `46958506`). Lo que se escribe en la cosecha entra a la lista y se vuelve a chequear.
+
+**Segunda vuelta, el mismo día (04:47).** Martín: «Toda la topbar la deberías copiar de Dashboard menos la barra de
+busqueda y el filtro que no sirven en general... Y lo mismo que en Dashboard, para un usuario nuevo, deberías proponerle un
+template». Quedó así: la barra de General es la del Dashboard sin `BarraControles` (título, Editar, ⋮), y quien nunca armó
+la suya arranca EN BLANCO como el Dashboard (`sinPaginas`), con la caja y las plantillas de General como páginas (la entrada
+de docs/hallazgos-graficos.md, «La pantalla en blanco es "¿Qué vas a crear hoy?"»). Dos cosas que se mueven con eso:
+
+- **La API de MaKo lee el informe como lo ve la pantalla** (`informeDe`, lib/api-mako/areas/general.run.ts): sin hojas para
+  quien nunca armó el suyo. Leyendo el crudo, `crear_hoja_general` guardaba la General de siempre JUNTO con la nueva, una
+  hoja que la persona nunca vio.
+- **El análisis programado ya no mira la General de siempre** de quien no guardó nada (lib/graficos-analisis-server.ts): sin
+  informe guardado, cero hojas de General.
+- El modal «Personalizar vista» que Martín vio al apretar Editar era la versión de las VISTAS: la captura es de antes del
+  deploy de 46958506.
+
+**Vive en:** `app/general/page.tsx` · `app/general/piezas.tsx` · `app/dashboard/ElementoGeneral.tsx` ·
+`app/dashboard/EditorInforme.tsx` · `app/dashboard/Elemento.tsx` · `lib/general-piezas.ts` · `lib/general-plantillas.ts` ·
+`lib/general-alcance.ts` · `lib/graficos-tablero.ts` · `lib/graficos-catalogo.ts` · `lib/graficos-analisis-server.ts` ·
+`lib/api-mako/areas/general.run.ts` · `lib/api-mako/areas/dashboard.helpers.ts` · `tests/general-editor.test.ts`.
+*14/10/2026, claude2 (56efcbaa).*
+
 ## Lo que quedó sin hacer
 
-- **Las vistas de /general (13/10/2026): cinco bloques miden el negocio entero aunque la vista tenga un funnel.**
-  El objetivo, los KPIs, el semáforo, el mes y los pendientes salen de `leerVistaGeneral` (`lib/vista-general.ts`),
-  que no recibe alcance. Hoy lo dicen («Todo el negocio»); filtrarlos es pasarle los ids de leads del alcance
-  (`idsDeLeadsEnFunnels`, lib/general-alcance.ts) a sus lecturas. Vive en `app/general/page.tsx`.
-- **El Today de MaKo Mobile no mira las vistas**: dibuja lo de siempre. Si se quiere la misma personalización en el
-  teléfono, lee `leerVistasGeneral()` y la vista activa. Vive en `app/m/hoy`.
+- **Los bloques de General no obedecen los filtros de la hoja (14/10/2026).** Un filtro de período o de campo en la
+  barra de una hoja de General recorta los GRÁFICOS, no los bloques: el server los arma una vez, sin la vista. Sólo
+  «Tu funnel hoy» y «A quién cobrarle» se atan a un funnel, desde su propio panel. El objetivo, los KPIs, el semáforo,
+  el mes y los pendientes miden el negocio entero (salen de `leerVistaGeneral`, lib/vista-general.ts, sin alcance).
+  Vive en `app/general/piezas.tsx`.
+- **El Today de MaKo Mobile no mira el informe de General**: dibuja lo de siempre. Para la misma personalización en el
+  teléfono, lee `leerInformeGeneral()` y dibuja sus bloques. Vive en `app/m/hoy`.
+- **Más de 8 funnels**: los bloques que se atan a uno se arman hasta 8 (`TOPE_FUNNELS`, app/general/piezas.tsx); el
+  noveno dice «Ese funnel ya no está». Ningún workspace llega hoy.
+- **El pop-up de un gráfico de General se busca en el tablero del DASHBOARD** (lo marcó el chat de Graphics al revisar
+  56efcbaa). La acción `datos` con `popupDe` lee el dueño con `informeDeRol(rol) ?? leerTablero()` (app/api/graficos/route.ts,
+  ~línea 114), que es el informe del Dashboard. Un admin cae a la definición que manda la pantalla y anda; un rol con
+  «hoja única» (closer, setter) recibiría 403. Hoy General es sólo del admin y no muerde; si algún día otro rol ve
+  General, esa lectura tiene que mirar `general.informe.<sub>` (`leerInformeGeneral`, lib/graficos-tablero.ts).
 - **Una «Prioridades del Plan» por funnel no existe**: las tareas del tablero no tienen funnel, tienen proyecto.
 - **«A quién cobrarle» sigue TAMBIÉN en el Dashboard** (la sección de la hoja Comercial): Martín pidió ponerla en General y no
   dijo si se saca de allá. Se le preguntó el 13/10.

@@ -29,6 +29,14 @@
 // la ruta app/api/graficos/plantilla quita los gráficos que quedarían vacíos y MaKo suma otros sobre lo que sí tiene
 // (lib/graficos-con-datos*). Mientras, el mismo «pensando» que el pedido, con Cancelar.
 //
+// 14/10/2026 — LA MISMA PIEZA EN EL MODAL Y EN LA PANTALLA EN BLANCO, Y LAS PLANTILLAS COMO PÁGINAS. Martín, textual:
+// «en lugar del botón de "nuevo dashboard" te pido que pongas ahí el "¿Qué vas a crear hoy?"... Y los templates, la
+// preview debería ser como los de landing generator, porque justamente se deberían ver como una pagina» (para General y
+// para el Dashboard). El cuerpo del modal es `CrearHoja`: lo monta este modal y lo monta EditorInforme en la pantalla
+// en blanco de quien nunca armó una hoja (la portada del Landing Generator, app/landing-generator/CajaCrear.tsx: la caja
+// y, abajo, las plantillas). Cada plantilla es la tarjeta de esa portada: la miniatura de la página (./MiniaturaHoja.tsx:
+// la FORMA de la plantilla, sin pedir datos), «Usar plantilla» al pasar el mouse, y el nombre y la línea abajo.
+//
 // `onCrear` recibe la hoja YA saneada con ids nuevos (y, si la armó MaKo o se pegó, el primer aviso, para el toast). El
 // editor la agrega con `mutar` (una foto de deshacer) y la abre. Después de `onCrear` el modal llama a `onCerrar`: que
 // el editor también lo cierre no rompe nada.
@@ -51,7 +59,6 @@ import { IconoMenu } from '@/app/_ui/iconos-menu';
 import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
 import { CajaPedido, ChipCaja, CSS_CAJA_PEDIDO, CSS_TOKENS_CASA, TITULO_CAJA } from '@/app/landing-generator/CajaPedido';
 import { Ico } from '@/app/landing-generator/Ico';
-import { CSS_NUEVO } from '@/app/automations/NuevoPlaceholder';
 import { ACCEPT_ARCHIVO_FLUJO, pedidoConArchivo } from '@/app/automations/CrearConIA';
 import { leerArchivoParaPedido } from '@/app/automations/archivo-pedido-cliente';
 import { useCerrarEstable } from '@/app/customer-success/curso/dialogo-foco';
@@ -59,9 +66,11 @@ import { GRAMATICA } from '@/lib/mako-gramatica';
 import { FUENTES, hojaVacia, sanearHoja, type Hoja } from '@/lib/graficos-catalogo';
 import { PLANTILLAS_HOJA, instanciarPlantilla, type PlantillaHoja } from '@/lib/graficos-plantillas';
 import { filtrarPlantillasHoja } from '@/lib/graficos-plantillas-generales';
+import { PLANTILLAS_GENERAL } from '@/lib/general-plantillas';
 import { TOPE_PEDIDO_IA } from '@/lib/graficos-ia';
 import { dashPegado, hojaConIdsNuevos, rotuloDashPegado } from '@/lib/graficos-copia';
 import { leerDashPegado } from './copia-dash-cliente';
+import { CSS_MINIATURA, MiniaturaHoja, hojaDeMuestra } from './MiniaturaHoja';
 
 /** El tope de la ruta (`maxDuration = 120`) + margen: el `fetch` no puede esperar para siempre. */
 const TOPE_CLIENTE_MS = 125_000;
@@ -76,6 +85,13 @@ export const EJEMPLOS_HOJA = [
   'Lo que cobré este mes y lo que falta cobrar',
   'Cómo rinden mis automatizaciones de WhatsApp',
   'Las llamadas de mis closers y cuántas cierran',
+] as const;
+/** Los de General (14/10/2026): lo que alguien quiere ver al entrar, no un informe. Genéricos, como los de arriba. */
+export const EJEMPLOS_GENERAL = [
+  'Lo que tengo que hacer hoy y a quién cobrarle',
+  'Mi objetivo del trimestre y mis KPIs',
+  'Las llamadas de la semana y cuánto cierra mi equipo',
+  'Los leads que entraron y en qué etapa están',
 ] as const;
 const PLACEHOLDER_QUIETO = 'Escribe o dicta qué quieres ver';
 /** El placeholder con un archivo adjunto (el ejemplo no se mueve: el pedido ya es el archivo). */
@@ -104,29 +120,55 @@ type ArchivoCaja = { nombre: string; imagen: boolean } & ({ estado: 'leyendo' } 
 
 // Sin backticks acá adentro: es un template literal. Sólo tokens de la app (se dan vuelta en oscuro).
 const CSS = `
-.nh-grilla{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(220px,100%),1fr));gap:12px}
-.nh-tarjeta{display:flex;flex-direction:column;align-items:flex-start;gap:8px;text-align:left;padding:16px;min-height:124px;box-sizing:border-box;border-radius:14px;border:1.5px solid var(--border);background:var(--surface);color:var(--ink);font-family:inherit;cursor:pointer;transition:border-color .14s ease,box-shadow .14s ease,transform .14s ease}
-.nh-tarjeta:hover:not(:disabled),.nh-tarjeta:focus-visible{border-color:var(--primary);box-shadow:0 2px 12px color-mix(in srgb,var(--ink) 10%,transparent);outline:none}
-.nh-tarjeta:active:not(:disabled){transform:scale(.98)}
-.nh-blanco{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:124px;box-sizing:border-box;padding:16px;border-radius:14px;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer}
+.nh-grilla{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(210px,100%),1fr));gap:18px}
+.nh-plantilla{display:flex;flex-direction:column;gap:4px;min-width:0;padding:0;border:0;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.nh-plantilla:disabled{cursor:default}
+.nh-plantilla:disabled:not([data-armando="si"]){opacity:.6}
+.nh-plantilla:focus-visible{outline:none}
+.nh-mini{position:relative;display:block;margin-bottom:6px;border-radius:10px;box-shadow:0 0 0 1px var(--border),0 1px 3px color-mix(in srgb,var(--ink) 8%,transparent);transition:box-shadow .15s}
+.nh-plantilla:hover:not(:disabled) .nh-mini,.nh-plantilla:focus-visible .nh-mini{box-shadow:0 0 0 2px var(--primary),0 4px 6px -1px rgba(0,0,0,.1)}
+.nh-mini--vacia{display:grid;place-items:center;aspect-ratio:16/10;background:var(--surface);box-shadow:none;border:1.5px dashed var(--border-strong);color:var(--dim);font-size:30px;line-height:1}
+.nh-plantilla:hover:not(:disabled) .nh-mini--vacia,.nh-plantilla:focus-visible .nh-mini--vacia{border-color:var(--primary);color:var(--primary);box-shadow:none}
+.nh-usar{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:inline-flex;align-items:center;gap:8px;padding:7px 14px;border-radius:9999px;background:var(--primary);color:var(--on-primary);font-size:13px;font-weight:600;white-space:nowrap;opacity:0;transition:opacity .15s;pointer-events:none}
+.nh-plantilla:hover:not(:disabled) .nh-usar,.nh-plantilla:focus-visible .nh-usar,.nh-usar[data-visible="si"]{opacity:1}
+.nh-giro{width:13px;height:13px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;animation:nh-giro .8s linear infinite}
+@keyframes nh-giro{to{transform:rotate(360deg)}}
+.nh-nombre{font-size:14.5px;font-weight:600;line-height:1.3;color:var(--ink)}
+.nh-desc{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:12.5px;line-height:1.4;color:var(--dim)}
 .nh-buscar{display:flex;align-items:center;gap:8px;padding:0 12px;height:40px;box-sizing:border-box;border-radius:11px;border:1px solid var(--border-strong);background:var(--surface);color:var(--dim)}
 .nh-buscar:focus-within{border-color:var(--primary)}
 .nh-buscar input{flex:1;min-width:0;border:none;outline:none;background:transparent;color:var(--ink);font:inherit;font-size:14px}
-@media (prefers-reduced-motion: reduce){.nh-tarjeta{transition:none}.nh-tarjeta:active:not(:disabled){transform:none}}
+@media (prefers-reduced-motion: reduce){.nh-mini,.nh-usar{transition:none}.nh-giro{animation:none}}
 `;
 
-export function NuevaHoja({ onCerrar, onCrear, enBlanco = 'Página nueva' }: {
-  onCerrar: () => void;
+type PropsCrearHoja = {
   /** La hoja nueva, saneada y con ids nuevos. `aviso`: lo primero que MaKo ajustó (o lo que se vació al pegar), para el toast. */
   onCrear: (h: Hoja, aviso?: string) => void;
   /** El nombre de la «Hoja en blanco» (el editor le pasa «Página N»). */
   enBlanco?: string;
-}) {
+  /** En General (14/10/2026) la galería es la de General (lib/general-plantillas.ts), nunca la del Dashboard. */
+  informe?: 'dashboard' | 'general';
+};
+
+/** El modal «Nueva hoja»: la misma pieza que la pantalla en blanco, adentro del Modal de la casa. */
+export function NuevaHoja({ onCerrar, onCrear, enBlanco = 'Página nueva', informe = 'dashboard' }: PropsCrearHoja & { onCerrar: () => void }) {
   const cerrar = useCerrarEstable(onCerrar);
+  return (
+    <Modal titulo="Nueva hoja" ancho={980} sinFiletes onCerrar={cerrar}>
+      <CrearHoja onCrear={onCrear} onListo={cerrar} enBlanco={enBlanco} informe={informe} />
+    </Modal>
+  );
+}
+
+/**
+ * «¿Qué vas a crear hoy?» y las plantillas: el cuerpo del modal y la pantalla en blanco (14/10/2026). `onListo`: lo
+ * que pasa después de crear (el modal se cierra; en la pantalla en blanco no hace falta, el editor ya muestra la hoja).
+ */
+export function CrearHoja({ onCrear, onListo, enBlanco = 'Página nueva', informe = 'dashboard' }: PropsCrearHoja & { onListo?: () => void }) {
   // Las props de AHORA para los handlers asincrónicos (un `onCrear` de hace un minuto cerraría sobre
   // el informe de entonces).
-  const props = useRef({ onCrear, enBlanco });
-  useEffect(() => { props.current = { onCrear, enBlanco }; });
+  const props = useRef({ onCrear, enBlanco, onListo });
+  useEffect(() => { props.current = { onCrear, enBlanco, onListo }; });
 
   const [pedido, setPedido] = useState('');
   /** Desde cuándo piensa MaKo (null = no piensa). */
@@ -176,7 +218,7 @@ export function NuevaHoja({ onCerrar, onCrear, enBlanco = 'Página nueva' }: {
     ctrl.current?.abort();
     ctrl.current = null;
     props.current.onCrear(h, aviso);
-    cerrar();
+    props.current.onListo?.();
   };
 
   const cancelar = () => {
@@ -323,19 +365,21 @@ export function NuevaHoja({ onCerrar, onCrear, enBlanco = 'Página nueva' }: {
     }
   };
 
-  const plantillas = useMemo(() => filtrarPlantillasHoja(PLANTILLAS_HOJA, busca), [busca]);
+  const plantillas = useMemo(() => filtrarPlantillasHoja(informe === 'general' ? PLANTILLAS_GENERAL : PLANTILLAS_HOJA, busca), [busca, informe]);
+  /** La página de muestra de cada plantilla (sus ids fijos: la misma en el server y en el navegador). Sin datos. */
+  const muestras = useMemo(() => new Map((informe === 'general' ? PLANTILLAS_GENERAL : PLANTILLAS_HOJA).map((p) => [p.id, hojaDeMuestra(p)] as const)), [informe]);
   const segundos = desde != null ? Math.max(0, Math.round((ahora - desde) / 1000)) : 0;
 
   return (
-    <Modal titulo="Nueva hoja" ancho={980} sinFiletes onCerrar={cerrar}>
-      <style>{CSS_NUEVO}</style>
+    <>
+      <style>{CSS_MINIATURA}</style>
       <style>{CSS}</style>
       <div data-nueva-hoja="" style={S.todo}>
         {/* 1 · ¿Qué vas a crear hoy? (la caja de Automations y del Landing Generator, la MISMA) */}
         <div className="gp cp-casa" data-pedido-mako="">
           <style>{CSS_TOKENS_CASA + CSS_CAJA_PEDIDO}</style>
           <CajaPedido titulo={{ texto: TITULO_CAJA, nivel: 2 }} valor={pedido} onValor={alEscribir} onEnviar={() => { void enviar(); }}
-            listo={listo} ejemplos={EJEMPLOS_HOJA} animar={!archivo} placeholderQuieto={archivo ? PLACEHOLDER_ARCHIVO : PLACEHOLDER_QUIETO}
+            listo={listo} ejemplos={informe === 'general' ? EJEMPLOS_GENERAL : EJEMPLOS_HOJA} animar={!archivo} placeholderQuieto={archivo ? PLACEHOLDER_ARCHIVO : PLACEHOLDER_QUIETO}
             etiqueta="Qué quieres ver en la hoja" tope={TOPE_PEDIDO_IA} deshabilitado={pensando}
             onError={(m) => setError(m ? { texto: m } : null)}
             adjunto={archivo ? (
@@ -370,33 +414,42 @@ export function NuevaHoja({ onCerrar, onCrear, enBlanco = 'Página nueva' }: {
           <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar plantilla" aria-label="Buscar plantilla" />
         </label>
 
-        {/* 3 · La grilla: «Hoja en blanco» primera SIEMPRE, lo copiado y después las plantillas */}
+        {/* 3 · La grilla: «Hoja en blanco» primera SIEMPRE, lo copiado y después las plantillas. Cada una es la tarjeta de
+            la portada del Landing Generator (`.gp-cc-plantilla`): la miniatura de la página, «Usar plantilla» encima al
+            pasar el mouse, y el nombre y la línea abajo. */}
         <div className="nh-grilla">
-          <button type="button" className="mk-nuevo nh-blanco" data-empezar="blanco"
+          <button type="button" className="nh-plantilla" data-empezar="blanco"
             onClick={() => crear(hojaVacia(props.current.enBlanco))}>
-            <span aria-hidden className="mk-nuevo__mas" style={{ fontSize: 22, lineHeight: 1 }}>＋</span>
-            Hoja en blanco
+            <span className="nh-mini nh-mini--vacia"><span aria-hidden>＋</span></span>
+            <span className="nh-nombre">Hoja en blanco</span>
+            <span className="nh-desc">Arma la hoja a tu manera, desde cero.</span>
           </button>
           {copiado && (
-            <button type="button" className="nh-tarjeta" data-pegar="" disabled={pensando}
+            <button type="button" className="nh-plantilla" data-pegar="" disabled={pensando}
               onClick={() => { void pegarDash(copiado.token); }}>
-              <span aria-hidden style={{ lineHeight: 1 }}><IconoMenu nombre="copiar" size={28} /></span>
-              <span style={S.nombre}>Pegar lo copiado</span>
-              <span style={S.linea}>«{copiado.nombre}»</span>
+              <span className="nh-mini nh-mini--vacia"><IconoMenu nombre="copiar" size={30} /></span>
+              <span className="nh-nombre">Pegar lo copiado</span>
+              <span className="nh-desc">«{copiado.nombre}»</span>
             </button>
           )}
           {plantillas.map((p) => (
-            <button key={p.id} type="button" className="nh-tarjeta" data-plantilla={p.id} disabled={pensando}
+            <button key={p.id} type="button" className="nh-plantilla" data-plantilla={p.id} disabled={pensando}
+              data-armando={armando === p.nombre ? 'si' : undefined} aria-label={`Usar la plantilla ${p.nombre}`}
               onClick={() => { void armarPlantilla(p); }}>
-              <span aria-hidden style={{ fontSize: 28, lineHeight: 1 }}>{p.emoji}</span>
-              <span style={S.nombre}>{p.nombre}</span>
-              <span style={S.linea}>{p.linea}</span>
+              <span className="nh-mini">
+                <MiniaturaHoja hoja={muestras.get(p.id) ?? null} />
+                {armando === p.nombre
+                  ? <span className="nh-usar" data-visible="si"><span className="nh-giro" aria-hidden /> Armando</span>
+                  : <span className="nh-usar">Usar plantilla</span>}
+              </span>
+              <span className="nh-nombre">{p.nombre}</span>
+              <span className="nh-desc">{p.linea}</span>
             </button>
           ))}
         </div>
         {!plantillas.length && <div style={S.sinResultados}>Ninguna plantilla con eso</div>}
       </div>
-    </Modal>
+    </>
   );
 }
 
@@ -423,7 +476,5 @@ const S: Record<string, CSSProperties> = {
   dim: { fontSize: 13, color: 'var(--dim)' },
   error: { margin: '-6px 0 0', width: '100%', maxWidth: 720, fontSize: 13, lineHeight: 1.4, color: 'var(--bad)' },
   link: { color: 'var(--primary)', fontWeight: 600, textDecoration: 'underline' },
-  nombre: { fontSize: 15, fontWeight: 700, lineHeight: 1.25 },
-  linea: { fontSize: 13, color: 'var(--dim)', lineHeight: 1.4 },
   sinResultados: { fontSize: 13, color: 'var(--dim)' },
 };

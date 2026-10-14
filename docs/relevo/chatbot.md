@@ -88,6 +88,43 @@
 > lead desde el 10/10. O el alta de «Nuevo lead» no lo guardó (bug del CRM: medir `createLead` con ese teléfono, ¿duplicado?
 > ¿error tragado?), o lo borraron después de la llamada: se le preguntó a Martín. Sin lead no hay inscripción: la #213 no tenía
 > a quién mandarle.
+> **ORDEN DEL DEPLOY de «nada por detrás» (14/10 ~10:00), en DOS pasos:**
+> 1. Push con `c0c46bad` (si contesta) + la condición `reunion_en_pie` + el reintento (§2.2). ANTES:
+>    `ENV_FILE=C:/dev/mako-api/.env.local node --import tsx scripts/migrar-si-contesta.ts --apply`.
+> 2. Con eso desplegado: `... scripts/migrar-condicion-reunion.ts --apply` (dry run medido: sólo las PRENDIDAS, #213 ws1 y
+>    #241 ws13; la #249 del ws11 y la #210 del ws4 están apagadas y no se tocan). Recién después, un commit que borra la
+>    guarda escondida (`if (anclada || preparaReunion(sec))` → sólo `anclada`, y el `sinReunion` de la inscripción a mano;
+>    tests reunion-ya-paso, motor-entrada-etapa, nutricion-inscripcion-manual, reunion-fecha-sola-del-dia) y su push.
+> ⚠️ Al revés corta los flujos: el código de producción no conoce `reunion_en_pie` (la fila no se cumple).
+> Hallazgo de la corrida: la #249 («Seguimiento a leads que no cierran», CRON en No compró + Agenda + Facturando) caía bajo
+> la guarda y se le cortaba todo el seguimiento de después de la reunión. Al borrarla, hace lo que dice su lienzo.
+> **14/10 ~08:30 — Martín, directo en este chat: «Continua con todo lo pendiente... Y también: Implementar TikTok y
+> LinkedIn».** Hecho: (1) «Si el lead contesta» por camino, `c0c46bad` (sin push todavía; el push es por turno con «Estrategia
+> 3 CUENTAS»). ⚠️ ANTES del deploy correr `ENV_FILE=C:/dev/mako-api/.env.local node --import tsx scripts/migrar-si-contesta.ts
+> --apply` (dry run medido: 10 automatizaciones; #213, #241 y #210 con la bienvenida en «sigue»). Verlo en ws3 después del
+> deploy. (2) TikTok/LinkedIn investigado: docs/diseno-tiktok-linkedin.md. TikTok sí, por Zernio, sólo para contestar; LinkedIn
+> no (sin vía legal); ManyChat YA tiene TikTok. Para arrancar TikTok hace falta de Martín: una cuenta TikTok Business de
+> prueba (LATAM) para ws3, el cupo de Zernio y dónde va el botón TikTok en la grilla de CRON (hoy 4+3). Fase 0 (que el AI Step
+> conteste por Instagram/Messenger) no depende de eso. Sigue en el orden: `reunion_en_pie` (§2.1), el reintento (§2.2),
+> migración y borrar la guarda (§2.3), «Pausar» congela, protecciones configurables y visibles, bugs 4 y 8.
+> **CIERRE (14/10 ~07:00, pedido de Martín vía «Estrategia 3 CUENTAS»: «que se pushee todo y que los chats cierren»).**
+> Hecho y en main (e4c8a6d7): bug 5 de la fecha sin hora (329d1443), el emisor del AI Analyst (60186944). Commiteado sin
+> push en la rama `undecima`: la cosecha del inventario (6b9363f4) y este cierre. **Martín DECIDIÓ las cuatro preguntas**
+> (docs/diseno-mako-nada-por-detras.md, «DECIDIDO»): «si contesta» por camino con «sigue» de fábrica; protecciones todas
+> configurables y con aviso; cancelada = no agendó; «Pausar» congela. **NADA de eso está implementado.** Orden para retomar:
+> 1) «Si contesta: se corta / sigue» por camino (lib/nutricion.ts `pausarPorRespuesta` + la flecha del CRON en
+>    app/automations; #213 a «sigue» en la bienvenida); 2) `reunion_en_pie` (lib/condiciones-catalogo.ts,
+>    lib/nutricion-grafo-motor.ts `catalogoDeLead`) con la cancelada = no agendó; 3) el reintento vuelve a pasar por su
+>    condición (lib/nutricion.ts ~4854); 4) migrar plantillas y #213/#241 (ws3 primero, --dry-run) y borrar la guarda;
+>    5) «Pausar» congela (lib/nutricion.ts ~431, ~3939); 6) protecciones configurables y visibles; 7) el resto del §2.4.
+> En cola, también: el botón «Publicar» de las estrellas (ya entró 92a2be21: `<BotonPublicar tipo="automatizacion" …/>`
+> en el «⋯»), los videos redondos (`/message/sendPtv`), el registro de acciones (sin dueño), y marcar como resueltos en
+> docs/hallazgos-crm.md los cuatro del CRM cuando salga su push (los hizo el chat CRM, en C:/Users/marti/wtcrm4).
+> **14/10 ~04:30, inventario hecho:** docs/diseno-mako-nada-por-detras.md (162 reglas escondidas, plan §2, «Stop» §3,
+> protecciones para Martín §4). **Bug 5, causa REAL (medida en `notificaciones`):** la reserva de Calendly sí reinició la
+> #213 (su aviso salió 02:05:16); a las 02:08 el lead CONTESTÓ un mensaje a mano de Mauricio y `pausarPorRespuesta` frenó
+> el audio de los 5 min. Siguiente: lo que Martín decida de §4 y de «si contesta»; mientras, §2.1 (`reunion_en_pie`) y §2.2
+> (el reintento vuelve a pasar por su condición), que no cambian el comportamiento.
 > **PEDIDO GRANDE de Martín (14/10 ~01:10): «Depreca absolutamente todas las cosas que MaKo haga por detrás»** (textual en la
 > bitácora; regla en la memoria `mako-nada-por-detras`). Toda regla escondida del motor (ej. «la reunión ya pasó» en
 > procesarEnvios) pasa a una CONDITION visible y configurable; si falta, se crea; los flujos vivos se rehacen con la condición

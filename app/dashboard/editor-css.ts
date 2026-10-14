@@ -26,6 +26,7 @@ export const CSS = `
 .lk-app { flex: 1; min-height: 0; display: flex; flex-direction: column; background: var(--bg); min-width: 0; }
 /* Quien nunca guardó un informe: el lienzo vacío con «Nuevo Dashboard» en el medio (EditorInforme, enBlanco). */
 .lk-en-blanco { min-height: calc(100dvh - 200px); padding: 0; }
+.lk-en-blanco-crear { display: flex; flex-direction: column; gap: 16px; max-width: 1080px; margin: 0 auto; padding: 36px 24px 56px; box-sizing: border-box; }
 
 /* La TOPBAR, como la de Looker (tanda del 11/10): a la izquierda el emoji y, apilados, el título de la hoja
    (con su ▾) y el subtítulo, donde Looker pone «Archivo · Vista · Página · Ayuda»; a la derecha los

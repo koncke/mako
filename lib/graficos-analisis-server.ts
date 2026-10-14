@@ -435,8 +435,18 @@ export type FilaProgramada = FilaConCandado & { usuario: string; cron: unknown; 
  */
 export async function leerInformeGuardado(usuario: string): Promise<Tablero> {
   const raw = await getSettingEstricto(claveTablero(usuario));
-  return raw == null ? tableroInicial() : (sanearTablero(JSON.parse(raw)) ?? tableroInicial());
+  const dash = raw == null ? tableroInicial() : (sanearTablero(JSON.parse(raw)) ?? tableroInicial());
+  // 14/10/2026: la tab General es este mismo editor con OTRO informe (lib/graficos-tablero.ts): lo programado en una hoja
+  // de General también tiene que encontrarla, o el cron le saca el horario («La hoja ya no existe»). Las hojas de los
+  // dos informes van juntas: los callers buscan por id, y los ids de un informe no se repiten en el otro.
+  const rawGeneral = await getSettingEstricto(claveInformeGeneral(usuario));
+  // Sin informe de General guardado no hay hojas de General (14/10/2026: quien nunca armó el suyo ve la pantalla en blanco).
+  const general = rawGeneral == null ? [] : (sanearTablero(JSON.parse(rawGeneral))?.hojas ?? []);
+  return { ...dash, hojas: [...dash.hojas, ...general] };
 }
+
+/** La clave del informe de General de una persona (la misma que lib/graficos-tablero.ts, `claveDe`). */
+export const claveInformeGeneral = (sub: string): string => `general.informe.${sub}`;
 
 /**
  * Lo programado que venció en el negocio ACTUAL de UNA tabla (el cron lo llama adentro de `runWithWorkspace`).

@@ -1,47 +1,52 @@
 # Relevo — General personalizable, los pagos de Mauricio y el Calendario
 
-**Al 14/10/2026, claude2.** Lo escribe el chat que hizo el trabajo (primera mano). Lo que costó está en los
+**Al 14/10/2026 (~04:30), claude2.** Lo escribe el chat que hizo el trabajo (primera mano). Lo que costó está en los
 hallazgos de cada área; acá va qué quedó, dónde y qué espera.
 
-## El pedido (13/10/2026, textual)
+## Los pedidos (textuales)
 
-«Dale, arrancá con el Calendario, pero que sea en otra tab, no en GENERAL. Soluciona las cosas que pidió Mauricio con
-la tab GENERAl y los cobros... Y te pido que la tab GENERAL sea personalizable... Que los usuarios puedan elegir que
-ver, si quieren ver "Prioridades" del PLAN, como el caso de Mauricio, las cuotas a cobrar... Otros querrán ver su
-objetivo, etc etc... Hazla personalizable.» Y en el mismo turno: «Copia lo que ya tenemos en muchos lugares con
-"TEMPLATES" y la opción de IA de "¿Qué vas a crear hoy?"... Que hayan templates de tab general. Y que se puedan crear
-más de una, e incluso asignarles ofertas y/o funnels.»
+**13/10:** «Dale, arrancá con el Calendario, pero que sea en otra tab, no en GENERAL. Soluciona las cosas que pidió
+Mauricio con la tab GENERAl y los cobros... Y te pido que la tab GENERAL sea personalizable... Hazla personalizable.» Y:
+«Que hayan templates de tab general. Y que se puedan crear más de una, e incluso asignarles ofertas y/o funnels.»
+
+**14/10, de madrugada** (las «vistas» del 13/10 no eran lo que pedía):
+«La personalización que hiciste en GENERAL es nula... Mirá que tienes de donde inspirarte, pero no lo hiciste...
+Tenemos un constructor de landing y gráficos para poder personalizar la tab general... Que todo sea personalizable,
+intenta replicar lo que tenemos en dashboard, solo que claro, aquí no hace falta tantos gráficos y tiene otro objetivo
+la tab... también crea templates... Me imagino una que diga "Bienvenido NOMBRE..." Los bloques también deberían ser
+editables.» — «Por otro lado, el calendario quiero que sea una copia fiel a Google Calendar, y que refleje todas las
+tareas y eventos que se tienen en google calendar.» — «Piensa en todos los bloques que un usuario, con los diferentes
+funnels que tenemos y en general, todo lo que un usuario podría llegar a querer ver en una tab general, para hacer el
+editable». Decisiones suyas en el chat: tareas de Google «Sólo eventos por ahora» (las Tasks, después de la
+verificación de Google); escribir en Google «Sí, como Google».
 
 ## Qué quedó
 
 | Qué | Dónde | Lo que hay que saber |
 |---|---|---|
-| /general por VISTAS | `lib/general-vistas-modelo.ts`, `app/general/` | Por persona (`general.vistas.<sub>` en app_settings). La vista por defecto suma «A quién cobrarle» (lo prometido a Mauricio). Plantillas y «¿Qué vas a crear hoy?». Sólo dos bloques filtran por funnel; los demás dicen «Todo el negocio». |
-| Pagos atípicos | `app/crm/[id]/deal-actions.ts`, `DealDetailsCard.tsx` | Un pago de menos ya no borra la diferencia: queda pendiente o es descuento. «Registrar otro pago» para lo que no es una cuota. |
-| Calendario | `/calendario`, mig 0271 (aplicada), `lib/calendario*.ts` | Cinco capas; sólo lo propio se guarda. La IA no ve la agenda. Área `calendario` en la API de MaKo. Onboarding que se hace usándola. |
+| /general = el editor del Dashboard | `app/general/`, `lib/general-piezas.ts`, `lib/general-plantillas.ts` | Su informe por persona (`general.informe.<sub>`). Doce bloques de General como elementos (se mueven, se duplican, se les cambia el título); «Tu funnel hoy» y «A quién cobrarle» se atan a un funnel. Plantillas: la General de siempre, Bienvenida («{{saludo}}, {{nombre}}»), Operación diaria (el caso de Mauricio), Foco, una por tipo de funnel y Ventas. Las vistas del 13/10 se retiraron. |
+| Calendario = copia de Google Calendar | `app/calendario/`, `lib/calendario-google*.ts` | Día, semana, mes, año, agenda y 4 días; todos los calendarios de Google con sus colores; crear, mover, cambiar y borrar eventos en Google (con «avisar a los invitados» y Deshacer). La agenda no pasa por ninguna IA. |
+| Pagos atípicos | `app/crm/[id]/deal-actions.ts`, `DealDetailsCard.tsx` | Un pago de menos ya no borra la diferencia: queda pendiente o es descuento. «Registrar otro pago». |
 
-**Estado de git (14/10/2026, ~02:45).** Nada de esto está en producción todavía. Los tres commits (8396e4a6,
-ba199cb4, b202da4e) quedaron integrados con origin/main en el merge `20334eb0`, y el push lo hace el orquestador
-(«Estrategia 3 CUENTAS»), uno solo y con todo junto, por pedido de Martín: «que se pushee todo y que los chats cierren».
-En ese merge se resolvió el cruce con Graphics: los dos chats habían movido «A quién cobrarle» a General. Quedó la
-`Cobranza` de Graphics (`app/general/Cobranza.tsx`) como el bloque de las vistas, recortada a los funnels de la vista,
-y `CobranzaGeneral.tsx` se borró. Vacía, la vista de fábrica no la dibuja; una vista que armó la persona, sí. Los tests
-de lo tocado dieron 325/325. El typecheck completo no corrió: no hubo RAM (el piso es 5,3 GB y había 3,8), así que lo
-corre el pre-push del orquestador. **Después del deploy, falta verlo en ws3**: /general (vistas, plantillas, IA,
-alcance), /calendario y la pestaña Pagos del CRM (pago de menos, «Registrar otro pago»).
+**Estado de git (14/10/2026, 04:40).** El Calendario (`acea2449`), General (`56efcbaa`) y su cosecha (`1c262df9`,
+`0caf070b`) ENTRARON a origin/main en el push del orquestador (`92a2be21..46958506`). El typecheck completo encontró
+un error mío que el chequeo angosto no vio: el hito de las 03:19 de `app/admin/dev/general/bitacora.ts` sin `puntos`
+(la bitácora se escribió DESPUÉS del chequeo y no estaba en su lista); lo arregló el orquestador en `46958506`. **Después del deploy, falta verlo en ws3**: /general (Nueva hoja con
+las plantillas, Bienvenida con el nombre, los bloques y su panel con el funnel) y /calendario con un Google conectado.
 
 Hallazgos: `docs/hallazgos-objectives.md` (General), `docs/hallazgos-crm.md` (pagos), `docs/hallazgos-calendario.md`.
 Bitácoras: `/admin/dev/general`, `/admin/dev/crm`, `/admin/dev/calendario`.
 
 ## Lo que espera a Martín
 
-- **Mauricio no tiene su vista armada**: no se escribió nada en su workspace. Su caso es la plantilla «Operación
-  diaria» (Prioridades del Plan, A quién cobrarle, Tu funnel hoy, Leads sin marcar): un clic en «＋ Nueva vista».
-- **Quién ve el Calendario**: hoy sólo el admin (dibuja la agenda de Google del negocio). Si un closer tiene que ver
-  sus llamadas, es una decisión: una capa sin Google.
+- **Mauricio no tiene su hoja armada**: no se escribió nada en su workspace. Su caso es la plantilla «Operación
+  diaria» (Prioridades del Plan, A quién cobrarle, leads nuevos): un clic en «＋ Nueva hoja» de su General.
+- **Las tareas de Google** (Google Tasks): pendientes de la verificación de Google, con el scope `tasks.readonly`
+  (los pasos, en `docs/hallazgos-calendario.md`).
+- **Quién ve el Calendario**: hoy sólo el admin (dibuja la agenda de Google del negocio).
 
 ## Lo que quedó sin hacer (con su archivo)
 
-Ver la sección «Lo que quedó sin hacer» de cada hallazgo. Lo más grande: los cinco bloques de siempre de /general no
-filtran por funnel (`lib/vista-general.ts`), el Today del teléfono no mira las vistas (`app/m/hoy`), y el Calendario
-no tiene la entrega de servicio de CS ni las sesiones de la comunidad (`lib/calendario.ts`).
+Ver la sección «Lo que quedó sin hacer» de cada hallazgo. Lo más grande: los bloques de General no obedecen los filtros
+de la hoja, sólo los gráficos (`app/general/piezas.tsx`); el Today del teléfono no mira el informe de General
+(`app/m/hoy`); y el Calendario no tiene la entrega de servicio de CS ni las sesiones de la comunidad (`lib/calendario.ts`).

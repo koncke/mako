@@ -499,6 +499,47 @@ la mayoría de gráficos… Se selectivo». Lo que gobierna lo que se toque acá
 - **Lo que MaKo «responde» viaja como texto del contexto**, no como un prompt aparte: `contextoDeGrafico` le agrega «quien armó este
   gráfico pide que respondas, antes que nada: …». Las sugerencias reemplazan las preguntas por defecto del chat del gráfico.
 
+## La pantalla en blanco es «¿Qué vas a crear hoy?», y las plantillas se ven como páginas (14/10/2026)
+
+**El pedido** (Martín, desde la tab General, «para General y para el Dashboard»): «en lugar del botón de "nuevo dashboard"
+te pido que pongas ahí el "¿Qué vas a crear hoy?"... Y los templates, la preview debería ser como los de landing generator,
+porque justamente se deberían ver como una pagina... y el botón de EDITAR no debería saltarme ningún modal..., debería, al
+igual que dashboard, habilitar el menú de edición de la página». Y al toque: «Hazlo bien, mira como está construido el
+dashboard...».
+
+**Cómo quedó.** La pantalla en blanco de `EditorInforme` (quien nunca armó una hoja: `sinPaginas`) monta `CrearHoja`, el
+cuerpo del modal «Nueva hoja» sacado a una pieza: la caja y, abajo, las plantillas, como la portada del Landing Generator
+(`CajaCrear.tsx`). El modal es `CrearHoja` adentro del Modal de la casa. Cada plantilla es la tarjeta de esa portada
+(miniatura, «Usar plantilla» al pasar el mouse, nombre y línea), y la miniatura es `MiniaturaHoja`. «Editar» en blanco
+arranca una hoja en blanco ya editándose (`empezarEnBlanco`): la caja ya está en la pantalla, abrir el mismo contenido en un
+modal era repetirlo.
+
+**Lo que no se ve y gobierna lo que venga:**
+
+- **La miniatura dibuja la FORMA, nunca los datos.** Cada componente en su x, y, w, h de la grilla, con su título real y un
+  boceto según el GRUPO de su tipo (`TIPOS`): barras, línea, número, tabla, anillo, embudo, y la cabecera oscura de General.
+  Medir cada plantilla para la miniatura serían ~157 gráficos por apertura (lo advirtió Graphics); eso lo hace
+  /api/graficos/plantilla sólo para la que se elige.
+- **Determinista, porque la pantalla en blanco se dibuja también en el server.** La hoja de muestra sale de los ids FIJOS de
+  la plantilla (`hojaDeMuestra`, nunca `instanciarPlantilla`, que acuña ids al azar) y las alturas de los bocetos de un hash
+  del id. Un `Math.random()` ahí rompe la hidratación sin un error visible.
+- **La escala va en `cqw`** (container-type en `.mh`), como la miniatura del Landing Generator, nunca con `transform: scale`.
+  Y la hoja de estilos (`CSS_MINIATURA`) la pone quien monta las miniaturas, UNA vez: con un `<style>` por tarjeta eran trece.
+- **La lógica de `CrearHoja` se quedó en `NuevaHoja.tsx` a propósito**: cinco tests la leen del fuente por regex
+  (graficos-con-datos, graficos-copia, graficos-ia, dashboard-topbar); mudarla a otro archivo era mudar sus asserts.
+- ⚠️ **Un `[^>]*` en un regex sobre JSX corta en el `=>` de un handler.** El test de la pantalla en blanco daba rojo sobre el
+  código correcto: `<div className="…" onClick={(e) => e.stopPropagation()}>` tiene un `>` adentro del atributo. Se escribe
+  el atributo entero en el regex.
+
+Cómo se vio: las miniaturas de las 24 plantillas (11 de General y 13 del Dashboard) se dibujaron en una página estática con
+`renderToStaticMarkup` y se miraron en Chrome; la pantalla en blanco dentro del editor, todavía no (falta en ws3 después del
+deploy). Lo fijan `tests/dashboard-en-blanco.test.ts` y `tests/dashboard-miniatura-hoja.test.ts` (que DIBUJA todas las
+plantillas), probados rompiéndolos.
+
+**Vive en:** `app/dashboard/NuevaHoja.tsx` · `app/dashboard/MiniaturaHoja.tsx` · `app/dashboard/EditorInforme.tsx` ·
+`app/dashboard/editor-css.ts` · `tests/dashboard-en-blanco.test.ts` · `tests/dashboard-miniatura-hoja.test.ts`.
+*14/10/2026, claude2 (a98ab025), desde el chat de General.*
+
 ## Lo que quedó sin hacer
 
 - **El tipo `Bloque` y `clase: 'bloque'` siguen en `lib/graficos-catalogo.ts`** (y `esBloque`, `sanearBloque`): los necesita

@@ -27,13 +27,13 @@
 
 ## Índice
 
-- **General** (`general`): `leer_resumen_objetivos` · `ver_trimestre_actual` · `listar_objetivos` · `ver_objetivo_principal` · `ver_tablero_kpis` · `listar_kpis` · `sugerir_kpis` · `listar_fuentes_kpi` · `medir_fuente_kpi` · `ver_capacidad_instalada` · `medir_tramo_r1_r2` · `listar_pendientes_arranque` · `registrar_valor_kpi` · `cerrar_objetivo` · `apagar_kpi` · `guardar_capacidad` · `guardar_objetivo` · `guardar_kpi` · `sembrar_kpis_sugeridos` · `listar_vistas_general` · `crear_vista_general`
+- **General** (`general`): `leer_resumen_objetivos` · `ver_trimestre_actual` · `listar_objetivos` · `ver_objetivo_principal` · `ver_tablero_kpis` · `listar_kpis` · `sugerir_kpis` · `listar_fuentes_kpi` · `medir_fuente_kpi` · `ver_capacidad_instalada` · `medir_tramo_r1_r2` · `listar_pendientes_arranque` · `registrar_valor_kpi` · `cerrar_objetivo` · `apagar_kpi` · `guardar_capacidad` · `guardar_objetivo` · `guardar_kpi` · `sembrar_kpis_sugeridos` · `listar_hojas_general` · `crear_hoja_general` · `agregar_bloque_general`
 - **Plan** (`plan`): `ver_plan` · `listar_tareas_plan` · `ver_tarea_plan` · `ver_proyecto_plan` · `listar_proyectos_plan` · `ver_prioridades_plan` · `listar_tareas_vencidas` · `listar_tareas_paradas` · `listar_tareas_sin_datos` · `buscar_tareas_plan` · `listar_dependencias_plan` · `listar_borradores_plan` · `ver_borrador_plan` · `ver_estado_borrador` · `ver_borrador_de_reunion` · `listar_proyectos_vacios` · `ver_senales_negocio` · `descartar_borrador_plan` · `actualizar_avance_tarea` · `agregar_dependencia_plan` · `quitar_dependencia_plan` · `guardar_termino_glosario` · `proponer_tareas_plan` · `proponer_cierre_tareas` · `proponer_ampliar_tareas`
 - **CRM** (`crm`): `buscar_leads` · `ficha_lead` · `reuniones_recientes` · `ver_funnel` · `listar_horarios_reunion` · `listar_leads` · `contar_leads_por_etapa` · `transiciones_desde_etapa` · `requisitos_para_mover` · `faltantes_del_lead` · `reuniones_proximas` · `cobranza_lead` · `tracking_lead` · `journey_lead` · `duplicados_lead` · `propuestas_lead_pendientes` · `confirmaciones_crm_automatico` · `estado_crm_automatico` · `evaluar_crm_automatico` · `link_agenda_calendly` · `link_resumen_lead` · `r2_sin_lead` · `listar_productos` · `listar_etiquetas` · `etiquetas_lead` · `proponer_cambio_etapa` · `proponer_agendar_reunion` · `proponer_lead` · `marcar_asistencia_reunion` · `marcar_calificado` · `agregar_nota_lead` · `asignar_closer_setter` · `mover_a_nutricion_manual` · `marcar_pago_cobrado` · `registrar_pago_suelto` · `ignorar_datos_sin_marcar` · `reactivar_datos_sin_marcar` · `resolver_confirmacion_crm` · `declarar_entradas_funnel` · `crear_etiqueta` · `editar_etiqueta` · `archivar_etiqueta` · `poner_etiqueta_lead` · `sacar_etiqueta_lead` · `oferta_del_lead` · `asignar_oferta_lead` · `crear_oferta_lead` · `editar_contacto_lead` · `agregar_link_fathom` · `marcar_reunion_manual` · `guardar_plan_pagos` · `guardar_cuotas` · `guardar_deal_details` · `activar_crm_automatico` · `guardar_producto` · `proponer_leads`
 - **Ads (Manager y Analyst)** (`ads`): `listar_campanas_meta` · `ver_estado_meta` · `ver_salud_cuenta_meta` · `listar_conjuntos_meta` · `listar_anuncios_meta` · `listar_anuncios_con_problemas_meta` · `listar_recomendaciones_meta` · `ver_rendimiento_anuncios` · `ver_cuenta_meta` · `listar_publicos_meta` · `buscar_intereses_meta` · `buscar_lugares_meta` · `listar_formularios_meta` · `listar_pixeles_meta` · `listar_eventos_pixel_meta` · `listar_conversiones_meta` · `listar_identidades_meta` · `verificar_ganadores_reusables` · `listar_motivos_venta_llamada` · `ver_publico_conjunto_meta` · `ver_textos_anuncio_meta` · `ver_datos_campana_meta` · `ver_datos_conjunto_meta` · `verificar_aprobacion_meta` · `listar_incidentes_meta` · `ver_base_formulario_meta` · `listar_publicaciones_mako_meta` · `listar_guiones_analizados` · `ver_ficha_guion` · `ver_estado_analisis_guiones` · `ver_cuadrante_retencion` · `ver_perfil_guiones` · `listar_angulos_guion` · `listar_avatares_guion` · `listar_guiones_valorados` · `ver_transcript_anuncio` · `proponer_estado_campana` · `proponer_renombrar_campana` · `proponer_estado_conjunto` · `proponer_estado_anuncio` · `proponer_renombrar_entidad_meta` · `proponer_presupuesto_campana` · `proponer_presupuesto_conjunto` · `proponer_eliminar_entidad_meta` · `proponer_agregar_anuncio` · `proponer_editar_textos_anuncio` · `proponer_crear_publico_meta` · `proponer_crear_formulario_meta` · `proponer_sincronizar_guiones` · `proponer_reanalizar_guion` · `proponer_corregir_angulo_guion` · `proponer_corregir_avatar_guion` · `proponer_borrar_guion_valorado` · `proponer_agregar_angulo` · `proponer_editar_angulo` · `proponer_borrar_angulo` · `proponer_agregar_avatar` · `proponer_editar_avatar` · `proponer_borrar_avatar`
 - **WhatsApp** (`whatsapp`): `listar_plantillas_aprobadas` · `listar_borradores_plantilla` · `estado_plantillas_meta` · `variables_plantilla` · `estado_envio_whatsapp` · `listar_etiquetas_whatsapp` · `etapa_inbox_de_lead` · `lead_insiste_con_lo_mismo` · `crear_contacto_chatwoot_lead` · `borrar_borrador_plantilla` · `reconciliar_plantillas` · `crear_borrador_whatsapp_empresa` · `guardar_borrador_plantilla` · `enviar_plantilla_a_meta` · `editar_plantilla_meta` · `borrar_plantilla_meta`
 - **Email** (`email`): `kpis_email` · `listar_secuencias_email` · `ficha_secuencia_email` · `listar_etapas_email` · `listar_triggers_email` · `listar_broadcasts` · `ficha_broadcast` · `listar_segmentos_email` · `contar_segmento_email` · `estado_email` · `remitente_email` · `envio_email_habilitado` · `crear_secuencia_email` · `editar_meta_secuencia_email` · `cancelar_programacion_broadcast` · `verificar_dominio_envio` · `editar_pasos_secuencia_email` · `crear_broadcast` · `editar_broadcast` · `programar_broadcast` · `enviar_broadcast` · `enviar_prueba_broadcast` · `eliminar_broadcast` · `activar_envio_real_email`
-- **Chatbot y secuencias** (`chatbot`): `listar_secuencias_nutricion` · `ficha_secuencia_mensajes` · `metricas_chatbot` · `huecos_secuencias` · `estado_canal_whatsapp_chatbot` · `contexto_etapa` · `etapas_para_secuencia` · `listar_objetivos_secuencia` · `audios_requeridos` · `escenarios_ensayo` · `estado_onboarding_chatbot` · `plantillas_meta_de_secuencia` · `inscripciones_lead` · `listar_secuencias_archivadas` · `proponer_toggle_nutricion` · `cambiar_espera_paso` · `desarchivar_secuencia` · `guardar_publico_audios` · `agregar_objetivo_custom` · `avisar_al_equipo` · `reabrir_onboarding_chatbot` · `guardar_estrategia_secuencia` · `editar_pasos_secuencia_mensajes` · `agregar_escenario_secuencia` · `archivar_secuencia` · `guardar_link_video` · `crear_lead_magnet`
+- **Chatbot y secuencias** (`chatbot`): `listar_secuencias_nutricion` · `ficha_secuencia_mensajes` · `metricas_chatbot` · `huecos_secuencias` · `estado_canal_whatsapp_chatbot` · `contexto_etapa` · `etapas_para_secuencia` · `listar_objetivos_secuencia` · `audios_requeridos` · `escenarios_ensayo` · `estado_onboarding_chatbot` · `plantillas_meta_de_secuencia` · `inscripciones_lead` · `listar_secuencias_archivadas` · `proponer_toggle_nutricion` · `cambiar_espera_paso` · `cambiar_si_contesta_secuencia` · `desarchivar_secuencia` · `guardar_publico_audios` · `agregar_objetivo_custom` · `avisar_al_equipo` · `reabrir_onboarding_chatbot` · `guardar_estrategia_secuencia` · `editar_pasos_secuencia_mensajes` · `agregar_escenario_secuencia` · `archivar_secuencia` · `guardar_link_video` · `crear_lead_magnet`
 - **Dashboard y análisis** (`metricas`): `metricas_negocio` · `analisis_negocio` · `resumir_marketing_periodo` · `diagnosticar_funnel` · `ver_serie_funnel_semanal` · `ver_tendencias` · `detectar_fatiga_adsets` · `comparar_agendas_meta_crm` · `ver_serie_vsl` · `ver_revenue_periodo` · `ver_revenue_mensual` · `ver_mrr_activo` · `ver_cac_acumulado` · `ver_cac_mensual` · `listar_cohortes_semanales` · `listar_cohortes_mensuales` · `ver_embudo_comercial_maduro` · `ver_ciclo_venta` · `ver_tramos_ciclo_venta` · `ver_distribucion_pipeline` · `ver_catalogo_dashboard` · `consultar_datos_dashboard` · `leer_hoja_dashboard` · `leer_analisis_dashboard` · `crear_hoja_dashboard` · `editar_hoja_dashboard` · `duplicar_hoja_dashboard` · `borrar_hoja_dashboard` · `agregar_grafico_dashboard` · `editar_grafico_dashboard` · `quitar_componente_dashboard` · `agregar_filtro_dashboard` · `quitar_filtro_dashboard` · `insertar_elemento_dashboard` · `restablecer_informe_dashboard` · `analizar_hoja_dashboard` · `programar_analisis_dashboard` · `cancelar_analisis_dashboard` · `conectar_componentes_dashboard` · `quitar_conector_dashboard` · `leer_conclusiones_dashboard` · `generar_conclusiones_dashboard`
 - **Experiments y Retro** (`experimentos`): `estado_experimentos` · `listar_experimentos` · `ficha_experimento` · `vista_experimentos` · `medicion_experimento` · `listar_conclusiones_experimentos` · `catalogo_metricas_experimento` · `snapshot_funnel_experimentos` · `listar_retros` · `plan_retro` · `seguimiento_ultima_retro` · `estado_gate_retro` · `destacados_periodo_retro` · `cobertura_datos_retro` · `iniciar_experimento` · `cerrar_experimento` · `descartar_experimento` · `aceptar_item_plan_retro` · `posponer_item_plan_retro` · `descartar_item_plan_retro` · `deshacer_item_plan_retro` · `crear_experimento` · `borrar_retro`
 - **Landing (Analyst, Generator y tracking)** (`landing`): `listar_landings` · `listar_landings_detectadas` · `ver_estado_pixel` · `verificar_pagina_pixel` · `ver_codigo_pixel` · `ver_novedades_pixel` · `detectar_piezas_landing` · `ver_cambios_landing` · `contar_eventos_prueba` · `ver_grabaciones_prueba` · `listar_videos_landing` · `listar_videos_detectados` · `listar_videos_panda` · `ver_metricas_video_panda` · `listar_analisis_landing` · `ver_diagnostico_landing` · `ver_comportamiento_landing` · `listar_borradores_landing` · `ver_borrador_landing` · `nombrar_video` · `olvidar_nombre_video` · `ocultar_video` · `guardar_landing` · `borrar_landing` · `borrar_analisis_landing` · `borrar_borrador_landing`
@@ -51,7 +51,7 @@
 
 ## General — `general`
 
-Tab **General** (`/general`). 13 lecturas · 8 acciones.
+Tab **General** (`/general`). 13 lecturas · 9 acciones.
 
 ### `GET /api/v1/general/objetivos/resumen` — Resumen de objetivos del trimestre
 
@@ -549,11 +549,11 @@ curl -L \
   -d '{"nombres":[]}'
 ```
 
-### `GET /api/v1/general/vistas` — Ver las vistas de General
+### `GET /api/v1/general/hojas` — Ver las hojas de General
 
-Las vistas de la pantalla General de una persona (qué bloques ve, en qué orden y de qué funnels u ofertas), más los bloques, las plantillas, y los funnels y las ofertas del negocio (con su id) que existen para armar una nueva. Úsala antes de crear_vista_general.
+Las hojas de la pantalla General de una persona (cada una con sus bloques, gráficos y textos), más las plantillas, los bloques de General y los funnels del negocio (para atar un bloque a uno) que existen para armar o completar una. Úsala antes de crear_hoja_general o agregar_bloque_general.
 
-- **Ruta por operación:** `GET /api/v1/general/listar_vistas_general`
+- **Ruta por operación:** `GET /api/v1/general/listar_hojas_general`
 - **Token detallado:** permiso `general=read` (Solo lectura en «General»)
 - **Token clásico:** alcance mínimo lectura
 - **Devuelve:** json
@@ -570,19 +570,19 @@ curl -L \
   -H "Accept: application/json" \
   -H "Authorization: Bearer <TU-TOKEN>" \
   -H "X-MaKo-Api-Version: 2026-10-08" \
-  "https://hola-mako.com/api/v1/general/vistas"
+  "https://hola-mako.com/api/v1/general/hojas"
 ```
 
-### `POST /api/v1/general/vistas` — Crear una vista de General
+### `POST /api/v1/general/hojas` — Crear una hoja de General
 
-Propone crear una vista nueva en la pantalla General de una persona: desde una plantilla (por id) o con una lista de bloques, y opcionalmente atada a funnels u ofertas (por id). Lo que no existe se saca. Pide los bloques y las plantillas con listar_vistas_general.
+Propone agregar una hoja nueva a la pantalla General de una persona, desde una plantilla de General (por id: la General de siempre, Bienvenida, Operación diaria, una por tipo de funnel…). Pide las plantillas con listar_hojas_general.
 
-- **Ruta por operación:** `POST /api/v1/general/crear_vista_general`
+- **Ruta por operación:** `POST /api/v1/general/crear_hoja_general`
 - **Token detallado:** permiso `general=write` (Lectura y escritura en «General»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
-- **Escribe:** agrega una vista a las de esa persona (app_settings general.vistas.<persona>), con compare-and-set
+- **Escribe:** agrega una hoja al informe de General de esa persona (app_settings general.informe.<persona>), con compare-and-set
 - **Reversible:** sí
 - **Costo:** gratis
 - **Solo el administrador del workspace.**
@@ -591,11 +591,8 @@ Propone crear una vista nueva en la pantalla General de una persona: desde una p
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
 | `persona` | string | no | Email (o nombre) de la persona admin. Si se omite y la cuenta tiene una sola persona admin, es ésa. |
-| `plantilla` | string (operacion \\| foco \\| cobranza \\| objetivo \\| comercial \\| salud \\| plan) | no | id de la plantilla. Si viene, manda sobre «bloques». |
-| `bloques` | string[] (objetivo \\| prioridades \\| cobranza \\| funnel \\| kpis \\| semaforo \\| mes \\| pendientes) | no | Los bloques, en el orden en que se ven. |
-| `nombre` | string | no | Cómo se llama la vista (default: el de la plantilla). |
-| `funnels` | string[] | no | ids de funnels (de listar_vistas_general). Vacío = todo el negocio. |
-| `ofertas` | string[] | no | ids de ofertas (de listar_vistas_general): suman los funnels que las venden. |
+| `plantilla` | string (general \\| bienvenida \\| operacion \\| cobros \\| foco \\| funnel-llamadas \\| funnel-whatsapp \\| lanzamiento \\| servicio \\| curso \\| ventas) | sí | id de la plantilla de General. |
+| `nombre` | string | no | Cómo se llama la hoja (default: el de la plantilla). |
 
 ```bash
 curl -L \
@@ -603,7 +600,43 @@ curl -L \
   -H "Accept: application/json" \
   -H "Authorization: Bearer <TU-TOKEN>" \
   -H "X-MaKo-Api-Version: 2026-10-08" \
-  "https://hola-mako.com/api/v1/general/vistas"
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/general/hojas" \
+  -d '{"plantilla":"general"}'
+```
+
+### `POST /api/v1/general/hojas/{hoja}/bloques` — Agregar un bloque a una hoja de General
+
+Propone agregar UN bloque de General (el objetivo y la acción del día, los objetivos, los KPIs, el semáforo, mi día, las próximas llamadas, las prioridades del Plan, los pendientes del CRM, el funnel de hoy, a quién cobrarle, el mes o las próximas publicaciones) al final de una hoja de General. «El funnel de hoy» y «A quién cobrarle» se pueden atar a UN funnel (sin funnel: el principal, o todo el negocio). Pide los ids con listar_hojas_general.
+
+- **Ruta por operación:** `POST /api/v1/general/agregar_bloque_general`
+- **Token detallado:** permiso `general=write` (Lectura y escritura en «General»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** agrega un elemento (un bloque de General) a una hoja del informe de General de esa persona, con compare-and-set
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** general
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `persona` | string | no | Email (o nombre) de la persona admin. Si se omite y la cuenta tiene una sola persona admin, es ésa. |
+| `hoja` | string | no | id de la hoja (de listar_hojas_general). Si se omite, la primera. |
+| `bloque` | string (cabecera \\| objetivos \\| kpis \\| semaforo \\| agenda \\| llamadas \\| prioridades \\| pendientes \\| funnel \\| cobranza \\| mes \\| publicaciones) | sí | id del bloque de General. |
+| `titulo` | string | no | Un título propio para el bloque (vacío = el de siempre). |
+| `funnel` | string | no | Sólo para el funnel de hoy y a quién cobrarle: el funnel (su id o su nombre, de listar_hojas_general). Sin esto, el principal o todo el negocio. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/general/hojas/HOJA/bloques" \
+  -d '{"bloque":"cabecera"}'
 ```
 
 ## Plan — `plan`
@@ -5489,7 +5522,7 @@ curl -L \
 
 ## Chatbot y secuencias — `chatbot`
 
-Tab **Automations** (`/automations`). 14 lecturas · 13 acciones.
+Tab **Automations** (`/automations`). 14 lecturas · 14 acciones.
 
 ### `GET /api/v1/chatbot/secuencias` — Listar las secuencias de mensajes
 
@@ -5863,6 +5896,38 @@ curl -L \
   -H "Content-Type: application/json" \
   "https://hola-mako.com/api/v1/chatbot/secuencias/SECUENCIA_ID/pasos/ORDEN" \
   -d '{"delayHoras":0}'
+```
+
+### `PUT /api/v1/chatbot/secuencias/{secuenciaId}/caminos/{camino}` — Qué hace un camino si el lead contesta
+
+PROPONE elegir qué hace un CAMINO de una automatización —cada flecha que sale de su CRON— cuando el lead contesta: «sigue» (lo que falta de ese camino sigue saliendo; es el de fábrica) o «corta» (deja de salir). Pide antes el secuenciaId y los caminos con ficha_secuencia_mensajes: la tarjeta del CRON (tipo «inicio») dice sus `paralelos` y su `si_contesta`. El camino principal es «p»; cada flecha en paralelo se nombra con el id de su primera tarjeta. Sin tarjeta CRON (una sola flecha), el único camino es «p».
+
+- **Ruta por operación:** `POST /api/v1/chatbot/cambiar_si_contesta_secuencia`
+- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Chatbot y secuencias»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** cambia si_contesta de la tarjeta CRON (pasos) en nutricion_secuencias; sin tarjeta CRON, la crea
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** setting
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `secuenciaId` | number | sí | id de la secuencia de mensajes (de listar_secuencias_nutricion). |
+| `camino` | string | sí | «p» para el camino principal del CRON, o el id de la primera tarjeta de una flecha en paralelo. |
+| `valor` | string (sigue \\| corta) | sí | sigue = lo que falta de ese camino sigue saliendo aunque el lead conteste; corta = deja de salir. |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/chatbot/secuencias/SECUENCIA_ID/caminos/CAMINO" \
+  -d '{"valor":"sigue"}'
 ```
 
 ### `POST /api/v1/chatbot/secuencias/{secuenciaId}/restauraciones` — Desarchivar una secuencia

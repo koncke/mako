@@ -33,7 +33,7 @@ const VISIBLES = 6;
 
 export function Cobranza({ filas, tz, error, alcance = null }: {
   filas: CobroM[]; tz: string; error: string | null;
-  /** Los funnels u ofertas de la vista de /general, si no mira todo el negocio (lib/general-vistas-modelo.ts). */
+  /** Un rótulo al lado del título (lo que la hoja mira, si no es todo el negocio). */
   alcance?: string | null;
 }) {
   const { toast, show, clear } = useToast();

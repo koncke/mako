@@ -1,5 +1,45 @@
 # Retomar: Plan · Perro Guardián
 
+## ⏩ Lo último (14/10, cuenta `claude2`): cierre por pedido de Martín
+
+**Lo PRIMERO que espera a Martín:** confirmar el borrador con lo de sus últimas 3 reuniones y su
+feedback de 18 puntos → **https://hola-mako.com/plan/revisar/propmv7rwo1dkj2i6** (50 ítems,
+`pendiente`). Recién cuando lo aplique, el Perro los puntúa, y **después** se le manda a cada
+chat lo suyo (memoria `cerebro-reparte-a-chats`). No antes.
+
+**Lo que decidió el 13/10, y no se re-pregunta:**
+- Las tres tareas de automatizaciones que el ruteador puso en CRM van a **Chatbot**.
+- Las **cuatro de Mauricio** (sus upsells, Teriyaki, explorar MaKo, el goteo) **no se cargan**.
+- Salen «Terminar pendientes de MaKo» (repetía otras dos) y el funnel de Renovación.
+- Las tres de «pregunta a qué funnel va el lead» van como **una sola**.
+- Punto 16: se pueden usar referentes conocidos generados con IA, **sin aclarar nada**.
+- Punto 18: la IA de Ads Manager decide **todo sola, dentro de topes** configurables.
+- Puntos 13 a 15 (Stories, Calendario, publicar): **un solo proyecto**, el Calendario.
+
+**Lo hecho en esta ventana** (todo en main):
+| Qué | Commit |
+|---|---|
+| El rojo de `tests/plan-proyectos-catalogo.test.ts`: no era Analysts, era el ORDEN de la barra; el guard compara conjuntos | `5e829212` |
+| Los dos tramos de reunión sin leer: uno no era Google, era el detalle sin su comilla de apertura (arreglado en `repararJson`) | `aed3ccb7` |
+| Borrado de lo que el alta sin preguntas dejó sin call site: `PreguntaCampo` y tres textos del contrato de preguntas | el commit de este relevo |
+
+**Lo que sigue en la cola, sin tocar:**
+- **Las TABLAS no corren a las de abajo** al arrastrar una fila (`useArrastreFilas`,
+  `app/plan/board/Tablas.tsx`): el Kanban sí. No se empezó: el cierre llegó antes.
+- **El Perro puede re-empatar** a una tarjeta fijada (`recurvarPlanOwner`).
+- ⚠️ **AGENTS.md todavía nombra `PreguntaCampo`** como consumidor de `lib/preguntas-contrato.ts`
+  en la tabla de «Una cosa, un lugar». No lo corregí porque AGENTS.md tenía trabajo ajeno sin
+  commitear; es una línea.
+
+**Una trampa medida que sirve para el que pushee:** `tsc --noEmit` sobre el proyecto entero sale
+con código 1 sin un solo error (también con 6 GB de heap), pero el MISMO tsc con un `include`
+acotado a unos archivos y todo lo que importan termina en 0. O sea que tsc anda: lo que lo tumba
+es algo del conjunto completo (memoria `pc-techo-ram-chrome`: pide 4 GB y con muchos chats no los
+hay).
+
+Lo que sigue abajo es el relevo del 09/10, que sigue valiendo.
+
+
 **Dónde quedó:** 09/10/2026, cuenta `claude2`, sesión `153a499a` (chat «Plan - Perro
 Guardián»). Lo anterior, del 05-06/10 en la cuenta 1, está en el historial de este archivo.
 

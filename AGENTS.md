@@ -2764,6 +2764,10 @@ sino a los que la DECLARAN** — y esos dos conjuntos casi nunca son el mismo.
 - **El alcance va por PROPÓSITO, no por campo declarado.** Acá: `preparaUnaReunion(trigger)` en
   `lib/nutricion-familias.ts` cubre la familia entera de la post-agenda, y el guard de
   `tests/reunion-ya-paso.test.ts` falla si el motor vuelve a mirar solo `paso.ancla`.
+- **⚠️ Desde el 14/10/2026 esa pregunta NO va escondida en el motor** (Martín: «jamás que "mako" haga
+  cosas que no están en el flujo»). Va como una CONDITION visible delante del mensaje, y el
+  reintento la vuelve a pasar antes de mandar. La guarda de `procesarEnvios` se borra cuando eso
+  exista: plan en docs/diseno-mako-nada-por-detras.md §2.1-2.3.
 
 # Un DIAGNÓSTICO escrito de antemano deja de ser cierto sin avisar
 
@@ -7589,6 +7593,14 @@ componente y le cambia el ciclo de vida entero.
 
 # /automations (ex /chatbot) es un FLUJO CON RAMAS: lo que gobierna el código nuevo
 
+**MaKo no decide nada que no esté en el flujo** (Martín, 14/10/2026: «Si no es configurable el usuario,
+como yo, lo tomamos como un bug... Depreca absolutamente todas las cosas que MaKo haga por detrás»).
+Un «si X, no mandes / cerrá / pausá / reprogramá / no inscribas» nuevo NO se escribe en el motor. Va
+como condición del catálogo (`lib/condiciones-catalogo.ts`) u opción visible de una tarjeta, con su
+operación en la API de MaKo. Lo que ya existe escondido está inventariado (162 ítems, con el plan) en
+docs/diseno-mako-nada-por-detras.md. La corrección técnica (carreras, no mandar dos veces) no cuenta.
+Antes de una tarjeta nueva, mirá si las que hay ya la expresan: una rama sin flecha ya TERMINA.
+
 Desde el 08/10/2026 una automatización de la tab Automations (ex Chatbot, renombrada el
 09/10/2026: la pantalla vive en `app/automations/`, /chatbot redirige con la query entera y las
 claves guardadas —la key `setting`, el área `chatbot` de la API, /api/chat-agent/*— no cambiaron)
@@ -7874,6 +7886,25 @@ a todo lo que su matcher no exime —un `.json`, `.avif` o `.mp4` de `public/` i
 no por el status. Lo estático que se pide sin sesión se exime en el matcher por RUTA (`ve/`,
 `cono-tx/`); una ruta de PÁGINA no se exime nunca, porque el proxy es el único que valida el
 `?ws=`.
+
+# La tab General es el editor del Dashboard: lo que gobierna un bloque nuevo
+
+Desde el 14/10/2026 `/general` monta `EditorInforme` con `informe="general"` (su informe: `general.informe.<sub>`).
+Martín: «intenta replicar lo que tenemos en dashboard... Los bloques también deberían ser editables». El porqué y lo que
+costó, en [docs/hallazgos-objectives.md](docs/hallazgos-objectives.md) → «General es el editor del Dashboard».
+
+- **Lo que se puede medir con el catálogo de gráficos va como GRÁFICO**, que se edita entero. Un bloque de General es
+  lo que el catálogo no tiene (el objetivo con la acción del día, los KPIs con su registro, el semáforo, el Plan).
+- **Un bloque nuevo son dos lugares**: su fila en `PIEZAS_GENERAL` (lib/general-piezas.ts) y su nodo en `armarPiezas`
+  (app/general/piezas.tsx), que lo arma con las lecturas de siempre. El editor no aprende a leer nada: el bloque viaja
+  dibujado por contexto. Y alguna plantilla lo usa (`tests/general-editor.test.ts` falla si no).
+- **Un bloque que se ata a un funnel** lleva `porFunnel`, y su variante se arma y se busca con `clavePieza`: la misma
+  función en las dos puntas.
+- **Un tipo de elemento nuevo en `TIPOS_ELEMENTO` aparece solo en todas las listas que derivan de él**: la API del
+  Dashboard (`ELEMENTOS_DE_LA_API`), los links compartidos (`ELEMENTOS_QUE_NO_SALEN`), el catálogo que lee la IA. En cada
+  una se decide si lo puede dibujar; si no, se excluye con un error que diga dónde va.
+- **Tocar `EditorInforme` es tocar sus guards de fuente**: `tests/graficos*` y `tests/dashboard-*` leen el editor por
+  regex, y una variante nueva los pone rojos. Se corren antes de dar el editor por terminado.
 
 # MaKo Mobile (/m): lo que gobierna una pantalla nueva del teléfono
 

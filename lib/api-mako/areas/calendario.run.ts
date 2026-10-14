@@ -3,13 +3,16 @@
 // =============================================================================
 // Cruzados por id con calendario.def.ts. Lo que escribe pasa por lib/calendario.ts (`crearEventos`), el mismo camino
 // que la pantalla: la validación (`filaDeEntrada`) y la zona del negocio son las mismas. Y no lee la agenda de Google:
-// ni para listar ni para validar un horario (la agenda no pasa por ningún modelo).
+// ni para listar ni para validar un horario (la agenda no pasa por ningún modelo). Desde el 14/10/2026 ESCRIBE en ella
+// (`crear_evento_google`, lib/calendario-google.ts): crea y contesta un estado, nunca lo que hay en la agenda.
 
 import 'server-only';
 import { revalidatePath } from 'next/cache';
 import type { Runners, Preparado, Ejecutado } from '../tipos';
 import { hoyEnWorkspace } from '@/lib/timezone';
 import { crearEventos, listarPropios, zonaDelCalendario } from '@/lib/calendario';
+import { crearEventoGoogle } from '@/lib/calendario-google';
+import { cuerpoEventoGoogle, type EntradaEventoGoogle } from '@/lib/calendario-google-modelo';
 import {
   filaDeEntrada, sumarDias, horaDe, diaDe, esTipoEvento, esFormato, ROTULO_TIPO, ROTULO_FORMATO,
   type EntradaEvento,
@@ -35,6 +38,16 @@ function entradaDe(input: Record<string, unknown>): EntradaEvento {
     hora: str(input, 'hora'),
     duracionMin: typeof dur === 'number' && Number.isFinite(dur) ? dur : null,
     notas: str(input, 'notas') ?? '',
+  };
+}
+
+/** El evento de Google desde lo que pasó el modelo. */
+function entradaGoogleDe(input: Record<string, unknown>): EntradaEventoGoogle {
+  const dur = input.duracionMin;
+  return {
+    titulo: str(input, 'titulo') ?? '', fecha: str(input, 'fecha') ?? '', hora: str(input, 'hora'),
+    duracionMin: typeof dur === 'number' && Number.isFinite(dur) ? dur : 60,
+    ubicacion: str(input, 'ubicacion') ?? '', descripcion: str(input, 'descripcion') ?? '',
   };
 }
 
@@ -87,6 +100,25 @@ export const RUNNERS: Runners = {
       } catch (e) {
         return { ok: false, resumen: `No se pudo agendar (${e instanceof Error ? e.message : 'error'}).` };
       }
+    },
+  },
+
+  // 14/10/2026: escribe en Google sin leer la agenda (el resumen sale de lo que dijo la persona, no de Google).
+  crear_evento_google: {
+    preparar: async (input): Promise<Preparado> => {
+      const e = entradaGoogleDe(input);
+      if (!e.titulo.trim()) return { error: 'Falta el título del evento.', faltan: ['titulo'] };
+      if (!e.fecha) return { error: 'Falta la fecha (YYYY-MM-DD).', faltan: ['fecha'] };
+      const c = cuerpoEventoGoogle(e, await zonaDelCalendario());
+      if (!c.ok) return { error: c.error };
+      const cuando = `${e.fecha}${e.hora ? ` a las ${e.hora}` : ' (todo el día)'}${e.hora && e.duracionMin ? `, ${e.duracionMin} min` : ''}`;
+      return { payload: { ...e }, resumen: `Crear en tu Google Calendar: «${e.titulo.trim()}», ${cuando}.` };
+    },
+    ejecutar: async (payload): Promise<Ejecutado> => {
+      const r = await crearEventoGoogle('primary', entradaGoogleDe(payload), await zonaDelCalendario());
+      if (!r.ok) return { ok: false, resumen: r.error };
+      try { revalidatePath('/calendario'); } catch { /* fuera de un request: vence sola */ }
+      return { ok: true, resumen: 'Creado en tu Google Calendar.', datos: { eventoId: r.id } };
     },
   },
 };

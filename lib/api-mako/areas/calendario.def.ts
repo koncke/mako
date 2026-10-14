@@ -4,9 +4,9 @@
 // La tab Calendario (13/10/2026). Una capacidad nueva de MaKo se DECLARA acá (AGENTS.md): así la usan MaKo por
 // WhatsApp, el chat de la app y quien tenga un token, por la misma puerta que la pantalla.
 //
-// ⚠️ SÓLO LO PROPIO. Lo que se lee y se escribe acá son los eventos que la persona agenda en el Calendario
-//    (`calendario_eventos`). La agenda de Google NO: la agenda no pasa por ningún modelo (decisión de Martín del
-//    07/10/2026) y tampoco sale por HTTP. Las reuniones del CRM y los deadlines del Plan ya tienen su área (crm, plan).
+// ⚠️ LO QUE SE LEE ES SÓLO LO PROPIO (`calendario_eventos`). La agenda de Google NO se lee: no pasa por ningún modelo
+//    (decisión de Martín del 07/10/2026) y tampoco sale por HTTP. Desde el 14/10/2026 sí se ESCRIBE en ella
+//    (`crear_evento_google`, con `datosDeGoogle` y sin HTTP). Las reuniones del CRM y los deadlines del Plan ya tienen su área (crm, plan).
 //
 // Todas llevan `tab: 'calendario'` y `rolMinimo: 'admin'`: es el requireRolWs([], { nav: 'calendario' }) de la página.
 // SIN server-only: lo importan los tests y el generador de la referencia. Español neutro (lo lee el cliente).
@@ -17,6 +17,8 @@ import { TIPOS_EVENTO, FORMATOS_PUBLICACION } from '@/lib/calendario-modelo';
 
 const GATING: Gating = { tab: 'calendario', rolMinimo: 'admin' };
 const TODOS = ['whatsapp', 'app', 'http'] as const;
+/** La agenda de Google no sale por HTTP: ahí no hay persona, sólo otro modelo (tests/agenda-sin-ia.test.ts). */
+const SIN_HTTP = ['whatsapp', 'app'] as const;
 
 export const DEFS: readonly OperacionDef[] = [
   {
@@ -45,5 +47,23 @@ export const DEFS: readonly OperacionDef[] = [
     canales: TODOS, costo: 'gratis', gating: GATING,
     reversible: true,
     escribe: 'insert en calendario_eventos (origen api)',
+  },
+  {
+    // 14/10/2026 (Martín: lo que se crea desde MaKo se escribe en Google, como en Google). ESCRIBE en la agenda y no la
+    // lee: el modelo pasa lo que dijo la persona y el código crea el evento en el calendario principal de Google.
+    id: 'crear_evento_google', area: 'calendario', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Crear un evento en Google Calendar',
+    descripcion: 'Propone crear UN evento en el calendario principal de la cuenta de Google conectada (no en el Calendario de MaKo). La fecha y la hora van como las dijo la persona, en la zona del negocio; sin hora, es de todo el día. No mira la agenda: no digas que un horario está libre.',
+    parametros: [
+      { nombre: 'titulo', tipo: 'string', obligatorio: true, max: 300, descripcion: 'El título del evento.' },
+      { nombre: 'fecha', tipo: 'string', obligatorio: true, max: 10, descripcion: 'YYYY-MM-DD, en la zona del negocio.', ejemplo: '2026-10-15' },
+      { nombre: 'hora', tipo: 'string', max: 5, descripcion: 'HH:MM en 24 horas. Si se omite, es de todo el día.', ejemplo: '10:00' },
+      { nombre: 'duracionMin', tipo: 'number', entero: true, minimo: 5, maximo: 1440, descripcion: 'Cuánto dura, en minutos. Si se omite, una hora.' },
+      { nombre: 'ubicacion', tipo: 'string', max: 300, descripcion: 'Dónde, si lo dijo.' },
+      { nombre: 'descripcion', tipo: 'string', max: 4000, descripcion: 'Notas del evento, si las dijo.' },
+    ],
+    canales: SIN_HTTP, costo: 'externo', gating: GATING, datosDeGoogle: true,
+    reversible: true,
+    escribe: 'crea un evento en el calendario principal de Google Calendar',
   },
 ];
