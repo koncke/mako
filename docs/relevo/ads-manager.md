@@ -22,9 +22,11 @@ la tab **`/instagram`**, que se retiró el 06/10 y hoy sólo redirige.
 ## Retomado el 13/10/2026 (cuenta 2): lo que se fue cerrando
 
 Pedido de Martín, por el chat «Estrategia 3 CUENTAS»: continuar y cerrar lo planificado acá, sumar la
-#801 (el Ads Manager no tiene onboarding) y no tocar lo nuevo de `mako-feedback-y-tareas.md`. Los
-commits quedan **locales**: el push espera a que el typecheck del clon vuelva a terminar (el 13/10 a
-las 19:20 murió sin memoria con el tope de 2 GB; lo está arreglando la sesión de infra, `9d6fa572`).
+#801 (el Ads Manager no tiene onboarding) y no tocar lo nuevo de `mako-feedback-y-tareas.md`. Todo
+quedó **en el main del clon, sin push**: el push lo hace «Estrategia 3 CUENTAS», uno solo, con todo
+junto. ⚠️ **Ninguno de estos commits pasó por el typecheck**: el 13/10 el tsc moría sin memoria y
+después se pidió no correr más tsc completos. Si el pre-push de ese push da rojo en un archivo de
+abajo, es de acá.
 
 | Commit | Qué se cerró |
 |---|---|
@@ -36,11 +38,39 @@ las 19:20 murió sin memoria con el tope de 2 GB; lo está arreglando la sesión
 | `41aa319f` | Una sola moneda por defecto (eran 'MXN' y 'USD'), y crear sin la moneda leída se niega |
 | `19b7542e` | **#801: el onboarding de la tab.** Tres pasos (cuenta leída, página, primera campaña) que la page DERIVA al abrir: quien ya opera su cuenta no lo ve. Con «Lo configuro después». ⚠️ **Sin mirar en el navegador todavía** (RAM: ~3,4 GB libres con muchas sesiones; un `next dev` arriesgaba a los otros chats). Se mira en ws3: entrar a `/ads-manager?ws=3` como super admin |
 
-**Lo que sigue (validado el 13/10 por Martín, relayado por «Estrategia 3 CUENTAS»): el punto 18
-de `mako-feedback-y-tareas.md`, la IA que maneja el Ads Manager sola**, con parámetros del
-cliente, dos modos («propone y confirmás» por default; «automático» sólo si el cliente lo prende
-y dentro de sus topes), cada decisión en el historial con su porqué y deshacer, y `validate_only`
-antes de escribir. Las variaciones de hooks se coordinan con «Content Machine».
+| `435410f3` `f5222270` | **Punto 18, el Autopilot: el DISEÑO** (`docs/diseno-ads-autopilot.md`, el contrato) y lo que midió el relevamiento (`docs/hallazgos-ads.md` → «El Autopilot») |
+
+### El Autopilot (punto 18): diseñado, la implementación quedó A MEDIAS y FUERA del main
+
+Validado por Martín el 13/10 («implementalo completo y de punta a punta»). El 14/10 a las 02:20 el
+cierre pedido por Martín («que se pushee todo y que los chats cierren») cortó la corrida que lo
+implementaba. **Lo que hay:**
+
+- **El diseño**, en `docs/diseno-ads-autopilot.md`: el veredicto es CÓDIGO con los umbrales del
+  cliente (reglas R1–R5), apagado por default, modo «propone» o «automático» dentro de sus topes, la
+  decisión se relee en vivo y pasa por `validate_only` (para frenar, no como prueba), deshacer al
+  valor exacto, tabla propia `ads_autopilot_decisiones`.
+- **La base a medias, en la ref `refs/wip/autopilot-base-1410` (`2d5675b3`), NO en el main**:
+  `lib/ads-autopilot-config.ts`, `lib/ads-autopilot-reglas.ts`, `lib/ads-autopilot-db.ts`,
+  `lib/ads-autopilot-datos.ts`, `supabase/migrations/0275_ads_autopilot.sql` (sin aplicar), los
+  cambios a `lib/meta-write.ts` (`validarSolo`), `lib/meta-health.ts` (`getMetaHealthVivo`),
+  `lib/workspace.ts` y `lib/tablas-de-inquilino.ts`, y cuatro tests. Los agentes se cortaron antes
+  de terminar: **sin revisar, sin typecheck y con los tests sin confirmar**. Se retoma con
+  `git checkout refs/wip/autopilot-base-1410 -- <rutas>` sobre el main de ese día, se revisa cada
+  archivo contra el contrato y se corren sus tests. Antes de nombrar la migración, verificar que la
+  0275 siga libre (de la 0266 a la 0274 estaban tomadas en otras ramas).
+- **Falta entero:** el motor y el cron (`lib/ads-autopilot.ts`, `app/api/cron/ads-autopilot/route.ts`,
+  `vercel.json`), la pantalla (`app/ads-manager/AutopilotBoton.tsx`, `autopilot-actions.ts`, montaje
+  en `CampanasBrowser.tsx`), la API de MaKo (`ver_autopilot_anuncios`, `aplicar_decision_autopilot`
+  con pantalla + dinero + admin y negada a los flujos, `descartar_decision_autopilot`), aplicar la
+  0275, mirarlo en ws3 (**ojo: el ws3 llegó a compartir la cuenta del ws1**, contar antes) y la
+  revisión adversarial de plata e inquilinos. El guion del script de la corrida está en
+  `~/.claude/projects/…/workflows/scripts/ads-autopilot-implementar-wf_f6f3a30f-65e.js`.
+- **Las variaciones de hook filmadas solas son de «Content Machine»**, con cuatro bloqueos en orden
+  (en el diseño, «Lo que queda afuera»).
+- **Bug vivo encontrado de rebote, sin arreglar:** `ver_rendimiento_anuncios` de la API de MaKo
+  devuelve `leads_meta` = la constante 10 y `leads_crm` = los leads de Meta
+  (`lib/api-mako/areas/ads.run.ts:381`).
 
 ---
 

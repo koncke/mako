@@ -328,4 +328,22 @@ export const BITACORA: Hito[] = [
       'tests/meta-cuenta-del-objeto.test.ts — 6 tests, cinco roturas',
     ],
   },
+  {
+    fecha: '14 oct', hora: '00:10', chat: 'Ads Manager', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'La IA que maneja el Ads Manager sola (punto 18): el Autopilot',
+    pedido: 'Quiero implementar por completo la IA que te maneja Ads Manager por completo, toma desiciones, prende o apaga ads, sube presupuesto, baja... Crea variaciones de Hooks gracias a la generación de vídeo y publica sola... Cuando le falta material te pide que te grabes y te da el guion listo, etc... Quiero que sea todo automático y que se le puedan configurar parámetros...',
+    puntos: [
+      'Validado el 13/10 y relayado por «Estrategia 3 CUENTAS» con el encuadre: parámetros del cliente, «propone y una persona confirma» por default, «automático» sólo si el cliente lo prende y dentro de sus topes, historial con porqué y deshacer, validate_only antes de escribir.',
+      '**El relevamiento cambió tres cosas del pedido:** no hay un dato de gasto de hoy en la base (el tope por día es un techo de lo presupuestado), las variaciones de hook no se pueden filmar desde el servidor (filma el navegador del cliente: quedan de «Content Machine») y el veredicto lo toma código con los umbrales del cliente, no un modelo, porque mueve plata.',
+      'El 14/10 a las 02:20 el cierre pedido por Martín cortó la implementación: el diseño quedó commiteado; la base a medias, en refs/wip/autopilot-base-1410, fuera del main.',
+    ],
+    commits: [
+      { sha: '435410f3', msg: 'Autopilot del Ads Manager: el diseño (punto 18) y lo que midió el relevamiento', lineas: 230, archivos: 2 },
+    ],
+    archivos: [
+      'docs/diseno-ads-autopilot.md — el contrato',
+      'docs/hallazgos-ads.md — «El Autopilot»: lo que se creía y no era',
+    ],
+  },
 ];
