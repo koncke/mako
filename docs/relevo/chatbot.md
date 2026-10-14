@@ -88,6 +88,10 @@
 > lead desde el 10/10. O el alta de «Nuevo lead» no lo guardó (bug del CRM: medir `createLead` con ese teléfono, ¿duplicado?
 > ¿error tragado?), o lo borraron después de la llamada: se le preguntó a Martín. Sin lead no hay inscripción: la #213 no tenía
 > a quién mandarle.
+> **14/10 ~12:30: `migrar-si-contesta.ts --apply` CORRIDO** (10 automatizaciones; la 2ª pasada da 0). El push lo hace
+> «Estrategia 3 CUENTAS» con `1a2fd15f` (mi rama de antes del rebase, hasta «Pausar congela»). Los 6 commits de después
+> (857f5ccc9..0b034457e en la rama de hoy) van en el push siguiente, por cherry-pick. Después del deploy: la 2ª migración
+> (`migrar-condicion-reunion.ts --apply`) y el commit que borra la guarda.
 > **ESTADO 14/10 ~12:00 (rama `undecima`, 15 commits sobre origin/main, SIN push: espera turno de «Estrategia 3 CUENTAS»;
 > SIN tsc completo todavía, hay 2,6 GB libres):** hecho y con tests probados rompiéndolos —
 >  · bug 5 de raíz: «Si contesta: sigue / se corta» por camino (panel del CRON, API `cambiar_si_contesta_secuencia`);
