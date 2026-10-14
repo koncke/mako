@@ -5732,5 +5732,17 @@ Probado en un push real y con un guard de 4 roturas. ⚠️ **Y la consecuencia,
 queda abierta:** con ~13 sesiones la RAM libre ronda 3,5-3,7 GB, debajo del piso. El lock
 espera sus 15 minutos y frena con el motivo correcto; lo que destraba es cerrar chats.
 
+⚠️ **Y 3072 DURÓ UNA HORA Y MEDIA.** (14/10/2026, 00:40, chat Graphics.) Con Chrome cerrado el
+lock lo dejó arrancar y murió CORRIENDO: «Mark-Compact 3059.8 -> 3052.8 MB … heap out of
+memory». Minutos antes había pasado el push de CRM con el mismo tope, desde un worktree con
+origin/main; el de Graphics llevaba además los ~50 commits del main local que nadie había podido
+publicar. O sea que el programa está **justo** en 3 GB y cualquier tanda lo cruza. El
+diagnóstico obvio —«algo lo infla»— se descartó midiendo: ningún `.json` importado (con
+`resolveJsonModule` TypeScript le arma un tipo literal entero), y los más grandes son fuentes
+normales (`BoardShell.tsx` 428 KB, las fichas de cursos de 200-400 KB). Son **4.278 archivos y
+57 MB de TypeScript** y crecen todos los días. Quedó en 4096 (piso ≈ 5,3 GB). La consecuencia:
+con ~15 chats abiertos ese piso casi nunca está libre; lo que destraba un push es cerrar Chrome
+(que sigue vivo en segundo plano aunque se cierren todas sus ventanas: 1,5 GB) y algunos chats.
+
 **Vive en:** `scripts/typecheck-lock.mjs` · `tests/typecheck-lock.test.ts` ·
 `~/.claude/guardia/vigia.ps1` (sin tocar) · *2026-10-13*

@@ -51,7 +51,14 @@ const SALIDA_SIN_CHEQUEAR = 99;
 // incremental del clon copiada): «Mark-Compact 2040.5 -> 2031.5 MB … heap out of memory», o
 // sea más de 2 GB VIVOS después de un GC completo. Con 2048 no pasaba ningún push de la
 // máquina, con RAM o sin ella. El piso de RAM de abajo sube solo (≈ 4,3 GB).
-const CAP_HEAP_MB = 3072;
+//
+// ⚠️ 14/10/2026, 00:40: 3072 TAMPOCO. El push del chat Graphics (su rama + los commits del main local
+// que todavía no estaban en origin) murió con «Mark-Compact 3059.8 -> 3052.8 MB … heap out of memory»,
+// CORRIENDO (el lock lo dejó arrancar: había RAM). El de CRM, desde origin/main, pasó con el mismo tope
+// minutos antes: el programa está JUSTO en 3 GB y cualquier tanda de commits lo cruza. No es un archivo
+// que lo infle: son 4.278 archivos y 57 MB de TypeScript (los cursos y las bitácoras son .ts), y crece
+// todos los días. 4096 deja ~1 GB de aire; el piso de RAM sube solo (≈ 5,3 GB).
+const CAP_HEAP_MB = 4096;
 
 /**
  * ¿El dueño del lock sigue vivo? `process.kill(pid, 0)` no mata: pregunta.
@@ -127,7 +134,7 @@ if (!turno) {
 // el cap del heap (+0,1 de overhead) + la zona roja del vigía (0,9) + margen.
 // Bajarlo más no hace que se trabaje «al límite»: hace que no se trabaje.
 const ZONA_ROJA_VIGIA_GB = 0.9;  // ~/.claude/guardia/vigia.ps1 → $ROJA_MB
-const RAM_MIN_GB = CAP_HEAP_MB / 1024 + 0.1 + ZONA_ROJA_VIGIA_GB + 0.3;  // ≈ 4,3
+const RAM_MIN_GB = CAP_HEAP_MB / 1024 + 0.1 + ZONA_ROJA_VIGIA_GB + 0.3;  // ≈ 5,3
 const RAM_ESPERA_MAX_MS = 15 * 60 * 1000;
 
 /**
