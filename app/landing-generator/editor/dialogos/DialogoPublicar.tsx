@@ -40,6 +40,10 @@
 // /api/landing-generator/dominio (`SeccionDominio`, abajo); la API de Vercel y su token viven sólo
 // en el server (lib/editor-landing/dominios.ts). Al TXT `_mako` lo pide MaKo, no Gamma: el porqué,
 // en esa lib.
+//
+// Tanda 4 (14/10/2026): si un «Botón de pago» de la landing no va a poder cobrar (sin Stripe, un
+// producto inactivo o sin precio), lo dice ANTES de publicar, debajo de la caja de estado (`avisoDeCobro`,
+// lib/editor-landing/pago-landing.ts). No frena el botón: publicar sigue siendo de la persona.
 // =============================================================================
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -53,6 +57,9 @@ import {
   type EstadoDominio, type PedidoDominio, type RegistroDns, type RespuestaDominio,
 } from '@/lib/editor-landing/dominios-reglas';
 import { PLAZO_DOCS_MS, postJson } from '../../cliente';
+import Link from '@/app/_ui/Link';
+import { avisoDeCobro, productosDePago } from '@/lib/editor-landing/pago-landing';
+import { useCobroLanding } from '../nodos/CobroBoton';
 import { useEditorLanding } from '../contexto';
 import {
   Campo, CampoImagen, EstilosGmp, FilaAjuste, Giro, Icono, Interruptor, MenuGma, ModalGma, Pestanas, Segmentado,
@@ -211,6 +218,7 @@ export function DialogoPublicar({ onCerrar }: { onCerrar?: () => void } = {}) {
 function DialogoPublicarAbierto({ onCerrar }: { onCerrar?: () => void }) {
   const {
     docId, titulo, guardarAhora, setDialogo, urlPublica, cambiosSinPublicar, estado, recargar, avisar, paginas, contenido,
+    editor, paginaActual,
   } = useEditorLanding();
   const { config, cambiar } = useConfigViva();
   const { confirmar, nodoConfirma } = useConfirmaGma();
@@ -263,6 +271,14 @@ function DialogoPublicarAbierto({ onCerrar }: { onCerrar?: () => void }) {
     });
     return () => { vivo = false; };
   }, [slugRebote, docId]);
+
+  // Los botones de pago de TODO el sitio: la página abierta, en vivo (el editor); las demás, guardadas.
+  // Sólo se lee el catálogo si hay alguno.
+  const paginasVivas = useMemo(() => contenido.paginas.map((p) => (p.id === paginaActual && editor && !editor.isDestroyed
+    ? { ...p, doc: editor.getJSON() as typeof p.doc } : p)), [contenido, paginaActual, editor]);
+  const hayPagos = useMemo(() => productosDePago(paginasVivas).length > 0, [paginasVivas]);
+  const { estado: cobro } = useCobroLanding(hayPagos);
+  const avisoCobro = hayPagos && cobro ? avisoDeCobro(paginasVivas, cobro) : null;
 
   const publicado = !!info?.publicadoAt || !!url;
   const pendientes = cambiosSinPublicar || estado === 'sin-guardar' || estado === 'guardando';
@@ -504,6 +520,12 @@ function DialogoPublicarAbierto({ onCerrar }: { onCerrar?: () => void }) {
         </button>
       </div>
       {error && <p className="gmp-error" style={{ margin: '-6px 0 12px' }} role="alert">{error}</p>}
+      {avisoCobro && (
+        <p className="gmp-error" style={{ margin: '-6px 0 12px' }} role="status">
+          {avisoCobro.texto}
+          {avisoCobro.integraciones && <>{' '}<Link href="/integraciones" target="_blank" rel="noopener noreferrer">Integraciones</Link></>}
+        </p>
+      )}
       {url && (
         <div className="gmp-url-pub">
           <Icono nombre="enlace" tam={15} />

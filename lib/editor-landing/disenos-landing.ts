@@ -15,7 +15,8 @@
 // ese objetivo usa (agenda de Calendly/Cal.com, VSL de YouTube/Panda/Vimeo/Wistia, botón de pago a un
 // link de Stripe o Mercado Pago), vestido con el diseño. Los bloques entran VACÍOS a propósito: el
 // insertado vacío es un marcador que el editor dibuja con «Pega el enlace» (lib/embeds.ts decide qué
-// proveedores entran), y el botón de pago lleva a la sección del formulario hasta que se pegue el link.
+// proveedores entran), y el botón de pago lleva a la sección del formulario hasta que se elija el
+// producto que cobra («Cobrar con MaKo», tanda 4) o se pegue un link.
 // Puro: lo usan la caja de crear (cliente) y los tests.
 // =============================================================================
 
@@ -107,7 +108,7 @@ export function conHerramientasMako(c: LandingContenido, objetivo: string): Land
     // La instrucción va en las NOTAS de la sección, no en un párrafo: un párrafo se publica y lo lee el visitante.
     if (cierre) {
       cierre.content = [...(cierre.content ?? []), botonPago(destino)];
-      cierre.attrs = { ...(cierre.attrs ?? {}), notas: 'Pega en «Pagar ahora» el link de pago de Stripe o Mercado Pago.' };
+      cierre.attrs = { ...(cierre.attrs ?? {}), notas: 'En «Pagar ahora», elige el producto que cobra (Destino → Cobrar con MaKo).' };
     }
   }
   return copia;

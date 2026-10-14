@@ -115,10 +115,12 @@ export const BLOQUES: readonly DefBloque[] = [
 
   // ── Herramientas de MaKo ────────────────────────────────────────────────────
   // Atajos a lo que ya existe: la agenda y el VSL son el bloque «Insertar» (lib/embeds.ts decide qué
-  // proveedores entran) con su proveedor de entrada; el pago es un botón al link de pago que se pegue.
+  // proveedores entran) con su proveedor de entrada; el pago es un botón que cobra un producto del
+  // catálogo por la pasarela del negocio (tanda 4, «Cobrar con MaKo» en su panel; pago-landing.ts), o
+  // lleva al link de pago que se pegue.
   { id: 'agenda', nombre: 'Agenda', categoria: 'Herramientas de MaKo', ayuda: 'Calendly o Cal.com, para que agenden aquí', buscar: ['calendly', 'calcom', 'cal', 'agendar', 'reservar', 'llamada', 'cita'], icono: 'calendario-check' },
   { id: 'vsl', nombre: 'VSL', categoria: 'Herramientas de MaKo', ayuda: 'Tu video de venta: YouTube, Panda, Vimeo, Wistia', buscar: ['video', 'youtube', 'panda', 'vimeo', 'wistia', 'venta'], icono: 'video-enlace' },
-  { id: 'pago', nombre: 'Botón de pago', categoria: 'Herramientas de MaKo', ayuda: 'Lleva al link de pago de Stripe o Mercado Pago', buscar: ['stripe', 'mercado pago', 'mercadopago', 'pagar', 'checkout', 'cobrar', 'comprar'], icono: 'tarjeta-credito' },
+  { id: 'pago', nombre: 'Botón de pago', categoria: 'Herramientas de MaKo', ayuda: 'Cobra un producto de tu catálogo', buscar: ['stripe', 'mercado pago', 'mercadopago', 'pagar', 'checkout', 'cobrar', 'comprar'], icono: 'tarjeta-credito' },
 
   // ── Formularios y botones ───────────────────────────────────────────────────
   { id: 'boton', nombre: 'Botón', categoria: 'Formularios y botones', ayuda: 'Lleva a un link, a una sección o a tu agenda', buscar: ['button', 'cta', 'boton'], icono: 'boton' },
