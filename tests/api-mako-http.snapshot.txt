@@ -60,6 +60,7 @@ cobranza_lead
 comparar_agendas_meta_crm
 conectar_componentes_dashboard
 configurar_aviso_whatsapp
+configurar_bloque_general
 configurar_reporte
 configurar_seccion_reporte
 confirmaciones_crm_automatico
@@ -181,6 +182,7 @@ leer_resumen_objetivos
 leer_segundo_cerebro_como_archivos
 limites_formato_instagram
 link_agenda_calendly
+link_agenda_llamada
 link_configurar_integracion
 link_resumen_lead
 listar_analisis_landing
@@ -416,6 +418,7 @@ ver_plan
 ver_preferencias_notificaciones
 ver_prioridades_plan
 ver_propuesta_accion
+ver_proximas_recurrentes
 ver_proyecto_plan
 ver_publico_conjunto_meta
 ver_puente_flow
