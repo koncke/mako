@@ -24,6 +24,10 @@ import { CrmBoard, type CrmLead, type CrmJunta, type CrmMarcar } from './CrmBoar
 import { mapToCrmLead, etapasDelTablero } from './crm-map';
 import { getEquipoAction, type MiembroEquipo } from './actions';
 import { leerOrdenManual } from '@/lib/crm-orden';
+// MaKo al costado del tablero, PLEGADO (14/10/2026): va AL LADO de CrmBoard y no adentro. Sus
+// sugerencias NO se calculan en este render: las pide el botón una vez y salen de la caché del
+// server (lib/sugerencias-crm-server.ts).
+import { PanelMakoCrm } from './mako-crm/PanelMakoCrm';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -224,6 +228,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
 
 
   return (
+    <>
     <CrmBoard
       calendlyStages={calendlyStages}
       leads={crmLeads}
@@ -241,5 +246,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
       ordenManual={ordenManual}
       cursoAlGanar={cursoAlGanar}
     />
+    <PanelMakoCrm funnelId={funnelId} />
+    </>
   );
 }

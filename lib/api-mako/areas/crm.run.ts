@@ -73,6 +73,8 @@ import { linkApp, APP_BASE_URL } from '@/lib/app-url';
 import { ofertasDelLead, asignarOfertaAlLead, crearOfertaParaLead } from '@/lib/oferta-lead';
 import { validarOfertaNueva } from '@/lib/oferta-modelo';
 import { usuarioInstagram } from '@/app/crm/campo-inline';
+import { sugerenciasDeUnCrm } from '@/lib/sugerencias-crm-server';
+import { plantillaPorId } from '@/lib/plantillas-automatizaciones';
 import {
   invalidar, hoyDelWorkspace, esFechaIso, etapasDelFunnelDefault, etapasDelFunnelDeLead, faltantesDeUnLead, leadsFiltrados, conteoPorEtapa,
   nombresAsignables, marcarPendientesIgnorados, guardarEntradas, guardarDeal, existeIdentidadFiscal, proponerLote,
@@ -681,6 +683,43 @@ export const RUNNERS: Runners = {
         etiquetas: suyas.map((e) => ({ ...vistaEtiqueta(e, productos), puesta_at: e.puesta_at, puesta_por: ctx.canal === 'http' ? autorPublico(e.puesta_por) : e.puesta_por })),
       });
     }),
+  },
+
+  // Lo MISMO que ve el botón plegado del CRM (lib/sugerencias-crm-server.ts: calculado una vez y
+  // guardado unos minutos, menos lo callado). Para crear una, crear_automatizacion_desde_plantilla con la
+  // plantilla, la etapa (su key) y el producto que trae `crear`: la etapa en palabras de esa operación
+  // acepta también la key, y el producto desempata si dos CRM tienen una etapa con el mismo nombre.
+  sugerencias_crm: {
+    leer: async (input, ctx) => {
+      const r = await sugerenciasDeUnCrm(ctx.ws, n(input.embudoId) ?? null);
+      if (!r) return json({ crm: null, nota: 'Este negocio todavía no tiene un CRM.', sugerencias: [] });
+      return json({
+        crm: r.foto.crm,
+        etapas: r.foto.etapas,
+        total_leads: r.foto.total_leads,
+        ...(r.foto.total_leads == null ? { nota_leads: 'No se pudieron leer los leads: no hay sugerencias del tablero y los conteos vienen en null (no es cero).' } : {}),
+        automatizaciones_del_negocio: r.foto.automatizaciones,
+        sugerencias: r.sugerencias.map((s) => ({
+          id: s.id,
+          de: s.clase === 3 ? 'el estado del tablero' : 'el CRM armado',
+          texto: s.texto,
+          etapa: s.etapa,
+          ...(s.accion.tipo === 'plantilla' ? {
+            crear: {
+              plantilla: s.accion.plantilla,
+              plantilla_nombre: plantillaPorId(s.accion.plantilla)?.nombre ?? null,
+              etapa: s.accion.disparador ? s.accion.disparador.split(':').slice(2).join(':') : null,
+              producto: r.crm.nombre,
+              solo_admin: true,
+            },
+          } : {}),
+          ...(s.accion.tipo === 'link' ? { pantalla: s.accion.href } : {}),
+          ...(s.accion.tipo === 'chat' ? { revisar: s.accion.pedido } : {}),
+        })),
+        calladas_por_ahora_no: r.calladas,
+        calculado_at: r.calculadoAt,
+      });
+    },
   },
 
   // ── Acciones heredadas ──────────────────────────────────────────────────────

@@ -134,6 +134,8 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/crm/reuniones/proximas', 'reuniones_proximas'],
   ['GET', '/crm/reuniones/recientes', 'reuniones_recientes'],
   ['GET', '/crm/reuniones/sin-lead', 'r2_sin_lead'],
+  // Las sugerencias de MaKo para un CRM (14/10/2026): el CRM va por `?embudoId=` (opcional: sin él, el principal).
+  ['GET', '/crm/sugerencias', 'sugerencias_crm'],
   // ── ads ───────────────────────────────────────────────────────────────────
   ['GET', '/ads/angulos', 'listar_angulos_guion'],
   ['POST', '/ads/angulos', 'proponer_agregar_angulo'],

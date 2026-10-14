@@ -364,6 +364,18 @@ export const DEFS: readonly OperacionDef[] = [
     parametros: [leadId()],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB,
   },
+  // Las SUGERENCIAS de MaKo para un CRM (14/10/2026, el chat de MaKo al costado del CRM). El motor es puro
+  // (lib/sugerencias-crm.ts, sin IA) y la cuenta la hace el server UNA vez y la guarda unos minutos
+  // (lib/sugerencias-crm-server.ts): es lo mismo que ve el botón plegado del CRM. Sale por HTTP a propósito:
+  // trae etapas, conteos y frases sobre el tablero, ningún nombre, teléfono ni conversación de un lead. Para
+  // HACER una, crear_automatizacion_desde_plantilla (área chatbot) con la plantilla y la etapa que trae.
+  {
+    id: 'sugerencias_crm', area: 'crm', tipo: 'lectura',
+    titulo: 'Sugerencias de MaKo para un CRM',
+    descripcion: 'La foto de UN CRM del negocio y lo que MaKo le sugiere: sus etapas en orden con cuántos leads hay en cada una, cómo vende y cómo le llega la gente, y una lista corta de sugerencias de una línea cada una. Cada sugerencia dice qué hacer: crear una automatización de la galería (con su plantilla y la etapa donde arranca: nace pausada; se crea con crear_automatizacion_desde_plantilla), abrir una pantalla (conectar Fathom) o revisar algo en el chat. Salen de las etapas que no tienen su automatización (reunión, entrada, pago, Ganado, plazos, cuotas) y del estado del tablero (leads parados en la entrada, reuniones pasadas sin asistencia, ganados sin cobro, nutriciones manuales vencidas). Nunca sugiere una automatización que ya existe en esa etapa. Lo que el equipo calló con «Ahora no» no vuelve en 30 días. Sin embudoId, el CRM principal.',
+    parametros: [{ nombre: 'embudoId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el CRM, por el id de su embudo (de productos_del_lead). Sin él, el CRM principal del negocio.' }],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB,
+  },
 
   // ── Acciones heredadas ─────────────────────────────────────────────────────────
   {

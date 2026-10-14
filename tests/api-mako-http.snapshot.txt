@@ -350,6 +350,7 @@ sacar_etiqueta_lead
 seguimiento_ultima_retro
 sembrar_kpis_sugeridos
 snapshot_funnel_experimentos
+sugerencias_crm
 sugerir_kpis
 sugerir_productos
 tendencia_score
