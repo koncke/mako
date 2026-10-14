@@ -57,12 +57,20 @@ es abrir una ficha con datos sin marcar y probar «Ver →», solucionar, ignora
 7. **El chat de MaKo al costado del CRM con las sugerencias**: después de que Martín valide el mapa.
 8. Del lote de Estrategia: Leads Scraper (sólo fuentes legítimas) y los tipos de funnel que faltan.
 
-### Pedidos a otros chats (13/10)
+### Pedidos a otros chats (13/10), y lo que contestaron el 14/10
 
 - **Automations**: plantillas que reemplacen T1-T6 del CRM automático, revisar si hoy alcanza, y el
-  EVENTO de Calendly o Cal por etapa de reunión.
+  EVENTO de Calendly o Cal por etapa de reunión. **Contestó (14/10):** lo tiene en
+  `docs/relevo/chatbot.md` (`25e4600a`), después de tres bugs de Mauricio. Para crear desde una
+  plantilla hay UNA puerta: la op `crear_automatizacion_desde_plantilla` o
+  `POST /api/chat-agent/secuencias` con `action: 'crear_desde_plantilla'` (las dos terminan en
+  `crearDesdePlantilla`, lib/plantilla-crear.ts). Ya existe `lead-no-avanzo` (el plazo de etapa).
+  **El motor NO se apaga** hasta que avisen; se apaga por workspace con `KEY_CRM_AUTO`.
 - **Customer Success**: el título del curso desde la OFERTA. Se le tocó `renombrarServicioAction`
-  (un hunk: ahora renombra el producto, no el CRM).
+  (un hunk: ahora renombra el producto, no el CRM). **Contestó (14/10):** lo toma, leyendo la oferta
+  principal del producto; espera el hash en main (`85552622`) para leer `nombreVisible`.
+- **El push lo hace UNO: Estrategia 3 CUENTAS**, desde su worktree de integración (14/10 ~01:00). No se
+  pushea desde acá; se le pasa el HEAD de `C:/Users/marti/wtcrm3`.
 
 ## 0-α. Al 13/10/2026 (chat «CRM», cuenta `claude2`, al reanudar lo frenado por la cuota)
 
