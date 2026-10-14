@@ -36,6 +36,23 @@ Stories, Agencia, Mensajes, Conocimientos. Ningún kanban se ve como tablero: CR
    Second Brain, Experiments, Curso → (4) las de super admin.
 5. Antes del código, un prototipo HTML del tablero en los tres y de General, para mirarlo en el teléfono.
 
+**HECHO el prototipo (14/10 ~16:20), ESPERANDO A MARTÍN:** `docs/prototipos/mako-mobile-tableros.html`, publicado privado
+en https://claude.ai/artifact/XchrEDjJiTajd9Hq8nhAi8 (`#crm-tablero`, `#crm-mover`, `#crm-deshacer`, `#cs`,
+`#plan-tablero`, `#general` abren cada estado). Pasó por `thumb-first-design` (auditoría) y `mobile-native`, y se miró a
+390 px en Chrome headless. Lo que cambió por esas pasadas: zonas de toque de 44 (barra de etapas, selector, «Marcar
+cobrada»), la barra lleva el CONTEO de cada etapa (dónde está la gente sin recorrer las columnas, la objeción de NN/g al
+carrusel), el conteo de la etapa destino late al mover (a dónde fue la tarjeta), la tarjeta casi no se levanta al
+mantenerla (un menú, no un arrastre que después no sigue al dedo), y `-webkit-touch-callout: none` en todos los controles.
+
+**Recortado con la lente de la publicación («no construir de más»):** sin arrastrar tarjetas con el dedo (mantener →
+«Mover a…» y el detalle alcanzan, y no se rompen); un solo patrón para los tres tableros con un selector a la izquierda
+(funnel, producto o Tareas/Proyectos), en vez de tres diseños; Ads Writer, Reels, Carousels y Stories comparten una
+pantalla de «pedir y copiar»; el Video Editor y el Image Editor NO van al teléfono (se quedan con «se usa en la
+computadora»); Second Brain sólo busca y captura; Email sólo números y pausar.
+
+**Decisiones del diseño que puede querer cambiar (forks):** el CRM abre en «Hoy» y no en «Tablero» (escritorio abre en
+el kanban); una columna por pantalla y no dos angostas; mover con un menú y no arrastrando.
+
 ## ⚠️⚠️⚠️⚠️⚠️⚠️ 13/10 (cuenta 2) — LAS MISMAS RUTAS, HECHO; el CRM que abría vacío y un script roto en producción
 
 Retomado por pedido de Martín («En la cuenta 3 quedaron muchos pendientes… dile a esos chats que continuen y cierren lo

@@ -1,0 +1,1047 @@
+<title>MaKo Mobile · Tableros</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap">
+<style>
+/* =============================================================================
+   MaKo Mobile · Tableros — prototipo (14/10/2026), sobre el lenguaje del v2
+   (docs/prototipos/mako-mobile-v2.html). Qué propone:
+     · los tres kanban (CRM, Customer Success, Plan) con UN patrón: una columna por
+       pantalla con la siguiente asomando, la barra de etapas para saltar, y mover con
+       «mantener presionado → Mover a…» o desde el detalle, siempre con Deshacer;
+     · General en el teléfono = los mismos bloques del informe de General, apilados.
+   Layout: un teléfono de 390×844 en una escena; a ancho de teléfono, el prototipo ES la
+   pantalla. Los tokens del teléfono son COPIA de app/globals.css (tema claro + [data-m]).
+   ============================================================================= */
+:root {
+  --bg: #F4F6F9;
+  --surface: #FFFFFF;
+  --surface-2: #F5F7FA;
+  --velo-hover: rgba(18, 21, 27, .055);
+  --border: #EAECF1;
+  --border-strong: #DCE0E7;
+  --ink: #12151B;
+  --dim: #454C57;
+  --faint: #66707F;
+  --sidebar: #14161B;
+  --on-sidebar: #F3F5F8;
+  --primary: #2F6FED;
+  --primary-strong: #245FD6;
+  --primary-bg: #EAF1FE;
+  --primary-weak: #9DBBF5;
+  --on-primary: #FFFFFF;
+  --mako: #F2B01E;
+  --mako-lite: #F8CB63;
+  --mako-bg: #FDF4DE;
+  --good: #1E9E57;
+  --good-bg: #E7F5EC;
+  --warn: #B4530E;
+  --warn-fill: #EE7B1C;
+  --bad: #D0504A;
+  --bad-bg: #FBEAEA;
+  --r-md: 11px;
+  --r-lg: 14px;
+  --r-xl: 18px;
+  --fs-meta: 13px;
+  --fs-sm: 14.5px;
+  --fs-md: 16px;
+  --fs-card: 16.5px;
+  --fs-sect: 20px;
+  --m-titulo: 32px;
+  --touch: 44px;
+  --ease-out: cubic-bezier(.23, 1, .32, 1);
+  --ease-drawer: cubic-bezier(.32, .72, 0, 1);
+  --dur-press: 120ms;
+  --dur-pop: 180ms;
+  --dur-sheet: 320ms;
+  --dur-sheet-out: 220ms;
+  --m-header: 44px;
+  --m-tabbar: 56px;
+  --scrim: rgba(0, 0, 0, .4);
+  --logo-1: #2A251C;
+  --logo-2: #171511;
+  /* NUEVO: el fondo de una columna del tablero (como la columna de escritorio, un escalón bajo --bg). */
+  --col-bg: #EBEEF3;
+  /* NUEVO: la sombra de la tarjeta de General (el tema «General»: sin borde, la tarjeta flota). */
+  --flota: 0 1px 2px rgba(18, 21, 27, .04), 0 8px 24px rgba(18, 21, 27, .07);
+  /* Datos de ejemplo (colores de proyectos): contenido, no UI. */
+  --proy-1: #2F6FED;
+  --proy-2: #1E9E57;
+  --proy-3: #B46BD6;
+  --proy-4: #EE7B1C;
+  /* La escena alrededor del teléfono (sólo el prototipo) sigue el tema de quien mira. */
+  --escena: #E3E7ED;
+  --escena-ink: #12151B;
+  --escena-dim: #454C57;
+  --marco: #0E1013;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --escena: #16181D; --escena-ink: #F3F5F8; --escena-dim: #C4CAD2; --marco: #2A2D33; }
+}
+:root[data-theme="dark"] { --escena: #16181D; --escena-ink: #F3F5F8; --escena-dim: #C4CAD2; --marco: #2A2D33; }
+
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+html { -webkit-tap-highlight-color: transparent; overscroll-behavior: none; }
+body {
+  background: var(--escena); color: var(--escena-ink);
+  font-family: 'Geist', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased; -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent; overscroll-behavior: none;
+}
+button, a, [role="button"] { touch-action: manipulation; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; text-align: inherit; }
+button:focus-visible, input:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--primary); }
+svg { flex: none; }
+[hidden] { display: none !important; }
+
+/* ── La escena ─────────────────────────────────────────────────────────── */
+.escena { min-height: 100%; display: flex; align-items: center; justify-content: center; gap: 44px; padding: 24px 16px; }
+.lado { width: 250px; display: flex; flex-direction: column; gap: 16px; }
+.lado-marca { display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 700; letter-spacing: -.02em; }
+.lado-nota { margin: 0; font-size: 14px; color: var(--escena-dim); line-height: 1.5; }
+.lado-ir { display: flex; flex-wrap: wrap; gap: 6px; }
+.lado-ir button { padding: 7px 11px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--escena-ink) 18%, transparent); font-size: 13.5px; font-weight: 500; color: var(--escena-ink); }
+.lado-ir button[aria-current="true"] { background: var(--escena-ink); color: var(--escena); border-color: var(--escena-ink); }
+.lado ol { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; font-size: 13.5px; line-height: 1.45; color: var(--escena-dim); }
+.marco-wrap { flex: none; }
+
+/* ── El teléfono ───────────────────────────────────────────────────────── */
+.device {
+  --sb: 47px; --hi: 34px;
+  position: relative; width: 390px; height: 844px; flex: none;
+  border-radius: 54px; border: 11px solid var(--marco); overflow: hidden;
+  background: var(--bg); color: var(--ink); font-size: var(--fs-md);
+  box-shadow: 0 30px 70px rgba(18, 21, 27, .28); transform-origin: top left;
+}
+.statusbar { position: absolute; z-index: 60; top: 0; left: 0; right: 0; height: 47px; display: flex; align-items: center; justify-content: space-between; padding: 4px 26px 0 36px; font-size: 16px; font-weight: 600; pointer-events: none; color: var(--ink); }
+.statusbar .ico { display: flex; gap: 6px; align-items: center; }
+.isla { position: absolute; z-index: 61; top: 10px; left: 50%; width: 120px; height: 34px; margin-left: -60px; border-radius: 20px; background: #000; pointer-events: none; }
+.home-ind { position: absolute; z-index: 61; bottom: 8px; left: 50%; width: 134px; height: 5px; margin-left: -67px; border-radius: 3px; background: var(--ink); pointer-events: none; opacity: .9; }
+
+/* ── Pantallas ─────────────────────────────────────────────────────────── */
+.screen { position: absolute; inset: 0; background: var(--bg); display: flex; flex-direction: column; }
+.screen.push { z-index: 10; transform: translateX(100%); transition: transform var(--dur-sheet) var(--ease-drawer); box-shadow: -10px 0 30px rgba(18, 21, 27, .08); }
+.screen.push.in { transform: none; }
+.nav { flex: none; height: calc(var(--sb) + var(--m-header)); padding: var(--sb) 6px 0; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; background: var(--bg); }
+.nav-l { display: flex; align-items: center; justify-self: start; min-width: 0; }
+.nav-r { display: flex; align-items: center; justify-self: end; gap: 2px; }
+.nav-t { font-size: 17px; font-weight: 600; letter-spacing: -.01em; opacity: 0; transition: opacity var(--dur-pop) ease; white-space: nowrap; }
+.screen.scrolled .nav-t { opacity: 1; }
+.screen.scrolled .nav { box-shadow: 0 1px 0 var(--border); }
+.logo { display: flex; padding: 8px 10px; }
+.back { display: flex; align-items: center; gap: 2px; min-height: var(--touch); padding: 0 10px 0 4px; color: var(--primary-strong); font-size: 17px; font-weight: 500; }
+.back svg { transform: rotate(90deg); }
+.ib { width: var(--touch); height: var(--touch); display: grid; place-items: center; border-radius: 999px; color: var(--primary-strong); }
+.ib:active { background: var(--velo-hover); }
+.cuerpo { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-bottom: calc(var(--m-tabbar) + var(--hi) + 24px); scrollbar-width: thin; }
+.screen.push .cuerpo { padding-bottom: calc(var(--hi) + 24px); }
+.tg { margin: 0 20px 14px; font-size: var(--m-titulo); font-weight: 700; letter-spacing: -.025em; line-height: 1.1; text-wrap: balance; }
+.st { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 26px 20px 10px; }
+.st h2 { margin: 0; font-size: var(--fs-sect); font-weight: 600; letter-spacing: -.012em; }
+.lnk { color: var(--primary-strong); font-size: var(--fs-md); font-weight: 500; min-height: 44px; padding: 0 4px; }
+.lnk:active { opacity: .6; }
+
+/* ── Lista agrupada (del v2) ───────────────────────────────────────────── */
+.lista { margin: 0 16px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden; }
+.fila { position: relative; display: flex; align-items: center; gap: 12px; width: 100%; min-height: 58px; padding: 10px 14px 10px 16px; text-align: left; transition: background var(--dur-press) ease; }
+.fila + .fila::before { content: ""; position: absolute; top: 0; right: 0; left: var(--sep, 16px); border-top: 1px solid var(--border); }
+button.fila:active { background: var(--velo-hover); }
+.tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.t { font-size: var(--fs-card); font-weight: 600; line-height: 1.3; }
+.t.n { font-weight: 500; }
+.c { font-size: var(--fs-sm); color: var(--dim); line-height: 1.35; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.r { flex: none; font-size: var(--fs-meta); color: var(--dim); font-variant-numeric: tabular-nums; }
+.chev { flex: none; color: var(--faint); transform: rotate(-90deg); }
+.hora { flex: none; width: 58px; font-size: 20px; font-weight: 600; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+.av { flex: none; width: 40px; height: 40px; border-radius: 999px; display: grid; place-items: center; font-size: 14.5px; font-weight: 700; letter-spacing: .02em; background: color-mix(in srgb, var(--primary) 14%, var(--surface)); color: var(--primary-strong); }
+.av-sm { width: 34px; height: 34px; font-size: 13px; }
+.ic-tile { flex: none; width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; background: var(--surface-2); color: var(--ink); border: 1px solid var(--border); }
+.nuevo { flex: none; font-size: 12px; font-weight: 600; color: var(--primary-strong); background: var(--primary-bg); border-radius: 999px; padding: 3px 8px; }
+.pill { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 9px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); font-size: var(--fs-meta); font-weight: 500; color: var(--dim); white-space: nowrap; }
+.pill i { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
+.pill.good i { background: var(--good); }
+.pill.warn i { background: var(--warn-fill); }
+.pill.bad i { background: var(--bad); }
+.pill.info i { background: var(--primary); }
+.chk-wrap { flex: none; display: grid; place-items: center; width: var(--touch); height: var(--touch); margin: -8px -6px -8px -10px; }
+.chk { width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--border-strong); display: grid; place-items: center; color: transparent; transition: background .18s ease, border-color .18s ease; }
+.chk-wrap[aria-checked="true"] .chk { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+.fila.hecha .t { color: var(--faint); text-decoration: line-through; }
+.punto { display: inline-block; flex: none; width: 8px; height: 8px; border-radius: 50%; }
+
+/* ── Botones ───────────────────────────────────────────────────────────── */
+.btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 50px; padding: 0 20px; border-radius: var(--r-md); border: 1px solid transparent; font-size: var(--fs-card); font-weight: 600; transition: transform var(--dur-press) var(--ease-out), background var(--dur-press) ease; }
+.btn:active { transform: scale(.97); }
+.btn-p { background: var(--primary); color: var(--on-primary); font-weight: 700; }
+.btn-s { background: var(--surface); color: var(--ink); border-color: var(--border-strong); }
+.btn-chico { width: auto; min-height: 44px; padding: 0 14px; font-size: var(--fs-sm); }
+
+/* ── Control segmentado (anchos según el texto: «Prioridades» no entra en un cuarto) ── */
+.seg { flex: none; display: flex; gap: 2px; margin: 0 16px; padding: 3px; border-radius: 11px; background: color-mix(in srgb, var(--ink) 7%, var(--bg)); }
+.seg button { flex: 1 1 auto; min-height: 38px; padding: 0 8px; border-radius: 9px; font-size: var(--fs-sm); font-weight: 600; color: var(--dim); text-align: center; white-space: nowrap; }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(18, 21, 27, .1); }
+.seg .num { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; margin-left: 4px; border-radius: 999px; background: var(--primary); color: var(--on-primary); font-size: 12px; font-weight: 700; }
+
+/* ── GENERAL: los bloques del informe, apilados (el tema «General»: flotan, sin borde) ── */
+.bloques { display: flex; flex-direction: column; gap: 14px; padding: 0 16px; }
+.bq { background: var(--surface); border-radius: 20px; padding: 18px 18px 20px; box-shadow: var(--flota); display: flex; flex-direction: column; gap: 10px; }
+.bq-t { margin: 0; font-size: 15px; font-weight: 600; color: var(--dim); letter-spacing: -.005em; }
+.bq-sub { margin: -6px 0 0; font-size: var(--fs-sm); color: var(--faint); }
+.grande { font-size: 44px; font-weight: 700; letter-spacing: -.035em; line-height: 1; font-variant-numeric: tabular-nums; }
+.grande small { font-size: 17px; font-weight: 500; letter-spacing: 0; color: var(--dim); margin-left: 6px; }
+.barra { position: relative; height: 10px; border-radius: 999px; background: var(--border); overflow: hidden; }
+.barra i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px; background: var(--good); }
+.barra b { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--ink); opacity: .55; }
+.ritmo { display: flex; justify-content: space-between; gap: 10px; font-size: var(--fs-sm); color: var(--dim); }
+.sube { display: inline-flex; align-items: center; gap: 4px; color: var(--ink); font-weight: 500; }
+.sube svg { color: var(--good); }
+.accion-txt { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -.015em; line-height: 1.25; text-wrap: balance; }
+.accion-por { margin: 0; font-size: var(--fs-md); color: var(--dim); line-height: 1.45; }
+.mes { display: grid; grid-template-columns: 1fr 1fr; gap: 18px 14px; }
+.mes-n { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.mes-n strong { font-size: 30px; font-weight: 700; letter-spacing: -.03em; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.mes-n span { font-size: var(--fs-sm); color: var(--dim); }
+.mes-n em { font-style: normal; font-size: var(--fs-meta); color: var(--faint); font-variant-numeric: tabular-nums; }
+.parte { margin: 16px 4px 0; font-size: 24px; font-weight: 700; letter-spacing: -.02em; }
+.bq .lista { margin: 0 -4px; border: 0; border-radius: 12px; background: transparent; }
+.bq .fila { padding-left: 4px; padding-right: 4px; --sep: 4px; }
+.cobrada { font-size: var(--fs-sm); color: var(--good); font-weight: 600; display: inline-flex; align-items: center; gap: 4px; }
+
+/* ── EL TABLERO (KanbanM): selector · barra de etapas · columnas con la siguiente asomando ── */
+.tablero { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.tab-cab { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 10px 16px 0; }
+.selector { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; max-width: 70%; padding: 0 10px 0 12px; border-radius: 999px; background: var(--surface); border: 1px solid var(--border-strong); font-size: var(--fs-sm); font-weight: 600; white-space: nowrap; overflow: hidden; }
+.selector span { overflow: hidden; text-overflow: ellipsis; }
+.selector:active { background: var(--surface-2); }
+.selector svg { color: var(--faint); }
+/* La barra: un tramo por etapa con su conteo debajo, siempre en UN renglón (nunca scroll).
+   Dice de un vistazo DÓNDE está la gente sin recorrer las columnas; el tramo actual va en azul. */
+.etapas { flex: none; display: grid; gap: 4px; margin: 2px 16px 4px; }
+.etapas button { min-height: 44px; display: flex; flex-direction: column; justify-content: center; gap: 5px; }
+.etapas i { display: block; height: 5px; border-radius: 3px; background: var(--border-strong); transition: background .2s ease; }
+.etapas b { font-size: 12px; font-weight: 600; line-height: 1; text-align: center; color: var(--dim); font-variant-numeric: tabular-nums; }
+.etapas button.vacia i { background: var(--border); }
+.etapas button.vacia b { color: var(--faint); font-weight: 500; }
+.etapas button[aria-current="true"] i { background: var(--primary); }
+.etapas button[aria-current="true"] b { color: var(--primary-strong); }
+.etapas button:active i { opacity: .6; }
+.etapas b.pulso { animation: pulso .9s var(--ease-out); }
+@keyframes pulso { 0% { transform: scale(1); } 30% { transform: scale(1.6); color: var(--primary-strong); } 100% { transform: scale(1); } }
+.pista { flex: 1; min-height: 0; display: flex; gap: 10px; padding: 2px 16px calc(var(--m-tabbar) + var(--hi) + 12px); overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; scroll-padding-inline: 16px; overscroll-behavior-x: contain; scrollbar-width: none; }
+.screen.push .pista { padding-bottom: calc(var(--hi) + 12px); }
+.pista::-webkit-scrollbar { display: none; }
+.col { flex: 0 0 calc(100% - 64px); min-width: 0; scroll-snap-align: start; display: flex; flex-direction: column; background: var(--col-bg); border-radius: var(--r-xl); overflow: hidden; }
+.col-cab { flex: none; display: flex; align-items: baseline; gap: 8px; padding: 14px 14px 10px; }
+.col-cab h3 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cuenta { flex: none; display: inline-grid; place-items: center; min-width: 24px; height: 22px; padding: 0 7px; border-radius: 999px; background: color-mix(in srgb, var(--ink) 8%, var(--col-bg)); font-size: var(--fs-meta); font-weight: 600; color: var(--dim); font-variant-numeric: tabular-nums; }
+.col-total { margin-left: auto; flex: none; font-size: var(--fs-sm); font-weight: 600; color: var(--dim); font-variant-numeric: tabular-nums; }
+.col-lista { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; padding: 0 8px 12px; display: flex; flex-direction: column; gap: 8px; scrollbar-width: none; }
+.col-lista::-webkit-scrollbar { display: none; }
+.col-vacia { margin: 18px 0; text-align: center; font-size: var(--fs-sm); color: var(--faint); }
+
+/* La tarjeta: no se selecciona el texto ni sale el menú de iOS al mantenerla presionada. */
+.tj { position: relative; display: flex; gap: 10px; width: 100%; padding: 12px; border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--border); text-align: left; -webkit-touch-callout: none; transition: transform var(--dur-press) var(--ease-out), box-shadow .2s ease, opacity .2s ease; }
+.tj:active { transform: scale(.985); }
+.tj.agarrada { transform: scale(1.02); box-shadow: 0 12px 28px rgba(18, 21, 27, .18); z-index: 2; }
+.tj.se-va { animation: irse .24s var(--ease-out) forwards; }
+.tj.llego { animation: llegar 1.4s ease; }
+@keyframes irse { to { opacity: 0; transform: scale(.94); } }
+@keyframes llegar { 0% { box-shadow: 0 0 0 3px var(--primary); } 70% { box-shadow: 0 0 0 3px var(--primary); } 100% { box-shadow: 0 0 0 0 transparent; } }
+.tj-tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.tj-l1 { display: flex; align-items: baseline; gap: 8px; }
+.tj-n { flex: 1; min-width: 0; font-size: var(--fs-md); font-weight: 600; line-height: 1.3; }
+.tj-n.dos { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.tj-m { flex: none; font-size: var(--fs-meta); color: var(--dim); font-variant-numeric: tabular-nums; }
+.tj-m.mal { color: var(--bad); font-weight: 600; }
+.tj-c { font-size: var(--fs-sm); color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 6px; }
+.tj .pill { margin-top: 5px; align-self: flex-start; }
+.rank { flex: none; width: 22px; height: 22px; border-radius: 7px; display: grid; place-items: center; background: var(--primary-bg); color: var(--primary-strong); font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* ── Barra inferior ────────────────────────────────────────────────────── */
+.tabbar { position: absolute; z-index: 20; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: repeat(5, 1fr); padding-bottom: var(--hi); background: var(--surface); border-top: 1px solid var(--border); }
+.tab { position: relative; height: var(--m-tabbar); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: var(--faint); font-size: 12px; font-weight: 500; text-align: center; }
+.tab[aria-current="page"] { color: var(--primary); font-weight: 600; }
+.tab:active svg { transform: scale(.9); }
+.tab svg { transition: transform var(--dur-press) var(--ease-out); }
+.bdg { position: absolute; top: 4px; left: calc(50% + 5px); min-width: 20px; height: 20px; padding: 0 5px; border-radius: 999px; display: grid; place-items: center; background: var(--primary); color: var(--on-primary); font-size: 11.5px; font-weight: 700; border: 2px solid var(--surface); }
+
+/* ── Sheet ─────────────────────────────────────────────────────────────── */
+.velo { position: absolute; z-index: 40; inset: 0; background: var(--scrim); opacity: 0; pointer-events: none; transition: opacity var(--dur-sheet-out) ease; }
+.velo.on { opacity: 1; pointer-events: auto; transition-duration: var(--dur-sheet); }
+.sheet { position: absolute; z-index: 41; left: 0; right: 0; bottom: 0; max-height: calc(100% - var(--sb) - 12px); display: flex; flex-direction: column; background: var(--bg); border-radius: var(--r-xl) var(--r-xl) 0 0; transform: translateY(100%); transition: transform var(--dur-sheet-out) var(--ease-out); padding-bottom: var(--hi); }
+.sheet.on { transform: none; transition: transform var(--dur-sheet) var(--ease-drawer); }
+.sheet.arrastre { transition: none; }
+.sh-tope { flex: none; padding: 8px 16px 6px; touch-action: none; cursor: grab; }
+.grabber { width: 36px; height: 5px; border-radius: 3px; margin: 0 auto 8px; background: var(--border-strong); }
+.sh-cab { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.sh-cab h2 { margin: 0; font-size: var(--fs-sect); font-weight: 600; letter-spacing: -.012em; }
+.sh-cab p { margin: 2px 0 0; font-size: var(--fs-sm); color: var(--dim); }
+.sh-cerrar { flex: none; width: 36px; height: 36px; border-radius: 999px; display: grid; place-items: center; background: color-mix(in srgb, var(--ink) 7%, var(--bg)); color: var(--dim); }
+.sh-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 12px 16px 16px; display: flex; flex-direction: column; gap: 14px; }
+.sh-scroll .lista { margin: 0; }
+.sh-pie { flex: none; padding: 12px 16px 10px; box-shadow: 0 -1px 0 var(--border); }
+.ok { flex: none; color: var(--primary); }
+.aqui { flex: none; font-size: var(--fs-meta); color: var(--faint); }
+.fila[aria-disabled="true"] { cursor: default; }
+.fila[aria-disabled="true"] .t { color: var(--dim); }
+.dato .k { flex: 1; color: var(--dim); font-size: var(--fs-md); }
+.dato .v { font-size: var(--fs-md); font-weight: 500; text-align: right; }
+
+/* ── Toast ─────────────────────────────────────────────────────────────── */
+.toast { position: absolute; z-index: 50; left: 16px; right: 16px; bottom: calc(var(--m-tabbar) + var(--hi) + 12px); display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 50px; padding: 0 6px 0 18px; border-radius: var(--r-lg); background: var(--sidebar); color: var(--on-sidebar); font-size: var(--fs-md); font-weight: 500; opacity: 0; transform: translateY(10px); transition: opacity var(--dur-pop) ease, transform var(--dur-pop) var(--ease-out); pointer-events: none; }
+.toast.on { opacity: 1; transform: none; pointer-events: auto; }
+.toast.sin-barra { bottom: calc(var(--hi) + 12px); }
+.toast button { min-height: 44px; padding: 0 12px; color: var(--primary-weak); font-weight: 600; }
+
+@media (hover: hover) and (pointer: fine) {
+  button.fila:hover, .tj:hover { background: color-mix(in srgb, var(--ink) 3%, var(--surface)); }
+  .lado-ir button:hover { background: color-mix(in srgb, var(--escena-ink) 8%, transparent); }
+  .lado-ir button[aria-current="true"]:hover { background: var(--escena-ink); }
+}
+@media (max-width: 560px) {
+  .escena { padding: 0; display: block; }
+  .lado, .statusbar, .isla, .home-ind { display: none; }
+  .device { position: fixed; inset: 0; width: auto; height: auto; border: 0; border-radius: 0; box-shadow: none; transform: none !important; --sb: env(safe-area-inset-top, 0px); --hi: env(safe-area-inset-bottom, 0px); }
+}
+@media (max-width: 900px) and (min-width: 561px) { .lado { display: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .screen.push, .sheet, .sheet.on { transition: opacity .15s ease; }
+  .screen.push { transform: none; opacity: 0; }
+  .screen.push.in { opacity: 1; }
+  .tj, .tj.agarrada { transition: none; transform: none; }
+  .tj.se-va, .tj.llego, .etapas b.pulso { animation: none; }
+  .pista { scroll-behavior: auto; }
+}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <linearGradient id="lg-bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" style="stop-color:var(--logo-1)"/><stop offset="100%" style="stop-color:var(--logo-2)"/></linearGradient>
+    <linearGradient id="lg-oro" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" style="stop-color:var(--mako-lite)"/><stop offset="100%" style="stop-color:var(--mako)"/></linearGradient>
+    <symbol id="logo" viewBox="0 0 48 48">
+      <rect x="1.5" y="1.5" width="45" height="45" rx="13" fill="url(#lg-bg)" style="stroke:var(--mako)" stroke-opacity=".35" stroke-width="1"/>
+      <g transform="translate(24 24) scale(1.55)"><path d="M0 -11 C1 -4 4 -1 11 0 C4 1 1 4 0 11 C-1 4 -4 1 -11 0 C-4 -1 -1 -4 0 -11 Z" fill="url(#lg-oro)"/></g>
+    </symbol>
+    <symbol id="i-general" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15a8 8 0 0 1 16 0"/><path d="M12 15l4.2-3.4"/><circle cx="12" cy="15" r="1.1"/><path d="M4.2 15H5.6M18.4 15h1.4M12 7.2V5.6"/></symbol>
+    <symbol id="i-crm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 5.2a3 3 0 0 1 0 5.6"/><path d="M17.5 14.2A5.5 5.5 0 0 1 21.5 20"/></symbol>
+    <symbol id="i-inbox" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 13.5 6 5.5h12l2.5 8"/><path d="M3.5 13.5V18a1.5 1.5 0 0 0 1.5 1.5h14a1.5 1.5 0 0 0 1.5-1.5v-4.5h-5.2a3.3 3.3 0 0 1-6.6 0Z"/></symbol>
+    <symbol id="i-plan" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><rect x="4.2" y="3.4" width="15.6" height="17.2" rx="2.6"/><path d="M6.9 7.6l1.2 1.2 2.3-2.7"/><path d="M6.9 12l1.2 1.2 2.3-2.7"/><path d="M6.9 16.4l1.2 1.2 2.3-2.7"/><path d="M12.9 7.4h4.5M12.9 11.8h4.5M12.9 16.2h4.5"/></symbol>
+    <symbol id="i-more" viewBox="0 0 24 24" fill="currentColor"><circle cx="5.5" cy="12" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="18.5" cy="12" r="1.9"/></symbol>
+    <symbol id="i-graphics" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="12" width="4" height="8" rx="1"/><rect x="10" y="5" width="4" height="15" rx="1"/><rect x="17" y="9" width="4" height="11" rx="1"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M3.5 9h17"/><path d="M3.5 14h17"/><path d="M9 9v10.5"/><path d="M15 9v10.5"/></symbol>
+    <symbol id="i-cs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M8 14a5 5 0 0 0 8 0"/><path d="M9 9.7h.01"/><path d="M15 9.7h.01"/></symbol>
+    <symbol id="i-cal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></symbol>
+    <symbol id="i-wa" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8 8 0 0 1-11.7 7.1L4 20l1.5-5.2A8 8 0 1 1 21 11.5Z"/></symbol>
+    <symbol id="i-mail" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5.5" width="18" height="13" rx="2"/><path d="m3.5 7 8.5 6 8.5-6"/></symbol>
+    <symbol id="i-tag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 12.2V4.5a1 1 0 0 1 1-1h7.7l8.3 8.3a1.5 1.5 0 0 1 0 2.1l-6.4 6.4a1.5 1.5 0 0 1-2.1 0Z"/><circle cx="8" cy="8" r="1.4"/></symbol>
+    <symbol id="i-gente" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8.5" r="3"/><circle cx="5.5" cy="10" r="2.2"/><circle cx="18.5" cy="10" r="2.2"/><path d="M7 19.5a5 5 0 0 1 10 0"/><path d="M2.5 18a3.5 3.5 0 0 1 4-3.3M21.5 18a3.5 3.5 0 0 0-4-3.3"/></symbol>
+    <symbol id="i-curso" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="12.5" rx="2"/><path d="m10.5 9 4 2.3-4 2.3Z"/><path d="M8 21h8"/></symbol>
+    <symbol id="i-escribir" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l3.6-.9L18.2 8.5 15.5 5.8 4.9 16.4 4 20Z"/><path d="M14 7.3 16.7 10"/></symbol>
+    <symbol id="i-cerebro" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 4.5a3 3 0 0 0-3 3 3 3 0 0 0-2 5.2 3 3 0 0 0 2 5.3 2.5 2.5 0 0 0 5 .5V5.6a2.6 2.6 0 0 0-2-1.1Z"/><path d="M14.5 4.5a3 3 0 0 1 3 3 3 3 0 0 1 2 5.2 3 3 0 0 1-2 5.3 2.5 2.5 0 0 1-5 .5"/></symbol>
+    <symbol id="i-matraz" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 3.5h5M10.5 3.5v5.2L5 18.2A1.5 1.5 0 0 0 6.3 20.5h11.4a1.5 1.5 0 0 0 1.3-2.3l-5.5-9.5V3.5"/><path d="M7.4 14.5h9.2"/></symbol>
+    <symbol id="i-videogen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="13" height="14" rx="2"/><path d="m16 10 5-3v10l-5-3"/></symbol>
+    <symbol id="i-web" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a5 9 0 0 0 0 18 5 9 0 0 0 0-18Z"/></symbol>
+    <symbol id="i-chatbot" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12.5a7 7 0 0 1-7 7H6l-2.5 2v-9.5a7 7 0 0 1 7-7h2.5"/><path d="M17.5 2.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8Z"/></symbol>
+    <symbol id="i-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 9.5 12 15l5.5-5.5"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.5l5 5 10-11"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></symbol>
+    <symbol id="i-flecha" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m6 11 6-6 6 6"/></symbol>
+    <symbol id="i-mover" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h15"/><path d="m14 7 5 5-5 5"/></symbol>
+    <symbol id="i-columnas" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4" width="5" height="16" rx="1.5"/><rect x="10.5" y="4" width="5" height="11" rx="1.5"/><rect x="17.5" y="4" width="3" height="7" rx="1.5"/></symbol>
+    <symbol id="i-ficha" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3.5" width="16" height="17" rx="2.5"/><circle cx="12" cy="9.5" r="2.6"/><path d="M8 16.5a4 4 0 0 1 8 0"/></symbol>
+    <symbol id="i-enviar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 3.5 10 14"/><path d="M20.5 3.5 14 20.5l-4-6.5-6.5-4 17-6.5Z"/></symbol>
+  </defs>
+</svg>
+
+<div class="escena">
+  <aside class="lado">
+    <div class="lado-marca"><svg width="32" height="32" aria-hidden="true"><use href="#logo"/></svg>Tableros en el teléfono</div>
+    <p class="lado-nota">Prototipo con datos de ejemplo. Ábrelo en el celular.</p>
+    <div class="lado-ir" id="lado-ir">
+      <button data-ir="general">General</button>
+      <button data-ir="crm-tablero">CRM · Tablero</button>
+      <button data-ir="crm-mover">Mover a…</button>
+      <button data-ir="crm-deshacer">Deshacer</button>
+      <button data-ir="cs">Customer Success</button>
+      <button data-ir="plan-tablero">Plan · Tablero</button>
+      <button data-ir="more">More</button>
+    </div>
+    <ol>
+      <li>Una columna por pantalla; la siguiente asoma.</li>
+      <li>La barra salta de etapa. Nunca se scrollea de costado.</li>
+      <li>Mover: mantener presionada la tarjeta, o tocarla y elegir la etapa. Siempre con Deshacer.</li>
+      <li>General: los bloques que armaste en la computadora, apilados.</li>
+    </ol>
+  </aside>
+
+  <div class="marco-wrap" id="marco-wrap">
+  <div class="device" id="device">
+    <div class="isla"></div>
+    <div class="statusbar"><span>9:41</span><span class="ico">
+      <svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor" aria-hidden="true"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+      <svg width="27" height="13" viewBox="0 0 27 13" fill="none" aria-hidden="true"><rect x=".5" y=".5" width="23" height="12" rx="3.5" stroke="currentColor" opacity=".4"/><rect x="2" y="2" width="18" height="9" rx="2" fill="currentColor"/><path d="M25 4.5v4a2 2 0 0 0 0-4Z" fill="currentColor" opacity=".5"/></svg>
+    </span></div>
+
+    <!-- ═══════════════════════════ GENERAL ═══════════════════════════ -->
+    <section class="screen" id="general" data-tab="general">
+      <header class="nav">
+        <div class="nav-l"><span class="logo" role="img" aria-label="MaKo"><svg width="28" height="28"><use href="#logo"/></svg></span></div>
+        <div class="nav-t">General</div>
+        <div class="nav-r"><button class="ib" aria-label="Tu cuenta"><span class="av av-sm">SH</span></button></div>
+      </header>
+      <div class="cuerpo">
+        <h1 class="tg">General</h1>
+        <div class="bloques">
+          <article class="bq">
+            <h2 class="bq-t">Meta objetivo</h2>
+            <p class="bq-sub">Facturar $30,000 en el Q4</p>
+            <div class="grande">$18,600<small>de $30,000</small></div>
+            <div class="barra" role="img" aria-label="62 % de la meta, con el 58 % del trimestre corrido"><i style="width:62%"></i><b style="left:58%"></b></div>
+            <div class="ritmo"><span>Faltan 47 días</span><span class="sube"><svg width="14" height="14" aria-hidden="true"><use href="#i-flecha"/></svg>$1,200 arriba</span></div>
+          </article>
+
+          <article class="bq">
+            <h2 class="bq-t">Acción del día</h2>
+            <p class="accion-txt">Llama a los 3 leads que agendaron y no confirmaron</p>
+            <p class="accion-por">Las llamadas sin confirmar se caen cuatro veces más.</p>
+            <button class="btn btn-p" data-ir-a="crm">Ver los 3</button>
+          </article>
+
+          <article class="bq">
+            <h2 class="bq-t">El mes</h2>
+            <div class="mes">
+              <div class="mes-n"><strong>$12,400</strong><span>Ventas</span><em>↑ 1,3× el anterior</em></div>
+              <div class="mes-n"><strong>$9,800</strong><span>Cobrado</span><em>↑ 1,1×</em></div>
+              <div class="mes-n"><strong>86</strong><span>Leads</span><em>↓ 0,9×</em></div>
+              <div class="mes-n"><strong>24</strong><span>Llamadas</span><em>↑ 1,4×</em></div>
+            </div>
+          </article>
+
+          <h2 class="parte">Hoy</h2>
+
+          <article class="bq">
+            <h2 class="bq-t">Próximas llamadas</h2>
+            <div class="lista">
+              <button class="fila" data-ir-a="crm"><span class="hora">10:30</span><span class="tx"><span class="t">Lucía Herrera</span><span class="c">Primera llamada · con Diego</span></span></button>
+              <button class="fila" data-ir-a="crm"><span class="hora">16:00</span><span class="tx"><span class="t">Andrés Molina</span><span class="c">Segunda llamada · con Paula</span></span></button>
+              <button class="fila" data-ir-a="crm"><span class="hora">18:15</span><span class="tx"><span class="t">Renata Flores</span><span class="c">Primera llamada · con Diego</span></span></button>
+            </div>
+          </article>
+
+          <article class="bq">
+            <h2 class="bq-t">A quién cobrarle</h2>
+            <div class="lista" id="cobros">
+              <div class="fila"><span class="tx"><span class="t">Gabriel Soto</span><span class="c">$500 · vence hoy</span></span><button class="btn btn-s btn-chico" data-cobrar>Marcar cobrada</button></div>
+              <div class="fila"><span class="tx"><span class="t">Natalia Ruiz</span><span class="c">$750 · venció ayer</span></span><button class="btn btn-s btn-chico" data-cobrar>Marcar cobrada</button></div>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════ CRM ═══════════════════════════ -->
+    <section class="screen" id="crm" data-tab="crm" hidden>
+      <header class="nav"><div class="nav-l"></div><div class="nav-t">CRM</div><div class="nav-r"></div></header>
+      <h1 class="tg">CRM</h1>
+      <div class="seg" role="group" aria-label="Vista" data-seg="crm">
+        <button aria-pressed="true" data-v="hoy">Hoy</button>
+        <button aria-pressed="false" data-v="tablero">Tablero</button>
+      </div>
+      <div class="cuerpo" data-vista="hoy">
+        <div class="st"><h2>Hoy</h2></div>
+        <div class="lista" style="--sep:68px">
+          <button class="fila"><span class="av">LH</span><span class="tx"><span class="t">Lucía Herrera</span><span class="c">Primera llamada</span></span><span class="r">10:30</span></button>
+          <button class="fila"><span class="av">AM</span><span class="tx"><span class="t">Andrés Molina</span><span class="c">Segunda llamada</span></span><span class="r">16:00</span></button>
+        </div>
+        <div class="st"><h2>Por responder</h2></div>
+        <div class="lista" style="--sep:68px">
+          <button class="fila"><span class="av">VO</span><span class="tx"><span class="t">Valeria Ortiz</span><span class="c">¿Tienen pagos en cuotas?</span></span><span class="r">12 min</span></button>
+          <button class="fila"><span class="av">BA</span><span class="tx"><span class="t">Bruno Acosta</span><span class="c">Ok, lo veo hoy</span></span><span class="r">1 h</span></button>
+        </div>
+        <div class="st"><h2>Nuevos</h2></div>
+        <div class="lista" style="--sep:68px">
+          <button class="fila"><span class="av">EP</span><span class="tx"><span class="t">Elena Paz</span><span class="c">Formulario · Clase gratis</span></span><span class="r">ayer</span></button>
+        </div>
+      </div>
+      <div class="tablero" data-vista="tablero" data-tablero="crm" hidden></div>
+    </section>
+
+    <!-- ═══════════════════════════ INBOX ═══════════════════════════ -->
+    <section class="screen" id="inbox" data-tab="inbox" hidden>
+      <header class="nav"><div class="nav-l"></div><div class="nav-t">Inbox</div><div class="nav-r"></div></header>
+      <div class="cuerpo">
+        <h1 class="tg">Inbox</h1>
+        <div class="lista" style="--sep:68px">
+          <div class="fila"><span class="ic-tile"><svg width="18" height="18" aria-hidden="true"><use href="#i-wa"/></svg></span><span class="tx"><span class="t">Enviar 3 seguimientos</span><span class="c">No contestan desde el martes</span></span></div>
+          <div class="fila"><span class="ic-tile"><svg width="18" height="18" aria-hidden="true"><use href="#i-plan"/></svg></span><span class="tx"><span class="t">4 tareas de la reunión</span><span class="c">Para sumar al Plan</span></span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════ PLAN ═══════════════════════════ -->
+    <section class="screen" id="plan" data-tab="plan" hidden>
+      <header class="nav"><div class="nav-l"></div><div class="nav-t">Plan</div><div class="nav-r"></div></header>
+      <h1 class="tg">Plan</h1>
+      <div class="seg" role="group" aria-label="Vista" data-seg="plan">
+        <button aria-pressed="true" data-v="hoy">Hoy</button>
+        <button aria-pressed="false" data-v="semana">Semana</button>
+        <button aria-pressed="false" data-v="prioridades">Prioridades</button>
+        <button aria-pressed="false" data-v="tablero">Tablero</button>
+      </div>
+      <div class="cuerpo" data-vista="hoy">
+        <div style="height:14px"></div>
+        <div class="lista" style="--sep:56px" id="plan-hoy">
+          <div class="fila"><button class="chk-wrap" role="checkbox" aria-checked="false" aria-label="Completar"><span class="chk"><svg width="14" height="14"><use href="#i-check"/></svg></span></button><span class="tx"><span class="t n">Grabar el video de bienvenida</span><span class="c"><span class="punto" style="background:var(--proy-1)"></span> Lanzamiento</span></span><span class="r">hoy</span></div>
+          <div class="fila"><button class="chk-wrap" role="checkbox" aria-checked="false" aria-label="Completar"><span class="chk"><svg width="14" height="14"><use href="#i-check"/></svg></span></button><span class="tx"><span class="t n">Escribir los 3 correos de la secuencia</span><span class="c"><span class="punto" style="background:var(--proy-2)"></span> Email</span></span><span class="r">hoy</span></div>
+          <div class="fila"><button class="chk-wrap" role="checkbox" aria-checked="false" aria-label="Completar"><span class="chk"><svg width="14" height="14"><use href="#i-check"/></svg></span></button><span class="tx"><span class="t n">Revisar los anuncios que no entregan</span><span class="c"><span class="punto" style="background:var(--proy-4)"></span> Anuncios</span></span><span class="r">hoy</span></div>
+        </div>
+      </div>
+      <div class="cuerpo" data-vista="semana" hidden><div style="height:14px"></div><div class="lista" style="--sep:56px"><div class="fila"><span class="chk-wrap"><span class="chk"></span></span><span class="tx"><span class="t n">Armar la oferta del webinar</span><span class="c"><span class="punto" style="background:var(--proy-3)"></span> Oferta</span></span><span class="r">jue</span></div></div></div>
+      <div class="cuerpo" data-vista="prioridades" hidden><div style="height:14px"></div><div class="lista" style="--sep:56px"><div class="fila"><span class="rank">1</span><span class="tx"><span class="t n">Grabar el video de bienvenida</span><span class="c"><span class="punto" style="background:var(--proy-1)"></span> Lanzamiento</span></span></div><div class="fila"><span class="rank">2</span><span class="tx"><span class="t n">Cerrar la oferta del webinar</span><span class="c"><span class="punto" style="background:var(--proy-3)"></span> Oferta</span></span></div></div></div>
+      <div class="tablero" data-vista="tablero" data-tablero="plan" hidden></div>
+    </section>
+
+    <!-- ═══════════════════════════ MORE ═══════════════════════════ -->
+    <section class="screen" id="more" data-tab="more" hidden>
+      <header class="nav"><div class="nav-l"></div><div class="nav-t">More</div><div class="nav-r"></div></header>
+      <div class="cuerpo">
+        <h1 class="tg">More</h1>
+        <div class="lista" style="--sep:60px">
+          <button class="fila" data-proximo><span class="ic-tile"><svg width="18" height="18" aria-hidden="true"><use href="#i-graphics"/></svg></span><span class="tx"><span class="t n">Dashboard</span></span><svg class="chev" width="18" height="18" aria-hidden="true"><use href="#i-chev"/></svg></button>
+          <button class="fila" data-proximo><span class="ic-tile"><svg width="18" height="18" aria-hidden="true"><use href="#i-grid"/></svg></span><span class="tx"><span class="t n">Ads Manager</span></span><svg class="chev" width="18" height="18" aria-hidden="true"><use href="#i-chev"/></svg></button>
+          <button class="fila" data-push="cs"><span class="ic-tile"><svg width="18" height="18" aria-hidden="true"><use href="#i-cs"/></svg></span><span class="tx"><span class="t n">Customer Success</span></span><svg class="chev" width="18" height="18" aria-hidden="true"><use href="#i-chev"/></svg></button>
+          <button class="fila" data-proximo><span class="ic-tile"><svg width="18" height="18" aria-hidden="true"><use href="#i-chatbot"/></svg></span><span class="tx"><span class="t n">Automations</span></span><svg class="chev" width="18" height="18" aria-hidden="true"><use href="#i-chev"/></svg></button>
+        </div>
+        <div style="height:14px"></div>
+        <div class="lista" style="--sep:60px">
+          <button class="fila" data-proximo><span class="ic-tile"><svg width="18" height="18" aria-hidden="true"><use href="#i-wa"/></svg></span><span class="tx"><span class="t n">WhatsApp</span></span><span class="nuevo">Nuevo</span></button>
+          <button class="fila" data-proximo><span class="ic-tile"><svg width="18" height="18" aria-hidden="true"><use href="#i-cal"/></svg></span><span class="tx"><span class="t n">Calendario</span></span><span class="nuevo">Nuevo</span></button>
+          <button class="fila" data-proximo><span class="ic-tile"><svg width="18" height="18" aria-hidden="true"><use href="#i-gente"/></svg></span><span class="tx"><span class="t n">Comunidad</span></span><span class="nuevo">Nuevo</span></button>
+          <button class="fila" data-proximo><span class="ic-tile"><svg width="18" height="18" aria-hidden="true"><use href="#i-curso"/></svg></span><span class="tx"><span class="t n">Curso</span></span><span class="nuevo">Nuevo</span></button>
+          <button class="fila" data-proximo><span class="ic-tile"><svg width="18" height="18" aria-hidden="true"><use href="#i-tag"/></svg></span><span class="tx"><span class="t n">Offer</span></span><span class="nuevo">Nuevo</span></button>
+          <button class="fila" data-proximo><span class="ic-tile"><svg width="18" height="18" aria-hidden="true"><use href="#i-mail"/></svg></span><span class="tx"><span class="t n">Email</span></span><span class="nuevo">Nuevo</span></button>
+          <button class="fila" data-proximo><span class="ic-tile"><svg width="18" height="18" aria-hidden="true"><use href="#i-escribir"/></svg></span><span class="tx"><span class="t n">Ads Writer</span></span><span class="nuevo">Nuevo</span></button>
+          <button class="fila" data-proximo><span class="ic-tile"><svg width="18" height="18" aria-hidden="true"><use href="#i-cerebro"/></svg></span><span class="tx"><span class="t n">Second Brain</span></span><span class="nuevo">Nuevo</span></button>
+          <button class="fila" data-proximo><span class="ic-tile"><svg width="18" height="18" aria-hidden="true"><use href="#i-matraz"/></svg></span><span class="tx"><span class="t n">Experiments</span></span><span class="nuevo">Nuevo</span></button>
+        </div>
+        <div style="height:14px"></div>
+        <div class="lista" style="--sep:60px">
+          <button class="fila" data-proximo><span class="ic-tile"><svg width="18" height="18" aria-hidden="true"><use href="#i-videogen"/></svg></span><span class="tx"><span class="t n">Video Generator</span></span><svg class="chev" width="18" height="18" aria-hidden="true"><use href="#i-chev"/></svg></button>
+          <button class="fila" data-proximo><span class="ic-tile"><svg width="18" height="18" aria-hidden="true"><use href="#i-web"/></svg></span><span class="tx"><span class="t n">Landing Generator</span></span><svg class="chev" width="18" height="18" aria-hidden="true"><use href="#i-chev"/></svg></button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════ CUSTOMER SUCCESS (push) ═══════════════════════ -->
+    <section class="screen push" id="cs" hidden>
+      <header class="nav"><div class="nav-l"><button class="back" data-atras><svg width="20" height="20" aria-hidden="true"><use href="#i-chev"/></svg>More</button></div><div class="nav-t">Customer Success</div><div class="nav-r"></div></header>
+      <h1 class="tg">Customer Success</h1>
+      <div class="tablero" data-tablero="cs"></div>
+    </section>
+
+    <nav class="tabbar" aria-label="Secciones">
+      <button class="tab" data-tab="general" aria-current="page"><svg width="24" height="24" aria-hidden="true"><use href="#i-general"/></svg>General</button>
+      <button class="tab" data-tab="crm"><svg width="24" height="24" aria-hidden="true"><use href="#i-crm"/></svg>CRM</button>
+      <button class="tab" data-tab="inbox"><svg width="24" height="24" aria-hidden="true"><use href="#i-inbox"/></svg>Inbox<span class="bdg">2</span></button>
+      <button class="tab" data-tab="plan"><svg width="24" height="24" aria-hidden="true"><use href="#i-plan"/></svg>Plan</button>
+      <button class="tab" data-tab="more"><svg width="24" height="24" aria-hidden="true"><use href="#i-more"/></svg>More</button>
+    </nav>
+
+    <div class="velo" id="velo"></div>
+    <section class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sh-titulo" hidden>
+      <div class="sh-tope" id="sh-tope">
+        <div class="grabber"></div>
+        <div class="sh-cab"><div><h2 id="sh-titulo"></h2><p id="sh-sub"></p></div><button class="sh-cerrar" id="sh-cerrar" aria-label="Cerrar"><svg width="16" height="16" aria-hidden="true"><use href="#i-x"/></svg></button></div>
+      </div>
+      <div class="sh-scroll" id="sh-cuerpo"></div>
+      <div class="sh-pie" id="sh-pie" hidden></div>
+    </section>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"><span id="toast-tx"></span><button id="toast-btn" hidden>Deshacer</button></div>
+    <div class="home-ind"></div>
+  </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+  const device = $('#device');
+  const fmt = (n) => '$' + n.toLocaleString('en-US');
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  // ── Los datos de ejemplo (ficticios). Cada tablero tiene OPCIONES (funnel, producto, qué se ve) ──
+  const TABLEROS = {
+    crm: {
+      selector: 'Funnel', unidad: 'lead', unidades: 'leads', conTotal: true, actual: 0,
+      opciones: [
+        {
+          nombre: 'Llamada de venta',
+          cols: ['Nuevo', 'Contactado', 'Agendado', 'Asistió', 'Propuesta', 'Ganado', 'Perdido'],
+          items: [
+            { id: 'c1', col: 0, nombre: 'Elena Paz', sub: 'Programa Escala', monto: 1500, meta: 'ayer' },
+            { id: 'c2', col: 0, nombre: 'Ignacio Varela', sub: 'Programa Escala', monto: 1500, meta: '2 d' },
+            { id: 'c3', col: 0, nombre: 'Carla Núñez', sub: 'Mentoría 1:1', monto: 3000, meta: '3 d' },
+            { id: 'c4', col: 1, nombre: 'Valeria Ortiz', sub: 'Programa Escala', monto: 1500, meta: '12 min', estado: ['info', 'Te escribió'] },
+            { id: 'c5', col: 1, nombre: 'Bruno Acosta', sub: 'Programa Escala', monto: 1500, meta: '1 h' },
+            { id: 'c6', col: 1, nombre: 'Sergio Lima', sub: 'Mentoría 1:1', monto: 3000, meta: '4 d', estado: ['warn', 'Sin respuesta · 4 días'] },
+            { id: 'c7', col: 2, nombre: 'Lucía Herrera', sub: 'Programa Escala', monto: 1500, meta: 'hoy 10:30', estado: ['info', 'Llamada hoy'] },
+            { id: 'c8', col: 2, nombre: 'Andrés Molina', sub: 'Mentoría 1:1', monto: 3000, meta: 'hoy 16:00', estado: ['info', 'Llamada hoy'] },
+            { id: 'c9', col: 2, nombre: 'Renata Flores', sub: 'Programa Escala', monto: 1500, meta: 'hoy 18:15', estado: ['warn', 'No confirmó'] },
+            { id: 'c10', col: 3, nombre: 'Julián Castro', sub: 'Programa Escala', monto: 1500, meta: 'lun' },
+            { id: 'c11', col: 4, nombre: 'Paula Méndez', sub: 'Mentoría 1:1', monto: 3000, meta: 'mar', estado: ['warn', 'Propuesta sin abrir'] },
+            { id: 'c12', col: 5, nombre: 'Gabriel Soto', sub: 'Programa Escala', monto: 1500, meta: '9 oct', estado: ['good', 'Pagó la cuota 1'] },
+            { id: 'c13', col: 6, nombre: 'Diego Salas', sub: 'Programa Escala', monto: 1500, meta: '2 oct' },
+          ],
+        },
+        {
+          nombre: 'Clase gratis',
+          cols: ['Registrado', 'Asistió', 'Agendó llamada', 'Compró'],
+          items: [
+            { id: 'k1', col: 0, nombre: 'Martín Gil', sub: 'Clase del jueves', monto: 0, meta: 'hoy' },
+            { id: 'k2', col: 0, nombre: 'Rocío Pardo', sub: 'Clase del jueves', monto: 0, meta: 'ayer' },
+            { id: 'k3', col: 1, nombre: 'Hugo Ferreyra', sub: 'Clase del martes', monto: 0, meta: 'mar' },
+            { id: 'k4', col: 2, nombre: 'Noelia Ríos', sub: 'Programa Escala', monto: 1500, meta: 'vie 11:00', estado: ['info', 'Llamada el viernes'] },
+            { id: 'k5', col: 3, nombre: 'Tobías Luna', sub: 'Programa Escala', monto: 1500, meta: '8 oct', estado: ['good', 'Pagó'] },
+          ],
+        },
+      ],
+    },
+    cs: {
+      selector: 'Producto', unidad: 'cliente', unidades: 'clientes', conTotal: false, actual: 0,
+      opciones: [
+        {
+          nombre: 'Programa Escala',
+          cols: ['Onboarding', 'Primeras clases', 'Implementación', 'Resultados', 'Renovación'],
+          items: [
+            { id: 's1', col: 0, nombre: 'Fernanda Ríos', sub: 'Estudio Luma', meta: 'hace 2 d' },
+            { id: 's2', col: 0, nombre: 'Emilio Navarro', sub: 'Navarro Bienes Raíces', meta: 'hace 21 d', estado: ['bad', '21 días sin moverse'] },
+            { id: 's3', col: 0, nombre: 'Clara Benítez', sub: 'Benítez Odontología', meta: 'hace 5 d' },
+            { id: 's4', col: 1, nombre: 'Rodrigo Peña', sub: 'Peña Fitness', meta: 'hace 1 d' },
+            { id: 's5', col: 1, nombre: 'Laura Quiroga', sub: 'Quiroga Arquitectos', meta: 'hace 9 d' },
+            { id: 's6', col: 2, nombre: 'Matías Ledesma', sub: 'Ledesma Seguros', meta: 'hace 3 d' },
+            { id: 's7', col: 3, nombre: 'Inés Cabral', sub: 'Cabral Nutrición', meta: 'hace 12 d', estado: ['good', 'Primer resultado'] },
+            { id: 's8', col: 4, nombre: 'Pablo Ibáñez', sub: 'Ibáñez Consultores', meta: 'hace 4 d', estado: ['warn', 'Vence en 10 días'] },
+          ],
+        },
+        {
+          nombre: 'Mentoría 1:1',
+          cols: ['Onboarding', 'Sesiones', 'Cierre'],
+          items: [
+            { id: 'm1', col: 0, nombre: 'Agustina Rey', sub: 'Rey Diseño', meta: 'hace 1 d' },
+            { id: 'm2', col: 1, nombre: 'Federico Mora', sub: 'Mora Abogados', meta: 'hace 6 d' },
+          ],
+        },
+      ],
+    },
+    plan: {
+      selector: 'Ver', unidad: 'tarea', unidades: 'tareas', conTotal: false, actual: 0,
+      opciones: [
+        {
+          nombre: 'Tareas',
+          cols: ['Alta', 'Media', 'Baja', 'A futuro'],
+          items: [
+            { id: 'p1', col: 0, nombre: 'Grabar el video de bienvenida', proy: ['Lanzamiento', 'var(--proy-1)'], meta: 'hoy' },
+            { id: 'p2', col: 0, nombre: 'Cerrar la oferta del webinar', proy: ['Oferta', 'var(--proy-3)'], meta: 'jue' },
+            { id: 'p3', col: 0, nombre: 'Escribir los 3 correos de la secuencia', proy: ['Email', 'var(--proy-2)'], meta: 'hoy' },
+            { id: 'p4', col: 0, nombre: 'Revisar los anuncios que no entregan', proy: ['Anuncios', 'var(--proy-4)'], meta: 'ayer', vencida: true },
+            { id: 'p5', col: 0, nombre: 'Pedir los testimonios a 5 clientes', proy: ['Lanzamiento', 'var(--proy-1)'], meta: 'vie' },
+            { id: 'p6', col: 0, nombre: 'Definir el precio del grupo', proy: ['Oferta', 'var(--proy-3)'], meta: '20 oct' },
+            { id: 'p7', col: 1, nombre: 'Ordenar las etiquetas del CRM', proy: ['CRM', 'var(--proy-2)'], meta: '24 oct' },
+            { id: 'p8', col: 1, nombre: 'Subir las clases 4 y 5 del curso', proy: ['Curso', 'var(--proy-4)'], meta: '27 oct' },
+            { id: 'p9', col: 2, nombre: 'Probar un anuncio con carrusel', proy: ['Anuncios', 'var(--proy-4)'], meta: '' },
+            { id: 'p10', col: 3, nombre: 'Armar el podcast', proy: ['Contenido', 'var(--proy-1)'], meta: '' },
+          ],
+        },
+        {
+          nombre: 'Proyectos',
+          cols: ['Alta', 'Media', 'Baja', 'A futuro'],
+          items: [
+            { id: 'q1', col: 0, nombre: 'Lanzamiento del programa', proy: ['8 de 14 tareas', 'var(--proy-1)'], meta: '31 oct' },
+            { id: 'q2', col: 0, nombre: 'Oferta del webinar', proy: ['3 de 6 tareas', 'var(--proy-3)'], meta: '24 oct' },
+            { id: 'q3', col: 1, nombre: 'Curso para clientes', proy: ['5 de 12 tareas', 'var(--proy-4)'], meta: '15 nov' },
+            { id: 'q4', col: 2, nombre: 'Anuncios de carrusel', proy: ['0 de 3 tareas', 'var(--proy-4)'], meta: '' },
+            { id: 'q5', col: 3, nombre: 'Podcast', proy: ['Sin tareas', 'var(--proy-1)'], meta: '' },
+          ],
+        },
+      ],
+    },
+  };
+  const iniciales = (n) => n.split(/\s+/).map((p) => p[0]).slice(0, 2).join('').toUpperCase();
+  const op = (k) => TABLEROS[k].opciones[TABLEROS[k].actual];
+
+  // ── Toast ───────────────────────────────────────────────────────────────
+  let toastT = 0;
+  function toast(texto, deshacer, fijo) {
+    const t = $('#toast');
+    $('#toast-tx').textContent = texto;
+    const b = $('#toast-btn');
+    b.hidden = !deshacer;
+    b.onclick = deshacer ? () => { ocultarToast(); deshacer(); } : null;
+    const enPush = !!$('.screen.push.in');
+    t.classList.toggle('sin-barra', enPush);
+    t.classList.add('on');
+    clearTimeout(toastT);
+    if (!fijo) toastT = setTimeout(ocultarToast, deshacer ? 6000 : 3500);
+  }
+  function ocultarToast() { $('#toast').classList.remove('on'); }
+
+  // ── El tablero ──────────────────────────────────────────────────────────
+  function cuentaDe(k, c) { return op(k).items.filter((i) => i.col === c).length; }
+
+  function tarjetaHtml(k, it, rank) {
+    const derecha = it.meta ? `<span class="tj-m${it.vencida ? ' mal' : ''}">${esc(it.meta)}</span>` : '';
+    if (k === 'plan') {
+      return `<button class="tj" data-item="${it.id}">${rank ? `<span class="rank" aria-label="Prioridad ${rank}">${rank}</span>` : ''}<span class="tj-tx"><span class="tj-l1"><span class="tj-n dos">${esc(it.nombre)}</span>${derecha}</span><span class="tj-c"><span class="punto" style="background:${it.proy[1]}"></span>${esc(it.proy[0])}</span></span></button>`;
+    }
+    const sub = k === 'crm' && it.monto ? `${esc(it.sub)} · ${fmt(it.monto)}` : esc(it.sub);
+    const estado = it.estado ? `<span class="pill ${it.estado[0]}"><i></i>${esc(it.estado[1])}</span>` : '';
+    return `<button class="tj" data-item="${it.id}"><span class="av av-sm">${iniciales(it.nombre)}</span><span class="tj-tx"><span class="tj-l1"><span class="tj-n">${esc(it.nombre)}</span>${derecha}</span><span class="tj-c">${sub}</span>${estado}</span></button>`;
+  }
+
+  function pintarTablero(k, opts = {}) {
+    const raiz = $(`[data-tablero="${k}"]`);
+    const T = TABLEROS[k];
+    const o = op(k);
+    const pistaVieja = $('.pista', raiz);
+    const izq = pistaVieja ? pistaVieja.scrollLeft : 0;
+    const arriba = {};
+    if (pistaVieja) $$('.col', pistaVieja).forEach((c) => { arriba[c.dataset.col] = $('.col-lista', c).scrollTop; });
+    const cols = o.cols.map((nombre, c) => {
+      const items = o.items.filter((i) => i.col === c);
+      const total = T.conTotal ? items.reduce((s, i) => s + (i.monto || 0), 0) : 0;
+      const tarjetas = items.map((it, n) => tarjetaHtml(k, it, k === 'plan' && T.actual === 0 && c === 0 && n < 5 ? n + 1 : 0)).join('')
+        || `<p class="col-vacia">Sin ${T.unidades}</p>`;
+      return `<section class="col" data-col="${c}" aria-label="${esc(nombre)}, ${items.length} ${items.length === 1 ? T.unidad : T.unidades}">
+        <header class="col-cab"><h3>${esc(nombre)}</h3><span class="cuenta">${items.length}</span>${total ? `<span class="col-total">${fmt(total)}</span>` : ''}</header>
+        <div class="col-lista">${tarjetas}</div></section>`;
+    }).join('');
+    raiz.innerHTML = `
+      <div class="tab-cab">
+        <button class="selector" data-selector aria-label="${T.selector}: ${esc(o.nombre)}"><span>${esc(o.nombre)}</span><svg width="16" height="16" aria-hidden="true"><use href="#i-chev"/></svg></button>
+        <button class="lnk" data-etapas>${k === 'plan' ? 'Columnas' : 'Etapas'}</button>
+      </div>
+      <div class="etapas" style="grid-template-columns:repeat(${o.cols.length},1fr)" aria-label="Ir a una columna">
+        ${o.cols.map((n, c) => `<button data-ir-col="${c}" aria-label="${esc(n)}: ${cuentaDe(k, c)}" class="${cuentaDe(k, c) ? '' : 'vacia'}"><i></i><b${opts.pulso === c ? ' class="pulso"' : ''}>${cuentaDe(k, c)}</b></button>`).join('')}
+      </div>
+      <div class="pista" tabindex="0" aria-label="Columnas">${cols}</div>`;
+    const pista = $('.pista', raiz);
+    pista.scrollLeft = opts.irA != null ? 0 : izq;
+    $$('.col', pista).forEach((c) => { const v = arriba[c.dataset.col]; if (v) $('.col-lista', c).scrollTop = v; });
+    if (opts.irA != null) irACol(k, opts.irA, false);
+    if (opts.llego) { const el = $(`[data-item="${opts.llego}"]`, raiz); if (el) { el.classList.add('llego'); } }
+    marcarActual(k);
+    requestAnimationFrame(() => marcarActual(k));
+    pista.addEventListener('scroll', () => requestAnimationFrame(() => marcarActual(k)), { passive: true });
+  }
+
+  // offsetWidth y no getBoundingClientRect: el teléfono puede estar escalado en la escena, y scrollLeft no lo está.
+  function anchoCol(pista) { const c = $('.col', pista); return c && c.offsetWidth ? c.offsetWidth + 10 : 1; }
+  function colActual(k) {
+    const pista = $(`[data-tablero="${k}"] .pista`);
+    return Math.max(0, Math.min(op(k).cols.length - 1, Math.round(pista.scrollLeft / anchoCol(pista))));
+  }
+  function marcarActual(k) {
+    const raiz = $(`[data-tablero="${k}"]`);
+    const a = colActual(k);
+    $$('.etapas button', raiz).forEach((b, i) => b.setAttribute('aria-current', String(i === a)));
+  }
+  function irACol(k, c, suave = true) {
+    const pista = $(`[data-tablero="${k}"] .pista`);
+    const quieto = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    pista.scrollTo({ left: c * anchoCol(pista), behavior: suave && !quieto ? 'smooth' : 'auto' });
+    setTimeout(() => marcarActual(k), suave ? 350 : 0);
+  }
+
+  // Mover: el MISMO camino para el gesto y para el detalle, con Deshacer que vuelve todo atrás.
+  function mover(k, id, destino, fijo) {
+    const o = op(k);
+    const it = o.items.find((i) => i.id === id);
+    if (!it || it.col === destino) return;
+    const antes = { col: it.col, orden: o.items.slice() };
+    const raiz = $(`[data-tablero="${k}"]`);
+    const el = $(`[data-item="${id}"]`, raiz);
+    const aplicar = () => {
+      it.col = destino;
+      o.items.splice(o.items.indexOf(it), 1);
+      o.items.unshift(it);
+      pintarTablero(k, { pulso: destino });
+      const nombre = o.cols[destino];
+      toast(k === 'plan' ? `Ahora en ${nombre}` : `Pasó a ${nombre}`, () => {
+        it.col = antes.col; o.items.splice(0, o.items.length, ...antes.orden);
+        pintarTablero(k, { llego: id, pulso: antes.col });
+        toast('Listo, volvió');
+      }, fijo);
+    };
+    if (el && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) { el.classList.add('se-va'); setTimeout(aplicar, 220); }
+    else aplicar();
+  }
+
+  // ── Sheets ──────────────────────────────────────────────────────────────
+  const sheet = $('#sheet'), velo = $('#velo');
+  let alCerrar = null;
+  function abrirSheet({ titulo, sub = '', cuerpo, pie = '' }) {
+    $('#sh-titulo').textContent = titulo;
+    $('#sh-sub').textContent = sub;
+    $('#sh-sub').hidden = !sub;
+    $('#sh-cuerpo').innerHTML = cuerpo;
+    $('#sh-pie').innerHTML = pie;
+    $('#sh-pie').hidden = !pie;
+    sheet.hidden = false;
+    requestAnimationFrame(() => { sheet.classList.add('on'); velo.classList.add('on'); });
+    setTimeout(() => $('#sh-cerrar').focus({ preventScroll: true }), 50);
+  }
+  function cerrarSheet() {
+    sheet.classList.remove('on'); velo.classList.remove('on');
+    setTimeout(() => { if (!sheet.classList.contains('on')) sheet.hidden = true; }, 240);
+    if (alCerrar) { const f = alCerrar; alCerrar = null; f(); }
+  }
+  $('#sh-cerrar').addEventListener('click', cerrarSheet);
+  velo.addEventListener('click', cerrarSheet);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && sheet.classList.contains('on')) cerrarSheet(); });
+  // Bajar el sheet tirando del tope (y la X para quien no lo sabe).
+  (() => {
+    let y0 = null, dy = 0;
+    const tope = $('#sh-tope');
+    tope.addEventListener('pointerdown', (e) => { if (e.target.closest('button')) return; y0 = e.clientY; dy = 0; sheet.classList.add('arrastre'); tope.setPointerCapture(e.pointerId); });
+    tope.addEventListener('pointermove', (e) => { if (y0 == null) return; dy = Math.max(0, e.clientY - y0); sheet.style.transform = `translateY(${dy}px)`; });
+    const fin = () => { if (y0 == null) return; y0 = null; sheet.classList.remove('arrastre'); sheet.style.transform = ''; if (dy > 90) cerrarSheet(); };
+    tope.addEventListener('pointerup', fin); tope.addEventListener('pointercancel', fin);
+  })();
+
+  function filaEtapas(k, it, accion) {
+    const o = op(k);
+    return `<div class="lista">${o.cols.map((n, c) => {
+      const aca = c === it.col;
+      return `<button class="fila" data-${accion}="${c}" ${aca ? 'aria-disabled="true"' : ''}><span class="tx"><span class="t n">${esc(n)}</span></span>${aca ? '<span class="aqui">Aquí está</span><svg class="ok" width="20" height="20" aria-hidden="true"><use href="#i-check"/></svg>' : `<span class="r">${cuentaDe(k, c)}</span>`}</button>`;
+    }).join('')}</div>`;
+  }
+
+  function abrirMover(k, id) {
+    const it = op(k).items.find((i) => i.id === id);
+    abrirSheet({ titulo: k === 'plan' ? 'Cambiar la prioridad' : 'Mover a…', sub: it.nombre, cuerpo: filaEtapas(k, it, 'mover-a') });
+    $$('[data-mover-a]', sheet).forEach((b) => b.addEventListener('click', () => {
+      if (b.getAttribute('aria-disabled') === 'true') return;
+      const destino = Number(b.dataset.moverA);
+      cerrarSheet();
+      setTimeout(() => mover(k, id, destino), 120);
+    }));
+  }
+
+  function abrirDetalle(k, id) {
+    const o = op(k);
+    const it = o.items.find((i) => i.id === id);
+    if (k === 'cs') {
+      const sig = it.col < o.cols.length - 1 ? o.cols[it.col + 1] : null;
+      abrirSheet({
+        titulo: it.nombre, sub: it.sub,
+        cuerpo: `${filaEtapas(k, it, 'mover-a')}
+          <div class="lista"><button class="fila" data-proximo-sh><span class="ic-tile"><svg width="18" height="18"><use href="#i-wa"/></svg></span><span class="tx"><span class="t n">Escribirle por WhatsApp</span></span></button>
+          <button class="fila" data-proximo-sh><span class="ic-tile"><svg width="18" height="18"><use href="#i-enviar"/></svg></span><span class="tx"><span class="t n">Reenviar la invitación al curso</span></span></button></div>`,
+        pie: sig ? `<button class="btn btn-p" data-siguiente>Pasar a ${esc(sig)}</button>` : '',
+      });
+    } else if (k === 'crm') {
+      abrirSheet({
+        titulo: it.nombre, sub: it.monto ? `${it.sub} · ${fmt(it.monto)}` : it.sub,
+        cuerpo: `<div class="lista">
+          <button class="fila dato" data-abrir-mover><span class="k">Etapa</span><span class="v">${esc(o.cols[it.col])}</span><svg class="chev" width="18" height="18" aria-hidden="true"><use href="#i-chev"/></svg></button></div>
+          <div class="lista"><button class="fila" data-proximo-sh><span class="ic-tile"><svg width="18" height="18"><use href="#i-wa"/></svg></span><span class="tx"><span class="t n">Escribir por WhatsApp</span></span></button>
+          <button class="fila" data-proximo-sh><span class="ic-tile"><svg width="18" height="18"><use href="#i-ficha"/></svg></span><span class="tx"><span class="t n">Abrir la ficha</span></span></button></div>`,
+      });
+    } else {
+      abrirSheet({
+        titulo: it.nombre, sub: it.proy[0],
+        cuerpo: `<div class="lista">
+          <button class="fila dato" data-abrir-mover><span class="k">Prioridad</span><span class="v">${esc(o.cols[it.col])}</span><svg class="chev" width="18" height="18" aria-hidden="true"><use href="#i-chev"/></svg></button>
+          ${it.meta ? `<div class="fila dato"><span class="k">Deadline</span><span class="v">${esc(it.meta)}</span></div>` : ''}</div>`,
+        pie: o.nombre === 'Tareas' ? '<button class="btn btn-p" data-completar>Completar</button>' : '',
+      });
+    }
+    $$('[data-mover-a]', sheet).forEach((b) => b.addEventListener('click', () => {
+      if (b.getAttribute('aria-disabled') === 'true') return;
+      const destino = Number(b.dataset.moverA); cerrarSheet(); setTimeout(() => mover(k, id, destino), 120);
+    }));
+    const am = $('[data-abrir-mover]', sheet);
+    if (am) am.addEventListener('click', () => { cerrarSheet(); setTimeout(() => abrirMover(k, id), 260); });
+    const sg = $('[data-siguiente]', sheet);
+    if (sg) sg.addEventListener('click', () => { cerrarSheet(); setTimeout(() => mover(k, id, it.col + 1), 120); });
+    const cp = $('[data-completar]', sheet);
+    if (cp) cp.addEventListener('click', () => {
+      const antes = o.items.slice(); o.items.splice(o.items.indexOf(it), 1);
+      cerrarSheet(); pintarTablero(k);
+      toast('Completada', () => { o.items.splice(0, o.items.length, ...antes); pintarTablero(k, { llego: id }); });
+    });
+    $$('[data-proximo-sh]', sheet).forEach((b) => b.addEventListener('click', () => toast('Fuera de este prototipo')));
+  }
+
+  function abrirSelector(k) {
+    const T = TABLEROS[k];
+    abrirSheet({
+      titulo: T.selector === 'Ver' ? 'Ver' : T.selector,
+      cuerpo: `<div class="lista">${T.opciones.map((o, i) => `<button class="fila" data-opcion="${i}"><span class="tx"><span class="t n">${esc(o.nombre)}</span></span>${i === T.actual ? '<svg class="ok" width="20" height="20" aria-hidden="true"><use href="#i-check"/></svg>' : `<span class="r">${o.items.length}</span>`}</button>`).join('')}</div>`,
+    });
+    $$('[data-opcion]', sheet).forEach((b) => b.addEventListener('click', () => {
+      T.actual = Number(b.dataset.opcion); cerrarSheet(); pintarTablero(k, { irA: 0 });
+    }));
+  }
+
+  function abrirEtapas(k) {
+    const o = op(k);
+    const a = colActual(k);
+    abrirSheet({
+      titulo: k === 'plan' ? 'Columnas' : 'Etapas', sub: o.nombre,
+      cuerpo: `<div class="lista">${o.cols.map((n, c) => `<button class="fila" data-saltar="${c}"><span class="tx"><span class="t n">${esc(n)}</span></span><span class="r">${cuentaDe(k, c)}</span>${c === a ? '<svg class="ok" width="20" height="20" aria-hidden="true"><use href="#i-check"/></svg>' : ''}</button>`).join('')}</div>`,
+    });
+    $$('[data-saltar]', sheet).forEach((b) => b.addEventListener('click', () => { cerrarSheet(); irACol(k, Number(b.dataset.saltar)); }));
+  }
+
+  // ── El gesto: tocar abre el detalle; mantener presionado (450 ms quieto) abre «Mover a…» ──
+  let presion = null;
+  const QUIETO_PX = 8, LARGO_MS = 450;
+  document.addEventListener('pointerdown', (e) => {
+    const tj = e.target.closest('.tj');
+    if (!tj || e.button > 0) return;
+    const k = tj.closest('[data-tablero]').dataset.tablero;
+    presion = { tj, k, x: e.clientX, y: e.clientY, largo: false };
+    presion.t = setTimeout(() => {
+      if (!presion) return;
+      presion.largo = true;
+      tj.classList.add('agarrada');
+      if (navigator.vibrate) try { navigator.vibrate(12); } catch (_) {}
+      setTimeout(() => { tj.classList.remove('agarrada'); abrirMover(k, tj.dataset.item); }, 160);
+    }, LARGO_MS);
+  });
+  document.addEventListener('pointermove', (e) => {
+    if (!presion || presion.largo) return;
+    if (Math.abs(e.clientX - presion.x) > QUIETO_PX || Math.abs(e.clientY - presion.y) > QUIETO_PX) { clearTimeout(presion.t); presion = null; }
+  }, { passive: true });
+  const soltar = () => { if (presion && !presion.largo) clearTimeout(presion.t); };
+  document.addEventListener('pointerup', soltar);
+  document.addEventListener('pointercancel', () => { if (presion) { clearTimeout(presion.t); presion = null; } });
+  document.addEventListener('contextmenu', (e) => { if (e.target.closest('.tj')) e.preventDefault(); });
+  document.addEventListener('click', (e) => {
+    const tj = e.target.closest('.tj');
+    if (tj) {
+      const largo = presion && presion.largo && presion.tj === tj;
+      presion = null;
+      if (largo) return;                       // el gesto largo ya abrió «Mover a…»
+      abrirDetalle(tj.closest('[data-tablero]').dataset.tablero, tj.dataset.item);
+      return;
+    }
+    const raiz = e.target.closest('[data-tablero]');
+    if (!raiz) return;
+    const k = raiz.dataset.tablero;
+    if (e.target.closest('[data-selector]')) abrirSelector(k);
+    else if (e.target.closest('[data-etapas]')) abrirEtapas(k);
+    else { const b = e.target.closest('[data-ir-col]'); if (b) irACol(k, Number(b.dataset.irCol)); }
+  });
+  // Con teclado: las flechas recorren las columnas.
+  document.addEventListener('keydown', (e) => {
+    const pista = e.target.closest && e.target.closest('.pista');
+    if (!pista || (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft')) return;
+    const k = pista.closest('[data-tablero]').dataset.tablero;
+    e.preventDefault(); irACol(k, Math.max(0, Math.min(op(k).cols.length - 1, colActual(k) + (e.key === 'ArrowRight' ? 1 : -1))));
+  });
+
+  // ── Navegación: barra, segmentados, More → Customer Success ───────────────
+  let pantalla = 'general';
+  const vistos = new Set();
+  function aviso(k) {
+    if (vistos.has(k)) return; vistos.add(k);
+    setTimeout(() => toast('Mantén presionada para mover'), 500);
+  }
+  function irTab(id) {
+    cerrarPush(true);
+    $$('.screen[data-tab]').forEach((s) => { s.hidden = s.dataset.tab !== id; });
+    $$('.tab').forEach((t) => { if (t.dataset.tab === id) t.setAttribute('aria-current', 'page'); else t.removeAttribute('aria-current'); });
+    pantalla = id;
+  }
+  function vista(seg, v) {
+    const scr = seg.closest('.screen');
+    $$('button', seg).forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === v)));
+    $$('[data-vista]', scr).forEach((el) => { el.hidden = el.dataset.vista !== v; });
+    if (v === 'tablero') { const k = $('[data-tablero]', scr).dataset.tablero; pintarTablero(k); aviso(k); }
+  }
+  $$('.seg').forEach((seg) => seg.addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) vista(seg, b.dataset.v); }));
+  $$('.tab').forEach((t) => t.addEventListener('click', () => irTab(t.dataset.tab)));
+  $$('[data-ir-a]').forEach((b) => b.addEventListener('click', () => irTab(b.dataset.irA)));
+  $$('[data-proximo]').forEach((b) => b.addEventListener('click', () => toast('Fuera de este prototipo')));
+  function abrirPush(id) {
+    const s = $('#' + id);
+    s.hidden = false;
+    requestAnimationFrame(() => requestAnimationFrame(() => s.classList.add('in')));
+    $('.tabbar').style.visibility = 'hidden';
+    if (id === 'cs') { pintarTablero('cs'); aviso('cs'); }
+  }
+  function cerrarPush(ya) {
+    const s = $('.screen.push.in');
+    $('.tabbar').style.visibility = '';
+    if (!s) return;
+    s.classList.remove('in');
+    if (ya) s.hidden = true; else setTimeout(() => { s.hidden = true; }, 320);
+  }
+  $$('[data-push]').forEach((b) => b.addEventListener('click', () => abrirPush(b.dataset.push)));
+  $$('[data-atras]').forEach((b) => b.addEventListener('click', () => cerrarPush(false)));
+  // El título chico aparece al scrollear (como iOS).
+  $$('.cuerpo').forEach((c) => c.addEventListener('scroll', () => c.closest('.screen').classList.toggle('scrolled', c.scrollTop > 40), { passive: true }));
+
+  // General: «Marcar cobrada» con Deshacer.
+  $$('[data-cobrar]').forEach((b) => b.addEventListener('click', () => {
+    const lugar = b.parentNode;
+    const ok = document.createElement('span'); ok.className = 'cobrada'; ok.innerHTML = '<svg width="16" height="16" aria-hidden="true"><use href="#i-check"/></svg>Cobrada';
+    lugar.replaceChild(ok, b);
+    toast('Marcada cobrada', () => lugar.replaceChild(b, ok));
+  }));
+  // Plan: completar desde la lista.
+  $$('#plan-hoy .chk-wrap').forEach((c) => c.addEventListener('click', () => {
+    const fila = c.closest('.fila');
+    const on = c.getAttribute('aria-checked') !== 'true';
+    c.setAttribute('aria-checked', String(on)); fila.classList.toggle('hecha', on);
+    if (on) toast('Completada', () => { c.setAttribute('aria-checked', 'false'); fila.classList.remove('hecha'); });
+  }));
+
+  // ── Atajos del costado y del link (#crm-tablero, #crm-mover, …) ──────────
+  function ir(dest) {
+    cerrarSheet(); ocultarToast();
+    $$('#lado-ir button').forEach((b) => b.setAttribute('aria-current', String(b.dataset.ir === dest)));
+    if (dest === 'general' || dest === 'more' || dest === 'inbox') { irTab(dest); return; }
+    if (dest.startsWith('crm')) {
+      irTab('crm');
+      if (dest === 'crm') { vista($('[data-seg="crm"]'), 'hoy'); return; }
+      vistos.add('crm'); vista($('[data-seg="crm"]'), 'tablero');
+      if (dest === 'crm-tablero') irACol('crm', 2, false);
+      if (dest === 'crm-mover') { irACol('crm', 2, false); setTimeout(() => abrirMover('crm', 'c9'), 80); }
+      if (dest === 'crm-deshacer') { irACol('crm', 2, false); setTimeout(() => { mover('crm', 'c9', 3, true); }, 60); }
+      return;
+    }
+    if (dest.startsWith('plan')) {
+      irTab('plan');
+      if (dest === 'plan') { vista($('[data-seg="plan"]'), 'hoy'); return; }
+      vistos.add('plan'); vista($('[data-seg="plan"]'), 'tablero');
+      if (dest === 'plan-mover') setTimeout(() => abrirMover('plan', 'p6'), 80);
+      return;
+    }
+    if (dest.startsWith('cs')) {
+      irTab('more'); vistos.add('cs'); abrirPush('cs');
+      if (dest === 'cs-mover') setTimeout(() => abrirMover('cs', 's2'), 120);
+    }
+  }
+  $$('#lado-ir button').forEach((b) => b.addEventListener('click', () => { history.replaceState(null, '', '#' + b.dataset.ir); ir(b.dataset.ir); }));
+  const inicial = (location.hash || '').slice(1);
+  if (/^(general|more|inbox|crm|crm-tablero|crm-mover|crm-deshacer|plan|plan-tablero|plan-mover|cs|cs-mover)$/.test(inicial)) ir(inicial);
+  else $$('#lado-ir button')[0].setAttribute('aria-current', 'true');
+
+  // ── Escala del teléfono en una pantalla baja (la escena) ──────────────────
+  function escalar() {
+    if (window.innerWidth <= 560) { device.style.transform = ''; $('#marco-wrap').style.cssText = ''; return; }
+    const k = Math.min(1, (window.innerHeight - 32) / 866);
+    device.style.transform = k < 1 ? `scale(${k})` : '';
+    $('#marco-wrap').style.cssText = k < 1 ? `width:${412 * k}px;height:${866 * k}px` : '';
+  }
+  window.addEventListener('resize', escalar); escalar();
+})();
+</script>
