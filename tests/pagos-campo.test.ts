@@ -1,0 +1,264 @@
+// =============================================================================
+// La escritura campo por campo de Pagos: las reglas puras (lib/pagos-campo.ts)
+// =============================================================================
+// Pedido de Martín del 14/10/2026 («edita todo en la misma tab y depreca "Editar deal →"»), diseño en
+// docs/diseno-ficha-bloques.md §3 Pagos. Lo que se fija, EJECUTANDO las funciones:
+//   1. un campo del deal se MERGEA: los demás (y el documento fiscal) quedan;
+//   2. las obligaciones se editan renglón por renglón, y una pestaña vieja no edita el renglón equivocado;
+//   3. un cambio de la venta escribe lo mismo que el wizard (a suscripción, sin monto de cierre; a becado, sin
+//      plata y nunca con cuotas cobradas) y trae el compare-and-set y su Deshacer;
+//   4. las cuotas se reconcilian POR ID: nada se borra e inserta, y una cuota con un link sin pagar o un
+//      recordatorio corriendo no se toca;
+//   5. el plan uniforme mantiene el calendario de siempre;
+//   6. un pago en otra moneda guarda la moneda y su valor en dólares DECLARADO, y sin moneda es USD.
+//
+// PROBADO ROMPIÉNDOLO (14/10/2026), una rotura por vez sobre lib/pagos-campo.ts con un script que reemplaza,
+// corre y restaura byte a byte. Con el código como está: 12 pases, 0 fallos. Rota (pases / fallos):
+//   · `fusionarCampo` devolviendo `{ [campo]: valor }` (el reemplazo de antes)              → 11 / 1
+//   · `aplicarObligacion` sin el chequeo de `esperado`                                       → 11 / 1
+//   · `patchDeVenta` a suscripción sin `monto_cierre_usd: null`                              → 11 / 1
+//   · `patchDeVenta` a «sin cobro» sin el `if (opts.hayCobradas)`                            → 11 / 1
+//   · `casar` sin el `if (p.includes('recordatorio'))` (una cuota con recordatorio se edita) → 11 / 1
+//   · el bucle final sin el `if (p.length)` (se borra una cuota con link o recordatorio)     → 10 / 2
+//   · el modo 'lista' casando por orden también sobre las protegidas                         → 11 / 1
+//     (la primera vez dio 12 / 0: el caso tenía la libre ANTES de la protegida; se sumó el r3)
+//   · el número nuevo sin contar las que se van a borrar (choca el índice único)             → 10 / 2
+//   · `pagoEnMoneda` aceptando otra moneda sin el valor en dólares                           → 11 / 1
+//   · `pagoEnMoneda` leyendo «sin moneda» como la del negocio (devolviendo 'MXN')            → 11 / 1
+// Correr: npx tsx --test tests/pagos-campo.test.ts
+// =============================================================================
+
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import {
+  aplicarObligacion, cuotasDelPlan, etiquetaDePago, fusionarCampo, pagoEnMoneda, patchDeVenta, reconciliarCuotas,
+  rotuloCampoDeal, validarPlan, valorDeCampoDeal, type CuotaExistente,
+} from '../lib/pagos-campo';
+
+// ── 1. Campos del deal ────────────────────────────────────────────────────────
+
+test('un campo del deal se MERGEA: el resto de la sección y el documento fiscal quedan', () => {
+  const actual = { razon: 'Acme SA', id_fiscal: 'RFC1', doc_path: 'ws/1/fiscal.pdf', doc_nombre: 'fiscal.pdf' };
+  const r = fusionarCampo(actual, 'domicilio', 'Calle 1');
+  assert.deepEqual(r.seccion, { razon: 'Acme SA', id_fiscal: 'RFC1', doc_path: 'ws/1/fiscal.pdf', doc_nombre: 'fiscal.pdf', domicilio: 'Calle 1' });
+  assert.equal(r.antes, null);
+  assert.equal(r.cambio, true);
+  // Vaciar es null, no borrar la clave; y lo mismo que había no es un cambio.
+  assert.deepEqual(fusionarCampo(actual, 'razon', null).seccion.doc_path, 'ws/1/fiscal.pdf');
+  assert.equal(fusionarCampo(actual, 'razon', 'Acme SA').cambio, false);
+  assert.equal(fusionarCampo(null, 'que_es', 'Mentoría').antes, null);
+  assert.equal(rotuloCampoDeal('fiscal', 'razon'), 'Datos fiscales · Razón social');
+});
+
+test('el valor de un campo se limpia: texto, fechas AAAA-MM-DD, correo con arroba, y lo desconocido no entra', () => {
+  assert.deepEqual(valorDeCampoDeal('promesa', 'resultado', '  Bajar 5 kg  '), { ok: true, valor: 'Bajar 5 kg' });
+  assert.deepEqual(valorDeCampoDeal('promesa', 'resultado', '   '), { ok: true, valor: null });
+  assert.equal(valorDeCampoDeal('servicio', 'fecha_inicio', '14/10/2026').ok, false);
+  assert.deepEqual(valorDeCampoDeal('servicio', 'fecha_inicio', '2026-10-14'), { ok: true, valor: '2026-10-14' });
+  assert.equal(valorDeCampoDeal('fiscal', 'correo', 'sin-arroba').ok, false);
+  assert.equal(valorDeCampoDeal('fiscal', 'doc_path', 'x').ok, false, 'el documento lo escribe la subida, no un campo');
+  assert.equal(valorDeCampoDeal('fiscal', 'razon', { a: 1 }).ok, false, 'un objeto no se guarda como «[object Object]»');
+  assert.equal(valorDeCampoDeal('servicio', 'que_es', 'x'.repeat(2001)).ok, false);
+});
+
+// ── 2. Obligaciones ───────────────────────────────────────────────────────────
+
+test('obligaciones: agregar, editar y quitar un renglón, cada uno con su Deshacer que vuelve la misma lista', () => {
+  const base = { cliente: ['Asistir', 'Pagar'], prestador: ['Entregar'] };
+  const ag = aplicarObligacion(base, { accion: 'agregar', parte: 'cliente', texto: 'Mandar fotos' });
+  assert.ok(ag.ok);
+  assert.deepEqual(ag.obligaciones, { cliente: ['Asistir', 'Pagar', 'Mandar fotos'], prestador: ['Entregar'] });
+  const vuelta = aplicarObligacion(ag.obligaciones, ag.deshacer);
+  assert.ok(vuelta.ok);
+  assert.deepEqual(vuelta.obligaciones, base);
+
+  const ed = aplicarObligacion(base, { accion: 'editar', parte: 'prestador', indice: 0, texto: 'Entregar el plan', esperado: 'Entregar' });
+  assert.ok(ed.ok);
+  assert.equal(ed.antes, 'Entregar');
+  assert.deepEqual(ed.obligaciones.prestador, ['Entregar el plan']);
+  const ed2 = aplicarObligacion(ed.obligaciones, ed.deshacer);
+  assert.ok(ed2.ok);
+  assert.deepEqual(ed2.obligaciones, base);
+
+  const qu = aplicarObligacion(base, { accion: 'quitar', parte: 'cliente', indice: 0, esperado: 'Asistir' });
+  assert.ok(qu.ok);
+  assert.deepEqual(qu.obligaciones.cliente, ['Pagar']);
+  const qu2 = aplicarObligacion(qu.obligaciones, qu.deshacer);
+  assert.ok(qu2.ok);
+  assert.deepEqual(qu2.obligaciones, base, 'deshacer un quitar lo devuelve a SU lugar');
+});
+
+test('obligaciones: una pestaña vieja no edita ni quita el renglón equivocado', () => {
+  // La otra pestaña ya quitó «Asistir»: el renglón 0 ahora es «Pagar».
+  const ahora = { cliente: ['Pagar'], prestador: [] };
+  const r = aplicarObligacion(ahora, { accion: 'quitar', parte: 'cliente', indice: 0, esperado: 'Asistir' });
+  assert.equal(r.ok, false);
+  assert.equal(aplicarObligacion(ahora, { accion: 'editar', parte: 'cliente', indice: 3, texto: 'x', esperado: 'x' }).ok, false);
+  assert.equal(aplicarObligacion(ahora, { accion: 'agregar', parte: 'cliente', texto: '   ' }).ok, false, 'un renglón vacío no entra');
+  // Lo que no es lista (un jsonb roto) se lee vacío, no rompe.
+  const roto = aplicarObligacion({ cliente: 'texto suelto' }, { accion: 'agregar', parte: 'cliente', texto: 'Uno' });
+  assert.ok(roto.ok);
+  assert.deepEqual(roto.obligaciones, { cliente: ['Uno'], prestador: [] });
+});
+
+// ── 3. La venta ───────────────────────────────────────────────────────────────
+
+test('la venta: el monto va a la columna de SU tipo, con el compare-and-set y su Deshacer', () => {
+  const unico = { venta_tipo: 'unico', monto_cierre_usd: 1500, suscripcion_monto_usd: null, suscripcion_meses: null };
+  const r = patchDeVenta(unico, { campo: 'monto', valor: 1800 }, { hayCobradas: false });
+  assert.ok(r.ok);
+  assert.deepEqual(r.patch, { monto_cierre_usd: 1800 });
+  assert.equal(r.tipoEsperado, 'unico');
+  assert.deepEqual(r.deshacer, [{ campo: 'monto', valor: 1500 }]);
+
+  const sus = { venta_tipo: 'suscripcion', monto_cierre_usd: null, suscripcion_monto_usd: 444, suscripcion_meses: null };
+  const m = patchDeVenta(sus, { campo: 'monto', valor: 500 }, { hayCobradas: true });
+  assert.ok(m.ok);
+  assert.deepEqual(m.patch, { suscripcion_monto_usd: 500 }, 'la plata de una suscripción es su mensualidad, no el monto de cierre');
+  assert.equal(m.tipoEsperado, 'suscripcion');
+  const p = patchDeVenta(sus, { campo: 'plazo', valor: 6 }, { hayCobradas: true });
+  assert.ok(p.ok);
+  assert.deepEqual(p.patch, { suscripcion_meses: 6 });
+  assert.equal(patchDeVenta(unico, { campo: 'plazo', valor: 6 }, { hayCobradas: false }).ok, false, 'un pago único no tiene plazo');
+  assert.equal(patchDeVenta(unico, { campo: 'monto', valor: -5 }, { hayCobradas: false }).ok, false);
+  const becado = { venta_tipo: 'sin_cobro', monto_cierre_usd: null };
+  assert.equal(patchDeVenta(becado, { campo: 'monto', valor: 100 }, { hayCobradas: false }).ok, false, 'un becado no tiene monto');
+});
+
+test('la venta: cambiar el tipo escribe lo mismo que el wizard, y salir de becado es «Quitar Sin cobro»', () => {
+  const unico = { venta_tipo: 'unico', monto_cierre_usd: 1500, suscripcion_monto_usd: null, suscripcion_meses: null };
+  const aSus = patchDeVenta(unico, { campo: 'tipo', valor: 'suscripcion' }, { hayCobradas: false });
+  assert.ok(aSus.ok);
+  assert.deepEqual(aSus.patch, { venta_tipo: 'suscripcion', monto_cierre_usd: null, suscripcion_monto_usd: null, suscripcion_meses: null },
+    'una suscripción no tiene monto de cierre: contarlo inflaba el revenue único');
+  assert.deepEqual(aSus.deshacer, [{ campo: 'tipo', valor: 'unico' }, { campo: 'monto', valor: 1500 }]);
+
+  const sus = { venta_tipo: 'suscripcion', monto_cierre_usd: null, suscripcion_monto_usd: 444, suscripcion_meses: 6 };
+  const aUnico = patchDeVenta(sus, { campo: 'tipo', valor: 'unico' }, { hayCobradas: true });
+  assert.ok(aUnico.ok);
+  assert.deepEqual(aUnico.patch, { venta_tipo: 'unico', suscripcion_monto_usd: null, suscripcion_meses: null });
+  assert.deepEqual(aUnico.deshacer, [{ campo: 'tipo', valor: 'suscripcion' }, { campo: 'monto', valor: 444 }, { campo: 'plazo', valor: 6 }]);
+
+  const aBecado = patchDeVenta(unico, { campo: 'tipo', valor: 'sin_cobro' }, { hayCobradas: false });
+  assert.ok(aBecado.ok);
+  assert.deepEqual(aBecado.patch, { venta_tipo: 'sin_cobro', monto_cierre_usd: null, suscripcion_monto_usd: null, suscripcion_meses: null }, 'NULL, nunca 0');
+  assert.deepEqual(aBecado.deshacer, [{ campo: 'tipo', valor: 'unico' }, { campo: 'monto', valor: 1500 }]);
+  assert.equal(patchDeVenta(unico, { campo: 'tipo', valor: 'sin_cobro' }, { hayCobradas: true }).ok, false, 'con plata cobrada no puede ser becado');
+
+  const salir = patchDeVenta({ venta_tipo: 'sin_cobro' }, { campo: 'tipo', valor: 'unico' }, { hayCobradas: false });
+  assert.equal(salir.ok, false);
+  assert.equal((salir as { usarQuitarSinCobro?: boolean }).usarQuitarSinCobro, true);
+  assert.equal(patchDeVenta({ venta_tipo: 'sin_cobro' }, { campo: 'tipo', valor: 'suscripcion' }, { hayCobradas: false }).ok, false);
+  const igual = patchDeVenta(unico, { campo: 'tipo', valor: 'unico' }, { hayCobradas: false });
+  assert.ok(igual.ok && igual.nada);
+  // La fecha no depende del tipo: sin compare-and-set.
+  const f = patchDeVenta(unico, { campo: 'fecha', valor: '2026-10-14' }, { hayCobradas: false });
+  assert.ok(f.ok);
+  assert.equal(f.tipoEsperado, null);
+});
+
+// ── 4. Reconciliar cuotas ─────────────────────────────────────────────────────
+
+const Q = (id: number, numero: number, monto: number, fecha: string | null, extra: Partial<CuotaExistente> = {}): CuotaExistente =>
+  ({ id, numero, monto_usd: monto, fecha_esperada: fecha, pagado: false, ...extra });
+
+test('porId: la que trae id se actualiza POR ID, la nueva se inserta, la quitada se borra; nada se borra e inserta', () => {
+  const ex = [Q(10, 0, 1000, '2026-10-01', { pagado: true }), Q(11, 1, 500, '2026-11-01'), Q(12, 2, 500, '2026-12-01'), Q(13, 3, 500, '2027-01-01')];
+  const r = reconciliarCuotas(ex, [
+    { id: 11, monto_usd: 500, fecha_esperada: '2026-11-01' },      // igual
+    { id: 12, monto_usd: 600, fecha_esperada: '2026-12-15' },      // cambia
+    { id: null, monto_usd: 700, fecha_esperada: '2027-02-01' },    // nueva
+    { id: 10, monto_usd: 1, fecha_esperada: null },                // una cobrada que vino en la lista: no se toca
+  ], 'porId');
+  assert.deepEqual(r.actualizar.map((u) => [u.id, u.monto_usd, u.fecha_esperada]), [[12, 600, '2026-12-15']]);
+  assert.deepEqual(r.actualizar[0].antes, { monto_usd: 500, fecha_esperada: '2026-12-01' }, 'el antes, para el historial y para Deshacer');
+  assert.deepEqual(r.insertar, [{ numero: 4, monto_usd: 700, fecha_esperada: '2027-02-01' }]);
+  assert.deepEqual(r.borrar.map((b) => b.id), [13]);
+  assert.deepEqual(r.conservar, []);
+});
+
+test('⚠️ una cuota con un link sin pagar o con un recordatorio corriendo NO se borra ni cambia lo que no puede', () => {
+  const ex = [
+    Q(21, 1, 500, '2026-11-01', { protegida: ['link'] }),
+    Q(22, 2, 500, '2026-12-01', { protegida: ['recordatorio'] }),
+    Q(23, 3, 500, '2027-01-01', { protegida: ['link'] }),
+    Q(24, 4, 500, '2027-02-01', { protegida: ['recordatorio'] }),
+  ];
+  const r = reconciliarCuotas(ex, [
+    { id: 21, monto_usd: 500, fecha_esperada: '2026-11-20' },   // link: la FECHA se mueve
+    { id: 22, monto_usd: 500, fecha_esperada: '2026-12-20' },   // recordatorio: nada
+    { id: 23, monto_usd: 900, fecha_esperada: '2027-01-01' },   // link: el MONTO no
+    // la 24 (recordatorio) no vino: no se borra
+  ], 'porId');
+  assert.deepEqual(r.actualizar.map((u) => [u.id, u.fecha_esperada]), [[21, '2026-11-20']]);
+  assert.deepEqual(r.conservar.map((c) => [c.id, c.motivo]).sort(), [[22, 'recordatorio'], [23, 'link'], [24, 'recordatorio']]);
+  assert.deepEqual(r.borrar, [], 'una cuota protegida no se borra nunca');
+});
+
+test('lista (sin ids): las iguales conservan su id, por orden sólo sobre las no protegidas, y los números no chocan', () => {
+  const ex = [Q(31, 1, 500, '2026-11-01'), Q(32, 2, 500, '2026-12-01', { protegida: ['link'] }), Q(33, 3, 500, '2027-01-01'), Q(34, 4, 99, null, { proveedor: 'stripe', devuelta: true } as Partial<CuotaExistente>)];
+  const r = reconciliarCuotas(ex, [
+    { monto_usd: 500, fecha_esperada: '2026-12-01' },   // igual a la 32 (la del link): se queda con su id
+    { monto_usd: 450, fecha_esperada: '2026-11-15' },   // por orden → la 31 (la primera libre no protegida)
+  ], 'lista');
+  assert.deepEqual(r.actualizar.map((u) => [u.id, u.monto_usd]), [[31, 450]]);
+  assert.deepEqual(r.borrar.map((b) => b.id), [33]);
+  assert.deepEqual(r.insertar, []);
+  assert.deepEqual(r.conservar, []);
+  // La devuelta (reembolso) no es deuda: nunca entra en la cuenta.
+  assert.ok(![...r.actualizar.map((u) => u.id), ...r.borrar.map((b) => b.id)].includes(34));
+  // Por orden, la protegida se SALTEA aunque venga primero: reusarla cambiaría lo que cobra su link, y la cuota
+  // pedida se perdería (la libre de al lado se borraba).
+  const r3 = reconciliarCuotas([Q(71, 1, 500, '2026-11-01', { protegida: ['link'] }), Q(72, 2, 500, '2026-12-01')], [{ monto_usd: 900, fecha_esperada: '2027-01-01' }], 'lista');
+  assert.deepEqual(r3.actualizar.map((u) => [u.id, u.monto_usd]), [[72, 900]]);
+  assert.deepEqual(r3.conservar, [{ id: 71, numero: 1, motivo: 'link' }]);
+  assert.deepEqual(r3.borrar, []);
+  // Un número nuevo va después del ÚLTIMO que existe, contando las que se van a borrar (se inserta antes de borrar).
+  const r2 = reconciliarCuotas([Q(41, 5, 100, '2026-11-01')], [{ monto_usd: 1, fecha_esperada: null }, { monto_usd: 2, fecha_esperada: null }], 'porId');
+  assert.deepEqual(r2.insertar.map((i) => i.numero), [6, 7]);
+  assert.deepEqual(r2.borrar.map((b) => b.id), [41]);
+});
+
+test('slots (plan uniforme): por número, la pagada cubre su número, y la que sobra se borra si no está protegida', () => {
+  const ex = [Q(50, 0, 1000, '2026-10-01', { pagado: true }), Q(51, 1, 500, '2026-11-05'), Q(52, 2, 500, '2026-12-05'), Q(53, 3, 500, '2027-01-05', { protegida: ['recordatorio'] })];
+  const deseadas = cuotasDelPlan({ cobro_inicial_usd: 1000, monto_cuota_usd: 600, total_cuotas: 2, dia_de_pago: 10 }, '2026-10-01');
+  assert.deepEqual(deseadas.map((d) => [d.numero, d.monto_usd, d.fecha_esperada]), [[0, 1000, '2026-10-01'], [1, 600, '2026-11-10'], [2, 600, '2026-12-10']]);
+  const r = reconciliarCuotas(ex, deseadas, 'slots');
+  assert.deepEqual(r.actualizar.map((u) => [u.id, u.monto_usd, u.fecha_esperada]), [[51, 600, '2026-11-10'], [52, 600, '2026-12-10']]);
+  assert.deepEqual(r.insertar, [], 'el inicial cobrado cubre el número 0');
+  assert.deepEqual(r.conservar, [{ id: 53, numero: 3, motivo: 'recordatorio' }]);
+  assert.deepEqual(r.borrar, []);
+  // Un número que falta se inserta CON su número.
+  const r2 = reconciliarCuotas([Q(60, 1, 500, '2026-11-10')], cuotasDelPlan({ cobro_inicial_usd: null, monto_cuota_usd: 500, total_cuotas: 2, dia_de_pago: 10 }, '2026-10-01'), 'slots');
+  assert.deepEqual(r2.insertar, [{ numero: 2, monto_usd: 500, fecha_esperada: '2026-12-10' }]);
+  assert.deepEqual(r2.actualizar, []);
+});
+
+// ── 5. El plan ────────────────────────────────────────────────────────────────
+
+test('el plan se valida como lo pide la base (1 a 6 cuotas, día 1 a 28) y el inicial 0 es «sin inicial»', () => {
+  assert.deepEqual(validarPlan({ cobro_inicial_usd: 0, monto_cuota_usd: 250.555, total_cuotas: 3, dia_de_pago: 5 }),
+    { ok: true, plan: { cobro_inicial_usd: null, monto_cuota_usd: 250.56, total_cuotas: 3, dia_de_pago: 5 } });
+  assert.equal(validarPlan({ monto_cuota_usd: 100, total_cuotas: 7 }).ok, false);
+  assert.equal(validarPlan({ monto_cuota_usd: 100, total_cuotas: 2, dia_de_pago: 31 }).ok, false);
+  assert.equal(validarPlan({}).ok, false);
+  assert.deepEqual(validarPlan({ cobro_inicial_usd: 900 }), { ok: true, plan: { cobro_inicial_usd: 900, monto_cuota_usd: null, total_cuotas: null, dia_de_pago: null } });
+});
+
+// ── 6. La moneda de un pago a mano ────────────────────────────────────────────
+
+test('un pago a mano en otra moneda guarda la moneda y su valor en dólares DECLARADO; sin moneda es USD', () => {
+  assert.deepEqual(pagoEnMoneda({ montoUsd: 500, moneda: 'mxn', montoOriginal: 8600 }), { ok: true, montoUsd: 500, moneda: 'MXN', montoOriginal: 8600 });
+  const sinUsd = pagoEnMoneda({ moneda: 'ARS', montoOriginal: 450000 });
+  assert.equal(sinUsd.ok, false, 'nunca una tasa inventada');
+  assert.deepEqual((sinUsd as { faltan?: string[] }).faltan, ['montoUsd']);
+  // El valor de la cuota que se salda sirve de dólares declarados.
+  assert.deepEqual(pagoEnMoneda({ moneda: 'ARS', montoOriginal: 450000 }, { montoUsdPorDefecto: 400 }), { ok: true, montoUsd: 400, moneda: 'ARS', montoOriginal: 450000 });
+  assert.equal(pagoEnMoneda({ montoUsd: 500, moneda: 'MXN' }).ok, false, 'falta cuánto en pesos');
+  assert.equal(pagoEnMoneda({ montoUsd: 500, moneda: 'pesos' }).ok, false);
+  // ⚠️ Sin moneda es dólares (lo que mandan las pantallas viejas), con moneda y monto original null.
+  assert.deepEqual(pagoEnMoneda({ montoUsd: 500 }), { ok: true, montoUsd: 500, moneda: null, montoOriginal: null });
+  assert.deepEqual(pagoEnMoneda({ montoUsd: 500, moneda: 'USD' }), { ok: true, montoUsd: 500, moneda: 'USD', montoOriginal: 500 });
+  assert.deepEqual(etiquetaDePago({ concepto: '  Adelanto  ', metodo: 'transferencia' }), { concepto: 'Adelanto', metodo: 'transferencia' });
+  assert.deepEqual(etiquetaDePago({ metodo: 'bitcoin' }), { concepto: null, metodo: 'otro' });
+});
