@@ -843,3 +843,46 @@ completa, con el porqué de cada archivo, está en `tests/integracion-sin-salir.
 `app/integraciones/IntegracionesBoard.tsx` (`ServicioModal`, la acción de Google) · `lib/integracion-en-tab.ts` ·
 `lib/gcal-estado.ts` · `app/api/integraciones/google-calendar/route.ts` · `app/api/integraciones/google-calendar/callback/route.ts` ·
 `tests/integracion-sin-salir.test.ts` · `tests/gcal-estado.test.ts`. *14/10/2026, claude2.*
+
+## Hotmart y Skool: un webhook que sólo trae un SECRETO se rutea por su hash (14/10/2026)
+
+**Vive en:** `lib/ruteo-hash.ts` · `lib/webhook-routing.ts` (`ROUTING_CREDS`) · `lib/credenciales.ts` ·
+`app/api/webhooks/hotmart/route.ts` · `app/api/webhooks/skool/route.ts` · `lib/fuentes-leads.ts`
+
+Las primeras fuentes del Leads Scraper (`docs/diseno-leads-scraper.md`). Lo que no se ve leyendo el código:
+
+- **Ni Hotmart ni Skool traen un identificador público de la cuenta.** Stripe trae `?acct=` y Mercado
+  Pago un `user_id`; acá lo único que llega es un SECRETO (el `hottok` en `X-HOTMART-HOTTOK`, y la clave
+  que el negocio inventa para el Zap de Skool en `X-MaKo-Clave`). La regla de la casa es que un secreto
+  no va en claro a `webhook_routing`. La salida fue la de los tokens de la API de MaKo: la fila guarda el
+  **sha256** (`identificadorDeRuteo`, aplicado en el guardado de la credencial) y el webhook compara el
+  header contra la credencial del workspace en tiempo constante (`igualesSeguro`). Un secreto nuevo que
+  rutee va a `RUTEO_POR_HASH`; `tests/fuentes-leads-webhooks.test.ts` falla si el guardado deja de
+  hashearlo.
+- **El hottok no se puede verificar contra nada** (no abre ninguna API) y la clave de Skool la inventa el
+  negocio: el ping dice que está guardado, como el «Secret» de Cal.com. La primera prueba real es el
+  primer aviso.
+- **La forma del cuerpo de Hotmart salió de un repo público** (`trichains/hotmart-webhooks`, MIT, que
+  modela los ejemplos oficiales v2.0.0) y no de un aviso real: el teléfono de una compra viene PARTIDO
+  (`checkout_phone` + `checkout_phone_code`, el DDD de Brasil) y el del carrito abandonado ENTERO y con
+  el país. Con un comprador de México o Argentina no se sabe si `checkout_phone` trae el código de país:
+  **no medido**. Se mira en el «Histórico» del webhook de Hotmart con la primera cuenta que se conecte.
+- **Los nombres de las pantallas de Hotmart del tutorial salen de guías en inglés y portugués**, no de la
+  pantalla en español. **No medido.**
+- **El cuerpo de Skool lo decide el Zap, no Skool**, y los nombres crudos del trigger de Zapier tampoco
+  están medidos. El lector busca por el SIGNIFICADO de la clave (email, nombre, «answer»/«respuesta»), y
+  una clave que no dice nada (un id, un link, una fecha) no entra como respuesta: llenaría la ficha de
+  ruido. Ojo con `email_verified: true`: sin validar el VALOR, tapaba al email de verdad.
+
+### Lo que quedó SIN hacer, con su archivo
+
+- **Una compra de Hotmart no dispara el CRON «Pagos» de Automations.** Se decidió NO llamar a
+  `enrolarPorPago` desde `lib/fuentes-leads.ts`: el CRON «Pagos» se apaga si no hay Stripe o Mercado Pago
+  conectados (`estadoMedios`, `lib/disparadores-canales.ts`), así que a un negocio que sólo vende por
+  Hotmart no le serviría, y a uno que tiene las dos le dispararía automatizaciones pensadas para un cobro
+  de MaKo (con la condición «Pagó» en falso: Hotmart no escribe `fecha_primer_pago`). Es trabajo con el
+  chat de Automations y el de Pagos.
+- **Cada fuente entra al funnel DEL NEGOCIO** (`funnel_id` null), como Calendly. Elegir otro por fuente
+  pide una pantalla y una operación de la API: decisión pendiente (`docs/diseno-leads-scraper.md`, §9).
+- **No hay aviso al equipo** cuando entra un lead por Hotmart o Skool (Meta tiene `lead-formulario-meta`).
+  Va como un Evento de MaKo en Automations, no escondido en el webhook.

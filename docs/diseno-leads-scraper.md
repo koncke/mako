@@ -5,7 +5,7 @@
 > en **repos públicos** o **copiar lo que hacen otras apps**. Antes de construir, hay que ver qué fuentes son viables y
 > qué riesgo tiene cada una (las cuentas y lo legal).
 >
-> Esto es el RELEVAMIENTO, no hay código. Las fuentes web se consultaron el 14/10/2026 (lista en §9). Lo que no se pudo
+> Esto es el RELEVAMIENTO, no hay código. Las fuentes web se consultaron el 14/10/2026 (lista en §10). Lo que no se pudo
 > confirmar está marcado «no medido».
 
 ## Para Martín, en cinco líneas
@@ -187,7 +187,33 @@ mensaje es la decisión 8, y tiene un costo de cuenta que hay que aceptar a sabi
 
 ---
 
-## 9. Fuentes (consultadas el 14/10/2026)
+## 9. Estado (14/10/2026, 16:45, `06f058b15`, sin push)
+
+**Hecho: las dos primeras fuentes que avisan.** Con luz verde de «Estrategia 3 cuentas»: no necesitaban
+ninguna de las ocho decisiones.
+
+- **Hotmart:** `/api/webhooks/hotmart` (v2.0.0). Entran la compra, el carrito abandonado, el reembolso,
+  el contracargo, el pago rechazado o vencido, la suscripción cancelada y lo del Club (este último sólo
+  anota en un lead que ya existe). La forma sale del repo público `trichains/hotmart-webhooks` (MIT).
+- **Skool:** `/api/webhooks/skool`, por Zapier («Answered Membership Questions» → «Webhooks by Zapier»
+  POST con el header `X-MaKo-Clave`). Las respuestas de ingreso van a `optin_respuestas`.
+- **Una sola puerta** (`lib/fuentes-leads.ts`): busca por contacto, completa lo vacío o crea, y anota
+  la línea del historial una vez. No mueve de etapa ni inscribe en automatizaciones.
+- En /integraciones: las dos tarjetas (Pagos y Contenido), su campo, su tutorial y su recuadro amarillo.
+  No bajan el medidor sin configurar, como las pasarelas.
+- Lo que se aprendió y lo no medido: `docs/hallazgos-integraciones.md` → «Hotmart y Skool».
+
+**Falta, en este orden:**
+1. Mirarlo con una cuenta real: un aviso de prueba desde Hotmart y un Zap de Skool contra el ws3.
+2. **Decisión 9 (nueva): a qué funnel entra cada fuente.** (a) Se elige una vez por fuente, en su tarjeta
+   de /integraciones y por la API de MaKo [recomendada] · (b) siempre el funnel del negocio, como hoy.
+3. El aviso al equipo («entró un lead por Hotmart») como Evento de MaKo en Automations, y que una compra
+   de Hotmart pueda disparar el CRON «Pagos» (con los chats de Automations y de Pagos).
+4. Después: la tabla `prospectos` y Google Maps e Instagram (§4), según lo que conteste Martín.
+
+---
+
+## 10. Fuentes (consultadas el 14/10/2026)
 
 - Meta v. Bright Data: https://www.fbm.com/post/102kqw7/ · https://www.mediapost.com/publications/article/392920/judge-sides-against-meta-in-battle-over-scraping-p.html
 - LinkedIn contra Proxycurl: https://www.socialmediatoday.com/news/linkedin-wins-legal-case-data-scrapers-proxycurl/756101/ · https://news.bloomberglaw.com/artificial-intelligence/linkedins-war-against-bot-scrapers-ramps-up-as-ai-gets-smarter
