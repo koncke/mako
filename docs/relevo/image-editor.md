@@ -17,6 +17,8 @@ pendiente que no dependa de Martín y dejarle en una línea las opciones de lo q
 - **Rama `editor-imagen`, worktree `C:/dev/wt-canva`.** Tandas 1 y 2 en main desde el 14/10 13:26
   (`353c81a8`). Encima: `c7a77fcb` (la vista del presentador) y `5136c1ce` (tanda 3, la base), más la
   cosecha. Si abajo no dice «en main», no se pusheó.
+- **EN MAIN desde el 14/10 17:17 (`a4e74003`)**, deploy Ready: el presentador, la tanda 3 y su cosecha. Las
+  plantillas en español (`b9a7dae2`) salen en el push siguiente.
 - **Tanda 3 hecha:** diseños, «Subidos» y miniaturas en Supabase (mig **0278, ya aplicada en prod**: sólo
   agrega dos tablas y el bucket `image-editor`). Lo que la etapa 1 dejó en el navegador de alguien sube solo
   la primera vez que abre el editor, con su mismo enlace. Plano: `docs/diseno-editor-imagen.md`.
