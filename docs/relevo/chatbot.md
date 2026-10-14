@@ -16,6 +16,25 @@
 > sobre lo publicado; el ↻ de Probar frena por un medio sin conectar). La limpieza §8.7 (el 6) tiene su medición al día:
 > 0 filas vivas con `{{mensaje_mako}}`, 0 con el CRON del recordatorio, 0 plantillas con el dato. Lo que sigue: el 3
 > (Dashboard; Graphics cerró el área `metricas` con 25 operaciones y espera el id del aviso «El AI Analyst terminó»).
+> **13/10 ~23:00 — más hecho (sin push):** el 3, primera mitad (`2ea2cf81`): el Evento de MaKo «El AI Analyst termina un
+> análisis» (`analisis_listo` → aviso `dashboard-analisis-listo`, datos `analisis_hoja/resumen/hallazgos/link` armados con
+> `valoresDelAnalisis`, plantilla «El AI Analyst Terminó», objetivo nuevo «Medir»). FALTA la emisión (es de Graphics, en
+> `analizarHoja`; se le pasó el id) y la segunda mitad: las acciones del Dashboard en «⚡ Acción» (Graphics cerró el área
+> `metricas`: 25 operaciones, todas `confirmacion: 'chat'`, selector persona → hoja → componente; `leer_bloque_dashboard` y
+> `bloque` ya no existen).
+> **ORDEN NUEVO (13/10, Martín por «Estrategia 3 CUENTAS»: «pasale todos los feedback de las 3 reuniones a los chats y diles
+> que lo implementen completo... De punta a punta»), fuente `C:/Users/marti/Downloads/mako-feedback-y-tareas.md`, YA
+> VALIDADO:** primero los que FRENAN A MAURICIO: (4) las líneas del «＋» no se sueltan ni se guardan al arrastrarlas
+> (Fathom 858927676 @36:37); (5) no salió el mensaje automático de la automatización que configuraron en la llamada, de raíz
+> (@85:50); (8) recordatorios por WhatsApp: los temporizadores no coinciden con los textos (858473424 @44:05). Después,
+> terminar lo frenado (el 3 segunda mitad, Grupos de WhatsApp, la limpieza §8.7 con su medición en 0) y el resto del
+> feedback: (1) la IA no deja configurar «hacer todo sola» en ciertos escenarios (858927676 @13:22); (2) separar bienvenida y
+> seguimiento según si el lead ya habló con Mauricio (@25:25); (3) en esa automatización el delay después del video pasa de
+> 1 día a 2 horas y sale la tarjeta de recordatorio del día anterior (@27:54); (6) arrastrar para reordenar tarjetas y
+> mensajes (858545195 @74:42); (7) un botón para pausar a mano un flujo en prueba (@85:00); (9) el pop-up del recorrido
+> recién cuando la IA terminó (@64:00); (10) el error de crear con IA con su causa (@65:34); (11) guardar o subir un audio
+> en WhatsApp rápido (@75:18). «De punta a punta» = código, migración, API de MaKo si es capacidad nueva, tests probados
+> rompiéndolos, verlo en ws3, bitácora con el pedido literal, relevo y hallazgos.
 > **PENDIENTE, en este orden:**
 > 1. **Plazos de etapa del CRM → plantilla de Automations** (pedido de Martín reenviado por el chat CRM, 12/10: «Si, pasa
 >    a una automatización eso de los plazos... Y ponlo como template en automations. Dile esto al chat de "Chatbot" que lo
