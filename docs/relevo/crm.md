@@ -33,6 +33,16 @@ Workflows: tanda A `wf_d8dfde6d-689`; catálogo de bloques `wf_70de8f94-88b`, qu
 en wtcrm5 (los journals están en `~/.claude/projects/<proyecto>/debe2ade-…/subagents/workflows/<runId>/journal.jsonl`).
 Al terminar: se revisa cada rama, se mergea en `fb1410`, se corren los tests, se cosecha y se pushea.
 
+**ESTADO AL 14/10 ~11:20.** Los puntos 1 a 5 de abajo están HECHOS: `fb1410` @ `adaa18103` (tests 1478/0) está en manos
+de Estrategia 3 CUENTAS, que la suma al push que sigue al de General y Automations. **No mover `fb1410`.** Los worktrees
+`wtc-a1..a6` están borrados, pero sus ramas quedan. La tanda B va en la rama `crm-bloques`, en el mismo worktree `wtcrm5`.
+`edcf28e3c` es el catálogo `docs/diseno-ficha-bloques.md`: 54 bloques y 8 plantillas por tipo de funnel, más el respaldo y la
+de CS. Trae los tipos nuevos de «Nuevo CRM» y 7 decisiones, que están esperando la respuesta de Martín.
+Corregí dos cosas a mano. El estilo de la ficha (tipografía, tarjetas y colores) lo pidió él el 13/10, así que no es una
+decisión: se reusa `TemaHoja`. «Editar deal →» se va en la tanda B, al cierre.
+Queda pendiente para la tanda B: la API (`ignorar_datos_sin_marcar`) escribe `pendientes_ignorados` y el panel escribe
+`datos_ignorados`, así que lo que ignora MaKo no se puede volver a mostrar desde «Ver más» (docs/hallazgos-crm.md:63).
+
 **ESTADO AL 14/10 ~06:35 (la app se cayó a las 04:27 y a las 06:10).** La tanda A TERMINÓ y está en `fb1410`
 (cherry-pick de las seis ramas, sin choques): `c76f48bb2` reproductor en línea · `f52234dc3`+`fa9d5ca75` etiquetas ·
 `99e0a02b5` A revisar · `43a27b56c` tres puntos · `a3496cc32` clic derecho del tablero · `b04e3d1fe` chat de MaKo
