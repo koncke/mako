@@ -20,18 +20,22 @@ de primera mano: este chat coordinó los pushes del 13 y el 14/10. Reemplaza a e
   libres, trae el main del clon y origin, y pushea.
 - **Cada push se le reporta a Martín en bullets**, en palabras de producto (memoria `pushes-con-bullets`).
 
-## Lo que quedó pendiente al 14/10 10:40
+- ⚠️ **Mientras corre un push, su worktree NO se toca** (ni merge ni edición): el pre-push chequea el DISCO y
+  un merge en el medio le hace leer un árbol mezclado (14/10 12:49, 13 errores falsos). Ver
+  `docs/hallazgos-infra.md` → «Mergear en el worktree de un push mientras corre su pre-push».
 
-- **El push de GENERAL, en cola** (`C:/dev/wt-push-k`, main del clon d135c882): General con los bloques
-  rediseñados, las tarjetas del Plan, los OKRs, el editor sin la barra en blanco, conectar integraciones sin
-  salir de la tab, y el Calendario con lo que se repite, agendar llamadas y cobros.
-- **Automations (`undecima` a18d39240) NO se puede subir: tiene 5 errores de tipos** de su merge
-  (`PasoGrafo` duplicado en lib/flujo-ia-crear.ts, `ContextoControl` en
-  tests/automations-condicion-contesto.test.ts y `si_contesta` en tests/motor-carril-recordatorio.test.ts).
-  Ya se le pidió que los arregle. Después del deploy de esa rama va **la 3ª migración**
-  (`scripts/migrar-contesto-condicion.ts --apply`, 8 automatizaciones). Las dos primeras ya corrieron.
-- **CRM** sigue con un feedback nuevo de Martín, en las ramas `fb1410*` (C:/Users/marti/wtcrm5 y wtc-a1..a6),
-  sin pushear.
+## Lo que quedó pendiente al 14/10 13:00 (semanal de la cuenta 2 al 88%)
+
+- **El push de CRM + Landing + General, en curso** desde `C:/dev/wt-push-k` (HEAD `b8b41ab8b`, sobre origin
+  `282173d6e`): la tanda A del CRM (`fb1410`), las tandas 3-5 del Landing Generator (`landing-int`
+  `73b45cb79`) y la tercera y cuarta vuelta de General. Si quedó rojo, el log es `push_k.log` del scratchpad.
+- **Después de ese deploy:** avisarles a CRM (puede arrancar la tanda B; que NO rebasee), General y Landing.
+- **Automations: la 3ª migración** (`scripts/migrar-contesto-condicion.ts --apply`, 8 automatizaciones) va
+  cuando el deploy de `282173d6e` esté Ready. Las dos primeras ya corrieron.
+- **Sin integrar, esperando a su dueño:** `editor-imagen` (3 commits del Image Editor). **Nunca** pushear
+  `wip/api-acciones-1410` («A MEDIAS») ni `api-acciones-1310`.
+- **Rojo conocido en HEAD:** `tests/cobranza.test.ts` (lo reportó General; no frena el push).
 - **Martín tiene que confirmar el borrador de 50 tareas** del Perro: https://hola-mako.com/plan/revisar/propmv7rwo1dkj2i6
+- **Decisión de Martín, sin contestar:** si la barra de selección en lote del Ads Manager va oscura o clara.
 - **Decisión de Martín, sin contestar:** que el vigía se levante solo si se cae (hoy sólo arranca al
   iniciar sesión, y el 13/10 estuvo seis horas caído sin que nadie se enterara).
