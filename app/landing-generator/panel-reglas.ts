@@ -30,6 +30,7 @@
 
 import type { LandingResumen } from '../../lib/editor-landing/api-tipos';
 import { urlLandingEn } from '../../lib/editor-landing/origen-landings';
+import { urlDeDominio } from '../../lib/editor-landing/dominios-reglas';
 import { normalizarUrl } from '../../lib/landing-url';
 
 /** Una landing de `landing_analyses` (lo que devuelve `listarAnalizadas`). */
@@ -74,12 +75,12 @@ function claveUrl(url: string): string | null {
 export function docDeUrl(url: string, docs: readonly LandingResumen[], bases: readonly string[]): number | null {
   const k = claveUrl(url);
   if (!k) return null;
+  const es = (propia: string | null) => !!propia && (k === propia || k.startsWith(propia + '/'));
   for (const d of docs) {
     if (!d.slug) continue;
-    for (const base of bases) {
-      const propia = claveUrl(urlLandingEn(base, d.slug));
-      if (propia && (k === propia || k.startsWith(propia + '/'))) return d.id;
-    }
+    for (const base of bases) if (es(claveUrl(urlLandingEn(base, d.slug)))) return d.id;
+    // Tanda 4: su dominio propio VERIFICADO (`https://<dominio>` y sus páginas) también es ella.
+    if (d.dominio && es(claveUrl(urlDeDominio(d.dominio)))) return d.id;
   }
   return null;
 }

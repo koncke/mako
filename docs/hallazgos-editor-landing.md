@@ -274,9 +274,9 @@ en el navegador y un revisor adversarial; acá va lo que costó.
 - **Las rutas `analyze`, `sync` y `pulso` del Landing Analyst no miran el rol** (quedó como tarea aparte).
   `app/api/landing-analyst/*`.
 - **Una página armada como app** (`html/body` al 100% con scroll interno) queda en 400 px por sección en la
-  copia fiel. **Sólo se analiza la página de inicio**, el puntaje de una landing nuestra no se guarda, y una
-  landing con dominio propio analizada en `https://<dominio>` aparece «de afuera» (`LandingResumen` no trae el
-  dominio). `replicar-reglas.ts`, `diagnostico.ts`, `panel-reglas.ts`.
+  copia fiel. **Sólo se analiza la página de inicio** y el puntaje de una landing nuestra no se guarda.
+  `replicar-reglas.ts`, `diagnostico.ts`. ~~Una landing con dominio propio analizada en `https://<dominio>`
+  aparece «de afuera»~~: hecho en la tanda 4 (`LandingResumen.dominio`, sólo el verificado; `docDeUrl`).
 - **Verlo con clics**: la tira en Chrome de Windows (6-9 secciones con imágenes, al borde de scrollear, sin
   «ResizeObserver loop» en la consola), Presentar, guardar sugerencias reales (con la 0264 ya aplicada) y la
   conexión real a Vercel. Y la cascada de IA del ws1: el Landing Analyst no tiene un proveedor gratis que
@@ -378,6 +378,12 @@ cambio, con `curl` (0 landings publicadas ese día: no hubo nada que migrar).
   proxy y caía en el not-found de la app. Se reservaron los dos (`SLUGS_RESERVADOS`) y un test cruza cada
   prefijo del matcher con la lista. **Regla: un prefijo nuevo en el matcher de `proxy.ts` con forma de slug
   va a `SLUGS_RESERVADOS`.**
+- **El Panel reconoce también el dominio propio** (`LandingResumen.dominio`, sólo el VERIFICADO: uno pendiente
+  no sirve nada y otra cuenta se lo puede quitar). Antes de sumar `dominio, dominio_estado` a la lista del
+  Panel (un `select` con una columna que falta tumba el Panel entero) se midió que la 0263 está en
+  producción SIN tocar la base: `hola-mako.site/` contestaba 404 desde la ruta del dominio, que filtra por esas
+  dos columnas y contesta 503 si la consulta falla. **Vive en:** `server.ts` (`COLS_RESUMEN`, `aResumen`),
+  `panel-reglas.ts` (`docDeUrl`).
 - **La raíz de hola-mako.site va a hola-mako.com con 307** (decidido): no es de nadie, y un 308 quedaría
   cacheado el día que tenga portada propia. `/l/<…>` en hola-mako.site es un 308 a `/<…>` en el mismo host.
 - **Lo que una landing le pide a SU host (medido con el documento armado y en producción):** sólo el iframe de

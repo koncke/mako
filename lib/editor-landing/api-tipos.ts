@@ -113,6 +113,11 @@ export type LandingResumen = {
   papelera: boolean;
   slug: string | null;
   publicadoAt: string | null;
+  /**
+   * El dominio propio VERIFICADO de la landing (tanda 4), o null. Con él el Panel reconoce como nuestra
+   * una página analizada en `https://<dominio>` (antes aparecía «de afuera»).
+   */
+  dominio?: string | null;
   /** La primera sección, para dibujar la miniatura del Panel en el navegador. */
   primera: JsonNodo | null;
   /** T1/T3: el ícono del renglón y la forma de la miniatura (sin el campo: una página). Lo llena `listar` desde `config`. */

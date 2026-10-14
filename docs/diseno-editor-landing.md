@@ -358,5 +358,6 @@ hola-mako.site y no hola-mako.com. Lo que costó y lo medido: [hallazgos-editor-
   (hallazgos, «Lo que quedó sin hacer (tanda 4)»).
 - **L7 · Reconocer «una landing nuestra» por URL** acepta las dos bases (`basesLandings`: hola-mako.site y
   hola-mako.com/l): el Panel (`docDeUrl`), el Diagnóstico y la analítica (`urlsAMedir`, `prefiltroVisitas`).
+  El Panel reconoce además el dominio propio VERIFICADO (`LandingResumen.dominio`).
 - `hola-mako.site` es «de MaKo» para el dominio propio (`esHostDeMako`: nadie lo conecta a su landing), pero
   NO entra a `DOMINIOS_DE_MAKO` (que gobierna el HSTS, las redirecciones y el cartel de mudanza).

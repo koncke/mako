@@ -82,6 +82,12 @@ test('docDeUrl: una URL de hola-mako.site/<slug> o hola-mako.com/l/<slug> (o una
   assert.equal(docDeUrl('https://hola-mako.com/mi-landing', docs, BASES), null, 'la app sin /l no es una landing');
   // La de antes (redirige, pero lo analizado con ella sigue siendo de la landing).
   assert.equal(docDeUrl('https://hola-mako.com/l/mi-landing', docs, BASES), 5);
+  // Su dominio propio VERIFICADO (el server sólo lo manda así): la raíz y sus páginas son ella.
+  const conDominio = [...docs, doc(8, { slug: 'promo', dominio: 'promo.tunegocio.com' })];
+  assert.equal(docDeUrl('https://promo.tunegocio.com/', conDominio, BASES), 8);
+  assert.equal(docDeUrl('https://www.promo.tunegocio.com/gracias?utm_source=fb', conDominio, BASES), 8);
+  assert.equal(docDeUrl('https://promo.tunegocio.com.evil.tld/', conDominio, BASES), null);
+  assert.equal(docDeUrl('https://tunegocio.com/', conDominio, BASES), null, 'el dominio raíz no es el subdominio conectado');
   assert.equal(docDeUrl('https://www.hola-mako.com/l/mi-landing/?utm_source=x', docs, BASES), 5, 'la clave es la del Landing Analyst: sin www, sin query, sin barra');
   assert.equal(docDeUrl('https://hola-mako.com/l/mi-landing/gracias', docs, BASES), 5, 'una página de la landing es de la landing');
   assert.equal(docDeUrl('https://hola-mako.com/l/mi-landing-2', docs, BASES), 6, 'el prefijo no confunde dos slugs');
@@ -339,6 +345,9 @@ test('server: `listar` (y `duplicar`) traen el formato y la proporción desde co
   const cuerpo = src.slice(ini, src.indexOf('\n}\n', ini));
   assert.match(cuerpo, /formato: formatoDe\(f\),/);
   assert.match(cuerpo, /proporcion: proporcionDe\(f\),/);
+  // Tanda 4: el dominio propio, y SÓLO el verificado (uno pendiente no sirve nada todavía).
+  assert.match(cols, /\bdominio, dominio_estado\b/);
+  assert.match(cuerpo, /dominio: f\.dominio_estado === 'verificado' && typeof f\.dominio === 'string' && f\.dominio \? f\.dominio : null,/);
 });
 
 test('la miniatura de una presentación es la diapositiva: el padre del .gm-doc declara el formato y el cuadro toma su forma', () => {
@@ -393,3 +402,5 @@ test('ni la pantalla, ni las páginas, ni las reglas tienen voseo (el guard del 
 //
 // Tanda 4 (14/10/2026, hola-mako.site): base 20 / 0. Rota con el arnés de editor-landing-origen:
 //  24. docDeUrl mirando sólo la primera base (hola-mako.com/l/… «de afuera»)  → 17 / 3 «docDeUrl…», «filasDelPanel…», «derechaDeQuery…»
+//  25. docDeUrl sin el dominio propio (https://<dominio> «de afuera»)         → 19 / 1 «docDeUrl…»
+//  26. aResumen mandando también el dominio PENDIENTE                         → 19 / 1 «server: `listar`…»

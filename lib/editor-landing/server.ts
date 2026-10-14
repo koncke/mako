@@ -137,12 +137,15 @@ export const COLS_DOC = 'id, workspace_id, titulo, contenido, config, version, s
  * página) y NO se trae el contenido entero: con 40 landings de 200 KB, el Panel bajaría 8 MB para
  * dibujar 40 miniaturas.
  */
-const COLS_RESUMEN = 'id, titulo, tema:config->>tema, formato:config->>formato, proporcion:config->>proporcion, created_at, updated_at, creado_por_nombre, favorito, carpeta, papelera_at, slug, publicado_at, primera:contenido->paginas->0->doc->content->0';
+// `dominio`/`dominio_estado` (mig 0263, tanda 4): el Panel reconoce como NUESTRA una página analizada en
+// el dominio propio de una landing. Medido el 14/10/2026: la columna existe en producción (la ruta del
+// dominio la consulta por cada host ajeno y contestó 404, no 503).
+const COLS_RESUMEN = 'id, titulo, tema:config->>tema, formato:config->>formato, proporcion:config->>proporcion, created_at, updated_at, creado_por_nombre, favorito, carpeta, papelera_at, slug, publicado_at, dominio, dominio_estado, primera:contenido->paginas->0->doc->content->0';
 
 type FilaResumen = {
   id: number; titulo: string; tema: string | null; formato: string | null; proporcion: string | null; created_at: string; updated_at: string;
   creado_por_nombre: string | null; favorito: boolean; carpeta: string | null; papelera_at: string | null;
-  slug: string | null; publicado_at: string | null; primera: unknown;
+  slug: string | null; publicado_at: string | null; dominio?: string | null; dominio_estado?: string | null; primera: unknown;
 };
 
 const esNodo = (v: unknown): v is JsonNodo => !!v && typeof v === 'object' && typeof (v as { type?: unknown }).type === 'string';
@@ -160,6 +163,8 @@ function aResumen(f: FilaResumen): LandingResumen {
     papelera: !!f.papelera_at,
     slug: f.slug,
     publicadoAt: f.publicado_at,
+    // Sólo el VERIFICADO: uno pendiente todavía no sirve nada, y otra cuenta se lo puede quitar.
+    dominio: f.dominio_estado === 'verificado' && typeof f.dominio === 'string' && f.dominio ? f.dominio : null,
     primera: esNodo(f.primera) ? f.primera : null,
     // T1/T3: el ícono del renglón del Panel y la forma de la miniatura. Sin el campo (lo guardado
     // antes de la tanda 2) es una página: las mismas funciones que `sanearConfig`.
