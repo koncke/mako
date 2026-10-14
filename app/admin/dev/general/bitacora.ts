@@ -432,4 +432,30 @@ export const BITACORA: Hito[] = [
     commits: [{ sha: 'c2cda971', msg: 'General: los bloques rediseñados con opciones, las tarjetas del Plan y los OKRs; el editor sin barra en blanco y con ocho bordes', lineas: 3936, archivos: 38 }],
     archivos: ['app/general/datos.ts', 'app/general/ProveedorGeneral.tsx', 'app/general/bloques/', 'lib/general-piezas.ts', 'app/dashboard/Elemento.tsx', 'app/plan/board/BoardShell.tsx', 'tests/general-bloques.test.ts'],
   },
+  {
+    fecha: '14 oct', hora: '11:54', chat: 'General', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'Ocho puntos sobre General: el diseño de los bloques, plantillas simples, la Meta objetivo aparte y la vista de celular',
+    pedido: "1. Tienes que mejorar el diseño de los bloques. Mira como se ve todo... Mucho espacio en blanco en el template, bloques que no se ven, los gráficos no tienen sentido, mira como se rompe \"Leads por producto y etapa\" de abajo... Y pusiste ese dato 2 veces en diferentes gráficos... Luego elegiste mostrar \"Leads por origen\" y \"Pendientes del CRM\" cuando hay datos mucho más interesantes que se pueden mostrar, como datos de facturación, de Meta, etc... Tiene que tener criterio y preguntarse ¿Qué gráfico es el más importante?\n2. Tienes que mejorar ampliamente los templates, todos nacen con bloques que ocupan todo el ancho y quedan feos... No tienen títulos, no tienen separaciones claras, no se entienden... Piensa bien los templates.\n3. Rediseña completamente el grafico de \"Objetivo\" y \"Acción del día\", deben ser 2 gráficos diferentes... Y que el primero se llame \"Meta objetivo\". Y que no tenga un diseño dark... Los usuarios pueden elegir cambiarlo en la edición personalizada de cada bloque, pero por defecto tiene que ser como el resto.\n4. Veo que muchos bloques los copiaste de otros lados, como el de Prioridades, pero no están interactuando con el diseño de la página, revisalo.\n5. Los templates deben ser simples, mientras menos tenga y más claro esté de que trata ese template, mejor. Me interesa mucho que estén bien diseñados.\n6. Faltan bloques que podrías agregar, como el de \"Tareas Prioritarias\" que muestre las tareas prioritarias... Y que claro, se debe poder editar esas cosas, si quiero que muestre 1 tarea, 3 tareas, 5, 10, etc... Piensa en cada bloque y como debería poder editarse. Y piensa en que otros bloques no agregaste que servirían...\n7. En el dashboard de Mauricio creé la hoja \"Operación diaria\" y me da la opción de deshacer y me regresa a la hoja de \"General\" eso está mal... Si creo una hoja no debería aparecer el deshacer si no hago ninguna acción.\n8. En la edición, tal como lo tenemos en la edición de Landing Generator, tienes que poder visualizar en la versión mobile, etc... Eso es importante que se diseñe todo siempre pensado para ambos dispositivos... Dile esto también a dashboard.",
+    puntos: ['Con tres capturas de una hoja recién creada desde una plantilla, en el workspace de Mauricio.'],
+  },
+  {
+    fecha: '14 oct', hora: '12:05', chat: 'General', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'Las plantillas de «¿Qué vas a crear hoy?» fieles a lo que se va a ver, y sólo el título',
+    pedido: "También, en la tab de ¿Que vas a hacer hoy?, los templates tienen que ser fieles a lo que se va a ver, no inventes esas imagenes, que se vea tal cual... Y elimina los subtitulos de cada template, solo el título",
+    puntos: ['Llegó mientras se trabajaba la lista de ocho puntos de las 11:54.'],
+  },
+  {
+    fecha: '14 oct', hora: '12:48', chat: 'General', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Los bloques son tarjetas de la hoja, la Meta objetivo y la Acción del día por separado, y plantillas simples',
+    puntos: [
+      'Cada bloque lleva el marco y el título de un gráfico de la hoja; adentro, nada de tarjetas dentro de la tarjeta. Las tarjetas del Plan toman los colores de la hoja.',
+      '«Meta objetivo» y «Acción del día» son dos bloques, claros. Cada bloque ofrece «Fondo: Como la hoja / Oscuro».',
+      'Bloques nuevos: «Tareas prioritarias» (1, 3, 5 o 10, en lista o tarjetas, con o sin proyecto) y «Próximos deadlines» (7, 14 o 30 días). «Proyectos del Plan» más compacto.',
+      'Las plantillas, rehechas: una pregunta cada una, pocas piezas, títulos de parte, bloques de a dos con el mismo alto, la plata del mes y la inversión en anuncios en números, y ningún dato dos veces. Nueva: «Anuncios».',
+      'Crear una hoja ya no deja un Deshacer. Editando, Escritorio / Tablet / Celular.',
+      'En «¿Qué vas a crear hoy?», cada plantilla se ve como va a quedar (los gráficos de verdad, con números de ejemplo) y lleva sólo su título.',
+    ],
+    commits: [{ sha: 'e6818ee0', msg: 'General, tercera vuelta: los bloques son tarjetas de la hoja, la Meta objetivo y la Acción del día por separado, plantillas simples y la vista de celular al editar', lineas: 2679, archivos: 28 }],
+    archivos: ['app/general/bloques/Meta.tsx', 'app/general/bloques/Plan.tsx', 'app/general/bloques/comun.tsx', 'app/dashboard/ElementoGeneral.tsx', 'lib/general-piezas.ts', 'lib/general-plantillas.ts', 'app/general/datos.ts', 'tests/general-bloques.test.ts'],
+  },
 ];
