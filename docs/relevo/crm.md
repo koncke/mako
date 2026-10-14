@@ -20,7 +20,17 @@ seguían trabados por RAM (el typecheck completo ya pide ≈ 5,3 GB libres: el t
   (`5b480d1e`, `c49fe3c5`) y esta cosecha. **Se pasa a la rama del push con un cherry-pick** cuando
   `wtcrm2` llegue, o se pushea desde acá si `wtcrm2` ya está en `origin`.
 
-**Las tres migraciones ya están APLICADAS en prod** (0269, 0270 y 0272): son de las que van antes del
+**⚠️ CÓMO SALE (acordado con Estrategia 3 CUENTAS el 14/10 ~02:45):** Estrategia pushea UNA vez el
+main del clon + origin desde `C:/dev/wt-push-1410`. Cuando avise, en un worktree limpio sobre el
+origin/main nuevo se cherry-pickean SÓLO los commits del CRM, en este orden (wtcrm3 trae además copias
+rebasadas de commits de otros, con otros hashes, y mergearlo entero los publicaría dos veces):
+`90af3218 7549571c ac591da0 9d16e7f0 5d21c8b1 8852a3d0 386ecabb 6dc59958 b0d838e4 84b74123 90369c21
+b27f6baf` (lo del 13/10 que NO está en el main del clon: `git cherry main`) y después
+`5d4e308b^..HEAD` de wtcrm3. Si `lib/api-mako/areas/crm.def.ts` choca con los pagos de GENERAL
+(`ba199cb4`), van las dos cosas; después se regenera `docs/api-mako.md` y el snapshot, tests, y push.
+Las bitácoras que citan hashes se corrigen en el mismo paso.
+
+**Las migraciones ya están APLICADAS en prod** (0269, 0270, 0272 y 0274; todas aditivas o de datos): son de las que van antes del
 deploy. Los hashes de abajo son los de DESPUÉS del rebase del 14/10.
 
 ### ✅ Hecho (commits locales, con tests probados rompiéndolos)
