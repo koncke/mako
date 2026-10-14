@@ -28,7 +28,11 @@ sea original de MaKo, pero quiero la plantilla para ir trabajando».**
 
 ## EN MAIN desde el 14/10 13:26 (`353c81a8`, tandas 1 y 2) — cuenta claude2 al 89% semanal
 
-Lo pusheó el orquestador en su push integrado. Lo de abajo es la historia de cómo se llegó.
+Lo pusheó el orquestador en su push integrado. El primer deploy murió por `qrcode` sin declarar; con su arreglo (`fac319092`) quedó Ready en producción.
+
+**Falta verificarlo a mano con la cuenta de Martín**: el Chrome conectado a Claude in Chrome tiene la sesión de Leandro (rol usuario, ws 10), y el guard lo rebota a /crm — que es lo correcto y prueba el candado, pero no deja ver el editor. Qué mirar: crear un diseño, texto, imagen subida, plantilla, descargar PNG/PDF, y que el crédito de Doory aparezca.
+
+Lo de abajo es la historia de cómo se llegó.
 
 ## Actualización 14/10 tarde
 
