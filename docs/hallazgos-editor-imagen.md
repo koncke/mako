@@ -124,6 +124,9 @@ la base del workspace 0 y la lista salía vacía sin error. Diagnóstico obvio e
 workspace». Quien lo sabe es el server (`getWorkspaceActual`, prop de la página): la pantalla lo pasa con
 `registrarProyectos(ws)`, y si falta, el panel busca en qué base del navegador está el diseño abierto.
 
+- **Ya no aplica desde la tanda 3 (14/10):** el panel lee `/api/image-editor/disenos`, y el workspace lo decide el
+  server con el `?ws=` que `WsFetch` le pone al pedido. No hay base local que elegir.
+
 ## Las trampas de `.cv` (la raíz con los estilos base de Doory)
 
 **Vive en:** `app/image-editor/_doory/styles/global.css` · `ImageEditorCliente.tsx`
@@ -229,25 +232,117 @@ Martín, 14/10: «No veo la tab en la sidebar principal, debería estar en la se
   cliente, `null`. El deploy con el editor (13:33) estaba Ready en hola-mako.com. O sea: o miraba un cliente con
   `?ws=`, o tenía abierta una pestaña de antes del deploy (el JS viejo no se recarga solo al navegar).
 
+## Verificar el editor sin el dev server: un banco con esbuild y Chrome sin ventana
+
+**Vive en:** fuera del repo (el scratchpad de la sesión del 14/10) · la receta, acá
+
+`next dev` pasa los 5 GB al compilar el editor y el vigía lo mata, y la extensión de Chrome no llega a localhost.
+Lo que sí anduvo (14/10, tarde): **compilar sólo la cáscara del editor con esbuild** (`node_modules/esbuild`, 40 s
+con la máquina tranquila, 185 s llena) y abrirla en el Chrome del sistema sin ventana (`--headless=new
+--mute-audio`, perfil propio, CDP crudo con el `WebSocket` de Node 24). Cuatro stubs reemplazan a Next:
+`next/dynamic` (un `lazy`), `next/font/google` (un objeto con `variable`), `next/navigation` y `@/app/_ui/Link` (la
+ruta va en el hash); `@/` se resuelve contra el worktree con un plugin y los `.module.css` los entiende esbuild solo.
+Con eso se verificó TODO lo que hace el navegador: crear, texto, plantilla, imagen soltada, guardar y reabrir, PNG
+y PDF, la vista del presentador en una segunda ventana y, con la API de la entrada siguiente, la base.
+
+- No ve la cáscara de MaKo (barra lateral, guard, `?ws=`): eso se mira en producción con la sesión de Martín.
+- Una imagen se «suelta» con un `DragEvent` armado en la página (un `DataTransfer` con un `File`): el selector de
+  archivos de Doory es un `<input>` suelto que CDP no alcanza sin interceptar el diálogo.
+
+## Probar un módulo `server-only` sin Next: el diagnóstico obvio rompía React
+
+**Vive en:** `lib/image-editor/server.ts` · la receta, acá
+
+Para probar las funciones del server contra la base sin `next dev`: `runWithWorkspace(ws, fn)` (lib/workspace.ts)
+fija el workspace sin request (`getWorkspaceActual` lee primero ese contexto) y `dotenv` carga el `.env.local`.
+Lo que frenaba era `import 'server-only'`, que tira fuera de un server component.
+
+- ⚠️ **Diagnóstico obvio equivocado: `node --conditions=react-server`.** Resuelve `server-only` a vacío, pero
+  también cambia el React que se carga, y `next/navigation` (que entra por `acceso.ts`) muere con
+  «`createContext` is not a function».
+- ⚠️ Un hook ESM (`module.register` con `resolve`) **no lo ve**: tsx compila el `.ts` del repo a CommonJS y el
+  `require('server-only')` no pasa por ahí.
+- Lo que anda: `--require` de un `.cjs` que parchea `Module._resolveFilename` para que `server-only` dé un módulo
+  vacío, y `--import tsx`. Así corrió la prueba de 23 pasos de la tanda 3 (ws 3, borrando todo al final), y el
+  mismo truco le dio al banco una API que llama a `lib/image-editor/server.ts` sin Next.
+- `after()` de `next/server` tira fuera de un request: `firmarSubida` lo envuelve y barre sin esperar.
+
+## «Vista de presentador» abría un 404: era una página del build de Vite
+
+**Vive en:** `app/image-editor/_doory/editor/presenter/channel.ts` (`presenterViewUrl`) · `app/image-editor/presentador/`
+
+Doory abre las notas del presentador en una segunda ventana en `presenter-view.html`, otra entrada de su build de
+Vite (`presenter/view/main.tsx`). Al portar sólo el editor, esa página no existía y el botón daba 404. Ahora es la
+ruta `/image-editor/presentador` (mismo guard, sin la cáscara de MaKo, como `/integraciones/escuchando`); la vista
+habla con el editor por `BroadcastChannel`, así que no necesita server.
+
+- Regla: al portar una app de Vite, buscar sus OTRAS entradas (`*.html` del build, `main.tsx` sueltos): lo que el
+  editor abre con `window.open` no lo ve el typecheck. Lo fija el test 5 de `tests/image-editor-integracion.test.ts`.
+
+## La tanda 3 (los diseños en la base): lo que costó
+
+**Vive en:** `supabase/migrations/0278_image_editor_disenos.sql` · `lib/image-editor/` · `app/api/image-editor/` ·
+`app/image-editor/mako/{nube,adaptadorNube,mudanza}.ts`
+
+- **El id es un uuid, no un identity**: el motor nombra los diseños con uuid y un diseño que estaba en el navegador
+  sube con SU id. Así el alta es **idempotente por id** (si ya está, contesta el que hay sin pisarlo): una mudanza
+  cortada se reintenta sin duplicar, y recién con el alta confirmada se borra la copia local.
+- **El server rechaza un documento con `idb://` o `blob:` (422)**: en otra máquina sería un hueco. El adaptador
+  sube esos `src` antes de guardar y recuerda lo subido (el documento en memoria sigue diciendo `idb://` hasta
+  reabrir). Una imagen local que ya no está sale del documento con un aviso (la función es la de Doory,
+  `removeMissingAssetReferences`).
+- **El bucket público de Supabase manda `Access-Control-Allow-Origin: *`** (medido): el lienzo carga las imágenes
+  con `crossOrigin: 'anonymous'` y el PNG sale con la imagen remota adentro. Una URL firmada habría vencido y
+  matado el caché.
+- **SVG y AVIF no entran al bucket** (un SVG es un documento activo bajo el dominio de Supabase): el adaptador los
+  dibuja a PNG en el navegador antes de subir. Canva conserva el SVG vectorial; acá se pierde (pendiente abajo).
+- **La miniatura pisa siempre el mismo archivo** y la URL guardada lleva `?v=<ms>`: sin eso el CDN sirve la vieja.
+  Sube cada 15 s como mucho (lo del Doory original); no frena el guardado si falla.
+- **Un MP4 y un M4A comparten firma (`ftyp`)**: `sniffArchivo` los trata como `audio/mp4`; un HEIC también tiene
+  `ftyp` pero no está en la lista del bucket, así que no se puede firmar.
+
+## ESLint de `ColorPicker`: no frena nada
+
+**Vive en:** `_doory/editor/ui/ColorPicker.tsx:46` · `.git/hooks/pre-push`
+
+Quedó anotado como riesgo («si el pre-push pasa ESLint por `_doory/`, frena ahí»). Medido el 14/10: el pre-push
+corre tipos, el contrato de las skills y el snapshot de la API, **no ESLint**, y `next build` 16 tampoco lintea.
+El `setState` en el efecto es el patrón de Doory para resetear el selector cuando cambia el objeto; se deja.
+
+## Las plantillas en español: un texto más largo desborda su caja, y eso se MIDE
+
+**Vive en:** `scripts/image-editor/traducir-plantillas.mjs` (`T` y `AJUSTES`) · `public/cv/plantillas/*.webp`
+
+El 14/10 el texto del lienzo de las 10 plantillas pasó a español neutro (89 textos, por igualdad exacta con el
+original; un texto en mayúsculas guarda el original en `caseSource` y se traduce ése). En la hoja de contactos de las
+miniaturas redibujadas, dos se rompían: «OFERTA» (por «SALE») se cortaba en «OFERT» y «al atardecer» (por «Sessions»)
+se montaba sobre los datos. No se adivina el tamaño: se mide con la fuente real (`measureText` con la fuente de
+jsDelivr cargada en la página): «OFERTA» en Anton a 500 px = 1321 px contra 990 de caja → 360 px (951, el aire que
+tenía «SALE»); «al atardecer» en Playfair itálica a 190 px = 969 contra 920 → «al ocaso» (639).
+
+- Las miniaturas salen del propio editor: cada plantilla (su primera página) se abre en el banco, se «descarga» en PNG
+  capturando el `Blob` de `URL.createObjectURL`, y en la misma página se baja a WebP de 720 px de lado mayor.
+- Regla: traducir una plantilla = mirar la hoja de contactos; un texto que no entra se arregla en `AJUSTES` con la
+  medida escrita, no a ojo.
+
 ## Lo que quedó SIN hacer (con el archivo donde vive)
 
-- **Verificar el editor abierto en el navegador** (crear, texto, imagen, descargar PNG/PDF): la tanda 2 (el
-  re-vestido de Canva) se escribió y pasó typecheck y tests, pero NADIE la vio dibujada.
-- **ESLint de Doory:** `_doory/editor/ui/ColorPicker.tsx:46` hace `setState` dentro de un efecto (venía de Doory). Si
-  el pre-push pasa ESLint por `_doory/`, frena ahí.
+- **Mirarlo en producción con la sesión de Martín** (la cáscara: la tab, la barra lateral, el `?ws=`): el banco ve
+  el editor, no MaKo alrededor. El Chrome conectado a Claude in Chrome no estaba disponible para la cuenta claude1.
 - **Lo de Canva que Doory no trae** (tanda 5): notas adhesivas, dibujo y tablas (`drawers/ToolsPanel.tsx`), copiar
   estilo, líneas en codo/curva, texto alternativo, descargar la selección, bloquear/ocultar página, «Ir a la página».
 - **Del armazón:** la vista rápida al pasar el mouse por el riel y la pestaña «Estilos» de Diseño
   (`chrome/RielCanva.tsx`); la mini-barra pegada a la selección (falta la posición en pantalla del objeto); las marcas
   de la regla con la posición del elemento (`workspace/Rulers.tsx`); el «⋯» por mosaico de la cuadrícula
   (`workspace/PageGrid.tsx`); «Editando ▾» y el avatar (no hay modos ni co-edición); en Proyectos, «Carpetas».
-- **El texto del lienzo de las 10 plantillas sigue en inglés** (`mako/plantillas/*.json`): traducirlo pide volver a
-  dibujar las miniaturas (`public/cv/plantillas/*.webp`), y eso necesita navegador.
 - **Las fuentes salen de jsDelivr**, no de un almacenamiento propio (tanda 4).
+- **Marca, versiones, compartir y comentarios**: en `null` (`mako/adaptadorNube.ts`); piden tablas propias.
+- **Un SVG subido se guarda como PNG** (`mako/nube.ts` → `aRaster`): para conservarlo vectorial hay que sanearlo
+  en el server y servirlo desde un origen sin cookies.
 - **El relevamiento de FUNCIONES de Canva no se escribió**: el agente se cortó con la caída de la app
   del 14/10 09:10. Falta `docs/editor-imagen/relevamiento-canva-funciones.md`.
-- **Supabase** (tabla de diseños + bucket), **API de MaKo**, **Estrellas `formato_imagen`**.
-- **«Presentar con notas»** abre `presenter-view.html`, que en MaKo no existe (`_doory/editor/presenter/channel.ts`).
+- **API de MaKo y Estrellas `formato_imagen`**: esperan a Martín (con el editor sólo suyo, declararla con
+  `gating.tab` la abre por token a todo cliente completo/agencia; relevamiento-integracion-mako.md §6.2 y §13.7).
 - **Una pestaña de Canva** («Diseño sin título - Presentación», `canva.com/design/DAHX-ICTUd4`) quedó
   abierta en el grupo de pestañas de los agentes: la abrió el relevamiento de funciones antes de cortarse.
   Si lo creó en la cuenta de Martín, hay que mandarlo a la papelera a mano.

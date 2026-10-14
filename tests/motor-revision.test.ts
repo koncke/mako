@@ -299,9 +299,12 @@ test('(10) un mensaje fijo de «Si responde» se RECLAMA por tarjeta antes de sa
   const m = fn(NUTRI, 'async function mandarMensajeDeRespuesta(');
   assert.match(m, /reclamarEspaciado\(ws, `respuesta-mensaje:\$\{secuencia\.id\}`, RECLAMO_MENSAJE_RESPUESTA_MIN, `\$\{inscId \?\? `lead\$\{leadId\}`\}:\$\{idDe\(p, i\)\}`\)/);
   assert.match(NUTRI, /const RECLAMO_MENSAJE_RESPUESTA_MIN = 20 \* 60;/);
-  // Cada una de las tres salidas (audio, archivo, texto) reclama ANTES de su borrador.
-  const reclamos = [...m.matchAll(/if \(!\(await reclamar\(\)\)\) return yaSalio;/g)].map((x) => x.index!);
-  const borradores = [...m.matchAll(/await crearBorrador\(/g)].map((x) => x.index!);
+  // Cada una de las tres salidas del WhatsApp (audio, archivo, texto) reclama ANTES de su borrador. Se cuentan
+  // DESPUÉS de la rama de las redes (TikTok fase 0, 14/10/2026), que tiene su propio reclamo y lo fija
+  // tests/ai-step-redes.test.ts.
+  const wa = m.slice(m.indexOf("if (p.canal === 'email' || esCanalSocial(p.canal)"));
+  const reclamos = [...wa.matchAll(/if \(!\(await reclamar\(\)\)\) return yaSalio;/g)].map((x) => x.index!);
+  const borradores = [...wa.matchAll(/await crearBorrador\(/g)].map((x) => x.index!);
   assert.equal(reclamos.length, 3, 'una salida de la rama sin su reclamo: sale igual con cada mensaje');
   assert.equal(borradores.length, 3);
   reclamos.forEach((r, k) => assert.ok(r < borradores[k], `el reclamo ${k + 1} va después de su envío`));

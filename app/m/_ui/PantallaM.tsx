@@ -101,6 +101,10 @@ export function PantallaM({ refrescable = false, children }: {
 
     const inicio = (e: TouchEvent) => {
       if (e.touches.length !== 1 || window.scrollY > 0 || cargandoRef.current) { y0 = null; return; }
+      // Un scroll anidado que no está arriba de todo (la columna de un tablero, KanbanM) se queda
+      // con el gesto: tirar ahí sube la lista, no refresca la página.
+      const anidado = e.target instanceof Element ? e.target.closest('[data-m-scroll]') : null;
+      if (anidado && anidado.scrollTop > 0) { y0 = null; return; }
       y0 = e.touches[0].clientY;
       x0 = e.touches[0].clientX;
       tirando = false;

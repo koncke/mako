@@ -1536,4 +1536,32 @@ FEEDBACK PROBAR:
       "TikTok sin Zernio = pedir la Business Messaging API directo a TikTok (app propia, revisión, Advanced Access por cuenta). LinkedIn: sin vía legal para DMs; queda afuera.",
     ],
   },
+  {
+    fecha: "14 oct", hora: "17:16", chat: "Chatbot", cuenta: "claude1",
+    actor: "claude", tipo: "implementacion",
+    titulo: "TikTok fase 0: el AI Step contesta por Instagram y Messenger",
+    puntos: [
+      "Del pedido «Implementar TikTok y LinkedIn… automatizar el chatbot» (14/10): antes de TikTok, que el AI Step conteste por las redes. Hasta hoy un DM sólo se anotaba.",
+      "El AI Step de ese medio contesta por ese canal: la charla de Instagram (lo que escribió y lo que le salió), «Sola» por Zernio con las mismas puertas, «Para aprobar» con el texto en el aviso, sin audio.",
+      "El AI Step ofrece Instagram y Messenger; «Probar» contesta con el del medio que se prueba; «Cambia WhatsApp por Instagram» muda el AI Step en vez de sacarlo.",
+      "Sin probar contra un DM real: ningún workspace recibió un evento de Zernio. Falta la cuenta de prueba en ws3.",
+    ],
+    commits: [
+      { sha: "c9cdbdf3a", msg: "Automations: el AI Step contesta por Instagram y Messenger (TikTok fase 0)", lineas: 752, archivos: 21 },
+    ],
+    archivos: ["docs/hallazgos-chatbot.md — «TikTok fase 0»", "docs/diseno-tiktok-linkedin.md §4"],
+  },
+  {
+    fecha: "14 oct", hora: "17:25", chat: "Chatbot", cuenta: "claude1",
+    actor: "claude", tipo: "implementacion",
+    titulo: "«Probar en vivo» por la API: UN escenario, no todos los pasos",
+    puntos: [
+      "probar_secuencia mandaba cada mensaje del array: con una condición, el «Sí» y el «No» juntos. Ahora manda el camino de un escenario, el mismo de «Probar» y de escenarios_secuencia; con varios, pide cuál.",
+      "Un paso de Instagram o Messenger se mandaba como email: ahora se saltea con su aviso.",
+    ],
+    commits: [
+      { sha: "d488977f0", msg: "Automations: probar_secuencia manda UN escenario", lineas: 249, archivos: 7 },
+    ],
+    archivos: ["docs/hallazgos-chatbot.md — «probar_secuencia manda UN escenario»"],
+  },
 ];

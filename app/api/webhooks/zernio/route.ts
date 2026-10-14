@@ -27,9 +27,11 @@
 //      Zernio corta a los 5 s, y disparar una automatización manda el primer mensaje en el acto. Si lo
 //      rápido falla, se SUELTA el reclamo y se contesta 500: el reintento lo vuelve a intentar entero.
 //
-//   5. UNA RESPUESTA PAUSA (segunda pasada, 09/10/2026): un mensaje o una respuesta a una historia de
-//      alguien que ya era un lead pausa lo que le estaban escribiendo, sin contestarle por WhatsApp
-//      (lib/zernio-entrante.ts, `pausarRespuestaSocial`). Va en el mismo `after`, ANTES del disparo.
+//   5. UNA RESPUESTA SE ANOTA Y LA CONTESTA EL AI STEP DE ESE MEDIO (TikTok fase 0, 14/10/2026; hasta ese
+//      día sólo pausaba): un mensaje o una respuesta a una historia de alguien que ya era un lead
+//      (lib/zernio-entrante.ts, `pausarRespuestaSocial`), con lo que escribió y la cuenta que lo recibió.
+//      Va en el mismo `after`, ANTES del disparo. Redactar con IA tarda: por eso `maxDuration` es el del
+//      webhook de WhatsApp (300 s), que hace lo mismo.
 //
 // Lo que NO hace, a propósito: guardar lo que manda el negocio (`message.sent`): lo que le llegó a
 // cada lead ya está en `nutricion_envios.texto_enviado`.
@@ -46,8 +48,8 @@ import { procesarEventoSocial, dispararEventoSocial, pausarRespuestaSocial } fro
 import { RUTEO_CUENTA, RUTEO_PERFIL, EVENTOS_WEBHOOK, usaCuentaPropia, cuentasConectadas } from '@/lib/zernio';
 
 export const dynamic = 'force-dynamic';
-// El primer mensaje de la automatización sale en `after`, después de contestar.
-export const maxDuration = 120;
+// El primer mensaje de la automatización y la respuesta del AI Step salen en `after`, después de contestar.
+export const maxDuration = 300;
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
@@ -166,7 +168,8 @@ export async function POST(req: NextRequest) {
         after(async () => {
           if (r.pausar) {
             try {
-              const n = await runWithWorkspace(wsFinal, () => pausarRespuestaSocial(leadId, canal));
+              // Con lo que escribió y la cuenta que lo recibió: el AI Step de ese medio le contesta por ahí.
+              const n = await runWithWorkspace(wsFinal, () => pausarRespuestaSocial(leadId, canal, { texto: ev.evento.texto, cuenta: ev.evento.cuentaId }));
               console.log(`[webhook:zernio] ${canal}/${subtipo} lead ${leadId} ws=${wsFinal}: respondió, ${n} pausada(s)`);
             } catch (e) {
               console.error(`[webhook:zernio] pausar ${canal}/${subtipo} lead ${leadId}: ${msg(e)}`);

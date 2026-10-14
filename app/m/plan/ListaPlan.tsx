@@ -1,13 +1,20 @@
 'use client';
 
 // =============================================================================
-// ListaPlan — el plan en el teléfono: Hoy · Semana · Prioridades
+// ListaPlan — el plan en el teléfono: Prioridades · Tareas · Proyectos · Recurrentes (v3)
 // =============================================================================
-// Recibe las tres listas ya armadas por el server (`leerPlanHoy` + `listaHoy`) y muestra
-// UNA a la vez con el segmentado del prototipo (docs/prototipos/mako-mobile-v2.html,
-// `#plan`). La fila: casilla redonda · título · el proyecto como punto de su color · el
-// plazo en el riel. Tocar la fila abre el detalle en un sheet; editar se queda en la
-// computadora.
+// v3 (14/10/2026): las MISMAS cuatro vistas que el Plan de escritorio («el Plan no cambia»,
+// Martín; prototipo docs/prototipos/mako-mobile-tableros.html). Una a la vez, con el segmentado:
+//   · Prioridades → la lista de siempre (casilla, swipe para completar, sheet de la tarea);
+//   · Tareas      → el Kanban por prioridad (KanbanM): tocar abre el MISMO sheet, que completa;
+//   · Proyectos   → el Kanban de proyectos con su avance; tocar abre el proyecto (sólo mirar);
+//   · Recurrentes → lo que se repite, con cada cuánto.
+// La prioridad no se cambia desde acá (es la audiencia con el Perro): los tableros no mueven.
+// Los modelos los arma el server (./tableros.ts). La v2 tenía Hoy · Semana · Prioridades; lo de
+// hoy vive ahora en General.
+//
+// La fila: casilla redonda · título · el proyecto como punto de su color · el plazo en el riel.
+// Tocar la fila abre el detalle en un sheet; editar se queda en la computadora.
 //
 // MARCAR: la casilla (o el swipe a la derecha, su equivalente) la llena, tacha el título,
 // y la fila se va sola un momento después. Llama a `marcarHechaAction`: si el server dice
@@ -30,25 +37,32 @@
 // forma SÍNCRONA (flushSync), se vería volver un frame antes de irse.
 // =============================================================================
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { flushSync } from 'react-dom';
 import {
-  CasillaM, ComputadoraM, FilaDatoM, FilaM, ListaM, PieM, PildoraM, SegmentadoM, SheetM, VacioM, useConexion, useToastM,
+  CasillaM, ComputadoraM, FilaDatoM, FilaM, KanbanM, ListaM, PieM, PildoraM, SegmentadoM, SheetM, VacioM, useConexion, useToastM,
 } from '@/app/m/_ui';
+import type { ProyectoPlanM, RecurrenteM } from './tableros';
 import { Button } from '@/app/_ui/Button';
 import { haptico } from '@/lib/haptico';
 import { marcarHechaAction } from '@/app/m/plan/acciones';
 import type { ItemPlan, ResultadoMarcar } from '@/app/plan/board/hoy';
 import { ROTULO_BANDA, TONO_BANDA, colorProyecto, conEnTransito, contar, plazoCorto, textoVence } from './formato';
 
-export type VistaPlan = 'hoy' | 'semana' | 'prioridades';
-export type ListasPlan = Record<VistaPlan, ItemPlan[]>;
+export type VistaPlan = 'prioridades' | 'tareas' | 'proyectos' | 'recurrentes';
+/** Las vistas que son tareas (se completan): la lista de Prioridades y el Kanban de Tareas. */
+type VistaTareas = 'prioridades' | 'tareas';
+export type ListasPlan = Record<VistaTareas, ItemPlan[]>;
 
 const VISTAS: { id: VistaPlan; label: string }[] = [
-  { id: 'hoy', label: 'Hoy' },
-  { id: 'semana', label: 'Semana' },
   { id: 'prioridades', label: 'Prioridades' },
+  { id: 'tareas', label: 'Tareas' },
+  { id: 'proyectos', label: 'Proyectos' },
+  { id: 'recurrentes', label: 'Recurrentes' },
 ];
+/** Los cuatro escalones de prioridad, en el orden de las columnas de escritorio. */
+const BANDAS = ['alta', 'media', 'baja', 'futuro'] as const;
+const esDeTareas = (v: VistaPlan): v is VistaTareas => v === 'prioridades' || v === 'tareas';
 
 /** marcada = llena y tachada · sale = la fila se cierra · sale-swipe = ya cruzó la pantalla · oculta = no se dibuja. */
 type Estado = 'marcada' | 'sale' | 'sale-swipe' | 'oculta';
@@ -58,8 +72,10 @@ type Marca = { estado: Estado; item: ItemPlan; antes: string | null; vista: Vist
 const SOSTENER_MS = 600;
 const SALIDA_MS = 200;
 
-export function ListaPlan({ listas, fecha, abiertas }: {
+export function ListaPlan({ listas, proyectos, recurrentes, fecha, abiertas }: {
   listas: ListasPlan;
+  proyectos: ProyectoPlanM[];
+  recurrentes: RecurrenteM[];
   /** `YYYY-MM-DD` del negocio: contra esto se cuenta el plazo. */
   fecha: string;
   /** Cuántas tareas abiertas hay en todo el tablero (para decir bien el vacío). */
@@ -67,7 +83,9 @@ export function ListaPlan({ listas, fecha, abiertas }: {
 }) {
   const toast = useToastM();
   const { enLinea } = useConexion();
-  const [vista, setVista] = useState<VistaPlan>('hoy');
+  const [vista, setVista] = useState<VistaPlan>('prioridades');
+  const [proyAbierto, setProyAbierto] = useState<ProyectoPlanM | null>(null);
+  const [verProy, setVerProy] = useState(false);
   // Map y no objeto: los ids del tablero del cliente son números, y un objeto ordena las
   // claves numéricas — el orden en que se tocaron se perdería.
   const [marcas, setMarcas] = useState<ReadonlyMap<string, Marca>>(new Map());
@@ -97,7 +115,7 @@ export function ListaPlan({ listas, fecha, abiertas }: {
   const visibles = useMemo(() => {
     const transito = [...marcas.values()].filter((m) => m.vista === vista && m.estado !== 'oculta');
     const vistos = new Set<string>();
-    return conEnTransito(listas[vista], transito).filter((it) => {
+    return conEnTransito(esDeTareas(vista) ? listas[vista] : [], transito).filter((it) => {
       if (vistos.has(it.id)) return false;
       vistos.add(it.id);
       return marcas.get(it.id)?.estado !== 'oculta';
@@ -161,9 +179,7 @@ export function ListaPlan({ listas, fecha, abiertas }: {
   };
 
   const abrir = (it: ItemPlan) => { setDetalle(it); setAbierto(true); };
-  const vacio = vista === 'hoy' ? 'Nada vence hoy.'
-    : vista === 'semana' ? 'Nada vence esta semana.'
-      : abiertas === 0 ? 'No hay tareas abiertas.' : 'Ninguna prioridad por ahora.';
+  const vacio = abiertas === 0 ? 'No hay tareas abiertas.' : 'Ninguna prioridad por ahora.';
   const detalleMarcado = detalle ? marcas.has(detalle.id) : false;
 
   return (
@@ -173,7 +189,63 @@ export function ListaPlan({ listas, fecha, abiertas }: {
       </div>
 
       <div className="m-plan-cuerpo">
-        {visibles.length === 0 ? (
+        {vista === 'tareas' ? (
+          <KanbanM
+            etiqueta="Tareas por prioridad"
+            columnas={BANDAS.map((b) => ({ key: b, titulo: ROTULO_BANDA[b] }))}
+            tarjetas={visibles.filter((it) => !marcas.has(it.id)).map((it) => {
+              const plazo = plazoCorto(it.deadline, fecha);
+              const color = it.proyecto ? colorProyecto(it.proyecto) : null;
+              return {
+                id: it.id,
+                col: it.banda,
+                etiqueta: it.titulo,
+                contenido: (
+                  <>
+                    {it.proyecto && (
+                      <span className="m-kb-tj__chip" style={color ? ({ '--c': color } as CSSProperties) : undefined}>{it.proyecto.nombre}</span>
+                    )}
+                    <span className="m-kb-tj__n" data-dos>{it.titulo}</span>
+                    {plazo && <span className="m-kb-tj__pie"><span data-mal={it.vencida || undefined}>{plazo}</span></span>}
+                  </>
+                ),
+              };
+            })}
+            unidades="tareas"
+            onTocar={(id) => { const it = visibles.find((x) => x.id === id); if (it) abrir(it); }}
+          />
+        ) : vista === 'proyectos' ? (
+          <KanbanM
+            etiqueta="Proyectos por prioridad"
+            columnas={BANDAS.map((b) => ({ key: b, titulo: ROTULO_BANDA[b] }))}
+            tarjetas={proyectos.map((pr) => ({
+              id: pr.id,
+              col: pr.banda,
+              etiqueta: pr.nombre,
+              contenido: (
+                <>
+                  <span className="m-kb-tj__n">{pr.emoji ? `${pr.emoji} ` : ''}{pr.nombre}</span>
+                  <span className="m-kb-tj__avance" aria-hidden><i style={{ width: `${pr.pct}%` }} /></span>
+                  <span className="m-kb-tj__pie">
+                    <span>{pr.total ? `${pr.hechas}/${pr.total} · ${pr.pct}%` : 'Sin tareas'}</span>
+                    {pr.deadline && <span>{plazoCorto(pr.deadline, fecha)}</span>}
+                  </span>
+                </>
+              ),
+            }))}
+            unidades="proyectos"
+            onTocar={(id) => { const pr = proyectos.find((x) => x.id === id); if (pr) { setProyAbierto(pr); setVerProy(true); } }}
+          />
+        ) : vista === 'recurrentes' ? (
+          recurrentes.length === 0 ? <VacioM frase="Nada se repite." /> : (
+            <ListaM etiqueta={contar(recurrentes.length, 'tarea que se repite', 'tareas que se repiten')}>
+              {recurrentes.map((r) => (
+                <FilaM key={r.id} titulo={r.titulo} segunda={r.proyecto ? <Proyecto p={r.proyecto} /> : undefined}
+                  riel={r.repite ?? 'Se repite'} chevron={false} />
+              ))}
+            </ListaM>
+          )
+        ) : visibles.length === 0 ? (
           <VacioM frase={vacio} />
         ) : (
           <ListaM etiqueta={contar(visibles.length, 'tarea', 'tareas')}>
@@ -213,6 +285,19 @@ export function ListaPlan({ listas, fecha, abiertas }: {
         ) : undefined}
       >
         {detalle && <DetalleTarea item={detalle} fecha={fecha} />}
+      </SheetM>
+
+      <SheetM abierto={verProy} onCerrar={() => setVerProy(false)} titulo={proyAbierto?.nombre ?? ''} id="proyecto">
+        {proyAbierto && (
+          <>
+            <ListaM>
+              <FilaDatoM k="Prioridad" v={<PildoraM tono={TONO_BANDA[proyAbierto.banda]}>{ROTULO_BANDA[proyAbierto.banda]}</PildoraM>} />
+              <FilaDatoM k="Avance" v={proyAbierto.total ? `${proyAbierto.hechas} de ${proyAbierto.total} · ${proyAbierto.pct}%` : 'Sin tareas'} />
+              {proyAbierto.deadline && <FilaDatoM k="Plazo" v={(textoVence(proyAbierto.deadline, fecha) ?? proyAbierto.deadline).replace(/^./, (c) => c.toUpperCase())} />}
+            </ListaM>
+            <ComputadoraM que="Editar el proyecto" />
+          </>
+        )}
       </SheetM>
     </>
   );

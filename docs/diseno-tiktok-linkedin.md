@@ -110,6 +110,8 @@ Las fuentes están al final, en §6.
 Las líneas son de `C:/dev/wt-undecima` en `ca125dc3`. `origin/main` ya está en `46958506`: revisar las líneas sobre main antes de editar.
 
 **Fase 0. Que el AI Step conteste por redes (prerrequisito; destraba también Instagram y Messenger)**
+> **HECHA el 14/10/2026 (`c9cdbdf3a`)**, menos el último punto (el primer evento real) y «Crear con IA», que todavía no arma
+> un AI Step de Instagram. El detalle, en docs/hallazgos-chatbot.md → «TikTok fase 0».
 - `lib/nutricion.ts:4922-4991`: `pausarPorRespuesta` con `soloPausa` hoy sólo pausa. Tiene que contestar por el medio de origen. `asistirRespuesta` (`:5038`, `:5167`) tiene que recibir `{ medio }`.
 - `app/automations/EditorPasoIA.tsx:75`: sumar los medios sociales a `MEDIOS_OFRECIDOS` recién cuando el motor conteste (lo pide su comentario de `:40-41`).
 - `lib/flujo-ia.ts:1562` y `:2126`: dejar de sacar «Si responde» de los flujos sociales.

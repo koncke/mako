@@ -1,188 +1,44 @@
 // =============================================================================
-// /m/crm — lo que LEE la v2 (server): la lista en tres grupos, el filtro por etapa y la ficha
+// /m/crm — lo que LEE el CRM del teléfono (server): el tablero y la ficha
 // =============================================================================
 // Ninguna regla propia: cada pieza es la lectura que ya usa el escritorio, recortada a lo que
-// el teléfono dibuja (~30 filas compactas; la cartera nunca baja al teléfono).
+// el teléfono dibuja.
 //
-//   · Hoy           → reunionesDeHoy (lib/crm-movil.ts: getJuntasProximas + la hora de
-//                     junta_N_at en la zona del negocio), sólo las de HOY.
-//   · Por responder → getConversacionesNoOficial (lib/evolution-mensajes.ts), la MISMA lectura
-//                     de la bandeja de WhatsApp de escritorio y del «sin responder» de MaKo: el
-//                     último mensaje del chat es del lead. Sin ocultos ni bloqueados, sólo chats
-//                     con lead, de los últimos 7 días.
-//   · Nuevos        → la cartera (listLeads, cacheada) con la etapa del TABLERO de escritorio
-//                     (mapToCrmLead + etapasDelTablero): los de los últimos 7 días que siguen en
-//                     la etapa de ENTRADA del funnel del negocio.
-//   · Filtro        → el tablero del negocio entero (listLeadsDeFunnel(null), lo mismo que /crm
-//                     sin ?funnel=), contado por la columna en la que lo dibuja el tablero.
-//   · Ficha         → fichaMovil (lib/crm-movil.ts) + el historial con autor de escritorio
-//                     (getLeadAuditAction) para las notas y la actividad.
+//   · Tablero → lo mismo que app/crm/page.tsx: el funnel de la URL validado contra los de este
+//               workspace, sus etapas, sus leads en la columna en la que los dibuja CrmBoard
+//               (mapToCrmLead + etapasDelTablero), el orden manual y la plata de cada columna.
+//               Hasta 40 tarjetas por columna; el conteo dice el total (v3, 14/10/2026).
+//   · Ficha   → fichaMovil (lib/crm-movil.ts) + el historial con autor de escritorio
+//               (getLeadAuditAction) para las notas y la actividad.
 //
-// «No pude leer» y «no hay nada» son dos respuestas: cada grupo vuelve null cuando su lectura
-// falló, y la pantalla lo dice distinto de un vacío.
+// La lista de la v2 (Hoy · Por responder · Nuevos y el filtro por etapa) se borró con la v3: el
+// CRM del teléfono es el tablero, y lo que espera respuesta vive en la pestaña Chats.
+//
+// «No pude leer» y «no hay nada» son dos respuestas: el tablero vuelve null cuando su lectura
+// falló, y la pantalla lo dice distinto de una columna vacía.
 // =============================================================================
 
 import 'server-only';
 import { getWorkspaceActual } from '@/lib/workspace';
 import { tzDeWorkspace, TZ_DEFAULT, hoyEnWorkspace } from '@/lib/timezone';
-import { reunionesDeHoy, rotuloSinTexto, fichaMovil, type FichaMovil } from '@/lib/crm-movil';
-import { getConversacionesNoOficial } from '@/lib/evolution-mensajes';
-import { listLeads, listLeadsDeFunnel, getLead, type Lead } from '@/lib/leads';
-import { getPipelineStagesDefault } from '@/lib/funnels';
-import { generateFunnel, DEFAULT_PIPELINE, type Stage } from '@/lib/pipeline';
+import { fichaMovil, type FichaMovil } from '@/lib/crm-movil';
+import { listLeadsDeFunnel, getLead } from '@/lib/leads';
+import { getPipelineStagesDefault, getFunnelDe, listarFunnels } from '@/lib/funnels';
+import { leerOrdenManual } from '@/lib/crm-orden';
+import { ordenarKanbanManual } from '@/app/crm/orden-kanban';
+import { totalDeColumna, textoDelTotal, plataCorta } from '@/app/crm/total-columna';
+import { generateFunnel, DEFAULT_PIPELINE } from '@/lib/pipeline';
 import { getCampaignNameMap } from '@/lib/queries';
 import { etapasDeProducto } from '@/lib/lead-funnel';
 import { mapToCrmLead, etapasDelTablero } from '@/app/crm/crm-map';
 import { canalDeLead } from '@/app/crm/origen-lead';
 import { getLeadAuditAction } from '@/app/crm/actions';
 import {
-  cuandoEnLista, etapaEnTablero, haceCuanto, lineaActividad, llegoPor, proximaLlamada,
-  FUERA_DE_ACTIVIDAD, NOMBRE_REUNION, type LineaActividad,
+  cuandoEnLista, etapaEnTablero, lineaActividad, llegoPor, proximaLlamada, seMueveEnElTelefono, seSacaEnElTelefono,
+  FUERA_DE_ACTIVIDAD, type LineaActividad,
 } from './reglas';
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
-const SIETE_DIAS = 7 * 864e5;
-/** Cuántas filas de cada grupo viajan al teléfono. */
-const TOPE_GRUPO = 10;
-/** Cuántas filas trae el filtro por etapa. Lo demás está en el kanban de la computadora. */
-const TOPE_ETAPA = 40;
-
-// ── La lista ──────────────────────────────────────────────────────────────────
-
-/** Una fila de la lista: lo que se dibuja, ya armado en el server. */
-export type FilaCrmM = { leadId: number; nombre: string; segunda: string | null; riel: string };
-
-export type ListaCrmM = {
-  /** null = no se pudo leer (distinto de una lista vacía). */
-  hoy: FilaCrmM[] | null;
-  porResponder: FilaCrmM[] | null;
-  nuevos: FilaCrmM[] | null;
-  /** Hay más nuevos que los que viajaron: «Ver todos» abre el filtro en la etapa de entrada. */
-  masNuevos: boolean;
-  /** La etapa de entrada del funnel del negocio (la del «Ver todos»). */
-  entrada: { key: string; label: string } | null;
-};
-
-async function etapasDelNegocio(): Promise<Stage[]> {
-  return getPipelineStagesDefault().catch(() => generateFunnel(DEFAULT_PIPELINE).stages);
-}
-
-/** El segundo renglón de un lead nuevo: por dónde llegó, o su empresa. */
-function segundaDeNuevo(l: Lead, c: { canal: string; origin: string }): string | null {
-  return llegoPor(c.canal, c.origin) ?? (l.empresa?.trim() || null);
-}
-
-/** La lista del CRM en el teléfono: tres grupos, cada uno con su propio fallo. Nunca tira. */
-export async function listaCrm(): Promise<ListaCrmM> {
-  const ws = await getWorkspaceActual();
-  const [tz, hoy] = await Promise.all([
-    ws != null ? tzDeWorkspace(ws).catch(() => TZ_DEFAULT) : Promise.resolve(TZ_DEFAULT),
-    hoyEnWorkspace(),
-  ]);
-  const ahora = Date.now();
-  const cartera = listLeads();
-
-  const leerHoy = async (): Promise<FilaCrmM[]> => {
-    const rs = await reunionesDeHoy(hoy, tz);
-    return rs.filter((r) => r.dia === 'hoy').slice(0, TOPE_GRUPO).map((r) => ({
-      leadId: r.leadId, nombre: r.nombre, segunda: NOMBRE_REUNION[r.cual], riel: r.hora ?? 'Sin hora',
-    }));
-  };
-
-  const leerPorResponder = async (): Promise<FilaCrmM[]> => {
-    const [convs, leads] = await Promise.all([getConversacionesNoOficial(600, false), cartera.catch(() => [] as Lead[])]);
-    const nombres = new Map(leads.map((l) => [l.id, l.nombre?.trim() || null]));
-    const vistos = new Set<number>();
-    const out: FilaCrmM[] = [];
-    // Vienen de la más reciente a la más vieja.
-    for (const c of convs) {
-      if (!c.ultimoEntrante || c.leadId == null || c.bloqueado || !c.ultimaFecha) continue;
-      if (ahora - Date.parse(c.ultimaFecha) > SIETE_DIAS) continue;
-      if (vistos.has(c.leadId)) continue;
-      vistos.add(c.leadId);
-      out.push({
-        leadId: c.leadId,
-        nombre: nombres.get(c.leadId) || c.nombre || 'Sin nombre',
-        segunda: c.ultimoTexto?.trim() || rotuloSinTexto(c.ultimoTipo),
-        riel: haceCuanto(c.ultimaFecha, ahora, tz, hoy),
-      });
-      if (out.length === TOPE_GRUPO) break;
-    }
-    return out;
-  };
-
-  const leerNuevos = async (): Promise<{ filas: FilaCrmM[]; mas: boolean; entrada: { key: string; label: string } | null }> => {
-    const [leads, stages, campMap] = await Promise.all([cartera, etapasDelNegocio(), getCampaignNameMap().catch(() => ({}) as Record<string, string>)]);
-    const tablero = etapasDelTablero(stages);
-    const keys = stages.map((s) => s.key);
-    const entradaKey = tablero.entrada ?? null;
-    const entrada = entradaKey ? { key: entradaKey, label: stages.find((s) => s.key === entradaKey)?.label ?? entradaKey } : null;
-    const filas: FilaCrmM[] = [];
-    let mas = false;
-    // listLeads viene ordenada por created_at, de la más nueva a la más vieja.
-    for (const l of leads) {
-      const t = Date.parse(l.created_at ?? '');
-      if (!Number.isFinite(t) || ahora - t > SIETE_DIAS) break;
-      const c = mapToCrmLead(l, campMap, tablero);
-      if (etapaEnTablero(c.stage, keys) !== entradaKey) continue;
-      if (filas.length === TOPE_GRUPO) { mas = true; break; }
-      filas.push({ leadId: l.id, nombre: l.nombre?.trim() || 'Sin nombre', segunda: segundaDeNuevo(l, c), riel: cuandoEnLista(l.created_at, tz, hoy) });
-    }
-    return { filas, mas, entrada };
-  };
-
-  const [h, p, n] = await Promise.allSettled([leerHoy(), leerPorResponder(), leerNuevos()]);
-  for (const [nombre, x] of [['hoy', h], ['por responder', p], ['nuevos', n]] as const) {
-    if (x.status === 'rejected') console.error(`[m/crm] ${nombre}: ${msg(x.reason)}`);
-  }
-  return {
-    hoy: h.status === 'fulfilled' ? h.value : null,
-    porResponder: p.status === 'fulfilled' ? p.value : null,
-    nuevos: n.status === 'fulfilled' ? n.value.filas : null,
-    masNuevos: n.status === 'fulfilled' && n.value.mas,
-    entrada: n.status === 'fulfilled' ? n.value.entrada : null,
-  };
-}
-
-// ── El filtro por etapa ───────────────────────────────────────────────────────
-
-export type EtapaConteoM = { key: string; label: string; n: number };
-export type PorEtapaM = { etapas: EtapaConteoM[]; total: number; filas: FilaCrmM[]; hayMas: boolean };
-
-/**
- * Las columnas del tablero del negocio con cuántos leads dibuja cada una y, si se pide una
- * etapa, sus primeros leads (los más nuevos primero, como el tablero).
- */
-export async function porEtapa(key: string | null): Promise<PorEtapaM> {
-  const ws = await getWorkspaceActual();
-  const [leads, stages, campMap, tz, hoy] = await Promise.all([
-    listLeadsDeFunnel(null),
-    etapasDelNegocio(),
-    getCampaignNameMap().catch(() => ({}) as Record<string, string>),
-    ws != null ? tzDeWorkspace(ws).catch(() => TZ_DEFAULT) : Promise.resolve(TZ_DEFAULT),
-    hoyEnWorkspace(),
-  ]);
-  const tablero = etapasDelTablero(stages);
-  const keys = stages.map((s) => s.key);
-  const conteo = new Map<string, number>();
-  const filas: FilaCrmM[] = [];
-  let hayMas = false;
-  for (const l of leads) {
-    const c = mapToCrmLead(l, campMap, tablero);
-    const k = etapaEnTablero(c.stage, keys);
-    conteo.set(k, (conteo.get(k) ?? 0) + 1);
-    if (key && k === key) {
-      if (filas.length === TOPE_ETAPA) { hayMas = true; continue; }
-      filas.push({ leadId: l.id, nombre: l.nombre?.trim() || 'Sin nombre', segunda: segundaDeNuevo(l, c), riel: cuandoEnLista(l.created_at, tz, hoy) });
-    }
-  }
-  return {
-    etapas: stages.map((s) => ({ key: s.key, label: s.label, n: conteo.get(s.key) ?? 0 })),
-    total: leads.length,
-    filas,
-    hayMas,
-  };
-}
 
 // ── La ficha ──────────────────────────────────────────────────────────────────
 
@@ -234,4 +90,104 @@ export async function fichaV2(leadId: number): Promise<FichaV2 | null> {
     totalNotas: notasTodas.length,
     actividad,
   };
+}
+
+// ── El tablero (v3, 14/10/2026) ──────────────────────────────────────────────
+// Martín: el CRM del teléfono es el TABLERO de escritorio, con menos cosas. Las mismas lecturas
+// que app/crm/page.tsx: el funnel de la URL validado contra los de ESTE workspace (un id ajeno
+// cae al del negocio, como en escritorio), sus etapas, sus leads con la columna en la que los
+// dibuja CrmBoard (mapToCrmLead + etapasDelTablero), el orden manual de cada columna y la suma
+// de plata de la columna (totalDeColumna). Las columnas van como las bandas de escritorio
+// (pipeline → nutrición → salidas), en una sola fila.
+
+/** Cuántas tarjetas viajan por columna. El conteo dice el total; el resto, en la computadora. */
+const TOPE_COLUMNA = 40;
+
+export type TarjetaCrmM = {
+  id: number;
+  col: string;
+  nombre: string;
+  /** La empresa o por dónde llegó. */
+  segunda: string | null;
+  cuando: string;
+  /** El monto (o el estimado, con «≈»), corto. */
+  plata: string | null;
+};
+
+export type TableroCrmM = {
+  /** null = el funnel del negocio (como `leads.funnel_id`). */
+  funnelId: number | null;
+  /** El selector: el del negocio primero. Con uno solo, no hay selector. */
+  funnels: Array<{ id: number | null; nombre: string }>;
+  /** `movible`: se puede llevar un lead ACÁ desde el teléfono; `sale`: se puede sacar uno de acá. */
+  columnas: Array<{ key: string; titulo: string; total: string | null; cuantos: number; movible: boolean; sale: boolean }>;
+  tarjetas: TarjetaCrmM[];
+};
+
+const BANDA_ORDEN = ['pipeline', 'nutricion', 'salidas'];
+
+/** El tablero de un funnel. null = no se pudo leer. */
+export async function tableroCrm(funnelPedido: number | null): Promise<TableroCrmM | null> {
+  try {
+    const ws = await getWorkspaceActual();
+    const [tz, hoy, funnels] = await Promise.all([
+      ws != null ? tzDeWorkspace(ws).catch(() => TZ_DEFAULT) : Promise.resolve(TZ_DEFAULT),
+      hoyEnWorkspace(),
+      listarFunnels().catch(() => []),
+    ]);
+    const funnelId = funnels.some((f) => f.id === funnelPedido && !f.esDefault) ? funnelPedido : null;
+    const [leads, campMap, stagesRaw, orden] = await Promise.all([
+      listLeadsDeFunnel(funnelId),
+      getCampaignNameMap().catch(() => ({}) as Record<string, string>),
+      (funnelId ? getFunnelDe(funnelId).then((f) => f.stages) : getPipelineStagesDefault()).catch(() => generateFunnel(DEFAULT_PIPELINE).stages),
+      leerOrdenManual(funnelId),
+    ]);
+    const stages = [...stagesRaw].sort((a, b) =>
+      (BANDA_ORDEN.indexOf(a.band ?? 'pipeline') - BANDA_ORDEN.indexOf(b.band ?? 'pipeline')) || ((a.col ?? 0) - (b.col ?? 0)));
+    const tablero = etapasDelTablero(stages);
+    // ⚠️ LA COLUMNA DE CADA LEAD SE CUENTA CON LAS ETAPAS EN EL ORDEN DEL FUNNEL, no en el de las
+    // columnas: una etapa que el funnel ya no tiene cae a la PRIMERA (etapaEnTablero), y la primera
+    // es la del funnel, la misma que usan CrmBoard y moverEtapaAction.
+    const keys = stagesRaw.map((s) => s.key);
+    // El más nuevo arriba (el orden de llegada de escritorio); después, el orden manual de cada columna.
+    const crm = leads.map((l) => mapToCrmLead(l, campMap, tablero))
+      .sort((a, b) => (Date.parse(b.createdISO ?? '') || 0) - (Date.parse(a.createdISO ?? '') || 0));
+    const ordenados = ordenarKanbanManual(crm, (c) => c.id, (c) => etapaEnTablero(c.stage, keys), (e) => orden[e]);
+
+    const porCol = new Map<string, typeof ordenados>(keys.map((k) => [k, []]));
+    for (const c of ordenados) porCol.get(etapaEnTablero(c.stage, keys))?.push(c);
+
+    const tarjetas: TarjetaCrmM[] = [];
+    for (const [col, cs] of porCol) {
+      for (const c of cs.slice(0, TOPE_COLUMNA)) {
+        const monto = c.monto > 0 ? plataCorta(c.monto) : (c.ingresoEstimado ?? 0) > 0 ? `≈ ${plataCorta(c.ingresoEstimado ?? 0)}` : null;
+        tarjetas.push({
+          id: c.id, col, nombre: c.name?.trim() || 'Sin nombre',
+          segunda: c.company?.trim() || llegoPor(c.canal, c.origin) || null,
+          cuando: cuandoEnLista(c.createdISO, tz, hoy),
+          plata: monto,
+        });
+      }
+    }
+    const lite = stages.map((s) => ({ key: s.key, label: s.label, kind: s.kind ?? null }));
+    return {
+      funnelId,
+      funnels: [
+        { id: null, nombre: funnels.find((f) => f.esDefault)?.producto?.trim() || funnels.find((f) => f.esDefault)?.nombre || 'Funnel principal' },
+        ...funnels.filter((f) => !f.esDefault).map((f) => ({ id: f.id, nombre: f.producto?.trim() || f.nombre })),
+      ],
+      columnas: stages.map((s) => {
+        const cs = porCol.get(s.key) ?? [];
+        const t = totalDeColumna(s.key, cs);
+        return {
+          key: s.key, titulo: s.label, total: t ? textoDelTotal(t) : null, cuantos: cs.length,
+          movible: seMueveEnElTelefono(lite, s.key), sale: seSacaEnElTelefono(lite, s.key),
+        };
+      }),
+      tarjetas,
+    };
+  } catch (e) {
+    console.error(`[m/crm] tablero: ${msg(e)}`);
+    return null;
+  }
 }

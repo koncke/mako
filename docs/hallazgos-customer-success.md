@@ -34,6 +34,25 @@ que quedaron en `lib/api-mako/areas/cs.def.ts`.
 
 ---
 
+## El Deshacer de la entrega repone lo que creía la PANTALLA, no lo que pisó el server (14/10/2026)
+
+Lo encontró la verificación del tablero de Clientes del teléfono, y el escritorio usa el mismo patrón
+(`ClientesApp.moverEntrega`). El Deshacer repone la etapa y el reloj de la fila que la pantalla tenía (`previa`). Si
+entre la carga y el movimiento el cliente cambió de etapa (MaKo lo pasa por el avance del curso,
+lib/curso-avance.ts, o lo mueve otra persona), deshacer:
+- lo vuelve a la etapa vieja con el reloj viejo (trabado, en rojo);
+- re-enrola las secuencias de esa etapa;
+- borra el avance real.
+
+Si la pantalla creía que no tenía fila, deshacer la BORRA.
+
+- **`moverEntregaAction` ya devuelve la verdad:** `desde` es la etapa en la que estaba según el server (null si no
+  tenía fila).
+- **El teléfono ofrece el Deshacer sólo si `desde` coincide con la pantalla**, y nunca desde una etapa que ya no
+  existe, porque el server la rechaza (app/m/cs/CustomerSuccessM.tsx, `sePuedeDeshacer`).
+- **Pendiente en escritorio:** la misma guarda en `ClientesApp.moverEntrega` (app/customer-success). Para reponer
+  también el reloj real, que `moverClienteDeEtapa` (lib/cs-mover-etapa.ts) devuelva el `etapa_desde` de la fila previa.
+
 ## La API de Whop no deja leer las respuestas de una tarea
 
 **Vive en:** `lib/whop.ts`

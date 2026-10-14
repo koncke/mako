@@ -557,6 +557,7 @@ function SheetMover(p: FichaLeadProps & { abierto: boolean; onCerrar: () => void
       haptico('success');
       p.onCerrar();
       router.refresh();
+      if (!r.cambio) { toast(`Ya estaba en ${destino.label}`); return; }
       toast(r.pendientes.length ? 'Movido, faltan datos' : `En ${destino.label}`, {
         deshacer: () => {
           deshacerMoverAction(p.id, funnelId, antes, esCasa)

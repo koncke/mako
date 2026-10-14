@@ -20,7 +20,8 @@
 // Lo que NO se copia de Canva: el logo, sus íconos (acá son de lucide), la fuente,
 // sus plantillas y fotos, y «Canva IA».
 //
-// Los diseños son los de ESTE workspace guardados en el navegador (../espacio.ts).
+// Los diseños son los de ESTE workspace, en la base (/api/image-editor/disenos, mig 0278). Al
+// entrar, lo que haya quedado en el navegador de la etapa 1 sube solo (../mako/mudanza.ts).
 // Crear = guardar un documento en blanco y navegar a /image-editor/<id> con el `?ws=`.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -29,8 +30,9 @@ import Link, { useRouter } from '@/app/_ui/Link';
 import { BotonBorrar } from '@/app/_ui/BotonBorrar';
 import { useConfirm } from '@/app/_ui/Confirm';
 import { createBlankDocument } from '../_doory/lib/document';
-import type { LocalDesignSummary } from '../_doory/lib/local/types';
-import { repositorioDe } from '../espacio';
+import type { ResumenDiseno } from '@/lib/image-editor/tipos';
+import { mudarLocales } from '../mako/mudanza';
+import { borrarDiseno, crearDiseno, listarDisenos } from '../mako/nube';
 import { rutaDiseno, rutaEditor } from '../ruta';
 import { CrearDiseno, type VistaCrear } from './CrearDiseno';
 import { TarjetaTamano } from './TarjetaTamano';
@@ -75,10 +77,19 @@ function guardarVista(v: Vista) {
   }
 }
 
+// ── Un diseño de la lista ──
+
+/** Lo que la lista dibuja de un diseño de la base (../../../lib/image-editor/tipos.ts → ResumenDiseno). */
+type FilaLista = { id: string; title: string; width: number; height: number; pageCount: number; updatedAt: number; miniatura: string | null };
+
+const aFila = (d: ResumenDiseno): FilaLista => ({
+  id: d.id, title: d.titulo, width: d.ancho, height: d.alto, pageCount: d.paginas, updatedAt: Date.parse(d.actualizado) || 0, miniatura: d.miniatura,
+});
+
 // ── Textos de un diseño ──
 
 /** «Publicación de Instagram · 1080 × 1080 px · 3 páginas». */
-function detalleDe(d: LocalDesignSummary): string {
+function detalleDe(d: FilaLista): string {
   const tamano = tamanoPorMedidas(d.width, d.height);
   const partes = [tamano?.nombre, `${d.width} × ${d.height} px`, d.pageCount > 1 ? `${d.pageCount} páginas` : null];
   return partes.filter(Boolean).join(' · ');
@@ -96,16 +107,9 @@ function editadoHace(ts: number): string {
   return new Date(ts).toLocaleDateString('es', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-function useMiniatura(blob?: Blob): string | null {
-  const url = useMemo(() => (blob ? URL.createObjectURL(blob) : null), [blob]);
-  useEffect(() => () => { if (url) URL.revokeObjectURL(url); }, [url]);
-  return url;
-}
-
 /** La miniatura guardada o, si todavía no hay, la hoja en blanco con su proporción. */
-function Miniatura({ d, lado }: { d: LocalDesignSummary; lado: number }) {
-  const url = useMiniatura(d.thumbnail);
-  if (url) return <img src={url} alt="" draggable={false} />;
+function Miniatura({ d, lado }: { d: FilaLista; lado: number }) {
+  if (d.miniatura) return <img src={d.miniatura} alt="" draggable={false} />;
   const escala = lado / Math.max(d.width, d.height);
   return (
     <span
@@ -115,7 +119,7 @@ function Miniatura({ d, lado }: { d: LocalDesignSummary; lado: number }) {
   );
 }
 
-function TarjetaDiseno({ d, onAbrir, onBorrar }: { d: LocalDesignSummary; onAbrir: () => void; onBorrar: () => void }) {
+function TarjetaDiseno({ d, onAbrir, onBorrar }: { d: FilaLista; onAbrir: () => void; onBorrar: () => void }) {
   return (
     <div className={styles.tarjeta}>
       <button type="button" className={styles.miniatura} onClick={onAbrir} aria-label={`Abrir «${d.title}»`}>
@@ -130,7 +134,7 @@ function TarjetaDiseno({ d, onAbrir, onBorrar }: { d: LocalDesignSummary; onAbri
   );
 }
 
-function FilaDiseno({ d, onAbrir, onBorrar }: { d: LocalDesignSummary; onAbrir: () => void; onBorrar: () => void }) {
+function FilaDiseno({ d, onAbrir, onBorrar }: { d: FilaLista; onAbrir: () => void; onBorrar: () => void }) {
   const tamano = tamanoPorMedidas(d.width, d.height);
   return (
     <li className={styles.fila}>
@@ -146,10 +150,9 @@ function FilaDiseno({ d, onAbrir, onBorrar }: { d: LocalDesignSummary; onAbrir: 
 }
 
 export function Inicio({ ws }: { ws: number | null }) {
-  const repo = useMemo(() => repositorioDe(ws), [ws]);
   const router = useRouter();
   const { confirm, confirmNode } = useConfirm();
-  const [disenos, setDisenos] = useState<LocalDesignSummary[] | null>(null);
+  const [disenos, setDisenos] = useState<FilaLista[] | null>(null);
   const [busqueda, setBusqueda] = useState('');
   const [ambito, setAmbito] = useState<Ambito>('todo');
   const [tipoAbierto, setTipoAbierto] = useState<Tipo | null>(null);
@@ -161,32 +164,41 @@ export function Inicio({ ws }: { ws: number | null }) {
   const resultados = useRef<HTMLDivElement>(null);
 
   const cargar = useCallback(() => {
-    repo.listDesigns().then((lista) => setDisenos([...lista].sort((a, b) => b.updatedAt - a.updatedAt)), () => setDisenos([]));
-  }, [repo]);
-  useEffect(cargar, [cargar]);
+    void listarDisenos().then((r) => {
+      if (r.ok) setDisenos(r.disenos.map(aFila));
+      else { setDisenos([]); setError(r.error); }
+    });
+  }, []);
+  // Primero sube lo que haya quedado en el navegador (etapa 1); después lista. Si la mudanza falla,
+  // la copia local queda y se reintenta la próxima vez: la lista sale igual.
+  useEffect(() => {
+    void mudarLocales(ws).catch(() => undefined).finally(cargar);
+  }, [ws, cargar]);
 
   async function crear(nuevo: NuevoDiseno) {
     if (creando) return;
     setCreando(true);
     setError(null);
     try {
-      const d = await repo.createDesign({
-        title: 'Diseño sin título',
-        document: createBlankDocument(nuevo.ancho, nuevo.alto, { unit: nuevo.unidad, presetId: nuevo.presetId }),
+      const r = await crearDiseno({
+        titulo: 'Diseño sin título',
+        doc: createBlankDocument(nuevo.ancho, nuevo.alto, { unit: nuevo.unidad, presetId: nuevo.presetId }),
       });
+      if (!r.ok) throw new Error(r.error);
       // `creando` queda prendido: la pantalla se va, y un segundo clic no crea otro.
-      router.push(rutaDiseno(d.id));
+      router.push(rutaDiseno(r.id));
     } catch {
       setError('No se pudo crear el diseño.');
       setCreando(false);
     }
   }
 
-  const abrir = (d: LocalDesignSummary) => router.push(rutaDiseno(d.id));
+  const abrir = (d: FilaLista) => router.push(rutaDiseno(d.id));
 
-  async function borrar(d: LocalDesignSummary) {
-    if (!(await confirm(`Se elimina «${d.title}» de este navegador.`, { title: 'Eliminar diseño' }))) return;
-    await repo.deleteDesign(d.id);
+  async function borrar(d: FilaLista) {
+    if (!(await confirm(`Se elimina «${d.title}».`, { title: 'Eliminar diseño' }))) return;
+    const r = await borrarDiseno(d.id);
+    if (!r.ok) setError('No se pudo eliminar.');
     cargar();
   }
 

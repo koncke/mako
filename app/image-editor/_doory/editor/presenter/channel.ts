@@ -215,9 +215,12 @@ export function openLink(session: string, role: Role, create: (name: string) => 
   }
 }
 
-/** The address of the presenter view page for a session (a same-origin page of the built app, see `presenter-view.html`). */
-export function presenterViewUrl(session: string, base: string = '/', origin: string = location.href): string {
-  const url = new URL(`${base}presenter-view.html`, origin)
+/**
+ * The address of the presenter view page for a session. MaKo: Doory's `presenter-view.html` (a page of its Vite build)
+ * is the Next route `app/image-editor/presentador/page.tsx`; with the old address the button opened a 404.
+ */
+export function presenterViewUrl(session: string, origin: string = location.href): string {
+  const url = new URL('/image-editor/presentador', origin)
   url.searchParams.set('session', session)
   return url.toString()
 }

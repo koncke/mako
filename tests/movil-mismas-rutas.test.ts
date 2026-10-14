@@ -131,9 +131,11 @@ test('el teléfono ve la página de /m en la MISMA URL (rewrite), con la query o
 });
 
 test('el proxy no toca /api, lo público, el login, el repartidor ni lo que se usa en la computadora', () => {
-  for (const p of ['/api/crm', '/api/v1/leads', '/privacidad', '/vsl', '/login', '/onboarding', '/inicio', '/integraciones', '/whatsapp', '/m.js', '/']) {
+  for (const p of ['/api/crm', '/api/v1/leads', '/privacidad', '/vsl', '/login', '/onboarding', '/inicio', '/integraciones', '/m.js', '/']) {
     assert.deepEqual(pm(p), { tipo: 'seguir' }, p);
   }
+  // /whatsapp dejó de ser «de la computadora» (v3): en el teléfono es la pestaña Chats.
+  assert.deepEqual(pm('/whatsapp'), { tipo: 'reescribir', destino: '/m/chats' });
 });
 
 test('una URL /m vieja se REDIRIGE a la de escritorio (sólo GET y HEAD), para todos', () => {

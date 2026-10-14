@@ -46,8 +46,11 @@ test('la prueba de una secuencia manda sólo los MENSAJES: una acción no se pru
   const prueba = bloque(src, 'export async function probarSecuencia', '\n}\n');
   // Desde el 08/10/2026 tampoco las tarjetas de CONTROL (condición, espera, «Si responde», «Ir a»):
   // llevan `cuerpo: ''` de relleno y, sin el filtro, cada una era otro «[PRUEBA n/N] » en blanco.
-  assert.match(prueba, /const mensajes = sec\.pasos\.filter\(\(p\) => !esPasoAccion\(p\) && !esNodoDeControl\(p\)\)/);
-  assert.match(prueba, /for \(const paso of mensajes\)/, 'el bucle vuelve a recorrer las acciones y manda un WhatsApp en blanco por cada una');
+  // Desde el 14/10/2026 los mensajes son los de UN escenario (`escenarioDePrueba`, tests/probar-secuencia-escenario.test.ts):
+  // el filtro va sobre ese camino.
+  const escenario = bloque(src, 'export async function escenarioDePrueba(', '\n}\n');
+  assert.match(escenario, /mensajesDelEscenario\(pasos, elegido\.elecciones\)\s*\.filter\(\(p\) => !esPasoAccion\(p\) && !esNodoDeControl\(p\)\)/);
+  assert.match(prueba, /for \(const \[k, paso\] of mensajes\.entries\(\)\)/, 'el bucle vuelve a recorrer las acciones y manda un WhatsApp en blanco por cada una');
   assert.match(prueba, /mensajes\.every\(\(p\) => p\.canal === 'whatsapp'\)/);
 });
 

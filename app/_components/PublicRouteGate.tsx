@@ -57,6 +57,9 @@ export function esVistaSinChrome(pathname: string | null | undefined): boolean {
     // ancho para navegar a lugares a los que nadie va a ir desde acá — lo único
     // que se hace en esta ventana es mirar entrar eventos y cerrarla.
     || /^\/integraciones\/escuchando\/?$/.test(p)
+    // La ventana de «Presentar con notas» del Image Editor: la segunda ventana que se
+    // mira mientras se presenta (notas, reloj, la siguiente). Por la misma razón.
+    || /^\/image-editor\/presentador\/?$/.test(p)
     // ⚠️ El Video Editor YA NO está acá. Iba a pantalla completa como CapCut (diseño
     // §9) y Martín pidió lo contrario el 12/10 («que la barra lateral no desaparezca
     // del todo mientras se edita», validado el 13/10): el editor se dibuja adentro

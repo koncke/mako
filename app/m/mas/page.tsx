@@ -1,11 +1,11 @@
 // =============================================================================
-// /m/mas — More: la lista agrupada estilo Ajustes (docs/diseno-mako-mobile-v2.md, «La barra inferior»)
+// /m/mas — More: la lista agrupada estilo Ajustes, por las FAMILIAS de la sidebar (v3, 14/10/2026)
 // =============================================================================
 //   1. Tu cuenta (avatar, nombre, negocio) → /m/cuenta
-//   2. Dashboard · Ads Manager · Customer Success · Automations
-//   3. Video Generator · Landing Generator
-//   4. MaKo (el chat), con el logo real como ícono
-//   5. Versión de computadora
+//   2. Una caja por familia de la sidebar, con su nombre de escritorio y en su orden (Operate ·
+//      Analyze · Sales Machine · Content Machine · Customer Success): `gruposMas`
+//   3. Pregúntale a MaKo, con el logo real como ícono (fuera de las familias, como en escritorio)
+//   4. Versión de computadora
 //
 // Lo que el rol no ve, NO aparece (`gruposMas` → `puedeVerKey`, la misma regla del Sidebar
 // y del guard de cada sección). Lo que subió a la barra (porque el rol no ve CRM o Plan) no
@@ -19,6 +19,7 @@ import { gruposMas } from '@/lib/movil-rutas';
 import { MakoLogo } from '@/app/_components/MakoBrand';
 import { FilaM } from '../_ui/FilaM';
 import { AvatarM, ListaM } from '../_ui/Piezas';
+import { SeccionM } from '../_ui/SeccionM';
 import { RUTA_CUENTA } from '../_ui/cabecera';
 import { contarBadges } from '../badges';
 import { FilaVersionComputadora } from './VersionComputadora';
@@ -34,7 +35,7 @@ export default async function MasPagina() {
       : ctx.ws != null
         ? getWorkspace(ctx.ws).then((w) => w?.nombre?.trim() || null).catch(() => null)
         : Promise.resolve(null),
-    contarBadges({ rol: ctx.rol, capa: ctx.capa, ws: ctx.ws }, grupos.flat().map((s) => s.id)),
+    contarBadges({ rol: ctx.rol, capa: ctx.capa, ws: ctx.ws }, grupos.flatMap((g) => g.secciones.map((s) => s.id))),
   ]);
   const nombre = (ctx.sesion.nombre ?? '').trim();
 
@@ -50,8 +51,9 @@ export default async function MasPagina() {
       </ListaM>
 
       {grupos.map((g) => (
-        <ListaM key={g[0].id}>
-          {g.map((s) => (
+        <SeccionM key={g.familia ?? 'mako'} titulo={g.titulo ?? undefined}>
+        <ListaM>
+          {g.secciones.map((s) => (
             <FilaM
               key={s.id}
               navegacion
@@ -65,6 +67,7 @@ export default async function MasPagina() {
             />
           ))}
         </ListaM>
+        </SeccionM>
       ))}
 
       <div className="m-mas-compu">

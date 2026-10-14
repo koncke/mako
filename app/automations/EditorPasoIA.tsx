@@ -37,8 +37,9 @@
 // ⚠️ LO QUE FALTA PARA PUBLICAR va en rojo con la MISMA regla que el freno (`erroresDelPasoIA`, `faltaEnCaso`).
 // ⚠️ ESTE ARCHIVO NO GUARDA NADA (como FlujoLienzo): cada cambio sube por `cambiar`. Tipear no apila (el Ctrl+Z
 // del texto es del navegador); elegir una opción, armar con IA, sumar o quitar un escenario y guardar el ensayo, sí.
-// ⚠️ IG Y MESSENGER NO SE OFRECEN TODAVÍA (§6: «la pantalla ofrece lo que el emisor hace»): el motor contesta
-// por WhatsApp. Cuando el motor social esté, se suman a `MEDIOS_OFRECIDOS` y vuelven los chips del medio.
+// ⚠️ IG Y MESSENGER SE OFRECEN DESDE QUE EL MOTOR CONTESTA POR AHÍ (TikTok fase 0, 14/10/2026; §6: «la pantalla
+// ofrece lo que el emisor hace»): `asistirRespuesta` con el medio, la respuesta por Zernio. Un medio que ya tiene
+// su AI Step no se puede elegir (`puedeSumarAIStep`, la misma regla que Publicar: uno por medio).
 
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
@@ -53,7 +54,7 @@ import { VozAIStep } from './VozAIStep';
 import { ModalEnsayoAIStep } from './ModalEnsayoAIStep';
 import {
   TOPE_OBJETIVO, TOPE_ESCENARIOS_AI_STEP, ROTULO_LO_DEMAS, ROTULO_MEDIO,
-  faltaEnCaso, medioDe, erroresDelPasoIA,
+  faltaEnCaso, medioDe, erroresDelPasoIA, puedeSumarAIStep,
   type CasoRespuesta, type PasoGrafo, type MedioAIStep, type EjemploCaso,
 } from '@/lib/flujo-grafo';
 import { resumenPasoIA, FILA_OBJETIVO_IA, FILA_ESCENARIOS_IA, FILA_CHIPS_IA, ICONOS_MAS } from '@/lib/flujo-conversacion';
@@ -71,8 +72,8 @@ const OnboardingChatAgent = dynamic(() => import('./OnboardingChatAgent').then((
 const SANS = "'Geist', sans-serif";
 const UNA_LINEA: CSSProperties = { minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' };
 
-/** Los medios que la pantalla OFRECE hoy (§6): sólo los que el motor sabe contestar. */
-const MEDIOS_OFRECIDOS: readonly MedioAIStep[] = ['whatsapp'];
+/** Los medios que la pantalla OFRECE (§6): los que el motor sabe contestar. */
+const MEDIOS_OFRECIDOS: readonly MedioAIStep[] = ['whatsapp', 'instagram', 'messenger'];
 
 /** El color de cada medio para el toque de la tarjeta (`--medio`). Instagram, su degradé. */
 export const COLOR_MEDIO: Readonly<Record<MedioAIStep, string>> = {
@@ -266,7 +267,9 @@ export function EditorPasoIA({ id, paso, pasos, busy, cambiar, secuenciaId, onEr
         {MEDIOS_OFRECIDOS.length > 1 && (
           <div style={{ display: 'flex', gap: 6 }} role="radiogroup" aria-label="Por dónde contesta">
             {MEDIOS_OFRECIDOS.map((m) => (
-              <button key={m} type="button" role="radio" aria-checked={medio === m} disabled={busy}
+              <button key={m} type="button" role="radio" aria-checked={medio === m}
+                disabled={busy || (medio !== m && !puedeSumarAIStep(pasos.filter((x) => x.id !== id), m))}
+                title={medio !== m && !puedeSumarAIStep(pasos.filter((x) => x.id !== id), m) ? `Ya hay un AI Step de ${ROTULO_MEDIO[m]}` : undefined}
                 onClick={() => cambiar({ medio: m === 'whatsapp' ? undefined : m }, true)}
                 style={chipOpcion(medio === m)}>
                 <img src={m === 'whatsapp' ? ICONOS_MAS.whatsapp : ICONOS_MAS[m]} alt="" width={14} height={14} />{ROTULO_MEDIO[m]}

@@ -209,6 +209,9 @@ const TENANT_TABLES = new Set<string>([
   'landing_docs', 'landing_doc_versiones', 'landing_doc_comentarios',
   // Los comentarios del diagnóstico de una landing (mig 0264, tanda 2 T5): N filas por workspace.
   'landing_sugerencias',
+  // El Image Editor (la copia de Canva, mig 0278): los diseños y «Subidos». N filas por workspace:
+  // sin esta línea el inicio del editor de un negocio listaría los diseños de TODOS.
+  'image_disenos', 'image_subidos',
   // Canal Instagram vía Zernio (mig 0136). La tab se retiró el 06/10/2026 y ya no
   // las lee ni las escribe nadie, pero las TABLAS quedan en la base (sin migración
   // de drop), así que siguen acá: si alguien vuelve a leerlas por getTenantDb, que

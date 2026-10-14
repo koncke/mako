@@ -433,10 +433,11 @@ test('el motor y la ruta de «Probar» recorren el flujo EXPANDIDO (guard de cab
   // Lo que camina la rama lee ESE `pasos`, nunca los de la secuencia sin expandir.
   assert.doesNotMatch(motor.slice(motor.indexOf('const escenarios')), /secuencia\.pasos/);
   // La ruta clasifica con `escenariosDeRespuesta`, que expande adentro; el simulador expande al caminar.
-  assert.match(sinComentarios(leer('app/api/chat-agent/simulador/route.ts')), /const casos = escenariosDeRespuesta\(pasos\);/);
+  // Con el medio de la prueba (TikTok fase 0, 14/10/2026: tests/ai-step-redes.test.ts).
+  assert.match(sinComentarios(leer('app/api/chat-agent/simulador/route.ts')), /const casos = escenariosDeRespuesta\(pasos, \{ medio \}\);/);
   const sim = sinComentarios(leer('lib/simulador-grafo.ts'));
-  assert.match(sim, /export function siguiente<P extends PasoGrafo>\([\s\S]*?const pasos = recorrido\(pasosIn\);/);
-  assert.match(sim, /export function entrarEnRespuesta\([\s\S]*?const pasos = recorrido\(pasosIn\);/);
+  assert.match(sim, /export function siguiente<P extends PasoGrafo>\([\s\S]*?const pasos = recorrido\(pasosIn, estado\.medio\);/);
+  assert.match(sim, /export function entrarEnRespuesta\([\s\S]*?const pasos = recorrido\(pasosIn, estado\.medio\);/);
   // El lienzo: la tarjeta con su cuerpo y su editor.
   const lienzo = sinComentarios(leer('app/automations/FlujoLienzo.tsx'));
   assert.match(lienzo, /n\.tipo === 'paso-ia' && paso\s*\? <CuerpoPasoIA paso=\{paso\} pendientes=\{n\.detalle\} advertencia=\{!!n\.advertencia\} \/>/);

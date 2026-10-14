@@ -1,30 +1,31 @@
 // =============================================================================
-// /m/crm — el CRM en el teléfono (v2): buscador y tres grupos
+// /m/crm — el CRM en el teléfono (v3, 14/10/2026): el tablero de escritorio
 // =============================================================================
-// Prototipo: docs/prototipos/mako-mobile-v2.html, data-ir="crm". Diseño: docs/diseno-mako-mobile-v2.md
-// («CRM»). Arriba el buscador; debajo Hoy (las reuniones de hoy con su hora), Por responder (el
-// último mensaje y hace cuánto) y Nuevos (los que siguen en la etapa de entrada). El filtro por
-// etapa es la acción de la derecha de la barra y abre un sheet.
+// Martín aprobó el prototipo v3 (docs/prototipos/mako-mobile-tableros.html): el CRM del teléfono
+// es el TABLERO del funnel, una columna por pantalla, con el selector de funnel arriba y la lupa
+// en el encabezado (./TableroCrm.tsx). La lista de la v2 (Hoy · Por responder · Nuevos) se fue:
+// «el CRM no lleva Hoy»; lo que espera respuesta está en la pestaña Chats.
 //
+// El funnel va por la URL (?funnel=), como en escritorio: las etapas se leen en el server.
 // Closer y setter ven el CRM entero del workspace: no hay scoping por persona en el producto
-// (leads.closer/setter son nombres en texto libre) y aquí no se inventa. El kanban, la tabla,
-// las acciones en lote y la importación quedan en la computadora.
+// (leads.closer/setter son nombres en texto libre) y aquí no se inventa.
 // =============================================================================
 
 import './crm.css';
 import { requireMovil } from '@/lib/movil-guard';
-import { PantallaM } from '@/app/m/_ui';
-import { listaCrm } from './datos';
-import { ListaCrm } from './ListaCrm';
+import { ErrorM, PantallaM } from '@/app/m/_ui';
+import { tableroCrm } from './datos';
+import { TableroCrm } from './TableroCrm';
 
 export const dynamic = 'force-dynamic';
 
-export default async function CrmMovil() {
+export default async function CrmMovil({ searchParams }: { searchParams: Promise<{ funnel?: string }> }) {
   await requireMovil({ navKey: 'crm' });
-  const datos = await listaCrm();
+  const pedido = Number((await searchParams).funnel);
+  const datos = await tableroCrm(Number.isInteger(pedido) && pedido > 0 ? pedido : null);
   return (
     <PantallaM refrescable>
-      <ListaCrm datos={datos} />
+      {datos ? <TableroCrm datos={datos} /> : <ErrorM frase="No pude leer el tablero." />}
     </PantallaM>
   );
 }
