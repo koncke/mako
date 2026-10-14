@@ -923,4 +923,33 @@ export const BITACORA: Hito[] = [
       "docs/relevo/customer-success.md — la reunión del viernes y la prueba de Mauricio",
     ],
   },
+  {
+    fecha: "14 oct", hora: "00:20", chat: "Customer Success", cuenta: "claude2",
+    actor: "martin", tipo: "prompt",
+    titulo: "El nombre del producto nunca como nombre del curso",
+    pedido: "Elimina el nombre del \"producto\" que hoy en día se llama \"nuevo CRM\", no debe aparecer nunca como nombre del curso...\n\nY mandale un mensaje al chat de CRM para que un lead que caiga a \"Ganado\" también pueda configurar la sugerencia de crear la automatización de la invitación automática al curso...",
+    puntos: [
+      "Lo del CRM se le pasó a esa sesión, que lo anotó en su mapa de sugerencias (docs/sugerencias-mako-crm.md) para validar con Martín.",
+    ],
+  },
+  {
+    fecha: "14 oct", hora: "00:38", chat: "Customer Success", cuenta: "claude2",
+    actor: "claude", tipo: "correccion",
+    titulo: "El producto (el CRM) ya no nombra ningún curso, ni de último recurso",
+    puntos: [
+      "El nombre de un curso es el título puesto a mano o el de su oferta; si no hay ninguno, el alumno ve «Tu programa» y el equipo «Curso sin nombre».",
+      "Se cerraron las dos puertas que quedaban: el último recurso de la regla y el respaldo de cada pantalla cuando una lectura falla.",
+      "También la comunidad y la API de MaKo, que nombraban el curso con el producto sin pasar por la regla.",
+      "Cambia un solo curso hoy: «Service Delivery & Ops» (ws10), que no tiene oferta.",
+      "Espera a Martín: la oferta que nace junto con un CRM se llama como el CRM.",
+    ],
+    commits: [
+      { sha: "0a24ca6a", msg: "Curso: el nombre del producto (el CRM) no nombra nunca un curso, ni de último recurso", lineas: 269, archivos: 10 },
+    ],
+    archivos: [
+      "lib/curso-nombre.ts + lib/curso-nombre-datos.ts + tests/curso-nombre.test.ts — la regla sin el producto",
+      "lib/comunidad-datos.ts + app/customer-success/comunidad/page.tsx — la comunidad se llama como su curso",
+      "lib/api-mako/areas/curso.run.ts — listar_cursos con el nombre del curso",
+    ],
+  },
 ];

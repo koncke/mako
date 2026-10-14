@@ -62,7 +62,9 @@ Se lee en cinco minutos. Medido el 13/10/2026; lo que no se midió, lo dice.
 - **La invitación** por mail (con el remitente del negocio) y, si se elige, por WhatsApp.
 - **El editor**: la lección se guarda a mano con aviso al salir, papelera con Deshacer, tareas en
   contenedores con quiz, escala, archivos, audio y agenda, videos por embed.
-- **El nombre del curso sale de su OFERTA** (13/10), ya no del CRM.
+- **El nombre del curso sale de su OFERTA** (13/10) y **nunca del producto, que es el CRM** (14/10):
+  sin título ni oferta, el alumno ve «Tu programa» y el equipo «Curso sin nombre». Vale también para
+  la comunidad, la ficha, el mail y la API.
 
 ### Lo que FALTA
 
@@ -382,6 +384,9 @@ de Mauricio Bustos — un CLIENTE real**.
    desde MaKo.
 12. **Del audio del 08/10 a la noche quedan los puntos 13, 14 y 15** (el correo con
    Google/Gmail entre ellos): **son de Integraciones**, no de acá.
+13. **La oferta que nace junto con un CRM se llama como el CRM** (`crearProductoConFunnel` crea los
+    tres con el mismo nombre), así que un curso nuevo hereda el nombre del CRM por ahí. ¿Esa oferta
+    puede nombrar el curso, o el curso queda «sin nombre» hasta que alguien la renombre en Offer?
 
 ---
 
