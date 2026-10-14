@@ -36,6 +36,7 @@ import { ComportamientoCard } from '../lead-view/ComportamientoCard';
 // «¿Era calificado?» vive también acá, en Tracking: hay funnels sin reuniones y
 // ese dato es el que viaja a Meta. Mismo control y misma columna que en Reuniones.
 import { CalificacionCard } from '../lead-view/CalificacionCard';
+import { OfertaDelLead } from '../lead-view/OfertaDelLead';
 import { ReunionesCard } from '../lead-view/ReunionesCard';
 import { AnalystDelLead } from '../lead-view/AnalystDelLead';
 import { ANCHO_FICHA_LEAD, ALTO_CHAT_EN_LA_RUTA } from '../lead-view/ficha-medidas';
@@ -295,7 +296,7 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
             // abre nunca más, pero todos los días ocupa lugar y hace dudar de si falta
             // algo. Con pagos cargados vuelve sola, con todo lo de siempre. Y con una pasarela
             // conectada también está en el lead que todavía no compró: ahí vive «Cobrar con link».
-            ...(verPagos ? [{ key: 'cobranza', label: 'Pagos', badge: cuotasPendientes, content: <DealDetailsCard lead={lead} pagos={pagos} /> }] : []),
+            ...(verPagos ? [{ key: 'cobranza', label: 'Pagos', badge: cuotasPendientes, content: <><OfertaDelLead leadId={lead.id} funnelId={lead.funnel_id ?? null} /><DealDetailsCard lead={lead} pagos={pagos} /></> }] : []),
             // Análisis va pegado a Historial: las dos contestan «qué pasó con esta
             // persona» —una lo interpreta, la otra lo registra— y se leen seguidas.
             //

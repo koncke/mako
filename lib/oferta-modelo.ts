@@ -36,10 +36,20 @@ export const esUrgenciaTipo = (v: unknown): v is UrgenciaTipo =>
 export type Bono = { nombre: string; valor_usd: number | null; porque: string };
 
 /** Una fila de `ofertas` (mig 0169). Los nombres son los de las columnas. */
+/** Cómo se cobra una oferta (mig 0272). El ticket es `precio_usd`; en una suscripción, el de cada mes. */
+export type ModeloOferta = 'unico' | 'suscripcion';
+export const MODELOS_OFERTA: ReadonlyArray<{ id: ModeloOferta; label: string }> = [
+  { id: 'unico', label: 'Pago único' },
+  { id: 'suscripcion', label: 'Suscripción' },
+];
+export const esModeloOferta = (v: unknown): v is ModeloOferta => v === 'unico' || v === 'suscripcion';
+
 export type Oferta = {
   id: number;
   nombre: string;
   precio_usd: number | null;
+  /** Cómo se cobra (mig 0272). Opcional: las ofertas viejas y las armadas en código no lo dicen. */
+  modelo?: ModeloOferta | null;
   precio_nota: string | null;
   promesa: string | null;
   incluye: string | null;
@@ -148,6 +158,7 @@ export function filaAOferta(fila: Record<string, unknown>): Oferta {
     id: Number(fila.id),
     nombre: txt(fila.nombre),
     precio_usd: nOrNull(fila.precio_usd),
+    modelo: esModeloOferta(fila.modelo) ? fila.modelo : null,
     precio_nota: txt(fila.precio_nota) || null,
     promesa: txt(fila.promesa) || null,
     incluye: txt(fila.incluye) || null,

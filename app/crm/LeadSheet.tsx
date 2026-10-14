@@ -43,6 +43,7 @@ import { ComportamientoCard } from './lead-view/ComportamientoCard';
 import { CalificacionCard } from './lead-view/CalificacionCard';
 import { ReunionesCard } from './lead-view/ReunionesCard';
 import { DealDetailsCard } from './[id]/DealDetailsCard';
+import { OfertaDelLead } from './lead-view/OfertaDelLead';
 import { LeadTabs } from './lead-view/LeadTabs';
 import { NotasCard } from './lead-view/NotasCard';
 import { RespuestasFormulario } from './lead-view/RespuestasFormulario';
@@ -285,6 +286,8 @@ export function LeadSheet({ data, onClose, initialTab, solucionarAlAbrir }: {
   const verPagos = muestraPagos({ ...etapaPagos, ...vigente.cobro });
   const tabCobranza = (
     <>
+      {/* La OFERTA va primero (13/10/2026, Pagos punto 1): a qué oferta entró, y una nueva desde acá. */}
+      <OfertaDelLead leadId={lead.id} funnelId={lead.funnel_id ?? null} onCambio={releer} />
       {/* ⚠️ `onCambio`: acá el lead es estado de cliente (getLeadFullAction), así que el
           refresh de la tarjeta no lo alcanza. Se aplica lo que la action devolvió —el wizard
           de «Completar datos» se arma con ESTE lead— y se relee el resto (los «Datos sin
