@@ -4491,3 +4491,31 @@ Lo que quedó sin hacer, con su archivo:
 - El aviso «se cambió tu contraseña» y `ingreso_nuevo` usan la misma tarjeta, sin secreto: después del 21/10.
 
 **Vive en:** `lib/email-persona.ts` · `lib/restablecer-aviso.ts` · `lib/aviso-evento.ts` (`pasosDelEvento`, `datosDeLaPersona`, `secretosDelEvento`) · `lib/variables-aviso.ts` (`secreto`, `sinSecretos`) · `lib/flujo-corridas.ts` · `lib/plantillas-automatizaciones.ts` (`PLANTILLAS_PLATAFORMA`)
+
+## La «Reentrada» del CRON (14/10/2026)
+
+Lo hecho está en `f6bc0c85f` (diseño: docs/diseno-mako-nada-por-detras.md §1-B y §2.4-a).
+
+- **«Cada vez que vuelve a entrar» NO puede correr por el barrido.** El barrido del CRON (la cohorte) mira quién ESTÁ
+  en la etapa, no quién acaba de llegar: un lead parado ahí habría vuelto a recibir la automatización entera en cada
+  corrida. «Vuelve a entrar» es un EVENTO (`enrolarPorEvento`) o un «Ir a» / ⚡ inscribir; el barrido sólo reusa con
+  «Otra vez si es otra reunión», donde la reunión dice que es otra (`puedeReentrar`, `solo_por_evento`).
+- **Sin guardar, la regla de antes, y no «Una sola vez».** Leer la columna en null como «Una sola vez» le habría sacado
+  el reuso a toda «Un Lead Agendó Llamada» creada desde la galería mientras sus plantillas no la escriban: un cambio de
+  comportamiento que nadie decidió (lo marcó también el chat del CRM). El respaldo es transitorio y el panel del CRON lo
+  muestra como lo elegido (`reentrada_efectiva`), así que no queda escondido.
+- **«Otra vez si es otra reunión» necesita la reunión ANOTADA.** El reuso compara contra `reunion_at`, y esa columna
+  sólo se escribía en los flujos que preparan una reunión por su forma. Elegida en otro flujo, caía siempre en «no sé
+  qué reunión preparaba». Ahora la anota `anotaReunion` (la forma, o esa opción).
+- **La lectura de un «Ir a» no toleraba una columna que falta.** `inscribirEnSecuencia` pedía su lista a mano: sumarle
+  `reentrada` la habría tirado antes de aplicar la 0279. La lista pasó a una constante y se reintenta sin la columna,
+  como las lecturas del motor.
+
+Lo que quedó sin hacer, con su archivo:
+- La migración 0279 y `scripts/reentrada-explicita.mts` (la deja escrita en las que existen) esperan el OK de Martín
+  para correr en prod.
+- Las plantillas (`lib/plantillas-automatizaciones.ts`, `lib/plantilla-crear.ts`) y una operación de la API
+  (`cambiar_reentrada_secuencia`, chatbot.def/run): después de que integre `crm-bloques-b5`, que toca esos archivos.
+  Cuando entren, el respaldo de `reentradaDe` se va.
+
+**Vive en:** `lib/reentrada.ts` · `lib/nutricion.ts` (`reentradaDeSecuencia`, `anotaReunion`, `reusablesDe`, `setSecuenciaReentrada`) · `lib/nutricion-inscripcion-manual.ts` · `app/automations/SecuenciaPerfil.tsx` · `app/api/whatsapp/secuencias/route.ts` · `supabase/migrations/0279_reentrada_cron.sql`

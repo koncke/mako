@@ -1590,4 +1590,18 @@ FEEDBACK PROBAR:
     ],
     archivos: ["docs/hallazgos-chatbot.md — «Email a la persona» y el dato SECRETO", "docs/diseno-2fa-obligatorio.md §9"],
   },
+  {
+    fecha: "14 oct", hora: "18:30", chat: "Chatbot", cuenta: "claude1",
+    actor: "claude", tipo: "implementacion",
+    titulo: "La «Reentrada» del CRON: si un lead vuelve a entrar a la automatización",
+    puntos: [
+      "Era una regla escondida: un flujo de reunión volvía a correr si el lead agendaba otra reunión; cualquier otro, una sola vez. Ahora se elige en el panel del CRON: «Una sola vez», «Otra vez si es otra reunión» o «Cada vez que vuelve a entrar».",
+      "«Cada vez» corre por evento o por un «Ir a», si la anterior terminó; nunca por el barrido, nunca una cancelada.",
+      "Sin guardar, la regla de antes, y el panel la muestra. La migración 0279 y el script que la deja escrita esperan el OK de Martín.",
+    ],
+    commits: [
+      { sha: "f6bc0c85f", msg: "Automations: la «Reentrada» del CRON (si un lead vuelve a entrar)", lineas: 512, archivos: 14 },
+    ],
+    archivos: ["docs/hallazgos-chatbot.md — «La Reentrada del CRON»", "docs/diseno-mako-nada-por-detras.md §2.4-a"],
+  },
 ];

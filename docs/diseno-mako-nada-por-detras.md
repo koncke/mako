@@ -167,7 +167,7 @@ Con esto se pueden borrar después también la segunda mirada de la antigüedad 
 
 ### 2.4 El resto, en pocas piezas (ninguna es una tarjeta nueva)
 
-- **a. CRON «Reentrada»** (sección 1-B).
+- **a. CRON «Reentrada»** (sección 1-B). **HECHO (14/10, `f6bc0c85f`):** el panel del CRON y el motor; la mig 0279 espera el OK; las plantillas y la API, después de b5.
 - **b. ~~Por camino, «Si contesta: se corta / sigue»~~ HECHO como condición: «No contestó desde que entró»** (sección 1-C).
 - **c. DELAY «antes de la reunión»**: el texto visible y el campo de tolerancia (sección 1-A).
 - **d. Mensaje**: la casilla «Sale sola», y que el borrador pendiente se diga.
