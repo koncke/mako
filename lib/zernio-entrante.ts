@@ -30,8 +30,11 @@
 
 import 'server-only';
 import { getTenantDb } from './workspace';
-import { createLead } from './leads';
-import { plataformaDe, ventanaDesde, nombreDeParticipante, type CanalSocial, type EventoSocial } from './canal-social';
+import { createLead, logLeadEvent } from './leads';
+import {
+  plataformaDe, ventanaDesde, nombreDeParticipante, instagramDelEvento, entradaSocialDe, lineaDeEntradaSocial, NOMBRE_CANAL,
+  type CanalSocial, type EventoSocial,
+} from './canal-social';
 import { escuchaElEvento, subtipoDelEvento } from './disparadores';
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
@@ -162,15 +165,29 @@ export async function procesarEventoSocial(e: EventoSocial, body: unknown): Prom
  *
  * `permitirDuplicado`: la identidad se chequeó acá (la fila de la persona), y un nombre como «Juan»
  * chocaría con el «Juan» de WhatsApp — que puede ser otra persona. Es la regla de oro de arriba.
+ *
+ * ⚠️ CÓMO ENTRÓ SE GUARDA ACÁ Y SÓLO ACÁ (tanda B del CRM, 14/10/2026). La fila de la persona
+ * (`filaDe`) guarda el ÚLTIMO comentario, y cada comentario nuevo pisa al anterior porque el motor
+ * necesita ése para la respuesta privada; el texto de un comentario no iba a ningún lado y el `ref` y
+ * el anuncio se tiraban. El lead, en cambio, nace UNA vez: lo que trae su alta —su @, el anuncio de un
+ * DM pagado en `meta_ad_id` y la entrada (`entradaSocialDe`)— no lo vuelve a escribir nadie. Y su
+ * línea en el historial, que hasta acá no existía: el lead de Instagram aparecía sin decir de dónde.
  */
 async function crearLeadDe(e: EventoSocial, filaId: number): Promise<number | null> {
   try {
+    const entrada = entradaSocialDe(e);
     const lead = await createLead({
       nombre: nombreDeParticipante(e),
       origen_lead: e.canal,
       utm_source: plataformaDe(e.canal),
-      // ⚠️ El anuncio NO va acá: `createLead` no escribe `meta_ad_id` (lo tiene en el tipo y no en el
-      // insert), así que pasarlo sería un dato que se tira sin avisar. Viaja en el `ctx` del disparador.
+      // Sólo de Instagram: en Messenger el usuario es el de Facebook (`instagramDelEvento`).
+      instagram: instagramDelEvento(e),
+      // El anuncio de un DM pagado, en la MISMA columna que el del formulario de Meta: así lo cuentan
+      // la atribución por anuncio y el diagnóstico (`ad_transcripts` por `meta_ad_id`). ⚠️ El comentario
+      // de antes decía que «viaja en el `ctx` del disparador», y no: `dispararEventoSocial` manda sólo
+      // `{ subtipo }`. El anuncio no quedaba en NINGÚN lado.
+      meta_ad_id: e.anuncioId,
+      entrada_social: entrada,
       permitirDuplicado: true,
     });
     const db = await getTenantDb();
@@ -181,6 +198,9 @@ async function crearLeadDe(e: EventoSocial, filaId: number): Promise<number | nu
       console.warn(`[zernio-entrante] la persona ${e.participanteId} ya tenía lead: el ${lead.id} quedó sin unir`);
       return (actual as { lead_id?: number | null } | null)?.lead_id ?? null;
     }
+    // Sólo el lead que QUEDÓ unido: el que perdió el compare-and-set no es el de esta persona.
+    // `logLeadEvent` no tira (un historial caído no deshace el alta).
+    await logLeadEvent(lead.id, 'Entrada', lineaDeEntradaSocial(entrada), NOMBRE_CANAL[e.canal]);
     return lead.id;
   } catch (err) {
     console.error(`[zernio-entrante] no pude crear el lead de ${e.participanteId} (${e.canal}): ${msg(err)}`);

@@ -20,6 +20,8 @@
 // y el `400 PLATFORM_LIMITATION` cuando no) — no en un envío real: no se mandó ninguno. El reloj de
 // acá es la PRE-guarda; lo que manda es la respuesta de Zernio (lib/canal-zernio.ts).
 
+import { usuarioDeTexto } from './instagram-buscar';
+
 export const CANALES_SOCIALES = ['instagram', 'messenger'] as const;
 export type CanalSocial = (typeof CANALES_SOCIALES)[number];
 
@@ -494,6 +496,115 @@ export function eventoSocialDe(body: unknown): { evento: EventoSocial } | { igno
 /** El nombre con que nace el lead: el de la persona, o su usuario, o la plataforma. */
 export function nombreDeParticipante(e: Pick<EventoSocial, 'nombre' | 'usuario' | 'canal'>): string {
   return e.nombre ?? (e.usuario ? `@${e.usuario.replace(/^@/, '')}` : `Contacto de ${NOMBRE_CANAL[e.canal]}`);
+}
+
+// ── Lo que el lead guarda de cómo entró (tanda B del CRM, 14/10/2026) ──────────────
+// Los bloques `redes-y-web`, `origen` y `publicacion-de-entrada` de la ficha (docs/diseno-ficha-bloques.md
+// §5, «Datos que hacen falta»). Hasta acá el lead de Instagram nacía sin su @, y de cómo entró no quedaba
+// nada: `ig_conversaciones` guarda el ÚLTIMO comentario (el motor lo necesita para la respuesta privada,
+// y por eso cada comentario nuevo pisa al anterior), el texto de un comentario no se guardaba en ningún
+// lado (no es un mensaje: no va a `ig_mensajes`) y el `ref` y el anuncio se tiraban.
+
+/**
+ * EL @ CON QUE NACE EL LEAD (`leads.instagram`, sin la @ y en minúsculas, la regla de `usuarioDeTexto`).
+ *
+ * ⚠️ SÓLO DE INSTAGRAM. En Messenger el `usuario` del evento es el de FACEBOOK (la plataforma es
+ * `facebook`, `plataformaDe`): guardarlo en `instagram` haría que la ficha linkee a instagram.com/<el
+ * usuario de Facebook>, que es el perfil de otra persona o ninguno. Un usuario que no tiene la forma de
+ * uno de Instagram tampoco se guarda: lo que no se sabe, no se escribe.
+ */
+export function instagramDelEvento(e: Pick<EventoSocial, 'canal' | 'usuario'>): string | null {
+  if (e.canal !== 'instagram') return null;
+  return usuarioDeTexto(e.usuario ?? '');
+}
+
+/**
+ * CÓMO ENTRÓ EL LEAD por Instagram o Messenger, guardado UNA vez, al nacer (`leads.entrada_social`).
+ * Es el evento que lo creó: el comentario con su publicación y lo que escribió (la palabra clave del
+ * DM funnel), la historia, el DM, el anuncio o el enlace de referencia con su `ref`.
+ */
+export type EntradaSocial = {
+  canal: CanalSocial;
+  como: SubtipoSocial;
+  /** Cuándo, como lo dijo la plataforma. Sin la fecha del evento, no está (la del alta es `created_at`). */
+  at?: string;
+  cuenta_id?: string;
+  post_id?: string;
+  comentario_id?: string;
+  /** Lo que comentó. Sólo de un comentario: un mensaje ya queda entero en `ig_mensajes`. */
+  texto?: string;
+  ref?: string;
+  anuncio_id?: string;
+};
+
+/** Lo que se guarda del comentario: alcanza para la palabra clave y para reconocerlo. */
+export const TOPE_TEXTO_ENTRADA = 280;
+
+const COMOS: ReadonlySet<string> = new Set<SubtipoSocial>(['mensaje', 'historia', 'mencion_historia', 'comentario', 'comentario_vivo', 'anuncio', 'referencia', 'qr', 'tienda']);
+const corto = (v: unknown, tope: number): string | null => (typeof v === 'string' && v.trim() ? v.trim().slice(0, tope) : null);
+
+/**
+ * El evento → lo que guarda el lead. Pura y con test (tests/crm-entrada-social.test.ts).
+ *
+ * ⚠️ LA FECHA NO SE INVENTA: `eventoSocialDe` pone el 1/1/1970 cuando el cuerpo no trae ninguna (sirve
+ * para que la ventana de 24 h quede cerrada). Acá eso sería afirmar que entró en 1970: sin fecha
+ * válida, la clave no va.
+ */
+export function entradaSocialDe(e: EventoSocial): EntradaSocial {
+  const t = Date.parse(e.fecha);
+  const esComentario = e.subtipo === 'comentario' || e.subtipo === 'comentario_vivo';
+  const out: EntradaSocial = { canal: e.canal, como: e.subtipo };
+  if (Number.isFinite(t) && t > 0) out.at = new Date(t).toISOString();
+  const cuenta = corto(e.cuentaId, 120);
+  if (cuenta) out.cuenta_id = cuenta;
+  const post = corto(e.postId, 120);
+  if (post) out.post_id = post;
+  const comentario = esComentario ? corto(e.comentarioId, 120) : null;
+  if (comentario) out.comentario_id = comentario;
+  const texto = esComentario ? corto(e.texto, TOPE_TEXTO_ENTRADA) : null;
+  if (texto) out.texto = texto;
+  const ref = corto(e.ref, 120);
+  if (ref) out.ref = ref;
+  const anuncio = corto(e.anuncioId, 40);
+  if (anuncio) out.anuncio_id = anuncio;
+  return out;
+}
+
+/** Lo guardado, de vuelta (se lee de la base: se sanea). `null` = no entró por Instagram ni Messenger. */
+export function entradaSocialGuardada(v: unknown): EntradaSocial | null {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
+  const o = v as Record<string, unknown>;
+  if (!esCanalSocial(o.canal) || typeof o.como !== 'string' || !COMOS.has(o.como)) return null;
+  const out: EntradaSocial = { canal: o.canal, como: o.como as SubtipoSocial };
+  const at = corto(o.at, 40);
+  if (at && Number.isFinite(Date.parse(at))) out.at = at;
+  for (const [k, tope] of [['cuenta_id', 120], ['post_id', 120], ['comentario_id', 120], ['texto', TOPE_TEXTO_ENTRADA], ['ref', 120], ['anuncio_id', 40]] as const) {
+    const s = corto(o[k], tope);
+    if (s) out[k] = s;
+  }
+  return out;
+}
+
+/** Cómo entró, en las palabras del historial: lo que HIZO la persona. */
+export const COMO_ENTRO: Record<SubtipoSocial, string> = {
+  mensaje: 'Te escribió un mensaje',
+  historia: 'Respondió tu historia',
+  mencion_historia: 'Te mencionó en su historia',
+  comentario: 'Comentó tu publicación',
+  comentario_vivo: 'Comentó en tu En vivo',
+  anuncio: 'Tocó tu anuncio',
+  referencia: 'Tocó tu enlace de referencia',
+  qr: 'Escaneó tu código QR',
+  tienda: 'Te escribió desde tu tienda',
+};
+
+/**
+ * LA LÍNEA DEL HISTORIAL del lead que nace por Instagram o Messenger (`lead_audit`, campo «Entrada»; el
+ * canal va en el autor). Corta: el comentario, en 60 caracteres; el ref, si vino.
+ */
+export function lineaDeEntradaSocial(en: EntradaSocial): string {
+  const texto = en.texto ? (en.texto.length > 60 ? `${en.texto.slice(0, 59).trimEnd()}…` : en.texto) : null;
+  return [`${COMO_ENTRO[en.como]}${texto ? `: «${texto}»` : ''}`, en.ref ? `ref ${en.ref.slice(0, 40)}` : null].filter(Boolean).join(' · ');
 }
 
 /**
