@@ -5989,3 +5989,17 @@ resultado (ver «El typecheck que "salía con 1 sin errores"»).
 
 **Vive en:** el tsconfig temporal de cada chat (scratchpad) · la memoria `pc-techo-ram-chrome`, que
 enseñaba la receta sin el `include` · *2026-10-14 Plan - Perro Guardián*
+
+## `Mazo.tsx` y `mazo.ts` en la misma carpeta: en Windows el import trae el OTRO archivo (14/10/2026)
+
+**Síntoma:** un test que dibujaba `<MazoDecisiones>` tiró «Element type is invalid: expected a string… but got: undefined». El componente estaba exportado y el nombre bien escrito.
+
+**Causa:** `import { MazoDecisiones } from '…/decisiones/Mazo'` prueba las extensiones en orden (`.ts` antes que `.tsx`), y el disco de Windows no distingue mayúsculas: `Mazo.ts` encontró `mazo.ts`, el módulo de lógica pura de al lado, que no exporta el componente. Llega `undefined` y el error sale al DIBUJAR, lejos del import.
+
+**El diagnóstico obvio era el equivocado:** «falta el export» o «default contra named import». Ninguno.
+
+**Y en Vercel no pasaría** (Linux distingue mayúsculas): es un bug que existe sólo en el clon de Windows, o sea justo donde se prueba.
+
+**La regla:** en una carpeta no conviven dos módulos cuyo nombre difiere sólo en mayúsculas, aunque la extensión sea distinta. La lógica pura de un componente lleva otro nombre (`reglas.ts`, `*-reglas.ts`, que es la convención de la casa).
+
+**Vive en:** app/tickets/decisiones/reglas.ts

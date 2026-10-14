@@ -192,7 +192,18 @@
 .decisiones-pie a { color: var(--primary); text-decoration: none; font-weight: 600; }
 
 /* ── teléfono ─────────────────────────────────────────────────────────────── */
+/* El botón al mazo (/tickets/decisiones): la forma rápida, sobre todo en el teléfono. */
+.decisiones-deslizar {
+  align-self: flex-start;
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 52px; padding: 0 24px; border-radius: 14px;
+  background: var(--primary); color: var(--on-primary);
+  font-size: 16px; font-weight: 700; text-decoration: none;
+}
+.decisiones-deslizar:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+
 @media (max-width: 640px) {
+  .decisiones-deslizar { align-self: stretch; }
   .decisiones { gap: 22px; }
   .decisiones-cifras { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
   .decisiones-cifra--fuerte { grid-column: 1 / -1; }

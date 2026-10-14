@@ -78,6 +78,10 @@ export function TableroDecisiones({ lectura, hoy, responder, conFoto = true }: {
         <Cifra clave="Anuncios" valor={aAnuncios > 0 ? textoPlazo(aAnuncios) : 'en curso'} sub={`arrancan el ${HITO_ANUNCIOS.rotulo}`} />
       </div>
 
+      {/* Las mismas decisiones de a una, para deslizar (/tickets/decisiones). En el teléfono es la
+          forma cómoda de contestarlas. */}
+      {hayPendientes && <Link href="/tickets/decisiones" className="decisiones-deslizar">Decidir de a una →</Link>}
+
       {!hayPendientes && <p className="decisiones-vacio">No hay nada esperando una decisión.</p>}
 
       {URGENCIAS.map((u) => pendientes[u.clave].length > 0 && (

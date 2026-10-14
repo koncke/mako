@@ -33,6 +33,8 @@ const EXTRA: Record<string, string> = {
   '/anuncio': 'Anuncio',
   '/equipo': 'Equipo',
   '/inicio': 'Inicio',
+  // El mazo de decisiones del super admin vive bajo /tickets, que en el menú es «Reportar problema».
+  '/tickets/decisiones': 'Decisiones',
   // MaKo Mobile: los nombres de SU barra (lib/movil-rutas.ts), no los de escritorio
   // (desde la v3, /m/hoy es «General» como en escritorio). Sin estas entradas, `desdeLaRuta` titulaba
   // todo /m como «MaKo - M». `/m` atrapa el resto (una subpantalla sin nombre).
