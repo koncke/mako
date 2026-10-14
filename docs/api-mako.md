@@ -6742,7 +6742,7 @@ curl -L \
 
 ### `POST /api/v1/metricas/dashboard/hojas` — Crear una hoja del Dashboard
 
-Crea una hoja nueva en el informe del Dashboard de una persona. Tres formas: desde una plantilla (`plantilla`: marketing, comercial, closing, ads-analyst…; la lista en ver_catalogo_dashboard), en blanco (sin plantilla ni pedido), o con un `pedido` en palabras para que MaKo la arme con IA gratis («los leads por campaña y el CAC de los últimos 90 días»). Con pedido, MaKo la arma ANTES de proponerla y el resumen dice qué gráficos tiene. Devuelve el id de la hoja. No corre en una automatización.
+Crea una hoja nueva en el informe del Dashboard de una persona. Tres formas: desde una plantilla (`plantilla`: marketing, comercial, closing, ads-analyst…; la lista en ver_catalogo_dashboard), en blanco (sin plantilla ni pedido), o con un `pedido` en palabras para que MaKo la arme con IA gratis («los leads por campaña y el CAC de los últimos 90 días»). Con pedido, MaKo la arma ANTES de proponerla y el resumen dice qué gráficos tiene. Con plantilla o pedido, la hoja sale sin los gráficos que quedarían vacíos en este negocio, y a una plantilla MaKo le suma gráficos sobre los datos que sí tiene. Devuelve el id de la hoja. No corre en una automatización.
 
 - **Ruta por operación:** `POST /api/v1/metricas/crear_hoja_dashboard`
 - **Token detallado:** permiso `metricas=write` (Lectura y escritura en «Dashboard y análisis»)
@@ -6905,7 +6905,7 @@ Agrega un gráfico a una hoja del Dashboard: un `tipo` (tabla, serie, barras, ci
 | `filtros.valores` | string[] | no | Los valores que entran, escritos como los muestra el gráfico. |
 | `filtros.texto` | string | no | En vez de valores: entra lo que contenga este texto. |
 | `comparar` | boolean | no | true = muestra el cambio contra el período anterior. |
-| `mako` | boolean | no | false = la tarjeta va sin el botón para preguntarle a MaKo; true lo vuelve a poner. Sin esto, como está (de entrada, prendido). |
+| `mako` | boolean | no | true = la tarjeta lleva el botón para preguntarle a MaKo; false = va sin. Sin esto, como está (de entrada sólo lo llevan las tendencias en el tiempo, los embudos y la dispersión). |
 | `lugar` | string (abajo \\| arriba) | no | Dónde va: abajo de todo (default) o arriba de todo. |
 
 ```bash
@@ -6952,7 +6952,8 @@ Cambia un gráfico de una hoja: título, tipo, conjunto, métricas, dimensión, 
 | `hasta` | string | no | Último día de un período a medida, YYYY-MM-DD, inclusive. Va junto con desde. |
 | `limite` | number | no | Cuántos grupos de una categoría se muestran. |
 | `comparar` | boolean | no | true = muestra el cambio contra el período anterior. |
-| `mako` | boolean | no | false = la tarjeta va sin el botón para preguntarle a MaKo; true lo vuelve a poner. Sin esto, como está (de entrada, prendido). |
+| `mako` | boolean | no | true = la tarjeta lleva el botón para preguntarle a MaKo; false = va sin. Sin esto, como está (de entrada sólo lo llevan las tendencias en el tiempo, los embudos y la dispersión). |
+| `pedido_mako` | string | no | Lo que el botón de MaKo de este gráfico responde primero al abrirse («por qué subió o bajó, y qué hacer»). «-» lo saca (vuelve el análisis de siempre). |
 | `filtros` | object[] | no | Los filtros que DEFINEN el gráfico: no se dibujan y ganan sobre los de la hoja en el mismo campo. Reemplaza los que tenía; una lista vacía los saca. |
 | `filtros.campo` | string | sí | La categoría que se filtra: una dimensión del conjunto (etapa, campana) o un campo de ver_catalogo_dashboard. |
 | `filtros.valores` | string[] | no | Los valores que entran, escritos como los muestra el gráfico. |

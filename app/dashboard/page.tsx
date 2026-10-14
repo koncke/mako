@@ -7,8 +7,9 @@
 // HOJAS del informe inicial, y sus rutas viejas traen acá con `?hoja=` (app/marketing/page.tsx,
 // app/comercial/page.tsx).
 //
-// El catálogo está en lib/graficos-catalogo.ts, el lector en lib/graficos-datos.ts, los bloques en
-// lib/graficos-bloques.ts y el informe de cada persona en lib/graficos-tablero.ts. Acá sólo se arma
+// El catálogo está en lib/graficos-catalogo.ts, el lector en lib/graficos-datos.ts y el informe de cada
+// persona en lib/graficos-tablero.ts (los bloques de antes se convierten en gráficos en el saneo,
+// lib/graficos-migrar-v5.ts: no se lee ninguno). Acá sólo se arma
 // la primera pintada: el informe y los datos de la hoja que se abre, en el server, así la pantalla
 // abre llena.
 //
@@ -43,7 +44,6 @@ import { hoyEnTijuana } from '@/lib/date-utils';
 import { leerTablero } from '@/lib/graficos-tablero';
 import { hojaDeRol, hojaDestino, informeDeRol, llamadaDeUrl } from '@/lib/graficos-plantillas';
 import { datosDeGraficos } from '@/lib/graficos-datos';
-import { datosDeBloques } from '@/lib/graficos-bloques';
 import type { Hoja, Tablero } from '@/lib/graficos-catalogo';
 import { ocultosPorPlegado, plegadasDeEntrada } from '@/lib/graficos-secciones';
 import { EditorInforme } from './EditorInforme';
@@ -104,13 +104,9 @@ export default async function Page({ searchParams }: { searchParams: Promise<Bus
   const pedidos0 = pedidosDeHoja(hoja, {}, hoy, 0, ocultosPorPlegado(hoja.componentes, plegadasDeEntrada(hoja.componentes)));
   // En blanco no se dibuja ningún gráfico: no se lee nada.
   const graficos = sinPaginas ? [] : pedidos0.graficos;
-  const bloques = sinPaginas ? [] : pedidos0.bloques;
   // El período va TAL CUAL: el corte en hoy (y la fecha que mira hacia adelante) lo decide `datosDeGraficos`
   // (contrato v5, «el corte en hoy en UN lugar»). La firma sale del período que pidió el gráfico.
-  const [datos, datosBloque] = await Promise.all([
-    datosDeGraficos(graficos.map(({ pedido }) => pedido)),
-    datosDeBloques(bloques.map(({ pedido }) => pedido)),
-  ]);
+  const datos = await datosDeGraficos(graficos.map(({ pedido }) => pedido));
 
   return (
     // ⚠️ `flex: 'none'` + el alto + `overflow: hidden`, LOS TRES. Pagina trae `flex: 1` (base 0%), que en
@@ -123,7 +119,6 @@ export default async function Page({ searchParams }: { searchParams: Promise<Bus
       <EditorInforme
         inicial={tablero}
         datosIniciales={datos}
-        bloquesIniciales={datosBloque}
         lecturaFallo={lecturaFallo}
         hoy={hoy}
         hojaInicial={hoja.id}

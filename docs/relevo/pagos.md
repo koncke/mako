@@ -50,3 +50,7 @@ la API de MaKo, como automatios, como el CRM, etc...».
 - Si la `notification_url` de Mercado Pago llega firmada y con `data.id` en el query.
 - Un pago de punta a punta en modo prueba (Stripe `sk_test_`; en MP los pagos de prueba NO avisan: entran por el cron
   de reconciliación, cada 30 min).
+
+**13/10/2026:** las tres siguen sin hacer. No se pueden medir sin las claves de prueba de Martín (se las pidió el chat de
+Integraciones). Lo demás de la pasarela está cerrado: el commit que había quedado suelto en el worktree
+`C:/dev/wt-pagos-auto` ya está en `main` como `67b7695d`.

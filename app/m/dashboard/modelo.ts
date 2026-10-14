@@ -184,7 +184,7 @@ export function etiquetaBarra(dim: 'dia' | 'semana' | 'mes', clave: string): { e
 
 /**
  * Cuándo vence la próxima cuota, en palabras cortas. `dias` = días desde hoy (negativo = ya venció),
- * el mismo que arma `armarCobranza` (app/dashboard/bloques/datos-comercial.ts).
+ * el mismo que arma `armarCobranza` (lib/datos-comercial.ts).
  */
 export function textoVence(vence: string | null, dias: number | null): string {
   if (!vence || dias == null) return 'sin fecha';

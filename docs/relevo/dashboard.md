@@ -1,67 +1,47 @@
 # Relevo — chat «Graphics» (la tab Dashboard)
 
-<sub>Escrito el 12/10/2026 ~07:55 (hora de Argentina) por la cuenta 3, desde el chat que hizo el trabajo. Se pisa en cada relevo.</sub>
+<sub>Escrito el 13/10/2026 ~23:55 (hora de Argentina) por la cuenta 2, desde el chat que hizo el trabajo. Se pisa en cada relevo.</sub>
 
 ## Dónde está
 
-**La v5 está terminada, pusheada y EN PRODUCCIÓN** (el feedback de 24 puntos del 11/10 a la noche, textual en
-`app/admin/dev/dashboard/bitacora.ts`): sin «Bloques de MaKo» (los 17 del informe de Mauricio se migran solos al
-abrirlo, en el saneo), un solo «Filtro» + búsqueda tipo Ctrl+F, pop-ups configurables, «Conclusiones de MaKo»
-(IA gratis), sección/desplegable, conectores, gráficos gordos, mapa de cualquier país, hojas VSL/CS/Chat Analyst
-(sin el desplegable «Analysts»), el setter con sólo Chat Analyst (también en el teléfono), la Landing rápida y el
-mapa de calor en vivo.
+En producción sigue la **v5** (desde el 12/10, `6e709bc3`). El contrato de esa tanda está en [dashboard-v5.md](dashboard-v5.md); lo
+aprendido, en `docs/hallazgos-graficos.md`.
 
-- Contrato de la tanda (decisiones y modelo): [dashboard-v5.md](dashboard-v5.md).
-- Verificado antes del push: typecheck 0, `npm test` 8.667 con 3 rojos que son de `main` y no de esto
-  (`plan-proyectos-catalogo`: falta la familia «Customer Success» en el catálogo; `plan-filtro-cliente` y
-  `mover-etapa-validacion`), build verde, la migración del informe de Mauricio en memoria sin fallas (sólo
-  lectura), y humo en Chrome (ws9): sin errores, sin bloques, las tres rutas viejas redirigen.
-- El deploy del push quedó en Error (`git_info_fail`, también el push anterior de Offer); se destrabó por la API
-  con el token del dueño (`dpl_5HDXDD7frUZhkegSssbp1TSpWyqn`, Ready 12/10 08:28). Cómo: `docs/hallazgos-infra.md`.
-- Migraciones 0260 (`dashboard_ia_elementos`), 0261 (`retencion_vsl_resumen`) y 0262 (ubicación de las visitas)
-  **aplicadas en prod** antes del push.
-- Lo aprendido: `docs/hallazgos-graficos.md` → «La v5» (y api-mako, landing, infra, mobile).
+**El 13/10 (cuenta 2) se trabajó en worktrees propios, NADA PUSHEADO TODAVÍA** (el typecheck no termina: la RAM está en zona roja y el
+vigía mata los `tsc`). Dos ramas:
 
-**Lo que Martín tiene que mirar en producción** (no se vio con sus datos): la hoja Closing de Mauricio ya migrada
-(que los gráficos que reemplazan a los bloques se lean bien), las tablas que antes eran «tabla de barras» (punto
-20), y el mapa de calor en vivo de su landing.
+- **`graphics-1310`** (`C:/dev/wt-graphics`), commits listos para pushear:
+  - `a30282bf` — **«¿Qué vas a crear hoy?» en «Nueva hoja»** (la caja de Automations, la misma) y **«Copiar dashboard»** con un token
+    `MAKO-DASH-…` (mig **0268** `dashboard_copias`, YA APLICADA en prod). Viaja la definición, sin personas; en otro negocio se vacían
+    los filtros para mirar que eran de allá. También: Landing Analyst → «Diagnóstico» en tres textos sueltos.
+  - `35dc37f6` — feedback de la reunión del 12/10: el **botón de MaKo no sale editando**, y **las plantillas se arman con los datos del
+    negocio** (`/api/graficos/plantilla`: quita los vacíos y MaKo suma hasta 4 con datos). Lo mismo para lo que arma MaKo con un pedido y
+    para la API (`crear_hoja_dashboard`).
+  - `29a39259` — merge del **código muerto de los bloques, borrado** (lo hizo un agente en `graphics-bloques-1310` y se cortó por el
+    límite de sesión; se verificó acá: tests del área en verde, ninguna ruta vieja nombrada). Lo vivo se mudó a `lib/datos-comercial*.ts`,
+    `lib/llamadas-modelo.ts`, `app/dashboard/entidades/FichaLlamada.tsx` y `app/dashboard/piezas.tsx`.
+  - `9966e7bc` — **«A quién cobrarle» en la tab General** (reunión con Mauricio del 12/10, 86:17: «en la tab general, la cobranza»), con
+    «Marcar cobrada»: la misma lista que el teléfono. Sigue también en el Dashboard: Martín no dijo si se saca de allá (se le preguntó).
+  - El commit que sigue a `9f70a36e` — **clic derecho en toda la tab** (opciones según dónde y en qué modo), el **botón de MaKo
+    selectivo** (sólo tendencias por día/semana/mes, embudos y dispersión; ausente = lo del tipo, `conMako`) y **editable en el
+    lugar**: editando, su clic abre lo que responde, las sugerencias y «Quitar el botón». La API: `pedido_mako`.
 
-**Después (12/10 ~12:00):** Buscar, Filtro, Editar y ⋮ en una sola fila de la topbar (`editor-css.ts`, `.lk-top-der`), y quien
-nunca guardó un informe arranca con la pantalla de siempre y «＋ Nuevo Dashboard» en el medio del lienzo (`page.tsx` `sinPaginas`, `EditorInforme` `enBlanco`; la
-primera que crea es la única). ⚠️ El teléfono (`/m/dashboard`) todavía le muestra Marketing y Comercial fijos a
-quien no tiene informe: falta aplicarle lo mismo.
+**Para pushear** (cuando el typecheck pueda terminar): en `C:/dev/wt-graphics`, `git pull --rebase origin main` (o merge), `npm test`, el
+typecheck por el lock, y `git push origin HEAD:main`. Después, `vercel ls`.
 
 ## Lo que falta
+- **El aviso «El AI Analyst terminó»**: el chat Chatbot ya lo puso en su catálogo (`dashboard-analisis-listo`, commit `2ea2cf81` en la rama
+  `undecima`, sin push). Cuando entre a main (el chat Automations avisa), va UNA llamada en `analizarHoja`
+  (lib/graficos-analisis-server.ts, después de `cerrarCorrida` con `ok`), **SIEMPRE, a mano o programado** (Martín, 13/10 ~24:15:
+  «eso debería ser una configuración de automations del usuario... No lo configures tu»): `emitirDelCatalogo('dashboard-analisis-listo',
+  { ws: p.ws, datos: valoresDelAnalisis({ hoja: p.hoja.nombre, resumen: salida.resumen, hallazgos: salida.hallazgos, origen: p.origen,
+  link: linkApp('/dashboard?hoja=<id>', p.ws) }), dedupKey: 'analisis:<id de la corrida>' })`. El origen viaja como dato
+  (`analisis_origen`: «Programado» o «A mano»): cada negocio decide en su automatización.
+- **Verlo en el navegador (ws3)**: «Nueva hoja» (la caja, el «+», una plantilla armándose con datos), «Copiar dashboard» y pegarlo, y que el
+  botón de MaKo editable (clic en él editando) y el clic derecho en el lienzo, un gráfico y un texto, mirando y editando. No se pudo: RAM en rojo.
+- **Que Martín decida** si se borran `PulsoPaginas.tsx` + su ruta y su lib, y `ScriptsBrowser`/`GuionesFull` (~900 líneas sin usar).
+- **Copiar un dashboard por la API de MaKo** (`copiar_dashboard`, `pegar_dashboard`).
+- **El teléfono (`/m/dashboard`)** le sigue mostrando Marketing y Comercial fijos a quien no tiene informe.
+- El resto, en `docs/hallazgos-graficos.md` → «Lo que quedó sin hacer».
 
-0. **LO PRIMERO — «¿Qué vas a crear hoy?» en lugar de «Pídeselo a MaKo», y copiar un dashboard con un token.**
-   Pedido de Martín (12/10, textual, por el chat Chatbot): «pasale la sección de "¿Qué vamos a hacer hoy?" al chat
-   de graphics para que lo implemente tal cual en lo que se tiene hoy de "Pídeselo a MaKo". Tiene que ser
-   funcional, es decir, que los dashboards también deberían poder copiarse y enviarse con ese token». No se
-   empezó (la cuenta 3 estaba al 97% semanal). Lo que ya existe en main desde `14e06b45`:
-   - La caja compartida: `app/landing-generator/CajaPedido.tsx` (título, placeholder animado, «+», micrófono,
-     enviar). La montan `app/landing-generator/CajaCrear.tsx` y `app/automations/CrearConIA.tsx`. Va en lugar
-     de «Pídeselo a MaKo» de `app/dashboard/NuevaHoja.tsx`.
-   - El «+» de Automations: «Subir archivo o imagen» (`app/automations/archivo-pedido-cliente.ts`,
-     `app/api/chat-agent/secuencias/archivo/route.ts`, que lee con `lib/archivo-a-texto.ts`) y «Pegar un flujo».
-   - El token: «Copiar flujo» crea `MAKO-FLUJO-…` en la tabla `flujo_copias` (mig 0265, con
-     `workspace_origen`, RLS + revoke); pegarlo muestra «Flujo copiado: <nombre>» y lo crea en este negocio.
-     Código: `app/automations/copia-flujo-cliente.ts`, `lib/flujo-copia.ts`, `lib/flujo-copia-negocio.ts`, las
-     acciones `copiar_flujo`/`leer_copia` de `app/api/chat-agent/secuencias/route.ts`. Para el Dashboard: el
-     mismo patrón con prefijo propio (`MAKO-DASH-…`) y la misma tabla generalizada o una propia (a decidir). Ojo:
-     una hoja copiada a OTRO negocio lleva sólo la definición (gráficos, filtros, textos), nunca datos ni
-     personas, y los filtros fijos sobre valores del negocio de origen (un closer, una campaña) no valen allá.
-   - `app/_ui/BotonMako.tsx` ahora dibuja el logo de MaKo, y eso cambió también los botones de MaKo del Dashboard.
-1. **Borrar el código muerto de los bloques** (ya no se dibuja ninguno): la lista exacta de qué está muerto y qué
-   hay que mudar está en `docs/hallazgos-graficos.md` → «Lo que quedó sin hacer», primer punto.
-2. **Avisarle al chat «Chatbot»** el estado final del área Dashboard de la API (lo espera para cablear ⚡ Acción):
-   sin `leer_bloque_dashboard` ni el parámetro `bloque`; nuevas `conectar_componentes_dashboard`,
-   `quitar_conector_dashboard`, `leer_conclusiones_dashboard` y `generar_conclusiones_dashboard` (ésta cuesta IA y
-   es lenta). Y el aviso «El AI Analyst terminó» con hoja, resumen, hallazgos y link SEPARADOS en `datos`.
-3. **Textos sueltos de Landing Analyst** (nota de `lib/model-catalogo.ts`, encabezado de `lib/landing-writer.ts`,
-   `docs/diseno-editor-landing.md`).
-4. **Sin usar y sin borrar** (lo decide Martín): `PulsoPaginas.tsx` + su ruta y su lib; `ScriptsBrowser` y
-   `GuionesFull` (~900 líneas muertas en `app/ads-analyst/ScriptsBrowser.tsx`).
-5. **Defaults de Mauricio en Ads Writer** (no son del Dashboard): `DEFAULT_ANGLES` (lib/script-angles.ts),
-   TAG_VOCAB y los umbrales de lib/ads-analyst-patrones.ts se aplican a todos los negocios.
-
-Uso semanal de la cuenta 3: 86% el 12/10 ~07:45 (se reinicia el 14/10 06:00 de Argentina).
+Uso semanal: la cuenta 2 arrancó en 0% el 13/10; un agente de este chat chocó el límite de SESIÓN de la cuenta ~20:30 («resets 11pm»).

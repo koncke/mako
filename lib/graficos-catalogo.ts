@@ -976,8 +976,19 @@ export type Grafico = {
   controles: ControlVista[];
   // ── v5 (12/10/2026): todos OPCIONALES; ausente = lo de siempre. El saneo copia cada uno (con su tope):
   //    un campo que el saneo no copie se pierde en el primer guardado.
-  /** El botón de MaKo de la tarjeta. Ausente = prendido (lo guardado queda como hoy); sólo se guarda `false`. */
+  /**
+   * El botón de MaKo de la tarjeta. Ausente = lo que diga el TIPO (`makoPorDefecto`: sólo donde explicar suma); `true` y
+   * `false` son la elección de quien armó la hoja y ganan. Se lee SIEMPRE con `conMako`.
+   * 13/10/2026 (Martín: «borra ese botón de la mayoría de gráficos, es muy molesto que esté en todos. Se selectivo»): hasta
+   * ese día, ausente = prendido en TODOS.
+   */
   mako?: boolean;
+  /**
+   * Lo que el botón de MaKo de ESTE gráfico tiene que responder al abrirse (`pedido`, hasta 600) y las preguntas sugeridas
+   * del chat (`sugerencias`, hasta 4). Se edita en el lugar, editando la hoja (app/dashboard/EditorMako.tsx). Ausente = el
+   * análisis de siempre (`chart_insights.prompt_analisis`) con las sugerencias de siempre.
+   */
+  makoIA?: { pedido: string; sugerencias: string[] };
   /** Qué abre un clic: el detalle de hoy, nada, o el pop-up de abajo. Ausente = 'detalle'. Sin `popup`, no hay 'popup'. */
   alClic?: 'detalle' | 'nada' | 'popup';
   /** El pop-up: una mini-hoja guardada adentro del gráfico. Sin pop-ups anidados; hasta MAX_POPUP componentes. */
@@ -1014,7 +1025,8 @@ export type Grafico = {
  * quién cobrarle» elige UNA cuota por cliente (la próxima) y la marca cobrada; las cohortes maduras
  * son una propiedad de la semana, no de la fila. Leen las MISMAS funciones que la tab vieja y que los
  * runners de MaKo (lib/queries.ts, lib/pagos.ts), así la pantalla, WhatsApp y la API no cuentan
- * distinto (lib/graficos-bloques.ts).
+ * distinto. (Su lectura era lib/graficos-bloques.ts; desde el 13/10/2026 queda sólo la del teléfono,
+ * lib/datos-comercial-server.ts.)
  */
 /** El id de un bloque. ⚠️ v5: ya no hay ninguno (ver `BLOQUES`). */
 export type BloqueId = string;
@@ -1311,6 +1323,37 @@ function sanearMapa(raw: unknown): Grafico['mapa'] {
   return { pais, nivel: unoDe(raw.nivel, ['pais', 'region', 'ciudad'] as const, 'region') };
 }
 
+/** Lo más que se le pide al botón de MaKo de un gráfico, y cuántas preguntas sugeridas (y de qué largo). */
+export const TOPE_PEDIDO_MAKO = 600;
+export const MAX_SUGERENCIAS_MAKO = 4;
+const TOPE_SUGERENCIA_MAKO = 80;
+/** Lo que el botón de MaKo de un gráfico tiene que responder, y sus sugerencias. Vacío del todo = nada (lo de siempre). */
+function sanearMakoIA(raw: unknown): Grafico['makoIA'] {
+  if (!esObj(raw)) return undefined;
+  const pedido = typeof raw.pedido === 'string' ? raw.pedido.trim().slice(0, TOPE_PEDIDO_MAKO) : '';
+  const sugerencias = Array.isArray(raw.sugerencias)
+    ? [...new Set(raw.sugerencias.map((s) => (typeof s === 'string' ? s.trim().slice(0, TOPE_SUGERENCIA_MAKO) : '')).filter(Boolean))].slice(0, MAX_SUGERENCIAS_MAKO)
+    : [];
+  return pedido || sugerencias.length ? { pedido, sugerencias } : undefined;
+}
+
+/**
+ * ¿El TIPO lleva el botón de MaKo si nadie eligió? (13/10/2026, Martín: «borra ese botón de la mayoría de gráficos, es muy
+ * molesto que esté en todos. Se selectivo».) Sólo donde explicar suma algo que el gráfico no dice solo: una TENDENCIA
+ * (una serie, unas líneas, unas áreas o unas columnas por día, semana o mes: «¿por qué subió?»), un EMBUDO («¿dónde se
+ * cae?») y una DISPERSIÓN («¿qué separa a los de arriba?»). Un número suelto, una tabla, una torta o un mapa ya dicen lo
+ * que tienen: van sin botón. En positivo: lo que no está acá, no lo lleva.
+ */
+export function makoPorDefecto(g: Pick<Grafico, 'tipo' | 'dimension'>): boolean {
+  const grupo = tipoDe(g.tipo)?.grupo;
+  if (grupo === 'Embudo de conversión' || grupo === 'Dispersión') return true;
+  const enElTiempo = g.dimension === 'dia' || g.dimension === 'semana' || g.dimension === 'mes';
+  return enElTiempo && (grupo === 'Serie temporal' || grupo === 'Líneas' || grupo === 'Áreas' || grupo === 'Barras');
+}
+
+/** ¿Este gráfico lleva el botón de MaKo? Lo elegido gana; sin elección, el tipo. La ÚNICA lectura de `mako`. */
+export const conMako = (g: Pick<Grafico, 'mako' | 'tipo' | 'dimension'>): boolean => g.mako ?? makoPorDefecto(g);
+
 /**
  * La caja de IA lee sólo gráficos que ESTÁN en su hoja (o su pop-up): un id de un gráfico borrado se cae.
  * Si se cayeron todos queda `[]` (no lee ninguno), nunca `null` (que sería «todos»: otra cosa).
@@ -1404,8 +1447,11 @@ export function sanearGrafico(raw: unknown, ctx: ContextoSaneo = {}): Grafico | 
   }
 
   // ── Lo opcional de v5: sólo lo que no vale lo de siempre (un gráfico de antes guarda lo mismo que antes).
-  const extra: Pick<Grafico, 'mako' | 'alClic' | 'popup' | 'barra' | 'secundaria' | 'ocultarSiCero' | 'ejes' | 'referencias' | 'colorPor' | 'tabla' | 'mapa'> = {};
-  if (o.mako === false) extra.mako = false;
+  const extra: Pick<Grafico, 'mako' | 'makoIA' | 'alClic' | 'popup' | 'barra' | 'secundaria' | 'ocultarSiCero' | 'ejes' | 'referencias' | 'colorPor' | 'tabla' | 'mapa'> = {};
+  // 13/10/2026: se guardan los DOS valores (ausente = lo que dice `makoPorDefecto` según el tipo, ver `conMako`).
+  if (typeof o.mako === 'boolean') extra.mako = o.mako;
+  const makoIA = sanearMakoIA(o.makoIA);
+  if (makoIA) extra.makoIA = makoIA;
   const popup = ctx.enPopup ? undefined : sanearPopup(o.popup);
   if (popup) extra.popup = popup;
   if (o.alClic === 'nada') extra.alClic = 'nada';

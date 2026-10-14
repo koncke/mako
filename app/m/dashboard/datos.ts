@@ -11,10 +11,11 @@
 //     las KPI de la hoja Marketing (Ad Spend, CAC real = Spend ÷ cierres, ROAS cash, ROAS sold) y de
 //     su «Tendencias» (leads por día). El gasto pasa a dólares adentro (`conversorGastoMeta`) y la
 //     pauta se lee hasta AYER (`hastaDeFuente`: el día en curso todavía no llegó por cron).
-//   · Comercial → `datosDeBloques` (lib/graficos-bloques.ts) con los bloques `revenue` y `cobranza`
-//     de la hoja Comercial: Sold, Cash, Outstanding (con la ventana de «A quién cobrarle», la MISMA
+//   · Comercial → `leerComercial` (lib/datos-comercial-server.ts): Revenue y «A quién cobrarle», las
+//     lecturas de la tab vieja de Comercial (que hasta el 13/10/2026 eran los bloques `revenue` y
+//     `cobranza` de escritorio): Sold, Cash, Outstanding (con la ventana de «A quién cobrarle», la MISMA
 //     lectura) y los cierres. El período anterior, con `getRevenuePeriod` (lib/queries.ts), que es
-//     lo que lee el bloque `revenue` por dentro.
+//     lo que lee Revenue por dentro.
 //   · Hojas propias → `pedidosDeHoja` (app/dashboard/exportar.ts, el armador de pedidos de la
 //     pantalla de escritorio) + `datosDeGraficos`: sus cuadros de resultados como lista y su primera
 //     serie de tiempo como gráfico.
@@ -22,12 +23,12 @@
 // termina el día antes), calculada con `comparar: true` en cada número.
 //
 // ⚠️ Los nombres de «A quién cobrarle» bajan a la pantalla: son los mismos que ve el admin en el
-//    bloque de escritorio. Ningún dato de acá va a un modelo de IA.
+//    conjunto «Clientes por cobrar» de escritorio. Ningún dato de acá va a un modelo de IA.
 // =============================================================================
 
 import 'server-only';
 import { datosDeGraficos } from '@/lib/graficos-datos';
-import { datosDeBloques } from '@/lib/graficos-bloques';
+import { leerComercial } from '@/lib/datos-comercial-server';
 import { getRevenuePeriod } from '@/lib/queries';
 import {
   agruparAuto, esGrafico, fuenteDe, metricaDe, rangoDe, tipoDe, tituloDe, tonoDe,
@@ -36,7 +37,6 @@ import {
 import { claveTiempo, clavesDelRango, fmtValor, periodoAnterior, type Resultado } from '@/lib/graficos-agregar';
 import { firmaDe } from '@/lib/graficos-plantillas';
 import { pedidosDeHoja } from '@/app/dashboard/exportar';
-import { payloadDe, type DatosCobranza, type DatosRevenue } from '@/app/dashboard/bloques/datos-comercial';
 import {
   ERROR_LECTURA, PERIODO_DEFAULT, deltaDe, etiquetaBarra, periodoDe, textoVence,
   type BarraM, type GraficoM, type HojaM, type ModoDelta, type NumeroM, type PeriodoM,
@@ -134,23 +134,20 @@ function dimComercial(desde: string, hasta: string): Dim {
 export async function hojaComercial(periodo: PeriodoM, hoy: string): Promise<HojaM> {
   const hoja = vacia('comercial', 'Comercial');
   const rg = rangoDe(periodo.id, hoy);
-  // El anterior se arma con el período de la hoja: el bloque lo acota a hoy en la zona del negocio,
+  // El anterior se arma con el período de la hoja: Revenue lo acota a hoy en la zona del negocio,
   // y los cuatro períodos del teléfono ya terminan hoy.
   const ant = periodoAnterior(rg.desde, acotar(rg.desde, rg.hasta, hoy));
-  const [bloques, previo] = await Promise.all([
-    // Las fechas de los bloques van SIN acotar, como en escritorio: la ventana del Outstanding mira
-    // hacia adelante (hasta el fin de mes del período), app/dashboard/bloques/datos-comercial.ts.
-    datosDeBloques([
-      { id: 'rev', bloque: 'revenue', desde: rg.desde, hasta: rg.hasta },
-      { id: 'cob', bloque: 'cobranza', desde: rg.desde, hasta: rg.hasta },
-    ]).catch((e) => { log('bloques', e); return {} as Awaited<ReturnType<typeof datosDeBloques>>; }),
+  const [comercial, previo] = await Promise.all([
+    // Las fechas van SIN acotar: la ventana del Outstanding mira hacia adelante (hasta el fin de mes
+    // del período), `ventanaOutstanding` en lib/datos-comercial.ts.
+    leerComercial(rg.desde, rg.hasta).catch((e) => { log('comercial', e); return null; }),
     getRevenuePeriod(ant.desde, ant.hasta).catch((e) => { log('anterior', e); return null; }),
   ]);
 
-  const rb = bloques.rev;
-  const rev = rb?.ok ? (payloadDe(rb.datos, 'revenue') as DatosRevenue | null) : null;
-  const cb = bloques.cob;
-  const cob = cb?.ok ? (payloadDe(cb.datos, 'cobranza') as DatosCobranza | null) : null;
+  const rb = comercial?.revenue;
+  const rev = rb?.ok ? rb.datos : null;
+  const cb = comercial?.cobranza;
+  const cob = cb?.ok ? cb.datos : null;
 
   let out: HojaM = { ...hoja };
   if (rev) {

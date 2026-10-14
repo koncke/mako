@@ -84,7 +84,7 @@ export type AccionDef = {
  *   · lead    → la ficha (LeadEditModal, la misma de los desgloses de /general).
  *   · cuota   → «Marcar cobrada» (marcarPagoAction, app/crm/actions.ts), con Deshacer de 5 s.
  *   · anuncio → /anuncio/<ad_id>, la página del anuncio solo (misma puerta que el Ads Manager).
- *   · llamada → su ficha (app/dashboard/bloques/extra/FichaLlamada.tsx), dibujada en la caja del detalle como la
+ *   · llamada → su ficha (app/dashboard/entidades/FichaLlamada.tsx), dibujada en la caja del detalle como la
  *               del lead. Hasta el 11/10/2026 era un link a /closing?call=<id>; la tab Closing se eliminó.
  *   · tarea   → /plan?tarea=<id>, que abre esa tarjeta.
  */

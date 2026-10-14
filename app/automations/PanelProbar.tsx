@@ -208,6 +208,7 @@ export function ejemplosDelEvento(sub: unknown): Record<string, string> {
   if (ctx.conCuota) trae.add('cuota');
   if (ctx.conPago) trae.add('pago');
   if (ctx.conEscrito) trae.add('escrito');
+  if (ctx.conAnalisis) trae.add('analisis');
   for (const v of VARIABLES_AVISO) if (trae.has(v.alcance)) out[v.key] = v.ejemplo;
   if (ctx.conMensaje) {
     const cat = CATALOGO_AVISOS.find((c) => c.id === avisoDeEvento(sub));

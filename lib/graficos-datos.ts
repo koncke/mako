@@ -323,7 +323,7 @@ async function filasLlamadas(rg: Rango): Promise<Fila[]> {
       llamada: txt(x.title)?.slice(0, 80) ?? txt(x.lead_nombre),
     },
     v: { llamadas: 1, minutos: num(x.duration_min), puntos: x.score != null ? num(x.score) : 0, con_puntaje: x.score != null ? 1 : 0 },
-    // «Ver llamada» abre la ficha de la llamada (app/dashboard/bloques/extra/FichaLlamada.tsx) en la caja del
+    // «Ver llamada» abre la ficha de la llamada (app/dashboard/entidades/FichaLlamada.tsx) en la caja del
     // detalle; el lead, si la llamada está atada a uno, su ficha del CRM.
     r: { llamada: String(x.recording_id), lead: x.lead_id != null ? String(x.lead_id) : null },
   }));

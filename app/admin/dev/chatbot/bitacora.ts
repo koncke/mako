@@ -1493,4 +1493,25 @@ FEEDBACK PROBAR:
       "Quedó en docs/hallazgos-chatbot.md («Decimoquinta tanda») y en tests/automations-decimoquinta.test.ts. El token necesita la migración 0265 (flujo_copias): sin ella «Copiar flujo» copia el texto entero de antes.",
     ],
   },
+  {
+    fecha: "13 oct", hora: "23:55", chat: "chatbot", cuenta: "claude2",
+    actor: "martin", tipo: "prompt",
+    titulo: "El mensaje que no salió en la reunión, el registro de lo que hace cada usuario y los videos redondos",
+    pedido: "Pero si lo creamos con el botón de \"nuevo lead\" en el workspace de Mauricio\nDe hecho, si estaba, solo que Mauricio luego lo eliminó porque era de prueba... Me preocupa bastante que no se guarde registro de leads eliminados, o en general de las acciones que hace un usuario en todo MaKo... Yo como SuperAdmin quiero tener registro de todas las acciones que hace un usuario\nPor otro lado, te consulto si se pueden enviar los videos redondos de WhatsApp, si podemos agregar esa opción a las automatizaciones.",
+    puntos: [
+      "Bug 5 de la reunión del 13/10 («no salió el mensaje» de «Un Lead Agendó Llamada», ws1). El lead de prueba se borró, y con él su inscripción y sus envíos. Lo que quedó fue `lead_audit`, que no tiene FK. El 2660 pasó a «agenda» con la R1 de HOY sin hora a las 19:57 de México. El motor lee una fecha sola como el mediodía y lo cerró por «la reunión ya pasó». Arreglado en 329d1443. El hallazgo está en docs/hallazgos-chatbot.md.",
+      "El registro de acciones: hoy borrar un lead es un hard delete (`deleteLead`, lib/leads.ts) y no deja quién ni qué. Quedó en la memoria `registro-acciones-superadmin`, sin hacer.",
+      "Videos redondos: medido, nuestro Evolution (2.3.7) tiene la ruta `/message/sendPtv`. Sin hacer.",
+    ],
+  },
+  {
+    fecha: "14 oct", hora: "01:10", chat: "chatbot", cuenta: "claude2",
+    actor: "martin", tipo: "prompt",
+    titulo: "MaKo nada por detrás: todo lo que el motor decide fuera del flujo se depreca y pasa a una condición",
+    pedido: "Sobre esto: \"Antes de mandar cualquier mensaje de «Un Lead Agendó Llamada», incluido el audio de los 5 minutos, MaKo revisa si la reunión ya pasó. Si pasó, corta el flujo entero, para no escribirle «te espero en la reunión» a alguien que ya la tuvo.\"\n\nEso está muy mal que pase y no esté en el flujo... Debería justamente existir una CONDITION en el flujo que pueda pausar en el envio si se canceló o ya pasó la reunión... Pero jamás que \"mako\" haga cosas que no están en el flujo... Si no es configurable el usuario, como yo, lo tomamos como un bug... Para eso estamos creando AUTOMATIONS...\nDepreca absolutamente todas las cosas que MaKo haga por detrás... Y si encuentras cosas como estas que deberían ser estar en el flujo pero no hay una condición para eso o falta crear algo, crealo dentro de automations...\n\nPor ejemplo, creo que falta una tarjeta de \"stop\". Aunque no se si con las tarjetas que ya tenemos se pueda configurar ese \"stop\"... Tampoco quiero agregar tarjetas por agregar...\n\nY por otro lado, con respecto a la fecha, si, sería bueno que si se mueve a mano, se pregunte la hora, pero ese lead, lo movimos primero a mano, y luego Mauricio lo puso otra vez en \"lead entrante\" y ahí agendamos la reunión con el email de ese lead por  CALENDLY, entonces si debería haber tenido la hora.",
+    puntos: [
+      "La regla quedó en la memoria `mako-nada-por-detras`. El inventario de todo lo que el motor decide fuera del flujo lo corre el workflow wf_a7729a89-429, que busca y verifica en cuatro zonas (inscripción, envío, grafo y lo que está fuera de Automations).",
+      "Corrección del diagnóstico del bug 5: la fecha sin hora explica la primera pasada (a mano, 19:57), pero la reserva por Calendly de las 02:05 traía la hora y aun así no reinició el flujo. Esa segunda regla escondida es parte del inventario.",
+    ],
+  },
 ];

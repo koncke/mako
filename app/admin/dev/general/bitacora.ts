@@ -307,6 +307,27 @@ export const BITACORA: Hito[] = [
     ],
   },
   {
+    fecha: "12 oct", hora: "23:43", chat: "Graphics", cuenta: "claude2",
+    actor: "martin", tipo: "prompt",
+    titulo: "La cobranza, en la tab General",
+    pedido: "Número tres, en la tab general, la cobranza.",
+    puntos: [
+      "Al cerrar la reunión con Mauricio (Fathom 858927676, 86:17). Antes, Mauricio a los 54:29: «tú tienes en dashboard cobranza y el cobranza yo lo veo más operativo… ¿A quién cobrarle?»; y a los 71:28: «creo que en Operate… debe ser cobranza… me genera mucho valor estar viendo quién sigue de cobranza. Pero nunca lo veo ahí realmente». Lo validó Martín el 13/10 al pasar el feedback de las 3 reuniones.",
+    ],
+  },
+  {
+    fecha: "13 oct", hora: "23:16", chat: "Graphics", cuenta: "claude2",
+    actor: "claude", tipo: "implementacion",
+    titulo: "«A quién cobrarle» en General, con «Marcar cobrada»",
+    puntos: [
+      "General muestra, arriba y debajo de la acción del día, a quién cobrarle: la próxima cuota de cada cliente, vencida o por vencer, con «Marcar cobrada» y Deshacer.",
+      "Es la misma lista que el teléfono y que «Clientes por cobrar» del Dashboard: la misma lectura, el mismo renglón y la misma acción. Un negocio que no cobra en cuotas no la ve.",
+      "La sección del Dashboard sigue donde estaba: Martín no dijo si se saca de ahí.",
+    ],
+    commits: [{ sha: "9966e7bc", msg: "General: «A quién cobrarle», con «Marcar cobrada»", lineas: 238, archivos: 6 }],
+    archivos: ["app/general/Cobranza.tsx", "app/general/page.tsx", "lib/datos-comercial-server.ts", "app/crm/actions.ts"],
+  },
+  {
     fecha: '13 oct', hora: '—', chat: 'General', cuenta: 'claude2',
     actor: 'martin', tipo: 'prompt',
     titulo: 'General personalizable, con plantillas, varias vistas y funnels',
@@ -328,5 +349,15 @@ export const BITACORA: Hito[] = [
       'app/general/page.tsx', 'app/general/BarraVistas.tsx', 'app/general/NuevaVista.tsx', 'app/general/EditarVista.tsx',
       'app/general/CobranzaGeneral.tsx', 'app/general/Bloques.tsx', 'app/api/general/ia/route.ts', 'tests/general-vistas.test.ts',
     ],
+  },
+  {
+    fecha: '14 oct', hora: '02:20', chat: 'General', cuenta: 'claude2',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Una sola «A quién cobrarle»: la de Graphics, como bloque de las vistas',
+    puntos: [
+      'Este chat y el de Graphics movieron la cobranza a General el mismo día sin saberlo; el choque apareció al integrar. Quedó la `Cobranza` de Graphics (la lectura y el renglón del teléfono, con su test), como el bloque «A quién cobrarle» de las vistas, recortada a los funnels de la vista y con su rótulo al lado del título. `CobranzaGeneral.tsx` se borró.',
+      'Vacía, la vista de fábrica no la dibuja (un negocio sin cuotas no ve ruido); una vista que la persona armó, sí: la eligió, y una vista de sólo cobranza quedaba en blanco.',
+    ],
+    archivos: ['app/general/page.tsx', 'app/general/Cobranza.tsx', 'tests/general-cobranza.test.ts', 'docs/hallazgos-objectives.md'],
   },
 ];

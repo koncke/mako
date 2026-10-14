@@ -107,7 +107,7 @@ export const AREAS: AreaDev[] = [
       'app/general/page.tsx', 'app/general/actions.ts', 'lib/queries.ts', 'lib/pagos.ts', 'lib/meta-health.ts',
       // Las vistas personalizables (13/10/2026): cada persona elige bloques, orden y funnels u ofertas.
       'app/general/BarraVistas.tsx', 'app/general/NuevaVista.tsx', 'app/general/EditarVista.tsx',
-      'app/general/CobranzaGeneral.tsx', 'app/general/Bloques.tsx', 'app/api/general',
+      'app/general/Cobranza.tsx', 'app/general/Bloques.tsx', 'app/api/general',
       'lib/general-vistas-modelo.ts', 'lib/general-vistas.ts', 'lib/general-alcance.ts', 'lib/general-vistas-ia.ts',
     ],
     proyectos: ['Feature: General'],
@@ -395,7 +395,7 @@ export const AREAS: AreaDev[] = [
     estado: 'listo', verEnApp: '/dashboard?hoja=ads-analyst',
     alcance: 'Cruza el análisis cualitativo de Claude sobre el guion (ángulo, gancho, beats) con las métricas Meta×CRM de todo el histórico del anuncio; arriba viven Patrones (ganadores/a cortar/de proceso) y el Cuadrante de Retención. Sin filtro de fecha y gateado por Meta. Desde el 11/10/2026 ya no es una tab: el análisis es la hoja «Ads Analyst» del Dashboard, valorar un guion nuevo vive en Ads Writer (?tab=analizar) y /ads-analyst redirige a la hoja.',
     vive: ['app/ads-analyst/page.tsx', 'app/ads-analyst/ScriptsBrowser.tsx', 'lib/ads-analyst.ts', 'lib/script-angles.ts', 'lib/script-avatares.ts', 'app/api/ads-analyst/',
-      'app/ads-writer/AnalizarGuion.tsx', 'lib/graficos-plantillas-analysts.ts', 'app/dashboard/bloques/extra/BloquesAds.tsx'],
+      'app/ads-writer/AnalizarGuion.tsx', 'lib/graficos-plantillas-analysts.ts'],
     proyectos: ['Feature: Ads Analyst'],
   },
   {
@@ -407,7 +407,7 @@ export const AREAS: AreaDev[] = [
       'lib/landing-mapa.ts', 'lib/landing-mapa-foto.ts', 'lib/landing-mapa-server.ts',
       'lib/landing-url.ts', 'lib/landing-analyst-auto.ts', 'app/api/cron/landing-analyst-auto/route.ts',
       'tests/landing-mapa.test.ts', 'tests/landing-analyst-auto.test.ts',
-      'app/landing-generator/analizar/page.tsx', 'app/landing-analyst/destino.ts', 'tests/landing-generator-analizar.test.ts', 'app/dashboard/bloques/extra/BloquesLanding.tsx'],
+      'app/landing-generator/analizar/page.tsx', 'app/landing-analyst/destino.ts', 'tests/landing-generator-analizar.test.ts'],
     proyectos: ['Feature: Landing Analyst'],
     nota: 'Desde el 11/10/2026 no es una tab: analizar una página es «Diagnóstico», dentro de Landing Generator: desde la tanda 2 (12/10/2026) se abre a la derecha del Panel como un recorrido con comentarios guardados (app/landing-generator/diagnostico/), y /landing-generator/analizar redirige ahí y el pulso y el mapa de calor son la hoja «Landing» del Dashboard. /landing-analyst redirige. La key `landing-an` sigue gobernando los gating de la API.',
   },
@@ -416,7 +416,7 @@ export const AREAS: AreaDev[] = [
     estado: 'listo', verEnApp: '/dashboard?hoja=closing',
     alcance: 'Trae las llamadas de Fathom, las matchea con los leads del CRM y analiza al closer en las de VENTA (R1/R2) con método SPIN; las de entrega de servicio, internas y de prueba se detectan y se excluyen. Desde el 11/10/2026 no es una tab: es la hoja «Closing» del Dashboard, con la ficha de cada llamada y sus tareas; el closer ve SÓLO esa hoja, sin editar. /closing?call=<id> redirige a ?hoja=closing&llamada=<id>.',
     vive: ['app/closing/page.tsx', 'lib/closing.ts', 'app/api/closing/', 'lib/graficos-plantillas-analysts.ts', 'lib/graficos-plantillas.ts',
-      'app/dashboard/bloques/extra/BloquesClosing.tsx', 'app/dashboard/bloques/extra/FichaLlamada.tsx'],
+      'app/dashboard/entidades/FichaLlamada.tsx', 'app/dashboard/entidades/llamada.tsx', 'lib/llamadas-modelo.ts'],
     proyectos: ['Feature: Closing Analyst'],
   },
   {

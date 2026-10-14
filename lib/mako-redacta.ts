@@ -142,6 +142,7 @@ function contextoSaneado(o: Record<string, unknown>): ContextoDatos {
     ...(o.conCuota === true ? { conCuota: true } : {}),
     ...(o.conPago === true ? { conPago: true } : {}),
     ...(o.conEscrito === true ? { conEscrito: true } : {}),
+    ...(o.conAnalisis === true ? { conAnalisis: true } : {}),
     destino: o.destino === 'lead' ? 'lead' : 'equipo',
   };
 }

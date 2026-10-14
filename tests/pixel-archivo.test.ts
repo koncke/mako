@@ -48,6 +48,21 @@ test('el archivo no pierde nada: es el mismo código, con el token, sin las etiq
   assert.equal(archivo.trim(), SNIPPET.trim().replace(/^<script>\r?\n/, '').replace(/\r?\n<\/script>$/, '').trim());
 });
 
+// Probado rompiéndolo (13/10/2026): sin la salida temprana, o sin que la primera copia se
+// anote, este test falla (1 fallo cada una).
+test('una sola copia por página: la segunda no hace nada (13/10/2026)', () => {
+  const archivo = pixelComoArchivo(SNIPPET)!;
+  // Con otra copia ya corriendo, sale ANTES de tocar nada de la página: en un contexto sin
+  // `document`, no tira.
+  const otra = { __makoPixel: 1 } as Record<string, unknown>;
+  assert.doesNotThrow(() => new Script(archivo).runInNewContext({ window: otra }), 'con otra copia corriendo, ésta siguió y tocó la página');
+  // Sin otra copia, sigue de largo (acá tira porque no hay `document`): si no tirara, este
+  // test no distinguiría nada. Y se anota, para que la siguiente sea la que no corre.
+  const sola = {} as Record<string, unknown>;
+  assert.throws(() => new Script(archivo).runInNewContext({ window: sola }), /document is not defined/);
+  assert.equal(sola.__makoPixel, 1, 'la primera copia no se anotó: la segunda correría igual');
+});
+
 test('con saltos CRLF también sale', () => {
   const crlf = SNIPPET.replace(/\r?\n/g, '\r\n');
   const archivo = pixelComoArchivo(crlf);

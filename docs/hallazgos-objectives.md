@@ -499,9 +499,34 @@ lectura devuelve también los funnels y las ofertas con su id: ninguna otra oper
 
 **Vive en:** `lib/general-vistas-modelo.ts` · `lib/general-vistas.ts` · `lib/general-alcance.ts` ·
 `lib/general-vistas-ia.ts` · `app/general/page.tsx` · `app/general/BarraVistas.tsx` · `app/general/NuevaVista.tsx` ·
-`app/general/EditarVista.tsx` · `app/general/CobranzaGeneral.tsx` · `app/general/Bloques.tsx` ·
+`app/general/EditarVista.tsx` · `app/general/Cobranza.tsx` · `app/general/Bloques.tsx` ·
 `app/api/general/ia/route.ts` · `tests/general-vistas.test.ts`. *13/10/2026, claude2.*
 
+**Y dos chats construyeron la MISMA cobranza el mismo día (14/10/2026).** Este y el de Graphics movieron «A quién
+cobrarle» a General sin saberlo el uno del otro: dos componentes, dos lecturas (la mía con `getOutstandingDetalle(hoy)`,
+la suya sin ventana) y el choque recién apareció en el merge. Quedó UNA: la `Cobranza` de Graphics (la lectura y el
+renglón del teléfono, con su test) es el bloque `cobranza` de las vistas, recortada al alcance por
+`cobranzaDeLaVista` y con el rótulo del alcance al lado del título. La regla de «vacía no se dibuja» quedó partida: la
+vista de FÁBRICA la esconde (un negocio sin cuotas no ve ruido), una vista que la persona armó la muestra (la eligió, y
+una vista de sólo cobranza quedaba en blanco). Lo fijan `tests/general-cobranza.test.ts` y `tests/general-vistas.test.ts`.
+
+## «A quién cobrarle» en General: la tercera puerta de «Marcar cobrada» (13/10/2026)
+
+**Vive en:** `app/general/Cobranza.tsx`, `app/general/page.tsx`, `leerAQuienCobrar` en `lib/datos-comercial-server.ts`,
+`exigirAccesoAMarcarPago` en `app/crm/actions.ts`
+
+Pedido al cerrar la reunión con Mauricio del 12/10 (86:17): «en la tab general, la cobranza». Él la ve como algo que se HACE,
+no que se analiza. Es la lista del teléfono en escritorio, y lo que importa al tocarla:
+
+- **Una lista, tres pantallas, una lectura.** General, el teléfono (`app/m/dashboard/CobranzaM.tsx`) y «Clientes por cobrar» del
+  Dashboard leen `getOutstandingDetalle` + `armarCobranza`. General sin ventana (todo lo pendiente). El renglón («US$500 · vence el
+  jue») está escrito en DOS lugares —el teléfono no puede importar del catálogo para no engordar su bundle— y lo ata
+  `tests/general-cobranza.test.ts`, que compara los dos textos.
+- **La guarda de `marcarPagoAction` es POR TAB**, y General era una tercera puerta: sin `porGeneral`, un negocio cuya capa no
+  tenga CRM ni Dashboard vería el botón y le contestaría «No tienes acceso a la cobranza de esta cuenta». General es sólo del
+  admin (`requireRolWs([])`), así que la puerta nueva también.
+- **Un negocio que no cobra en cuotas no ve la sección**: sin filas y sin error es ruido en la pantalla de lo que se hace hoy. Si
+  la lectura falla, la sección está y lo dice.
 
 ## Lo que quedó sin hacer
 
@@ -512,6 +537,8 @@ lectura devuelve también los funnels y las ofertas con su id: ninguna otra oper
 - **El Today de MaKo Mobile no mira las vistas**: dibuja lo de siempre. Si se quiere la misma personalización en el
   teléfono, lee `leerVistasGeneral()` y la vista activa. Vive en `app/m/hoy`.
 - **Una «Prioridades del Plan» por funnel no existe**: las tareas del tablero no tienen funnel, tienen proyecto.
+- **«A quién cobrarle» sigue TAMBIÉN en el Dashboard** (la sección de la hoja Comercial): Martín pidió ponerla en General y no
+  dijo si se saca de allá. Se le preguntó el 13/10.
 - **`getObjetivoProgreso` y los tres settings siguen alimentando los reportes**
   (`lib/reportes.ts:66` y `:174`). Mientras existan, hay dos fuentes para «cuál es la meta»:
   la vieja manda en los reportes por WhatsApp y la nueva en la pantalla. Unificarlo es

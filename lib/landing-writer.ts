@@ -2,13 +2,14 @@
 // Landing Generator — MaKo escribe la landing entera (estructura + copy)
 // =============================================================================
 // Un "writer": no persiste una fila por entidad ni corre un sync batcheado como
-// el Landing Analyst — genera a pedido y guarda el resultado en `landing_drafts`
+// el Diagnóstico (el ex Landing Analyst, que desde el 11/10/2026 vive adentro del
+// Landing Generator) — genera a pedido y guarda el resultado en `landing_drafts`
 // para que la propuesta no se pierda al recargar y se puedan comparar versiones.
 //
 // Lo que lo diferencia de pedirle copy a un chat: el brief. MaKo escribe con el
 // FUNNEL (el CTA tiene que empujar a la entrada real del negocio), el PERFIL del
 // onboarding (oferta, precio, garantía, promesa), el MÉTODO del RAG y —si esa
-// URL ya pasó por el Landing Analyst— el diagnóstico con sus hallazgos. Ese
+// URL ya pasó por el Diagnóstico— el diagnóstico con sus hallazgos. Ese
 // último enganche es el que cierra el loop: analizar → reescribir lo que falla.
 //
 // El copy sale en español neutro/mexicano (es para la audiencia del cliente); el
@@ -183,7 +184,7 @@ export async function buildLandingBrief(pedido: string): Promise<string> {
 }
 
 /**
- * Si esa URL ya pasó por el Landing Analyst, se le pasa el diagnóstico: es el
+ * Si esa URL ya pasó por el Diagnóstico del Landing Generator, se le pasa: es el
  * enganche que convierte "escribime una landing" en "arreglá ESTA landing".
  */
 export async function diagnosticoDe(url: string | null | undefined): Promise<string> {
@@ -208,7 +209,7 @@ export async function diagnosticoDe(url: string | null | undefined): Promise<str
       ? `Comportamiento medido: ${c.visitas} visitas de ${c.visitantes} personas, ${c.agendas} agendaron.`
       : 'Sin datos de comportamiento para esa URL.';
     return [
-      '## DIAGNÓSTICO DE LA PÁGINA ACTUAL (Landing Analyst)',
+      '## DIAGNÓSTICO DE LA PÁGINA ACTUAL',
       `Es la MISMA página que estás reescribiendo: ${row.url}`,
       `Veredicto: ${row.veredicto ?? '—'} (${row.score ?? '—'}/10). ${dims}`,
       row.resumen ? `Resumen: ${row.resumen}` : '',

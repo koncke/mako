@@ -4072,13 +4072,34 @@ barre esos archivos sin comentarios.
   lo decidiera) y, como no es `/api/`, sólo se lee.
 
 **Lo que quedó sin hacer:**
-- **La guarda en el snippet contra correr dos veces** (`lib/landing-token.ts`): hoy lo protege sólo el
-  texto del paso.
+- ~~**La guarda en el snippet contra correr dos veces**~~: hecha el 13/10/2026, abajo.
 - **Nadie tiene la línea pegada todavía.** Los clientes siguen con su código de la 22; el aviso no les
   pide nada (a propósito). La línea se ofrece primero en /integraciones para quien instale o reinstale.
 
 _09/10/2026 — agente en worktree + revisión adversarial de la rama (cada guard probado rompiéndolo, restaurando de memoria);
 integrado y medido en producción por quien integró._
+
+### Una sola copia por página, y por qué NO subió la versión (13/10/2026)
+
+Pegado dos veces (el código en el head y en el body, o el código entero más la línea de `/m.js`), cada visita, clic y
+opt-in viajaba dos veces. Desde el 13/10 la primera línea del snippet es `if (window.__makoPixel) return;
+window.__makoPixel = 1;`: la primera copia que corre se anota y las demás salen antes de tocar la página. Lo fija
+`tests/pixel-archivo.test.ts`, corriendo el archivo EMITIDO en `vm`: con la marca puesta no tira (no llegó a tocar
+`document`), y sin la marca tira por `document` y deja la marca. Sacar la salida temprana o sacar la anotación dan 1 fallo
+cada una.
+
+**`SNIPPET_VERSION` sigue en 23, y es una excepción consciente a «lo que se saca también sube la versión».** El
+diagnóstico obvio era el equivocado: el primer comentario decía que subirla «le mandaría el aviso de repegar a todo
+cliente», y eso es falso desde la v23. El WhatsApp, «Verificar» y el bloqueo de «Probar» cortan en
+`PIXEL_MINIMO_AVISO` (22). Lo que sí haría una v24: «Comprobar» le diría a cada página en la 23 que hay una versión
+nueva (informativo, porque `ULTIMA_PARA_TODAS` es 22), y MaKo contestaría `al_dia: false`. Las dos cosas por un cambio
+que no le hace nada a una página con una sola copia. Y la versión no serviría para encontrar a quien pegó dos veces,
+porque las dos copias mandan el mismo `sv`.
+
+**Lo que no cubre:** una copia vieja (la 23 o antes) más una nueva. La vieja no se anota, así que corre igual. Le llega
+a quien carga la línea (`/m.js` sirve siempre lo actual) y a quien vuelva a pegar el código.
+
+**Vive en:** `lib/landing-token.ts` (`landingSnippet`, la primera línea del IIFE) · `tests/pixel-archivo.test.ts`.
 
 ## La landing de MaKo no le manda sus visitas a MaKo (10/10/2026)
 

@@ -127,7 +127,6 @@ test('pedidosDeHoja: lo elegido mirando cambia el período y los filtros del ped
   );
   const sinVista = pedidosDeHoja(hoja, {}, HOY, 0);
   assert.equal(sinVista.graficos.length, 1);
-  assert.deepEqual(sinVista.bloques, []);
   assert.deepEqual(sinVista.graficos[0].pedido.filtros, []);
   const conVista = pedidosDeHoja(hoja, { cp: { preset: 'ult7' }, cl: { valores: ['Verano'] } }, HOY, 0);
   assert.equal(conVista.graficos[0].pedido.desde, '2026-10-05');

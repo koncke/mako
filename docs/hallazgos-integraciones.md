@@ -744,11 +744,51 @@ corregido en el texto, sin guard.
 - Martín mira Meta, Resend, Cal.com y Fathom antes del push. Lo que se cayó al acortar: en Meta, «tienes que ser
   administrador del portafolio comercial»; en Stripe, «la verificación que te pide» y `rk_test_`; en Fathom, «External
   Recordings»; en Calendly, los planes pagos.
-- El guard de «opcional» para `calcom`.
-- Sin medir: `pasoExterno.porque` y `pasoExterno.donde` (el `porque` de Fathom tiene ~150), `sinEsto` y las `SLIDES` de
-  `app/integraciones/IntegracionesBoard.tsx`.
+- ~~El guard de «opcional» para `calcom`~~ y ~~lo sin medir~~: cerrados el 13/10, abajo.
 
-**Vive en:** `lib/metodo-catalogo.ts` · `tests/tutoriales-legibles.test.ts` · `tests/calendly-sin-tipos.test.ts`.
+### 13/10/2026: el guard de «opcional», para TODOS los servicios, y lo que nadie medía
+
+**El guard de Calendly no se copió a Cal.com: se generalizó.** `tests/tutorial-opcional.test.ts` recorre los 19
+servicios y exige que todo paso que diga «opcional» NOMBRE su campo entre comillas, y que ese campo tenga
+`opcional: true`. Una regla aplicada en un servicio de dos estaba documentada, no implementada: copiarla a un tercero
+dejaba el cuarto igual. Tres falsos positivos que hubo que separar antes de que diera verde sobre el catálogo sano:
+
+- **El último servicio se comía `AYUDA_CAMPO`**: sin el tope en `\n];`, el bloque de Mercado Pago seguía hasta el final
+  del archivo y le atribuía las ayudas de todos los campos.
+- **«"API key 2"» no es un campo del catálogo**: la casilla de una cuenta extra la agrega el código (`cuentasExtra`).
+  Un nombre que termina en número se da por nombrado.
+- **«"OAuth"» nombra los TRES campos OAuth de YouTube**: se cuenta por prefijo (`OAuth Client ID`, `… secret`, `…
+  Refresh token`), y los tres son opcionales.
+
+Lo que el guard NO ve: un «opcional» escrito como «no hace falta» o «puedes dejarlo vacío». Mira la palabra.
+
+**Lo que nadie medía.** El recuadro amarillo del paso externo y las slides del panel negro se dibujan igual que los
+pasos, y el 12/10 sólo se midieron los pasos. Medido el 13/10, con el mismo tope de 120:
+
+| Texto | Leídos | De más de 120 |
+|---|---|---|
+| `pasoExterno.porque` | 3 | 2 (Fathom 154, Cal.com 126) |
+| `pasoExterno.donde` | 3 | 2 (Fathom 123, Mercado Pago 145) |
+| `sinEsto` | 3 | 0 |
+| `SLIDES` (`lib/servicio-slides.ts`, no `IntegracionesBoard.tsx`) | 45 | 9 (la más larga, 179) |
+
+Se condensaron sin sumar nada, y quedaron fijados en `tests/tutoriales-legibles.test.ts` (dos tests nuevos, 7 en total).
+Al condensar «Te propone, no decide» se fue también **«deja un borrador con preguntas»**, que era falso: desde el
+05/10/2026 el alta no pregunta (`tests/alta-sin-preguntas.test.ts`).
+
+**Lo que quedó SIN hacer:** las slides de `anthropic` (la tarjeta «MaKo IA (Anthropic)») afirman lo contrario del veto
+de Claude: «Sin esta llave, MaKo no piensa» y «Tú eliges el modelo: Opus para el análisis pesado, Sonnet para lo
+conversacional». Hoy Claude está vetado salvo excepción escrita (`lib/veto-claude.ts`) y MaKo corre en la cascada
+gratis. No es un problema de largo —miden menos de 120— sino de lo que afirman, y reescribirlas es decidir qué se le
+promete al cliente. Lo mismo, más chico, en la de `openai` («en vez de gastar Claude»).
+
+**Vive en:** `lib/metodo-catalogo.ts` · `lib/servicio-slides.ts` · `tests/tutorial-opcional.test.ts` ·
+`tests/tutoriales-legibles.test.ts` · `tests/calendly-sin-tipos.test.ts`.
+
+_13/10/2026 — cierre de lo planificado (cuenta 3 → claude2). `tests/tutorial-opcional.test.ts` probado rompiéndolo con
+la base en 0: el «Opcional: en "Tipo de evento de R1"» de vuelta en Cal.com y un «opcional» sin nombrar campo dan 1
+fallo cada uno. Los dos tests nuevos de `tutoriales-legibles`: el `donde` de Mercado Pago a 145, el `porque` de Fathom
+a 154 y la slide de 179 de vuelta dan 1 fallo cada uno (base 7/0)._
 
 _12/10/2026 — duodécima tanda, paquete «fuera»: `tests/tutoriales-legibles.test.ts`, 6 tests. Con el catálogo viejo, 4
 fallos; un paso con 4 verbos, un sexto paso, un paso partido con `+`, una nota de 121, el «Para qué sirve» de vuelta y el

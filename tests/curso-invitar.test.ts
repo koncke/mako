@@ -468,7 +468,7 @@ test('el modal de invitar: portal al body, email obligatorio, y NO se cierra si 
   assert.match(src, /const sirve = emailUtilizable\(correo\)/);
   const mandar = bloque(src, 'async function mandar(', 'return createPortal(');
   const noSalio = mandar.indexOf('if (!r.enviado)');
-  assert.ok(noSalio > 0 && noSalio < mandar.indexOf('alCerrar.current()'), 'el modal se cierra antes de saber si el mail salió');
+  assert.ok(noSalio > 0 && noSalio < mandar.indexOf('onCerrar()'), 'el modal se cierra antes de saber si el mail salió');
   // Y el botón y la tarjeta montan EL MISMO modal (con dos, uno se queda sin el «sólo si salió»).
   assert.match(src, /\{abierto && <ModalInvitar \{\.\.\.props\}/);
   assert.match(sinComentarios(leer('app/customer-success/ClienteCard.tsx')), /<ModalInvitar leadId=\{c\.leadId\}/);

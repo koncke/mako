@@ -1312,8 +1312,22 @@ export function landingSnippet(token: string): string {
   // del payload (`t`, y `token` en el opt-in) son el contrato con el server y no se tocan.
   // El análisis de la página (lib/landing-analisis.ts) lee los DOS nombres.
   // Lo fija tests/landing-snippet-emitido.test.ts.
+  //
+  // ⚠️ LA GUARDA DE UNA SOLA COPIA (13/10/2026) NO SUBE LA VERSIÓN, a propósito: con el
+  // código pegado una vez, la página hace exactamente lo mismo. Subirla no manda ningún
+  // WhatsApp (eso corta en PIXEL_MINIMO_AVISO), pero «Comprobar» y MaKo (`al_dia`) le
+  // dirían a cada página en la 23 que hay una versión nueva, por algo que no le cambia
+  // nada. Y la versión no delata la página pegada dos veces: las dos copias mandan el
+  // mismo `sv`. Le llega a quien carga la línea de /m.js (se sirve siempre lo actual) y a
+  // quien lo pegue de nuevo. Lo que NO cubre: una copia vieja más una nueva, porque la
+  // vieja no se anota.
   return `<script>
 (function () {
+  // Una sola copia por página. Pegado dos veces (en el head y en el body, o el
+  // código entero y la línea corta), cada visita, clic y opt-in se mandaba dos veces.
+  // La primera que corre se anota y las demás no hacen nada.
+  if (window.__makoPixel) return;
+  window.__makoPixel = 1;
   var ENDPOINT = '${APP_BASE_URL}/api/track/vsl';
   var CUENTA = '${token}';
   // Versión del snippet: viaja en cada evento para que MaKo sepa quién quedó

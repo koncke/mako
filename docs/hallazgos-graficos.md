@@ -16,7 +16,7 @@ el commit; acá va lo que hay que saber **antes** de tocarlo.
 | El estilo de la página | `lib/graficos-temas.ts`, `app/dashboard/PanelEstilo.tsx` | 6 plantillas de estilo; las tarjetas leen `--dash-*` |
 | El agregador | `lib/graficos-agregar.ts` | De filas a lo que se dibuja; también `tramosDeDias` |
 | Los lectores | `lib/graficos-datos.ts`, `lib/graficos-datos-extra.ts`, `lib/graficos-lectura.ts` | Uno por conjunto, con el workspace explícito; `leer` trae un instante en tramos a la vez |
-| Los bloques | `lib/graficos-bloques*.ts`, `app/dashboard/bloques/` | Lo que no es un gráfico del catálogo: Revenue, A quién cobrarle, cohortes, los de Analysts |
+| Lo que quedó de los bloques | `lib/datos-comercial.ts` (puro), `lib/datos-comercial-server.ts` | Revenue y «A quién cobrarle» con las lecturas de siempre: los lee el teléfono. Los bloques se borraron el 13/10 (los migra el saneo, v5) |
 | La audiencia y el mapa | `lib/graficos-audiencia.ts`, `lib/meta-desgloses.ts`, `app/dashboard/MapaMexico.tsx` | Meta EN VIVO; el mapa también lo usa el Ads Manager |
 | Los controles | `app/dashboard/BarraControles.tsx`, `valores.ts`, `lib/graficos-controles-texto.ts` | La fila de filtros de la topbar y los chips de cada gráfico |
 | La topbar | `app/dashboard/Cabecera.tsx` | Título, emoji y subtítulo editables en el lugar, el desplegable de hojas, los filtros, Compartir, Editar y el ⋮ |
@@ -87,7 +87,7 @@ Automations ya lo tenían escrito en `ChatAgentApp.tsx`), y el `@media print` lo
 
 ## Todo pop-up desde una tarjeta va por portal, y el portal no aísla
 
-**Vive en:** `Capa` en `app/dashboard/bloques/piezas.tsx`; `Elemento.tsx`
+**Vive en:** `Capa` en `app/dashboard/piezas.tsx` (hasta el 13/10, `app/dashboard/bloques/piezas.tsx`); `Elemento.tsx`
 
 - La grilla ubica las tarjetas con `transform` y `.lk-comp` lleva `overflow: hidden`: un `position:
   fixed` de adentro (un modal, un toast) queda pegado a la tarjeta y recortado, sin error. Va con
@@ -125,7 +125,7 @@ Medido el 11/10/2026 (Graph v25.0, cuenta del ws1):
 
 ## «Marcar cobrada» y Comercial: la fecha y tres cuentas que estaban mal
 
-**Vive en:** `lib/graficos-bloques.ts`, `app/dashboard/bloques/`
+**Vive en:** `lib/datos-comercial-server.ts` y `lib/datos-comercial.ts` (hasta el 13/10, `lib/graficos-bloques.ts` y `app/dashboard/bloques/`)
 
 - **La fecha de cobro era distinta en cada camino** (CobrarTable el vencimiento, la API de MaKo y
   PayModal hoy). Con el vencimiento, marcar una cuota atrasada no movía el Cash del período mirado. Va
@@ -228,7 +228,7 @@ Superset es Python). `react-grid-layout` 2.2.4 (MIT) + `recharts`.
 
 ## Closing al Dashboard: lo que la tab hacía mal y el port obvio habría copiado (11/10/2026)
 
-**Vive en:** `app/dashboard/bloques/extra/BloquesClosing.tsx`, `FichaLlamada.tsx`, `app/api/closing/puerta-regla.ts`
+**Vive en:** `app/dashboard/entidades/FichaLlamada.tsx`, `lib/llamadas-modelo.ts`, `app/api/closing/puerta-regla.ts` (`BloquesClosing.tsx` se borró el 13/10: la hoja Closing son gráficos desde v5)
 
 - **El KPI «Analizadas» de la tab contaba ventas pendientes y con error** (`counts.ventas`). La hoja cuenta
   sólo las analizadas (`llamadas_venta.llamadas`): 71 en el ws1.
@@ -420,17 +420,91 @@ caracteres. El próximo conjunto grande pasa el tope y el modelo ve sólo ids (`
 ola 2: topbar/filtros, edición, IA y entidades, mapa de calor; ola 3: plantillas/roles y API/link) + integración en
 `wt-v5`. Migraciones 0260-0262 aplicadas antes del deploy.*
 
+## Copiar un dashboard con un token, y «¿Qué vas a crear hoy?» en «Nueva hoja» (13/10/2026)
+
+**Vive en:** `lib/graficos-copia.ts` (puro, con test), `lib/graficos-copia-server.ts`, `app/api/graficos/copia/route.ts`,
+`app/dashboard/copia-dash-cliente.ts`, `app/dashboard/NuevaHoja.tsx`, mig 0268 (`dashboard_copias`; se escribió 0266 y se renumeró: otra sesión la había tomado), `lib/token-copia.ts`
+
+Es «Copiar flujo» de Automations (mig 0265) para una hoja: el ⋮ de la hoja guarda la copia y el portapapeles lleva
+`MAKO-DASH-…`; pegarlo en la caja de «Nueva hoja» la agrega con ids nuevos. Lo que costó:
+
+- **«Duplicar» dejaba la caja de MaKo de la copia sin leer NINGÚN gráfico, sin un error.** `duplicarHoja` re-acuñaba
+  los ids de los gráficos y no seguía `ia.fuentes`; el saneo (`podarFuentesIA`) filtraba los ids que ya no estaban y
+  quedaba `[]`, que en `ConfigIA` significa «se borraron». Lo encontró escribir el pegado, no un reporte. Ahora las dos
+  cosas pasan por `hojaConIdsNuevos`, que acuña en DOS pasadas (primero todos los ids, después lo que apunta a ellos:
+  una caja puede leer un gráfico que está después en la lista). Regla: **al re-acuñar ids, todo lo que APUNTA a un id
+  se sigue en la misma función** (conectores, `ia.fuentes`); un `podar` en el saneo convierte el olvido en un vacío
+  plausible.
+- **Qué viaja, en positivo.** Al copiar se vacía todo filtro sobre un campo que no es público en TODOS sus conjuntos
+  (`dimensionPublica`, la lista del AI Analyst y del link): sus valores son personas y el token lo lee cualquiera. Al
+  pegar en OTRO negocio, un filtro PARA MIRAR se queda sólo con el vocabulario fijo (`Dimension.valores`); una campaña
+  de otro negocio deja el gráfico en cero sin decir nada. ⚠️ **Los de definición (`fijo`) NO se vacían**, y ése era el
+  diagnóstico obvio y equivocado: vaciarlos convierte «la KPI de R1» en «todas las llamadas» con el mismo título. Lo
+  que se vacía se cuenta y va en el toast («2 filtros vaciados»). Costo conocido: hay pocos vocabularios declarados
+  (~15 dimensiones), así que un filtro para mirar sobre un enum sin `valores` (`pagos.estado`) también se vacía al
+  cruzar de negocio — se avisa, y se elige de nuevo de la lista del negocio que pega.
+- **La caja de la casa no lleva foco al abrir.** `CajaPedido` mueve el ejemplo sólo mientras NO tiene el foco
+  (`seMueveElEjemplo`); con el `useFocoInicial` que tenía «Nueva hoja», el ejemplo no se habría movido nunca.
+- **La tabla no es de un inquilino**: `workspace_origen`, no `workspace_id`, fuera de `TENANT_TABLES`, con el cliente
+  crudo y sólo para el admin con la tab (como `flujo_copias`). Medido en prod después de aplicarla: la ven `postgres`
+  y `service_role`, nadie más, con RLS.
+
+*13/10/2026, chat «Graphics» (cuenta 2), a mano en `C:/dev/wt-graphics`; un agente en paralelo borró el código muerto
+de los bloques en su propio worktree. Verificado con tests (9 en `tests/graficos-copia.test.ts`, cada pieza rota y
+cazada) y una ida y vuelta real contra la base (ws 3, fila borrada). NO se verificó en el navegador: la RAM estuvo en
+zona roja toda la tarde (el vigía mataba hasta los `tsc`), y un `next dev` no tenía dónde entrar.*
+
+## Las plantillas se arman con los datos del negocio (13/10/2026)
+
+**Vive en:** `lib/graficos-con-datos.ts` (puro, con test), `lib/graficos-con-datos-server.ts`, `app/api/graficos/plantilla/route.ts`,
+`sinDatos` en `lib/graficos-agregar.ts`
+
+Pedido en la reunión del 12/10 (103:41): «elegir qué gráficos quitar o qué gráficos agregar, pero que tengan datos». Lo que
+gobierna lo que se toque acá:
+
+- **«Vacío» es UNA regla: la de la tarjeta** (`sinDatos`, la que dibuja «Sin datos en este período»). La medición pide cada gráfico
+  con `efectivoDe` sin nada elegido mirando y por el mismo `datosDeGraficos`: con otra regla o con otro período, la plantilla
+  quitaría lo que la tarjeta dibuja. ⚠️ Un número en cero cuenta como vacío (la tarjeta dibuja «0», pero para el negocio que no
+  tiene el dato es lo mismo); es la decisión, no un descuido.
+- **«No pude leer» no es «vacío»**, y la primera versión del test no lo podía distinguir: sólo tenía el caso todo-'nose', que cae
+  en «ninguno tiene datos» y deja la hoja entera por OTRA razón. La rotura (contar 'nose' como vacío) pasó en verde; lo cazó el caso
+  mezclado (uno con datos, el resto sin leer).
+- **Si ninguno tiene datos, la plantilla entra entera** («Todavía sin datos»): una hoja sin gráficos no sirve, y la plantilla dice
+  qué va a medir.
+- **Lo que suma MaKo se pide con el catálogo RECORTADO** a los conjuntos que tienen datos (`catalogoParaIA(fuentes)`), y se mide
+  igual antes de entrar: el recorte orienta, la medición decide. Si MaKo no contesta, la hoja sale podada (sumar es lo opcional).
+
+## El clic derecho, y el botón de MaKo selectivo y editable en el lugar (13/10/2026)
+
+**Vive en:** `makoPorDefecto` / `conMako` / `makoIA` en `lib/graficos-catalogo.ts`, `app/dashboard/MenuContextual.tsx`,
+`app/dashboard/EditorMako.tsx`, `alClicDerecho` y `elegirContextual` en `app/dashboard/EditorInforme.tsx`
+
+Pedido de Martín: clic derecho en toda la tab, el botón de MaKo editable en modo edición (no abre el chat), y «borra ese botón de
+la mayoría de gráficos… Se selectivo». Lo que gobierna lo que se toque acá:
+
+- **La AUSENCIA de `mako` cambió de significado.** Antes se guardaba sólo `false` («prenderlo es sacar la marca»), así que ausente
+  era PRENDIDO. Ahora ausente es lo del tipo (`makoPorDefecto`: tendencias por día, semana o mes, embudos y dispersión) y se guardan
+  los dos valores. Con eso el botón se fue de golpe de los informes ya guardados, que es lo pedido: en las 13 plantillas lo llevan
+  21 de 157 gráficos. ⚠️ El caso que pierde: alguien que lo apagó y lo volvió a prender antes del 13/10 quedó con la marca ausente
+  y ahora sigue al tipo. No se puede distinguir de «nadie lo tocó»: el camino viejo no lo escribía.
+- **`conMako` es la ÚNICA lectura** (pantalla, Propiedades, la API y la hoja en palabras). Un `g.mako !== false` suelto vuelve a la
+  regla vieja sin un error; el test lo busca en `dashboard.run.ts`.
+- **Un evento de React SUBE POR LOS PORTALES.** El clic derecho en una fila del desplegable de hojas (que tiene su propio menú), en
+  un `Flotante` o en un modal llega al `onContextMenu` de la raíz aunque en el DOM viva en el `body`. La guarda es
+  `defaultPrevented` + `closest('[role="menu"], [role="dialog"], [role="listbox"], .lk-flotante')`, y escribiendo sale el menú del
+  navegador (copiar, pegar, el corrector).
+- **Cada opción del menú llama a una acción que YA existía** (duplicar, cambiar el tipo, conectar, exportar, el chat de MaKo):
+  nada se implementa dos veces. El test cruza las claves de `OPCION` contra los `case` de `elegirContextual`, así una opción nueva no
+  se puede dibujar muerta.
+- **Lo que MaKo «responde» viaja como texto del contexto**, no como un prompt aparte: `contextoDeGrafico` le agrega «quien armó este
+  gráfico pide que respondas, antes que nada: …». Las sugerencias reemplazan las preguntas por defecto del chat del gráfico.
+
 ## Lo que quedó sin hacer
 
-- **El código muerto de los bloques**: ya no se dibuja ninguno (el saneo los migra), pero quedan los archivos.
-  Muertos (sólo se importan entre ellos): `app/dashboard/bloques/{BloqueCobranza,BloqueCohortes,BloqueFunnel,
-  BloqueRevenue,BloqueScl,CuerpoBloque}.tsx` y `bloques/extra/{BloquesAds,BloquesClosing,BloquesLanding,
-  BloquesProductividad,CuerpoBloqueExtra}.tsx`, más `lib/graficos-bloques-extra.ts`. Vivos y para MUDAR (no
-  borrar): `bloques/piezas.tsx`, `bloques/datos-comercial.ts`, `bloques/extra/{FichaLlamada,llamadas-modelo,
-  piezas-extra}`. Y con eso: la acción `'bloques'` de `app/api/graficos/route.ts`, `datosDeBloques` de
-  `app/dashboard/page.tsx`, `bloquesIniciales`, `LecturaBloques` (`lectura-compartida.ts`) y `PedidosHoja.bloques`
-  (`exportar.ts`). Ojo: `app/admin/dev/areas.ts` nombra esos archivos en `vive[]` y `tests/dev-areas.test.ts` los
-  busca en disco.
+- **El tipo `Bloque` y `clase: 'bloque'` siguen en `lib/graficos-catalogo.ts`** (y `esBloque`, `sanearBloque`): los necesita
+  la migración v5 para leer un informe viejo. El código que los DIBUJABA se borró el 13/10 (merge de `graphics-bloques-1310`;
+  lo vivo se mudó a `lib/datos-comercial*.ts`, `lib/llamadas-modelo.ts`, `app/dashboard/entidades/FichaLlamada.tsx` y
+  `app/dashboard/piezas.tsx`).
 - **`controlParaHttp` (API) y `controlParaLink` (link) siguen siendo dos funciones** (miden contra universos
   distintos). Y `useValoresCompartidos` vive en `BarraControles.tsx`, no en `valores.ts`.
 - **El tipo de control `texto` se llama «Búsqueda» en `TIPOS_CONTROL`** y la pantalla lo muestra «Contiene…»
@@ -439,8 +513,18 @@ ola 2: topbar/filtros, edición, IA y entidades, mapa de calor; ola 3: plantilla
   (`queTableroLeer`), no según la capa del share.
 - **Lecturas de Comercial sin paginar** (`lib/pagos.ts`, `lib/queries.ts`): la primera que va a cortar en 1000
   filas es `getOutstandingDetalle`.
-- **`sniffImagen` tiene tres copias** (`app/api/perfil/avatar`, `app/api/portadas`, `app/api/graficos/imagen`) y
-  `useEjemplo` de `app/dashboard/NuevaHoja.tsx` copia al de `app/automations/CrearConIA.tsx`.
+- **`sniffImagen` tiene tres copias** (`app/api/perfil/avatar`, `app/api/portadas`, `app/api/graficos/imagen`).
+- **Copiar un dashboard no está en la API de MaKo** (la decisión 7 del 11/10: todo el Dashboard por la API). Faltan
+  `copiar_dashboard` y `pegar_dashboard` en `lib/api-mako/areas/dashboard.def.ts`; la ruta de la pantalla es
+  `app/api/graficos/copia/route.ts`.
+- **`lib/flujo-copia.ts` tiene su propia copia de la mecánica del token** (alfabeto, largo y regex con `MAKO-FLUJO-`):
+  cuando se toque, que delegue en `lib/token-copia.ts`. No se tocó para no pisar al chat de Automations.
+- **El aviso «El AI Analyst terminó» (`dashboard-analisis-listo`) todavía no se emite**: el chat Automations lo puso en su
+  catálogo (`2ea2cf81`, rama `undecima`, sin push al 13/10). La emisión va en `analizarHoja` (`lib/graficos-analisis-server.ts`),
+  después de `cerrarCorrida` con `ok`, SIEMPRE (Martín: lo decide la automatización de cada negocio, no el código), con
+  `valoresDelAnalisis({ hoja, resumen, hallazgos, origen, link })`. La llamada exacta, en docs/relevo/dashboard.md.
+- **El teléfono (`/m/dashboard`)** le sigue mostrando Marketing y Comercial fijos a quien no tiene informe (en
+  escritorio arranca en blanco con «＋ Nuevo Dashboard»).
 - **El AI Analyst no dice qué modelo contestó** (falta `respondioOut` en `chatCheapCascade`,
   [hallazgos-ia.md](hallazgos-ia.md)).
 - **El onboarding de la tab**, velas y campos calculados: no se hicieron.

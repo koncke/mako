@@ -163,8 +163,8 @@ export function ModalInvitar({ leadId, nombre, emailCrm, acceso, onListo, areas,
         setError(r.aviso.texto);
         return;
       }
-      // `alCerrar` y no `cerrar`: `cerrar` se niega mientras hay un envío en curso, y éste terminó.
-      alCerrar.current();
+      // `onCerrar` y no `cerrar`: `cerrar` se niega mientras hay un envío en curso, y éste terminó.
+      onCerrar();
       onEnviada?.();
       onListo('acceso' in r ? r.acceso : null, r.aviso.tono === 'warn' ? r.aviso : null);
     } catch (e) {

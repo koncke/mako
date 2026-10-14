@@ -553,7 +553,7 @@ const CSS = `
 function DelEmbudo({ productoId, ocupado, ocupar, hecho, onListo }: {
   productoId: number;
   ocupado: boolean;
-  ocupar: <T>(f: () => Promise<T>) => Promise<T | undefined>;
+  ocupar: (v: boolean) => void;
   hecho: () => void;
   onListo?: () => void;
 }) {
@@ -593,8 +593,13 @@ function DelEmbudo({ productoId, ocupado, ocupar, hecho, onListo }: {
     const correoDe = (emails[f.id] ?? f.email ?? '').trim();
     if (!correoDe) { setError('Falta su email.'); return; }
     setError('');
-    const r = await ocupar(() => invitarLeadDeCualquierEtapaAction(f.id, productoId, correoDe));
-    if (!r) return;
+    if (ocupado) return;
+    // `ocupar` es el interruptor del modal (como en Clientes y Nuevo): se prende antes y se apaga siempre.
+    ocupar(true);
+    let r: Awaited<ReturnType<typeof invitarLeadDeCualquierEtapaAction>>;
+    try { r = await invitarLeadDeCualquierEtapaAction(f.id, productoId, correoDe); }
+    catch (e) { setError(e instanceof Error ? e.message : 'No se pudo invitar.'); return; }
+    finally { ocupar(false); }
     if (!r.ok) { setResultados((x) => ({ ...x, [f.id]: { enviado: false, texto: r.error } })); return; }
     setCorreo(r.correo);
     setResultados((x) => ({ ...x, [f.id]: { enviado: r.enviado, texto: r.aviso.texto } }));

@@ -367,19 +367,25 @@ test('la feature: gratis por default, sin PII, sin permiso pago, y el prompt reg
 });
 
 // r9: 1 fallo.
+// 13/10/2026: «¿Qué vas a crear hoy?» en lugar de «Pídeselo a MaKo» (tests/graficos-copia.test.ts). El micrófono y el ↑
+// son de LA caja (`CajaPedido`), y SIN foco al abrir: el ejemplo de la caja se escribe sólo mientras no lo tiene.
+// Rota volviendo a poner `useFocoInicial('x')` en el modal: 1 fallo.
 test('el modal: el Modal de la casa a 980 sin filetes, onCerrar estable, foco sin autoFocus, y «Hoja en blanco» primera', () => {
   const src = sinComentarios(leer('app/dashboard/NuevaHoja.tsx'));
   assert.match(src, /<Modal titulo="Nueva hoja" ancho=\{980\} sinFiletes onCerrar=\{cerrar\}>/);
   assert.match(src, /const cerrar = useCerrarEstable\(onCerrar\);/);
-  assert.match(src, /useFocoInicial\(ID_PEDIDO\)/);
+  assert.doesNotMatch(src, /useFocoInicial/, 'con el foco al abrir, el ejemplo de la caja no se mueve nunca');
   assert.doesNotMatch(src, /autoFocus/);
-  assert.match(src, /<BotonDictar /, 'el micrófono de la casa');
+  assert.match(src, /<CajaPedido titulo=/, 'el micrófono y el ↑ de la casa (los de la caja)');
   assert.match(src, /fetch\('\/api\/graficos\/ia', \{[\s\S]*?signal: c\.signal/);
   assert.match(src, /setTimeout\(\(\) => c\.abort\(\), TOPE_CLIENTE_MS\)/, 'el fetch no espera para siempre');
   assert.match(src, /sanearHoja\(j\.hoja, 0\)/, 'lo que llega por la red se vuelve a sanear');
   const blanco = src.indexOf('data-empezar="blanco"');
   const lista = src.indexOf('plantillas.map(');
   assert.ok(blanco > 0 && lista > 0 && blanco < lista, '«Hoja en blanco» va antes que las plantillas, y fuera del filtro');
-  assert.match(src, /crear\(instanciarPlantilla\(p\)\)/, 'una plantilla entra con ids nuevos');
+  // 13/10/2026: una plantilla se ARMA con los datos del negocio (tests/graficos-con-datos.test.ts); el server la instancia
+  // con ids nuevos y, si no contesta, entra la de siempre (también con ids nuevos).
+  assert.match(src, /onClick=\{\(\) => \{ void armarPlantilla\(p\); \}\}/, 'una plantilla se crea sin medir los datos');
+  assert.match(src, /crear\(instanciarPlantilla\(p\), SIN_MEDIR\)/, 'una plantilla entra con ids nuevos');
   assert.doesNotMatch(src, /createPortal/, 'el «pensando» va adentro del modal (una capa por portal quedaría debajo)');
 });

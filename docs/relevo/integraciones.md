@@ -1,4 +1,4 @@
-# Relevo: Integraciones (cuenta 2, 09/10/2026, tarde)
+# Relevo: Integraciones (cuenta 2, 09/10/2026, tarde; puesto al día el 13/10/2026)
 
 De primera mano: lo escribió el chat que hizo el trabajo. Antes de actuar sobre algo de acá,
 medilo contra `main` (puede haber cambiado).
@@ -21,6 +21,8 @@ medilo contra `main` (puede haber cambiado).
 | Los dos casos de agenda por WhatsApp | `5561c1db`, `c3572358` | `docs/hallazgos-api-mako.md` |
 | La key de Resend de la plataforma con `envCred` | `3677e675` | `docs/hallazgos-comunicacion.md` |
 | El remitente de Resend dice «falta»; la ayuda de un campo es «Cómo configurarlo» (puntos 13 y 15 de Customer Success) | `e0692c54` | `docs/hallazgos-integraciones.md` |
+| 13/10: el Pixel pegado dos veces ya no cuenta doble (sin subir la versión, a propósito) | rama `cierre-integraciones` | `docs/hallazgos-landing.md` |
+| 13/10: el «opcional» de un tutorial se comprueba en los 19 servicios; el recuadro amarillo y las slides caben en 120 | rama `cierre-integraciones` | `docs/hallazgos-integraciones.md` |
 
 ⚠️ **No se vuelve a un deploy anterior a `dc25a921`**: los tokens ya están en hash y el código viejo
 no los sabe leer (las tres skills instaladas dejarían de autenticar).
@@ -32,6 +34,11 @@ no los sabe leer (las tres skills instaladas dejarían de autenticar).
 2. **Los reportes por WhatsApp ya no salen.** Salían por Chatwoot (texto libre dentro de la ventana
    que abría la plantilla `reporte_mako`); con el borrado volvieron a `wa: 'no'` (`dae6b3b4`). Falta
    decidir si van por la línea de MaKo (Evolution).
+3. **Las slides de «MaKo IA (Anthropic)»** (`lib/servicio-slides.ts`) dicen «Sin esta llave, MaKo no piensa» y
+   «Opus para el análisis pesado, Sonnet para lo conversacional»: lo contrario del veto de Claude. Qué se le
+   promete al cliente en esa tarjeta lo decide él (13/10).
+4. **Los tutoriales acortados el 12/10**: falta que Martín mire Meta, Resend, Cal.com y Fathom. Lo que se cayó al
+   acortar está listado en `docs/hallazgos-integraciones.md`.
 
 ## Lo que quedó a medias, con su archivo
 
@@ -46,9 +53,11 @@ no los sabe leer (las tres skills instaladas dejarían de autenticar).
 - **Chatwoot tanda 2: borrar el cascarón** `lib/chatwoot.ts` cuando entre la rama
   `wip/api-acciones-0910` (worktree `C:/dev/mako-api`), que tiene cambiados los archivos que lo
   importan. Y `'lead.wa_entrante'` (`lib/flujos-tipos.ts`) quedó sin emisor.
-- **Verlo con clics**: el formulario de integraciones nuevo (ws3) y un uso real de una skill después de
-  convertir los tokens (se lee en `app_settings.api_tokens_uso`).
-- **La guarda del snippet contra correr dos veces** (`lib/landing-token.ts`): hoy lo cuida sólo el texto.
+- **Verlo con clics**: el formulario de integraciones nuevo (ws3).
+- ~~Un uso real de una skill después de convertir los tokens~~: medido el 13/10 en sólo lectura
+  (`app_settings.api_tokens_uso`). La skill del ws11 autenticó el 11/10 a las 23:25 UTC, dos días después de la
+  conversión (09/10, ~17:40 UTC): el token clásico por hash anda. La del ws1 no se usa desde el 09/10 a las 03:02
+  UTC, ANTES de la conversión, así que su silencio no dice nada (un fallo de autenticación no escribe uso).
 
 ## Una trampa del clon compartido
 

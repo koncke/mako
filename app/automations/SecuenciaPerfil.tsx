@@ -147,13 +147,18 @@ export type EdicionLocal = {
    * con el panel abierto, y hasta acá no lo miraba: desconectar una tarjeta con «Probar» abierto y
    * apretar ↻ corría —y mandaba de verdad— un flujo con una tarjeta suelta.
    */
-  freno: FrenoDelFlujo | null;
-  /** Muestra el freno donde lo muestra Publicar y abre la tarjeta que falta. Identidad fija. */
-  frenar: (f: FrenoDelFlujo) => void;
+  freno: FrenoDeProbar | null;
+  /** Muestra el freno donde lo muestra Publicar y abre la tarjeta que falta (o el modal del medio). Identidad fija. */
+  frenar: (f: FrenoDeProbar) => void;
 };
 
 /** Lo que devuelve `frenoDelFlujo`: el error legible y la tarjeta a abrir. */
 export type FrenoDelFlujo = NonNullable<ReturnType<typeof frenoDelFlujo>>;
+/**
+ * Lo que frena un ARRANQUE de «Probar»: la forma del flujo (`frenoDelFlujo`) o un medio sin conectar (`medioQueFrena`,
+ * la cuenta de Publicar). Con `medio`, frenar abre el modal de ese medio en vez de una tarjeta.
+ */
+export type FrenoDeProbar = FrenoDelFlujo & { medio?: Medio; linea?: string | null };
 
 export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, negocio, canalCaido, tz, insetIzq, onAudioNuevo, secuencias, productos, disparadores, onProbar, probarAbierto = false, onCerrarProbar, onCambio, onCambioLocal, insetDer, handoffs, muelles, revelar, onSinPublicar, descartarBorrador, onAccionTodo, makoAlAbrir = false, pedidoAlAbrir = null, onChatMako }: {
   /**
@@ -699,7 +704,10 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
    * `EdicionLocal.freno`).
    */
   const frenoLocal = useMemo(() => frenoDeEsta(pasos), [pasos, frenoDeEsta]);
-  const frenarDesdeProbar = useCallback((f: FrenoDelFlujo) => frenar(f.error, f.tarjeta), [frenar]);
+  const frenarDesdeProbar = useCallback((f: FrenoDeProbar) => {
+    if (f.medio) { setErr(null); setLineaAConectar(f.linea ?? null); setConectarMedio(f.medio); return; }
+    frenar(f.error, f.tarjeta);
+  }, [frenar]);
 
   /**
    * PUBLICAR = VALIDAR, PATCH de los pasos y, si la secuencia se convirtió, la estrategia
@@ -914,6 +922,20 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
    */
   const etapasCond: SeccionEtapas[] = etapasDeCondicion(productos);
 
+  /**
+   * LOS MEDIOS QUE USA EL FLUJO Y SU ESTADO (la MISMA lectura que pinta el chip de la tarjeta). Se leen acá, antes de
+   * mandarle el freno al panel: los REARRANQUES de «Probar» (↻, «Cambió · ↻», «Probar en WhatsApp») miraban sólo la forma
+   * (`frenoLocal`), así que desconectar un medio con el panel abierto no frenaba hasta cerrarlo (pendiente de la
+   * decimotercera tanda).
+   */
+  const usaMedios = useMemo(() => mediosQueUsa(pasos, crons.lista), [pasos, crons.lista]);
+  const estadoMedios = useEstadoMedios(usaMedios, rolAdmin && !!onProbar);
+  const frenoProbar = useMemo<FrenoDeProbar | null>(() => {
+    if (frenoLocal) return frenoLocal;
+    const falta = medioQueFrena(pasos, lineaSec, crons.lista, estadoMedios);
+    return falta ? { error: falta.error, tarjeta: null, medio: falta.medio, linea: falta.linea } : null;
+  }, [frenoLocal, pasos, lineaSec, crons.lista, estadoMedios]);
+
   // ── Lo que lee «Probar» ──
   // Sin estrategia, «Probar» prueba sin estrategia: la limpieza de null es null (lienzo-8).
   const estAPublicar = useMemo(() => (convertida && limpiar ? ((estrategiaConLimpieza(est) ?? est) as unknown as SecuenciaDto['estrategia']) : est), [convertida, limpiar, est]);
@@ -927,9 +949,9 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
     // En CADA cambio local, no al publicar: el panel de «Probar» prueba lo que se ve, y con su freno.
     cambioLocal.current?.({
       secuenciaId: secuencia.id, pasos, estrategia: estAPublicar, nombre, trigger_tipo: disparo.trigger_tipo, instance_name: lineaSec,
-      freno: frenoLocal, frenar: frenarDesdeProbar,
+      freno: frenoProbar, frenar: frenarDesdeProbar,
     });
-  }, [secuencia.id, pasos, estAPublicar, nombre, disparo.trigger_tipo, lineaSec, frenoLocal, frenarDesdeProbar]);
+  }, [secuencia.id, pasos, estAPublicar, nombre, disparo.trigger_tipo, lineaSec, frenoProbar, frenarDesdeProbar]);
 
   /**
    * DÓNDE VA EL CHAT DE MaKo (decimocuarta tanda, punto 3): en el muelle de la derecha, el de «Probar» (`muelles.probar`,
@@ -954,8 +976,6 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
    * saltar»). «No pude
    * comprobarlo» no frena (conectar no lo arregla).
    */
-  const usaMedios = useMemo(() => mediosQueUsa(pasos, crons.lista), [pasos, crons.lista]);
-  const estadoMedios = useEstadoMedios(usaMedios, rolAdmin && !!onProbar);
   const probar = (canal: CanalProbar) => {
     if (!onProbar) return;
     const freno = frenoDeEsta(pasos);
@@ -1026,7 +1046,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
       {rolAdmin && editandoIA && (
         <div data-crear-ia="editar" data-muelle="mako" style={{ position: 'absolute', ...muelleChat, display: probarAbierto ? 'none' : 'flex', flexDirection: 'column', zIndex: chatTrabajando ? Z_CHAT_ENCIMA : 4 }}>
           <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
-            <ChatMako secuenciaId={secuencia.id} pasos={pasos} onListo={alListoIA} onCerrar={() => setEditandoIA(false)}
+            <ChatMako secuenciaId={secuencia.id} pasos={pasos} publicadas={secuencia.pasos?.length ?? 0} onListo={alListoIA} onCerrar={() => setEditandoIA(false)}
               onTrabajando={setChatTrabajando} pedidoInicial={pedidoPendiente} onPedidoInicialUsado={() => setPedidoPendiente(null)} />
           </div>
         </div>

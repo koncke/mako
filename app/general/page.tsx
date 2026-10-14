@@ -12,6 +12,7 @@
 //
 //   1. TIRA DEL Q   el norte en UNA línea, con la capacidad instalada al lado
 //   2. AHORA        LA acción prioritaria con sus seis campos y su origen
+//   2b. COBRAR      a quién cobrarle, con «Marcar cobrada» (13/10/2026: «en la tab general, la cobranza»; ./Cobranza.tsx)
 //   3. KPIs         lo que se hace o no se hace en el período   ← lo nuevo
 //   4. lo de antes  semáforo, mes y pendientes, plegados
 //
@@ -45,14 +46,11 @@ import {
   type SenalRecon,
 } from '@/lib/queries';
 import { fmtUSD, fmtNum } from '@/lib/format';
-import { getRevenueBreakdowns, getOutstandingDetalle, type RevItem, type RevenueBreakdowns } from '@/lib/pagos';
+import { getRevenueBreakdowns, type RevItem, type RevenueBreakdowns } from '@/lib/pagos';
 import { leerVistasGeneral } from '@/lib/general-vistas';
 import { leerCatalogoAlcance, idsDeLeadsEnFunnels, conteoDelFunnel, type CatalogoAlcance, type ConteoFunnel } from '@/lib/general-alcance';
 import { vistaActiva, funnelsDelAlcance, rotuloAlcance, defDeBloque, type BloqueGeneral } from '@/lib/general-vistas-modelo';
 import { leerPlanHoy } from '@/lib/plan-hoy';
-import { getWorkspaceActual } from '@/lib/workspace';
-import { tzDeWorkspace, TZ_DEFAULT, hoyEnWorkspace } from '@/lib/timezone';
-import { armarCobranza, type FilaCobro } from '@/app/dashboard/bloques/datos-comercial';
 import { METRICA_LABEL } from '@/lib/objectives-modelo';
 import { leerVistaGeneral } from '@/lib/vista-general';
 import {
@@ -65,8 +63,11 @@ import { requireRolWs } from '@/lib/tab-access';
 import { Cabecera } from './Cabecera';
 import { KpisCard, type KpiVista } from './KpisCard';
 import { BarraVistas, BotonElegirBloques } from './BarraVistas';
-import { CobranzaGeneral } from './CobranzaGeneral';
 import { PrioridadesGeneral, FunnelHoy } from './Bloques';
+import { Cobranza } from './Cobranza';
+import { leerAQuienCobrar } from '@/lib/datos-comercial-server';
+import { fmtValor } from '@/lib/graficos-agregar';
+import { textoVence, type CobroM } from '@/app/m/dashboard/modelo';
 
 /** La fórmula de una sección de este producto. Literal, y la misma de /comercial y /marketing. */
 const SECCION: CSSProperties = {
@@ -157,7 +158,7 @@ export default async function GeneralPage({ searchParams }: { searchParams: Prom
   const usaVista = vista.bloques.some((b) => VIENEN_DE_LA_VISTA.includes(b));
   const [v, cobranza, plan, funnelHoy] = await Promise.all([
     usaVista ? leerVistaGeneral() : Promise.resolve(null),
-    tiene('cobranza') ? leerCobranza(alcance) : Promise.resolve(null),
+    tiene('cobranza') ? cobranzaDeLaVista(alcance) : Promise.resolve(null),
     tiene('prioridades') ? leerPlanHoy().then((p) => ({ ok: true as const, p })).catch((e) => {
       console.error('[general] prioridades:', e instanceof Error ? e.message : e);
       return { ok: false as const };
@@ -183,6 +184,10 @@ export default async function GeneralPage({ searchParams }: { searchParams: Prom
     }
   }
 
+  // «A quién cobrarle» vacío: la vista de FÁBRICA no lo dibuja (un negocio que no cobra en cuotas no ve una sección
+  // vacía); una vista que la persona armó, sí — lo eligió, y una vista de sólo cobranza quedaría en blanco.
+  const deFabrica = !lectura.vistas.vistas.length;
+
   const bloques = vista.bloques.map((b) => {
     // ⚠️ Un bloque que no sabe filtrar por funnel NO finge que filtra: con un alcance puesto, lo dice.
     const todoElNegocio = !alcance.todo && !defDeBloque(b).porFunnel ? <TodoElNegocio /> : null;
@@ -205,9 +210,9 @@ export default async function GeneralPage({ searchParams }: { searchParams: Prom
         </section>
       ) : null;
       case 'pendientes': return v ? <section key={b} style={SECCION} data-bloque={b}>{todoElNegocio}<PendientesCard pendientes={v.pendientes} /></section> : null;
-      case 'cobranza': return cobranza ? (
+      case 'cobranza': return cobranza && (cobranza.cobros.length > 0 || cobranza.error || !deFabrica) ? (
         <section key={b} style={SECCION} data-bloque={b}>
-          <CobranzaGeneral filas={cobranza.filas} total={cobranza.total} tz={cobranza.tz} error={cobranza.error} alcance={rotulo} />
+          <Cobranza filas={cobranza.cobros} tz={cobranza.tz} error={cobranza.error} alcance={rotulo} />
         </section>
       ) : null;
       case 'prioridades': return plan ? (
@@ -269,23 +274,28 @@ function TodoElNegocio() {
   return <span style={{ float: 'right', marginLeft: 12, fontSize: 'var(--fs-meta)', color: 'var(--faint)' }}>Todo el negocio</span>;
 }
 
-/** «A quién cobrarle», con el alcance de la vista. ⚠️ Un filtro que no se pudo armar NO es «nada por cobrar». */
-async function leerCobranza(alcance: ReturnType<typeof funnelsDelAlcance>): Promise<{ filas: FilaCobro[]; total: number; tz: string; error: boolean }> {
-  const ws = await getWorkspaceActual();
-  const tz = ws != null ? await tzDeWorkspace(ws).catch(() => TZ_DEFAULT) : TZ_DEFAULT;
-  try {
-    const hoy = await hoyEnWorkspace();
-    const [out, ids] = await Promise.all([
-      getOutstandingDetalle(hoy),
-      alcance.todo ? Promise.resolve(null) : idsDeLeadsEnFunnels(alcance.funnels),
-    ]);
-    const items = ids ? out.items.filter((it) => ids.has(Number(it.lead_id))) : out.items;
-    const { filas, total } = armarCobranza(items, hoy);
-    return { filas, total, tz, error: false };
-  } catch (e) {
-    console.error('[general] cobranza:', e instanceof Error ? e.message : e);
-    return { filas: [], total: 0, tz, error: true };
-  }
+/**
+ * «A quién cobrarle» con el alcance de la vista. La lectura, el renglón y la lista son los del teléfono
+ * (`leerAQuienCobrar`, app/m/dashboard/datos.ts, `Cobranza`): todo lo pendiente, y con un alcance puesto, sólo los
+ * leads de esos funnels. ⚠️ Un filtro que no se pudo armar NO es «nada por cobrar»: es el error.
+ */
+async function cobranzaDeLaVista(alcance: ReturnType<typeof funnelsDelAlcance>): Promise<{ cobros: CobroM[]; tz: string; error: string | null }> {
+  const cobranzaLeida = leerAQuienCobrar();
+  const ids = alcance.todo ? null : await idsDeLeadsEnFunnels(alcance.funnels).catch((e) => {
+    console.error('[general] cobranza (alcance):', e instanceof Error ? e.message : e);
+    return undefined;
+  });
+  const cobranza = await cobranzaLeida;
+  if (!cobranza.ok || ids === undefined) return { cobros: [], tz: cobranza.ok ? cobranza.datos.tz : '', error: 'No pude leer la cobranza.' };
+  const filas = ids ? cobranza.datos.filas.filter((f) => ids.has(f.leadId)) : cobranza.datos.filas;
+  // Sólo las filas con una cuota que marcar («Marcar cobrada» marca la PRÓXIMA), con el MISMO renglón que el teléfono
+  // (app/m/dashboard/datos.ts: «US$500 · vence el jue»). Lo fija tests/general-cobranza.test.ts.
+  const cobros: CobroM[] = filas.flatMap((f) => (f.cuota ? [{
+    leadId: f.leadId, pagoId: f.cuota.pagoId, nombre: f.nombre,
+    linea: `${fmtValor(f.cuota.monto, 'usd')} · ${textoVence(f.cuota.vence, f.dias)}`,
+    urgencia: f.urgencia,
+  }] : []));
+  return { cobros, tz: cobranza.datos.tz, error: null };
 }
 
 /** «Tu funnel hoy»: los funnels del alcance (hasta 4), o el del negocio si la vista mira todo. */

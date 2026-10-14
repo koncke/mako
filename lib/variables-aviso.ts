@@ -107,7 +107,7 @@ export function tramosConVariables(linea: string): Array<{ txt: string; esVar: b
  */
 export type FuenteDato = 'nombre' | 'ficha' | 'zona' | 'producto' | 'etiquetas' | 'pagos' | 'curso'
   | 'perfil' | 'lead_magnet' | 'momento' | 'negocio' | 'links' | 'evento' | 'cuota' | 'cobro'
-  | 'proxima' | 'respuestas' | 'pago' | 'escrito';
+  | 'proxima' | 'respuestas' | 'pago' | 'escrito' | 'analisis';
 
 /** A quién le llega el mensaje: al lead (las automatizaciones) o al equipo (MaKo en WhatsApp). */
 export type DestinoMensaje = 'lead' | 'equipo';
@@ -131,8 +131,10 @@ export type VariableAviso = {
    * · `pago`    — necesita el PAGO del que habla el aviso (sólo el evento `pago_recibido`): lo pasa el emisor
    *               en `datos`, por código (es plata).
    * · `escrito` — necesita lo que el lead ESCRIBIÓ (sólo el evento `lead_contesta`): lo pasa el emisor.
+   * · `analisis` — necesita el ANÁLISIS que terminó el AI Analyst del Dashboard (sólo el evento `analisis_listo`): lo
+   *               pasa el emisor (`analizarHoja`, lib/graficos-analisis-server.ts) armado con `valoresDelAnalisis`.
    */
-  alcance: 'siempre' | 'lead' | 'cuota' | 'mensaje' | 'pago' | 'escrito';
+  alcance: 'siempre' | 'lead' | 'cuota' | 'mensaje' | 'pago' | 'escrito' | 'analisis';
   /** En qué grupo (rama del árbol) lo muestra el selector. El orden lo fija `GRUPOS_VARIABLES`. */
   grupo: GrupoVariable;
   /**
@@ -159,7 +161,7 @@ export type VariableAviso = {
 };
 
 export type GrupoVariable =
-  | 'lead' | 'crm' | 'reuniones' | 'pagos' | 'campana' | 'formulario' | 'curso' | 'cerebro' | 'momento' | 'links';
+  | 'lead' | 'crm' | 'reuniones' | 'pagos' | 'campana' | 'formulario' | 'curso' | 'cerebro' | 'dashboard' | 'momento' | 'links';
 
 /**
  * Las ramas del árbol, en orden, con su ícono (el `name` de `<Icon>`, app/_components/icons.tsx).
@@ -175,6 +177,7 @@ export const GRUPOS_VARIABLES: ReadonlyArray<{ key: GrupoVariable; titulo: strin
   { key: 'formulario', titulo: 'Formulario', icono: 'notepencil' },
   { key: 'curso', titulo: 'Curso', icono: 'contexto' },
   { key: 'cerebro', titulo: 'Second Brain', icono: 'cerebro' },
+  { key: 'dashboard', titulo: 'Dashboard', icono: 'graphics' },
   { key: 'momento', titulo: 'Fecha y hora', icono: 'bell' },
   { key: 'links', titulo: 'Links de MaKo', icono: 'web' },
 ];
@@ -303,6 +306,16 @@ export const VARIABLES_AVISO: VariableAviso[] = [
   { key: 'pago_modo', label: 'Pago de prueba', ejemplo: 'Prueba', alcance: 'pago', grupo: 'pagos', fuente: 'pago', soloPara: 'equipo' },
   { key: 'pago_alta', label: 'Su cuenta de MaKo', ejemplo: 'Cuenta creada', alcance: 'pago', grupo: 'pagos', fuente: 'pago', soloPara: 'equipo' },
 
+  // EL ANÁLISIS de «El AI Analyst terminó» (13/10/2026, la tarea del Dashboard en Automations: «que se pueda configurar
+  // en automations y consumir esto»). Lo pasa el emisor (`analizarHoja`, lib/graficos-analisis-server.ts) armado con
+  // `valoresDelAnalisis` (lib/variables-del-lead.ts). NO es `{{mensaje_mako}}`: son datos citables, cada uno en su renglón
+  // (un dato sin valor se lleva el renglón). Los hallazgos llegan SIN nombres de personas (los filtra el Dashboard).
+  { key: 'analisis_hoja', label: 'Hoja analizada', ejemplo: 'Marketing', alcance: 'analisis', grupo: 'dashboard', fuente: 'analisis', soloPara: 'equipo' },
+  { key: 'analisis_resumen', label: 'Resumen del análisis', ejemplo: 'Las agendas subieron 18% y el costo por lead bajó a US$ 4,10.', alcance: 'analisis', grupo: 'dashboard', fuente: 'analisis', soloPara: 'equipo' },
+  { key: 'analisis_hallazgos', label: 'Hallazgos', ejemplo: '• El anuncio «Testimonio 3» trae la mitad de las agendas\n• Los martes se agenda el doble', alcance: 'analisis', grupo: 'dashboard', fuente: 'analisis', soloPara: 'equipo' },
+  { key: 'analisis_origen', label: 'Programado o a mano', ejemplo: 'Programado', alcance: 'analisis', grupo: 'dashboard', fuente: 'analisis', soloPara: 'equipo' },
+  { key: 'analisis_link', label: 'Link al análisis', ejemplo: 'https://hola-mako.com/dashboard?hoja=marketing', alcance: 'analisis', grupo: 'dashboard', fuente: 'analisis', soloPara: 'equipo' },
+
   // ── Campaña: de dónde vino. Son nombres internos (de la campaña, del anuncio): para el equipo.
   { key: 'lead_origen', label: 'Por dónde entró', ejemplo: 'instant_form', alcance: 'lead', grupo: 'campana', fuente: 'ficha', soloPara: 'equipo' },
   { key: 'lead_campana', label: 'Campaña de Meta', ejemplo: 'Inmobiliario · Octubre', alcance: 'lead', grupo: 'campana', fuente: 'ficha', soloPara: 'equipo' },
@@ -420,7 +433,7 @@ export const RUTA_DE_LINK: Readonly<Record<string, string>> = {
  * el que el motor resuelve y Publicar valida (`tokensFueraDe`).
  */
 export type ContextoDatos = {
-  conLead: boolean; conCuota?: boolean; conMensaje?: boolean; conPago?: boolean; conEscrito?: boolean; destino?: DestinoMensaje;
+  conLead: boolean; conCuota?: boolean; conMensaje?: boolean; conPago?: boolean; conEscrito?: boolean; conAnalisis?: boolean; destino?: DestinoMensaje;
 };
 
 /** ¿Este dato vale para un mensaje a este destino? (las claves `oculta` se resuelven igual). */
@@ -445,6 +458,7 @@ function alcanzaPara(a: VariableAviso['alcance'], opts: ContextoDatos): boolean 
   if (a === 'mensaje') return opts.conMensaje === true;
   if (a === 'pago') return opts.conPago === true;
   if (a === 'escrito') return opts.conEscrito === true;
+  if (a === 'analisis') return opts.conAnalisis === true;
   return false;
 }
 

@@ -15,7 +15,7 @@
 //                 de «Lo más tocado» (`rotuloDe`).
 //   · retencion → `avancePorPersona` (lib/vsl-retencion.ts), con la duración de Panda.
 //   · llamadas  → el mismo universo que getClosingViewData: de venta y analizadas, y nombradas como en la
-//                 lista de la hoja (`nombreDeLlamada`, app/dashboard/bloques/extra/llamadas-modelo.ts).
+//                 lista de la hoja (`nombreDeLlamada`, lib/llamadas-modelo.ts).
 //   · proyectos y ejecución → `metricasProductividad` (lib/productividad-metricas.ts), lo de la tab.
 //
 // ⚠️ DESCARTES DE LOS EVENTOS DEL PIXEL: las pruebas (`prueba` no nulo: es quien probaba el Pixel) y la
@@ -56,12 +56,12 @@ import { toBoard, toLabel } from '@/app/plan/board/desde-todo';
 import { PLABEL, prioFromScore, type BoardTask, type Label } from '@/app/plan/board/types';
 import { sinRecurrentes } from './plan-recurrentes';
 import { CUADRANTE_ROTULO, DAY, cuadranteDe, deadlineMoves, metricasProductividad, ultActividad } from './productividad-metricas';
-import { nombreDeLlamada } from '@/app/dashboard/bloques/extra/llamadas-modelo';
+import { nombreDeLlamada } from './llamadas-modelo';
 import { diasAntes, hoyEnTijuana, TZ_TIJUANA } from './date-utils';
 import { hoyEnWorkspace } from './timezone';
 import { getMrrActivo } from './queries';
 import { getOutstandingDetalle } from './pagos';
-import { armarCobranza, nombreCuota } from '@/app/dashboard/bloques/datos-comercial';
+import { armarCobranza, nombreCuota } from './datos-comercial';
 import { cartera } from './cs-cartera';
 import {
   CORTES_VSL, MOTIVO_DE_REGLA, chatsEsperando, esChatIndividual, esSelloDelConstructor, fraccionCta, gano, llegaronAlCta,
@@ -373,7 +373,7 @@ export type VideoDelPeriodo = {
  * vio cada persona, desde el RESUMEN (`leerResumenVsl`). Los eventos sin `video_id` forman su propio grupo
  * en vez de entrar en la curva de cualquier video (la deuda de lib/vsl-retencion.ts:150). Sin la vista
  * previa del constructor (por el host: `esPreviewDeEditor`) ni las pruebas (en la base). Lo usan el conjunto
- * `retencion_vsl`, `vsl_leads` y el bloque `curva_vsl` (lib/graficos-bloques-extra.ts): la misma lectura.
+ * `retencion_vsl` y `vsl_leads`: la misma lectura (también la usaba el bloque `curva_vsl`, que se fue con v5).
  */
 export async function videosDelPeriodo(rg: Rango, visitantes?: readonly string[]): Promise<VideoDelPeriodo[]> {
   const [filas, durs] = await Promise.all([leerResumenVsl(rg, visitantes), getDuracionesVsl()]);
@@ -564,8 +564,8 @@ async function filasProyectos(): Promise<Fila[]> {
 
 /**
  * El tablero que le toca a quien mira (el del dueño o el del cliente), con las MISMAS lecturas que
- * Productivity Analyst (app/productivity-analyst/page.tsx hasta el 11/10/2026). La usan también los
- * bloques de la plantilla «Productividad» (lib/graficos-bloques-extra.ts).
+ * Productivity Analyst (app/productivity-analyst/page.tsx hasta el 11/10/2026). (La usaban también los
+ * bloques de la plantilla «Productividad», que se fueron con v5.)
  */
 export async function leerTablero(): Promise<{ tasks: BoardTask[]; labels: Label[] }> {
   if ((await queTableroLeer()) === 'dueno') {

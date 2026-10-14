@@ -100,6 +100,16 @@ export type Resultado = {
   secundaria?: { id: string; nombre: string; formato: Formato; valor: number | null };
 };
 
+/**
+ * ¿No hay nada que dibujar? Sin filas, todos los totales en cero o vacíos; con filas, todos sus valores. Es la regla
+ * con que la tarjeta dice «Sin datos en este período» (app/dashboard/Grafico.tsx) y con la que una plantilla se arma
+ * sin los gráficos vacíos (lib/graficos-con-datos.ts): con dos reglas, la plantilla podría quitar lo que la tarjeta
+ * dibuja, o dejar lo que dibuja vacío.
+ */
+export function sinDatos(r: Resultado): boolean {
+  return !r.filas.length ? r.totales.every((v) => !v) : r.filas.every((f) => f.valores.every((v) => !v));
+}
+
 export const SIN_DATO = '(sin dato)';
 export const OTROS = 'Otros';
 /** Las columnas del desglose que entran antes de juntar el resto en «Otros». */

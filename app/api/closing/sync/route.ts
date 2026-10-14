@@ -1,8 +1,9 @@
 // =============================================================================
 // POST /api/closing/sync — sincroniza llamadas de Fathom → closing_analyses
 // =============================================================================
-// Disparado desde «↻ Sincronizar» del bloque «Las llamadas» de la hoja Closing del Dashboard
-// (app/dashboard/bloques/extra/BloquesClosing.tsx; hasta el 11/10/2026, desde la tab /closing). Procesa un
+// Disparado desde el botón «Sincronizar llamadas» de la hoja Closing del Dashboard (la acción
+// `sincronizar_llamadas`, lib/graficos-acciones.ts; hasta v5 era el «↻ Sincronizar» del bloque «Las llamadas», y
+// hasta el 11/10/2026, la tab /closing). Procesa un
 // lote con presupuesto de tiempo; devuelve cuántas quedaron pendientes para que la UI pueda volver a llamar.
 //
 // Puerta (../puerta.ts): admin o closer, el Dashboard en la capa y Fathom conectado. Hasta el 11/10 sólo

@@ -31,7 +31,7 @@ import {
   BLOQUES_GUION as KIND, chipBloque as kindChip, rgba, VEREDICTO_VALORACION as VV, ValoracionView,
 } from '../ads-writer/ValoracionGuion';
 // El veredicto, la confianza y los patrones viven en un módulo puro desde el 11/10/2026:
-// los usa también el Dashboard (lib/graficos-datos-extra.ts, lib/graficos-bloques-extra.ts).
+// los usa también el Dashboard (lib/graficos-datos-extra.ts).
 import {
   HOOK_MID, HOLD_MID, POL, buildPatterns, confFromImpr, confidence, esMuestraChica, fatigue, fmtK, fmtUSD, hold,
   verdictFromVals, verdictOf, type Pattern,
