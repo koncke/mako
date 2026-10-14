@@ -86,6 +86,19 @@ test('falta la coma entre dos strings o entre string y objeto', () => {
   assert.deepEqual(parseJsonObject('{"a": [{"n": 1} {"n": 2}]}'), { a: [{ n: 1 }, { n: 2 }] });
 });
 
+test('EL CASO DEL 13/10: el detalle sin su comilla de apertura', () => {
+  // Lo escribió el extractor de reuniones dos veces seguidas sobre el mismo tramo, porque
+  // el molde del detalle arranca con negrita. El tramo se perdía entero.
+  // Probado rompiéndolo (13/10): sin la rama de `:` en repararJson, 1 fallo.
+  const crudo = '{"tareas": [{"titulo": "Elegir el funnel al cargar leads", "detalle": **Qué hay que hacer**\nQue el alta pregunte «a qué funnel».", "esMio": true, "prioridad": null}]}';
+  const r = parseJsonObject(crudo) as { tareas: Array<Record<string, unknown>> };
+  assert.equal(r.tareas[0].detalle, '**Qué hay que hacer**\nQue el alta pregunte «a qué funnel».');
+  // Los literales y los números NO se confunden con texto sin comilla.
+  assert.equal(r.tareas[0].esMio, true);
+  assert.equal(r.tareas[0].prioridad, null);
+  assert.deepEqual(parseJsonObject('{"n": -3, "ok": false, "x": **y**", }'), { n: -3, ok: false, x: '**y**' });
+});
+
 test('lo que no tiene arreglo tira, y dice de quién es la culpa', () => {
   assert.throws(() => parseJsonObject('no hay nada acá'), /respuesta sin JSON/);
   assert.throws(() => parseJsonObject('{"a": [1, 2'), /el modelo devolvió un JSON inválido/);

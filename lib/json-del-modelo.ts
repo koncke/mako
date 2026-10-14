@@ -19,6 +19,7 @@
 //   · una coma que sobra antes de cerrar          `, }`   `, ]`
 //   · una comilla de diálogo sin escapar          `"dijo "hola" y se fue"`
 //   · un salto de línea crudo adentro de un string
+//   · un valor de texto SIN su comilla de apertura  `"detalle": **Qué hay…",`
 //   · las cercas ``` y la prosa antes o después del objeto
 //
 // ⚠️ SE REPARA SÓLO SI EL PARSE DIRECTO FALLA. Un JSON válido no se toca: cualquier
@@ -106,6 +107,28 @@ export function repararJson(entrada: string): string {
 
     // Afuera de un string.
     if (ch === '"') { enString = true; out += ch; i++; continue; }
+
+    if (ch === ':') {
+      // VALOR SIN SU COMILLA DE APERTURA. Medido el 13/10/2026 releyendo una reunión: el
+      // molde del detalle arranca con «**Qué hay que hacer**», y el modelo escribió
+      // `"detalle": **Qué hay que hacer**…",` — se olvidó la comilla que abre y puso la
+      // que cierra. Falló las DOS veces (la lectura y el reintento) sobre el mismo tramo,
+      // así que no es mala suerte: es la forma del molde. Ese tramo se perdía entero.
+      //
+      // No es ambiguo: después de `:` un valor sólo puede arrancar con `"`, `{`, `[`, un
+      // número o un literal. Cualquier otra cosa es texto al que le falta la comilla, y la
+      // de cierre ya la trae (si no la trajera, el string se cierra al final y el parse
+      // falla igual, que es lo honesto).
+      out += ch;
+      i++;
+      const { c, en } = siguienteNoEspacio(s, i);
+      if (c !== '' && !/["{[\-0-9]/.test(c) && !/^(true|false|null)\b/.test(s.slice(en, en + 6))) {
+        out += s.slice(i, en) + '"';
+        i = en;
+        enString = true;
+      }
+      continue;
+    }
 
     if (ch === ',') {
       // Coma que sobra antes de cerrar.

@@ -164,10 +164,23 @@ export async function verificarComunidad(
       if (error) throw new Error(error.message);
       suya = !!data;
     } else if (ref) {
-      const { data, error } = await de(dueno.ws, 'comunidad_comentarios').select('id')
-        .eq('producto_id', dueno.productoId).eq('id', ref.comentarioId!).eq('post_id', ref.postId).eq('miembro', miembro).maybeSingle();
-      if (error) throw new Error(error.message);
-      suya = !!data;
+      // ⚠️ EL COMENTARIO TIENE QUE SER EN EL POST QUE PIDE LA TAREA (pendiente de la revisión del 08/10,
+      //    cerrado el 13/10): con el post elegido por el equipo (`postId`), ése; sin él, el default de
+      //    «Comentar» es el último FIJADO del feed, así que el post tiene que estar fijado y no ser el hilo de
+      //    una clase. Antes cualquier comentario suyo en cualquier post completaba la tarea.
+      if (c.postId != null && ref.postId !== c.postId) suya = false;
+      else {
+        const { data, error } = await de(dueno.ws, 'comunidad_comentarios').select('id')
+          .eq('producto_id', dueno.productoId).eq('id', ref.comentarioId!).eq('post_id', ref.postId).eq('miembro', miembro).maybeSingle();
+        if (error) throw new Error(error.message);
+        suya = !!data;
+        if (suya && c.postId == null) {
+          const { data: post, error: e2 } = await de(dueno.ws, 'comunidad_posts').select('id')
+            .eq('producto_id', dueno.productoId).eq('id', ref.postId).is('clase_id', null).not('fijado_at', 'is', null).maybeSingle();
+          if (e2) throw new Error(e2.message);
+          suya = !!post;
+        }
+      }
     }
     if (!suya) {
       // Lo que ya estaba guardado vuelve (un pedido armado a mano no lo borra); si no había, nada.

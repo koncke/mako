@@ -3824,9 +3824,16 @@ en 392.939 párrafos sueltos (una canción «La, la, la» y dos en el borde).
 chicos al final de un texto largo (a propósito: el «Thank you» del silencio del cierre no se lleva
 la reunión).
 
-**Sin hacer:** `lib/transcribe.ts` (el pipeline de cursos) tiene su propio `sttGemini` sin este
-chequeo; `escucharCon` no prueba el otro modelo de la misma key ante un bucle; no se corrió contra la
-red real (cada llamada escribe filas de uso en prod). · *2026-10-08 Customer Success*
+**Cerrado el 13/10/2026:** `lib/transcribe.ts` también lo pasa, en sus TRES pedidos a un STT (la
+cascada de Whisper de los cursos, `sttGemini` y el whisper de los anuncios). En la cascada un bucle
+se anota y se prueba el que sigue; en Gemini tira; en un anuncio es `status: 'error'`.
+`tests/transcribe-degenerado.test.ts` cuenta un detector por pedido: un camino nuevo que transcriba
+sin pasarlo lo hace caer (probado rompiéndolo, 4 roturas).
+
+**Sigue sin hacer:** `escucharCon` no prueba el otro modelo de la misma key ante un bucle; no se
+corrió contra la red real (cada llamada escribe filas de uso en prod); y lo ya publicado en
+`public/cono-tx` con bucles adentro sigue ahí (ver hallazgos-conocimiento → «Transcripciones
+publicadas con BUCLES»). · *2026-10-08 / 2026-10-13 Customer Success*
 
 ## Google le bloqueó el PROYECTO a la key de Gemini del ws1, y el mensaje culpaba a «la configuración de MaKo» (11/10/2026)
 
@@ -3860,3 +3867,46 @@ devuelve, y guardar el CONFIGURADO es la degradación silenciosa que landing-ana
 objeto armado en una variable, y COMPILA aunque la función no declare ese campo (el chequeo de
 propiedades de más sólo mira literales frescos). **Sin hacer:** el parámetro `respondioOut?: { provider?;
 model? }` en `chatCheapCascade`, escrito donde devuelve el texto. · *2026-10-11 Graphics*
+
+## «Google estaba saturado» explicaba UNO de los dos tramos perdidos: el otro fallaba siempre (13/10/2026)
+
+**Síntoma.** Al sacar las tareas de las últimas tres reuniones de Martín, dos quedaron con un
+tramo sin leer (`1 de 5 tramos no se pudieron leer`, `1 de 4`). El relevo lo atribuyó a que las
+tres cuentas de Gemini alternaban 503 y 429, y la salida obvia era esperar y releer.
+
+**Lo que pasó al releer.** La reunión del 13/10 salió entera. La del 12/10 volvió a perder **el
+mismo tramo**, y no por cuota: `la IA no devolvió JSON válido … "detalle": **Qué hay …`. Falló en
+la lectura y en el reintento, con el mismo error las dos veces.
+
+**La causa real.** El molde del detalle (`MOLDE_DETALLE`, lib/plan-fathom.ts) arranca con
+`**Qué hay que hacer**`. El modelo escribió `"detalle": **Qué hay que hacer**…",`: se olvidó la
+comilla que ABRE el string y puso la que lo cierra. `repararJson` conocía cinco modos de falla y
+éste no era uno: el texto quedaba afuera de un string y el parse moría en el primer `*`. El
+relevo del lector lo había anotado como «un modo de falla distinto del 503» sin unirlo con el
+tramo perdido — y era exactamente ese tramo.
+
+**Por qué el reintento no podía arreglarlo.** El reintento manda el MISMO prompt al MISMO
+modelo: si lo que rompe el JSON es la forma del molde, sale roto otra vez. Releer «cuando Google
+se calme» nunca habría recuperado esa media hora de reunión.
+
+**Dónde vive el arreglo.** `repararJson` (lib/json-del-modelo.ts) tiene un sexto caso: después
+de `:`, un valor sólo puede arrancar con `"`, `{`, `[`, un número o `true`/`false`/`null`;
+cualquier otra cosa es texto al que le falta la comilla de apertura, y se le pone. Test en
+`tests/json-del-modelo.test.ts` («EL CASO DEL 13/10»), probado rompiéndolo: sin la rama, 1 fallo.
+Releída la reunión con el arreglo: 4 tramos, 0 fallidos, 24 tareas.
+
+**La regla que queda.**
+- **Un tramo que falla dos veces seguidas con el MISMO error no es transitorio.** Un 503 o un
+  429 cambian entre intentos; un JSON roto por la forma del prompt se repite igual. Antes de
+  atribuir una pérdida a la cuota, mirar si el reintento falló por lo mismo.
+- **Un molde que arranca con marcas de formato invita a este error.** Si un campo de texto
+  largo empieza con `**`, `#` o `-`, el modelo tiende a tratarlo como markdown y no como el
+  valor de un string. El reparador ahora lo cubre; el molde sigue igual.
+- **Releer no es «correr de nuevo»: es cruzar.** De las 17 tareas que dio la relectura del
+  13/10, cuatro ya estaban en la lista con otro minuto (se repitieron en el cierre de la
+  reunión, y Fathom las ubicó ahí la primera vez). Contar «había 13, ahora hay 17» habría
+  sumado cuatro duplicadas. Se cruzó por título y quedó UNA nueva.
+
+**Sin hacer.** Que una extracción pedida a mano diga en pantalla que se leyó a medias sigue
+pendiente: el aviso vive sólo en `console.error` (lib/plan-fathom.ts, `extraerTareasDeTexto`) y
+el borrador no guarda `partesFallidas` (lib/plan-propuesta.ts). Ver `docs/relevo/lector-reuniones.md`.

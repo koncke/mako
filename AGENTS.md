@@ -121,12 +121,26 @@ Si `.git/hooks/pre-push` no existe, recrealo con este contenido y `chmod +x`:
 LOCK_TSC="$(dirname "$(git rev-parse --git-common-dir)")/scripts/typecheck-lock.mjs"
 echo "[pre-push] Chequeando tipos…"
 if [ -f "$LOCK_TSC" ]; then node "$LOCK_TSC"; else npm run --silent typecheck; fi
-if [ $? -ne 0 ]; then
+TIPOS=$?
+# 99 = «no pude chequear» (sin RAM, o el vigía mató el tsc), NO «hay errores».
+if [ "$TIPOS" -eq 99 ]; then
+  echo "\n  ✖ PUSH BLOQUEADO: no se pudo chequear los tipos (el motivo está arriba)."
+  echo "    NO es un error de tipos. Cerrá unos chats de Claude y volvé a pushear.\n"
+  exit 1
+fi
+if [ "$TIPOS" -ne 0 ]; then
   echo "\n  ✖ PUSH BLOQUEADO: hay errores de tipos.\n"
   exit 1
 fi
 echo "[pre-push] ✓ Tipos OK."
 ```
+
+⚠️ **Y «NO PUDE CHEQUEAR» NO ES «HAY ERRORES»: son dos causas con dos acciones.** El lock
+sale con **99** cuando no llegó a verificar nada (no había RAM, o el vigía mató el `tsc`),
+y con el código de `tsc` cuando sí corrió. Sin esa rama, el hook imprimía «hay errores de
+tipos» **tres renglones debajo** de la explicación correcta — medido en un push real el
+13/10/2026, y la última línea que lee la persona es la que gana. Cualquier valor ≠ 0 sigue
+bloqueando el push: lo que cambia es qué se le pide hacer.
 
 ⚠️ **Y el typecheck se llama POR LA RUTA DEL CLON PRINCIPAL, no con `npm run typecheck`.**
 `npm` resuelve el script del `package.json` **del worktree**, y este `.git` lo comparten 20
@@ -139,6 +153,23 @@ máquina**; el único lugar común a todos los árboles de trabajo es el hook. E
 siendo el del worktree, así que `tsc` lee SU `tsconfig`: lo que se serializa es la RAM, no
 lo que se chequea. Lo fija `tests/typecheck-lock.test.ts`, que se saltea donde no hay hook
 legible (un clon nuevo, o un worktree donde `.git` es un archivo).
+
+⚠️ **SI EL PRE-PUSH FALLA SIN IMPRIMIR UNA SOLA LÍNEA, NO ES TU CÓDIGO: LO MATARON.** Un
+`tsc` que encuentra errores **siempre** los imprime, así que un exit distinto de 0 con cero
+salida es otra cosa — en esta máquina, el vigía de RAM (`~/.claude/guardia/vigia.ps1`), que
+mata el node pesado más grande cuando quedan menos de 0,9 GB disponibles y lo hace con
+`taskkill /F`, **que en Windows deja código 1 y silencio**. Medido el 13/10/2026: **30
+typechecks matados en un día** con 22 sesiones abiertas. El lock ya lo detecta y lo nombra
+con la línea del log; si lo ves, **NO corras `tsc` a mano para diagnosticar**: son otros 2-3
+GB fuera del lock y es lo que hace matar al próximo — ese fue el mecanismo que mantuvo el
+problema vivo una hora. Se espera, o se cierran chats. Y **el `--max-old-space-size` lo
+fija el lock (`CAP_HEAP_MB`), no un `tsc` suelto**: sin tope V8 toma todo lo que le des (un
+`tsc` suelto llega a 3,7 GB) y es el candidato número uno a morir. ⚠️ Pero el tope tampoco
+se BAJA a ojo: el chequeo completo pide más de 2 GB vivos (con 2048 murió «heap out of
+memory», 13/10/2026), y el «trabaja en 1,6» que justificaba bajarlo salió de un `tsc` que el
+vigía MATÓ a mitad. Un pico de un proceso que no terminó no mide lo que necesita.
+El detalle, en [docs/hallazgos-infra.md](docs/hallazgos-infra.md) → «El typecheck que
+"salía con 1 sin errores"».
 
 Reglas para cualquier agente que trabaje acá:
 - **Nunca** uses `git push --no-verify` (saltea el único chequeo de tipos que queda).
@@ -3494,8 +3525,8 @@ voz con un mensaje que le pedía cargar otra key. Dos reglas al escribir un cami
 (`lib/stt-degenerado.ts`). Medido el 08/10/2026: Gemini devolvió un minuto de habla y después
 «1 2 3 … 699» con `finishReason: STOP`, y la cascada lo tomó como el texto del audio — siete minutos
 perdidos sin un error. Un bucle es un FALLO de esa cuenta: se anota con su motivo y se prueba la
-siguiente; nunca un texto a recortar. Todo camino que transcriba llama al detector (`lib/transcribe.ts`,
-el de los cursos, todavía no). El detalle, en `docs/hallazgos-ia.md`.
+siguiente; nunca un texto a recortar. Todo camino que transcriba llama al detector (desde el 13/10/2026 también `lib/transcribe.ts`, el de
+los cursos y los anuncios: `tests/transcribe-degenerado.test.ts` cuenta un detector por pedido a un STT). El detalle, en `docs/hallazgos-ia.md`.
 
 # Un contrato de datos no es un layout
 
@@ -4189,26 +4220,28 @@ desde el navegador, así que lo que el estado local no tenga sale como `null`. N
 se borra solo, sin un error, sin un 4xx y con la tarjeta a la vista. Es la misma trampa que
 los mappers de lectura, del lado de la escritura.
 
-# Todo `<Modal>` recibe un `onCerrar` de identidad FIJA, y `autoFocus` adentro no anda
+# `<Modal>` guarda su `onCerrar` en un ref y enfoca cuando la capa se VE
 
-El efecto de foco de `app/_ui/Modal.tsx` depende de `[onCerrar, arriba]`. Una flecha creada en
-el mismo componente que tiene el estado de un campo es una identidad nueva por tecla: el efecto
-se re-ejecuta, su limpieza devuelve el foco atrás y el campo **pierde el foco con cada letra**.
-Medido el 09/10/2026 en «Nuevo producto» de la tab Curso; el diagnóstico obvio (un componente
-definido adentro de otro, una `key` que cambia) era falso: el barrido con el AST dio cero.
+Hasta el 13/10/2026 el efecto de foco de `app/_ui/Modal.tsx` dependía de `[onCerrar, arriba]`. Una
+flecha creada en el mismo componente que tiene el estado de un campo es una identidad nueva por
+tecla: el efecto se re-ejecutaba, su limpieza devolvía el foco atrás y el campo **perdía el foco
+con cada letra** (medido el 09/10/2026 en «Nuevo producto» de la tab Curso, y vivo en otros nueve
+diálogos). El diagnóstico obvio (un componente definido adentro de otro, una `key` que cambia) era
+falso: el barrido con el AST dio cero.
 
-- **Va `useCerrarEstable(onCerrar, ocupado)`** (`app/customer-success/curso/dialogo-foco.ts`) o un
-  `useCallback(…, [])` con refs. Pasar el `onCerrar` del padre tal cual tampoco alcanza si el
-  padre se re-renderiza por otra cosa (un toast, un sondeo).
-- **`autoFocus` (y cualquier `.focus()` al montar) no llega**: el primer render de la caja es
-  `display:none`. Va `useFocoInicial(id)`, que espera a que el campo se vea.
-- **Y una MEDIDA tampoco**: un campo que se mide solo en su primer efecto (`height = scrollHeight`) mide 0 y queda
-  colapsado, con la barra de scroll y el placeholder fuera de la vista (la barra «Pídeselo a MaKo», 12/10/2026). Va con
-  `minHeight` y la medida con el borde (`ComposerWhatsApp`), o vuelve a medir cuando se ve (`ResizeObserver`).
-- **Hasta que se arregle Modal de raíz** (el `onCerrar` por ref y el foco cuando la capa se ve;
-  los cambios exactos en `docs/hallazgos-customer-success.md` → «El feedback del audio del 08/10 a
-  la noche»), el mismo bug vive en otros nueve
-  diálogos de la app. `tests/curso-nuevo-producto.test.ts` lo frena sólo en la tab Curso.
+Se arregló de raíz y lo fija `tests/modal-foco.test.ts`. Lo que gobierna código nuevo:
+
+- **Ningún efecto de `Modal` vuelve a depender de `onCerrar`**: viaja por un ref que se actualiza en
+  un layout effect. Una prop-función nueva que un efecto necesite, igual.
+- **El foco inicial va cuando la capa se ve (`capa.visible`), no al montar**: el primer render de la
+  caja es `display:none` y un `.focus()` ahí no hace nada. Por eso `autoFocus` de React no llega
+  adentro de un Modal: el campo que pide el foco lleva **`data-autofocus`** (o `useFocoInicial(id)`,
+  `app/customer-success/curso/dialogo-foco.ts`, que espera a que se vea).
+- **Y una MEDIDA tampoco llega al montar**: un campo que se mide solo en su primer efecto (`height = scrollHeight`) mide 0
+  y queda colapsado, con la barra de scroll y el placeholder fuera de la vista (la barra «Pídeselo a MaKo», 12/10/2026).
+  Va con `minHeight` y la medida con el borde (`ComposerWhatsApp`), o vuelve a medir cuando se ve (`ResizeObserver`).
+- `useCerrarEstable(onCerrar, ocupado)` sigue sirviendo para no cerrar mientras algo se manda; ya no
+  hace falta para el foco.
 
 # Un componente COMPARTIDO no lleva el endpoint adentro: lleva la capacidad del Repo
 
@@ -4806,6 +4839,16 @@ devuelven**. Todo lo que leyeron y razonaron se queda afuera. Las transcripcione
 quedan en disco (`~/.claude/projects/<proyecto>/<sesión>/subagents/workflows/<runId>/`),
 pero son megas de crudo que nadie va a abrir y que la próxima sesión ni sabe que
 existen. En la práctica: lo que no se escribe, se pierde.
+
+⚠️ **Y ese «sí quedan en disco» tiene letra chica: el DIRECTORIO sobrevive al contenido.**
+Medido el 13/10/2026 en este proyecto: los 26 directorios de workflow de una sesión estaban
+**vacíos**, los 26 con la misma fecha (alguien los barrió en una pasada), mientras otras
+sesiones conservaban **179** `journal.jsonl` y **2151** `agent-*.jsonl` con todo adentro. La
+retención no es global y un `ls` contesta que la corrida existió — que es justo la respuesta
+que apaga la búsqueda. **La cosecha se escribe en la MISMA ventana**: cuatro días después
+puede no haber nada que releer. Y ojo con la ruta, que es la mitad del error: los journals
+viven en `<sesión>/subagents/workflows/`, no en `<sesión>/workflows/` — las dos carpetas
+existen, se llaman igual, y la equivocada contesta cero sin un error.
 
 No es hipotético. Una corrida de 14 agentes sobre el formulario "¿Qué hacer ahora?"
 encontró 13 problemas reales; los 5 que quedaron fuera de alcance sobrevivieron

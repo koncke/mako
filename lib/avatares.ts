@@ -147,7 +147,7 @@ export async function generarAvatares(): Promise<GenResult> {
     const text = await chatCheapCascade({
       system: sys, user, json: true, maxTokens: 2600,
       feature: 'avatares', motivo: 'Definir 3 avatares segmentables del negocio',
-      provs: CASCADA_DOCS, modelos: MODELO_DOCS, validar: tieneAvatares, erroresOut: errores,
+      provs: CASCADA_DOCS, modelos: MODELO_DOCS, validar: tieneAvatares, erroresOut: errores, redDePlataforma: true,
     });
     // El mensaje lo arma `errorDeCascada` (lib/ia-mensajes.ts). Acá vivía una copia
     // que hacía lo mismo, y esa duplicación es lo que dejó a `razones` diciendo lo
@@ -236,7 +236,7 @@ export async function siguientePreguntaAvatares(historial: PasoHistorialAvatar[]
     const text = await chatCheapCascade({
       system: sys, user, json: true, maxTokens: 500,
       feature: 'avatares', motivo: 'Siguiente pregunta para afinar los avatares',
-      provs: CASCADA_DOCS, modelos: MODELO_DOCS, validar: (t) => parseSiguientePreguntaAvatar(t) !== null,
+      provs: CASCADA_DOCS, modelos: MODELO_DOCS, validar: (t) => parseSiguientePreguntaAvatar(t) !== null, redDePlataforma: true,
     });
     const parsed = text ? parseSiguientePreguntaAvatar(text) : null;
     if (parsed) return { ok: true, ...parsed };
@@ -253,7 +253,7 @@ export async function describirArchivoAvatar(imagenDataUrl: string): Promise<str
     const { text } = await leerDocumentoIA({
       dataUrl: imagenDataUrl, isPdf: imagenDataUrl.startsWith('data:application/pdf'), nombreArchivo: 'avatares-archivo',
       prompt: 'Describe en 2-4 frases qué muestra esta imagen o documento (una lista de clientes, un CRM, etc.) — qué tipos de cliente o segmentos se distinguen ahí. Español neutro.',
-      feature: 'avatares', motivo: 'Leer el archivo que subió para afinar los avatares', timeoutMs: 25000,
+      feature: 'avatares', motivo: 'Leer el archivo que subió para afinar los avatares', timeoutMs: 25000, redDePlataforma: true,
     });
     return text.trim();
   } catch { return ''; }

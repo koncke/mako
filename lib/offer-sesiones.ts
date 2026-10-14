@@ -22,7 +22,7 @@
 import 'server-only';
 import { limpiarParaBase } from './texto-para-base';
 import { getTenantDb, getWorkspaceActual, getWorkspace } from './workspace';
-import { seedOfertaDesdeBrief, upsertOferta, borrarOferta, listarOfertas, ofertasDeFunnels, ligarOfertaAFunnel } from './ofertas';
+import { seedOfertaDesdeBrief, upsertOferta, borrarOferta, listarOfertas, ofertasDeFunnels, ligarOfertaAFunnel, ligarProductoQueCorresponde } from './ofertas';
 import { leerTodo } from './supabase-paginado';
 import { leerFunnels } from './funnels';
 import {
@@ -522,8 +522,18 @@ export async function guardarComoOferta(id: number): Promise<{ ofertaId: number;
   }
   if (ganadora.id != null) {
     await descartarOferta(guardada, `otro pedido ya había guardado esta versión como la oferta #${ganadora.id}`);
+    // La que gana ya ligó su producto en SU pedido: hacerlo acá sería ligar dos veces el mismo par
+    // (lo frena `uq_oferta_producto`, pero pedirle a la base que rechace lo que sabemos no es un plan).
     return { ofertaId: ganadora.id, fila, ...(await ligarAlFunnel(f.funnelId, ganadora.id)) };
   }
+  // Al PRODUCTO del catálogo, con la misma regla que el seed del brief: el que se llama igual, o el
+  // único que hay. Con varios y ninguno que coincida no liga, a propósito — ver
+  // `ligarProductoQueCorresponde`. Se liga por `base.nombre` y no por el nombre con el que entró a la
+  // base: los candidatos de desempate («… (2)», «… · versión 3») son para que no choque el índice
+  // único, no son cómo se llama la oferta.
+  // Va DESPUÉS del CAS y sólo si esta oferta sobrevivió: ligar antes dejaría el puente puesto a una
+  // oferta que el CAS descarta un instante después.
+  await ligarProductoQueCorresponde(guardada, base.nombre);
   return { ofertaId: guardada, fila, ...(await ligarAlFunnel(f.funnelId, guardada)) };
 }
 

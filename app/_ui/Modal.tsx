@@ -35,7 +35,7 @@
 // scrollea — que es la regla que comparten Polaris, Carbon, Primer y Atlassian
 // palabra por palabra.
 
-import { useEffect, useId, useRef, type ReactNode } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, type ReactNode } from 'react';
 import { useCapaModal } from '@/app/_components/pila-modales';
 
 /** Lo que puede recibir el foco adentro de la caja, para el ciclo del Tab. */
@@ -113,12 +113,20 @@ export function Modal({
   const arriba = capa.esElDeArriba;
   const cajaRef = useRef<HTMLDivElement>(null);
   const tituloId = useId();
+  // ⚠️ EL `onCerrar` VIAJA POR UN REF, NUNCA COMO DEPENDENCIA DEL EFECTO DEL FOCO (09/10/2026,
+  // cerrado el 13/10). Casi todos los que montan un Modal le pasan una flecha creada en su render:
+  // una identidad nueva por tecla. Con `onCerrar` en las deps, cada letra re-ejecutaba el efecto,
+  // su limpieza devolvía el foco atrás y el campo PERDÍA EL FOCO CON CADA LETRA (medido en «Abrir
+  // cuenta»: tipear «ana@x» dejaba «a»). El ref se actualiza en un layout effect: la tecla siguiente
+  // ya ve el `onCerrar` de este render. Ver AGENTS.md, «Todo <Modal> recibe un onCerrar de
+  // identidad FIJA» — desde este arreglo ya no hace falta, pero no estorba.
+  const cerrarRef = useRef(onCerrar);
+  useLayoutEffect(() => { cerrarRef.current = onCerrar; });
 
   useEffect(() => {
     // De dónde venía el foco, para devolverlo al cerrar. Sin esto, quien navega
     // con teclado vuelve al principio de la página y pierde el lugar en la lista.
     const previo = document.activeElement as HTMLElement | null;
-    cajaRef.current?.focus();
 
     const onKey = (e: KeyboardEvent) => {
       // ⚠️ SÓLO EL DE ARRIBA CIERRA. Los listeners de todos los modales abiertos viven en
@@ -126,7 +134,7 @@ export function Modal({
       // `stopPropagation` no lo evita, porque frena la propagación a otros NODOS y no a los
       // otros listeners del mismo. Se ve apenas hay dos capas visibles a la vez (una
       // `anidada`, o un `contenedor` con el tablero adentro).
-      if (e.key === 'Escape') { if (!arriba()) return; e.stopPropagation(); onCerrar(); return; }
+      if (e.key === 'Escape') { if (!arriba()) return; e.stopPropagation(); cerrarRef.current(); return; }
       if (e.key !== 'Tab') return;
       // El ciclo del Tab se cierra adentro de la caja: un modal del que te podés
       // ir con Tab a la página de atrás no es modal para quien usa teclado.
@@ -149,7 +157,20 @@ export function Modal({
     // así que este efecto sigue corriendo UNA vez. Ponerlo acá y no en un ref es lo que
     // evita que el cleanup —que devuelve el foco— se dispare cada vez que algo se abre
     // encima.
-  }, [onCerrar, arriba]);
+  }, [arriba]);
+
+  // ⚠️ EL FOCO INICIAL VA CUANDO LA CAPA SE VE, no al montar: el primer render de la caja es
+  // `display:none` (la pila decide la visibilidad un paso después), y un `.focus()` sobre algo
+  // invisible no hace nada. Por lo mismo el `autoFocus` de React no llega: el marcador que
+  // pide el foco es `data-autofocus`. Si el foco ya está adentro (alguien lo puso), no se toca.
+  const enfocada = useRef(false);
+  useEffect(() => {
+    const caja = cajaRef.current;
+    if (!capa.visible || enfocada.current || !caja) return;
+    enfocada.current = true;
+    if (caja.contains(document.activeElement)) return;
+    (caja.querySelector<HTMLElement>('[data-autofocus]') ?? caja).focus();
+  }, [capa.visible]);
 
   // El fondo no scrollea mientras hay un modal, pero lo bloquea SOLO el primero:
   // con dos abiertos, el de arriba al cerrarse devolvería el scroll con el de

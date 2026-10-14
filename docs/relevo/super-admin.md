@@ -5,6 +5,69 @@
 > Sirve a dos chats de `docs/relevo/chats.md`: **«Pricing MaKo»** (Strategy, runway, referidos) y
 > **«Admin»** (clientes, agencia, links compartidos).
 
+## ⏸ 13/10/2026 ~20:00 — EL 2FA DEL LOGIN, PAUSADO A MITAD (léelo primero)
+
+> Escrito por la cuenta 2 (chat «Admin») en la pausa que pidió Martín para liberar RAM. Primera mano.
+
+**El pedido** (Martín, 13/10, textual, vía «Estrategia 3 CUENTAS»; fuente
+`C:UsersmartiDownloadsmako-feedback-y-tareas.md`, punto 2): «Activar 2FA en todos lados... Si me
+llegan a entrar en la cuenta de email, toda la app está en riesgo. Activar 2FA de varias maneras... App de
+Auth, mensaje de WhatsApp, codigo en correo, preguntas de verificación, 2FA rápido para dispositivos
+seguros, como huella o face id, etc...». Validado «de punta a punta». Obligatorio para el super admin,
+opcional para el resto; preguntas de verificación NO como factor; las cuentas externas las activa él con
+un checklist.
+
+**Dónde está el código: en `refs/wip/2fa-login-2026-10-13`, NO en `main` ni en el árbol.** Se sacó del
+árbol compartido a propósito: sin el typecheck completo, un error de tipos ahí habría trabado el
+pre-push de las otras sesiones (los 25 commits que esperaban). Para retomarlo:
+
+```bash
+git diff HEAD refs/wip/2fa-login-2026-10-13 --stat
+git checkout refs/wip/2fa-login-2026-10-13 -- <las rutas de abajo>
+```
+
+⚠️ Ese checkout pisa `package.json`, `package-lock.json`, `lib/auth-session.ts`, `lib/auth.ts`,
+`lib/usuarios.ts`, el callback de Google, `dev-login`, `LoginForm.tsx`, `PerfilTabs.tsx` y
+`app/admin/dev/registros.ts`: si alguien los tocó después del 13/10, se reaplica por hunk, no en bloque.
+Las dependencias (`@simplewebauthn/server`, `@simplewebauthn/browser`, `qrcode`, `@types/qrcode`) ya
+están en `node_modules` del clon.
+
+**En `main`:** sólo la migración `0266_segundo_factor.sql` (`64d5e604`), **ya aplicada en prod** (sólo
+agrega: `usuarios.mfa_activo` default false y seis tablas con RLS). Sin el código, no cambia nada.
+
+**Hecho (en la foto):**
+- `lib/mfa-reglas.ts` (puro) y `lib/mfa.ts` (base): TOTP RFC 6238 con el secreto cifrado y anti-reuso;
+  código por WhatsApp (línea de MaKo) y por un correo DISTINTO del de Google; passkeys (@simplewebauthn v14,
+  RP fijo hola-mako.com/localhost); 10 códigos de recuperación; «recordar este dispositivo» 30 días; freno
+  de 8 fallos/15 min contado en la base (fail-closed).
+- `verificarToken` rechaza un token de admin sin `mfa` (proxy y server); `getUsuarioActual` agrega la capa
+  con la base. Paso intermedio `p1.` (cookie `mako_preauth`, 15 min) que no sirve como sesión.
+- Callback de Google: sesión / segundo paso / bloqueo (el admin de respaldo con la base caída ya NO entra).
+- `app/api/auth/2fa/route.ts` + `app/login/2fa/` (entrar y activar el primero),
+  `app/api/perfil/seguridad/route.ts` + `app/perfil/seguridad/` (administrar; activar reemite la sesión con
+  `mfa`, si no echaba a la persona), link desde `/perfil`.
+- `tests/mfa.test.ts`: 11 tests en verde, cada uno probado rompiéndolo (los números en su cabecera).
+- `app/admin/dev/auth-session/bitacora.ts` (con el pedido literal) y `docs/2fa-cuentas-externas.md`
+  (el checklist de Martín: Google ×2, Porkbun, GitHub, Vercel, Supabase, Meta, Railway, Resend, Stripe/MP).
+
+**Falta, en este orden:**
+1. Typecheck completo (el último no corrió: la guardia de RAM lo tuvo esperando y se frenó por la pausa).
+2. Mirarlo en el navegador en localhost con un usuario de prueba descartable, y borrarlo al terminar
+   (local escribe en la base de prod): entrar → activar TOTP → códigos → salir → entrar con TOTP, con
+   código de recuperación y con «recordar»; y `/perfil/seguridad`.
+3. `npm test` después de `git add` (hay archivos nuevos que los guards sólo ven indexados).
+4. Cosecha en `docs/hallazgos-seguridad.md` + índice `docs/hallazgos.md`, y sumar las rutas nuevas al
+   `vive[]` de `auth-session` en `app/admin/dev/areas.ts` (ese archivo tiene un hunk AJENO sin commitear:
+   va por hunk).
+5. Commit por ruta y push sólo con el typecheck en verde.
+6. **Apenas se despliegue, Martín entra y activa su método** (está en el checklist): hasta entonces quien
+   tenga su Google puede enrolar el suyo. Queda en cola «pedir un código fresco para quitar un método».
+
+**Otras cosas de esta ventana:** `f7755144` (runway: «hoy» en hora de acá) está commiteado y sin pushear.
+Sigue sin respuesta la pregunta a Martín de si se actualiza la foto del runway (capital y calendario).
+
+---
+
 ## Qué es esta parte del producto, para quien nunca la vio
 
 `/admin/*` es **la app que usa Martín sobre su propio negocio**, no la que le vende a los
@@ -116,6 +179,19 @@ Las que más crecieron: `chatbot` 32→79 hitos, `integraciones` 14→48, `custo
 
 ## 3. Lo que quedó a medio hacer o sin verificar, con el archivo donde vive
 
+> **Estado al 13/10/2026** (revisado por la cuenta 2 al retomar lo frenado de la cuenta 3):
+>
+> | Pendiente | Estado |
+> |---|---|
+> | Change History congelado el 07/09 | ✅ Regenerado el 11/10 (`b112e5b7`). `api-mako` y `legal-compliance` ya tienen entrada. Se sigue corriendo **a mano**: va a volver a envejecer. |
+> | El pedido del 10/10 sin bitácora | ✅ Está en `gtm-oferta-y-precios/bitacora.ts` (`1ca807ef`). |
+> | `docs/relevo/README.md` no listaba este archivo | ✅ Lo lista (`1e85eb62`). |
+> | Comentarios «122 áreas» | ✅ Los que mentían ya no están; `areas.ts:15` queda porque es HISTÓRICO (el relevamiento dio 122). |
+> | Runway: «hoy» a nivel módulo y en UTC (trampa ⑥) | ✅ 13/10: `hoy = hoyAR()` adentro del componente, el MISMO de Strategy. |
+> | Runway: «Al primer deadline» en «0 días» para siempre | ✅ 13/10: `textoPlazo()` en `runway/datos.ts` dice «venció hace N días». Test en `tests/estrategia-tab.test.ts`, probado rompiéndolo (las dos regresiones dan 15/1). |
+> | Runway: la FOTO del 03/10 (fechas de `HITOS`, capital, «45 días») | ⏸ **Espera a Martín**: hacen falta el capital de hoy y el calendario vigente. Hay dos fuentes que no coinciden (el audio del 04/10 → 18 y 19/10; las cinco etapas → tope 4/11) y no se elige una por él. |
+> | Abrir Strategy y el runway en un navegador | ⏸ Visual: lo mira Martín (memoria «Revisión: sólo lo invisible»). |
+
 ### ⛔ El Change History de las 124 áreas está congelado el 07/09/2026
 
 `app/admin/dev/_historial.generado.ts` es el Historial automático de cada área: lo escribe
@@ -224,8 +300,8 @@ CADA workspace: usarlo acá abriría estas pantallas a todos los clientes. Está
 (`datos.ts:66`). El runway lo hace al revés —`const HOY = new Date().toISOString()` a nivel
 módulo, `page.tsx:60`— y eso tiene dos fallas: `force-dynamic` vuelve a correr la función, no
 el módulo, así que una instancia caliente se queda con la fecha de su primera carga; y la
-fecha UTC ya es «mañana» después de las 21 h de Buenos Aires. **Está sin arreglar en el
-runway.**
+fecha UTC ya es «mañana» después de las 21 h de Buenos Aires. **Arreglado en el runway el
+13/10**: usa el mismo `hoyAR()`.
 
 **⑦ Los hex de las tortas son a propósito y no son un descuido.** `estrategia.css` tiene 22
 colores literales y 140 `var(--token)`. Los literales son **sólo** la paleta categórica de las

@@ -113,6 +113,62 @@ marcó como defecto del wizard, **dos eran decisiones deliberadas ya comentadas 
 canal, `:429`). Se verificaron una por una antes de escribir acá; sin ese paso, dos
 «hallazgos» hubieran mandado a alguien a deshacer algo que estaba decidido.
 
+## Ventana del 13/10 a la noche: tres de las cinco ALTA, cerradas
+
+<sub>Mismo chat que la sección de arriba (cuenta claude2), ya sobre producción. La tanda se
+cortó a pedido de Martín (~20:00) para liberar RAM: lo que quedó a medias está nombrado abajo
+con su archivo.</sub>
+
+| Tarea | Estado | Commit |
+|---|---|---|
+| **#171** el histórico de leads de Meta no llegaba nunca | cerrada, con guard probado rompiéndolo (5 roturas, 5 cazadas) y la suite entera en verde | `4da4b720` |
+| **#201** Instagram figuraba «leída» vacía | cerrada, con guard probado rompiéndolo (7 de 7) | `3ea8f2bf` |
+| **#734** la cuota de Gemini frenaba el arranque | **código cerrado y typecheck en cero**; su test compila y NO se corrió | `26b8eabe` |
+| **#801** el Ads Manager sin onboarding | sin empezar | — |
+| **#737** el video tutorial | no es código: lo graba Martín | — |
+
+### #171 — dos fuentes de verdad que no se hablaban
+
+`jobAplica` leía la setting `meta_page_id` (minúscula, que nadie escribe desde que el page id
+vive como credencial) y `pollMetaLeads` la credencial `META_PAGE_ID`. El job quedaba `skipped`
+con «Falta token de página o ID de página» en un workspace donde la ingesta andaba perfecto:
+sin error, con el paso en verde, y el CRM del cliente nuevo vacío. Ahora la pregunta se
+contesta UNA vez, en `credencialesDeLeads()` (`lib/meta-leads.ts`), y la llaman los dos. De
+paso se cerró la segunda divergencia del mismo gate: pedía el token a secas y el ingestor
+además rechaza un `PENDING…`.
+
+### #201 — una web pegada sólo cuenta si se aprendió algo
+
+Las tres preguntas viven en `lib/archivero-webs.ts` (sin `server-only`, para que los tests las
+ejecuten) y las usa `app/api/onboarding/archivero/route.ts`. **Medido con nuestro propio
+User-Agent**: instagram 991 caracteres de muro, facebook **4**, tiktok 14, x 1.385 — y
+**linkedin 13.159 de contenido real**, así que LinkedIn no entra en ninguna lista por
+parecerse a las otras. El defecto era más grande que Instagram: una página de cuatro
+caracteres pasaba el `!texto.trim()` y se guardaba como documento leído, y ese texto le daba
+de comer al panorama, que es el perfil del negocio.
+
+### #734 — lo que falta, que es la verificación
+
+El código está: la red de plataforma llega a `chatCheapCascade` y al camino de VISIÓN
+(`leerDocumentoIA`), encendida en los 11 puntos del arranque, con los errores de nuestras keys
+en lista aparte y `chatCheap` aceptando `wsKey`. `npx tsc --noEmit` devolvió cero errores.
+
+**Lo que queda, y es lo primero al retomar:** correr
+`tests/onboarding-red-plataforma.test.ts` —la base y las SIETE roturas que su encabezado
+enumera— restaurando de memoria, nunca con `git checkout`. Hasta que eso corra, de ese archivo
+se sabe que compila y nada más.
+
+### Lo que sigue sin hacer, con su archivo
+
+- **#801**: el Ads Manager no tiene entrada ni en `lib/tab-onboarding-catalogo.ts` ni en
+  `lib/tab-activacion.ts`. Sin empezar.
+- **El checklist «Qué hacer ahora» no se guarda**: `app/onboarding/FaseUI.tsx:121` sigue siendo
+  un `useState` local. Es el defecto real que encontró el prototipo y NO se tocó.
+- **Una decisión de Martín**: la pregunta de canal avanza con su default marcado
+  (`OnboardingWizard.tsx:629`) y ese valor siembra la plantilla de funnel del canal. ¿Se exige
+  elegir, o queda el default?
+- **`lib/entregable.ts`** quedó sin red de plataforma a propósito: no es del arranque.
+
 ## Dónde leer más
 
 - `docs/hallazgos-onboarding.md`: la última entrada (10/10) y, antes, las del 05 y 06/10

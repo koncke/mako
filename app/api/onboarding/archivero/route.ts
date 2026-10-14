@@ -17,6 +17,7 @@ import { randomUUID } from 'node:crypto';
 import { runWithWorkspace } from '@/lib/workspace';
 import { extraerDeArchivo, generarPanorama } from '@/lib/onboarding';
 import { leerDocumentoIA, docsIADisponible } from '@/lib/ai-cheap';
+import { muroConocido, textoInsuficiente, sinDatosDelNegocio } from '@/lib/archivero-webs';
 import {
   flatFields, insertFile, subirBinario, getFile, deleteFileRow, borrarBinario, buildEstado, resolverWsAdmin,
   getPanorama, setPanorama, listFiles,
@@ -66,14 +67,14 @@ async function leerArchivo(file: File): Promise<{ texto: string; warning?: strin
     // 2) PDF escaneado (imágenes) → visión.
     try {
       const dataUrl = `data:application/pdf;base64,${buf.toString('base64')}`;
-      const { text } = await leerDocumentoIA({ dataUrl, isPdf: true, nombreArchivo: file.name, prompt: LEER_DOC, feature: 'El Archivero', motivo: `Leer "${file.name}"` });
+      const { text } = await leerDocumentoIA({ dataUrl, isPdf: true, nombreArchivo: file.name, prompt: LEER_DOC, feature: 'El Archivero', motivo: `Leer "${file.name}"`, redDePlataforma: true });
       return { texto: text };
     } catch (e) { return { texto: '', warning: `No pude leer "${file.name}": ${msg(e)}` }; }
   }
   if (esImg) {
     try {
       const dataUrl = `data:${file.type || 'image/jpeg'};base64,${buf.toString('base64')}`;
-      const { text } = await leerDocumentoIA({ dataUrl, isPdf: false, nombreArchivo: file.name, prompt: LEER_DOC, feature: 'El Archivero', motivo: `Leer "${file.name}"` });
+      const { text } = await leerDocumentoIA({ dataUrl, isPdf: false, nombreArchivo: file.name, prompt: LEER_DOC, feature: 'El Archivero', motivo: `Leer "${file.name}"`, redDePlataforma: true });
       return { texto: text };
     } catch (e) { return { texto: '', warning: `No pude leer "${file.name}": ${msg(e)}` }; }
   }
@@ -169,23 +170,35 @@ async function fetchWebText(url: string): Promise<{ texto: string; titulo: strin
 // documento más. Se guarda con mime 'text/html' y storage_path = la URL (sin binario).
 async function procesarLink(ws: number, body: { url?: string }): Promise<Response> {
   try {
-    if (!(await docsIADisponible())) {
-      return Response.json({ ok: false, error: 'Necesito una IA para leer la web. Carga tu API key de Gemini (es gratis) y vuelve a analizar.' }, { status: 400 });
-    }
     const val = validarUrlPublica(String(body.url || ''));
     if (!val.ok) return Response.json({ ok: false, error: val.error }, { status: 400 });
     const url = val.url;
     const host = (() => { try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return url; } })();
 
+    // El muro va PRIMERO, antes incluso de pedir IA: contra un Instagram la
+    // llamada se gasta para nada, y «carga tu API key» manda a arreglar algo
+    // que no abre ningún muro.
+    const muro = muroConocido(host);
+    if (muro) return Response.json({ ok: false, error: muro, warnings: [muro], ...(await buildEstado(false)) }, { status: 422 });
+
+    if (!(await docsIADisponible())) {
+      return Response.json({ ok: false, error: 'Necesito una IA para leer la web. Carga tu API key de Gemini (es gratis) y vuelve a analizar.' }, { status: 400 });
+    }
+
     const warnings: string[] = [];
     const { texto, titulo, warning } = await fetchWebText(url);
     let leido = false;
+    const pobre = textoInsuficiente(host, texto);
     if (warning) warnings.push(warning);
-    else if (!texto.trim()) warnings.push(`No pude sacar texto de "${host}".`);
+    else if (pobre) warnings.push(pobre);
     else {
       const fields = (await flatFields()).map((f) => ({ key: f.key, label: `${f.grupo} — ${f.label}` }));
       const { campos, razonamiento, sinIA, motivoSinIA } = await extraerDeArchivo(texto, fields, 24000);
+      const vacia = sinDatosDelNegocio(host, campos);
       if (sinIA) warnings.push(mensajeSinIA(host, motivoSinIA));
+      // Cero datos NO es una lectura: la fila se mostraba como documento leído
+      // y el texto del muro entraba al panorama del negocio (tarea #201).
+      else if (vacia) warnings.push(vacia);
       else {
         await insertFile(ws, { id: randomUUID(), nombre: titulo || host, mime: 'text/html', tamano: texto.length, storage_path: url, razonamiento, campos });
         leido = true;

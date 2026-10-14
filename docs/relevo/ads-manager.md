@@ -19,6 +19,24 @@ la tab **`/instagram`**, que se retiró el 06/10 y hoy sólo redirige.
 
 ---
 
+## Retomado el 13/10/2026 (cuenta 2): lo que se fue cerrando
+
+Pedido de Martín, por el chat «Estrategia 3 CUENTAS»: continuar y cerrar lo planificado acá, sumar la
+#801 (el Ads Manager no tiene onboarding) y no tocar lo nuevo de `mako-feedback-y-tareas.md`. Los
+commits quedan **locales**: el push espera a que el typecheck del clon vuelva a terminar (el 13/10 a
+las 19:20 murió sin memoria con el tope de 2 GB; lo está arreglando la sesión de infra, `9d6fa572`).
+
+| Commit | Qué se cerró |
+|---|---|
+| `47fdde66` | Las monedas sin centavos (COP, CLP, JPY…): leer, escribir y crear presupuestos con la unidad de cada moneda (`offsetMeta`, `lib/presupuesto-cambio.ts`); escribir sin saber la moneda se niega (503). Y `EntityDetalle.tsx` ya no escribe «MXN» a mano |
+| `e4fb140b` | Un conjunto, anuncio o campaña de OTRA cuenta de Meta no se lee ni se escribe (404): público, textos, datos de campaña y `metaWrite` (pausar/presupuesto/renombrar/borrar). Regla: `esDeLaCuenta` (`lib/meta-cuenta-id.ts`) |
+| `81e80fb2` | La bitácora y `docs/hallazgos-ads.md` ya no mandan a «aplicar la 0215»: medido de nuevo el 13/10, está aplicada (0 de 19 borradores con clave) |
+| `c2ffe6a8` | Los lotes (pausar, activar, presupuesto) salen a Meta de a 4, no todos juntos |
+| `327d35ba` | La tarjeta de Meta en `/integraciones` dice «Faltan permisos de anuncios» en vez de «No se pudo leer» |
+| `41aa319f` | Una sola moneda por defecto (eran 'MXN' y 'USD'), y crear sin la moneda leída se niega |
+
+---
+
 ## Lo primero que hay que mirar
 
 1. **La bitácora del área miente sobre la migración 0215** y manda a hacer algo que ya está hecho
@@ -106,9 +124,12 @@ Y dos cosas que pasaron **fuera del repo** y mandan en el área:
 - **Por eso el botón «Conectar con Meta» todavía no lo ve ningún cliente.**
   `conectarMetaDisponible()` lo ofrece sólo al super admin hasta la aprobación, y a todos con
   `META_OAUTH_ABIERTO=true` en Vercel — **sin deploy**, el día que Meta apruebe.
-- **La tarjeta de Meta en `/integraciones` dice «No se pudo leer»** y no dice por qué. Tendría que
-  decir «Faltan permisos de anuncios», leyendo `/me/permissions` al descubrir
-  (`lib/meta-conexion.ts`).
+- ✅ **CERRADO el 13/10 (`327d35ba`): la tarjeta de Meta dice «Faltan permisos de anuncios»**
+  cuando Meta contesta con un error de permisos (códigos 10 y 200-299, `lib/meta-permisos.ts`).
+  No se hizo leyendo `/me/permissions` al descubrir, como decía acá: el código de error de la
+  MISMA lectura ya lo dice, sin pedidos de más y para cualquier conexión. Lo que NO hace: avisar
+  al CONECTAR que el token vino sin esos permisos (eso sí pediría `/me/permissions` en
+  `guardarConexionMeta`).
 - **La app MaKo no tiene webhook de leads.** Nadie llama a `subscribed_apps`, así que los leads de
   un cliente conectado SÓLO por la app MaKo entran **por el polling, no en vivo**. Hace falta
   `pages_manage_metadata` (quedó afuera del App Review a propósito), suscribir la página, y que
@@ -116,21 +137,22 @@ Y dos cosas que pasaron **fuera del repo** y mandan en el área:
 
 ### Bugs vivos, chicos y medidos
 
-- **`app/ads-manager/EntityDetalle.tsx:121` escribe «MXN» a mano** en el resumen que se le pasa a
-  MaKo (`presupuestoMxn.toLocaleString('es-MX')} MXN`). El commit de la moneda del 08/10
-  (`6118b275`) **no lo tocó**: para ws13/14/15, que cobran en USD, MaKo lee un monto con la moneda
-  equivocada. *(El briefing viejo decía `:87`; hoy es `:121`.)*
-- **El offset de centavos de Meta, sin verificar.** `lib/meta-write.ts` multiplica por 100 y
-  `lib/meta-health.ts` divide por 100. Hay monedas sin centavos (COP, CLP, JPY, KRW, TWD): un
-  cliente que cobre en una de ésas vería la celda, el cartel y el wizard **100× corridos**.
-- **`app/api/ads-manager/adset-targeting` no comprueba que el conjunto sea de la cuenta del
-  workspace.** Con un token de agencia, un id equivocado lee o pisa el de otro cliente. Ya pasaba
-  antes; el detalle de conjunto del 07/10 le sumó un call site de lectura.
-- **Dos defaults para la misma moneda:** `computeAccountHealth` y `HEALTH_SIN_CONEXION` inventan
-  `'MXN'` si Meta no manda `currency`; el wizard cae a `'USD'`. Riesgo bajo, pero el cartel no
-  distingue una moneda medida de un default.
-- **El lote escribe en paralelo** (`Promise.allSettled`): con muchas filas puede chocar con el rate
-  limit de Meta. No medido.
+- ✅ **CERRADO el 13/10 (`47fdde66`): «MXN» escrito a mano en `EntityDetalle.tsx`.** Ahora el
+  resumen que lee MaKo dice la moneda de la cuenta.
+- ✅ **CERRADO el 13/10 (`47fdde66`): el offset de centavos.** La tabla de Meta (leída el 13/10)
+  tiene 11 monedas con offset 1; la regla vive en `offsetMeta` (`lib/presupuesto-cambio.ts`) y la
+  usan escribir, crear, el árbol, el saldo y la serie. Ningún cliente de hoy cobra en una de ésas.
+- ✅ **CERRADO el 13/10 (`e4fb140b`): un id de OTRA cuenta**, en los cinco lugares que tenían el
+  agujero (no sólo `adset-targeting`). Afuera a propósito: crear (Meta valida contra
+  `act_<cuenta>`), el rollback, y las lecturas por ids de nuestros datos (`getObjectStoryId` de un
+  ganador, `getAdsAprobacionPendiente`, `paginasDeGanadores`).
+- ✅ **CERRADO el 13/10 (`41aa319f`): una sola moneda por defecto** (`MONEDA_META_POR_DEFECTO`,
+  'USD', sólo para dibujar), y crear con presupuesto se niega si `cuentaMeta()` no LEYÓ la moneda
+  (`monedaLeida`). Lo que sigue igual: el cartel de la tabla no distingue una moneda medida del
+  default — en la práctica Meta siempre manda la moneda de una cuenta.
+- ✅ **CERRADO el 13/10 (`c2ffe6a8`): el lote sale de a 4** (`allSettledConTope`,
+  `lib/settled-con-tope.ts`), no todo junto. No baja el TOTAL de llamadas: un lote enorme puede
+  agotar el cupo de Meta igual, y el error sigue saliendo por fila. No medido contra Meta.
 
 ### Lo que NUNCA se probó contra Meta de verdad
 

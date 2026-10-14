@@ -28,7 +28,7 @@ import {
   CHATBOT_MEDIDO, CHATBOT_TAREAS, CHATBOT_EN_PRODUCCION, CHATBOT_TE_TOCA,
   CS_MEDIDO, CS_TAREAS, CS_EN_PRODUCCION, CS_TE_TOCA,
   ONB_MEDIDO, ONB_VEREDICTOS, ONB_ELIMINADAS, ONB_TE_TOCA,
-  DASH_MEDIDO, DASH_VEREDICTOS, DASH_TE_TOCA,
+  DASH_MEDIDO, DASH_VEREDICTOS, DASH_TE_TOCA, textoPlazo,
   type Veredicto, type EstadoChatbot, type TareaApartado, type Pendiente,
 } from './datos';
 // El chip de prioridad es EL MISMO del tablero: la banda y el color salen de
@@ -38,6 +38,8 @@ import { prioFromScore, PCOLOR } from '@/app/plan/board/types';
 // Las tareas salen del tablero, ABIERTAS Y CERRADAS: una terminada tiene que poder
 // verse marcada, y el lector de /admin/dev las filtra en la consulta.
 import { wsDelBoard } from '@/app/admin/dev/roadmap';
+// «Hoy» sale del MISMO lugar que en Strategy: las dos pantallas cuentan contra el mismo reloj.
+import { hoyAR, faltan } from '@/app/admin/estrategia/datos';
 import { tareasDelCrm, tareasDelProyecto, PROYECTO_CHATBOT, PROYECTO_CS, PROYECTO_ONBOARDING, PROYECTO_DASHBOARD, type TareaCrm } from './tareas';
 
 export const dynamic = 'force-dynamic';
@@ -55,12 +57,6 @@ const pos = (f: string) => `${pct(f)}%`;
 // anclan a su borde; sólo el medio se centra.
 const anclaje = (p: number) => (p < 8 ? 'translateX(0)' : p > 92 ? 'translateX(-100%)' : 'translateX(-50%)');
 
-/**
- * Hoy, para lo único que se cuenta contra el reloj: los días que faltan y la
- * marca en el riel. La página es `force-dynamic`, así que se recalcula al abrir.
- */
-const HOY = new Date().toISOString().slice(0, 10);
-const faltan = (f: string) => Math.max(0, dia(f) - dia(HOY));
 
 /**
  * El **negrita** de los textos de `datos.ts`.
@@ -389,6 +385,12 @@ export default async function RunwayPage() {
   const admin = await getSesionAdmin();
   if (!admin) redirect('/inicio');
 
+  // ⚠️ «Hoy» se calcula ACÁ, no a nivel módulo, y en hora de Buenos Aires. A nivel
+  // módulo, `force-dynamic` vuelve a correr la función pero no el módulo: una
+  // instancia caliente se quedaba con la fecha de su primera carga. Y con
+  // `toISOString()` la fecha era la UTC, que después de las 21 h de acá ya es mañana.
+  const hoy = hoyAR();
+
   // ⚠️ El título y la PRIORIDAD salen del tablero en cada carga, no de `datos.ts`:
   // el Perro recurva los scores todos los días, así que un número escrito acá
   // estaría viejo mañana. Lo único propio de esta pantalla es el veredicto.
@@ -495,7 +497,7 @@ export default async function RunwayPage() {
             <p style={{
               margin: 0, fontSize: 'clamp(30px, 5vw, 42px)', fontWeight: 800, letterSpacing: '-0.03em',
               lineHeight: 1.05, fontVariantNumeric: 'tabular-nums', color: c.urge ? 'var(--bad)' : 'var(--ink)',
-            }}>{c.faltanHasta ? `${faltan(c.faltanHasta)} días` : c.valor}</p>
+            }}>{c.faltanHasta ? textoPlazo(faltan(c.faltanHasta, hoy)) : c.valor}</p>
             <p style={{ margin: '8px 0 0', fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.45 }}>
               <Marcado t={c.detalle} />
             </p>
@@ -524,10 +526,10 @@ export default async function RunwayPage() {
             }} />
             {/* Dónde estamos parados. Sin esto, un riel de 73 días no dice si
                 faltan dos meses o si la plata se termina la semana que viene. */}
-            {pct(HOY) >= 0 && pct(HOY) <= 100 && (
-              <div style={{ position: 'absolute', top: 44, bottom: 24, width: 2, left: pos(HOY), background: 'var(--primary)' }}>
+            {pct(hoy) >= 0 && pct(hoy) <= 100 && (
+              <div style={{ position: 'absolute', top: 44, bottom: 24, width: 2, left: pos(hoy), background: 'var(--primary)' }}>
                 <span style={{
-                  position: 'absolute', top: -17, left: 0, transform: anclaje(pct(HOY)), whiteSpace: 'nowrap',
+                  position: 'absolute', top: -17, left: 0, transform: anclaje(pct(hoy)), whiteSpace: 'nowrap',
                   fontFamily: MONO, fontSize: 10, fontWeight: 700, letterSpacing: '0.08em',
                   color: 'var(--primary)', background: 'var(--surface)', padding: '0 5px',
                 }}>HOY</span>

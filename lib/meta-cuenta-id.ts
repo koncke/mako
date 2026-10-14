@@ -41,3 +41,24 @@ export function normalizarCuentaMeta(crudo: string | null | undefined): string {
   const v = (crudo ?? '').trim();
   return /^\d+$/.test(v) ? `act_${v}` : v;
 }
+
+/**
+ * ¿El objeto de Meta (campaña, conjunto o anuncio) es de la cuenta publicitaria de
+ * ESTE workspace? Meta devuelve el `account_id` de un objeto PELADO (`1357…`) y la
+ * credencial se guarda como `act_1357…`: se comparan normalizados.
+ *
+ * EL CASO (13/10/2026, del relevo del Ads Manager). Leer o editar el público de un
+ * conjunto, los textos de un anuncio o pausar/borrar algo se hacía con el id que
+ * mandaba el navegador —o el modelo, por la API de MaKo— y el token del workspace.
+ * Con un token que llega a VARIAS cuentas (una agencia, un usuario de sistema con
+ * cuentas de varios clientes), un id equivocado leía o pisaba el de otra cuenta, y
+ * Meta lo hacía sin error: el token tenía permiso.
+ *
+ * Fail-closed: un lado vacío o con otra forma da `false`. Sin saber de quién es,
+ * no se lee ni se escribe.
+ */
+export function esDeLaCuenta(accountIdDelObjeto: unknown, cuentaDelWs: string | null | undefined): boolean {
+  const crudo = typeof accountIdDelObjeto === 'string' || typeof accountIdDelObjeto === 'number' ? String(accountIdDelObjeto) : '';
+  const obj = normalizarCuentaMeta(crudo);
+  return /^act_\d+$/.test(obj) && obj === normalizarCuentaMeta(cuentaDelWs);
+}

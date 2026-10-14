@@ -3438,6 +3438,11 @@ publicaciones de todos los clientes es peor que una protección que hasta hoy no
 costo, dicho: mientras falte, el «Reintentar es seguro» que ve la persona es falso. Por eso la
 cabecera de la migración dice ANTES del deploy. La base que no contesta sí da 503.
 
+> **Actualización del 13/10/2026:** la 0215 **está aplicada** (columna `idem_key` e índice
+> `uq_meta_campaign_drafts_idem` en producción, medido el 10 y el 13/10), así que el «Reintentar
+> es seguro» ya es cierto. Lo que sí sigue: **0 de 19 borradores tienen clave**, o sea que
+> todavía no pasó una publicación real por ese camino.
+
 **Cómo se verificó:** typecheck en 0; `npm test` 4510 de 4510; diecisiete roturas a propósito,
 todas cazadas (los números van en cada test); y en el navegador —dev server con
 `ZERNIO_API_KEY= ELEVENLABS_API_KEY=`, el log dijo sólo «hidratadas», ws9, con la subida y
@@ -3449,7 +3454,7 @@ revisión la cambia.
 
 **Sin hacer:**
 
-- **Aplicar la 0215**, antes del deploy.
+- ~~**Aplicar la 0215**, antes del deploy.~~ Aplicada (medido el 10 y el 13/10/2026).
 - **Publicar de verdad** (lo hace Martín, mirando): ws1 es un cliente con plata real. Con la
   app MaKo nueva (2586146911825340) Meta rechazaría todo creativo con 1885183 mientras esté en
   modo desarrollo, y eso se destraba pasándola a «Publicada», no con el App Review. En qué modo

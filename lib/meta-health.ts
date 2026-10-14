@@ -19,9 +19,10 @@
 // =============================================================================
 
 import { META_BALANCE_ALERTA_MXN } from './config';
-import { conversorDeGasto, montoCuenta } from './presupuesto-cambio';
+import { conversorDeGasto, desdeUnidadMeta, montoCuenta, MONEDA_META_POR_DEFECTO } from './presupuesto-cambio';
 import { parseRecosCuenta } from './meta-recos-cuenta';
 import { paisDeCuentaMeta } from './meta-pais';
+import { esErrorDePermisoMeta } from './meta-permisos';
 import { credWs } from './credenciales';
 import { cachedRead, TAG } from './cache';
 
@@ -73,6 +74,19 @@ export class MetaHealthTokenError extends Error {
   }
 }
 
+/**
+ * Meta contestó que la conexión no tiene permiso (códigos 10 y 200-299: falta
+ * `ads_read`/`ads_management`). Es un hecho de la conexión, no un bache: la
+ * pantalla lo nombra (lib/meta-permisos.ts). El mensaje queda igual que el de
+ * cualquier error de Meta, para no romper a quien lo lea por texto.
+ */
+export class MetaHealthPermisoError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'MetaHealthPermisoError';
+  }
+}
+
 async function graphGet(url: string, attempt = 0): Promise<GraphResponse> {
   const res = await fetch(url, { method: 'GET', cache: 'no-store' });
   let body: GraphResponse;
@@ -88,6 +102,7 @@ async function graphGet(url: string, attempt = 0): Promise<GraphResponse> {
       await sleep(1000 * 2 ** attempt);
       return graphGet(url, attempt + 1);
     }
+    if (esErrorDePermisoMeta(code)) throw new MetaHealthPermisoError(`Meta API error: ${message}`);
     throw new Error(`Meta API error: ${message}`);
   }
   if (!res.ok) throw new Error(`HTTP ${res.status} de Meta sin error body`);
@@ -178,11 +193,12 @@ function learningInfo(raw: unknown): NodoEstado['learning'] {
 function computeAccountHealth(raw: Record<string, unknown>): MetaAccountHealth {
   const status = num(raw.account_status);
   const disableReason = num(raw.disable_reason);
-  const currency = String(raw.currency ?? 'MXN');
-  // Montos llegan en CENTAVOS de la moneda de la cuenta (MXN) → /100.
-  const balanceMxn = num(raw.balance) / 100;
-  const amountSpentMxn = num(raw.amount_spent) / 100;
-  const spendCapRaw = num(raw.spend_cap) / 100;
+  const currency = String(raw.currency ?? MONEDA_META_POR_DEFECTO);
+  // Montos en la unidad mínima de la moneda de la cuenta: centavos casi siempre, y la
+  // unidad entera en las monedas sin centavos (COP, CLP, JPY…). Ver `offsetMeta`.
+  const balanceMxn = desdeUnidadMeta(num(raw.balance), currency);
+  const amountSpentMxn = desdeUnidadMeta(num(raw.amount_spent), currency);
+  const spendCapRaw = desdeUnidadMeta(num(raw.spend_cap), currency);
   const spendCapMxn = spendCapRaw > 0 ? spendCapRaw : null;
 
   const funding = raw.funding_source_details as { display_string?: string } | undefined;
@@ -331,16 +347,18 @@ export async function campanasYConjuntos(): Promise<{ campanas: CampanaMeta[]; c
   };
 }
 
-function centavosAMxn(v: unknown): number | null {
+/** Un presupuesto de Meta (en la unidad mínima de la moneda) → el monto en la moneda de la cuenta. */
+function presupuestoDeMeta(v: unknown, currency: string): number | null {
   if (v === null || v === undefined || v === '') return null;
   const n = Number(v);
-  return Number.isFinite(n) ? n / 100 : null;
+  return Number.isFinite(n) ? desdeUnidadMeta(n, currency) : null;
 }
 
 function toNodo(
   raw: Record<string, unknown>,
   level: NodoEstado['level'],
   parentKey: string | null,
+  currency: string,
 ): NodoEstado {
   const eff = String(raw.effective_status ?? 'UNKNOWN');
   const nodo: NodoEstado = {
@@ -355,9 +373,9 @@ function toNodo(
     createdTime: raw.created_time != null ? String(raw.created_time) : null,
   };
   if (level === 'campaign' || level === 'adset') {
-    nodo.dailyBudgetMxn = centavosAMxn(raw.daily_budget);
-    nodo.lifetimeBudgetMxn = centavosAMxn(raw.lifetime_budget);
-    nodo.budgetRemainingMxn = centavosAMxn(raw.budget_remaining);
+    nodo.dailyBudgetMxn = presupuestoDeMeta(raw.daily_budget, currency);
+    nodo.lifetimeBudgetMxn = presupuestoDeMeta(raw.lifetime_budget, currency);
+    nodo.budgetRemainingMxn = presupuestoDeMeta(raw.budget_remaining, currency);
     // CBO si la campaña tiene budget propio; ABO si el conjunto lo tiene.
     nodo.budgetLevel = nodo.dailyBudgetMxn != null || nodo.lifetimeBudgetMxn != null ? level : null;
   }
@@ -559,9 +577,9 @@ async function _getMetaHealth(): Promise<MetaHealth> {
   const accRecos = accRecoR.status === 'fulfilled' ? accRecoR.value : [];
   const parcial = [campR, adsetR, adR].some((r) => r.status === 'rejected');
 
-  const campaigns = campaignsRaw.map((r) => toNodo(r, 'campaign', null));
-  const adsets = adsetsRaw.map((r) => toNodo(r, 'adset', 'campaign_id'));
-  const ads = adsRaw.map((r) => toNodo(r, 'ad', 'adset_id'));
+  const campaigns = campaignsRaw.map((r) => toNodo(r, 'campaign', null, account.currency));
+  const adsets = adsetsRaw.map((r) => toNodo(r, 'adset', 'campaign_id', account.currency));
+  const ads = adsRaw.map((r) => toNodo(r, 'ad', 'adset_id', account.currency));
 
   // Recomendaciones nativas de Meta (raras vía API): cuenta + cada nivel.
   const recosMeta: Reco[] = [

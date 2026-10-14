@@ -1663,3 +1663,83 @@ ninguno es del arranque. El Archivero lee con `leerDocumentoIA` y los productos 
   entrada del 10/10). No se fijaron a mano, a propósito.
 
 *Corrida del 10/10/2026 · chat «Onboarding», sin subagentes · medido contra el código y la base.*
+
+## El prototipo conversacional contra el flujo REAL, y lo que eso encontró del wizard (13/10/2026)
+
+**Vive en:** `app/onboarding/FaseUI.tsx:121` (el checklist) · `app/onboarding/OnboardingWizard.tsx:629`
+(la pregunta de canal) · el prototipo y sus pruebas, FUERA del repo (ver `docs/relevo/onboarding.md`,
+la ventana del 13/10)
+
+El prototipo del onboarding-como-chat se reescribió leyendo el wizard —pasó de 5 turnos a 28— y lo
+que importa acá no es el prototipo: es que **escribir el flujo real paso por paso encontró cosas del
+wizard que nadie había mirado**. Las tres que se verificaron una por una contra el código:
+
+### El checklist «Qué hacer ahora» del diagnóstico no se guarda en ningún lado
+
+`app/onboarding/FaseUI.tsx:121` es `useState<Set<number>>(() => new Set([0]))`: se tilda (`:122`),
+se dibuja (`:191`) y se pierde al recargar. No hay endpoint ni setting que lo reciba — medido con
+un barrido de `app/api/onboarding/` y de `lib/fase-store.ts`: cero escrituras.
+
+Lo que eso cuesta no es el tilde: **es que la persona le declara a MaKo lo que ya hizo y MaKo no se
+entera.** El paso siguiente del arranque, el plan que escribe `lib/todo-seed-ia.ts` y el diagnóstico
+de fase siguen creyendo que no hizo nada. Y la forma de falla es la de siempre: no hay error, el
+tilde se dibuja, y al volver la pantalla está igual que antes — indistinguible de «no guardé».
+
+### La pregunta de canal se puede pasar sin tocarla, y su default dispara efectos
+
+`OnboardingWizard.tsx:629` excluye `fase:canal` de `esFaseQuiz` **a propósito** (el comentario está
+en `:429`), y el default viene marcado. O sea que se puede avanzar sin elegir y queda `llamadas`.
+Eso no es cosmético: ese valor decide el enunciado y los tramos de la pregunta siguiente **y siembra
+la plantilla de funnel de ese canal**. La exclusión está decidida y comentada; lo que no está
+decidido es que un efecto lateral de esa magnitud corra con un default que nadie tocó.
+
+### ⚠️ Dos de los tres «defectos» que marcó la corrida eran decisiones YA comentadas en el código
+
+Y es el hallazgo más caro de la tanda, porque los tres se leían igual de convincentes:
+
+| Lo que marcó | Qué era |
+|---|---|
+| `FasePanel` se pasa y no se dibuja | **Decidido**: `OnboardingWizard.tsx:792` lo dice textual, «SE SIGUE PASANDO Y EN MODO desnudo NO SE DIBUJA. Queda a propósito» |
+| La pregunta de canal no es obligatoria | **Decidido**: la exclusión de `esFaseQuiz` está comentada en `:429` |
+| El checklist no persiste | **Defecto real**, el de arriba |
+
+Se verificaron una por una ANTES de escribir acá. Sin ese paso, dos de los tres hallazgos hubieran
+mandado a alguien a deshacer algo que estaba decidido — y el comentario que lo explica está en la
+línea de al lado, así que el que lo deshaga tampoco iba a entender por qué «faltaba».
+
+### ⚠️ Y el directorio de una corrida puede existir VACÍO: listarlo no es tener el journal
+
+Para recuperar la evidencia de esa auditoría se fue a buscar los transcripts de los subagentes, que
+AGENTS.md promete en disco. Medido el 13/10 en este proyecto:
+
+- los **26** directorios de workflow de esta sesión existen y están **vacíos**, los 26 con la MISMA
+  fecha (9/10 00:37) — alguien los barrió en una sola pasada y dejó las carpetas;
+- las de otras sesiones están intactas: **179** `journal.jsonl` y **2151** `agent-*.jsonl` vivos,
+  con contenido (uno de 287 KB del 12/10).
+
+O sea que la retención no es global y **el directorio sobrevive al contenido**: un `ls` contesta que
+la corrida existió, que es exactamente la respuesta que apaga la búsqueda.
+
+⚠️ **Y el primer diagnóstico de esto fue el equivocado, en el alcance.** Un `find` de
+`journal.jsonl` había devuelto cero y de ahí salió «ya se limpiaron todas»: estaba corriendo sobre
+`<sesión>/workflows/`, y los journals viven en `<sesión>/subagents/workflows/`. Las dos rutas
+existen, las dos se llaman `workflows`, y la equivocada contesta cero sin error. Es «un cero
+perfectamente correcto sobre la pregunta equivocada» con las dos carpetas a la vista. Si esa
+conclusión se hubiera escrito, el repo quedaba afirmando que el entorno borra los transcripts de
+todos.
+
+**La regla que queda:** la cosecha se escribe en la MISMA ventana en que se corrieron los agentes.
+Un directorio de corrida no es evidencia de que la evidencia esté, y recuperarla cuatro días
+después puede no ser una opción.
+
+### Lo que quedó SIN hacer
+
+- **Persistir el checklist de `FaseUI.tsx:121`.** Es el único defecto real de los tres y no se tocó:
+  esta ventana no escribió una línea de producción.
+- **Decidir si la pregunta de canal puede avanzar con el default**, que es una decisión de Martín, no
+  un arreglo.
+- Las cinco tareas ALTA de la depuración del 10/10 (#734, #171, #737, #801, #201) siguen sin fecha y
+  sin empezar.
+
+*Ventana del 13/10/2026 · chat de Claude Design (cuenta claude2) · el prototipo vive en el canvas y
+en el scratchpad; cada hallazgo de producción se verificó contra el código antes de escribirlo.*

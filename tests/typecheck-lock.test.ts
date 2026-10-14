@@ -71,7 +71,97 @@ test('el lock suelta siempre y propaga el código de salida', () => {
   // espera 10 minutos por nada.
   assert.match(src, /process\.on\('exit', soltar\)/, 'el lock se suelta pase lo que pase');
   // Y si no se propaga el código, un error de tipos saldría como push verde.
-  assert.match(src, /hijo\.on\('exit'[\s\S]{0,80}cerrar\(code/, 'el exit code de tsc se propaga');
+  assert.match(src, /hijo\.on\('exit'[\s\S]*?cerrar\(code \?\? 1\)/, 'el exit code de tsc se propaga');
+});
+
+/**
+ * ⚠️ UN FALLO MUDO NO SE REPORTA COMO UN FALLO DE TIPOS.
+ * Medido el 13/10/2026: el vigía de RAM (~/.claude/guardia/vigia.ps1) mató **30
+ * typechecks en un día** con `taskkill /T /F`, que en Windows deja código 1 y
+ * CERO salida. El lock lo devolvía como un exit 1 cualquiera, así que el pre-push
+ * decía «hay errores de tipos» sobre un repo que compila. Costó una hora a dos
+ * sesiones — y lo peor: cada sesión bloqueada corría `tsc` A MANO para
+ * diagnosticar, fuera del lock, lo que pedía otros 3 GB y hacía matar al
+ * siguiente. El fallo mudo ERA el que alimentaba la estampida.
+ *
+ * Verificado rompiéndolo: con `stdio: 'inherit'` (sin contar bytes) no se puede
+ * distinguir, 1 fallo; sin el cap, 1 fallo; con el piso de RAM a mano, 1 fallo.
+ * Y de punta a punta: `taskkill /T /F` al tsc hijo a mitad de camino imprime
+ * «EL TYPECHECK NO TERMINÓ, Y NO SON ERRORES DE TIPOS» con la línea del log.
+ */
+test('un tsc que muere sin imprimir se reporta como lo que es, no como errores de tipos', () => {
+  const src = leer('../scripts/typecheck-lock.mjs');
+  // Para saber si imprimió algo hay que CONTAR: con stdio heredado no se puede.
+  assert.match(src, /stdio:\s*\['inherit',\s*'pipe',\s*'pipe'\]/, 'la salida de tsc se canaliza para poder contarla');
+  assert.match(src, /bytes \+= b\.length/, 'se cuentan los bytes que tsc escribió');
+  assert.match(
+    src,
+    /\(code \?\? 1\) !== 0 && bytes === 0/,
+    'un exit distinto de 0 con CERO salida es un fallo mudo, no un error de tipos',
+  );
+  assert.match(src, /guardia\.log/, 'el fallo mudo busca en el log del vigía quién lo mató');
+  // ⚠️ El assert va sobre la línea que BUSCA, no sobre «aparece el pid en el archivo»:
+  // `${hijo.pid}` sale tres veces, así que un match suelto pasa en verde con la
+  // búsqueda ya rota (medido: esa versión del guard no cazó la rotura).
+  assert.match(
+    src,
+    /\.find\(\(l\) => l\.includes\(`MATO pid \$\{hijo\.pid\} `\)\)/,
+    'la búsqueda en el log es por el pid de SU hijo, no la última línea de cualquiera',
+  );
+});
+
+/**
+ * ⚠️ «NO PUDE CHEQUEAR» Y «HAY ERRORES» SON DOS RESPUESTAS, CON DOS ACCIONES.
+ * Medido el 13/10/2026 en un push real: el lock explicaba bien que al tsc lo había
+ * matado el vigía, y el hook imprimía DEBAJO «✖ PUSH BLOQUEADO: hay errores de tipos».
+ * La última línea que lee la persona volvía a mentir, con la explicación correcta tres
+ * renglones más arriba. Un exit 1 no alcanza: hace falta un código propio (99) para que
+ * el hook pueda decir «cerrá chats» en vez de «corregí los tipos».
+ *
+ * Verificado rompiéndolo: con `cerrar(code ?? 1)` en el camino mudo, 1 fallo; con el
+ * freno por RAM saliendo con 1, 1 fallo.
+ */
+test('el lock distingue «no pude chequear» de «hay errores» con un código propio', () => {
+  const src = leer('../scripts/typecheck-lock.mjs');
+  assert.match(src, /const SALIDA_SIN_CHEQUEAR = 99;/, 'hay un código de salida propio para «no pude chequear»');
+  // El camino mudo (lo mataron) sale con ESE código, no con 1.
+  assert.match(
+    src,
+    /bytes === 0\) \{ explicarMudo\(\); cerrar\(SALIDA_SIN_CHEQUEAR\)/,
+    'un tsc muerto sin imprimir sale con SALIDA_SIN_CHEQUEAR, no con 1',
+  );
+  // Y el freno por falta de RAM también: tampoco chequeó nada.
+  assert.match(
+    src,
+    /soltar\(\);\s*\n\s*process\.exit\(SALIDA_SIN_CHEQUEAR\);/,
+    'el freno por falta de RAM también sale con SALIDA_SIN_CHEQUEAR',
+  );
+  // Y el hook tiene que mirarlo, o el mensaje final vuelve a mentir.
+  let hook: string;
+  try { hook = leer('../.git/hooks/pre-push'); } catch { return; }
+  assert.match(hook, /-eq 99/, 'el pre-push distingue el 99 y no dice «hay errores de tipos»');
+  assert.match(hook, /NO es un error de tipos/, 'y lo dice con todas las letras');
+});
+
+test('el heap de tsc va acotado, y el piso de RAM se deriva de ese cap', () => {
+  // V8 crece hasta ~4 GB en esta máquina: un tsc suelto llegó a 3.765 MB. Capado es
+  // menos matable, y si no alcanza falla ruidoso. (El «trabaja en 1.571» que decía acá
+  // era de un tsc que el vigía MATÓ a mitad: el chequeo completo pide más de 2 GB vivos.)
+  // Y el piso NO puede ser un número a mano menor que lo que el trabajo pide: con
+  // 2,0 GB la admisión era un permiso para que el vigía lo matara.
+  // Verificado rompiéndolo: sin el `--max-old-space-size`, 1 fallo; con
+  // `const RAM_MIN_GB = 2.0`, 1 fallo.
+  const src = leer('../scripts/typecheck-lock.mjs');
+  assert.match(src, /--max-old-space-size=\$\{CAP_HEAP_MB\}/, 'tsc se lanza con el heap acotado');
+  assert.match(
+    src,
+    /const RAM_MIN_GB = CAP_HEAP_MB/,
+    'el piso de RAM se deriva del cap del heap (y de la zona roja del vigía), no se elige a mano',
+  );
+  assert.match(src, /ZONA_ROJA_VIGIA_GB/, 'el piso contempla la zona roja del vigía');
+  const cap = src.indexOf('const CAP_HEAP_MB');
+  const piso = src.indexOf('const RAM_MIN_GB');
+  assert.ok(cap > 0 && piso > cap, 'CAP_HEAP_MB se declara ANTES de RAM_MIN_GB (un const no se hoistea: sería ReferenceError)');
 });
 
 test('el lock espera RAM, con el turno tomado, antes de lanzar tsc', () => {
@@ -86,4 +176,74 @@ test('el lock espera RAM, con el turno tomado, antes de lanzar tsc', () => {
   assert.ok(turno > 0 && lanza > 0, 'no encontré el turno o el spawn: el guard está mirando otra cosa');
   assert.ok(ram > turno && ram < lanza, 'esperarRam() tiene que correr DESPUÉS de tomar el turno y ANTES de lanzar tsc');
   assert.match(src, /freemem\(\)/, 'la espera mira la RAM disponible de la máquina');
+});
+
+/**
+ * ⚠️ SIN RAM NO SE CORRE IGUAL. El fallback «espero 5 min y arranco lo mismo, puede ir
+ * lento» era correcto cuando el riesgo era la lentitud. Con el vigía de RAM matando al
+ * pesado más grande bajo 0,9 GB libres, arrancar sin RAM es un kill GARANTIZADO que
+ * además consume 2 GB que le faltan a los otros 21 chats — o sea el mecanismo que hacía
+ * matar al siguiente. Frenar y decir qué hacer es lo honesto; la salida de emergencia es
+ * explícita (MAKO_TYPECHECK_SIN_ESPERA=1).
+ *
+ * Verificado rompiéndolo: devolviendo `true` al vencer la espera (el «corro igual» de
+ * antes), 1 fallo; sacando la salida de emergencia, 1 fallo.
+ */
+test('sin RAM el lock FRENA con instrucciones, no arranca tsc hacia un kill', () => {
+  const src = leer('../scripts/typecheck-lock.mjs');
+  // Al vencer la espera tiene que devolver false (frenar), no true (correr igual).
+  const esp = src.slice(src.indexOf('async function esperarRam'), src.indexOf('if (!(await esperarRam())'));
+  assert.ok(esp.length > 200 && esp.length < 2500, `el recorte de esperarRam mide ${esp.length}: está mirando otra cosa`);
+  assert.match(esp, /if \(Date\.now\(\) >= hasta\) return false;/, 'al vencer la espera FRENA (return false), no corre igual');
+  assert.doesNotMatch(
+    esp.replace(/^[ \t]*\/\/.*$/gm, ''),
+    /corro igual \(puede ir lento\)/,
+    'ya no existe el camino «corro igual» por falta de RAM',
+  );
+  // Y lo que frena tiene que decir que NO son errores de tipos, o se lee igual que antes.
+  assert.match(src, /NO CORRÍ EL TYPECHECK/, 'el freno dice que no corrió, no que falló');
+  assert.match(src, /Esto NO es un error de tipos/, 'y aclara que no es un error de tipos');
+  assert.match(src, /Cerrá unos chats/, 'y dice qué hacer para destrabarlo');
+  // Una guarda sin llave toma de rehén a quien empuja: la excepción va escrita.
+  // ⚠️ El assert va sobre la LECTURA de la variable, no sobre que el nombre aparezca:
+  // el nombre también está en el mensaje de ayuda, así que un match suelto pasa en verde
+  // con la salida de emergencia ya rota (medido: esa versión no cazó la rotura).
+  assert.match(
+    src,
+    /process\.env\.MAKO_TYPECHECK_SIN_ESPERA === '1'/,
+    'la salida de emergencia se LEE del entorno (no basta con nombrarla en el mensaje)',
+  );
+});
+
+test('un «heap out of memory» sale con 99 («no pude chequear»), no como errores de tipos', () => {
+  // 13/10/2026: con el tope en 2048, tsc murió con «FATAL ERROR: Ineffective mark-compacts
+  // near heap limit … heap out of memory». node SÍ imprime cuando se queda sin heap, así que
+  // el conteo de bytes del fallo mudo no lo veía y el pre-push decía «hay errores de tipos»
+  // sobre un chequeo que no llegó a terminar. tsc escribe sus errores en stdout: el detector
+  // mira sólo la cola de stderr.
+  // Verificado rompiéndolo (base 9/0): cerrar esa rama con el código de tsc antes del 99,
+  // 1 fallo; no alimentar la cola con stderr, 1 fallo; una regex que no reconoce el FATAL de
+  // V8, 1 fallo; la rama apagada (`&& false`), 1 fallo. Y en un push real: salió con 99.
+  const src = leer('../scripts/typecheck-lock.mjs');
+  const m = src.match(/const sinHeap = \(\) => (\/.+\/[a-z]*)\.test\(colaErr\);/);
+  assert.ok(m, 'no encontré sinHeap: el guard está mirando otra cosa');
+  const lit = m![1];
+  const re = new RegExp(lit.slice(1, lit.lastIndexOf('/')), lit.slice(lit.lastIndexOf('/') + 1));
+  assert.ok(
+    re.test('FATAL ERROR: Ineffective mark-compacts near heap limit Allocation failed - JavaScript heap out of memory'),
+    'reconoce el FATAL de V8 tal como salió en el push',
+  );
+  assert.ok(!re.test("app/x.ts(3,5): error TS2322: Type 'string' is not assignable to type 'number'."), 'un error de tipos no cuenta');
+  assert.match(src, /if \(flujo === hijo\.stderr\) colaErr = /, 'la cola se alimenta con stderr');
+  const ini = src.indexOf("hijo.on('exit'");
+  const fin = src.indexOf("hijo.on('error'", ini);
+  assert.ok(ini > 0 && fin > ini, 'no encontré el handler de salida');
+  const handler = src.slice(ini, fin);
+  const rama = handler.match(/if \(\(code \?\? 1\) !== 0 && sinHeap\(\)\) \{([\s\S]*?)\n  \}/);
+  assert.ok(rama, 'el handler de salida pregunta por sinHeap()');
+  assert.equal(
+    rama![1].match(/cerrar\(([^)]*)\)/)?.[1],
+    'SALIDA_SIN_CHEQUEAR',
+    'sin heap sale con 99 (es lo PRIMERO que cierra esa rama), no con el código de tsc',
+  );
 });

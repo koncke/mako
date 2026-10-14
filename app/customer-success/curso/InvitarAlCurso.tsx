@@ -46,7 +46,7 @@
 // que es de TODOS sus productos), por `invitarAlCursoAction` como siempre. Y si el correo no salió por
 // su configuración, el modal monta el formulario del correo AHÍ MISMO (`CorreoAhiMismo`, ./InvitarAlumnos).
 
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Button, Field, Input, Modal, Select, useOkFlash, type ButtonVariant } from '@/app/_ui';
 import { emailUtilizable } from '@/lib/agencia-altas';
@@ -54,6 +54,7 @@ import { habilitarAccesoCursoAction, invitarAlCursoAction, invitarLiderAction } 
 import { invitarAlCursoDelProductoAction } from './invitar-actions';
 import { CorreoAhiMismo } from './InvitarAlumnos';
 import type { CorreoQueFallo } from '@/lib/curso-invitar-reglas';
+import { useCerrarEstable, useFocoInicial } from './dialogo-foco';
 import {
   estadoDeInvitacion, fraseInvitacion,
   type AccesoFicha, type AccesoInvitacion, type AccesoLiderFicha, type AvisoInvitacionCurso,
@@ -132,16 +133,11 @@ export function ModalInvitar({ leadId, nombre, emailCrm, acceso, onListo, areas,
    * hay un envío en curso va por ref, y el `onCerrar` de quien lo monta también: así la identidad
    * no cambia aunque el padre pase una flecha nueva en cada render.
    */
-  const alCerrar = useRef(onCerrar);
-  alCerrar.current = onCerrar;
-  const cerrar = useCallback(() => { if (!mandandoRef.current) alCerrar.current(); }, []);
+  const cerrar = useCerrarEstable(onCerrar, mandando);
 
-  // ⚠️ EL FOCO AL CAMPO VA DESPUÉS DEL DEL MODAL. `Modal` enfoca su caja al montarse, y eso corre
-  // DESPUÉS del `autoFocus` del input (los efectos van después del commit): el campo quedaba sin
-  // foco. Este efecto es del padre del modal, así que corre después del suyo.
-  useEffect(() => {
-    (document.getElementById(id) as HTMLInputElement | null)?.focus();
-  }, [id]);
+  // ⚠️ EL FOCO AL CAMPO VA CUANDO LA CAJA YA SE VE: el primer render del `Modal` es `display:none` y
+  // un `.focus()` sobre algo escondido no hace nada (medido: el foco quedaba en el body).
+  useFocoInicial(id);
   const sirve = emailUtilizable(correo);
   const conAreas = (areas?.length ?? 0) > 0;
 

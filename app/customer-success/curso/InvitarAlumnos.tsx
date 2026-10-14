@@ -48,7 +48,7 @@
 // ConectarIA): no hay una segunda forma de guardar una credencial. Va con `next/dynamic` y sólo cuando
 // hace falta, para no sumarle su código al editor del curso.
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
 import { Button, Checkbox, Field, Input, Modal, Spinner, Tabs, TextField } from '@/app/_ui';
@@ -59,6 +59,7 @@ import { splitTelefono, unirTelefono } from '@/lib/paises';
 import { clientesSinInvitar, type AccesoDeFila, type ClienteSinInvitar } from '../curso-ficha-lectura';
 import { invitarClientesAction, invitarNuevoAlumnoAction, opcionesDeInvitarAction, productosDeLosAccesosAction } from './invitar-actions';
 import { ofreceWhatsapp, tieneTelefono, type CanalInvitacion } from '@/lib/curso-invitar-canales';
+import { useCerrarEstable } from './dialogo-foco';
 import {
   accesoEnProducto, claveBorrador, leerBorrador, borradorConAlgo, BORRADOR_VACIO,
   type BorradorInvitar, type CorreoQueFallo,
@@ -161,9 +162,7 @@ export function ModalInvitarAlumnos({ productoId, producto, filas, onListo, onCe
   const ocupadoRef = useRef(false);
   const router = useRouter();
   /** `onCerrar` estable (ver el porqué en ./InvitarAlCurso.tsx: el `Modal` depende de su identidad). */
-  const alCerrar = useRef(onCerrar);
-  alCerrar.current = onCerrar;
-  const cerrar = useCallback(() => { if (!ocupadoRef.current) alCerrar.current(); }, []);
+  const cerrar = useCerrarEstable(onCerrar, ocupado);
   const ocupar = (v: boolean) => { ocupadoRef.current = v; setOcupado(v); };
   /** Algo cambió en la base: se relee la página (la tabla Avance, la lista) y se avisa. */
   const hecho = () => { router.refresh(); onListo?.(); };

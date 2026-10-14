@@ -7495,6 +7495,84 @@ Thank you.» (`1X6de_rpO6cP9UbS7T2ghN1J9TGjMnspf.json`), colas de «Thank you» 
 (`1XY6TE4AW9qR2R0pRXjLzfeFBlf6lTgev.json`) y unos 48 párrafos en bucle («me ha tocado» ×19 en
 `1-c8cfVjgQrb-qELAWGsuZJBhIst2n4if.json#165`, «no no no» ×57).
 
-**Sin hacer:** `lib/transcribe.ts` (el pipeline de cursos) no usa `salidaDegenerada`, y
-`scripts/curso-verificar.mjs` podría usarlo para marcar las clases a re-transcribir. · *2026-10-08
-Customer Success*
+**Cerrado el 13/10/2026:** `lib/transcribe.ts` ya pasa `salidaDegenerada` (ver hallazgos-ia). **Sigue sin
+hacer:** lo YA publicado no se re-transcribió, y `scripts/curso-verificar.mjs` podría usarlo para marcar
+las clases a re-transcribir. · *2026-10-08 / 2026-10-13 Customer Success*
+
+## La hoja del curso pedía 38 fuentes al dominio del ORIGEN, y las 38 daban 404 (13/10/2026)
+
+**Vive en:** `scripts/avatarhype-css.mjs` (el generador) · `public/cono-doc/ugc.css` (lo
+servido) · guards en `tests/cursos-ugc.test.ts`
+
+**El síntoma anotado, desde el 08/10:** «la negrita del curso sale en Arial». Estaba en la
+lista de decisiones que esperaban a Martín, con la nota de que arreglarlo «cambia también
+los 132 cursos de Conocimientos». No era una decisión: era un 404.
+
+**La causa.** `public/cono-doc/ugc.css` es GENERADA desde la hoja del origen, y el origen es
+una app Next que self-hostea sus fuentes en `/_next/static/media/<hash>.woff2`. Ese hash es
+de SU build. Copiado a nuestro dominio, no resuelve nunca. Medido contra producción:
+
+```
+/_next/static/media/07fccecd6728972a-s.woff2 → 404
+/_next/static/media/0aa834ed78bf6d07-s.woff2 → 404
+/_next/static/media/23d669af23d19c95-s.woff2 → 404
+```
+
+38 `@font-face` así, repartidos en las 7 familias del origen (Archivo 15, JetBrains Mono 6,
+Hanken Grotesk 4, Instrument Serif 4, Caveat 4, Bricolage Grotesque 3, Spline Sans Mono 2).
+
+**Y lo que lo hace invisible: el arreglo YA estaba a medias.** La cabecera que arma el
+generador agrega un `@import` a Google con esas mismas 7 familias, y su comentario lo
+explica desde el primer día — *«Sus `@font-face` apuntan a los archivos que Next self-hostea
+en SU dominio, así que no sirven acá: se piden a Google, que es de donde salieron»*. Lo que
+faltaba era **sacar las declaraciones muertas**. Van DESPUÉS del `@import`, así que le ganan:
+para cada peso que ellas declaran, la cara buena queda tapada por una que no carga.
+
+Es «una regla aplicada en un lugar de dos no está implementada, está documentada», en su
+forma más cara: el que la escribió tenía el diagnóstico correcto escrito al lado.
+
+### Por qué nadie lo vio en dos meses
+
+Porque **la pantalla no se rompe: «se parece»**. Y sólo se rompen ALGUNOS pesos — los que los
+`@font-face` muertos alcanzan a declarar. Medido antes/después en Chrome, sobre la misma
+página, dibujando las 8 caras (sin dibujarlas `document.fonts.check` contesta `false` por
+pereza, que es un falso negativo que manda a buscar otra cosa):
+
+| | Archivo 400 | **Archivo 700** | Bricolage 700 | Hanken 400 | Instrument | Caveat | Spline | JetBrains |
+|---|---|---|---|---|---|---|---|---|
+| **antes** | ✓ | **✖** | ✖ | ✓ | ✖ | ✖ | ✖ | ✖ |
+| **después** | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+
+Antes: **12 respuestas 404/fallidas**. Después: **0**. El texto normal salía bien y la
+negrita caía a la fuente de sistema — exactamente lo reportado.
+
+⚠️ **La regla que queda, y vale para cualquier activo copiado de otro sitio:** un
+`@font-face`, un `background: url(…)` o un `<img src>` que apunten a una ruta *hasheada por
+el build del origen* (`/_next/`, `/_nuxt/`, `/static/<hash>`) **nunca** van a resolver acá.
+No es «puede fallar»: es un 404 garantizado, y el modo de falla es silencioso porque el
+navegador degrada a la fuente o a la imagen rota sin decir nada. Al replicar una hoja ajena,
+lo que apunta a SU build se tira y se reemplaza por una fuente pública.
+
+### Cómo se arregló, y por qué son dos cosas
+
+- **El generador** descarta todo `@font-face` cuyo `src` vaya a `/_next/static/media`, y
+  **cuenta cuántos tiró y lo dice** — un filtro que descarta en silencio hace
+  indistinguible «no había ninguno» de «los tiré todos».
+- **La hoja servida** se arregló en el MISMO commit, porque una regla que se aplica al
+  generar no arregla ni una línea ya escrita y regenerar necesita el archivo capturado del
+  origen, que no está en el repo.
+
+Es seguro tirarlos todos, y está medido: las 7 familias que declaran son exactamente las 7
+del `@import`, no queda ninguna huérfana, y **no hay una sola referencia a `/_next` fuera de
+un `@font-face`**. Los 7 `@font-face` de las familias `* Fallback` se quedan: son las
+locales de Next, no apuntan a `/_next`, y son las que sostienen la métrica mientras Google
+llega.
+
+### Y una trampa del arnés que costó dos vueltas
+
+El script que insertaba el contador en el generador **reportó «ok» sin haber cambiado nada**:
+`scripts/avatarhype-css.mjs` está en **CRLF** y el ancla se escribió con `\n`. Es la trampa
+que ya está en AGENTS.md («el fin de línea es POR ARCHIVO»), con el agravante de que el
+script no validaba su propia salida. La versión que funcionó ancla **por número de línea**
+—sin escapes— y **valida antes de escribir**: que el ancla exista, que el cambio entre, y que
+el archivo no quede con saltos mezclados. Si algo de eso falla, no escribe nada.

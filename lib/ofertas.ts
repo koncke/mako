@@ -218,6 +218,41 @@ export async function ligarProducto(ofertaId: number, productoId: number, rol = 
   if (error) throw fallo('ligarProducto', error.message);
 }
 
+/** Nombre comparable: sin tildes, sin dobles espacios, en minúsculas. El mismo criterio que el catálogo. */
+function norm(v: string): string {
+  return v.normalize('NFD').replace(new RegExp('[\\u0300-\\u036f]', 'g'), '').trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+/**
+ * Liga la oferta al producto del catálogo que le corresponde **sin adivinar**, y devuelve cuál (o null).
+ *
+ * Dos casos, y sólo dos: el producto que se llama IGUAL que la oferta, o el ÚNICO que hay. Con varios
+ * productos y ninguno que coincida **no liga**, y eso es la respuesta correcta, no una a medias: el
+ * catálogo es del CRM —lo que se FACTURA— y elegirle uno por parecido le mete al cliente una línea de
+ * facturación que él no cargó. La persona liga a mano desde la pantalla de la oferta, que es «un canal
+ * propone, una persona confirma» aplicado al único lugar donde no se puede proponer sin inventar.
+ *
+ * Nunca tira: una oferta guardada sin su producto es un dato incompleto; una oferta que no se guarda
+ * porque el puente falló es trabajo perdido. Lo que no se pudo ligar se loguea.
+ *
+ * Vivía suelta adentro de `seedOfertaDesdeBrief`, y Offer guardaba ofertas sin pasar por ella: la misma
+ * regla tenía que correr en los dos caminos que crean una oferta.
+ */
+export async function ligarProductoQueCorresponde(ofertaId: number, nombreOferta: string): Promise<number | null> {
+  try {
+    const db = await getTenantDb();
+    const { data } = await db.from('productos').select('id, nombre');
+    const prods = (data ?? []) as Array<{ id: number; nombre: string }>;
+    const elegido = prods.find((p) => norm(p.nombre) === norm(nombreOferta)) ?? (prods.length === 1 ? prods[0] : undefined);
+    if (!elegido) return null;
+    await ligarProducto(ofertaId, elegido.id, 'principal');
+    return elegido.id;
+  } catch (e) {
+    console.error(`[ofertas] no se pudo ligar el producto de la oferta #${ofertaId}: ${e instanceof Error ? e.message : String(e)}`);
+    return null;
+  }
+}
+
 /** Desligar es BORRAR la fila: la tabla no tiene `activo` (discontinuar es `ofertas.activa`). */
 export async function desligarProducto(ofertaId: number, productoId: number): Promise<void> {
   const db = await getTenantDb();
@@ -385,15 +420,7 @@ export async function seedOfertaDesdeBrief(
   // catálogo VACÍO — el seed de productos corrió, marcó y el producto no quedó.
   // Un guard de seed quemado no se vuelve a abrir, así que ahí `oferta_productos`
   // nace vacío y el dueño liga a mano desde la pantalla.
-  try {
-    const { data } = await db.from('productos').select('id, nombre');
-    const norm = (v: string) => v.normalize('NFD').replace(new RegExp('[\\u0300-\\u036f]', 'g'), '').trim().replace(/\s+/g, ' ').toLowerCase();
-    const prods = (data ?? []) as Array<{ id: number; nombre: string }>;
-    const igual = prods.find((p) => norm(p.nombre) === norm(nombre)) ?? (prods.length === 1 ? prods[0] : undefined);
-    if (igual) await ligarProducto(id, igual.id, 'principal');
-  } catch (e) {
-    console.error(`[ofertas] seed: no se pudo ligar el producto: ${e instanceof Error ? e.message : String(e)}`);
-  }
+  await ligarProductoQueCorresponde(id, nombre);
 
   // Y al funnel del negocio. El backfill de la 0171 hace esto mismo en SQL, pero
   // sólo para las ofertas que existieran el día de la migración — y ese día no

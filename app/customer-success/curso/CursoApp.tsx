@@ -386,6 +386,13 @@ export function CursoApp({
    * «Se pierde el avance de N clientes», que era verdad cuando borrar era un `delete`.
    */
   const borrar = async (c: Clase) => {
+    // ⚠️ LA LECCIÓN ABIERTA CON CAMBIOS SIN GUARDAR pregunta primero (Guardar / Descartar / Seguir
+    //    editando), como al salir. Sin esto el borrador se iba con la clase y «Deshacer» la devolvía SIN
+    //    esos cambios (pendiente de la revisión del 08/10, cerrado el 13/10). Otra clase no pregunta nada.
+    if (pos.clase === c.id) { leccionAbierta.pedirSalida(() => { void borrarYa(c); }); return; }
+    await borrarYa(c);
+  };
+  const borrarYa = async (c: Clase) => {
     try {
       const r = await borrarClaseAction(c.id);
       if (!r.ok) { show(r.error, undefined, 'bad'); return; }
@@ -1134,6 +1141,9 @@ export function CursoApp({
         }}
         leccion={(clase) => leccion(clase.id)}
         arriba={avisos}
+        // UN SOLO SCROLL en la lección, como el portal del alumno (punto 4 del audio del 08/10 a la noche:
+        // «hay dos scroll»). Quedaba pendiente en el relevo del 10/10: la tab Curso no se lo pasaba.
+        unSoloScroll
         // Arriba a la DERECHA, en el lugar del nombre del curso (item 14): quien edita ve sus acciones.
         acciones={barraDeArriba}
         // ⚠️ SIN «Avance de los clientes» (item 4): es una vista de /customer-success.

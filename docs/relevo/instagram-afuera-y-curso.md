@@ -1,10 +1,110 @@
 # Retomar: Instagram afuera y el curso del servicio dentro de MaKo
 
+> ## ⏸️ PAUSADO POR MARTÍN (13/10/2026 ~20:00) — Instagram VUELVE como tab, plan aprobado, sin arrancar
+>
+> **Escrito el 13/10/2026 ~20:10, cuenta `claude2`, chat «Instagram» (el de este relevo).** Martín
+> pidió pausa para liberar RAM. **No se tocó una línea de código**: lo único hecho es este bloque.
+> Al retomar («seguí» de Martín), se arranca por acá.
+>
+> ### La decisión nueva, que AMPLÍA la del 06/10 sin contradecirla
+>
+> El feedback del 13/10 (fuente: `C:\Users\marti\Downloads\mako-feedback-y-tareas.md`, validado por
+> Martín: «implementalo completo... De punta a punta»), los tres puntos de este chat, literales:
+>
+> - **6:** «Implementar la tab de "Instagram y Messenger" en MaKo, tal como tenemos la de Email y
+>   WhatsApp.»
+> - **13:** «algo específico para Stories de Instagram... Una tab que te cree la secuencia, el
+>   calendario, si la primera es imagen, la segunda es vídeo... Y obvio que te edite y publique...»
+> - **15:** «que MaKo pueda publicar sin problemas en muchos lugares... Instagram, Ads, Reels,
+>   Stories, Carruseles, etc...»
+>
+> **El reparto entre chats** (lo fijó el chat «Estrategia 3 cuentas», 13/10): este chat construye la
+> tab Instagram y Messenger (bandeja como WhatsApp y Email), el flujo de Stories y el **motor de
+> PUBLICAR** que los demás llaman. La conexión Zernio de Automations **se REUSA, no se duplica**; el
+> CALENDARIO transversal es del chat «FOCUS» (las Stories se agendan ahí); editar imagen/video es de
+> «Content Machine»; los Ads los publica «Ads Manager» (Messenger NO publica: es sólo inbox).
+> `tests/sin-instagram.test.ts` se ajusta para decir la verdad de hoy **sin borrarle el sentido**.
+>
+> ### El plan aprobado: cinco tandas, cada una commiteable con sus tests probados rompiéndolos
+>
+> 1. **Motor de publicar** (punto 15): ampliar `lib/zernio.ts` (archivo del canal: el guard lo
+>    permite) con `crearPost`/`presignMedia`/`estadoDePost`/`cancelarPost` + un `lib/publicaciones.ts`
+>    que escribe la FILA ANTES de crear (clave de idempotencia de la firma del payload, regla de la
+>    casa) reusando **`contenido_posts`**, que quedó viva a propósito («si Instagram vuelve, vuelve
+>    con sus datos»); eventos `post.*` en el webhook del canal; migración (al pausar, la próxima era
+>    **0266** — ⚠️ re-mirar `ls supabase/migrations | tail` al retomar: con ~17 sesiones el número
+>    vence en horas) para `zernio_account_id`/`plataforma` por fila.
+> 2. **Tab «Instagram y Messenger»** (punto 6): bandeja sobre el inbox de Zernio
+>    (`GET /v1/inbox/conversations` + mensajes), composer que respeta la ventana de 24 h con el
+>    estado honesto (`decidirSalida`, `lib/canal-social.ts`), nav en la familia de WhatsApp/Email +
+>    onboarding de tab (keys con prefijo propio: la colisión `instagram.contexto` ya se pagó) +
+>    capas. Ruta nueva (`/social` o similar): **`/instagram` NO se reusa** (su redirect a
+>    /automations está fijado por el guard; si la bandeja nueva lo vuelve mejor destino, se cambia
+>    CON el test).
+> 3. **Stories → publicar** (punto 13): el storyboard del writer alimenta borradores de publicación
+>    (tipo story, fecha sugerida por frame); media por presign; el calendario lo consume FOCUS.
+> 4. **API de MaKo**: declarar lo nuevo en el registro (punto 5 del feedback). Conversaciones de
+>    personas SIN canal `http`; publicar con confirmación. Ids sin `instagram|zernio` o se ajusta el
+>    guard con su porqué.
+> 5. **Cierre**: bitácora con el pedido literal (`app/admin/dev/`), relevo, hallazgos, y mirarlo en
+>    el **ws3** (nunca ws1).
+>
+> ### El contrato de publicación de Zernio, MEDIDO el 13/10/2026 contra el spec vigente
+>
+> (`https://docs.zernio.com/api/openapi`, OpenAPI 3.1 — la medición de agosto quedó vieja en varios
+> puntos; esto es lo re-leído hoy:)
+>
+> - **`POST /v1/posts`**: body `{ content?, mediaItems: [{url, type?: image|video|gif|document,
+>   altText?}], platforms: [{platform, accountId, customContent?, customMedia?, scheduledFor?,
+>   platformSpecificData?}], scheduledFor?, publishNow?, isDraft?, timezone? }`. `content` opcional
+>   con media. Precedencia: `isDraft` > `publishNow` > `scheduledFor`; un `scheduledFor` pasado
+>   publica sincrónico. Respuesta **201** `{ post: {_id, status, scheduledFor, platforms[...]},
+>   message }`; un retry idempotente devuelve **200** con el post original.
+> - **Idempotencia en 3 capas**: header `Idempotency-Key` (UUID por post lógico, 24 h, matchea por
+>   KEY sola; en vuelo = 409 `idempotency_conflict` con `Retry-After`), `x-request-id` + huella de
+>   contenido, y dedup por hash `(platform, accountId, content+media)` en 24 h → 409 con
+>   `existingPostId`.
+> - **Instagram** (`InstagramPlatformData`): `contentType: 'story'` para stories; **sin
+>   `contentType`, el default es Reel o feed según la media**; carrusel = varios `mediaItems`;
+>   `shareToFeed` (Reels, default true), `collaborators` (≤3, no stories), `firstComment` (no
+>   stories), `userTags` (foto exige x/y; Reels username solo; carrusel por `mediaIndex`),
+>   `audioConfiguration` **sólo con cuenta conectada por Facebook Login** (la clásica da 400
+>   `instagram_audio_requires_facebook_login`).
+> - **Media**: `POST /v1/media/presign` `{filename, contentType, size?}` → `{uploadUrl (PUT, vence
+>   en 1 h), publicUrl}`, hasta 5 GB; Zernio comprime lo que excede los límites de la plataforma
+>   (video >200 MB puede no comprimirse). **Esto mata el problema de las URLs firmadas que vencen**:
+>   se sube a Zernio y la `publicUrl` es estable.
+> - **Lectura/baja**: `GET /v1/posts` (filtros `status`, `platform`, `profileId`, `fromDate/toDate`;
+>   un query param no listado da 400 nombrándolo), `GET /v1/posts/{postId}` (trae `platformPostUrl`
+>   tras publicar), `DELETE /v1/posts/{postId}` (**todo estado salvo `published`**; para publicado
+>   existe `/unpublish`). Estados: `draft, scheduled, publishing, published, partial, failed,
+>   cancelled`.
+> - **Webhooks de posts**: `post.scheduled`, `post.published`, `post.failed`, `post.partial`,
+>   `post.cancelled`, `post.platform.published/failed/deleted` (+ `post.external.*` de la
+>   sincronización de posts nativos, que Zernio guarda ~12 meses por cuenta y se leen con
+>   `GET /v1/posts?source=external`). Hoy `EVENTOS_WEBHOOK` (`lib/zernio.ts:49`) NO los incluye:
+>   sumarlos re-corre `asegurarWebhook`, que Publicar/Activar ya llaman.
+> - **Facebook publica** (posts y stories); **Messenger no existe como plataforma de publicación**.
+>
+> ### Lo que quedó SIN hacer al pausar, para no re-pagarlo
+>
+> - El mapa de patrones quedó a medio correr (bandeja de WhatsApp/Email, un área CHICA de ejemplo de
+>   la API de MaKo, crons existentes, columnas exactas de `contenido_posts`/`ig_*`, qué guarda
+>   `lib/zernio-entrante.ts` al entrar un DM — ¿espeja en `ig_conversaciones` o sólo dispara
+>   eventos? Eso decide si la bandeja lee espejo o en vivo). **Re-correrlo al retomar.**
+> - `ZERNIO_API_KEY` y `ZERNIO_WEBHOOK_SECRET` siguen SIN cargar en Vercel prod (lo espera Martín;
+>   ya estaba anotado en `docs/relevo/chatbot.md`). Sin la primera, un negocio sin key propia no
+>   habla con Zernio en prod; sin la segunda, el webhook no se registra.
+> - Al pausar había **8 commits locales sin pushear de otras sesiones** (13/10 18:19–19:07): el
+>   primer push de cualquiera se los lleva — mirar `git log origin/main..HEAD` antes de pushear.
+
 **Qué cubre.** Dos cosas que no tuvieron chat propio y que son las dos decisiones de
 producto YA tomadas: **Instagram salió del producto** (la tab, su API y su integración) y
 **el curso del servicio de Mauricio volvió ADENTRO de MaKo** (con Whop afuera). Se suma el
 aviso del **tope de 2 cuentas de Zernio**, porque se escribió y se borró en esta misma
-ventana.
+ventana. ⚠️ **La retirada de la tab quedó AMPLIADA por el feedback del 13/10 (bloque de
+arriba): vuelve como «Instagram y Messenger», con motor de publicación.** Lo de abajo sigue
+siendo la historia correcta de cómo se retiró y qué quedó vivo.
 
 **Ventana:** del commit `6785dc16` (05/10/2026 12:33) a `de64b5b7`. **Todo pusheado**
 (`git log origin/main..HEAD` vacío) y **producción Ready** (`vercel ls` el 06/10: el último
@@ -281,3 +381,62 @@ de 4 h, el `timeupdate` en 0, YouTube y `onYouTubeIframeAPIReady`— están en
    items, dimelo*»: los compromisos de la junta sacados del Fathom (lo pidió Mauricio el 8/9),
    el onboarding de la tab Curso, la sincronización de las llamadas con Calendly, y qué puede
    leer MaKo del curso por WhatsApp.
+
+---
+
+## Repaso del 13/10/2026 — qué de todo esto seguía abierto
+
+⚠️ **Este relevo estaba VIEJO en cuatro de sus pendientes.** Es material de segunda mano y
+se verificó uno por uno antes de tocar nada; cuatro los habían cerrado otras sesiones entre
+el 08 y el 13/10 sin pasar por acá:
+
+| Lo que decía el relevo | Medido el 13/10 |
+|---|---|
+| «Falta compare-and-set en `moverClienteDeEtapa`» | **HECHO** — `lib/cs-mover-etapa.ts:267` hace `.eq('id', previa.id).eq('etapa', previa.etapa)` |
+| «`roadmap-cs.ts` todavía dibuja Whop como pieza viva» | **HECHO** — lo que queda de Whop ahí es HISTORIA, con su nota de retiro, y lo fija `tests/sin-whop.test.ts` |
+| «Lo que MaKo puede leer del curso no está declarado en `lib/api-mako/areas/`» | **HECHO** — existen `curso.def.ts` / `.run.ts` / `.helpers.ts` |
+| «Sin hacer: el onboarding de la tab Curso» | **HECHO** — es un RECORRIDO (`app/_ui/Recorrido.tsx`, `cs-curso`) desde el 08/10 |
+| «Hay trabajo del curso EN VUELO y SIN COMMITEAR» | **EN MAIN** — `app/mi-curso/`, mig `0206_curso_invitacion.sql`, `InvitarAlCurso.tsx` y `tests/curso-invitar.test.ts` |
+
+### Cerrado en este repaso: las fuentes de la hoja del curso
+
+**«La negrita del curso sale en Arial»** estaba anotado como una DECISIÓN que esperaba a
+Martín, con la nota de que arreglarlo «cambia también los 132 cursos de Conocimientos». No
+era una decisión: era un **404**.
+
+`public/cono-doc/ugc.css` traía 38 `@font-face` copiados del origen que apuntan a
+`/_next/static/media/<hash>.woff2` — el build DE ELLOS. Medido contra producción: los 38 dan
+404. Y como van después del `@import` de Google que la cabecera agrega, le ganaban: tapaban
+la cara buena con una que no carga. Antes/después en Chrome, con las 8 caras dibujadas:
+**antes 6 de 8 muertas y 12 respuestas 404; después las 8 cargan y 0 fallidas.** Archivo 400
+andaba y Archivo **700** no — de ahí que sólo la negrita se viera mal.
+
+Se arregló en los dos lugares, porque son dos preguntas: el **generador**
+(`scripts/avatarhype-css.mjs`) descarta esos `@font-face` y cuenta cuántos tiró, y la **hoja
+servida** se arregló en el mismo commit (regenerar necesita el archivo capturado del origen,
+que no está en el repo). Guards en `tests/cursos-ugc.test.ts`, probados rompiéndolos: 27 / 0
+con todo en su lugar, 26 / 1 en las cuatro roturas. El detalle, en
+`docs/hallazgos-conocimiento.md` → «La hoja del curso pedía 38 fuentes al dominio del
+ORIGEN».
+
+### Lo que sigue esperando una decisión de Martín (preguntado el 13/10)
+
+1. **El arrastre no anda en pantallas táctiles.** Es HTML5 nativo (`draggable` +
+   `onDragStart`, `app/customer-success/curso/arrastre-campos.ts`), y ese gesto no existe en
+   touch. Arreglarlo es escribir un SEGUNDO camino con pointer events — no es un ajuste.
+2. **La vista Avance no cuenta los módulos sueltos.** Hoy es coherente con la D1 del 08/10
+   (`lib/curso-avance.ts:16`: «un módulo SUELTO no es una etapa»), así que la pregunta es qué
+   tiene que significar el %: si los sueltos cuentan, quien termine todas las etapas no llega
+   a 100.
+3. **«+ Nuevo campo» arriba con el campo naciendo abajo** — lo pidió él, y la prueba pidió lo
+   contrario.
+4. **Reabrir el tutorial del curso a todos.**
+5. **La fuente en Conocimientos** (necesita migración) — además se pisa con el pedido nuevo
+   de «biblioteca de tipografías» de `mako-feedback-y-tareas.md`, que sigue PROVISIONAL.
+
+### Lo que sigue sin hacer, con su archivo
+
+Igual que antes: la limpieza de videos huérfanos del bucket `curso-videos`, la
+sincronización de las llamadas con Calendly, y los «compromisos de la junta» que Mauricio
+pidió el 8/9 sacados del Fathom. Y `envio_whatsapp_enabled` sigue gobernando que a los 14
+clientes del ws1 no les llegue nada.

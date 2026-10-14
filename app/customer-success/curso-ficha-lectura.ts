@@ -22,7 +22,7 @@
 // propio «medible», y la tab pintaba «lista» una etapa con otra regla que la de acá.
 
 import {
-  PCT_VISTO, ROTULO_SIN_MEDIR, camposConRespuesta, conteoDeEtapa, reproductorDeClase, tareasDeClase, tieneTarea,
+  PCT_VISTO, ROTULO_SIN_MEDIR, camposConRespuesta, conteoDeEtapa, reproductorDeClase, tareasDeClase, tareaVacia, tieneTarea,
   type Campo, type Clase, type EstadoTarea, type Progreso, type TipoClase, type Valores, type EstadoPropuesta,
 } from '@/lib/curso';
 import type { Sesion } from '@/lib/curso-datos';
@@ -199,10 +199,15 @@ export function respuestaDe(todos: readonly Campo[], valores: Valores | null | u
  * tarea por clase, `tareasDeClase`). Con una sola tarea, un grupo sin título (lo de siempre). Con
  * varias, uno por tarea con su título —«1. Tarea», «2. <su título>»— sin las que no tienen nada, y al
  * final, sin título, lo contestado que ya no tiene campo (`respuestaDe` no lo esconde: acá tampoco).
+ *
+ * ⚠️ SE NUMERAN LAS TAREAS QUE VE EL ALUMNO, con la MISMA regla que su portal (`tareaVacia`, como
+ *    TareaAlumno): una principal sin consigna ni campos no es una tarea. Sin `tareaTexto` (la consigna en
+ *    texto de la clase), la ficha numeraba «2. …» una clase que el alumno ve con una sola tarea (pendiente
+ *    de la revisión del 08/10, cerrado el 13/10).
  */
 export type GrupoRespuesta = { clave: string; titulo: string | null; bloques: BloqueRespuesta[] };
-export function gruposPorTarea(campos: readonly Campo[], bloques: readonly BloqueRespuesta[]): GrupoRespuesta[] {
-  const tareas = tareasDeClase({ tarea: '', campos: [...campos] });
+export function gruposPorTarea(campos: readonly Campo[], bloques: readonly BloqueRespuesta[], tareaTexto = ''): GrupoRespuesta[] {
+  const tareas = tareasDeClase({ tarea: tareaTexto, campos: [...campos] }).filter((t) => !tareaVacia(t, tareaTexto));
   if (tareas.length <= 1) return [{ clave: 'todo', titulo: null, bloques: [...bloques] }];
   const deTarea = new Map<string, number>();
   tareas.forEach((t, i) => { for (const c of t.campos) deTarea.set(c.id, i); });

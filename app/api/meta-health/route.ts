@@ -7,6 +7,7 @@
 
 import { getMetaHealth, type MetaHealth } from '@/lib/meta-health';
 import { integracionConectada } from '@/lib/credenciales';
+import { MONEDA_META_POR_DEFECTO } from '@/lib/presupuesto-cambio';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,7 +31,7 @@ const HEALTH_SIN_CONEXION: MetaHealth = {
     fundingCard: null,
     timezoneName: null,
     country: null,
-    currency: 'MXN',
+    currency: MONEDA_META_POR_DEFECTO,
     severidad: 'gris',
     entregaFrenada: false,
   },

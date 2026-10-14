@@ -120,6 +120,7 @@ export async function sugerirProductos(): Promise<SugerirResult> {
     modelos: pin ? ({ [pin.provider]: pin.model } as Partial<Record<ProvName, string>>) : MODELO_DOCS,
     validar: (t) => parseProductos(t).length > 0,
     erroresOut: errores,
+    redDePlataforma: true,
   });
   // El mensaje NO se escribe a mano: `errorDeCascada` es el único que distingue
   // «no hay ninguna IA» de «hay IA y falló», y el único que muestra qué contestó

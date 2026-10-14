@@ -17,6 +17,7 @@ import { MakoButton } from '../_components/ChartIA';
 import { colorDeSemaforo, bgDeSemaforo, type Semaforo, type Reco } from '@/lib/meta-health-ui';
 import { lugaresDesdeMeta, type LecturaGeo } from '@/lib/meta-geo';
 import { LugaresLectura } from './LugaresLectura';
+import { montoCuenta } from '@/lib/presupuesto-cambio';
 
 // «No pude leer» es un estado propio, no una lista vacía (#715).
 type EstadoGeo = { estado: 'cargando' } | { estado: 'error'; error: string } | { estado: 'ok'; lectura: LecturaGeo };
@@ -58,9 +59,11 @@ function Stat({ label, value, color }: { label: string; value: string; color?: s
   );
 }
 
-export function EntityDetalle({ id, level, name, statusLabel, semaforo, desde, hasta, cross, recosMeta, presupuestoMxn, onClose, onCambiarLugar, versionGeo = 0 }: {
+export function EntityDetalle({ id, level, name, statusLabel, semaforo, desde, hasta, cross, recosMeta, presupuestoCuenta, moneda, onClose, onCambiarLugar, versionGeo = 0 }: {
   id: string; level: 'campaign' | 'adset'; name: string; statusLabel: string; semaforo: Semaforo;
-  desde: string; hasta: string; cross: CrossData; recosMeta?: Reco[]; presupuestoMxn?: number | null; onClose: () => void;
+  desde: string; hasta: string; cross: CrossData; recosMeta?: Reco[];
+  /** El presupuesto diario en la MONEDA DE LA CUENTA (`moneda`), que es lo que guarda Meta. */
+  presupuestoCuenta?: number | null; moneda: string; onClose: () => void;
   /** Sólo conjuntos: abre el editor de público (EditarPublicoModal), la misma puerta que «Público» de la fila. */
   onCambiarLugar?: () => void;
   /** Sube cuando se guardaron lugares: relee SÓLO «Dónde se muestra». */
@@ -118,7 +121,9 @@ export function EntityDetalle({ id, level, name, statusLabel, semaforo, desde, h
 
   const ctx = data && p ? [
     `Detalle de ${nivelLabel.toLowerCase()} "${name}" (Meta). Período ${fmtFecha(desde)} → ${fmtFecha(hasta)}. Estado de entrega: ${statusLabel}.`,
-    presupuestoMxn ? `Presupuesto diario: ${presupuestoMxn.toLocaleString('es-MX')} MXN.` : '',
+    // La moneda de la cuenta y no «MXN» a mano: para una cuenta en dólares MaKo leía un
+    // monto con la moneda equivocada (relevo del Ads Manager, 10/10/2026).
+    presupuestoCuenta ? `Presupuesto diario: ${montoCuenta(presupuestoCuenta, moneda)}.` : '',
     `Gasto ${fmtUSD(p.spend_usd, 0)} · Impresiones ${fmtNum(p.impressions)} · Alcance ${fmtNum(p.reach)} · Frecuencia ${p.frequency ? p.frequency.toFixed(2) : '—'}`,
     `Clics enlace ${fmtNum(p.link_clicks)} · CTR ${fmtPct(p.ctr)} · CPC ${fmtUSD(p.cpc_usd)} · CPM ${fmtUSD(p.cpm_usd)}`,
     `Leads ${fmtNum(p.leads)} · Agendas ${fmtNum(p.agendas)} · Vistas landing ${fmtNum(p.landing_views)} · CPL ${fmtUSD(cpl)} · Costo/agenda ${fmtUSD(cpa)}`,

@@ -36,7 +36,7 @@ import {
   type CampaignSpec, type AdSpec, type Creative, type Targeting, type Objective, type AudienceRef,
   objetivoDef, CTA_OPCIONES,
 } from '@/lib/campaign-types';
-import { usdACuenta, esConvertible } from '@/lib/presupuesto-cambio';
+import { usdACuenta, esConvertible, MONEDA_META_POR_DEFECTO } from '@/lib/presupuesto-cambio';
 import {
   subirCreativo, makeThumb, limiteCreativo, esperarVideoListo, motivoFinEspera, postConTope, esperandoAMeta,
   SIN_RESPUESTA, AVISO_PROCESANDO_RETOMA, AVISO_PROCESANDO_NO_CIERRES, CADA_MS_SIN_LECTURA,
@@ -306,7 +306,7 @@ export function NuevaCampanaModal({ senales, campaignCount, health = null, healt
     if (existente) return;
     let vivo = true;
     fetch('/api/ads-manager/targeting?kind=cuenta', { cache: 'no-store' }).then((r) => r.json())
-      .then((j) => { if (vivo && j.ok && j.cuenta) setCuenta({ currency: String(j.cuenta.currency ?? 'USD'), country: j.cuenta.country ?? null, name: String(j.cuenta.name ?? '') }); })
+      .then((j) => { if (vivo && j.ok && j.cuenta) setCuenta({ currency: String(j.cuenta.currency ?? MONEDA_META_POR_DEFECTO), country: j.cuenta.country ?? null, name: String(j.cuenta.name ?? '') }); })
       .catch(() => { /* la pantalla de 'lugar' lo dice y el selector sigue estando */ });
     return () => { vivo = false; };
   }, [existente]);
@@ -792,7 +792,7 @@ Tu tarea PRINCIPAL: escribe el COPY de UN anuncio por cada creativo (texto princ
   // ── resumen vivo (chips) ──
   // La moneda REAL de la cuenta. `cuenta` (Graph, fresco) manda; el semáforo ya
   // cargado es el respaldo; USD el último, porque 1:1 subestima y nunca multiplica.
-  const monedaCuenta = cuenta?.currency ?? health?.account?.currency ?? 'USD';
+  const monedaCuenta = cuenta?.currency ?? health?.account?.currency ?? MONEDA_META_POR_DEFECTO;
 
   const resumen: string[] = [];
   if (existente && campSel) resumen.push(`📂 ${campSel.name}`);

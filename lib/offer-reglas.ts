@@ -753,18 +753,19 @@ export function repartirTranscripcion(
 const PARAM_DE_SEGUIMIENTO = /^(utm_[a-z0-9_]+|fbclid|gclid|gbraid|wbraid|dclid|msclkid|ttclid|yclid|twclid|igshid|mc_cid|mc_eid|_ga|_gl|_hs[a-z]+|hsa_[a-z]+|ref|ref_src|sfnsn|__lovable_load_id)$/i;
 
 /**
- * ¿La página que se va a leer es LA que pegó el dueño? `extraerLanding` (lib/landing-fetch.ts) baja la URL
- * NORMALIZADA de Landing Analyst: sin `www.` y sin el querystring entero (la identidad de una landing). Eso
- * está bien para Landing Analyst y mal para «pega el link de tu web»: `?page_id=245` de un WordPress sin
- * permalinks baja la HOME, otra oferta, y MaKo anotaría piezas de ahí sin decir nada.
+ * La URL que se va a bajar para «pega el link de tu web»: LA que pegó el dueño, tal cual.
  *
- *  · Con parámetros que NO son de seguimiento → no se lee (se dice por qué y qué hacer), en vez de leer otra
- *    página. Los de seguimiento (utm_*, fbclid…) no cambian lo que se ve: se leen igual.
- *  · Sin `www.` → se lee, y se avisa en el documento cuál se leyó (si falla, el error lo nombra).
- * La salida correcta es una variante de `extraerLanding` que baje la URL tal cual (pendiente en
- * lib/landing-fetch.ts, que no es de esta tab).
+ * ⚠️ Antes esto RECHAZABA el link si traía un parámetro propio («Copia el texto de la página y pégalo
+ * aquí»), y era una limitación nuestra disfrazada de regla: `extraerLanding` sólo sabía bajar la URL
+ * NORMALIZADA de Landing Analyst —sin `www.` y sin querystring—, así que un `?page_id=245` de un
+ * WordPress sin permalinks habría bajado la HOME, otra oferta, y MaKo habría anotado piezas de ahí sin
+ * decir nada. Rechazar era lo correcto mientras no hubiera alternativa; mandar a copiar el texto a mano
+ * no lo era. Desde `extraerLanding(url, { talCual: true })` (lib/landing-fetch.ts) la alternativa existe.
+ *
+ * Lo único que se sigue sacando son los parámetros de SEGUIMIENTO: no cambian lo que se ve y ensucian el
+ * nombre del documento. El `www.` se conserva — se baja el host que pegó, no uno parecido.
  */
-export function linkParaLeer(url: string): { ok: true; leida: string; sinWww: boolean } | { ok: false; error: string } {
+export function linkParaLeer(url: string): { ok: true; leida: string } | { ok: false; error: string } {
   const bruto = url.trim();
   let u: URL;
   try {
@@ -772,15 +773,12 @@ export function linkParaLeer(url: string): { ok: true; leida: string; sinWww: bo
   } catch {
     return { ok: false, error: 'Ese link no se puede abrir. Revisa que esté completo (por ejemplo, https://tusitio.com).' };
   }
-  const propios = [...u.searchParams.keys()].filter((k) => !PARAM_DE_SEGUIMIENTO.test(k));
-  if (propios.length) {
-    return { ok: false, error: `Ese link elige la página con parámetros (${propios.slice(0, 3).map((k) => `«${k}»`).join(', ')}) y MaKo todavía no puede leer esa página exacta. Copia el texto de la página y pégalo aquí.` };
+  if (!u.hostname.includes('.')) {
+    return { ok: false, error: 'Ese link no se puede abrir. Revisa que esté completo (por ejemplo, https://tusitio.com).' };
   }
-  const sinWww = /^www\./i.test(u.hostname);
-  u.hostname = u.hostname.toLowerCase().replace(/^www\./, '');
+  for (const k of [...u.searchParams.keys()]) if (PARAM_DE_SEGUIMIENTO.test(k)) u.searchParams.delete(k);
   u.hash = '';
-  u.search = '';
-  return { ok: true, leida: u.toString().replace(/\/$/, ''), sinWww };
+  return { ok: true, leida: u.toString().replace(/\/$/, '') };
 }
 
 /**

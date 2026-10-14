@@ -275,20 +275,22 @@ Lo que no quedó del todo:
 ## Lo que quedó SIN hacer
 
 - **Offer v2:**
-  - **El Archivero no se entera de lo que se sube en Offer**: no hay una función que registre un
-    documento sin recalcular el estado entero (`buildEstado(true)`). Hace falta una
-    `registrarDocumentoSinPisar` en `lib/archivero.ts`, con el molde de `borrarDocumentoArchivero`.
-  - **El avatar que se arma en el chat no se guarda en Avatares**: `setAvatares` reemplaza la lista
-    entera y escribir desde el chat sin que una persona confirme rompe «un canal propone, una persona
-    confirma». Queda en la pieza `cliente`.
-  - **La oferta guardada no se liga a los productos** (`oferta_productos`), sólo al funnel.
-  - **Un audio que ninguna IA escuchó se vuelve a subir al reintentar**: el servidor deja el binario
-    para reintentar con el mismo `path`, pero la pantalla lo vuelve a subir y el primero queda suelto
-    en Storage.
-  - **«Guardar si no hay» del diagnóstico de fase vive en la ruta** con la clave del setting copiada
-    (un test exige que sea igual a la de `lib/fase-store.ts`): falta la función en el store.
-  - **Un link con la página en el querystring** (`?page_id=…`) no se lee: pide pegar el texto hasta que
-    `lib/landing-fetch.ts` tenga una variante que baje la URL tal cual.
+  - ~~La oferta guardada no se liga a los productos~~ · ~~el audio se re-sube al reintentar~~ ·
+    ~~«Guardar si no hay» vive en la ruta~~ · ~~un link con `?page_id=` no se lee~~ — **CERRADOS el
+    13/10/2026**, ver «Los cuatro que se cerraron el 13/10» más abajo.
+  - ⚠️ **El Archivero no se entera de lo que se sube en Offer, y NO es sólo la función que falta.**
+    El diagnóstico original («falta una `registrarDocumentoSinPisar` en `lib/archivero.ts`») se quedó
+    corto: aunque exista, Offer **no tiene con qué llamarla**. Un archivo del Archivero es una fila con
+    `storage_path` + `campos` (los del brief, extraídos por IA), y Offer hace lo contrario a propósito —
+    borra el binario apenas lo lee (`finally` de `leer`: «el binario no se guarda, lo que queda es el
+    texto») y su IA saca PIEZAS DE LA OFERTA, no campos del brief. Registrarlo igual dejaría una fila
+    que apunta a un archivo borrado y suma cero al brief. Para cerrarlo de verdad hay que decidir si
+    Offer **conserva el binario y paga una extracción de campos por documento** — y la tab promete que
+    «la conversación, el diagnóstico y la oferta nunca pagan». **Es una decisión de Martín, preguntada
+    el 13/10.**
+  - **El avatar que se arma en el chat no se guarda en Avatares, y se queda así.** No es un pendiente:
+    `setAvatares` reemplaza la lista entera, y escribir desde el chat sin que una persona confirme rompe
+    «un canal propone, una persona confirma». Queda en la pieza `cliente`, que es donde corresponde.
   - **La transcripción de un audio se ve cortada a 140 caracteres** (lo hace `BurbujaHilo`, que es
     compartido).
 - **Leer una imagen, un PDF escaneado o un audio puede cobrar en la OpenAI del cliente**:
@@ -315,3 +317,87 @@ Lo que no quedó del todo:
   pantalla (la API ya lo soporta).
 - **La métrica que más le importa a una oferta, la tasa de cierre, no está en el catálogo de
   métricas de Experiments**: un «Probarlo» de Offer deja que MaKo elija la métrica más cercana.
+
+## Los cuatro que se cerraron el 13/10, y qué enseñó cada uno
+
+Los cuatro estaban en «Lo que quedó SIN hacer» desde el 11/10 y se cerraron de corrido. Lo que vale
+guardar no es que se hicieron: es por qué el diagnóstico de cada uno estaba a medias.
+
+### Un link con `?page_id=` no se leía, y no era una regla: era una limitación disfrazada
+
+`linkParaLeer` RECHAZABA el link si traía un parámetro propio, con un mensaje que mandaba a copiar el
+texto a mano. El motivo real era que `extraerLanding` sólo sabía bajar la URL **normalizada de Landing
+Analyst** —`normalizarUrl` tira el querystring ENTERO y el `www.`, a propósito, porque esa es la
+IDENTIDAD de una landing y sin eso un cliente tenía 24 «landings» que eran 2 páginas—. Con esa URL, un
+`?page_id=245` de un WordPress sin permalinks bajaba la HOME: otra oferta, y la IA anotando piezas de
+ahí sin que nada avisara. Rechazar era correcto mientras no hubiera alternativa.
+
+**La regla:** cuando un mensaje de error manda al usuario a hacer a mano lo que el sistema no sabe
+hacer, lo que falta es la capacidad, no la validación. `urlTalCual` (lib/landing-url.ts) convive con
+`normalizarUrl` y las dos están documentadas una contra la otra: **«¿qué landing es ésta?» y «¿qué
+página quiere que lea?» son dos preguntas distintas**, y mezclarlas hace aparecer la misma página
+veinticuatro veces o bajar la equivocada. La baranda SSRF no cambió: `bajarHtml` revalida en cada salto.
+
+**Vive en:** `lib/landing-url.ts` (`urlTalCual`) · `lib/landing-fetch.ts` (`extraerLanding(url, { talCual })`) ·
+`lib/offer-reglas.ts` (`linkParaLeer`) · `app/api/offer/route.ts` (`leerLink`)
+
+### El audio se re-subía en cada reintento, y el servidor lo estaba guardando para eso
+
+El servidor conserva el binario cuando la IA no pudo escuchar («el binario NO se borra: la pantalla
+puede reintentar con el mismo audio»). La pantalla no se enteró nunca: `AudioGrabado` no recordaba el
+`path`, así que cada reintento volvía a convertir a MP3 y a subir, y el anterior quedaba huérfano
+pagando. Lo irónico es que los DOCUMENTOS ya lo hacían bien —`docsLeidos` existe justamente para no
+releerlos— y el audio quedó afuera del mismo patrón.
+
+**La regla:** cuando un lado conserva algo «para que el otro lo reuse», el contrato tiene que estar
+escrito en los DOS. Un comentario en el servidor no es una interfaz.
+
+De paso se cerró el hermano: un binario que ya no se va a usar (el dueño descarta la nota de voz, o
+cambia de conversación mientras algo sube) ahora se borra con la acción `'descartar-subida'`, con la
+misma validación de path que `'leer'` — que hasta hoy era lo único que borraba, y en esos dos caminos
+no se llamaba.
+
+**Vive en:** `app/offer/OfferApp.tsx` (`AudioGrabado.path`, `descartarSubida`) ·
+`app/api/offer/route.ts` (`case 'descartar-subida'`)
+
+### «Guardar si no hay» vivía en la ruta con la clave copiada, y un test cuidaba la copia
+
+La ruta tenía el insert-if-absent entero con `'negocio.fase.diagnostico'` escrito a mano, y un test
+leía los DOS fuentes para comprobar que la cadena no se separara de `FASE_KEY`. Pasó al store como
+`guardarFaseSiNoHay`, que es el dueño del setting.
+
+**La regla:** **una guarda que cuida una copia es la pista de que sobra la copia.** El test no se borró,
+cambió de objeto: ahora fija que la ruta NO escriba la clave ni use `setDiagnosticoFase` (el upsert que
+pisa), y que el store use el insert atómico con la relectura ESTRICTA. Probado rompiéndolo (el store
+releyendo con `getDiagnosticoFase`, que es tolerante, y escribiendo con `setSetting`): 1 fallo, 12 pases.
+
+**Vive en:** `lib/fase-store.ts` (`guardarFaseSiNoHay`, `parseFase`) · `app/api/offer/route.ts`
+(`asegurarFaseGuardada`) · `tests/offer-ia-cableado.test.ts`
+
+### La oferta no se ligaba al producto, y la regla para hacerlo ya estaba escrita en otro lado
+
+`seedOfertaDesdeBrief` ya ligaba al producto **sin adivinar**: el que se llama igual (nombre
+normalizado) o el único que hay, y si hay varios y ninguno coincide no liga — porque el catálogo es del
+CRM, lo que se FACTURA, y elegir uno por parecido le mete al cliente una línea de facturación que no
+cargó. Offer creaba ofertas por otro camino y no pasaba por ahí. La regla salió a
+`ligarProductoQueCorresponde` y ahora corre en los dos.
+
+**La regla:** antes de decidir cómo resolver un puente que falta, buscá si el OTRO camino que crea la
+misma entidad ya lo resolvió. Acá el fork («¿y si la IA elige el producto?») lo cerró un precedente, no
+una decisión nueva.
+
+⚠️ Se liga por el nombre LIMPIO de la propuesta, no por el que entró a la base: los candidatos de
+desempate («… (2)», «… · versión 3») existen para no chocar el índice único, no son cómo se llama la
+oferta. Y va DESPUÉS del CAS y sólo si la oferta sobrevivió: la que pierde se borra un instante después.
+
+**Vive en:** `lib/ofertas.ts` (`ligarProductoQueCorresponde`) · `lib/offer-sesiones.ts` (`guardarComoOferta`)
+
+### Y lo que NO se cerró, dicho con su motivo
+
+Las 13 decisiones de «A definir» **no se miraron con clics, y está bien**: lo que se podía verificar sin
+navegador ya está verificado y es más fuerte que un clic — `tests/offer-a-definir.test.ts` (10 en verde)
+y el bloque de cableado de `tests/offer-ia-cableado.test.ts`, los dos construidos con un arnés de
+roturas («la base en verde, 13 de 13; 6 roturas más, las 6 cazadas con 1 fallo, 12 pases»). Lo que queda
+sin ver es cómo SE VE, y eso lo revisa Martín por su propia regla del 11/10.
+
+*13/10/2026, cuenta claude2.*

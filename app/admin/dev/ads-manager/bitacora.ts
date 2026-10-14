@@ -21,9 +21,9 @@ export const PARTES: Parte[] = [
   { titulo: 'Las acciones en lote que faltaban', detalle: 'Presupuesto (sólo donde se edita en ESE nivel), producto, renombrar, agregar conjunto/anuncio y eliminar · con ícono Y texto', estado: 'hecha' },
   { titulo: 'Ícono del catálogo, nunca un emoji', detalle: 'Los 💲🎯🗑 de la barra, el 👥 por fila, el segundo ✎ del presupuesto, el ⓘ del chip de problemas y el 📅/📝 del modal de renombrar · con guard sobre los cuatro .tsx del área', estado: 'hecha' },
   { titulo: 'Asignar a un producto del CRM', detalle: 'Celda por fila + lote, reusando las actions del CRM · el conjunto sin producto propio dice el de SU campaña · con un solo producto la columna no se dibuja', estado: 'hecha' },
-  { titulo: 'Producto MÚLTIPLE por campaña', detalle: 'Choca con que un lead tiene un solo funnel_id (lib/campana-config.ts) · las tres salidas están medidas y la decisión es de Martín', estado: 'cola' },
+  { titulo: 'Producto MÚLTIPLE por campaña', detalle: 'Ya no choca con el CRM: desde el 06/10 un lead puede estar en varios productos (lead_funnel, mig 0207) · lo que falta es que la entrada de leads de Meta lo use (hoy resuelve UNO en lib/campana-config.ts) · la decisión es de Martín', estado: 'cola' },
   { titulo: 'El presupuesto pasa por un cartel, y en la moneda de la cuenta', detalle: 'La celda y el lote preguntan «viejo → nuevo» antes de escribir · se tipea en USD y se convierte a la moneda de la cuenta (lib/presupuesto-cambio.ts) · el presupuesto total no se edita como diario · lo escrito sobrevive a la caché vencida del árbol · falta la primera prueba en una cuenta real', estado: 'hecha' },
-  { titulo: 'Un video se usa cuando Meta lo procesó, y un reintento no publica dos veces', detalle: 'La tarjeta espera a Meta (los tres modales, una sola subida) · las rutas preguntan por los videos antes de crear · clave de idempotencia por payload en campaign-create, ad-add y adset-add · falta aplicar la 0215, publicar de verdad y medir un video pesado', estado: 'sigue' },
+  { titulo: 'Un video se usa cuando Meta lo procesó, y un reintento no publica dos veces', detalle: 'La tarjeta espera a Meta (los tres modales, una sola subida) · las rutas preguntan por los videos antes de crear · clave de idempotencia por payload en campaign-create, ad-add y adset-add · la 0215 está aplicada (medido el 13/10: 0 de 19 borradores con clave, o sea que ninguna publicación real pasó todavía por ahí) · falta publicar de verdad y medir un video pesado', estado: 'sigue' },
   { titulo: 'Ver y cambiar dónde se muestra un conjunto que ya corre', detalle: '«Dónde se muestra» en el detalle de un conjunto · los lugares se editan en el editor de público, con el geo tocado sólo si cambió y sólo lectura ante lo que no se entiende · los pines se leen, se ven en el mapa y se les cambia el radio · falta la primera prueba real en una campaña en pausa de Martín y decidir cómo se CREA un pin', estado: 'sigue' },
   { titulo: 'Usar un video de MaKo sin bajarlo y volverlo a subir', detalle: '«Mis creativos» en los tres modales: los anuncios montados y las tomas sueltas del bucket propio, por file_url · la url se deriva en el server, nunca viaja del navegador · falta la primera prueba en una cuenta real (Meta en ws9) y el worker de montaje; la imagen no tiene de dónde salir (#298)', estado: 'sigue' },
 ];
@@ -126,8 +126,8 @@ export const BITACORA: Hito[] = [
       '**El bug del 25/09 no era la causa del botón Publicar trabado**, como se había anotado. Los 16 videos que ws1 publicó llevaban miniatura y ninguno fue rechazado; los 14 fracasos de ws13 eran la app del cliente en modo desarrollo. Era real y latente: los TRES modales —no dos— escribían `processing: false` sobre lo que Meta todavía procesaba.',
       'Una sola subida para los tres modales (Nueva campaña tenía su propia copia), la tarjeta en «Procesando» hasta que Meta dice listo, y un 422 si Meta no pudo. Las tres rutas que publican vuelven a preguntar antes de crear nada.',
       'La idempotencia: el duplicado real no es el doble clic sino la respuesta perdida con el borrador intacto. La clave sale de la FIRMA de lo que se manda —después de un parcial, la misma clave haría recortar anuncios que nunca se crearon— y hay DOS reglas de reintento, porque en un lote la campaña de la fila es la que ya existía.',
-      '⚠️ Una decisión distinta del plan: con la migración 0215 sin aplicar se publica sin idempotencia en vez de dar 503 a todos, porque cualquier sesión puede pushear antes de que alguien la aplique. Mientras falte, «Reintentar es seguro» es falso.',
-      'Verificado: 4510 tests, diecisiete roturas cazadas, y 20 de 20 en el navegador con la subida y la publicación simuladas (ningún POST llegó a Meta ni a la base). Falta lo que hace Martín: aplicar la 0215, publicar mirando, crear un formulario en su página y medir un video pesado.',
+      '⚠️ Una decisión distinta del plan: con la migración 0215 sin aplicar se publica sin idempotencia en vez de dar 503 a todos, porque cualquier sesión puede pushear antes de que alguien la aplique. Mientras falte, «Reintentar es seguro» es falso. (Corrección del 13/10/2026: la 0215 SÍ está aplicada —columna e índice en producción, medido el 10 y el 13/10—, así que esto ya no vale.)',
+      'Verificado: 4510 tests, diecisiete roturas cazadas, y 20 de 20 en el navegador con la subida y la publicación simuladas (ningún POST llegó a Meta ni a la base). Falta lo que hace Martín: aplicar la 0215, publicar mirando, crear un formulario en su página y medir un video pesado. (13/10/2026: la 0215 ya está aplicada.)',
     ],
     archivos: [
       'app/ads-manager/creativeUpload.ts — la subida, la espera a Meta y el POST con tope',
@@ -135,7 +135,7 @@ export const BITACORA: Hito[] = [
       'app/api/ads-manager/creative-upload/route.ts — 422, espera de 25 s, GET de consulta que limpia el staging',
       'lib/meta-idempotencia.ts — la clave por firma, las dos reglas y el registro estricto',
       'lib/campana-videos.ts — qué videos lleva una publicación y qué cuenta como listo',
-      'supabase/migrations/0215_meta_campaign_drafts_idem.sql — SIN aplicar; va antes del deploy',
+      'supabase/migrations/0215_meta_campaign_drafts_idem.sql — aplicada (medido en producción el 10 y el 13/10/2026)',
     ],
     commits: [
       { sha: 'f6ed4c33', msg: 'Ads Manager: un video se usa cuando Meta lo procesó, y un reintento no publica dos veces (#59)', lineas: 2095, archivos: 22 },
@@ -279,6 +279,53 @@ export const BITACORA: Hito[] = [
       'lib/presupuesto-cambio.ts — `conversorDeGasto`, la regla pura por moneda',
       'lib/queries.ts — los ocho puntos del dashboard',
       'tests/moneda-meta.test.ts — 6 tests, seis roturas, y el barrido que impide volver a asumir pesos',
+    ],
+  },
+  {
+    fecha: '13 oct', hora: '18:45', chat: 'Ads Manager', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Retomar y cerrar lo planificado, y sumar el onboarding (#801)',
+    pedido: 'En la cuenta 3 quedaron muchos pendientes que frenamos porque estabamos llegando al limite semanal, dile a esos chats que continuen y cierren lo que ya habiamos planificado',
+    puntos: [
+      'Llegó por el chat «Estrategia 3 CUENTAS», que lo bajó a esta área: cerrar lo planificado en docs/relevo/ads-manager.md, sumar la #801 (el Ads Manager no tiene onboarding, con la skill tab-onboarding y probado en ws3) y NO tocar lo nuevo de mako-feedback-y-tareas.md, que es provisorio.',
+      'Commits locales: el push espera a que el typecheck del clon vuelva a terminar (ese día moría sin memoria; lo arreglaba la sesión de infra).',
+    ],
+  },
+  {
+    fecha: '13 oct', hora: '19:07', chat: 'Ads Manager', cuenta: 'claude2',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Los presupuestos en la unidad de cada moneda, y el detalle sin «MXN» a mano',
+    puntos: [
+      '**Meta tiene once monedas sin centavos** (COP, CLP, JPY, KRW, TWD, VND, IDR, HUF, ISK, PYG, CRC; tabla oficial leída el 13/10). Todo multiplicaba o dividía por 100, así que una cuenta en una de ésas veía la celda, el cartel y el wizard 100 veces corridos, y escribir 20.000 COP ponía 2.000.000.',
+      '**Escribir sin saber la moneda se niega** (503 con un texto que dice qué pasó): con el ×100 de siempre, una cuenta en pesos colombianos recibía 100 veces más. Leer sigue cayendo a ×100, que sirve para dibujar.',
+      'El resumen del detalle de una campaña que lee MaKo decía «MXN» a mano: ahora dice la moneda de la cuenta. Ningún cliente de hoy cobra en una moneda sin centavos: para ellos no cambia nada.',
+    ],
+    commits: [
+      { sha: '47fdde66', msg: 'Ads Manager: los presupuestos de Meta en la unidad de cada moneda, y el detalle con la moneda de la cuenta', lineas: 211, archivos: 8 },
+    ],
+    archivos: [
+      'lib/presupuesto-cambio.ts — `offsetMeta`, `aUnidadMeta`, `desdeUnidadMeta`',
+      'lib/meta-write.ts — el presupuesto se niega sin moneda',
+      'tests/meta-offset-moneda.test.ts — 6 tests, seis roturas',
+    ],
+  },
+  {
+    fecha: '13 oct', hora: '19:26', chat: 'Ads Manager', cuenta: 'claude2',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Un objeto de OTRA cuenta de Meta no se lee ni se escribe',
+    puntos: [
+      'El relevo nombraba un solo lugar (el público de un conjunto) y eran cinco: los textos de un anuncio, los datos de una campaña, el conjunto para agregar un anuncio y pausar/presupuestar/renombrar/borrar. Todos usaban el id que mandaba el navegador —o el modelo, por la API de MaKo— con el token del workspace, y un token que llega a varias cuentas tocaba la de otro sin error.',
+      'Las lecturas piden `account_id` en el MISMO pedido (cero llamadas de más); las escrituras lo preguntan antes. Un objeto ajeno sale 404, no 403.',
+      'Afuera, a propósito: crear (Meta valida contra la cuenta), el rollback de lo recién creado y las lecturas por ids de nuestros datos.',
+    ],
+    commits: [
+      { sha: 'e4fb140b', msg: 'Ads Manager: un conjunto, un anuncio o una campaña de OTRA cuenta de Meta no se lee ni se escribe', lineas: 193, archivos: 4 },
+    ],
+    archivos: [
+      'lib/meta-cuenta-id.ts — `esDeLaCuenta`, la regla pura',
+      'lib/meta-ads-create.ts — `exigirDeLaCuenta`, `cuentaDelObjeto` y el 404 en `metaErrorEnvelope`',
+      'lib/meta-write.ts — `fueraDeLaCuenta`, antes de cualquier escritura',
+      'tests/meta-cuenta-del-objeto.test.ts — 6 tests, cinco roturas',
     ],
   },
 ];

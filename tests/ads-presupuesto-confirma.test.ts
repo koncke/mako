@@ -246,7 +246,8 @@ test('writeBudget dice si salió, y el éxito se afirma sólo con todas', () => 
   const src = sinComentarios(leer(BROWSER));
   assert.match(src, /async function writeBudget\([^)]*\): Promise<\{ ok: boolean; msg\?: string \}>/);
   const aplicar = bloque(src, 'const aplicarPresupuesto', '\n  const ');
-  assert.match(aplicar, /Promise\.allSettled/);
+  // Desde el 13/10/2026 con tope (lib/settled-con-tope.ts): la misma forma que allSettled.
+  assert.match(aplicar, /allSettledConTope\(p\.filas, TOPE_LOTE_META,/);
   // La línea que DECIDE: la rama de fallo corta. Sin el `return`, «Presupuesto cambiado
   // en N» volvía a pisar el error, que es el bug que la #349 cerró.
   const corta = "{ avisarFallos(results, 'cambiar'); return; }";

@@ -42,8 +42,10 @@ const textos = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is 
 const reloj = (s: number) => `${Math.floor(s / 60)}:${String(Math.round(s) % 60).padStart(2, '0')}`;
 const tamano = (b: number) => (b < 1024 * 1024 ? `${Math.max(1, Math.round(b / 1024))} KB` : `${(b / (1024 * 1024)).toFixed(1).replace('.', ',')} MB`);
 
-export default function RespuestaTarea({ campos, valores, calificacion, abrirArchivo, onOtroIntento }: {
+export default function RespuestaTarea({ campos, tarea, valores, calificacion, abrirArchivo, onOtroIntento }: {
   campos: readonly Campo[];
+  /** La consigna de la clase en texto: decide si la tarea principal cuenta (ver `gruposPorTarea`). */
+  tarea?: string;
   valores: Valores | null | undefined;
   /** Las notas de sus quizzes (`curso_progreso.calificacion`, mig 0218). */
   calificacion?: Calificacion | null;
@@ -55,7 +57,7 @@ export default function RespuestaTarea({ campos, valores, calificacion, abrirArc
   const porId = new Map(campos.map((c) => [c.id, c]));
   const vs: Valores = valores && typeof valores === 'object' ? valores : {};
   const bloques = respuestaDe(campos, vs);
-  const grupos = gruposPorTarea(campos, bloques);
+  const grupos = gruposPorTarea(campos, bloques, tarea);
   const lista = (bs: BloqueRespuesta[]) => (
     <dl className="rt">
       {bs.map((b) => {

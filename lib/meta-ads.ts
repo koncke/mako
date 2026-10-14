@@ -15,7 +15,8 @@
 
 import { credWs } from './credenciales';
 import { getTenantDb } from './workspace';
-import { registrarMonedaMeta } from './moneda-meta';
+import { monedaCuentaMeta, registrarMonedaMeta } from './moneda-meta';
+import { desdeUnidadMeta } from './presupuesto-cambio';
 import type { MarketingMetricRow, MetaInsightRaw, MetaAdsetRaw } from './types';
 
 const GRAPH_BASE = 'https://graph.facebook.com';
@@ -496,7 +497,8 @@ export async function upsertMetrics(
  *
  * Meta solo expone el valor ACTUAL del presupuesto — no hay histórico, por
  * eso este snapshot diario es la única forma de construir la serie. El budget
- * se guarda en MXN crudo (daily_budget llega en CENTAVOS de MXN: /100).
+ * se guarda en la moneda de la cuenta (daily_budget llega en su unidad mínima: centavos,
+ * o la unidad entera en COP, CLP, JPY…; ver `offsetMeta`).
  *
  * @returns número de adsets guardados
  */
@@ -529,17 +531,19 @@ export async function fetchAdsetBudgets(fecha: string): Promise<number> {
     nextUrl = page.paging?.next ?? null;
   }
 
+  // La moneda decide la unidad. Sin saberla se guarda como siempre (÷100): es un
+  // registro para dibujar la serie de ritmo, no una escritura en Meta.
+  const moneda = await monedaCuentaMeta().catch(() => null);
   const rows = all
     .filter((a) => a.id)
     .map((a) => ({
       fecha,
       adset_id: a.id!,
       adset_name: a.name ?? null,
-      // daily_budget viene en centavos de MXN. Adsets sin budget propio
-      // (budget a nivel campaña / CBO) no traen el campo → NULL.
+      // Adsets sin budget propio (budget a nivel campaña / CBO) no traen el campo → NULL.
       daily_budget_mxn:
         a.daily_budget !== undefined && a.daily_budget !== null
-          ? Number(a.daily_budget) / 100
+          ? desdeUnidadMeta(Number(a.daily_budget), moneda)
           : null,
       status: a.effective_status ?? a.status ?? null,
     }));

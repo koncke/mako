@@ -36,11 +36,38 @@ choca con `html-to-image`/`pptxgenjs` (dependencias de Landing Generator que no 
 
 ## Lo que quedó sin hacer
 
-Está en `docs/hallazgos-offer.md` → «Lo que quedó SIN hacer» (Archivero y Avatares desde el chat, la
-liga a `oferta_productos`, el binario suelto de un audio que se re-sube, la variante de
-`extraerLanding` que baje la URL tal cual, «guardar si no hay» en `lib/fase-store.ts`).
+**13/10/2026 (cuenta claude2): se cerraron CUATRO de los cinco que estaban frenados.** El porqué de
+cada uno —y lo que enseñó, que es lo que no está en el commit— en `docs/hallazgos-offer.md` → «Los
+cuatro que se cerraron el 13/10».
+
+| | Estado |
+|---|---|
+| La liga a `oferta_productos` | ✅ `ligarProductoQueCorresponde` (lib/ofertas.ts), la misma regla que ya usaba el seed del brief: el producto que se llama igual, o el único que hay. Con varios y ninguno que coincida **no liga**, a propósito |
+| El binario de un audio que se re-sube | ✅ `AudioGrabado.path` se recuerda y el reintento lo reusa. Más la acción `'descartar-subida'`, que cierra el hermano (el binario que queda suelto al descartar o al cambiar de conversación) |
+| `extraerLanding` que baje la URL tal cual | ✅ `urlTalCual` + `extraerLanding(url, { talCual: true })`. `linkParaLeer` ya no rechaza un `?page_id=`: sólo saca los parámetros de SEGUIMIENTO |
+| «Guardar si no hay» en `lib/fase-store.ts` | ✅ `guardarFaseSiNoHay`. La ruta ya no copia la clave del setting ni repite el mecanismo |
+| **Archivero desde el chat** | ❌ **ESPERA UNA DECISIÓN DE MARTÍN** (preguntada el 13/10). El diagnóstico viejo estaba corto: no alcanza con la función que falta, porque Offer **borra el binario apenas lo lee** y su IA saca piezas de la oferta, no campos del brief. Cerrarlo de verdad = conservar el binario y pagar una extracción por documento, en una tab que promete que nada de esto paga |
+| **Avatares desde el chat** | ❌ **NO SE HACE, y no es un pendiente.** Escribir la lista desde el chat sin que una persona confirme rompe «un canal propone, una persona confirma». Queda en la pieza `cliente` |
+
+Lo demás de «Lo que quedó SIN hacer» (la API de MaKo, el PDF externo, el umbral de `alertaFoco`, la
+urgencia al guardar, ver versiones anteriores, la tasa de cierre en Experiments) sigue abierto.
+
+## Las 13 decisiones: qué está verificado y qué no
+
+No se miraron con clics, **y lo que se podía verificar sin navegador es más fuerte que un clic**:
+`tests/offer-a-definir.test.ts` (10 en verde) y el bloque «A definir» de
+`tests/offer-ia-cableado.test.ts`, los dos construidos con el arnés de roturas `romper-a-definir.mjs`
+(«la base en verde, 13 de 13; 6 roturas más, las 6 cazadas con 1 fallo, 12 pases»). En el dato:
+`A_DEFINIR` quedó vacía y las 13 están en `DECIDIDAS` con su letra, su fecha y las notas de Martín.
+Lo único sin ver es **cómo se ve**, y eso lo revisa él por su regla del 11/10.
 
 ## Ojo con el clon
+
+**13/10:** el clon se puso al día con `origin/main` (estaba 107 commits atrás) y `8e053fdc` —las 13
+decisiones— **sí está en el remoto**, así que lo de abajo quedó saldado. El `typecheck` que «salía con
+código 1 sin mostrar errores» tampoco está roto: es el LOCK entre sesiones
+(`scripts/typecheck-lock.mjs`) esperando su turno con 13 sesiones sobre el mismo clon. Medido el 13/10:
+corrido con tiempo suficiente sale **exit 0**.
 
 El `main` local quedó **separado de `origin/main`**: otra sesión subió versiones rebasadas de varios
 commits, y además `a7f42966` + `1bc5c2af` (el Playbook, local) son los mismos cambios que

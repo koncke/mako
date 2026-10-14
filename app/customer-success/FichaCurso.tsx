@@ -59,7 +59,7 @@ import {
 } from './curso-ficha-lectura';
 import { CabezaAvance, CeldasAvance, EstiloAvance } from './curso/FilaAvance';
 import { BotonInvitar } from './curso/InvitarAlCurso';
-import { accesoEnProducto } from '@/lib/curso-invitar-reglas';
+import { accesoEnProducto, abreElProducto } from '@/lib/curso-invitar-reglas';
 import RespuestaTarea from './curso/RespuestaTarea';
 
 type Carga = 'cargando' | { ok: false; error: string } | { ok: true; curso: CursoDeCliente };
@@ -308,6 +308,7 @@ function Respuesta({ c, leadId, area, progreso }: { c: ClaseFicha; leadId: numbe
   return (
     <RespuestaTarea
       campos={c.campos}
+      tarea={c.tarea}
       valores={progreso?.valores}
       calificacion={progreso?.calificacion}
       abrirArchivo={async (a) => { const r = await urlEntregaCursoAction(leadId, a.path, a.nombre); return r.ok ? r.url : null; }}
@@ -641,6 +642,18 @@ function Permisos({ leadId, curso, editar }: { leadId: number; curso: CursoDeCli
     <section className="fcu-sec" id={`fcu-permisos-${leadId}`}>
       <h4 className="fcu-tit">Permisos del curso</h4>
       {productos.map((p) => {
+        // ⚠️ QUÉ CURSOS ABRE EL ACCESO (mig 0232) MANDA SOBRE LOS MÓDULOS (13/10/2026). Antes, un curso que
+        // su acceso no abre se dibujaba con «Todos los módulos» tildado, que se lee como que lo ve entero.
+        // Ausente (`undefined`) = no se leyó: no se afirma nada y se dibuja como siempre.
+        const lista = curso.acceso?.productos;
+        if (lista !== undefined && !abreElProducto(lista, p.productoId)) {
+          return (
+            <div key={p.productoId} className="fcu-perm">
+              {productos.length > 1 && <p className="fcu-estado" title={p.nombre}>{p.nombre}</p>}
+              <p className="fcu-meta">No se le abrió este curso.</p>
+            </div>
+          );
+        }
         const modulos = modulosParaPermisos(p);
         const elegidos = modulosElegidos(alcance, p.productoId, modulos);
         return (

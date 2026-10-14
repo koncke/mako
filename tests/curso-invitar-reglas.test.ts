@@ -300,6 +300,13 @@ test('invitar desde la tarjeta, la tabla Avance y la ficha va al curso donde se 
     /const cursos = await cursosDe\(await productosDelAlumno\(leadId\)\);/);
 });
 
+test('«Permisos del curso» de la ficha: un curso que el acceso no abre no se dibuja con sus módulos', () => {
+  // 13/10/2026 (deuda del relevo del 10/10): el dato ya viajaba (`acceso.productos`) y la caja lo
+  // ignoraba, así que un curso cerrado salía con «Todos los módulos» tildado. Ausente = no se leyó.
+  const permisos = bloque(sinComentarios(leer('app/customer-success/FichaCurso.tsx')), 'function Permisos(', '\nfunction Lideres(');
+  assert.match(permisos, /const lista = curso\.acceso\?\.productos;\s*if \(lista !== undefined && !abreElProducto\(lista, p\.productoId\)\) \{[\s\S]*?No se le abrió este curso\.[\s\S]*?\}\s*const modulos = modulosParaPermisos\(p\);/);
+});
+
 test('la pantalla: el borrador en sessionStorage, la lista desde ESTE curso y el correo ahí mismo', () => {
   // La lista «Clientes sin invitar» mira el acceso desde ESTE curso, con la lista de cada acceso leída al
   // abrir (las filas de la página no la traen), del CLIENTE (`area is null`).
@@ -396,6 +403,10 @@ test('la migración 0232: la columna, su forma y el orden de despliegue', () => 
 //      assert daba 128 / 0: la lista de call sites cuenta ARCHIVOS y la ficha tiene las dos preguntas)
 //  30. la ficha volviendo a una copia de la lectura del acceso      → 126 / 2 «ABRIR la ficha…» (curso-ficha) y «invitar desde…»
 //  31. el guard de `.campos` sin la excepción de tarea-valores      → 127 / 1 «el guard: cada lector de `.campos`…»
+//
+// 13/10/2026, «Permisos del curso» mirando qué abre el acceso (este archivo solo, sano 17 / 0):
+//  32. la caja sin el corte por curso (`if (false)`)               → 16 / 1 «"Permisos del curso" de la ficha…»
+//  33. un acceso SIN LEER tratado como «no abre nada»               → 16 / 1 el mismo
 //  32. el mail del líder nombrando los cursos de los que es cliente → 126 / 2 «todo call site… clasificado» y «invitar desde…»
 //  33. la ficha mostrando sólo los cursos que ve                    → 127 / 1 «invitar desde la tarjeta…»
 // Restaurado: 128 / 0.

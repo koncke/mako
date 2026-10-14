@@ -18,8 +18,9 @@
 import 'server-only';
 import { META_PAGE_ID } from './config';
 import { credWs } from './credenciales';
-import { normalizarCuentaMeta } from './meta-cuenta-id';
+import { esDeLaCuenta, normalizarCuentaMeta } from './meta-cuenta-id';
 import { paisDeCuentaMeta } from './meta-pais';
+import { aUnidadMeta, MONEDA_META_POR_DEFECTO } from './presupuesto-cambio';
 import { TIPOS_BUSCABLES, lugarDesdeBusqueda, ordenarLugares, type LugarMeta } from './meta-geo';
 import { describirRegla, estadoConversion, type EstadoConversion } from './meta-conversiones';
 import { erroresFormulario, paramsFormulario, sitioLimpio, urlValida, type FormularioNuevo } from './meta-formularios';
@@ -126,10 +127,43 @@ export class MetaWriteError extends Error {
   }
 }
 
+/**
+ * Un objeto de Meta (campaña, conjunto o anuncio) que NO es de la cuenta publicitaria
+ * del workspace. Sale 404 y no 403: a quien no le corresponde, no existe.
+ */
+export class FueraDeLaCuentaError extends MetaWriteError {
+  constructor() {
+    super('Eso no está en la cuenta de Meta de este negocio.');
+    this.name = 'FueraDeLaCuentaError';
+  }
+}
+
+/**
+ * Corta si el objeto que se va a leer o escribir por su id es de OTRA cuenta
+ * publicitaria. El id lo manda el navegador o el modelo (API de MaKo), y el token
+ * del workspace puede llegar a varias cuentas (una agencia, un usuario de sistema):
+ * Meta contestaba sin error. La regla vive en `esDeLaCuenta` (lib/meta-cuenta-id.ts).
+ * Las lecturas piden `account_id` en el MISMO pedido; las escrituras, con
+ * `cuentaDelObjeto` antes de escribir.
+ */
+async function exigirDeLaCuenta(accountIdDelObjeto: unknown): Promise<void> {
+  if (!esDeLaCuenta(accountIdDelObjeto, await cred('META_AD_ACCOUNT_ID'))) throw new FueraDeLaCuentaError();
+}
+
+/** El `account_id` de un objeto, para comprobarlo antes de escribirle. Si Meta no contesta, tira: sin saberlo no se escribe. */
+async function cuentaDelObjeto(id: string): Promise<unknown> {
+  const [apiVersion, accessToken] = await Promise.all([cred('META_API_VERSION'), cred('META_ACCESS_TOKEN')]);
+  const url = new URL(`${GRAPH_BASE}/${apiVersion}/${id}`);
+  url.searchParams.set('fields', 'account_id');
+  url.searchParams.set('access_token', accessToken);
+  return (await graphGet(url.toString())).account_id;
+}
+
 /** Mapea cualquier error a la respuesta JSON que el cliente ya entiende. */
 export function metaErrorEnvelope(err: unknown): {
   ok: false; message: string; code?: number; error_subcode?: number; status: number;
 } {
+  if (err instanceof FueraDeLaCuentaError) return { ok: false, message: err.message, status: 404 };
   if (err instanceof MetaWriteError) {
     // subcode 4841013 ("Permissions error") o code 200 → 403 (lo distingue la UI).
     const status = err.subcode === 4841013 || err.code === 200 ? 403 : 502;
@@ -191,7 +225,16 @@ async function graphGet(url: string): Promise<Record<string, unknown>> {
   return data;
 }
 
-const mxnACentavos = (mxn: number): number => Math.round(mxn * 100);
+/**
+ * Un presupuesto en la moneda de la cuenta → el entero que Meta espera: centavos, o la
+ * unidad entera en las monedas sin centavos (COP, CLP, JPY…). La moneda sale de
+ * `cuentaMeta()`, que tira si Meta no contesta; y si contestó SIN moneda, la que trae
+ * es el default de dibujar (`monedaLeida: false`) y con ésa no se crea nada.
+ */
+const aUnidadDeCuenta = (monto: number, cuenta: { currency: string; monedaLeida: boolean }): number => {
+  if (!cuenta.monedaLeida) throw new MetaWriteError('No pude leer la moneda de tu cuenta de Meta. Reintenta en un momento.');
+  return aUnidadMeta(monto, cuenta.currency);
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Segmentación: nuestro Targeting → spec de Meta
@@ -568,16 +611,20 @@ export async function crearFormularioInstantaneo(f: FormularioNuevo, pagina?: st
  * MXN (y se multiplicaba el presupuesto por el tipo de cambio sobre cuentas en
  * dólares) y que el público está en México.
  */
-export async function cuentaMeta(): Promise<{ accountId: string; name: string; currency: string; country: string | null; timezoneName: string | null }> {
+export async function cuentaMeta(): Promise<{ accountId: string; name: string; currency: string; monedaLeida: boolean; country: string | null; timezoneName: string | null }> {
   const [apiVersion, adAccountId, tk] = await Promise.all([cred('META_API_VERSION'), cred('META_AD_ACCOUNT_ID'), cred('META_ACCESS_TOKEN')]);
   const url = new URL(`${GRAPH_BASE}/${apiVersion}/${adAccountId}`);
   url.searchParams.set('fields', 'name,currency,timezone_name,business_country_code');
   url.searchParams.set('access_token', tk);
   const d = await graphGet(url.toString());
+  const leida = typeof d.currency === 'string' && d.currency.trim() !== '';
   return {
     accountId: adAccountId,
     name: String(d.name ?? ''),
-    currency: String(d.currency ?? 'USD'),
+    // Sin moneda de Meta se dibuja con el default, y `monedaLeida` le avisa a quien
+    // escribe que no la use (`aUnidadDeCuenta`).
+    currency: leida ? String(d.currency) : MONEDA_META_POR_DEFECTO,
+    monedaLeida: leida,
     country: paisDeCuentaMeta(d),
     timezoneName: d.timezone_name != null ? String(d.timezone_name) : null,
   };
@@ -1087,7 +1134,7 @@ export async function createCampaign(spec: CampaignSpec): Promise<string> {
   // conjuntos comparten presupuesto (subcode 4834011, medido el 2026-09-11).
   if (!(spec.budget_level === 'campaign' && spec.daily_budget_mxn)) params.is_adset_budget_sharing_enabled = 'false';
   if (spec.budget_level === 'campaign' && spec.daily_budget_mxn) {
-    params.daily_budget = mxnACentavos(spec.daily_budget_mxn);
+    params.daily_budget = aUnidadDeCuenta(spec.daily_budget_mxn, await cuentaMeta());
     params.bid_strategy = 'LOWEST_COST_WITHOUT_CAP'; // CBO exige estrategia a nivel campaña
   }
   const data = await graphPost(`${await cred('META_AD_ACCOUNT_ID')}/campaigns`, params);
@@ -1098,17 +1145,18 @@ export async function createCampaign(spec: CampaignSpec): Promise<string> {
 export async function createAdSet(campaignId: string, spec: CampaignSpec, adset: AdSetSpec): Promise<string> {
   const def = objetivoDef(spec.objective);
   const optimization = adset.optimization_goal || def.optimization_goal;
+  const cuenta = await cuentaMeta();
   const params: Record<string, string | number | undefined> = {
     name: adset.name,
     campaign_id: campaignId,
     status: 'PAUSED',
     billing_event: adset.billing_event || def.billing_event,
     optimization_goal: optimization,
-    targeting: JSON.stringify(buildTargeting(adset.targeting, (await cuentaMeta()).country)),
+    targeting: JSON.stringify(buildTargeting(adset.targeting, cuenta.country)),
   };
   // ABO: presupuesto + estrategia de puja en el conjunto. CBO: viven en la campaña.
   if (spec.budget_level === 'adset') {
-    if (adset.daily_budget_mxn) params.daily_budget = mxnACentavos(adset.daily_budget_mxn);
+    if (adset.daily_budget_mxn) params.daily_budget = aUnidadDeCuenta(adset.daily_budget_mxn, cuenta);
     params.bid_strategy = adset.bid_strategy || 'LOWEST_COST_WITHOUT_CAP';
   }
   const promoted = await buildPromotedObject(spec.objective, optimization, adset.conversion, spec.identidad);
@@ -1208,9 +1256,10 @@ function esCreativoDinamico(afs: Record<string, unknown>): boolean {
 export async function getAdForEdit(adId: string): Promise<AdEditData> {
   const [apiVersion, accessToken] = await Promise.all([cred('META_API_VERSION'), cred('META_ACCESS_TOKEN')]);
   const url = new URL(`${GRAPH_BASE}/${apiVersion}/${adId}`);
-  url.searchParams.set('fields', 'name,effective_status,issues_info,creative{id,image_hash,object_story_spec,asset_feed_spec,effective_object_story_id,object_story_id}');
+  url.searchParams.set('fields', 'account_id,name,effective_status,issues_info,creative{id,image_hash,object_story_spec,asset_feed_spec,effective_object_story_id,object_story_id}');
   url.searchParams.set('access_token', accessToken);
   const data = await graphGet(url.toString());
+  await exigirDeLaCuenta(data.account_id);
   const name = String(data.name ?? '');
   const status = String(data.effective_status ?? '');
   const issues = parseIssuesInfo(data.issues_info);
@@ -1313,15 +1362,17 @@ export async function deleteEntity(id: string): Promise<boolean> {
 export async function getAdsetTargeting(adsetId: string): Promise<{ name: string; optimization_goal: string; targeting: Record<string, unknown> }> {
   const [apiVersion, accessToken] = await Promise.all([cred('META_API_VERSION'), cred('META_ACCESS_TOKEN')]);
   const url = new URL(`${GRAPH_BASE}/${apiVersion}/${adsetId}`);
-  url.searchParams.set('fields', 'name,optimization_goal,targeting');
+  url.searchParams.set('fields', 'account_id,name,optimization_goal,targeting');
   url.searchParams.set('access_token', accessToken);
   const data = await graphGet(url.toString());
+  await exigirDeLaCuenta(data.account_id);
   return { name: String(data.name ?? ''), optimization_goal: String(data.optimization_goal ?? ''), targeting: (data.targeting ?? {}) as Record<string, unknown> };
 }
 
 /** Actualiza la segmentación del conjunto. Recibe el objeto de targeting COMPLETO
  * (crudo de Meta con los cambios superpuestos) y lo re-envía tal cual. */
 export async function updateAdsetTargeting(adsetId: string, targeting: Record<string, unknown>): Promise<void> {
+  await exigirDeLaCuenta(await cuentaDelObjeto(adsetId));
   await graphPost(adsetId, { targeting: JSON.stringify(targeting) });
 }
 
@@ -1333,9 +1384,10 @@ export async function updateAdsetTargeting(adsetId: string, targeting: Record<st
 export async function getAdsetForAdd(adsetId: string): Promise<{ name: string; optimization_goal: string; needsForm: boolean }> {
   const [apiVersion, accessToken] = await Promise.all([cred('META_API_VERSION'), cred('META_ACCESS_TOKEN')]);
   const url = new URL(`${GRAPH_BASE}/${apiVersion}/${adsetId}`);
-  url.searchParams.set('fields', 'name,optimization_goal');
+  url.searchParams.set('fields', 'account_id,name,optimization_goal');
   url.searchParams.set('access_token', accessToken);
   const data = await graphGet(url.toString());
+  await exigirDeLaCuenta(data.account_id);
   const opt = String(data.optimization_goal ?? '');
   return { name: String(data.name ?? ''), optimization_goal: opt, needsForm: opt === 'LEAD_GENERATION' };
 }
@@ -1354,9 +1406,10 @@ export async function addAdToAdset(adsetId: string, creative: Creative, adName: 
 export async function getCampaignBasics(campaignId: string): Promise<{ name: string; objective: Objective; budgetLevel: BudgetLevel; optimization: string; needsForm: boolean; needsConv: boolean; conversion?: AdSetSpec['conversion'] }> {
   const [apiVersion, accessToken] = await Promise.all([cred('META_API_VERSION'), cred('META_ACCESS_TOKEN')]);
   const url = new URL(`${GRAPH_BASE}/${apiVersion}/${campaignId}`);
-  url.searchParams.set('fields', 'name,objective,daily_budget,lifetime_budget');
+  url.searchParams.set('fields', 'account_id,name,objective,daily_budget,lifetime_budget');
   url.searchParams.set('access_token', accessToken);
   const data = await graphGet(url.toString());
+  await exigirDeLaCuenta(data.account_id);
   const objective = String(data.objective ?? 'OUTCOME_LEADS') as Objective;
   const hasCampBudget = data.daily_budget != null || data.lifetime_budget != null;
   // La optimización REAL sale de un conjunto existente (no del default del objetivo):

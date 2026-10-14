@@ -385,20 +385,32 @@ test('la nota de voz larga: si no entra en el mensaje, la transcripción ENTERA 
   assert.match(r3.cuerpo, /quedaron afuera/);
 });
 
-// rotura (linkParaLeer aceptando cualquier parámetro): 1 fallo, 18 pases
-test('«pega el link»: se lee LA página pegada; uno que la elige por parámetro no se lee (sería otra), los de seguimiento sí', () => {
-  assert.deepEqual(linkParaLeer('https://minegocio.com/oferta'), { ok: true, leida: 'https://minegocio.com/oferta', sinWww: false });
+// rotura (linkParaLeer volviendo a tirar el querystring entero, como antes): 1 fallo, 18 pases
+test('«pega el link»: se baja LA página pegada —con su www y su querystring—, y se le sacan sólo los parámetros de seguimiento', () => {
+  assert.deepEqual(linkParaLeer('https://minegocio.com/oferta'), { ok: true, leida: 'https://minegocio.com/oferta' });
+  // El www se CONSERVA: se baja el host que pegó, no uno parecido.
   const www = linkParaLeer('https://www.minegocio.com/');
-  assert.ok(www.ok && www.sinWww && www.leida === 'https://minegocio.com', JSON.stringify(www));
+  assert.ok(www.ok && www.leida === 'https://www.minegocio.com', JSON.stringify(www));
+  // Los de seguimiento no cambian lo que se ve y ensucian el nombre del documento: se van.
   const utm = linkParaLeer('minegocio.com/landing?utm_source=fb&fbclid=xyz');
   assert.ok(utm.ok && utm.leida === 'https://minegocio.com/landing', JSON.stringify(utm));
-  for (const u of ['https://www.minegocio.com/?page_id=245', 'https://pay.hotmart.com/X123?off=abc', 'https://drive.google.com/open?id=1AbC']) {
+  // EL PUNTO DE TODO ESTO: un parámetro PROPIO elige la página y ya no se rechaza — antes mandaba a
+  // copiar el texto a mano, y lo que faltaba era poder bajar la URL tal cual.
+  for (const [u, esperado] of [
+    ['https://www.minegocio.com/?page_id=245', 'https://www.minegocio.com/?page_id=245'],
+    ['https://pay.hotmart.com/X123?off=abc', 'https://pay.hotmart.com/X123?off=abc'],
+    ['https://drive.google.com/open?id=1AbC', 'https://drive.google.com/open?id=1AbC'],
+  ] as const) {
     const x = linkParaLeer(u);
-    assert.equal(x.ok, false, u);
-    if (!x.ok) assert.match(x.error, /pégalo aquí/);
+    assert.ok(x.ok && x.leida === esperado, `${u} → ${JSON.stringify(x)}`);
   }
+  // Un parámetro propio Y uno de seguimiento juntos: queda el propio.
+  const mixto = linkParaLeer('https://minegocio.com/p?page_id=9&utm_source=ig');
+  assert.ok(mixto.ok && mixto.leida === 'https://minegocio.com/p?page_id=9', JSON.stringify(mixto));
   assert.equal(linkParaLeer('http://no es un link').ok, false);
+  assert.equal(linkParaLeer('localhost').ok, false);
 });
+
 
 // rotura (esperaCAS fija, sin crecer): 1 fallo, 18 pases. rotura (ofertaYaAnotada sin mirar la versión): 1 fallo, 18 pases.
 // rotura (ligadaParaVista con la lectura fallida como false): 1 fallo, 18 pases
