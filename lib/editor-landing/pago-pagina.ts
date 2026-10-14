@@ -168,7 +168,7 @@ export function paginaPasoPago(e: EntradaPasoPago): string {
     `<input id="pago-nombre" name="nombre" type="text" required maxlength="${TOPE_NOMBRE}" autocomplete="name" value="${a(nombre)}">`,
     `<label for="pago-email">Tu email</label>`,
     `<input id="pago-email" name="email" type="email" required maxlength="${TOPE_EMAIL}" autocomplete="email" inputmode="email" value="${a(email)}">`,
-    `<div class="trampa" aria-hidden="true"><label for="pago-sitio">No completes este campo</label><input id="pago-sitio" name="${a(CAMPO_TRAMPA)}" type="text" tabindex="-1" autocomplete="off" value=""></div>`,
+    `<div class="trampa" aria-hidden="true"><label for="pago-q7">No completes este campo</label><input id="pago-q7" name="${a(CAMPO_TRAMPA)}" type="text" tabindex="-1" autocomplete="off" value=""></div>`,
     '<button type="submit">Ir a pagar</button>',
     '</form>',
     e.nota ? `<p class="nota">${a(e.nota)}</p>` : '',

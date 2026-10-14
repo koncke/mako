@@ -29,8 +29,11 @@ export const RUTA_POST_PAGO = '/api/landing-generator/pagar';
 /**
  * El campo trampa: invisible para una persona (fuera de la pantalla, sin tab, sin autocompletar) y
  * tentador para un bot. Con algo adentro, no se crea nada. El nombre no dice «trampa» a propósito.
+ * ⚠️ Y no dice NADA que un completador de formularios reconozca (revisión de la tanda 4, BAJA): se
+ * llamaba `sitio_web`, que es justo lo que un gestor de autocompletado llena con la web de la persona,
+ * y un comprador real recibía «No pudimos abrir el pago» sin que quedara rastro. Un nombre sin sentido.
  */
-export const CAMPO_TRAMPA = 'sitio_web';
+export const CAMPO_TRAMPA = 'mk_q7';
 export const TOPE_NOMBRE = 120;
 export const TOPE_EMAIL = 254;
 

@@ -280,6 +280,13 @@ test('el paso: un formulario sin JavaScript, que postea relativo, escapa todo, y
   assert.match(html, /name="slug" value="mi-landing"/);
   assert.match(html, /name="bloque" value="12"/);
   assert.match(html, new RegExp(`name="${CAMPO_TRAMPA}"[^>]*tabindex="-1"`));
+  // El campo trampa no puede llamarse como algo que un completador de formularios llena solo (se
+  // llamaba `sitio_web`): un comprador real con autocompletado perdía el pago sin rastro.
+  const trampa = /<input id="([^"]+)" name="([^"]+)"[^>]*tabindex="-1"/.exec(html);
+  assert.ok(trampa, 'el campo trampa está');
+  for (const nombre of [trampa![1], trampa![2]]) {
+    assert.doesNotMatch(nombre, /web|url|site|sitio|pagina|company|empresa|name|nombre|mail|tel|phone|address|direcc|city|ciudad|zip|postal|codigo/i, nombre);
+  }
   assert.match(html, /Curso &quot;pro&quot; &lt;b&gt;/);
   assert.match(html, /Mi &lt;sitio&gt;/);
   assert.doesNotMatch(html, /evil\.com/, 'fuentes sólo de Google');
@@ -434,4 +441,7 @@ test('el POST: 303 al link; y cada puerta corta antes de cobrar', async () => {
 //   (desde acá con tests/editor-landing-ia-bloques.test.ts: base 34 / 0)
 //   24. `destinoBoton` acepta cualquier `pago:` que devuelva el modelo         → 33 / 1
 //   25. `bloquesATarjetas` con los cobros de CADA sección y no de todas        → 33 / 1
+//   (desde acá con tests/editor-landing-pago-candado.test.ts: base 24 / 0)
+//   26. el campo trampa vuelve a llamarse `sitio_web`                          → 23 / 1
+//   27. su id vuelve a ser `pago-sitio`                                        → 23 / 1
 // =============================================================================
