@@ -27,7 +27,7 @@ export const PARTES: Parte[] = [
   { titulo: 'Rutas REST y convenciones de GitHub', detalle: '379 rutas por recurso como alias · versión por fecha, rate limit en headers y en /rate_limit, errores {message, documentation_url, status}, 403 con el permiso que falta, ETag/304, OpenAPI 3.1', estado: 'hecha' },
   { titulo: 'El curso por la API', detalle: 'Área «curso»: leer cursos, módulos y clases; crear y ordenar módulos (sueltos por default); crear, editar, mover, borrar y restaurar clases · la guía «Migrar un curso con Claude»', estado: 'hecha' },
   { titulo: 'La tarea y el video embed del curso por la API', detalle: '`tareas` en crear y editar una clase (la principal sin título, las demás con título; los ids de los campos se conservan) · `videoUrl` acepta el `<iframe>` de Panda, Wistia o Bunny · se escribe por `guardarLeccion`, el camino del editor', estado: 'hecha' },
-  { titulo: 'Un token se apaga cuando su creador pierde el acceso', detalle: 'Como en GitHub: hoy `creadoPor` no se vuelve a mirar y un admin que sacan del workspace se lleva tokens que andan · va en `resolverTokenApi`', estado: 'cola' },
+  { titulo: 'Un token se apaga cuando su creador pierde el acceso', detalle: 'Como en GitHub: `resolverTokenApi` mira en cada pedido (con un minuto de memoria) que quien lo creó siga siendo admin de ese negocio, admin global o agencia aprobada; si no, 401 con su motivo · el juicio, puro, en tokens-creador.ts', estado: 'hecha' },
   { titulo: 'Catálogo liviano', detalle: '`?compacto=1`, `?area=` y `?operacion=`: de ~90k tokens a ~6k para arrancar · la skill ya enseña ese camino', estado: 'hecha' },
   { titulo: 'Una sola copia de las 25 tools', detalle: 'El doer y el chat mandan el ToolDef viejo y ya divergieron de la def · antes hay que arreglar la def de `proponer_tareas_plan` (docs/api-mako-diseno.md § 10)', estado: 'sigue' },
   { titulo: 'Canal `flujo`', detalle: 'Que una automatización corra cualquier operación sin confirmar cada vez (decisión A de Martín, 08/10) · `ejecutarDesdeFlujo`, sin un canal nuevo', estado: 'hecha' },
@@ -220,6 +220,40 @@ export const BITACORA: Hito[] = [
       { sha: '3b684747', msg: 'API de MaKo: las tareas y el video por código del curso', lineas: 446, archivos: 9 },
     ],
   },
+  // ── 09/10: el token clásico por hash y los CRON por la API ─────────────────
+  {
+    fecha: '9 oct', hora: '14:37', chat: '—', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El token de la skill deja de guardarse en claro: hash y una pista',
+    pedido: 'terminalo todo',
+    puntos: [
+      'El token principal (el de la skill de Claude) se guarda como los detallados: su sha256 y una pista no secreta (`mkoag_e_…a1b2`). Se muestra UNA vez, al acuñarlo.',
+      '⚠️ **La conversión se APLICÓ en producción el 09/10 a las 16:07** (3 workspaces): no se vuelve a un deploy anterior a `dc25a921`, porque el código viejo no sabe leer el hash y las tres skills instaladas dejan de autenticar sin decir por qué.',
+      '`/api/agente/skill` arma el archivo con el token PRESENTADO, no relee el setting.',
+    ],
+    archivos: [
+      'lib/agente-token-nucleo.ts — puro y con test: leer, acuñar, revocar y verificar contra un almacén inyectado',
+      'lib/agente-token.ts — lecturas estrictas; `tokenAgenteVisible` (pista + alcance) reemplaza a `getAgenteToken`',
+      'scripts/agente-token-a-hash.ts — la conversión de las filas que estaban en claro',
+    ],
+    commits: [
+      { sha: 'dc25a921', msg: 'El token clásico de la API de MaKo deja de guardarse en claro: hash + pista', lineas: 943, archivos: 22 },
+      { sha: '0f12fe27', msg: 'Token clásico por hash: la skill ya no manda a un «Copiar» que no existe, y el modal no muestra una foto vieja', lineas: 115, archivos: 6 },
+    ],
+  },
+  {
+    fecha: '9 oct', hora: '21:47', chat: '—', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Cambiar qué dispara una automatización, por la API',
+    puntos: [
+      '`cambiar_crons_secuencia`: de PANTALLA y del admin, sin HTTP — cambiar el CRON cambia a quién le escribe la automatización.',
+      'Se guarda por la misma puerta que la pantalla (`guardarDisparadores`), y `preparar()` rechaza lo que no existe en el negocio antes de consumir la pendiente.',
+    ],
+    archivos: ['lib/api-mako/areas/chatbot.def.ts', 'lib/api-mako/areas/chatbot.run.ts', 'tests/api-mako-crons.test.ts'],
+    commits: [
+      { sha: 'e61ad47e', msg: 'API de MaKo: cambiar los CRON de una automatización (cambiar_crons_secuencia)', lineas: 228, archivos: 4 },
+    ],
+  },
   // ── 11/10: la pasarela de pagos entra a la API ─────────────────────────────
   {
     fecha: '11 oct', hora: '—', chat: '—', cuenta: 'claude3',
@@ -229,6 +263,55 @@ export const BITACORA: Hito[] = [
     puntos: [
       'Para la API, «meterlo en la API de MaKo» es un área nueva, `cobros`, y no más operaciones del CRM: así un token con escritura en el CRM no crea links de pago ni reembolsa. El contrato, en docs/diseno-pasarela-pagos.md §4.8.',
       'Decisiones suyas del mismo día: alta automática al pagar un plan de MaKo, cada cliente pega sus claves (BYOK) y «Pagos» será un botón propio del CRON de Automations (fase 2).',
+    ],
+  },
+  // ── 13/10: cerrar lo frenado, la cobertura de la API y las estrellas ──────
+  {
+    fecha: '13 oct', hora: '—', chat: 'Estrategia 3 CUENTAS', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Cerrar lo que quedó frenado en la cuenta 3',
+    pedido: 'En la cuenta 3 quedaron muchos pendientes que frenamos porque estabamos llegando al limite semanal, dile a esos chats que continuen y cierren lo que ya habiamos planificado',
+    puntos: [
+      'Para la API: la rama `wip/api-acciones-0910` (530 commits atrás de main) no se rebasa. Se rehace en una rama nueva desde el main de hoy, `api-acciones-1310`, portando sus hunks área por área.',
+      'El token detallado deja de valer cuando su creador pierde el acceso al negocio (como GitHub): lo decide `creadorConAcceso` (puro, con test) y /api/v1 contesta 401 diciendo dónde se arregla.',
+    ],
+    archivos: [
+      'lib/api-mako/tokens-creador.ts — el juicio puro: quién sigue administrando el negocio',
+      'lib/api-mako/tokens.ts — `creadorVigente`, con lectura estricta (una base caída no apaga tokens)',
+    ],
+  },
+  {
+    fecha: '13 oct', hora: '—', chat: 'Estrategia 3 CUENTAS', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Que toda capacidad nueva nazca con su operación en la API',
+    pedido: 'Mapear todo lo nuevo que hicimos en MaKo y tener un sistema para que siempre se implementen los llamados a la API de MaKo... Porque por ejemplo, incluimos Instagram en el chatbot y en la API no está.',
+    puntos: [
+      'El sistema es un GUARD: tests/api-mako-cobertura.test.ts falla con una capacidad sin declarar en lib/api-mako/cobertura.ts — cada acción de servidor, cada método y cada acción despachada de /api, cada tab.',
+      'Cada una se declara con las operaciones que la cubren, con su excepción (una regla por carpeta: cron, webhooks, la API misma, el super admin), o como deuda en una lista que sólo baja.',
+    ],
+    archivos: [
+      'scripts/api-cobertura.mjs — el inventario de unidades (también lista las que falta declarar)',
+      'lib/api-mako/cobertura.ts — la declaración de cada unidad, y las reglas por carpeta',
+    ],
+  },
+  {
+    fecha: '13 oct', hora: '—', chat: 'Estrategia 3 CUENTAS', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Estrellas como las de GitHub, en todo MaKo',
+    pedido: 'Quiero implementar el sistema de "estrellas" de github en todo MaKo... Yo como creador de MaKo, jamás voy a poder idear todos los escenarios, todas las automatizaciones, los dashboards, los formatos de generación de vídeo o imagen, etc etc... Por eso estoy creando una herramienta que de mucha libertad para que el usuario cree lo que quiera... Por eso quiero crear un sistema parecido al de github de estrellas, para que los usuarios hagan sus creaciones y otros usuarios puedan puntuarles. Yo claro que puedo hacer ciertos templates en un inicio, pero luego la comunidad se va a encargar.',
+    puntos: [
+      'UN mecanismo para todo MaKo: las tablas (mig 0273), el server (lib/creaciones.ts), la galería /creaciones, el botón de estrella y el de publicar, y un área propia en la API («creaciones»).',
+      'Se publica la DEFINICIÓN, nunca los datos del negocio: la arma el código desde la base, sin ids, personas ni cuentas. Una estrella y un uso cuentan por NEGOCIO, y lo propio no se puntúa.',
+      'Hoy se publican automatizaciones. Dashboards (Graphics) y formatos de video e imagen (Content Machine) se enchufan con cuatro funciones cada uno (lib/creaciones-enchufes.ts).',
+    ],
+    archivos: [
+      'supabase/migrations/0273_creaciones.sql — creaciones, creacion_estrellas, creacion_usos; RLS y revoke',
+      'lib/creaciones-reglas.ts — lo puro: tipos, topes, quién puntúa y quién retira',
+      'lib/creaciones-automatizacion.ts — la definición publicable de una automatización (sin nada del negocio)',
+      'lib/creaciones-enchufes.ts — el contrato de cada tipo: opciones, exportar, resumir, usar',
+      'lib/creaciones.ts — el server: listar, publicar, estrellas, usar',
+      'app/creaciones/ — la galería, BotonEstrella y PublicarCreacion',
+      'lib/api-mako/areas/creaciones.def.ts + .run.ts — las 8 operaciones',
     ],
   },
 ];

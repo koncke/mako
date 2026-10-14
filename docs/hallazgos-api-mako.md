@@ -842,11 +842,13 @@ Los tokens de prueba se eliminaron.
 
 ### Lo que quedó sin hacer
 
-- **⚠️ Un token no se apaga cuando su creador pierde el acceso.** En GitHub, un token detallado
-  queda inactivo si el usuario pierde acceso al recurso. Acá `creadoPor` se guarda y no se
-  vuelve a mirar, y `autenticar()` fija `rol: 'admin'` para todo token: a un admin que sacan del
-  workspace le siguen andando sus tokens. Va en `resolverTokenApi` (`lib/api-mako/tokens.ts`):
-  revisar el rol actual de `creadoPor` (con caché) o revocar sus tokens al sacarlo.
+- ~~**Un token no se apaga cuando su creador pierde el acceso.**~~ **Cerrado el 14/10/2026**:
+  `resolverTokenApi` revisa a `creadoPor` (`creadorConAcceso`, `lib/api-mako/tokens-creador.ts`,
+  puro y con test): activo y no suspendido, y admin global, admin del MISMO negocio o admin de una
+  agencia con el negocio aprobado en su cartera. Las lecturas son ESTRICTAS a propósito: con la
+  base caída tiran (503), porque apagar todos los tokens de la plataforma por un bache de Supabase
+  es peor que dejarlos un minuto más. Un token viejo sin `creadoPor` sigue valiendo. El 401 dice
+  dónde se arregla (`mensajeSinCreador`).
 - **Sin «modo sudo»**: GitHub pide reautenticarse para generar o regenerar tokens; acá alcanza
   la sesión del admin (`app/api-mako/actions.ts`).
 - **Las descripciones dicen «PROPONE… queda pendiente hasta el sí»**, que con un detallado es
