@@ -96,8 +96,10 @@ test('cambiar el texto conserva el id, el lugar y lo que no se nombró', () => {
 
 // rotura B (sin el cambio de canal por código: `if (cambio && false)`): 11 / 1, cae éste (la copia sola deja el WhatsApp y
 // el AI Step). rotura C (sin descartar las copias en `agregarTramos`): 11 / 1, cae éste (2 DM en paralelo). rotura D (el
-// cambio de canal no saca el AI Step): 11 / 1, cae éste.
-test('«cambia WhatsApp por Instagram» (#245): el canal cambia en el MISMO id, el AI Step sale y no queda una copia', () => {
+// cambio de canal no MUDA el AI Step, 14/10/2026): 11 / 1, cae éste.
+// ⚠️ CAMBIÓ EL 14/10/2026 (TikTok fase 0): el motor contesta por Instagram con el AI Step de ese medio, así que el cambio
+// de canal ya no lo SACA: le cambia el medio en el mismo id. Si el modelo lo quita con "quitar", se va (es su pedido).
+test('«cambia WhatsApp por Instagram» (#245): el canal cambia en el MISMO id, el AI Step pasa a Instagram y no queda una copia', () => {
   const pedido = 'Cambia WhatsApp por Instagram';
   assert.equal(cambioDeCanal(pedido), 'instagram');
   const ctx = ctxDe({ pedido });
@@ -112,12 +114,18 @@ test('«cambia WhatsApp por Instagram» (#245): el canal cambia en el MISMO id, 
     assert.equal(ms[0].canal, 'instagram', `${nombre}: sigue por ${ms[0].canal}`);
     assert.equal(ms[0].cuerpo, TEXTO_245);
     assert.ok(!porId2(r.pasos, 'na4n6pr')!.paralelos?.length, `${nombre}: la espera abre un camino en paralelo`);
-    assert.equal(porId2(r.pasos, 'nq09965'), undefined, `${nombre}: el AI Step sigue`);
-    assert.ok(r.avisos.includes('Saqué el AI Step: por Instagram todavía no contesta'), `${nombre}: ${r.avisos.join(' | ')}`);
+    if (nombre === 'buena') {
+      assert.equal(porId2(r.pasos, 'nq09965'), undefined, 'buena: el modelo lo quitó y sigue');
+      assert.deepEqual(r.quitadas, ['nq09965']);
+    } else {
+      assert.equal(porId2(r.pasos, 'nq09965')?.medio, 'instagram', `copia: el AI Step no pasó a Instagram (${JSON.stringify(porId2(r.pasos, 'nq09965'))})`);
+      assert.ok(r.avisos.includes('El AI Step ahora contesta por Instagram'), `copia: ${r.avisos.join(' | ')}`);
+      assert.deepEqual(r.quitadas, []);
+    }
+    assert.ok(!r.avisos.some((a) => /todavía no contesta/.test(a)), `${nombre}: ${r.avisos.join(' | ')}`);
     // El aviso al equipo es una acción: no se toca.
     assert.equal(porId2(r.pasos, 'niu0inc')!.canal, 'whatsapp');
     assert.ok(r.cambiadas.includes('nw7j95n') && !r.cambiadas.includes('niu0inc'), `${nombre}: ${r.cambiadas.join(',')}`);
-    assert.deepEqual(r.quitadas, ['nq09965']);
     assert.deepEqual(r.agregadas, []);
     assert.deepEqual(erroresEdicion(base245(), r, ctx), [], `${nombre}: la revisión lo rechaza`);
   }

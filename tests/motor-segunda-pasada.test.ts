@@ -5,8 +5,9 @@
 // los enchufes del motor, los webhooks y la API. Lo que vive en módulos `server-only` (el motor, los
 // webhooks, la API) se fija sobre el FUENTE recortado a su función; lo puro, EJECUTÁNDOLO.
 //
-//   · una respuesta por Instagram o Messenger PAUSA lo que le escribían, sin contestar por WhatsApp, y
-//     la pausa va ANTES del disparo (el mismo DM puede arrancar una automatización);
+//   · una respuesta por Instagram o Messenger se ANOTA sin contestar por WhatsApp (desde el 14/10/2026 la
+//     contesta el AI Step de ese medio, por ese canal), y va ANTES del disparo (el mismo DM puede arrancar
+//     una automatización);
 //   · el webhook pregunta «¿alguien escucha ESTE evento?» y dispara con el subtipo traducido;
 //   · el email que llega: sin casts, el fallo de ruteo anotado, y el webhook de siempre de Resend;
 //   · el Recurrente al grupo de MaKo sale con los dos canales del negocio apagados, sin inscribir a nadie;
@@ -38,19 +39,22 @@ const NUTRI = sinComentarios(leer('lib/nutricion.ts'));
 
 // ── Instagram y Messenger ─────────────────────────────────────────────────────
 
-test('una RESPUESTA social pausa SIN contestar: corta antes del destrabe, del asistido y de la charla', () => {
+// ⚠️ CAMBIÓ EL 14/10/2026 (TikTok fase 0): una respuesta social ya no SÓLO pausa. La contesta el AI Step de ese
+// medio, por ese canal; lo que contestaría por WhatsApp (el destrabe lineal, el modo asistido) sigue sin correr.
+// El detalle se fija en tests/ai-step-redes.test.ts.
+test('una RESPUESTA social se anota y la atiende el AI Step de SU medio, nunca lo del WhatsApp', () => {
   const p = bloque(NUTRI, 'export async function pausarPorRespuesta(', '\n}\n');
-  assert.match(p, /origen\?: 'no_oficial' \| 'oficial' \| CanalSocial/);
-  assert.match(p, /const soloPausa = esCanalSocial\(opts\?\.origen\);/);
-  const corte = p.indexOf('if (soloPausa) return pausadas.length + tardias.length;');
-  assert.ok(corte > 0, 'sin el corte, una respuesta por Instagram contesta por WhatsApp');
-  // Después de pausar lo activo y lo terminado (las dos cosas cuentan como «respondió»)…
-  assert.ok(corte > p.indexOf(".update({ estado: 'respondio', proximo_envio_at: null"), 'el corte va antes de pausar');
-  assert.ok(corte > p.indexOf('tardias = (upd ?? [])'), 'el corte va antes de anotar lo terminado: doce horas después «no contestó»');
-  // …y ANTES de todo lo que contesta.
-  for (const contesta of ['siguienteCon(sec.pasos, desde, \'respondio\')', 'asistirRespuesta(leadId', 'seguirCharla(leadId']) {
-    assert.ok(corte < p.indexOf(contesta), `«${contesta}» corre antes del corte: contestaría por WhatsApp`);
-  }
+  assert.match(p, /origen\?: 'no_oficial' \| 'oficial' \| CanalSocial; cuenta\?: string \| null/);
+  assert.match(p, /const medio: MedioAIStep = social \?\? 'whatsapp';/);
+  assert.doesNotMatch(p, /if \(social\) return/, 'volvió el corte: una respuesta por Instagram no la contesta nadie');
+  // El destrabe lineal (del WhatsApp) no corre con lo social.
+  assert.match(p, /if \(pausadas\.length && !social\) \{/);
+  // Anota lo activo y lo terminado ANTES de contestar (las dos cosas cuentan como «respondió»).
+  const iTardias = p.indexOf('tardias = (upd ?? [])');
+  assert.ok(iTardias > 0 && iTardias < p.indexOf('asistirRespuesta(leadId'), 'contesta antes de anotar lo terminado: doce horas después «no contestó»');
+  assert.match(p, /charlaDelLead\(leadId, medio\)/);
+  assert.match(p, /asistirRespuesta\(leadId, atendibles\.map\(\(i\) => i\.secuencia_id\), opts\?\.texto, opts\?\.linea \?\? null, \{ medio, cuenta: opts\?\.cuenta \?\? null \}\)/);
+  assert.match(p, /seguirCharla\(leadId, charla, opts\?\.texto, opts\?\.linea \?\? null, social \?\? /);
 });
 
 test('el webhook: una respuesta de un lead PAUSA y después dispara, en el mismo `after`', () => {
@@ -60,10 +64,10 @@ test('el webhook: una respuesta de un lead PAUSA y después dispara, en el mismo
   assert.match(ent, /const ES_RESPUESTA: ReadonlySet<EventoSocial\['subtipo'\]> = new Set\(\['mensaje', 'historia'\]\);/);
   // Un lead NUEVO no tiene nada que pausar.
   assert.match(proc, /return \{ accion: `\$\{accion\}_sin_automatizacion`, leadId: null, disparar: false, pausar: false \};/);
-  assert.match(ent, /return pausarPorRespuesta\(leadId, \{ origen: canal \}\);/);
+  assert.match(ent, /return pausarPorRespuesta\(leadId, \{ origen: canal, texto: extra\.texto \?\? undefined, cuenta: extra\.cuenta \?\? null \}\);/);
   const ruta = sinComentarios(leer('app/api/webhooks/zernio/route.ts'));
   const despues = bloque(ruta, 'after(async () => {', '\n        });');
-  const iPausa = despues.indexOf('pausarRespuestaSocial(leadId, canal)');
+  const iPausa = despues.indexOf('pausarRespuestaSocial(leadId, canal, { texto: ev.evento.texto, cuenta: ev.evento.cuentaId })');
   const iDisparo = despues.indexOf('dispararEventoSocial(leadId, canal, subtipo)');
   assert.ok(iPausa > 0 && iDisparo > iPausa, 'pausar después de disparar pausa la automatización que este mismo DM acaba de arrancar');
 });

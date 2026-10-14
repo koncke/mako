@@ -48,7 +48,7 @@
 // =============================================================================
 
 import {
-  type PasoGrafo, type NombresParaTexto, type HechosLead,
+  type PasoGrafo, type NombresParaTexto, type HechosLead, type MedioAIStep,
   claseDe, idDe, indicePorId, nodoPorId, normalizar, puertosDe, raicesSalida, raizRespuesta,
   textoEspera, textoRama, TOPE_HILOS, RESULTADO_SI_NO, paralelosDeResultado, elegirSalida, expandirPasoIA,
   extrasDeCaso,
@@ -62,7 +62,8 @@ import {
  * igual en cada llamada). Con uno solo de los dos lados expandido, «Probar» entraba a un caso y cerraba
  * con «Esa tarjeta ya no existe», o contestaba distinto que el motor.
  */
-const recorrido = <P extends PasoGrafo>(pasos: readonly P[]): P[] => expandirPasoIA(pasos);
+// Con el MEDIO de la prueba (TikTok fase 0): por Instagram se expande el AI Step de Instagram, como en el motor.
+const recorrido = <P extends PasoGrafo>(pasos: readonly P[], medio?: MedioAIStep): P[] => expandirPasoIA(pasos, { medio });
 import { legadoAGrafo, tieneLegado, type EstrategiaLegada } from './flujo-legado';
 import { TRIGGER_ETAPA, TRIGGER_ENTREGA, TRIGGER_ETIQUETA } from './nutricion-etapa';
 import { PIPELINE_KIND } from './pipeline';
@@ -136,6 +137,11 @@ export type EstadoSim = {
   ahora: number;
   /** El caso de «Si responde» por el que se entró (para redactar «MaKo contesta»). */
   caso: CasoElegido | null;
+  /**
+   * Por qué MEDIO se prueba (TikTok fase 0, 14/10/2026): el AI Step que contesta es el de ese medio, como en el motor
+   * (`asistirRespuesta` con `{ medio }`). Ausente = WhatsApp. Lo pone `iniciar`.
+   */
+  medio?: MedioAIStep;
 };
 
 /** Los nombres que el texto de una píldora necesita y este módulo no tiene. */
@@ -289,7 +295,7 @@ export function hechosDeLeadNuevo(c: LeadNuevoPrueba = {}): HechosLead {
 export function elegirComoLead(pasos: readonly PasoGrafo[], estado: EstadoSim, hechos: HechosLead): { estado: EstadoSim; opcion: OpcionRama | null } {
   const e = estado.eligiendo;
   if (!e) return { estado, opcion: null };
-  const p = nodoPorId(recorrido(pasos), e.nodo);
+  const p = nodoPorId(recorrido(pasos, estado.medio), e.nodo);
   const puerto = p ? elegirSalida(p, hechos).puerto : RESULTADO_SI_NO;
   const opcion = e.opciones.find((o) => o.puerto === puerto) ?? e.opciones.find((o) => o.puerto === RESULTADO_SI_NO) ?? null;
   return { estado: opcion ? elegir(estado, opcion.puerto) : { ...estado, eligiendo: null }, opcion };
@@ -362,10 +368,13 @@ export function correoDeEjemplo(
 
 // ── Recorrer ───────────────────────────────────────────────────────────────────
 
-export function iniciar(pasos: readonly PasoGrafo[]): EstadoSim {
+export function iniciar(pasos: readonly PasoGrafo[], op: { medio?: MedioAIStep } = {}): EstadoSim {
   // Un hilo por raíz: la principal y cada flecha en paralelo del CRON, todas en el minuto 0.
   const hilos = raicesSalida(pasos).slice(0, TOPE_HILOS).map((cursor) => ({ cursor, reloj: 0 }));
-  return { hilos, rama: 'salida', eligiendo: null, salidaPausada: false, terminado: false, saltos: 0, eventos: 0, ahora: 0, caso: null };
+  return {
+    hilos, rama: 'salida', eligiendo: null, salidaPausada: false, terminado: false, saltos: 0, eventos: 0, ahora: 0, caso: null,
+    ...(op.medio && op.medio !== 'whatsapp' ? { medio: op.medio } : {}),
+  };
 }
 
 /** El hilo que corre ahora: el de reloj más bajo; en un empate, el primero del array. */
@@ -524,7 +533,7 @@ export function siguiente<P extends PasoGrafo>(
 ): Paso<P> {
   if (estado.terminado || estado.eligiendo) return { evento: null, estado };
   if (estado.rama === 'salida' && estado.salidaPausada) return { evento: null, estado };
-  const pasos = recorrido(pasosIn);
+  const pasos = recorrido(pasosIn, estado.medio);
   let st = estado;
   for (let vuelta = 0; vuelta <= TOPE_VUELTAS_MUDAS; vuelta++) {
     if (!st.hilos.length) {
@@ -592,9 +601,9 @@ function textoDeEleccion(o: OpcionRama, opciones: readonly OpcionRama[]): string
  */
 export function escenariosDePrueba(
   pasosIn: readonly PasoGrafo[],
-  o: { hechos?: HechosLead; nombres?: NombresSim; cuenta?: (p: PasoGrafo) => boolean } = {},
+  o: { hechos?: HechosLead; nombres?: NombresSim; cuenta?: (p: PasoGrafo) => boolean; medio?: MedioAIStep } = {},
 ): { escenarios: EscenarioPrueba[]; faltan: number } {
-  const pasos = recorrido(pasosIn);
+  const pasos = recorrido(pasosIn, o.medio);
   const out: EscenarioPrueba[] = [];
   let faltan = 0;
   const cerrar = (elecciones: Record<string, string>, dichos: string[], mensajes: number) => {
@@ -624,7 +633,7 @@ export function escenariosDePrueba(
     }
     cerrar(elecciones, dichos, n);
   };
-  visitar(iniciar(pasosIn), {}, [], 0);
+  visitar(iniciar(pasosIn, { medio: o.medio }), {}, [], 0);
   return { escenarios: out, faltan };
 }
 
@@ -667,8 +676,8 @@ export function entrarEnRespuesta(
   estado: EstadoSim,
   casoId: string | null,
 ): { estado: EstadoSim; sinRespuesta: boolean; caso: CasoElegido | null } {
-  // Por el flujo EXPANDIDO (`recorrido`): un caso de un AI Step no tiene `siguiente` en la tarjeta.
-  const pasos = recorrido(pasosIn);
+  // Por el flujo EXPANDIDO (`recorrido`) del medio de la prueba: un caso de un AI Step no tiene `siguiente` en la tarjeta.
+  const pasos = recorrido(pasosIn, estado.medio);
   const r = nodoPorId(pasos, raizRespuesta(pasos));
   if (!r) {
     // Sin «Si responde» MaKo no contesta, y la salida que corría vuelve a correr.
