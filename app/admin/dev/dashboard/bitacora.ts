@@ -392,4 +392,10 @@ export const BITACORA: Hito[] = [
     commits: [{ sha: 'c73755ec', msg: 'General, quinta vuelta: bloques de un vistazo y en grande, Archivados para las hojas, y la marca de MaKo sin navegar', lineas: 569, archivos: 25 }],
     archivos: ['app/dashboard/EditorInforme.tsx', 'app/dashboard/Cabecera.tsx', 'app/dashboard/NuevaHoja.tsx', 'lib/graficos-catalogo.ts', 'lib/graficos-tablero.ts', 'tests/dashboard-archivadas.test.ts'],
   },
+  {
+    fecha: '14 oct', hora: '14:34', chat: 'General', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'El Dashboard, bloque por bloque y con mobile, como General',
+    pedido: "Dale este mismo feedback al dashboard... Que rediseñe bloque por bloque y que tenga en cuenta mobile. Que vaya viendo con datos ficticios o con algun dato de algun workspace que todo se vea bien en diseño. Tanto bloques como las plantillas.",
+    puntos: ['No se arrancó en esta cuenta (95% semanal): queda escrito con el método en docs/hallazgos-objectives.md y en el relevo del Dashboard.'],
+  },
 ];

@@ -477,4 +477,31 @@ export const BITACORA: Hito[] = [
     commits: [{ sha: 'c73755ec', msg: 'General, quinta vuelta: bloques de un vistazo y en grande, Archivados para las hojas, y la marca de MaKo sin navegar', lineas: 569, archivos: 25 }],
     archivos: ['app/general/bloques/', 'app/general/Cobranza.tsx', 'lib/general-plantillas.ts', 'app/dashboard/EditorInforme.tsx', 'app/dashboard/Cabecera.tsx', 'lib/graficos-catalogo.ts', 'tests/dashboard-archivadas.test.ts'],
   },
+  {
+    fecha: '14 oct', hora: '14:10', chat: 'General', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'Ignorar el punto 3 y rediseñar de verdad bloque por bloque',
+    pedido: "Ignora el punto 3, y continua con el resto, porque no veo que hayas modificado bloque por bloque y las cosas que te pedi, no esta pusheado eso aun?",
+    puntos: ['La quinta vuelta ya estaba en producción; lo que faltaba era mirar cada bloque en captura.'],
+  },
+  {
+    fecha: '14 oct', hora: '14:16', chat: 'General', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'Las plantillas también: que se vean como la tab General, no como un dashboard',
+    pedido: "No solo los bloques, sino los templates, con el feedback que te di que se vea como una tab general, no como un dashboard... Cosas grandes, textos grandes, que sea simple de leer",
+  },
+  {
+    fecha: '14 oct', hora: '14:50', chat: 'General', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Cada bloque mirado en captura, listas sin filas cortadas y las plantillas con el tema General',
+    puntos: [
+      'Se dibujó cada bloque y cada plantilla con datos de ejemplo, en escritorio y a 364 px, y se corrigió lo que mostraban las capturas.',
+      'Una lista muestra sólo las filas que entran enteras; las tarjetas que se repiten llenan el ancho; lo que no llena el alto va centrado.',
+      'KPIs con el número en grande y su compromiso («14 de 20») y barras que llenan el bloque; tareas y proyectos que no se cortan en el celular.',
+      'Las plantillas nacen con el tema nuevo «General»: sin bordes, la tarjeta flota y los números grandes. «Cobros» sin sus columnas por semana.',
+      'Arreglo aparte: eliminar todas las hojas dejaba al Dashboard sin poder abrirse; la pantalla vuelve a leer el informe tal cual.',
+    ],
+    commits: [
+      { sha: '78fe8132', msg: 'Dashboard: la pantalla vuelve a leer el informe crudo; sólo la API y los links lo ven sin hojas', lineas: 73, archivos: 9 },
+      { sha: 'c23cb620', msg: 'General, sexta vuelta: bloque por bloque con capturas, listas sin filas cortadas y las plantillas con el tema General', lineas: 287, archivos: 16 },
+    ],
+    archivos: ['app/general/bloques/', 'app/general/KpisCard.tsx', 'app/general/Cobranza.tsx', 'lib/general-plantillas.ts', 'lib/graficos-temas.ts', 'lib/graficos-tablero.ts', 'tests/general-bloques.test.ts'],
+  },
 ];
