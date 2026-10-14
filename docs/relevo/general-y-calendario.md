@@ -20,6 +20,16 @@ más de una, e incluso asignarles ofertas y/o funnels.»
 | Pagos atípicos | `app/crm/[id]/deal-actions.ts`, `DealDetailsCard.tsx` | Un pago de menos ya no borra la diferencia: queda pendiente o es descuento. «Registrar otro pago» para lo que no es una cuota. |
 | Calendario | `/calendario`, mig 0271 (aplicada), `lib/calendario*.ts` | Cinco capas; sólo lo propio se guarda. La IA no ve la agenda. Área `calendario` en la API de MaKo. Onboarding que se hace usándola. |
 
+**Estado de git (14/10/2026, ~02:45).** Nada de esto está en producción todavía. Los tres commits (8396e4a6,
+ba199cb4, b202da4e) quedaron integrados con origin/main en el merge `20334eb0`, y el push lo hace el orquestador
+(«Estrategia 3 CUENTAS»), uno solo y con todo junto, por pedido de Martín: «que se pushee todo y que los chats cierren».
+En ese merge se resolvió el cruce con Graphics: los dos chats habían movido «A quién cobrarle» a General. Quedó la
+`Cobranza` de Graphics (`app/general/Cobranza.tsx`) como el bloque de las vistas, recortada a los funnels de la vista,
+y `CobranzaGeneral.tsx` se borró. Vacía, la vista de fábrica no la dibuja; una vista que armó la persona, sí. Los tests
+de lo tocado dieron 325/325. El typecheck completo no corrió: no hubo RAM (el piso es 5,3 GB y había 3,8), así que lo
+corre el pre-push del orquestador. **Después del deploy, falta verlo en ws3**: /general (vistas, plantillas, IA,
+alcance), /calendario y la pestaña Pagos del CRM (pago de menos, «Registrar otro pago»).
+
 Hallazgos: `docs/hallazgos-objectives.md` (General), `docs/hallazgos-crm.md` (pagos), `docs/hallazgos-calendario.md`.
 Bitácoras: `/admin/dev/general`, `/admin/dev/crm`, `/admin/dev/calendario`.
 
