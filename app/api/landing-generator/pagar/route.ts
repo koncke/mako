@@ -22,12 +22,15 @@
 // La decisión entera (orden de las puertas, qué ve el visitante) vive en `responderPagoPost`
 // (lib/editor-landing/pago-pagina.ts), con test; el cobro, en `pagarDesdeLanding`
 // (lib/editor-landing/pago-landing-server.ts).
+// Paquete 3 de la tanda 6: los rechazos de DESPUÉS de leer la landing (tope por email, techo, dominio
+// ajeno, producto que la foto no ofrece) suman al contador del día de esa landing (`anotarRechazoDePago`,
+// mig 0282); los de antes, al log. Y la campaña que volvió en el formulario llega al lead nuevo.
 // =============================================================================
 import type { NextRequest } from 'next/server';
 import { APP_BASE_URL } from '@/lib/app-url';
 import { clientIp, rateLimit } from '@/lib/rate-limit';
 import { responderPagoPost } from '@/lib/editor-landing/pago-pagina';
-import { estadoCobroLanding, leerLandingDePago, pagarDesdeLanding, temaDelPaso } from '@/lib/editor-landing/pago-landing-server';
+import { anotarRechazoDePago, estadoCobroLanding, leerLandingDePago, pagarDesdeLanding, temaDelPaso } from '@/lib/editor-landing/pago-landing-server';
 import { landingDeDominio } from '@/lib/editor-landing/dominios';
 
 export const dynamic = 'force-dynamic';
@@ -47,5 +50,6 @@ export async function POST(req: NextRequest) {
       return { estado, estiloTema: tema.estilo };
     },
     pagar: pagarDesdeLanding,
+    rechazo: anotarRechazoDePago,
   });
 }

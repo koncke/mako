@@ -18,6 +18,8 @@
 //   · El tema: las variables del tema de la landing van inline en el <body> (`estiloDeTema`), y la hoja
 //     propia de acá las usa con un respaldo neutro. Es lo barato: no carga la hoja de 94 KB del contenido.
 //   · El campo trampa (`CAMPO_TRAMPA`) va fuera de la pantalla, sin tab y sin autocompletar.
+//   · La campaña (utm y fbclid) sale del Referer del GET, sólo si es del MISMO host, y viaja en inputs
+//     hidden hasta `createLead` (Paquete 3 de la tanda 6; pago-pedido.ts, «De qué anuncio vino»).
 //
 // PURO (sin base). ⚠️ No es apto para el navegador: importa pagina-publica.ts (node:crypto).
 // =============================================================================
@@ -26,8 +28,9 @@ import { escaparHtml, paginaNoDisponible, paginaNoEncontrada, urlsDeFuentes } fr
 import { slugValido } from './doc';
 import { motivoNoCobra, notaDePasarela, pasarelaDeLanding, precioDe, productoDeSegmento, type EstadoCobroLanding } from './pago-landing';
 import {
-  CAMPO_TRAMPA, RUTA_POST_PAGO, TEXTO_DEMASIADOS, TEXTO_FALLA_CAMPO, TEXTO_FALLO, TEXTO_NO_DISPONIBLE, TOPE_EMAIL, TOPE_NOMBRE,
-  leerPedidoPago, origenDelPago, type LecturaPedidoPago, type PedidoPago,
+  CAMPOS_ATRIBUCION_PAGO, CAMPO_TRAMPA, RUTA_POST_PAGO, TEXTO_DEMASIADOS, TEXTO_FALLA_CAMPO, TEXTO_FALLO, TEXTO_NO_DISPONIBLE, TOPE_EMAIL, TOPE_NOMBRE,
+  atribucionDeCampos, atribucionDelReferer, leerPedidoPago, origenDelPago,
+  type AtribucionPago, type LecturaPedidoPago, type MotivoRechazoPago, type MotivoRechazoSinLanding, type PedidoPago,
 } from './pago-pedido';
 
 /** El pedido que volvió por un CAMPO (nombre o email): trae lo escrito para volver a dibujarlo. */
@@ -105,6 +108,8 @@ export type EntradaPasoPago = Marco & {
   nota: string | null;
   error?: string | null;
   valores?: { nombre?: string | null; email?: string | null };
+  /** De qué anuncio vino (el Referer del GET, o lo que volvió en el POST): viaja en inputs hidden. */
+  atribucion?: AtribucionPago | null;
 };
 
 export type EntradaAvisoPago = Marco & { titulo: string; texto: string | null };
@@ -164,6 +169,8 @@ export function paginaPasoPago(e: EntradaPasoPago): string {
     e.error ? `<p class="error" role="alert">${a(e.error)}</p>` : '',
     `<input type="hidden" name="slug" value="${a(e.slug)}">`,
     `<input type="hidden" name="bloque" value="${a(String(e.productoId))}">`,
+    // La campaña de la página de aterrizaje (Paquete 3 de la tanda 6), sólo los campos que vinieron.
+    ...CAMPOS_ATRIBUCION_PAGO.filter((k) => !!e.atribucion?.[k]).map((k) => `<input type="hidden" name="${k}" value="${a(e.atribucion![k]!)}">`),
     `<label for="pago-nombre">Tu nombre</label>`,
     `<input id="pago-nombre" name="nombre" type="text" required maxlength="${TOPE_NOMBRE}" autocomplete="name" value="${a(nombre)}">`,
     `<label for="pago-email">Tu email</label>`,
@@ -240,7 +247,19 @@ export async function responderPasoPago(req: Request, pedido: { slug: string; bl
     producto: { nombre: producto.nombre, precio: precioDe(producto) },
     slug: landing.slug, productoId,
     nota: !motivo && pasarela ? notaDePasarela(pasarela) : null,
+    atribucion: atribucionDelReferer(req.headers.get('referer'), hostsDelPedido(req)),
   }));
+}
+
+/**
+ * Los hosts que sirven ESTE pedido: el de la URL y el de la cabecera Host. Los dos, porque el proxy
+ * reescribe (hola-mako.site/<slug>/pagar/… → /l/…, el dominio propio → /api/landing-generator/dominio) y
+ * la cabecera Host sigue siendo la que tipeó el navegador. Ninguno lo elige una página ajena.
+ */
+function hostsDelPedido(req: Request): string[] {
+  let deLaUrl: string | null = null;
+  try { deLaUrl = new URL(req.url).host; } catch { deLaUrl = null; }
+  return [deLaUrl, req.headers.get('host')].filter((h): h is string => !!h);
 }
 
 /** Lo que devuelve `pagarDesdeLanding` (pago-landing-server.ts), con la forma que esta decisión necesita. */
@@ -252,13 +271,25 @@ export type DepPagoPost = {
   /** ¿Ese dominio propio es el de ESA landing? (`landingDeDominio`). Tira = la base falló. */
   esDelDominio: (host: string, docId: number) => Promise<boolean>;
   detalle: (l: LandingDelPaso) => Promise<DetalleDelPaso>;
-  pagar: (l: LandingDelPaso, p: PedidoPago) => Promise<ResultadoDelPago>;
+  /** `atribucion`: los utm y el fbclid que volvieron en el formulario, ya saneados (Paquete 3 de la tanda 6). */
+  pagar: (l: LandingDelPaso, p: PedidoPago, atribucion: AtribucionPago) => Promise<ResultadoDelPago>;
   /** El limitador (lib/rate-limit.ts). Los tests pasan uno propio: el de memoria se comparte entre pedidos. */
   limitar: (clave: string, max: number, ventanaMs: number) => boolean;
   ip: string;
+  /**
+   * Suma un rechazo de ESA landing al contador del día (`anotarRechazoDePago`, mig 0282). Sólo los que
+   * llegan después de leer la landing (`MOTIVOS_RECHAZO_PAGO`). Si tira, se anota en el log y la respuesta
+   * es la misma: el rastro no puede cambiar lo que ve el visitante.
+   */
+  rechazo?: (docId: number, motivo: MotivoRechazoPago) => Promise<void>;
 };
 
-/** Un formulario de nombre y email no pesa más que esto. Lo de más no se lee. */
+/**
+ * Un formulario de nombre y email no pesa más que esto. Lo de más no se lee. Con la campaña en inputs
+ * hidden (Paquete 3 de la tanda 6) el más pesado posible —el nombre entero en caracteres de 3 bytes, el
+ * email entero codificado y cada valor de atribución en su techo— sigue entrando: lo mide el test
+ * (tests/editor-landing-pago-rastro.test.ts), y si alguien sube un techo de atribución, se entera ahí.
+ */
 export const TOPE_CUERPO_PAGO = 4_000;
 /** Los topes: por IP (quien prueba) y por email (quien repite). Cada intento crea un checkout en el Stripe del cliente. */
 export const TOPE_IP = { max: 10, ventanaMs: 10 * 60_000 } as const;
@@ -277,47 +308,72 @@ function volverDe(req: Request, origen: string | null): string | null {
  * → los campos (si fallan, el formulario de nuevo con el error y lo escrito) → tope por email → pagar.
  * Al visitante, siempre una frase corta; el motivo real queda en el historial del lead (lo escribe
  * `pagarDesdeLanding`) y en el log.
+ *
+ * EL RASTRO (Paquete 3 de la tanda 6, AGENTS.md «Una política puede RECHAZAR; no puede no dejar rastro»):
+ * todo rechazo deja su motivo en el log; los que llegan después de leer la landing (tope por email, techo,
+ * dominio ajeno, producto que la foto no ofrece) suman además al contador del día de ESA landing
+ * (`dep.rechazo`). Los de antes no saben de qué landing son: al log (pago-pedido.ts dice por qué).
  */
 export async function responderPagoPost(req: Request, dep: DepPagoPost): Promise<Response> {
   const aviso = (status: number, titulo: string, texto: string | null = null) =>
     html(status, paginaAvisoPago({ sitio: '', titulo, texto, appBaseUrl: dep.appBaseUrl }));
+  // Sin el IP ni el email en el log: el motivo no necesita saber quién (AGENTS.md, el mismo apartado).
+  const alLog = (motivo: MotivoRechazoSinLanding, status: number) => {
+    console.warn(`[landing-pagar] rechazado antes de leer la landing (${status}): ${motivo}`);
+    return aviso(status, status === 429 ? TEXTO_DEMASIADOS : TEXTO_FALLO);
+  };
+  const contado = async (l: LandingDelPaso, motivo: MotivoRechazoPago, status: number, titulo: string) => {
+    console.warn(`[landing-pagar] ws=${l.ws} /l/${l.slug} rechazado (${status}): ${motivo}`);
+    if (dep.rechazo) {
+      try {
+        await dep.rechazo(l.docId, motivo);
+      } catch (e) {
+        console.error(`[landing-pagar] ws=${l.ws} /l/${l.slug} no pude anotar el rechazo ${motivo}: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
+    return aviso(status, titulo);
+  };
 
-  if (!dep.limitar(`landing-pagar:ip:${dep.ip}`, TOPE_IP.max, TOPE_IP.ventanaMs)) return aviso(429, TEXTO_DEMASIADOS);
+  if (!dep.limitar(`landing-pagar:ip:${dep.ip}`, TOPE_IP.max, TOPE_IP.ventanaMs)) return alLog('tope-ip', 429);
   const largo = Number(req.headers.get('content-length') ?? '0');
-  if (Number.isFinite(largo) && largo > TOPE_CUERPO_PAGO) return aviso(413, TEXTO_FALLO);
+  if (Number.isFinite(largo) && largo > TOPE_CUERPO_PAGO) return alLog('tamano', 413);
 
   let propio: string | null = null;
   try { propio = new URL(req.url).origin; } catch { propio = null; }
   const origenCrudo = req.headers.get('origin');
   const origen = origenDelPago(origenCrudo, { appBaseUrl: dep.appBaseUrl, propio });
-  if (!origen) return aviso(403, TEXTO_FALLO);
+  if (!origen) return alLog('origen', 403);
 
   let crudo = '';
   try { crudo = await req.text(); } catch { crudo = ''; }
-  if (crudo.length > TOPE_CUERPO_PAGO) return aviso(413, TEXTO_FALLO);
-  const lectura = leerPedidoPago(new URLSearchParams(crudo));
+  if (crudo.length > TOPE_CUERPO_PAGO) return alLog('tamano', 413);
+  const campos = new URLSearchParams(crudo);
+  const lectura = leerPedidoPago(campos);
   // Dos casos que siguen: el pedido entero, o un CAMPO que no sirve (vuelve el formulario). TypeScript no
   // angosta la unión después de un `return`, así que cada uno va en su variable.
   let pedido: PedidoPago | null = null;
   let campoMal: FallaDeCampo | null = null;
   if (lectura.ok) pedido = lectura.pedido;
   else if (lectura.falla === 'nombre' || lectura.falla === 'email') campoMal = lectura;
-  else {
-    if (lectura.falla === 'trampa') console.warn('[landing-pagar] el campo trampa vino lleno: no se crea nada');
-    return aviso(400, TEXTO_FALLO);
-  }
+  else return alLog(lectura.falla, 400);
   const slug = pedido ? pedido.slug : campoMal!.slug;
   const productoId = pedido ? pedido.productoId : campoMal!.productoId;
+  // Lo que volvió en los inputs hidden lo escribe cualquiera: se sanea de nuevo, campo por campo.
+  const atribucion = atribucionDeCampos(campos);
 
   let landing: LandingDelPaso | null;
+  let ajeno = false;
   try {
     landing = await dep.landing(slug);
-    if (landing && origen.tipo === 'dominio' && !(await dep.esDelDominio(origen.host, landing.docId))) return aviso(403, TEXTO_FALLO);
+    if (landing && origen.tipo === 'dominio') ajeno = !(await dep.esDelDominio(origen.host, landing.docId));
   } catch (e) {
     console.error(`[landing-pagar] no pude leer /l/${slug} (la base no contestó): ${e instanceof Error ? e.message : String(e)}`);
     return aviso(503, TEXTO_FALLO);
   }
-  if (!landing || !landing.productos.includes(productoId)) return aviso(404, TEXTO_NO_DISPONIBLE);
+  // Una landing que no se sirve no tiene a quién anotarle nada: lo de cualquier slug no escribe.
+  if (!landing) return aviso(404, TEXTO_NO_DISPONIBLE);
+  if (ajeno) return contado(landing, 'dominio-ajeno', 403, TEXTO_FALLO);
+  if (!landing.productos.includes(productoId)) return contado(landing, 'producto', 404, TEXTO_NO_DISPONIBLE);
 
   if (campoMal) {
     // Un campo que no sirve: el MISMO formulario, con el error y con lo que ya escribió.
@@ -333,14 +389,16 @@ export async function responderPagoPost(req: Request, dep: DepPagoPost): Promise
       producto: { nombre: producto.nombre, precio: precioDe(producto) }, slug: landing.slug, productoId,
       nota: cobra && pasarela ? notaDePasarela(pasarela) : null,
       error: TEXTO_FALLA_CAMPO[campoMal.falla], valores: campoMal.valores,
+      // La campaña vuelve también: un email mal tipeado no puede borrar de qué anuncio vino.
+      atribucion,
     }));
   }
 
-  if (!dep.limitar(`landing-pagar:email:${pedido!.email}`, TOPE_EMAIL_PEDIDOS.max, TOPE_EMAIL_PEDIDOS.ventanaMs)) return aviso(429, TEXTO_DEMASIADOS);
+  if (!dep.limitar(`landing-pagar:email:${pedido!.email}`, TOPE_EMAIL_PEDIDOS.max, TOPE_EMAIL_PEDIDOS.ventanaMs)) return contado(landing, 'tope-email', 429, TEXTO_DEMASIADOS);
 
   let r: ResultadoDelPago;
   try {
-    r = await dep.pagar(landing, pedido!);
+    r = await dep.pagar(landing, pedido!, atribucion);
   } catch (e) {
     console.error(`[landing-pagar] /l/${slug} producto=${productoId}: ${e instanceof Error ? e.message : String(e)}`);
     return aviso(503, TEXTO_FALLO);
@@ -348,6 +406,6 @@ export async function responderPagoPost(req: Request, dep: DepPagoPost): Promise
   if (r.tipo === 'redirigir') return new Response(null, { status: 303, headers: { Location: r.url, 'Cache-Control': 'no-store' } });
   if (r.tipo === 'no-disponible') return aviso(409, TEXTO_NO_DISPONIBLE, 'Ya tenemos tus datos.');
   // El techo de la landing en la hora (contado en la base, `ejecutarPago`): no se escribió nada.
-  if (r.tipo === 'demasiados') return aviso(429, TEXTO_DEMASIADOS);
+  if (r.tipo === 'demasiados') return contado(landing, 'techo', 429, TEXTO_DEMASIADOS);
   return aviso(502, TEXTO_FALLO);
 }

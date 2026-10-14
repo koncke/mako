@@ -135,6 +135,86 @@ export function origenDelPago(origin: string | null | undefined, op: { appBaseUr
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// De qué anuncio vino quien paga (Paquete 3 de la tanda 6)
+// ─────────────────────────────────────────────────────────────────────────────
+// Revisión de la tanda 4: «La atribución del anuncio se pierde en el lead que nace por el botón de
+// pago». El opt-in le pasa a `createLead` los utm y el fbclid (app/api/track/optin); el lead que nace
+// pagando —la conversión más cara— nacía sin nada: el href del botón es fijo y el paso no tiene el Pixel.
+// Lo que SÍ llega es el Referer: la política de la casa (next.config.ts, strict-origin-when-cross-origin)
+// manda la URL ENTERA, con su query, entre páginas del MISMO origen. El GET del paso la lee si es de su
+// mismo host y la escribe como inputs hidden; el POST la vuelve a sanear (lo del formulario lo escribe
+// cualquiera) y se la pasa a `createLead` y a la propuesta.
+//
+// ⚠️ SIN `utm_term`, A PROPÓSITO. `leads` no tiene esa columna, y en esta casa `utm_term` es el canal por
+//    donde Calendly devuelve el `visitor_id` (lib/leads.ts, mig 0008). Pasar el término de un anuncio a
+//    `visitor_id` ataría la ficha a una visita que no existe. El `visitor_id` lo pone el Pixel (otra área).
+// ⚠️ SÓLO la página de aterrizaje: si la persona llegó a /precios por un enlace sin la query, el Referer
+//    ya no la trae. Recordarla entre páginas es del Pixel (lib/landing-token.ts).
+
+export const CAMPOS_ATRIBUCION_PAGO = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'fbclid'] as const;
+export type CampoAtribucionPago = (typeof CAMPOS_ATRIBUCION_PAGO)[number];
+export type AtribucionPago = Record<CampoAtribucionPago, string | null>;
+export const ATRIBUCION_PAGO_VACIA: Readonly<AtribucionPago> = Object.freeze({ utm_source: null, utm_medium: null, utm_campaign: null, utm_content: null, fbclid: null });
+
+/**
+ * Los techos de un valor. Un utm se RECORTA (es un nombre que se lee: «Campaña otoño…» sirve igual) a 200
+ * caracteres, los del opt-in (lib/atribucion-url.ts), y a 300 ya codificado en el formulario. Un fbclid
+ * NO se recorta: la mig 0177 lo guarda «tal cual, sin parsear» porque la API de Conversiones de Meta lo
+ * pide entero, y uno cortado no identifica ningún clic: más largo que 300, no va (la propuesta corta a
+ * 300, app/crm/revisar/[id]/propuesta-lead.ts). Con estos techos, el formulario más pesado posible entra
+ * en `TOPE_CUERPO_PAGO` (pago-pagina.ts): lo mide el test.
+ */
+export const TOPE_ATRIBUCION_UTM = 200;
+export const TOPE_ATRIBUCION_CODIFICADA = 300;
+
+/** Cuánto pesa un valor en un formulario `application/x-www-form-urlencoded` (el serializador del navegador). */
+export const largoEnFormulario = (v: string): number => new URLSearchParams([['', v]]).toString().length - 1;
+
+// Los de control (C0, DEL, C1), los de ancho cero y los que dan vuelta el texto (bidi): no son de un nombre de campaña.
+// eslint-disable-next-line no-control-regex
+const RARO = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2060-\u2069\ufeff]+/g;
+
+/** Un valor de atribución que se puede guardar, o null. Nunca tira. */
+export function valorDeAtribucion(campo: CampoAtribucionPago, v: unknown): string | null {
+  if (typeof v !== 'string') return null;
+  const limpio = v.replace(RARO, ' ').replace(/\s+/g, ' ').trim();
+  if (!limpio) return null;
+  if (campo === 'fbclid') return /\s/.test(limpio) || largoEnFormulario(limpio) > TOPE_ATRIBUCION_CODIFICADA ? null : limpio;
+  let out = '';
+  let n = 0;
+  for (const c of limpio) {
+    if (n >= TOPE_ATRIBUCION_UTM || largoEnFormulario(out + c) > TOPE_ATRIBUCION_CODIFICADA) break;
+    out += c;
+    n++;
+  }
+  return out.trim() || null;
+}
+
+/** La atribución de unos campos (la query del Referer o el cuerpo del POST), saneada campo por campo. */
+export function atribucionDeCampos(campos: { get(k: string): string | null }): AtribucionPago {
+  const out = { ...ATRIBUCION_PAGO_VACIA };
+  for (const k of CAMPOS_ATRIBUCION_PAGO) out[k] = valorDeAtribucion(k, campos.get(k));
+  return out;
+}
+
+export const hayAtribucionPago = (a: AtribucionPago): boolean => CAMPOS_ATRIBUCION_PAGO.some((k) => !!a[k]);
+
+/**
+ * La atribución del Referer, SÓLO si es una página del MISMO host que sirve el paso (`hosts`: el de la URL
+ * y el de la cabecera Host, en minúsculas). Un sitio ajeno con `Referrer-Policy: unsafe-url` no le escribe
+ * la campaña a la ficha de otro negocio. Lo que no se puede leer, vacío.
+ */
+export function atribucionDelReferer(referer: string | null | undefined, hosts: readonly (string | null | undefined)[]): AtribucionPago {
+  if (!referer) return { ...ATRIBUCION_PAGO_VACIA };
+  let u: URL;
+  try { u = new URL(referer); } catch { return { ...ATRIBUCION_PAGO_VACIA }; }
+  if (u.protocol !== 'https:' && u.protocol !== 'http:') return { ...ATRIBUCION_PAGO_VACIA };
+  const propios = new Set(hosts.filter((h): h is string => typeof h === 'string' && h.trim() !== '').map((h) => h.trim().toLowerCase()));
+  if (!propios.has(u.host.toLowerCase())) return { ...ATRIBUCION_PAGO_VACIA };
+  return atribucionDeCampos(u.searchParams);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // El lead y el cobro
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -240,6 +320,14 @@ export type ResultadoPago =
 export const TECHO_PAGOS_HORA = 120;
 /** Un candado más viejo que esto quedó colgado (la ruta corta a los 60 s): otro pedido lo puede soltar. */
 export const CANDADO_VENCE_MS = 90_000;
+/**
+ * Cuánto viven las filas de `landing_pago_pedidos` (Paquete 3 de la tanda 6: «Nadie poda
+ * `landing_pago_pedidos`»). El techo cuenta sólo la última hora y el candado vence a los 90 s: una semana
+ * no le cambia nada a ninguno de los dos y deja una semana para mirar qué pasó con un pedido.
+ */
+export const PODA_PEDIDOS_MS = 7 * 24 * 3_600_000;
+/** Desde cuándo se borra (`created_at` MENOR que esto). */
+export const corteDePoda = (ahora: number): string => new Date(ahora - PODA_PEDIDOS_MS).toISOString();
 /** Cuánto espera un pedido a que el otro termine (crear un checkout tarda unos segundos). */
 export const CANDADO_ESPERA_MS = 20_000;
 export const CANDADO_PASO_MS = 400;
@@ -257,6 +345,12 @@ export type DepCandado = {
   esperar: (ms: number) => Promise<void>;
   ahora: () => number;
   log: (nivel: 'warn' | 'error', texto: string) => void;
+  /**
+   * Borra las filas de ESTA landing más viejas que `PODA_PEDIDOS_MS` (Paquete 3 de la tanda 6: la mig 0276
+   * decía «nadie las poda todavía»). Corre al soltar el candado propio, A LA PAR de soltarlo: no le suma
+   * espera a quien paga. Opcional: sin ella (los tests de antes) no se poda nada.
+   */
+  podar?: () => Promise<void>;
 };
 
 /**
@@ -280,7 +374,12 @@ export async function conCandado<T>(dep: DepCandado, trabajo: () => Promise<T>, 
         await dep.soltar(t.id, 'excepcion').catch(() => {});
         throw e;
       }
-      await dep.soltar(t.id, resultadoDe(valor)).catch((e) => dep.log('error', `no pude soltar el candado ${t.id}: ${e instanceof Error ? e.message : String(e)}`));
+      // La poda va a la par de soltar (no toca la fila recién soltada: es de hace segundos) y su falla no
+      // es del pago: al log, y el que viene la vuelve a intentar.
+      await Promise.all([
+        dep.soltar(t.id, resultadoDe(valor)).catch((e) => dep.log('error', `no pude soltar el candado ${t.id}: ${e instanceof Error ? e.message : String(e)}`)),
+        dep.podar ? dep.podar().catch((e) => dep.log('warn', `no pude podar los pedidos viejos: ${e instanceof Error ? e.message : String(e)}`)) : null,
+      ]);
       return { tipo: 'hecho', valor };
     }
     if (dep.ahora() >= hasta) return { tipo: 'ocupado' };
@@ -364,4 +463,51 @@ export async function ejecutarPago(p: { productoId: number; email: string; slug:
     return { tipo: 'fallo' };
   }
   return r.valor;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// El rastro de los rechazos (Paquete 3 de la tanda 6)
+// ─────────────────────────────────────────────────────────────────────────────
+// Revisión de la tanda 4, con la regla de AGENTS.md «Una política puede RECHAZAR; no puede no dejar
+// rastro»: los 429, 413 y 403 del POST y la trampa quedaban en un console.warn, o en nada. Un dueño
+// cuyo comprador leyó «Demasiados intentos» no tenía dónde mirarlo.
+//
+// Se CUENTAN (`landing_pago_rechazos`, mig 0282: un contador por landing, día y motivo, sin datos
+// personales) SÓLO los que llegan DESPUÉS de leer la landing: ahí se sabe de qué negocio son, y cada uno
+// suma en una fila que ya existe (como mucho cuatro por landing y día). Los de ANTES (tope por IP, tamaño,
+// Origin, forma, trampa) no saben de qué landing son, y una fila por cada uno le regalaría a un bot una
+// escritura por pedido (hallazgos del área, tanda 4): van al log, con su motivo.
+
+/** Lo que se cuenta en la base. Cada uno entra en el `check` de la mig 0282 (de 1 a 40 caracteres). */
+export const MOTIVOS_RECHAZO_PAGO = ['tope-email', 'techo', 'dominio-ajeno', 'producto'] as const;
+export type MotivoRechazoPago = (typeof MOTIVOS_RECHAZO_PAGO)[number];
+/** Lo que sólo va al log: llegó antes de saber de qué landing es. */
+export type MotivoRechazoSinLanding = 'tope-ip' | 'tamano' | 'origen' | 'forma' | 'trampa';
+
+/** Una fila de `landing_pago_rechazos` como la devuelve la base (`n` puede venir como texto). */
+export type FilaRechazoPago = { dia: string; motivo: string; n: number | string | null };
+export type ResumenRechazosPago = {
+  total: number;
+  porMotivo: Record<MotivoRechazoPago, number>;
+  /** Motivos que esta versión no conoce (los escribió una más nueva): suman al total igual. */
+  otros: number;
+  /** El último día con algún rechazo (AAAA-MM-DD), o null. */
+  ultimoDia: string | null;
+};
+
+/** El resumen para el dueño: cuántos, por qué y hasta cuándo. Lo que no es un número no suma. */
+export function resumirRechazos(filas: readonly FilaRechazoPago[]): ResumenRechazosPago {
+  const porMotivo = Object.fromEntries(MOTIVOS_RECHAZO_PAGO.map((m) => [m, 0])) as Record<MotivoRechazoPago, number>;
+  let total = 0;
+  let otros = 0;
+  let ultimoDia: string | null = null;
+  for (const f of filas) {
+    const n = Number(f.n);
+    if (!Number.isSafeInteger(n) || n <= 0) continue;
+    total += n;
+    if ((MOTIVOS_RECHAZO_PAGO as readonly string[]).includes(f.motivo)) porMotivo[f.motivo as MotivoRechazoPago] += n;
+    else otros += n;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(f.dia) && (ultimoDia === null || f.dia > ultimoDia)) ultimoDia = f.dia;
+  }
+  return { total, porMotivo, otros, ultimoDia };
 }
