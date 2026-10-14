@@ -358,4 +358,21 @@ export const BITACORA: Hito[] = [
     commits: [{ sha: 'c2cda971', msg: 'General: los bloques rediseñados con opciones, las tarjetas del Plan y los OKRs; el editor sin barra en blanco y con ocho bordes', lineas: 3936, archivos: 38 }],
     archivos: ['app/dashboard/EditorInforme.tsx', 'app/dashboard/editor-css.ts', 'tests/dashboard-en-blanco.test.ts'],
   },
+  {
+    fecha: '14 oct', hora: '11:54', chat: 'General', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'Ver la edición en celular, y crear una hoja sin Deshacer (pedido desde General, para las dos)',
+    pedido: "7. ... Si creo una hoja no debería aparecer el deshacer si no hago ninguna acción.\n8. En la edición, tal como lo tenemos en la edición de Landing Generator, tienes que poder visualizar en la versión mobile, etc... Eso es importante que se diseñe todo siempre pensado para ambos dispositivos... Dile esto también a dashboard.\n\n— Y a las 12:05: También, en la tab de ¿Que vas a hacer hoy?, los templates tienen que ser fieles a lo que se va a ver, no inventes esas imagenes, que se vea tal cual... Y elimina los subtitulos de cada template, solo el título",
+    puntos: ['Los puntos 7 y 8 de una lista de ocho sobre General, y el mensaje de las 12:05 sobre la galería de plantillas.'],
+  },
+  {
+    fecha: '14 oct', hora: '12:48', chat: 'General', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Escritorio, tablet y celular al editar; las plantillas se ven como van a quedar; crear una hoja sin Deshacer',
+    puntos: [
+      'Editando, la barra trae Escritorio / Tablet / Celular: la página se angosta al ancho del dispositivo y en el celular las tarjetas van una debajo de la otra.',
+      'La miniatura de cada plantilla es la hoja con los gráficos de verdad y números de ejemplo, no un dibujo. Cada tarjeta lleva sólo su título.',
+      'Crear una hoja ya no deja un Deshacer que la borra.',
+    ],
+    commits: [{ sha: 'e6818ee0', msg: 'General, tercera vuelta: los bloques son tarjetas de la hoja, la Meta objetivo y la Acción del día por separado, plantillas simples y la vista de celular al editar', lineas: 2679, archivos: 28 }],
+    archivos: ['app/dashboard/EditorInforme.tsx', 'app/dashboard/MiniaturaHoja.tsx', 'lib/graficos-muestra.ts', 'app/dashboard/NuevaHoja.tsx', 'app/_ui/usePilaDeshacer.ts', 'tests/dashboard-miniatura-hoja.test.ts'],
+  },
 ];

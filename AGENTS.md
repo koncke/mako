@@ -7927,7 +7927,16 @@ Martín: «intenta replicar lo que tenemos en dashboard... Los bloques también 
 costó, en [docs/hallazgos-objectives.md](docs/hallazgos-objectives.md) → «General es el editor del Dashboard».
 
 - **Lo que se puede medir con el catálogo de gráficos va como GRÁFICO**, que se edita entero. Un bloque de General es
-  lo que el catálogo no tiene (el objetivo con la acción del día, los KPIs con su registro, el semáforo, el Plan).
+  lo que el catálogo no tiene (la meta y la acción del día, los KPIs con su registro, el semáforo, el Plan).
+- **Un bloque es una TARJETA DE LA HOJA** (Martín, 14/10/2026: «no están interactuando con el diseño de la página»): el
+  marco lo pone el editor (`lk-comp--general`, el de un gráfico), el título es `Cabeza`/`TituloBloque`
+  (app/general/bloques/comun.tsx, con las variables del título de un gráfico y el título propio por contexto), y ADENTRO no
+  va otra tarjeta: lo que se agrupa es una losa (`gb-losa`) o filas (`gb-fila`). Con los tokens de la casa: la opción
+  «Fondo: Oscuro» que tienen todos los bloques los da vuelta en el marco (app/dashboard/ElementoGeneral.tsx); un color fijo
+  no se da vuelta.
+- **Su `w`/`h` es el de su CONTENIDO, y una plantilla pone los bloques de a dos con el MISMO alto**: `acomodar` estira
+  la fila al más alto, y un bloque estirado es espacio en blanco. Una plantilla contesta UNA pregunta, con pocas piezas,
+  títulos de parte y ningún dato dos veces (la misma métrica vista igual). Lo fija tests/general-bloques.test.ts.
 - **Un bloque nuevo son tres lugares**: su fila en `PIEZAS_GENERAL` (lib/general-piezas.ts, con su ícono y sus
   `opciones`), sus datos en `armarDatosGeneral` (app/general/datos.ts, con las lecturas de siempre) y su caso en
   `dibujarBloque` y `muestraDeBloque` (app/general/ProveedorGeneral.tsx), con el dibujo en app/general/bloques/. El editor

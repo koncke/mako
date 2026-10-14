@@ -68,6 +68,12 @@ export type DatosGeneral = {
   plan: Leido<{
     /** Las de la vista Prioridades del Plan, en su orden (hasta 5). */
     prioridades: TareaVista[];
+    /** Las abiertas que compiten, por score (hasta 10): «Tareas prioritarias». */
+    top: TareaVista[];
+    /** Lo abierto con deadline hasta 30 días, y lo vencido, por fecha: «Próximos deadlines». */
+    deadlines: { tareas: TareaVista[]; proyectos: Label[] };
+    /** El «hoy» del negocio (YYYY-MM-DD): lo que vence se cuenta desde acá, igual en el server y en el navegador. */
+    hoy: string;
     /** El Objetivo Principal del tablero. */
     objetivo: Label | null;
     /** Los proyectos abiertos, por prioridad (los de «Proyectos del Plan»). */

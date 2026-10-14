@@ -32,6 +32,7 @@ import { Button, Toast, useToast } from '@/app/_ui';
 import { marcarPagoAction } from '@/app/crm/actions';
 import { hoyEnTz } from '@/lib/date-utils';
 import type { CobroM } from '@/app/m/dashboard/modelo';
+import { TituloBloque } from './bloques/comun';
 
 const COLOR: Record<'vencida' | 'pronto' | 'al-dia', string> = { vencida: 'var(--bad)', pronto: 'var(--warn-fill)', 'al-dia': 'var(--faint)' };
 const inicial = (n: string) => n.trim().split(/\s+/).slice(0, 2).map((p) => p[0]?.toUpperCase() ?? '').join('') || '·';
@@ -97,16 +98,15 @@ export function Cobranza({ filas, tz, error, alcance = null, limite = Infinity, 
   const vencidas = vivas.filter((f) => f.urgencia === 'vencida').length;
 
   return (
-    <div data-cobranza-general="" style={S.raiz}>
-      <div style={S.cabecera}>
-        <span style={S.titulo}>
-          <h2 style={S.h2}>A quién cobrarle</h2>
-          {alcance && <span style={S.alcance}>{alcance}</span>}
-        </span>
+    <div data-cobranza-general="" className="gb" style={S.raiz}>
+      {/* La cabecera de un bloque de la hoja (./bloques/comun.tsx): el título del tema, el alcance y los dos conteos. */}
+      <div className="gb-cab">
+        <TituloBloque>A quién cobrarle</TituloBloque>
+        {alcance && <span className="gb-cab-extra">{alcance}</span>}
         {!error && vivas.length > 0 && (
-          <span style={{ display: 'flex', gap: 6 }}>
-            <span style={S.chip}>{vivas.length} por cobrar</span>
-            {vencidas > 0 && <span style={{ ...S.chip, color: 'var(--bad)', background: 'color-mix(in srgb, var(--bad) 10%, var(--surface))', borderColor: 'transparent' }}>{vencidas} {vencidas === 1 ? 'vencida' : 'vencidas'}</span>}
+          <span style={{ display: 'flex', gap: 6, marginLeft: 'auto', flex: 'none' }}>
+            <span className="gb-chip">{vivas.length} por cobrar</span>
+            {vencidas > 0 && <span className="gb-chip" style={{ color: 'var(--bad)', background: 'color-mix(in srgb, var(--bad) 12%, transparent)' }}>{vencidas} {vencidas === 1 ? 'vencida' : 'vencidas'}</span>}
           </span>
         )}
       </div>
@@ -119,8 +119,8 @@ export function Cobranza({ filas, tz, error, alcance = null, limite = Infinity, 
           {vistas.map((f) => {
             const c = COLOR[f.urgencia ?? 'al-dia'];
             return (
-              <li key={f.pagoId} style={S.fila}>
-                <span aria-hidden style={{ ...S.avatar, background: `color-mix(in srgb, ${c} 16%, var(--surface))`, color: f.urgencia ? c : 'var(--dim)', boxShadow: `inset 0 0 0 1.5px ${f.urgencia ? c : 'var(--border)'}` }}>{inicial(f.nombre)}</span>
+              <li key={f.pagoId} className="gb-fila">
+                <span aria-hidden style={{ ...S.avatar, background: `color-mix(in srgb, ${c} 16%, transparent)`, color: f.urgencia ? c : 'var(--dim)', boxShadow: `inset 0 0 0 1.5px ${f.urgencia ? c : 'var(--border)'}` }}>{inicial(f.nombre)}</span>
                 <span style={S.texto}>
                   {muestra
                     ? <span style={S.nombre}>{f.nombre}</span>
@@ -150,16 +150,11 @@ export function Cobranza({ filas, tz, error, alcance = null, limite = Infinity, 
 // Sólo tokens que existen en claro y en oscuro.
 const S: Record<string, CSSProperties> = {
   raiz: { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 },
-  cabecera: { display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, marginBottom: 14, flexWrap: 'wrap' },
-  h2: { margin: 0, fontSize: 22, fontWeight: 600, letterSpacing: '-0.015em', color: 'var(--ink)' },
-  titulo: { display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap', minWidth: 0 },
-  alcance: { fontSize: 13, color: 'var(--dim)' },
-  chip: { display: 'inline-flex', alignItems: 'center', height: 22, padding: '0 8px', borderRadius: 999, fontSize: 11.5, fontWeight: 600, background: 'var(--surface-2)', color: 'var(--dim)', border: '1px solid var(--border)', whiteSpace: 'nowrap' },
   ver: { alignSelf: 'flex-start', marginTop: 10, border: 'none', background: 'none', padding: 0, font: 'inherit', fontSize: 13, fontWeight: 600, color: 'var(--primary)', cursor: 'pointer' },
   dim: { fontSize: 14, color: 'var(--dim)' },
-  lista: { listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 6 },
-  fila: { display: 'flex', alignItems: 'center', gap: 12, padding: '9px 10px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface)' },
-  avatar: { flex: 'none', width: 36, height: 36, borderRadius: '50%', display: 'grid', placeItems: 'center', fontSize: 13, fontWeight: 700 },
+  // Filas con su línea (`gb-fila`), no una tarjeta por cliente adentro de la tarjeta del bloque.
+  lista: { listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column' },
+  avatar: { flex: 'none', width: 34, height: 34, borderRadius: '50%', display: 'grid', placeItems: 'center', fontSize: 13, fontWeight: 700 },
   texto: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 },
   nombre: { fontSize: 14, fontWeight: 600, color: 'var(--ink)', textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   linea: { fontSize: 12.5 },

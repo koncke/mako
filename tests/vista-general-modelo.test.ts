@@ -291,7 +291,7 @@ test('el foco dice QUÉ falta configurar en un campo, no en el rótulo del botó
 test('la cabecera calla según el campo, no comparando el texto del botón', () => {
   // ⚠️ VERIFICADO ROMPIÉNDOLO (11/10/2026): devolviendo la comparación de `hrefLabel`, 1
   // fallo (éste) y 26 pases.
-  const cab = sinComentarios(leer('app/general/Cabecera.tsx'));
+  const cab = sinComentarios(leer('app/general/bloques/Meta.tsx'));
   assert.match(cab, /foco\.pideConfigurar === 'objetivo'/);
   assert.doesNotMatch(cab, /hrefLabel === 'Cargar el objetivo'/);
 });

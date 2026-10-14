@@ -3,6 +3,27 @@
 **Al 14/10/2026 (~04:30), claude2.** Lo escribe el chat que hizo el trabajo (primera mano). Lo que costó está en los
 hallazgos de cada área; acá va qué quedó, dónde y qué espera.
 
+## Actualización 14/10/2026 12:50 (claude2, el mismo chat)
+
+**General, cuarta vuelta** (`e6818ee0` + su cosecha): los 8 puntos de Martín de las 11:54 y el de las 12:05 sobre
+«¿Qué vas a crear hoy?» (los dos, textuales, en app/admin/dev/general/bitacora.ts).
+
+- Cada bloque es una tarjeta de la hoja (el marco y el título de un gráfico); adentro, losas y filas, no tarjetas.
+- «Meta objetivo» (id `cabecera`) y «Acción del día» (`accion`) son dos bloques, claros; todos los bloques ofrecen
+  «Fondo: Oscuro». Se borraron app/general/Cabecera.tsx y Ahora.tsx.
+- Nuevos: «Tareas prioritarias» (1/3/5/10) y «Próximos deadlines». Plantillas rehechas (una pregunta cada una, de a dos
+  con el mismo alto, títulos de parte, la plata y Meta en números; nueva «Anuncios»).
+- Editando: Escritorio / Tablet / Celular (también el Dashboard). Crear una hoja no deja Deshacer. Las miniaturas de
+  «¿Qué vas a crear hoy?» son la hoja dibujada con los componentes del editor, y cada tarjeta lleva sólo el título.
+
+**Estado de git (12:50):** commiteado en `main` local, **sin pushear** (lo pushea el orquestador). `npm test`: 9471 / 1;
+el rojo es `tests/cobranza.test.ts` («marcar el pago CORTA lo que está en vuelo»), sobre archivos que este chat no tocó
+y que estaban limpios en el árbol a las 12:41: es de HEAD, de otra sesión.
+
+**Falta verlo en pantalla** (ws3, después del deploy): no se levantó un `next dev`, así que los altos de cada bloque y las
+miniaturas salen de medir el código, no de mirarlos. Lo primero a mirar: que ningún bloque quede cortado ni con aire
+abajo en las plantillas, y la vista de celular editando.
+
 ## Actualización 14/10/2026 10:40 (claude2, el mismo chat)
 
 **Lo que se hizo después de lo de abajo** (los pedidos literales, en las bitácoras de General y del Calendario):

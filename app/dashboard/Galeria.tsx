@@ -358,6 +358,10 @@ export const SvgDeshacer = ({ espejo }: { espejo?: boolean }) => svg(<><path d="
 export const SvgAgregarDatos = () => svg(<><rect x="3" y="4" width="13" height="16" rx="1.5" /><path d="M6.5 8.5h6M6.5 12h6M6.5 15.5h3.5M19 9v6M16 12h6" /></>);
 export const SvgAgregarGrafico = () => svg(<><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M7.5 16.5v-4M12 16.5v-8M16.5 16.5v-6" /></>);
 export const SvgInsertar = () => svg(<><rect x="3" y="3" width="8" height="8" rx="1.5" /><circle cx="17" cy="7" r="4" /><path d="M3 17h8M17 13v8M13 17h8" /></>);
+// La vista por dispositivo de la edición (los del Landing Generator: escritorio, tablet y celular).
+export const SvgEscritorio = () => svg(<><rect x="3" y="4" width="18" height="12" rx="1.5" /><path d="M9 20h6M12 16v4" /></>);
+export const SvgTableta = () => svg(<><rect x="5" y="3" width="14" height="18" rx="2" /><path d="M11 18h2" /></>);
+export const SvgCelular = () => svg(<><rect x="7" y="2.5" width="10" height="19" rx="2" /><path d="M11 18.5h2" /></>);
 export const SvgEstilo = () => svg(<><path d="M12 3a9 9 0 1 0 0 18c1 0 1.6-.8 1.6-1.6 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-.9.7-1.6 1.6-1.6H16a5 5 0 0 0 5-5c0-4-4-7.4-9-7.4Z" /><circle cx="7.5" cy="11.5" r="1" /><circle cx="10.5" cy="7.5" r="1" /><circle cx="15" cy="8" r="1" /></>);
 export const SvgFlecha = ({ arriba }: { arriba?: boolean }) => <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden style={{ flex: 'none', ...(arriba ? { transform: 'rotate(180deg)' } : {}) }}><path d="M7 10l5 5 5-5z" /></svg>;
 export const SvgOjo = () => svg(<><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z" /><circle cx="12" cy="12" r="3" /></>);

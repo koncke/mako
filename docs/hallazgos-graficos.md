@@ -516,6 +516,8 @@ modal era repetirlo.
 
 **Lo que no se ve y gobierna lo que venga:**
 
+- ⚠️ **CAMBIÓ EL MISMO DÍA (e6818ee0): la miniatura ya no es un boceto, es la hoja** (la entrada de abajo, «La miniatura
+  es LA HOJA»). Martín: «no inventes esas imagenes, que se vea tal cual». Lo que sigue describe la primera versión.
 - **La miniatura dibuja la FORMA, nunca los datos.** Cada componente en su x, y, w, h de la grilla, con su título real y un
   boceto según el GRUPO de su tipo (`TIPOS`): barras, línea, número, tabla, anillo, embudo, y la cabecera oscura de General.
   Medir cada plantilla para la miniatura serían ~157 gráficos por apertura (lo advirtió Graphics); eso lo hace
@@ -570,7 +572,47 @@ aparece detrás del contorno azul... Esto también para dashboard».
 `app/dashboard/Propiedades.tsx` · `tests/dashboard-en-blanco.test.ts` · `tests/general-bloques.test.ts`.
 *14/10/2026, claude2, desde el chat de General.*
 
+## La miniatura es LA HOJA, la edición se mira en celular, y crear una hoja no se deshace (14/10/2026)
+
+**El pedido** (Martín, desde la tab General, para las dos): «los templates tienen que ser fieles a lo que se va a ver, no
+inventes esas imagenes, que se vea tal cual... Y elimina los subtitulos de cada template, solo el título», «En la edición,
+tal como lo tenemos en la edición de Landing Generator, tienes que poder visualizar en la versión mobile, etc... Eso es
+importante que se diseñe todo siempre pensado para ambos dispositivos... Dile esto también a dashboard» y «Si creo una hoja
+no debería aparecer el deshacer si no hago ninguna acción».
+
+**Lo que no se ve en el código:**
+
+- **El boceto era «la forma sin los datos», y eso es justo lo que se rechazó**: rectángulos grises y una línea inventada no
+  se parecen a la hoja que nace. Ahora `MiniaturaHoja` dibuja cada componente con LOS componentes del editor
+  (`CuerpoGrafico`, el bloque de General con `PiezaGeneralDeMuestra`, `CuerpoSeccion`, el texto con sus tamaños) en el
+  lugar de la grilla (`lugarEnMiniatura`, la cuenta de react-grid-layout). Lo único de ejemplo es el NÚMERO: un `Resultado`
+  con la forma del suyo (`resultadoDeMuestra`, lib/graficos-muestra.ts: sus métricas con su formato, su dimensión con
+  etiquetas ficticias, la comparación y la tendencia si las pide). Medir cada plantilla al abrir siguen siendo ~150 gráficos.
+- **La escala pasó a `transform: scale(k)`**, con k medido del contenedor. La regla contra medir adentro de una capa escalada
+  es para lo que se APUNTA, y la miniatura no recibe el mouse; los gráficos miden su caja con ResizeObserver, que da el
+  tamaño sin escala. Con `cqw` no se puede escalar un componente que mide en px.
+- **El primer dibujo es el del server**: la página con cada tarjeta y su título. Los cuerpos entran después de montar y
+  cuando la miniatura se ve (IntersectionObserver): son ~150 gráficos en una galería que se scrollea.
+- ⚠️ **La miniatura ya no se puede dibujar en un test**: importa el editor, que importa server actions, y fuera de Next
+  eso tira «This module cannot be imported from a Client Component module». El test prueba lo que decide ejecutándolo
+  (el resultado de ejemplo de los ~150 gráficos de las plantillas, el lugar) y el cableado leyendo el fuente.
+- **La vista por dispositivo no es una simulación**: la página se angosta al ancho del dispositivo (820 la tablet, 390 el
+  celular) y el editor hace lo que haría en uno (por debajo de 640, la pila). Sólo editando; no se guarda. En la pila, un
+  bloque de General mide lo que dibuja (`height: auto`): el alto de la grilla es del escritorio.
+- **Crear una hoja no es un gesto que se deshace.** Pasaba por `mutar` (que apila), así que el Deshacer de la barra borraba
+  la hoja recién creada y volvía a la de antes. Ahora se escribe con `setTablero` (el guardado mira el tablero, no la pila) y
+  la pila se VACÍA (`vaciar`, app/_ui/usePilaDeshacer.ts): un paso viejo deshecho después restauraría un tablero sin la hoja.
+
+**Vive en:** `app/dashboard/MiniaturaHoja.tsx` · `lib/graficos-muestra.ts` · `app/dashboard/NuevaHoja.tsx` ·
+`app/dashboard/EditorInforme.tsx` (`DISPOSITIVOS`, `crearHoja`) · `app/dashboard/editor-css.ts` · `app/_ui/usePilaDeshacer.ts` ·
+`tests/dashboard-miniatura-hoja.test.ts` · `tests/general-bloques.test.ts`.
+*14/10/2026, claude2 (e6818ee0), desde el chat de General.*
+
 ## Lo que quedó sin hacer
+
+- **Las miniaturas de «¿Qué vas a crear hoy?» muestran datos de EJEMPLO** (lib/graficos-muestra.ts), no los del negocio:
+  medir todas al abrir serían ~150 gráficos. Si se quisiera el número real, pedirlo sólo para la miniatura que se VE
+  (el IntersectionObserver de app/dashboard/MiniaturaHoja.tsx ya dice cuál) contra /api/graficos/plantilla.
 
 - **El tipo `Bloque` y `clase: 'bloque'` siguen en `lib/graficos-catalogo.ts`** (y `esBloque`, `sanearBloque`): los necesita
   la migración v5 para leer un informe viejo. El código que los DIBUJABA se borró el 13/10 (merge de `graphics-bloques-1310`;

@@ -83,7 +83,7 @@
 //   · Los montajes de los otros paquetes: el «Filtro» de cada tarjeta (./MenuFiltro.tsx, interfaz I1) y la
 //     barra de búsqueda de una tabla (./BuscarEnHoja.tsx, I2).
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
 import ReactGridLayout, { useContainerWidth, verticalCompactor, type Layout } from 'react-grid-layout';
 import { absoluteStrategy } from 'react-grid-layout/core';
 import 'react-grid-layout/css/styles.css';
@@ -128,7 +128,7 @@ import { FondosSecciones } from './Seccion';
 import { CapaConectores, PropsConector } from './Conectores';
 import { PopupGrafico, contextoPopupDe, entidadAbierta, hojaDelPopup, muestraDe, type ContextoPopup } from './Popup';
 import {
-  Flotante, Galeria, MenuElementos, MenuInsertar, SvgAgregarDatos, SvgAgregarGrafico, SvgDeshacer, SvgEstilo, SvgFlecha, SvgInsertar, SvgLapiz, SvgLupa, SvgOjo,
+  Flotante, Galeria, MenuElementos, MenuInsertar, SvgAgregarDatos, SvgAgregarGrafico, SvgCelular, SvgDeshacer, SvgEscritorio, SvgEstilo, SvgFlecha, SvgInsertar, SvgLapiz, SvgLupa, SvgOjo, SvgTableta,
   lugaresInsertar, type MenuBarra, type OpcionInsertar,
 } from './Galeria';
 import { CSS } from './editor-css';
@@ -158,6 +158,19 @@ const MARGEN = 16;
 const TIRADORES = ['n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw'] as const;
 /** Por debajo de este ancho, la grilla de 12 columnas no se lee: las tarjetas van una abajo de la otra. */
 const ANCHO_PILA = 640;
+/**
+ * La vista por dispositivo de la EDICIÓN (14/10/2026, Martín: «En la edición, tal como lo tenemos en la edición de Landing
+ * Generator, tienes que poder visualizar en la versión mobile, etc... Eso es importante que se diseñe todo siempre pensado
+ * para ambos dispositivos... Dile esto también a dashboard»). No es una simulación aparte: la página se angosta al ancho
+ * del dispositivo y el editor hace lo que hace en uno de verdad (por debajo de ANCHO_PILA, la pila del celular). No se
+ * guarda: es cómo se mira mientras se edita, y al apretar «Ver» vuelve al escritorio.
+ */
+type Dispositivo = 'escritorio' | 'tableta' | 'movil';
+const DISPOSITIVOS: ReadonlyArray<{ id: Dispositivo; nombre: string; Icono: () => ReactNode }> = [
+  { id: 'escritorio', nombre: 'Vista de escritorio', Icono: SvgEscritorio },
+  { id: 'tableta', nombre: 'Vista de tablet', Icono: SvgTableta },
+  { id: 'movil', nombre: 'Vista de celular', Icono: SvgCelular },
+];
 /**
  * Lo más chico que se puede achicar una tarjeta. El de un elemento sale del catálogo (`minimoDeElemento`,
  * TIPOS_ELEMENTO): un video o una página insertada más chicos que 3 × 4 no se ven ni se tocan.
@@ -312,6 +325,8 @@ export function EditorInforme({
   const [hojaId, setHojaId] = useState(hojaInicial);
   const [llamada, setLlamada] = useState<number | null>(llamadaInicial);
   const [editando, setEditando] = useState(false);
+  const [dispositivoElegido, setDispositivo] = useState<Dispositivo>('escritorio');
+  const dispositivo: Dispositivo = editando ? dispositivoElegido : 'escritorio';
   const [selId, setSelId] = useState<string | null>(null);
   const [menu, setMenu] = useState<Menu>(null);
   const [modalDatos, setModalDatos] = useState(false);
@@ -405,7 +420,7 @@ export function EditorInforme({
     setTablero(estado);
     return actual;
   }, { activa: editando && !enRecorrido });
-  const { apilar, deshacer } = pila;
+  const { apilar, deshacer, vaciar } = pila;
   /** Todo cambio de una persona al INFORME pasa por acá: así cada uno se puede deshacer y se guarda. */
   const mutar = useCallback((fn: (t: Tablero) => Tablero) => {
     apilar(tableroRef.current);
@@ -595,12 +610,17 @@ export function EditorInforme({
     if (t.hojas.length >= MAX_HOJAS) { show('Máximo de hojas'); return; }
     const nueva: Hoja = t.hojas.some((x) => x.id === h.id) ? { ...h, id: nuevoId() } : h;
     // En blanco, la que se crea es la ÚNICA: el inicial que viajaba por dentro no se guarda.
-    mutar((tt) => ({ ...tt, hojas: enBlanco ? [nueva] : [...tt.hojas, nueva] }));
+    // ⚠️ CREAR UNA HOJA NO SE DESHACE (14/10/2026, Martín: «Si creo una hoja no debería aparecer el deshacer si no hago
+    // ninguna acción»): con `mutar`, el Deshacer de la hoja nueva la borraba y volvía a la de antes. Se guarda (el
+    // guardado mira el tablero, no la pila) y la pila se vacía: un paso viejo deshecho después restauraría un tablero
+    // SIN la hoja nueva. Quitar una hoja se hace con su ⋮.
+    setTablero((tt) => ({ ...tt, hojas: enBlanco ? [nueva] : [...tt.hojas, nueva] }));
+    vaciar();
     setEnBlanco(false);
     setNuevaHoja(false);
     irAHoja(nueva.id);
     if (aviso) show(aviso);
-  }, [mutar, irAHoja, show, enBlanco]);
+  }, [vaciar, irAHoja, show, enBlanco]);
   const duplicarHoja = (id: string) => {
     const h = tablero.hojas.find((x) => x.id === id);
     if (!h || tablero.hojas.length >= MAX_HOJAS) return;
@@ -1041,8 +1061,12 @@ export function EditorInforme({
       setConSel(null);
     };
     if (esElemento(c)) {
+      // Un bloque de General lleva el marco de una tarjeta de la hoja (el de un gráfico: ./editor-css.ts), y en la pila
+      // del celular mide lo que dibuja: el alto de la grilla es del escritorio, y en el teléfono sobraría o cortaría.
+      const bloque = c.tipo === 'general';
+      const lugar = bloque && enPila ? { ...base, height: 'auto' } : base;
       return (
-        <div key={c.id} data-comp={c.id} className={`lk-comp lk-comp--elemento${elegido || marcada ? ' lk-comp--sel' : ''}`} style={base} onClick={alClic}>
+        <div key={c.id} data-comp={c.id} className={`lk-comp ${bloque ? 'lk-comp--general' : 'lk-comp--elemento'}${elegido || marcada ? ' lk-comp--sel' : ''}`} style={lugar} onClick={alClic}>
           <CuerpoElemento e={c} colores={colores} editando={editando} onCambiar={(p) => cambiar(c.id, p)} ctx={ctxDe(c)} />
         </div>
       );
@@ -1208,7 +1232,16 @@ export function EditorInforme({
               <SvgInsertar /> Insertar <SvgFlecha />
             </button>
           </div>
-          <button type="button" className="lk-herr lk-herr--fin" data-recorrido="dash-estilo" aria-haspopup="dialog" aria-expanded={menu?.tipo === 'estilo'} onClick={abrirMenu('estilo')}>
+          <div className="lk-disp lk-herr--fin" role="group" aria-label="Vista por dispositivo">
+            {DISPOSITIVOS.map((d) => (
+              <button key={d.id} type="button" className="lk-herr lk-herr--icono" title={d.nombre} aria-label={d.nombre}
+                aria-pressed={dispositivo === d.id} onClick={() => setDispositivo(d.id)}>
+                <d.Icono />
+              </button>
+            ))}
+          </div>
+          <span className="lk-sep" />
+          <button type="button" className="lk-herr" data-recorrido="dash-estilo" aria-haspopup="dialog" aria-expanded={menu?.tipo === 'estilo'} onClick={abrirMenu('estilo')}>
             <SvgEstilo /> Estilo de la hoja <SvgFlecha />
           </button>
         </div>
@@ -1216,8 +1249,8 @@ export function EditorInforme({
 
       {/* ── El lienzo (lo único que scrollea) y, encima, el panel de propiedades y el AI Analyst ── */}
       <div className="lk-cuerpo">
-        <div className="lk-lienzo" style={varsTema} onClick={() => { if (editando) { setSelId(null); setConSel(null); } }}>
-          <div className="lk-pagina" ref={containerRef}>
+        <div className="lk-lienzo" style={varsTema} data-dispositivo={dispositivo === 'escritorio' ? undefined : dispositivo} onClick={() => { if (editando) { setSelId(null); setConSel(null); } }}>
+          <div className="lk-pagina" ref={containerRef} data-dispositivo={dispositivo === 'escritorio' ? undefined : dispositivo}>
             {dueno && (
               <nav className="lk-miga lk-no-arrastrar" aria-label="Ubicación" onClick={(e) => e.stopPropagation()}>
                 <button type="button" onClick={salirDelPopup}>{hoja.nombre}</button>

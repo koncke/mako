@@ -36,6 +36,13 @@
 //   · el `Placeholder` dibujando la muestra antes de montar                                      -> 8 / 1 «lo que depende…»
 //   · los tiradores de vuelta en `['se', 'e', 's']`                                               -> 8 / 1 «el editor…»
 //   · el menú «Bloques de General» con sus títulos de grupo otra vez (`lk-lista-grupo`)           -> 8 / 1 «el menú…»
+// Y la tercera vuelta (14/10/2026; base 14 / 0), cada rotura -> 13 / 1 en su test:
+//   · la Acción del día con `var(--sidebar)` de fondo otra vez                                  -> «Meta objetivo y Acción…»
+//   · el marco del bloque con `background: transparent`                                       -> «un bloque de General es una tarjeta…»
+//   · «Tareas prioritarias» con 8 en vez de 10                                                -> «Tareas prioritarias…»
+//   · la Bienvenida sin el `h: 8` de la Acción (la fila la estira de 7 a 8)                    -> «las plantillas…»
+//   · «Operación diaria» con «Leads por etapa» al lado de «Tu funnel hoy»                     -> «las plantillas…»
+//   · `crearHoja` con `mutar` otra vez (crear apila un deshacer)                                 -> «crear una hoja…»
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -45,7 +52,7 @@ import { FUENTES, TIPOS, sanearElemento } from '../lib/graficos-catalogo';
 import {
   ELEMENTOS_FUERA_DE_GENERAL, FUENTES_GENERAL, PIEZAS_GENERAL, TIPOS_GENERAL, opcionDe, opcionesDePieza, sanearOpciones,
 } from '../lib/general-piezas';
-import { DEFINICIONES_GENERAL } from '../lib/general-plantillas';
+import { DEFINICIONES_GENERAL, PLANTILLAS_GENERAL } from '../lib/general-plantillas';
 import { BARRA_INSERTAR, lugaresInsertar } from '../app/dashboard/Galeria';
 
 const RAIZ = join(import.meta.dirname, '..');
@@ -185,4 +192,117 @@ test('el menú «Bloques de General»: sin títulos de grupo, una vista previa p
   assert.match(menu, /\{general\?\.muestra\(x\.id\)\}/, 'sin vista previa');
   const { CSS } = await import('../app/dashboard/editor-css');
   assert.match(CSS, /\.lk-bloques \{ display: grid; grid-template-columns: repeat\(3, minmax\(0, 1fr\)\);/);
+});
+
+// ── La tercera vuelta (14/10/2026) ──────────────────────────────────────────────────────────────────────────────────
+// Martín, con capturas de una hoja recién creada: «Mucho espacio en blanco en el template, bloques que no se ven, los
+// gráficos no tienen sentido... Y pusiste ese dato 2 veces», «todos nacen con bloques que ocupan todo el ancho... No
+// tienen títulos», «Rediseña completamente el grafico de "Objetivo" y "Acción del día", deben ser 2 gráficos
+// diferentes... que el primero se llame "Meta objetivo". Y que no tenga un diseño dark», «muchos bloques los copiaste de
+// otros lados, como el de Prioridades, pero no están interactuando con el diseño de la página», «Los templates deben ser
+// simples», «Faltan bloques... como el de "Tareas Prioritarias"... 1 tarea, 3 tareas, 5, 10», «Si creo una hoja no
+// debería aparecer el deshacer» y «En la edición... tienes que poder visualizar en la versión mobile».
+
+test('Meta objetivo y Acción del día son dos bloques, claros, y el fondo oscuro es una opción de cada bloque', async () => {
+  assert.equal(PIEZAS_GENERAL.find((p) => p.id === 'cabecera')?.nombre, 'Meta objetivo');
+  assert.ok(PIEZAS_GENERAL.some((p) => p.id === 'accion'), 'la acción del día no es su propio bloque');
+  for (const p of PIEZAS_GENERAL) {
+    const f = opcionesDePieza(p.id).find((o) => o.id === 'fondo');
+    assert.equal(f?.def, 'claro', `${p.id}: sin «Fondo», o oscuro por defecto`);
+  }
+  assert.doesNotMatch(leer('app/general/bloques/Meta.tsx'), /var\(--sidebar|var\(--on-sidebar/, 'la meta o la acción volvieron a la isla oscura');
+  const puente = leer('app/dashboard/ElementoGeneral.tsx');
+  assert.match(puente, /const oscuro = opcionDe\(pieza, e\.general\?\.opciones, 'fondo'\) === 'oscuro';/);
+  assert.match(puente, /data-oscuro=\{oscuro \? '' : undefined\}/);
+  const { CSS } = await import('../app/dashboard/editor-css');
+  assert.match(CSS, /\.lk-comp--general:has\(> \.gen-pieza\[data-oscuro\]\) \{ background: var\(--sidebar\);/);
+});
+
+test('un bloque de General es una tarjeta de la hoja: su marco, el título de un gráfico y sin tarjetas adentro', async () => {
+  assert.match(leer('app/dashboard/EditorInforme.tsx'), /className=\{`lk-comp \$\{bloque \? 'lk-comp--general' : 'lk-comp--elemento'\}/);
+  const { CSS } = await import('../app/dashboard/editor-css');
+  const marco = CSS.match(/\.lk-comp--general \{[^}]*\}/)?.[0] ?? '';
+  assert.ok(marco, 'no encontré el marco del bloque');
+  assert.doesNotMatch(marco, /transparent|padding: 0/, 'el marco del bloque volvió a ser invisible');
+  assert.match(leer('app/general/bloques/comun.tsx'), /\.gb-tit\{[^}]*font-size:var\(--dash-titulo-tam,19px\);font-weight:var\(--dash-titulo-peso,600\)/);
+  // Una tarjeta adentro de la tarjeta (borde + fondo de superficie) no vuelve: lo que se agrupa es una losa.
+  const bloques = ['Norte', 'Plan', 'Agenda', 'Negocio', 'Meta'].map((f) => leer(`app/general/bloques/${f}.tsx`)).join('\n') + leer('app/general/Cobranza.tsx');
+  assert.doesNotMatch(bloques, /border: '1px solid var\(--border\)', background: 'var\(--surface\)'/);
+  // Las tarjetas del Plan, adentro de `gb-plan` (con los colores de la hoja).
+  assert.equal((leer('app/general/bloques/Plan.tsx').match(/className="gb-plan"/g) ?? []).length, 2);
+  // El título propio va por contexto, en el renglón del bloque: no un segundo título arriba.
+  const elg = leer('app/dashboard/ElementoGeneral.tsx');
+  assert.match(elg, /<TituloPropio\.Provider value=\{titulo \|\| null\}>/);
+  assert.doesNotMatch(elg, /gen-pieza-tit/);
+  assert.match(leer('app/general/KpisCard.tsx'), /<Cabeza titulo="KPIs"/);
+  assert.match(leer('app/general/Cobranza.tsx'), /<TituloBloque>A quién cobrarle<\/TituloBloque>/);
+});
+
+test('Tareas prioritarias se elige de 1, 3, 5 o 10 (y el server manda las 10); los deadlines cuentan desde el hoy del negocio', () => {
+  assert.deepEqual(opcionesDePieza('tareas').find((o) => o.id === 'cuantas')?.valores.map((v) => v.id), ['1', '3', '5', '10']);
+  const datos = leer('app/general/datos.ts');
+  assert.match(datos, /const TOPE_TAREAS = 10;/);
+  assert.match(datos, /const top = \[\.\.\.abiertas\]\.sort\(\(a, b\) => b\.score - a\.score\)\.slice\(0, TOPE_TAREAS\);/);
+  assert.match(datos, /const hoy = diaDe\(new Date\(\)\.toISOString\(\), await zonaDelCalendario\(\)\);/);
+  const plan = leer('app/general/bloques/Plan.tsx');
+  assert.match(plan, /const tareas = d\.d\.top\.filter\(\(t\) => !hechas\.has\(t\.id\)\)\.slice\(0, cuantas\);/);
+  assert.match(plan, /vencimientos\(d\.d\.deadlines\.tareas, d\.d\.deadlines\.proyectos, d\.d\.etiquetas, d\.d\.hoy,/);
+});
+
+test('las plantillas: simples, cada dato una vez, de a dos sin estirar, y con títulos de parte', () => {
+  let conTitulos = 0;
+  for (const d of DEFINICIONES_GENERAL) {
+    assert.ok(d.piezas.length <= 10, `${d.id}: ${d.piezas.length} piezas no es simple`);
+    const hoja = PLANTILLAS_GENERAL.find((p) => p.id === d.id)!.armar((l) => l) as { componentes: Array<{ id: string; y: number; w: number; h: number }> };
+    const piezas: string[] = [];
+    const firmas: string[] = [];
+    let titulo = false;
+    for (const p of d.piezas) {
+      const el = p.elemento as { tipo: string; h?: number; general?: { pieza: string } } | undefined;
+      if (el?.tipo === 'seccion') titulo = true;
+      if (el?.tipo === 'general') {
+        piezas.push(el.general!.pieza);
+        // Un bloque que la fila estira más que lo que pide es el espacio en blanco del reporte.
+        const c = hoja.componentes.find((x) => x.id === p.local)!;
+        assert.equal(c.h, el.h, `${d.id}/${p.local}: la fila lo estira de ${el.h} a ${c.h}`);
+      }
+      // El mismo dato es la misma métrica VISTA IGUAL (el mismo conjunto, las mismas métricas y la misma dimensión): un
+      // número y su serie por día son dos lecturas; «Leads por etapa» al lado del funnel, la misma.
+      const g = p as { fuente?: string; metricas?: string[]; dimension?: string | null };
+      if (g.fuente && g.metricas) firmas.push(`${g.fuente}:${g.metricas.join(',')}:${g.dimension ?? ''}`);
+    }
+    if (titulo) conTitulos++;
+    assert.equal(new Set(piezas).size, piezas.length, `${d.id}: un bloque repetido`);
+    assert.equal(new Set(firmas).size, firmas.length, `${d.id}: el mismo dato en dos gráficos`);
+    // Con «El mes», sus números no van aparte.
+    if (piezas.includes('mes')) assert.ok(!firmas.some((f) => /:(gasto|agendas|cierres|cobrado):/.test(f)), `${d.id}: repite lo que dice «El mes»`);
+    // Con «Tu funnel hoy», los leads por etapa no van aparte (era el gráfico que se rompía, y el mismo dato dos veces).
+    if (piezas.includes('funnel')) assert.ok(!firmas.some((f) => /^leads:.*:etapa$/.test(f)), `${d.id}: repite lo que dice «Tu funnel hoy»`);
+    // No todo a lo ancho: al menos una fila con dos cosas lado a lado.
+    const porFila = new Map<number, number>();
+    for (const c of hoja.componentes) porFila.set(c.y, (porFila.get(c.y) ?? 0) + 1);
+    assert.ok([...porFila.values()].some((n) => n > 1), `${d.id}: todo nace a lo ancho`);
+  }
+  assert.ok(conTitulos >= 5, `sólo ${conTitulos} plantillas con títulos de parte`);
+  // La General arranca con la plata del mes y lo que cuesta conseguirla.
+  const general = DEFINICIONES_GENERAL.find((d) => d.id === 'general')!;
+  for (const m of ['cobrado', 'vendido', 'gasto']) assert.ok(general.piezas.some((p) => (p as { metricas?: string[] }).metricas?.[0] === m), `la General sin «${m}»`);
+});
+
+test('crear una hoja no se deshace, y la edición se mira en tablet y en celular', async () => {
+  const editor = leer('app/dashboard/EditorInforme.tsx');
+  const crear = editor.slice(editor.indexOf('const crearHoja = useCallback('), editor.indexOf('const duplicarHoja'));
+  assert.ok(crear.length > 200 && crear.length < 1500, `el recorte mide ${crear.length}`);
+  assert.match(crear, /setTablero\(\(tt\) => \(\{ \.\.\.tt, hojas: enBlanco \? \[nueva\] : \[\.\.\.tt\.hojas, nueva\] \}\)\);\s*vaciar\(\);/);
+  assert.doesNotMatch(crear, /mutar\(/, 'crear la hoja volvió a apilar un deshacer');
+  assert.match(leer('app/_ui/usePilaDeshacer.ts'), /const vaciar = useCallback\(\(\) => \{/);
+  // La vista por dispositivo: sólo editando, la página al ancho del dispositivo.
+  assert.match(editor, /const dispositivo: Dispositivo = editando \? dispositivoElegido : 'escritorio';/);
+  assert.match(editor, /<div className="lk-pagina" ref=\{containerRef\} data-dispositivo=\{dispositivo === 'escritorio' \? undefined : dispositivo\}>/);
+  for (const id of ['escritorio', 'tableta', 'movil']) assert.match(editor, new RegExp(`\\{ id: '${id}', nombre: `));
+  const { CSS } = await import('../app/dashboard/editor-css');
+  assert.match(CSS, /\.lk-pagina\[data-dispositivo="movil"\] \{ width: 390px;/);
+  assert.match(CSS, /\.lk-pagina\[data-dispositivo="tableta"\] \{ width: 820px;/);
+  // En la pila del celular un bloque de General mide lo que dibuja.
+  assert.match(editor, /const lugar = bloque && enPila \? \{ \.\.\.base, height: 'auto' \} : base;/);
 });

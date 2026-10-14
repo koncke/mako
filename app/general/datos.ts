@@ -197,6 +197,11 @@ const livianoP = (l: Label): Label => ({ ...l, detalle: '', notas: undefined, hi
 
 /** Cuántos proyectos se mandan (la opción más grande de «Proyectos del Plan» es 6, y el orden por deadline otros 6). */
 const TOPE_PROYECTOS = 6;
+/** Cuántas tareas manda «Tareas prioritarias» (su opción más grande es 10). */
+const TOPE_TAREAS = 10;
+/** Lo que mira «Próximos deadlines»: hasta 30 días (su opción más grande), y cuántas filas como mucho. */
+const DIAS_DEADLINES = 30;
+const TOPE_DEADLINES = 20;
 
 async function datosDelPlan(): Promise<DatosGeneral['plan']> {
   const { plan, tareas, proyectos } = await leerPlanHoyConTablero();
@@ -214,12 +219,23 @@ async function datosDelPlan(): Promise<DatosGeneral['plan']> {
   const porDeadline = vivos.filter((l) => l.deadline).sort((a, b) => (a.deadline ?? '').localeCompare(b.deadline ?? '')).slice(0, TOPE_PROYECTOS);
   const mostrados = new Map<string, Label>();
   for (const l of [...porScore, ...porDeadline, ...(objetivo ? [objetivo] : [])]) mostrados.set(l.id, l);
+  // «Tareas prioritarias» (14/10/2026, Martín: «que muestre las tareas prioritarias... si quiero que muestre 1 tarea, 3
+  // tareas, 5, 10»): las abiertas que compiten, por su score. «Próximos deadlines»: lo abierto con fecha hasta 30 días
+  // (y lo vencido), en el «hoy» del negocio, que es el mismo del Calendario.
+  const hoy = diaDe(new Date().toISOString(), await zonaDelCalendario());
+  const hasta = sumarDias(hoy, DIAS_DEADLINES - 1);
+  const top = [...abiertas].sort((a, b) => b.score - a.score).slice(0, TOPE_TAREAS);
+  const conFecha = abiertas.filter((t) => t.deadline && t.deadline <= hasta).sort((a, b) => a.deadline.localeCompare(b.deadline)).slice(0, TOPE_DEADLINES);
+  const proyectosConFecha = vivos.filter((l) => l.deadline && l.deadline <= hasta).sort((a, b) => (a.deadline ?? '').localeCompare(b.deadline ?? '')).slice(0, TOPE_DEADLINES);
   const etiquetas = new Map<string, Label>();
-  for (const t of prioridades) for (const id of t.labels) { const l = labelPorId.get(id); if (l) etiquetas.set(id, l); }
+  for (const t of [...prioridades, ...top, ...conFecha]) for (const id of t.labels) { const l = labelPorId.get(id); if (l) etiquetas.set(id, l); }
   return {
     ok: true,
     d: {
       prioridades: prioridades.map(liviana),
+      top: top.map(liviana),
+      deadlines: { tareas: conFecha.map(liviana), proyectos: proyectosConFecha.map(livianoP) },
+      hoy,
       objetivo: objetivo ? livianoP(objetivo) : null,
       proyectos: [...mostrados.values()].map(livianoP),
       etiquetas: [...etiquetas.values()].map(livianoP),

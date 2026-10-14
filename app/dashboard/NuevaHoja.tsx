@@ -35,7 +35,7 @@
 // para el Dashboard). El cuerpo del modal es `CrearHoja`: lo monta este modal y lo monta EditorInforme en la pantalla
 // en blanco de quien nunca armó una hoja (la portada del Landing Generator, app/landing-generator/CajaCrear.tsx: la caja
 // y, abajo, las plantillas). Cada plantilla es la tarjeta de esa portada: la miniatura de la página (./MiniaturaHoja.tsx:
-// la FORMA de la plantilla, sin pedir datos), «Usar plantilla» al pasar el mouse, y el nombre y la línea abajo.
+// la hoja de verdad en chico, con datos de ejemplo), «Usar plantilla» al pasar el mouse, y el nombre abajo (sin la línea).
 //
 // `onCrear` recibe la hoja YA saneada con ids nuevos (y, si la armó MaKo o se pegó, el primer aviso, para el toast). El
 // editor la agrega con `mutar` (una foto de deshacer) y la abre. Después de `onCrear` el modal llama a `onCerrar`: que
@@ -134,7 +134,6 @@ const CSS = `
 .nh-giro{width:13px;height:13px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;animation:nh-giro .8s linear infinite}
 @keyframes nh-giro{to{transform:rotate(360deg)}}
 .nh-nombre{font-size:14.5px;font-weight:600;line-height:1.3;color:var(--ink)}
-.nh-desc{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:12.5px;line-height:1.4;color:var(--dim)}
 .nh-buscar{display:flex;align-items:center;gap:8px;padding:0 12px;height:40px;box-sizing:border-box;border-radius:11px;border:1px solid var(--border-strong);background:var(--surface);color:var(--dim)}
 .nh-buscar:focus-within{border-color:var(--primary)}
 .nh-buscar input{flex:1;min-width:0;border:none;outline:none;background:transparent;color:var(--ink);font:inherit;font-size:14px}
@@ -415,21 +414,20 @@ export function CrearHoja({ onCrear, onListo, enBlanco = 'Página nueva', inform
         </label>
 
         {/* 3 · La grilla: «Hoja en blanco» primera SIEMPRE, lo copiado y después las plantillas. Cada una es la tarjeta de
-            la portada del Landing Generator (`.gp-cc-plantilla`): la miniatura de la página, «Usar plantilla» encima al
-            pasar el mouse, y el nombre y la línea abajo. */}
+            la portada del Landing Generator (`.gp-cc-plantilla`): la miniatura de la página (la hoja de verdad, en chico:
+            ./MiniaturaHoja.tsx), «Usar plantilla» encima al pasar el mouse, y el nombre abajo. Sin la línea: Martín,
+            14/10/2026, «elimina los subtitulos de cada template, solo el título». */}
         <div className="nh-grilla">
           <button type="button" className="nh-plantilla" data-empezar="blanco"
             onClick={() => crear(hojaVacia(props.current.enBlanco))}>
             <span className="nh-mini nh-mini--vacia"><span aria-hidden>＋</span></span>
             <span className="nh-nombre">Hoja en blanco</span>
-            <span className="nh-desc">Arma la hoja a tu manera, desde cero.</span>
           </button>
           {copiado && (
             <button type="button" className="nh-plantilla" data-pegar="" disabled={pensando}
               onClick={() => { void pegarDash(copiado.token); }}>
               <span className="nh-mini nh-mini--vacia"><IconoMenu nombre="copiar" size={30} /></span>
-              <span className="nh-nombre">Pegar lo copiado</span>
-              <span className="nh-desc">«{copiado.nombre}»</span>
+              <span className="nh-nombre" title={copiado.nombre}>Pegar «{copiado.nombre}»</span>
             </button>
           )}
           {plantillas.map((p) => (
@@ -443,7 +441,6 @@ export function CrearHoja({ onCrear, onListo, enBlanco = 'Página nueva', inform
                   : <span className="nh-usar">Usar plantilla</span>}
               </span>
               <span className="nh-nombre">{p.nombre}</span>
-              <span className="nh-desc">{p.linea}</span>
             </button>
           ))}
         </div>

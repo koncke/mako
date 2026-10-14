@@ -11,13 +11,14 @@
 
 import { useMemo, type ReactNode } from 'react';
 import type { Elemento } from '@/lib/graficos-catalogo';
-import type { PiezaGeneral, ValoresVariables } from '@/lib/general-piezas';
+import type { OpcionesElegidas, PiezaGeneral, ValoresVariables } from '@/lib/general-piezas';
 import { ContextoGeneral, type ContextoDeGeneral } from '../dashboard/ElementoGeneral';
 import { EditarObjetivo } from './EditarObjetivo';
 import type { DatosGeneral } from './datos-tipos';
 import { CSS_BLOQUES } from './bloques/comun';
-import { BloqueCabecera, BloqueOkrs, BloqueKpis, BloqueSemaforo, MuestraOkrs, MuestraSemaforo, NuevoOkr } from './bloques/Norte';
-import { BloquePrioridades, BloqueProyectos, MuestraPrioridades, MuestraProyectos } from './bloques/Plan';
+import { BloqueOkrs, BloqueKpis, BloqueSemaforo, MuestraOkrs, MuestraSemaforo, NuevoOkr } from './bloques/Norte';
+import { BloqueMetaObjetivo, BloqueAccion, MuestraMetaObjetivo, MuestraAccion } from './bloques/Meta';
+import { BloquePrioridades, BloqueProyectos, BloqueTareas, BloqueDeadlines, MuestraPrioridades, MuestraProyectos, MuestraTareas, MuestraDeadlines } from './bloques/Plan';
 import { BloqueMiDia, BloqueLlamadas, BloquePublicaciones, MuestraMiDia, MuestraLlamadas, MuestraPublicaciones } from './bloques/Agenda';
 import { BloquePendientes, BloqueFunnel, BloqueCobranza, BloqueMes, MuestraFunnel, MuestraCobranza, MuestraMes } from './bloques/Negocio';
 
@@ -28,7 +29,10 @@ export function dibujarBloque(e: Elemento, d: DatosGeneral): ReactNode {
   const op = g.opciones;
   const funnel = g.funnel ?? null;
   switch (g.pieza) {
-    case 'cabecera': return <BloqueCabecera d={d.cabecera} />;
+    case 'cabecera': return <BloqueMetaObjetivo d={d.cabecera} op={op} />;
+    case 'accion': return <BloqueAccion d={d.cabecera} op={op} />;
+    case 'tareas': return <BloqueTareas d={d.plan} op={op} />;
+    case 'deadlines': return <BloqueDeadlines d={d.plan} op={op} />;
     case 'objetivos': return <BloqueOkrs d={d.okrs} op={op} />;
     case 'kpis': return <BloqueKpis d={d.kpis} op={op} />;
     case 'semaforo': return <BloqueSemaforo d={d.semaforo} op={op} />;
@@ -44,22 +48,28 @@ export function dibujarBloque(e: Elemento, d: DatosGeneral): ReactNode {
   }
 }
 
-/** La vista previa de un bloque para el menú: con datos de ejemplo; los que no tienen (el hero, los KPIs, los pendientes), con los de verdad. */
-export function muestraDeBloque(pieza: PiezaGeneral, d: DatosGeneral): ReactNode {
+/**
+ * La vista previa de un bloque (el menú y las miniaturas de las plantillas): con datos de ejemplo y con las opciones que
+ * trae (`op`); los que no tienen ejemplo (la meta con su período, los KPIs, los pendientes), con los de verdad.
+ */
+export function muestraDeBloque(pieza: PiezaGeneral, d: DatosGeneral, op?: OpcionesElegidas): ReactNode {
   switch (pieza) {
-    case 'cabecera': return <BloqueCabecera d={d.cabecera} />;
-    case 'objetivos': return <MuestraOkrs />;
-    case 'kpis': return <BloqueKpis d={d.kpis} />;
-    case 'semaforo': return <MuestraSemaforo />;
-    case 'prioridades': return <MuestraPrioridades />;
-    case 'proyectos': return <MuestraProyectos />;
-    case 'agenda': return <MuestraMiDia />;
-    case 'llamadas': return <MuestraLlamadas />;
+    case 'cabecera': return <MuestraMetaObjetivo d={d.cabecera} op={op} />;
+    case 'accion': return <MuestraAccion op={op} />;
+    case 'objetivos': return <MuestraOkrs op={op} />;
+    case 'kpis': return <BloqueKpis d={d.kpis} op={op} />;
+    case 'semaforo': return <MuestraSemaforo op={op} />;
+    case 'tareas': return <MuestraTareas op={op} />;
+    case 'prioridades': return <MuestraPrioridades op={op} />;
+    case 'deadlines': return <MuestraDeadlines op={op} />;
+    case 'proyectos': return <MuestraProyectos op={op} />;
+    case 'agenda': return <MuestraMiDia op={op} />;
+    case 'llamadas': return <MuestraLlamadas op={op} />;
     case 'pendientes': return <BloquePendientes d={d.pendientes} />;
-    case 'funnel': return <MuestraFunnel />;
+    case 'funnel': return <MuestraFunnel op={op} />;
     case 'cobranza': return <MuestraCobranza />;
-    case 'mes': return <MuestraMes />;
-    case 'publicaciones': return <MuestraPublicaciones />;
+    case 'mes': return <MuestraMes op={op} />;
+    case 'publicaciones': return <MuestraPublicaciones op={op} />;
   }
 }
 
@@ -99,7 +109,7 @@ export function ProveedorGeneral({ datos, variables, children }: { datos: DatosG
   const valor = useMemo<ContextoDeGeneral>(() => ({
     dibujar: (e) => dibujarBloque(e, datos),
     configurar: (e) => configurarBloque(e, datos),
-    muestra: (p) => muestraDeBloque(p, datos),
+    muestra: (p, op) => muestraDeBloque(p, datos, op),
     variables,
     funnels: datos.funnels.ok ? datos.funnels.d.map((f) => ({ id: f.id, nombre: f.nombre })) : null,
   }), [datos, variables]);

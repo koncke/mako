@@ -591,7 +591,7 @@ Propone agregar una hoja nueva a la pantalla General de una persona, desde una p
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
 | `persona` | string | no | Email (o nombre) de la persona admin. Si se omite y la cuenta tiene una sola persona admin, es ésa. |
-| `plantilla` | string (general \\| bienvenida \\| operacion \\| cobros \\| foco \\| funnel-llamadas \\| funnel-whatsapp \\| lanzamiento \\| servicio \\| curso \\| ventas) | sí | id de la plantilla de General. |
+| `plantilla` | string (general \\| bienvenida \\| foco \\| operacion \\| ventas \\| cobros \\| anuncios \\| funnel-llamadas \\| funnel-whatsapp \\| lanzamiento \\| servicio \\| curso) | sí | id de la plantilla de General. |
 | `nombre` | string | no | Cómo se llama la hoja (default: el de la plantilla). |
 
 ```bash
@@ -624,21 +624,27 @@ Propone agregar UN bloque de General (el objetivo y la acción del día, los OKR
 | --- | --- | --- | --- |
 | `persona` | string | no | Email (o nombre) de la persona admin. Si se omite y la cuenta tiene una sola persona admin, es ésa. |
 | `hoja` | string | no | id de la hoja (de listar_hojas_general). Si se omite, la primera. |
-| `bloque` | string (cabecera \\| objetivos \\| kpis \\| semaforo \\| prioridades \\| proyectos \\| agenda \\| llamadas \\| pendientes \\| funnel \\| cobranza \\| mes \\| publicaciones) | sí | id del bloque de General. |
+| `bloque` | string (cabecera \\| accion \\| objetivos \\| kpis \\| semaforo \\| tareas \\| prioridades \\| deadlines \\| proyectos \\| agenda \\| llamadas \\| pendientes \\| funnel \\| cobranza \\| mes \\| publicaciones) | sí | id del bloque de General. |
 | `titulo` | string | no | Un título propio para el bloque (vacío = el de siempre). |
 | `funnel` | string | no | Sólo para el funnel de hoy y a quién cobrarle: el funnel (su id o su nombre, de listar_hojas_general). Sin esto, el principal o todo el negocio. |
 | `opciones` | object | no | Las opciones del bloque, como {opción: valor} (las de cada bloque, con sus valores, en listar_hojas_general). Una que el bloque no tiene es un error; sin esto, las de entrada. |
+| `opciones.detalle` | string | no | cabecera (Qué muestra): completo, simple |
+| `opciones.fondo` | string | no | cabecera (Fondo): claro, oscuro · accion (Fondo): claro, oscuro · objetivos (Fondo): claro, oscuro · kpis (Fondo): claro, oscuro · semaforo (Fondo): claro, oscuro · tareas (Fondo): claro, oscuro · prioridades (Fondo): claro, oscuro · deadlines (Fondo): claro, oscuro · proyectos (Fondo): claro, oscuro · agenda (Fondo): claro, oscuro · llamadas (Fondo): claro, oscuro · pendientes (Fondo): claro, oscuro · funnel (Fondo): claro, oscuro · cobranza (Fondo): claro, oscuro · mes (Fondo): claro, oscuro · publicaciones (Fondo): claro, oscuro |
+| `opciones.razon` | string | no | accion (El porqué): si, no |
 | `opciones.estilo` | string | no | objetivos (Cómo se ven): anillos, barras · funnel (Cómo se ve): embudo, barras |
 | `opciones.cuales` | string | no | objetivos (Cuáles): todos, trimestre, anio · cobranza (Cuáles): todas, vencidas |
 | `opciones.cadencia` | string | no | kpis (Cuáles): todas, diaria, semanal |
 | `opciones.lamparas` | string | no | semaforo (Las lámparas): si, no |
-| `opciones.limite` | string | no | semaforo (Alertas): 3, 5, todas · llamadas (Cuántas): 3, 5, 8 · cobranza (Cuántas): 5, 10, todas |
-| `opciones.cuantas` | string | no | prioridades (Tareas): 3, 5 |
+| `opciones.limite` | string | no | semaforo (Alertas): 3, 4, 6, todas · llamadas (Cuántas): 3, 4, 6, 8 · cobranza (Cuántas): 4, 6, 10, todas |
+| `opciones.cuantas` | string | no | tareas (Cuántas): 1, 3, 5, 10 · prioridades (Tareas): 1, 3, 5 |
+| `opciones.vista` | string | no | tareas (Cómo se ven): lista, tarjetas · agenda (Cómo se ve): linea, lista · publicaciones (Cómo se ve): tarjetas, lista |
+| `opciones.proyecto` | string | no | tareas (El proyecto): si, no |
 | `opciones.objetivo` | string | no | prioridades (El Objetivo Principal): si, no |
-| `opciones.cuantos` | string | no | proyectos (Cuántos): 3, 4, 6 |
+| `opciones.dias` | string | no | deadlines (Los próximos): 7, 14, 30 · llamadas (Los próximos): 1, 3, 7, 14 · publicaciones (Los próximos): 7, 14 |
+| `opciones.que` | string | no | deadlines (Qué): todo, tareas, proyectos |
+| `opciones.vencidos` | string | no | deadlines (Los vencidos): si, no |
+| `opciones.cuantos` | string | no | proyectos (Cuántos): 2, 3, 4, 6 |
 | `opciones.orden` | string | no | proyectos (Cuáles): prioridad, deadline |
-| `opciones.vista` | string | no | agenda (Cómo se ve): linea, lista · publicaciones (Cómo se ve): tarjetas, lista |
-| `opciones.dias` | string | no | llamadas (Los próximos): 1, 3, 7, 14 · publicaciones (Los próximos): 7, 14 |
 | `opciones.comparar` | string | no | mes (El mes anterior): si, no |
 
 ```bash
@@ -673,17 +679,23 @@ Propone cambiar las opciones de UN bloque que ya está en una hoja de General (c
 | `hoja` | string | sí | id de la hoja (de listar_hojas_general). |
 | `elemento` | string | sí | id del bloque en esa hoja (de listar_hojas_general). |
 | `opciones` | object | no | Las opciones a cambiar, como {opción: valor}. Las que no pases quedan como están. |
+| `opciones.detalle` | string | no | cabecera (Qué muestra): completo, simple |
+| `opciones.fondo` | string | no | cabecera (Fondo): claro, oscuro · accion (Fondo): claro, oscuro · objetivos (Fondo): claro, oscuro · kpis (Fondo): claro, oscuro · semaforo (Fondo): claro, oscuro · tareas (Fondo): claro, oscuro · prioridades (Fondo): claro, oscuro · deadlines (Fondo): claro, oscuro · proyectos (Fondo): claro, oscuro · agenda (Fondo): claro, oscuro · llamadas (Fondo): claro, oscuro · pendientes (Fondo): claro, oscuro · funnel (Fondo): claro, oscuro · cobranza (Fondo): claro, oscuro · mes (Fondo): claro, oscuro · publicaciones (Fondo): claro, oscuro |
+| `opciones.razon` | string | no | accion (El porqué): si, no |
 | `opciones.estilo` | string | no | objetivos (Cómo se ven): anillos, barras · funnel (Cómo se ve): embudo, barras |
 | `opciones.cuales` | string | no | objetivos (Cuáles): todos, trimestre, anio · cobranza (Cuáles): todas, vencidas |
 | `opciones.cadencia` | string | no | kpis (Cuáles): todas, diaria, semanal |
 | `opciones.lamparas` | string | no | semaforo (Las lámparas): si, no |
-| `opciones.limite` | string | no | semaforo (Alertas): 3, 5, todas · llamadas (Cuántas): 3, 5, 8 · cobranza (Cuántas): 5, 10, todas |
-| `opciones.cuantas` | string | no | prioridades (Tareas): 3, 5 |
+| `opciones.limite` | string | no | semaforo (Alertas): 3, 4, 6, todas · llamadas (Cuántas): 3, 4, 6, 8 · cobranza (Cuántas): 4, 6, 10, todas |
+| `opciones.cuantas` | string | no | tareas (Cuántas): 1, 3, 5, 10 · prioridades (Tareas): 1, 3, 5 |
+| `opciones.vista` | string | no | tareas (Cómo se ven): lista, tarjetas · agenda (Cómo se ve): linea, lista · publicaciones (Cómo se ve): tarjetas, lista |
+| `opciones.proyecto` | string | no | tareas (El proyecto): si, no |
 | `opciones.objetivo` | string | no | prioridades (El Objetivo Principal): si, no |
-| `opciones.cuantos` | string | no | proyectos (Cuántos): 3, 4, 6 |
+| `opciones.dias` | string | no | deadlines (Los próximos): 7, 14, 30 · llamadas (Los próximos): 1, 3, 7, 14 · publicaciones (Los próximos): 7, 14 |
+| `opciones.que` | string | no | deadlines (Qué): todo, tareas, proyectos |
+| `opciones.vencidos` | string | no | deadlines (Los vencidos): si, no |
+| `opciones.cuantos` | string | no | proyectos (Cuántos): 2, 3, 4, 6 |
 | `opciones.orden` | string | no | proyectos (Cuáles): prioridad, deadline |
-| `opciones.vista` | string | no | agenda (Cómo se ve): linea, lista · publicaciones (Cómo se ve): tarjetas, lista |
-| `opciones.dias` | string | no | llamadas (Los próximos): 1, 3, 7, 14 · publicaciones (Los próximos): 7, 14 |
 | `opciones.comparar` | string | no | mes (El mes anterior): si, no |
 | `titulo` | string | no | Un título propio (texto vacío = el de siempre). Sin esto, no se toca. |
 | `funnel` | string | no | Sólo para el funnel de hoy y a quién cobrarle: el funnel (id o nombre), o «ninguno» para volver al principal o a todo el negocio. |
