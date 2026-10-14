@@ -492,6 +492,15 @@ export type PedidoPlan = {
    */
   guionLiteral?: string;
   cantidadClips: number;
+  /**
+   * El piso de tomas, cuando no es el del formato.
+   *
+   * Un anuncio respeta el rango de su puesta (The Office: 7-9 tomas). El «Avatar
+   * de IA» del Video Editor no es un anuncio: es el avatar diciendo UNA frase, y
+   * obligarlo al mínimo del formato cobraría 7 clips por una oración. Ausente =
+   * el mínimo de la puesta, como siempre.
+   */
+  clipsMinimos?: number;
   duracionTotalSeg: number;
   /** Feedback sobre un plan anterior (regenerar). */
   feedback?: string;
@@ -560,7 +569,10 @@ export async function generarPlan(ws: number, pedido: PedidoPlan): Promise<Gener
   const tema = (pedido.tema ?? '').trim().slice(0, 4000);
   if (!tema) return { ok: false, error: 'Escribe el tema o la historia del anuncio primero.' };
 
-  const [minClips, maxClips] = puesta.clips;
+  const [minPuesta, maxClips] = puesta.clips;
+  const minClips = pedido.clipsMinimos != null
+    ? Math.min(maxClips, Math.max(1, Math.round(pedido.clipsMinimos)))
+    : minPuesta;
   const cantidad = Math.min(maxClips, Math.max(minClips, Math.round(pedido.cantidadClips)));
 
   const wsActual = await getWorkspaceActual();
