@@ -18,6 +18,13 @@ el briefing anterior (`b5f7fb55`, 10/10 17:10) con todo verificado contra el ár
   al cancelar y reactivar. Cuando pase el hash, se mergea en b2.
 - Tests `pagos-campo` 19/0 (22 roturas en rojo en total), pagos/cobros/API 203/203, tsc acotado 0.
 
+**Al mergear b5, ojo con la rama `undecima` de Automations** (`C:/dev/wt-undecima`, sin pushear al 14/10 ~17:30):
+`git merge-tree` con `crm-bloques-b5` da UN conflicto, en el import de `flujo-grafo` de `lib/flujo-ia.ts`. Se resuelve
+juntando las dos listas (`borrarNodo, padresDe, siguienteDe, medioDe, puedeSumarAIStep, esAnclaDespues,`).
+chatbot.def/run, nutricion.ts y docs/api-mako.md se mezclan solos; docs/api-mako.md se regenera después
+(`node --import tsx scripts/generar-api-doc.mjs`). Automations avisa sus hunks antes de su próxima tarea (la
+«Reentrada» del CRON: EditorDisparadores, lib/disparadores.ts y la inscripción del motor).
+
 Lo de abajo es de las 16:30:
 En `crm-bloques-b2` @ `c27eb4323` (`wtc-b2`), sin pushear y sin mergear en `crm-bloques`:
 - **Modo 'lista'** (wizard de Ganado, API `guardar_cuotas`): las cuotas protegidas se casan PRIMERO, así que
