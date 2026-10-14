@@ -3,6 +3,32 @@
 <sub>Escrito por el chat «MaKo Mobile» (cuenta 3) el 11/10/2026 a las 15:00, al cruzar el 85% de uso
 semanal. Material de primera mano: lo hizo este chat.</sub>
 
+## 🆕🆕🆕 14/10/2026 ~21:00 (cuenta 1) — TANDA 1 DEL v3 EN CÓDIGO (Martín: «que lo pushee así por ahora»)
+
+Martín aprobó el v3 («está mucho mejor, sigo teniendo feedback») y pidió pushear sin esperar al resto. Tres commits:
+
+1. **104a26209 (en main)**:
+   - la barra CRM · Chats · General · Plan · More, con General al medio y como portada;
+   - General dibuja la hoja de General de escritorio, bloque por bloque (app/m/hoy/GeneralM.tsx), con la campana de
+     Inbox en el encabezado;
+   - More agrupado por las familias de la sidebar;
+   - Chats lee WhatsApp con «Sin responder» (app/m/chats).
+2. **5e4bed65d**:
+   - el tablero común `KanbanM` (app/m/_ui);
+   - el CRM pasa a ser el tablero del funnel, con selector y lupa (se borró la lista Hoy · Por responder · Nuevos);
+   - Clientes también pasa a tablero.
+3. **c2f6863a0**: el Plan con Prioridades · Tareas · Proyectos · Recurrentes. Tareas y Proyectos son tableros por
+   prioridad que NO mueven tarjetas.
+
+Los pushes 2 y 3 rebotaron por RAM (el vigía mata el tsc). Los pushea «Estrategia 3 cuentas» con el vigía pausado:
+mirar `git log origin/main` antes de dar nada por subido.
+
+**Lo que sigue**, con detalle en hallazgos-mobile.md, «La tanda 1 del v3 en código»:
+- las 9 pantallas de More que faltan;
+- Chats unificados, cuando lleguen a main;
+- mirarlo en un teléfono de verdad;
+- el feedback que Martín dijo que todavía tiene.
+
 ## 🆕🆕 14/10/2026 ~18:00 (cuenta 1) — PROTOTIPO v3 con el feedback de Martín, y el relevamiento de las tiendas
 
 Martín rechazó el v1 por siete puntos (relevados por «Estrategia 3 cuentas»): sin referencias; el CRM no lleva «Hoy»;
