@@ -42,6 +42,13 @@
 > llamada 858927676: «call_id not found or access denied» con esta cuenta. Siguiente: ver en lib/nutricion.ts por qué una
 > inscripción se cierra después de la tarjeta de aviso (la acción `avisar_al_equipo` como primera tarjeta) en vez de agendar
 > la espera.
+> **Corrección (13/10 ~23:50):** la #241 NO es el bug: esas inscripciones son de ANTES de que le agregaran la espera y el
+> WhatsApp (13/10 14:08 UTC); hasta ahí el flujo terminaba en el aviso. Reproducido el motor puro sobre sus pasos de hoy:
+> agenda la espera de 5 min y sigue al WhatsApp. Por los minutos de los otros puntos de esa llamada, el flujo tocado sería la
+> #213 de ws1 (editada el 12/10 22:56 AR: video → 2 h, sin el recordatorio del día anterior), pero en ws1 no aparece un lead
+> de prueba en esa ventana (sólo #778 y #23, ganados, sin inscribirse). Falta saber QUÉ se probó: la transcripción de Fathom
+> no se puede leer con la cuenta 2 (se le pidió a Martín). Hipótesis a medir con ese dato: (a) el lead ya estaba inscripto
+> (una inscripción por lead y automatización), (b) una espera en minutos espera al cron (cada cuánto corre el motor).
 > **PENDIENTE, en este orden:**
 > 1. **Plazos de etapa del CRM → plantilla de Automations** (pedido de Martín reenviado por el chat CRM, 12/10: «Si, pasa
 >    a una automatización eso de los plazos... Y ponlo como template en automations. Dile esto al chat de "Chatbot" que lo
