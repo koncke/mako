@@ -339,6 +339,9 @@ del registro (`lib/api-mako/areas/landing.def.ts` / `.run.ts`, lo puro en `landi
   «landing». Arreglo medido sobre una COPIA (sin tocar el archivo): `esPedidoDeLanding` en
   `lib/mako-intencion.ts`, como `esPedidoAutomatizacion` (objeto a ≤3 palabras de un verbo, sin otro objeto
   en el medio: «armame un anuncio para la landing» sigue siendo de Ads). El test lo espera como `todo`.
+  Costo conocido, el mismo que acepta `esPedidoAutomatizacion` con «crea»: la tercera persona sin tilde
+  («mi socio publica la landing el lunes») también se lee como pedido. No ejecuta nada (publicar va en
+  pantalla); si molesta, se exige tilde o pronombre y se pierde el tuteo («publica mi landing»).
 - **Publicar va en pantalla, y lo que se publica es lo guardado AL CONFIRMAR.** La genérica
   `/mako/revisar` vuelve a correr `preparar()` con el input guardado (`{ id, slug? }`): la versión se lee
   en `ejecutar()`, como el botón «Publicar» del editor. No hay parámetro `version`: sería un campo

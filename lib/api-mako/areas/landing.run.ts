@@ -512,8 +512,10 @@ export const RUNNERS: Runners = {
       const r = await docsEditor.abrir(id);
       if (!r.ok) return errorLectura(r.status === 404 ? noExisteCreada(id) : `No pude leer la landing ${id} (${r.error}).`);
       const d = r.doc;
-      // `abrir` no dice si está en la papelera (la pantalla no la abre desde ahí): se pregunta aparte.
-      const fila = await docsEditor.leerFilaDoc(ctx.ws, id, 'id, papelera_at');
+      // `abrir` no dice si está en la papelera (la pantalla no la abre desde ahí): se pregunta aparte,
+      // y si esa lectura falla sale null («no sé»), no false: la landing ya se leyó y se devuelve igual.
+      let enPapelera: boolean | null = null;
+      try { enPapelera = !!(await docsEditor.leerFilaDoc(ctx.ws, id, 'id, papelera_at'))?.papelera_at; } catch { enPapelera = null; }
       // Los comentarios del diagnóstico por el server de la pantalla. Si fallan, la landing se lee
       // igual y el diagnóstico dice «no pude leer» (null), que no es «nunca se diagnosticó».
       let sugerencias: Sugerencia[] | null = null;
@@ -528,7 +530,7 @@ export const RUNNERS: Runners = {
         publicada, url_publica: publicada ? urlDeLanding(d.slug as string) : null,
         sitio_activo: publicada ? d.sitioActivo : null,
         cambios_sin_publicar: d.cambiosSinPublicar,
-        en_papelera: !!fila?.papelera_at,
+        en_papelera: enPapelera,
         version: d.version, ultima_edicion: d.actualizado, creada: d.creado,
         link_editor: linkEditor(d.id, ctx.ws),
         paginas,
