@@ -469,7 +469,7 @@ function Vacio({ luego, hechas, tablero, onDeNuevo }: { luego: number; hechas: n
       ) : (
         <>
           <h2>{hechas ? 'Listo por hoy' : 'Nada por decidir'}</h2>
-          <p>Lo nuevo aparece acá.</p>
+          <p>Lo nuevo aparece aquí.</p>
         </>
       )}
       <Link href={tablero} className="mazo-link">Ver el tablero</Link>
