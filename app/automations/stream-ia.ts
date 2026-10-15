@@ -30,11 +30,13 @@ export const RUTA_IA = '/api/chat-agent/secuencias/ia';
 /** El tope de la ruta (`maxDuration = 300`) + margen: el `fetch` no puede esperar para siempre. */
 export const TOPE_CLIENTE_MS = 310_000;
 
-export type FaseIA = 'contexto' | 'modelo' | 'revision';
+export type FaseIA = 'contexto' | 'modelo' | 'respuesta' | 'revision';
 /** Lo que se dice de cada fase (corto: AGENTS.md, el texto que se dibuja). */
 export const TEXTO_FASE: Record<FaseIA, string> = {
   contexto: 'Leyendo tu negocio',
   modelo: 'Escribiendo el flujo',
+  // Una pregunta (lib/flujo-ia-consulta.ts): MaKo contesta y no toca el flujo.
+  respuesta: 'Pensando la respuesta',
   revision: 'Revisando el flujo',
 };
 export const ORDEN_FASES: FaseIA[] = ['contexto', 'modelo', 'revision'];
