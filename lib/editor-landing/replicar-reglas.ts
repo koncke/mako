@@ -121,10 +121,14 @@ export function configDeReplica(formato: FormatoReplicar, url: string): ConfigRe
  * copia idéntica necesita el HTML). `modo` es el pedido viejo (tanda 2), aceptado durante el deploy.
  */
 export type PedidoReplicar = { url: string; formato: FormatoReplicar; lectura?: Lectura; texto?: string } | { url: string; modo: ModoReplicar };
-/** Lo que contesta: el id de la landing nueva (la pantalla la abre en el editor). */
+/**
+ * Lo que contesta: el id de la landing nueva (la pantalla la abre en el editor). En la falla, `probar` es el
+ * formato que sí puede andar cuando el error lo propone («Prueba el formato «Landing».»): la pantalla lo
+ * ofrece como botón en vez de dejar a la persona con el error pelado (verificación de la tanda 6).
+ */
 export type RespuestaReplicar =
   | { ok: true; id: number; titulo: string; secciones: number; formato: FormatoReplicar; aviso?: string }
-  | ({ ok: false; error: string } & Partial<SeLeeEnNavegador>);
+  | ({ ok: false; error: string; probar?: FormatoReplicar } & Partial<SeLeeEnNavegador>);
 
 /** Partes de la página como máximo (las de más se juntan). Una landing larga ronda las 12-15. */
 export const MAX_SECCIONES_FIEL = 24;
@@ -498,7 +502,20 @@ export function partirCuerpo(body: string): CuerpoPartido {
 // La copia fiel
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type CopiaFiel = { ok: true; titulo: string; documentos: string[]; partida: boolean } | { ok: false; error: string };
+export type CopiaFiel = { ok: true; titulo: string; documentos: string[]; partida: boolean } | { ok: false; error: string; probar?: FormatoReplicar };
+
+/** Lo que dice la copia fiel cuando el formato «Landing» (el texto en secciones) sí puede: lo lleva `probar`. */
+const PROBAR_LANDING = 'Prueba el formato «Landing».';
+const conLanding = (error: string): CopiaFiel => ({ ok: false, error: `${error} ${PROBAR_LANDING}`, probar: 'landing' });
+
+/**
+ * ¿La página se ARMA en el navegador? Una app de Vite, Lovable o Create React App manda un HTML con un
+ * contenedor vacío (`#root`, `#app`, `#__next`, `#__nuxt`, `#svelte`) o un `<script type="module">`, y el
+ * texto lo pone su JavaScript después: el HTML no trae nada que copiar. Se pregunta sólo cuando el cuerpo
+ * no tiene texto ni medios.
+ */
+const RE_SE_ARMA_EN_NAVEGADOR = /<script\b[^>]*\stype\s*=\s*["']?module\b|<div\b[^>]*\sid\s*=\s*["']?(?:root|app|__next|__nuxt|svelte)(?=["'\s>])[^>]*>\s*<\/div>/i;
+export const seArmaEnNavegador = (html: string): boolean => RE_SE_ARMA_EN_NAVEGADOR.test(html);
 
 /** Un documento de la copia: el <head> original (limpio), el `base`, y una parte del cuerpo. */
 function documento(p: Partes, head: string, base: string, cuerpo: string): string {
@@ -527,7 +544,7 @@ export function copiaFiel(html: string, urlPedida: string): CopiaFiel {
   // Un login copiado tal cual, servido en hola-mako.com, es phishing con nuestra barra de direcciones
   // (revisión de la tanda 2): esa página no se copia fiel. El formato «Landing» reescribe el contenido
   // (en la tanda 2 se llamaba «Como bloques»).
-  if (pideContrasena(html)) return { ok: false, error: 'Esa página pide una contraseña y MaKo no la copia tal cual. Prueba el formato «Landing».' };
+  if (pideContrasena(html)) return conLanding('Esa página pide una contraseña y MaKo no la copia tal cual.');
   const host = (() => { try { return new URL(urlPedida).hostname.replace(/^www\./, ''); } catch { return 'Landing'; } })();
   const titulo = tituloDeDocumento(html, host);
   const base = baseDeDocumento(html, urlPedida);
@@ -545,8 +562,13 @@ export function copiaFiel(html: string, urlPedida: string): CopiaFiel {
     if (docs.every((d) => d.length <= TOPES.htmlLibre) && total <= PRESUPUESTO_FIEL) return { ok: true, titulo, documentos: docs, partida: true };
   }
   const entero = documento(p, head, base, cuerpo.trim());
-  if (!textoVisible(cuerpo) && !RE_MEDIO.test(cuerpo)) return { ok: false, error: 'La página no trae nada para copiar.' };
-  if (entero.length > TOPES.htmlLibre) return { ok: false, error: 'La página pesa demasiado para copiarla tal cual. Prueba el formato «Landing».' };
+  if (!textoVisible(cuerpo) && !RE_MEDIO.test(cuerpo)) {
+    // ⚠️ UNA APP DE VITE O LOVABLE (el caso real del pedido 1 de la tanda 6, verificación): su HTML no trae
+    // texto, y «no trae nada para copiar» la dejaba sin salida. El formato «Landing» la lee en el navegador
+    // de la persona (`enNavegador`): se propone, con el botón (`probar`).
+    return seArmaEnNavegador(html) ? conLanding('Esta página se arma en el navegador.') : { ok: false, error: 'La página no trae nada para copiar.' };
+  }
+  if (entero.length > TOPES.htmlLibre) return conLanding('La página pesa demasiado para copiarla tal cual.');
   return { ok: true, titulo, documentos: [entero], partida: false };
 }
 

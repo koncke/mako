@@ -16,14 +16,15 @@
 //     en el chat con «Replica esta landing»).
 // Cuando el server no puede leer la página (una app de Vite/React, o una que le contesta 403) contesta
 // `enNavegador` y se ofrece leerla en el navegador de la persona o pegar su texto (../lector/LeerOPegar.tsx).
-// La copia «Página web» necesita el HTML: con ella el server no ofrece esa salida.
+// La copia «Página web» necesita el HTML: con ella el server no ofrece esa salida, y si propone otro formato
+// (`probar`: una app de Vite o Lovable, un login, una página que no entra) se ofrece con un botón (`FallaReplicar`).
 // =============================================================================
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useWs } from '@/app/_ui/Link';
 import type { Lectura } from '@/lib/editor-landing/lectura-tipos';
 import {
-  FORMATOS_REPLICAR, NOMBRE_FORMATO_REPLICAR, type FormatoReplicar, type PedidoReplicar, type RespuestaReplicar,
+  FORMATOS_REPLICAR, NOMBRE_FORMATO_REPLICAR, formatoReplicar, type FormatoReplicar, type PedidoReplicar, type RespuestaReplicar,
 } from '@/lib/editor-landing/replicar-reglas';
 import { PLAZO_IA_MS, postJson } from '../cliente';
 import { Ico, irDuro, type OpcionDesplegable } from '../MiniaturaLanding';
@@ -45,7 +46,7 @@ export const FORMATO_INICIAL: FormatoReplicar = 'landing';
 export type EstadoReplicar =
   | { fase: 'quieto' }
   | { fase: 'replicando'; formato: FormatoReplicar }
-  | { fase: 'falla'; formato: FormatoReplicar; error: string; enNavegador: boolean; pegable: boolean };
+  | { fase: 'falla'; formato: FormatoReplicar; error: string; enNavegador: boolean; pegable: boolean; probar: FormatoReplicar | null };
 
 /** Lo que se hace con la copia recién creada en vez de abrir su editor (el «Aplicar» del Diagnóstico). */
 export type AlReplicar = (copia: { id: number; titulo: string }) => Promise<void> | void;
@@ -70,10 +71,35 @@ export function useReplicar(): {
     // Sale bien: el editor de la copia (se queda «replicando» mientras navega), o lo que siga con ella.
     if (r.ok && alListo) { await alListo({ id: r.id, titulo: r.titulo }); return; }
     if (r.ok) { irDuro(`/landing-generator/${r.id}`, ws); return; }
-    const f = r as { error: string; enNavegador?: boolean; pegable?: boolean };
-    setEstado({ fase: 'falla', formato, error: f.error, enNavegador: f.enNavegador === true, pegable: f.pegable === true });
+    const f = r as { error: string; enNavegador?: boolean; pegable?: boolean; probar?: unknown };
+    const probar = formatoReplicar(f.probar);
+    setEstado({ fase: 'falla', formato, error: f.error, enNavegador: f.enNavegador === true, pegable: f.pegable === true, probar: probar && probar !== formato ? probar : null });
   }, [ws]);
   return { estado, replicar };
+}
+
+/**
+ * La falla de Replicar: el error y, si el server propone otro formato (`probar`), el botón que replica así.
+ * Verificación de la tanda 6: una app de Vite o Lovable en «Página web» terminaba en «La página no trae nada
+ * para copiar.», sin salida; «Landing» sí la lee (en el navegador de la persona, si hace falta).
+ */
+export function FallaReplicar({ error, probar, onProbar, deshabilitado, clase = 'gp-error' }: {
+  error: string;
+  probar: FormatoReplicar | null;
+  onProbar: (f: FormatoReplicar) => void;
+  deshabilitado?: boolean;
+  clase?: string;
+}) {
+  return (
+    <>
+      <p className={clase} role="alert">{error}</p>
+      {probar && (
+        <button type="button" className="gp-btn gp-btn-contorno" style={{ marginTop: 10, alignSelf: 'flex-start' }} disabled={deshabilitado} onClick={() => onProbar(probar)}>
+          <Ico n={ICONO_FORMATO[probar]} t={14} /> Replicar como {NOMBRE_FORMATO_REPLICAR[probar]}
+        </button>
+      )}
+    </>
+  );
 }
 
 /** Los 3 formatos de Replicar, con su ícono: un radiogroup con la cara de las pastillas «Landing | Presentación». */
@@ -171,7 +197,11 @@ export function ReplicarUnaPagina({ url: urlInicial, formato: formatoInicial, au
           onTexto={(t) => void replicar(pedida, estado.formato, { texto: t })}
         />
       ) : estado.fase === 'falla' ? (
-        <p className="gp-error" role="alert">{estado.error}</p>
+        <FallaReplicar
+          error={estado.error}
+          probar={pedida ? estado.probar : null}
+          onProbar={(f) => { if (!pedida) return; setFormato(f); empezar(pedida, f); }}
+        />
       ) : null}
     </section>
   );

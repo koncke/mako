@@ -95,7 +95,7 @@ import { FORMATOS_REPLICAR, NOMBRE_FORMATO_REPLICAR, type FormatoReplicar } from
 import { idDe } from '../editor/diff-tarjetas';
 import { PLAZO_IA_MS, pedirDocs, postJson, type FallaPedido } from '../cliente';
 import { Filtros, Ico, ItemMenu, MenuFlotante, irDuro, useAviso } from '../MiniaturaLanding';
-import { ICONO_FORMATO, useReplicar, type AlReplicar } from '../crear/Replicar';
+import { FallaReplicar, ICONO_FORMATO, useReplicar, type AlReplicar } from '../crear/Replicar';
 import { LeerOPegar } from '../lector/LeerOPegar';
 import { RecorridoDiagnostico, type PasoDiagnostico } from './RecorridoDiagnostico';
 import { VistaNuestra } from './VistaNuestra';
@@ -599,7 +599,9 @@ function PanelInterno({ docId, url, copia = null, onCerrar, onAnalizada }: Props
           onLectura={(lectura) => { ultimaLectura.current = lectura; void pedirReplica(urlPegada, estadoReplicar.formato, { lectura }, afuera.current ? pasarYAbrir : undefined); }}
           onTexto={(texto) => void pedirReplica(urlPegada, estadoReplicar.formato, { texto }, afuera.current ? pasarYAbrir : undefined)}
         />
-      ) : estadoReplicar.fase === 'falla' ? <p className="gdg-error" role="alert">{estadoReplicar.error}</p> : null}
+      ) : estadoReplicar.fase === 'falla' ? (
+        <FallaReplicar clase="gdg-error" error={estadoReplicar.error} probar={urlPegada ? estadoReplicar.probar : null} deshabilitado={replicando} onProbar={replicar} />
+      ) : null}
       {menuReplicar && (
         <MenuFlotante ancla={menuReplicar} onCerrar={() => setMenuReplicar(null)} ancho={220} alinear="derecha">
           {FORMATOS_REPLICAR.map((f) => (

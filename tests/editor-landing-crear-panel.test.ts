@@ -294,7 +294,11 @@ test('Replicar: 3 formatos con su ícono, `{ url, formato, lectura?, texto? }`, 
   assert.match(src, /export const ICONO_FORMATO: Record<FormatoReplicar, string> = \{ presentacion: 'presentar', landing: 'paginas', web: 'globo' \};/);
   assert.match(src, /const cuerpo: PedidoReplicar = formato === 'web' \? \{ url, formato \} : \{ url, formato, \.\.\.extra \};/);
   assert.match(src, /postJson<RespuestaReplicar>\('\/api\/landing-generator\/replicar', cuerpo, PLAZO_IA_MS\)/);
-  assert.match(src, /setEstado\(\{ fase: 'falla', formato, error: f\.error, enNavegador: f\.enNavegador === true, pegable: f\.pegable === true \}\);/);
+  assert.match(src, /setEstado\(\{ fase: 'falla', formato, error: f\.error, enNavegador: f\.enNavegador === true, pegable: f\.pegable === true, probar: probar && probar !== formato \? probar : null \}\);/);
+  // Verificación de la tanda 6: si el server propone otro formato (`probar`, una app de Vite en «Página web»),
+  // la falla lo ofrece como botón, acá y en el Diagnóstico (L5 al pie).
+  assert.match(src, /<FallaReplicar\s+error=\{estado\.error\}\s+probar=\{pedida \? estado\.probar : null\}\s+onProbar=\{\(f\) => \{ if \(!pedida\) return; setFormato\(f\); empezar\(pedida, f\); \}\}/);
+  assert.match(src, /\{probar && \(\s*<button type="button" className="gp-btn gp-btn-contorno"[^>]*onClick=\{\(\) => onProbar\(probar\)\}>/);
   assert.match(src, /onLectura=\{\(lectura\) => void replicar\(pedida, estado\.formato, \{ lectura \}\)\}/);
   // Desde el link de la caja arranca solo, UNA vez (el ref sobrevive al doble montaje: replicar se paga).
   assert.match(src, /if \(arrancado\.current\) return;\s*arrancado\.current = true;/);
@@ -302,6 +306,7 @@ test('Replicar: 3 formatos con su ícono, `{ url, formato, lectura?, texto? }`, 
   assert.match(dg, /\{FORMATOS_REPLICAR\.map\(\(f\) => \(\s*<ItemMenu key=\{f\} icono=\{ICONO_FORMATO\[f\]\} texto=\{NOMBRE_FORMATO_REPLICAR\[f\]\} onClick=\{\(\) => replicar\(f\)\} \/>/);
   assert.doesNotMatch(dg, /'bloques'|'fiel'|Como bloques editables|Copia fiel/, 'volvió el pedido viejo de Replicar');
   assert.match(dg, /void pedirReplica\(urlPegada, formato, lectura && formato !== 'web' \? \{ lectura \} : \{\}\);/);
+  assert.match(dg, /<FallaReplicar clase="gdg-error" error=\{estadoReplicar\.error\} probar=\{urlPegada \? estadoReplicar\.probar : null\} deshabilitado=\{replicando\} onProbar=\{replicar\} \/>/);
 });
 
 test('el Diagnóstico: el lector cuando el server contesta enNavegador, y la página TAL CUAL a la vista y a Replicar', () => {
@@ -387,4 +392,8 @@ test('ni las pantallas nuevas ni las tocadas tienen voseo (el guard del repo no 
 //   L2 sinCierre le quita siempre el «)» final (la regex de antes)      → 16 / 2 «…el «)» de un link…», «linkEscrito…»
 //   L3 CajaCrear manda sólo el chip (sin `linkEscrito`)                 → 17 / 1 «la caja: el link va EN LUGAR…»
 //   L4 linkEscrito que nunca encuentra un link                          → 17 / 1 «linkEscrito…»
+// Restaurado: 18 / 0.
+// Y Replicar con `probar` (la misma verificación). Base: 18 / 0.
+//   H4 Replicar.tsx sin ofrecer el formato que propone el server       → 17 / 1 «Replicar: 3 formatos…»
+//   H5 el Diagnóstico sin ofrecerlo                                    → 17 / 1 «Replicar: 3 formatos…»
 // Restaurado: 18 / 0.

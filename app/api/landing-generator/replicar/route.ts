@@ -13,7 +13,8 @@
 //
 // Contesta `RespuestaReplicar` (lib/editor-landing/replicar-reglas.ts): `{ ok, id, titulo, secciones,
 // formato, aviso? }`, con el id de la landing NUEVA para abrirla en el editor; o la falla, que si la
-// página no se lee desde el server trae `pegable`, `enNavegador` y `motivo` (HTTP 422). El trabajo vive
+// página no se lee desde el server trae `pegable`, `enNavegador` y `motivo` (HTTP 422), y si el error
+// propone otro formato, `probar` (una app de Vite en «Página web» → «Landing», 422). El trabajo vive
 // en lib/editor-landing/replicar.ts; acá sólo la puerta.
 //
 // La puerta es la de todo /api/landing-generator: admin del workspace y la tab `landing-writer` en su
@@ -24,13 +25,13 @@
 import { getCapaActual, getRolWsEfectivo } from '@/lib/workspace';
 import { tabEnCapa } from '@/lib/capas';
 import { replicar } from '@/lib/editor-landing/replicar';
-import type { RespuestaReplicar } from '@/lib/editor-landing/replicar-reglas';
+import type { FormatoReplicar, RespuestaReplicar } from '@/lib/editor-landing/replicar-reglas';
 import type { SeLeeEnNavegador } from '@/lib/editor-landing/lectura-tipos';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
-const falla = (status: number, error: string, extra: Partial<SeLeeEnNavegador> = {}) =>
+const falla = (status: number, error: string, extra: Partial<SeLeeEnNavegador> & { probar?: FormatoReplicar } = {}) =>
   Response.json({ ok: false, error, ...extra } satisfies RespuestaReplicar, { status });
 
 export async function POST(req: Request) {
@@ -45,7 +46,14 @@ export async function POST(req: Request) {
 
   try {
     const r = await replicar({ url: body.url, formato: body.formato, modo: body.modo, lectura: body.lectura, texto: body.texto });
-    if (!r.ok) return falla(r.status ?? 400, r.error, r.enNavegador && r.motivo ? { pegable: true, enNavegador: true, motivo: r.motivo } : {});
+    // `probar` (verificación de la tanda 6): el formato que sí puede andar, si el error lo propone; la pantalla
+    // lo ofrece como botón («Replicar como Landing»).
+    if (!r.ok) {
+      return falla(r.status ?? 400, r.error, {
+        ...(r.enNavegador && r.motivo ? { pegable: true, enNavegador: true, motivo: r.motivo } : {}),
+        ...(r.probar ? { probar: r.probar } : {}),
+      });
+    }
     const { status: _s, ...cuerpo } = r;
     void _s;
     return Response.json(cuerpo satisfies RespuestaReplicar);

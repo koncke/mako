@@ -196,6 +196,18 @@ test('Replicar: el formato y la lectura llegan a replicar(), y la copia idéntic
   assert.doesNotMatch(rep, /buscarYCopiar|fuenteImagenes: 'stock'/);
 });
 
+// Verificación de la tanda 6 (15/10/2026): una app de Vite o Lovable en «Página web» contesta 422 con «Prueba el
+// formato «Landing».» y `probar: 'landing'`, que la pantalla ofrece como botón (tests/editor-landing-htmllibre.test.ts
+// prueba `copiaFiel`; tests/editor-landing-crear-panel.test.ts, la pantalla). PROBADO ROMPIÉNDOLO (15/10/2026),
+// base 12 / 0: replicar.ts sin pasar `copia.probar` → 11 / 1; la ruta sin reenviar `probar` → 11 / 1. Restaurado 12 / 0.
+test('Replicar «Página web»: el formato que sí anda (`probar`) llega del server a la pantalla, con 422', () => {
+  const rep = sinComentarios(leer('lib/editor-landing/replicar.ts'));
+  assert.match(rep, /if \(!copia\.ok\) return falla\(copia\.error, 422, copia\.probar\);/);
+  assert.match(rep, /const falla = \(error: string, status = 400, probar\?: FormatoReplicar\): ResultadoReplicar => \(\{ ok: false, error, status, \.\.\.\(probar \? \{ probar \} : \{\}\) \}\);/);
+  const ruta = sinComentarios(leer('app/api/landing-generator/replicar/route.ts'));
+  assert.match(ruta, /\.\.\.\(r\.probar \? \{ probar: r\.probar \} : \{\}\),/);
+});
+
 test('Diagnóstico: la lectura llega al análisis, y lo probado entra al meta como no confiable', () => {
   const ruta = sinComentarios(leer('app/api/landing-generator/diagnostico/route.ts'));
   assert.match(ruta, /analizar\(\{ docId: body\.docId, url: body\.url, texto: body\.texto, lectura: body\.lectura \}\)/);

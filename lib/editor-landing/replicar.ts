@@ -53,7 +53,7 @@ import { terminoTarjeta, type ConfigLanding, type Esquema, type TemaPropio } fro
 import { motivoDeError, seLeeEnNavegador } from './lectura-reglas';
 import {
   configDeReplica, contenidoDeCopiaFiel, copiaFiel, formatoReplicar, urlParaReplicar,
-  type ConfigReplica, type RespuestaReplicar,
+  type ConfigReplica, type FormatoReplicar, type RespuestaReplicar,
 } from './replicar-reglas';
 import { estiloDeLectura, temaDeEstilo, type EstiloOriginal } from './estilo-original';
 import { TOPES_IMAGENES_REPLICA, aplicarEstilo, asignarSecciones, imagenesParaSubir, imagenesQueFaltan } from './estilo-aplicar';
@@ -76,7 +76,8 @@ const MAX_TEXTO = 60_000;
  */
 const PLAZO_IMAGENES_MS = 265_000;
 
-const falla = (error: string, status = 400): ResultadoReplicar => ({ ok: false, error, status });
+/** `probar`: el formato que sí puede andar, cuando el error lo propone (la pantalla lo ofrece como botón). */
+const falla = (error: string, status = 400, probar?: FormatoReplicar): ResultadoReplicar => ({ ok: false, error, status, ...(probar ? { probar } : {}) });
 
 /**
  * Lo que llega del pedido, sin forma confiable. `formato` manda; sin él, el `modo` viejo (tanda 2).
@@ -114,12 +115,14 @@ async function replicarFiel(url: string, receta: ConfigReplica): Promise<Resulta
   } catch (e) {
     // Una página que nos rechaza se lee en el navegador de la persona, pero la copia idéntica necesita
     // su HTML: la salida es el formato que copia el texto.
-    if (motivoDeError(e)) return falla('Esta página no deja que MaKo la copie tal cual. Prueba el formato «Landing».', 422);
+    if (motivoDeError(e)) return falla('Esta página no deja que MaKo la copie tal cual. Prueba el formato «Landing».', 422, 'landing');
     // landing-fetch ya escribe el motivo para una persona («La página respondió 404…»).
     return falla(e instanceof Error ? e.message : 'No pude abrir esa página.', 502);
   }
   const copia = copiaFiel(html, url);
-  if (!copia.ok) return falla(copia.error, 422);
+  // `probar`: el formato que sí puede (una app de Vite o Lovable, un login, una página que no entra); la
+  // pantalla lo ofrece como botón.
+  if (!copia.ok) return falla(copia.error, 422, copia.probar);
   const creada = await crearLanding(copia.titulo, contenidoDeCopiaFiel(copia.documentos, copia.partida), receta.config);
   if ('ok' in creada) return creada;
   console.log(`[editor-landing/replicar] copia fiel de ${url} → #${creada.id} (${copia.documentos.length} sección(es))`);
