@@ -8231,6 +8231,11 @@ técnicas están en [docs/diseno-mako-mobile.md](docs/diseno-mako-mobile.md), lo
 - **Un link de escritorio que va al teléfono pasa por `rutaMovil`/`rutaMovilOHome`** (qué pantalla del teléfono es), y
   uno que SALE (un push) por `linkApp`, que lo devuelve como URL de escritorio — salvo al workspace de plataforma, que
   va sin `?ws=` (para un admin global es impersonación).
+- **Toda página de /m dibuja adentro de `<PantallaM>`, también su vacío y su error, y el refresco viene PRENDIDO**
+  (Martín, 15/10/2026: «eso debe estar presente en tooodos lados en mobile»). Era opt-in y el Centro de Operaciones nació
+  sin él. `refrescable={false}` sólo donde tirar hacia abajo es otra cosa (un chat), con su motivo en
+  `tests/movil-refrescar.test.ts`, que falla con una página nueva sin PantallaM. Y si el componente copia sus props a un
+  `useState`, refrescar anima y no trae nada: lo nuevo se suma (molde: `nuevasParaElMazo`, app/tickets/decisiones/reglas.ts).
 - **Primitivas de `app/m/_ui`** (el contrato en `app/m/_ui/LEEME.md`: ListaM, FilaM, FilaDatoM, SeccionM, SheetM,
   PieM, PieFijoM, SegmentadoM, InterruptorM, CasillaM, PildoraM, ComputadoraM, TarjetaDecision, useToastM…), nunca
   `Pagina`, `Modal`, `Tooltip` ni `.mk-btn--sm` (son de escritorio). Si dos pantallas dibujan la misma pieza, es una
