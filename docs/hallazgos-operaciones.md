@@ -219,9 +219,10 @@ tres de Progreso **no dependen del cartero ni de su token**: salen de lo que ya 
   producción): el commit, el estado, cuánto tardó y la cuenta del trailer `Claude-Cuenta`.
 - **No hay lista de commits por push**: el token de GitHub de la plataforma (la credencial `GITHUB_TOKEN`
   del ws 9, usuario `mbustos-digital`) contesta **404** en `hola-mako/dashboard-marketing` y también en
-  `mbustos-digital/dashboard-marketing` desde la transferencia del repo. Medido el 15/10. **Sin medir:**
-  `lib/cerrar-por-commits.ts` y `lib/github-commits.ts` usan ese token, y es probable que el cierre de
-  tareas del Plan por commits esté mudo desde ese día.
+  `mbustos-digital/dashboard-marketing` desde la transferencia del repo. Medido el 15/10. Y debajo del 404
+  había un segundo problema, que lo tapaba: el repo seguía cableado al owner viejo en tres lugares (lo
+  arregló otro chat en dcad6ddd2). El cierre de tareas del Plan por commits (`lib/cerrar-por-commits.ts`)
+  está mudo hasta que el token tenga acceso a `hola-mako/dashboard-marketing`.
 
 **La trampa: el diagnóstico obvio de «pendiente» estaba mal.** La primera regla era la natural, «la
 respuesta de un pedido es lo que le sigue en la bitácora hasta el pedido siguiente», y la pestaña decía
@@ -347,10 +348,14 @@ del cartero, antes de dibujar nada:
   acciones y el cartero no cambian; cambia la pantalla.
 - **Progreso con lo que está en la PC**: los chats abiertos y lo escrito sin subir llegan con el cartero
   (sube sus chats en cada vuelta); hoy Pedidos y Áreas sólo ven lo desplegado.
+  ⚠️ **Lo «sin subir» se cuenta con `git cherry`, no con «ahead N»:** el 15/10 el coordinador midió un clon
+  con 17 commits «por delante» de main y 16 ya estaban en main (copias de un rebase); uno solo era real.
+  Contado con `ahead`, la pantalla mostraría como pendiente trabajo que ya está subido.
 - **El push de cada pedido terminado**: con el token de GitHub, `compare/<commit>...<deploy>` los une a todos;
   hoy la fila dice «En producción» sin nombrarlo (por la hora acertaba 110 de 202; por la punta, 0 de 88).
-- **El token de GitHub de la plataforma (404 desde la transferencia)**: sin él no hay commits por push, y
-  hay que medir si el cierre por commits del Plan (`lib/cerrar-por-commits.ts`) está mudo.
+- **El token de GitHub de la plataforma (404 desde la transferencia)**: sin él no hay commits por push ni
+  cierre de tareas del Plan por commits. El repo cableado al owner viejo ya se arregló (dcad6ddd2); falta
+  que Martín le dé al token acceso a `hola-mako/dashboard-marketing`.
 - **Las cuentas de terminal**: el `/login` de cada una (lo hace Martín), su marcador por directorio y
   sus hooks, y un chat Cartero en cada una. Hasta entonces, sólo entrega el cartero de la app.
 - **La opción C** (un hook con `asyncRewake` en la carpeta del Cartero, que lo despierta sin gastar

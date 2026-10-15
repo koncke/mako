@@ -192,12 +192,20 @@ test('desde el 16/10, todo hito de TRABAJO de una bitácora dice qué sesión lo
   const desde = Date.parse('2026-10-16T03:00:00Z');
   const ahora = Date.now();
   const faltan: string[] = [];
+  // El rojo tiene que decir QUÉ arreglar y DÓNDE (el slug del registro no siempre es la carpeta): el archivo
+  // se busca por el título del hito.
+  const { readdirSync, readFileSync, existsSync } = await import('node:fs');
+  const archivos = readdirSync('app/admin/dev', { withFileTypes: true }).filter((d) => d.isDirectory())
+    .map((d) => `app/admin/dev/${d.name}/bitacora.ts`).filter((a) => existsSync(a)).map((a) => ({ a, src: readFileSync(a, 'utf8') }));
+  const dondeEsta = (titulo: string) => archivos.find((x) => x.src.includes(titulo))?.a ?? 'app/admin/dev/<área>/bitacora.ts';
   for (const slug of REGISTROS_SLUGS) {
     for (const h of registroDe(slug).bitacora) {
       const t = instanteHito(h.fecha, h.hora, ahora);
       // El pedido de Martín (`actor: 'martin'`) puede llegar por otro chat cuya sesión no se sabe: ahí no se exige.
-      if (t != null && t >= desde && h.actor !== 'martin' && !DESTINO_RE.test(h.sesion ?? '')) faltan.push(`${slug}: «${h.titulo}» (${h.fecha} ${h.hora})`);
+      if (t != null && t >= desde && h.actor !== 'martin' && !DESTINO_RE.test(h.sesion ?? '')) {
+        faltan.push(`${dondeEsta(h.titulo)} → el hito «${h.titulo}» (${h.fecha} ${h.hora}, chat «${h.chat}») no tiene «sesion»${h.sesion ? ` válida (dice «${h.sesion}»)` : ''}`);
+      }
     }
   }
-  assert.deepEqual(faltan, [], 'sumale `sesion` con el local_… de tu chat (echo $CLAUDE_CODE_HOST_SESSION_ID) a estos hitos');
+  assert.deepEqual(faltan, [], 'A cada hito de la lista sumale `sesion: "local_…"`, el id de la sesión de TU chat: lo da `echo $CLAUDE_CODE_HOST_SESSION_ID` (en una terminal, cli_ + $CLAUDE_CODE_SESSION_ID). El Centro junta cada hito con su chat por la sesión (AGENTS.md, el registro de /admin/dev).');
 });
