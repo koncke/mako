@@ -84,7 +84,13 @@ export type PedidoDiagnostico =
    * lectura sólo suma lo que se probó (a dónde lleva cada botón, si el calendario cargó).
    */
   | { accion: 'analizar'; docId?: number; url?: string; texto?: string; lectura?: Lectura }
-  | { accion: 'estado'; id: number; estado: EstadoSugerencia };
+  | { accion: 'estado'; id: number; estado: EstadoSugerencia }
+  /**
+   * Tanda 7: ¿el server puede leer esta página de afuera SOLO? Sin IA ni base: sólo para que la pantalla
+   * cierre temprano la ventana que abrió en el clic (lib/editor-landing/lector-navegador.ts). Contesta
+   * `{ ok: true, legible }`.
+   */
+  | { accion: 'probarLectura'; url: string };
 
 export type RespuestaListaDiagnostico = {
   ok: true;
@@ -98,12 +104,17 @@ export type RespuestaListaDiagnostico = {
 export type RespuestaDiagnostico =
   | RespuestaListaDiagnostico
   | { ok: true; sugerencia: Sugerencia }
+  /** {accion:'probarLectura'} (tanda 7): `legible` = el server la lee sin el navegador. */
+  | { ok: true; legible: boolean }
   /**
    * `pegable`: la página no se puede leer sola; pegando su texto sí se analiza. `enNavegador` y
    * `motivo` (tanda 6): y leyéndola en el navegador de la persona también (se arma con JavaScript, o
    * le contesta 401/403/429 a nuestro servidor).
    */
   | { ok: false; error: string; pegable?: boolean; enNavegador?: true; motivo?: MotivoEnNavegador };
+
+/** La ruta del Diagnóstico (app/api/landing-generator/diagnostico): `PedidoDiagnostico`. */
+export const RUTA_DIAGNOSTICO = '/api/landing-generator/diagnostico';
 
 /** La ruta del documento aislado de una landing de afuera (app/api/landing-generator/diagnostico/pagina). */
 export const RUTA_PAGINA_DIAGNOSTICO = '/api/landing-generator/diagnostico/pagina';

@@ -8,7 +8,11 @@
 //   { accion: 'analizar', docId | url, texto?, lectura? }  analiza, guarda lo nuevo y devuelve la lista entera
 //                                                  (`lectura`, tanda 6: la página de afuera leída en el
 //                                                  navegador de la persona; reemplaza la bajada);
-//   { accion: 'estado', id, estado }               pendiente / resuelta / descartada (nunca borra).
+//   { accion: 'estado', id, estado }               pendiente / resuelta / descartada (nunca borra);
+//   { accion: 'probarLectura', url }               tanda 7: ¿el server la lee SOLO? `{ ok, legible }`, sin IA ni
+//                                                  base. Lo usa la pantalla para cerrar temprano la ventana de
+//                                                  lectura que abrió en el clic; NO va a la API de MaKo (no es
+//                                                  una capacidad: el porqué, en diagnostico-server.ts).
 // El trabajo vive en lib/editor-landing/diagnostico-server.ts; acá sólo la puerta y el reparto.
 //
 // La puerta es la de todo /api/landing-generator: admin del workspace y la tab `landing-writer` en su
@@ -19,7 +23,7 @@
 
 import { getCapaActual, getRolWsEfectivo } from '@/lib/workspace';
 import { tabEnCapa } from '@/lib/capas';
-import { analizar, cambiarEstado, listar } from '@/lib/editor-landing/diagnostico-server';
+import { analizar, cambiarEstado, listar, probarLectura } from '@/lib/editor-landing/diagnostico-server';
 import type { RespuestaDiagnostico } from '@/lib/editor-landing/diagnostico';
 import type { MotivoEnNavegador } from '@/lib/editor-landing/lectura-tipos';
 
@@ -60,6 +64,8 @@ export async function POST(req: Request) {
       case 'listar': return responder(await listar({ docId: body.docId, url: body.url }));
       case 'analizar': return responder(await analizar({ docId: body.docId, url: body.url, texto: body.texto, lectura: body.lectura }));
       case 'estado': return responder(await cambiarEstado({ id: body.id, estado: body.estado }));
+      // Tanda 7: detrás del MISMO corte de rol y de capa de arriba (baja una URL que manda el navegador).
+      case 'probarLectura': return responder(await probarLectura({ url: body.url }));
       default: return falla(400, 'Acción desconocida');
     }
   } catch (err) {

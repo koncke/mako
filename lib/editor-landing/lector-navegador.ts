@@ -18,9 +18,29 @@
 //
 // ⚠️ SE LLAMA DIRECTO EN EL `onClick`, SIN NINGÚN `await` ANTES: si no, el navegador bloquea la ventana
 //    aunque la persona tenga las emergentes habilitadas, y el aviso le diría algo falso.
+//
+// TANDA 7 (15/10/2026). Martín, textual: «Si no pudo leer la landing, no me debe saltar el botón de "MaKo no
+// pudo leerla sola" y las opciones de leer en tu navegador... Por defecto si no pudo de una manera que vaya
+// directo a abrir la ventana emergente y a analizar la landing...».
+// POR QUÉ HABÍA UN SEGUNDO BOTÓN: Chrome sólo deja abrir una ventana DENTRO del gesto de la persona (la
+// «activación transitoria» del clic; `window.open` la consume, y un `await` largo la pierde). El orden era
+// server → ventana: el clic de Analizar o Replicar mandaba el pedido, el server tardaba en contestar
+// `enNavegador`, y para entonces el clic ya no servía para abrir nada; la única forma de abrir era OTRO
+// clic, el de «Leer en tu navegador». La restricción es real; el segundo botón era su consecuencia.
+// Ahora el orden es ventana → server: la ventana se abre EN EL CLIC que pide Analizar o Replicar
+// (`abrirEnElClic`), sin saber todavía si hace falta, y `pedirConVentana` decide con lo que llega:
+//   · una prueba rápida del server, sin IA (`probarLecturaEnServer` → {accion:'probarLectura'}), corre al lado
+//     del pedido; si el server SÍ la puede leer, la ventana se cierra enseguida (el parpadeo, aceptado);
+//   · si el pedido contesta `enNavegador` y la ventana sigue abierta, se lee en ESA ventana y el pedido se
+//     repite con la `lectura`, sin ningún clic. Sin texto, recién ahí «Pega el texto»;
+//   · bloqueada, cerrada por la persona o por la prueba: la salida de siempre (LeerOPegar, con su botón).
+// Los arranques AUTOMÁTICOS (el Diagnóstico y Replicar que arrancan solos al montarse) no tienen clic: el
+// clic fue antes, en el ↑ de la caja. Ése abre la ventana y la deja en un casillero de este módulo
+// (`reservarVentanaLectura`), y el efecto que arranca la toma (`tomarVentanaReservada`): misma URL, una vez,
+// y vence a los `VENCE_RESERVA_MS` (cerrándola).
 // =============================================================================
 
-import { RUTA_PAGINA_DIAGNOSTICO } from './diagnostico';
+import { RUTA_DIAGNOSTICO, RUTA_PAGINA_DIAGNOSTICO } from './diagnostico';
 import { urlParaReplicar } from './replicar-reglas';
 import { conWs, wsDeBusqueda } from '../ws-tab';
 import {
@@ -46,6 +66,11 @@ export type OpcionesLectura = {
   ws?: number | null;
   /** Cómo se pide la firma del server (por defecto, `pedirFirmaLectura`). Lo cambian los tests. */
   firmar?: (url: string, id: string, ws: number | null) => Promise<string | null>;
+  /**
+   * Una ventana YA ABIERTA en el clic (tanda 7: `abrirEnElClic` o la reservada). Con ella no se abre otra:
+   * se lee en ésa, con el mismo protocolo y la misma firma.
+   */
+  ventana?: Window;
 };
 
 /** Hasta que la página saluda (cargar una app lenta incluido). */
@@ -107,15 +132,36 @@ export function abrirVentanaLectura(): Window | null {
   }
 }
 
-/** Lo que se ve en la ventana mientras carga la página (es nuestra todavía: about:blank del mismo origen). */
+/** Lo que dice la ventana mientras espera (corto: es lo que se dibuja). */
+export const TEXTO_ESPERA_VENTANA = 'Leyendo la página…';
+
+/**
+ * Lo que se ve en la ventana mientras carga la página (es nuestra todavía: about:blank del mismo origen).
+ * Con el GIRO de la casa (`.gp-giro`, CSS_GP de MiniaturaLanding.tsx, copiado: esta ventana no tiene
+ * nuestras hojas): un «Leyendo…» escrito no dice que algo pasa (AGENTS.md, «un "Cargando…" escrito no es
+ * un loader»). Tanda 7: con la ventana abierta en el clic, esto es lo que se ve hasta que el server
+ * contesta (unos segundos), no sólo mientras carga la página.
+ */
 function pintarEspera(v: Window): void {
   try {
-    v.document.title = 'MaKo';
-    const b = v.document.body;
+    const d = v.document;
+    d.title = 'MaKo';
+    const b = d.body;
     if (!b) return;
     b.style.cssText = 'margin:0;height:100vh;display:grid;place-items:center;font:15px/1.5 system-ui,sans-serif;color:#6b6b72;background:#f7f7f8';
-    b.textContent = 'Leyendo la página…';
-  } catch { /* si no se puede, la ventana queda en blanco hasta que carga */ }
+    const estilo = d.createElement('style');
+    estilo.textContent = '@keyframes mk-gira{to{transform:rotate(360deg)}}.mk-giro{display:inline-block;width:16px;height:16px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;animation:mk-gira .7s linear infinite}';
+    const fila = d.createElement('div');
+    fila.style.cssText = 'display:flex;align-items:center;gap:10px';
+    const giro = d.createElement('span');
+    giro.className = 'mk-giro';
+    giro.setAttribute('aria-hidden', 'true');
+    fila.append(giro, d.createTextNode(TEXTO_ESPERA_VENTANA));
+    b.replaceChildren(estilo, fila);
+  } catch {
+    // Sin DOM (o sin `replaceChildren`): al menos el texto.
+    try { v.document.body.textContent = TEXTO_ESPERA_VENTANA; } catch { /* queda en blanco hasta que carga */ }
+  }
 }
 
 /**
@@ -126,10 +172,18 @@ function pintarEspera(v: Window): void {
  */
 export function leerEnNavegador(url: string, opciones: OpcionesLectura = {}): Promise<ResultadoLectura> {
   const pedida = urlParaReplicar(url);
-  if (!pedida) return Promise.resolve(falla('url'));
-  const ventana = abrirVentanaLectura();
+  // Tanda 7: la ventana que ya se abrió en el clic (`opciones.ventana`) es NUESTRA y está viva: no se abre
+  // otra, no se repinta, y no se espera el «se cierra al instante» (eso ya pasó cuando se abrió). Si la
+  // cerraron, es `cerrada`, nunca `bloqueadas`: el navegador SÍ la dejó abrir.
+  const dada = opciones.ventana ?? null;
+  if (!pedida) {
+    if (dada) cerrarVentana(dada);
+    return Promise.resolve(falla('url'));
+  }
+  if (dada?.closed) return Promise.resolve(falla('cerrada'));
+  const ventana = dada ?? abrirVentanaLectura();
   if (!ventana) return Promise.resolve(falla('bloqueadas'));
-  pintarEspera(ventana);
+  if (!dada) pintarEspera(ventana);
   const id = nuevoIdLectura();
   const propio = window.location.origin;
   const ws = opciones.ws !== undefined ? opciones.ws : wsDeBusqueda(window.location.search);
@@ -176,15 +230,16 @@ export function leerEnNavegador(url: string, opciones: OpcionesLectura = {}): Pr
     window.addEventListener('message', alMensaje);
 
     reloj = setInterval(() => {
-      if (ventana.closed) { terminar(falla(arranque === undefined ? 'cerrada' : 'bloqueadas')); return; }
+      if (ventana.closed) { terminar(falla(arranque === undefined || dada ? 'cerrada' : 'bloqueadas')); return; }
       if (Date.now() > limite) terminar(falla('tiempo', saludo ? 'La página tardó demasiado' : MENSAJE_SIN_LECTURA.tiempo));
     }, 300);
 
     // «Se cierra al instante»: si un bloqueador dejó abrir y la cerró, no se navega a nada. Si sigue
-    // abierta, la firma del server y recién ahí la dirección (sin firma, la ruta no sirve nada).
+    // abierta, la firma del server y recién ahí la dirección (sin firma, la ruta no sirve nada). Con una
+    // ventana dada (tanda 7) no hay nada que esperar: ya lleva abierta lo que tardó el server.
     arranque = setTimeout(() => {
       arranque = undefined;
-      if (ventana.closed) { terminar(falla('bloqueadas')); return; }
+      if (ventana.closed) { terminar(falla(dada ? 'cerrada' : 'bloqueadas')); return; }
       if (!idLecturaValido(id)) { terminar(falla('error')); return; }
       void (opciones.firmar ?? pedirFirmaLectura)(pedida, id, ws).catch(() => null).then((firma) => {
         if (listo) return;
@@ -195,6 +250,163 @@ export function leerEnNavegador(url: string, opciones: OpcionesLectura = {}): Pr
           terminar(falla('error'));
         }
       });
-    }, ESPERA_CIERRE_MS);
+    }, dada ? 0 : ESPERA_CIERRE_MS);
   });
+}
+
+/** Cierra una ventana nuestra, si sigue abierta (nunca tira: puede ya no ser nuestra). */
+export function cerrarVentana(v: Window | null | undefined): void {
+  try { if (v && !v.closed) v.close(); } catch { /* ya no es nuestra */ }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tanda 7: la ventana EN EL CLIC que pide Analizar o Replicar (ver la cabecera)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Lo que dejó el clic: la ventana abierta y pintada, o 'bloqueada' (el navegador no la dejó abrir). */
+export type VentanaDelClic = Window | 'bloqueada';
+
+/**
+ * Abre la ventana de lectura EN EL CLIC, sin saber todavía si va a hacer falta. ⚠️ Se llama directo en el
+ * handler, ANTES de cualquier `await` (y de cualquier `setState` que la pantalla quiera hacer): el clic
+ * es lo único que la deja abrir. Lo que sigue (`pedirConVentana`) la cierra si el server sí puede leer.
+ */
+export function abrirEnElClic(): VentanaDelClic {
+  const v = abrirVentanaLectura();
+  if (!v) return 'bloqueada';
+  pintarEspera(v);
+  return v;
+}
+
+/** Cuánto espera una ventana reservada a que la tome el arranque automático (después, se cierra). */
+export const VENCE_RESERVA_MS = 15_000;
+
+/** EL casillero: una sola reserva a la vez (otro clic la reemplaza y cierra la anterior). */
+let reserva: { url: string; ventana: VentanaDelClic; reloj: ReturnType<typeof setTimeout> } | null = null;
+
+/** Suelta la reserva que haya: la cierra si sigue abierta (si `url`, sólo si es de esa página). */
+export function soltarVentanaReservada(url?: string): void {
+  const r = reserva;
+  if (!r || (url !== undefined && urlParaReplicar(url) !== r.url)) return;
+  reserva = null;
+  clearTimeout(r.reloj);
+  if (r.ventana !== 'bloqueada') cerrarVentana(r.ventana);
+}
+
+/**
+ * En el CLIC de una acción cuya pantalla va a arrancar SOLA al montarse (el ↑ de la caja con «Analiza esta
+ * landing» o «Replica esta landing», el «Ir a» del buscador): abre la ventana (`abrirEnElClic`) y la deja en
+ * el casillero para `tomarVentanaReservada`. Una URL que no es una dirección no reserva nada.
+ */
+export function reservarVentanaLectura(url: string, o: { venceMs?: number } = {}): VentanaDelClic | null {
+  const pedida = urlParaReplicar(url);
+  if (!pedida) return null;
+  // Primero la ventana (el gesto), después el casillero: soltar la anterior no consume nada.
+  const ventana = abrirEnElClic();
+  soltarVentanaReservada();
+  const reloj = setTimeout(() => { if (reserva?.reloj === reloj) soltarVentanaReservada(); }, o.venceMs ?? VENCE_RESERVA_MS);
+  reserva = { url: pedida, ventana, reloj };
+  return ventana;
+}
+
+/**
+ * El arranque automático toma la ventana que reservó el clic: la MISMA página, UNA vez (la segunda vez,
+ * null), y si ya la cerraron no se usa (null: el camino de siempre). 'bloqueada' si el navegador no la
+ * dejó abrir en el clic (la pantalla avisa sólo si después hace falta).
+ */
+export function tomarVentanaReservada(url: string): VentanaDelClic | null {
+  const r = reserva;
+  const pedida = urlParaReplicar(url);
+  if (!r || !pedida || r.url !== pedida) return null;
+  reserva = null;
+  clearTimeout(r.reloj);
+  if (r.ventana === 'bloqueada') return 'bloqueada';
+  return r.ventana.closed ? null : r.ventana;
+}
+
+/**
+ * La prueba rápida del server, sin IA (tanda 7): ¿puede leer esta página SOLO? Un POST a la ruta del
+ * Diagnóstico ({accion:'probarLectura'}, lib/editor-landing/diagnostico-server.ts: la MISMA regla que
+ * Replicar, `motivoDePagina`). Sirve sólo para CERRAR temprano la ventana abierta en el clic; cualquier
+ * falla es `false` (la ventana queda, y decide el pedido de siempre).
+ */
+export async function probarLecturaEnServer(url: string, ws: number | null = wsDeBusqueda(window.location.search)): Promise<boolean> {
+  try {
+    const r = await fetch(conWs(RUTA_DIAGNOSTICO, ws), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accion: 'probarLectura', url }),
+      cache: 'no-store',
+    });
+    const j = (await r.json().catch(() => null)) as { ok?: boolean; legible?: unknown } | null;
+    return r.ok && j?.ok === true && j.legible === true;
+  } catch {
+    return false;
+  }
+}
+
+/** Por qué no se leyó SIN clic, cuando el server pidió el navegador. `vacia`: se leyó y no tenía texto. */
+export type SalidaSinLectura = { motivo: MotivoSinLectura | 'vacia'; mensaje: string };
+
+export type PedidoConVentana<R> = {
+  /** La página TAL CUAL la pegó la persona. */
+  url: string;
+  /** Lo que dejó el clic (`abrirEnElClic`, `tomarVentanaReservada`), o null si no hubo ventana. */
+  ventana: VentanaDelClic | null;
+  /** El pedido de siempre (Analizar, Replicar); con `lectura`, la segunda vuelta. Nunca tira. */
+  pedir: (lectura?: LecturaDelServer) => Promise<R>;
+  /** ¿El server contestó que la página se lee en el navegador (`enNavegador`)? */
+  pideNavegador: (r: R) => boolean;
+  /** La prueba rápida (por defecto, `probarLecturaEnServer`). Lo cambian los tests. */
+  probar?: (url: string) => Promise<boolean>;
+  /** Empieza la lectura en la ventana: la pantalla pasa a «Leyendo la página…». */
+  alLeer?: () => void;
+  /** ¿Sigue la pantalla? Si no, no se lee ni se repite el pedido (la segunda vuelta paga IA). */
+  sigue?: () => boolean;
+  /** Para `leerEnNavegador` (el camino, el tope, el workspace, la firma de los tests). */
+  lectura?: Omit<OpcionesLectura, 'ventana'>;
+};
+
+export type ResultadoConVentana<R> = {
+  /** El resultado que vale: el de la segunda vuelta, si se leyó en el navegador. */
+  r: R;
+  /** La lectura del navegador que se usó (el Diagnóstico la reusa para Replicar), o null. */
+  lectura: LecturaDelServer | null;
+  /** El server pidió el navegador y no se leyó sin clic (null también si nunca hubo ventana o ya estaba cerrada). */
+  sinLectura: SalidaSinLectura | null;
+};
+
+/**
+ * El pedido de Analizar o Replicar con la ventana abierta en el clic (ver la cabecera). En orden:
+ *   1. al lado del pedido, la prueba rápida: si el server SÍ puede leer, la ventana se cierra ya;
+ *   2. con la respuesta: si no pide el navegador, se cierra la ventana (si quedó) y listo;
+ *   3. si lo pide y la ventana sigue viva, se lee en ESA ventana y el pedido se repite con la lectura,
+ *      sin ningún clic. Sin texto (0 palabras), `vacia`: recién ahí se pega;
+ *   4. bloqueada → `bloqueadas` (el aviso con la flecha). Cerrada antes de leer → `sinLectura` null (la
+ *      salida de siempre, con su botón).
+ * Nunca tira, y la ventana nunca queda abierta al terminar.
+ */
+export async function pedirConVentana<R>(o: PedidoConVentana<R>): Promise<ResultadoConVentana<R>> {
+  const ventana = o.ventana && o.ventana !== 'bloqueada' ? o.ventana : null;
+  let enUso = false;
+  const soltar = () => { if (!enUso) cerrarVentana(ventana); };
+  try {
+    if (ventana && !ventana.closed) {
+      void (o.probar ?? probarLecturaEnServer)(o.url).then((legible) => { if (legible) soltar(); }, () => {});
+    }
+    const r = await o.pedir();
+    if (!o.pideNavegador(r)) return { r, lectura: null, sinLectura: null };
+    if (o.ventana === 'bloqueada') return { r, lectura: null, sinLectura: { motivo: 'bloqueadas', mensaje: MENSAJE_SIN_LECTURA.bloqueadas } };
+    if (!ventana || ventana.closed || (o.sigue && !o.sigue())) return { r, lectura: null, sinLectura: null };
+    enUso = true;
+    o.alLeer?.();
+    const l = await leerEnNavegador(o.url, { ...o.lectura, ventana });
+    if (!l.ok) return { r, lectura: null, sinLectura: { motivo: l.motivo, mensaje: l.mensaje } };
+    if (l.detalle.palabras === 0) return { r, lectura: null, sinLectura: { motivo: 'vacia', mensaje: 'La página no mostró texto' } };
+    if (o.sigue && !o.sigue()) return { r, lectura: null, sinLectura: null };
+    return { r: await o.pedir(l.lectura), lectura: l.lectura, sinLectura: null };
+  } finally {
+    enUso = false;
+    soltar();
+  }
 }

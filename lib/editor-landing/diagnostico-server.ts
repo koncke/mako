@@ -33,8 +33,10 @@ import { leerTodo } from '../supabase-paginado';
 import { analizarCopy, analizarLanding, getComportamiento, type LandingComportamiento } from '../landing-analyst';
 import { errorDeCascada } from '../ai-cheap';
 import { normalizarUrl } from '../landing-url';
+import { extraerLanding } from '../landing-fetch';
 import { abrir } from './server';
-import { sanearLectura } from './lectura-reglas';
+import { motivoDePagina, sanearLectura } from './lectura-reglas';
+import { urlParaReplicar } from './replicar-reglas';
 import type { Lectura, MotivoEnNavegador } from './lectura-tipos';
 import {
   TOPES_DIAGNOSTICO, claveSugerencia, estadoValido, normalizarHallazgos,
@@ -299,6 +301,36 @@ async function analizarDeAfuera(ws: number, obj: { url: string }, entrada: { tex
     };
   } catch (e) {
     return falla(msg(e), 500);
+  }
+}
+
+/**
+ * POST {accion:'probarLectura'} (tanda 7): ¿el server puede leer esta página de afuera SOLO, sin el navegador?
+ *
+ * Martín (15/10/2026): «Si no pudo leer la landing, no me debe saltar el botón de "MaKo no pudo leerla sola"...
+ * Por defecto si no pudo de una manera que vaya directo a abrir la ventana emergente y a analizar la landing».
+ * La pantalla abre la ventana de lectura EN EL CLIC (el único momento en que Chrome la deja abrir) sin saber
+ * si va a hacer falta, y esto corre AL LADO del pedido de siempre: si contesta `legible`, la cierra enseguida
+ * en vez de dejarla abierta los 1-3 minutos que piensa la IA (lib/editor-landing/lector-navegador.ts,
+ * `pedirConVentana`). No decide nada más: si la prueba se equivoca, decide la respuesta del pedido.
+ *
+ * Es la MISMA regla que Replicar (`pedirEsquema` en modo importar, ia.ts): la página bajada TAL CUAL y
+ * `motivoDePagina` (lectura-reglas.ts), no una copia. Un error de bajada (404, DNS, un 403 de un antibots)
+ * es `legible: false`: la ventana queda y el pedido dice qué pasó. Sin IA, sin base y sin escribir nada
+ * (tampoco la fila de fallo que `analizarLanding` guarda en landing_analyses): es una pregunta.
+ *
+ * ⚠️ NO ESTÁ EN LA API DE MaKo (lib/api-mako), a propósito: no es una capacidad que un agente pueda pedir
+ *    («leé esta landing» ya es `analizar`/`replicar_landing`), es un paso interno de la PANTALLA para
+ *    manejar SU ventana. Un agente no tiene ventana que cerrar, y exponerla sería dar un «bajame esta URL»
+ *    suelto. La puerta es la de la ruta (admin del workspace + la tab en su capa), arriba del switch.
+ */
+export async function probarLectura(p: { url?: unknown }): Promise<{ ok: true; legible: boolean } | FallaDiagnostico> {
+  const url = urlParaReplicar(p.url);
+  if (!url) return falla('Revisa el enlace.');
+  try {
+    return { ok: true, legible: motivoDePagina(await extraerLanding(url, { talCual: true })) === null };
+  } catch {
+    return { ok: true, legible: false };
   }
 }
 
