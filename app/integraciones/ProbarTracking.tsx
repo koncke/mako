@@ -19,7 +19,7 @@ import { Button, Input, Select } from '@/app/_ui';
 import { IconBtn } from './ServicioConfigForm';
 import { Icon } from '@/app/_components/icons';
 import { IconoBorrar } from '@/app/_ui/BotonBorrar';
-import { mismaPagina } from '@/lib/landing-paginas';
+import { mismaPagina, urlParaAbrir } from '@/lib/landing-paginas';
 import type { VideoLanding } from '@/lib/landing-videos';
 import { NombrarVideos, type VideoDetectado } from './NombrarVideos';
 import { borrarPaginaAction, getPaginasAction, guardarPaginaAction } from './landing-actions';
@@ -187,6 +187,9 @@ export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?:
   const [ocultas, setOcultas] = useState<string[]>([]);        // las que sacó de la lista a mano
   const [editando, setEditando] = useState<string | null>(null); // la que se está corrigiendo
   const [errPagina, setErrPagina] = useState<string | null>(null);
+  // La dirección con la que «Probar» no abrió nada porque no es una página web (`urlParaAbrir`). Se guarda
+  // la dirección y no un booleano: el aviso se va solo apenas la persona la corrige o elige otra.
+  const [noAbre, setNoAbre] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState(false);
   // Mientras se resuelve el lead PRUEBA con el que se mira la grabación. Va
   // aparte de `ocupado` —que es el de editar la lista de páginas— porque son
@@ -425,6 +428,15 @@ export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?:
     // que la persona vino de ahí y apretó Siguiente, con o sin contestar.
     const vaAVideos = paso !== 'videos' && sinNombre.length > 0;
 
+    // ⚠️ SEGURIDAD: LA PESTAÑA DE LA LANDING ES DEL MISMO ORIGEN QUE MaKo (verificación de la tanda 6). Se abre
+    // como `about:blank` (abajo), y navegarla con lo escrito tal cual corría un `javascript:…` con el origen de
+    // hola-mako.com: el chequeo del botón (`urlValida`) sólo pide un punto. Se valida ANTES de abrir nada, en
+    // el mismo clic (es sincrónico: no gasta el gesto): sólo http(s), y la pestaña navega con `destino`, lo
+    // validado. Si no es una página, no se abre ninguna ventana y se dice debajo de «Probar».
+    const destino = urlParaAbrir(url);
+    if (!destino) { setNoAbre(url); return; }
+    setNoAbre(null);
+
     // ⚠️ LA VENTANA DE LA PRUEBA SE ABRE EN EL CLIC, ANTES DE CUALQUIER `await` (tanda 6, 14/10/2026). Pedido
     // de Martín: «previo a abrir la página, es muy importante que si el usuario no tiene la opción de
     // "habilitar ventanas emergentes" de Chrome, no continue, no abra la página, sino que indique dentro de
@@ -493,10 +505,11 @@ export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?:
     // de otra gente que esté en la página en este momento.
     const id = `p${Math.random().toString(36).slice(2, 10)}`;
     setPrueba(id);
-    const sep = u.includes('?') ? '&' : '?';
     // El hash va SIEMPRE al final: `pagina.com/#registro?mko_test=x` deja el
-    // parámetro adentro del hash y `location.search` no lo ve nunca.
-    const [base, hash] = u.split('#');
+    // parámetro adentro del hash y `location.search` no lo ve nunca. Sobre
+    // `destino` (lo validado), no sobre lo escrito: ver la SEGURIDAD de arriba.
+    const [base, hash] = destino.split('#');
+    const sep = base.includes('?') ? '&' : '?';
     // ⚠️ LA VENTANA DE MaKo VA PRIMERO, Y SI NO ABRE NO HAY PRUEBA (se abrió en el
     // clic, arriba; acá navega a la prueba).
     //
@@ -754,6 +767,9 @@ export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?:
             depende de que la persona se acuerde de abrirla, la prueba no arranca. */}
         <div style={{ marginTop: 14 }}>
           <Button variant="primary" onClick={() => void arrancar()} loading={ocupado} disabled={!urlValida} style={{ width: '100%' }}>Probar</Button>
+          {noAbre !== null && noAbre === url && (
+            <div role="alert" style={{ marginTop: 7, fontSize: 12.5, color: 'var(--bad)' }}>Esa dirección no es una página web.</div>
+          )}
         </div>
 
         {avisoViejo}

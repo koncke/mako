@@ -768,7 +768,9 @@ test('el probador muestra SOLO los eventos de esta prueba', () => {
   // ⚠️ El hash va SIEMPRE al final: `pagina.com/#registro?mko_test=x` deja el
   // parámetro DENTRO del hash y `location.search` no lo ve nunca — y esa landing
   // es justamente la que se prueba con `#registro`.
-  assert.ok(/const \[base, hash\] = u\.split\('#'\)/.test(panel), 'con un ancla en la URL el parámetro quedaría adentro del hash');
+  // Verificación de la tanda 6 (15/10/2026): sobre `destino`, la dirección ya validada (`urlParaAbrir`,
+  // tests/landing-paginas.test.ts), y el separador se mira ANTES del hash (`x.com/#a?b` llevaba `&`).
+  assert.ok(/const \[base, hash\] = destino\.split\('#'\);\s*const sep = base\.includes\('\?'\)/.test(panel), 'con un ancla en la URL el parámetro quedaría adentro del hash');
   // Y el marcador viaja en CADA consulta, incluida la del intervalo: pasar
   // `traer` directo a setInterval le entrega el contador del timer como primer
   // argumento, y el filtro se perdía a los 3 segundos.
