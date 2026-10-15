@@ -22,6 +22,7 @@ import { runInNewContext } from 'node:vm';
 import {
   JS_ABRIR_PARA_VER, MOTIVO_ANTES_DE_APLICAR, SCRIPT_DIAGNOSTICO, TOPES_DIAGNOSTICO,
   claveChatDeComentario, contextoDeComentario, docAplicado, gruposParaAplicar, idsParaAplicar, instruccionDeSugerencia,
+  originalesAResolver,
   instruccionDeSugerencias, pilaTrasAplicar, pilaTrasDeshacer, sePuedeDeshacer, type Aplicacion, type Sugerencia,
 } from '../lib/editor-landing/diagnostico';
 import { porId } from '../lib/api-mako/registro';
@@ -318,7 +319,7 @@ test('de afuera, «Aplicar» replica como Landing y lo que se aplica en la copia
   const afuera = panel.slice(panel.indexOf('const aplicarAfuera = useCallback('), panel.indexOf('const aplicar = useCallback('));
   assert.match(afuera, /if \(copia != null\) \{ setAbriendoCopia\(true\); void pasarYAbrir\(\{ id: copia, titulo: '' \}\); return; \}\s*const lectura = ultimaLectura\.current;\s*void pedirReplica\(/);
   assert.match(panel, /function PanelInterno\(\{ docId, url, copia = null, onCerrar, onAnalizada \}: Props\)/);
-  assert.match(panel, /pedirAplicar\(\{ accion: 'pasar', url: urlPegada, docId: id \}\)/);
+  assert.match(panel, /pedirAplicar\(\{ accion: 'pasar', url: urlPegada, docId: id, \.\.\.\(que \? \{ resolver: que \} : \{\}\) \}\)/);
   assert.match(panel, /irDuro\(`\/web-generator\?diagnostico=\$\{id\}`, ws\)/);
   assert.match(panel, /sessionStorage\.setItem\(CLAVE_UNA_VEZ/);
   assert.match(panel, /sessionStorage\.removeItem\(CLAVE_UNA_VEZ\)/, 'se consume al usarlo');
@@ -432,3 +433,52 @@ test('la lista de la API: con id, los pendientes primero por severidad, y sólo 
 //   Y1 docAplicado devuelve la releída siempre (lo de antes)          → 21 / 1 ««Aplicar» devuelve la versión…»
 //   Y2 diagnostico-aplicar.ts sin docAplicado (la relectura directa)  → 21 / 1 ««Aplicar» devuelve la versión…»
 // Restaurado: 22 / 0.
+
+// ── TANDA 7 (15/10/2026): «APLICAR» DE AFUERA DEJA EL ORIGINAL RESUELTO ─────────────────────────────────
+// Lo decidió el orquestador con criterio, por Martín: «"Aplicar" un comentario de una landing de AFUERA deja
+// el comentario original RESUELTO». El trabajo pasa a la copia (ahí se aplica); el de afuera no puede quedar
+// pendiente para siempre. Su referencia a la copia: `mapa` + `docId` del pase, y en la pantalla «Ver en tu
+// copia» (la copia que conoce el Panel). PROBADO ROMPIÉNDOLO (arnés que restaura de memoria y compara el
+// sha256). Base: 25 / 0.
+//   Z1 originalesAResolver resuelve también los que no se pidieron              → 24 / 1 «qué originales…»
+//   Z2 originalesAResolver resuelve uno que no llegó a la copia (sin mapa)       → 24 / 1 «qué originales…»
+//   Z3 originalesAResolver pisa uno descartado                                   → 24 / 1 «qué originales…»
+//   Z4 pasarACopia marca resueltos ANTES de copiar (la copia los recibiría resueltos) → 24 / 1 «el pase marca…»
+//   Z5 pasarACopia sin el compare-and-set sobre 'pendiente'                      → 24 / 1 «el pase marca…»
+//   Z6 la ruta no le pasa `resolver` al server                                  → 24 / 1 «el pase marca…»
+//   Z7 el Panel no manda `resolver` (el original queda pendiente)                → 24 / 1 «de afuera, «Aplicar» replica…»
+//   Z8 «Ver en tu copia» también en una landing nuestra                          → 24 / 1 «un resuelto de afuera…»
+// Restaurado: 25 / 0.
+
+test('qué originales de afuera quedan resueltos: los pedidos, pendientes y que llegaron a la copia', () => {
+  const afuera = [sug(1, null), sug(2, null), sug(3, null, 'descartada'), sug(4, null), sug(5, null, 'resuelta')];
+  const mapa = { 1: 101, 2: 102, 3: 103, 5: 105 };   // el 4 no llegó a la copia
+  assert.deepEqual(originalesAResolver([2], afuera, mapa), [2], 'sólo el que se mandó a aplicar');
+  assert.deepEqual(originalesAResolver('todos', afuera, mapa), [1, 2], '«Aplicar todos»: los pendientes que pasaron');
+  assert.deepEqual(originalesAResolver([4], afuera, mapa), [], 'sin su par en la copia no se resuelve');
+  assert.deepEqual(originalesAResolver([3, 5], afuera, mapa), [], 'uno descartado o ya resuelto no se toca');
+  for (const nada of [undefined, null, [], 'algunos', [0], ['x'], {}]) assert.deepEqual(originalesAResolver(nada, afuera, mapa), [], String(nada));
+});
+
+test('el pase marca los originales DESPUÉS de copiarlos, con compare-and-set, y la ruta le pasa el pedido', () => {
+  const src = sinComentarios(leer(SERVER));
+  const pasar = src.slice(src.indexOf('export async function pasarACopia'), src.indexOf('export type ComentarioConLanding'));
+  assert.ok(pasar.length > 500, 'existe pasarACopia');
+  const iCopia = pasar.indexOf('.upsert(filas,');
+  const iCual = pasar.indexOf('originalesAResolver(p.resolver, afuera.sugerencias, mapa)');
+  const iMarca = pasar.indexOf(".update({ estado: 'resuelta'");
+  assert.ok(iCopia > 0 && iCual > iCopia && iMarca > iCual, 'primero se copian (pendientes: la copia los aplica), después se resuelven afuera');
+  assert.match(pasar.slice(iMarca, iMarca + 300), /\.eq\('workspace_id', ws\)\.eq\('url', de\.url\)\.eq\('estado', 'pendiente'\)\.in\('id', aResolver\)/);
+  assert.match(pasar, /return \{ ok: true, sugerencias: lista\.sugerencias, mapa, pasadas, resueltas \};/);
+  const ruta = sinComentarios(leer(RUTA));
+  assert.match(ruta, /pasarACopia\(\{ url: body\.url, docId: body\.docId, resolver: body\.resolver \}\)/);
+});
+
+test('un resuelto de afuera con copia lleva «Ver en tu copia»; una nuestra, no', () => {
+  const panel = sinComentarios(leer(PANEL));
+  const fila = sinComentarios(leer(COMENTARIO));
+  assert.match(panel, /onVerCopia=\{!deNuestra && copia != null && s\.estado === 'resuelta' \? \(\) => irDuro\(`\/web-generator\?diagnostico=\$\{copia\}`, ws\) : undefined\}/);
+  assert.match(fila, /\{onVerCopia && \(\s*<button type="button" className="gp-btn gp-btn-contorno" onClick=\{onVerCopia\}><Ico n="flecha-externa" t=\{14\} \/> Ver en tu copia<\/button>/);
+  // Lo que se resolvió en el pase se ve resuelto antes de irse a la copia.
+  assert.match(panel, /if \(r && esPasada\(r\) && r\.resueltas\.length\) \{\s*setSugerencias\(/);
+});

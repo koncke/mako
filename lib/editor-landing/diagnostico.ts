@@ -537,11 +537,12 @@ export const RUTA_APLICAR_DIAGNOSTICO = '/api/landing-generator/diagnostico/apli
  *   landing sobre la que se aplica; si cambió, conflicto (así «Aplicar todos» no pisa una edición hecha
  *   en otra pestaña a mitad de camino). Sin ella, sobre la última.
  * `pasar`: los comentarios de una página de AFUERA (`url`) a su copia recién replicada (`docId`), cada
- *   uno ubicado en la sección de la copia que tiene su cita.
+ *   uno ubicado en la sección de la copia que tiene su cita. `resolver`: los de afuera que la persona
+ *   mandó a APLICAR (o 'todos'): esos quedan resueltos en la página de afuera (ver `originalesAResolver`).
  */
 export type PedidoAplicarDiagnostico =
   | { accion: 'aplicar'; docId: number; ids: number[]; versionAntes?: boolean; version?: number }
-  | { accion: 'pasar'; url: string; docId: number };
+  | { accion: 'pasar'; url: string; docId: number; resolver?: number[] | 'todos' };
 
 /** Lo que devuelve `aplicar`: la landing como quedó, los comentarios resueltos y la sección antes/después. */
 export type RespuestaAplicar = {
@@ -556,8 +557,34 @@ export type RespuestaAplicar = {
   /** La versión de la landing sobre la que se aplicó (la pila de Deshacer la mira). */
   versionAbierta: number;
 };
-/** Lo que devuelve `pasar`: los comentarios de la copia y de qué comentario de afuera salió cada uno. */
-export type RespuestaPasar = { ok: true; sugerencias: Sugerencia[]; mapa: Record<string, number>; pasadas: number };
+/**
+ * Lo que devuelve `pasar`: los comentarios de la copia y de qué comentario de afuera salió cada uno.
+ * `resueltas`: los de AFUERA que quedaron resueltos porque se mandaron a aplicar en la copia (su
+ * referencia a la copia es `mapa[id]`, el mismo comentario en la landing `docId` del pedido).
+ */
+export type RespuestaPasar = { ok: true; sugerencias: Sugerencia[]; mapa: Record<string, number>; pasadas: number; resueltas: number[] };
+
+/**
+ * Qué comentarios de la página de AFUERA quedan RESUELTOS al pasarlos a su copia (tanda 7, 15/10/2026;
+ * lo decidió el orquestador con criterio, por Martín, sobre «si los comentarios de una página de afuera se
+ * marcan resueltos al pasar a la copia» de la tanda 6). «Aplicar» en una de afuera mueve el trabajo a la
+ * copia: el comentario se aplica ALLÁ, así que el de afuera no puede quedar pendiente para siempre (la
+ * lista de afuera seguiría pidiendo algo que ya se hizo en otro lado). Sólo los que la persona mandó a
+ * aplicar (`resolver`: sus ids, o 'todos' con «Aplicar todos»), sólo los PENDIENTES (uno descartado a mano
+ * sigue descartado) y sólo los que de verdad tienen su par en la copia (`mapa`): si no se pasó, no se
+ * resuelve. Lo demás que se pasa a la copia conserva su estado y el de afuera no cambia.
+ */
+export function originalesAResolver(
+  resolver: unknown,
+  afuera: readonly Pick<Sugerencia, 'id' | 'estado'>[],
+  mapa: Readonly<Record<string, number>>,
+): number[] {
+  const pedidos = resolver === 'todos' ? null : idsParaAplicar(resolver);
+  if (resolver !== 'todos' && !pedidos) return [];
+  return afuera
+    .filter((s) => s.estado === 'pendiente' && (pedidos === null || pedidos.includes(s.id)) && !!mapa[String(s.id)])
+    .map((s) => s.id);
+}
 export type RespuestaAplicarDiagnostico =
   | RespuestaAplicar
   | RespuestaPasar

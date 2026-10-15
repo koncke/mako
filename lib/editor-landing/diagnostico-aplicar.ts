@@ -18,7 +18,8 @@
 //     (la pantalla, con `restaurarVersion`, que a su vez deja «Antes de restaurar»).
 //   · `pasarACopia`: los comentarios de una página de AFUERA a su copia recién replicada. Se COPIAN (los de
 //     la página de afuera quedan: son el diagnóstico de esa página) con su estado, y cada uno se ubica en
-//     la sección de la copia que tiene su cita (`ubicarCitaEnBloques`, como al analizar una nuestra).
+//     la sección de la copia que tiene su cita (`ubicarCitaEnBloques`, como al analizar una nuestra). Los
+//     que la persona mandó a APLICAR quedan RESUELTOS afuera (tanda 7): el trabajo sigue en la copia.
 //   · `leerComentario`: uno solo, para el `preparar` de la API.
 //
 // ⚠️ ESCRIBE `landing_sugerencias` CON LA MISMA FORMA que `guardarHallazgos` de ./diagnostico-server.ts
@@ -39,7 +40,7 @@ import { formatoDe } from './api-tipos';
 import { bloquesDeLanding } from './diagnostico-guardado';
 import {
   MOTIVO_ANTES_DE_APLICAR, claveSugerencia, docAplicado, estadoValido, idsParaAplicar, instruccionDeSugerencias,
-  normalizarHallazgos, objetivoDe, ubicarCitaEnBloques,
+  normalizarHallazgos, objetivoDe, originalesAResolver, ubicarCitaEnBloques,
   type EstadoSugerencia, type RespuestaAplicar, type RespuestaPasar, type Sugerencia,
 } from './diagnostico';
 // Puro (sin React ni DOM): cómo se aplica la propuesta de la IA, lo mismo que hace el editor.
@@ -139,8 +140,15 @@ export async function aplicarComentarios(p: { docId?: unknown; ids?: unknown; ve
  * Los comentarios de una página de AFUERA (`url`) a su copia (`docId`): se copian con su estado y cada
  * uno se ubica en la sección de la copia que tiene su cita. Los repetidos (por su clave) no se duplican:
  * volver a pasarlos no hace nada. `mapa`: id de afuera → id en la copia.
+ *
+ * `resolver` (tanda 7, 15/10/2026; lo decidió el orquestador con criterio, por Martín: «"Aplicar" un
+ * comentario de una landing de AFUERA deja el comentario original RESUELTO»): los de afuera que la persona
+ * mandó a aplicar (sus ids, o 'todos'). DESPUÉS de copiarlos (pendientes: la copia los aplica), los
+ * originales pasan a 'resuelta' con un compare-and-set sobre 'pendiente'; su referencia a la copia es
+ * `mapa` + `docId`. Cuáles, lo decide `originalesAResolver` (diagnostico.ts, con test). Si marcarlos falla,
+ * el pase igual vale (la copia ya tiene sus comentarios): se avisa en el log y `resueltas` va vacío.
  */
-export async function pasarACopia(p: { url?: unknown; docId?: unknown }): Promise<RespuestaPasar | FallaAplicar> {
+export async function pasarACopia(p: { url?: unknown; docId?: unknown; resolver?: unknown }): Promise<RespuestaPasar | FallaAplicar> {
   const ws = await wsOFalla();
   if (typeof ws !== 'number') return ws;
   const docId = idValido(p.docId);
@@ -180,7 +188,19 @@ export async function pasarACopia(p: { url?: unknown; docId?: unknown }): Promis
       const id = porClave.get(claveSugerencia(destino, s.hallazgo));
       if (id) mapa[String(s.id)] = id;
     }
-    return { ok: true, sugerencias: lista.sugerencias, mapa, pasadas };
+    // Los originales que se mandaron a aplicar, resueltos: el trabajo sigue en la copia (ver la cabecera).
+    let resueltas: number[] = [];
+    const aResolver = originalesAResolver(p.resolver, afuera.sugerencias, mapa);
+    if (aResolver.length) {
+      const db = await getTenantDb();
+      const { data, error } = await db.from(TABLA)
+        .update({ estado: 'resuelta', updated_at: new Date().toISOString() })
+        .eq('workspace_id', ws).eq('url', de.url).eq('estado', 'pendiente').in('id', aResolver)
+        .select('id');
+      if (error) console.error(`[editor-landing:diagnostico] pasé ${aResolver.length} comentarios de afuera a la copia #${docId} y no pude marcarlos resueltos: ${error.message}`);
+      else resueltas = (data ?? []).map((f) => Number((f as { id: unknown }).id)).filter((n) => Number.isSafeInteger(n));
+    }
+    return { ok: true, sugerencias: lista.sugerencias, mapa, pasadas, resueltas };
   } catch (e) {
     return falla(msg(e), 500);
   }

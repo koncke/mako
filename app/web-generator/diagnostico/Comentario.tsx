@@ -40,7 +40,7 @@ const SEVERIDAD: Record<string, string> = { alta: 'Alta', media: 'Media', baja: 
 
 export function Comentario({
   s, activa, ubicacion, tema, formato, proporcion, arreglo, puedeAplicar, ocupado,
-  onVer, onEstado, onAplicar, onPreguntar, onDeshacer,
+  onVer, onEstado, onAplicar, onPreguntar, onDeshacer, onVerCopia,
 }: {
   s: Sugerencia;
   activa: boolean;
@@ -61,6 +61,11 @@ export function Comentario({
   onPreguntar: () => void;
   /** Sólo si es lo último que se aplicó (la pila de Deshacer, lib/editor-landing/diagnostico.ts). */
   onDeshacer?: () => void;
+  /**
+   * Un comentario RESUELTO de una página de afuera que tiene copia (tanda 7): «Aplicar» lo resolvió acá y
+   * lo aplicó en la copia, así que la fila lleva a ESA copia (su Diagnóstico). Lo decide el panel.
+   */
+  onVerCopia?: () => void;
 }) {
   const [verCambio, setVerCambio] = useState(false);
   const [vista, setVista] = useState<'original' | 'modificado'>('modificado');
@@ -133,6 +138,9 @@ export function Comentario({
             <button type="button" className="gp-btn gp-btn-ia" disabled={quieto} onClick={onAplicar}>
               <Ico n="destellos" t={14} /> Aplicar
             </button>
+          )}
+          {onVerCopia && (
+            <button type="button" className="gp-btn gp-btn-contorno" onClick={onVerCopia}><Ico n="flecha-externa" t={14} /> Ver en tu copia</button>
           )}
           <button type="button" className="gp-btn gp-btn-contorno" onClick={onPreguntar}><Ico n="chat" t={14} /> Preguntar a MaKo</button>
           <button type="button" className="gp-btn gp-btn-fantasma" onClick={onVer}><Ico n="ojo" t={14} /> Ver</button>

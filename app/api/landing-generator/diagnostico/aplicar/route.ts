@@ -9,7 +9,9 @@
 //   { accion: 'aplicar', docId, ids, versionAntes?, version? }  los comentarios de UNA sección: la IA
 //                                                     reescribe la sección, se guarda (con la versión de
 //                                                     antes si se pide) y quedan resueltos;
-//   { accion: 'pasar', url, docId }                   los comentarios de una página de afuera a su copia.
+//   { accion: 'pasar', url, docId, resolver? }        los comentarios de una página de afuera a su copia;
+//                                                     los de `resolver` (ids o 'todos') quedan resueltos
+//                                                     afuera (tanda 7: se aplican en la copia).
 // El trabajo vive en lib/editor-landing/diagnostico-aplicar.ts (el mismo que usa la API de MaKo); acá sólo
 // la puerta y el reparto. Es una ruta aparte de /diagnostico para no tocar ese archivo en la tanda 6 (lo
 // trabajaba otro carril); puede volver a ser un `accion` de aquélla.
@@ -49,7 +51,7 @@ export async function POST(req: Request) {
   try {
     switch (body.accion) {
       case 'aplicar': return responder(await aplicarComentarios({ docId: body.docId, ids: body.ids, versionAntes: body.versionAntes, version: body.version }));
-      case 'pasar': return responder(await pasarACopia({ url: body.url, docId: body.docId }));
+      case 'pasar': return responder(await pasarACopia({ url: body.url, docId: body.docId, resolver: body.resolver }));
       default: return falla(400, 'Acción desconocida');
     }
   } catch (err) {

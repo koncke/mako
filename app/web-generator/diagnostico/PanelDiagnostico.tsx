@@ -477,7 +477,12 @@ function PanelInterno({ docId, url, copia = null, onCerrar, onAnalizada }: Props
    */
   const pasarYAbrir: AlReplicar = useCallback(async ({ id }: { id: number }) => {
     const que = afuera.current;
-    const r = urlPegada ? await pedirAplicar({ accion: 'pasar', url: urlPegada, docId: id }) : null;
+    // `resolver` (tanda 7): los de afuera que se mandaron a aplicar quedan RESUELTOS acá; se aplican en la
+    // copia (el server los marca DESPUÉS de copiarlos pendientes, diagnostico-aplicar.ts).
+    const r = urlPegada ? await pedirAplicar({ accion: 'pasar', url: urlPegada, docId: id, ...(que ? { resolver: que } : {}) }) : null;
+    if (r && esPasada(r) && r.resueltas.length) {
+      setSugerencias((xs) => xs.map((x) => (r.resueltas.includes(x.id) ? { ...x, estado: 'resuelta' as const } : x)));
+    }
     if (r && esPasada(r) && que) {
       const ids = que === 'todos' ? [] : que.map((x) => r.mapa[String(x)]).filter((n): n is number => !!n);
       dejarUnaVez({ docId: id, t: Date.now(), ...(que === 'todos' ? { todos: true as const } : { ids }) });
@@ -699,6 +704,7 @@ function PanelInterno({ docId, url, copia = null, onCerrar, onAnalizada }: Props
                     onAplicar={() => aplicar(s)}
                     onPreguntar={() => preguntar(s)}
                     onDeshacer={!enCurso && sePuedeDeshacer(pila, s.id) && arreglos[s.id]?.fase === 'aplicado' ? () => void deshacer() : undefined}
+                    onVerCopia={!deNuestra && copia != null && s.estado === 'resuelta' ? () => irDuro(`/web-generator?diagnostico=${copia}`, ws) : undefined}
                   />
                 ))}
               </ul>
