@@ -474,6 +474,9 @@ export const ADMIN_FAMILIAS: NavFamilia[] = [
         // MaKo»): el link de pago de un plan y lo que se cobró, con el alta de cada cuenta. Sólo
         // super admin, mismo guard que Strategy; la key tampoco lleva el prefijo 'dev-'.
         { key: 'admin-cobros', label: 'Cobros', href: '/admin/cobros', icon: 'tag', match: starts('/admin/cobros') },
+        // El Centro de Operaciones (15/10/2026): pedidos firmados para los chats de Claude de la PC
+        // de Martín. Sólo él (puedeOperar), y la key tampoco lleva el prefijo 'dev-'.
+        { key: 'admin-operaciones', label: 'Centro de Operaciones', href: '/admin/operaciones', icon: 'config', match: starts('/admin/operaciones') },
       ],
       // El cerebro de MaKo y la formación: con qué sabe, con qué piensa, y de
       // dónde se entrena el equipo. «Contexto de MaKo» estaba detrás del avatar
