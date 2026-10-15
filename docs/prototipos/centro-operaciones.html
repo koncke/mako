@@ -356,20 +356,20 @@ tr.grupo th span { font-weight: 400; color: var(--dim); }
             <td><span class="ver ver--funde">Se funde con Áreas del producto</span><span class="porque">Cada registro es el detalle de una fila de Áreas: se entra desde ahí, no desde 51 renglones en la barra.</span><span class="ojo">Están en la barra por un pedido tuyo de agosto: lo decides tú.</span></td>
           </tr>
 
-          <tr class="grupo"><th colspan="5" scope="rowgroup">Se van <span>· dos</span></th></tr>
+          <tr class="grupo"><th colspan="5" scope="rowgroup">Se van <span>· dos, y cada ruta queda redirigiendo: un marcador viejo no da 404</span></th></tr>
           <tr>
             <td class="tab-nom">Agente de los clientes<small>/admin/agente</small></td>
             <td>Lo que hacen los clientes en su Claude Code.</td>
             <td class="cuando">28/08<small>0 en 30 días</small></td>
             <td class="base">0 sesiones registradas desde que existe</td>
-            <td><span class="ver ver--va">Se va</span><span class="porque">En siete semanas no llegó ni una sesión: la tab sólo dibuja ese vacío. No se funde con el Cerebro: mira a los clientes, no a MaKo. Lo que recibe la API no se toca.</span></td>
+            <td><span class="ver ver--va">Se va → Clientes</span><span class="porque">En siete semanas no llegó ni una sesión: la tab sólo dibuja ese vacío. No se funde con el Cerebro: mira a los clientes, no a MaKo. Lo que recibe la API no se toca.</span><span class="ojo">/admin/agente redirige a Clientes (/customer-success). Lo decides tú.</span></td>
           </tr>
           <tr>
             <td class="tab-nom">Grafo<small>Dev · /api/admin/graph</small></td>
             <td>El mapa del código, en una pestaña aparte.</td>
             <td class="cuando">28/08<small>foto del 10/07</small></td>
             <td class="base">En producción muestra el código de julio</td>
-            <td><span class="ver ver--va">Se va</span><span class="porque">Es una foto de hace tres meses que nadie regenera. Los chats usan el grafo por consola, no esta tab.</span></td>
+            <td><span class="ver ver--va">Se va → Áreas del producto</span><span class="porque">Es una foto de hace tres meses que nadie regenera. Los chats usan el grafo por consola, no esta tab.</span><span class="ojo">/api/admin/graph redirige a Áreas del producto (/admin/dev). Lo decides tú.</span></td>
           </tr>
 
           <tr class="grupo"><th colspan="5" scope="rowgroup">Se quedan <span>· nueve</span></th></tr>
@@ -446,7 +446,7 @@ tr.grupo th span { font-weight: 400; color: var(--dim); }
         </tbody>
       </table>
     </div>
-    <p class="nota-tabla">Admin queda con nueve: MaKo en WhatsApp, Cerebro de MaKo, Ticketera, Centro de Operaciones, Strategy, Cobros, Conocimientos, Offer Playbook y Dev. Dev queda con tres: Áreas del producto, Documentación y MaKo UX/UI.</p>
+    <p class="nota-tabla">Admin queda con nueve: MaKo en WhatsApp, Cerebro de MaKo, Ticketera, Centro de Operaciones, Strategy, Cobros, Conocimientos, Offer Playbook y Dev. Dev queda con tres: Áreas del producto, Documentación y MaKo UX/UI. Ninguna ruta se borra: las que se van o se funden quedan redirigiendo a su lugar nuevo.</p>
   </section>
 </main>
 
