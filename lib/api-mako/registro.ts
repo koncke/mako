@@ -37,6 +37,7 @@ import { DEFS as general } from './areas/general.def';
 import { DEFS as plan } from './areas/plan.def';
 import { DEFS as crm } from './areas/crm.def';
 import { DEFS as ads } from './areas/ads.def';
+import { DEFS as chats } from './areas/chats.def';
 import { DEFS as whatsapp } from './areas/whatsapp.def';
 import { DEFS as email } from './areas/email.def';
 import { DEFS as chatbot } from './areas/chatbot.def';
@@ -62,7 +63,7 @@ import { DEFS as mako } from './areas/mako.def';
 
 /** Por área, en el orden de la barra. El orden es el del catálogo y la referencia. */
 const POR_AREA: Record<Area, readonly OperacionDef[]> = {
-  general, plan, crm, ads, whatsapp, email, chatbot, metricas: [...metricas, ...dashboard], experimentos,
+  general, plan, crm, ads, chats, whatsapp, email, chatbot, metricas: [...metricas, ...dashboard], experimentos,
   landing, closing, negocio, contenido, video, imagen, integraciones, equipo, cs, curso, creaciones, cobros, calendario, mako,
 };
 

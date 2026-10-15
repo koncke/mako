@@ -138,6 +138,33 @@ export const itemsDe = (f: NavFamilia): NavItem[] =>
 const starts = (p: string) => (pathname: string) =>
   pathname === p || pathname.startsWith(p + '/');
 
+/**
+ * De dónde sale el número (el badge) de una tab. Son obligaciones concretas, no novedades: los
+ * mensajes sin leer y los datos del CRM sin marcar.
+ *
+ * ⚠️ Chats y WhatsApp cuentan LO MISMO (14/10/2026): los chats sin leer del número de empresa que
+ * sondea NotificationsProvider. Dos tabs, UNA fuente, mientras convivan en la barra (plano §6.1). Por
+ * eso la suma de una familia cuenta cada FUENTE una vez y no cada tab: sumando tabs, la familia
+ * Operate cerrada decía el doble de mensajes de los que había. Instagram y Messenger todavía no
+ * cuentan: el sondeo es sólo del WhatsApp.
+ */
+export type FuenteContador = 'mensajes' | 'crm';
+const FUENTE_CONTADOR: ReadonlyMap<string, FuenteContador> = new Map<string, FuenteContador>([['chats', 'mensajes'], ['whatsapp', 'mensajes'], ['crm', 'crm']]);
+export const fuenteContador = (key: string): FuenteContador | null => FUENTE_CONTADOR.get(key) ?? null;
+
+/** La suma de los badges de varias tabs (una familia), con cada fuente contada UNA vez. */
+export function sumaDeContadores(keys: readonly string[], valor: (f: FuenteContador) => number): number {
+  const vistas = new Set<FuenteContador>();
+  let total = 0;
+  for (const k of keys) {
+    const f = fuenteContador(k);
+    if (!f || vistas.has(f)) continue;
+    vistas.add(f);
+    total += valor(f);
+  }
+  return total;
+}
+
 export const FAMILIAS: NavFamilia[] = [
   {
     key: 'operate',
@@ -165,10 +192,17 @@ export const FAMILIAS: NavFamilia[] = [
         { key: 'crm', label: 'CRM', href: '/crm', icon: 'crm', rolesWs: ['closer', 'setter'], match: starts('/crm') },
         { key: 'ads-manager', label: 'Ads Manager', href: '/ads-manager', icon: 'grid', match: starts('/ads-manager') },
       ],
-      // Las conversaciones. Sin desplegable: son dos, y son de todos los días.
-      // Instagram salió el 06/10/2026 (decisión de Martín: 0 DMs en su historia):
-      // /instagram redirige a /automations y tests/sin-instagram.test.ts cuida que no vuelva.
+      // Las conversaciones. Sin desplegable: son de todos los días.
+      // La TAB Instagram salió el 06/10/2026 (decisión de Martín: 0 DMs en su historia) y no vuelve:
+      // /instagram redirige a /automations. Lo que SÍ vuelve, el 14/10/2026, son sus DMs y los de
+      // Messenger, ADENTRO de Chats: la bandeja unificada (tests/sin-instagram.test.ts cuida las dos cosas).
       [
+        // Chats (14/10/2026, Martín: «tener en UNA sola tab centralizado absolutamente todos los chats,
+        // WhatsApp, Instagram, Messenger»): la bandeja copiada de respond.io (docs/diseno-chats.md). Va
+        // PRIMERO porque es la que se usa todos los días; los mismos roles que WhatsApp, porque es el mismo
+        // trabajo del setter. ⚠️ WhatsApp SIGUE abajo hasta que Martín valide que Chats lo reemplaza (plano
+        // §6.1): después /whatsapp queda sólo para conectar números (QR, líneas, Chatbot) y sale del menú.
+        { key: 'chats', label: 'Chats', href: '/chats', icon: 'chats', rolesWs: ['closer', 'setter'], match: starts('/chats') },
         { key: 'whatsapp', label: 'WhatsApp', href: '/whatsapp', icon: 'whatsapp', rolesWs: ['closer', 'setter'], match: starts('/whatsapp') },
         { key: 'email', label: 'Email', href: '/email', icon: 'email', rolesWs: ['setter'], match: starts('/email') },
       ],
@@ -520,6 +554,7 @@ export const ADMIN_FAMILIAS: NavFamilia[] = [
           { key: 'dev-onboarding', label: 'Onboarding', href: '/admin/dev/onboarding', icon: 'config', match: starts('/admin/dev/onboarding') },
           { key: 'dev-general', label: 'General', href: '/admin/dev/general', icon: 'config', match: starts('/admin/dev/general') },
           { key: 'dev-calendario', label: 'Calendario', href: '/admin/dev/calendario', icon: 'calendario', match: starts('/admin/dev/calendario') },
+          { key: 'dev-chats', label: 'Chats', href: '/admin/dev/chats', icon: 'chats', match: starts('/admin/dev/chats') },
           { key: 'dev-dashboard', label: 'Dashboard', href: '/admin/dev/dashboard', icon: 'graphics', match: starts('/admin/dev/dashboard') },
           // El área se llama como la tab (Automations, desde el 09/10/2026); la key y la ruta
           // /admin/dev/chatbot siguen: son el slug del registro y su historia.

@@ -916,6 +916,11 @@ export const AREA_KEYWORDS: Readonly<Record<Area, RegExp>> = {
   crm: /\b(leads?|contactos?|prospectos?|etapas?|funnel|embudo|agend|reagend|reuni[oó]n|visitas?|citas?|calendario|evento\b|qu[eé] tengo (?:hoy|ma[ñn]ana|el |esta|a las)|a las \d{1,2}\S* qu[eé] tengo|huecos?|horarios?\s+(?:\S+\s+){0,2}libres?|libres?\s+(?:el|la|este|esta|ma[ñn]ana|hoy|lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo)\b|disponibilidad|r1|r2|juntas?|calific|pipeline|ficha)/i,
   plan: /\b(tareas?|plan\b|tablero|proyectos?|checklist|deadline|perro guardi)/i,
   ads: /\b(campa[ñn]as?|anuncios?|ads\b|meta ads|presupuesto|adsets?|conjuntos?|creativos?|pauta|cpl|cpm|ctr|guion(es)? de anuncio)/i,
+  // La bandeja unificada (14/10/2026): «quién me escribió», los chats sin responder, cerrar o posponer uno, y los DMs
+  // de Instagram y Messenger, que no tienen otra área. «conversación» trae también la de WhatsApp: las dos contestan
+  // (la de Chats junta los tres canales por contacto). «reabrir» y «posponer» atados a chat/conversación: solos son
+  // de una tarea del Plan o de una reunión.
+  chats: /\b(chats?\b|bandeja|conversaci[oó]n(es)?|sin responder|(?:qui[eé]n|qui[eé]nes) (?:me |nos )?(?:escribi[oó]|escribieron)|dms?\b|mensajes? directos?|messenger|(?:cerr|reabr|pospon)\w* (?:el |la |su |ese |esa |este |esta )?(?:chat|conversaci))/i,
   whatsapp: /\b(whatsapp|plantillas?|borrador(es)?|conversaci[oó]n|chat con|mensaje a)/i,
   email: /\b(e-?mails?|correos?|mails?|broadcasts?|newsletter|remitente|dominio de env)/i,
   // `automatización`, `automations` y `flujo` (décima tanda, 11/10/2026): desde el renombre de la tab a Automations,

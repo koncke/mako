@@ -20,7 +20,7 @@ import './chats.css';
 export const dynamic = 'force-dynamic';
 
 export default async function ChatsPage({ searchParams }: { searchParams: Promise<{ ver?: string }> }) {
-  await requireMovil({ navKey: 'whatsapp' });
+  await requireMovil({ navKey: 'chats' });
   const inicial = (await searchParams).ver === 'sin-responder' ? 'sin' : 'todos';
   const lista = await listaChats();
 

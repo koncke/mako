@@ -565,12 +565,8 @@ export const RUNNERS: Runners = {
     },
     ejecutar: async (payload): Promise<Ejecutado> => {
       const id = Number(payload.id);
-      // ⚠️ descartarBorrador hace un update SIN `.eq('estado','pendiente')`: esta
-      // relectura achica la carrera con un envío, no la cierra (deuda de
-      // lib/evolution-envio.ts). Y después se confirma que quedó descartado.
-      if (!(await borradorPendiente(id))) return { ok: false, resumen: `El borrador #${id} ya no está pendiente.` };
-      await descartarBorrador(id);
-      if (await borradorPendiente(id)) return { ok: false, resumen: `El borrador #${id} sigue pendiente: no se pudo descartar.` };
+      // descartarBorrador descarta SÓLO si sigue pendiente (15/10/2026) y dice si lo hizo: ya no hay carrera.
+      if (!(await descartarBorrador(id))) return { ok: false, resumen: `El borrador #${id} ya no está pendiente.` };
       return { ok: true, resumen: `Borrador #${id} descartado.` };
     },
   },

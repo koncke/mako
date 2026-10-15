@@ -1,0 +1,809 @@
+/* =============================================================================
+   /chats — el aspecto de respond.io, limitado a esta tab
+   =============================================================================
+   Pedido de Martín (14/10/2026): una bandeja unificada «algo como respond.io… sobre todo el
+   diseño que se vea bien». Regla de la casa: una app nombrada se copia TAL CUAL. Los valores
+   son los tokens `--dls-*` del CSS público de respond.io (claro en `:root`, oscuro en `.dark`),
+   medidos además sobre sus capturas del help center (docs/diseno-chats.md §0).
+
+   Todo vive bajo `.rio`, la raíz de la tab (como `.gh` en /api-mako y `.ce` en el Video
+   Editor): no toca una sola regla del resto de MaKo, y ningún selector es de elemento pelado.
+   El oscuro va en `[data-tema="oscuro"] .rio`, la preferencia por usuario de MaKo.
+
+   ⚠️ LA VENTANA DEL CHAT la estila otro archivo (chats-ventana.css) CON ESTOS TOKENS: el set de
+   abajo es el completo de respond.io §1.0b, incluidas las burbujas, el comentario, el éxito, el
+   error y el tooltip, aunque la bandeja no los use todos.
+
+   ⚠️ DESVÍO DELIBERADO DE COLOR: la IA de respond.io es violeta (#7370ff). En MaKo la IA es MaKo
+   y su color es `--mako` («nadie define otro dorado», app/globals.css): `--rio-ia*` son alias de
+   ese token, no un hex.
+
+   Lo que NO se copia (y por qué): el rail global de respond.io (lo reemplaza la barra de MaKo);
+   el encabezado del chat que se extiende sobre el drawer (acá el drawer es una columna hermana
+   de la ventana, por el contrato de VentanaChat); llamadas, Team/Custom Inbox y colaboradores.
+   ============================================================================= */
+
+.rio {
+  /* ── Texto ── */
+  --rio-text: #282e34;
+  --rio-text-2: #626f7f;
+  --rio-text-3: #97a0aa;
+  --rio-text-on-primary: #ffffff;
+  /* ── Primario (botón, activo, seleccionado) y link / insignia de no leídos ── */
+  --rio-primary: #1a6eff;
+  --rio-primary-hover: #0058f0;
+  --rio-primary-pressed: #0049c7;
+  --rio-link: #4287ff;
+  --rio-badge: #4287ff;
+  /* ── Fondos ── */
+  --rio-bg: #ffffff;
+  --rio-bg-sel: #f0f5ff;
+  --rio-bg-hover-blue: #e5efff;
+  --rio-bg-gray: #f2f2f3;
+  --rio-bg-gray-2: #e2e2e4;
+  --rio-bg-row-hover: #f9fafb;
+  --rio-disabled-bg: #e2e2e4;
+  --rio-disabled-icon: #8f8f94;
+  --rio-border: rgba(53, 60, 69, 0.16);
+  --rio-border-solid: #dfe0e1;
+  /* ── Burbujas del hilo ── */
+  --rio-bubble-in: #f2f2f3;
+  --rio-bubble-out: #f0f5ff;
+  /* ── Comentario interno (burbuja y composer) ── */
+  --rio-comment-bg: #ffebd1;
+  --rio-warning: #fa8900;
+  /* ── IA = MaKo (desvío de color, ver la cabecera) ── */
+  --rio-ia: var(--mako);
+  --rio-ia-bg: color-mix(in srgb, var(--mako) 12%, #ffffff);
+  /* ── Éxito y error ── */
+  --rio-success: #2ca54a;
+  --rio-success-2: #33c758;
+  --rio-success-bg: #dbf5e1;
+  --rio-danger: #ff382e;
+  --rio-danger-bg: #ffd4d1;
+  /* ── Tooltip ── */
+  --rio-tooltip-bg: #3e3e41;
+  --rio-tooltip-fg: #ffffff;
+  /* ── Cita a un mensaje del contacto ── */
+  --rio-reply-contact: #2ca54a;
+  /* ── Chip de etapa (normal / adentro de la fila seleccionada) ── */
+  --rio-chip: rgba(82, 82, 86, 0.08);
+  --rio-chip-active: #ffffff;
+  /* ── Sombra de menús (no se pudo medir; estimada en el relevamiento) ── */
+  --rio-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  /* ── Radios ── */
+  --rio-radius: 8px;
+  --rio-radius-bubble: 6px;
+  --rio-radius-chip: 4px;
+  /* ── Letra: Inter, la de respond.io (next/font la publica en --rio-inter, ./fuente.ts) ── */
+  --rio-font: var(--rio-inter), 'Inter', system-ui, sans-serif;
+
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  height: 100dvh;
+  max-height: 100dvh;
+  box-sizing: border-box;
+  overflow: hidden;
+  position: relative;
+  background: var(--rio-bg);
+  color: var(--rio-text);
+  font-family: var(--rio-font);
+  font-size: 14px;
+  line-height: 20px;
+  -webkit-font-smoothing: antialiased;
+}
+
+[data-tema="oscuro"] .rio {
+  --rio-text: #cfd3d8;
+  --rio-text-2: #97a0aa;
+  --rio-text-3: #626f7f;
+  --rio-text-on-primary: #101113;
+  --rio-primary: #6ba4ff;
+  --rio-primary-hover: #5793f5;
+  --rio-primary-pressed: #4a84e6;
+  --rio-link: #6ba4ff;
+  --rio-badge: #6ba4ff;
+  --rio-bg: #101113;
+  --rio-bg-sel: #353c45;
+  --rio-bg-hover-blue: #2c3a58;
+  --rio-bg-gray: #2f2f32;
+  --rio-bg-gray-2: #3e3e41;
+  --rio-bg-row-hover: rgba(206, 206, 208, 0.08);
+  --rio-disabled-bg: #3e3e41;
+  --rio-disabled-icon: #7a7a7f;
+  --rio-border: rgba(182, 189, 197, 0.16);
+  --rio-border-solid: #2b2e33;
+  --rio-bubble-in: #2f2f32;
+  --rio-bubble-out: #353c45;
+  --rio-comment-bg: #3f3322;
+  --rio-warning: #ffa024;
+  --rio-ia-bg: color-mix(in srgb, var(--mako) 18%, #101113);
+  --rio-success: #51d271;
+  --rio-success-2: #51d271;
+  --rio-success-bg: #2a4133;
+  --rio-danger: #ff5f57;
+  --rio-danger-bg: #751500;
+  --rio-tooltip-bg: #e2e2e4;
+  --rio-tooltip-fg: #101113;
+  --rio-reply-contact: #33c758;
+  --rio-chip: rgba(206, 206, 208, 0.16);
+  --rio-chip-active: #101113;
+  --rio-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+}
+
+/* El contenedor de los portales (AGENTS.md «un tema limitado a una clase no llega a los
+   PORTALES»): vive adentro de la raíz y no ocupa lugar. */
+.rio .rio-portal {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: visible;
+}
+
+/* ── Piezas comunes ─────────────────────────────────────────────────────────── */
+
+.rio .rio-cab {
+  height: 44px;
+  flex: none;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-bottom: 1px solid var(--rio-border);
+}
+
+.rio .rio-titulo {
+  margin: 0;
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 600;
+  color: var(--rio-text);
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rio .rio-icono-btn {
+  width: 32px;
+  height: 32px;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: var(--rio-radius);
+  background: transparent;
+  color: var(--rio-text);
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
+}
+.rio .rio-icono-btn:hover { background: var(--rio-bg-gray); }
+.rio .rio-icono-btn:focus-visible { outline: 2px solid var(--rio-primary); outline-offset: -2px; }
+.rio .rio-icono-btn[data-chico="true"] { width: 24px; height: 24px; border-radius: 6px; color: var(--rio-text-2); }
+
+.rio .rio-input {
+  height: 32px;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  border: 1px solid var(--rio-border);
+  border-radius: var(--rio-radius);
+  background: var(--rio-bg);
+  color: var(--rio-text);
+  font: inherit;
+  font-size: 14px;
+  padding: 0 32px 0 10px;
+  outline: none;
+}
+.rio .rio-input::placeholder { color: var(--rio-text-3); }
+.rio .rio-input:focus { border-color: var(--rio-primary); }
+
+.rio .rio-busca {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+.rio .rio-busca-x {
+  position: absolute;
+  right: 4px;
+  top: 4px;
+}
+
+.rio .rio-pildora {
+  min-width: 20px;
+  height: 20px;
+  box-sizing: border-box;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: var(--rio-badge);
+  color: #ffffff;
+  font-size: 12px;
+  line-height: 20px;
+  font-weight: 600;
+  text-align: center;
+  flex: none;
+}
+
+.rio .rio-vacio {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  text-align: center;
+  color: var(--rio-text-2);
+  font-size: 14px;
+}
+.rio .rio-vacio-titulo { font-size: 16px; line-height: 24px; font-weight: 600; color: var(--rio-text); }
+.rio .rio-vacio-botones { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+
+.rio .rio-btn {
+  height: 32px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1px solid var(--rio-border);
+  border-radius: var(--rio-radius);
+  background: var(--rio-bg);
+  color: var(--rio-text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.rio .rio-btn:hover { background: var(--rio-bg-gray); }
+.rio .rio-btn:disabled { cursor: default; opacity: 0.6; }
+.rio .rio-btn[data-tono="primario"] { background: var(--rio-primary); border-color: var(--rio-primary); color: var(--rio-text-on-primary); }
+.rio .rio-btn[data-tono="primario"]:hover { background: var(--rio-primary-hover); }
+
+.rio .rio-link {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  font-size: 14px;
+  color: var(--rio-link);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  text-decoration: none;
+}
+.rio .rio-link:hover { text-decoration: underline; }
+
+/* «No pude leer: …» (las `fallas` de la lista) y «No pude actualizar»: arriba de las filas. */
+.rio .rio-aviso-falla {
+  flex: none;
+  margin: 8px 8px 0;
+  padding: 8px 10px;
+  border-radius: var(--rio-radius);
+  background: var(--rio-comment-bg);
+  color: var(--rio-text);
+  font-size: 12px;
+  line-height: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.rio .rio-aviso-falla[data-tono="error"] { background: var(--rio-danger-bg); }
+
+/* La insignia de canal (./iconos-canal.tsx): el círculo de marca con un aro del color del fondo. */
+.rio .rio-insignia {
+  display: inline-flex;
+  box-sizing: border-box;
+  border-radius: 50%;
+  background: var(--rio-bg);
+  flex: none;
+}
+
+/* ── Columna 1: la bandeja (214 px) ───────────────────────────────────────── */
+
+.rio .rio-bandejas {
+  width: 215px;
+  flex: none;
+  box-sizing: border-box;
+  border-right: 1px solid var(--rio-border);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.rio .rio-bandejas .rio-cab { padding: 0 6px 0 18px; }
+.rio .rio-bandejas .rio-cab[data-buscando="true"] { padding: 0 8px; }
+
+.rio .rio-bandejas-cuerpo {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rio .rio-item {
+  height: 32px;
+  flex: none;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px 0 9px;
+  border: 0;
+  border-radius: var(--rio-radius);
+  background: transparent;
+  color: var(--rio-text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 400;
+  text-align: left;
+  cursor: pointer;
+  width: 100%;
+}
+.rio .rio-item:hover { background: var(--rio-bg-gray); }
+.rio .rio-item[aria-current="true"] { background: var(--rio-bg-sel); font-weight: 600; }
+.rio .rio-item:focus-visible { outline: 2px solid var(--rio-primary); outline-offset: -2px; }
+.rio .rio-item[data-apagado="true"] .rio-item-label { color: var(--rio-text-3); }
+.rio .rio-item-icono { width: 18px; height: 18px; flex: none; display: inline-flex; align-items: center; justify-content: center; color: var(--rio-text); }
+.rio .rio-item-label { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rio .rio-item-cuenta { flex: none; color: var(--rio-text-2); font-weight: 400; }
+.rio .rio-punto-etapa { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+
+.rio .rio-seccion { margin-top: 16px; display: flex; flex-direction: column; gap: 2px; }
+.rio .rio-seccion-cab {
+  height: 24px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 0 0 9px;
+  color: var(--rio-text-2);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+}
+.rio .rio-seccion-titulo {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rio .rio-bandejas-pie {
+  flex: none;
+  padding: 8px;
+  border-top: 1px solid var(--rio-border);
+}
+
+/* ── Columna 2: la lista (298 px) ─────────────────────────────────────────── */
+
+.rio .rio-lista {
+  width: 299px;
+  flex: none;
+  box-sizing: border-box;
+  border-right: 1px solid var(--rio-border);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.rio .rio-lista .rio-cab { padding: 0 8px; align-items: stretch; }
+
+.rio .rio-pestanas { flex: 1; min-width: 0; display: flex; align-items: stretch; gap: 4px; }
+.rio .rio-pestana {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 12px;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 600;
+  color: var(--rio-text-2);
+  cursor: pointer;
+}
+.rio .rio-pestana[aria-selected="true"] { color: var(--rio-primary); }
+.rio .rio-pestana[aria-selected="true"]::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+  background: var(--rio-primary);
+}
+.rio .rio-cab-acciones { display: flex; align-items: center; gap: 2px; flex: none; }
+
+.rio .rio-filtros {
+  height: 40px;
+  flex: none;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 12px 0 14px;
+}
+
+/* El interruptor «Sin responder»: 28 × 16, apagado gris, prendido azul. */
+.rio .rio-interruptor {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--rio-text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.rio .rio-interruptor-pista {
+  width: 28px;
+  height: 16px;
+  border-radius: 8px;
+  background: var(--rio-bg-gray-2);
+  position: relative;
+  flex: none;
+  transition: background 0.15s;
+}
+.rio .rio-interruptor-pista::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  transition: transform 0.15s;
+}
+.rio .rio-interruptor[aria-checked="true"] .rio-interruptor-pista { background: var(--rio-primary); }
+.rio .rio-interruptor[aria-checked="true"] .rio-interruptor-pista::after { transform: translateX(12px); }
+
+.rio .rio-filas {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 8px 8px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* La fila: una tarjeta con 8 de margen, 12 de relleno y radio 8 (≈ 98 px de alto). */
+.rio .rio-fila {
+  position: relative;
+  flex: none;
+  display: flex;
+  padding: 12px;
+  border-radius: var(--rio-radius);
+  cursor: pointer;
+}
+.rio .rio-fila:hover { background: var(--rio-bg-row-hover); }
+.rio .rio-fila[data-sel="true"] { background: var(--rio-bg-sel); }
+.rio .rio-fila:focus-within { box-shadow: inset 0 0 0 1px var(--rio-border); }
+.rio .rio-fila-boton { display: flex; gap: 12px; flex: 1; min-width: 0; outline: none; }
+.rio .rio-fila-boton:focus-visible { outline: 2px solid var(--rio-primary); outline-offset: 6px; border-radius: 2px; }
+/* El separador arranca en la columna del TEXTO (12 + 32 + 12), no en el avatar; y no se dibuja
+   ni debajo de la seleccionada ni encima de ella. */
+.rio .rio-fila::after {
+  content: '';
+  position: absolute;
+  left: 56px;
+  right: 12px;
+  bottom: 0;
+  border-bottom: 1px solid var(--rio-border);
+}
+.rio .rio-fila[data-sel="true"]::after,
+.rio .rio-fila:hover::after,
+.rio .rio-fila:last-child::after,
+.rio .rio-fila:has(+ .rio-fila[data-sel="true"])::after,
+.rio .rio-fila:has(+ .rio-fila:hover)::after { display: none; }
+
+.rio .rio-fila-cuerpo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.rio .rio-l1,
+.rio .rio-l2,
+.rio .rio-l3 { display: flex; align-items: center; min-width: 0; height: 20px; }
+.rio .rio-l1 { gap: 8px; }
+.rio .rio-l2 { gap: 4px; }
+.rio .rio-l3 { gap: 6px; }
+.rio .rio-nombre { flex: 1; min-width: 0; font-size: 14px; font-weight: 600; color: var(--rio-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rio .rio-hora { flex: none; font-size: 12px; line-height: 16px; color: var(--rio-text-2); }
+.rio .rio-flecha { flex: none; display: inline-flex; }
+.rio .rio-flecha[data-dir="entra"] { color: var(--rio-warning); }
+.rio .rio-flecha[data-dir="sale"] { color: var(--rio-primary); }
+.rio .rio-preview { flex: 1; min-width: 0; font-size: 14px; color: var(--rio-text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rio .rio-preview[data-sinleer="true"] { font-weight: 600; color: var(--rio-text); }
+/* Sin leer: el punto azul de respond.io. El contrato trae SI hay no leídos, no cuántos. */
+.rio .rio-punto { width: 10px; height: 10px; border-radius: 50%; background: var(--rio-badge); flex: none; margin-left: 4px; }
+
+.rio .rio-chip-etapa {
+  height: 20px;
+  max-width: 150px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 6px;
+  border-radius: var(--rio-radius-chip);
+  background: var(--rio-chip);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--rio-text);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.rio .rio-chip-etapa-texto { overflow: hidden; text-overflow: ellipsis; }
+.rio .rio-fila[data-sel="true"] .rio-chip-etapa { background: var(--rio-chip-active); }
+.rio .rio-chip-punto { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.rio .rio-l3-der { margin-left: auto; display: flex; align-items: center; gap: 4px; flex: none; }
+.rio .rio-estado-ico {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  flex: none;
+}
+.rio .rio-estado-ico[data-estado="cerrada"] { background: var(--rio-success); }
+.rio .rio-estado-ico[data-estado="pospuesta"] { background: var(--rio-warning); }
+.rio .rio-sin-asignar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--rio-bg-hover-blue);
+  color: var(--rio-text);
+  flex: none;
+}
+
+/* El «⋯» aparece al pasar el cursor, en el lugar de la hora. */
+.rio .rio-fila-mas {
+  position: absolute;
+  top: 10px;
+  right: 8px;
+  opacity: 0;
+  pointer-events: none;
+}
+.rio .rio-fila:hover .rio-fila-mas,
+.rio .rio-fila:focus-within .rio-fila-mas { opacity: 1; pointer-events: auto; }
+.rio .rio-fila:hover .rio-hora,
+.rio .rio-fila:focus-within .rio-hora { visibility: hidden; }
+
+.rio .rio-lista-pie {
+  padding: 12px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--rio-text-3);
+}
+
+/* ── Columna 3: la ventana del chat (la llena VentanaChat, con chats-ventana.css) ── */
+
+.rio .rio-ventana {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+/* ── Columna 4: el drawer de contacto (349 px) + el rail (44 px) ──────────── */
+
+.rio .rio-drawer {
+  width: 350px;
+  flex: none;
+  box-sizing: border-box;
+  border-left: 1px solid var(--rio-border);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.rio .rio-drawer .rio-cab { padding: 0 12px 0 8px; gap: 6px; }
+.rio .rio-drawer-cuerpo { flex: 1; min-height: 0; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 12px; }
+
+.rio .rio-rail {
+  width: 45px;
+  flex: none;
+  box-sizing: border-box;
+  border-left: 1px solid var(--rio-border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding-top: 6px;
+}
+.rio .rio-rail-btn {
+  width: 32px;
+  height: 32px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--rio-border);
+  border-radius: var(--rio-radius);
+  background: var(--rio-bg);
+  color: var(--rio-text);
+  cursor: pointer;
+  padding: 0;
+}
+.rio .rio-rail-btn:hover { background: var(--rio-bg-gray); }
+.rio .rio-rail-btn[aria-pressed="true"] { background: var(--rio-primary); border-color: var(--rio-primary); color: #ffffff; }
+.rio .rio-rail-btn:focus-visible { outline: 2px solid var(--rio-primary); outline-offset: 2px; }
+
+/* Contacto */
+.rio .rio-contacto-cab { display: flex; align-items: center; gap: 12px; }
+.rio .rio-contacto-nombre { font-size: 16px; line-height: 24px; font-weight: 600; color: var(--rio-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rio .rio-contacto-id { font-size: 12px; line-height: 16px; color: var(--rio-text-2); }
+
+.rio .rio-canales-fila {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--rio-radius);
+  background: transparent;
+  font: inherit;
+  color: var(--rio-text);
+  cursor: pointer;
+  width: 100%;
+}
+.rio .rio-canales-fila:hover { background: var(--rio-bg-gray); }
+.rio .rio-canales-pila { display: flex; align-items: center; }
+.rio .rio-canales-pila .rio-insignia + .rio-insignia { margin-left: -5px; }
+.rio .rio-canales-label { margin-left: auto; font-size: 14px; color: var(--rio-text); }
+.rio .rio-canales-lista { display: flex; flex-direction: column; gap: 4px; padding: 0 8px; }
+.rio .rio-canal-item { display: flex; align-items: center; gap: 8px; min-height: 28px; font-size: 14px; }
+.rio .rio-canal-item-texto { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rio .rio-canal-item-estado { flex: none; font-size: 12px; color: var(--rio-text-2); }
+.rio .rio-canal-item-estado[data-ok="true"] { color: var(--rio-success); }
+
+.rio .rio-separador { height: 1px; background: var(--rio-border); flex: none; }
+
+.rio .rio-bloque-cab { display: flex; align-items: center; gap: 8px; }
+.rio .rio-bloque-titulo { flex: 1; font-size: 14px; line-height: 20px; font-weight: 600; color: var(--rio-text); }
+.rio .rio-campos { display: flex; flex-direction: column; gap: 12px; }
+.rio .rio-campo { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.rio .rio-campo-label { font-size: 12px; line-height: 16px; font-weight: 600; color: var(--rio-text); }
+.rio .rio-campo-valor { font-size: 14px; line-height: 20px; color: var(--rio-text); overflow-wrap: anywhere; }
+.rio .rio-campo-valor[data-vacio="true"] { color: var(--rio-text-3); }
+.rio .rio-campo-error { font-size: 12px; line-height: 16px; color: var(--rio-danger); }
+
+.rio .rio-etiquetas { display: flex; flex-wrap: wrap; gap: 6px; }
+.rio .rio-etiqueta {
+  height: 24px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  border-radius: var(--rio-radius-chip);
+  background: var(--rio-bg-gray);
+  font-size: 12px;
+  color: var(--rio-text);
+}
+.rio .rio-drawer-pie { flex: none; border-top: 1px solid var(--rio-border); padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.rio .rio-btn-borde {
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--rio-border);
+  border-radius: 6px;
+  background: var(--rio-bg);
+  color: var(--rio-text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+}
+.rio .rio-btn-borde:hover { background: var(--rio-bg-gray); }
+
+/* Actividad */
+.rio .rio-actividad { display: flex; flex-direction: column; gap: 12px; }
+.rio .rio-chip-fecha {
+  align-self: center;
+  height: 24px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 8px;
+  border-radius: var(--rio-radius-chip);
+  background: var(--rio-bg-gray);
+  font-size: 12px;
+  color: var(--rio-text-2);
+}
+.rio .rio-comentario { display: flex; justify-content: flex-end; align-items: flex-end; gap: 8px; }
+.rio .rio-comentario-burbuja {
+  max-width: 260px;
+  padding: 8px 10px;
+  border-radius: var(--rio-radius-bubble);
+  background: var(--rio-comment-bg);
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--rio-text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.rio .rio-evento {
+  border: 1px solid var(--rio-border);
+  border-radius: var(--rio-radius);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.rio .rio-evento-cab { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: var(--rio-text); }
+.rio .rio-evento-cuerpo { font-size: 14px; line-height: 20px; color: var(--rio-text); }
+.rio .rio-evento-cuerpo-b { font-weight: 600; }
+.rio .rio-evento-fecha { font-size: 12px; line-height: 16px; color: var(--rio-text-2); }
+
+/* El composer de comentarios del drawer: el durazno de respond.io, fijo abajo. */
+.rio .rio-nota {
+  border: 1px solid var(--rio-warning);
+  border-radius: var(--rio-radius);
+  background: var(--rio-comment-bg);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.rio .rio-nota-texto {
+  border: 0;
+  background: transparent;
+  resize: none;
+  font: inherit;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--rio-text);
+  outline: none;
+  min-height: 40px;
+  max-height: 140px;
+}
+.rio .rio-nota-texto::placeholder { color: var(--rio-text-2); }
+.rio .rio-nota-barra { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.rio .rio-nota-enviar {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: var(--rio-radius);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--rio-warning);
+  color: #ffffff;
+  cursor: pointer;
+}
+.rio .rio-nota-enviar:disabled { background: var(--rio-disabled-bg); color: var(--rio-disabled-icon); cursor: default; }
+
+/* El aro de «cargando», sin texto. */
+.rio .rio-girando { animation: rio-gira 0.9s linear infinite; }
+@keyframes rio-gira { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .rio .rio-girando { animation: none; }
+}

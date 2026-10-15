@@ -11,6 +11,7 @@ import { PARTES as ADMIN_PARTES, BITACORA as ADMIN_BITACORA } from './admin/bita
 import { PARTES as ONBOARDING_PARTES, BITACORA as ONBOARDING_BITACORA } from './onboarding/bitacora';
 import { PARTES as GENERAL_PARTES, BITACORA as GENERAL_BITACORA } from './general/bitacora';
 import { PARTES as CALENDARIO_PARTES, BITACORA as CALENDARIO_BITACORA } from './calendario/bitacora';
+import { PARTES as CHATS_PARTES, BITACORA as CHATS_BITACORA } from './chats/bitacora';
 import { PARTES as CHATBOT_PARTES, BITACORA as CHATBOT_BITACORA } from './chatbot/bitacora';
 import { PARTES as ADS_PARTES, BITACORA as ADS_BITACORA } from './ads-writer/bitacora';
 import { PARTES as SEMAFORO_PARTES, BITACORA as SEMAFORO_BITACORA } from './semaforo/bitacora';
@@ -69,6 +70,7 @@ const REGISTROS: Record<string, Registro> = {
   onboarding: { partes: ONBOARDING_PARTES, bitacora: ONBOARDING_BITACORA },
   general: { partes: GENERAL_PARTES, bitacora: GENERAL_BITACORA },
   calendario: { partes: CALENDARIO_PARTES, bitacora: CALENDARIO_BITACORA },
+  chats: { partes: CHATS_PARTES, bitacora: CHATS_BITACORA },
   dashboard: { partes: DASHBOARD_PARTES, bitacora: DASHBOARD_BITACORA },
   chatbot: { partes: CHATBOT_PARTES, bitacora: CHATBOT_BITACORA },
   'ads-writer': { partes: ADS_PARTES, bitacora: ADS_BITACORA },

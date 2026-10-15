@@ -15,6 +15,7 @@ import { RUNNERS as general } from './areas/general.run';
 import { RUNNERS as plan } from './areas/plan.run';
 import { RUNNERS as crm } from './areas/crm.run';
 import { RUNNERS as ads } from './areas/ads.run';
+import { RUNNERS as chats } from './areas/chats.run';
 import { RUNNERS as whatsapp } from './areas/whatsapp.run';
 import { RUNNERS as email } from './areas/email.run';
 import { RUNNERS as chatbot } from './areas/chatbot.run';
@@ -37,7 +38,7 @@ import { RUNNERS as calendario } from './areas/calendario.run';
 import { RUNNERS as mako } from './areas/mako.run';
 
 const TODOS: Runners[] = [
-  general, plan, crm, ads, whatsapp, email, chatbot, metricas, dashboard, experimentos,
+  general, plan, crm, ads, chats, whatsapp, email, chatbot, metricas, dashboard, experimentos,
   landing, closing, negocio, contenido, video, imagen, integraciones, equipo, cs, curso, creaciones, cobros, calendario, mako,
 ];
 

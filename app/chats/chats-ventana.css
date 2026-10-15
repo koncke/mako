@@ -1,0 +1,884 @@
+/* =============================================================================
+   /chats — la VENTANA del chat (cabecera, hilo, composer), copiada de respond.io
+   =============================================================================
+   La estilan VentanaChat.tsx, Hilo.tsx, Composer.tsx y ventana-piezas.tsx. Medidas del relevamiento
+   (respondio.md §1.3-1.8, capturas 07 a 45): cabecera de 44, burbujas de radio 6, menús blancos de
+   radio 8 con ítems de 36, composer en tarjeta de radio 8 con el enviar de 28×28.
+
+   ⚠️ SÓLO TOKENS `--rio-*` (los define chats.css, claro en `.rio` y oscuro en `[data-tema="oscuro"]
+   .rio`): acá no se redefine ninguno, así el oscuro sale solo. Las únicas excepciones son blancos sobre
+   un relleno de color (el enviar, el verde de «Cerrar conversación») y el negro del visor de imágenes.
+   La IA es MaKo: `--rio-ia*` (alias de `--mako`) y `--mako-ink`/`--mako-border` de globals.css.
+
+   ⚠️ NINGÚN SELECTOR DE ELEMENTO PELADO y todo bajo `.rio`: como `.gh`, `.ce` y `.lk`, esta copia no
+   toca una regla del resto de MaKo. Los nombres de clase no repiten los de chats.css (la lista usa
+   `.rio-fila`, la ventana `.rio-msg`; el drawer usa `.rio-chip-fecha`, el hilo `.rio-dia-chip`).
+   ============================================================================= */
+
+/* ── La raíz de la ventana ─────────────────────────────────────────────────── */
+
+.rio .rio-v {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  background: var(--rio-bg);
+  color: var(--rio-text);
+}
+
+/* ── La cabecera (44 px, padding 0 12) ─────────────────────────────────────── */
+
+.rio .rio-cab-v {
+  padding: 0 12px;
+  gap: 12px;
+  justify-content: space-between;
+  position: relative;
+  z-index: 5; /* sus menús van ENCIMA del hilo, que viene después en el documento */
+  background: var(--rio-bg);
+}
+.rio .rio-cab-izq { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1 1 auto; }
+.rio .rio-cab-der { display: flex; align-items: center; gap: 8px; flex: none; }
+
+.rio .rio-cab-contacto {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+}
+.rio .rio-cab-nombres { display: flex; flex-direction: column; min-width: 0; }
+.rio .rio-cab-nombre {
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+  color: var(--rio-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 240px;
+}
+.rio .rio-cab-sub {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--rio-text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* El split de etapa y el de Cerrar: 28 de alto, borde 1, radio 8, divisor entre los dos segmentos. */
+.rio .rio-split {
+  display: inline-flex;
+  align-items: stretch;
+  height: 28px;
+  box-sizing: border-box;
+  border: 1px solid var(--rio-border);
+  border-radius: var(--rio-radius);
+  background: var(--rio-bg);
+  overflow: hidden;
+  flex: none;
+}
+.rio .rio-split-a,
+.rio .rio-split-b {
+  border: 0;
+  background: transparent;
+  color: var(--rio-text);
+  font: inherit;
+  font-size: 14px;
+  line-height: 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  padding: 0 10px;
+  min-width: 0;
+}
+.rio .rio-split-b { padding: 0 6px; border-left: 1px solid var(--rio-border); }
+.rio .rio-split-a:hover:not(:disabled),
+.rio .rio-split-b:hover:not(:disabled) { background: var(--rio-bg-gray); }
+.rio .rio-split-a:disabled,
+.rio .rio-split-b:disabled { cursor: default; color: var(--rio-text-3); }
+.rio .rio-split-etapa .rio-split-a { max-width: 200px; }
+.rio .rio-etapa-txt { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.rio .rio-etapa-punto { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+
+/* El asignado: avatar 20 + nombre 12/600 truncado + chevron. */
+.rio .rio-asignado {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: var(--rio-radius);
+  background: transparent;
+  color: var(--rio-text-2);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.rio .rio-asignado:hover { background: var(--rio-bg-gray); }
+.rio .rio-asignado-nombre { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; max-width: 96px; }
+.rio .rio-sin-asignar-24 { width: 24px; height: 24px; }
+
+.rio .rio-ico-btn {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: var(--rio-radius);
+  background: transparent;
+  color: var(--rio-text);
+  cursor: pointer;
+  padding: 0;
+}
+.rio .rio-ico-btn:hover:not(:disabled) { background: var(--rio-bg-gray); }
+.rio .rio-ico-btn:disabled { color: var(--rio-text-3); cursor: default; }
+.rio .rio-ico-btn:focus-visible { outline: 2px solid var(--rio-primary); outline-offset: -2px; }
+.rio .rio-ico-on { color: var(--rio-primary); background: var(--rio-bg-sel); }
+.rio .rio-cab-v .rio-btn { height: 28px; padding: 0 10px; gap: 6px; }
+
+/* ── Menús (blancos, radio 8, borde y sombra; ítems de 36 con ícono 16 + texto 14) ── */
+
+.rio .rio-ancla { position: relative; display: inline-flex; flex: none; }
+.rio .rio-menu {
+  position: absolute;
+  z-index: 40;
+  min-width: 200px;
+  max-width: min(340px, calc(100vw - 32px));
+  max-height: 360px;
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: 4px;
+  background: var(--rio-bg);
+  border: 1px solid var(--rio-border);
+  border-radius: var(--rio-radius);
+  box-shadow: var(--rio-shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.rio .rio-menu-der { top: calc(100% + 4px); right: 0; }
+.rio .rio-menu-izq { top: calc(100% + 4px); left: 0; }
+.rio .rio-menu-arriba { bottom: calc(100% + 4px); left: 0; }
+.rio .rio-menu-asignar { width: 260px; }
+.rio .rio-menu-posponer { width: 280px; }
+.rio .rio-menu-etapas { width: 240px; }
+.rio .rio-menu-canal { width: 360px; }
+.rio .rio-menu-tit { padding: 8px 10px 4px; font-size: 12px; line-height: 16px; font-weight: 600; color: var(--rio-text-2); }
+.rio .rio-menu-vacio { padding: 10px; font-size: 13px; color: var(--rio-text-3); }
+.rio .rio-menu-nota { padding: 10px; display: flex; flex-direction: column; align-items: flex-start; gap: 10px; font-size: 14px; line-height: 20px; color: var(--rio-text); }
+.rio .rio-menu-buscar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  flex: none;
+  padding: 0 10px;
+  margin-bottom: 4px;
+  border-radius: var(--rio-radius);
+  background: var(--rio-bg-gray);
+  color: var(--rio-text-2);
+}
+.rio .rio-menu-buscar-campo {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  outline: none;
+  font: inherit;
+  font-size: 14px;
+  color: var(--rio-text);
+}
+.rio .rio-menu-buscar-campo::placeholder { color: var(--rio-text-3); }
+
+.rio .rio-mi {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 36px;
+  flex: none;
+  box-sizing: border-box;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--rio-text);
+  font: inherit;
+  font-size: 14px;
+  line-height: 20px;
+  text-align: left;
+  cursor: pointer;
+}
+.rio .rio-mi:hover:not(:disabled) { background: var(--rio-bg-gray); }
+.rio .rio-mi-on,
+.rio .rio-mi-on:hover:not(:disabled) { background: var(--rio-bg-sel); color: var(--rio-primary); }
+.rio .rio-mi:disabled { cursor: default; color: var(--rio-text-3); }
+.rio .rio-mi:disabled .rio-mi-ico { opacity: 0.45; filter: grayscale(1); }
+.rio .rio-mi-peligro { color: var(--rio-danger); }
+.rio .rio-mi-ico { flex: none; display: inline-flex; align-items: center; justify-content: center; min-width: 16px; }
+.rio .rio-mi-txt { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rio .rio-mi-det { flex: none; font-size: 12px; line-height: 16px; color: var(--rio-text-2); }
+.rio .rio-mi:disabled .rio-mi-det { color: var(--rio-text-3); }
+
+/* «Cerrar con nota»: el popover de respond.io («Closing Notes»), colgado del botón Cerrar. */
+.rio .rio-pop {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 4px);
+  right: 0;
+  box-sizing: border-box;
+  background: var(--rio-bg);
+  border: 1px solid var(--rio-border);
+  border-radius: var(--rio-radius);
+  box-shadow: var(--rio-shadow);
+}
+.rio .rio-pop-cierre { width: min(480px, calc(100vw - 32px)); }
+.rio .rio-pop-tit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--rio-border);
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 600;
+  color: var(--rio-text);
+}
+.rio .rio-check-lleno {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--rio-text);
+  color: var(--rio-bg);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+.rio .rio-pop-cuerpo { padding: 12px 16px; display: flex; flex-direction: column; gap: 6px; }
+.rio .rio-pop-label { font-size: 12px; line-height: 16px; font-weight: 600; color: var(--rio-text-2); }
+.rio .rio-pop-campo {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 96px;
+  resize: vertical;
+  padding: 8px 12px;
+  border: 1px solid var(--rio-border);
+  border-radius: var(--rio-radius);
+  background: var(--rio-bg);
+  color: var(--rio-text);
+  font: inherit;
+  font-size: 14px;
+  line-height: 20px;
+  outline: none;
+}
+.rio .rio-pop-campo::placeholder { color: var(--rio-text-3); }
+.rio .rio-pop-campo:focus { border-color: var(--rio-primary); }
+.rio .rio-pop-acc { display: flex; justify-content: flex-end; gap: 8px; padding: 0 16px 16px; }
+
+.rio .rio-btn-verde {
+  height: 32px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: var(--rio-radius);
+  background: var(--rio-success);
+  color: #ffffff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.rio .rio-btn-verde:hover:not(:disabled) { filter: brightness(0.94); }
+.rio .rio-btn-verde:disabled { opacity: 0.6; cursor: default; }
+.rio .rio-btn-texto {
+  height: 32px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--rio-radius);
+  background: transparent;
+  color: var(--rio-text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.rio .rio-btn-texto:hover:not(:disabled) { background: var(--rio-bg-gray); }
+.rio .rio-btn-texto:disabled { color: var(--rio-text-3); cursor: default; }
+
+/* El alta al CRM en la cabecera (en el lugar de la etapa) y en el comentario: BotonAgregarAlCrm trae un
+   margen arriba propio de la bandeja de /whatsapp, que acá descuadra la fila de 44. */
+.rio .rio-alta-crm { display: inline-flex; align-items: center; flex: none; }
+.rio .rio-alta-crm > * { margin-top: 0 !important; }
+
+/* La lectura del sondeo falló con algo ya leído: una franja, no un hilo vacío. */
+.rio .rio-lectura-falla {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: var(--rio-comment-bg);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--rio-text);
+}
+.rio .rio-lectura-falla .rio-link { font-size: 12px; }
+
+/* ── El cuerpo: hilo + composer (el contenedor de la vista previa de adjuntos) ── */
+
+.rio .rio-cuerpo { flex: 1; min-height: 0; display: flex; flex-direction: column; position: relative; }
+.rio .rio-hilo-caja { flex: 1; min-height: 0; display: flex; flex-direction: column; position: relative; }
+
+/* ── El hilo ───────────────────────────────────────────────────────────────── */
+
+.rio .rio-hilo {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 4px 12px 12px;
+  display: flex;
+  flex-direction: column;
+}
+.rio .rio-hilo-estado {
+  margin: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 24px;
+  color: var(--rio-text-2);
+  font-size: 14px;
+  text-align: center;
+}
+.rio .rio-dia { display: flex; flex-direction: column; flex: none; }
+
+/* El chip de fecha: centrado, gris, 12/400, alto 24, radio 4, y FIJO arriba mientras se scrollea su día
+   (sticky adentro de la sección del día: el día siguiente lo empuja, como en respond.io). */
+.rio .rio-dia-chip {
+  position: sticky;
+  top: 6px;
+  z-index: 2;
+  display: flex;
+  justify-content: center;
+  margin: 12px 0 8px;
+  pointer-events: none;
+}
+.rio .rio-dia-chip-txt {
+  pointer-events: auto;
+  height: 24px;
+  box-sizing: border-box;
+  padding: 0 8px;
+  border-radius: var(--rio-radius-chip);
+  background: var(--rio-bg-gray);
+  font-size: 12px;
+  line-height: 24px;
+  color: var(--rio-text-2);
+}
+
+/* Una fila de mensaje: a todo el ancho (el hover pinta la fila entera, #f9fafb), avatar de 32 abajo. */
+.rio .rio-msg {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  margin: 0 -12px;
+  padding: 2px 12px;
+}
+.rio .rio-msg-ult { margin-bottom: 8px; } /* 4 px dentro del grupo, ~12 entre grupos */
+.rio .rio-msg:hover { background: var(--rio-bg-row-hover); }
+.rio .rio-msg-sale { flex-direction: row-reverse; }
+.rio .rio-msg-av { width: 32px; flex: none; display: flex; align-items: flex-end; }
+.rio .rio-msg-cuerpo {
+  min-width: 0;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  max-width: min(640px, calc(100% - 40px));
+}
+
+.rio .rio-burbuja-caja { position: relative; min-width: 0; }
+.rio .rio-burbuja {
+  box-sizing: border-box;
+  max-width: 100%;
+  padding: 8px 10px;
+  border-radius: var(--rio-radius-bubble);
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--rio-text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.rio .rio-b-entra { background: var(--rio-bubble-in); }
+.rio .rio-b-sale { background: var(--rio-bubble-out); }
+.rio .rio-b-nota { background: var(--rio-comment-bg); }
+.rio .rio-b-sticker { background: transparent; padding: 0; }
+.rio .rio-b-autor { font-size: 12px; line-height: 16px; font-weight: 600; color: var(--rio-text-2); margin-bottom: 2px; }
+.rio .rio-txt { display: inline; }
+.rio .rio-txt-link { color: var(--rio-link); text-decoration: none; }
+.rio .rio-txt-link:hover { text-decoration: underline; }
+
+/* El tooltip con la hora exacta: oscuro, radio 6, al pasar el mouse por la burbuja. `display: none`
+   (no `opacity`): uno invisible igual estiraría el scroll del hilo debajo del último mensaje. */
+.rio .rio-tip-hora {
+  display: none;
+  position: absolute;
+  top: calc(100% + 4px);
+  z-index: 3;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--rio-tooltip-bg);
+  color: var(--rio-tooltip-fg);
+  font-size: 12px;
+  line-height: 16px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.rio .rio-msg-entra .rio-tip-hora { left: 0; }
+.rio .rio-msg-sale .rio-tip-hora { right: 0; }
+.rio .rio-burbuja-caja:hover .rio-tip-hora { display: block; }
+
+/* La barra flotante del hover: blanca, borde, radio 8, sombra leve. Arriba a la derecha en las
+   entrantes y a la izquierda en las salientes (capturas 24 y 27). */
+.rio .rio-acciones-msg {
+  position: absolute;
+  top: -14px;
+  right: 16px;
+  z-index: 3;
+  display: none;
+  padding: 2px;
+  background: var(--rio-bg);
+  border: 1px solid var(--rio-border);
+  border-radius: var(--rio-radius);
+  box-shadow: var(--rio-shadow);
+}
+.rio .rio-msg-sale .rio-acciones-msg { right: auto; left: 16px; }
+.rio .rio-msg:hover .rio-acciones-msg,
+.rio .rio-acciones-msg:focus-within { display: flex; }
+.rio .rio-acc-btn {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--rio-text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+}
+.rio .rio-acc-btn:hover { background: var(--rio-bg-gray); }
+
+/* El estado de entrega, a la izquierda de la saliente. */
+.rio .rio-tick {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  min-width: 14px;
+  height: 20px;
+  margin-bottom: 6px;
+  color: var(--rio-text-3);
+}
+.rio .rio-tick-leido { color: var(--rio-link); }
+.rio .rio-tick-fallo { color: var(--rio-danger); cursor: help; }
+
+/* Adjuntos */
+.rio .rio-media-img {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: zoom-in;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.rio .rio-media-img-el { display: block; max-width: min(280px, 100%); max-height: 320px; width: auto; height: auto; object-fit: cover; }
+.rio .rio-media-img + .rio-txt { display: block; margin-top: 6px; }
+.rio .rio-media-video { display: block; max-width: min(320px, 100%); max-height: 320px; border-radius: 4px; background: #000000; }
+.rio .rio-media-video + .rio-txt { display: block; margin-top: 6px; }
+.rio .rio-sin-media { color: var(--rio-text-2); font-style: italic; }
+.rio .rio-doc {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 200px;
+  max-width: 320px;
+  text-decoration: none;
+  color: inherit;
+  white-space: normal;
+}
+.rio .rio-doc-ico { flex: none; display: inline-flex; flex-direction: column; align-items: center; color: var(--rio-text-2); }
+.rio .rio-doc-ext { font-size: 9px; line-height: 10px; font-weight: 700; margin-top: -2px; letter-spacing: 0.02em; }
+.rio .rio-doc-txt { display: flex; flex-direction: column; min-width: 0; }
+.rio .rio-doc-nombre { font-size: 14px; line-height: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rio .rio-doc-det { font-size: 12px; line-height: 16px; color: var(--rio-text-2); }
+
+/* Los eventos: centrados, 12/400 secundario, con el actor y la entidad en 12/600 primario. */
+.rio .rio-eventos { display: flex; flex-direction: column; align-items: center; gap: 6px; margin: 8px 0 12px; }
+.rio .rio-ev { max-width: 90%; text-align: center; font-size: 12px; line-height: 18px; color: var(--rio-text-2); }
+.rio .rio-ev-b { font-weight: 600; color: var(--rio-text); }
+.rio .rio-ev-mas {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--rio-link);
+  cursor: pointer;
+}
+
+/* El visor de imágenes */
+.rio .rio-visor {
+  position: fixed;
+  inset: 0;
+  z-index: 2500;
+  background: rgba(0, 0, 0, 0.78);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 28px;
+}
+.rio .rio-visor-img { max-width: 92vw; max-height: 88vh; border-radius: 8px; object-fit: contain; }
+.rio .rio-visor-x {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 0;
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Avatares (ventana-piezas: AvatarRio; también los usa la lista) ───────── */
+
+.rio .rio-av { position: relative; flex: none; display: inline-flex; }
+.rio .rio-av-cara {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  color: #ffffff;
+  font-weight: 600;
+  line-height: 1;
+  object-fit: cover;
+  user-select: none;
+}
+.rio .rio-av-vacio { background: var(--rio-bg-hover-blue); color: var(--rio-text-2); }
+.rio .rio-av-mako { background: var(--rio-ia-bg); color: var(--rio-ia); }
+.rio .rio-av-insignia { position: absolute; right: -4px; bottom: -4px; display: inline-flex; }
+.rio .rio-av-nota {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--rio-warning);
+  box-shadow: 0 0 0 2px var(--rio-bg);
+}
+
+/* ── El composer ───────────────────────────────────────────────────────────── */
+
+.rio .rio-comp { flex: none; padding: 0 12px; display: flex; flex-direction: column; gap: 8px; }
+.rio .rio-comp-card {
+  position: relative;
+  box-sizing: border-box;
+  border: 1px solid var(--rio-border);
+  border-radius: var(--rio-radius);
+  background: var(--rio-bg);
+  padding: 4px 8px 8px 12px;
+  display: flex;
+  flex-direction: column;
+}
+.rio .rio-comp-plegada { padding-bottom: 4px; }
+.rio .rio-comp-f1 { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 36px; }
+
+.rio .rio-canal { position: relative; min-width: 0; display: inline-flex; }
+.rio .rio-canal-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  max-width: 100%;
+  min-width: 0;
+  padding: 0 6px;
+  margin-left: -6px;
+  border: 0;
+  border-radius: var(--rio-radius);
+  background: transparent;
+  color: var(--rio-text);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.rio .rio-canal-btn:hover { background: var(--rio-bg-gray); }
+.rio .rio-canal-txt { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+
+/* «MaKo»: el «AI Assist» de respond.io, con el dorado de MaKo en vez del violeta. */
+.rio .rio-mako {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: var(--rio-radius);
+  background: transparent;
+  color: var(--mako-ink, var(--rio-ia));
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  flex: none;
+}
+.rio .rio-mako:hover:not(:disabled) { background: var(--rio-ia-bg); }
+.rio .rio-mako:disabled { color: var(--rio-text-3); cursor: default; }
+
+.rio .rio-comp-campo {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 40px;
+  max-height: 160px;
+  padding: 8px 0;
+  border: 0;
+  outline: none;
+  resize: none;
+  background: transparent;
+  color: var(--rio-text);
+  font: inherit;
+  font-size: 14px;
+  line-height: 20px;
+}
+.rio .rio-comp-campo::placeholder { color: var(--rio-text-3); }
+.rio .rio-comp-campo:disabled { cursor: not-allowed; }
+.rio .rio-comp-barra { display: flex; align-items: center; gap: 4px; min-height: 32px; }
+.rio .rio-comp-esp { flex: 1; }
+.rio .rio-comp-voz { padding: 8px 0 4px; }
+
+/* Enviar: 28×28, radio 8. Activo azul con ícono blanco; apagado gris. En comentario, naranja. */
+.rio .rio-enviar {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  border: 0;
+  border-radius: var(--rio-radius);
+  background: var(--rio-primary);
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+}
+.rio .rio-enviar:hover:not(:disabled) { background: var(--rio-primary-hover); }
+.rio .rio-enviar:disabled { background: var(--rio-disabled-bg); color: var(--rio-disabled-icon); cursor: default; }
+.rio .rio-enviar-nota { background: var(--rio-warning); }
+.rio .rio-enviar-nota:hover:not(:disabled) { background: var(--rio-warning); filter: brightness(0.94); }
+
+/* Los popovers que abren hacia arriba (el emoji), anclados a su botón. */
+.rio .rio-pop-arriba { position: absolute; bottom: calc(100% + 6px); left: 0; z-index: 40; }
+
+.rio .rio-comp-pie { display: flex; align-items: center; min-height: 40px; margin-top: -4px; }
+.rio .rio-btn-comentario {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 6px;
+  margin-left: -6px;
+  border: 0;
+  border-radius: var(--rio-radius);
+  background: transparent;
+  color: var(--rio-text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.rio .rio-btn-comentario:hover { background: var(--rio-bg-gray); }
+
+/* El comentario: la tarjeta durazno con borde naranja. */
+.rio .rio-nota-card {
+  box-sizing: border-box;
+  border: 1px solid var(--rio-warning);
+  border-radius: var(--rio-radius);
+  background: var(--rio-comment-bg);
+  padding: 8px;
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.rio .rio-nota-f1 { display: flex; align-items: flex-start; gap: 8px; }
+.rio .rio-nota-f1 > .rio-av { margin-top: 8px; }
+.rio .rio-nota-campo { flex: 1; min-width: 0; width: auto; }
+.rio .rio-nota-campo::placeholder { color: var(--rio-text-2); }
+.rio .rio-nota-sinlead { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; min-height: 40px; font-size: 14px; line-height: 20px; color: var(--rio-text); }
+.rio .rio-nota-sinlead > .rio-ico-btn { margin-left: auto; }
+
+/* El borrador de MaKo pendiente, arriba de la caja: el banner de IA de respond.io, en dorado. */
+.rio .rio-borrador {
+  box-sizing: border-box;
+  border: 1px solid var(--mako-border, var(--rio-border));
+  border-radius: var(--rio-radius);
+  background: var(--rio-ia-bg);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.rio .rio-borrador-cab { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.rio .rio-borrador-tit { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; line-height: 20px; font-weight: 600; color: var(--rio-text); min-width: 0; }
+.rio .rio-borrador-ico { color: var(--rio-ia); display: inline-flex; }
+.rio .rio-borrador-acc { display: inline-flex; align-items: center; gap: 6px; flex: none; }
+.rio .rio-borrador-acc .rio-btn,
+.rio .rio-borrador-acc .rio-btn-texto { height: 28px; }
+.rio .rio-btn-mako { background: var(--rio-ia); border-color: var(--rio-ia); color: #282e34; }
+.rio .rio-btn-mako:hover:not(:disabled) { background: var(--rio-ia); filter: brightness(0.95); }
+.rio .rio-borrador-txt {
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--rio-text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 100px;
+  overflow-y: auto;
+}
+
+.rio .rio-comp-fase { display: flex; align-items: center; gap: 8px; font-size: 12px; line-height: 16px; color: var(--rio-text-2); }
+.rio .rio-comp-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: var(--rio-radius);
+  background: var(--rio-danger-bg);
+  color: var(--rio-text);
+  font-size: 12px;
+  line-height: 16px;
+}
+.rio .rio-comp-error-x {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--rio-text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+}
+
+/* La vista previa de los adjuntos (la de la casa) tapa el hilo y la caja, como en WhatsApp Web. */
+.rio .rio-vista-adjuntos {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  background: var(--rio-bg);
+}
+
+/* ── El aviso (toast de respond.io: verde claro con su check, o rojo con su «!») ── */
+
+.rio .rio-aviso {
+  position: absolute;
+  left: 16px;
+  bottom: 12px;
+  z-index: 50; /* debajo de los modales (AGENTS.md: un aviso no tapa el cerrar de algo que se abrió) */
+  max-width: min(360px, calc(100% - 32px));
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: var(--rio-radius);
+  background: var(--rio-success-bg);
+  color: var(--rio-text);
+  box-shadow: var(--rio-shadow);
+  font-size: 14px;
+  line-height: 20px;
+}
+.rio .rio-aviso-error { background: var(--rio-danger-bg); }
+.rio .rio-aviso-ok {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--rio-success);
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+.rio .rio-aviso-ico-error { color: var(--rio-danger); display: inline-flex; flex: none; }
+.rio .rio-aviso-x {
+  flex: none;
+  margin-left: 4px;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--rio-text-2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+}
+
+/* ── El giro de «cargando» ─────────────────────────────────────────────────── */
+
+.rio .rio-giro {
+  display: inline-block;
+  width: 22px;
+  height: 22px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 2px solid var(--rio-bg-gray-2);
+  border-top-color: var(--rio-primary);
+  animation: rio-v-gira 0.8s linear infinite;
+  flex: none;
+}
+.rio .rio-giro-chico { width: 14px; height: 14px; }
+@keyframes rio-v-gira { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .rio .rio-giro { animation: none; }
+}

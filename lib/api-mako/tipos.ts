@@ -31,7 +31,7 @@
 import type { Permisos } from './permisos';
 
 export const AREAS = [
-  'general', 'plan', 'crm', 'ads', 'whatsapp', 'email', 'chatbot',
+  'general', 'plan', 'crm', 'ads', 'chats', 'whatsapp', 'email', 'chatbot',
   'metricas', 'experimentos', 'landing', 'closing', 'negocio', 'contenido', 'video',
   'imagen', 'integraciones', 'equipo', 'cs', 'curso', 'calendario', 'creaciones', 'cobros', 'mako',
 ] as const;
@@ -43,6 +43,9 @@ export const AREA_INFO: Record<Area, { titulo: string; tab: string; ruta: string
   plan: { titulo: 'Plan', tab: 'Plan', ruta: '/plan' },
   crm: { titulo: 'CRM', tab: 'CRM', ruta: '/crm' },
   ads: { titulo: 'Ads (Manager y Analyst)', tab: 'Ads Manager', ruta: '/ads-manager' },
+  // La bandeja unificada (14/10/2026, docs/diseno-chats.md): WhatsApp, Instagram y Messenger por contacto. Lee y
+  // cambia el ESTADO de una conversación (cerrar, reabrir, posponer); no manda nada (eso es crear_borrador_whatsapp_empresa).
+  chats: { titulo: 'Chats (WhatsApp, Instagram y Messenger)', tab: 'Chats', ruta: '/chats' },
   whatsapp: { titulo: 'WhatsApp', tab: 'WhatsApp', ruta: '/whatsapp' },
   email: { titulo: 'Email', tab: 'Email', ruta: '/email' },
   // El ÁREA se sigue llamando `chatbot` (es la clave del registro, de las operaciones y de

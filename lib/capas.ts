@@ -285,6 +285,11 @@ export const CAPAS: Record<CapaId, CapaDef> = {
     // admin no la ve en su propio workspace y `requireCapa` lo rebota (lo mismo le pasa a
     // `video-generator`, que no está en la lista).
     // ⚠️ `calendario` ENTRA ACÁ EL 13/10/2026, con la tab: MaKo también planea sus publicaciones y sus llamadas.
+    // ⚠️ `chats` NO ENTRA (14/10/2026, decisión tomada al crear la tab, AGENTS.md «Una tab nueva decide si
+    // entra en la capa superadmin»): va donde va `whatsapp`, y `whatsapp` tampoco está. Este workspace no tiene
+    // CRM ni bandeja de leads: el WhatsApp propio de MaKo es la tab de admin «WhatsApp de MaKo» (/agencia), y
+    // los chats de un cliente se miran entrando a SU workspace. tests/chats-registro.test.ts fija la paridad
+    // chats ↔ whatsapp en TODAS las capas: si un día `whatsapp` entra acá, `chats` entra con ella.
     navKeys: ['todo', 'mako', 'mako-doer', 'closing', 'experimentos', 'customer-success', 'productivity-analyst', 'graphics', 'video-editor', 'calendario'],
     userNavKeys: null,
     // Sin wizard: el super-admin no hace onboarding de cliente.

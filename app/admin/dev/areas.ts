@@ -250,6 +250,19 @@ export const AREAS: AreaDev[] = [
     vive: ['lib/meta-ads.ts', 'lib/meta-write.ts', 'lib/meta-descubrir.ts', 'lib/meta-capi.ts', 'lib/meta-capi-payload.ts', 'lib/meta-leads.ts', 'lib/meta-templates.ts', 'app/api/webhooks/meta-leads'],
   },
   {
+    slug: 'chats', titulo: 'Chats', familia: 'Operate', grupo: 'Comunicación',
+    estado: 'parcial', verEnApp: '/chats',
+    alcance: 'La bandeja unificada copiada de respond.io: WhatsApp (cada línea), Instagram y Messenger en UNA tab, una conversación por CONTACTO (el lead junta todos sus canales). Asignar, etapa, cerrar, posponer, comentarios internos y el borrador de MaKo, con el no leído por persona en el servidor.',
+    vive: [
+      'docs/diseno-chats.md', 'app/chats', 'app/api/chats', 'lib/chats.ts', 'lib/chats-tipos.ts', 'lib/chats-reglas.ts',
+      'lib/chats-links.ts', 'lib/api-mako/areas/chats.def.ts', 'lib/api-mako/areas/chats.run.ts',
+      'supabase/migrations/0284_chats.sql', 'tests/chats-registro.test.ts',
+    ],
+    proyectos: ['Feature: WhatsApp'],
+    hallazgos: 'hallazgos-comunicacion',
+    nota: 'WhatsApp sigue en la barra al lado de Chats hasta que Martín valide que la reemplaza (docs/diseno-chats.md §6). La clave de un contacto SIN lead cambia al agregarlo al CRM (pasa a lead:<id>): su estado y su marca de leído quedan en la clave vieja. Y el badge de la barra cuenta sólo el WhatsApp: Instagram y Messenger no tienen sondeo.',
+  },
+  {
     slug: 'whatsapp', titulo: 'WhatsApp', familia: 'Operate', grupo: 'Comunicación',
     estado: 'listo', verEnApp: '/whatsapp',
     alcance: 'El canal de todos los días con los leads: dos bandejas (oficial y de empresa), secuencias automáticas y plantillas.',
@@ -310,7 +323,7 @@ export const AREAS: AreaDev[] = [
     vive: ['app/instagram/page.tsx', 'app/api/webhooks/zernio/route.ts', 'supabase/migrations/0136_instagram_zernio.sql', 'tests/sin-instagram.test.ts'],
     proyectos: ['Feature: Instagram'],
     hallazgos: 'hallazgos-comunicacion',
-    nota: 'Se retiró el 06/10/2026 por decisión de Martín: en toda su historia hubo 0 DMs y 0 publicaciones (ig_conversaciones, ig_mensajes y contenido_posts vacías). Dos workspaces —ws11 y ws13— llegaron a conectar Zernio y todavía tienen su ZERNIO_API_KEY, su fila en zernio_workspace y su ruteo en webhook_routing: nadie los lee. Las TABLAS quedan (sin migración de drop). El webhook sigue vivo a propósito: la URL puede estar registrada en Zernio, y un 404 lo haría reintentar cada evento. Reels, Carousels y Stories siguen como writers: la pieza se copia, ya no va a ningún programador. Si Instagram vuelve, es una decisión del dueño, y tests/sin-instagram.test.ts falla hasta que se tome.',
+    nota: 'Se retiró el 06/10/2026 por decisión de Martín: en toda su historia hubo 0 DMs y 0 publicaciones (ig_conversaciones, ig_mensajes y contenido_posts vacías). Dos workspaces —ws11 y ws13— llegaron a conectar Zernio y todavía tienen su ZERNIO_API_KEY, su fila en zernio_workspace y su ruteo en webhook_routing: nadie los lee. Las TABLAS quedan (sin migración de drop). El webhook sigue vivo a propósito: la URL puede estar registrada en Zernio, y un 404 lo haría reintentar cada evento. Reels, Carousels y Stories siguen como writers: la pieza se copia, ya no va a ningún programador. Si Instagram vuelve, es una decisión del dueño, y tests/sin-instagram.test.ts falla hasta que se tome. Se tomó dos veces: el 09/10/2026 vuelve como CANAL de Automations y el 14/10/2026 sus DMs (y los de Messenger) vuelven ADENTRO de la tab Chats (área chats). La tab /instagram sigue afuera.',
   },
   {
     slug: 'onboarding', titulo: 'Onboarding Wizard', familia: 'Operate', grupo: 'Onboarding',

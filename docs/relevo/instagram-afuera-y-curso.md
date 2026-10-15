@@ -1,5 +1,16 @@
 # Retomar: Instagram afuera y el curso del servicio dentro de MaKo
 
+> ## ⚠️ 14/10/2026 — LA BANDEJA de Instagram y Messenger ya NO va en una tab propia: vive en **Chats**
+>
+> Martín pidió el 14/10 (chat «Chats», cuenta `claude2`): «Implementar la tab "Chats" algo como
+> respond.io para tener en UNA sola tab centralizado absolutamente todos los chats, WhatsApp,
+> Instagram, Messenger, etc.». Eso **reemplaza el punto 2 del plan de abajo** (la bandeja de la tab
+> «Instagram y Messenger»): leer y contestar DMs de Instagram y Messenger se hace en `/chats`
+> (`docs/diseno-chats.md`; lectores y envío manual en `lib/canal-zernio.ts`). **No construir una
+> segunda bandeja.** Lo demás del plan sigue en pie y es de este chat: el motor de PUBLICAR (punto
+> 1), Stories (punto 3) y su declaración en la API (punto 4). Si la tab de publicación necesita ver
+> conversaciones, linkea a `/chats?c=ig:<id>`.
+
 > ## ⏸️ PAUSADO POR MARTÍN (13/10/2026 ~20:00) — Instagram VUELVE como tab, plan aprobado, sin arrancar
 >
 > **Escrito el 13/10/2026 ~20:10, cuenta `claude2`, chat «Instagram» (el de este relevo).** Martín
