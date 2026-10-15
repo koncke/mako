@@ -785,6 +785,9 @@ el chat MaKo Mobile como proporciones, protagonista ≈ 3× el rótulo).
   tarjetas en la misma celda.
 - **En la pila del celular el titular iba de a dos** como cualquier número (`.lk-pila > .lk-comp--kpi`): un número de 6 × 5
   o más lleva `.lk-comp--titular` y va a lo ancho.
+- ⚠️ **Llegó un rojo a main que mis corridas no veían**: corrí `tests/graficos-*.test.ts` y el test que fijaba la fila de
+  Marketing es `tests/graficos.test.ts`, SIN guion. Lo cazó el chat General. **Los tests a correr se eligen por quién
+  IMPORTA el módulo que cambiaste** (`grep -l "graficos-plantillas" tests/*.test.ts` dio 17), nunca por un glob del nombre.
 - ⚠️ **Y la cosecha misma se rompió por la shell**: escrita con `node -e` en Bash, las comillas invertidas del texto se
   EJECUTARON y salieron vacías. Lo que tenga comillas invertidas se escribe con la herramienta de escritura, nunca por una
   shell (AGENTS.md ya lo dice para el código; vale igual para un .md).
