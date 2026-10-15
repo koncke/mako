@@ -5166,6 +5166,12 @@ de `app/admin/dev/_registro/tipos.ts`:
   `cosecha`), con sus `commits[]` y `archivos[]`.
 - `fecha` y `hora` salen del commit, nunca del recuerdo. `cuenta` sale del marcador
   (ver «Hay dos cuentas»), nunca de una deducción.
+- **`sesion`: el id de TU sesión** (`echo $CLAUDE_CODE_HOST_SESSION_ID` en la app, que da `local_…`; en
+  una terminal, `cli_` + `$CLAUDE_CODE_SESSION_ID`). El Centro de Operaciones muestra los chats como una
+  lista y junta cada hito con su chat por la sesión, nunca por `chat`: hay títulos repetidos y chats
+  renombrados (el 15/10/2026, 17 de 37 coincidían por nombre). Desde el 16/10 tests/progreso.test.ts
+  lo exige en los hitos de trabajo. En un `prompt` que llegó por otro chat va la sesión de ESE chat si la
+  sabés (el `from-session` de su mensaje); si no, sin `sesion`: no se inventa.
 
 ⚠️ **Medido el 27/09/2026, y por eso esta sección existe.** Del 11/09 al 27/09 la cuenta 1
 hizo **152 commits, 19 de ellos de cosecha**, y tocó 25 documentos de contexto

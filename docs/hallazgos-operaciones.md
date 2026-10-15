@@ -299,6 +299,34 @@ chats de la cuenta, 2 abiertos, y no tenía nada que entregar.
   Toda tarjeta se publica con el `destino` de la sesión que pregunta; sin él, el nombre tiene que ser el
   título EXACTO del chat.
 
+## El Centro como app de chats: lo que dicen los datos antes de rediseñar (15/10/2026)
+
+Martín pidió copiar Grok entero: una lista de chats, con el punto verde por «en curso», el historial adentro
+de cada chat, sin la pestaña Trabajos y quizás sin Pedidos. Medido sobre los pedidos de 14 días y los chats
+del cartero, antes de dibujar nada:
+
+- **Un pedido casi siempre vive en un chat:** de 289, a 274 los trabajó un solo chat, a 7 dos y a 1 tres.
+  Pero **26 se pidieron en un chat (el coordinador) y los trabajó otro**, y **7 no los tomó nadie**: ésos
+  no tienen chat donde vivir. Una vista por estado que cruce los chats sigue haciendo falta, o los
+  pendientes desaparecen.
+- **Juntar chats por NOMBRE pierde y mezcla:** de los 37 chats que anotaron en sus bitácoras en 14 días,
+  sólo 17 coinciden por título con los 53 que subió el cartero de claude1 (los demás son de otras cuentas o
+  se renombraron), y el cartero tiene 5 títulos repetidos («CRM», «General», «Ads Manager»…). La llave es
+  la sesión, no el título — la misma lección que el `destino` de la Ticketera.
+- **El punto verde sólo es verdad con el cartero corriendo:** el estado ocupado o libre de cada chat lo sube
+  el cartero en cada vuelta; sin el chat Cartero es una foto vieja, y se dibuja como tal.
+- **Grok sin sesión no muestra nada que copiar** (sólo la caja de escribir): la lista, el historial y el
+  estado se ven con la cuenta de Martín, que inicia sesión él.
+- **Un chat SÍ sabe su sesión, y el supuesto contrario casi dejaba a la lista sin llave.** La Ticketera
+  sacaba el `destino` del `from-session` de un mensaje, como si un chat no pudiera saber su propio id. Lo
+  sabe: `CLAUDE_CODE_HOST_SESSION_ID` (el `local_…` de la app, el mismo que sube el cartero) y
+  `CLAUDE_CODE_SESSION_ID` en una terminal (`cli_…`). Desde el 16/10 cada hito de trabajo de una bitácora
+  lleva su `sesion` (lo exige tests/progreso.test.ts y lo dice AGENTS.md); lo anterior queda «por nombre»,
+  aparte y marcado, sin pegarse a ningún chat del cartero.
+- **El modelo está en `lib/centro-chats.ts`** (la lista con su punto y su edad, los pedidos de cada chat,
+  los que se pidieron en uno y trabajó otro, los trabajos firmados por sesión de destino, y la
+  conversación de cada chat). «Avance» es la vista por estado de lib/progreso-reglas.ts, sin cambios.
+
 ## Lo que creí medido y no estaba al día
 
 - **`soloPlataforma` ya existía en el registro de la API** (lo sumó el 2FA obligatorio el 14/10, por
