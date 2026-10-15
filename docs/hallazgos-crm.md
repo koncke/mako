@@ -8848,6 +8848,7 @@ elegidos. Lo que costó o no se ve:
 - **La migración 0289 va ANTES del deploy:** sin ella la pantalla dice «Falta aplicar la migración». Nació 0288 y se renumeró: el Centro de Operaciones tomó la 0288 a las 05:58 del 15/10 y la APLICÓ en prod, minutos después de que se recorrieran los worktrees. El número se elige al commitear, no al escribir.
 
 *15/10/2026, chat «Leads Scraper» (`claude1`).*
+
 ## Las migraciones de la tanda del CRM se llaman `XXXX`, y el número libre es 0290, no 0287 (15/10/2026)
 
 **Síntoma:** las cinco ramas `crm-bloques-b1..b5` (14/10) traen tres migraciones sin numerar:

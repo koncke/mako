@@ -6241,6 +6241,7 @@ que ya estaban en `origin/main`. **Causa:** el orquestador sube rebaseando sobre
 hashes; el `main` local quedó con las versiones viejas, y el commit nuevo se hizo arriba de ellas. **Regla:** antes de
 apoyar una rama en el commit de otro chat, `git log --oneline origin/main..<ese commit>`. Si trae algo más que ese
 commit, NO se apoya: se rebasea ese commit solo sobre `origin/main`, o se deja que suba primero. · *15/10/2026, chat «Ciberseguridad»*
+
 ## Un Workflow con `isolation: 'worktree'` muere ENTERO si el cwd de la sesión quedó fuera del repo (15/10/2026)
 
 **Síntoma:** una corrida de 6 agentes devolvió un informe que empezaba diciendo que la medición
@@ -6291,4 +6292,4 @@ transferencia).
 contando `ahead` muestra como trabajo pendiente lo que ya está hecho.
 
 **Vive en:** (proceso: git en el clon compartido)
-\n
+
