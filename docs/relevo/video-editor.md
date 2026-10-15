@@ -5,10 +5,18 @@
 ## 15/10 (cuenta 1): chat al costado, API de MaKo y Lottie, ESPERAN DECISIÓN
 
 Pedido de Martín (vía «Estrategia 3 cuentas»): chat para editar con prompt como el del Landing; todos los
-botones a la API de MaKo; animaciones tipo Lottie. **No se construyó nada**: el chat espera la decisión del
-modelo, y la API espera la de dónde vive el proyecto. El inventario, el molde del Landing y lo de Lottie,
-en `docs/hallazgos-video-editor.md` → «La API de MaKo y el chat al costado» y «Lottie en un editor de
-VIDEO».
+botones a la API de MaKo; animaciones tipo Lottie.
+- **El chat «Editar con IA» está CONSTRUIDO** (`901786601`, rama `video-editor`, sin pushear). El modelo
+  lo decidió «Estrategia 3 cuentas»: Gemini del cliente, sin Claude. Tiene 21 tests y el typecheck
+  acotado en verde; **no se vio en un navegador**. Es lo primero a mirar, junto con el congelamiento y el
+  export.
+- **La API espera a Martín** («video-proyecto-donde-vive» en la Ticketera), y **Lottie también**
+  («video-lottie»).
+- El inventario, el diseño del chat, lo que falta y lo de Lottie, en `docs/hallazgos-video-editor.md` →
+  «La API de MaKo y el chat al costado» y «Lottie en un editor de VIDEO».
+- **Rojo en main que NO es de acá:** `tests/cobranza.test.ts` («marcar el pago CORTA…») falla desde
+  `ba199cb49` (CRM pagos, 14/10 01:35): `marcarPago` mide 6900 caracteres y el test acota a 3000. Es del
+  chat del CRM.
 
 ## 14/10 noche (cuenta 1, chat «Video Editor»): el inventario, y la verificación sin hacer
 

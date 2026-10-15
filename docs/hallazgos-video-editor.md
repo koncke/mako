@@ -810,6 +810,11 @@ Medido el 11/10, con 16 GB y 6-7 sesiones abiertas.
   `~/.claude/guardia/guardia.log` lo nombraba: `MATO pid … (dev, 1592 MB privados) por zona-roja; libre
   antes 49 MB`. Antes de borrar la caché o culpar al motor, ese log. Y con otros chats trabajando, el
   editor no compila en local: lo que se verifica va contra producción, en el Chrome de Martín.
+- ⚠️ **Y un `next dev` muerto a mitad deja `.next/dev/types/routes.d.ts` CORTADO, y el `tsc-ve` queda
+  ciego.** Medido el 15/10: cientos de `TS1005: ';' expected` en ese archivo, y ni una línea sobre el código
+  propio. tsc informa la sintaxis primero y, si hay alguna, no chequea tipos. Ese archivo lo genera Next y
+  es sólo del worktree: se borra `.next/dev/types` (sin enlaces adentro: los de `postcss` y `sharp` viven en
+  `.next/dev/node_modules`) y el chequeo vuelve.
 - **Al traer main a la rama `video-editor`, `npm install` en su worktree.** Su `node_modules` es propio
   (no es un junction): el 14/10 le faltaban 145 paquetes nuevos de main (`fabric`, `@simplewebauthn/*`…).
 - **El typecheck acotado tarda ~40 s; el completo, 8 min con el lock.** `tsc-ve.mjs` se turna por el mismo
@@ -899,6 +904,27 @@ con prompt, como el Landing Generator, y que todos sus botones pasen a la API de
   con la key del cliente por la cascada gratis, sin fila en `CLAUDE_PERMITIDO`.
 - **Lo que cuesta plata y el chat podría pedir** (Avatar de IA con créditos de Flow, Texto a voz con la
   ElevenLabs del cliente) va con confirmación de pantalla y `rolMinimo: 'admin'`, nunca en el acto.
+
+**El chat, construido el 15/10** (`901786601`). Vive en `app/video-editor/_opencut/chat/`, `lib/editor-video/` y
+`app/api/video-editor/ia/route.ts`.
+- **El transporte no es el del Landing, y no podía serlo.** Una landing es texto y la IA la devuelve
+  entera. La línea de tiempo son ticks, ids de 36 caracteres y parámetros: devuelta entera, se rompe. Así
+  que la IA devuelve OPERACIONES de un catálogo cerrado (`chat-catalogo.ts`), con refs cortas (v1, t2…)
+  en lugar de ids, y el editor las aplica con los comandos del MOTOR en un `BatchCommand`. Así un corte
+  del chat se porta igual que el de la barra: imán, transiciones, fundidos. Para la persona el
+  comportamiento es el mismo del Landing.
+- **Las refs se conservan al aceptar** (`vistaDeLinea` con `refsPrevias`): entre el pedido y el «Aceptar»
+  pudo aparecer un texto adelante, y «t2» tiene que seguir siendo el mismo.
+- **Lo que tiene test y lo que no.** La vista, la revisión y el catálogo son puros y tienen 21 tests
+  probados rompiéndolos. Que los comandos hagan en pantalla lo que dice cada fila NO tiene test: hay que
+  mirarlo en el navegador, y no se miró.
+- **SIN HACER:**
+  - Verlo andar en el navegador (abrir, pedir, aceptar, restaurar, Ctrl+Z).
+  - Las operaciones que faltan: transiciones, animaciones, filtros y efectos, velocidad, recortar un
+    video o un audio, estilo y posición del texto, subtítulos automáticos.
+  - Una versión de respaldo como la del Landing («Antes de un cambio de IA»): el editor no tiene historial
+    de versiones, y la vuelta es «Restaurar» o Ctrl+Z.
+  - La API de MaKo, que espera la decisión de dónde vive el proyecto.
 
 ## Lottie en un editor de VIDEO: qué aporta si la pieza termina en mp4
 
