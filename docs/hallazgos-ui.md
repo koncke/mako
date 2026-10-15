@@ -57,6 +57,32 @@ están arregladas. El registro de corridas está en [corridas-multiagente.md](co
 
 ---
 
+## En un iPad, la foto de perfil de la sidebar quedaba abajo del borde: `100vh` en Safari (14/10/2026)
+
+Martín, desde un iPad: «no se llega a ver la foto de perfil, para ir a configuraciones… todo como muy achicado, los
+iconos muy chicos». Y la regla que dejó: «La app de MaKo se debe adaptar al tamaño de la pantalla siempre» (AGENTS.md,
+«La app se adapta al tamaño de la pantalla, SIEMPRE»).
+
+- **Un iPad recibe la vista de COMPUTADORA**, no /m: iPadOS 13+ manda UA de Macintosh, y una tablet Android sin
+  «Mobile» también queda en escritorio (lib/movil-dispositivo.ts). Si recibe /m o la de computadora adaptada es una
+  decisión de producto pendiente.
+- **La causa del perfil cortado no es el contenido.** La columna plegada mide unos 660 px (padding 40, marca 54, ~12
+  filas de 35 más el aire entre familias, pie de 108), y entra en los ~700 visibles de un iPad apaisado. Lo que la
+  corta es `height: 100vh` del `<aside data-sidebar>`: en Safari, `100vh` es el alto con la barra del navegador
+  escondida, ~50 px más que lo visible. El perfil va pegado al fondo (`margin-top: auto`), justo en esos 50 px.
+  - Es el mismo síntoma que ya había dado la barra de la agencia (el comentario de `--barra-agencia` en globals.css),
+    con otra causa.
+  - Arreglo: `100dvh` dentro de `@supports`, en la regla genérica y en la de la barra de agencia, que va DESPUÉS
+    porque las dos tienen la misma especificidad y `!important` (tests/sidebar-alto-visible.test.ts).
+- **Chrome no lo reproduce**: en Chrome `100vh` es la ventana, así que una captura a 1024×768 con la emulación dice
+  que entra. Se razona con los números o se mira en un iPad.
+- **Lo que quedó sin hacer** (decisiones de producto, en la Ticketera):
+  - qué se agranda y desde qué ancho para que no se vea «achicado»: las filas de la sidebar miden 35 px de toque y la
+    letra 13 px;
+  - que los desplegables, que se abren al pasar el cursor, tengan su equivalente al tocar;
+  - la `<nav>` de la sidebar todavía tiene `overflow-y: auto`: con una familia abierta en una pantalla baja, scrollea,
+    y la regla dice que no.
+
 ## Primitives y sistema visual
 
 ### La esquina de abajo a la derecha es UN contenedor, y un deep-link tiene que poder repetirse

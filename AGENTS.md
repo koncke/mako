@@ -1400,6 +1400,25 @@ const visibles = (verTodos || needle || desplegadoPorSeleccion) ? shown : shown.
   caminos pasen por acá», contá los caminos. Si son más de uno, probablemente haya un
   cálculo.
 
+# La app se adapta al tamaño de la pantalla, SIEMPRE (también en una tablet)
+
+Martín, 14/10/2026, desde un iPad: «La app de MaKo se debe adaptar al tamaño de la pantalla siempre». No es sólo
+el teléfono (/m tiene sus reglas más abajo): una tablet recibe la vista de computadora, porque el server no puede
+distinguir un iPad (manda UA de Macintosh, lib/movil-dispositivo.ts), y lo que ve tiene que funcionar ahí.
+
+- **Lo que se pega al fondo de la pantalla mide el alto VISIBLE (`dvh`), nunca `100vh`.** En Safari `100vh` es el
+  alto con la barra del navegador escondida: el perfil del fondo de la sidebar quedaba abajo del borde en el iPad
+  («no se llega a ver la foto de perfil»). Va con `@supports (height: 100dvh)` y el `100vh` como respaldo
+  (app/globals.css, `aside[data-sidebar]`).
+- **Una columna de navegación NO scrollea nunca** (Martín, 01/07: «La sidebar se puede scrollear, eso NO debe ser
+  posible NUNCA»): si no entra, se reorganiza o se pliega. Un `overflow: auto` con la barra escondida no lo arregla:
+  esconde la evidencia.
+- **Lo táctil se decide por capacidad, no por dispositivo**: `@media (pointer: coarse)` para los 44 px de toque, y
+  toda interacción que se abre al pasar el cursor (los desplegables de la sidebar) tiene su equivalente al tocar.
+- **Se mira en el ancho y el alto reales de una tablet** (1024×768 y 820×1180), no sólo en un monitor y en 390 px.
+  Chrome con la emulación NO reproduce el `100vh` de Safari: lo de las barras del navegador se razona o se mira en
+  un iPad de verdad.
+
 # Si algo no entra, preguntá primero si tiene el TAMAÑO que le corresponde
 
 Antes de acomodar las piezas alrededor de lo que se desborda, mirá si lo que se desborda
