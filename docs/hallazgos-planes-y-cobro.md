@@ -459,6 +459,16 @@ varias (created, updated) sin un id estable; la clave es `<tipo>:<id>:<estado re
 relectura.
 **Vive en:** `app/api/webhooks/mercadopago/route.ts` · `lib/cobros-webhook.ts` · `lib/cobros-eventos.ts`.
 
+### Un camino sin firma ni dueño que escribe una fila por pedido no tiene techo (15/10/2026)
+
+**Síntoma (revisión del 11/10):** un aviso de Mercado Pago con un `user_id` que no es de ningún negocio dejaba
+una fila `sin-workspace` en `pasarela_eventos` por cada `data.id`: cualquiera hacía crecer la tabla mandando
+ids al azar (ese camino no tiene firma ni dueño).
+**Regla:** el rastro de lo que no es de nadie tiene techo: UNA fila por día (`sin-workspace:<fecha>`) y el
+resto al log. Lo que sigue abierto es el otro lado: un aviso sin firma con el `user_id` de un negocio
+conectado provoca una relectura con SU token (ver la tabla de abajo).
+**Vive en:** `app/api/webhooks/mercadopago/route.ts` · `tests/cobros-webhook-rutas.test.ts`.
+
 ### La moneda depende de la PASARELA, y el catálogo está en dólares
 
 **Síntoma (evitado):** el orden obvio del formulario —monto, después pasarela— ofrecía «US$ 97» a una
@@ -495,6 +505,17 @@ entró y quedan cambios; el usuario se busca por su workspace y no por el email 
 primer cambio ya no coincide).
 **Vive en:** `lib/cobros.ts` (`altaSiCorresponde`) · `lib/alta-cliente.ts` · `app/api/pagar/email/route.ts` ·
 `app/pagar/acceso.ts`.
+
+### Lo que contesta ANTES de gastar el intento es un oráculo (15/10/2026)
+
+**Síntoma (revisión del 11/10):** el cambio de email de la página de retorno respondía «Ese email ya tiene
+una cuenta de MaKo» antes de reclamar uno de los 3 cambios: con un link pagado se podía preguntar, sin
+límite, qué emails son usuarios de MaKo. Los topes por IP y por token no lo frenan: viven en memoria, por
+instancia.
+**Regla:** la pregunta va DESPUÉS del reclamo y el «no» gasta el intento (como mucho tres preguntas por
+link), con un texto que no dice por qué (`EMAIL_NO_DISPONIBLE`). Sólo se devuelve el intento cuando falla la
+base, que no es culpa de quien compró. El `23505` del único de `usuarios.email` es la misma respuesta.
+**Vive en:** `app/api/pagar/email/route.ts` · `tests/pagar-publico.test.ts`.
 
 ### Ganar al que pagó es lo que evita el «no agendaste»
 
@@ -562,7 +583,6 @@ implementación en un worktree propio (`C:/dev/wt-pagos`) y una rama aparte para
 | Contraseña o segundo proveedor de login | `app/api/auth/callback/google/route.ts` |
 | Atribución de referidos (`workspaces.origen = 'referido:<ws>'`), sólo con Paddle cobrando y 5+ referidos pagando | `embudo-y-high-ticket.md:401`, [referidos.md](referidos.md) § 6 |
 | **Pasarela:** probar con claves REALES — si una clave restringida (`rk_`) puede leer `GET /v1/account` y si la `notification_url` de MP llega firmada | `lib/cobros-conexion.ts`, `lib/metodo-catalogo.ts` (tutorial), `app/api/webhooks/mercadopago/route.ts` |
-| **Pasarela:** desconectar del todo (borrar el aviso en la cuenta de Stripe y soltar el ruteo al quitar la clave) | acción `borrar` de `app/api/integraciones/credencial/route.ts`, `lib/cobros-conexion.ts` |
 | **Pasarela:** un producto de suscripción con plazo (`suscripcion_meses`) se cobra como suscripción sin fin | `lib/cobros.ts`, `lib/stripe-api.ts` |
 | **Pasarela:** precios en moneda local en el catálogo (para que la API y las automatizaciones creen links de Mercado Pago) | `lib/productos.ts`, `lib/api-mako/areas/cobros.run.ts` |
 | **Pasarela:** los pagos que NO creó MaKo (cobrados por fuera) se ignoran con rastro; un contracargo de MP no hace nada en el CRM | `lib/cobros-eventos.ts`, decisión de Martín |
@@ -572,13 +592,12 @@ implementación en un worktree propio (`C:/dev/wt-pagos`) y una rama aparte para
 | **Pasarela:** Stripe no abre cuentas a negocios radicados en Argentina, y la primera venta a un mexicano arranca el reloj del RFC (`stripe-reloj` en el modelo) | `app/admin/dev/pricing/modelo.ts:635,1272`, decisión de Martín |
 | **Pasarela:** revisar los BORRADORES legales | `app/reembolsos/page.tsx`, `app/terminos/page.tsx` §8 |
 | **Pasarela (revisión):** el cambio de email tras el alta tiene ventana de 48 h, pero lo puede hacer quien PAGÓ aunque no sea el dueño de la cuenta: falta un código al email actual | `app/pagar/cambio-email.ts`, `app/api/pagar/email/route.ts` |
-| **Pasarela (revisión):** los topes de `/api/pagar/email` viven en memoria (por instancia) y su 409 «ya tiene cuenta» deja preguntar emails | `app/api/pagar/email/route.ts`, `lib/rate-limit.ts` |
-| **Pasarela (revisión):** avisos de MP sin firma a un `user_id` ajeno escriben filas `sin-workspace` sin techo y relecturas con el token del cliente | `app/api/webhooks/mercadopago/route.ts` |
+| **Pasarela (revisión):** los topes de `/api/pagar/email` viven en memoria (por instancia); el «ya es de otro» ya gasta el intento (15/10) | `app/api/pagar/email/route.ts`, `lib/rate-limit.ts` |
+| **Pasarela (revisión):** un aviso de MP sin firma con el `user_id` de un negocio conectado provoca una relectura con SU token (las filas `sin-workspace` ya tienen techo: una por día, 15/10) | `app/api/webhooks/mercadopago/route.ts` |
 | **Pasarela (revisión):** un reembolso de Stripe se da por hecho con `pending`; no se escuchan `charge.refund.updated` ni `refund.failed` | `lib/cobros.ts` (`reembolsarCobro`), `lib/stripe-api.ts` |
 | **Pasarela (revisión):** qué hace el lead GANADO cuando se le devuelve el pago (sigue en Sold y con su monto) | decisión de Martín, `lib/cobros.ts` (`aplicarReembolso`) |
 | **Pasarela (revisión):** el MRR al cancelar una suscripción redondea por meses (puede contar un mes de más o de menos) | `lib/cobros-reglas.ts` (`mesesTranscurridos`) |
 | **Pasarela (revisión):** la fecha de la cuota es la del procesamiento, no la del pago (un aviso tardío la corre de mes) | `lib/cobros.ts` (`aplicarPagoAprobado`) |
-| **Pasarela (revisión):** `aplicarAEnv` copia al entorno las claves de pasarela del ws1, y `revelar` las lee con `credWs` | `lib/credenciales.ts`, `app/api/integraciones/credencial/route.ts` |
 | **Pasarela (b2):** un lead ganado como pago único que paga un link de SUSCRIPCIÓN sigue como pago único (el MRR no lo cuenta): ¿el cobro cambia el tipo de venta? | decisión de Martín, `lib/cobros.ts` (`ganarLead`, `reabrirSuscripcionDelLead`) |
 | **Pasarela (b2):** el Outstanding del Dashboard cuenta como deuda las cuotas devueltas por un reembolso | `lib/pagos.ts` (`getOutstandingTotal` y su detalle) |
 | **Pasarela (b2):** un link de Mercado Pago anulado se puede pagar igual (MP no cierra una preferencia abierta): el pago entra como cuota nueva cobrada y nadie avisa que la plata entró dos veces | `lib/cobros.ts` (`anularCobro`, `registrarCobroDeProveedor`) |

@@ -120,21 +120,62 @@ export async function leerCuentaStripe(key: string): Promise<R<CuentaStripe>> {
   };
 }
 
+/** Lo que identifica a NUESTRO aviso sin mirar el dominio: el camino y la cuenta (`/api/webhooks/stripe?acct=…`). */
+function firmaDelAviso(u: string | null): string | null {
+  if (!u) return null;
+  try {
+    const x = new URL(u);
+    return `${x.pathname}?acct=${x.searchParams.get('acct') ?? ''}`;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Los avisos de MaKo para ESTA url en la cuenta del negocio: los de la url exacta y, además, los que MaKo creó
+ * (`metadata.mako = '1'`) con el mismo camino y la misma cuenta en OTRO dominio. Sin lo segundo, después de una
+ * mudanza de dominio el aviso viejo quedaba en la cuenta del cliente apuntando a una URL muerta, y Stripe le
+ * manda mails de fallo durante días (revisión del 11/10/2026).
+ */
+async function avisosNuestros(key: string, url: string): Promise<R<{ ids: string[] }>> {
+  const lista = await llamar(key, 'GET', '/v1/webhook_endpoints', { limit: 100 });
+  if (!lista.ok) return fallo(lista);
+  const firma = firmaDelAviso(url);
+  const ids = (Array.isArray(lista.body.data) ? lista.body.data : []).map(obj)
+    .filter((e) => str(e.url) === url || (!!firma && obj(e.metadata).mako === '1' && firmaDelAviso(str(e.url)) === firma))
+    .map((e) => str(e.id))
+    .filter((id): id is string => !!id);
+  return { ok: true, ids };
+}
+
+async function borrarAvisos(key: string, ids: readonly string[]): Promise<R<{ borrados: number }>> {
+  let borrados = 0;
+  for (const id of ids) {
+    const r = await llamar(key, 'DELETE', `/v1/webhook_endpoints/${encodeURIComponent(id)}`);
+    if (!r.ok && r.status !== 404) return fallo(r);
+    borrados++;
+  }
+  return { ok: true, borrados };
+}
+
+/** Saca de la cuenta del negocio los avisos de MaKo de esa url (al desconectar la pasarela). */
+export async function borrarWebhooksStripe(key: string, url: string): Promise<R<{ borrados: number }>> {
+  const nuestros = await avisosNuestros(key, url);
+  if (!nuestros.ok) return fallo(nuestros);
+  return borrarAvisos(key, nuestros.ids);
+}
+
 /**
  * El aviso (webhook) de MaKo en la cuenta del negocio. El `secret` sólo vuelve al CREAR, así que si
- * ya hay uno nuestro (misma URL exacta) se borra y se crea de nuevo: es la única forma de tener su
+ * ya hay uno nuestro (ver avisosNuestros) se borra y se crea de nuevo: es la única forma de tener su
  * secreto. Idempotente en el resultado (siempre queda UNO, con secreto conocido).
  */
 export async function asegurarWebhookStripe(key: string, url: string): Promise<R<{ endpointId: string; secret: string; recreado: boolean }>> {
-  const lista = await llamar(key, 'GET', '/v1/webhook_endpoints', { limit: 100 });
-  if (!lista.ok) return fallo(lista);
-  const nuestros = (Array.isArray(lista.body.data) ? lista.body.data : []).map(obj).filter((e) => str(e.url) === url);
-  for (const e of nuestros) {
-    const id = str(e.id);
-    if (!id) continue;
-    const borrado = await llamar(key, 'DELETE', `/v1/webhook_endpoints/${encodeURIComponent(id)}`);
-    if (!borrado.ok && borrado.status !== 404) return fallo(borrado);
-  }
+  const previos = await avisosNuestros(key, url);
+  if (!previos.ok) return fallo(previos);
+  const borrado = await borrarAvisos(key, previos.ids);
+  if (!borrado.ok) return fallo(borrado);
+  const nuestros = previos.ids;
   const creado = await llamar(key, 'POST', '/v1/webhook_endpoints', {
     url,
     enabled_events: [...EVENTOS_STRIPE],

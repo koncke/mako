@@ -709,6 +709,41 @@ MaKo solo (y su `whsec_` vuelve SÓLO al crearlo: si ya hay uno nuestro, se borr
 _11/10/2026 — pasarela de pagos; `tests/cobros-conexion.test.ts` (7, probado con 5 roturas) y
 `tests/pasarela-sin-env.test.ts`._
 
+### Quitar la clave de una pasarela no la desconectaba (15/10/2026)
+
+**Síntoma (revisión del 11/10):** el negocio quita su clave de Stripe en /integraciones y la tarjeta se
+apaga, pero la cuenta sigue reclamada: al conectarla en otro workspace sale «quítala de ahí primero», y
+desde la pantalla no hay cómo (los derivados no se ven). En su cuenta de Stripe queda el aviso de MaKo
+apuntando a un MaKo que ya no lo acepta: Stripe reintenta tres días y le manda mails de fallo.
+**Causa:** la acción `borrar` borra UN campo. Los derivados (`STRIPE_ACCOUNT_ID`, la firma, el
+`MERCADOPAGO_USER_ID`) se escriben solos al conectar y nadie los borraba; y el ruteo se va sólo cuando se
+borra el campo que está en `ROUTING_CREDS` (el id de la cuenta), no la clave.
+**Regla:** una credencial con derivados se desconecta ENTERA (`desconectarPasarela`): lo que MaKo registró
+AFUERA (el aviso en Stripe) se saca primero, con la clave todavía guardada —después no hay con qué—; si
+eso falla, se desconecta igual y se le dice dónde borrarlo. Cada campo se borra aunque no se pueda leer: una
+fila que no descifra o un ruteo sin su fila también atan la cuenta. En Mercado Pago el aviso vive en SU
+panel y sólo se le puede decir.
+**La trampa del aviso:** buscar el nuestro por la URL EXACTA deja vivos los de un dominio viejo (cada mudanza
+de dominio suma uno muerto en la cuenta de cada negocio). Se reconoce por el camino y la cuenta
+(`/api/webhooks/stripe?acct=…`) más `metadata.mako = '1'`; sin la metadata se llevaría el de otro sistema
+que use el mismo camino.
+**Vive en:** `lib/cobros-conexion.ts` (`desconectarPasarela`, `CAMPOS_PASARELA`) · `lib/stripe-api.ts`
+(`avisosNuestros`, `borrarWebhooksStripe`) · acción `borrar` de `app/api/integraciones/credencial/route.ts` ·
+`tests/cobros-conexion.test.ts` · `tests/stripe-api.test.ts`.
+
+### Prohibir el lector no alcanza: la hidratación ESCRIBÍA las claves de cobro en process.env (15/10/2026)
+
+**Síntoma (revisión del 11/10):** había un barrido que prohíbe leer `STRIPE_*`/`MERCADOPAGO_*` de
+`process.env`, `envCred` o `credWs`, y aun así las claves de cobro del ws1 (Mauricio, un CLIENTE)
+quedaban en el entorno de cada proceso.
+**Causa:** `aplicarAEnv` (el boot y cada `guardarCredencial` del ws1) refleja al entorno TODO lo del ws1. El
+barrido miraba a quien lee, no a quien escribe: cualquier `credWs`/`credWsEstricta` de otro camino, o el
+«ojito» de `revelar` (que leía con `credWs`), caía en ellas.
+**Regla:** una clave que es sólo por workspace se corta en la ESCRITURA al entorno (`CLAVES_DE_PASARELA` en
+`aplicarAEnv`), además de en los lectores. Y lo que se revela de una pasarela se lee con `credDelCliente`.
+**Vive en:** `lib/credenciales.ts` (`CLAVES_DE_PASARELA`, `esClaveDePasarela`) · `tests/cobros-conexion.test.ts`
+(caso 12 del hijo: conecta y bootea el ws1 y mira `process.env`).
+
 ## Los tutoriales de conexión: el guard estaba ciego, y un tutorial son 3 a 5 pasos (12/10/2026)
 
 **Síntoma** (Martín, la prueba con Fiesta Music): «los tutoriales para conectar APIs están muy largos». Medido: 55

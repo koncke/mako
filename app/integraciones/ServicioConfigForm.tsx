@@ -710,6 +710,8 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onG
       if (j.ok) {
         ocultar(env);
         setValores((v) => { const nv = { ...v }; delete nv[env]; return nv; });
+        // Una pasarela desconectada puede dejar algo para hacer en SU panel (el aviso de MaKo).
+        if (typeof j.aviso === 'string') ponerMsg(env, { ok: false, text: j.aviso });
         cargar();
       } else ponerMsg(env, { ok: false, text: j.error ?? 'No se pudo quitar.' });
     } catch { ponerMsg(env, { ok: false, text: 'No se pudo quitar. Prueba de nuevo.' }); }
