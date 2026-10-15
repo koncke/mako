@@ -11,6 +11,7 @@
 // `GRAMATICA.analizando`:
 //   {t:'fase', fase:'contexto', leyendo, texto}  — lo que se leyó («tu perfil · 4 etapas · 3 audios»)
 //   {t:'fase', fase:'modelo'}                     — el modelo está escribiendo
+//   {t:'fase', fase:'respuesta'}                  — una PREGUNTA: MaKo contesta y el borrador vuelve tal cual
 //   {t:'fase', fase:'revision', reparadas}        — cuántas cosas reparó el código
 //   {t:'pregunta', pregunta, mensaje}             — MaKo pregunta en vez de armar (después, el stream termina)
 //   {t:'listo', …} | {t:'error', error}
@@ -52,13 +53,14 @@ import { ordenarAvisos } from '@/lib/flujo-ia-cliente';
 import { esColumnaInexistente } from '@/lib/nutricion-grafo-motor';
 import {
   EDITAR_IA_SYSTEM_TEMPLATE, deIAEdicion, erroresEdicion, ordenDeRevelado, conEtiquetasReales, refsSinResolver, disparadorReal,
-  userDeEditar, leyendoDe, leyendoTexto,
+  userDeEditar, leyendoDe, leyendoTexto, aIA,
   type EventoIA, type ResultadoEdicion, type GuardadoIA,
 } from '@/lib/flujo-ia';
 import type { PasoGrafo } from '@/lib/flujo-grafo';
 import { disparadorDeValorIA, valorIADeDisparador, type Disparador } from '@/lib/disparadores';
 import { disparadoresDeSecuencia } from '@/lib/disparadores-canales';
 import { armarContexto, crearNuevas, generar, crearFlujoConIA } from '@/lib/flujo-ia-crear';
+import { esConsulta, deIARespuesta, userDeExplicar, EXPLICAR_IA_SYSTEM_TEMPLATE } from '@/lib/flujo-ia-consulta';
 import {
   sanearRespuestas, aplicarRespuestas, turnoDelUsuario, mensajeChat, mensajeDePregunta, textoDeCreada, respuestaDelCron,
 } from '@/lib/flujo-ia-preguntas';
@@ -256,12 +258,40 @@ export async function POST(req: NextRequest) {
         // decide el ámbito de las condiciones y si un DM puede salir sin preguntar (`cronActual`, lib/flujo-ia.ts).
         const { ctx, pedido: pedidoEditar } = aplicarRespuestas({ ...leido.ctx, disparadorActual }, pedido, respuestas);
 
+        /** MaKo CONTESTÓ (una pregunta): al chat, y el borrador vuelve tal cual, sin una tarjeta tocada. */
+        const contestar = async (respuesta: string) => {
+          if (req.signal.aborted) return;
+          await anotar([mensajeChat('mako', respuesta, 'app')]);
+          send({
+            t: 'listo', modo, secuenciaId: secuenciaId!, pasos: base, nombre: nombreSec, orden: [], avisos: [], etiquetasNuevas: [],
+            resumen: respuesta, cambiadas: [], quitadas: [],
+          });
+        };
+        // ⚠️ UNA PREGUNTA NO PASA POR EDITAR (15/10/2026, lib/flujo-ia-consulta.ts): «¿Qué hace esta automatización? No
+        // cambies nada, sólo explícamelo.» terminaba en «Cambié 1», con el texto del video de #198 reescrito. Va a un prompt
+        // que sólo puede devolver {"respuesta"}; con respuestas a una pregunta de MaKo, es un pedido y sigue abajo.
+        if (!respuestas.length && esConsulta(pedido)) {
+          const system = await getPromptText('chatbot.explicar-ia.system', EXPLICAR_IA_SYSTEM_TEMPLATE);
+          const cron = ctx.disparadores.find((x) => x.value === disparadorActual)?.label ?? null;
+          const user = userDeExplicar({ cron, flujo: JSON.stringify(aIA(base, ctx)), pregunta: pedido });
+          send({ t: 'fase', fase: 'respuesta' });
+          const g = await generar({ system, user, hastaMs: inicio + PLAZO_MODELO_MS, traducir: deIARespuesta, motivo: 'Contestar una pregunta sobre una automatización' });
+          if ('error' in g) {
+            await anotar([mensajeChat('mako', g.error, 'app')]);
+            send({ t: 'error', error: g.error, ...(g.link ? { link: g.link } : {}) });
+            return;
+          }
+          await contestar(g.r.respuesta);
+          return;
+        }
+
         // Sin slots: lo variable va en el `user` (un override guardado no conoce bloques nuevos).
         const system = await getPromptText('chatbot.editar-ia.system', EDITAR_IA_SYSTEM_TEMPLATE);
         const user = userDeEditar(ctx, { perfil, voz, pedido: pedidoEditar }, base);
         const traducir = (obj: Record<string, unknown>): { r: ResultadoEdicion; errores: string[] } => {
           const r = deIAEdicion(obj, base, ctx);
-          return { r, errores: erroresEdicion(base, r, ctx) };
+          // Una respuesta no cambió nada: no hay qué revisar (un borrador con algo roto no la tiene que tumbar).
+          return { r, errores: r.respuesta ? [] : erroresEdicion(base, r, ctx) };
         };
 
         send({ t: 'fase', fase: 'modelo' });
@@ -272,6 +302,8 @@ export async function POST(req: NextRequest) {
           return;
         }
         const r = g.r;
+        // La capa 2 de la consulta: el modelo de editar contestó en vez de cambiar (`deIAEdicion` no aplicó nada).
+        if (r.respuesta) { await contestar(r.respuesta); return; }
         send({ t: 'fase', fase: 'revision', reparadas: r.avisos.length });
 
         // Cancelado mientras el modelo escribía: no queda nada escrito.
