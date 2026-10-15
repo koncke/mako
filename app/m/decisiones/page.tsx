@@ -1,10 +1,9 @@
 // =============================================================================
-// /m/decisiones — el tablero de decisiones en el teléfono (en la URL: /admin/runway)
+// /m/decisiones — la Ticketera en lista, en el teléfono (en la URL: /tickets/decisiones/lista)
 // =============================================================================
-// Martín contesta las decisiones de todos los chats y las lee desde el teléfono (pedido del
-// 14/10/2026: «texto grande, menos texto, tarjetas… quiero leerlo simple»). Con LAS MISMAS
-// RUTAS el teléfono abre /admin/runway y el proxy le sirve esta página (lib/movil-rutas.ts:
-// rutaMovil y rutaEscritorio). Dibuja el MISMO tablero que la computadora
+// La vista SECUNDARIA de la Ticketera: la de entrada es el mazo (/m/tickets/decisiones). Con LAS
+// MISMAS RUTAS el teléfono abre /tickets/decisiones/lista y el proxy le sirve esta página
+// (lib/movil-rutas.ts: rutaMovil y rutaEscritorio). Dibuja la MISMA lista que la computadora
 // (app/admin/runway/Tablero.tsx): no hay una copia para el teléfono.
 //
 // ⚠️ SÓLO EL SUPER ADMIN (getSesionAdmin), como en la computadora. Y antes de requireMovil:
@@ -14,19 +13,19 @@
 import { redirect } from 'next/navigation';
 import { getSesionAdmin } from '@/lib/auth';
 import { contextoMovil, requireMovil } from '@/lib/movil-guard';
-import { HOME_MOVIL } from '@/lib/movil-rutas';
+import { HOME_MOVIL, RUTA_MAS } from '@/lib/movil-rutas';
 import { rutaConWs, wsSuperAdmin } from '@/lib/workspace';
 import { conWs } from '@/lib/ws-tab';
 import { leerDecisiones } from '@/lib/admin-decisiones';
 import { CabeceraM } from '@/app/m/_ui';
-import { hoyAR } from '@/app/admin/estrategia/datos';
 import { TableroDecisiones } from '@/app/admin/runway/Tablero';
 import { responderDecision } from '@/app/admin/runway/acciones';
 import '@/app/admin/runway/decisiones.css';
+import '@/app/tickets/decisiones/vistas.css';
 
 export const dynamic = 'force-dynamic';
 
-export default async function DecisionesMovil() {
+export default async function TicketeraListaMovil() {
   const admin = await getSesionAdmin();
   if (!admin) redirect(await rutaConWs(HOME_MOVIL));
   const ctx = await contextoMovil();
@@ -35,8 +34,8 @@ export default async function DecisionesMovil() {
   const lectura = await leerDecisiones();
   return (
     <>
-      <CabeceraM titulo="Decisiones" />
-      <TableroDecisiones lectura={lectura} hoy={hoyAR()} responder={responderDecision} conFoto={false} />
+      <CabeceraM titulo="Ticketera" padre={{ href: RUTA_MAS, label: 'More' }} />
+      <TableroDecisiones lectura={lectura} responder={responderDecision} />
     </>
   );
 }

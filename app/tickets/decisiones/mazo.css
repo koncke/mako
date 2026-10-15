@@ -1,11 +1,13 @@
 /* =============================================================================
-   El mazo de decisiones (/tickets/decisiones) — nace en el teléfono
+   La Ticketera (/tickets/decisiones) — el mazo, nace en el teléfono
    =============================================================================
    Una tarjeta a la vez, con la siguiente asomando detrás. Lo que se toca vive abajo
-   (las opciones al pie de la tarjeta, ✕ y ✓ en la franja del pulgar); arriba sólo
-   el progreso y el aviso de lo que pasó. Sólo tokens de la casa.
-   El arrastre escribe `--mazo-p` (−1 a 1) en la tarjeta y `--mazo-a` (0 a 1) en la
-   pila: los sellos y la tarjeta de atrás se dibujan con eso, sin un render por píxel. */
+   (las opciones al pie de la tarjeta; ✕, Resuelta y ✓ en la franja del pulgar); arriba
+   sólo el progreso, el cambio de vista y el aviso de lo que pasó. Sólo tokens de la casa.
+   ⚠️ El transform, la opacidad de los sellos y la escala de la de atrás los escribe
+   `motion` (Mazo.tsx). Acá NO va ningún `transition` ni `transform` sobre las tarjetas:
+   una transición de CSS sobre un transform que la librería escribe cada cuadro lo
+   arrastra detrás del dedo, que es justo el «funciona bastante mal». */
 
 .mazo {
   display: flex; flex-direction: column; gap: 12px;
@@ -19,7 +21,9 @@
 }
 
 /* ── Arriba: el progreso, o lo que acaba de pasar ─────────────────────────── */
-.mazo-arriba { flex: none; min-height: 44px; display: flex; flex-direction: column; justify-content: center; gap: 6px; }
+.mazo-arriba { flex: none; min-height: 44px; display: flex; flex-direction: column; justify-content: center; }
+.mazo-estado { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.mazo-estado-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 .mazo-barra { height: 4px; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
 .mazo-barra span {
   display: block; height: 100%; background: var(--good);
@@ -63,17 +67,18 @@
 .mazo-carta--criterio { --mazo-k: var(--primary); }
 .mazo-carta--aviso { --mazo-k: var(--faint); }
 
-/* La de atrás asoma y crece a medida que la de adelante se va. */
-.mazo-carta--atras {
-  z-index: 1; pointer-events: none;
-  transform: translateY(calc(14px * (1 - var(--mazo-a, 0)))) scale(calc(0.94 + 0.06 * var(--mazo-a, 0)));
-  transition: transform 160ms ease-out;
-  box-shadow: none;
-}
-.mazo-carta:not(.mazo-carta--atras) { transition: transform 200ms cubic-bezier(.2,.8,.3,1); }
+/* La de atrás asoma y crece a medida que la de adelante se va (la escala la pone motion). */
+.mazo-carta--atras { z-index: 1; pointer-events: none; box-shadow: none; }
+.mazo-carta:not(.mazo-carta--atras) { cursor: grab; }
+.mazo-carta:not(.mazo-carta--atras):active { cursor: grabbing; }
 
+/* ⚠️ `touch-action: pan-y` VA ACÁ, no sólo en la tarjeta: este bloque tiene scroll propio, y el
+   navegador calcula el touch-action de un toque sólo hasta el contenedor con scroll más cercano. Con
+   el pan-y en la tarjeta nada más, un toque sobre la pregunta quedaba en «auto»: Chrome se quedaba
+   con el gesto horizontal (pointercancel al primer movimiento) y lo usaba para «volver atrás».
+   Medido con toques en Chrome (14/10/2026): la tarjeta no se movía y la página navegaba. */
 .mazo-cuerpo {
-  flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y;
   display: flex; flex-direction: column; gap: 14px;
   padding: 20px 18px 18px;
 }
@@ -166,13 +171,12 @@
   background: var(--surface);
   font-size: 20px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase;
 }
-.mazo-sello--si { left: 16px; color: var(--good); transform: rotate(-9deg); opacity: clamp(0, calc(var(--mazo-p, 0) * 1.6), 1); }
-.mazo-sello--no { right: 16px; color: var(--dim); transform: rotate(9deg); opacity: clamp(0, calc(var(--mazo-p, 0) * -1.6), 1); }
+.mazo-sello--si { left: 16px; color: var(--good); rotate: -9deg; opacity: 0; }
+.mazo-sello--no { right: 16px; color: var(--dim); rotate: 9deg; opacity: 0; }
 .mazo-sello--apagado { color: var(--faint); }
 
 /* ── Abajo: la franja del pulgar ─────────────────────────────────────────── */
-.mazo-abajo { flex: none; }
-.mazo-acciones { display: grid; grid-template-columns: 1fr 1.5fr; gap: 12px; }
+.mazo-acciones { flex: none; display: grid; grid-template-columns: 1fr 1fr 2fr; gap: 10px; }
 .mazo-btn {
   display: flex; align-items: center; justify-content: center; gap: 8px;
   min-height: 64px; padding: 0 14px; border-radius: 20px;
@@ -182,8 +186,12 @@
 }
 .mazo-btn:active { transform: scale(0.97); }
 .mazo-btn--no { border: 1.5px solid var(--border); background: var(--surface); color: var(--ink); }
+/* Los dos de los costados chicos (ícono arriba, rótulo abajo): el ancho es para ✓, que dice qué manda. */
+.mazo-btn--no, .mazo-btn--resuelta { flex-direction: column; gap: 2px; padding: 0 10px; font-size: 13px; }
 .mazo-btn--si { border: none; background: var(--good); color: #fff; }
 .mazo-btn--si[aria-disabled="true"] { background: var(--surface); border: 1.5px dashed var(--border); color: var(--dim); }
+/* «Resuelta» sale sin elegir: es la menos frecuente, va en el medio y más chica. */
+.mazo-btn--resuelta { border: 1.5px solid var(--border); background: var(--surface); color: var(--dim); }
 .mazo-btn span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (hover: hover) and (pointer: fine) {
   .mazo-opcion:hover { border-color: var(--primary); }
@@ -213,6 +221,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .mazo-carta, .mazo-carta--atras, .mazo-barra span { transition: none; }
+  .mazo-barra span { transition: none; }
 }
 .mazo-falla { margin: 24px auto; max-width: 480px; padding: 16px; border-radius: 14px; background: var(--bad-bg); color: var(--ink); font-size: 15px; }

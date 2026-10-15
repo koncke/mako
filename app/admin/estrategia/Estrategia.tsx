@@ -905,7 +905,7 @@ export default function Estrategia({ hoy }: { hoy: string }) {
 
       <section className="est-grupo">
         <div className="est-grid" style={minCol(260)}>
-          <Link href="/admin/runway" className="est-caja est-link">
+          <Link href="/admin/runway/foto" className="est-caja est-link">
             <span><span className="est-eyebrow">Avance del producto</span><br /><b>Runway</b></span>
             <Ic d={I.flecha} />
           </Link>

@@ -1,14 +1,15 @@
 // =============================================================================
-// /admin/runway — el tablero de decisiones (14/10/2026)
+// La Ticketera — el modelo de las decisiones y la LISTA (14/10/2026; el mazo tiene su test:
+// tests/tickets-decisiones-mazo.test.ts)
 // =============================================================================
 // Martín contesta acá las decisiones de todos los chats, muchas veces desde el teléfono.
 // Estas guardas fijan lo que no se ve leyendo una pantalla:
 //   · lo que se publica es CORTO y no se recorta: un texto largo se rechaza con su motivo;
 //   · un link sólo lleva a MaKo o a un origen de la lista, comparado por ORIGEN;
-//   · una respuesta tiene que ser una opción de ESA decisión (o «otra» con texto);
-//   · los avisos no cuentan como decisiones, y las contestadas no se mezclan;
-//   · la tab sigue siendo del super admin (página, acción y teléfono), y el teléfono abre
-//     el MISMO tablero en la misma URL;
+//   · una respuesta tiene que ser una opción de ESA decisión (o «otra» con texto, o «resuelta»);
+//   · la lista no muestra plata ni plazos, y las contestadas no se mezclan;
+//   · la Ticketera es del super admin (páginas, acción y teléfono), /admin/runway lleva al mazo
+//     y el teléfono abre la MISMA lista en la misma URL;
 //   · la tabla nace con RLS y su CHECK de urgencia dice lo mismo que el código.
 //
 // Probado rompiéndolo (14/10/2026), una rotura por vez sobre una base en verde, restaurando
@@ -23,7 +24,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {
   sanearPublicada, motivoRespuestaInvalida, repartir, textoDeRespuesta, filaADecision,
-  esHrefExterno, esHrefInterno, URGENCIAS, OTRA, TOPES, type Decision,
+  esHrefExterno, esHrefInterno, URGENCIAS, OTRA, RESUELTA, TOPES, type Decision,
 } from '../app/admin/runway/decisiones';
 import { TableroDecisiones } from '../app/admin/runway/Tablero';
 import { rutaMovil, rutaEscritorio } from '../lib/movil-rutas';
@@ -36,7 +37,7 @@ const BASE = { ref: 'una-decision', chat: 'Image Editor', pregunta: '¿Va?', opc
 const motivo = (x: unknown) => { const r = sanearPublicada(x); return r.ok ? null : r.motivo; };
 
 test('lo que se publica es corto: un texto largo se RECHAZA con su motivo, no se recorta', () => {
-  // Rota: sin el tope de la pregunta → 8 pases, 1 fallo.
+  // Rota: sin el tope de la pregunta → 9 pases, 1 fallo.
   assert.equal(motivo(BASE), null);
   assert.match(motivo({ ...BASE, pregunta: 'x'.repeat(TOPES.pregunta + 1) }) ?? '', /pregunta va de 1 a/);
   assert.match(motivo({ ...BASE, opciones: [{ clave: 'A', texto: 'x'.repeat(TOPES.opcion + 1) }] }) ?? '', /opción A/);
@@ -50,7 +51,7 @@ test('lo que se publica es corto: un texto largo se RECHAZA con su motivo, no se
 });
 
 test('un link lleva a una pantalla de MaKo o a un origen de la lista, comparado por ORIGEN', () => {
-  // Rota: `esHrefExterno` con `startsWith('https://claude.ai')` → 8 pases, 1 fallo (el @ y el .evil pasan).
+  // Rota: `esHrefExterno` con `startsWith('https://claude.ai')` → 9 pases, 1 fallo (el @ y el .evil pasan).
   assert.equal(motivo({ ...BASE, href: '/plan/revisar/abc' }), null);
   assert.equal(motivo({ ...BASE, href: 'https://claude.ai/artifact/X' }), null);
   const conMako = sanearPublicada({ ...BASE, href: 'https://hola-mako.com/plan/revisar/abc' });
@@ -68,6 +69,9 @@ test('una respuesta es una opción de ESA decisión, u «otra» con texto', () =
   assert.equal(motivoRespuestaInvalida(d, OTRA, '   '), 'Escribe tu respuesta');
   assert.equal(motivoRespuestaInvalida(d, OTRA, 'Que sí, pero en mayo'), null);
   assert.ok(motivoRespuestaInvalida(d, 'A', 'x'.repeat(TOPES.texto + 1)));
+  // «Resuelta» no elige nada: vale con o sin opciones.
+  assert.equal(motivoRespuestaInvalida(d, RESUELTA, ''), null);
+  assert.equal(motivoRespuestaInvalida({ opciones: [] }, RESUELTA, ''), null);
 });
 
 const dec = (p: Partial<Decision> & { id: number }): Decision => ({
@@ -77,7 +81,7 @@ const dec = (p: Partial<Decision> & { id: number }): Decision => ({
 });
 
 test('el reparto: pendientes por urgencia y en su orden, contestadas aparte (la última primero)', () => {
-  // Rota: ordenar por id en vez de por `orden` → 8 pases, 1 fallo.
+  // Rota: ordenar por id en vez de por `orden` → 9 pases, 1 fallo.
   const r = repartir([
     dec({ id: 1, urgencia: 'criterio', orden: 50 }),
     dec({ id: 2, urgencia: 'criterio', orden: 10 }),
@@ -94,6 +98,14 @@ test('el reparto: pendientes por urgencia y en su orden, contestadas aparte (la 
   assert.equal(textoDeRespuesta(dec({ id: 8, respuesta: OTRA, respuestaTexto: 'En mayo' })), 'En mayo');
 });
 
+test('«Resuelta» llega como una respuesta más, y el guardado no la convierte en texto libre', () => {
+  // Rota: `claveFinal` sin el caso de RESUELTA (sin opciones pasaba a OTRA y pedía texto) → 9 pases, 1 fallo.
+  assert.equal(textoDeRespuesta(dec({ id: 1, respuesta: RESUELTA })), 'Resuelta');
+  assert.equal(textoDeRespuesta(dec({ id: 2, respuesta: RESUELTA, respuestaTexto: 'se resolvió sola' })), 'Resuelta: se resolvió sola');
+  const lib = sinComentarios(leer('lib/admin-decisiones.ts'));
+  assert.match(lib, /const claveFinal = clave === RESUELTA \? RESUELTA : d\.opciones\.length === 0 \? OTRA : clave;/);
+});
+
 test('la fila de la base se lee sin inventar: una urgencia que no existe cae en criterio', () => {
   const d = filaADecision({ id: '9', ref: 'x', chat: 'C', pregunta: '¿?', opciones: [{ clave: 'A', texto: 'Sí' }, { nada: 1 }], urgencia: 'rara', creada_at: '2026-10-14' });
   assert.equal(d.id, 9);
@@ -101,13 +113,14 @@ test('la fila de la base se lee sin inventar: una urgencia que no existe cae en 
   assert.equal(d.urgencia, 'criterio');
 });
 
-test('la tab, la acción y la página del teléfono son del super admin', () => {
-  // Rota: sacar el getSesionAdmin de la acción → 8 pases, 1 fallo.
+test('la Ticketera es del super admin: la acción, la lista, y /admin/runway lleva al mazo', () => {
+  // Rota: sacar el getSesionAdmin de la acción → 9 pases, 1 fallo.
   const accion = sinComentarios(leer('app/admin/runway/acciones.ts'));
   assert.match(accion, /export async function responderDecision\([\s\S]*?\{\s*const admin = await getSesionAdmin\(\);\s*if \(!admin\) return/);
-  const page = sinComentarios(leer('app/admin/runway/page.tsx'));
-  assert.match(page, /const admin = await getSesionAdmin\(\);\s*if \(!admin\) redirect\('\/inicio'\);/);
-  assert.match(page, /const hoy = hoyAR\(\)/);
+  const runway = sinComentarios(leer('app/admin/runway/page.tsx'));
+  assert.match(runway, /const admin = await getSesionAdmin\(\);\s*if \(!admin\) redirect\('\/inicio'\);\s*redirect\(await rutaConWs\(TICKETERA\)\);/);
+  const lista = sinComentarios(leer('app/tickets/decisiones/lista/page.tsx'));
+  assert.match(lista, /const admin = await getSesionAdmin\(\);\s*if \(!admin\) notFound\(\);/);
   const movil = sinComentarios(leer('app/m/decisiones/page.tsx'));
   assert.match(movil, /const admin = await getSesionAdmin\(\);\s*if \(!admin\) redirect\(/);
   assert.match(movil, /requireMovil\(/);
@@ -115,16 +128,17 @@ test('la tab, la acción y la página del teléfono son del super admin', () => 
   assert.doesNotMatch(leer('lib/workspace.ts'), /'admin_decisiones'/);
 });
 
-test('el teléfono abre el MISMO tablero en la misma URL', () => {
-  // Rota: sacar la fila de rutaMovil → 8 pases, 1 fallo (el teléfono vería «se usa en la computadora»).
-  assert.equal(rutaMovil('/admin/runway'), '/m/decisiones');
-  assert.equal(rutaEscritorio('/m/decisiones'), '/admin/runway');
+test('el teléfono abre la MISMA lista en la misma URL, y /admin/runway va directo al mazo', () => {
+  // Rota: sacar la fila de la lista en rutaMovil → 9 pases, 1 fallo (el teléfono vería «se usa en la computadora»).
+  assert.equal(rutaMovil('/tickets/decisiones/lista'), '/m/decisiones');
+  assert.equal(rutaEscritorio('/m/decisiones'), '/tickets/decisiones/lista');
+  assert.equal(rutaMovil('/admin/runway'), '/m/tickets/decisiones', 'la entrada vieja abre el mazo');
   assert.equal(rutaMovil('/admin/runway/foto'), null, 'la foto es ancha: se queda en la computadora');
   assert.match(leer('app/m/decisiones/page.tsx'), /<TableroDecisiones /);
 });
 
 test('la tabla nace con RLS, sin grants a anon, y su CHECK dice las mismas urgencias que el código', () => {
-  // Rota: una urgencia en el código que no está en el CHECK → 8 pases, 1 fallo.
+  // Rota: una urgencia en el código que no está en el CHECK → 9 pases, 1 fallo.
   const sql = sinComentarios(leer('supabase/migrations/0277_admin_decisiones.sql').replace(/--.*$/gm, ''));
   assert.match(sql, /alter table admin_decisiones enable row level security;/);
   assert.match(sql, /revoke all on admin_decisiones from anon, authenticated;/);
@@ -134,11 +148,11 @@ test('la tabla nace con RLS, sin grants a anon, y su CHECK dice las mismas urgen
   assert.deepEqual(enSql, URGENCIAS.map((u) => u.clave).sort());
 });
 
-test('la página dibujada: los avisos no cuentan, la recomendada se marca y un link de afuera abre aparte', () => {
-  // Rota: contar los avisos en «Para decidir» → 8 pases, 1 fallo; el link externo sin rel → 8 pases, 1 fallo.
+test('la lista dibujada: sin plata ni plazos, la recomendada se marca, «Resuelta», y un link de afuera abre aparte', () => {
+  // Rota: el link externo sin rel → 9 pases, 1 fallo; volver a poner las cifras del runway → 9 pases, 1 fallo.
   const responder = async () => ({ error: null, ok: true });
   const html = renderToStaticMarkup(createElement(TableroDecisiones, {
-    hoy: '2026-10-14', responder,
+    responder,
     lectura: { ok: true, decisiones: [
       dec({ id: 1, urgencia: 'bloquea', recomendada: 'A', destraba: 'El chat X' }),
       dec({ id: 2, urgencia: 'aviso', opciones: [{ clave: 'A', texto: 'Entendido' }] }),
@@ -147,14 +161,17 @@ test('la página dibujada: los avisos no cuentan, la recomendada se marca y un l
       dec({ id: 5, respuesta: 'A', respondidaAt: '2026-10-14T12:00:00Z' }),
     ] },
   }));
-  assert.match(html, /Para decidir<\/p><p class="decisiones-cifra-v">3</, 'cuenta 3: los avisos y las contestadas no');
+  // Martín: «Sacá el capital», «Sacá los 18 días». La Ticketera es para decidir, no para informar.
+  assert.doesNotMatch(html, /Capital|US\$|días|Anuncios|Para decidir/);
   assert.match(html, /Para saber/);
+  assert.match(html, /aria-current="page"[^>]*>Lista</, 'el selector dice que esta es la lista');
+  assert.match(html, /value="resuelta"[^>]*>\s*Resuelta/);
   assert.match(html, /decisiones-reco">Recomendada/);
   assert.match(html, /href="https:\/\/claude\.ai\/artifact\/X" target="_blank" rel="noopener noreferrer"/);
   assert.match(html, /<textarea name="texto"[^>]*placeholder="Tu respuesta"/, 'sin opciones se contesta escribiendo');
   assert.match(html, /Contestadas <span class="decisiones-grupo-n">1</);
   // Sin la tabla, lo dice: no dibuja un tablero vacío que se lee «no hay nada».
-  const falta = renderToStaticMarkup(createElement(TableroDecisiones, { hoy: '2026-10-14', responder, lectura: { ok: false, faltaTabla: true, error: 'x' } }));
+  const falta = renderToStaticMarkup(createElement(TableroDecisiones, { responder, lectura: { ok: false, faltaTabla: true, error: 'x' } }));
   assert.match(falta, /Falta crear la tabla/);
   assert.doesNotMatch(falta, /No hay nada esperando/);
 });

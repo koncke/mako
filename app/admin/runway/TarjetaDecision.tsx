@@ -12,7 +12,7 @@
 
 import { useActionState } from 'react';
 import Link from '@/app/_ui/Link';
-import { OTRA, esHrefExterno, esHrefInterno, type AccionResponder, type Decision, type EstadoRespuesta } from './decisiones';
+import { OTRA, RESUELTA, esHrefExterno, esHrefInterno, type AccionResponder, type Decision, type EstadoRespuesta } from './decisiones';
 
 const INICIAL: EstadoRespuesta = { error: null, ok: false };
 
@@ -76,6 +76,12 @@ export function TarjetaDecision({ d, responder }: { d: Decision; responder: Acci
               </button>
             </div>
           </details>
+        )}
+        {/* «Resuelta»: sale sin elegir una opción (se resolvió sola, o ya no aplica). */}
+        {d.respuesta !== RESUELTA && (
+          <button type="submit" name="clave" value={RESUELTA} disabled={pendiente} className="decisiones-resuelta">
+            Resuelta
+          </button>
         )}
         {estado.error && <p className="decisiones-error" role="alert">{estado.error}</p>}
       </form>

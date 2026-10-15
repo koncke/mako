@@ -1,30 +1,20 @@
 // =============================================================================
-// El tablero de decisiones — lo dibujan /admin/runway (computadora) y /m/decisiones (teléfono)
+// La lista de la Ticketera — la vista SECUNDARIA (la de entrada es el mazo, app/tickets/decisiones)
 // =============================================================================
-// Arriba, tres números grandes: cuántas esperan, el capital y los días a los anuncios.
-// Abajo, una tarjeta por decisión pendiente, en tres grupos por urgencia (lo que frena a un
-// chat primero). Las contestadas quedan plegadas al final, con su respuesta a la vista y la
-// tarjeta adentro para cambiarla.
+// Una tarjeta por decisión pendiente, en grupos por urgencia (lo que frena a un chat primero). Las
+// contestadas quedan plegadas al final, con su respuesta a la vista y la tarjeta adentro para
+// cambiarla. La dibujan /tickets/decisiones/lista (computadora) y /m/decisiones (teléfono).
+//
+// ⚠️ Martín, 14/10/2026: «Sacá el capital», «Sacá los 18 días»: la Ticketera es para DECIDIR, no
+// para informar el estado del runway. Acá no va plata, ni plazos, ni links a la foto o a Strategy.
 //
 // ⚠️ UN componente para las dos pantallas: el teléfono no tiene una copia (AGENTS.md, MaKo
 // Mobile: lo que /m reusa de escritorio no se copia). Sin `Pagina` ni nada de escritorio
 // adentro: el marco lo pone cada página.
 
-import Link from '@/app/_ui/Link';
 import { TarjetaDecision } from './TarjetaDecision';
 import { repartir, textoDeRespuesta, URGENCIAS, type AccionResponder, type Decision, type LecturaDecisiones } from './decisiones';
-import { CAPITAL, HITO_ANUNCIOS, HITO_PLATA, faltan } from '@/app/admin/estrategia/datos';
-import { textoPlazo } from './datos';
-
-function Cifra({ clave, valor, sub, fuerte }: { clave: string; valor: string; sub?: string; fuerte?: boolean }) {
-  return (
-    <div className={`decisiones-cifra${fuerte ? ' decisiones-cifra--fuerte' : ''}`}>
-      <p className="decisiones-cifra-k">{clave}</p>
-      <p className="decisiones-cifra-v">{valor}</p>
-      {sub && <p className="decisiones-cifra-s">{sub}</p>}
-    </div>
-  );
-}
+import { CambioVista } from '@/app/tickets/decisiones/CambioVista';
 
 function Contestada({ d, responder }: { d: Decision; responder: AccionResponder }) {
   return (
@@ -44,17 +34,11 @@ function Contestada({ d, responder }: { d: Decision; responder: AccionResponder 
   );
 }
 
-export function TableroDecisiones({ lectura, hoy, responder, conFoto = true }: {
+export function TableroDecisiones({ lectura, responder }: {
   lectura: LecturaDecisiones;
-  hoy: string;
   /** La acción que guarda una respuesta (app/admin/runway/acciones.ts), que pasa la página. */
   responder: AccionResponder;
-  /** El link a la foto vieja del lanzamiento (sólo en la computadora: es una pantalla ancha). */
-  conFoto?: boolean;
 }) {
-  const aCapital = faltan(HITO_PLATA.fecha, hoy);
-  const aAnuncios = faltan(HITO_ANUNCIOS.fecha, hoy);
-
   if (!lectura.ok) {
     return (
       <div className="decisiones">
@@ -66,21 +50,11 @@ export function TableroDecisiones({ lectura, hoy, responder, conFoto = true }: {
   }
 
   const { pendientes, contestadas } = repartir(lectura.decisiones);
-  // Los avisos no son decisiones: no cuentan en «Para decidir».
-  const total = URGENCIAS.reduce((s, u) => s + (u.clave === 'aviso' ? 0 : pendientes[u.clave].length), 0);
   const hayPendientes = URGENCIAS.some((u) => pendientes[u.clave].length > 0);
 
   return (
     <div className="decisiones">
-      <div className="decisiones-cifras">
-        <Cifra clave="Para decidir" valor={String(total)} sub={total === 1 ? 'decisión' : 'decisiones'} fuerte />
-        <Cifra clave="Capital" valor={CAPITAL} sub={aCapital > 0 ? `se acaba en ${textoPlazo(aCapital)}` : 'se acabó'} />
-        <Cifra clave="Anuncios" valor={aAnuncios > 0 ? textoPlazo(aAnuncios) : 'en curso'} sub={`arrancan el ${HITO_ANUNCIOS.rotulo}`} />
-      </div>
-
-      {/* Las mismas decisiones de a una, para deslizar (/tickets/decisiones). En el teléfono es la
-          forma cómoda de contestarlas. */}
-      {hayPendientes && <Link href="/tickets/decisiones" className="decisiones-deslizar">Decidir de a una →</Link>}
+      <CambioVista actual="lista" />
 
       {!hayPendientes && <p className="decisiones-vacio">No hay nada esperando una decisión.</p>}
 
@@ -108,12 +82,6 @@ export function TableroDecisiones({ lectura, hoy, responder, conFoto = true }: {
         </details>
       )}
 
-      {conFoto && (
-        <p className="decisiones-pie">
-          <Link href="/admin/runway/foto">La foto del lanzamiento (3/10) →</Link>
-          <Link href="/admin/estrategia">Strategy →</Link>
-        </p>
-      )}
     </div>
   );
 }

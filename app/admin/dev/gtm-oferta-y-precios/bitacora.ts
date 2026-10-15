@@ -418,4 +418,29 @@ export const BITACORA: Hito[] = [
       'lib/movil-rutas.ts, app/m/_ui/cabecera.ts, lib/titulo-tab.ts — la ruta del teléfono, pantalla de trabajo y el título de la pestaña',
     ],
   },
+  {
+    fecha: '14 oct', hora: '21:25', chat: 'Estrategia de ventas MaKo', cuenta: 'claude1',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Se llama «Ticketera», el mazo es LA vista, sin runway, el gesto copiado y «Resuelta»',
+    pedido: 'Ya no se llama «Decisiones», se llama «Ticketera». Sacá el capital. Sacá los «18 días». El mazo es la vista POR DEFECTO, la de arrastrar. Nada de un botón «Decidir de a una» para llegar ahí.\nEl gesto de deslizar la tarjeta funciona bastante mal. Que no lo inventes: buscá en GitHub o investigá cómo lo resolvieron otros y copiá esa funcionalidad.\nFalta un botón «Resuelta».',
+    puntos: ['Llegó por el chat «Estrategia 3 cuentas», que lo pasó con sus palabras: lo textual de Martín son «funciona bastante mal» y «que no lo inventes».'],
+  },
+  {
+    fecha: '14 oct', hora: '21:25', chat: 'Estrategia de ventas MaKo', cuenta: 'claude1',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'La Ticketera: el mazo de entrada, el gesto sobre motion y un touch-action que se cortaba',
+    puntos: [
+      '**Entrar es deslizar:** /tickets/decisiones es el mazo; la lista pasó a /tickets/decisiones/lista, con un selector «Tarjetas | Lista»; /admin/runway redirige al mazo y More (teléfono) entra directo. Fuera el capital, los días a los anuncios y los links a la foto y a Strategy: la Ticketera es para decidir. La foto sigue en /admin/runway/foto, enlazada desde Strategy.',
+      '**El gesto ya no es a mano:** lo hace `motion` (Framer Motion, ya en el repo): sigue al dedo, mide la velocidad, bloquea la dirección y vuelve con resorte. Encima, la receta del mazo tipo Tinder: inclinación y sellos según la posición, y cuenta si se llevó lejos O si fue un tirón rápido. Se descartó react-tinder-card (mata el scroll y los toques de la tarjeta).',
+      '⚠️ **Con la librería igual no se movía con el dedo:** el bloque con scroll de adentro cortaba el `touch-action`, y Chrome cancelaba el puntero y usaba el gesto para volver atrás. Probado con toques simulados en Chrome: arrastre, vuelta, scroll vertical, tirón corto y rápido y «Resuelta». En un teléfono de verdad, sin probar.',
+      '**«Resuelta»** sale sin elegir una opción: es una respuesta más (`resuelta`), así el chat que publicó la decisión se entera al levantar las contestadas.',
+    ],
+    archivos: [
+      'app/tickets/decisiones/Mazo.tsx — el mazo sobre motion (CartaArriba, CartaAtras) y «Resuelta»',
+      'app/tickets/decisiones/mazo.css — `touch-action: pan-y` en `.mazo-cuerpo` y nada de transiciones sobre las tarjetas',
+      'app/tickets/decisiones/lista/page.tsx, app/admin/runway/page.tsx (redirige), app/m/mas/page.tsx (More → Ticketera)',
+      'app/admin/runway/decisiones.ts, lib/admin-decisiones.ts — RESUELTA',
+      'docs/hallazgos-mobile.md — «el touch-action se corta en el contenedor con scroll»',
+    ],
+  },
 ];

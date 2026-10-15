@@ -11,7 +11,7 @@
 
 import 'server-only';
 import { getSupabaseServer } from '@/lib/supabase';
-import { filaADecision, motivoRespuestaInvalida, OTRA, type LecturaDecisiones } from '@/app/admin/runway/decisiones';
+import { filaADecision, motivoRespuestaInvalida, OTRA, RESUELTA, type LecturaDecisiones } from '@/app/admin/runway/decisiones';
 
 const FALTA_TABLA = new Set(['42P01', 'PGRST205']);
 
@@ -38,8 +38,8 @@ export async function guardarRespuesta(id: number, clave: string, texto: string)
   if (error) return { ok: false, error: 'No se pudo leer. Prueba de nuevo.' };
   if (!data || data.archivada_at) return { ok: false, error: 'Ya no está en el tablero' };
   const d = filaADecision(data as Record<string, unknown>);
-  // Sin opciones, la única respuesta es la de texto.
-  const claveFinal = d.opciones.length === 0 ? OTRA : clave;
+  // Sin opciones, la única respuesta es la de texto (o «Resuelta», que no elige nada).
+  const claveFinal = clave === RESUELTA ? RESUELTA : d.opciones.length === 0 ? OTRA : clave;
   const motivo = motivoRespuestaInvalida(d, claveFinal, texto);
   if (motivo) return { ok: false, error: motivo };
   const { error: e2 } = await db
