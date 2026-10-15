@@ -75,6 +75,21 @@ export function radioDe(r: number): number {
 export function intervaloX(n: number): number {
   return Math.max(0, Math.ceil(Math.max(0, n) / EJES.maxMarcasX) - 1);
 }
+/**
+ * Cada cuántas etiquetas una marca en X para que ENTREN sin pisarse en `ancho` px (el ancho del eje). `tope`: como mucho
+ * tantas marcas (una serie de tiempo: cinco); con `null`, todas las que entren (las categorías: cada barra es una cosa
+ * distinta, y saltear su nombre deja barras que no se sabe qué son). Medido en el arnés del 14/10/2026: con
+ * `intervaloX` solo, un histograma en el celular encimaba «US$59–US$97US$135–US$174» y una columna de 12 categorías
+ * nombraba una de cada tres.
+ */
+export function intervaloPorAncho(etiquetas: readonly string[], ancho: number, tope: number | null = EJES.maxMarcasX): number {
+  const n = etiquetas.length;
+  if (n <= 1) return 0;
+  const porTope = tope ? Math.ceil(n / tope) - 1 : 0;
+  if (!(ancho > 0)) return Math.max(0, porTope);
+  const largo = Math.max(0, ...etiquetas.map((e) => anchoTexto(e))) + 14;
+  return Math.max(0, porTope, Math.ceil((largo * n) / ancho) - 1);
+}
 /** El ancho aproximado de un texto en la letra del sistema (sin medir el DOM: alcanza para decidir). */
 export function anchoTexto(texto: string, tam: number = LETRA.tick): number {
   return 0.6 * tam * [...texto].length;
