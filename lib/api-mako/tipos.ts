@@ -165,6 +165,11 @@ export type Gating = {
    *  (OWNER_WS = 1, que es Mauricio, un CLIENTE, no la plataforma). Con esto, la
    *  operación existe solo para ws 1 con rol admin; para el resto, 404. */
   soloWs1?: true;
+  /** SÓLO LA PLATAFORMA: el workspace de capa `superadmin` (el de MaKo). Para cualquier otro
+   *  negocio la operación no existe. Para lo que la plataforma decide SOBRE los negocios y un
+   *  negocio no puede deshacer en el suyo (exigir el 2FA: un admin de cliente que pudiera
+   *  «dejar de exigir» anularía la exigencia de Martín). Se resuelve por CAPA en `vistaDe`. */
+  soloPlataforma?: true;
   /** la integración que tiene que estar conectada (`meta`, `calendly`, `chatwoot`, …).
    *  Informativa en el catálogo; el runner contesta un error legible si falta. */
   integracion?: string;
