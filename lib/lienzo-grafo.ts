@@ -736,6 +736,13 @@ export const MUELLE = {
   /** «Probar», apilado arriba a la derecha (pedido literal, punto 8: «más ancho, no tan largo»). */
   probarAncho: 560,
   probarAnchoMin: 360,
+  /**
+   * «Probar» CON la lista de contactos (15/10/2026, Martín: «la tab se me muy compacta, si se agregó una sidebar de
+   * contactos tenés que procurar que se vea bien»): la lista (232) más un chat de ~560, y hasta esta fracción del lugar.
+   * Si no entra, la lista pasa a una fila arriba del chat (PanelProbar, `ANCHO_PARA_COLUMNA`).
+   */
+  probarAnchoContactos: 820,
+  probarFraccionContactos: 0.58,
   probarAltoMax: 420,
   probarAltoMin: 240,
   /** Lo que «Probar» y el editor toman como mucho del alto de la caja, cada uno. */
@@ -827,7 +834,7 @@ export type Muelles = {
  */
 export function muelles(
   caja: { w: number; h: number },
-  op: { listaAbierta: boolean; probarAbierto: boolean; editorAbierto: boolean },
+  op: { listaAbierta: boolean; probarAbierto: boolean; editorAbierto: boolean; probarConContactos?: boolean },
 ): Muelles {
   const { w, h } = caja;
   const H = MUELLE.hueco;
@@ -858,7 +865,9 @@ export function muelles(
   // «Cerrar» en el MISMO lugar, así que el chrome no se corre (`derChrome: 0`).
   const anchoL = Math.max(0, Math.min(
     w - izq - H * 2,
-    Math.max(MUELLE.probarAnchoMin, Math.min(MUELLE.probarAncho, Math.round((w - izq) * 0.4))),
+    op.probarConContactos
+      ? Math.max(MUELLE.probarAnchoMin, Math.min(MUELLE.probarAnchoContactos, Math.round((w - izq) * MUELLE.probarFraccionContactos)))
+      : Math.max(MUELLE.probarAnchoMin, Math.min(MUELLE.probarAncho, Math.round((w - izq) * 0.4))),
   ));
   const der = anchoL + H * 2;
   return {
