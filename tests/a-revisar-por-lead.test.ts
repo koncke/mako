@@ -32,6 +32,7 @@
 //   · el efecto sin cortar con la ficha abierta (`if (!abierta) return;`)                    → 10 / 1
 //   · `ignorarDatosDelLeadAction` sin el filtro de NO_IGNORABLES                             → 10 / 1
 //   · `ignorarDatosDelLeadAction` sin `haySesion()`                                          → 10 / 1
+//   · (14/10) la acción escribiendo `datos_ignorados` por su cuenta en vez de por lib         → 10 / 1
 
 import { test } from 'node:test';
 import { filasPorLead, ocultosPorLead } from '../lib/a-revisar-filas';
@@ -176,5 +177,10 @@ test('la acción del lead: con sesión, sin los no ignorables, y la MISMA escrit
   assert.match(lead, /const pasos = sanearIds\(ids\)\.filter\(\(p\) => !NO_IGNORABLES\.has\(p\)\);/, 'la asistencia de una reunión pasada no se ignora aunque la mande el navegador');
   assert.match(lead, /return await escribirIgnorados\(leadId, pasos, ignorar\);/);
   assert.match(cuerpoDe(acciones, 'ignorarDatoAction'), /return await escribirIgnorados\(leadId, \[paso\], ignorar\);/);
-  assert.equal((acciones.match(/\.update\(\{ datos_ignorados/g) ?? []).length, 1, 'dos escrituras de lo ignorado divergen');
+  // CAMBIADO A PROPÓSITO el 14/10/2026 (la ficha por bloques, punto 6): la ÚNICA escritura de lo ignorado se
+  // mudó a lib/datos-aviso-config.ts (`escribirDatosIgnorados`), porque la API de MaKo tiene que ignorar
+  // igual que el panel y una server action no se llama desde el registro. Acá ya no se escribe la columna:
+  // se llama a esa. El mismo cuidado lo fija tests/ficha-avisos.test.ts sobre la API.
+  assert.equal((acciones.match(/\.update\(\{ datos_ignorados/g) ?? []).length, 0, 'la acción escribe lo ignorado por su cuenta: dos escrituras divergen');
+  assert.equal((acciones.match(/escribirDatosIgnorados\(/g) ?? []).length, 1, 'las dos puertas de la pantalla pasan por la escritura de lib');
 });

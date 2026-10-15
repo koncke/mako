@@ -54,6 +54,7 @@ buscar_tareas_plan
 buscar_tutorial
 cambiar_espera_paso
 cambiar_estado_comentario_landing
+cambiar_ficha_funnel
 cambiar_tema_landing
 cambiar_texto_landing
 cambiar_textos_diseno_imagen
@@ -455,6 +456,7 @@ ver_estado_meta
 ver_estado_onboarding
 ver_estado_pixel
 ver_estado_plantilla_reporte
+ver_ficha_funnel
 ver_ficha_guion
 ver_funnel
 ver_glosario_negocio

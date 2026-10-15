@@ -31,6 +31,12 @@ import type { OperacionDef, Parametro } from '../tipos';
 // es el mismo catálogo que dibuja el modal (copiarlo a mano es crear uno que se desincroniza).
 import { TIPOS_CRM, TIPO_CRM_OTRO, ENTRADAS_OFRECIDAS } from '@/lib/pipeline';
 import { CANALES } from '@/lib/fase-diagnostico';
+// Puros (sin server-only): el catálogo de la ficha por bloques, sus plantillas, los datos que avisan y el
+// estilo del Dashboard. Copiar sus ids a mano sería un segundo catálogo.
+import { TABS_FICHA, DENSIDADES } from '@/lib/ficha/catalogo';
+import { IDS_PLANTILLA } from '@/lib/ficha/plantillas';
+import { DATOS_AVISABLES } from '@/lib/datos-aviso';
+import { PLANTILLAS_TEMA, TIPOGRAFIAS } from '@/lib/graficos-temas';
 
 const TAB = { tab: 'crm' } as const;
 const TAB_ADMIN = { tab: 'crm', rolMinimo: 'admin' } as const;
@@ -177,7 +183,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'faltantes_del_lead', area: 'crm', tipo: 'lectura',
     titulo: 'Datos que le faltan a un lead',
-    descripcion: 'Los datos que la etapa ACTUAL de un lead adeuda para que el tablero sea confiable (asistencia, calificado, Fathom, monto, plan de pagos, comprobantes, motivo, setter, empresa, Deal Details), respetando sus excepciones declaradas. Sirve para explicar por qué un lead aparece en «Datos sin marcar» y qué cargar. Lista vacía = el lead está al día.',
+    descripcion: 'Los datos que la etapa ACTUAL de un lead adeuda para que el tablero sea confiable (asistencia, calificado, Fathom, monto, plan de pagos, comprobantes, motivo, setter, empresa, Deal Details), respetando sus excepciones declaradas. Sirve para explicar por qué un lead aparece en «Datos sin marcar» y qué cargar. Lista vacía = el lead está al día. sin_marcar es el número que muestra su ficha y su fila en «A revisar»: lo que falta menos lo ignorado y lo que el CRM de ese lead no avisa (no_avisan dice cuál y por qué).',
     parametros: [leadId()],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB,
   },
@@ -416,6 +422,46 @@ export const DEFS: readonly OperacionDef[] = [
     reversible: true, escribe: 'saca la sugerencia de lo callado de ese CRM (la configuración del negocio)',
   },
 
+  // ── La ficha del lead por bloques (14/10/2026, docs/diseno-ficha-bloques.md) ──────────────────────
+  // La ficha se arma POR CRM (decisión 1): plantilla por tipo de funnel, bloques por tab y avisos de
+  // «datos sin marcar». El motor es lib/ficha/ (config.ts lo puro, config-server.ts la lectura y el
+  // guardado con compare-and-set); los ids de bloques, diseños y plantillas salen de su catálogo.
+  {
+    id: 'ver_ficha_funnel', area: 'crm', tipo: 'lectura',
+    titulo: 'Ver la ficha de un CRM',
+    descripcion: 'Cómo se arma la ficha del lead en UN CRM del negocio, para todos sus leads: la plantilla (la que elige MaKo según las etapas de reunión y cómo entra la gente, o la que eligió alguien) y por qué, los bloques de cada tab en orden (Resumen, Reuniones, Pagos y Tracking) con su ancho y su diseño, de qué «datos sin marcar» avisa y por qué no avisa de los otros, y el estilo (tema, acento, tipografía y tamaño de las tarjetas). Trae también, por tab, los bloques que se pueden sumar con sus anchos y diseños, y las plantillas. Es el paso previo a cambiar_ficha_funnel. Sin embudoId, el CRM principal.',
+    parametros: [{ nombre: 'embudoId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el CRM, por el id de su embudo (de productos_del_lead). Sin él, el CRM principal del negocio.' }],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB,
+  },
+  {
+    id: 'cambiar_ficha_funnel', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Cambiar la ficha de un CRM',
+    descripcion: 'PROPONE UN cambio en la ficha del lead de UN CRM (queda pendiente hasta el «sí»), para todos sus leads: poner, quitar o mover un bloque, cambiarle el ancho o el diseño, prender o apagar el aviso de un dato sin marcar, cambiar el estilo o el tamaño de las tarjetas, usar otra plantilla o volver a la plantilla. Los ids de bloques, diseños y avisos salen de ver_ficha_funnel. «Contacto» no se puede quitar y las asistencias siempre avisan. Quitar un bloque no apaga su aviso. Solo el administrador. Sin embudoId, el CRM principal.',
+    parametros: [
+      { nombre: 'embudoId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el CRM, por el id de su embudo (de productos_del_lead). Sin él, el CRM principal del negocio.' },
+      {
+        nombre: 'cambio', tipo: 'string', obligatorio: true, enum: ['poner', 'quitar', 'mover', 'ancho', 'diseno', 'aviso', 'estilo', 'densidad', 'plantilla', 'volver'],
+        descripcion: 'qué cambiar: poner, quitar o mover un bloque (con tab y bloque; mover y poner con lugar), ancho o diseno de un bloque, aviso (con aviso y avisa), estilo (con tema, acento o tipografia), densidad (el tamaño de las tarjetas), plantilla (con plantilla) o volver (a la plantilla: con tab, sólo esa tab; sin tab, toda la ficha y sus avisos).',
+      },
+      { nombre: 'tab', tipo: 'string', enum: [...TABS_FICHA], descripcion: 'la tab del bloque. En volver, la tab que vuelve a la plantilla.' },
+      // Sin enum, a propósito: son 56 ids y el ToolDef viaja en cada turno. preparar() valida y devuelve los disponibles.
+      { nombre: 'bloque', tipo: 'string', max: 40, descripcion: 'el id del bloque (de ver_ficha_funnel), por ejemplo cuotas o redes-y-web.' },
+      { nombre: 'lugar', tipo: 'number', entero: true, minimo: 1, maximo: 40, descripcion: 'en poner y mover: el lugar en la tab, 1 es el primero. Sin él, poner lo suma al final.' },
+      { nombre: 'ancho', tipo: 'string', enum: ['1/4', '1/3', '1/2', 'completo'], descripcion: 'en poner y ancho: el ancho del bloque sobre la grilla de la ficha. Cada bloque acepta sólo algunos (ver_ficha_funnel).' },
+      { nombre: 'diseno', tipo: 'string', max: 40, descripcion: 'en poner y diseno: el id del diseño del bloque (de ver_ficha_funnel).' },
+      { nombre: 'n', tipo: 'number', entero: true, minimo: 1, maximo: 40, descripcion: 'si el bloque está más de una vez en la tab (respuesta-destacada), cuál: 1 es el primero.' },
+      { nombre: 'aviso', tipo: 'string', enum: DATOS_AVISABLES.map((d) => d.id), descripcion: 'en aviso: el dato sin marcar (de ver_ficha_funnel).' },
+      { nombre: 'avisa', tipo: 'boolean', descripcion: 'en aviso: true para que avise, false para que no.' },
+      { nombre: 'tema', tipo: 'string', enum: PLANTILLAS_TEMA.map((p) => p.id), descripcion: 'en estilo: la plantilla de estilo, la misma del Dashboard.' },
+      { nombre: 'acento', tipo: 'string', max: 7, descripcion: 'en estilo: el color de acento en hex, #RRGGBB. Vacío para volver al de la plantilla de estilo.' },
+      { nombre: 'tipografia', tipo: 'string', enum: TIPOGRAFIAS.map((t) => t.id), descripcion: 'en estilo: la tipografía de toda la ficha.' },
+      { nombre: 'densidad', tipo: 'string', enum: DENSIDADES.map((x) => x.id), descripcion: 'en densidad: el tamaño de las tarjetas.' },
+      { nombre: 'plantilla', tipo: 'string', enum: [...IDS_PLANTILLA, 'auto'], descripcion: 'en plantilla: la plantilla de la ficha, o auto para la que elige MaKo. Arranca de cero los bloques y los avisos; el estilo queda.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    reversible: true, escribe: 'guarda el cambio en la ficha del CRM (funnels.data.ficha, sólo lo que difiere de la plantilla); cambia lo que ven y lo que avisa la ficha de todos sus leads',
+  },
+
   // ── Acciones heredadas ─────────────────────────────────────────────────────────
   {
     id: 'proponer_cambio_etapa', area: 'crm', tipo: 'accion', confirmacion: 'chat', tipoPendiente: 'lead_etapa',
@@ -606,18 +652,18 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ignorar_datos_sin_marcar', area: 'crm', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Ignorar datos sin marcar',
-    descripcion: 'PROPONE silenciar los pendientes de un lead en «Datos sin marcar» (queda pendiente hasta el «sí»): deja de contar en el worklist y en el contador, pero siguen visibles en su ficha. No silencia una reunión pasada sin decisión, que se sigue pidiendo. Se deshace con reactivar_datos_sin_marcar.',
+    descripcion: 'PROPONE ignorar los datos sin marcar de un lead (queda pendiente hasta el «sí»), igual que la ✕ de «A revisar»: dejan de contar en el worklist, en el contador y en su ficha, también los que le falten después, y quedan en «Ver más», donde una persona los puede volver a mostrar. No ignora la asistencia a una reunión pasada, que se sigue pidiendo. Se deshace con reactivar_datos_sin_marcar.',
     parametros: [leadId()],
     canales: TODOS, costo: 'gratis', gating: TAB,
-    reversible: true, escribe: 'marca pendientes_ignorados en el lead y deja historial',
+    reversible: true, escribe: 'guarda los datos ignorados del lead en datos_ignorados (lo mismo que la pantalla) y deja historial',
   },
   {
     id: 'reactivar_datos_sin_marcar', area: 'crm', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Reactivar datos sin marcar',
-    descripcion: 'PROPONE deshacer ignorar_datos_sin_marcar sobre un lead (queda pendiente hasta el «sí»): el lead vuelve a contar en «Datos sin marcar» con todo lo que le falta.',
+    descripcion: 'PROPONE deshacer ignorar_datos_sin_marcar sobre un lead (queda pendiente hasta el «sí»): el lead vuelve a contar en «Datos sin marcar» con todo lo que le falta, también lo que se ignoró desde su ficha o desde «A revisar».',
     parametros: [leadId()],
     canales: TODOS, costo: 'gratis', gating: TAB,
-    reversible: true, escribe: 'limpia pendientes_ignorados del lead y deja historial',
+    reversible: true, escribe: 'vacía los datos ignorados del lead (y la marca vieja de lead ignorado) y deja historial',
   },
   {
     id: 'resolver_confirmacion_crm', area: 'crm', tipo: 'accion', confirmacion: 'chat',

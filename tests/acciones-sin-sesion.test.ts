@@ -65,6 +65,22 @@ test('las acciones de «A revisar» (datos sin marcar) exigen sesión adentro', 
   }
 });
 
+// La ficha por bloques (14/10/2026): leer y cambiar la ficha de un funnel. Sin sesión, `getWorkspaceActual()`
+// caería al ws1, un cliente. Probado rompiéndolo: sin `haySesion()` en cambiarFichaFunnelAction, 1 fallo.
+test('las acciones de la ficha por bloques exigen sesión adentro', () => {
+  const src = sinComentarios(leer('app/crm/ficha-actions.ts'));
+  const exportadas = [...src.matchAll(/export async function (\w+)/g)].map((m) => m[1]);
+  assert.deepEqual(exportadas, ['leerFichaFunnelAction', 'cambiarFichaFunnelAction']);
+  for (const fn of exportadas) {
+    const ini = src.indexOf(`export async function ${fn}`);
+    const fin = src.indexOf('\nexport ', ini + 10);
+    const cuerpo = src.slice(ini, fin < 0 ? undefined : fin);
+    assert.match(cuerpo, /if \(!\(await haySesion\(\)\)\) return/, `${fn} tiene que cortar sin sesión`);
+  }
+  // Cambiar es del admin: es la ficha y los avisos de todos los leads del funnel.
+  assert.match(src.slice(src.indexOf('export async function cambiarFichaFunnelAction')), /getRolWsEfectivo\(\)\) !== 'admin'\) return/);
+});
+
 test('las acciones del layout (confirmaciones de MaKo) exigen sesión adentro', () => {
   const src = sinComentarios(leer('app/crm/mako-confirm-actions.ts'));
   for (const fn of ['listConfirmacionesAction', 'resolverConfirmacionAction']) {
