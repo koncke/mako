@@ -40,6 +40,12 @@ ni cerrar una. Hace falta:
 - **Lo emiten las tres puertas** (callback, segundo paso, reemisión de Seguridad, que conserva el `sid`) por UNA función,
   `abrirSesion`, que crea la fila, pone el `sid` y la cookie del equipo. Ninguna puerta firma una sesión por su cuenta;
   un test lo exige barriendo `ponerSesion(`.
+- ⚠️ **Las dos tablas NO llevan `workspace_id`, a propósito**: una persona no es de un negocio (la agencia cruza
+  varios), igual que `usuario_mfa` y `usuario_dispositivos`. No entran a `TENANT_TABLES`, y por eso TODA lectura y
+  escritura filtra por el usuario de la SESIÓN (`getUsuarioActual().sub`), nunca por un id que llegue del pedido: el
+  «cerrar» de la pantalla manda el id del equipo y el server lo busca dentro de los equipos de quien pide.
+- **La ubicación es un dato personal**: no viaja en una URL ni en un parámetro, va al mail como dato atómico
+  (`ingreso_ubicacion`), y si no se pudo deducir el renglón se omite entero.
 - **Cerrar un dispositivo** cierra todas sus sesiones Y le revoca la confianza de 30 días (§5.2). **«Cerrar sesión en
   todos los demás»** cierra todas menos la actual, y además corta las sesiones viejas sin `sid` con
   `usuarios.sesiones_desde`: el token no tiene `iat`, pero `exp − 30 días` lo es.
