@@ -802,7 +802,62 @@ no va en mono. «Cobros» perdió sus columnas por semana.
 (`tema`) · `lib/graficos-temas.ts` · `app/dashboard/Grafico.tsx` · `tests/general-bloques.test.ts`.
 *14/10/2026, claude2.*
 
+## General, séptima vuelta: ÉPICA, con la escala del teléfono (14/10/2026)
+
+**El pedido** (Martín, 14/10 ~23:00, por el orquestador): «Lo mismo que hicimos en mobile, que sea EPICO la vista General,
+quiero que le envies a los templates de general en desktop, se ven muy como dashboards y quiero que sean como lo tenemos
+en mobile, epicos, pocas cosas, textos gigantes, bloques grandes, etc... Hay que rediseñar los bloques y los templates para
+que cumplan con este criterio.»
+
+**Lo que no se ve leyendo el código, y es lo primero que hay que saber:** el General del TELÉFONO no tiene bloques propios.
+`app/m/hoy/GeneralM.tsx` monta `ElementoGeneral` + `ProveedorGeneral`, o sea ESTOS bloques. Agrandarlos para escritorio
+agranda el teléfono, que Martín ya aprobó (v3, `docs/prototipos/mako-mobile-tableros.html`). Por eso cada tamaño va contra la
+tarjeta (`cqi`, `.gen-pieza` es el contenedor) y se mira a ~358 px antes de dar algo por terminado.
+
+**La escala** (`app/general/bloques/comun.tsx`: `gb-p`, `gb-s`, `gb-frase`, `gb-t`, `gb-d`, `gb-delta`):
+
+- ⚠️ **Un % fijo del ancho no sirve para las dos pantallas.** El teléfono pone el número protagonista en 40 px con ~326 px de
+  contenido (12cqi). Con 12cqi, media hoja de escritorio daba 61 px, que era lo que ya había: «épico» no cambiaba nada. Cada
+  tamaño es una RECTA que pasa por el valor del teléfono y sube más rápido: el protagonista `clamp(40px, 22cqi − 32px,
+  128px)` da 40 en el teléfono, ~80 en media hoja y 128 a lo ancho. Lo mismo la frase de la acción (23 → ~44 → 60), las
+  baldosas del mes y el texto de una fila.
+- **La proporción del teléfono**: el protagonista ≈ 3× el rótulo, lo secundario ≈ 2×, y nada en el medio. El rótulo de cada
+  tarjeta pasa a ser el ÚNICO texto chico: 13 px en mayúsculas, del tema «General» (lib/graficos-temas.ts).
+- **La baldosa del mes es su propio contenedor** (`containerType` en la losa): cuatro a lo ancho no se pasan y dos en el
+  teléfono quedan en 27 px.
+- **Un total al lado de lo que explica en una tarjeta ancha** (`gb-par`, con `@container`): a 128 px, arriba de las
+  barras, el total del funnel se comía el alto y cortaba las etapas (Operación diaria, 12×7).
+- **Los números del catálogo comparten la escala con el Dashboard** (`ESCALA_EPICA`, lib/graficos-gordo.ts, la hizo
+  Dashboard la misma noche). En una plantilla de General miden 5 filas (`ALTO_NUMERO`, `conNumerosAltos` en
+  lib/general-plantillas.ts): a 3, el tope por alto los dejaba como antes.
+
+**Lo que se sacó** (lo que el teléfono ya había sacado): el pie de la meta («Q4 · quedan 78 días · Vendido · 14/20
+clientes», queda con «Qué muestra: Con el detalle»), el porqué de la acción (con «El porqué: Se ve»), la línea «mismo
+período del mes anterior», el cuadradito con la fecha y los chips «Hoy»/«Mañana» de las llamadas, los chips del trimestre
+y de «Principal» de los OKRs, el proyecto de cada tarea (opción), la cuarta métrica de cada plantilla y la línea de la
+fecha de la Bienvenida. La meta pasa de barra a ANILLO (avance + tiempo, el del teléfono).
+
+⚠️ **Una decisión abierta, en la Ticketera (`general-meta-oscura`):** en el teléfono la Meta va OSCURA y la Acción AZUL; en
+escritorio, la tercera vuelta del 14/10 pidió que la Meta «no tenga un diseño dark... por defecto tiene que ser como el
+resto». Se dejó clara. Si elige oscura + azul en las plantillas, es `opciones: { fondo: 'oscuro' }` en cada plantilla, y el
+azul es un fondo nuevo que aplica `app/dashboard/ElementoGeneral.tsx` (de Dashboard).
+
+**Cómo se miró**: `C:/Users/marti/arnes-dashboard-general/` (fuera del repo): `entrada-general.tsx` dibuja cada plantilla
+de General como la galería (`MiniaturaHoja` a escala 1 adentro de `ProveedorGeneral` con datos de ejemplo) y, con
+`PILA=1`, como la pila del teléfono con los bloques REALES (`ElementoGeneral`). El fixture de `DatosGeneral` es el del
+arnés de la sexta vuelta.
+
+**Vive en:** `app/general/bloques/` (`comun.tsx`, `Meta.tsx`, `Negocio.tsx`, `Agenda.tsx`, `Norte.tsx`, `Plan.tsx`) ·
+`app/general/Cobranza.tsx` · `app/general/KpisCard.tsx` · `lib/general-piezas.ts` (los defaults: detalle, razón,
+llamadas, proyecto) · `lib/general-plantillas.ts` · `lib/graficos-temas.ts` (el tema «General»).
+*14/10/2026, claude1, chat General.*
+
 ## Lo que quedó sin hacer
+
+- **General épico (14/10/2026):** las «Prioridades del Plan» son las tarjetas del Plan (`TarjetaPrioridad`, BoardShell) y no
+  tomaron la escala: se ven chicas al lado del resto. «Mi día» quedó con la línea de tiempo de siempre, sólo con letra más
+  grande. El texto «Muy grande» de la Bienvenida mide 36 px fijos (`TAMANOS_TEXTO`, de Dashboard) y no crece con la hoja. Y
+  los datos de ejemplo de «Avance promedio» (cursos) salen como un número y no como un %, en lib/graficos-muestra.ts.
 
 - **El Dashboard, con el mismo tratamiento (pedido de Martín del 14/10, 14:34).** «Dale este mismo feedback al
   dashboard... Que rediseñe bloque por bloque y que tenga en cuenta mobile. Que vaya viendo con datos ficticios o con algun
