@@ -97,6 +97,12 @@ a.gb-losa:hover,button.gb-losa:hover,.gb-losa[role=button]:hover{background:var(
 @container (min-width: 720px){.gb-par{flex-direction:row;align-items:center;gap:clamp(28px,5cqi,64px)}.gb-par>:first-child{flex:none;max-width:38%}.gb-par>:last-child{flex:1;min-width:0}}
 .gb-delta[data-sube]{color:var(--good)}.gb-delta[data-baja]{color:var(--bad)}.gb-delta[data-igual]{color:var(--faint)}
 .gb-plan{--surface:color-mix(in srgb,var(--ink) 4.5%,var(--gb-fondo,var(--surface)));--border:transparent}
+/* La escala épica sobre las tarjetas del Plan (TarjetaPrioridad, app/plan/board/BoardShell.tsx: es del chat del Plan y va
+   con estilos en línea, sin clases). Se agranda desde AFUERA y sólo el título de la tarea (el div con su title) y el
+   número del puesto: si el Plan cambia su marcado, esto deja de aplicar y la tarjeta queda como el Plan la dibuja, sin
+   romper nada. Si hace falta más, es un prop de escala en BoardShell, que se le pide al chat del Plan. */
+.gb-plan div[title]{font-size:clamp(17px,calc(2.2cqi + 8px),26px)!important;font-weight:700!important;letter-spacing:-.015em!important}
+.gb-plan span[title^="Prioridad "]{width:clamp(22px,calc(1.6cqi + 16px),32px)!important;height:clamp(22px,calc(1.6cqi + 16px),32px)!important;font-size:clamp(13px,calc(0.8cqi + 10px),16px)!important}
 `;
 
 /** El título de un bloque: el propio (si se escribió en el panel) o el del bloque. */

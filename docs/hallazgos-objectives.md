@@ -847,6 +847,12 @@ de General como la galería (`MiniaturaHoja` a escala 1 adentro de `ProveedorGen
 `PILA=1`, como la pila del teléfono con los bloques REALES (`ElementoGeneral`). El fixture de `DatosGeneral` es el del
 arnés de la sexta vuelta.
 
+- ⚠️ **«Prioridades del Plan» se escala DESDE AFUERA, con CSS sobre la tarjeta montada.** Son las tarjetas del Plan
+  (`TarjetaPrioridad`, BoardShell, con estilos inline): no se tocan, son del chat del Plan. El envoltorio `gb-plan` les
+  agranda el título (`div[title]`) y el número de puesto (`span[title^="Prioridad "]`) con `cqi` y `!important`. Lo que
+  ancla es el atributo `title` de la tarjeta: si el Plan cambia su markup, la escala deja de aplicarse SIN un error (la
+  tarjeta vuelve a su tamaño, nada se rompe). Se mira en el arnés antes de dar por bueno un cambio de BoardShell.
+
 **Vive en:** `app/general/bloques/` (`comun.tsx`, `Meta.tsx`, `Negocio.tsx`, `Agenda.tsx`, `Norte.tsx`, `Plan.tsx`) ·
 `app/general/Cobranza.tsx` · `app/general/KpisCard.tsx` · `lib/general-piezas.ts` (los defaults: detalle, razón,
 llamadas, proyecto) · `lib/general-plantillas.ts` · `lib/graficos-temas.ts` (el tema «General»).
@@ -854,10 +860,10 @@ llamadas, proyecto) · `lib/general-plantillas.ts` · `lib/graficos-temas.ts` (e
 
 ## Lo que quedó sin hacer
 
-- **General épico (14/10/2026):** las «Prioridades del Plan» son las tarjetas del Plan (`TarjetaPrioridad`, BoardShell) y no
-  tomaron la escala: se ven chicas al lado del resto. «Mi día» quedó con la línea de tiempo de siempre, sólo con letra más
-  grande. El texto «Muy grande» de la Bienvenida mide 36 px fijos (`TAMANOS_TEXTO`, de Dashboard) y no crece con la hoja. Y
-  los datos de ejemplo de «Avance promedio» (cursos) salen como un número y no como un %, en lib/graficos-muestra.ts.
+- **General épico (14/10/2026):** «Mi día» quedó con la línea de tiempo de siempre, sólo con letra más grande
+  (app/general/bloques/Agenda.tsx). Y los datos de ejemplo de «Avance promedio» (cursos) salen como un número y no como
+  un %, en lib/graficos-muestra.ts. (Las Prioridades del Plan ya escalan, y el «Muy grande» de la Bienvenida lo hizo
+  crecer Dashboard en `d5384e97`.)
 
 - **El Dashboard, con el mismo tratamiento (pedido de Martín del 14/10, 14:34).** «Dale este mismo feedback al
   dashboard... Que rediseñe bloque por bloque y que tenga en cuenta mobile. Que vaya viendo con datos ficticios o con algun
