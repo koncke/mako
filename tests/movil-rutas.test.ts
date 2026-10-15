@@ -155,6 +155,9 @@ test('el mapa escritorio → móvil de los links que salen', () => {
   // La bandeja de escritorio es la pestaña Chats del teléfono (v3).
   assert.equal(rutaMovil('/whatsapp'), '/m/chats');
   assert.equal(rutaMovil('/chats'), '/m/chats', 'la bandeja unificada de escritorio es la misma pestaña');
+  // El link profundo de un lead que manda MaKo (/chats?lead=N) abre SU chat, no la lista.
+  assert.equal(rutaMovil('/chats?lead=412&ws=3'), '/m/crm/412/chat');
+  assert.equal(rutaMovil('/chats?lead=abc'), '/m/chats');
   assert.equal(rutaMovil('/configuraciones?tab=notif'), '/m/cuenta');
   assert.equal(rutaMovil('/configuraciones'), null);
   assert.equal(rutaMovil('/m/plan'), '/m/plan');

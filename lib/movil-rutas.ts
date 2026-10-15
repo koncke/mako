@@ -276,6 +276,9 @@ export function rutaMovil(href: string | null | undefined): string | null {
   if (p === '/crm') return '/m/crm';
   // La bandeja unificada de escritorio (/chats) y la de WhatsApp (/whatsapp, que convive hasta que Martín
   // valide que Chats la reemplaza) son, en el teléfono, la misma pestaña Chats.
+  // El link profundo de UN lead (/chats?lead=412, el que manda MaKo por WhatsApp): en el teléfono, SU chat.
+  const leadChat = Number(q.get('lead'));
+  if ((p === '/chats' || p === '/whatsapp') && Number.isSafeInteger(leadChat) && leadChat > 0) return `/m/crm/${leadChat}/chat`;
   if (p === '/chats' || p === '/whatsapp') return RUTA_CHATS;
   if (p === '/plan' || p === '/plan/agencia' || p === '/todo') return '/m/plan';
   if (p === '/perfil' || (p === '/configuraciones' && q.get('tab') === 'notif')) return '/m/cuenta';

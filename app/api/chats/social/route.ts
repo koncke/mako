@@ -35,8 +35,12 @@ export async function POST(req: Request) {
   if (!Number.isSafeInteger(convId) || convId <= 0) return err(400, 'Falta la conversación.');
   if (!texto) return err(400, 'Mensaje vacío.');
   if (texto.length > TOPE_TEXTO_SOCIAL) return err(400, `Máximo ${TOPE_TEXTO_SOCIAL} caracteres.`);
-  const r = await enviarManualSocial({ convId, texto });
+  // La clave de idempotencia la pone el Composer, UNA por mensaje (la misma si se reintenta): Zernio no lo manda dos veces.
+  const idem = typeof body?.idempotencia === 'string' && /^[A-Za-z0-9-]{8,64}$/.test(body.idempotencia) ? body.idempotencia : undefined;
+  const r = await enviarManualSocial({ convId, texto, idempotencia: idem });
   if (r.ok) return NextResponse.json({ ok: true, mensaje: r.mensaje });
+  // No se sabe si salió (Zernio no contestó a tiempo): 504, y la pantalla no lo ofrece para reenviar.
+  if (r.incierto) return err(504, r.error, { incierto: true });
   // Una regla de Meta (terminal) no es una caída: 422. Lo demás (Zernio o la base), 502.
   return err(r.terminal ? 422 : 502, r.error, r.terminal ? { terminal: true } : undefined);
 }

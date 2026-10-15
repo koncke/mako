@@ -191,6 +191,8 @@ export const RUNNERS: Runners = {
       const r = claveDe(input);
       if ('error' in r) return errorLectura(r.error);
       const h = await hiloDeChat(r.clave);
+      // Lo mismo que el área whatsapp (whatsapp.run.ts, OCULTO): un chat personal oculto no lo lee MaKo.
+      if (h.ocultoWhatsapp) return errorLectura('Ese chat está oculto: MaKo no lo lee.');
       if (!h.chat && h.mensajes.length === 0) {
         return h.fallas.length
           ? errorLectura(`No pude leer esa conversación (${h.fallas.join(', ')}). No es lo mismo que no exista: prueba de nuevo en un rato.`)

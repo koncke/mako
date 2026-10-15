@@ -31,9 +31,9 @@ import { getLead } from './leads';
 import { etiquetasDeLead, type EtiquetaDelLead } from './etiquetas';
 import { listarLineas, type LineaRow } from './evolution';
 import { getConversacionesNoOficial, getMensajesDeChat, type WaConversacion, type WaMensaje } from './evolution-mensajes';
-import { telefonosBloqueados } from './evolution-block';
+import { telefonosBloqueados, telefonosOcultos } from './evolution-block';
 import { instanceNameDeWs, lineaPorDefault, rotuloLinea } from './lineas-whatsapp';
-import { getFunnelDefault } from './funnels';
+import { getFunnelDefault, getFunnelDe, idDelFunnelDefault } from './funnels';
 import { etapaVigenteDe } from './funnel-etapas';
 import type { Stage, StageDerivable } from './pipeline';
 import { leerTodo } from './supabase-paginado';
@@ -45,7 +45,7 @@ import {
 } from './canal-zernio';
 import {
   agruparPorContacto, claveLead, claveSocial, claveWhatsapp, claveCuenta, parsearClave, formatoDe, statusDe,
-  destinoTelefono, rotuloWhatsapp, ultimos10, partesDeEvento, partesDeAudit, textoDePartes, autorLegible,
+  destinoTelefono, rotuloWhatsapp, ultimos10, contactoDeFilas, type FilaContactoWa, partesDeEvento, partesDeAudit, textoDePartes, autorLegible,
   CAMPOS_AUDIT_DEL_HILO,
   type FuenteChat, type LeadDelChat, type FilaEstadoChat, type ContextoContactos, type TipoEventoChat,
 } from './chats-reglas';
@@ -94,9 +94,33 @@ export async function puertaChats(): Promise<PuertaChats> {
 
 type FilaLeadChat = StageDerivable & {
   id: number; nombre: string | null; empresa: string | null; telefono_normalizado: string | null;
-  setter: string | null; closer: string | null;
+  setter: string | null; closer: string | null; funnel_id?: number | null;
 };
-const COLS_LEAD_CHAT = 'id, nombre, empresa, telefono_normalizado, setter, closer, estado_lead, pipeline_stage, fecha_agenda, fecha_junta_1, fecha_junta_2, asistio_j1, asistio_j2, nutricion_realizada';
+const COLS_LEAD_CHAT = 'id, nombre, empresa, telefono_normalizado, setter, closer, funnel_id, estado_lead, pipeline_stage, fecha_agenda, fecha_junta_1, fecha_junta_2, asistio_j1, asistio_j2, nutricion_realizada';
+
+type EmbudoChat = { stages: readonly Stage[]; labels: Readonly<Record<string, string>> };
+
+/**
+ * ⚠️ LA ETAPA DE UN LEAD SE LEE CON EL FUNNEL DE SU CASA, NO CON EL DEL NEGOCIO (verificado el 15/10/2026). Las
+ * claves de las etapas agregadas en el editor se numeran por funnel (st0, st1…): la MISMA clave es otra etapa en
+ * otro producto. Con el funnel default para todos, un lead del «Curso» en «Webinar» (st0) se leía «Llamada
+ * diagnóstico» (el st0 de la «Mentoría»). Se leen las etapas de cada funnel distinto UNA vez; si uno no se pudo leer,
+ * su lead cae al default (el rótulo puede quedar mal, pero nada se escribe con él: /api/chats/etapa no mueve un lead
+ * de otro producto).
+ */
+async function embudosDeLeads(filas: readonly FilaLeadChat[], porDefecto: EmbudoChat): Promise<(l: FilaLeadChat) => EmbudoChat> {
+  const ids = [...new Set(filas.map((l) => l.funnel_id).filter((x): x is number => x != null && Number.isSafeInteger(Number(x))).map(Number))];
+  const def = ids.length ? await idDelFunnelDefault().catch(() => null) : null;
+  const otros = ids.filter((id) => id !== def);
+  const leidos = new Map<number, EmbudoChat>();
+  await Promise.all(otros.map(async (id) => {
+    try {
+      const f = await getFunnelDe(id);
+      if (f.origen !== 'error' && f.origen !== 'sin-fila') leidos.set(id, { stages: f.stages, labels: f.labels ?? {} });
+    } catch { /* cae al default (ver arriba) */ }
+  }));
+  return (l) => (l.funnel_id != null ? leidos.get(Number(l.funnel_id)) : undefined) ?? porDefecto;
+}
 
 /** La etapa del CRM de un lead (la que pinta el tablero) y su nombre en el embudo del negocio. */
 function etapaDe(l: FilaLeadChat, stages: readonly Stage[], labels: Readonly<Record<string, string>>): { key: string; label: string } {
@@ -367,7 +391,8 @@ export async function listarChats(opts?: { buscar?: string; usuario?: YoChats })
   // Los leads de todas las fuentes, en una lectura (el nombre, el asignado, el closer y la etapa del CRM).
   const leadIds = fuentes.map((f) => f.leadId).filter((x): x is number => x != null);
   const filasLead = await leerLeads(leadIds).catch(falla('crm'));
-  const leads = new Map((filasLead ?? []).map((l) => [Number(l.id), leadDelChat(l, embudo.stages, embudo.labels)]));
+  const embudoDe = await embudosDeLeads(filasLead ?? [], embudo);
+  const leads = new Map((filasLead ?? []).map((l) => [Number(l.id), leadDelChat(l, embudoDe(l).stages, embudoDe(l).labels)]));
 
   const ctx: ContextoContactos = {
     leads,
@@ -417,17 +442,23 @@ async function buscarChats(q: string, ws: number, yo: YoChats): Promise<ListaCha
   const faltan = (social ?? []).map((s) => s.leadId).filter((x): x is number => x != null && !yaLeidos.has(x));
   const extra = await leerLeads(faltan).catch(falla('crm'));
   const filas = [...(leadsQ ?? []), ...(extra ?? [])];
-  const leads = new Map(filas.map((l) => [Number(l.id), leadDelChat(l, embudo.stages, embudo.labels)]));
+  const embudoDe = await embudosDeLeads(filas, embudo);
+  const leads = new Map(filas.map((l) => [Number(l.id), leadDelChat(l, embudoDe(l).stages, embudoDe(l).labels)]));
 
   const fuentes: FuenteChat[] = [];
   if (lns) {
     const def = lns.leidas.find((l) => l.linea === lns.porDefault) ?? { linea: lns.porDefault, rotulo: 'WhatsApp' };
     const varias = lns.leidas.length > 1;
-    const bloqueados = await telefonosBloqueados().catch(() => new Set<string>());
-    for (const l of leadsQ ?? []) {
+    const [bloqueados, ocultos] = await Promise.all([
+      telefonosBloqueados().then(por10).catch(() => new Set<string>()),
+      // ⚠️ Sin poder leer los ocultos no se arma NINGUNA identidad de WhatsApp: mostrar un chat personal es peor que
+      // no encontrarlo (verificado el 15/10/2026: el buscador abría el chat oculto de «Mamá»).
+      telefonosOcultos().then(por10).catch(() => null),
+    ]);
+    for (const l of ocultos ? leadsQ ?? [] : []) {
       const tel = (l.telefono_normalizado ?? '').replace(/\D/g, '');
-      if (!tel) continue;
-      const bloqueado = bloqueados.has(tel);
+      if (!tel || ocultos?.has(ultimos10(tel))) continue;
+      const bloqueado = bloqueados.has(ultimos10(tel));
       fuentes.push(fuenteWhatsapp({
         chatJid: `${tel}@s.whatsapp.net`, telefono: tel, nombre: l.nombre || tel, leadId: Number(l.id), empresa: l.empresa ?? null,
         etapaKey: null, etapaLabel: null, ultimoTexto: null, ultimoTipo: null, ultimaFecha: null, ultimoEntrante: false, total: 0, bloqueado,
@@ -460,7 +491,21 @@ export type HiloChat = {
   borradores: BorradorChat[];
   /** Extensión del contrato (§2.4): las fuentes del hilo que NO se pudieron leer ('whatsapp:<linea>', 'instagram', 'notas', 'eventos', 'borradores', 'crm'). */
   fallas: string[];
+  /**
+   * El WhatsApp de este contacto está OCULTO (un chat personal que el dueño sacó de la bandeja): sus mensajes no se
+   * leen ni se arma su identidad. La API de MaKo contesta lo mismo que el área whatsapp («MaKo no lo lee»).
+   */
+  ocultoWhatsapp?: boolean;
 };
+
+/**
+ * Los teléfonos de un set (bloqueados, ocultos) por sus ÚLTIMOS 10 dígitos. Se comparan así porque la clave guarda
+ * 10, el CRM puede no tener el código de país y /whatsapp guarda el número completo: comparar exacto dejaba un
+ * bloqueado o un oculto de /whatsapp como «no bloqueado» o visible en Chats (verificado el 15/10/2026).
+ */
+function por10(tels: ReadonlySet<string>): Set<string> {
+  return new Set([...tels].map((t) => ultimos10(t)).filter((t) => t.length >= 8));
+}
 
 /** Un mensaje del espejo de WhatsApp en el formato del hilo. */
 function mensajeWhatsapp(m: WaMensaje, linea: string): MensajeChat {
@@ -538,6 +583,29 @@ async function nombresDeAutores(autores: readonly (string | null)[]): Promise<(a
 type FilaEvento = { id: number; tipo: string; actor: string | null; detalle: Record<string, unknown> | null; created_at: string };
 
 /**
+ * El contacto REAL de WhatsApp de un teléfono en una línea: el `chat_jid` y el teléfono COMPLETOS (con código de
+ * país) de su mensaje más nuevo, y su nombre de WhatsApp (el `push_name` de un mensaje SUYO; el de uno nuestro es
+ * nuestro perfil). `null` si no hay ningún mensaje.
+ *
+ * ⚠️ POR QUÉ EXISTE (verificado el 15/10/2026, antes de publicar Chats). La clave de un contacto sin lead guarda
+ * los ÚLTIMOS 10 dígitos (`wa:<linea>:4741234567`) y el CRM puede tener el teléfono sin código de país. El hilo
+ * armaba con eso el destino, y la respuesta salía a «4741234567»: Evolution la rechazaba o, peor, le llegaba a un
+ * desconocido (+47 41234567 es un celular de Noruega). Lo mismo «Agregar al CRM» (lead con el teléfono truncado y
+ * el número como nombre), Bloquear y Ocultar (guardaban 10 dígitos: no bloqueaban nada). La bandeja de /whatsapp
+ * manda con el teléfono de la conversación: éste es ése.
+ */
+async function contactoWhatsappReal(linea: string | null, tel10: string): Promise<{ jid: string; tel: string; nombre: string | null } | null> {
+  const db = await getTenantDb();
+  let q = db.from('wa_mensajes').select('chat_jid, telefono, push_name, from_me')
+    .like('telefono', `%${tel10}`).neq('tipo', 'evento')
+    .order('wa_timestamp', { ascending: false }).order('id', { ascending: false }).limit(20);
+  if (linea) q = q.eq('instance_name', linea);
+  const { data, error } = await q;
+  if (error) throw new Error(`wa_mensajes (contacto): ${error.message}`);
+  return contactoDeFilas((data ?? []) as FilaContactoWa[], tel10);
+}
+
+/**
  * EL HILO DE UN CONTACTO: los mensajes de TODAS sus identidades (WhatsApp en cada línea, Instagram,
  * Messenger), sus notas como comentarios y los eventos (los de `chat_eventos` y los cambios de etapa, asignado
  * y closer del historial del lead), del más viejo al más nuevo. Más sus borradores de MaKo pendientes.
@@ -553,6 +621,7 @@ export async function hiloDeChat(clave: string, opts?: { usuario?: YoChats }): P
   const fallas: string[] = [];
   const falla = (fuente: string) => (e: unknown) => { console.error(`[chats] hilo ${clave} ${fuente}: ${msg(e)}`); fallas.push(fuente); return null; };
   const yo = opts?.usuario ?? { id: 0, nombre: '' };
+  let ocultoWhatsapp = false;
 
   // ¿De qué lead es? Una persona social con lead pasa a ser el contacto del lead.
   let leadId: number | null = p.tipo === 'lead' ? p.leadId : null;
@@ -581,8 +650,11 @@ export async function hiloDeChat(clave: string, opts?: { usuario?: YoChats }): P
   if (lns) {
     const varias = lns.leidas.length > 1;
     const todas: LineaLeida[] = lns.leidas.length ? lns.leidas : [{ linea: instanceNameDeWs(ws), rotulo: 'WhatsApp' }];
-    const bloqueados = await telefonosBloqueados().catch(() => new Set<string>());
-    let pedidos: Array<{ l: LineaLeida; jid: string; tel: string | null }> = [];
+    const [bloqueados, ocultos] = await Promise.all([
+      telefonosBloqueados().then(por10).catch(() => new Set<string>()),
+      telefonosOcultos().then(por10).catch(falla('ocultos')),
+    ]);
+    let pedidos: Array<{ l: LineaLeida; jid: string; tel: string | null; nombreWa?: string | null }> = [];
     if (p.tipo === 'whatsapp') {
       // La línea de la clave TIENE que ser del negocio (la clave viene del navegador).
       const l = todas.find((x) => x.linea === p.linea);
@@ -593,14 +665,31 @@ export async function hiloDeChat(clave: string, opts?: { usuario?: YoChats }): P
     } else if (tel) {
       pedidos = todas.map((l) => ({ l, jid: `${tel}@s.whatsapp.net`, tel }));
     }
+    // El destino REAL (ver `contactoWhatsappReal`): ni la clave ni el CRM lo tienen completo. Sin mensajes en esa
+    // línea queda el armado (un lead que todavía no escribió), que es lo que hacía la bandeja de /whatsapp.
+    pedidos = await Promise.all(pedidos.map(async (x) => {
+      const t10 = x.tel ? ultimos10(x.tel) : '';
+      if (t10.length < 8) return x;
+      const real = await contactoWhatsappReal(lns.leidas.length ? x.l.linea : null, t10).catch(falla(`whatsapp:${x.l.linea}`));
+      return real ? { ...x, jid: real.jid, tel: real.tel, nombreWa: real.nombre } : x;
+    }));
+    // ⚠️ UN CHAT OCULTO NO SE LEE (verificado el 15/10/2026). Es un chat personal que el dueño sacó de la bandeja:
+    // /whatsapp no lo muestra y MaKo no lo lee. Sin poder leer la lista de ocultos, tampoco se lee ninguno.
+    const tel10Pedido = (x: { tel: string | null; jid: string }) => ultimos10(x.tel ?? x.jid.replace(/@.*/, ''));
+    if (!ocultos) { if (pedidos.length) ocultoWhatsapp = true; pedidos = []; }
+    else {
+      const visibles = pedidos.filter((x) => !ocultos.has(tel10Pedido(x)));
+      if (visibles.length < pedidos.length) ocultoWhatsapp = true;
+      pedidos = visibles;
+    }
     const leidas = await Promise.all(pedidos.map((x) =>
       getMensajesDeChat(x.jid, 300, lns.leidas.length ? x.l.linea : null)
         .then((ms) => ({ ...x, ms }))
         .catch((e) => { falla(`whatsapp:${x.l.linea}`)(e); return { ...x, ms: [] as WaMensaje[] }; })));
     for (const x of leidas) {
       for (const m of x.ms) mensajes.push(mensajeWhatsapp(m, x.l.linea));
-      const bloqueado = !!x.tel && bloqueados.has(x.tel);
-      fuentes.push(fuenteDeHilo(x.ms, x.l, varias, { jid: x.jid, tel: x.tel, leadId, nombre: lead?.nombre || (x.tel ?? x.jid), bloqueado }));
+      const bloqueado = !!x.tel && bloqueados.has(ultimos10(x.tel));
+      fuentes.push(fuenteDeHilo(x.ms, x.l, varias, { jid: x.jid, tel: x.tel, leadId, nombre: lead?.nombre || x.nombreWa || (x.tel ?? x.jid), bloqueado }));
     }
   }
 
@@ -663,13 +752,14 @@ export async function hiloDeChat(clave: string, opts?: { usuario?: YoChats }): P
   const borradores: BorradorChat[] = (borr ?? []).map((b) => ({
     id: Number(b.id), texto: b.texto ?? '', linea: b.instance_name ?? null, createdAt: b.created_at, origen: b.origen ?? null,
   }));
-  const leads = new Map<number, LeadDelChat>(lead ? [[Number(lead.id), leadDelChat(lead, embudo.stages, embudo.labels)]] : []);
+  const embudoLead = lead ? (await embudosDeLeads([lead], embudo))(lead) : embudo;
+  const leads = new Map<number, LeadDelChat>(lead ? [[Number(lead.id), leadDelChat(lead, embudoLead.stages, embudoLead.labels)]] : []);
   const [chat] = agruparPorContacto(fuentes, {
     leads, estados: estados ?? new Map(), leidos: leidos ?? new Map(), borradores: borradoresIndice(borr ?? []),
     lineaDefault: lns?.porDefault ?? instanceNameDeWs(ws), ahoraMs: Date.now(),
   });
   // Sin ninguna identidad (un lead sin teléfono ni Instagram) no hay contacto que dibujar: sólo sus notas.
-  return { chat: chat ? { ...chat, clave: claveFinal } : null, mensajes, borradores, fallas: [...new Set(fallas)] };
+  return { chat: chat ? { ...chat, clave: claveFinal } : null, mensajes, borradores, fallas: [...new Set(fallas)], ...(ocultoWhatsapp ? { ocultoWhatsapp } : {}) };
 }
 
 // ── El estado y los leídos ──────────────────────────────────────────────────────

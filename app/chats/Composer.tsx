@@ -172,12 +172,25 @@ export default function Composer({
     throw new Error(j?.error || `Error ${r.status}`);
   }
 
+  /**
+   * NO SE SABE SI SALIÓ (se cortó por tiempo o por la red): ni «Fallido» con el texto de vuelta para reenviar,
+   * ni «Enviado». Se relee el hilo (si salió, aparece) y se dice qué hacer. Verificado el 15/10/2026: con el texto
+   * de vuelta en el campo, un Enter le mandaba el mismo mensaje dos veces al lead.
+   */
+  function incierto(tmp: string) {
+    onFallido(tmp);
+    onEnviado();
+    setError('No sé si salió: revisa el hilo antes de reenviar.');
+  }
+
   // ── El texto ──
   async function enviarTexto() {
     const t = textoVivo.current.trim();
     if (!t || enviando || motivo || !ident) return;
     const i = ident;
     const tmp = idTmp();
+    // Una clave por MENSAJE: Zernio no manda dos veces el mismo pedido con la misma clave.
+    const idempotencia = tmp.replace(/[^A-Za-z0-9-]/g, '').slice(0, 64);
     setEnviando(true); setError(null);
     onPendiente({
       id: tmp, tipo: 'mensaje', canal: i.canal, cuenta: i.cuenta, saliente: true, autor: null, texto: t, formato: 'text',
@@ -188,14 +201,18 @@ export default function Composer({
     setTexto('');
     try {
       if (i.canal === 'whatsapp') {
-        const j = await postJson<{ ok: boolean; error?: string; chatJid?: string | null }>('/api/whatsapp/evolution/mensajes', cuerpoTextoWhatsApp(i, t, chat.leadId));
+        // 45 s: por encima de lo que el servidor espera a Evolution (30 s) más la base. Cortar antes era decir
+        // «no salió» de algo que el servidor igual mandó.
+        const j = await postJson<{ ok: boolean; error?: string; chatJid?: string | null }>('/api/whatsapp/evolution/mensajes', cuerpoTextoWhatsApp(i, t, chat.leadId), { timeoutMs: 45_000 });
+        if (j.incierto) { incierto(tmp); return; }
         if (!j.ok) throw new Error(j.error || 'No se pudo enviar.');
         // WhatsApp puede devolver OTRO chatJid (el canónico: el 9 o el 1 de AR/MX, un @lid). La lista
         // se relee (`onEnviado` → `onCambio`) y la identidad elegida se sigue por su línea, no por el jid.
         if (j.chatJid && j.chatJid !== i.ref) setElegida(`${i.canal}|${i.cuenta ?? ''}|${j.chatJid}`);
         onConfirmado(tmp, null);
       } else {
-        const j = await postJson<{ ok: boolean; error?: string; mensaje?: MensajeChat; terminal?: boolean }>('/api/chats/social', { convId: Number(i.ref), texto: t });
+        const j = await postJson<{ ok: boolean; error?: string; mensaje?: MensajeChat; terminal?: boolean }>('/api/chats/social', { convId: Number(i.ref), texto: t, idempotencia }, { timeoutMs: 45_000 });
+        if (j.incierto) { incierto(tmp); return; }
         if (!j.ok) {
           // `terminal`: una regla de Meta (la ventana de 24 h se cerró mientras se escribía). Reintentar no
           // lo arregla: se relee el hilo para que la identidad pase a gris con su motivo.
@@ -342,8 +359,9 @@ export default function Composer({
   async function resolverBorrador(accion: 'enviar' | 'descartar', silencioso = false): Promise<boolean> {
     if (!borrador || ocupadoBorrador) return false;
     setOcupadoBorrador(true);
-    const j = await postJson<{ ok: boolean; error?: string }>('/api/whatsapp/evolution/borradores', { id: borrador.id, action: accion });
+    const j = await postJson<{ ok: boolean; error?: string; yaNoPendiente?: boolean }>('/api/whatsapp/evolution/borradores', { id: borrador.id, action: accion });
     setOcupadoBorrador(false);
+    if (j.yaNoPendiente) { onAviso('Ese borrador ya salió', true, null); onEnviado(); return false; }
     if (!j.ok) { onAviso(accion === 'enviar' ? 'No se pudo enviar' : 'No se pudo descartar', true, j.error ?? null); return false; }
     if (!silencioso) onAviso(accion === 'enviar' ? 'Borrador enviado' : 'Borrador descartado');
     onEnviado();
@@ -356,11 +374,15 @@ export default function Composer({
    */
   async function editarBorrador() {
     if (!borrador) return;
-    const suya = borrador.linea ? canales.find((c) => c.canal === 'whatsapp' && c.cuenta === borrador.linea) : null;
+    const b = borrador;
+    // ⚠️ PRIMERO se descarta, y el texto pasa al campo SÓLO si el descarte se confirmó (15/10/2026). Si otro ya lo
+    // estaba mandando, el descarte lo dice («Ese borrador ya salió») y no se ofrece una versión editada que el
+    // lead recibiría además de la original.
+    if (!(await resolverBorrador('descartar', true))) return;
+    const suya = b.linea ? canales.find((c) => c.canal === 'whatsapp' && c.cuenta === b.linea) : null;
     if (suya) setElegida(claveIdentidad(suya));
     setModo('mensaje');
-    setTexto(ponerSugerencia(textoVivo.current, null, borrador.texto));
-    await resolverBorrador('descartar', true);
+    setTexto(ponerSugerencia(textoVivo.current, null, b.texto));
     campo.current?.focus();
   }
 

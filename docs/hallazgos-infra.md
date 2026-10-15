@@ -90,6 +90,14 @@ Medido al investigar «MaKo Mobile tarda 10 s».
   lib/auth-session.ts) mete crypto-browserify, stream y buffer en el bundle: ~450 KB crudos en TODA página. Turbopack
   no lo recorta, esbuild sí; medir con esbuild engaña en esto.
 
+## «Nada por delante de main» no es «nada sin pushear»: el trabajo puede estar en el árbol (15/10/2026)
+
+La bandeja Chats (57 archivos, con migración y tests) vivía en `C:/dev/wt-chats` SIN COMMITEAR, la mayoría
+agregados al índice. `git log origin/main..HEAD` daba vacío y se leyó como «no hay trabajo»: Martín preguntó por
+Chats y la respuesta casi fue «nunca se hizo». Para saber si un worktree tiene trabajo va `git status --short`, no
+el log. Y un trabajo grande sólo en el árbol se pierde con un `worktree remove`, un `checkout -f` o una limpieza:
+se commitea en su rama aunque no se pushee.
+
 ## Supabase: leer y escribir sin perder datos
 
 ### ⚠️ `getSetting` devuelve `null` tanto si falló la lectura como si no hay fila, y eso expulsa a un cliente onboardeado al wizard

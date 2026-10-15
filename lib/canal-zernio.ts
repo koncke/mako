@@ -483,7 +483,14 @@ export async function mensajesSociales(convIds: readonly number[]): Promise<Mens
 
 export type ResultadoEnvioSocial =
   | { ok: true; mensaje: MensajeChat }
-  | { ok: false; error: string; terminal?: boolean };
+  /** `incierto`: Zernio no contestó a tiempo y NO se sabe si salió; la pantalla no lo ofrece para reenviar. */
+  | { ok: false; error: string; terminal?: boolean; incierto?: boolean };
+
+/** ¿Se cortó por tiempo o se abortó? (`zFetch` corta a los 20 s con AbortSignal.timeout.) */
+function esCorte(e: unknown): boolean {
+  const n = e instanceof Error ? e.name : '';
+  return n === 'TimeoutError' || n === 'AbortError' || /timed? ?out|aborted/i.test(e instanceof Error ? e.message : String(e));
+}
 
 /** La fila de una persona, por id. `undefined` = no se pudo leer; `null` = no existe en este negocio. */
 async function filaSocial(convId: number): Promise<FilaConversacionSocial | null | undefined> {
@@ -506,7 +513,7 @@ async function filaSocial(convId: number): Promise<FilaConversacionSocial | null
  *   · Lo que salió (o el error) queda en `ig_mensajes` como `saliente`: el webhook no guarda los salientes, y
  *     sin esta fila la respuesta no aparecería en el hilo.
  */
-export async function enviarManualSocial(input: { convId: number; texto: string }): Promise<ResultadoEnvioSocial> {
+export async function enviarManualSocial(input: { convId: number; texto: string; idempotencia?: string }): Promise<ResultadoEnvioSocial> {
   const convId = Number(input.convId);
   const texto = String(input.texto ?? '').trim();
   if (!Number.isSafeInteger(convId) || convId <= 0) return { ok: false, error: 'Falta la conversación.' };
@@ -523,9 +530,12 @@ export async function enviarManualSocial(input: { convId: number; texto: string 
   const salida = decidirSalida(conversacionDeFila(fila), Date.now(), canal);
   if (salida.via === null) return { ok: false, error: salida.motivo, terminal: salida.terminal };
 
-  const clave = `chat:${convId}:${randomUUID()}`;
+  // La clave de idempotencia es del MENSAJE (la pone el Composer y es la misma si se reintenta). Con una nueva en
+  // cada pedido no protegía nada, aunque este comentario lo prometía (verificado el 15/10/2026).
+  const clave = `chat:${convId}:${input.idempotencia && /^[A-Za-z0-9-]{8,64}$/.test(input.idempotencia) ? input.idempotencia : randomUUID()}`;
   let messageId: string | null = null;
   let falla: { error: string; terminal: boolean } | null = null;
+  let incierto = false;
   try {
     if (salida.via === 'dm') {
       messageId = (await enviarDm(ws, salida.conversacionId, { accountId: salida.cuentaId, texto, idempotencyKey: clave })).messageId;
@@ -538,6 +548,8 @@ export async function enviarManualSocial(input: { convId: number; texto: string 
     // Gastada o rechazada por Meta: la respuesta privada de ESE comentario ya no existe (igual que el motor).
     if (limite && salida.via === 'respuesta_privada') await marcarComentarioRespondido(fila.id);
     falla = { error: limite ? `${NOMBRE_CANAL[canal]}: ${msg(e)}` : msg(e), terminal: limite };
+    // Zernio no contestó a tiempo: NO se sabe si salió (él mismo reintenta contra Meta). No es un «no salió».
+    if (!limite && esCorte(e)) incierto = true;
   }
 
   // La fila del saliente: con el id de Zernio si salió, o con el error si no.
@@ -547,6 +559,7 @@ export async function enviarManualSocial(input: { convId: number; texto: string 
     texto, adjuntos: [], zernio_message_id: falla ? null : messageId, error: falla ? falla.error.slice(0, 500) : null,
   }).select(COLS_MENSAJE_SOCIAL).single();
   if (error) console.error(`[canal-zernio] guardar el saliente de la conversación ${convId}: ${error.message}`);
+  if (incierto) return { ok: false, incierto: true, error: 'No sé si salió: revisa el hilo antes de reenviar.' };
   if (falla) return { ok: false, error: falla.error, ...(falla.terminal ? { terminal: true } : {}) };
   // ⚠️ Salió aunque la fila no se haya guardado: se contesta ok (el mensaje le llegó a la persona) con el
   // mensaje armado acá, y el error queda en el log. Decir «no salió» invitaría a mandarlo dos veces.

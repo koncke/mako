@@ -140,6 +140,48 @@ la misma.
 
 ---
 
+## Chats: la bandeja unificada — lo que encontró la verificación antes de publicarla (15/10/2026)
+
+La bandeja copiada de respond.io (docs/diseno-chats.md) se construyó el 14/10 y quedó SIN COMMITEAR en un worktree;
+se integró con main el 15/10 y, antes de su primer deploy, tres agentes la revisaron (sólo lectura) por aislamiento,
+envíos y permisos. Lo que le rompía a un cliente quedó arreglado y fijado en tests/chats-verificacion.test.ts:
+
+- **El destino de WhatsApp NO sale de la clave ni del CRM.** La clave de un contacto sin lead guarda los últimos
+  10 dígitos (`wa:<linea>:4741234567`) y el CRM puede tener el teléfono sin código de país. El hilo armaba con eso
+  el destino: la respuesta a 52 1 474 123 4567 salía a «4741234567». Evolution la rechazaba o, peor, le llegaba a
+  un desconocido (+47 41234567 es Noruega).
+  - Con eso mismo, «Agregar al CRM» creaba el lead con el teléfono truncado y el número como nombre, y Bloquear y
+    Ocultar guardaban 10 dígitos (no bloqueaban nada).
+  - Ahora el hilo usa el `chat_jid` y el teléfono REALES del mensaje más nuevo de esa línea (`contactoDeFilas`,
+    lib/chats-reglas.ts), como hacía /whatsapp.
+- **Bloqueados y ocultos se comparan por los últimos 10 dígitos**, porque la clave, el CRM y /whatsapp guardan
+  formas distintas del mismo número.
+- **Un chat OCULTO no se busca ni se lee**: es el personal que el dueño sacó de la bandeja. El buscador y el hilo
+  no miraban `wa_ocultos`, y el área chats de la API de MaKo se salteaba el guard que sí tiene el área whatsapp.
+  Sin poder leer la lista de ocultos, no se lee ninguno.
+- **La etapa se lee con el funnel de la CASA del lead**: las claves de etapa se numeran por funnel (st0, st1…), así
+  que la misma clave es otra etapa en otro producto. El menú de Chats ofrece las del negocio, y por eso la ruta no
+  mueve a un lead de otro producto: contesta «Cámbiala en la ficha».
+- **«Editar» un borrador de MaKo descarta PRIMERO** y pone el texto sólo si el descarte se confirmó.
+  `descartarBorrador` hacía un update sin mirar el estado: con un borrador que otro ya mandaba, el lead recibía
+  las dos versiones.
+- **«No sé si salió» no es «no salió»**: un envío cortado por tiempo o por la red devolvía el texto al campo y un
+  Enter lo mandaba dos veces. Ahora:
+  - `postJson` marca `incierto` y el Composer no lo devuelve al campo: relee el hilo;
+  - la clave de idempotencia de Zernio es del MENSAJE, no del pedido (antes era nueva en cada uno y no protegía
+    nada, aunque el comentario lo prometía).
+- **La migración 0275 estaba tomada dos veces**: Chats y el WIP de Ads Autopilot. Se barrieron TODAS las ramas y
+  los worktrees y Chats pasó a la 0284 (reservada con el orquestador). Ver hallazgos-infra para la trampa de
+  verificar si una tabla existe.
+
+**Lo que quedó sin hacer** (segunda tanda, no rompe):
+- «Conectar Instagram/Messenger» desde Chats vuelve a /automations, no a Chats: la vuelta del OAuth está fija en
+  app/api/zernio/route.ts.
+- Asignarse un chat no se lo saca a MaKo: la nutrición sigue escribiendo. Es decisión de producto, publicada en la
+  Ticketera.
+- El estado y el leído aceptan claves bien formadas de leads que no existen. Quedan en el negocio propio y no cruzan
+  a otro, pero se acumulan filas huérfanas.
+
 ## WhatsApp no oficial (Evolution)
 
 ### El costo del WhatsApp escala con NÚMEROS CONECTADOS, no con mensajes enviados

@@ -26,6 +26,22 @@ export const PREFIJO_CLAVE = { lead: 'lead:', whatsapp: 'wa:', instagram: 'ig:',
 /** Los últimos 10 dígitos de un teléfono (o '' si no hay dígitos). */
 export const ultimos10 = (tel: string | null | undefined): string => String(tel ?? '').replace(/\D/g, '').slice(-10);
 
+/** Una fila de wa_mensajes para elegir el contacto real (las columnas que lee `contactoWhatsappReal`). */
+export type FilaContactoWa = { chat_jid: string; telefono: string | null; push_name: string | null; from_me: boolean };
+
+/**
+ * El contacto REAL de WhatsApp entre las filas de un teléfono (de la más nueva a la más vieja): el `chat_jid` y el
+ * teléfono COMPLETOS de la más nueva cuyo teléfono TERMINA en esos 10 dígitos, y el nombre de WhatsApp de un
+ * mensaje SUYO (el `push_name` de uno nuestro es nuestro perfil, y «Você» no es un nombre). Nunca devuelve los 10
+ * dígitos de la clave: con eso la respuesta salía sin código de país (lib/chats.ts, `contactoWhatsappReal`).
+ */
+export function contactoDeFilas(filas: readonly FilaContactoWa[], tel10: string): { jid: string; tel: string; nombre: string | null } | null {
+  const f = filas.find((r) => (r.telefono ?? '').replace(/\D/g, '').endsWith(tel10));
+  if (!f) return null;
+  const nombre = filas.find((r) => !r.from_me && r.push_name && r.push_name !== 'Você')?.push_name ?? null;
+  return { jid: f.chat_jid, tel: (f.telefono ?? '').replace(/\D/g, ''), nombre };
+}
+
 /**
  * El id de un contacto de WhatsApp DENTRO de una línea: los últimos 10 dígitos si hay al menos 8, y si
  * no el jid crudo (un grupo, un @lid sin número). ⚠️ ES LA MISMA REGLA que `claveTel`

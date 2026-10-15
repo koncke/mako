@@ -347,7 +347,16 @@ async function enviarMediaDelBorrador(b: {
   return enviarMediaYEspejar({ telefono: b.telefono, media: { ...mediaDeAdjunto(adj), base64: b64 }, caption: pie || undefined, leadId: b.lead_id, linea: b.instance_name });
 }
 
-export async function descartarBorrador(id: number): Promise<void> {
+/**
+ * Descarta un borrador SÓLO si sigue pendiente, y dice si lo descartó (15/10/2026). Antes era un `update` sin
+ * mirar el estado: con un borrador que otro ya estaba mandando contestaba ok, y «Editar» de Chats ponía el texto
+ * en el campo; la persona lo corregía y lo mandaba, y el lead recibía las dos versiones. Si el envío del otro
+ * fallaba, además, `enviarBorrador` lo devolvía a pendiente y resucitaba el descartado.
+ */
+export async function descartarBorrador(id: number): Promise<boolean> {
   const supabase = await getTenantDb();
-  await supabase.from('wa_borradores').update({ estado: 'descartado' }).eq('id', id);
+  const { data, error } = await supabase.from('wa_borradores').update({ estado: 'descartado' })
+    .eq('id', id).eq('estado', 'pendiente').select('id');
+  if (error) throw new Error(`descartarBorrador: ${error.message}`);
+  return (data ?? []).length > 0;
 }

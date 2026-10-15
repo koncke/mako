@@ -188,7 +188,7 @@ test('todo borrador de una secuencia lleva su línea, y uno con línea nunca cae
   assert.match(bo, /if \(b\.linea\) \{\s*const fila = lineas\?\.find\(\(l\) => l\.instance_name === b\.linea\);/, 'un borrador que nombra su línea no se decide por su línea');
 });
 
-test('la bandeja guarda su caché POR LÍNEA, no cae a otro chat, y el aviso abre la línea por la que entró', () => {
+test('la bandeja guarda su caché POR LÍNEA, no cae a otro chat, y el aviso abre la línea por la que entró', async () => {
   const inbox = sinComentarios(leer('app/whatsapp/EmpresaInbox.tsx'));
   assert.match(inbox, /const convsCache = new Map<string, Conv\[\]>\(\);/);
   assert.doesNotMatch(inbox, /convsCache = (?!new Map)/, 'una asignación al arreglo de módulo mezcla las listas de las líneas');
@@ -201,7 +201,11 @@ test('la bandeja guarda su caché POR LÍNEA, no cae a otro chat, y el aviso abr
   const auto = bloque(inbox, "const target = searchParamsEmpresa.get('chat');", 'setSel(convs[0].chatJid);');
   assert.match(auto, /if \(target && chatDeepLinkRef\.current !== target\) \{[\s\S]*?return;\s*\}\s*$/);
   const notif = sinComentarios(leer('app/_components/NotificationsProvider.tsx'));
-  assert.match(bloque(notif, 'const goToChatNoOficial = (chatJid: string) => {', '\n  };'), /linea=\$\{encodeURIComponent\(linea\)\}/);
+  // Desde el 14/10/2026 el aviso abre CHATS (docs/diseno-chats.md §4) con la línea por la que entró: la arma
+  // `rutaChatsDeWhatsapp(linea, chatJid)` (lib/chats-links.ts), que la pone en la URL si la hay.
+  assert.match(bloque(notif, 'const goToChatNoOficial = (chatJid: string) => {', '\n  };'), /rutaChatsDeWhatsapp\(linea, chatJid/);
+  const { rutaChatsDeWhatsapp } = await import('../lib/chats-links');
+  assert.match(rutaChatsDeWhatsapp('mako_ws13_x', '521474@s.whatsapp.net'), /[?&]linea=mako_ws13_x(&|$)/, 'el aviso abre la línea por default y no la del mensaje');
 });
 
 test('la 0199 repite los rellenos para lo que escribió el código viejo entre las dos migraciones', () => {

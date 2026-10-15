@@ -216,13 +216,20 @@ export function AvisoVentana({ aviso, onCerrar }: { aviso: AvisoRio; onCerrar: (
 }
 
 /** Un POST JSON que nunca tira: la red caída vuelve como `{ ok:false, error }`, como un 500. */
-export async function postJson<T extends { ok?: boolean; error?: string }>(url: string, body: unknown): Promise<T> {
+/**
+ * POST con JSON. `incierto: true` cuando NO se sabe si el servidor lo hizo: el pedido se cortó por tiempo o por
+ * la red, o el servidor contestó un 504 (15/10/2026). Un mensaje en ese estado no se devuelve al campo para
+ * reenviarlo: si salió, el lead lo recibiría dos veces (regla de la casa: se reintenta sólo con un «no salió»
+ * explícito).
+ */
+export async function postJson<T extends { ok?: boolean; error?: string }>(url: string, body: unknown, opts?: { timeoutMs?: number }): Promise<T & { incierto?: boolean }> {
   try {
-    const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(30_000) });
+    const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(opts?.timeoutMs ?? 30_000) });
     const j = (await r.json().catch(() => null)) as T | null;
-    if (j && typeof j === 'object') return (r.ok ? j : { ...j, ok: false }) as T;
-    return { ok: false, error: `Error ${r.status}` } as T;
+    const incierto = r.status === 504 ? { incierto: true } : {};
+    if (j && typeof j === 'object') return (r.ok ? j : { ...j, ok: false, ...incierto }) as T & { incierto?: boolean };
+    return { ok: false, error: `Error ${r.status}`, ...incierto } as T & { incierto?: boolean };
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : 'Sin conexión' } as T;
+    return { ok: false, incierto: true, error: e instanceof Error ? e.message : 'Sin conexión' } as T & { incierto?: boolean };
   }
 }

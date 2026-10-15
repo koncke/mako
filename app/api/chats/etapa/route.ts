@@ -25,6 +25,7 @@ import { TAG } from '@/lib/cache';
 import { getLead } from '@/lib/leads';
 import { etapaVigenteDe } from '@/lib/funnel-etapas';
 import { puertaChats, etapasDeChats } from '@/lib/chats';
+import { idDelFunnelDefault } from '@/lib/funnels';
 import { pideWizardAlElegir } from '@/app/crm/mover-etapa';
 import { setLeadStageAction } from '@/app/crm/actions';
 
@@ -45,8 +46,15 @@ export async function POST(req: Request) {
   if (!Number.isSafeInteger(leadId) || leadId <= 0) return err(400, 'Falta el lead.');
   if (!etapa) return err(400, 'Falta la etapa.');
   try {
-    const [lead, { stages, falla }] = await Promise.all([getLead(leadId), etapasDeChats()]);
+    const [lead, { stages, falla }, def] = await Promise.all([getLead(leadId), etapasDeChats(), idDelFunnelDefault().catch(() => undefined)]);
     if (!lead) return err(404, 'Ese lead no está.');
+    // ⚠️ UN LEAD DE OTRO PRODUCTO SE MUEVE EN LA FICHA (verificado el 15/10/2026). El menú de Chats ofrece las etapas
+    // del funnel del NEGOCIO, y las claves se numeran por funnel (st0, st1…): la misma clave es otra etapa en otro
+    // producto, así que mover con ella lo mandaba a otra columna de SU tablero. Sin saber cuál es el default, tampoco.
+    const casa = lead.funnel_id == null ? null : Number(lead.funnel_id);
+    if (def === undefined || (casa != null && casa !== def)) {
+      return NextResponse.json({ ok: false, necesitaFicha: true, error: 'Cámbiala en la ficha.' });
+    }
     if (falla) return err(503, 'No pude leer las etapas.');
     if (!stages.some((s) => s.key === etapa)) return err(400, 'Esa etapa no existe.');
     if (etapaVigenteDe(lead, stages) === etapa) return NextResponse.json({ ok: true, pendientes: [] });
