@@ -1,0 +1,75 @@
+#!/bin/sh
+# =============================================================================
+# pre-push — copia versionada de .git/hooks/pre-push (los hooks NO se versionan:
+# si se reclona el repo, se copia este archivo ahí y `chmod +x`).
+# =============================================================================
+# Desde el 15/10/2026 el TYPECHECK COMPLETO corre en GitHub Actions
+# (.github/workflows/integracion.yml), no en la notebook: se pushea a la rama
+# `integracion`, Actions corre tipos + guardas + tests, y si da verde avanza
+# `main` por fast-forward. Medido ese día: con 10-20 chats la máquina quedaba en
+# 240 MB libres y el tsc de 3-4 GB moría o hacía caer a los demás.
+#
+# Este hook queda LIVIANO, pero no desaparece:
+#   - Push a `main` (el camino de emergencia, si Actions no corre): corre el tsc
+#     local COMPLETO por el lock, como antes. Así `main` nunca recibe código sin
+#     chequear, venga por donde venga.
+#   - Push a cualquier otra rama (`integracion` incluida): sólo las guardas
+#     baratas (scripts/guardas-push.sh). El tsc lo corre Actions antes de main.
+#
+# Saltearlo a propósito: git push --no-verify (no lo hagas salvo emergencia).
+# =============================================================================
+
+REPO="$(dirname "$(git rev-parse --git-common-dir)")"
+REMOTO="${1:-origin}"
+
+# stdin trae una línea por ref: <ref local> <sha local> <ref remota> <sha remota>
+A_MAIN=0
+while read -r _ref_local _sha_local ref_remota _sha_remota; do
+  [ "$ref_remota" = "refs/heads/main" ] && A_MAIN=1
+done
+
+if [ "$A_MAIN" -eq 1 ]; then
+  # ⚠️ EL LOCK DEL TYPECHECK LO PONE ESTE HOOK, NO EL package.json DEL WORKTREE.
+  # Este .git lo comparten muchos checkouts y los viejos traen `tsc --noEmit`
+  # crudo en su package.json: se llama al lock por la ruta del CLON PRINCIPAL.
+  # El cwd sigue siendo el del worktree, así que tsc lee SU tsconfig.
+  LOCK_TSC="$REPO/scripts/typecheck-lock.mjs"
+  echo "[pre-push] Push a main: chequeando tipos en local…"
+  if [ -f "$LOCK_TSC" ]; then
+    node "$LOCK_TSC"
+  else
+    echo "  (sin $LOCK_TSC: uso npm run typecheck, sin lock)"
+    npm run --silent typecheck
+  fi
+  TIPOS=$?
+  # 99 = «no pude chequear» (sin RAM, o el vigía mató el tsc), NO «hay errores».
+  if [ "$TIPOS" -eq 99 ]; then
+    echo ""
+    echo "  ✖ PUSH BLOQUEADO: no se pudo chequear los tipos (mirá el motivo de arriba)."
+    echo "    NO es un error de tipos. Pusheá a la rama integracion: el chequeo lo"
+    echo "    corre GitHub Actions y avanza main solo si da verde."
+    echo ""
+    exit 1
+  fi
+  if [ "$TIPOS" -ne 0 ]; then
+    echo ""
+    echo "  ✖ PUSH BLOQUEADO: hay errores de tipos."
+    echo ""
+    echo "  El build de Vercel ya no chequea tipos, así que esto llegaría roto a"
+    echo "  producción (y lo vería un cliente). Corregí los errores de arriba y"
+    echo "  volvé a pushear."
+    echo ""
+    exit 1
+  fi
+  echo "[pre-push] ✓ Tipos OK."
+else
+  echo "[pre-push] Sin tsc local: lo corre GitHub Actions en la rama integracion antes de que llegue a main."
+fi
+
+GUARDAS="$REPO/scripts/guardas-push.sh"
+if [ ! -f "$GUARDAS" ]; then
+  echo "  ✖ Falta $GUARDAS (las guardas del push). Restauralo con: git checkout -- scripts/guardas-push.sh"
+  exit 1
+fi
+sh "$GUARDAS" "$REMOTO" || exit 1
+exit 0

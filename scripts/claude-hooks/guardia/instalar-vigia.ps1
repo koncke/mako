@@ -15,7 +15,15 @@ $yo = "$env:USERDOMAIN\$env:USERNAME"
 
 $accion = New-ScheduledTaskAction -Execute 'powershell.exe' `
   -Argument "-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$script`""
-$disparo = New-ScheduledTaskTrigger -AtLogOn -User $yo
+# Dos disparadores. Al iniciar sesión, y además CADA 5 MINUTOS para siempre: el
+# vigía se muere (13/10 estuvo 6 horas caído sin que nadie se enterara, porque el
+# único disparador era AtLogon). Si está vivo, el reintento no hace nada
+# (`-MultipleInstances IgnoreNew` y el mutex del script); si murió, lo levanta.
+# Por eso `Stop-ScheduledTask` ya no lo pausa: se pausa con ~/.claude/guardia/vigia-pausa.
+$disparo = @(
+  (New-ScheduledTaskTrigger -AtLogOn -User $yo),
+  (New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes 5))
+)
 $conf = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
   -ExecutionTimeLimit ([TimeSpan]::Zero) -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) `
   -MultipleInstances IgnoreNew -Priority 3
