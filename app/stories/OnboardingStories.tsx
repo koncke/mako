@@ -28,6 +28,9 @@ import { Storyboard } from './Storyboard';
 import { OBJETIVOS_STORIES, type ObjetivoStories } from './objetivos';
 import { generarSecuenciaAction, marcarContextoStoriesAction } from './actions';
 import type { PiezaStory } from '@/lib/ig-writer';
+// El perfil del negocio se completa donde viva hoy la sección (lib/secciones-negocio.ts): desde el 15/10/2026,
+// Second Brain. Nunca `/onboarding`, que es sólo el wizard del primer ingreso.
+import { rutaSeccion, lugarSeccion } from '@/lib/secciones-negocio';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -141,8 +144,8 @@ export function OnboardingStories({
               </ul>
               {gruposFaltan.length > 0 && (
                 <div style={{ marginTop: 9, paddingTop: 9, borderTop: '1px solid var(--border)' }}>
-                  Falta: {gruposFaltan.join(', ')}. Se completa en el{' '}
-                  <Link href="/onboarding" style={{ color: 'var(--primary-strong)', fontWeight: 600, textDecoration: 'none' }}>onboarding del negocio</Link>
+                  Falta: {gruposFaltan.join(', ')}. Se completa en{' '}
+                  <Link href={rutaSeccion('archivero')} style={{ color: 'var(--primary-strong)', fontWeight: 600, textDecoration: 'none' }}>{lugarSeccion('archivero')}</Link>
                   {' '}— con esos huecos, las secuencias salen más genéricas.
                 </div>
               )}
@@ -150,8 +153,8 @@ export function OnboardingStories({
           ) : (
             <Contexto eyebrow="Todavía no sé nada de tu negocio">
               El perfil del negocio está vacío, así que las secuencias saldrían genéricas.
-              Complétalo en el{' '}
-              <Link href="/onboarding" style={{ color: 'var(--primary-strong)', fontWeight: 600, textDecoration: 'none' }}>onboarding del negocio</Link>
+              Complétalo en{' '}
+              <Link href={rutaSeccion('archivero')} style={{ color: 'var(--primary-strong)', fontWeight: 600, textDecoration: 'none' }}>{lugarSeccion('archivero')}</Link>
               {' '}(marca, oferta, cliente ideal) y esta tab lo toma sola. No hay nada
               nuevo que pedir aquí: lo que ya se sabe no se pregunta.
             </Contexto>

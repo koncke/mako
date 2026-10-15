@@ -59,6 +59,9 @@ import { WizardAnuncio, Estudio, textoCosto } from './WizardAnuncio';
 import { PreviaVolante } from './PreviaVolante';
 import { TemaOscuro } from '../_components/TemaOscuro';
 import { causaFlow, textoFlow, type CausaFlow } from '@/lib/flow-fallo-texto';
+// El perfil del negocio se completa donde viva hoy la sección (lib/secciones-negocio.ts): desde el 15/10/2026,
+// Second Brain. Nunca `/onboarding`, que es sólo el wizard del primer ingreso.
+import { rutaSeccion, lugarSeccion } from '@/lib/secciones-negocio';
 // El router de la casa y no el de `next/navigation`: acá sólo se usa `refresh()`,
 // que pasa derecho, pero así el archivo entra en el barrido de
 // tests/pantalla-links-ws.test.ts y un `push` futuro no pierde el `?ws=`.
@@ -1540,7 +1543,7 @@ export function VideoGeneratorApp({
       {contexto && !contexto.tieneFotos && (
         <Alert tono="warn">
           Antes de crear tu primer anuncio sube una foto tuya en{' '}
-          <Link href="/onboarding">Onboarding → Persona</Link>: es la que le da la cara a tu
+          <Link href={rutaSeccion('persona')}>{lugarSeccion('persona')}</Link>: es la que le da la cara a tu
           avatar, y sin ella cada toma sale con una persona distinta.
         </Alert>
       )}

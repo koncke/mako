@@ -686,7 +686,9 @@ export const USER_NAV: NavItem[] = [
   // Al lado de Integraciones porque es lo mismo visto desde afuera: con qué se conecta
   // un tercero. Solo el admin (sin `rolesWs`): acá se acuñan credenciales.
   { key: 'api-mako', label: 'API', href: '/api-mako', icon: 'api', match: starts('/api-mako') },
-  { key: 'onboarding', label: 'Onboarding', href: '/onboarding', icon: 'contexto', match: starts('/onboarding') },
+  // «Onboarding» salió de acá el 15/10/2026: el hub de diez pestañas que abría se retiró y sus secciones se
+  // editan en Second Brain (lib/secciones-negocio.ts), que ya está en la barra. /onboarding sigue siendo el
+  // wizard del primer ingreso, y a ése no se entra desde un menú: lo manda lib/tab-access.ts.
   { key: 'configuraciones', label: 'Configuraciones', href: '/configuraciones', icon: 'config', match: (p) => starts('/configuraciones')(p) || starts('/metodo')(p) || starts('/equipo')(p) },
   // Acá NO va «Admin» ni «Contexto de MaKo». Los dos eran `adminOnly`, o sea que
   // solo los veía el super admin — que ahora tiene su propia familia Admin en la

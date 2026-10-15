@@ -143,11 +143,11 @@ export const CATALOGO: Record<string, FichaDoc> = {
     hace: ['Roles, sesión y quién ve qué'],
   },
   'productos-y-funnels-plan': {
-    grupo: 'Referencia', tabs: ['/crm', '/onboarding'],
+    grupo: 'Referencia', tabs: ['/crm', '/second-brain'],
     hace: ['Multiples ofertas y funnels: que fase esta hecha y que falta', 'El orden exacto en que se aplican las migraciones nuevas'],
   },
   'modelo-oferta-producto-funnel': {
-    grupo: 'Referencia', tabs: ['/crm', '/onboarding'],
+    grupo: 'Referencia', tabs: ['/crm', '/second-brain'],
     hace: ['El modelo de datos que manda: producto, oferta, funnel y participacion', 'El SQL de cada migracion y el test de aceptacion'],
   },
   hallazgos: {

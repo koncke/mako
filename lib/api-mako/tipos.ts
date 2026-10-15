@@ -58,7 +58,9 @@ export const AREA_INFO: Record<Area, { titulo: string; tab: string; ruta: string
   // `closing`) y sus títulos no cambian: son la clave del registro y de los permisos de los tokens.
   landing: { titulo: 'Landing (Analyst, Generator y tracking)', tab: 'Landing Generator', ruta: '/landing-generator' },
   closing: { titulo: 'Closing Analyst', tab: 'Dashboard', ruta: '/dashboard?hoja=closing' },
-  negocio: { titulo: 'El negocio (onboarding, Second Brain, conocimiento)', tab: 'Onboarding', ruta: '/onboarding' },
+  // El TÍTULO no cambia (es la clave del área). La tab sí: el hub de /onboarding se retiró el 15/10/2026 y lo que
+  // carga esta área se edita en Second Brain (lib/secciones-negocio.ts).
+  negocio: { titulo: 'El negocio (onboarding, Second Brain, conocimiento)', tab: 'Second Brain', ruta: '/second-brain' },
   contenido: { titulo: 'Content Machine', tab: 'Ads Writer', ruta: '/ads-writer' },
   video: { titulo: 'Video Generator', tab: 'Video Generator', ruta: '/video-generator' },
   // El Image Editor, la copia de Canva (15/10/2026, el día que se abrió a todos los workspaces). Área propia y no

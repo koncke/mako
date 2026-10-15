@@ -1,17 +1,22 @@
 // =============================================================================
-// /onboarding — cargar el negocio en MaKo (hub) o el wizard de alta (bloqueante)
+// /onboarding — el wizard de alta (bloqueante), y nada más
 // =============================================================================
 // Cliente con onboarding pendiente/salteado → el WIZARD completo (overlay:
-// integraciones → El Archivero → tabs → Retro). Onboarding terminado (o el dueño /
-// super admin sin impersonar) → el HUB con las tabs El Archivero + Funnel +
-// Ángulos y avatares. Se accede desde el menú de la foto de perfil ("Onboarding").
+// integraciones → El Archivero → tabs → Retro). Lo mandan acá lib/tab-access.ts y
+// app/inicio mientras esté pendiente.
+//
+// Onboarding terminado → Second Brain. Acá había un HUB con diez pestañas (matriz,
+// diagnóstico, archivero, oferta, lead magnet, persona, personalidad, avatares, razones y
+// ángulos), en el menú de la foto, y se RETIRÓ el 15/10/2026: Second Brain ya montaba las
+// mismas diez vistas. Pedido de Martín: «Si, ponlo en second brain». Un link viejo
+// (`?tab=persona`) llega a la MISMA sección: app/onboarding/tabs-catalogo.ts.
 
-import { Icon } from '../_components/icons';
-import { OnboardingTabs } from './OnboardingTabs';
-// ⚠️ `tabDeUrl` SALE DEL `.ts`, NUNCA DEL COMPONENTE. Importada de `OnboardingTabs`
-// —que lleva `use client`— esto no recibe una función sino una referencia de cliente,
-// y llamarla tiró la pantalla entera en producción. Ver app/onboarding/tabs-catalogo.ts.
-import { tabDeUrl } from './tabs-catalogo';
+import { redirect } from 'next/navigation';
+// ⚠️ `destinoDeTabVieja` SALE DEL `.ts`, NUNCA DE UN COMPONENTE `use client`: importada de
+// uno, esto no recibe una función sino una referencia de cliente, y llamarla tiró la pantalla
+// entera en producción el 29/09/2026. Ver app/onboarding/tabs-catalogo.ts.
+import { destinoDeTabVieja } from './tabs-catalogo';
+import { rutaConWs } from '@/lib/workspace';
 import { OnboardingWizard } from './OnboardingWizard';
 import { requireRolWs } from '@/lib/tab-access';
 import { getEstadoOnboarding, pasosDeCapaActual } from '@/lib/onboarding-state';
@@ -33,31 +38,20 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
   await requireRolWs([], { gateOnboarding: false });
 
   // Gating (pedido de Mauricio): mientras el onboarding NO esté 'done' se ve el MODAL
-  // secuencial (wizard) — NINGUNA tab — y al terminar se desbloquea el hub. Aplica
+  // secuencial (wizard) — NINGUNA tab — y al terminar se sigue a Second Brain. Aplica
   // TAMBIÉN al dueño (Mauricio usa MaKo para su propio negocio): /api/onboarding ahora
   // resuelve el dueño → OWNER_WS, así que el wizard carga bien, y esAdmin=true le da los
-  // atajos (saltar sin conectar) para no quedar trabado. Una capa sin pasos → hub.
+  // atajos (saltar sin conectar) para no quedar trabado. Una capa sin pasos → Second Brain.
   const estado = await getEstadoOnboarding();
   const pasos = await pasosDeCapaActual();
   const done = pasos.length === 0 || estado.status === 'done';
-  // ⚠️ El tema oscuro se prende SOLO en la rama del wizard. El hub de abajo es una
-  // tab más de la app y tiene que respetar el tema que el cliente eligió: pintarlo
-  // oscuro «de paso» sería el mismo error que ya se cometió con el laboratorio de
-  // paletas, cuando un tema de prueba terminó aplicado sobre la app de un cliente.
+  // ⚠️ El tema oscuro se prende SOLO en la rama del wizard: lo que sigue es otra tab y tiene
+  // que respetar el tema que el cliente eligió (el error del laboratorio de paletas, cuando un
+  // tema de prueba terminó aplicado sobre la app de un cliente).
   if (!done) return <><TemaOscuroScript /><TemaOscuro /><OnboardingWizard /></>;
 
-  // Dueño / cliente ya onboardeado → el hub para cargar/editar el negocio.
-  //
-  // ⚠️ ACÁ SE MONTABA EL EDITOR COMPLETO DEL FUNNEL, con su tarjeta de entradas, y se
-  // retiró el 29/09/2026: «Tienes que eliminar esto, ya te lo habia pedido». El embudo
-  // —etapas, nutrición y cómo entra la gente— se configura entero en el pop-up del CRM.
-  return (
-    <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px' }}>
-      <header style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 22 }}>
-        <span style={{ display: 'inline-flex', color: 'var(--accent)' }}><Icon name="contexto" size={34} /></span>
-        <h1 style={{ fontWeight: 600, fontSize: 42, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Onboarding</h1>
-      </header>
-      <OnboardingTabs tabInicial={tabDeUrl(tab)} />
-    </main>
-  );
+  // Ya onboardeado → Second Brain, a la sección que pedía el link (`?tab=`), o a su portada.
+  // `rutaConWs` y no el path pelado: sin el `?ws=` el super admin que mira a un cliente
+  // terminaría en SU propio Second Brain (AGENTS.md, «Hay CINCO formas de navegar»).
+  redirect(await rutaConWs(destinoDeTabVieja(tab)));
 }

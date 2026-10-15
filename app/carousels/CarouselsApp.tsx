@@ -26,6 +26,9 @@ import type { NombreIconoMenu } from '@/app/_ui/iconos-menu';
 import { CAPTION_MAX, CAPTION_VISIBLE, LIMITES_CARRUSEL, LIMITES_IMAGEN } from '@/lib/ig-formatos';
 // `import type` de un módulo server-only: se borra al compilar, no arrastra nada.
 import type { PiezaCarrusel } from '@/lib/ig-writer';
+// El perfil del negocio se completa donde viva hoy la sección (lib/secciones-negocio.ts): desde el 15/10/2026,
+// Second Brain. Nunca `/onboarding`, que es sólo el wizard del primer ingreso.
+import { rutaSeccion } from '@/lib/secciones-negocio';
 import { generarCarruselAction, type TipoCarrusel } from './actions';
 
 const MONO = "'Geist Mono', monospace";
@@ -174,7 +177,7 @@ export function CarouselsApp({
             {!perfilCargado && (
               <div style={{ marginTop: 11, fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5 }}>
                 Sin el perfil del negocio las piezas salen genéricas.{' '}
-                <Link href="/onboarding" style={{ color: 'var(--primary)', fontWeight: 600 }}>Complétalo aquí →</Link>
+                <Link href={rutaSeccion('archivero')} style={{ color: 'var(--primary)', fontWeight: 600 }}>Complétalo aquí →</Link>
               </div>
             )}
           </div>

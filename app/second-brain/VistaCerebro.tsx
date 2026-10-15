@@ -20,6 +20,7 @@
 import { useCallback, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { AREAS, type AreaId, type Cerebro } from '@/lib/cerebro-modelo';
+import { vistaValida } from '@/lib/secciones-negocio';
 import { PageHeader } from '@/app/_ui';
 import { filtroVacio, type EstadoFiltro } from '@/lib/cerebro-filtro';
 import { Grafo } from './Grafo';
@@ -38,8 +39,13 @@ export function VistaCerebro({ cerebro, funnelPanel, agenteActual, appUrl }: {
   // mandan acá a hacer algo concreto —el selector de oferta del CRM manda a
   // crear una—, y aterrizar en el mapa entero es aterrizar en «buscala vos».
   // Se valida contra AREAS: un valor cualquiera en la URL no abre nada.
-  const areaPedida = useSearchParams()?.get('area');
+  const params = useSearchParams();
+  const areaPedida = params?.get('area');
   const areaInicial = AREAS.find((a) => a.id === areaPedida)?.id ?? null;
+  // Y `&vista=persona` abre esa sub-pestaña del área: los links que antes iban a una sección del hub de
+  // /onboarding llegan a la MISMA sección (lib/secciones-negocio.ts → rutaSeccion). Validada: un valor
+  // que el área no tiene abre la primera.
+  const vistaInicial = areaInicial ? vistaValida(areaInicial, params?.get('vista')) : null;
   const [abierta, setAbierta] = useState<AreaId | null>(areaInicial);
   /** Cuántas veces se pidió IR a la sección, no cuál. Abrir y saltar son dos cosas
    *  distintas —tocar un nodo abre sin mover la pantalla, tocar «Abrir» va— y con un
@@ -77,7 +83,7 @@ export function VistaCerebro({ cerebro, funnelPanel, agenteActual, appUrl }: {
       {/* El separador solo existe si hay algo abajo. Fijo, dejaba un hueco permanente
           entre el mapa y nada. */}
       {abierta && <div style={{ height: 'var(--sect-gap)' }} />}
-      <AreasHub abierta={abierta} onAbrir={abrir} salto={salto} funnelPanel={funnelPanel} />
+      <AreasHub abierta={abierta} onAbrir={abrir} salto={salto} funnelPanel={funnelPanel} vistaInicial={vistaInicial} />
     </>
   );
 }

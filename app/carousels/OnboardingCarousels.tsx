@@ -16,6 +16,9 @@ import { WizardShell } from '../_components/WizardShell';
 import { Button } from '@/app/_ui';
 import Link from '@/app/_ui/Link';
 import type { PiezaCarrusel } from '@/lib/ig-writer';
+// El perfil del negocio se completa donde viva hoy la sección (lib/secciones-negocio.ts): desde el 15/10/2026,
+// Second Brain. Nunca `/onboarding`, que es sólo el wizard del primer ingreso.
+import { rutaSeccion, lugarSeccion } from '@/lib/secciones-negocio';
 import { CarouselsApp } from './CarouselsApp';
 import { generarCarruselAction, marcarPasoCarouselsAction } from './actions';
 
@@ -128,14 +131,14 @@ export function OnboardingCarousels({ perfilCargado }: { perfilCargado: boolean 
             Para escribir, MaKo usa el contexto que ya cargaste en la app: el perfil del
             negocio, tu oferta, tu cliente ideal y tu funnel — la palabra clave del CTA
             empuja hacia la entrada real de tu embudo. No hay nada nuevo que pedir aquí: si
-            ese contexto cambia, se actualiza en el onboarding del negocio y esta tab lo
+            ese contexto cambia, se actualiza en {lugarSeccion('archivero')} y esta tab lo
             toma sola.
           </Contexto>
         ) : (
           <Contexto eyebrow="Falta el perfil del negocio">
             MaKo puede escribir igual, pero sin tu marca, tu oferta y tu cliente ideal las
-            piezas salen genéricas. Ese contexto se carga una sola vez en el{' '}
-            <Link href="/onboarding" style={{ color: 'var(--primary-strong)', fontWeight: 600 }}>onboarding del negocio →</Link>{' '}
+            piezas salen genéricas. Ese contexto se carga una sola vez en{' '}
+            <Link href={rutaSeccion('archivero')} style={{ color: 'var(--primary-strong)', fontWeight: 600 }}>{lugarSeccion('archivero')} →</Link>{' '}
             y todas las tabs de contenido lo toman de ahí.
           </Contexto>
         )

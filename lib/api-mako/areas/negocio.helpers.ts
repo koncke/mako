@@ -45,6 +45,7 @@ import { normalizarPersonalidad, type Personalidad } from '@/lib/personalidad';
 import { TAB_ONBOARDINGS } from '@/lib/tab-onboarding-catalogo';
 import { onboardingTabPendiente } from '@/lib/tab-onboarding-state';
 import type { NodoCerebro } from '@/lib/cerebro-modelo';
+import { lugarSeccion } from '@/lib/secciones-negocio';
 
 const limpio = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
 
@@ -153,7 +154,7 @@ export async function campoOcupado(key: string): Promise<boolean> {
 export async function completarHuecoPerfil(key: string, valor: string): Promise<{ ok: boolean; motivo?: string }> {
   const [files, manual, previas] = await Promise.all([listFiles(), mapaEstricto('mako.archivero.manual'), mapaEstricto('mako.onboarding.answers')]);
   const efectivo = computeEffective(files, manual).answers;
-  if (limpio(efectivo[key]) || limpio(previas[key])) return { ok: false, motivo: 'ese campo ya tiene valor; corregirlo se hace en /onboarding' };
+  if (limpio(efectivo[key]) || limpio(previas[key])) return { ok: false, motivo: `ese campo ya tiene valor; corregirlo se hace en ${lugarSeccion('archivero')}` };
   if (!esCampoArchivero(key)) {
     await saveAnswers({ ...previas, [key]: valor });
     return { ok: true };
