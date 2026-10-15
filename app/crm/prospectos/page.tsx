@@ -13,6 +13,7 @@ import { Pagina } from '@/app/_ui';
 import { requireRolWs } from '@/lib/tab-access';
 import { listarFunnels } from '@/lib/funnels';
 import { getRolWsEfectivo } from '@/lib/workspace';
+import { nombreVisible } from '@/lib/lead-funnel-reglas';
 import { ProspectosApp } from './ProspectosApp';
 
 export const dynamic = 'force-dynamic';
@@ -24,7 +25,7 @@ export default async function ProspectosPage() {
   return (
     <Pagina ancho="completo">
       <ProspectosApp
-        funnels={funnels.map((f) => ({ id: f.id, nombre: f.producto ?? f.nombre, esDefault: f.esDefault }))}
+        funnels={funnels.map((f) => ({ id: f.id, nombre: nombreVisible(f), esDefault: f.esDefault }))}
         esAdmin={rol === 'admin'}
       />
     </Pagina>

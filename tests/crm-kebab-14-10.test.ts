@@ -6,7 +6,11 @@
 // los subtitulos de los botones de los 3 puntos. Y elimina el botón de "CRM Automático",
 // para eso ya llevamos todo a Automations».
 //
-// Lo que queda en el menú: Importar leads · Exportar leads · Editar las etapas. Lo que se
+// Lo que queda en el menú: Importar leads · Exportar leads · Buscar prospectos · Editar las
+// etapas. «Buscar prospectos» se SUMÓ el 15/10/2026 (Leads Scraper, docs/diseno-leads-scraper.md):
+// es la tercera forma de traer leads al CRM, al lado de importar un archivo, y abre la lista de
+// prospectos (/crm/prospectos). Va sin subtítulo, como los demás. Un renglón más acá se DECLARA en
+// este test con su motivo: el pedido del 14/10 fue acotar el menú. Lo que se
 // fue sólo se fue del MENÚ: los dos modales siguen abriéndose desde el engranaje de la ficha
 // y el motor del CRM automático sigue corriendo. Eso también se fija acá, porque «sacar el
 // botón» y «apagar la función» se confunden fácil.
@@ -21,6 +25,9 @@
 //   · el title viejo del «⋯» («Importar, exportar y editar el funnel»)              → 2 / 1
 //   · InfoPrincipalCard sin su `<ResumenModal>` (el Resumen se queda sin puerta)     → 2 / 1
 //   · `activar_crm_automatico` renombrado en crm.def.ts (el flag sin manija)        → 2 / 1
+// Y el 15/10/2026, con «Buscar prospectos» declarado (base 3 / 0):
+//   · sin el renglón «Buscar prospectos»                                             → 2 / 1
+//   · un quinto renglón que nadie declaró                                            → 2 / 1
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -46,12 +53,14 @@ function acciones(): string {
 
 test('ningún renglón del «⋯» lleva subtítulo, y el renglón ni siquiera lo acepta', () => {
   const acc = acciones();
-  // Los tres que quedan, para que el resto del test no pase en vacío sobre un menú que se fue.
-  for (const label of ['Importar leads', 'Exportar leads', 'Editar las etapas']) {
+  // Los cuatro que hay, para que el resto del test no pase en vacío sobre un menú que se fue.
+  // «Buscar prospectos» es el del 15/10 (ver arriba): cualquier otro renglón se declara acá, con su motivo.
+  const RENGLONES = ['Importar leads', 'Exportar leads', 'Buscar prospectos', 'Editar las etapas'];
+  for (const label of RENGLONES) {
     assert.ok(acc.includes(`label="${label}"`), `falta el renglón «${label}» en el «⋯»`);
   }
   const renglones = (acc.match(/<MenuItem\b/g) ?? []).length;
-  assert.equal(renglones, 3, `el «⋯» tiene ${renglones} renglones; quedan tres`);
+  assert.equal(renglones, RENGLONES.length, `el «⋯» tiene ${renglones} renglones y se declararon ${RENGLONES.length}: un renglón nuevo se declara en este test, con su motivo`);
   // ⚠️ SE BUSCA EN TODO EL CLÚSTER, NO RENGLÓN POR RENGLÓN. Cortar cada `<MenuItem … />` con
   // una regex no sirve: el ícono va adentro como JSX (`icon={<UploadIcon size={15} />}`) y el
   // primer `/>` que aparece es el del ícono, así que el `desc=` que viene después quedaba
