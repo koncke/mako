@@ -1,5 +1,5 @@
 -- =============================================================================
--- XXXX — Pagos a mano con concepto y método, y la suscripción manual cancelada (14/10/2026)
+-- 0292_pagos_manual_suscripcion_cancelada — Pagos a mano con concepto y método, y la suscripción manual cancelada (14/10/2026)
 -- =============================================================================
 -- Pedido de Martín del 14/10/2026 («Que Pagos sea personalizable... edita todo en la misma tab»), diseño en
 -- docs/diseno-ficha-bloques.md §3 Pagos y §5 «Datos que hacen falta»:

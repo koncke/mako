@@ -161,10 +161,12 @@ async function hijo(): Promise<void> {
   const { mock } = await import('node:test');
   const urlAuth = pathToFileURL(join(RAIZ, 'lib', 'auth.ts')).href;
   const auth = await import(urlAuth);
+  // `exports` es la opción que usa el runtime de este repo (Node 24; el molde, tests/publicar-cron-social.test.ts),
+  // pero @types/node todavía tipa sólo `namedExports`: el cast es por los tipos, no cambia lo que corre.
   mock.module(urlAuth, { exports: {
     ...Object.fromEntries(Object.entries(auth).filter(([k]) => k !== 'default' && k !== 'module.exports')),
     getUsuarioActual: async () => sesion,
-  } });
+  } } as unknown as Parameters<typeof mock.module>[1]);
 
   const pagos = await import('../lib/pagos');
   const acciones = await import('../app/crm/[id]/deal-actions');

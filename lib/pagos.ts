@@ -48,7 +48,7 @@ export type Pago = {
   proveedor_pago_id?: string | null;
   moneda?: string | null;          // la del cobro real; null = USD
   monto_original?: number | null;  // en esa moneda
-  // Lo cargado a mano (mig XXXX): por qué y cómo se cobró. null en lo de la pasarela y en lo viejo.
+  // Lo cargado a mano (mig 0292): por qué y cómo se cobró. null en lo de la pasarela y en lo viejo.
   concepto?: string | null;
   metodo?: string | null;
   created_at: string;
@@ -620,7 +620,7 @@ export type DatosDeMoneda = {
 };
 
 /**
- * Concepto y método del pago (mig XXXX). ⚠️ UPDATE APARTE Y QUE NO TIRA: si la migración todavía no corrió, la
+ * Concepto y método del pago (mig 0292). ⚠️ UPDATE APARTE Y QUE NO TIRA: si la migración todavía no corrió, la
  * columna no existe y PostgREST rechazaría la fila ENTERA. Perder la etiqueta se ve en el historial; perder el
  * pago, no. Molde: las omisiones del wizard de Ganado (app/crm/actions.ts, «update APARTE»).
  */
@@ -692,7 +692,7 @@ export async function guardarMonedaDelNegocio(moneda: string): Promise<string> {
  * Cancela (o reactiva) una suscripción MANUAL: la que no cobra una pasarela y se registra mes a mes. Como la de la
  * pasarela (`aplicarSuscripcionCancelada`, lib/cobros.ts), la pasa a PLAZO FIJO hasta hoy (`suscripcion_meses` =
  * meses transcurridos), así el MRR deja de contarla; y además deja la fecha en `suscripcion_cancelada_at`
- * (mig XXXX), que es lo que distingue «cancelada» de «terminó su plazo». Reactivar devuelve el plazo de antes.
+ * (mig 0292), que es lo que distingue «cancelada» de «terminó su plazo». Reactivar devuelve el plazo de antes.
  *
  * ⚠️ EL PLAZO DE ANTES SE GUARDA AL CANCELAR (`suscripcion_meses_antes`, la misma mig). Pisar `suscripcion_meses`
  * con los meses transcurridos lo perdía, y reactivar escribía `mesesAlReactivar ?? null`: la API pasa siempre null,

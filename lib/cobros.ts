@@ -566,7 +566,7 @@ async function alCron(c: Cobro, subtipo: SubtipoPago): Promise<void> {
  * que `suscripcion_cancelada_at` y el plazo congelado (los meses transcurridos al cancelar, también los de una baja
  * de la pasarela) quedaban: la ficha decía «Cancelada» y el MRR no la contaba mientras Stripe cobraba todos los meses.
  * Una de la pasarela es sin fin (`suscripcion_meses` null) y su mensualidad es la del cobro. No tira: la plata ya
- * entró; si falla queda dicho en los logs (sin la migración XXXX, el select de la columna falla y no se toca nada).
+ * entró; si falla queda dicho en los logs (sin la migración 0292, el select de la columna falla y no se toca nada).
  */
 async function reabrirSuscripcionDelLead(c: Cobro, autor: string): Promise<void> {
   if (!c.lead_id) return;

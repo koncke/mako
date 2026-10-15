@@ -57,7 +57,7 @@ export type EntradaCobrado = {
   suscripcionMontoUsd: number | string | null | undefined;
   suscripcionMeses: number | string | null | undefined;
   fechaCierre: string | null | undefined;
-  /** La cancelación de una suscripción MANUAL (`leads.suscripcion_cancelada_at`, mig XXXX). */
+  /** La cancelación de una suscripción MANUAL (`leads.suscripcion_cancelada_at`, mig 0292). */
   suscripcionCanceladaAt?: string | null;
   pagos: readonly CuotaParaCobrado[];
   cobros?: readonly CobroParaCobrado[];

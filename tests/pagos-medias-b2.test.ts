@@ -38,7 +38,7 @@ const fuente = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\
 const PAGOS = fuente('lib/pagos.ts');
 const COBROS = fuente('lib/cobros.ts');
 const ACCIONES = fuente('app/crm/actions.ts');
-const MIG = readFileSync(join(RAIZ, 'supabase/migrations/XXXX_pagos_manual_suscripcion_cancelada.sql'), 'utf8');
+const MIG = readFileSync(join(RAIZ, 'supabase/migrations/0292_pagos_manual_suscripcion_cancelada.sql'), 'utf8');
 
 /** La función entera, desde su firma hasta la `}` de la columna 0 que la cierra. */
 function bloque(src: string, firma: string): string {

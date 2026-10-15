@@ -467,7 +467,7 @@ export const RUNNERS: Runners = {
       const plan = await getLeadPlan(lead.id);
       const cuotas = plan.pagos.map((p) => ({
         pago_id: p.id, numero: p.numero, es_inicial: p.numero === 0, monto_usd: Number(p.monto_usd), vence: p.fecha_esperada, pagada: p.pagado, fecha_pago: p.fecha_pago, tiene_comprobante: !!p.comprobante_path,
-        // La moneda en que se cobró (mig 0255 y XXXX): sólo donde no fue en dólares, para no llenar de ruido.
+        // La moneda en que se cobró (mig 0255 y 0292): sólo donde no fue en dólares, para no llenar de ruido.
         ...(p.moneda && p.moneda !== 'USD' && p.monto_original != null ? { cobrada_en: { moneda: p.moneda, monto: Number(p.monto_original) } } : {}),
       }));
       const suma = (xs: typeof cuotas) => Math.round(xs.reduce((a, c) => a + c.monto_usd, 0) * 100) / 100;

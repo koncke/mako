@@ -2429,7 +2429,7 @@ function ingresoDelHistorial(v: string | null): number | null {
   return Number.isFinite(n) && n >= 0 ? n : null;
 }
 
-/** `suscripcion_cancelada_at` del lead (mig XXXX; sin la migración no viene y cuenta como no cancelada). */
+/** `suscripcion_cancelada_at` del lead (mig 0292; sin la migración no viene y cuenta como no cancelada). */
 function canceladaDe(lead: unknown): unknown {
   return (lead as { suscripcion_cancelada_at?: unknown } | null)?.suscripcion_cancelada_at ?? null;
 }

@@ -10,7 +10,7 @@
 //   2. lo que protege a una cuota se lee FAIL-CLOSED: «no pude leer» no es «no tiene link»;
 //   3. guardar cuotas o un plan desde una pantalla NO gana el lead (ganarlo es mover de etapa);
 //   4. una cuota no se inserta en un lead de OTRO negocio (el FK de `pagos.lead_id` no mira el workspace);
-//   5. la etiqueta de un pago (concepto y método, mig XXXX) va en un update aparte que NO tira;
+//   5. la etiqueta de un pago (concepto y método, mig 0292) va en un update aparte que NO tira;
 //   6. el link por cuota: `crearCobro` valida la cuota antes de crear nada y escribe SU id; al pagarse se salda
 //      por id sólo si el monto coincide;
 //   7. el rechazo de una renovación se escribe y se lee con la misma constante, y la siguiente lo borra.
