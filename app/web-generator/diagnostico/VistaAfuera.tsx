@@ -28,12 +28,16 @@ import { MARCA_MENSAJE, TOPES_DIAGNOSTICO, cajaDeMensaje, srcPaginaDiagnostico }
 import { EVENTO_MOVIO, cajaDeRect, recortarA, type ControlVista, type ObjetivoVista } from './vista';
 
 type CajaIframe = [number, number, number, number, number];
-type EstadoVista = 'cargando' | 'lista' | 'error' | 'muda';
+type EstadoVista = 'cargando' | 'lista' | 'error' | 'muda' | 'vacia';
 
 /** Cuánto se espera el «listo» del script antes de decir que la página no se pudo mostrar. */
 const ESPERA_LISTO_MS = 12_000;
 /** Cuánto se espera la caja después de pedirle al iframe que traiga una cita. */
 const ESPERA_IR_MS = 900;
+/** Menos texto que esto es una página que no se pintó: 9 caracteres daba la que destapó el caso. */
+const PISO_TEXTO = 40;
+/** Lo que se le da al JavaScript de la página para pintar antes de decir que quedó vacía. */
+const ESPERA_PINTA_MS = 4000;
 
 export function VistaAfuera({ url, objetivos, controlRef, senal, onUbicar }: {
   url: string;
@@ -61,6 +65,27 @@ export function VistaAfuera({ url, objetivos, controlRef, senal, onUbicar }: {
   const [srcAntes, setSrcAntes] = useState(src);
   if (src !== srcAntes) { setSrcAntes(src); setEstado('cargando'); setMensaje(''); }
 
+  // ¿LLEGÓ A PINTARSE ALGO? El documento cuenta su texto visible y lo manda (`listo` y `pinto`). Si
+  // después de darle tiempo a su JavaScript sigue sin texto, la ventana está en blanco y hay que
+  // DECIRLO: hasta el 15/10/2026 quedaba un rectángulo blanco sin una palabra, que se lee como que la
+  // app está rota. No lo puede contestar el server: el HTTP es 200 y el HTML viene lleno de scripts.
+  const graciaRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const anotarTexto = useCallback((v: unknown) => {
+    const n = typeof v === 'number' && Number.isFinite(v) ? v : -1;
+    if (n < 0) return;                       // el documento no lo pudo medir: no se afirma nada
+    if (n >= PISO_TEXTO) {
+      if (graciaRef.current) { clearTimeout(graciaRef.current); graciaRef.current = null; }
+      setEstado((e) => (e === 'vacia' ? 'lista' : e));
+      return;
+    }
+    if (graciaRef.current) return;           // ya hay una cuenta corriendo
+    graciaRef.current = setTimeout(() => {
+      graciaRef.current = null;
+      setEstado((e) => (e === 'lista' || e === 'cargando' ? 'vacia' : e));
+    }, ESPERA_PINTA_MS);
+  }, []);
+  useEffect(() => () => { if (graciaRef.current) clearTimeout(graciaRef.current); }, []);
+
   const mandar = useCallback((m: Record<string, unknown>) => {
     try { iframeRef.current?.contentWindow?.postMessage({ ...m, [MARCA_MENSAJE]: 1 }, '*'); } catch { /* el iframe se fue */ }
   }, []);
@@ -74,7 +99,8 @@ export function VistaAfuera({ url, objetivos, controlRef, senal, onUbicar }: {
       if (!iframeRef.current || ev.source !== iframeRef.current.contentWindow) return;
       const d = ev.data as Record<string, unknown> | null;
       if (!d || typeof d !== 'object' || d[MARCA_MENSAJE] !== 1) return;
-      if (d.tipo === 'listo') { setEstado('lista'); mandarCitas(); return; }
+      if (d.tipo === 'listo') { setEstado('lista'); anotarTexto(d.texto); mandarCitas(); return; }
+      if (d.tipo === 'pinto') { anotarTexto(d.texto); return; }
       if (d.tipo === 'error') { setEstado('error'); setMensaje(String(d.mensaje ?? '').slice(0, 300)); return; }
       if (d.tipo === 'cajas' && Array.isArray(d.cajas)) {
         const nuevas = (d.cajas as unknown[]).slice(0, TOPES_DIAGNOSTICO.citas).map(cajaDeMensaje);
@@ -145,9 +171,13 @@ export function VistaAfuera({ url, objetivos, controlRef, senal, onUbicar }: {
         referrerPolicy="no-referrer"
         title="Vista de la página"
       />
-      {(estado === 'error' || estado === 'muda') && (
+      {(estado === 'error' || estado === 'muda' || estado === 'vacia') && (
         <div className="gdg-vista-aviso" role="status">
-          <p>{estado === 'error' && mensaje ? mensaje : 'No pude mostrar la página aquí.'}</p>
+          <p>
+            {estado === 'error' && mensaje ? mensaje
+              : estado === 'vacia' ? 'Esta página se dibuja con JavaScript y acá no llega a verse.'
+              : 'No pude mostrar la página aquí.'}
+          </p>
           <a className="gp-btn gp-btn-contorno" href={url} target="_blank" rel="noopener noreferrer">Abrir la página</a>
         </div>
       )}

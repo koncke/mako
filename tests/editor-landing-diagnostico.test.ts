@@ -366,6 +366,23 @@ test('la vista de afuera: iframe con sandbox SÓLO allow-scripts, y sólo escuch
   assert.match(src, /conWs\(srcPaginaDiagnostico\(url\), ws\)/, 'el ?ws= viaja en el src (el parche de fetch no toca un iframe)');
 });
 
+// LA VENTANA EN BLANCO (15/10/2026). Una landing armada en un constructor manda un HTML enorme con el
+// contenido VACÍO: lo dibuja su propio JavaScript. Medido con la de un cliente: 132.704 caracteres de
+// HTML y NUEVE de texto visible. Adentro del iframe aislado eso queda en blanco y, como el HTTP fue 200,
+// el server no tiene forma de saberlo: el único que puede contarlo es este script, que vive adentro.
+// PROBADO ROMPIÉNDOLO: sin el contador en el «listo», 1 fallo; con una sola medición, 1 fallo.
+test('el documento cuenta cuánto texto llegó a pintarse, y lo vuelve a contar', () => {
+  const doc = documentoDiagnostico('<html><body><div id="app"></div></body></html>', 'https://x.test/');
+  assert.match(doc, /function cuantoTextoPinto\(\)/, 'el documento tiene que medir su texto visible');
+  assert.match(doc, /tipo: 'listo', texto:/, 'el «listo» lleva el texto medido');
+  assert.match(doc, /tipo: 'pinto', texto:/, 'y se vuelve a medir cuando la página pinta');
+  // MÁS DE UNA VEZ: lo que pinta el JavaScript de la página tarda, y una sola medición al arrancar
+  // diría «vacía» sobre cualquier página que tarde en dibujarse.
+  const conteos = (doc.match(/setTimeout\(contarTexto/g) || []).length;
+  assert.ok(conteos >= 2, 'el re-conteo tiene que correr más de una vez (hay ' + conteos + ')');
+  assert.match(doc, /addEventListener\('load', contarTexto\)/, 'y también al load');
+});
+
 // =============================================================================
 // ROTURAS (11/10/2026). Cada una se hizo sobre el archivo que se nombra, se corrió este archivo y se
 // restauró reemplazando SÓLO lo roto (verificado byte a byte). La base estaba en verde: 29 pass, 0 fail.
