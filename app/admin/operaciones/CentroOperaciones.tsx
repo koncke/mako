@@ -158,7 +158,7 @@ export default function CentroOperaciones({ sub, pedidosIniciales, carterosInici
             value={destino}
             onChange={setDestino}
             options={opciones}
-            placeholder={opciones.length ? 'Elegí el chat' : 'Ningún cartero subió chats todavía'}
+            placeholder={opciones.length ? 'Elige el chat' : 'Ningún cartero subió chats todavía'}
             disabled={!opciones.length}
           />
           <Textarea
@@ -188,7 +188,7 @@ export default function CentroOperaciones({ sub, pedidosIniciales, carterosInici
 
       <Section titulo="Pedidos">
         {pedidos.length === 0
-          ? <EmptyState titulo="Sin pedidos" detalle="El primero sale de acá arriba." inline />
+          ? <EmptyState titulo="Sin pedidos" detalle="El primero se escribe arriba." inline />
           : (
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               {pedidos.map((p) => {
@@ -236,6 +236,13 @@ export default function CentroOperaciones({ sub, pedidosIniciales, carterosInici
             </span>
           ))}
           {estado.tokenPista && <span style={{ color: 'var(--text-dim)' }}>Token …{estado.tokenPista}</span>}
+          {/* La clave pública de ESTE dispositivo: se carga a mano en la PC (`cartero.mjs clave …`). */}
+          {clave && (
+            <span style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <span style={{ color: 'var(--text-dim)' }}>Clave de este dispositivo: {clave.id}</span>
+              <Button size="sm" variant="tertiary" onClick={() => copiar(clave.spki, 'Clave copiada')}>Copiar clave</Button>
+            </span>
+          )}
           {token
             ? (
               <Banner tono="info" alcance="local" accion={{ label: 'Copiar', onClick: () => copiar(token, 'Token copiado') }}>

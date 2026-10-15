@@ -117,6 +117,9 @@ export function quienFirmo(texto, firmaB64, spkis) {
 // ── qué chats hay ────────────────────────────────────────────────────────────────────────────
 const vive = (pid) => { try { process.kill(pid, 0); return true; } catch (e) { return e.code === 'EPERM'; } };
 const enCwds = (cwd, cwds) => cwds.some((p) => String(cwd ?? '').toLowerCase().startsWith(expandir(p).toLowerCase()));
+/** El chat que entrega no se ofrece como destino: SendMessage no deja escribirse a sí mismo
+ *  (medido el 15/10: «is this session itself»). Se reconoce por el título: «Cartero…». */
+const esElCartero = (titulo) => /^cartero\b/i.test(String(titulo ?? '').trim());
 
 /** Los chats de la APP de esta cuenta: su carpeta en claude-code-sessions (vivos o no). */
 function chatsDeLaApp(cuenta, cwds, carpetas) {
@@ -135,7 +138,7 @@ function chatsDeLaApp(cuenta, cwds, carpetas) {
         if (e.isDirectory() && prof < 3) recorrer(f, prof + 1);
         else if (e.isFile() && /^local_.*\.json$/.test(e.name)) {
           const o = leerJson(f, null);
-          if (!o || o.isArchived || !DESTINO_RE.test(o.sessionId ?? '') || !enCwds(o.cwd, cwds)) continue;
+          if (!o || o.isArchived || !DESTINO_RE.test(o.sessionId ?? '') || !enCwds(o.cwd, cwds) || esElCartero(o.title)) continue;
           out.set(o.sessionId, {
             local: o.sessionId, titulo: String(o.title || '(sin título)').slice(0, 120), cuenta,
             vivo: false, estado: null, pipe: null,
@@ -161,7 +164,7 @@ function leerRegistro(cuenta, configDir, fuente, cwds, chats) {
     if (fuente === 'app') {
       const c = s.hostSessionId ? chats.get(s.hostSessionId) : null;
       if (c) Object.assign(c, { vivo: true, estado, pipe: s.messagingSocketPath });
-    } else if (UUID_RE.test(s.sessionId ?? '') && enCwds(s.cwd, cwds) && s.entrypoint !== 'claude-desktop') {
+    } else if (UUID_RE.test(s.sessionId ?? '') && enCwds(s.cwd, cwds) && s.entrypoint !== 'claude-desktop' && !esElCartero(s.name)) {
       const local = `cli_${s.sessionId}`;
       chats.set(local, {
         local, titulo: String(s.name || `${path.basename(String(s.cwd || ''))} · ${s.sessionId.slice(0, 8)}`).slice(0, 120),
