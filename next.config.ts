@@ -1,6 +1,6 @@
 import type { NextConfig } from "next";
 import { EXTENSION_EN_TIENDA, EXTENSION_URL_TIENDA, EXTENSION_URL_ZIP } from "./lib/extension-tienda";
-import { CABECERAS_HTML_LIBRE } from "./lib/editor-landing/html-libre";
+import { CABECERAS_HTML_LIBRE, CABECERAS_PAGINA_AFUERA } from "./lib/editor-landing/html-libre";
 import { PATRON_HOSTS_DE_LA_APP, PATRON_HOSTS_DE_MAKO } from "./lib/editor-landing/dominios-reglas";
 
 // Las redirecciones y reescrituras de abajo son de la APP, y corren ANTES del proxy sin mirar el host
@@ -182,7 +182,10 @@ const nextConfig: NextConfig = {
       // página que lo enmarca); en hola-mako.com, en producción, el proxy contesta 404. Por eso este
       // bloque NO lleva `has`: tiene que valer en todos los hosts.
       { source: '/l/html/:path*', headers: [...CABECERAS_HTML_LIBRE] },
-      { source: '/api/landing-generator/diagnostico/pagina', headers: [...CABECERAS_HTML_LIBRE] },
+      // La página de afuera NO lleva la política del bloque (verificación de la tanda 7): el bloque deja salir sus
+      // ventanas del sandbox porque vive en hola-mako.site; ésta se sirve en el origen de la APP (el iframe del
+      // Diagnóstico y la ventana del lector, que tiene de opener la pestaña de MaKo) y sólo corre scripts.
+      { source: '/api/landing-generator/diagnostico/pagina', headers: [...CABECERAS_PAGINA_AFUERA] },
       // El service worker de MaKo Mobile (public/sw.js: sólo push y click, SIN 'fetch'). Lo
       // que pide la guía de PWA de Next 16 (§8): servido como JavaScript, SIN caché —un sw.js
       // viejo cacheado deja a todos los teléfonos con el comportamiento anterior hasta que el

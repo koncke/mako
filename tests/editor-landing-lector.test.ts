@@ -256,6 +256,9 @@ test('la respuesta de la ruta: la puerta, el Pixel por 303 y la página aislada'
   const forzada = await responderPaginaLector(pedido(DE_MAKO), p('ventana'), dep(HTML_AFUERA));
   assert.equal(forzada.status, 200);
   assert.match(forzada.headers.get('content-security-policy') ?? '', /^sandbox /, 'aislada: origen opaco');
+  // Verificación de la tanda 7: la ventana es de nivel superior y en el origen de la app; la página de afuera no abre
+  // ventanas (sin sandbox) ni manda formularios.
+  assert.doesNotMatch(forzada.headers.get('content-security-policy') ?? '', /allow-popups|allow-forms/, 'la ventana sólo corre scripts');
   assert.equal(forzada.headers.get('cache-control'), 'private, no-store');
   const doc = await forzada.text();
   assert.ok(doc.includes('URL.createObjectURL'), 'el módulo suelto va en línea');
@@ -439,6 +442,36 @@ test('el Pixel v24: con ?mako_leer= y la ventana de MaKo detrás no mide nada y 
   assert.equal(leyendo.pedidos, 0, 'leerla no es una visita');
   assert.deepEqual(correr(`?${PARAM_LEER}=${ID}`, null).agregados, [], 'sin la ventana de MaKo, el parámetro no hace nada');
   assert.deepEqual(correr(`?${PARAM_LEER}=corto`, {}).agregados, [], 'un id sin forma no carga nada');
+});
+
+// Verificación de la tanda 7 (15/10/2026), un agujero que venía de la tanda 6: la página aislada de la VENTANA puede
+// navegarse a sí misma (`location = 'https://otro'`); el documento nuevo ya no trae la cabecera sandbox y conservaba
+// `window.opener`, así que podía hacer `opener.location = <phishing>` sobre la pestaña de MaKo. El lector suelta el
+// opener apenas carga y sigue contestando por la referencia que guardó.
+// MEDIDO en Chromium headless (chrome-headless-shell 1243, el JS_LECTOR real servido con CSP_PAGINA_AFUERA, que a los
+// 400 ms se navega a otro host cuyo script prueba `opener.location = …`): camino 'ventana' → la página nueva ve
+// `window.opener` en null, la pestaña de MaKo se queda donde estaba y recibió el «hola»; camino 'pixel' (lo que hacía
+// la ventana antes) → la página nueva tenía opener y se llevó la pestaña de MaKo a la de phishing.
+// PROBADO ROMPIÉNDOLO (15/10/2026; corrido junto con editor-landing-htmllibre, -diagnostico y -origen, base 108 / 0):
+//   · lector-script.ts sin soltar el opener                         → 107 / 1 (éste)
+//   · lector-script.ts soltándolo también en el camino del Pixel     → 107 / 1 (éste)
+//   · lector-script.ts soltándolo ANTES de guardarlo en «abre»       → 107 / 1 (éste)
+// Restaurado: 108 / 0.
+test('la ventana aislada suelta su opener al cargar y le sigue hablando a MaKo; el camino del Pixel no lo suelta', () => {
+  const correr = (camino: 'ventana' | 'pixel') => {
+    const enviados: Array<{ fase: unknown; origen: string }> = [];
+    const opener = { postMessage: (m: { fase?: unknown }, origen: string) => { enviados.push({ fase: m?.fase, origen }); } };
+    const ventana: Record<string, unknown> = { opener, addEventListener: () => {} };
+    const ctx = createContext({ window: ventana, Date, Promise, Map, WeakSet, setTimeout, clearTimeout });
+    try { runInContext(scriptLector(ID, camino, MAKO)!, ctx); } catch { /* lo que no se simuló: se mira sólo lo de arriba */ }
+    return { ventana, opener, enviados };
+  };
+  const aislada = correr('ventana');
+  assert.equal(aislada.ventana.opener, null, 'la ventana aislada suelta el opener');
+  assert.deepEqual(aislada.enviados[0], { fase: 'hola', origen: MAKO }, 'y le sigue hablando a MaKo por la referencia guardada');
+  const pixel = correr('pixel');
+  assert.equal(pixel.ventana.opener, pixel.opener, 'en el camino del Pixel el opener queda (un redirect vuelve a cargar el lector)');
+  assert.deepEqual(pixel.enviados[0], { fase: 'hola', origen: MAKO });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

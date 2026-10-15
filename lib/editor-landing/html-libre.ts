@@ -48,11 +48,13 @@ export const PREFIJO_HTML_LIBRE = '/l/html';
  * Martín, sobre el pendiente «Los popups del bloque heredan el sandbox» de la tanda 4): la ventana que
  * abre el bloque —el checkout de una pasarela ajena, un formulario de otro servicio— sale SIN el
  * sandbox. Sin esto la ventana nacía con origen opaco, sin cookies ni `localStorage`, y un checkout
- * que los necesita fallaba sin decir por qué. Es seguro aflojarlo desde la tanda 4: las landings y su
- * `/l/html` viven en hola-mako.site (o en el dominio del cliente), así que la ventana nunca corre con
- * el origen de la app ni con su cookie de sesión. Lo que NO se afloja: el iframe mismo sigue sin
- * `allow-same-origin` ni `allow-top-navigation` (el bloque no lee nada de la página ni se lleva la
- * pestaña), y una ventana que abra `/l/html` de nuevo trae otra vez la cabecera `sandbox` de la ruta.
+ * que los necesita fallaba sin decir por qué. Es seguro aflojarlo desde la tanda 4 SÓLO para el bloque:
+ * las landings y su `/l/html` viven en hola-mako.site (o en el dominio del cliente), así que la ventana
+ * nunca corre con el origen de la app ni con su cookie de sesión. Lo que NO se afloja: el iframe mismo
+ * sigue sin `allow-same-origin` ni `allow-top-navigation` (el bloque no lee nada de la página ni se lleva
+ * la pestaña), y una ventana que abra `/l/html` de nuevo trae otra vez la cabecera `sandbox` de la ruta.
+ * ⚠️ La página de AFUERA del Diagnóstico y del lector NO usa esta política: se sirve en el origen de la
+ * APP y tiene la suya, sin ventanas (`CSP_PAGINA_AFUERA`, abajo).
  */
 export const SANDBOX_PUBLICO = 'allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox';
 /** En el editor, la vista en vivo sólo corre scripts (nada de formularios ni ventanas al editar). */
@@ -78,6 +80,27 @@ export const CSP_HTML_LIBRE =
 export const CABECERAS_HTML_LIBRE: ReadonlyArray<{ key: string; value: string }> = [
   { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
   { key: 'Content-Security-Policy', value: CSP_HTML_LIBRE },
+];
+
+/**
+ * Lo que puede la página de AFUERA que sirve MaKo en `/api/landing-generator/diagnostico/pagina`: el iframe
+ * del Diagnóstico y la VENTANA del lector (lector-pagina.ts), que es de nivel superior y tiene de opener la
+ * pestaña de MaKo. SÓLO correr scripts: ni formularios ni ventanas.
+ *
+ * La verificación de la tanda 7 (15/10/2026) lo encontró: esa ruta usaba `CSP_HTML_LIBRE`, así que el
+ * `allow-popups-to-escape-sandbox` del bloque le llegaba también a ella. En el iframe no cambiaba nada (su
+ * atributo `sandbox="allow-scripts"` ya no deja abrir ventanas), pero en la ventana del lector la página de un
+ * tercero, servida en el ORIGEN DE LA APP, abría ventanas sin sandbox. El razonamiento del bloque («las
+ * landings viven en hola-mako.site») no vale para esta ruta. El lector no necesita ninguna de las dos cosas:
+ * ataja `window.open` y los `submit` (lector-script.ts) para anotarlos sin salir de la página.
+ */
+export const SANDBOX_PAGINA_AFUERA = 'allow-scripts';
+export const CSP_PAGINA_AFUERA =
+  `sandbox ${SANDBOX_PAGINA_AFUERA}; default-src * data: blob: 'unsafe-inline' 'unsafe-eval'; frame-ancestors 'self'`;
+/** Las cabeceras de esa ruta en next.config.ts (mismo motivo que `CABECERAS_HTML_LIBRE`: ahí GANAN). */
+export const CABECERAS_PAGINA_AFUERA: ReadonlyArray<{ key: string; value: string }> = [
+  { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+  { key: 'Content-Security-Policy', value: CSP_PAGINA_AFUERA },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────

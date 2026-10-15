@@ -73,7 +73,10 @@ const hostSinWww = (u: string): string | null => {
  * + `var SV = 24;`, o la línea de `/m.js`): cualquier página lo podía escribir. Ahora tiene que ser una del
  * NEGOCIO: su host entre las landings que el admin declaró (Integraciones; las «detectadas» no, las
  * escribe un endpoint público) y, si se bajó, con el Pixel con lector y el token de ESTE negocio. En
- * cualquier otro caso, la ventana aislada (sandbox: no puede navegar a su opener).
+ * cualquier otro caso, la ventana aislada (sandbox: no puede navegar a su opener). ⚠️ Pero sí puede navegarse a SÍ
+ * misma, y la página nueva ya no trae la cabecera sandbox: por eso el lector, en la ventana, suelta `window.opener`
+ * apenas carga (verificación de la tanda 7, medido en Chromium; lector-script.ts) y la política de esta ruta no deja
+ * abrir ventanas (`CSP_PAGINA_AFUERA`, html-libre.ts).
  */
 export function vaALaPaginaReal(url: string, crudo: string | null, actual: number, propias: PaginasPropias): boolean {
   const host = hostSinWww(url);

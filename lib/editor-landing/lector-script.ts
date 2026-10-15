@@ -113,6 +113,14 @@ export const JS_LECTOR = String.raw`function (id, camino, origenMako) {
   window.__mkLector = 1;
   var abre = window.opener;
   if (!abre) return;
+  // La ventana AISLADA suelta su opener apenas carga (verificación de la tanda 7, 15/10/2026). La página de
+  // afuera puede navegarse a sí misma (location = 'https://otro'): el documento nuevo ya no trae la cabecera
+  // sandbox y, con window.opener, haría opener.location = '<phishing>' sobre la pestaña de MaKo (reverse
+  // tabnabbing). Soltarlo corta la relación en el navegador, no sólo la variable: después de navegar, la
+  // página nueva ve window.opener en null. El lector le sigue hablando por «abre», la referencia guardada,
+  // que la página no alcanza. En el camino del Pixel NO: la página es una landing DECLARADA del negocio, y si
+  // se redirige, su Pixel vuelve a cargar el lector, que necesita el opener para contestar.
+  if (camino === 'ventana') { try { window.opener = null; } catch (e) {} }
   var T0 = Date.now();
   var TOPE = 17000, QUIETO = 800, TOPE_QUIETO = 10000, TOPE_TOQUES = 7000;
   var MAX_DESP = 40, MAX_CLICS = 25, MAX_PIEZAS = 480, MAX_CHARS = 58000, MAX_NODOS = 25000;

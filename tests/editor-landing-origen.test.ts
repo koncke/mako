@@ -43,7 +43,7 @@ import {
 import { normalizarUrl as normalizarUrlPagina } from '../lib/landing-paginas';
 import { normalizarUrl as normalizarUrlAnalisis } from '../lib/landing-url';
 import { APP_BASE_URL, baseLandings, basesLandings, urlPublicaLanding, urlVistaLanding } from '../lib/app-url';
-import { CABECERAS_HTML_LIBRE } from '../lib/editor-landing/html-libre';
+import { CABECERAS_HTML_LIBRE, CABECERAS_PAGINA_AFUERA } from '../lib/editor-landing/html-libre';
 import { armarDocumento, responderPublico, type LecturaPublica } from '../lib/editor-landing/pagina-publica';
 import { htmlDeFragmento } from '../lib/editor-landing/render';
 import { CONFIG_DEFAULT } from '../lib/editor-landing/api-tipos';
@@ -497,6 +497,12 @@ test('next.config.ts EVALUADO: cada redirección y reescritura lleva el host de 
   assert.ok(iGlobal >= 0 && iHtml > iGlobal, 'las cabeceras del HTML libre van DESPUÉS del bloque global (gana el último)');
   assert.equal(headers[iHtml].has, undefined, 'el HTML libre se sirve en hola-mako.site y en el dominio del cliente: sin host');
   assert.deepEqual(headers[iHtml].headers, [...CABECERAS_HTML_LIBRE]);
+  // La página de afuera con SU política (verificación de la tanda 7: la del bloque deja salir ventanas del sandbox).
+  // PROBADO ROMPIÉNDOLO (15/10/2026): el bloque de la página del Diagnóstico de vuelta en CABECERAS_HTML_LIBRE → éste y
+  // «next.config.ts pone…» de editor-landing-htmllibre en rojo (106 / 2 los cuatro archivos juntos).
+  const iAfuera = headers.findIndex((b) => b.source === '/api/landing-generator/diagnostico/pagina');
+  assert.ok(iAfuera > iGlobal, 'la página de afuera va DESPUÉS del bloque global');
+  assert.deepEqual(headers[iAfuera].headers, [...CABECERAS_PAGINA_AFUERA]);
 });
 
 test('next.config.ts (fuente, sin comentarios): el host se pone a la lista ENTERA, por bloque', () => {

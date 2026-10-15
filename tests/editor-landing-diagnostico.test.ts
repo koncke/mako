@@ -296,6 +296,11 @@ test('la ruta sólo sirve a un IFRAME, con la política sandbox, sin caché y si
   assert.equal(r.status, 200);
   assert.match(r.headers.get('content-security-policy') ?? '', /^sandbox allow-scripts/);
   assert.doesNotMatch(r.headers.get('content-security-policy') ?? '', /allow-same-origin/);
+  // Verificación de la tanda 7: la página de un tercero, en el origen de la app, no abre ventanas ni manda formularios
+  // (antes usaba la política del bloque y heredó su `allow-popups-to-escape-sandbox`). PROBADO ROMPIÉNDOLO
+  // (15/10/2026): CABECERAS_PAGINA_DIAGNOSTICO con CSP_HTML_LIBRE → éste y el de la ventana del lector en rojo (106 / 2
+  // con htmllibre, lector y origen; ver tests/editor-landing-htmllibre.test.ts).
+  assert.doesNotMatch(r.headers.get('content-security-policy') ?? '', /allow-popups|allow-forms/);
   assert.equal(r.headers.get('x-frame-options'), 'SAMEORIGIN');
   assert.equal(r.headers.get('cache-control'), 'private, no-store');
   assert.equal(r.headers.get('referrer-policy'), 'no-referrer');

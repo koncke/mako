@@ -35,7 +35,7 @@
 // =============================================================================
 
 import { NODO, tarjetasDe, tituloDeTarjeta, type JsonNodo, type LandingContenido, type Pagina } from './doc';
-import { CSP_HTML_LIBRE, pedidoDeIframe } from './html-libre';
+import { CSP_PAGINA_AFUERA, pedidoDeIframe } from './html-libre';
 import { baseDeDocumento, sinRastreadores, urlParaReplicar } from './replicar-reglas';
 import { normalizarUrl } from '../landing-url';
 // Tipos de un módulo server-only: se borran al compilar, no arrastran nada al navegador.
@@ -714,8 +714,9 @@ export function contextoDeComentario(c: {
 // ─────────────────────────────────────────────────────────────────────────────
 // La landing de AFUERA, aislada en un iframe
 // ─────────────────────────────────────────────────────────────────────────────
-// Se sirve desde `RUTA_PAGINA_DIAGNOSTICO` con la MISMA política que el «HTML personalizado»
-// (`CSP_HTML_LIBRE`: `sandbox` → origen opaco, no ve la sesión de hola-mako.com) y el iframe además
+// Se sirve desde `RUTA_PAGINA_DIAGNOSTICO` con su PROPIA política (`CSP_PAGINA_AFUERA`: `sandbox allow-scripts`
+// → origen opaco, no ve la sesión de hola-mako.com, y sin formularios ni ventanas; hasta la tanda 7 era la del
+// «HTML personalizado», que desde entonces deja salir sus ventanas del sandbox) y el iframe además
 // lleva `sandbox="allow-scripts"`. Al HTML bajado se le saca lo que mediría la visita como si fuera
 // real (los rastreadores de `sinRastreadores` y el Pixel de MaKo: si no, abrir el diagnóstico le
 // sumaba una visita a la landing del cliente en landing_visits) y lo que la rompe adentro de un
@@ -908,7 +909,7 @@ export function documentoErrorDiagnostico(mensaje: string): string {
 /** Las cabeceras del documento servido. La política y el marco GANAN sólo si next.config.ts las pone (ver la ruta). */
 export const CABECERAS_PAGINA_DIAGNOSTICO: Readonly<Record<string, string>> = {
   'Content-Type': 'text/html; charset=utf-8',
-  'Content-Security-Policy': CSP_HTML_LIBRE,
+  'Content-Security-Policy': CSP_PAGINA_AFUERA,
   'X-Frame-Options': 'SAMEORIGIN',
   'Cache-Control': 'private, no-store',
   'X-Robots-Tag': 'noindex, nofollow',

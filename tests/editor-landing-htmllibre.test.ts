@@ -22,7 +22,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Script, createContext, runInContext } from 'node:vm';
 import {
-  ALTO_MAX, ALTO_MIN, CABECERAS_HTML_LIBRE, CSP_HTML_LIBRE, MENSAJE_ALTO, SANDBOX_EDITOR, SANDBOX_PUBLICO, SCRIPT_ALTO, TEXTO_PIDE_CONTRASENA,
+  ALTO_MAX, ALTO_MIN, CABECERAS_HTML_LIBRE, CABECERAS_PAGINA_AFUERA, CSP_HTML_LIBRE, CSP_PAGINA_AFUERA, MENSAJE_ALTO, SANDBOX_EDITOR,
+  SANDBOX_PAGINA_AFUERA, SANDBOX_PUBLICO, SCRIPT_ALTO, TEXTO_PIDE_CONTRASENA,
   altoDeMensaje, documentoHtmlLibre, etagHtmlLibre, fuentesHtmlLibre, htmlDeBloque, htmlLibreDeFoto, pideContrasena,
   responderHtmlLibre, urlBloqueHtmlLibre,
 } from '../lib/editor-landing/html-libre';
@@ -62,6 +63,28 @@ test('la política del bloque: sandbox de T6 sin allow-same-origin, todo adentro
   assert.doesNotMatch(CSP_HTML_LIBRE, /allow-same-origin|allow-top-navigation/);
   assert.deepEqual(CABECERAS_HTML_LIBRE.map((c) => c.key), ['X-Frame-Options', 'Content-Security-Policy']);
   assert.equal(CABECERAS_HTML_LIBRE[0].value, 'SAMEORIGIN');
+});
+
+// Verificación de la tanda 7 (15/10/2026): la página de AFUERA (el iframe del Diagnóstico y la VENTANA del lector,
+// en el origen de la APP) usaba la política del bloque, y con ella le llegaba el `allow-popups-to-escape-sandbox`
+// que se decidió para el bloque: en la ventana del lector, la página de un tercero abría ventanas sin sandbox.
+// Ahora tiene la suya, sólo scripts. PROBADO ROMPIÉNDOLO (15/10/2026; corridos juntos éste, editor-landing-lector,
+// editor-landing-diagnostico y editor-landing-origen, base 108 / 0):
+//   · SANDBOX_PAGINA_AFUERA = SANDBOX_PUBLICO          → 105 / 3 (éste, «la ruta sólo sirve a un IFRAME…» y «la respuesta
+//                                                         de la ruta…» del lector)
+//   · SANDBOX_PAGINA_AFUERA con «allow-forms» de más   → 105 / 3 (los mismos)
+//   · next.config.ts con la página del Diagnóstico de vuelta en CABECERAS_HTML_LIBRE → 106 / 2 («next.config.ts pone…»
+//     y el EVALUADO de editor-landing-origen)
+//   · CABECERAS_PAGINA_DIAGNOSTICO (diagnostico.ts) con CSP_HTML_LIBRE → 106 / 2 (la ruta del Diagnóstico y la del lector)
+// Restaurado: 108 / 0.
+test('la página de AFUERA tiene su propia política: sólo scripts, sin ventanas ni formularios', () => {
+  assert.equal(SANDBOX_PAGINA_AFUERA, 'allow-scripts');
+  assert.equal(CSP_PAGINA_AFUERA, "sandbox allow-scripts; default-src * data: blob: 'unsafe-inline' 'unsafe-eval'; frame-ancestors 'self'");
+  assert.doesNotMatch(CSP_PAGINA_AFUERA, /allow-popups|allow-forms|allow-same-origin|allow-top-navigation|allow-modals/);
+  assert.deepEqual(CABECERAS_PAGINA_AFUERA, [
+    { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+    { key: 'Content-Security-Policy', value: CSP_PAGINA_AFUERA },
+  ]);
 });
 
 // Tanda 7 (15/10/2026): las ventanas que abre el bloque salen SIN el sandbox (`allow-popups-to-escape-sandbox`).
@@ -410,11 +433,13 @@ test('app/l/html/[docId]/[bloque]/route.ts: sólo GET/HEAD, sin sesión, la deci
 test('next.config.ts pone las cabeceras del bloque en /l/html (y en la página del Diagnóstico), DESPUÉS del bloque global', () => {
   const cfg = sinComentarios(leer('next.config.ts'));
   const global = cfg.indexOf("source: '/:path*'");
-  assert.match(cfg, /import \{ CABECERAS_HTML_LIBRE \} from "\.\/lib\/editor-landing\/html-libre"/);
-  for (const ruta of ['/l/html/:path*', '/api/landing-generator/diagnostico/pagina']) {
+  assert.match(cfg, /import \{ CABECERAS_HTML_LIBRE, CABECERAS_PAGINA_AFUERA \} from "\.\/lib\/editor-landing\/html-libre"/);
+  // Cada ruta con SU política (tanda 7): el bloque con la suya, la página de afuera con la de sólo scripts.
+  for (const [ruta, cabeceras] of [['/l/html/:path*', 'CABECERAS_HTML_LIBRE'], ['/api/landing-generator/diagnostico/pagina', 'CABECERAS_PAGINA_AFUERA']]) {
     const propio = cfg.indexOf(`source: '${ruta}'`);
     assert.ok(propio > global && global >= 0, `el bloque de ${ruta} va después del global (gana el último)`);
-    assert.match(cfg.slice(propio, propio + 200), /headers:\s*\[\s*\.\.\.CABECERAS_HTML_LIBRE\s*\]|headers:\s*CABECERAS_HTML_LIBRE/);
+    const bloque = cfg.slice(propio, cfg.indexOf('}', propio) + 1);
+    assert.match(bloque, new RegExp('headers:\\s*(?:\\[\\s*\\.\\.\\.' + cabeceras + '\\s*\\]|' + cabeceras + ')\\s*\\}$'), ruta);
   }
 });
 
