@@ -219,9 +219,10 @@ tres de Progreso **no dependen del cartero ni de su token**: salen de lo que ya 
   producción): el commit, el estado, cuánto tardó y la cuenta del trailer `Claude-Cuenta`.
 - **No hay lista de commits por push**: el token de GitHub de la plataforma (la credencial `GITHUB_TOKEN`
   del ws 9, usuario `mbustos-digital`) contesta **404** en `hola-mako/dashboard-marketing` y también en
-  `mbustos-digital/dashboard-marketing` desde la transferencia del repo. Medido el 15/10. **Sin medir:**
-  `lib/cerrar-por-commits.ts` y `lib/github-commits.ts` usan ese token, y es probable que el cierre de
-  tareas del Plan por commits esté mudo desde ese día.
+  `mbustos-digital/dashboard-marketing` desde la transferencia del repo. Medido el 15/10. Y debajo del 404
+  había un segundo problema, que lo tapaba: el repo seguía cableado al owner viejo en tres lugares (lo
+  arregló otro chat en dcad6ddd2). El cierre de tareas del Plan por commits (`lib/cerrar-por-commits.ts`)
+  está mudo hasta que el token tenga acceso a `hola-mako/dashboard-marketing`.
 
 **La trampa: el diagnóstico obvio de «pendiente» estaba mal.** La primera regla era la natural, «la
 respuesta de un pedido es lo que le sigue en la bitácora hasta el pedido siguiente», y la pestaña decía
@@ -299,6 +300,34 @@ chats de la cuenta, 2 abiertos, y no tenía nada que entregar.
   Toda tarjeta se publica con el `destino` de la sesión que pregunta; sin él, el nombre tiene que ser el
   título EXACTO del chat.
 
+## El Centro como app de chats: lo que dicen los datos antes de rediseñar (15/10/2026)
+
+Martín pidió copiar Grok entero: una lista de chats, con el punto verde por «en curso», el historial adentro
+de cada chat, sin la pestaña Trabajos y quizás sin Pedidos. Medido sobre los pedidos de 14 días y los chats
+del cartero, antes de dibujar nada:
+
+- **Un pedido casi siempre vive en un chat:** de 289, a 274 los trabajó un solo chat, a 7 dos y a 1 tres.
+  Pero **26 se pidieron en un chat (el coordinador) y los trabajó otro**, y **7 no los tomó nadie**: ésos
+  no tienen chat donde vivir. Una vista por estado que cruce los chats sigue haciendo falta, o los
+  pendientes desaparecen.
+- **Juntar chats por NOMBRE pierde y mezcla:** de los 37 chats que anotaron en sus bitácoras en 14 días,
+  sólo 17 coinciden por título con los 53 que subió el cartero de claude1 (los demás son de otras cuentas o
+  se renombraron), y el cartero tiene 5 títulos repetidos («CRM», «General», «Ads Manager»…). La llave es
+  la sesión, no el título — la misma lección que el `destino` de la Ticketera.
+- **El punto verde sólo es verdad con el cartero corriendo:** el estado ocupado o libre de cada chat lo sube
+  el cartero en cada vuelta; sin el chat Cartero es una foto vieja, y se dibuja como tal.
+- **Grok sin sesión no muestra nada que copiar** (sólo la caja de escribir): la lista, el historial y el
+  estado se ven con la cuenta de Martín, que inicia sesión él.
+- **Un chat SÍ sabe su sesión, y el supuesto contrario casi dejaba a la lista sin llave.** La Ticketera
+  sacaba el `destino` del `from-session` de un mensaje, como si un chat no pudiera saber su propio id. Lo
+  sabe: `CLAUDE_CODE_HOST_SESSION_ID` (el `local_…` de la app, el mismo que sube el cartero) y
+  `CLAUDE_CODE_SESSION_ID` en una terminal (`cli_…`). Desde el 16/10 cada hito de trabajo de una bitácora
+  lleva su `sesion` (lo exige tests/progreso.test.ts y lo dice AGENTS.md); lo anterior queda «por nombre»,
+  aparte y marcado, sin pegarse a ningún chat del cartero.
+- **El modelo está en `lib/centro-chats.ts`** (la lista con su punto y su edad, los pedidos de cada chat,
+  los que se pidieron en uno y trabajó otro, los trabajos firmados por sesión de destino, y la
+  conversación de cada chat). «Avance» es la vista por estado de lib/progreso-reglas.ts, sin cambios.
+
 ## Lo que creí medido y no estaba al día
 
 - **`soloPlataforma` ya existía en el registro de la API** (lo sumó el 2FA obligatorio el 14/10, por
@@ -319,10 +348,14 @@ chats de la cuenta, 2 abiertos, y no tenía nada que entregar.
   acciones y el cartero no cambian; cambia la pantalla.
 - **Progreso con lo que está en la PC**: los chats abiertos y lo escrito sin subir llegan con el cartero
   (sube sus chats en cada vuelta); hoy Pedidos y Áreas sólo ven lo desplegado.
+  ⚠️ **Lo «sin subir» se cuenta con `git cherry`, no con «ahead N»:** el 15/10 el coordinador midió un clon
+  con 17 commits «por delante» de main y 16 ya estaban en main (copias de un rebase); uno solo era real.
+  Contado con `ahead`, la pantalla mostraría como pendiente trabajo que ya está subido.
 - **El push de cada pedido terminado**: con el token de GitHub, `compare/<commit>...<deploy>` los une a todos;
   hoy la fila dice «En producción» sin nombrarlo (por la hora acertaba 110 de 202; por la punta, 0 de 88).
-- **El token de GitHub de la plataforma (404 desde la transferencia)**: sin él no hay commits por push, y
-  hay que medir si el cierre por commits del Plan (`lib/cerrar-por-commits.ts`) está mudo.
+- **El token de GitHub de la plataforma (404 desde la transferencia)**: sin él no hay commits por push ni
+  cierre de tareas del Plan por commits. El repo cableado al owner viejo ya se arregló (dcad6ddd2); falta
+  que Martín le dé al token acceso a `hola-mako/dashboard-marketing`.
 - **Las cuentas de terminal**: el `/login` de cada una (lo hace Martín), su marcador por directorio y
   sus hooks, y un chat Cartero en cada una. Hasta entonces, sólo entrega el cartero de la app.
 - **La opción C** (un hook con `asyncRewake` en la carpeta del Cartero, que lo despierta sin gastar

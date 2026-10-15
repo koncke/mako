@@ -204,10 +204,24 @@ test('el copy de cara al cliente está en español neutro', () => {
     [/\b(nos avisa|te pedimos|traemos|lo usamos)\b/, 'primera persona'],
     [/no hace falta que entiendas/, 'condescendencia'],
   ];
+  // Un IDENTIFICADOR tecnico no es la marca: hola-mako/dashboard-marketing es el nombre del
+  // repositorio y hola-mako.com el dominio, y los dos se escriben como son. Sin sacarlos, la
+  // regla de la marca grita sobre un tutorial correcto: paso el 15/10/2026 al apuntar el repo
+  // a hola-mako tras la transferencia, y dejo este test ROJO en main sin que nada mas fallara.
+  // Se reemplaza por espacios de la MISMA longitud para no correr los indices del mensaje, y
+  // solo se saca lo que no lleva espacios adentro, asi una URL no se puede comer una frase
+  // con voseo. Probado rompiendolo: con un «mako» suelto en un paso, 1 fallo; sin el, 7 pases.
+  const huecos = (s: string) => ' '.repeat(s.length);
+  const sinIdentificadores = (s: string) =>
+    s
+      .replace(/https?:[/][/]\S+/g, huecos)
+      .replace(/\b[\w-]+[.](?:com|app|io|dev|net|org)\b\S*/g, huecos)
+      .replace(/\b[a-z0-9][a-z0-9-]*[/][a-z0-9][\w.-]*/g, huecos);
+
   const malos: string[] = [];
   for (const t of literales) {
     for (const [re, que] of PROHIBIDO) {
-      const m = re.exec(t);
+      const m = re.exec(sinIdentificadores(t));
       if (m) malos.push(`[${que}] …${t.slice(Math.max(0, m.index - 30), m.index + 30)}…`);
     }
   }

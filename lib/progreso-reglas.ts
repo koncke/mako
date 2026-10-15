@@ -24,6 +24,8 @@ export type HitoP = {
   fecha: string;
   hora: string;
   chat: string;
+  /** La sesión que lo anotó (`local_…`/`cli_…`), si el hito la trae. */
+  sesion?: string;
   cuenta: string;
   actor: string;
   tipo: string;
@@ -106,7 +108,9 @@ export type EstadoPedidoP = 'pendiente' | 'en_curso' | 'hecho';
 /** Con sus palabras: «terminadas, empezadas» y lo pendiente. */
 export const ROTULO_PEDIDO: Record<EstadoPedidoP, string> = { pendiente: 'Sin empezar', en_curso: 'Empezado', hecho: 'Terminado' };
 
-export type PasoP = { instante: number | null; chat: string; tipo: string; titulo: string; commits: Array<{ sha: string; msg: string }> };
+export type PasoP = {
+  instante: number | null; chat: string; sesion: string | null; tipo: string; titulo: string; commits: Array<{ sha: string; msg: string }>;
+};
 
 export type PedidoP = {
   /** Estable entre cargas: el área y su lugar en la bitácora (se escribe al final, así que no se corre). Con
@@ -128,6 +132,8 @@ export type PedidoP = {
   ultimo: number;
   /** Cuándo se anotó lo que lo cerró (la implementación, la corrección o el commit), si se cerró. */
   cierre: number | null;
+  /** Dónde lo pidió Martín: el chat del hito del pedido (26 de 289 se piden en uno y los trabaja otro). */
+  pidioEn: { chat: string; sesion: string | null };
 };
 
 /** Lo que cierra un pedido: un paso que HIZO algo (la bitácora viaja con el build, así que está subido). */
@@ -154,7 +160,10 @@ export function cadenas(a: AreaP, ahora: number): PedidoP[] {
     const pasos: PasoP[] = [];
     for (let j = fin + 1; j < b.length && b[j].tipo !== 'prompt'; j++) {
       const p = b[j];
-      pasos.push({ instante: instanteHito(p.fecha, p.hora, ahora), chat: p.chat, tipo: p.tipo, titulo: p.titulo, commits: (p.commits ?? []).map((c) => ({ sha: c.sha, msg: c.msg })) });
+      pasos.push({
+        instante: instanteHito(p.fecha, p.hora, ahora), chat: p.chat, sesion: p.sesion ?? null, tipo: p.tipo, titulo: p.titulo,
+        commits: (p.commits ?? []).map((c) => ({ sha: c.sha, msg: c.msg })),
+      });
     }
     const commits = pasos.flatMap((p) => p.commits);
     const estado: EstadoPedidoP = commits.length || pasos.some((p) => CIERRA.has(p.tipo)) ? 'hecho' : pasos.length ? 'en_curso' : 'pendiente';
@@ -171,6 +180,7 @@ export function cadenas(a: AreaP, ahora: number): PedidoP[] {
         tomo: pasos[0]?.chat ?? null,
         estado, pasos, commits, junto: fin - ini,
         ultimo: Math.max(instante, ultimoPaso), cierre: estado === 'hecho' ? (cierre ?? ultimoPaso) || null : null,
+        pidioEn: { chat: h.chat, sesion: h.sesion ?? null },
       });
     }
     ini = fin;

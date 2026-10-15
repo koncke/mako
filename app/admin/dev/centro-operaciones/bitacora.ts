@@ -13,6 +13,9 @@ import type { Hito, Parte } from '../_registro/tipos';
 
 const CH = 'Centro de Operaciones';
 const ESTRATEGIA = 'Estrategia 3 cuentas';
+/** Las sesiones de esos dos chats en la app (`sesion`, lib/centro-chats.ts): el Centro junta por sesión. */
+const SESION_CH = 'local_5cc6190d-8390-4df1-b215-849f5590ee30';
+const SESION_ESTRATEGIA = 'local_94ec0e46-f987-4530-a3cc-c5c1a0bc0601';
 
 /** Las fases del área y en qué anda cada una. */
 export const PARTES: Parte[] = [
@@ -26,13 +29,13 @@ export const PARTES: Parte[] = [
 
 export const BITACORA: Hito[] = [
   {
-    fecha: '15 oct', hora: '01:34', chat: ESTRATEGIA, cuenta: 'claude1', actor: 'martin', tipo: 'prompt',
+    fecha: '15 oct', hora: '01:34', chat: ESTRATEGIA, sesion: SESION_ESTRATEGIA, cuenta: 'claude1', actor: 'martin', tipo: 'prompt',
     titulo: 'Crear el Centro de Operaciones',
     pedido: 'Crea ese centro de operaciones, es lo más prioritario de todo… Que no solamente se conecte a las 3 cuentas, sino que pueda gestionar el USO y advertir cuando se está acercando al límite… Que gestione solo el guardado de contexto para las demás cuentas y que también se preocupe por ahorrar tokens, por ejemplo si mando una tarea fácil, que le diga a los chats qué modelo de IA deben usar… que pueda tener una funcionalidad de ventana emergente o algo así del chat, y que yo le pueda indicar QUÉ quiero cambiar como si estuviera eligiendo elementos dentro de cada tab, como si estuviera con F12… Fíjate que todo el tiempo te estoy pasando capturas, esto lo evitaría… Tal vez incluso que organice los chats para cada cuenta… Así les cuesta menos contexto.',
     puntos: ['La hora es la del commit del diseño (222443577), que lo citó textual.'],
   },
   {
-    fecha: '15 oct', hora: '02:01', chat: CH, cuenta: 'claude1', actor: 'claude', tipo: 'investigacion',
+    fecha: '15 oct', hora: '02:01', chat: CH, sesion: SESION_CH, cuenta: 'claude1', actor: 'claude', tipo: 'investigacion',
     titulo: 'El diseño corregido con lo medido',
     puntos: [
       'La app corre una cuenta por vez: cada una tiene su carpeta de chats y sus ventanas de actividad no se pisan.',
@@ -43,13 +46,13 @@ export const BITACORA: Hito[] = [
     commits: [{ sha: '253550075', msg: 'docs: el Centro de Operaciones corregido con lo medido', lineas: 496, archivos: 4 }],
   },
   {
-    fecha: '15 oct', hora: '02:02', chat: ESTRATEGIA, cuenta: 'claude1', actor: 'martin', tipo: 'prompt',
+    fecha: '15 oct', hora: '02:02', chat: ESTRATEGIA, sesion: SESION_ESTRATEGIA, cuenta: 'claude1', actor: 'martin', tipo: 'prompt',
     titulo: 'El video del segundo cerebro',
     pedido: 'Investiga también este vídeo https://youtu.be/rracqzwV4ZY — o incluso otros vídeos o info por la web de cómo aprovechar este centro de operaciones con "El segundo cerebro".',
     puntos: ['Llegó a este chat a las 02:02.'],
   },
   {
-    fecha: '15 oct', hora: '02:10', chat: CH, cuenta: 'claude1', actor: 'claude', tipo: 'investigacion',
+    fecha: '15 oct', hora: '02:10', chat: CH, sesion: SESION_CH, cuenta: 'claude1', actor: 'claude', tipo: 'investigacion',
     titulo: 'Los 10 principios y qué cambian',
     puntos: [
       'El video es de Claudio Conde (14/10), no de Tiago Forte. En voz alta no numera los principios: son sus diapositivas 05 a 14.',
@@ -59,13 +62,13 @@ export const BITACORA: Hito[] = [
     commits: [{ sha: '3314dfbc6', msg: 'docs: el Centro con lo que suma el video del segundo cerebro', lineas: 91, archivos: 2 }],
   },
   {
-    fecha: '15 oct', hora: '02:34', chat: ESTRATEGIA, cuenta: 'claude1', actor: 'martin', tipo: 'prompt',
+    fecha: '15 oct', hora: '02:34', chat: ESTRATEGIA, sesion: SESION_ESTRATEGIA, cuenta: 'claude1', actor: 'martin', tipo: 'prompt',
     titulo: 'Terminar el Centro',
     pedido: 'continua y termina el centro de operaciones, es lo que más me interesa ahora',
     puntos: ['Llegó a este chat a las 02:34. Las tres decisiones abiertas se tomaron por la recomendada: la cola primero, una cuenta por vez y el pedido firmado.'],
   },
   {
-    fecha: '15 oct', hora: '02:46', chat: ESTRATEGIA, cuenta: 'claude1', actor: 'martin', tipo: 'prompt',
+    fecha: '15 oct', hora: '02:46', chat: ESTRATEGIA, sesion: SESION_ESTRATEGIA, cuenta: 'claude1', actor: 'martin', tipo: 'prompt',
     titulo: 'Las tres cuentas activas',
     pedido: 'Con respecto a una cuenta por vez... Quiero que estén las 3 activas, habíamos hablado de eso justamente... Tal vez no en la app de Claude Desktop, pero con PowerShell o algo así',
     puntos: [
@@ -74,7 +77,7 @@ export const BITACORA: Hito[] = [
     ],
   },
   {
-    fecha: '15 oct', hora: '02:55', chat: CH, cuenta: 'claude1', actor: 'claude', tipo: 'implementacion',
+    fecha: '15 oct', hora: '02:55', chat: CH, sesion: SESION_CH, cuenta: 'claude1', actor: 'claude', tipo: 'implementacion',
     titulo: 'Etapa 1: la cola de pedidos firmados',
     puntos: [
       'La pantalla firma cada pedido con una clave WebCrypto que no se puede exportar; el servidor guarda el texto firmado tal cual.',
@@ -92,7 +95,7 @@ export const BITACORA: Hito[] = [
     ],
   },
   {
-    fecha: '15 oct', hora: '03:29', chat: CH, cuenta: 'claude1', actor: 'claude', tipo: 'implementacion',
+    fecha: '15 oct', hora: '03:29', chat: CH, sesion: SESION_CH, cuenta: 'claude1', actor: 'claude', tipo: 'implementacion',
     titulo: 'El área en la API y la prueba de punta a punta',
     puntos: [
       'Dos lecturas en el registro (la cola y los carteros), sólo para la plataforma y sin HTTP. Mandar un pedido no está: exige la firma del dispositivo.',
@@ -102,7 +105,7 @@ export const BITACORA: Hito[] = [
     commits: [{ sha: '3a38b2744', msg: 'Centro de Operaciones: el área en la API de MaKo, el cartero contra un servidor que miente', lineas: 210, archivos: 8 }],
   },
   {
-    fecha: '15 oct', hora: '05:01', chat: ESTRATEGIA, cuenta: 'claude1', actor: 'martin', tipo: 'prompt',
+    fecha: '15 oct', hora: '05:01', chat: ESTRATEGIA, sesion: SESION_ESTRATEGIA, cuenta: 'claude1', actor: 'martin', tipo: 'prompt',
     titulo: 'La pantalla se rechaza: copiar una app',
     pedido: 'te pido nuevamente que investigue y copie completamente el diseño de otra app similar… Por favor que sea como regla, sino estamos siempre con lo mismo',
     puntos: [
@@ -111,13 +114,13 @@ export const BITACORA: Hito[] = [
     ],
   },
   {
-    fecha: '15 oct', hora: '05:01', chat: ESTRATEGIA, cuenta: 'claude1', actor: 'martin', tipo: 'prompt',
+    fecha: '15 oct', hora: '05:01', chat: ESTRATEGIA, sesion: SESION_ESTRATEGIA, cuenta: 'claude1', actor: 'martin', tipo: 'prompt',
     titulo: 'Las tabs de super admin',
     pedido: 'Y también me molesta bastante tener tantas tabs desorganizadas en super admin... Hay muchas que las podríamos eliminar y otras que podrían ser una sola... Revisa eso.',
     puntos: ['Con la condición de no borrar ni mover nada hasta que él valide la tabla.'],
   },
   {
-    fecha: '15 oct', hora: '05:27', chat: CH, cuenta: 'claude1', actor: 'claude', tipo: 'investigacion',
+    fecha: '15 oct', hora: '05:27', chat: CH, sesion: SESION_CH, cuenta: 'claude1', actor: 'claude', tipo: 'investigacion',
     titulo: 'El Centro copiado de GitHub Actions, y la tabla de tabs',
     puntos: [
       'La lista de pedidos manda; «Nuevo pedido» es un panel que se abre sobre el chat elegido, como «Run workflow» sobre un workflow.',
@@ -132,7 +135,7 @@ export const BITACORA: Hito[] = [
     ],
   },
   {
-    fecha: '15 oct', hora: '05:45', chat: ESTRATEGIA, cuenta: 'claude1', actor: 'martin', tipo: 'prompt',
+    fecha: '15 oct', hora: '05:45', chat: ESTRATEGIA, sesion: SESION_ESTRATEGIA, cuenta: 'claude1', actor: 'martin', tipo: 'prompt',
     titulo: 'Que la respuesta llegue sola',
     pedido: 'Y ya respondí todas esas tarjetas y al parecer no te llegó... No sirve de nada la ticketera si no te llega',
     puntos: [
@@ -141,7 +144,7 @@ export const BITACORA: Hito[] = [
     ],
   },
   {
-    fecha: '15 oct', hora: '06:09', chat: CH, cuenta: 'claude1', actor: 'claude', tipo: 'implementacion',
+    fecha: '15 oct', hora: '06:09', chat: CH, sesion: SESION_CH, cuenta: 'claude1', actor: 'claude', tipo: 'implementacion',
     titulo: 'El cartero avisa las respuestas de la Ticketera',
     puntos: [
       'Cada tarjeta guarda la sesión que pregunta (destino): con el nombre del chat no se sabía a quién avisar.',
@@ -157,13 +160,13 @@ export const BITACORA: Hito[] = [
     ],
   },
   {
-    fecha: '15 oct', hora: '07:50', chat: ESTRATEGIA, cuenta: 'claude1', actor: 'martin', tipo: 'prompt',
+    fecha: '15 oct', hora: '07:50', chat: ESTRATEGIA, sesion: SESION_ESTRATEGIA, cuenta: 'claude1', actor: 'martin', tipo: 'prompt',
     titulo: 'El Centro en el teléfono',
     pedido: 'Y quiero que todo se pueda ver en mobile y esta bien diseñado, lo del Centro',
     puntos: ['Y al rato: «No veo el botón del Centro en mobile». Desde el teléfono, sólo para mirar: firmar ahí es un extra.'],
   },
   {
-    fecha: '15 oct', hora: '12:01', chat: CH, cuenta: 'claude1', actor: 'claude', tipo: 'implementacion',
+    fecha: '15 oct', hora: '12:01', chat: CH, sesion: SESION_CH, cuenta: 'claude1', actor: 'claude', tipo: 'implementacion',
     titulo: 'El Centro en el teléfono, para mirar',
     puntos: [
       'La lista de pedidos con su estado, el detalle de cada uno y los carteros, copiado de la lista de GitHub Actions en el teléfono.',
@@ -177,19 +180,19 @@ export const BITACORA: Hito[] = [
     ],
   },
   {
-    fecha: '15 oct', hora: '11:24', chat: ESTRATEGIA, cuenta: 'claude1', actor: 'martin', tipo: 'prompt',
+    fecha: '15 oct', hora: '11:24', chat: ESTRATEGIA, sesion: SESION_ESTRATEGIA, cuenta: 'claude1', actor: 'martin', tipo: 'prompt',
     titulo: 'Progreso: lo que estamos trabajando, mis pedidos y los pushes',
     pedido: 'Para que sea más fácil de leer, quiero que dentro del Centro, construyas una sección de "Progreso" donde se vea lo que estamos trabajando actualmente, mis pedidos y los pushes. Hazlo tipo tabla y que este BIEN diseñado. Investiga ejemplos y copia.',
     puntos: ['El coordinador lo pasó con «escritorio y celular en la misma tanda», empezando por En curso y Pushes, y que sirva sin el token del cartero.'],
   },
   {
-    fecha: '15 oct', hora: '13:21', chat: ESTRATEGIA, cuenta: 'claude1', actor: 'martin', tipo: 'prompt',
+    fecha: '15 oct', hora: '13:21', chat: ESTRATEGIA, sesion: SESION_ESTRATEGIA, cuenta: 'claude1', actor: 'martin', tipo: 'prompt',
     titulo: 'Ver los pendientes y poder refrescar',
     pedido: 'Sigo sin ver los pendientes y poder refrescar en el centro!!! Solucionalo con urgencia por fsvor, muchas veces te lo pedi',
     puntos: [],
   },
   {
-    fecha: '15 oct', hora: '14:08', chat: CH, cuenta: 'claude1', actor: 'claude', tipo: 'implementacion',
+    fecha: '15 oct', hora: '14:08', chat: CH, sesion: SESION_CH, cuenta: 'claude1', actor: 'claude', tipo: 'implementacion',
     titulo: 'Progreso en el Centro: En curso, Pedidos y Pushes, en la computadora y en el teléfono',
     puntos: [
       'Cuatro pestañas: En curso (qué área se movió y qué le queda), Pedidos (pendiente, en curso, hecho, con lo que salió de cada uno), Pushes (lo que llegó a producción) y Trabajos (la cola firmada de siempre).',
@@ -209,7 +212,7 @@ export const BITACORA: Hito[] = [
   // El cartero va ANTES del pedido de las 14:18 a propósito: la respuesta de un pedido es lo que le sigue
   // (lib/progreso-reglas.ts → cadenas), y la instalación no responde a ese pedido.
   {
-    fecha: '15 oct', hora: '14:30', chat: CH, cuenta: 'claude1', actor: 'claude', tipo: 'implementacion',
+    fecha: '15 oct', hora: '14:30', chat: CH, sesion: SESION_CH, cuenta: 'claude1', actor: 'claude', tipo: 'implementacion',
     titulo: 'El cartero de claude1, instalado',
     puntos: [
       'Con el token que acuñó Martín: la primera vuelta vio 53 chats de la cuenta y 2 abiertos, sin nada que entregar.',
@@ -218,13 +221,13 @@ export const BITACORA: Hito[] = [
     ],
   },
   {
-    fecha: '15 oct', hora: '14:18', chat: ESTRATEGIA, cuenta: 'claude1', actor: 'martin', tipo: 'prompt',
+    fecha: '15 oct', hora: '14:18', chat: ESTRATEGIA, sesion: SESION_ESTRATEGIA, cuenta: 'claude1', actor: 'martin', tipo: 'prompt',
     titulo: 'Progreso: lo que pedí, con su estado y sus pushes',
     pedido: 'Lo que quiero ver allí es lo que te pedí, los pushes de lo terminado, los pendientes que estamos trabajando ahora mismo, las cosas que ya están terminadas, empezadas, etc...',
     puntos: ['El coordinador lo leyó como «la unidad es el pedido»: los pushes son la prueba de lo terminado, no una lista aparte.'],
   },
   {
-    fecha: '15 oct', hora: '14:57', chat: CH, cuenta: 'claude1', actor: 'claude', tipo: 'implementacion',
+    fecha: '15 oct', hora: '14:57', chat: CH, sesion: SESION_CH, cuenta: 'claude1', actor: 'claude', tipo: 'implementacion',
     titulo: 'Progreso con el pedido primero: trabajando ahora, sin empezar, empezado y terminado',
     puntos: [
       'Pedidos es la pestaña de entrada, en cuatro grupos, y cada fila muestra su camino: anotado, lo tomó un chat, en producción.',
@@ -236,6 +239,25 @@ export const BITACORA: Hito[] = [
       'lib/progreso-reglas.ts — los grupos y el push exacto de cada pedido',
       'app/admin/operaciones/Progreso.tsx — el camino en la fila',
       'app/m/operaciones/ProgresoMovil.tsx — lo mismo en el teléfono',
+    ],
+  },
+  {
+    fecha: '15 oct', hora: '15:02', chat: ESTRATEGIA, sesion: SESION_ESTRATEGIA, cuenta: 'claude1', actor: 'martin', tipo: 'prompt',
+    titulo: 'El Centro como los chats de Grok',
+    pedido: 'No entiendo para nada la tab de "trabajos", eliminala... Al principio debería haber una tab que simule los chats... Ahí te pido que copies el diseño del grok. Copiala entera, porque nos puede servir... Incluso revisa si copiando eso ya podemos deprecar las otras tabs. Porque "En curso" podría ser el ícono verde en los chats de grok... "Pushes" podría estar en un apartado tipo historial de cada chat. "Pedidos" ya no necesitaría porque tengo los chats allí... Tal vez en un apartado tipo avance o tipo roadmap. Que este todo muy bien diseñado.',
+    puntos: ['El coordinador aprobó el mapeo: Trabajos se va adentro de cada chat, el punto es «en curso», y Avance y Pushes quedan al costado.'],
+  },
+  {
+    fecha: '15 oct', hora: '15:16', chat: CH, sesion: SESION_CH, cuenta: 'claude1', actor: 'claude', tipo: 'investigacion',
+    titulo: 'Lo que dicen los datos antes de copiar Grok, y la lista de chats unida por sesión',
+    puntos: [
+      '274 de 289 pedidos los trabajó un solo chat; 26 se pidieron en uno y los trabajó otro; 7 no los tomó nadie, y por eso Avance se queda.',
+      'Juntar los chats por nombre pierde y mezcla (17 de 37 coinciden, 5 títulos repetidos): se junta por sesión, y desde el 16/10 cada hito de trabajo la anota.',
+      'Grok sin sesión no muestra la lista: la pantalla espera las capturas con la cuenta de Martín.',
+    ],
+    archivos: [
+      'lib/centro-chats.ts — la lista con su punto, lo de cada chat y su conversación',
+      'app/admin/dev/_registro/tipos.ts — el campo `sesion` de un hito',
     ],
   },
 ];

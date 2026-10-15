@@ -57,6 +57,13 @@ export type Hito = {
   hora: string;
   /** Título de la sesión de Claude Code donde pasó. Ver docs/chats.md. */
   chat: string;
+  /**
+   * El id de la SESIÓN que lo anotó: `local_…` en la app (`echo $CLAUDE_CODE_HOST_SESSION_ID`) o
+   * `cli_<CLAUDE_CODE_SESSION_ID>` en una terminal. El Centro de Operaciones junta cada hito con su chat
+   * por esto y NUNCA por el título: hay títulos repetidos («CRM», «General») y chats renombrados
+   * (docs/hallazgos-operaciones.md, 15/10/2026). Obligatorio desde el 16/10 (tests/progreso.test.ts).
+   */
+  sesion?: string;
   cuenta: Cuenta;
   actor: Actor;
   tipo: Tipo;

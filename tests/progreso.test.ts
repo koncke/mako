@@ -181,3 +181,31 @@ test('las bitácoras reales se leen enteras: ninguna fecha queda sin entender', 
   const ids = pedidosRecientes(areas, AHORA, 3650).map((p) => p.id);
   assert.equal(new Set(ids).size, ids.length, 'dos pedidos con el mismo id');
 });
+
+test('desde el 16/10, todo hito de TRABAJO de una bitácora dice qué sesión lo hizo', async () => {
+  // El Centro junta cada hito con su chat por la sesión y nunca por el título (lib/centro-chats.ts): el 15/10,
+  // 17 de 37 chats coincidían por nombre y había 5 títulos repetidos. La sesión la da el entorno:
+  // `echo $CLAUDE_CODE_HOST_SESSION_ID` (local_…) en la app, o cli_<$CLAUDE_CODE_SESSION_ID> en una terminal.
+  // Probado con un hito falso del 16/10 sin sesión: 9 pasan y falla éste.
+  const { REGISTROS_SLUGS, registroDe } = await import('../app/admin/dev/registros');
+  const { DESTINO_RE } = await import('../lib/operaciones-reglas');
+  const desde = Date.parse('2026-10-16T03:00:00Z');
+  const ahora = Date.now();
+  const faltan: string[] = [];
+  // El rojo tiene que decir QUÉ arreglar y DÓNDE (el slug del registro no siempre es la carpeta): el archivo
+  // se busca por el título del hito.
+  const { readdirSync, readFileSync, existsSync } = await import('node:fs');
+  const archivos = readdirSync('app/admin/dev', { withFileTypes: true }).filter((d) => d.isDirectory())
+    .map((d) => `app/admin/dev/${d.name}/bitacora.ts`).filter((a) => existsSync(a)).map((a) => ({ a, src: readFileSync(a, 'utf8') }));
+  const dondeEsta = (titulo: string) => archivos.find((x) => x.src.includes(titulo))?.a ?? 'app/admin/dev/<área>/bitacora.ts';
+  for (const slug of REGISTROS_SLUGS) {
+    for (const h of registroDe(slug).bitacora) {
+      const t = instanteHito(h.fecha, h.hora, ahora);
+      // El pedido de Martín (`actor: 'martin'`) puede llegar por otro chat cuya sesión no se sabe: ahí no se exige.
+      if (t != null && t >= desde && h.actor !== 'martin' && !DESTINO_RE.test(h.sesion ?? '')) {
+        faltan.push(`${dondeEsta(h.titulo)} → el hito «${h.titulo}» (${h.fecha} ${h.hora}, chat «${h.chat}») no tiene «sesion»${h.sesion ? ` válida (dice «${h.sesion}»)` : ''}`);
+      }
+    }
+  }
+  assert.deepEqual(faltan, [], 'A cada hito de la lista sumale `sesion: "local_…"`, el id de la sesión de TU chat: lo da `echo $CLAUDE_CODE_HOST_SESSION_ID` (en una terminal, cli_ + $CLAUDE_CODE_SESSION_ID). El Centro junta cada hito con su chat por la sesión (AGENTS.md, el registro de /admin/dev).');
+});
