@@ -1066,6 +1066,23 @@ triage del backlog, paquetes, verificación y corrección). Lo construido está 
 - El scratchpad de la sesión es COMPARTIDO por los subagentes de un workflow: los archivos de commit y de medición
   llevan un nombre propio de la tarea.
 
+### El cierre de los hallazgos bajos (15/10)
+- **Un texto que le pide algo a la persona nombra algo que la pantalla ofrece.** Pasó dos veces: «Reserva vencida:
+  conéctalo de nuevo» mandaba a un botón que no existe (y reconectar no renovaba la reserva; lo que sirve es
+  «elimínalo y añádelo de nuevo», que pone fecha nueva y el TXT sigue valiendo), y «Prueba el formato «Landing»» salía
+  sin botón. **Regla:** si un error propone otra acción, lleva un campo (`probar: 'landing'`) y un botón, y el test
+  verifica que la pantalla tenga ese botón (`dominios-reglas.ts`, `replicar-reglas.ts`, `crear/Replicar.tsx`).
+- Replicar como «Página web» una app de Vite o Lovable (un `#root`/`#app` vacío o un `<script type="module">`)
+  contesta 422 con «Prueba el formato «Landing»» y el botón; una página vacía de verdad sigue diciendo «no trae nada».
+- **«Que el texto viaje como instrucciones» era el arreglo obvio y es falso:** Analizar y Replicar no aceptan
+  instrucciones, así que el texto pegado junto a un link se mostraría y nadie lo usaría. El chip del link sale sólo si
+  el link es TODO lo escrito; lo escrito nunca se esconde. El «)» final se conserva si abrió dentro del link, y un
+  link tipeado y mandado con Enter también va a Analizar/Replicar (`panel-reglas.ts`, `sacarLink`, `linkEscrito`).
+- Después de un guardado con control de versión, releer y devolver lo releído mete en la cadena del cliente la versión
+  de OTRO: se devuelve la versión que escribió tu guardado (`docAplicado`). La otra mitad de la carrera sigue en
+  `restaurarVersion` (`server.ts`): compara contra la versión que lee él, no contra la que comparó la pantalla (lo
+  pisado no se pierde: queda en «Antes de restaurar»).
+
 ### Lo que quedó sin hacer (tanda 6)
 - **Migraciones 0281 (`landing_docs.diagnostico`) y 0282 (`landing_pago_rechazos`)**: el código tolera que falten;
   aplicarlas con el deploy (o después: hasta entonces no se guarda el puntaje y no se cuentan los rechazos).

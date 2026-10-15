@@ -321,6 +321,11 @@ export const BITACORA: Hito[] = [
       { sha: 'bfa25c88b', msg: 'Landing Generator (tanda 6, verificación): la ventana de lectura sólo con la firma del server, el Pixel sólo en una landing del negocio, y el typecheck de la rama en verde', lineas: 372, archivos: 7 },
       { sha: 'a184fb818', msg: 'Landing Generator (tanda 6, verificación): el alto de la copia de una app no se desboca con un hero de 100vh', lineas: 46, archivos: 2 },
       { sha: '59dd291b1', msg: 'Landing Generator (tanda 6, verificación): el Diagnóstico muestra todas las páginas y usa la copia que ya existe, la API dice el puntaje, los rechazos, el dominio al despublicar y cómo deshacer', lineas: 931, archivos: 28 },
+      { sha: 'af8a5aca7', msg: 'Probar el tracking: la pestaña de la landing sólo navega a una dirección http(s) validada (un javascript: corría con el origen de MaKo)', lineas: 92, archivos: 4 },
+      { sha: 'c592b559d', msg: 'Landing Generator: el link de la caja sale sólo si es todo lo escrito, conserva su «)» y tipeado con Enter también', lineas: 127, archivos: 3 },
+      { sha: '6644fb39d', msg: 'Replicar como «Página web» una app de Vite o Lovable propone «Landing» con un botón', lineas: 168, archivos: 8 },
+      { sha: '4cb3c543b', msg: 'Dominios: «Reserva vencida» dice lo que la pestaña de verdad ofrece (eliminarlo y añadirlo de nuevo)', lineas: 40, archivos: 2 },
+      { sha: 'c545adb22', msg: 'Diagnóstico: «Aplicar» devuelve la versión que escribió su guardado, no la de una relectura posterior', lineas: 45, archivos: 3 },
       { sha: '7cbfe9479', msg: 'docs: cosecha de la tanda 6 del Landing Generator — lo aprendido, por área, y dos reglas en AGENTS.md', lineas: 218, archivos: 6 },
     ],
     archivos: [
