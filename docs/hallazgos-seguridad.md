@@ -1782,3 +1782,33 @@ mandaba a aprobar a Meta la plantilla del negocio).
   07/09 tapó unas líneas y se le escaparon otras, y lo que tapó seguía vivo.
 
 **Vive en:** la tabla de arriba · `supabase/migrations/0280_rpc_sin_anon.sql` · *auditoría del 14/10/2026, chat «Ciberseguridad», workflow `wf_6f480c38-f3f`*
+
+## Un `next dev` sin `AUTH_SECRET` es un admin abierto a la red (15/10/2026)
+
+La mitad ya estaba escrita (más arriba: «sin `gateConfigurado()` y fuera de producción, `lib/auth.ts` te devuelve
+admin de ws1 […] la trampa a cerrar antes de darle a MaKo cualquier capacidad de ejecutar sola»), y se la leía como una
+trampa de las PRUEBAS: «probarlo en local no prueba nada». Hay dos piezas más, y juntas cambian de qué se trata:
+
+1. **`next dev` escucha en `0.0.0.0` por defecto** (`node_modules/next/dist/docs/01-app/03-api-reference/06-cli/next.md`,
+   Next 16.2.6). No es «local»: lo alcanza cualquiera de la misma red, un wifi de bar incluido.
+2. **El `.env.local` apunta a la base de PRODUCCIÓN** con la `service_role` (ver
+   [hallazgos-infra.md](hallazgos-infra.md) → «El boot local ESCRIBE en prod»).
+
+O sea: un checkout que tenga las claves de Supabase y NO tenga `AUTH_SECRET`, con `next dev` corriendo, le da a
+cualquiera de la red una sesión de admin (`sub: 'dev'`, `rol: 'admin'`, `lib/auth.ts:74-77`) que lee y escribe la base
+de todos los clientes. El proxy tampoco frena: sin el secreto deja pasar todo (`proxy.ts:419-424`).
+
+**Medido el 15/10/2026: hoy no pasa en ningún checkout.** El clon tiene `AUTH_SECRET`, y de los 34 worktrees los 5 que
+tienen `.env.local` también. Es un riesgo latente, y se abre solo: un worktree nuevo con un `.env.local` armado a mano
+(AGENTS.md pide uno por worktree) o un `vercel env pull` de un entorno sin el secreto.
+
+**Por qué importa ahora:** el Centro de Operaciones ([diseno-centro-de-operaciones.md](diseno-centro-de-operaciones.md))
+convierte una fila de la base en un prompt que corre en la PC de Martín. Con este agujero abierto, alguien de la misma
+red pasa de admin de MaKo a una consola en esa máquina. Por eso el diseño exige la firma de cada pedido con una clave que
+el servidor no tiene, y rechaza las sesiones `sub: 'dev'`.
+
+**El arreglo, sin hacer:** que la sesión dev exija un permiso explícito además de la falta del secreto (por ejemplo
+`MAKO_DEV_SIN_LOGIN=1`), o que se niegue cuando las claves de Supabase son las de producción. Fail-closed por defecto,
+como en producción. Y, de paso, `next dev -H 127.0.0.1` en el script.
+
+**Vive en:** `lib/auth.ts:74-77` · `lib/auth-session.ts:135-151` (`secret`, `gateConfigurado`) · `proxy.ts:419-424` · `package.json` (`"dev": "next dev"`) · *chat «Centro de Operaciones», 15/10/2026*
