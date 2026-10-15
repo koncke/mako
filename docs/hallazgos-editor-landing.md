@@ -937,3 +937,80 @@ VSL Funnel... Puedes inspirarte en otras plantillas de VSL Funnel e incluso en l
   los da vuelta. Afuera, `.gp.cp-casa` + `CSS_TOKENS_CASA`.
 - Con `scrollHeight` 0 (escondida en un modal que todavía no entró en la pila) la caja no fija el alto. Cierra el «sin
   hacer» de la decimotercera de Automations sobre CajaCrear.
+
+## Animaciones: el video de fondo del hero (relevamiento del 14/10/2026, sin código)
+
+Pedido de Martín: animaciones de punta a punta, partiendo del video «Páginas Web ANIMADAS de $10,000 con Claude Design»
+(técnica «Motion Sites»: imagen IA → video IA con el MISMO cuadro inicial y final, de fondo del hero). A «¿cuál de los
+dos frentes?» contestó **«las dos cosas»**: el video IA de fondo Y las animaciones de la página. Esto es lo medido del
+video; las animaciones de página y qué se puede replicar de una web ajena van aparte.
+
+### El puente a Flow HOY no puede hacer un hero
+- Genera clips (el 07/09 salieron dos `generar_clip`, texto-a-video `abra_t2v_4s_360p`), pero **MaKo no los muestra**:
+  falta leer la respuesta POSICIONAL (operationId en `[2][0][0]`, mediaId en `[2][0][3][4]`; `nombreDeOperacion` de
+  `video-action.ts:330` y `mediaDeFlow` de `lib/flow-media.ts:139` buscan campos por nombre, del REST muerto), el
+  sondeo `estado_clips` (no tiene frase, así que cae al camino REST, que ya no existe) y la URL final.
+- **El replay de BOQ sólo cambia el TEXTO** (`repetirEnBoq`, `extension/background.js:450-471`): modelo, duración,
+  proporción e imágenes salen de lo que se enseñó. Un hero con cuadro inicial y final es una OPERACIÓN NUEVA enseñada
+  con «Frames to Video», con dos imágenes distintas para ver dónde viaja cada mediaId.
+- Flow SÍ tiene el modo (Video → Frames, «Add start frame / end frame»): Veo 3.1 Lite/Fast/Quality (4/6/8 s) y Omni
+  Flash (4-10 s), según support.google.com/flow/answer/16352836, leída el 14/10. No está dicho si la MISMA imagen de
+  inicio y fin da movimiento o un plano quieto: se mide.
+- ⚠️ La operación nueva NO puede entrar en `A_PEDIR`: `puedeFilmar` (`background.js:1316`) deja el puente en
+  `sin_sesion` si falta una, y el server deja de repartir: todos los clientes del Video Generator dejarían de filmar
+  hasta pagar créditos por enseñarla. Hace falta un «listo» por operación (el mismo bloqueo de las imágenes, arriba en
+  «Lo que quedó sin hacer»).
+- Créditos de Flow por clip (support.google.com/flow/answer/16526234, sin fecha, leída el 14/10): Lite 10 (Ultra 5),
+  Fast 20 (Ultra 10), Quality 100; Omni Flash 720p 12-15. El 1080p es un reescalado, gratis con Plus/Pro/Ultra; sin
+  suscripción no hay. La nativa es 720p, H.264 24 fps. Veo trae audio (se descarta; ojo `BLOCK_SILENCED_VIDEOS` de
+  `lib/flow-clip-referencias.ts:52-56`, sin medir).
+
+### El peso, medido (ffmpeg; 4 fuentes de 8 s: IA limpia, IA con grano, material real, mucho movimiento)
+
+| 8 s, H.264 CRF 26, sin audio | 1080p | 720p | 480×854 vertical |
+|---|---|---|---|
+| IA limpia / con grano | 1,3-2,2 MB | 0,7-0,9 MB | 0,3-0,4 MB |
+| Material real / mucho movimiento | 3,4-3,6 MB | 1,7-1,9 MB | 0,8-1,0 MB |
+
+- AV1 pesa 26-69 % menos que H.264 con igual o mejor VMAF (en Safari depende del hardware: H.264 de respaldo).
+- **El ping-pong duplica el peso** (×2,00-2,07 en las 12 parejas). El **bucle por fundido** (el último segundo
+  fundido sobre el primero) cierra la costura sin sumar (−10 % a +8 %): SSIM en la costura 0,92-0,93, igual que dos
+  cuadros seguidos; repetir el clip tal cual da 0,41-0,69 (el salto se ve).
+- **4G** (Lighthouse «Slow 4G» 1,6 Mbps / DevTools «Fast 4G» 9 Mbps, +0,6 s por el origen nuevo del bucket): 480
+  vertical 2,2-5,8 s / 0,9-1,6 s; 720p 4,3-10,2 s / 1,3-2,4 s; 1080p 7,3-18,7 s / 1,9-3,9 s.
+- **Por eso el póster es el LCP**: la imagen IA en WebP pesa 37-42 KB a 480 vertical y 143-167 KB a 1080p.
+
+### El diagnóstico obvio era el equivocado
+- **«VP9 da VMAF 68-70» no era el códec: era la medición.** El WebM guarda los tiempos en milisegundos y a 24 fps los
+  cuadros no caen justos, así que se comparaban cuadros desfasados. Alineando por número de cuadro, VP9 da 93-96.
+- **`autoplay` le gana a `preload`**: el nodo `video` de hoy lleva `autoplay` (`especificacion.ts:839-848`), así que se
+  baja apenas se lee el HTML y le roba ancho de banda al póster (en Slow 4G, el LCP sube ~0,7-0,8 s).
+
+### Lo que la plataforma ya deja y lo que no
+- Bucket `landing-imagenes`: público, 100 MiB, png/jpeg/webp/gif/mp4/webm (`0246_editor_landing.sql:154-163`): **no
+  acepta AVIF** (el póster AVIF pesaría 40-60 % menos). Las subidas no pasan `cacheControl` (queda 3600 s).
+- La publicada: `media-src 'self' <bucket>` (`pagina-publica.ts:458`) deja el `<video>`; los scripts entran sólo por
+  HASH, así que la lógica del video va en `SCRIPT_PAGINA` (`:299-410`, que ya usa IntersectionObserver y reduced-motion).
+- El hero «fondo» sólo admite imagen (`.gm-acento` con `background-image`, `especificacion.ts:681-693`; `AttrsTarjeta`
+  no tiene campo de video, `doc.ts:247-264`).
+- Buenas prácticas, con fuente en el relevamiento: el póster como `<img>` con srcset y `fetchpriority` debajo de un
+  `<video muted playsinline loop preload="none">` SIN `autoplay` en el HTML (el script le pone `src` y `play()` después
+  del load); la variante por ancho la elige el script; reduced-motion o Save-Data → sólo el póster; pausar fuera de
+  pantalla y con la pestaña oculta; un botón de pausa (WCAG 2.2.2, nivel A, para lo que se mueve solo más de 5 s); iOS
+  en ahorro de energía no reproduce solo (WebKit WONTFIX 219889): mostrar el video recién con el evento `playing`.
+  Framer recomienda bucles de menos de 5 MB.
+
+### Lo que se recomienda y lo que decide Martín
+- **Etapa 1, sin Flow:** «Fondo animado» en el hero `fondo` con un video SUBIDO o de una galería; MaKo lo comprime en el
+  navegador de quien sube con mediabunny (ya está en el repo,
+  `app/video-editor/_opencut/sounds/components/extraer-audio.ts:93`): ≤8 s, sin audio, 480×854 + 1280×720 + póster
+  WebP, y el bucle por fundido. Nada de ping-pong.
+- **Etapa 2, con Flow:** los pasos del puente de arriba + la operación de Frames + el «listo» por operación.
+- No va por defecto en los diseños con VSL (8 de 9: el VSL es el protagonista); sí como opción en «Oscuro moderno» y
+  «Editorial».
+- Decide Martín: cuándo entra (ya, sin Flow / esperar al puente / sólo subida); de dónde sale la galería; si va por
+  defecto en algún diseño; el tope de calidad (720p con 480 vertical en el teléfono / 1080p AV1); el modelo de Flow
+  (Lite 10 / Fast 20 / Quality 100); cuándo se mide Flow en ws3 (hoy en pausa por él).
+- **Sin medir:** ninguna generación real de Flow (ni el cuerpo BOQ de Frames, ni el peso de un clip de Veo, ni si un
+  fallo cobra); si las URL del bucket contestan 206 a un pedido por rango (Safari lo exige:
+  `curl -sI -H "Range: bytes=0-1" <url.mp4>`); WebCodecs en un teléfono; un LCP en una traza real.

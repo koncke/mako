@@ -7085,3 +7085,14 @@ respuesta era nadie.
   `puente-actions.ts:27`). Llamadas por HTTP o por WhatsApp contestan «Solo el administrador
   del workspace…». Falta separar la escritura de su guard de sesión para que un canal que ya
   resolvió permisos la pueda reusar.
+
+## Un clip con cuadro inicial y final (hero de landing) es una operación NUEVA del puente (14/10/2026)
+
+Medido para las animaciones del Landing Generator (pesos y etapas en `docs/hallazgos-editor-landing.md` →
+«Animaciones: el video de fondo del hero»). Como el replay de BOQ sólo cambia el texto (arriba), «Frames to Video» de
+Flow (Veo 3.1 Lite/Fast/Quality, Omni Flash) no se consigue parcheando `generar_clip`: es otra operación, enseñada con
+dos imágenes DISTINTAS para ubicar cada mediaId. El repo conocía el modo sólo en el REST muerto
+(`batchAsyncGenerateVideoStartAndEndImage`, `lib/flow-protocolo.ts:32`; `generarClip` con `startImage`/`endImage`,
+`lib/flow.ts:156-166`), y `tieneCaraParcheable` (`lib/flow-plantillas.ts:520`) sólo lee el JSON REST.
+**Regla:** una operación nueva NO entra en `A_PEDIR` sin un «listo» por operación: `puedeFilmar` deja el puente en
+`sin_sesion` y todos los clientes del Video Generator dejan de filmar.
