@@ -17,11 +17,12 @@ import { getUsuarioActual } from '@/lib/auth';
 import { ponerSesion } from '@/lib/sesion-cookies';
 import { canalDisponible, esTelefono, politicaLoExige, CANALES_CODIGO, CANAL_NO_DISPONIBLE, type Amr } from '@/lib/mfa-reglas';
 import { obligatorioDesdeDe } from '@/lib/mfa-obligatorio';
+import { tieneContrasena, guardarContrasena } from '@/lib/contrasena';
 import {
   estadoMfa, cantidadFactores, intentar, intentoOk, MENSAJE_FRENADO,
   iniciarTotp, confirmarTotp, enviarCodigo, verificarCodigo,
   opcionesRegistroPasskey, verificarRegistroPasskey, generarCodigosRecuperacion,
-  quitarFactor, revocarDispositivo, rpDelPedido, type Canal,
+  quitarFactor, revocarDispositivo, rpDelPedido, verificarTotpLogin, type Canal,
 } from '@/lib/mfa';
 
 export const dynamic = 'force-dynamic';
@@ -37,7 +38,7 @@ async function quien() {
 export async function GET(req: NextRequest) {
   const s = await quien();
   if (!s) return no('no autenticado', 401);
-  const [e, obligatorioDesde] = await Promise.all([estadoMfa(Number(s.sub)), obligatorioDesdeDe(s.ws)]);
+  const [e, obligatorioDesde, contrasena] = await Promise.all([estadoMfa(Number(s.sub)), obligatorioDesdeDe(s.ws), tieneContrasena(Number(s.sub))]);
   return NextResponse.json({
     ok: true,
     obligatorio: politicaLoExige(s.rol, obligatorioDesde),
@@ -56,6 +57,8 @@ export async function GET(req: NextRequest) {
     email: e.email,
     passkeys: e.passkeys,
     codigosRestantes: e.codigosRestantes,
+    // La contraseña obligatoria (15/10/2026): true/false, o null si no se pudo leer.
+    contrasena,
     dispositivos: e.dispositivos,
   });
 }
@@ -131,6 +134,19 @@ export async function POST(req: NextRequest) {
       const obligado = politicaLoExige(s.rol, await obligatorioDesdeDe(s.ws));
       const r = await quitarFactor(uid, obligado, factor as 'totp', Number(body.passkeyId) || undefined);
       return r.ok ? NextResponse.json({ ok: true }) : no(r.error);
+    }
+    case 'contrasena-guardar': {
+      // Crear o cambiar la contraseña pide un código FRESCO de la app: una sesión robada no le pone
+      // (ni le cambia) la contraseña a la cuenta, que sería quedarse con ella después de que la
+      // sesión venza. Con su propio freno (`intentar`), como todo lo que se puede adivinar.
+      const em = await estadoMfa(uid);
+      if (!em.totp) return no('Primero activa la app de autenticación.');
+      const intento = await intentar(uid, 'contrasena-totp');
+      if (!intento) return no(MENSAJE_FRENADO, 429);
+      if (!(await verificarTotpLogin(uid, String(body.codigo ?? '')))) return no('El código no coincide.');
+      await intentoOk(intento);
+      const g = await guardarContrasena(uid, body.nueva, s.email);
+      return g.ok ? NextResponse.json({ ok: true }) : no(g.error);
     }
     case 'codigos-generar': {
       if (antes === 0) return no('Primero activa un método.');

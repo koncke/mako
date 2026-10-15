@@ -4464,3 +4464,30 @@ salía fuera de horario sin decirlo; ahora es una casilla del horario, prendida 
   casilla va DESPUÉS de ellas, no en el medio.
 
 **Vive en:** `lib/horario-envio.ts` (`avisosAlEquipo`) · `lib/nutricion.ts` (`makoFueraDeHorario`) · `app/configuraciones/HorarioEnvioPanel.tsx`
+
+## «Email a la persona» y el dato SECRETO: restablecer la contraseña (15/10/2026)
+
+Lo hecho está en `6ed57990d` (docs/diseno-2fa-obligatorio.md §9). Un evento de MaKo de una PERSONA (`contrasena_restablecer`)
+le escribe por email a ese usuario, por el remitente de MaKo, con un link de un uso.
+
+- **El propósito se DECLARA en el evento; no se deduce.** La primera versión mandaba el código y el link al mismo correo
+  «porque traen un secreto». Ciberseguridad lo frenó: un código del 2FA va SÓLO al correo de respaldo (al de Google no es
+  un segundo factor), y el link de restablecer va al de la cuenta. Deducido, el link habría ido a un correo que la
+  mayoría no tiene. Quedó `EventoMako.persona`.
+- **Un secreto no se cuida en un lugar: se cuida en cada lugar donde se GUARDA o se COPIA.** La corrida guarda su
+  contexto en dos caminos: el DELAY (`ctxParaDormir`) y el reintento de una CONDITION, que guarda el contexto ENTERO. El
+  feed recibe el `texto` del emisor cuando no hay ninguna fila prendida. Y un error de Resend puede repetir el cuerpo.
+  Cada uno tiene su tapa: `sinSecretos`, el emisor sin `texto` (`avisarPedidoDeRestablecer`) y `sinValoresSecretos`.
+- ⚠️ **Un freno escrito dos veces esconde una rotura.** El DELAY con secreto se frenaba en el barrido y en el recorrido, y
+  sacar el primero no hacía fallar nada: el segundo lo tapaba. Quedó uno, el del barrido, que además ve un DELAY suelto.
+- **Lo de SuperAdmin va APARTE de la galería de los negocios** (`PLANTILLAS_PLATAFORMA`). Metida en `PLANTILLAS`, rompía
+  «13, una por categoría, en orden de embudo» y la habría ofrecido a cada negocio. Lo que se ofrece lo dice
+  `plantillasPara`; lo que se crea lo frena `crearDesdePlantilla` (`deps.plataforma`, fail-closed). La pantalla sabe si
+  es la plataforma por un contexto que pone app/automations/page.tsx.
+
+Lo que quedó sin hacer, con su archivo:
+- `lib/destino-usuario.ts` es de Seguridad: entra a main antes que esta rama.
+- La fila en el ws de la plataforma se crea con la plantilla cuando esté en prod, y se prueba con la cuenta de Martín.
+- El aviso «se cambió tu contraseña» y `ingreso_nuevo` usan la misma tarjeta, sin secreto: después del 21/10.
+
+**Vive en:** `lib/email-persona.ts` · `lib/restablecer-aviso.ts` · `lib/aviso-evento.ts` (`pasosDelEvento`, `datosDeLaPersona`, `secretosDelEvento`) · `lib/variables-aviso.ts` (`secreto`, `sinSecretos`) · `lib/flujo-corridas.ts` · `lib/plantillas-automatizaciones.ts` (`PLANTILLAS_PLATAFORMA`)

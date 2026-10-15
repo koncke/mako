@@ -171,7 +171,8 @@ test('un dato y un emoji entran donde está el cursor: en el editor rico (PEGÁN
   // datos de un mensaje al LEAD (no los del equipo: los links al CRM no son para él).
   // PROBADO ROMPIÉNDOLO (09/10/2026, parte «datos»): `destino: 'equipo'` → 1 fallo; el envío del email
   // sin `datosParaElLead` → 1 fallo. Restaurado → verde.
-  assert.match(GMAIL, /const datos = datosOfrecidos\(\{ destino: 'lead', conLead: true \}\);/, 'el «{ }» del email no es el del lead');
+  // (15/10/2026: salvo el «Email a la persona» de un evento de una persona, que trae SU contexto: `persona`.)
+  assert.match(GMAIL, /const datos = datosOfrecidos\(persona\?\.contexto \?\? \{ destino: 'lead', conLead: true \}\);/, 'el «{ }» del email no es el del lead');
   assert.match(GMAIL, /import \{ ArbolDeDatos \} from '@\/app\/_components\/SelectorDatos';/);
   assert.doesNotMatch(GMAIL, /VARIABLES_LEAD|VARIABLES_NEGOCIO|<MenuWA alElegir=\{\(\) => setAbierto\(null\)\}\s*opciones=\{variables/, 'volvió la lista plana del motor viejo');
   const motor = leer('lib/nutricion.ts');

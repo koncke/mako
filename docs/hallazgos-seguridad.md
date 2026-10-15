@@ -584,6 +584,69 @@ miraba la falta del secreto:
 `lib/auth.ts` · `app/api/auth/dev-login/route.ts` · `package.json` (`dev`) · `tests/dev-local.test.ts` ·
 *15/10/2026, chat «Ciberseguridad», a partir del aviso del chat «Centro de Operaciones»*
 
+### La contraseña obligatoria: cuatro cosas que no se ven en el código (15/10/2026)
+
+Decisión de Martín: tener contraseña es OBLIGATORIO para todos, desde la misma fecha que el 2FA (21/10), como camino
+ALTERNATIVO a Google («si inicio con Google no debería pedirme la contraseña también»). Diseño y estado:
+`docs/diseno-login-contrasena.md`.
+
+- ⚠️ **El freno de la contraseña NO comparte cupo con el del 2FA.** Si los fallos de contraseña contaran en el mismo
+  cupo que los códigos (`mfa_eventos`, tipo `intento`), quien sólo sabe el correo de Martín le dejaba el segundo paso
+  bloqueado 15 minutos mandando contraseñas malas: es la misma trampa que ya se pagó con el freno del 2FA («un freno
+  que corta TODO se vuelve un arma»). Tipo propio: `intento-contrasena`.
+- **El dispositivo recordado salta el CÓDIGO, no la contraseña.** El callback de Google tiene un camino que abre la
+  sesión sin pasar por la ruta del segundo paso (el dispositivo de confianza). Con la contraseña puesta sólo en
+  `entrar()` de esa ruta, ese camino la salteaba entera. Toda puerta que emite una sesión se enumera ANTES de dar una
+  exigencia por cerrada: son el callback (dos salidas), la ruta del segundo paso y la nueva de entrar con contraseña.
+- **Un error NUESTRO no deja a nadie afuera, uno de la persona sí se corrige.** `guardarContrasena` distingue
+  `nuestro` (la base no guardó: entra igual y el pendiente vuelve en el próximo login) de lo que se arregla tipeando
+  (corta, su correo). Sin esa marca, el 21/10 una base lenta dejaba afuera a todo el que justo creaba su contraseña.
+- **Un test de un tope puede pasar en VERDE por la razón equivocada.** El tope de parámetros del hash (que un `p`
+  enorme no ponga a calcular al server) se probó con `scrypt$40$8$1$a$b`, y quitar el tope seguía dando «no
+  coincide»: el caso ya era inválido por el largo del hash. Lo cazó romperlo; el caso bueno es un hash bien formado
+  con `p=64`, y mide el tiempo.
+- **Quedó SIN hacer**: la decisión 4 (Have I Been Pwned), abierta. «Olvidé mi contraseña» se construyó después:
+  la entrada que sigue.
+
+**Vive en:** `lib/contrasena-reglas.ts` · `lib/contrasena.ts` · `lib/destino-usuario.ts` · `app/api/auth/contrasena/route.ts` ·
+`app/api/auth/2fa/route.ts` (`entrar`, `crear-contrasena`) · `app/api/auth/callback/google/route.ts` ·
+`app/api/perfil/seguridad/route.ts` · `supabase/migrations/0286_contrasena.sql` · `tests/contrasena.test.ts` ·
+*15/10/2026, chat «Ciberseguridad»*
+
+### «Olvidé mi contraseña»: dos guardas que pasaban en verde, y lo que el link todavía NO cierra (15/10/2026)
+
+El circuito 3 de `docs/diseno-login-contrasena.md`: un link de un solo uso que vence a los 30 minutos y lleva el
+token en el FRAGMENTO (`#t=`). Pide además el segundo factor si la cuenta lo tiene. El mail sale por la
+automatización de SuperAdmin «Restablecer contraseña» (`lib/restablecer-aviso.ts`, chat de Automations).
+
+- ⚠️ **Un test de ORDEN pasa en verde si la pieza desaparece.** El test de la ruta se probó con 18 roturas, una
+  por vez. Dos guardas pasaban en verde por la razón equivocada, y sólo las cazó romperlas:
+  · «el link viejo sigue vivo» comparaba `indexOf(cierre) < indexOf(insert)`. Al borrar el cierre, el indexOf da
+    −1, y −1 < N es verde. **Un assert de orden exige primero que la pieza exista (`>= 0`).**
+  · «el link no va al registro» buscaba `link` adentro de `registrarEvento(…)` y matcheaba el TEXTO `'no se pudo
+    crear el link'`: daba rojo con el código CORRECTO. La tentación era aflojar el regex hasta que se callara, y
+    eso deja una guarda que no ve nada. **Lo que se prohíbe es el link como ARGUMENTO (`, link)`), no la
+    palabra.**
+  Arreglados los dos, la base da 6 pases y 0 fallos, y cada una de las 18 roturas da 5/1. Es la misma familia
+  que el tope del hash de la entrada anterior: **un verde no prueba nada hasta que se lo vio ponerse rojo.**
+- **El token en el fragmento tiene un costo.** El server nunca lo ve (por eso no queda en logs ni en el
+  Referer), así que la página no valida nada al renderizar. Muestra «Cargando…» y pregunta con `abrir`. Además,
+  la regla de lint `react-hooks/set-state-in-effect` corta el `setToken` obvio dentro del efecto: el token va en
+  una ref, y el caso sin token pasa por la misma promesa.
+- ⚠️ **Quedó SIN hacer: restablecer NO cierra las sesiones abiertas**, aunque el diseño lo promete. Hoy no hay
+  cómo: el token de sesión no tiene `iat` ni `sid`, y `getUsuarioActual` (`lib/auth.ts`) re-chequea sólo el
+  estado, el rol y el 2FA. Quien robó una sesión la conserva después del restablecer hasta que vence
+  (`SESSION_DIAS` = 30). Depende del registro de sesiones de `docs/diseno-dispositivos-vinculados.md` §2
+  (`usuario_sesiones`, `usuarios.sesiones_desde`), que espera las 5 decisiones de Martín.
+- **Quedó SIN hacer: el mail «tu contraseña cambió».** Lo prometen los circuitos 1, 3 y 4 y no existe: no hay
+  evento en el catálogo. Es una pieza de Automations, igual que el del pedido.
+- La decisión 2 se construyó con la opción A (link MÁS segundo factor) y espera la confirmación de Martín.
+  La prueba de punta a punta es el 19/10 con Automations, con martinkoncke@gmail.com.
+
+**Vive en:** `lib/contrasena-restablecer.ts` · `app/api/auth/restablecer/route.ts` · `app/login/restablecer/` ·
+`app/login/LoginForm.tsx` (`olvido`) · `supabase/migrations/0287_contrasena_restablecer.sql` ·
+`tests/contrasena-restablecer.test.ts` · *15/10/2026, chat «Ciberseguridad»*
+
 ### ⚠️ Ningún guard que mire el eje de workspace puede restringir a la agencia: el único que sirve es `getSesionAdmin()`
 
 Tres guards con nombre de «solo la agencia» y ninguno lo cumple, por la misma razón de

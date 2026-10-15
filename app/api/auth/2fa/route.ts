@@ -17,8 +17,11 @@
 // intermedio en el mismo movimiento (lib/sesion-cookies.ts).
 
 import { NextResponse, type NextRequest } from 'next/server';
-import { PREAUTH_COOKIE, verificarPreauth, type Preauth } from '@/lib/auth-session';
-import { ponerSesion, ponerDispositivo } from '@/lib/sesion-cookies';
+import { requiereCrearContrasena } from '@/lib/contrasena-reglas';
+import { tieneContrasena, guardarContrasena } from '@/lib/contrasena';
+import { obligatorioDesdeDe } from '@/lib/mfa-obligatorio';
+import { PREAUTH_COOKIE, verificarPreauth, crearPreauth, type Preauth } from '@/lib/auth-session';
+import { ponerSesion, ponerDispositivo, ponerPreauth } from '@/lib/sesion-cookies';
 import { buscarUsuarioPorEmail, registrarLogin } from '@/lib/usuarios';
 import { puedeEnrolarSinSesion, canalDisponible, esTelefono, CANALES_CODIGO, CANAL_NO_DISPONIBLE, type Amr } from '@/lib/mfa-reglas';
 import {
@@ -41,14 +44,14 @@ function origenValido(req: NextRequest): boolean {
 }
 
 /** El paso intermedio, y el usuario de verdad detrás (vigente y no suspendido). */
-async function quien(req: NextRequest): Promise<{ pre: Preauth; id: number; rol: 'admin' | 'usuario' } | null> {
+async function quien(req: NextRequest): Promise<{ pre: Preauth; id: number; rol: 'admin' | 'usuario'; ws: number | null } | null> {
   const pre = verificarPreauth(req.cookies.get(PREAUTH_COOKIE)?.value);
   if (!pre) return null;
   const id = Number(pre.sub);
   if (!Number.isInteger(id) || id <= 0) return null;
   const u = await buscarUsuarioPorEmail(pre.email);
   if (!u || u.id !== id || u.estado === 'suspendido') return null;
-  return { pre, id, rol: u.rol };
+  return { pre, id, rol: u.rol, ws: u.workspace_id ?? null };
 }
 
 /** Un nombre corto del dispositivo, para la lista de «recordados». */
@@ -63,9 +66,21 @@ function nombreDispositivo(req: NextRequest): string {
 
 /** Entra: sesión completa, registro del login y, si se pidió, el dispositivo recordado. */
 async function entrar(
-  req: NextRequest, q: { pre: Preauth; id: number; rol: 'admin' | 'usuario' }, mfa: Amr,
-  extra: { recordar?: boolean; codigos?: string[] } = {},
+  req: NextRequest, q: { pre: Preauth; id: number; rol: 'admin' | 'usuario'; ws: number | null }, mfa: Amr,
+  extra: { recordar?: boolean; codigos?: string[]; saltarContrasena?: boolean } = {},
 ): Promise<NextResponse> {
+  // La contraseña obligatoria (decisión de Martín, 15/10/2026: el 21/10, junto con el 2FA). Si ya
+  // tocaba y no la tiene, la sesión NO se abre todavía: el paso intermedio sigue, ahora con el factor
+  // marcado como pasado, y la pantalla que queda es «Crea tu contraseña». Primero el factor, después
+  // la contraseña, una pantalla cada una.
+  if (!extra.saltarContrasena && requiereCrearContrasena(await tieneContrasena(q.id), await obligatorioDesdeDe(q.ws))) {
+    const pre = crearPreauth({ sub: String(q.id), email: q.pre.email, nombre: q.pre.nombre, rol: q.rol, next: q.pre.next, foto: q.pre.foto, mfa, recordar: !!extra.recordar });
+    if (!pre) return no('No se pudo seguir.', 500);
+    const res = NextResponse.json({ ok: true, falta: 'contrasena', next: q.pre.next, ...(extra.codigos ? { codigos: extra.codigos } : {}) });
+    ponerPreauth(res, pre);
+    await registrarEvento(q.id, `factor-${mfa}`, true, 'falta crear la contraseña');
+    return res;
+  }
   const res = NextResponse.json({ ok: true, next: q.pre.next, ...(extra.codigos ? { codigos: extra.codigos } : {}) });
   if (!ponerSesion(res, { sub: String(q.id), email: q.pre.email, nombre: q.pre.nombre, rol: q.rol, mfa })) {
     return no('No se pudo abrir la sesión.', 500);
@@ -93,6 +108,8 @@ export async function GET(req: NextRequest) {
     esTelefono: esTelefono(req.headers.get('user-agent')),
     // Por dónde puede salir un código HOY (vacío en la tanda 1): la pantalla no ofrece otro.
     canales: CANALES_CODIGO,
+    // El factor ya pasó y falta crear la contraseña obligatoria (recargar la página cae acá).
+    falta: q.pre.mfa ? 'contrasena' : null,
   });
 }
 
@@ -109,6 +126,17 @@ export async function POST(req: NextRequest) {
   // ⚠️ El freno NO va acá arriba para todo: frena cada intento de ADIVINAR un código
   // (`intentar`, que anota antes de contar). Puesto para todas las acciones, quien tiene la
   // cuenta de Google le bloqueaba al dueño también su llave de acceso mandando códigos malos.
+
+  // ── Crear la contraseña obligatoria, con el factor ya pasado ──────────────
+  if (accion === 'crear-contrasena') {
+    if (!q.pre.mfa) return no('Primero el segundo paso.');
+    const r = await guardarContrasena(q.id, body.contrasena, q.pre.email);
+    // Lo de la persona (corta, su correo) se corrige y se reintenta en el acto. Un error NUESTRO (la
+    // base no guardó) no la deja afuera: entra, y el pendiente se le vuelve a pedir en el próximo login.
+    if (!r.ok && !r.nuestro) return no(r.error);
+    if (!r.ok) await registrarEvento(q.id, 'contrasena-crear', false, 'la base no guardó: entró igual');
+    return entrar(req, q, q.pre.mfa, { recordar: q.pre.recordar, saltarContrasena: true });
+  }
 
   const e = await estadoMfa(q.id);
   const sinFactores = puedeEnrolarSinSesion(cantidadFactores(e));

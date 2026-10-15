@@ -61,6 +61,7 @@ import { PARTES as DASHBOARD_PARTES, BITACORA as DASHBOARD_BITACORA } from './da
 import { PARTES as VIDEOEDITOR_PARTES, BITACORA as VIDEOEDITOR_BITACORA } from './video-editor/bitacora';
 import { PARTES as IMAGEEDITOR_PARTES, BITACORA as IMAGEEDITOR_BITACORA } from './image-editor/bitacora';
 import { PARTES as MOBILE_PARTES, BITACORA as MOBILE_BITACORA } from './mako-mobile/bitacora';
+import { PARTES as CENTRO_PARTES, BITACORA as CENTRO_BITACORA } from './centro-operaciones/bitacora';
 import { PARTES as AUTH_PARTES, BITACORA as AUTH_BITACORA } from './auth-session/bitacora';
 
 const REGISTROS: Record<string, Registro> = {
@@ -88,6 +89,7 @@ const REGISTROS: Record<string, Registro> = {
   'design-system': { partes: DS_PARTES, bitacora: DS_BITACORA },
   'mako-ux-ui': { partes: MAKOUI_PARTES, bitacora: MAKOUI_BITACORA },
   'mako-mobile': { partes: MOBILE_PARTES, bitacora: MOBILE_BITACORA },
+  'centro-operaciones': { partes: CENTRO_PARTES, bitacora: CENTRO_BITACORA },
   'credentials-vault-byok': { partes: BYOK_PARTES, bitacora: BYOK_BITACORA },
   'vsl-generator': { partes: VSLGEN_PARTES, bitacora: VSLGEN_BITACORA },
   'landing-generator': { partes: LANDINGGEN_PARTES, bitacora: LANDINGGEN_BITACORA },

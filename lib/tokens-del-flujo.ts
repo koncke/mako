@@ -23,7 +23,7 @@ import { OP_AVISAR } from './flujo-legado';
 import { proveedorDelPaso } from './nutricion-canal';
 import { esVariableConocida } from './template-vars';
 import { tokensDe, tokensFueraDe, CLAVE_MENSAJE_MAKO, type ContextoDatos } from './variables-aviso';
-import { datosDelEvento } from './aviso-evento';
+import { datosDelEvento, datosDeLaPersona } from './aviso-evento';
 import { TRIGGER_AVISO_MAKO, TRIGGER_SOLO_GRUPO } from './disparadores';
 import { TRIGGER_RECORDATORIO } from './recordatorio-automatizacion';
 
@@ -69,6 +69,12 @@ export function contextoDeTarjeta(p: PasoGrafo, fila: FilaTokens): ContextoTarje
     return { tipo: 'catalogo', datos: { destino: 'equipo', conLead } };
   }
   if (claseDe(p) !== 'mensaje') return null;
+  // El «Email a la persona» de un evento de una PERSONA (15/10/2026): a ese usuario, con lo que trae el evento (el link
+  // de restablecer). Un mensaje en otro evento de MaKo no corre (`pasosDelEvento`): se valida como al lead.
+  if (fila.trigger_tipo === TRIGGER_AVISO_MAKO) {
+    const persona = datosDeLaPersona(fila.subtipo);
+    if (persona) return { tipo: 'catalogo', datos: persona };
+  }
   const canal = p.canal ?? 'whatsapp';
   if (canal === 'whatsapp' && proveedorDelPaso(p) === 'oficial') return { tipo: 'oficial' };
   return { tipo: 'catalogo', datos: { destino: 'lead', conLead } };

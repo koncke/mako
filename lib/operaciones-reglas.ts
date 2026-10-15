@@ -1,0 +1,273 @@
+// =============================================================================
+// El Centro de Operaciones — las reglas puras (sin server-only, a propósito: las importan la
+// pantalla, el servidor y los tests)
+// =============================================================================
+// Pedido de Martín (15/10/2026): «continua y termina el centro de operaciones». El diseño, en
+// docs/diseno-centro-de-operaciones.md; lo que costó, en docs/hallazgos-operaciones.md.
+//
+// ⚠️ LA VERDAD DE UN PEDIDO ES EL TEXTO FIRMADO. El navegador de Martín arma el JSON con
+// `armarFirmable`, lo firma con una clave que no se puede exportar y que el servidor no tiene, y
+// el cartero de la PC verifica la firma y entrega lo que dice ESE texto. El servidor lo guarda tal
+// cual y no lo vuelve a armar: si lo reconstruyera, la firma dejaría de cubrir lo que se entrega.
+// Por eso acá no hay una «canonicalización» que tenga que coincidir entre dos lugares: el cartero
+// sólo PARSEA el texto que verificó (scripts/operaciones/cartero.mjs, y un test diferencial
+// prueba que los dos lados leen lo mismo).
+// =============================================================================
+
+export const VERSION_PEDIDO = 1 as const;
+/** Tope del texto de un pedido. Se RECHAZA, no se recorta (AGENTS.md: un tope en un texto que
+ *  escribe una persona rechaza). */
+export const MAX_TEXTO = 8000;
+/** Un pedido firmado vale dos semanas: alcanza para que vuelva una cuenta inactiva. */
+export const VENCE_DIAS = 14;
+/** Más que esto sin noticias del cartero y la pantalla deja de decir «vivo». El cartero pasa
+ *  cada uno o dos minutos (el cron del chat Cartero). */
+export const CARTERO_VIVO_MS = 4 * 60 * 1000;
+/** Cuántos pedidos reclama el cartero por vuelta. */
+export const POR_VUELTA = 10;
+
+export const ESTADOS = ['escrito', 'tomado', 'entregado', 'no_entregado', 'incierto', 'hecho', 'comprobado', 'cancelado'] as const;
+export type EstadoPedido = (typeof ESTADOS)[number];
+
+/** Los rótulos de la pantalla: una o dos palabras. escrito ≠ entregado ≠ hecho ≠ comprobado. */
+export const ROTULO: Record<EstadoPedido, string> = {
+  escrito: 'Escrito',
+  tomado: 'Entregando',
+  entregado: 'Entregado',
+  no_entregado: 'No se pudo',
+  incierto: 'No sé si llegó',
+  hecho: 'Hecho',
+  comprobado: 'Comprobado',
+  cancelado: 'Cancelado',
+};
+
+export const ALCANCES = ['solo_esto', 'de_ahora_en_mas'] as const;
+export type Alcance = (typeof ALCANCES)[number];
+
+export type PayloadPedido = {
+  v: typeof VERSION_PEDIDO;
+  /** uuid que pone el navegador; va adentro de la firma. */
+  id: string;
+  texto: string;
+  /** El id del chat: `local_…` para uno de la app de escritorio, `cli_…` para una sesión de
+   *  terminal. Nunca el nombre: se repiten entre cuentas y dentro de una. */
+  destino: string;
+  /** claude1 / claude2 / claude3, o null si el cartero no lo sabe. Informativo. */
+  cuenta: string | null;
+  /** El título del chat al firmar. Informativo: el cartero entrega por `destino`. */
+  titulo: string | null;
+  alcance: Alcance;
+  creado: string;
+  vence: string;
+};
+
+export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+export const DESTINO_RE = /^(local|cli)_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+export const CUENTA_RE = /^claude\d{1,2}$/;
+
+/** El texto que se firma. El orden de las claves es fijo, pero nadie tiene que reproducirlo:
+ *  se guarda y se verifica este mismo string. */
+export function armarFirmable(p: PayloadPedido): string {
+  return JSON.stringify({
+    v: p.v, id: p.id, texto: p.texto, destino: p.destino, cuenta: p.cuenta,
+    titulo: p.titulo, alcance: p.alcance, creado: p.creado, vence: p.vence,
+  });
+}
+
+export function nuevoPayload(entrada: {
+  id: string; texto: string; destino: string; cuenta: string | null; titulo: string | null; alcance: Alcance;
+}, ahora: number): PayloadPedido {
+  return {
+    v: VERSION_PEDIDO,
+    id: entrada.id,
+    texto: entrada.texto.trim(),
+    destino: entrada.destino,
+    cuenta: entrada.cuenta,
+    titulo: entrada.titulo,
+    alcance: entrada.alcance,
+    creado: new Date(ahora).toISOString(),
+    vence: new Date(ahora + VENCE_DIAS * 86_400_000).toISOString(),
+  };
+}
+
+export type Lectura = { ok: true; p: PayloadPedido } | { ok: false; motivo: string };
+
+/** Lee y valida un texto firmado. La usan el servidor (al encolar) y los tests; el cartero tiene
+ *  la suya, en JS plano, y el test diferencial las compara. */
+export function leerFirmable(texto: string, ahora: number): Lectura {
+  let x: unknown;
+  try { x = JSON.parse(texto); } catch { return { ok: false, motivo: 'no es JSON' }; }
+  if (!x || typeof x !== 'object' || Array.isArray(x)) return { ok: false, motivo: 'no es un objeto' };
+  const o = x as Record<string, unknown>;
+  if (o.v !== VERSION_PEDIDO) return { ok: false, motivo: 'versión desconocida' };
+  if (typeof o.id !== 'string' || !UUID_RE.test(o.id)) return { ok: false, motivo: 'id inválido' };
+  if (typeof o.texto !== 'string' || !o.texto.trim()) return { ok: false, motivo: 'sin texto' };
+  if (o.texto.length > MAX_TEXTO) return { ok: false, motivo: `el texto pasa de ${MAX_TEXTO} caracteres` };
+  if (typeof o.destino !== 'string' || !DESTINO_RE.test(o.destino)) return { ok: false, motivo: 'destino inválido' };
+  if (o.cuenta !== null && (typeof o.cuenta !== 'string' || !CUENTA_RE.test(o.cuenta))) return { ok: false, motivo: 'cuenta inválida' };
+  if (o.titulo !== null && typeof o.titulo !== 'string') return { ok: false, motivo: 'título inválido' };
+  if (!(ALCANCES as readonly unknown[]).includes(o.alcance)) return { ok: false, motivo: 'alcance inválido' };
+  const creado = typeof o.creado === 'string' ? Date.parse(o.creado) : NaN;
+  const vence = typeof o.vence === 'string' ? Date.parse(o.vence) : NaN;
+  if (!Number.isFinite(creado) || !Number.isFinite(vence)) return { ok: false, motivo: 'fechas inválidas' };
+  if (vence <= creado || vence - creado > (VENCE_DIAS + 1) * 86_400_000) return { ok: false, motivo: 'vencimiento inválido' };
+  // Un minuto de margen por relojes corridos entre el teléfono y el servidor.
+  if (creado > ahora + 60_000) return { ok: false, motivo: 'fecha en el futuro' };
+  if (vence <= ahora) return { ok: false, motivo: 'venció' };
+  return {
+    ok: true,
+    p: {
+      v: VERSION_PEDIDO, id: o.id, texto: o.texto, destino: o.destino,
+      cuenta: (o.cuenta as string | null) ?? null, titulo: (o.titulo as string | null) ?? null,
+      alcance: o.alcance as Alcance, creado: o.creado as string, vence: o.vence as string,
+    },
+  };
+}
+
+/** El id corto de una clave pública: los primeros 16 hex del SHA-256 de su SPKI. */
+export const claveIdDe = (sha256Hex: string): string => sha256Hex.slice(0, 16).toLowerCase();
+
+// ── La guarda de plataforma ─────────────────────────────────────────────────────────────────
+// ⚠️ `getSesionAdmin()` contesta «¿es admin global?», y eso no alcanza para una puerta a la PC de
+// Martín. Se pide además, EN POSITIVO: que la sesión sea del workspace de la plataforma
+// (`wsSuperAdmin()`, nunca OWNER_WS), que tenga una fila real (no `dev`, `password` ni `legacy`) y
+// que haya pasado un segundo factor de verdad (`mfa` firmado y distinto de `dev`). Medido el 15/10:
+// hay UN admin global, Martín, en el ws 9 (capa superadmin) y con 2FA.
+export type SesionMinima = {
+  sub: string; rol: string; ws?: number | null; legacy?: boolean; mfa?: string;
+};
+const SUBS_SIN_FILA = new Set(['dev', 'password', 'legacy']);
+
+export function puedeOperar<T extends SesionMinima>(s: T | null | undefined, wsPlataforma: number): s is T {
+  if (!s) return false;
+  if (s.rol !== 'admin') return false;
+  if (s.legacy) return false;
+  if (!s.sub || SUBS_SIN_FILA.has(s.sub)) return false;
+  if (!s.mfa || s.mfa === 'dev') return false;
+  return typeof s.ws === 'number' && s.ws === wsPlataforma;
+}
+
+// ── Lo que sube el cartero ──────────────────────────────────────────────────────────────────
+export type ChatCartero = {
+  local: string;
+  titulo: string;
+  cuenta: string | null;
+  /** true = la sesión está corriendo en la PC ahora (puede recibir). */
+  vivo: boolean;
+  /** busy / idle cuando está vivo. */
+  estado: 'busy' | 'idle' | null;
+  /** La última actividad que registra la app, ISO. */
+  actividad: string | null;
+};
+
+const corto = (v: unknown, max: number): string => (typeof v === 'string' ? v.trim().slice(0, max) : '');
+
+export function sanearChats(x: unknown): ChatCartero[] {
+  if (!Array.isArray(x)) return [];
+  const out: ChatCartero[] = [];
+  const vistos = new Set<string>();
+  for (const c of x.slice(0, 400)) {
+    if (!c || typeof c !== 'object') continue;
+    const o = c as Record<string, unknown>;
+    const local = corto(o.local, 60);
+    if (!DESTINO_RE.test(local) || vistos.has(local)) continue;
+    vistos.add(local);
+    const cuenta = corto(o.cuenta, 12);
+    const act = corto(o.actividad, 40);
+    out.push({
+      local,
+      titulo: corto(o.titulo, 120) || '(sin título)',
+      cuenta: CUENTA_RE.test(cuenta) ? cuenta : null,
+      vivo: o.vivo === true,
+      estado: o.estado === 'busy' || o.estado === 'idle' ? o.estado : null,
+      actividad: act && Number.isFinite(Date.parse(act)) ? act : null,
+    });
+  }
+  return out;
+}
+
+export function sanearClaves(x: unknown): string[] {
+  if (!Array.isArray(x)) return [];
+  return [...new Set(x.filter((k): k is string => typeof k === 'string' && /^[0-9a-f]{16}$/.test(k)))].slice(0, 20);
+}
+
+export type Acuse = { id: string; estado: 'entregado' | 'no_entregado' | 'incierto'; motivo: string | null };
+
+export function sanearAcuses(x: unknown): Acuse[] {
+  if (!Array.isArray(x)) return [];
+  const out: Acuse[] = [];
+  for (const a of x.slice(0, 100)) {
+    if (!a || typeof a !== 'object') continue;
+    const o = a as Record<string, unknown>;
+    if (typeof o.id !== 'string' || !UUID_RE.test(o.id)) continue;
+    if (o.estado !== 'entregado' && o.estado !== 'no_entregado' && o.estado !== 'incierto') continue;
+    out.push({ id: o.id, estado: o.estado, motivo: corto(o.motivo, 300) || null });
+  }
+  return out;
+}
+
+/** El cierre de cuatro renglones (§3 del diseño): lo deja el chat al terminar. */
+export type Cierre = { decidido: string; hecho: string; comprobado: string; sigue: string; prueba: string | null };
+export type CierreEntrante = { id: string; cierre: Cierre };
+
+export function sanearCierres(x: unknown): CierreEntrante[] {
+  if (!Array.isArray(x)) return [];
+  const out: CierreEntrante[] = [];
+  for (const c of x.slice(0, 100)) {
+    if (!c || typeof c !== 'object') continue;
+    const o = c as Record<string, unknown>;
+    if (typeof o.id !== 'string' || !UUID_RE.test(o.id)) continue;
+    const k = (o.cierre && typeof o.cierre === 'object' ? o.cierre : {}) as Record<string, unknown>;
+    const cierre: Cierre = {
+      decidido: corto(k.decidido, 600), hecho: corto(k.hecho, 600),
+      comprobado: corto(k.comprobado, 600), sigue: corto(k.sigue, 600),
+      prueba: corto(k.prueba, 300) || null,
+    };
+    if (!cierre.hecho && !cierre.decidido) continue;
+    out.push({ id: o.id, cierre });
+  }
+  return out;
+}
+
+/** Un cierre con prueba pasa a `comprobado`; sin prueba, a `hecho`. */
+export const estadoDeCierre = (c: Cierre): EstadoPedido => (c.prueba ? 'comprobado' : 'hecho');
+
+// ── Qué dice la pantalla de un pedido que espera ────────────────────────────────────────────
+// Hay UN CARTERO POR CUENTA (las tres corren a la vez, decisión de Martín del 15/10): cada uno lee
+// el registro de sesiones de SU directorio de configuración y entrega adentro de su cuenta, que es
+// donde SendMessage funciona. La pantalla junta lo que suben los tres.
+export type VistaCartero = { cuenta: string; vistoAt: string | null; chats: ChatCartero[] };
+
+export function carteroVivo(c: { vistoAt: string | null } | null | undefined, ahora: number): boolean {
+  if (!c?.vistoAt) return false;
+  const t = Date.parse(c.vistoAt);
+  return Number.isFinite(t) && ahora - t < CARTERO_VIVO_MS;
+}
+
+/** Los chats de todos los carteros, cada uno con la cuenta de SU cartero si no trae la suya. */
+export function todosLosChats(carteros: VistaCartero[]): ChatCartero[] {
+  const vistos = new Map<string, ChatCartero>();
+  for (const k of carteros) {
+    for (const c of k.chats) {
+      const previo = vistos.get(c.local);
+      if (!previo || (c.vivo && !previo.vivo)) vistos.set(c.local, { ...c, cuenta: c.cuenta ?? k.cuenta });
+    }
+  }
+  return [...vistos.values()];
+}
+
+/** Para un pedido `escrito`: por qué todavía no salió. null = sale en la próxima vuelta. */
+export function motivoDeEspera(
+  p: { estado: EstadoPedido; destino: string; destino_cuenta: string | null },
+  carteros: VistaCartero[],
+  ahora: number,
+): string | null {
+  if (p.estado !== 'escrito') return null;
+  const chat = todosLosChats(carteros).find((x) => x.local === p.destino);
+  const cuenta = chat?.cuenta ?? p.destino_cuenta;
+  const suyo = carteros.find((k) => k.cuenta === cuenta);
+  const n = cuenta ? cuenta.replace('claude', '') : '?';
+  if (!carteroVivo(suyo, ahora)) return `Espera al cartero de la cuenta ${n}`;
+  if (chat?.vivo) return null;
+  return 'El chat está cerrado: sale cuando se abra';
+}

@@ -83,6 +83,13 @@ import { mediosDeConsulta } from '@/lib/medios-automatizacion';
 // LA GALERÍA (10/10/2026): crear una automatización desde una plantilla. Los pasos van por
 // `setSecuenciaPasos` y el CRON por `guardarDisparadores`, las puertas de siempre (lib/plantilla-crear.ts).
 import { crearDesdePlantilla, PlantillaInvalidaError, type DbPlantilla } from '@/lib/plantilla-crear';
+import { esWsPlataforma } from '@/lib/api-mako/areas/integraciones.helpers';
+
+/** ¿El workspace de este pedido es el de la plataforma? Fail-closed: sin workspace, no. */
+async function esPlataformaActual(): Promise<boolean> {
+  const ws = await getWorkspaceActual().catch(() => null);
+  return ws != null && (await esWsPlataforma(ws));
+}
 import { leerCopia, resumenDeCopia } from '@/lib/flujo-copia';
 import { crearDesdeCopia, limpiarCopia, guardarCopiaConToken, resolverCopia, FaltaTablaCopiasError } from '@/lib/flujo-copia-negocio';
 
@@ -453,6 +460,8 @@ export async function POST(req: NextRequest) {
           setPasos: setSecuenciaPasos,
           setDisparadores: guardarDisparadores,
           motivoDeCron: (e) => (e instanceof TriggerInvalidoError ? e.message : null),
+          // Una plantilla de SuperAdmin (`soloPlataforma`) sólo se crea en el ws de la plataforma.
+          plataforma: await esPlataformaActual(),
         }, { disparador: body.disparador });
         return Response.json({ ok: true, secuenciaId: r.id, nombre: r.nombre, pide: r.pide, ...(r.aviso ? { aviso: r.aviso } : {}) });
       } catch (e) {

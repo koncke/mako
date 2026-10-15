@@ -29,7 +29,7 @@ import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {
-  PLANTILLAS, PLANTILLAS_REEMPLAZADAS, plantillaPorId, plantillaQueLaReemplaza, pasosDePlantilla, nombreLibre, seccionesParaCron,
+  PLANTILLAS, PLANTILLAS_PLATAFORMA, PLANTILLAS_REEMPLAZADAS, plantillaPorId, plantillaQueLaReemplaza, pasosDePlantilla, nombreLibre, seccionesParaCron,
   rotuloDeEleccion, disparadorDeEleccion, disparadoresDePlantilla, eleccionEnPalabras,
   TOPE_LINEA, TRIGGER_DE_PIDE, SIN_ETAPA, SIN_ETIQUETA, esPlantillaMako, canalesDe, filtrarPlantillas, filtroDeValores,
   alternarFiltroGaleria, gruposDelFiltroGaleria, seccionesDeEtiquetas, OBJETIVOS_PLANTILLA, CANALES_PLANTILLA,
@@ -155,9 +155,11 @@ test('la galería son las 13, una por categoría, en orden de embudo, con su nom
     }
     assert.equal(plantillaPorId(p.id), p);
   }
-  // Los tres Eventos de MaKo que se ofrecen tienen su plantilla (y sólo ésos).
-  assert.deepEqual(PLANTILLAS.filter(esPlantillaMako).map((p) => (p.cron.fijo === TRIGGER_AVISO_MAKO ? p.cron.evento : null)).sort(),
+  // Los Eventos de MaKo que se ofrecen tienen su plantilla (y sólo ésos). El de una PERSONA (15/10/2026), en la lista de
+  // SuperAdmin (`PLANTILLAS_PLATAFORMA`): no es de la galería de los negocios.
+  assert.deepEqual([...PLANTILLAS, ...PLANTILLAS_PLATAFORMA].filter(esPlantillaMako).map((p) => (p.cron.fijo === TRIGGER_AVISO_MAKO ? p.cron.evento : null)).sort(),
     EVENTOS_MAKO_OFRECIDOS.map((e) => e.subtipo).sort());
+  assert.ok(PLANTILLAS_PLATAFORMA.every((p) => p.soloPlataforma && plantillaPorId(p.id) === p), 'una de SuperAdmin sin su marca, o que no se encuentra');
   assert.equal(plantillaPorId('no-existe'), null);
   assert.equal(plantillaPorId(7), null);
 });
@@ -726,7 +728,8 @@ test('la galería dibuja «Pídeselo a MaKo», el buscador, «Lienzo en blanco»
 test('«Lienzo en blanco» no pasa por el filtro, y la galería ya no abre con una sección', () => {
   const gal = sinComentarios(leer('app/automations/GaleriaPlantillas.tsx'));
   assert.match(gal, /<div className="gal-grilla" data-galeria-grilla>\n\s*<button type="button" className="gal-tarjeta mk-nuevo" data-empezar="blanco"/);
-  assert.match(gal, /const visibles = useMemo\(\(\) => filtrarPlantillas\(PLANTILLAS, \{ texto, canal: filtro\.canal, objetivo: filtro\.objetivo \}\)/);
+  // (15/10/2026: la lista es la de ESTE workspace: las de SuperAdmin, sólo en la plataforma, `plantillasPara`.)
+  assert.match(gal, /const visibles = useMemo\(\(\) => filtrarPlantillas\(plantillasPara\(\{ plataforma \}\), \{ texto, canal: filtro\.canal, objetivo: filtro\.objetivo \}\)/);
   assert.match(gal, /\{!visibles\.length && <div data-galeria-vacia style=\{LINEA\}>\{SIN_RESULTADOS\}<\/div>\}/);
   assert.match(gal, /onClick=\{\(\) => props\.current\.onBlanco\(\)\}/);
   // Undécima tanda: sin `seccion`, sin `triggersVivos` y sin «Ya la tienes».

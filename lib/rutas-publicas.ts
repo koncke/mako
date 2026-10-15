@@ -58,6 +58,10 @@ export const PUBLICOS = [
   // El early-return del proxy se saltea el chequeo de Origin, asi que una ruta
   // de aca que mirara la cookie seria un CSRF.
   '/api/montaje/worker',
+  // El cartero del Centro de Operaciones: corre en la PC de Martín, sin sesión de MaKo. Se
+  // autentica con su token (`mkop_…`, por hash en operaciones_cartero) y no mira la cookie. Es la
+  // ruta EXACTA: /admin/operaciones y sus acciones NO están acá (son la pantalla, con sesión).
+  '/api/operaciones/cartero',
   // La política de privacidad de la extensión. La Chrome Web Store la EXIGE como
   // URL pública y su revisor la abre sin cuenta de MaKo: detrás del login se lee
   // como que no existe, y eso es motivo de rechazo.

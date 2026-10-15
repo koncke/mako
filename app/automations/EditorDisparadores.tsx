@@ -65,6 +65,7 @@ import { scrollParaVer } from '@/lib/lienzo-grafo';
 import type { CronAviso } from '@/lib/cron-aviso';
 import type { Opcion, ProductoOpcion, SecuenciaDto } from './ChatAgentApp';
 import type { EtiquetaLienzo } from './FlujoLienzo';
+import { usePlataforma } from './plataforma';
 
 const SANS = "'Geist', sans-serif";
 
@@ -305,6 +306,8 @@ export function EventosDeCanal({ clase, d, estado, onElegir, disabled }: {
 }) {
   const canal = estado?.[clase];
   const cargando = estado === undefined;
+  // El evento de una PERSONA (la contraseña) lo emite sólo la plataforma: se ofrece sólo ahí (`eventosOfrecidos`).
+  const plataforma = usePlataforma();
   const conectado = canal?.conectado === true;
   const motivo = cargando ? null : estado === null ? 'No pude comprobarlo' : (!conectado ? (canal?.motivo ?? 'Sin conectar') : null);
   /** El modal abierto (ConectarMedio): el email, Instagram o Messenger. */
@@ -334,7 +337,7 @@ export function EventosDeCanal({ clase, d, estado, onElegir, disabled }: {
       )}
       {conectar && <ConectarMedio medio={conectar} onCerrar={() => setConectar(null)} onConectado={() => setConectar(null)} />}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
-        {eventosOfrecidos(clase, d.subtipo).map((ev) => {
+        {eventosOfrecidos(clase, d.subtipo, { plataforma }).map((ev) => {
           const elegido = d.subtipo === ev.subtipo;
           const apagado = !!ev.apagado || !conectado;
           return (

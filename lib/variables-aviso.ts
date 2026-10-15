@@ -107,10 +107,13 @@ export function tramosConVariables(linea: string): Array<{ txt: string; esVar: b
  */
 export type FuenteDato = 'nombre' | 'ficha' | 'zona' | 'producto' | 'etiquetas' | 'pagos' | 'curso'
   | 'perfil' | 'lead_magnet' | 'momento' | 'negocio' | 'links' | 'evento' | 'cuota' | 'cobro'
-  | 'proxima' | 'respuestas' | 'pago' | 'escrito' | 'analisis';
+  | 'proxima' | 'respuestas' | 'pago' | 'escrito' | 'analisis' | 'cuenta';
 
-/** A quién le llega el mensaje: al lead (las automatizaciones) o al equipo (MaKo en WhatsApp). */
-export type DestinoMensaje = 'lead' | 'equipo';
+/**
+ * A quién le llega el mensaje: al lead (las automatizaciones), al equipo (MaKo en WhatsApp) o a un USUARIO de MaKo
+ * (15/10/2026: «Email a la persona» de un evento de una persona, `EventoMako.persona`).
+ */
+export type DestinoMensaje = 'lead' | 'equipo' | 'usuario';
 
 /** Un dato que se puede meter adentro del texto de un mensaje. */
 export type VariableAviso = {
@@ -134,7 +137,15 @@ export type VariableAviso = {
    * · `analisis` — necesita el ANÁLISIS que terminó el AI Analyst del Dashboard (sólo el evento `analisis_listo`): lo
    *               pasa el emisor (`analizarHoja`, lib/graficos-analisis-server.ts) armado con `valoresDelAnalisis`.
    */
-  alcance: 'siempre' | 'lead' | 'cuota' | 'mensaje' | 'pago' | 'escrito' | 'analisis';
+  alcance: 'siempre' | 'lead' | 'cuota' | 'mensaje' | 'pago' | 'escrito' | 'analisis' | 'restablecer';
+  /**
+   * UN DATO SECRETO (15/10/2026, docs/diseno-2fa-obligatorio.md §3 y §8): el link de restablecer la contraseña (y
+   * después el código del 2FA por correo). Sale SÓLO en el mail a la persona y NUNCA se guarda: `sinSecretos` lo saca
+   * del contexto de toda corrida que se guarda (lib/flujo-corridas.ts), y un evento que lo trae no lleva DELAY
+   * (`pasosDelEvento`, lib/aviso-evento.ts). No va al feed, al push ni al doer: la tarjeta que lo manda no pasa por
+   * `emitirAviso`.
+   */
+  secreto?: true;
   /** En qué grupo (rama del árbol) lo muestra el selector. El orden lo fija `GRUPOS_VARIABLES`. */
   grupo: GrupoVariable;
   /**
@@ -161,7 +172,7 @@ export type VariableAviso = {
 };
 
 export type GrupoVariable =
-  | 'lead' | 'crm' | 'reuniones' | 'pagos' | 'campana' | 'formulario' | 'curso' | 'cerebro' | 'dashboard' | 'momento' | 'links';
+  | 'lead' | 'crm' | 'reuniones' | 'pagos' | 'campana' | 'formulario' | 'curso' | 'cerebro' | 'dashboard' | 'momento' | 'links' | 'cuenta';
 
 /**
  * Las ramas del árbol, en orden, con su ícono (el `name` de `<Icon>`, app/_components/icons.tsx).
@@ -180,6 +191,7 @@ export const GRUPOS_VARIABLES: ReadonlyArray<{ key: GrupoVariable; titulo: strin
   { key: 'dashboard', titulo: 'Dashboard', icono: 'graphics' },
   { key: 'momento', titulo: 'Fecha y hora', icono: 'bell' },
   { key: 'links', titulo: 'Links de MaKo', icono: 'web' },
+  { key: 'cuenta', titulo: 'Cuenta de MaKo', icono: 'perfil' },
 ];
 
 /**
@@ -315,6 +327,9 @@ export const VARIABLES_AVISO: VariableAviso[] = [
   { key: 'analisis_hallazgos', label: 'Hallazgos', ejemplo: '• El anuncio «Testimonio 3» trae la mitad de las agendas\n• Los martes se agenda el doble', alcance: 'analisis', grupo: 'dashboard', fuente: 'analisis', soloPara: 'equipo' },
   { key: 'analisis_origen', label: 'Programado o a mano', ejemplo: 'Programado', alcance: 'analisis', grupo: 'dashboard', fuente: 'analisis', soloPara: 'equipo' },
   { key: 'analisis_link', label: 'Link al análisis', ejemplo: 'https://hola-mako.com/dashboard?hoja=marketing', alcance: 'analisis', grupo: 'dashboard', fuente: 'analisis', soloPara: 'equipo' },
+  // ── La cuenta de MaKo de una PERSONA (15/10/2026): lo trae el evento de Seguridad en `datos`, armado por código.
+  //    El link es de UN uso y vence en 30 minutos: SECRETO, sólo en el mail a esa persona.
+  { key: 'link_restablecer', label: 'Link para restablecer', ejemplo: 'https://hola-mako.com/restablecer?t=…', alcance: 'restablecer', grupo: 'cuenta', fuente: 'cuenta', soloPara: 'usuario', secreto: true },
 
   // ── Campaña: de dónde vino. Son nombres internos (de la campaña, del anuncio): para el equipo.
   { key: 'lead_origen', label: 'Por dónde entró', ejemplo: 'instant_form', alcance: 'lead', grupo: 'campana', fuente: 'ficha', soloPara: 'equipo' },
@@ -380,6 +395,21 @@ export const VARIABLES_AVISO: VariableAviso[] = [
 
 const POR_CLAVE: ReadonlyMap<string, VariableAviso> = new Map(VARIABLES_AVISO.map((v) => [v.key, v]));
 
+/** Las claves de los datos SECRETOS (`VariableAviso.secreto`). Salen del catálogo: un secreto nuevo se marca ahí. */
+export const CLAVES_SECRETAS: ReadonlySet<string> = new Set(VARIABLES_AVISO.filter((v) => v.secreto).map((v) => v.key));
+
+/**
+ * LOS DATOS SIN LO SECRETO, para todo lo que se GUARDA (el contexto de una corrida, lib/flujo-corridas.ts). Sin
+ * secretos devuelve el MISMO objeto. Un secreto que se guardó una vez ya no es de un solo uso: vive en la base.
+ */
+export function sinSecretos<C extends { datos?: Record<string, string> }>(ctx: C): C {
+  if (!ctx.datos || !Object.keys(ctx.datos).some((k) => CLAVES_SECRETAS.has(k))) return ctx;
+  return { ...ctx, datos: Object.fromEntries(Object.entries(ctx.datos).filter(([k]) => !CLAVES_SECRETAS.has(k))) };
+}
+
+/** ¿Este texto cita un dato secreto? (`{{link_restablecer}}`). Es lo que Publicar mira en cada tarjeta. */
+export const citaSecreto = (texto: string): boolean => tokensDe(texto).some((t) => CLAVES_SECRETAS.has(t.key));
+
 /** El dato de una clave (en minúsculas), o `undefined` si no es del catálogo. */
 export const datoDe = (key: string): VariableAviso | undefined => POR_CLAVE.get(key.toLowerCase());
 
@@ -434,6 +464,8 @@ export const RUTA_DE_LINK: Readonly<Record<string, string>> = {
  */
 export type ContextoDatos = {
   conLead: boolean; conCuota?: boolean; conMensaje?: boolean; conPago?: boolean; conEscrito?: boolean; conAnalisis?: boolean; destino?: DestinoMensaje;
+  /** El link de restablecer la contraseña (sólo el evento `contrasena_restablecer`, y sólo al mail a la persona). */
+  conRestablecer?: boolean;
 };
 
 /** ¿Este dato vale para un mensaje a este destino? (las claves `oculta` se resuelven igual). */
@@ -459,6 +491,7 @@ function alcanzaPara(a: VariableAviso['alcance'], opts: ContextoDatos): boolean 
   if (a === 'pago') return opts.conPago === true;
   if (a === 'escrito') return opts.conEscrito === true;
   if (a === 'analisis') return opts.conAnalisis === true;
+  if (a === 'restablecer') return opts.conRestablecer === true;
   return false;
 }
 

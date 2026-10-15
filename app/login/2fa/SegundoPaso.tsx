@@ -13,7 +13,7 @@
 // El código por WhatsApp o correo se manda con un botón y no al abrir: recargar la
 // pantalla no puede mandar un mensaje.
 
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useState, type CSSProperties, type FormEvent } from 'react';
 import { startAuthentication, startRegistration } from '@simplewebauthn/browser';
 import { descargarCodigos } from './descargar-codigos';
 import { CampoCodigo } from './CampoCodigo';
@@ -27,6 +27,8 @@ type Estado = {
   esTelefono: boolean;
   /** Por dónde puede salir un código hoy (vacío en la tanda 1). */
   canales: ('whatsapp' | 'email')[];
+  /** El factor ya pasó y falta crear la contraseña obligatoria (15/10/2026). */
+  falta?: 'contrasena' | null;
 };
 type Respuesta = { ok: boolean; error?: string; next?: string; codigos?: string[]; destino?: string; [k: string]: unknown };
 
@@ -65,7 +67,11 @@ export function SegundoPaso({ cuenta }: { cuenta: string }) {
   const [recordar, setRecordar] = useState(false);
   const [ocupado, setOcupado] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [codigos, setCodigos] = useState<{ lista: string[]; next: string } | null>(null);
+  const [codigos, setCodigos] = useState<{ lista: string[]; next: string; luegoContrasena?: boolean } | null>(null);
+  // La contraseña obligatoria (decisión de Martín, 15/10/2026): después del factor, una pantalla propia.
+  const [pidiendoContrasena, setPidiendoContrasena] = useState(false);
+  const [nueva, setNueva] = useState('');
+  const [verNueva, setVerNueva] = useState(false);
   const [copiado, setCopiado] = useState(false);
   // Después de entrar, en el teléfono: «¿la próxima vez con la huella?». Guarda adónde ir después.
   const [ofertaHuella, setOfertaHuella] = useState<string | null>(null);
@@ -76,6 +82,7 @@ export function SegundoPaso({ cuenta }: { cuenta: string }) {
       const j = (await r.json()) as Estado & { ok: boolean };
       if (!j.ok) return;
       setEstado(j);
+      if (j.falta === 'contrasena') setPidiendoContrasena(true);
       const disponibles = ORDEN.filter((m) => (m === 'passkey' ? j.factores.passkey && j.passkeysDisponibles : !!j.factores[m]));
       setMetodo(disponibles[0] ?? (j.factores.recuperacion ? 'recuperacion' : null));
     }).catch(() => setError('No se pudo conectar.'));
@@ -100,7 +107,11 @@ export function SegundoPaso({ cuenta }: { cuenta: string }) {
   /** Termina: con códigos nuevos, primero se muestran; si no, entra. */
   const salir = (j: Respuesta) => {
     const next = j.next || '/inicio';
-    if (j.codigos?.length) { setCodigos({ lista: j.codigos, next }); return; }
+    // Si además falta crear la contraseña, los códigos van PRIMERO (son lo que no se vuelve a ver) y
+    // después la pantalla de la contraseña. La sesión todavía no está puesta: la abre ese último paso.
+    const faltaContrasena = j.falta === 'contrasena';
+    if (j.codigos?.length) { setCodigos({ lista: j.codigos, next, luegoContrasena: faltaContrasena }); return; }
+    if (faltaContrasena) { setPidiendoContrasena(true); return; }
     terminar(next);
   };
 
@@ -188,8 +199,36 @@ export function SegundoPaso({ cuenta }: { cuenta: string }) {
             {copiado ? 'Copiados' : 'Copiar'}
           </button>
         </div>
-        <button type="button" style={btn} onClick={() => terminar(codigos.next)}>Ya los guardé</button>
+        <button type="button" style={btn} onClick={() => {
+          if (codigos.luegoContrasena) { setCodigos(null); setPidiendoContrasena(true); return; }
+          terminar(codigos.next);
+        }}>Ya los guardé</button>
       </div>
+    );
+  }
+
+  if (pidiendoContrasena) {
+    const crear = (e: FormEvent) => {
+      e.preventDefault();
+      void correr(async () => {
+        const j = await pedir({ accion: 'crear-contrasena', contrasena: nueva });
+        if (!j.ok) { setError(j.error ?? 'No se pudo.'); return; }
+        salir(j);
+      });
+    };
+    return (
+      <form onSubmit={crear}>
+        <div style={titulo}>Crea tu contraseña</div>
+        <div style={sub}>Para entrar el día que Google no esté. 12 caracteres o más.</div>
+        {error && <div style={errorBox}>{error}</div>}
+        {/* El correo, oculto: el gestor de contraseñas la guarda con la cuenta correcta. */}
+        <input type="email" autoComplete="username" value={cuenta} readOnly hidden />
+        <input type={verNueva ? 'text' : 'password'} autoComplete="new-password" value={nueva} onChange={(e) => setNueva(e.target.value)} style={campoTexto} autoFocus aria-label="Contraseña nueva" />
+        <div style={{ margin: '8px 0 12px' }}>
+          <button type="button" style={link} onClick={() => setVerNueva((v) => !v)}>{verNueva ? 'Ocultar' : 'Mostrar'}</button>
+        </div>
+        <button type="submit" style={btn} disabled={ocupado || !nueva}>Guardar y entrar</button>
+      </form>
     );
   }
 

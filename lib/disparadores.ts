@@ -192,7 +192,16 @@ export const EVENTOS_PAGO: readonly EventoCanal[] = [
 ];
 
 /** Cuál de los «Eventos de MaKo» (`EVENTOS_MAKO`). */
-export type SubtipoMako = 'reunion_pronto' | 'lead_contesta' | 'cuota_vencida' | 'lead_agendo' | 'pago_recibido' | 'analisis_listo';
+export type SubtipoMako = 'reunion_pronto' | 'lead_contesta' | 'cuota_vencida' | 'lead_agendo' | 'pago_recibido' | 'analisis_listo' | 'contrasena_restablecer';
+
+/**
+ * PARA QUÉ LE ESCRIBE A LA PERSONA un evento de una PERSONA (15/10/2026, docs/diseno-2fa-obligatorio.md §8): lo DECLARA
+ * el evento, nunca se deduce de lo que trae. Va tal cual a `destinoDeUsuario` (lib/destino-usuario.ts, de Seguridad), y
+ * cada uno es OTRO correo: 'restablecer' y 'aviso' van al de la cuenta; 'codigo', sólo al de respaldo verificado (un
+ * código al mismo correo de Google no es un segundo factor). Deducirlo de «trae un secreto» mandaba el link de
+ * restablecer al correo de respaldo, que la mayoría no tiene.
+ */
+export type PropositoPersona = 'restablecer' | 'aviso' | 'codigo';
 
 /**
  * LOS EVENTOS DE MAKO (11/10/2026, docs/diseno-mako-en-whatsapp-unificado.md §1): cada uno es un aviso del
@@ -212,7 +221,17 @@ export type SubtipoMako = 'reunion_pronto' | 'lead_contesta' | 'cuota_vencida' |
  * `eventoDeFila` devolvería null para las filas vivas (#239, #240) entre el deploy y el script de la ola 4, y sus avisos
  * dejarían de salir. Ni `apagado`: eso las frenaría al guardar.
  */
-export type EventoMako = EventoCanal & { subtipo: SubtipoMako; aviso: string; trae: ReadonlyArray<'lead' | 'mensaje' | 'cuota' | 'pago' | 'escrito' | 'analisis'>; retirado?: true };
+export type EventoMako = EventoCanal & {
+  subtipo: SubtipoMako; aviso: string; trae: ReadonlyArray<'lead' | 'mensaje' | 'cuota' | 'pago' | 'escrito' | 'analisis' | 'restablecer'>; retirado?: true;
+  /**
+   * UN EVENTO DE UNA PERSONA (15/10/2026): habla de un USUARIO de MaKo (`datos.usuario_id`), no de un lead, y su
+   * automatización le puede escribir a ESA persona por email («Email a la persona», `pasosDelEvento`). El valor es para
+   * qué (`PropositoPersona`). Sólo los emite la PLATAFORMA (su ws), así que sólo se ofrecen ahí (`eventosOfrecidos`).
+   */
+  persona?: PropositoPersona;
+  /** A quién le llega el «Email a la persona», dicho en el «Para» de la tarjeta. Sólo con `persona`. */
+  quien?: string;
+};
 export const EVENTOS_MAKO: readonly EventoMako[] = [
   { subtipo: 'reunion_pronto', aviso: 'reunion-recordatorio', label: 'Falta media hora para una reunión', trae: ['lead', 'mensaje'], retirado: true },
   { subtipo: 'lead_contesta', aviso: 'wa-mensaje-entrante', label: 'Un lead contesta y MaKo no le respondió', trae: ['lead', 'escrito', 'mensaje'] },
@@ -229,6 +248,11 @@ export const EVENTOS_MAKO: readonly EventoMako[] = [
   // consumir esto»): lo emite el AI Analyst al terminar (`analizarHoja`, lib/graficos-analisis-server.ts) con los datos
   // de `valoresDelAnalisis`. No es de un lead: el análisis es del negocio, y la automatización le avisa al grupo.
   { subtipo: 'analisis_listo', aviso: 'dashboard-analisis-listo', label: 'El AI Analyst termina un análisis', trae: ['analisis'] },
+  // LA CONTRASEÑA OBLIGATORIA (15/10/2026, decisión de Martín: desde el 21/10, como el 2FA): «Olvidé mi contraseña» lo
+  // emite la ruta de recuperación de Seguridad con `usuario_id` y el link, que es de UN uso y vence en 30 minutos:
+  // `{{link_restablecer}}` es un dato SECRETO (`secreto`, lib/variables-aviso.ts). Todo por Automations: el mail lo
+  // manda la automatización de SuperAdmin, por el remitente de MaKo.
+  { subtipo: 'contrasena_restablecer', aviso: 'seguridad-contrasena-restablecer', label: 'Alguien pide restablecer su contraseña', trae: ['restablecer'], persona: 'restablecer', quien: 'Quien pide restablecer su contraseña' },
 ];
 
 /**
@@ -243,9 +267,11 @@ export const EVENTOS_MAKO_OFRECIDOS: readonly EventoMako[] = EVENTOS_MAKO.filter
  * Lead Agendó Llamada»). El que la fila YA tiene se sigue viendo elegido (una fila viva de antes, hasta el script);
  * cambiarlo a un retirado lo frena igual `problemaDeCambio`.
  */
-export function eventosOfrecidos(clase: ClaseDisparador | 'otro' | null, elegido: unknown): readonly EventoCanal[] {
+export function eventosOfrecidos(clase: ClaseDisparador | 'otro' | null, elegido: unknown, o: { plataforma?: boolean } = {}): readonly EventoCanal[] {
   if (clase !== 'mako') return eventosDe(clase);
-  return EVENTOS_MAKO.filter((e) => EVENTOS_MAKO_OFRECIDOS.includes(e) || e.subtipo === elegido);
+  // Un evento de una PERSONA (`persona`) lo emite sólo la plataforma, en SU ws: en un negocio, una fila con él no
+  // correría nunca. Se ofrece sólo en la plataforma (el que ya está elegido se sigue viendo).
+  return EVENTOS_MAKO.filter((e) => (EVENTOS_MAKO_OFRECIDOS.includes(e) && (!e.persona || o.plataforma === true)) || e.subtipo === elegido);
 }
 
 /** Los eventos de una clase de canal (vacío para las demás). */

@@ -24,7 +24,7 @@
 import 'server-only';
 import { listarFlujosActivos } from './plantillas';
 import { generarMensajeAviso } from './plantillas';
-import { conVariables } from './variables-resolver';
+import { conVariables, valoresDeVariables } from './variables-resolver';
 import { enviarAlGrupoMaKo } from './mako-grupo';
 import { abrirInsistencia } from './insistencias';
 import { runWithWorkspace, getTenantDb } from './workspace';
@@ -331,6 +331,21 @@ async function ejecutarPaso(flujoId: string, paso: Paso, ws: number, ctx: CtxFlu
     // cada repetición se redactara distinta, el dueño leería cuatro avisos que parecen
     // cuatro hechos. Es el mismo hecho insistiendo.
     await abrirInsistencia(ws, { flujoId, leadId: ctx.leadId ?? null, texto, cadaMin: paso.cadaMin, veces: paso.veces });
+    return;
+  }
+  // «EMAIL A LA PERSONA» (15/10/2026): el mail de un evento de una PERSONA (el link de restablecer la contraseña), por
+  // el remitente de MaKo y al correo que diga Seguridad para ese propósito. Nunca tira, y lo secreto no sale de ahí
+  // (lib/email-persona.ts). Import dinámico: lo cargan los cinco webhooks y esto lo usa sólo la plataforma.
+  if (paso.tipo === 'email_persona') {
+    const [{ enviarEmailAPersona }, { destinoDeUsuario }, { sendEmail }, { REMITENTE_MAKO }] = await Promise.all([
+      import('./email-persona'), import('./destino-usuario'), import('./resend'), import('./app-url'),
+    ]);
+    await enviarEmailAPersona(paso, ctx, {
+      destino: (uid, proposito) => destinoDeUsuario(uid, 'email', proposito),
+      valores: (texto, datos) => valoresDeVariables({ ws, leadId: null, destino: 'usuario' }, texto, datos),
+      enviar: (m) => sendEmail({ ...m, from: REMITENTE_MAKO, tags: [{ name: 'tipo', value: 'persona' }] }),
+      alGrupo: async (t) => { await enviarAlGrupoMaKo(ws, t); },
+    });
     return;
   }
   if (paso.tipo === 'mensaje') {

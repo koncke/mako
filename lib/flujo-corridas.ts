@@ -14,6 +14,7 @@ import { getTenantDb, runWithWorkspace } from './workspace';
 import { getSupabaseServer } from './supabase';
 import type { CtxFlujo } from './flujos';
 import { ctxParaDormir } from './flujo-pasos';
+import { sinSecretos } from './variables-aviso';
 
 export type Corrida = {
   id: number;
@@ -61,9 +62,11 @@ export async function abrirCorrida(
       // pudo leer al lead en una CONDITION, y lo que viene puede ser la ENTRADA, que usa `{{cuota_dias}}` (antes de un
       // DELAY va: es el dato de hoy). Es el mismo momento unos minutos después (`reintentoDeHechos` tiene tope): sacarle
       // el dato la mandaría con la variable cruda. Lo de después de un DELAY no lo puede usar igual (`pasosDelEvento`).
+      // ⚠️ Y NUNCA CON UN SECRETO (15/10/2026, `sinSecretos`): tampoco en el reintento, que guarda el contexto entero.
+      // El link de restablecer es de UN uso; guardado en la base, ya no lo es.
       const { data, error } = await db.from('flujo_corridas').insert({
         aviso_id: avisoId, paso, proxima_at: proximaAt?.toISOString() ?? null,
-        desde_at: new Date().toISOString(), ctx: o?.reintento ? ctx : ctxParaDormir(ctx),
+        desde_at: new Date().toISOString(), ctx: sinSecretos(o?.reintento ? ctx : ctxParaDormir(ctx)),
       }).select('id').single();
       if (error) { console.error('[corridas] abrir:', error.message); return null; }
       return (data as { id: number }).id;
@@ -130,7 +133,7 @@ export async function avanzar(
           // mide desde que se DURMIÓ, no desde que arrancó la corrida.
           desde_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-          ...(ctx ? { ctx } : {}),
+          ...(ctx ? { ctx: sinSecretos(ctx) } : {}),
         })
         .eq('id', id).eq('paso', pasoViejo).eq('estado', 'pendiente')
         .select('id');

@@ -957,6 +957,11 @@ export const AREA_KEYWORDS: Readonly<Record<Area, RegExp>> = {
   // trae la agenda del CRM (arriba): las dos áreas contestan cosas distintas del mismo día.
   calendario: /\b(calendario|publicaci[oó]n(es)? (?:de|para) (?:la semana|ma[ñn]ana|hoy|el)|programa(?:r|me|lo)? (?:un |una |el |la )?(?:reel|story|post|publicaci)|agend(?:ar|a|ame|alo) (?:un |una |el |la )?(?:reel|story|post|publicaci[oó]n|bloque)|bloques? de (?:trabajo|foco))/i,
   mako: /\b(pendientes?|propuestas?|qu[eé] (pod[eé]s|puedes) hacer|capacidades)/i,
+  // El Centro de Operaciones (15/10/2026): sólo dos LECTURAS y sólo para la plataforma (`soloPlataforma`), así que
+  // nombrarlas desde un cliente no le suma nada (lo saca `gatingOk`). Para Martín sí: «¿cómo van mis pedidos del centro?»,
+  // «¿pasó el cartero?». Palabras propias y nunca «pedido» suelto, que en un negocio es un pedido de un cliente.
+  // MANDAR un pedido no está en el registro (exige la firma del dispositivo): no hay palabra que lo traiga.
+  operaciones: /\b(centro de operaciones|carteros?\b|cola de pedidos|pedidos? (?:a|al|para|de|del) (?:los |mis |un |el |la )?(?:chats?|centro)\b|chats? de claude)/i,
 };
 
 /** Las áreas que nombra un mensaje, en el orden de la tabla. Vacío = ninguna. */
