@@ -160,7 +160,20 @@ export function esPedidoDiseno(n: string): boolean {
 //   · No es pedido: una pregunta de cómo se hace (`ARRANCA_PREGUNTANDO`), lo del plan («crea una tarea para publicar…»,
 //     `ES_DEL_PLAN`) ni el infinitivo de una tarea dictada (lo toma antes la regla 4).
 // Lo peor que deja equivocarse es una propuesta de más: publicar va en pantalla y el resto pide el «sí».
-export type PedidoDeLanding = { tipo: 'publicar' | 'despublicar' | 'crear' | 'replicar' | 'analizar' };
+//
+// EDITAR una landing ya creada (corrección de la tanda 7, 15/10/2026; Martín: «Todas las funciones a la API de MaKo»).
+// La verificación midió con el turno que CORRE que «cambia el titular de mi landing…», «agrega una sección…», «ponle
+// este video a mi landing https://…», «cambia el tema…», «conecta el dominio…» y «oculta la sección…» salían `capturar`
+// dudosa (o, con el link, «material para guardar») sin ninguna herramienta de landing: las operaciones del editor
+// existían por la app y por HTTP, no por WhatsApp.
+//   · Un verbo de pedido (con tilde, con pronombre —también «le»: «ponle», «cámbiale»—, suelto al arranque o con un
+//     modal) y a ≤3 palabras una PIEZA de la landing (la landing misma, una sección, el titular, un botón, el
+//     formulario, el tema, el dominio, un video, la agenda, un link…), sin un objeto de OTRA área en el medio ni
+//     justo después («cambia el titular DEL ANUNCIO» es de Ads).
+//   · Y la landing NOMBRADA en el mensaje (una landing, una página, un sitio, una web), sin contar los links ni «la
+//     página de Facebook»: «agrega un video al reel» o «cambia el tema del mail» no son de acá.
+//   · Va DESPUÉS de los otros cinco: «publicá la landing» es publicar aunque publicar también la cambie.
+export type PedidoDeLanding = { tipo: 'publicar' | 'despublicar' | 'crear' | 'replicar' | 'analizar' | 'editar' };
 
 /** Lo que pone primero las herramientas de cada pedido en el presupuesto (y la lista para encontrar el id). */
 export const RELEVANCIA_LANDING: Readonly<Record<PedidoDeLanding['tipo'], string>> = {
@@ -169,10 +182,15 @@ export const RELEVANCIA_LANDING: Readonly<Record<PedidoDeLanding['tipo'], string
   crear: 'crear landing diseno disenos listar presentacion plantilla',
   replicar: 'replicar landing pagina afuera copia',
   analizar: 'analizar diagnosticar landing diagnostico',
+  // Editar es CORTA a propósito: la herramienta la eligen las palabras del mensaje («tema», «dominio», «sección»). Medido
+  // el 15/10/2026 con el turno que corre: una lista larga («cambiar texto sección bloque enlace tema dominio…») sumaba
+  // puntos parejos a las 40 del editor, las grandes llenaban los 12.000 caracteres y 4 de los 6 pedidos de la prueba
+  // llegaban sin su herramienta; con «landings creadas», los 6 con la suya y con `listar_landings_creadas` (el id).
+  editar: 'landings creadas',
 };
 
 /** El voseo con tilde de estos verbos, en el texto CRUDO: se marca con «§» antes de normalizar (la tilde se pierde). */
-const VOSEO_LANDING = /(^|[\s,.;:!¡¿?"'(])(publicá|despublicá|subí|creá|armá|hacé|generá|diseñá|montá|prepará|replicá|copiá|cloná|analizá|revisá|auditá|diagnosticá|evaluá|sacá|quitá|bajá)(?=[\s,.;:!?"')]|$)/gi;
+const VOSEO_LANDING = /(^|[\s,.;:!¡¿?"'(])(publicá|despublicá|subí|creá|armá|hacé|generá|diseñá|montá|prepará|replicá|copiá|cloná|analizá|revisá|auditá|diagnosticá|evaluá|sacá|quitá|bajá|cambiá|agregá|añadí|poné|ocultá|escondé|mostrá|mové|borrá|eliminá|editá|traducí|duplicá|conectá|verificá|compartí|actualizá|modificá|reemplazá|corregí|arreglá|sumá|meté)(?=[\s,.;:!?"')]|$)/gi;
 const PRON_LANDING = '(?:mela|melo|nosla|noslo|la|lo|las|los|me|nos)';
 /** El verbo inequívoco: con la tilde marcada o con el pronombre pegado. */
 const verboFuerte = (raices: string) => `\\b(?:${raices})(?:§|${PRON_LANDING}\\b)`;
@@ -204,7 +222,8 @@ const PEDIDO_REPLICAR = pedidoDe([
 const PEDIDO_ANALIZAR = pedidoDe([
   verboFuerte('analiza|revisa|audita|diagnostica|evalua'), verboSuelto('analiza|revisa|audita|diagnostica|evalua'),
   verboModal('analizar|revisar|auditar|diagnosticar|evaluar|analices|revises|audites|diagnostiques|evalues'),
-  `\\b(?:haz|hazme|haznos|haceme|hace§|dame|quiero|necesito|quisiera)${SEP_LANDING}(?:un|una|el|la)${SEP_LANDING}(?:diagnostico|analisis|auditoria|revision)\\b`,
+  // «hazle un diagnóstico a mi landing» (con «le»): la verificación de la tanda 7 lo midió sin herramienta.
+  `\\b(?:haz|hazme|haznos|hazle|hazles|haceme|hacele|hace§|haganle|dame|quiero|necesito|quisiera)${SEP_LANDING}(?:un|una|el|la)${SEP_LANDING}(?:diagnostico|analisis|auditoria|revision)\\b`,
 ], OBJETO_O_LINK);
 const PEDIDO_CREAR = pedidoDe([
   verboFuerte('crea|arma|hace|genera|disena|monta|prepara|haz'), `\\bhaz\\b`,
@@ -213,6 +232,27 @@ const PEDIDO_CREAR = pedidoDe([
 ], OBJETO_LANDING);
 /** «quiero / necesito una landing…»: el objeto pegado (con «una mano con la landing» no es crear nada). */
 const QUIERO_UNA_LANDING = new RegExp(`\\b(?:quiero|necesito|quisiera|queria)${SEP_LANDING}(?:un|una|otra|otro)${SEP_LANDING}(?:nueva${SEP_LANDING}|nuevo${SEP_LANDING})?${OBJETO_LANDING}`);
+
+// ── Editar (ver la cabecera del bloque) ──
+/** Con «le»/«les»: «ponle», «cámbiale», «agrégale». */
+const PRON_EDITAR = '(?:mela|melo|nosla|noslo|selo|sela|les|le|las|los|la|lo|me|nos)';
+const RAICES_EDITAR = 'cambia|agrega|anade|anadi|pon|pone|quita|saca|oculta|esconde|escondi|mueve|move|borra|elimina|edita|traduce|traduci|duplica|conecta|verifica|comparte|comparti|sube|subi|actualiza|modifica|reemplaza|corrige|corregi|arregla|suma|mete|crea|arma';
+const MODAL_EDITAR = 'cambiar|agregar|anadir|poner|quitar|sacar|ocultar|esconder|mostrar|mover|borrar|eliminar|editar|traducir|duplicar|conectar|verificar|compartir|subir|actualizar|modificar|reemplazar|corregir|arreglar|sumar|meter|crear|armar'
+  + '|cambies|agregues|anadas|pongas|quites|saques|ocultes|escondas|muestres|muevas|borres|elimines|edites|traduzcas|dupliques|conectes|verifiques|compartas|subas|actualices|modifiques|reemplaces|corrijas|arregles|sumes|metas|crees|armes';
+/** Una pieza de la landing (o la landing misma). */
+const PIEZA_LANDING = '(?:landings?|landing ?pages?|paginas?|sitios?|webs?|presentacion(?:es)?|secci(?:on|ones)|titular(?:es)?|titulos?|subtitulos?|botone?s?|formularios?|temas?|dominios?|videos?|vsl|agendas?|calendario|links?|enlaces?|textos?|imagen(?:es)?|fotos?|colores?|fuentes?|tipografias?|precios?|testimonios?|preguntas|faq|bloques?|encabezado|portada|hero|pie|footer|menu|logo|cta|direccion)\\b';
+/** Un objeto de OTRA área: entre el verbo y la pieza, o justo después de ella («el titular del anuncio»). */
+const OTRO_QUE_EDITAR = '(?:anuncios?|campanas?|posts?|publicacion(?:es)?|reels?|historias?|stor(?:y|ies)|e-?mails?|correos?|mails?|guion(?:es)?|copys?|automatizacion(?:es)?|flujos?|reunion(?:es)?|llamadas?|tareas?|creativos?|banners?|flyers?|disenos?|leads?|notas?|etiquetas?|etapas?|closer|setter|grupos?|chats?)\\b';
+const ART = `(?:${SEP_LANDING}(?:el|la|los|las|mi|mis|tu|tus|su|sus|este|esta|ese|esa))?`;
+const NO_DE_OTRO = `(?!${SEP_LANDING}(?:de|del|para|en)${ART}${SEP_LANDING}${OTRO_QUE_EDITAR})`;
+const PEDIDO_EDITAR = new RegExp(`(?:${[
+  `\\b(?:${RAICES_EDITAR})(?:§|${PRON_EDITAR}\\b)`, `\\bmostra§`,
+  `^(?:${RAICES_EDITAR}|muestra)\\b(?![\\s,]+de\\b)`,
+  `\\b(?:puedes|podes|podrias|podras|puede|podria|quiero que|queria que|necesito que|quisiera que|te pido que)\\s+(?:me\\s+|nos\\s+|le\\s+)?(?:${MODAL_EDITAR})(?:${PRON_EDITAR})?\\b`,
+].join('|')})(?:${SEP_LANDING}(?!${OTRO_QUE_EDITAR})\\S+?){0,3}?${SEP_LANDING}${PIEZA_LANDING}${NO_DE_OTRO}`);
+/** «la página de Facebook» no es una landing; y lo que diga un link no nombra nada. */
+const PAGINA_DE_REDES = /\bpaginas? (?:de|del|en) (?:facebook|fb|instagram|ig|tiktok|linkedin|youtube)\b|\bfan ?pages?\b/g;
+const nombraLaLanding = (n: string): boolean => NOMBRA_LANDING.test(n.replace(/https?:\/\/\S+/g, ' ').replace(PAGINA_DE_REDES, ' '));
 
 /** ¿Le pide a MaKo algo sobre una landing del Web Generator? Recibe el texto CRUDO de la persona. */
 export function esPedidoDeLanding(texto: string): PedidoDeLanding | null {
@@ -226,6 +266,7 @@ export function esPedidoDeLanding(texto: string): PedidoDeLanding | null {
   if (PEDIDO_REPLICAR.test(n)) return { tipo: 'replicar' };
   if (PEDIDO_ANALIZAR.test(n)) return { tipo: 'analizar' };
   if (PEDIDO_CREAR.test(n) || QUIERO_UNA_LANDING.test(n)) return { tipo: 'crear' };
+  if (PEDIDO_EDITAR.test(n) && nombraLaLanding(n)) return { tipo: 'editar' };
   return null;
 }
 

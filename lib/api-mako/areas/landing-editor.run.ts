@@ -27,6 +27,8 @@ import type { LandingCompleta, TemaPropio } from '@/lib/editor-landing/api-tipos
 import { conectarDominio, estadoDominio, quitarDominio } from '@/lib/editor-landing/dominios';
 import { normalizarDominio, motivoDominioInvalido } from '@/lib/editor-landing/dominios-reglas';
 import { analizar as diagnosticar, listar as comentariosDelDiagnostico } from '@/lib/editor-landing/diagnostico-server';
+// Las analizadas del negocio, la MISMA lista con que la pantalla valida la «Landing de base» (app/web-generator/page.tsx).
+import { listarAnalizadas } from '@/lib/landing-analyst';
 import { aplicarComentarios, pasarACopia } from '@/lib/editor-landing/diagnostico-aplicar';
 import { gruposParaAplicar, objetivoDe } from '@/lib/editor-landing/diagnostico';
 import { srcImagen } from '@/lib/editor-landing/especificacion';
@@ -43,7 +45,7 @@ import {
   registrosParaApi, registrosEnTexto, cobroParaApi, comentariosEquipoParaApi,
   planAgregarSeccion, planCambiarTexto, planAcomodarSeccion, planConfigurarSeccion, planAgregarBloque,
   planAcomodarBloque, planPonerEnlace, planConfigurarFormulario, planConfigurarBoton, planQuitarCobro,
-  planAcomodarPagina, planTema, planConfigurarLanding, planConfigurarSitio, planNavegacion, planTemaPropio,
+  planAcomodarPagina, planTema, planConfigurarLanding, planConfigurarSitio, planNavegacion, planTemaPropio, restaurarDeTema,
   pedidoGenerar, resumenGenerar, pedidoEnBlanco,
   type FallaPlan, type PlanContenido, type PlanConfig,
 } from './landing-contenido.helpers';
@@ -292,6 +294,24 @@ export const RUNNERS_EDITOR: Runners = {
     },
   },
 
+  // La biblioteca: lo MISMO que lee la pantalla (corrección de la tanda 7).
+  listar_imagenes_landing: {
+    leer: async (input, ctx) => {
+      const r = await docsEditor.bibliotecaDeImagenes(ctx.ws);
+      if (!r.ok) return errorLectura(`No pude leer la biblioteca (${r.error}).`);
+      const tipo = input.tipo === 'imagen' || input.tipo === 'video' ? input.tipo : null;
+      const todos = tipo ? r.archivos.filter((a) => a.tipo === tipo) : r.archivos;
+      const limite = Math.min(200, Math.max(1, num(input, 'limite') ?? 40));
+      return json({
+        archivos: todos.slice(0, limite).map((a) => ({ url: a.url, nombre: a.nombre, tipo: a.tipo, subido: a.creado || null })),
+        total: todos.length,
+        hay_mas: todos.length > limite,
+        ...(r.archivos.length >= docsEditor.TOPE_BIBLIOTECA ? { nota_recorte: `Se leen las ${docsEditor.TOPE_BIBLIOTECA} más nuevas.` } : {}),
+        nota: 'Pasa `url` en `imagen` de agregar_bloque_landing o configurar_seccion_landing: ya está en la biblioteca y no se copia otra vez.',
+      });
+    },
+  },
+
   // ── Crear en blanco: EL MISMO pedido que «Usar este tema» del Panel (`pedidoEnBlanco`) ──
   crear_landing_en_blanco: {
     preparar: async (input, ctx): Promise<Preparado> => {
@@ -320,7 +340,9 @@ export const RUNNERS_EDITOR: Runners = {
     preparar: async (input, ctx): Promise<Preparado> => {
       if (enFlujo(ctx)) return { error: 'Crear una landing con IA no corre en una automatización: un flujo corre una vez por cada lead y crearía una por cada uno. Pídesela a MaKo en el chat o créala en el Web Generator.' };
       const propios = await temasPropios();
-      const p = pedidoGenerar(input, (t) => temaElegido(t, propios));
+      // Sólo con «basadaEn» se leen las analizadas (una consulta que el resto de los pedidos no necesita).
+      const analizadas = input.basadaEn ? await listarAnalizadas() : [];
+      const p = pedidoGenerar(input, (t) => temaElegido(t, propios), analizadas);
       if (esFallaPlan(p)) return aPreparado(p);
       const t = temaElegido(p.tema, propios);
       return { payload: input, resumen: resumenGenerar(p, 'error' in t ? null : t.nombre) };
@@ -328,13 +350,14 @@ export const RUNNERS_EDITOR: Runners = {
     ejecutar: async (payload, ctx): Promise<Ejecutado> => {
       try {
         const propios = await temasPropios();
-        const p = pedidoGenerar(payload, (t) => temaElegido(t, propios));
+        const analizadas = payload.basadaEn ? await listarAnalizadas() : [];
+        const p = pedidoGenerar(payload, (t) => temaElegido(t, propios), analizadas);
         if (esFallaPlan(p)) return { ok: false, resumen: p.error };
         const config = configDeCreacion(p.tipo, p.tema, {
           modo: 'ia',
           pedido: (p.idea ?? p.texto ?? '').slice(0, 2_000),
           objetivo: p.params.objetivo,
-          basadoEnUrl: null,
+          basadoEnUrl: p.params.basadoEnUrl ?? null,
         });
         const r = await docsEditor.generarConIA({ modo: p.modo, idea: p.idea, texto: p.texto, params: p.params, config, titulo: p.titulo });
         if (!r.ok) return { ok: false, resumen: `No se pudo crear la ${p.tipo === 'presentacion' ? 'presentación' : 'landing'} (${r.error}).` };
@@ -449,7 +472,15 @@ export const RUNNERS_EDITOR: Runners = {
         const r = await docsEditor.guardarTema(plan.tema);
         if (!r.ok) return { ok: false, resumen: `No se pudo guardar el tema (${r.error}).` };
         const id = `ws:${r.tema.id}`;
-        return { ok: true, resumen: `Listo: el tema «${r.tema.nombre}» (${id}) quedó guardado.${plan.nuevo ? ' Se le pone a una landing con cambiar_tema_landing.' : ''}`, datos: { tema: id, nombre: r.tema.nombre } };
+        // El camino de vuelta va en la respuesta (verificación de la tanda 7): «restaurar» es el tema como estaba.
+        const vuelta = plan.antes
+          ? ' Se vuelve atrás con guardar_tema_landing pasándole este «tema» y el «restaurar» de esta respuesta.'
+          : ' Se le pone a una landing con cambiar_tema_landing; se deshace con borrar_tema_landing.';
+        return {
+          ok: true,
+          resumen: `Listo: el tema «${r.tema.nombre}» (${id}) quedó guardado.${vuelta}`,
+          datos: { tema: id, nombre: r.tema.nombre, ...(plan.antes ? { restaurar: restaurarDeTema(plan.antes) } : {}) },
+        };
       } catch (e) {
         return { ok: false, resumen: resumenDeError('guardar el tema', e) };
       }

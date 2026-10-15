@@ -27,10 +27,12 @@ import { tabEnCapa } from '@/lib/capas';
 import { getSupabaseServer } from '@/lib/supabase';
 import { buscarStock, copiarStockABucket, copiarUrlABucket, type Orientacion } from '@/lib/imagenes-stock';
 import {
-  BUCKET_LANDING, CARPETA_SUBIDAS, archivoDeBiblioteca, esTipoVideo, pathDeSubida, sniffMedia,
+  BUCKET_LANDING, CARPETA_SUBIDAS, esTipoVideo, pathDeSubida, sniffMedia,
   subidaDelWs, topeDeTipo, validarSubida,
 } from '@/lib/editor-landing/server-reglas';
-import type { ArchivoBiblioteca, PedidoImagenes } from '@/lib/editor-landing/api-tipos';
+import type { PedidoImagenes } from '@/lib/editor-landing/api-tipos';
+// La biblioteca vive en lib desde la corrección de la tanda 7: la misma la lee listar_imagenes_landing de la API.
+import { bibliotecaDeImagenes } from '@/lib/editor-landing/server';
 
 export const dynamic = 'force-dynamic';
 // «Desde un enlace» puede bajar un video de hasta 100 MB (con su propio plazo de 90 s).
@@ -150,33 +152,6 @@ async function registrar(ws: number, p: Extract<PedidoImagenes, { accion: 'regis
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// La biblioteca
-// ─────────────────────────────────────────────────────────────────────────────
-
-/** Tope de la biblioteca que se manda de una vez (las más nuevas primero). */
-const TOPE_BIBLIOTECA = 600;
-
-async function biblioteca(ws: number): Promise<Response> {
-  const bucket = getSupabaseServer().storage.from(BUCKET_LANDING);
-  const archivos: ArchivoBiblioteca[] = [];
-  // Paginado de a 1000: el listado de Storage topea igual que PostgREST, y sin avisar.
-  for (let offset = 0; archivos.length < TOPE_BIBLIOTECA; offset += 1000) {
-    const { data, error } = await bucket.list(`${ws}`, { limit: 1000, offset, sortBy: { column: 'created_at', order: 'desc' } });
-    if (error) return mal(error.message, 500);
-    for (const f of data ?? []) {
-      // Sin `id` es una carpeta (la de subidas): no se lista. Y sólo lo que tiene la forma de algo
-      // VERIFICADO (`<uuid>.<ext>`): lo demás no lo dejó `registrar`.
-      const tipo = f.id ? archivoDeBiblioteca(f.name) : null;
-      if (!tipo) continue;
-      archivos.push({ url: bucket.getPublicUrl(`${ws}/${f.name}`).data.publicUrl, nombre: f.name, tipo, creado: f.created_at ?? '' });
-      if (archivos.length >= TOPE_BIBLIOTECA) break;
-    }
-    if ((data ?? []).length < 1000) break;
-  }
-  return Response.json({ ok: true, archivos });
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
   const p0 = await puerta();
@@ -206,7 +181,10 @@ export async function POST(req: NextRequest) {
         const r = await copiarUrlABucket(typeof p.url === 'string' ? p.url : '', BUCKET_LANDING, ws, { permitirVideo: true });
         return r.ok ? Response.json({ ok: true, url: r.url, tipo: r.tipo }) : mal(r.error, r.status);
       }
-      case 'biblioteca': return await biblioteca(ws);
+      case 'biblioteca': {
+        const r = await bibliotecaDeImagenes(ws);
+        return r.ok ? Response.json(r) : mal(r.error, r.status);
+      }
       default: return mal('Acción desconocida');
     }
   } catch (e) {

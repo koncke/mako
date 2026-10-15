@@ -260,6 +260,7 @@ listar_guiones_valorados
 listar_hojas_general
 listar_horarios_reunion
 listar_identidades_meta
+listar_imagenes_landing
 listar_incidentes_meta
 listar_kpis
 listar_landings

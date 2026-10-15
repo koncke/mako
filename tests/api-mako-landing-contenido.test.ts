@@ -35,6 +35,8 @@
 // Restaurado: 22 / 0 / 1 todo. Después se sumó «crear en blanco» (base 23 / 0 / 1 todo):
 //   R17 pedidoEnBlanco sin el origen «cero» de «Usar este tema»               → 22 / 1 «crear en blanco…»
 // Restaurado: 23 / 0 / 1 todo.
+// La corrección de la tanda 7 le sacó el `todo` (editar por WhatsApp) y sumó «basadaEn», el «restaurar» de un tema
+// propio y la biblioteca de imágenes, cada uno con sus roturas arriba de su test. Base final: 27 / 0.
 // =============================================================================
 
 import { test } from 'node:test';
@@ -57,7 +59,7 @@ import {
   planAcomodarSeccion, planConfigurarSeccion, planAgregarBloque, planAcomodarBloque, planPonerEnlace,
   planConfigurarFormulario, planConfigurarBoton, planQuitarCobro, planAcomodarPagina, planTema, planConfigurarLanding,
   planConfigurarSitio, planNavegacion, planTemaPropio, pedidoGenerar, temaElegido, temaSugeridoApi, rutaLibreApi,
-  hacerInicioApi, ESTILO_RESTABLECIDO_API, esFallaPlan, pedidoEnBlanco, type PlanContenido, type FallaPlan,
+  hacerInicioApi, ESTILO_RESTABLECIDO_API, esFallaPlan, pedidoEnBlanco, restaurarDeTema, type PlanContenido, type FallaPlan,
 } from '../lib/api-mako/areas/landing-contenido.helpers';
 
 const RAIZ = join(__dirname, '..');
@@ -477,6 +479,49 @@ test('un tema propio: crear pide nombre, los colores van #rrggbb, la fuente es d
   assert.match(falla(planTemaPropio(treinta, { nombre: 'Uno más' })).error, /tope/);
 });
 
+// Corrección de la tanda 7 (15/10/2026): guardar_tema_landing se declaraba `reversible: true` y cambiar un tema que
+// EXISTE no tenía vuelta (no se devolvía el de antes y la API sólo pone #rrggbb: un color que antes no estaba no se
+// sacaba, y eso cambia TODAS las landings que lo usan). AGENTS.md: «reversible: true exige el camino de vuelta EN la API».
+// PROBADO ROMPIÉNDOLO (15/10/2026), base 26 / 0:
+//   · el runner sin devolver «restaurar»                                   → 25 / 1 (éste)
+//   · restaurar MEZCLANDO con lo que hay (como un cambio más)               → 25 / 1 (éste; la primera versión daba
+//     26 / 0: el cambio de prueba sólo tocaba colores y la mezcla superficial lo tapaba, así que se sumó una fuente)
+//   · restaurar aceptando otros cambios al lado                             → 25 / 1 (éste)
+//   · la definición sin el parámetro «restaurar»                            → 25 / 1 (éste)
+// Restaurado: 26 / 0.
+test('un tema propio se vuelve atrás DENTRO de la API: «restaurar» lo devuelve entero, también lo que no tenía', () => {
+  const editado = planTemaPropio(PROPIOS, { tema: 'ws:mi-marca-ab12', texto: '#222222', fuenteTitulos: 'montserrat', nombre: 'Mi marca 2' });
+  assert.ok(!esFallaPlan(editado));
+  if (esFallaPlan(editado)) return;
+  assert.deepEqual(editado.antes, PROPIOS[0], 'el plan sabe cómo estaba');
+  const vuelta = restaurarDeTema(editado.antes!);
+  // Después del cambio, el tema guardado tiene un color y una fuente que antes no estaban: «restaurar» los saca.
+  const ahora: TemaPropio[] = [{ id: 'mi-marca-ab12', ...editado.tema } as TemaPropio];
+  const atras = planTemaPropio(ahora, { tema: 'ws:mi-marca-ab12', restaurar: vuelta });
+  assert.ok(!esFallaPlan(atras), JSON.stringify(atras));
+  if (!esFallaPlan(atras)) {
+    assert.deepEqual({ nombre: atras.tema.nombre, base: atras.tema.base, cambios: atras.tema.cambios }, { nombre: 'Mi marca', base: TEMAS[1].id, cambios: { colores: { acento: '#ff0000' } } });
+    assert.match(atras.resumen, /a como estaba/);
+  }
+  assert.ok(falla(planTemaPropio(PROPIOS, { tema: 'ws:mi-marca-ab12', restaurar: vuelta })).yaEstaba, 'si ya está así, lo dice');
+  assert.deepEqual(falla(planTemaPropio(ahora, { restaurar: vuelta })).faltan, ['tema']);
+  assert.match(falla(planTemaPropio(ahora, { tema: 'ws:mi-marca-ab12', restaurar: vuelta, acento: '#000000' })).error, /no va nada más/);
+  assert.match(falla(planTemaPropio(ahora, { tema: 'ws:mi-marca-ab12', restaurar: '{roto' })).error, /no tiene la forma/);
+  assert.match(falla(planTemaPropio(ahora, { tema: 'ws:mi-marca-ab12', restaurar: JSON.stringify({ nombre: 'X', base: 'no-existe', cambios: {} }) })).error, /no tiene la forma/);
+  // Crear uno nuevo no tiene «antes» (se deshace con borrar_tema_landing).
+  const nuevo = planTemaPropio([], { nombre: 'Nuevo' });
+  assert.ok(!esFallaPlan(nuevo) && nuevo.antes === null);
+  // La respuesta lleva el camino de vuelta, y la definición lo declara.
+  const run = sinComentarios(leer('lib/api-mako/areas/landing-editor.run.ts'));
+  const bloque = run.slice(run.indexOf('  guardar_tema_landing: {'), run.indexOf('  borrar_tema_landing: {'));
+  assert.ok(bloque.length > 100, 'no encontré el runner');
+  assert.match(bloque, /datos: \{ tema: id, nombre: r\.tema\.nombre, \.\.\.\(plan\.antes \? \{ restaurar: restaurarDeTema\(plan\.antes\) \} : \{\}\) \}/);
+  const def = porId('guardar_tema_landing')!;
+  assert.ok(esAccion(def) && def.reversible === true);
+  assert.ok(def.parametros.some((p) => p.nombre === 'restaurar'));
+  assert.match(def.descripcion, /restaurar/);
+});
+
 test('crear en blanco: EL MISMO pedido que «Usar este tema» del Panel, y crea por el server de la pantalla', () => {
   const p = pedidoEnBlanco({ tema: TEMAS[4].nombre }, []);
   assert.ok(!esFallaPlan(p));
@@ -513,6 +558,75 @@ test('generar con IA: una idea o un texto (no los dos), el modo del texto sólo 
   // El tema sugerido es EXACTAMENTE el de la pantalla (SelectorTemaCrear.tsx, 'use client': la copia se compara).
   const { temaSugerido } = await import('../app/web-generator/crear/SelectorTemaCrear');
   for (const o of OBJETIVOS_LANDING) assert.equal(temaSugeridoApi(o.value), temaSugerido(o.value), o.value);
+});
+
+// Corrección de la tanda 7 (15/10/2026; Martín: «Todas las funciones a la API de MaKo»): crear «sobre una página ya
+// analizada» —la «Landing de base» de «Más ajustes» y el `?url=` del ex Landing Analyst— no tenía camino en la API:
+// pedidoGenerar y el runner mandaban siempre `basadoEnUrl: null`, y mako-capacidades lo prometía igual.
+// PROBADO ROMPIÉNDOLO (15/10/2026), base 25 / 0:
+//   · pedidoGenerar aceptando cualquier dirección (sin baseDelDeepLink)      → 24 / 1 (éste)
+//   · pedidoGenerar sin pasar la base a params (basadoEnUrl: null otra vez)  → 24 / 1 (éste)
+//   · el runner sin pasar la base al config de la landing nueva              → 24 / 1 (éste)
+//   · el runner sin leer las analizadas en ejecutar (sólo en preparar)       → 24 / 1 (éste)
+//   · la definición sin el parámetro                                         → 24 / 1 (éste)
+// Restaurado: 25 / 0.
+test('generar con IA sobre una página YA ANALIZADA («basadaEn»): sólo una del negocio, exacta, y llega a la generación', () => {
+  const sinTemas = (t: string) => temaElegido(t, []);
+  const analizadas = [{ url: 'https://minegocio.com/oferta' }, { url: 'https://minegocio.com/webinar' }];
+  const base = pedidoGenerar({ idea: 'La misma oferta, más clara', basadaEn: 'https://minegocio.com/oferta' }, sinTemas, analizadas);
+  assert.ok(!esFallaPlan(base));
+  if (!esFallaPlan(base)) assert.equal(base.params.basadoEnUrl, 'https://minegocio.com/oferta');
+  // Un parecido no es una clave (como baseDelDeepLink de la pantalla); una que no está nombra las que hay.
+  for (const u of ['https://www.minegocio.com/oferta', 'https://minegocio.com/oferta/', 'https://otro.com']) {
+    const f = falla(pedidoGenerar({ idea: 'x', basadaEn: u }, sinTemas, analizadas));
+    assert.match(f.error, /analizadas del negocio/, u);
+    assert.deepEqual(f.disponibles, analizadas.map((a) => a.url), u);
+  }
+  assert.ok(esFallaPlan(pedidoGenerar({ idea: 'x', basadaEn: 'https://minegocio.com/oferta' }, sinTemas)), 'sin la lista, ninguna vale');
+  const sin = pedidoGenerar({ idea: 'x' }, sinTemas, analizadas);
+  assert.ok(!esFallaPlan(sin) && sin.params.basadoEnUrl === null, 'sin pedirla, sin base');
+  // El parámetro está declarado, y el runner lee las analizadas en los DOS pasos y pasa la base al config.
+  assert.ok(porId('generar_landing_con_ia')!.parametros.some((p) => p.nombre === 'basadaEn'));
+  const run = sinComentarios(leer('lib/api-mako/areas/landing-editor.run.ts'));
+  const bloque = run.slice(run.indexOf('  generar_landing_con_ia: {'), run.indexOf('  editar_landing_con_ia: {'));
+  assert.ok(bloque.length > 100, 'no encontré el runner');
+  assert.equal(bloque.match(/pedidoGenerar\((?:input|payload), \(t\) => temaElegido\(t, propios\), analizadas\)/g)?.length, 2);
+  assert.equal(bloque.match(/const analizadas = (?:input|payload)\.basadaEn \? await listarAnalizadas\(\) : \[\];/g)?.length, 2);
+  assert.match(bloque, /basadoEnUrl: p\.params\.basadoEnUrl \?\? null,/);
+});
+
+// Corrección de la tanda 7 (15/10/2026): «Imagen → Biblioteca» del editor no tenía camino en la API, y la lectura vivía
+// DENTRO de la ruta de la pantalla (app/api/landing-generator/imagenes/route.ts): declararla era escribir una segunda
+// implementación. Se mudó tal cual a lib/editor-landing/server.ts (`bibliotecaDeImagenes`) y la leen las dos.
+// PROBADO ROMPIÉNDOLO (15/10/2026), base 27 / 0:
+//   · la ruta con su propio `bucket.list(` otra vez (dos implementaciones)  → 26 / 1 (éste)
+//   · el runner leyendo el ws del pedido (`input.ws`) y no del contexto     → 26 / 1 (éste)
+//   · bibliotecaDeImagenes sin paginar de a 1000                            → 26 / 1 (éste)
+//   · la operación sin su fila REST                                         → 25 / 2 (éste y «lo que gasta IA…», que
+//     exige ruta REST a todo lo que sale por http)
+// Restaurado: 27 / 0.
+test('la biblioteca de imágenes por la API: lectura, por http, y UNA implementación que lee la pantalla también', () => {
+  const d = porId('listar_imagenes_landing');
+  assert.ok(d && esLectura(d), 'listar_imagenes_landing no está en el registro');
+  assert.ok(d.canales.includes('http') && d.canales.includes('whatsapp'));
+  assert.deepEqual(d.gating, { tab: 'landing-writer', rolMinimo: 'admin' });
+  assert.deepEqual(rutaRestDe('listar_imagenes_landing'), { metodo: 'GET', ruta: '/landing/imagenes' });
+  const srv = sinComentarios(leer('lib/editor-landing/server.ts'));
+  const i = srv.indexOf('export async function bibliotecaDeImagenes(ws: number)');
+  assert.ok(i >= 0, 'no encontré bibliotecaDeImagenes');
+  const fn = srv.slice(i, srv.indexOf('\n}\n', i) + 2);
+  assert.match(fn, /bucket\.list\(`\$\{ws\}`, \{ limit: 1000, offset, sortBy: \{ column: 'created_at', order: 'desc' \} \}\)/);
+  assert.match(fn, /for \(let offset = 0; archivos\.length < TOPE_BIBLIOTECA; offset \+= 1000\)/);
+  assert.match(fn, /const tipo = f\.id \? archivoDeBiblioteca\(f\.name\) : null;/, 'sólo lo verificado, sin la carpeta de subidas');
+  const ruta = sinComentarios(leer('app/api/landing-generator/imagenes/route.ts'));
+  assert.match(ruta, /case 'biblioteca': \{\s*const r = await bibliotecaDeImagenes\(ws\);/);
+  // (Su `.list` de la carpeta de SUBIDAS es de `registrar`, otra cosa: lo que no puede es listar la raíz del ws.)
+  assert.doesNotMatch(ruta, /\.list\(`\$\{ws\}`/, 'la ruta no lista la biblioteca por su cuenta');
+  assert.doesNotMatch(ruta, /TOPE_BIBLIOTECA|archivoDeBiblioteca/, 'ni conserva la copia vieja');
+  const run = sinComentarios(leer('lib/api-mako/areas/landing-editor.run.ts'));
+  const bloque = run.slice(run.indexOf('  listar_imagenes_landing: {'), run.indexOf('  crear_landing_en_blanco: {'));
+  assert.ok(bloque.length > 100, 'no encontré el runner');
+  assert.match(bloque, /await docsEditor\.bibliotecaDeImagenes\(ctx\.ws\)/, 'el ws sale del contexto, nunca del pedido');
 });
 
 // ── 4. Las copias de reglas de la pantalla, y lo demás ─────────────────────────
@@ -554,8 +668,10 @@ test('listar_landings_creadas con papelera:true lista SÓLO las de la papelera, 
 // Medido el 15/10/2026 con el turno que CORRE (clasificarIntencion + herramientasDelTurno): las frases de editar
 // salen `capturar` dudosa y ninguna herramienta de landing viaja. Es el MISMO bloqueante que tuvo publicar en la
 // tanda 4: `esPedidoDeLanding` (lib/mako-intencion.ts, otra área) no conoce editar/cambiar/agregar/ocultar/conectar.
-// Por la app (Pregúntale a MaKo), la bandeja y /api/v1 las operaciones ya existen. Con el parche, se le saca el `todo`.
-test('por WhatsApp: los pedidos de EDITAR una landing llegan con su herramienta', { todo: 'BLOQUEANTE: esPedidoDeLanding (lib/mako-intencion.ts) no reconoce los pedidos de editar' }, async () => {
+// Por la app (Pregúntale a MaKo), la bandeja y /api/v1 las operaciones ya existen. Corrección de la tanda 7
+// (15/10/2026): `{ tipo: 'editar' }` en esPedidoDeLanding, y se le sacó el `todo`. Los casos negativos y las roturas
+// de la regla están en tests/mako-intencion-landing.test.ts.
+test('por WhatsApp: los pedidos de EDITAR una landing llegan con su herramienta', async () => {
   const { clasificarIntencion } = await import('../lib/mako-intencion');
   const { herramientasDelTurno } = await import('../lib/doer-herramientas');
   const vista = { canal: 'whatsapp' as const, alcance: 'ejecutar' as const, ws: 13, rol: 'admin' as const, tabs: null };

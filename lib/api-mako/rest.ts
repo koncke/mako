@@ -405,6 +405,8 @@ export const RUTAS_REST: readonly RutaRest[] = [
   // HTTP; tampoco los comentarios del equipo (nombran personas). El resto, sobre el mismo recurso `documentos`.
   ['POST', '/landing/borradores/{id}/importaciones', 'importar_borrador_landing'],
   ['GET', '/landing/busqueda/fotos', 'buscar_fotos_landing'],
+  // La biblioteca de imágenes y videos del negocio (corrección de la tanda 7): URLs públicas del bucket de las landings.
+  ['GET', '/landing/imagenes', 'listar_imagenes_landing'],
   ['DELETE', '/landing/documentos/{id}', 'borrar_landing_creada'],
   ['PATCH', '/landing/documentos/{id}/botones', 'configurar_boton_landing'],
   ['POST', '/landing/documentos/{id}/comentarios-de-afuera', 'pasar_comentarios_a_copia_landing'],

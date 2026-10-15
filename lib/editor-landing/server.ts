@@ -32,7 +32,7 @@ import type { LandingSpec } from '../landing-spec';
 import { contenidoVacio, docPagina, nuevoId, slugDe, slugValido, tarjetasDe, type JsonNodo, type LandingContenido } from './doc';
 import { CONFIG_DEFAULT, formatoDe, proporcionDe } from './api-tipos';
 import type {
-  Analitica, Comentario, ConfigLanding, Falla, LandingCompleta, LandingResumen, PedidoDocs,
+  Analitica, ArchivoBiblioteca, Comentario, ConfigLanding, Falla, LandingCompleta, LandingResumen, PedidoDocs,
   ParamsGeneracion, TemaPropio, VersionResumen,
 } from './api-tipos';
 import { sanearContenido, sanearConfig, excedeTope } from './validar';
@@ -42,7 +42,7 @@ import { soltarDominioDeVercel } from './dominios';
 import { dominioDeLectura, dominioQueSirve } from './dominios-reglas';
 import type { EstadoCobroLanding } from './pago-landing';
 import {
-  MOTIVO, TOPE_VERSIONES_AUTO, TOPE_TEMAS, CLAVE_TEMAS, cambiosSinPublicar, candidatosSlug, esUrlMedida,
+  MOTIVO, TOPE_VERSIONES_AUTO, TOPE_TEMAS, CLAVE_TEMAS, BUCKET_LANDING, archivoDeBiblioteca, cambiosSinPublicar, candidatosSlug, esUrlMedida,
   resumenAntesDeDespublicar, type AntesDeDespublicar,
   idValido, mezclarConfig, motivoSlugInvalido, prefiltroVisitas, primeraLibre, puedeBorrarse,
   sanearMotivo, sanearTemasPropios, sanearTitulo, slugPedido, tarjetaIdValido, esComentarioPropio, puedeBorrarComentario,
@@ -1264,4 +1264,37 @@ export async function editarConIA(p: PedidoEditarIA): Promise<ResultadoEditarIA>
   } catch (e) {
     return falla(msg(e), 500);
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// La biblioteca: las imágenes y los videos del negocio (lo verificado del bucket)
+// ─────────────────────────────────────────────────────────────────────────────
+// Mudada TAL CUAL de app/api/landing-generator/imagenes/route.ts (corrección de la tanda 7, 15/10/2026; Martín:
+// «Todas las funciones a la API de MaKo»): la usan la ruta de la pantalla («Imagen → Biblioteca» del editor) y
+// listar_imagenes_landing de la API. Una sola implementación: copiarla en la API era la segunda de lo mismo
+// (AGENTS.md, «Una capacidad nueva de MaKo se DECLARA en el registro…»).
+
+/** Tope de la biblioteca que se manda de una vez (las más nuevas primero). */
+export const TOPE_BIBLIOTECA = 600;
+
+/** Lo verificado de `<ws>/` en el bucket de las landings, las más nuevas primero. `ws` lo pone quien llama (la
+ *  puerta de la ruta o el contexto de la API), nunca el pedido. */
+export async function bibliotecaDeImagenes(ws: number): Promise<{ ok: true; archivos: ArchivoBiblioteca[] } | FallaHttp> {
+  const bucket = getSupabaseServer().storage.from(BUCKET_LANDING);
+  const archivos: ArchivoBiblioteca[] = [];
+  // Paginado de a 1000: el listado de Storage topea igual que PostgREST, y sin avisar.
+  for (let offset = 0; archivos.length < TOPE_BIBLIOTECA; offset += 1000) {
+    const { data, error } = await bucket.list(`${ws}`, { limit: 1000, offset, sortBy: { column: 'created_at', order: 'desc' } });
+    if (error) return falla(error.message, 500);
+    for (const f of data ?? []) {
+      // Sin `id` es una carpeta (la de subidas): no se lista. Y sólo lo que tiene la forma de algo
+      // VERIFICADO (`<uuid>.<ext>`): lo demás no lo dejó `registrar`.
+      const tipo = f.id ? archivoDeBiblioteca(f.name) : null;
+      if (!tipo) continue;
+      archivos.push({ url: bucket.getPublicUrl(`${ws}/${f.name}`).data.publicUrl, nombre: f.name, tipo, creado: f.created_at ?? '' });
+      if (archivos.length >= TOPE_BIBLIOTECA) break;
+    }
+    if ((data ?? []).length < 1000) break;
+  }
+  return { ok: true, archivos };
 }

@@ -117,6 +117,18 @@ export const DEFS_EDITOR: readonly OperacionDef[] = [
     ],
     salida: 'json', canales: TODOS, costo: 'externo', gating: G_WRITER,
   },
+  {
+    // Corrección de la tanda 7 (15/10/2026; Martín: «Todas las funciones a la API de MaKo»): «Imagen → Biblioteca» del
+    // editor no tenía camino en la API. Lee lo MISMO que la pantalla (`bibliotecaDeImagenes`, lib/editor-landing/server.ts).
+    id: 'listar_imagenes_landing', area: 'landing', tipo: 'lectura',
+    titulo: 'Biblioteca de imágenes y videos',
+    descripcion: 'Las imágenes y los videos que el negocio ya subió o copió para sus landings del Web Generator («Imagen → Biblioteca» del editor), los más nuevos primero: su enlace, su nombre, si es imagen o video y cuándo se subió. El enlace se pasa tal cual en `imagen` de agregar_bloque_landing o configurar_seccion_landing: ya está en la biblioteca y no se copia otra vez. Para fotos de uso libre está buscar_fotos_landing.',
+    parametros: [
+      { nombre: 'tipo', rotulo: 'Tipo', tipo: 'string', enum: ['imagen', 'video'], descripcion: 'Sólo imágenes o sólo videos. Sin él, las dos.' },
+      { nombre: 'limite', rotulo: 'Cuántas', tipo: 'number', entero: true, minimo: 1, maximo: 200, descripcion: 'Cuántas devolver, las más nuevas primero. Por defecto 40.' },
+    ],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: G_WRITER,
+  },
 
   // ── Crear en blanco (por chat: sin IA, un borrador que va a la papelera) ────
   {
@@ -136,7 +148,7 @@ export const DEFS_EDITOR: readonly OperacionDef[] = [
   {
     id: 'generar_landing_con_ia', area: 'landing', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: true,
     titulo: 'Crear una landing con IA',
-    descripcion: 'Crea con IA una landing o presentación NUEVA en el editor del Web Generator, como «Crear con IA» de la pantalla: MaKo arma el esquema y escribe cada sección con su diseño. Desde una idea («idea»: «una landing para mi taller de cerámica que agende llamadas») o desde un texto («texto»: un texto largo o lo que dice un archivo que mandaron), con su modo: generar = el texto es la guía, condensar = MaKo lo resume, conservar = va tal cual, palabra por palabra. Lo que se pide sobre el texto va en «instrucciones». Queda como borrador sin publicar (va a la papelera como cualquier otra). Úsala cuando pidan crear una landing a medida; para partir de un diseño sin IA está crear_landing_desde_diseno. Deja un link para que la persona revise el pedido y confirme. Gasta IA y tarda hasta unos minutos: por eso no sale por la API. No corre en una automatización. Devuelve el id y el link al editor.',
+    descripcion: 'Crea con IA una landing o presentación NUEVA en el editor del Web Generator, como «Crear con IA» de la pantalla: MaKo arma el esquema y escribe cada sección con su diseño. Desde una idea («idea»: «una landing para mi taller de cerámica que agende llamadas») o desde un texto («texto»: un texto largo o lo que dice un archivo que mandaron), con su modo: generar = el texto es la guía, condensar = MaKo lo resume, conservar = va tal cual, palabra por palabra. Lo que se pide sobre el texto va en «instrucciones». Para rehacer una página ya analizada resolviendo sus hallazgos, su dirección va en «basadaEn». Queda como borrador sin publicar (va a la papelera como cualquier otra). Úsala cuando pidan crear una landing a medida; para partir de un diseño sin IA está crear_landing_desde_diseno. Deja un link para que la persona revise el pedido y confirme. Gasta IA y tarda hasta unos minutos: por eso no sale por la API. No corre en una automatización. Devuelve el id y el link al editor.',
     parametros: [
       { nombre: 'idea', rotulo: 'Idea', tipo: 'string', max: 8000, descripcion: 'Qué landing crear, con las palabras de la persona. Esto o «texto».' },
       { nombre: 'texto', rotulo: 'Texto', tipo: 'string', max: 30000, descripcion: 'El texto del que sale (pegado, o lo que dice un archivo). Esto o «idea».' },
@@ -152,6 +164,7 @@ export const DEFS_EDITOR: readonly OperacionDef[] = [
       { nombre: 'imagenes', rotulo: 'Imágenes', tipo: 'string', enum: IMAGENES_API, descripcion: 'stock = fotos de uso libre (por defecto), marcadores = huecos para poner las propias, ninguna.' },
       { nombre: 'tema', rotulo: 'Tema', tipo: 'string', max: 80, descripcion: 'El tema (de listar_temas_landing). Sin él, el que sugiere la pantalla para el objetivo.' },
       { nombre: 'titulo', rotulo: 'Título', tipo: 'string', max: TOPES.titulo, descripcion: 'El nombre en el Panel. Sin él, el que le pone MaKo.' },
+      { nombre: 'basadaEn', rotulo: 'Landing de base', tipo: 'string', max: 2000, descripcion: 'La dirección EXACTA de una página ya analizada del negocio (de listar_analisis_landing): la nueva sale de su diagnóstico y resuelve sus hallazgos, como «Landing de base» en la pantalla.' },
     ],
     canales: SIN_HTTP, costo: 'ia', gating: G_WRITER, lenta: true,
     escribe: 'una fila nueva en landing_docs: el borrador de la landing generada, sin publicar (y las fotos de uso libre que elija, en el bucket landing-imagenes)',
@@ -410,7 +423,7 @@ export const DEFS_EDITOR: readonly OperacionDef[] = [
   {
     id: 'guardar_tema_landing', area: 'landing', tipo: 'accion', confirmacion: 'chat', reversible: true,
     titulo: 'Crear o cambiar un tema propio',
-    descripcion: 'Crea un tema propio del negocio para sus landings del Web Generator (parte de uno del catálogo, «base») o cambia uno propio («tema», con «ws:»): sus colores, las fuentes de los títulos y del texto y lo redondeado. Sólo cambia lo que se pasa. Cambiar un tema propio cambia cómo se ven TODAS las landings que lo usan (las publicadas, al volver a publicarlas); se vuelve atrás guardándolo con los valores de antes (de listar_temas_landing). Se usa con cambiar_tema_landing. Devuelve el id del tema.',
+    descripcion: 'Crea un tema propio del negocio para sus landings del Web Generator (parte de uno del catálogo, «base») o cambia uno propio («tema», con «ws:»): sus colores, las fuentes de los títulos y del texto y lo redondeado. Sólo cambia lo que se pasa. Cambiar un tema propio cambia cómo se ven TODAS las landings que lo usan (las publicadas, al volver a publicarlas). Al cambiar uno que existe devuelve «restaurar» (el tema como estaba): se vuelve atrás llamándola con ese «tema» y ese «restaurar», sin nada más. Crear uno se deshace con borrar_tema_landing. Se usa con cambiar_tema_landing. Devuelve el id del tema.',
     parametros: [
       { nombre: 'tema', rotulo: 'Tema propio', tipo: 'string', max: 80, descripcion: 'El id de un tema propio para cambiarlo (de listar_temas_landing, con «ws:»). Sin él, crea uno.' },
       { nombre: 'nombre', rotulo: 'Nombre', tipo: 'string', max: 60, descripcion: 'El nombre del tema (obligatorio al crearlo).' },
@@ -426,6 +439,7 @@ export const DEFS_EDITOR: readonly OperacionDef[] = [
       { nombre: 'fuenteTitulos', rotulo: 'Fuente de títulos', tipo: 'string', max: 60, descripcion: 'Una fuente de Google Fonts del catálogo («Montserrat», «Playfair Display»).' },
       { nombre: 'fuenteTexto', rotulo: 'Fuente del texto', tipo: 'string', max: 60, descripcion: 'Una fuente de Google Fonts del catálogo («Inter», «Lato»).' },
       { nombre: 'redondez', rotulo: 'Redondeado', tipo: 'string', enum: REDONDECES, descripcion: 'Lo redondeado de secciones y botones: sm, md, lg o xl.' },
+      { nombre: 'restaurar', rotulo: 'Volver a como estaba', tipo: 'string', max: 8000, descripcion: 'Para deshacer un cambio: el «restaurar» que devolvió esta misma operación, tal cual, con su «tema». Vuelve el tema ENTERO a como estaba (también los colores que antes no tenía); no va con otros cambios.' },
     ],
     canales: TODOS, costo: 'gratis', gating: G_WRITER,
     escribe: 'la lista de temas propios del negocio (app_settings landing.temas)',

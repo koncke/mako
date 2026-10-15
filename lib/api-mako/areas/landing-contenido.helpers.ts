@@ -42,6 +42,8 @@ import { pendienteVencido, urlDeDominio, type EstadoDominio } from '@/lib/editor
 // Puro (sin React ni DOM; lo prueba tests/editor-landing-insertar.test.ts en node): el JSON de cada bloque del
 // catálogo, EL MISMO que inserta el menú «/» del editor.
 import { bloqueJson } from '@/app/web-generator/editor/insertar';
+// Puro (sin 'use client'): la MISMA validación de la «Landing de base» que hace la pantalla.
+import { baseDelDeepLink } from '@/app/web-generator/crear/ajustes';
 import { botonesDeLanding, paginasEnTexto, type BotonDeLanding } from './landing-editor.helpers';
 import {
   ACCIONES_SECCION, ACCIONES_BLOQUE, ACCIONES_PAGINA, BLOQUES_API, FORMATOS_IA, MODOS_TEXTO_API, OBJETIVOS_GENERAR,
@@ -1107,11 +1109,19 @@ export const COLORES_TEMA_API = ['acento', 'texto', 'titulos', 'fondo', 'fondoSe
  * `guardar_tema_landing`: un tema propio NUEVO (sale de uno del catálogo, `base`) o uno propio que ya existe
  * (`tema`, con «ws:»), con los colores, las fuentes y lo redondeado que se pidan; lo demás queda como estaba.
  * Lo valida `sanearTemaPropio` (temas.ts), el MISMO que corre el server al guardar.
+ *
+ * EL CAMINO DE VUELTA (verificación de la tanda 7, 15/10/2026). La operación se declaraba `reversible: true` y
+ * cambiar un tema propio que EXISTE no tenía vuelta: no se devolvía el tema de antes y la API sólo PONE colores
+ * (#rrggbb), así que un acento que antes heredaba el del catálogo no se podía sacar, y eso cambia TODAS las landings
+ * que lo usan. Ahora `antes` es el tema como estaba (el runner lo devuelve como «restaurar», un JSON), y `restaurar`
+ * con `tema` lo vuelve a poner ENTERO —nombre, base y cambios, también los que no estaban—, sin nada más al lado.
+ * Crear uno se deshace con borrar_tema_landing.
  */
-export function planTemaPropio(propios: readonly TemaPropio[], e: Record<string, unknown>): { tema: Omit<TemaPropio, 'id'> & { id?: string }; resumen: string; nuevo: boolean } | FallaPlan {
+export function planTemaPropio(propios: readonly TemaPropio[], e: Record<string, unknown>): { tema: Omit<TemaPropio, 'id'> & { id?: string }; resumen: string; nuevo: boolean; antes: TemaPropio | null } | FallaPlan {
   const pedido = typeof e.tema === 'string' && e.tema.trim() ? e.tema.trim().replace(/^ws:/, '') : null;
   const existente = pedido ? propios.find((p) => p.id === pedido) : null;
   if (pedido && !existente) return { error: `No hay un tema propio «${pedido}» (búscalo con listar_temas_landing).`, disponibles: propios.map((p) => `ws:${p.id}`) };
+  if (e.restaurar !== undefined) return planRestaurarTema(existente ?? null, e);
   if (!existente && propios.length >= TOPE_TEMAS) return { error: `El negocio ya tiene ${TOPE_TEMAS} temas propios, el tope: se cambia o se borra uno.` };
   const nombre = texto1(e.nombre, 60) || existente?.nombre || '';
   if (!nombre) return { error: 'Falta el nombre del tema nuevo.', faltan: ['nombre'] };
@@ -1163,9 +1173,34 @@ export function planTemaPropio(propios: readonly TemaPropio[], e: Record<string,
   return {
     tema: { ...(existente ? { id: existente.id } : {}), nombre: limpio.nombre, base: limpio.base, cambios: limpio.cambios },
     nuevo: !existente,
+    antes: existente ?? null,
     resumen: existente
       ? `Cambiar el tema propio «${existente.nombre}»${limpio.nombre !== existente.nombre ? ` (pasa a llamarse «${limpio.nombre}»)` : ''}${lineas.length ? `: ${lineas.join(', ')}` : ''}. Cambia cómo se ven TODAS las landings que lo usan (las publicadas, al volver a publicarlas).`
       : `Crear el tema propio «${limpio.nombre}» a partir de «${baseNombre}»${lineas.length ? `: ${lineas.join(', ')}` : ''}. Se usa con cambiar_tema_landing.`,
+  };
+}
+
+/** Lo que devuelve guardar_tema_landing para volver atrás: el tema como estaba, sin el id (va en «tema»). */
+export const restaurarDeTema = (t: TemaPropio): string => JSON.stringify({ nombre: t.nombre, base: t.base, cambios: t.cambios });
+
+/** `restaurar`: el tema propio que existe vuelve ENTERO a como estaba (ver `planTemaPropio`). */
+function planRestaurarTema(existente: TemaPropio | null, e: Record<string, unknown>): { tema: TemaPropio; resumen: string; nuevo: false; antes: TemaPropio } | FallaPlan {
+  if (!existente) return { error: '«restaurar» vuelve atrás un tema propio que existe: va con «tema» (el id con «ws:»).', faltan: ['tema'] };
+  const otros = ['nombre', 'base', ...COLORES_TEMA_API, 'fuenteTitulos', 'fuenteTexto', 'redondez'].filter((k) => e[k] !== undefined);
+  if (otros.length) return { error: `Con «restaurar» no va nada más (vino ${otros.join(', ')}): es el tema entero como estaba.` };
+  let crudo: unknown = null;
+  try { crudo = typeof e.restaurar === 'string' ? JSON.parse(e.restaurar) : null; } catch { crudo = null; }
+  const o = crudo && typeof crudo === 'object' && !Array.isArray(crudo) ? (crudo as Record<string, unknown>) : null;
+  const limpio = o && typeof o.nombre === 'string' && typeof o.base === 'string' ? sanearTemaPropio({ id: existente.id, nombre: o.nombre, base: o.base, cambios: o.cambios }) : null;
+  if (!limpio || limpio.base !== o?.base) return { error: '«restaurar» no tiene la forma: pasa tal cual el que devolvió guardar_tema_landing.' };
+  if (JSON.stringify(limpio.cambios) === JSON.stringify(existente.cambios) && limpio.nombre === existente.nombre && limpio.base === existente.base) {
+    return { error: `El tema «${existente.nombre}» ya está así.`, yaEstaba: true };
+  }
+  return {
+    tema: limpio,
+    nuevo: false,
+    antes: existente,
+    resumen: `Volver el tema propio «${existente.nombre}» a como estaba${limpio.nombre !== existente.nombre ? ` (vuelve a llamarse «${limpio.nombre}»)` : ''}. Cambia cómo se ven TODAS las landings que lo usan (las publicadas, al volver a publicarlas).`,
   };
 }
 
@@ -1499,8 +1534,18 @@ export type PedidoGenerarApi = {
  * = resumido, conservar = tal cual. Lo que se pide SOBRE el texto va en `instrucciones`, como en la pantalla
  * con un archivo adjunto. `temaDe` resuelve el tema pedido contra los que existen (catálogo y propios con
  * «ws:»); sin tema, el que sugiere la pantalla para el objetivo (`temaSugeridoApi`).
+ *
+ * `basadaEn` (verificación de la tanda 7, 15/10/2026: «Todas las funciones a la API de MaKo»): crear «sobre una página
+ * ya analizada», resolviendo sus hallazgos, como la «Landing de base» de «Más ajustes» y el `?url=` del ex Landing
+ * Analyst. Antes la API la mandaba siempre en null y `mako-capacidades` lo prometía igual. Se valida como la pantalla
+ * (`baseDelDeepLink`): la dirección EXACTA de una de las analizadas del negocio (`analizadas`, la lista de
+ * listar_analisis_landing); un parecido no es una clave, y una que no está se rechaza con las que hay.
  */
-export function pedidoGenerar(e: Record<string, unknown>, temaDe: (tema: string) => { id: string } | FallaPlan): PedidoGenerarApi | FallaPlan {
+export function pedidoGenerar(
+  e: Record<string, unknown>,
+  temaDe: (tema: string) => { id: string } | FallaPlan,
+  analizadas: readonly { url: string }[] = [],
+): PedidoGenerarApi | FallaPlan {
   const idea = texto1(e.idea, 8_000);
   const texto = texto1(e.texto, 60_000);
   if (!idea && !texto) return { error: 'Falta qué crear: una idea («idea») o un texto («texto»).', faltan: ['idea'] };
@@ -1524,6 +1569,16 @@ export function pedidoGenerar(e: Record<string, unknown>, temaDe: (tema: string)
     if ('error' in t) return t;
     tema = t.id;
   }
+  let basadoEnUrl: string | null = null;
+  if (e.basadaEn !== undefined && e.basadaEn !== null && e.basadaEn !== '') {
+    basadoEnUrl = baseDelDeepLink(texto1(e.basadaEn, 2_000), analizadas);
+    if (!basadoEnUrl) {
+      return {
+        error: 'Esa página no está entre las analizadas del negocio: pasa la dirección exacta de listar_analisis_landing (o analízala antes con analizar_landing).',
+        disponibles: analizadas.slice(0, 20).map((a) => a.url),
+      };
+    }
+  }
   const params: Partial<ParamsGeneracion> = {
     cantidad,
     textoPorSeccion,
@@ -1531,7 +1586,7 @@ export function pedidoGenerar(e: Record<string, unknown>, temaDe: (tema: string)
     audiencia: texto1(e.audiencia, 300),
     tono: texto1(e.tono, 120),
     objetivo: objetivo as ObjetivoLanding,
-    basadoEnUrl: null,
+    basadoEnUrl,
     fuenteImagenes: imagenes,
     instrucciones: texto1(e.instrucciones, 5_000),
     modoTexto,
@@ -1559,6 +1614,7 @@ export function resumenGenerar(p: PedidoGenerarApi, nombreTema: string | null): 
     nombreTema ? `tema «${nombreTema}»` : '',
     p.params.idioma && p.params.idioma !== 'es-MX' ? `idioma ${p.params.idioma}` : '',
     p.params.instrucciones ? `con instrucciones («${corto(p.params.instrucciones, 80)}»)` : '',
+    p.params.basadoEnUrl ? `sobre ${corto(p.params.basadoEnUrl, 80)}, resolviendo sus hallazgos` : '',
   ].filter(Boolean);
   return `Crear con IA ${que} ${de}: ${partes.join(', ')}. Queda como borrador, sin publicar (se puede mandar a la papelera). Usa IA y tarda hasta unos minutos.`;
 }

@@ -88,6 +88,14 @@ const PEDIDOS: Array<[string, string]> = [
   ['podrías analizar https://ejemplo.com/oferta', 'analizar_landing'],
   ['porfa analizame la landing de webinar', 'analizar_landing'],
   ['audita esta página https://ejemplo.com', 'analizar_landing'],
+  ['hazle un diagnóstico a mi landing', 'analizar_landing'],
+  // Editar (corrección de la tanda 7; los seis de la verificación están en tests/api-mako-landing-contenido.test.ts)
+  ['mové la sección de testimonios arriba en la página de gracias', 'acomodar_seccion_landing'],
+  ['puedes ponerle el link de la agenda a mi landing?', 'poner_enlace_landing'],
+  ['cambiá el botón de la landing del webinar para que lleve a WhatsApp', 'configurar_boton_landing'],
+  ['traducí mi landing al inglés', 'editar_landing_con_ia'],
+  ['conectá mi dominio a la landing del curso', 'conectar_dominio_landing'],
+  ['ya quedó, cambiá el tema de la landing del curso', 'cambiar_tema_landing'],
 ];
 
 test('por WhatsApp, cada pedido sobre una landing llega con SU herramienta (con y sin voseo, con y sin tilde)', () => {
@@ -124,10 +132,37 @@ test('lo que NO es un pedido sobre una landing no se lee como uno', () => {
   assert.ok(turno(auto).includes('crear_automatizacion_con_ia'));
 });
 
+test('lo que NO es editar una landing no se lee como eso (corrección de la tanda 7)', () => {
+  // Otra área nombrada justo después de la pieza, una pieza sin la landing nombrada, la página de Facebook, la
+  // tercera persona, el infinitivo dictado, la pregunta de cómo se hace, lo del plan y un link de la landing que se
+  // MANDA (eso es de otra herramienta).
+  const casos = [
+    'cambia el titular del anuncio de la landing',
+    'agrega un video al reel',
+    'cambia el tema del mail',
+    'mi socio cambia la landing el lunes',
+    'Cambiar el titular de la landing',
+    '¿cómo cambio el titular de mi landing?',
+    'al plan: cambiá el titular de la landing',
+    'cambia la foto de perfil de mi página de facebook',
+    'sube un post a instagram sobre la landing',
+    'mándale el link de la landing a Ana',
+  ];
+  for (const f of casos) assert.equal(esPedidoDeLanding(f), null, f);
+  for (const f of casos) for (const tool of ['cambiar_texto_landing', 'agregar_seccion_landing', 'cambiar_tema_landing']) {
+    assert.ok(!turno(f).includes(tool), `«${f}» trajo ${tool}`);
+  }
+  // La nota a un lead sigue siendo del CRM aunque el lead haya llegado por la landing.
+  assert.match(clasificarIntencion('agrega una nota al lead que llegó por la landing', {}).porque, /lead del CRM/);
+});
+
 test('esPedidoDeLanding: el tipo, y el turno es `actuar` con el área landing', () => {
   const tipos: Array<[string, string]> = [
     ['publicá la landing', 'publicar'], ['despublicá la landing', 'despublicar'], ['sacala de internet a la landing', 'despublicar'],
     ['creame una landing', 'crear'], ['replicá https://ejemplo.com', 'replicar'], ['analizá mi página', 'analizar'],
+    ['cambiá el tema de la landing', 'editar'], ['ponle un video a mi landing', 'editar'], ['edita mi página de gracias', 'editar'],
+    // El voseo con tilde en el MEDIO del mensaje (sin la marca, «cambia» suelto sólo cuenta al arranque).
+    ['ya quedó, cambiá el tema de la landing', 'editar'],
   ];
   for (const [f, tipo] of tipos) assert.equal(esPedidoDeLanding(f)?.tipo, tipo, f);
   const v = clasificarIntencion('publicá la landing del webinar', {});
@@ -154,4 +189,20 @@ test('esPedidoDeLanding: el tipo, y el turno es `actuar` con el área landing', 
 //   L11 el veredicto sin la relevancia (una herramienta queda afuera del presupuesto) 28 / 1
 //   L12 sin «quiero una landing…» .................................................. 28 / 1
 // Restaurado: 29 / 0.
+//
+// CORRECCIÓN DE LA TANDA 7 (15/10/2026): EDITAR. Este archivo + tests/api-mako-landing-contenido.test.ts (sin el
+// `todo`). Base: 28 / 0.
+//   E1  sin la regla de editar .................................................... 25 / 3
+//   E2  sin exigir que el mensaje nombre la landing («agrega un video al reel») ..... 27 / 1
+//   E3  sin el corte de otra área después de la pieza («el titular del anuncio») .... 27 / 1
+//   E4  sin descontar «la página de Facebook» ...................................... 27 / 1
+//   E5  la forma suelta en cualquier lado (sin el ^: «mi socio cambia…») ........... 27 / 1
+//   E6  sin el pronombre «le» («ponle», «ponerle») ................................. 25 / 3
+//   E7  sin marcar el voseo de editar («ya quedó, cambiá…»; la primera versión de
+//       la prueba daba 28 / 0: el turno la llevaba igual por el imperativo con
+//       tilde, así que se sumó el caso al test del TIPO) ............................ 27 / 1
+//   E8  la relevancia larga de vuelta («cambiar texto sección bloque…») ............ 26 / 2
+//   E9  sin «hazle» en analizar ..................................................... 27 / 1
+//   E10 la regla de editar sin efecto .............................................. 25 / 3
+// Restaurado: 28 / 0.
 // =============================================================================
