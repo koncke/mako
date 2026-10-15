@@ -440,4 +440,19 @@ export const BITACORA: Hito[] = [
       "tests/onboarding-hub-retirado.test.ts — que ningún link vuelva al hub",
     ],
   },
+  {
+    fecha: "15 oct", hora: "19:32", chat: "Onboarding", sesion: "local_79844152-91d5-49c1-b833-c917ed1fc4a6", cuenta: "claude3",
+    actor: "claude", tipo: "correccion",
+    titulo: "La red de plataforma del arranque, probada rompiéndola",
+    puntos: [
+      "El test de la #734 había quedado escrito y sin correr. Base 8/0; seis de las siete roturas caían 7/1.",
+      "La séptima (chatCheap sin wsKey, o sea la red usando la key del cliente) daba 8/0: la misma línea vive en chatCheapTools y el assert leía el archivo entero. Ahora mira el cuerpo de chatCheap y cae 7/1.",
+    ],
+    commits: [
+      { sha: "fa6a2ac", msg: "test(onboarding): la red de plataforma, probada rompiéndola — y un assert que no cazaba nada", lineas: 37, archivos: 1 },
+    ],
+    archivos: [
+      "tests/onboarding-red-plataforma.test.ts — el assert de wsKey, acotado a chatCheap",
+    ],
+  },
 ];

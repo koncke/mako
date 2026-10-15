@@ -1648,6 +1648,16 @@ ninguno es del arranque. El Archivero lee con `leerDocumentoIA` y los productos 
 `chatCheapCascade` sobre `CASCADA_DOCS`, las dos sólo con las keys del cliente. Y
 `ProductosView.tsx:242` sigue pintando el error sin el botón para sumar otra key.
 
+**Cerrada el 13/10 (`26b8eabe`) y verificada el 15/10 (`fa6a2ac3`).** Al correr las siete roturas
+de `tests/onboarding-red-plataforma.test.ts`, una no la cazaba: «`chatCheap` deja de pasar
+`wsKey`» daba 8 de 8 en verde. El assert buscaba
+`const p = await proveedor(opts.provider, opts.clave, opts.wsKey);` en `lib/ai-cheap.ts` entero,
+y esa línea está DOS veces: en `chatCheap` y en `chatCheapTools`. Romper la de `chatCheap` dejaba
+viva la otra, y el test seguía en verde. Es la regla de AGENTS.md («un guard que lee el archivo
+entero encuentra lo que el archivo dice de sí»), pagada otra vez. Ahora el assert mira el cuerpo
+de la función (`bloque(AI, 'chatCheap(')`). Si una línea aparece dos veces en un archivo, un
+assert sobre el archivo entero no puede distinguir cuál se rompió.
+
 ### Lo que quedó SIN hacer
 
 - **Las cinco que se quedan**, sin fecha (la etapa vencía el 9/10). #171 es una línea:
