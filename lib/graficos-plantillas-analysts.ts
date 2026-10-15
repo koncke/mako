@@ -309,13 +309,13 @@ const PRODUCTIVIDAD: PlantillaHoja = {
     // Sin período: todo es la foto de hoy del tablero.
     controles: [],
     componentes: [
-      // 1 · Los seis números de la tab
-      kpi(id('pr-proyectos'), 'proyectos', 'proyectos', 'Proyectos', 'en el tablero', 0, 0, { w: 2 }),
-      kpi(id('pr-avance'), 'proyectos', 'avance_proyectos', 'Avance global', 'promedio por proyecto', 2, 0, { w: 2 }),
-      kpi(id('pr-completos'), 'proyectos', 'completos', 'Completados', 'todas sus tareas hechas', 4, 0, { w: 2 }),
-      kpi(id('pr-activas'), 'ejecucion', 'activas', 'Tareas activas', 'sin las que se repiten', 6, 0, { w: 2 }),
-      kpi(id('pr-wip'), 'ejecucion', 'en_curso', 'En curso (WIP)', 'activas con avance', 8, 0, { w: 2 }),
-      kpi(id('pr-alta-sin'), 'ejecucion', 'alta_sin_deadline', 'Alta sin deadline', 'riesgo de no cerrarse', 10, 0, { w: 2 }),
+      // 1 · Cuatro números, en UNA fila (15/10/2026, copiado de las plantillas de Looker Studio: debajo de la portada va
+      //     una sola fila de números, y ninguno repite lo que la portada ya dice). Salieron «Proyectos» y «Completados»: la
+      //     portada es el avance de cada proyecto.
+      kpi(id('pr-avance'), 'proyectos', 'avance_proyectos', 'Avance global', 'promedio por proyecto', 0, 0),
+      kpi(id('pr-activas'), 'ejecucion', 'activas', 'Tareas activas', 'sin las que se repiten', 3, 0),
+      kpi(id('pr-wip'), 'ejecucion', 'en_curso', 'En curso (WIP)', 'activas con avance', 6, 0),
+      kpi(id('pr-alta-sin'), 'ejecucion', 'alta_sin_deadline', 'Alta sin deadline', 'riesgo de no cerrarse', 9, 0),
       // 2 · ¿Qué hago primero? La matriz (burbujas con los cuadrantes de la tab) y la pirámide.
       {
         id: id('pr-matriz-burbujas'), clase: 'grafico', tipo: 'burbujas', fuente: 'proyectos', dimension: 'proyecto', metricas: ['esfuerzo', 'impacto', 'tareas'],
@@ -337,10 +337,10 @@ const PRODUCTIVIDAD: PlantillaHoja = {
         controles: [fijo(id('pr-avance-estado'), 'proyectos.estado', ['Activo'])],
       },
       // 4 · ¿Eres disciplinado con los tiempos?
+      // «Terminadas con deadline» salió: es el denominador de «A tiempo», que ya lo dice en su línea.
       kpi(id('pr-cumplimiento'), 'ejecucion', 'cumplimiento', 'A tiempo', 'de lo terminado con deadline', 0, 28),
       kpi(id('pr-atraso'), 'ejecucion', 'atraso_prom', 'Atraso promedio', 'días, de las que llegaron tarde', 3, 28),
-      kpi(id('pr-cerradas'), 'ejecucion', 'cerradas_con_deadline', 'Terminadas con deadline', 'las que cuentan para el cumplimiento', 0, 32),
-      kpi(id('pr-estancadas'), 'ejecucion', 'estancadas', 'Estancadas', '7 días o más sin movimiento', 3, 32),
+      kpi(id('pr-estancadas'), 'ejecucion', 'estancadas', 'Estancadas', '7 días o más sin movimiento', 0, 32, { w: 6 }),
       { id: id('pr-ciclo'), clase: 'grafico', tipo: 'barras', fuente: 'ejecucion', dimension: 'prioridad', metricas: ['ciclo'], titulo: 'Cycle time por prioridad', subtitulo: 'días de crear a completar', x: 6, y: 28, w: 6, h: 8 },
       // 5 · ¿Qué huele mal? Las tres listas de la tab, cada una con lo que la define como filtro fijo.
       tareas(id('pr-atencion-estancadas'), 'dias_quieta', 'Estancadas', 12, 0, [fijo(id('pr-atencion-estancadas-f1'), 'ejecucion.estancada', ['Sí'])]),

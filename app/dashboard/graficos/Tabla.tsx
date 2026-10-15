@@ -54,7 +54,7 @@ const ANCHO_ANGOSTA = { nombre: 112, barra: 140, numero: 84, extra: 104, accione
 /** Por debajo de este ancho la tabla va angosta (el mismo corte que el @container de estilos-html.ts). */
 const CORTE_ANGOSTA = 480;
 
-export function Tabla({ r, modo, barraEn, color, menosEsMejor, extras, total, compacto, alFila, personas = false }: {
+export function Tabla({ r, modo, barraEn, color, menosEsMejor, extras, total, compacto, alFila, personas = false, portada = false }: {
   r: Resultado; modo: 'plana' | 'barras' | 'calor';
   /** El índice de la métrica con barra (modo 'barras'), o -1 = sin barra. */
   barraEn: number;
@@ -64,6 +64,11 @@ export function Tabla({ r, modo, barraEn, color, menosEsMejor, extras, total, co
   total: boolean; compacto: boolean; alFila?: (clave: string) => void;
   /** Sobre una portada, una lista de personas: el nombre lleva el avatar con sus iniciales. */
   personas?: boolean;
+  /**
+   * Sobre una portada la letra es más grande (editor-css.ts: hasta 22 px) y una columna de números del ancho de siempre
+   * cortaba el total: «US$1.…» en la portada de Cobranza (capturas del 15/10/2026). Ahí los números van más anchos.
+   */
+  portada?: boolean;
 }) {
   const [ref, tam] = useMedida<HTMLDivElement>();
   const acciones = useColumnaAcciones();
@@ -73,7 +78,8 @@ export function Tabla({ r, modo, barraEn, color, menosEsMejor, extras, total, co
     ...extras.map((e): Col => ({ tipo: 'extra', id: e.id, nombre: e.nombre })),
     ...r.columnas.map((_, i): Col => ({ tipo: 'metrica', i })).filter((c) => !(conBarra && c.tipo === 'metrica' && c.i === barraEn)),
   ];
-  const A = tam && tam.w < CORTE_ANGOSTA ? ANCHO_ANGOSTA : ANCHO;
+  const A0 = tam && tam.w < CORTE_ANGOSTA ? ANCHO_ANGOSTA : ANCHO;
+  const A = portada ? { ...A0, numero: Math.round(A0.numero * 1.35) } : A0;
   const ancho = Math.max(0, (tam?.w ?? 0) - (acciones ? A.acciones : 0));
   const anchoBarra = conBarra ? Math.min(360, Math.max(A.barra, Math.round(ancho * 0.34))) : 0;
   const entran = ancho ? columnasQueEntran(ancho, resto.length, { nombre: A.nombre, barra: anchoBarra, numero: A.numero }) : resto.length;

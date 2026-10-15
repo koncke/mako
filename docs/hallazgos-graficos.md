@@ -896,6 +896,60 @@ plantilla Instagram) · `app/dashboard/editor-css.ts` (`.lk-comp--portada`) · `
 «Portada» del panel) · `tests/graficos-portadas.test.ts` (probado rompiéndolo: ver su cabecera).
 *15/10/2026, claude1 (chat Dashboard).*
 
+## Bloque por bloque, segunda pasada: la pila mide lo que dibuja y las barras llenan su tarjeta (15/10/2026)
+
+**El pedido** (Martín, 14/10, 14:34, por el orquestador): «Que rediseñe bloque por bloque y que tenga en cuenta mobile. Que
+vaya viendo con datos ficticios o con algun dato de algun workspace que todo se vea bien en diseño. Tanto bloques como las
+plantillas.» Las portadas (arriba) contestaron la galería; esto es lo que quedaba ADENTRO de las 13 hojas. Se miró con el
+arnés, las 13 plantillas en el escritorio y en la pila del celular, y cada tipo con el tema Contraste (el de Mauricio).
+
+**Lo que mostraron las capturas, y la causa de cada cosa:**
+
+- ⚠️ **En la pila del celular, toda pieza que no fuera un número conservaba el alto del escritorio.** Una tabla de 4 filas
+  («Estancadas», «Las llamadas», «Cohortes») dejaba media pantalla en blanco abajo. La causa no estaba en ningún gráfico:
+  `ALTO_LIBRE_EN_PILA` tenía tres tipos. Las tablas, las dinámicas, las tarjetas, los tramos y las barras horizontales son
+  HTML que se mide solo, y la caja de IA también. Lo que es de recharts necesita un alto para dibujar y lo conserva. Las
+  barras horizontales son HTML sólo con la condición con la que `Grafico.tsx` elige `BarrasGordas` (`esBarrasGordas`: sin
+  apilar, sin desglose, hasta dos métricas). La regla vive en `app/dashboard/pila.ts`.
+- ⚠️ **El arnés tenía su COPIA de esa regla**, escrita a mano (`entrada.tsx`). Arreglar el editor no movía las capturas, y
+  el arnés seguía dando por buena la regla vieja. Ahora importa `pila.ts`.
+- **Las barras horizontales se amontonaban en el medio de una tarjeta alta** (centradas con `margin: auto`). Ahora las
+  filas se reparten el alto, como las bandas de un gráfico de barras de Looker Studio, con un tope de 72 px por fila para
+  que dos filas no queden lejísimos. Con siete filas o menos la barra engorda a 32 px. En una tarjeta angosta (el celular)
+  pasa de 18 a 24 px.
+- **Las columnas AGRUPADAS eran agujas** (seis edades × tres series en un tercio de hoja). Entre grupos va 12 % de aire y
+  no 22 % (`BARRA.separacionGrupo`).
+- **La portada de Cobranza cortaba los totales** («US$1.…»): la letra de una portada llega a 22 px y la columna de números
+  tenía el ancho de siempre. Sobre una portada, `Tabla` los hace 1,35× más anchos (`portada`).
+- **La fecha del último dato se cortaba a la derecha** («oct 2» en «Tendencia del score»): cuando el último punto lleva su
+  marca en el eje, el margen derecho deja lugar para la mitad de la etiqueta.
+- **El carrusel de tarjetas en la portada del celular NO es un defecto**: va a 64 % de ancho con `scroll-snap`, y la
+  tarjeta que asoma es la pista de que hay más.
+
+**Las dos decisiones que quedaban** (el orquestador: «resolvelas vos copiando de una app que ya lo resolvió»):
+
+- **El titular de cada hoja** ya lo resolvió la portada: el titular 6 × 6 se sacó el 15/10.
+- **Menos piezas.** Copiado de las plantillas de informe de Looker Studio: debajo de la portada va UNA fila de números, y
+  ninguno repite lo que la portada ya dice. Las plantillas de Looker tienen entre 10 y 15 piezas por página; las nuestras,
+  de 8 a 19. Sólo Productividad se pasaba (19, con 10 números): perdió «Proyectos» y «Completados» (la portada es el avance
+  de cada proyecto) y «Terminadas con deadline» (el denominador de «A tiempo», que ya lo dice en su línea). Queda en 16.
+  Closing tiene cinco números en su fila y se quedan: R1 y R2 son el PUNTAJE por tipo de reunión, no repiten el embudo de
+  la portada, que cuenta llamadas.
+
+**Lo que costó medir, y sirve para la próxima:**
+
+- ⚠️ **El arnés armado con `timeout 300` sobre una máquina sin RAM no se armó, y las capturas salieron IDÉNTICAS a las de
+  antes**: se tomaron del bundle viejo y parecía que los arreglos no hacían nada. Antes de mirar una captura se mira la
+  hora de `bundle.js`, o se busca en el bundle un texto del cambio. Con la RAM justa se arma sin `timeout` y en segundo
+  plano.
+- **El tema de una plantilla manda sobre el del arnés**: `capturar.cjs "" <tema> plantillas` saca las 13 cada una en su
+  propio tema. Los temas se miran en el modo por tipo (`capturar.cjs "" <tema>`, y `lamina-grilla.cjs` junta los casos).
+
+**Vive en:** `app/dashboard/pila.ts` · `app/dashboard/EditorInforme.tsx` (`tarjeta`) · `app/dashboard/graficos/estilos-html.ts`
+(`.gr-barras`) · `app/dashboard/graficos/Tabla.tsx` (`portada`) · `app/dashboard/Grafico.tsx` (`separacion`, el margen del eje
+X) · `lib/graficos-gordo.ts` (`BARRA.separacionGrupo`) · `lib/graficos-plantillas-analysts.ts` (Productividad).
+*15/10/2026, claude3 (chat Dashboard).*
+
 ## Lo que quedó sin hacer
 
 - **Las portadas (15/10/2026):** mirado en producción en el ESCRITORIO con las 6 hojas de Mauricio; el celular, sólo en el
@@ -908,7 +962,8 @@ plantilla Instagram) · `app/dashboard/editor-css.ts` (`.lk-comp--portada`) · `
 - **El Dashboard épico (14/10/2026):** el titular 6 × 6 lo reemplazó la PORTADA el 15/10 (ver arriba). Lo de abajo de la
   portada sigue como estaba: si Martín quiere menos piezas por hoja, es elegir qué se va (decisión suya).
 - **Rediseño por tipo, mitad Dashboard (14/10/2026):** NADA de esto se vio todavía en producción ni con datos reales: el
-  arnés dibuja datos de ejemplo y sólo con el tema MaKo (los otros seis temas, sin mirar). Después del deploy, ws3 en el
+  arnés dibuja datos de ejemplo. El 15/10 se miró además Contraste en el modo por tipo (bien); Minimal, Suave, Elevada,
+  General y Editorial siguen sin mirar por tipo. Después del deploy, ws3 en el
   editor con «Celular». Sin mirar en el arnés: «Conclusiones de MaKo», la Ficha y el mapa de calor de página (piden datos
   del server). Un número alto (3 × 6) va centrado pero no crece con el alto. La leyenda HTML de la torta no prende ni
   apaga porciones (la de recharts tampoco lo hacía en la torta). Y sigue esperando a Martín si se borran

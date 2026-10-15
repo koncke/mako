@@ -44,6 +44,12 @@ export const CSS_HTML = `
 .gr-barras > :first-child { margin-top: auto; }
 .gr-barras > :last-child { margin-bottom: auto; }
 .gr-barras-fila { display: grid; grid-template-columns: minmax(0, 34%) minmax(0, 1fr); align-items: center; gap: 14px; padding: 6px 4px; border-radius: 10px; }
+/* Las filas se REPARTEN el alto de la tarjeta, como las bandas de un gráfico de barras de Looker Studio: centradas,
+   cinco barras en una tarjeta alta quedaban apretadas en el medio con media tarjeta en blanco arriba y abajo (capturas
+   del arnés, 15/10/2026: «Leads por etapa», «Qué botón tocan»). Con tope, para que dos filas no queden lejísimos. Con más
+   filas de las que entran no crecen (su mínimo es lo que dibujan) y el scroll sigue igual; en la pila del celular la
+   tarjeta mide lo que dibuja y no hay alto que repartir. */
+.gr-barras > .gr-barras-fila { flex: 1 1 auto; max-height: 72px; }
 .gr-barras-fila[tabindex] { cursor: pointer; }
 .gr-barras-fila[tabindex]:hover, .gr-barras-fila[tabindex]:focus-visible { background: var(--velo-hover); outline: none; }
 .gr-barras-rot { font-size: var(--fs-card); color: var(--ink); line-height: 1.3; overflow: hidden; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
@@ -52,6 +58,10 @@ export const CSS_HTML = `
 .gr-barras-pista { position: relative; height: 26px; border-radius: 8px; overflow: hidden; }
 .gr-barras-pista--doble { height: 16px; }
 .gr-barras-pista > span { position: absolute; inset: 0 auto 0 0; border-radius: 8px; }
+/* Pocas filas (hasta siete): la barra engorda (punto 13 de la v5: «gordos, minimalistas»). */
+.gr-barras:not(:has(> .gr-barras-fila:nth-child(8))) .gr-barras-pista { height: 32px; border-radius: 10px; }
+.gr-barras:not(:has(> .gr-barras-fila:nth-child(8))) .gr-barras-pista > span { border-radius: 10px; }
+.gr-barras:not(:has(> .gr-barras-fila:nth-child(8))) .gr-barras-pista--doble { height: 18px; }
 .gr-barras-val { font-size: var(--fs-card); font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .gr-barras-val--chico { font-size: var(--fs-sm); color: var(--dim); }
 .gr-barras-leyenda { display: flex; gap: 14px; flex-wrap: wrap; font-size: var(--fs-md); color: var(--ink); padding: 0 4px 6px; }
@@ -60,9 +70,9 @@ export const CSS_HTML = `
 @container (max-width: 440px) {
   .gr-barras-fila { grid-template-columns: minmax(0, 1fr); gap: 4px; padding: 4px 2px; }
   .gr-barras-rot { -webkit-line-clamp: 1; }
-  .gr-barras-pista { height: 18px; border-radius: 6px; }
-  .gr-barras-pista > span { border-radius: 6px; }
-  .gr-barras-pista--doble { height: 12px; }
+  .gr-barras-pista, .gr-barras:not(:has(> .gr-barras-fila:nth-child(8))) .gr-barras-pista { height: 24px; border-radius: 8px; }
+  .gr-barras-pista > span, .gr-barras:not(:has(> .gr-barras-fila:nth-child(8))) .gr-barras-pista > span { border-radius: 8px; }
+  .gr-barras-pista--doble, .gr-barras:not(:has(> .gr-barras-fila:nth-child(8))) .gr-barras-pista--doble { height: 14px; }
 }
 
 /* El container va en el envoltorio: un @container no estila al mismo elemento que lo declara (con el container-type en

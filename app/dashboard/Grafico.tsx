@@ -367,7 +367,7 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo }: { g: G; 
     if (g.tipo === 'tarjetas') return <Tarjetas r={r} barraEn={barraEn} chips={g.tabla?.columnas ?? []} color={c(0)} compacto={e.compacto} alFila={alFila} personas={personas} />;
     if (info?.grupo === 'Tabla') {
       const modo = g.tipo === 'tabla_barras' ? 'barras' : g.tipo === 'tabla_calor' ? 'calor' : 'plana';
-      return <Tabla r={r} modo={modo} barraEn={barraEn} color={c(0)} menosEsMejor={(i) => menosEsMejor(r.columnas[i]?.id ?? '')} extras={extras} total={g.total} compacto={e.compacto} alFila={alFila} personas={personas} />;
+      return <Tabla r={r} modo={modo} barraEn={barraEn} color={c(0)} menosEsMejor={(i) => menosEsMejor(r.columnas[i]?.id ?? '')} extras={extras} total={g.total} compacto={e.compacto} alFila={alFila} personas={personas} portada={!!portada} />;
     }
     if (info?.grupo === 'Tabla dinámica') return <Dinamica r={r} rotulo={dim?.nombre ?? r.columnas[0].nombre} modo={g.tipo === 'dinamica_barras' ? 'barras' : g.tipo === 'dinamica_calor' ? 'calor' : 'plana'} color={c(0)} total={g.total} compacto={e.compacto} alFila={alFila} />;
 
@@ -600,7 +600,12 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo }: { g: G; 
           // El eje de la línea de otro formato en un combinado: existe para escalarla, nunca se dibuja.
           const ejeB = combinado && s.formatos.some((f) => f !== f0) ? <YAxis yAxisId="b" hide /> : null;
           const tip = <Tooltip contentStyle={TIP} labelStyle={TIP_ETIQUETA} formatter={fmtTip} cursor={{ stroke: 'var(--border-strong)', strokeWidth: 1.5 }} />;
-          const comun = { width: t.w, height: t.h, data: s.datos, margin: MARGEN, onClick: alPunto, cursor: cursorGrupo };
+          // Si el ÚLTIMO dato lleva su fecha en el eje, la etiqueta va centrada en el borde y la mitad quedaba afuera («oct 2»
+          // en «Tendencia del score», capturas del 15/10/2026): el margen derecho deja lugar para esa mitad.
+          const ultimaX = etiquetasX[etiquetasX.length - 1] ?? '';
+          const conUltima = !inclinar && etiquetasX.length > 1 && (etiquetasX.length - 1) % (intervalo + 1) === 0;
+          const margen = conUltima ? { ...MARGEN, right: Math.max(MARGEN.right, Math.ceil(anchoTexto(ultimaX) / 2) + 2) } : MARGEN;
+          const comun = { width: t.w, height: t.h, data: s.datos, margin: margen, onClick: alPunto, cursor: cursorGrupo };
 
           if (info?.grupo === 'Serie temporal' || g.tipo === 'lineas' || g.tipo === 'lineas_suaves') {
             const curva = g.tipo === 'serie_suave' || g.tipo === 'lineas_suaves' ? 'monotone' : 'linear';
@@ -674,8 +679,11 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo }: { g: G; 
           };
           const corto = (v: string) => (v.length > 20 ? `${v.slice(0, 19)}…` : v);
           const anchoCat = Math.min(180, Math.ceil(Math.max(0, ...s.datos.map((d) => anchoTexto(corto(String(d.etiqueta)), LETRA.categoria)))) + 10);
+          // Columnas AGRUPADAS (varias métricas lado a lado): con la separación de siempre, seis edades × tres series en un
+          // tercio de hoja eran agujas de 8 px (capturas del 15/10/2026, «Edad y género»). Entre grupos va menos aire.
+          const separacion = !apilada && !horizontal && visibles.length > 1 ? BARRA.separacionGrupo : BARRA.separacion;
           return (
-            <BarChart {...comun} layout={horizontal ? 'vertical' : 'horizontal'} stackOffset={cien ? 'expand' : 'none'} barCategoryGap={BARRA.separacion} onClick={undefined}>
+            <BarChart {...comun} layout={horizontal ? 'vertical' : 'horizontal'} stackOffset={cien ? 'expand' : 'none'} barCategoryGap={separacion} barGap={2} onClick={undefined}>
               {e.cuadricula && ejes && <CartesianGrid {...GRILLA} horizontal={!horizontal} vertical={horizontal} />}
               {horizontal ? (
                 <>
