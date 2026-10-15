@@ -81,6 +81,11 @@ Medido al investigar «MaKo Mobile tarda 10 s».
   instancia congelada. Con 28 deploys por día, el primer toque a cada pantalla después de un push paga +1,5-3,5 s.
 - **Un `redirect()` de página puede llegar como redirect de CLIENTE (200), no como 307**: /inicio respondió 200 y
   pintó su layout antes de redirigir. Lo que tiene que redirigir sin dibujar nada (un repartidor) va en el proxy.
+- **`select('*', { count: 'exact', head: true })` NO dice que una tabla no existe** (supabase-js, medido el
+  15/10/2026): para chat_estado, chat_leidos y chat_eventos, que no están en producción, devolvió `error: null` y
+  `count: null`, y se leía «existe, 0 filas». Con `head: true` no hay cuerpo y el PGRST205 no se parsea. Para saber si
+  una tabla existe va un `select('*').limit(1)` normal, y siempre contra una tabla inventada de control: las dos
+  tienen que dar lo mismo, o el chequeo no dice nada.
 - **Un componente de cliente que importa una constante de un módulo con `node:crypto`** (WS_DISENO, de
   lib/auth-session.ts) mete crypto-browserify, stream y buffer en el bundle: ~450 KB crudos en TODA página. Turbopack
   no lo recorta, esbuild sí; medir con esbuild engaña en esto.
