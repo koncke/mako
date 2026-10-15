@@ -515,6 +515,75 @@ dos «quitar» simultáneos pueden dejar al super admin sin métodos (hace falta
 reset del 2FA por un admin; cerrar sesiones en todos lados al perder el teléfono; método preferido; la
 sección Seguridad en `/m/cuenta`. **Tanda 2:** el destino «a la persona del evento» en Automations.
 
+### El 2FA obligatorio con plazo: «desloguear» era la forma equivocada (14/10/2026)
+
+Pedido de Martín (vía «Estrategia 3 cuentas»): el 2FA obligatorio para TODOS, con plazo al 21/10 a las 24:00 en la
+hora de cada negocio, avisos y recordatorios, y «al que no lo configuró se lo desloguea». El circuito de avisos es del
+chat de Automations (`docs/diseno-2fa-obligatorio.md` en su rama); la regla es de acá.
+
+- ⚠️ **«Desloguear» a una hora no se puede hacer bien, y no hace falta.** La sesión es una cookie firmada SIN estado
+  (sin `iat`, sin marca por usuario): no hay forma de cerrarle la sesión a UNA persona. Y una acción masiva a la hora
+  del corte alcanza a quien sí cumplió si su cookie de hoy no trae `mfa`, y se puede disparar dos veces. Lo que se hizo
+  es EXIGIR: el negocio guarda una FECHA (`workspaces.mfa_obligatorio_desde`, mig 0283) y `requiereSegundoFactor` la
+  calcula en cada pedido. Desde esa hora la sesión sin segundo factor deja de valer (`getUsuarioActual`) y el login
+  manda a /login/2fa, que ya permitía activar el primero sin sesión. Es idempotente, se deshace con null, y a quien
+  cumplió no lo toca: activar un método reemite su sesión con `mfa`, y sus cookies viejas caen en ese momento.
+- **La fecha va en el NEGOCIO, no en cada usuario.** Una marca por usuario escrita una vez no alcanza a los que se
+  crean después; hay 3 invitados que nunca entraron. Lo que sigue sin cubrirse es un NEGOCIO creado después de correr
+  la acción: nace sin la fecha, y se vuelve a correr (es idempotente).
+- **Una sesión que `getUsuarioActual` rechaza no cae al ws1**: `resolverDesdeCookies` distingue «no hay cookie»
+  (cron, webhook: dueño) de «hay cookie y no vale» (null, fail-closed). Medido en `lib/workspace.ts:265` antes de
+  apoyar la exigencia ahí y no en el proxy, que no tiene base.
+- **Lo que la plataforma decide SOBRE los negocios es `gating.soloPlataforma`**, resuelto por la capa en `vistaDe`, y
+  el runner lo vuelve a preguntar en preparar y en ejecutar. Sin eso, el admin de un cliente veía «dejar de exigir el
+  2FA» y anulaba en su negocio la exigencia de Martín. Las capas `completo` y `agencia` tienen `navKeys: null`, así
+  que un `gating.tab` no podía esconderla.
+- **Hoy el único primer factor es la app de autenticación**: WhatsApp y correo siguen apagados (tanda 2) y la llave no
+  puede ser el primero (sólo el celular, sólo después del 2FA). Quien entra sólo desde el teléfono no tiene QR que
+  escanear: se suma «Abrir en la app» con el `otpauth://` que ya generaba `iniciarTotp`.
+- **Medido en producción el 14/10**: 12 usuarios (9 activos, 3 invitados), 11 sin 2FA (sólo el super admin lo
+  tiene), cada negocio con UN usuario (su admin). **`usuarios` no tiene teléfono**: el único es
+  `usuario_mfa.whatsapp_tel`, de quien ya activó el código por WhatsApp. O sea que a quien le falta el 2FA, por
+  persona, sólo se le puede escribir por email; por WhatsApp, sólo al grupo del negocio. La ventana del corte va del
+  21/10 22:00 UTC (ws19, Madrid) al 22/10 07:00 UTC (Tijuana); 4 de 13 negocios sin zona guardada.
+
+**Vive en:** `lib/mfa-reglas.ts` (`requiereSegundoFactor`, `exigidoYa`, `politicaLoExige`, `instanteDelPlazo`) ·
+`lib/mfa-obligatorio.ts` · `lib/auth.ts` (getUsuarioActual) · `app/api/auth/callback/google/route.ts` ·
+`app/api/perfil/seguridad/route.ts` · `lib/api-mako/areas/equipo.{def,run}.ts` (`exigir_2fa_desde`,
+`dejar_de_exigir_2fa`, `ver_exigencia_2fa`) · `supabase/migrations/0283_mfa_obligatorio.sql` ·
+`tests/mfa-obligatorio.test.ts` · *14/10/2026, chat «Ciberseguridad» con «Automations»*
+
+### ⚠️ `next dev` le daba un admin de producción a la red, y la puerta ACTIVA era `dev-login` (15/10/2026)
+
+El chat del Centro de Operaciones encontró la mitad latente (la sección «Un `next dev` sin `AUTH_SECRET` es un admin
+abierto a la red», en su rama): sin `AUTH_SECRET`, el proxy dejaba pasar todo en local y `getUsuarioActual` devolvía un
+admin del ws1. **Midiendo eso apareció la mitad que ya estaba abierta**, y que el diagnóstico obvio no veía porque
+miraba la falta del secreto:
+
+- ⚠️ **`/api/auth/dev-login` respondía en todo `next dev` CON el secreto**, o sea en todos los checkouts. Su guarda
+  sólo preguntaba «¿estoy en Vercel o en producción?», y `next dev` escucha en `0.0.0.0` (Next 16.2.6). Así que
+  `GET http://<ip-de-la-pc>:3000/api/auth/dev-login?ws=9` le daba a cualquiera de la misma red un admin global (con
+  `mfa: 'dev'`) con escritura en la base de PRODUCCIÓN. Y sin estar en la red también: una página web por DNS
+  rebinding, desde el navegador de quien tiene el `next dev` corriendo. Se pagaba cada vez que un chat levantaba un
+  `next dev` para verificar algo.
+- **Las tres capas** (`lib/auth-session.ts`, `tests/dev-local.test.ts` con 8 roturas):
+  1. `npm run dev` = `next dev -H 127.0.0.1`: desde la red no se llega al puerto. Medido con un servidor atado a
+     127.0.0.1: `localhost` y `127.0.0.1` responden desde node y desde curl; la IP de la red, ECONNREFUSED. Next 16 deja
+     pasar `localhost` y el host del servidor en sus recursos de desarrollo (`block-cross-site-dev.js`), así que abrir
+     por `localhost` sigue funcionando.
+  2. `esHostLocal` en `dev-login`, en la sesión sin secreto y en el proxy sin secreto: frena el DNS rebinding (el Host
+     es el dominio del atacante) y el navegador de otro en la red. No frena un `curl` con el Host falseado a mano:
+     para eso está la capa 1.
+  3. Sin `AUTH_SECRET`, la sesión dev exige además `MAKO_DEV_SIN_LOGIN=1`; sin el permiso, el proxy contesta 503 y
+     dice qué falta, en vez de mandar a un /login que no puede firmar.
+- **Lo que queda**: un `npx next dev` pelado (sin el script) sigue escuchando en la red; la capa 2 le corta el
+  rebinding, pero no el `curl`. Y `next start` local también escucha en la red, pero ahí `dev-login` no existe y hace
+  falta un login de verdad.
+
+**Vive en:** `lib/auth-session.ts` (`esHostLocal`, `devLoginPermitido`, `sinLoginPermitido`) · `proxy.ts` ·
+`lib/auth.ts` · `app/api/auth/dev-login/route.ts` · `package.json` (`dev`) · `tests/dev-local.test.ts` ·
+*15/10/2026, chat «Ciberseguridad», a partir del aviso del chat «Centro de Operaciones»*
+
 ### ⚠️ Ningún guard que mire el eje de workspace puede restringir a la agencia: el único que sirve es `getSesionAdmin()`
 
 Tres guards con nombre de «solo la agencia» y ninguno lo cumple, por la misma razón de
@@ -1650,6 +1719,49 @@ el registro abierto (la app no lo usa: se apaga en el panel de Supabase).
 **Lo que la auditoría NO cubrió**: de los 58 archivos `'use server'`, el barrido leyó a fondo unos 25 y el resto por
 encima. Las 318 rutas de `app/api` se leyeron todas.
 
+### Estado de la tabla (14/10/2026, commit `6a668f72c` de la rama `seg-auditoria`)
+
+**Cerrados**, cada uno con su test probado rompiéndolo (`tests/seguridad-*.test.ts`): la crítica de las funciones (0280,
+aplicada y medida con el mismo GET anónimo), `plan-recurvar` y las 10 copias del chequeo del cron (más `admin/meta-check`
+y `admin/youtube-check`), los proxies de media, cuotas y pagos, el XSS del detalle, el token clásico, el saldo de Claude,
+perfil/destinatarios, el GET de `resumen` (borrado; archivar y desarchivar dejan la secuencia pausada), el tope de la
+línea de MaKo, ads-analyst, landing-analyst (también `pulso`, que la auditoría no vio), `/api/doc` y `/api/contract`, el
+SSRF y el `..` del Archivero, el doer de escritorio, los insights de Meta y `compartido/archivo`. De paso, dos rutas que
+nadie había listado: `regenerate-transcript` (IA paga para cualquier closer del ws1) y `perfil/plantilla` (un closer
+mandaba a aprobar a Meta la plantilla del negocio).
+
+**Abiertos, con dónde viven:**
+- La rotación de las credenciales de `docs/chats/`: la lista, con fecha por credencial, en `docs/rotacion-credenciales.md`.
+- Quién manda a MaKo en el grupo de WhatsApp de un cliente (`lib/mako-doer-in.ts:855`: todo el grupo corre como admin con
+  «ejecutar», y su system prompt lleva los números del trimestre): decisión de producto, en el tablero.
+- next 16.2.11 y el registro abierto de Supabase Auth: decisiones, en el tablero.
+- `lib/anthropic-usage.ts` (`wsDeProveedor`) sigue cayendo a `OWNER_WS`: la defensa vive sólo en la ruta.
+- `app/api/chart-insights/route.ts` arma el system prompt CON el avance del trimestre y no mira el rol: si un closer
+  llega a un chat de gráfico, MaKo le cuenta la plata. NO MEDIDO qué gráficos ve un closer.
+- Las bajas sin tocar: el webhook de Fathom sin secreto propio verifica con el del ws1, identidades fiscales y teléfonos
+  del negocio sin chequeo de rol, «Completar como Mauricio» con guarda en negativo.
+- `tests/cobranza.test.ts` («marcar el pago CORTA…») ya estaba rojo en `origin/main`: el recorte de `marcarPago` mide
+  6777 contra un techo de 3000. No es de esta rama.
+
+### Lo que enseñó ARREGLARLA
+
+- ⚠️ **El arreglo que proponía la propia auditoría para `/api/doc` era el diagnóstico equivocado, dos veces.** «Exigir el
+  prefijo `<ws>/<lead>/`» deja pasar `5/60/../../7/50/x.pdf`, porque storage-js arma la URL de la firma con la ruta
+  cruda y el `fetch` resuelve el `..` (medido con `new URL`): la firma sale para otra carpeta, o para otro bucket. Y
+  además rompía un contrato REAL: el del lead 31 del ws1 se guardó como `<lead>/<ms>_<nombre>` (extract-contract, del
+  20/06 al 02/07, antes de `7ee06bb15`), y el objeto existe. Lo cazó un revisor midiendo producción, no los tests. La
+  regla: **una ruta de Storage leída de una fila se valida por SEGMENTOS** (`rutaDeEsteLead`), y **antes de endurecer
+  un formato se cuenta qué formatos hay en la base**.
+- ⚠️ **Filtrar las herramientas del doer no cerraba nada: el dato ya estaba en lo que el modelo LEE.** Los chats del
+  doer de escritorio eran del WORKSPACE (`open` devolvía el último, el del admin, con las respuestas de
+  `metricas_negocio` en texto) y el system prompt traía el avance del trimestre con plata. Lo de un closer o setter
+  pasa a ser suyo (`mako-doer:u<id>`, `quienPide`/`puedeAbrir` en `app/api/mako-doer/route.ts`) y su prompt va con
+  `sinNumerosDelNegocio` (escritorio y teléfono).
+- **Un 403 nuevo tiene que decirse en la pantalla que lo pide.** El editor de saldo de /integraciones hacía
+  `if (j?.ok) …` y nada más: con el corte nuevo, el botón dejaba de hacer algo sin un solo aviso.
+- **Borrar una ruta pone rojos los tests que barren `git ls-files` hasta que el borrado se stagea** (ENOENT en
+  closing-entrega, motor-tick y pixel-cargador): el índice todavía la lista. No es un bug del test.
+
 ### Las reglas que quedan
 
 - ⚠️ **`revoke all on function … from public` NO saca el EXECUTE de anon y authenticated**: Supabase se lo da DIRECTO
@@ -1670,3 +1782,40 @@ encima. Las 318 rutas de `app/api` se leyeron todas.
   07/09 tapó unas líneas y se le escaparon otras, y lo que tapó seguía vivo.
 
 **Vive en:** la tabla de arriba · `supabase/migrations/0280_rpc_sin_anon.sql` · *auditoría del 14/10/2026, chat «Ciberseguridad», workflow `wf_6f480c38-f3f`*
+
+## Un `next dev` sin `AUTH_SECRET` es un admin abierto a la red (15/10/2026)
+
+✅ **Cerrado el mismo día en `4e2fb425b`** (chat «Ciberseguridad»): ver «`next dev` le daba un admin de producción a la
+red, y la puerta ACTIVA era `dev-login`». ⚠️ **Y el «hoy no pasa en ningún checkout» de abajo midió la puerta
+equivocada.** Medí el camino que había descrito (la sesión dev sin el secreto) y lo declaré latente; la puerta que estaba
+ABIERTA era otra, `/api/auth/dev-login`, que respondía en todo `next dev` CON el secreto. **Antes de declarar latente un
+agujero, se enumeran TODAS las puertas que dan el mismo acceso, no sólo la que uno encontró.** Los números de línea de
+abajo son de antes del arreglo.
+
+La mitad ya estaba escrita (más arriba: «sin `gateConfigurado()` y fuera de producción, `lib/auth.ts` te devuelve
+admin de ws1 […] la trampa a cerrar antes de darle a MaKo cualquier capacidad de ejecutar sola»), y se la leía como una
+trampa de las PRUEBAS: «probarlo en local no prueba nada». Hay dos piezas más, y juntas cambian de qué se trata:
+
+1. **`next dev` escucha en `0.0.0.0` por defecto** (`node_modules/next/dist/docs/01-app/03-api-reference/06-cli/next.md`,
+   Next 16.2.6). No es «local»: lo alcanza cualquiera de la misma red, un wifi de bar incluido.
+2. **El `.env.local` apunta a la base de PRODUCCIÓN** con la `service_role` (ver
+   [hallazgos-infra.md](hallazgos-infra.md) → «El boot local ESCRIBE en prod»).
+
+O sea: un checkout que tenga las claves de Supabase y NO tenga `AUTH_SECRET`, con `next dev` corriendo, le da a
+cualquiera de la red una sesión de admin (`sub: 'dev'`, `rol: 'admin'`, `lib/auth.ts:74-77`) que lee y escribe la base
+de todos los clientes. El proxy tampoco frena: sin el secreto deja pasar todo (`proxy.ts:419-424`).
+
+**Medido el 15/10/2026: hoy no pasa en ningún checkout.** El clon tiene `AUTH_SECRET`, y de los 34 worktrees los 5 que
+tienen `.env.local` también. Es un riesgo latente, y se abre solo: un worktree nuevo con un `.env.local` armado a mano
+(AGENTS.md pide uno por worktree) o un `vercel env pull` de un entorno sin el secreto.
+
+**Por qué importa ahora:** el Centro de Operaciones ([diseno-centro-de-operaciones.md](diseno-centro-de-operaciones.md))
+convierte una fila de la base en un prompt que corre en la PC de Martín. Con este agujero abierto, alguien de la misma
+red pasa de admin de MaKo a una consola en esa máquina. Por eso el diseño exige la firma de cada pedido con una clave que
+el servidor no tiene, y rechaza las sesiones `sub: 'dev'`.
+
+**El arreglo, sin hacer:** que la sesión dev exija un permiso explícito además de la falta del secreto (por ejemplo
+`MAKO_DEV_SIN_LOGIN=1`), o que se niegue cuando las claves de Supabase son las de producción. Fail-closed por defecto,
+como en producción. Y, de paso, `next dev -H 127.0.0.1` en el script.
+
+**Vive en:** `lib/auth.ts:74-77` · `lib/auth-session.ts:135-151` (`secret`, `gateConfigurado`) · `proxy.ts:419-424` · `package.json` (`"dev": "next dev"`) · *chat «Centro de Operaciones», 15/10/2026*

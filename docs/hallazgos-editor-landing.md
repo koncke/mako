@@ -1234,9 +1234,70 @@ editor, y un crítico que midió lo que faltaba). Las salidas y los scripts qued
 - **Parpadeo** en 5 de 6 corridas: el H1 se pinta VISIBLE (FCP 404-1.048 ms), el script lo pasa a opacidad 0 entre
   25 y 456 ms después, queda invisible 269-380 ms y recién ahí entra con el fade. Causa: `SCRIPT_PAGINA` va al final
   del `<body>` (`pagina-publica.ts:533-544`) y pone `html.gm-anim` cuando la página ya se pintó.
-- Arreglo propuesto (etapa 0, sin decidir todavía): antes de poner `gm-anim`, el script marca como vistas las
-  secciones que ya están en pantalla (la primera nunca se esconde). Va en el SCRIPT, que no queda congelado: llega a
-  todas las publicadas sin republicar. Decide Martín si la primera sección queda quieta o hace el fade sin parpadeo.
+- **Arreglado con la opción A** (rama `landing-parpadeo`, en main desde el merge `f9039872`, 15/10/2026): antes de
+  poner `gm-anim`, el script deja `gm-visto` con `animation: none` en línea la primera sección y todo lo que corta la
+  pantalla (ellos, sus bloques y lo marcado con `data-animar` adentro). Va en el SCRIPT, que no queda congelado: llega
+  a todas las publicadas sin republicar. Medido con el mismo arnés (publicada real armada con render.ts +
+  armarDocumento, 390×844, CPU ×4): **el H1 queda en opacidad 1 desde el primer cuadro en 6 de 6 corridas** (antes:
+  1 → 0 → fade, visible recién a los 1,3-2,7 s). Lo de más abajo sigue animando al entrar.
+- ⚠️ **Salió SIN la respuesta de Martín al A/B** (A: el hero quieto; B: el hero con un fade que no parpadea), y fue a
+  propósito: el parpadeo era un bug del código que iba a recibir la PRIMERA landing que publicara alguien (0
+  publicadas el 15/10), y una decisión estética pendiente no lo justifica. El camino a B sale de A igual que de cero
+  (es otro arreglo del mismo script, que tampoco queda congelado). Si contesta B, se cambia; no hay nada que deshacer.
+- **El número que vale: con el arreglo, «Animaciones» prendido CUESTA LO MISMO QUE APAGARLO.** LCP del H1, 3 corridas
+  por plantilla, mismas condiciones (ms):
+
+  | Plantilla | Antes, con «Animaciones» | Con el arreglo, con «Animaciones» | Sin «Animaciones» |
+  |---|---|---|---|
+  | agenda-llamada | 1.428-3.004 en 6 de 9 corridas de las tres; 352-636 en las otras 3 | 588 / 344 / 348 | 352 / 272 / 264 |
+  | lead-magnet | (idem) | 312 / 248 / 280 | 292 / 256 / 280 |
+  | webinar | (idem) | 400 / 452 / 368 | 424 / 332 / 352 |
+
+  **Regla:** el LCP de una landing NO se arregla apagando la feature: el costo era el parpadeo, no la animación.
+- **En PRODUCCIÓN (15/10/2026, deploy `mako-hvho33ln9`)**: una landing de prueba en el ws3 («Clásico claro» + «Agenda
+  una llamada», publicada en hola-mako.site, que servía el script nuevo), medida con el mismo teléfono emulado contra la
+  red real. LCP del H1 en ms, y el parpadeo en **0 de 9** corridas:
+
+  | Corrida | Con «Animaciones» | Sin «Animaciones» |
+  |---|---|---|
+  | 1ª tanda | 2.556 / 1.644 / 1.200 | 1.236 / 1.244 / 1.124 |
+  | 2ª tanda (con una visita antes) | 1.256 / 1.124 / 1.156 | — |
+
+  - **Con y sin cuestan lo mismo** (≈1,1-1,3 s). El 2.556 es la PRIMERA visita a la página recién publicada (en frío):
+    repetida con una visita antes, desaparece. No es la animación.
+  - **Es más que en la rama (250-590 ms) por la RED, no por la página**: en las 9 corridas el FCP es igual al LCP, o
+    sea que el H1 es lo primero que se pinta y lo que se espera es el HTML (128 KB) desde Vercel. En la rama la página
+    se servía local, sin red.
+  - Lo que dejó la prueba, y se borró después (con el OK de Estrategia): la landing #21 del ws3, que despublicada
+    quedó en la Papelera con el slug `prueba-anim-mv92gcgj` reservado, y **9 visitas en `landing_visits` del ws3**
+    (el Pixel de la página contó las mediciones). Quien repita la prueba, que las borre igual: son datos falsos en
+    las analíticas del Cliente de Prueba.
+
+### ⚠️ La Papelera de landings no se vacía sola, y una landing ahí sigue ocupando su dirección (15/10/2026)
+- Una landing en la Papelera queda para siempre: sale sólo con «Borrar para siempre», a mano (`borrar` en
+  lib/editor-landing/server.ts). La Papelera del curso sí se purga sola a la semana (`purgarPapeleraDelCurso`,
+  app/api/cron/curso-purga). Mientras la fila exista, su `slug` sigue tomado: nadie del negocio puede publicar otra
+  en esa dirección, y la pantalla no dice que está ocupada por algo de la Papelera.
+- Despublicar deja `sitio_activo` en true; no sirve nada porque `publicado` queda null y lo que se sirve exige los
+  dos (`leerPublicado`, publicar.ts:258). Es inofensivo, pero se lee como «el sitio sigue activo».
+- **Propuesta, para decidir (no se hizo):** purga automática a los 30 días, como la del curso. Sólo filas con
+  `papelera_at` y sin `publicado`, por el mismo `borrar` (que se lleva versiones y comentarios), y la dirección se
+  libera sola. No es urgente: el 15/10 hay 0 landings publicadas y nadie chocó con una dirección tomada.
+  **Vive en:** lib/editor-landing/server.ts (`mandarAPapelera`, `borrar`) · lib/editor-landing/publicar.ts (`despublicar`).
+- Para volver a medirlo: armar la publicada real con `htmlDePagina(pagina, config, tema, { modo: 'publico' })` +
+  `armarDocumento(...)` de las primeras plantillas, servirla con Playwright (`ctx.route`, red externa cortada), CPU ×4
+  por CDP, y anotar por `requestAnimationFrame` la opacidad de `h1.gm-titulo` × su `.gm-tarjeta` (el parpadeo) y la
+  última entrada `largest-contentful-paint` (el LCP).
+  En producción, la landing se crea y se publica desde un script con las MISMAS funciones del server
+  (`crear` de lib/editor-landing/server.ts, `publicar`/`despublicar` de publicar.ts) adentro de
+  `runWithWorkspace(3, …)`: hay que resolver `server-only` a un módulo vacío **y `next/headers` a uno sin cookies**
+  (`crear` lee el autor con `getUsuarioActual`, y fuera de un request `cookies()` tira «called outside a request
+  scope»). El import dinámico de un `.ts` del repo va con `pathToFileURL(...).href`: una ruta `C:\…` pelada da
+  `ERR_UNSUPPORTED_ESM_URL_SCHEME`. Nunca en el ws1 ni en otro negocio de un cliente.
+  ⚠️ **Con las cookies vacías, todo lo que corra FUERA de `runWithWorkspace` resuelve el workspace al ws1**
+  (`resolverDesdeCookies`, lib/workspace.ts: «no hay cookie de sesión» = cron/webhook = dueño): un `await` que se
+  escapa del callback escribe en el negocio de Mauricio sin un error. Después de correr, se relee la fila filtrando
+  por el ws de la prueba.
 
 ### El video: lo que es y lo que NO conviene copiar
 - La única página del video publicada es Scarlett (`scarlett-recepcionista.vercel.app`, leída en pantalla 29:47-30:30):
@@ -1255,9 +1316,13 @@ editor, y un crítico que midió lo que faltaba). Las salidas y los scripts qued
   prefers-reduced-motion.
 
 ### Las decisiones técnicas que salieron medidas
-- **GSAP queda fuera**: su licencia (gsap.com/community/standard-license, vigente desde 30/04/2025) prohíbe «tools that
-  allow users to build visual animations without code» que compitan con Webflow. Un panel de animaciones en MaKo cae
-  de lleno. (El GSAP propio de una web ajena dentro de la copia fiel no está alcanzado.)
+- **GSAP queda fuera POR LICENCIA** (no por gusto): la «Standard License» de GSAP (gsap.com/community/standard-license,
+  vigente desde el 30/04/2025, modificada el 30/05/2025, leída el 14/10/2026) dice «Prohibited Uses… tools that allow
+  users to build visual animations without code… that competes with Webflow's visual animation building capabilities»
+  y «Competitive Products… enables users to create, edit, or manage animations through a visual interface or builder
+  similar to Webflow». Un panel de animaciones en el Landing Generator cae de lleno, en el editor y en lo publicado.
+  Antes de sumar cualquier librería de animación, leer su licencia con esta pregunta. (El GSAP propio de una web ajena
+  que corre dentro de la copia fiel no está alcanzado: no lo distribuimos nosotros.)
 - **CSS nativo + el script propio con hash**: `animation-timeline` / `view()` / `scroll()` están en Chrome 115 y en
   Safari/iOS 26; Firefox estable (158) no. Sin polyfill: donde no hay soporte, la página queda completa y quieta. La
   publicada sólo corre `'self'` + el hash de `SCRIPT_PAGINA` (`pagina-publica.ts:446-453`): una librería de un CDN
@@ -1307,5 +1372,11 @@ movimiento (cinta, pasos, carrusel con snap, máquina de escribir, contador). 5.
 6. Plantillas con movimiento (perfil para los 9 diseños + 2-3 propias). 7. Replicar las animaciones. 8. Video IA por
 Flow. 9. Presentar: View Transitions y bloque a bloque.
 Sin probar en hardware real: un iPhone con iOS 18 y 26, un Android de gama baja y los navegadores de Instagram y
-Facebook, antes de prender un efecto por defecto. Quedan sin preguntar si MaKo Mobile (`/m/landing/[id]`) muestra las
-animaciones y si el ▶ del editor respeta el «reducir movimiento» de quien edita.
+Facebook, antes de prender un efecto por defecto.
+Las decisiones de Martín están en la Ticketera (refs `landing-anim-parpadeo`, `landing-video-modelo`,
+`landing-anim-panel`, `landing-video-fondo`, `landing-anim-default`, `landing-video-calidad`, `landing-replicar-scroll`).
+Dos chicas las resolvió el orquestador con criterio (14/10, no van al mazo): **MaKo Mobile muestra las animaciones**
+con la misma regla (sólo transform y opacity, nada atado al scroll, apagadas con «reducir movimiento»: si no, habría
+dos landings según el aparato y nadie previsualizaría lo que publica); y **el ▶ del editor reproduce aunque quien
+edita tenga «reducir movimiento»** (es una acción apretada a propósito), pero nada se auto-reproduce al abrir el
+panel: ahí manda la preferencia del sistema, con un renglón que lo diga.

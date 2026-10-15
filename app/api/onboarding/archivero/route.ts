@@ -23,6 +23,8 @@ import {
   getPanorama, setPanorama, listFiles,
 } from '@/lib/archivero';
 import { getSupabaseServer } from '@/lib/supabase';
+import { validarDestino } from '@/lib/landing-fetch';
+import { bajarWebSegura, pedirClavado, pathSubidoValido } from '@/lib/archivero-bajada';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -93,7 +95,10 @@ async function procesarDirecto(ws: number, body: { fileId?: string; path?: strin
     const nombre = String(body.nombre || 'documento');
     const mime = String(body.mime || '');
     const tamano = Number(body.tamano) || 0;
-    if (!fileId || !path.startsWith(`${ws}/`)) return Response.json({ ok: false, error: 'Datos de archivo inválidos.' }, { status: 400 });
+    // El path tiene que ser EXACTAMENTE el que acuñó /archivero/upload-url (`${ws}/${uuid}`). Con
+    // un `startsWith(`${ws}/`)` pasaba `5/../7/<uuid>`: se bajaba —y si la lectura fallaba, se
+    // BORRABA— un archivo de otro workspace (auditoría del 14/10/2026, lib/archivero-bajada.ts).
+    if (!pathSubidoValido(ws, fileId, path)) return Response.json({ ok: false, error: 'Datos de archivo inválidos.' }, { status: 400 });
 
     const { data: blob, error: dErr } = await getSupabaseServer().storage.from('archivero').download(path);
     if (dErr || !blob) return Response.json({ ok: false, error: 'No encontré el archivo subido. Reintenta.' }, { status: 404 });
@@ -129,6 +134,10 @@ async function procesarDirecto(ws: number, body: { fileId?: string; path?: strin
 }
 
 // ── Webs pegadas: valida la URL (anti-SSRF), baja la página y saca el texto ──
+// ⚠️ ESTE FILTRO ES SÓLO EL PRIMERO, y por sí solo NO frena un SSRF: mira el TEXTO del host, y
+// `localhost.`, `localtest.me` o `x.127.0.0.1.nip.io` lo pasan y resuelven a loopback. Sirve para
+// contestar rápido y claro lo obvio. La baranda de verdad está en `fetchWebText`: cada salto
+// resuelto y con TODAS sus IPs públicas, la conexión clavada a esa IP y los redirects a mano.
 function validarUrlPublica(raw: string): { ok: true; url: string } | { ok: false; error: string } {
   let s = (raw || '').trim();
   if (!s) return { ok: false, error: 'Falta el link.' };
@@ -148,13 +157,12 @@ function validarUrlPublica(raw: string): { ok: true; url: string } | { ok: false
 
 async function fetchWebText(url: string): Promise<{ texto: string; titulo: string; warning?: string }> {
   try {
-    const res = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; MaKoBot/1.0)', Accept: 'text/html,application/xhtml+xml,*/*' },
-      redirect: 'follow', signal: AbortSignal.timeout(12000),
-    });
-    if (!res.ok) return { texto: '', titulo: '', warning: `La web respondió ${res.status}.` };
-    const buf = Buffer.from((await res.arrayBuffer()).slice(0, 3 * 1024 * 1024)); // tope 3 MB
-    const html = buf.toString('utf8');
+    // NO con `fetch` + `redirect: 'follow'` (auditoría del 14/10/2026): no revalidaba ningún
+    // salto ni dejaba clavar la IP. `validarDestino` (lib/landing-fetch.ts) en CADA salto, y el
+    // pedido a la IP ya validada; tope de 3 MB mientras se lee (lib/archivero-bajada.ts).
+    const res = await bajarWebSegura(url, { validar: validarDestino, pedir: pedirClavado });
+    if (res.status < 200 || res.status >= 300) return { texto: '', titulo: '', warning: `La web respondió ${res.status}.` };
+    const html = res.cuerpo.toString('utf8');
     const titulo = (html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] || '').replace(/\s+/g, ' ').trim().slice(0, 120);
     const texto = html
       .replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ')

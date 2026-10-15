@@ -39,6 +39,9 @@ const SIN_HTTP = ['whatsapp', 'app'] as const;
 /** Lo que es de la persona logueada: solo existe con una sesión. */
 const SOLO_APP = ['app'] as const;
 const ADMIN: Gating = { rolMinimo: 'admin' };
+/** Lo que la plataforma decide SOBRE los negocios (el 2FA obligatorio): un negocio no lo ve. */
+const PLATAFORMA: Gating = { rolMinimo: 'admin', soloPlataforma: true };
+const NEGOCIO_2FA = { nombre: 'negocio_id', tipo: 'number', entero: true, minimo: 1, rotulo: 'Negocio', descripcion: 'un solo negocio (su id, de ver_exigencia_2fa). Sin esto, todos los negocios.' } as const;
 
 const REPORTES = ['horario', 'diario', 'semanal'] as const;
 const ROLES_WS = ['admin', 'closer', 'setter'] as const;
@@ -314,6 +317,34 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'id', tipo: 'number', entero: true, minimo: 1, obligatorio: true, descripcion: 'id de la identidad fiscal a borrar.' },
     ],
     canales: SIN_HTTP, costo: 'gratis', gating: ADMIN,
+  },
+  // ── El 2FA obligatorio (14/10/2026): sólo la plataforma ─────────────────────────
+  {
+    id: 'ver_exigencia_2fa', area: 'equipo', tipo: 'lectura',
+    titulo: 'Ver quién exige el 2FA',
+    descripcion: 'Lee, por negocio, desde cuándo exige el segundo factor (2FA) y cuántos de sus usuarios todavía no lo activaron: ésos no van a poder entrar, pasada la fecha, hasta activarlo. Sólo la plataforma. Úsala antes de exigir_2fa_desde o dejar_de_exigir_2fa.',
+    parametros: [],
+    salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: PLATAFORMA,
+  },
+  {
+    id: 'exigir_2fa_desde', area: 'equipo', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Exigir el 2FA desde una fecha',
+    descripcion: 'PROPONE exigir el segundo factor (2FA) a los usuarios de los negocios desde un día y una hora EN LA HORA DE CADA NEGOCIO (queda pendiente hasta el «sí»; en una automatización corre directo). Desde ese momento, quien no lo tenga activado no entra: su sesión deja de valer y, al volver a entrar, el login le pide activarlo. A quien ya lo tiene no lo toca, y nadie de ese negocio puede quitarse su último método. Para «el 21/10 a las 24:00» van fecha 2026-10-21 y hora 24:00. Revisa antes ver_exigencia_2fa. Sólo la plataforma.',
+    escribe: 'workspaces.mfa_obligatorio_desde de cada negocio',
+    parametros: [
+      { nombre: 'fecha', tipo: 'string', max: 10, obligatorio: true, rotulo: 'Día', descripcion: 'el día, AAAA-MM-DD (por ejemplo 2026-10-21), en la hora de cada negocio.' },
+      { nombre: 'hora', tipo: 'string', max: 5, rotulo: 'Hora', descripcion: 'la hora, HH:MM de 00:00 a 24:00 (24:00 = el final del día). Sin hora: 24:00.' },
+      NEGOCIO_2FA,
+    ],
+    canales: SIN_HTTP, costo: 'gratis', gating: PLATAFORMA,
+  },
+  {
+    id: 'dejar_de_exigir_2fa', area: 'equipo', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Dejar de exigir el 2FA',
+    descripcion: 'PROPONE dejar de exigir el segundo factor (2FA) en los negocios que lo exigen (queda pendiente hasta el «sí»). Quien no lo tiene vuelve a poder entrar sin él; a quien lo tiene no le cambia nada. Es la salida si la exigencia se programó mal. Sólo la plataforma.',
+    escribe: 'workspaces.mfa_obligatorio_desde = null',
+    parametros: [NEGOCIO_2FA],
+    canales: SIN_HTTP, costo: 'gratis', gating: PLATAFORMA,
   },
   {
     id: 'asegurar_plantilla_reporte', area: 'equipo', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: false,

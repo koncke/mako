@@ -3,16 +3,20 @@
 // =============================================================================
 // Body: { guion, dur? }. Corre Claude comparando el guion contra el perfil real
 // de la cuenta (lo que ya rinde) y devuelve una valoración. NO persiste nada
-// (no es un ad de Meta). Gateado por el middleware del dashboard.
+// (no es un ad de Meta). La puerta es ../puerta.ts (sólo el admin): el middleware
+// sólo pide sesión.
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
 import { valorarGuion, saveDraft, deleteDraft } from '@/lib/ads-analyst';
+import { soloAdminAdsAnalyst } from '../puerta';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
 
 export async function POST(req: NextRequest) {
+  const cerrada = await soloAdminAdsAnalyst();
+  if (cerrada) return cerrada;
   let body: { guion?: string; dur?: number };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
 
@@ -37,6 +41,8 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const cerrada = await soloAdminAdsAnalyst();
+  if (cerrada) return cerrada;
   const id = Number(req.nextUrl.searchParams.get('id'));
   if (!Number.isFinite(id) || id <= 0) return Response.json({ ok: false, error: 'id requerido' }, { status: 400 });
   try {

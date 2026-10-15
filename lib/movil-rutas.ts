@@ -87,7 +87,9 @@ export const DESTINOS_MOVIL: readonly DefDestino[] = [
   // Chats: todas las conversaciones juntas. Hoy lee las de WhatsApp (la tab de escritorio que
   // gobierna quién las ve es `whatsapp`); cuando la bandeja Chats de escritorio entre a main, pasa
   // a leer de ahí.
-  { id: 'chats', label: 'Chats', href: RUTA_CHATS, icon: 'chats', navKey: 'whatsapp' },
+  // La key de la bandeja UNIFICADA de escritorio (/chats, 14/10/2026). Ve lo mismo que `whatsapp` en todas las
+  // capas (tests/chats-registro.test.ts fija la paridad), así que nadie pierde la pestaña al cambiarla.
+  { id: 'chats', label: 'Chats', href: RUTA_CHATS, icon: 'chats', navKey: 'chats' },
   // General AL MEDIO y como portada (Martín, 14/10/2026: «el ícono del medio, abajo, va a ser General»).
   { id: 'hoy', label: 'General', href: HOME_MOVIL, icon: 'general', navKey: null },
   { id: 'plan', label: 'Plan', href: '/m/plan', icon: 'todo', navKey: 'todo' },
@@ -273,7 +275,12 @@ export function rutaMovil(href: string | null | undefined): string | null {
   const lead = p.match(/^\/crm\/(\d+)(?:\/resumen)?$/);
   if (lead) return `/m/crm/${lead[1]}`;
   if (p === '/crm') return '/m/crm';
-  if (p === '/whatsapp') return RUTA_CHATS;
+  // La bandeja unificada de escritorio (/chats) y la de WhatsApp (/whatsapp, que convive hasta que Martín
+  // valide que Chats la reemplaza) son, en el teléfono, la misma pestaña Chats.
+  // El link profundo de UN lead (/chats?lead=412, el que manda MaKo por WhatsApp): en el teléfono, SU chat.
+  const leadChat = Number(q.get('lead'));
+  if ((p === '/chats' || p === '/whatsapp') && Number.isSafeInteger(leadChat) && leadChat > 0) return `/m/crm/${leadChat}/chat`;
+  if (p === '/chats' || p === '/whatsapp') return RUTA_CHATS;
   if (p === '/plan' || p === '/plan/agencia' || p === '/todo') return '/m/plan';
   if (p === '/perfil' || (p === '/configuraciones' && q.get('tab') === 'notif')) return '/m/cuenta';
   // Las secciones de More (v2). Cada una cae en su sección. Donde el id es EL MISMO en los dos
@@ -366,7 +373,7 @@ export function rutaEscritorio(href: string): string {
   else if ((m = p.match(/^\/m\/crm\/(\d+)\/chat$/))) destino = `/crm/${m[1]}/chat`;
   else if ((m = p.match(/^\/m\/crm\/([^/]+)$/))) destino = `/crm/${m[1]}`;
   else if (p === '/m/crm') destino = '/crm';
-  else if (p === RUTA_CHATS) destino = '/whatsapp';
+  else if (p === RUTA_CHATS) destino = '/chats';
   else if (p === '/m/inbox') destino = '/mako/pendientes';
   else if (p === '/m/plan') destino = '/plan';
   else if (p === RUTA_MAS) destino = '/mas';

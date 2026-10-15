@@ -14,13 +14,14 @@
 
 import 'server-only';
 import { cache } from 'react';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import {
   OWNER_WS, SESSION_COOKIE,
-  gateConfigurado, verificarToken, type Rol, type Sesion,
+  gateConfigurado, verificarToken, sinLoginPermitido, type Rol, type Sesion,
 } from './auth-session';
 import { buscarUsuarioPorEmail } from './usuarios';
 import { requiereSegundoFactor } from './mfa-reglas';
+import { obligatorioDesdeDe } from './mfa-obligatorio';
 
 export type { Rol, Sesion };
 
@@ -50,7 +51,10 @@ export const getUsuarioActual = cache(async (): Promise<Sesion | null> => {
         // sabe: a quien la base dice admin aunque el token diga usuario (lo ascendieron
         // después de entrar), y a quien activó el 2FA después de entrar — una cookie
         // vieja suya, robada, no puede seguir valiendo sin el segundo paso.
-        if (requiereSegundoFactor(u.rol, !!u.mfa_activo) && !firmada.mfa) return null;
+        // Y a quien su NEGOCIO se lo exige desde una fecha ya pasada (el 2FA obligatorio, 14/10/2026):
+        // desde esa hora, su sesión sin segundo factor deja de valer y el login le pide enrolar uno.
+        // La fecha se lee sólo si la sesión NO trae `mfa`: con `mfa` no hay nada que decidir.
+        if (!firmada.mfa && requiereSegundoFactor(u.rol, !!u.mfa_activo, await obligatorioDesdeDe(u.workspace_id))) return null;
         // El rol, el workspace y el rol-de-workspace de la base ganan sobre lo firmado.
         return { ...firmada, rol: u.rol, ws: u.workspace_id ?? null, rolWs: u.rol_ws ?? null };
       } catch {
@@ -66,10 +70,15 @@ export const getUsuarioActual = cache(async (): Promise<Sesion | null> => {
   // además firmaba las sesiones, cualquiera que la tuviera se fabricaba un token
   // de admin a mano. Una cookie no puede ser su propia llave.
 
-  // Gate sin configurar (local/dev): el proxy deja pasar todo → sesión dev dueño.
-  const esProd = process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production';
-  if (!gateConfigurado() && !esProd) {
-    return { sub: 'dev', email: '', nombre: 'Dev', rol: 'admin', exp: 0, legacy: true, ws: OWNER_WS, rolWs: 'admin' };
+  // Gate sin configurar (local/dev): la sesión dev del dueño, SÓLO con el permiso explícito y desde
+  // la máquina (`sinLoginPermitido`, lib/auth-session.ts). Antes bastaba con que faltara AUTH_SECRET,
+  // y `next dev` escucha en toda la red con la base de producción detrás (15/10/2026).
+  if (!gateConfigurado()) {
+    let host: string | null = null;
+    try { host = (await headers()).get('host'); } catch { host = null; }
+    if (sinLoginPermitido(host)) {
+      return { sub: 'dev', email: '', nombre: 'Dev', rol: 'admin', exp: 0, legacy: true, ws: OWNER_WS, rolWs: 'admin' };
+    }
   }
 
   return null;

@@ -85,3 +85,5 @@ el Dashboard y es el color de Instagram. Lo toma Instagram; Ads Analyst cambia.
 - Sólo tokens de la casa, y el contraste se verifica: el color acompaña, no informa solo.
 - Los ejemplos de cada portada son **ficticios**, nunca los datos de un cliente real.
 - Se mira en escritorio Y en el celular antes de darla por terminada.
+
+<!-- prueba de despliegue tras la transferencia del repositorio a hola-mako (15/10) -->

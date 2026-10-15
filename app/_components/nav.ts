@@ -139,6 +139,33 @@ export const itemsDe = (f: NavFamilia): NavItem[] =>
 const starts = (p: string) => (pathname: string) =>
   pathname === p || pathname.startsWith(p + '/');
 
+/**
+ * De dónde sale el número (el badge) de una tab. Son obligaciones concretas, no novedades: los
+ * mensajes sin leer y los datos del CRM sin marcar.
+ *
+ * ⚠️ Chats y WhatsApp cuentan LO MISMO (14/10/2026): los chats sin leer del número de empresa que
+ * sondea NotificationsProvider. Dos tabs, UNA fuente, mientras convivan en la barra (plano §6.1). Por
+ * eso la suma de una familia cuenta cada FUENTE una vez y no cada tab: sumando tabs, la familia
+ * Operate cerrada decía el doble de mensajes de los que había. Instagram y Messenger todavía no
+ * cuentan: el sondeo es sólo del WhatsApp.
+ */
+export type FuenteContador = 'mensajes' | 'crm';
+const FUENTE_CONTADOR: ReadonlyMap<string, FuenteContador> = new Map<string, FuenteContador>([['chats', 'mensajes'], ['whatsapp', 'mensajes'], ['crm', 'crm']]);
+export const fuenteContador = (key: string): FuenteContador | null => FUENTE_CONTADOR.get(key) ?? null;
+
+/** La suma de los badges de varias tabs (una familia), con cada fuente contada UNA vez. */
+export function sumaDeContadores(keys: readonly string[], valor: (f: FuenteContador) => number): number {
+  const vistas = new Set<FuenteContador>();
+  let total = 0;
+  for (const k of keys) {
+    const f = fuenteContador(k);
+    if (!f || vistas.has(f)) continue;
+    vistas.add(f);
+    total += valor(f);
+  }
+  return total;
+}
+
 export const FAMILIAS: NavFamilia[] = [
   {
     key: 'operate',
@@ -166,10 +193,17 @@ export const FAMILIAS: NavFamilia[] = [
         { key: 'crm', label: 'CRM', href: '/crm', icon: 'crm', rolesWs: ['closer', 'setter'], match: starts('/crm') },
         { key: 'ads-manager', label: 'Ads Manager', href: '/ads-manager', icon: 'grid', match: starts('/ads-manager') },
       ],
-      // Las conversaciones. Sin desplegable: son dos, y son de todos los días.
-      // Instagram salió el 06/10/2026 (decisión de Martín: 0 DMs en su historia):
-      // /instagram redirige a /automations y tests/sin-instagram.test.ts cuida que no vuelva.
+      // Las conversaciones. Sin desplegable: son de todos los días.
+      // La TAB Instagram salió el 06/10/2026 (decisión de Martín: 0 DMs en su historia) y no vuelve:
+      // /instagram redirige a /automations. Lo que SÍ vuelve, el 14/10/2026, son sus DMs y los de
+      // Messenger, ADENTRO de Chats: la bandeja unificada (tests/sin-instagram.test.ts cuida las dos cosas).
       [
+        // Chats (14/10/2026, Martín: «tener en UNA sola tab centralizado absolutamente todos los chats,
+        // WhatsApp, Instagram, Messenger»): la bandeja copiada de respond.io (docs/diseno-chats.md). Va
+        // PRIMERO porque es la que se usa todos los días; los mismos roles que WhatsApp, porque es el mismo
+        // trabajo del setter. ⚠️ WhatsApp SIGUE abajo hasta que Martín valide que Chats lo reemplaza (plano
+        // §6.1): después /whatsapp queda sólo para conectar números (QR, líneas, Chatbot) y sale del menú.
+        { key: 'chats', label: 'Chats', href: '/chats', icon: 'chats', rolesWs: ['closer', 'setter'], match: starts('/chats') },
         { key: 'whatsapp', label: 'WhatsApp', href: '/whatsapp', icon: 'whatsapp', rolesWs: ['closer', 'setter'], match: starts('/whatsapp') },
         { key: 'email', label: 'Email', href: '/email', icon: 'email', rolesWs: ['setter'], match: starts('/email') },
       ],
@@ -308,13 +342,14 @@ export const FAMILIAS: NavFamilia[] = [
           match: (p) => starts('/image-editor')(p) || starts('/image-generator')(p) || starts('/thumbnails')(p) || starts('/carousels')(p),
           secciones: [
             // La copia de Canva (14/10/2026, Martín: «implementes end to end un "Canva" dentro de MaKo… Dejalo en
-            // "Content Machine" en una tab que sea "Image"»): Doory portado y re-vestido como Canva. Sólo el super
-            // admin hasta que Martín lo valide; quién entra lo decide app/image-editor/acceso.ts (`adminOnly` sólo
-            // esconde la fila).
-            { key: 'image-editor', adminOnly: true, label: 'Image Editor', seccion: 'Editor', href: '/image-editor', icon: 'imagegen', match: starts('/image-editor') },
-            { key: 'image-generator', adminOnly: true, label: 'Image Generator', seccion: 'Crear con IA', href: '/image-generator', icon: 'imagegen', comingSoon: true, match: starts('/image-generator') },
-            { key: 'thumbnails', adminOnly: true, label: 'Thumbnails', href: '/thumbnails', icon: 'thumbnail', comingSoon: true, match: starts('/thumbnails') },
-            { key: 'carousels', adminOnly: true, label: 'Carousels', href: '/carousels', icon: 'carousel', match: starts('/carousels') },
+            // "Content Machine" en una tab que sea "Image"»): Doory portado y re-vestido como Canva. Abierta a todos
+            // los workspaces el 15/10/2026 («Que Image aparezca en todos los workspace»), como el Video Editor el
+            // 12/10: quién entra lo decide app/image-editor/acceso.ts con la pregunta de toda tab (rol y capa).
+            // Image Generator y Thumbnails siguen `comingSoon`: se ven, con su «pronto», y abren «Próximamente».
+            { key: 'image-editor', label: 'Image Editor', seccion: 'Editor', href: '/image-editor', icon: 'imagegen', match: starts('/image-editor') },
+            { key: 'image-generator', label: 'Image Generator', seccion: 'Crear con IA', href: '/image-generator', icon: 'imagegen', comingSoon: true, match: starts('/image-generator') },
+            { key: 'thumbnails', label: 'Thumbnails', href: '/thumbnails', icon: 'thumbnail', comingSoon: true, match: starts('/thumbnails') },
+            { key: 'carousels', label: 'Carousels', href: '/carousels', icon: 'carousel', match: starts('/carousels') },
           ],
         },
         {
@@ -444,6 +479,9 @@ export const ADMIN_FAMILIAS: NavFamilia[] = [
         // MaKo»): el link de pago de un plan y lo que se cobró, con el alta de cada cuenta. Sólo
         // super admin, mismo guard que Strategy; la key tampoco lleva el prefijo 'dev-'.
         { key: 'admin-cobros', label: 'Cobros', href: '/admin/cobros', icon: 'tag', match: starts('/admin/cobros') },
+        // El Centro de Operaciones (15/10/2026): pedidos firmados para los chats de Claude de la PC
+        // de Martín. Sólo él (puedeOperar), y la key tampoco lleva el prefijo 'dev-'.
+        { key: 'admin-operaciones', label: 'Centro de Operaciones', href: '/admin/operaciones', icon: 'config', match: starts('/admin/operaciones') },
       ],
       // El cerebro de MaKo y la formación: con qué sabe, con qué piensa, y de
       // dónde se entrena el equipo. «Contexto de MaKo» estaba detrás del avatar
@@ -524,6 +562,7 @@ export const ADMIN_FAMILIAS: NavFamilia[] = [
           { key: 'dev-onboarding', label: 'Onboarding', href: '/admin/dev/onboarding', icon: 'config', match: starts('/admin/dev/onboarding') },
           { key: 'dev-general', label: 'General', href: '/admin/dev/general', icon: 'config', match: starts('/admin/dev/general') },
           { key: 'dev-calendario', label: 'Calendario', href: '/admin/dev/calendario', icon: 'calendario', match: starts('/admin/dev/calendario') },
+          { key: 'dev-chats', label: 'Chats', href: '/admin/dev/chats', icon: 'chats', match: starts('/admin/dev/chats') },
           { key: 'dev-dashboard', label: 'Dashboard', href: '/admin/dev/dashboard', icon: 'graphics', match: starts('/admin/dev/dashboard') },
           // El área se llama como la tab (Automations, desde el 09/10/2026); la key y la ruta
           // /admin/dev/chatbot siguen: son el slug del registro y su historia.
@@ -583,6 +622,7 @@ export const ADMIN_FAMILIAS: NavFamilia[] = [
           { key: 'dev-design-system', label: 'Design System', href: '/admin/dev/design-system', icon: 'graphics', match: starts('/admin/dev/design-system') },
           { key: 'dev-mako-ux-ui', label: 'MaKo UX/UI', href: '/admin/dev/mako-ux-ui', icon: 'graphics', match: starts('/admin/dev/mako-ux-ui') },
           { key: 'dev-mako-mobile', label: 'MaKo Mobile', href: '/admin/dev/mako-mobile', icon: 'mako', match: starts('/admin/dev/mako-mobile') },
+          { key: 'dev-centro-operaciones', label: 'Centro de Operaciones', href: '/admin/dev/centro-operaciones', icon: 'config', match: starts('/admin/dev/centro-operaciones') },
           // Va pegada a VSL Tracking porque son las dos puntas del mismo bucle:
           // aquélla MIDE dónde se cae la curva, ésta escribe el guion que se
           // reescribe con ese dato. Hoy la pantalla es un ComingSoon; el registro

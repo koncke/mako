@@ -10,10 +10,13 @@
 
 import type { NextRequest } from 'next/server';
 import { getAngles, setAngles } from '@/lib/script-angles';
+import { soloAdminAdsAnalyst } from '../puerta';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
+  const cerrada = await soloAdminAdsAnalyst();
+  if (cerrada) return cerrada;
   try {
     const angles = await getAngles();
     return Response.json({ ok: true, angles });
@@ -24,6 +27,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const cerrada = await soloAdminAdsAnalyst();
+  if (cerrada) return cerrada;
   let body: { angles?: unknown };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
 

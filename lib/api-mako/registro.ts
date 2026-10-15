@@ -37,6 +37,7 @@ import { DEFS as general } from './areas/general.def';
 import { DEFS as plan } from './areas/plan.def';
 import { DEFS as crm } from './areas/crm.def';
 import { DEFS as ads } from './areas/ads.def';
+import { DEFS as chats } from './areas/chats.def';
 import { DEFS as whatsapp } from './areas/whatsapp.def';
 import { DEFS as email } from './areas/email.def';
 import { DEFS as chatbot } from './areas/chatbot.def';
@@ -50,19 +51,21 @@ import { DEFS as closing } from './areas/closing.def';
 import { DEFS as negocio } from './areas/negocio.def';
 import { DEFS as contenido } from './areas/contenido.def';
 import { DEFS as video } from './areas/video.def';
+import { DEFS as imagen } from './areas/imagen.def';
 import { DEFS as integraciones } from './areas/integraciones.def';
 import { DEFS as equipo } from './areas/equipo.def';
 import { DEFS as cs } from './areas/cs.def';
 import { DEFS as curso } from './areas/curso.def';
 import { DEFS as creaciones } from './areas/creaciones.def';
 import { DEFS as cobros } from './areas/cobros.def';
+import { DEFS as operaciones } from './areas/operaciones.def';
 import { DEFS as calendario } from './areas/calendario.def';
 import { DEFS as mako } from './areas/mako.def';
 
 /** Por área, en el orden de la barra. El orden es el del catálogo y la referencia. */
 const POR_AREA: Record<Area, readonly OperacionDef[]> = {
-  general, plan, crm, ads, whatsapp, email, chatbot, metricas: [...metricas, ...dashboard], experimentos,
-  landing, closing, negocio, contenido, video, integraciones, equipo, cs, curso, creaciones, cobros, calendario, mako,
+  general, plan, crm, ads, chats, whatsapp, email, chatbot, metricas: [...metricas, ...dashboard], experimentos,
+  landing, closing, negocio, contenido, video, imagen, integraciones, equipo, cs, curso, creaciones, operaciones, cobros, calendario, mako,
 };
 
 export const REGISTRO: readonly OperacionDef[] = AREAS.flatMap((a) => POR_AREA[a]);
@@ -115,6 +118,8 @@ export type Vista = {
   rol: 'admin' | 'miembro';
   /** las keys de nav.ts que la capa del workspace incluye; `null` = todas */
   tabs: readonly string[] | null;
+  /** ¿El workspace es el de la plataforma (capa `superadmin`)? Lo pone `vistaDe`; ausente = no. */
+  plataforma?: boolean;
   /** los permisos POR ÁREA de un token detallado (lib/api-mako/permisos.ts). Ausente =
    *  sin restricción por área: los demás canales y el token clásico. */
   permisos?: Permisos;
@@ -130,9 +135,11 @@ export const WS_PRINCIPAL = 1;
  * CONFIRMAR: ahí el canal es el de quien confirma (la bandeja, un grupo) y no el de
  * quien propuso, y el alcance ya lo decidió `puedeConfirmar`.
  */
-export function gatingOk(def: OperacionDef, v: Pick<Vista, 'ws' | 'rol' | 'tabs'> & { permisos?: Permisos }): boolean {
+export function gatingOk(def: OperacionDef, v: Pick<Vista, 'ws' | 'rol' | 'tabs' | 'plataforma'> & { permisos?: Permisos }): boolean {
   const g = def.gating;
   if (g?.soloWs1 && !(v.ws === WS_PRINCIPAL && v.rol === 'admin')) return false;
+  // En positivo: sólo si la vista DICE que es la plataforma. Una vista armada sin el dato no pasa.
+  if (g?.soloPlataforma && v.plataforma !== true) return false;
   if (g?.rolMinimo === 'admin' && v.rol !== 'admin') return false;
   if (g?.tab && v.tabs && !v.tabs.includes(g.tab)) return false;
   // Un token detallado: el nivel de SU área (08/10/2026, copiando GitHub). Va acá y no en

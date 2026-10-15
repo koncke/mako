@@ -15,6 +15,9 @@ import { quarterDeFecha } from '@/app/plan/board/cuando';
 // compartido —el MISMO que usa la mitad del dueño— y no se reescriben acá: dos saneos son
 // dos listas de valores válidos, y la segunda se queda vieja el día que se agregue uno.
 import { recurrenciaDe } from '@/lib/plan-recurrentes';
+// La lista blanca del detalle y las notas al GUARDAR (ver `sanearDetalle`). Puro y sin `server-only`:
+// es la misma que corre en el navegador al dibujar.
+import { sanearHtmlEmail } from './email-html-seguro';
 import {
   esEstado, esResponsableTipo, estadoTrasProgreso,
   type EstadoTarea, type ResponsableTipo, type CriterioVeredicto,
@@ -288,6 +291,69 @@ const quarterDeDeadline = (q: unknown, deadline: unknown): string | null =>
 const catsOk = (c: unknown): number[] =>
   Array.isArray(c) ? c.map(Number).filter((n) => Number.isFinite(n)) : [];
 
+// ── El detalle y las notas se GUARDAN saneados (auditoría de seguridad, 14/10/2026) ───────────
+// /api/todo no mira el rol (closer y setter tienen la tab Plan por diseño) y esto guardaba
+// `detalle` tal cual llegaba: un `<b>` más un `<img src=x onerror=…>` corría en la sesión del
+// admin que abría la tarjeta. El tablero ahora sanea al DIBUJAR (app/plan/board/RichText.tsx,
+// `paraDibujar`), que es la guarda que alcanza también a las filas viejas; esto es la segunda
+// capa, para que la base no guarde lo que ninguna pantalla debería dibujar.
+//
+// ⚠️ SÓLO SE SANEA LO QUE ES HTML. El detalle que escribe MaKo (extracción, Perro, ampliar) es
+//    MARKDOWN y se dibuja ESCAPADO (`mdAHtml`); pasarlo por la lista blanca lo rompería: un `a & b`
+//    se guardaría `a &amp; b` y la pantalla, que lo escapa de nuevo, mostraría «&amp;». Un texto
+//    sin etiquetas de formato queda como está — y está a salvo, porque las tres pantallas que lo
+//    dibujan (RichText, `stripHtml`, NotasLista) lo tratan como texto.
+// ⚠️ GEMELOS de `CODIGO` / `ES_HTML` / `esHtml` de RichText.tsx: un `'use client'` no se puede
+//    importar desde el server, y la regla que decide «esto es HTML» tiene que ser la misma de los
+//    dos lados. tests/seguridad-xss.test.ts compara los dos lados sobre el mismo corpus.
+// ⚠️ La lista blanca es `sanearHtmlEmail` y no `sanearHtml` (lib/html-seguro.ts): aquélla no tiene
+//    `div`, el renglón del editor, y juntaba todos los renglones de un detalle en uno (medido). El
+//    porqué entero está en `sanitizeHtml` de RichText.tsx.
+const ES_HTML_DETALLE = /<(div|p|br|ul|ol|li|strong|b|u|em|i|span|h[1-6]|a)[\s>/]/i;
+const CODIGO_CITADO = /`[^`\n<>]*<\/?[a-zA-Z][^`\n<>]*>[^`\n<>]*`/g;
+/** ¿Es HTML (lo escribió el editor) o markdown/texto? Lo citado entre comillas invertidas no cuenta. */
+export const esHtmlDetalle = (texto: string): boolean => ES_HTML_DETALLE.test(texto.replace(CODIGO_CITADO, ''));
+
+/**
+ * El detalle (o una nota) como se GUARDA: si es HTML, por la lista blanca; si no, intacto.
+ * Idempotente. Si el saneo se lleva TODAS las etiquetas de formato (un `<a href="javascript:…">`
+ * era la única), lo que queda va envuelto en un `<div>`: sin él, al volver a leerlo se tomaría
+ * por markdown y un `&amp;` que ya es HTML se escaparía otra vez.
+ */
+export function sanearDetalle(texto: string): string {
+  if (!texto || !esHtmlDetalle(texto)) return texto;
+  const limpio = sanearHtmlEmail(texto.replace(CODIGO_CITADO, (c) => c.replace(/</g, '&lt;').replace(/>/g, '&gt;')));
+  return !limpio || esHtmlDetalle(limpio) ? limpio : `<div>${limpio}</div>`;
+}
+
+/**
+ * Las notas como se GUARDAN. El campo es texto con un JSON adentro (`[{ id, ts, texto }]`, ver
+ * app/plan/board/NotasLista.tsx) o una nota vieja suelta: se sanea el `texto` de cada una con la
+ * regla del detalle, y lo demás de cada nota viaja intacto. Si nada cambió, vuelve el campo tal
+ * cual llegó (ni un espacio de diferencia en el JSON).
+ */
+export function sanearNotas(raw: string): string {
+  if (!raw) return raw;
+  if (!raw.trimStart().startsWith('[')) return sanearDetalle(raw);
+  let arr: unknown;
+  try { arr = JSON.parse(raw); } catch { return sanearDetalle(raw); }
+  if (!Array.isArray(arr)) return sanearDetalle(raw);
+  let cambio = false;
+  const out = arr.map((n: unknown) => {
+    if (typeof n === 'string') { const s = sanearDetalle(n); if (s !== n) cambio = true; return s; }
+    if (!n || typeof n !== 'object') return n;
+    const crudo = (n as { texto?: unknown }).texto;
+    if (crudo == null) return n;
+    // Como lo lee NotasLista (`String(n.texto ?? '')`): un `texto` que no es string también se
+    // dibuja, así que también se sanea.
+    const s = sanearDetalle(typeof crudo === 'string' ? crudo : String(crudo));
+    if (s === crudo) return n;
+    cambio = true;
+    return { ...(n as Record<string, unknown>), texto: s };
+  });
+  return cambio ? JSON.stringify(out) : raw;
+}
+
 /**
  * Las tareas que nacieron de UNA retro. Es el insumo de la rendición de cuentas:
  * la Retro necesita saber qué pasó DE VERDAD con lo que propuso la vez pasada, no
@@ -356,7 +422,7 @@ export async function crearTarea(input: NuevaTarea): Promise<Tarea> {
   const origen = origenOk(input.origen);
   const fila = {
     titulo: (input.titulo || '').trim() || 'Tarea',
-    detalle: input.detalle ?? null,
+    detalle: typeof input.detalle === 'string' ? sanearDetalle(input.detalle) : (input.detalle ?? null),
     estado,
     prioridad: prioridadOk(input.prioridad),
     progreso: input.progreso != null ? clampPct(input.progreso) : 0,
@@ -410,7 +476,7 @@ export async function crearTareasDesde(
   // preservando el orden de prioridad con el que MaKo/Retro entregan el lote.
   const filas = validos.map((it, i) => ({
     titulo: it.titulo.trim(),
-    detalle: it.detalle ?? null,
+    detalle: typeof it.detalle === 'string' ? sanearDetalle(it.detalle) : (it.detalle ?? null),
     estado: 'por_hacer' as EstadoTarea,
     prioridad: prioridadOk(it.prioridad),
     progreso: 0,
@@ -484,7 +550,8 @@ export async function editarTarea(
 ): Promise<Tarea> {
   const upd: Record<string, unknown> = { updated_at: new Date().toISOString(), ...camposResponsableOk(patch) };
   if (patch.titulo != null) upd.titulo = patch.titulo.trim() || 'Tarea';
-  if (patch.detalle !== undefined) upd.detalle = patch.detalle;
+  // Saneado al guardar: ver `sanearDetalle`.
+  if (patch.detalle !== undefined) upd.detalle = typeof patch.detalle === 'string' ? sanearDetalle(patch.detalle) : patch.detalle;
   if (patch.prioridad != null) upd.prioridad = prioridadOk(patch.prioridad);
   // El estado se DERIVA del avance (el board /todo ya no muestra "Estado" aparte):
   // 100→hecho, >0→en_curso, 0→por_hacer. hecho_at se sella SOLO en la transición
@@ -505,7 +572,7 @@ export async function editarTarea(
   // Los cinco de #157. `!== undefined` y no `!= null`: `null` es un valor real acá
   // —«no hay razón», «sin impacto estimado»— y con `!= null` no habría forma de
   // BORRARLOS, que es la mitad de poder editarlos.
-  if (patch.notas !== undefined) upd.notas = String(patch.notas ?? '').slice(0, 6000);
+  if (patch.notas !== undefined) upd.notas = sanearNotas(String(patch.notas ?? '')).slice(0, 6000);
   if (patch.deadline_razon !== undefined) upd.deadline_razon = txtOk(patch.deadline_razon);
   if (patch.hacelo_en !== undefined) upd.hacelo_en = txtOk(patch.hacelo_en);
   if (patch.impacto !== undefined) upd.impacto = pct1a100(patch.impacto);
@@ -652,7 +719,7 @@ export async function crearCategoria(nombre: string, color: string, emoji?: stri
   // nadie va a poder ver ni sacar — y el aviso de vencimientos lo leería igual.
   const repite = !!recurrente;
   const { data, error } = await supabase.from('tarea_categorias')
-    .insert({ nombre: (nombre || '').trim().slice(0, 40) || 'Categoría', color: color || '#9b9ba2', emoji: (emoji || '🏷').slice(0, 4), prioridad: Math.max(1, Math.min(100, Math.round(prioridad ?? 50))), score_razon: score_razon ?? null, deadline: repite ? null : dateOk(deadline), quarter: repite ? null : quarterDeDeadline(quarter, deadline), recurrente: repite, recurrencia: recurrenciaDe({ recurrente: repite, recurrencia }), cliente_lead_id: leadIdOk(cliente?.lead_id), cliente_nombre: txtOk(cliente?.nombre), portada: saneaPortada(portada), portada_y: yPortada(portada_y), icono: saneaIcono(icono), detalle: detalle ?? '', historial: histOk(historial ?? []) })
+    .insert({ nombre: (nombre || '').trim().slice(0, 40) || 'Categoría', color: color || '#9b9ba2', emoji: (emoji || '🏷').slice(0, 4), prioridad: Math.max(1, Math.min(100, Math.round(prioridad ?? 50))), score_razon: score_razon ?? null, deadline: repite ? null : dateOk(deadline), quarter: repite ? null : quarterDeDeadline(quarter, deadline), recurrente: repite, recurrencia: recurrenciaDe({ recurrente: repite, recurrencia }), cliente_lead_id: leadIdOk(cliente?.lead_id), cliente_nombre: txtOk(cliente?.nombre), portada: saneaPortada(portada), portada_y: yPortada(portada_y), icono: saneaIcono(icono), detalle: typeof detalle === 'string' ? sanearDetalle(detalle) : (detalle ?? ''), historial: histOk(historial ?? []) })
     .select('*').single();
   if (error) throw new Error(`crearCategoria: ${error.message}`);
   return catRow(data);
@@ -675,7 +742,7 @@ export async function editarCategoria(id: number, patch: { nombre?: string; colo
   if (patch.prioridad !== undefined) upd.prioridad = Math.max(1, Math.min(100, Math.round(patch.prioridad)));
   if (patch.score_razon !== undefined) upd.score_razon = patch.score_razon;
   // Los tres de #157 del lado del proyecto. Ver `editarTarea`.
-  if (patch.notas !== undefined) upd.notas = String(patch.notas ?? '').slice(0, 6000);
+  if (patch.notas !== undefined) upd.notas = sanearNotas(String(patch.notas ?? '')).slice(0, 6000);
   if (patch.impacto !== undefined) upd.impacto = pct1a100(patch.impacto);
   if (patch.esfuerzo !== undefined) upd.esfuerzo = pct1a100(patch.esfuerzo);
   if (patch.deadline !== undefined) upd.deadline = dateOk(patch.deadline);
@@ -716,7 +783,7 @@ export async function editarCategoria(id: number, patch: { nombre?: string; colo
   if (patch.portada !== undefined) upd.portada = saneaPortada(patch.portada);
   if (patch.portada_y !== undefined) upd.portada_y = yPortada(patch.portada_y);
   if (patch.icono !== undefined) upd.icono = saneaIcono(patch.icono);
-  if (patch.detalle !== undefined) upd.detalle = patch.detalle;
+  if (patch.detalle !== undefined) upd.detalle = typeof patch.detalle === 'string' ? sanearDetalle(patch.detalle) : patch.detalle;
   if (patch.historial !== undefined) upd.historial = histOk(patch.historial);
   const supabase = (await getTenantDb());
   const { data, error } = await supabase.from('tarea_categorias').update(upd).eq('id', id).select('*').single();

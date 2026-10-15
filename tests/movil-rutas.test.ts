@@ -73,7 +73,8 @@ test('cada destino y cada sección de More hereda una key que EXISTE en nav.ts, 
 test('v3: CRM · Chats · General · Plan · More; More por las familias de la sidebar', () => {
   assert.deepEqual(DESTINOS_MOVIL.map((d) => d.label), ['CRM', 'Chats', 'General', 'Plan', 'More']);
   // Chats hereda la key de la bandeja de escritorio (/whatsapp): quien no la ve, no ve la pestaña.
-  assert.equal(DESTINOS_MOVIL.find((d) => d.id === 'chats')?.navKey, 'whatsapp');
+  // La key de la bandeja UNIFICADA (/chats); ve lo mismo que `whatsapp` en todas las capas (tests/chats-registro).
+  assert.equal(DESTINOS_MOVIL.find((d) => d.id === 'chats')?.navKey, 'chats');
   assert.deepEqual(SECCIONES_MAS.map((s) => [s.id, s.navKey, s.familia]), [
     ['ads', 'ads-manager', 'operate'], ['dashboard', 'graphics', 'analyze'], ['landing', 'landing-writer', 'sales'],
     ['automations', 'setting', 'sales'], ['video', 'video-generator', 'content'], ['cs', 'customer-success', 'customer'],
@@ -153,6 +154,10 @@ test('el mapa escritorio → móvil de los links que salen', () => {
   assert.equal(rutaMovil('https://hola-mako.com/mako/revisar/abc?ws=1'), '/m/inbox');
   // La bandeja de escritorio es la pestaña Chats del teléfono (v3).
   assert.equal(rutaMovil('/whatsapp'), '/m/chats');
+  assert.equal(rutaMovil('/chats'), '/m/chats', 'la bandeja unificada de escritorio es la misma pestaña');
+  // El link profundo de un lead que manda MaKo (/chats?lead=N) abre SU chat, no la lista.
+  assert.equal(rutaMovil('/chats?lead=412&ws=3'), '/m/crm/412/chat');
+  assert.equal(rutaMovil('/chats?lead=abc'), '/m/chats');
   assert.equal(rutaMovil('/configuraciones?tab=notif'), '/m/cuenta');
   assert.equal(rutaMovil('/configuraciones'), null);
   assert.equal(rutaMovil('/m/plan'), '/m/plan');

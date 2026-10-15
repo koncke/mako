@@ -3,9 +3,10 @@
 // =============================================================================
 // Cuatro contratos de la integración (14/10/2026), y los cuatro fallan en silencio:
 //
-//   1. HOY LO ABRE SÓLO EL SUPER ADMIN, por PERSONA. `adminOnly` en el nav sólo esconde
-//      la fila: el candado de verdad es el guard de las pages (`acceso.ts`). Sin él, la
-//      URL tecleada abre el editor a cualquier admin de un cliente.
+//   1. LO ABRE CUALQUIERA QUE TENGA LA TAB (desde el 15/10/2026, «Que Image aparezca en
+//      todos los workspace»): la fila se ve en todos los workspaces y el guard de las pages
+//      (`acceso.ts`) es la pregunta de toda tab, rol y capa. Si se abre una sin la otra, o
+//      el cliente no la encuentra, o la ve y rebota.
 //   2. EL CRÉDITO DE DOORY SE MUESTRA. El motor es Doory (Attribution Assurance License):
 //      cada apertura del editor tiene que mostrar el nombre del autor, su identificación
 //      y la URL, y el LICENSE viaja con el código. Sacar el cartel sin permiso escrito
@@ -17,7 +18,7 @@
 //
 // Correr: node --import tsx --test tests/image-editor-integracion.test.ts
 // PROBADO ROMPIÉNDOLO (14/10/2026, de a una y restaurando; corrido con --test-name-pattern):
-//   R1 sin `adminOnly` en la entrada image-editor del nav  → 1a: 0/1
+//   R1 (14/10, cuando era sólo del super admin) sin `adminOnly` → 1a: 0/1. Desde el 15/10 ver 1a y 1c.
 //   R2 PantallaEditor sin `<CreditoDoory />`               → 2:  0/1
 //   R3 un `import NextLink from 'next/link'` en Inicio.tsx  → 3:  0/1
 // Restaurado: 5/0.
@@ -45,36 +46,45 @@ function archivosDe(dir: string): string[] {
   return out;
 }
 
-test('1a: la sección del nav es adminOnly, es la primera de «Image» y la tab apunta ahí', () => {
+test('1a: la sección del nav es la primera de «Image», la tab apunta ahí y ninguna sección de Image es adminOnly', () => {
   const image = FAMILIAS.flatMap((f) => f.bloques.flat()).find((i) => i.key === 'image');
   assert.ok(image, 'no encontré la tab «Image» en el nav');
   assert.equal(image.href, '/image-editor');
   assert.equal(image.secciones?.[0]?.key, 'image-editor', 'el editor tiene que ser la primera sección de «Image»');
   const ie = FAMILIAS.flatMap(itemsDe).find((i) => i.key === 'image-editor');
   assert.ok(ie, 'no encontré la entrada image-editor');
-  assert.equal(ie.adminOnly, true, 'el editor es sólo del super admin hasta que Martín lo valide');
   assert.equal(ie.href, '/image-editor');
+  // 15/10/2026, Martín: «Que Image aparezca en todos los workspace». Las que todavía no están siguen con su «pronto».
+  // PROBADO ROMPIÉNDOLO: con `adminOnly: true` en image-editor, 0/1.
+  for (const s of image.secciones ?? []) assert.ok(!s.adminOnly, `${s.key} no puede ser adminOnly: Image se ve en todos los workspaces`);
+  const pronto = (image.secciones ?? []).filter((s) => s.comingSoon).map((s) => s.key).sort();
+  assert.deepEqual(pronto, ['image-generator', 'thumbnails'], 'Image Generator y Thumbnails siguen diciendo que todavía no están');
 });
 
-test('1c: en la barra del super admin, Content Machine → «Image» lleva al editor; mirando un cliente no se ve', () => {
-  // 14/10/2026, Martín: «No veo la tab en la sidebar principal, debería estar en la sección de Content Machine».
-  // Las dos mitades son reglas de él: la tab va en SU barra (capa superadmin), y mirando un cliente con `?ws=` la barra
-  // es la del cliente, sin lo que es sólo del super admin (01/08: «tampoco las tabs que… solo en super admin»).
-  // PROBADO ROMPIÉNDOLO: image-editor con `comingSoon: true` → la tab lleva a /carousels, 0/1; sin `adminOnly` → el
-  // cliente la ve, 0/1.
+test('1c: Content Machine → «Image» lleva al editor en la barra del super admin, mirando un cliente y en la del cliente', () => {
+  // 14/10/2026, Martín: «No veo la tab en la sidebar principal»; 15/10: «Que Image aparezca en todos los workspace».
+  // Medido en el DOM de la Sidebar real ese día: antes, la fila sólo estaba para el super admin en su cuenta; mirando un
+  // cliente con `?ws=` y para un admin de cliente no estaba (y con Content Machine plegada no está para nadie).
+  // PROBADO ROMPIÉNDOLO: image-editor con `comingSoon: true` → la tab lleva a /carousels, 0/1.
   const image = FAMILIAS.find((f) => f.key === 'content')?.bloques.flat().find((i) => i.key === 'image');
   assert.ok(image, 'la tab «Image» no está en la familia Content Machine');
   assert.equal(resolverTab(image, { adminShell: true, rolWs: 'admin', capa: 'superadmin' })?.href, '/image-editor', 'en su barra, «Image» tiene que llevar al editor');
-  assert.equal(resolverTab(image, { adminShell: false, rolWs: 'admin', capa: 'completo' }), null, 'mirando un cliente, la barra es la del cliente');
+  assert.equal(resolverTab(image, { adminShell: false, rolWs: 'admin', capa: 'completo' })?.href, '/image-editor', 'mirando un cliente o como admin de un cliente, también');
+  assert.equal(resolverTab(image, { adminShell: false, rolWs: 'admin', capa: 'agencia' })?.href, '/image-editor', 'una agencia, también');
+  assert.equal(resolverTab(image, { adminShell: false, rolWs: 'closer', capa: 'completo' }), null, 'un closer no (como el Video Editor)');
+  assert.equal(resolverTab(image, { adminShell: false, rolWs: 'admin', capa: 'pm' }), null, 'la capa pm no tiene Content Machine');
 });
 
-test('1b: las pages llaman al guard por persona, y el guard pregunta getSesionAdmin', () => {
+test('1b: las pages llaman al guard, y el guard es la pregunta de toda tab (rol del workspace y capa)', () => {
   for (const p of ['app/image-editor/page.tsx', 'app/image-editor/[diseno]/page.tsx', 'app/image-editor/presentador/page.tsx']) {
     assert.match(sinLineas(leer(p)), /await requireEditorImagen\(\)/, `${p}: falta el guard requireEditorImagen()`);
   }
   const acceso = sinLineas(leer('app/image-editor/acceso.ts'));
-  assert.match(acceso, /getSesionAdmin\(\)/, 'acceso.ts tiene que preguntar por la PERSONA (getSesionAdmin)');
-  assert.match(acceso, /nav: 'image-editor'/, 'el guard de toda tab tiene que usar la key exacta del nav');
+  assert.doesNotMatch(acceso, /getSesionAdmin\(\)/, 'desde el 15/10 el editor no es sólo del super admin');
+  assert.match(acceso, /requireRolWs\(\[\], \{ nav: 'image-editor' \}\)/, 'el guard de toda tab, con la key exacta del nav');
+  // La pregunta sin redirigir vive en lib/ (la API no puede arrastrar `next/navigation`) y la página la reexporta.
+  assert.match(acceso, /export \{ veEditorImagen \} from '@\/lib\/image-editor\/acceso'/, 'la página reexporta la pregunta de lib/');
+  assert.match(sinLineas(leer('lib/image-editor/acceso.ts')), /tabEnCapa\('image-editor'/, 'la API pregunta lo mismo: la tab en la capa');
 });
 
 test('2: el crédito de Doory se dibuja en el editor y la licencia viaja con el código', () => {

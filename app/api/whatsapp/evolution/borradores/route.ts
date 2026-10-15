@@ -58,7 +58,8 @@ export async function POST(req: NextRequest) {
       return Response.json({ ok: true });
     }
     if (body.action === 'descartar') {
-      await descartarBorrador(id);
+      // Sólo si seguía pendiente: si ya salió (o lo está mandando otro), no se finge el descarte.
+      if (!(await descartarBorrador(id))) return Response.json({ ok: false, yaNoPendiente: true, error: 'Ese borrador ya salió.' }, { status: 409 });
       return Response.json({ ok: true });
     }
     return Response.json({ ok: false, error: 'action inválida' }, { status: 400 });

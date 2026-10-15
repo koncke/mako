@@ -3844,7 +3844,9 @@ es tu key», con `gemini: HTTP 403 · openrouter: This model is unavailable for 
 **Causa, medida pidiendo el cuerpo del 403** (sin imprimir la key): la única key de Gemini del ws1
 (`GEMINI_API_KEY`, termina en `…YTBA`) contesta **«Your project has been denied access. Please contact
 support.» (`PERMISSION_DENIED`)** a cualquier pedido, no sólo a éste. El último uso bueno de Gemini del
-ws1 en `anthropic_usage` fue el 11/10 a las 06:52 UTC (896 llamadas en 3 días). No es cuota (eso es
+ws1 en `anthropic_usage` fue el 11/10 a las 06:52 UTC (896 llamadas en 3 días). ⚠️ **Corregido el 15/10:
+eso contaba los REBOTES** (filas con `model` = `rebote429:…`, que también son de Gemini): 120 + 491 + 271
+del 08 al 10/10. El último 200 de verdad fue el **08/10 a las 20:45 UTC**; ver la entrada del 15/10. No es cuota (eso es
 429) ni una key mal pegada: Google bloqueó el proyecto de Google Cloud de esa key. **Afecta a toda la IA
 del ws1** que pase por Gemini, no sólo al Dashboard. Las keys del ws9 contestan bien (una 200, dos 503
 por saturación).
@@ -3910,3 +3912,62 @@ Releída la reunión con el arreglo: 4 tramos, 0 fallidos, 24 tareas.
 **Sin hacer.** Que una extracción pedida a mano diga en pantalla que se leyó a medias sigue
 pendiente: el aviso vive sólo en `console.error` (lib/plan-fathom.ts, `extraerTareasDeTexto`) y
 el borrador no guarda `partesFallidas` (lib/plan-propuesta.ts). Ver `docs/relevo/lector-reuniones.md`.
+
+## `anthropic_usage` no dice si UNA clave está viva: sólo anota los 429, y con el ws del pedido (15/10/2026)
+
+**Síntoma.** La clave de Gemini del ws1 no contesta bien desde el 08/10 a las 20:45 UTC, y en una semana sumó 2.147
+rebotes 429 (~335 por día) sin que nadie se enterara. Para frenarla y avisar (docs/diseno-ia-claves-caidas.md), lo obvio
+era leer la salud de cada clave de `anthropic_usage`. No alcanza, por dos razones:
+
+- **Sólo se anotan los 429** (`anotarRebote429`). Una clave inválida (401), un proyecto bloqueado (el 403
+  `PERMISSION_DENIED` del ws1 del 11/10, arriba) o una cuenta sin crédito no quedan en ninguna tabla. Por eso OpenAI y
+  OpenRouter del ws1, que tampoco contestan, ni aparecen en la medición.
+- **La fila lleva el ws del PEDIDO, no el del dueño de la clave** (`wsDeProveedor`). Cuando contesta la red de la
+  plataforma, su respuesta buena queda en el ws del cliente, con el mismo proveedor y quizá el mismo número de cuenta: una
+  clave muerta puede verse viva por la respuesta de otra.
+
+**La regla que queda.** La salud de una clave se registra por su HUELLA (el sha-256 recortado, nunca la clave), con lo
+que el PROVEEDOR contestó, y en su propio registro. `anthropic_usage` es el libro del gasto, no el de la salud.
+
+**Lo medido (30 días, sólo lectura).** De 12 claves con algún 429, «24 h sin una respuesta buena y ≥ 10 rebotes» corta
+dos (ws1 Gemini y ws1 Mistral, con 0 buenas y 46 rebotes) y ningún falso positivo. «12 h y ≥ 10» ya corta una del ws9
+que se recuperaba sola. Detalle y decisiones en docs/diseno-ia-claves-caidas.md. · *2026-10-15 Automations*
+
+## Quién sigue llamando a la Gemini muerta del ws1: dos crons por hora, y el rebote no dice quién (15/10/2026)
+
+**Síntoma:** la key de Gemini del ws1 (Mauricio) no da un 200 desde el **08/10 a las 20:45 UTC** y acumula
+**2.147 rebotes 429** al 15/10 04:52 UTC (491 el 09/10, 549 el 13/10, 498 el 14/10). Algo la sigue llamando.
+
+**Por qué la base no lo contestaba:** `anotarRebote429` (lib/ia-cuotas.ts) escribe la fila del rebote con
+`feature = 'cuota'` FIJO. Las 2.147 filas dicen 'cuota', y lo único que queda de quién llamó es el motivo,
+«429 de gemini en la cuenta 1: chatCheap(gemini): HTTP 429». Tampoco hay filas vecinas: después del 429 el
+resto de la cascada del ws1 falla sin dejar fila (Mistral 429, OpenAI sin crédito, OpenRouter nunca contestó),
+así que ninguna fila con el feature verdadero cae en los mismos segundos.
+
+⚠️ **El diagnóstico obvio era el equivocado.** «60 por hora» se leyó como «un cron de cada minuto», y así se
+les reportó a dos sesiones. Mirando los SEGUNDOS de cada rebote son dos ráfagas por hora: una a las **:40**
+(de 20 a 56 rebotes en tres minutos) y otra de **4 a las :52**. Cruzadas con `vercel.json`:
+
+| Ráfaga | Cron | Qué hace |
+|---|---|---|
+| :40, sólo de 14 a 02 UTC | `40 14-23,0-2 * * *` → `/api/cron/fathom-plan` | `procesarReunionesNuevas` → `plan-fathom` (lee las reuniones de Fathom para el Plan) |
+| :52, toda la noche | `52 * * * *` → `/api/cron/cs-sesiones-entrega` | `drenarSesionesEntrega` (lib/closing-entrega.ts) |
+
+Las horas calzan exactas: los rebotes de las :40 aparecen sólo de 14 a 02 UTC, que es el horario del cron.
+**Regla:** antes de deducir un ritmo de un conteo por hora, se miran los segundos. Un conteo agregado no
+distingue «uno por minuto» de «una ráfaga por hora».
+
+**Lo que cuesta:** el ws1 no sacó **ni un borrador** de sus reuniones desde el 08/10 (antes, 1 a 3 por día:
+`plan_propuestas` con `ref` `fathom:*`). Y no es sólo un atraso: la reunión que falla no se marca, se
+reintenta cada hora, y sale de la ventana de 26 h de `procesarReunionesNuevas` sin que nadie se entere. Ver
+docs/hallazgos-plan.md, la entrada del 15/10.
+
+**Y el 403 del 11/10 contra el 429 de hoy:** la entrada del 11/10 midió con un pedido directo un 403
+`PERMISSION_DENIED` («Your project has been denied access»); lo que anota la cascada es `HTTP 429`. No se
+volvió a medir: no se hacen llamadas con las keys de un cliente. Las dos cosas pueden ser ciertas a la vez
+(otro endpoint, otro día), y para el ws1 da igual: no contesta.
+
+**Sin hacer:** que el rebote guarde la función que llamó (lo toma Automations junto con el freno de claves
+caídas, docs/diseno-ia-claves-caidas.md); cambiar la key del ws1 (lo decide Martín con Mauricio).
+**Vive en:** lib/ia-cuotas.ts (`anotarRebote429`), lib/ai-cheap.ts (:613 y :1059, donde se anota),
+app/api/cron/fathom-plan/route.ts, app/api/cron/cs-sesiones-entrega/route.ts.

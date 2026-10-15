@@ -35,7 +35,10 @@ import type { Runners, Preparado, Ejecutado, SalidaLectura } from '../tipos';
 import { getUsuarioActual } from '@/lib/auth';
 import { getWorkspace, getRolWsEfectivo, estaImpersonando } from '@/lib/workspace';
 import { capaDef } from '@/lib/capas';
-import { zonaDelNegocioDetalle, fijarZonaDelNegocio } from '@/lib/timezone';
+import { zonaDelNegocioDetalle, fijarZonaDelNegocio, zonaDelNegocio, zonaDelNegocioEstricta } from '@/lib/timezone';
+import { exigenciasPorNegocio, fijarObligatorioDesde, type ExigenciaNegocio } from '@/lib/mfa-obligatorio';
+import { instanteDelPlazo } from '@/lib/mfa-reglas';
+import { esWsPlataforma } from './integraciones.helpers';
 import { zonaCanonica, textoOrigen } from '@/lib/zona-negocio-reglas';
 import { getPerfil, getNotifPrefs, setNotifPrefs, avisoWaActivo, getNotifInApp, DEFAULT_PERFIL, type NotifPrefs } from '@/lib/perfil';
 import { AVISOS_WA_EN_VIVO, NOTIF_IN_APP, soloDigitos, telefonoValido, emailValido, inAppActivo } from '@/lib/notif-catalogo';
@@ -87,6 +90,19 @@ async function escribir(fn: () => Promise<Ejecutado | string>): Promise<Ejecutad
 
 function invalidar(ruta: string): void {
   try { revalidatePath(ruta); } catch { /* fuera de un request: vence sola */ }
+}
+
+// ── El 2FA obligatorio (14/10/2026) ──────────────────────────────────────────
+// La def ya lo esconde con `soloPlataforma`; esto lo vuelve a preguntar en preparar Y en
+// ejecutar, porque entre los dos puede pasar mucho (una pendiente confirmada desde otro lado).
+const NO_ES_PLATAFORMA = 'Sólo la plataforma decide el 2FA de los negocios.';
+const enUtc = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)} ${iso.slice(11, 16)} UTC`;
+async function negociosPedidos(input: Record<string, unknown>): Promise<ExigenciaNegocio[] | { error: string }> {
+  const todos = await exigenciasPorNegocio();
+  const id = num(input, 'negocio_id');
+  if (id == null) return todos;
+  const uno = todos.filter((n) => n.ws === id);
+  return uno.length ? uno : { error: `No existe el negocio #${id}. Revisa ver_exigencia_2fa.` };
 }
 
 const horaEn = (tz: string): string => {
@@ -722,6 +738,87 @@ export const RUNNERS: Runners = {
       await borrarIdentidadFiscal(i.id);
       invalidar('/configuraciones');
       return `Identidad fiscal «${i.nombre}» borrada.`;
+    }),
+  },
+
+  ver_exigencia_2fa: {
+    leer: async (_input, ctx) => {
+      if (!(await esWsPlataforma(ctx.ws))) return errorLectura(NO_ES_PLATAFORMA);
+      const negocios = await exigenciasPorNegocio();
+      const filas = await Promise.all(negocios.map(async (n) => {
+        const tz = await zonaDelNegocio(n.ws);
+        const enSuHora = n.desde ? new Date(n.desde).toLocaleString('es-MX', { timeZone: tz, dateStyle: 'short', timeStyle: 'short' }) : null;
+        return { negocio_id: n.ws, nombre: n.nombre, exige_desde: n.desde, exige_desde_en_su_hora: enSuHora, zona: tz, usuarios: n.usuarios, sin_2fa: n.sinSegundoFactor };
+      }));
+      return json({
+        negocios: filas,
+        exigen: filas.filter((f) => f.exige_desde).length,
+        usuarios_sin_2fa: filas.reduce((a, f) => a + f.sin_2fa, 0),
+        nota: 'Pasada la fecha, un usuario sin 2FA no entra hasta activarlo (el login se lo pide). El super admin lo tiene obligatorio siempre.',
+      });
+    },
+  },
+
+  exigir_2fa_desde: {
+    preparar: async (input, ctx): Promise<Preparado> => {
+      if (!(await esWsPlataforma(ctx.ws))) return { error: NO_ES_PLATAFORMA };
+      const fecha = str(input, 'fecha') ?? '';
+      const hora = str(input, 'hora') ?? '24:00';
+      if (!instanteDelPlazo('UTC', fecha, hora)) return { error: `«${fecha} ${hora}» no es un día y una hora válidos (AAAA-MM-DD y HH:MM, de 00:00 a 24:00).`, faltan: ['fecha'] };
+      const negocios = await negociosPedidos(input);
+      if ('error' in negocios) return negocios;
+      const asignaciones: Array<{ ws: number; desde: string }> = [];
+      for (const n of negocios) {
+        // La zona DECIDE el instante: estricta. Un negocio sin zona guardada usa la de por defecto,
+        // que es lo que ya ve en todas sus pantallas.
+        const tz = await zonaDelNegocioEstricta(n.ws).catch(() => null);
+        if (!tz) return { error: `No pude leer la zona horaria de «${n.nombre}»: sin ella no sé a qué hora es su plazo. Reintenta.` };
+        asignaciones.push({ ws: n.ws, desde: instanteDelPlazo(tz, fecha, hora)!.toISOString() });
+      }
+      const cambian = asignaciones.filter((a) => {
+        const antes = negocios.find((n) => n.ws === a.ws)?.desde;
+        return !antes || Date.parse(antes) !== Date.parse(a.desde);
+      });
+      if (!cambian.length) return { error: 'Ya lo exigen desde esa fecha.', yaEstaba: true };
+      const sin = negocios.filter((n) => cambian.some((a) => a.ws === n.ws)).reduce((a, n) => a + n.sinSegundoFactor, 0);
+      const orden = cambian.map((a) => a.desde).sort();
+      const ventana = orden[0] === orden[orden.length - 1] ? enUtc(orden[0]) : `entre ${enUtc(orden[0])} y ${enUtc(orden[orden.length - 1])}`;
+      const ya = Date.parse(orden[0]) <= Date.now() ? ' ⚠️ La fecha ya pasó: se exige YA.' : '';
+      return {
+        payload: { asignaciones: cambian },
+        resumen: `Exigir el 2FA desde el ${fecha.slice(8, 10)}/${fecha.slice(5, 7)} a las ${hora}, en la hora de cada negocio, en ${cambian.length} negocio${cambian.length === 1 ? '' : 's'} (${ventana}). ${sin} usuario${sin === 1 ? '' : 's'} todavía no lo ${sin === 1 ? 'tiene' : 'tienen'}: desde ahí no entran hasta activarlo.${ya}`,
+      };
+    },
+    ejecutar: async (payload, ctx) => escribir(async () => {
+      if (!(await esWsPlataforma(ctx.ws))) return { ok: false, resumen: NO_ES_PLATAFORMA };
+      const crudas = Array.isArray(payload.asignaciones) ? payload.asignaciones as Array<{ ws?: unknown; desde?: unknown }> : [];
+      const asignaciones = crudas
+        .filter((a) => Number.isInteger(a.ws) && typeof a.desde === 'string' && Number.isFinite(Date.parse(a.desde)))
+        .map((a) => ({ ws: a.ws as number, desde: a.desde as string }));
+      if (!asignaciones.length) return { ok: false, resumen: 'No había negocios para cambiar.' };
+      const n = await fijarObligatorioDesde(asignaciones);
+      return { ok: true, resumen: `El 2FA queda exigido en ${n} negocio${n === 1 ? '' : 's'}.`, datos: { negocios: n } };
+    }),
+  },
+
+  dejar_de_exigir_2fa: {
+    preparar: async (input, ctx): Promise<Preparado> => {
+      if (!(await esWsPlataforma(ctx.ws))) return { error: NO_ES_PLATAFORMA };
+      const negocios = await negociosPedidos(input);
+      if ('error' in negocios) return negocios;
+      const exigen = negocios.filter((n) => n.desde);
+      if (!exigen.length) return { error: 'Ningún negocio lo exige.', yaEstaba: true };
+      return {
+        payload: { ws: exigen.map((n) => n.ws) },
+        resumen: `Dejar de exigir el 2FA en ${exigen.length} negocio${exigen.length === 1 ? '' : 's'}: ${exigen.map((n) => `«${n.nombre}»`).join(', ')}. Quien no lo tiene vuelve a entrar sin él.`,
+      };
+    },
+    ejecutar: async (payload, ctx) => escribir(async () => {
+      if (!(await esWsPlataforma(ctx.ws))) return { ok: false, resumen: NO_ES_PLATAFORMA };
+      const ws = (Array.isArray(payload.ws) ? payload.ws : []).filter((x): x is number => Number.isInteger(x));
+      if (!ws.length) return { ok: false, resumen: 'No había negocios para cambiar.' };
+      const n = await fijarObligatorioDesde(ws.map((w) => ({ ws: w, desde: null })));
+      return { ok: true, resumen: `El 2FA deja de exigirse en ${n} negocio${n === 1 ? '' : 's'}.`, datos: { negocios: n } };
     }),
   },
 

@@ -11,6 +11,7 @@ import { PARTES as ADMIN_PARTES, BITACORA as ADMIN_BITACORA } from './admin/bita
 import { PARTES as ONBOARDING_PARTES, BITACORA as ONBOARDING_BITACORA } from './onboarding/bitacora';
 import { PARTES as GENERAL_PARTES, BITACORA as GENERAL_BITACORA } from './general/bitacora';
 import { PARTES as CALENDARIO_PARTES, BITACORA as CALENDARIO_BITACORA } from './calendario/bitacora';
+import { PARTES as CHATS_PARTES, BITACORA as CHATS_BITACORA } from './chats/bitacora';
 import { PARTES as CHATBOT_PARTES, BITACORA as CHATBOT_BITACORA } from './chatbot/bitacora';
 import { PARTES as ADS_PARTES, BITACORA as ADS_BITACORA } from './ads-writer/bitacora';
 import { PARTES as SEMAFORO_PARTES, BITACORA as SEMAFORO_BITACORA } from './semaforo/bitacora';
@@ -60,6 +61,7 @@ import { PARTES as DASHBOARD_PARTES, BITACORA as DASHBOARD_BITACORA } from './da
 import { PARTES as VIDEOEDITOR_PARTES, BITACORA as VIDEOEDITOR_BITACORA } from './video-editor/bitacora';
 import { PARTES as IMAGEEDITOR_PARTES, BITACORA as IMAGEEDITOR_BITACORA } from './image-editor/bitacora';
 import { PARTES as MOBILE_PARTES, BITACORA as MOBILE_BITACORA } from './mako-mobile/bitacora';
+import { PARTES as CENTRO_PARTES, BITACORA as CENTRO_BITACORA } from './centro-operaciones/bitacora';
 import { PARTES as AUTH_PARTES, BITACORA as AUTH_BITACORA } from './auth-session/bitacora';
 
 const REGISTROS: Record<string, Registro> = {
@@ -69,6 +71,7 @@ const REGISTROS: Record<string, Registro> = {
   onboarding: { partes: ONBOARDING_PARTES, bitacora: ONBOARDING_BITACORA },
   general: { partes: GENERAL_PARTES, bitacora: GENERAL_BITACORA },
   calendario: { partes: CALENDARIO_PARTES, bitacora: CALENDARIO_BITACORA },
+  chats: { partes: CHATS_PARTES, bitacora: CHATS_BITACORA },
   dashboard: { partes: DASHBOARD_PARTES, bitacora: DASHBOARD_BITACORA },
   chatbot: { partes: CHATBOT_PARTES, bitacora: CHATBOT_BITACORA },
   'ads-writer': { partes: ADS_PARTES, bitacora: ADS_BITACORA },
@@ -86,6 +89,7 @@ const REGISTROS: Record<string, Registro> = {
   'design-system': { partes: DS_PARTES, bitacora: DS_BITACORA },
   'mako-ux-ui': { partes: MAKOUI_PARTES, bitacora: MAKOUI_BITACORA },
   'mako-mobile': { partes: MOBILE_PARTES, bitacora: MOBILE_BITACORA },
+  'centro-operaciones': { partes: CENTRO_PARTES, bitacora: CENTRO_BITACORA },
   'credentials-vault-byok': { partes: BYOK_PARTES, bitacora: BYOK_BITACORA },
   'vsl-generator': { partes: VSLGEN_PARTES, bitacora: VSLGEN_BITACORA },
   'landing-generator': { partes: LANDINGGEN_PARTES, bitacora: LANDINGGEN_BITACORA },

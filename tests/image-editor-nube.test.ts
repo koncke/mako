@@ -80,7 +80,7 @@ function archivos(dir: string): string[] {
   return out;
 }
 
-test('5: cada handler de /api/image-editor pasa por la puerta del super admin antes que nada', () => {
+test('5: cada handler de /api/image-editor pasa por la puerta del editor antes que nada', () => {
   const rutas = archivos('app/api/image-editor');
   assert.ok(rutas.length >= 5, `sólo ${rutas.length} rutas: el barrido no está mirando`);
   const malos: string[] = [];

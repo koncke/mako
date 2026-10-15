@@ -108,7 +108,9 @@ export async function archivarSecuencias(ids?: number[]): Promise<{ archivadas: 
 
   const { error } = await supabase
     .from('nutricion_secuencias')
-    .update({ archivada_at: ahora })
+    // ⚠️ Pausada además de archivada (auditoría de seguridad, 14/10/2026): una archivada que quedaba
+    // `activa` volvía a mandar en cuanto algo la desarchivara.
+    .update({ archivada_at: ahora, activa: false })
     .in('id', objetivo);
   if (error) throw new Error(`archivarSecuencias: ${error.message}`);
 
@@ -124,9 +126,11 @@ export async function archivarSecuencias(ids?: number[]): Promise<{ archivadas: 
   return { archivadas: objetivo.length, inscripcionesCanceladas: (canc ?? []).length };
 }
 
-/** Devuelve una secuencia archivada al listado. */
+/** Devuelve una secuencia archivada al listado, PAUSADA: prenderla es una decisión aparte. Sin el
+ *  `activa: false`, una que se archivó prendida volvía a inscribir su cohorte al desarchivarla. */
 export async function desarchivarSecuencia(id: number): Promise<void> {
   const supabase = await getTenantDb();
-  const { error } = await supabase.from('nutricion_secuencias').update({ archivada_at: null }).eq('id', id);
+  const { error } = await supabase.from('nutricion_secuencias')
+    .update({ archivada_at: null, activa: false, updated_at: new Date().toISOString() }).eq('id', id);
   if (error) throw new Error(`desarchivarSecuencia: ${error.message}`);
 }

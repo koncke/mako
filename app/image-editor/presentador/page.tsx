@@ -11,7 +11,7 @@
 // Va SIN la cáscara de MaKo (app/_components/PublicRouteGate.tsx → esVistaSinChrome):
 // es una ventana chica que sólo se mira mientras se presenta, como
 // /integraciones/escuchando. Y con el mismo guard que el editor: no lee datos, pero
-// es una pantalla del editor y el editor es sólo del super admin.
+// es una pantalla del editor.
 
 import { requireEditorImagen } from '../acceso';
 import { PresentadorCliente } from './PresentadorCliente';

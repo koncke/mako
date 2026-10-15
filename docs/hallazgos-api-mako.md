@@ -1248,3 +1248,37 @@ que vale para cualquier área que sume operaciones:
 
 **Vive en:** `lib/api-mako/areas/landing.def.ts` · `landing.run.ts` · `scripts/generar-api-doc.mjs`.
 *15/10/2026, chat «Landing Generator» (`claude1`).*
+
+## El área `imagen` (15/10/2026, el Image Editor): lo que pide un área nueva además de sus dos archivos
+
+**Vive en:** `lib/api-mako/areas/imagen.{def,run}.ts` · `lib/api-mako/{tipos,registro,runners,rest}.ts` ·
+`lib/mako-intencion.ts` (`AREA_KEYWORDS`, `esPedidoDiseno`) · `tests/api-mako-imagen.test.ts`
+
+Se declaró el día que el editor se abrió a todos los workspaces (mientras era sólo del super admin, el permiso de la
+tab lo habría abierto por token a cualquier cliente). Siete operaciones; el render no existe del lado del server, así
+que crear y copiar devuelven el link al editor.
+
+- **Seis lugares, no cuatro:** `AREAS` y `AREA_INFO` (tipos), `POR_AREA` (registro), `TODOS` (runners), las rutas
+  de `rest.ts`, la referencia y el snapshot regenerados (`scripts/generar-api-doc.mjs`) y **`AREA_KEYWORDS`**:
+  es `Record<Area, RegExp>`, y un typecheck ACOTADO que no incluye `lib/mako-intencion.ts` no ve que falta. Lo frena
+  el pre-push, a los 5 minutos.
+- **Y sumar el área a `AREA_KEYWORDS` otra vez no alcanzó** (es la misma trampa que `cobros`, más arriba): medido con
+  `clasificarIntencion`, «qué diseños tengo» traía las lecturas y «cambiá el texto del flyer…» las acciones, pero
+  **«creame un flyer de la inauguración» salía `capturar` DUDOSA, sin herramientas**. Se sumó `esPedidoDiseno`
+  (molde de la automatización: verbo de crear, el objeto a tres palabras, sin otro objeto en el medio); «creame una
+  tarea para el flyer» sigue siendo del Plan. Regla: al declarar un área que CREA algo, medir el «creame un X» del
+  área contra el clasificador, no suponerlo.
+- **Una `.def.ts` no importa nada con dependencias:** los tamaños con nombre viven en `lib/image-editor/tamanos.ts`,
+  sin imports, y no en `reglas.ts` (que arrastra la Landing). El test 4 lo fija.
+- **El motor de Doory no entra al server:** el documento en blanco y el cambio de textos se arman en
+  `lib/image-editor/reglas.ts`, y el test 1 compara el documento en blanco con el `createBlankDocument` del motor.
+- Verificado contra la base en el ws 3 con los runners tal cual (crear desde plantilla, ver, cambiar textos con
+  mayúsculas, copiar, listar, borrar, otro workspace no lo ve), borrando lo creado.
+- **⚠️ Un runner tampoco puede arrastrar `next/navigation`** (15/10, dos rojos en main después del push): el área
+  importaba `lib/image-editor/server.ts`, que tomaba la pregunta de acceso de `app/image-editor/acceso.ts`, que importa
+  `lib/tab-access.ts` → `next/navigation`. El build no se entera, pero todo lo que carga `lib/api-mako/runners.ts` fuera
+  de Next murió con «createContext is not a function» (`tests/voz-mako.test.ts` #6 corre un runner con
+  `--conditions=react-server`). La pregunta pasó a `lib/image-editor/acceso.ts`, suelta, y la página la reexporta.
+  Regla: lo que una `.run.ts` importa no llega a un guard de página (`requireRolWs`, `redirect`); la pregunta de acceso
+  va en un módulo de `lib/` sin `next/navigation`. Lo fija el test 7 de `tests/api-mako-imagen.test.ts` (carga el
+  runner en un node suelto con esa condición). Y el texto: «aquí», no «acá» (`tests/puente-panel-copy.test.ts`).

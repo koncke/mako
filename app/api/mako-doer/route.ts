@@ -14,9 +14,11 @@ import { chatCheapCascade } from '@/lib/ai-cheap';
 import { MAKO_TOOLS, runMakoTool } from '@/lib/mako-tools';
 import type { ToolDef, ToolRunner } from '@/lib/anthropic';
 import { getWorkspaceActual, getRolWsEfectivo } from '@/lib/workspace';
-import { toolsDelRegistro, REGISTRO } from '@/lib/api-mako/registro';
+import { getUsuarioActual } from '@/lib/auth';
+import { toolsDelRegistro, REGISTRO, type Vista } from '@/lib/api-mako/registro';
 import { runnerDelRegistro, vistaDe } from '@/lib/api-mako/ejecutar';
 import { canalKeyDe } from '@/lib/api-mako/canal';
+import { entraAlChat } from '@/lib/mako-turno-app-reglas';
 import { areasDelMensaje } from '@/lib/mako-intencion';
 import type { Ctx } from '@/lib/api-mako/tipos';
 import {
@@ -52,8 +54,30 @@ Tienes herramientas para CONSULTAR datos reales del negocio: buscar_leads, ficha
 Cuando la respuesta dependa de un dato concreto —un lead puntual, su historial, una reunión, tu método— ÚSALAS en vez de suponer. Flujo típico: buscar_leads para ubicar al lead por nombre → ficha_lead / reuniones_lead para el detalle → buscar_conocimiento para apoyar tu recomendación en el método real.
 Nunca inventes nombres, números, fechas ni mensajes: si una herramienta no lo trae, di explícitamente que no lo tienes. Después de consultar, responde en tu voz de siempre, sin volcar el JSON crudo.`;
 
-async function buildDoerSystem(opts: { titulo: string; query: string }): Promise<string> {
-  const base = await buildSystemPrompt({ chartKey: CHART_KEY, titulo: opts.titulo, contexto: '', query: opts.query });
+/**
+ * De quién es el chat que se abre (auditoría de seguridad del 14/10/2026).
+ *
+ * ⚠️ Los chats del doer eran del WORKSPACE: `open` devolvía el último, que era el del admin, con las
+ * respuestas de metricas_negocio y analisis_negocio en texto, y `?all=1` + `?sessionId=` abrían cualquiera.
+ * Filtrar las herramientas no alcanzaba: el dato ya estaba en el historial. Los de un admin siguen siendo
+ * del workspace (como siempre); los de un closer o setter son SUYOS (`mako-doer:u<id>`), como los del
+ * teléfono, y no abre ningún otro.
+ */
+async function quienPide(): Promise<{ admin: boolean; clave: string }> {
+  const [rolWs, sesion] = await Promise.all([getRolWsEfectivo(), getUsuarioActual()]);
+  const admin = rolWs === 'admin';
+  return { admin, clave: admin ? CHART_KEY : `${CHART_KEY}:u${sesion?.sub ?? 'sin-sesion'}` };
+}
+
+/** ¿Este id es un chat que quien pide puede abrir? Un admin, cualquiera (salvo los del teléfono, aparte). */
+async function puedeAbrir(sessionId: number, q: { admin: boolean; clave: string }): Promise<boolean> {
+  if (q.admin) return true;
+  const s = Number.isInteger(sessionId) && sessionId > 0 ? await getSession(sessionId) : null;
+  return !!s && s.chart_key === q.clave;
+}
+
+async function buildDoerSystem(opts: { titulo: string; query: string; admin: boolean }): Promise<string> {
+  const base = await buildSystemPrompt({ chartKey: CHART_KEY, titulo: opts.titulo, contexto: '', query: opts.query, sinNumerosDelNegocio: !opts.admin });
   return `${base}\n\n${DOER_PREAMBLE}`;
 }
 
@@ -73,13 +97,31 @@ async function buildMsgs(history: ChartMsg[], mensaje?: string): Promise<RichMsg
  * borrador escrito por el código), y una acción sin eso propone y confirma en el
  * mismo turno o pega links copiados por el modelo. Ver docs/api-mako-diseno.md §4.2.
  *
- * Sin workspace resuelto (la agencia sin entrar a un cliente) queda como estaba.
+ * ⚠️ LAS DE SIEMPRE TAMBIÉN SE FILTRAN POR LA VISTA DE ESTA PERSONA (auditoría de seguridad,
+ * 14/10/2026). Antes MAKO_TOOLS viajaba entero y `runMakoTool` no mira ni rol ni capa: un closer
+ * o un setter le pedía a MaKo `metricas_negocio` y `analisis_negocio` (ingreso, inversión en
+ * Meta, CAC, cascada de costos), que en el registro tienen `rolMinimo: 'admin'` y que su
+ * Dashboard le esconde. Ahora pasa por `entraAlChat` (lib/mako-turno-app-reglas.ts), el MISMO
+ * filtro que el chat del teléfono: viaja sólo lo que tiene gemela en el registro y es visible
+ * para su rol y la capa del workspace. Y `runTool` rechaza todo nombre que no viajó: el modelo
+ * puede pedir una herramienta que no está en la lista (la nombra el historial, la inventa).
+ * Medido el 14/10/2026: con la capa `completo`, el admin conserva las 12 de siempre y el
+ * closer/setter pierde exactamente esas dos. Con una capa sin CRM (`pm`) las del CRM tampoco
+ * viajan, igual que en el teléfono.
+ *
+ * Sin workspace resuelto, la agencia (rol admin) queda como estaba. Cualquier otro rol sin
+ * workspace ve la vista fail-closed de `vistaDe` (sin tabs): nada que dependa de una tab.
  */
 async function herramientasDelTurno(query: string): Promise<{ tools: ToolDef[]; runTool: ToolRunner }> {
-  const ws = await getWorkspaceActual();
-  if (ws == null) return { tools: MAKO_TOOLS, runTool: runMakoTool };
-  const rol = (await getRolWsEfectivo()) === 'admin' ? 'admin' : 'miembro';
+  const [ws, rolWs] = await Promise.all([getWorkspaceActual(), getRolWsEfectivo()]);
+  const rol = rolWs === 'admin' ? 'admin' : 'miembro';
+  if (ws == null) {
+    if (rol === 'admin') return { tools: MAKO_TOOLS, runTool: runMakoTool };
+    const sinWs: Vista = { canal: 'app', alcance: 'lectura', ws: 0, rol, tabs: [] };
+    return soloLasQueViajan(MAKO_TOOLS.filter((t) => entraAlChat(t.name, sinWs)), runMakoTool);
+  }
   const ctx: Ctx = { ws, canal: 'app', canalKey: canalKeyDe('app', `ws${ws}`), alcance: 'lectura', rol };
+  const vista = await vistaDe(ctx);
   const deSiempre = new Set(MAKO_TOOLS.map((t) => t.name));
   // ⚠️ SIN LAS QUE LEEN LA AGENDA DE GOOGLE (`datosDeGoogle`). La agenda no pasa por
   // ninguna IA (lib/agenda-sin-ia.ts): esas herramientas le muestran el detalle a la
@@ -89,12 +131,24 @@ async function herramientasDelTurno(query: string): Promise<{ tools: ToolDef[]; 
   const excluir = new Set([...deSiempre, ...REGISTRO.filter((d) => d.datosDeGoogle).flatMap((d) => [d.id, ...(d.alias ?? [])])]);
   const areas = areasDelMensaje(query);
   const extra = areas.length
-    ? toolsDelRegistro({ vista: await vistaDe(ctx), areas, incluirAcciones: false, excluir, maxChars: 12_000, relevanteA: query })
+    ? toolsDelRegistro({ vista, areas, incluirAcciones: false, excluir, maxChars: 12_000, relevanteA: query })
     : [];
   const runRegistro = runnerDelRegistro(ctx);
+  const propias = MAKO_TOOLS.filter((t) => entraAlChat(t.name, vista));
+  return soloLasQueViajan(
+    [...propias, ...extra],
+    (name, input) => (deSiempre.has(name) ? runMakoTool(name, input) : runRegistro(name, input)),
+  );
+}
+
+/** El contrato se aplica AL EJECUTAR: lo que no viajó no corre, aunque el modelo lo pida. */
+function soloLasQueViajan(tools: ToolDef[], correr: ToolRunner): { tools: ToolDef[]; runTool: ToolRunner } {
+  const permitidas = new Set(tools.map((t) => t.name));
   return {
-    tools: [...MAKO_TOOLS, ...extra],
-    runTool: (name, input) => (deSiempre.has(name) ? runMakoTool(name, input) : runRegistro(name, input)),
+    tools,
+    runTool: async (name, input) => (permitidas.has(name)
+      ? correr(name, input)
+      : { content: JSON.stringify({ ok: false, error: `«${name}» no está disponible en este chat.` }), isError: true }),
   };
 }
 
@@ -119,9 +173,9 @@ async function generarTitulo(seed: string): Promise<string | null> {
   } catch { return null; }
 }
 
-async function crearYSaludar(titulo: string): Promise<number> {
-  const s = await createSession(CHART_KEY, null, '');
-  const resp = await responder(await buildDoerSystem({ titulo, query: titulo }), await buildMsgs([]));
+async function crearYSaludar(titulo: string, q: { admin: boolean; clave: string }): Promise<number> {
+  const s = await createSession(q.clave, null, '');
+  const resp = await responder(await buildDoerSystem({ titulo, query: titulo, admin: q.admin }), await buildMsgs([]));
   await appendMessage(s.id, 'assistant', resp);
   const t = await generarTitulo(resp);
   if (t) await renameSession(s.id, t);
@@ -132,17 +186,21 @@ export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
   const arch = !!sp.get('archived');
   try {
-    if (sp.get('all')) return Response.json({ sessions: await listAllSessions(arch) });
+    const q = await quienPide();
+    // Un closer o setter sólo ve los SUYOS: ni la lista de todos ni los chats de otro.
+    if (sp.get('all')) return Response.json({ sessions: q.admin ? await listAllSessions(arch) : await listSessions(q.clave, arch) });
     const sessionId = sp.get('sessionId');
     // ⚠️ Un chat del TELÉFONO es de UNA persona: por esta ruta (por workspace) no se abre
     // (lib/chart-chats.ts, `esSesionDelTelefono`).
     if (sessionId) {
       if (await esSesionDelTelefono(Number(sessionId))) return Response.json({ error: 'sesión inexistente' }, { status: 404 });
+      if (!(await puedeAbrir(Number(sessionId), q))) return Response.json({ error: 'sesión inexistente' }, { status: 404 });
       return Response.json({ messages: await getSessionMessages(Number(sessionId)) });
     }
     const chartKey = sp.get('chartKey');
     if (chartKey) {
       if (esChatDelTelefono(chartKey)) return Response.json({ error: 'sesión inexistente' }, { status: 404 });
+      if (!q.admin && chartKey !== q.clave) return Response.json({ error: 'sesión inexistente' }, { status: 404 });
       return Response.json({ sessions: await listSessions(chartKey, arch) });
     }
     return Response.json({ error: 'parámetros faltantes' }, { status: 400 });
@@ -161,26 +219,31 @@ export async function POST(req: NextRequest) {
     if (body.sessionId != null && (await esSesionDelTelefono(Number(body.sessionId)))) {
       return Response.json({ error: 'sesión inexistente' }, { status: 404 });
     }
+    const q = await quienPide();
+    // Y para escribir: un closer o setter sólo toca sus chats.
+    if (body.sessionId != null && !(await puedeAbrir(Number(body.sessionId), q))) {
+      return Response.json({ error: 'sesión inexistente' }, { status: 404 });
+    }
     if (action === 'open') {
-      const sesiones = await listSessions(CHART_KEY);
+      const sesiones = await listSessions(q.clave);
       if (sesiones.length > 0) {
         const s = sesiones[0];
         const mensajes = await getSessionMessages(s.id);
         if (mensajes.length > 0) return Response.json({ session: s, messages: mensajes, sessions: sesiones });
         // Sesión vacía (quedó a medias): MaKo saluda igual, así abrir el doer
         // SIEMPRE devuelve un primer mensaje sin tener que crear otra sesión.
-        const resp = await responder(await buildDoerSystem({ titulo: s.titulo ?? titulo, query: s.titulo ?? titulo }), await buildMsgs([]));
+        const resp = await responder(await buildDoerSystem({ titulo: s.titulo ?? titulo, query: s.titulo ?? titulo, admin: q.admin }), await buildMsgs([]));
         await appendMessage(s.id, 'assistant', resp);
         if (!s.titulo) { const t = await generarTitulo(resp); if (t) await renameSession(s.id, t); }
-        return Response.json({ session: await getSession(s.id), messages: await getSessionMessages(s.id), sessions: await listSessions(CHART_KEY) });
+        return Response.json({ session: await getSession(s.id), messages: await getSessionMessages(s.id), sessions: await listSessions(q.clave) });
       }
-      const id = await crearYSaludar(titulo);
-      return Response.json({ session: await getSession(id), messages: await getSessionMessages(id), sessions: await listSessions(CHART_KEY) });
+      const id = await crearYSaludar(titulo, q);
+      return Response.json({ session: await getSession(id), messages: await getSessionMessages(id), sessions: await listSessions(q.clave) });
     }
 
     if (action === 'new') {
-      const id = await crearYSaludar(titulo);
-      return Response.json({ session: await getSession(id), messages: await getSessionMessages(id), sessions: await listSessions(CHART_KEY) });
+      const id = await crearYSaludar(titulo, q);
+      return Response.json({ session: await getSession(id), messages: await getSessionMessages(id), sessions: await listSessions(q.clave) });
     }
 
     if (action === 'send') {
@@ -190,7 +253,7 @@ export async function POST(req: NextRequest) {
       if (!s) return Response.json({ error: 'sesión inexistente' }, { status: 404 });
       const history = await getSessionMessages(sessionId);
       await appendMessage(sessionId, 'user', mensaje);
-      const resp = await responder(await buildDoerSystem({ titulo: s.titulo ?? 'Chat', query: mensaje }), await buildMsgs(history, mensaje), mensaje);
+      const resp = await responder(await buildDoerSystem({ titulo: s.titulo ?? 'Chat', query: mensaje, admin: q.admin }), await buildMsgs(history, mensaje), mensaje);
       await appendMessage(sessionId, 'assistant', resp);
       if (!s.titulo) { const t = await generarTitulo(`${mensaje}\n${resp}`); if (t) await renameSession(sessionId, t); }
       return Response.json({ messages: await getSessionMessages(sessionId) });

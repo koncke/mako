@@ -19,9 +19,10 @@
 //  2. Cada request revalida contra la FILA VIVA (revocado_at / expira_at). Sin
 //     caché: revocar tiene que cortar el acceso al instante.
 //  3. Fail-closed: cualquier duda devuelve null, y el que llama responde 404.
-//  4. `puedeVer` es el ÚNICO punto de autorización, y lo usan TANTO la página
-//     como el endpoint de archivos. Si solo lo usara la página, cualquiera
-//     pediría por id un archivo fuera del alcance (IDOR).
+//  4. `puedeVer` es el ÚNICO punto de autorización por alcance, y lo usan TANTO
+//     la página como el endpoint de archivos (a través de `puedeVerAsset`, que
+//     antes exige que el share sea de marca). Si solo lo usara la página,
+//     cualquiera pediría por id un archivo fuera del alcance (IDOR).
 //  5. Un share NO es una identidad: no emite cookie ni sesión. Es una fila en
 //     base y una validación en la ruta.
 //
@@ -151,9 +152,32 @@ export function puedeVer(share: Share, asset: { id: string; seccion: string; gru
   }
 }
 
-/** Filtra una lista entera con la misma regla. */
+// ── Las piezas de MARCA (branding_assets) ───────────────────────────────────
+// ⚠️ `puedeVer` decide por ALCANCE y no mira `recurso`: con 'todo' dice que sí sin preguntar de qué
+//    es el share. Hasta el 14/10/2026 el endpoint de archivos (app/api/compartido/archivo) preguntaba
+//    SÓLO eso, y el link público de Conocimientos —alcance 'todo', y se reparte a cualquiera— bajaba
+//    por id las piezas de la galería de marca, que ese link a propósito no muestra («la formación, no
+//    lo nuestro», app/conocimientos/catalogo.ts). La página ya cortaba por recurso (26/09); el
+//    endpoint no. Ahora los dos preguntan esto, que mira el recurso PRIMERO (el molde de
+//    `puedeVerInforme`) y recién ahí delega en `puedeVer`.
+
+/** El recurso cuyas piezas sirven la galería y /api/compartido/archivo. */
+export const RECURSO_BRANDING = 'branding';
+
+/** ¿Es un share del material de marca? En positivo: un recurso nuevo no entra solo. */
+export function esShareDeMarca(share: Pick<Share, 'recurso'>): boolean {
+  return share.recurso === RECURSO_BRANDING;
+}
+
+/** ¿Este share deja ver (y bajar) ESTA pieza de marca? */
+export function puedeVerAsset(share: Share, asset: { id: string; seccion: string; grupo: string }): boolean {
+  if (!esShareDeMarca(share)) return false;
+  return puedeVer(share, asset);
+}
+
+/** Filtra una lista entera con la misma regla que el endpoint de archivos. */
 export function filtrarPorShare<T extends { id: string; seccion: string; grupo: string }>(share: Share, assets: T[]): T[] {
-  return assets.filter((a) => puedeVer(share, a));
+  return assets.filter((a) => puedeVerAsset(share, a));
 }
 
 // ── El INFORME del Dashboard (11/10/2026) ───────────────────────────────────

@@ -23,6 +23,7 @@ import { notFound, redirect } from 'next/navigation';
 import type { CSSProperties, ReactNode } from 'react';
 import Link from '@/app/_ui/Link';
 import { Pagina, PermissionState } from '@/app/_ui';
+import { rutaChatsDeLead } from '@/lib/chats-links';
 import { requireCapa } from '@/lib/tab-access';
 import { getResumenLead, type LlamadaResumen } from '@/lib/lead-resumen';
 import { estadoDelAnalisis } from '@/lib/closing-job';
@@ -297,7 +298,10 @@ export default async function ResumenLeadPage({ params }: { params: Promise<{ id
             <div style={{ padding: '13px 14px', borderRadius: 12, background: 'var(--surface-2)', border: '1px solid var(--border)', fontSize: 15.5, lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>
               {borradorSeguimiento.texto}
             </div>
-            <Link href={`/whatsapp?lead=${lead.id}`} style={{ display: 'inline-block', marginTop: 12, fontSize: 15, fontWeight: 600, color: 'var(--primary)' }}>
+            {/* A Chats (14/10/2026): el borrador de MaKo se manda desde el composer del contacto.
+                El `?lead=` de /whatsapp lo entendía la bandeja oficial, que se borró: la de empresa
+                lo ignora y abre el PRIMER chat de la lista, el de otra persona. */}
+            <Link href={rutaChatsDeLead(lead.id)} style={{ display: 'inline-block', marginTop: 12, fontSize: 15, fontWeight: 600, color: 'var(--primary)' }}>
               Revisarlo y mandarlo →
             </Link>
           </Seccion>

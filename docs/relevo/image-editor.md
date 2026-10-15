@@ -33,15 +33,26 @@ pendiente que no dependa de Martín y dejarle en una línea las opciones de lo q
   Claude in Chrome no estaba conectado para claude1. Qué mirar con la sesión de Martín: crear un diseño,
   subir una imagen, cerrar y abrir desde otra pestaña (tiene que estar), descargar PNG, el crédito de Doory al pie.
 
+## Abierto a todos los workspaces (15/10)
+
+Martín: **«Que Image aparezca en todos los workspace.»** Sin `adminOnly` en las cuatro secciones, guard = la pregunta
+de toda tab (admin del workspace y la tab en su capa; `pm` no la tiene, como el Video Editor), «pronto» en Image
+Generator y Thumbnails también en la barra de secciones. Cada negocio ve ahora el crédito de Doory al pie del editor.
+La rama `opcion-image-en-clientes` y la decisión `image-ws-cliente` quedaron sin objeto.
+
+**Verificado en producción el 15/10 a la 01:40** con la sesión de un admin de cliente (Mauricio, ws 1, capa completo):
+`/image-editor` abre el inicio dentro de MaKo, la barra lateral muestra «Image» en Content Machine, la de secciones
+«Editor · Crear con IA PRONTO · Thumbnails PRONTO · Carousels», y `/api/image-editor/disenos` le contesta su lista.
+No se creó nada en el ws 1 (cliente real): crear, guardar y descargar están verificados en el banco y contra la base
+en el ws 3.
+
 ## Lo que decide Martín (en una línea cada una)
 
-- **¿«Image» también mirando un cliente (`?ws=`)?** A) Sí: la fila te aparece a vos también adentro de un
-  cliente; ya está hecho en `opcion-image-en-clientes` (`8cd57c7e`) y arregla su «no veo la tab» · B) No, como
-  hoy. Un admin de cliente no lo ve en ninguna.
 - **¿Le escribimos a Siam (autor de Doory) pidiendo MIT?** Sin eso el cartel se queda y no se abre a clientes.
 - **¿Fotos de Unsplash con una key de MaKo?** ¿Y un modelo para quitar fondo de objetos?
-- **¿La API del editor ya, con un gating nuevo «sólo plataforma», o el día que se abre a clientes?** Hoy
-  declararla con `gating.tab` la abre por token a cualquier cliente completo/agencia.
+- **La API del editor: DECLARADA el 15/10** con el permiso de siempre (área `imagen`, 7 operaciones, también por
+  WhatsApp: «creame un flyer…» llega con sus herramientas). La pregunta `image-api-gating` se retiró.
+- **Estrellas `formato_imagen`:** ¿una plantilla del editor o un formato del Image Generator?
 - **Una pestaña de Canva** (`canva.com/design/DAHX-ICTUd4`) en el grupo de los agentes: si se creó en su cuenta, papelera.
 
 ## Lo que sigue (no depende de él)

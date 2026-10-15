@@ -124,6 +124,24 @@ export function esPedidoAutomatizacion(n: string): boolean {
   return PEDIDO_AUTOMATIZACION.test(t);
 }
 
+// ── EL PEDIDO DE CREAR UN DISEÑO (el Image Editor, 15/10/2026) ──────────────────
+// Medido ese día con `clasificarIntencion`: «creame un flyer de la inauguración» salía `capturar` DUDOSA (sin una sola
+// herramienta: se anotaba como tarea) aunque `imagen` ya estaba en AREA_KEYWORDS — es el caso de «sumar el área no
+// alcanzaba» (docs/hallazgos-api-mako.md). Mismo molde que la automatización: verbo de crear y el objeto a tres
+// palabras como mucho, sin OTRO objeto en el medio («creame una tarea para el flyer» sigue siendo del Plan).
+export const RELEVANCIA_DISENO = 'crear diseno imagen flyer banner plantilla editor';
+const VERBO_CREAR_DISENO = new RegExp(`${VERBO_CREAR_AUTOMATIZACION.source}|\\bdisena(?:me|nos|lo|la)?\\b`);
+const SUSTANTIVO_DISENO = /(?:disenos?|flyers?|volantes?|banners?)\b/;
+const OTRO_OBJETO_DISENO = /(?:tareas?|recordatorios?|notas?|reunion(?:es)?|llamadas?|citas?|eventos?|visitas?|automatizacion(?:es)?|flujos?|landing|pagina)\b/;
+const PEDIDO_DISENO = new RegExp(`(?:${VERBO_CREAR_DISENO.source})\\s+(?:(?!${OTRO_OBJETO_DISENO.source})\\S+\\s+){0,3}?${SUSTANTIVO_DISENO.source}`);
+
+/** ¿Le pide a MaKo que CREE un diseño del Image Editor? (sobre el texto normalizado: sin tildes y en minúsculas). */
+export function esPedidoDiseno(n: string): boolean {
+  const t = n.replace(PRELUDIO, '').trim();
+  if (!t || t.length > 1500 || ARRANCA_PREGUNTANDO.test(t)) return false;
+  return PEDIDO_DISENO.test(t);
+}
+
 // ── EL PEDIDO SOBRE UNA LANDING DEL WEB GENERATOR (por WhatsApp) ───────────────────────────────────
 // El BLOQUEANTE de la tanda 4 del editor (docs/hallazgos-editor-landing.md, «esPedidoDeLanding»): medido el 14/10/2026
 // con el turno que CORRE, «publicá la landing del webinar», «despublicá…», «sacá de internet…» y «creame una landing de
@@ -877,6 +895,12 @@ export function clasificarIntencion(
     return { intencion: 'actuar', dudosa: false, porque: 'pedido de crear una automatización', areas: ['chatbot'], relevancia: RELEVANCIA_AUTOMATIZACION };
   }
 
+  // 6-bis-bis) Un pedido de CREAR un diseño del Image Editor (ver `esPedidoDiseno`): «creame un flyer…» caía en el
+  //            default dudoso, sin herramientas. Lleva su área y su relevancia, como la automatización.
+  if (esPedidoDiseno(nPersona)) {
+    return { intencion: 'actuar', dudosa: false, porque: 'pedido de crear un diseño', areas: ['imagen'], relevancia: RELEVANCIA_DISENO };
+  }
+
   // 6-ter) Un pedido de agenda: crear, mover, cambiar o cancelar una reunión (ver
   //        `esPedidoAgenda`). Va DESPUÉS del dictado —una lista o un «Idea:» siguen siendo
   //        material— y ANTES de la pregunta y del imperativo: «¿me podés agendar…?» termina
@@ -989,6 +1013,11 @@ export const AREA_KEYWORDS: Readonly<Record<Area, RegExp>> = {
   crm: /\b(leads?|contactos?|prospectos?|etapas?|funnel|embudo|agend|reagend|reuni[oó]n|visitas?|citas?|calendario|evento\b|qu[eé] tengo (?:hoy|ma[ñn]ana|el |esta|a las)|a las \d{1,2}\S* qu[eé] tengo|huecos?|horarios?\s+(?:\S+\s+){0,2}libres?|libres?\s+(?:el|la|este|esta|ma[ñn]ana|hoy|lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo)\b|disponibilidad|r1|r2|juntas?|calific|pipeline|ficha)/i,
   plan: /\b(tareas?|plan\b|tablero|proyectos?|checklist|deadline|perro guardi)/i,
   ads: /\b(campa[ñn]as?|anuncios?|ads\b|meta ads|presupuesto|adsets?|conjuntos?|creativos?|pauta|cpl|cpm|ctr|guion(es)? de anuncio)/i,
+  // La bandeja unificada (14/10/2026): «quién me escribió», los chats sin responder, cerrar o posponer uno, y los DMs
+  // de Instagram y Messenger, que no tienen otra área. «conversación» trae también la de WhatsApp: las dos contestan
+  // (la de Chats junta los tres canales por contacto). «reabrir» y «posponer» atados a chat/conversación: solos son
+  // de una tarea del Plan o de una reunión.
+  chats: /\b(chats?\b|bandeja|conversaci[oó]n(es)?|sin responder|(?:qui[eé]n|qui[eé]nes) (?:me |nos )?(?:escribi[oó]|escribieron)|dms?\b|mensajes? directos?|messenger|(?:cerr|reabr|pospon)\w* (?:el |la |su |ese |esa |este |esta )?(?:chat|conversaci))/i,
   whatsapp: /\b(whatsapp|plantillas?|borrador(es)?|conversaci[oó]n|chat con|mensaje a)/i,
   email: /\b(e-?mails?|correos?|mails?|broadcasts?|newsletter|remitente|dominio de env)/i,
   // `automatización`, `automations` y `flujo` (décima tanda, 11/10/2026): desde el renombre de la tab a Automations,
@@ -1006,6 +1035,9 @@ export const AREA_KEYWORDS: Readonly<Record<Area, RegExp>> = {
   negocio: /\b(avatar(es)?|razon(es)? de compra|ofertas?|offer\b|productos?|precios?|persona de marca|voz de marca|onboarding|conocimiento|metodolog[ií]a|fase del negocio|tutorial)/i,
   contenido: /\b(guion(es)?|reels?|carrusel(es)?|carousels?|stor(y|ies)|historias|contenido|copy|ideas? de contenido|youtube|miniatura)/i,
   video: /\b(videos?|clips?|flow\b|escenas?|montaje)/i,
+  // El Image Editor (15/10/2026): «armame un diseño», «el flyer de la promo», «cambiá el texto del banner». «plantilla»
+  // sola NO (es de WhatsApp y del Dashboard) y «miniatura» tampoco (es de YouTube, área contenido).
+  imagen: /\b(dise[ñn]os?|image editor|editor de im[aá]gen(es)?|canva\b|flyers?|volantes?|banners?)/i,
   integraciones: /\b(integraci[oó]n(es)?|conectad[oa]|calendly|chatwoot|resend|google calendar|salud de meta|keys? de ia)/i,
   equipo: /\b(equipo|usuarios?|roles?\b|setters?|notificaci[oó]n(es)?|reportes? (diario|semanal)|zona horaria)/i,
   cs: /\b(customer success|cartera|programa|alumnos?|clientes? activos?)/i,
@@ -1022,6 +1054,11 @@ export const AREA_KEYWORDS: Readonly<Record<Area, RegExp>> = {
   // trae la agenda del CRM (arriba): las dos áreas contestan cosas distintas del mismo día.
   calendario: /\b(calendario|publicaci[oó]n(es)? (?:de|para) (?:la semana|ma[ñn]ana|hoy|el)|programa(?:r|me|lo)? (?:un |una |el |la )?(?:reel|story|post|publicaci)|agend(?:ar|a|ame|alo) (?:un |una |el |la )?(?:reel|story|post|publicaci[oó]n|bloque)|bloques? de (?:trabajo|foco))/i,
   mako: /\b(pendientes?|propuestas?|qu[eé] (pod[eé]s|puedes) hacer|capacidades)/i,
+  // El Centro de Operaciones (15/10/2026): sólo dos LECTURAS y sólo para la plataforma (`soloPlataforma`), así que
+  // nombrarlas desde un cliente no le suma nada (lo saca `gatingOk`). Para Martín sí: «¿cómo van mis pedidos del centro?»,
+  // «¿pasó el cartero?». Palabras propias y nunca «pedido» suelto, que en un negocio es un pedido de un cliente.
+  // MANDAR un pedido no está en el registro (exige la firma del dispositivo): no hay palabra que lo traiga.
+  operaciones: /\b(centro de operaciones|carteros?\b|cola de pedidos|pedidos? (?:a|al|para|de|del) (?:los |mis |un |el |la )?(?:chats?|centro)\b|chats? de claude)/i,
 };
 
 /** Las áreas que nombra un mensaje, en el orden de la tabla. Vacío = ninguna. */

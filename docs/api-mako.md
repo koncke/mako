@@ -41,6 +41,7 @@
 - **El negocio (onboarding, Second Brain, conocimiento)** (`negocio`): `contexto_negocio` · `ver_perfil_negocio` · `ver_archivero` · `ver_diagnostico_fase` · `listar_preguntas_diagnostico_fase` · `ver_estado_onboarding` · `listar_tabs_por_configurar` · `listar_avatares_negocio` · `listar_lead_magnets` · `ver_personalidad_voz` · `buscar_en_segundo_cerebro` · `leer_segundo_cerebro_como_archivos` · `ver_glosario_negocio` · `buscar_conocimiento` · `buscar_tutorial` · `responder_pregunta_personalidad` · `guardar_campo_perfil` · `borrar_documento_archivero` · `guardar_diagnostico_fase` · `generar_avatares` · `afinar_avatares` · `editar_avatar_negocio` · `borrar_avatar_negocio` · `generar_lead_magnets` · `editar_lead_magnet` · `sugerir_productos` · `borrar_producto` · `guardar_muletillas_marca` · `reiniciar_personalidad`
 - **Content Machine** (`contenido`): `listar_anuncios_planteados` · `ver_anuncio_planteado` · `listar_guiones_anuncio` · `leer_guion_anuncio` · `cobertura_guiones_anuncio` · `catalogo_angulos_guion` · `catalogo_estructuras_guion` · `listar_formatos_creativo` · `opciones_siguiente_paso_guion` · `estado_contexto_contenido` · `estado_onboarding_contenido` · `limites_formato_instagram` · `mover_estado_guion_anuncio` · `elegir_formato_creativo_anuncio` · `recomendar_formatos_creativo` · `escribir_guion_anuncio` · `editar_texto_guion_anuncio` · `borrar_guion_anuncio`
 - **Video Generator** (`video`): `ver_puente_flow` · `listar_trabajos_flow` · `listar_anuncios_video` · `ver_anuncio_video` · `ver_montaje_anuncio` · `contar_escenarios_reusables` · `listar_guiones_para_video` · `listar_formatos_video` · `listar_lugares_grabacion` · `ver_contexto_video` · `ver_voz_cliente` · `estado_onboarding_video`
+- **Image Editor (diseños)** (`imagen`): `listar_disenos_imagen` · `ver_diseno_imagen` · `listar_plantillas_imagen` · `crear_diseno_imagen` · `cambiar_textos_diseno_imagen` · `duplicar_diseno_imagen` · `borrar_diseno_imagen`
 - **Integraciones** (`integraciones`): `ver_integraciones` · `ver_integracion` · `probar_conexion_integracion` · `ver_estado_google_calendar` · `ver_cuotas_ia` · `ver_activacion_tab` · `ver_estado_agente_claude` · `link_configurar_integracion`
 - **Cuenta, equipo y notificaciones** (`equipo`): `ver_workspace` · `ver_zona_horaria_workspace` · `ver_preferencias_notificaciones` · `listar_avisos_disponibles` · `esta_aviso_activo` · `ver_estado_plantilla_reporte` · `fijar_zona_horaria_workspace` · `configurar_reporte` · `configurar_seccion_reporte` · `configurar_aviso_whatsapp` · `asegurar_plantilla_reporte`
 - **Curso (módulos y clases)** (`curso`): `listar_cursos` · `ver_curso` · `ver_clase_curso` · `crear_modulo_curso` · `renombrar_modulo_curso` · `ordenar_modulos_curso` · `crear_clase_curso` · `editar_clase_curso` · `mover_clase_curso` · `borrar_clase_curso` · `restaurar_clase_curso`
@@ -12103,6 +12104,201 @@ curl -L \
   -H "Authorization: Bearer <TU-TOKEN>" \
   -H "X-MaKo-Api-Version: 2026-10-08" \
   "https://hola-mako.com/api/v1/video/onboarding"
+```
+
+## Image Editor (diseños) — `imagen`
+
+Tab **Image** (`/image-editor`). 3 lecturas · 4 acciones.
+
+### `GET /api/v1/imagen/disenos` — Ver los diseños del Image Editor
+
+Lista los diseños del Image Editor del negocio (lo que en Canva sería «Proyectos»), del más nuevo al más viejo: título, tamaño, páginas, cuándo se editó y el link para abrirlo. Úsala cuando pregunten por sus diseños o antes de cambiar uno.
+
+- **Ruta por operación:** `GET /api/v1/imagen/listar_disenos_imagen`
+- **Token detallado:** permiso `imagen=read` (Solo lectura en «Image Editor (diseños)»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** image-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `buscar` | string | no | Una palabra del título, para filtrar. |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/imagen/disenos"
+```
+
+### `GET /api/v1/imagen/disenos/{disenoId}` — Ver los textos de un diseño
+
+Un diseño del Image Editor: título, tamaño y los TEXTOS de cada página, en orden (sin estilos ni posiciones), más el link para abrirlo. Úsala antes de cambiar_textos_diseno_imagen, para pasar los textos tal como están.
+
+- **Ruta por operación:** `GET /api/v1/imagen/ver_diseno_imagen`
+- **Token detallado:** permiso `imagen=read` (Solo lectura en «Image Editor (diseños)»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** image-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `disenoId` | string | sí | El id del diseño (de listar_disenos_imagen). |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/imagen/disenos/DISENO_ID"
+```
+
+### `GET /api/v1/imagen/plantillas` — Ver las plantillas del Image Editor
+
+Las plantillas del Image Editor: slug, título, categoría, tamaño y páginas. Un diseño nuevo puede empezar de una (crear_diseno_imagen con `plantilla`).
+
+- **Ruta por operación:** `GET /api/v1/imagen/listar_plantillas_imagen`
+- **Token detallado:** permiso `imagen=read` (Solo lectura en «Image Editor (diseños)»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** image-editor
+
+_Sin parámetros._
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/imagen/plantillas"
+```
+
+### `POST /api/v1/imagen/disenos` — Crear un diseño en el Image Editor
+
+Propone crear un diseño en el Image Editor: en blanco, de un tamaño con nombre o a medida, o a partir de una plantilla (con sus textos de ejemplo; después se cambian con cambiar_textos_diseno_imagen). Devuelve el link para abrirlo. No dibuja ni descarga: eso se hace en el editor.
+
+- **Ruta por operación:** `POST /api/v1/imagen/crear_diseno_imagen`
+- **Token detallado:** permiso `imagen=write` (Lectura y escritura en «Image Editor (diseños)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** insert en image_disenos
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** image-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `titulo` | string | no | El título del diseño. Si se omite, «Diseño sin título». |
+| `plantilla` | string | no | El slug de una plantilla (listar_plantillas_imagen). Si viene, manda sobre el tamaño. |
+| `tamano` | string (publicacion_instagram \\| publicacion_vertical \\| historia \\| anuncio_facebook \\| miniatura_youtube \\| presentacion) | no | Un tamaño con nombre. Si no viene ni plantilla ni ancho y alto, publicacion_instagram. |
+| `ancho` | number | no | Ancho a medida, en px (con alto). |
+| `alto` | number | no | Alto a medida, en px (con ancho). |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/imagen/disenos"
+```
+
+### `PATCH /api/v1/imagen/disenos/{disenoId}/textos` — Cambiar textos de un diseño
+
+Propone reemplazar textos de un diseño del Image Editor: cada texto `actual` (tal como lo devuelve ver_diseno_imagen; no distingue mayúsculas) pasa a ser `nuevo`, en todas las páginas, conservando su estilo. Si un texto no está, lo dice y no inventa dónde ponerlo.
+
+- **Ruta por operación:** `POST /api/v1/imagen/cambiar_textos_diseno_imagen`
+- **Token detallado:** permiso `imagen=write` (Lectura y escritura en «Image Editor (diseños)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** update del doc de image_disenos (compare-and-set por versión)
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** image-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `disenoId` | string | sí | El id del diseño (de listar_disenos_imagen). |
+| `cambios` | object[] | sí | Los reemplazos. |
+| `cambios.actual` | string | sí | El texto que está hoy. |
+| `cambios.nuevo` | string | sí | El texto que va. |
+
+```bash
+curl -L \
+  -X PATCH \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/imagen/disenos/DISENO_ID/textos" \
+  -d '{"cambios":[]}'
+```
+
+### `POST /api/v1/imagen/disenos/{disenoId}/copias` — Hacer una copia de un diseño
+
+Propone hacer una copia de un diseño del Image Editor, con «(copia)» en el título. Devuelve el link de la copia.
+
+- **Ruta por operación:** `POST /api/v1/imagen/duplicar_diseno_imagen`
+- **Token detallado:** permiso `imagen=write` (Lectura y escritura en «Image Editor (diseños)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** insert en image_disenos
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** image-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `disenoId` | string | sí | El id del diseño (de listar_disenos_imagen). |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/imagen/disenos/DISENO_ID/copias"
+```
+
+### `DELETE /api/v1/imagen/disenos/{disenoId}` — Eliminar un diseño
+
+Propone eliminar un diseño del Image Editor: sale de la lista del editor y de esta API. Se confirma en pantalla.
+
+- **Ruta por operación:** `POST /api/v1/imagen/borrar_diseno_imagen`
+- **Token detallado:** permiso `imagen=write` (Lectura y escritura en «Image Editor (diseños)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** marca borrado_at en image_disenos
+- **Reversible:** no
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** image-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `disenoId` | string | sí | El id del diseño (de listar_disenos_imagen). |
+
+```bash
+curl -L \
+  -X DELETE \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/imagen/disenos/DISENO_ID"
 ```
 
 ## Integraciones — `integraciones`

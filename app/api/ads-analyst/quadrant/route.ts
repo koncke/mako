@@ -3,12 +3,13 @@
 // =============================================================================
 // Filtro de fecha PROPIO del gráfico (no de toda la tab): recalcula hook rate y
 // retención al CTA de cada guion en los últimos N días. Sin `dias` → histórico
-// completo. Gateado por el middleware del dashboard.
+// completo. La puerta es ../puerta.ts (sólo el admin): el middleware sólo pide sesión.
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
 import { getQuadrantData } from '@/lib/ads-analyst';
 import { hoyEnTijuana } from '@/lib/date-utils';
+import { soloAdminAdsAnalyst } from '../puerta';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -21,6 +22,8 @@ function isoNDiasAntes(hastaIso: string, dias: number): string {
 }
 
 export async function GET(req: NextRequest) {
+  const cerrada = await soloAdminAdsAnalyst();
+  if (cerrada) return cerrada;
   const dias = Number(req.nextUrl.searchParams.get('dias'));
   try {
     let desde: string | undefined;

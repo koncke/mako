@@ -7,8 +7,8 @@ import 'server-only';
 // con el navegador en ./tipos.ts. Molde: lib/editor-landing/server.ts (compare-and-set) y
 // app/api/landing-generator/imagenes/route.ts (firmar → subir → registrar).
 //
-// LA PUERTA (`puerta`) es la del editor: hoy sólo el super admin, por PERSONA
-// (app/image-editor/acceso.ts → `veEditorImagen`). Para cualquier otro, 404: la ruta no existe.
+// LA PUERTA (`puerta`) es la del editor: la misma pregunta que sus páginas (./acceso.ts → `veEditorImagen`:
+// admin del workspace y la tab en su capa; suelta, sin `next/navigation`, porque la API de MaKo carga este módulo). Para cualquier otro, 404: la ruta no existe.
 // Cada consulta va por `getTenantDb()` (las dos tablas están en TENANT_TABLES) y además lleva el
 // `.eq('workspace_id', ws)` escrito a mano, como el Landing: si la línea del registro se pierde,
 // esto sigue acotado.
@@ -18,7 +18,7 @@ import { randomUUID } from 'node:crypto';
 import { getUsuarioActual } from '@/lib/auth';
 import { getSupabaseServer } from '@/lib/supabase';
 import { getTenantDb, getWorkspaceActual, runWithWorkspace } from '@/lib/workspace';
-import { veEditorImagen } from '@/app/image-editor/acceso';
+import { veEditorImagen } from './acceso';
 import {
   BUCKET_IMAGE, CARPETA_SUBIDAS, TOPE_DOC_BYTES, esTipoAudio, medida, pathDeMiniatura, pathDeSubida,
   resumirDoc, sanearNombre, sanearTitulo, sniffArchivo, srcsLocales, subidaDelWs, topeDeTipo, uuidValido,
@@ -36,7 +36,7 @@ export const mal = (error: string, status = 400, extra: Record<string, unknown> 
 
 export type Puerta = { ws: number; quien: string };
 
-/** Sesión → super admin (por persona) → un workspace. Lo que no pase, contesta la ruta tal cual. */
+/** Sesión → admin del workspace con la tab en su capa → un workspace. Lo que no pase, contesta la ruta tal cual. */
 export async function puerta(): Promise<Puerta | Response> {
   const yo = await getUsuarioActual();
   if (!yo) return mal('no autenticado', 401);
@@ -138,6 +138,13 @@ export async function guardarDiseno(ws: number, id: string, p: PedidoGuardar): P
   const { data: actual } = await db.from('image_disenos').select('version').eq('workspace_id', ws).eq('id', id).is('borrado_at', null).maybeSingle();
   if (!actual) return { ok: false, error: 'No existe', status: 404 };
   return { ok: false, error: 'Hay una versión más nueva', conflicto: true, versionActual: (actual as { version: number }).version, status: 409 };
+}
+
+/** Una copia del diseño (con «(copia)» en el título), como «Hacer una copia» de Canva. Sin la miniatura: se dibuja al abrirla. */
+export async function duplicarDiseno(ws: number, quien: string, id: string): Promise<RespCrear & { status?: number }> {
+  const r = await leerDiseno(ws, id);
+  if (!r.ok) return { ok: false, error: r.error, status: r.status };
+  return crearDiseno(ws, quien, { titulo: `${r.diseno.titulo} (copia)`.slice(0, 200), doc: r.diseno.doc });
 }
 
 /** Lo saca de la lista (`borrado_at`). La fila queda: cerrar no es borrar. */

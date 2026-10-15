@@ -26,6 +26,9 @@ import { checklistsParaTareas } from '@/lib/checklist-coach';
 import { CATALOGO_PROYECTOS, delCatalogo, canonNombre, nucleo } from '@/lib/plan-proyectos-catalogo';
 import { faseNegocioTexto } from '@/lib/fase-store';
 import { objetivosContextoTexto } from '@/lib/objectives';
+// El detalle y las notas se guardan SANEADOS, con la MISMA regla que el tablero del cliente
+// (auditoría de seguridad, 14/10/2026): ver `sanearDetalle` en lib/todo.ts.
+import { sanearDetalle, sanearNotas } from '@/lib/todo';
 
 export type Row = Record<string, unknown>;
 
@@ -111,11 +114,13 @@ export function rowToTask(r: Row): BoardTask {
 }
 function taskToRow(t: BoardTask): Row {
   return {
-    id: t.id, num: t.num, emoji: t.emoji || '📌', title: t.title || 'Tarea', detalle: t.detalle || '',
+    // ⚠️ El detalle y las notas pasan por la lista blanca ACÁ, en el mapper, por la misma razón
+    // que el Quarter y la recurrencia: por acá pasan TODAS las escrituras de la fila entera.
+    id: t.id, num: t.num, emoji: t.emoji || '📌', title: t.title || 'Tarea', detalle: sanearDetalle(t.detalle || ''),
     // `score_base` viaja SIEMPRE en el round-trip para que un guardado del navegador no
     // lo borre. Cae al `score` solo cuando la fila todavía no lo tiene (tarea nueva).
     priority: t.priority, score: int(t.score), score_base: int(t.scoreBase ?? t.score), score_razon: t.scoreRazon ?? null,
-    deadline_razon: t.deadlineRazon ?? null, notas: t.notas ?? '', hacelo_en: t.haceloEn ?? null,
+    deadline_razon: t.deadlineRazon ?? null, notas: sanearNotas(t.notas ?? ''), hacelo_en: t.haceloEn ?? null,
     impacto: t.impacto ?? null, esfuerzo: t.esfuerzo ?? null, progress: int(t.progress),
     // ⚠️ UNA RECURRENTE NO LLEVA FECHA, Y EL CORTE VA ACÁ (mig 0163). «Lo que se repite no
     // vence»: una fecha en una tarea sin fin es la del próximo ciclo, no un deadline — y
@@ -193,7 +198,8 @@ function labelToRow(l: Label, orden = 0): Row {
     // dos afirmaciones falsas sobre lo mismo.
     deadline: llevaDeadline(l) ? (l.deadline || '') : '',
     quarter: llevaDeadline(l) ? quarterEfectivo(l.deadline, l.quarter) : null,
-    detalle: l.detalle || '', notas: l.notas ?? '', historial: l.historial ?? [], fuente: l.fuente ?? null,
+    // Saneados en el mapper, como en `taskToRow`: ver `sanearDetalle` (lib/todo.ts).
+    detalle: sanearDetalle(l.detalle || ''), notas: sanearNotas(l.notas ?? ''), historial: l.historial ?? [], fuente: l.fuente ?? null,
     escalon: l.escalon ?? null, desbloquea: l.desbloquea ?? null, score_manual: !!l.scoreManual,
     // DE QUIÉN es (mig 0172). El id es LA CLAVE y el nombre una etiqueta: se escriben
     // juntos para que el chip se pueda pintar sin ir a buscar `leads` en cada carga.

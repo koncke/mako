@@ -231,6 +231,14 @@ Martín, 14/10: «No veo la tab en la sidebar principal, debería estar en la se
 - **Lo medido:** con `resolverTab`, en su barra (capa `superadmin`) la tab lleva a `/image-editor`; mirando un
   cliente, `null`. El deploy con el editor (13:33) estaba Ready en hola-mako.com. O sea: o miraba un cliente con
   `?ws=`, o tenía abierta una pestaña de antes del deploy (el JS viejo no se recarga solo al navegar).
+- **Medido en el DOM el 15/10** (la `Sidebar` real montada en un banco de esbuild con tres sesiones simuladas por
+  `/api/auth/me`): con Content Machine abierta, la fila «Image» estaba para el super admin en su cuenta y NO
+  mirando un cliente ni para un admin de cliente. Y con Content Machine PLEGADA no está para nadie: la barra es un
+  acordeón, una familia cerrada no dibuja sus filas, y en una captura con la barra angosta no se distingue de una
+  familia que no existe. El Chrome desde el que Martín miraba tenía la sesión de un admin de cliente (ws 10).
+- **Lo que se decidió:** «Que Image aparezca en todos los workspace» (15/10). Se sacó `adminOnly` de las cuatro
+  secciones, el guard pasó a la pregunta de toda tab y la barra de secciones marca «pronto» como la lateral. Medido
+  después en el mismo banco: la fila está para las tres sesiones. La rama `opcion-image-en-clientes` quedó sin objeto.
 
 ## Verificar el editor sin el dev server: un banco con esbuild y Chrome sin ventana
 
@@ -344,8 +352,9 @@ tenía «SALE»); «al atardecer» en Playfair itálica a 190 px = 969 contra 92
 - **El relevamiento de FUNCIONES de Canva** quedó escrito el 14/10 a la noche
   (`docs/editor-imagen/relevamiento-canva-funciones.md`) contra el código, SIN navegar Canva (no había Chrome para
   claude1): si alguna fila de Canva resulta distinta al mirarla, se corrige ahí.
-- **API de MaKo y Estrellas `formato_imagen`**: esperan a Martín (con el editor sólo suyo, declararla con
-  `gating.tab` la abre por token a todo cliente completo/agencia; relevamiento-integracion-mako.md §6.2 y §13.7).
+- **Estrellas `formato_imagen`**: espera a Martín (relevamiento-integracion-mako.md §13.6). La API de MaKo se declaró
+  el 15/10 (área `imagen`; lo que costó, en docs/hallazgos-api-mako.md). Exportar por la API no existe: el render es del
+  navegador.
 - **Una pestaña de Canva** («Diseño sin título - Presentación», `canva.com/design/DAHX-ICTUd4`) quedó
   abierta en el grupo de pestañas de los agentes: la abrió el relevamiento de funciones antes de cortarse.
   Si lo creó en la cuenta de Martín, hay que mandarlo a la papelera a mano.

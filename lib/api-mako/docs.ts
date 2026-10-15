@@ -72,6 +72,7 @@ function seccionOperacion(d: OperacionDef, base: string): string {
   }
   l.push(`- **Costo:** ${d.costo}${d.lenta ? ' · puede tardar' : ''}`);
   if (d.gating?.soloWs1) l.push('- **Solo el workspace principal.**');
+  if (d.gating?.soloPlataforma) l.push('- **Solo la plataforma (MaKo).**');
   if (d.gating?.rolMinimo) l.push('- **Solo el administrador del workspace.**');
   if (d.gating?.integracion) l.push(`- **Requiere conectada:** ${d.gating.integracion}`);
   if (d.gating?.tab) l.push(`- **Requiere la tab:** ${d.gating.tab}`);

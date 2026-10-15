@@ -1,10 +1,9 @@
 // =============================================================================
 // /image-editor — el Image Editor (copia de Canva sobre Doory): el inicio
 // =============================================================================
-// La page sólo aplica el guard (./acceso.ts: hoy, sólo el super admin). Todo lo
+// La page sólo aplica el guard (./acceso.ts: la pregunta de toda tab). Todo lo
 // demás corre en el navegador: el motor (Doory portado, fabric.js 7, en `_doory/`)
-// guarda los diseños en IndexedDB por workspace (./espacio.ts), así que no hay
-// nada que leer del server para dibujar la lista.
+// y la lista de diseños, que pide /api/image-editor/disenos (la base, mig 0278).
 //
 // Onboarding: la tab ES la herramienta, así que su onboarding es su estado vacío
 // («Crear un diseño»), sin entrada en el catálogo (la regla del 05/10, como el

@@ -1282,15 +1282,23 @@ function SaldoEditor({ provider, gemini, saldo, restante, gastoMes, onGuardado }
   const [editing, setEditing] = useState(false);
   const [input, setInput] = useState('');
   const [saving, setSaving] = useState(false);
+  // ⚠️ Un rechazo se DICE (auditoría de seguridad, 14/10/2026): la ruta pasó a contestar 403 a quien no es
+  // admin y al saldo de Claude de un cliente, y sin esto el botón no hacía nada.
+  const [fallo, setFallo] = useState<string | null>(null);
   const guardar = async () => {
     const v = Number(input);
     if (!Number.isFinite(v) || v < 0) return;
     setSaving(true);
+    setFallo(null);
     try {
       // SINCRONIZA: pone el saldo ACTUAL (lo que ves en la consola). Reemplaza y resetea
       // el baseline → el restante = ese número y baja con el gasto nuevo.
-      const j = await (await fetch('/api/anthropic-usage', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ saldoUsd: v, provider }) })).json();
+      const res = await fetch('/api/anthropic-usage', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ saldoUsd: v, provider }) });
+      const j = await res.json().catch(() => null);
       if (j?.ok) { setEditing(false); setInput(''); onGuardado(); }
+      else setFallo(res.status === 403 ? 'Sólo lo cambia un admin' : 'No se guardó');
+    } catch {
+      setFallo('No se guardó');
     } finally { setSaving(false); }
   };
   const cargas = (saldo?.cargas ?? []).slice().reverse(); // más recientes primero
@@ -1317,11 +1325,12 @@ function SaldoEditor({ provider, gemini, saldo, restante, gastoMes, onGuardado }
         <div style={{ display: 'flex', gap: 7 }}>
           <input value={input} onChange={(e) => setInput(e.target.value)} inputMode="decimal" autoFocus placeholder="Saldo actual, de la consola (USD)" style={{ flex: 1, minWidth: 0, padding: '8px 11px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: MONO, fontSize: 13, outline: 'none' }} />
           <button onClick={guardar} disabled={saving || !input.trim()} style={{ padding: '8px 14px', borderRadius: 9, border: 'none', background: saving || !input.trim() ? 'var(--border-strong)' : 'var(--ink)', color: 'var(--surface)', fontSize: 13, fontWeight: 600, cursor: saving || !input.trim() ? 'default' : 'pointer' }}>{saving ? '…' : 'Guardar'}</button>
-          <button onClick={() => { setEditing(false); setInput(''); }} style={{ padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Cancelar</button>
+          <button onClick={() => { setEditing(false); setInput(''); setFallo(null); }} style={{ padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Cancelar</button>
         </div>
       ) : (
-        <button onClick={() => { setEditing(true); setInput(''); }} style={{ border: '1px solid var(--primary)', borderRadius: 9, background: 'var(--surface)', color: 'var(--primary)', fontFamily: "'Geist', sans-serif", fontSize: 13, fontWeight: 600, padding: '8px 14px', cursor: 'pointer' }}>{saldo ? 'Actualizar saldo' : (gemini ? 'Registrar créditos' : 'Pon tu saldo')}</button>
+        <button onClick={() => { setEditing(true); setInput(''); setFallo(null); }} style={{ border: '1px solid var(--primary)', borderRadius: 9, background: 'var(--surface)', color: 'var(--primary)', fontFamily: "'Geist', sans-serif", fontSize: 13, fontWeight: 600, padding: '8px 14px', cursor: 'pointer' }}>{saldo ? 'Actualizar saldo' : (gemini ? 'Registrar créditos' : 'Pon tu saldo')}</button>
       )}
+      {fallo && <div role="alert" style={{ marginTop: 7, fontSize: 12, color: 'var(--bad)' }}>{fallo}</div>}
       {cargas.length > 0 && (
         <div style={{ marginTop: 12, borderTop: '1px solid var(--border)', paddingTop: 10 }}>
           <div style={{ ...capMono, fontSize: 9, letterSpacing: '.09em', color: 'var(--faint)', marginBottom: 7 }}>Sincronizaciones</div>
