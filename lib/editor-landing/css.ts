@@ -348,7 +348,14 @@ const BLOQUES: string[] = [
   // VIDEO»): un cuadro 16:9 con un círculo ▶ del acento del tema, sin texto. En em: escala con --gm-base.
   r(D + ' .gm-marcador[data-play="si"]', 'border-style: solid; background: var(--gm-superficie, rgba(127,127,127,0.1));'),
   r(D + ' .gm-marcador-play', 'display: grid; place-items: center; width: 4.4em; height: 4.4em; border-radius: 50%; background: var(--gm-acento, #2f6fed); color: var(--gm-acento-contraste, #ffffff); box-shadow: 0 0.5em 1.4em rgba(0,0,0,0.18);'),
-  r(D + ' .gm-marcador-play > svg', 'width: 44%; height: 44%; margin-left: 9%;'),
+  // El ▶ SIN corrimiento. Martín (15/10/2026, punto 8): «algunos vídeos tienen el icono de play no centrado
+  // en su círculo, como el segundo». El obvio era «a un triángulo le falta su corrimiento óptico», y era al
+  // revés: el `play-relleno` de Phosphor YA viene con el centroide en el centro del viewBox (127 de 256; su
+  // caja va de 64 a 240), y el `margin-left: 9%` que se le sumaba lo corría DOS veces. Medido con Chromium
+  // en los 8 diseños con video, a 1600 y a 390: centroide +4,35 % del diámetro y caja +8,5 % → sin el
+  // margen, centroide −0,06 % (centrado ópticamente) y caja +4,1 %. En todos igual: el ojo lo nota más en
+  // el gris claro de «Clásico claro». tests/editor-landing-play-centrado.test.ts lo mide sobre el path.
+  r(D + ' .gm-marcador-play > svg', 'width: 44%; height: 44%;'),
   // En una miniatura de TRABAJO (un cuadro 16/10 de UNA sección; la pide con `marcadores`, render.ts)
   // el video suelto en la sección va más angosto y centrado: a todo el ancho mide 32em de alto y el
   // cuadro 40em, así que el titular, el video y el botón no entraban juntos (medido el 14/10/2026 en
