@@ -753,8 +753,57 @@ dibujo. Antes de arreglar un gráfico en la galería, mirá si el número que di
 `tests/graficos-dibujo-celular.test.ts`.
 *14/10/2026, claude1 (chat Dashboard).*
 
+## El Dashboard épico: un titular por hoja y el número que crece con su tarjeta (14/10/2026)
+
+**El pedido** (Martín, minutos después del rediseño por tipo): «Y lo mismo para Dashboard... Quiero el mismo criterio de
+EPICIDAD en los dashboards... Solo que ahí hay más graficos... Que se rediseñe todo». Lo mismo le pidió a General para su
+tab («como lo tenemos en mobile, epicos, pocas cosas, textos gigantes, bloques grandes»).
+
+**Lo que «épico» NO era: sacar gráficos. Era la JERARQUÍA.** Cada plantilla arrancaba con una fila de cuatro números del
+mismo peso (3 × 4 cada uno): nada dominaba. Ahora cada hoja tiene un TITULAR —su número principal a media hoja, 6 × 6— y
+los demás a su lado en una grilla de 2 × 2, sin subtítulos (lo primero que sacó el teléfono aprobado). Es UNA regla para
+las 13 plantillas (`conTitular` + `TITULARES`, lib/graficos-plantillas.ts), no 13 diseños a mano: el resto de la hoja baja
+lo que creció esa fila.
+
+**La escala es UNA para el Dashboard y para General** (`ESCALA_EPICA`, lib/graficos-gordo.ts), acordada con ese chat ANTES de
+escribir: con dos sistemas de tamaños, una hoja de General con un número del catálogo al lado de un bloque se vería de dos
+productos. El número protagonista crece con su tarjeta: clamp(40, 22 % del ancho, 128 px), que entren sus letras y que no
+pase del alto que le queda; peso 800 y tracking −0,04em, como el teléfono (el prototipo no tiene la escala escrita: la pasó
+el chat MaKo Mobile como proporciones, protagonista ≈ 3× el rótulo).
+
+**Lo que costó:**
+
+- **El tope de alto achicaba las KPI chicas.** Una de 3 filas tiene ~54 px de cuerpo; con el chip abajo, el tope dejaba el
+  número en 13 px. El piso es el tamaño del tema si entra a lo ancho: lo épico es que CREZCA en las grandes, no que las
+  chicas cambien.
+- **El alto libre sale de las FILAS de la tarjeta, no de medirla.** En la pila del celular un número mide lo que dibuja
+  (`ALTO_LIBRE_EN_PILA`): medir su alto para decidir su tamaño sería un bucle.
+- **Una cifra en 800 es más ancha que en 600**: el tope por letras usa 0,62 em (`letraGruesa`).
+- **La regla se aplicó dos veces sobre Comercial**, que se armó a mano (Cash Collected de titular y Sold Revenue al lado):
+  la regla vio una fila de dos números, estiró el segundo a 6 × 6 y lo dibujó encima de Outstanding y MRR. Lo cazó la
+  captura. La regla no toca una hoja que ya trae su titular, y quedó un test que exige que NINGUNA plantilla tenga dos
+  tarjetas en la misma celda.
+- **En la pila del celular el titular iba de a dos** como cualquier número (`.lk-pila > .lk-comp--kpi`): un número de 6 × 5
+  o más lleva `.lk-comp--titular` y va a lo ancho.
+- ⚠️ **Y la cosecha misma se rompió por la shell**: escrita con `node -e` en Bash, las comillas invertidas del texto se
+  EJECUTARON y salieron vacías. Lo que tenga comillas invertidas se escribe con la herramienta de escritura, nunca por una
+  shell (AGENTS.md ya lo dice para el código; vale igual para un .md).
+
+**Decisiones de producto tomadas acá (cambiables en `TITULARES`)**: Marketing → CAC real; Comercial → Cash Collected; Ads →
+Costo por agenda; Landing → Visitas; VSL → Llegan al final; Chat → Respondidos en 15 min; Closing → Tasa de cierre; CS →
+Necesitan atención; Productividad → Avance global; CRM → Leads nuevos; Cobranza → Cobrado; Automatizaciones → Tasa de
+respuesta; Contenido e IA → Costo de la IA.
+
+**Vive en:** `lib/graficos-gordo.ts` (`ESCALA_EPICA`, `tamProtagonista`) · `app/dashboard/Grafico.tsx` (`NumeroGrande`) ·
+`lib/graficos-plantillas.ts` (`conTitular`, `TITULARES`, Comercial) · `app/dashboard/EditorInforme.tsx` y `editor-css.ts`
+(`.lk-comp--titular`) · `lib/graficos-temas.ts` · `tests/graficos-epico.test.ts`.
+*14/10/2026, claude1 (chat Dashboard).*
+
 ## Lo que quedó sin hacer
 
+- **El Dashboard épico (14/10/2026):** sólo la CABECERA de cada hoja tiene jerarquía; lo de abajo (gráficos de 6 y de 12)
+  sigue como estaba. Si Martín lo quiere más «de un vistazo», el siguiente paso es menos piezas por hoja, y eso es elegir qué se
+  va (decisión suya). Los titulares de `TITULARES` los eligió el chat, no Martín. Sin ver en producción.
 - **Rediseño por tipo, mitad Dashboard (14/10/2026):** NADA de esto se vio todavía en producción ni con datos reales: el
   arnés dibuja datos de ejemplo y sólo con el tema MaKo (los otros seis temas, sin mirar). Después del deploy, ws3 en el
   editor con «Celular». Sin mirar en el arnés: «Conclusiones de MaKo», la Ficha y el mapa de calor de página (piden datos

@@ -419,4 +419,22 @@ export const BITACORA: Hito[] = [
     ],
     archivos: ['app/dashboard/Grafico.tsx', 'app/dashboard/graficos/estilos.tsx', 'app/dashboard/EditorInforme.tsx', 'lib/graficos-gordo.ts', 'lib/graficos-muestra.ts', 'tests/graficos-dibujo-celular.test.ts'],
   },
+  {
+    fecha: '14 oct', hora: '23:00', chat: 'Dashboard', cuenta: 'claude1', actor: 'martin', tipo: 'prompt',
+    titulo: 'El mismo criterio «épico» del teléfono, en los dashboards',
+    pedido: 'Y lo mismo para Dashboard... Quiero el mismo criterio de EPICIDAD en los dashboards... Solo que ahí hay más graficos... Que se rediseñe todo',
+    puntos: ['Llegó por el chat orquestador, junto con el pedido hermano a General: «como lo tenemos en mobile, epicos, pocas cosas, textos gigantes, bloques grandes».'],
+  },
+  {
+    fecha: '14 oct', hora: '23:25', chat: 'Dashboard', cuenta: 'claude1', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Cada hoja con un titular que domina, y el número que crece con su tarjeta',
+    puntos: [
+      'Cada plantilla arranca con su número principal a media hoja y los demás a su lado, sin subtítulos; en el celular, el titular va a lo ancho.',
+      'El número de una tarjeta crece con ella (hasta 128 px), en la misma escala que usa General.',
+      'Los títulos de los gráficos y de los números, un poco más grandes.',
+      'Qué número es el titular de cada hoja lo eligió el chat (CAC en Marketing, Cash Collected en Comercial…): se cambia en una tabla.',
+    ],
+    commits: [{ sha: '68566ade', msg: 'Dashboard épico: cada plantilla con un titular que domina, y el número que crece con su tarjeta', lineas: 277, archivos: 7 }],
+    archivos: ['lib/graficos-gordo.ts', 'app/dashboard/Grafico.tsx', 'lib/graficos-plantillas.ts', 'app/dashboard/EditorInforme.tsx', 'app/dashboard/editor-css.ts', 'lib/graficos-temas.ts', 'tests/graficos-epico.test.ts'],
+  },
 ];
