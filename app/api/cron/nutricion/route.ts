@@ -31,6 +31,7 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
+import { checkCronAuth } from '@/lib/cron-auth';
 import {
   planificarInscripciones,
   planificarEnvios,
@@ -63,21 +64,10 @@ async function conTurno<T extends object>(ws: number, hastaMs: number, fn: () =>
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
-function checkAuth(request: NextRequest): Response | null {
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret) {
-    return Response.json({ ok: false, error: 'CRON_SECRET no configurado' }, { status: 500 });
-  }
-  if (request.headers.get('authorization') !== `Bearer ${cronSecret}`) {
-    return Response.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
-  }
-  return null;
-}
-
 type ResultadoWs = { ws: number; modo: string; [k: string]: unknown };
 
 export async function GET(request: NextRequest) {
-  const unauth = checkAuth(request);
+  const unauth = checkCronAuth(request);
   if (unauth) return unauth;
 
   const url = new URL(request.url);

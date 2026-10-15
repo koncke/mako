@@ -5,29 +5,68 @@
 // se setea el HTML inicial una vez y se commitea onBlur para no pelear con el cursor.
 
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { sanearHtmlEmail } from '@/lib/email-html-seguro';
 
 const SANS = "'Geist', sans-serif";
 
-// sanea el HTML de la descripción (viene de contentEditable + paste): saca scripts,
-// estilos, iframes y handlers on*, para poder renderizarlo con dangerouslySetInnerHTML.
+/**
+ * UNA ETIQUETA CITADA ENTRE COMILLAS INVERTIDAS ES TEXTO, NO MARCADO: «1.158 `<button>` sueltos».
+ *
+ * Los detalles que escribe el Perro HABLAN de HTML (ver `ES_HTML`), y la lista blanca de abajo se
+ * lleva un `<button>` o un `<textarea>` CON TODO LO QUE VIENE DESPUÉS si no encuentra su cierre:
+ * medido (14/10/2026), `<div>1.158 `<button>` sueltos y el resto</div>` salía `<div>1.158 `</div>`.
+ * Por eso lo citado se escapa ANTES de sanear y no cuenta para decidir si un texto es HTML.
+ *
+ * Sólo un código con UNA etiqueta adentro y sin `<`/`>` sueltos: así no puede cruzar de un renglón
+ * del editor al otro (`it`s</div><div>use `x``) ni nacer adentro de un atributo.
+ *
+ * ⚠️ GEMELO de `CODIGO_CITADO` en lib/todo.ts (el saneo al GUARDAR). Un `'use client'` no se puede
+ * importar desde el server ni al revés sin un módulo compartido, así que la regla está dos veces y
+ * tests/seguridad-xss.test.ts compara las dos.
+ */
+const CODIGO = /`[^`\n<>]*<\/?[a-zA-Z][^`\n<>]*>[^`\n<>]*`/g;
+const citadoComoTexto = (s: string): string => s.replace(CODIGO, (c) => c.replace(/</g, '&lt;').replace(/>/g, '&gt;'));
+
+/**
+ * EL SANEO DEL TABLERO ES UNA LISTA BLANCA (auditoría de seguridad, 14/10/2026).
+ *
+ * Esto era una LISTA NEGRA por regex —sacaba script, `on…="…"` y `javascript:`— y corría SÓLO al
+ * guardar desde esta pantalla. Lo que entraba por /api/todo (cualquier miembro del workspace, un
+ * closer o un setter) se dibujaba con innerHTML tal cual: un `<b>` para que cuente como HTML más un
+ * `<img src=x onerror=…>` corría en la sesión del admin que abría la tarjeta, o del super admin
+ * entrando con ?ws=N. Y la regex se salteaba sola con un `href="java&#09;script:"` o un
+ * `<svg><animate onbegin=…>`.
+ *
+ * Ahora es `sanearHtmlEmail` (lib/email-html-seguro.ts): lista blanca, la salida se arma de cero y
+ * es puro, así que corre en el navegador. ⚠️ NO es `sanearHtml` de lib/html-seguro.ts, aunque sea
+ * la otra lista blanca de la casa, por dos razones medidas: es `server-only` (este archivo es
+ * `'use client'`), y su lista no tiene `div`, que es el RENGLÓN de este editor (lo emiten `mdAHtml`
+ * y Chrome al apretar Enter): `<div>Primera línea</div><div>Segunda línea</div>` salía
+ * «Primera líneaSegunda línea», y sin bloques no hay encabezados que plegar.
+ *
+ * Corre al DIBUJAR (`paraDibujar`), al guardar desde la pantalla (`contenidoDe`) y en el server al
+ * guardar (`sanearDetalle`, lib/todo.ts). Lo usan también las notas (NotasLista).
+ */
 export function sanitizeHtml(html: string): string {
   if (!html) return '';
-  return html
-    .replace(/<\s*(script|style|iframe|object|embed|link|meta)[\s\S]*?<\/\s*\1\s*>/gi, '')
-    .replace(/<\s*(script|style|iframe|object|embed|link|meta)[^>]*\/?>/gi, '')
-    .replace(/\son\w+\s*=\s*"[^"]*"/gi, '')
-    .replace(/\son\w+\s*=\s*'[^']*'/gi, '')
-    .replace(/\son\w+\s*=\s*[^\s>]+/gi, '')
-    .replace(/javascript:/gi, '');
+  return sanearHtmlEmail(citadoComoTexto(html));
 }
 
-// saca las etiquetas para mostrar la descripción como texto plano en las cards
+/**
+ * El texto plano de un detalle, para las cards y para el pedido a MaKo.
+ *
+ * ⚠️ UN DOCUMENTO INERTE (DOMParser), NUNCA UN `div` DEL DOCUMENTO. Un elemento creado en la
+ * página carga sus recursos y corre sus manejadores AUNQUE no esté montado: el
+ * `document.createElement('div').innerHTML = detalle` de antes disparaba el `onerror` de un
+ * `<img src=x>` con sólo dibujar la card del proyecto. En un documento de DOMParser no corre nada.
+ * No se sanea antes: lo que sale es TEXTO (React lo escapa), y la lista blanca se llevaría el texto
+ * que viene después de un `<button>` mencionado sin comillas invertidas.
+ */
 export function stripHtml(html: string): string {
   if (!html) return '';
-  if (typeof document === 'undefined') return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-  const d = document.createElement('div');
-  d.innerHTML = html;
-  return (d.textContent || '').replace(/\s+/g, ' ').trim();
+  if (typeof DOMParser === 'undefined') return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  return (doc.body?.textContent || '').replace(/\s+/g, ' ').trim();
 }
 
 /**
@@ -47,8 +86,14 @@ export function stripHtml(html: string): string {
  *  `<input>` mencionados en un texto se escapan y se leen como lo que son: texto. */
 const ES_HTML = /<(div|p|br|ul|ol|li|strong|b|u|em|i|span|h[1-6]|a)[\s>/]/i;
 
+/** ¿Es HTML (lo escribió el editor) o markdown/texto (lo escribió MaKo)? Lo citado entre comillas
+ *  invertidas no cuenta (`CODIGO`): «usar `<div>` en vez de `<button>`» es markdown que HABLA de
+ *  HTML. ⚠️ Gemelo de `esHtmlDetalle` en lib/todo.ts: los dos lados tienen que decir lo mismo, o el
+ *  server guardaría saneado como HTML lo que acá se dibuja escapado como markdown. */
+export const esHtml = (texto: string): boolean => ES_HTML.test(texto.replace(CODIGO, ''));
+
 export function mdAHtml(texto: string): string {
-  if (!texto || ES_HTML.test(texto)) return texto;
+  if (!texto || esHtml(texto)) return texto;
   const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   // `codigo` → <code>. Los detalles técnicos están llenos de `archivo:linea` y de
   // `style={{`, y sin esto se leían las comillas invertidas crudas. Va DESPUÉS del
@@ -68,6 +113,30 @@ export function mdAHtml(texto: string): string {
   }
   cerrar();
   return out.join('');
+}
+
+/**
+ * LO QUE EL EDITOR DIBUJA de un valor guardado: el markdown pasado a HTML, y TODO por la lista
+ * blanca. Se sanea al dibujar y no sólo al guardar porque lo guardado no pasó siempre por un saneo:
+ * filas viejas, y todo lo que entró por /api/todo antes del 14/10/2026.
+ */
+export const paraDibujar = (valor: string): string => sanitizeHtml(mdAHtml(valor || ''));
+
+/**
+ * El CONTENIDO del editor, como se guarda: leído en un documento INERTE, sin lo que no es texto
+ * de nadie y por la lista blanca.
+ *
+ * «Lo que no es texto de nadie» es lo `contenteditable="false"` que le monta encima quien lo
+ * decora: los chevrones y el «Resumen» del plegado de `DetalleDoc` (BoardShell). Hay que sacarlo
+ * ACÁ, antes del saneo: la lista blanca le borra el `class="mk-intro"` al «Resumen» y `sinMarcas`
+ * (que lo reconoce por esa clase) ya no lo encontraría, así que cada blur escribiría «Resumen» en
+ * el detalle. Un `<div><br></div>` es un editor vacío.
+ */
+function contenidoDe(ed: HTMLElement): string {
+  const doc = new DOMParser().parseFromString(ed.innerHTML, 'text/html');
+  doc.body.querySelectorAll('[contenteditable="false"]').forEach((n) => n.remove());
+  const html = sanitizeHtml(doc.body.innerHTML);
+  return html === '<br>' || html === '<div><br></div>' ? '' : html;
 }
 
 /**
@@ -101,18 +170,29 @@ export function RichText({ value, onChange, placeholder, style, encabezados = fa
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [focused, setFocused] = useState(false);
+  /** El contenido tal como quedó DIBUJADO (`contenidoDe` recién pintado): la vara de «¿cambió?». */
+  const dibujado = useRef('');
 
-  // set inicial (una vez) + cuando cambia value DESDE afuera y no está enfocado
+  // set inicial (una vez) + cuando cambia value DESDE afuera y no está enfocado.
+  // ⚠️ Por `paraDibujar`, nunca el valor crudo: ver `sanitizeHtml`.
   useEffect(() => {
-    const html = mdAHtml(value || '');
-    if (ref.current && !focused && ref.current.innerHTML !== html) ref.current.innerHTML = html;
+    const ed = ref.current;
+    if (!ed || focused) return;
+    const html = paraDibujar(value);
+    if (ed.innerHTML !== html) ed.innerHTML = html;
+    dibujado.current = contenidoDe(ed);
   }, [value, focused]);
 
   const commit = () => {
     setFocused(false);
-    let html = ref.current?.innerHTML ?? '';
-    if (html === '<br>' || html === '<div><br></div>') html = '';
-    html = sanitizeHtml(html);
+    const ed = ref.current;
+    if (!ed) return;
+    const html = contenidoDe(ed);
+    // ⚠️ NADA CAMBIÓ DESDE QUE SE DIBUJÓ → no se guarda. Desde que se dibuja SANEADO, lo que hay en
+    // pantalla de un valor viejo ya no es el valor (un `<b>` de Chrome se dibuja `<strong>`), y sin
+    // esta vara abrir y cerrar la tarjeta guardaba la versión saneada como una edición más. Se
+    // compara contenido contra contenido, los dos leídos igual (`contenidoDe`).
+    if (html === dibujado.current) return;
     // Ojo con el markdown: al mostrarlo se convierte a HTML, así que si el dueño abre y
     // cierra la tarjeta SIN tocar nada, `html` ya no es igual a `value` y se guardaría
     // solo. Se compara contra la versión convertida para no ensuciar el historial con

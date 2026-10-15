@@ -15,22 +15,16 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
+import { checkCronAuth } from '@/lib/cron-auth';
 import { fetchMetaInsights, MetaTokenError, MetaApiError } from '@/lib/meta-ads';
 import { ayerEnTijuana, esFechaValida } from '@/lib/date-utils';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret) {
-    return Response.json(
-      { ok: false, error: 'CRON_SECRET no configurado' },
-      { status: 500 },
-    );
-  }
-  if (request.headers.get('authorization') !== `Bearer ${cronSecret}`) {
-    return Response.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
-  }
+  // El mismo chequeo que los crons: comparación en tiempo constante y fail-closed sin CRON_SECRET.
+  const denied = checkCronAuth(request);
+  if (denied) return denied;
 
   const override = request.nextUrl.searchParams.get('fecha');
   if (override && !esFechaValida(override)) {

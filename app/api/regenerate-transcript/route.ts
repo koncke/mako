@@ -10,7 +10,8 @@ import type { NextRequest } from 'next/server';
 import { getSupabaseServer } from '@/lib/supabase';
 import { transcribeAd, STRUCTURE_SYSTEM_BASE, IMAGE_PROMPT_BASE } from '@/lib/transcribe';
 import { getPromptText } from '@/lib/prompt-render';
-import { esWorkspaceDueno } from '@/lib/workspace';
+import { esWorkspaceDueno, getRolWsEfectivo } from '@/lib/workspace';
+import { getSesionAdmin } from '@/lib/auth';
 import { credWs } from '@/lib/credenciales';
 
 /** Resuelve los prompts editables de transcripción (override o default). */
@@ -36,6 +37,12 @@ export async function POST(req: NextRequest) {
   // Fase 1: la transcripción usa las métricas/creativos de Meta globales del dueño.
   // Para otros workspaces devolvemos la MISMA forma de éxito pero "sin datos" (sin
   // tocar Meta/OpenAI ni la DB), para no romper el modal que la consume.
+  // ⚠️ SÓLO ADMIN (auditoría de seguridad, 14/10/2026): `esWorkspaceDueno` lo pasa cualquier closer o setter
+  // del ws1, y esto vuelve a correr una transcripción PAGA con una instrucción libre y pisa ad_transcripts,
+  // que es lo que lee ads-analyst. El modal que la llama es de una pantalla de admin.
+  if ((await getSesionAdmin()) == null && (await getRolWsEfectivo()) !== 'admin') {
+    return Response.json({ error: 'solo admin' }, { status: 403 });
+  }
   if (!(await esWorkspaceDueno())) {
     return Response.json({ status: 'sin_video', tipo: null, transcript: null, secciones: null, idioma: null, duracion_s: null, instruccion: instruccion || null, error: null });
   }

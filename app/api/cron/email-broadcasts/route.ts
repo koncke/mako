@@ -10,6 +10,7 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
+import { checkCronAuth } from '@/lib/cron-auth';
 import { procesarBroadcastsProgramados } from '@/lib/email-marketing';
 import { envioEmailHabilitado } from '@/lib/envio-flags';
 import { listarWorkspaces, runWithWorkspace, OWNER_WS } from '@/lib/workspace';
@@ -17,17 +18,8 @@ import { listarWorkspaces, runWithWorkspace, OWNER_WS } from '@/lib/workspace';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
-function checkAuth(request: NextRequest): Response | null {
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret) return Response.json({ ok: false, error: 'CRON_SECRET no configurado' }, { status: 500 });
-  if (request.headers.get('authorization') !== `Bearer ${cronSecret}`) {
-    return Response.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
-  }
-  return null;
-}
-
 export async function GET(request: NextRequest) {
-  const unauth = checkAuth(request);
+  const unauth = checkCronAuth(request);
   if (unauth) return unauth;
 
   const url = new URL(request.url);

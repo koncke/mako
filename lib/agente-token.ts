@@ -25,16 +25,18 @@
 // =============================================================================
 
 import 'server-only';
-import { getSetting, getSettingEstricto, setSetting } from './settings';
+import { cambiarSettingSi, getSetting, getSettingEstricto, setSetting } from './settings';
 import { runWithWorkspace } from './workspace';
 import { borrarRoutingConPrefijo, upsertRouting, wsPorIdentificadorEstricto } from './webhook-routing';
 import { conReintentoTransitorio } from './webhook-ruteo-huella';
 import { mensajeDeError } from './calendly-error';
+import { getSupabaseServer } from './supabase';
 import { marcarUso } from './api-mako/tokens-uso';
 import { ID_PRINCIPAL } from './api-mako/tokens-lista';
+import { creadorVigente } from './api-mako/tokens-creador-vigente';
 import {
   AGENTE_SERVICIO, AGENTE_TOKEN_KEY, PREFIJO_PRINCIPAL,
-  acunarCon, leerGuardado, revocarCon, visibleDe, wsDeTokenCon,
+  acunarCon, leerGuardado, revocarCon, revocarSiCreadorSinAcceso, visibleDe, wsDeTokenCon,
   type AlmacenAgente, type TokenAgenteVisible,
 } from './agente-token-nucleo';
 import type { Alcance as AlcanceToken } from './api-mako/tipos';
@@ -53,6 +55,10 @@ const almacen: AlmacenAgente = {
   indexar: (identificador, ws) => upsertRouting(AGENTE_SERVICIO, identificador, ws),
   // Sin el guion bajo: va a un LIKE, donde `_` es comodín (ver borrarRoutingConPrefijo).
   borrarIndicesEnClaro: (ws) => borrarRoutingConPrefijo(AGENTE_SERVICIO, ws, PREFIJO_PRINCIPAL.replace(/_$/, '')),
+  // La MISMA regla y la misma caché de un minuto que los tokens detallados (14/10/2026): el
+  // token deja de valer cuando quien lo acuñó ya no administra el workspace. Estricta: tira.
+  creadorVigente: (ws, email, fresco) => creadorVigente(ws, email, fresco),
+  cambiarSettingSi: (ws, antes, despues) => runWithWorkspace(ws, () => cambiarSettingSi(AGENTE_TOKEN_KEY, antes, despues)),
 };
 
 /**
@@ -68,9 +74,13 @@ export async function tokenAgenteVisible(ws: number): Promise<TokenAgenteVisible
  * Acuña un token nuevo para el workspace (o lo ROTA, si ya tenía) y lo devuelve UNA vez,
  * con su pista. El anterior deja de servir en el acto: `wsPorAgenteToken` valida contra el
  * setting, no contra el índice.
+ *
+ * `creadoPor`: el email de la sesión que lo pide. El token vale mientras esa persona siga
+ * administrando el workspace (ver lib/agente-token-nucleo.ts, QUIÉN LO ACUÑÓ). Vacío = una
+ * sesión sin email (desarrollo, emergencia): no hay a quién revisar, como en los detallados.
  */
-export async function rotarAgenteToken(ws: number, alcance: AlcanceToken = 'proponer'): Promise<{ token: string; pista: string }> {
-  return acunarCon(almacen, ws, alcance);
+export async function rotarAgenteToken(ws: number, alcance: AlcanceToken = 'proponer', creadoPor = ''): Promise<{ token: string; pista: string }> {
+  return acunarCon(almacen, ws, alcance, undefined, creadoPor);
 }
 
 /**
@@ -99,6 +109,50 @@ export async function wsPorAgenteToken(token: string): Promise<number | null> {
  */
 export async function revocarAgenteToken(ws: number): Promise<void> {
   await revocarCon(almacen, ws);
+}
+
+/**
+ * Después de sacarle el acceso a alguien: borra el token clásico de `ws` si su creador ya no lo
+ * administra (`revocarSiCreadorSinAcceso`). Lo llama /api/admin/agencia al revocar una agencia
+ * sobre ese cliente.
+ *
+ * BEST-EFFORT A PROPÓSITO: la decisión que se acaba de tomar (revocar, suspender) ya está
+ * escrita y no se deshace porque esto falle. El token tampoco queda vivo si falla: lo corta el
+ * chequeo por pedido (`wsDeTokenCon`) en menos de un minuto. Esto es la limpieza.
+ */
+export async function revocarAgenteTokenSiPerdioAcceso(ws: number): Promise<void> {
+  try {
+    await revocarSiCreadorSinAcceso(almacen, ws);
+  } catch (e) {
+    console.error(`[agente-token] no pude revisar el token del ws ${ws}: ${mensajeDeError(e)}`);
+  }
+}
+
+/**
+ * Lo mismo, para los tokens que acuñó UNA persona, estén en el workspace que estén: un admin de
+ * agencia acuña desde la vista de cada cliente, así que su token vive en el workspace del
+ * cliente y no en el suyo. Lo llaman los caminos que suspenden, eliminan o le bajan el rol a
+ * alguien (/api/admin/usuarios y /api/equipo).
+ *
+ * Se buscan las filas del setting que nombran a esa persona (son pocas: una por workspace con
+ * token) y a cada una se le aplica la misma revisión fresca. Best-effort, como la de arriba.
+ */
+export async function revocarAgenteTokensDe(email: string): Promise<void> {
+  const e = (email ?? '').trim().toLowerCase();
+  if (!e) return;
+  try {
+    const { data, error } = await getSupabaseServer()
+      .from('app_settings').select('workspace_id, value').eq('key', AGENTE_TOKEN_KEY);
+    if (error) throw new Error(error.message);
+    for (const fila of (data ?? []) as Array<{ workspace_id: number; value: string | null }>) {
+      const g = leerGuardado(fila.value);
+      if (g?.forma !== 'hash' || g.creadoPor !== e) continue;
+      // Uno que falla no frena a los demás.
+      await revocarAgenteTokenSiPerdioAcceso(Number(fila.workspace_id));
+    }
+  } catch (err) {
+    console.error(`[agente-token] no pude revisar los tokens de ${e}: ${mensajeDeError(err)}`);
+  }
 }
 
 /**

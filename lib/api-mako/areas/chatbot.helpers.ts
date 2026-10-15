@@ -50,10 +50,9 @@ export async function secuenciasArchivadas(): Promise<SecuenciaCorta[]> {
   return (data ?? []) as SecuenciaCorta[];
 }
 
-/** Desarchiva Y pausa en la MISMA escritura. `desarchivarSecuencia` (lib/secuencias-huecos.ts) solo
- *  pone archivada_at en null, y archivarSecuencias nunca toca `activa`: una secuencia prendida al
- *  archivarse volvía a inscribir su cohorte y a mandar mensajes al desarchivarla. Devuelve cuántas
- *  filas tocó: 0 = no existe o ya no estaba archivada. DEUDA: que la lib lo haga. */
+/** Desarchiva Y pausa en la MISMA escritura, como `desarchivarSecuencia` (lib/secuencias-huecos.ts)
+ *  desde el 14/10/2026. Ésta además sólo toca una que ESTÉ archivada, y devuelve cuántas filas tocó:
+ *  0 = no existe o ya no estaba archivada. */
 export async function desarchivarYPausar(id: number): Promise<number> {
   const db = await getTenantDb();
   const { data, error } = await db.from('nutricion_secuencias')
@@ -64,7 +63,7 @@ export async function desarchivarYPausar(id: number): Promise<number> {
 }
 
 /** Las secuencias del onboarding de audios (chat-agent-*), INCLUIDAS las archivadas:
- *  armarSecuenciasDeAudios las desarchiva al reescribirlas y no toca `activa`. */
+ *  armarSecuenciasDeAudios las desarchiva PAUSADAS al reescribirlas. */
 export async function secuenciasChatAgent(): Promise<SecuenciaCorta[]> {
   const db = await getTenantDb();
   const { data, error } = await db.from('nutricion_secuencias').select('id, nombre, clave, etapa, activa, archivada_at').like('clave', 'chat-agent-%');

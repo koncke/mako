@@ -93,7 +93,7 @@ export async function listSessions(chartKey: string, incluirArchivadas = false):
  *  (y a la inversa). */
 export async function listAllSessions(incluirArchivadas = false, limit = 300): Promise<ChartSession[]> {
   const supabase = (await getTenantDb());
-  let q = supabase.from('chart_sessions').select(SESSION_COLS).not('chart_key', 'like', 'wa-advisor:%').not('chart_key', 'like', `${PREFIJO_CHAT_MOVIL}%`).neq('chart_key', 'mako-doer');
+  let q = supabase.from('chart_sessions').select(SESSION_COLS).not('chart_key', 'like', 'wa-advisor:%').not('chart_key', 'like', `${PREFIJO_CHAT_MOVIL}%`).neq('chart_key', 'mako-doer').not('chart_key', 'like', 'mako-doer:%');
   if (!incluirArchivadas) q = q.eq('archived', false);
   const { data, error } = await q.order('pinned', { ascending: false }).order('updated_at', { ascending: false }).limit(limit);
   if (error) throw new Error(`listAllSessions falló: ${error.message}`);
