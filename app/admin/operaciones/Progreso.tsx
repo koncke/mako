@@ -12,18 +12,20 @@
 // con «…» y el detalle entero va en la fila que se abre. En una pantalla angosta (una tablet) se esconden
 // las columnas que menos dicen (`.prog-opc`), nunca el estado.
 // ⚠️ El color va en el PUNTO, nunca en el texto.
+// ⚠️ LA PODA DEL 16/10 (Martín: «Eliminando las tabs innecesarias, los textos innecesarios»): «Áreas» se fue (lo
+// que decía es la lista de chats), y también las frases que explicaban de dónde sale cada lista. Los pushes de
+// Vercel llegan después de dibujar (`pushes` en null mientras tanto): la frase de producción espera, nada más.
 
 import { Fragment, useState, type KeyboardEvent } from 'react';
 import Link from '@/app/_ui/Link';
-import { ErrorState } from '@/app/_ui';
 import {
   GRUPOS_PEDIDO, ROTULO_GRUPO, ROTULO_TIPO, diaDeNovedad, estadoDeProduccion, grupoPedido, hace, pushDelCommit,
-  type EstadoPedidoP, type Frente, type GrupoPedido, type NovedadP, type PedidoP, type PushP,
+  type EstadoPedidoP, type GrupoPedido, type NovedadP, type PedidoP, type PushP,
 } from '@/lib/progreso-reglas';
 import type { LecturaPushes } from '@/lib/progreso';
 import './progreso.css';
 
-export type VistaProgreso = 'pedidos' | 'pushes' | 'areas';
+export type VistaProgreso = 'avance' | 'pushes';
 
 type Tono = 'good' | 'bad' | 'warn' | 'info' | 'neutro';
 const TONO_PEDIDO: Record<EstadoPedidoP, Tono> = { pendiente: 'warn', en_curso: 'info', hecho: 'good' };
@@ -41,13 +43,6 @@ function abre(alternar: () => void, abierta: boolean) {
   };
 }
 
-/** «Hoy», «Ayer» o «Antes», con el día de Argentina. */
-function diaDe(instante: number, ahora: number): 'Hoy' | 'Ayer' | 'Antes' {
-  const dia = (t: number) => Math.floor((t - 3 * 3_600_000) / 86_400_000);
-  const d = dia(ahora) - dia(instante);
-  return d <= 0 ? 'Hoy' : d === 1 ? 'Ayer' : 'Antes';
-}
-
 function Grupo({ titulo, n, abierto, onToggle, columnas }: { titulo: string; n: number; abierto: boolean; onToggle: () => void; columnas: number }) {
   return (
     <tr className="prog-grupo">
@@ -58,41 +53,6 @@ function Grupo({ titulo, n, abierto, onToggle, columnas }: { titulo: string; n: 
         </button>
       </td>
     </tr>
-  );
-}
-
-// ── En curso ──────────────────────────────────────────────────────────────────────────────────
-function EnCurso({ frentes, hayCartero, ahora }: { frentes: Frente[]; hayCartero: boolean; ahora: number }) {
-  const [cerrados, setCerrados] = useState<Set<string>>(new Set());
-  const grupos = (['Hoy', 'Ayer', 'Antes'] as const).map((g) => ({ g, filas: frentes.filter((f) => diaDe(f.instante, ahora) === g) })).filter((x) => x.filas.length);
-  return (
-    <>
-      <p className="prog-nota">Últimas 48 h, de las bitácoras de cada área.{hayCartero ? '' : ' Los chats abiertos y lo sin subir aparecen con el cartero instalado.'}</p>
-      {!frentes.length ? <p className="prog-vacio">Nada se movió en las últimas 48 h.</p> : (
-        <div className="prog-caja">
-          <table className="prog-tabla">
-            <thead><tr><th style={{ width: '20%' }}>Área</th><th style={{ width: '17%' }}>Chat</th><th>Último movimiento</th><th className="prog-opc" style={{ width: '11%' }}>Sin empezar</th><th style={{ width: '11%' }}>Hace</th></tr></thead>
-            <tbody>
-              {grupos.map(({ g, filas }) => (
-                <Fragment key={g}>
-                  <Grupo titulo={g} n={filas.length} columnas={5} abierto={!cerrados.has(g)}
-                    onToggle={() => setCerrados((s) => { const n = new Set(s); if (n.has(g)) n.delete(g); else n.add(g); return n; })} />
-                  {!cerrados.has(g) && filas.map((f) => (
-                    <tr key={f.slug} className="prog-fila">
-                      <td><Link href={`/admin/dev/${f.slug}`} className="prog-link">{f.area}</Link></td>
-                      <td title={f.chat}>{f.chat}</td>
-                      <td title={f.ultimo}><Punto tono={TONO_TIPO[f.tipo] ?? 'neutro'} /><span className="prog-tipo">{ROTULO_TIPO[f.tipo] ?? f.tipo}</span> {f.ultimo}</td>
-                      <td className="prog-opc prog-num">{f.pendientes || '—'}</td>
-                      <td className="prog-num">{hace(f.instante, ahora)}</td>
-                    </tr>
-                  ))}
-                </Fragment>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </>
   );
 }
 
@@ -152,16 +112,12 @@ function DetallePedido({ p, pushes, ahora }: { p: PedidoP; pushes: readonly Push
   );
 }
 
-function Pedidos({ pedidos, pushes, todos, ahora }: { pedidos: PedidoP[]; pushes: LecturaPushes; todos: boolean; ahora: number }) {
+function Pedidos({ pedidos, pushes, ahora }: { pedidos: PedidoP[]; pushes: LecturaPushes | null; ahora: number }) {
   const [cerrados, setCerrados] = useState<Set<GrupoPedido>>(new Set(['terminado']));
   const [abierto, setAbierto] = useState<string | null>(null);
-  const lista = pushes.ok ? pushes.pushes : [];
+  const lista = pushes?.ok ? pushes.pushes : [];
   return (
     <>
-      <p className="prog-nota">
-        {todos ? 'Todos tus pedidos anotados.' : 'Tus pedidos de los últimos 14 días.'} Aparecen cuando un chat los anota en su bitácora: lo que pediste y nadie anotó todavía no está, tampoco en «Sin empezar».{' '}
-        <Link href={todos ? '/admin/operaciones' : '/admin/operaciones?todos=1'} className="prog-link">{todos ? 'Ver 14 días' : 'Ver todos'}</Link>
-      </p>
       {!pedidos.length ? <p className="prog-vacio">Ningún pedido anotado en estos días.</p> : (
         <div className="prog-caja">
           <table className="prog-tabla">
@@ -203,8 +159,8 @@ function Pedidos({ pedidos, pushes, todos, ahora }: { pedidos: PedidoP[]; pushes
 // punto sobre una línea de tiempo, y a la derecha cada novedad con su título y un texto corto. Sin hash, sin
 // commit, sin Vercel (Martín: «Para eso ya me voy a ir a ver vercel»); de Vercel sólo queda una frase: si lo
 // último se publicó o falló.
-function Novedades({ lista, lectura, ahora }: { lista: NovedadP[]; lectura: LecturaPushes; ahora: number }) {
-  const prod = lectura.ok ? estadoDeProduccion(lectura.pushes, ahora) : null;
+function Novedades({ lista, lectura, ahora }: { lista: NovedadP[]; lectura: LecturaPushes | null; ahora: number }) {
+  const prod = lectura?.ok ? estadoDeProduccion(lectura.pushes, ahora) : null;
   const dias: Array<{ dia: string; items: NovedadP[] }> = [];
   for (const n of lista) {
     const dia = diaDeNovedad(n.instante, ahora);
@@ -239,17 +195,14 @@ function Novedades({ lista, lectura, ahora }: { lista: NovedadP[]; lectura: Lect
   );
 }
 
-export function Progreso({ vista, frentes, pedidos, pushes, novedades, todos, hayCartero, ahora }: {
+export function Progreso({ vista, pedidos, pushes, novedades, ahora }: {
   vista: VistaProgreso;
-  frentes: Frente[];
   pedidos: PedidoP[];
-  pushes: LecturaPushes;
+  /** null = Vercel todavía no contestó (llega después de dibujar). */
+  pushes: LecturaPushes | null;
   novedades: NovedadP[];
-  todos: boolean;
-  hayCartero: boolean;
   ahora: number;
 }) {
-  if (vista === 'areas') return <EnCurso frentes={frentes} hayCartero={hayCartero} ahora={ahora} />;
-  if (vista === 'pedidos') return <Pedidos pedidos={pedidos} pushes={pushes} todos={todos} ahora={ahora} />;
+  if (vista === 'avance') return <Pedidos pedidos={pedidos} pushes={pushes} ahora={ahora} />;
   return <Novedades lista={novedades} lectura={pushes} ahora={ahora} />;
 }

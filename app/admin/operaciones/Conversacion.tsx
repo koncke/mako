@@ -1,0 +1,126 @@
+'use client';
+
+// =============================================================================
+// Una conversación del Centro: lo que se le pidió a un chat, lo que hizo, y la caja para escribirle
+// =============================================================================
+// Martín (15/10/2026): «NO es funcional, no puedo mandar un prompt por allí a mis otras cuentas». La caja vive
+// ABAJO de la conversación, como en cualquier app de chat: Enter manda, Shift+Enter baja de renglón.
+//
+// La estructura es la de Claude y ChatGPT (la caja redondeada con su barrita abajo de la conversación); el hilo
+// —burbujas, días y ticks de WhatsApp— es Hilo.tsx, la misma pieza que dibuja el teléfono.
+//
+// ⚠️ El borrador de cada chat lo guarda el padre: cambiar de chat no borra lo que se estaba escribiendo.
+
+import { useEffect, useLayoutEffect, useRef, type KeyboardEvent } from 'react';
+import { Icon } from '@/app/_components/icons';
+import type { Alcance } from '@/lib/operaciones-reglas';
+import { historialDelChat, nombreCuenta, textoDeEnvio, type ChatCentro, type Envio, type TrabajoP } from '@/lib/centro-chats';
+import { hace, type PedidoP, type PushP } from '@/lib/progreso-reglas';
+import { Hilo, PuntoChat } from './Hilo';
+
+const ESTADO_CHAT: Record<ChatCentro['estado'], string> = { trabajando: 'Trabajando', abierto: 'Abierto', cerrado: 'Cerrado', sin_dato: 'Sin dato' };
+
+export function Conversacion({
+  chat, pedidos, trabajos, pushes, ahora, envio, texto, onTexto, alcance, onAlcance, enviando, onMandar, onCrearClave, onCopiarClave, onVolver,
+}: {
+  chat: ChatCentro;
+  pedidos: ReadonlyMap<string, PedidoP>;
+  trabajos: readonly TrabajoP[];
+  pushes: readonly PushP[];
+  ahora: number;
+  envio: Envio;
+  texto: string;
+  onTexto: (t: string) => void;
+  alcance: Alcance;
+  onAlcance: (a: Alcance) => void;
+  enviando: boolean;
+  onMandar: () => void;
+  onCrearClave: () => void;
+  onCopiarClave: () => void;
+  onVolver: () => void;
+}) {
+  const lineas = historialDelChat(chat, pedidos, trabajos);
+  const hilo = useRef<HTMLDivElement>(null);
+  const caja = useRef<HTMLTextAreaElement>(null);
+
+  // Como un chat: abre mostrando lo último, y baja cuando llega algo nuevo.
+  useLayoutEffect(() => { const el = hilo.current; if (el) el.scrollTop = el.scrollHeight; }, [chat.clave, lineas.length]);
+  // El renglón crece con lo que se escribe, hasta el tope del CSS.
+  useLayoutEffect(() => {
+    const el = caja.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 220)}px`;
+  }, [texto]);
+  // Elegir un chat deja el cursor en su caja, como cualquier app de chat.
+  useEffect(() => { if (envio.puede) caja.current?.focus({ preventScroll: true }); }, [chat.clave, envio.puede]);
+
+  const tecla = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    // Enter manda; Shift+Enter baja de renglón. Mientras se compone un acento (IME), Enter es del teclado.
+    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); onMandar(); }
+  };
+
+  const estado = textoDeEnvio(envio);
+  const cuenta = nombreCuenta(chat.cuenta);
+
+  return (
+    <section className="co-panel" aria-label={`Conversación con ${chat.titulo}`}>
+      <header className="co-cab">
+        <button type="button" className="co-acceso co-cab__volver" style={{ width: 'auto' }} onClick={onVolver} aria-label="Volver a los chats">
+          <span style={{ display: 'inline-flex', transform: 'rotate(90deg)' }}><Icon name="chevron" size={18} /></span>
+        </button>
+        <div className="co-cab__texto">
+          <h1 className="co-cab__titulo" title={chat.titulo}>{chat.titulo}</h1>
+          <span className="co-cab__meta">
+            <PuntoChat c={chat} />
+            {[cuenta, chat.viejo && chat.vistoAt != null ? `${ESTADO_CHAT[chat.estado]} ${hace(chat.vistoAt, ahora)}` : ESTADO_CHAT[chat.estado]].filter(Boolean).join(' · ')}
+          </span>
+        </div>
+      </header>
+
+      <div className="co-hilo" ref={hilo}>
+        <div className="co-hilo__col">
+          <Hilo lineas={lineas} pushes={pushes} ahora={ahora} vacio="Todavía no hay nada con este chat." />
+        </div>
+      </div>
+
+      <div className="co-caja-wrap">
+        {envio.puede ? (
+          <div className="co-caja">
+            <textarea
+              ref={caja}
+              rows={1}
+              value={texto}
+              onChange={(e) => onTexto(e.target.value)}
+              onKeyDown={tecla}
+              placeholder={`Escribe a ${chat.titulo}`}
+              aria-label={`Escribe a ${chat.titulo}`}
+              disabled={enviando}
+            />
+            <div className="co-caja__barra">
+              <button
+                type="button" className="co-chip" aria-pressed={alcance === 'de_ahora_en_mas'}
+                title="Con «Y de ahora en más», el chat deja la regla escrita además de hacerlo"
+                onClick={() => onAlcance(alcance === 'solo_esto' ? 'de_ahora_en_mas' : 'solo_esto')}
+              >
+                {alcance === 'solo_esto' ? 'Sólo esto' : 'Y de ahora en más'}
+              </button>
+              <button type="button" className="co-enviar" onClick={onMandar} disabled={enviando || !texto.trim()} aria-label="Firmar y mandar" title="Firmar y mandar (Enter)">
+                {enviando ? <span className="co-enviar__giro" aria-hidden /> : <Icon name="flecha" size={18} />}
+              </button>
+            </div>
+          </div>
+        ) : envio.por === 'leyendo_clave' ? (
+          <div className="co-caja co-caja--quieta" aria-busy="true"><p>&nbsp;</p></div>
+        ) : (
+          <div className="co-caja co-caja--quieta">
+            <p>{estado}</p>
+            {envio.por === 'sin_clave' && <button type="button" className="co-chip" onClick={onCrearClave}>Crear clave</button>}
+            {envio.por === 'clave_no_aceptada' && <button type="button" className="co-chip" onClick={onCopiarClave}><Icon name="copy" size={14} />Copiar clave</button>}
+          </div>
+        )}
+        <p className="co-caja__estado" aria-live="polite">{envio.puede ? estado ?? '' : ''}</p>
+      </div>
+    </section>
+  );
+}

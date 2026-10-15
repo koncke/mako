@@ -19,6 +19,7 @@ import {
   cancelarPedido, crearTokenCartero, encolarPedido, leerCarteros, listarPedidos,
   type EstadoCarteros, type Pedido,
 } from '@/lib/operaciones';
+import { leerPushes, type LecturaPushes } from '@/lib/progreso';
 
 const NO_PUEDE = 'Sólo Martín, con su segundo factor, opera el Centro.';
 const msg = (e: unknown) => (e instanceof Error && e.message ? e.message : 'Algo falló.');
@@ -34,6 +35,14 @@ export async function fotoCentroAction(): Promise<FotoCentro> {
   } catch (e) {
     return { ok: false, error: msg(e) };
   }
+}
+
+/** Los pushes de Vercel, DESPUÉS de dibujar: la API de Vercel tarda hasta 8 s y la página no la espera
+ *  («tarda mucho en aparecer», Martín, 15/10/2026). La piden Pushes y el «subió hace…» de la conversación. */
+export async function pushesCentroAction(): Promise<LecturaPushes> {
+  const admin = await getSesionAdmin();
+  if (!puedeOperar(admin, await wsSuperAdmin())) return { ok: false, motivo: NO_PUEDE };
+  return leerPushes();
 }
 
 export async function encolarPedidoAction(entrada: {
