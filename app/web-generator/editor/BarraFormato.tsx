@@ -169,7 +169,12 @@ export const CSS_G2: string = [
   // y contenido de 122); con auto, la caja crece.
   '.gmx-nv-vacio[data-clase="video"]{aspect-ratio:16/9;min-height:auto}',
   '.gmx-nv-play{display:grid;place-items:center;width:56px;height:56px;border-radius:50%;background:var(--gmx-azul)}',
-  '.gmx-nv-vacio .gmx-nv-play .gmx-ico{color:#ffffff;margin-left:3px}',
+  // El ▶ SIN corrimiento, como el de la galería (css.ts). Martín (15/10/2026, punto 8): «algunos vídeos tienen
+  // el icono de play no centrado en su círculo… Es importante que esté bien». Éste es el que ve apenas crea
+  // desde un diseño: el ▶ de CONTORNO corrido 3 px quedaba +2,54 % del diámetro a la derecha (centroide 1,42 px
+  // en el círculo de 56, medido en Chromium); el relleno de Phosphor ya trae el centroide en el centro, y sin
+  // el margen cae en −0,05 %. tests/editor-landing-play-centrado.test.ts lo calcula sobre el path.
+  '.gmx-nv-vacio .gmx-nv-play .gmx-ico{color:#ffffff}',
 ].join('\n');
 
 /** La hoja del chrome de G2. React 19 la sube al head y la deduplica por `href`. */

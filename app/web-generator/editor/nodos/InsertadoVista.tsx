@@ -104,7 +104,7 @@ export function InsertadoVista(props: ReactNodeViewProps) {
         <div ref={vacio} className="gmx gmx-nv-marco gmx-nv-vacio" data-clase={pista ?? undefined} contentEditable={false}
           onClick={(e) => { if (editor.isEditable) setAncla(e.currentTarget); }}>
           {pista === 'video'
-            ? <span className="gmx-nv-play"><Icono nombre="play" tam={22} /></span>
+            ? <span className="gmx-nv-play"><Icono nombre="play-relleno" tam={22} /></span>
             : <Icono nombre={pista === 'agenda' ? 'calendario' : 'insertar'} tam={22} />}
           <span>{TEXTO_VACIO[pista ?? 'otro'][0]}</span>
           <span className="gmx-nota">{TEXTO_VACIO[pista ?? 'otro'][1]}</span>

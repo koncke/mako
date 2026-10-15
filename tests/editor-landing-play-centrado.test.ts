@@ -17,16 +17,32 @@
 // arcos, y la posición del <svg> dentro del círculo según las reglas de CSS_CONTENIDO (css.ts) que tocan
 // `.gm-marcador-play`. Con eso se calcula dónde cae el centroide respecto del centro del círculo.
 //
-// PROBADO ROMPIÉNDOLO (15/10/2026, arnés que restaura de memoria y compara el sha256). Base: 3 / 0.
-//   · el margin-left: 9% de vuelta en css.ts                      → 2 / 1 «el centroide del ▶ cae en el centro…»
-//   · el ▶ corrido con un transform en css.ts                     → 2 / 1 «el centroide del ▶ cae en el centro…»
-//   · el círculo sin place-items: center                          → 2 / 1 «el centroide del ▶ cae en el centro…»
-//   · el marcador con el ▶ de contorno («play») en vez del relleno → 2 / 1 «el marcador del video usa…»
-// Restaurado: 3 / 0.
+// La verificación de la tanda 7 rompió la primera versión: sólo miraba los selectores EXACTOS y daba por bueno lo
+// que no encontraba (un `margin-left: 9%` escrito `.gm-marcador-play>svg` y un `padding-left` en el círculo daban
+// 3 / 0). Ahora barre TODA regla que nombre al marcador, exige que la del tamaño exista, y mide también el ▶ del
+// EDITOR (BarraFormato.tsx + InsertadoVista.tsx), que estaba corrido +2,54 % y nadie lo miraba.
+//
+// PROBADO ROMPIÉNDOLO (15/10/2026, arnés que restaura de memoria y compara el sha256). Base: 4 / 0.
+//   · css.ts: el margin-left: 9% de vuelta escrito `.gm-marcador-play>svg`  → 3 / 1 «el centroide del ▶ cae…»
+//   · css.ts: padding-left: 0.6em en el círculo                            → 3 / 1 «el centroide del ▶ cae…»
+//   · css.ts: el margin-left: 9% en la regla exacta                        → 3 / 1 «el centroide del ▶ cae…»
+//   · css.ts: el ▶ corrido con un transform                                → 3 / 1 «el centroide del ▶ cae…»
+//   · css.ts: el círculo sin place-items: center                           → 3 / 1 «el centroide del ▶ cae…»
+//   · css.ts: otra regla del círculo con justify-items: start              → 3 / 1 «el centroide del ▶ cae…»
+//   · especificacion.ts: el marcador con el ▶ de contorno («play»)         → 3 / 1 «el marcador del video usa…»
+//   · BarraFormato.tsx: el margin-left: 3px de vuelta                      → 3 / 1 «el ▶ del EDITOR…»
+//   · InsertadoVista.tsx: el ▶ de contorno («play»)                        → 3 / 1 «el ▶ del EDITOR…»
+//   · BarraFormato.tsx: padding-left: 4px en el círculo                    → 3 / 1 «el ▶ del EDITOR…»
+//   · BarraFormato.tsx: margin-left: 1px en `.gmx-ico svg`                 → 3 / 1 «el ▶ del EDITOR…»
+//   · BarraFormato.tsx: el círculo sin place-items: center                 → 3 / 1 «el ▶ del EDITOR…»
+//   · BarraFormato.tsx: un transform escrito `.gmx-nv-play>.gmx-ico`       → 3 / 1 «el ▶ del EDITOR…»
+// Restaurado: 4 / 0.
 // =============================================================================
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { ICONOS } from '../lib/editor-landing/iconos';
 import { CSS_CONTENIDO } from '../lib/editor-landing/css';
 import { specInsertado, htmlDeArbol } from '../lib/editor-landing/especificacion';
@@ -127,25 +143,67 @@ function centroide(d: string): { x: number; y: number; area: number } {
   return { x: X / (6 * A), y: Y / (6 * A), area: Math.abs(A) };
 }
 
-/** Las declaraciones de las reglas de CSS_CONTENIDO cuyo selector es EXACTAMENTE uno de `selectores`. */
-function declaraciones(selectores: string[]): Map<string, string> {
-  const m = new Map<string, string>();
-  for (const [, sel, cuerpo] of CSS_CONTENIDO.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
-    const sels = sel.split(',').map((s) => s.trim());
-    if (!sels.some((s) => selectores.includes(s))) continue;
-    for (const d of cuerpo.split(';')) {
-      const i = d.indexOf(':');
-      if (i > 0) m.set(d.slice(0, i).trim(), d.slice(i + 1).trim());
+type Regla = { sel: string; decl: Map<string, string>; delCirculo: boolean };
+
+/**
+ * TODAS las reglas de `css` con un selector que NOMBRA `marca`, se escriba como se escriba (`> svg`, `>svg`, ` svg`,
+ * otro ancestro delante). La verificación de la tanda 7 rompió la versión de antes, que sólo juntaba los selectores
+ * EXACTOS: el `margin-left: 9%` de vuelta escrito `.gm-marcador-play>svg` daba 3 / 0, porque la regla no se veía.
+ * `delCirculo`: el selector termina en el círculo (con pseudo-clases o atributos); si no, apunta a lo de ADENTRO.
+ */
+function reglasQueNombran(css: string, marca: string): Regla[] {
+  const out: Regla[] = [];
+  for (const [, sel, cuerpo] of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    for (const s of sel.split(',').map((x) => x.trim()).filter((x) => x.includes(marca))) {
+      const decl = new Map<string, string>();
+      for (const d of cuerpo.split(';')) {
+        const i = d.indexOf(':');
+        if (i > 0) decl.set(d.slice(0, i).trim().toLowerCase(), d.slice(i + 1).trim());
+      }
+      const resto = s.slice(s.lastIndexOf(marca) + marca.length).trim();
+      out.push({ sel: s, decl, delCirculo: /^(?:\[[^\]]*\]|:(?!:)[\w-]+(?:\([^)]*\))?)*$/.test(resto) });
     }
   }
-  return m;
+  return out;
+}
+
+/** Lo que corre al ▶ por fuera de la cuenta: en el ícono, todo margen, relleno o desplazamiento. */
+const CORRE_AL_ICONO = /^(?:margin|padding)(?:-|$)|^(?:transform|translate|position|left|right|top|bottom|inset|justify-self|align-self|place-self)$|^inset-/;
+/** En el círculo: un relleno corre el centro del contenido (con border-box, la mitad de lo que difiere). */
+const CORRE_EN_EL_CIRCULO = /^padding(?:-|$)/;
+
+/** El círculo centra con grid, y ninguna otra regla del círculo deshace el centrado. */
+function circuloCentra(reglas: Regla[], principal: string): Map<string, string> {
+  const base = reglas.find((r) => r.sel === principal && r.delCirculo);
+  assert.ok(base, `falta la regla del círculo «${principal}»`);
+  assert.equal(base.decl.get('display'), 'grid', 'el círculo centra al ▶ con grid');
+  assert.equal(base.decl.get('place-items'), 'center');
+  assert.equal(base.decl.get('border-radius'), '50%');
+  assert.ok(base.decl.get('width'), 'el círculo declara su ancho');
+  assert.equal(base.decl.get('width'), base.decl.get('height'), 'un círculo, no un óvalo');
+  for (const r of reglas.filter((x) => x.delCirculo)) {
+    for (const p of r.decl.keys()) assert.ok(!CORRE_EN_EL_CIRCULO.test(p), `«${r.sel}» corre el centro del círculo con «${p}»`);
+    const d = r.decl.get('display');
+    if (d != null) assert.equal(d, 'grid', `«${r.sel}» cambia el display del círculo`);
+    for (const p of ['place-items', 'justify-items', 'align-items', 'place-content', 'justify-content', 'align-content']) {
+      const v = r.decl.get(p);
+      if (v != null) assert.equal(v, 'center', `«${r.sel}» descentra con «${p}: ${v}»`);
+    }
+  }
+  return base.decl;
+}
+
+/** Ninguna regla de adentro del círculo corre al ▶. */
+function nadaCorreAlIcono(reglas: Regla[]): void {
+  for (const r of reglas.filter((x) => !x.delCirculo)) {
+    for (const p of r.decl.keys()) assert.ok(!CORRE_AL_ICONO.test(p), `«${r.sel}» corre al ▶ con «${p}»`);
+  }
 }
 
 const pct = (v: string | undefined): number => {
-  if (v == null) return 0;
-  const m = /^(-?[\d.]+)%$/.exec(v);
-  assert.ok(m || v === '0', `se esperaba un porcentaje y vino «${v}»`);
-  return m ? Number(m[1]) : 0;
+  const m = /^(-?[\d.]+)%$/.exec(v ?? '');
+  assert.ok(m, `se esperaba un porcentaje y vino «${v}»`);
+  return Number(m[1]);
 };
 
 test('el path de play-relleno (Phosphor) trae el centroide en el centro del viewBox', () => {
@@ -157,25 +215,18 @@ test('el path de play-relleno (Phosphor) trae el centroide en el centro del view
 });
 
 test('el centroide del ▶ cae en el centro de su círculo (la miniatura de los diseños con video)', () => {
-  const circulo = declaraciones(['.gm-doc .gm-marcador-play']);
-  assert.equal(circulo.get('display'), 'grid', 'el círculo centra al ▶ con grid');
-  assert.equal(circulo.get('place-items'), 'center');
-  assert.equal(circulo.get('border-radius'), '50%');
-  assert.equal(circulo.get('width'), circulo.get('height'), 'un círculo, no un óvalo');
-
-  const svg = declaraciones(['.gm-doc .gm-marcador-play > svg', '.gm-doc .gm-marcador-play svg']);
-  // Nada que lo corra por fuera de la cuenta de abajo.
-  for (const p of ['transform', 'translate', 'position', 'left', 'right', 'inset', 'justify-self', 'place-self', 'margin', 'margin-inline']) {
-    assert.ok(!svg.has(p), `el ▶ no se corre con «${p}»`);
-  }
-  const ancho = pct(svg.get('width'));
-  assert.equal(svg.get('width'), svg.get('height'), 'el viewBox es cuadrado');
-  const izq = pct(svg.get('margin-left'));
-  const der = pct(svg.get('margin-right'));
-  // Con place-items: center, la caja de MARGEN queda centrada (los % del margen, sobre el ancho del círculo).
-  const bordeIzq = (100 - (ancho + izq + der)) / 2 + izq;
+  const reglas = reglasQueNombran(CSS_CONTENIDO, 'gm-marcador-play');
+  circuloCentra(reglas, '.gm-doc .gm-marcador-play');
+  // Nada que lo corra por fuera de la cuenta de abajo, en NINGUNA regla que nombre al marcador.
+  nadaCorreAlIcono(reglas);
+  const svg = reglas.find((r) => r.sel === '.gm-doc .gm-marcador-play > svg');
+  assert.ok(svg, 'falta la regla del tamaño del ▶');
+  assert.equal(svg.decl.get('width'), '44%', 'el ▶ mide lo que se midió');
+  assert.equal(svg.decl.get('width'), svg.decl.get('height'), 'el viewBox es cuadrado');
+  const ancho = pct(svg.decl.get('width'));
+  // Con place-items: center y sin márgenes, la caja del <svg> queda centrada en el círculo.
   const c = centroide(ICONOS['play-relleno'].d);
-  const corrimiento = bordeIzq + (c.x / 256) * ancho - 50;   // en % del diámetro
+  const corrimiento = (100 - ancho) / 2 + (c.x / 256) * ancho - 50;   // en % del diámetro
   // Antes: +4,35 % (medido en Chromium: +4,35 en los 8 diseños). Un cuarto de punto es invisible.
   assert.ok(Math.abs(corrimiento) <= 0.25, `el centroide cae a ${corrimiento.toFixed(2)} % del diámetro del centro`);
 });
@@ -183,4 +234,43 @@ test('el centroide del ▶ cae en el centro de su círculo (la miniatura de los 
 test('el marcador del video usa el ▶ RELLENO dentro de su círculo (el que se midió)', () => {
   const h = htmlDeArbol(specInsertado({ src: '', proveedor: 'youtube' }, { modo: 'miniatura', marcadores: true }));
   assert.match(h, /<span class="gm-marcador-play" data-icono="play-relleno" aria-hidden="true"><\/span>/, h);
+});
+
+// El ▶ del EDITOR: el video vacío en el lienzo, lo primero que Martín ve apenas crea desde un diseño. La verificación de
+// la tanda 7 lo midió corrido +2,54 % del diámetro (el ▶ de CONTORNO y un `margin-left: 3px` en BarraFormato.tsx);
+// el arreglo de css.ts no lo tocaba porque es OTRA hoja (CSS_G2, la del editor). Se lee el fuente SIN comentarios y
+// se extrae el bloque de CSS_G2 antes de buscar.
+const RAIZ = join(__dirname, '..');
+const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+const fuente = (rel: string) => sinComentarios(readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n'));
+
+/** Las cadenas de CSS_G2 (BarraFormato.tsx), unidas como las une el `.join`. */
+function cssDelEditor(): string {
+  const src = fuente('app/web-generator/editor/BarraFormato.tsx');
+  const desde = src.indexOf('export const CSS_G2');
+  assert.ok(desde >= 0, 'no encontré CSS_G2');
+  const hasta = src.indexOf("].join('\\n');", desde);
+  assert.ok(hasta > desde, 'no encontré el cierre de CSS_G2');
+  return [...src.slice(desde, hasta).matchAll(/'((?:[^'\\\n]|\\.)*)'/g)].map((m) => m[1]).join('\n');
+}
+
+test('el ▶ del EDITOR (el video vacío en el lienzo) también cae en el centro de su círculo', () => {
+  const css = cssDelEditor();
+  const reglas = reglasQueNombran(css, 'gmx-nv-play');
+  const circulo = circuloCentra(reglas, '.gmx-nv-play');
+  // Lo de adentro: las reglas que nombran el círculo y las del ícono suelto (`.gmx-ico`, `.gmx-ico svg`).
+  const delIcono = reglasQueNombran(css, 'gmx-ico').filter((r) => /^\.gmx-ico(?:\s*>?\s*svg)?$/.test(r.sel));
+  assert.ok(delIcono.length >= 1, 'no encontré las reglas de .gmx-ico');
+  nadaCorreAlIcono([...reglas, ...delIcono.map((r) => ({ ...r, delCirculo: false }))]);
+
+  const vista = fuente('app/web-generator/editor/nodos/InsertadoVista.tsx');
+  const m = /<span className="gmx-nv-play"><Icono nombre="([\w-]+)" tam=\{(\d+)\} \/><\/span>/.exec(vista);
+  assert.ok(m, 'no encontré el ▶ del video vacío en InsertadoVista.tsx');
+  assert.equal(m[1], 'play-relleno', 'el ▶ de contorno («play») no tiene el centroide en el centro del viewBox');
+  const lado = Number(m[2]);
+  const diametro = Number(/^(\d+(?:\.\d+)?)px$/.exec(circulo.get('width') ?? '')?.[1]);
+  assert.ok(diametro > lado, `el círculo (${circulo.get('width')}) es más grande que el ▶ (${lado}px)`);
+  const c = centroide(ICONOS[m[1]].d);
+  const corrimiento = ((c.x / 256 - 0.5) * lado / diametro) * 100;   // en % del diámetro
+  assert.ok(Math.abs(corrimiento) <= 0.25, `el centroide cae a ${corrimiento.toFixed(2)} % del diámetro del centro`);
 });
