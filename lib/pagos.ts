@@ -333,6 +333,10 @@ export type PlanManual = {
 };
 
 export async function saveLeadPlanManual(leadId: number, p: PlanManual): Promise<PlanDeCuotas> {
+  // ⚠️ EL LEAD TIENE QUE SER DE ESTE NEGOCIO (auditoría del 14/10/2026). El maybeSingle y el update de
+  // abajo, con un lead ajeno, dan null y 0 filas SIN error, y las cuotas se insertaban igual con el
+  // lead_id del otro negocio. La rama de Pagos es anterior a la auditoría y no la traía.
+  await asegurarLeadDelNegocio(leadId);
   const supabase = (await getTenantDb());
 
   // El plan de pagos pertenece a un lead GANADO: dejamos el desenlace coherente
