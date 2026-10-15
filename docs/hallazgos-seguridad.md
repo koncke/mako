@@ -1650,6 +1650,49 @@ el registro abierto (la app no lo usa: se apaga en el panel de Supabase).
 **Lo que la auditoría NO cubrió**: de los 58 archivos `'use server'`, el barrido leyó a fondo unos 25 y el resto por
 encima. Las 318 rutas de `app/api` se leyeron todas.
 
+### Estado de la tabla (14/10/2026, commit `6a668f72c` de la rama `seg-auditoria`)
+
+**Cerrados**, cada uno con su test probado rompiéndolo (`tests/seguridad-*.test.ts`): la crítica de las funciones (0280,
+aplicada y medida con el mismo GET anónimo), `plan-recurvar` y las 10 copias del chequeo del cron (más `admin/meta-check`
+y `admin/youtube-check`), los proxies de media, cuotas y pagos, el XSS del detalle, el token clásico, el saldo de Claude,
+perfil/destinatarios, el GET de `resumen` (borrado; archivar y desarchivar dejan la secuencia pausada), el tope de la
+línea de MaKo, ads-analyst, landing-analyst (también `pulso`, que la auditoría no vio), `/api/doc` y `/api/contract`, el
+SSRF y el `..` del Archivero, el doer de escritorio, los insights de Meta y `compartido/archivo`. De paso, dos rutas que
+nadie había listado: `regenerate-transcript` (IA paga para cualquier closer del ws1) y `perfil/plantilla` (un closer
+mandaba a aprobar a Meta la plantilla del negocio).
+
+**Abiertos, con dónde viven:**
+- La rotación de las credenciales de `docs/chats/`: la lista, con fecha por credencial, en `docs/rotacion-credenciales.md`.
+- Quién manda a MaKo en el grupo de WhatsApp de un cliente (`lib/mako-doer-in.ts:855`: todo el grupo corre como admin con
+  «ejecutar», y su system prompt lleva los números del trimestre): decisión de producto, en el tablero.
+- next 16.2.11 y el registro abierto de Supabase Auth: decisiones, en el tablero.
+- `lib/anthropic-usage.ts` (`wsDeProveedor`) sigue cayendo a `OWNER_WS`: la defensa vive sólo en la ruta.
+- `app/api/chart-insights/route.ts` arma el system prompt CON el avance del trimestre y no mira el rol: si un closer
+  llega a un chat de gráfico, MaKo le cuenta la plata. NO MEDIDO qué gráficos ve un closer.
+- Las bajas sin tocar: el webhook de Fathom sin secreto propio verifica con el del ws1, identidades fiscales y teléfonos
+  del negocio sin chequeo de rol, «Completar como Mauricio» con guarda en negativo.
+- `tests/cobranza.test.ts` («marcar el pago CORTA…») ya estaba rojo en `origin/main`: el recorte de `marcarPago` mide
+  6777 contra un techo de 3000. No es de esta rama.
+
+### Lo que enseñó ARREGLARLA
+
+- ⚠️ **El arreglo que proponía la propia auditoría para `/api/doc` era el diagnóstico equivocado, dos veces.** «Exigir el
+  prefijo `<ws>/<lead>/`» deja pasar `5/60/../../7/50/x.pdf`, porque storage-js arma la URL de la firma con la ruta
+  cruda y el `fetch` resuelve el `..` (medido con `new URL`): la firma sale para otra carpeta, o para otro bucket. Y
+  además rompía un contrato REAL: el del lead 31 del ws1 se guardó como `<lead>/<ms>_<nombre>` (extract-contract, del
+  20/06 al 02/07, antes de `7ee06bb15`), y el objeto existe. Lo cazó un revisor midiendo producción, no los tests. La
+  regla: **una ruta de Storage leída de una fila se valida por SEGMENTOS** (`rutaDeEsteLead`), y **antes de endurecer
+  un formato se cuenta qué formatos hay en la base**.
+- ⚠️ **Filtrar las herramientas del doer no cerraba nada: el dato ya estaba en lo que el modelo LEE.** Los chats del
+  doer de escritorio eran del WORKSPACE (`open` devolvía el último, el del admin, con las respuestas de
+  `metricas_negocio` en texto) y el system prompt traía el avance del trimestre con plata. Lo de un closer o setter
+  pasa a ser suyo (`mako-doer:u<id>`, `quienPide`/`puedeAbrir` en `app/api/mako-doer/route.ts`) y su prompt va con
+  `sinNumerosDelNegocio` (escritorio y teléfono).
+- **Un 403 nuevo tiene que decirse en la pantalla que lo pide.** El editor de saldo de /integraciones hacía
+  `if (j?.ok) …` y nada más: con el corte nuevo, el botón dejaba de hacer algo sin un solo aviso.
+- **Borrar una ruta pone rojos los tests que barren `git ls-files` hasta que el borrado se stagea** (ENOENT en
+  closing-entrega, motor-tick y pixel-cargador): el índice todavía la lista. No es un bug del test.
+
 ### Las reglas que quedan
 
 - ⚠️ **`revoke all on function … from public` NO saca el EXECUTE de anon y authenticated**: Supabase se lo da DIRECTO
