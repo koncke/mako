@@ -33,6 +33,7 @@
 
 import { useState, useEffect, useRef, type ReactNode } from 'react';
 import { AREAS, type AreaId } from '@/lib/cerebro-modelo';
+import { SUBVISTAS } from '@/lib/secciones-negocio';
 import { Section, Button } from '@/app/_ui';
 import { BrandDefs } from '../_components/ServicioVisual';
 import { Archivero } from '../onboarding/Archivero';
@@ -55,7 +56,12 @@ import { ResumenView } from '../onboarding/ResumenView';
  *  Algunas áreas tienen más de una vista (Razones son las razones y los ángulos; Voz
  *  son la personalidad y la persona). Van como sub-pestañas ADENTRO del panel abierto,
  *  no como áreas nuevas: el color y la carpeta del ZIP son por área. */
-const vistasDe = (funnelPanel: ReactNode): Record<AreaId, Array<{ nombre: string; vista: ReactNode }>> => ({
+/*  ⚠️ Desde el 15/10/2026 esto es lo que era el hub de /onboarding: las diez secciones se editan acá
+ *  (lib/secciones-negocio.ts → DONDE_SE_EDITA). Las sub-pestañas llevan un `id` que viaja en `?vista=`:
+ *  un link de otra pantalla abre la sección PEDIDA, no la primera del área. Los ids son los de SUBVISTAS
+ *  (tests/onboarding-hub-retirado.test.ts los cruza). Varias secciones se van a mudar a tabs propias
+ *  (Writer, Avatar con IA): cuando pase, se saca de acá la vista y se cambia su fila en DONDE_SE_EDITA. */
+const vistasDe = (funnelPanel: ReactNode): Record<AreaId, Array<{ id?: string; nombre: string; vista: ReactNode }>> => ({
   norte: [{ nombre: 'Diagnóstico', vista: <DiagnosticoView /> }],
   documentos: [{ nombre: 'El Archivero', vista: <Archivero /> }],
   panorama: [{ nombre: 'Panorama', vista: <ResumenView /> }],
@@ -65,21 +71,21 @@ const vistasDe = (funnelPanel: ReactNode): Record<AreaId, Array<{ nombre: string
   // dos porque son dos lugares distintos de donde puede salir el mismo dato, y
   // esconder uno hace imposible entender por qué un prompt dice lo que dice.
   oferta: [
-    { nombre: 'La oferta', vista: <OfertasView /> },
-    { nombre: 'El brief', vista: <CamposNegocio titulo="Tu oferta" subtitulo="Lo que MaKo entendió de tu negocio y tu oferta. Toca cualquier dato para corregirlo." keys={['negocio_que_hace']} prefijos={['oferta_']} /> },
+    { id: 'entidad', nombre: 'La oferta', vista: <OfertasView /> },
+    { id: 'brief', nombre: 'El brief', vista: <CamposNegocio titulo="Tu oferta" subtitulo="Lo que MaKo entendió de tu negocio y tu oferta. Toca cualquier dato para corregirlo." keys={['negocio_que_hace']} prefijos={['oferta_']} /> },
   ],
   cliente: [{ nombre: 'Cliente', vista: <CamposNegocio titulo="Tu cliente" subtitulo="A quién le vendes. Toca cualquier dato para corregirlo." keys={[]} prefijos={['avatar_']} /> }],
   productos: [{ nombre: 'Productos', vista: <ProductosView /> }],
   entregables: [{ nombre: 'Lead Magnet', vista: <EntregableView /> }],
   avatares: [{ nombre: 'Avatares', vista: <AvataresView /> }],
   razones: [
-    { nombre: 'Matriz', vista: <MatrizView /> },
-    { nombre: 'Razones', vista: <RazonesView /> },
-    { nombre: 'Ángulos', vista: <FormatosView /> },
+    { id: 'matriz', nombre: 'Matriz', vista: <MatrizView /> },
+    { id: 'razones', nombre: 'Razones', vista: <RazonesView /> },
+    { id: 'angulos', nombre: 'Ángulos', vista: <FormatosView /> },
   ],
   voz: [
-    { nombre: 'Personalidad', vista: <PersonalidadView /> },
-    { nombre: 'Persona', vista: <PersonaView /> },
+    { id: 'personalidad', nombre: 'Personalidad', vista: <PersonalidadView /> },
+    { id: 'persona', nombre: 'Persona', vista: <PersonaView /> },
   ],
   // El funnel dejó de ser una sección suelta al final de la página y pasó a ser UNA
   // TARJETA MÁS: es un área del cerebro como cualquier otra, con sus nodos en el mapa y
@@ -87,18 +93,29 @@ const vistasDe = (funnelPanel: ReactNode): Record<AreaId, Array<{ nombre: string
   funnel: [{ nombre: 'El funnel', vista: funnelPanel }],
 });
 
-export function AreasHub({ abierta, onAbrir, salto, funnelPanel }: {
+export function AreasHub({ abierta, onAbrir, salto, funnelPanel, vistaInicial }: {
   abierta: AreaId | null;
   onAbrir: (a: AreaId | null) => void;
   /** Contador de pedidos de SALTO. Ver VistaCerebro: abrir y saltar son dos cosas. */
   salto: number;
   funnelPanel: ReactNode;
+  /** La sub-pestaña que pidió la URL (`?vista=`), ya validada contra SUBVISTAS. Sólo vale para el área de entrada. */
+  vistaInicial?: string | null;
 }) {
-  const [sub, setSub] = useState(0);
+  const indiceDe = (a: AreaId | null, v: string | null | undefined) => {
+    const i = a && v ? (SUBVISTAS[a] ?? []).indexOf(v) : -1;
+    return i < 0 ? 0 : i;
+  };
+  const [sub, setSub] = useState(() => indiceDe(abierta, vistaInicial));
+  // La de entrada se respeta UNA vez: el reset de abajo corre también al montar y la pisaría.
+  const areaDeEntrada = useRef(abierta);
   const panelRef = useRef<HTMLDivElement | null>(null);
 
   // Cambiar de área resetea la sub-pestaña. Nada más: esto NO scrollea.
-  useEffect(() => { setSub(0); }, [abierta]);
+  useEffect(() => {
+    if (abierta === areaDeEntrada.current) { areaDeEntrada.current = null; return; }
+    setSub(0);
+  }, [abierta]);
 
   // El salto a la sección se pide APARTE. Sin esto, tocar «Abrir» en la columna del mapa
   // abre algo que está fuera de pantalla y parece que el botón no hizo nada; y con esto

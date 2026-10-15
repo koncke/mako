@@ -88,7 +88,8 @@ import { MakoRedacta, type HistorialRedacta, type PropuestaRedacta } from './Mak
 import { htmlDeCuerpoTexto, type RenderEmailParams } from '@/lib/email-html';
 import { textoDeHtmlEmail, aplicarVariablesHtml, sanearHtmlEmail } from '@/lib/email-html-seguro';
 import { aplicarVariables } from '@/lib/template-vars';
-import { datosOfrecidos } from '@/lib/variables-aviso';
+import { datosOfrecidos, type ContextoDatos } from '@/lib/variables-aviso';
+import { REMITENTE_MAKO } from '@/lib/app-url';
 import { ArbolDeDatos } from '@/app/_components/SelectorDatos';
 import { CampoConDatos, fueraDelContexto, type CampoConDatosHandle } from '@/app/_components/CampoConDatos';
 import {
@@ -133,6 +134,12 @@ export type EditorEmailGmailProps = {
     paraGuion?: { objetivo?: string | null; gancho?: string | null } | null;
     chat?: HistorialRedacta | null;
   } | null;
+  /**
+   * «EMAIL A LA PERSONA» (15/10/2026): el email de un evento de una PERSONA (`pasosDelEvento`, lib/aviso-evento.ts). Sale
+   * SIEMPRE por el remitente de MaKo (el De no se elige) a esa persona (`para`, en palabras), y su «{ }» es el de ESE
+   * evento (`datosDeLaPersona`): el mismo contexto con el que Publicar valida. Sin esto, el email al lead de siempre.
+   */
+  persona?: { contexto: ContextoDatos; para: string } | null;
 };
 
 /** Lo que propuso el ✦ para este email: espera en su recuadro hasta que se usa o se descarta. */
@@ -375,7 +382,9 @@ type Abierto = 'datos-asunto' | 'datos-cuerpo' | 'emoji' | 'de' | null;
 /** El rojo de un email al LEAD: lo que el envío no resuelve (la pregunta de Publicar, `contextoDeTarjeta`). */
 const FUERA_EMAIL = fueraDelContexto({ destino: 'lead', conLead: true });
 
-export function EditorEmailGmail({ asunto, cuerpo, cuerpoHtml, remitente, onChange, negocio, deshabilitado, mako = null }: EditorEmailGmailProps) {
+export function EditorEmailGmail({ asunto, cuerpo, cuerpoHtml, remitente, onChange, negocio, deshabilitado, mako = null, persona = null }: EditorEmailGmailProps) {
+  // El rojo y el «{ }» de ESTE email: el de la persona, o el del lead. La tarjeta se monta con su `key`: no cambia.
+  const [fuera] = useState(() => (persona ? fueraDelContexto(persona.contexto) : FUERA_EMAIL));
   const ws = useWs();
   const clave = String(ws ?? '');
   const [estado, setEstado] = useState<EstadoRemitente | null | undefined>(() => {
@@ -403,7 +412,7 @@ export function EditorEmailGmail({ asunto, cuerpo, cuerpoHtml, remitente, onChan
   const [datoRico, setDatoRico] = useState<DatoDelEditor | null>(null);
   const datoEnCursorRico = useRef<DatoDelEditor | null>(null);
   const [datosRico] = useState<DatosDelEditor>(() => ({
-    fuera: FUERA_EMAIL,
+    fuera,
     onDato: (d) => { setAbierto(null); setDatoRico(d); },
     alCursor: (d) => { datoEnCursorRico.current = d; },
   }));
@@ -452,6 +461,8 @@ export function EditorEmailGmail({ asunto, cuerpo, cuerpoHtml, remitente, onChan
   const salirHtml = () => { setAbierto(null); setModo('visual'); };
 
   useEffect(() => {
+    // El email a la persona sale por el remitente de MaKo: no hay un De del negocio que leer.
+    if (persona) return;
     const c = cacheRemitente.get(clave);
     if (c && Date.now() - c.t < CACHE_MS) return;
     let vivo = true;
@@ -463,7 +474,7 @@ export function EditorEmailGmail({ asunto, cuerpo, cuerpoHtml, remitente, onChan
       // Sin red o sin permiso: el De queda sin nombre. No se inventa un remitente.
       .catch(() => { if (vivo) setEstado(null); });
     return () => { vivo = false; };
-  }, [clave]);
+  }, [clave, persona]);
 
   const vinculados = estado?.vinculados ?? [];
   // El que queda elegido lo decide la MISMA función que usa el motor: si el paso guardó uno que ya no
@@ -494,8 +505,9 @@ export function EditorEmailGmail({ asunto, cuerpo, cuerpoHtml, remitente, onChan
     if (recien.length === 1) onChange({ remitente: recien[0] === nuevo.vinculados[0] ? null : recien[0] });
   };
 
-  // El «{ }» de un email al LEAD: lo que el envío resuelve (`datosParaElLead`, lib/nutricion.ts).
-  const datos = datosOfrecidos({ destino: 'lead', conLead: true });
+  // El «{ }» de un email al LEAD: lo que el envío resuelve (`datosParaElLead`, lib/nutricion.ts). El de la persona, el
+  // de su evento (`enviarEmailAPersona`, lib/email-persona.ts).
+  const datos = datosOfrecidos(persona?.contexto ?? { destino: 'lead', conLead: true });
 
   const insertarEnAsunto = (texto: string) => {
     const el = campoAsunto.current;
@@ -570,6 +582,12 @@ export function EditorEmailGmail({ asunto, cuerpo, cuerpoHtml, remitente, onChan
           {mako && <BotonMako lado={26} encendido={panelMako} deshabilitado={deshabilitado} title="Que MaKo te ayude a escribirlo" onClick={() => setPanelMako((v) => !v)} />}
         </div>
         <div className="mk-gmail-scroll">
+          {persona ? (
+            <div className="mk-gmail-fila" data-de-mako="">
+              <span style={rotuloFila}>De</span>
+              <span style={{ color: 'var(--ink)' }} title="Los mails de la cuenta salen siempre de MaKo">{etiquetaRemitente(REMITENTE_MAKO)}</span>
+            </div>
+          ) : (
           <div className="mk-gmail-fila">
             <span style={rotuloFila}>De</span>
             <button type="button" ref={setBtnDe} className="mk-gmail-de" disabled={deshabilitado || estado === undefined}
@@ -586,12 +604,13 @@ export function EditorEmailGmail({ asunto, cuerpo, cuerpoHtml, remitente, onChan
               </span>
             )}
           </div>
+          )}
           <div className="mk-gmail-fila">
             <span style={rotuloFila}>Para</span>
-            <span style={{ color: 'var(--ink)' }}>El lead</span>
+            <span style={{ color: 'var(--ink)' }}>{persona ? persona.para : 'El lead'}</span>
           </div>
           <div className="mk-gmail-fila">
-            <CampoConDatos ref={datosAsunto} datos={datos} fuera={FUERA_EMAIL} onValor={(v) => onChange({ asunto: v })} estiloCaja={{ flex: 1 }}>
+            <CampoConDatos ref={datosAsunto} datos={datos} fuera={fuera} onValor={(v) => onChange({ asunto: v })} estiloCaja={{ flex: 1 }}>
             <input ref={campoAsunto} value={asunto} placeholder="Asunto" aria-label="Asunto" disabled={deshabilitado}
               onChange={(e) => onChange({ asunto: e.target.value })} style={{ fontWeight: 600 }} />
             </CampoConDatos>
@@ -617,7 +636,7 @@ export function EditorEmailGmail({ asunto, cuerpo, cuerpoHtml, remitente, onChan
                 <button type="button" className="mk-gmail-boton" onMouseDown={sinRobarFoco} aria-pressed="true"
                   title="Volver al editor" aria-label="Volver al editor" onClick={salirHtml} style={iconoMono}>{'</>'}</button>
               </div>
-              <CampoConDatos ref={datosHtml} datos={datos} fuera={FUERA_EMAIL} onValor={alCambiarCrudo} estiloCaja={{ flex: '1 0 auto' }}>
+              <CampoConDatos ref={datosHtml} datos={datos} fuera={fuera} onValor={alCambiarCrudo} estiloCaja={{ flex: '1 0 auto' }}>
               <textarea ref={campoHtml} className="mk-gmail-html" value={crudo} readOnly={deshabilitado} spellCheck={false}
                 aria-label="HTML del email" onChange={(e) => alCambiarCrudo(e.target.value)} />
               </CampoConDatos>

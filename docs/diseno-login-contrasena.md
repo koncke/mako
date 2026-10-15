@@ -3,6 +3,26 @@
 > Pedido de Martín al enrolar el 2FA (14/10/2026, vía «Estrategia 3 cuentas»): «Falta login con correo y
 > contraseña, con su recuperación». Diseño para aprobar ANTES de construir: cambia cómo entra todo el mundo.
 > Las decisiones que esperan respuesta están al final.
+>
+> **Respuesta de Martín a la decisión 1 (15/10/2026), textual:** «Si, para mí también debería ser obligatorio
+> tenerlo, como todos. Pero si inicio con Google no debería pedirme la contraseña también.» Es una opción que no
+> estaba en la pregunta: **tener contraseña es OBLIGATORIO para todos** (él incluido), y es un camino de entrada
+> ALTERNATIVO a Google, nunca un paso más. Lo que eso cambia está marcado «(15/10)» abajo.
+>
+> **Decisión 5 contestada (15/10): B**, la misma fecha que el 2FA (21/10): el login pide las dos cosas, el factor
+> PRIMERO y la contraseña después, una pantalla cada una.
+>
+> **Construido (15/10, rama `contrasena`)**: la tabla (mig 0286), el hash y la política, entrar con correo y
+> contraseña (la MISMA decisión que Google, con el mismo segundo paso), crearla después del factor en el login
+> (también cuando el dispositivo recordado salta el código) y en Seguridad (con un código fresco), y
+> `destinoDeUsuario` para Automations. **Falta**: «Olvidé mi contraseña» (circuito 3), que sale por el destino «a la
+> persona» de Automations (en prod el 18/10), y las decisiones 2 y 4.
+>
+> **Construido (15/10, rama `contrasena-restablecer`)**: el circuito 3, con la tabla (mig 0287), el link en el
+> fragmento, el segundo factor (decisión 2 con A, **a confirmar por Martín**) y «¿Olvidaste tu contraseña?» en el
+> login. **NO cierra las sesiones abiertas** ni manda el aviso «tu contraseña cambió»: lo primero espera el
+> registro de sesiones de `docs/diseno-dispositivos-vinculados.md`, lo segundo un evento de Automations (ver
+> `docs/hallazgos-seguridad.md`). La decisión 4 sigue abierta.
 
 ## El problema que resuelve
 
@@ -32,7 +52,14 @@ contraseña, con su recuperación, que conviva con Google.
    → en `/login/restablecer` se pide **además el segundo factor** si la cuenta lo tiene (la app o un código de
    recuperación), como hace Google: quien robó el correo no alcanza a cambiar la contraseña con el link solo →
    contraseña nueva → **se cierran todas las sesiones abiertas** → aviso por correo.
-4. **Cambiar o quitar la contraseña** (adentro): la actual, o un segundo factor fresco. Aviso por correo.
+4. **Cambiar la contraseña** (adentro): la actual, o un segundo factor fresco. Aviso por correo. **(15/10) Ya no
+   se puede QUITAR**: es obligatoria. Lo que sí se hace es cambiarla, o restablecerla con el circuito 3.
+6. **(15/10) Exigir que la cree.** Quien no tiene contraseña queda con un pendiente, igual que con el 2FA: el
+   aviso en la app y, pasada la fecha (§decisión 5), **el login le pide crearla antes de dejarlo pasar**, en una
+   pantalla propia DESPUÉS del segundo factor (que en ese momento es fresco, así que no se vuelve a pedir). Entra
+   con Google como siempre; la contraseña se crea una vez y queda para el día que Google no esté. Es la misma
+   forma que el 2FA obligatorio (una fecha que se calcula, no una acción a una hora), y la misma regla:
+   `requiereContrasena(...)` pura, que leen el callback y la ruta del segundo paso.
 5. **Perdí Google**: entra con correo + contraseña + segundo factor. Si además perdió el segundo factor, un
    código de recuperación. Si además perdió los códigos: el reset lo hace el super admin (tanda 3), y si el que
    lo perdió todo ES el super admin, es un trámite a mano en la base (queda escrito en el runbook).
@@ -63,9 +90,8 @@ contraseña, con su recuperación, que conviva con Google.
 
 ## Lo que decide Martín
 
-1. ¿La contraseña es…
-   a) opcional para todos y recomendada para el super admin, con un aviso en Seguridad mientras no la tenga (recomendado);
-   b) obligatoria para el super admin?
+1. ~~¿La contraseña es opcional u obligatoria para el super admin?~~ **CONTESTADA (15/10): obligatoria para todos,
+   como camino alternativo a Google.**
 2. Recuperar la contraseña:
    a) pide además el segundo factor si la cuenta lo tiene, como Google (recomendado);
    b) sólo el link del correo.
@@ -76,3 +102,14 @@ contraseña, con su recuperación, que conviva con Google.
 4. Chequear las contraseñas filtradas con Have I Been Pwned (sólo sale el comienzo del hash):
    a) sí (recomendado);
    b) no.
+5. **(15/10, nueva) Desde cuándo se le pide crearla** sin trabarle la entrada a nadie el primer día:
+   a) con una fecha PROPIA, posterior al corte del 2FA (por ejemplo una semana después), con los mismos avisos:
+      el día del corte del 2FA nadie tiene que hacer dos cosas nuevas a la vez (recomendado);
+   b) la misma fecha que el 2FA (21/10): ese día el login pide las dos cosas, una pantalla cada una;
+   c) que no bloquee nunca: un pendiente visible hasta que la cree. Es lo más suave, y deja la obligación de
+      adorno: quien no la crea queda igual que hoy el día que pierde Google.
+
+> **Para que salga a tiempo, el orden importa más que antes** (decisión 3): el link de «Olvidé mi contraseña» sale
+> por el destino «a la persona» de Automations (tanda 2). Con la contraseña obligatoria, ese destino tiene que
+> estar ANTES de la fecha de la decisión 5: una contraseña obligatoria sin forma de recuperarla es peor que no
+> tenerla.

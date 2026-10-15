@@ -1320,6 +1320,52 @@ Antes de escribir un límite —de tamaño, de progreso, de espaciado— comprob
 el límite real de la capa de abajo. Un número tuyo por encima del suyo no protege:
 promete.
 
+# NINGUNA pantalla se diseña de cero: se COPIA de una app que ya resolvió eso
+
+Pedido de Martín, textual, el 15/10/2026, después de rechazar dos pantallas seguidas (la de
+seguridad y la del Centro de Operaciones): **«te pido nuevamente que investigue y copie
+completamente el diseño de otra app similar… Por favor que sea como regla, sino estamos
+siempre con lo mismo»**. El «nuevamente» es el dato: ya lo había pedido antes, estaba en una
+memoria, y volvió a pasar — por eso ahora vive acá, que es lo que se lee antes de escribir.
+
+**Y la evidencia de que funciona es todo el producto.** Lo que en este repo salió bien está
+copiado, y se nombra por su fuente: el Video Editor es CapCut, el Image Editor es Canva, el
+Web Generator es Gamma, el Dashboard es Looker Studio, `/api-mako` es GitHub (con su CSS de
+Primer limitado a `.gh`), los Chats son respond.io. Lo que se dibujó «con buen criterio» —el
+panel de seguridad, el Centro de Operaciones— se rechazó a la primera, las dos veces con la
+misma palabra: *horrible*.
+
+El procedimiento, y no es opcional:
+
+1. **Antes de escribir una línea, se elige la app de referencia y SE ABRE.** No se recuerda:
+   se mira. Si hace falta, en el Chrome de Martín. Se guardan capturas de lo que se va a
+   copiar.
+2. **Si no se puede ver** —pide login, es de pago, no existe una equivalente— **se AVISA y se
+   frena**, en vez de inventar. Una pantalla inventada cuesta la tanda entera; preguntar
+   cuesta una frase. Y si se usa la documentación oficial en lugar de la app, se dice cuál y
+   se dice que es eso.
+3. **Se copia la ESTRUCTURA, no la marca**: la jerarquía, cómo agrupa, qué entra en una fila,
+   qué se esconde detrás del detalle, dónde viven las acciones destructivas, cuánto respira
+   cada bloque. Los colores, la tipografía y los íconos son los de la casa — un `var(--token)`
+   nuestro, nunca el hex de la otra app.
+4. **La fuente se NOMBRA en el commit y en el relevo** («copiado de la pantalla de seguridad
+   de Google, 15/10»). Sin eso, el que venga en tres semanas vuelve a diseñar de memoria y
+   estamos otra vez acá.
+5. **Lo que el dueño ya marcó como feo no se repite**: tachos rojos sueltos en una lista,
+   campos pegados sin aire, un botón gigante al lado de un campo chico, un contador que no
+   dice de qué («Te quedan 10»), filas idénticas que no se distinguen entre sí, y cuatro
+   bloques apilados del mismo peso sin jerarquía.
+
+⚠️ **Y vale para el REDISEÑO igual que para lo nuevo.** «Mejorar» una pantalla existente sin
+abrir una referencia es diseñar de memoria con otro nombre: es exactamente lo que produjo las
+dos que se rechazaron.
+
+⚠️ **Y la referencia es de una app SIMILAR, no de la primera que se nos ocurra.** Lo que se
+busca es quién ya resolvió ESE problema: para una pantalla de cuenta y seguridad, Google;
+para un tablero de trabajos y su estado, lo que usa la gente que mira corridas (Vercel,
+GitHub Actions, Linear); para una bandeja, un cliente de correo o de chat. Si no aparece
+ninguna, ése es justamente el caso del punto 2.
+
 # La pantalla dice QUÉ pasó; el PORQUÉ va al código
 
 Pedido tres veces el mismo día y la tercera con todas las letras: **«el mensaje del botón de
@@ -5004,6 +5050,50 @@ esa fila. El duplicado real no es el doble clic: es la respuesta que se pierde (
 - **Con clave, el registro es estricto** (sin base, no se crea nada: sin fila no hay cómo
   deduplicar), **y se abre DESPUÉS de los chequeos que pueden cortar**: una fila en 'creando'
   dejada por un 409 hace esperar al reintento legítimo.
+
+# A la Ticketera va lo que DECIDE Martín, no lo que a vos te falta decidir
+
+Pedido suyo, textual, el 15/10/2026, mirando el mazo: **«Estoy viendo que en la ticketera me
+dejaste una cantidad de preguntas que podias haberlas resuelto solo... NO hagas eso, me estas
+cargando de trabajo al pedo... Solo las desiciones importantes. Usa criterio hay cosas muy
+obvias»**.
+
+El número que lo justifica: ese día había **56 decisiones pendientes** y al revisarlas una por
+una quedaron **20**. Las otras 36 las contestaba una regla que ya estaba escrita, o eran
+convenciones de diseño, o orden interno de trabajo, o preguntas que el propio chat podía
+resolver investigando. Cada una de ésas le cuesta a Martín leer, entender el contexto y elegir —
+y mientras tanto tapan las que sí importan.
+
+**La prueba, antes de publicar: ¿puedo contestar esto con lo que YA está escrito —en AGENTS.md,
+en un `docs/hallazgos-*`, en una memoria— o mirando el código?** Si la respuesta es sí, no se
+publica: se decide, se hace, y se deja anotado qué se decidió y por qué.
+
+NO se publica:
+
+- Lo que ya contesta una regla de la casa («¿la barra de lote va oscura o clara?» lo contesta
+  el tema; «¿qué se pliega en la sidebar?» lo contesta que la sidebar nunca scrollea).
+- Convenciones de diseño y de copy, salvo que él las haya marcado como suyas.
+- El ORDEN en que hacés tu propio trabajo, y los refactors internos.
+- **«¿Revisaste X?»** y **«¿están bien los que elegí?»**: eso es pedirle que revise, y ya dijo
+  que si es para ver cómo quedó lo mira él cuando quiera.
+- **«¿Qué es X?»** sobre algo que propusiste vos. Eso se investiga.
+- **«¿Arrancamos?»** sobre algo que él ya pidió.
+- Lo mismo preguntado dos veces con otras palabras: antes de publicar, `listar` y buscar si ya
+  está.
+
+SÍ se publica:
+
+- Precio, alcance comercial y qué incluye lo que se vende.
+- Lo que se le MANDA, se le cobra o se le quita a un cliente real, y los accesos de personas.
+- Seguridad cuyo efecto no se deshace (echar sesiones abiertas, exigir algo con fecha).
+- Gasto de IA por unidad, y qué modelo paga.
+- Aprobar un diseño que él va a mirar igual.
+- Fechas y compromisos.
+
+⚠️ **Y una decisión se escribe para que se pueda contestar sin contexto.** Las opciones son
+concretas y excluyentes, y el contexto dice qué se rompe con cada una. Si para contestar hay
+que abrir el código, falta trabajo tuyo, no decisión suya — la prueba está en que una de las 56
+volvió contestada con **«No entiendo esta pregunta»**.
 
 # La cosecha: lo que aprende un subagente no vuelve solo
 

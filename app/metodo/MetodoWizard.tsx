@@ -11,6 +11,9 @@ import Link from '@/app/_ui/Link';
 import { useEffect, useState, type CSSProperties } from 'react';
 import { MakoLogo } from '../_components/MakoBrand';
 import type { ServicioMetodo } from '@/lib/metodo-catalogo';
+// El perfil del negocio se completa donde viva hoy la sección (lib/secciones-negocio.ts): desde el 15/10/2026,
+// Second Brain. Nunca `/onboarding`, que es sólo el wizard del primer ingreso.
+import { rutaSeccion } from '@/lib/secciones-negocio';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -194,7 +197,7 @@ export function MetodoWizard({ servicios: SERVICIOS_METODO }: { servicios: Servi
             })}
           </div>
           <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 22, flexWrap: 'wrap' }}>
-            <Link href="/onboarding" style={{ ...btnDark, textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>Completar el perfil del negocio →</Link>
+            <Link href={rutaSeccion('archivero')} style={{ ...btnDark, textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>Completar el perfil del negocio →</Link>
             <Link href="/inicio" style={{ ...btnGhost, textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>Volver al inicio</Link>
           </div>
         </div>

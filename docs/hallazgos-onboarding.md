@@ -1743,3 +1743,77 @@ después puede no ser una opción.
 
 *Ventana del 13/10/2026 · chat de Claude Design (cuenta claude2) · el prototipo vive en el canvas y
 en el scratchpad; cada hallazgo de producción se verificó contra el código antes de escribirlo.*
+
+## ¿Se puede sacar el hub de /onboarding? Las diez secciones, medidas (15/10/2026)
+
+Pedido de Martín (14/10/2026), textual: «Y revisa si ya podemos eliminar por completo la tab de onboarding
+porque esos datos ya viven en otros lados. Creo que algunos si, como en la nueva funcionalidad "offer", pero
+otros aún no». Es un RELEVAMIENTO: no se borró nada.
+
+**El diagnóstico obvio era el equivocado.** Se esperaba que unas secciones ya tuvieran otro hogar (Offer) y
+otras no. Las diez lo tienen, y es el MISMO: `/second-brain` monta las diez vistas del hub, los mismos
+componentes con las mismas rutas (`app/second-brain/AreasHub.tsx` → `vistasDe`), más Panorama, Cliente,
+Productos, la oferta como entidad y el funnel. Medido en prod: los 12 negocios activos están en la capa
+`completo` o `agencia`, que ven Second Brain (sólo ws5, `pm` y pausado, no lo ve).
+
+| Sección | Qué captura | Quién lo lee (fuera del onboarding) | Otra pantalla que lo captura HOY | Veredicto |
+|---|---|---|---|---|
+| Matriz | los guiones de cada celda avatar × razón y su estado | Video Generator, MaKo, la API (10 lectores, los de razones) | Second Brain → Razones → Matriz · Ads Writer (`AdsWriterApp` monta `MatrizView`) | **SE VA** |
+| Diagnóstico | la fase del negocio (6 preguntas y el canal) | CRM, Objectives, Automations, MaKo… (14) | Second Brain → Norte · el chat de Offer, si no había uno (`guardarFaseSiNoHay`) · el wizard (paso `fase`) | **SE VA** |
+| El Archivero | documentos y webs → los campos del perfil | casi todo, vía `perfilNegocioTexto`/`getAnswers` (42) | Second Brain → Documentos · el wizard (paso `archivero`) | **SE VA** |
+| Oferta | las respuestas del brief: a qué se dedica y la oferta | Offer, ofertas, contexto de MaKo (5 + los del brief) | Second Brain → Oferta (la entidad Y el brief, el mismo `CamposNegocio`) · Offer crea la fila de `ofertas` | **SE VA** |
+| Lead Magnet | los lead magnets | Automations, Crear con IA, MaKo (11) | Second Brain → Lead Magnet · el onboarding de Ads Writer · Automations (`setEntregables`) | **SE VA** |
+| Persona | fotos y descripción de la cara de los anuncios | Video Generator, video-planner (7) | Second Brain → Voz → Persona · onboarding de Ads Writer · onboarding de Video Generator (`ElegirFoto`) | **SE VA** |
+| Personalidad | las respuestas de la personalidad de voz | los guiones (`lib/razones.ts`) y el contexto de MaKo | Second Brain → Voz → Personalidad · onboarding de Ads Writer · MaKo por chat | **SE VA** |
+| Avatares | los avatares del negocio | Ads Writer, Ads Analyst, Automations… (18) | Second Brain → Avatares · Ads Writer (onboarding y app) · Ads Analyst | **SE VA** |
+| Razones | las razones de compra por avatar | Video Generator, MaKo, la API (10) | Second Brain → Razones · Ads Writer (`/api/onboarding/razones`) · Video Generator (cargar guiones) | **SE VA** |
+| Ángulos | la recomendación de formatos que arma MaKo (el cliente no escribe nada: regenera) | **NADIE la usa para producir**: sólo la dibujan el grafo de Second Brain y la devuelve la API | Second Brain → Razones → Ángulos | **SE VA**, y es la que NADIE LEE |
+
+⚠️ **Ángulos es trabajo a cambio de nada.** `elegirAngulo` (lib/angulos-formatos.ts), que es lo que elige el
+formato de cada guion, elige de la biblioteca ENTERA y no mira `getRecomendaciones`: lo dice su propio
+comentario («a diferencia de recomendarFormatos»). Cada «regenerar» paga IA para una lista que ningún
+generador consulta. Sacarla también de Second Brain es otra decisión.
+
+**Lo que NO se puede borrar con el hub**, y por qué:
+- **La ruta `/onboarding`**: ahí vive el wizard del primer ingreso. Lo mandan `lib/tab-access.ts` y
+  `app/inicio/page.tsx` mientras el onboarding esté pendiente. Lo que se va es la rama del hub en
+  `app/onboarding/page.tsx` (la que dibuja `OnboardingTabs` cuando ya está `done`).
+- **Las vistas de `app/onboarding/*View.tsx`, `Archivero.tsx` y `CamposNegocio.tsx`**: las importan Second Brain
+  y Ads Writer.
+- **`/api/onboarding/*`**: las usan Ads Writer, Video Generator, Second Brain, Automations y la API de MaKo.
+- **16 links a `/onboarding` que hoy caen en el hub** tienen que ir a la sección de Second Brain que corresponda (se revisan de a uno: alguno puede querer el wizard): Carousels, Reels,
+  Stories, Video Generator («Onboarding → Persona»), Método, `/m/configurar` (y su respaldo en
+  `lib/movil-rutas.ts`), `ConfigTabs`, `PanelAgencia`, `lib/mako-capacidades.ts` («Fábrica de creativos»),
+  `lib/api-mako/tipos.ts` (el área negocio) y el ítem `onboarding` de `USER_NAV` en `app/_components/nav.ts`.
+
+*15/10/2026 · chat «Offer» (cuenta claude1) · medido con grep sobre `app/` y `lib/` y una consulta a
+`workspaces` en prod; no se miró en el navegador.*
+
+### Ejecutado el 15/10/2026 (`a40182e`): el hub se fue, y lo que enseñó
+
+Martín aprobó la tabla: «Si, ponlo en second brain… varias cosas de allí irán a sus propias tabs, como la de
+Writer y la de Avatar con IA». Lo que no se deduce del commit:
+
+- **Second Brain es el lugar de HOY, no el final.** Por eso ningún link escribe `/second-brain?area=…`:
+  pide la sección (`rutaSeccion`, `lugarSeccion`, lib/secciones-negocio.ts) y una sola tabla dice dónde vive.
+  Cuando Persona se mude a «Avatar con IA» o la Matriz a «Writer», se cambia su fila. `candidata` anota a qué
+  tab PARECE que va cada una: Martín no dijo cuáles, es una suposición.
+- **Los links viejos nunca llevaban a donde decían.** El hub abría en «Matriz» cuando no había `?tab=`, y
+  los «Complétalo aquí» de Carousels, Reels, Stories, el anuncio del Video Generator y Método prometían
+  completar el PERFIL: aterrizaban en la matriz de guiones. Ahora van a Documentos, que es donde MaKo pregunta
+  los huecos del perfil de a uno.
+- **Una sub-pestaña de Second Brain no se podía pedir por URL**: `?area=` abría el área en su primera vista.
+  Ahora `?vista=` la elige, validada contra `SUBVISTAS`. ⚠️ El reset de la sub-pestaña corre también al montar:
+  sin la guarda de la «área de entrada», pisaba la vista pedida con la primera.
+- **La ruta /onboarding sigue**: es el wizard del primer ingreso. Los que siguen nombrándola van todos al
+  wizard (`AL_WIZARD` en tests/onboarding-hub-retirado.test.ts, cada uno con su motivo); un link nuevo al hub
+  frena ese test.
+
+⚠️ **DECISIÓN PENDIENTE DE MARTÍN: «Ángulos».** Se quedó en Second Brain → Razones → Ángulos porque él no eligió
+sacarla. Ningún generador lee sus recomendaciones (`elegirAngulo` elige de la biblioteca entera) y cada
+«regenerar» paga IA. La nota está también en su fila de `DONDE_SE_EDITA`.
+
+**Vive en:** `lib/secciones-negocio.ts` · `app/onboarding/tabs-catalogo.ts` · `app/onboarding/page.tsx` ·
+`app/second-brain/AreasHub.tsx` · `app/second-brain/VistaCerebro.tsx`
+
+*15/10/2026 · chat «Offer» (cuenta claude1) · no se miró en el navegador.*

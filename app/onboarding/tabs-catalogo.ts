@@ -1,53 +1,44 @@
 // =============================================================================
-// Las tabs del hub de Onboarding: la lista y cómo se lee de la URL
+// Las pestañas del hub de Onboarding que ya NO existe, y a dónde lleva cada una
 // =============================================================================
-// ⚠️ ESTO VIVE EN UN `.ts` Y NO ADENTRO DE `OnboardingTabs.tsx`, y no es prolijidad:
-// es la regla de «`'use client'` es una frontera de DATOS» de AGENTS.md, del lado
-// que tira el build.
+// El hub (diez pastillas debajo del wizard, en el menú de la foto) se RETIRÓ el 15/10/2026: las diez
+// secciones ya se editaban en /second-brain con los mismos componentes (docs/hallazgos-onboarding.md →
+// «¿Se puede sacar el hub de /onboarding?»). La ruta /onboarding sigue: ahí vive el wizard del primer
+// ingreso, al que mandan lib/tab-access.ts y app/inicio mientras esté pendiente.
 //
-// `tabDeUrl` nació exportada desde `OnboardingTabs.tsx`, que lleva `'use client'`.
-// Para quien la importa desde el grafo del SERVER eso no es una función: es una
-// REFERENCIA de cliente. No falla al importar — falla al LLAMARLA, y el 29/09/2026
-// eso dejó `/onboarding` entero en «Esta pantalla se rompió al dibujarse», en
-// producción, con un digest y sin nombrar ni el archivo ni la línea.
+// Lo que queda de este archivo es la TRADUCCIÓN de los links viejos: un `/onboarding?tab=persona`
+// guardado en un marcador, un aviso ya mandado o una pantalla que no se actualizó llega a la MISMA
+// sección donde se edita hoy (lib/secciones-negocio.ts), no a una portada donde buscarla.
 //
-// Y no lo cazó nada de la red que ya existe: `tsx` IGNORA la directiva, así que el
-// typecheck pasó en verde; los tests leen los fuentes como TEXTO, así que también; y
-// la verificación en el navegador de esa tanda abrió /crm, no /onboarding. Esto lo
-// caza `npm run build`, mirar la pantalla, o nadie.
+// ⚠️ ERAN ONCE: la undécima era «El funnel», retirada el 29/09/2026 (el embudo se configura en el pop-up
+// del CRM). Un `?tab=funnel` cae a la portada de Second Brain, igual que un valor inventado.
 //
-// Un `.ts` sin `'use client'` ni `server-only` lo pueden importar los dos lados.
+// ⚠️ VIVE EN UN `.ts` SIN `'use client'` a propósito (AGENTS.md, «`'use client'` es una frontera de
+// DATOS»): la llama el page.tsx del server. El 29/09/2026 una función de acá exportada desde un
+// `'use client'` dejó /onboarding entero en «Esta pantalla se rompió al dibujarse».
 
-/**
- * Las diez pastillas del hub, en el orden en que se dibujan.
- *
- * ⚠️ ERAN ONCE: la undécima era «El funnel», con el editor completo adentro, y se
- * retiró el 29/09/2026. El embudo entero se configura en el pop-up del CRM.
- * Un `?tab=funnel` viejo ya no existe y cae a la primera, que es lo correcto: no
- * rompe, y la pantalla que buscaba se mudó a otra tab.
- */
-export type TabKey =
-  | 'matriz' | 'diagnostico' | 'archivero' | 'oferta' | 'entregable' | 'persona'
-  | 'personalidad' | 'avatares' | 'razones' | 'angulos';
+import { rutaSeccion, type SeccionNegocio } from '@/lib/secciones-negocio';
 
-export const TAB_KEYS: TabKey[] = [
-  'matriz', 'diagnostico', 'archivero', 'oferta', 'entregable', 'persona',
-  'personalidad', 'avatares', 'razones', 'angulos',
-];
+/** Las pastillas que tenía el hub, con la sección donde se editan hoy. */
+export const TAB_VIEJA_A_SECCION = {
+  matriz: 'matriz',
+  diagnostico: 'diagnostico',
+  archivero: 'archivero',
+  oferta: 'oferta',
+  entregable: 'entregable',
+  persona: 'persona',
+  personalidad: 'personalidad',
+  avatares: 'avatares',
+  razones: 'razones',
+  angulos: 'angulos',
+} as const satisfies Record<string, SeccionNegocio>;
 
-/** La tab por defecto: la que se abre sin `?tab=` y a la que cae un valor inventado. */
-export const TAB_INICIAL: TabKey = 'matriz';
+export type TabVieja = keyof typeof TAB_VIEJA_A_SECCION;
 
-/**
- * La tab que pide la URL.
- *
- * Existe para poder MANDAR a alguien a una de las once: el panel de tracking que ve el
- * cliente en su landing dice «Activar la landing como entrada de leads», y esa casilla
- * vive en la tarjeta de entradas de «El funnel», la décima. Sin el parámetro, ese botón
- * deja a la persona en «Matriz» buscando algo cuyo nombre no conoce.
- *
- * Un valor que no está en el catálogo no rompe: abre la primera.
- */
-export function tabDeUrl(v?: string): TabKey {
-  return TAB_KEYS.includes(v as TabKey) ? (v as TabKey) : TAB_INICIAL;
+/** La portada: «todo lo que MaKo sabe de tu negocio». A dónde va un `/onboarding` sin `?tab=`. */
+export const DESTINO_SIN_TAB = '/second-brain';
+
+/** A dónde va un link viejo al hub: la sección que nombra su `?tab=`, o la portada. */
+export function destinoDeTabVieja(v?: string | null): string {
+  return v && Object.hasOwn(TAB_VIEJA_A_SECCION, v) ? rutaSeccion(TAB_VIEJA_A_SECCION[v as TabVieja]) : DESTINO_SIN_TAB;
 }

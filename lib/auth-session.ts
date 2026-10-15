@@ -275,6 +275,14 @@ export type Preauth = {
   next: string;
   /** La foto de Google, para `registrarLogin` cuando el login se COMPLETE (no antes). */
   foto?: string;
+  /**
+   * El segundo factor YA PASÓ, y con cuál (15/10/2026). Lo pone la ruta del segundo paso cuando
+   * falta crear la contraseña obligatoria: el paso intermedio sigue, pero la pantalla que queda es
+   * la de la contraseña, y al guardarla la sesión se abre con ESTE factor, sin pedir otro código.
+   */
+  mfa?: Amr;
+  /** «Recordar este dispositivo», elegido en el segundo paso: se aplica al terminar. */
+  recordar?: boolean;
   exp: number;
 };
 
@@ -301,6 +309,7 @@ export function verificarPreauth(token: string | undefined | null): Preauth | nu
     if (typeof p.exp !== 'number' || p.exp * 1000 < Date.now()) return null;
     if (p.rol !== 'admin' && p.rol !== 'usuario') return null;
     if (typeof p.sub !== 'string' || typeof p.email !== 'string') return null;
+    if (p.mfa !== undefined && !AMRS.includes(p.mfa)) return null;
     return { ...p, next: destinoSeguro(p.next) };
   } catch {
     return null;

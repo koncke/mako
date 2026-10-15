@@ -34,7 +34,9 @@ import {
   valoresDelNombre, valoresDelLead, valoresConZona, valoresDelProducto, valoresDeEtiquetas, valoresDePagos,
   valoresDelCurso, valoresDelPerfil, valoresDelLeadMagnet, valoresDelMomento, valoresDelCobro,
   valoresDeLaProximaReunion, valoresDeRespuestasAgenda, valoresDelPago, valoresDeLoEscrito, valoresDelAnalisis, TOPE_ESCRITO,
+  valoresDeRestablecer,
 } from '../lib/variables-del-lead';
+import { datosDeLaPersona } from '../lib/aviso-evento';
 import { detalleDelAviso } from '../lib/calcom';
 import { VARIABLES_LEAD, VARIABLES_NEGOCIO, esVariableConocida } from '../lib/template-vars';
 import { CLAVES_DE_CUOTA } from '../lib/cobranza';
@@ -97,6 +99,9 @@ function porFuente(): Record<FuenteDato, Set<string>> {
     escrito: set(valoresDeLoEscrito('¿Puedo cambiar la hora?')),
     // 13/10/2026: lo que pasa el AI Analyst del Dashboard al terminar (`valoresDelAnalisis`).
     analisis: set(valoresDelAnalisis({ hoja: 'Ventas', resumen: 'Subieron.', hallazgos: ['Uno', 'Dos'], link: 'https://x/dashboard?hoja=1', origen: 'cron' })),
+    // 15/10/2026: lo que pasa Seguridad al pedir restablecer la contraseña (`valoresDeRestablecer`, por su emisor
+    // `avisarPedidoDeRestablecer`, lib/restablecer-aviso.ts).
+    cuenta: set(valoresDeRestablecer({ usuarioId: 7, link: 'https://x/restablecer?t=1' })),
   };
 }
 
@@ -155,7 +160,9 @@ test('⚠️ TODO lo que el árbol ofrece tiene quien lo PONGA: cada clave sale 
   assert.match(res, /if \(zona && pide\('momento'\)\) Object\.assign\(out, valoresDelMomento\(Date\.now\(\), zona\)\);/);
   // El árbol: cada grupo con ícono, y ninguno vacío en el destino más amplio.
   for (const g of GRUPOS_VARIABLES) assert.ok(g.icono, `${g.key} sin ícono`);
-  assert.equal(datosOfrecidos({ destino: 'equipo', conLead: true, conCuota: true, conAnalisis: true }).length, GRUPOS_VARIABLES.length);
+  // (15/10/2026: «Cuenta de MaKo» es SÓLO del mail a una persona: el equipo dibuja todos los demás, y ella el suyo.)
+  assert.equal(datosOfrecidos({ destino: 'equipo', conLead: true, conCuota: true, conAnalisis: true }).length, GRUPOS_VARIABLES.length - 1);
+  assert.ok(datosOfrecidos(datosDeLaPersona('contrasena_restablecer')!).some((g) => g.key === 'cuenta'), 'el mail a la persona no tiene su grupo');
   assert.ok(VARIABLES_AVISO.filter((v) => !v.oculta).length >= 70, 'se pidieron MUCHOS más datos');
   // La previa tiene con qué dibujar cada uno.
   const ej = valoresDeEjemplo();

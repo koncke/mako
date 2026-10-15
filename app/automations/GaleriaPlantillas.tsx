@@ -54,7 +54,7 @@ import { IconoMenu, type NombreIconoMenu } from '@/app/_ui/iconos-menu';
 import { Dropdown } from '@/app/components/Dropdown';
 import { Icon } from '@/app/_components/icons';
 import {
-  PLANTILLAS, seccionesParaCron, seccionesDeEtiquetas, rotuloDeEleccion, filtrarPlantillas, filtroDeValores, alternarFiltroGaleria,
+  plantillasPara, seccionesParaCron, seccionesDeEtiquetas, rotuloDeEleccion, filtrarPlantillas, filtroDeValores, alternarFiltroGaleria,
   gruposDelFiltroGaleria,
   type PlantillaAutomatizacion, type PideCron, type EtiquetaParaPlantilla,
 } from '@/lib/plantillas-automatizaciones';
@@ -64,6 +64,7 @@ import { useEtiquetasTodas } from '@/app/_components/etiquetas-cliente';
 import { BarraPideselo } from './ChatMako';
 import { CSS_NUEVO } from './NuevoPlaceholder';
 import { IconoDisparador } from './IconosDisparador';
+import { usePlataforma } from './plataforma';
 
 /** Lo que contesta el server al crear una desde una plantilla. */
 export type CreadaGaleria = {
@@ -181,7 +182,9 @@ export function GaleriaPlantillas(p: {
   const cerrar = useCallback(() => { if (!enVuelo.current) props.current.onCerrar(); }, []);
 
   const filtro = filtroDeValores(filtros);
-  const visibles = useMemo(() => filtrarPlantillas(PLANTILLAS, { texto, canal: filtro.canal, objetivo: filtro.objetivo }), [texto, filtro.canal, filtro.objetivo]);
+  // Las de SuperAdmin (`soloPlataforma`: la de restablecer la contraseña) sólo en el ws de la plataforma.
+  const plataforma = usePlataforma();
+  const visibles = useMemo(() => filtrarPlantillas(plantillasPara({ plataforma }), { texto, canal: filtro.canal, objetivo: filtro.objetivo }), [texto, filtro.canal, filtro.objetivo, plataforma]);
 
   const crear = async (pl: PlantillaAutomatizacion, disparador: string | null) => {
     if (enVuelo.current) return;

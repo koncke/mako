@@ -18,7 +18,6 @@ const TABS = [
   // se editan en el pop-up del CRM, y el resto del embudo (cómo entra la gente, las
   // transiciones, las nutriciones) vive en Onboarding → El funnel. Dejar la pastilla
   // apuntando a un redirect sería un destino que rebota.
-  { label: 'Onboarding', href: '/onboarding' },
   { label: 'Equipo', href: '/equipo' },
   { label: 'Método', href: '/metodo', adminOnly: true },
 ];

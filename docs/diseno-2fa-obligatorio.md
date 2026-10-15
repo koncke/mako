@@ -146,11 +146,11 @@ El mail no es un `sendEmail` en el camino del login: es una automatización de S
   | `ingreso_at` | Cuándo entró. El ISO lo formatea el resolver en la hora del negocio. | sí |
   | `ingreso_ubicacion` | Ubicación aproximada. Opcional: ausente si falta, en su renglón. Sólo si Martín elige guardarla. | sí |
   | `link_dispositivos` | Tus dispositivos: appUrl + `/perfil/seguridad#dispositivos`. Lo arma Automations; NO es un dato del evento. | sí |
-  | `ingreso_usuario_id`, `ingreso_negocio_id`, `ingreso_dispositivo_id` | El destino, la zona y el dedup | no (ocultas) |
+  | `usuario_id`, `ingreso_negocio_id`, `ingreso_dispositivo_id` | El destino, la zona y el dedup | no (ocultas) |
 
 - **El destino:** a QUIEN ENTRÓ.
   - `DestinoMensaje` suma `'usuario'`.
-  - La dirección la da `destinoDeUsuario(ingreso_usuario_id, 'email', 'aviso')` (de Seguridad), nunca un dato del evento.
+  - La dirección la da `destinoDeUsuario(usuario_id, 'email', 'aviso')` (de Seguridad), nunca un dato del evento.
   - Sale por el remitente de la plataforma (`equipo@hola-mako.com`), nunca por el del negocio.
 - **El link no es una acción**: lleva a la pantalla detrás del login con el 2FA. Nunca un «cerrar esa sesión» por GET, ni
   nada que inicie sesión: un mail de seguridad que entra con un clic es lo que copia un phishing.
@@ -158,3 +158,39 @@ El mail no es un `sendEmail` en el camino del login: es una automatización de S
   a X de un ingreso nuevo».
 - **«Pasó Google y falló el código»** sería otro evento (`ingreso_frenado`, a los 3 fallos). Es una decisión de Martín: no
   se arma hasta que conteste.
+
+## 9. Restablecer la contraseña: lo de Automations (CONSTRUIDO, 15/10)
+
+> Martín decidió que la contraseña es OBLIGATORIA desde el 21/10, como el 2FA (por Ciberseguridad). Una contraseña
+> obligatoria sin «Olvidé mi contraseña» es peor que no tenerla, y el link sale por el destino «a la persona». Fechas
+> acordadas: la rama el 17/10, en prod el 18/10 y la prueba el 19/10 con la cuenta de Martín.
+
+- **El evento:** `contrasena_restablecer` (aviso `seguridad-contrasena-restablecer`).
+  - El propósito lo DECLARA el evento: `persona: 'restablecer'`. Nunca se deduce de «trae un secreto»: así el link iría al
+    correo de respaldo, que la mayoría no tiene.
+  - Se ofrece en el CRON sólo en el ws de la plataforma (`eventosOfrecidos`).
+- **El emisor:** Seguridad llama `avisarPedidoDeRestablecer(usuarioId, link)` (lib/restablecer-aviso.ts) adentro de su
+  `after()`.
+  - Emite en el ws de la plataforma, sin `texto` (el feed) y sin dedup.
+  - Contesta «corrió», «apagado» o «no se pudo leer». Si el mail salió no lo sabe.
+- **La tarjeta «Email a la persona»:** es el email de siempre, en una fila de un evento de una persona (`pasosDelEvento` →
+  `email_persona`).
+  - El De es fijo, el de MaKo. El Para es «Quien pide restablecer su contraseña». Su «{ }» trae el link.
+  - Lo manda `enviarEmailAPersona` (lib/email-persona.ts), con `destinoDeUsuario(usuario_id, 'email', proposito)` y
+    `sendEmail({ from: REMITENTE_MAKO })`.
+- **El dato secreto** (`VariableAviso.secreto`; hoy `{{link_restablecer}}`, mañana `{{codigo}}`):
+  - nunca se guarda: `sinSecretos` en `abrirCorrida` y en `avanzar`, también en el reintento;
+  - un evento que lo trae no lleva DELAY (tampoco suelto);
+  - sólo va en el cuerpo del mail: ni en el asunto, ni en la vista previa, ni en la tarjeta del grupo, ni con «MaKo lo
+    adapta»;
+  - el mail tiene que llevarlo;
+  - un error que lo repite sale tapado (`sinValoresSecretos`).
+- **La plantilla:** «Restablecer Contraseña» está en `PLANTILLAS_PLATAFORMA`, aparte de la galería de los negocios.
+  - La ven y la crean sólo en la plataforma (`plantillasPara`, `crearDesdePlantilla` con `plataforma`).
+  - La API de MaKo hace lo mismo (`listar_plantillas_automatizaciones`, `crear_automatizacion_desde_plantilla`).
+- **Lo que falta para que salga un mail de verdad:**
+  - que Seguridad suba `lib/destino-usuario.ts` y su ruta;
+  - crear la fila con la plantilla en el ws de la plataforma y prenderla (Estrategia: la crea Automations, con la prueba
+    antes);
+  - probarla con martinkoncke@gmail.com.
+  - **Sin la fila prendida no sale ningún mail**: los eventos arrancan vacíos.

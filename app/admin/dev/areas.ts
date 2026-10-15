@@ -329,7 +329,7 @@ export const AREAS: AreaDev[] = [
     slug: 'onboarding', titulo: 'Onboarding Wizard', familia: 'Operate', grupo: 'Onboarding',
     estado: 'listo', verEnApp: '/onboarding',
     alcance: 'El shell bloqueante. Es el proyecto con MÁS tareas abiertas del tablero.',
-    vive: ['app/onboarding/page.tsx', 'app/onboarding/OnboardingWizard.tsx', 'app/onboarding/OnboardingTabs.tsx', 'app/_components/WizardShell.tsx', 'app/_components/wizard-progreso.ts', 'lib/onboarding-state.ts', 'lib/onboarding.ts', 'lib/onboarding-extract.ts'],
+    vive: ['app/onboarding/page.tsx', 'app/onboarding/OnboardingWizard.tsx', 'app/onboarding/tabs-catalogo.ts', 'lib/secciones-negocio.ts', 'app/_components/WizardShell.tsx', 'app/_components/wizard-progreso.ts', 'lib/onboarding-state.ts', 'lib/onboarding.ts', 'lib/onboarding-extract.ts'],
     proyectos: ['Feature: Onboarding'],
   },
   {
@@ -719,7 +719,7 @@ export const AREAS: AreaDev[] = [
     slug: 'creative-factory', titulo: 'Creative Factory', familia: 'Content Machine', grupo: 'Ads',
     estado: 'listo',
     alcance: 'Las capas que arman los creativos: avatares segmentables, razones de compra, la matriz avatar×razón con su copy y guion, el entregable tangible, la cara de marca y la biblioteca de formatos.',
-    vive: ['lib/razones.ts', 'lib/avatares.ts', 'app/onboarding/MatrizView.tsx', 'app/api/onboarding/razones/route.ts', 'lib/angulos-formatos.ts', 'lib/entregable.ts', 'lib/persona.ts', 'app/onboarding/OnboardingTabs.tsx'],
+    vive: ['lib/razones.ts', 'lib/avatares.ts', 'app/onboarding/MatrizView.tsx', 'app/api/onboarding/razones/route.ts', 'lib/angulos-formatos.ts', 'lib/entregable.ts', 'lib/persona.ts', 'app/second-brain/AreasHub.tsx'],
     proyectos: ['Feature: Fábrica de creativos'],
     hallazgos: 'hallazgos-ia',
     nota: 'El código NO vive en una tab propia: vive bajo app/onboarding/ y se monta dos veces (OnboardingWizard para el cliente nuevo, OnboardingTabs para el Archivero), y MatrizView además se reusa desde app/ads-writer/AdsWriterApp.tsx — tocarla impacta tres pantallas. Ojo con el shape RazonCelda: está duplicado en 4 archivos y ya divergió. Las decisiones de producto de la fábrica están en hallazgos-ads, no en hallazgos-ia.',

@@ -15,6 +15,9 @@
 // se agrega acá — y si algo todavía NO se puede hacer en MaKo, simplemente no está.
 // =============================================================================
 
+// El hub de /onboarding se retiró el 15/10/2026: sus secciones se editan donde diga lib/secciones-negocio.ts.
+import { rutaSeccion } from './secciones-negocio';
+
 export type Capacidad = {
   /** id corto y estable: es lo que devuelve el modelo. */
   id: string;
@@ -34,9 +37,10 @@ export const CAPACIDADES: Capacidad[] = [
     como: ['Entra a Ads Manager', 'Toca "Nueva campaña" y cuéntale a MaKo qué quieres promocionar', 'Elige los creativos y revisa la estructura que arma', 'Se publica en PAUSA: la prendes tú cuando la miraste'],
   },
   {
-    id: 'creativos', tab: 'Fábrica de creativos', ruta: '/onboarding',
+    // Empieza por Avatares, que es el primer paso del «como»; el resto son áreas vecinas de la misma pantalla.
+    id: 'creativos', tab: 'Second Brain', ruta: rutaSeccion('avatares'),
     que: 'Sacar los avatares, las razones de compra, el lead magnet y la persona de marca — el material del que salen los anuncios.',
-    como: ['Abre la Fábrica de creativos', 'Define tus avatares', 'Deja que MaKo saque las razones de compra de cada uno', 'Carga tu lead magnet'],
+    como: ['Abre Second Brain', 'En «Avatares», define tus avatares', 'En «Razones», deja que MaKo saque las razones de compra de cada uno', 'En «Lead Magnet», carga el tuyo'],
   },
   {
     // La tab se llama Content Machine pero la RUTA sigue siendo /ads-writer (ver

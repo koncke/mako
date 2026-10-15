@@ -482,6 +482,16 @@ export const ADMIN_FAMILIAS: NavFamilia[] = [
         // El Centro de Operaciones (15/10/2026): pedidos firmados para los chats de Claude de la PC
         // de Martín. Sólo él (puedeOperar), y la key tampoco lleva el prefijo 'dev-'.
         { key: 'admin-operaciones', label: 'Centro de Operaciones', href: '/admin/operaciones', icon: 'config', match: starts('/admin/operaciones') },
+        // La ticketera: el mazo donde Martín contesta las decisiones que le publican los chats
+        // (15/10/2026, reportado por él: «tampoco tengo la ticketera en superadmin en desktop, en
+        // la sidebar... Eso esta mal»). En el TELÉFONO ya se podía llegar —`lib/movil-rutas.ts`
+        // mapea /tickets/decisiones a /m/tickets/decisiones— y en la computadora no había ninguna
+        // puerta: se entraba sólo con la URL escrita a mano. El ítem de «Reportar problema» que
+        // vive en el menú de la foto es OTRA cosa (/tickets a secas, y `comingSoon`), así que no
+        // servía de puerta. Va al lado del Centro de Operaciones porque son el mismo trabajo: los
+        // dos son cómo Martín le contesta a los chats. Sólo super admin, y la key tampoco lleva
+        // el prefijo 'dev-' (tests/dev-areas.test.ts lo reserva a los registros).
+        { key: 'admin-ticketera', label: 'Ticketera', href: '/tickets/decisiones', icon: 'soporte', match: starts('/tickets/decisiones') },
       ],
       // El cerebro de MaKo y la formación: con qué sabe, con qué piensa, y de
       // dónde se entrena el equipo. «Contexto de MaKo» estaba detrás del avatar
@@ -681,7 +691,9 @@ export const USER_NAV: NavItem[] = [
   // Al lado de Integraciones porque es lo mismo visto desde afuera: con qué se conecta
   // un tercero. Solo el admin (sin `rolesWs`): acá se acuñan credenciales.
   { key: 'api-mako', label: 'API', href: '/api-mako', icon: 'api', match: starts('/api-mako') },
-  { key: 'onboarding', label: 'Onboarding', href: '/onboarding', icon: 'contexto', match: starts('/onboarding') },
+  // «Onboarding» salió de acá el 15/10/2026: el hub de diez pestañas que abría se retiró y sus secciones se
+  // editan en Second Brain (lib/secciones-negocio.ts), que ya está en la barra. /onboarding sigue siendo el
+  // wizard del primer ingreso, y a ése no se entra desde un menú: lo manda lib/tab-access.ts.
   { key: 'configuraciones', label: 'Configuraciones', href: '/configuraciones', icon: 'config', match: (p) => starts('/configuraciones')(p) || starts('/metodo')(p) || starts('/equipo')(p) },
   // Acá NO va «Admin» ni «Contexto de MaKo». Los dos eran `adminOnly`, o sea que
   // solo los veía el super admin — que ahora tiene su propia familia Admin en la

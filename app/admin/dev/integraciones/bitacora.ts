@@ -950,4 +950,27 @@ export const BITACORA: Hito[] = [
       'docs/hallazgos-integraciones.md — «Hotmart y Skool: un webhook que sólo trae un SECRETO se rutea por su hash»',
     ],
   },
+  {
+    fecha: '15 oct', hora: '—', chat: 'Leads Scraper', cuenta: 'claude1',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'El scraper termina en la extracción: el mensaje no es suyo',
+    pedido: '«Leads Scraper NO se tiene que preocupar por el mensaje... Solo por la extracción de leads... NO entiendo por qué preguntás esto.»',
+    puntos: [
+      'Su respuesta a la decisión del primer mensaje en frío, en el tablero de /admin/runway; la trajo «Estrategia 3 cuentas». No es un «no» a la feature: lo que se le escribe a un lead lo decide Automations, que es donde viven los flujos, las condiciones y los frenos anti-ban.',
+      'El mismo día se retiraron 36 de 56 decisiones del tablero por contestarlas una regla escrita, entre ellas casi todas las del scraper: eran de diseño, no de él (memoria `decisiones-de-diseno-son-del-chat`).',
+    ],
+  },
+  {
+    fecha: '15 oct', hora: '—', chat: 'Leads Scraper', cuenta: 'claude1',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Las decisiones de diseño, tomadas con su referencia, y fuera el primer mensaje',
+    puntos: [
+      'Del diseño salió todo lo que redactaba o mandaba un mensaje (§6 ahora dice dónde continúa: Automations). La pregunta apareció por no hacerse antes la prueba de alcance: ¿esto es mío o de otra área?',
+      'Las ocho decisiones restantes se tomaron, cada una con la app que se copia: LinkedIn de a uno como folkX; Instagram público sin login por Apify; WhatsApp sólo en grupos del negocio; los 1.000 en una lista aparte como las listas de Apollo; Apify con la key de cada negocio; Google Maps por el actor de Apify y no por la API de Places (prohíbe guardar teléfono y web); el puntaje por reglas a la vista como los Apollo Scores.',
+      'La 9, a qué funnel entra cada fuente, salió del código: el tipo de funnel ya declara cómo entra la gente (`ENTRADAS`), así que Hotmart va al funnel «Anuncios a carrito» y los prospectos al de «Prospección»; con ninguno o con varios, al del negocio, sin elegir el primero a ciegas.',
+    ],
+    archivos: [
+      'docs/diseno-leads-scraper.md — §6 (después de que entra) y §7 (las decisiones tomadas)',
+    ],
+  },
 ];

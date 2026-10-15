@@ -23,6 +23,9 @@ import {
 } from '@/app/_ui';
 import { Icon } from '../_components/icons';
 import { CAPTION_VISIBLE, LIMITES_REEL } from '@/lib/ig-formatos';
+// El perfil del negocio se completa donde viva hoy la sección (lib/secciones-negocio.ts): desde el 15/10/2026,
+// Second Brain. Nunca `/onboarding`, que es sólo el wizard del primer ingreso.
+import { rutaSeccion, lugarSeccion } from '@/lib/secciones-negocio';
 import type { PiezaGuardada, EstadoContextoReels } from './reels-datos';
 import { OBJETIVOS_REEL, DURACIONES_REEL, guionATexto } from './reel-pedido';
 import { generarReelAction } from './actions';
@@ -73,10 +76,10 @@ function ChecklistOnboarding({ ob }: { ob: NonNullable<OnboardingReels> }) {
       <PasoRow done={ob.contexto.listo} titulo="Contexto del negocio">
         {ob.contexto.listo ? (
           ob.contexto.faltan.length
-            ? <>MaKo ya conoce tu negocio. Aún sin datos de: {ob.contexto.faltan.join(', ')} — se completan en la <Link href="/onboarding" style={{ color: 'var(--primary)', fontWeight: 600 }}>configuración inicial</Link>.</>
+            ? <>MaKo ya conoce tu negocio. Aún sin datos de: {ob.contexto.faltan.join(', ')} — se completan en <Link href={rutaSeccion('archivero')} style={{ color: 'var(--primary)', fontWeight: 600 }}>{lugarSeccion('archivero')}</Link>.</>
             : 'MaKo ya conoce tu negocio: los guiones salen con tu oferta y tu avatar reales.'
         ) : (
-          <>MaKo todavía no tiene el perfil de tu negocio (marca, oferta, avatar): los guiones saldrían genéricos. Complétalo en la <Link href="/onboarding" style={{ color: 'var(--primary)', fontWeight: 600 }}>configuración inicial</Link>.</>
+          <>MaKo todavía no tiene el perfil de tu negocio (marca, oferta, avatar): los guiones saldrían genéricos. Complétalo en <Link href={rutaSeccion('archivero')} style={{ color: 'var(--primary)', fontWeight: 600 }}>{lugarSeccion('archivero')}</Link>.</>
         )}
       </PasoRow>
       <PasoRow done={ob.ensayoHecho} titulo="Tu primer guion">

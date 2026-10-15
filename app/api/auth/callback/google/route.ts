@@ -25,6 +25,8 @@ import { DISPOSITIVO_COOKIE, crearPreauth, destinoSeguro } from '@/lib/auth-sess
 import { ponerPreauth, ponerSesion } from '@/lib/sesion-cookies';
 import { decidirTrasGoogle, requiereSegundoFactor } from '@/lib/mfa-reglas';
 import { obligatorioDesdeDe } from '@/lib/mfa-obligatorio';
+import { requiereCrearContrasena } from '@/lib/contrasena-reglas';
+import { tieneContrasena } from '@/lib/contrasena';
 import { dispositivoValido, mfaActivoReal } from '@/lib/mfa';
 import { buscarUsuarioPorEmail, contarUsuarios, crearUsuario, registrarLogin, type Usuario } from '@/lib/usuarios';
 import { googleCalendarDueno, guardarRefreshTokenGoogle } from '@/lib/google-calendar';
@@ -219,6 +221,19 @@ export async function GET(req: NextRequest) {
 
     if (decision === 'segundo-factor') {
       const pre = crearPreauth({ sub, email, nombre, rol: usuario.rol, next: destinoSeguro(next), foto: ui.picture });
+      if (!pre) return fail('config');
+      const res = NextResponse.redirect(new URL('/login/2fa', url.origin));
+      ponerPreauth(res, pre);
+      res.cookies.set({ name: 'oauth_state', value: '', maxAge: 0, path: '/' });
+      res.cookies.set({ name: 'oauth_next', value: '', maxAge: 0, path: '/' });
+      return res;
+    }
+
+    // La contraseña obligatoria (15/10/2026): el dispositivo recordado salta el CÓDIGO, no la
+    // contraseña. Si ya tocaba y no la tiene, va a la pantalla de crearla con el factor marcado como
+    // pasado por el dispositivo, igual que si hubiera escrito el código.
+    if (usuario.id > 0 && requiere && requiereCrearContrasena(await tieneContrasena(usuario.id), obligatorioDesde)) {
+      const pre = crearPreauth({ sub, email, nombre, rol: usuario.rol, next: destinoSeguro(next), foto: ui.picture, mfa: 'dispositivo' });
       if (!pre) return fail('config');
       const res = NextResponse.redirect(new URL('/login/2fa', url.origin));
       ponerPreauth(res, pre);

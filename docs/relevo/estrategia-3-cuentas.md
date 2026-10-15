@@ -1,8 +1,84 @@
 # Relevo — Estrategia 3 cuentas (el chat orquestador)
 
-<sub>Escrito por el chat «Estrategia 3 cuentas» (cuenta 2) el 14/10/2026; cierre a las 15:05 hora AR, con la
-cuenta al 95% semanal. Es material de primera mano: este chat coordinó los pushes del 13 y el 14/10.
-Reemplaza a estrategia-2-cuentas.md.</sub>
+<sub>Reescrito por el chat «Estrategia 3 cuentas» (cuenta 1, claude1) el 15/10/2026, madrugada hora AR.
+Material de PRIMERA MANO: este chat coordinó los cuatro pushes de la madrugada y el reparto a cinco
+chats. Lo anterior (la ventana del 14/10) está en el historial de git.</sub>
+
+## LO PRIMERO: producción estuvo sin desplegar y ya no
+
+Al transferir el repositorio de `mbustos-digital` a la cuenta de Martín (`hola-mako`), el proyecto de
+Vercel quedó **sin repositorio conectado** (`link: null`) y nadie lo vio durante horas, porque
+`git push` seguía andando: GitHub redirige el remoto viejo. Tres tandas (Chats, Image, Centro de
+Operaciones) entraron a main y ninguna se desplegó.
+
+**No era la GitHub App ni «Project Members».** Era el ROL: Martín estaba en el equipo de Vercel como
+Developer, y Developer no puede tocar la conexión Git. Se sube a MEMBER, se conecta, se baja — el link
+sobrevive al cambio de rol, verificado después de bajarlo. El detalle completo, con lo que costó cada
+diagnóstico equivocado, en `docs/hallazgos-infra.md`.
+
+⚠️ **El remoto del clon todavía dice `mbustos-digital`** y funciona por el redirect de GitHub. Conviene
+apuntarlo a `hola-mako` para que nadie lea mal de quién es el repo.
+
+## Qué entró a main en esta ventana
+
+| Commit | Qué trae |
+|---|---|
+| `1b177b414` | La contraseña obligatoria (Ciberseguridad). Sale APAGADA: sin fecha en el negocio, a nadie se le pide crearla. Migración 0286 aplicada y verificada en el catálogo. |
+| `b8b298600` | «Email a la persona» y el evento de restablecer contraseña (Automations). La fila de la plantilla **todavía no se creó**: nace PAUSADA y se prende con Martín sabiendo. |
+| `5d0e97e9b` | La Ticketera no tenía puerta en la computadora. Con test, roto tres veces. |
+| (en vuelo) | «Olvidé mi contraseña» (Ciberseguridad), con la migración **0287 sin aplicar**. |
+
+## Lo que está repartido, y qué espera cada uno
+
+- **Ciberseguridad** — rediseña «Tu cuenta» y «Configuración del negocio». Martín aprobó el plan:
+  dos lugares, como Google. Seguridad SE QUEDA en Perfil (lo que le molestaba era la pantalla, no el
+  lugar) e **Integraciones es lo que se muda**. Arranca después de cerrar «Olvidé mi contraseña» el 18.
+- **Offer** — está sacando el hub de Onboarding. Midió que las DIEZ secciones ya se capturan en
+  `/second-brain`; el diagnóstico de Martín y el mío («unas sí, otras no») era el equivocado. La ruta
+  `/onboarding` queda viva por el wizard del primer ingreso, las vistas no se borran (las importan
+  Second Brain y Ads Writer) y hay **16 links** que se revisan de a uno.
+- **Centro de Operaciones** — rediseña su pantalla copiando una app real y devuelve una tabla con las
+  once tabs de admin: se queda / se funde con X / se va.
+- **Automations** — tiene que declarar `lib/flujos.ts` en `tests/undecima-email-propio.test.ts`, que
+  es el rojo que dejó su commit en main (medido acá: 7 pases, 1 fallo).
+- **Plan** — cargó la #842, «Perfeccionar Second Brain y decidir qué sale a tab propia (Writer,
+  Avatar con IA)», en «Feature: Second Brain».
+
+## Lo que espera a MARTÍN y traba fechas
+
+1. **Cómo se recupera una contraseña olvidada.** Se construyó con la opción A (link de un solo uso,
+   30 minutos, MÁS el segundo factor si la cuenta lo tiene) y falta que la confirme antes de la
+   prueba del 19.
+2. **Si se rechazan contraseñas filtradas** (Have I Been Pwned).
+3. **Las cinco decisiones del registro de dispositivos**, que bloquean algo que el diseño prometía:
+   hoy **restablecer la contraseña NO cierra las sesiones abiertas**, porque el token no guarda ni
+   cuándo se emitió ni de qué sesión. Tampoco existe el mail «tu contraseña cambió».
+4. **Ángulos**: ningún generador lo lee (`elegirAngulo` nunca llama a `getRecomendaciones`), así que
+   cada «regenerar» paga IA para una lista que sólo se dibuja. Queda por ahora; la decisión es suya.
+
+## La regla nueva, y por qué importa más que cualquiera de estas tandas
+
+Martín rechazó DOS pantallas seguidas con la misma palabra —«horrible»— y pidió que quedara como
+regla: **ninguna pantalla se diseña de cero, se COPIA de una app que ya resolvió eso**. Está en
+`AGENTS.md` (commit `272b7e038`), no en una memoria: ya estaba pedido desde el 11/10, vivía sólo ahí,
+y por eso volvió a pasar. La referencia **la elige y la abre el chat** aunque él no la nombre, se copia
+la estructura y nunca los colores, la fuente se NOMBRA en el commit, y si no se puede abrir se avisa en
+vez de inventar.
+
+## Trampas de esta ventana, medidas
+
+- **El árbol del clon puede estar NUEVE commits atrás** y leerse como el actual. Acá se leyó un
+  `nav.ts` viejo y por poco se edita sobre él. Antes de tocar un archivo compartido: `git fetch` y
+  `git rev-list --left-right --count origin/main...HEAD`.
+- **La Ticketera se podía abrir desde el TELÉFONO y no desde la computadora.** Lo tapaba que el único
+  ítem que dice `/tickets` sea «Reportar problema», que es otra cosa: buscar «ticket» en el nav
+  devolvía algo, y ese algo no era. Un cero plausible sobre la pregunta equivocada, otra vez.
+- **Un `grep -E "^. (tests|pass)"` no caza la salida de `node --test`**: el símbolo `ℹ` es multibyte.
+  Dos roturas se dieron por no medidas cuando en realidad el filtro no matcheaba. Se filtra por
+  `"tests [0-9]+|pass [0-9]+|fail [0-9]+"`.
+- **Los números de una rotura se MIDEN.** Acá se escribieron a ojo en un comentario («1 fallo y 20
+  pases») y la medición real dio otra cosa (base 17/0, cada rotura 16/1). Si el comentario no sale de
+  una corrida, es una afirmación.
 
 ## Cómo se pushea hoy, con ~15 chats sobre un clon y 16 GB de RAM
 

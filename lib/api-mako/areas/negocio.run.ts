@@ -26,6 +26,7 @@ import { getDiagnosticoFase, setDiagnosticoFase } from '@/lib/fase-store';
 import { leerSesion, listarSesionesOffer } from '@/lib/offer-sesiones';
 import { PUNTOS_CONTROL, avisosAfirmables, dimensionLabel } from '@/lib/offer-marco';
 import { linkApp } from '@/lib/app-url';
+import { lugarSeccion } from '@/lib/secciones-negocio';
 import { faseDef, diagnosticar, PREGUNTAS, CANALES, type CanalId } from '@/lib/fase-diagnostico';
 import { getEstadoOnboarding } from '@/lib/onboarding-state';
 import { getAvatares, getContextoAvatares, siguientePreguntaAvatares } from '@/lib/avatares';
@@ -133,7 +134,7 @@ export const RUNNERS: Runners = {
       }
       const preview = input.preview === true;
       const url = preview ? await urlPreview(f.storage_path) : await urlDescarga(f.storage_path, f.nombre);
-      if (!url) return errorLectura('No pude generar el link de ese documento. Puede verse desde /onboarding, en El Archivero.');
+      if (!url) return errorLectura(`No pude generar el link de ese documento. Puede verse desde ${lugarSeccion('archivero')}.`);
       return json({ nombre: f.nombre, url, vence_en_segundos: preview ? 300 : 120, modo: preview ? 'ver en línea' : 'descarga' });
     },
   },
@@ -404,7 +405,7 @@ export const RUNNERS: Runners = {
       const campo = campos.find((c) => c.key === key);
       if (!campo) return { error: `«${key}» no es un campo del perfil de este negocio.`, disponibles: campos.map((c) => c.key) };
       if (!valor) return { error: 'Falta el valor.', faltan: ['valor'] };
-      if (await campoOcupado(key)) return { error: `«${campo.pregunta}» ya tiene valor. Corregir un dato cargado se hace en /onboarding, no por aquí.` };
+      if (await campoOcupado(key)) return { error: `«${campo.pregunta}» ya tiene valor. Corregir un dato cargado se hace en ${lugarSeccion('archivero')}, no por aquí.` };
       return { payload: { key, valor }, resumen: `Completar en el perfil «${campo.pregunta}»: ${valor.slice(0, 200)}` };
     }),
     ejecutar: sinLanzar(async (payload) => {

@@ -31,6 +31,8 @@ type Estado = {
   email: string | null;
   passkeys: { id: number; nombre: string | null; created_at: string; usado_at: string | null }[];
   codigosRestantes: number;
+  /** ¿Tiene contraseña? null = no se pudo leer. Obligatoria desde la misma fecha que el 2FA. */
+  contrasena: boolean | null;
   dispositivos: { id: number; nombre: string | null; created_at: string; usado_at: string | null; expira_at: string }[];
 };
 /** «22/10, 00:00» en la hora de quien mira: el plazo de su negocio. */
@@ -63,6 +65,9 @@ export function SeguridadPanel() {
   const [enviadoA, setEnviadoA] = useState<string | null>(null);
   const [qr, setQr] = useState<{ qr: string; secreto: string; uri?: string } | null>(null);
   const [codigos, setCodigos] = useState<string[] | null>(null);
+  const [editandoPass, setEditandoPass] = useState(false);
+  const [nuevaPass, setNuevaPass] = useState('');
+  const [codigoPass, setCodigoPass] = useState('');
 
   const cargar = useCallback(() => {
     fetch('/api/perfil/seguridad').then((r) => r.json()).then((j) => { if (j.ok) setE(j as Estado); }).catch(() => {});
@@ -113,6 +118,11 @@ export function SeguridadPanel() {
       )}
     </div>
   );
+
+  const guardarPass = () => correr(() => pedir({ accion: 'contrasena-guardar', nueva: nuevaPass, codigo: codigoPass }).then((j) => {
+    if (j.ok) { setEditandoPass(false); setNuevaPass(''); setCodigoPass(''); cargar(); }
+    return j;
+  }));
 
   const quitar = (factor: string, passkeyId?: number) =>
     correr(() => pedir({ accion: 'quitar', factor, passkeyId }).then(listo));
@@ -211,6 +221,30 @@ export function SeguridadPanel() {
         {(e.canales.includes('email') || e.email) && (
           <div style={{ marginBottom: -1 }}>
             {filaMetodo('email', 'Correo de respaldo', e.email, abierto === 'email' && formCodigo('email'))}
+          </div>
+        )}
+      </div>
+
+      <div style={titulo}>Contraseña</div>
+      <div style={{ ...card, padding: '14px 20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={nombreFila}>Entrar con tu correo</div>
+            <div style={detalle}>{e.contrasena ? 'Creada.' : e.contrasena === false ? 'Falta crearla.' : 'No se pudo leer.'}</div>
+          </div>
+          {editandoPass
+            ? <button type="button" style={btnSec} onClick={() => { setEditandoPass(false); setNuevaPass(''); setCodigoPass(''); setError(null); }}>Cancelar</button>
+            : <button type="button" style={btnSec} disabled={!e.totp} title={e.totp ? undefined : 'Primero activa la app de autenticación'} onClick={() => { setEditandoPass(true); setError(null); }}>{e.contrasena ? 'Cambiar' : 'Crear'}</button>}
+        </div>
+        {editandoPass && (
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', paddingTop: 12 }}>
+            {/* El correo, oculto: el gestor de contraseñas la guarda con la cuenta correcta. */}
+            <input type="email" autoComplete="username" value={e.cuenta} readOnly hidden />
+            <input type="password" autoComplete="new-password" placeholder="Contraseña nueva (12 o más)" aria-label="Contraseña nueva"
+              style={{ ...input, flex: '1 1 220px' }} value={nuevaPass} autoFocus onChange={(ev) => setNuevaPass(ev.target.value)} />
+            <CampoCodigo valor={codigoPass} onCambio={setCodigoPass} ocupado={ocupado} error={error} estilo={{ ...input, width: 130, letterSpacing: 3 }}
+              onCompleto={() => { if (nuevaPass) guardarPass(); }} />
+            <button type="button" style={btn} disabled={ocupado || !nuevaPass || codigoPass.length !== 6} onClick={guardarPass}>Guardar</button>
           </div>
         )}
       </div>

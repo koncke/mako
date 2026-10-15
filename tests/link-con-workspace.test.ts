@@ -59,6 +59,9 @@ const PUBLICAS: Array<{ ruta: string; porque: string }> = [
   // 11/10/2026, con la pasarela de pagos: `linkDelCobro` / `linkDeRetorno` (lib/cobros.ts). Sin esta
   // fila: 1 fallo / 2 pases, nombrando `lib/cobros.ts:56 → /pagar/${token}`; restaurada, 3 pases.
   { ruta: '/pagar/', porque: 'el link de pago y su retorno: los abre un COMPRADOR sin sesión ni workspace (el cliente de un negocio, o quien compra un plan de MaKo), y se autentican con el token del cobro. Un `?ws=` sólo lo honra proxy.ts para un admin firmado: acá no le aporta nada.' },
+  // 15/10/2026, con «Olvidé mi contraseña»: `linkDeRestablecer` (lib/contrasena-restablecer.ts). Sin esta fila:
+  // 1 fallo / 2 pases, nombrando `lib/contrasena-restablecer.ts:35 → /login/restablecer#t=${token}`; restaurada, 3 pases.
+  { ruta: '/login/restablecer', porque: 'el link de «Olvidé mi contraseña»: lo abre alguien SIN sesión (por eso lo pide), una persona y no un negocio, y se autentica con el token del fragmento. Un `?ws=` no le aporta nada.' },
 ];
 
 /**
