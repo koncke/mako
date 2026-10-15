@@ -45,6 +45,7 @@ import { maxCaracteresPara } from "@/app/video-editor/_opencut/transcription/cap
 import { EXTENSIONES_SUBTITULOS, parseSubtitleFile } from "../parse";
 import { PLANTILLAS_SUBTITULO, paramsDePlantilla, plantillaPorId, type PlantillaSubtitulo } from "../estilos";
 import { pxTrazo } from "@/app/video-editor/_opencut/text/estilo";
+import { tieneTiemposPorPalabra } from "@/app/video-editor/_opencut/text/resaltado";
 import { usePreferenciasSubtitulos, useTrabajoSubtitulos } from "../estado";
 import { cancelarGeneracion, generarSubtitulos } from "../generar";
 import { aplicarEstiloASubtitulos, insertarSubtitulos, lienzoDe, subtitulosDe } from "../insert";
@@ -279,9 +280,19 @@ function MiniaturaPlantilla({
 						? `${(pxTrazo(plantilla.trazo.grosor, 13 * escala) * 2).toFixed(1)}px ${plantilla.trazo.color}`
 						: undefined,
 					paintOrder: plantilla.trazo ? "stroke fill" : undefined,
+					textTransform: plantilla.mayusculas ? "uppercase" : undefined,
+					textShadow: plantilla.sombra ? "1px 1px 2px rgba(0, 0, 0, 0.9)" : undefined,
 				}}
 			>
-				Subtítulos
+				{plantilla.resaltado ? (
+					// Karaoke: la primera palabra «se está diciendo» y la segunda todavía no.
+					<>
+						<span style={{ color: plantilla.resaltado.color }}>Tu</span>{" "}
+						<span style={{ opacity: (plantilla.resaltado.noDichasOpacidad ?? 100) / 100 }}>voz</span>
+					</>
+				) : (
+					"Subtítulos"
+				)}
 			</span>
 		</button>
 	);
@@ -314,6 +325,11 @@ export function PlantillasSubtitulosView() {
 			});
 			// `apply_to_all_subtitle`.
 			if (n > 0) toast.success("Se aplicó a todos los subtítulos");
+			// Una de karaoke sin tiempos por palabra se ve como una común: se avisa por qué.
+			const todos = subtitulosDe(editor.scenes.getActiveSceneOrNull()?.tracks);
+			if (n > 0 && plantilla.resaltado && !todos.some(({ element }) => tieneTiemposPorPalabra(element.params))) {
+				toast("Sin tiempos por palabra: usa Subtítulos automáticos");
+			}
 		} finally {
 			setAplicando(false);
 		}

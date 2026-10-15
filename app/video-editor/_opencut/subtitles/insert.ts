@@ -30,6 +30,7 @@ import {
 	partirYUbicar,
 } from "./build-subtitle-text-element";
 import type { Lienzo } from "./estilos";
+import { PARAM_PALABRAS } from "./palabras";
 import type { SubtitleCue } from "./types";
 
 export const NOMBRE_PISTA_SUBTITULOS = "Subtítulos";
@@ -191,8 +192,13 @@ export async function aplicarEstiloASubtitulos({
 	return cambios.length;
 }
 
-/** Las claves que NO son estilo: no viajan con «Aplicar en todos los subtítulos». */
-const NO_ESTILO = new Set(["content", PARAM_SUBTITULO]);
+/**
+ * Las claves que NO son estilo: no viajan con «Aplicar en todos los subtítulos».
+ * ⚠️ Los tiempos por palabra tampoco: son de SU texto. Copiados, cada subtítulo se
+ * quedaba con los del elegido, que no coinciden con lo que dice, y perdía los suyos
+ * (y con ellos el resaltado, dividir donde cae la palabra y las muletillas).
+ */
+const NO_ESTILO = new Set(["content", PARAM_SUBTITULO, PARAM_PALABRAS]);
 
 /** El estilo de un subtítulo, para escribirlo en los demás. */
 export function estiloDe(element: TextElement): Record<string, ParamValue> {

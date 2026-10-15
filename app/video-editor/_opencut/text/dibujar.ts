@@ -31,6 +31,14 @@
 // La «Curva» pone cada letra girada en su lugar del arco (posiciones que ya
 // calculó la medida, ./curva.ts); el resto de las capas no cambia.
 //
+// Las «Animaciones de subtítulos» (karaoke, ./resaltado.ts) pintan cada palabra
+// con su color: recta, cada palabra va sola donde caería en el renglón entero (el
+// ancho del prefijo); curvada, cada letra sabe de qué palabra es. Lo que todavía
+// no se dijo, con «Opacidad» < 100, se dibuja ENTERO (trazo y relleno) en otro
+// lienzo aparte y se pega con esa opacidad: con la opacidad en cada pasada, el
+// trazo de afuera se vería a través del relleno. Sin resaltado, el camino es el de
+// siempre (`recorrer` por renglón), sin piezas ni medidas de más.
+//
 // ⚠️ `shadowOffset*` y `shadowBlur` de canvas NO siguen la transformación del
 // contexto (van en píxeles del lienzo de destino): el desplazamiento se pasa a
 // mano por la matriz, así la sombra gira y escala con el texto.
@@ -50,26 +58,47 @@ import {
 } from "./estilo";
 import { letrasVisibles } from "./curva";
 import { lineasReveladas } from "./revelado";
+import {
+	palabraDeCadaLetra,
+	palabrasDeRenglon,
+	primerasPalabras,
+	vaResaltada,
+	type ResaltadoTexto,
+} from "./resaltado";
 
-// ── El lienzo aparte ─────────────────────────────────────────────────────────
+// ── Los lienzos aparte ───────────────────────────────────────────────────────
 
 type Lienzo2D = OffscreenCanvas | HTMLCanvasElement;
+/** Las letras solas, para la sombra, el brillo y el trazo de adentro. */
 let capa: Lienzo2D | null = null;
+/** Lo que todavía no se dijo, para pegarlo con su opacidad (resaltado). */
+let grupo: Lienzo2D | null = null;
 
-function capaDe(ancho: number, alto: number): TextCanvasContext | null {
-	if (!capa) {
-		if (typeof OffscreenCanvas !== "undefined") capa = new OffscreenCanvas(ancho, alto);
-		else if (typeof document !== "undefined") capa = document.createElement("canvas");
-		else return null;
-	}
-	if (capa.width !== ancho) capa.width = ancho;
-	if (capa.height !== alto) capa.height = alto;
-	const c = capa.getContext("2d") as TextCanvasContext | null;
+function nuevoLienzo(ancho: number, alto: number): Lienzo2D | null {
+	if (typeof OffscreenCanvas !== "undefined") return new OffscreenCanvas(ancho, alto);
+	if (typeof document !== "undefined") return document.createElement("canvas");
+	return null;
+}
+
+function limpio(lienzo: Lienzo2D, ancho: number, alto: number): TextCanvasContext | null {
+	if (lienzo.width !== ancho) lienzo.width = ancho;
+	if (lienzo.height !== alto) lienzo.height = alto;
+	const c = lienzo.getContext("2d") as TextCanvasContext | null;
 	if (!c) return null;
 	c.setTransform(1, 0, 0, 1, 0, 0);
 	c.clearRect(0, 0, ancho, alto);
 	c.globalCompositeOperation = "source-over";
 	return c;
+}
+
+function capaDe(ancho: number, alto: number): TextCanvasContext | null {
+	capa ??= nuevoLienzo(ancho, alto);
+	return capa ? limpio(capa, ancho, alto) : null;
+}
+
+function grupoDe(ancho: number, alto: number): TextCanvasContext | null {
+	grupo ??= nuevoLienzo(ancho, alto);
+	return grupo ? limpio(grupo, ancho, alto) : null;
 }
 
 // ── Las letras ───────────────────────────────────────────────────────────────
@@ -132,6 +161,76 @@ function recorrer(
 	}
 }
 
+// ── Las palabras sueltas (resaltado) ─────────────────────────────────────────
+
+/** Lo que se pinta solo con el resaltado: una palabra (recto) o una letra (curvado). */
+type Pieza = { texto: string; x: number; y: number; giro: number | null; palabra: number };
+
+/**
+ * Las piezas de los renglones visibles. Recto, cada palabra va donde caería en el
+ * renglón entero: el inicio del renglón (el mismo de `conLinea`, así una línea a
+ * medio escribir tampoco se re-centra) más el ancho de lo que la precede, medido
+ * como «hasta el fin de la palabra − la palabra» (así da igual si el navegador
+ * cuenta el espaciado de la última letra, y el interletrado con el espacio queda).
+ */
+function armarPiezas(c: TextCanvasContext, medido: MeasuredTextElement, lineas: Linea[]): Pieza[] {
+	const primeras = primerasPalabras(medido.lines);
+	const piezas: Pieza[] = [];
+	if (medido.arco) {
+		for (const l of lineas) {
+			const renglon = medido.arco[l.indice];
+			if (!renglon) continue;
+			const letras = l.completa ? renglon : letrasVisibles(renglon, Array.from(l.texto).length);
+			const palabras = palabraDeCadaLetra(letras.map((x) => x.letra), primeras[l.indice] ?? 0);
+			letras.forEach((letra, k) => {
+				if (palabras[k] >= 0) piezas.push({ texto: letra.letra, x: letra.x, y: letra.y, giro: letra.giro, palabra: palabras[k] });
+			});
+		}
+		return piezas;
+	}
+	c.save();
+	c.font = medido.fontString;
+	setCanvasLetterSpacing({ ctx: c, letterSpacingPx: medido.letterSpacing });
+	for (const l of lineas) {
+		const x0 = inicioDeLinea(medido.textAlign, l.metrica.width);
+		for (const p of palabrasDeRenglon(l.texto, primeras[l.indice] ?? 0)) {
+			const antes =
+				p.desde === 0 ? 0 : c.measureText(l.texto.slice(0, p.desde + p.texto.length)).width - c.measureText(p.texto).width;
+			piezas.push({ texto: p.texto, x: x0 + antes, y: l.y, giro: null, palabra: p.palabra });
+		}
+	}
+	c.restore();
+	return piezas;
+}
+
+/** Como `recorrer`, pero pieza por pieza (con el número de palabra de cada una). */
+function recorrerPiezas(
+	c: TextCanvasContext,
+	piezas: readonly Pieza[],
+	pintar: (texto: string, x: number, y: number, palabra: number) => void,
+) {
+	for (const p of piezas) {
+		if (p.giro === null) {
+			c.textAlign = "left";
+			pintar(p.texto, p.x, p.y, p.palabra);
+			continue;
+		}
+		c.textAlign = "center";
+		c.save();
+		c.translate(p.x, p.y);
+		c.rotate(p.giro);
+		pintar(p.texto, 0, 0, p.palabra);
+		c.restore();
+	}
+}
+
+type ConResaltado = {
+	piezas: readonly Pieza[];
+	colorDe: (palabra: number) => string;
+	/** El subrayado va una sola vez (con lo dicho), no en cada grupo. */
+	subrayar: boolean;
+};
+
 function dibujarLetras(
 	c: TextCanvasContext,
 	medido: MeasuredTextElement,
@@ -139,6 +238,7 @@ function dibujarLetras(
 	textColor: string,
 	textBaseline: CanvasTextBaseline,
 	enCapa: boolean,
+	resaltado?: ConResaltado,
 ) {
 	const { trazo } = medido.estilo;
 	const w = trazo ? pxTrazo(trazo.grosor, medido.scaledFontSize) : 0;
@@ -154,7 +254,8 @@ function dibujarLetras(
 		if (!trazo) return;
 		c.strokeStyle = trazo.color;
 		c.lineWidth = lineWidth;
-		recorrer(c, medido, lineas, (t, x, y) => c.strokeText(t, x, y));
+		if (resaltado) recorrerPiezas(c, resaltado.piezas, (t, x, y) => c.strokeText(t, x, y));
+		else recorrer(c, medido, lineas, (t, x, y) => c.strokeText(t, x, y));
 	};
 
 	// 4. Trazo «Fuera»: el doble de ancho, debajo del relleno.
@@ -162,8 +263,17 @@ function dibujarLetras(
 
 	// 5. Relleno y subrayado (un texto curvado no tiene subrayado: ver estilo.ts).
 	c.fillStyle = textColor;
-	recorrer(c, medido, lineas, (t, x, y) => c.fillText(t, x, y));
-	if (medido.textDecoration !== "none" && !medido.arco) {
+	if (resaltado) {
+		const { colorDe } = resaltado;
+		recorrerPiezas(c, resaltado.piezas, (t, x, y, palabra) => {
+			c.fillStyle = colorDe(palabra);
+			c.fillText(t, x, y);
+		});
+		c.fillStyle = textColor;
+	} else {
+		recorrer(c, medido, lineas, (t, x, y) => c.fillText(t, x, y));
+	}
+	if (medido.textDecoration !== "none" && !medido.arco && (!resaltado || resaltado.subrayar)) {
 		for (const l of lineas) {
 			const ancho = l.completa ? l.metrica.width : c.measureText(l.texto).width;
 			c.save();
@@ -195,6 +305,51 @@ function dibujarLetras(
 			trazar(w);
 		}
 	}
+}
+
+/**
+ * Las letras con el resaltado, sobre `d` (el lienzo de la textura o la capa de las
+ * letras). Con «Opacidad» de lo no dicho en 100 (lo común) es UNA pasada con el color
+ * de cada palabra. Si no, lo no dicho va primero, entero en el lienzo `grupo` y pegado
+ * con su opacidad, y lo dicho encima: la palabra que se dice queda nítida.
+ */
+function dibujarResaltado(
+	d: TextCanvasContext,
+	medido: MeasuredTextElement,
+	lineas: Linea[],
+	textColor: string,
+	textBaseline: CanvasTextBaseline,
+	enCapa: boolean,
+	res: ResaltadoTexto,
+) {
+	const piezas = armarPiezas(d, medido, lineas);
+	const colorDe = (palabra: number) => (vaResaltada(res, palabra) ? res.color : textColor);
+	if (res.noDichas >= 1) {
+		dibujarLetras(d, medido, lineas, textColor, textBaseline, enCapa, { piezas, colorDe, subrayar: true });
+		return;
+	}
+	const dichas = piezas.filter((p) => p.palabra < res.dichas);
+	const noDichas = piezas.filter((p) => p.palabra >= res.dichas);
+	if (noDichas.length > 0 && res.noDichas > 0) {
+		const g = grupoDe(d.canvas.width, d.canvas.height);
+		if (g && grupo) {
+			g.setTransform(d.getTransform());
+			// En su lienzo, lo pintado son sólo estas letras: el trazo de adentro recorta bien.
+			dibujarLetras(g, medido, lineas, textColor, textBaseline, true, { piezas: noDichas, colorDe, subrayar: false });
+			d.save();
+			d.setTransform(1, 0, 0, 1, 0, 0);
+			d.globalAlpha *= res.noDichas;
+			d.drawImage(grupo as CanvasImageSource, 0, 0);
+			d.restore();
+		} else {
+			// Sin lienzo aparte, la opacidad en cada pasada (el trazo asoma por el relleno).
+			d.save();
+			d.globalAlpha *= res.noDichas;
+			dibujarLetras(d, medido, lineas, textColor, textBaseline, enCapa, { piezas: noDichas, colorDe, subrayar: false });
+			d.restore();
+		}
+	}
+	dibujarLetras(d, medido, lineas, textColor, textBaseline, enCapa, { piezas: dichas, colorDe, subrayar: true });
 }
 
 // ── La entrada ───────────────────────────────────────────────────────────────
@@ -248,16 +403,19 @@ export function dibujarTextoCe({
 	if (lineas.length === 0) return;
 
 	const { sombra, brillo } = estilo;
+	const res = medido.resaltado;
 	const necesitaCapa = sombra !== null || brillo !== null || estilo.trazo?.posicion === "dentro";
 	const c = necesitaCapa ? capaDe(ctx.canvas.width, ctx.canvas.height) : null;
 	if (!c || !capa) {
-		dibujarLetras(ctx, medido, lineas, textColor, textBaseline, false);
+		if (res) dibujarResaltado(ctx, medido, lineas, textColor, textBaseline, false, res);
+		else dibujarLetras(ctx, medido, lineas, textColor, textBaseline, false);
 		return;
 	}
 
 	const m = ctx.getTransform();
 	c.setTransform(m);
-	dibujarLetras(c, medido, lineas, textColor, textBaseline, true);
+	if (res) dibujarResaltado(c, medido, lineas, textColor, textBaseline, true, res);
+	else dibujarLetras(c, medido, lineas, textColor, textBaseline, true);
 
 	ctx.save();
 	ctx.setTransform(1, 0, 0, 1, 0, 0);
