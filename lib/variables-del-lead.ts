@@ -382,6 +382,20 @@ export function valoresDelAnalisis(a: AnalisisDelAviso): Record<string, string> 
   return out;
 }
 
+/**
+ * LOS DATOS DEL PEDIDO DE RESTABLECER LA CONTRASEÑA (el evento `contrasena_restablecer`, 15/10/2026): la persona
+ * (`usuario_id`, para el destino; no es citable) y el link, ARMADO por el código de Seguridad (es de un uso y vence en
+ * 30 minutos: un dato SECRETO). Un id que no es un entero positivo, o un link que no es https, no entra: sin ellos el
+ * mail no sale (`enviarEmailAPersona`), y es mejor que no salga a que salga a medias.
+ */
+export function valoresDeRestablecer(o: { usuarioId: number; link: string }): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (Number.isInteger(o.usuarioId) && o.usuarioId > 0) out.usuario_id = String(o.usuarioId);
+  const link = String(o.link ?? '').trim();
+  if (/^https:\/\/\S+$/.test(link)) out.link_restablecer = link;
+  return out;
+}
+
 /** Lo que `avisarPagoRecibido` (lib/cobros.ts) tiene en la mano del pago que entró. */
 export type PagoDelAviso = {
   monto: number;

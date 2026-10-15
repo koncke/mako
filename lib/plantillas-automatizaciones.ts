@@ -57,7 +57,7 @@ import {
   type ProductoParaDisparo, type SeccionDisparo,
 } from './flujo-conversacion';
 import {
-  TRIGGER_AVISO_MAKO, TRIGGER_INSTAGRAM, TRIGGER_MESSENGER, TRIGGER_EMAIL_RECIBIDO, TRIGGER_PAGO,
+  EVENTOS_MAKO, TRIGGER_AVISO_MAKO, TRIGGER_INSTAGRAM, TRIGGER_MESSENGER, TRIGGER_EMAIL_RECIBIDO, TRIGGER_PAGO,
   type Disparador, type SubtipoMako,
 } from './disparadores';
 import { TOPE_NOMBRE_SECUENCIA } from './setting-estrategia';
@@ -148,6 +148,11 @@ export type PlantillaAutomatizacion = {
   objetivo: ObjetivoPlantilla;
   cron: CronDePlantilla;
   pasos: readonly PasoDePlantilla[];
+  /**
+   * SÓLO PARA LA PLATAFORMA (15/10/2026): una automatización de SuperAdmin (la de un evento de una PERSONA, que emite
+   * sólo la plataforma en su ws). Un negocio no la ve en la galería ni la puede crear (`crearDesdePlantilla`).
+   */
+  soloPlataforma?: true;
 };
 
 /** El tope de la línea de una tarjeta: el de una fila de una lista de N (AGENTS.md, «La pantalla dice QUÉ pasó»). */
@@ -596,6 +601,35 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
  * Conservan su id `mako-cobranza`, `mako-pago`, `mako-charla` y `email-newsletter`. Lo lee `crearDesdePlantilla`: un id
  * viejo contesta 400 y nombra la nueva, nunca crea otra cosa en silencio (una pantalla vieja en caché, una API).
  */
+/**
+ * LAS PLANTILLAS DE SUPERADMIN (15/10/2026): automatizaciones de la PLATAFORMA (`soloPlataforma`), aparte de la galería
+ * de los negocios, que es una por categoría del embudo. Las ve y las crea sólo el ws de la plataforma (`plantillasPara`,
+ * `crearDesdePlantilla`). Hoy, la de restablecer la contraseña: su evento lo emite Seguridad en ese ws.
+ */
+export const PLANTILLAS_PLATAFORMA: readonly PlantillaAutomatizacion[] = [
+  {
+    // «Restablecer la contraseña» (15/10/2026: la contraseña es obligatoria desde el 21/10, decisión de Martín).
+    // SÓLO SuperAdmin: el evento lo emite la ruta de recuperación de Seguridad en el ws de la plataforma, y el mail sale
+    // a la persona por el remitente de MaKo. El link es SECRETO (de un uso, vence en 30 minutos): va sólo en el cuerpo,
+    // sin DELAY (`pasosDelEvento`). Docs: docs/diseno-2fa-obligatorio.md §8.
+    id: 'seguridad-restablecer',
+    nombre: 'Restablecer Contraseña',
+    emoji: '🔑',
+    linea: 'Le manda a quien la pide el link para crear su contraseña nueva de MaKo.',
+    origen: 'Seguridad: «Olvidé mi contraseña» (seguridad-contrasena-restablecer)',
+    objetivo: 'clientes',
+    soloPlataforma: true,
+    cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'contrasena_restablecer' },
+    pasos: [
+      email(
+        'sr_mail', 'Tu link para crear una contraseña nueva', 'Vence en 30 minutos y sirve una sola vez.',
+        'Hola:\n\nPara crear tu contraseña nueva de MaKo, entra a este link. Vence en 30 minutos y sirve una sola vez:\n{{link_restablecer}}\n\nSi no lo pediste tú, ignora este correo: tu contraseña no cambia.',
+        null, { revisar: false },
+      ),
+    ],
+  },
+];
+
 export const PLANTILLAS_REEMPLAZADAS: Readonly<Record<string, string | null>> = {
   'bienvenida-sin-agenda': 'lead-entro',
   'ultimo-intento': 'lead-entro',
@@ -628,8 +662,15 @@ export const PLANTILLAS_REEMPLAZADAS: Readonly<Record<string, string | null>> = 
 // ── Lo que se lee de la galería ─────────────────────────────────────────────────────────────────
 
 /** La plantilla VIGENTE con ese id, o null (un id de antes también es null: ver `plantillaQueLaReemplaza`). */
+/** Las plantillas que ve ESTE workspace: sin las de SuperAdmin (`soloPlataforma`) en un negocio. */
+export function plantillasPara(o: { plataforma: boolean }): readonly PlantillaAutomatizacion[] {
+  return o.plataforma ? [...PLANTILLAS, ...PLANTILLAS_PLATAFORMA] : PLANTILLAS.filter((p) => !p.soloPlataforma);
+}
+
 export function plantillaPorId(id: unknown): PlantillaAutomatizacion | null {
-  return typeof id === 'string' ? PLANTILLAS.find((p) => p.id === id) ?? null : null;
+  if (typeof id !== 'string') return null;
+  // Las de SuperAdmin también se encuentran: quién puede CREARLA lo decide `crearDesdePlantilla` (`deps.plataforma`).
+  return PLANTILLAS.find((p) => p.id === id) ?? PLANTILLAS_PLATAFORMA.find((p) => p.id === id) ?? null;
 }
 
 /**
@@ -673,7 +714,7 @@ export const CANALES_PLANTILLA: ReadonlyArray<{ id: CanalPlantilla; label: strin
  */
 export function canalesDe(p: Pick<PlantillaAutomatizacion, 'cron' | 'pasos'>): CanalPlantilla[] {
   const hay = new Set<CanalPlantilla>();
-  if (p.cron.fijo === TRIGGER_AVISO_MAKO) hay.add('mako');
+  if (p.cron.fijo === TRIGGER_AVISO_MAKO && !EVENTOS_MAKO.find((e) => e.subtipo === p.cron.evento)?.persona) hay.add('mako');
   if (p.cron.fijo === TRIGGER_INSTAGRAM) hay.add('instagram');
   if (p.cron.fijo === TRIGGER_MESSENGER) hay.add('messenger');
   if (p.cron.fijo === TRIGGER_EMAIL_RECIBIDO) hay.add('email');

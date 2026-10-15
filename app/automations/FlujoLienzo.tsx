@@ -103,7 +103,8 @@ import { VistaMensajeSocial } from './VistaMensajeSocial';
 import { EditorMensajeSocial, CabeceraSocialPanel } from './EditorMensajeSocial';
 // El ícono de cada CRON de la tarjeta (sexta tanda, CRON 10): el de su clase, como en el panel.
 import { IconoDisparador } from './IconosDisparador';
-import { TRIGGER_AVISO_MAKO, type ClaseDisparador, type SubtipoMako } from '@/lib/disparadores';
+import { EVENTOS_MAKO, TRIGGER_AVISO_MAKO, type ClaseDisparador, type SubtipoMako } from '@/lib/disparadores';
+import { datosDeLaPersona } from '@/lib/aviso-evento';
 // El chip «Sin conectar» de una tarjeta (décima tanda, GENERAL 6) y el modal que conecta ahí mismo.
 import { ConectarMedio, useEstadoMedios } from './ConectarMedio';
 import { chipDeTarjeta, lineaDePaso, mediosQueUsa, MOTIVO_MEDIO, type Medio } from '@/lib/medios-automatizacion';
@@ -1062,7 +1063,12 @@ function EditorDeNodo(pr: PropsEditor) {
     default:
       // El ✦ de MaKo también en el email y en los DM (decimotercera tanda, punto 8): cada uno pide lo suyo (lib/mako-redacta.ts).
       if (paso.canal === 'email') {
+        // En un evento de una PERSONA (la contraseña, 15/10/2026) es el «Email a la persona»: por el remitente de MaKo, a
+        // esa persona y con los datos de su evento (`datosDeLaPersona`, lib/aviso-evento.ts).
+        const contexto = pr.eventoMako ? datosDeLaPersona(pr.eventoMako) : null;
+        const quien = EVENTOS_MAKO.find((e) => e.subtipo === pr.eventoMako)?.quien ?? 'La persona del evento';
         return <EditorEmail paso={paso} id={id} negocio={pr.negocio} busy={pr.busy} cambiar={cambiar}
+          persona={contexto ? { contexto, para: quien } : null}
           mako={rolAdmin ? { disparador: pr.disparador, paraGuion: pr.paraGuion, chat: chatDe(id) } : null} />;
       }
       // Instagram y Messenger: la lógica del de WhatsApp con la cara de su app. La `key` va por tarjeta
@@ -1089,13 +1095,13 @@ function EditorDeNodo(pr: PropsEditor) {
  * paso y la pantalla seguía mostrando el del negocio (docs/hallazgos-chatbot.md, «Una prop nueva del
  * editor con CERO call sites»).
  */
-function EditorEmail({ paso, id, negocio, busy, cambiar, mako }: { paso: PasoSecuenciaDto; id: string; negocio: string; busy: boolean; cambiar: Cambiar; mako?: EditorEmailGmailProps['mako'] }) {
+function EditorEmail({ paso, id, negocio, busy, cambiar, mako, persona = null }: { paso: PasoSecuenciaDto; id: string; negocio: string; busy: boolean; cambiar: Cambiar; mako?: EditorEmailGmailProps['mako']; persona?: EditorEmailGmailProps['persona'] }) {
   return (
     // `cuerpoHtml`: el editor rico arranca del HTML guardado y un deshacer del lienzo lo devuelve
     // entero (sin esto, arrancaba del texto plano y deshacer sólo volvía el texto).
     <EditorEmailGmail key={`email-${id}`}
       asunto={paso.asunto ?? ''} preheader={paso.preheader ?? ''} cuerpo={paso.cuerpo ?? ''} cuerpoHtml={paso.cuerpo_html ?? ''}
-      remitente={paso.remitente ?? null} mako={mako}
+      remitente={paso.remitente ?? null} mako={mako} persona={persona}
       // Usar la sugerencia de MaKo (asunto y cuerpo de una vez) es una decisión: apila, como elegir otro «De».
       onChange={(patch) => cambiar(patch, 'remitente' in patch || ('asunto' in patch && 'cuerpo_html' in patch))} negocio={negocio} deshabilitado={busy} />
   );

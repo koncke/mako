@@ -83,10 +83,11 @@ const FIRMA_COBRANZA = 'mk_entrada:mensaje>mk_e48:esperar>mk_48:mensaje>mk_e72:e
 
 // Desde la décima tanda (GENERAL 7, 11/10/2026) son CUATRO: el aviso de nuevo agendado (`lead_agendo`) pasó a ser un
 // evento (docs/diseno-automations-galeria-v2.md §5).
-test('EVENTOS_MAKO: seis (13/10: el AI Analyst del Dashboard), cada subtipo se guarda, cada aviso existe y es UNO de `AVISOS_POR_EVENTO`', () => {
-  // El quinto, «Entra un pago» (11/10/2026): lo emite la pasarela de pagos (lib/cobros.ts).
-  assert.deepEqual(EVENTOS_MAKO.map((e) => e.subtipo), ['reunion_pronto', 'lead_contesta', 'cuota_vencida', 'lead_agendo', 'pago_recibido', 'analisis_listo']);
-  assert.deepEqual(EVENTOS_MAKO.map((e) => e.aviso), ['reunion-recordatorio', 'wa-mensaje-entrante', 'cuota-vencida', 'reunion-nuevo-agendado', 'pago-recibido', 'dashboard-analisis-listo']);
+test('EVENTOS_MAKO: siete (15/10: restablecer la contraseña), cada subtipo se guarda, cada aviso existe y es UNO de `AVISOS_POR_EVENTO`', () => {
+  // El quinto, «Entra un pago» (11/10/2026): lo emite la pasarela de pagos (lib/cobros.ts). El séptimo (15/10/2026) es
+  // de una PERSONA: lo emite Seguridad en el ws de la plataforma (tests/email-persona.test.ts).
+  assert.deepEqual(EVENTOS_MAKO.map((e) => e.subtipo), ['reunion_pronto', 'lead_contesta', 'cuota_vencida', 'lead_agendo', 'pago_recibido', 'analisis_listo', 'contrasena_restablecer']);
+  assert.deepEqual(EVENTOS_MAKO.map((e) => e.aviso), ['reunion-recordatorio', 'wa-mensaje-entrante', 'cuota-vencida', 'reunion-nuevo-agendado', 'pago-recibido', 'dashboard-analisis-listo', 'seguridad-contrasena-restablecer']);
   for (const e of EVENTOS_MAKO) {
     // El subtipo pasa el saneo del CRON (el id crudo, con guion, no pasaría).
     assert.equal(sanearDisparador({ id: 'd1', trigger_tipo: TRIGGER_AVISO_MAKO, subtipo: e.subtipo })?.subtipo, e.subtipo, e.subtipo);
@@ -159,15 +160,17 @@ test('el CRON: clase «mako», su texto es el label, no es un botón de la prime
 // `{{mensaje_mako}}`) → 23 / 1 (los datos del «{ }»). Y R19 (`problemaDeCambio` deja nacer una fila NUEVA con un
 // evento retirado, al pegar o duplicar) → 23 / 1 (problemaDeCambio).
 test('los retirados (el nuevo agendado y la media hora antes) no se ofrecen, y siguen vivos para las filas que los usan', () => {
-  assert.deepEqual(EVENTOS_MAKO_OFRECIDOS.map((e) => e.subtipo), ['lead_contesta', 'cuota_vencida', 'pago_recibido', 'analisis_listo']);
+  assert.deepEqual(EVENTOS_MAKO_OFRECIDOS.map((e) => e.subtipo), ['lead_contesta', 'cuota_vencida', 'pago_recibido', 'analisis_listo', 'contrasena_restablecer']);
   assert.deepEqual(EVENTOS_MAKO.filter((e) => e.retirado).map((e) => e.subtipo), ['reunion_pronto', 'lead_agendo']);
   // EL SELECTOR DEL CRON los ofrece así (enchufado en el cierre de la ola 3: dibujaba `eventosDe`, con los retirados):
   // sin los retirados, salvo el que la fila YA tiene (la viva de antes se ve elegida hasta el script). Probado
   // rompiéndolo (11/10/2026, wf-undecima/enchufador/roturas.cjs): `eventosOfrecidos` = `eventosDe` → 23 / 1 (base 24 / 0).
   assert.deepEqual(eventosOfrecidos('mako', null).map((e) => e.subtipo), ['lead_contesta', 'cuota_vencida', 'pago_recibido', 'analisis_listo']);
   assert.deepEqual(eventosOfrecidos('mako', 'lead_agendo').map((e) => e.subtipo), ['lead_contesta', 'cuota_vencida', 'lead_agendo', 'pago_recibido', 'analisis_listo']);
+  // El de una PERSONA (15/10/2026) se ofrece sólo en la plataforma: en un negocio no le llegaría nunca.
+  assert.deepEqual(eventosOfrecidos('mako', null, { plataforma: true }).map((e) => e.subtipo), ['lead_contesta', 'cuota_vencida', 'pago_recibido', 'analisis_listo', 'contrasena_restablecer']);
   assert.deepEqual(eventosOfrecidos('pagos', null), eventosDe('pagos'), 'las otras clases, como siempre');
-  assert.match(leer('app/automations/EditorDisparadores.tsx'), /\{eventosOfrecidos\(clase, d\.subtipo\)\.map\(\(ev\) => \{/);
+  assert.match(leer('app/automations/EditorDisparadores.tsx'), /\{eventosOfrecidos\(clase, d\.subtipo, \{ plataforma \}\)\.map\(\(ev\) => \{/);
   assert.doesNotMatch(leer('app/automations/EditorDisparadores.tsx'), /eventosDe\(clase\)/, 'el selector volvió a ofrecer los retirados');
   for (const sub of ['lead_agendo', 'reunion_pronto']) {
     // La fila viva: su evento se lee, su CRON se puede volver a guardar (ni «Elige el evento» ni «todavía no»).
@@ -520,8 +523,9 @@ test('el runner: correrFlujoDe corta los tres, la tarjeta MaKo emite el aviso co
   assert.match(bloque(FLUJOS, 'async function filaParaRetomar(', '\n}\n'), /if \(error\) throw new Error/, 'un bache de la base no corta la cadencia');
   // La corrida duerme sin lo que envejece, salvo un reintento (el mismo momento), y el reintento cuenta sus vueltas.
   const corr = sinComentarios(leer('lib/flujo-corridas.ts'));
-  assert.match(corr, /desde_at: new Date\(\)\.toISOString\(\), ctx: o\?\.reintento \? ctx : ctxParaDormir\(ctx\),/);
-  assert.match(bloque(corr, 'export async function avanzar(', '\n}\n'), /\.\.\.\(ctx \? \{ ctx \} : \{\}\),\n\s*\}\)\n\s*\.eq\('id', id\)\.eq\('paso', pasoViejo\)/);
+  // (15/10/2026: y sin los datos SECRETOS, también en el reintento: `sinSecretos`, tests/email-persona.test.ts.)
+  assert.match(corr, /desde_at: new Date\(\)\.toISOString\(\), ctx: sinSecretos\(o\?\.reintento \? ctx : ctxParaDormir\(ctx\)\),/);
+  assert.match(bloque(corr, 'export async function avanzar(', '\n}\n'), /\.\.\.\(ctx \? \{ ctx: sinSecretos\(ctx\) \} : \{\}\),\n\s*\}\)\n\s*\.eq\('id', id\)\.eq\('paso', pasoViejo\)/);
 });
 
 test('los cinco llamadores de la reunión y la charla pasan el LEAD, y la cobranza pasa la cuota', () => {

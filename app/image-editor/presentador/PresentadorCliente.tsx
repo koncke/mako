@@ -6,7 +6,7 @@
 
 import dynamic from 'next/dynamic';
 import { useSearchParams } from 'next/navigation';
-import { notoSans } from '../fuenteUi';
+import { FuenteUi } from '../fuenteUi';
 import '../_doory/styles/tokens.css';
 import '../_doory/styles/global.css';
 
@@ -15,7 +15,8 @@ const PresenterView = dynamic(() => import('../_doory/editor/presenter/view/Pres
 export function PresentadorCliente() {
   const session = useSearchParams().get('session');
   return (
-    <div className={`cv ${notoSans.variable}`} style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div className="cv" style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <FuenteUi />
       <PresenterView session={session} />
     </div>
   );

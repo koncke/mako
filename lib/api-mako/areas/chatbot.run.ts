@@ -42,9 +42,10 @@ import { prepararPartesGrupo, problemaDePartesGrupo } from '@/lib/mako-tarjeta-e
 import { getSettingData, guardarEstrategia, probarSecuencia, escenarioDePrueba, muestraParaCriterio, productosConEtapas, TriggerInvalidoError } from '@/lib/setting-secuencias';
 import { escenariosDeLaSecuencia } from '@/lib/simulador-grafo';
 import {
-  PLANTILLAS, plantillaPorId, canalesDe, eleccionEnPalabras, CANALES_PLANTILLA, OBJETIVOS_PLANTILLA, type PlantillaAutomatizacion,
+  plantillasPara, plantillaPorId, canalesDe, eleccionEnPalabras, CANALES_PLANTILLA, OBJETIVOS_PLANTILLA, type PlantillaAutomatizacion,
 } from '@/lib/plantillas-automatizaciones';
 import { crearDesdePlantilla, motivoDePlantillaVieja, PlantillaInvalidaError, type DbPlantilla } from '@/lib/plantilla-crear';
+import { esWsPlataforma } from './integraciones.helpers';
 import { listarEtiquetas } from '@/lib/etiquetas';
 import { crearFlujoConIA, hayIAParaCrear, armarContexto } from '@/lib/flujo-ia-crear';
 import { preguntaAntes, preguntaParaWhatsApp, respuestaDeTexto, sanearRespuestas } from '@/lib/flujo-ia-preguntas';
@@ -515,9 +516,10 @@ export const RUNNERS: Runners = {
 
   // La galería (undécima tanda). Explícito y con todos los campos: quien lee es un modelo (un campo ausente es «no sé»).
   listar_plantillas_automatizaciones: {
-    leer: async () => json({
-      total: PLANTILLAS.length,
-      plantillas: PLANTILLAS.map((p) => ({
+    // Las de SuperAdmin (`soloPlataforma`, la de restablecer la contraseña) sólo en el ws de la plataforma.
+    leer: async (_input, ctx) => { const lista = plantillasPara({ plataforma: await esWsPlataforma(ctx.ws) }); return json({
+      total: lista.length,
+      plantillas: lista.map((p) => ({
         id: p.id, nombre: p.nombre, para_que: p.linea,
         objetivo: OBJETIVOS_PLANTILLA.find((o) => o.id === p.objetivo)?.label ?? p.objetivo,
         canales: canalesDe(p).map((c) => CANALES_PLANTILLA.find((x) => x.id === c)?.label ?? c),
@@ -526,7 +528,7 @@ export const RUNNERS: Runners = {
         ayuda_etapa: p.cron.ayuda ?? null,
       })),
       nota: 'Nacen pausadas. pide_etapa dice qué hay que elegir al crearla (null = trae su CRON puesto). Para crear una: crear_automatizacion_desde_plantilla.',
-    }),
+    }); },
   },
 
   listar_secuencias_archivadas: {
@@ -607,6 +609,7 @@ export const RUNNERS: Runners = {
       const p = plantillaPorId(id);
       // Un id de antes nombra la que lo reemplaza; nunca se crea otra cosa en silencio.
       if (!p) return { error: `${motivoDePlantillaVieja(id) ?? 'Esa plantilla no existe.'} Pide el id con listar_plantillas_automatizaciones.` };
+      if (p.soloPlataforma && !(await esWsPlataforma(ctx.ws))) return { error: 'Esa plantilla es de SuperAdmin.' };
       const etapa = str(input, 'etapa');
       const producto = str(input, 'producto');
       if (!p.cron.pide || !etapa) {
@@ -629,6 +632,7 @@ export const RUNNERS: Runners = {
           setPasos: setSecuenciaPasos,
           setDisparadores: guardarDisparadores,
           motivoDeCron: (e) => (e instanceof TriggerInvalidoError ? e.message : null),
+          plataforma: await esWsPlataforma(ctx.ws),
         }, { disparador: payload.disparador ?? undefined });
         // ⚠️ EL LINK LO ESCRIBE EL CÓDIGO y va por `paraLaPersona` (AGENTS.md: un id que pasa por un modelo deja de ser exacto).
         const link = linkApp(`/automations?sec=${r.id}`, ctx.ws);

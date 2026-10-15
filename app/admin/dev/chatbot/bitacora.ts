@@ -1576,4 +1576,18 @@ FEEDBACK PROBAR:
     ],
     archivos: ["docs/hallazgos-chatbot.md — «Los avisos al equipo salen igual»"],
   },
+  {
+    fecha: "15 oct", hora: "05:00", chat: "Chatbot", cuenta: "claude1",
+    actor: "claude", tipo: "implementacion",
+    titulo: "«Email a la persona» y el dato secreto: restablecer la contraseña por Automations",
+    puntos: [
+      "La contraseña es obligatoria desde el 21/10. «Olvidé mi contraseña» manda el link por una automatización de SuperAdmin: el evento «Alguien pide restablecer su contraseña» y la tarjeta «Email a la persona», por el remitente de MaKo.",
+      "El link es secreto: nunca se guarda, no va al grupo ni al feed, y sale sólo en el cuerpo del mail.",
+      "La plantilla «Restablecer Contraseña» la ven y la crean sólo en la plataforma.",
+    ],
+    commits: [
+      { sha: "6ed57990d", msg: "Automations: «Email a la persona» y el dato secreto (restablecer la contraseña)", lineas: 802, archivos: 31 },
+    ],
+    archivos: ["docs/hallazgos-chatbot.md — «Email a la persona» y el dato SECRETO", "docs/diseno-2fa-obligatorio.md §9"],
+  },
 ];

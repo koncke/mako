@@ -1292,6 +1292,52 @@ Antes de escribir un límite —de tamaño, de progreso, de espaciado— comprob
 el límite real de la capa de abajo. Un número tuyo por encima del suyo no protege:
 promete.
 
+# NINGUNA pantalla se diseña de cero: se COPIA de una app que ya resolvió eso
+
+Pedido de Martín, textual, el 15/10/2026, después de rechazar dos pantallas seguidas (la de
+seguridad y la del Centro de Operaciones): **«te pido nuevamente que investigue y copie
+completamente el diseño de otra app similar… Por favor que sea como regla, sino estamos
+siempre con lo mismo»**. El «nuevamente» es el dato: ya lo había pedido antes, estaba en una
+memoria, y volvió a pasar — por eso ahora vive acá, que es lo que se lee antes de escribir.
+
+**Y la evidencia de que funciona es todo el producto.** Lo que en este repo salió bien está
+copiado, y se nombra por su fuente: el Video Editor es CapCut, el Image Editor es Canva, el
+Web Generator es Gamma, el Dashboard es Looker Studio, `/api-mako` es GitHub (con su CSS de
+Primer limitado a `.gh`), los Chats son respond.io. Lo que se dibujó «con buen criterio» —el
+panel de seguridad, el Centro de Operaciones— se rechazó a la primera, las dos veces con la
+misma palabra: *horrible*.
+
+El procedimiento, y no es opcional:
+
+1. **Antes de escribir una línea, se elige la app de referencia y SE ABRE.** No se recuerda:
+   se mira. Si hace falta, en el Chrome de Martín. Se guardan capturas de lo que se va a
+   copiar.
+2. **Si no se puede ver** —pide login, es de pago, no existe una equivalente— **se AVISA y se
+   frena**, en vez de inventar. Una pantalla inventada cuesta la tanda entera; preguntar
+   cuesta una frase. Y si se usa la documentación oficial en lugar de la app, se dice cuál y
+   se dice que es eso.
+3. **Se copia la ESTRUCTURA, no la marca**: la jerarquía, cómo agrupa, qué entra en una fila,
+   qué se esconde detrás del detalle, dónde viven las acciones destructivas, cuánto respira
+   cada bloque. Los colores, la tipografía y los íconos son los de la casa — un `var(--token)`
+   nuestro, nunca el hex de la otra app.
+4. **La fuente se NOMBRA en el commit y en el relevo** («copiado de la pantalla de seguridad
+   de Google, 15/10»). Sin eso, el que venga en tres semanas vuelve a diseñar de memoria y
+   estamos otra vez acá.
+5. **Lo que el dueño ya marcó como feo no se repite**: tachos rojos sueltos en una lista,
+   campos pegados sin aire, un botón gigante al lado de un campo chico, un contador que no
+   dice de qué («Te quedan 10»), filas idénticas que no se distinguen entre sí, y cuatro
+   bloques apilados del mismo peso sin jerarquía.
+
+⚠️ **Y vale para el REDISEÑO igual que para lo nuevo.** «Mejorar» una pantalla existente sin
+abrir una referencia es diseñar de memoria con otro nombre: es exactamente lo que produjo las
+dos que se rechazaron.
+
+⚠️ **Y la referencia es de una app SIMILAR, no de la primera que se nos ocurra.** Lo que se
+busca es quién ya resolvió ESE problema: para una pantalla de cuenta y seguridad, Google;
+para un tablero de trabajos y su estado, lo que usa la gente que mira corridas (Vercel,
+GitHub Actions, Linear); para una bandeja, un cliente de correo o de chat. Si no aparece
+ninguna, ése es justamente el caso del punto 2.
+
 # La pantalla dice QUÉ pasó; el PORQUÉ va al código
 
 Pedido tres veces el mismo día y la tercera con todas las letras: **«el mensaje del botón de

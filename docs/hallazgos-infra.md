@@ -98,6 +98,43 @@ Chats y la respuesta casi fue «nunca se hizo». Para saber si un worktree tiene
 el log. Y un trabajo grande sólo en el árbol se pierde con un `worktree remove`, un `checkout -f` o una limpieza:
 se commitea en su rama aunque no se pushee.
 
+## Transferir el repositorio de GitHub DESCONECTA el proyecto de Vercel, y el rol Developer no lo puede reconectar (15/10/2026)
+
+Al pasar `dashboard-marketing` de la cuenta del cliente a la de Martín (`hola-mako`), **`git push` siguió
+funcionando** —GitHub redirige el remoto viejo— y por eso durante horas nadie vio que producción se había quedado
+atrás: tres tandas de trabajo (Chats, Image, Centro de Operaciones) entraron a main y ninguna se desplegó. Lo que
+rompe la transferencia es el VÍNCULO del proyecto: `GET /v9/projects/mako` devolvía **`link: null`**. No hay error,
+no hay aviso, y la pantalla de Settings → Git se ve normal.
+
+Y los dos diagnósticos que parecían obvios eran los equivocados:
+
+1. **«Falta instalar la GitHub App en la cuenta nueva.»** Se instaló, y el scope `hola-mako` **igual no aparecía**
+   en el desplegable de Vercel. Porque Vercel lista los namespaces de Git **del USUARIO logueado**, no del equipo:
+   medido con `GET /v1/integrations/git-namespaces?provider=github`, el token del equipo (que es del dueño de la
+   cuenta de Vercel) devuelve **únicamente `mbustos-digital`**. El repo del otro dueño no existe para él, y por eso
+   `POST /v9/projects/<id>/link` contesta «you need to install the GitHub integration first» por más que la app esté
+   instalada del otro lado.
+2. **«Hay que agregarlo como miembro del proyecto.»** Esa pantalla (Project Members) es **Enterprise**: en Pro no se
+   puede usar y el botón sólo ofrece Upgrade.
+
+**La causa real era el ROL.** Quien tenía el GitHub correcto estaba en el equipo como **Developer**, y Developer no
+puede tocar la conexión Git: la pantalla lo dice en gris, abajo de todo, con un *«You need additional permissions to
+manage your project's connected git repository»* que se lee como un botón roto. Se destraba subiéndolo a **Member**
+(`PATCH /v1/teams/<team>/members/<uid>` con `{"role":"MEMBER"}`), conectando, y bajándolo de nuevo: **el link
+sobrevive al cambio de rol** (verificado consultando el proyecto después de bajarlo). Lo que sí soltaría vínculos es
+sacar a esa persona del equipo, que es otra cosa.
+
+**El costo, por si se duda en subir el rol:** medido contra `billing.invoiceItems`, con un OWNER y un DEVELOPER en
+el equipo `teamSeats` marcaba **quantity 1** — o sea que el rol Developer **no consume asiento** en Pro. El que paga
+es Member.
+
+**La regla:** después de transferir un repositorio, «el push anda» no dice nada sobre el deploy. Se pregunta por el
+vínculo (`link` del proyecto) y por el último deploy de producción, y las dos respuestas salen de la API, no de la
+pantalla. Y antes de pelear con permisos de GitHub, mirar de qué USUARIO es la sesión de Vercel: el desplegable de
+scopes es por persona.
+
+**Vive en:** la configuración del proyecto en Vercel (no hay código del repo involucrado).
+
 ## Supabase: leer y escribir sin perder datos
 
 ### ⚠️ `getSetting` devuelve `null` tanto si falló la lectura como si no hay fila, y eso expulsa a un cliente onboardeado al wizard
@@ -6072,3 +6109,11 @@ importan**: `git grep -l "<módulo del tipo>"` y se suman a `files`. Medido: con
 **La regla:** en una carpeta no conviven dos módulos cuyo nombre difiere sólo en mayúsculas, aunque la extensión sea distinta. La lógica pura de un componente lleva otro nombre (`reglas.ts`, `*-reglas.ts`, que es la convención de la casa).
 
 **Vive en:** app/tickets/decisiones/reglas.ts
+
+### Un `tsc` que sale con 1 y SIN UNA LÍNEA no es un tsconfig roto: lo mató el vigía (15/10/2026)
+
+**Síntoma.** El chequeo de tipos acotado (`node … tsc -p <tsconfig del scratchpad>`) salió con código 1 y ninguna salida,
+ni con `--extendedDiagnostics`. Se leía como un tsconfig mal armado y se fue a revisar el JSON. **Causa:** lo mató
+`vigia.ps1` por zona roja (`[vigia] MATO pid … tsc` en `~/.claude/guardia/guardia.log`). Un proceso matado no imprime
+nada. **Regla:** ante un `tsc` mudo, mirar primero el log de la guardia. Acotado a menos archivos, o con más RAM libre,
+pasa. · *2026-10-15 Automations*

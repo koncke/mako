@@ -14,11 +14,11 @@
 // MaKo. Los menús y diálogos de Doory se montan adentro de la raíz del editor
 // (EditorProvider → `portalRoot`), así que heredan los tokens solos.
 //
-// La letra de la interfaz es Noto Sans, como la variable `--cv-font-ui`
-// (./fuenteUi.ts, que comparte con la ventana del presentador).
+// La letra de la interfaz es Noto Sans, por la hoja de Google de ./fuenteUi.tsx (no por next/font:
+// ver ahí por qué), que comparte con la ventana del presentador.
 
 import dynamic from 'next/dynamic';
-import { notoSans } from './fuenteUi';
+import { FuenteUi } from './fuenteUi';
 import './_doory/styles/tokens.css';
 import './_doory/styles/global.css';
 
@@ -30,11 +30,12 @@ export function ImageEditorCliente({ vista, disenoId, ws }: { vista: 'inicio' | 
   return (
     <div
       key={ws ?? 0}
-      className={`cv ${notoSans.variable}`}
+      className="cv"
       style={editor
         ? { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }
         : { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'auto' }}
     >
+      <FuenteUi />
       {editor ? <PantallaEditor disenoId={disenoId} ws={ws} /> : <Inicio ws={ws} />}
     </div>
   );

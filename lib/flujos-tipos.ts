@@ -114,7 +114,14 @@ export type Paso =
    * no —o no se sabe—, la corrida termina (`decidir`, lib/flujo-pasos.ts). SÓLO la arma la traducción de una
    * fila de evento: en el store de /mensajes no entra (`esFlujoValido`).
    */
-  | { tipo: 'condicion'; rama: RamaCondicion };
+  | { tipo: 'condicion'; rama: RamaCondicion }
+  /**
+   * «EMAIL A LA PERSONA» DE UN EVENTO DE UNA PERSONA (15/10/2026, `EventoMako.persona`, lib/disparadores.ts): un mail
+   * a un USUARIO de MaKo (`datos.usuario_id`), por el remitente de MaKo. A dónde, lo decide `destinoDeUsuario` con el
+   * `proposito` del EVENTO, nunca un dato. SÓLO lo arma `pasosDelEvento` (lib/aviso-evento.ts): en el store de
+   * /mensajes no entra.
+   */
+  | { tipo: 'email_persona'; asunto: string; texto: string; html?: string; proposito: 'restablecer' | 'aviso' | 'codigo' };
 
 // ── EL PASO «⚡ ACCIÓN»: qué corre, y cómo se escribe ────────────────────────
 
@@ -257,6 +264,7 @@ export function describirPaso(p: Paso): string {
     const op = operacionDelPaso(p);
     return op ? rotuloOperacion(op) : SIN_ACCION;
   }
+  if (p.tipo === 'email_persona') return 'Email a la persona';
   if (p.tipo === 'insistir') {
     const cada = p.cadaMin % 60 === 0 ? `${p.cadaMin / 60} h` : `${p.cadaMin} min`;
     return `Insistir hasta que confirmes · cada ${cada}, hasta ${p.veces} ${p.veces === 1 ? 'vez' : 'veces'}`;

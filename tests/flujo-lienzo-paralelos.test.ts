@@ -362,7 +362,8 @@ test('el lienzo de /automations: sin la tarjeta fantasma ni la fila «Si respond
   // etiqueta es la frase. Verificado volviendo a montar el editor de tres campos: 1 fallo.
   assert.match(flujo, /if \(etiquetaDeAccion\(paso\)\) return <EditorEtiquetaLienzo /);
   // Decimotercera tanda (punto 8): el email lleva el ✦ de MaKo (`mako`), así que la rama abre un bloque.
-  assert.match(flujo, /if \(paso\.canal === 'email'\) \{\n\s+return <EditorEmail /);
+  // (15/10/2026: antes, el contexto de la persona si la fila es de un evento de una persona: `datosDeLaPersona`.)
+  assert.match(flujo, /if \(paso\.canal === 'email'\) \{\n(\s+const [^\n]+\n)*\s+return <EditorEmail /);
   assert.match(flujo, /<EditorEmailGmail key=\{`email-\$\{id\}`\}/, 'el email no usa el editor tipo Gmail');
   assert.match(flujo, /<EditorEtiqueta key=\{`etq-\$\{p\.id\}`\}/, 'la etiqueta no usa la frase');
   // ⚠️ Tercera tanda (decisión 1): el WhatsApp va en UNA columna, siempre. Partido en dos (el chat a

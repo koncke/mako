@@ -477,6 +477,16 @@ export const ADMIN_FAMILIAS: NavFamilia[] = [
         // El Centro de Operaciones (15/10/2026): pedidos firmados para los chats de Claude de la PC
         // de Martín. Sólo él (puedeOperar), y la key tampoco lleva el prefijo 'dev-'.
         { key: 'admin-operaciones', label: 'Centro de Operaciones', href: '/admin/operaciones', icon: 'config', match: starts('/admin/operaciones') },
+        // La ticketera: el mazo donde Martín contesta las decisiones que le publican los chats
+        // (15/10/2026, reportado por él: «tampoco tengo la ticketera en superadmin en desktop, en
+        // la sidebar... Eso esta mal»). En el TELÉFONO ya se podía llegar —`lib/movil-rutas.ts`
+        // mapea /tickets/decisiones a /m/tickets/decisiones— y en la computadora no había ninguna
+        // puerta: se entraba sólo con la URL escrita a mano. El ítem de «Reportar problema» que
+        // vive en el menú de la foto es OTRA cosa (/tickets a secas, y `comingSoon`), así que no
+        // servía de puerta. Va al lado del Centro de Operaciones porque son el mismo trabajo: los
+        // dos son cómo Martín le contesta a los chats. Sólo super admin, y la key tampoco lleva
+        // el prefijo 'dev-' (tests/dev-areas.test.ts lo reserva a los registros).
+        { key: 'admin-ticketera', label: 'Ticketera', href: '/tickets/decisiones', icon: 'soporte', match: starts('/tickets/decisiones') },
       ],
       // El cerebro de MaKo y la formación: con qué sabe, con qué piensa, y de
       // dónde se entrena el equipo. «Contexto de MaKo» estaba detrás del avatar
