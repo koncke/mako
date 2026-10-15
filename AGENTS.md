@@ -1136,6 +1136,10 @@ código nuevo:
   al abrirlo (15/10/2026): «Me dice que todavía no hay pedidos, cuando tenemos muchos». Las claves
   (`operaciones_pedidos`, `ver_pedidos_operaciones`) no se renombran; lo que se dibuja, sí. Lo fija
   tests/operaciones.test.ts.
+- **Escribirle a un chat se hace desde SU conversación, y por UN camino** (16/10/2026; Martín: «NO es funcional, no
+  puedo mandar un prompt por allí»): la caja de `Conversacion.tsx` y la del teléfono firman por `mandar.ts`. Un
+  formulario aparte para mandar no vuelve. Y la caja no manda lo que la PC va a rechazar ni dice «sale ya» sobre lo que
+  espera: lo decide `comoSale` (lib/centro-chats.ts), con test.
 
 # Un guard sobre algo destructivo se escribe en POSITIVO
 

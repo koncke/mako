@@ -16,6 +16,9 @@ const ESTRATEGIA = 'Estrategia 3 cuentas';
 /** Las sesiones de esos dos chats en la app (`sesion`, lib/centro-chats.ts): el Centro junta por sesión. */
 const SESION_CH = 'local_5cc6190d-8390-4df1-b215-849f5590ee30';
 const SESION_ESTRATEGIA = 'local_94ec0e46-f987-4530-a3cc-c5c1a0bc0601';
+/** Desde el 15/10 a la noche, en la cuenta 3: el chat del Centro y el coordinador de esa cuenta. */
+const SESION_CH_3 = 'local_428051c1-0369-4df2-ae6b-bcb42f63b64b';
+const SESION_ESTRATEGIA_3 = 'local_0f38f4d5-0e64-411e-b6c8-6d6ead20baed';
 
 /** Las fases del área y en qué anda cada una. */
 export const PARTES: Parte[] = [
@@ -289,5 +292,31 @@ export const BITACORA: Hito[] = [
       'De Vercel queda una sola frase: si lo último se publicó o falló.',
     ],
     archivos: ['lib/progreso-reglas.ts — novedades y estadoDeProduccion', 'app/admin/operaciones/Progreso.tsx — la línea de tiempo'],
+  },
+  {
+    fecha: '15 oct', hora: '19:01', chat: ESTRATEGIA, sesion: SESION_ESTRATEGIA_3, cuenta: 'claude3', actor: 'martin', tipo: 'prompt',
+    titulo: 'La vista de chats, de punta a punta, y que se pueda escribirles',
+    pedido: 'Toda la vista de chat está horrible la verdad... Quiero que la rediseñe completamente, de punta a punta siguiendo los ejemplos e inspiraciones. Eliminando las tabs innecesarias, los textos innecesarios, títulos, subtitulos, avisos, etc... No solamente eso, NO es funcional, no puedo mandar un prompt por allí a mis otras cuentas.',
+    puntos: ['Y del mismo día, al coordinador: «Lo que más me interesa que tenga la prioridad es el centro de operaciones. Que se vea muy bien en diseño, para eso que se inspire en otras apps y que sea funcional.»'],
+  },
+  {
+    fecha: '15 oct', hora: '23:18', chat: CH, sesion: SESION_CH_3, cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'El Centro es una app de chat, y cada conversación tiene su caja para escribirle',
+    puntos: [
+      'La caja va abajo de cada conversación: Enter manda, y lo que espera lo dice en una línea («Sale cuando abras este chat en la cuenta 1»).',
+      'Los trabajos se ven adentro de su chat con los ticks de WhatsApp, y el cierre del chat aparece como su respuesta.',
+      'La barra agrupa por cuenta, la que corre primero; lo anotado antes del 16/10 va aparte, plegado.',
+      'Se fueron el título, el subtítulo, las frases, las pestañas y Áreas; Avance y Pushes son accesos de la barra.',
+      'Carga sin esperar a Vercel, y con su esqueleto. En el teléfono, lo mismo, con la caja fija abajo.',
+    ],
+    commits: [{ sha: '3f0c55f14', msg: 'feat(operaciones): el Centro como app de chat, con la caja para escribirle a cada chat', lineas: 3117, archivos: 24 }],
+    archivos: [
+      'app/admin/operaciones/CentroApp.tsx — la barra y la pantalla',
+      'app/admin/operaciones/Conversacion.tsx — la conversación y la caja',
+      'app/admin/operaciones/Hilo.tsx — las burbujas y los ticks (computadora y teléfono)',
+      'app/admin/operaciones/mandar.ts — firmar y mandar, el mismo camino en los dos',
+      'lib/centro-chats.ts — comoSale, completarChats, vistaPrevia, seccionesDeChats',
+      'app/m/operaciones/ChatsMovil.tsx — la lista y la conversación en el teléfono',
+    ],
   },
 ];

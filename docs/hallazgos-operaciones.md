@@ -328,6 +328,74 @@ del cartero, antes de dibujar nada:
   los que se pidieron en uno y trabajó otro, los trabajos firmados por sesión de destino, y la
   conversación de cada chat). «Avance» es la vista por estado de lib/progreso-reglas.ts, sin cambios.
 
+## El rediseño de punta a punta: la caja para escribirle a un chat, y lo que faltaba para que llegue (16/10/2026)
+
+**Síntoma.** Martín abrió la pestaña Chats en producción (15/10, 19:01) y la rechazó entera: «Toda la vista de chat
+está horrible la verdad... Eliminando las tabs innecesarias, los textos innecesarios, títulos, subtitulos, avisos,
+etc... No solamente eso, NO es funcional, no puedo mandar un prompt por allí a mis otras cuentas.»
+
+**Causa.** Dos, y la segunda no era de estética. La pantalla mostraba conversaciones y no dejaba escribir: mandar
+vivía en un formulario aparte («Cartero y trabajos»), con un desplegable de chats. Y aunque se escribiera, **nada
+llegaba**: medido en la PC ese mismo día,
+
+| Lo que hace falta para que un trabajo llegue | Cómo estaba (15/10, 23:00) |
+|---|---|
+| Una clave de firma aceptada en la PC (`claves.txt`) | **no existía**: todo trabajo firmado salía «No se pudo» en la primera vuelta |
+| El cartero de cada cuenta | sólo el de la cuenta 1; se declararon la 2 y la 3 (`cartero claudeN app ~/.claude` + `carpeta`) |
+| Alguien que corra las vueltas | **nadie**: ningún chat «Cartero»; la última vuelta, a las 17:29 UTC |
+| La cuenta del chat, corriendo | la app estaba en la 3 (12 de 13 chats abiertos); la 1 (53 chats) y la 2 (27) no corrían en ningún lado |
+| Una cuenta de terminal logueada | sólo `~/.claude-cuenta3` (15/10 03:20); `~/.claude-martin` nunca, y `~/.claude` tiene credenciales de julio |
+
+La cola de producción tenía **0 trabajos**: nadie había podido mandar uno.
+
+**Lo que quedó.** La pantalla es una app de chat, copiada de las que resuelven lo mismo (varias sesiones de un
+agente, cada una con su estado). Las capturas se bajaron y se miraron el 15/10 (en el scratchpad de esa sesión):
+
+| De dónde | Qué se copió |
+|---|---|
+| Claude Code web (sesiones con punto de estado) y Claude web | la barra: accesos con ícono arriba, filas de una línea con el punto a la izquierda, lo de la cuenta abajo de todo |
+| Codex (escritorio y teléfono) | las sesiones agrupadas con «Mostrar más» y la edad a la derecha; acá el grupo es la CUENTA |
+| WhatsApp (iOS, iPad, web), Linear Inbox, Slack | la fila de dos renglones con lo último que pasó, la hora y el tick ADENTRO de la burbuja, las píldoras de día, la conversación a pantalla completa en el teléfono con la caja fija abajo |
+| Claude / ChatGPT / Perplexity | la caja redondeada con el texto arriba y una barrita abajo (la opción a la izquierda, enviar a la derecha) |
+| Grok | Avance y Pushes como accesos de la barra que abren su vista con el nombre como único título |
+
+- **La caja va abajo de cada conversación** (`Conversacion.tsx`): Enter manda, Shift+Enter baja de renglón. Firma por
+  `mandar.ts`, el mismo camino en la computadora y en el teléfono, y lo que espera lo dice en una línea («Sale cuando
+  abras este chat en la cuenta 1»). Una caja que mandaría algo que la PC va a rechazar NO manda: ofrece crear o copiar
+  la clave (`comoSale`, lib/centro-chats.ts).
+- **La barra agrupa por cuenta** (`seccionesDeChats`): con tres cuentas hay tres «CRM», y el título no los separa. Lo
+  anotado sin sesión (antes del 16/10) va en su propia sección, plegada, al final: no recibe trabajos y repetía el
+  título de su sesión al lado de ella.
+- **Los ticks son los de WhatsApp**: ✓ escrito, ✓✓ entregado, ✓✓ azul hecho, ✕ no salió (con el motivo debajo). El
+  cierre que deja el chat aparece como su respuesta.
+- **La poda**: se fueron el título, el subtítulo, la frase de dónde sale el estado, las pestañas, la hora de «Al día»
+  y el botón Actualizar (se refresca solo cada 8 s con la pestaña a la vista). «Áreas» se fue entera: lo que decía es
+  la lista de chats. La vista `pedidos` pasó a llamarse `avance` (un `?tab=pedidos` viejo abre los chats).
+- **Cargar**: la página ya no espera a Vercel (hasta 8 s de timeout; los pushes llegan después por `pushesCentroAction`)
+  y tiene su esqueleto (`loading.tsx`, en la lista blanca de tests/layout-sin-suspense.test.ts).
+
+**Lo que costó y no se deduce del código:**
+
+- ⚠️ **Un test de refresco que no saca al chat no prueba el refresco.** El de `completarChats` refrescaba con el cartero
+  VIENDO todavía al chat, así que borrar el reseteo del estado daba 9 en verde: el estado se pisaba igual. La rotura
+  que lo prueba es la de un chat que el cartero dejó de ver.
+- ⚠️ **El guard de «trabajo» lee cada cadena entre comillas**, también los ids: `vista === 'pedidos'` lo ponía rojo.
+  Por eso la vista se llama `avance`, que además es su nombre en pantalla.
+- **«Sin nada anotado» en 40 filas no distingue a ninguna** (AGENTS.md → una fila de una lista dice lo que la
+  distingue): una fila sin nada que contar es de un renglón.
+- **Dribbble y Behance bloquean `curl` y WebFetch** (202 con `x-amzn-waf-action: challenge` y cuerpo vacío; 403). Lo que
+  anduvo: las páginas archivadas en el Wayback Machine (CDX con `filter=statuscode:200`, sufijo `id_`), sacar de ahí los
+  `/shots/` y bajar la imagen de `cdn.dribbble.com/userupload/…` con `?resize=2000x1500`, que no está bloqueado.
+- **Mirar la pantalla sin servidor cuando no hay RAM**: con 1,5 GB libres no entra un `next dev`. Las capturas salieron
+  de los componentes REALES empaquetados con el esbuild que trae tsx, con las acciones del server, `next/navigation` y
+  la clave reemplazadas por datos ficticios, las hojas de la casa concatenadas (sin las directivas de Tailwind) y
+  Chrome `--headless=new --mute-audio --screenshot`. No reemplaza mirarla en producción: no pasa por el guard ni por la
+  base.
+
+**Vive en:** `app/admin/operaciones/{CentroApp,Conversacion,Hilo,PanelCartero}.tsx` · `mandar.ts` · `centro.css` ·
+`lib/centro-chats.ts` (`completarChats`, `comoSale`, `vistaPrevia`, `seccionesDeChats`) · `app/m/operaciones/` ·
+`tests/centro-chats.test.ts` · `tests/operaciones.test.ts`
+
 ## Lo que creí medido y no estaba al día
 
 - **`soloPlataforma` ya existía en el registro de la API** (lo sumó el 2FA obligatorio el 14/10, por
@@ -343,9 +411,14 @@ del cartero, antes de dibujar nada:
   clave de firma por dispositivo (`clave <SPKI>`) para que los trabajos firmados salgan.
 - **La Ticketera no muestra si el aviso llegó**: el dato está (`aviso_estado`), la pantalla no lo dibuja.
 - **Fase 2 del aviso**: firmar la respuesta al contestar, para que el aviso la lleve adentro.
-- **Implementar el rediseño** de `docs/prototipos/centro-operaciones.html` en la pestaña Trabajos
-  (`app/admin/operaciones/CentroOperaciones.tsx`): APROBADO el 15/10, sin hacer. La lógica de firma, las
-  acciones y el cartero no cambian; cambia la pantalla.
+- **El chat «Cartero» en cada cuenta que esté corriendo** (16/10): sin él, lo que se escribe en la caja queda «escrito».
+  El prompt para pegarle está en `docs/relevo/centro-operaciones.md`. Y la clave de cada dispositivo, cargada a mano.
+- **Que un trabajo llegue a una cuenta que NO está abierta**: hoy espera a que la app pase a esa cuenta (o a que corra
+  en terminal con su Cartero). Para las tres en paralelo: `/login` de la 1 y la 2 en terminal (lo hace Martín), su
+  cartero como `cli` y un Cartero en cada una. ⚠️ El cartero acepta UNA fuente por cuenta (`app` o `cli`): una cuenta
+  con chats en la app y en terminal a la vez necesita las dos (scripts/operaciones/cartero.mjs → `carteroDe`). Y no
+  está medido si `SendMessage` cruza de un directorio de configuración a otro.
+- ~~Implementar el rediseño de `docs/prototipos/centro-operaciones.html`~~: lo reemplazó el de punta a punta del 16/10.
 - **Progreso con lo que está en la PC**: los chats abiertos y lo escrito sin subir llegan con el cartero
   (sube sus chats en cada vuelta); hoy Pedidos y Áreas sólo ven lo desplegado.
   ⚠️ **Lo «sin subir» se cuenta con `git cherry`, no con «ahead N»:** el 15/10 el coordinador midió un clon
@@ -361,9 +434,8 @@ del cartero, antes de dibujar nada:
 - **La opción C** (un hook con `asyncRewake` en la carpeta del Cartero, que lo despierta sin gastar
   turnos): documentado que despierta a una sesión ociosa; no probado con `Stop`. Necesita el OK de
   Martín porque es configuración.
-- **El teléfono, para MANDAR**: desde el 15/10 `/m/operaciones` deja mirar (la cola, cada pedido, los
-  carteros) y tiene su puerta en More → «Super admin». Mandar desde ahí necesita la clave DEL teléfono
-  cargada en la PC, y no se planifica: es un extra. Si se hace, se verifica en su iPhone de verdad.
+- **El teléfono, para MANDAR**: desde el 16/10 la caja también está en `/m/operaciones` (por `mandar.ts`), con la clave
+  DEL teléfono, que la PC tiene que aceptar aparte. Falta verlo en su iPhone de verdad (el teclado sobre la hoja).
 - **Etapa 2 (la cuota)** y **etapa 3 (el señalador)**.
 - **Proponer un pedido desde un chat de MaKo** con `confirmacion: 'pantalla'` (se firma en la pantalla):
   no está en el registro.
