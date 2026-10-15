@@ -2346,6 +2346,42 @@ Palanca gratis por probar si vuelve a morir: `NEXT_TURBOPACK_USE_WORKER=0`. Subi
 
 **Vive en:** el proyecto de Vercel (Environment Variables) · `next.config.ts` · *2026-10-15*
 
+### El typecheck se fue de la notebook: rama `integracion` + GitHub Actions + fast-forward (15/10/2026)
+
+**Síntoma:** el push del coordinador murió con 240 MB libres. El `tsc` completo pide 3-5 GB, la
+notebook de 16 GB la comparten 10-20 chats, y el pre-push era el único lugar donde corría.
+
+**Lo que se armó** (decidido por el coordinador en nombre de Martín, dentro del tier gratis):
+se pushea a `integracion`; `.github/workflows/integracion.yml` corre `next typegen` (los tipos de
+rutas que en la notebook deja `.next/`), `tsc`, las guardas y los tests, y si da verde hace
+`git push origin HEAD:refs/heads/main`, que sin `--force` sólo puede ser fast-forward. Las doce
+guardas del pre-push salieron del hook (que no se versiona) a `scripts/guardas-push.sh`, que
+corren los dos. El pre-push local (copia versionada en `scripts/claude-hooks/pre-push`) corre el
+`tsc` sólo si el push va a `main`: el camino de emergencia queda protegido igual que antes.
+`vercel.json` apaga los deploys de `integracion`.
+
+**Lo medido de GitHub, por la API con la credencial del clon:** el repo es privado y su dueño
+`hola-mako` es una cuenta de USUARIO, no una organización (Free: 2.000 min/mes de Actions); `main`
+no tiene protección (en privado Free no se puede: las reglas piden Pro), así que el
+`GITHUB_TOKEN` puede avanzarla. La credencial del clon pushea pero no es admin: los ajustes de
+Actions del repo no se pudieron leer.
+
+**Lo que NO está medido** y hay que mirar en el primer run: cuántos minutos gasta, si toda la
+suite da verde en Linux (puede haber tests que dependan de archivos que sólo están en la
+notebook), y si Vercel despliega el fast-forward que hace Actions (los pushes del `GITHUB_TOKEN`
+no disparan otros workflows; los webhooks de apps, como el de Vercel, sí deberían).
+
+**El vigía, en la misma tanda:** se levanta solo (un disparador cada 5 min además del de inicio de
+sesión: el 13/10 estuvo 6 horas muerto con un solo disparador; probado matándolo, volvió en 21 s),
+prefiere matar un `tsc` que corre FUERA del lock antes que el del pre-push (el del lock se
+reconoce porque su padre es `typecheck-lock.mjs`), y como `Stop-ScheduledTask` ya no lo pausa, se
+pausa con el archivo `~/.claude/guardia/vigia-pausa` (vale 45 min). Y una trampa que se vio esa
+noche: la RAM llegó a 447 MB con la memoria repartida en 24 `node` medianos (4,9 GB, ninguno de
+más de 400 MB), y el vigía, que mata de a uno al más grande, no encontró nada que matar.
+
+**Vive en:** `.github/workflows/integracion.yml` · `scripts/guardas-push.sh` ·
+`scripts/claude-hooks/pre-push` · `~/.claude/guardia/vigia.ps1` · *2026-10-15*
+
 ---
 
 ## Zonas horarias

@@ -25,3 +25,9 @@ public/replay/** -text
 # el hook va con suppressOutput. Un clon nuevo lo sacaria en CRLF y la copia
 # quedaria muda. Va siempre en LF.
 scripts/claude-hooks/*.sh text eol=lf
+
+# El pre-push que se copia a .git/hooks y las guardas que corren él y GitHub Actions
+# (15/10/2026). Con CRLF, `sh` falla en la primera línea (`$'\r': command not found`)
+# y el push queda sin guardas. Van siempre en LF.
+scripts/claude-hooks/pre-push text eol=lf
+scripts/guardas-push.sh text eol=lf
