@@ -27,7 +27,7 @@ import { analizarLandingAction } from './landing-config-actions';
 import { finPruebaAction } from './landing-actions';
 import { leadDePruebaAction } from './prueba-lead-actions';
 import { conWs, wsDeBusqueda } from '@/lib/ws-tab';
-import { AvisoVentanasBloqueadas } from '@/app/landing-generator/lector/AvisoVentanasBloqueadas';
+import { AvisoVentanasBloqueadas } from '@/app/web-generator/lector/AvisoVentanasBloqueadas';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
@@ -578,7 +578,7 @@ export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?:
   // El aviso con la FLECHA a la barra del navegador (tanda 6, 14/10/2026). Pedido de Martín: «Me imagino
   // como el mensaje que tenemos en Video Generator que es una flecha apuntando arriba con el mensaje. Esto
   // para ambos, para esto y para el pixel hazlo.» El mismo componente que el lector de landings
-  // (app/landing-generator/lector/AvisoVentanasBloqueadas.tsx). La prueba sigue SIN empezar: sin la
+  // (app/web-generator/lector/AvisoVentanasBloqueadas.tsx). La prueba sigue SIN empezar: sin la
   // ventana no hay dónde ver los eventos, y la landing no se abre.
   const avisoPermiso = (
     <AvisoVentanasBloqueadas abierto={sinPermiso} onCerrar={() => setSinPermiso(false)} texto="La prueba se mira en una ventana: elige «Permitir siempre»." />

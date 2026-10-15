@@ -3,7 +3,7 @@
 // =============================================================================
 // Pedido de Martín (15/10/2026, por «Estrategia 3 cuentas»): «es importante que video
 // editor tenga, como landing, un chat al costado donde pueda ir editando todo con
-// prompt». El modelo es el del Landing Generator (app/landing-generator/editor/paneles/
+// prompt». El modelo es el del Landing Generator (app/web-generator/editor/paneles/
 // PanelAgente.tsx): la IA PROPONE, la persona mira «Original | Modificado» y acepta o
 // descarta entero.
 //

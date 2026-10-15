@@ -70,7 +70,7 @@ export function useReplicar(): {
     const r = await postJson<RespuestaReplicar>('/api/landing-generator/replicar', cuerpo, PLAZO_IA_MS);
     // Sale bien: el editor de la copia (se queda «replicando» mientras navega), o lo que siga con ella.
     if (r.ok && alListo) { await alListo({ id: r.id, titulo: r.titulo }); return; }
-    if (r.ok) { irDuro(`/landing-generator/${r.id}`, ws); return; }
+    if (r.ok) { irDuro(`/web-generator/${r.id}`, ws); return; }
     const f = r as { error: string; enNavegador?: boolean; pegable?: boolean; probar?: unknown };
     const probar = formatoReplicar(f.probar);
     setEstado({ fase: 'falla', formato, error: f.error, enNavegador: f.enNavegador === true, pegable: f.pegable === true, probar: probar && probar !== formato ? probar : null });

@@ -44,7 +44,7 @@
 //     pedido a «Generar». Y un link TIPEADO y mandado con Enter también va como link (`linkEscrito`);
 //   · las pastillas Landing | Presentación;
 //   · «Crear con IA» (punto 3): Pegar texto · Generar · Importar · Analizar landing · Replicar landing, las
-//     tarjetas que tenía /landing-generator/crear. Se abren a la DERECHA del Panel, en la misma ruta;
+//     tarjetas que tenía /web-generator/crear. Se abren a la DERECHA del Panel, en la misma ruta;
 //   · las plantillas del tipo elegido (punto 6): miniatura y nombre en UNA tarjeta con sombra, sin la
 //     descripción (sigue en los datos). Tocar una CREA y ABRE (navegación dura: cambió QUÉ EXISTE).
 //
@@ -92,7 +92,7 @@ const PLACEHOLDER_QUIETO = '¿Qué quieres crear?';
 /** El placeholder con un archivo adjunto: el pedido ya es el archivo. */
 const PLACEHOLDER_ARCHIVO = 'Qué hacer con el archivo (opcional)';
 
-/** «Crear con IA» (tanda 6, punto 3): las tarjetas de /landing-generator/crear, ahora en la tab. Rótulos cortos. */
+/** «Crear con IA» (tanda 6, punto 3): las tarjetas de /web-generator/crear, ahora en la tab. Rótulos cortos. */
 type OpcionIA = 'pegar' | 'generar' | 'importar' | 'analizar' | 'replicar';
 export const OPCIONES_IA: readonly { id: OpcionIA; titulo: string; sub: string; icono: string; popular?: boolean }[] = [
   { id: 'pegar', titulo: 'Pegar texto', sub: 'Tus notas o tu guion', icono: 'texto-aa' },
@@ -219,7 +219,7 @@ export default function CajaCrear({ tipoInicial = 'landing', onAccion }: PropsCa
     const r = await pedirDocs(alta);
     if (!r.ok) { setCreando(null); avisar('No se pudo crear'); console.error('[caja crear] plantilla', clave, r.error); return; }
     marcarReciente(r.doc.id);
-    irDuro(`/landing-generator/${r.doc.id}`, ws);
+    irDuro(`/web-generator/${r.doc.id}`, ws);
   };
 
   /** Un DISEÑO de landing pregunta primero de qué es (el copy); una presentación se crea directo. */
@@ -373,7 +373,7 @@ export default function CajaCrear({ tipoInicial = 'landing', onAccion }: PropsCa
 /**
  * Lo de la página alrededor de la caja (tokens de CSS_GP): el error, el link pegado, «Crear con IA» y las
  * plantillas. La caja trae su hoja (CSS_CAJA_PEDIDO).
- * Tanda 6: las tarjetas de «Crear con IA» son las de /landing-generator/crear (la ilustración de Gamma con
+ * Tanda 6: las tarjetas de «Crear con IA» son las de /web-generator/crear (la ilustración de Gamma con
  * su degradado), y las de las plantillas, UNA tarjeta (miniatura + nombre) con borde y sombra que la
  * separa del fondo; en oscuro la sombra es más honda (sobre un fondo oscuro, una sombra clara no se ve).
  */

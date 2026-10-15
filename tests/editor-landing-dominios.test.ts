@@ -453,7 +453,7 @@ test('qué falta: «Reserva vencida» dice lo que la pestaña Dominios ofrece (e
   assert.match(texto, /añádelo/);
   assert.equal(texto, `Reserva vencida: ${ACCION_RESERVA_VENCIDA}`);
   // Los botones que nombra, en la pestaña, para un dominio pendiente que sigue en Vercel.
-  const dialogo = sinComentarios(leer('app/landing-generator/editor/dialogos/DialogoPublicar.tsx'));
+  const dialogo = sinComentarios(leer('app/web-generator/editor/dialogos/DialogoPublicar.tsx'));
   assert.match(dialogo, /<BotonBorrar talla="md" title="Eliminar dominio" disabled=\{!!ocupado\} onClick=\{\(\) => void quitar\(\)\} \/>/);
   assert.match(dialogo, /Añadir dominio\s*<\/button>/);
   assert.match(dialogo, /\{!dato\.enVercel && \(/, '«Conectar de nuevo» sólo fuera de Vercel: por eso el texto no lo nombra');

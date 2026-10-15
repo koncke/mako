@@ -4,7 +4,7 @@
 // Pedido de Martín (11/10/2026): «Quiero que implementes en la tab de "Landing Generator" un
 // editor de landing tipo GAMMA. Replica por completo a Gamma, que se pueda hacer todo lo que ahí
 // se hace.» Lo que se prueba acá, en node y con el esquema REAL del editor (getSchema sobre las
-// extensiones de app/landing-generator/editor/extensiones, sin montar React):
+// extensiones de app/web-generator/editor/extensiones, sin montar React):
 //
 //   · cada IdBloque del catálogo tiene su `case` en insertar.ts y arma un bloque que el esquema
 //     del editor acepta adentro de una sección Y que el saneo del server guarda sin descartes
@@ -42,12 +42,12 @@ import { join } from 'node:path';
 import { getSchema } from '@tiptap/core';
 import { EditorState } from '@tiptap/pm/state';
 import type { Schema } from '@tiptap/pm/model';
-import { extensionesBase } from '../app/landing-generator/editor/extensiones/esquema';
-import { trIdsUnicos } from '../app/landing-generator/editor/extensiones/plugins';
+import { extensionesBase } from '../app/web-generator/editor/extensiones/esquema';
+import { trIdsUnicos } from '../app/web-generator/editor/extensiones/plugins';
 import {
   bloqueJson, seccionesDe, trMoverTarjeta, trDuplicarTarjeta, trBorrarTarjeta, trCombinarConAnterior,
   trPartirTarjeta, trInsertarBloque, trInsertarTarjeta, partirEn,
-} from '../app/landing-generator/editor/insertar';
+} from '../app/web-generator/editor/insertar';
 import { BLOQUES } from '../lib/editor-landing/catalogo-bloques';
 import { NODO, docPagina, type JsonNodo } from '../lib/editor-landing/doc';
 import { sanearContenido, CONTENIDO_TIPTAP } from '../lib/editor-landing/validar';
@@ -70,7 +70,7 @@ const ids = (s: EditorState) => seccionesDe(s.doc).map((x) => x.id);
 const textos = (s: EditorState) => seccionesDe(s.doc).map((x) => x.nodo.textContent);
 
 test('cada IdBloque del catálogo tiene su case en bloqueJson (leído del fuente)', () => {
-  const src = sinComentarios(leer('app/landing-generator/editor/insertar.ts'));
+  const src = sinComentarios(leer('app/web-generator/editor/insertar.ts'));
   const cuerpo = src.slice(src.indexOf('export function bloqueJson'), src.indexOf('export const PIDEN_ARCHIVO'));
   assert.ok(cuerpo.length > 1000, 'no se encontró el cuerpo de bloqueJson');
   const faltan = BLOQUES.filter((b) => !cuerpo.includes(`case '${b.id}':`)).map((b) => b.id);
@@ -276,7 +276,7 @@ test('«---» (partirEn quitando la línea) parte la sección y saca la línea',
   assert.deepEqual(textos(s2), ['arriba', 'abajo']);
   assert.equal(new Set(ids(s2)).size, 2);
   // La regla del input rule vive en plugins.ts y llama a partirEn con quitarBloque:
-  const src = sinComentarios(leer('app/landing-generator/editor/extensiones/plugins.ts'));
+  const src = sinComentarios(leer('app/web-generator/editor/extensiones/plugins.ts'));
   assert.ok(/find:\s*\/\^---\$\//.test(src), 'la regla «---» no está en plugins.ts');
   assert.ok(/partirEn\(state\.tr,.*quitarBloque:\s*true/.test(src), 'la regla «---» no parte la sección con partirEn');
 });

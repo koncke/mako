@@ -21,7 +21,7 @@
 // chat», «Cambiar nombre» y «Archivar»), no la de filtros de la versión clásica:
 //   · arriba el «Ir a» (Ctrl K), que filtra la lista por nombre y, si lo escrito es la dirección
 //     de una página («otra.com»), ofrece «Analizar otra.com»: la puerta para pegar una URL de
-//     afuera sin sumar un botón (un link a /landing-generator/analizar sin landing abre, a la
+//     afuera sin sumar un botón (un link a /web-generator/analizar sin landing abre, a la
 //     derecha, la caja para pegarla: `AnalizarUnaPagina`);
 //   · «+ Nueva landing» como primer renglón: abre la caja de crear a la derecha;
 //   · un renglón por documento, POR NOMBRE, con el ícono de su tipo (landing, presentación, y
@@ -37,7 +37,7 @@
 // Carpetas (la columna `carpeta` queda en la tabla sin uso). El Diagnóstico de una landing
 // (renglón ⋯ → Diagnóstico, o `?diagnostico=` / `?analizar=` en la URL) se monta ACÁ a la
 // derecha (diagnostico/PanelDiagnostico.tsx, del paquete del diagnóstico), no en otra ruta:
-// /landing-generator/analizar redirige al Panel.
+// /web-generator/analizar redirige al Panel.
 //
 // Decisiones que no se ven en el código:
 //   · La lista de documentos SCROLLEA adentro de la barra; los destinos fijos (Nueva landing,
@@ -69,8 +69,8 @@
 //     «Replicar landing» también (`replicar`, crear/Replicar.tsx). La caja le pasa lo elegido (`alAccion`):
 //     una tarjeta, el pedido (en memoria, `ArranqueIA`), un archivo adjunto o un link pegado. Lo que adentro
 //     de Crear era un link a otra ruta del Panel es una función (`onSalir`, `onAnalizar`): con el Panel ya
-//     montado, un <Link> a /landing-generator con otra query no reinicia la derecha (es un useState).
-//   · /landing-generator/crear REDIRIGE acá con su query (`destinoCrear`), como /analizar.
+//     montado, un <Link> a /web-generator con otra query no reinicia la derecha (es un useState).
+//   · /web-generator/crear REDIRIGE acá con su query (`destinoCrear`), como /analizar.
 //   · Las tarjetas de la galería de Plantillas: miniatura y nombre en UNA tarjeta con sombra, sin la
 //     descripción. Y «Del generador anterior» (que estaba en el «+» de la caja) quedó en esa galería.
 // =============================================================================
@@ -340,7 +340,7 @@ export function Inicio(props: PropsInicio) {
     setCreando(true);
     const r = await pedirDocs(pedido);
     if (!r.ok) { setCreando(false); avisar('No se pudo crear'); console.error('[panel] crear', r.error); return; }
-    irDuro(`/landing-generator/${r.doc.id}`, ws);
+    irDuro(`/web-generator/${r.doc.id}`, ws);
   };
 
   // El config del alta de una plantilla sale de `pedidoDePlantilla` (crear/tipo.ts): una
@@ -401,7 +401,7 @@ export function Inicio(props: PropsInicio) {
             {icono}{nombre}
           </button>
         ) : (
-          <Link href={`/landing-generator/${f.doc.id}`} className="gp-doc-abrir" title={f.nombre} aria-label={`${TEXTO_TIPO[f.tipo]}: ${f.nombre}`} aria-current={activo ? 'true' : undefined}>
+          <Link href={`/web-generator/${f.doc.id}`} className="gp-doc-abrir" title={f.nombre} aria-label={`${TEXTO_TIPO[f.tipo]}: ${f.nombre}`} aria-current={activo ? 'true' : undefined}>
             {icono}{nombre}
           </Link>
         )}
@@ -442,7 +442,7 @@ export function Inicio(props: PropsInicio) {
 
   let contenido: ReactNode;
   if (derecha.tipo === 'diagnostico' && !derecha.docId && !derecha.url) {
-    // El Diagnóstico sin ninguna landing (un link a /landing-generator/analizar, el onboarding):
+    // El Diagnóstico sin ninguna landing (un link a /web-generator/analizar, el onboarding):
     // la caja para pegar la dirección de una página.
     contenido = <AnalizarUnaPagina onAnalizar={analizarUrl} />;
   } else if (derecha.tipo === 'diagnostico') {
@@ -507,7 +507,7 @@ export function Inicio(props: PropsInicio) {
       <style dangerouslySetInnerHTML={{ __html: CSS_GP + CSS_PANEL }} />
       <link rel="stylesheet" href={URL_FUENTE_CHROME} />
 
-      <aside className="gp-lateral" aria-label="Landing Generator">
+      <aside className="gp-lateral" aria-label="Web Generator">
         <label className="gp-ir-a">
           <Ico n="buscar" t={14} />
           <input ref={busqueda} type="search" value={q} placeholder="Ir a" aria-label="Buscar por nombre" onChange={(e) => setQ(e.target.value)} />
@@ -559,7 +559,7 @@ export function Inicio(props: PropsInicio) {
             </>
           ) : (
             <>
-              <ItemMenu icono="flecha-externa" texto="Abrir" onClick={() => { setMenu(null); router.push(`/landing-generator/${mf.doc.id}`); }} />
+              <ItemMenu icono="flecha-externa" texto="Abrir" onClick={() => { setMenu(null); router.push(`/web-generator/${mf.doc.id}`); }} />
               <ItemMenu icono="reporte" texto="Diagnóstico" onClick={() => { setMenu(null); abrirDiagnostico(mf); }} />
               <ItemMenu icono="lapiz" texto="Cambiar nombre" onClick={() => { setMenu(null); setRenombrando({ id: mf.doc.id, texto: mf.doc.titulo }); }} />
               <ItemMenu icono="duplicar" texto="Duplicar" onClick={() => { setMenu(null); void duplicar(mf.doc); }} />
@@ -791,7 +791,7 @@ function GaleriaTemas({ propios, errorTemas, onVer }: { propios: readonly TemaPr
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Lo que abre un link a /landing-generator/analizar sin ninguna landing (el onboarding de
+ * Lo que abre un link a /web-generator/analizar sin ninguna landing (el onboarding de
  * 'landing-an', «Analizar una página» de Crear): la dirección, y el Diagnóstico de esa página a la
  * derecha (PanelDiagnostico analiza solo lo que todavía no tiene comentarios guardados).
  */

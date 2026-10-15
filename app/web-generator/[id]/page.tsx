@@ -1,5 +1,5 @@
 // =============================================================================
-// /landing-generator/<id> — el editor de una landing (copiado de Gamma 5), a pantalla completa
+// /web-generator/<id> — el editor de una landing (copiado de Gamma 5), a pantalla completa
 // =============================================================================
 // Pedido de Martín (11/10/2026): «Quiero que implementes en la tab de "Landing Generator" un
 // editor de landing tipo GAMMA. Replica por completo a Gamma». Diseño:

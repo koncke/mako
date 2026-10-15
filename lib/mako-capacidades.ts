@@ -56,12 +56,12 @@ export const CAPACIDADES: Capacidad[] = [
     como: ['Entra a Offer', 'Cuéntale a MaKo qué vendes, a quién y a qué precio', 'Lee el diagnóstico y la oferta nueva que arma', 'Descarga el PDF; lo que quieras probar, llévalo a Experiments'],
   },
   {
-    // Desde el 11/10/2026 Landing Analyst no es una tab: analizar una página es parte de Landing
-    // Generator (/landing-generator/analizar) y los números de la landing son la hoja «Landing» del
+    // Desde el 11/10/2026 Landing Analyst no es una tab: analizar una página es parte de Web
+    // Generator (ex Landing Generator desde el 15/10/2026; /web-generator/analizar) y los números de la landing son la hoja «Landing» del
     // Dashboard. El id no cambia: lo devuelve el modelo y queda escrito en las tareas del plan.
-    id: 'landing-diagnosticar', tab: 'Landing Generator', ruta: '/landing-generator/analizar',
+    id: 'landing-diagnosticar', tab: 'Web Generator', ruta: '/web-generator/analizar',
     que: 'Diagnosticar una landing: MaKo la abre, le lee el mensaje y lo cruza con lo que hace la gente que llega (visitas, retención del video, agendas) para decir qué cambiar primero.',
-    como: ['Entra a Landing Generator y abre Diagnóstico', 'Pega la dirección de tu página y toca Analizar', 'Mira los hallazgos: cada uno cita la frase exacta y trae el reemplazo escrito'],
+    como: ['Entra a Web Generator y abre Diagnóstico', 'Pega la dirección de tu página y toca Analizar', 'Mira los hallazgos: cada uno cita la frase exacta y trae el reemplazo escrito'],
   },
   {
     // Desde el 11/10/2026 la tab es el editor copiado de Gamma (docs/diseno-editor-landing.md). Los
@@ -69,10 +69,10 @@ export const CAPACIDADES: Capacidad[] = [
     // repite en un chat y una instrucción inventada se sigue y no se encuentra. Lo que NO se puede
     // (y por eso no está): dominio propio, código de terceros, «Generar imagen con IA» todavía, ni
     // editar a la vez con otra persona.
-    id: 'landing-escribir', tab: 'Landing Generator', ruta: '/landing-generator',
+    id: 'landing-escribir', tab: 'Web Generator', ruta: '/web-generator',
     que: 'Crear tu landing con MaKo y publicarla: arma el esquema y las secciones desde tu oferta (o desde una página ya analizada, resolviendo sus hallazgos), la editas por bloques con el tema que elijas y queda en hola-mako.site/<tu-dirección>, con el Pixel de MaKo midiendo las visitas.',
     como: [
-      'Entra a Landing Generator y toca "Crear nuevo"',
+      'Entra a Web Generator y toca "Crear nuevo"',
       'Cuéntale qué página necesitas (o pega tu texto) y toca "Generar esquema"',
       'Ajusta el esquema y elige el tema',
       'Edita las secciones: escribe "/" para agregar bloques, o pídele cambios a MaKo con ✨',

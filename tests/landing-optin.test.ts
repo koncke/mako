@@ -925,7 +925,7 @@ test('la prueba abre una ventana de prueba de MaKo ENCIMA de la landing', () => 
   const iVentana = panel.indexOf('/integraciones/escuchando?p=');
   assert.ok(iVentana > 0 && iLanding > iVentana, 'la ventana de MaKo se abre primero: es la única cuyo bloqueo se puede detectar');
   // Tanda 6 (14/10/2026): también si la cierra un bloqueador al instante, y el aviso es el de la flecha a
-  // la barra (app/landing-generator/lector/AvisoVentanasBloqueadas.tsx, tests/editor-landing-lector.test.ts).
+  // la barra (app/web-generator/lector/AvisoVentanasBloqueadas.tsx, tests/editor-landing-lector.test.ts).
   // Tanda 6: la pestaña de la landing también se abre en el clic y su bloqueo también frena la prueba (sin
   // permiso para el sitio Chrome deja UNA ventana por clic, y la landing quedaba bloqueada callada).
   assert.ok(/if \(!chico \|\| chico\.closed \|\| !pestana \|\| pestana\.closed\) \{/.test(panel), 'si el navegador la bloquea, la prueba NO puede arrancar');

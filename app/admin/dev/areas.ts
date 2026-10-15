@@ -401,16 +401,16 @@ export const AREAS: AreaDev[] = [
   },
   {
     slug: 'landing-analyst', titulo: 'Landing Analyst', familia: 'Analyze', grupo: 'Analysts',
-    estado: 'listo', verEnApp: '/landing-generator/analizar',
+    estado: 'listo', verEnApp: '/web-generator/analizar',
     alcance: 'Baja la landing del cliente, le lee el copy y lo cruza con el comportamiento real de esa URL (beacon + agendas del CRM): lista de landings a la izquierda, diagnóstico con hallazgos por severidad a la derecha. A propósito NO se gatea por integración: con pegar una URL alcanza. Desde el 06/10/2026 analiza SOLA cada página que se declara en el Pixel (por detrás, con un cron de red) y tiene el MAPA DE CALOR: los toques dibujados sobre la foto de la página que guarda una grabación.',
     vive: ['app/landing-analyst/page.tsx', 'app/landing-analyst/LandingAnalystApp.tsx', 'lib/landing-analyst.ts', 'app/api/landing-analyst/',
       'app/landing-analyst/PulsoPaginas.tsx', 'app/landing-analyst/MapaDeCalor.tsx',
       'lib/landing-mapa.ts', 'lib/landing-mapa-foto.ts', 'lib/landing-mapa-server.ts',
       'lib/landing-url.ts', 'lib/landing-analyst-auto.ts', 'app/api/cron/landing-analyst-auto/route.ts',
       'tests/landing-mapa.test.ts', 'tests/landing-analyst-auto.test.ts',
-      'app/landing-generator/analizar/page.tsx', 'app/landing-analyst/destino.ts', 'tests/landing-generator-analizar.test.ts'],
+      'app/web-generator/analizar/page.tsx', 'app/landing-analyst/destino.ts', 'tests/landing-generator-analizar.test.ts'],
     proyectos: ['Feature: Landing Analyst'],
-    nota: 'Desde el 11/10/2026 no es una tab: analizar una página es «Diagnóstico», dentro de Landing Generator: desde la tanda 2 (12/10/2026) se abre a la derecha del Panel como un recorrido con comentarios guardados (app/landing-generator/diagnostico/), y /landing-generator/analizar redirige ahí y el pulso y el mapa de calor son la hoja «Landing» del Dashboard. /landing-analyst redirige. La key `landing-an` sigue gobernando los gating de la API.',
+    nota: 'Desde el 11/10/2026 no es una tab: analizar una página es «Diagnóstico», dentro de Web Generator (ex Landing Generator): desde la tanda 2 (12/10/2026) se abre a la derecha del Panel como un recorrido con comentarios guardados (app/web-generator/diagnostico/), y /web-generator/analizar redirige ahí y el pulso y el mapa de calor son la hoja «Landing» del Dashboard. /landing-analyst redirige. La key `landing-an` sigue gobernando los gating de la API.',
   },
   {
     slug: 'closing-analyst', titulo: 'Closing Analyst', familia: 'Analyze', grupo: 'Analysts',
@@ -594,11 +594,11 @@ export const AREAS: AreaDev[] = [
     // la pantalla vieja (LandingWriterApp.tsx) y su ruta (/api/landing-writer) se retiraron. El
     // `vive` va por CARPETA donde el área es dueña de la carpeta entera: un `vive` corto no da un
     // área con poca historia, da un área invisible (AGENTS.md, «Una ruta que apunta a la nada…»).
-    slug: 'landing-generator', titulo: 'Landing Generator', familia: 'Sales Machine',
-    estado: 'listo', verEnApp: '/landing-generator',
+    slug: 'landing-generator', titulo: 'Web Generator', familia: 'Sales Machine',
+    estado: 'listo', verEnApp: '/web-generator',
     alcance: 'El editor de landings y presentaciones copiado de Gamma 5: Panel con una barra de documentos (landings, presentaciones y páginas de afuera analizadas, cada una con su «⋯»), la caja «¿Qué vas a crear hoy?» con dictado y las plantillas de cada tipo, y el Diagnóstico como recorrido con comentarios guardados y «Solucionar con IA» o «Replicar»; «Crear con IA» en dos pasos (esquema que se edita, secciones en tandas) desde el funnel, el perfil y —si la página ya pasó por el Landing Analyst— sus hallazgos; edición por secciones y bloques en TipTap (menú «/», barra de formato, 52 diseños, temas, comentarios, historial, Edición con IA); exportar a PDF, PNG, PPTX y HTML; y publicar como foto en hola-mako.site/<slug> o en el dominio del cliente, multipágina, con el Pixel de MaKo, el Píxel de Meta y el «HTML personalizado» servido aislado en /l/html. Una landing se ve como una página continua (secciones a sangre); las tarjetas con proporción son de las presentaciones.',
     vive: [
-      'app/landing-generator', 'app/api/landing-generator', 'app/l', 'lib/editor-landing', 'lib/imagenes-stock.ts',
+      'app/web-generator', 'app/landing-generator', 'lib/ruta-web-generator.ts', 'tests/web-generator-renombre.test.ts', 'app/api/landing-generator', 'app/l', 'lib/editor-landing', 'lib/imagenes-stock.ts',
       'supabase/migrations/0246_editor_landing.sql', 'scripts/gen-iconos-landing.mjs', 'docs/diseno-editor-landing.md',
       'app/landing-writer/page.tsx', 'lib/landing-writer.ts', 'lib/landing-spec.ts', 'app/admin/dev/landing-generator/bitacora.ts',
       'tests/editor-landing-agente.test.ts', 'tests/editor-landing-armazon.test.ts', 'tests/editor-landing-crear.test.ts',

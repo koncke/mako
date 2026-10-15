@@ -43,7 +43,7 @@ import {
   type EstadoSugerencia, type RespuestaAplicar, type RespuestaPasar, type Sugerencia,
 } from './diagnostico';
 // Puro (sin React ni DOM): cómo se aplica la propuesta de la IA, lo mismo que hace el editor.
-import { anclasResueltas, idDe, planDeAplicacion } from '@/app/landing-generator/editor/diff-tarjetas';
+import { anclasResueltas, idDe, planDeAplicacion } from '@/app/web-generator/editor/diff-tarjetas';
 
 export type FallaAplicar = { ok: false; error: string; status: number; conflicto?: boolean };
 

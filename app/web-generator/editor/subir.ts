@@ -106,7 +106,7 @@ export async function subirArchivo(f: File, onProgreso?: (pct: number) => void):
 // Elegir una imagen (el selector de I2)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Las props de `SelectorImagen` (app/landing-generator/editor/SelectorImagen.tsx, paquete I2). */
+/** Las props de `SelectorImagen` (app/web-generator/editor/SelectorImagen.tsx, paquete I2). */
 export type PropsSelectorImagen = {
   abierto: boolean;
   modo: 'imagen' | 'video';

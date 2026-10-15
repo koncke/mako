@@ -482,7 +482,7 @@ function PanelInterno({ docId, url, copia = null, onCerrar, onAnalizada }: Props
       const ids = que === 'todos' ? [] : que.map((x) => r.mapa[String(x)]).filter((n): n is number => !!n);
       dejarUnaVez({ docId: id, t: Date.now(), ...(que === 'todos' ? { todos: true as const } : { ids }) });
     }
-    irDuro(`/landing-generator?diagnostico=${id}`, ws);
+    irDuro(`/web-generator?diagnostico=${id}`, ws);
   }, [urlPegada, ws]);
 
   /**
@@ -575,7 +575,7 @@ function PanelInterno({ docId, url, copia = null, onCerrar, onAnalizada }: Props
             <Ico n="refrescar" t={14} /> {sugerencias.length || resumen ? 'Volver a analizar' : 'Analizar'}
           </button>
           {deNuestra && docId != null && (
-            <Link href={`/landing-generator/${docId}`} className="gp-btn gp-btn-contorno"><Ico n="lapiz" t={14} /> Abrir en el editor</Link>
+            <Link href={`/web-generator/${docId}`} className="gp-btn gp-btn-contorno"><Ico n="lapiz" t={14} /> Abrir en el editor</Link>
           )}
           {!deNuestra && (
             <button type="button" className="gp-btn gp-btn-contorno" disabled={replicando || !urlPegada} aria-haspopup="menu" aria-expanded={!!menuReplicar} onClick={(e) => setMenuReplicar(menuReplicar ? null : e.currentTarget)}>

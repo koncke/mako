@@ -2,7 +2,7 @@
 // El ARMAZÓN del editor de landings (copiado de Gamma 5): lo que no se ve y rompe en silencio
 // =============================================================================
 // Pedido de Martín (11/10/2026): «Replica por completo a Gamma». El armazón
-// (app/landing-generator/editor/EditorLanding.tsx) es el único dueño del documento: guarda,
+// (app/web-generator/editor/EditorLanding.tsx) es el único dueño del documento: guarda,
 // cambia de página y reparte el contexto que usan todas las piezas (./contexto.ts). Lo que este
 // test fija es lo que, roto, no da ningún error en pantalla:
 //
@@ -55,8 +55,8 @@ const leer = (f: string) => readFileSync(join(RAIZ, f), 'utf8').replace(/\r\n/g,
 /** Las líneas de comentario PRIMERO y los bloques después (un `/*` adentro de un `//` no abre nada). */
 const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 
-const ARMAZON = sinComentarios(leer('app/landing-generator/editor/EditorLanding.tsx'));
-const CONTEXTO = sinComentarios(leer('app/landing-generator/editor/contexto.ts'));
+const ARMAZON = sinComentarios(leer('app/web-generator/editor/EditorLanding.tsx'));
+const CONTEXTO = sinComentarios(leer('app/web-generator/editor/contexto.ts'));
 
 /** El texto entre `desde` y `hasta` (el bloque real, no N caracteres a ojo). */
 function bloque(src: string, desde: string, hasta: string): string {
@@ -122,7 +122,7 @@ test('el botón de la esquina de abajo a la derecha lleva data-esquina-ocupada',
 });
 
 test('la tira: dónde cae un arrastre y a qué índice queda', async () => {
-  const { destinoDeArrastre, indiceFinal } = await import('../app/landing-generator/editor/TiraSecciones');
+  const { destinoDeArrastre, indiceFinal } = await import('../app/web-generator/editor/TiraSecciones');
   const mitades = [50, 150, 250];
   assert.equal(destinoDeArrastre(mitades, 10), 0);
   assert.equal(destinoDeArrastre(mitades, 120), 1);
@@ -134,7 +134,7 @@ test('la tira: dónde cae un arrastre y a qué índice queda', async () => {
 });
 
 test('las páginas: ruta libre, una sola de inicio, y el orden', async () => {
-  const { rutaLibre, hacerInicio, moverEnLista, motivoRuta, duplicarPagina } = await import('../app/landing-generator/editor/PanelPaginas');
+  const { rutaLibre, hacerInicio, moverEnLista, motivoRuta, duplicarPagina } = await import('../app/web-generator/editor/PanelPaginas');
   assert.equal(rutaLibre('Gracias por tu compra', []), 'gracias-por-tu-compra');
   assert.equal(rutaLibre('Oferta', ['oferta', 'oferta-2']), 'oferta-3');
   assert.equal(rutaLibre('Sí', []), 'pagina', 'un título que da menos de 3 caracteres cae a «pagina»');
@@ -163,7 +163,7 @@ test('las páginas: ruta libre, una sola de inicio, y el orden', async () => {
 });
 
 test('subir: el tipo se corrige por la extensión y lo que no se admite no sale', async () => {
-  const { tipoDeArchivo, motivoParaNoSubir } = await import('../app/landing-generator/editor/subir');
+  const { tipoDeArchivo, motivoParaNoSubir } = await import('../app/web-generator/editor/subir');
   assert.equal(tipoDeArchivo({ name: 'foto.PNG', type: '' }), 'image/png');
   assert.equal(tipoDeArchivo({ name: 'x.webp', type: 'application/octet-stream' }), 'image/webp');
   assert.equal(tipoDeArchivo({ name: 'logo.svg', type: 'image/svg+xml' }), null, 'un SVG entraría al bucket público (XSS)');
@@ -172,7 +172,7 @@ test('subir: el tipo se corrige por la extensión y lo que no se admite no sale'
 });
 
 test('subir: firmar → PUT al bucket con progreso → registrar, en ese orden', async () => {
-  const { subirArchivo } = await import('../app/landing-generator/editor/subir');
+  const { subirArchivo } = await import('../app/web-generator/editor/subir');
   const pasos: string[] = [];
   let tipoFirmado = '';
   const fetchViejo = globalThis.fetch;

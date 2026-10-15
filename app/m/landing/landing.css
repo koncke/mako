@@ -1,5 +1,5 @@
 /* =============================================================================
-   /m/landing — lo propio de Landing Generator en el teléfono (el shell es app/m/m.css)
+   /m/landing — lo propio de Web Generator en el teléfono (el shell es app/m/m.css)
    =============================================================================
    Todo con el prefijo .m-landing-*: Next deja la hoja cargada al salir de la ruta. Sólo tokens
    de app/globals.css. Anatomía del prototipo (docs/prototipos/mako-mobile-v2.html: .pagina,

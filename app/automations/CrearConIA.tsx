@@ -22,7 +22,7 @@
 // `BarraPideselo` (la barra de WhatsApp con el logo de MaKo y el ejemplo que se escribe), que sólo PIDE: la fila nace YA
 // y MaKo trabaja en su lienzo, con el chat de esa fila (`ChatMako`, que con el lienzo vacío CREA sobre ella).
 //
-// DECIMOCUARTA TANDA (12/10/2026): `BarraPideselo` es la caja del Landing Generator (app/landing-generator/CajaPedido.tsx),
+// DECIMOCUARTA TANDA (12/10/2026): `BarraPideselo` es la caja del Landing Generator (app/web-generator/CajaPedido.tsx),
 // que escribe `EJEMPLOS` con `useEjemploQueSeEscribe`. Sin «Nace pausada».
 //
 // DECIMOQUINTA TANDA (12/10/2026): el ejemplo ya no para PARA SIEMPRE al primer toque: para mientras la caja tiene el

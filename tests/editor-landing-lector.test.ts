@@ -537,7 +537,7 @@ test('leerEnNavegador: sin respuesta, se corta en el tope y cierra la ventana', 
 // ─────────────────────────────────────────────────────────────────────────────
 
 test('el aviso de las ventanas: un componente, con flecha y en un portal, y el «Probar» del Pixel lo usa', () => {
-  const aviso = sinComentarios(leer('app/landing-generator/lector/AvisoVentanasBloqueadas.tsx'));
+  const aviso = sinComentarios(leer('app/web-generator/lector/AvisoVentanasBloqueadas.tsx'));
   assert.match(aviso, /createPortal\(/);
   assert.match(aviso, /document\.body/);
   assert.match(aviso, /className="mk-puntero"/);
@@ -552,7 +552,7 @@ test('el aviso de las ventanas: un componente, con flecha y en un portal, y el �
   const iFetch = probar.indexOf("await fetch('/api/integraciones/landing/estado?diag=1'");
   assert.ok(i > 0 && i < iFetch, 'cerrada al instante = bloqueada, en el clic');
   assert.ok(iFetch < probar.indexOf("pestana.location.replace(`${base}${sep}mko_test="), 'la landing navega DESPUÉS del chequeo');
-  const hook = sinComentarios(leer('app/landing-generator/lector/useLectorEnNavegador.tsx'));
+  const hook = sinComentarios(leer('app/web-generator/lector/useLectorEnNavegador.tsx'));
   assert.ok(hook.indexOf('leerEnNavegador(url, opciones)') < hook.indexOf('setLeyendo(true)'), 'la ventana se abre antes de tocar el estado');
 });
 

@@ -63,7 +63,7 @@ test('punto 1: el modal se pinta con display:none en su PRIMER render; la barra 
   assert.match(fuente('app/_ui/Modal.tsx'), /display: capa\.visible \? 'flex' : 'none'/);
   // DECIMOCUARTA (punto 2): la barra es la caja del Landing Generator (`CajaPedido`). Escondida no se mide: con un
   // `scrollHeight` de 0 deja el alto natural (rows 2) en vez de fijar 0, y su `min-height` tampoco la deja colapsar.
-  const caja = fuente('app/landing-generator/CajaPedido.tsx');
+  const caja = fuente('app/web-generator/CajaPedido.tsx');
   assert.match(caja, /if \(!t\.scrollHeight\) return;\n\s+t\.style\.height = `\$\{Math\.min\(t\.scrollHeight, 168\)\}px`;/);
   assert.match(caja, /\.gp \.gp-cc-entrada \{ display: block; width: 100%; min-height: 64px;/);
   assert.match(CHAT, /<CajaPedido titulo=\{\{ texto: TITULO_CAJA, nivel: 2 \}\} valor=\{texto\}/);

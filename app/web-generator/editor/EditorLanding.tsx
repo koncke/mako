@@ -50,7 +50,7 @@
 //
 // Lo que NO se copia de Gamma: el «Formato libre» (bloques con posición absoluta), la edición en
 // tiempo real con otros (no hay infraestructura de presencia: D8) y el chrome oscuro por tema
-// (ver app/landing-generator/gamma.css).
+// (ver app/web-generator/gamma.css).
 // =============================================================================
 
 import '../gamma.css';
@@ -188,7 +188,7 @@ function ErrorDeCarga({ error }: { error: string | null }) {
     <div className="gma gma-app">
       <link rel="stylesheet" href={URL_FUENTE_CHROME} precedence="default" />
       <div className="gma-barra">
-        <Link href="/landing-generator" className="gma-boton gma-boton--icono gma-tip" data-tip="Panel" aria-label="Panel">
+        <Link href="/web-generator" className="gma-boton gma-boton--icono gma-tip" data-tip="Panel" aria-label="Panel">
           <Ico n="casa" t={18} />
         </Link>
       </div>
@@ -197,7 +197,7 @@ function ErrorDeCarga({ error }: { error: string | null }) {
         {error ? <p className="gma-vacio-texto">{error}</p> : null}
         <div className="gma-vacio-acciones">
           <button type="button" className="gma-boton gma-boton--primario" onClick={() => window.location.reload()}>Reintentar</button>
-          <Link href="/landing-generator" className="gma-boton gma-boton--contorno">Volver al Panel</Link>
+          <Link href="/web-generator" className="gma-boton gma-boton--contorno">Volver al Panel</Link>
         </div>
       </div>
     </div>
@@ -932,7 +932,7 @@ function Armazon({ doc, temasPropios, creadoPor, autor }: PropsEditorLanding & {
         {/* ── Barra superior ── */}
         <header className="gma-barra">
           <div className="gma-barra-izq">
-            <Link href="/landing-generator" className="gma-boton gma-boton--icono gma-tip" data-tip="Panel" aria-label="Panel"
+            <Link href="/web-generator" className="gma-boton gma-boton--icono gma-tip" data-tip="Panel" aria-label="Panel"
               onClick={() => { void guardarAhora(); }}>
               <Ico n="casa" t={18} />
             </Link>

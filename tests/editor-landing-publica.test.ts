@@ -502,7 +502,7 @@ test('/l es público y sólo de lectura; lo de al lado no', () => {
     assert.equal(esPublicaSoloLeer(r), true, `${r}: una página pública que acepta POST ejecuta server actions sin sesión`);
   }
   // El prefijo es `/l` + `/`: la tab del editor (con sesión) empieza con «/l» y no entra.
-  for (const r of ['/landing-generator', '/landing-generator/12', '/landing-writer', '/lx']) assert.equal(esPublica(r), false, r);
+  for (const r of ['/web-generator', '/web-generator/12', '/landing-generator', '/landing-generator/12', '/landing-writer', '/lx']) assert.equal(esPublica(r), false, r);
 });
 
 function rutasBajo(dir: string): string[] {

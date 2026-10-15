@@ -127,9 +127,9 @@ export function pedidoDePlantilla(p: PlantillaCrear): Extract<PedidoDocs, { acci
 }
 
 // Tanda 6 (14/10/2026): se fueron `rutaCaja` y `rutaPaso`. Martín: «La sección de "Importar con IA" no
-// debería ser otra ruta, todo siempre en la misma ruta». La caja ya no navega a /landing-generator/crear:
+// debería ser otra ruta, todo siempre en la misma ruta». La caja ya no navega a /web-generator/crear:
 // «Crear con IA» se abre a la derecha del Panel con el pedido EN MEMORIA (`ArranqueIA`, ../panel-reglas.ts),
-// y /landing-generator/crear redirige al Panel con su query (`destinoCrear`).
+// y /web-generator/crear redirige al Panel con su query (`destinoCrear`).
 
 /**
  * Los ejemplos que se escriben solos en la caja (`useEjemploQueSeEscribe`). GENÉRICOS a

@@ -66,7 +66,7 @@ test('las listas DECLARAN su viñeta: el preflight de Tailwind las deja sin marc
 });
 
 test('la tabla del editor usa el renderHTML de la landing (View: null): con la TableView de TipTap no tenía la clase .gm-tabla ni bordes', () => {
-  const src = leer('app/landing-generator/editor/extensiones/nodos.ts');
+  const src = leer('app/web-generator/editor/extensiones/nodos.ts');
   const bloque = src.slice(src.indexOf('export const TablaLanding'), src.indexOf('/** Todos los nodos propios'));
   assert.match(bloque, /\.configure\(\{[^}]*\bView: null\b[^}]*\}\)/);
 });

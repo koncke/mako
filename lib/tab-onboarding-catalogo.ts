@@ -344,16 +344,18 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
       { key: 'analizar', label: 'Tu primera página analizada' },
       { key: 'seguimiento', label: 'Seguimiento puesto en la landing', opcional: true },
     ],
-    // La tab se retiró el 11/10/2026: el diagnóstico vive en Landing Generator. La key y los
+    // La tab se retiró el 11/10/2026: el diagnóstico vive en Web Generator. La key y los
     // pasos NO cambian (están escritos en la base: cambiarlos reabre el onboarding).
-    href: '/landing-generator/analizar',
+    href: '/web-generator/analizar',
   },
 
-  // ── Landing Generator: se prende escribiendo la primera página ──
+  // ── Web Generator (ex Landing Generator; desde el 15/10/2026): se prende escribiendo la primera página ──
+  // La key `landing-writer` y las de sus pasos NO cambian (están escritas en la base): sólo el
+  // nombre que se lee y el href (lib/ruta-web-generator.ts).
   'landing-writer': {
     key: 'landing-writer',
-    titulo: 'Configuración del Landing Generator',
-    nombre: 'Landing Generator',
+    titulo: 'Configuración del Web Generator',
+    nombre: 'Web Generator',
     pasos: [
       { key: 'generar', label: 'Tu primera versión escrita' },
       { key: 'guardar', label: 'Una versión guardada', opcional: true },
@@ -364,7 +366,7 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
       // tabs y «publicar» suelto chocaría con el de otra.
       { key: 'lg_publicar', label: 'Tu primera landing publicada', opcional: true },
     ],
-    href: '/landing-generator',
+    href: '/web-generator',
   },
 
   // ── Offer: se prende USÁNDOLA (patrón landing-an), y el chat ES el onboarding ──

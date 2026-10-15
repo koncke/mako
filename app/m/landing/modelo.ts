@@ -12,7 +12,7 @@ export type EstadoLanding = 'publicada' | 'pausada' | 'borrador';
 
 /**
  * Publicada = tiene dirección (slug) y una foto publicada: la MISMA regla que `esPublicada` del
- * Panel de escritorio (app/landing-generator/Inicio.tsx) y que `urlPublica` de `aCompleta`
+ * Panel de escritorio (app/web-generator/Inicio.tsx) y que `urlPublica` de `aCompleta`
  * (lib/editor-landing/server.ts). No se importa de Inicio.tsx porque es un módulo 'use client': su
  * función llegaría al server como una referencia de cliente, no como algo que se pueda llamar.
  *
@@ -68,7 +68,7 @@ export function piePublicar(o: { cambios: boolean; sitioActivo: boolean; enLinea
   };
 }
 
-/** El id de la URL: sólo dígitos (como /landing-generator/<id>), positivo y seguro. */
+/** El id de la URL: sólo dígitos (como /web-generator/<id>), positivo y seguro. */
 export function idDeLanding(crudo: string): number | null {
   if (!/^\d{1,15}$/.test(crudo)) return null;
   const id = Number(crudo);

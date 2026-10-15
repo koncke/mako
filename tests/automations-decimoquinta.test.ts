@@ -23,7 +23,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import {
   BarraPideselo, accionesMas, MAS_ARCHIVO, MAS_PEGAR, NO_ES_FLUJO, SIN_FLUJO_COPIADO, PEGALO_A_MANO, PLACEHOLDER_ARCHIVO,
 } from '../app/automations/ChatMako';
-import { seMueveElEjemplo, TITULO_CAJA, CSS_CAJA_PEDIDO, CSS_TOKENS_CASA, ChipCaja } from '../app/landing-generator/CajaPedido';
+import { seMueveElEjemplo, TITULO_CAJA, CSS_CAJA_PEDIDO, CSS_TOKENS_CASA, ChipCaja } from '../app/web-generator/CajaPedido';
 import { pedidoConArchivo, TOPE_PEDIDO_MAKO, PEDIDO_SOLO_ARCHIVO, ACCEPT_ARCHIVO_FLUJO, EJEMPLOS } from '../app/automations/CrearConIA';
 import {
   tokenDeBytes, tokenDeTexto, copiaPegada, resumenDeCopia, rotuloFlujoPegado, copiaDeFlujo, textoDeCopia, leerCopia,
@@ -49,7 +49,7 @@ const tramo = (src: string, desde: string, hasta: string, tope = 4_000): string 
 };
 
 const CHAT = fuente('app/automations/ChatMako.tsx');
-const CAJA = fuente('app/landing-generator/CajaPedido.tsx');
+const CAJA = fuente('app/web-generator/CajaPedido.tsx');
 const LIENZO_FLUJO = fuente('app/automations/FlujoLienzo.tsx');
 const barra = (props: Partial<Parameters<typeof BarraPideselo>[0]> = {}) =>
   renderToStaticMarkup(createElement(BarraPideselo, { onPedido: () => {}, ...props }));
@@ -62,8 +62,8 @@ test('punto 1: «¿Qué vas a crear hoy?» arriba de la caja, en el modal (h2) y
   const t = html.indexOf('<h2 class="gp-cc-titulo">¿Qué vas a crear hoy?</h2>');
   assert.ok(t >= 0, 'el modal no tiene el título');
   assert.ok(t < html.indexOf('<form class="gp-cc-caja"'), 'el título no va arriba de la caja');
-  assert.match(fuente('app/landing-generator/CajaCrear.tsx'), /titulo=\{\{ texto: TITULO_CAJA, nivel: 1 \}\}/);
-  assert.doesNotMatch(fuente('app/landing-generator/CajaCrear.tsx'), /<h1 className="gp-cc-titulo">/, 'la landing lo dibuja aparte (dos copias)');
+  assert.match(fuente('app/web-generator/CajaCrear.tsx'), /titulo=\{\{ texto: TITULO_CAJA, nivel: 1 \}\}/);
+  assert.doesNotMatch(fuente('app/web-generator/CajaCrear.tsx'), /<h1 className="gp-cc-titulo">/, 'la landing lo dibuja aparte (dos copias)');
   // La hoja del título es de la caja, y afuera de la landing tiene su color (`--gp-titulo`) y su hueco (16px, el de la landing).
   assert.match(CSS_CAJA_PEDIDO, /\.gp \.gp-cc-titulo \{ margin: 0; text-align: center; font-size: 34px; font-weight: 600;/);
   assert.match(CSS_TOKENS_CASA, /--gp-titulo: var\(--ink\)/);

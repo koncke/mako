@@ -4,7 +4,7 @@
 // Pedido de Martín (11/10/2026): «Replica por completo a Gamma». Cubre lo PURO de
 // lib/editor-landing/exportar-*.ts (paquete I1 del editor de landings) y una regla que vive en
 // la pantalla: publicar guarda PRIMERO y publica la versión que eso devuelve
-// (app/landing-generator/editor/dialogos/DialogoPublicar.tsx; AGENTS.md «Un BORRADOR no es un
+// (app/web-generator/editor/dialogos/DialogoPublicar.tsx; AGENTS.md «Un BORRADOR no es un
 // DEFAULT, y publicar promueve lo GUARDADO»).
 //
 // Lo que NO cubre, porque necesita un navegador: bajar el archivo, la foto de html-to-image, la
@@ -292,7 +292,7 @@ test('pptx: cada párrafo cierra con breakLine menos el último; viñetas con bu
 // ─────────────────────────────────────────────────────────────────────────────
 
 test('publicar guarda primero y publica la versión que devolvió el guardado', () => {
-  const src = leer('app/landing-generator/editor/dialogos/DialogoPublicar.tsx');
+  const src = leer('app/web-generator/editor/dialogos/DialogoPublicar.tsx');
   const ini = src.indexOf('const publicarSitio = async');
   assert.ok(ini > 0, 'existe publicarSitio');
   const fin = src.indexOf('\n  };', ini);

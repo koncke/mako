@@ -7,7 +7,7 @@
 // «Today».
 //
 // SIN `server-only` a propósito: lo importan componentes cliente (la barra) y los tests. Sólo
-// depende de módulos puros (nav.ts, capas.ts y ruta-automations.ts).
+// depende de módulos puros (nav.ts, capas.ts, ruta-automations.ts y ruta-web-generator.ts).
 //
 // ⚠️ EL PREFIJO ES `/m/` CON BARRA, NUNCA `startsWith('/m')`: eso atrapa /mako, /marketing,
 // /mensajes, /metodo, /mi-curso, /modelos-ia y —el caro— la ruta PÚBLICA /m.js (el cargador
@@ -30,6 +30,7 @@ import { TODOS_LOS_ITEMS, USER_NAV } from '@/app/_components/nav';
 import { tabEnCapa } from './capas';
 import { capaDeHojaDeRol } from './graficos-roles';
 import { RUTA_AUTOMATIONS, RUTAS_VIEJAS_AUTOMATIONS } from './ruta-automations';
+import { RUTA_WEB_GENERATOR, RUTAS_VIEJAS_WEB_GENERATOR } from './ruta-web-generator';
 
 /** Los cinco destinos FIJOS de la barra. `hoy` es General (la portada; su ruta interna es /m/hoy). */
 export type DestinoMovil = 'crm' | 'chats' | 'hoy' | 'plan' | 'mas';
@@ -103,7 +104,7 @@ export const RUTA_INBOX = '/m/inbox';
 export const SECCIONES_MAS: readonly DefSeccionMas[] = [
   { id: 'ads', label: 'Ads Manager', href: '/m/ads', icon: 'grid', navKey: 'ads-manager', familia: 'operate' },
   { id: 'dashboard', label: 'Dashboard', href: '/m/dashboard', icon: 'graphics', navKey: 'graphics', familia: 'analyze' },
-  { id: 'landing', label: 'Landing Generator', href: '/m/landing', icon: 'web', navKey: 'landing-writer', familia: 'sales' },
+  { id: 'landing', label: 'Web Generator', href: '/m/landing', icon: 'web', navKey: 'landing-writer', familia: 'sales' },
   { id: 'automations', label: 'Automations', href: '/m/automations', icon: 'chatbot', navKey: 'setting', familia: 'sales' },
   { id: 'video', label: 'Video', href: '/m/video', icon: 'videogen', navKey: 'video-generator', familia: 'content' },
   { id: 'cs', label: 'Clientes', href: '/m/cs', icon: 'users', navKey: 'customer-success', familia: 'customer' },
@@ -294,9 +295,11 @@ export function rutaMovil(href: string | null | undefined): string | null {
     const plan = q.get('plan') ?? '';
     return UUID.test(plan) ? `/m/video/${plan}` : '/m/video';
   }
-  const landing = p.match(/^\/landing-generator\/(\d+)$/);
+  // Web Generator (ex Landing Generator, 15/10/2026): la ruta nueva y las viejas, que en escritorio
+  // redirigen (lib/ruta-web-generator.ts). Una landing por su id, en la nueva o en la vieja.
+  const landing = p.match(/^\/(?:web-generator|landing-generator)\/(\d+)$/);
   if (landing) return `/m/landing/${landing[1]}`;
-  if (dentro(p, '/landing-generator') || dentro(p, '/landing-writer')) return '/m/landing';
+  if (dentro(p, RUTA_WEB_GENERATOR) || RUTAS_VIEJAS_WEB_GENERATOR.some((r) => dentro(p, r))) return '/m/landing';
   return null;
 }
 
@@ -384,8 +387,8 @@ export function rutaEscritorio(href: string): string {
   else if (p === '/m/automations') destino = RUTA_AUTOMATIONS;
   else if ((m = p.match(/^\/m\/video\/([^/]+)$/))) { destino = '/video-generator'; q.set('plan', m[1]); }
   else if (p === '/m/video') destino = '/video-generator';
-  else if ((m = p.match(/^\/m\/landing\/([^/]+)$/))) destino = `/landing-generator/${m[1]}`;
-  else if (p === '/m/landing') destino = '/landing-generator';
+  else if ((m = p.match(/^\/m\/landing\/([^/]+)$/))) destino = `${RUTA_WEB_GENERATOR}/${m[1]}`;
+  else if (p === '/m/landing') destino = RUTA_WEB_GENERATOR;
   if (!destino) return href;
   const resto = q.toString();
   return `${destino}${resto ? `?${resto}` : ''}${hash ? `#${hash}` : ''}`;

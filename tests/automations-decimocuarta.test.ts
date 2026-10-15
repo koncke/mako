@@ -40,7 +40,7 @@ test('puntos 1 y 2: la caja del modal es la del Landing Generator, sin «Nace pa
   assert.match(html, /aria-label="Dictar el pedido"/);
   assert.match(html, /class="gp-cc-enviar" aria-label="Enviar" disabled=""/);
   // La MISMA pieza en las dos puertas (no una copia): la landing y el modal importan CajaPedido.
-  assert.match(fuente('app/landing-generator/CajaCrear.tsx'), /<CajaPedido\n/);
+  assert.match(fuente('app/web-generator/CajaCrear.tsx'), /<CajaPedido\n/);
   assert.match(fuente('app/automations/ChatMako.tsx'), /<CajaPedido titulo=\{\{ texto: TITULO_CAJA, nivel: 2 \}\} valor=\{texto\}/);
   // Sin un chip «Plan | Express»: acá no hay un modo que elegir.
   assert.doesNotMatch(fuente('app/automations/ChatMako.tsx'), /Express/);

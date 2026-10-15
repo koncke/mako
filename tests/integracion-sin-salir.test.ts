@@ -126,8 +126,8 @@ test('lo que se convirtió el 14/10/2026 abre el modal y no navega', () => {
     ['app/automations/ChatMako.tsx', /<LinkIntegracion href=\{link\}/],
     ['app/email/EmailApp.tsx', /<BotonIntegracion servicio="email" /],
     // El cobro de la landing (Stripe, y sólo Stripe: `pasarelaDeLanding`): el aviso de Publicar y el panel del botón.
-    ['app/landing-generator/editor/dialogos/DialogoPublicar.tsx', /<BotonIntegracion servicio="stripe" onConectado=\{recargarCobro\}/],
-    ['app/landing-generator/editor/nodos/CobroBoton.tsx', /onClick=\{\(e\) => \{ e\.stopPropagation\(\); abrir\('stripe'\); \}\}/],
+    ['app/web-generator/editor/dialogos/DialogoPublicar.tsx', /<BotonIntegracion servicio="stripe" onConectado=\{recargarCobro\}/],
+    ['app/web-generator/editor/nodos/CobroBoton.tsx', /onClick=\{\(e\) => \{ e\.stopPropagation\(\); abrir\('stripe'\); \}\}/],
   ];
   for (const [f, re] of casos) {
     const src = sinComentarios(leer(f));

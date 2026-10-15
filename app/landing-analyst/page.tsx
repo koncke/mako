@@ -5,7 +5,7 @@
 // se ELIMINA (la ruta redirige)». Lo que era ANÁLISIS (`?tab=pulso`, `?tab=mapa`) ya vivía
 // en la hoja «Landing» del Dashboard; lo que era TAREA —el diagnóstico: analizar una URL,
 // buscar mis páginas, pegar el texto, reintentar, quitar, «Escribir la nueva versión»— se
-// mudó a /landing-generator/analizar. La traducción de la pestaña vive en ./destino.ts, con
+// mudó a /web-generator/analizar. La traducción de la pestaña vive en ./destino.ts, con
 // su test (tests/landing-generator-analizar.test.ts).
 //
 // ⚠️ SE REDIRIGE, NO SE BORRA (AGENTS.md, «Retirar una RUTA…»): la siguen avisos de WhatsApp ya
@@ -17,7 +17,7 @@
 // sigue en lib/capas.ts, en el onboarding y en el gating de la API (está escrita en la base).
 //
 // Los componentes de esta carpeta SE QUEDAN donde están: LandingAnalystApp.tsx lo monta
-// /landing-generator/analizar, y MapaDeCalor.tsx / PulsoPaginas.tsx los usa el Dashboard. Next
+// /web-generator/analizar, y MapaDeCalor.tsx / PulsoPaginas.tsx los usa el Dashboard. Next
 // sólo hace ruta de este page.tsx.
 
 import { redirect } from 'next/navigation';

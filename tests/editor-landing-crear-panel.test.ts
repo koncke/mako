@@ -33,7 +33,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   consultaDerecha, derechaDeAccion, derechaDeQuery, destinoCrear, linkEscrito, queryDeDerecha, sacarLink, type AccionCaja, type Derecha,
-} from '../app/landing-generator/panel-reglas';
+} from '../app/web-generator/panel-reglas';
 import type { LandingResumen } from '../lib/editor-landing/api-tipos';
 import { marcasDeVoseo } from '../lib/puestas-data';
 
@@ -52,13 +52,13 @@ const tramo = (src: string, desde: string, hasta?: string) => {
   return src.slice(i, j > i ? j : undefined);
 };
 
-const CAJA = 'app/landing-generator/CajaCrear.tsx';
-const CAJA_PEDIDO = 'app/landing-generator/CajaPedido.tsx';
-const INICIO = 'app/landing-generator/Inicio.tsx';
-const CREAR = 'app/landing-generator/crear/CrearConIA.tsx';
-const REPLICAR = 'app/landing-generator/crear/Replicar.tsx';
-const LEER = 'app/landing-generator/lector/LeerOPegar.tsx';
-const PANEL_DG = 'app/landing-generator/diagnostico/PanelDiagnostico.tsx';
+const CAJA = 'app/web-generator/CajaCrear.tsx';
+const CAJA_PEDIDO = 'app/web-generator/CajaPedido.tsx';
+const INICIO = 'app/web-generator/Inicio.tsx';
+const CREAR = 'app/web-generator/crear/CrearConIA.tsx';
+const REPLICAR = 'app/web-generator/crear/Replicar.tsx';
+const LEER = 'app/web-generator/lector/LeerOPegar.tsx';
+const PANEL_DG = 'app/web-generator/diagnostico/PanelDiagnostico.tsx';
 const PAGINA = 'app/api/landing-generator/diagnostico/pagina/route.ts';
 const PROBAR = 'app/integraciones/ProbarTracking.tsx';
 
@@ -174,10 +174,10 @@ test('la derecha del Panel: Crear con IA por su paso (y el tipo), Replicar, y lo
   assert.equal(queryDeDerecha('?url=https%3A%2F%2Fa.com&objetivo=agendar&paso=generar', { tipo: 'crear' }), '');
 });
 
-test('/landing-generator/crear redirige al Panel con la query entera (y su ?ws=); el Panel la abre a la derecha', () => {
-  assert.equal(destinoCrear({}), '/landing-generator');
-  assert.equal(destinoCrear({ paso: 'importar', tipo: 'presentacion', ws: '3' }), '/landing-generator?paso=importar&tipo=presentacion&ws=3');
-  assert.equal(destinoCrear({ url: ['https://a.com/x', 'https://b.com/'], objetivo: 'agendar' }), '/landing-generator?url=https%3A%2F%2Fa.com%2Fx&objetivo=agendar');
+test('/web-generator/crear redirige al Panel con la query entera (y su ?ws=); el Panel la abre a la derecha', () => {
+  assert.equal(destinoCrear({}), '/web-generator');
+  assert.equal(destinoCrear({ paso: 'importar', tipo: 'presentacion', ws: '3' }), '/web-generator?paso=importar&tipo=presentacion&ws=3');
+  assert.equal(destinoCrear({ url: ['https://a.com/x', 'https://b.com/'], objetivo: 'agendar' }), '/web-generator?url=https%3A%2F%2Fa.com%2Fx&objetivo=agendar');
   // Lo que promete el redirect es lo que el Panel abre (las dos puntas, una contra la otra).
   for (const [sp, esperado] of [
     [{ paso: 'pegar' }, { tipo: 'ia', paso: 'pegar', doc: 'landing' }],
@@ -187,7 +187,7 @@ test('/landing-generator/crear redirige al Panel con la query entera (y su ?ws=)
     const q = Object.fromEntries(new URL(destinoCrear(sp), 'https://hola-mako.com').searchParams);
     assert.deepEqual(derechaDeQuery(consultaDerecha(q), [], []), esperado);
   }
-  const page = fuente('app/landing-generator/crear/page.tsx');
+  const page = fuente('app/web-generator/crear/page.tsx');
   const guard = page.indexOf("await requireRolWs([], { nav: 'landing-writer' });");
   assert.ok(guard > 0 && page.indexOf('redirect(') > guard, 'el redirect antes del guard');
   assert.match(page, /redirect\(await rutaConWs\(destinoCrear\(await searchParams\)\)\);/);
@@ -201,11 +201,11 @@ test('el Panel monta Crear con IA y Replicar a la derecha; adentro de Crear, «I
   assert.match(src, /\.gp \.gp-contenido\[data-vista="ia"\] \{ padding: 0; \}/);
   // Con el Panel montado, un <Link> a su propia ruta no le cambia la derecha (es un useState).
   const crear = fuente(CREAR);
-  assert.doesNotMatch(crear, /<Link\b|import Link\b|href="\/landing-generator/, 'Crear volvió a navegar con un link');
+  assert.doesNotMatch(crear, /<Link\b|import Link\b|href="\/web-generator/, 'Crear volvió a navegar con un link');
   assert.match(crear, /onClick=\{props\.onSalir\}><Ico n="casa" t=\{14\} \/> Inicio<\/button>/);
   assert.match(crear, /onClick=\{props\.onAnalizar\}>Analizar una página<\/button>/);
   // Salir a la mitad: la generación termina y se guarda, pero no arrastra al editor desde otra pantalla.
-  assert.match(crear, /if \(montada\.current\) irDuro\(`\/landing-generator\/\$\{d\.id\}`, ws\);/);
+  assert.match(crear, /if \(montada\.current\) irDuro\(`\/web-generator\/\$\{d\.id\}`, ws\);/);
 });
 
 // ── 3 · «Crear con IA» en la tab, e «Importar» sólo archivos ─────────────────────────────────
@@ -271,7 +271,7 @@ test('las plantillas: miniatura y nombre en UNA tarjeta con sombra, sin la descr
   assert.match(caja, /\[data-tema="oscuro"\] \.gp \.gp-cc-plantilla/);
   assert.match(inicio, /\[data-tema="oscuro"\] \.gp \.gp-card-plantilla/);
   // Los [ ] resaltados de la miniatura cuelgan de `marcadores` (piezas:huecos-resaltados): no se tocan.
-  assert.match(fuente('app/landing-generator/MiniaturaLanding.tsx'), /\{ modo: 'miniatura', incluirOcultas: true, marcadores: true \}/);
+  assert.match(fuente('app/web-generator/MiniaturaLanding.tsx'), /\{ modo: 'miniatura', incluirOcultas: true, marcadores: true \}/);
 });
 
 // ── 1 · El lector en la pantalla: Analizar y Replicar ────────────────────────────────────────
@@ -346,12 +346,12 @@ test('«Probar» del Pixel: la ventana se abre en el clic, ANTES del chequeo; si
 });
 
 test('el editor marca la cifra «[00]%» de un ítem (el NodeView pide `completar`)', () => {
-  assert.match(fuente('app/landing-generator/editor/nodos/OptimizadoVista.tsx'), /const arbol = specOptimizadoItem\(attrs, \{ completar: true \}\);/);
+  assert.match(fuente('app/web-generator/editor/nodos/OptimizadoVista.tsx'), /const arbol = specOptimizadoItem\(attrs, \{ completar: true \}\);/);
 });
 
 test('ni las pantallas nuevas ni las tocadas tienen voseo (el guard del repo no ve un archivo nuevo sin `git add`)', () => {
   const malas: Record<string, string[]> = {};
-  for (const f of [CAJA, INICIO, CREAR, REPLICAR, LEER, PANEL_DG, 'app/landing-generator/panel-reglas.ts', 'app/landing-generator/crear/page.tsx']) {
+  for (const f of [CAJA, INICIO, CREAR, REPLICAR, LEER, PANEL_DG, 'app/web-generator/panel-reglas.ts', 'app/web-generator/crear/page.tsx']) {
     const m = marcasDeVoseo(fuente(f));
     if (m.length) malas[f] = m;
   }

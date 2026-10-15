@@ -186,6 +186,10 @@ test('el mapa v2: cada pantalla de escritorio de una sección de More cae en su 
   const plan = '3f2b8c1e-9a4d-4c6b-8e2f-0a1b2c3d4e5f';
   assert.equal(rutaMovil(`/video-generator?plan=${plan}&ws=2`), `/m/video/${plan}`);
   assert.equal(rutaMovil('/video-generator?plan=no-es-un-id'), '/m/video');
+  assert.equal(rutaMovil('/web-generator'), '/m/landing');
+  assert.equal(rutaMovil('/web-generator/42'), '/m/landing/42');
+  assert.equal(rutaMovil('/web-generator/crear'), '/m/landing');
+  // Las viejas (15/10/2026: la tab se renombró a Web Generator) siguen yendo al teléfono.
   assert.equal(rutaMovil('/landing-generator'), '/m/landing');
   assert.equal(rutaMovil('/landing-generator/42'), '/m/landing/42');
   assert.equal(rutaMovil('/landing-generator/crear'), '/m/landing');

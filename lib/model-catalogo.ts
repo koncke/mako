@@ -203,15 +203,15 @@ export const CATALOGO_MODELOS: FeatureModelo[] = [
 
   // ── Copywriting / voz de marca → Sonnet por default (bajó de Opus) ──────────
   { feature: 'campaign-suggest', label: 'Estructurar campaña de Meta', grupo: 'Copywriting', def: GEMINI(), nota: 'Estrategia + voz de marca. Sonnet.' },
-  { feature: 'landing-writer', label: 'Escribir la landing (Landing Generator)', grupo: 'Copywriting', def: GEMINI(), nota: 'Escribe la estructura y el copy de la página entera desde el funnel, el perfil y —si lo hay— el Diagnóstico de esa página. Voz de marca sin PII.' },
+  { feature: 'landing-writer', label: 'Escribir la landing (Web Generator)', grupo: 'Copywriting', def: GEMINI(), nota: 'Escribe la estructura y el copy de la página entera desde el funnel, el perfil y —si lo hay— el Diagnóstico de esa página. Voz de marca sin PII.' },
   // El editor copiado de Gamma (lib/editor-landing/ia.ts, docs/diseno-editor-landing.md D5).
   // Dos features y no una: generar (esquema + secciones, lo más voluminoso) y editar (texto,
   // diseños, notas, «Edición con IA») se pueden mover de modelo por separado en /modelos-ia.
   // GRATIS y sin `fallback: []`: un copy flojo se VE en el lienzo antes de publicar y la persona
   // lo edita, así que degradarse de proveedor es aceptable. Claude vetado: sin fila en
   // CLAUDE_PERMITIDO a propósito. Sin PII: el brief del negocio y lo que la persona escribe.
-  { feature: 'landing-editor', label: 'Generar una landing en el editor (Landing Generator)', grupo: 'Copywriting', def: GEMINI(), recomendado: GEMINI(), nota: 'Arma el esquema (desde un pedido, un texto pegado o una página importada) y escribe las secciones de a tres, con su diseño y la búsqueda de cada foto. Las fotos las pone el código desde un banco de imágenes, nunca la IA. Sin PII.' },
-  { feature: 'landing-editor-ia', label: 'Editar con IA en el editor de landings (Landing Generator)', grupo: 'Copywriting', def: GEMINI(), recomendado: GEMINI(), nota: 'Edición con IA de la landing o de una sección (respeta las bloqueadas), las acciones de texto (mejorar, acortar, traducir…), «Probar nuevo diseño» y las notas del orador. Sin PII.' },
+  { feature: 'landing-editor', label: 'Generar una landing en el editor (Web Generator)', grupo: 'Copywriting', def: GEMINI(), recomendado: GEMINI(), nota: 'Arma el esquema (desde un pedido, un texto pegado o una página importada) y escribe las secciones de a tres, con su diseño y la búsqueda de cada foto. Las fotos las pone el código desde un banco de imágenes, nunca la IA. Sin PII.' },
+  { feature: 'landing-editor-ia', label: 'Editar con IA en el editor de landings (Web Generator)', grupo: 'Copywriting', def: GEMINI(), recomendado: GEMINI(), nota: 'Edición con IA de la landing o de una sección (respeta las bloqueadas), las acciones de texto (mejorar, acortar, traducir…), «Probar nuevo diseño» y las notas del orador. Sin PII.' },
   // El chat del Video Editor (lib/editor-video/ia.ts): el mismo trato que landing-editor-ia
   // (decisión del 15/10/2026). GRATIS, Claude vetado sin fila en CLAUDE_PERMITIDO, ni de
   // respaldo: lo que vuelve es una PROPUESTA que la persona mira antes de aplicar, así que un

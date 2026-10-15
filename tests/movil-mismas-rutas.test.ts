@@ -77,7 +77,7 @@ test('la URL de escritorio de cada pantalla es la que ya usa la computadora', ()
     ['/m/plan', '/plan'], ['/m/mako', '/mako'], ['/m/cuenta', '/perfil'], ['/m/dashboard', '/dashboard'],
     ['/m/ads', '/ads-manager'], ['/m/cs', '/customer-success'], ['/m/automations', '/automations'],
     ['/m/video', '/video-generator'], [`/m/video/${UUID}`, `/video-generator?plan=${UUID}`],
-    ['/m/landing', '/landing-generator'], ['/m/landing/42', '/landing-generator/42'],
+    ['/m/landing', '/web-generator'], ['/m/landing/42', '/web-generator/42'],
     ['/m/dashboard/mi%20hoja', '/dashboard?hoja=mi+hoja'],
     // Lo que sólo existe en el teléfono lleva una URL sin /m, y la computadora la manda a lo suyo.
     ['/m/mas', '/mas'], ['/m/configurar', '/configurar'], ['/m/cuenta/instalar', '/perfil/instalar'], ['/m/crm/12/chat', '/crm/12/chat'],

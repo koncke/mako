@@ -1,9 +1,9 @@
 // =============================================================================
-// /landing-generator/analizar — redirige al Panel con el Diagnóstico abierto a la derecha
+// /web-generator/analizar — redirige al Panel con el Diagnóstico abierto a la derecha
 // =============================================================================
 // Pedido de Martín (11/10/2026, tanda 2, punto 2), textual: «"Diagnóstico" no debería ser otra
 // ruta, debería abrirse ahí a la derecha.» Decisión T2 de docs/diseno-editor-landing.md: el
-// Diagnóstico de una landing se dibuja en el área principal del Panel (/landing-generator, que
+// Diagnóstico de una landing se dibuja en el área principal del Panel (/web-generator, que
 // monta diagnostico/PanelDiagnostico.tsx), y esta ruta pasa a REDIRIGIR ahí.
 //
 // ⚠️ SE REDIRIGE, NO SE BORRA (AGENTS.md, «Retirar una RUTA…»): la nombran el onboarding de

@@ -1,5 +1,5 @@
 // =============================================================================
-// /landing-generator — el Panel del editor de landings copiado de Gamma
+// /web-generator — el Panel del editor de landings copiado de Gamma
 // =============================================================================
 // Pedido de Martín (11/10/2026): «Quiero que implementes en la tab de "Landing
 // Generator" un editor de landing tipo GAMMA. Replica por completo a Gamma, que se
@@ -17,11 +17,11 @@
 // La derecha que pide la URL (`?diagnostico=<id>`, `?analizar=<url>`, `?vista=plantillas|temas|
 // papelera|replicar`, `?paso=generar|pegar|importar`) se resuelve acá con `derechaDeQuery`
 // (panel-reglas.ts, puro: un server component no puede importar un VALOR de un 'use client') y
-// baja por props. /landing-generator/analizar redirige acá con el Diagnóstico abierto.
+// baja por props. /web-generator/analizar redirige acá con el Diagnóstico abierto.
 //
 // TANDA 6 (14/10/2026). Martín: «La sección de "Importar con IA" no debería ser otra ruta, todo
 // siempre en la misma ruta». «Crear con IA» se abre A LA DERECHA (crear/CrearConIA.tsx, montado por
-// Inicio.tsx) y /landing-generator/crear redirige acá con su query (`destinoCrear`). El deep link
+// Inicio.tsx) y /web-generator/crear redirige acá con su query (`destinoCrear`). El deep link
 // del Landing Analyst (`?url=<landing analizada>`, también el que reenvía /landing-writer) ya no
 // salta a otra ruta: abre «Generar» con esa landing de base, y la validación de que la URL sea
 // una analizada del negocio la hace Crear contra su lista (`baseDelDeepLink`).
@@ -67,18 +67,18 @@ export default async function LandingGeneratorPage({ searchParams }: { searchPar
   let docs: LandingResumen[] = [];
   let errorLista: string | null = null;
   if (rLista.ok) docs = rLista.docs;
-  else { errorLista = rLista.error; console.error('[landing-generator] listar:', rLista.error); }
+  else { errorLista = rLista.error; console.error('[web-generator] listar:', rLista.error); }
 
   // Igual con las analizadas: «no pude leerlas» no es «no analizaste ninguna».
   let analizadas: Analizada[] = [];
   let errorAnalizadas: string | null = null;
   if (rAnalizadas.ok) analizadas = rAnalizadas.analizadas;
-  else { errorAnalizadas = rAnalizadas.error; console.error('[landing-generator] analizadas:', rAnalizadas.error); }
+  else { errorAnalizadas = rAnalizadas.error; console.error('[web-generator] analizadas:', rAnalizadas.error); }
 
   let propios: TemaPropio[] = [];
   let errorTemas: string | null = null;
   if (rTemas.ok) propios = rTemas.temas;
-  else { errorTemas = rTemas.error; console.error('[landing-generator] temas propios:', rTemas.error); }
+  else { errorTemas = rTemas.error; console.error('[web-generator] temas propios:', rTemas.error); }
 
   const fuentes = urlFuentes([...TEMAS, ...propios.map((p) => temaPorId('ws:' + p.id, propios))]);
   // Las bases de las landings las decide el SERVER (el navegador no sabe el entorno): la vigente

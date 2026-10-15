@@ -5,7 +5,7 @@
 // =============================================================================
 // Pedido de Martín (15/10/2026): «es importante que video editor tenga, como landing, un
 // chat al costado donde pueda ir editando todo con prompt». CapCut no tiene un chat así:
-// la fuente es el del Landing Generator (app/landing-generator/editor/paneles/
+// la fuente es el del Landing Generator (app/web-generator/editor/paneles/
 // PanelAgente.tsx, copiado de Gamma 5) y se copia su comportamiento, con los colores de
 // CapCut (`--cc-*`):
 //   · mensajes del agente en burbuja gris a la izquierda y de la persona a la derecha;

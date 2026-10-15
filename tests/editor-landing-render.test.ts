@@ -353,7 +353,7 @@ test('los marcadores (el ▶ y el video angosto) salen sólo si quien dibuja los
   assert.doesNotMatch(CSS_CONTENIDO, /\[data-modo="miniatura"\][^{]*gm-insertado\[data-clase="video"\]/, 'una regla del video por el modo vuelve a pegarle al teléfono');
   // Quién los pide: las miniaturas de trabajo sí, la vista del visitante no.
   const leer = (f: string) => readFileSync(new URL(f, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
-  for (const f of ['../app/landing-generator/MiniaturaLanding.tsx', '../app/landing-generator/editor/TiraSecciones.tsx', '../app/landing-generator/editor/paneles/PanelAgente.tsx']) {
+  for (const f of ['../app/web-generator/MiniaturaLanding.tsx', '../app/web-generator/editor/TiraSecciones.tsx', '../app/web-generator/editor/paneles/PanelAgente.tsx']) {
     assert.match(leer(f), /modo: 'miniatura', incluirOcultas: true, marcadores: true \}/, `${f} no pide los marcadores`);
   }
   assert.doesNotMatch(leer('../app/m/landing/[id]/page.tsx').replace(/^[ \t]*\/\/.*$/gm, ''), /marcadores/, 'el teléfono los pide');

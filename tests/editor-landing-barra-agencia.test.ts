@@ -28,19 +28,19 @@ const regla = (src: string, selector: string): string => {
 };
 
 test('el editor (.gma-app) descuenta la barra de la agencia en sus dos altos', () => {
-  const r = regla(leer('app/landing-generator/gamma.css'), '.gma-app {');
+  const r = regla(leer('app/web-generator/gamma.css'), '.gma-app {');
   assert.match(r, /height: calc\(100vh - var\(--barra-agencia, 0px\)\)/);
   assert.match(r, /height: calc\(100dvh - var\(--barra-agencia, 0px\)\)/);
   assert.doesNotMatch(r, /height: 100d?vh;/);
 });
 
 test('el Panel (.gp-panel) descuenta la barra de la agencia', () => {
-  const r = regla(leer('app/landing-generator/Inicio.tsx'), '.gp.gp-panel {');
+  const r = regla(leer('app/web-generator/Inicio.tsx'), '.gp.gp-panel {');
   assert.match(r, /min-height: calc\(100vh - var\(--barra-agencia, 0px\)\)/);
 });
 
 test('el velo de los diálogos arranca debajo de la barra y el diálogo la descuenta', () => {
-  const src = leer('app/landing-generator/MiniaturaLanding.tsx');
+  const src = leer('app/web-generator/MiniaturaLanding.tsx');
   assert.match(regla(src, '.gp .gp-velo {'), /padding: calc\(16px \+ var\(--barra-agencia, 0px\)\)/);
   assert.match(regla(src, '.gp .gp-dialogo {'), /max-height: calc\(100vh - 32px - var\(--barra-agencia, 0px\)\)/);
 });

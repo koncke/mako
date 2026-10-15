@@ -13,7 +13,7 @@
 // arriba de las demás landing.» Decisiones T1 y T2 de docs/diseno-editor-landing.md.
 //
 // Lo que estos tests cuidan:
-//   · los RENGLONES (app/landing-generator/panel-reglas.ts, puro): documentos por nombre con su
+//   · los RENGLONES (app/web-generator/panel-reglas.ts, puro): documentos por nombre con su
 //     tipo, las analizadas de afuera con su host, y las analizadas que son NUESTRAS fuera (se
 //     cruzan por la URL normalizada del Landing Analyst, no por un parecido);
 //   · la DERECHA en la URL: lo que se escribe (`queryDeDerecha`) es lo que se vuelve a leer
@@ -39,10 +39,10 @@ process.env.NEXT_PUBLIC_SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || '
 import {
   ICONO_FILA, SIN_TITULO, copiaParaAplicar, destinoAnalizar, docDeUrl, derechaDeQuery, enPapelera, esDiagnosticoDe, filasDelPanel,
   filtrarFilas, hostDe, idValido, queryDeDerecha, urlDeBusqueda, urlParaAnalizar, type Analizada, type Derecha, type FilaPanel,
-} from '../app/landing-generator/panel-reglas';
+} from '../app/web-generator/panel-reglas';
 import type { LandingResumen } from '../lib/editor-landing/api-tipos';
 import { TEMAS } from '../lib/editor-landing/temas';
-import { MiniaturaLanding } from '../app/landing-generator/MiniaturaLanding';
+import { MiniaturaLanding } from '../app/web-generator/MiniaturaLanding';
 import { marcasDeVoseo } from '../lib/puestas-data';
 import { dominioQueSirve } from '../lib/editor-landing/dominios-reglas';
 
@@ -221,13 +221,13 @@ test('esDiagnosticoDe: marca el renglón cuyo diagnóstico está abierto (la de 
   assert.equal(esDiagnosticoDe({ tipo: 'diagnostico' }, ext), false);
 });
 
-test('destinoAnalizar: /landing-generator/analizar aterriza en el Panel con el Diagnóstico que pide, y lleva el ?ws= del link', () => {
-  assert.equal(destinoAnalizar({}), '/landing-generator?analizar=');
-  assert.equal(destinoAnalizar({ url: 'https://a.com/x', ws: '3' }), '/landing-generator?analizar=https%3A%2F%2Fa.com%2Fx&ws=3');
-  assert.equal(destinoAnalizar({ diagnostico: '12' }), '/landing-generator?diagnostico=12');
-  assert.equal(destinoAnalizar({ id: '12', url: 'https://a.com/' }), '/landing-generator?diagnostico=12', 'el id manda');
-  assert.equal(destinoAnalizar({ id: 'x', analizar: ' a.com ' }), '/landing-generator?analizar=a.com');
-  assert.equal(destinoAnalizar({ url: ['https://a.com/', 'https://b.com/'] }), '/landing-generator?analizar=https%3A%2F%2Fa.com%2F');
+test('destinoAnalizar: /web-generator/analizar aterriza en el Panel con el Diagnóstico que pide, y lleva el ?ws= del link', () => {
+  assert.equal(destinoAnalizar({}), '/web-generator?analizar=');
+  assert.equal(destinoAnalizar({ url: 'https://a.com/x', ws: '3' }), '/web-generator?analizar=https%3A%2F%2Fa.com%2Fx&ws=3');
+  assert.equal(destinoAnalizar({ diagnostico: '12' }), '/web-generator?diagnostico=12');
+  assert.equal(destinoAnalizar({ id: '12', url: 'https://a.com/' }), '/web-generator?diagnostico=12', 'el id manda');
+  assert.equal(destinoAnalizar({ id: 'x', analizar: ' a.com ' }), '/web-generator?analizar=a.com');
+  assert.equal(destinoAnalizar({ url: ['https://a.com/', 'https://b.com/'] }), '/web-generator?analizar=https%3A%2F%2Fa.com%2F');
   // Lo que promete el redirect es lo que el Panel abre (las dos puntas, una contra la otra).
   for (const [sp, esperado] of [
     [{}, { tipo: 'diagnostico' }],
@@ -241,11 +241,11 @@ test('destinoAnalizar: /landing-generator/analizar aterriza en el Panel con el D
 
 // ── 3 · La pantalla ──────────────────────────────────────────────────────────────────────────
 
-const INICIO = 'app/landing-generator/Inicio.tsx';
-const PAGE = 'app/landing-generator/page.tsx';
-const ANALIZAR = 'app/landing-generator/analizar/page.tsx';
-const REGLAS = 'app/landing-generator/panel-reglas.ts';
-const MINI = 'app/landing-generator/MiniaturaLanding.tsx';
+const INICIO = 'app/web-generator/Inicio.tsx';
+const PAGE = 'app/web-generator/page.tsx';
+const ANALIZAR = 'app/web-generator/analizar/page.tsx';
+const REGLAS = 'app/web-generator/panel-reglas.ts';
+const MINI = 'app/web-generator/MiniaturaLanding.tsx';
 
 test('se fueron las vistas de filtros, las carpetas y la fila de botones de la derecha', () => {
   const src = sinComentarios(leer(INICIO));
@@ -260,7 +260,7 @@ test('se fueron las vistas de filtros, las carpetas y la fila de botones de la d
     [/'Importar'|> Importar|Importar ▾|menuImportar/, 'Importar'],
     [/Ordenar por/, 'Ordenar por'],
     [/Cuadrícula/, 'Cuadrícula / Lista'],
-    [/landing-generator\/analizar/, 'el Diagnóstico como otra ruta'],
+    [/web-generator\/analizar/, 'el Diagnóstico como otra ruta'],
   ];
   const vueltas = fuera.filter(([re]) => re.test(src)).map(([, que]) => que);
   assert.deepEqual(vueltas, [], 'volvió algo que Martín pidió sacar');
@@ -280,7 +280,7 @@ test('la barra: «Ir a», «Nueva landing» PRIMERO, la lista de documentos, y a
     '«Nueva landing» no abre la caja de crear a la derecha');
   assert.match(src, /const nuevaLanding = \(\) => \{\s*setDerecha\(\{ tipo: 'crear' \}\);/);
   // Clic en un documento nuestro abre el editor; en una de afuera, su Diagnóstico.
-  assert.match(src, /<Link href=\{`\/landing-generator\/\$\{f\.doc\.id\}`\} className="gp-doc-abrir"/);
+  assert.match(src, /<Link href=\{`\/web-generator\/\$\{f\.doc\.id\}`\} className="gp-doc-abrir"/);
   assert.match(src, /className="gp-doc-abrir" title=\{f\.url\}[^>]*onClick=\{\(\) => abrirDiagnostico\(f\)\}/);
 });
 

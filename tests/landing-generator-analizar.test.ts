@@ -61,15 +61,15 @@ const sinComentarios = (src: string) => src
   .replace(/\/\*[\s\S]*?\*\//g, '')
   .replace(/\{\s*\}/g, '');          // lo que queda de un `{/* … */}` de JSX
 
-const PAGINA_NUEVA = 'app/landing-generator/analizar/page.tsx';
+const PAGINA_NUEVA = 'app/web-generator/analizar/page.tsx';
 const REDIRECT = 'app/landing-analyst/page.tsx';
 const DESTINO = 'app/landing-analyst/destino.ts';
 const COMPONENTE = 'app/landing-analyst/LandingAnalystApp.tsx';
 
 // ── 1 · El redirect traduce la pestaña ───────────────────────────────────────────────────────
 
-test('las rutas de destino: el diagnóstico en Landing Generator y la hoja Landing del Dashboard', () => {
-  assert.equal(RUTA_DIAGNOSTICO, '/landing-generator/analizar');
+test('las rutas de destino: el diagnóstico en Web Generator y la hoja Landing del Dashboard', () => {
+  assert.equal(RUTA_DIAGNOSTICO, '/web-generator/analizar');
   assert.equal(RUTA_HOJA_LANDING, '/dashboard?hoja=landing');
 });
 
@@ -83,23 +83,23 @@ test('`?tab=pulso` y `?tab=mapa` (análisis) van a la hoja Landing del Dashboard
   assert.equal(destinoLandingAnalyst({ tab: ['mapa', 'copy'] }), '/dashboard?hoja=landing');
 });
 
-test('todo lo demás es el diagnóstico: /landing-generator/analizar con la query entera MENOS `tab`', () => {
-  assert.equal(destinoLandingAnalyst({}), '/landing-generator/analizar');
-  assert.equal(destinoLandingAnalyst({ tab: 'copy' }), '/landing-generator/analizar');
-  assert.equal(destinoLandingAnalyst({ tab: ['copy', 'mapa'] }), '/landing-generator/analizar', 'el primero manda también en el diagnóstico');
+test('todo lo demás es el diagnóstico: /web-generator/analizar con la query entera MENOS `tab`', () => {
+  assert.equal(destinoLandingAnalyst({}), '/web-generator/analizar');
+  assert.equal(destinoLandingAnalyst({ tab: 'copy' }), '/web-generator/analizar');
+  assert.equal(destinoLandingAnalyst({ tab: ['copy', 'mapa'] }), '/web-generator/analizar', 'el primero manda también en el diagnóstico');
   // La comparación es exacta, como la de la tab vieja: una pestaña que no existe abría el diagnóstico.
-  assert.equal(destinoLandingAnalyst({ tab: 'Pulso' }), '/landing-generator/analizar');
+  assert.equal(destinoLandingAnalyst({ tab: 'Pulso' }), '/web-generator/analizar');
   assert.equal(destinoLandingAnalyst({ tab: 'inexistente', url: 'https://a.com/x', ws: '3' }),
-    '/landing-generator/analizar?url=https%3A%2F%2Fa.com%2Fx&ws=3');
-  assert.equal(destinoLandingAnalyst({ a: ['1', '2'], vacio: '', nada: undefined }), '/landing-generator/analizar?a=1&a=2&vacio=');
+    '/web-generator/analizar?url=https%3A%2F%2Fa.com%2Fx&ws=3');
+  assert.equal(destinoLandingAnalyst({ a: ['1', '2'], vacio: '', nada: undefined }), '/web-generator/analizar?a=1&a=2&vacio=');
 });
 
 test('con `rutaConWs` encima: el `?ws=` que ya trae el link se respeta, y si no trae, se agrega el de la pestaña', () => {
   // `rutaConWs(href)` es `conWs(href, <ws de la pestaña>)` (lib/workspace.ts).
   assert.equal(conWs(destinoLandingAnalyst({ tab: 'pulso' }), 7), '/dashboard?hoja=landing&ws=7');
   assert.equal(conWs(destinoLandingAnalyst({ tab: 'pulso', ws: '3' }), 7), '/dashboard?hoja=landing&ws=3');
-  assert.equal(conWs(destinoLandingAnalyst({}), 7), '/landing-generator/analizar?ws=7');
-  assert.equal(conWs(destinoLandingAnalyst({}), null), '/landing-generator/analizar', 'un cliente normal no tiene pestaña');
+  assert.equal(conWs(destinoLandingAnalyst({}), 7), '/web-generator/analizar?ws=7');
+  assert.equal(conWs(destinoLandingAnalyst({}), null), '/web-generator/analizar', 'un cliente normal no tiene pestaña');
 });
 
 test('/landing-analyst es SÓLO el redirect, con `rutaConWs` y la query', () => {
@@ -122,12 +122,12 @@ test('/landing-analyst es SÓLO el redirect, con `rutaConWs` y la query', () => 
 // la query (`destinoAnalizar`, puro) la prueba tests/editor-landing-panel.test.ts. Actualizado en la
 // integración (12/10/2026). Probado rompiéndolo: el redirect antes del guard → 1 fallo; sin
 // rutaConWs → 1 fallo; vuelve el import de LandingAnalystApp → 1 fallo.
-test('/landing-generator/analizar: la puerta de Landing Generator ANTES del redirect al Panel, con el ?ws=', () => {
+test('/web-generator/analizar: la puerta de Web Generator ANTES del redirect al Panel, con el ?ws=', () => {
   assert.ok(existsSync(join(RAIZ, PAGINA_NUEVA)), 'falta la ruta del diagnóstico');
   const src = sinComentarios(leer(PAGINA_NUEVA));
   const guard = src.indexOf("await requireRolWs([], { nav: 'landing-writer' });");
   const salto = src.indexOf('redirect(');
-  assert.ok(guard > 0, 'la ruta no tiene la puerta de Landing Generator (admin + landing-writer en la capa)');
+  assert.ok(guard > 0, 'la ruta no tiene la puerta de Web Generator (admin + landing-writer en la capa)');
   assert.ok(salto > guard, 'el redirect corre antes del guard');
   assert.match(src, /redirect\(await rutaConWs\(destinoAnalizar\(await searchParams\)\)\);/);
   assert.doesNotMatch(src, /LandingAnalystApp|getLandingViewData/, 'el diagnóstico ya no se dibuja en esta ruta: se abre en el Panel');
@@ -169,7 +169,7 @@ test('…y conserva TODAS las tareas del diagnóstico', () => {
   const faltan = tareas.filter(([re]) => !re.test(src)).map(([, que]) => que);
   assert.deepEqual(faltan, [], 'el recorte se llevó una tarea');
   // El nivel de arriba de esta pantalla es el panel de la tab, con el Link de la casa (lleva el ?ws=).
-  assert.match(src, /<Link href="\/landing-generator" style=/, 'falta la vuelta a Landing Generator');
+  assert.match(src, /<Link href="\/web-generator" style=/, 'falta la vuelta a Web Generator');
   assert.match(src, /^import Link from '@\/app\/_ui\/Link';$/m);
 });
 
@@ -179,7 +179,7 @@ test("el onboarding de 'landing-an' apunta a la pantalla nueva, con la misma key
   const def = TAB_ONBOARDINGS['landing-an'];
   assert.ok(def, "se fue el onboarding 'landing-an' (la key está escrita en la base)");
   assert.equal(def.key, 'landing-an');
-  assert.equal(def.href, '/landing-generator/analizar');
+  assert.equal(def.href, '/web-generator/analizar');
   assert.deepEqual(def.pasos.map((p) => [p.key, p.opcional === true]), [['analizar', false], ['seguimiento', true]],
     'cambió un paso: el registro compartido los guarda por key');
 });

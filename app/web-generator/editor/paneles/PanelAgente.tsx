@@ -66,7 +66,7 @@ export {
 // ─────────────────────────────────────────────────────────────────────────────
 // Estilos: los tokens del chrome de Gamma para los paneles B, y la hoja del contenido
 // ─────────────────────────────────────────────────────────────────────────────
-// La hoja del chrome (app/landing-generator/gamma.css) es del armazón; estos paneles traen la
+// La hoja del chrome (app/web-generator/gamma.css) es del armazón; estos paneles traen la
 // suya, limitada a `.gma-pb`, y sus tokens SALEN de los de esa hoja (`--gma-superficie`,
 // `--gma-borde`, `--gma-primario`…: los valores MEDIDOS de Gamma, titanium y deepocean), con el
 // mismo valor de respaldo por si se monta afuera. Toda raíz de estos paneles lleva también la
@@ -557,7 +557,7 @@ export function PanelAgente({ onCerrar }: { onCerrar?: () => void } = {}) {
       <EstilosPanelesB />
       <style href="gma-agente" precedence="medium">{CSS_AGENTE}</style>
       <header className="gma-ag-cab">
-        <Link href="/landing-generator" className="gma-ag-casa" title="Ir al Panel" aria-label="Ir al Panel"><Ico n="casa" t={13} /></Link>
+        <Link href="/web-generator" className="gma-ag-casa" title="Ir al Panel" aria-label="Ir al Panel"><Ico n="casa" t={13} /></Link>
         <span className="gma-ag-titulo" title={titulo}>{titulo || 'Sin título'}</span>
         <button type="button" className="gma-pb-iconbtn" onClick={() => (onCerrar ? onCerrar() : setPanelIzq(null))} title="Cerrar el panel" aria-label="Cerrar el panel">
           <Ico n="chevron-doble-izquierda" t={16} />

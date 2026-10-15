@@ -355,17 +355,17 @@ test('plantillas: español neutro (tú), con el detector completo del guard del 
 // ─────────────────────────────────────────────────────────────────────────────
 
 test('pantalla: en una presentación Presentar es el botón principal, y el lienzo y Presentar llevan la forma', () => {
-  const ed = sinComentarios(leer('app/landing-generator/editor/EditorLanding.tsx'));
+  const ed = sinComentarios(leer('app/web-generator/editor/EditorLanding.tsx'));
   const partido = ed.slice(ed.indexOf('<div className="gma-partido">'), ed.indexOf('aria-label={presentacion ? \'Más opciones\''));
   assert.ok(partido.length > 100 && partido.length < 1500, `recorte del botón partido: ${partido.length}`);
   assert.match(partido, /\{presentacion \? \(\s*<button[^>]*onClick=\{\(\) => setDialogo\('presentar'\)\}>\s*<Ico n="presentar"[^>]*\/> Presentar/);
   assert.match(ed, /data-formato=\{presentacion \? 'presentacion' : undefined\}/);
   assert.match(ed, /baseDelLienzo\(dispositivo, zoom, fija \? \{ ancho: anchoLienzo \} : null\)/);
-  const pr = sinComentarios(leer('app/landing-generator/editor/Presentar.tsx'));
+  const pr = sinComentarios(leer('app/web-generator/editor/Presentar.tsx'));
   assert.match(pr, /data-fija=\{forma\.relacion \? forma\.proporcion : undefined\}/);
   assert.match(pr, /if \(relacion\) \{[\s\S]{0,400}?encajar\(sec\)/, 'Presentar no encaja el contenido en la diapositiva fija');
   assert.match(pr, /\.gma-pr \.gma-pr-lienzo\[data-fija\] \.gm-doc \.gm-tarjeta\{[^}]*min-height:0;overflow:hidden/);
-  const conf = sinComentarios(leer('app/landing-generator/editor/dialogos/DialogoConfiguracion.tsx'));
+  const conf = sinComentarios(leer('app/web-generator/editor/dialogos/DialogoConfiguracion.tsx'));
   assert.match(conf, /\{fija \? null : \(\s*<Campo etiqueta="Ancho de las secciones">/, 'con forma fija el ancho no cambia nada y no se ofrece');
   assert.match(conf, /<Campo etiqueta="Relación de aspecto">/);
   // El PPTX toma la proporción de la configuración que DialogoExportar ya le pasa.

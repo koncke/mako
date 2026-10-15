@@ -22,7 +22,7 @@
 //             (las mismas `tandasDe` de la ruta, ia-reglas.ts), las va mostrando a medida
 //             que llegan con el render público, guarda TODO al final y abre el editor.
 // Lo propio de MaKo, que Gamma no tiene: «Objetivo de la página» (OBJETIVOS_LANDING) y
-// «Sobre cuál» (una landing que ya pasó por el Diagnóstico (/landing-generator/analizar): su diagnóstico entra al
+// «Sobre cuál» (una landing que ya pasó por el Diagnóstico (/web-generator/analizar): su diagnóstico entra al
 // prompt, D5). El deep link del Analyst (`?url=`) preselecciona esa landing — sólo si
 // está entre las analizadas de ESTE negocio: una URL cualquiera en la query no puede
 // meter un diagnóstico ajeno.
@@ -60,7 +60,7 @@
 // Landing" y "Replicar Landing". Y que el botón de "Importar" que solo sea importar, no que sea con URL,
 // para eso ya las otras opciones que te dije... Y esta sección de "Crear con IA" debería estar en la tab
 // principal de landing generator, en la sección de "¿Qué vas a crear hoy?".»
-//   · Se monta A LA DERECHA del Panel (Inicio.tsx); /landing-generator/crear redirige ahí. La pantalla
+//   · Se monta A LA DERECHA del Panel (Inicio.tsx); /web-generator/crear redirige ahí. La pantalla
 //     «inicio» (las tarjetas «¿Cómo te gustaría empezar?») se fue a la caja del Panel (CajaCrear.tsx, «Crear
 //     con IA», con Analizar y Replicar landing), y con ella «Tus indicaciones recientes», que viven en
 //     Generar y en Pegar texto. «Inicio» y «Analizar una página» son funciones del Panel (`onSalir`,
@@ -448,7 +448,7 @@ export function CrearConIA(props: PropsCrear) {
       if (!r.ok) return { ok: false, error: r.conflicto ? `Otra pestaña cambió esta ${docDe(tipoGen.current)}.` : r.error };
       d.version = r.version;
       // Lo que cambió es QUÉ EXISTE (una landing con contenido): navegación dura.
-      if (montada.current) irDuro(`/landing-generator/${d.id}`, ws);
+      if (montada.current) irDuro(`/web-generator/${d.id}`, ws);
       return { ok: true };
     },
   }), [ws]);

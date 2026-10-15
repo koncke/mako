@@ -72,7 +72,7 @@ import { htmlDeTarjeta } from '../lib/editor-landing/render';
 import { PLANTILLAS } from '../lib/editor-landing/plantillas';
 import { NODO, parrafo, tarjeta, type JsonNodo, type LandingContenido } from '../lib/editor-landing/doc';
 import { DISENOS_LANDING, OBJETIVOS_LANDING, conVideoDelDiseno, heroDelDiseno, landingDesde } from '../lib/editor-landing/disenos-landing';
-import { pedidoDeDiseno, plantillasDe } from '../app/landing-generator/crear/tipo';
+import { pedidoDeDiseno, plantillasDe } from '../app/web-generator/crear/tipo';
 
 const nodos = (c: LandingContenido): JsonNodo[] => {
   const out: JsonNodo[] = [];
@@ -413,7 +413,7 @@ test('Publicar avisa «Falta el enlace del video» si un video quedó sin pegar 
 });
 
 test('el diálogo Publicar dibuja el aviso del video donde el de cobro, y no frena el botón', () => {
-  const src = readFileSync(join(__dirname, '..', 'app/landing-generator/editor/dialogos/DialogoPublicar.tsx'), 'utf8').replace(/\r\n/g, '\n');
+  const src = readFileSync(join(__dirname, '..', 'app/web-generator/editor/dialogos/DialogoPublicar.tsx'), 'utf8').replace(/\r\n/g, '\n');
   assert.match(src, /const avisoVideo = useMemo\(\(\) => avisoDeVideo\(paginasVivas\), \[paginasVivas\]\);/, 'mira TODAS las páginas, la abierta en vivo');
   // Justo debajo del aviso de cobro, con la misma forma.
   assert.match(src, /\{avisoCobro && \([\s\S]{0,400}?<\/p>\n\s*\)\}\n\s*\{avisoVideo && \(\n\s*<p className="gmp-error" style=\{\{ margin: '-6px 0 12px' \}\} role="status">\{avisoVideo\}<\/p>/);

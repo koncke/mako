@@ -354,7 +354,7 @@ test('el análisis de una landing NUESTRA no escribe en landing_analyses (esa ta
 });
 
 test('la vista de afuera: iframe con sandbox SÓLO allow-scripts, y sólo escucha a SU iframe', () => {
-  const src = sinComentarios(leer('app/landing-generator/diagnostico/VistaAfuera.tsx'));
+  const src = sinComentarios(leer('app/web-generator/diagnostico/VistaAfuera.tsx'));
   assert.match(src, /sandbox="allow-scripts"/);
   assert.doesNotMatch(src, /allow-same-origin/);
   assert.match(src, /ev\.source !== iframeRef\.current\.contentWindow/);

@@ -551,7 +551,7 @@ export const GRILLA: GrupoGrilla[] = [
     grupo: 'Análisis',
     filas: [
       { que: 'Lead Insights + WhatsApp Advisor', free: false, pro: true, growth: true, agencia: true },
-      { que: 'Landing Analyst + Landing Generator', free: false, pro: true, growth: true, agencia: true },
+      { que: 'Landing Analyst + Web Generator', free: false, pro: true, growth: true, agencia: true },
       { que: 'Retro / Experimentos', free: false, pro: '4 corridas/mes', growth: 'sin tope', agencia: 'sin tope' },
     ],
   },

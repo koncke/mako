@@ -19,7 +19,7 @@ import { Icon, NOMBRES_ICONO } from '@/app/_components/icons';
 const RUTAS = [
   { id: '/general', label: 'Operate' },
   { id: '/second-brain', label: 'Analyze' },
-  { id: '/landing-generator', label: 'Sales Machine' },
+  { id: '/web-generator', label: 'Sales Machine' },
   { id: '/ideas', label: 'Content Machine' },
 ];
 

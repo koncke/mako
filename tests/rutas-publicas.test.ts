@@ -171,7 +171,7 @@ test('las landings publicadas (/l) entran sin sesión, y sólo para LEER', () =>
     assert.equal(esPublicaDeEscritura(r), false, r);
   }
   // El prefijo es «/l» más la barra: la tab del editor (con sesión) también empieza con «/l».
-  for (const r of ['/landing-generator', '/landing-generator/12', '/landing-writer', '/lx']) assert.equal(esPublica(r), false, r);
+  for (const r of ['/web-generator', '/web-generator/12', '/landing-generator', '/landing-generator/12', '/landing-writer', '/lx']) assert.equal(esPublica(r), false, r);
 });
 
 test('el «Botón de pago» de una landing: el paso es de /l (sólo leer) y el POST es UNA ruta exacta de /api (tanda 4)', () => {

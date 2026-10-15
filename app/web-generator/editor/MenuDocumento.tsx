@@ -13,7 +13,7 @@
 // En este archivo viven también las piezas de chrome que usan los demás menús del armazón
 // (el ▾ de Publicar, el clic derecho de la tira, el ⋯ de una página, el zoom) y que pueden
 // usar los paneles: `Ico`, `Flotante`, `Menu` + `ItemMenu`, `DialogoGma`. Son del CHROME de
-// Gamma (clases `gma-`, app/landing-generator/gamma.css), no de app/_ui: la regla de copia
+// Gamma (clases `gma-`, app/web-generator/gamma.css), no de app/_ui: la regla de copia
 // pide sus propios menús, no los de MaKo.
 //
 // Tres trampas que estas piezas resuelven (y que ya mordieron en EditorRico y en el Plan):
@@ -388,7 +388,7 @@ export default function MenuDocumento({ abierto, ancla, onCerrar, info }: {
     const r = await pedirDocs({ accion: 'duplicar', id: ctx.docId });
     if (!r.ok) throw new Error(r.error);
     // Lo que cambió es QUÉ EXISTE: navegación dura (AGENTS.md), con el ?ws= de la pestaña.
-    window.location.href = conWs(`/landing-generator/${r.doc.id}`, ws);
+    window.location.href = conWs(`/web-generator/${r.doc.id}`, ws);
   });
 
   const guardarVersion = () => correr(async () => {
@@ -403,7 +403,7 @@ export default function MenuDocumento({ abierto, ancla, onCerrar, info }: {
     await ctx.guardarAhora();
     const r = await pedirDocs({ accion: 'papelera', id: ctx.docId });
     if (!r.ok) throw new Error(r.error);
-    window.location.href = conWs('/landing-generator', ws);
+    window.location.href = conWs('/web-generator', ws);
   });
 
   return (

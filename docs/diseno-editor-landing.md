@@ -97,7 +97,7 @@ sitio: nav.gm-nav · footer.gm-pie · a.gm-marca («Hecho con MaKo»)
 ```
 
 - El **chrome** del editor (barras, paneles, menús) vive en otra hoja y otro prefijo: `.gma`
-  (`app/landing-generator/gamma.css`, importada desde los componentes cliente como `github.css` en
+  (`app/web-generator/gamma.css`, importada desde los componentes cliente como `github.css` en
   /api-mako). Colores y tipografía de la UI de Gamma medidos (titanium/trueblue/aurora); la fuente
   de UI de Gamma (PP Mori) no está en Google Fonts: se usa la más cercana libre y se dice en el
   comentario. Modo oscuro: `[data-tema="oscuro"] .gma { … }` redefiniendo tokens.
@@ -193,9 +193,12 @@ dependencias se fijan en versiones con más de dos semanas.
 
 ## D9. La tab
 
-- La key del nav sigue siendo `landing-writer` (contrato en la base). Rutas: `/landing-generator`
-  (Panel), `/landing-generator/crear` (crear con IA), `/landing-generator/<id>` (editor a pantalla
-  completa). `/landing-writer` redirige reenviando la query (hoy la pierde: bug del deep link).
+- La key del nav sigue siendo `landing-writer` (contrato en la base). Rutas: `/web-generator`
+  (Panel), `/web-generator/crear` (crear con IA), `/web-generator/<id>` (editor a pantalla
+  completa). Desde el 15/10/2026 la tab se llama **Web Generator** (pedido de Martín: «Quiero que todo
+  se llame ahora "Web Generator", la ruta, en la sidebar, todo...»): `/landing-generator/*` y
+  `/landing-writer` redirigen al mismo camino bajo `/web-generator` con la query entera
+  (`lib/ruta-web-generator.ts`, `app/landing-generator/[[...resto]]/page.tsx`).
 - El deep link `?url=` (el que usaba el Landing Analyst, hoy retirado: su análisis es el Diagnóstico de
   esta tab) abre «Crear» con esa landing de base.
 - Onboarding: los pasos `generar` y `guardar` se siguen marcando (primera generación, primer
@@ -209,7 +212,7 @@ dependencias se fijan en versiones con más de dos semanas.
 
 Contratos ya escritos (no se cambian sin avisar): `lib/editor-landing/doc.ts`,
 `lib/editor-landing/catalogo-bloques.ts`, `lib/editor-landing/api-tipos.ts`,
-`app/landing-generator/editor/contexto.ts`.
+`app/web-generator/editor/contexto.ts`.
 
 | Paquete | Archivos (dueño único) |
 |---|---|
@@ -219,12 +222,12 @@ Contratos ya escritos (no se cambian sin avisar): `lib/editor-landing/doc.ts`,
 | D · Server | `supabase/migrations/0246_editor_landing.sql`, `lib/editor-landing/server.ts`, `lib/editor-landing/server-reglas.ts` (lo puro de server.ts: un `server-only` no lo importa ningún test), `lib/editor-landing/publicar.ts`, `lib/imagenes-stock.ts` (+ que `app/api/portadas/route.ts` la use), `app/api/landing-generator/route.ts`, `app/api/landing-generator/imagenes/route.ts`, `lib/workspace.ts` (TENANT_TABLES), `lib/tablas-de-inquilino.ts`, `lib/reset-workspace.ts`, tests |
 | E · IA | `lib/editor-landing/ia.ts`, `lib/editor-landing/ia-reglas.ts` (lo puro: prompts, tandas, validación; lleva el aviso Apache-2.0 de Presenton), `app/api/landing-generator/ia/route.ts`, `app/api/landing-generator/importar/route.ts`, `lib/model-catalogo.ts`, `lib/ia-labels.ts`, `lib/prompt-registry.ts`, exports de `lib/landing-writer.ts`, tests |
 | F · Público | `app/l/[slug]/route.ts`, `app/l/[slug]/[ruta]/route.ts`, `app/l/vista/[token]/route.ts`, `app/l/vista/[token]/[ruta]/route.ts` (las otras páginas del borrador, sumada en la integración), `lib/editor-landing/pagina-publica.ts` (documento HTML completo: head, SEO, OG, favicon, fuentes, Pixel, Meta, script del formulario), `lib/rutas-publicas.ts` + su test |
-| G · Motor del editor | `app/landing-generator/editor/extensiones/*` (todos los nodos y marcas, ids, placeholder por nodo, el menú `/` como plugin), `editor/nodos/*` (NodeViews React: tarjeta con sus controles e imagen de acento, imagen, video, insertado, formulario, gráfico, HTML libre), `editor/insertar.ts` (`insertarBloque`, `moverTarjeta`, `duplicarTarjeta`…), `editor/MenuBarra.tsx` (el `/`), `editor/BarraFormato.tsx`, `editor/AsaBloque.tsx` |
-| H · Armazón | `app/landing-generator/[id]/page.tsx`, `editor/EditorLanding.tsx` (barra superior, toolbar con Edición manual / Edición con IA, deshacer, «Agregar bloque», tira de secciones, lienzo, autoguardado, atajos, zoom, vista previa por dispositivo, proveedor del contexto), `editor/AgregarBloque.tsx`, `editor/TiraSecciones.tsx`, `editor/PanelPaginas.tsx`, `app/landing-generator/gamma.css` |
+| G · Motor del editor | `app/web-generator/editor/extensiones/*` (todos los nodos y marcas, ids, placeholder por nodo, el menú `/` como plugin), `editor/nodos/*` (NodeViews React: tarjeta con sus controles e imagen de acento, imagen, video, insertado, formulario, gráfico, HTML libre), `editor/insertar.ts` (`insertarBloque`, `moverTarjeta`, `duplicarTarjeta`…), `editor/MenuBarra.tsx` (el `/`), `editor/BarraFormato.tsx`, `editor/AsaBloque.tsx` |
+| H · Armazón | `app/web-generator/[id]/page.tsx`, `editor/EditorLanding.tsx` (barra superior, toolbar con Edición manual / Edición con IA, deshacer, «Agregar bloque», tira de secciones, lienzo, autoguardado, atajos, zoom, vista previa por dispositivo, proveedor del contexto), `editor/AgregarBloque.tsx`, `editor/TiraSecciones.tsx`, `editor/PanelPaginas.tsx`, `app/web-generator/gamma.css` |
 | I1 · Paneles A | `editor/paneles/PanelTema.tsx` (+ editor de tema), `editor/dialogos/piezas-gma.tsx` (las piezas de Gamma que comparten sus siete componentes), `editor/paneles/EstiloSeccion.tsx`, `editor/dialogos/DialogoPublicar.tsx` (sitio: slug, SEO, favicon, OG, nav, pie, indexar, Píxel de Meta), `editor/dialogos/DialogoCompartir.tsx`, `editor/dialogos/DialogoExportar.tsx` + `lib/editor-landing/exportar-*.ts`, `editor/dialogos/DialogoConfiguracion.tsx` |
 | I2 · Paneles B | `editor/paneles/PanelAgente.tsx` (Edición con IA: chat, alcance, Original/Modificado, aceptar/restaurar), `editor/diff-tarjetas.ts` (lo puro del Original/Modificado), `editor/AskAgent.tsx` (el popover ✨ de una sección), `editor/paneles/PanelComentarios.tsx`, `editor/paneles/PanelHistorial.tsx`, `editor/dialogos/DialogoAnalitica.tsx`, `editor/Presentar.tsx`, `editor/SelectorImagen.tsx`, `editor/dialogos/DialogoAtajos.tsx` |
-| J · Panel y crear | `app/landing-generator/page.tsx`, `app/landing-generator/Inicio.tsx` (Panel: gammas, recientes, favoritos, carpetas, plantillas, temas, papelera, búsqueda, grilla/lista), `app/landing-generator/crear/page.tsx`, `crear/CrearConIA.tsx` (la caja de Gamma 5 «¿Qué quieres crear?» + el generador clásico: Generar · Pegar texto · Importar · Plantillas → Esquema → Tema → generando en vivo) |
-| K · Cierre (orquestador) | `app/landing-generator/cliente.ts` (los pedidos a las rutas y la letra del chrome, en UN módulo sin `'use client'`: había cuatro copias), nav, onboarding, `lib/mako-capacidades.ts`, `app/landing-writer/page.tsx`, retiro de `LandingWriterApp.tsx`, `app/admin/dev/*`, tests de integración, build, hallazgos |
+| J · Panel y crear | `app/web-generator/page.tsx`, `app/web-generator/Inicio.tsx` (Panel: gammas, recientes, favoritos, carpetas, plantillas, temas, papelera, búsqueda, grilla/lista), `app/web-generator/crear/page.tsx`, `crear/CrearConIA.tsx` (la caja de Gamma 5 «¿Qué quieres crear?» + el generador clásico: Generar · Pegar texto · Importar · Plantillas → Esquema → Tema → generando en vivo) |
+| K · Cierre (orquestador) | `app/web-generator/cliente.ts` (los pedidos a las rutas y la letra del chrome, en UN módulo sin `'use client'`: había cuatro copias), nav, onboarding, `lib/mako-capacidades.ts`, `app/landing-writer/page.tsx`, retiro de `LandingWriterApp.tsx`, `app/admin/dev/*`, tests de integración, build, hallazgos |
 
 ## Contratos entre paquetes
 
@@ -241,7 +244,7 @@ Contratos ya escritos (no se cambian sin avisar): `lib/editor-landing/doc.ts`,
   `insertarBloque(editor, id: IdBloque, op?)`, `moverTarjeta`, `duplicarTarjeta`, `borrarTarjeta`
   (con 5 s de deshacer del MISMO nodo), `tarjetaEnCursor(editor)`.
 - **D, E, F → pantalla**: exactamente `lib/editor-landing/api-tipos.ts`.
-- **H → piezas**: exactamente `app/landing-generator/editor/contexto.ts`.
+- **H → piezas**: exactamente `app/web-generator/editor/contexto.ts`.
 
 ## Reglas que muerden acá (además de AGENTS.md entero)
 

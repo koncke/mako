@@ -152,7 +152,7 @@ test('lo que nombra una tab: capacidades del Perro, «Ver en…» de la Retro, e
     ['llamadas', 'Dashboard', '/dashboard?hoja=closing'],
     ['guiones-ads', 'Dashboard', '/dashboard?hoja=ads-analyst'],
     ['guion-valorar', 'Ads Writer', '/ads-writer?tab=analizar'],
-    ['landing-diagnosticar', 'Landing Generator', '/landing-generator/analizar'],
+    ['landing-diagnosticar', 'Web Generator', '/web-generator/analizar'],
   ];
   for (const [id, tab, ruta] of esperadas) {
     const c = capacidad(id);
@@ -176,7 +176,7 @@ test('lo que nombra una tab: capacidades del Perro, «Ver en…» de la Retro, e
   assert.equal(TOOL_LABEL.chats, 'Chat Analyst');
   // El área de la API: la tab y la ruta donde vive hoy (la referencia y la consola de tokens las muestran).
   assert.deepEqual([AREA_INFO.closing.tab, AREA_INFO.closing.ruta], ['Dashboard', '/dashboard?hoja=closing']);
-  assert.deepEqual([AREA_INFO.landing.tab, AREA_INFO.landing.ruta], ['Landing Generator', '/landing-generator']);
+  assert.deepEqual([AREA_INFO.landing.tab, AREA_INFO.landing.ruta], ['Web Generator', '/web-generator']);
   for (const a of [AREA_INFO.closing, AREA_INFO.landing]) assert.equal(itemDe(a.ruta)?.label, a.tab, `${a.ruta} no enciende «${a.tab}»`);
   // La tarjeta del link en WhatsApp: el link nuevo dice lo mismo que el viejo, y no se lee como anuncios.
   assert.equal(previewDeDestino('/dashboard?hoja=closing&llamada=12345').tipo, 'closing');

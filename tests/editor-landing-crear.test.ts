@@ -2,7 +2,7 @@
 // Crear con IA (el generador de Gamma): tandas de 3, guardar AL FINAL, y el ?url=
 // =============================================================================
 // Pedido de Martín (11/10/2026): «Replica por completo a Gamma». La pantalla de crear
-// (app/landing-generator/crear/CrearConIA.tsx) genera una landing en dos pasos, como
+// (app/web-generator/crear/CrearConIA.tsx) genera una landing en dos pasos, como
 // Gamma: esquema → secciones. Lo que este archivo fija:
 //
 //   1. El TROCEO: las secciones se piden en tandas de a 3 índices (las mismas
@@ -90,18 +90,18 @@ import { join } from 'node:path';
 import {
   baseDelDeepLink, colocarTanda, completarConEsquema, contenidoGenerado, correrTandas, guardarSiCompleta, nuevaGeneracion,
   objetivoValido, rotuloTanda, todasListas, type DepsGeneracion, type EstadoGen, type ResultadoTanda,
-} from '../app/landing-generator/crear/CrearConIA';
-import { agregarSeccion, esquemaParaEnviar, moverSeccion, quitarSeccion, textoSecciones } from '../app/landing-generator/crear/EditorEsquema';
+} from '../app/web-generator/crear/CrearConIA';
+import { agregarSeccion, esquemaParaEnviar, moverSeccion, quitarSeccion, textoSecciones } from '../app/web-generator/crear/EditorEsquema';
 import {
   EJEMPLOS_CAJA, configDeCreacion, cuantas, paramsDeTipo, pedidoDePlantilla, plantillasDe, termino, tipoValido,
-} from '../app/landing-generator/crear/tipo';
-import { derechaDeQuery, queryDeDerecha } from '../app/landing-generator/panel-reglas';
+} from '../app/web-generator/crear/tipo';
+import { derechaDeQuery, queryDeDerecha } from '../app/web-generator/panel-reglas';
 import { PARAMS_DEFAULT } from '../lib/editor-landing/ia-reglas';
 import { sanearConfig } from '../lib/editor-landing/validar';
 import { mezclarConfig } from '../lib/editor-landing/server-reglas';
 import { PLANTILLAS } from '../lib/editor-landing/plantillas';
 import { PLANTILLAS_PRESENTACION } from '../lib/editor-landing/plantillas-presentaciones';
-import { temaSugerido } from '../app/landing-generator/crear/SelectorTemaCrear';
+import { temaSugerido } from '../app/web-generator/crear/SelectorTemaCrear';
 import { TEMAS } from '../lib/editor-landing/temas';
 import { tarjeta, textoDe, titulo, type JsonNodo } from '../lib/editor-landing/doc';
 
@@ -252,7 +252,7 @@ test('el contenido guardado es la página de la landing creada (su id) con las s
 });
 
 test('la pantalla usa ESTAS funciones: tandas, guardado al final y el contenido de la landing creada', () => {
-  const src = fuente('app/landing-generator/crear/CrearConIA.tsx');
+  const src = fuente('app/web-generator/crear/CrearConIA.tsx');
   // La generación arranca con todas las tandas y corre por correrTandas.
   assert.match(src, /await correrTandas\(inicial\.tandas\.map\(\(_, k\) => k\), deps\(\)\)/);
   // Cada tanda le pide a la ruta EXACTAMENTE sus índices.
@@ -288,21 +288,21 @@ test('el objetivo de la query sólo vale si es de la lista cerrada', () => {
 });
 
 test('la pantalla siembra «Sobre cuál» con la URL VALIDADA, y la página le pasa las analizadas', () => {
-  const src = fuente('app/landing-generator/crear/CrearConIA.tsx');
+  const src = fuente('app/web-generator/crear/CrearConIA.tsx');
   // Tanda 6: el deep link llega como `arranque.base` (la derecha del Panel, `derechaDeQuery`).
   assert.match(src, /const baseInicial = baseDelDeepLink\(arranque\?\.base, analizadas\);/);
   assert.match(src, /basadoEnUrl: baseInicial,/);
   assert.doesNotMatch(src, /basadoEnUrl: (props\.url|arranque\?\.base)/);
   // Las analizadas las lee el Panel (después del guard) y se las pasa a Crear, que se monta a su derecha.
-  const panel = fuente('app/landing-generator/page.tsx');
+  const panel = fuente('app/web-generator/page.tsx');
   assert.match(panel, /listarAnalizadas\(\)/);
   assert.match(panel, /derechaDeQuery\(consultaDerecha\(sp\), docs, bases\)/);
-  assert.doesNotMatch(panel, /landing-generator\/crear/, 'el Panel ya no reenvía a otra ruta');
-  const inicio = fuente('app/landing-generator/Inicio.tsx');
+  assert.doesNotMatch(panel, /web-generator\/crear/, 'el Panel ya no reenvía a otra ruta');
+  const inicio = fuente('app/web-generator/Inicio.tsx');
   assert.match(inicio, /<CrearConIA\s+analizadas=\{analizadas\}/);
   assert.match(inicio, /arranque=\{derecha\.arranque \?\? null\}/);
   // /landing-generator/crear REDIRIGE al Panel con su query (y el ?ws= de la pestaña).
-  const page = fuente('app/landing-generator/crear/page.tsx');
+  const page = fuente('app/web-generator/crear/page.tsx');
   assert.match(page, /redirect\(await rutaConWs\(destinoCrear\(await searchParams\)\)\);/);
   assert.doesNotMatch(page, /<CrearConIA|listarAnalizadas/, 'la ruta volvió a dibujar Crear');
 });
@@ -408,7 +408,7 @@ test('las plantillas de cada tipo, y el alta de cada una con SU formato', () => 
 test('a dónde manda la caja: a la derecha del Panel con el tipo; el pedido EN MEMORIA, nunca en la URL', () => {
   // Tanda 6: la caja no navega. Le pasa al Panel el paso, el TIPO y el pedido (`onAccion`), y el Panel abre
   // Crear a su derecha (Inicio.tsx, `alAccion`).
-  const caja = fuente('app/landing-generator/CajaCrear.tsx');
+  const caja = fuente('app/web-generator/CajaCrear.tsx');
   assert.match(caja, /onAccion\(\{ que: 'ia', paso: 'generar', tipo, arranque: \{ prompt: p, modo \} \}\);/);
   assert.match(caja, /onAccion\(\{ que: 'ia', paso: 'pegar', tipo, arranque: \{ modo, prompt: pedido\.trim\(\), archivo: /);
   assert.doesNotMatch(caja, /router\.push|dejarCaja|rutaCaja|rutaPaso/, 'la caja volvió a navegar a otra ruta');
@@ -426,7 +426,7 @@ test('a dónde manda la caja: a la derecha del Panel con el tipo; el pedido EN M
     { tipo: 'ia', paso: 'generar', doc: 'presentacion', arranque: { sesion: true, modo: 'express' } });
   assert.deepEqual(derechaDeQuery({ desde: 'caja', prompt: '  algo  ' }, [], []),
     { tipo: 'ia', paso: 'generar', doc: 'landing', arranque: { sesion: true, modo: 'plan', prompt: 'algo' } });
-  const crear = fuente('app/landing-generator/crear/CrearConIA.tsx');
+  const crear = fuente('app/web-generator/crear/CrearConIA.tsx');
   assert.match(crear, /\? tomarCaja\(\) \?\? \(arranque\.prompt \? \{ prompt: arranque\.prompt, modo: arranque\.modo \?\? 'plan' \} : null\)/);
 });
 
@@ -442,7 +442,7 @@ test('la palabra: «diapositiva» en una presentación, «sección» en una land
 });
 
 test('el generador manda el tipo en TODO pedido a la IA y en el alta', () => {
-  const src = fuente('app/landing-generator/crear/CrearConIA.tsx');
+  const src = fuente('app/web-generator/crear/CrearConIA.tsx');
   // Los dos esquemas (generar y pegar: tanda 6, «Importar» es sólo un archivo y su texto va a Pegar) y las
   // secciones pasan por paramsDeTipo. «Importar desde URL» se fue: eso es Analizar o Replicar landing.
   assert.equal((src.match(/accion: 'esquema', modo: '(generar|pegar)'[^\n]*params: paramsDeTipo\(v\.params, v\.tipo\)/g) ?? []).length, 2);
@@ -454,7 +454,7 @@ test('el generador manda el tipo en TODO pedido a la IA y en el alta', () => {
   assert.match(src, /if \(!docRef\.current\) \{ tipoGen\.current = vivo\.current\.tipo;/);
   // El tipo de la query se valida, y el Panel se lo pasa (la derecha `ia` lo trae validado: `derechaDeQuery`).
   assert.match(src, /useState<TipoCrear>\(\(\) => tipoValido\(props\.tipo\)\)/);
-  assert.match(fuente('app/landing-generator/Inicio.tsx'), /tipo=\{derecha\.doc\}/);
+  assert.match(fuente('app/web-generator/Inicio.tsx'), /tipo=\{derecha\.doc\}/);
   assert.equal(derechaDeQuery({ paso: 'pegar', tipo: 'presentacion' }, [], []).tipo, 'ia');
   // «Sobre cuál» sólo se dibuja en una landing.
   assert.match(src, /\{tipo === 'landing' && \(\s*<>\s*<Desplegable\s+etiqueta="Sobre cuál"/);
@@ -463,14 +463,14 @@ test('el generador manda el tipo en TODO pedido a la IA y en el alta', () => {
 });
 
 test('la caja «¿Qué vas a crear hoy?»: el micrófono y el ejemplo de «Nueva automatización», importados', () => {
-  const src = fuente('app/landing-generator/CajaCrear.tsx');
+  const src = fuente('app/web-generator/CajaCrear.tsx');
   assert.match(src, /export default function CajaCrear\(/);
   // DECIMOCUARTA TANDA DE AUTOMATIONS (12/10/2026): la caja salió a CajaPedido.tsx, la MISMA que monta el modal «Nueva
   // automatización». El micrófono y el ejemplo siguen IMPORTADOS (en la caja), no copiados.
   // (Y el título, desde la decimoquinta tanda de Automations: es de la caja, `TITULO_CAJA`.)
   // (Tanda 6: también `ChipCaja`, el chip del archivo adjunto y del link pegado, el mismo de /automations.)
   assert.match(src, /import \{ CajaPedido, ChipCaja, CSS_CAJA_PEDIDO, TITULO_CAJA \} from '\.\/CajaPedido';/);
-  const caja = fuente('app/landing-generator/CajaPedido.tsx');
+  const caja = fuente('app/web-generator/CajaPedido.tsx');
   assert.match(caja, /import \{ BotonDictar \} from '@\/app\/plan\/board\/CrearTareaModal';/);
   assert.match(caja, /import \{ useEjemploQueSeEscribe \} from '@\/app\/automations\/CrearConIA';/);
   assert.match(caja, /<BotonDictar titulo="Dictar el pedido" valor=\{p\.valor\}/);
@@ -479,7 +479,7 @@ test('la caja «¿Qué vas a crear hoy?»: el micrófono y el ejemplo de «Nueva
     assert.doesNotMatch(x, /SpeechRecognition|MediaRecorder|getUserMedia|useDictar\(/);
     assert.doesNotMatch(x, /function useEjemploQueSeEscribe/);
   }
-  assert.match(fuente('app/automations/ChatMako.tsx'), /import \{ CajaPedido, ChipCaja, CSS_CAJA_PEDIDO, CSS_TOKENS_CASA, TITULO_CAJA \} from '@\/app\/landing-generator\/CajaPedido';/);
+  assert.match(fuente('app/automations/ChatMako.tsx'), /import \{ CajaPedido, ChipCaja, CSS_CAJA_PEDIDO, CSS_TOKENS_CASA, TITULO_CAJA \} from '@\/app\/web-generator\/CajaPedido';/);
   // El ejemplo se escribe con la lista del tipo, y el campo vuelve a empezar al cambiar de tipo.
   assert.match(src, /reinicio=\{tipo\}\s+ejemplos=\{EJEMPLOS_CAJA\[tipo\]\}/);
   // Decimoquinta tanda de Automations (punto 6): se mueve mientras la caja no tiene el foco y está vacía (`mover`).
@@ -493,7 +493,7 @@ test('la caja «¿Qué vas a crear hoy?»: el micrófono y el ejemplo de «Nueva
   assert.match(src, /const alta = pedidoDeDiseno\(eligiendo, objetivo\);/);
   assert.match(src, /<DialogoObjetivo ocupado=\{!!creando\} onElegir=\{conObjetivo\} onCerrar=\{cerrarEleccion\} \/>/);
   assert.match(src, /const r = await pedirDocs\(alta\);/);
-  assert.match(src, /irDuro\(`\/landing-generator\/\$\{r\.doc\.id\}`, ws\);/);
+  assert.match(src, /irDuro\(`\/web-generator\/\$\{r\.doc\.id\}`, ws\);/);
   // Tanda 6, punto 4: el «+» sólo adjunta (un archivo o una imagen); «Usar plantilla» es la grilla de abajo y
   // «Del generador anterior», la galería de Plantillas del Panel.
   const mas = src.slice(src.indexOf('<MenuFlotante ancla={menuMas}'), src.indexOf('</MenuFlotante>', src.indexOf('<MenuFlotante ancla={menuMas}')));

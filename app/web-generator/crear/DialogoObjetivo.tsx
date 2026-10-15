@@ -1,7 +1,7 @@
 'use client';
 
 // =============================================================================
-// landing-generator/crear/DialogoObjetivo — «¿De qué quieres crearla?»
+// web-generator/crear/DialogoObjetivo — «¿De qué quieres crearla?»
 // =============================================================================
 // Feedback de Martín (12/10/2026), textual: «En el panel principal, se tienen que ver plantillas del
 // diseño, y al darle a una, puede salir un pop-up o algo así que te pregunte de que quieres crearla, y

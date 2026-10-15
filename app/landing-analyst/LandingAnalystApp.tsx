@@ -1,7 +1,7 @@
 'use client';
 
 // =============================================================================
-// LandingAnalystApp — el diagnóstico de la landing (Landing Generator → Diagnóstico)
+// LandingAnalystApp — el diagnóstico de la landing (Web Generator → Diagnóstico)
 // =============================================================================
 // Dos columnas: la lista de landings analizadas a la izquierda y el diagnóstico
 // completo a la derecha. Todo lo que se ve acá lo produce el server
@@ -13,7 +13,7 @@
 //
 // ⚠️ DESDE EL 11/10/2026 ES SÓLO LA TAREA. Decisión de Martín: «Lo de Landing Analyst se
 // muda a Landing Generator y Landing Analyst se ELIMINA». Lo monta
-// /landing-generator/analizar; /landing-analyst redirige (app/landing-analyst/destino.ts).
+// /web-generator/analizar; /landing-analyst redirige (app/landing-analyst/destino.ts).
 // Lo que era ANÁLISIS se fue a la hoja «Landing» del Dashboard y salió de acá: las
 // pestañas «Lo que mide tu Pixel» y «Mapa de calor» (MapaDeCalor.tsx lo sigue montando
 // el Dashboard desde esta carpeta) y los KPIs del pie (páginas analizadas, puntaje
@@ -296,11 +296,11 @@ export function LandingAnalystApp({ data, errorMsg }: { data: LandingViewData; e
     <main style={{ flex: 1, minWidth: 0, minHeight: '100vh', display: 'flex', flexDirection: 'column', padding: '28px 0 40px' }}>
       {/* HEADER */}
       <header style={{ padding: '0 32px', marginBottom: 22 }}>
-        {/* La tab es Landing Generator y esto es una pantalla suya: el nivel de arriba es el
+        {/* La tab es Web Generator y esto es una pantalla suya: el nivel de arriba es el
             panel de la tab, y se navega explícito (AGENTS.md, «El destino de "Volver"…»). */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 6 }}>
           <MakoLogo size={22} />
-          <Link href="/landing-generator" style={{ ...eyebrow, color: 'var(--dim)', textDecoration: 'none' }}>Landing Generator</Link>
+          <Link href="/web-generator" style={{ ...eyebrow, color: 'var(--dim)', textDecoration: 'none' }}>Web Generator</Link>
           <span style={eyebrow}>/ Diagnóstico</span>
         </div>
         <h1 style={{ fontSize: 30, fontWeight: 650, letterSpacing: '-0.025em', margin: 0 }}>
@@ -476,7 +476,7 @@ export function LandingAnalystApp({ data, errorMsg }: { data: LandingViewData; e
                           : analizar(sel.url))}>
                         {corriendo === sel.url ? 'Analizando…' : sel.bloqueada ? 'Actualizar el texto' : 'Volver a analizar'}
                       </button>
-                      <Link href={`/landing-generator/crear?url=${encodeURIComponent(sel.url)}`} style={{ ...btnPrimario, textDecoration: 'none', display: 'inline-block' }}>
+                      <Link href={`/web-generator/crear?url=${encodeURIComponent(sel.url)}`} style={{ ...btnPrimario, textDecoration: 'none', display: 'inline-block' }}>
                         Escribir la nueva versión
                       </Link>
                     </div>

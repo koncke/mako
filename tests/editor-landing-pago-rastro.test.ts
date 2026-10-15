@@ -32,7 +32,7 @@ import {
   type DepPagoPost, type LandingDelPaso, type ResultadoDelPago,
 } from '../lib/editor-landing/pago-pagina';
 import type { EstadoCobroLanding } from '../lib/editor-landing/pago-landing';
-import { textoRechazosPago } from '../app/landing-generator/editor/dialogos/DialogoAnalitica';
+import { textoRechazosPago } from '../app/web-generator/editor/dialogos/DialogoAnalitica';
 
 const RAIZ = join(__dirname, '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
@@ -405,7 +405,7 @@ test('rastro: el dueño lo VE — una línea en ámbar en «Análisis», sólo s
   const analitica = bloque(server, 'export async function analitica(', /\n\}\n/);
   assert.match(analitica, /const r = await rechazosDePago\(ws, id, DIAS_ANALITICA\);/);
   assert.match(analitica, /rechazosPago = r && !r\.sinTabla \? \{ total: r\.total, dias: DIAS_ANALITICA \} : null;/, 'sin la tabla no se afirma un cero');
-  const dialogo = leer('app/landing-generator/editor/dialogos/DialogoAnalitica.tsx');
+  const dialogo = leer('app/web-generator/editor/dialogos/DialogoAnalitica.tsx');
   assert.match(dialogo, /\{textoRechazosPago\(a\.rechazosPago\) && \(\s*<p className="gma-an-rechazos" role="status">/);
 });
 

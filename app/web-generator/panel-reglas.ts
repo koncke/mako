@@ -151,7 +151,7 @@ export function enPapelera(docs: readonly LandingResumen[]): LandingResumen[] {
 /**
  * Los pasos de «Crear con IA» por los que se entra (tanda 6). Martín, 14/10/2026: «La sección de
  * "Importar con IA" no debería ser otra ruta, todo siempre en la misma ruta». El generador
- * (crear/CrearConIA.tsx) se abre A LA DERECHA del Panel; /landing-generator/crear redirige acá.
+ * (crear/CrearConIA.tsx) se abre A LA DERECHA del Panel; /web-generator/crear redirige acá.
  */
 export const PASOS_IA = ['generar', 'pegar', 'importar'] as const;
 export type PasoIA = (typeof PASOS_IA)[number];
@@ -162,7 +162,7 @@ export type PasoIA = (typeof PASOS_IA)[number];
  *   · `prompt`/`modo`: el pedido de la caja «¿Qué vas a crear hoy?» (Plan | Express);
  *   · `archivo`: el archivo o la imagen adjuntos en la caja (el «+»), ya leídos: su texto va a
  *     «Pegar texto» y lo escrito, a las instrucciones;
- *   · `sesion`: el link VIEJO de la caja (`/landing-generator/crear?desde=caja`, de una pestaña con la
+ *   · `sesion`: el link VIEJO de la caja (`/web-generator/crear?desde=caja`, de una pestaña con la
  *     pantalla de antes durante el deploy): el pedido quedó en sessionStorage (`tomarCaja`);
  *   · `base`/`objetivo`: el deep link del Landing Analyst (`?url=`): la landing de base, que Crear
  *     valida contra las analizadas de ESTE negocio (`baseDelDeepLink`).
@@ -234,7 +234,7 @@ export type ConsultaDerecha = {
   /** Tanda 6: el paso de «Crear con IA» y el tipo de documento (`presentacion`). */
   paso?: string | null;
   tipo?: string | null;
-  /** Los links viejos de /landing-generator/crear: la caja (`desde=caja`, `modo`, `prompt`) y el Landing Analyst (`url`, `objetivo`). */
+  /** Los links viejos de /web-generator/crear: la caja (`desde=caja`, `modo`, `prompt`) y el Landing Analyst (`url`, `objetivo`). */
   desde?: string | null;
   modo?: string | null;
   prompt?: string | null;
@@ -293,7 +293,7 @@ export function urlDeBusqueda(q: string): string | null {
  *
  * Tanda 6 (Martín, 14/10/2026: «todo siempre en la misma ruta»): `?paso=generar|pegar|importar`
  * (con `?tipo=presentacion`) abre «Crear con IA» y `?vista=replicar`, «Replicar landing». Los links
- * de la ruta vieja (/landing-generator/crear redirige con su query, `destinoCrear`) también: el
+ * de la ruta vieja (/web-generator/crear redirige con su query, `destinoCrear`) también: el
  * deep link del Landing Analyst (`?url=`, con `?objetivo=`) abre «Generar» con esa landing de base,
  * y el de la caja (`?desde=caja&modo=…[&prompt=…]`) arranca el pedido que dejó en la sesión.
  */
@@ -351,14 +351,14 @@ export function esDiagnosticoDe(d: Derecha, f: FilaPanel): boolean {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// /landing-generator/analizar → el Panel con la landing en diagnóstico (T2)
+// /web-generator/analizar → el Panel con la landing en diagnóstico (T2)
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** La ruta del Panel. */
-export const RUTA_PANEL = '/landing-generator';
+export const RUTA_PANEL = '/web-generator';
 
 /**
- * A dónde va un link a /landing-generator/analizar (el onboarding de 'landing-an', «Analizar una
+ * A dónde va un link a /web-generator/analizar (el onboarding de 'landing-an', «Analizar una
  * página» de Crear, la API de MaKo, los links viejos de /landing-analyst que ya redirigen ahí):
  * al Panel con el Diagnóstico abierto a la derecha. `?diagnostico=<id>` (o `?id=`) es una landing
  * nuestra; `?url=` (o `?analizar=`) una de afuera; sin ninguna, el Diagnóstico vacío para pegar
@@ -375,11 +375,11 @@ export function destinoAnalizar(sp: Query): string {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// /landing-generator/crear → el Panel con «Crear con IA» a la derecha (tanda 6)
+// /web-generator/crear → el Panel con «Crear con IA» a la derecha (tanda 6)
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * A dónde va un link a /landing-generator/crear (el Landing Analyst con `?url=`, un `?paso=` guardado,
+ * A dónde va un link a /web-generator/crear (el Landing Analyst con `?url=`, un `?paso=` guardado,
  * una pestaña con la pantalla vieja de la caja durante el deploy): al Panel con la MISMA query, el
  * `?ws=` incluido. Martín, 14/10/2026: «La sección de "Importar con IA" no debería ser otra ruta,
  * todo siempre en la misma ruta». La lee `derechaDeQuery`; el `?ws=` de la pestaña lo agrega

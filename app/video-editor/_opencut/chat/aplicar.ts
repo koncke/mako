@@ -1,7 +1,7 @@
 // =============================================================================
 // chat/aplicar — aceptar y restaurar una propuesta del chat
 // =============================================================================
-// El contrato es el del Landing (`aceptarPropuesta` en app/landing-generator/editor/
+// El contrato es el del Landing (`aceptarPropuesta` en app/web-generator/editor/
 // paneles/PanelAgente.tsx), en el mismo orden:
 //
 //   1. Lo pendiente, guardado (`editor.save.flush`). Si no se guardó, NO se aplica: la

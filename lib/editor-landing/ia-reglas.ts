@@ -917,7 +917,7 @@ export const SYSTEM_REPARAR_JSON = 'Recibes un texto que pretende ser un JSON pe
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Prompts (defaults del registro editable: lib/prompt-registry.ts, grupo
-// «Editor de landings (Landing Generator)»)
+// «Editor de landings (Web Generator)»)
 // ─────────────────────────────────────────────────────────────────────────────
 // ⚠️ La key del registro, la de `renderPrompt` en ia.ts y los `{{slots}}` de cada
 // plantilla tienen que coincidir EXACTO: lo fija tests/editor-landing-ia.test.ts.

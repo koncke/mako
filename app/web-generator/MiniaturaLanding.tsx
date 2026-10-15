@@ -538,7 +538,7 @@ export function DialogoBorradores({ onCerrar, ws, ahora }: { onCerrar: () => voi
     const r = await pedirDocs({ accion: 'importarBorrador', draftId: b.id }, 60_000);
     if (!r.ok) { setImportando(null); setError(r.error); return; }
     marcarReciente(r.doc.id);
-    irDuro(`/landing-generator/${r.doc.id}`, ws);
+    irDuro(`/web-generator/${r.doc.id}`, ws);
   };
 
   return (

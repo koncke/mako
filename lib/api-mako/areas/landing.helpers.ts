@@ -87,7 +87,7 @@ export async function pandaConectado(): Promise<boolean> {
   return !!k && !k.startsWith('PENDING');
 }
 
-// ── 2. Los diagnósticos (Landing Generator → Diagnóstico; el módulo sigue siendo lib/landing-analyst)
+// ── 2. Los diagnósticos (Web Generator → Diagnóstico; el módulo sigue siendo lib/landing-analyst)
 
 const COLS_DIAG =
   'url, url_final, titulo, status, score, veredicto, veredicto_tone, resumen, promesa, avatar, ' +
@@ -125,7 +125,7 @@ export async function listarAnalisisCompacto(): Promise<{ filas: AnalisisCompact
   return { filas, recortado: filas.length >= TOPE };
 }
 
-// ── 3. Una versión guardada del Landing Generator ───────────────────────────
+// ── 3. Una versión guardada del Web Generator ───────────────────────────
 
 export async function borradorPorId(id: number): Promise<LandingDraft | null> {
   const db = await getTenantDb();

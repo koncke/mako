@@ -29,8 +29,8 @@ import { join } from 'node:path';
 process.env.NEXT_PUBLIC_SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://proyecto.supabase.co';
 
 import { CSS_CONTENIDO } from '../lib/editor-landing/css';
-import { CSS_NODOS } from '../app/landing-generator/editor/extensiones/estilos-nodos';
-import { altoDeMiniatura, hayImagenSinCargar } from '../app/landing-generator/editor/TiraSecciones';
+import { CSS_NODOS } from '../app/web-generator/editor/extensiones/estilos-nodos';
+import { altoDeMiniatura, hayImagenSinCargar } from '../app/web-generator/editor/TiraSecciones';
 
 const RAIZ = join(__dirname, '..');
 const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
@@ -101,7 +101,7 @@ test('editor: en una landing los controles de la sección van ADENTRO (como en u
 // ── 2 · La tira de miniaturas ────────────────────────────────────────────────────────────────
 
 test('tira: el lugar de la barra de scroll va reservado (el ancho no depende de si hay barra)', () => {
-  const css = leer('app/landing-generator/gamma.css');
+  const css = leer('app/web-generator/gamma.css');
   const i = css.indexOf('.gma-tira-lista {');
   assert.ok(i >= 0);
   assert.match(sinComentarios(css.slice(i, css.indexOf('}', i))), /scrollbar-gutter: stable;/);
@@ -114,7 +114,7 @@ test('tira: con una imagen sin cargar no se mide (conserva el alto) y el load/er
   assert.equal(altoDeMiniatura(1000, 0.17), 170);
   assert.equal(altoDeMiniatura(5000, 0.17), 180, 'tope');
   assert.equal(altoDeMiniatura(10, 0.17), 24, 'piso');
-  const src = sinComentarios(leer('app/landing-generator/editor/TiraSecciones.tsx'));
+  const src = sinComentarios(leer('app/web-generator/editor/TiraSecciones.tsx'));
   const medir = src.slice(src.indexOf('const medir = () => {'), src.indexOf('medir();'));
   assert.ok(medir.indexOf('hayImagenSinCargar(escala)') >= 0 && medir.indexOf('hayImagenSinCargar(escala)') < medir.indexOf('altoDeMiniatura(escala.offsetHeight, k)'),
     'se pregunta por las imágenes ANTES de medir');
@@ -124,7 +124,7 @@ test('tira: con una imagen sin cargar no se mide (conserva el alto) y el load/er
 });
 
 test('tira: la miniatura de una presentación lleva el formato en el padre del .gm-doc, y dice «diapositiva»', () => {
-  const src = sinComentarios(leer('app/landing-generator/editor/TiraSecciones.tsx'));
+  const src = sinComentarios(leer('app/web-generator/editor/TiraSecciones.tsx'));
   assert.match(src, /className="gma-mini-escala"\s*data-formato=\{formato\}\s*data-proporcion=\{formato \? proporcion : undefined\}/);
   assert.match(src, /<Miniatura html=\{it\.html\} formato=\{formatoMini\} proporcion=\{proporcionMini\} \/>/);
   assert.match(src, /const formatoMini = esPresentacion\(config\) \? 'presentacion' as const : undefined;/);
@@ -134,9 +134,9 @@ test('tira: la miniatura de una presentación lleva el formato en el padre del .
 // ── 3 · El formato en los pedidos de edición a la IA ─────────────────────────────────────────
 
 test('IA: el Panel del agente y el Ask Agent mandan params.formato al editar', () => {
-  const panel = sinComentarios(leer('app/landing-generator/editor/paneles/PanelAgente.tsx'));
+  const panel = sinComentarios(leer('app/web-generator/editor/paneles/PanelAgente.tsx'));
   assert.match(panel, /pedirIA\(\{ accion: 'editar', [^}]*params: \{ formato: formatoDe\(ctx\.config\) \} \}/);
-  const ask = sinComentarios(leer('app/landing-generator/editor/AskAgent.tsx'));
+  const ask = sinComentarios(leer('app/web-generator/editor/AskAgent.tsx'));
   assert.match(ask, /pedirIA\(\{ accion: 'editar', [^}]*params: \{ formato: formatoDe\(ctxRef\.current\.config\) \} \}/);
 });
 

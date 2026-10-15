@@ -148,7 +148,7 @@ test('la PANTALLA muestra y ubica todas las páginas: el orden, las secciones de
     '<div class="gdg-pagina" data-titulo="Inicio"></div><main data-p="p1"></main>'
     + '<div class="gdg-pagina" data-titulo="Gracias &quot;&lt;b&gt;&quot; &amp; más"></div><main data-p="p2"></main>');
   // Y la pantalla y la copia los usan (fuente sin comentarios).
-  const panel = sinComentarios(leer('app/landing-generator/diagnostico/PanelDiagnostico.tsx'));
+  const panel = sinComentarios(leer('app/web-generator/diagnostico/PanelDiagnostico.tsx'));
   assert.match(panel, /const paginas = useMemo\(\(\) => \(doc \? paginasEnOrden\(doc\.contenido\) : \[\]\), \[doc\]\);/);
   assert.match(panel, /htmlDeVistaDiagnostico\(paginas, \(p\) => htmlDePagina\(p, doc\.config, tema, \{ modo: 'exportar' \}\)\)/);
   assert.match(panel, /const ordenSecciones = useMemo\(\(\) => paginas\.flatMap\(\(p\) => tarjetasDe\(p\)\.map\(idDe\)\), \[paginas\]\);/);

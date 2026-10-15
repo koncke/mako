@@ -428,7 +428,7 @@ const ALIAS: Record<string, string> = {
 test('cada prompt del editor está en el registro con SU key, SU default y exactamente SUS slots', () => {
   const reg = sinComentarios(leer('lib/prompt-registry.ts'));
   const reglas = leer('lib/editor-landing/ia-reglas.ts');
-  assert.match(reg, /group: 'Editor de landings \(Landing Generator\)'/);
+  assert.match(reg, /group: 'Editor de landings \(Web Generator\)'/);
   assert.match(reg, /from '\.\/editor-landing\/ia-reglas';/);
   for (const [nombre, { key, tpl }] of Object.entries(PROMPTS_EDITOR)) {
     const i = reg.indexOf(`key: '${key}'`);
@@ -502,7 +502,7 @@ test('«Probar nuevo diseño» recibe el formato: diapositivas en una presentaci
   }
   // Verificación de la tanda 6: el server lo recibía y la PANTALLA no lo mandaba (AskAgent, «Probar nuevo
   // diseño»): en una presentación seguía proponiendo secciones de página. Ahora va como en `editar`.
-  const ask = sinComentarios(leer('app/landing-generator/editor/AskAgent.tsx'));
+  const ask = sinComentarios(leer('app/web-generator/editor/AskAgent.tsx'));
   assert.match(ask, /pedirIA\(\{ accion: 'disenos', tarjeta: original, params: \{ formato: formatoDe\(ctxRef\.current\.config\) \} \}/);
 });
 

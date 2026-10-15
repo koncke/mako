@@ -1,9 +1,9 @@
 // =============================================================================
-// /landing-generator/crear — redirige al Panel con «Crear con IA» abierto a la derecha
+// /web-generator/crear — redirige al Panel con «Crear con IA» abierto a la derecha
 // =============================================================================
 // Pedido de Martín (14/10/2026, tanda 6, punto 2), textual: «La sección de "Importar con IA" no debería
 // ser otra ruta, todo siempre en la misma ruta.» «Crear con IA» (crear/CrearConIA.tsx) se monta a la
-// DERECHA del Panel (/landing-generator, Inicio.tsx) y sus tarjetas viven en la caja «¿Qué vas a crear
+// DERECHA del Panel (/web-generator, Inicio.tsx) y sus tarjetas viven en la caja «¿Qué vas a crear
 // hoy?» (CajaCrear.tsx). Esta ruta pasa a REDIRIGIR ahí, con la query entera: `?paso=` y `?tipo=` abren
 // ese paso, el deep link del Landing Analyst (`?url=`, `?objetivo=`) abre «Generar» con esa landing de
 // base, y el link de la caja de una pestaña con la pantalla vieja (`?desde=caja&modo=…`) arranca su

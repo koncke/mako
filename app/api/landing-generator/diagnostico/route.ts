@@ -2,7 +2,7 @@
 // POST /api/landing-generator/diagnostico — el diagnóstico de una landing y sus comentarios guardados
 // =============================================================================
 // Tanda 2, puntos 2, 7 y 8 (docs/diseno-editor-landing.md, T2 y T5): el panel del diagnóstico que se
-// abre a la derecha del Panel (app/landing-generator/diagnostico/PanelDiagnostico.tsx). Un `accion` por
+// abre a la derecha del Panel (app/web-generator/diagnostico/PanelDiagnostico.tsx). Un `accion` por
 // operación, exactamente `PedidoDiagnostico` (lib/editor-landing/diagnostico.ts):
 //   { accion: 'listar', docId | url }              los comentarios guardados (y el veredicto de una de afuera);
 //   { accion: 'analizar', docId | url, texto?, lectura? }  analiza, guarda lo nuevo y devuelve la lista entera

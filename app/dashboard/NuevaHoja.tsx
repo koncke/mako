@@ -13,7 +13,7 @@
 // textual: «pasale la sección de "¿Qué vamos a hacer hoy?" al chat de graphics para que lo implemente tal cual en lo
 // que se tiene hoy de "Pídeselo a MaKo". Tiene que ser funcional, es decir, que los dashboards también deberían poder
 // copiarse y enviarse con ese token». ES LA CAJA de Automations y del Landing Generator (`CajaPedido`,
-// app/landing-generator/CajaPedido.tsx), no una copia: el título, la tarjeta blanca, el ejemplo que se escribe solo
+// app/web-generator/CajaPedido.tsx), no una copia: el título, la tarjeta blanca, el ejemplo que se escribe solo
 // (para mientras la caja tiene el foco y vuelve si se sale sin escribir: lo decide la caja), el «+», el micrófono de la
 // casa y el ↑. El «+», como en «Nueva automatización» (app/automations/ChatMako.tsx, `BarraPideselo`):
 //   · «Subir archivo o imagen»: lo lee el server con el lector de la casa (la ruta de Automations,
@@ -33,7 +33,7 @@
 // «en lugar del botón de "nuevo dashboard" te pido que pongas ahí el "¿Qué vas a crear hoy?"... Y los templates, la
 // preview debería ser como los de landing generator, porque justamente se deberían ver como una pagina» (para General y
 // para el Dashboard). El cuerpo del modal es `CrearHoja`: lo monta este modal y lo monta EditorInforme en la pantalla
-// en blanco de quien nunca armó una hoja (la portada del Landing Generator, app/landing-generator/CajaCrear.tsx: la caja
+// en blanco de quien nunca armó una hoja (la portada del Landing Generator, app/web-generator/CajaCrear.tsx: la caja
 // y, abajo, las plantillas). Cada plantilla es la tarjeta de esa portada: la miniatura de la página (./MiniaturaHoja.tsx:
 // la hoja de verdad en chico, con datos de ejemplo), «Usar plantilla» al pasar el mouse, y el nombre abajo (sin la línea).
 //
@@ -57,8 +57,8 @@ import { Button } from '@/app/_ui/Button';
 import { LinkIntegracion } from '@/app/_components/ConectarIntegracion';
 import { IconoMenu } from '@/app/_ui/iconos-menu';
 import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
-import { CajaPedido, ChipCaja, CSS_CAJA_PEDIDO, CSS_TOKENS_CASA, TITULO_CAJA } from '@/app/landing-generator/CajaPedido';
-import { Ico } from '@/app/landing-generator/Ico';
+import { CajaPedido, ChipCaja, CSS_CAJA_PEDIDO, CSS_TOKENS_CASA, TITULO_CAJA } from '@/app/web-generator/CajaPedido';
+import { Ico } from '@/app/web-generator/Ico';
 import { ACCEPT_ARCHIVO_FLUJO, pedidoConArchivo } from '@/app/automations/CrearConIA';
 import { leerArchivoParaPedido } from '@/app/automations/archivo-pedido-cliente';
 import { useCerrarEstable } from '@/app/customer-success/curso/dialogo-foco';

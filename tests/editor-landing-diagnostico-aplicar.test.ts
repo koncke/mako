@@ -9,7 +9,7 @@
 // Lo puro vive en lib/editor-landing/diagnostico.ts (la instrucción, los grupos, la pila de Deshacer, el
 // contexto del chat y el script que abre un desplegable antes de ir a una cita); el server en
 // lib/editor-landing/diagnostico-aplicar.ts (server-only: se lee su fuente); la pantalla en
-// app/landing-generator/diagnostico/*; la API en lib/api-mako/areas/landing.*.
+// app/web-generator/diagnostico/*; la API en lib/api-mako/areas/landing.*.
 //
 // PROBADO ROMPIÉNDOLO (14/10/2026): los números al pie.
 // =============================================================================
@@ -35,9 +35,9 @@ const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\
 // Sin el `.replace(/\{\s*\}/g, '')` de otros tests: borraría los `: {}` del código de verdad.
 const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 
-const PANEL = 'app/landing-generator/diagnostico/PanelDiagnostico.tsx';
-const COMENTARIO = 'app/landing-generator/diagnostico/Comentario.tsx';
-const RECORRIDO = 'app/landing-generator/diagnostico/RecorridoDiagnostico.tsx';
+const PANEL = 'app/web-generator/diagnostico/PanelDiagnostico.tsx';
+const COMENTARIO = 'app/web-generator/diagnostico/Comentario.tsx';
+const RECORRIDO = 'app/web-generator/diagnostico/RecorridoDiagnostico.tsx';
 const SERVER = 'lib/editor-landing/diagnostico-aplicar.ts';
 const RUTA = 'app/api/landing-generator/diagnostico/aplicar/route.ts';
 
@@ -319,11 +319,11 @@ test('de afuera, «Aplicar» replica como Landing y lo que se aplica en la copia
   assert.match(afuera, /if \(copia != null\) \{ setAbriendoCopia\(true\); void pasarYAbrir\(\{ id: copia, titulo: '' \}\); return; \}\s*const lectura = ultimaLectura\.current;\s*void pedirReplica\(/);
   assert.match(panel, /function PanelInterno\(\{ docId, url, copia = null, onCerrar, onAnalizada \}: Props\)/);
   assert.match(panel, /pedirAplicar\(\{ accion: 'pasar', url: urlPegada, docId: id \}\)/);
-  assert.match(panel, /irDuro\(`\/landing-generator\?diagnostico=\$\{id\}`, ws\)/);
+  assert.match(panel, /irDuro\(`\/web-generator\?diagnostico=\$\{id\}`, ws\)/);
   assert.match(panel, /sessionStorage\.setItem\(CLAVE_UNA_VEZ/);
   assert.match(panel, /sessionStorage\.removeItem\(CLAVE_UNA_VEZ\)/, 'se consume al usarlo');
   assert.doesNotMatch(panel, /diagnostico=\$\{id\}&|[?&]aplicar=/, 'nada de «aplicar» en la URL');
-  const replicar = sinComentarios(leer('app/landing-generator/crear/Replicar.tsx'));
+  const replicar = sinComentarios(leer('app/web-generator/crear/Replicar.tsx'));
   assert.match(replicar, /if \(r\.ok && alListo\) \{ await alListo\(\{ id: r\.id, titulo: r\.titulo \}\); return; \}/);
 });
 

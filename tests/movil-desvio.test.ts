@@ -57,6 +57,7 @@ test('v2: las secciones de More (y sus subrutas) van a su pantalla de /m, no a Â
     ['/automations', '/m/automations'], ['/setting', '/m/automations'], ['/chatbot', '/m/automations'],
     ['/video-generator', '/m/video'],
     ['/video-generator', '/m/video/3f2b8c1e-9a4d-4c6b-8e2f-0a1b2c3d4e5f', '?plan=3f2b8c1e-9a4d-4c6b-8e2f-0a1b2c3d4e5f'],
+    ['/web-generator', '/m/landing'], ['/web-generator/42', '/m/landing/42'],
     ['/landing-generator', '/m/landing'], ['/landing-generator/42', '/m/landing/42'], ['/landing-writer', '/m/landing'],
   ];
   for (const [p, destino, q] of casos) assert.deepEqual(decidirDesvio(p, q ?? ''), { tipo: 'movil', destino }, `${p}${q ?? ''}`);

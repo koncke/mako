@@ -7,7 +7,7 @@
 // Supabase (mig 0278), no en el navegador. El contrato con las rutas es lib/image-editor/tipos.ts.
 // El `?ws=` de la pestaña lo agrega `WsFetch` a todo fetch a /api (app/_components/WsFetch.tsx).
 //
-// SUBIR un archivo, en tres pasos (molde: app/landing-generator/editor/subir.ts):
+// SUBIR un archivo, en tres pasos (molde: app/web-generator/editor/subir.ts):
 //   1. `firmar`: el server valida tipo y tamaño y devuelve una URL firmada del bucket.
 //   2. el NAVEGADOR sube directo con XHR (`subirConProgreso`): el archivo nunca pasa por una
 //      función de Vercel, que corta el cuerpo en ~4,5 MB sin avisar.

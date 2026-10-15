@@ -199,7 +199,7 @@ test('decidirLEnApp: en la app, /l/<…> se muda a hola-mako.site con la query; 
   assert.deepEqual(decidirLEnApp('/l', ''), { tipo: 'mudar', destino: 'https://hola-mako.site/' });
   assert.deepEqual(decidirLEnApp('/l/html/12/h1abc', ''), { tipo: 'no-existe' });
   assert.deepEqual(decidirLEnApp('/l/html', ''), { tipo: 'no-existe' });
-  for (const p of ['/landing-generator', '/login', '/', '/lx/a', '/api/l/x']) assert.deepEqual(decidirLEnApp(p, ''), { tipo: 'seguir' }, p);
+  for (const p of ['/web-generator', '/landing-generator', '/login', '/', '/lx/a', '/api/l/x']) assert.deepEqual(decidirLEnApp(p, ''), { tipo: 'seguir' }, p);
   // Ida y vuelta: lo que la app manda a hola-mako.site es lo que hola-mako.site reescribe a la MISMA ruta interna.
   for (const interna of ['/l/mi-landing', '/l/mi-landing/gracias', `/l/vista/${TOKEN}/gracias`, '/l/mi-landing/pagar/12']) {
     const d = decidirLEnApp(interna, '');

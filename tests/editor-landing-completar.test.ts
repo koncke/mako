@@ -4,7 +4,7 @@
 // Pedido de Martín (14/10/2026): «También quiero que los [] que el usuario debe completar, se queden
 // como de otro color o algo diferencial, y que eso se vea también en la miniatura, así se entiende
 // mejor.» Ejecuta la regla (lib/editor-landing/especificacion.ts, `rangosACompletar`), el render
-// (render.ts) y la decoración del editor (app/landing-generator/editor/extensiones/completar.ts) sobre
+// (render.ts) y la decoración del editor (app/web-generator/editor/extensiones/completar.ts) sobre
 // el esquema REAL del editor (getSchema y un Editor de TipTap sin montar, como editor-landing-insertar):
 //
 //   · la regla marca TODOS los corchetes de los catálogos (plantillas, diseños de sección,
@@ -58,10 +58,10 @@ import { Editor, getSchema } from '@tiptap/core';
 import { EditorState, TextSelection } from '@tiptap/pm/state';
 import type { Node as NodoPM, Schema } from '@tiptap/pm/model';
 import type { DecorationSet } from '@tiptap/pm/view';
-import { extensionesBase } from '../app/landing-generator/editor/extensiones/esquema';
+import { extensionesBase } from '../app/web-generator/editor/extensiones/esquema';
 import {
   CLAVE_A_COMPLETAR, actualizarACompletar, decoracionesACompletar, formularioConACompletar, pluginACompletar,
-} from '../app/landing-generator/editor/extensiones/completar';
+} from '../app/web-generator/editor/extensiones/completar';
 import { RE_A_COMPLETAR, rangosACompletar, specFormulario, tramosACompletar } from '../lib/editor-landing/especificacion';
 import { htmlDeArbol } from '../lib/editor-landing/grafico-svg';
 import { htmlDeContenido, htmlDeTarjeta } from '../lib/editor-landing/render';
@@ -389,7 +389,7 @@ test('el formulario del editor marca los «[ ]» de etiquetas, preguntas, opcion
   assert.doesNotMatch(htmlDeArbol(arbol), /gm-completar/);
   assert.doesNotMatch(htmlDeArbol(specFormulario(attrs, { modo: 'publico' })), /gm-completar/);
   // Sólo la vista del NodeView lo pide; el `renderHTML` del nodo no.
-  const vista = readFileSync(join(__dirname, '..', 'app/landing-generator/editor/nodos/FormularioVista.tsx'), 'utf8');
+  const vista = readFileSync(join(__dirname, '..', 'app/web-generator/editor/nodos/FormularioVista.tsx'), 'utf8');
   assert.match(vista, /htmlDeArbol\(formularioConACompletar\(specFormulario\(node\.attrs, \{ modo: 'editor' \}\)\)\)/);
 });
 

@@ -10,7 +10,7 @@
 //     monta los mismos componentes de esta carpeta).
 //   · Todo lo demás —sin `tab`, `?tab=copy` o una pestaña que no existe— es el DIAGNÓSTICO,
 //     que es una TAREA (analizar, pegar el texto, reintentar, quitar): se mudó a
-//     /landing-generator/analizar, con la query entera menos `tab`.
+//     /web-generator/analizar, con la query entera menos `tab`.
 //
 // ⚠️ SE REDIRIGE, NO SE BORRA (AGENTS.md, «Retirar una RUTA…»): el link viejo vive en avisos
 // ya mandados, marcadores y tareas del plan. Y LA QUERY ES EL DESTINO: se conserva todo lo que
@@ -24,7 +24,7 @@
 import { destinoConQuery } from '@/lib/ruta-automations';
 
 /** La pantalla del diagnóstico, dentro de Landing Generator. */
-export const RUTA_DIAGNOSTICO = '/landing-generator/analizar';
+export const RUTA_DIAGNOSTICO = '/web-generator/analizar';
 
 /** La hoja del Dashboard que se quedó con lo que era ANÁLISIS (el pulso y el mapa de calor). */
 export const RUTA_HOJA_LANDING = '/dashboard?hoja=landing';

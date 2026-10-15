@@ -46,7 +46,7 @@ import {
   tokenPixelExistente, videoVisto, pandaConectado, analisisDe, listarAnalisisCompacto, borradorPorId,
   visitaDeLead,
 } from './landing.helpers';
-// El EDITOR del Landing Generator (tanda 4): el MISMO server que llama /api/landing-generator (la
+// El EDITOR del Web Generator (tanda 4): el MISMO server que llama /api/landing-generator (la
 // pantalla). Ningún `.from('landing_docs')` acá: tests/api-mako-landing-editor.test.ts lo frena.
 import * as docsEditor from '@/lib/editor-landing/server';
 import { publicar as publicarEnEditor, despublicar as despublicarEnEditor, sitioActivo as sitioActivoEnEditor } from '@/lib/editor-landing/publicar';
@@ -116,10 +116,10 @@ const linkIntegracionesLanding = (): string => linkPantalla('/integraciones?abri
 const FECHA = /^\d{4}-\d{2}-\d{2}$/;
 const fechaValida = (s: string): boolean => FECHA.test(s) && !Number.isNaN(Date.parse(`${s}T00:00:00Z`));
 
-// ── El editor del Landing Generator (tanda 4) ────────────────────────────────
+// ── El editor del Web Generator (tanda 4) ────────────────────────────────
 
-/** El editor de UNA landing (app/landing-generator/[id]), con el `?ws=` del negocio. */
-const linkEditor = (id: number, ws: number): string => linkPantalla(`/landing-generator/${id}`, ws);
+/** El editor de UNA landing (app/web-generator/[id]), con el `?ws=` del negocio. */
+const linkEditor = (id: number, ws: number): string => linkPantalla(`/web-generator/${id}`, ws);
 const noExisteCreada = (id: number): string => `No existe la landing ${id} en este negocio (búscala con listar_landings_creadas).`;
 const noExisteComentario = (id: number): string => `No existe el comentario ${id} en este negocio (búscalo con listar_comentarios_landing).`;
 
@@ -142,7 +142,7 @@ async function planCobro(input: Record<string, unknown>, ctx: Ctx): Promise<Plan
   if (!productoId) return { listo: false, error: 'Falta el producto que cobra el botón.', faltan: ['producto'] };
   const f = await docsEditor.leerFilaDoc(ctx.ws, id, 'id, titulo, version, papelera_at, publicado_at, contenido');
   if (!f) return { listo: false, error: noExisteCreada(id) };
-  if (f.papelera_at) return { listo: false, error: `«${f.titulo}» está en la papelera: se restaura desde el Landing Generator antes de cambiarla.` };
+  if (f.papelera_at) return { listo: false, error: `«${f.titulo}» está en la papelera: se restaura desde el Web Generator antes de cambiarla.` };
   const c = await docsEditor.cobro();
   if (!c.ok) { siFallaNuestra(c); return { listo: false, error: `No pude leer el catálogo (${c.error}).` }; }
   const producto = c.cobro.productos.find((x) => x.id === productoId);
@@ -163,7 +163,7 @@ async function planCobro(input: Record<string, unknown>, ctx: Ctx): Promise<Plan
  */
 function noSeAplica(c: ComentarioConLanding | null, id: number): string | null {
   if (!c) return noExisteComentario(id);
-  if (c.docId == null) return 'Ese comentario es de una página de afuera: no se aplica por aquí. En el Landing Generator → Diagnóstico, «Aplicar» la replica primero en el editor y pasa los comentarios a la copia.';
+  if (c.docId == null) return 'Ese comentario es de una página de afuera: no se aplica por aquí. En el Web Generator → Diagnóstico, «Aplicar» la replica primero en el editor y pasa los comentarios a la copia.';
   if (c.estado !== 'pendiente') return `Ese comentario ya está ${nombreDeEstado(c.estado)}: no hay nada que aplicar.`;
   if (!c.seccionId) return 'No sé en qué sección de la landing está ese comentario (su cita no se encontró): no se puede aplicar solo. Propón el cambio en el chat o hazlo en el editor.';
   return null;
@@ -468,7 +468,7 @@ export const RUNNERS: Runners = {
     },
   },
 
-  // ── Lecturas: el diagnóstico (Landing Generator → Diagnóstico) ─────────────
+  // ── Lecturas: el diagnóstico (Web Generator → Diagnóstico) ─────────────
 
   listar_analisis_landing: {
     leer: async () => {
@@ -531,7 +531,7 @@ export const RUNNERS: Runners = {
     },
   },
 
-  // ── Lecturas: Landing Generator ────────────────────────────────────────────
+  // ── Lecturas: Web Generator ────────────────────────────────────────────
 
   listar_borradores_landing: {
     leer: async (input) => {
@@ -558,7 +558,7 @@ export const RUNNERS: Runners = {
     },
   },
 
-  // ── Lecturas: el editor del Landing Generator (landing_docs) ───────────────
+  // ── Lecturas: el editor del Web Generator (landing_docs) ───────────────
 
   listar_landings_creadas: {
     leer: async (input) => {
@@ -806,7 +806,7 @@ export const RUNNERS: Runners = {
           return {
             ok: false,
             resumen: r.enNavegador
-              ? `${r.error} Se diagnostica desde Landing Generator → Diagnóstico, que la lee desde el navegador de la persona; o vuelve a proponer analizar_landing con el texto en «texto».`
+              ? `${r.error} Se diagnostica desde Web Generator → Diagnóstico, que la lee desde el navegador de la persona; o vuelve a proponer analizar_landing con el texto en «texto».`
               : r.pegable ? `${r.error} (Vuelve a proponer analizar_landing con el texto en «texto».)` : `No se pudo analizar ${r.url}: ${r.error}`,
             datos: { url: r.url, necesita_texto: r.pegable === true, ...(r.enNavegador ? { en_navegador: true, motivo: r.motivo } : {}) },
           };
@@ -823,11 +823,11 @@ export const RUNNERS: Runners = {
     },
   },
 
-  // ── Acciones por chat: el editor del Landing Generator ─────────────────────
+  // ── Acciones por chat: el editor del Web Generator ─────────────────────
 
   crear_landing_desde_diseno: {
     preparar: async (input, ctx): Promise<Preparado> => {
-      if (enFlujo(ctx)) return { error: 'Crear una landing no corre en una automatización: un flujo corre una vez por cada lead y crearía una por cada uno. Créala desde el Landing Generator o pídesela a MaKo en el chat.' };
+      if (enFlujo(ctx)) return { error: 'Crear una landing no corre en una automatización: un flujo corre una vez por cada lead y crearía una por cada uno. Créala desde el Web Generator o pídesela a MaKo en el chat.' };
       const diseno = str(input, 'diseno') ?? '';
       const objetivo = str(input, 'objetivo') ?? '';
       const titulo = str(input, 'titulo');
@@ -864,7 +864,7 @@ export const RUNNERS: Runners = {
   // replicar.ts): la bajada con su guarda anti-SSRF, la IA en tandas, `crear` con el saneo y el autor.
   replicar_landing: {
     preparar: async (input, ctx): Promise<Preparado> => {
-      if (enFlujo(ctx)) return { error: 'Replicar una landing no corre en una automatización: un flujo corre una vez por cada lead y crearía una copia por cada uno. Replícala desde el Landing Generator o pídesela a MaKo en el chat.' };
+      if (enFlujo(ctx)) return { error: 'Replicar una landing no corre en una automatización: un flujo corre una vez por cada lead y crearía una copia por cada uno. Replícala desde el Web Generator o pídesela a MaKo en el chat.' };
       const crudo = str(input, 'url');
       if (!crudo) return { error: 'Falta la dirección de la página a replicar.', faltan: ['url'] };
       const url = urlParaReplicar(crudo);
@@ -879,7 +879,7 @@ export const RUNNERS: Runners = {
       }
       return {
         payload: { url, formato, ...(texto ? { texto } : {}) },
-        resumen: `Replicar ${url} como ${NOMBRE_FORMATO_REPLICAR[formato]} en el editor del Landing Generator${texto ? ', con el texto pegado' : ''}: crea un borrador nuevo, sin publicar.${formato === 'web' ? '' : ' Usa IA y tarda hasta unos minutos.'}`,
+        resumen: `Replicar ${url} como ${NOMBRE_FORMATO_REPLICAR[formato]} en el editor del Web Generator${texto ? ', con el texto pegado' : ''}: crea un borrador nuevo, sin publicar.${formato === 'web' ? '' : ' Usa IA y tarda hasta unos minutos.'}`,
       };
     },
     ejecutar: async (payload, ctx): Promise<Ejecutado> => {
@@ -892,7 +892,7 @@ export const RUNNERS: Runners = {
           if (r.enNavegador) {
             return {
               ok: false,
-              resumen: `${r.error} Se replica desde el Landing Generator, que la lee desde el navegador de la persona; o vuelve a proponer replicar_landing con el texto en «texto» (formato «landing» o «presentacion»).`,
+              resumen: `${r.error} Se replica desde el Web Generator, que la lee desde el navegador de la persona; o vuelve a proponer replicar_landing con el texto en «texto» (formato «landing» o «presentacion»).`,
               datos: { url, en_navegador: true, motivo: r.motivo, necesita_texto: true },
             };
           }
@@ -920,7 +920,7 @@ export const RUNNERS: Runners = {
       const f = await docsEditor.leerFilaDoc(ctx.ws, id, 'id, titulo');
       if (!f) return { error: noExisteCreada(id) };
       if (f.titulo.trim() === titulo.trim()) return { error: `Ya se llama «${f.titulo}».`, yaEstaba: true };
-      return { payload: { id, titulo }, resumen: `Renombrar «${f.titulo}» a «${titulo}» en el Landing Generator. La dirección pública no cambia.` };
+      return { payload: { id, titulo }, resumen: `Renombrar «${f.titulo}» a «${titulo}» en el Web Generator. La dirección pública no cambia.` };
     },
     ejecutar: async (payload): Promise<Ejecutado> => {
       const id = Number(payload.id);
@@ -936,7 +936,7 @@ export const RUNNERS: Runners = {
 
   duplicar_landing: {
     preparar: async (input, ctx): Promise<Preparado> => {
-      if (enFlujo(ctx)) return { error: 'Duplicar una landing no corre en una automatización: un flujo corre una vez por cada lead y crearía una copia por cada uno. Duplícala desde el Landing Generator o pídesela a MaKo en el chat.' };
+      if (enFlujo(ctx)) return { error: 'Duplicar una landing no corre en una automatización: un flujo corre una vez por cada lead y crearía una copia por cada uno. Duplícala desde el Web Generator o pídesela a MaKo en el chat.' };
       const id = num(input, 'id');
       if (!id) return { error: 'Falta el id de la landing.', faltan: ['id'] };
       const f = await docsEditor.leerFilaDoc(ctx.ws, id, 'id, titulo');
@@ -1017,7 +1017,7 @@ export const RUNNERS: Runners = {
 
   crear_presentacion_desde_plantilla: {
     preparar: async (input, ctx): Promise<Preparado> => {
-      if (enFlujo(ctx)) return { error: 'Crear una presentación no corre en una automatización: un flujo corre una vez por cada lead y crearía una por cada uno. Créala desde el Landing Generator o pídesela a MaKo en el chat.' };
+      if (enFlujo(ctx)) return { error: 'Crear una presentación no corre en una automatización: un flujo corre una vez por cada lead y crearía una por cada uno. Créala desde el Web Generator o pídesela a MaKo en el chat.' };
       const plantilla = str(input, 'plantilla') ?? '';
       const titulo = str(input, 'titulo');
       const pedido = pedidoDePresentacion(plantilla, titulo);
@@ -1078,7 +1078,7 @@ export const RUNNERS: Runners = {
       if (!id || !version) return { error: 'Falta el id de la landing o el número de versión.', faltan: [!id ? 'id' : '', !version ? 'version' : ''].filter(Boolean) };
       const f = await docsEditor.leerFilaDoc(ctx.ws, id, 'id, titulo, papelera_at');
       if (!f) return { error: noExisteCreada(id) };
-      if (f.papelera_at) return { error: `«${f.titulo}» está en la papelera: se restaura desde el Landing Generator antes de cambiarla.` };
+      if (f.papelera_at) return { error: `«${f.titulo}» está en la papelera: se restaura desde el Web Generator antes de cambiarla.` };
       const v = await docsEditor.verVersion(id, version);
       if (!v.ok) return { error: v.status === 404 ? `La landing ${id} no tiene la versión ${version} (búscala con listar_versiones_landing).` : `No pude leer la versión ${version} (${v.error}).` };
       const comentario = num(input, 'comentario');
@@ -1275,7 +1275,7 @@ export const RUNNERS: Runners = {
   // que se puede saber sin escribir se dice en preparar() (`noSeAplica`), y se vuelve a mirar al confirmar.
   aplicar_comentario_landing: {
     preparar: async (input, ctx): Promise<Preparado> => {
-      if (enFlujo(ctx)) return { error: 'Aplicar un comentario no corre en una automatización: reescribe una landing con IA y la persona tiene que verlo. Pídeselo a MaKo en el chat o aplícalo en el Landing Generator.' };
+      if (enFlujo(ctx)) return { error: 'Aplicar un comentario no corre en una automatización: reescribe una landing con IA y la persona tiene que verlo. Pídeselo a MaKo en el chat o aplícalo en el Web Generator.' };
       const id = num(input, 'comentario');
       if (!id) return { error: 'Falta el id del comentario.', faltan: ['comentario'] };
       const c = await leerComentario(id);
@@ -1283,7 +1283,7 @@ export const RUNNERS: Runners = {
       if (no || !c || c.docId == null) return { error: no ?? noExisteComentario(id), ...(c && c.estado !== 'pendiente' ? { yaEstaba: true } : {}) };
       const f = await docsEditor.leerFilaDoc(ctx.ws, c.docId, 'id, titulo, papelera_at');
       if (!f) return { error: noExisteCreada(c.docId) };
-      if (f.papelera_at) return { error: `«${f.titulo}» está en la papelera: se restaura desde el Landing Generator antes de cambiarla.` };
+      if (f.papelera_at) return { error: `«${f.titulo}» está en la papelera: se restaura desde el Web Generator antes de cambiarla.` };
       const a = c.hallazgo.arreglo;
       const arreglo = a ? ` (${a.length > 160 ? `${a.slice(0, 160).trimEnd()}…` : a})` : '';
       return {
@@ -1360,7 +1360,7 @@ export const RUNNERS: Runners = {
       if (!id) return { error: 'Falta el id de la landing.', faltan: ['id'] };
       const f = await docsEditor.leerFilaDoc(ctx.ws, id, COLS_PUBLICAR);
       if (!f) return { error: noExisteCreada(id) };
-      if (f.papelera_at) return { error: `«${f.titulo}» está en la papelera: se restaura desde el Landing Generator antes de publicarla.` };
+      if (f.papelera_at) return { error: `«${f.titulo}» está en la papelera: se restaura desde el Web Generator antes de publicarla.` };
 
       // La dirección: la pedida (validada y libre, por el MISMO chequeo que el diálogo de la
       // pantalla) o la que ya tenía. La sugerida desde el título NO se publica sola: se contesta

@@ -10,7 +10,7 @@
 // CLIC (un `window.open` sincrónico a `about:blank`: el navegador sólo deja abrir ventanas dentro del
 // gesto de la persona, y un `await` antes lo pierde). Si vuelve null, o la cierra un bloqueador al
 // instante, NO se abre nada y vuelve `{ ok: false, motivo: 'bloqueadas' }`: la pantalla muestra el aviso
-// con la flecha (app/landing-generator/lector/AvisoVentanasBloqueadas.tsx). Si abrió, recién ahí navega
+// con la flecha (app/web-generator/lector/AvisoVentanasBloqueadas.tsx). Si abrió, recién ahí navega
 // a la ruta que decide el camino (lector-pagina.ts): la página real con el Pixel, o la aislada. Antes de
 // navegar le pide al server la FIRMA de esa lectura (verificación de la tanda 6, seguridad: lector-firma.ts);
 // sin ella la ruta no sirve nada. Del otro lado corre el lector (lector-script.ts) y el protocolo es el de

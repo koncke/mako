@@ -8,7 +8,7 @@
 // «Tablas»). Puro: lo importan el editor y los tests.
 //
 // Quien inserta es `insertarBloque(editor, id, opciones)` en
-// app/landing-generator/editor/insertar.ts: un `switch` sobre `IdBloque`. Un id
+// app/web-generator/editor/insertar.ts: un `switch` sobre `IdBloque`. Un id
 // nuevo acá sin su `case` allá lo frena el test del catálogo.
 // =============================================================================
 

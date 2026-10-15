@@ -288,7 +288,7 @@ test('dibujada: la caja del Landing Generator, el primer ejemplo genérico en el
   // El micrófono de la casa (dicta en el campo) y el ↑ de enviar, apagado sin texto.
   assert.match(html, /aria-label="Dictar el pedido"/);
   assert.match(html, /<button type="submit" class="gp-cc-enviar" aria-label="Enviar" disabled=""/);
-  assert.match(sinComentarios(leer('app/landing-generator/CajaPedido.tsx')), /import \{ BotonDictar \} from '@\/app\/plan\/board\/CrearTareaModal';/);
+  assert.match(sinComentarios(leer('app/web-generator/CajaPedido.tsx')), /import \{ BotonDictar \} from '@\/app\/plan\/board\/CrearTareaModal';/);
   // DECIMOQUINTA (punto 7): el «+» es de la caja, siempre (subir un archivo o una imagen; pegar un flujo, si se puede crear).
   assert.match(html, /aria-label="Agregar"/);
   assert.doesNotMatch(html, />✦</, 'volvió la estrella de texto');
@@ -314,8 +314,8 @@ test('los ejemplos son genéricos: ni etapas, ni productos, ni nombres, y en tú
 test('el placeholder para mientras la caja tiene el foco, y vuelve si se sale sin escribir', () => {
   assert.match(CAJA, /ejemplos=\{EJEMPLOS\} animar=\{!archivo\} placeholderQuieto=\{archivo \? PLACEHOLDER_ARCHIVO : PLACEHOLDER_QUIETO\}/);
   assert.doesNotMatch(CAJA, /tocada|onTocar/, 'volvió el «para siempre» de la puerta');
-  assert.doesNotMatch(sinComentarios(leer('app/landing-generator/CajaCrear.tsx')), /tocada|onTocar/, 'la landing lo sigue apagando para siempre');
-  const pedido = sinComentarios(leer('app/landing-generator/CajaPedido.tsx'));
+  assert.doesNotMatch(sinComentarios(leer('app/web-generator/CajaCrear.tsx')), /tocada|onTocar/, 'la landing lo sigue apagando para siempre');
+  const pedido = sinComentarios(leer('app/web-generator/CajaPedido.tsx'));
   assert.match(pedido, /const ejemplo = useEjemploQueSeEscribe\(mover, ejemplos\);/);
   assert.match(pedido, /placeholder=\{mover \? ejemplo : placeholderQuieto\}/);
   assert.match(pedido, /mover=\{seMueveElEjemplo\(p\.animar, foco, p\.valor\)\}/);

@@ -1,5 +1,5 @@
 // =============================================================================
-// /m/landing — «Landing Generator» en el teléfono: la lista de landings del negocio
+// /m/landing — «Web Generator» (ex Landing Generator) en el teléfono: la lista de landings del negocio
 // =============================================================================
 // docs/diseno-mako-mobile-v2.md, «Landing Generator (reducido)», y el prototipo
 // (docs/prototipos/mako-mobile-v2.html, la pantalla `landing`): una lista agrupada, cada landing

@@ -11,7 +11,7 @@
 //
 // PUBLICAR es la MISMA acción que el diálogo de escritorio (DialogoPublicar.tsx): POST a
 // /api/landing-generator con `{ accion: 'publicar', id, version, slug }` por `pedirDocs`
-// (app/landing-generator/cliente.ts, sin 'use client' y sin valores de server). La ruta pone la
+// (app/web-generator/cliente.ts, sin 'use client' y sin valores de server). La ruta pone la
 // puerta (admin del negocio + la tab en su capa) y publicar.ts publica LO GUARDADO en la versión
 // que esta pantalla abrió: si escritorio guardó algo después, contesta conflicto y la pantalla se
 // recarga con la versión nueva en vez de publicar otra cosa. El `?ws=` lo pega el parche de fetch
@@ -26,7 +26,7 @@ import { useRouter } from '@/app/_ui/Link';
 import { Button } from '@/app/_ui/Button';
 import { Icon } from '@/app/_components/icons';
 import { CabeceraM, PieFijoM, useConexion, useToastM } from '@/app/m/_ui';
-import { pedirDocs } from '@/app/landing-generator/cliente';
+import { pedirDocs } from '@/app/web-generator/cliente';
 import { piePublicar } from '../modelo';
 
 export function AccionesLandingM({ id, titulo, url, slug, version, cambios, sitioActivo }: {

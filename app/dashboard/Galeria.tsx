@@ -52,7 +52,7 @@ export type LadoFlotante = 'abajo' | 'derecha';
  *    «Renombrar» en el submenú cerraba la lista de hojas antes de que el clic llegara. El de arriba se registra
  *    después en la pila, así que el primer Escape lo cierra sólo a él.
  * `lado: 'derecha'`: a la derecha del ancla (alineado arriba con ella); si no entra, se da vuelta a la
- * izquierda (molde: el `Flotante` del editor de landing, app/landing-generator/editor/extensiones/piezas.tsx).
+ * izquierda (molde: el `Flotante` del editor de landing, app/web-generator/editor/extensiones/piezas.tsx).
  * z-index 580: arriba del recorrido (400) y abajo del toast (600).
  */
 export function Flotante({ ancla, onCerrar, ancho, lado = 'abajo', anidado = false, children }: {

@@ -34,8 +34,8 @@ import { join } from 'node:path';
 import {
   MOTIVO_ANTES_DE_IA, comoSeccionesNuevas, diffTarjetas, fragmentoDistinto, huella, planDeAplicacion,
   resumenDeCambios, tarjetasDelDoc, tocadasDesde,
-} from '../app/landing-generator/editor/diff-tarjetas';
-import { NO_MEDIDO, anchoDeAlcance, textoDeAlcance } from '../app/landing-generator/editor/dialogos/DialogoAnalitica';
+} from '../app/web-generator/editor/diff-tarjetas';
+import { NO_MEDIDO, anchoDeAlcance, textoDeAlcance } from '../app/web-generator/editor/dialogos/DialogoAnalitica';
 import type { JsonNodo } from '../lib/editor-landing/doc';
 
 const RAIZ = join(import.meta.dirname, '..');
@@ -193,7 +193,7 @@ test('tocadasDesde: las secciones que se editaron mientras la IA trabajaba', () 
 // «Aceptar»: la versión ANTES de aplicar (se lee el fuente)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const PANEL = sinComentarios(leer('app/landing-generator/editor/paneles/PanelAgente.tsx'));
+const PANEL = sinComentarios(leer('app/web-generator/editor/paneles/PanelAgente.tsx'));
 function cuerpoDe(src: string, firma: string, siguiente: string): string {
   const ini = src.indexOf(firma);
   assert.ok(ini >= 0, `no encontré «${firma}»`);
@@ -227,7 +227,7 @@ test('Aceptar: si la versión no se guardó, NO se aplica (vuelve antes de tocar
 });
 
 test('nadie más aplica una propuesta: el popover usa `aceptarPropuesta`, no su copia', () => {
-  const ask = sinComentarios(leer('app/landing-generator/editor/AskAgent.tsx'));
+  const ask = sinComentarios(leer('app/web-generator/editor/AskAgent.tsx'));
   assert.doesNotMatch(ask, /reemplazarTarjetas\(|insertarTarjetas\(/, 'AskAgent aplica por su cuenta');
   assert.match(ask, /aceptarPropuesta\(ctxVivo,/);
   // En el panel, el documento se toca sólo adentro de aceptarPropuesta.
@@ -251,7 +251,7 @@ test('textoDeAlcance: null es «No medido»; un número es su %', () => {
 });
 
 test('el diálogo dibuja todo alcance por textoDeAlcance y nunca convierte un null en 0', () => {
-  const src = sinComentarios(leer('app/landing-generator/editor/dialogos/DialogoAnalitica.tsx'));
+  const src = sinComentarios(leer('app/web-generator/editor/dialogos/DialogoAnalitica.tsx'));
   const cuerpo = cuerpoDe(src, 'export function DialogoAnalitica(', 'export default DialogoAnalitica');
   assert.match(cuerpo, /textoDeAlcance\(s\.pct\)/);
   assert.match(cuerpo, /anchoDeAlcance\(s\.pct\)/);

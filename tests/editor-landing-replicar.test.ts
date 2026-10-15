@@ -230,7 +230,7 @@ test('la red: cabeceras de hasta 64 KB y páginas de hasta 5 MB', () => {
 
 // ── 5. La API de MaKo ─────────────────────────────────────────────────────────
 
-test('replicar_landing: acción por chat, reversible, con la puerta de /landing-generator y sin http', () => {
+test('replicar_landing: acción por chat, reversible, con la puerta de /web-generator y sin http', () => {
   const d = porId('replicar_landing');
   assert.ok(d && esAccion(d), 'replicar_landing no está en el registro');
   assert.equal(d.area, 'landing');
@@ -255,5 +255,5 @@ test('analizar_landing dice el motivo nuevo cuando la página se lee en el naveg
   const i = run.search(/^ {2}analizar_landing: \{/m);
   const bloque = run.slice(i, i + 3500);
   assert.match(bloque, /en_navegador: true, motivo: r\.motivo/);
-  assert.match(bloque, /Landing Generator → Diagnóstico/);
+  assert.match(bloque, /Web Generator → Diagnóstico/);
 });

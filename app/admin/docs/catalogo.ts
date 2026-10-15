@@ -75,7 +75,7 @@ export const CATALOGO: Record<string, FichaDoc> = {
   'hallazgos-landing': {
     // Landing Analyst se retiró el 11/10/2026: analizar una página vive en Landing Generator y los
     // números de la landing son la hoja «Landing» del Dashboard.
-    grupo: 'Por área', tabs: ['/vsl', '/landing-generator', '/dashboard?hoja=landing'],
+    grupo: 'Por área', tabs: ['/vsl', '/web-generator', '/dashboard?hoja=landing'],
     hace: ['Tracking y beacon', 'Retención del VSL', 'Analizar una landing', 'El copy de las landings'],
   },
   'hallazgos-ui': {

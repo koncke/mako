@@ -65,7 +65,7 @@ import { rutaRestDe } from '../lib/api-mako/rest';
 import { clasificarIntencion } from '../lib/mako-intencion';
 import { herramientasDelTurno } from '../lib/doer-herramientas';
 import { DISENOS_LANDING, OBJETIVOS_LANDING } from '../lib/editor-landing/disenos-landing';
-import { pedidoDeDiseno, plantillasDe } from '../app/landing-generator/crear/tipo';
+import { pedidoDeDiseno, plantillasDe } from '../app/web-generator/crear/tipo';
 import { APP_BASE_URL, urlPublicaLanding } from '../lib/app-url';
 import { TEXTO_FALTA_VIDEO, avisoDeVideo } from '../lib/editor-landing/especificacion';
 import type { LandingResumen } from '../lib/editor-landing/api-tipos';
@@ -76,7 +76,7 @@ import {
   urlPublicaParaApi, botonesDeLanding, elegirBotonDePago, conProductoEnBoton, resumenCobrar, TEXTO_BOTON_PAGO,
   pedidoDePresentacion, analiticaParaApi, resumenDespublicar, rechazosParaApi, versionesParaApi, TOPE_VERSIONES_API,
 } from '../lib/api-mako/areas/landing-editor.helpers';
-import { pedidoDePlantilla } from '../app/landing-generator/crear/tipo';
+import { pedidoDePlantilla } from '../app/web-generator/crear/tipo';
 import { PLANTILLAS_PRESENTACION } from '../lib/editor-landing/plantillas-presentaciones';
 import { NODO as NODO_DOC, type JsonNodo, type LandingContenido } from '../lib/editor-landing/doc';
 
@@ -106,13 +106,13 @@ function runnerDe(id: string): string {
 
 // ── 1. La forma ───────────────────────────────────────────────────────────────
 
-test('las seis operaciones están en el área landing, con la puerta de /landing-generator', () => {
+test('las seis operaciones están en el área landing, con la puerta de /web-generator', () => {
   const ids = new Set(porArea('landing').map((d) => d.id));
   for (const id of IDS) assert.ok(ids.has(id), `falta ${id} en el área landing`);
   // La página hace requireRolWs([], { nav: 'landing-writer' }) = sólo el admin, con la tab en su capa.
   // `gating.tab` mira la CAPA, no a la persona: sin rolMinimo un closer haría por MaKo lo que la
   // pantalla le esconde (docs/hallazgos-api-mako.md).
-  assert.match(sinComentarios(leer('app/landing-generator/page.tsx')), /requireRolWs\(\[\], \{ nav: 'landing-writer' \}\)/);
+  assert.match(sinComentarios(leer('app/web-generator/page.tsx')), /requireRolWs\(\[\], \{ nav: 'landing-writer' \}\)/);
   for (const id of IDS) {
     const d = porId(id)!;
     assert.deepEqual(d.gating, { tab: 'landing-writer', rolMinimo: 'admin' }, `${id}: la puerta no es la de la página`);
@@ -242,7 +242,7 @@ test('urlDeLanding es la dirección PÚBLICA real, y la MISMA que muestra el di�
   const publicar = sinComentarios(leer('lib/editor-landing/publicar.ts'));
   assert.match(publicar, /const url = urlPublicaLanding\(slug\);[\s\S]{0,200}return \{ ok: true, url, slug,/);
   assert.match(sinComentarios(leer('lib/editor-landing/server.ts')), /urlPublica: f\.slug && f\.publicado_at \? urlPublicaLanding\(f\.slug\) : null/);
-  const dialogo = sinComentarios(leer('app/landing-generator/editor/dialogos/DialogoPublicar.tsx'));
+  const dialogo = sinComentarios(leer('app/web-generator/editor/dialogos/DialogoPublicar.tsx'));
   assert.match(dialogo, /setUrl\(r\.url\)/);
   assert.match(dialogo, /if \(r\.doc\.urlPublica\) setUrl\(r\.doc\.urlPublica\)/);
   // Los helpers siguen sin `server-only` (lo importa este test) y la sacan de app-url.ts, no armada a mano.

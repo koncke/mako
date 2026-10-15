@@ -51,8 +51,8 @@ import { transcribirNota } from '@/app/_components/useDictar';
 import { ChatHilo, type HiloMsg } from '@/app/whatsapp/_shared/ChatHilo';
 import { BurbujaHilo } from '@/app/whatsapp/_shared/BurbujaHilo';
 import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
-import { CajaPedido, ChipCaja, CSS_CAJA_PEDIDO, CSS_TOKENS_CASA, TITULO_CAJA } from '@/app/landing-generator/CajaPedido';
-import { Ico } from '@/app/landing-generator/Ico';
+import { CajaPedido, ChipCaja, CSS_CAJA_PEDIDO, CSS_TOKENS_CASA, TITULO_CAJA } from '@/app/web-generator/CajaPedido';
+import { Ico } from '@/app/web-generator/Ico';
 import { GRAMATICA } from '@/lib/mako-gramatica';
 import { sanearChat, type MensajeChatMako, type PreguntaMako, type RespuestaMako } from '@/lib/automatizacion-chat';
 import { ordenarAvisos, rondaAbierta, respuestaMako, textoDeCreada, ELIGE_TU, OTRA_COSA, type EleccionMako, type RondaMako } from '@/lib/flujo-ia-cliente';
@@ -534,7 +534,7 @@ type ArchivoCaja = { nombre: string; imagen: boolean } & ({ estado: 'leyendo' } 
  * DECIMOQUINTA, puntos 1, 6, 7 y 8). Martín, 12/10/2026, con la captura de la caja «¿Qué vas a crear hoy?» del Landing
  * Generator: «Vuelve a crear el modal de "pideselo a MaKo" y que se vea exactamente igual que en la captura... Ya lo
  * tenemos en landing generator, copialo» y «elimina el texto de "Nace pausada"». ES ESA CAJA (`CajaPedido`,
- * app/landing-generator/CajaPedido.tsx), no una copia: el título «¿Qué vas a crear hoy?» (decimoquinta, punto 1), la
+ * app/web-generator/CajaPedido.tsx), no una copia: el título «¿Qué vas a crear hoy?» (decimoquinta, punto 1), la
  * tarjeta blanca, el ejemplo que se escribe solo (`EJEMPLOS`: para mientras la caja tiene el foco y vuelve si se sale
  * sin escribir, punto 6), el «+» azul, el micrófono de la casa (dicta en el campo; se lee antes de mandar) y el ↑.
  *

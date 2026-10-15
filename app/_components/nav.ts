@@ -40,6 +40,7 @@
 
 import type { RolWorkspace } from '@/lib/auth-session';
 import { RUTA_AUTOMATIONS, RUTAS_VIEJAS_AUTOMATIONS } from '@/lib/ruta-automations';
+import { RUTA_WEB_GENERATOR, RUTAS_VIEJAS_WEB_GENERATOR } from '@/lib/ruta-web-generator';
 
 export type NavItem = {
   key: string;
@@ -210,7 +211,7 @@ export const FAMILIAS: NavFamilia[] = [
     // Era el desplegable «Analysts» y se vació de a poco, todo hacia hojas del Dashboard:
     //   · el 11/10, Productivity Analyst (hoja «Productividad»), Ads Analyst (key `script`: hoja «Ads
     //     Analyst»; valorar un guion se mudó a Ads Writer), Landing Analyst (key `landing-an`: hoja
-    //     «Landing»; analizar una página, a Landing Generator) y Closing Analyst (key `closing`: hoja
+    //     «Landing»; analizar una página, a Web Generator) y Closing Analyst (key `closing`: hoja
     //     «Closing», completa, y el closer ve el Dashboard);
     //   · el 12/10, los tres que quedaban, que eran «pronto»: VSL Analyst (key `vsl-an`), CS Analyst
     //     (`cs-analyst`) y Chat Analyst (`chat-analyst`, la del setter), hojas «VSL Analyst», «CS Analyst»
@@ -244,7 +245,11 @@ export const FAMILIAS: NavFamilia[] = [
         // Las keys NO cambiaron (están escritas en la base: capas y estado del
         // onboarding por tab). Lo que cambió es el nombre y la RUTA, para que
         // digan lo mismo. Las rutas viejas redirigen.
-        { key: 'landing-writer', label: 'Landing Generator', href: '/landing-generator', icon: 'web', match: (p) => starts('/landing-generator')(p) || starts('/landing-writer')(p) },
+        // Pedido de Martín (15/10/2026, feedback de la tanda 6, punto 1): «Quiero que todo se llame
+        // ahora "Web Generator", la ruta, en la sidebar, todo...». La key sigue siendo
+        // `landing-writer`; /landing-generator y /landing-writer redirigen y siguen marcando la tab
+        // (salen de UNA lista, la que cuida tests/web-generator-renombre.test.ts).
+        { key: 'landing-writer', label: 'Web Generator', href: RUTA_WEB_GENERATOR, icon: 'web', match: (p) => starts(RUTA_WEB_GENERATOR)(p) || RUTAS_VIEJAS_WEB_GENERATOR.some((r) => starts(r)(p)) },
         { key: 'vsl-writer', adminOnly: true, label: 'VSL Generator', href: '/vsl-generator', icon: 'video', comingSoon: true, match: (p) => starts('/vsl-generator')(p) || starts('/vsl-writer')(p) },
         { key: 'lead-magnet-generator', adminOnly: true, label: 'Lead Magnet Generator', href: '/lead-magnet-generator', icon: 'leadmagnet', comingSoon: true, match: starts('/lead-magnet-generator') },
       ],
@@ -588,7 +593,7 @@ export const ADMIN_FAMILIAS: NavFamilia[] = [
           { key: 'dev-image-editor', label: 'Image Editor', href: '/admin/dev/image-editor', icon: 'imagegen', match: starts('/admin/dev/image-editor') },
           // El editor de landings copiado de Gamma (11/10/2026): su registro lleva el pedido literal
           // de Martín y lo que quedó sin hacer (app/admin/dev/landing-generator/bitacora.ts).
-          { key: 'dev-landing-generator', label: 'Landing Generator', href: '/admin/dev/landing-generator', icon: 'web', match: starts('/admin/dev/landing-generator') },
+          { key: 'dev-landing-generator', label: 'Web Generator', href: '/admin/dev/landing-generator', icon: 'web', match: starts('/admin/dev/landing-generator') },
           { key: 'dev-credentials-vault-byok', label: 'Credentials Vault (BYOK)', href: '/admin/dev/credentials-vault-byok', icon: 'config', match: starts('/admin/dev/credentials-vault-byok') },
           // Los dos formatos de Content Machine con registro escrito. Stories ya
           // está construida; Thumbnails sigue siendo un ComingSoon y su registro

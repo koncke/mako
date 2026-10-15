@@ -56,16 +56,16 @@ import { ACCIONES_TEXTO } from '../lib/editor-landing/api-tipos';
 import { TEMAS } from '../lib/editor-landing/temas';
 import {
   ATAJO_MARKDOWN, ExtensionBarra, claveBarra, consultaValida, estadoBarra, gruposDeBarra,
-} from '../app/landing-generator/editor/extensiones/barra';
-import { gruposDeDiseno, htmlDeMiniatura } from '../app/landing-generator/editor/nodos/OptimizadoVista';
-import { ACCIONES_IA } from '../app/landing-generator/editor/BarraFormato';
+} from '../app/web-generator/editor/extensiones/barra';
+import { gruposDeDiseno, htmlDeMiniatura } from '../app/web-generator/editor/nodos/OptimizadoVista';
+import { ACCIONES_IA } from '../app/web-generator/editor/BarraFormato';
 
 const RAIZ = join(import.meta.dirname, '..');
 const leer = (f: string) => readFileSync(join(RAIZ, f), 'utf8').replace(/\r\n/g, '\n');
 // Las líneas de comentario ANTES que los bloques (un «/*» citado en una línea se comería código).
 const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 
-const ED = 'app/landing-generator/editor/';
+const ED = 'app/web-generator/editor/';
 const BARRA = ED + 'BarraFormato.tsx';
 const OPT = ED + 'nodos/OptimizadoVista.tsx';
 const FUENTES_G2 = [

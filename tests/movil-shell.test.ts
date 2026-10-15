@@ -194,7 +194,7 @@ test('la cabecera por defecto: título en la raíz, volver fijo en la subpantall
   // Pantallas de trabajo: sin título grande y sin barra de abajo.
   assert.deepEqual(cabeceraPorRuta('/m/mako'), t('Pregúntale a MaKo', { href: '/m/mas', label: 'More' }, true, false));
   assert.deepEqual(cabeceraPorRuta('/m/video/7'), t('', { href: '/m/video', label: 'Video' }, true, false));
-  assert.deepEqual(cabeceraPorRuta('/m/landing/3'), t('', { href: '/m/landing', label: 'Landing Generator' }, true, false));
+  assert.deepEqual(cabeceraPorRuta('/m/landing/3'), t('', { href: '/m/landing', label: 'Web Generator' }, true, false));
   assert.equal(esTrabajo('/m/video'), false, 'la LISTA de videos es una sección normal');
   // El chat de WhatsApp de un lead: de trabajo desde el server, y vuelve a SU ficha.
   assert.deepEqual(cabeceraPorRuta('/m/crm/12/chat'), t('', { href: '/m/crm/12', label: 'Ficha' }, true, false));

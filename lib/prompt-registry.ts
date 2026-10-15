@@ -688,7 +688,7 @@ export const REGISTRY: Group[] = [
     ],
   },
   {
-    group: 'Escritor de landings (Landing Generator)',
+    group: 'Escritor de landings (Web Generator)',
     icon: '✍️',
     blurb: 'MaKo escribe la página entera —estructura y copy terminado— desde tu funnel, tu oferta y, si ya la analizaste, el diagnóstico de la landing actual.',
     entries: [
@@ -749,7 +749,7 @@ export const REGISTRY: Group[] = [
     // El editor copiado de Gamma (lib/editor-landing/ia.ts; los defaults viven en
     // lib/editor-landing/ia-reglas.ts, portados de presenton con su aviso Apache-2.0).
     // Las keys y los slots los fija tests/editor-landing-ia.test.ts contra PROMPTS_EDITOR.
-    group: 'Editor de landings (Landing Generator)',
+    group: 'Editor de landings (Web Generator)',
     icon: '🧩',
     blurb: 'MaKo en el editor de landings: arma el esquema, escribe las secciones con su diseño, edita con IA la landing o una sección, reescribe textos, propone otros diseños y escribe las notas del orador.',
     entries: [

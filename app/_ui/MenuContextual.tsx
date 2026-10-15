@@ -11,7 +11,7 @@
 // Moldes, y lo que se tomó de cada uno:
 //   · app/dashboard/MenuContextual.tsx — las opciones las arma una función pura con test, y el menú
 //     sólo las dibuja.
-//   · el `Flotante` de app/landing-generator/editor/MenuDocumento.tsx — portaleado al <body>,
+//   · el `Flotante` de app/web-generator/editor/MenuDocumento.tsx — portaleado al <body>,
 //     REGISTRADO en la pila de modales como capa anidada, ubicado midiéndose después de montar
 //     (el efecto depende del NODO, un state de ref callback, no de un ref fijo: con un portal la
 //     primera corrida no encuentra nada y no vuelve a correr), y con opacidad 0 hasta ubicarse.
