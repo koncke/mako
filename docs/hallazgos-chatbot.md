@@ -4480,6 +4480,11 @@ le escribe por email a ese usuario, por el remitente de MaKo, con un link de un 
   Cada uno tiene su tapa: `sinSecretos`, el emisor sin `texto` (`avisarPedidoDeRestablecer`) y `sinValoresSecretos`.
 - ⚠️ **Un freno escrito dos veces esconde una rotura.** El DELAY con secreto se frenaba en el barrido y en el recorrido, y
   sacar el primero no hacía fallar nada: el segundo lo tapaba. Quedó uno, el del barrido, que además ve un DELAY suelto.
+- ⚠️ **«Los tests que tocan lo que cambié» no encuentra a los guardias que BARREN el código.** Se corrieron 127 archivos
+  elegidos por los módulos que importan, y el push dejó main en rojo: `tests/undecima-email-propio.test.ts` lista en
+  positivo cada archivo que llama `sendEmail` con el remitente de MaKo, y lo encuentra por PATRÓN (`sendEmail(`), no por
+  import. Lo cazaron otros dos chats. Antes de pushear un cambio que llama algo sensible (`sendEmail`, el remitente,
+  una credencial), correr también los barridos: `grep -l "ls-files\|readdirSync\|barrido\|sendEmail" tests/*.test.ts`.
 - **Lo de SuperAdmin va APARTE de la galería de los negocios** (`PLANTILLAS_PLATAFORMA`). Metida en `PLANTILLAS`, rompía
   «13, una por categoría, en orden de embudo» y la habría ofrecido a cada negocio. Lo que se ofrece lo dice
   `plantillasPara`; lo que se crea lo frena `crearDesdePlantilla` (`deps.plataforma`, fail-closed). La pantalla sabe si

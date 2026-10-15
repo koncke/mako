@@ -185,6 +185,11 @@ const FROM_PERMITIDOS: Record<string, string[]> = {
   'lib/aviso-plan.ts': ['REMITENTE_MAKO'],
   'lib/avisos.ts': ['REMITENTE_MAKO'],
   'lib/canal-vigilante.ts': ['REMITENTE_MAKO'],
+  // «Email a la persona» (15/10/2026, `ejecutarPaso` → lib/email-persona.ts): el link para restablecer la contraseña de
+  // MaKo, que le llega a un USUARIO de MaKo (no al lead de un negocio) desde la automatización de SuperAdmin. Firma
+  // MaKo porque es la cuenta de MaKo: un mail de seguridad con el dominio de un cliente es lo que copia un phishing.
+  // Sólo corre en un evento de una persona, que emite la plataforma; tests/email-persona.test.ts fija este `from`.
+  'lib/flujos.ts': ['REMITENTE_MAKO'],
   'lib/invitaciones.ts': ['REMITENTE_MAKO', 'rem.from'],
   'lib/notify.ts': ['REMITENTE_MAKO'],
   'lib/nutricion.ts': ['fromPaso'],
