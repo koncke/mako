@@ -57,8 +57,14 @@ implementaba. **Lo que hay:**
   `lib/workspace.ts` y `lib/tablas-de-inquilino.ts`, y cuatro tests. Los agentes se cortaron antes
   de terminar: **sin revisar, sin typecheck y con los tests sin confirmar**. Se retoma con
   `git checkout refs/wip/autopilot-base-1410 -- <rutas>` sobre el main de ese día, se revisa cada
-  archivo contra el contrato y se corren sus tests. Antes de nombrar la migración, verificar que la
-  0275 siga libre (de la 0266 a la 0274 estaban tomadas en otras ramas).
+  archivo contra el contrato y se corren sus tests.
+- ⚠️ **La 0275 YA NO SIRVE como número, y se RENUMERA al retomar** (aviso del chat de Estrategia, 15/10/2026).
+  La ref no es una rama, así que desde main ese número se ve libre, y mientras tanto se tomaron de la
+  0276 a la 0284 (medido el 15/10 en los 25 checkouts: unas en main, otras en ramas). Al traer
+  los archivos de la ref, la migración **no** se trae con su nombre viejo: va al primer número libre
+  **mirando todos los worktrees** (`git worktree list`) y no sólo main, y se aplica con ese nombre. El
+  orden no la rompe: sólo depende de `workspaces`. Y no hay una `0275_` huérfana en ningún disco: el
+  archivo existe sólo adentro de la ref.
 - **Falta entero:** el motor y el cron (`lib/ads-autopilot.ts`, `app/api/cron/ads-autopilot/route.ts`,
   `vercel.json`), la pantalla (`app/ads-manager/AutopilotBoton.tsx`, `autopilot-actions.ts`, montaje
   en `CampanasBrowser.tsx`), la API de MaKo (`ver_autopilot_anuncios`, `aplicar_decision_autopilot`
