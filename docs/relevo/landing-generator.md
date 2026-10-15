@@ -279,8 +279,15 @@ quién decide: `docs/hallazgos-editor-landing.md` → «Tanda 6». Bitácora: `a
    (720p / 480×854), y al replicar se avisa lo que no se copia del scroll. Relevamiento en
    `docs/hallazgos-editor-landing.md` → «Animaciones» (tres secciones, Lottie incluido), etapas 0-9; la lista de las
    decisiones, en «Etapas propuestas… y lo que falta decidir». Es la segunda mitad del punto 8 de la tanda 7.
-5. **Lo decidido sin hacer** (misma fecha): renombrar el proyecto del Plan a «Web Generator» migrando por id; el aviso
-   del www, informativo; comentar como MaKo; el aviso de un pago rechazado al negocio, como plantilla del catálogo.
+5. **Lo decidido sin hacer** (misma fecha): renombrar el proyecto del Plan a «Web Generator» migrando por id (y, en la
+   misma pasada, las tareas que lo nombran en el TÍTULO, para que el proyecto nuevo no quede huérfano de su historia:
+   pedido de Estrategia); el aviso del www, informativo; comentar como MaKo; el aviso de un pago rechazado al negocio,
+   como plantilla del catálogo.
+6. **La ventana del lector en el mismo clic** (pedido de Martín del 15/10): HECHO en la tanda 7 (`a38b68270`,
+   `d7b20f20d`). Falta verlo con un clic real en Chrome (el bloqueador no se mide en headless). Por qué existía el
+   segundo botón: docs/hallazgos-editor-landing.md → «La ventana del lector se abre en el MISMO clic».
+7. **El `window.opener` del camino del Pixel**: es de Martín (aceptar un riesgo de seguridad), con la explicación
+   pasada a Estrategia el 15/10. Si no lo acepta: que el lector conteste por el server con la firma de la lectura.
 
 ## Tanda 7 (15/10/2026, cuenta claude1, chat «Landing Generator») — HECHA, SIN PUSHEAR
 

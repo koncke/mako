@@ -8,7 +8,9 @@
 //
 // `leerEnNavegador(url)` es lo que llaman Analizar, Replicar e Importar desde URL. Abre la ventana EN EL
 // CLIC (un `window.open` sincrónico a `about:blank`: el navegador sólo deja abrir ventanas dentro del
-// gesto de la persona, y un `await` antes lo pierde). Si vuelve null, o la cierra un bloqueador al
+// gesto de la persona: la «activación» del clic se gasta con el primer `window.open` y vence con el tiempo, así
+// que una espera larga antes —un pedido al server— la pierde; docs/hallazgos-editor-landing.md → «La ventana del
+// lector se abre en el MISMO clic»). Si vuelve null, o la cierra un bloqueador al
 // instante, NO se abre nada y vuelve `{ ok: false, motivo: 'bloqueadas' }`: la pantalla muestra el aviso
 // con la flecha (app/web-generator/lector/AvisoVentanasBloqueadas.tsx). Si abrió, recién ahí navega
 // a la ruta que decide el camino (lector-pagina.ts): la página real con el Pixel, o la aislada. Antes de

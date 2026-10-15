@@ -491,4 +491,34 @@ export const BITACORA: Hito[] = [
       'docs/relevo/landing-generator.md — la tanda 7 sin pushear y las decisiones de Martín',
     ],
   },
+  {
+    fecha: '15 oct', hora: '01:21', chat: 'Landing Generator', cuenta: 'claude1',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Si no la pudo leer, que abra la ventana y la analice: sin el botón «Leer en tu navegador»',
+    pedido: 'Si no pudo leer la landing, no me debe saltar el botón de "MaKo no pudo leerla sola" y las opciones de leer en tu navegador... Por defecto si no pudo de una manera que vaya directo a abrir la ventana emergente y a analizar la landing...',
+    puntos: [
+      'Llegó por «Estrategia 3 cuentas» con la captura del Diagnóstico de una landing de afuera, junto con «Soluciona ese error» sobre el Diagnóstico que no contestaba.',
+      'El segundo botón no era un descuido: Chrome sólo deja abrir una ventana dentro del clic, y el server contestaba después. La cura es el orden: la ventana primero.',
+    ],
+  },
+  {
+    fecha: '15 oct', hora: '05:58', chat: 'Landing Generator', cuenta: 'claude1',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La ventana del lector se abre en el clic, y se cierra sola si el server puede leer',
+    puntos: [
+      'El clic de Analizar o Replicar abre la ventana; en paralelo salen el pedido y una prueba rápida de lectura del server (sin IA). Si el server lee, la ventana se cierra; si contesta «en el navegador», esa misma ventana lee y el pedido se repite sin otro clic.',
+      'Lo que arranca solo al montarse usa la ventana que reservó el clic del cuadro (misma dirección, una vez, vence a los 15 s). «Leer en tu navegador» queda sólo como salida de un fallo.',
+      'Medido en un banco con el módulo real: la ventana se cerró a los 302 ms cuando el server podía leer. El bloqueador de Chrome no se puede medir en headless.',
+    ],
+    commits: [
+      { sha: 'a38b68270', msg: 'Web Generator: la ventana de lectura se abre en el CLIC, y una prueba rápida del server la cierra si no hace falta', lineas: 295, archivos: 4 },
+      { sha: 'd7b20f20d', msg: 'Web Generator: Analizar y Replicar leen la landing en la ventana del clic, sin el botón «Leer en tu navegador»', lineas: 757, archivos: 9 },
+    ],
+    archivos: [
+      'lib/editor-landing/lector-navegador.ts — abrir en el clic, la reserva y pedirConVentana',
+      'lib/editor-landing/diagnostico-server.ts, app/api/landing-generator/diagnostico/route.ts — probarLectura',
+      'app/web-generator/Inicio.tsx, diagnostico/PanelDiagnostico.tsx, crear/Replicar.tsx, lector/LeerOPegar.tsx',
+      'tests/web-generator-ventana-en-el-clic.test.ts — 16 tests, 27 roturas',
+    ],
+  },
 ];

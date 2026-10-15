@@ -1102,6 +1102,13 @@ variable y suelta `window.opener` apenas carga**: la cabecera `sandbox` no sobre
 el documento nuevo haría `opener.location = <phishing>` sobre la pestaña de MaKo (medido;
 `lib/editor-landing/lector-script.ts`). docs/hallazgos-editor-landing.md → «Tanda 7».
 
+**Y una ventana emergente se abre EN EL CLIC, antes de cualquier pedido al server** (15/10/2026): Chrome sólo la deja
+abrir mientras dura la activación del clic, que el primer `window.open` gasta y el tiempo vence. Si el server decide
+después si hace falta, la ventana se abre igual y se CIERRA cuando no hace falta (el parpadeo es el costo aceptado);
+un segundo botón «abrí la ventana» es la señal de este orden al revés. Si la pantalla arranca sola desde un efecto, el
+clic que la disparó la RESERVA (`reservarVentanaLectura` / `tomarVentanaReservada`, lib/editor-landing/lector-navegador.ts).
+docs/hallazgos-editor-landing.md → «La ventana del lector se abre en el MISMO clic».
+
 # El Centro de Operaciones es una puerta a la PC de Martín: una fila es un prompt
 
 `/admin/operaciones` deja pedidos que un cartero entrega a los chats de Claude Code de su PC

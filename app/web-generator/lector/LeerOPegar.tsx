@@ -27,8 +27,9 @@
 // o la cerró la persona antes de que contestara el server) y es la pantalla de antes.
 //
 // ⚠️ `leer(url)` SE LLAMA DIRECTO EN EL `onClick`, SIN NINGÚN `await` ANTES: la ventana se abre en el clic
-//    (lib/editor-landing/lector-navegador.ts). Con un `await` antes, Chrome la bloquea aunque la persona
-//    tenga las emergentes habilitadas, y el aviso le diría algo falso.
+//    (lib/editor-landing/lector-navegador.ts). Con una espera antes (un pedido al server), la activación del
+//    clic puede vencer y Chrome la bloquea aunque la persona tenga las emergentes habilitadas: el aviso
+//    le diría algo falso.
 // Va adentro de `.gp` (CSS_GP de MiniaturaLanding.tsx: los botones y los tokens `--gp-*`).
 // =============================================================================
 

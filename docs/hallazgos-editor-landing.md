@@ -1292,6 +1292,42 @@ Siete agentes en `C:/dev/wt-web-t7` (rama `web-t7`): renombre, cuadro, motor, AP
   «Aplicar» y «Ver en tu copia»; y por WhatsApp «publicá la landing del webinar», «replicá esta página https://…»,
   «cambia el titular de mi landing…». Todo a 390 px.
 
+### La ventana del lector se abre en el MISMO clic: por qué existía el segundo botón (15/10/2026)
+
+Pedido de Martín, con la captura del Diagnóstico de una landing de afuera: «Si no pudo leer la landing, no me debe
+saltar el botón de "MaKo no pudo leerla sola" y las opciones de leer en tu navegador... Por defecto si no pudo de una
+manera que vaya directo a abrir la ventana emergente y a analizar la landing...».
+
+- ⚠️ **El segundo botón NO fue un descuido, y no se «arregla» sacándolo: era la consecuencia de una restricción de
+  Chrome con el orden equivocado.** El navegador sólo deja abrir una ventana mientras dura la «activación transitoria»
+  del clic (`navigator.userActivation`): el primer `window.open` la GASTA (medido: activa antes, inactiva justo después)
+  y además vence con el tiempo (la documentación dice ~5 s; en headless siguió activa a los 6 s, sin confirmar). El orden
+  era server → ventana: el clic mandaba el pedido, y el server contestaba `enNavegador` recién después de bajar la página
+  (o de 1-3 minutos de IA cuando sí podía leer). En ese momento ya no se podía garantizar que el clic siguiera vigente,
+  así que la ventana necesitaba OTRO clic: «Leer en tu navegador».
+- **Ahora el orden es ventana → server.** El clic abre la ventana («Leyendo la página…», con el giro) y en paralelo salen
+  el pedido de siempre y una PRUEBA rápida de lectura del server (`probarLectura`: `extraerLanding` + `motivoDePagina`,
+  sin IA ni base). Si el server puede leer, la prueba cierra la ventana (medido en un banco con el módulo real: a los
+  302 ms del clic). Si el pedido contesta `enNavegador`, esa MISMA ventana lee la página y el pedido se repite con la
+  `lectura`, sin ningún clic. El parpadeo de una ventana que se cierra sola es el costo aceptado.
+- **Lo que arranca solo usa la ventana del clic que lo disparó.** El Diagnóstico y Replicar arrancan desde un efecto al
+  montarse: el clic real fue el ↑ del cuadro. Ese clic RESERVA la ventana (`reservarVentanaLectura`: misma URL, una vez,
+  vence a los 15 s cerrándola) y el efecto la toma (`tomarVentanaReservada`). Sin clic (un deep link, `?analizar=`) no
+  hay ventana posible: queda el camino de antes, con el botón.
+- La corrección del comentario de la tanda 6: «un `await` antes la bloquea» no es exacto. Un `await` corto no la bloquea;
+  la bloquea que pase demasiado tiempo o que la activación ya se haya gastado. La regla práctica sigue siendo la misma:
+  el `window.open` va ANTES de cualquier espera.
+- **Costos que quedan, a propósito:** la página de afuera se baja dos veces (la prueba y el pedido); si la prueba falla
+  por un error pasajero y el server sí lee, la ventana queda en «Leyendo la página…» mientras la IA piensa.
+- **Sin verificar:** el bloqueador de ventanas de verdad (Chrome headless abre ventanas sin ningún gesto, así que el
+  camino «bloqueadas» y el vencimiento de la activación no se pueden medir ahí) y las pantallas reales renderizadas (las
+  cubren los guards sobre el fuente). Que Martín lo vea con un clic en `/web-generator?ws=3` con una landing de Vite.
+**Vive en:** lib/editor-landing/lector-navegador.ts (`abrirEnElClic`, la reserva, `pedirConVentana`, `leerEnNavegador`
+con `opciones.ventana`) · lib/editor-landing/diagnostico-server.ts (`probarLectura`) ·
+app/api/landing-generator/diagnostico/route.ts · app/web-generator/panel-reglas.ts (`urlConVentanaAlAbrir`) ·
+app/web-generator/Inicio.tsx · app/web-generator/diagnostico/PanelDiagnostico.tsx · app/web-generator/crear/Replicar.tsx ·
+tests/web-generator-ventana-en-el-clic.test.ts · *2026-10-15*
+
 ## Animaciones: el video de fondo del hero (relevamiento del 14/10/2026, sin código)
 
 Pedido de Martín: animaciones de punta a punta, partiendo del video «Páginas Web ANIMADAS de $10,000 con Claude Design»
