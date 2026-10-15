@@ -27,6 +27,7 @@ import {
   type ParteMensaje, type CamposMensaje, type PasoConPartes,
 } from './mensaje-partes';
 import { AVISO_REPETIDO } from './nutricion-grafo-motor';
+import { proximaApertura, textoDeApertura, type HorarioEnvio } from './horario-envio';
 
 /** La operación de la tarjeta. El MISMO literal que `OP_AVISAR` (lib/flujo-legado.ts); el test lo fija. */
 export const OP_TARJETA_MAKO = 'avisar_al_equipo';
@@ -42,6 +43,35 @@ export const TEXTO_SOLO_ARCHIVO = '📎 Archivo de MaKo';
 export const TIPO_AVISO_TARJETA = 'chatbot-aviso-equipo' as const;
 
 type Params = Record<string, unknown> | null | undefined;
+
+/**
+ * QUÉ HACE LA TARJETA FUERA DEL HORARIO DE OFICINA (15/10/2026, Martín: «Quiero que se pueda configurar que te mande el
+ * mensaje luego, cuando se "abra" la oficina. Y por defecto si esta configurado horario de oficina que esté eso»):
+ * 'espera' (de fábrica: sin elegir, espera) sale cuando abre; 'igual' sale a cualquier hora. Sin horario no hay nada que
+ * esperar. Vive EN la tarjeta, donde se piensa ese envío; hasta ese día era una casilla de Configuraciones › Horario
+ * («Los avisos al equipo salen igual», `avisosAlEquipo`), y antes del 14/10 una regla escondida del motor. La leen los
+ * dos runners: el de los leads (lib/nutricion.ts) y el de los eventos (lib/flujos.ts).
+ */
+export type FueraDeHorario = 'igual' | 'espera';
+export const FUERAS_DE_HORARIO: readonly FueraDeHorario[] = ['espera', 'igual'];
+
+/** ¿Esta tarjeta espera a que abra la oficina? Sin elegir, SÍ. */
+export const esperaQueAbra = (params: Params): boolean => params?.fueraDeHorario !== 'igual';
+
+/** Cómo se dice cada opción en el editor de la tarjeta. */
+export const ROTULO_FUERA_DE_HORARIO: Readonly<Record<FueraDeHorario, string>> = { espera: 'Espera a que abra', igual: 'Lo manda igual' };
+
+/**
+ * EL CHIP DE LA TARJETA EN EL LIENZO, si AHORA esperaría (Estrategia, 15/10/2026: «que la tarjeta DIGA cuándo va a salir»):
+ * «Espera a que abra (mañana 9:00)». null con la oficina abierta, sin horario o si la tarjeta lo manda igual: ahí sale
+ * en el momento y no hay nada que decir.
+ */
+export function chipDeEspera(params: Params, h: HorarioEnvio | null, tz: string, ahoraMs: number): string | null {
+  if (!h || !esperaQueAbra(params)) return null;
+  const abre = proximaApertura(ahoraMs, tz, h);
+  if (abre == null || abre <= ahoraMs) return null;
+  return `Espera a que abra (${textoDeApertura(abre, ahoraMs, tz)})`;
+}
 
 /** ¿La tarjeta sale TAL CUAL? Lo dice la PRESENCIA de la lista, no su largo. */
 export const esTarjetaTalCual = (params: Params): boolean => !!params && Array.isArray(params.partes);
@@ -97,7 +127,7 @@ export function pasoDeMako<T extends { accion?: { params?: Record<string, unknow
 }
 
 /** Lo que el editor manda al cambiar (un diff de la forma guardada). */
-export type CambioDeMako = Partial<{ tipo: string; cuerpo: string; audio_id: number | null; media_id: number | null; partes: unknown[] }>;
+export type CambioDeMako = Partial<{ tipo: string; cuerpo: string; audio_id: number | null; media_id: number | null; partes: unknown[]; fueraDeHorario: FueraDeHorario }>;
 
 /**
  * El cambio del editor, de vuelta a los `params` de la tarjeta.
@@ -110,21 +140,25 @@ export type CambioDeMako = Partial<{ tipo: string; cuerpo: string; audio_id: num
  */
 export function paramsDeMako(params: Params, cambio: CambioDeMako): Record<string, unknown> {
   const actual = formaGuardada(partesDeMako(params));
-  const junto = { ...actual, ...cambio, canal: 'whatsapp', proveedor: 'no_oficial' } as PasoConPartes;
+  const { fueraDeHorario, ...delMensaje } = cambio;
+  const junto = { ...actual, ...delMensaje, canal: 'whatsapp', proveedor: 'no_oficial' } as PasoConPartes;
   if (junto.tipo === 'ia') junto.tipo = 'texto';
-  return paramsConPartes(params, partesDe(junto));
+  const out = paramsConPartes(params, partesDe(junto));
+  return fueraDeHorario && FUERAS_DE_HORARIO.includes(fueraDeHorario) ? { ...out, fueraDeHorario } : out;
 }
 
 /**
  * LOS `params` DE UNA TARJETA CON ESTA LISTA (la única que escribe la forma: `paramsDeMako` y `partirConEspera`,
  * lib/flujo-edicion.ts, pasan por acá). `partes` explícita aunque esté vacía, `mensaje` como espejo, y del resto
- * sólo `leadId` y `titulo`.
+ * sólo `leadId`, `titulo` y `fueraDeHorario`.
  */
 export function paramsConPartes(params: Params, lista: readonly ParteMensaje[]): Record<string, unknown> {
   const partes = sanearPartes(lista);
   return {
     ...(params && params.leadId !== undefined ? { leadId: params.leadId } : {}),
     ...(params && typeof params.titulo === 'string' && params.titulo.trim() ? { titulo: params.titulo } : {}),
+    // Lo de fuera del horario viaja con la tarjeta: sin esto, editar el texto lo borraba.
+    ...(params && FUERAS_DE_HORARIO.includes(params.fueraDeHorario as FueraDeHorario) ? { fueraDeHorario: params.fueraDeHorario } : {}),
     mensaje: textoDePartes(partes),
     partes,
   };

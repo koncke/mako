@@ -95,7 +95,14 @@ export type Paso =
    * archivos); `texto` queda como su espejo (el feed). Sin ella, el texto de siempre. En el store de /mensajes
    * no la escribe nadie.
    */
-  | { tipo: 'mensaje'; canal: CanalPaso; texto: string; requiereAprobacion?: boolean; partes?: ParteMensaje[] }
+  | {
+    tipo: 'mensaje'; canal: CanalPaso; texto: string; requiereAprobacion?: boolean; partes?: ParteMensaje[];
+    /**
+     * SÓLO la tarjeta «MaKo en WhatsApp» de una fila de EVENTO (15/10/2026, `esperaQueAbra`, lib/mako-tarjeta.ts): sale
+     * fuera del horario de oficina. Ausente = espera a que abra (lo de fábrica). Lo pone `pasosDelEvento`.
+     */
+    saleIgual?: true;
+  }
   | PasoAccion
   | { tipo: 'esperar'; horas: number }
   /**

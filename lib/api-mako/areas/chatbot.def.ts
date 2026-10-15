@@ -379,6 +379,9 @@ export const DEFS: readonly OperacionDef[] = [
       // correrAccionDeRespuesta): el texto literal del lead. Sin ella, el aviso de «Otra cosa» no
       // decía qué escribió y se deduplicaba por lead contra cualquier otro aviso de las 12 h.
       { nombre: 'respuesta', tipo: 'string', max: 1000, descripcion: 'opcional: lo que escribió el lead, textual. Va en el aviso, y el aviso no se repite para esa misma respuesta (en vez de para el mismo lead).' },
+      // La tarjeta «MaKo en WhatsApp» en una automatización (15/10/2026, lib/mako-tarjeta.ts `FueraDeHorario`): qué hace
+      // fuera del horario de oficina del negocio. La lee el motor, no la acción.
+      { nombre: 'fueraDeHorario', tipo: 'string', enum: ['espera', 'igual'], descripcion: 'opcional, sólo en una automatización con horario de oficina: «espera» (lo de fábrica) la manda cuando abre; «igual», a cualquier hora.' },
     ],
     reversible: true, escribe: 'manda un aviso al grupo de WhatsApp del negocio y deja una notificación en la app (no toca al lead)',
     canales: TODOS, costo: 'gratis', gating: { tab: TAB },

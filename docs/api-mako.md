@@ -6158,6 +6158,7 @@ PROPONE mandar un aviso al grupo de WhatsApp del negocio (y al feed de la app) p
 | `partes.media_id` | number | no | id del archivo de la biblioteca de archivos del chatbot, sólo si tipo es media. |
 | `partes.pausa_s` | number | no | opcional: segundos de espera antes de este mensaje (desde el segundo; hasta 10). |
 | `respuesta` | string | no | opcional: lo que escribió el lead, textual. Va en el aviso, y el aviso no se repite para esa misma respuesta (en vez de para el mismo lead). |
+| `fueraDeHorario` | string (espera \\| igual) | no | opcional, sólo en una automatización con horario de oficina: «espera» (lo de fábrica) la manda cuando abre; «igual», a cualquier hora. |
 
 ```bash
 curl -L \

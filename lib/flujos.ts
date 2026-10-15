@@ -33,7 +33,7 @@ import { operacionDelPaso, rotuloOperacion, type EventoFlujo, type Paso } from '
 import { decidir, lineaDeFalloAccion, reintentoDeHechos, TOPE_REINTENTOS_HECHOS } from './flujo-pasos';
 import { abrirCorrida, avanzar, cerrarCorrida } from './flujo-corridas';
 import { reclamarEspaciado } from './espaciado';
-import { AVISOS_POR_EVENTO, ESTADO_EVENTO, filaDeIdCorrida, pasosParaRetomar, type FilaParaRetomar } from './aviso-evento';
+import { AVISOS_POR_EVENTO, ESTADO_EVENTO, esperaApertura, filaDeIdCorrida, pasosParaRetomar, type FilaParaRetomar } from './aviso-evento';
 import { CLAVE_MENSAJE_MAKO } from './variables-aviso';
 import { textoDePreparadas, type PartePreparada } from './mako-tarjeta';
 import type { ParteMensaje } from './mensaje-partes';
@@ -179,7 +179,24 @@ export async function ejecutarPasos(
   // en cada despertar, que es otra corrida del drenador: la de hoy, no la de hace 48 h).
   let hechos: HechosLead | null | undefined;
 
+  // EL HORARIO DE OFICINA (15/10/2026): se lee UNA vez, recién cuando un paso lo pide (`esperaApertura`).
+  let apertura: number | null | 'ilegible' | undefined;
+
   for (let vuelta = 0; vuelta < pasos.length + 2; vuelta++) {
+    // ⚠️ FUERA DEL HORARIO, LA TARJETA QUE ESPERA (Y SU CONDITION) NO SE DECIDE: duerme en ESTE paso hasta que abre, y
+    // al despertar se decide con lo de ese momento. Hasta el 15/10/2026 este runner no miraba el horario: el aviso de
+    // un evento salía a cualquier hora, una regla escondida. Duerme con el contexto ENTERO (como el reintento): es el
+    // mismo aviso unas horas después, y su texto lo armó el evento. Sin poder leer el horario, vuelve a mirar en un rato.
+    if (esperaApertura(pasos, i)) {
+      if (apertura === undefined) apertura = await aperturaDelNegocio(ws);
+      const hasta = apertura === 'ilegible' ? new Date(Date.now() + REINTENTO_HORARIO_MS)
+        : apertura != null && apertura > Date.now() ? new Date(apertura) : null;
+      if (hasta) {
+        if (corridaId) await avanzar(ws, corridaId, i, i, hasta, ctx);
+        else await abrirCorrida(ws, flujoId, i, hasta, ctx, { reintento: true });
+        return;
+      }
+    }
     if (pasos[i]?.tipo === 'condicion' && hechos === undefined) {
       const leidos = await hechosDeLaCorrida(pasos, ws, ctx);
       if (leidos === 'ilegible') {
@@ -264,6 +281,28 @@ async function hechosDeLaCorrida(pasos: Paso[], ws: number, ctx: CtxFlujo): Prom
     return await hechosDeUnLead(ws, ctx.leadId, filas);
   } catch (e) {
     console.error(`[flujos] los hechos del lead #${ctx.leadId}:`, e instanceof Error ? e.message : String(e));
+    return 'ilegible';
+  }
+}
+
+/** Sin poder leer el horario de oficina, cada cuánto se vuelve a mirar (el drenador corre cada 5 minutos). */
+const REINTENTO_HORARIO_MS = 15 * 60_000;
+
+/**
+ * CUÁNDO ABRE LA OFICINA DEL NEGOCIO, desde ahora (15/10/2026): `Date.now()` si está abierta, el instante en que abre si
+ * no, null sin horario (no hay a qué esperar). `'ilegible'` si no se pudo leer el horario o la zona: «no sé» no es
+ * «abierto», y el aviso que espera no sale hasta saberlo (lo mismo que el runner de los leads, `horarioDeEnvio`).
+ */
+async function aperturaDelNegocio(ws: number): Promise<number | null | 'ilegible'> {
+  try {
+    const [{ getSettingEstricto }, { horarioVigente, proximaApertura, KEY_HORARIO_ENVIO }, { zonaDelNegocioEstricta }] = await Promise.all([
+      import('./settings'), import('./horario-envio'), import('./timezone'),
+    ]);
+    const h = horarioVigente(await runWithWorkspace(ws, () => getSettingEstricto(KEY_HORARIO_ENVIO)));
+    if (!h) return null;
+    return proximaApertura(Date.now(), await zonaDelNegocioEstricta(ws), h) ?? 'ilegible';
+  } catch (e) {
+    console.error(`[flujos] ws ${ws}: no pude leer el horario de oficina:`, e instanceof Error ? e.message : String(e));
     return 'ilegible';
   }
 }

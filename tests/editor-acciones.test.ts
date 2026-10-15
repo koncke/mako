@@ -220,7 +220,9 @@ test('lo que llena el flujo existe en el registro, y el reparto no lo dibuja', (
   const r = repartoDelFormulario(aviso.parametros, aviso.pideLead, new Set(Object.keys(LLENA_EL_FLUJO.avisar_al_equipo)));
   assert.equal(r.lead?.nombre, 'leadId');
   assert.deepEqual(r.obligatorios.map((p) => p.nombre), ['mensaje']);
-  assert.deepEqual(r.opcionales.map((p) => p.nombre), ['titulo', 'partes'], '«respuesta» la pone el motor');
+  // (15/10/2026: `fueraDeHorario` es de la tarjeta «MaKo en WhatsApp», que lo dibuja en su editor propio; este reparto es
+  // el del formulario genérico, que esta operación no usa en el lienzo.)
+  assert.deepEqual(r.opcionales.map((p) => p.nombre), ['titulo', 'partes', 'fueraDeHorario'], '«respuesta» la pone el motor');
   assert.equal(r.plegar, true);
 });
 

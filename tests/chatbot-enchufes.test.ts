@@ -86,7 +86,8 @@ test('el número de salida viaja de SecuenciaPerfil al editor de WhatsApp', () =
 });
 
 test('«✦ MaKo» va en la cabecera del panel, con la MISMA regla que el editor, y una sola vez', () => {
-  const editor = bloque(FLUJO, 'function EditorMensaje(', '\nfunction EditorAccion(', 4_500);
+  // (15/10/2026: hasta `EditorMako`, que viene después y creció con «Fuera del horario»; esto mira el del WhatsApp.)
+  const editor = bloque(FLUJO, 'function EditorMensaje(', '\nfunction EditorMako(', 4_500);
   assert.match(editor, /permiteIA=\{permiteIADe\(paso, !!onModoIA\)\}/);
   const cabecera = bloque(FLUJO, 'tituloEditor={cabeceraDe(', '\n    />', 1_500);
   assert.match(cabecera, /conMako=\{permiteIADe\(paso, !!onModoIA\)\}/);

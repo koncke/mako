@@ -173,7 +173,7 @@ test('(f) el modal: `sinFiletes`, Tabs con `sinLinea` y UN SOLO hijo con los dos
   const src = fuente('app/automations/ConfiguracionesBoton.tsx');
   const modal = tramo(src, '<Modal titulo="Configuraciones" onCerrar={cerrar} ancho={600} alto="min(85vh, 640px)" sinFiletes>', '</Modal>', 900);
   const cuerpo = modal.slice(modal.indexOf('>') + 1).replace(/\{\}/g, '').trim();
-  assert.match(cuerpo, /^<div>\s*<Tabs tabs=\{\[\.\.\.PESTANAS_CONFIGURACIONES\]\} activa=\{pestana\} onCambio=\{\(id\) => setPestana\(id as Pestana\)\} sinLinea \/>\s*<div hidden=\{pestana !== 'horario'\}><HorarioEnvioPanel onSucio=\{alSucioHorario\} \/><\/div>\s*<div hidden=\{pestana !== 'limites'\}><LimitesEnvioPanel onSucio=\{alSucioLimites\} \/><\/div>\s*<\/div>$/,
+  assert.match(cuerpo, /^<div>\s*<Tabs tabs=\{\[\.\.\.PESTANAS_CONFIGURACIONES\]\} activa=\{pestana\} onCambio=\{\(id\) => setPestana\(id as Pestana\)\} sinLinea \/>\s*<div hidden=\{pestana !== 'horario'\}><HorarioEnvioPanel onSucio=\{alSucioHorario\} onGuardado=\{fijarOficina\} \/><\/div>\s*<div hidden=\{pestana !== 'limites'\}><LimitesEnvioPanel onSucio=\{alSucioLimites\} \/><\/div>\s*<\/div>$/,
     'el cuerpo no es UN hijo con Tabs sin línea y los dos paneles montados (el segundo hijo lleva un filete arriba)');
   assert.match(src, /const cerrar = useCerrarEstable\(onCerrar, ocupado\);/, 'el Modal recibe una flecha nueva por render, o cierra con el guardado en vuelo');
   assert.match(src, /return createPortal\(\s*<Modal /);

@@ -232,7 +232,8 @@ test('el modal: dos pestañas, `onCerrar` fijo que no cierra con un guardado en 
   assert.match(src, /createPortal\(\s*<Modal /);
   assert.match(src, /import \{ HorarioEnvioPanel \} from '@\/app\/configuraciones\/HorarioEnvioPanel';/, 'no es el MISMO editor del horario');
   // Los dos MONTADOS: la pestaña sólo esconde (desmontar tiraba el guardado de su respiro).
-  assert.match(src, /<div hidden=\{pestana !== 'horario'\}><HorarioEnvioPanel onSucio=\{alSucioHorario\} \/><\/div>/);
+  // (15/10/2026: y al guardar, el lienzo toma el horario nuevo: el chip «Espera a que abra» de la tarjeta MaKo.)
+  assert.match(src, /<div hidden=\{pestana !== 'horario'\}><HorarioEnvioPanel onSucio=\{alSucioHorario\} onGuardado=\{fijarOficina\} \/><\/div>/);
   assert.match(src, /<div hidden=\{pestana !== 'limites'\}><LimitesEnvioPanel onSucio=\{alSucioLimites\} \/><\/div>/);
   assert.doesNotMatch(src, /\{pestana === '(horario|limites)' && /, 'una pestaña desmonta su panel');
   for (const r of ['app/automations/ConfiguracionesBoton.tsx', 'app/automations/LimitesEnvioPanel.tsx']) {

@@ -34,7 +34,7 @@ import { DELAY_MAX_HORAS, QUE_ENVEJECEN } from './flujo-pasos';
 import { CLAVE_MENSAJE_MAKO, VARIABLES_AVISO, citaSecreto, tokensDe, type ContextoDatos } from './variables-aviso';
 import { textoLoArmaElCodigo, type AvisoCatalogo } from './avisos-catalogo';
 // Puro: la tarjeta «MaKo en WhatsApp» por partes (undécima tanda). Qué partes tiene y si sale tal cual.
-import { esTarjetaTalCual, partesDeMako, textoDePartes } from './mako-tarjeta';
+import { esTarjetaTalCual, esperaQueAbra, partesDeMako, textoDePartes } from './mako-tarjeta';
 
 // ── Qué aviso es qué evento ─────────────────────────────────────────────────────────────────────
 
@@ -220,8 +220,10 @@ export function pasosDelEvento(pasosIn: readonly PasoGrafo[], evento: unknown): 
       if (huboDelay && RE_MENSAJE_MAKO.test(escrito)) return mal(MOTIVO_EVENTO.mensajeViejo, cur);
       // Un secreto al GRUPO lo lee todo el equipo, y queda en el feed: sólo va en el mail a la persona.
       if (citaSecreto(`${escrito}\n${String(params?.titulo ?? '')}`)) return mal(MOTIVO_EVENTO.secretoFuera, cur);
-      // La de ANTES (sin lista) sale EXACTAMENTE como hasta hoy: el paso no lleva `partes`.
-      pasos.push(talCual ? { tipo: 'mensaje', canal: 'aviso_dueno', texto, partes: lista } : { tipo: 'mensaje', canal: 'aviso_dueno', texto });
+      // La de ANTES (sin lista) sale EXACTAMENTE como hasta hoy: el paso no lleva `partes`. Fuera del horario espera a
+      // que abra, salvo que la tarjeta diga «Lo manda igual» (`esperaQueAbra`, 15/10/2026).
+      const igual = esperaQueAbra(params) ? {} : { saleIgual: true as const };
+      pasos.push(talCual ? { tipo: 'mensaje', canal: 'aviso_dueno', texto, partes: lista, ...igual } : { tipo: 'mensaje', canal: 'aviso_dueno', texto, ...igual });
       huella.push(`${cur}:mensaje`);
       makos += 1;
       cur = siguienteDe(pasosIn, i);
@@ -272,6 +274,23 @@ export function pasosDelEvento(pasosIn: readonly PasoGrafo[], evento: unknown): 
   const afuera = pasosIn.map((p, i) => idDe(p, i)).filter((id, i) => !vistos.has(id) && claseDe(pasosIn[i]) !== 'inicio');
   if (afuera.length) return mal(MOTIVO_EVENTO.afuera, afuera[0]);
   return { pasos, problema: null, tarjeta: null, firma: huella.join('>') };
+}
+
+/**
+ * ¿EL PASO `i` ESPERA A QUE ABRA LA OFICINA? (15/10/2026). Sí si es una tarjeta «MaKo en WhatsApp» que espera (sin
+ * `saleIgual`), o una CONDITION cuya próxima tarjeta —saltando otras CONDITION, que no mandan nada— es una así.
+ *
+ * ⚠️ LA CONDITION ESPERA CON LA TARJETA, y se decide AL SALIR, no al encolarse: decidida a las 23 h y mandada a las 9, un
+ * «su reunión sigue en pie» podría ser mentira. Con un DELAY en el medio no: el DELAY duerme solo, y al despertar vuelve
+ * a preguntar acá. Pura, para que tenga test: la hora la mira lib/flujos.ts.
+ */
+export function esperaApertura(pasos: readonly Paso[], i: number): boolean {
+  for (let j = i; j < pasos.length; j++) {
+    const p = pasos[j];
+    if (p.tipo === 'condicion') continue;
+    return p.tipo === 'mensaje' && p.canal === 'aviso_dueno' && !p.saleIgual;
+  }
+  return false;
 }
 
 /** Lo que `retomarCorrida` (lib/flujos.ts) relee de la fila de una corrida dormida. */

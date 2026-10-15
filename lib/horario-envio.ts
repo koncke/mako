@@ -39,17 +39,13 @@ export type HorarioEnvio = {
   hasta: number;
   /** Los días en que manda. Vacío no se guarda: un horario sin días es un motor apagado. */
   dias: DiaSemana[];
-  /**
-   * ¿Los avisos al EQUIPO («MaKo en WhatsApp») salen igual fuera del horario? (14/10/2026, docs/diseno-mako-nada-por-detras.md
-   * §2.4-h). Hasta ese día salían siempre, sin que la pantalla lo dijera: una regla escondida del motor (undécima tanda, M3 f).
-   * Prendido de fábrica, que es lo de antes; ausente en lo guardado = prendido. El carril del recordatorio corre igual
-   * siempre: un «15 min antes» no puede esperar a que abra.
-   */
-  avisosAlEquipo: boolean;
+  // (14/10/2026 al 15/10/2026 vivió acá `avisosAlEquipo`, la casilla «Los avisos al equipo salen igual». Se fue a la
+  // tarjeta «MaKo en WhatsApp», donde se piensa ese envío: `fueraDeHorario`, lib/mako-tarjeta.ts. Medido el 15/10: ningún
+  // negocio la había guardado.)
 };
 
 /** Lo que propone la pantalla al prenderlo: la ventana que el motor tenía fija, todos los días. */
-export const HORARIO_SUGERIDO: HorarioEnvio = { activo: true, desde: 9, hasta: 21, dias: [0, 1, 2, 3, 4, 5, 6], avisosAlEquipo: true };
+export const HORARIO_SUGERIDO: HorarioEnvio = { activo: true, desde: 9, hasta: 21, dias: [0, 1, 2, 3, 4, 5, 6] };
 
 const TODOS: DiaSemana[] = [0, 1, 2, 3, 4, 5, 6];
 
@@ -79,8 +75,7 @@ export function sanearHorario(raw: unknown): HorarioEnvio | null {
     ? [...new Set(o.dias.map(Number).filter((d): d is DiaSemana => Number.isInteger(d) && d >= 0 && d <= 6))].sort((a, b) => a - b)
     : TODOS;
   if (!dias.length) return null;
-  // Sólo un `false` LITERAL lo apaga: lo guardado antes del 14/10 no lo trae, y es lo de antes (salen igual).
-  return { activo: o.activo === true, desde, hasta, dias, avisosAlEquipo: o.avisosAlEquipo !== false };
+  return { activo: o.activo === true, desde, hasta, dias };
 }
 
 /** El horario que manda: sólo uno PRENDIDO. Apagado (o sin fila) es «sin límite». */
@@ -143,6 +138,31 @@ export function acabaDeAbrir(ahoraMs: number, tz: string, h: HorarioEnvio | null
   const r = relojEnZona(ahoraMs, tz);
   const desde = r.hora * 60 + r.minuto - h.desde * 60;
   return desde >= 0 && desde < Math.max(1, minutos);
+}
+
+/**
+ * CUÁNDO VUELVE A ABRIR (15/10/2026: «Espera a que abra (mañana 9:00)», la tarjeta «MaKo en WhatsApp»): el primer instante,
+ * desde `ahoraMs`, que cae adentro del horario, en la zona del negocio. Adentro, `ahoraMs`. Sin horario, null (no hay a
+ * qué esperar). Camina de media en media hora —el horario es de medias horas— hasta 8 días: con el cambio de horario
+ * de verano, una cuenta de horas fija se corría una.
+ */
+export function proximaApertura(ahoraMs: number, tz: string, h: HorarioEnvio | null): number | null {
+  if (!h) return null;
+  if (dentroDelHorario(ahoraMs, tz, h)) return ahoraMs;
+  const MEDIA = 30 * 60_000;
+  let t = Math.ceil(ahoraMs / MEDIA) * MEDIA;
+  for (let i = 0; i < 8 * 48; i++, t += MEDIA) if (dentroDelHorario(t, tz, h)) return t;
+  return null;
+}
+
+/** «hoy 9:00» / «mañana 9:30» / «el lunes 9:00» para un instante de apertura, en la zona del negocio. */
+export function textoDeApertura(aperturaMs: number, ahoraMs: number, tz: string): string {
+  const dia = (ms: number) => new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(ms));
+  const r = relojEnZona(aperturaMs, tz);
+  const hora = `${r.hora}:${String(r.minuto).padStart(2, '0')}`;
+  if (dia(aperturaMs) === dia(ahoraMs)) return `hoy ${hora}`;
+  if (dia(aperturaMs) === dia(ahoraMs + 24 * 3600_000)) return `mañana ${hora}`;
+  return `el ${DIAS_PANTALLA.find((d) => d.dia === r.dia)?.nombre ?? ''} ${hora}`;
 }
 
 /** «09:00» / «09:30» / «24:00» para la pantalla. */

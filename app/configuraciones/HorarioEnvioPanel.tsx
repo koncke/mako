@@ -174,14 +174,8 @@ export function HorarioEnvioPanel({ onGuardado, onSucio }: {
             })}
           </div>
         )}
-        {/* LOS AVISOS AL EQUIPO FUERA DEL HORARIO (14/10/2026, «nada por detrás» §2.4-h): la tarjeta «MaKo en WhatsApp» salía
-            igual sin que nada lo dijera. Prendido de fábrica, que es lo de antes. */}
-        {h.activo && (
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: SANS, fontSize: 13.5, color: 'var(--ink)', cursor: off ? 'default' : 'pointer' }}>
-            <input data-avisos-fuera type="checkbox" checked={h.avisosAlEquipo} disabled={off} onChange={(e) => cambiar({ avisosAlEquipo: e.target.checked })} />
-            Los avisos al equipo salen igual
-          </label>
-        )}
+        {/* (14/10/2026 al 15/10/2026 vivió acá la casilla «Los avisos al equipo salen igual». Se fue a la tarjeta «MaKo en
+            WhatsApp», donde se piensa ese envío: lib/mako-tarjeta.ts, `FueraDeHorario`.) */}
       </div>
       {aviso && <div role="alert" style={{ marginTop: 12, fontSize: 13, color: 'var(--bad)', fontFamily: SANS }}>{aviso}</div>}
     </div>

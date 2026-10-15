@@ -49,7 +49,8 @@ import {
   type EditorMensajeWhatsAppProps,
 } from './EditorMensajeWhatsApp';
 // La tarjeta «MaKo en WhatsApp» POR PARTES (undécima tanda): su editor es el de WhatsApp sobre ESTE DTO.
-import { pasoDeMako, paramsDeMako, type CambioDeMako } from '@/lib/mako-tarjeta';
+import { pasoDeMako, paramsDeMako, chipDeEspera, esperaQueAbra, FUERAS_DE_HORARIO, ROTULO_FUERA_DE_HORARIO, type CambioDeMako, type FueraDeHorario } from '@/lib/mako-tarjeta';
+import { useHorarioOficina } from './horario-oficina';
 // El contexto de los datos de una tarjeta: el MISMO con que Publicar los valida.
 import { contextoDeTarjeta } from '@/lib/tokens-del-flujo';
 import { EditorEmailGmail, type EditorEmailGmailProps } from './EditorEmailGmail';
@@ -271,6 +272,8 @@ export function FlujoLienzo({
   const usaMedios = useMemo(() => mediosQueUsa(pasos), [pasos]);
   const medios = useEstadoMedios(usaMedios);
   const [conectarMedio, setConectarMedio] = useState<{ medio: Medio; linea: string | null } | null>(null);
+  // El horario de oficina (15/10/2026): para el chip «Espera a que abra (mañana 9:00)» de la tarjeta «MaKo en WhatsApp».
+  const oficina = useHorarioOficina();
   // ⛔ EL QR YA NO SALTA AL CREAR (decimoquinta tanda, 12/10/2026, punto 4). La duodécima (§2.12) abría este modal
   // solo, una vez por visita y por medio, al crear una tarjeta de un medio sin conectar (`pedirConectar` +
   // `medioAConectarAlCrear`). Martín, textual: «Si creo una tarjeta de lo que sea y no lo tengo conectado, que en
@@ -650,6 +653,10 @@ export function FlujoLienzo({
           );
         }
         const chip = paso ? chipDeTarjeta(paso, medios, linea?.actual ?? null) : null;
+        // «MaKo en WhatsApp» que AHORA esperaría a que abra la oficina: lo dice, con cuándo (`chipDeEspera`).
+        const espera = paso && esMako(paso) && oficina?.horario
+          ? chipDeEspera(paso.accion?.params as Record<string, unknown> | undefined, oficina.horario, oficina.zona, Date.now())
+          : null;
         return (
           <>
           <TarjetaNodo key={n.id} nodo={n} activo={activo} roto={(n.tipo === 'ir-a' && Boolean(n.advertencia)) || (cerradas.has(n.id) && incompletas.has(n.id))}>
@@ -671,6 +678,7 @@ export function FlujoLienzo({
                 }}>{n.detalle}</div>
                 : null}
           </TarjetaNodo>
+          {espera && <ChipEspera nodo={n} texto={espera} />}
           {chip && (
             <ChipMedio nodo={n} texto={chip.texto} frena={chip.frena} motivo={MOTIVO_MEDIO[chip.medio]}
               onConectar={rolAdmin && paso ? () => setConectarMedio({ medio: chip.medio, linea: chip.medio === 'whatsapp' ? lineaDePaso(paso, linea?.actual ?? null) : null }) : undefined} />
@@ -750,6 +758,21 @@ export function ChipMedio({ nodo, texto, frena, motivo, onConectar }: {
   return (
     <button type="button" data-chip-medio data-no-pan title={frena ? motivo : texto}
       onClick={(e) => { e.stopPropagation(); onConectar(); }} style={{ ...estilo, cursor: 'pointer' }}>{texto}</button>
+  );
+}
+
+/**
+ * EL CHIP DE «MaKo en WhatsApp» QUE ESPERA A QUE ABRA (15/10/2026): arriba a la IZQUIERDA de la tarjeta, para no pisar
+ * el de «Sin conectar» (a la derecha), y afuera del cuerpo, que tiene su alto medido. Neutro: no es un error.
+ */
+export function ChipEspera({ nodo, texto }: { nodo: { x: number; y: number }; texto: string }) {
+  return (
+    <span data-chip-espera title="Fuera del horario de oficina sale cuando abre. Se cambia en la tarjeta." style={{
+      position: 'absolute', left: nodo.x + 10, top: nodo.y - 9, zIndex: 2,
+      display: 'inline-flex', alignItems: 'center', height: 19, padding: '0 8px', boxSizing: 'border-box', borderRadius: 999,
+      border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS,
+      fontSize: 10.5, fontWeight: 700, whiteSpace: 'nowrap', lineHeight: 1,
+    }}>{texto}</span>
   );
 }
 
@@ -1256,7 +1279,34 @@ function EditorMako({ paso, id, busy, onPasos, eventoMako, triggerTipo, adjuntos
     const sig = paramsDeMako({ ...params, leadId: params.leadId ?? LEAD_DEL_EVENTO }, patch as unknown as CambioDeMako);
     return cambiarNodo(prev, id, { accion: { operacion: accion.operacion ?? '', params: sig } });
   }, cambioApila(patch, dto));
+  // FUERA DEL HORARIO (15/10/2026, Martín: «que se pueda configurar que te mande el mensaje luego, cuando se "abra" la
+  // oficina. Y por defecto si esta configurado horario de oficina que esté eso»). Sólo con horario: sin él no hay nada
+  // que esperar. Elegir es una decisión: apila.
+  const oficina = useHorarioOficina();
+  const fuera: FueraDeHorario = esperaQueAbra(paso.accion?.params as Record<string, unknown> | undefined) ? 'espera' : 'igual';
+  const cambiarFuera = (v: FueraDeHorario) => onPasos((prev) => {
+    const i = indicePorId(prev, id);
+    const accion = i >= 0 ? prev[i].accion : null;
+    if (!accion) return prev;
+    const params = accion.params ?? {};
+    const sig = paramsDeMako({ ...params, leadId: params.leadId ?? LEAD_DEL_EVENTO }, { fueraDeHorario: v });
+    return cambiarNodo(prev, id, { accion: { operacion: accion.operacion ?? '', params: sig } });
+  }, true);
+  const campoFuera = oficina?.horario ? (
+    <div data-fuera-de-horario style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+      <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--dim)', whiteSpace: 'nowrap' }}>Fuera del horario</span>
+      <Dropdown
+        value={fuera}
+        options={FUERAS_DE_HORARIO.map((v) => ({ value: v, label: ROTULO_FUERA_DE_HORARIO[v], icono: v === 'espera' ? 'reloj' : 'enviar' }))}
+        onChange={(v) => cambiarFuera(v as FueraDeHorario)}
+        ariaLabel="Qué hace este aviso fuera del horario de oficina"
+        disabled={busy}
+      />
+    </div>
+  ) : null;
   return (
+    <>
+    {campoFuera}
     <EditorMensajeWhatsApp
       paso={dto} autor="MaKo" vozMako placeholder="Mensaje para tu equipo"
       audios={[]} permiteAudio={false} permiteAdjuntos adjuntos={adjuntos} onAdjuntoNuevo={onAdjuntoNuevo}
@@ -1264,6 +1314,7 @@ function EditorMako({ paso, id, busy, onPasos, eventoMako, triggerTipo, adjuntos
       onPartirConEspera={(i, m) => onPasos((prev) => { const r = partirConEspera(prev, id, i, m); return r.ok ? r.pasos : prev; }, true)}
       onChange={cambiarMako} onError={onError} deshabilitado={busy} chatMako={chatMako}
     />
+    </>
   );
 }
 

@@ -48,6 +48,7 @@ import type { NombreIconoMenu } from '@/app/_ui/iconos-menu';
 import { Dropdown } from '../components/Dropdown';
 import { useCerrarEstable } from '@/app/customer-success/curso/dialogo-foco';
 import { HorarioEnvioPanel } from '@/app/configuraciones/HorarioEnvioPanel';
+import { useFijarHorarioOficina } from './horario-oficina';
 import { LimitesEnvioPanel } from './LimitesEnvioPanel';
 import { LADO_FILTRO } from './FiltroLista';
 import { OBJETIVO_AYUDA } from './recorrido-automations';
@@ -75,6 +76,8 @@ export function ConfiguracionesModal({ onCerrar }: { onCerrar: () => void }) {
   // Identidades FIJAS: los paneles las tienen en las dependencias de un efecto.
   const alSucioHorario = useCallback((s: boolean) => setSucios((p) => (p.horario === s ? p : { ...p, horario: s })), []);
   const alSucioLimites = useCallback((s: boolean) => setSucios((p) => (p.limites === s ? p : { ...p, limites: s })), []);
+  // Guardado el horario, el lienzo se pone al día (el chip «Espera a que abra» y la opción de la tarjeta MaKo).
+  const fijarOficina = useFijarHorarioOficina();
 
   return createPortal(
     <Modal titulo="Configuraciones" onCerrar={cerrar} ancho={600} alto="min(85vh, 640px)" sinFiletes>
@@ -82,7 +85,7 @@ export function ConfiguracionesModal({ onCerrar }: { onCerrar: () => void }) {
           montados; la pestaña sólo esconde (ver la cabecera). */}
       <div>
         <Tabs tabs={[...PESTANAS_CONFIGURACIONES]} activa={pestana} onCambio={(id) => setPestana(id as Pestana)} sinLinea />
-        <div hidden={pestana !== 'horario'}><HorarioEnvioPanel onSucio={alSucioHorario} /></div>
+        <div hidden={pestana !== 'horario'}><HorarioEnvioPanel onSucio={alSucioHorario} onGuardado={fijarOficina} /></div>
         <div hidden={pestana !== 'limites'}><LimitesEnvioPanel onSucio={alSucioLimites} /></div>
       </div>
     </Modal>,

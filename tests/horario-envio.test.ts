@@ -19,8 +19,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   sanearHorario, horarioVigente, horarioParaGuardar, dentroDelHorario, acabaDeAbrir, relojEnZona,
-  HORARIO_SUGERIDO, KEY_HORARIO_ENVIO, DIAS_PANTALLA, horaTexto,
-} from '../lib/horario-envio';
+  HORARIO_SUGERIDO, KEY_HORARIO_ENVIO, DIAS_PANTALLA, horaTexto, proximaApertura, textoDeApertura, type DiaSemana } from '../lib/horario-envio';
 
 const leer = (r: string): string => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (s: string): string => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -43,11 +42,11 @@ test('sin horario guardado, apagado o roto: NO hay límite (la decisión de Mart
 
 test('el saneo: lo que se guarda vuelve igual, los días sin repetir y en orden', () => {
   const h = sanearHorario(JSON.stringify({ activo: true, desde: 9, hasta: 18, dias: [5, 1, 1, 3, 9, 'x'] }));
-  assert.deepEqual(h, { activo: true, desde: 9, hasta: 18, dias: [1, 3, 5], avisosAlEquipo: true });
+  assert.deepEqual(h, { activo: true, desde: 9, hasta: 18, dias: [1, 3, 5] });
   // Sin `dias` (una fila de antes de que existieran): todos.
   assert.deepEqual(sanearHorario({ activo: true, desde: 0, hasta: 24 })?.dias, [0, 1, 2, 3, 4, 5, 6]);
   // De media en media hora desde el 10/10/2026 (Martín: «Las horas debes ponerlas de media en media hora»).
-  assert.deepEqual(sanearHorario({ activo: true, desde: 9.5, hasta: 18 }), { activo: true, desde: 9.5, hasta: 18, dias: [0, 1, 2, 3, 4, 5, 6], avisosAlEquipo: true });
+  assert.deepEqual(sanearHorario({ activo: true, desde: 9.5, hasta: 18 }), { activo: true, desde: 9.5, hasta: 18, dias: [0, 1, 2, 3, 4, 5, 6] });
   assert.equal(sanearHorario({ activo: true, desde: 9.25, hasta: 18 }), null, 'de media en media hora, nada más fino');
   assert.equal(sanearHorario({ activo: true, desde: -1, hasta: 18 }), null);
   assert.equal(sanearHorario({ activo: true, desde: 9, hasta: 25 }), null);
@@ -99,7 +98,7 @@ test('⚠️ «sale al abrir»: `acabaDeAbrir` en los primeros minutos del horar
 test('se guarda sólo lo que se sabe leer, con el motivo que lee la persona', () => {
   const ok = horarioParaGuardar({ activo: true, desde: 9, hasta: 18, dias: [1, 2] });
   assert.equal(ok.ok, true);
-  assert.deepEqual(ok.ok ? sanearHorario(ok.valor) : null, { activo: true, desde: 9, hasta: 18, dias: [1, 2], avisosAlEquipo: true });
+  assert.deepEqual(ok.ok ? sanearHorario(ok.valor) : null, { activo: true, desde: 9, hasta: 18, dias: [1, 2] });
   // Apagado también se guarda, y conserva lo elegido para cuando se vuelva a prender.
   const off = horarioParaGuardar({ activo: false, desde: 10, hasta: 19, dias: [0] });
   assert.equal(off.ok && sanearHorario(off.valor)?.desde, 10);
@@ -166,12 +165,29 @@ test('la pantalla: Configuración del negocio › General la monta, y guarda un 
 //   H5. ConfigInnerTabs sin la tab «Horario»                                  → 6 / 1
 //       (15/10/2026: la pantalla es app/configuraciones/page.tsx, la sección General; sin el panel, 8 / 1.)
 
-// LA CASILLA «Los avisos al equipo salen igual» (14/10/2026, «nada por detrás» §2.4-h). Rotura: `avisosAlEquipo: true` fijo
-// en el saneo → este test cae (y el del motor, tests/automations-avisos-fuera.test.ts).
-test('los avisos al equipo fuera del horario: prendido de fábrica, y un false se guarda y vuelve', () => {
-  assert.equal(sanearHorario({ activo: true, desde: 9, hasta: 18 })?.avisosAlEquipo, true, 'lo guardado antes del 14/10 apagaba los avisos');
-  const off = horarioParaGuardar({ activo: true, desde: 9, hasta: 18, dias: [1], avisosAlEquipo: false });
-  assert.equal(off.ok && sanearHorario(off.valor)?.avisosAlEquipo, false, 'apagar la casilla no se guardaba');
-  // Sólo un false literal la apaga.
-  assert.equal(sanearHorario({ activo: true, desde: 9, hasta: 18, avisosAlEquipo: 'no' })?.avisosAlEquipo, true);
+// (14/10/2026 al 15/10/2026: acá vivía la casilla «Los avisos al equipo salen igual», `avisosAlEquipo`. Se fue a la
+// tarjeta «MaKo en WhatsApp»: tests/automations-avisos-fuera.test.ts. Lo guardado con ella no rompe nada: se ignora.)
+test('la casilla vieja ya no es del horario: lo guardado con ella se lee igual, sin ella', () => {
+  assert.deepEqual(sanearHorario({ activo: true, desde: 9, hasta: 18, dias: [1], avisosAlEquipo: false }), { activo: true, desde: 9, hasta: 18, dias: [1] });
+});
+
+// CUÁNDO VUELVE A ABRIR (15/10/2026, el chip «Espera a que abra (mañana 9:00)»): de media en media hora, en la zona del
+// negocio, y dicho corto.
+test('proximaApertura y textoDeApertura: hoy, mañana, el lunes; adentro es ahora; sin horario no hay', () => {
+  const tz = 'America/Tijuana';
+  const h = { activo: true, desde: 9, hasta: 21, dias: [0, 1, 2, 3, 4, 5, 6] as DiaSemana[] };
+  const noche = Date.parse('2026-10-15T06:30:00Z'); // 23:30 del 14, Tijuana
+  const a = proximaApertura(noche, tz, h)!;
+  assert.equal(new Date(a).toISOString(), '2026-10-15T16:00:00.000Z');
+  assert.equal(textoDeApertura(a, noche, tz), 'mañana 9:00');
+  const madrugada = Date.parse('2026-10-15T12:10:00Z'); // 05:10 del 15
+  assert.equal(textoDeApertura(proximaApertura(madrugada, tz, h)!, madrugada, tz), 'hoy 9:00');
+  const abierto = Date.parse('2026-10-15T18:00:00Z'); // 11:00
+  assert.equal(proximaApertura(abierto, tz, h), abierto, 'abierto: sale ahora');
+  const semana = { activo: true, desde: 9.5, hasta: 18, dias: [1, 2, 3, 4, 5] as DiaSemana[] };
+  const viernesNoche = Date.parse('2026-10-17T02:00:00Z'); // viernes 16, 19:00
+  const lunes = proximaApertura(viernesNoche, tz, semana)!;
+  assert.equal(new Date(lunes).toISOString(), '2026-10-19T16:30:00.000Z');
+  assert.equal(textoDeApertura(lunes, viernesNoche, tz), 'el lunes 9:30');
+  assert.equal(proximaApertura(noche, tz, null), null);
 });
