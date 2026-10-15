@@ -28,6 +28,7 @@ import { TICKS_PER_SECOND } from "@/app/video-editor/_opencut/wasm";
 import { TOPES_CHAT, validarOperaciones } from "@/lib/editor-video/chat-catalogo";
 import { resumenDeCambios, revisarOperaciones, vistaDeLinea, type CambioChat } from "./linea";
 import { aceptarPropuesta, deshacerPropuesta, type AplicadaChat, type PropuestaChat } from "./aplicar";
+import { datosDeLinea, disponiblesChat } from "./contexto";
 
 /** La ruta corta a 120 s; el pedido se corta un poco después. */
 const PLAZO_MS = 125_000;
@@ -116,13 +117,32 @@ async function pedirEdicion(editor: EditorCore, instruccion: string, alcance: "v
 
 	const elegidos = editor.selection.getSelectedElements().map((e) => ({ trackId: e.trackId, elementId: e.elementId }));
 	const alcanceReal = alcance === "seleccion" && elegidos.length ? "seleccion" : "video";
-	const tracks = escena.tracks;
-	const vista = vistaDeLinea({ tracks, tps: TICKS_PER_SECOND, cabezal: editor.playback.getCurrentTime(), elegidos });
 	cambiarHilo(proyectoId, (h) => ({
 		corriendo: true,
-		mensajes: [...h.mensajes, { id: ++ultimoId, de: "yo", texto, alcance: alcanceReal === "seleccion" ? rotuloSeleccion(vista.elegidos.length) : null }],
+		mensajes: [...h.mensajes, { id: ++ultimoId, de: "yo", texto, alcance: alcanceReal === "seleccion" ? rotuloSeleccion(elegidos.length) : null }],
 	}));
 	const terminar = (m: Mensaje) => cambiarHilo(proyectoId, (h) => ({ corriendo: false, mensajes: [...h.mensajes, m] }));
+
+	// Lo que el motor tiene con nombre (la primera vez espera la lista de fuentes) y, recién
+	// después, la línea de tiempo de ese momento: la misma que se le manda a la IA.
+	const disponibles = await disponiblesChat(editor);
+	const escenaAhora = editor.scenes.getActiveSceneOrNull();
+	if (!escenaAhora || escenaAhora.id !== escena.id) {
+		terminar({ id: ++ultimoId, de: "mako", texto: "Cambiaste de escena. Vuelve a pedirlo.", error: true });
+		return;
+	}
+	const tracks = escenaAhora.tracks;
+	const datos = datosDeLinea(editor, tracks);
+	const vista = vistaDeLinea({
+		tracks,
+		tps: TICKS_PER_SECOND,
+		cabezal: editor.playback.getCurrentTime(),
+		elegidos,
+		disponibles,
+		lienzo: datos.lienzo,
+		mediosSinAudio: datos.mediosSinAudio,
+		conPalabras: datos.conPalabras,
+	});
 
 	if (vista.json.length > TOPES_CHAT.vistaMax) {
 		terminar({ id: ++ultimoId, de: "mako", texto: "El proyecto es muy grande para el chat. Elige unos clips y pídelo sobre la selección.", error: true });
@@ -140,7 +160,7 @@ async function pedirEdicion(editor: EditorCore, instruccion: string, alcance: "v
 	// La forma ya la validó la ruta; acá se vuelve a validar (el editor no le cree a nadie) y se
 	// revisan las referencias contra la vista con la que se pidió.
 	const { operaciones, descartes: deForma } = validarOperaciones(r.operaciones);
-	const revision = revisarOperaciones({ operaciones, vista, alcance: alcanceReal });
+	const revision = revisarOperaciones({ operaciones, vista, alcance: alcanceReal, transcripcion: datos.transcripcion });
 	const descartes = [...deForma, ...revision.descartes];
 	if (!revision.resueltas.length) {
 		terminar({ id: ++ultimoId, de: "mako", texto: r.resumen || "Sin cambios.", descartes: descartes.length ? descartes : undefined });
@@ -288,6 +308,8 @@ type Sugerencia = { rotulo: string; instruccion?: string; rellenar?: string; nec
 const SUGERENCIAS: Sugerencia[] = [
 	{ rotulo: "Agrega un título", rellenar: "Agrega al inicio un título de 3 segundos que diga: " },
 	{ rotulo: "Corta en el cabezal", instruccion: "Corta lo elegido donde está el cabezal.", necesitaSeleccion: true },
+	{ rotulo: "Transiciones suaves", instruccion: "Pon la transición Mezclar en cada corte de la pista principal." },
+	{ rotulo: "Quita las muletillas", instruccion: "Quita las muletillas del video." },
 	{ rotulo: "Baja la música", instruccion: "Baja a la mitad el volumen de los audios." },
 	{ rotulo: "Silencia los videos", instruccion: "Silencia el sonido original de los videos." },
 	{ rotulo: "Alarga los textos", instruccion: "Haz que cada texto dure un segundo más, sin pisar a los demás." },
@@ -343,7 +365,8 @@ export function PanelChat({ onCerrar }: { onCerrar: () => void }) {
 			cambiarMensaje(proyectoId, m.id, { estado: r.sinVersion ? "sin-version" : "pendiente", aviso: r.error });
 			return;
 		}
-		cambiarMensaje(proyectoId, m.id, { estado: "aplicada", aplicada: r.aplicada });
+		// Lo que al aplicar no se pudo (un clip que ya no estaba, un corte sin video debajo) se dice.
+		cambiarMensaje(proyectoId, m.id, { estado: "aplicada", aplicada: r.aplicada, descartes: r.descartes.length ? r.descartes : m.descartes });
 		toast.success("Cambio aplicado");
 	};
 

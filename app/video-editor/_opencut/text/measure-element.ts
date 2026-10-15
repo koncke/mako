@@ -15,6 +15,7 @@ import {
 } from "./layout";
 import { letrasEnArco, recuadroArco, type LetraEnArco } from "./curva";
 import { cuantizarRevelado } from "./revelado";
+import { resaltadoDe, type ResaltadoTexto } from "./resaltado";
 import {
 	aplicarMayusculas,
 	leerEstiloTexto,
@@ -49,6 +50,11 @@ export interface MeasuredTextElement extends MeasuredTextLayout {
 	revelado: RevelacionTexto | null;
 	/** «Curva»: cada letra de cada renglón en su lugar del arco; `null` = recto (./curva.ts). */
 	arco: LetraEnArco[][] | null;
+	/**
+	 * «Animaciones de subtítulos» (karaoke) en este instante; `null` = sin resaltado.
+	 * Cuantizado: sólo cambia cuando cambia la palabra (./resaltado.ts).
+	 */
+	resaltado: ResaltadoTexto | null;
 }
 
 let textMeasurementContext:
@@ -178,6 +184,11 @@ export function measureTextElement({
 			revelacionTexto(element.params, localTime / TICKS_PER_SECOND, element.duration / TICKS_PER_SECOND),
 		),
 		arco,
+		resaltado: resaltadoDe({
+			params: element.params,
+			tiempo: localTime / TICKS_PER_SECOND,
+			recorteInicio: element.trimStart / TICKS_PER_SECOND,
+		}),
 	};
 }
 

@@ -934,13 +934,116 @@ con prompt, como el Landing Generator, y que todos sus botones pasen a la API de
 - **Lo que tiene test y lo que no.** La vista, la revisión y el catálogo son puros y tienen 21 tests
   probados rompiéndolos. Que los comandos hagan en pantalla lo que dice cada fila NO tiene test: hay que
   mirarlo en el navegador, y no se miró.
+**La segunda tanda, 15/10: de 11 a 32 operaciones** (transición, animación, filtro, efecto, capa de efecto,
+ajustar el color, velocidad, recortar, estilo de texto, transformar, reflejar, separar audio, fundidos, reducir
+ruido, normalizar, revertir, congelar, cortar por frase o por tramo, eliminar las muletillas y resaltar las
+palabras). Regla de Martín: «Debería aceptar cualquier pedido del usuario. Por eso es importante documentar las
+cosas de la API»: la descripción de cada operación (`para`, en `chat-catalogo.ts`) es lo que lee el modelo, y lo
+que no sabe hacer va en `NO_SE_PUEDE_CHAT` para que lo DIGA en vez de simularlo.
+- ⚠️ **El diagnóstico obvio («armar todos los comandos al pedir, como antes») era el equivocado.**
+  `applyElementUpdate` mezcla `params` pero REEMPLAZA `effects` entero: un filtro y un ajuste de color sobre el
+  mismo clip en un pedido se pisaban. Un recorte mide bordes que el comando anterior ya movió, y lo nuevo no
+  tiene id hasta insertarse. Regla: lo que depende del estado del elemento se arma AL EJECUTAR (`Diferido` en
+  `chat/comandos.ts`). Sale de leer el código; no se vio en pantalla.
+- **Una regla escondida en un componente no la puede cumplir otra entrada.** La de elegir animación vivía en la
+  pestaña y salió a `animaciones/elegir.ts` (la usan el panel y el chat; la fija el test 37). El re-partido de
+  los subtítulos sigue en un hook (`useRepartirSubtitulo`): por eso el chat descarta, con motivo, cambiar la
+  fuente, el tamaño o el espaciado de un subtítulo.
+- **Revertir y congelar tomaban el clip de la SELECCIÓN**; ahora aceptan un objetivo (`videoEn`). Crean medios y
+  tardan: van después del lote, cada uno con su paso de deshacer, igual que normalizar y subtitular.
+- **Un `cortar_tramo` sólo vale si nada más mueve la principal en el mismo pedido** (sus tiempos son los de la
+  vista); los cortes por frase y por muletillas se resuelven por texto al ejecutar y no tienen ese problema.
+- **La Y es hacia abajo en el motor y hacia arriba en el panel**: la IA habla como el panel y se invierte al
+  escribir.
+- **Lo que cambia con el código va en un slot del prompt, no en su texto editable**: un override del prompt de
+  sistema guardado en /configuraciones antes del 15/10 sigue diciendo que transiciones y filtros no se pueden;
+  hay que restablecerlo.
+- **Los nombres válidos los manda el editor** (`chat/disponibles.ts`: transiciones, animaciones, filtros,
+  efectos, curvas y fuentes, 3,9 k) y la revisión valida contra eso; el estilo de los subtítulos va UNA vez
+  (`estilo_subtitulos`): 300 subtítulos con estilo ocupan 36,6 k del tope de 60 k.
 - **SIN HACER:**
-  - Verlo andar en el navegador (abrir, pedir, aceptar, restaurar, Ctrl+Z).
-  - Las operaciones que faltan: transiciones, animaciones, filtros y efectos, velocidad, recortar un
-    video o un audio, estilo y posición del texto, subtítulos automáticos.
+  - Verlo andar en el navegador (abrir, pedir, aceptar, restaurar, Ctrl+Z) con cada operación
+    (`chat/comandos.ts`, `chat/aplicar.ts` no tienen test: necesitan el editor y el WASM).
+  - Fuente, tamaño o espaciado de un subtítulo por chat (el re-partido vive en un hook); los parámetros propios
+    de cada efecto (entran con sus valores por defecto); HSL y LUT de Ajustar; curvas de velocidad con puntos
+    propios; Borrar silencios por chat (el comando existe y es asíncrono); duplicar, pegar atributos, máscaras,
+    croma, quitar fondo, recortar el encuadre, fondo del lienzo, plantillas de texto y fotogramas clave.
+  - La simulación de la revisión no sigue el imán ni la vinculación (la fila de un recorte izquierdo en la
+    principal lo avisa).
   - Una versión de respaldo como la del Landing («Antes de un cambio de IA»): el editor no tiene historial
     de versiones, y la vuelta es «Restaurar» o Ctrl+Z.
   - La API de MaKo, que espera la decisión de dónde vive el proyecto.
+
+## Edición por transcripción y «Eliminar las muletillas»: borrar texto corta el video
+
+**Vive en:** `_opencut/transcripcion/{cortar,modelo,registro}.ts` · `transcripcion/components/transcripcion-view.tsx` ·
+`commands/timeline/element/cortar-tramos.ts` · `timeline/dividir-elemento.ts` · test `tests/video-editor-transcripcion.test.ts`
+
+Hecho el 15/10 (pasos 2–4 del plan de subtítulos). Biblioteca › Subtítulos › «Transcripción» y el botón
+«Edición basada en la transcripción» de la barra: se eligen palabras, Supr, y esa parte sale del video.
+- ⚠️ **El diagnóstico obvio («reusar Borrar silencios») era el equivocado.** `BorrarSilenciosCommand` corta
+  clip por clip en varias pasadas (dividir, borrar, recolocar) y cada una pasa por el imán y la vinculación
+  (`ripple/iman.ts`). Lo que está encima de la mitad NUEVA de un clip dividido lo reclama la mitad vieja,
+  que conserva el id y no se movió: no se corre. Y no sabe nada de subtítulos. Acá la línea de tiempo nueva
+  se arma ENTERA y pura, y se aplica en UN `updateTracks`: todo lo que se mueve lleva su lugar explícito
+  («tocado»), así el imán no lo vuelve a correr. La cuenta es una sola: `aLinea(t)` = t menos lo quitado
+  antes de t.
+- **La transcripción SON los subtítulos con tiempos por palabra**, no un segundo texto: no hay dos cosas que
+  se desincronicen, y «Transcribir» es «Subtítulos automáticos». Un subtítulo sin tiempos (importado,
+  escrito a mano, reescrito) se ve apagado y no se elige.
+- **Cada corte se lleva la palabra y la MITAD de las pausas vecinas.** En los bordes exactos de la palabra
+  quedan las dos pausas enteras (un hueco largo); de palabra vecina a palabra vecina, ninguna (se pegan). Y
+  los tiempos de Whisper bailan ±0,1 s: el medio de la pausa es lo más lejos de comerse una sílaba.
+- **Qué se corta y qué no, como CapCut:** la pista principal y el audio extraído de un video
+  (`audio.extraidoDe`) se cortan; los subtítulos pierden sus palabras y se corren; lo VINCULADO se corre y,
+  si atraviesa un tramo, se ACORTA (correrlo sin acortarlo lo deja pisando al vecino de su pista); lo no
+  vinculado —la música— queda quieto. Si la voz está en una pista de audio y no en la principal, no hay
+  video que cortar: se avisa en vez de cortar otra cosa.
+- **Se va el final de un clip → la mitad que queda conserva la transición, la Salida y el fundido** (como
+  «Borrar a la derecha»): siguen yendo hacia el mismo vecino. Partirlo «en dos» se los sacaba.
+- ⚠️ **Trampa del entorno: `@/app/video-editor/_opencut/wasm` NO es puro.** `wasm/media-time.ts` importa
+  `wasm/opencut.ts`, que baja e instancia el WASM con top-level await. Cualquier módulo que importe un VALOR
+  de ahí (`roundMediaTime`, `TICKS_PER_SECOND`, `addMediaTime`) no carga en los tests de node. Por eso
+  `cortarTramos` recibe «Dividir» por parámetro (`dividir`) y los ticks por segundo (`tps`): los tipos sí se
+  pueden importar. Para ver la cadena: un `import` de valor que llegue a `wasm/opencut`.
+- **El chat** pide frases o tramos («corta donde digo…», «saca las muletillas») y el comando los resuelve
+  AL EJECUTAR (`CortarTramosCommand` acepta una función de las pistas): en un lote, lo de antes pudo
+  correr el video.
+- **SIN HACER:** verlo en el navegador; copiar y pegar partes del video desde el texto; «Mostrar texto
+  eliminado»; marcar pausas y repeticiones (CapCut: «Pausa, repetición y duda»); CapCut fuerza el imán de la
+  principal mientras se edita por transcripción (`pc_text_cut_mode_lock_cant_change`) y acá no.
+
+## «Animaciones de subtítulos» (karaoke): la palabra que se dice cambia de color
+
+**Vive en:** `_opencut/text/resaltado.ts` (puro) · `text/{measure-element,dibujar}.ts` · `params/extra/subtitulos.ts`
+(`subtitulo.resaltar` / `.resaltarColor` / `.noDichasOpacidad`) · panel en `subtitles/components/pestana-subtitulos.tsx` ·
+plantillas «Karaoke», «Palabra resaltada» y «Atenuado» en `subtitles/estilos.ts` · test `tests/video-editor-subtitulos-resaltado.test.ts`
+
+Hecho el 15/10, sin mirar en el navegador. «Subtítulos pronunciados»: Palabra (sólo la que se dice) o Frase
+(todo lo ya dicho); «Subtítulos no pronunciados»: Opacidad. Se aplica a todos los subtítulos de una vez.
+- **Cuantizado como el revelado:** lo medido sólo lleva enteros (qué palabra, cuántas dichas), así la textura
+  del texto se redibuja al cambiar de palabra y no en cada cuadro. En una pausa sigue resaltada la última
+  dicha: apagarla en cada silencio parpadea.
+- ⚠️ **«Aplicar en todos los subtítulos» borraba los tiempos por palabra de todos los demás.** Síntoma: el
+  karaoke y el dividir por palabra andan sólo en el subtítulo elegido. El diagnóstico obvio («no se
+  guardaron los tiempos», «el karaoke anda mal») era el equivocado: `estiloDe` (`subtitles/insert.ts`)
+  copiaba TODOS los params menos `content` y `subtitulo`, también `subtitulo.palabras`, que en los demás no
+  coinciden con su texto y quedan anulados. Arreglado (`NO_ESTILO`). Regla: un parámetro que no es un control
+  se excluye a mano de todo lo que copia «todos los params» («Pegar atributos» se salva porque recorre sólo
+  los declarados).
+- **Los subtítulos en mayúsculas se salían por los costados:** `partirYUbicar` medía en minúscula y el dibujo
+  pinta con `aplicarMayusculas`; y cambiar «May./min.» no volvía a partir (`repartir.ts`). Ahora se mide como
+  se dibuja y `texto.mayusculas` parte.
+- **La opacidad de una palabra con trazo no se pone pasada por pasada** (el trazo de afuera se ve a través del
+  relleno): lo no dicho se dibuja entero en otro lienzo y se pega con su opacidad.
+- **Una palabra suelta dentro del renglón se ubica con `ancho(prefijo + palabra) − ancho(palabra)`**, no con
+  `ancho(prefijo)`: así no importa si el navegador cuenta el interletrado de la última letra.
+- **Toda plantilla escribe todo lo que alguna plantilla usa** (resaltado, mayúsculas, sombra), en «Ninguno» o
+  apagado si no lo usa: si no, «Clásico» después de «Karaoke» deja el amarillo andando.
+- **SIN HACER:** «Palabra/Frase no pronunciada» por separado (sólo está la Opacidad); agrandar o hacer rebotar la
+  palabra que se dice (tipo Hormozi, `text/dibujar.ts`); el karaoke en el ASS exportado con `\k`
+  (`subtitles/ass.ts`); avisar que con precisión «segmento» el karaoke es aproximado; el subrayado de lo no
+  dicho sale opaco; resaltar palabras CLAVE. Colores y opacidades de las plantillas, elegidos a ojo.
 
 ## Lottie en un editor de VIDEO: qué aporta si la pieza termina en mp4
 
@@ -1131,9 +1234,9 @@ la GPU de MediaPipe, 1080p30, el alfa en el compositor y el cuentagotas (`fondo/
 
 **Subtítulos y Texto a voz**
 - Bilingües, palabras clave y Emojis de IA apagados (`subtitles/components/assets-view.tsx`).
-- Con los tiempos por palabra ya guardados (15/10): falta resaltar palabras (tipo karaoke y palabras clave),
-  «Eliminar las muletillas» del VIDEO (los tiempos ya están guardados y marcados) y la edición basada en la
-  transcripción. Modelo fijo whisper-small, ≈250–300 MB la primera vez (`transcription/models.ts`).
+- Karaoke, «Eliminar las muletillas» del video y la edición por transcripción: hechos el 15/10 (arriba, con
+  lo que les falta). Sigue sin hacer resaltar palabras CLAVE. Modelo fijo whisper-small, ≈250–300 MB la
+  primera vez (`transcription/models.ts`).
 - Texto a voz no avisa que el plan gratis de ElevenLabs no tiene licencia comercial
   (`subtitles/components/texto-a-voz.tsx`).
 

@@ -19,10 +19,24 @@
 //
 // Los colores de las plantillas son CONTENIDO (lo que se escribe en el
 // subtítulo), no estilo de la pantalla: por eso van en hex.
+//
+// Las de KARAOKE («Animaciones de subtítulos» de CapCut, text/resaltado.ts) pintan
+// la palabra que se dice. Por la misma razón que el trazo, una plantilla escribe
+// SIEMPRE el resaltado (en «Ninguno» si no lo usa), las mayúsculas y la sombra:
+// si no, «Clásico» después de «Karaoke» dejaba el amarillo andando. La de palabra
+// resaltada copia el subtítulo «tipo Hormozi» de las apps de subtítulos (Submagic y
+// compañía): mayúsculas, letra gruesa, contorno y sombra, y la palabra que se dice
+// de otro color.
 
 import type { ParamValue } from "@/app/video-editor/_opencut/params";
 import { FONT_SIZE_SCALE_REFERENCE } from "@/app/video-editor/_opencut/text/typography";
-import { TEXTO } from "@/app/video-editor/_opencut/params/extra/texto";
+import { DEFAULTS_TEXTO, TEXTO } from "@/app/video-editor/_opencut/params/extra/texto";
+import {
+	DEFAULTS_RESALTADO,
+	PARAM_NO_DICHAS_OPACIDAD,
+	PARAM_RESALTAR,
+	PARAM_RESALTAR_COLOR,
+} from "@/app/video-editor/_opencut/params/extra/subtitulos";
 
 export type Lienzo = { width: number; height: number };
 
@@ -46,6 +60,15 @@ export type PlantillaSubtitulo = {
 	};
 	/** El «Trazo» (por fuera de la letra), con el grosor en la escala 0–100 de la pantalla. */
 	trazo?: { color: string; grosor: number };
+	/** «May./min.» en Mayúscula. */
+	mayusculas?: boolean;
+	/** La «Sombra» de Texto con sus valores por defecto (los de CapCut). */
+	sombra?: boolean;
+	/**
+	 * «Animaciones de subtítulos»: qué se pinta con `color` (la palabra que se dice o
+	 * todo lo dicho) y la opacidad 0–100 de lo que todavía no se dijo (100 si no va).
+	 */
+	resaltado?: { modo: "palabra" | "frase"; color: string; noDichasOpacidad?: number };
 };
 
 export const PLANTILLAS_SUBTITULO: PlantillaSubtitulo[] = [
@@ -149,6 +172,40 @@ export const PLANTILLAS_SUBTITULO: PlantillaSubtitulo[] = [
 		negrita: true,
 		color: "#ffffff",
 	},
+	// ── Con resaltado (karaoke): sólo hacen algo si los subtítulos tienen los
+	// tiempos de cada palabra (los de «Subtítulos automáticos»).
+	{
+		id: "karaoke",
+		nombre: "Karaoke",
+		fuente: "Montserrat",
+		negrita: true,
+		color: "#ffffff",
+		trazo: { color: "#000000", grosor: 30 },
+		resaltado: { modo: "frase", color: "#ffe14d" },
+	},
+	{
+		id: "palabra-resaltada",
+		nombre: "Palabra resaltada",
+		fuente: "Anton",
+		negrita: false,
+		color: "#ffffff",
+		escala: 1.25,
+		espaciado: 1,
+		mayusculas: true,
+		sombra: true,
+		trazo: { color: "#000000", grosor: 40 },
+		resaltado: { modo: "palabra", color: "#3df25a" },
+	},
+	{
+		id: "atenuado",
+		nombre: "Atenuado",
+		fuente: "Poppins",
+		negrita: true,
+		color: "#ffffff",
+		sombra: true,
+		// Lo que falta decir, tenue; la palabra que se dice, blanca como el resto.
+		resaltado: { modo: "palabra", color: "#ffffff", noDichasOpacidad: 35 },
+	},
 ];
 
 export const PLANTILLA_POR_DEFECTO = PLANTILLAS_SUBTITULO[0];
@@ -187,13 +244,24 @@ export function paramsDePlantilla(
 		lineHeight: 1.2,
 		"background.enabled": Boolean(plantilla.fondo),
 		[TEXTO.trazoActivo]: Boolean(plantilla.trazo),
-		[TEXTO.sombraActiva]: false,
+		[TEXTO.sombraActiva]: Boolean(plantilla.sombra),
 		[TEXTO.brilloActivo]: false,
+		[TEXTO.mayusculas]: plantilla.mayusculas ? "mayusculas" : "ninguno",
+		[PARAM_RESALTAR]: plantilla.resaltado?.modo ?? "ninguno",
+		[PARAM_NO_DICHAS_OPACIDAD]: plantilla.resaltado?.noDichasOpacidad ?? DEFAULTS_RESALTADO.noDichasOpacidad,
 	};
+	if (plantilla.resaltado) params[PARAM_RESALTAR_COLOR] = plantilla.resaltado.color;
 	if (plantilla.trazo) {
 		params[TEXTO.trazoColor] = plantilla.trazo.color;
 		params[TEXTO.trazoGrosor] = plantilla.trazo.grosor;
 		params[TEXTO.trazoPosicion] = "fuera";
+	}
+	if (plantilla.sombra) {
+		params[TEXTO.sombraColor] = DEFAULTS_TEXTO.sombraColor;
+		params[TEXTO.sombraOpacidad] = DEFAULTS_TEXTO.sombraOpacidad;
+		params[TEXTO.sombraDesenfoque] = DEFAULTS_TEXTO.sombraDesenfoque;
+		params[TEXTO.sombraDistancia] = DEFAULTS_TEXTO.sombraDistancia;
+		params[TEXTO.sombraAngulo] = DEFAULTS_TEXTO.sombraAngulo;
 	}
 	if (plantilla.fondo) {
 		params["background.color"] = plantilla.fondo.color;

@@ -735,14 +735,14 @@ export const REGISTRY: Group[] = [
     // lib/editor-video/chat-prompts.ts). Las keys y los slots los fija tests/video-editor-chat.test.ts.
     group: 'Editor de video (Video Editor)',
     icon: '🎬',
-    blurb: 'MaKo en el chat del Video Editor: lee la línea de tiempo y propone cambios (textos, cortes, borrados, volumen) que la persona acepta o descarta.',
+    blurb: 'MaKo en el chat del Video Editor: lee la línea de tiempo y propone cambios (textos, cortes, transiciones, animaciones, filtros, color, velocidad, estilo, posición, audio) que la persona acepta o descarta.',
     entries: [
       {
         key: 'video_editor.chat.system', source: 'override',
         label: 'Editar con IA (system)', kind: 'system', dynamic: true,
         variables: [v('catalogo', 'las operaciones que el editor sabe aplicar (sale del código)'), v('formato', 'forma del JSON de la respuesta')], scope: 'static-only', sensitive: true,
         default: CHAT_VIDEO_SYSTEM_TEMPLATE,
-        context: 'Convierte el pedido de la persona en operaciones del catálogo. {{catalogo}} sale del código (lib/editor-video/chat-catalogo.ts): si se borra, la IA no sabe qué puede hacer y nada se aplica. NO borres «PROHIBIDO INVENTAR» ni la regla de no inventar referencias. Lo que no está en el catálogo se descarta en código igual.',
+        context: 'Convierte el pedido de la persona en operaciones del catálogo. {{catalogo}} sale del código (lib/editor-video/chat-catalogo.ts): si se borra, la IA no sabe qué puede hacer y nada se aplica. NO borres «PROHIBIDO INVENTAR» ni la regla de no inventar referencias. Lo que no está en el catálogo se descarta en código igual. Una versión guardada antes del 15/10/2026 dice que transiciones, filtros y efectos no se pueden: restablécela.',
       },
       {
         key: 'video_editor.chat.user', source: 'override',

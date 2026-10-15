@@ -67,6 +67,15 @@ export function videoElegido(
 		: null;
 }
 
+/**
+ * EL clip de VIDEO de `ref` (en una pista sin bloquear), sin mirar la selección: el chat
+ * «Editar con IA» congela o revierte el clip que nombra, no el elegido.
+ */
+export function videoEn(editor: EditorCore, ref: ElementRef): ClipConPista<VideoElement> | null {
+	const [par] = editor.timeline.getElementsWithTracks({ elements: [ref] });
+	return par && !par.track.locked && par.element.type === "video" ? (par as ClipConPista<VideoElement>) : null;
+}
+
 /** Cambia una pista de la escena con una función sobre sus elementos. */
 export function conElementosDePista(
 	tracks: SceneTracks,

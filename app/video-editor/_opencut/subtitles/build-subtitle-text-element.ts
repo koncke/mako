@@ -19,6 +19,7 @@ import {
 } from "@/app/video-editor/_opencut/text/measure-element";
 import { resolveTextLayout } from "@/app/video-editor/_opencut/text/primitives";
 import { setCanvasLetterSpacing } from "@/app/video-editor/_opencut/text/layout";
+import { aplicarMayusculas, leerMayusculas } from "@/app/video-editor/_opencut/text/estilo";
 import {
 	buildDefaultParamValues,
 	getBuiltInElementParams,
@@ -47,13 +48,17 @@ function comoTexto(params: ParamValues): TextElement {
 	} as TextElement;
 }
 
-/** Parte cada párrafo en líneas que entran en `anchoPx` (por palabras). */
+/**
+ * Parte cada párrafo en líneas que entran en `anchoPx` (por palabras). `ancho` mide
+ * como se DIBUJA: con «May./min.» en Mayúscula, «PALABRA» es más ancha que «palabra»,
+ * y medida en minúscula una línea en mayúsculas se salía por los costados.
+ */
 function partirEnLineas({
-	ctx,
+	ancho,
 	texto,
 	anchoPx,
 }: {
-	ctx: Ctx;
+	ancho: (s: string) => number;
 	texto: string;
 	anchoPx: number;
 }): string {
@@ -67,7 +72,7 @@ function partirEnLineas({
 			let linea = palabras[0];
 			for (let i = 1; i < palabras.length; i++) {
 				const candidata = `${linea} ${palabras[i]}`;
-				if (ctx.measureText(candidata).width <= anchoPx) {
+				if (ancho(candidata) <= anchoPx) {
 					linea = candidata;
 				} else {
 					lineas.push(linea);
@@ -75,7 +80,7 @@ function partirEnLineas({
 				}
 			}
 			lineas.push(linea);
-			return equilibrar({ ctx, lineas });
+			return equilibrar({ ancho, lineas });
 		})
 		.join("\n");
 }
@@ -84,10 +89,9 @@ function partirEnLineas({
  * Dos líneas desparejas («Esto es lo que vas a ver en / esto») se leen peor que
  * dos parejas: si la segunda quedó con menos de un tercio, se pasa una palabra.
  */
-function equilibrar({ ctx, lineas }: { ctx: Ctx; lineas: string[] }): string {
+function equilibrar({ ancho, lineas }: { ancho: (s: string) => number; lineas: string[] }): string {
 	if (lineas.length !== 2) return lineas.join("\n");
 	let [a, b] = lineas;
-	const ancho = (s: string) => ctx.measureText(s).width;
 	while (ancho(b) < ancho(a) / 3) {
 		const corte = a.lastIndexOf(" ");
 		if (corte <= 0) break;
@@ -152,10 +156,15 @@ export function partirYUbicar({
 	const escalaX = Math.abs(Number(params["transform.scaleX"] ?? 1)) || 1;
 	const escalaY = Math.abs(Number(params["transform.scaleY"] ?? 1)) || 1;
 
+	const mayusculas = leerMayusculas(params);
 	ctx.save();
 	ctx.font = layout.fontString;
 	setCanvasLetterSpacing({ ctx, letterSpacingPx: layout.letterSpacing });
-	const content = partirEnLineas({ ctx, texto, anchoPx: anchoDisponible / escalaX });
+	const content = partirEnLineas({
+		ancho: (s) => ctx.measureText(aplicarMayusculas(s, mayusculas)).width,
+		texto,
+		anchoPx: anchoDisponible / escalaX,
+	});
 	ctx.restore();
 
 	const medido = measureTextElement({
