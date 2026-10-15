@@ -213,7 +213,10 @@ test('Diagnóstico: la lectura llega al análisis, y lo probado entra al meta co
   assert.match(ruta, /analizar\(\{ docId: body\.docId, url: body\.url, texto: body\.texto, lectura: body\.lectura \}\)/);
   const srv = sinComentarios(leer('lib/editor-landing/diagnostico-server.ts'));
   assert.match(srv, /sanearLectura\(p\.lectura\)/);
-  assert.match(srv, /analizarLanding\(obj\.url, entrada\.texto, \{ lectura: entrada\.lectura, leer: entrada\.leer \}\)/);
+  // La red de plataforma (09613eebb, `...comoAnalizar()`) viaja en la MISMA llamada: este test mira que llegue la
+  // lectura, y la red la fija tests/landing-analyst-red.test.ts. PROBADO ROMPIÉNDOLO (15/10/2026), base 12 / 0:
+  // diagnostico-server.ts sin `lectura: entrada.lectura` en la llamada → 11 / 1. Restaurado 12 / 0.
+  assert.match(srv, /analizarLanding\(obj\.url, entrada\.texto, \{ lectura: entrada\.lectura, leer: entrada\.leer(?:, \.\.\.comoAnalizar\(\))? \}\)/);
   const an = sinComentarios(leer('lib/landing-analyst.ts'));
   assert.match(an, /navegador \? LINEA_LEIDA_EN_NAVEGADOR : null/);
   assert.match(an, /contenidoNoConfiable\([^)]*probado[\s\S]{0,140}'probado_en_navegador'\)/);
