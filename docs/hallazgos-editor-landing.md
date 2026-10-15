@@ -1084,8 +1084,9 @@ triage del backlog, paquetes, verificación y corrección). Lo construido está 
   pisado no se pierde: queda en «Antes de restaurar»).
 
 ### Lo que quedó sin hacer (tanda 6)
-- **Migraciones 0281 (`landing_docs.diagnostico`) y 0282 (`landing_pago_rechazos`)**: el código tolera que falten;
-  aplicarlas con el deploy (o después: hasta entonces no se guarda el puntaje y no se cuentan los rechazos).
+- ~~Migraciones 0281 y 0282~~: **aplicadas en producción el 15/10/2026 antes del deploy**, y verificadas después
+  (la columna es jsonb; la función de la 0282 sólo la ejecuta service_role). En esta casa las aplica quien las
+  escribió, con `scripts/apply-migration.mjs`, ANTES o junto con el deploy cuando el código nuevo lee lo que agregan.
 - **Decide Martín** (el triage, en la Ticketera): `allow-popups-to-escape-sandbox` en el HTML personalizado; bloquear
   o no los estáticos de MaKo en hola-mako.site; HSTS propio; subdominios por landing; el www automático al conectar un
   dominio raíz; el proveedor de IA del Diagnóstico en el ws1; si despublicar sigue reversible; el `form-action` con un

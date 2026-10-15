@@ -1,7 +1,9 @@
 -- =============================================================================
 -- 0282 — El rastro de los rechazos del «Botón de pago» de una landing
 -- =============================================================================
--- ⚠️ SIN APLICAR. ORDEN DE DESPLIEGUE: cuando sea, antes o después del código. El código
+-- ✅ APLICADA en producción el 15/10/2026 (~00:40 AR, scripts/apply-migration.mjs, ANTES del deploy de la tanda 6),
+-- verificada después: RLS prendida, 0 políticas, execute de la función sólo service_role (anon/authenticated false).
+-- ORDEN DE DESPLIEGUE: cuando sea, antes o después del código. El código
 -- (lib/editor-landing/pago-landing-server.ts: `anotarRechazoDePago` y `rechazosDePago`) tolera que la
 -- función o la tabla falten (PGRST202/PGRST205/42P01/42883): el rechazo queda sólo en el log, como
 -- antes. Agrega y no saca nada.

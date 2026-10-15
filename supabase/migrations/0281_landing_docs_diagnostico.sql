@@ -1,6 +1,8 @@
 -- =============================================================================
 -- 0281 — El puntaje del Diagnóstico de una landing NUESTRA (Landing Generator, tanda 6)
 -- =============================================================================
+-- ✅ APLICADA en producción el 15/10/2026 (~00:40 AR, scripts/apply-migration.mjs, ANTES del deploy de la tanda 6);
+-- verificado después que la columna es jsonb (un `add column if not exists` sobre una de otro tipo no avisa).
 -- ⚠️ ORDEN DE DESPLIEGUE: da igual. El código nuevo TOLERA que la columna falte (42703 al leerla,
 -- PGRST204 al escribirla): sin ella el Diagnóstico de una landing nuestra funciona como hasta hoy
 -- (los comentarios se guardan y el puntaje se ve sólo en el momento del análisis) y lo dice en el log.
