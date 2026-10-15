@@ -205,8 +205,9 @@ test('⚠️ el lienzo: el derecho panea y nunca selecciona, el izquierdo hace e
   assert.match(soltar, /if \(g\.sobre\) \{ onConectar\?\.\(g\.desde, g\.fila, g\.sobre\); return; \}/);
   // Soltada en el vacío: el menú de tarjeta nueva, que nace donde se soltó (general 14).
   assert.match(soltar, /onAgregarTras\(n\.id, v, puerto, punto, true\)/);
-  // Y se atenúa todo menos el origen y la de abajo del cursor.
-  assert.match(LIENZO, /arrastreFlecha && n\.id !== arrastreFlecha\.desde && n\.id !== sobreFlecha/);
+  // Y se atenúa todo menos el origen y la de abajo del cursor (15/10/2026: salvo en «Conectar a una tarjeta», donde las
+  // tarjetas se tienen que ver tocables; tests/lienzo-conectar-a.test.ts).
+  assert.match(LIENZO, /arrastreFlecha && !eligiendo && n\.id !== arrastreFlecha\.desde && n\.id !== sobreFlecha/);
 });
 
 test('⚠️ FlujoLienzo edita por lib/flujo-edicion.ts (todo por `onPasos`), y «Acomodar» va al lado del deshacer', () => {

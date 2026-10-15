@@ -136,6 +136,15 @@ const ATENUADO = 0.28;
 const DESVIO_MEDIO = 22;
 /** El círculo de una salida: su diámetro, y cuánto asoma la flecha al tocarlo (con el menú en la punta). */
 const CIRCULO = 16;
+/**
+ * EL ÁREA QUE RESPONDE AL PUNTERO del círculo, en px de PANTALLA (15/10/2026: Mauricio y Joan no pudieron conectar una
+ * flecha). El dibujo sigue de `CIRCULO`; lo que agranda es el botón transparente de alrededor. Se divide por el zoom (la
+ * capa es un `scale(k)`, como `TOQUE_FLECHA`) y no pasa de la distancia entre dos filas (`ALTO_PUERTO`), para no tapar
+ * la salida de al lado en una condición.
+ */
+const TOQUE_CIRCULO = 28;
+/** «Conectar a una tarjeta» en el menú del círculo: una flecha que entra a una tarjeta. */
+const ICONO_CONECTAR = `data:image/svg+xml;utf8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><g fill="none" stroke="#4C5363" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="2.2"/><path d="M7.5 12h7"/><path d="m12 8.5 3.5 3.5-3.5 3.5"/><rect x="16.5" y="6" width="5" height="12" rx="1.5"/></g></svg>')}`;
 /** Lo que cuelga el tacho chico de la esquina de una fila (`top/right: -9`): el aire que le deja el editor. */
 const AIRE_ESQUINA = 9;
 const ASOMA_FLECHA = 118;
@@ -445,6 +454,16 @@ export function Lienzo({
    */
   const [arrastreFlecha, setArrastreFlecha] = useState<{ desde: string; indice?: number } | null>(null);
   const [sobreFlecha, setSobreFlecha] = useState<string | null>(null);
+  /**
+   * «CONECTAR A UNA TARJETA» (15/10/2026: Mauricio y Joan no pudieron conectar una flecha, dos de dos). El arrastre del
+   * círculo ya copiaba a ManyChat, pero un CLIC sólo ofrecía tarjetas NUEVAS: quien tocaba el círculo no tenía cómo decir
+   * «a ésa». Es lo de la ayuda de ManyChat («clic en el punto de conexión y elegí otro paso»): elegida esta opción, el
+   * lienzo espera el clic en una tarjeta y la conecta. Dos clics, sin puntería: anda igual en el teléfono. Esc, o un
+   * clic fuera de una tarjeta, cancela. Mientras dura, la flecha sigue al puntero como en el arrastre.
+   * ⚠️ Lo de Make de arrastrar la TARJETA entera hasta otra para conectarlas NO va: arrastrar una tarjeta es moverla para
+   * ordenar el lienzo, y conectarla sin querer es peor que no poder.
+   */
+  const [eligiendo, setEligiendo] = useState<{ desde: string; fila: string; sx: number; sy: number } | null>(null);
   const flechaTemp = useRef<SVGPathElement | null>(null);
   /** La `d` con que nace la flecha arrastrada (después la mueve `moverCirculo` sobre el DOM). */
   const dTemp = useRef('');
@@ -636,12 +655,62 @@ export function Lienzo({
     // tenía su flecha (la nueva corre en paralelo, debajo).
     const fin = { x: g.sx + ASOMA_FLECHA, y: g.sy + (g.vacio ? 0 : 56) };
     const elegir = (v: string) => { setFantasma(null); onAgregarTras(n.id, v, puerto, fin); };
+    // «Conectar a una tarjeta», primero y en su grupo: lo que faltaba para conectar sin arrastrar (ver `eligiendo`).
+    const conectarA: ItemMenuLienzo[] = onConectar && grafo.nodos.some((x) => x.id !== n.id)
+      ? [{ id: '__conectar', label: 'Conectar a una tarjeta', grupo: -1, icono: <IconoOpcion icono={ICONO_CONECTAR} />,
+          onElegir: () => { setFantasma(null); empezarAElegir(n.id, g.fila, g.sx, g.sy); } }]
+      : [];
     // Una sola opción es una pregunta ya contestada (como `MasDeSalida`): se agrega directo.
-    if (opciones.length === 1) { elegir(opciones[0].value); return; }
+    if (opciones.length === 1 && !conectarA.length) { elegir(opciones[0].value); return; }
     const pant = aPantalla(fin.x, fin.y);
     setMenu(null);
-    setFantasma({ desde: n.id, puerto, x1: g.sx, y1: g.sy, x2: fin.x, y2: fin.y, menuX: pant.x + 6, menuY: pant.y - 14, items: comoItems(opciones, elegir) });
+    setFantasma({ desde: n.id, puerto, x1: g.sx, y1: g.sy, x2: fin.x, y2: fin.y, menuX: pant.x + 6, menuY: pant.y - 14, items: [...conectarA, ...comoItems(opciones, elegir)] });
   }
+
+  /** Arranca «Conectar a una tarjeta»: la flecha sale del círculo y sigue al puntero hasta el clic. */
+  function empezarAElegir(desde: string, fila: string, sx: number, sy: number) {
+    dTemp.current = curvaPuntos(sx, sy, sx + ASOMA_FLECHA, sy);
+    setSobreFlecha(null);
+    setArrastreFlecha({ desde });
+    setEligiendo({ desde, fila, sx, sy });
+  }
+  useEffect(() => {
+    if (!eligiendo) return;
+    const { desde, fila, sx, sy } = eligiendo;
+    const terminar = () => { setEligiendo(null); setArrastreFlecha(null); setSobreFlecha(null); };
+    const mover = (e: PointerEvent) => {
+      const sobre = tarjetaBajo(e.clientX, e.clientY, desde);
+      setSobreFlecha(sobre);
+      const destino = sobre ? grafo.nodos.find((x) => x.id === sobre) : null;
+      const fin = destino ? puntoDeEntrada(destino) : aGrafo(e.clientX, e.clientY);
+      dTemp.current = curvaPuntos(sx, sy, fin.x, fin.y);
+      flechaTemp.current?.setAttribute('d', dTemp.current);
+    };
+    // En CAPTURA, antes que la tarjeta: un clic en ella no la selecciona ni la arrastra, la conecta.
+    const tocar = (e: PointerEvent) => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const sobre = tarjetaBajo(e.clientX, e.clientY, desde);
+      terminar();
+      // El `click` que sigue a este toque abriría el editor de la tarjeta de destino: se traga UNO, y sólo un rato.
+      const tragar = (ev: MouseEvent) => { ev.stopPropagation(); ev.preventDefault(); };
+      window.addEventListener('click', tragar, { capture: true, once: true });
+      setTimeout(() => window.removeEventListener('click', tragar, true), 500);
+      if (sobre) onConectar?.(desde, fila, sobre);
+    };
+    const tecla = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); terminar(); } };
+    window.addEventListener('pointermove', mover);
+    window.addEventListener('pointerdown', tocar, true);
+    window.addEventListener('keydown', tecla);
+    return () => {
+      window.removeEventListener('pointermove', mover);
+      window.removeEventListener('pointerdown', tocar, true);
+      window.removeEventListener('keydown', tecla);
+    };
+    // El modo dura un gesto: lo que cambia adentro (el grafo, `onConectar`) se lee al soltar.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eligiendo]);
 
   /*
    * (Acá vivía `quitarDeFila`, la papelera pegada al círculo de cada salida. Desde el 10/10/2026 la
@@ -1397,7 +1466,7 @@ export function Lienzo({
               // lo opaco»). Revelando, manda el revelado.
               style={{
                 ...estiloRevelado(n.id),
-                ...(arrastreFlecha && n.id !== arrastreFlecha.desde && n.id !== sobreFlecha
+                ...(arrastreFlecha && !eligiendo && n.id !== arrastreFlecha.desde && n.id !== sobreFlecha
                   ? { opacity: ATENUADO, transition: 'opacity .12s ease' }
                   : arrastreFlecha ? { transition: 'opacity .12s ease' }
                   // Lo elegido con el lazo, y MIENTRAS se arrastra el lazo, lo que toca (general 2).
@@ -1487,24 +1556,31 @@ export function Lienzo({
                 // una salida llena que no admite más, una flecha nueva no tiene a dónde ir.
                 const arrastrable = Boolean(onConectar) && conMas;
                 const titulo = p.rotulo ? `«${p.rotulo}»` : 'esta salida';
+                // El área de toque (`TOQUE_CIRCULO`), en px del lienzo: el centro sigue en el borde de la tarjeta.
+                const toque = Math.min(ALTO_PUERTO - 2, Math.max(CIRCULO, (TOQUE_CIRCULO * 100) / zoomTxt));
                 return (
                   <span key={`pt-${n.id}-${p.id}`} data-no-pan data-salida={`${n.id}:${p.id}`}
-                    style={{ position: 'absolute', left: n.x + n.ancho - CIRCULO / 2, top: y, transform: 'translateY(-50%)', display: 'inline-flex', alignItems: 'center', gap: 2, lineHeight: 0 }}>
+                    style={{ position: 'absolute', left: n.x + n.ancho - toque / 2, top: y, transform: 'translateY(-50%)', display: 'inline-flex', alignItems: 'center', gap: 2, lineHeight: 0 }}>
                     <button type="button" data-mas-puerto={`${n.id}:${p.id}`} disabled={agregarOcupado && !arrastrable}
                       aria-label={conMas ? `Agregar en ${titulo}` : `Salida ${titulo}`}
-                      title={conMas ? (arrastrable ? 'Clic: agregar · Arrastrar: conectar' : 'Agregar') : undefined}
+                      title={conMas ? (arrastrable ? 'Clic: agregar o conectar · Arrastrar: conectar' : 'Agregar') : undefined}
                       onPointerDown={(e) => { if (!conMas && !arrastrable) return; bajarCirculo(e, n, p, conMas && !agregarOcupado ? puertoAgregar : null); }}
                       onPointerMove={moverCirculo}
                       onPointerUp={(e) => soltarCirculo(e)}
                       onPointerCancel={(e) => soltarCirculo(e, true)}
                       style={{
-                        width: CIRCULO, height: CIRCULO, padding: 0, borderRadius: 999, boxSizing: 'border-box', flex: 'none',
+                        width: toque, height: toque, padding: 0, border: 'none', background: 'transparent', flex: 'none',
+                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                        cursor: conMas || arrastrable ? 'pointer' : 'default', touchAction: 'none',
+                      }}>
+                      <span data-circulo aria-hidden style={{
+                        width: CIRCULO, height: CIRCULO, borderRadius: 999, boxSizing: 'border-box', flex: 'none',
                         border: `1.5px solid ${color}`, background: p.vacio ? 'var(--surface)' : color,
                         color: p.vacio ? color : 'var(--surface)', fontSize: 11, fontWeight: 700, lineHeight: 1, fontFamily: SANS,
                         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                        cursor: conMas || arrastrable ? 'pointer' : 'default', touchAction: 'none',
-                        boxShadow: '0 1px 3px rgba(0,0,0,.12)',
-                      }}>{conMas ? '＋' : null}</button>
+                        boxShadow: '0 1px 3px rgba(0,0,0,.12)', pointerEvents: 'none',
+                      }}>{conMas ? '＋' : null}</span>
+                    </button>
                     {/* «TERMINA» (14/10/2026, el «Stop» de Martín: «no se si con las tarjetas que ya tenemos se pueda
                         configurar ese stop»): una fila de una condición SIN flecha termina ese camino (`resolverControl`
                         → `fin`), y no lo decía. Sólo en las filas con rótulo: al final de un mensaje se lee solo. */}
@@ -1518,6 +1594,19 @@ export function Lienzo({
           ))}
         </div>
 
+        {/* «Conectar a una tarjeta»: el aviso del modo, en la caja (no escala con el zoom). */}
+        {eligiendo && (
+          <div data-eligiendo-destino role="status" style={{
+            position: 'absolute', top: 10, left: '50%', transform: 'translateX(-50%)', zIndex: Z_ACCION_LIENZO,
+            display: 'inline-flex', alignItems: 'center', gap: 10, padding: '7px 8px 7px 14px', borderRadius: 999,
+            background: 'var(--surface)', border: '1px solid var(--primary)', boxShadow: '0 4px 14px rgba(0,0,0,.14)',
+            fontFamily: SANS, fontSize: 12.5, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap',
+          }}>
+            Toca la tarjeta de destino
+            {/* El clic acá también lo toma el modo (sin tarjeta abajo: cancela). El botón es lo que se ve. */}
+            <button type="button" style={{ border: '1px solid var(--border)', background: 'var(--surface-2)', borderRadius: 999, padding: '3px 10px', fontFamily: SANS, fontSize: 12, fontWeight: 600, color: 'var(--dim)', cursor: 'pointer' }}>Cancelar</button>
+          </div>
+        )}
         {/* EL RECTÁNGULO DEL LAZO: en coordenadas de la caja, afuera de la capa (no escala con el zoom). */}
         {onVarios && (
           <div ref={lazoRef} aria-hidden data-lazo style={{
