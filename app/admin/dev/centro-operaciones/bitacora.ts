@@ -260,4 +260,18 @@ export const BITACORA: Hito[] = [
       'app/admin/dev/_registro/tipos.ts — el campo `sesion` de un hito',
     ],
   },
+  {
+    fecha: '15 oct', hora: '16:41', chat: CH, sesion: SESION_CH, cuenta: 'claude1', actor: 'claude', tipo: 'implementacion',
+    titulo: 'El Centro abre en sus chats, y Trabajos dejó de ser una pestaña',
+    puntos: [
+      'La primera pestaña es Chats: cada chat con su estado (trabajando, abierto, cerrado) y adentro lo que se le pidió y lo que hizo.',
+      'Pedidos pasó a llamarse Avance; Pushes y Áreas siguen.',
+      'Mandar un trabajo firmado, los carteros y la clave quedaron en «Cartero y trabajos», un botón del encabezado.',
+      'Todavía sin la cáscara de Grok: la cuenta de Martín no tiene conversaciones para copiar.',
+    ],
+    archivos: [
+      'app/admin/operaciones/ChatsCentro.tsx — la lista de chats y su conversación',
+      'app/m/operaciones/ChatsMovil.tsx — lo mismo en el teléfono',
+    ],
+  },
 ];

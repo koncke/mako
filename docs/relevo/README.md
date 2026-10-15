@@ -21,6 +21,7 @@ El flujo, entonces: Martín abre un chat con el título de siempre y pega **una 
 | **Estrategia 2 CUENTAS** (el orquestador) | `Leé docs/relevo/estrategia-2-cuentas.md y decime cómo seguimos.` |
 | Tareas de llamada con Mauricio | `Leé docs/relevo/tareas-llamada-mauricio.md y seguimos desde ahí.` |
 | MaKo Mobile | `Leé docs/relevo/mako-mobile.md y seguimos desde ahí.` |
+| Centro de Operaciones | `Leé docs/relevo/centro-operaciones.md y seguimos desde ahí.` |
 | CRM | `Leé docs/relevo/crm.md y seguimos desde ahí.` |
 | Chatbot | `Leé docs/relevo/chatbot.md y seguimos desde ahí.` |
 | Customer Success | `Leé docs/relevo/customer-success.md y seguimos desde ahí.` |

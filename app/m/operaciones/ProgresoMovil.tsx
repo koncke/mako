@@ -1,7 +1,7 @@
 'use client';
 
 // =============================================================================
-// El Centro en el teléfono: Pedidos · Pushes · Áreas · Trabajos (15/10/2026)
+// El Centro en el teléfono: Chats · Avance · Pushes · Áreas (15/10/2026); los trabajos, en una hoja
 // =============================================================================
 // Las mismas pestañas que la computadora (app/admin/operaciones/CentroPestanas.tsx), destiladas: cada
 // fila lleva tres cosas (título, una línea y su estado) y lo demás va en una hoja, como la lista de
@@ -20,6 +20,8 @@ import {
 } from '@/lib/progreso-reglas';
 import type { LecturaPushes } from '@/lib/progreso';
 import { CentroMovil, type CarteroM, type PedidoM } from './CentroMovil';
+import { ChatsM } from './ChatsMovil';
+import type { ChatCentro, TrabajoP } from '@/lib/centro-chats';
 
 const TONO_PEDIDO: Record<EstadoPedidoP, TonoPildora> = { pendiente: 'warn', en_curso: 'info', hecho: 'good' };
 const TONO_PUSH: Record<EstadoPush, TonoPildora> = { listo: 'good', error: 'bad', construyendo: 'warn', en_cola: 'neutro', cancelado: 'neutro' };
@@ -182,9 +184,9 @@ function PushesM({ lectura, pedidos, ahora }: { lectura: LecturaPushes; pedidos:
   );
 }
 
-const ETIQUETA: Record<PestanaCentro, string> = { pedidos: 'Pedidos', pushes: 'Pushes', areas: 'Áreas', trabajos: 'Trabajos' };
+const ETIQUETA: Record<PestanaCentro, string> = { chats: 'Chats', pedidos: 'Avance', pushes: 'Pushes', areas: 'Áreas' };
 
-export function CentroMovilPestanas({ inicial, frentes, pedidos, pushes, todos, ahora, cola, carteros, hayToken }: {
+export function CentroMovilPestanas({ inicial, frentes, pedidos, pushes, todos, ahora, cola, carteros, hayToken, chats, cuentas, trabajos }: {
   inicial: PestanaCentro;
   frentes: Frente[];
   pedidos: PedidoP[];
@@ -195,13 +197,17 @@ export function CentroMovilPestanas({ inicial, frentes, pedidos, pushes, todos, 
   cola: PedidoM[] | null;
   carteros: CarteroM[] | null;
   hayToken: boolean;
+  chats: ChatCentro[];
+  cuentas: string[];
+  trabajos: TrabajoP[];
 }) {
   const [tab, setTab] = useState<PestanaCentro>(inicial);
+  const [cartero, setCartero] = useState(false);
   const router = useRouter();
   const abiertos = pedidos.filter((p) => p.estado !== 'hecho').length;
   const cambiar = (t: PestanaCentro) => {
     setTab(t);
-    router.replace(t === 'pedidos' ? '/m/operaciones' : `/m/operaciones?tab=${t}`, { scroll: false });
+    router.replace(t === PESTANAS_CENTRO[0] ? '/m/operaciones' : `/m/operaciones?tab=${t}`, { scroll: false });
   };
   return (
     <>
@@ -213,12 +219,22 @@ export function CentroMovilPestanas({ inicial, frentes, pedidos, pushes, todos, 
           opciones={PESTANAS_CENTRO.map((id) => ({ id, label: ETIQUETA[id], n: id === 'pedidos' && abiertos ? abiertos : undefined }))}
         />
       </div>
+      {tab === 'chats' && (
+        <>
+          <ChatsM chats={chats} cuentas={cuentas} pedidos={pedidos} trabajos={trabajos} ahora={ahora} />
+          <ListaM etiqueta="Cartero">
+            <FilaM titulo="Cartero y trabajos" segunda="Los trabajos firmados y los carteros" onClick={() => setCartero(true)} />
+          </ListaM>
+        </>
+      )}
       {tab === 'pedidos' && <PedidosM pedidos={pedidos} pushes={pushes} todos={todos} ahora={ahora} />}
       {tab === 'pushes' && <PushesM lectura={pushes} pedidos={pedidos} ahora={ahora} />}
       {tab === 'areas' && <EnCursoM frentes={frentes} ahora={ahora} />}
-      {tab === 'trabajos' && (cola && carteros
-        ? <CentroMovil pedidos={cola} carteros={carteros} hayToken={hayToken} ahora={ahora} />
-        : <ErrorM frase="No pude leer la cola de trabajos." />)}
+      <SheetM abierto={cartero} onCerrar={() => setCartero(false)} titulo="Cartero y trabajos">
+        {cola && carteros
+          ? <CentroMovil pedidos={cola} carteros={carteros} hayToken={hayToken} ahora={ahora} />
+          : <ErrorM frase="No pude leer la cola de trabajos." />}
+      </SheetM>
     </>
   );
 }

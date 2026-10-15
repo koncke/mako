@@ -6,10 +6,11 @@ import { carteroVivo, puedeOperar } from '@/lib/operaciones-reglas';
 import { leerCarteros, listarPedidos } from '@/lib/operaciones';
 import { areasDeProgreso, leerPushes } from '@/lib/progreso';
 import { PESTANAS_CENTRO, frentesEnCurso, pedidosRecientes, recortarPedido, type PestanaCentro } from '@/lib/progreso-reglas';
+import { chatsDelCentro, cuentasConCartero } from '@/lib/centro-chats';
 import { CentroPestanas } from './CentroPestanas';
 
 // =============================================================================
-// /admin/operaciones — el Centro: Pedidos · Pushes · Áreas · Trabajos
+// /admin/operaciones — el Centro: Chats · Avance · Pushes · Áreas (Trabajos, en «Cartero y trabajos»)
 // =============================================================================
 // Las tres primeras son Progreso (lib/progreso.ts): salen de las bitácoras del build y de Vercel, así
 // que tienen datos sin el cartero ni su token. «Trabajos» es la cola firmada que despacha el cartero.
@@ -34,12 +35,20 @@ export default async function OperacionesPage({ searchParams }: { searchParams: 
     leerPushes(),
   ]);
   const verTodos = todos === '1';
+  const pedidos = pedidosRecientes(areas, ahora, verTodos ? 3650 : 14).map(recortarPedido);
+  const lista = carteros?.carteros ?? [];
+  const chats = chatsDelCentro({
+    carteros: lista, areas, pedidos, ahora,
+    trabajos: (cola ?? []).map((p) => ({ id: p.id, destino: p.destino, destino_titulo: p.destino_titulo, destino_cuenta: p.destino_cuenta, created_at: p.created_at })),
+  });
   return (
     <Pagina>
       <CentroPestanas
         inicial={inicial}
         frentes={frentesEnCurso(areas, ahora)}
-        pedidos={pedidosRecientes(areas, ahora, verTodos ? 3650 : 14).map(recortarPedido)}
+        pedidos={pedidos}
+        chats={chats}
+        cuentas={cuentasConCartero(lista)}
         pushes={pushes}
         todos={verTodos}
         hayCartero={!!carteros?.carteros.some((k) => carteroVivo(k, ahora))}
