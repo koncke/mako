@@ -245,9 +245,34 @@ commits llegan iguales (el merge no choca).
 resaltados) estaban commiteadas; la Pantalla no había escrito nada (0 ediciones), y Verificar/Corregir no corrieron.
 `landing-t6` ya tiene origin/main mergeado (`ed681504d`, sin conflictos).
 
-**Corriendo ahora: workflow `wf_2247d576-3c7`** (journal en
-`~/.claude/projects/C--Users-marti-OneDrive-Escritorio-dashboard-marketing-main/4eb065fe-fc85-48d6-8d4f-36ed902824c9/subagents/workflows/wf_2247d576-3c7/`;
-los contratos de las Piezas en `C:/dev/landing-t6-piezas.json`; typecheck acotado de la rama: `node C:/dev/tsc-landing.mjs`).
-Hace: la Pantalla (pedidos 2-6) + un triage de TODO el «sin hacer» del área → carril pantalla: «Aplicar» del Diagnóstico
-(decisión c) · carril motor: copiar el estilo al replicar (decisión d) y los paquetes del backlog → verificación (suite,
-tipos, seguridad, completitud) → corrección. NO se pushea a medias.
+**Actualización (15/10 ~01:00 AR, cuenta claude1): el rojo entró a main con el push integrado de «Estrategia 3 cuentas»
+(`8be4a7da4`), y `landing-rojo` se borró. La TANDA 6 ESTÁ EN PRODUCCIÓN:** push `3900567a8..bb0da02ae` (00:37), deploy
+`mako-nrgybiei0` Ready, migraciones 0281 y 0282 aplicadas ANTES del deploy y verificadas (columna jsonb; la función de
+la 0282 sólo la ejecuta service_role). Comprobado en producción: `hola-mako.site/l//evil.com` termina en el 404 del
+mismo host, el POST de pago sin Origin da 403 y la ventana de lectura sin firma da 401.
+
+Qué entró (los pedidos 1-6 de Martín + las decisiones c y d + el backlog sin decisión): leer en el navegador (Pixel o
+ventana emergente, con el aviso con flecha), el extractor que lee div/span y los acordeones, Crear con IA en la tab
+(Pegar texto · Generar · Importar · Analizar · Replicar en 3 formatos copiando colores, fuentes e imágenes), el «+»
+sólo adjunta, el link pegado en azul, las plantillas en tarjetas, los [ ] resaltados, «Aplicar» con Deshacer, el
+Diagnóstico de todas las páginas con su puntaje, el pago en el dominio propio con su rastro, el PDF horizontal, y los
+dos agujeros de seguridad de la ventana cerrados con una firma del server. Lo aprendido y lo que queda, con archivo y
+quién decide: `docs/hallazgos-editor-landing.md` → «Tanda 6». Bitácora: `app/admin/dev/landing-generator/bitacora.ts`.
+
+## Lo que sigue (15/10)
+
+1. **Las 7 decisiones que el orquestador tomó con criterio** (15/10, ver «Tanda 6 → Lo que quedó sin hacer»): construir
+   (1) `allow-popups-to-escape-sandbox` en el HTML personalizado (`html-libre.ts`, `SANDBOX_PUBLICO`), (5) el www
+   automático al conectar un dominio raíz, redirigiendo (`dominios*.ts`), y (11) «Aplicar» de una landing de afuera deja
+   el original RESUELTO (`PanelDiagnostico.tsx`, `aplicarAfuera`). (8) checkout de Stripe con dominio propio: MEDIR en
+   Chrome y Safari antes de decidir. Las otras tres (estáticos, HSTS, despublicar reversible) quedan como están.
+2. **«Todos los botones a la API de MaKo»** (Martín, 14/10, textual: «Ambos, tienen que pasarle absolutamente todos los
+   botones. Todas las funciones a la API de MaKo.»): reabre lo que la tanda 4 dejó fuera A PROPÓSITO (generar con IA,
+   editar el contenido). El inventario (cuántos botones, cuántos declarados) lo corre el workflow `wf_b629deb0-0b1`,
+   junto con el relevamiento de Lottie. Más `esPedidoDeLanding` (lib/mako-intencion.ts) y el `maxDuration` de
+   `/api/mako-doer` para los 240 s de replicar por chat.
+3. **El parpadeo del hero**: arreglado con la opción A en la rama `landing-parpadeo` (worktree `C:/dev/wt-landing-parpadeo`,
+   medido: 6/6 sin parpadeo, LCP 248-588 ms con «Animaciones» prendido). Espera la respuesta de Martín
+   (`landing-anim-parpadeo` en la Ticketera, bloqueante). Si A → merge a landing-t6 y push; si B → rehacer.
+4. **Animaciones** (después del 3, y con las 7 decisiones de la Ticketera): relevamiento en
+   `docs/hallazgos-editor-landing.md` → «Animaciones» (dos secciones), etapas 0-9.
