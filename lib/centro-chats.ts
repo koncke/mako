@@ -178,6 +178,25 @@ export function historialDelChat(chat: ChatCentro, pedidos: ReadonlyMap<string, 
   return out.sort((x, y) => x.instante - y.instante);
 }
 
+/**
+ * El grupo de un chat en la lista, como la barra de conversaciones de ChatGPT o Claude: arriba los que están
+ * trabajando AHORA (sólo con el dato fresco: una foto vieja no es «ahora»), después por su última actividad.
+ */
+export type GrupoChat = 'ahora' | 'hoy' | 'ayer' | 'semana' | 'antes';
+export const GRUPOS_CHAT: readonly GrupoChat[] = ['ahora', 'hoy', 'ayer', 'semana', 'antes'];
+export const ROTULO_GRUPO_CHAT: Record<GrupoChat, string> = {
+  ahora: 'Trabajando ahora', hoy: 'Hoy', ayer: 'Ayer', semana: 'Esta semana', antes: 'Antes',
+};
+const DESFASE_AR = 3 * 3_600_000;
+
+export function grupoDeChat(c: Pick<ChatCentro, 'estado' | 'viejo' | 'actividad'>, ahora: number): GrupoChat {
+  if (c.estado === 'trabajando' && !c.viejo) return 'ahora';
+  if (c.actividad == null) return 'antes';
+  const dia = (t: number) => Math.floor((t - DESFASE_AR) / 86_400_000);
+  const d = dia(ahora) - dia(c.actividad);
+  return d <= 0 ? 'hoy' : d === 1 ? 'ayer' : d < 7 ? 'semana' : 'antes';
+}
+
 /** Qué cuentas tienen cartero (para decir en la pantalla de dónde sale la lista). */
 export function cuentasConCartero(carteros: readonly CarteroP[]): string[] {
   return [...new Set(carteros.map((k) => k.cuenta))].sort();

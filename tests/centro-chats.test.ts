@@ -87,3 +87,17 @@ test('un trabajo firmado va a su sesión aunque el cartero no la vea, y lo quiet
   });
   assert.deepEqual(cs.map((c) => [c.titulo, c.trabajos]), [['Plan - Perro Guardián', ['t1']]]);
 });
+
+test('la lista se agrupa como una app de chat: trabajando ahora arriba (sólo con dato fresco), después por día', async () => {
+  // Probado rompiéndolo: tomando «trabajando» aunque el dato sea viejo, falla éste.
+  const { grupoDeChat } = await import('../lib/centro-chats');
+  const t = (iso: string) => Date.parse(iso);
+  const g = (estado: 'trabajando' | 'abierto', viejo: boolean, actividad: string | null) =>
+    grupoDeChat({ estado, viejo, actividad: actividad ? t(actividad) : null }, AHORA);
+  assert.equal(g('trabajando', false, '2026-10-15T15:00:00Z'), 'ahora');
+  assert.equal(g('trabajando', true, '2026-10-15T15:00:00Z'), 'hoy', 'una foto vieja no es «ahora»');
+  assert.equal(g('abierto', false, '2026-10-14T20:00:00Z'), 'ayer');
+  assert.equal(g('abierto', false, '2026-10-10T20:00:00Z'), 'semana');
+  assert.equal(g('abierto', false, '2026-09-30T20:00:00Z'), 'antes');
+  assert.equal(g('abierto', false, null), 'antes');
+});
