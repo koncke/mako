@@ -259,3 +259,40 @@ test('las dos páginas del mazo pasan el deshacer; la lista no lo necesita', () 
     assert.match(src, /deshacer=\{deshacerDecision\}/, r);
   }
 });
+
+// ---------------------------------------------------------------------------
+// La PUERTA: la ticketera tiene que estar en la barra de super admin.
+// ---------------------------------------------------------------------------
+// Reportado por Martín el 15/10/2026: «tampoco tengo la ticketera en superadmin en
+// desktop, en la sidebar... Eso esta mal». Y era exacto: `lib/movil-rutas.ts` ya
+// mapeaba /tickets/decisiones al teléfono, así que desde el celular se llegaba, y en
+// la computadora NO había ningún ítem — se entraba sólo escribiendo la URL. El de
+// «Reportar problema» del menú de la foto es otra cosa (/tickets a secas, comingSoon).
+//
+// Se mira el FUENTE y no el objeto importado a propósito: lo que falla acá es que el
+// ítem no exista, y un import que lo busca por key contestaría `undefined` igual.
+//
+// Probado rompiéndolo TRES veces, con la base en 17 pases y 0 fallos:
+//   · sin la línea del ítem en nav.ts      → 16 pases, 1 fallo
+//   · con el href apuntando a '/tickets'   → 16 pases, 1 fallo
+//   · con la key como 'dev-ticketera'      → 16 pases, 1 fallo
+test('la ticketera tiene su ítem en la barra de ADMIN, apuntando al mazo', () => {
+  const nav = leer('app/_components/nav.ts');
+  const admin = nav.slice(nav.indexOf('export const ADMIN_FAMILIAS'), nav.indexOf('export const ADMIN_NAV'));
+  assert.ok(admin.length > 500, `el recorte de ADMIN_FAMILIAS quedó en ${admin.length}: está mirando otra cosa`);
+
+  const fila = admin.split('\n').find((l) => l.includes("href: '/tickets/decisiones'"));
+  assert.ok(fila, 'la ticketera no tiene ítem en ADMIN_FAMILIAS: en la computadora no hay puerta');
+  assert.match(fila!, /match:\s*starts\('\/tickets\/decisiones'\)/, 'el ítem no se marca como activo al estar en la ticketera');
+
+  // La key no puede arrancar con 'dev-': ese prefijo lo reserva tests/dev-areas.test.ts
+  // para los registros de /admin/dev, y la ticketera no es uno.
+  const key = fila!.match(/key: '([^']+)'/)?.[1];
+  assert.ok(key && !key.startsWith('dev-'), `la key ${key} usa el prefijo reservado a los registros de dev`);
+
+  // Y el ítem viejo de «Reportar problema» sigue siendo otra cosa, en otro lado.
+  assert.ok(
+    nav.includes("href: '/tickets'") && !admin.includes("href: '/tickets'"),
+    'el ítem de Reportar problema no puede vivir en la familia ADMIN: es el soporte de cualquiera',
+  );
+});
