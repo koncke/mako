@@ -441,9 +441,10 @@ test('por WhatsApp: las preguntas leen (y no proponen) y los pedidos que el clas
   assert.ok(crear.includes('crear_landing_desde_diseno') && crear.includes('listar_disenos_landing'), crear.join(', '));
 });
 
-test('por WhatsApp: «publicá / despublicá / creame una landing» llegan con su herramienta', {
-  todo: 'BLOQUEANTE de lib/mako-intencion.ts (esPedidoDeLanding): hoy caen en `capturar` dudosa, sin herramientas',
-}, () => {
+// Era un `todo` (BLOQUEANTE de la tanda 4): hoy corre. `esPedidoDeLanding` (lib/mako-intencion.ts, tanda 7); la
+// matriz entera de frases (con y sin voseo, con y sin tilde, replicar y analizar) está en
+// tests/mako-intencion-landing.test.ts. Rotura (15/10/2026): sin la regla 5-bis del clasificador → este cae.
+test('por WhatsApp: «publicá / despublicá / creame una landing» llegan con su herramienta', () => {
   const casos: Array<[string, string]> = [
     ['publicá la landing de lista de espera', 'publicar_landing'],
     ['me puedes publicar la landing de webinar?', 'publicar_landing'],

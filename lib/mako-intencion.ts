@@ -124,6 +124,93 @@ export function esPedidoAutomatizacion(n: string): boolean {
   return PEDIDO_AUTOMATIZACION.test(t);
 }
 
+// ── EL PEDIDO SOBRE UNA LANDING DEL WEB GENERATOR (por WhatsApp) ───────────────────────────────────
+// El BLOQUEANTE de la tanda 4 del editor (docs/hallazgos-editor-landing.md, «esPedidoDeLanding»): medido el 14/10/2026
+// con el turno que CORRE, «publicá la landing del webinar», «despublicá…», «sacá de internet…» y «creame una landing de
+// webinar» salían `capturar` dudosa, con 2 herramientas del plan y ninguna de landing. Tanda 7 (15/10/2026), Martín:
+// «tienen que pasarle absolutamente todos los botones. Todas las funciones a la API de MaKo», y el orquestador pidió que
+// por WhatsApp lleguen «publicá/publica la landing…», «despublicá…», «creame/créame una landing…», «replicá esta
+// página…» y «analizá esta landing…». Medido otra vez el 15/10 (tests/mako-intencion-landing.test.ts): 31 de 31 frases
+// de pedido llegaban SIN su herramienta.
+//   · La señal es un VERBO de pedido + el OBJETO (una landing, una página, un sitio, una web, una presentación; para
+//     replicar y analizar, también el link pegado) a ≤3 palabras, sin OTRO objeto en el medio: «armame un anuncio para
+//     la landing» sigue siendo de Ads y «creame una automatización para la landing», de Automations (6-bis).
+//   · El verbo cuenta si es inequívoco: con TILDE (voseo, mirado en el texto CRUDO: «publicá»), con PRONOMBRE pegado
+//     («publícala», «créame», «hazme») o con un modal («me puedes publicar», «necesito que publiques»). La forma suelta
+//     sin tilde («publica la landing») sólo si ARRANCA el mensaje, que es como se da una orden: «mi socio publica la
+//     landing el lunes» es tercera persona (el costo que `esPedidoAutomatizacion` acepta con «crea», acá no).
+//   · No es pedido: una pregunta de cómo se hace (`ARRANCA_PREGUNTANDO`), lo del plan («crea una tarea para publicar…»,
+//     `ES_DEL_PLAN`) ni el infinitivo de una tarea dictada (lo toma antes la regla 4).
+// Lo peor que deja equivocarse es una propuesta de más: publicar va en pantalla y el resto pide el «sí».
+export type PedidoDeLanding = { tipo: 'publicar' | 'despublicar' | 'crear' | 'replicar' | 'analizar' };
+
+/** Lo que pone primero las herramientas de cada pedido en el presupuesto (y la lista para encontrar el id). */
+export const RELEVANCIA_LANDING: Readonly<Record<PedidoDeLanding['tipo'], string>> = {
+  publicar: 'publicar landing creada listar',
+  despublicar: 'despublicar landing creada listar',
+  crear: 'crear landing diseno disenos listar presentacion plantilla',
+  replicar: 'replicar landing pagina afuera copia',
+  analizar: 'analizar diagnosticar landing diagnostico',
+};
+
+/** El voseo con tilde de estos verbos, en el texto CRUDO: se marca con «§» antes de normalizar (la tilde se pierde). */
+const VOSEO_LANDING = /(^|[\s,.;:!¡¿?"'(])(publicá|despublicá|subí|creá|armá|hacé|generá|diseñá|montá|prepará|replicá|copiá|cloná|analizá|revisá|auditá|diagnosticá|evaluá|sacá|quitá|bajá)(?=[\s,.;:!?"')]|$)/gi;
+const PRON_LANDING = '(?:mela|melo|nosla|noslo|la|lo|las|los|me|nos)';
+/** El verbo inequívoco: con la tilde marcada o con el pronombre pegado. */
+const verboFuerte = (raices: string) => `\\b(?:${raices})(?:§|${PRON_LANDING}\\b)`;
+/** La forma suelta: sólo al ARRANQUE, y no seguida de «de» («copia de la landing» es un sustantivo). */
+const verboSuelto = (raices: string) => `^(?:${raices})\\b(?![\\s,]+de\\b)`;
+const verboModal = (verbos: string) => `\\b(?:puedes|podes|podrias|podras|puede|podria|quiero que|queria que|necesito que|quisiera que|te pido que)\\s+(?:me\\s+|nos\\s+|le\\s+)?(?:${verbos})(?:${PRON_LANDING})?\\b`;
+const OBJETO_LANDING = '(?:landings?|landing ?pages?|paginas?|sitios?|webs?|presentacion(?:es)?)\\b';
+const OBJETO_O_LINK = `(?:${OBJETO_LANDING}|https?:\\/\\/)`;
+/** Otro objeto entre el verbo y la landing: el pedido es de esa otra cosa. */
+const OTRO_QUE_LANDING = '(?:anuncios?|campanas?|posts?|reels?|historias?|stor(?:y|ies)|e-?mails?|correos?|mails?|videos?|guion(?:es)?|copys?|automatizacion(?:es)?|flujos?|reunion(?:es)?|llamadas?|tareas?|imagen(?:es)?|creativos?|banners?|logos?|leads?|links?|enlaces?|urls?)\\b';
+const SEP_LANDING = '[\\s,.:;!¡¿?"\'()-]+';
+/** El objeto a ≤3 palabras del verbo, sin otro objeto en el medio. */
+const hastaObjeto = (obj: string) => `(?:${SEP_LANDING}(?!${OTRO_QUE_LANDING})\\S+?){0,3}?${SEP_LANDING}${obj}`;
+const pedidoDe = (alternativas: string[], obj: string) => new RegExp(`(?:${alternativas.join('|')})${hastaObjeto(obj)}`);
+
+const PEDIDO_DESPUBLICAR = pedidoDe([
+  verboFuerte('despublica'), verboSuelto('despublica'), verboModal('despublicar|despubliques|despublique'),
+  `\\b(?:da|dale|dar)${SEP_LANDING}de${SEP_LANDING}baja`,
+], OBJETO_LANDING);
+/** «sacá / sácala / quitá … de internet»: despublicar, si nombra la landing en algún lado. */
+const SACAR_DE_INTERNET = new RegExp(`\\b(?:saca|quita|baja|sacar|quitar|bajar|saques|quites|bajes)(?:§|${PRON_LANDING})?(?:${SEP_LANDING}\\S+?){0,3}?${SEP_LANDING}de${SEP_LANDING}(?:internet|linea|la web)\\b`);
+const NOMBRA_LANDING = new RegExp(`\\b${OBJETO_LANDING}`);
+const PEDIDO_PUBLICAR = pedidoDe([
+  verboFuerte('publica|sube|subi'), verboSuelto('publica|sube'), verboModal('publicar|publiques|publique|subir|subas|suba'),
+], OBJETO_LANDING);
+const PEDIDO_REPLICAR = pedidoDe([
+  verboFuerte('replica|copia|clona'), verboSuelto('replica|copia|clona'), verboModal('replicar|copiar|clonar|repliques|copies|clones'),
+], OBJETO_O_LINK);
+const PEDIDO_ANALIZAR = pedidoDe([
+  verboFuerte('analiza|revisa|audita|diagnostica|evalua'), verboSuelto('analiza|revisa|audita|diagnostica|evalua'),
+  verboModal('analizar|revisar|auditar|diagnosticar|evaluar|analices|revises|audites|diagnostiques|evalues'),
+  `\\b(?:haz|hazme|haznos|haceme|hace§|dame|quiero|necesito|quisiera)${SEP_LANDING}(?:un|una|el|la)${SEP_LANDING}(?:diagnostico|analisis|auditoria|revision)\\b`,
+], OBJETO_O_LINK);
+const PEDIDO_CREAR = pedidoDe([
+  verboFuerte('crea|arma|hace|genera|disena|monta|prepara|haz'), `\\bhaz\\b`,
+  verboSuelto('crea|arma|genera|disena|monta|prepara'),
+  verboModal('crear|armar|hacer|generar|disenar|montar|preparar|crees|armes|hagas|generes|disenes|montes|prepares'),
+], OBJETO_LANDING);
+/** «quiero / necesito una landing…»: el objeto pegado (con «una mano con la landing» no es crear nada). */
+const QUIERO_UNA_LANDING = new RegExp(`\\b(?:quiero|necesito|quisiera|queria)${SEP_LANDING}(?:un|una|otra|otro)${SEP_LANDING}(?:nueva${SEP_LANDING}|nuevo${SEP_LANDING})?${OBJETO_LANDING}`);
+
+/** ¿Le pide a MaKo algo sobre una landing del Web Generator? Recibe el texto CRUDO de la persona. */
+export function esPedidoDeLanding(texto: string): PedidoDeLanding | null {
+  const crudo = (texto || '').trim();
+  if (!crudo || crudo.length > 1500) return null;
+  const n = norm(crudo.replace(VOSEO_LANDING, (_m, antes: string, verbo: string) => `${antes}${norm(verbo)}§`))
+    .replace(PRELUDIO_CRM, '').trim();
+  if (!n || ARRANCA_PREGUNTANDO.test(n) || ES_DEL_PLAN.test(n)) return null;
+  if (PEDIDO_DESPUBLICAR.test(n) || (SACAR_DE_INTERNET.test(n) && NOMBRA_LANDING.test(n))) return { tipo: 'despublicar' };
+  if (PEDIDO_PUBLICAR.test(n)) return { tipo: 'publicar' };
+  if (PEDIDO_REPLICAR.test(n)) return { tipo: 'replicar' };
+  if (PEDIDO_ANALIZAR.test(n)) return { tipo: 'analizar' };
+  if (PEDIDO_CREAR.test(n) || QUIERO_UNA_LANDING.test(n)) return { tipo: 'crear' };
+  return null;
+}
+
 // ── EL PEDIDO SOBRE UN LEAD DEL CRM ─────────────────────────────────────────────
 // EL CASO (08/10/2026, ws15). Joan, por audio, en el grupo de MaKo de una inmobiliaria: «Macu,
 // anotá en el lead que llegó Nicolás lo que dijo Bright… Anotá en el lead Nicolás como una nota
@@ -619,6 +706,7 @@ export function clasificarIntencion(
   const pedidoAgenda = esPedidoAgenda(nPersona) || corrigeAgenda(nPersona, !!ctx.hayPendienteDeAgenda);
   const pedidoLead = esPedidoSobreLead(t);
   const pedidoCobro = esPedidoDeCobro(t);
+  const pedidoLanding = esPedidoDeLanding(sinPrefijoDeLote(t));
 
   // 0) COMPARTIÓ UN CONTACTO. Va antes que todo porque no admite lectura: nadie
   //    comparte una tarjeta de contacto para que quede anotada como una idea.
@@ -638,7 +726,7 @@ export function clasificarIntencion(
   //    y «no, movela al viernes a las 10» arrancan con una palabra de CONFIRMACION, y con
   //    una pendiente abierta se leían como un «no» — el turno llegaba sin las herramientas
   //    de agenda y corregir una propuesta sólo la cancelaba (08/10/2026).
-  if (ctx.hayPendientes && CONFIRMACION.test(t) && t.length <= 60 && !pedidoAgenda && !pedidoLead && !pedidoCobro) {
+  if (ctx.hayPendientes && CONFIRMACION.test(t) && t.length <= 60 && !pedidoAgenda && !pedidoLead && !pedidoCobro && !pedidoLanding) {
     return { intencion: 'confirmar', dudosa: false, porque: 'confirmación con pendiente vigente' };
   }
 
@@ -761,6 +849,15 @@ export function clasificarIntencion(
   //    pero se marca dudosa para que MaKo ofrezca la otra en una línea.
   if (dictado && pedido) {
     return { intencion: 'capturar', dudosa: true, alternativa: 'pensar', porque: 'trae material dictado y también un verbo en imperativo' };
+  }
+
+  // 5-bis) UN PEDIDO SOBRE UNA LANDING del Web Generator: publicarla, despublicarla, crearla, replicar una de afuera o
+  //        analizarla (ver `esPedidoDeLanding`; tanda 7, 15/10/2026). Va DESPUÉS del dictado —«Publicar la landing del
+  //        webinar» es una tarea dictada— y ANTES de los links sueltos (6): «replicá esta página https://…» es un link
+  //        con una orden, y la 6 lo guardaba como material. Y antes de la automatización y de la agenda por lo mismo que
+  //        ellas: «¿me puedes publicar la landing?» termina en «?». Lleva el área: «replicá https://…» no la nombra.
+  if (pedidoLanding) {
+    return { intencion: 'actuar', dudosa: false, porque: `pedido sobre una landing (${pedidoLanding.tipo})`, areas: ['landing'], relevancia: RELEVANCIA_LANDING[pedidoLanding.tipo] };
   }
 
   // 6) Solo links, sin una frase que diga qué hacer con ellos. Mandar un link
