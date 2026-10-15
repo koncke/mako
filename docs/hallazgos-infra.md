@@ -6051,6 +6051,14 @@ contra `origin/main` entran los archivos que otro agregó después y el tsc cont
 **Vive en:** el tsconfig temporal de cada chat (scratchpad) · la memoria `pc-techo-ram-chrome`, que
 enseñaba la receta sin el `include` · *2026-10-14 Plan - Perro Guardián*
 
+⚠️ **Y el acotado sigue los imports HACIA ABAJO, nunca hacia quienes USAN lo que cambiaste** (15/10/2026). El Centro de
+Operaciones sumó `'operaciones'` a `AREAS` (`lib/api-mako/tipos.ts`). El acotado de los archivos de la rama dio verde
+(probado con un error metido), y el pre-push del coordinador rebotó: `lib/mako-intencion.ts` tiene un
+`Record<Area, RegExp>` que exigía la clave nueva, y ningún archivo de la rama lo importa. **Si la rama cambia un TIPO
+compartido (una unión, un `Record<…>`, la firma de una función exportada), el acotado lleva además a todos los que lo
+importan**: `git grep -l "<módulo del tipo>"` y se suman a `files`. Medido: con los 140 archivos que importan
+`api-mako/tipos`, el acotado cazó el TS2741 con 3 GB, y sin la línea arreglada salió con 2.
+
 ## `Mazo.tsx` y `mazo.ts` en la misma carpeta: en Windows el import trae el OTRO archivo (14/10/2026)
 
 **Síntoma:** un test que dibujaba `<MazoDecisiones>` tiró «Element type is invalid: expected a string… but got: undefined». El componente estaba exportado y el nombre bien escrito.

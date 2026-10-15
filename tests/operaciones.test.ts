@@ -251,6 +251,18 @@ test('el Centro está en la barra de admin, y su key no se confunde con un regis
   assert.equal(it.key?.startsWith('dev-'), false);
 });
 
+test('el clasificador trae el área con sus palabras, y nunca con «pedido» suelto', async () => {
+  const { AREA_KEYWORDS } = await import('../lib/mako-intencion');
+  const re = AREA_KEYWORDS.operaciones;
+  for (const si of ['¿cómo van mis pedidos del centro?', '¿pasó el cartero?', 'mostrame el Centro de Operaciones', 'qué hay en la cola de pedidos', 'los pedidos a los chats de Claude']) {
+    assert.match(si, re, si);
+  }
+  // Un pedido de un CLIENTE del negocio no es esto: con «pedido» suelto, cada consulta de ventas traería el área.
+  for (const no of ['quiero ver los pedidos de Juan', 'el pedido llegó tarde', 'pedidos de la semana', 'cómo va el chat con Ana']) {
+    assert.doesNotMatch(no, re, no);
+  }
+});
+
 // ── 5. La migración ─────────────────────────────────────────────────────────────────────────
 test('cada tabla de la 0285 nace con RLS y sin permisos para anon ni authenticated', () => {
   const sql = sinComentarios(leer('supabase/migrations/0285_centro_operaciones.sql').replace(/^--.*$/gm, ''));
