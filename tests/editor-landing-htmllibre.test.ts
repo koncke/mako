@@ -22,7 +22,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Script, createContext, runInContext } from 'node:vm';
 import {
-  ALTO_MAX, ALTO_MIN, CABECERAS_HTML_LIBRE, CSP_HTML_LIBRE, MENSAJE_ALTO, SANDBOX_PUBLICO, SCRIPT_ALTO, TEXTO_PIDE_CONTRASENA,
+  ALTO_MAX, ALTO_MIN, CABECERAS_HTML_LIBRE, CSP_HTML_LIBRE, MENSAJE_ALTO, SANDBOX_EDITOR, SANDBOX_PUBLICO, SCRIPT_ALTO, TEXTO_PIDE_CONTRASENA,
   altoDeMensaje, documentoHtmlLibre, etagHtmlLibre, fuentesHtmlLibre, htmlDeBloque, htmlLibreDeFoto, pideContrasena,
   responderHtmlLibre, urlBloqueHtmlLibre,
 } from '../lib/editor-landing/html-libre';
@@ -55,13 +55,41 @@ test('la URL de un bloque: relativa, con el token del borrador, y null si algo n
 });
 
 test('la política del bloque: sandbox de T6 sin allow-same-origin, todo adentro, y sólo el mismo host lo enmarca', () => {
-  assert.equal(SANDBOX_PUBLICO, 'allow-scripts allow-forms allow-popups');
+  assert.equal(SANDBOX_PUBLICO, 'allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox');
   assert.ok(CSP_HTML_LIBRE.startsWith(`sandbox ${SANDBOX_PUBLICO};`));
   assert.match(CSP_HTML_LIBRE, /default-src \* data: blob: 'unsafe-inline' 'unsafe-eval'/);
   assert.match(CSP_HTML_LIBRE, /frame-ancestors 'self'/);
   assert.doesNotMatch(CSP_HTML_LIBRE, /allow-same-origin|allow-top-navigation/);
   assert.deepEqual(CABECERAS_HTML_LIBRE.map((c) => c.key), ['X-Frame-Options', 'Content-Security-Policy']);
   assert.equal(CABECERAS_HTML_LIBRE[0].value, 'SAMEORIGIN');
+});
+
+// Tanda 7 (15/10/2026): las ventanas que abre el bloque salen SIN el sandbox (`allow-popups-to-escape-sandbox`).
+// Lo decidió el orquestador con criterio, por Martín, sobre el pendiente de la tanda 4 «Los popups del bloque
+// heredan el sandbox»: un checkout ajeno abierto desde el bloque nacía con origen opaco, sin cookies, y podía
+// fallar. Es seguro desde que las landings viven en hola-mako.site (tanda 4): la ventana nunca corre con el
+// origen de la app ni con su cookie. Lo demás del sandbox NO se afloja, y la cabecera de la ruta y el
+// atributo del iframe dicen lo mismo (los dos salen de SANDBOX_PUBLICO).
+// PROBADO ROMPIÉNDOLO (15/10/2026, arnés que restaura de memoria y compara el sha256). Base: 37 / 0.
+//   · SANDBOX_PUBLICO sin allow-popups-to-escape-sandbox            → 34 / 3 (éste, «la política del bloque…» y
+//                                                                    «en la publicada… sandbox de T6»)
+//   · SANDBOX_PUBLICO con allow-same-origin de más                  → 34 / 3 (los mismos tres)
+//   · la CSP con el sandbox viejo escrito a mano (no SANDBOX_PUBLICO) → 35 / 2 (éste y «la política del bloque…»)
+//   · el iframe de la publicada con el sandbox viejo a mano         → 35 / 2 (éste y «en la publicada…»)
+// Restaurado: 37 / 0.
+test('las ventanas del bloque salen sin el sandbox; el iframe sigue sin el mismo origen ni la pestaña', () => {
+  const tokens = SANDBOX_PUBLICO.split(/\s+/);
+  assert.ok(tokens.includes('allow-popups') && tokens.includes('allow-popups-to-escape-sandbox'), SANDBOX_PUBLICO);
+  for (const no of ['allow-same-origin', 'allow-top-navigation', 'allow-top-navigation-by-user-activation', 'allow-modals', 'allow-downloads']) {
+    assert.ok(!tokens.includes(no), `${no} no va en el sandbox del bloque`);
+  }
+  // La cabecera de la ruta (el documento abierto suelto) y el atributo del iframe de la publicada: lo mismo.
+  assert.match(CSP_HTML_LIBRE, /^sandbox allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox;/);
+  const bloque = { id: 'h9pop', html: '<a href="https://pago.ejemplo.com" target="_blank">Pagar</a>', alto: 200 };
+  const h = htmlDeArbol(specHtmlLibre(bloque, { modo: 'publico', srcHtmlLibre: (id) => urlBloqueHtmlLibre(12, id) }));
+  assert.match(h, /<iframe sandbox="allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox" src="\/l\/html\/12\/h9pop"/);
+  // En el editor no se abren ventanas: sólo scripts.
+  assert.equal(SANDBOX_EDITOR, 'allow-scripts');
 });
 
 test('html-libre.ts sólo importa ./doc y nada de node (lo importan render.ts en el navegador y next.config.ts)', () => {
@@ -88,7 +116,7 @@ const BLOQUE = { id: 'h1abc', html: '<b>hola</b><script>x()</script>', alto: 300
 
 test('en la publicada con la landing conocida: iframe con src y el sandbox de T6, SIN srcdoc', () => {
   const h = htmlDeArbol(specHtmlLibre(BLOQUE, { modo: 'publico', srcHtmlLibre: (id) => urlBloqueHtmlLibre(12, id) }));
-  assert.match(h, /<iframe sandbox="allow-scripts allow-forms allow-popups" src="\/l\/html\/12\/h1abc"/);
+  assert.match(h, /<iframe sandbox="allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox" src="\/l\/html\/12\/h1abc"/);
   assert.doesNotMatch(h, /srcdoc/);
   assert.doesNotMatch(h, /allow-same-origin/);
 });

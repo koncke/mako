@@ -43,8 +43,18 @@ export const PREFIJO_HTML_LIBRE = '/l/html';
  * ventanas. SIN `allow-same-origin` (origen opaco: ni cookies ni `localStorage` de hola-mako.com) y
  * SIN `allow-top-navigation` (no puede llevarse la pestaña). Va igual en el atributo del iframe y en
  * la política del documento servido: el documento queda aislado aunque alguien lo abra suelto.
+ *
+ * `allow-popups-to-escape-sandbox` (tanda 7, 15/10/2026; lo decidió el orquestador con criterio, por
+ * Martín, sobre el pendiente «Los popups del bloque heredan el sandbox» de la tanda 4): la ventana que
+ * abre el bloque —el checkout de una pasarela ajena, un formulario de otro servicio— sale SIN el
+ * sandbox. Sin esto la ventana nacía con origen opaco, sin cookies ni `localStorage`, y un checkout
+ * que los necesita fallaba sin decir por qué. Es seguro aflojarlo desde la tanda 4: las landings y su
+ * `/l/html` viven en hola-mako.site (o en el dominio del cliente), así que la ventana nunca corre con
+ * el origen de la app ni con su cookie de sesión. Lo que NO se afloja: el iframe mismo sigue sin
+ * `allow-same-origin` ni `allow-top-navigation` (el bloque no lee nada de la página ni se lleva la
+ * pestaña), y una ventana que abra `/l/html` de nuevo trae otra vez la cabecera `sandbox` de la ruta.
  */
-export const SANDBOX_PUBLICO = 'allow-scripts allow-forms allow-popups';
+export const SANDBOX_PUBLICO = 'allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox';
 /** En el editor, la vista en vivo sólo corre scripts (nada de formularios ni ventanas al editar). */
 export const SANDBOX_EDITOR = 'allow-scripts';
 

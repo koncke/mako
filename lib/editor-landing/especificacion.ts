@@ -999,7 +999,8 @@ export function specEspaciador(raw: unknown): NodoArbol {
  * atributo: un `"></iframe><script>` adentro no puede cerrar el iframe.
  *
  * En la página PUBLICADA (tanda 2, T6), si render.ts conoce la landing (`ctx.srcHtmlLibre`) y el bloque
- * tiene id, sale `iframe[src="/l/html/<docId>/<id>"][sandbox="allow-scripts allow-forms allow-popups"]`
+ * tiene id, sale `iframe[src="/l/html/<docId>/<id>"][sandbox=SANDBOX_PUBLICO]` (html-libre.ts: scripts,
+ * formularios y ventanas que salen sin el sandbox)
  * SIN `srcdoc`: ese documento trae su propia política (html-libre.ts) y su JavaScript corre — el
  * `srcdoc` hereda la política estricta de la página y no corría. `data-alto` queda como alto de
  * partida; el script de la página (pagina-publica.ts) lo ajusta con lo que el bloque mide.
