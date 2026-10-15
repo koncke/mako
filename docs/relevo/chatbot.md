@@ -1,5 +1,37 @@
 # Relevo: Automations (ex /chatbot) y las secuencias
 
+> **LAS DOCE COSAS QUE REPORTÓ MARTÍN (15/10/2026; hasta hoy vivían sólo en un mensaje del coordinador de la cuenta 1
+> al chat de Automations de esa cuenta, 17:23 UTC, que nunca se leyó). Ninguna estaba cerrada al escribirlas.** Las tres
+> de antes (Joan, conectar la flecha, esperar a que abra la oficina) SÍ están en main. El texto de Martín, literal:
+> «En Automatios, cuando agarro el extremo de la flecha, no donde está el +, sino donde esta la punta de la flecha, si la
+> saco se bugea, se queda trabada y no se puede mover más, ni apretando esc. Y también en Automations de SuperAdmin no veo
+> las automatizaciones que armamos para los clientes de MaKo y en general allí deberían haber varias automatizaciones
+> más... Y en SuperAdmin me dice que no tengo conectado WhatsApp y Gmail, cuando si lo tengo... Está el WhatsApp de MaKo y
+> el Gmail de MaKo... Luego si quisiera conectar otros números tengo la opción, pero no entiendo por qué no aparece. Mira
+> como se bugea la vista de "Probar"... Pusiste una cantidad impresionante de chats en la auth de "Un lead agendó
+> llamada", revisa por qué tantos casos... En ninguno de esos casos el LEAD responde para simular el AI Step... La barra
+> donde se escriben los mensajes esta rota, se ve compacta... En general la tab se me muy compacta, si se agregó una
+> sidebar de contactos tenés que procurar que se vea bien en diseño... Cuando ingreso a un contacto debería saltar la
+> animación de la prueba, pero luego si me voy a otro contacto y vuelvo ya no debería... Los nombres de los contactos
+> deberían ser mucho más cortos para que se llegue a ver, tal vez "Caso 1" y tal vez que al principio de la conversación
+> se aclare cuando cae ese caso, donde salen los chips de "⏳ 1 h antes de la reunión"... Elimina lo de "Hay más
+> caminos"... Ten presets de fotos de perfil en lugar de "1,2,3...", hay bancos de imagenes para eso.»
+> Partidas (y el orden del coordinador: los tres bugs primero, 1, 3 y 2; después «Probar» entera, 4 a 12, copiando la
+> anatomía de WhatsApp Web, respond.io o Intercom, escritorio y celular en la misma tanda):
+> 1. Agarrar la PUNTA de la flecha (no el +) la deja trabada, y no se suelta ni con Esc.
+> 2. En SuperAdmin no ve las automatizaciones que armamos para los clientes de MaKo («deberían haber varias más»).
+> 3. En SuperAdmin dice que WhatsApp y Gmail NO están conectados, y sí lo están (los de MaKo).
+> 4. «Probar» se ve rota.
+> 5. Demasiados casos en «Un lead agendó llamada»: entender por qué se generan tantos (el flujo o el generador).
+> 6. En ningún caso el lead responde, así que el AI Step nunca se prueba.
+> 7. La barra de escribir está aplastada.
+> 8. La tab en general está muy compacta desde que tiene la lista de contactos.
+> 9. La animación de la prueba corre la PRIMERA vez que entrás a un contacto; al volver, no.
+> 10. Los contactos se llaman «Caso 1», «Caso 2»…, y al principio de cada conversación se aclara cuándo cae ese caso
+>     (donde hoy están los chips «⏳ 1 h antes de la reunión»).
+> 11. Sacar «Hay más caminos».
+> 12. Fotos de perfil de un banco de imágenes, en vez de «1, 2, 3».
+
 > **ESTADO AL 15/10/2026 ~20:15 AR (`claude3`, chat «Chatbot» de la cuenta 3, worktree `C:/dev/wt-undecima`, rama
 > `undecima`; los pushes los hace el coordinador «Estrategia 3 cuentas», merge y nunca rebase).** Pedido del
 > coordinador: (1) que `tests/undecima-email-propio.test.ts` esté en verde: lo está en origin/main c4ef8a68e (8/8);
