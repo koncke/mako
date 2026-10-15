@@ -7,8 +7,8 @@ import 'server-only';
 // con el navegador en ./tipos.ts. Molde: lib/editor-landing/server.ts (compare-and-set) y
 // app/api/landing-generator/imagenes/route.ts (firmar → subir → registrar).
 //
-// LA PUERTA (`puerta`) es la del editor: hoy sólo el super admin, por PERSONA
-// (app/image-editor/acceso.ts → `veEditorImagen`). Para cualquier otro, 404: la ruta no existe.
+// LA PUERTA (`puerta`) es la del editor: la misma pregunta que sus páginas (app/image-editor/acceso.ts →
+// `veEditorImagen`: admin del workspace y la tab en su capa). Para cualquier otro, 404: la ruta no existe.
 // Cada consulta va por `getTenantDb()` (las dos tablas están en TENANT_TABLES) y además lleva el
 // `.eq('workspace_id', ws)` escrito a mano, como el Landing: si la línea del registro se pierde,
 // esto sigue acotado.
@@ -36,7 +36,7 @@ export const mal = (error: string, status = 400, extra: Record<string, unknown> 
 
 export type Puerta = { ws: number; quien: string };
 
-/** Sesión → super admin (por persona) → un workspace. Lo que no pase, contesta la ruta tal cual. */
+/** Sesión → admin del workspace con la tab en su capa → un workspace. Lo que no pase, contesta la ruta tal cual. */
 export async function puerta(): Promise<Puerta | Response> {
   const yo = await getUsuarioActual();
   if (!yo) return mal('no autenticado', 401);

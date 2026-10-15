@@ -20,7 +20,8 @@ export const PARTES: Parte[] = [
   { titulo: 'Marca, versiones, compartir y comentarios', detalle: 'Las herramientas de Canva que piden tablas propias; hoy el editor las esconde', estado: 'cola' },
   { titulo: 'El catálogo propio', detalle: 'Fuentes alojadas, íconos y emoji con licencia libre, formas propias, plantillas y fotos de Unsplash', estado: 'cola' },
   { titulo: 'Lo que a Doory le falta de Canva', detalle: 'Texto en formas, tablas, cuadrículas, dibujar, copiar estilo, efectos de texto, quitar fondo de objetos', estado: 'cola' },
-  { titulo: 'API de MaKo y abrirlo a clientes', detalle: 'Espera a Martín: declarar el área hoy la abre por token a cualquier cliente; y el crédito de la licencia antes de abrirlo', estado: 'cola' },
+  { titulo: 'Abrirlo a todos los negocios', detalle: 'Visible y abierto en todos los workspaces con la pregunta de toda tab; el crédito de Doory lo ve cada negocio', estado: 'hecha' },
+  { titulo: 'API de MaKo', detalle: 'Declarar el área con el permiso de siempre ahora que el editor es de todos', estado: 'cola' },
 ];
 
 export const BITACORA: Hito[] = [
@@ -101,6 +102,23 @@ export const BITACORA: Hito[] = [
     ],
     commits: [
       { sha: '5136c1ce', msg: 'Image Editor: los diseños y «Subidos» pasan a la base (tanda 3)', lineas: 1485, archivos: 21 },
+    ],
+  },
+  {
+    fecha: '15 oct', hora: '—', chat: CH, cuenta: 'claude1', actor: 'martin', tipo: 'prompt',
+    titulo: 'Image en todos los workspaces (por el chat orquestador)',
+    pedido: 'Que Image aparezca en todos los workspace.',
+    puntos: [
+      'Antes se midió por qué no la veía: con Content Machine plegada la fila no existe, y mirando un cliente o como admin de un cliente estaba escondida a propósito (adminOnly).',
+    ],
+  },
+  {
+    fecha: '15 oct', hora: '—', chat: CH, cuenta: 'claude1', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Image abierta a todos los negocios',
+    puntos: [
+      'La tab Image se ve en todos los workspaces (salvo la capa pm, que no tiene Content Machine) y el editor deja entrar a cualquier admin del negocio, como el Video Editor.',
+      'Image Generator y Thumbnails siguen diciendo «pronto», ahora también en la barra de secciones de arriba.',
+      'Cada negocio ve el crédito de Doory al pie del editor: lo pide la licencia.',
     ],
   },
 ];

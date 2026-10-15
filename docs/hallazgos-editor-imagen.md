@@ -231,6 +231,14 @@ Martín, 14/10: «No veo la tab en la sidebar principal, debería estar en la se
 - **Lo medido:** con `resolverTab`, en su barra (capa `superadmin`) la tab lleva a `/image-editor`; mirando un
   cliente, `null`. El deploy con el editor (13:33) estaba Ready en hola-mako.com. O sea: o miraba un cliente con
   `?ws=`, o tenía abierta una pestaña de antes del deploy (el JS viejo no se recarga solo al navegar).
+- **Medido en el DOM el 15/10** (la `Sidebar` real montada en un banco de esbuild con tres sesiones simuladas por
+  `/api/auth/me`): con Content Machine abierta, la fila «Image» estaba para el super admin en su cuenta y NO
+  mirando un cliente ni para un admin de cliente. Y con Content Machine PLEGADA no está para nadie: la barra es un
+  acordeón, una familia cerrada no dibuja sus filas, y en una captura con la barra angosta no se distingue de una
+  familia que no existe. El Chrome desde el que Martín miraba tenía la sesión de un admin de cliente (ws 10).
+- **Lo que se decidió:** «Que Image aparezca en todos los workspace» (15/10). Se sacó `adminOnly` de las cuatro
+  secciones, el guard pasó a la pregunta de toda tab y la barra de secciones marca «pronto» como la lateral. Medido
+  después en el mismo banco: la fila está para las tres sesiones. La rama `opcion-image-en-clientes` quedó sin objeto.
 
 ## Verificar el editor sin el dev server: un banco con esbuild y Chrome sin ventana
 

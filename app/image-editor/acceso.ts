@@ -1,44 +1,37 @@
 import 'server-only';
 
 // =============================================================================
-// Quién puede abrir el Image Editor — HOY, sólo el super admin
+// Quién puede abrir el Image Editor — cualquiera que tenga la tab
 // =============================================================================
-// El editor está en construcción: es Doory portado (ver _doory/COMMIT-DOORY y
-// docs/diseno-editor-imagen.md) que se re-viste como Canva por tandas, y no se le
-// muestra a ningún cliente hasta que Martín lo valide. Molde: la primera versión
-// de app/video-editor/acceso.ts (commit b112e5b7).
+// Abierto a todos los workspaces el 15/10/2026 (Martín: «Que Image aparezca en todos
+// los workspace»). Hasta ese día lo abría sólo el super admin, por persona, mientras
+// se armaba por tandas. Molde: app/video-editor/acceso.ts (abierto el 12/10).
 //
-// ⚠️ La pregunta es por la PERSONA (`getSesionAdmin`, el rol global), no por el
-// workspace: acá no se lee nada de la plataforma, se decide qué pantalla se le
-// muestra a quién. El super admin prueba el editor ADENTRO de un cliente con el
-// `?ws=` y ahí tiene que seguir pudiendo entrar.
+// Una sola pregunta, en UN lugar, que usan las páginas del editor (inicio, diseño y
+// la ventana del presentador) y las rutas de /api/image-editor (lib/image-editor/
+// server.ts → `puerta`): si cada una decidiera por su cuenta, un cambio de acceso se
+// haría en dos de tres lados y el tercero rebotaría.
 //
-// ⚠️ Y el `adminOnly` del nav NO alcanza: el filtro del Sidebar es cosmético
-// (lib/tab-access.ts). Sin este guard, la URL tecleada abre el editor a cualquier
-// admin de un cliente `completo` o `agencia` (pasa hoy con /carousels).
+// Es la misma pregunta que toda tab (lib/tab-access.ts → `requireRolWs([])`): el rol
+// del workspace tiene que ser admin (admin-cliente o agencia; closer y setter no) y la
+// tab tiene que estar en la capa (lib/capas.ts: `completo` y `agencia` la ven por
+// `navKeys: null`, `superadmin` por `userNavKeys: null`; `pm` no, igual que el Video
+// Editor).
 //
-// Para ABRIRLO a los clientes: `veEditorImagen` devuelve true para todos, se saca
-// `adminOnly` de la entrada del nav y se decide la capa (lib/capas.ts). ANTES hay
-// que resolver el crédito de la licencia de Doory (CreditoDoory.tsx): con código de
-// Doory adentro, cada cliente que abra el editor lo tiene que ver.
+// ⚠️ El crédito de Doory (editor/CreditoDoory.tsx) lo ve desde ese día cada negocio
+// que abra el editor: lo exige su licencia mientras haya código de Doory adentro.
 
-import { redirect } from 'next/navigation';
-import { getSesionAdmin } from '@/lib/auth';
-import { homeDeCapa, requireRolWs, requireSesion } from '@/lib/tab-access';
-import { getCapaActual, rutaConWs } from '@/lib/workspace';
+import { requireRolWs } from '@/lib/tab-access';
+import { tabEnCapa } from '@/lib/capas';
+import { getCapaActual, getRolWsEfectivo } from '@/lib/workspace';
 
-/** ¿Quien mira puede usar el Image Editor? */
+/** ¿Quien mira puede usar el Image Editor? Para la API (no redirige). */
 export async function veEditorImagen(): Promise<boolean> {
-  return (await getSesionAdmin()) != null;
+  if ((await getRolWsEfectivo()) !== 'admin') return false;
+  return tabEnCapa('image-editor', await getCapaActual());
 }
 
-/**
- * El guard de las dos pantallas del editor. Sin sesión → /login; quien no es super
- * admin → a SU casa, con el `?ws=`; después, lo de toda tab (capa con la key exacta
- * del nav, rol y onboarding).
- */
+/** El guard de las pantallas del editor: lo de toda tab (sesión, capa, rol, onboarding). */
 export async function requireEditorImagen(): Promise<void> {
-  await requireSesion();
-  if (!(await veEditorImagen())) redirect(await rutaConWs(homeDeCapa(await getCapaActual())));
   await requireRolWs([], { nav: 'image-editor' });
 }

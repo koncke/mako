@@ -303,13 +303,14 @@ export const FAMILIAS: NavFamilia[] = [
           match: (p) => starts('/image-editor')(p) || starts('/image-generator')(p) || starts('/thumbnails')(p) || starts('/carousels')(p),
           secciones: [
             // La copia de Canva (14/10/2026, Martín: «implementes end to end un "Canva" dentro de MaKo… Dejalo en
-            // "Content Machine" en una tab que sea "Image"»): Doory portado y re-vestido como Canva. Sólo el super
-            // admin hasta que Martín lo valide; quién entra lo decide app/image-editor/acceso.ts (`adminOnly` sólo
-            // esconde la fila).
-            { key: 'image-editor', adminOnly: true, label: 'Image Editor', seccion: 'Editor', href: '/image-editor', icon: 'imagegen', match: starts('/image-editor') },
-            { key: 'image-generator', adminOnly: true, label: 'Image Generator', seccion: 'Crear con IA', href: '/image-generator', icon: 'imagegen', comingSoon: true, match: starts('/image-generator') },
-            { key: 'thumbnails', adminOnly: true, label: 'Thumbnails', href: '/thumbnails', icon: 'thumbnail', comingSoon: true, match: starts('/thumbnails') },
-            { key: 'carousels', adminOnly: true, label: 'Carousels', href: '/carousels', icon: 'carousel', match: starts('/carousels') },
+            // "Content Machine" en una tab que sea "Image"»): Doory portado y re-vestido como Canva. Abierta a todos
+            // los workspaces el 15/10/2026 («Que Image aparezca en todos los workspace»), como el Video Editor el
+            // 12/10: quién entra lo decide app/image-editor/acceso.ts con la pregunta de toda tab (rol y capa).
+            // Image Generator y Thumbnails siguen `comingSoon`: se ven, con su «pronto», y abren «Próximamente».
+            { key: 'image-editor', label: 'Image Editor', seccion: 'Editor', href: '/image-editor', icon: 'imagegen', match: starts('/image-editor') },
+            { key: 'image-generator', label: 'Image Generator', seccion: 'Crear con IA', href: '/image-generator', icon: 'imagegen', comingSoon: true, match: starts('/image-generator') },
+            { key: 'thumbnails', label: 'Thumbnails', href: '/thumbnails', icon: 'thumbnail', comingSoon: true, match: starts('/thumbnails') },
+            { key: 'carousels', label: 'Carousels', href: '/carousels', icon: 'carousel', match: starts('/carousels') },
           ],
         },
         {
