@@ -165,12 +165,6 @@
 
 /* ── Chats (16/10/2026): la fila con su punto y lo último que pasó; la conversación con la caja fija abajo,
    como WhatsApp en el iPhone. El hilo usa las clases de app/admin/operaciones/centro.css (Hilo.tsx). ── */
-[data-m] .m-operaciones-punto {
-  width: 20px;
-  display: grid;
-  place-items: center;
-  align-self: stretch;
-}
 [data-m] .m-operaciones-vivo { color: var(--good); }
 [data-m] .m-operaciones-previa {
   display: inline-flex;
@@ -222,3 +216,4 @@
 [data-m] .m-operaciones-caja .co-enviar { width: 42px; height: 42px; margin-left: 0; }
 [data-m] .m-operaciones-caja__estado { min-width: 0; font-size: var(--fs-meta); color: var(--faint); }
 [data-m] .m-operaciones-caja--quieta { flex-direction: row; align-items: center; justify-content: space-between; gap: 10px; }
+[data-m] .m-operaciones-espera { color: var(--warn); }

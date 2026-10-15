@@ -16,14 +16,21 @@ import { Icon } from '@/app/_components/icons';
 import type { Alcance } from '@/lib/operaciones-reglas';
 import { historialDelChat, nombreCuenta, textoDeEnvio, type ChatCentro, type Envio, type TrabajoP } from '@/lib/centro-chats';
 import { hace, type PedidoP, type PushP } from '@/lib/progreso-reglas';
-import { Hilo, PuntoChat } from './Hilo';
+import Link from '@/app/_ui/Link';
+import { Hilo } from './Hilo';
+import { Muneco, animoDe } from './Muneco';
+
+/** La Ticketera, donde se contesta lo que un empleado espera (app/_components/nav.ts → admin-ticketera). */
+const RUTA_TICKETERA = '/tickets/decisiones';
 
 const ESTADO_CHAT: Record<ChatCentro['estado'], string> = { trabajando: 'Trabajando', abierto: 'Abierto', cerrado: 'Cerrado', sin_dato: 'Sin dato' };
 
 export function Conversacion({
-  chat, pedidos, trabajos, pushes, ahora, envio, texto, onTexto, alcance, onAlcance, enviando, onMandar, onCrearClave, onCopiarClave, onVolver,
+  chat, pedidos, trabajos, pushes, ahora, espera, envio, texto, onTexto, alcance, onAlcance, enviando, onMandar, onCrearClave, onCopiarClave, onVolver,
 }: {
   chat: ChatCentro;
+  /** Cuántas tarjetas de la Ticketera esperan una respuesta de Martín para este chat. */
+  espera: number;
   pedidos: ReadonlyMap<string, PedidoP>;
   trabajos: readonly TrabajoP[];
   pushes: readonly PushP[];
@@ -62,6 +69,7 @@ export function Conversacion({
 
   const estado = textoDeEnvio(envio);
   const cuenta = nombreCuenta(chat.cuenta);
+  const meta = [cuenta, chat.viejo && chat.vistoAt != null ? `${ESTADO_CHAT[chat.estado]} ${hace(chat.vistoAt, ahora)}` : ESTADO_CHAT[chat.estado]].filter(Boolean).join(' · ');
 
   return (
     <section className="co-panel" aria-label={`Conversación con ${chat.titulo}`}>
@@ -69,22 +77,27 @@ export function Conversacion({
         <button type="button" className="co-acceso co-cab__volver" style={{ width: 'auto' }} onClick={onVolver} aria-label="Volver a los chats">
           <span style={{ display: 'inline-flex', transform: 'rotate(90deg)' }}><Icon name="chevron" size={18} /></span>
         </button>
+        <Muneco titulo={chat.titulo} animo={animoDe(chat)} size={34} espera={espera} />
         <div className="co-cab__texto">
           <h1 className="co-cab__titulo" title={chat.titulo}>{chat.titulo}</h1>
-          <span className="co-cab__meta">
-            <PuntoChat c={chat} />
-            {[cuenta, chat.viejo && chat.vistoAt != null ? `${ESTADO_CHAT[chat.estado]} ${hace(chat.vistoAt, ahora)}` : ESTADO_CHAT[chat.estado]].filter(Boolean).join(' · ')}
-          </span>
+          <span className="co-cab__meta">{meta}</span>
         </div>
       </header>
 
       <div className="co-hilo" ref={hilo}>
         <div className="co-hilo__col">
-          <Hilo lineas={lineas} pushes={pushes} ahora={ahora} vacio="Todavía no hay nada con este chat." />
+          <Hilo lineas={lineas} pushes={pushes} ahora={ahora} vacio="Todavía no hay nada con este chat." quien={{ titulo: chat.titulo, animo: animoDe(chat), dato: meta }} />
         </div>
       </div>
 
       <div className="co-caja-wrap">
+        {/* Lo que el empleado espera de Martín, arriba de la caja: como Grok Bot cuando vuelve a pedir aprobación. */}
+        {espera > 0 && (
+          <Link href={RUTA_TICKETERA} className="co-espera">
+            {`${espera === 1 ? 'Una tarjeta espera' : `${espera} tarjetas esperan`} tu respuesta en la Ticketera`}
+            <span className="co-espera__ir">Contestar</span>
+          </Link>
+        )}
         {envio.puede ? (
           <div className="co-caja">
             <textarea

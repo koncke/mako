@@ -7,6 +7,7 @@ import { leerCarteros, listarPedidos } from '@/lib/operaciones';
 import { areasDeProgreso } from '@/lib/progreso';
 import { PESTANAS_CENTRO, novedades, pedidosRecientes, recortarPedido, type PestanaCentro } from '@/lib/progreso-reglas';
 import { chatsDeBitacoras } from '@/lib/centro-chats';
+import { leerDecisiones } from '@/lib/admin-decisiones';
 import { CentroApp } from './CentroApp';
 
 // =============================================================================
@@ -33,10 +34,13 @@ export default async function OperacionesPage({ searchParams }: { searchParams: 
   const vista: PestanaCentro = (PESTANAS_CENTRO as readonly string[]).includes(tab ?? '') ? (tab as PestanaCentro) : PESTANAS_CENTRO[0];
   const ahora = Date.now();
   const areas = areasDeProgreso();
-  const [cola, carteros] = await Promise.all([
+  const [cola, carteros, tarjetas] = await Promise.all([
     listarPedidos().catch(() => null),
     leerCarteros().catch(() => null),
+    leerDecisiones().catch(() => null),
   ]);
+  // Lo que espera una respuesta de Martín en la Ticketera: el «pide aprobación» de Grok Bot, por empleado.
+  const decisiones = tarjetas?.ok ? tarjetas.decisiones.map((d) => ({ chat: d.chat, destino: d.destino ?? null, respuesta: d.respuesta })) : null;
   const verTodos = todos === '1';
   const recientes = pedidosRecientes(areas, ahora, 14).map(recortarPedido);
   const pedidos = verTodos ? pedidosRecientes(areas, ahora, 3650).map(recortarPedido) : recientes;
@@ -46,6 +50,7 @@ export default async function OperacionesPage({ searchParams }: { searchParams: 
         base={chatsDeBitacoras({ areas, pedidos: recientes, ahora })}
         colaInicial={cola}
         carterosIniciales={carteros}
+        decisionesIniciales={decisiones}
         pedidos={pedidos}
         novedades={novedades(areas, ahora)}
         todos={verTodos}

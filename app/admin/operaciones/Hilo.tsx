@@ -17,13 +17,9 @@
 
 import { Icon } from '@/app/_components/icons';
 import { ROTULO, type EstadoPedido } from '@/lib/operaciones-reglas';
-import type { ChatCentro, LineaChat, TrabajoP } from '@/lib/centro-chats';
+import type { LineaChat, TrabajoP } from '@/lib/centro-chats';
+import { Muneco, type Animo } from './Muneco';
 import { ROTULO_TIPO, hace, pushDelCommit, type PushP } from '@/lib/progreso-reglas';
-
-export function PuntoChat({ c }: { c: Pick<ChatCentro, 'estado' | 'viejo'> }) {
-  if (c.estado === 'cerrado' || c.estado === 'sin_dato') return <span className="co-punto co-punto--nada" aria-hidden />;
-  return <span className={`co-punto co-punto--${c.viejo ? 'viejo' : c.estado}`} aria-hidden />;
-}
 
 /** «10:52», con el reloj de Argentina. */
 const horaAR = (t: number) => new Date(t).toLocaleTimeString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
@@ -48,7 +44,10 @@ export function Tick({ estado }: { estado: EstadoPedido }) {
   return <span className="co-tick co-tick--mal" title={ROTULO[estado]}><Icon name="x" size={12} /></span>;
 }
 
-function Trabajo({ w }: { w: TrabajoP }) {
+/** Quién habla del otro lado: el empleado (su título decide su muñeco). */
+type Quien = { titulo: string };
+
+function Trabajo({ w, quien }: { w: TrabajoP; quien: Quien }) {
   const t = Date.parse(w.created_at);
   const estado = w.estado ?? 'escrito';
   const mal = estado === 'no_entregado' || estado === 'incierto' || estado === 'cancelado';
@@ -64,7 +63,7 @@ function Trabajo({ w }: { w: TrabajoP }) {
       </div>
       {c && (
         <div className="co-el">
-          <span className="co-el__marca" aria-hidden><Icon name="check" size={13} /></span>
+          <Muneco titulo={quien.titulo} animo="despierto" size={26} />
           <div className="co-el__cuerpo">
             <p className="co-el__rotulo">{`${ROTULO[estado]}${w.cerrado_at ? ` · ${horaAR(Date.parse(w.cerrado_at))}` : ''}`}</p>
             <p className="co-el__texto">{c.hecho || c.decidido}</p>
@@ -82,8 +81,8 @@ function Trabajo({ w }: { w: TrabajoP }) {
   );
 }
 
-function Linea({ l, pushes, ahora }: { l: LineaChat; pushes: readonly PushP[]; ahora: number }) {
-  if (l.tipo === 'trabajo') return <Trabajo w={l.trabajo} />;
+function Linea({ l, pushes, ahora, quien }: { l: LineaChat; pushes: readonly PushP[]; ahora: number; quien: Quien }) {
+  if (l.tipo === 'trabajo') return <Trabajo w={l.trabajo} quien={quien} />;
   if (l.tipo === 'derivado') {
     return (
       <div className="co-yo">
@@ -102,7 +101,7 @@ function Linea({ l, pushes, ahora }: { l: LineaChat; pushes: readonly PushP[]; a
         const subio = s.commits.map((k) => pushDelCommit(k.sha, pushes)).find(Boolean);
         return (
           <div key={j} className="co-el">
-            <span className="co-el__marca" aria-hidden><Icon name={s.tipo === 'implementacion' || s.tipo === 'correccion' ? 'check' : 'dot'} size={13} /></span>
+            <Muneco titulo={quien.titulo} animo="despierto" size={26} />
             <div className="co-el__cuerpo">
               <p className="co-el__rotulo">{`${ROTULO_TIPO[s.tipo] ?? s.tipo}${s.instante != null ? ` · ${horaAR(s.instante)}` : ''}${subio ? ` · subió ${hace(subio.creado, ahora)}` : ''}`}</p>
               <p className="co-el__texto">{s.titulo}</p>
@@ -115,8 +114,20 @@ function Linea({ l, pushes, ahora }: { l: LineaChat; pushes: readonly PushP[]; a
 }
 
 /** Las líneas de un chat, la más vieja arriba, con la píldora del día cada vez que cambia (WhatsApp). */
-export function Hilo({ lineas, pushes, ahora, vacio }: { lineas: readonly LineaChat[]; pushes: readonly PushP[]; ahora: number; vacio: string }) {
-  if (!lineas.length) return <p className="co-vacio" style={{ marginTop: '18vh' }}>{vacio}</p>;
+export function Hilo({ lineas, pushes, ahora, vacio, quien }: {
+  lineas: readonly LineaChat[]; pushes: readonly PushP[]; ahora: number; vacio: string;
+  /** El empleado de este chat: su muñeco va al lado de lo que hizo, y grande si todavía no hay nada. */
+  quien: Quien & { animo: Animo; dato?: string | null };
+}) {
+  if (!lineas.length) {
+    return (
+      <div className="co-portada">
+        <Muneco titulo={quien.titulo} animo={quien.animo} size={76} />
+        <p className="co-portada__nombre">{quien.titulo}</p>
+        <p className="co-portada__dato">{quien.dato ?? vacio}</p>
+      </div>
+    );
+  }
   const items: Array<{ k: string; dia?: string; l?: LineaChat }> = [];
   let ultimoDia: number | null = null;
   lineas.forEach((l, i) => {
@@ -128,7 +139,7 @@ export function Hilo({ lineas, pushes, ahora, vacio }: { lineas: readonly LineaC
     <>
       {items.map((it) => (it.dia
         ? <span key={it.k} className="co-dia">{it.dia}</span>
-        : <Linea key={it.k} l={it.l!} pushes={pushes} ahora={ahora} />))}
+        : <Linea key={it.k} l={it.l!} pushes={pushes} ahora={ahora} quien={quien} />))}
     </>
   );
 }

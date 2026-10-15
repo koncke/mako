@@ -29,6 +29,7 @@ import { leerCarteros, listarPedidos } from '@/lib/operaciones';
 import { areasDeProgreso } from '@/lib/progreso';
 import { PESTANAS_CENTRO, novedades, pedidosRecientes, recortarPedido, type PestanaCentro } from '@/lib/progreso-reglas';
 import { chatsDeBitacoras } from '@/lib/centro-chats';
+import { leerDecisiones } from '@/lib/admin-decisiones';
 import { CabeceraM, PantallaM, VacioM } from '@/app/m/_ui';
 import { CentroMovilPestanas } from './ProgresoMovil';
 
@@ -53,10 +54,12 @@ export default async function CentroOperacionesMovil({ searchParams }: { searchP
   const ahora = Date.now();
   const areas = areasDeProgreso();
   // Cada lectura falla sola: los chats (de las bitácoras) se ven aunque la cola no se pueda leer.
-  const [cola, estado] = await Promise.all([
+  const [cola, estado, tarjetas] = await Promise.all([
     listarPedidos().catch(() => null),
     leerCarteros().catch(() => null),
+    leerDecisiones().catch(() => null),
   ]);
+  const decisiones = tarjetas?.ok ? tarjetas.decisiones.map((d) => ({ chat: d.chat, destino: d.destino ?? null, respuesta: d.respuesta })) : null;
   const pedidos = pedidosRecientes(areas, ahora, 14).map(recortarPedido);
   return (
     <PantallaM>
@@ -66,6 +69,7 @@ export default async function CentroOperacionesMovil({ searchParams }: { searchP
         base={chatsDeBitacoras({ areas, pedidos, ahora })}
         colaInicial={cola}
         carterosIniciales={estado}
+        decisionesIniciales={decisiones}
         pedidos={pedidos}
         novedades={novedades(areas, ahora)}
         ahora={ahora}

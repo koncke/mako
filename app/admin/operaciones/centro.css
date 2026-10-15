@@ -134,8 +134,9 @@
 .co-fila:hover { background: var(--velo-hover); }
 .co-fila:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .co-fila[aria-current='true'] { background: var(--surface); box-shadow: inset 0 0 0 1px var(--border), 0 1px 2px rgba(18, 21, 27, .04); }
-.co-fila > .co-punto { margin-top: 6px; }
-.co-fila__cuerpo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.co-fila { align-items: center; gap: 12px; }
+.co-fila > .mun { margin: -2px 0; }
+.co-fila__cuerpo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .co-fila__l1 { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
 .co-fila__titulo {
   flex: 1;
@@ -292,16 +293,7 @@
 
 /* Lo del chat: a la izquierda, sin burbuja, como el asistente en Claude y ChatGPT. */
 .co-el { align-self: stretch; display: flex; gap: 10px; }
-.co-el__marca {
-  flex: none;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  background: var(--surface-2);
-  box-shadow: inset 0 0 0 1px var(--border);
-}
+.co-el > .mun { margin-top: -2px; }
 .co-el__cuerpo { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .co-el__rotulo { margin: 0; font-size: var(--fs-meta); color: var(--faint); }
 .co-el__texto { margin: 0; font-size: var(--fs-md); line-height: 1.5; overflow-wrap: anywhere; white-space: pre-wrap; }
@@ -411,6 +403,37 @@
 .co-cartero__nombre { font-weight: 600; }
 .co-cartero__dato { margin-left: auto; font-size: var(--fs-sm); color: var(--faint); text-align: right; }
 .co-cartero__titulo { margin: 0 0 4px; font-size: var(--fs-meta); font-weight: 600; color: var(--faint); text-transform: uppercase; letter-spacing: .04em; }
+
+/* El muñeco (Muneco.tsx): dormido se apaga; trabajando flota apenas y parpadea. Con movimiento reducido, quieto. */
+.mun--dormido .mun-cuerpo { opacity: .55; filter: saturate(.35); }
+.mun--trabajando .mun-cuerpo { animation: mun-flota 2.8s ease-in-out infinite; }
+.mun-ojos--parpadeo { animation: mun-parpadeo 3.6s infinite; }
+@keyframes mun-parpadeo { 0%, 90%, 100% { transform: scaleY(1); } 94% { transform: scaleY(.12); } }
+@keyframes mun-flota { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.4px); } }
+@media (prefers-reduced-motion: reduce) { .mun-cuerpo, .mun-ojos--parpadeo { animation: none !important; } }
+
+/* Lo que el empleado espera de Martín (la Ticketera): una línea arriba de la caja y su palabra en la fila. */
+.co-fila__l2--espera { color: var(--warn); }
+.co-espera {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 760px;
+  margin: 0 auto 8px;
+  padding: 8px 12px;
+  border-radius: var(--r-md);
+  background: var(--warn-bg);
+  color: var(--warn);
+  font-size: var(--fs-sm);
+  text-decoration: none;
+}
+.co-espera:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.co-espera__ir { margin-left: auto; font-weight: 600; }
+
+/* La conversación vacía: el empleado grande, como la portada de un Bot. */
+.co-portada { margin: 14vh auto 0; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; }
+.co-portada__nombre { margin: 0; font-size: var(--fs-sect); font-weight: 600; }
+.co-portada__dato { margin: 0; font-size: var(--fs-sm); color: var(--faint); }
 
 /* El esqueleto de loading.tsx: la forma de la pantalla, en gris, con un brillo lento. */
 .co-esq {
