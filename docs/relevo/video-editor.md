@@ -17,8 +17,12 @@
 - **Siguen esperando a Martín:** qué son los B-rolls de IA; los formatos de video e imagen en
   Estrellas; si se monta el worker de montaje; Notion/Mila en Copywriting.
 - **SIN HACER, y es lo primero:** reproducir el congelamiento de «Agregar texto predeterminado» y
-  medir el export con ffprobe. No se pudo: la extensión de Chrome no conectaba y el `next dev` local lo
-  mató el vigía de RAM (ver `docs/hallazgos-video-editor.md` → «El entorno de esta máquina»). El clip
+  medir el export con ffprobe. No se pudo. Primero la extensión de Chrome no conectaba y el `next dev`
+  local lo mató el vigía de RAM (ver `docs/hallazgos-video-editor.md` → «El entorno de esta máquina»).
+  Después la extensión conectó, pero con la ventana de Chrome OCULTA: la importación se quedó en 0 %, y
+  es el mismo síntoma que el «congelamiento» del 13/10 (ver «Lo que confunde al MEDIR»). Hace falta la
+  ventana a la vista. Y la sesión de hola-mako en ese Chrome es la de Mauricio (ws1, sin `?ws=`): el
+  proyecto de prueba «1014» quedó en el navegador, del lado del ws1, y hay que borrarlo. El clip
   de prueba se arma con
   `ffmpeg -f lavfi -i testsrc2=size=720x1280:rate=30:duration=6 -f lavfi -i sine=frequency=440:duration=6 -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest prueba.mp4`.
   Los scripts del 11/10 (`ve-lib.mjs`, `e2e.mjs`, con Playwright de la caché de npx) siguen en el
