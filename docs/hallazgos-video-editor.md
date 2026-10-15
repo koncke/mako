@@ -772,6 +772,15 @@ La espera del modelo dentro del render está en «Los ganchos `ce-*`».
   canvas WebGL2 da un WebM vacío (con `preserveDrawingBuffer` apagado se lee alfa 0). Se muestrea con un
   bucle de `requestAnimationFrame` que copia el canvas a un 2D chico, descartando las lecturas con alfa 0.
 - ffmpeg 8 ya no acepta `-vsync`: es `-fps_mode passthrough`.
+- ⚠️ **«El renderizador se congeló: CDP no pudo ni capturar pantalla» puede ser una VENTANA OCULTA, no un
+  congelamiento.** Medido el 14/10 en el Chrome real con la extensión de Claude: la pestaña daba
+  `visibilityState: hidden` y `hasFocus: false`. JavaScript contestaba al instante y
+  `Page.captureScreenshot` vencía a los 30 s, que es el mismo síntoma del 13/10. Un
+  `requestAnimationFrame` no corrió en 3 s. Y la importación quedó en «Importando… 0 %» más de 45 s:
+  `showMediaUploadToast` (`media/upload-toast.ts`) espera dos cuadros antes de empezar, y una pestaña
+  oculta no dibuja ninguno. Antes de diagnosticar un congelamiento: `document.visibilityState` y un rAF
+  con tope. Si JS contesta y el rAF no, la ventana está minimizada o tapada, y el editor no avanza hasta
+  que se vea.
 
 - **«Failed to generate project thumbnail on exit» al ENTRAR al editor**: en desarrollo, React (Strict
   Mode) monta, desmonta y vuelve a montar cada efecto, y ese desmontaje falso disparaba la salida antes de
@@ -796,6 +805,13 @@ Medido el 11/10, con 16 GB y 6-7 sesiones abiertas.
   menos de ~2 GB libres. Y tras una caída la caché queda corrupta: rutas que existen dan 404. Se borra la
   caché y se levanta de nuevo (alcanza con `.next/dev`: `hallazgos-infra.md` → «Un 404 en
   `/api/auth/dev-login` casi nunca es la env»).
+- ⚠️ **Y ese «exit 1 sin una línea» casi seguro no es Next quedándose sin memoria: es el vigía de RAM**
+  (`taskkill /F` deja exactamente eso). Medido el 14/10: `next dev` dijo «Ready» y a los 2 min murió así.
+  `~/.claude/guardia/guardia.log` lo nombraba: `MATO pid … (dev, 1592 MB privados) por zona-roja; libre
+  antes 49 MB`. Antes de borrar la caché o culpar al motor, ese log. Y con otros chats trabajando, el
+  editor no compila en local: lo que se verifica va contra producción, en el Chrome de Martín.
+- **Al traer main a la rama `video-editor`, `npm install` en su worktree.** Su `node_modules` es propio
+  (no es un junction): el 14/10 le faltaban 145 paquetes nuevos de main (`fabric`, `@simplewebauthn/*`…).
 - **El typecheck acotado tarda ~40 s; el completo, 8 min con el lock.** `tsc-ve.mjs` se turna por el mismo
   lock de máquina (`%TEMP%/mako-typecheck.lock`). **`tsconfig.ve.json` no está versionado** (lo excluye
   `.git/info/exclude` del clon); en otro clon se recrea con:

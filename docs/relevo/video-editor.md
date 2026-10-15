@@ -2,6 +2,32 @@
 
 *12/10/2026, chat «Video Editor», cuenta claude3 (semana al 88 %).*
 
+## 14/10 noche (cuenta 1, chat «Video Editor»): el inventario, y la verificación sin hacer
+
+- **La rama `video-editor` no tiene trabajo propio:** se adelantó a `origin/main` (fast-forward) y sólo
+  lleva lo de este relevo. El editor está abierto a todo admin con la tab desde el 12/10
+  (`app/video-editor/acceso.ts`), no sólo al super admin.
+- **YA NO ESPERAN A MARTÍN** (figuran abajo como pendientes): la barra lateral (se queda), abrir el
+  editor a clientes (hecho el 12/10) y Canva en Image (lo hizo el chat Image Editor).
+- **Resuelto con criterio** (lo pidió «Estrategia 3 cuentas»; todavía no se implementó nada):
+  - Avatar de IA filma todo seguido, sin pausa en la toma 1.
+  - Quitar fondo sigue con el modelo selfie.
+  - Las guías de OpenCut que nadie muestra se borran (`guides/registry.tsx`).
+  - No se da de alta «Feature: Video Editor» en el Plan.
+- **Siguen esperando a Martín:** qué son los B-rolls de IA; los formatos de video e imagen en
+  Estrellas; si se monta el worker de montaje; Notion/Mila en Copywriting.
+- **SIN HACER, y es lo primero:** reproducir el congelamiento de «Agregar texto predeterminado» y
+  medir el export con ffprobe. No se pudo. Primero la extensión de Chrome no conectaba y el `next dev`
+  local lo mató el vigía de RAM (ver `docs/hallazgos-video-editor.md` → «El entorno de esta máquina»).
+  Después la extensión conectó, pero con la ventana de Chrome OCULTA: la importación se quedó en 0 %, y
+  es el mismo síntoma que el «congelamiento» del 13/10 (ver «Lo que confunde al MEDIR»). Hace falta la
+  ventana a la vista. Y la sesión de hola-mako en ese Chrome es la de Mauricio (ws1, sin `?ws=`): el
+  proyecto de prueba «1014» quedó en el navegador, del lado del ws1, y hay que borrarlo. El clip
+  de prueba se arma con
+  `ffmpeg -f lavfi -i testsrc2=size=720x1280:rate=30:duration=6 -f lavfi -i sine=frequency=440:duration=6 -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest prueba.mp4`.
+  Los scripts del 11/10 (`ve-lib.mjs`, `e2e.mjs`, con Playwright de la caché de npx) siguen en el
+  scratchpad de la sesión `eb5e2cd4`.
+
 ## 14/10 (cuenta 2, mismo chat): barra lateral, Borrar silencios y Avatar de IA
 
 **Cierre (14/10 ~02:40, pedido de Martín: «que se pushee todo y que los chats cierren»):** todo commiteado en
