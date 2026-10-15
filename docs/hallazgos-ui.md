@@ -3759,3 +3759,46 @@ Salió a la luz rompiéndolo.
   El menú nativo de Chrome, en cambio, se lo traga. No se decidió cuál se quiere.
 - Sin ver en un navegador: el segundo clic derecho con el menú abierto, el Escape con la ficha abierta y el submenú
   recorrido en diagonal con el mouse.
+
+
+## El mazo de la Ticketera: «los botones se superponen con la card» (14/10/2026)
+
+**Vive en:** `app/tickets/decisiones/Mazo.tsx` · `app/tickets/decisiones/mazo.css`
+
+Martín, con una captura del teléfono: «mira como los botones se superponen con la card… quiero un buen
+diseño». **El diagnóstico obvio —la franja del pulgar está mal puesta— era el equivocado.** Los tres
+controles estaban en su fila, afuera de la pila, con su `gap` de 12 px. Lo que se metía debajo era la
+tarjeta de ATRÁS.
+
+La cuenta, que es lo que no se ve leyendo: la carta de atrás se dibuja con `position: absolute; inset: 0`
+(o sea, la caja entera de la pila), escalada a 0,94 y bajada 14 px para que asome. Y tenía
+`transform-origin: 50% 110%` —el origen FUERA de su propia caja, 10% por debajo del borde inferior—. Con
+ese origen, escalar NO achica alrededor del centro: mueve los bordes. El borde de abajo de una caja de
+alto `h` va a parar a `1,1h + 0,94 × (h − 1,1h) = 1,006h`, o sea **0,6 % de `h` por DEBAJO de la pila**
+(≈ 7 px con la tarjeta del teléfono), más los 14 px del desplazamiento: **21 px afuera contra 12 px de
+gap**. Se mete 9 px detrás de los botones, y como la tarjeta de adelante es opaca y tapa casi todo, lo
+único que se ve es un borde gris redondeado asomando por detrás del ✕.
+
+- **Una pieza escalada con el `transform-origin` fuera de su caja se sale de su contenedor.** El origen
+  queda en el centro y la de atrás asoma por ARRIBA (desplazamiento NEGATIVO), que es el único lado donde
+  no hay nada que tapar. Lo fija `tests/tickets-decisiones-mazo.test.ts` (rotura: devolver el +14 → 15
+  pases, 1 fallo; devolver el `transform-origin` al CSS → ídem).
+- **Y la franja del pulgar es opaca y va encima** (`z-index: 5` + `background: var(--bg)`): es la red para
+  todo lo demás que se mueva ahí adentro —el resorte del arrastre, una tarjeta más alta de lo previsto—,
+  no el arreglo.
+
+### «Arrastré sin querer una tarjeta y ya no tengo forma de volver»
+
+El mazo tenía deshacer desde el primer día y sólo adentro del aviso de «Respondida», que dura 4,5 s. O sea
+que no cubría ninguno de los dos casos en que hace falta: una tarjeta que se fue de un gesto sin querer
+(ésa salía como «Después» y **no dejaba aviso**) y una que se contestó y el aviso ya se fue.
+
+- **«Volver» vive en la cabecera y SIEMPRE**, apagado cuando no hay nada que traer; nunca escondido. Un
+  control que aparece sólo cuando ya pasó lo malo es un control que se descubre tarde.
+- **Y deshacer ESCRIBE en la base** (`deshacerDecision` → `deshacerRespuesta`, que vuelve a poner
+  `respuesta`, `respuesta_texto` y `respondida_at` en null): la regla de la casa dice que si el cambio ya
+  se guardó, revertir sólo la pantalla miente hasta el próximo F5 — y acá es peor, porque el chat que
+  preguntó se llevaría una respuesta que Martín ya deshizo. Si el chat YA la había recogido
+  (`recogida_at`), el aviso lo dice: deshacer acá no desanda lo que el chat hizo con ella.
+- La que vuelve ENTRA por donde salió (misma dirección, al revés), que es cómo se entiende qué se deshizo
+  sin leer nada.

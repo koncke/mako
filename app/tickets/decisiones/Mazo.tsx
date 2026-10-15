@@ -4,11 +4,18 @@
 // La Ticketera: las decisiones de a una, para deslizar (/tickets/decisiones, compu y teléfono)
 // =============================================================================
 // Derecha = manda la respuesta marcada · izquierda = después (no contesta) · «Resuelta» la saca
-// sin elegir · en el medio se marca la respuesta · «Ver detalle» abre el porqué, qué destraba y
-// el link. Lo que decide vive en ./reglas.ts (puro, con test); acá el gesto y el dibujo.
+// sin elegir · «Volver» devuelve la última · en el medio se marca la respuesta · «Ver detalle» abre
+// el porqué, qué destraba y el link. Lo que decide vive en ./reglas.ts (puro, con test); acá el
+// gesto y el dibujo.
 //
 // Lo dibujan DOS páginas —app/tickets/decisiones (compu) y app/m/tickets/decisiones (teléfono,
 // misma URL)— y contesta con la MISMA acción que la lista: no hay un segundo almacén.
+//
+// ⚠️ TODA SALIDA SE PUEDE DESHACER (Martín, 14/10/2026: «arrastré sin querer una tarjeta y ya no
+// tengo forma de volver, debería haber un botón para volver»). Por eso «Volver» vive ARRIBA Y
+// SIEMPRE —no sólo en el aviso, que se va solo a los pocos segundos— y deshace también en la base
+// (`deshacer`): borrar la tarjeta de la pantalla y dejar la respuesta guardada haría que el chat se
+// lleve una respuesta que él ya deshizo. Si el chat YA se la llevó, el aviso lo dice.
 //
 // ⚠️ EL GESTO NO SE ESCRIBE A MANO (Martín, 14/10/2026: el primero «funciona bastante mal», «que
 // no lo inventes… copiá esa funcionalidad»). Lo hace `motion` (Framer Motion, ya en el repo): sigue
@@ -24,8 +31,10 @@
 //   · El arrastre arranca a mano (`useDragControls`) para no tomarlo sobre un campo de texto o un
 //     link, ni en los bordes de la pantalla (ahí vive el «volver» del sistema).
 //   · El click que sigue a un arrastre se come: si no, soltar encima de una opción la marcaba.
-//   · Cada gesto tiene su botón (✕ / Resuelta / ✓) y su tecla (← / →): un gesto sin control visible
-//     es una función que sólo encuentra el que ya la conoce.
+//   · Cada gesto tiene su botón (↶ / ✕ / Resuelta / ✓) y su tecla (⌫ / ← / →): un gesto sin control
+//     visible es una función que sólo encuentra el que ya la conoce.
+//   · La que vuelve ENTRA por donde salió (misma dirección, al revés): así se entiende qué se
+//     deshizo sin leer nada.
 
 import { useCallback, useEffect, useRef, useState, type MouseEventHandler, type RefObject } from 'react';
 import {
@@ -35,7 +44,7 @@ import {
 import Link from '@/app/_ui/Link';
 import {
   OTRA, RESUELTA, esHrefExterno, esHrefInterno,
-  type AccionResponder, type Decision, type LecturaDecisiones,
+  type AccionDeshacer, type AccionResponder, type Decision, type LecturaDecisiones,
 } from '@/app/admin/runway/decisiones';
 import { alFrente, colaInicial, marcadaInicial, porDecidir, puedeMandar, rotuloMandar, sinLa, veredictoGesto, TICKETERA_LISTA } from './reglas';
 import { CambioVista } from './CambioVista';
@@ -49,10 +58,13 @@ const URGENCIA_CORTA: Record<Decision['urgencia'], string> = {
 
 type Salida = 'derecha' | 'izquierda' | 'arriba';
 type Manejo = { volar: (s: Salida, velocidad?: number) => Promise<void> };
-type Toast = { texto: string; error?: boolean; volver?: Decision };
+type Toast = { texto: string; error?: boolean; volver?: boolean };
+/** Una tarjeta que salió, para poder traerla de vuelta tal como estaba. */
+type Pasada = { d: Decision; salida: Salida; clave: string | null; marcada: string | null; texto: string };
 
 type PropsMazo = {
   responder: AccionResponder;
+  deshacer: AccionDeshacer;
 };
 
 /** Lo que montan las dos páginas: el mazo, o por qué no se pudo leer (sin hooks: decide y delega). */
@@ -67,7 +79,7 @@ export function MazoDecisiones({ lectura, ...p }: PropsMazo & { lectura: Lectura
   return <Mazo decisiones={lectura.decisiones} {...p} />;
 }
 
-function Mazo({ decisiones, responder }: PropsMazo & { decisiones: Decision[] }) {
+function Mazo({ decisiones, responder, deshacer }: PropsMazo & { decisiones: Decision[] }) {
   // El mazo se arma UNA vez con lo que mandó el server: después de cada respuesta la página se
   // revalida y llegan props nuevas, y rearmar la cola ahí haría volver a una «después».
   const [cola, setCola] = useState<Decision[]>(() => colaInicial(decisiones));
@@ -78,6 +90,10 @@ function Mazo({ decisiones, responder }: PropsMazo & { decisiones: Decision[] })
   const [textos, setTextos] = useState<Record<number, string>>({});
   const [toast, setToast] = useState<Toast | null>(null);
   const [pista, setPista] = useState<string | null>(null);
+  // Lo que salió, en orden: la última es la que trae «Volver».
+  const [atras, setAtras] = useState<Pasada[]>([]);
+  // Por dónde entra la que vuelve (la misma salida, al revés). Se limpia al cambiar de tarjeta.
+  const [entrada, setEntrada] = useState<Salida | null>(null);
 
   const actual = cola[0] ?? null;
   const siguiente = cola[1] ?? null;
@@ -129,7 +145,9 @@ function Mazo({ decisiones, responder }: PropsMazo & { decisiones: Decision[] })
       pedido = responder({ error: null, ok: false }, fd).catch(() => ({ error: 'No se pudo guardar', ok: false }));
     }
     const salida = (manejo.current?.volar(s, velocidad) ?? Promise.resolve()).then(() => {
+      setEntrada(null);
       setCola((c) => sinLa(c, d.id));
+      setAtras((a) => [...a, { d, salida: s, clave, marcada, texto: txt }]);
       if (clave) setHechas((n) => n + 1);
       else setLuego((l) => [...sinLa(l, d.id), d]);
     });
@@ -137,9 +155,10 @@ function Mazo({ decisiones, responder }: PropsMazo & { decisiones: Decision[] })
       void Promise.all([pedido, salida]).then(([r]) => {
         if (r.ok) {
           const dicho = clave === RESUELTA ? 'Resuelta' : `Respondida · ${clave === OTRA ? 'escrita' : clave}`;
-          setToast({ texto: dicho, volver: { ...d, respuesta: clave, respuestaTexto: txt || null } });
+          setToast({ texto: dicho, volver: true });
           return;
         }
+        setAtras((a) => a.filter((x) => x.d.id !== d.id));
         setCola((c) => alFrente(c, d));
         setHechas((n) => Math.max(0, n - 1));
         setToast({ texto: r.error ?? 'No se pudo guardar', error: true });
@@ -148,14 +167,29 @@ function Mazo({ decisiones, responder }: PropsMazo & { decisiones: Decision[] })
     return true;
   }, [actual, sePuede, marcada, texto, responder]);
 
-  /** «Cambiar»: la que se acaba de contestar vuelve al frente con su respuesta marcada. */
-  const cambiar = (d: Decision) => {
+  /** «Volver»: la última que salió vuelve al frente, como estaba, y se despega de la base. */
+  const volver = useCallback(() => {
+    const u = atras[atras.length - 1];
+    if (!u || ocupado.current) return;
     setToast(null);
-    setMarcadas((m) => { const n = { ...m }; delete n[d.id]; return n; });
-    setTextos((t) => { const n = { ...t }; delete n[d.id]; return n; });
-    setCola((c) => alFrente(c, d));
+    setPista(null);
+    setAtras((a) => a.slice(0, -1));
+    setLuego((l) => sinLa(l, u.d.id));
+    setMarcadas((m) => ({ ...m, [u.d.id]: u.marcada }));
+    if (u.texto) setTextos((t) => ({ ...t, [u.d.id]: u.texto }));
+    setEntrada(u.salida);
+    setCola((c) => alFrente(c, u.d));
+    if (!u.clave) return; // una «después» no se guardó: no hay nada que deshacer en la base
     setHechas((n) => Math.max(0, n - 1));
-  };
+    const fd = new FormData();
+    fd.set('id', String(u.d.id));
+    void deshacer(fd)
+      .catch(() => ({ error: 'No se pudo deshacer', ok: false, yaRecogida: false }))
+      .then((r) => {
+        if (!r.ok) setToast({ texto: r.error ?? 'No se pudo deshacer', error: true });
+        else if (r.yaRecogida) setToast({ texto: 'Volvió, pero el chat ya la había leído' });
+      });
+  }, [atras, deshacer]);
 
   const marcar = (clave: string) => {
     if (!actual) return;
@@ -163,12 +197,15 @@ function Mazo({ decisiones, responder }: PropsMazo & { decisiones: Decision[] })
     setPista(null);
   };
 
-  // Las teclas, en la compu: ← después · → mandar · 1-4 marcar. No mientras se escribe.
+  // Las teclas, en la compu: ← después · → mandar · 1-4 marcar · ⌫ o ⌘Z volver. No mientras se escribe.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
       if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
-      if (e.metaKey || e.ctrlKey || e.altKey || !actual) return;
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); volver(); return; }
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key === 'Backspace') { e.preventDefault(); volver(); return; }
+      if (!actual) return;
       if (e.key === 'ArrowRight') { e.preventDefault(); decidir('derecha'); }
       else if (e.key === 'ArrowLeft') { e.preventDefault(); decidir('izquierda'); }
       else if (/^[1-4]$/.test(e.key)) {
@@ -178,36 +215,37 @@ function Mazo({ decisiones, responder }: PropsMazo & { decisiones: Decision[] })
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [actual, decidir]);
+  }, [actual, decidir, volver]);
 
   const progresoHecho = total ? Math.min(1, hechas / total) : 1;
   const quedan = porDecidir(cola);
+  const hayVuelta = atras.length > 0;
 
   return (
     <section className="mazo" aria-label="Ticketera">
-      {/* Arriba, el progreso y el cambio de vista; y en su lugar, lo que acaba de pasar. «Cambiar»
-          se usa poco: puede vivir lejos del pulgar, y así el aviso no tapa las opciones. */}
-      <div className="mazo-arriba" aria-live="polite">
-        {pista || toast ? (
-          <div className={`mazo-toast${pista ? ' mazo-toast--pista' : toast?.error ? ' mazo-toast--error' : ''}`}
-            role={toast?.error && !pista ? 'alert' : 'status'}>
-            <span>{pista ?? toast?.texto}</span>
-            {!pista && toast?.volver && (
-              <button type="button" onClick={() => cambiar(toast.volver!)}>Cambiar</button>
-            )}
-          </div>
-        ) : (
-          <div className="mazo-estado">
-            <div className="mazo-estado-txt">
-              {total > 0 && <div className="mazo-barra" aria-hidden><span style={{ transform: `scaleX(${progresoHecho})` }} /></div>}
-              <p className="mazo-cuenta">
-                {quedan ? <><b>{quedan}</b> por decidir</> : cola.length ? 'Para saber' : hechas ? <><b>{hechas}</b> listas</> : null}
-              </p>
-            </div>
-            <CambioVista actual="tarjetas" />
+      {/* Arriba: cuánto falta, «Volver» y el cambio de vista. Una franja fija, siempre igual: lo
+          que acaba de pasar se dice MÁS ABAJO (flotando sobre la tarjeta), así nada se mueve. */}
+      <header className="mazo-arriba">
+        {total > 0 && (
+          <div className="mazo-barra" aria-hidden>
+            <span style={{ transform: `scaleX(${progresoHecho})` }} />
           </div>
         )}
-      </div>
+        <div className="mazo-fila">
+          <button type="button" className="mazo-volver" onClick={volver} disabled={!hayVuelta}
+            aria-label={hayVuelta ? 'Volver: traer de nuevo la última tarjeta (⌫)' : 'Nada para volver'}>
+            <svg viewBox="0 0 24 24" width="19" height="19" aria-hidden>
+              <path d="M4.5 9.5h9.8a4.7 4.7 0 010 9.4H9" stroke="currentColor" strokeWidth="2.1" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M8 5.2L3.8 9.5 8 13.8" stroke="currentColor" strokeWidth="2.1" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            <span>Volver</span>
+          </button>
+          <p className="mazo-cuenta" aria-live="polite">
+            {quedan ? <><b>{quedan}</b> por decidir</> : cola.length ? 'Para saber' : hechas ? <><b>{hechas}</b> listas</> : null}
+          </p>
+          <CambioVista actual="tarjetas" />
+        </div>
+      </header>
 
       <div className="mazo-pila">
         {siguiente && <CartaAtras key={`atras-${siguiente.id}`} d={siguiente} marcada={marcadaDe(siguiente)} progreso={progreso} />}
@@ -218,6 +256,7 @@ function Mazo({ decisiones, responder }: PropsMazo & { decisiones: Decision[] })
             marcada={marcada}
             texto={texto}
             sePuede={sePuede}
+            entrada={entrada}
             progreso={progreso}
             manejo={manejo}
             onDecidir={decidir}
@@ -225,24 +264,35 @@ function Mazo({ decisiones, responder }: PropsMazo & { decisiones: Decision[] })
             onTexto={(v) => setTextos((t) => ({ ...t, [actual.id]: v }))}
           />
         ) : (
-          <Vacio luego={luego.length} hechas={hechas} onDeNuevo={() => { setCola(luego); setLuego([]); }} />
+          <Vacio luego={luego.length} hechas={hechas} onDeNuevo={() => { setCola(luego); setLuego([]); setAtras([]); }} />
+        )}
+
+        {/* Lo que acaba de pasar: flota sobre la tarjeta, abajo, y se va solo. No empuja nada. */}
+        {(pista || toast) && (
+          <div className={`mazo-toast${pista ? ' mazo-toast--pista' : toast?.error ? ' mazo-toast--error' : ''}`}
+            role={toast?.error && !pista ? 'alert' : 'status'}>
+            <span>{pista ?? toast?.texto}</span>
+            {!pista && toast?.volver && hayVuelta && (
+              <button type="button" onClick={volver}>Deshacer</button>
+            )}
+          </div>
         )}
       </div>
 
       {actual && (
         <div className="mazo-acciones">
           <button type="button" className="mazo-btn mazo-btn--no" onClick={() => decidir('izquierda')} aria-label="Después: la dejo para más tarde (←)">
-            <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" /></svg>
+            <svg viewBox="0 0 24 24" width="25" height="25" aria-hidden><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" /></svg>
             <span>Después</span>
-          </button>
-          <button type="button" className="mazo-btn mazo-btn--resuelta" onClick={() => decidir('arriba')} aria-label="Resuelta: sale sin elegir una opción">
-            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden><circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="2" fill="none" /><path d="M8.3 12.3l2.5 2.5 4.9-5.2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" /></svg>
-            <span>Resuelta</span>
           </button>
           <button type="button" className="mazo-btn mazo-btn--si" onClick={() => decidir('derecha')} aria-disabled={!sePuede}
             aria-label={`${rotuloMandar(actual, marcada)} (→)`}>
-            <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden><path d="M5 12.5l4.5 4.5L19 7.5" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" fill="none" /></svg>
+            <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden><path d="M5 12.5l4.5 4.5L19 7.5" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" fill="none" /></svg>
             <span>{rotuloMandar(actual, marcada)}</span>
+          </button>
+          <button type="button" className="mazo-btn mazo-btn--resuelta" onClick={() => decidir('arriba')} aria-label="Resuelta: sale sin elegir una opción">
+            <svg viewBox="0 0 24 24" width="23" height="23" aria-hidden><circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="2" fill="none" /><path d="M8.3 12.3l2.5 2.5 4.9-5.2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" /></svg>
+            <span>Resuelta</span>
           </button>
         </div>
       )}
@@ -258,6 +308,7 @@ function CartaArriba(p: {
   marcada: string | null;
   texto: string;
   sePuede: boolean;
+  entrada: Salida | null;
   progreso: MotionValue<number>;
   manejo: RefObject<Manejo | null>;
   onDecidir: (s: Salida, velocidad?: number) => boolean;
@@ -266,8 +317,11 @@ function CartaArriba(p: {
 }) {
   const { d, progreso } = p;
   const ref = useRef<HTMLElement>(null);
-  const x = useMotionValue(0);
-  const y = useMotionValue(0);
+  // La que VUELVE empieza fuera de la pantalla, del lado por el que salió, y entra con el resorte.
+  const desde = useRef(p.entrada);
+  const fuera = typeof window === 'undefined' ? 560 : window.innerWidth;
+  const x = useMotionValue(desde.current === 'derecha' ? fuera : desde.current === 'izquierda' ? -fuera : 0);
+  const y = useMotionValue(desde.current === 'arriba' ? -fuera : 0);
   const opacidad = useMotionValue(1);
   // La receta del mazo: la inclinación y los sellos salen de la posición, no de un estado.
   const rotate = useTransform(x, [-320, 0, 320], [-16, 0, 16]);
@@ -281,6 +335,16 @@ function CartaArriba(p: {
 
   useEffect(() => { progreso.set(0); }, [progreso]);
   useMotionValueEvent(x, 'change', (v) => { if (!saliendo.current) progreso.set(Math.min(1, Math.abs(v) / 160)); });
+
+  // La entrada de la que vuelve (una sola vez, al montarse).
+  useEffect(() => {
+    if (!desde.current) return;
+    const resorte = { type: 'spring', stiffness: 460, damping: 40 } as const;
+    if (reducido) { x.set(0); y.set(0); return; }
+    animate(x, 0, resorte);
+    animate(y, 0, resorte);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // La salida animada, con la velocidad del dedo si viene de un gesto (sigue el movimiento).
   useEffect(() => {
@@ -357,10 +421,13 @@ function CartaArriba(p: {
   );
 }
 
-// La de atrás: asoma, y crece a medida que la de adelante se va.
+// La de atrás: asoma por ARRIBA, y crece a medida que la de adelante se va.
+// ⚠️ Asoma por arriba y no por abajo, y el origen es el CENTRO: con el origen abajo (50% 110%) el
+// borde de abajo de la de atrás caía por DEBAJO de la pila y se metía detrás de los botones —eso
+// era el «los botones se superponen con la card» del 14/10—.
 function CartaAtras({ d, marcada, progreso }: { d: Decision; marcada: string | null; progreso: MotionValue<number> }) {
-  const scale = useTransform(progreso, [0, 1], [0.94, 1]);
-  const y = useTransform(progreso, [0, 1], [14, 0]);
+  const scale = useTransform(progreso, [0, 1], [0.95, 1]);
+  const y = useTransform(progreso, [0, 1], [-10, 0]);
   return (
     <motion.article className={`mazo-carta mazo-carta--${d.urgencia} mazo-carta--atras`} style={{ scale, y }} aria-hidden inert>
       <CuerpoCarta d={d} marcada={marcada} atras />
@@ -384,7 +451,7 @@ function CuerpoCarta(p: {
     <div className="mazo-cuerpo">
       <div className="mazo-cabeza">
         <span className="mazo-chat">{d.chat}</span>
-        <span className="mazo-urgencia">{URGENCIA_CORTA[d.urgencia]}</span>
+        <span className="mazo-urgencia"><i aria-hidden /> {URGENCIA_CORTA[d.urgencia]}</span>
       </div>
       <h2 className="mazo-pregunta">{d.pregunta}</h2>
 
@@ -421,6 +488,9 @@ function CuerpoCarta(p: {
                   {d.recomendada === o.clave && <em>Recomendada</em>}
                   {o.texto}
                 </span>
+                <svg className="mazo-opcion-tilde" viewBox="0 0 24 24" width="18" height="18" aria-hidden>
+                  <path d="M5 12.5l4.5 4.5L19 7.5" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                </svg>
               </button>
             );
           })}

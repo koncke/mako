@@ -18,7 +18,7 @@ import { notFound } from 'next/navigation';
 import { getSesionAdmin } from '@/lib/auth';
 import { leerDecisiones } from '@/lib/admin-decisiones';
 import { Pagina, PageHeader } from '@/app/_ui';
-import { responderDecision } from '@/app/admin/runway/acciones';
+import { deshacerDecision, responderDecision } from '@/app/admin/runway/acciones';
 import { MazoDecisiones } from './Mazo';
 import './mazo.css';
 import '@/app/tickets/decisiones/vistas.css';
@@ -32,7 +32,7 @@ export default async function Ticketera() {
   return (
     <Pagina>
       <PageHeader titulo="Ticketera" />
-      <MazoDecisiones lectura={lectura} responder={responderDecision} />
+      <MazoDecisiones lectura={lectura} responder={responderDecision} deshacer={deshacerDecision} />
     </Pagina>
   );
 }

@@ -31,6 +31,7 @@ function dec(p: Partial<Decision> = {}): Decision {
   };
 }
 const responder = async () => ({ error: null, ok: true });
+const deshacer = async () => ({ error: null, ok: true, yaRecogida: false });
 
 // Rotura «sin el reparto por urgencia» (cola = las pendientes tal cual llegan) → 10 pases, 2 fallos
 // (este y la tarjeta dibujada, que espera adelante lo que frena a un chat).
@@ -139,7 +140,7 @@ test('sólo el super admin: el guard va antes de leer, en las cuatro páginas', 
 test('una sola fuente: las cuatro páginas contestan con la misma acción, y se llaman «Ticketera»', () => {
   for (const r of PAGINAS) {
     const src = sinComentarios(leer(r));
-    assert.match(src, /import \{ responderDecision \} from '@\/app\/admin\/runway\/acciones'/, r);
+    assert.match(src, /import \{[^}]*responderDecision[^}]*\} from '@\/app\/admin\/runway\/acciones'/, r);
     assert.match(src, /responder=\{responderDecision\}/, r);
     assert.match(src, /titulo="Ticketera"/, `${r}: se llama Ticketera`);
   }
@@ -162,7 +163,7 @@ test('la tarjeta dibujada: pregunta, opciones, el ✓ dice qué manda, «Resuelt
       dec({ urgencia: 'criterio', pregunta: '¿Sin recomendada?', orden: 1 }),
       dec({ urgencia: 'bloquea', pregunta: '¿La primera?', recomendada: 'A', contexto: 'El porqué' }),
     ] },
-    responder,
+    responder, deshacer,
   }));
   const frente = html.slice(html.lastIndexOf('<article'));
   assert.match(frente, /¿La primera\?/, 'adelante va lo que frena a un chat');
@@ -178,7 +179,7 @@ test('la tarjeta dibujada: pregunta, opciones, el ✓ dice qué manda, «Resuelt
   // Sin recomendada no viene nada marcado: el ✓ lo dice y queda apagado (no manda a ciegas).
   const sinReco = renderToStaticMarkup(createElement(MazoDecisiones, {
     lectura: { ok: true, decisiones: [dec({ urgencia: 'bloquea', pregunta: '¿Sin recomendada?' })] },
-    responder,
+    responder, deshacer,
   }));
   assert.match(sinReco, /aria-disabled="true"[^>]*><svg[\s\S]*?<span>Elige una<\/span>/);
 });
@@ -187,13 +188,74 @@ test('la tarjeta dibujada: pregunta, opciones, el ✓ dice qué manda, «Resuelt
 test('sin nada pendiente lo dice, y la falla de lectura también', () => {
   const vacio = renderToStaticMarkup(createElement(MazoDecisiones, {
     lectura: { ok: true, decisiones: [dec({ respuesta: 'A' })] },
-    responder,
+    responder, deshacer,
   }));
   assert.match(vacio, /Nada por decidir/);
   assert.match(vacio, /Ver la lista/);
   const falla = renderToStaticMarkup(createElement(MazoDecisiones, {
     lectura: { ok: false, faltaTabla: false, error: 'x' },
-    responder,
+    responder, deshacer,
   }));
   assert.match(falla, /No se pudieron leer las decisiones/);
+});
+
+// =============================================================================
+// «Volver»: Martín, 14/10/2026 — «arrastré sin querer una tarjeta y ya no tengo forma de volver»
+// =============================================================================
+// Rotura «Volver sólo en el aviso» (el botón de arriba sacado) → 15 pases, 1 fallo, contra una base de 16 y 0.
+test('«Volver» vive arriba y SIEMPRE: apagado cuando no hay nada que traer, nunca escondido', () => {
+  const html = renderToStaticMarkup(createElement(MazoDecisiones, {
+    lectura: { ok: true, decisiones: [dec({ urgencia: 'bloquea' })] },
+    responder, deshacer,
+  }));
+  const volver = html.match(/<button[^>]*class="mazo-volver"[^>]*>/)?.[0] ?? '';
+  assert.ok(volver, 'el botón de volver se dibuja al entrar, sin haber deslizado nada');
+  assert.match(volver, /disabled/, 'arranca apagado: todavía no salió ninguna');
+  assert.match(html, /<span>Volver<\/span>/, 'con su rótulo, no sólo el ícono');
+});
+
+// Rotura «deshacer sólo en la pantalla» (sin la llamada a `deshacer`) → 15 pases, 1 fallo.
+test('volver una contestada la despega de la BASE; una «después» no, que nunca se guardó', () => {
+  const mazo = sinComentarios(leer('app/tickets/decisiones/Mazo.tsx'));
+  const i = mazo.indexOf('const volver =');
+  const cuerpo = mazo.slice(i, mazo.indexOf('const marcar =', i));
+  assert.ok(i > 0 && cuerpo.length > 200 && cuerpo.length < 2000, `el cuerpo de volver mide ${cuerpo.length}`);
+  assert.match(cuerpo, /if \(!u\.clave\) return;/, 'una «después» no tiene nada que deshacer en la base');
+  assert.match(cuerpo, /void deshacer\(fd\)/, 'una contestada vuelve a estar pendiente');
+  assert.match(cuerpo, /yaRecogida/, 'y si el chat ya la leyó, lo dice');
+  // La acción y la escritura existen, y la escritura borra las TRES marcas de contestada.
+  const acc = sinComentarios(leer('app/admin/runway/acciones.ts'));
+  assert.match(acc, /export async function deshacerDecision/);
+  assert.match(acc, /const admin = await getSesionAdmin\(\);[\s\S]{0,120}deshacerRespuesta/, 'el guard antes de escribir');
+  const lib = sinComentarios(leer('lib/admin-decisiones.ts'));
+  const upd = lib.slice(lib.indexOf('export async function deshacerRespuesta'));
+  for (const campo of ['respuesta: null', 'respuesta_texto: null', 'respondida_at: null']) {
+    assert.ok(upd.includes(campo), `falta ${campo}: la decisión seguiría contestada`);
+  }
+});
+
+// Tres roturas, cada una 15 pases y 1 fallo: el desplazamiento de vuelta a +14 (asoma por abajo), el
+// `transform-origin: 50% 110%` devuelto al CSS, y la franja del pulgar sin fondo.
+test('la tarjeta de atrás asoma por ARRIBA: por abajo se metía detrás de los botones', () => {
+  const mazo = sinComentarios(leer('app/tickets/decisiones/Mazo.tsx'));
+  const i = mazo.indexOf('function CartaAtras');
+  const cuerpo = mazo.slice(i, mazo.indexOf('function CuerpoCarta', i));
+  assert.match(cuerpo, /useTransform\(progreso, \[0, 1\], \[-\d+, 0\]\)/, 'el desplazamiento es NEGATIVO (hacia arriba)');
+  const css = sinComentarios(leer('app/tickets/decisiones/mazo.css'));
+  for (const regla of css.matchAll(/([^{}]*\.mazo-carta[^{}]*)\{([^}]*)\}/g)) {
+    assert.doesNotMatch(regla[2], /transform-origin/, `${regla[1].trim()}: con el origen abajo, el borde de abajo caia fuera de la pila`);
+  }
+  // Y la franja del pulgar es opaca y va encima: la red para todo lo demás que se mueva ahí.
+  const acciones = css.slice(css.indexOf('.mazo-acciones {'), css.indexOf('.mazo-btn {'));
+  assert.match(acciones, /z-index: 5/);
+  assert.match(acciones, /background: var\(--bg\)/);
+});
+
+// Rotura «la página del teléfono sin deshacer» → 15 pases, 1 fallo.
+test('las dos páginas del mazo pasan el deshacer; la lista no lo necesita', () => {
+  for (const r of ['app/tickets/decisiones/page.tsx', 'app/m/tickets/decisiones/page.tsx']) {
+    const src = sinComentarios(leer(r));
+    assert.match(src, /deshacerDecision/, `${r}: sin la acción, volver no despega la respuesta`);
+    assert.match(src, /deshacer=\{deshacerDecision\}/, r);
+  }
 });

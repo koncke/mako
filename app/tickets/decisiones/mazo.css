@@ -1,16 +1,24 @@
 /* =============================================================================
    La Ticketera (/tickets/decisiones) — el mazo, nace en el teléfono
    =============================================================================
-   Una tarjeta a la vez, con la siguiente asomando detrás. Lo que se toca vive abajo
-   (las opciones al pie de la tarjeta; ✕, Resuelta y ✓ en la franja del pulgar); arriba
-   sólo el progreso, el cambio de vista y el aviso de lo que pasó. Sólo tokens de la casa.
+   Tres franjas que no se pisan: arriba el progreso y «Volver», en el medio la pila
+   (y ahí flota el aviso de lo que pasó), abajo la franja del pulgar. Sólo tokens.
+
+   ⚠️ LA FRANJA DEL PULGAR ES OPACA Y VA ENCIMA (z-index 5 + fondo): por debajo pasan
+   la tarjeta de atrás y el resorte del arrastre, y el 14/10/2026 el reporte fue «mira
+   como los botones se superponen con la card». La causa de fondo —la tarjeta de atrás
+   se iba por abajo de la pila— se arregló en Mazo.tsx (origen y sentido del asomo);
+   esto es la red para todo lo demás que se mueva ahí adentro.
+
    ⚠️ El transform, la opacidad de los sellos y la escala de la de atrás los escribe
    `motion` (Mazo.tsx). Acá NO va ningún `transition` ni `transform` sobre las tarjetas:
    una transición de CSS sobre un transform que la librería escribe cada cuadro lo
    arrastra detrás del dedo, que es justo el «funciona bastante mal». */
 
 .mazo {
-  display: flex; flex-direction: column; gap: 12px;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 14px;
   width: 100%; max-width: 480px; margin: 0 auto;
   height: clamp(540px, calc(100dvh - 190px), 860px);
 }
@@ -20,44 +28,47 @@
   min-height: 460px;
 }
 
-/* ── Arriba: el progreso, o lo que acaba de pasar ─────────────────────────── */
-.mazo-arriba { flex: none; min-height: 44px; display: flex; flex-direction: column; justify-content: center; }
-.mazo-estado { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.mazo-estado-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-.mazo-barra { height: 4px; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
+/* ── Arriba: cuánto falta, «Volver» y el cambio de vista ──────────────────── */
+.mazo-arriba { display: flex; flex-direction: column; gap: 10px; }
+.mazo-fila { display: flex; align-items: center; gap: 10px; }
+.mazo-barra { height: 3px; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
 .mazo-barra span {
   display: block; height: 100%; background: var(--good);
   transform-origin: left center; transition: transform 300ms ease-out;
 }
-.mazo-cuenta { margin: 0; font-size: 14px; color: var(--dim); }
+.mazo-cuenta {
+  flex: 1; min-width: 0; margin: 0;
+  font-size: 14px; color: var(--dim);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 .mazo-cuenta b { color: var(--ink); font-weight: 700; }
 
-.mazo-toast {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  min-height: 44px; padding: 0 6px 0 14px; border-radius: 12px;
-  background: var(--ink); color: var(--bg);
-  font-size: 15px; font-weight: 600;
-}
-.mazo-toast button {
-  min-height: 40px; padding: 0 12px; border: none; border-radius: 10px;
-  background: transparent; color: inherit; font: inherit; font-weight: 700; text-decoration: underline;
+/* «Volver» vive acá y SIEMPRE: el aviso se va solo a los segundos y arrastrar sin
+   querer no avisa. Apagado cuando no hay nada que traer, nunca escondido. */
+.mazo-volver {
+  flex: none; display: inline-flex; align-items: center; gap: 6px;
+  min-height: 38px; padding: 0 12px 0 10px;
+  border: 1.5px solid var(--border); border-radius: 999px;
+  background: var(--surface); color: var(--ink);
+  font: inherit; font-size: 14px; font-weight: 650;
   cursor: pointer; touch-action: manipulation;
+  transition: border-color 120ms ease, background-color 120ms ease, transform 100ms ease-out;
 }
-.mazo-toast--error { background: var(--bad); color: #fff; }
-.mazo-toast--pista { background: var(--warn-bg); color: var(--ink); }
+.mazo-volver:active { transform: scale(0.97); }
+.mazo-volver:disabled { color: var(--faint); border-color: var(--border); background: transparent; cursor: default; }
+.mazo-volver:disabled svg { opacity: 0.5; }
 
 /* ── La pila ──────────────────────────────────────────────────────────────── */
-.mazo-pila { position: relative; flex: 1; min-height: 0; }
+.mazo-pila { position: relative; min-height: 0; }
 
 .mazo-carta {
   --mazo-k: var(--primary);
   position: absolute; inset: 0; z-index: 2;
   display: flex; flex-direction: column;
   background: var(--surface); color: var(--ink);
-  border: 1px solid var(--border); border-top: 5px solid var(--mazo-k);
-  border-radius: 24px; overflow: hidden;
-  box-shadow: 0 12px 32px color-mix(in srgb, var(--ink) 10%, transparent);
-  transform-origin: 50% 110%;
+  border: 1px solid var(--border);
+  border-radius: 26px; overflow: hidden;
+  box-shadow: 0 16px 36px color-mix(in srgb, var(--ink) 11%, transparent);
   touch-action: pan-y;
   user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
   will-change: transform;
@@ -67,8 +78,9 @@
 .mazo-carta--criterio { --mazo-k: var(--primary); }
 .mazo-carta--aviso { --mazo-k: var(--faint); }
 
-/* La de atrás asoma y crece a medida que la de adelante se va (la escala la pone motion). */
-.mazo-carta--atras { z-index: 1; pointer-events: none; box-shadow: none; }
+/* La de atrás asoma 10 px por ARRIBA y crece a medida que la de adelante se va (la
+   escala la pone motion, con el origen en el centro: ver el ⚠️ de Mazo.tsx). */
+.mazo-carta--atras { z-index: 1; pointer-events: none; box-shadow: none; opacity: 0.75; }
 .mazo-carta:not(.mazo-carta--atras) { cursor: grab; }
 .mazo-carta:not(.mazo-carta--atras):active { cursor: grabbing; }
 
@@ -80,7 +92,7 @@
 .mazo-cuerpo {
   flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y;
   display: flex; flex-direction: column; gap: 14px;
-  padding: 20px 18px 18px;
+  padding: 22px 20px 20px;
 }
 .mazo-cabeza { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .mazo-chat {
@@ -88,14 +100,16 @@
   min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .mazo-urgencia {
-  flex: none; padding: 3px 9px; border-radius: 999px;
-  font-size: 11.5px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase;
-  color: var(--mazo-k); background: color-mix(in srgb, var(--mazo-k) 12%, var(--surface));
+  flex: none; display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 11px 4px 9px; border-radius: 999px;
+  font-size: 11.5px; font-weight: 700; letter-spacing: 0.02em;
+  color: var(--mazo-k); background: color-mix(in srgb, var(--mazo-k) 11%, var(--surface));
 }
+.mazo-urgencia i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .mazo-carta--aviso .mazo-urgencia { color: var(--dim); }
 .mazo-pregunta {
   margin: 0;
-  font-size: clamp(22px, 6vw, 27px); line-height: 1.25; font-weight: 700; letter-spacing: -0.02em;
+  font-size: clamp(22px, 5.8vw, 27px); line-height: 1.24; font-weight: 700; letter-spacing: -0.02em;
   overflow-wrap: anywhere;
 }
 
@@ -130,8 +144,8 @@
 .mazo-opciones { margin-top: auto; display: flex; flex-direction: column; gap: 10px; }
 .mazo-opcion {
   display: flex; align-items: center; gap: 12px;
-  width: 100%; min-height: 56px; padding: 12px 14px;
-  border-radius: 14px; border: 1.5px solid var(--border);
+  width: 100%; min-height: 58px; padding: 12px 14px;
+  border-radius: 16px; border: 1.5px solid var(--border);
   background: var(--bg); color: var(--ink);
   font: inherit; font-size: 16.5px; font-weight: 600; line-height: 1.35; text-align: left;
   cursor: pointer; touch-action: manipulation;
@@ -139,24 +153,30 @@
 }
 .mazo-opcion:active { transform: scale(0.985); }
 .mazo-opcion b {
-  flex: none; width: 30px; height: 30px; border-radius: 9px;
+  flex: none; width: 30px; height: 30px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  font-size: 14px; background: var(--surface-2); color: var(--ink);
+  font-size: 14px; background: var(--surface-2); color: var(--dim);
+  transition: background-color 120ms ease, color 120ms ease;
 }
 .mazo-opcion span { flex: 1; min-width: 0; overflow-wrap: anywhere; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
 .mazo-opcion em {
   font-style: normal; font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
   padding: 2px 8px; border-radius: 999px; color: var(--primary); background: var(--primary-bg);
 }
+/* El tilde de la marcada: el color nunca es el único portador. */
+.mazo-opcion-tilde { flex: none; color: var(--primary); opacity: 0; }
 .mazo-opcion--marcada { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 9%, var(--surface)); }
 .mazo-opcion--marcada b { background: var(--primary); color: var(--on-primary); }
+.mazo-opcion--marcada .mazo-opcion-tilde { opacity: 1; }
 .mazo-opcion--otra { border-style: dashed; color: var(--dim); font-weight: 550; }
 .mazo-opcion--otra.mazo-opcion--marcada { color: var(--ink); border-style: solid; }
-.mazo-opcion:focus-visible, .mazo-btn:focus-visible, .mazo-detalle-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.mazo-opcion:focus-visible, .mazo-btn:focus-visible, .mazo-detalle-btn:focus-visible, .mazo-volver:focus-visible {
+  outline: 2px solid var(--primary); outline-offset: 2px;
+}
 
 .mazo-texto {
   width: 100%; min-height: 96px; padding: 12px 14px; resize: vertical;
-  border-radius: 14px; border: 1.5px solid var(--border); background: var(--bg); color: var(--ink);
+  border-radius: 16px; border: 1.5px solid var(--border); background: var(--bg); color: var(--ink);
   font: inherit; font-size: 16px; line-height: 1.45;
   user-select: text; -webkit-user-select: text;
 }
@@ -166,36 +186,72 @@
 
 /* ── Los sellos del arrastre ─────────────────────────────────────────────── */
 .mazo-sello {
-  position: absolute; top: 18px; z-index: 3; pointer-events: none;
-  padding: 5px 12px; border-radius: 10px; border: 3px solid currentColor;
+  position: absolute; top: 20px; z-index: 3; pointer-events: none;
+  padding: 6px 13px; border-radius: 12px; border: 3px solid currentColor;
   background: var(--surface);
-  font-size: 20px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase;
+  font-size: 19px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase;
 }
-.mazo-sello--si { left: 16px; color: var(--good); rotate: -9deg; opacity: 0; }
-.mazo-sello--no { right: 16px; color: var(--dim); rotate: 9deg; opacity: 0; }
+.mazo-sello--si { left: 18px; color: var(--good); rotate: -9deg; opacity: 0; }
+.mazo-sello--no { right: 18px; color: var(--dim); rotate: 9deg; opacity: 0; }
 .mazo-sello--apagado { color: var(--faint); }
 
-/* ── Abajo: la franja del pulgar ─────────────────────────────────────────── */
-.mazo-acciones { flex: none; display: grid; grid-template-columns: 1fr 1fr 2fr; gap: 10px; }
-.mazo-btn {
-  display: flex; align-items: center; justify-content: center; gap: 8px;
-  min-height: 64px; padding: 0 14px; border-radius: 20px;
-  font: inherit; font-size: 17px; font-weight: 700;
-  cursor: pointer; touch-action: manipulation; user-select: none; -webkit-user-select: none;
-  transition: transform 100ms ease-out, background-color 120ms ease;
+/* ── Lo que acaba de pasar: flota sobre la tarjeta, abajo, y se va solo ───── */
+.mazo-toast {
+  position: absolute; left: 10px; right: 10px; bottom: 10px; z-index: 4;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  min-height: 46px; padding: 0 6px 0 16px; border-radius: 14px;
+  background: var(--ink); color: var(--bg);
+  font-size: 15px; font-weight: 600;
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--ink) 24%, transparent);
 }
-.mazo-btn:active { transform: scale(0.97); }
-.mazo-btn--no { border: 1.5px solid var(--border); background: var(--surface); color: var(--ink); }
-/* Los dos de los costados chicos (ícono arriba, rótulo abajo): el ancho es para ✓, que dice qué manda. */
-.mazo-btn--no, .mazo-btn--resuelta { flex-direction: column; gap: 2px; padding: 0 10px; font-size: 13px; }
-.mazo-btn--si { border: none; background: var(--good); color: #fff; }
-.mazo-btn--si[aria-disabled="true"] { background: var(--surface); border: 1.5px dashed var(--border); color: var(--dim); }
-/* «Resuelta» sale sin elegir: es la menos frecuente, va en el medio y más chica. */
-.mazo-btn--resuelta { border: 1.5px solid var(--border); background: var(--surface); color: var(--dim); }
+.mazo-toast span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mazo-toast button {
+  flex: none; min-height: 38px; padding: 0 12px; border: none; border-radius: 10px;
+  background: transparent; color: inherit; font: inherit; font-weight: 700; text-decoration: underline;
+  cursor: pointer; touch-action: manipulation;
+}
+.mazo-toast--error { background: var(--bad); color: #fff; }
+.mazo-toast--pista { background: var(--warn-bg); color: var(--ink); }
+
+/* ── Abajo: la franja del pulgar ─────────────────────────────────────────── */
+/* ⚠️ OPACA Y ENCIMA: es lo último que se dibuja y nada de la pila puede taparla. */
+.mazo-acciones {
+  position: relative; z-index: 5;
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px;
+  padding-top: 4px; background: var(--bg);
+}
+.mazo-btn {
+  display: flex; align-items: center; justify-content: center;
+  font: inherit; font-weight: 700;
+  cursor: pointer; touch-action: manipulation; user-select: none; -webkit-user-select: none;
+  transition: transform 100ms ease-out, background-color 120ms ease, border-color 120ms ease;
+}
+.mazo-btn:active { transform: scale(0.95); }
+/* Los dos de los costados son REDONDOS, con su rótulo debajo (un gesto sin control
+   visible es una función que sólo encuentra el que ya la conoce). */
+.mazo-btn--no, .mazo-btn--resuelta {
+  flex-direction: column; gap: 3px;
+  width: 66px; height: 66px; border-radius: 50%;
+  border: 1.5px solid var(--border); background: var(--surface);
+  font-size: 10.5px; font-weight: 650; letter-spacing: 0.01em;
+}
+.mazo-btn--no { color: var(--ink); }
+.mazo-btn--resuelta { color: var(--dim); }
+/* El ✓ es la acción principal: una píldora que DICE qué manda. */
+.mazo-btn--si {
+  gap: 9px; min-width: 0; height: 66px; padding: 0 18px;
+  border: none; border-radius: 999px;
+  background: var(--good); color: #fff; font-size: 17px;
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--good) 30%, transparent);
+}
+.mazo-btn--si[aria-disabled="true"] {
+  background: var(--surface); border: 1.5px dashed var(--border); color: var(--dim); box-shadow: none;
+}
 .mazo-btn span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (hover: hover) and (pointer: fine) {
   .mazo-opcion:hover { border-color: var(--primary); }
-  .mazo-btn--no:hover { border-color: var(--dim); }
+  .mazo-btn--no:hover, .mazo-btn--resuelta:hover { border-color: var(--dim); }
+  .mazo-volver:not(:disabled):hover { border-color: var(--dim); background: var(--surface-2); }
   .mazo-btn--si:not([aria-disabled="true"]):hover { filter: brightness(1.05); }
 }
 
@@ -204,7 +260,7 @@
   position: absolute; inset: 0;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
   padding: 24px; text-align: center;
-  border-radius: 24px; border: 1.5px dashed var(--border);
+  border-radius: 26px; border: 1.5px dashed var(--border);
 }
 .mazo-vacio h2 { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.015em; }
 .mazo-vacio p { margin: 0; font-size: 15px; color: var(--dim); }
