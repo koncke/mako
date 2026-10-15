@@ -28,6 +28,7 @@ import { mediaTimeFromSeconds, ZERO_MEDIA_TIME } from "@/app/video-editor/_openc
 import type { CreateTextElement, TextElement } from "@/app/video-editor/_opencut/timeline";
 import { PARAM_SUBTITULO } from "@/app/video-editor/_opencut/params/extra/subtitulos";
 import type { SubtitleCue, SubtitleStyleOverrides } from "./types";
+import { codificarPalabras, PARAM_PALABRAS } from "./palabras";
 import { anchoMaximo, margenInferior, type Lienzo } from "./estilos";
 
 type Ctx = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
@@ -272,6 +273,11 @@ export function buildSubtitleTextElement({
 		...paramsDeOverrides(caption.style),
 		content: caption.text,
 		[PARAM_SUBTITULO]: true,
+		// Las palabras con su tiempo, relativas al origen del recorte: un subtítulo nuevo
+		// tiene trimStart 0, así que el origen es su inicio (subtitles/palabras.ts).
+		...(caption.palabras?.length
+			? { [PARAM_PALABRAS]: codificarPalabras({ palabras: caption.palabras, origen: caption.startTime, precision: caption.precision ?? "segmento" }) }
+			: {}),
 	};
 	const placement = caption.style?.placement;
 	const ubicado = partirYUbicar({

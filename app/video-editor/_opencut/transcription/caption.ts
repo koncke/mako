@@ -103,6 +103,19 @@ const ALUCINACIONES = [
 const largoDe = (ps: PalabraTranscrita[]) =>
 	ps.reduce((n, p, i) => n + p.texto.length + (i > 0 ? 1 : 0), 0);
 
+/**
+ * Las palabras de una línea tal como las dice su texto: una por cada palabra del texto
+ * (sin vacías, y una de Whisper con un espacio adentro se parte por largo). Así se
+ * pueden cotejar una a una contra el subtítulo (subtitles/palabras.ts → palabrasDe).
+ */
+export function palabrasDeLinea(grupo: readonly PalabraTranscrita[]): PalabraTranscrita[] {
+	return grupo.flatMap((p) => {
+		const t = p.texto.trim();
+		if (!t) return [];
+		return /\s/.test(t) ? repartirPorLargo({ texto: t, inicio: p.inicio, fin: p.fin }) : [{ texto: t, inicio: p.inicio, fin: p.fin }];
+	});
+}
+
 /** Arma los subtítulos a partir de las palabras (ver la cabecera). */
 export function armarSubtitulos({
 	palabras,
@@ -175,7 +188,14 @@ export function armarSubtitulos({
 		if (siguiente - fin < HUECO_MINIMO_S) fin = Math.min(siguiente, Math.max(fin, siguiente));
 		fin = Math.min(fin, siguiente);
 		if (fin - inicio < 0.05) fin = inicio + 0.05;
-		subtitulos.push({ text: texto, startTime: inicio, duration: fin - inicio });
+		// Las palabras viajan con su subtítulo (subtitles/palabras.ts): con el mismo texto
+		// recortado que la línea, para que se puedan cotejar contra ella.
+		subtitulos.push({
+			text: texto,
+			startTime: inicio,
+			duration: fin - inicio,
+			palabras: palabrasDeLinea(g),
+		});
 	}
 
 	// Por las dudas (palabras desordenadas en el borde de un trozo): ningún
@@ -190,6 +210,28 @@ export function armarSubtitulos({
 		}
 	}
 	return subtitulos;
+}
+
+/**
+ * Les suma a los subtítulos las muletillas que cayeron en su tramo, marcadas: no están
+ * en el texto (se sacaron), pero se guardan con su tiempo para poder sacarlas del video.
+ * Una muletilla que cae entre dos subtítulos va con el que la precede.
+ */
+export function conMuletillas(subtitulos: CaptionChunk[], muletillas: readonly PalabraTranscrita[]): CaptionChunk[] {
+	if (muletillas.length === 0) return subtitulos;
+	const extra = subtitulos.map(() => [] as PalabraTranscrita[]);
+	for (const m of muletillas) {
+		// El último subtítulo que ya empezó cuando suena la muletilla; antes del primero, el primero.
+		let i = 0;
+		for (let k = 0; k < subtitulos.length; k++) if (subtitulos[k].startTime <= m.inicio + 0.05) i = k;
+		extra[i]?.push(m);
+	}
+	return subtitulos.map((s, i) => {
+		if (!s.palabras || extra[i].length === 0) return s;
+		const palabras = [...s.palabras, ...extra[i].map((m) => ({ texto: m.texto.trim(), inicio: m.inicio, fin: m.fin, muletilla: true }))]
+			.sort((a, b) => a.inicio - b.inicio);
+		return { ...s, palabras };
+	});
 }
 
 /**

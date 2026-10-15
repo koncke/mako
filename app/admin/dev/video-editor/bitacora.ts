@@ -195,4 +195,32 @@ export const BITACORA: Hito[] = [
       'app/video-editor/_opencut/chat/ — la vista para la IA, la revisión, aplicar y el panel',
     ],
   },
+  {
+    fecha: '15 oct', hora: '—', chat: 'Video Editor', cuenta: 'claude1', actor: 'martin', tipo: 'prompt',
+    titulo: 'Primero terminar la copia de CapCut, empezando por los subtítulos',
+    pedido: 'Es importante implementar la función de subtítulos que ya de por sí tiene CapCut... Creo que Video Editor no terminó de copiar todo lo que debía copiar de CapCut, tal vez que termine eso primero.',
+    puntos: [
+      'Llegó por «Estrategia 3 cuentas». Salió el inventario: de 158 funciones de CapCut, 74 escritas, 26 a medias, 42 por copiar y 16 fuera con su motivo.',
+      'Los subtítulos automáticos ya existían (Whisper en el navegador, gratis). Faltaba guardar el tiempo de cada palabra.',
+    ],
+  },
+  {
+    fecha: '15 oct', hora: '01:34', chat: 'Video Editor', cuenta: 'claude1', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Subtítulos: el tiempo de cada palabra, dividir, combinar y buscar y reemplazar',
+    puntos: [
+      'Cada subtítulo guarda cuándo se dijo cada palabra, y sigue valiendo al dividirlo o moverlo. Si alguien reescribe el texto, deja de valer.',
+      'En el panel, los atajos de CapCut: Enter en el medio divide donde empieza la palabra, Retroceso al principio y Supr al final combinan, y Ctrl+Enter es un salto de línea.',
+      '«Buscar y reemplazar», con «Sustituir» y «Reemplazar todo».',
+      'El chat ya puede subtitular todo el video y reemplazar una palabra en todos los subtítulos.',
+      'No se miró en un navegador.',
+    ],
+    commits: [
+      { sha: '7ef765fcc', msg: 'Video Editor: los subtítulos guardan el tiempo de cada palabra, y se dividen, combinan y reemplazan como en CapCut', lineas: 1091, archivos: 14 },
+    ],
+    archivos: [
+      'app/video-editor/_opencut/subtitles/palabras.ts — guardar, leer y cotejar las palabras; dividir y combinar',
+      'app/video-editor/_opencut/subtitles/editar.ts — dividir, combinar y reemplazar en la línea de tiempo',
+      'docs/editor-video/inventario-copia-capcut.md — el inventario de la copia',
+    ],
+  },
 ];

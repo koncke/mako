@@ -47,10 +47,16 @@ export function quitarMuletillas({
 }: {
 	palabras: PalabraTranscrita[];
 	idioma: string;
-}): { palabras: PalabraTranscrita[]; quitadas: number } {
+}): {
+	palabras: PalabraTranscrita[];
+	quitadas: number;
+	/** Las muletillas que se sacaron, con su tiempo: se guardan en el subtítulo para poder sacarlas del VIDEO. */
+	sacadas: PalabraTranscrita[];
+} {
 	const frases = (PALABRAS[idioma] ?? []).map((f) => f.split(" "));
 	const salida: PalabraTranscrita[] = [];
 	let quitadas = 0;
+	const sacadas: PalabraTranscrita[] = [];
 	let mayusculaPendiente = false;
 
 	for (let i = 0; i < palabras.length; i++) {
@@ -90,6 +96,7 @@ export function quitarMuletillas({
 			}
 			if (/^[¡¿"'“«(]*\p{Lu}/u.test(p.texto.trim())) mayusculaPendiente = true;
 			quitadas += largo;
+			for (let k = 0; k < largo; k++) sacadas.push(palabras[i + k]);
 			i += largo - 1;
 			continue;
 		}
@@ -101,5 +108,5 @@ export function quitarMuletillas({
 		}
 		salida.push(p);
 	}
-	return { palabras: salida, quitadas };
+	return { palabras: salida, quitadas, sacadas };
 }

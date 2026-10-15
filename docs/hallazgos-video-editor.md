@@ -561,6 +561,22 @@ Es la familia de `hallazgos-infra.md` → «El manifest de la app estaba detrás
 
 ## Subtítulos con Whisper en el navegador
 
+⚠️ **Whisper devuelve los tiempos por palabra y el editor los TIRABA** (hasta el 15/10): `armarSubtitulos`
+recibía las palabras con su tiempo y armaba cada subtítulo con texto, inicio y duración, y nada más. Por eso no
+había karaoke, ni muletillas fuera del video, ni edición por transcripción, aunque la transcripción las
+traía. **Regla: lo que el modelo da y cuesta volver a pedir se GUARDA con el resultado, aunque hoy no lo use
+nadie.** Ahora van en `subtitulo.palabras` (`subtitles/palabras.ts`):
+- relativas al **origen del recorte** (`startTime − trimStart`), no al inicio: «Dividir» corre el `trimStart`
+  de la mitad derecha, así que las dos mitades ven sus palabras donde se dijeron, y mover el subtítulo las
+  mueve con él;
+- **cotejadas contra el texto** al leerlas: si alguien lo reescribió, no valen (null), en vez de dar tiempos
+  de otro texto. Corregir una palabra sin cambiar cuántas son las conserva;
+- con las **muletillas** que se sacaron del texto, marcadas: son los tiempos que hacen falta para sacarlas
+  del video.
+Dividir, combinar y «Buscar y reemplazar» del panel salen de la ayuda de CapCut (`pc_double_click_delete`,
+`find replace`) y viven en `subtitles/editar.ts`. ⚠️ El blur que sigue a dividir NO puede confirmar lo escrito:
+pisaría la mitad izquierda con el texto entero (`saltarConfirmar` en `pestana-subtitulos.tsx`, lo fija el test).
+
 **Vive en:** `services/transcription/worker.ts` (`detectarIdioma`) · `transcription/models.ts`,
 `transcription/audio.ts` (`trocearAudio`), `transcription/caption.ts` (`quitarNoVoz`) ·
 `subtitles/build-subtitle-text-element.ts` (`partirYUbicar`) · `subtitles/repartir.ts` ·
@@ -1114,11 +1130,10 @@ la GPU de MediaPipe, 1080p30, el alfa en el compositor y el cuentagotas (`fondo/
 - Congelar no vincula el cuadro al clip original (`congelar.ts`); «Cámara lenta fluida» no se dibuja.
 
 **Subtítulos y Texto a voz**
-- Bilingües, palabras clave y Emojis de IA apagados (`subtitles/components/assets-view.tsx`); dividir y
-  combinar con Enter / Retroceso y «Buscar y reemplazar» (`subtitles/components/pestana-subtitulos.tsx`).
-- Los tiempos por palabra no se guardan: sin resaltado tipo karaoke (`subtitles/generar.ts`,
-  `params/extra/subtitulos.ts`). Modelo fijo whisper-small, ≈250–300 MB la primera vez
-  (`transcription/models.ts`).
+- Bilingües, palabras clave y Emojis de IA apagados (`subtitles/components/assets-view.tsx`).
+- Con los tiempos por palabra ya guardados (15/10): falta resaltar palabras (tipo karaoke y palabras clave),
+  «Eliminar las muletillas» del VIDEO (los tiempos ya están guardados y marcados) y la edición basada en la
+  transcripción. Modelo fijo whisper-small, ≈250–300 MB la primera vez (`transcription/models.ts`).
 - Texto a voz no avisa que el plan gratis de ElevenLabs no tiene licencia comercial
   (`subtitles/components/texto-a-voz.tsx`).
 

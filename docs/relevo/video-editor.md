@@ -2,11 +2,23 @@
 
 *12/10/2026, chat «Video Editor», cuenta claude3 (semana al 88 %).*
 
+## 15/10 (cuenta 1): PRIMERO TERMINAR LA COPIA DE CAPCUT (Martín: «tal vez que termine eso primero»)
+
+- El inventario, en `docs/editor-video/inventario-copia-capcut.md`. De 158 funciones de CapCut: 74 hechas, 26 a
+  medias, 42 faltan y se pueden copiar, y 16 quedan fuera con su motivo. «Hecho» es escrito, no visto andar.
+- **Los subtítulos van primero.** La transcripción ya existe: Whisper en el navegador, gratis, sin cuota del
+  cliente y con tiempos por palabra. **Hecho el 15/10 (`7ef765fcc`, sin pushear)**: los tiempos por palabra se
+  guardan; Enter, Retroceso y Supr dividen y combinan como en CapCut; «Buscar y reemplazar»; el chat suma
+  «subtitular todo» y «reemplazar en los subtítulos». SIGUE: resaltar palabras, eliminar las muletillas del
+  video, edición por transcripción. Nada de esto se vio en Chrome: la pestaña de la extensión sigue oculta.
+- Las plantillas de proyecto no tienen de dónde copiarse (es el catálogo de ByteDance): tenerlas es crear uno
+  propio, y eso lo decide Martín.
+
 ## 15/10 (cuenta 1): chat al costado, API de MaKo y Lottie, ESPERAN DECISIÓN
 
 Pedido de Martín (vía «Estrategia 3 cuentas»): chat para editar con prompt como el del Landing; todos los
 botones a la API de MaKo; animaciones tipo Lottie.
-- **El chat «Editar con IA» está CONSTRUIDO** (`901786601`, rama `video-editor`, sin pushear). El modelo
+- **El chat «Editar con IA» está EN PRODUCCIÓN** desde el 15/10 a las 01:00 AR (push `1ae6ee1ff`, deploy Ready). Lo ven todos los admins con el editor. El modelo
   lo decidió «Estrategia 3 cuentas»: Gemini del cliente, sin Claude. Tiene 21 tests y el typecheck
   acotado en verde; **no se vio en un navegador**. Es lo primero a mirar, junto con el congelamiento y el
   export.

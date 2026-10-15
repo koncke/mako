@@ -185,6 +185,35 @@ test('16: el volumen es de lo que suena; lo que no cambia nada no es una fila', 
   assert.equal(resumenDeCambios(r.cambios), '1 cambia');
 });
 
+test('16b: subtitular y reemplazar en los subtítulos, desde el chat', () => {
+  // Una escena con un subtítulo, para reemplazar.
+  const tracks = escena();
+  (tracks.overlay[0].elements[0] as unknown as { params: Record<string, unknown> }).params = { content: 'Hola mundo', subtitulo: true };
+  const v = vistaDeLinea({ tracks, tps: TPS, cabezal: 0, elegidos: [] });
+  assert.equal(JSON.parse(v.json).pistas[0].elementos[0].subtitulo, true, 'la IA sabe cuál es subtítulo');
+  const r = revisarOperaciones({
+    operaciones: [
+      { op: 'reemplazar_en_subtitulos', buscar: 'MUNDO', reemplazo: 'equipo' },
+      { op: 'reemplazar_en_subtitulos', buscar: 'nada que ver', reemplazo: 'x' },
+      { op: 'generar_subtitulos' },
+    ],
+    vista: v,
+    alcance: 'video',
+  });
+  assert.equal(r.resueltas.length, 2);
+  assert.match(r.descartes[0], /no aparece en ningún subtítulo/);
+  assert.deepEqual([r.cambios[0].titulo, r.cambios[0].antes, r.cambios[0].despues], ['1 subtítulo', '«MUNDO»', '«equipo»']);
+  assert.equal(r.cambios[1].titulo, 'Subtítulos automáticos');
+  // El texto que no es subtítulo no cuenta para el reemplazo.
+  const sinSub = revisarOperaciones({ operaciones: [{ op: 'reemplazar_en_subtitulos', buscar: 'Hola', reemplazo: 'Chau' }], vista: vista(), alcance: 'video' });
+  assert.equal(sinSub.resueltas.length, 0);
+  // Y sin nada que suene no hay qué subtitular.
+  const muda = vistaDeLinea({ tracks: { overlay: [], main: { id: 'pm', type: 'video', name: 'P', muted: false, hidden: false, elements: [] }, audio: [] } as unknown as SceneTracks, tps: TPS, cabezal: 0, elegidos: [] });
+  assert.equal(revisarOperaciones({ operaciones: [{ op: 'generar_subtitulos' }], vista: muda, alcance: 'video' }).resueltas.length, 0);
+  // Un reemplazo que no cambia nada no es una operación.
+  assert.equal(validarOperacion({ op: 'reemplazar_en_subtitulos', buscar: 'a', reemplazo: 'a' }).ok, false);
+});
+
 // ─── Lo que no se negocia ───────────────────────────────────────────────────
 
 test('17: el pedido sólo ARMA la propuesta: aplicar pasa únicamente por «Aceptar»', () => {

@@ -37,6 +37,8 @@ export type RefElemento = {
 	volumenDb?: number;
 	silenciado?: boolean;
 	oculto?: boolean;
+	/** Un texto que es un subtítulo (params.subtitulo). */
+	subtitulo?: boolean;
 };
 
 export type VistaLinea = {
@@ -139,6 +141,7 @@ export function vistaDeLinea({
 					...(texto !== undefined ? { texto } : {}),
 					...(sonoro ? { volumenDb: Number(el.params?.volume ?? 0) || 0, silenciado: el.params?.muted === true } : {}),
 					...("hidden" in el ? { oculto: el.hidden === true } : {}),
+					...(el.type === "text" && el.params?.subtitulo === true ? { subtitulo: true } : {}),
 				};
 				refs.set(ref, r);
 				return {
@@ -149,6 +152,7 @@ export function vistaDeLinea({
 					fin: finEl,
 					...(sonoro ? { volumen_db: r.volumenDb, silenciado: r.silenciado } : {}),
 					...(r.oculto ? { oculto: true } : {}),
+					...(r.subtitulo ? { subtitulo: true } : {}),
 					...("retime" in el && el.retime && el.retime.rate !== 1 ? { velocidad: Math.round(el.retime.rate * 100) / 100 } : {}),
 				};
 			});
@@ -192,7 +196,9 @@ export type OperacionResuelta =
 	| { op: "dividir"; el: RefElemento; en: number }
 	| { op: "volumen"; el: RefElemento; db: number }
 	| { op: "silenciar"; el: RefElemento; silenciado: boolean }
-	| { op: "ocultar"; el: RefElemento; oculto: boolean };
+	| { op: "ocultar"; el: RefElemento; oculto: boolean }
+	| { op: "reemplazar_en_subtitulos"; buscar: string; reemplazo: string; cuantos: number }
+	| { op: "generar_subtitulos" };
 
 export type Revision = { resueltas: OperacionResuelta[]; cambios: CambioChat[]; descartes: string[] };
 
@@ -246,6 +252,30 @@ export function revisarOperaciones({
 	};
 
 	for (const op of operaciones) {
+		if (op.op === "generar_subtitulos") {
+			const conSonido = [...vista.refs.values()].some((r) => r.tipo === "video" || r.tipo === "audio");
+			if (!conSonido) { descartes.push("no hay video ni audio para subtitular"); continue; }
+			resueltas.push({ op: "generar_subtitulos" });
+			cambios.push({ tipo: "agrega", titulo: "Subtítulos automáticos", antes: "", despues: "de todo el video, transcritos en tu navegador" });
+			continue;
+		}
+		if (op.op === "reemplazar_en_subtitulos") {
+			// Sin distinguir mayúsculas, como «Buscar y reemplazar» (subtitles/palabras.ts → reemplazarEnTexto).
+			const b = op.buscar.toLowerCase();
+			const cuantos = [...vista.refs.values()].filter((r) => {
+				const st = estado.get(r.ref);
+				return r.subtitulo && st && !st.borrado && (st.texto ?? "").replace(/\s+/g, " ").toLowerCase().includes(b);
+			}).length;
+			if (!cuantos) { descartes.push(`«${corto(op.buscar, 40)}» no aparece en ningún subtítulo`); continue; }
+			resueltas.push({ op: "reemplazar_en_subtitulos", buscar: op.buscar, reemplazo: op.reemplazo, cuantos });
+			cambios.push({
+				tipo: "cambia",
+				titulo: cuantos === 1 ? "1 subtítulo" : `${cuantos} subtítulos`,
+				antes: `«${corto(op.buscar, 60)}»`,
+				despues: `«${corto(op.reemplazo, 60)}»`,
+			});
+			continue;
+		}
 		if (op.op === "agregar_texto") {
 			resueltas.push({ op: "agregar_texto", texto: op.texto, inicio: op.inicio, duracion: op.duracion });
 			cambios.push({ tipo: "agrega", titulo: "Texto nuevo", antes: "", despues: `«${corto(op.texto, 80)}» · de ${textoSegundos(op.inicio)} a ${textoSegundos(op.inicio + op.duracion)}` });

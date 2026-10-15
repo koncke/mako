@@ -15,6 +15,8 @@ cada función. Los relevamientos que lo sostienen están en `docs/editor-video/`
 | `relevamiento-capcut-funciones.md` | La checklist de funciones del panel derecho (Video, Audio, Texto), subtítulos, stickers, efectos, filtros, transiciones, IA, audio y licencias, fotogramas clave, modelo de datos del borrador |
 | `relevamiento-opencut.md` | Qué trae OpenCut classic y qué le falta respecto de CapCut (tabla SÍ/PARCIAL/NO) |
 | `relevamiento-integracion-mako.md` | Checklist de una tab nueva, choques de tokens, proxy, datos, Video Generator, reglas de AGENTS.md que pegan |
+| `inventario-copia-capcut.md` | Las 158 funciones de CapCut del relevamiento contra lo hecho (15/10): hecho, a medias, falta y fuera con su motivo, por familia; y de dónde salen los subtítulos |
+| `relevamiento-plantillas.md` | Las plantillas PROPIAS (decisión de Martín del 15/10): qué se copia de CapCut, de Shotstack/Creatomate y de las 81 de Remotion, con la licencia verificada de cada fuente (LottieFiles no sirve para un catálogo) |
 
 Los textos en español de CapCut salen de SU instalación (`es-LA.po` de CapCut 9.3.0.3970), no de
 la web (las páginas `capcut.com/es-es` están traducidas a máquina y no coinciden con la app).
