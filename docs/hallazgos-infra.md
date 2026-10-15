@@ -6292,3 +6292,19 @@ contando `ahead` muestra como trabajo pendiente lo que ya está hecho.
 
 **Vive en:** (proceso: git en el clon compartido)
 \n
+
+## Una pasada en producción con el Chrome de Martín: la sesión puede ser la de un CLIENTE, y `?ws=3` no avisa (15/10/2026)
+
+El 15/10 la pasada «en ws3» de Automations se hizo en realidad sobre el **ws1 de Mauricio**: el Chrome de Martín tenía
+abierta la sesión de Mauricio Bustos (rol `usuario`, `ws: 1`), no la de super admin. Para alguien que no es admin de
+agencia, `proxy.ts` no pone el header del `?ws=` (`lib/ws-tab.ts`) y la página muestra SU negocio sin decir nada. La
+lista se veía normal y con nombres plausibles («Un Lead Entró», «Un Lead Agendó Llamada»), que también existen en otros
+negocios.
+
+- **Lo delató la base, no la pantalla:** ws3 tenía cero automatizaciones vivas, y las que se veían (#198, #213) eran del
+  ws1. Después, `/api/auth/me` dijo `email` de Mauricio, `modoAgencia: false`, `ws: 1`.
+- **Lo que quedó escrito en su negocio:** dos mensajes en el chat de MaKo de la #198. Nada publicado.
+- **La regla:** antes de tocar algo en producción desde el Chrome real, `fetch('/api/auth/me')` y mirar `email`,
+  `modoAgencia` y `ws`. Si no es super admin, no se hace la pasada: se le pide a Martín la sesión.
+
+**Vive en:** `proxy.ts` (el header del `?ws=` sólo para admin de agencia) · `lib/ws-tab.ts` · `app/api/auth/me/route.ts`

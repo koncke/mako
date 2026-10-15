@@ -1619,4 +1619,18 @@ FEEDBACK PROBAR:
     ],
     archivos: ["docs/hallazgos-chatbot.md — la flecha y el horario", "docs/diseno-mako-nada-por-detras.md §2.4-h"],
   },
+  {
+    fecha: "15 oct", hora: "20:15", chat: "Chatbot", cuenta: "claude3",
+    actor: "claude", tipo: "correccion",
+    titulo: "El chat de MaKo en el lienzo contesta una pregunta en vez de cambiar el flujo",
+    puntos: [
+      "Visto en producción: «¿Qué hace esta automatización? No cambies nada, sólo explícamelo.» tardó ~100 s y terminó en «Cambié 1», con el texto del video reescrito y sin su link. No se publicó.",
+      "Ahora una pregunta va a un prompt que sólo puede contestar (editable en /configuraciones) y el flujo queda igual. Si igual llega al de editar y éste contesta, no se aplica ningún cambio.",
+      "Lo que queda sin hacer: que un cambio pedido de verdad no reescriba otra tarjeta, y por qué tarda ~100 s.",
+    ],
+    commits: [
+      { sha: "b0430eba4", msg: "Automations: el chat del lienzo contesta una pregunta en vez de editar el flujo", lineas: 342, archivos: 7 },
+    ],
+    archivos: ["docs/hallazgos-chatbot.md — «El chat del lienzo editaba cuando le preguntabas»", "docs/hallazgos-infra.md — la sesión del Chrome"],
+  },
 ];

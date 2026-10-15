@@ -1,5 +1,17 @@
 # Relevo: Automations (ex /chatbot) y las secuencias
 
+> **ESTADO AL 15/10/2026 ~20:15 AR (`claude3`, chat «Chatbot» de la cuenta 3, worktree `C:/dev/wt-undecima`, rama
+> `undecima`; los pushes los hace el coordinador «Estrategia 3 cuentas», merge y nunca rebase).** Pedido del
+> coordinador: (1) que `tests/undecima-email-propio.test.ts` esté en verde: lo está en origin/main c4ef8a68e (8/8);
+> (2) medir cuáles de «las doce cosas que reportó Martín» siguen abiertas: **la lista no está escrita en ningún doc**
+> (docs/relevo.md sólo la nombra en la línea 159) y se le pidió textual al coordinador; (3) una pasada con clics en ws3
+> de producción. **La pasada se hizo sin querer sobre el ws1 de Mauricio**: el Chrome de Martín tenía su sesión y
+> `?ws=3` no avisa (docs/hallazgos-infra.md). Lo que se vio: la flecha («Conectar a una tarjeta» primero) y la
+> Reentrada del CRON andan; **el chat del lienzo editaba cuando le preguntabas** («No cambies nada, sólo explícamelo» →
+> «Cambié 1», sin el link del video). ARREGLADO en esta rama (lib/flujo-ia-consulta.ts; hallazgo en
+> docs/hallazgos-chatbot.md con lo que quedó SIN HACER). **Falta:** la pasada de verdad en ws3 (con la sesión de super
+> admin), borrar los dos mensajes de prueba del chat de la #198 de Mauricio (con el OK de Martín) y la lista de las doce.
+
 > **ESTADO AL 14/10/2026 ~17:20 AR (`claude1`, chat «Chatbot», worktree `C:/dev/wt-undecima`, rama `undecima`).**
 > Verificado contra git y la base a las ~16:00: lo de abajo (13:20) es cierto; las dos migraciones que quedan dan 0 en
 > dry run. **HECHO: el 1 de la lista (TikTok fase 0)**, `c9cdbdf3a`: el AI Step contesta por Instagram y Messenger
