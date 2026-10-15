@@ -19,6 +19,33 @@ diagnóstico equivocado, en `docs/hallazgos-infra.md`.
 ⚠️ **El remoto del clon todavía dice `mbustos-digital`** y funciona por el redirect de GitHub. Conviene
 apuntarlo a `hola-mako` para que nadie lea mal de quién es el repo.
 
+## ⚠️ ABIERTO AL CIERRE: Gemini caído para varios clientes desde el 14/10 20:31 UTC
+
+**Google cambió `gemini-flash-latest` por debajo** y ese modelo dejó de aceptar
+`reasoning_effort: 'minimal'`, que `chatCheap` le manda SIEMPRE (lib/ai-cheap.ts). No cambió una
+línea nuestra: cambió el modelo detrás del mismo nombre. Medido por el chat de Automations
+reproduciéndolo con la clave de la PLATAFORMA (no sólo con la del cliente), que es lo que descarta
+que sea de alguien en particular: con `minimal` da HTTP 400, con `low` contesta 200.
+
+A quién le pega: donde hay modelo de respaldo, anda DEGRADADO con `gemini-flash-lite-latest` y nada
+lo dice; donde el respaldo está apagado (`sinRespaldoDeModelo: true`) falla siempre — el chat del
+lienzo de Automations, la entrega de las sesiones de CS y la propuesta de curso. Los negocios que
+sólo tienen Gemini (ws13, ws15, ws17) se quedaron sin eso.
+
+**Por qué no se vio:** Gemini devuelve ese error dentro de un ARRAY (`[{error:{…}}]`) y `chatCheap`
+sólo lee `data.error`, así que llega como «HTTP 400» pelado y el clasificador se queda sin nada. De
+ahí el mensaje inútil que vio el cliente («Falló de nuestro lado, no de tus keys»), que es el
+FALLBACK de `falloDeIA` cuando ningún error entró en una categoría. **Hay una familia entera de
+errores de Gemini que estamos viendo en blanco por el mismo motivo.**
+
+El arreglo está aprobado y en curso (Automations), en este orden: (a) reintentar con `low` y
+recordarlo POR MODELO, más leer el error del array; (b) la red de plataforma en `flujo-ia-crear`,
+que no la tenía; (c) que el fallback diga quién y qué. **Si no está en main al leer esto,
+verificar antes que nada si sigue caído.**
+
+⚠️ Y la regla que sale de acá, que vale para cualquier proveedor: **un modelo «latest» es un nombre
+que promete moverse**, así que cualquier parámetro que le mandemos puede dejar de valer sin aviso.
+
 ## Qué entró a main en esta ventana
 
 | Commit | Qué trae |
