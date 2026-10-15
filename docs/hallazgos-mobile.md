@@ -7,6 +7,46 @@ Corridas del 11/10/2026: la v1 (relevo de 7 agentes + 11 de implementación + 1 
 el diseño v2 a la tarde, y a la noche la implementación v2 (12 agentes + la integración) con el desvío
 de teléfonos PRENDIDO. Lo de la v2 está en su propia sección, más abajo.
 
+## Arrastrar una tarjeta con el dedo, y el toque del iPad (15/10/2026)
+
+Las seis decisiones de MaKo Mobile y del iPad que estaban en la Ticketera las retiró el orquestador
+(«Usa criterio hay cosas muy obvias»): cuatro ya estaban contestadas por lo escrito y hechas en el código
+(el CRM abre en el Tablero; una columna por pantalla con la siguiente asomando, como Trello; el iPad recibe
+la computadora adaptada). Faltaban dos, copiadas de Trello y de la regla de AGENTS.md:
+
+- **Mover una tarjeta se copia de Trello:** se ARRASTRA con el dedo, y además hay «Mover a…» (mantener y
+  soltar sin mover). Notion hace lo mismo (arrastrar, o cambiar el estado).
+- **El iPad horizontal no tenía la escala táctil.** El `@media (max-width: 820px)` cubría un iPad parado
+  hasta 820 px; uno acostado (1024-1366) quedaba con 40 px de toque y campos de 14 px, y iOS hace zoom al
+  enfocar un campo de menos de 16. Va un `@media (pointer: coarse)` aparte que sube sólo el toque y la letra
+  chica: los títulos del teléfono (26 en vez de 30) son de una pantalla ANGOSTA, no de una táctil.
+
+**La trampa del arrastre: sin frenar el scroll, el navegador se queda con el gesto.** Después de mantener
+presionado, el primer movimiento del dedo arranca el scroll de la columna y el navegador corta el puntero con
+`pointercancel`: la tarjeta se levanta y no se mueve. Lo frena un `touchmove` NO pasivo en la pista que hace
+`preventDefault` sólo con la tarjeta levantada (antes, el dedo scrollea como siempre). Y como ese
+`preventDefault` corre en la pista, el `touchmove` pasivo de PantallaM (el pull-to-refresh, en `document`) lo
+ve con `defaultPrevented` y no tira.
+
+- **Con el dedo QUIETO en el borde no llegan `pointermove`:** pasar de columna lo da un reloj (120 ms), y el
+  `onScroll` de la pista vuelve a calcular la columna de abajo (la pista se corre bajo un dedo quieto).
+- **La copia que sigue al dedo cuelga de `#m-root`**, que lleva los tokens (`[data-m]`) y no tiene transform:
+  un `position: fixed` adentro de un nodo con transform se ubica contra ese nodo.
+
+**Cómo se verificó, sin `next dev` y sin tocar la base:** un banco con esbuild que monta el KanbanM REAL
+(con el `Link` de la casa cambiado por un `<a>`, que el de verdad usa el router de Next) y el CSS de la casa
+sin Tailwind, en Chrome sin ventana con toques de `Input.dispatchTouchEvent` (`mobile: true` +
+`setTouchEmulationEnabled`). Playwright no sirve para esto: su `touchscreen` sólo toca, no arrastra. Medido:
+toque abre, deslizar rápido scrollea, mantener y soltar abre «Mover a…», arrastrar al borde pasa de columna
+(0 → 320 px) y al soltar mueve, y sobre una columna a la que no puede ir no mueve.
+
+**Sin medir:** Safari de iOS y un iPad de verdad; el pull-to-refresh durante un arrastre (el banco no monta
+PantallaM); un iPad con trackpad, que puede reportar `pointer: fine` y quedarse con la escala de escritorio.
+
+**Vive en:** `app/m/_ui/KanbanM.tsx` · `app/m/_ui/PantallaM.tsx` · `app/m/m.css` (`.m-kb-tj--fantasma`,
+`[data-arrastrada]`, `.m-kb__col[data-destino]`) · `app/globals.css` (`@media (pointer: coarse)`) ·
+`tests/movil-shell.test.ts`
+
 ## «Tarda muchísimo»: lo que se midió y lo que se arregló (14/10/2026, noche)
 
 Martín: «entrar al CRM toma ~10 segundos, y así con cada cosa». Se midió antes de tocar, con 4 agentes (sólo
