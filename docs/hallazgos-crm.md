@@ -8800,3 +8800,51 @@ acá:** que el escalón de la cascada no muestre una proporción fuera de 0-1 (o
 
 **Vive en:** `lib/editor-landing/pago-pedido.ts` (`CAMPOS_ATRIBUCION_PAGO`, `valorDeAtribucion`).
 *15/10/2026, chat «Landing Generator» (`claude1`).*
+
+---
+
+## Prospectos (Leads Scraper): lo que no se ve de la lista aparte (15/10/2026)
+
+**Vive en:** `lib/prospectos.ts` · `lib/prospectos-reglas.ts` · `lib/apify.ts` · `app/crm/prospectos/` ·
+`app/api/webhooks/apify/route.ts` · `supabase/migrations/0288_prospectos.sql`
+
+La prospección en frío (`docs/diseno-leads-scraper.md` §4 y §7): se busca en Google Maps o Instagram con
+Apify y la key del negocio, los resultados caen en `prospectos` con puntaje, y se pasan al CRM los
+elegidos. Lo que costó o no se ve:
+
+- **«Pasar al CRM» NO completa la ficha de un repetido, y el primer texto de la pantalla decía que sí.**
+  La puerta es `importarLeadsRevisadosAction`, y el server vuelve a buscar duplicados: una fila cuyo «ya
+  existe» la pantalla no mostró entra DESTILDADA (`vioDuplicado`, app/crm/actions.ts). O sea que el
+  repetido ni se crea ni se completa: vuelve como `omitidos`, y el prospecto se queda «por revisar». La
+  pantalla dice «N ya estaban». Leer el importador antes de escribir el texto lo hubiera evitado.
+- **El contacto MANDA en el puntaje, por construcción:** un teléfono o un email valen 35 cada uno y todo
+  lo demás junto suma 30 como mucho. Así un prospecto que se puede contactar queda siempre arriba de uno
+  que no (el importador exige email o teléfono). Con los pesos de la primera versión (30/25 contra 35 de
+  tamaño), uno sin contacto le ganaba a uno con email: lo cazó el test, no la lectura.
+- **Instagram casi nunca trae contacto.** El actor público no da el email ni el teléfono del perfil:
+  sólo los que la persona escribió en su bio. Con la regla del CRM (email o teléfono), la mayoría de los
+  prospectos de Instagram se ven pero no pueden pasar. **Sin hacer:** que un @ de Instagram cuente como
+  contacto (los leads de Zernio ya entran así). Es una regla del CRM (`altaDeLead`, `NewLeadForm`, el
+  importador): se le pasa al chat del CRM, no se cambia desde acá.
+- **Apify no firma sus avisos.** Cada búsqueda guarda el hash de una clave al azar que viaja en el CUERPO
+  del aviso (`payloadTemplate`), no en la URL. Y en local el aviso no llega nunca (Apify no ve
+  localhost): la pantalla vuelve a preguntar por las búsquedas que siguen corriendo (`revisarPendientes`,
+  cada 20 s mientras haya una), así que los resultados entran igual.
+- **Traerlos dos veces no duplica:** `ignoreDuplicates` sobre `(workspace_id, fuente, id_externo)` y la
+  búsqueda pasa a `lista` con compare-and-set. ⚠️ El primer guard de ese compare-and-set dio VERDE con el
+  `.eq` borrado: su regex seguía hasta el `.eq('estado', 'corriendo')` de la función de al lado. Se
+  recorta el bloque (AGENTS.md: «el BLOQUE es su cierre real»).
+- **No medido:** el nombre exacto del campo de emails del actor de Google Maps con `scrapeContacts`
+  (se aceptan textos y `{ value }`), los nombres de los eventos del aviso de Apify para timeout y abort,
+  y la forma en que interpola `{{resource}}`. La primera búsqueda real se compara contra esto.
+
+### Lo que quedó SIN hacer, con su archivo
+
+- **El celular:** /crm/prospectos no tiene página en MaKo Mobile, así que en un teléfono sale la cubierta
+  de «se usa en la computadora». La pantalla en sí es responsive (`.pros-cards`).
+- **Buscar y pasar al CRM por la API de MaKo:** hoy sólo están las lecturas (`listar_prospectos`,
+  `busquedas_prospeccion`). Buscar cuesta plata y pasar escribe en lote: van con pantalla propia, que
+  es otra pieza.
+- **La migración 0288 va ANTES del deploy:** sin ella la pantalla dice «Falta aplicar la migración».
+
+*15/10/2026, chat «Leads Scraper» (`claude1`).*
