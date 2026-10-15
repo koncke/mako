@@ -54,7 +54,7 @@ CRON «el 14/10 a las 18:00, en la hora de cada negocio»
 | Sumar `exigir_2fa_desde` a `ACCIONES_DEL_FLUJO` (`lib/editor-acciones.ts`), para que el lienzo la ofrezca curada | Automations |
 | `destinoDeUsuario(usuarioId, canal, propósito)` (puro): 'aviso' → el email o el WhatsApp verificado; 'codigo' → sólo lo verificado, con el JID canonizado | Ciberseguridad |
 | «Abrir en la app de autenticación» (`otpauth://`) para quien entra sólo desde el teléfono | Ciberseguridad |
-| El sujeto «negocio» para las automatizaciones de SuperAdmin (tabla `automatizacion_negocios`, con la hora de ESE negocio para sus esperas) | Automations |
+| El sujeto «negocio» para las automatizaciones de SuperAdmin (tabla `automatizacion_negocios`, con la hora de ESE negocio para sus esperas). ⚠️ **El negocio es un DATO de la corrida, no el ws donde corre**: todos los pasos corren con `ctxDeFlujo(<ws de SuperAdmin>, …)` y le pasan el negocio como blanco («MaKo al grupo del negocio» busca el grupo de ESE negocio, sin `runWithWorkspace`). Si un paso corriera con `ctx.ws` = el negocio, la ⚡ se rechazaría siempre, y con razón. | Automations |
 | El CRON «una fecha y hora en la hora de cada negocio» y el DELAY «hasta una fecha y hora» | Automations (⚠️ el DELAY lo toca `crm-bloques-b5`: se coordina con el CRM) |
 | La tarjeta «MaKo al grupo del negocio» (la «MaKo a todos los grupos» del 13/10) | Automations |
 | ⚡ «Aviso en la app, una vez por usuario» (`avisos_app` + `avisos_app_vistos`; para su condición, `tieneSegundoFactor(uid)` de Seguridad) | Automations |
@@ -70,7 +70,10 @@ cañería para tres operaciones.
 - `dejar_de_exigir_2fa` (`negocio_id` opcional) y `ver_exigencia_2fa`: la lectura del «Probar». Devuelve, por negocio, la
   fecha en su hora, cuántos usuarios tiene y cuántos están sin 2FA.
 - **`soloPlataforma`**: gating por capa (`vistaDe`/`gatingOk`). Un negocio no la ve, y preparar y ejecutar vuelven a
-  preguntar. Sin eso, un admin de cliente podía «dejar de exigir» en el suyo.
+  preguntar. Sin eso, un admin de cliente podía «dejar de exigir» en el suyo. Mira el ws donde CORRE el paso
+  (`ctx.ws`), nunca el `negocio_id`, que es sólo el blanco. Una plantilla copiada a un negocio corre con `ctx.ws` = ese
+  negocio: ahí la ⚡ no aparece en el lienzo, y un paso ya guardado con ella se rechaza al preparar («Sólo la plataforma
+  decide el 2FA de los negocios.»).
 - Canales: whatsapp y app, sin http. Corre en el ws de la plataforma. La plantilla la llama una vez POR NEGOCIO, con el
   `negocio_id` del sujeto: el resto del flujo (los recordatorios a las 12 de cada uno) ya es por negocio.
 - Para el aviso en la app: `tieneSegundoFactor(uid)` (lib/mfa.ts) TIRA si no puede leer, y así a quien ya cumplió no se
