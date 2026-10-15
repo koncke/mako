@@ -1,0 +1,58 @@
+/* El Centro de Operaciones en el teléfono (app/m/operaciones). Todas las clases llevan el nombre
+   ENTERO de la carpeta: Next deja la hoja cargada al salir de la ruta (app/m/_ui/LEEME.md §5). */
+
+.m-operaciones-texto1 {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.m-operaciones-hoja {
+  display: grid;
+  gap: 14px;
+}
+
+.m-operaciones-estado {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+}
+
+[data-m] .m-operaciones-motivo {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--dim);
+}
+
+[data-m] .m-operaciones-texto {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--ink);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.m-operaciones-cierre {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+
+.m-operaciones-cierre div {
+  display: grid;
+  gap: 2px;
+}
+
+.m-operaciones-cierre dt {
+  font-size: var(--fs-meta);
+  color: var(--faint);
+}
+
+[data-m] .m-operaciones-cierre dd {
+  margin: 0;
+  font-size: var(--fs-md);
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}

@@ -5,9 +5,13 @@
 //   2. Una caja por familia de la sidebar, con su nombre de escritorio y en su orden (Operate ·
 //      Analyze · Sales Machine · Content Machine · Customer Success): `gruposMas`
 //   3. Pregúntale a MaKo, con el logo real como ícono (fuera de las familias, como en escritorio)
-//   4. Ticketera, SÓLO para el super admin (el mazo de decisiones: /tickets/decisiones, en el teléfono
-//      /m/tickets/decisiones). Se llamó «Decisiones» y abría la lista hasta el 14/10/2026: Martín la
-//      renombró y pidió que se entre directo al mazo (la lista es la vista secundaria).
+//   4. Super admin: el Centro de Operaciones (/admin/operaciones, en el teléfono /m/operaciones, sólo
+//      para mirar) y la Ticketera (el mazo de decisiones: /tickets/decisiones, en el teléfono
+//      /m/tickets/decisiones), en el orden de la barra de escritorio. La Ticketera se llamó
+//      «Decisiones» y abría la lista hasta el 14/10/2026: Martín la renombró y pidió que se entre
+//      directo al mazo (la lista es la vista secundaria).
+//      ⚠️ Se apaga mientras el super admin MIRA a un cliente (15/10/2026), como en el Sidebar
+//      («adminOnly se apaga mirando un cliente»): ahí la barra es la del cliente.
 //   5. Versión de computadora
 //
 // ⚠️ DECISIONES NO VA EN `SECCIONES_MAS`, A PROPÓSITO (14/10/2026, acordado con el chat «Pricing MaKo»,
@@ -39,6 +43,8 @@ export const dynamic = 'force-dynamic';
 
 /** La Ticketera del super admin: entra directo al mazo (app/m/tickets/decisiones; en la URL, /tickets/decisiones). */
 const RUTA_TICKETERA = '/m/tickets/decisiones';
+/** El Centro de Operaciones del super admin, sólo para mirar (app/m/operaciones; en la URL, /admin/operaciones). */
+const RUTA_CENTRO = '/m/operaciones';
 
 export default async function MasPagina() {
   const ctx = await requireMovil();
@@ -84,9 +90,10 @@ export default async function MasPagina() {
         </SeccionM>
       ))}
 
-      {ctx.sesion.rol === 'admin' && (
+      {ctx.sesion.rol === 'admin' && !ctx.impersonando && (
         <SeccionM titulo="Super admin">
           <ListaM>
+            <FilaM navegacion icono="config" titulo="Centro de Operaciones" href={RUTA_CENTRO} />
             <FilaM navegacion icono="admin" titulo="Ticketera" href={RUTA_TICKETERA} />
           </ListaM>
         </SeccionM>

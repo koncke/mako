@@ -166,6 +166,25 @@ scratchpad no se resuelven (no hay `node_modules`): va `createRequire` apuntando
 `scripts/operaciones/cartero.mjs` (`mensajeAviso`) · `scripts/decisiones.ts` ·
 `supabase/migrations/0288_decisiones_aviso.sql` · `tests/decisiones-aviso.test.ts`
 
+## «No veo el botón del Centro en mobile»: faltaba la pantalla, no la puerta (15/10/2026)
+
+**Síntoma.** Martín no encontraba el Centro en el teléfono. El primer diagnóstico (del coordinador) fue que
+More no podía ofrecer una tab de super admin: `SECCIONES_MAS` → `puedeVerKey` no conoce `ADMIN_FAMILIAS`.
+
+**Causa real.** More YA tenía una sección «Super admin», con la Ticketera, desde el 14/10
+(`app/m/mas/page.tsx`); ese diagnóstico miró `SECCIONES_MAS` y no la página. Lo que faltaba era la
+PANTALLA del Centro en `/m`: sin ella, un botón llevaba a la cubierta de «se usa en la computadora».
+Y lo de super admin **no va en `SECCIONES_MAS` a propósito**: de ahí sale también la barra del rol, y
+una tab de plataforma podría subir a la barra de alguien que no es super admin.
+
+**Lo que quedó.** `/m/operaciones` sólo para mirar, copiado de la lista de GitHub Actions en el teléfono
+(una fila por pedido con su estado, el detalle en una hoja), con el mismo guard que escritorio
+(`puedeOperar`). Su puerta, en «Super admin» al lado de la Ticketera, y la sección entera se apaga
+mientras el super admin mira a un cliente (`!ctx.impersonando`), como el Sidebar.
+
+**Vive en:** `app/m/operaciones/` · `app/m/mas/page.tsx` · `lib/movil-rutas.ts` (`rutaMovil`,
+`rutaEscritorio`) · `tests/operaciones.test.ts`
+
 ## Lo que creí medido y no estaba al día
 
 - **`soloPlataforma` ya existía en el registro de la API** (lo sumó el 2FA obligatorio el 14/10, por
@@ -192,8 +211,9 @@ scratchpad no se resuelven (no hay `node_modules`): va `createRequire` apuntando
 - **La opción C** (un hook con `asyncRewake` en la carpeta del Cartero, que lo despierta sin gastar
   turnos): documentado que despierta a una sesión ociosa; no probado con `Stop`. Necesita el OK de
   Martín porque es configuración.
-- **El teléfono**: `/admin/operaciones` en un celular cae en la cubierta «se usa en la computadora»
-  (`DesvioMovil`), porque no tiene versión en `app/m`. El diseño promete «también desde el teléfono».
+- **El teléfono, para MANDAR**: desde el 15/10 `/m/operaciones` deja mirar (la cola, cada pedido, los
+  carteros) y tiene su puerta en More → «Super admin». Mandar desde ahí necesita la clave DEL teléfono
+  cargada en la PC, y no se planifica: es un extra. Si se hace, se verifica en su iPhone de verdad.
 - **Etapa 2 (la cuota)** y **etapa 3 (el señalador)**.
 - **Proponer un pedido desde un chat de MaKo** con `confirmacion: 'pantalla'` (se firma en la pantalla):
   no está en el registro.

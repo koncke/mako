@@ -6105,6 +6105,13 @@ compartido (una unión, un `Record<…>`, la firma de una función exportada), e
 importan**: `git grep -l "<módulo del tipo>"` y se suman a `files`. Medido: con los 140 archivos que importan
 `api-mako/tipos`, el acotado cazó el TS2741 con 3 GB, y sin la línea arreglada salió con 2.
 
+⚠️ **Y el acotado tampoco ve una `declare module` de un archivo que nadie importa: da un error FALSO** (15/10/2026). El
+Centro en el teléfono llegaba por los imports a `app/web-generator/editor/insertar.ts`, y el acotado contestó
+`Property 'toggleEtiqueta' does not exist on type 'ChainedCommands'`: el comando lo agrega una augmentation de
+`@tiptap/core` en `app/web-generator/editor/extensiones/marcas.ts`, que `insertar.ts` no importa (en el completo entra
+por el `include`). Sumado `marcas.ts` a `files`: 0 errores. **Un rojo del acotado en un archivo que la rama no tocó se
+mira primero como esto**: `git grep -n "declare module"` del paquete del error, y ese archivo a `files`.
+
 ⚠️ **Y el acotado que muere sin memoria NO era «la rama creció»: el diagnóstico obvio era el equivocado** (15/10/2026,
 tanda 7 del Web Generator). `C:/dev/tsc-landing.mjs` (heap fijo de 2560 MB) terminó con 276 archivos y, después de un
 commit grande, murió con 294: exit 134, «JavaScript heap out of memory» (no el 99 de «no conseguí turno»). El agente se
