@@ -8,6 +8,7 @@
 // histórico se siembra una vez con scripts/backfill-transcripts.mjs.
 
 import type { NextRequest } from 'next/server';
+import { checkCronAuth } from '@/lib/cron-auth';
 import { getTenantDb } from '@/lib/workspace';
 import { transcribeAd, STRUCTURE_SYSTEM_BASE, IMAGE_PROMPT_BASE } from '@/lib/transcribe';
 import { getPromptText } from '@/lib/prompt-render';
@@ -22,15 +23,8 @@ export const maxDuration = 300;
 const MAX_POR_CORRIDA = 8;
 const TIME_BUDGET_MS = 240_000;
 
-function checkAuth(request: NextRequest): Response | null {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) return Response.json({ ok: false, error: 'CRON_SECRET no configurado' }, { status: 500 });
-  if (request.headers.get('authorization') !== `Bearer ${secret}`) return Response.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
-  return null;
-}
-
 export async function GET(request: NextRequest) {
-  const authFail = checkAuth(request);
+  const authFail = checkCronAuth(request);
   if (authFail) return authFail;
 
   const tStart = Date.now();

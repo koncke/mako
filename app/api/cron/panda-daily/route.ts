@@ -9,6 +9,7 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
+import { checkCronAuth } from '@/lib/cron-auth';
 import { getTenantDb } from '@/lib/workspace';
 import { fetchPandaDailyStat, fetchPandaRetention, getPandaVideoIds } from '@/lib/panda';
 import { ayerEnTijuana } from '@/lib/date-utils';
@@ -18,19 +19,8 @@ import type { MarketingMetricRow } from '@/lib/types';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
-function checkAuth(request: NextRequest): Response | null {
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret) {
-    return Response.json({ ok: false, error: 'CRON_SECRET no configurado' }, { status: 500 });
-  }
-  if (request.headers.get('authorization') !== `Bearer ${cronSecret}`) {
-    return Response.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
-  }
-  return null;
-}
-
 export async function GET(request: NextRequest) {
-  const authFail = checkAuth(request);
+  const authFail = checkCronAuth(request);
   if (authFail) return authFail;
 
   const fecha = request.nextUrl.searchParams.get('fecha') ?? ayerEnTijuana();

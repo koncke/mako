@@ -116,6 +116,8 @@ export type Vista = {
   rol: 'admin' | 'miembro';
   /** las keys de nav.ts que la capa del workspace incluye; `null` = todas */
   tabs: readonly string[] | null;
+  /** ¿El workspace es el de la plataforma (capa `superadmin`)? Lo pone `vistaDe`; ausente = no. */
+  plataforma?: boolean;
   /** los permisos POR ÁREA de un token detallado (lib/api-mako/permisos.ts). Ausente =
    *  sin restricción por área: los demás canales y el token clásico. */
   permisos?: Permisos;
@@ -131,9 +133,11 @@ export const WS_PRINCIPAL = 1;
  * CONFIRMAR: ahí el canal es el de quien confirma (la bandeja, un grupo) y no el de
  * quien propuso, y el alcance ya lo decidió `puedeConfirmar`.
  */
-export function gatingOk(def: OperacionDef, v: Pick<Vista, 'ws' | 'rol' | 'tabs'> & { permisos?: Permisos }): boolean {
+export function gatingOk(def: OperacionDef, v: Pick<Vista, 'ws' | 'rol' | 'tabs' | 'plataforma'> & { permisos?: Permisos }): boolean {
   const g = def.gating;
   if (g?.soloWs1 && !(v.ws === WS_PRINCIPAL && v.rol === 'admin')) return false;
+  // En positivo: sólo si la vista DICE que es la plataforma. Una vista armada sin el dato no pasa.
+  if (g?.soloPlataforma && v.plataforma !== true) return false;
   if (g?.rolMinimo === 'admin' && v.rol !== 'admin') return false;
   if (g?.tab && v.tabs && !v.tabs.includes(g.tab)) return false;
   // Un token detallado: el nivel de SU área (08/10/2026, copiando GitHub). Va acá y no en

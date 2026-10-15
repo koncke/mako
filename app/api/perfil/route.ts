@@ -7,10 +7,16 @@
 //                       de este GET en cada carga de página.
 //   ./destinatarios   → a quiénes les llega. Antes era la acción `numero_dueno`
 //                       de acá, que manejaba un solo teléfono.
+//
+// ⚠️ LAS PREFERENCIAS DEL WORKSPACE (`action: 'prefs'`) SON SÓLO DEL ADMIN (auditoría de seguridad,
+// 14/10/2026): qué reportes salen y por dónde es del negocio, y la pantalla que las edita ya era
+// sólo admin (`requireRolWs([])`). La ruta no miraba el rol: un closer o un setter apagaba o
+// prendía los reportes del dueño con un POST a mano. El perfil de la PERSONA (`action: 'perfil'`)
+// y el GET quedan abiertos a propósito: el Sidebar de todos los roles lee el nombre y la foto acá.
 
 import type { NextRequest } from 'next/server';
 import { leerPerfil, setPerfil, getNotifPrefs, setNotifPrefs, type NotifPrefs, type Perfil } from '@/lib/perfil';
-import { getWorkspaceActual } from '@/lib/workspace';
+import { getWorkspaceActual, getRolWsEfectivo } from '@/lib/workspace';
 import { getGrupoJidMaKo } from '@/lib/mako-grupo';
 
 export const dynamic = 'force-dynamic';
@@ -41,6 +47,9 @@ export async function POST(req: NextRequest) {
       return Response.json({ ok: true, perfil });
     }
     if (body.action === 'prefs' && body.prefs) {
+      if ((await getRolWsEfectivo()) !== 'admin') {
+        return Response.json({ ok: false, error: 'Solo el admin de la cuenta puede cambiar los reportes.' }, { status: 403 });
+      }
       await setNotifPrefs(body.prefs);
       return Response.json({ ok: true });
     }

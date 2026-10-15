@@ -18,9 +18,12 @@ import type { Ctx } from './tipos';
 
 export async function vistaDe(ctx: Ctx): Promise<Vista> {
   let tabs: readonly string[] | null;
+  let plataforma = false;
   try {
     const w = await getWorkspace(ctx.ws);
     tabs = tabsDeCapa(w?.capa ?? 'completo');
+    // La plataforma se resuelve por CAPA, como `wsSuperAdmin()`, nunca por número.
+    plataforma = w?.capa === 'superadmin';
   } catch (err) {
     // FAIL-CLOSED. Antes un error dejaba `tabs = null`, que significa «ve todo»: con
     // la base lenta, un cliente `pm` veía el CRM y las bandejas de otras capas. Sin
@@ -28,5 +31,5 @@ export async function vistaDe(ctx: Ctx): Promise<Vista> {
     console.error(`[api-mako] no pude leer la capa del ws ${ctx.ws}; la vista queda sin tabs:`, err instanceof Error ? err.message : err);
     tabs = [];
   }
-  return { canal: ctx.canal, alcance: ctx.alcance, ws: ctx.ws, rol: ctx.rol, tabs, ...(ctx.permisos ? { permisos: ctx.permisos } : {}) };
+  return { canal: ctx.canal, alcance: ctx.alcance, ws: ctx.ws, rol: ctx.rol, tabs, plataforma, ...(ctx.permisos ? { permisos: ctx.permisos } : {}) };
 }

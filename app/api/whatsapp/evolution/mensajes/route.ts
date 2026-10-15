@@ -19,6 +19,37 @@ export const dynamic = 'force-dynamic';
 const MAX_ARCHIVO = 4 * 1024 * 1024; // 4 MB — bajo el límite de body de Vercel (4.5MB)
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
+// ── La media sale con un tipo de una LISTA BLANCA, o sale para descargar ──────────────────────
+// ⚠️ EL MIMETYPE LO ELIGE QUIEN MANDA EL MENSAJE, y acá quien manda es CUALQUIER LEAD que le
+//    escribe al negocio. Servido verbatim desde nuestro origen, un documento declarado `text/html`
+//    o `image/svg+xml` se abría («Abrir en pestaña nueva») como una página de hola-mako.com y corría
+//    su <script> con la sesión del admin, closer o setter que lo abría (auditoría de seguridad,
+//    14/10/2026). Pasa por acá cuando la media no está en el bucket (el sync guarda `media_path:
+//    null`). El bucket ya fijaba octet-stream para un documento (lib/evolution-mensajes.ts); este
+//    proxy no. Sale con su tipo SÓLO imagen raster, audio, video y PDF; lo demás, para descargar.
+// ⚠️ GEMELO EXACTO del bloque de app/api/admin/mako-chats/media/route.ts (allá está el porqué
+//    entero). Un route.ts no puede exportar nada que no sea de Next, y tests/seguridad-xss.test.ts
+//    compara los dos códigos: si uno cambia solo, se pone rojo.
+const MIME_EN_LINEA = /^(?:image\/(?:jpe?g|png|gif|webp|avif|bmp|heic|heif)|audio\/[a-z0-9][a-z0-9.+-]*|video\/[a-z0-9][a-z0-9.+-]*|application\/pdf)$/;
+const EXTENSION_DESCARGA = new Map<string, string>([
+  ['application/msword', 'doc'],
+  ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'docx'],
+  ['application/vnd.ms-excel', 'xls'],
+  ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'xlsx'],
+  ['application/vnd.ms-powerpoint', 'ppt'],
+  ['application/vnd.openxmlformats-officedocument.presentationml.presentation', 'pptx'],
+  ['text/plain', 'txt'],
+  ['text/csv', 'csv'],
+  ['application/zip', 'zip'],
+]);
+function cabecerasDeMedia(mimetype: unknown, largo: number): Record<string, string> {
+  const tipo = String(mimetype ?? '').split(';')[0].trim().toLowerCase();
+  const comunes = { 'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'private, max-age=3600', 'Content-Length': String(largo) };
+  if (MIME_EN_LINEA.test(tipo)) return { 'Content-Type': tipo, ...comunes };
+  const ext = EXTENSION_DESCARGA.get(tipo);
+  return { 'Content-Type': 'application/octet-stream', 'Content-Disposition': `attachment; filename="adjunto${ext ? `.${ext}` : ''}"`, ...comunes };
+}
+
 export async function GET(req: NextRequest) {
   const chat = req.nextUrl.searchParams.get('chat');
   const avatar = req.nextUrl.searchParams.get('avatar');
@@ -55,9 +86,9 @@ export async function GET(req: NextRequest) {
       // (así imágenes/audios/PDF se ven aunque no estén bajados al bucket).
       const r = await fetchMediaBase64(chat ?? '', media, req.nextUrl.searchParams.get('fromMe') === '1', linea);
       if (!r) return new Response('media no disponible', { status: 404 });
-      return new Response(Buffer.from(r.base64, 'base64'), {
-        headers: { 'Content-Type': r.mimetype || 'application/octet-stream', 'Cache-Control': 'private, max-age=3600' },
-      });
+      // Nunca `r.mimetype` derecho a la cabecera: ver `cabecerasDeMedia`.
+      const bytes = Buffer.from(r.base64, 'base64');
+      return new Response(bytes, { headers: cabecerasDeMedia(r.mimetype, bytes.length) });
     }
     if (avatar) {
       const url = await fetchProfilePic(avatar);

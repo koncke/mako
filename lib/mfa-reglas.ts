@@ -8,6 +8,7 @@
 // Lo usan lib/auth-session.ts (y con él el proxy), lib/mfa.ts y los tests.
 
 import crypto from 'node:crypto';
+import { instanteDe } from './cron-aviso';
 
 /** Cómo se probó el segundo factor de una sesión. Viaja FIRMADO en el token. */
 export type Factor = 'totp' | 'passkey' | 'whatsapp' | 'email' | 'recuperacion';
@@ -20,11 +21,60 @@ export const AMRS: readonly Amr[] = ['totp', 'passkey', 'whatsapp', 'email', 're
  * ¿Este usuario necesita segundo factor para tener sesión?
  *
  * El super admin SIEMPRE (pedido de Martín: «si me llegan a entrar en la cuenta de
- * email, toda la app está en riesgo»). Los demás, sólo si lo activaron: para ellos es
- * opcional y recomendado.
+ * email, toda la app está en riesgo»). Los demás, si lo activaron, o si SU NEGOCIO lo exige
+ * y ya llegó la fecha (`workspaces.mfa_obligatorio_desde`).
+ *
+ * ⚠️ EL 2FA OBLIGATORIO NO DESLOGUEA A NADIE (pedido de Martín del 14/10/2026: obligatorio para
+ * todos, con plazo). Es una FECHA en el negocio y esta regla la CALCULA en cada pedido: desde
+ * esa hora, una sesión sin segundo factor deja de valer (`getUsuarioActual`) y el login pide
+ * enrolar uno antes de dejar pasar. No hay una acción a la hora del corte que se pueda
+ * disparar dos veces, y a quien ya lo tiene no lo toca: su sesión trae `mfa`.
  */
-export function requiereSegundoFactor(rol: string, mfaActivo: boolean): boolean {
-  return rol === 'admin' || mfaActivo === true;
+export function requiereSegundoFactor(
+  rol: string, mfaActivo: boolean, obligatorioDesde?: string | null, ahora: number = Date.now(),
+): boolean {
+  return rol === 'admin' || mfaActivo === true || exigidoYa(obligatorioDesde, ahora);
+}
+
+/** ¿Llegó la fecha desde la que el negocio exige el 2FA? Una fecha que no se entiende NO
+ *  exige: viene de una columna `timestamptz`, así que eso sólo pasa con un dato roto, y
+ *  dejar afuera a todo un negocio por un dato roto es peor que no exigir una vez. */
+export function exigidoYa(obligatorioDesde: string | null | undefined, ahora: number = Date.now()): boolean {
+  if (!obligatorioDesde) return false;
+  const t = Date.parse(obligatorioDesde);
+  return Number.isFinite(t) && t <= ahora;
+}
+
+/**
+ * ¿La POLÍTICA le exige el 2FA a esta persona, haya llegado la fecha o no? Es lo que decide
+ * si puede quitarse su ÚLTIMO método: el super admin no, y quien es de un negocio que lo
+ * exige (o lo va a exigir) tampoco — si no, configurarlo para cumplir y sacarlo al día
+ * siguiente dejaba la exigencia de adorno hasta el próximo login.
+ */
+export function politicaLoExige(rol: string, obligatorioDesde?: string | null): boolean {
+  return rol === 'admin' || !!obligatorioDesde;
+}
+
+/**
+ * El INSTANTE del plazo de un negocio: «el 21/10 a las 24:00» en la hora de ESE negocio.
+ * `24:00` es el final del día (las 00:00 del siguiente), que es como lo dijo Martín. La
+ * conversión es la de dos pasadas de `instanteDe` (lib/cron-aviso.ts): una sola se equivoca
+ * en el día del cambio de horario. null si la fecha o la hora no se entienden.
+ */
+export function instanteDelPlazo(tz: string, fecha: string, hora: string): Date | null {
+  const f = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(fecha ?? '').trim());
+  const h = /^(\d{1,2}):(\d{2})$/.exec(String(hora ?? '').trim());
+  if (!f || !h) return null;
+  const [y, m, d, hh, mm] = [Number(f[1]), Number(f[2]), Number(f[3]), Number(h[1]), Number(h[2])];
+  if (m < 1 || m > 12 || d < 1 || d > 31 || mm > 59 || hh > 24 || (hh === 24 && mm !== 0)) return null;
+  // El día tiene que existir (un 31/02 no es «el 3 de marzo»).
+  const dia = new Date(Date.UTC(y, m - 1, d));
+  if (dia.getUTCMonth() !== m - 1 || dia.getUTCDate() !== d) return null;
+  if (hh === 24) {
+    const sig = new Date(Date.UTC(y, m - 1, d + 1));
+    return instanteDe(tz, sig.getUTCFullYear(), sig.getUTCMonth() + 1, sig.getUTCDate(), 0, 0);
+  }
+  return instanteDe(tz, y, m, d, hh, mm);
 }
 
 export type DecisionGoogle = 'sesion' | 'segundo-factor' | 'bloquear';
@@ -41,8 +91,10 @@ export type DecisionGoogle = 'sesion' | 'segundo-factor' | 'bloquear';
  */
 export function decidirTrasGoogle(x: {
   rol: string; mfaActivo: boolean; tieneFila: boolean; dispositivoValido: boolean;
+  /** `workspaces.mfa_obligatorio_desde` del negocio de la persona (null = no lo exige). */
+  obligatorioDesde?: string | null; ahora?: number;
 }): DecisionGoogle {
-  if (!requiereSegundoFactor(x.rol, x.mfaActivo)) return 'sesion';
+  if (!requiereSegundoFactor(x.rol, x.mfaActivo, x.obligatorioDesde, x.ahora)) return 'sesion';
   if (!x.tieneFila) return 'bloquear';
   if (x.dispositivoValido) return 'sesion';
   return 'segundo-factor';

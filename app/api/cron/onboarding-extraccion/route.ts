@@ -44,6 +44,7 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
+import { checkCronAuth } from '@/lib/cron-auth';
 import { correrRonda } from '@/lib/cron-workspaces';
 import { getEstadoOnboarding } from '@/lib/onboarding-state';
 import { tickExtraccion } from '@/lib/onboarding-extract';
@@ -56,19 +57,8 @@ export const maxDuration = 300;
  *  Un tick de 10 s no alcanza ni para un día de métricas con su pausa de 1,5 s. */
 const MINIMO_MS = 30_000;
 
-function checkAuth(request: NextRequest): Response | null {
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret) {
-    return Response.json({ ok: false, error: 'CRON_SECRET no configurado en env' }, { status: 500 });
-  }
-  if (request.headers.get('authorization') !== `Bearer ${cronSecret}`) {
-    return Response.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
-  }
-  return null;
-}
-
 export async function GET(request: NextRequest) {
-  const authFail = checkAuth(request);
+  const authFail = checkCronAuth(request);
   if (authFail) return authFail;
 
   const t0 = Date.now();

@@ -15,7 +15,8 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getUsuarioActual } from '@/lib/auth';
 import { ponerSesion } from '@/lib/sesion-cookies';
-import { canalDisponible, esTelefono, CANALES_CODIGO, CANAL_NO_DISPONIBLE, type Amr } from '@/lib/mfa-reglas';
+import { canalDisponible, esTelefono, politicaLoExige, CANALES_CODIGO, CANAL_NO_DISPONIBLE, type Amr } from '@/lib/mfa-reglas';
+import { obligatorioDesdeDe } from '@/lib/mfa-obligatorio';
 import {
   estadoMfa, cantidadFactores, intentar, intentoOk, MENSAJE_FRENADO,
   iniciarTotp, confirmarTotp, enviarCodigo, verificarCodigo,
@@ -36,10 +37,14 @@ async function quien() {
 export async function GET(req: NextRequest) {
   const s = await quien();
   if (!s) return no('no autenticado', 401);
-  const e = await estadoMfa(Number(s.sub));
+  const [e, obligatorioDesde] = await Promise.all([estadoMfa(Number(s.sub)), obligatorioDesdeDe(s.ws)]);
   return NextResponse.json({
     ok: true,
-    obligatorio: s.rol === 'admin',
+    obligatorio: politicaLoExige(s.rol, obligatorioDesde),
+    // Desde cuándo lo exige su negocio (null: no lo exige, o es el super admin, que siempre).
+    obligatorioDesde: s.rol === 'admin' ? null : obligatorioDesde,
+    // Para el link «Abrir en la app de autenticación»: en el celular no hay QR que escanear.
+    esTelefono: esTelefono(req.headers.get('user-agent')),
     // Para el .txt de los códigos: dice de qué cuenta son.
     cuenta: s.email,
     // La llave se activa sólo desde el teléfono (decisión de Martín, 14/10/2026). Las que ya hay se
@@ -85,7 +90,7 @@ export async function POST(req: NextRequest) {
   switch (accion) {
     case 'totp-iniciar': {
       const t = await iniciarTotp(uid, s.email);
-      return NextResponse.json({ ok: true, secreto: t.secreto, qr: t.qr });
+      return NextResponse.json({ ok: true, secreto: t.secreto, uri: t.uri, qr: t.qr });
     }
     case 'totp-confirmar': {
       const intento = await intentar(uid, 'enrolar-totp');
@@ -123,7 +128,8 @@ export async function POST(req: NextRequest) {
     case 'quitar': {
       const factor = String(body.factor ?? '');
       if (!['totp', 'whatsapp', 'email', 'passkey'].includes(factor)) return no('método inválido');
-      const r = await quitarFactor(uid, s.rol, factor as 'totp', Number(body.passkeyId) || undefined);
+      const obligado = politicaLoExige(s.rol, await obligatorioDesdeDe(s.ws));
+      const r = await quitarFactor(uid, obligado, factor as 'totp', Number(body.passkeyId) || undefined);
       return r.ok ? NextResponse.json({ ok: true }) : no(r.error);
     }
     case 'codigos-generar': {

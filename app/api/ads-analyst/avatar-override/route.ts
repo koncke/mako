@@ -7,10 +7,13 @@
 
 import type { NextRequest } from 'next/server';
 import { setAvatarOverride } from '@/lib/ads-analyst';
+import { soloAdminAdsAnalyst } from '../puerta';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
+  const cerrada = await soloAdminAdsAnalyst();
+  if (cerrada) return cerrada;
   let body: { ad_id?: string; avatar?: string | null };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
 

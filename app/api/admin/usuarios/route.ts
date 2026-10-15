@@ -21,6 +21,10 @@ import { listarWorkspaces, OWNER_WS } from '@/lib/workspace';
 import type { Rol, RolWorkspace } from '@/lib/auth-session';
 import { invitarPorEmail } from '@/lib/invitaciones';
 import { urlGravatar, caraDeUsuario } from '@/lib/gravatar';
+// Suspender, eliminar, bajar de rol o mover a alguien APAGA los tokens clásicos de la API que
+// esa persona acuñó (14/10/2026): sólo los que ya no administra, y sin tirar nunca (la decisión
+// ya está escrita; si esto falla, el chequeo por pedido los corta igual en menos de un minuto).
+import { revocarAgenteTokensDe } from '@/lib/agente-token';
 
 const ROLES_WS: RolWorkspace[] = ['admin', 'closer', 'setter'];
 
@@ -166,7 +170,9 @@ export async function POST(req: NextRequest) {
         // de ese cliente (el rol se puede bajar después desde el equipo).
         const patch: { workspace_id: number | null; rol_ws?: RolWorkspace } = { workspace_id: wsId };
         if (wsId != null && objetivo.rol_ws == null) patch.rol_ws = 'admin';
-        return NextResponse.json({ ok: true, usuario: await actualizarUsuario(objetivo.id, patch) });
+        const movido = await actualizarUsuario(objetivo.id, patch);
+        await revocarAgenteTokensDe(objetivo.email);
+        return NextResponse.json({ ok: true, usuario: movido });
       }
 
       case 'rolws': {
@@ -179,7 +185,9 @@ export async function POST(req: NextRequest) {
         if (await dejariaClienteSinAdmin(objetivo, rolWs)) {
           return NextResponse.json({ ok: false, error: 'Es el único admin de ese cliente — asigna otro admin antes.' }, { status: 400 });
         }
-        return NextResponse.json({ ok: true, usuario: await actualizarUsuario(objetivo.id, { rol_ws: rolWs }) });
+        const conRol = await actualizarUsuario(objetivo.id, { rol_ws: rolWs });
+        if (rolWs !== 'admin') await revocarAgenteTokensDe(objetivo.email);
+        return NextResponse.json({ ok: true, usuario: conRol });
       }
 
       case 'nombre': {
@@ -220,7 +228,9 @@ export async function POST(req: NextRequest) {
         if (rol !== 'admin' && (await dejariaSinAdmins(objetivo))) {
           return NextResponse.json({ ok: false, error: 'Es el único admin activo — asigna otro admin antes.' }, { status: 400 });
         }
-        return NextResponse.json({ ok: true, usuario: await actualizarUsuario(objetivo.id, { rol }) });
+        const conRolGlobal = await actualizarUsuario(objetivo.id, { rol });
+        if (rol !== 'admin') await revocarAgenteTokensDe(objetivo.email);
+        return NextResponse.json({ ok: true, usuario: conRolGlobal });
       }
 
       case 'estado': {
@@ -233,7 +243,9 @@ export async function POST(req: NextRequest) {
           if (await dejariaSinAdmins(objetivo)) return NextResponse.json({ ok: false, error: 'Es el único admin activo — asigna otro admin antes.' }, { status: 400 });
           if (await dejariaClienteSinAdmin(objetivo)) return NextResponse.json({ ok: false, error: 'Es el único admin de ese cliente — asigna otro admin antes.' }, { status: 400 });
         }
-        return NextResponse.json({ ok: true, usuario: await actualizarUsuario(objetivo.id, { estado }) });
+        const conEstado = await actualizarUsuario(objetivo.id, { estado });
+        if (estado === 'suspendido') await revocarAgenteTokensDe(objetivo.email);
+        return NextResponse.json({ ok: true, usuario: conEstado });
       }
 
       case 'eliminar': {
@@ -245,6 +257,7 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ ok: false, error: 'Es el único admin de ese cliente — asigna otro admin antes.' }, { status: 400 });
         }
         await eliminarUsuario(objetivo.id);
+        await revocarAgenteTokensDe(objetivo.email);
         return NextResponse.json({ ok: true });
       }
 

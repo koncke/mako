@@ -4,16 +4,20 @@
 // Toma los anuncios con transcript de video en ad_transcripts, corre Claude sobre
 // los que no tienen fila todavía (presupuesto por corrida) y persiste en
 // script_analyses. Lo dispara el botón "Sincronizar" de la vista; el cron
-// ads-analyst-sync drena el resto en background. Gateado por el middleware.
+// ads-analyst-sync drena el resto en background. La puerta es ../puerta.ts (sólo el
+// admin): el middleware sólo pide sesión, y eso no alcanzaba.
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
 import { syncScriptAnalyses } from '@/lib/ads-analyst';
+import { soloAdminAdsAnalyst } from '../puerta';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
 export async function POST(req: NextRequest) {
+  const cerrada = await soloAdminAdsAnalyst();
+  if (cerrada) return cerrada;
   let body: { max?: number; force?: boolean } = {};
   try { body = await req.json(); } catch { /* body opcional */ }
 

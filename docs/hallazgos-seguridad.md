@@ -515,6 +515,44 @@ dos «quitar» simultáneos pueden dejar al super admin sin métodos (hace falta
 reset del 2FA por un admin; cerrar sesiones en todos lados al perder el teléfono; método preferido; la
 sección Seguridad en `/m/cuenta`. **Tanda 2:** el destino «a la persona del evento» en Automations.
 
+### El 2FA obligatorio con plazo: «desloguear» era la forma equivocada (14/10/2026)
+
+Pedido de Martín (vía «Estrategia 3 cuentas»): el 2FA obligatorio para TODOS, con plazo al 21/10 a las 24:00 en la
+hora de cada negocio, avisos y recordatorios, y «al que no lo configuró se lo desloguea». El circuito de avisos es del
+chat de Automations (`docs/diseno-2fa-obligatorio.md` en su rama); la regla es de acá.
+
+- ⚠️ **«Desloguear» a una hora no se puede hacer bien, y no hace falta.** La sesión es una cookie firmada SIN estado
+  (sin `iat`, sin marca por usuario): no hay forma de cerrarle la sesión a UNA persona. Y una acción masiva a la hora
+  del corte alcanza a quien sí cumplió si su cookie de hoy no trae `mfa`, y se puede disparar dos veces. Lo que se hizo
+  es EXIGIR: el negocio guarda una FECHA (`workspaces.mfa_obligatorio_desde`, mig 0283) y `requiereSegundoFactor` la
+  calcula en cada pedido. Desde esa hora la sesión sin segundo factor deja de valer (`getUsuarioActual`) y el login
+  manda a /login/2fa, que ya permitía activar el primero sin sesión. Es idempotente, se deshace con null, y a quien
+  cumplió no lo toca: activar un método reemite su sesión con `mfa`, y sus cookies viejas caen en ese momento.
+- **La fecha va en el NEGOCIO, no en cada usuario.** Una marca por usuario escrita una vez no alcanza a los que se
+  crean después; hay 3 invitados que nunca entraron. Lo que sigue sin cubrirse es un NEGOCIO creado después de correr
+  la acción: nace sin la fecha, y se vuelve a correr (es idempotente).
+- **Una sesión que `getUsuarioActual` rechaza no cae al ws1**: `resolverDesdeCookies` distingue «no hay cookie»
+  (cron, webhook: dueño) de «hay cookie y no vale» (null, fail-closed). Medido en `lib/workspace.ts:265` antes de
+  apoyar la exigencia ahí y no en el proxy, que no tiene base.
+- **Lo que la plataforma decide SOBRE los negocios es `gating.soloPlataforma`**, resuelto por la capa en `vistaDe`, y
+  el runner lo vuelve a preguntar en preparar y en ejecutar. Sin eso, el admin de un cliente veía «dejar de exigir el
+  2FA» y anulaba en su negocio la exigencia de Martín. Las capas `completo` y `agencia` tienen `navKeys: null`, así
+  que un `gating.tab` no podía esconderla.
+- **Hoy el único primer factor es la app de autenticación**: WhatsApp y correo siguen apagados (tanda 2) y la llave no
+  puede ser el primero (sólo el celular, sólo después del 2FA). Quien entra sólo desde el teléfono no tiene QR que
+  escanear: se suma «Abrir en la app» con el `otpauth://` que ya generaba `iniciarTotp`.
+- **Medido en producción el 14/10**: 12 usuarios (9 activos, 3 invitados), 11 sin 2FA (sólo el super admin lo
+  tiene), cada negocio con UN usuario (su admin). **`usuarios` no tiene teléfono**: el único es
+  `usuario_mfa.whatsapp_tel`, de quien ya activó el código por WhatsApp. O sea que a quien le falta el 2FA, por
+  persona, sólo se le puede escribir por email; por WhatsApp, sólo al grupo del negocio. La ventana del corte va del
+  21/10 22:00 UTC (ws19, Madrid) al 22/10 07:00 UTC (Tijuana); 4 de 13 negocios sin zona guardada.
+
+**Vive en:** `lib/mfa-reglas.ts` (`requiereSegundoFactor`, `exigidoYa`, `politicaLoExige`, `instanteDelPlazo`) ·
+`lib/mfa-obligatorio.ts` · `lib/auth.ts` (getUsuarioActual) · `app/api/auth/callback/google/route.ts` ·
+`app/api/perfil/seguridad/route.ts` · `lib/api-mako/areas/equipo.{def,run}.ts` (`exigir_2fa_desde`,
+`dejar_de_exigir_2fa`, `ver_exigencia_2fa`) · `supabase/migrations/0283_mfa_obligatorio.sql` ·
+`tests/mfa-obligatorio.test.ts` · *14/10/2026, chat «Ciberseguridad» con «Automations»*
+
 ### ⚠️ Ningún guard que mire el eje de workspace puede restringir a la agencia: el único que sirve es `getSesionAdmin()`
 
 Tres guards con nombre de «solo la agencia» y ninguno lo cumple, por la misma razón de
@@ -1649,6 +1687,49 @@ el registro abierto (la app no lo usa: se apaga en el panel de Supabase).
 
 **Lo que la auditoría NO cubrió**: de los 58 archivos `'use server'`, el barrido leyó a fondo unos 25 y el resto por
 encima. Las 318 rutas de `app/api` se leyeron todas.
+
+### Estado de la tabla (14/10/2026, commit `6a668f72c` de la rama `seg-auditoria`)
+
+**Cerrados**, cada uno con su test probado rompiéndolo (`tests/seguridad-*.test.ts`): la crítica de las funciones (0280,
+aplicada y medida con el mismo GET anónimo), `plan-recurvar` y las 10 copias del chequeo del cron (más `admin/meta-check`
+y `admin/youtube-check`), los proxies de media, cuotas y pagos, el XSS del detalle, el token clásico, el saldo de Claude,
+perfil/destinatarios, el GET de `resumen` (borrado; archivar y desarchivar dejan la secuencia pausada), el tope de la
+línea de MaKo, ads-analyst, landing-analyst (también `pulso`, que la auditoría no vio), `/api/doc` y `/api/contract`, el
+SSRF y el `..` del Archivero, el doer de escritorio, los insights de Meta y `compartido/archivo`. De paso, dos rutas que
+nadie había listado: `regenerate-transcript` (IA paga para cualquier closer del ws1) y `perfil/plantilla` (un closer
+mandaba a aprobar a Meta la plantilla del negocio).
+
+**Abiertos, con dónde viven:**
+- La rotación de las credenciales de `docs/chats/`: la lista, con fecha por credencial, en `docs/rotacion-credenciales.md`.
+- Quién manda a MaKo en el grupo de WhatsApp de un cliente (`lib/mako-doer-in.ts:855`: todo el grupo corre como admin con
+  «ejecutar», y su system prompt lleva los números del trimestre): decisión de producto, en el tablero.
+- next 16.2.11 y el registro abierto de Supabase Auth: decisiones, en el tablero.
+- `lib/anthropic-usage.ts` (`wsDeProveedor`) sigue cayendo a `OWNER_WS`: la defensa vive sólo en la ruta.
+- `app/api/chart-insights/route.ts` arma el system prompt CON el avance del trimestre y no mira el rol: si un closer
+  llega a un chat de gráfico, MaKo le cuenta la plata. NO MEDIDO qué gráficos ve un closer.
+- Las bajas sin tocar: el webhook de Fathom sin secreto propio verifica con el del ws1, identidades fiscales y teléfonos
+  del negocio sin chequeo de rol, «Completar como Mauricio» con guarda en negativo.
+- `tests/cobranza.test.ts` («marcar el pago CORTA…») ya estaba rojo en `origin/main`: el recorte de `marcarPago` mide
+  6777 contra un techo de 3000. No es de esta rama.
+
+### Lo que enseñó ARREGLARLA
+
+- ⚠️ **El arreglo que proponía la propia auditoría para `/api/doc` era el diagnóstico equivocado, dos veces.** «Exigir el
+  prefijo `<ws>/<lead>/`» deja pasar `5/60/../../7/50/x.pdf`, porque storage-js arma la URL de la firma con la ruta
+  cruda y el `fetch` resuelve el `..` (medido con `new URL`): la firma sale para otra carpeta, o para otro bucket. Y
+  además rompía un contrato REAL: el del lead 31 del ws1 se guardó como `<lead>/<ms>_<nombre>` (extract-contract, del
+  20/06 al 02/07, antes de `7ee06bb15`), y el objeto existe. Lo cazó un revisor midiendo producción, no los tests. La
+  regla: **una ruta de Storage leída de una fila se valida por SEGMENTOS** (`rutaDeEsteLead`), y **antes de endurecer
+  un formato se cuenta qué formatos hay en la base**.
+- ⚠️ **Filtrar las herramientas del doer no cerraba nada: el dato ya estaba en lo que el modelo LEE.** Los chats del
+  doer de escritorio eran del WORKSPACE (`open` devolvía el último, el del admin, con las respuestas de
+  `metricas_negocio` en texto) y el system prompt traía el avance del trimestre con plata. Lo de un closer o setter
+  pasa a ser suyo (`mako-doer:u<id>`, `quienPide`/`puedeAbrir` en `app/api/mako-doer/route.ts`) y su prompt va con
+  `sinNumerosDelNegocio` (escritorio y teléfono).
+- **Un 403 nuevo tiene que decirse en la pantalla que lo pide.** El editor de saldo de /integraciones hacía
+  `if (j?.ok) …` y nada más: con el corte nuevo, el botón dejaba de hacer algo sin un solo aviso.
+- **Borrar una ruta pone rojos los tests que barren `git ls-files` hasta que el borrado se stagea** (ENOENT en
+  closing-entrega, motor-tick y pixel-cargador): el índice todavía la lista. No es un bug del test.
 
 ### Las reglas que quedan
 

@@ -111,6 +111,24 @@ function fechaCuota(base: string, meses: number, dia: number): string {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
+ * ⚠️ EL LEAD TIENE QUE SER DE ESTE NEGOCIO antes de escribirle una cuota (auditoría de seguridad del 14/10/2026).
+ * `getTenantDb` estampa el workspace en el insert, pero `pagos.lead_id` sólo tiene FK a `leads(id)` y el índice
+ * único (lead_id, numero) es GLOBAL: con el id de un lead de OTRO negocio (los ids son secuenciales), la fila
+ * entraba en el cash de éste apuntando a una persona ajena, sin un error; el join `leads(nombre, …)` de
+ * Outstanding y de las alertas traía el nombre y el monto de ese lead ajeno; y el dueño real ya no podía numerar
+ * sus propias cuotas (el insert chocaba con el índice). Un update o un select filtrados por workspace no avisan
+ * (0 filas, sin error), así que el corte es leer el lead y tirar si no está.
+ * Vive acá y no en la pantalla: la ficha, la API de MaKo y la pasarela escriben por estas funciones.
+ * El nombre es el mismo que en la rama crm-bloques (wtc-b2) para que las dos converjan al integrar.
+ */
+export async function asegurarLeadDelNegocio(leadId: number): Promise<void> {
+  if (!Number.isInteger(leadId) || leadId <= 0) throw new Error('Lead inválido.');
+  const { data, error } = await (await getTenantDb()).from('leads').select('id').eq('id', leadId).maybeSingle();
+  if (error) throw new Error(`No pude leer el lead ${leadId}: ${error.message}`);
+  if (!data) throw new Error('No encontré ese lead en este negocio.');
+}
+
+/**
  * Guarda el plan de pagos de un lead y (re)genera las filas de `pagos`.
  *
  * Regla de regeneración: SOLO toca las filas NO pagadas. Las cuotas ya cobradas
@@ -125,6 +143,10 @@ export async function savePlanPagos(
   plan: PlanPagos,
   hoy: string = new Date().toISOString().slice(0, 10),
 ): Promise<Pago[]> {
+  // Hoy el `.single()` de abajo ya tira con un lead ajeno (0 filas), pero es una guarda por accidente: pasarlo a
+  // `maybeSingle()` la borraría sin que nada falle, y el upsert de abajo pisaría por (lead_id, numero) la cuota
+  // del otro negocio. La explícita no depende de eso.
+  await asegurarLeadDelNegocio(leadId);
   const supabase = (await getTenantDb());
 
   // Necesitamos la fecha de cierre como ancla del calendario
@@ -217,6 +239,9 @@ export type PlanManual = {
 };
 
 export async function saveLeadPlanManual(leadId: number, p: PlanManual): Promise<void> {
+  // Antes de TODO: el `maybeSingle` y el update de abajo, con un lead ajeno, dan null y 0 filas sin error, y las
+  // cuotas se insertaban igual con el lead_id del otro negocio.
+  await asegurarLeadDelNegocio(leadId);
   const supabase = (await getTenantDb());
 
   // El plan de pagos pertenece a un lead GANADO: dejamos el desenlace coherente
@@ -335,6 +360,8 @@ export async function cobrarCuota(
   datos: { monto?: number | null; fecha: string; hora?: string | null; resto?: RestoDeCobro },
 ): Promise<{ original: number; monto: number | null; pendiente: number | null; descuento: number }> {
   if (!datos.fecha) throw new Error('La fecha del pago es obligatoria.');
+  // La cuota ya se lee con `lead_id`, pero la diferencia de abajo es un INSERT con ese leadId.
+  await asegurarLeadDelNegocio(leadId);
   const db = await getTenantDb();
   const { data: antes, error: eLeer } = await db.from('pagos').select('monto_usd, fecha_esperada, pagado').eq('id', pagoId).eq('lead_id', leadId).maybeSingle();
   if (eLeer) throw new Error(`Error leyendo el pago ${pagoId}: ${eLeer.message}`);
@@ -375,6 +402,7 @@ export async function registrarPagoSuelto(leadId: number, datos: { monto: number
   const monto = Number(datos.monto);
   if (!Number.isFinite(monto) || monto <= 0) throw new Error('El monto tiene que ser mayor a cero.');
   if (!datos.fecha || !/^\d{4}-\d{2}-\d{2}$/.test(datos.fecha)) throw new Error('La fecha del pago es obligatoria.');
+  await asegurarLeadDelNegocio(leadId);
   const db = await getTenantDb();
   const existentes = await getPagosByLead(leadId);
   const base = existentes.length > 0 ? Math.max(...existentes.map((q) => q.numero)) : 0;
@@ -446,6 +474,9 @@ export async function registrarCobroDeProveedor(p: {
   moneda: string;
   fechaPago: string;
 }): Promise<{ pagoId: number; yaEstaba: boolean }> {
+  // El lead sale del cobro (crearCobro ya lo leyó de este negocio), pero esta función INSERTA en `pagos`: la
+  // regla es una sola para todos los escritores. Si tira, cobros.ts lo deja en el `motivo` del cobro.
+  await asegurarLeadDelNegocio(p.leadId);
   const db = await getTenantDb();
   const marca = {
     cobro_id: p.cobroId,

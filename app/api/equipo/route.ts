@@ -18,6 +18,9 @@ import {
 } from '@/lib/usuarios';
 import type { RolWorkspace } from '@/lib/auth-session';
 import { invitarPorEmail } from '@/lib/invitaciones';
+// Suspender, eliminar o bajarle el rol a alguien APAGA los tokens clásicos de la API que esa
+// persona acuñó (14/10/2026): sólo los que ya no administra, y sin tirar nunca.
+import { revocarAgenteTokensDe } from '@/lib/agente-token';
 
 export const dynamic = 'force-dynamic';
 
@@ -98,7 +101,9 @@ export async function POST(req: NextRequest) {
         if (objetivo.rol_ws === 'admin' && rolWs !== 'admin' && (await contarAdminsClienteActivos(ws)) <= 1) {
           return NextResponse.json({ ok: false, error: 'Eres el único admin del cliente — nombra otro admin antes.' }, { status: 400 });
         }
-        return NextResponse.json({ ok: true, usuario: await actualizarUsuario(objetivo.id, { rol_ws: rolWs }) });
+        const conRol = await actualizarUsuario(objetivo.id, { rol_ws: rolWs });
+        if (rolWs !== 'admin') await revocarAgenteTokensDe(objetivo.email);
+        return NextResponse.json({ ok: true, usuario: conRol });
       }
 
       // Reenviar el acceso. `objetivo` sale de `equipoDe(ws)`, así que un cliente solo
@@ -121,7 +126,9 @@ export async function POST(req: NextRequest) {
         if (estado === 'suspendido' && objetivo.rol_ws === 'admin' && (await contarAdminsClienteActivos(ws)) <= 1) {
           return NextResponse.json({ ok: false, error: 'Eres el único admin del cliente — nombra otro admin antes.' }, { status: 400 });
         }
-        return NextResponse.json({ ok: true, usuario: await actualizarUsuario(objetivo.id, { estado }) });
+        const conEstado = await actualizarUsuario(objetivo.id, { estado });
+        if (estado === 'suspendido') await revocarAgenteTokensDe(objetivo.email);
+        return NextResponse.json({ ok: true, usuario: conEstado });
       }
 
       case 'eliminar': {
@@ -130,6 +137,7 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ ok: false, error: 'Eres el único admin del cliente — nombra otro admin antes.' }, { status: 400 });
         }
         await eliminarUsuario(objetivo.id);
+        await revocarAgenteTokensDe(objetivo.email);
         return NextResponse.json({ ok: true });
       }
 

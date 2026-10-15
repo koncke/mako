@@ -8,10 +8,13 @@
 
 import type { NextRequest } from 'next/server';
 import { getScriptView } from '@/lib/ads-analyst';
+import { soloAdminAdsAnalyst } from '../puerta';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
+  const cerrada = await soloAdminAdsAnalyst();
+  if (cerrada) return cerrada;
   const adId = req.nextUrl.searchParams.get('ad_id')?.trim() ?? '';
   if (!adId) {
     return Response.json({ ok: false, error: 'ad_id requerido' }, { status: 400 });

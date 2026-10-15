@@ -6,6 +6,7 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
+import { checkCronAuth } from '@/lib/cron-auth';
 import {
   fetchYouTubeStats,
   YouTubeAuthError,
@@ -16,16 +17,9 @@ import {
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret) {
-    return Response.json(
-      { ok: false, error: 'CRON_SECRET no configurado' },
-      { status: 500 },
-    );
-  }
-  if (request.headers.get('authorization') !== `Bearer ${cronSecret}`) {
-    return Response.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
-  }
+  // El mismo chequeo que los crons: comparación en tiempo constante y fail-closed sin CRON_SECRET.
+  const denied = checkCronAuth(request);
+  if (denied) return denied;
 
   const videos: Array<{ id: string | undefined; type: 'vsl' | 'thanks' | 'thanks_prep' }> = [
     { id: process.env.YOUTUBE_VSL_VIDEO_ID, type: 'vsl' },
