@@ -38,3 +38,38 @@ Escrito por el chat «Centro de Operaciones» (cuenta 1), al pasar el 85% semana
 
 - La pantalla de Chats y el modal «Cartero y trabajos» **no se miraron en un navegador**: tipos y tests en verde, pero
   el último recorrido de escritorio y teléfono fue antes de este cambio.
+
+## LO PRIMERO AL VOLVER: la vista de chats, con referencias que buscas VOS (15/10/2026)
+
+Esta sesion se cerro cuando la app se reinicio, con el encargo sin entregar. Lo dejo escrito aca
+porque es lo unico que sobrevive: Martin lo pidio tres veces y la ultima dijo «Lo sigo viendo igual».
+
+**El pedido, textual:** «Al principio deberia haber una tab que simule los chats... Ahi te pido que
+copies el diseño del grok. Copiala entera, porque nos puede servir... Que este todo muy bien diseñado.»
+
+**Y como se destrabo**, textual del 15/10 por la tarde: «Pero que se guie de imagenes de pinterest o
+cosas asi... Que busque referencias».
+
+O sea: **Grok dejo de ser el bloqueo.** Su cuenta quedo trabada en un cuadro de «confirma tu edad» que
+no se puede saltear (lo verifique dos veces en su Chrome: con ese cuadro abierto no se entra a ninguna
+seccion, y la cuenta ademas esta vacia, sin una sola conversacion). No se espera mas.
+
+**Que hacer:**
+
+1. **Buscar referencias visuales y guardarlas.** Pinterest y Dribbble para la estetica; Mobbin y
+   Collect UI para pantallas reales de apps de chat; capturas de prensa de Grok, ChatGPT, Claude,
+   Linear o Slack. Mirar varias antes de elegir, y nombrar en el commit de donde salio cada idea.
+2. **Sacar la ESTRUCTURA, no el arte de nadie:** que entra en una fila de la lista, cuanto respira,
+   donde va el estado, como se marca la conversacion abierta, como se agrupa por tiempo (Hoy, Ayer,
+   esta semana), donde viven el buscador y el plegado, y como se ve en un telefono.
+3. **Los colores, la tipografia y los iconos son los de la casa** (`var(--token)`), nunca el hex de la
+   imagen que se mire.
+
+**El aviso de criterio, que es lo que una imagen linda no te dice:** una referencia de Pinterest es un
+dibujo, no un producto. No contesta que pasa con 53 chats, con un nombre larguisimo, ni cuando no hay
+ninguno. Esos tres casos los resuelve quien construye, y son los que deciden si la pantalla sirve. Si
+una referencia pide un dato que no tenemos, gana el dato.
+
+Y lo de siempre: que se VEA la lista de chats con su estado. El modelo ya esta medido y en main
+(lib/centro-chats.ts); lo que falta es la cascara.
+
