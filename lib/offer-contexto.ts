@@ -42,6 +42,7 @@ import { leerFunnels } from './funnels';
 import { getAvatares, avataresTexto } from './avatares';
 import { getRazones } from './razones';
 import { getDiagnosticoFase } from './fase-store';
+import { vozDelNegocio } from './nutricion-generator';
 import { CANALES, esCanal, faseContextoTexto, type CanalId, type Diagnostico } from './fase-diagnostico';
 import { analisisNegocio } from './analisis-negocio';
 import { analisisAMarkdown } from './analisis-modelo';
@@ -54,6 +55,8 @@ import type { Producto } from './productos';
 export const TOPE_CONTEXTO = 12_000;
 /** El embudo, aparte (sólo en el diagnóstico). */
 export const TOPE_EMBUDO = 4_000;
+/** La voz, aparte (el turno y la oferta). Las guías destiladas medidas en prod el 14/10/2026: 1.055 y 1.502. */
+export const TOPE_VOZ = 2_000;
 
 export type FocoNegocio = { productosActivos: number; ofertasActivas: number; bandaFacturacion: number | null };
 
@@ -78,6 +81,12 @@ export type ContextoOffer = {
   semillaSesion: PiezasSabidas;
   /** Lo que mira la alerta de foco (lib/offer-reglas.ts → alertaFoco). */
   foco: FocoNegocio;
+  /**
+   * La voz del negocio (`vozDelNegocio`, lib/nutricion-generator.ts), acotada, o null. Va APARTE de `texto`, a
+   * propósito: `texto` se recorta en TOPE_CONTEXTO y la voz gobierna CÓMO se escribe, no QUÉ es el negocio. La
+   * leen los prompts que escriben lo que el negocio va a decir (el turno y la oferta), por su slot {{voz}}.
+   */
+  voz: string | null;
   /** v2: el funnel de la conversación, si se pidió y se pudo leer. */
   funnel: FunnelDeLaSesion | null;
   /** v2: la oferta que se analiza, si se pidió y existe en el negocio. */
@@ -143,7 +152,7 @@ export async function contextoOffer(opts: {
   mensajes?: Array<Pick<MensajeGuardado, 'de' | 'pregunta' | 'respuesta' | 'opciones'>>;
 } = {}): Promise<ContextoOffer> {
   const conFunnel = opts.funnelId != null;
-  const [perfil, panorama, answers, ofertas, productos, fase, analisis, funnels, ligasFunnel, ligasProducto, avatares, razones] = await Promise.all([
+  const [perfil, panorama, answers, ofertas, productos, fase, analisis, funnels, ligasFunnel, ligasProducto, avatares, razones, voz] = await Promise.all([
     perfilNegocioTexto().catch(logFallo('el perfil del negocio')),
     getPanorama().catch(logFallo('el panorama del Archivero')),
     getAnswers().catch(logFallo('las respuestas del onboarding')),
@@ -158,6 +167,7 @@ export async function contextoOffer(opts: {
     conFunnel ? productosDeOfertas().catch(logFallo('los productos de cada oferta')) : Promise.resolve(null),
     getAvatares().catch(logFallo('los avatares')),
     getRazones().catch(logFallo('las razones de compra')),
+    vozDelNegocio().catch(logFallo('la voz del negocio')),
   ]);
   const principal = await ofertaPrincipal(answers ?? {}).catch(logFallo('la oferta principal'));
   let embudoMd: string | null = null;
@@ -166,6 +176,8 @@ export async function contextoOffer(opts: {
     ? {
       show: analisis.tasas.show_rate, cierreCalificados: analisis.tasas.tasa_cierre_sobre_calificados,
       cierreAsistencias: analisis.tasas.tasa_cierre_sobre_asistencias, asistieron: analisis.calificacion.asistieron ?? 0,
+      // Sin el dato, NaN: `cierreConfiable` no lo cuenta como cero y no afirma el cierre sobre calificadas.
+      sinMarcar: analisis.calificacion.sin_marcar ?? Number.NaN,
     }
     : null;
 
@@ -243,6 +255,7 @@ export async function contextoOffer(opts: {
     semilla,
     semillaSesion,
     foco: { productosActivos: listaProductos.length, ofertasActivas: listaOfertas.length, bandaFacturacion: banda },
+    voz: voz?.trim() ? recortar(voz.trim(), TOPE_VOZ) : null,
     funnel,
     ofertaBase,
     faseGuardada: fase ?? null,
