@@ -36,6 +36,21 @@
 //   · /api/doc pidiendo el legado también para el doc fiscal (`true` en vez del kind)    → 5 / 1
 //   · /api/contract sin pedirlo                                                          → 5 / 1
 //   Restaurado: 6 / 0.
+//
+// ⚠️ AL DÍA CON LA TANDA B DEL CRM (15/10/2026). Tres cosas cambiaron debajo del test y lo dejaban en rojo sin
+// que hubiera un agujero: (1) las acciones de la ficha cortan SIN SESIÓN antes que nada (`haySesion`), así que
+// el hijo, que no tiene cookies, nunca llegaba a la guarda que mide — ahora corre con una sesión del negocio A
+// (`--experimental-test-module-mocks`, molde tests/publicar-cron-social.test.ts) y un caso SIN sesión mide ese
+// corte también; (2) «Editar deal» ya no borra e inserta: reconcilia por id (lib/pagos-campo.ts), así que la
+// cuota impaga que había se ACTUALIZA y el caso propio pasa dos cuotas para que haya un insert; (3) el insert de
+// la reconciliación vive en una función PRIVADA (`escribirReconciliacion`), y el barrido se la atribuía a la
+// exportada de arriba (`proteccionesDeCuotas`, que sólo lee): ahora mira la función que la contiene y, si es
+// privada, exige la guarda en CADA función que la llama.
+//
+// Probado ROMPIÉNDOLO otra vez (15/10/2026), restaurando de memoria. Con el código como está: 7 / 0. Rota:
+//   · sin la guarda en reconciliarYGuardar (el paso de la reconciliación)                 → 6 / 1
+//   · sin la guarda en saveCuotasAction                                                  → 5 / 2
+//   · saveCuotasAction sin el corte por sesión                                           → 6 / 1
 // Correr: node --import tsx --test tests/seguridad-crm-pagos-doc.test.ts
 
 import { test } from 'node:test';
@@ -43,6 +58,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import ts from 'typescript';
 
 const RAIZ = join(__dirname, '..');
@@ -139,6 +155,17 @@ async function hijo(): Promise<void> {
   process.env.NEXT_PUBLIC_SUPABASE_URL = 'http://supa.test';
   process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-de-prueba';
 
+  // La SESIÓN: `getUsuarioActual` lee cookies de Next, que acá no hay. Se reemplaza SÓLO esa función, por una
+  // sesión de un admin del negocio A; `sesion = null` mide el corte de las acciones sin sesión.
+  let sesion: Record<string, unknown> | null = { sub: '1', email: 'admin@a.test', nombre: 'Admin A', rol: 'user', ws: WS_A, rolWs: 'admin', exp: 9e9 };
+  const { mock } = await import('node:test');
+  const urlAuth = pathToFileURL(join(RAIZ, 'lib', 'auth.ts')).href;
+  const auth = await import(urlAuth);
+  mock.module(urlAuth, { exports: {
+    ...Object.fromEntries(Object.entries(auth).filter(([k]) => k !== 'default' && k !== 'module.exports')),
+    getUsuarioActual: async () => sesion,
+  } });
+
   const pagos = await import('../lib/pagos');
   const acciones = await import('../app/crm/[id]/deal-actions');
   const rutaDoc = await import('../app/api/doc/route');
@@ -180,6 +207,11 @@ async function hijo(): Promise<void> {
   const leadEnBase = (id: number) => db.leads.find((l) => l.id === id);
   const fecha = '2026-10-14';
 
+  // ── Sin sesión: las acciones de la ficha no escriben nada (ni con un lead propio) ──
+  await correr('sinSesion.saveCuotasAction', () => acciones.saveCuotasAction(LEAD_PROPIO, [{ monto: 1, fecha: '2026-12-01', pagado: true }]),
+    () => { sesion = null; });
+  sesion = { sub: '1', email: 'admin@a.test', nombre: 'Admin A', rol: 'user', ws: WS_A, rolWs: 'admin', exp: 9e9 };
+
   // ── Un lead de OTRO negocio: nada se escribe ──────────────────────────────
   await correr('ajeno.saveLeadPlanManual', () => pagos.saveLeadPlanManual(LEAD_AJENO, {
     total_usd: null, duracion_meses: null, fecha_cierre: null, fecha_inicio: null,
@@ -195,9 +227,11 @@ async function hijo(): Promise<void> {
   await correr('ajeno.saveDealSectionsAction', () => acciones.saveDealSectionsAction(LEAD_AJENO, { deal_fiscal: { razon: 'x' } }));
 
   // ── El lead PROPIO sigue andando como siempre ─────────────────────────────
+  // Dos cuotas: la impaga que ya había se ACTUALIZA (la reconciliación por id no borra e inserta) y la segunda
+  // se inserta. Con una sola no habría insert que mirar.
   await correr('propio.saveLeadPlanManual', () => pagos.saveLeadPlanManual(LEAD_PROPIO, {
     total_usd: null, duracion_meses: null, fecha_cierre: null, fecha_inicio: null,
-    cuotas: [{ monto_usd: 50, fecha_esperada: '2026-12-01' }],
+    cuotas: [{ monto_usd: 50, fecha_esperada: '2026-12-01' }, { monto_usd: 50, fecha_esperada: '2027-01-01' }],
   }));
   await correr('propio.registrarPagoSuelto', () => pagos.registrarPagoSuelto(LEAD_PROPIO, { monto: 25, fecha }));
   // El documento lo pone la base: un doc_path armado a mano, y la foto vieja de la pantalla (sin el documento).
@@ -250,7 +284,7 @@ async function hijo(): Promise<void> {
 if (process.env.SEG_PAGOS_DOC_HIJO === '1') {
   hijo().catch((e) => { process.stdout.write(`@@ERROR@@${e instanceof Error ? e.stack : String(e)}`); });
 } else {
-  const salida = execFileSync(process.execPath, ['--conditions=react-server', '--import', 'tsx', join(RAIZ, 'tests', 'seguridad-crm-pagos-doc.test.ts')], {
+  const salida = execFileSync(process.execPath, ['--conditions=react-server', '--experimental-test-module-mocks', '--no-warnings', '--import', 'tsx', join(RAIZ, 'tests', 'seguridad-crm-pagos-doc.test.ts')], {
     cwd: RAIZ, encoding: 'utf8', maxBuffer: 8 * 1024 * 1024, stdio: ['ignore', 'pipe', 'ignore'],
     env: { ...process.env, SEG_PAGOS_DOC_HIJO: '1' },
   });
@@ -276,6 +310,12 @@ if (process.env.SEG_PAGOS_DOC_HIJO === '1') {
       // Lo que importa: NADA escrito. Ni la cuota (la fila cruzada), ni el lead, ni el historial.
       assert.deepEqual(R[k].escrituras, [], `${k} escribió con un lead de otro negocio: ${R[k].escrituras.join(' · ')}`);
     }
+  });
+
+  test('sin sesión, las acciones de la ficha no escriben nada (ni con un lead propio)', () => {
+    const r = R['sinSesion.saveCuotasAction'];
+    assert.match(r.error ?? '', /sesión no está activa/, `tenía que cortar por la sesión, y dio ${r.error}`);
+    assert.deepEqual(r.escrituras, [], `escribió sin sesión: ${r.escrituras.join(' · ')}`);
   });
 
   test('el lead PROPIO sigue cobrando como siempre (la guarda no le corta el paso al dueño)', () => {
@@ -365,6 +405,13 @@ if (process.env.SEG_PAGOS_DOC_HIJO === '1') {
     assert.match(g, /await getTenantDb\(\)\)\.from\('leads'\)\.select\('id'\)\.eq\('id', leadId\)/, 'la guarda tiene que leer el lead con getTenantDb (el del negocio de la sesión)');
     assert.match(g, /if \(!data\) throw/, 'la guarda tiene que TIRAR si el lead no está');
 
+    // La función que contiene la posición `i` (la cabecera más cercana hacia atrás, exportada o no).
+    const contenedora = (src: string, i: number) => {
+      let ultima: RegExpExecArray | null = null;
+      for (const m of src.matchAll(/\n(export )?async function (\w+)\(/g)) { if ((m.index ?? 0) < i) ultima = m as RegExpExecArray; else break; }
+      assert.ok(ultima, 'un insert fuera de toda función');
+      return { nombre: ultima[2], ini: ultima.index ?? 0, exportada: !!ultima[1] };
+    };
     const guardadas: string[] = [];
     for (const rel of ['lib/pagos.ts', 'app/crm/[id]/deal-actions.ts']) {
       const src = sinComentarios(leer(rel));
@@ -373,15 +420,27 @@ if (process.env.SEG_PAGOS_DOC_HIJO === '1') {
         const antes = src.slice(0, m.index);
         const from = antes.slice(antes.lastIndexOf('.from('));
         if (!from.startsWith(".from('pagos')")) continue;
-        const ini = antes.lastIndexOf('\nexport async function ');
-        const nombre = src.slice(ini + 23, src.indexOf('(', ini + 23));
-        const cuerpo = src.slice(ini, m.index);
-        assert.match(cuerpo, /await asegurarLeadDelNegocio\(/, `${rel}: ${nombre}() escribe en pagos sin asegurarLeadDelNegocio antes`);
-        guardadas.push(nombre);
+        const f = contenedora(src, m.index ?? 0);
+        if (f.exportada) {
+          assert.match(src.slice(f.ini, m.index), /await asegurarLeadDelNegocio\(/, `${rel}: ${f.nombre}() escribe en pagos sin asegurarLeadDelNegocio antes`);
+          guardadas.push(f.nombre);
+          continue;
+        }
+        // Una función PRIVADA no puede tener la guarda «en la misma función» sin repetir la lectura en cada
+        // llamada: la tiene que tener CADA función del archivo que la llama, antes de la llamada.
+        const llamadas = [...src.matchAll(new RegExp(`\\b${f.nombre}\\(`, 'g'))].filter((c) => !src.slice(Math.max(0, (c.index ?? 0) - 9), c.index).endsWith('function '));
+        assert.ok(llamadas.length > 0, `${rel}: ${f.nombre}() escribe en pagos y nadie la llama: el barrido quedó viejo`);
+        for (const c of llamadas) {
+          const quien = contenedora(src, c.index ?? 0);
+          assert.match(src.slice(quien.ini, c.index), /await asegurarLeadDelNegocio\(/,
+            `${rel}: ${quien.nombre}() llama a ${f.nombre}() (que escribe en pagos) sin asegurarLeadDelNegocio antes`);
+          guardadas.push(`${f.nombre}←${quien.nombre}`);
+        }
       }
     }
-    // Que el barrido vea a los escritores de hoy (si dejara de verlos, pasaría sin mirar nada).
-    for (const f of ['savePlanPagos', 'saveLeadPlanManual', 'cobrarCuota', 'registrarPagoSuelto', 'registrarCobroDeProveedor', 'saveCuotasAction']) {
+    // Que el barrido vea a los escritores de hoy (si dejara de verlos, pasaría sin mirar nada). savePlanPagos y
+    // saveLeadPlanManual escriben por la reconciliación; los cubre el caso ajeno de arriba, ejecutándolos.
+    for (const f of ['escribirReconciliacion←reconciliarYGuardar', 'cobrarCuota', 'registrarPagoSuelto', 'registrarCobroDeProveedor', 'saveCuotasAction']) {
       assert.ok(guardadas.includes(f), `el barrido no encontró el insert de ${f}`);
     }
   });

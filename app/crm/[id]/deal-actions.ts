@@ -350,7 +350,6 @@ export async function saveCuotasAction(
   const nuevas = cuotas.filter((c) => !c.pagado && Number(c.monto) > 0);
   const cobradas = cuotas.filter((c) => c.pagado && c.id == null && Number(c.monto) > 0);
   const autor = await autorActual();
-  await asegurarLeadDelNegocio(leadId);
 
   if (cobradas.length > 0) {
     // Se insertan ANTES de guardarCuotasPorId, por dos razones:
