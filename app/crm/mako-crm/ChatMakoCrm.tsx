@@ -47,8 +47,8 @@ import { GRAMATICA } from '@/lib/mako-gramatica';
 import type { MensajeChat, ResultadoTarjeta, RespuestaTurno, SesionChat, TarjetaPendiente } from '@/lib/mako-turno-app-reglas';
 
 const RUTA = '/api/crm/mako';
-/** El maxDuration de la ruta es 300 s: el corte del navegador va 5 s después. */
-const TOPE_MS = 305_000;
+/** El maxDuration de la ruta es 420 s (tanda 7: confirmar replicar_landing): el corte del navegador va 5 s después. */
+const TOPE_MS = 425_000;
 const ACENTO = 'var(--primary)';
 const BURBUJA_YO = 'var(--primary-bg)';
 const ID_ESCRIBIENDO = '__mkc-escribiendo';

@@ -44,7 +44,8 @@ import {
 } from './chat-ui';
 
 const RUTA = '/api/m/mako';
-const TOPE_MS = 305_000;
+/** El maxDuration de /api/m/mako es 420 s (tanda 7: confirmar replicar_landing): el corte del navegador va 5 s después. */
+const TOPE_MS = 425_000;
 
 type Abierta = { sesion: SesionChat; mensajes: MensajeChat[]; propuestas: TarjetaPendiente[] };
 type Trabajo = { fase: 'subiendo' | 'revisando'; pct: number; desde: number; fuente: string };

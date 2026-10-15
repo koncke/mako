@@ -7,7 +7,7 @@
 //   · esEditable sin el corte de ids: 1 fallo.
 //   · vistaAvisos devolviendo 'activar' para 'bloqueado': 1 fallo.
 //   · tiposParaRol sin filtrar para no-admin: 1 fallo.
-//   · el guard de la página sin `maxDuration = 300`: 1 fallo.
+//   · el guard de la página sin `maxDuration = 300` (hoy 420, tanda 7 del Web Generator): 1 fallo.
 // Y en la integración v2 (base 10 / 0, scratchpad/integ/romper.py):
 //   · `resumenAvisos` sin mirar el interruptor general: 9 / 1.
 //   · `resumenAvisos` contando como apagado lo que nunca se tocó: 9 / 1.
@@ -117,7 +117,8 @@ test('lo que sólo les llega a los admins no se le ofrece a un closer', () => {
 
 test('la página del Inbox declara su techo, y el permiso de avisos se pide dentro del toque', () => {
   const pagina = sinComentarios(leer('app/m/inbox/page.tsx'));
-  assert.match(pagina, /export const maxDuration = 300;/);
+  // 420 desde la tanda 7 del Web Generator (confirmar replicar_landing por chat): tests/mako-doer-plazo.test.ts.
+  assert.match(pagina, /export const maxDuration = 420;/);
   assert.match(pagina, /requireMovil\(\)/);
   // activarAvisos() es la PRIMERA línea del handler (antes de cualquier setState o await).
   const cuenta = sinComentarios(leer('app/m/cuenta/CuentaM.tsx'));

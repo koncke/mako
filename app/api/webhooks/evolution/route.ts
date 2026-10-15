@@ -40,7 +40,11 @@ function textoDeMensaje(m: Record<string, unknown>): string {
 export const dynamic = 'force-dynamic';
 // El doer (loop de tools con Claude) puede tardar en turnos pesados. Le damos aire para
 // que complete en background (after) sin que la función muera a mitad. Feedback jul-19.
-export const maxDuration = 300;
+// 420 y no 300 (tanda 7 del Web Generator, 15/10/2026; Martín: «Todas las funciones a la API de MaKo»): confirmar
+// replicar_landing por chat corre hasta ~275 s (lib/editor-landing/replicar.ts: imágenes hasta los 265 s, más
+// guardar el tema y crear) y antes y después van los pasos del modelo y el envío: 300 lo cortaba. Plan Pro con
+// fluid compute: tope 800. tests/mako-doer-plazo.test.ts.
+export const maxDuration = 420;
 
 // Resuelve el workspace dueño de una instancia (sin sesión → sin scope).
 async function wsDeInstancia(instance: string): Promise<number | null> {

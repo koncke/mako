@@ -124,14 +124,15 @@ test('micrófono bloqueado: se reconoce el texto de los dos caminos (dictado y g
   assert.equal(fuenteDelTurno([{ tipo: 'document' }]), 'el PDF');
 });
 
-test('cableado: maxDuration 300, ?ws= a mano en el XHR, fetch con corte, nunca «escribiendo…»', () => {
+test('cableado: maxDuration 420, ?ws= a mano en el XHR, fetch con corte, nunca «escribiendo…»', () => {
   const page = sinComentarios(leer('app/m/mako/page.tsx'));
-  assert.match(page, /export const maxDuration = 300;/);
+  // 420 y 425_000 desde la tanda 7 del Web Generator (confirmar replicar_landing por chat): tests/mako-doer-plazo.test.ts.
+  assert.match(page, /export const maxDuration = 420;/);
   assert.match(page, /requireMovil\(\{ navKey: 'mako' \}\)/);
   const chat = sinComentarios(leer('app/m/mako/ChatMako.tsx'));
   assert.match(chat, /postConProgreso\(conWs\(RUTA, ws\)/);
   assert.match(chat, /signal: AbortSignal\.timeout\(TOPE_MS\)/);
-  assert.match(chat, /const TOPE_MS = 305_000;/);
+  assert.match(chat, /const TOPE_MS = 425_000;/);
   assert.doesNotMatch(chat, /escribiendo/i);
   // El plan y el teléfono dictan con el MISMO hook.
   assert.match(sinComentarios(leer('app/plan/board/CrearTareaModal.tsx')), /useDictar\(valor, onValor, onError\)/);

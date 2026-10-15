@@ -340,9 +340,10 @@ test('lo de la agenda (paraLaPersona) y los carteles de la plataforma NO se guar
   for (const g of guardas) assert.doesNotMatch(g, /paraLaPersona|aviso|AVISO_|detalle/, `se guarda algo que no es conversación: appendMessage(${g})`);
 });
 
-test('la ruta: maxDuration 300, multipart con el largo ANTES de parsear, y nada de server action para archivos', () => {
+test('la ruta: maxDuration 420, multipart con el largo ANTES de parsear, y nada de server action para archivos', () => {
   const ruta = sinComentarios(leer('app/api/m/mako/route.ts'));
-  assert.match(ruta, /export const maxDuration = 300;/);
+  // 420 desde la tanda 7 del Web Generator (confirmar replicar_landing por chat): tests/mako-doer-plazo.test.ts.
+  assert.match(ruta, /export const maxDuration = 420;/);
   const iLargo = ruta.indexOf("req.headers.get('content-length')");
   const iForm = ruta.indexOf('await req.formData()');
   assert.ok(iLargo > 0 && iForm > iLargo, 'el content-length se mira antes del formData()');

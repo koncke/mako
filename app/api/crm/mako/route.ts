@@ -28,7 +28,8 @@
 //
 // ⚠️ CONFIRMAR VA POR ACÁ Y NO POR UNA SERVER ACTION (como en /api/crm/analyst): el techo de una action
 // lo pone la PÁGINA que la monta, y confirmar puede correr una acción lenta con la pendiente reclamada.
-// maxDuration 300: el doer encadena hasta 8 pasos; el `fetch` de la pantalla corta a los 305 s.
+// maxDuration 420: el doer encadena hasta 8 pasos (y confirmar replicar_landing corre ~275 s); el `fetch` de la
+// pantalla corta a los 425 s.
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
@@ -37,7 +38,11 @@ import { sugerenciasDeUnCrm, hacerSugerencia, ahoraNo, volverAMostrar } from '@/
 import { dePantalla } from '@/lib/sugerencias-crm';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 300;
+// 420 y no 300 (tanda 7 del Web Generator, 15/10/2026; Martín: «Todas las funciones a la API de MaKo»): confirmar
+// replicar_landing por chat corre hasta ~275 s (lib/editor-landing/replicar.ts: imágenes hasta los 265 s, más
+// guardar el tema y crear) y antes y después van los pasos del modelo y el envío: 300 lo cortaba. Plan Pro con
+// fluid compute: tope 800. tests/mako-doer-plazo.test.ts.
+export const maxDuration = 420;
 
 const json = (cuerpo: Record<string, unknown>, status = 200) => Response.json(cuerpo, { status });
 

@@ -6,7 +6,7 @@
 // ya está decidido — quién ve qué lo resolvió la lectura con la regla del Sidebar.
 // El título («Inbox») lo pone el shell; esta pantalla no dibuja título ni «Actualizado».
 //
-// ⚠️ `maxDuration = 300` NO ES DECORATIVO: el techo de la PÁGINA gobierna sus server
+// ⚠️ `maxDuration = 420` NO ES DECORATIVO: el techo de la PÁGINA gobierna sus server
 // actions, y confirmar una acción de MaKo puede correr IA o analizar una llamada. Sin
 // esto la plataforma corta a mitad y la propuesta queda «aplicándose» sin resultado
 // (app/mako/pendientes/page.tsx, app/m/inbox/acciones.ts).
@@ -40,7 +40,11 @@ import { aDecisionM, iconoDeRuta } from './decision-m';
 import { claveDeParam, vistaDeParam } from './inbox-ui';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 300;
+// 420 y no 300 (tanda 7 del Web Generator, 15/10/2026; Martín: «Todas las funciones a la API de MaKo»): confirmar
+// replicar_landing por chat corre hasta ~275 s (lib/editor-landing/replicar.ts: imágenes hasta los 265 s, más
+// guardar el tema y crear) y antes y después van los pasos del modelo y el envío: 300 lo cortaba. Plan Pro con
+// fluid compute: tope 800. tests/mako-doer-plazo.test.ts.
+export const maxDuration = 420;
 
 const TOPE_AVISOS = 30;
 const TOPE_DESCRIPCION = 140;

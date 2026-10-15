@@ -5,7 +5,7 @@
 // que la pantalla no arranque en blanco; todo lo demás (mandar, cambiar de chat, confirmar
 // una propuesta) lo hace el cliente contra /api/m/mako y app/m/mako/acciones.ts.
 //
-// ⚠️ maxDuration 300: el techo de la PÁGINA gobierna sus server actions, y confirmar una
+// ⚠️ maxDuration 420: el techo de la PÁGINA gobierna sus server actions, y confirmar una
 // acción de MaKo puede tardar (una acción lenta cortada a mitad deja la pendiente ya
 // reclamada). El turno en sí corre en la ruta, que declara el suyo.
 //
@@ -23,7 +23,11 @@ import { ChatMako } from './ChatMako';
 import './mako.css';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 300;
+// 420 y no 300 (tanda 7 del Web Generator, 15/10/2026; Martín: «Todas las funciones a la API de MaKo»): confirmar
+// replicar_landing por chat corre hasta ~275 s (lib/editor-landing/replicar.ts: imágenes hasta los 265 s, más
+// guardar el tema y crear) y antes y después van los pasos del modelo y el envío: 300 lo cortaba. Plan Pro con
+// fluid compute: tope 800. tests/mako-doer-plazo.test.ts.
+export const maxDuration = 420;
 
 export default async function MakoMovilPage() {
   await requireMovil({ navKey: 'mako' });

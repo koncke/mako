@@ -15,9 +15,9 @@
 // todo POST de más de ~4,5 MB con un 413 en TEXTO PLANO antes de llegar a esta ruta: la
 // pantalla achica la foto antes de subirla y lee la respuesta con `res.text()` primero.
 //
-// ⚠️ maxDuration 300: leer una foto con la visión tardó 52 s medidos (11/10/2026) y el doer
+// ⚠️ maxDuration 420: leer una foto con la visión tardó 52 s medidos (11/10/2026) y el doer
 // puede encadenar 8 pasos de herramientas. El `fetch` de la pantalla va con
-// `AbortSignal.timeout(305_000)` (AGENTS.md, «Un tope que vive en la RUTA no protege al
+// `AbortSignal.timeout(425_000)` (AGENTS.md, «Un tope que vive en la RUTA no protege al
 // cliente») y el spinner dice que puede tardar.
 // =============================================================================
 
@@ -26,7 +26,11 @@ import { personaDelRequest, listarSesiones, abrirSesion, nuevaSesion, turnoApp, 
 import { validarAdjuntos, ERROR_ADJUNTO, TOPE_ADJUNTOS, TOPE_TOTAL_BYTES, MARGEN_MULTIPART_BYTES, type AdjuntoListo } from '@/lib/mako-adjuntos';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 300;
+// 420 y no 300 (tanda 7 del Web Generator, 15/10/2026; Martín: «Todas las funciones a la API de MaKo»): confirmar
+// replicar_landing por chat corre hasta ~275 s (lib/editor-landing/replicar.ts: imágenes hasta los 265 s, más
+// guardar el tema y crear) y antes y después van los pasos del modelo y el envío: 300 lo cortaba. Plan Pro con
+// fluid compute: tope 800. tests/mako-doer-plazo.test.ts.
+export const maxDuration = 420;
 
 const json = (cuerpo: Record<string, unknown>, status = 200) => Response.json(cuerpo, { status });
 
