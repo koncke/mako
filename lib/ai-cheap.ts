@@ -33,6 +33,7 @@ import { mensajeIAFallo, motivoDeErroresCascada } from '@/lib/ia-mensajes';
 import { corregirMarca } from '@/lib/mako-gramatica';
 import { salidaDegenerada } from '@/lib/stt-degenerado';
 import { crearRotacion, leerErrorProveedor, tipoDeFallo } from '@/lib/ia-rotacion-modelo';
+import { aprenderSinMinimal, esfuerzoParaGemini, rechazaElEsfuerzo } from '@/lib/gemini-esfuerzo';
 
 export type ProvName = 'groq' | 'openai' | 'gemini' | 'cerebras' | 'mistral' | 'openrouter';
 /** `clave` = de QUÉ credencial salió esta key. Con varias cuentas del mismo
@@ -380,11 +381,12 @@ export async function chatCheap(opts: { system: string; user: string; json?: boo
   const p = await proveedor(opts.provider, opts.clave, opts.wsKey);
   if (!p) throw new Error('Sin proveedor de IA barata (falta GROQ_API_KEY u OPENAI_API_KEY).');
   const model = opts.model || p.chatModel;
+  const pedido: EsfuerzoBarato = opts.esfuerzo ?? 'minimal';
   // Timeout configurable: 30s alcanza para tareas simples, pero una llamada grande
   // (el Perro Guardián puntuando TODO el plan: ~40k input + 8k output) tarda más en
   // Gemini Flash → con el tope fijo abortaba y caía al fallback de Claude. El caller
   // (chatClaude) lo escala según maxTokens.
-  const res = await fetch(`${p.base}/chat/completions`, {
+  const pedir = (esfuerzo: EsfuerzoBarato, aire: number) => fetch(`${p.base}/chat/completions`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${p.key}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -393,7 +395,7 @@ export async function chatCheap(opts: { system: string; user: string; json?: boo
         { role: 'system', content: opts.system },
         { role: 'user', content: opts.user },
       ],
-      max_tokens: opts.maxTokens ?? 512,
+      max_tokens: (opts.maxTokens ?? 512) + aire,
       temperature: opts.temperature ?? 0.2,
       ...(opts.json ? { response_format: { type: 'json_object' } } : {}),
       // Gemini 2.5 Flash "piensa" por default y ese razonamiento oculto consume del
@@ -405,15 +407,30 @@ export async function chatCheap(opts: { system: string; user: string; json?: boo
       // probado); 'minimal' sí, y da finish_reason "stop" — es el mínimo real que
       // acepta. Solo gemini entiende este campo: los demás proveedores tirarían 400
       // con un campo que no reconocen, así que se limita a gemini.
-      ...(p.nombre === 'gemini' ? { reasoning_effort: opts.esfuerzo ?? 'minimal' } : {}),
+      // ⚠️ Y UN MODELO PUEDE DEJAR DE ACEPTAR 'minimal' (15/10/2026: `gemini-flash-latest`, desde el 14/10 20:31 UTC,
+      // contesta 400 «Thinking level MINIMAL is not supported»). Lo aprende `esfuerzoParaGemini` (lib/gemini-esfuerzo.ts),
+      // por MODELO y en este proceso, y ese modelo pasa a 'low' con aire en el tope.
+      ...(p.nombre === 'gemini' ? { reasoning_effort: esfuerzo } : {}),
     }),
     cache: 'no-store',
     signal: AbortSignal.timeout(opts.timeoutMs ?? 30000),
   });
-  const data = await res.json().catch(() => ({}));
+  let { esfuerzo, aire } = p.nombre === 'gemini' ? esfuerzoParaGemini(model, pedido) : { esfuerzo: pedido, aire: 0 };
+  let res = await pedir(esfuerzo, aire);
+  let data = await res.json().catch(() => ({}));
+  // El 400 del pensar: UNA vez, y se recuerda para ese modelo. Un `low` que también falla sale como error, abajo.
+  if (p.nombre === 'gemini' && !res.ok && esfuerzo === 'minimal' && rechazaElEsfuerzo(res.status, leerErrorProveedor(data, res.status).mensaje)) {
+    aprenderSinMinimal(model);
+    ({ esfuerzo, aire } = esfuerzoParaGemini(model, pedido));
+    res = await pedir(esfuerzo, aire);
+    data = await res.json().catch(() => ({}));
+  }
   if (!res.ok || data.error) {
     const extra = p.nombre === 'gemini' && res.status === 404 ? await modelosDisponibles(p) : '';
-    throw new Error(`chatCheap(${rotulo(p)}): ${data?.error?.message || `HTTP ${res.status}`}${extra}`);
+    // ⚠️ GEMINI MANDA EL ERROR EN UN ARRAY (`[{ error: {…} }]`): leído como `data.error.message` llegaba «HTTP 400»
+    // pelado y el clasificador no tenía qué leer (15/10/2026: así se escondió el 400 de 'minimal'). `leerErrorProveedor`
+    // lee los dos.
+    throw new Error(`chatCheap(${rotulo(p)}): ${leerErrorProveedor(data, res.status).mensaje}${extra}`);
   }
   // Registrar el gasto (barato, no descuenta del saldo de Claude) con descripción.
   void recordUsage(opts.feature || 'ia-barata', model, data.usage, opts.motivo, p.nombre, nroCuenta(p));
@@ -847,7 +864,8 @@ async function leerConOpenAI(key: string, o: DocOpts, cuenta = 1, prov: ProvName
     signal: AbortSignal.timeout(o.timeoutMs ?? 100000),
   });
   const j = await res.json().catch(() => ({}));
-  if (!res.ok || j.error) throw new Error(j?.error?.message || `HTTP ${res.status}`);
+  // El error también puede venir en un ARRAY (Gemini, 15/10/2026): `leerErrorProveedor` lee los dos.
+  if (!res.ok || j.error) throw new Error(leerErrorProveedor(j, res.status).mensaje);
   void recordUsage(o.feature || 'leer-documento', model, j.usage, o.motivo, prov, cuenta);
   return j.choices?.[0]?.message?.content ?? '';
 }
@@ -872,7 +890,8 @@ async function leerConGemini(key: string, o: DocOpts, cuenta = 1, modelPedido?: 
     signal: AbortSignal.timeout(o.timeoutMs ?? 100000),
   });
   const j = await res.json().catch(() => ({}));
-  if (!res.ok || j.error) throw new Error(j?.error?.message || `HTTP ${res.status}`);
+  // El error también puede venir en un ARRAY (Gemini, 15/10/2026): `leerErrorProveedor` lee los dos.
+  if (!res.ok || j.error) throw new Error(leerErrorProveedor(j, res.status).mensaje);
   const text = (j.candidates?.[0]?.content?.parts ?? []).map((p: { text?: string }) => p.text ?? '').join('').trim();
   const um = j.usageMetadata as { promptTokenCount?: number; candidatesTokenCount?: number; totalTokenCount?: number } | undefined;
   void recordUsage(o.feature || 'leer-documento', model, um ? { prompt_tokens: um.promptTokenCount, completion_tokens: um.candidatesTokenCount, total_tokens: um.totalTokenCount } : undefined, o.motivo, 'gemini', cuenta);
@@ -1183,7 +1202,7 @@ async function cerrarSinTools(
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok || (data as { error?: unknown }).error) {
-    throw new Error(String((data as { error?: { message?: string } })?.error?.message || `HTTP ${res.status}`));
+    throw new Error(leerErrorProveedor(data, res.status).mensaje);
   }
   void recordUsage(`${opts.feature || 'ia-barata-tools'}-cierre`, model, (data as { usage?: unknown }).usage, opts.motivo, p.nombre, nroCuenta(p));
   const txt = String((data as { choices?: Array<{ message?: { content?: string } }> }).choices?.[0]?.message?.content || '').trim();
@@ -1283,7 +1302,7 @@ async function sttWhisper(p: Prov, buf: Buffer, mime: string, opts: SttOpts): Pr
     signal: AbortSignal.timeout(60000),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok || data.error) throw new Error(`HTTP ${res.status}: ${data?.error?.message || 'sin detalle'}`);
+  if (!res.ok || data.error) throw new Error(`HTTP ${res.status}: ${leerErrorProveedor(data, res.status).mensaje}`);
   void recordSttUsage(opts.feature || 'stt-nota-voz', p.sttModel, Number(data.duration ?? 0), opts.motivo, p.nombre, nroCuenta(p));
   return (data.text ?? '').trim();
 }
@@ -1328,7 +1347,7 @@ async function sttGemini(p: Prov, base64: string, buf: Buffer, mime: string, opt
     signal: AbortSignal.timeout(60000),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok || data.error) throw new Error(`HTTP ${res.status}: ${data?.error?.message || 'sin detalle'}`);
+  if (!res.ok || data.error) throw new Error(`HTTP ${res.status}: ${leerErrorProveedor(data, res.status).mensaje}`);
   // ⚠️ Y EL TECHO NUEVO TAMPOCO ALCANZA SIEMPRE: 8.192 tokens son ~40 minutos. Lo que
   // cierra el agujero no es el número, es MIRAR SI SE CORTÓ. `finishReason` lo dice, y
   // no había un solo chequeo de ese campo en todo el repo.

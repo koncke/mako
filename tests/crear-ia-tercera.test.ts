@@ -94,7 +94,19 @@ test('falloDeIA: cada causa en una línea, con la acción que corresponde', () =
     'openrouter: chatCheap(openrouter): This model is unavailable for free.',
     'groq: chatCheap(groq): Request too large for model on tokens per minute (TPM). Visit https://console.groq.com/docs/rate-limits',
   ], true);
-  assert.deepEqual(nuestro, { error: 'Falló de nuestro lado, no de tus keys. Prueba más tarde.' });
+  // (15/10/2026: con QUIÉN lo rechazó. «Falló de nuestro lado, no de tus keys» a secas no le dejaba hacer nada a nadie.)
+  assert.deepEqual(nuestro, { error: 'OpenRouter y Groq rechazaron un pedido nuestro: no es tu key.' });
+  // EL CASO DE JOAN (ws17, 15/10/2026): `gemini-flash-latest` dejó de aceptar `reasoning_effort: 'minimal'`. Con el error
+  // leído del ARRAY de Gemini (`leerErrorProveedor`) es nuestro, y lo dice; una key inválida, también un 400, sigue
+  // siendo de la key.
+  assert.equal(falloDeIA(['gemini: chatCheap(gemini): Thinking level MINIMAL is not supported for this model. Please retry with other thinking level.'], true).error,
+    'Gemini rechazó un pedido nuestro: no es tu key.');
+  assert.equal(falloDeIA(['gemini: chatCheap(gemini): API key not valid. Please pass a valid API key.'], true).error,
+    'Gemini rechazó tu key. Cámbiala en Integraciones.');
+  // Lo que no se reconoce dice QUIÉN y QUÉ contestó, en una línea (antes: «Falló de nuestro lado…»).
+  assert.equal(falloDeIA(['gemini: chatCheap(gemini): HTTP 400'], true).error, 'Gemini falló: HTTP 400. Prueba de nuevo.');
+  assert.equal(falloDeIA(['gemini · cuenta 2: chatCheap(gemini · cuenta 2): Algo raro pasó https://ai.google.dev/x'], true).error,
+    'Gemini falló: Algo raro pasó. Prueba de nuevo.');
   // Sin tiempo.
   assert.equal(falloDeIA(['sin tiempo: el plazo del pedido vence en 3 s'], true).error, 'Las IA tardaron demasiado. Prueba de nuevo.');
   // Sin ninguna IA: conectar una gratis, con el link.

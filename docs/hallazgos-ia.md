@@ -4022,3 +4022,40 @@ desplegada al escribir esto).
 (`analizarCopy`, `analizarLanding` con `{ redDePlataforma, hastaMs }`, `analisisUsable`) ·
 `lib/editor-landing/diagnostico-server.ts` · `app/api/landing-analyst/analyze/route.ts` · `lib/ia-mensajes.ts` ·
 `tests/landing-analyst-red.test.ts` · *tanda 7 del Web Generator (`09613eebb`, `fd3bb3687`)*
+
+## `gemini-flash-latest` dejó de aceptar `minimal`, y el error venía escondido en un ARRAY (15/10/2026)
+
+**Síntoma.** A Joan (ws17, una sola key: Gemini) el chat de Automations le contestaba siempre «Falló de nuestro lado, no
+de tus keys». Lo obvio era la red de plataforma (el chat no la tenía) o su key. Ninguna de las dos era la causa.
+
+**Lo medido.**
+- Una llamada por el mismo camino (`chatCheap`, `gemini-flash-latest`) dio HTTP 400 sin mensaje.
+- El cuerpo, leído aparte: `[{ error: { code: 400, message: "Thinking level MINIMAL is not supported for this model",
+  status: "INVALID_ARGUMENT" } }]`.
+- `chatCheap` manda `reasoning_effort: 'minimal'` SIEMPRE a Gemini. Con `low`, 200.
+- Con la key de la PLATAFORMA (ws9), lo mismo: no era la key de Joan.
+- La última respuesta buena de `gemini-flash-latest` en cualquier negocio fue el 14/10 a las 20:31 UTC (ws11). Desde ahí
+  contestó sólo el respaldo, `gemini-flash-lite-latest`, que sí acepta `minimal`.
+- Le pegó a todo lo que cae en Gemini sin respaldo de modelo: el chat de Automations, closing-entrega y la propuesta de
+  curso.
+
+**Por qué no se vio.** Gemini manda el error en un ARRAY, y `chatCheap` (y otros cinco lectores de lib/ai-cheap.ts:
+los documentos, las notas de voz y el cierre del doer) leía `data.error.message`: «HTTP 400» pelado. El clasificador
+(`falloDeIA`) no lo reconoció y cayó a una frase que no decía nada. Y los 400 no quedan en `anthropic_usage` (sólo los
+200 y los 429): el ws17 no tenía ni una fila.
+
+**El arreglo.**
+- `chatCheap`: el 400 del pensar reintenta UNA vez con `low` (con aire en el tope) y lo recuerda POR MODELO
+  (`SIN_MINIMAL`, lib/gemini-esfuerzo.ts, memoria del proceso).
+- Los seis lectores usan `leerErrorProveedor`.
+- El chat de Automations tiene su red de plataforma.
+- `falloDeIA` dice quién lo rechazó y qué contestó.
+- Medido después: la key de Joan pasó el 400 y dio 503 (Google saturado), y el mensaje lo dijo así. La de la plataforma
+  contestó «OK».
+
+**La regla que queda** (en AGENTS.md): un modelo «latest» es un nombre que promete moverse. Lo que le mandamos puede
+dejar de valer solo; el error tiene que llegar entero, y el parámetro tiene que poder caerse sin tirar el pedido.
+
+**Sin hacer.** Ver si `lib/transcribe.ts` y `lib/embeddings.ts` (OpenAI, que manda objetos) necesitan
+`leerErrorProveedor`. Y que un 400 de un proveedor también deje fila (docs/diseno-ia-claves-caidas.md, el registro).
+· *2026-10-15 Automations*

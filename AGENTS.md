@@ -8250,3 +8250,22 @@ técnicas están en [docs/diseno-mako-mobile.md](docs/diseno-mako-mobile.md), lo
   `rutaMovil` se mira contra los redirects de `requireMovil`** (el admin sin cliente armaba un bucle
   /customer-success → /m/cs → /inicio), **lo público no se tapa nunca** (`esPublica`), y la página de una sección
   mapeada sale en el MISMO deploy que el mapa: los Web Push ya abren esa ruta.
+
+# Un modelo «latest» es un nombre que PROMETE moverse: lo que le mandamos puede dejar de valer solo
+
+`gemini-flash-latest`, `*-latest`, `:free`: el proveedor cambia el modelo de abajo sin avisar y sin que cambie una línea
+nuestra. El 14/10/2026 a las 20:31 UTC Google movió `gemini-flash-latest` a un modelo que no acepta
+`reasoning_effort: 'minimal'`, y desde ahí todo `chatCheap` a Gemini contestó 400. Lo que tenía respaldo de modelo
+siguió degradado; lo que no (el chat de Automations, la entrega de CS, la propuesta de curso) quedó caído, y un negocio
+con una sola key de Gemini se quedó sin nada. Lo encontró un cliente.
+
+- **El error del proveedor llega ENTERO.** Gemini lo manda en un ARRAY (`[{ error: {…} }]`): quien lee sólo
+  `data.error.message` escribe «HTTP 400» pelado y el clasificador no tiene qué leer. Todo lector usa
+  `leerErrorProveedor` (lib/ia-rotacion-modelo.ts).
+- **Un parámetro que el modelo puede rechazar tiene su salida.** Si el 400 dice que no lo acepta, se reintenta UNA vez
+  sin él y se recuerda POR MODELO, nunca global (molde: lib/gemini-esfuerzo.ts). No se fija «este alias usa X»: el día
+  que lo revierta, un arranque nuevo vuelve a probar.
+- **Un camino sin respaldo de modelo (`sinRespaldoDeModelo`) necesita la red de plataforma**: si no, un cambio así lo
+  deja caído.
+
+Detalle y medición: docs/hallazgos-ia.md («`gemini-flash-latest` dejó de aceptar `minimal`», 15/10/2026).

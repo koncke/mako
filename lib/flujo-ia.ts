@@ -3022,6 +3022,10 @@ function veredictoDe(error: string): VeredictoProv {
   if (/denied access|permission[_ ]denied/i.test(error)) return 'key';
   const m = motivoDeErroresCascada([error]) ?? '';
   if (m.startsWith('La API key')) return 'key';
+  // ⚠️ UN PARÁMETRO NUESTRO QUE EL MODELO YA NO ACEPTA (15/10/2026: `gemini-flash-latest` contesta 400 «Thinking level
+  // MINIMAL is not supported for this model» desde el 14/10). Va DESPUÉS de la key: una key inválida también es un 400
+  // INVALID_ARGUMENT, con «API key not valid» en el texto.
+  if (/thinking level|not supported for this model|invalid[_ ]argument/i.test(error)) return 'nuestro';
   if (m.startsWith('Se quedó sin cuota')) return 'cuota';
   if (m.startsWith('El proveedor de IA está saturado')) return 'saturado';
   if (m.startsWith('No respondió a tiempo')) return 'tiempo';
@@ -3037,6 +3041,17 @@ const FRASE: Partial<Record<VeredictoProv, (n: string) => string>> = {
 };
 
 export type FalloIA = { error: string; link?: string };
+
+/**
+ * LO QUE CONTESTÓ UN PROVEEDOR, en corto: sin el prefijo de la cascada («gemini: chatCheap(gemini · cuenta 2): »), sin
+ * links y con tope. Es lo que se dibuja cuando el error no se reconoce: mejor el texto del proveedor que una frase que no
+ * dice nada.
+ */
+export function detalleCorto(error: string): string {
+  const sinPrefijo = error.replace(/^[a-z]+(\s*·[^:]*)?:\s*/i, '').replace(/^chatCheap\([^)]*\):\s*/i, '');
+  const limpio = sinPrefijo.replace(/https?:\/\/\S+/g, '').replace(/\s+/g, ' ').trim().replace(/[.:\s]+$/, '');
+  return limpio.length > 60 ? `${limpio.slice(0, 59).trimEnd()}…` : limpio || 'sin detalle';
+}
 
 /**
  * EL MENSAJE CUANDO NINGÚN PROVEEDOR ARMÓ EL FLUJO: la causa real, en una línea (AGENTS.md: el texto
@@ -3055,6 +3070,8 @@ export function falloDeIA(errores: readonly string[], hayIA: boolean): FalloIA {
       : { error: 'No tienes ninguna IA gratis conectada.', link: '/integraciones?abrir=gemini' };
   }
   const porProv = new Map<string, VeredictoProv>();
+  /** El primer error de cada proveedor, para decir QUÉ contestó cuando no se reconoce. */
+  const primero = new Map<string, string>();
   let sinTiempo = false;
   for (const e of errores) {
     if (/^sin tiempo/i.test(e)) { sinTiempo = true; continue; }
@@ -3063,11 +3080,22 @@ export function falloDeIA(errores: readonly string[], hayIA: boolean): FalloIA {
     const v = veredictoDe(e);
     const antes = porProv.get(prov);
     if (antes == null || PESO[v] > PESO[antes]) porProv.set(prov, v);
+    if (!primero.has(prov)) primero.set(prov, e);
   }
+  const nombre = (p: string) => NOMBRE_PROV[p] ?? p;
   const conFrase = [...porProv].filter(([, v]) => FRASE[v]);
   if (!conFrase.length) {
     if (sinTiempo) return { error: 'Las IA tardaron demasiado. Prueba de nuevo.' };
-    return { error: 'Falló de nuestro lado, no de tus keys. Prueba más tarde.' };
+    // ⚠️ «FALLÓ DE NUESTRO LADO» SIN MÁS NO DEJA HACER NADA (15/10/2026: el chat de Joan). Lo nuestro se dice con QUIÉN
+    // lo rechazó; lo que no se reconoce, con QUÉ contestó. La causa existe: está en `errores`, y no se tira.
+    const nuestros = [...porProv].filter(([, v]) => v === 'nuestro').map(([p]) => nombre(p));
+    if (nuestros.length) {
+      const quien = nuestros.slice(0, 2).join(' y ');
+      return { error: `${quien} ${nuestros.length > 1 ? 'rechazaron' : 'rechazó'} un pedido nuestro: no es tu key.` };
+    }
+    const [prov, error] = [...primero][0] ?? [];
+    if (prov && error) return { error: `${nombre(prov)} falló: ${detalleCorto(error)}. Prueba de nuevo.` };
+    return { error: 'Ninguna IA contestó. Prueba de nuevo.' };
   }
   const partes = conFrase.slice(0, 2).map(([p, v]) => FRASE[v]!(NOMBRE_PROV[p] ?? p));
   const key = conFrase.find(([, v]) => v === 'key');

@@ -221,7 +221,7 @@ export async function crearNuevas(nuevas: ResultadoIA['etiquetasNuevas']): Promi
 async function pasada<R extends { avisos: string[] }>(p: {
   system: string; user: string; motivo: string; hastaMs: number;
   traducir: (obj: Record<string, unknown>) => { r: R; errores: string[] };
-  provs: ProvName[]; modelos: Partial<Record<ProvName, string>>; errores: string[];
+  provs: ProvName[]; modelos: Partial<Record<ProvName, string>>; errores: string[]; erroresRed: string[];
 }): Promise<{ bueno: R | null; crudos: string[]; ultimo: string[] | null; ultimoR: R | null }> {
   const out: { bueno: R | null; crudos: string[]; ultimo: string[] | null; ultimoR: R | null } = { bueno: null, crudos: [], ultimo: null, ultimoR: null };
   // ⚠️ LA SALIDA SE DIMENSIONA PARA QUE GROQ ENTRE (`salidaParaIA`): con 6000 fijos la cascada lo
@@ -236,6 +236,12 @@ async function pasada<R extends { avisos: string[] }>(p: {
     // 429 pasa a Groq.
     sinRespaldoDeModelo: true,
     erroresOut: p.errores,
+    // ⚠️ LA RED DE PLATAFORMA (15/10/2026, AGENTS.md: «todo camino de IA que use un cliente necesita su red»): con las
+    // keys del negocio caídas, las gratis de la agencia, empezando por otro proveedor, y el uso queda anotado como «⚠ red
+    // de plataforma». Hasta hoy no estaba: un negocio con UNA key de Gemini (Joan, ws17) se quedaba sin el chat del lienzo.
+    // Lo que falla en la red va a su lista (`erroresPlataformaOut`), no a la del negocio: el mensaje habla de SUS keys.
+    redDePlataforma: true,
+    erroresPlataformaOut: p.erroresRed,
     validar: (t) => {
       let obj: Record<string, unknown>;
       try { obj = parseJsonObject(t); } catch { out.crudos.push(t); return false; }
@@ -294,9 +300,11 @@ export async function generar<R extends { avisos: string[] }>(p: {
   const hastaMs = p.hastaMs;
   const quedan = () => hastaMs - Date.now();
   const errores: string[] = [];
+  /** Lo que falló en la RED DE PLATAFORMA (las keys de la agencia): al log, nunca al mensaje del negocio. */
+  const erroresRed: string[] = [];
   const motivo = p.motivo?.trim() || 'Crear una automatización con IA';
 
-  const uno = await pasada({ ...p, motivo, hastaMs, provs, modelos, errores });
+  const uno = await pasada({ ...p, motivo, hastaMs, provs, modelos, errores, erroresRed });
   if (uno.bueno) return { r: uno.bueno };
   let ultimo = uno.ultimo;
   let ultimoR = uno.ultimoR;
@@ -309,7 +317,7 @@ export async function generar<R extends { avisos: string[] }>(p: {
       system: 'Recibes un texto que pretende ser un JSON pero tiene errores de sintaxis. Devuelve EXACTAMENTE el mismo contenido como JSON válido: mismas claves, mismos valores, mismo orden. No agregues, no quites, no comentes. Solo el JSON.',
       user: crudo.slice(0, 60_000), json: true, maxTokens: 8000, temperature: 0,
       feature: FEATURE_CREAR_IA, motivo: `reparar el JSON · ${motivo}`, provs, modelos, hastaMs, erroresOut: errores,
-      sinRespaldoDeModelo: true,
+      sinRespaldoDeModelo: true, redDePlataforma: true, erroresPlataformaOut: erroresRed,
       validar: (t) => { try { parseJsonObject(t); return true; } catch { return false; } },
     }).catch((e) => { errores.push(msg(e)); return ''; });
     if (copia) {
@@ -325,7 +333,7 @@ export async function generar<R extends { avisos: string[] }>(p: {
   // 3. Lo que se leyó tenía errores: un reintento diciéndole cuáles.
   if (ultimo && quedan() > MIN_PARA_OTRO_MS) {
     const corregir = `${p.user}\n\nTU RESPUESTA ANTERIOR TENÍA ESTOS PROBLEMAS. Corrígelos y devuelve el JSON COMPLETO:\n${ultimo.slice(0, 12).map((e) => `- ${e}`).join('\n')}`;
-    const dos = await pasada({ ...p, user: corregir, motivo: `Corregir · ${motivo}`, hastaMs, provs, modelos, errores });
+    const dos = await pasada({ ...p, user: corregir, motivo: `Corregir · ${motivo}`, hastaMs, provs, modelos, errores, erroresRed });
     if (dos.bueno) return { r: dos.bueno };
     if (dos.ultimo) { ultimo = dos.ultimo; ultimoR = dos.ultimoR; }
   }
@@ -335,7 +343,7 @@ export async function generar<R extends { avisos: string[] }>(p: {
     return { error: falloDeRevision(ultimo, (ultimoR as { pasos?: PasoGrafo[] } | null)?.pasos ?? []) };
   }
   if (uno.crudos.length) return { error: 'MaKo escribió el flujo pero se cortó al leerlo. Prueba de nuevo.' };
-  console.error('[secuencias/ia] ningún proveedor armó el flujo:', errores.join(' | '));
+  console.error('[secuencias/ia] ningún proveedor armó el flujo:', errores.join(' | '), erroresRed.length ? `· red de plataforma: ${erroresRed.join(' | ')}` : '');
   const hayIA = (await Promise.all(provs.map((x) => provsDe(x).catch(() => [])))).some((l) => l.length > 0);
   return falloDeIA(errores, hayIA);
 }
