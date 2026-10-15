@@ -129,3 +129,18 @@ test('6: por WhatsApp, cada pedido del editor llega al turno con su herramienta'
     for (const e of f.espera) assert.ok(nombres.includes(e), `«${f.mensaje}» llega sin ${e} (viajan: ${nombres.filter((n) => /imagen/.test(n)).join(', ') || 'ninguna del editor'})`);
   }
 });
+
+// ── 7. El área se carga fuera de Next ──
+// 15/10/2026: imagen.run.ts → lib/image-editor/server.ts → app/image-editor/acceso.ts → lib/tab-access.ts →
+// `next/navigation` hacía que CUALQUIER cosa que importara lib/api-mako/runners.ts fuera de Next (un script, un test con
+// `--conditions=react-server`, como tests/voz-mako.test.ts #6) muriera con «createContext is not a function».
+// PROBADO ROMPIÉNDOLO: con server.ts importando veEditorImagen de '@/app/image-editor/acceso', 0/1.
+test('7: el runner del área carga en un node suelto con --conditions=react-server (sin arrastrar next/navigation)', async () => {
+  const { execFileSync } = await import('node:child_process');
+  const { pathToFileURL } = await import('node:url');
+  const href = JSON.stringify(pathToFileURL(join(RAIZ, 'lib/api-mako/areas/imagen.run.ts')).href);
+  const salida = execFileSync(process.execPath, ['--conditions=react-server', '--import', 'tsx', '--input-type=module', '-e', `const m = await import(${href}); process.stdout.write(String(Object.keys(m.RUNNERS).length));`], {
+    cwd: RAIZ, encoding: 'utf8', maxBuffer: 4 << 20,
+  });
+  assert.equal(salida.trim(), '7');
+});

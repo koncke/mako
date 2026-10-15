@@ -98,7 +98,7 @@ export const RUNNERS: Runners = {
       const r = await crearDiseno(ctx.ws, QUIEN, { titulo: str(payload, 'titulo') ?? 'Diseño sin título', doc: n.doc });
       if (!r.ok) return { ok: false, resumen: `No se pudo crear (${r.error}).` };
       const url = link(r.id, ctx.ws);
-      return { ok: true, resumen: `Creado. Ábrelo acá: ${url}`, datos: { disenoId: r.id, link: url } };
+      return { ok: true, resumen: `Creado. Ábrelo aquí: ${url}`, datos: { disenoId: r.id, link: url } };
     },
   },
 

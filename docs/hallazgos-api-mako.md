@@ -1274,3 +1274,11 @@ que crear y copiar devuelven el link al editor.
   `lib/image-editor/reglas.ts`, y el test 1 compara el documento en blanco con el `createBlankDocument` del motor.
 - Verificado contra la base en el ws 3 con los runners tal cual (crear desde plantilla, ver, cambiar textos con
   mayúsculas, copiar, listar, borrar, otro workspace no lo ve), borrando lo creado.
+- **⚠️ Un runner tampoco puede arrastrar `next/navigation`** (15/10, dos rojos en main después del push): el área
+  importaba `lib/image-editor/server.ts`, que tomaba la pregunta de acceso de `app/image-editor/acceso.ts`, que importa
+  `lib/tab-access.ts` → `next/navigation`. El build no se entera, pero todo lo que carga `lib/api-mako/runners.ts` fuera
+  de Next murió con «createContext is not a function» (`tests/voz-mako.test.ts` #6 corre un runner con
+  `--conditions=react-server`). La pregunta pasó a `lib/image-editor/acceso.ts`, suelta, y la página la reexporta.
+  Regla: lo que una `.run.ts` importa no llega a un guard de página (`requireRolWs`, `redirect`); la pregunta de acceso
+  va en un módulo de `lib/` sin `next/navigation`. Lo fija el test 7 de `tests/api-mako-imagen.test.ts` (carga el
+  runner en un node suelto con esa condición). Y el texto: «aquí», no «acá» (`tests/puente-panel-copy.test.ts`).

@@ -22,14 +22,10 @@ import 'server-only';
 // que abra el editor: lo exige su licencia mientras haya código de Doory adentro.
 
 import { requireRolWs } from '@/lib/tab-access';
-import { tabEnCapa } from '@/lib/capas';
-import { getCapaActual, getRolWsEfectivo } from '@/lib/workspace';
 
-/** ¿Quien mira puede usar el Image Editor? Para la API (no redirige). */
-export async function veEditorImagen(): Promise<boolean> {
-  if ((await getRolWsEfectivo()) !== 'admin') return false;
-  return tabEnCapa('image-editor', await getCapaActual());
-}
+// La pregunta sin redirigir vive en lib/image-editor/acceso.ts: la usa la API, que no puede arrastrar
+// `next/navigation` (ver ese archivo).
+export { veEditorImagen } from '@/lib/image-editor/acceso';
 
 /** El guard de las pantallas del editor: lo de toda tab (sesión, capa, rol, onboarding). */
 export async function requireEditorImagen(): Promise<void> {

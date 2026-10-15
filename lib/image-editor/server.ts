@@ -7,8 +7,8 @@ import 'server-only';
 // con el navegador en ./tipos.ts. Molde: lib/editor-landing/server.ts (compare-and-set) y
 // app/api/landing-generator/imagenes/route.ts (firmar → subir → registrar).
 //
-// LA PUERTA (`puerta`) es la del editor: la misma pregunta que sus páginas (app/image-editor/acceso.ts →
-// `veEditorImagen`: admin del workspace y la tab en su capa). Para cualquier otro, 404: la ruta no existe.
+// LA PUERTA (`puerta`) es la del editor: la misma pregunta que sus páginas (./acceso.ts → `veEditorImagen`:
+// admin del workspace y la tab en su capa; suelta, sin `next/navigation`, porque la API de MaKo carga este módulo). Para cualquier otro, 404: la ruta no existe.
 // Cada consulta va por `getTenantDb()` (las dos tablas están en TENANT_TABLES) y además lleva el
 // `.eq('workspace_id', ws)` escrito a mano, como el Landing: si la línea del registro se pierde,
 // esto sigue acotado.
@@ -18,7 +18,7 @@ import { randomUUID } from 'node:crypto';
 import { getUsuarioActual } from '@/lib/auth';
 import { getSupabaseServer } from '@/lib/supabase';
 import { getTenantDb, getWorkspaceActual, runWithWorkspace } from '@/lib/workspace';
-import { veEditorImagen } from '@/app/image-editor/acceso';
+import { veEditorImagen } from './acceso';
 import {
   BUCKET_IMAGE, CARPETA_SUBIDAS, TOPE_DOC_BYTES, esTipoAudio, medida, pathDeMiniatura, pathDeSubida,
   resumirDoc, sanearNombre, sanearTitulo, sniffArchivo, srcsLocales, subidaDelWs, topeDeTipo, uuidValido,

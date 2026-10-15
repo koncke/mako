@@ -82,7 +82,9 @@ test('1b: las pages llaman al guard, y el guard es la pregunta de toda tab (rol 
   const acceso = sinLineas(leer('app/image-editor/acceso.ts'));
   assert.doesNotMatch(acceso, /getSesionAdmin\(\)/, 'desde el 15/10 el editor no es sólo del super admin');
   assert.match(acceso, /requireRolWs\(\[\], \{ nav: 'image-editor' \}\)/, 'el guard de toda tab, con la key exacta del nav');
-  assert.match(acceso, /tabEnCapa\('image-editor'/, 'la API pregunta lo mismo: la tab en la capa');
+  // La pregunta sin redirigir vive en lib/ (la API no puede arrastrar `next/navigation`) y la página la reexporta.
+  assert.match(acceso, /export \{ veEditorImagen \} from '@\/lib\/image-editor\/acceso'/, 'la página reexporta la pregunta de lib/');
+  assert.match(sinLineas(leer('lib/image-editor/acceso.ts')), /tabEnCapa\('image-editor'/, 'la API pregunta lo mismo: la tab en la capa');
 });
 
 test('2: el crédito de Doory se dibuja en el editor y la licencia viaja con el código', () => {
