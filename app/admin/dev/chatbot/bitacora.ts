@@ -1597,7 +1597,7 @@ FEEDBACK PROBAR:
     puntos: [
       "Era una regla escondida: un flujo de reunión volvía a correr si el lead agendaba otra reunión; cualquier otro, una sola vez. Ahora se elige en el panel del CRON: «Una sola vez», «Otra vez si es otra reunión» o «Cada vez que vuelve a entrar».",
       "«Cada vez» corre por evento o por un «Ir a», si la anterior terminó; nunca por el barrido, nunca una cancelada.",
-      "Sin guardar, la regla de antes, y el panel la muestra. La migración 0279 y el script que la deja escrita esperan el OK de Martín.",
+      "Sin guardar, la regla de antes, y el panel la muestra. La migración 0279 quedó aplicada en prod el 15/10: la columna está vacía en las 93, así que nada cambió.",
     ],
     commits: [
       { sha: "f6bc0c85f", msg: "Automations: la «Reentrada» del CRON (si un lead vuelve a entrar)", lineas: 512, archivos: 14 },

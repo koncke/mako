@@ -4512,8 +4512,11 @@ Lo hecho está en `f6bc0c85f` (diseño: docs/diseno-mako-nada-por-detras.md §1-
   como las lecturas del motor.
 
 Lo que quedó sin hacer, con su archivo:
-- La migración 0279 y `scripts/reentrada-explicita.mts` (la deja escrita en las que existen) esperan el OK de Martín
-  para correr en prod.
+- **La 0279 quedó aplicada en prod el 15/10**: la columna está vacía en las 93 automatizaciones, así que todas siguen con
+  la regla de antes. Se le había preguntado a Martín y contestó «No entiendo esta pregunta»: una columna nueva que no
+  cambia nada no era una decisión suya (AGENTS.md, «A la Ticketera va lo que DECIDE Martín»).
+- `scripts/reentrada-explicita.mts` (la deja escrita en las que existen) NO se corrió: con la columna vacía el motor
+  hace lo de antes. Hace falta recién para sacar el respaldo de `reentradaDe`, y ese día se corre.
 - Las plantillas (`lib/plantillas-automatizaciones.ts`, `lib/plantilla-crear.ts`) y una operación de la API
   (`cambiar_reentrada_secuencia`, chatbot.def/run): después de que integre `crm-bloques-b5`, que toca esos archivos.
   Cuando entren, el respaldo de `reentradaDe` se va.

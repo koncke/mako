@@ -5,8 +5,9 @@
 > motivó: la clave de Gemini del ws1 no contesta bien desde el 08/10 y algo la sigue llamando unas 300 veces por día.
 > Hacía una semana que ese cliente no tenía IA propia y nadie se había enterado.
 >
-> **Estado: PLAN. Nada construido.** El umbral y el freno por clave están DECIDIDOS (§6, 15/10). Faltan las dos de Martín
-> (a quién le llega el aviso y el primero del ws1), y coordinar el freno con el Web Generator, que acaba de tocar la cascada.
+> **Estado: PLAN. Nada construido.** El umbral y el freno por clave están DECIDIDOS (§6, 15/10), y Martín decidió que el
+> aviso es UNO por negocio con todas sus claves caídas (§2). Falta la suya de a quién le llega el aviso, y coordinar el
+> freno con el Web Generator, que acaba de tocar la cascada.
 
 ## 1. Lo medido (prod, 15/10/2026, sólo lectura)
 
@@ -95,8 +96,12 @@ misma clave volvió a contestar bien en menos de 24 h.
 
 **El aviso: dos filas del catálogo, en `AVISOS_SOLO_SUPERADMIN`**, como la caída y la vuelta del WhatsApp:
 `ia-clave-caida` e `ia-clave-volvio`.
-- **Qué dice:** qué clave (proveedor, cuenta y los últimos 4 caracteres), de qué negocio, desde cuándo (la última buena),
-  cuántos intentos lleva y qué dejó de andar (las funciones que la llamaban).
+- **UNO por negocio, con TODAS sus claves caídas** (Martín, 15/10, textual: «Si tiene varias cuentas caidas es solo 1 aviso
+  especificando todas las cuentas caidas»). El emisor junta por negocio ANTES de mandar: el ws1 de hoy recibe uno con
+  Gemini y Mistral, no dos. Una clave que se cae después de avisado el negocio entra en el aviso siguiente (el de las
+  24 h), no en uno suelto.
+- **Qué dice, por clave:** proveedor, cuenta y los últimos 4 caracteres; desde cuándo (la última buena); cuántos intentos
+  lleva; y qué dejó de andar (las funciones que la llamaban). Más el negocio, una vez.
 - **Cuándo sale:** la caída repite cada 24 h mientras siga frenada. La vuelta sale sólo si la caída se avisó: un aviso de
   caída sin el de recuperación entrena a ignorarlo.
 - **Por dónde:** `emitirDelCatalogo`, que lo deja en la campana de la app (la notificación que pidió) y en el grupo.
@@ -143,5 +148,5 @@ es un cliente. Por eso va como decisión (§6-4).
 
    Una clave de la plataforma, siempre sólo a SuperAdmin.
 4. **El ws1 el día del deploy:** ¿el aviso le llega a Mauricio en la primera corrida, o se lo contás vos antes y el
-   primero sale sin aviso? (Ticketera: `claves-primer-aviso-mauricio`; Estrategia recomienda que Martín le avise antes:
-   dos avisos de golpe sobre algo que viene pasando hace una semana se leen como un problema nuestro.)
+   primero sale sin aviso? (Ticketera: `claves-primer-aviso-mauricio`.) **CONTESTADO (Martín, 15/10): un solo aviso con
+   todas las claves caídas** (arriba, «UNO por negocio»). Con eso, al ws1 le llega uno, no dos.
