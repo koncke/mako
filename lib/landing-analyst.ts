@@ -22,6 +22,7 @@ import 'server-only';
 import { getTenantDb } from './workspace';
 import { leerTodo } from './supabase-paginado';
 import { chatClaude } from './anthropic';
+import { parseJsonObject } from './json-del-modelo';
 import { errorDeCascada } from './ai-cheap';
 import { esCascadaSinRespuesta } from './ia-mensajes';
 import { contenidoNoConfiable, getPromptText, renderPrompt } from './prompt-render';
@@ -406,13 +407,16 @@ type AnalisisCrudo = {
   recomendaciones?: unknown[];
 };
 
-/** Extrae el primer objeto JSON de un texto (tolera fences ```json). */
-function parseJsonObject(text: string): unknown {
-  const c = text.replace(/```json\s*/gi, '').replace(/```/g, '').trim();
-  const a = c.indexOf('{'), b = c.lastIndexOf('}');
-  if (a === -1 || b <= a) throw new Error('Respuesta sin JSON');
-  return JSON.parse(c.slice(a, b + 1));
-}
+/**
+ * ¿Sirve esta salida como análisis? Un objeto con algo adentro, leído con el parser de la casa
+ * (lib/json-del-modelo.ts, que repara lo reparable). Es el `validar` de la cascada: lo que no
+ * pasa hace probar con la cuenta o el proveedor siguiente en vez de llegar roto a la pantalla.
+ * ⚠️ Acá vivía una copia ingenua de `parseJsonObject` (sin reparar), la cuarta del repo: AGENTS.md
+ * pide que todas deleguen (15/10/2026).
+ */
+const analisisUsable = (t: string): boolean => {
+  try { return Object.keys(parseJsonObject(t)).length > 0; } catch { return false; }
+};
 
 const str = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
 /**
@@ -541,6 +545,7 @@ export async function analizarCopy(pagina: LandingExtraida, comp: LandingComport
       // Los de NUESTRAS keys: al log, nunca al texto (AGENTS.md, «Los errores de NUESTRAS
       // credenciales no eligen el texto»).
       erroresPlataformaOut: erroresRed,
+      validar: analisisUsable,
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

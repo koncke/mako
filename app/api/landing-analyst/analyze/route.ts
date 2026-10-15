@@ -35,7 +35,10 @@ export async function POST(req: NextRequest) {
   try {
     // `texto`: el copy pegado a mano cuando la página se arma en el navegador y
     // no hay nada que descargar. Salta la bajada, no el análisis ni el cruce.
-    const res = await analizarLanding(url, body.texto);
+    // La red de plataforma y el plazo, como el Diagnóstico del Web Generator (diagnostico-server.ts,
+    // `comoAnalizar`): con todas las keys del negocio caídas (el ws1 el 15/10/2026) la tab no
+    // contestaba nada. 250 s deja margen dentro del maxDuration de 300.
+    const res = await analizarLanding(url, body.texto, { redDePlataforma: true, hastaMs: Date.now() + 250_000 });
     if (!res.ok) {
       // No es un 500: la página del cliente falló (404, JS-only, timeout), no
       // nuestro server. La UI lo muestra como un aviso, no como un error roto.

@@ -26,6 +26,14 @@
 //   · esCascadaSinRespuesta sólo mira el veto                         -> 6 / 1
 //   · motivoDeErroresCascada: un 413 solo vuelve a dar null           -> 6 / 1
 //   · mensajeIAFallo: el tamaño vuelve a «Prueba de nuevo»            -> 6 / 1
+//
+// Y el cierre de la tanda 7 (los tres tests del final; base 10 / 0, restaurado 10 / 0):
+//   · chatClaude no le pasa `validar` a la cascada                    -> 9 / 1
+//   · analizarCopy no pide `validar`                                  -> 9 / 1
+//   · vuelve la copia local de parseJsonObject                        -> 9 / 1
+//   · analisisUsable acepta lo que no se puede leer                   -> 9 / 1
+//   · la tab Landing Analyst sin la red ni el plazo                   -> 9 / 1
+//   · el análisis sin el import del parser de la casa                 -> 9 / 1
 // =============================================================================
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -111,4 +119,35 @@ test('la red de plataforma también respeta el techo de entrada (no gasta dos 41
   const red = src.slice(src.indexOf('if (opts.redDePlataforma)'));
   assert.match(red, /\(await provsGratisDePlataforma\(\)\.catch\(\(\) => \[\]\)\)\s*\.filter\(\(r\) => pesa <= \(TECHO_ENTRADA\[r\.provider\]/,
     'la red volvió a probar a quien no le entra el pedido');
+});
+
+// Tanda 7, cierre (15/10/2026): lo que había quedado pendiente del arreglo de arriba.
+const sinComentarios = (src: string): string => src
+  .replace(/^[ \t]*\/\/.*$/gm, '')
+  .replace(/\/\*[\s\S]*?\*\//g, '');
+
+test('la tab Landing Analyst también pide la red y un plazo (no sólo el Diagnóstico)', () => {
+  const src = sinComentarios(leer('../app/api/landing-analyst/analyze/route.ts'));
+  assert.match(src, /analizarLanding\(url, body\.texto, \{ redDePlataforma: true, hastaMs: Date\.now\(\) \+ \d/,
+    'la tab Landing Analyst volvió a analizar sin la red de plataforma');
+});
+
+test('un JSON roto hace probar con el siguiente proveedor, y el análisis lee con el parser de la casa', () => {
+  const ant = cuerpo(leer('../lib/anthropic.ts'), 'export async function chatClaude(');
+  const llamada = ant.slice(ant.indexOf('await chatCheapCascade({'), ant.indexOf('});', ant.indexOf('await chatCheapCascade({')));
+  assert.match(llamada, /validar: opts\.validar/, 'chatClaude dejó de pasarle `validar` a la cascada');
+  const la = leer('../lib/landing-analyst.ts');
+  assert.match(la, /import \{ parseJsonObject \} from '\.\/json-del-modelo'/, 'el análisis dejó de leer con el parser de la casa');
+  assert.doesNotMatch(sinComentarios(la), /function parseJsonObject\(/, 'volvió la copia ingenua de parseJsonObject');
+  assert.match(la, /const analisisUsable = \(t: string\): boolean => \{\s*try \{ return Object\.keys\(parseJsonObject\(t\)\)\.length > 0; \} catch \{ return false; \}/,
+    'el criterio de «salida usable» cambió: tiene que rechazar lo que el parser no puede leer');
+  assert.match(cuerpo(la, 'export async function analizarCopy('), /validar: analisisUsable/, 'analizarCopy dejó de pedir que la salida sirva');
+});
+
+test('el parser de la casa NO da por bueno un análisis cortado a la mitad (si no, `validar` no rota)', async () => {
+  const { parseJsonObject } = await import('../lib/json-del-modelo');
+  assert.throws(() => parseJsonObject('{"score": 7, "veredicto": "Bien", "hallazgos": [{"t":"a"}, {"t":"b'));
+  assert.throws(() => parseJsonObject('{"score": 7, "veredicto": "Bien", "hallaz'));
+  assert.throws(() => parseJsonObject('No puedo analizar esto.'));
+  assert.equal(Object.keys(parseJsonObject('```json\n{"score": 7}\n```')).length, 1);
 });

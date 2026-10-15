@@ -75,7 +75,11 @@ export async function chatClaude(
   // esta función: lo único que salía era «Claude vetado», y la pantalla decía «Tu IA está
   // conectada pero no pudo…» sin una sola pista. `erroresOut` recibe los de las keys del
   // NEGOCIO (son los que eligen el texto); los de la red van aparte (lib/ai-cheap.ts).
-  opts: { model?: string; thinking?: boolean; effort?: Effort; maxTokens?: number; feature?: string; motivo?: string; onUsage?: (u: UsageInfo) => void; hastaMs?: number; sinRespaldoDeModelo?: boolean; redDePlataforma?: boolean; erroresOut?: string[]; erroresPlataformaOut?: string[] } = {},
+  //
+  // validar: el mismo de `chatCheapCascade`. Una salida que no lo pasa (un JSON cortado) NO se
+  // devuelve: la cascada prueba con la cuenta o el proveedor siguiente. Sin esto, el JSON roto de
+  // un modelo flojo llegaba crudo a la pantalla como «Unexpected end of JSON input».
+  opts: { model?: string; thinking?: boolean; effort?: Effort; maxTokens?: number; feature?: string; motivo?: string; onUsage?: (u: UsageInfo) => void; hastaMs?: number; sinRespaldoDeModelo?: boolean; redDePlataforma?: boolean; erroresOut?: string[]; erroresPlataformaOut?: string[]; validar?: (t: string) => boolean } = {},
 ): Promise<string> {
   // Override configurable por feature (tab /modelos-ia). Si el caller NO forzó un
   // modelo y la feature está ruteada a otra IA (Groq/OpenAI/Gemini), delegamos a la
@@ -136,6 +140,7 @@ export async function chatClaude(
           provs, modelos: { [ref.provider as ProvName]: ref.model }, timeoutMs, esfuerzo, erroresOut: errores,
           hastaMs: opts.hastaMs, sinRespaldoDeModelo: opts.sinRespaldoDeModelo,
           redDePlataforma: opts.redDePlataforma, erroresPlataformaOut: opts.erroresPlataformaOut,
+          validar: opts.validar,
         });
         if (salida.trim()) return salida;
         // Lo que contestó cada key del negocio, para que el caller diga la causa (errorDeCascada).
