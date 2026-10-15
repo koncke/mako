@@ -2721,13 +2721,30 @@ dato de al lado cambió» · *2026-08-10 cac-dos-monedas*
 
 Tres cosas que se comen media hora cada vez:
 
-1. `import 'server-only'` revienta el script: hay que correr con `NODE_OPTIONS="--conditions=react-server" npx tsx scripts/x.ts` (así lo neutraliza el export condicional de server-only).
+1. `import 'server-only'` revienta el script. ⚠️ **`--conditions=react-server` NO es la salida** (lo era hasta
+   que algo importó `next/navigation`): también cambia el React que se carga y muere con «`createContext` is not
+   a function» (docs/hallazgos-editor-imagen.md). Lo que anda: `node --require <x>.cjs --import tsx script.mts`,
+   donde el `.cjs` parchea `Module._resolveFilename` para que `server-only` resuelva a un módulo vacío **y
+   `next/headers` a uno sin cookies** (`cookies: async () => ({ get: () => undefined, … })`): todo lo que lee el
+   autor o la sesión (`getUsuarioActual`) tira «`cookies` was called outside a request scope» fuera de un
+   request. Un hook ESM (`module.register`) no sirve: tsx compila el `.ts` del repo a CommonJS.
+   Si el script vive FUERA del repo (el scratchpad), los paquetes se resuelven desde SU carpeta: `dotenv` con
+   `createRequire(resolve(process.cwd(), 'package.json'))`, y el `import()` de un `.ts` del repo con
+   `pathToFileURL(ruta).href` (una ruta `C:\…` pelada da `ERR_UNSUPPORTED_ESM_URL_SCHEME`). Molde completo, con
+   crear/publicar/limpiar una landing en el ws3: docs/hallazgos-editor-landing.md → «En PRODUCCIÓN (15/10/2026)».
 2. No hay `"type":"module"`, así que los `.ts` corren como CJS y el top-level await falla con «Top-level await is currently not supported with the cjs output format»: envolvé en `async function main(){}; main();` o usá `.mts`.
 3. El dotenv de `.env.local` va en su **propio bloque arriba** de los imports de libs.
 
 **Y ojo con el scope:** `procesarReunionesNuevas(ws)` **no se auto-scopea** — pasarle `9` pelado
 hace que `getWorkspaceActual()` caiga a `OWNER_WS` y leas/escribas en el workspace equivocado; usá
 `correrPorWorkspace('fathom', ws => …)` como hace el route.
+
+⚠️ **Y con `next/headers` sin cookies, la caída es AL WS1, que es un cliente** (15/10/2026). Todo lo que corra fuera de
+`runWithWorkspace(ws, …)` resuelve el workspace por `resolverDesdeCookies` (lib/workspace.ts), y sin cookie de
+sesión eso es «cron/webhook/público → `OWNER_WS`», o sea el negocio de Mauricio. Un `await` que se escapa del
+callback (una promesa lanzada sin esperar, un `setTimeout`) escribe ahí sin un error. Se corre TODO adentro del
+callback, y después se relee lo escrito filtrando por el ws de la prueba (`.eq('workspace_id', 3)`): si no
+aparece, se fue a otro lado. Nunca en el ws1 ni en otro negocio de un cliente; para probar, el ws3.
 
 **Vive en:** scripts/*.ts (patrón en scripts/backfill-calendly.ts:8-10 y backfill-meta.ts:17-21) · lib/cron-workspaces.ts:52 · lib/workspace.ts:80 · *2026-07-29 ~forense-canal-mako-mudo*
 

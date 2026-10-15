@@ -75,8 +75,10 @@ propio Martín). Martín tiene su cuenta, pero **por ahora no se trabaja con ell
 nombre del config dir `~\.claude-martin` quedó de cuando se pensaba al revés: es una
 ruta, no un dato — no deduzcas de ahí quién está logueado.
 
-⚠️ Y no deduzcas de ahí **ni del disco: no hay ninguna señal que sirva.** Se
-midieron las cuatro el 2026-08-25, con la sesión corriendo en la cuenta 2:
+⚠️ Y no deduzcas de ahí **ni del disco: no hay ninguna señal que sirva** (salvo una
+que no se miró ese día, la carpeta de la app: ver «La carpeta de la app SÍ dice la
+cuenta», más abajo). Se midieron las cuatro el 2026-08-25, con la sesión corriendo en
+la cuenta 2:
 
 | Señal | Qué dio | Por qué no sirve |
 |---|---|---|
@@ -108,6 +110,52 @@ Así la cuenta llega sola al abrir y no hay que preguntar. **Si el mensaje no ap
 hook no corrió: entonces se pregunta — nunca se deduce.** Y si la fecha es de hace varios
 días y hubo un cambio en el medio, el archivo miente: se confirma y se reescribe. Nada en
 la máquina lo actualiza solo, porque nada en la máquina sabe qué cuenta es.
+
+### ⚠️ La carpeta de la app SÍ dice la cuenta (medido el 15/10/2026)
+
+La app de escritorio guarda sus chats **por cuenta**:
+`%APPDATA%\Claude\claude-code-sessions\<carpeta>\<org>\local_*.json`, y cada archivo trae
+el `cliSessionId`, que es el id de la bitácora. Que la carpeta es la cuenta se midió de dos
+formas independientes:
+
+1. **El reinicio semanal que devolvió `get_usage`**, que lee la cuenta que está corriendo.
+   En los transcripts de los chats con actividad desde el 04/10 hay 173 lecturas, y cada
+   carpeta tiene SIEMPRE el mismo reloj, sin una sola lectura cruzada:
+
+   | Carpeta | Reinicio semanal | Lecturas | Cuenta |
+   |---|---|---|---|
+   | `6197c779…` | martes 21:00 UTC | 46 | **claude2**: es la carpeta del 25/08, cuando Martín declaró la cuenta 2 |
+   | `238975d6…` | miércoles 09:00 UTC | 72 | **claude3**: nace el 10/10, cuando entró la 3 |
+   | `68eda2ab…` | miércoles 10:00 UTC | 55 | **claude1** |
+
+   El reinicio semanal es de la cuenta: tres relojes son tres cuentas.
+2. **La bitácora.** Ordenadas por hora, las aperturas forman tramos contiguos de UNA carpeta
+   (la app corre una cuenta por vez), y en cinco cambios de cuenta (05/10, 06/10, 10/10, 13/10
+   a la tarde y 14/10) la carpeta y el marcador cambian juntos, con una apertura de atraso
+   como mucho.
+
+**Y en dos tramos el marcador se quedó viejo**, que es justo lo que esta señal sirve para ver:
+
+- **Del 09/10 13:11 al 10/10 19:51 (hora local)** la app estaba en la carpeta de la cuenta 1 y
+  el marcador decía `claude2`: 31 aperturas y unos **200 commits firmados `claude2` que eran de
+  la cuenta 1** (202 por fecha de commit). Y el caso del 98% de abajo tiene las cuentas al revés:
+  el 98% se midió a las 15:45 UTC en la carpeta de la cuenta **2**, y el chat que recibió el aviso
+  estaba en la cuenta **1**, al 17% (16:19 UTC).
+- **El 13/10 de 12:56 a 16:52** la app estaba en la carpeta de la cuenta 1 y el marcador decía
+  `claude3` (3 aperturas, sin commits).
+
+**Lo que cambia y lo que no:**
+
+- **La carpeta se DEDUCE, y por eso vigila al marcador; no lo reemplaza.** Es la estructura
+  interna de la app, no un contrato: una actualización puede cambiarla, y entonces se vuelve a no
+  tener señal. Lo que manda sigue siendo lo que diga Martín, después el marcador.
+- **Hay que declarar UNA vez qué carpeta es cada cuenta**, porque la carpeta es un uuid sin
+  nombre: una tercera columna en `~/.claude/cuentas.tsv`.
+- **Pendiente, y necesita el OK de Martín porque toca `~/.claude`:** que `bitacora-sesion.sh`
+  busque el `local_*.json` de su propia sesión, saque la carpeta y avise cuando no coincide con
+  el marcador. Con eso, los dos tramos de arriba se habrían visto en la primera apertura.
+- **El Centro de Operaciones la usa** para saber de qué cuenta es cada chat sin preguntar
+  ([diseno-centro-de-operaciones.md](diseno-centro-de-operaciones.md)).
 
 Lo que diga Martín gana siempre sobre el archivo, y el archivo gana siempre sobre el disco.
 
@@ -244,6 +292,12 @@ el trabajo, le mandó a otro chat la orden de ir breve «porque Martín está al
 medias un `git pull --rebase` que quedó en conflicto sobre el clon compartido. Martín:
 *«No crucé el límite semanal… Esta es la otra cuenta, siempre tenés que ejecutar el comando
 para ver el % del límite semanal»*.
+
+⚠️ **Corregido el 15/10/2026: las cuentas de este párrafo están al revés.** El 98% se midió en
+la carpeta de la cuenta 2 y el chat del aviso corría en la cuenta 1, con el marcador todavía
+en `claude2` (ver «La carpeta de la app SÍ dice la cuenta»). La lección no cambia: un número
+sin dueño confiable no es un dato. Lo que agrega es que el dueño que dice el marcador también
+puede estar viejo.
 
 La cura es que **el dato diga de quién es**. `~\.claude\uso-semanal.txt` lleva cuatro campos
 y el cuarto es la cuenta:

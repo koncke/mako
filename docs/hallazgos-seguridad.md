@@ -553,6 +553,37 @@ chat de Automations (`docs/diseno-2fa-obligatorio.md` en su rama); la regla es d
 `dejar_de_exigir_2fa`, `ver_exigencia_2fa`) · `supabase/migrations/0283_mfa_obligatorio.sql` ·
 `tests/mfa-obligatorio.test.ts` · *14/10/2026, chat «Ciberseguridad» con «Automations»*
 
+### ⚠️ `next dev` le daba un admin de producción a la red, y la puerta ACTIVA era `dev-login` (15/10/2026)
+
+El chat del Centro de Operaciones encontró la mitad latente (la sección «Un `next dev` sin `AUTH_SECRET` es un admin
+abierto a la red», en su rama): sin `AUTH_SECRET`, el proxy dejaba pasar todo en local y `getUsuarioActual` devolvía un
+admin del ws1. **Midiendo eso apareció la mitad que ya estaba abierta**, y que el diagnóstico obvio no veía porque
+miraba la falta del secreto:
+
+- ⚠️ **`/api/auth/dev-login` respondía en todo `next dev` CON el secreto**, o sea en todos los checkouts. Su guarda
+  sólo preguntaba «¿estoy en Vercel o en producción?», y `next dev` escucha en `0.0.0.0` (Next 16.2.6). Así que
+  `GET http://<ip-de-la-pc>:3000/api/auth/dev-login?ws=9` le daba a cualquiera de la misma red un admin global (con
+  `mfa: 'dev'`) con escritura en la base de PRODUCCIÓN. Y sin estar en la red también: una página web por DNS
+  rebinding, desde el navegador de quien tiene el `next dev` corriendo. Se pagaba cada vez que un chat levantaba un
+  `next dev` para verificar algo.
+- **Las tres capas** (`lib/auth-session.ts`, `tests/dev-local.test.ts` con 8 roturas):
+  1. `npm run dev` = `next dev -H 127.0.0.1`: desde la red no se llega al puerto. Medido con un servidor atado a
+     127.0.0.1: `localhost` y `127.0.0.1` responden desde node y desde curl; la IP de la red, ECONNREFUSED. Next 16 deja
+     pasar `localhost` y el host del servidor en sus recursos de desarrollo (`block-cross-site-dev.js`), así que abrir
+     por `localhost` sigue funcionando.
+  2. `esHostLocal` en `dev-login`, en la sesión sin secreto y en el proxy sin secreto: frena el DNS rebinding (el Host
+     es el dominio del atacante) y el navegador de otro en la red. No frena un `curl` con el Host falseado a mano:
+     para eso está la capa 1.
+  3. Sin `AUTH_SECRET`, la sesión dev exige además `MAKO_DEV_SIN_LOGIN=1`; sin el permiso, el proxy contesta 503 y
+     dice qué falta, en vez de mandar a un /login que no puede firmar.
+- **Lo que queda**: un `npx next dev` pelado (sin el script) sigue escuchando en la red; la capa 2 le corta el
+  rebinding, pero no el `curl`. Y `next start` local también escucha en la red, pero ahí `dev-login` no existe y hace
+  falta un login de verdad.
+
+**Vive en:** `lib/auth-session.ts` (`esHostLocal`, `devLoginPermitido`, `sinLoginPermitido`) · `proxy.ts` ·
+`lib/auth.ts` · `app/api/auth/dev-login/route.ts` · `package.json` (`dev`) · `tests/dev-local.test.ts` ·
+*15/10/2026, chat «Ciberseguridad», a partir del aviso del chat «Centro de Operaciones»*
+
 ### ⚠️ Ningún guard que mire el eje de workspace puede restringir a la agencia: el único que sirve es `getSesionAdmin()`
 
 Tres guards con nombre de «solo la agencia» y ninguno lo cumple, por la misma razón de
@@ -1751,3 +1782,40 @@ mandaba a aprobar a Meta la plantilla del negocio).
   07/09 tapó unas líneas y se le escaparon otras, y lo que tapó seguía vivo.
 
 **Vive en:** la tabla de arriba · `supabase/migrations/0280_rpc_sin_anon.sql` · *auditoría del 14/10/2026, chat «Ciberseguridad», workflow `wf_6f480c38-f3f`*
+
+## Un `next dev` sin `AUTH_SECRET` es un admin abierto a la red (15/10/2026)
+
+✅ **Cerrado el mismo día en `4e2fb425b`** (chat «Ciberseguridad»): ver «`next dev` le daba un admin de producción a la
+red, y la puerta ACTIVA era `dev-login`». ⚠️ **Y el «hoy no pasa en ningún checkout» de abajo midió la puerta
+equivocada.** Medí el camino que había descrito (la sesión dev sin el secreto) y lo declaré latente; la puerta que estaba
+ABIERTA era otra, `/api/auth/dev-login`, que respondía en todo `next dev` CON el secreto. **Antes de declarar latente un
+agujero, se enumeran TODAS las puertas que dan el mismo acceso, no sólo la que uno encontró.** Los números de línea de
+abajo son de antes del arreglo.
+
+La mitad ya estaba escrita (más arriba: «sin `gateConfigurado()` y fuera de producción, `lib/auth.ts` te devuelve
+admin de ws1 […] la trampa a cerrar antes de darle a MaKo cualquier capacidad de ejecutar sola»), y se la leía como una
+trampa de las PRUEBAS: «probarlo en local no prueba nada». Hay dos piezas más, y juntas cambian de qué se trata:
+
+1. **`next dev` escucha en `0.0.0.0` por defecto** (`node_modules/next/dist/docs/01-app/03-api-reference/06-cli/next.md`,
+   Next 16.2.6). No es «local»: lo alcanza cualquiera de la misma red, un wifi de bar incluido.
+2. **El `.env.local` apunta a la base de PRODUCCIÓN** con la `service_role` (ver
+   [hallazgos-infra.md](hallazgos-infra.md) → «El boot local ESCRIBE en prod»).
+
+O sea: un checkout que tenga las claves de Supabase y NO tenga `AUTH_SECRET`, con `next dev` corriendo, le da a
+cualquiera de la red una sesión de admin (`sub: 'dev'`, `rol: 'admin'`, `lib/auth.ts:74-77`) que lee y escribe la base
+de todos los clientes. El proxy tampoco frena: sin el secreto deja pasar todo (`proxy.ts:419-424`).
+
+**Medido el 15/10/2026: hoy no pasa en ningún checkout.** El clon tiene `AUTH_SECRET`, y de los 34 worktrees los 5 que
+tienen `.env.local` también. Es un riesgo latente, y se abre solo: un worktree nuevo con un `.env.local` armado a mano
+(AGENTS.md pide uno por worktree) o un `vercel env pull` de un entorno sin el secreto.
+
+**Por qué importa ahora:** el Centro de Operaciones ([diseno-centro-de-operaciones.md](diseno-centro-de-operaciones.md))
+convierte una fila de la base en un prompt que corre en la PC de Martín. Con este agujero abierto, alguien de la misma
+red pasa de admin de MaKo a una consola en esa máquina. Por eso el diseño exige la firma de cada pedido con una clave que
+el servidor no tiene, y rechaza las sesiones `sub: 'dev'`.
+
+**El arreglo, sin hacer:** que la sesión dev exija un permiso explícito además de la falta del secreto (por ejemplo
+`MAKO_DEV_SIN_LOGIN=1`), o que se niegue cuando las claves de Supabase son las de producción. Fail-closed por defecto,
+como en producción. Y, de paso, `next dev -H 127.0.0.1` en el script.
+
+**Vive en:** `lib/auth.ts:74-77` · `lib/auth-session.ts:135-151` (`secret`, `gateConfigurado`) · `proxy.ts:419-424` · `package.json` (`"dev": "next dev"`) · *chat «Centro de Operaciones», 15/10/2026*

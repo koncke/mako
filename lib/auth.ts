@@ -14,10 +14,10 @@
 
 import 'server-only';
 import { cache } from 'react';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import {
   OWNER_WS, SESSION_COOKIE,
-  gateConfigurado, verificarToken, type Rol, type Sesion,
+  gateConfigurado, verificarToken, sinLoginPermitido, type Rol, type Sesion,
 } from './auth-session';
 import { buscarUsuarioPorEmail } from './usuarios';
 import { requiereSegundoFactor } from './mfa-reglas';
@@ -70,10 +70,15 @@ export const getUsuarioActual = cache(async (): Promise<Sesion | null> => {
   // además firmaba las sesiones, cualquiera que la tuviera se fabricaba un token
   // de admin a mano. Una cookie no puede ser su propia llave.
 
-  // Gate sin configurar (local/dev): el proxy deja pasar todo → sesión dev dueño.
-  const esProd = process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production';
-  if (!gateConfigurado() && !esProd) {
-    return { sub: 'dev', email: '', nombre: 'Dev', rol: 'admin', exp: 0, legacy: true, ws: OWNER_WS, rolWs: 'admin' };
+  // Gate sin configurar (local/dev): la sesión dev del dueño, SÓLO con el permiso explícito y desde
+  // la máquina (`sinLoginPermitido`, lib/auth-session.ts). Antes bastaba con que faltara AUTH_SECRET,
+  // y `next dev` escucha en toda la red con la base de producción detrás (15/10/2026).
+  if (!gateConfigurado()) {
+    let host: string | null = null;
+    try { host = (await headers()).get('host'); } catch { host = null; }
+    if (sinLoginPermitido(host)) {
+      return { sub: 'dev', email: '', nombre: 'Dev', rol: 'admin', exp: 0, legacy: true, ws: OWNER_WS, rolWs: 'admin' };
+    }
   }
 
   return null;

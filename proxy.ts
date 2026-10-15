@@ -19,7 +19,7 @@
 // =============================================================================
 
 import { NextResponse, type NextRequest } from 'next/server';
-import { SESSION_COOKIE, gateConfigurado, verificarToken } from './lib/auth-session';
+import { SESSION_COOKIE, gateConfigurado, verificarToken, sinLoginPermitido } from './lib/auth-session';
 import { WS_HEADER, WS_PARAM, parseWs } from './lib/ws-tab';
 import { esPublica, esPublicaSoloLeer, decidirRutaAlumno } from './lib/rutas-publicas';
 import { HEADER_DOMINIO, RUTA_DOMINIO, consultaDelDominio, decidirHost, hostDeCabecera, paginaNoExisteDominio, tipoDeHost } from './lib/editor-landing/dominios-reglas';
@@ -415,13 +415,16 @@ export function proxy(req: NextRequest) {
     }
   }
 
-  // Gate sin configurar: no-op en local/dev, fail-closed en producción.
+  // Gate sin configurar: fail-closed en producción, y en local SÓLO con permiso explícito y
+  // desde la máquina (`sinLoginPermitido`, lib/auth-session.ts). Antes en local dejaba pasar
+  // todo, y `next dev` escucha en toda la red con la base de producción detrás (15/10/2026).
   if (!gateConfigurado()) {
     const esProd =
       process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production';
-    // En local sin AUTH_SECRET no hay sesión que verificar, así que tampoco hay
-    // a quién creerle: se borra el header y no se pone ninguno.
-    if (!esProd) return seguirOMovil(req, pathname);
+    // Sin AUTH_SECRET no hay sesión que verificar, así que tampoco hay a quién creerle: se
+    // borra el header y no se pone ninguno.
+    if (!esProd && sinLoginPermitido(req.headers.get('host'))) return seguirOMovil(req, pathname);
+    if (!esProd) return sinSecretoEnLocal(pathname);
     console.error('[gate] AUTH_SECRET sin setear en producción → negando rutas protegidas');
     return denegar(req, pathname);
   }
@@ -438,6 +441,14 @@ export function proxy(req: NextRequest) {
   }
 
   return denegar(req, pathname);
+}
+
+// Local sin AUTH_SECRET y sin el permiso explícito: no hay login que funcione (no se puede
+// firmar una sesión), así que se dice qué falta en vez de mandar a un /login que va a fallar.
+function sinSecretoEnLocal(pathname: string) {
+  const que = 'Falta AUTH_SECRET en .env.local. Para entrar sin login en ESTA máquina: MAKO_DEV_SIN_LOGIN=1 (y abrí localhost).';
+  if (pathname.startsWith('/api/')) return NextResponse.json({ ok: false, error: que }, { status: 503 });
+  return new NextResponse(que, { status: 503, headers: { 'content-type': 'text/plain; charset=utf-8' } });
 }
 
 // Niega una ruta protegida: 401 JSON para las APIs, redirect a /login para las
