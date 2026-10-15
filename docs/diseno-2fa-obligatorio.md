@@ -119,3 +119,42 @@ lo dice así: «hasta el 21/10 a las 24:00 (tu hora)».
    tiene teléfono).
 5. **Un negocio que se crea DESPUÉS de correr la ⚡ nace sin la fecha.** La salida simple es volver a correrla (es
    idempotente). ¿O que el alta del negocio la herede sola? Es una línea en el alta, de Seguridad.
+
+## 8. El aviso «¿No has sido tú?» (pedido del 14/10, acordado con Ciberseguridad)
+
+> Pedido de Martín: «es importante que en cada dispositivo salte [el 2FA]... Y lo mismo que google, que te manda un email
+> de "¿No has sido tú?" cuando se ingresa desde otro dispositivo... Y que dentro de MaKo se puedan ver los dispositivos
+> vinculados». Lo de Seguridad (los equipos, las sesiones, la pantalla) está en docs/diseno-dispositivos-vinculados.md.
+> Acá va lo de Automations. **No se construye hasta que Martín conteste las decisiones de ese documento (§5).**
+
+⚠️ **Lo medido primero (Seguridad, 14/10): el 2FA de la cuenta de super admin NO se salteó.** El login de ese momento fue
+de OTRA cuenta, admin de un negocio y sin 2FA porque hoy es opcional. La de super admin no entraba desde antes, y ese
+login sí pidió el código. El diagnóstico obvio («el 2FA no pide código en un dispositivo nuevo») era el equivocado.
+
+El mail no es un `sendEmail` en el camino del login: es una automatización de SuperAdmin, con su evento.
+- **El evento:** `ingreso_nuevo` en `EVENTOS_MAKO` (aviso `seguridad-ingreso-nuevo`, «Alguien entra desde un dispositivo
+  nuevo», `trae: ['ingreso']`).
+  - Lo emite Seguridad al EMITIR la sesión (después del 2FA), con `after()` y en el ws de la plataforma.
+  - «Nuevo» = el equipo no es de los conocidos de esa persona Y ya tenía al menos uno. Sin la segunda mitad, el día del
+    deploy le llega a todos.
+  - Una vez por aparato: `dedupKey = ingreso:<uid>:<equipo>`.
+- **Los datos** (`datos:`, atómicos; las claves son las del «{ }»):
+
+  | Clave | Rótulo | Citable |
+  |---|---|---|
+  | `ingreso_dispositivo` | Dispositivo | sí |
+  | `ingreso_at` | Cuándo entró. El ISO lo formatea el resolver en la hora del negocio. | sí |
+  | `ingreso_ubicacion` | Ubicación aproximada. Opcional: ausente si falta, en su renglón. Sólo si Martín elige guardarla. | sí |
+  | `link_dispositivos` | Tus dispositivos: appUrl + `/perfil/seguridad#dispositivos`. Lo arma Automations; NO es un dato del evento. | sí |
+  | `ingreso_usuario_id`, `ingreso_negocio_id`, `ingreso_dispositivo_id` | El destino, la zona y el dedup | no (ocultas) |
+
+- **El destino:** a QUIEN ENTRÓ.
+  - `DestinoMensaje` suma `'usuario'`.
+  - La dirección la da `destinoDeUsuario(ingreso_usuario_id, 'email', 'aviso')` (de Seguridad), nunca un dato del evento.
+  - Sale por el remitente de la plataforma (`equipo@hola-mako.com`), nunca por el del negocio.
+- **El link no es una acción**: lleva a la pantalla detrás del login con el 2FA. Nunca un «cerrar esa sesión» por GET, ni
+  nada que inicie sesión: un mail de seguridad que entra con un clic es lo que copia un phishing.
+- **El contenido no va al feed ni al doer** (`emitirAviso` copia el texto ahí). Al feed de SuperAdmin va sólo «se le avisó
+  a X de un ingreso nuevo».
+- **«Pasó Google y falló el código»** sería otro evento (`ingreso_frenado`, a los 3 fallos). Es una decisión de Martín: no
+  se arma hasta que conteste.
