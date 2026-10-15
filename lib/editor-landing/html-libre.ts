@@ -182,12 +182,19 @@ export function altoDeMensaje(data: unknown): number | null {
  *    vuelve a mirar: el bloque vuelve a su alto en el aviso siguiente. Un textarea o un select tienen
  *    su propio scroll: no cuentan. Por eso se escucha también `resize`: con un documento de alto
  *    automático, que el iframe crezca no le cambia la caja a nadie y el ResizeObserver no avisa.
+ * ⚠️ El contenido que CRECE CON LA VISTA (verificación de la tanda 6: un hero `min-height: 100vh` adentro
+ *    del contenedor de la app). Lo que esconde el contenedor no baja nunca: al crecer el iframe crece el
+ *    hero, y cada aviso sumaba otra vez lo mismo (medido en Chromium: 400 → 8.200 en 5 avisos; en el
+ *    arnés del test, hasta ALTO_MAX). Por eso se guarda también lo escondido (`__gmOculto`): si la vista
+ *    creció y lo escondido no bajó al menos la mitad de lo que creció la vista, el contenido crece con
+ *    ella, y la caja se marca (`__gmFijo`). El bloque queda en la primera medida (la barra, un hero del
+ *    alto de la vista de antes y el resto), con su scroll adentro para lo que sobra: acotado.
  */
 export const SCRIPT_ALTO = [
   '(function () {',
   '  var w = window, d = document, ultimo = 0, n = 0, t0 = Date.now(), parado = false;',
   '  function interno(vista, h) {',
-  '    var b = d.body, todos, i, el, oy, bajo, alto = 0;',
+  '    var b = d.body, todos, i, el, oy, oculto, bajo, alto = 0;',
   "    if (!b || !b.getElementsByTagName || typeof w.getComputedStyle !== 'function') return 0;",
   "    todos = b.getElementsByTagName('*');",
   '    for (i = 0; i < todos.length && i < 4000; i++) {',
@@ -196,10 +203,11 @@ export const SCRIPT_ALTO = [
   "      if (el.tagName === 'TEXTAREA' || el.tagName === 'SELECT') continue;",
   '      oy = (w.getComputedStyle(el) || {}).overflowY;',
   "      if (oy !== 'auto' && oy !== 'scroll') continue;",
-  '      if (el.__gmVista && vista > el.__gmVista + 1 && el.clientHeight <= el.__gmAlto + 1) { el.__gmFijo = true; continue; }',
+  '      oculto = el.scrollHeight - el.clientHeight;',
+  '      if (el.__gmVista && vista > el.__gmVista + 1 && (el.clientHeight <= el.__gmAlto + 1 || (el.__gmOculto - oculto) * 2 < vista - el.__gmVista)) { el.__gmFijo = true; continue; }',
   '      if (el.clientHeight * 2 < vista) continue;',
-  '      el.__gmVista = vista; el.__gmAlto = el.clientHeight;',
-  '      bajo = h + el.scrollHeight - el.clientHeight;',
+  '      el.__gmVista = vista; el.__gmAlto = el.clientHeight; el.__gmOculto = oculto;',
+  '      bajo = h + oculto;',
   '      if (bajo > alto) alto = bajo;',
   '    }',
   '    return alto;',

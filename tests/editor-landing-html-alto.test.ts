@@ -32,7 +32,7 @@ import { Script, createContext, runInContext } from 'node:vm';
 import { SCRIPT_ALTO, altoDeMensaje } from '../lib/editor-landing/html-libre';
 
 /** Un descendiente del body: su alto según la vista, lo que mide su contenido y su overflow-y. */
-type Caja = { tag?: string; overflowY?: string; top?: number; alto: (vista: number) => number; contenido: number };
+type Caja = { tag?: string; overflowY?: string; top?: number; alto: (vista: number) => number; contenido: number | ((vista: number) => number) };
 
 /**
  * Corre el script con un documento que mide `doc(vista)` y las cajas dadas. El padre aplica cada aviso
@@ -48,7 +48,7 @@ function simular(doc: (vista: number) => number, cajas: Caja[] = [], inicial = 4
   const els = cajas.map((c) => ({
     tagName: c.tag ?? 'DIV',
     get clientHeight() { return c.alto(vista); },
-    get scrollHeight() { return Math.max(c.contenido, c.alto(vista)); },
+    get scrollHeight() { return Math.max(typeof c.contenido === 'function' ? c.contenido(vista) : c.contenido, c.alto(vista)); },
     getBoundingClientRect: () => ({ top: c.top ?? 0, height: c.alto(vista) }),
     estilo: { overflowY: c.overflowY ?? 'auto' },
   }));
@@ -84,7 +84,7 @@ function simular(doc: (vista: number) => number, cajas: Caja[] = [], inicial = 4
   return { conResize, avisos, vista };
 }
 
-const conScroll = (alto: (vista: number) => number, contenido: number, top = 0): Caja => ({ alto, contenido, top });
+const conScroll = (alto: (vista: number) => number, contenido: Caja['contenido'], top = 0): Caja => ({ alto, contenido, top });
 
 test('el script sigue siendo un string servible (sin backticks ni `${`) que compila', () => {
   assert.doesNotThrow(() => new Script(SCRIPT_ALTO));
@@ -116,8 +116,32 @@ test('una caja de alto FIJO con scroll (un chat, unos términos) no estira el bl
   assert.deepEqual(chat.avisos, [1600, 400], 'y no vuelve a saltar con los tiempos');
 });
 
+test('el contenido que CRECE con la vista (un hero de 100vh adentro de la app) no desboca el bloque', () => {
+  // Verificación de la tanda 6: #root con overflow-y auto, la barra (60), un hero `min-height: 100vh` y
+  // 1500 más. Lo escondido es siempre 1560: sin mirarlo, cada aviso sumaba otra vez lo mismo (en este
+  // arnés llegaba a ALTO_MAX, 20000, en 14 avisos; en Chromium, 8200). Queda en la primera medida.
+  const hero = simular((v) => v, [conScroll((v) => v, (v) => 60 + v + 1500)]);
+  assert.deepEqual(hero.avisos, [1960]);
+  assert.equal(hero.vista, 1960);
+  // El umbral es la MITAD de lo que creció la vista. Un hero de 60vh crece más que eso: se marca en el
+  // segundo aviso y queda en la primera medida. Uno de 40vh tiene un punto fijo (la vista donde todo
+  // entra, 1560 / 0,6 = 2600) y llega a él sin pasar el freno de los 25 avisos.
+  assert.deepEqual(simular((v) => v, [conScroll((v) => v, (v) => 60 + v * 0.6 + 1500)]).avisos, [1800]);
+  const poco = simular((v) => v, [conScroll((v) => v, (v) => 60 + v * 0.4 + 1500)]);
+  assert.ok(poco.vista >= 2590 && poco.vista <= 2600 && poco.avisos.length < 25, 'el 40vh: ' + poco.avisos.join(' > '));
+});
+
 test('lo que no es el contenedor de una app: un textarea largo y una caja con overflow hidden', () => {
   assert.deepEqual(simular((v) => v, [{ tag: 'TEXTAREA', alto: (v) => v, contenido: 5000 }]).avisos, [400]);
   assert.deepEqual(simular((v) => v, [{ overflowY: 'hidden', alto: (v) => v, contenido: 5000 }]).avisos, [400]);
   assert.deepEqual(simular((v) => v, [{ overflowY: 'visible', alto: (v) => v, contenido: 5000 }]).avisos, [400]);
 });
+
+// ── VERIFICACIÓN DE LA TANDA 6 (14/10/2026): PROBADO ROMPIÉNDOLO ──────────────────────────────
+// Base: 5 / 0, con el mismo arnés. El contenido que crece con la vista (un hero de 100vh):
+//   A-1 sin mirar lo escondido (lo que había en la rama)  → 4 / 1 «el contenido que CRECE…» (en este arnés: 20000 en 14 avisos)
+//   A-2 el umbral en el 10 % de lo que creció la vista     → 4 / 1 «el contenido que CRECE…» (el de 60vh ya no se frena)
+// Medido además en Chromium sin cabeza (padre con el iframe en sandbox, el script servido por documentoHtmlLibre,
+// 4 s): con hero, la rama antes del arreglo 14 avisos y 20000 px; con el arreglo 1 aviso y 1960. Sin hero, 1560
+// las dos (el arreglo del Paquete 4 sigue sirviendo); una página común, 1505 las dos.
+// Restaurado: 5 / 0.
