@@ -1014,3 +1014,91 @@ video; las animaciones de página y qué se puede replicar de una web ajena van 
 - **Sin medir:** ninguna generación real de Flow (ni el cuerpo BOQ de Frames, ni el peso de un clip de Veo, ni si un
   fallo cobra); si las URL del bucket contestan 206 a un pedido por rango (Safari lo exige:
   `curl -sI -H "Range: bytes=0-1" <url.mp4>`); WebCodecs en un teléfono; un LCP en una traza real.
+
+## Animaciones: las de la página y replicarlas de una web ajena (relevamiento del 14/10/2026, sin código)
+
+Workflow `wf_930dd090-77a` (el video y Motion Sites, otras fuentes, medir qué se replica en webs reales, el mapa del
+editor, y un crítico que midió lo que faltaba). Las salidas y los scripts quedaron en el scratchpad de la sesión
+4eb065fe (`relevamiento-anim.json`, `critico/`, `anim/salidas/tabla-comparada.tsv`).
+
+### ⚠️ Lo que YA anda mal hoy: el interruptor «Animaciones» hace parpadear el hero y suma ~1,2 s de LCP
+- Medido sobre la publicada REAL (render.ts + armarDocumento; 3 plantillas, 390×844, CPU ×4, 3 corridas): sin
+  «Animaciones» el LCP del H1 da 236-404 ms; con el interruptor (prendido por defecto) da 1.428-3.004 ms en 6 de 9.
+- **Parpadeo** en 5 de 6 corridas: el H1 se pinta VISIBLE (FCP 404-1.048 ms), el script lo pasa a opacidad 0 entre
+  25 y 456 ms después, queda invisible 269-380 ms y recién ahí entra con el fade. Causa: `SCRIPT_PAGINA` va al final
+  del `<body>` (`pagina-publica.ts:533-544`) y pone `html.gm-anim` cuando la página ya se pintó.
+- Arreglo propuesto (etapa 0, sin decidir todavía): antes de poner `gm-anim`, el script marca como vistas las
+  secciones que ya están en pantalla (la primera nunca se esconde). Va en el SCRIPT, que no queda congelado: llega a
+  todas las publicadas sin republicar. Decide Martín si la primera sección queda quieta o hace el fade sin parpadeo.
+
+### El video: lo que es y lo que NO conviene copiar
+- La única página del video publicada es Scarlett (`scarlett-recepcionista.vercel.app`, leída en pantalla 29:47-30:30):
+  7 JSX que el navegador traduce con Babel, sin GSAP ni Framer Motion. Cuatro técnicas: video IA de fondo con cuadro
+  inicial = final; efectos atados al scroll (hero que se desvanece: opacidad 1 − 2,5p y −60p px; fondo con escala
+  1 + 0,3p; sección que crece de 0,88 a 1 entre p 0,35 y 0,75); entradas por IntersectionObserver (20 px, 900 ms,
+  cubic-bezier(0.22,0.8,0.3,1), 120 ms entre hermanos); loops en CSS (cinta de reseñas en dos filas de 55 y 65 s con
+  pausa en hover, pasos que avanzan cada 2,2 s).
+- **Su ping-pong se CONGELA en la mitad hacia atrás**: retrocede con `currentTime −= dt` por cuadro sobre un MP4 con UN
+  solo cuadro clave, y el video está «seeking» el 99,6 % de los cuadros (1-2 fps). Y no hacía falta: su clip ya cerraba
+  solo (SSIM 0,985 entre el primer y el último cuadro). **Regla:** loop nativo; si no cierra, fundido en el corte.
+- motionsites.ai: 582 «plantillas» (195 gratis), cada una un PROMPT con CSS, parámetros y la URL de un video en el CDN
+  de Higgsfield; los videos pesan 5-46 MB con un solo cuadro clave y 11 de 13 no cierran el loop (recodificados: 46,1 →
+  1,96 MB, SSIM 0,964). **Sus términos (30/09/2026) prohíben redistribuir el prompt y los videos son de ellos**: las
+  plantillas de MaKo tienen que ser propias, con la técnica y sin su contenido. Ninguna página del autor respeta
+  prefers-reduced-motion.
+
+### Las decisiones técnicas que salieron medidas
+- **GSAP queda fuera**: su licencia (gsap.com/community/standard-license, vigente desde 30/04/2025) prohíbe «tools that
+  allow users to build visual animations without code» que compitan con Webflow. Un panel de animaciones en MaKo cae
+  de lleno. (El GSAP propio de una web ajena dentro de la copia fiel no está alcanzado.)
+- **CSS nativo + el script propio con hash**: `animation-timeline` / `view()` / `scroll()` están en Chrome 115 y en
+  Safari/iOS 26; Firefox estable (158) no. Sin polyfill: donde no hay soporte, la página queda completa y quieta. La
+  publicada sólo corre `'self'` + el hash de `SCRIPT_PAGINA` (`pagina-publica.ts:446-453`): una librería de un CDN
+  ajeno no corre, y un video del CDN de otro tampoco carga (`media-src` = self + el bucket).
+- El modelo: **preset + parámetros** (duración, demora, distancia, curva, disparo) con los nombres del Image Editor
+  (`app/image-editor/_doory/editor/animation/strings.ts`: Desvanecer, Subir, Crecer, Deslizar, Barrido, Máquina de
+  escribir…), a nivel landing y sección, nunca por bloque: «Editar con IA» rehace los bloques y perdería el attr.
+- **Gamma (la fuente) no tiene panel de animaciones**: sólo el interruptor y Spotlight en Presentar. Por la regla de
+  copiar tal cual, de qué app se copia el panel lo decide Martín (recomendado: Canva, la fuente del Image Editor).
+
+### Qué se puede replicar de una web ajena (medido en la ventana aislada, que es lo que corre sin Pixel)
+- **Fiel** (cae exacto en un preset): animaciones y transiciones CSS — `document.getAnimations()` da keyframes, duración,
+  curva y demora aunque la hoja sea de OTRO origen (AOS: 63 transiciones con 0 de 2 hojas legibles); lo atado al
+  scroll en CSS; AOS (`data-aos*`, se lee del HTML sin correr nada); animate.css (la clase, no la hoja); Framer appear
+  (el JSON `<script type=framer/appear>` del HTML); Webflow IX2 (93 eventos en vivo, o el literal del chunk leído con
+  un parser, nunca `eval`); GSAP clásico simple (webflow.com: 79 tweens, 12 triggers).
+- **Aproximado**: lo que se escribe cuadro a cuadro en `style` (scroll transforms de Framer, Motion, callbacks de GSAP);
+  GSAP con pin o timelines encadenadas; texto por palabra/letra; hover hecho en JS (un script no puede provocar
+  `:hover`); las variantes de celular (la ventana lee en ancho de escritorio).
+- **No**: canvas/WebGL/three.js/Spline/Unicorn Studio (no queda en el DOM); el archivo de video, Lottie, Rive o imágenes
+  ajenas (derechos; se copia la técnica y se regenera); apps de Vite en varios módulos (gsap.com: 0 animaciones) y
+  sitios detrás de Cloudflare (lovable.dev: 403 al fetch del server); lo atado al scroll DENTRO de la copia fiel
+  «Página web» (medido: `view()` congelada en 0,444 y 0 eventos de scroll en el iframe de alto ajustado).
+- Trampas: `getKeyframes()` no devuelve custom properties (se leen del CSS que baja el server); si la PC de quien
+  replica tiene «reducir movimiento», la web ajena muestra menos (webflow.com baja de 12 a 1 triggers);
+  `estilo-original.ts:779` saltea `animate(.min).css` y `aos(.min).css`; el tope total del lector es 17 s
+  (`lector-script.ts:117`).
+
+### Reglas para cuando se construya
+- **Todo CSS de animación va colgado de una condición** (`html.gm-anim` en la publicada, `[data-movimiento="vivo"]` en
+  el editor) y **nunca `html.gm-anim` en la app**: escondería las miniaturas, que viven en el mismo documento.
+- La hoja de cada publicada queda congelada y `SCRIPT_PAGINA` no: un cambio del script mantiene el sentido de
+  `gm-anim` y `gm-visto`, o rompe las hojas viejas.
+- Un attr nuevo sale en un deploy ANTES que su UI: TipTap tira el attr que no conoce y el autoguardado de una pestaña
+  vieja lo borra.
+- Un transform, filter o will-change en una sección se vuelve el contenedor de lo `position:fixed` que tenga adentro
+  (barra de CTA, WhatsApp), como ya pasó en /m (`docs/hallazgos-mobile.md:202`).
+- WCAG 2.2.2: lo que se mueve solo más de 5 s lleva pausa; 2.3.3: el parallax se apaga con reduce. Sólo transform,
+  opacity y clip-path en el teléfono; nada de scroll-jacking (Lenis no).
+- No hay A/B que pruebe que las animaciones venden; lo medido es que la velocidad sí: defaults conservadores y medir
+  con Experimentos antes de prender efectos en todas.
+
+### Etapas propuestas (cada una se entrega sola) y lo que falta decidir
+0. El parpadeo y el LCP de hoy. 1. Modelo y render sin UI. 2. El editor la MUESTRA (al elegir el efecto y con un ▶
+Reproducir dentro del lienzo). 3. API de MaKo (`cambiar_animacion_landing`). 4. Efectos de scroll y componentes con
+movimiento (cinta, pasos, carrusel con snap, máquina de escribir, contador). 5. Video de fondo subido (arriba).
+6. Plantillas con movimiento (perfil para los 9 diseños + 2-3 propias). 7. Replicar las animaciones. 8. Video IA por
+Flow. 9. Presentar: View Transitions y bloque a bloque.
+Sin probar en hardware real: un iPhone con iOS 18 y 26, un Android de gama baja y los navegadores de Instagram y
+Facebook, antes de prender un efecto por defecto. Quedan sin preguntar si MaKo Mobile (`/m/landing/[id]`) muestra las
+animaciones y si el ▶ del editor respeta el «reducir movimiento» de quien edita.
