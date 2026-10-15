@@ -57,9 +57,13 @@ export const estaPublicada = (d: { slug: string | null; publicadoAt: string | nu
 
 export const LIMITE_LISTA = 50;
 
-/** La lista que ve el modelo: sin la papelera (contada aparte) y con tope. */
-export function listaParaApi(docs: readonly LandingResumen[], limite: number) {
-  const vivas = docs.filter((d) => !d.papelera);
+/**
+ * La lista que ve el modelo: sin la papelera (contada aparte) y con tope. Con `papelera` (tanda 7), al revés:
+ * SÓLO las de la papelera, con su id: sacar una de ahí (mandar_landing_a_papelera) o borrarla para siempre
+ * (borrar_landing_creada) pedía un id que la API no tenía cómo listar (inventario del 15/10/2026).
+ */
+export function listaParaApi(docs: readonly LandingResumen[], limite: number, op: { papelera?: boolean } = {}) {
+  const vivas = docs.filter((d) => (op.papelera ? d.papelera : !d.papelera));
   const mostradas = vivas.slice(0, limite);
   return {
     landings: mostradas.map((d) => {
@@ -77,9 +81,11 @@ export function listaParaApi(docs: readonly LandingResumen[], limite: number) {
     }),
     total: vivas.length,
     mostradas: mostradas.length,
-    en_papelera: docs.length - vivas.length,
+    en_papelera: op.papelera ? vivas.length : docs.length - vivas.length,
     ...(vivas.length > mostradas.length ? { nota_recorte: `Se muestran las ${mostradas.length} editadas más recientemente; hay ${vivas.length - mostradas.length} más.` } : {}),
-    nota: 'publicada true = tiene una versión en internet, que puede estar pausada (ver_landing_creada lo dice). Las fechas son ISO en UTC.',
+    nota: op.papelera
+      ? 'Son las que están en la papelera: su dirección no las muestra mientras estén ahí. Se sacan con mandar_landing_a_papelera (papelera:false) o se borran para siempre con borrar_landing_creada.'
+      : 'publicada true = tiene una versión en internet, que puede estar pausada (ver_landing_creada lo dice). Las fechas son ISO en UTC.',
   };
 }
 

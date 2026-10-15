@@ -1,10 +1,14 @@
 aceptar_item_plan_retro
+acomodar_bloque_landing
+acomodar_pagina_landing
+acomodar_seccion_landing
 activar_crm_automatico
 activar_envio_real_email
 actualizar_avance_tarea
 adjuntar_grabaciones_fathom
 afinar_avatares
 agregar_bloque_general
+agregar_bloque_landing
 agregar_dependencia_plan
 agregar_escenario_secuencia
 agregar_filtro_dashboard
@@ -12,6 +16,7 @@ agregar_grafico_dashboard
 agregar_link_fathom
 agregar_nota_lead
 agregar_objetivo_custom
+agregar_seccion_landing
 analisis_negocio
 analizar_hoja_dashboard
 analizar_llamadas_lead
@@ -33,11 +38,14 @@ borrar_documento_archivero
 borrar_guion_anuncio
 borrar_hoja_dashboard
 borrar_landing
+borrar_landing_creada
 borrar_plantilla_meta
 borrar_producto
 borrar_retro
+borrar_tema_landing
 buscar_conocimiento
 buscar_en_segundo_cerebro
+buscar_fotos_landing
 buscar_intereses_meta
 buscar_leads
 buscar_lugares_meta
@@ -45,6 +53,8 @@ buscar_tareas_plan
 buscar_tutorial
 cambiar_espera_paso
 cambiar_estado_comentario_landing
+cambiar_tema_landing
+cambiar_texto_landing
 cancelar_accion
 cancelar_analisis_dashboard
 cancelar_programacion_broadcast
@@ -59,11 +69,18 @@ cobertura_guiones_anuncio
 cobranza_lead
 cobrar_producto_landing
 comparar_agendas_meta_crm
+compartir_borrador_landing
 conectar_componentes_dashboard
 configurar_aviso_whatsapp
 configurar_bloque_general
+configurar_boton_landing
+configurar_formulario_landing
+configurar_landing
+configurar_navegacion_landing
 configurar_reporte
+configurar_seccion_landing
 configurar_seccion_reporte
+configurar_sitio_landing
 confirmaciones_crm_automatico
 confirmar_accion
 consultar_datos_dashboard
@@ -83,6 +100,7 @@ crear_experimento
 crear_hoja_dashboard
 crear_hoja_general
 crear_landing_desde_diseno
+crear_landing_en_blanco
 crear_lead_magnet
 crear_link_pago
 crear_modulo_curso
@@ -170,9 +188,12 @@ guardar_objetivo
 guardar_plan_pagos
 guardar_producto
 guardar_publico_audios
+guardar_tema_landing
 guardar_termino_glosario
+guardar_version_landing
 huecos_secuencias
 ignorar_datos_sin_marcar
+importar_borrador_landing
 iniciar_experimento
 inscripciones_lead
 insertar_elemento_dashboard
@@ -267,6 +288,7 @@ listar_tareas_paradas
 listar_tareas_plan
 listar_tareas_sin_datos
 listar_tareas_vencidas
+listar_temas_landing
 listar_trabajos_flow
 listar_triggers_email
 listar_versiones_landing
@@ -295,9 +317,11 @@ olvidar_nombre_video
 opciones_siguiente_paso_guion
 ordenar_modulos_curso
 panorama_closing
+pasar_comentarios_a_copia_landing
 pausar_landing
 plan_retro
 plantillas_meta_de_secuencia
+poner_enlace_landing
 poner_etiqueta_lead
 posponer_item_plan_retro
 probar_conexion_integracion
@@ -337,6 +361,7 @@ proponer_toggle_nutricion
 propuestas_lead_pendientes
 publicar_creacion
 publicar_landing
+quitar_cobro_landing
 quitar_componente_dashboard
 quitar_conector_dashboard
 quitar_dependencia_plan
@@ -365,6 +390,7 @@ resumir_marketing_periodo
 retirar_creacion
 reuniones_proximas
 reuniones_recientes
+revisar_direccion_landing
 sacar_etiqueta_lead
 seguimiento_ultima_retro
 sembrar_kpis_sugeridos
@@ -394,8 +420,10 @@ ver_catalogo_dashboard
 ver_ciclo_venta
 ver_clase_curso
 ver_cobro
+ver_cobro_landing
 ver_codigo_pixel
 ver_comportamiento_landing
+ver_configuracion_landing
 ver_contexto_video
 ver_creacion
 ver_cuadrante_retencion
@@ -407,6 +435,7 @@ ver_datos_conjunto_meta
 ver_diagnostico_fase
 ver_diagnostico_landing
 ver_distribucion_pipeline
+ver_dominio_landing
 ver_embudo_comercial_maduro
 ver_estado_agente_claude
 ver_estado_analisis_guiones
@@ -445,6 +474,7 @@ ver_rendimiento_anuncios
 ver_revenue_mensual
 ver_revenue_periodo
 ver_salud_cuenta_meta
+ver_secciones_landing
 ver_senales_negocio
 ver_serie_funnel_semanal
 ver_serie_vsl
@@ -455,6 +485,7 @@ ver_textos_anuncio_meta
 ver_tramos_ciclo_venta
 ver_transcript_anuncio
 ver_trimestre_actual
+ver_version_landing
 ver_voz_cliente
 ver_workspace
 ver_zona_horaria_workspace

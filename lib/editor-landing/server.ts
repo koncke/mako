@@ -29,11 +29,11 @@ import { leerTodo, leerPorPaginas } from '../supabase-paginado';
 import { tzDeWorkspace } from '../timezone';
 import { hoyEnTz } from '../date-utils';
 import type { LandingSpec } from '../landing-spec';
-import { contenidoVacio, slugDe, slugValido, type JsonNodo, type LandingContenido } from './doc';
+import { contenidoVacio, docPagina, nuevoId, slugDe, slugValido, tarjetasDe, type JsonNodo, type LandingContenido } from './doc';
 import { CONFIG_DEFAULT, formatoDe, proporcionDe } from './api-tipos';
 import type {
   Analitica, Comentario, ConfigLanding, Falla, LandingCompleta, LandingResumen, PedidoDocs,
-  TemaPropio, VersionResumen,
+  ParamsGeneracion, TemaPropio, VersionResumen,
 } from './api-tipos';
 import { sanearContenido, sanearConfig, excedeTope } from './validar';
 import { sanearTemaPropio } from './temas';
@@ -1126,6 +1126,141 @@ export async function importarBorrador(draftIdRaw: unknown): Promise<Resultado<'
     };
     const r = await crearEn(ws, d.titulo || spec.nombre, contenido, config);
     return r.ok ? { ok: true, doc: r.doc } : r;
+  } catch (e) {
+    return falla(msg(e), 500);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Crear y editar con IA desde el SERVER (la API de MaKo, tanda 7)
+// ─────────────────────────────────────────────────────────────────────────────
+// Pedido de Martín (15/10/2026), textual: «Ambos, tienen que pasarle absolutamente todos los botones. Todas
+// las funciones a la API de MaKo.» En la pantalla, «Crear con IA» y el agente del editor ORQUESTAN en el
+// navegador (CrearConIA.tsx: esquema → crear → secciones en tandas → guardar; PanelAgente.tsx: editar →
+// versión de antes → aplicar). Por WhatsApp no hay navegador: esto es la MISMA cadena en el server, con las
+// MISMAS piezas (ia.ts `esquema`/`secciones`/`editar`, `crearEn`, `guardarVersion`, `guardar` y las reglas puras
+// de la pantalla: `tandasDe`, `tarjetaDesdeEsquema`, `resolverAnclas`, `anclasResueltas`, `planDeAplicacion`),
+// como ya hace «Aplicar» del Diagnóstico (diagnostico-aplicar.ts). Lo llama lib/api-mako/areas/landing-editor.run.ts.
+// Imports dinámicos: este módulo lo importan la página pública y el dominio, y no tienen por qué cargar la IA.
+
+/** Los plazos de `generarConIA`: los de «Replicar» por bloques (replicar.ts), por debajo de los 300 s de quien confirma. */
+const PLAZO_GENERAR_MS = 240_000;
+const TANDA_GENERAR_MS = 60_000;
+/** Tandas a la vez: dos, como la pantalla (una sola key de la IA gratis no aguanta más). */
+const TANDAS_GENERAR_A_LA_VEZ = 2;
+
+export type PedidoGenerarIA = {
+  modo: 'generar' | 'pegar';
+  idea?: string;
+  texto?: string;
+  params: Partial<ParamsGeneracion>;
+  /** El `config` con que nace (tema, formato y origen): lo arma quien llama con `configDeCreacion`, como la pantalla. */
+  config: Partial<ConfigLanding>;
+  titulo?: string | null;
+};
+export type ResultadoGenerarIA = { ok: true; doc: { id: number; titulo: string }; secciones: number; sinDiseno: number } | FallaHttp;
+
+/**
+ * «Generar · Desde una idea» o desde un texto (con su modo: de guía, condensado o tal cual), de punta a punta.
+ * La diferencia con la pantalla, a propósito: la sección cuya tanda no sale ni dentro del plazo se arma desde el
+ * ESQUEMA (`tarjetaDesdeEsquema`, el «Completar con el esquema» de la pantalla) en vez de quedar esperando un
+ * clic que por WhatsApp nadie va a dar; el resultado dice cuántas (`sinDiseno`). La landing se crea al FINAL,
+ * con todo: si la IA falla en el esquema no queda una landing vacía.
+ */
+export async function generarConIA(p: PedidoGenerarIA): Promise<ResultadoGenerarIA> {
+  const ws = await wsOFalla();
+  if (typeof ws !== 'number') return ws;
+  const t0 = Date.now();
+  try {
+    const ia = await import('./ia');
+    const { tandasDe, tarjetaDesdeEsquema } = await import('./ia-reglas');
+    const { resolverAnclas } = await import('./ia-bloques');
+    const e = await ia.esquema({ modo: p.modo, prompt: p.idea, texto: p.texto, params: p.params });
+    if (!e.ok) return falla(e.error, e.status === 400 ? 400 : 502);
+    const esq = e.esquema;
+    const tandas = tandasDe(esq.secciones.length);
+    const porIndice = new Map<number, JsonNodo>();
+    let siguiente = 0;
+    const trabajador = async () => {
+      while (siguiente < tandas.length) {
+        const indices = tandas[siguiente++];
+        if (Date.now() - t0 + TANDA_GENERAR_MS > PLAZO_GENERAR_MS) continue;
+        try {
+          const r = await ia.secciones({ esquema: esq, indices, params: p.params, temaId: typeof p.config.tema === 'string' ? p.config.tema : undefined });
+          // El contrato de la pantalla (`colocarTanda`): UNA por índice pedido; otra cantidad es un error de la tanda.
+          if (r.ok && r.tarjetas.length === indices.length) r.tarjetas.forEach((t, k) => porIndice.set(indices[k], t));
+          else console.warn(`[editor-landing/generar] tanda ${indices.join(',')}: ${r.ok ? 'faltaron secciones' : r.error}`);
+        } catch (err) {
+          console.warn(`[editor-landing/generar] tanda ${indices.join(',')}: ${msg(err)}`);
+        }
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(TANDAS_GENERAR_A_LA_VEZ, tandas.length) }, trabajador));
+    let sinDiseno = 0;
+    const tarjetas = esq.secciones.map((s, i) => {
+      const t = porIndice.get(i);
+      if (t) return t;
+      sinDiseno++;
+      return tarjetaDesdeEsquema(s, i === 0);
+    });
+    if (!tarjetas.length) return falla('MaKo no armó ninguna sección. Vuelve a intentar.', 502);
+    // Las anclas que cada tanda dejó pendientes (`#t-formulario`), resueltas con todas juntas (`contenidoGenerado`).
+    const contenido: LandingContenido = { v: 1, paginas: [{ id: nuevoId('p'), titulo: 'Inicio', ruta: '', doc: { type: 'doc', content: resolverAnclas(tarjetas) } }] };
+    const r = await crearEn(ws, (p.titulo ?? '').trim() || esq.titulo, contenido, p.config);
+    if (!r.ok) return r;
+    console.log(`[editor-landing/generar] ${p.modo} → #${r.doc.id} (${tarjetas.length} secciones, ${sinDiseno} sin IA, ${Math.round((Date.now() - t0) / 1000)} s)`);
+    return { ok: true, doc: { id: r.doc.id, titulo: r.doc.titulo }, secciones: tarjetas.length, sinDiseno };
+  } catch (e) {
+    return falla(msg(e), 500);
+  }
+}
+
+export type PedidoEditarIA = { docId: number; instruccion: string; seccionId?: string | null; paginaId?: string | null };
+export type ResultadoEditarIA =
+  | { ok: true; doc: { id: number; titulo: string; version: number }; versionAntes: number; resumen: string | null; cambiadas: number; nuevas: number }
+  | (FallaHttp & { conflicto?: boolean; sinCambios?: true });
+
+/**
+ * El agente del editor («Edición con IA», el Ask Agent): la instrucción sobre UNA sección (`seccionId`) o sobre
+ * una página entera (`paginaId`; sin ninguna, la de inicio). El orden es el de `aceptarPropuesta` (PanelAgente.tsx):
+ * la versión «Antes de un cambio de IA» y RECIÉN AHÍ el documento, guardado con la versión que se abrió (si
+ * alguien guardó en el medio: conflicto, no pisa).
+ */
+export async function editarConIA(p: PedidoEditarIA): Promise<ResultadoEditarIA> {
+  const ws = await wsOFalla();
+  if (typeof ws !== 'number') return ws;
+  try {
+    const a = await abrir(p.docId);
+    if (!a.ok) return a;
+    const doc = a.doc;
+    const pagina = p.seccionId
+      ? doc.contenido.paginas.find((x) => tarjetasDe(x).some((t) => t.attrs?.id === p.seccionId))
+      : doc.contenido.paginas.find((x) => (p.paginaId ? x.id === p.paginaId : x.ruta === '')) ?? doc.contenido.paginas[0];
+    if (!pagina) return falla(p.seccionId ? 'Esa sección ya no está.' : 'Esa página ya no está.', 409);
+    const todas = tarjetasDe(pagina);
+    const activa = p.seccionId ? todas.find((t) => t.attrs?.id === p.seccionId) ?? null : null;
+    const enviadas = activa ? [activa] : todas;
+    const ia = await import('./ia');
+    const dif = await import('@/app/web-generator/editor/diff-tarjetas');
+    const r = await ia.editar({ instruccion: p.instruccion, tarjetas: enviadas, alcance: activa ? 'seccion' : 'landing', params: { formato: formatoDe(doc.config) } });
+    if (!r.ok) return falla(r.error, r.status === 400 ? 400 : 502);
+    if (!r.tarjetas.length) return { ...falla(r.resumen || 'MaKo no propuso cambios.', 422), sinCambios: true };
+    const propuestas = dif.anclasResueltas(r.tarjetas, enviadas, todas);
+    const plan = dif.planDeAplicacion(todas, propuestas, { anclaNuevas: activa ? dif.idDe(activa) : null });
+    const contenido = { ...doc.contenido, paginas: doc.contenido.paginas.map((x) => (x.id === pagina.id ? { ...x, doc: docPagina(plan.resultado) } : x)) };
+    // La versión de antes ANTES de tocar nada: sin ella no hay vuelta atrás, y no se aplica.
+    const v = await guardarVersion(p.docId, dif.MOTIVO_ANTES_DE_IA);
+    if (!v.ok) return falla('No pude guardar la versión de antes. Vuelve a intentarlo.', 500);
+    const g = await guardar({ accion: 'guardar', id: p.docId, version: doc.version, contenido });
+    if (!g.ok) return g.conflicto ? { ok: false, error: 'La landing cambió mientras tanto. Vuelve a intentarlo.', status: 409, conflicto: true } : g;
+    return {
+      ok: true,
+      doc: { id: doc.id, titulo: doc.titulo, version: g.version },
+      versionAntes: v.version.id,
+      resumen: r.resumen ?? null,
+      cambiadas: plan.reemplazos.length,
+      nuevas: plan.inserciones.reduce((n, x) => n + x.tarjetas.length, 0),
+    };
   } catch (e) {
     return falla(msg(e), 500);
   }

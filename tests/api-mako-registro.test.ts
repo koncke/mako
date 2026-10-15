@@ -63,7 +63,9 @@ test('el registro cargó sin problemas (ids únicos, snake_case, alias que no pi
  * (el test de abajo): una def SUELTA con server-only (lib/api-mako/areas/zzrotura.def.ts, que ningún
  * área importa) → 21 / 1 con el barrido del directorio y 22 / 0 con la lista por área de antes.
  */
-const RUNS_DE_AREA: Partial<Record<string, readonly string[]>> = { metricas: ['metricas', 'dashboard'] };
+// Tanda 7 (15/10/2026): el resto del editor del Web Generator (crear y editar con IA, el contenido, el tema, el
+// sitio, el dominio…) vive en landing-editor.run.ts, del área `landing` (sus runners se suman a RUNNERS).
+const RUNS_DE_AREA: Partial<Record<string, readonly string[]>> = { metricas: ['metricas', 'dashboard'], landing: ['landing', 'landing-editor'] };
 const runsDe = (a: string): readonly string[] => RUNS_DE_AREA[a] ?? [a];
 
 test('toda def tiene su runner en el .run.ts de su área, y todo runner tiene def', () => {

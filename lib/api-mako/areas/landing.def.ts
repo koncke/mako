@@ -16,9 +16,12 @@
 // (lib/editor-landing/server.ts y publicar.ts): ninguna segunda implementación.
 // Detalle y trampas: docs/hallazgos-editor-landing.md, «Tanda 4».
 //
+// Tanda 7 (15/10/2026), Martín: «Ambos, tienen que pasarle absolutamente todos los botones. Todas las
+// funciones a la API de MaKo.» Lo que la tanda 4 dejó afuera a propósito —generar con IA y editar el
+// contenido— entra en landing-editor.def.ts (DEFS_EDITOR, sumadas al final de esta lista): el modelo pide una
+// cosa que una persona hace y el JSON lo arman los constructores de la pantalla, con el saneo antes de proponer.
+//
 // Lo que NO está, a propósito (el porqué completo va en la cosecha de la corrida):
-//   · generar con IA / editar / guardar el contenido de una landing del editor: IA
-//     larga, o un documento de muchos campos libres que hay que ver en pantalla.
 //   · sincronizar_landings: re-análisis masivo con 150 s de presupuesto, por
 //     encima del techo de 60 s de la API.
 //   · ocultar una página detectada y cerrar una prueba del Pixel: viven en el
@@ -42,6 +45,8 @@ import { FORMATOS_REPLICAR } from '@/lib/editor-landing/replicar-reglas';
 import { ESTADOS_SUGERENCIA } from '@/lib/editor-landing/diagnostico';
 // Las plantillas de presentación (tanda 6): la MISMA lista que «Plantillas» de la pantalla (puro).
 import { PLANTILLAS_PRESENTACION } from '@/lib/editor-landing/plantillas-presentaciones';
+// Tanda 7: el resto del editor (crear y editar con IA, el contenido, el tema, el sitio, el dominio…).
+import { DEFS_EDITOR } from './landing-editor.def';
 
 const TODOS = ['whatsapp', 'app', 'http'] as const;
 /** Sin http: lo que trae rastros de personas (nombres de quien dejó sus datos,
@@ -267,9 +272,11 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'listar_landings_creadas', area: 'landing', tipo: 'lectura',
     titulo: 'Landings y presentaciones creadas',
-    descripcion: 'Las landings y presentaciones que el negocio armó en el editor del Web Generator, las editadas más recientemente primero: id, título, formato (landing o presentación), si está publicada, su dirección pública y cuándo se editó por última vez. Úsala antes de ver_landing_creada, publicar_landing o despublicar_landing, que piden el id. No son las páginas declaradas en Integraciones (eso es listar_landings) ni las versiones del generador anterior (listar_borradores_landing). Las de la papelera no salen: la respuesta dice cuántas hay.',
+    descripcion: 'Las landings y presentaciones que el negocio armó en el editor del Web Generator, las editadas más recientemente primero: id, título, formato (landing o presentación), si está publicada, su dirección pública y cuándo se editó por última vez. Úsala antes de ver_landing_creada, publicar_landing o despublicar_landing, que piden el id. No son las páginas declaradas en Integraciones (eso es listar_landings) ni las versiones del generador anterior (listar_borradores_landing). Las de la papelera no salen (la respuesta dice cuántas hay); con papelera:true salen sólo ésas.',
     parametros: [
       { nombre: 'limite', rotulo: 'Cuántas', tipo: 'number', entero: true, minimo: 1, maximo: 100, descripcion: 'Cuántas devolver, las editadas más recientemente primero. Por defecto 50; la respuesta dice cuántas quedaron afuera.' },
+      // Tanda 7: la Papelera con sus ids (antes sólo se contaba, y sacar una de ahí pedía un id que la API no daba).
+      { nombre: 'papelera', rotulo: 'Papelera', tipo: 'boolean', descripcion: 'true lista sólo las que están en la papelera (para sacarlas o borrarlas para siempre).' },
     ],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: G_WRITER,
   },
@@ -442,7 +449,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'mandar_landing_a_papelera', area: 'landing', tipo: 'accion', confirmacion: 'chat', reversible: true,
     titulo: 'Mandar a la papelera o sacar de ella',
-    descripcion: 'Manda una landing o presentación del editor del Web Generator a la papelera, o la saca (con papelera:false). En la papelera no se borra nada: si estaba publicada, su dirección deja de mostrarla mientras esté ahí y vuelve tal cual al sacarla. Borrarla para siempre se hace sólo en la pantalla. Úsala cuando el dueño ya no use una landing, o pida recuperarla. Necesita el id (de listar_landings_creadas; las de la papelera no salen ahí: la persona lo dice).',
+    descripcion: 'Manda una landing o presentación del editor del Web Generator a la papelera, o la saca (con papelera:false). En la papelera no se borra nada: si estaba publicada, su dirección deja de mostrarla mientras esté ahí y vuelve tal cual al sacarla. Borrarla para siempre es borrar_landing_creada. Úsala cuando el dueño ya no use una landing, o pida recuperarla. Necesita el id (de listar_landings_creadas; las de la papelera, con papelera:true).',
     parametros: [
       P_ID_CREADA,
       { nombre: 'papelera', rotulo: 'A la papelera', tipo: 'boolean', descripcion: 'true la manda (por defecto), false la saca.' },
@@ -548,7 +555,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'aplicar_comentario_landing', area: 'landing', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: true,
     titulo: 'Aplicar un comentario a la landing',
-    descripcion: 'Aplica un comentario pendiente del Diagnóstico a una landing creada en el editor del Web Generator: MaKo reescribe con IA la sección que señala siguiendo su arreglo, guarda antes una versión «Antes de aplicar el diagnóstico» (se vuelve atrás con restaurar_version_landing, pasando la version_antes de la respuesta y el comentario) y marca el comentario como resuelto. No publica: el cambio queda guardado y se sube con publicar_landing. Sólo comentarios de una landing creada y ubicados en una sección (se_puede_aplicar en listar_comentarios_landing); los de una página de afuera se aplican desde el Web Generator, que la replica primero. Úsala cuando el dueño pida arreglar lo que señaló el diagnóstico. Deja un link para que la persona revise y confirme. Gasta IA y tarda hasta un minuto: por eso no sale por la API. No corre en una automatización.',
+    descripcion: 'Aplica un comentario pendiente del Diagnóstico a una landing creada en el editor del Web Generator: MaKo reescribe con IA la sección que señala siguiendo su arreglo, guarda antes una versión «Antes de aplicar el diagnóstico» (se vuelve atrás con restaurar_version_landing, pasando la version_antes de la respuesta y el comentario) y marca el comentario como resuelto. No publica: el cambio queda guardado y se sube con publicar_landing. Sólo comentarios de una landing creada y ubicados en una sección (se_puede_aplicar en listar_comentarios_landing); los de una página de afuera se pasan antes a su copia (replicar_landing y pasar_comentarios_a_copia_landing) y se aplican ahí. Para aplicar todos de una vez está aplicar_todos_comentarios_landing. Úsala cuando el dueño pida arreglar lo que señaló el diagnóstico. Deja un link para que la persona revise y confirme. Gasta IA y tarda hasta un minuto: por eso no sale por la API. No corre en una automatización.',
     parametros: [P_COMENTARIO],
     canales: SIN_HTTP, costo: 'ia', gating: G_WRITER, lenta: true,
     escribe: 'el contenido de la landing (landing_docs), una versión «Antes de aplicar el diagnóstico» en su historial y el comentario como resuelto (landing_sugerencias)',
@@ -588,4 +595,6 @@ export const DEFS: readonly OperacionDef[] = [
     canales: TODOS, costo: 'gratis', gating: G_WRITER,
     escribe: 'la foto publicada de la landing (landing_docs.publicado, su dirección y la fecha), una versión «Publicada» en su historial y el paso del onboarding de publicar',
   },
+  // Tanda 7: al final, para que en un empate de relevancia ganen las de siempre (registro.ts, `ordenarPorRelevancia`).
+  ...DEFS_EDITOR,
 ];

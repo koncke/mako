@@ -38,7 +38,7 @@ import { textoDelVacio } from '@/lib/replay-ficha';
 import { tzActual } from '@/lib/timezone';
 import { linkApp } from '@/lib/app-url';
 import { catalogoPanda, fetchPandaDailyStat, fetchPandaRangeStats } from '@/lib/panda';
-import { urlsDescubiertas, getComportamiento, analizarLanding, borrarAnalisis } from '@/lib/landing-analyst';
+import { urlsDescubiertas, getComportamiento, borrarAnalisis } from '@/lib/landing-analyst';
 import { listarDrafts, borrarDraft } from '@/lib/landing-writer';
 import { specAMarkdown, objetivoLabel } from '@/lib/landing-spec';
 import {
@@ -50,7 +50,9 @@ import {
 // pantalla). Ningún `.from('landing_docs')` acá: tests/api-mako-landing-editor.test.ts lo frena.
 import * as docsEditor from '@/lib/editor-landing/server';
 import { publicar as publicarEnEditor, despublicar as despublicarEnEditor, sitioActivo as sitioActivoEnEditor } from '@/lib/editor-landing/publicar';
-import { listar as comentariosDelDiagnostico, cambiarEstado as estadoDeComentario } from '@/lib/editor-landing/diagnostico-server';
+import { listar as comentariosDelDiagnostico, cambiarEstado as estadoDeComentario, analizar as analizarDiagnostico } from '@/lib/editor-landing/diagnostico-server';
+// Tanda 7: el resto del editor (landing-editor.run.ts), sumado al final de RUNNERS.
+import { RUNNERS_EDITOR } from './landing-editor.run';
 // «Aplicar» un comentario del Diagnóstico (tanda 6, decisión c): el MISMO server que el botón de la pantalla.
 import { aplicarComentarios, leerComentario, type ComentarioConLanding } from '@/lib/editor-landing/diagnostico-aplicar';
 import { paginasParaPublicar } from '@/lib/editor-landing/server-reglas';
@@ -163,7 +165,7 @@ async function planCobro(input: Record<string, unknown>, ctx: Ctx): Promise<Plan
  */
 function noSeAplica(c: ComentarioConLanding | null, id: number): string | null {
   if (!c) return noExisteComentario(id);
-  if (c.docId == null) return 'Ese comentario es de una página de afuera: no se aplica por aquí. En el Web Generator → Diagnóstico, «Aplicar» la replica primero en el editor y pasa los comentarios a la copia.';
+  if (c.docId == null) return 'Ese comentario es de una página de afuera: no se aplica por aquí. Primero se replica (replicar_landing) y se pasan los comentarios a la copia (pasar_comentarios_a_copia_landing), y se aplica el de la copia; o en el Web Generator → Diagnóstico, «Aplicar» hace las dos cosas.';
   if (c.estado !== 'pendiente') return `Ese comentario ya está ${nombreDeEstado(c.estado)}: no hay nada que aplicar.`;
   if (!c.seccionId) return 'No sé en qué sección de la landing está ese comentario (su cita no se encontró): no se puede aplicar solo. Propón el cambio en el chat o hazlo en el editor.';
   return null;
@@ -564,7 +566,7 @@ export const RUNNERS: Runners = {
     leer: async (input) => {
       const r = await docsEditor.listar();
       if (!r.ok) { siFallaNuestra(r); return errorLectura(`No pude leer las landings (${r.error}).`); }
-      return json(listaParaApi(r.docs, num(input, 'limite') ?? LIMITE_LISTA));
+      return json(listaParaApi(r.docs, num(input, 'limite') ?? LIMITE_LISTA, { papelera: bool(input, 'papelera') === true }));
     },
   },
 
@@ -791,7 +793,9 @@ export const RUNNERS: Runners = {
         ? ` Reemplaza el diagnóstico del ${previo.analyzed_at?.slice(0, 10) ?? 'anterior'}${previo.score != null ? ` (score ${previo.score})` : ''}, que se pierde si el nuevo sale bien.`
         : '';
       return {
-        payload: { url, ...(texto ? { texto } : {}) },
+        // `leer`: la dirección TAL CUAL la pegó la persona (la normalizada es la LLAVE de landing_analyses, y hay
+        // hosts que sólo existen con www: docs/hallazgos-editor-landing.md, «Leer una página de afuera»).
+        payload: { url, leer: crudo, ...(texto ? { texto } : {}) },
         resumen: `Analizar la landing ${url} con IA${texto ? ' usando el texto pegado' : ''}.${reemplaza} Tarda hasta unos minutos.`,
       };
     },
@@ -799,7 +803,11 @@ export const RUNNERS: Runners = {
       try {
         const url = String(payload.url ?? '');
         const texto = typeof payload.texto === 'string' ? payload.texto : undefined;
-        const r = await analizarLanding(url, texto);
+        // Tanda 7: el MISMO server que «Analizar» de Web Generator → Diagnóstico (diagnostico-server.ts, `analizar`):
+        // la red de plataforma y los COMENTARIOS guardados. Antes llamaba a analizarLanding suelto y lo diagnosticado
+        // por la API no aparecía en listar_comentarios_landing (inventario del 15/10/2026). Una pendiente de antes
+        // del cambio no trae `leer`: va con la normalizada, como iba.
+        const r = await analizarDiagnostico({ url: typeof payload.leer === 'string' && payload.leer ? payload.leer : url, texto });
         if (!r.ok) {
           // Tanda 6: la página que se arma en el navegador (o que nos rechaza) se lee en el navegador de
           // la persona, que acá no hay: se dice dónde está esa salida y la de siempre (el texto pegado).
@@ -807,15 +815,16 @@ export const RUNNERS: Runners = {
             ok: false,
             resumen: r.enNavegador
               ? `${r.error} Se diagnostica desde Web Generator → Diagnóstico, que la lee desde el navegador de la persona; o vuelve a proponer analizar_landing con el texto en «texto».`
-              : r.pegable ? `${r.error} (Vuelve a proponer analizar_landing con el texto en «texto».)` : `No se pudo analizar ${r.url}: ${r.error}`,
-            datos: { url: r.url, necesita_texto: r.pegable === true, ...(r.enNavegador ? { en_navegador: true, motivo: r.motivo } : {}) },
+              : r.pegable ? `${r.error} (Vuelve a proponer analizar_landing con el texto en «texto».)` : `No se pudo analizar ${url}: ${r.error}`,
+            datos: { url, necesita_texto: r.pegable === true, ...(r.enNavegador ? { en_navegador: true, motivo: r.motivo } : {}) },
           };
         }
-        const altos = (r.row.hallazgos ?? []).filter((h) => h.severidad === 'alta').length;
+        const pendientes = r.sugerencias.filter((s) => s.estado === 'pendiente');
+        const altos = pendientes.filter((s) => s.hallazgo.severidad === 'alta').length;
         return {
           ok: true,
-          resumen: `Landing analizada: ${r.row.veredicto ?? 'sin veredicto'}${r.row.score != null ? ` (score ${r.row.score} de 10)` : ''}, ${(r.row.hallazgos ?? []).length} hallazgos (${altos} de severidad alta). El detalle está en ver_diagnostico_landing.`,
-          datos: { url: r.row.url, score_0_a_10: r.row.score, hallazgos: (r.row.hallazgos ?? []).length, hallazgos_altos: altos },
+          resumen: `Landing analizada: ${r.resumen?.veredicto ?? 'sin veredicto'}${r.resumen?.score != null ? ` (score ${r.resumen.score} de 10)` : ''}, ${r.nuevas ?? 0} comentario(s) nuevo(s); ${pendientes.length} pendiente(s) (${altos} de severidad alta). El detalle está en ver_diagnostico_landing y los comentarios en listar_comentarios_landing.`,
+          datos: { url: r.url ?? url, score_0_a_10: r.resumen?.score ?? null, hallazgos: r.sugerencias.length, hallazgos_altos: altos, nuevos: r.nuevas ?? 0 },
         };
       } catch (e) {
         return { ok: false, resumen: `El análisis falló (${mensaje(e)}).` };
@@ -1412,4 +1421,7 @@ export const RUNNERS: Runners = {
       }
     },
   },
+
+  // Tanda 7 (15/10/2026): el resto del editor, por el MISMO server que la pantalla (landing-editor.run.ts).
+  ...RUNNERS_EDITOR,
 };

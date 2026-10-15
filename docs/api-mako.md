@@ -36,7 +36,7 @@
 - **Chatbot y secuencias** (`chatbot`): `listar_secuencias_nutricion` · `ficha_secuencia_mensajes` · `escenarios_secuencia` · `metricas_chatbot` · `huecos_secuencias` · `estado_canal_whatsapp_chatbot` · `contexto_etapa` · `etapas_para_secuencia` · `listar_objetivos_secuencia` · `audios_requeridos` · `escenarios_ensayo` · `estado_onboarding_chatbot` · `plantillas_meta_de_secuencia` · `inscripciones_lead` · `listar_secuencias_archivadas` · `proponer_toggle_nutricion` · `cambiar_espera_paso` · `desarchivar_secuencia` · `guardar_publico_audios` · `agregar_objetivo_custom` · `avisar_al_equipo` · `reabrir_onboarding_chatbot` · `guardar_estrategia_secuencia` · `editar_pasos_secuencia_mensajes` · `agregar_escenario_secuencia` · `archivar_secuencia` · `guardar_link_video` · `crear_lead_magnet`
 - **Dashboard y análisis** (`metricas`): `metricas_negocio` · `analisis_negocio` · `resumir_marketing_periodo` · `diagnosticar_funnel` · `ver_serie_funnel_semanal` · `ver_tendencias` · `detectar_fatiga_adsets` · `comparar_agendas_meta_crm` · `ver_serie_vsl` · `ver_revenue_periodo` · `ver_revenue_mensual` · `ver_mrr_activo` · `ver_cac_acumulado` · `ver_cac_mensual` · `listar_cohortes_semanales` · `listar_cohortes_mensuales` · `ver_embudo_comercial_maduro` · `ver_ciclo_venta` · `ver_tramos_ciclo_venta` · `ver_distribucion_pipeline` · `ver_catalogo_dashboard` · `consultar_datos_dashboard` · `leer_hoja_dashboard` · `leer_analisis_dashboard` · `crear_hoja_dashboard` · `editar_hoja_dashboard` · `duplicar_hoja_dashboard` · `borrar_hoja_dashboard` · `agregar_grafico_dashboard` · `editar_grafico_dashboard` · `quitar_componente_dashboard` · `agregar_filtro_dashboard` · `quitar_filtro_dashboard` · `insertar_elemento_dashboard` · `restablecer_informe_dashboard` · `analizar_hoja_dashboard` · `programar_analisis_dashboard` · `cancelar_analisis_dashboard` · `conectar_componentes_dashboard` · `quitar_conector_dashboard` · `leer_conclusiones_dashboard` · `generar_conclusiones_dashboard`
 - **Experiments y Retro** (`experimentos`): `estado_experimentos` · `listar_experimentos` · `ficha_experimento` · `vista_experimentos` · `medicion_experimento` · `listar_conclusiones_experimentos` · `catalogo_metricas_experimento` · `snapshot_funnel_experimentos` · `listar_retros` · `plan_retro` · `seguimiento_ultima_retro` · `estado_gate_retro` · `destacados_periodo_retro` · `cobertura_datos_retro` · `iniciar_experimento` · `cerrar_experimento` · `descartar_experimento` · `aceptar_item_plan_retro` · `posponer_item_plan_retro` · `descartar_item_plan_retro` · `deshacer_item_plan_retro` · `crear_experimento` · `borrar_retro`
-- **Landing (Analyst, Generator y tracking)** (`landing`): `listar_landings` · `listar_landings_detectadas` · `ver_estado_pixel` · `verificar_pagina_pixel` · `ver_codigo_pixel` · `ver_novedades_pixel` · `detectar_piezas_landing` · `ver_cambios_landing` · `contar_eventos_prueba` · `ver_grabaciones_prueba` · `listar_videos_landing` · `listar_videos_detectados` · `listar_videos_panda` · `ver_metricas_video_panda` · `listar_analisis_landing` · `ver_diagnostico_landing` · `ver_comportamiento_landing` · `listar_borradores_landing` · `ver_borrador_landing` · `listar_landings_creadas` · `ver_landing_creada` · `ver_analitica_landing` · `ver_rechazos_pago_landing` · `listar_versiones_landing` · `listar_comentarios_landing` · `listar_disenos_landing` · `nombrar_video` · `olvidar_nombre_video` · `ocultar_video` · `crear_landing_desde_diseno` · `renombrar_landing` · `duplicar_landing` · `pausar_landing` · `mandar_landing_a_papelera` · `crear_presentacion_desde_plantilla` · `cambiar_estado_comentario_landing` · `restaurar_version_landing` · `despublicar_landing` · `guardar_landing` · `borrar_landing` · `borrar_analisis_landing` · `borrar_borrador_landing` · `cobrar_producto_landing` · `publicar_landing`
+- **Landing (Analyst, Generator y tracking)** (`landing`): `listar_landings` · `listar_landings_detectadas` · `ver_estado_pixel` · `verificar_pagina_pixel` · `ver_codigo_pixel` · `ver_novedades_pixel` · `detectar_piezas_landing` · `ver_cambios_landing` · `contar_eventos_prueba` · `ver_grabaciones_prueba` · `listar_videos_landing` · `listar_videos_detectados` · `listar_videos_panda` · `ver_metricas_video_panda` · `listar_analisis_landing` · `ver_diagnostico_landing` · `ver_comportamiento_landing` · `listar_borradores_landing` · `ver_borrador_landing` · `listar_landings_creadas` · `ver_landing_creada` · `ver_analitica_landing` · `ver_rechazos_pago_landing` · `listar_versiones_landing` · `listar_comentarios_landing` · `listar_disenos_landing` · `nombrar_video` · `olvidar_nombre_video` · `ocultar_video` · `crear_landing_desde_diseno` · `renombrar_landing` · `duplicar_landing` · `pausar_landing` · `mandar_landing_a_papelera` · `crear_presentacion_desde_plantilla` · `cambiar_estado_comentario_landing` · `restaurar_version_landing` · `despublicar_landing` · `guardar_landing` · `borrar_landing` · `borrar_analisis_landing` · `borrar_borrador_landing` · `cobrar_producto_landing` · `publicar_landing` · `ver_secciones_landing` · `ver_configuracion_landing` · `listar_temas_landing` · `ver_version_landing` · `revisar_direccion_landing` · `ver_dominio_landing` · `ver_cobro_landing` · `buscar_fotos_landing` · `crear_landing_en_blanco` · `agregar_seccion_landing` · `cambiar_texto_landing` · `acomodar_seccion_landing` · `configurar_seccion_landing` · `agregar_bloque_landing` · `acomodar_bloque_landing` · `poner_enlace_landing` · `configurar_formulario_landing` · `configurar_boton_landing` · `quitar_cobro_landing` · `acomodar_pagina_landing` · `cambiar_tema_landing` · `configurar_landing` · `configurar_sitio_landing` · `configurar_navegacion_landing` · `guardar_tema_landing` · `borrar_tema_landing` · `compartir_borrador_landing` · `guardar_version_landing` · `borrar_landing_creada` · `importar_borrador_landing` · `pasar_comentarios_a_copia_landing`
 - **Closing Analyst** (`closing`): `panorama_closing` · `metricas_closers` · `factores_cierre` · `tendencia_score` · `embudo_closing` · `estado_analisis_lead` · `lead_tiene_llamada` · `analizar_llamadas_lead` · `adjuntar_grabaciones_fathom`
 - **El negocio (onboarding, Second Brain, conocimiento)** (`negocio`): `contexto_negocio` · `ver_perfil_negocio` · `ver_archivero` · `ver_diagnostico_fase` · `listar_preguntas_diagnostico_fase` · `ver_estado_onboarding` · `listar_tabs_por_configurar` · `listar_avatares_negocio` · `listar_lead_magnets` · `ver_personalidad_voz` · `buscar_en_segundo_cerebro` · `leer_segundo_cerebro_como_archivos` · `ver_glosario_negocio` · `buscar_conocimiento` · `buscar_tutorial` · `responder_pregunta_personalidad` · `guardar_campo_perfil` · `borrar_documento_archivero` · `guardar_diagnostico_fase` · `generar_avatares` · `afinar_avatares` · `editar_avatar_negocio` · `borrar_avatar_negocio` · `generar_lead_magnets` · `editar_lead_magnet` · `sugerir_productos` · `borrar_producto` · `guardar_muletillas_marca` · `reiniciar_personalidad`
 - **Content Machine** (`contenido`): `listar_anuncios_planteados` · `ver_anuncio_planteado` · `listar_guiones_anuncio` · `leer_guion_anuncio` · `cobertura_guiones_anuncio` · `catalogo_angulos_guion` · `catalogo_estructuras_guion` · `listar_formatos_creativo` · `opciones_siguiente_paso_guion` · `estado_contexto_contenido` · `estado_onboarding_contenido` · `limites_formato_instagram` · `mover_estado_guion_anuncio` · `elegir_formato_creativo_anuncio` · `recomendar_formatos_creativo` · `escribir_guion_anuncio` · `editar_texto_guion_anuncio` · `borrar_guion_anuncio`
@@ -8254,7 +8254,7 @@ curl -L \
 
 ## Landing (Analyst, Generator y tracking) — `landing`
 
-Tab **Web Generator** (`/web-generator`). 26 lecturas · 18 acciones.
+Tab **Web Generator** (`/web-generator`). 34 lecturas · 41 acciones.
 
 ### `GET /api/v1/landing/landings` — Landings declaradas del negocio
 
@@ -8708,7 +8708,7 @@ curl -L \
 
 ### `GET /api/v1/landing/documentos` — Landings y presentaciones creadas
 
-Las landings y presentaciones que el negocio armó en el editor del Web Generator, las editadas más recientemente primero: id, título, formato (landing o presentación), si está publicada, su dirección pública y cuándo se editó por última vez. Úsala antes de ver_landing_creada, publicar_landing o despublicar_landing, que piden el id. No son las páginas declaradas en Integraciones (eso es listar_landings) ni las versiones del generador anterior (listar_borradores_landing). Las de la papelera no salen: la respuesta dice cuántas hay.
+Las landings y presentaciones que el negocio armó en el editor del Web Generator, las editadas más recientemente primero: id, título, formato (landing o presentación), si está publicada, su dirección pública y cuándo se editó por última vez. Úsala antes de ver_landing_creada, publicar_landing o despublicar_landing, que piden el id. No son las páginas declaradas en Integraciones (eso es listar_landings) ni las versiones del generador anterior (listar_borradores_landing). Las de la papelera no salen (la respuesta dice cuántas hay); con papelera:true salen sólo ésas.
 
 - **Ruta por operación:** `GET /api/v1/landing/listar_landings_creadas`
 - **Token detallado:** permiso `landing=read` (Solo lectura en «Landing (Analyst, Generator y tracking)»)
@@ -8721,6 +8721,7 @@ Las landings y presentaciones que el negocio armó en el editor del Web Generato
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
 | `limite` | number | no | Cuántas devolver, las editadas más recientemente primero. Por defecto 50; la respuesta dice cuántas quedaron afuera. |
+| `papelera` | boolean | no | true lista sólo las que están en la papelera (para sacarlas o borrarlas para siempre). |
 
 ```bash
 curl -L \
@@ -9086,7 +9087,7 @@ curl -L \
 
 ### `PUT /api/v1/landing/documentos/{id}/papelera` — Mandar a la papelera o sacar de ella
 
-Manda una landing o presentación del editor del Web Generator a la papelera, o la saca (con papelera:false). En la papelera no se borra nada: si estaba publicada, su dirección deja de mostrarla mientras esté ahí y vuelve tal cual al sacarla. Borrarla para siempre se hace sólo en la pantalla. Úsala cuando el dueño ya no use una landing, o pida recuperarla. Necesita el id (de listar_landings_creadas; las de la papelera no salen ahí: la persona lo dice).
+Manda una landing o presentación del editor del Web Generator a la papelera, o la saca (con papelera:false). En la papelera no se borra nada: si estaba publicada, su dirección deja de mostrarla mientras esté ahí y vuelve tal cual al sacarla. Borrarla para siempre es borrar_landing_creada. Úsala cuando el dueño ya no use una landing, o pida recuperarla. Necesita el id (de listar_landings_creadas; las de la papelera, con papelera:true).
 
 - **Ruta por operación:** `POST /api/v1/landing/mandar_landing_a_papelera`
 - **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
@@ -9411,6 +9412,965 @@ curl -L \
   -H "Authorization: Bearer <TU-TOKEN>" \
   -H "X-MaKo-Api-Version: 2026-10-08" \
   "https://hola-mako.com/api/v1/landing/documentos/ID/publicacion"
+```
+
+### `GET /api/v1/landing/documentos/{id}/secciones` — Secciones y bloques de una landing
+
+El mapa de una landing o presentación del editor del Web Generator: cada página (id, ruta, si es la de inicio) con sus secciones en orden (id, posición, título, si está oculta, si lleva imagen de acento) y los bloques de cada sección (posición, tipo —título, texto, viñetas, botones, formulario, agenda, video, imagen…— y su texto corto). Úsala antes de cualquier operación que cambie una sección o un bloque: piden su id y su posición. Para leer el texto completo está ver_landing_creada.
+
+- **Ruta por operación:** `GET /api/v1/landing/ver_secciones_landing`
+- **Token detallado:** permiso `landing=read` (Solo lectura en «Landing (Analyst, Generator y tracking)»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** landing-writer
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `id` | number | sí | El id de la landing o presentación (de listar_landings_creadas). |
+| `pagina` | string | no | El id de una página: sólo ésa. Sin él, todas. |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/landing/documentos/ID/secciones"
+```
+
+### `GET /api/v1/landing/documentos/{id}/configuracion` — Configuración de una landing creada
+
+La configuración de una landing del editor del Web Generator, lo que ver_landing_creada no trae: el tema, el formato (landing o presentación) y su relación de aspecto, las animaciones, la imagen de fondo, los ajustes del sitio (nombre, título y descripción para buscadores, indexación, Píxel de Meta, «Hecho con MaKo», ícono, imagen para compartir), la navegación (barra, logo, enlaces, botones y pie) y con qué se pidió crearla (la instrucción de origen). Úsala antes de cambiar algo de eso. Necesita el id (de listar_landings_creadas).
+
+- **Ruta por operación:** `GET /api/v1/landing/ver_configuracion_landing`
+- **Token detallado:** permiso `landing=read` (Solo lectura en «Landing (Analyst, Generator y tracking)»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** landing-writer
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `id` | number | sí | El id de la landing o presentación (de listar_landings_creadas). |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/landing/documentos/ID/configuracion"
+```
+
+### `GET /api/v1/landing/temas` — Temas para las landings
+
+Los temas con que se puede vestir una landing del Web Generator (colores y fuentes): los del catálogo (id, nombre, si es oscuro) y los temas propios del negocio (con «ws:» adelante, de qué tema parten y sus cambios). Úsala antes de cambiar_tema_landing, generar_landing_con_ia o guardar_tema_landing. No requiere parámetros.
+
+- **Ruta por operación:** `GET /api/v1/landing/listar_temas_landing`
+- **Token detallado:** permiso `landing=read` (Solo lectura en «Landing (Analyst, Generator y tracking)»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** landing-writer
+
+_Sin parámetros._
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/landing/temas"
+```
+
+### `GET /api/v1/landing/documentos/{id}/versiones/{version}` — Leer una versión guardada
+
+Cómo estaba una landing del editor del Web Generator en una versión de su historial: su título y el texto de cada página y sección, con el motivo y la fecha de la versión. Úsala para comparar antes de restaurar_version_landing. Necesita el id de la landing y el número de versión (de listar_versiones_landing).
+
+- **Ruta por operación:** `GET /api/v1/landing/ver_version_landing`
+- **Token detallado:** permiso `landing=read` (Solo lectura en «Landing (Analyst, Generator y tracking)»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** landing-writer
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `id` | number | sí | El id de la landing o presentación (de listar_landings_creadas). |
+| `version` | number | sí | El número de la versión (de listar_versiones_landing). |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/landing/documentos/ID/versiones/VERSION"
+```
+
+### `GET /api/v1/landing/documentos/{id}/direccion` — Ver si una dirección está libre
+
+Si una dirección pública (el final de la URL, lo que va en `slug` de publicar_landing) está libre para una landing del editor del Web Generator, y si no, por qué y una libre parecida. La dirección es única entre todos los negocios. Úsala antes de publicar_landing cuando la persona pida una dirección.
+
+- **Ruta por operación:** `GET /api/v1/landing/revisar_direccion_landing`
+- **Token detallado:** permiso `landing=read` (Solo lectura en «Landing (Analyst, Generator y tracking)»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** landing-writer
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `id` | number | sí | El id de la landing o presentación (de listar_landings_creadas). |
+| `slug` | string | sí | La dirección a revisar: minúsculas, números y guiones, de 3 a 60. |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/landing/documentos/ID/direccion?slug=SLUG"
+```
+
+### `GET /api/v1/landing/documentos/{id}/dominio` — Dominio propio de una landing
+
+El dominio propio de una landing del editor del Web Generator, según lo guardado: cuál es, si está verificado o pendiente, desde cuándo, y si la reserva de un pendiente venció (72 horas). No sale a mirar el DNS: para saber qué registros faltan y verificarlo está verificar_dominio_landing. Necesita el id (de listar_landings_creadas).
+
+- **Ruta por operación:** `GET /api/v1/landing/ver_dominio_landing`
+- **Token detallado:** permiso `landing=read` (Solo lectura en «Landing (Analyst, Generator y tracking)»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** landing-writer
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `id` | number | sí | El id de la landing o presentación (de listar_landings_creadas). |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/landing/documentos/ID/dominio"
+```
+
+### `GET /api/v1/landing/documentos/{id}/pago` — Qué cobra una landing
+
+Con qué cobra una landing del editor del Web Generator: las pasarelas conectadas del negocio (cobra por Stripe), los productos activos del catálogo con su precio, y cada botón de la landing con el producto que cobra (o null). Úsala antes de cobrar_producto_landing o quitar_cobro_landing. Necesita el id (de listar_landings_creadas).
+
+- **Ruta por operación:** `GET /api/v1/landing/ver_cobro_landing`
+- **Token detallado:** permiso `landing=read` (Solo lectura en «Landing (Analyst, Generator y tracking)»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** landing-writer
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `id` | number | sí | El id de la landing o presentación (de listar_landings_creadas). |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/landing/documentos/ID/pago"
+```
+
+### `GET /api/v1/landing/busqueda/fotos` — Buscar fotos de uso libre
+
+Busca fotos de uso libre para una landing del Web Generator (el mismo buscador de «Imagen» del editor): cada una con su enlace grande, su miniatura, el autor y la licencia. El enlace grande se pasa en `imagen` de agregar_bloque_landing o configurar_seccion_landing, que la copia a la biblioteca. Nunca para mostrar al equipo ni a clientes reales: una foto de stock no es una persona del negocio.
+
+- **Ruta por operación:** `GET /api/v1/landing/buscar_fotos_landing`
+- **Token detallado:** permiso `landing=read` (Solo lectura en «Landing (Analyst, Generator y tracking)»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** externo
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** landing-writer
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `busqueda` | string | sí | Qué foto buscar, en pocas palabras («oficina luminosa», «café»). |
+| `orientacion` | string (horizontal \\| vertical \\| cuadrada) | no | Por defecto, horizontal. |
+| `pagina` | number | no | La página de resultados. Por defecto 1. |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/landing/busqueda/fotos?busqueda=BUSQUEDA"
+```
+
+### `POST /api/v1/landing/temas/{tema}/documentos` — Crear una landing en blanco
+
+Crea una landing (o presentación) EN BLANCO en el editor del Web Generator con un tema («Temas → Usar este tema» del Panel), sin IA y sin texto de ejemplo, como borrador sin publicar (va a la papelera como cualquier otra). Úsala cuando la persona quiera armarla de cero; para partir de un diseño con texto está crear_landing_desde_diseno, y con IA, generar_landing_con_ia. No corre en una automatización. Devuelve el id y el link al editor.
+
+- **Ruta por operación:** `POST /api/v1/landing/crear_landing_en_blanco`
+- **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** una fila nueva en landing_docs: la landing en blanco, sin publicar
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** landing-writer
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `tema` | string | sí | El tema (de listar_temas_landing). |
+| `formato` | string (landing \\| presentacion) | no | landing (por defecto) o presentacion. |
+| `titulo` | string | no | El nombre en el Panel. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/landing/temas/TEMA/documentos"
+```
+
+### `POST /api/v1/landing/documentos/{id}/secciones` — Agregar una sección a una landing
+
+Agrega una sección nueva a una landing del editor del Web Generator, con su título y su texto (una línea = un párrafo; varias = viñetas), después de otra sección o al final de una página. Sin IA: va el texto que se pasa. Para una sección diseñada con IA está editar_landing_con_ia. Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); lo que está en internet no cambia hasta volver a subirla. Devuelve el id de la sección nueva.
+
+- **Ruta por operación:** `POST /api/v1/landing/agregar_seccion_landing`
+- **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** el contenido de la landing (landing_docs) y una versión «Antes de un cambio de MaKo» en su historial
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** landing-writer
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `id` | number | sí | El id de la landing o presentación (de listar_landings_creadas). |
+| `titulo` | string | sí | El título de la sección. |
+| `texto` | string | no | El texto: una línea es un párrafo; varias líneas, viñetas (hasta 8). |
+| `despuesDe` | string | no | El id de la sección después de la cual va (de ver_secciones_landing). Sin él, al final. |
+| `pagina` | string | no | Sin «despuesDe»: el id de la página donde va al final. Por defecto, la de inicio. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/landing/documentos/ID/secciones" \
+  -d '{"titulo":"TITULO"}'
+```
+
+### `PATCH /api/v1/landing/documentos/{id}/textos` — Cambiar un texto de una landing
+
+Cambia una frase EXACTA por otra en los textos de una landing del editor del Web Generator (títulos, párrafos, viñetas, botones): el titular, un precio, una fecha. Si aparece más de una vez pide la sección o todas:true. Una frase con formatos distintos en el medio (una parte en negrita) se cambia por partes o con editar_landing_con_ia. Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); lo que está en internet no cambia hasta volver a subirla.
+
+- **Ruta por operación:** `POST /api/v1/landing/cambiar_texto_landing`
+- **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** el contenido de la landing (landing_docs) y una versión «Antes de un cambio de MaKo» en su historial
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** landing-writer
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `id` | number | sí | El id de la landing o presentación (de listar_landings_creadas). |
+| `buscar` | string | sí | El texto de hoy, tal cual (mayúsculas y tildes incluidas; de ver_landing_creada). |
+| `reemplazar` | string | sí | El texto nuevo ("" lo borra). |
+| `seccion` | string | no | El id de la sección (de ver_secciones_landing): sólo ahí. |
+| `todas` | boolean | no | true cambia todas las veces que aparece. |
+
+```bash
+curl -L \
+  -X PATCH \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/landing/documentos/ID/textos" \
+  -d '{"buscar":"BUSCAR","reemplazar":"REEMPLAZAR"}'
+```
+
+### `POST /api/v1/landing/documentos/{id}/secciones/{seccion}/acomodos` — Mover, ocultar o borrar una sección
+
+Acomoda una sección de una landing del editor del Web Generator: mover (a otra posición de su página), duplicar (la copia va debajo), ocultar (no se presenta ni se publica), mostrar o borrar. Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); lo que está en internet no cambia hasta volver a subirla.
+
+- **Ruta por operación:** `POST /api/v1/landing/acomodar_seccion_landing`
+- **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** el contenido de la landing (landing_docs) y una versión «Antes de un cambio de MaKo» en su historial
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** landing-writer
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `id` | number | sí | El id de la landing o presentación (de listar_landings_creadas). |
+| `seccion` | string | sí | El id de la sección (de ver_secciones_landing). |
+| `accion` | string (mover \\| duplicar \\| ocultar \\| mostrar \\| borrar) | sí | mover, duplicar, ocultar, mostrar o borrar. |
+| `posicion` | number | no | Para mover: la posición nueva en su página (1 = la primera). |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/landing/documentos/ID/secciones/SECCION/acomodos" \
+  -d '{"accion":"mover"}'
+```
+
+### `PATCH /api/v1/landing/documentos/{id}/secciones/{seccion}` — Cambiar el estilo de una sección
+
+El estilo de una sección de una landing del editor del Web Generator (el panel «Estilo»): la imagen de acento y dónde va, el ancho, la alineación, el alto, el fondo (del tema, un color, un degradado o el de acento), las notas del orador de una presentación, o «Restablecer estilo». Sólo cambia lo que se pasa. Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); lo que está en internet no cambia hasta volver a subirla.
+
+- **Ruta por operación:** `POST /api/v1/landing/configurar_seccion_landing`
+- **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** el contenido de la landing (landing_docs), una versión «Antes de un cambio de MaKo» y, si se pasa un enlace, la imagen en el bucket landing-imagenes
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** landing-writer
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `id` | number | sí | El id de la landing o presentación (de listar_landings_creadas). |
+| `seccion` | string | sí | El id de la sección (de ver_secciones_landing). |
+| `diseno` | string (sin \\| arriba \\| izquierda \\| derecha \\| fondo) | no | Dónde va la imagen: sin, arriba, izquierda, derecha o fondo. |
+| `imagen` | string | no | La imagen de acento: el enlace de una imagen (MaKo la copia a la biblioteca de la landing al confirmar) o "" para quitarla. |
+| `ancho` | string (angosto \\| normal \\| amplio \\| completo) | no | angosto, normal, amplio o completo. |
+| `alineacion` | string (arriba \\| centro \\| abajo) | no | arriba, centro o abajo. |
+| `alto` | string (auto \\| pantalla) | no | auto o pantalla (ocupa la pantalla entera). |
+| `fondo` | string (tema \\| color \\| degradado \\| acento) | no | tema, color (con «color»), degradado (con «degradado») o acento. |
+| `color` | string | no | El color de fondo, como #rrggbb. |
+| `degradado` | string (aurora \\| cielo \\| durazno \\| menta \\| noche \\| lavanda \\| fuego \\| oceano \\| grafito \\| arena) | no | El degradado de fondo. |
+| `notas` | string | no | Lo que la persona dice al presentar esa diapositiva (privado). |
+| `restablecer` | boolean | no | true vuelve el estilo a sus valores de fábrica (la imagen se queda). |
+
+```bash
+curl -L \
+  -X PATCH \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/landing/documentos/ID/secciones/SECCION"
+```
+
+### `POST /api/v1/landing/documentos/{id}/secciones/{seccion}/bloques` — Agregar un bloque a una sección
+
+Agrega un bloque a una sección de una landing del editor del Web Generator, como el menú «/» del editor: titulo, subtitulo, texto, vinetas, numerada o cita (con «texto»), boton (con «texto» y «destino»), pago (el botón «Pagar ahora»: el producto se elige con cobrar_producto_landing), formulario (nombre, correo y teléfono: entra al CRM), agenda o video (con «enlace», o vacío para completar con poner_enlace_landing), imagen (con «imagen») o separador. Para diseños optimizados, gráficos o tablas está editar_landing_con_ia. Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); lo que está en internet no cambia hasta volver a subirla.
+
+- **Ruta por operación:** `POST /api/v1/landing/agregar_bloque_landing`
+- **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** el contenido de la landing (landing_docs), una versión «Antes de un cambio de MaKo» y, con una imagen, el archivo en el bucket landing-imagenes
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** landing-writer
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `id` | number | sí | El id de la landing o presentación (de listar_landings_creadas). |
+| `seccion` | string | sí | El id de la sección (de ver_secciones_landing). |
+| `bloque` | string (titulo \\| subtitulo \\| texto \\| vinetas \\| numerada \\| cita \\| boton \\| pago \\| formulario \\| agenda \\| video \\| imagen \\| separador) | sí | Qué bloque. |
+| `texto` | string | no | El texto (en vinetas y numerada, una línea por ítem; en boton, lo que dice). |
+| `destino` | string | no | Sólo boton: a dónde lleva (https://…, #t-<id de sección>, mailto: o tel:). |
+| `enlace` | string | no | Sólo agenda o video: el enlace de Calendly, Cal.com, YouTube, Vimeo, Panda… |
+| `imagen` | string | no | Sólo imagen: el enlace de la imagen (MaKo la copia a la biblioteca de la landing al confirmar). |
+| `posicion` | number | no | En qué lugar de la sección (1 = el primero). Sin ella, al final. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/landing/documentos/ID/secciones/SECCION/bloques" \
+  -d '{"bloque":"titulo"}'
+```
+
+### `POST /api/v1/landing/documentos/{id}/secciones/{seccion}/bloques/{bloque}/acomodos` — Mover o borrar un bloque
+
+Acomoda un bloque dentro de su sección en una landing del editor del Web Generator: mover (a otra posición), duplicar (la copia va debajo) o borrar. El bloque se nombra por su posición en la sección (de ver_secciones_landing). Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); lo que está en internet no cambia hasta volver a subirla.
+
+- **Ruta por operación:** `POST /api/v1/landing/acomodar_bloque_landing`
+- **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** el contenido de la landing (landing_docs) y una versión «Antes de un cambio de MaKo» en su historial
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** landing-writer
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `id` | number | sí | El id de la landing o presentación (de listar_landings_creadas). |
+| `seccion` | string | sí | El id de la sección (de ver_secciones_landing). |
+| `bloque` | number | sí | La posición del bloque en la sección (su n en ver_secciones_landing). |
+| `accion` | string (mover \\| duplicar \\| borrar) | sí | mover, duplicar o borrar. |
+| `posicion` | number | no | Para mover: la posición nueva en la sección. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/landing/documentos/ID/secciones/SECCION/bloques/BLOQUE/acomodos" \
+  -d '{"accion":"mover"}'
+```
+
+### `PUT /api/v1/landing/documentos/{id}/enlaces` — Poner el enlace del VSL o la agenda
+
+Pone el enlace del video (el VSL: YouTube, Vimeo, Panda, Loom, Wistia) o de la agenda (Calendly, Cal.com) en su lugar en una landing del editor del Web Generator: completa el hueco vacío que traen los diseños, o reemplaza el que había. Si hay dos lugares posibles pide la sección. Úsala después de crear_landing_desde_diseno, que deja el VSL y la agenda vacíos. Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); lo que está en internet no cambia hasta volver a subirla.
+
+- **Ruta por operación:** `POST /api/v1/landing/poner_enlace_landing`
+- **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** el contenido de la landing (landing_docs) y una versión «Antes de un cambio de MaKo» en su historial
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** landing-writer
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `id` | number | sí | El id de la landing o presentación (de listar_landings_creadas). |
+| `enlace` | string | sí | El enlace del video o de la agenda. |
+| `seccion` | string | no | El id de la sección (de ver_secciones_landing), cuando hay más de un lugar posible. |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/landing/documentos/ID/enlaces" \
+  -d '{"enlace":"ENLACE"}'
+```
+
+### `PATCH /api/v1/landing/documentos/{id}/formulario` — Cambiar el formulario de una landing
+
+El formulario de una landing del editor del Web Generator (lo que se envía entra al CRM): los campos (la lista entera, en orden), el texto del botón, el mensaje de éxito y a dónde lleva después de enviar. Sin «seccion», el único formulario de la landing. Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); lo que está en internet no cambia hasta volver a subirla.
+
+- **Ruta por operación:** `POST /api/v1/landing/configurar_formulario_landing`
+- **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** el contenido de la landing (landing_docs) y una versión «Antes de un cambio de MaKo» en su historial
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** landing-writer
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `id` | number | sí | El id de la landing o presentación (de listar_landings_creadas). |
+| `seccion` | string | no | El id de la sección (de ver_secciones_landing), cuando hay más de un lugar posible. |
+| `campos` | object[] | no | Los campos, en orden (reemplazan a los de hoy). |
+| `campos.tipo` | string (nombre \\| email \\| telefono \\| empresa \\| texto \\| textoLargo \\| opciones) | sí | nombre, email, telefono, empresa, texto, textoLargo u opciones (nombre, email y telefono, una vez cada uno). |
+| `campos.etiqueta` | string | no | Lo que dice arriba del campo. Sin ella, la de su tipo. |
+| `campos.requerido` | boolean | no | true si es obligatorio. |
+| `campos.opciones` | string[] | no | Sólo opciones: entre 2 y 12. |
+| `boton` | string | no | El texto del botón («Quiero mi lugar»). |
+| `exito` | string | no | Lo que ve la persona al enviar. |
+| `redirigir` | string | no | Un enlace https al que lleva después de enviar ("" = no lleva a ningún lado). |
+
+```bash
+curl -L \
+  -X PATCH \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/landing/documentos/ID/formulario"
+```
+
+### `PATCH /api/v1/landing/documentos/{id}/botones` — Cambiar un botón de una landing
+
+Cambia UN botón de una landing del editor del Web Generator, nombrado por su texto de hoy: lo que dice, a dónde lleva, su estilo y si abre en otra pestaña. Para que cobre un producto está cobrar_producto_landing. Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); lo que está en internet no cambia hasta volver a subirla.
+
+- **Ruta por operación:** `POST /api/v1/landing/configurar_boton_landing`
+- **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** el contenido de la landing (landing_docs) y una versión «Antes de un cambio de MaKo» en su historial
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** landing-writer
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `id` | number | sí | El id de la landing o presentación (de listar_landings_creadas). |
+| `boton` | string | sí | El texto de hoy del botón (de ver_secciones_landing o ver_cobro_landing). |
+| `texto` | string | no | Lo que pasa a decir. |
+| `destino` | string | no | A dónde lleva: https://…, #t-<id de sección>, mailto: o tel: ("" = a ningún lado). |
+| `estilo` | string (primario \\| secundario \\| contorno) | no | primario, secundario o contorno. |
+| `nuevaPestana` | boolean | no | true abre el destino en otra pestaña. |
+
+```bash
+curl -L \
+  -X PATCH \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/landing/documentos/ID/botones" \
+  -d '{"boton":"BOTON"}'
+```
+
+### `DELETE /api/v1/landing/documentos/{id}/pago` — Que un botón deje de cobrar
+
+Hace que un botón de una landing del editor del Web Generator deje de cobrar su producto («Quitar cobro» del editor): queda sin destino. La landing publicada sigue cobrando hasta que se vuelva a publicar. Se vuelve a cobrar con cobrar_producto_landing. Si cobran dos, pide cuál por su texto. Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); lo que está en internet no cambia hasta volver a subirla.
+
+- **Ruta por operación:** `POST /api/v1/landing/quitar_cobro_landing`
+- **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** el destino del botón en el contenido de la landing (landing_docs) y una versión «Antes de un cambio de MaKo»
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** landing-writer
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `id` | number | sí | El id de la landing o presentación (de listar_landings_creadas). |
+| `boton` | string | no | El texto del botón, si hay más de uno que cobra. |
+
+```bash
+curl -L \
+  -X DELETE \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/landing/documentos/ID/pago"
+```
+
+### `POST /api/v1/landing/documentos/{id}/paginas` — Agregar o acomodar páginas del sitio
+
+Las páginas de una landing del editor del Web Generator (el panel «Páginas»: un sitio puede tener varias): agregar una en blanco, renombrar (y cambiar su ruta), mover, duplicar, borrar o hacerla la de inicio. Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); lo que está en internet no cambia hasta volver a subirla.
+
+- **Ruta por operación:** `POST /api/v1/landing/acomodar_pagina_landing`
+- **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** el contenido de la landing (landing_docs) y una versión «Antes de un cambio de MaKo» en su historial
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** landing-writer
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `id` | number | sí | El id de la landing o presentación (de listar_landings_creadas). |
+| `accion` | string (agregar \\| renombrar \\| mover \\| duplicar \\| borrar \\| inicio) | sí | agregar, renombrar, mover, duplicar, borrar o inicio. |
+| `pagina` | string | no | El id de la página (de ver_secciones_landing). Todas menos agregar. |
+| `titulo` | string | no | Para agregar o renombrar: el nombre de la página. |
+| `ruta` | string | no | Para agregar o renombrar: el final de su dirección (minúsculas, números y guiones). |
+| `posicion` | number | no | Para mover: la posición nueva. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/landing/documentos/ID/paginas" \
+  -d '{"accion":"agregar"}'
+```
+
+### `PUT /api/v1/landing/documentos/{id}/tema` — Cambiar el tema de una landing
+
+Le pone otro tema (colores y fuentes) a una landing del editor del Web Generator: uno del catálogo o uno propio del negocio (de listar_temas_landing). Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); lo que está en internet no cambia hasta volver a subirla.
+
+- **Ruta por operación:** `POST /api/v1/landing/cambiar_tema_landing`
+- **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** la configuración de la landing (landing_docs.config) y una versión «Antes de un cambio de MaKo» en su historial
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** landing-writer
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `id` | number | sí | El id de la landing o presentación (de listar_landings_creadas). |
+| `tema` | string | sí | El id del tema (o su nombre), de listar_temas_landing. |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/landing/documentos/ID/tema" \
+  -d '{"tema":"TEMA"}'
+```
+
+### `PATCH /api/v1/landing/documentos/{id}/configuracion` — Configurar una landing creada
+
+«Configuración de la página» de una landing del editor del Web Generator: el formato (landing o presentación), la relación de aspecto de una presentación, las animaciones, la imagen de fondo, y el ancho y la alineación de TODAS sus secciones. Sólo cambia lo que se pasa. Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); lo que está en internet no cambia hasta volver a subirla.
+
+- **Ruta por operación:** `POST /api/v1/landing/configurar_landing`
+- **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** la configuración y el contenido de la landing (landing_docs) y una versión «Antes de un cambio de MaKo» en su historial
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** landing-writer
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `id` | number | sí | El id de la landing o presentación (de listar_landings_creadas). |
+| `formato` | string (landing \\| presentacion) | no | landing o presentacion. |
+| `proporcion` | string (16:9 \\| 4:3 \\| fluido) | no | Sólo una presentación: 16:9, 4:3 o fluido. |
+| `animaciones` | boolean | no | true las prende, false las apaga. |
+| `fondoImagen` | string | no | El enlace de una imagen de fondo (MaKo la copia a la biblioteca de la landing al confirmar) o "" para quitarla. |
+| `ancho` | string (angosto \\| normal \\| amplio \\| completo) | no | El ancho de todas las secciones. |
+| `alineacion` | string (arriba \\| centro \\| abajo) | no | La alineación del contenido de todas las secciones. |
+
+```bash
+curl -L \
+  -X PATCH \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/landing/documentos/ID/configuracion"
+```
+
+### `PATCH /api/v1/landing/documentos/{id}/sitio` — Ajustes del sitio de una landing
+
+Los ajustes del sitio de una landing del editor del Web Generator (el diálogo Publicar): el nombre del sitio, el título (hasta 60) y la descripción (hasta 160) para buscadores, si los buscadores la pueden mostrar, el Píxel de Meta, «Hecho con MaKo», el ícono y la imagen para compartir. Sólo cambia lo que se pasa. La publicada lo toma al volver a publicarla. Deja un link para que la persona revise y confirme. Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); lo que está en internet no cambia hasta volver a subirla.
+
+- **Ruta por operación:** `POST /api/v1/landing/configurar_sitio_landing`
+- **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** la configuración del sitio (landing_docs.config), una versión «Antes de un cambio de MaKo» y, si se pasa un enlace, la imagen en el bucket landing-imagenes
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** landing-writer
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `id` | number | sí | El id de la landing o presentación (de listar_landings_creadas). |
+| `nombre` | string | no | El nombre del sitio. |
+| `seoTitulo` | string | no | Hasta 60 caracteres. |
+| `seoDescripcion` | string | no | Hasta 160 caracteres. |
+| `indexar` | boolean | no | true deja que los buscadores la muestren. |
+| `metaPixelId` | string | no | El número del Píxel de Meta, sólo dígitos ("" lo quita). |
+| `marcaMako` | boolean | no | false saca «Hecho con MaKo». |
+| `favicon` | string | no | El enlace de la imagen del ícono (se copia a la biblioteca) o "" para quitarlo. |
+| `imagenCompartir` | string | no | El enlace de la imagen que se ve al compartir el link (se copia a la biblioteca) o "" para quitarla. |
+
+```bash
+curl -L \
+  -X PATCH \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/landing/documentos/ID/sitio"
+```
+
+### `PATCH /api/v1/landing/documentos/{id}/navegacion` — Barra y pie de una landing
+
+La navegación del sitio de una landing del editor del Web Generator: si se ve la barra de arriba, su logo, sus enlaces (hasta 5) y sus botones (hasta 2), y si se ve el pie y su texto. Las listas se reemplazan enteras ([] las vacía). Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); lo que está en internet no cambia hasta volver a subirla.
+
+- **Ruta por operación:** `POST /api/v1/landing/configurar_navegacion_landing`
+- **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** la configuración del sitio (landing_docs.config), una versión «Antes de un cambio de MaKo» y, con un logo, la imagen en el bucket landing-imagenes
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** landing-writer
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `id` | number | sí | El id de la landing o presentación (de listar_landings_creadas). |
+| `mostrarBarra` | boolean | no | true muestra la barra de navegación. |
+| `logo` | string | no | El enlace de la imagen del logo (se copia a la biblioteca) o "" para quitarlo. |
+| `enlaces` | object[] | no | Los enlaces de la barra, en orden. |
+| `enlaces.texto` | string | sí | Lo que dice. |
+| `enlaces.destino` | string | sí | A dónde lleva (https://…, #t-<id de sección>). |
+| `botones` | object[] | no | Los botones de la barra, en orden. |
+| `botones.texto` | string | sí | Lo que dice. |
+| `botones.destino` | string | sí | A dónde lleva. |
+| `botones.estilo` | string (primario \\| secundario) | no | primario (por defecto) o secundario. |
+| `mostrarPie` | boolean | no | true muestra el pie. |
+| `textoPie` | string | no | El texto del pie. |
+
+```bash
+curl -L \
+  -X PATCH \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/landing/documentos/ID/navegacion"
+```
+
+### `POST /api/v1/landing/temas` — Crear o cambiar un tema propio
+
+Crea un tema propio del negocio para sus landings del Web Generator (parte de uno del catálogo, «base») o cambia uno propio («tema», con «ws:»): sus colores, las fuentes de los títulos y del texto y lo redondeado. Sólo cambia lo que se pasa. Cambiar un tema propio cambia cómo se ven TODAS las landings que lo usan (las publicadas, al volver a publicarlas); se vuelve atrás guardándolo con los valores de antes (de listar_temas_landing). Se usa con cambiar_tema_landing. Devuelve el id del tema.
+
+- **Ruta por operación:** `POST /api/v1/landing/guardar_tema_landing`
+- **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** la lista de temas propios del negocio (app_settings landing.temas)
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** landing-writer
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `tema` | string | no | El id de un tema propio para cambiarlo (de listar_temas_landing, con «ws:»). Sin él, crea uno. |
+| `nombre` | string | no | El nombre del tema (obligatorio al crearlo). |
+| `base` | string | no | El tema del catálogo del que parte (de listar_temas_landing). |
+| `acento` | string | no | El color de acento, como #rrggbb. |
+| `texto` | string | no | El color del texto, como #rrggbb. |
+| `titulos` | string | no | El color de los títulos, como #rrggbb. |
+| `fondo` | string | no | El color del fondo de la página, como #rrggbb. |
+| `fondoSeccion` | string | no | El color de fondo de las secciones, como #rrggbb. |
+| `boton` | string | no | El color de los botones, como #rrggbb. |
+| `textoBoton` | string | no | El color del texto de los botones, como #rrggbb. |
+| `enlaces` | string | no | El color de los enlaces, como #rrggbb. |
+| `fuenteTitulos` | string | no | Una fuente de Google Fonts del catálogo («Montserrat», «Playfair Display»). |
+| `fuenteTexto` | string | no | Una fuente de Google Fonts del catálogo («Inter», «Lato»). |
+| `redondez` | string (sm \\| md \\| lg \\| xl) | no | Lo redondeado de secciones y botones: sm, md, lg o xl. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/landing/temas"
+```
+
+### `DELETE /api/v1/landing/temas/{tema}` — Borrar un tema propio
+
+Borra un tema propio del negocio (con «ws:», de listar_temas_landing). Las landings que lo usan pasan a verse con el tema de fábrica (las publicadas, al volver a publicarlas): el resumen dice cuántas. No se puede deshacer (se puede volver a crear con guardar_tema_landing). Úsala sólo a pedido explícito del dueño.
+
+- **Ruta por operación:** `POST /api/v1/landing/borrar_tema_landing`
+- **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** saca el tema de la lista de temas propios del negocio (app_settings landing.temas)
+- **Reversible:** no
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** landing-writer
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `tema` | string | sí | El id del tema propio (con «ws:»). |
+
+```bash
+curl -L \
+  -X DELETE \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/landing/temas/TEMA"
+```
+
+### `POST /api/v1/landing/documentos/{id}/vista-previa` — Link privado al borrador
+
+El link privado al BORRADOR de una landing del editor del Web Generator («Compartir»): quien lo tiene ve lo guardado sin publicar, sin que los buscadores la encuentren. La primera vez lo crea; con regenerar:true lo cambia y el anterior deja de andar. Úsala cuando pidan mostrarle la landing a alguien antes de publicarla. Necesita el id (de listar_landings_creadas).
+
+- **Ruta por operación:** `POST /api/v1/landing/compartir_borrador_landing`
+- **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** el token del link privado de la landing (landing_docs.vista_token)
+- **Reversible:** no
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** landing-writer
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `id` | number | sí | El id de la landing o presentación (de listar_landings_creadas). |
+| `regenerar` | boolean | no | true cambia el link: el que se mandó antes deja de andar. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/landing/documentos/ID/vista-previa"
+```
+
+### `POST /api/v1/landing/documentos/{id}/versiones` — Guardar una versión a mano
+
+Guarda en el historial de una landing del editor del Web Generator una versión de cómo está ahora («Guardar versión»), con un motivo. No cambia la landing. Úsala antes de un cambio grande que la persona quiera poder deshacer. Las versiones guardadas a mano no se borran solas. Necesita el id (de listar_landings_creadas). Devuelve el número de versión.
+
+- **Ruta por operación:** `POST /api/v1/landing/guardar_version_landing`
+- **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** una versión nueva en el historial de la landing (landing_doc_versiones)
+- **Reversible:** no
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** landing-writer
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `id` | number | sí | El id de la landing o presentación (de listar_landings_creadas). |
+| `motivo` | string | no | Por qué se guarda («Antes del cambio de precios»). Sin él, «Guardada a mano». |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/landing/documentos/ID/versiones"
+```
+
+### `DELETE /api/v1/landing/documentos/{id}` — Borrar para siempre una landing
+
+Borra para siempre una landing o presentación del editor del Web Generator, con su historial y sus comentarios. Sólo una que ya está en la papelera (mandar_landing_a_papelera; listar_landings_creadas con papelera:true las lista). Si tenía dominio propio, lo suelta. No se puede deshacer. Úsala sólo a pedido explícito del dueño. Deja un link para que la persona confirme.
+
+- **Ruta por operación:** `POST /api/v1/landing/borrar_landing_creada`
+- **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** borra la fila en landing_docs con sus versiones y comentarios (y suelta su dominio propio de Vercel)
+- **Reversible:** no
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** landing-writer
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `id` | number | sí | El id de la landing o presentación (de listar_landings_creadas). |
+
+```bash
+curl -L \
+  -X DELETE \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/landing/documentos/ID"
+```
+
+### `POST /api/v1/landing/borradores/{id}/importaciones` — Pasar una versión vieja al editor
+
+Convierte una landing del generador anterior (una versión guardada, de listar_borradores_landing) en una landing NUEVA del editor del Web Generator («Importar → Del generador anterior»), como borrador sin publicar. La versión vieja queda como estaba. No corre en una automatización. Devuelve el id y el link al editor.
+
+- **Ruta por operación:** `POST /api/v1/landing/importar_borrador_landing`
+- **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** una fila nueva en landing_docs: la landing importada, sin publicar
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** landing-writer
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `id` | number | sí | El id de la versión guardada (de listar_borradores_landing). |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/landing/borradores/ID/importaciones"
+```
+
+### `POST /api/v1/landing/documentos/{id}/comentarios-de-afuera` — Pasar comentarios a la copia
+
+Pasa los comentarios del Diagnóstico de una página de AFUERA a su copia en el editor del Web Generator (la que hizo replicar_landing), ubicados en las secciones de la copia: ahí se aplican con aplicar_comentario_landing. Los de afuera quedan; con resolver:true los pendientes de afuera quedan resueltos, porque el trabajo sigue en la copia (se reabren con cambiar_estado_comentario_landing). Volver a pasarlos no los duplica.
+
+- **Ruta por operación:** `POST /api/v1/landing/pasar_comentarios_a_copia_landing`
+- **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** los comentarios copiados a la landing (landing_sugerencias) y, si se pide, los de afuera como resueltos
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** landing-writer
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `url` | string | sí | La dirección de la página diagnosticada (de listar_analisis_landing). |
+| `id` | number | sí | El id de la copia en el editor (de listar_landings_creadas). |
+| `resolver` | boolean | no | true deja resueltos los pendientes de la página de afuera (el «Aplicar» de la pantalla). |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/landing/documentos/ID/comentarios-de-afuera" \
+  -d '{"url":"URL"}'
 ```
 
 ## Closing Analyst — `closing`
