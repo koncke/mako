@@ -6,7 +6,7 @@
 
 Pedido de Martín (vía «Estrategia 3 cuentas»): chat para editar con prompt como el del Landing; todos los
 botones a la API de MaKo; animaciones tipo Lottie.
-- **El chat «Editar con IA» está CONSTRUIDO** (`901786601`, rama `video-editor`, sin pushear). El modelo
+- **El chat «Editar con IA» está EN PRODUCCIÓN** desde el 15/10 a las 01:00 AR (push `1ae6ee1ff`, deploy Ready). Lo ven todos los admins con el editor. El modelo
   lo decidió «Estrategia 3 cuentas»: Gemini del cliente, sin Claude. Tiene 21 tests y el typecheck
   acotado en verde; **no se vio en un navegador**. Es lo primero a mirar, junto con el congelamiento y el
   export.
