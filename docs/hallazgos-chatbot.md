@@ -4450,3 +4450,17 @@ Lo que quedó sin hacer: la acción `probar` de `app/api/chat-agent/secuencias/r
 app (medido el 14/10: el único `action: 'probar'` es de otra ruta); prueba el escenario 1.
 
 **Vive en:** `lib/setting-secuencias.ts` (`escenarioDePrueba`, `probarSecuencia`) · `lib/simulador-grafo.ts` (`mensajesDelEscenario`, `escenariosDeLaSecuencia`) · `lib/api-mako/areas/chatbot.run.ts` · `lib/api-mako/areas/chatbot.def.ts`
+
+## «Los avisos al equipo salen igual» (14/10/2026)
+
+Lo hecho está en `87bdf9530` (§2.4-h de docs/diseno-mako-nada-por-detras.md). Con horario de oficina, «MaKo en WhatsApp»
+salía fuera de horario sin decirlo; ahora es una casilla del horario, prendida de fábrica.
+
+- **Lo guardado no trae el campo**, así que el saneo lee «ausente» como prendido (sólo un `false` literal lo apaga): leído
+  como apagado, el primer deploy habría cortado los avisos de agendado de noche en todos los negocios con horario.
+- **El cambio vive en lib/nutricion.ts, no en `seMueveEnLaCorrida`** (lib/nutricion-grafo-motor.ts, que es de
+  `crm-bloques-b5`): con la casilla apagada, fuera del horario se pregunta sólo `esHiloDelCarril`.
+- ⚠️ Un test (`tests/motor-freno-ventana.test.ts`) fija las tres líneas de `fueraDeHorario` seguidas: la lectura de la
+  casilla va DESPUÉS de ellas, no en el medio.
+
+**Vive en:** `lib/horario-envio.ts` (`avisosAlEquipo`) · `lib/nutricion.ts` (`makoFueraDeHorario`) · `app/configuraciones/HorarioEnvioPanel.tsx`

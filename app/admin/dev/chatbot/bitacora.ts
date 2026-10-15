@@ -1564,4 +1564,16 @@ FEEDBACK PROBAR:
     ],
     archivos: ["docs/hallazgos-chatbot.md — «probar_secuencia manda UN escenario»"],
   },
+  {
+    fecha: "14 oct", hora: "19:00", chat: "Chatbot", cuenta: "claude1",
+    actor: "claude", tipo: "implementacion",
+    titulo: "«Los avisos al equipo salen igual»: una casilla del horario de oficina",
+    puntos: [
+      "Con horario de oficina, la tarjeta «MaKo en WhatsApp» salía fuera de horario sin que nada lo dijera. Ahora es una casilla del horario, prendida de fábrica (lo de antes); apagada, fuera del horario sale sólo el recordatorio de la reunión.",
+    ],
+    commits: [
+      { sha: "87bdf9530", msg: "Automations: «Los avisos al equipo salen igual», una casilla del horario de oficina", lineas: 81, archivos: 5 },
+    ],
+    archivos: ["docs/hallazgos-chatbot.md — «Los avisos al equipo salen igual»"],
+  },
 ];
