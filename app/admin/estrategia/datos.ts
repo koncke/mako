@@ -319,7 +319,7 @@ const RESPONDEN_B = Math.round(CONVERSACIONES_B * RESPONDE_B); // 560
 export const CANALES: Canal[] = [
   {
     id: 'A', nombre: 'Prospección', sub: 'Círculo rojo + leads 100% fríos', inversion: 0,
-    hechos: ['Un Loom VSL por cada lead'],
+    hechos: ['Sin Loom: un mensaje para todos'],
     embudo: [
       { l: 'Conversaciones abiertas', n: CONVERSACIONES_A, tasa: `${num(PROSPECCION_POR_MES)} por mes` },
       { l: 'Responden', n: RESPONDEN_A, tasa: `${num(RESPONDE_A * 100)}% · la abro yo` },
@@ -348,18 +348,10 @@ export const DIAG = [
 ];
 export const DIAG_PASOS = ['Escribe por el anuncio', 'El setter de IA le pregunta', 'Diagnóstico + invitación a la llamada'];
 
-/** Estrategia.tsx:396-412 — el Loom de la prospección. */
-export const LOOM_PASOS = ['Miro su negocio', 'Grabo un Loom para él', 'Cierro con el link'];
-export const LOOM_MIRA = [
-  'Su Instagram y su marca personal',
-  'Su biblioteca de anuncios: qué corre y hace cuánto',
-  'Su landing, su oferta y a quién le habla hoy',
-];
-export const LOOM_DICE = [
-  'A quién le está vendiendo, visto desde afuera',
-  'A qué otros clientes les podría vender y no lo hace',
-  'Qué haría yo en su lugar, concreto',
-];
+// El Loom de la prospección (un video por cada lead: qué se mira antes de grabar y qué se le
+// dice) se sacó el 15/10/2026. Martín, en la Ticketera, a «¿Un Loom personalizado por cada lead
+// en la prospección?»: «No». Cierra la duda de la sección 06 (DUDA) por el lado «sin
+// personalización»: un mensaje para todos, que se arranca sin armar nada.
 
 /**
  * Estrategia.tsx:99-106 — los seis ejes de la llamada, con su frase `w` A LA VISTA.
@@ -454,20 +446,21 @@ export const DEJA_GRUPAL = GRUPAL.capacidadUsd;
 /** US$2.000 ÷ (16 × 0,8 × 0,4 = 5,12 ventas) = 390,62 (390,625 en coma flotante). */
 export const CAC_CAMPANA_GRUPAL = r2((CANALES.find((c) => c.id === 'B')?.inversion ?? 0) / ventasDe('B'));
 /**
- * Un Loom por cada lead que responde, por venta: 1 ÷ (3,5% × 0,8 × 0,4) ≈ 89.
+ * Conversaciones con leads que responden, por venta: 1 ÷ (3,5% × 0,8 × 0,4) ≈ 89. (Hasta el
+ * 15/10/2026 era un Loom por cada una; sin Loom, el costo sigue siendo de horas.)
  * ⚠️ Sale de las TASAS, no de dividir los volúmenes: con la agenda redondeada para
  * abajo (300 → 10, no 10,5), 300 ÷ 3,2 daba 94 y el costo de un canal cambiaba sólo
  * por alargar la ventana.
  */
-export const LOOMS_POR_VENTA = Math.round(1 / (AGENDA_A * ASISTE * CIERRA));
+export const CONVERSACIONES_POR_VENTA = Math.round(1 / (AGENDA_A * ASISTE * CIERRA));
 
 export const CAC_GRUPAL: FilaCac[] = [
   { label: 'Campaña de mensajes', usd: CAC_CAMPANA_GRUPAL,
     detalle: `Pauta ${usd(PAUTA)} ÷ ${num(ventasDe('B'), 2)} ventas de la campaña` },
   { label: 'Referido', usd: COMISION_GRUPAL,
     detalle: `Comisión: ${num(COMISION_GRUPAL_PCT)}% de cada cuota` },
-  { label: 'Prospección', usd: 0, nota: `+ ~${LOOMS_POR_VENTA} Looms`,
-    detalle: `Sin pauta. Cuesta horas: un Loom por cada lead que responde, ~${LOOMS_POR_VENTA} por venta` },
+  { label: 'Prospección', usd: 0, nota: `+ ~${CONVERSACIONES_POR_VENTA} conversaciones`,
+    detalle: `Sin pauta. Cuesta horas: una conversación por cada lead que responde, ~${CONVERSACIONES_POR_VENTA} por venta` },
 ];
 
 /**

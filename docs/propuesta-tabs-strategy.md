@@ -203,13 +203,17 @@ la 09 a Pricing (ya está); las reglas de la 11 a Referidos, cuando exista.
 1. **¿Cargo las ventas de MaKo en su propio CRM, y conecto el Calendly, el Pixel de la landing y
    la cuenta publicitaria al workspace de MaKo?** Es lo único que vuelve reales los números de
    la ventana. Y la línea de WhatsApp de MaKo: ¿cuál es, y la conectamos?
-2. **¿Qué es MaKo: ¿para vos ahora?** (recomendado: vos ahora; los clientes cuando haya
-   pasarela; pública no).
+2. ~~**¿Qué es MaKo: ¿para vos ahora?**~~ **Contestada (15/10/2026): también para los clientes.**
+   Martín eligió «También para los clientes» en la Ticketera: la tab con los precios en columnas
+   no es sólo del super admin. (La recomendación era «vos ahora».) Sin construir todavía.
 3. **La torta: ¿la de MaKo o la de cada cliente?**
 4. **Referidos: ¿la tab espera y ahora van el acuerdo y los mensajes?**
-5. **La 06: ¿Loom personalizado sí o no?** Tiene que estar antes del 1/11.
-6. **¿Quién es «nosotros»?** Si tu socio tiene que leer estas tabs, hoy no puede: todo es sólo
-   super admin y MaKo tiene un solo usuario.
+5. ~~**La 06: ¿Loom personalizado sí o no?**~~ **Contestada (15/10/2026): no.** La prospección va
+   sin Loom; Strategy ya lo dice (la 04 y la 06).
+6. ~~**¿Quién es «nosotros»?**~~ **Contestada (15/10/2026): no hay socio.** Martín: «Que socio? No
+   tengo ni tendré nunca un socio, olvida esto.» La pregunta salía de un rótulo inventado en una
+   transcripción (docs/hallazgos-planes-y-cobro.md → «El socio que no existe»). Strategy y la
+   Ticketera siguen siendo sólo del super admin.
 
 ## Arreglos que no necesitan decisión (los hago si decís que sí)
 

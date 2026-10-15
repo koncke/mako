@@ -569,3 +569,17 @@ implementación en un worktree propio (`C:/dev/wt-pagos`) y una rama aparte para
 *Corrida del 04/10/2026, 12 agentes. Las refutaciones dieron vuelta nueve afirmaciones; las
 tres que más cambiaron el plan están arriba (la cuenta del runway, el margen del 47 y el
 tamaño del cartel de upgrade).*
+
+## El socio que no existe: un rótulo de una transcripción viajó a cuatro documentos (15/10/2026)
+
+**Síntoma:** una tarjeta de la Ticketera le preguntó a Martín «¿Tu socio tiene que poder ver Strategy y Runway?». Contestó: «Que socio? No tengo ni tendré nunca un socio, olvida esto.» Si no la hubiera leído, el supuesto entraba al diseño de permisos de Strategy y de la Ticketera.
+
+**Causa:** la transcripción del audio del 10/10 (referidos) se escribió con una línea de cabecera que decía «Dos voces: Martín proponiendo, su socio refutando». Nadie lo dijo en el audio: lo puso quien transcribió, para nombrar a la segunda voz. De ahí se copió, como dato, a `docs/fuentes-fuera-del-repo.md`, a `docs/referidos.md` («Martín y su socio», «como dijo tu socio» y hasta «Leandro es socio, no referidor», que contradice al mismo documento, donde Leandro está entre «los amigos» a los que se les cobra), a la memoria `referidos-propuesta` y a `docs/propuesta-tabs-strategy.md` («¿Quién es nosotros? Si tu socio tiene que leer estas tabs…»), que es de donde salió la tarjeta.
+
+**El diagnóstico obvio era el equivocado:** se leía como un hecho del negocio (hay dos dueños) y era un ROTULADO. Cada documento lo citaba de otro, así que parecía confirmado cuatro veces: era una sola inferencia, copiada.
+
+**La regla:** al transcribir, una voz que no se presenta se rotula «otra persona» (o por su nombre si lo DICE el audio), nunca por un rol inferido (socio, cliente, closer). Y una pregunta que da por hecha una persona («tu socio», «tu equipo», «tu contador») se verifica contra lo que Martín dijo, no contra un documento nuestro.
+
+**Corregido en:** `docs/referidos.md`, `docs/fuentes-fuera-del-repo.md`, `docs/propuesta-tabs-strategy.md` (la pregunta 6, contestada), la cabecera de `audio-referidos-10oct-transcripcion.md` (fuera del repo) y la memoria `referidos-propuesta`. Nada construido colgaba del supuesto: no hay rol, capa ni pantalla «para el socio»; Strategy y la Ticketera siguen siendo sólo del super admin.
+
+**Vive en:** `docs/referidos.md` · `docs/propuesta-tabs-strategy.md` · `docs/fuentes-fuera-del-repo.md`

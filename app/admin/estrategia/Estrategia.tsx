@@ -41,7 +41,7 @@ import {
   CAC_GRUPAL, CAC_PRO, DEJA_GRUPAL, type FilaCac,
   TECHO_PRO, TECHO_GROWTH, LTV_PRO, LTV_GROWTH, VIDA_PRO, VIDA_GROWTH,
   COSTO_REFERIDO, COMISION_GRUPAL, COMISION_GRUPAL_PCT, DESCUENTO_MAX_97,
-  PASOS, CANALES, DIAG, DIAG_PASOS, LOOM_PASOS, LOOM_MIRA, LOOM_DICE, ANALISIS, DUDA,
+  PASOS, CANALES, DIAG, DIAG_PASOS, ANALISIS, DUDA,
   ASISTE, CIERRA, AGENDADAS, EFECTIVAS, VENTAS, PAUTA, FACTURADO, NETO, PRIMERAS_CUOTAS,
   VENTAS_OBJETIVO, AGENDAS_OBJETIVO, COSTO_POR_AGENDA, FUTURO, JAN_GANA, JAN_GANO, type FilaJan,
 } from './datos';
@@ -235,11 +235,12 @@ function Oferta() {
         <p className="est-pie">Renueva: {usd(RENOVACION_GRUPAL_USD)} cada 3 meses · o {usd(PRECIO_GROWTH)}/mes sólo software</p>
       </div>
 
-      {/* El precio está decidido y el contenido no (datos.ts, PRECIO_1A1): se dibuja la falta. */}
+      {/* El precio está decidido; el contenido NO se escribe acá: Martín, 15/10/2026, «Para esto
+          justamente está la funcionalidad de offer... Luego la voy a probar». Se arma en Offer. */}
       <div className="est-plan est-plan--1a1">
         <span className="est-eyebrow">1 a 1</span>
         <div className="est-precio"><b className="est-num">{usd(PRECIO_1A1)}</b></div>
-        <div><span className="est-chip est-chip--gris">Contenido a definir</span></div>
+        <div><span className="est-chip est-chip--gris">Se arma con Offer</span></div>
         <p className="est-pie">Tiene que valer mucho la pena</p>
       </div>
     </div>
@@ -341,15 +342,14 @@ function LeadMagnet() {
         <Lista titulo="Qué se le dice sobre su anuncio" items={DIAG} />
         <div className="est-puente"><span>Su anuncio</span><Ic d={I.flecha} size={16} /><span>Su funnel completo, en la llamada</span></div>
       </div>
+      {/* Hasta el 15/10/2026 acá iba «Un Loom VSL por cada lead». Martín, en la Ticketera: «No»
+          (datos.ts, donde estaba LOOM_PASOS). Lo que queda es el lado «sin» de la sección 06. */}
       <div className="est-caja est-canal est-canal--A">
         <div>
           <span className="est-chip est-chip--verde">Prospección</span>
-          <h3 className="est-h3" style={{ marginTop: 8 }}>Un Loom VSL por cada lead</h3>
-          <p className="est-regla">Sin recurso gratis: se entra por lo consultivo, con el análisis ya hecho.</p>
+          <h3 className="est-h3" style={{ marginTop: 8 }}>Sin Loom: un mensaje para todos</h3>
+          <p className="est-regla">Decidido el 15/10: no va un Loom por lead. Se arranca sin armar nada.</p>
         </div>
-        <Mini pasos={LOOM_PASOS} verde />
-        <Lista titulo="Qué se mira antes de grabar" items={LOOM_MIRA} verde />
-        <Lista titulo="Qué se le dice" items={LOOM_DICE} verde />
       </div>
     </div>
   );
@@ -856,13 +856,13 @@ export default function Estrategia({ hoy }: { hoy: string }) {
         <Seccion n={3} titulo="Los dos canales" pregunta="¿De dónde salen las llamadas?" dato={`${num(AGENDADAS)} agendas en ${num(DIAS_VENTANA)} días`}>
           <Canales />
         </Seccion>
-        <Seccion n={4} titulo="El lead magnet y el Loom" pregunta="¿Con qué se engancha a cada lead?">
+        <Seccion n={4} titulo="El lead magnet" pregunta="¿Con qué se engancha a cada lead?">
           <LeadMagnet />
         </Seccion>
         <Seccion n={5} titulo="Por qué agenda la llamada" pregunta="¿Qué se lleva el que agenda?">
           <PorQueAgenda />
         </Seccion>
-        <Seccion n={6} titulo="¿Conviene hacerlo personalizado?" pregunta="¿Cuánto sube el cierre por hacerlo a medida?" dato="Duda abierta">
+        <Seccion n={6} titulo="¿Conviene hacerlo personalizado?" pregunta="¿Cuánto sube el cierre por hacerlo a medida?" dato="Decidido: sin Loom">
           <DudaMatriz />
         </Seccion>
       </Grupo>
