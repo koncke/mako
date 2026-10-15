@@ -96,6 +96,7 @@ crear_borrador_whatsapp_empresa
 crear_broadcast
 crear_clase_curso
 crear_contacto_chatwoot_lead
+crear_crm
 crear_diseno_imagen
 crear_etiqueta
 crear_evento_calendario
@@ -406,6 +407,7 @@ sugerencias_crm
 sugerir_kpis
 sugerir_productos
 tendencia_score
+tipos_de_crm
 tracking_lead
 transiciones_desde_etapa
 usar_creacion

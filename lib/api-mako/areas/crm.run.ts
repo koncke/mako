@@ -28,6 +28,11 @@ import {
 } from '@/lib/leads';
 import { getFunnelDefault } from '@/lib/funnels';
 import { salidasDeEtapa, stageMetaOpt, ENTRADAS, MAKO_SETTER, type EntradaId } from '@/lib/pipeline';
+// «Nuevo CRM» por su tipo (14/10/2026): el catálogo puro y el alta que comparte con el modal.
+import { TIPOS_CRM, TIPO_CRM_OTRO, ENTRADAS_OFRECIDAS, siembraDeCrm, tipoCrmPorId } from '@/lib/pipeline';
+import { CANALES, esCanal } from '@/lib/fase-diagnostico';
+import { FUNNEL_DEFAULT_NOMBRE } from '@/lib/funnel-fila';
+import { crearCrm } from '@/lib/nuevo-crm';
 import { etapaVigenteDe } from '@/lib/funnel-etapas';
 // El candado de «calificado»: el mismo que aplica updateLead y que dibuja la ficha.
 import { calificadoSeDescarta } from '@/lib/calificado-reunion';
@@ -1191,6 +1196,60 @@ export const RUNNERS: Runners = {
     ejecutar: (payload) => seguro('declarar las entradas', async () => {
       const r = await guardarEntradas(payload.entradas as string[]);
       return r.ok ? { ok: true, resumen: 'Listo: quedó declarado cómo llega la gente al negocio.' } : { ok: false, resumen: r.error };
+    }),
+  },
+
+  // ── Crear un CRM por su TIPO (14/10/2026): el mismo camino que «Nuevo CRM» ─────────────────
+  // `siembraDeCrm` sanea igual que el modal y `crearCrm` (lib/nuevo-crm.ts) escribe igual. Lo que
+  // se puede saber sin escribir (tipo, canal, entradas, nombre reservado) falla en preparar().
+  tipos_de_crm: {
+    leer: async () => json({
+      tipos: TIPOS_CRM.map((t) => ({
+        tipo: t.id,
+        nombre: t.label,
+        que_es: t.linea,
+        se_vende: CANALES.find((c) => c.id === t.canal)?.label ?? t.canal,
+        llega_por: t.entradas.map((e) => ENTRADAS[e]?.label ?? e),
+        etapas: t.pipeline.map((st) => st.label),
+      })),
+      otro: {
+        tipo: TIPO_CRM_OTRO,
+        que_es: 'Lo armas tú: pasa canal y entradas.',
+        canales: CANALES.map((c) => ({ canal: c.id, nombre: c.label, que_es: c.desc })),
+        entradas: ENTRADAS_OFRECIDAS.map((e) => ({ entrada: e, nombre: ENTRADAS[e].label })),
+      },
+    }),
+  },
+  crear_crm: {
+    preparar: async (input) => {
+      const nombre = s(input.nombre);
+      if (!nombre) return { error: 'Falta el nombre del CRM.', faltan: ['nombre'] };
+      if (nombre.toLowerCase() === FUNNEL_DEFAULT_NOMBRE.toLowerCase()) return { error: `«${FUNNEL_DEFAULT_NOMBRE}» es el nombre del CRM que ya existe. Ponle otro.` };
+      if (input.tipo === TIPO_CRM_OTRO && !esCanal(input.canal)) return { error: 'Con el tipo otro, pasa el canal: cómo se cierra la venta.', faltan: ['canal'] };
+      if (input.tipo === TIPO_CRM_OTRO && !(Array.isArray(input.entradas) && input.entradas.length)) return { error: 'Con el tipo otro, pasa al menos una entrada: cómo llega la gente.', faltan: ['entradas'] };
+      const siembra = siembraDeCrm({ tipo: input.tipo, canal: input.canal, entradas: input.entradas });
+      if ('error' in siembra) return { error: siembra.error };
+      const t = siembra.tipo ? tipoCrmPorId(siembra.tipo) : null;
+      const comoEs = t ? `«${t.label}»` : `a mano (${CANALES.find((c) => c.id === siembra.canal)?.label ?? siembra.canal})`;
+      return {
+        payload: { nombre, tipo: siembra.tipo ?? TIPO_CRM_OTRO, canal: siembra.canal, entradas: siembra.entradas },
+        resumen: `Crear el CRM «${nombre}», ${comoEs}: ${siembra.pipeline.map((st) => st.label).join(' → ')}. La gente llega por: ${siembra.entradas.map((e) => ENTRADAS[e]?.label ?? e).join(' · ')}.`,
+      };
+    },
+    ejecutar: (payload) => seguro('crear el CRM', async () => {
+      // Se vuelve a sanear con lo guardado en la pendiente: entre el «sí» y la propuesta pudo
+      // cambiar el catálogo (un deploy), y un tipo que ya no existe no siembra otro por default.
+      const siembra = siembraDeCrm({ tipo: payload.tipo, canal: payload.canal, entradas: payload.entradas });
+      if ('error' in siembra) return { ok: false, resumen: siembra.error };
+      try {
+        const r = await crearCrm(String(payload.nombre), siembra);
+        invalidar('pipeline', 'leads');
+        const aviso = r.etapasDelTipo ? '' : ' Quedó con las etapas de su canal: ajústalas desde el lápiz del CRM.';
+        return { ok: true, resumen: `Listo: creado el CRM «${String(payload.nombre)}» (embudoId ${r.funnelId}).${aviso}`, datos: { embudoId: r.funnelId, productoId: r.productoId } };
+      } catch (e) {
+        // `crearProductoConFunnel` tira con un mensaje para la persona (nombre vacío o reservado).
+        return { ok: false, resumen: e instanceof Error ? e.message : String(e) };
+      }
     }),
   },
 

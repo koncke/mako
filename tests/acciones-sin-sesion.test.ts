@@ -75,3 +75,20 @@ test('las acciones del layout (confirmaciones de MaKo) exigen sesión adentro', 
     assert.match(cuerpo, /haySesion\(\)/, `${fn} tiene que cortar sin sesión: la monta el layout y su id viaja en todas las páginas`);
   }
 });
+
+// «Nuevo CRM» por su tipo (14/10/2026): crea un embudo con sus etapas, que es config del negocio.
+// Sin sesión, `getWorkspaceActual()` cae al ws1 (un cliente) y el CRM nacería ahí; sin el rol, un
+// closer arma un tablero para todo el equipo. Verificado rompiéndolo (el archivo da 6 / 0): sin
+// `haySesion()` en crearCrmAction, 5 / 1; sin el corte de admin, 5 / 1.
+test('el alta de «Nuevo CRM» exige sesión y admin adentro', () => {
+  const src = sinComentarios(leer('app/crm/nuevo-crm-actions.ts'));
+  const ini = src.indexOf('export async function crearCrmAction');
+  assert.ok(ini >= 0, 'no encontré crearCrmAction');
+  const cuerpo = src.slice(ini);
+  const sesion = cuerpo.search(/if \(!\(await haySesion\(\)\)\) return/);
+  const admin = cuerpo.search(/if \(\(await getRolWsEfectivo\(\)\) !== 'admin'\) return/);
+  const crea = cuerpo.indexOf('crearCrm(');
+  assert.ok(sesion >= 0, 'crearCrmAction tiene que cortar sin sesión');
+  assert.ok(admin >= 0, 'crearCrmAction tiene que cortar a quien no es admin');
+  assert.ok(crea > sesion && crea > admin, 'los dos cortes van ANTES de crear');
+});
