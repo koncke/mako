@@ -31,11 +31,47 @@ function ConCorreo({ next }: { next: string }) {
   const [contrasena, setContrasena] = useState('');
   const [ocupado, setOcupado] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // «Olvidé mi contraseña» (15/10/2026): el link llega por mail. La respuesta es SIEMPRE la misma.
+  const [olvido, setOlvido] = useState(false);
+  const [aviso, setAviso] = useState<string | null>(null);
   if (!abierto) {
     return (
       <button type="button" onClick={() => setAbierto(true)} style={{ display: 'block', width: '100%', marginTop: '14px', background: 'none', border: 'none', fontSize: '13px', color: '#5B6472', cursor: 'pointer', textDecoration: 'underline' }}>
         o entra con tu correo
       </button>
+    );
+  }
+  if (olvido) {
+    const mandar = async (e: FormEvent) => {
+      e.preventDefault();
+      setOcupado(true); setError(null);
+      try {
+        const r = await fetch('/api/auth/restablecer', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ accion: 'pedir', email }) });
+        const j = (await r.json().catch(() => ({ ok: false }))) as { ok: boolean; mensaje?: string; error?: string };
+        if (j.ok) setAviso(j.mensaje ?? 'Si es tu cuenta, te llega un mail en unos minutos.');
+        else setError(j.error ?? 'No se pudo.');
+      } catch {
+        setError('No se pudo conectar.');
+      } finally {
+        setOcupado(false);
+      }
+    };
+    return (
+      <form onSubmit={mandar} style={{ marginTop: '16px' }}>
+        <div style={{ fontSize: '14px', fontWeight: 600, color: '#14161B', marginBottom: '8px' }}>Restablecer tu contraseña</div>
+        {aviso ? <div role="status" style={{ marginBottom: '10px', fontSize: '13px', color: '#14161B' }}>{aviso}</div> : (
+          <>
+            {error && <div role="alert" style={{ marginBottom: '10px', fontSize: '13px', color: '#b91c1c' }}>{error}</div>}
+            <input type="email" autoComplete="username" placeholder="Tu correo" value={email} onChange={(e) => setEmail(e.target.value)} required style={campo} />
+            <button type="submit" disabled={ocupado || !email} style={{ width: '100%', padding: '12px', borderRadius: '11px', border: 'none', background: '#14161B', color: '#fff', fontSize: '15px', fontWeight: 600, cursor: 'pointer', opacity: ocupado ? 0.6 : 1 }}>
+              {ocupado ? 'Mandando…' : 'Mandarme el link'}
+            </button>
+          </>
+        )}
+        <button type="button" onClick={() => { setOlvido(false); setAviso(null); setError(null); }} style={{ display: 'block', width: '100%', marginTop: '10px', background: 'none', border: 'none', fontSize: '13px', color: '#5B6472', cursor: 'pointer', textDecoration: 'underline' }}>
+          Volver
+        </button>
+      </form>
     );
   }
   const entrar = async (e: FormEvent) => {
@@ -59,6 +95,9 @@ function ConCorreo({ next }: { next: string }) {
       <input type="password" autoComplete="current-password" placeholder="Tu contraseña" value={contrasena} onChange={(e) => setContrasena(e.target.value)} required style={campo} />
       <button type="submit" disabled={ocupado || !email || !contrasena} style={{ width: '100%', padding: '12px', borderRadius: '11px', border: 'none', background: '#14161B', color: '#fff', fontSize: '15px', fontWeight: 600, cursor: 'pointer', opacity: ocupado ? 0.6 : 1 }}>
         {ocupado ? 'Entrando…' : 'Entrar'}
+      </button>
+      <button type="button" onClick={() => { setOlvido(true); setError(null); }} style={{ display: 'block', width: '100%', marginTop: '10px', background: 'none', border: 'none', fontSize: '13px', color: '#5B6472', cursor: 'pointer', textDecoration: 'underline' }}>
+        ¿Olvidaste tu contraseña?
       </button>
     </form>
   );

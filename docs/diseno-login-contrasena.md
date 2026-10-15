@@ -17,6 +17,12 @@
 > (también cuando el dispositivo recordado salta el código) y en Seguridad (con un código fresco), y
 > `destinoDeUsuario` para Automations. **Falta**: «Olvidé mi contraseña» (circuito 3), que sale por el destino «a la
 > persona» de Automations (en prod el 18/10), y las decisiones 2 y 4.
+>
+> **Construido (15/10, rama `contrasena-restablecer`)**: el circuito 3, con la tabla (mig 0287), el link en el
+> fragmento, el segundo factor (decisión 2 con A, **a confirmar por Martín**) y «¿Olvidaste tu contraseña?» en el
+> login. **NO cierra las sesiones abiertas** ni manda el aviso «tu contraseña cambió»: lo primero espera el
+> registro de sesiones de `docs/diseno-dispositivos-vinculados.md`, lo segundo un evento de Automations (ver
+> `docs/hallazgos-seguridad.md`). La decisión 4 sigue abierta.
 
 ## El problema que resuelve
 
