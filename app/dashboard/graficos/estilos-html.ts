@@ -26,12 +26,24 @@ export const CSS_HTML = `
 .gr-pista { flex: 1; min-width: 40px; height: 14px; border-radius: 7px; background: var(--surface-2); overflow: hidden; display: flex; }
 .gr-pista > span { display: block; height: 100%; border-radius: 7px; }
 .gr-mas { margin: 10px 14px 0; font-size: var(--fs-sm); color: var(--faint); }
+/* Angosta (el celular): menos aire, así entra una métrica más al lado del nombre (Tabla.tsx achica las columnas). */
+@container (max-width: 480px) {
+  .gr-tabla th { padding: 8px 8px; }
+  .gr-tabla td { padding: 10px 8px; }
+  .gr-tabla .gr-celda-barra { gap: 8px; }
+  .gr-tabla .gr-pista { min-width: 28px; }
+}
 
-.gr-barras { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; justify-content: center; gap: 4px; }
+.gr-barras-caja { flex: 1; min-height: 0; display: flex; flex-direction: column; container-type: inline-size; }
+/* Centrado con márgenes automáticos y no con justify-content: con más filas de las que entran, el centrado de flex deja
+   las de arriba fuera del scroll. */
+.gr-barras { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; gap: 4px; }
+.gr-barras > :first-child { margin-top: auto; }
+.gr-barras > :last-child { margin-bottom: auto; }
 .gr-barras-fila { display: grid; grid-template-columns: minmax(0, 34%) minmax(0, 1fr); align-items: center; gap: 14px; padding: 6px 4px; border-radius: 10px; }
 .gr-barras-fila[tabindex] { cursor: pointer; }
 .gr-barras-fila[tabindex]:hover, .gr-barras-fila[tabindex]:focus-visible { background: var(--velo-hover); outline: none; }
-.gr-barras-rot { font-size: var(--fs-card); color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gr-barras-rot { font-size: var(--fs-card); color: var(--ink); line-height: 1.3; overflow: hidden; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .gr-barras-par { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .gr-barras-linea { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; min-width: 0; }
 .gr-barras-pista { position: relative; height: 26px; border-radius: 8px; overflow: hidden; }
@@ -40,8 +52,18 @@ export const CSS_HTML = `
 .gr-barras-val { font-size: var(--fs-card); font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .gr-barras-val--chico { font-size: var(--fs-sm); color: var(--dim); }
 .gr-barras-leyenda { display: flex; gap: 14px; flex-wrap: wrap; font-size: var(--fs-md); color: var(--ink); padding: 0 4px 6px; }
+/* Angosta (el celular): el rótulo ARRIBA de su barra, entero en un renglón; al lado, la barra no tenía lugar y el nombre
+   quedaba en «Campaña de …». */
+@container (max-width: 440px) {
+  .gr-barras-fila { grid-template-columns: minmax(0, 1fr); gap: 6px; padding: 6px 2px; }
+  .gr-barras-rot { -webkit-line-clamp: 1; }
+}
 
-.gr-paneles { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: minmax(0, 1fr); gap: 14px 22px; container-type: inline-size; }
+/* El container va en el envoltorio: un @container no estila al mismo elemento que lo declara (con el container-type en
+   .gr-paneles, la regla de una columna no aplicaba nunca y el celular quedaba en dos). */
+.gr-paneles-caja { flex: 1; min-height: 0; display: flex; container-type: inline-size; }
+.gr-paneles { flex: 1; min-width: 0; min-height: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: minmax(0, 1fr); gap: 14px 22px; }
+.gr-paneles > .gr-panel:last-child:nth-child(odd) { grid-column: 1 / -1; }
 .gr-paneles--uno { grid-template-columns: minmax(0, 1fr); }
 @container (max-width: 560px) { .gr-paneles { grid-template-columns: minmax(0, 1fr); } }
 .gr-panel { display: flex; flex-direction: column; min-height: 0; min-width: 0; gap: 2px; }
@@ -50,8 +72,12 @@ export const CSS_HTML = `
 .gr-panel-num { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 .gr-panel-num > b { font-size: 28px; font-weight: 600; letter-spacing: -0.02em; color: var(--ink); font-variant-numeric: tabular-nums; line-height: 1.1; }
 
-.gr-prop { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center; gap: 14px; }
-.gr-prop-barra { display: flex; height: 28px; border-radius: 8px; overflow: hidden; background: var(--surface-2); gap: 2px; }
+/* Centrado con márgenes automáticos: si no entra (el celular con 3 filas de alto), lo que sobra se corta ABAJO; con
+   justify-content: center subía la barra encima del título de la tarjeta. */
+.gr-prop { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 14px; overflow: hidden; }
+.gr-prop > :first-child { margin-top: auto; }
+.gr-prop > :last-child { margin-bottom: auto; }
+.gr-prop-barra { flex: none; display: flex; height: 28px; border-radius: 8px; overflow: hidden; background: var(--surface-2); gap: 2px; }
 .gr-prop-barra > button { border: none; padding: 0; margin: 0; min-width: 0; height: 100%; cursor: default; }
 .gr-prop-barra > button[data-abre] { cursor: pointer; }
 .gr-prop-ley { display: flex; flex-wrap: wrap; gap: 8px 22px; }
@@ -67,20 +93,25 @@ export const CSS_HTML = `
 .gr-prop--compacta .gr-prop-item { flex-direction: row; align-items: baseline; gap: 8px; }
 .gr-prop--compacta .gr-prop-val { font-size: var(--fs-card); }
 
-.gr-tramos { flex: 1; min-height: 0; display: flex; align-items: center; gap: 6px; container-type: inline-size; overflow: hidden; }
-.gr-tramo { display: flex; flex-direction: column; gap: 8px; min-width: 64px; border: none; background: none; padding: 6px 4px; border-radius: 10px; text-align: left; color: inherit; font: inherit; cursor: default; }
+/* El container va en el envoltorio: con el container-type en .gr-tramos, la regla de renglones no le llegaba a él mismo
+   y en angosto los tramos quedaban en fila con el adentro de un renglón. */
+.gr-tramos-caja { flex: 1; min-height: 0; display: flex; container-type: inline-size; overflow: hidden; }
+.gr-tramos { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; }
+.gr-tramo { display: flex; flex-direction: column; gap: 10px; min-width: 72px; border: none; background: none; padding: 8px 6px; border-radius: 10px; text-align: left; color: inherit; font: inherit; cursor: default; }
 .gr-tramo[data-abre] { cursor: pointer; }
 .gr-tramo[data-abre]:hover, .gr-tramo[data-abre]:focus-visible { background: var(--velo-hover); outline: none; }
-.gr-tramo-val { font-size: var(--fs-card); font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.gr-tramo-pista { height: 14px; border-radius: 7px; }
-.gr-tramo-nom { font-size: var(--fs-sm); color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gr-tramo-val { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.1; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.gr-tramo-pista { height: 18px; border-radius: 9px; }
+.gr-tramo-nom { font-size: var(--fs-md); color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .gr-tramo--largo .gr-tramo-val, .gr-tramo--largo .gr-tramo-nom { color: var(--bad); font-weight: 600; }
 @container (max-width: 520px) {
-  .gr-tramos { flex-direction: column; align-items: stretch; justify-content: center; }
-  .gr-tramo { flex: none !important; display: grid; grid-template-columns: minmax(0, 40%) minmax(0, 1fr) auto; align-items: center; gap: 10px; }
+  .gr-tramos { flex-direction: column; align-items: stretch; gap: 2px; overflow-y: auto; }
+  .gr-tramos > :first-child { margin-top: auto; }
+  .gr-tramos > :last-child { margin-bottom: auto; }
+  .gr-tramo { flex: none !important; display: grid; grid-template-columns: minmax(0, 40%) minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 6px 4px; }
   .gr-tramo .gr-tramo-nom { order: 1; }
-  .gr-tramo .gr-tramo-pista { order: 2; }
-  .gr-tramo .gr-tramo-val { order: 3; }
+  .gr-tramo .gr-tramo-pista { order: 2; height: 14px; border-radius: 7px; justify-self: start; width: calc(var(--peso, 1) * 100%); }
+  .gr-tramo .gr-tramo-val { order: 3; font-size: var(--fs-card); }
 }
 
 .gr-tarjetas { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; align-content: start; }
@@ -93,10 +124,18 @@ export const CSS_HTML = `
 .gr-tarjeta-nom { font-size: var(--fs-card); font-weight: 600; color: var(--ink); line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
 .gr-tarjeta-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .gr-tarjeta-chips > span { font-size: var(--fs-sm); color: var(--dim); background: var(--surface-2); border-radius: 7px; padding: 2px 8px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gr-tarjeta-prin { display: grid; grid-template-columns: auto minmax(40px, 1fr); align-items: center; column-gap: 12px; row-gap: 2px; min-width: 0; }
+.gr-tarjeta-prin > .gr-tarjeta-rot { grid-column: 1 / -1; font-size: var(--fs-sm); color: var(--faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gr-tarjeta-val { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.15; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .gr-tarjeta-nums { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 6px 10px; }
 .gr-tarjeta-nums > div { display: flex; flex-direction: column; min-width: 0; }
 .gr-tarjeta-nums span { font-size: var(--fs-sm); color: var(--faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .gr-tarjeta-nums b { font-size: var(--fs-md); font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
+
+.gr-disp-y { flex: none; font-size: var(--fs-sm); color: var(--dim); padding: 0 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gr-disp-x { flex: none; display: flex; gap: 12px; font-size: var(--fs-sm); color: var(--dim); padding: 0 4px; min-width: 0; }
+.gr-disp-x > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gr-disp-x > span:last-child { margin-left: auto; }
 
 .gr-mapa { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
 .gr-mapa-caja { flex: 1; position: relative; }
