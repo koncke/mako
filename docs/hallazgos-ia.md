@@ -3910,3 +3910,23 @@ Releída la reunión con el arreglo: 4 tramos, 0 fallidos, 24 tareas.
 **Sin hacer.** Que una extracción pedida a mano diga en pantalla que se leyó a medias sigue
 pendiente: el aviso vive sólo en `console.error` (lib/plan-fathom.ts, `extraerTareasDeTexto`) y
 el borrador no guarda `partesFallidas` (lib/plan-propuesta.ts). Ver `docs/relevo/lector-reuniones.md`.
+
+## `anthropic_usage` no dice si UNA clave está viva: sólo anota los 429, y con el ws del pedido (15/10/2026)
+
+**Síntoma.** La clave de Gemini del ws1 no contesta bien desde el 08/10 a las 20:45 UTC, y en una semana sumó 2.147
+rebotes 429 (~335 por día) sin que nadie se enterara. Para frenarla y avisar (docs/diseno-ia-claves-caidas.md), lo obvio
+era leer la salud de cada clave de `anthropic_usage`. No alcanza, por dos razones:
+
+- **Sólo se anotan los 429** (`anotarRebote429`). Una clave inválida (401), un proyecto bloqueado (el 403
+  `PERMISSION_DENIED` del ws1 del 11/10, arriba) o una cuenta sin crédito no quedan en ninguna tabla. Por eso OpenAI y
+  OpenRouter del ws1, que tampoco contestan, ni aparecen en la medición.
+- **La fila lleva el ws del PEDIDO, no el del dueño de la clave** (`wsDeProveedor`). Cuando contesta la red de la
+  plataforma, su respuesta buena queda en el ws del cliente, con el mismo proveedor y quizá el mismo número de cuenta: una
+  clave muerta puede verse viva por la respuesta de otra.
+
+**La regla que queda.** La salud de una clave se registra por su HUELLA (el sha-256 recortado, nunca la clave), con lo
+que el PROVEEDOR contestó, y en su propio registro. `anthropic_usage` es el libro del gasto, no el de la salud.
+
+**Lo medido (30 días, sólo lectura).** De 12 claves con algún 429, «24 h sin una respuesta buena y ≥ 10 rebotes» corta
+dos (ws1 Gemini y ws1 Mistral, con 0 buenas y 46 rebotes) y ningún falso positivo. «12 h y ≥ 10» ya corta una del ws9
+que se recuperaba sola. Detalle y decisiones en docs/diseno-ia-claves-caidas.md. · *2026-10-15 Automations*
