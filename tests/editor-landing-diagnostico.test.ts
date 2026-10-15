@@ -360,10 +360,34 @@ test('el análisis de una landing NUESTRA no escribe en landing_analyses (esa ta
 
 test('la vista de afuera: iframe con sandbox SÓLO allow-scripts, y sólo escucha a SU iframe', () => {
   const src = sinComentarios(leer('app/web-generator/diagnostico/VistaAfuera.tsx'));
-  assert.match(src, /sandbox="allow-scripts"/);
-  assert.doesNotMatch(src, /allow-same-origin/);
+  // EL DOCUMENTO AISLADO NUNCA LLEVA allow-same-origin: ese HTML lo sirve una ruta NUESTRA, asi que
+  // con ese permiso correria con el origen de hola-mako.com. Desde el 15/10/2026 el recuadro se cae a
+  // la pagina REAL cuando el aislado no pinta nada (una landing de constructor), y ahi el origen es de
+  // ELLA, no nuestro: el permiso es el de cualquier embed. Lo que se fija es que los dos vayan atados.
+  assert.match(src, /sandbox=\{directo \? .allow-scripts allow-same-origin. : .allow-scripts.\}/,
+    ("el sandbox depende del estado directo: con el documento aislado, SOLO allow-scripts"));
+  assert.match(src, /src=\{directo \? url : src\}/, "y el estado directo sirve la URL de AFUERA, no la nuestra");
+  assert.doesNotMatch(src.replace(/directo \? .allow-scripts allow-same-origin. : .allow-scripts./, ""), /allow-same-origin/,
+    ("allow-same-origin no puede aparecer en ningun otro lado"));
   assert.match(src, /ev\.source !== iframeRef\.current\.contentWindow/);
   assert.match(src, /conWs\(srcPaginaDiagnostico\(url\), ws\)/, 'el ?ws= viaja en el src (el parche de fetch no toca un iframe)');
+});
+
+// LA VENTANA EN BLANCO (15/10/2026). Una landing armada en un constructor manda un HTML enorme con el
+// contenido VACÍO: lo dibuja su propio JavaScript. Medido con la de un cliente: 132.704 caracteres de
+// HTML y NUEVE de texto visible. Adentro del iframe aislado eso queda en blanco y, como el HTTP fue 200,
+// el server no tiene forma de saberlo: el único que puede contarlo es este script, que vive adentro.
+// PROBADO ROMPIÉNDOLO: sin el contador en el «listo», 1 fallo; con una sola medición, 1 fallo.
+test('el documento cuenta cuánto texto llegó a pintarse, y lo vuelve a contar', () => {
+  const doc = documentoDiagnostico('<html><body><div id="app"></div></body></html>', 'https://x.test/');
+  assert.match(doc, /function cuantoTextoPinto\(\)/, 'el documento tiene que medir su texto visible');
+  assert.match(doc, /tipo: 'listo', texto:/, 'el «listo» lleva el texto medido');
+  assert.match(doc, /tipo: 'pinto', texto:/, 'y se vuelve a medir cuando la página pinta');
+  // MÁS DE UNA VEZ: lo que pinta el JavaScript de la página tarda, y una sola medición al arrancar
+  // diría «vacía» sobre cualquier página que tarde en dibujarse.
+  const conteos = (doc.match(/setTimeout\(contarTexto/g) || []).length;
+  assert.ok(conteos >= 2, 'el re-conteo tiene que correr más de una vez (hay ' + conteos + ')');
+  assert.match(doc, /addEventListener\('load', contarTexto\)/, 'y también al load');
 });
 
 // =============================================================================

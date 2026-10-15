@@ -26,10 +26,11 @@ import { conWs } from '@/lib/ws-tab';
 import { motivoDeEspera, puedeOperar } from '@/lib/operaciones-reglas';
 import { leerCarteros, listarPedidos } from '@/lib/operaciones';
 import { areasDeProgreso, leerPushes } from '@/lib/progreso';
-import { PESTANAS_CENTRO, frentesEnCurso, pedidosRecientes, recortarPedido, type PestanaCentro } from '@/lib/progreso-reglas';
+import { PESTANAS_CENTRO, frentesEnCurso, novedades, pedidosRecientes, recortarPedido, type PestanaCentro } from '@/lib/progreso-reglas';
 import { CabeceraM, PantallaM, VacioM } from '@/app/m/_ui';
 import type { CarteroM, PedidoM } from './CentroMovil';
 import { CentroMovilPestanas } from './ProgresoMovil';
+import { chatsDelCentro, cuentasConCartero } from '@/lib/centro-chats';
 
 export const dynamic = 'force-dynamic';
 
@@ -75,13 +76,21 @@ export default async function CentroOperacionesMovil({ searchParams }: { searchP
     cuenta: k.cuenta, vistoAt: k.vistoAt, version: k.version, chats: k.chats.length,
   })) : null;
   const verTodos = todos === '1';
+  const pedidos = pedidosRecientes(areas, ahora, verTodos ? 3650 : 14).map(recortarPedido);
+  const lista = estado?.carteros ?? [];
+  const trabajosP = (cola ?? []).map((p) => ({ id: p.id, destino: p.destino, destino_titulo: p.destino_titulo, destino_cuenta: p.destino_cuenta, created_at: p.created_at }));
+  const chats = chatsDelCentro({ carteros: lista, areas, pedidos, trabajos: trabajosP, ahora });
   return (
     <PantallaM>
       {cabecera}
       <CentroMovilPestanas
         inicial={inicial}
         frentes={frentesEnCurso(areas, ahora)}
-        pedidos={pedidosRecientes(areas, ahora, verTodos ? 3650 : 14).map(recortarPedido)}
+        pedidos={pedidos}
+        novedades={novedades(areas, ahora)}
+        chats={chats}
+        cuentas={cuentasConCartero(lista)}
+        trabajos={trabajosP}
         pushes={pushes}
         todos={verTodos}
         ahora={ahora}

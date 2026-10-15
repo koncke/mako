@@ -260,4 +260,34 @@ export const BITACORA: Hito[] = [
       'app/admin/dev/_registro/tipos.ts — el campo `sesion` de un hito',
     ],
   },
+  {
+    fecha: '15 oct', hora: '16:41', chat: CH, sesion: SESION_CH, cuenta: 'claude1', actor: 'claude', tipo: 'implementacion',
+    titulo: 'El Centro abre en sus chats, y Trabajos dejó de ser una pestaña',
+    puntos: [
+      'La primera pestaña es Chats: cada chat con su estado (trabajando, abierto, cerrado) y adentro lo que se le pidió y lo que hizo.',
+      'Pedidos pasó a llamarse Avance; Pushes y Áreas siguen.',
+      'Mandar un trabajo firmado, los carteros y la clave quedaron en «Cartero y trabajos», un botón del encabezado.',
+      'Todavía sin la cáscara de Grok: la cuenta de Martín no tiene conversaciones para copiar.',
+    ],
+    archivos: [
+      'app/admin/operaciones/ChatsCentro.tsx — la lista de chats y su conversación',
+      'app/m/operaciones/ChatsMovil.tsx — lo mismo en el teléfono',
+    ],
+  },
+  {
+    fecha: '15 oct', hora: '16:57', chat: ESTRATEGIA, sesion: SESION_ESTRATEGIA, cuenta: 'claude1', actor: 'martin', tipo: 'prompt',
+    titulo: 'Pushes sin lenguaje técnico, para ir a ver y opinar',
+    pedido: 'El tema de los pushes no lo pongas con lenguaje tecnico... Para eso ya me voy a ir a ver vercel... Esa tab es para mi, quiero saber exactamente que se pusheo así puedo ir a ver y dar feedback de ese trabajo... Es similar a las veces que te pedí que me digas con bullets o con texto bien claro que se trabajó.',
+    puntos: ['Y después: «No necesariamente como bullets, pero si texto formateado y bonito, y claro de leer».'],
+  },
+  {
+    fecha: '15 oct', hora: '16:57', chat: CH, sesion: SESION_CH, cuenta: 'claude1', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Pushes cuenta lo que cambió, como unas notas de versión',
+    puntos: [
+      'Cada trabajo terminado, con su título y sus puntos en palabras de producto, agrupado por día como el changelog de Linear.',
+      'Cada uno lleva a la pantalla donde se mira; lo que es interno lo dice en vez de inventar un link.',
+      'De Vercel queda una sola frase: si lo último se publicó o falló.',
+    ],
+    archivos: ['lib/progreso-reglas.ts — novedades y estadoDeProduccion', 'app/admin/operaciones/Progreso.tsx — la línea de tiempo'],
+  },
 ];

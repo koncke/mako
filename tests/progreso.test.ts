@@ -209,3 +209,29 @@ test('desde el 16/10, todo hito de TRABAJO de una bitácora dice qué sesión lo
   }
   assert.deepEqual(faltan, [], 'A cada hito de la lista sumale `sesion: "local_…"`, el id de la sesión de TU chat: lo da `echo $CLAUDE_CODE_HOST_SESSION_ID` (en una terminal, cli_ + $CLAUDE_CODE_SESSION_ID). El Centro junta cada hito con su chat por la sesión (AGENTS.md, el registro de /admin/dev).');
 });
+
+test('Pushes en palabras de producto: sólo lo HECHO de las bitácoras, con dónde mirarlo y sin inventar un link', async () => {
+  // Martín (15/10): «Esa tab es para mi, quiero saber exactamente que se pusheo así puedo ir a ver y dar feedback».
+  // Probado rompiéndolo: dejando entrar los prompts, falla éste.
+  const { novedades, estadoDeProduccion, diaDeNovedad } = await import('../lib/progreso-reglas');
+  const areas: AreaP[] = [
+    { slug: 'crm', titulo: 'CRM', verEnApp: '/crm', bitacora: [
+      hito('15 oct', '09:00', 'prompt', { pedido: 'Hacé algo' }),
+      hito('15 oct', '10:00', 'implementacion', { titulo: 'Las etapas se arrastran', puntos: ['Ahora se ordenan con el mouse.'] }),
+    ] },
+    { slug: 'guard', titulo: 'Interno', bitacora: [hito('14 oct', '20:00', 'correccion', { titulo: 'Un test más' })] },
+  ];
+  const ns = novedades(areas, AHORA);
+  assert.deepEqual(ns.map((n) => [n.titulo, n.verEnApp, n.correccion]), [
+    ['Las etapas se arrastran', '/crm', false],
+    ['Un test más', null, true],
+  ], 'sin el pedido, la más nueva primero, y el área sin pantalla no inventa un link');
+  assert.equal(diaDeNovedad(ns[0].instante, AHORA), 'Hoy');
+  assert.equal(diaDeNovedad(ns[1].instante, AHORA), 'Ayer');
+  const push = (id: string, estado: 'listo' | 'error', creado: string) =>
+    ({ id, sha: null, mensaje: id, cuerpo: '', estado, creado: Date.parse(creado), duracionMs: null, actual: false, cuenta: null });
+  const mal = estadoDeProduccion([push('b', 'error', '2026-10-15T15:50:00Z'), push('a', 'listo', '2026-10-15T15:00:00Z')], AHORA);
+  assert.equal(mal?.ok, false);
+  assert.match(mal?.frase ?? '', /falló.*sigue andando la versión anterior/);
+  assert.doesNotMatch(mal?.frase ?? '', /deploy|commit|vercel|build/i, 'sin palabras técnicas');
+});

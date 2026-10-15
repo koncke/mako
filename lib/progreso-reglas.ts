@@ -35,7 +35,7 @@ export type HitoP = {
   commits?: Array<{ sha: string; msg: string }>;
 };
 
-export type AreaP = { slug: string; titulo: string; bitacora: readonly HitoP[] };
+export type AreaP = { slug: string; titulo: string; bitacora: readonly HitoP[]; /** La pantalla donde se mira (areas.ts). */ verEnApp?: string | null };
 
 const MES: Record<string, number> = { ene: 0, feb: 1, mar: 2, abr: 3, may: 4, jun: 5, jul: 6, ago: 7, sep: 8, oct: 9, nov: 10, dic: 11 };
 /** Las bitácoras anotan la hora de Argentina (UTC-3, sin horario de verano). */
@@ -65,9 +65,10 @@ export const ROTULO_TIPO: Record<string, string> = {
  * Las pestañas del Centro, en su orden. Los PEDIDOS van primero (Martín, 15/10/2026: «Lo que quiero ver allí
  * es lo que te pedí, los pushes de lo terminado, los pendientes que estamos trabajando ahora mismo, las cosas
  * que ya están terminadas, empezadas, etc...»): la unidad de la pantalla es lo que él pidió, y lo demás es el
- * camino que hizo. Áreas (quién se movió) y Trabajos (la cola firmada) quedan atrás.
+ * camino que hizo. Y después (15/10, tarde): «Al principio debería haber una tab que simule los chats», y «No
+ * entiendo para nada la tab de "trabajos", eliminala». Chats va primero; Trabajos ya no es una pestaña.
  */
-export const PESTANAS_CENTRO = ['pedidos', 'pushes', 'areas', 'trabajos'] as const;
+export const PESTANAS_CENTRO = ['chats', 'pedidos', 'pushes', 'areas'] as const;
 export type PestanaCentro = (typeof PESTANAS_CENTRO)[number];
 
 // ── En curso ──────────────────────────────────────────────────────────────────────────────────
@@ -336,6 +337,71 @@ export function pedidosDeLosPushes(pedidos: readonly PedidoP[], pushes: readonly
     if (trae.length) out.set(x.id, trae);
   }
   return out;
+}
+
+// ── Novedades: lo que se subió, en palabras de producto ──────────────────────────────────────
+/**
+ * La pestaña Pushes, como la pidió Martín (15/10/2026): «El tema de los pushes no lo pongas con lenguaje
+ * tecnico... Para eso ya me voy a ir a ver vercel... Esa tab es para mi, quiero saber exactamente que se
+ * pusheo así puedo ir a ver y dar feedback de ese trabajo», y «No necesariamente como bullets, pero si
+ * texto formateado y bonito, y claro de leer».
+ *
+ * ⚠️ SALE DE LOS HITOS, NO DE LOS COMMITS. Un hito de implementación o de corrección ya está escrito en
+ * palabras de producto (título + puntos) y es una unidad de TRABAJO (varios commits son uno). Y está
+ * subido: la pantalla lee la bitácora de la versión publicada. El commit no se muestra (ni hash, ni prefijo).
+ * ⚠️ «Dónde mirarlo» es el `verEnApp` que declara el área en /admin/dev; si el área no tiene pantalla, la
+ * novedad lo dice y no se le inventa un link. Y no se nombra un chat que no consta.
+ */
+export type NovedadP = {
+  id: string;
+  instante: number;
+  area: string;
+  verEnApp: string | null;
+  titulo: string;
+  puntos: string[];
+  correccion: boolean;
+};
+
+const ES_TRABAJO = new Set(['implementacion', 'correccion']);
+
+export function novedades(areas: readonly AreaP[], ahora: number, dias = 14): NovedadP[] {
+  const desde = ahora - dias * 86_400_000;
+  const out: NovedadP[] = [];
+  for (const a of areas) {
+    a.bitacora.forEach((h, i) => {
+      if (!ES_TRABAJO.has(h.tipo)) return;
+      const t = instanteHito(h.fecha, h.hora, ahora);
+      if (t == null || t < desde || t > ahora + 60_000) return;
+      out.push({
+        id: `${a.slug}:${i}`, instante: t, area: a.titulo, verEnApp: a.verEnApp || null,
+        titulo: h.titulo.slice(0, 200), puntos: (h.puntos ?? []).slice(0, 6).map((p) => p.slice(0, 400)),
+        correccion: h.tipo === 'correccion',
+      });
+    });
+  }
+  return out.sort((x, y) => y.instante - x.instante);
+}
+
+/** El estado de producción en una frase, sin términos técnicos: lo único de Vercel que le sirve. */
+export function estadoDeProduccion(pushes: readonly PushP[], ahora: number): { ok: boolean; frase: string } | null {
+  const ultimo = pushes[0];
+  const vivo = pushes.find((p) => p.estado === 'listo');
+  if (!ultimo) return null;
+  if (ultimo.estado === 'error') {
+    return { ok: false, frase: `El último intento de publicar falló ${hace(ultimo.creado, ahora)}: sigue andando la versión anterior${vivo ? `, de ${hace(vivo.creado, ahora)}` : ''}.` };
+  }
+  if (ultimo.estado === 'construyendo' || ultimo.estado === 'en_cola') return { ok: true, frase: 'Se está publicando un cambio nuevo.' };
+  return vivo ? { ok: true, frase: `Producción al día: lo último se publicó ${hace(vivo.creado, ahora)}.` } : null;
+}
+
+/** El día de una novedad, con el día de Argentina: «Hoy», «Ayer» o «13 oct». */
+export function diaDeNovedad(instante: number, ahora: number): string {
+  const dia = (t: number) => Math.floor((t - DESFASE_AR_MS) / 86_400_000);
+  const d = dia(ahora) - dia(instante);
+  if (d <= 0) return 'Hoy';
+  if (d === 1) return 'Ayer';
+  const f = new Date(instante - DESFASE_AR_MS);
+  return `${f.getUTCDate()} ${['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'][f.getUTCMonth()]}`;
 }
 
 // ── Formato ───────────────────────────────────────────────────────────────────────────────────

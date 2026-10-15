@@ -24,6 +24,7 @@ export function areasDeProgreso(): AreaP[] {
   return REGISTROS_SLUGS.map((slug) => ({
     slug,
     titulo: AREAS.find((a) => a.slug === slug)?.titulo ?? slug,
+    verEnApp: AREAS.find((a) => a.slug === slug)?.verEnApp ?? null,
     bitacora: registroDe(slug).bitacora,
   }));
 }

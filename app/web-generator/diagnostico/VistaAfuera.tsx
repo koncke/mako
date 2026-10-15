@@ -28,12 +28,16 @@ import { MARCA_MENSAJE, TOPES_DIAGNOSTICO, cajaDeMensaje, srcPaginaDiagnostico }
 import { EVENTO_MOVIO, cajaDeRect, recortarA, type ControlVista, type ObjetivoVista } from './vista';
 
 type CajaIframe = [number, number, number, number, number];
-type EstadoVista = 'cargando' | 'lista' | 'error' | 'muda';
+type EstadoVista = 'cargando' | 'lista' | 'error' | 'muda' | 'vacia' | 'directo';
 
 /** Cuánto se espera el «listo» del script antes de decir que la página no se pudo mostrar. */
 const ESPERA_LISTO_MS = 12_000;
 /** Cuánto se espera la caja después de pedirle al iframe que traiga una cita. */
 const ESPERA_IR_MS = 900;
+/** Menos texto que esto es una página que no se pintó: 9 caracteres daba la que destapó el caso. */
+const PISO_TEXTO = 40;
+/** Lo que se le da al JavaScript de la página para pintar antes de decir que quedó vacía. */
+const ESPERA_PINTA_MS = 1600;
 
 export function VistaAfuera({ url, objetivos, controlRef, senal, onUbicar }: {
   url: string;
@@ -61,6 +65,33 @@ export function VistaAfuera({ url, objetivos, controlRef, senal, onUbicar }: {
   const [srcAntes, setSrcAntes] = useState(src);
   if (src !== srcAntes) { setSrcAntes(src); setEstado('cargando'); setMensaje(''); }
 
+  // ¿LLEGÓ A PINTARSE ALGO? El documento cuenta su texto visible y lo manda (`listo` y `pinto`). Si
+  // después de darle tiempo a su JavaScript sigue sin texto, la ventana está en blanco y hay que
+  // DECIRLO: hasta el 15/10/2026 quedaba un rectángulo blanco sin una palabra, que se lee como que la
+  // app está rota. No lo puede contestar el server: el HTTP es 200 y el HTML viene lleno de scripts.
+  const graciaRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const anotarTexto = useCallback((v: unknown) => {
+    const n = typeof v === 'number' && Number.isFinite(v) ? v : -1;
+    if (n < 0) return;                       // el documento no lo pudo medir: no se afirma nada
+    if (n >= PISO_TEXTO) {
+      if (graciaRef.current) { clearTimeout(graciaRef.current); graciaRef.current = null; }
+      setEstado((e) => (e === 'vacia' ? 'lista' : e));
+      return;
+    }
+    if (graciaRef.current) return;           // ya hay una cuenta corriendo
+    graciaRef.current = setTimeout(() => {
+      graciaRef.current = null;
+      // NO SE MUESTRA UN CARTEL: SE MUESTRA LA PAGINA. Pedido de Martin (15/10/2026): «Quiero
+      // que se renderice de manera automatica ahi». El documento aislado sirve el HTML crudo, y
+      // una landing armada en un constructor lo trae vacio; la pagina REAL, en cambio, corre su
+      // propio JavaScript con SU origen y se ve. Se cae a eso solo cuando el aislado no pinto.
+      // Si el sitio se niega a ser embebido (X-Frame-Options o frame-ancestors) el recuadro queda
+      // vacio igual, y para eso sigue abajo la barra con el motivo y el boton de abrirla.
+      setEstado((e) => (e === 'lista' || e === 'cargando' ? 'directo' : e));
+    }, ESPERA_PINTA_MS);
+  }, []);
+  useEffect(() => () => { if (graciaRef.current) clearTimeout(graciaRef.current); }, []);
+
   const mandar = useCallback((m: Record<string, unknown>) => {
     try { iframeRef.current?.contentWindow?.postMessage({ ...m, [MARCA_MENSAJE]: 1 }, '*'); } catch { /* el iframe se fue */ }
   }, []);
@@ -74,7 +105,8 @@ export function VistaAfuera({ url, objetivos, controlRef, senal, onUbicar }: {
       if (!iframeRef.current || ev.source !== iframeRef.current.contentWindow) return;
       const d = ev.data as Record<string, unknown> | null;
       if (!d || typeof d !== 'object' || d[MARCA_MENSAJE] !== 1) return;
-      if (d.tipo === 'listo') { setEstado('lista'); mandarCitas(); return; }
+      if (d.tipo === 'listo') { setEstado('lista'); anotarTexto(d.texto); mandarCitas(); return; }
+      if (d.tipo === 'pinto') { anotarTexto(d.texto); return; }
       if (d.tipo === 'error') { setEstado('error'); setMensaje(String(d.mensaje ?? '').slice(0, 300)); return; }
       if (d.tipo === 'cajas' && Array.isArray(d.cajas)) {
         const nuevas = (d.cajas as unknown[]).slice(0, TOPES_DIAGNOSTICO.citas).map(cajaDeMensaje);
@@ -134,20 +166,41 @@ export function VistaAfuera({ url, objetivos, controlRef, senal, onUbicar }: {
     return () => { if (controlRef.current === control) controlRef.current = null; };
   }, [controlRef, mandar]);
 
+  const directo = estado === 'directo';
+  // El recuadro NO se deja en blanco mientras tanto: hasta que el documento carga hay un giro con
+  // el mismo texto que la columna de la derecha. Pedido de Martin (15/10/2026): «tarda mucho en
+  // aparecer, fijate si puede ser mas eficiente y en todo caso un LOADER».
+  const [cargo, setCargo] = useState(false);
+  useEffect(() => { setCargo(false); }, [src, directo]);
   return (
     <div className="gdg-vista gdg-vista--afuera">
       <iframe
-        key={src}
+        key={directo ? url : src}
         ref={iframeRef}
         className="gdg-iframe"
-        src={src}
-        sandbox="allow-scripts"
+        src={directo ? url : src}
+        // Con la pagina real el origen es SUYO, no el nuestro: `allow-same-origin` le deja usar
+        // lo suyo (sus cookies, su storage) y no toca hola-mako.com. Sin `allow-popups` ni
+        // `allow-top-navigation`: no puede abrir ventanas ni llevarse la pestana.
+        sandbox={directo ? 'allow-scripts allow-same-origin' : 'allow-scripts'}
         referrerPolicy="no-referrer"
         title="Vista de la página"
+        onLoad={() => setCargo(true)}
       />
-      {(estado === 'error' || estado === 'muda') && (
+      {!cargo && estado !== 'error' && estado !== 'muda' && (
+        <div className="gdg-vista-giro" role="status">
+          <span className="gdg-giro" aria-hidden="true" />
+          <span>Analizando… puede tardar 1-2 minutos.</span>
+        </div>
+      )}
+      {(estado === 'error' || estado === 'muda' || estado === 'vacia' || estado === 'directo') && (
         <div className="gdg-vista-aviso" role="status">
-          <p>{estado === 'error' && mensaje ? mensaje : 'No pude mostrar la página aquí.'}</p>
+          <p>
+            {estado === 'error' && mensaje ? mensaje
+              : estado === 'directo' ? 'Esta página se dibuja con JavaScript: se muestra la página real.'
+              : estado === 'vacia' ? 'Esta página se dibuja con JavaScript y acá no llega a verse.'
+              : 'No pude mostrar la página aquí.'}
+          </p>
           <a className="gp-btn gp-btn-contorno" href={url} target="_blank" rel="noopener noreferrer">Abrir la página</a>
         </div>
       )}

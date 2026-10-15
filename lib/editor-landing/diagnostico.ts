@@ -735,7 +735,8 @@ export function contextoDeComentario(c: {
 // la base para lo relativo, `no-referrer` y el script que ubica las citas.
 //
 // EL PROTOCOLO (todos los mensajes llevan `gmDg: 1`):
-//   iframe → padre  { tipo: 'listo' }                          al arrancar (el padre manda las citas)
+//   iframe → padre  { tipo: 'listo', texto }                  al arrancar (el padre manda las citas)
+//   iframe → padre  { tipo: 'pinto', texto }                  al cargar y dos veces mas: cuanto texto hay
 //   padre → iframe  { tipo: 'citas', citas: string[] }
 //   padre → iframe  { tipo: 'ir', i }                          trae la cita i a la vista (sin animar);
 //                                                              antes abre el desplegable que la tapa
@@ -880,7 +881,33 @@ export const SCRIPT_DIAGNOSTICO = String.raw`(function () {
   window.addEventListener('resize', pronto);
   window.addEventListener('load', rebuscar);
   if (window.MutationObserver) new MutationObserver(rebuscar).observe(document.documentElement, { childList: true, subtree: true, characterData: true });
-  enviar({ tipo: 'listo' });
+  // CUANTO TEXTO LLEGO A PINTARSE. Una landing armada en un constructor (Elementor y compania) manda
+  // un HTML enorme con el contenido VACIO: lo dibuja su propio JavaScript. Medido el 15/10/2026 con la
+  // de un cliente: 132.704 caracteres de HTML y NUEVE de texto visible. Adentro del iframe aislado ese
+  // JavaScript casi nunca termina de pintar, asi que la ventana queda en blanco — y como el HTTP fue
+  // 200, el server no tiene forma de saberlo: el unico que puede contarlo es este script, que vive
+  // adentro del documento. Se manda con el «listo» y se vuelve a medir, porque puede tardar.
+  function cuantoTextoPinto() {
+    try {
+      var b = document.body;
+      if (!b) return -1;
+      // OJO: NI innerText SOLO NI EL respaldo con textContent. Medido en producción el
+      // 15/10/2026: con una pagina que no pinta nada, innerText devuelve vacio (falsy) y
+      // el respaldo caia a textContent, que incluye EL CODIGO DE LOS scripts: 124.000
+      // caracteres en la landing que destapó el caso. O sea que el aviso no salía nunca, con el
+      // chunk nuevo ya servido. Se mide sobre una copia sin lo que no se ve.
+      var c = b.cloneNode(true);
+      var fuera = c.querySelectorAll('script,style,noscript,template,link,meta');
+      for (var i = 0; i < fuera.length; i++) { if (fuera[i].parentNode) fuera[i].parentNode.removeChild(fuera[i]); }
+      var t = c.textContent || '';
+      return String(t).replace(/[\s\u00a0]+/g, ' ').trim().length;
+    } catch (e) { return -1; }
+  }
+  function contarTexto() { enviar({ tipo: 'pinto', texto: cuantoTextoPinto() }); }
+  enviar({ tipo: 'listo', texto: cuantoTextoPinto() });
+  window.addEventListener('load', contarTexto);
+  setTimeout(contarTexto, 1200);
+  setTimeout(contarTexto, 3000);
 })();`;
 
 const escAttr = (s: string): string => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');

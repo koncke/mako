@@ -13,12 +13,12 @@
 // las columnas que menos dicen (`.prog-opc`), nunca el estado.
 // ⚠️ El color va en el PUNTO, nunca en el texto.
 
-import { Fragment, useMemo, useState, type KeyboardEvent } from 'react';
+import { Fragment, useState, type KeyboardEvent } from 'react';
 import Link from '@/app/_ui/Link';
 import { ErrorState } from '@/app/_ui';
 import {
-  GRUPOS_PEDIDO, ROTULO_GRUPO, ROTULO_PUSH, ROTULO_TIPO, duracion, grupoPedido, hace, pedidosDeLosPushes, pushDelCommit,
-  type EstadoPedidoP, type EstadoPush, type Frente, type GrupoPedido, type PedidoP, type PushP,
+  GRUPOS_PEDIDO, ROTULO_GRUPO, ROTULO_TIPO, diaDeNovedad, estadoDeProduccion, grupoPedido, hace, pushDelCommit,
+  type EstadoPedidoP, type Frente, type GrupoPedido, type NovedadP, type PedidoP, type PushP,
 } from '@/lib/progreso-reglas';
 import type { LecturaPushes } from '@/lib/progreso';
 import './progreso.css';
@@ -27,7 +27,6 @@ export type VistaProgreso = 'pedidos' | 'pushes' | 'areas';
 
 type Tono = 'good' | 'bad' | 'warn' | 'info' | 'neutro';
 const TONO_PEDIDO: Record<EstadoPedidoP, Tono> = { pendiente: 'warn', en_curso: 'info', hecho: 'good' };
-const TONO_PUSH: Record<EstadoPush, Tono> = { listo: 'good', error: 'bad', construyendo: 'warn', en_cola: 'neutro', cancelado: 'neutro' };
 const TONO_TIPO: Record<string, Tono> = { prompt: 'warn', implementacion: 'good', correccion: 'info', investigacion: 'info', cosecha: 'neutro' };
 
 const Punto = ({ tono }: { tono: Tono }) => <span className={`prog-dot prog-dot--${tono}`} aria-hidden />;
@@ -199,57 +198,58 @@ function Pedidos({ pedidos, pushes, todos, ahora }: { pedidos: PedidoP[]; pushes
   );
 }
 
-// ── Pushes ────────────────────────────────────────────────────────────────────────────────────
-function Pushes({ lectura, pedidos, ahora }: { lectura: LecturaPushes; pedidos: PedidoP[]; ahora: number }) {
-  const [abierto, setAbierto] = useState<string | null>(null);
-  const trae = useMemo(() => pedidosDeLosPushes(pedidos, lectura.ok ? lectura.pushes : []), [pedidos, lectura]);
-  if (!lectura.ok) return <ErrorState titulo="No pude leer los pushes" detalle={lectura.motivo} />;
-  const ps = lectura.pushes;
+// ── Pushes: las novedades, como unas notas de versión ────────────────────────────────────────
+// Copiado del changelog de Linear (linear.app/changelog, mirado el 15/10/2026): la fecha a la izquierda con su
+// punto sobre una línea de tiempo, y a la derecha cada novedad con su título y un texto corto. Sin hash, sin
+// commit, sin Vercel (Martín: «Para eso ya me voy a ir a ver vercel»); de Vercel sólo queda una frase: si lo
+// último se publicó o falló.
+function Novedades({ lista, lectura, ahora }: { lista: NovedadP[]; lectura: LecturaPushes; ahora: number }) {
+  const prod = lectura.ok ? estadoDeProduccion(lectura.pushes, ahora) : null;
+  const dias: Array<{ dia: string; items: NovedadP[] }> = [];
+  for (const n of lista) {
+    const dia = diaDeNovedad(n.instante, ahora);
+    const ult = dias[dias.length - 1];
+    if (ult?.dia === dia) ult.items.push(n); else dias.push({ dia, items: [n] });
+  }
   return (
     <>
-      <p className="prog-nota">Producción, de Vercel.</p>
-      {!ps.length ? <p className="prog-vacio">Vercel no tiene pushes a producción.</p> : (
-        <div className="prog-caja">
-          <table className="prog-tabla">
-            <thead><tr><th>Push</th><th style={{ width: '17%' }}>Estado</th><th className="prog-opc" style={{ width: '12%' }}>Commit</th><th className="prog-opc" style={{ width: '10%' }}>Cuenta</th><th style={{ width: '11%' }}>Hace</th></tr></thead>
-            <tbody>
-              {ps.map((p: PushP) => (
-                <Fragment key={p.id}>
-                  <tr className="prog-fila" {...abre(() => setAbierto(abierto === p.id ? null : p.id), abierto === p.id)}>
-                    <td title={p.mensaje}>{p.actual && <span className="prog-actual">En producción</span>}{p.mensaje}</td>
-                    <td><Punto tono={TONO_PUSH[p.estado]} />{ROTULO_PUSH[p.estado]} <span className="prog-meta">{duracion(p.duracionMs)}</span></td>
-                    <td className="prog-opc"><code className="prog-mono">{p.sha ?? '—'}</code></td>
-                    <td className="prog-opc">{p.cuenta ?? '—'}</td>
-                    <td className="prog-num">{hace(p.creado, ahora)}</td>
-                  </tr>
-                  {abierto === p.id && (
-                    <tr className="prog-detalle"><td colSpan={5}>
-                      <p className="prog-texto">{p.cuerpo || 'El commit no trae más que el título.'}</p>
-                      {(trae.get(p.id) ?? []).map((x) => (
-                        <p key={x.id} className="prog-commit"><Punto tono="good" />Trae tu pedido: {x.texto.length > 160 ? `${x.texto.slice(0, 160)}…` : x.texto}</p>
-                      ))}
-                    </td></tr>
-                  )}
-                </Fragment>
-              ))}
-            </tbody>
-          </table>
+      {prod && <p className={`prog-nov-prod${prod.ok ? '' : ' prog-nov-prod--mal'}`}><Punto tono={prod.ok ? 'good' : 'bad'} />{prod.frase}</p>}
+      {!lista.length ? <p className="prog-vacio">Nada publicado en estos días.</p> : (
+        <div className="prog-nov">
+          {dias.map(({ dia, items }) => (
+            <section key={dia} className="prog-nov-dia">
+              <div className="prog-nov-fecha"><span className="prog-nov-punto" aria-hidden />{dia}</div>
+              <div className="prog-nov-items">
+                {items.map((n) => (
+                  <article key={n.id} className="prog-nov-item">
+                    <p className="prog-nov-area">{n.area}{n.correccion ? ' · arreglo' : ''}</p>
+                    <h3 className="prog-nov-titulo">{n.titulo}</h3>
+                    {n.puntos.length > 0 && <ul className="prog-nov-puntos">{n.puntos.map((p, i) => <li key={i}>{p}</li>)}</ul>}
+                    {n.verEnApp
+                      ? <Link href={n.verEnApp} className="prog-nov-ver">Verlo en la app →</Link>
+                      : <p className="prog-nov-sin">Sin pantalla para mirar: es algo interno.</p>}
+                  </article>
+                ))}
+              </div>
+            </section>
+          ))}
         </div>
       )}
     </>
   );
 }
 
-export function Progreso({ vista, frentes, pedidos, pushes, todos, hayCartero, ahora }: {
+export function Progreso({ vista, frentes, pedidos, pushes, novedades, todos, hayCartero, ahora }: {
   vista: VistaProgreso;
   frentes: Frente[];
   pedidos: PedidoP[];
   pushes: LecturaPushes;
+  novedades: NovedadP[];
   todos: boolean;
   hayCartero: boolean;
   ahora: number;
 }) {
   if (vista === 'areas') return <EnCurso frentes={frentes} hayCartero={hayCartero} ahora={ahora} />;
   if (vista === 'pedidos') return <Pedidos pedidos={pedidos} pushes={pushes} todos={todos} ahora={ahora} />;
-  return <Pushes lectura={pushes} pedidos={pedidos} ahora={ahora} />;
+  return <Novedades lista={novedades} lectura={pushes} ahora={ahora} />;
 }
