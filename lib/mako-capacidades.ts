@@ -61,19 +61,23 @@ export const CAPACIDADES: Capacidad[] = [
     // Dashboard. El id no cambia: lo devuelve el modelo y queda escrito en las tareas del plan.
     id: 'landing-diagnosticar', tab: 'Web Generator', ruta: '/web-generator/analizar',
     que: 'Diagnosticar una landing: MaKo la abre, le lee el mensaje y lo cruza con lo que hace la gente que llega (visitas, retención del video, agendas) para decir qué cambiar primero.',
-    como: ['Entra a Web Generator y abre Diagnóstico', 'Pega la dirección de tu página y toca Analizar', 'Mira los hallazgos: cada uno cita la frase exacta y trae el reemplazo escrito'],
+    // Tanda 7 (15/10/2026): la primera pantalla es UN cuadro con modos (Generar · Importar · Analizar landing ·
+    // Replicar landing) y se manda con la flecha; «Diagnóstico» y «Analizar» ya no son botones.
+    como: ['Entra a Web Generator y elige "Analizar landing"', 'Pega la dirección de tu página y toca la flecha', 'Mira los hallazgos: cada uno cita la frase exacta y trae el reemplazo escrito'],
   },
   {
     // Desde el 11/10/2026 la tab es el editor copiado de Gamma (docs/diseno-editor-landing.md). Los
-    // pasos nombran SÓLO botones que existen («Crear nuevo», «Generar esquema», «Publicar»): MaKo los
-    // repite en un chat y una instrucción inventada se sigue y no se encuentra. Lo que NO se puede
-    // (y por eso no está): dominio propio, código de terceros, «Generar imagen con IA» todavía, ni
-    // editar a la vez con otra persona.
+    // pasos nombran SÓLO botones que existen: MaKo los repite en un chat y una instrucción inventada se
+    // sigue y no se encuentra. Tanda 7 (15/10/2026): «Crear nuevo» y «Generar esquema» ya no existen; se
+    // escribe en el cuadro «¿Qué vas a crear hoy?», las secciones, el objetivo y el idioma van en «Plan»,
+    // y se manda con la flecha (tests/mako-capacidades-botones.test.ts busca cada rótulo entre comillas en
+    // la pantalla). Lo que NO se puede (y por eso no está): «Generar imagen con IA» todavía, ni editar a la
+    // vez con otra persona. El dominio propio (tanda 4) y el HTML personalizado (tanda 2) SÍ se pueden.
     id: 'landing-escribir', tab: 'Web Generator', ruta: '/web-generator',
-    que: 'Crear tu landing con MaKo y publicarla: arma el esquema y las secciones desde tu oferta (o desde una página ya analizada, resolviendo sus hallazgos), la editas por bloques con el tema que elijas y queda en hola-mako.site/<tu-dirección>, con el Pixel de MaKo midiendo las visitas.',
+    que: 'Crear tu landing con MaKo y publicarla: arma el esquema y las secciones desde tu oferta (o desde una página ya analizada, resolviendo sus hallazgos), la editas por bloques con el tema que elijas y queda en hola-mako.site/<tu-dirección> o en tu propio dominio, con el Pixel de MaKo midiendo las visitas.',
     como: [
-      'Entra a Web Generator y toca "Crear nuevo"',
-      'Cuéntale qué página necesitas (o pega tu texto) y toca "Generar esquema"',
+      'Entra a Web Generator: en "¿Qué vas a crear hoy?" escribe qué página necesitas (o pega tu texto, o arrastra un archivo)',
+      'En "Plan" elige cuántas secciones, el objetivo y el idioma, y toca la flecha',
       'Ajusta el esquema y elige el tema',
       'Edita las secciones: escribe "/" para agregar bloques, o pídele cambios a MaKo con ✨',
       'Toca "Publicar", elige la dirección y publica',
