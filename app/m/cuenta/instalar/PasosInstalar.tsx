@@ -18,7 +18,7 @@ import { Icon } from '@/app/_components/icons';
 import { estaInstalada } from '@/lib/movil-instalar';
 import { CabeceraM } from '../../_ui/CabeceraM';
 
-const TITULO = 'Instalar MaKo';
+const TITULO = 'Instalar la app'; // el mismo rótulo que «Tu cuenta» en la computadora
 
 // ⚠️ El set de íconos no tiene el de «Compartir» de iOS: va el del navegador.
 const PASOS: ReadonlyArray<{ icono: string; frase: string }> = [

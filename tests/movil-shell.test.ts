@@ -174,7 +174,7 @@ test('el título de la pestaña en /m usa los nombres de la barra', () => {
   assert.equal(tituloDe('/m/inbox'), 'MaKo - Inbox');
   assert.equal(tituloDe('/m/mako'), 'Pregúntale a MaKo', 'el nombre de la sidebar, que ya dice MaKo');
   assert.equal(tituloDe('/m/crm/12'), 'MaKo - CRM');
-  assert.equal(tituloDe('/m/cuenta'), 'MaKo - Perfil');
+  assert.equal(tituloDe('/m/cuenta'), 'MaKo - Tu cuenta');
   assert.equal(tituloDe('/m'), 'MaKo');
 });
 
@@ -206,8 +206,8 @@ test('la cabecera por defecto: título en la raíz, volver fijo en la subpantall
   assert.deepEqual(cabeceraPorRuta('/m/cs'), t('Clientes', { href: '/m/mas', label: 'More' }));
   assert.deepEqual(cabeceraPorRuta('/m/ads/9'), t('', { href: '/m/ads', label: 'Ads Manager' }));
   // La cuenta es la primera fila de More.
-  assert.deepEqual(cabeceraPorRuta('/m/cuenta'), t('Perfil', { href: '/m/mas', label: 'More' }));
-  assert.deepEqual(cabeceraPorRuta('/m/cuenta/instalar'), t('', { href: '/m/cuenta', label: 'Perfil' }));
+  assert.deepEqual(cabeceraPorRuta('/m/cuenta'), t('Tu cuenta', { href: '/m/mas', label: 'More' }));
+  assert.deepEqual(cabeceraPorRuta('/m/cuenta/instalar'), t('', { href: '/m/cuenta', label: 'Tu cuenta' }));
   assert.deepEqual(cabeceraPorRuta('/m/raro'), t('', { href: '/m/hoy', label: 'General' }));
   // Pantallas de trabajo: sin título grande y sin barra de abajo.
   assert.deepEqual(cabeceraPorRuta('/m/mako'), t('Pregúntale a MaKo', { href: '/m/mas', label: 'More' }, true, false));

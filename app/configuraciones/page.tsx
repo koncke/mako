@@ -1,36 +1,52 @@
 // =============================================================================
-// /configuraciones — hub de ajustes: Notificaciones · Identidades fiscales · Equipo
+// /configuraciones — «Configuración del negocio» › General (15/10/2026)
 // =============================================================================
-// El Archivero, el Funnel y los Ángulos y avatares se mudaron a "Onboarding"
-// (menú de la foto de perfil). Acá quedan los ajustes de la cuenta.
+// La primera sección de «Configuración del negocio» (lib/ajustes-secciones.ts): a qué hora escribe MaKo
+// y qué entra al tablero. Las demás son sus propias rutas: /equipo, /integraciones,
+// /configuraciones/notificaciones, /configuraciones/fiscal y /metodo.
+//
+// ⚠️ EL `?tab=` VIEJO SIGUE VIVO EN LOS LINKS YA MANDADOS: los 49 avisos apuntan a
+// `/configuraciones?tab=notif` para apagar un reporte. Cada valor va a su sección, con el resto de la
+// query (el `?ws=`).
+//
+// El Archivero, el Funnel y los Ángulos y avatares viven en Onboarding (menú de la foto de perfil).
 
-import { Icon } from '../_components/icons';
-import { ConfigInnerTabs } from './ConfigInnerTabs';
-import { EquipoView } from '../equipo/EquipoView';
+import { redirect } from 'next/navigation';
 import { requireRolWs } from '@/lib/tab-access';
+import { TITULO_NEGOCIO, conLaQuery, rutaDeTabVieja, seccionesNegocio } from '@/lib/ajustes-secciones';
+import { disponiblesNegocio } from '@/lib/ajustes-negocio';
+import { AjustesPagina, SubtituloAjustes, TituloAjustes } from '../_ui/Ajustes';
+import { CriterioPanel } from './CriterioPanel';
+import { HorarioEnvioPanel } from './HorarioEnvioPanel';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export default async function ConfiguracionesPage() {
+export default async function ConfiguracionesPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   await requireRolWs([], { nav: 'configuraciones' });
   // (Acá se preguntaba si el negocio tiene /automations, para el link de cada mensaje de Notificaciones.
   // Se fue el 11/10/2026: esa lista no existe más; los mensajes de MaKo son automatizaciones.)
+  const sp = await searchParams;
+  const vieja = rutaDeTabVieja(typeof sp.tab === 'string' ? sp.tab : null);
+  if (vieja && vieja !== '/configuraciones') redirect(conLaQuery(vieja, sp, ['tab']));
 
-  const equipoPanel = (
-    <div>
-      <p style={{ fontSize: 14, color: 'var(--dim)', margin: '0 0 18px', maxWidth: 720 }}>Suma a tu equipo y decide qué ve cada uno. El <b>Closer</b> ve CRM, WhatsApp y la hoja Closing del Dashboard; el <b>Setter</b> ve CRM, WhatsApp, Email, Automations y la hoja Chat Analyst del Dashboard; el <b>Admin</b> ve todo tu negocio.</p>
-      <EquipoView />
-    </div>
-  );
+  const disponibles = await disponiblesNegocio();
+  const secciones = seccionesNegocio(disponibles);
+  // Sin General (hoy, quien no es el super admin), la entrada es la primera sección que sí ve.
+  if (!disponibles.general) redirect(conLaQuery(secciones[0]?.href ?? '/equipo', sp, ['tab']));
 
   return (
-    <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px' }}>
-      <header style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 22 }}>
-        <span style={{ display: 'inline-flex', color: 'var(--accent)' }}><Icon name="config" size={34} /></span>
-        <h1 style={{ fontWeight: 600, fontSize: 42, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Configuraciones</h1>
-      </header>
-      <ConfigInnerTabs equipoPanel={equipoPanel} />
-    </main>
+    <AjustesPagina lugar={TITULO_NEGOCIO} secciones={secciones} activa="general">
+      <TituloAjustes titulo="General" bajada="A qué hora escribe MaKo y qué entra al tablero." />
+      {/* El horario en que las automatizaciones le escriben a alguien (sexta tanda, 09/10/2026): por
+          defecto, cualquier hora. Lo cambia sólo un admin (horario-actions.ts); lib/horario-envio.ts
+          tiene el porqué. */}
+      <SubtituloAjustes titulo="Horario" />
+      <div style={{ marginBottom: 34 }}><HorarioEnvioPanel /></div>
+      {/* El criterio gobierna QUÉ ENTRA al tablero de todo el workspace: un closer que lo cambie decide
+          qué compromisos existen para su jefe (criterio-actions.ts). */}
+      <SubtituloAjustes titulo="Criterio de reuniones" />
+      <CriterioPanel />
+    </AjustesPagina>
   );
 }

@@ -43,7 +43,7 @@ const EXTRA: Record<string, string> = {
   ...Object.fromEntries(DESTINOS_MOVIL.map((d) => [d.href, d.label])),
   // Y las secciones de More (v2): sin ellas /m/dashboard, /m/ads… quedaban «MaKo» a secas.
   ...Object.fromEntries(SECCIONES_MAS.map((s) => [s.href, s.label])),
-  '/m/cuenta': 'Perfil',
+  '/m/cuenta': 'Tu cuenta', // el mismo nombre que en la computadora (lib/ajustes-secciones.ts)
   // La campana de General (v3: Inbox dejó la barra, pero la pantalla sigue llamándose así).
   '/m/inbox': 'Inbox',
   '/m': 'MaKo',

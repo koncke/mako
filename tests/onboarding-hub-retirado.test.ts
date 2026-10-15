@@ -33,6 +33,7 @@ import { AREAS } from '../lib/cerebro-modelo';
 import { DONDE_SE_EDITA, SUBVISTAS, lugarSeccion, rutaSeccion, vistaValida, type SeccionNegocio } from '../lib/secciones-negocio';
 import { TAB_VIEJA_A_SECCION, destinoDeTabVieja, DESTINO_SIN_TAB } from '../app/onboarding/tabs-catalogo';
 import { USER_NAV, TODOS_LOS_ITEMS } from '../app/_components/nav';
+import { seccionesNegocio } from '../lib/ajustes-secciones';
 
 const RAIZ = join(__dirname, '..');
 const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
@@ -104,7 +105,8 @@ test('la página ya no dibuja el hub: el wizard, o un redirect con el ?ws= a la 
 test('ni el menú de la foto ni Configuraciones llevan a /onboarding', () => {
   assert.ok(!USER_NAV.some((i) => i.href === '/onboarding'), 'el ítem «Onboarding» volvió al menú de la foto');
   assert.ok(!TODOS_LOS_ITEMS.some((i) => i.href === '/onboarding'));
-  assert.doesNotMatch(sinComentarios(leer('app/_components/ConfigTabs.tsx')), /'\/onboarding'/);
+  // ConfigTabs.tsx se fue el 15/10/2026 con «Configuración del negocio»: su índice sale de lib/ajustes-secciones.ts.
+  assert.ok(!seccionesNegocio({ general: true, integraciones: true, metodo: true }).some((s) => s.href === '/onboarding'));
 });
 
 test('ningún archivo de producto vuelve a mandar a /onboarding, salvo los que van al wizard', () => {

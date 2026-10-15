@@ -10,6 +10,9 @@ import { getSesionAdmin } from '@/lib/auth';
 import { MetodoWizard } from './MetodoWizard';
 import { rutaConWs, getWorkspaceActual, wsSuperAdmin } from '@/lib/workspace';
 import { serviciosPara } from '@/lib/metodo-catalogo';
+import { TITULO_NEGOCIO } from '@/lib/ajustes-secciones';
+import { seccionesNegocioActuales } from '@/lib/ajustes-negocio';
+import { AjustesPagina, TituloAjustes } from '../_ui/Ajustes';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -26,5 +29,11 @@ export default async function MetodoPage() {
   // corresponde — es la misma regla que en lib/integraciones.ts.
   const ws = await getWorkspaceActual().catch(() => null);
   const esPlataforma = ws != null && ws === (await wsSuperAdmin().catch(() => -1));
-  return <MetodoWizard servicios={serviciosPara(esPlataforma)} />;
+  // Desde el 15/10/2026 es la última sección de «Configuración del negocio» (sólo para la agencia).
+  return (
+    <AjustesPagina lugar={TITULO_NEGOCIO} secciones={await seccionesNegocioActuales()} activa="metodo" amplio>
+      <TituloAjustes titulo="Método" bajada="Las credenciales de la plataforma, servicio por servicio." />
+      <MetodoWizard servicios={serviciosPara(esPlataforma)} embebido />
+    </AjustesPagina>
+  );
 }

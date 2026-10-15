@@ -17,7 +17,7 @@
 // lateral sigue siendo correcto para una tabla o una fila de filtros, donde lo
 // que se corre es CONTENIDO, no el mapa de dónde se puede ir.
 //
-// Las tabs por RUTA (Configuraciones) siguen en app/_components/ConfigTabs.tsx;
+// Las secciones por RUTA («Tu cuenta», «Configuración del negocio») son el índice de app/_ui/Ajustes.tsx;
 // esto es para las que viven dentro de una misma pantalla.
 
 import type { ReactNode } from 'react';

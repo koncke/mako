@@ -1123,17 +1123,18 @@ export const AREAS: AreaDev[] = [
     slug: 'perfil', titulo: 'Perfil', familia: 'Platform',
     estado: 'listo', verEnApp: '/perfil',
     alcance: 'Los datos de quien sos: nombre, contacto, cargo, zona horaria y la foto (Supabase Storage). Las preferencias de notificaciones ya NO viven acá.',
-    vive: ['app/perfil/page.tsx', 'app/perfil/PerfilTabs.tsx', 'app/api/perfil/route.ts', 'lib/perfil.ts'],
+    vive: ['app/perfil/page.tsx', 'app/perfil/InformacionPersonal.tsx', 'app/api/perfil/route.ts', 'lib/perfil.ts'],
   },
   {
     slug: 'configuraciones', titulo: 'Configuraciones', familia: 'Platform',
     estado: 'listo', verEnApp: '/configuraciones',
-    alcance: 'El contenedor de la configuración del workspace: una sola fila de tabs con Notificaciones, Identidades fiscales y Equipo cargando en el lugar, más el link a Método.',
+    alcance: '«Configuración del negocio» (15/10/2026, copiada del molde de Google): un índice a la izquierda con General, Equipo, Integraciones, Notificaciones, Identidades fiscales y Método, cada una en su ruta (lib/ajustes-secciones.ts).',
     // ⚠️ Las rutas del CONTENEDOR no alcanzan: la tab de Notificaciones —donde se
     // movió todo— vive en app/perfil/ y en lib/. Con el vive[] del contenedor solo,
     // el panel de historial de esta área no veía ni uno de sus once commits.
     vive: [
-      'app/configuraciones/page.tsx', 'app/configuraciones/ConfigInnerTabs.tsx', 'app/configuraciones/Configuraciones.tsx',
+      'app/configuraciones/page.tsx', 'app/configuraciones/notificaciones/page.tsx', 'app/configuraciones/fiscal/page.tsx', 'app/configuraciones/Configuraciones.tsx',
+      'lib/ajustes-secciones.ts', 'lib/ajustes-negocio.ts', 'app/_ui/Ajustes.tsx', 'app/_ui/ajustes.css',
       'app/perfil/NotificacionesPanel.tsx', 'app/perfil/DestinatariosCanal.tsx', 'app/perfil/DestinatariosLista.tsx',
       'app/perfil/BandejaEmail.tsx', 'app/perfil/PrefsDeMensaje.tsx',
       'lib/notif-catalogo.ts', 'lib/avisos-catalogo.ts', 'lib/plantillas.ts', 'lib/notif-destinatarios.ts',

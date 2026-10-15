@@ -357,7 +357,7 @@ test('los códigos de recuperación se descargan en un .txt con la cuenta y todo
   assert.ok(txt.includes('martin@x.com'));
   assert.ok(txt.includes('2026-10-14'));
   assert.ok(txt.includes('\r\n'), 'saltos de Windows: lo abre el Bloc de notas');
-  for (const pantalla of ['app/login/2fa/SegundoPaso.tsx', 'app/perfil/seguridad/SeguridadPanel.tsx']) {
+  for (const pantalla of ['app/login/2fa/SegundoPaso.tsx', 'app/perfil/seguridad/SeguridadCuenta.tsx']) {
     assert.match(sinComentarios(leer(pantalla)), /descargarCodigos\(/, `${pantalla}: sin el botón de descargar`);
   }
   // El módulo que llega al navegador no arrastra node:crypto.
@@ -392,7 +392,7 @@ test('el campo avanza solo una vez por código y no lee el portapapeles sin perm
   assert.ok(efectoError.length > 0 && efectoError.length < 200, `recorte: ${efectoError.length}`);
   assert.doesNotMatch(efectoError, /onCambio/);
   // Las dos pantallas usan el campo: no queda un input de código suelto.
-  for (const pantalla of ['app/login/2fa/SegundoPaso.tsx', 'app/perfil/seguridad/SeguridadPanel.tsx']) {
+  for (const pantalla of ['app/login/2fa/SegundoPaso.tsx', 'app/perfil/seguridad/SeguridadCuenta.tsx']) {
     const p = sinComentarios(leer(pantalla));
     assert.match(p, /<CampoCodigo/, pantalla);
     assert.doesNotMatch(p, /autoComplete="one-time-code"/, `${pantalla}: un campo de código por fuera de CampoCodigo`);

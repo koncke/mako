@@ -13,7 +13,7 @@
 
 import './cuenta.css';
 import { requireMovil, salidaDeVista } from '@/lib/movil-guard';
-import { getNotifPush, usuarioPropio } from '@/lib/perfil';
+import { getNotifPush, leerPerfil, usuarioPropio } from '@/lib/perfil';
 import { PantallaM } from '../_ui/PantallaM';
 import { CuentaM, type DatosCuenta } from './CuentaM';
 
@@ -21,7 +21,11 @@ export const dynamic = 'force-dynamic';
 
 export default async function CuentaPagina() {
   const ctx = await requireMovil();
-  const [salida, propio, push] = await Promise.all([salidaDeVista(), usuarioPropio(), getNotifPush()]);
+  const [salida, propio, push, perfil] = await Promise.all([
+    salidaDeVista(), usuarioPropio(), getNotifPush(),
+    // «Información personal», la misma de la computadora: se lee acá para que la hoja abra sin esperar.
+    leerPerfil().catch(() => null),
+  ]);
 
   const datos: DatosCuenta = {
     nombre: (ctx.sesion.nombre ?? '').trim(),
@@ -30,6 +34,7 @@ export default async function CuentaPagina() {
     push,
     guardable: propio != null,
     esAdmin: (propio?.rol ?? ctx.rol) === 'admin',
+    perfil,
   };
 
   return (

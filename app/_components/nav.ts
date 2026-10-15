@@ -61,6 +61,12 @@ export type NavItem = {
   /** Abre en pestaña nueva (rutas que sirven HTML directo, ej. el grafo). */
   newTab?: boolean;
   /**
+   * No va en el menú de la foto: es una SECCIÓN de otro lugar (15/10/2026, Integraciones vive en
+   * «Configuración del negocio»). El ítem se queda para el título de la pestaña, los permisos por capa
+   * y el celular, que lo buscan por su key.
+   */
+  soloSeccion?: boolean;
+  /**
    * Solo en el shell de admin: al clickear, el admin ENTRA COMO el workspace
    * dueño (ws1) y navega. Sirve para tabs por-workspace (WhatsApp/Email) que el
    * admin sin impersonar no puede usar (ws=null, fail-closed). Reusa la
@@ -675,13 +681,16 @@ export const ADMIN_NAV: NavItem[] = ADMIN_FAMILIAS.flatMap(itemsDe);
  * avatar — «Profile debe reemplazar Admin en la sidebar, la foto y al pasar el
  * cursor el desplegable con las tabs».
  *
- * Onboarding y Método viven DENTRO de Configuraciones (sub-tabs), por eso el item
- * Configuraciones también matchea esas rutas. `/funnel` ya no: la ruta se retiró el
+ * Equipo, Integraciones y Método son secciones de «Configuración del negocio» (15/10/2026), por eso
+ * el ítem también matchea esas rutas. `/funnel` ya no: la ruta se retiró el
  * 28/09/2026 y hoy es un redirect a /crm.
  */
 export const USER_NAV: NavItem[] = [
-  { key: 'perfil', label: 'Perfil', href: '/perfil', icon: 'perfil', rolesWs: ['closer', 'setter'], match: starts('/perfil') },
-  { key: 'integraciones', label: 'Integraciones', href: '/integraciones', icon: 'integraciones', match: (p) => starts('/integraciones')(p) || starts('/marketing/salud')(p) },
+  // «Tu cuenta» y «Configuración del negocio» (15/10/2026, copiado de Google: dos lugares). Lo de la
+  // PERSONA para todos los roles; lo del NEGOCIO sólo para quien lo administra. Las secciones de cada uno
+  // viven en lib/ajustes-secciones.ts.
+  { key: 'perfil', label: 'Tu cuenta', href: '/perfil', icon: 'perfil', rolesWs: ['closer', 'setter'], match: starts('/perfil') },
+  { key: 'integraciones', label: 'Integraciones', href: '/integraciones', icon: 'integraciones', soloSeccion: true, match: (p) => starts('/integraciones')(p) || starts('/marketing/salud')(p) },
   // La API de MaKo (08/10/2026): el catálogo, los tokens de cada integración y su uso.
   // Al lado de Integraciones porque es lo mismo visto desde afuera: con qué se conecta
   // un tercero. Solo el admin (sin `rolesWs`): acá se acuñan credenciales.
@@ -689,7 +698,7 @@ export const USER_NAV: NavItem[] = [
   // «Onboarding» salió de acá el 15/10/2026: el hub de diez pestañas que abría se retiró y sus secciones se
   // editan en Second Brain (lib/secciones-negocio.ts), que ya está en la barra. /onboarding sigue siendo el
   // wizard del primer ingreso, y a ése no se entra desde un menú: lo manda lib/tab-access.ts.
-  { key: 'configuraciones', label: 'Configuraciones', href: '/configuraciones', icon: 'config', match: (p) => starts('/configuraciones')(p) || starts('/metodo')(p) || starts('/equipo')(p) },
+  { key: 'configuraciones', label: 'Configuración del negocio', href: '/configuraciones', icon: 'config', match: (p) => starts('/configuraciones')(p) || starts('/metodo')(p) || starts('/equipo')(p) || starts('/integraciones')(p) || starts('/marketing/salud')(p) },
   // Acá NO va «Admin» ni «Contexto de MaKo». Los dos eran `adminOnly`, o sea que
   // solo los veía el super admin — que ahora tiene su propia familia Admin en la
   // barra, con Clientes adentro. Repetirlos detrás del avatar era darle dos

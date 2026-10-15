@@ -772,7 +772,7 @@ export function Sidebar() {
               </>
             )}
 
-            {USER_NAV.filter((it) => (!it.adminOnly || (rol === 'admin' && !impersonando)) && puedeVer(it)).map((it) => {
+            {USER_NAV.filter((it) => !it.soloSeccion && (!it.adminOnly || (rol === 'admin' && !impersonando)) && puedeVer(it)).map((it) => {
               const on = it.match(pathname);
               return (
                 <Link key={it.key} href={it.href + dateQuery} onClick={() => setUserOpen(false)}

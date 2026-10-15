@@ -200,7 +200,12 @@ function TileEnLaApp({ prefs, onChange, flash }: {
 // ── Panel ─────────────────────────────────────────────────────────────────────
 // ⛔ ACÁ VIVÍA LA PROP `editarEnChatbot` (quinta tanda, punto 5: con /automations, el lienzo de cada
 // mensaje se editaba allá y acá quedaba un link). Se fue el 11/10/2026 con la lista de mensajes de abajo.
-export function NotificacionesPanel() {
+//
+// ⚠️ PARTIDO EN DOS (15/10/2026, «Tu cuenta» y «Configuración del negocio», lib/ajustes-secciones.ts):
+// `persona` es lo de la app —el pop-up y el sonido, de TU navegador— y vive en «Tu cuenta»;
+// `negocio` son los canales —a quién le llega lo del negocio— y vive en «Configuración del negocio».
+// Eran el mismo recuadro porque vivían en la misma pantalla; Google, Notion y Linear los separan igual.
+export function NotificacionesPanel({ parte }: { parte: 'persona' | 'negocio' }) {
   const [inApp, setInApp] = useState<NotifInApp | null>(null);
   const [dest, setDest] = useState<Destinatarios | null>(null);
   const [tieneGrupo, setTieneGrupo] = useState(false);
@@ -220,15 +225,18 @@ export function NotificacionesPanel() {
         if (!r.ok || !j?.ok) throw new Error(j?.error || `${u} respondió ${r.status}`);
         return j;
       };
-      const [ji, jd] = await Promise.all([
-        pedir('/api/perfil/notif-inapp'), pedir('/api/perfil/destinatarios'),
-      ]);
-      setInApp(ji.inApp as NotifInApp);
-      setDest(jd.destinatarios as Destinatarios); setTieneGrupo(Boolean(jd.tieneGrupo));
+      // Cada mitad lee lo suyo: la de la persona no tiene por qué pedir los destinatarios del negocio.
+      if (parte === 'persona') {
+        const ji = await pedir('/api/perfil/notif-inapp');
+        setInApp(ji.inApp as NotifInApp);
+      } else {
+        const jd = await pedir('/api/perfil/destinatarios');
+        setDest(jd.destinatarios as Destinatarios); setTieneGrupo(Boolean(jd.tieneGrupo));
+      }
     } catch (e) {
       setErrorCarga(e instanceof Error ? e.message : 'No se pudieron cargar tus preferencias');
     }
-  }, []);
+  }, [parte]);
 
   useEffect(() => { void cargar(); }, [cargar]);
 
@@ -287,9 +295,16 @@ export function NotificacionesPanel() {
     );
   }
 
-  if (!inApp || !dest) {
-    return <div style={{ ...card, color: 'var(--faint)', fontFamily: MONO, fontSize: 13 }}>Cargando…</div>;
+  const cargando = <div style={{ ...card, color: 'var(--faint)', fontFamily: MONO, fontSize: 13 }}>Cargando…</div>;
+  if (parte === 'persona') {
+    if (!inApp) return cargando;
+    return (
+      <div style={{ ...card, padding: 16, maxWidth: 520 }}>
+        <TileEnLaApp prefs={inApp} onChange={(id, c, v) => void setItem(id, c, v)} flash={flash} />
+      </div>
+    );
   }
+  if (!dest) return cargando;
 
   // El `key` de cada editor es su canal: cambiar de canal lo REMONTA. Siembra su
   // estado de props con useState, y sin eso sobreviven el borrador, el aviso de quién
@@ -311,9 +326,8 @@ export function NotificacionesPanel() {
           obligaba a leer cuál de los dos canales estabas editando. */}
       <div style={{ ...card, padding: 16 }}>
         <div style={grilla}>
-          {/* Primero lo de la app: es lo único que pasa acá mismo y no se manda a
-              nadie, así que leerlo antes que los canales ordena la pantalla. */}
-          <TileEnLaApp prefs={inApp} onChange={(id, c, v) => void setItem(id, c, v)} flash={flash} />
+          {/* Lo de la app (el pop-up y el sonido) vive en «Tu cuenta» › Notificaciones: es
+              de la persona, no del negocio. */}
           {/* El detalle ya NO repite la lista: con los destinatarios a la vista, decir
               «1 número» o la dirección debajo del título era el mismo dato dos veces.
               Queda lo que la lista no cuenta — que WhatsApp va al grupo— y el aviso

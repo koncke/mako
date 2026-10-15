@@ -121,6 +121,11 @@ const TRAZOS = {
   // El elemento «Insertar» del Dashboard (11/10/2026): una página de otro sitio adentro de la hoja. Los
   // corchetes angulares de un código, que es lo que la persona pega.
   insertar: <path d="m8.5 7.5-5 4.5 5 4.5M15.5 7.5l5 4.5-5 4.5M13.4 5.5l-2.8 13" />,
+  // «Tu cuenta» y su Seguridad (15/10/2026, copiada de la de Google): el escudo del estado, y los dos
+  // tipos de dispositivo, que Google distingue por el ícono antes que por el nombre.
+  escudo: <><path d="M12 3.5 5 6v5.5c0 4.3 2.9 7.6 7 9 4.1-1.4 7-4.7 7-9V6l-7-2.5Z" /><path d="m9 12 2.2 2.2L15.5 10" /></>,
+  computadora: <><rect x="4.5" y="5" width="15" height="10.5" rx="1.5" /><path d="M2.5 19h19" /></>,
+  celular: <><rect x="7" y="2.5" width="10" height="19" rx="2.5" /><path d="M11 18.5h2" /></>,
 } satisfies Record<string, ReactNode>;
 
 export type NombreIconoMenu = keyof typeof TRAZOS;
