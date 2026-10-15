@@ -56,11 +56,29 @@ comando para devolverlo, verificado con lo que lee el producto. Al armar el resp
 con su plantilla: si aparece UNA editada, se frena y se avisa al orquestador (es trabajo de alguien). Las portadas ya están
 hechas (15/10): lo que sigue es este borrado y rehacer las de Mauricio con `instanciarPlantilla` sobre las plantillas nuevas.
 
+## HECHO (15/10 noche, cuenta 3): la segunda pasada bloque por bloque
+
+Con el arnés, las 13 plantillas en escritorio y pila, y Contraste por tipo. Lo que salió (detalle en
+`docs/hallazgos-graficos.md` → «Bloque por bloque, segunda pasada»):
+
+- En la pila del celular, las tablas, tarjetas, tramos, dinámicas, barras horizontales y la caja de IA miden lo que dibujan
+  (antes, media pantalla en blanco abajo). La regla vive en `app/dashboard/pila.ts` y el arnés la importa.
+- El último número de un grupo impar va a lo ancho en la pila.
+- Las barras horizontales llenan su tarjeta (bandas de Looker) y engordan a 32 px (24 en el celular).
+- Columnas agrupadas con menos aire entre grupos; los totales de la portada de Cobranza ya no se cortan; la última fecha del
+  eje X ya no se corta.
+- **Las dos decisiones:** el titular lo resolvió la portada; «menos piezas» copiado de Looker Studio (una fila de números
+  debajo de la portada, ninguno repite la portada): Productividad pasó de 19 a 16 piezas. Closing queda (R1 y R2 son puntaje).
+
+**Ticketera, tabs-mauricio-general** (Martín, 15/10 05:33): «A · Nada: respetar que la dejó en blanco». El script de las
+hojas (`scripts/rehacer-hojas-dashboard.ts`) no toca General y el informe de General de Mauricio sigue vacío: no hay nada
+que sacar.
+
 ## Lo que falta
-- **Verlo en producción (ws3)**: el editor con «Celular» sobre una plantilla (Comercial, Marketing) y la galería de «¿Qué vas a
+- **Verlo en producción después del push** (la pila del celular con una sesión real) y **ws3**: el editor con «Celular» sobre una plantilla (Comercial, Marketing) y la galería de «¿Qué vas a
   crear hoy?». Nada se miró todavía con datos reales.
-- **Los otros seis temas** (Minimal, Suave, Contraste, Elevada, General, Editorial): el arnés se corrió sólo con MaKo
-  (`node capturar.cjs <regex> general` los dibuja).
+- **Cinco temas sin mirar por tipo** (Minimal, Suave, Elevada, General, Editorial; Contraste se miró el 15/10). Ojo: en modo
+  `plantillas` cada hoja sale en SU tema; los temas se miran con `node capturar.cjs "" <tema>`.
 - **Sin mirar en el arnés**: «Conclusiones de MaKo», la Ficha y el mapa de calor de página (piden datos del server).
 - **Que Martín decida** si se borran `PulsoPaginas.tsx` + su ruta y su lib, y `ScriptsBrowser`/`GuionesFull` (~900 líneas sin usar).
 - El resto, en `docs/hallazgos-graficos.md` → «Lo que quedó sin hacer».
