@@ -1264,12 +1264,15 @@ Siete agentes en `C:/dev/wt-web-t7` (rama `web-t7`): renombre, cuadro, motor, AP
   `b8b298600`): antes del push, otro merge (`git merge-tree` da limpio; de lo nuestro toca sólo
   `lib/api-mako/areas/chatbot.run.ts`), `node --import tsx scripts/generar-api-doc.mjs --check` y los lotes de tests.
   El typecheck completo lo corre el pre-push.
-- **Decide Martín:** el proyecto del Plan «Landing Generator» y «Feature: Landing Generator» siguen con el nombre viejo,
-  igual que la URL `/admin/dev/landing-generator` (las tareas se atan por el nombre: renombrar es migrarlas por id, o
-  dejarlo así a propósito; `lib/plan-proyectos-catalogo.ts:144`, `app/admin/dev/areas.ts`). Y, arriba: el aviso del
-  www que sirve otra cosa y el opener del camino del Pixel. Comentar como MaKo, en docs/hallazgos-api-mako.md.
-- **Los diseños con animaciones** (segunda mitad del punto 8) siguen fuera, a propósito: esperan `landing-anim-panel` y
-  `landing-anim-default` en la Ticketera.
+- **Decidido con la vara de AGENTS.md (`9f4585931`, 15/10/2026), sin hacer todavía:** el proyecto del Plan
+  «Landing Generator» y «Feature: Landing Generator» SE RENOMBRAN (Martín pidió «todo»), migrando sus tareas por id y
+  mirando antes lo que él tocó ese día (`lib/plan-proyectos-catalogo.ts:144`, `app/admin/dev/areas.ts`); la URL
+  `/admin/dev/landing-generator` queda (es la clave del registro). El aviso del www que sirve otra cosa pasa a
+  INFORMATIVO (no va en `falta`). Comentar como MaKo, sí: un autor «MaKo» que un admin puede borrar
+  (docs/hallazgos-api-mako.md). **Sigue siendo de Martín** el opener del camino del Pixel: es aceptar un riesgo de
+  seguridad, y eso va a la Ticketera.
+- **Los diseños con animaciones** (segunda mitad del punto 8) quedan para la próxima tanda, con las decisiones ya
+  tomadas (ver «Etapas propuestas… y lo que falta decidir», más abajo).
 - El reclamo de una raíz ajena que bloquea el www sin vencer, las raíces de antes sin www, el 400 de `agregarAVercel` y
   la pestaña que no explica el www (arriba, en «Dominio propio»).
 - El contenedor de Importar y el «+» dicen «PowerPoint, Word o PDF», y el cuadro lee también Excel, OpenDocument,
@@ -1359,9 +1362,16 @@ video; las animaciones de página y qué se puede replicar de una web ajena van 
 - **Etapa 2, con Flow:** los pasos del puente de arriba + la operación de Frames + el «listo» por operación.
 - No va por defecto en los diseños con VSL (8 de 9: el VSL es el protagonista); sí como opción en «Oscuro moderno» y
   «Editorial».
-- Decide Martín: cuándo entra (ya, sin Flow / esperar al puente / sólo subida); de dónde sale la galería; si va por
-  defecto en algún diseño; el tope de calidad (720p con 480 vertical en el teléfono / 1080p AV1); el modelo de Flow
-  (Lite 10 / Fast 20 / Quality 100); cuándo se mide Flow en ws3 (hoy en pausa por él).
+- ~~Decide Martín~~ **DECIDIDO el 15/10/2026.** Martín: «B · Sólo generado por MaKo, cuando el puente pueda» (la
+  etapa 1 de arriba, con video SUBIDO, NO se hace, y la función no se ofrece hasta que el puente la cumpla) y «Eso lo
+  elige el usuario» (el modelo de Flow es un control de la pantalla, no un default nuestro). Lo demás lo decidí yo con
+  lo medido (la vara de AGENTS.md `9f4585931`: si se contesta con lo escrito o el código, no va a la Ticketera):
+  - **Tope de calidad: 720p (1280×720) en escritorio y 480×854 vertical en el teléfono**, H.264, ≤8 s, sin audio,
+    menos de 5 MB, con póster WebP. No 1080p: el nativo de Flow es 720p (su 1080p es un reescalado) y en 4G el 1080p
+    tarda 1,9-3,9 s contra 1,3-2,4 s el 720p (tabla de arriba), con el póster de LCP en los dos.
+  - **Por defecto, en ningún diseño con VSL** (8 de 9: el VSL es el protagonista); como opción en «Oscuro moderno» y
+    «Editorial», como estaba recomendado.
+  - Cuándo se mide Flow en ws3 sigue siendo de Martín (es su Chrome).
 - **Sin medir:** ninguna generación real de Flow (ni el cuerpo BOQ de Frames, ni el peso de un clip de Veo, ni si un
   fallo cobra); si las URL del bucket contestan 206 a un pedido por rango (Safari lo exige:
   `curl -sI -H "Range: bytes=0-1" <url.mp4>`); WebCodecs en un teléfono; un LCP en una traza real.
@@ -1513,8 +1523,9 @@ editor, y un crítico que midió lo que faltaba). Las salidas y los scripts qued
 - El modelo: **preset + parámetros** (duración, demora, distancia, curva, disparo) con los nombres del Image Editor
   (`app/image-editor/_doory/editor/animation/strings.ts`: Desvanecer, Subir, Crecer, Deslizar, Barrido, Máquina de
   escribir…), a nivel landing y sección, nunca por bloque: «Editar con IA» rehace los bloques y perdería el attr.
-- **Gamma (la fuente) no tiene panel de animaciones**: sólo el interruptor y Spotlight en Presentar. Por la regla de
-  copiar tal cual, de qué app se copia el panel lo decide Martín (recomendado: Canva, la fuente del Image Editor).
+- **Gamma (la fuente) no tiene panel de animaciones**: sólo el interruptor y Spotlight en Presentar. **Decidido
+  (15/10/2026): el panel se COPIA del de Canva** (la fuente del Image Editor): una lista donde cada efecto se reproduce
+  solo. Era la regla de copiar tal cual, no una opción: se abre el panel de Canva de verdad y se nombra en el commit.
 
 ### Qué se puede replicar de una web ajena (medido en la ventana aislada, que es lo que corre sin Pixel)
 - **Fiel** (cae exacto en un preset): animaciones y transiciones CSS — `document.getAnimations()` da keyframes, duración,
@@ -1556,8 +1567,20 @@ movimiento (cinta, pasos, carrusel con snap, máquina de escribir, contador). 5.
 Flow. 9. Presentar: View Transitions y bloque a bloque.
 Sin probar en hardware real: un iPhone con iOS 18 y 26, un Android de gama baja y los navegadores de Instagram y
 Facebook, antes de prender un efecto por defecto.
-Las decisiones de Martín están en la Ticketera (refs `landing-anim-parpadeo`, `landing-video-modelo`,
-`landing-anim-panel`, `landing-video-fondo`, `landing-anim-default`, `landing-video-calidad`, `landing-replicar-scroll`).
+~~Las decisiones de Martín están en la Ticketera~~ **Todas resueltas el 15/10/2026.** Martín contestó
+`landing-video-fondo` (sólo generado por MaKo cuando el puente pueda: la etapa 5, el video SUBIDO, no se hace) y
+`landing-video-modelo` (lo elige el usuario). Las demás las retiró Estrategia de la Ticketera por la vara de AGENTS.md
+(`9f4585931`: lo que se contesta con lo escrito o el código se decide acá) y quedaron así:
+- `landing-anim-panel`: se copia el panel de Canva (arriba).
+- `landing-anim-default`: el interruptor «Animaciones» sigue PRENDIDO por defecto, porque con el arreglo del parpadeo
+  cuesta lo mismo que apagado (0 parpadeos en 9 corridas en producción, LCP igual). Los efectos de las etapas 4 y 6 se
+  definen por diseño al construirlos, mirando la plantilla equivalente de Canva y escribiendo la fuente.
+- `landing-video-calidad`: 720p en escritorio y 480×854 en el teléfono (arriba, en «Lo que se recomienda»).
+- `landing-replicar-scroll`: sí se avisa, donde se lee la consecuencia: al replicar una web con efectos atados al
+  scroll que la copia no trae, una línea corta en el resultado.
+- `landing-anim-parpadeo`: salió con la A (el hero quieto); ver la sección de abajo.
+Y la decisión del aviso de un pago rechazado (`landing-aviso-rechazo`): al NEGOCIO, por los canales que ya existen,
+como plantilla del catálogo de avisos (lib/avisos-catalogo.ts), no un envío escrito en el código.
 Dos chicas las resolvió el orquestador con criterio (14/10, no van al mazo): **MaKo Mobile muestra las animaciones**
 con la misma regla (sólo transform y opacity, nada atado al scroll, apagadas con «reducir movimiento»: si no, habría
 dos landings según el aparato y nadie previsualizaría lo que publica); y **el ▶ del editor reproduce aunque quien

@@ -274,9 +274,13 @@ quién decide: `docs/hallazgos-editor-landing.md` → «Tanda 6». Bitácora: `a
    faltan, con su motivo, en `docs/hallazgos-api-mako.md`), con `esPedidoDeLanding` y los 420 s donde corre de verdad.
 3. **El parpadeo del hero**: la rama `landing-parpadeo` ya está en main (`f90398723`, y medido en producción en
    `c717510c6`).
-4. **Animaciones** (con las decisiones de la Ticketera `landing-anim-panel` y `landing-anim-default`, que siguen sin
-   contestar): relevamiento en `docs/hallazgos-editor-landing.md` → «Animaciones» (tres secciones, Lottie incluido),
-   etapas 0-9. Es la segunda mitad del punto 8 de la tanda 7 («faltan los nuevos diseños con animaciones»).
+4. **Animaciones**, con TODAS las decisiones tomadas (15/10/2026; ya no hay nada esperando en la Ticketera): el panel
+   se copia del de Canva, el interruptor sigue prendido por defecto, el video de fondo sólo por el puente a Flow
+   (720p / 480×854), y al replicar se avisa lo que no se copia del scroll. Relevamiento en
+   `docs/hallazgos-editor-landing.md` → «Animaciones» (tres secciones, Lottie incluido), etapas 0-9; la lista de las
+   decisiones, en «Etapas propuestas… y lo que falta decidir». Es la segunda mitad del punto 8 de la tanda 7.
+5. **Lo decidido sin hacer** (misma fecha): renombrar el proyecto del Plan a «Web Generator» migrando por id; el aviso
+   del www, informativo; comentar como MaKo; el aviso de un pago rechazado al negocio, como plantilla del catálogo.
 
 ## Tanda 7 (15/10/2026, cuenta claude1, chat «Landing Generator») — HECHA, SIN PUSHEAR
 
@@ -323,13 +327,10 @@ completo). Después, `vercel ls` y verlo en producción.
   (`tests/web-generator-renombre.test.ts`).
 - **Verlo con clics** (Martín, en `/web-generator?ws=3`): la lista está en el hallazgo.
 
-**Decisiones de Martín pendientes:**
-1. El proyecto del Plan sigue llamándose «Landing Generator» (y «Feature: Landing Generator», y la URL
-   `/admin/dev/landing-generator`): renombrarlo migrando las tareas por id, o dejarlo así a propósito.
-2. El aviso del www cuando el www de la raíz sirve OTRA cosa: ¿informativo, o un «No uso www» que lo suelta?
-3. El camino del Pixel conserva `window.opener` (una landing declarada del negocio): ¿se acepta?
-4. Comentar como MaKo por la API: un autor «MaKo» que un admin pueda borrar (sin eso no hay `comentar_landing`).
-5. Los diseños con animaciones esperan `landing-anim-panel` y `landing-anim-default` (Ticketera).
+**Decisión de Martín pendiente (UNA, la única que es suya por la vara de AGENTS.md `9f4585931`):** el camino del
+Pixel conserva `window.opener` (una landing declarada del negocio): ¿se acepta el riesgo? Es seguridad, va a la
+Ticketera. Las otras cuatro que estaban acá (el proyecto del Plan, el aviso del www, comentar como MaKo, los diseños
+con animaciones) quedaron DECIDIDAS el 15/10 y anotadas arriba, en «Lo que sigue» → 4 y 5.
 
 **Decisiones que Martín YA contestó (15/10/2026, textuales vía Estrategia; no se re-preguntan):**
 - `landing-video-fondo` → «B · Sólo generado por MaKo, cuando el puente pueda»: no hay camino de «el cliente sube su
