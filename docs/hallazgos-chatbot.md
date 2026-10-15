@@ -4527,3 +4527,39 @@ Lo que quedó sin hacer, con su archivo:
   Cuando entren, el respaldo de `reentradaDe` se va.
 
 **Vive en:** `lib/reentrada.ts` · `lib/nutricion.ts` (`reentradaDeSecuencia`, `anotaReunion`, `reusablesDe`, `setSecuenciaReentrada`) · `lib/nutricion-inscripcion-manual.ts` · `app/automations/SecuenciaPerfil.tsx` · `app/api/whatsapp/secuencias/route.ts` · `supabase/migrations/0279_reentrada_cron.sql`
+
+## Dos personas no pudieron conectar una flecha: el gesto existía, pero no se descubría (15/10/2026)
+
+Lo hecho está en `50f263134`. Mauricio y Joan, mirando el lienzo, no supieron conectar una tarjeta con otra.
+
+- **El diagnóstico obvio era el equivocado.** El pedido decía «revisa cómo lo hace ManyChat para hacerlo simple», y el
+  arrastre del círculo YA era el de ManyChat: soltar en cualquier punto de una tarjeta, el resto atenuado, el menú al
+  soltar en el vacío. Rehacer el arrastre no arreglaba nada.
+- **Lo que faltaba era el CLIC.** Tocar el círculo ofrecía sólo tarjetas NUEVAS: quien lo tocaba veía «qué tarjeta
+  nueva querés» y no tenía cómo decir «a ésa». La ayuda de ManyChat dice que se conecta «haciendo clic en el punto de
+  conexión y eligiendo otro paso». Ahora el menú ofrece primero «Conectar a una tarjeta»: el lienzo espera el toque en
+  una tarjeta y la conecta. Dos clics, sin puntería, y anda en el teléfono.
+- ⚠️ **De Make NO se copió arrastrar la tarjeta entera hasta otra para conectarlas.** Arrastrar una tarjeta es moverla
+  para ordenar el lienzo; conectar sin querer es peor que no poder. Si vuelve a proponerse, es esto.
+
+**Vive en:** `app/_components/Lienzo.tsx` (`eligiendo`, `empezarAElegir`, `TOQUE_CIRCULO`)
+
+## «MaKo en WhatsApp» fuera del horario: lo decide la tarjeta, y el runner de eventos no miraba el horario (15/10/2026)
+
+Lo hecho está en `c46ee888f` (§2.4-h de docs/diseno-mako-nada-por-detras.md). La tarjeta ofrece «Fuera del horario:
+Espera a que abra / Lo manda igual», de fábrica espera (Martín), y su chip dice cuándo saldría.
+
+- **El runner de los EVENTOS de MaKo no miraba el horario.** El de los leads ya esperaba (con la casilla del 14/10);
+  el de los eventos (cobranza, entró un pago, el AI Analyst, un lead contesta) mandaba a cualquier hora. Se encontró
+  leyendo el runner, no suponiendo que los dos hacían lo mismo.
+- **La CONDITION espera con la tarjeta y se decide AL SALIR.** Si se decidiera al encolar, un «su reunión sigue en pie»
+  evaluado a las 23 y mandado a las 9 podría mentir (`esperaApertura`). Con un DELAY en el medio, el DELAY duerme solo.
+- ⚠️ **`paramsConPartes` conservaba sólo `leadId` y `titulo`:** cualquier campo nuevo de la tarjeta se borraba al
+  editar el texto. `fueraDeHorario` viaja ahí; un campo nuevo de la tarjeta, también.
+- ⚠️ **Un hook del cliente que importa una acción del server tira los tests** (`server-only` al cargar el módulo): el
+  lienzo lo importan decenas de tests. El horario lo lee la página del server y lo reparte un contexto
+  (app/automations/horario-oficina.tsx).
+- **Medido antes de cambiar el default:** sólo el ws1 tiene horario (9 a 21) y nadie había guardado la casilla del 14/10.
+  Lo único que cambia es su «Un Lead Agendó Llamada» (#213): el aviso de las 23 llega a las 9.
+
+**Vive en:** `lib/mako-tarjeta.ts` (`esperaQueAbra`, `chipDeEspera`) · `lib/horario-envio.ts` (`proximaApertura`, `textoDeApertura`) · `lib/nutricion.ts` (`sigueIgual`) · `lib/aviso-evento.ts` (`esperaApertura`) · `lib/flujos.ts` (`aperturaDelNegocio`)

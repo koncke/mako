@@ -174,7 +174,7 @@ Con esto se pueden borrar después también la segunda mirada de la antigüedad 
 - **e. Pausar = congelar.**
 - **f. AI Step**: «Deja de contestar si…», y que el cierre por objetivo o por insistencia se diga.
 - **g. ⚡** «La sigue una persona».
-- **h. Configuraciones › Horario**: la casilla de «MaKo en WhatsApp». **HECHO (14/10, `87bdf9530`):** «Los avisos al equipo salen igual», prendida de fábrica.
+- **h. Configuraciones › Horario**: la casilla de «MaKo en WhatsApp». **HECHO (14/10, `87bdf9530`):** «Los avisos al equipo salen igual», prendida de fábrica. **MUDADO (15/10, `c46ee888f`):** a la tarjeta («Fuera del horario: Espera a que abra / Lo manda igual», de fábrica espera, pedido de Martín), en los dos runners.
 - **i. Condiciones nuevas, sólo si el residuo sigue vivo**: «Está en otra automatización activa» y «Última reunión hace más de N días».
 - **j. Migración del legado** (sección 1-E).
 

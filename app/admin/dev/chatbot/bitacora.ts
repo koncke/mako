@@ -1604,4 +1604,19 @@ FEEDBACK PROBAR:
     ],
     archivos: ["docs/hallazgos-chatbot.md — «La Reentrada del CRON»", "docs/diseno-mako-nada-por-detras.md §2.4-a"],
   },
+  {
+    fecha: "15 oct", hora: "13:00", chat: "Chatbot", cuenta: "claude1",
+    actor: "claude", tipo: "implementacion",
+    titulo: "La flecha con dos clics, y «MaKo en WhatsApp» que espera a que abra la oficina",
+    puntos: [
+      "El menú del círculo ofrece «Conectar a una tarjeta»: se toca la tarjeta de destino y queda conectada. El arrastre ya existía, pero nadie lo descubría.",
+      "La tarjeta «MaKo en WhatsApp» dice qué hace fuera del horario de oficina; de fábrica espera a que abra, y su chip dice cuándo sale.",
+      "Las automatizaciones de eventos de MaKo ahora también respetan el horario.",
+    ],
+    commits: [
+      { sha: "50f263134", msg: "Lienzo: «Conectar a una tarjeta» desde el clic del círculo, y un círculo más fácil de agarrar", lineas: 185, archivos: 3 },
+      { sha: "c46ee888f", msg: "Automations: «MaKo en WhatsApp» fuera del horario lo decide la tarjeta, y de fábrica espera a que abra", lineas: 466, archivos: 19 },
+    ],
+    archivos: ["docs/hallazgos-chatbot.md — la flecha y el horario", "docs/diseno-mako-nada-por-detras.md §2.4-h"],
+  },
 ];
