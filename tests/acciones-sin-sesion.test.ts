@@ -79,6 +79,8 @@ test('las acciones de la ficha por bloques exigen sesión adentro', () => {
   }
   // Cambiar es del admin: es la ficha y los avisos de todos los leads del funnel.
   assert.match(src.slice(src.indexOf('export async function cambiarFichaFunnelAction')), /getRolWsEfectivo\(\)\) !== 'admin'\) return/);
+});
+
 // Desde el 14/10/2026 la tab Pagos escribe campo por campo (docs/diseno-ficha-bloques.md §3): plata de clientes.
 // Ninguna de deal-actions.ts lo miraba: sin cookie, `getWorkspaceActual()` cae al ws1 y un POST con el id de la
 // acción escribía cuotas y pagos en su CRM. EL BARRIDO, no la lista: toda `export async function` de los dos
