@@ -12,8 +12,8 @@
 //     DURA: lo que cambió es QUÉ EXISTE). La URL va TAL CUAL la pegó la persona (con su www y su query: hay
 //     hosts que sólo existen así; el server la baja con `urlTalCual`);
 //   · `SelectorFormato`: los 3 formatos con su ícono del set (las pastillas de «Landing | Presentación»);
-//   · `ReplicarUnaPagina`: la vista de la derecha del Panel («Replicar landing» de la caja, o el link pegado
-//     en el chat con «Replica esta landing»).
+//   · `ReplicarUnaPagina`: la vista de la derecha del Panel con el link del cuadro y «Replica esta landing»: arranca sola.
+//     Tanda 7: «Replicar landing» SIN link ya no abre esto; es un modo del cuadro (el contenedor del link, CajaCrear.tsx).
 // Cuando el server no puede leer la página (una app de Vite/React, o una que le contesta 403) contesta
 // `enNavegador` y se ofrece leerla en el navegador de la persona o pegar su texto (../lector/LeerOPegar.tsx).
 // La copia «Página web» necesita el HTML: con ella el server no ofrece esa salida, y si propone otro formato
@@ -31,6 +31,7 @@ import { Ico, irDuro, type OpcionDesplegable } from '../MiniaturaLanding';
 import { urlParaAnalizar } from '../panel-reglas';
 import { LeerOPegar } from '../lector/LeerOPegar';
 import { CSS_TIPO } from './PiezasTipo';
+import { FORMATO_INICIAL } from './caja-modos';
 
 /** El ícono de cada formato (lib/editor-landing/iconos.ts): las diapositivas, las secciones y la página. */
 export const ICONO_FORMATO: Record<FormatoReplicar, string> = { presentacion: 'presentar', landing: 'paginas', web: 'globo' };
@@ -40,8 +41,8 @@ export const OPCIONES_FORMATO: readonly OpcionDesplegable<FormatoReplicar>[] = F
   valor: f, texto: NOMBRE_FORMATO_REPLICAR[f], icono: ICONO_FORMATO[f],
 }));
 
-/** El formato por default: las secciones editables (lo que se quiere casi siempre). */
-export const FORMATO_INICIAL: FormatoReplicar = 'landing';
+/** El formato por default: las secciones editables (vive en ./caja-modos.ts, puro: el link del cuadro arranca con él). */
+export { FORMATO_INICIAL };
 
 export type EstadoReplicar =
   | { fase: 'quieto' }

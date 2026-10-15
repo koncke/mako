@@ -22,7 +22,7 @@
 //   · arriba el «Ir a» (Ctrl K), que filtra la lista por nombre y, si lo escrito es la dirección
 //     de una página («otra.com»), ofrece «Analizar otra.com»: la puerta para pegar una URL de
 //     afuera sin sumar un botón (un link a /web-generator/analizar sin landing abre, a la
-//     derecha, la caja para pegarla: `AnalizarUnaPagina`);
+//     derecha, el cuadro en Analizar para pegarla: tanda 7);
 //   · «+ Nueva landing» como primer renglón: abre la caja de crear a la derecha;
 //   · un renglón por documento, POR NOMBRE, con el ícono de su tipo (landing, presentación, y
 //     las landings de afuera ya analizadas, con su host como nombre: panel-reglas.ts). Clic en
@@ -73,6 +73,16 @@
 //   · /web-generator/crear REDIRIGE acá con su query (`destinoCrear`), como /analizar.
 //   · Las tarjetas de la galería de Plantillas: miniatura y nombre en UNA tarjeta con sombra, sin la
 //     descripción. Y «Del generador anterior» (que estaba en el «+» de la caja) quedó en esa galería.
+//
+// TANDA 7 (15/10/2026). Martín, textual: «3. Cuando le doy click a una opción, lo que debe cambiar es el recuadro de
+// chat de abajo, no redireccionarme a otro lugar.»
+//   · El cuadro «¿Qué vas a crear hoy?» tiene MODOS (CajaCrear.tsx) y cada modo es una derecha con su lugar de siempre
+//     en la URL (`modoCajaDe`/`derechaDeCaja`, panel-reglas.ts): Generar = la caja, Importar = `?paso=importar`,
+//     Analizar = el Diagnóstico SIN landing (`?analizar=`: era `AnalizarUnaPagina`, que se fue) y Replicar = Replicar
+//     SIN link (`?vista=replicar`). Las cuatro montan el MISMO `CajaCrear` en el mismo lugar del árbol: cambiar de
+//     modo no lo remonta y lo escrito sigue ahí. El cuadro avisa su modo (`onModo`) y el Panel se lo da (`modo`).
+//   · Crear con IA ya no tiene pantallas de entrada: es el RESULTADO del cuadro, y su «Volver» trae de vuelta lo que se
+//     había mandado (`derechaDeVuelta`, con la semilla).
 // =============================================================================
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -98,10 +108,11 @@ import {
   TileTema, URL_FUENTE_CHROME, haceCuanto, irDuro, pedirDocs, useAviso,
 } from './MiniaturaLanding';
 import {
-  ICONO_FILA, SIN_TITULO, copiaParaAplicar, derechaDeAccion, docDeUrl, enPapelera, esDiagnosticoDe, filasDelPanel, filtrarFilas, hostDe,
-  normalizarTexto, queryDeDerecha, urlDeBusqueda, urlParaAnalizar, type AccionCaja, type Analizada, type Derecha, type FilaPanel,
-  type PasoIA, type TipoFila,
+  ICONO_FILA, SIN_TITULO, copiaParaAplicar, derechaDeAccion, derechaDeCaja, derechaDeVuelta, docDeUrl, enPapelera, esDiagnosticoDe,
+  filasDelPanel, filtrarFilas, hostDe, modoCajaDe, normalizarTexto, queryDeDerecha, urlDeBusqueda, type AccionCaja, type Analizada,
+  type Derecha, type FilaPanel, type TipoFila,
 } from './panel-reglas';
+import type { ModoCaja, SemillaCaja } from './crear/caja-modos';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // El Panel
@@ -202,11 +213,20 @@ export function Inicio(props: PropsInicio) {
   const cerrarDialogo = useCallback(() => setDialogo(null), []);
   const cerrarDiagnostico = useCallback(() => setDerecha({ tipo: 'crear' }), []);
   const cerrarBorradores = useCallback(() => setBorradores(null), []);
-  /** Crear con IA cambió de paso o de tipo: la URL lo recuerda (lo de una vez, `arranque`, ya se usó). */
-  const recordarPaso = useCallback((paso: PasoIA, doc: TipoCrear) => {
-    setDerecha((d) => (d.tipo === 'ia' && (d.paso !== paso || d.doc !== doc) ? { tipo: 'ia', paso, doc } : d));
-  }, []);
+  /** «Analizar una página» (de Crear, de «Más ajustes»): el cuadro en Analizar (el Diagnóstico sin landing). */
   const abrirAnalizar = useCallback(() => setDerecha({ tipo: 'diagnostico' }), []);
+  /** «Volver» de Crear: el cuadro con lo que se había mandado (tanda 7). */
+  const volverACaja = useCallback((s?: SemillaCaja) => setDerecha(derechaDeVuelta(s)), []);
+  /**
+   * El cuadro cambió de modo solo (un link pegado, un archivo soltado, Backspace) o de tipo: la URL lo recuerda. Si
+   * la derecha ya dice eso, queda la MISMA (con su semilla): comparar por la URL es comparar lo que importa.
+   */
+  const alModoCaja = useCallback((modo: ModoCaja, doc: TipoCrear) => {
+    setDerecha((d) => {
+      const n = derechaDeCaja(modo, doc);
+      return modoCajaDe(d) === modo && queryDeDerecha('', d) === queryDeDerecha('', n) ? d : n;
+    });
+  }, []);
   // Una página de afuera recién analizada entra a la barra sin recargar (integración de la tanda 2).
   // Se compara normalizada: es la misma llave que la de landing_analyses, y no se duplica el renglón.
   const sumarAnalizada = useCallback((url: string) => {
@@ -226,9 +246,15 @@ export function Inicio(props: PropsInicio) {
   const soltarDiagnosticoDe = (f: FilaPanel) => setDerecha((d) => (esDiagnosticoDe(d, f) ? { tipo: 'crear' } : d));
   const filaDeDoc = (doc: LandingResumen): FilaPanel => ({ tipo: doc.formato === 'presentacion' ? 'presentacion' : 'landing', clave: `d:${doc.id}`, nombre: doc.titulo, doc });
 
-  /** «+ Nueva landing»: la caja de crear a la derecha, con el foco adentro. */
+  /**
+   * «+ Nueva landing»: el cuadro de crear a la derecha, con el foco adentro. Si ya está en Generar o en Importar,
+   * queda como está (con lo escrito y el archivo); en Analizar o Replicar, o desde otra vista, vuelve a Generar.
+   */
   const nuevaLanding = () => {
-    setDerecha({ tipo: 'crear' });
+    setDerecha((d) => {
+      const m = modoCajaDe(d);
+      return m === 'generar' || m === 'importar' ? d : { tipo: 'crear' };
+    });
     window.requestAnimationFrame(() => contenidoRef.current?.querySelector<HTMLElement>('textarea, [contenteditable="true"]')?.focus());
   };
 
@@ -243,10 +269,10 @@ export function Inicio(props: PropsInicio) {
   };
 
   /**
-   * Lo que se eligió en la caja «¿Qué vas a crear hoy?» (tanda 6), a la derecha: una tarjeta de «Crear con
-   * IA», el pedido (con su archivo adjunto, si hay) o el link pegado («Analiza esta landing» abre su
-   * Diagnóstico; «Replica esta landing», Replicar con el formato elegido, arrancando solo). La regla es
-   * `derechaDeAccion` (panel-reglas.ts, con test que la ejecuta).
+   * Lo que se mandó desde el cuadro «¿Qué vas a crear hoy?», a la derecha: el pedido (con su archivo o su texto
+   * largo, y sus ajustes) abre Crear; el link con «Analiza esta landing», su Diagnóstico; con «Replica esta
+   * landing», Replicar con el formato elegido, arrancando solo. La regla es `derechaDeAccion` (panel-reglas.ts,
+   * con test que la ejecuta).
    */
   const alAccion = (a: AccionCaja) => {
     setDerecha(derechaDeAccion(a, lista, props.bases));
@@ -440,11 +466,22 @@ export function Inicio(props: PropsInicio) {
     </div>
   );
 
+  // Tanda 7: el cuadro en su modo. Generar, Importar, Analizar sin landing (un link a /web-generator/analizar, el
+  // onboarding) y Replicar sin link montan el MISMO CajaCrear en el mismo lugar: cambiar de modo no lo remonta.
+  const modoCaja = modoCajaDe(derecha);
   let contenido: ReactNode;
-  if (derecha.tipo === 'diagnostico' && !derecha.docId && !derecha.url) {
-    // El Diagnóstico sin ninguna landing (un link a /web-generator/analizar, el onboarding):
-    // la caja para pegar la dirección de una página.
-    contenido = <AnalizarUnaPagina onAnalizar={analizarUrl} />;
+  if (modoCaja) {
+    contenido = (
+      <CajaCrear
+        modo={modoCaja}
+        onModo={alModoCaja}
+        tipoInicial={derecha.tipo === 'crear' ? derecha.doc : undefined}
+        semilla={derecha.tipo === 'crear' ? derecha.semilla : undefined}
+        analizadas={analizadas}
+        errorAnalizadas={props.errorAnalizadas}
+        onAccion={alAccion}
+      />
+    );
   } else if (derecha.tipo === 'diagnostico') {
     // El `key` con la landing: cambiar de renglón remonta el panel (un useState sembrado de props
     // no se resiembra, AGENTS.md).
@@ -459,18 +496,16 @@ export function Inicio(props: PropsInicio) {
       />
     );
   } else if (derecha.tipo === 'ia') {
-    // «Crear con IA» en la MISMA ruta (tanda 6). Sin `key`: cambiar de paso adentro no lo remonta.
+    // «Crear con IA» en la MISMA ruta (tanda 6): el RESULTADO de lo que se mandó desde el cuadro (tanda 7).
     contenido = (
       <CrearConIA
         analizadas={analizadas}
         errorAnalizadas={props.errorAnalizadas}
         propios={props.propios}
-        paso={derecha.paso}
         tipo={derecha.doc}
-        arranque={derecha.arranque ?? null}
-        onSalir={cerrarDiagnostico}
+        arranque={derecha.arranque}
+        onSalir={volverACaja}
         onAnalizar={abrirAnalizar}
-        onPaso={recordarPaso}
       />
     );
   } else if (derecha.tipo === 'replicar') {
@@ -497,6 +532,7 @@ export function Inicio(props: PropsInicio) {
       </>
     );
   } else {
+    // Ya no llega acá (`crear` es un modo del cuadro): la caja, por las dudas de una derecha nueva sin vista.
     contenido = <CajaCrear onAccion={alAccion} />;
   }
 
@@ -513,7 +549,7 @@ export function Inicio(props: PropsInicio) {
           <input ref={busqueda} type="search" value={q} placeholder="Ir a" aria-label="Buscar por nombre" onChange={(e) => setQ(e.target.value)} />
           <kbd>Ctrl K</kbd>
         </label>
-        <button type="button" className="gp-doc-nuevo" aria-current={derecha.tipo === 'crear' ? 'page' : undefined} onClick={nuevaLanding}>
+        <button type="button" className="gp-doc-nuevo" aria-current={modoCaja ? 'page' : undefined} onClick={nuevaLanding}>
           <span className="gp-doc-nuevo-mas"><Ico n="mas" t={13} /></span>
           <span>Nueva landing</span>
         </button>
@@ -543,7 +579,8 @@ export function Inicio(props: PropsInicio) {
       </aside>
 
       {/* Un <div> y no un <main>: el <main> de la pantalla es el de `Pagina` (AGENTS.md). */}
-      <div ref={contenidoRef} className="gp-contenido" data-vista={derecha.tipo}>
+      {/* `data-vista`: el cuadro es «crear» en sus cuatro modos (la misma hoja y el mismo aire arriba). */}
+      <div ref={contenidoRef} className="gp-contenido" data-vista={modoCaja ? 'crear' : derecha.tipo}>
         {contenido}
       </div>
 
@@ -787,40 +824,9 @@ function GaleriaTemas({ propios, errorTemas, onVer }: { propios: readonly TemaPr
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// El Diagnóstico sin landing: pegar la dirección de una página
+// Tanda 7: `AnalizarUnaPagina` (el Diagnóstico sin landing, con su campo y su botón) se fue. Es el cuadro en
+// Analizar: el contenedor del link (CajaCrear.tsx), con la misma puerta (`?analizar=`) y el mismo resultado.
 // ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Lo que abre un link a /web-generator/analizar sin ninguna landing (el onboarding de
- * 'landing-an', «Analizar una página» de Crear): la dirección, y el Diagnóstico de esa página a la
- * derecha (PanelDiagnostico analiza solo lo que todavía no tiene comentarios guardados).
- */
-function AnalizarUnaPagina({ onAnalizar }: { onAnalizar: (url: string) => void }) {
-  const [texto, setTexto] = useState('');
-  const campo = useRef<HTMLInputElement>(null);
-  useEffect(() => { campo.current?.focus(); }, []);
-  const url = urlParaAnalizar(texto);
-  return (
-    <section className="gp-analizar" aria-label="Diagnóstico">
-      <h1 className="gp-cabeza-titulo">Diagnóstico</h1>
-      <p className="gp-analizar-sub">Pega la dirección de una landing.</p>
-      <form className="gp-analizar-fila" onSubmit={(e) => { e.preventDefault(); if (url) onAnalizar(url); }}>
-        <input
-          ref={campo}
-          className="gp-campo"
-          inputMode="url"
-          autoComplete="url"
-          value={texto}
-          maxLength={2_000}
-          placeholder="https://tu-landing.com"
-          aria-label="Dirección de la página"
-          onChange={(e) => setTexto(e.target.value)}
-        />
-        <button type="submit" className="gp-btn gp-btn-primario" data-tam="lg" disabled={!url}><Ico n="reporte" t={14} /> Analizar</button>
-      </form>
-    </section>
-  );
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Diálogo de eliminar (una frase con la consecuencia, pegada al botón del tacho rojo)

@@ -9,12 +9,7 @@
 //
 // Es el generador clásico de Gamma («Usar generador clásico», relevo gamma-ui §4.B), con
 // sus pantallas y sus textos en español:
-//   generar   «¿Qué te gustaría crear hoy?», cantidad de secciones, idioma, la caja
-//             «Describe lo que quieres hacer», «Ejemplos de instrucciones» + «Aleatorio»,
-//             «Tus indicaciones recientes» y «Generar esquema»;
-//   pegar     «Escribe o pega aquí el contenido» + Generar · Condensar · Conservar;
-//   importar  «Importar con IA»: «Cargar un archivo» (→ /api/landing-generator/importar,
-//             multipart; su texto pasa a «Pegar texto»);
+//   pidiendo  el pedido que llegó del cuadro y «Escribiendo esquema» (o la falla con «Reintentar»);
 //   esquema   el esquema editable (EditorEsquema), «Personaliza tu landing» (Temas,
 //             Contenido del texto, Visuales, Instrucciones adicionales) y la barra de
 //             abajo con «N secciones en total» y «Generar»;
@@ -22,14 +17,9 @@
 //             (las mismas `tandasDe` de la ruta, ia-reglas.ts), las va mostrando a medida
 //             que llegan con el render público, guarda TODO al final y abre el editor.
 // Lo propio de MaKo, que Gamma no tiene: «Objetivo de la página» (OBJETIVOS_LANDING) y
-// «Sobre cuál» (una landing que ya pasó por el Diagnóstico (/web-generator/analizar): su diagnóstico entra al
-// prompt, D5). El deep link del Analyst (`?url=`) preselecciona esa landing — sólo si
-// está entre las analizadas de ESTE negocio: una URL cualquiera en la query no puede
-// meter un diagnóstico ajeno.
-//
-// La caja de Gamma 5 del Panel («¿Qué quieres crear?» + Plan | Express) entra acá con el
-// pedido precargado (sessionStorage, ver `tomarCaja`): Plan = muestra el esquema para
-// aprobar; Express = genera directo con el esquema y el tema sugerido.
+// «Sobre cuál» (una landing que ya pasó por el Diagnóstico: su diagnóstico entra al
+// prompt, D5). La landing de base sólo vale si está entre las analizadas de ESTE negocio
+// (`paramsIniciales`, ./ajustes.ts): una URL cualquiera no puede meter un diagnóstico ajeno.
 //
 // Reglas que gobiernan este archivo:
 //   · Todo fetch con `AbortSignal.timeout` (pedirIA/pedirDocs): la ruta tiene su tope, el
@@ -45,57 +35,59 @@
 //     Estudio e importar una URL (tanda 6: eso es Analizar o Replicar landing).
 //
 // TANDA 2 (11/10/2026, punto 6: «Al momento de crear nuevo tengo que elegir si crear landing,
-// presentación...»; decisión T4): el generador recibe el TIPO (`?tipo=presentacion`, de la caja
-// del Panel, CajaCrear.tsx) y lo deja cambiar con las pastillas Landing | Presentación. Con una
-// presentación: el alta lleva `formato: 'presentacion'` y la proporción (`configDeCreacion`), todo
-// pedido a la IA lleva `params.formato` (`paramsDeTipo`: diapositivas, poco texto, diseños
-// optimizados), «Sobre cuál» se esconde (el diagnóstico de una página no es contexto de una
-// presentación) y la pantalla dice «diapositiva» donde decía «sección» (`termino`, el mismo de
-// api-tipos que usa el editor). El tipo de una generación se CONGELA al arrancarla (`tipoGen`):
-// las tandas que siguen tienen que pedir lo mismo que el documento que se creó. Y la caja de
-// «Generar» suma el micrófono (`BotonDictar`, el de «Nueva automatización»).
+// presentación...»; decisión T4): el generador recibe el TIPO (del cuadro del Panel) y lo deja
+// cambiar con las pastillas Landing | Presentación. Con una presentación: el alta lleva
+// `formato: 'presentacion'` y la proporción (`configDeCreacion`), todo pedido a la IA lleva
+// `params.formato` (`paramsDeTipo`: diapositivas, poco texto, diseños optimizados), «Sobre cuál»
+// se esconde (el diagnóstico de una página no es contexto de una presentación) y la pantalla dice
+// «diapositiva» donde decía «sección» (`termino`, el mismo de api-tipos que usa el editor). El
+// tipo de una generación se CONGELA al arrancarla (`tipoGen`): las tandas que siguen tienen que
+// pedir lo mismo que el documento que se creó.
 //
-// TANDA 6 (14/10/2026). Martín, textual: «2. La sección de "Importar con IA" no debería ser otra ruta,
-// todo siempre en la misma ruta. 3. La sección de "Crear con IA", le faltan las opciones de "Analizar
-// Landing" y "Replicar Landing". Y que el botón de "Importar" que solo sea importar, no que sea con URL,
-// para eso ya las otras opciones que te dije... Y esta sección de "Crear con IA" debería estar en la tab
-// principal de landing generator, en la sección de "¿Qué vas a crear hoy?".»
-//   · Se monta A LA DERECHA del Panel (Inicio.tsx); /web-generator/crear redirige ahí. La pantalla
-//     «inicio» (las tarjetas «¿Cómo te gustaría empezar?») se fue a la caja del Panel (CajaCrear.tsx, «Crear
-//     con IA», con Analizar y Replicar landing), y con ella «Tus indicaciones recientes», que viven en
-//     Generar y en Pegar texto. «Inicio» y «Analizar una página» son funciones del Panel (`onSalir`,
-//     `onAnalizar`), no links: el Panel ya está montado y un <Link> a su misma ruta no le cambia la derecha.
-//   · «Importar» es SÓLO un archivo. «Importar desde URL» se fue: una página de afuera se ANALIZA o se
-//     REPLICA (crear/Replicar.tsx, con su formato y el lector del navegador cuando el server no puede).
-//   · El pedido de la caja llega EN MEMORIA (`arranque`, `ArranqueIA` de ../panel-reglas.ts): el texto (Plan
-//     o Express) o un archivo adjunto, que va a «Pegar texto» con lo escrito como instrucciones. El link
-//     viejo de la caja (`?desde=caja`) sigue leyendo sessionStorage (`tomarCaja`) mientras dura el deploy.
+// TANDA 6 (14/10/2026): se monta A LA DERECHA del Panel (Inicio.tsx); /web-generator/crear redirige ahí.
+// «Importar» es SÓLO un archivo; una página de afuera se ANALIZA o se REPLICA (crear/Replicar.tsx). El pedido
+// llega EN MEMORIA (`arranque`, `ArranqueIA` de ../panel-reglas.ts). El link viejo de la caja (`?desde=caja`)
+// sigue leyendo sessionStorage (`tomarCaja`) mientras dura el deploy.
+//
+// TANDA 7 (15/10/2026). Martín, textual: «4. No entiendo la diferencia entre las 2 primeras... Si tu tampoco ves
+// diferencia entre esas 2, elimina y conserva la de "Generar desde una idea". 5. […] Y aprovecha el diseño que ya
+// tenemos para meter las opciones... Por ejemplo la de "Personalizar", podría ir por defecto en el botón de + o en el
+// desplegable de "plan" […] O por ejemplo las opciones de "Ejemplos de instrucciones", revisa dónde ponerlas o si
+// directamente eliminarlas... Lo que no quiero es que esos ejemplos sean otras tarjetas […] Tampoco quiero el botón de
+// "aleatorio"...»
+//   · Se fueron las PANTALLAS DE ENTRADA («Generar», «Pegar texto», «Importar con IA»): el cuadro «¿Qué vas a crear
+//     hoy?» (../CajaCrear.tsx) es la única puerta y esto es su RESULTADO. Sin las tarjetas «Ejemplos de instrucciones»
+//     ni «Aleatorio» (los ejemplos ya se escriben solos en el cuadro), y «Personalizar» y los controles viven en el
+//     desplegable «Plan» del cuadro (./AjustesCaja.tsx), con sus catálogos en ./ajustes.ts; acá siguen en el esquema.
+//   · El pedido llega con sus ajustes (`arranque.params`). Un texto LARGO (ex «Pegar texto») llega como `texto` y va
+//     como «pegar» con `params.modoTexto` (la opción «Tu texto» del cuadro); un archivo, igual, con lo escrito como
+//     instrucciones (y las de «Más ajustes», juntas: `instruccionesConArchivo`).
+//   · «Volver» (y «Editar» del texto) vuelve AL CUADRO con lo que se había mandado (`onSalir(semilla)`): lo escrito
+//     no se pierde por mirar el esquema.
 // =============================================================================
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useWs } from '@/app/_ui/Link';
-import { OBJETIVOS_LANDING, type ObjetivoLanding } from '@/lib/landing-spec';
 import { NODO, nuevoId, type JsonNodo, type LandingContenido } from '@/lib/editor-landing/doc';
 import type {
-  ConfigLanding, Esquema, FuenteImagenes, ParamsGeneracion, PedidoIA, TemaPropio, TextoPorSeccion,
+  ConfigLanding, Esquema, ParamsGeneracion, PedidoIA, TemaPropio,
 } from '@/lib/editor-landing/api-tipos';
-import { MAX_INSTRUCCIONES, MAX_SECCIONES, MIN_SECCIONES, PARAMS_DEFAULT, tandasDe, tarjetaDesdeEsquema } from '@/lib/editor-landing/ia-reglas';
+import { MAX_INSTRUCCIONES, MAX_SECCIONES, MIN_SECCIONES, tandasDe, tarjetaDesdeEsquema } from '@/lib/editor-landing/ia-reglas';
 import { temaPorId } from '@/lib/editor-landing/temas';
 import { resolverAnclas } from '@/lib/editor-landing/ia-bloques';
-import { ACCEPT_IMPORTAR, porQueNoPuedo, puedeLeerse } from '@/lib/formatos-archivo';
 import {
-  Desplegable, Ico, MiniaturaLanding, guardarLocal, haceCuanto, hostDe, irDuro, leerLocal,
-  marcarReciente, pedirDocs, pedirIA, tomarCaja, type OpcionDesplegable,
+  Desplegable, Ico, MiniaturaLanding, hostDe, irDuro, marcarReciente, pedirDocs, pedirIA, tomarCaja, type OpcionDesplegable,
 } from '../MiniaturaLanding';
-import { leerArchivo } from '../cliente';
-import type { ArranqueIA, PasoIA } from '../panel-reglas';
+import type { ArranqueIA } from '../panel-reglas';
 import { CSS_ESQUEMA, EditorEsquema, esquemaParaEnviar, textoSecciones } from './EditorEsquema';
 import { SelectorTemaCrear, temaSugerido } from './SelectorTemaCrear';
-import { BotonDictar } from '@/app/plan/board/CrearTareaModal';
 import {
   PROPORCION_IA, configDeCreacion, cuantas, docDe, formatoDeTipo, paramsDeTipo, termino, tipoValido, type TipoCrear,
 } from './tipo';
 import { CSS_TIPO, SelectorTipo } from './PiezasTipo';
+import { FUENTES, IDIOMAS, MODOS_TEXTO, OBJETIVOS, TEXTOS, instruccionesConArchivo, paramsIniciales } from './ajustes';
+import { recordarIndicacion, type OrigenIndicacion } from './recientes';
+import type { SemillaCaja } from './caja-modos';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Lo puro (con test)
@@ -104,20 +96,11 @@ import { CSS_TIPO, SelectorTipo } from './PiezasTipo';
 export type LandingAnalizada = { url: string; veredicto: string | null; score: number | null };
 
 /**
- * La landing de base que pide el deep link del Diagnóstico (`?url=`), sólo si es una de
- * las analizadas de este negocio. Comparación exacta (la URL viaja tal cual la guarda el
- * Analyst): un parecido no es una clave.
+ * La landing de base del deep link y el objetivo de la query: viven en ./ajustes.ts (los usan también el cuadro y
+ * `paramsIniciales`); se re-exportan acá, donde estuvieron siempre.
  */
-export function baseDelDeepLink(url: string | null | undefined, analizadas: readonly { url: string }[]): string | null {
-  const u = (url ?? '').trim();
-  if (!u) return null;
-  return analizadas.some((a) => a.url === u) ? u : null;
-}
+export { baseDelDeepLink, objetivoValido } from './ajustes';
 
-/** Un objetivo de la query, si es uno de la lista cerrada. */
-export function objetivoValido(v: string | null | undefined): ObjetivoLanding | null {
-  return OBJETIVOS_LANDING.some((o) => o.value === v) ? (v as ObjetivoLanding) : null;
-}
 
 /** «Sección 4» o «Secciones 4–6» (en base 1, como las ve la persona); en una presentación, «Diapositiva…». */
 export function rotuloTanda(indices: readonly number[], tipo: TipoCrear = 'landing'): string {
@@ -251,99 +234,12 @@ export function contenidoGenerado(paginaId: string, tarjetas: JsonNodo[]): Landi
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Catálogos de la pantalla
-// ─────────────────────────────────────────────────────────────────────────────
-
-/** «Ejemplos de instrucciones»: casos de landing, sin nombres de negocios reales. */
-const EJEMPLOS_LANDING: readonly { icono: string; texto: string }[] = [
-  { icono: 'calendario', texto: 'Landing para agendar una llamada de diagnóstico gratis con una agencia de marketing' },
-  { icono: 'videollamada', texto: 'Registro a un webinar en vivo sobre finanzas personales, con página de gracias' },
-  { icono: 'graduacion', texto: 'Venta de un curso online de fotografía con celular, con precio y garantía' },
-  { icono: 'libro', texto: 'Página para descargar una guía gratis de recetas saludables a cambio del correo' },
-  { icono: 'salud', texto: 'Landing para una clínica dental que quiere más citas de limpieza' },
-  { icono: 'cohete', texto: 'Lista de espera para el lanzamiento de una app de hábitos' },
-  { icono: 'calculadora', texto: 'Servicios de un despacho contable para pequeñas empresas' },
-  { icono: 'diamante', texto: 'Aplicación a una mentoría de alto valor para coaches' },
-  { icono: 'pesa', texto: 'Gimnasio de barrio con una clase de prueba gratis' },
-  { icono: 'laptop', texto: 'Software de reservas para restaurantes con prueba gratis de 14 días' },
-  { icono: 'ubicacion', texto: 'Inscripción a un taller presencial de cerámica' },
-  { icono: 'edificio', texto: 'Inmobiliaria que busca compradores para departamentos en preventa' },
-];
-/** Los de una presentación (T4), con la misma regla: genéricos, sin negocios ni personas reales. */
-const EJEMPLOS_PRESENTACION: readonly { icono: string; texto: string }[] = [
-  { icono: 'cohete', texto: 'Pitch de una startup de reservas para restaurantes, para inversionistas' },
-  { icono: 'apreton', texto: 'Propuesta comercial de una agencia de marketing para un cliente nuevo' },
-  { icono: 'grafico', texto: 'Informe mensual de resultados de campañas de anuncios' },
-  { icono: 'graduacion', texto: 'Clase de un curso sobre cómo vender por WhatsApp' },
-  { icono: 'usuarios', texto: 'Onboarding para un cliente que empieza un servicio de contabilidad' },
-  { icono: 'calendario', texto: 'Plan de marketing del próximo trimestre para una tienda online' },
-  { icono: 'videollamada', texto: 'Webinar sobre finanzas personales para principiantes' },
-  { icono: 'trofeo', texto: 'Caso de éxito de una clínica que duplicó sus citas' },
-  { icono: 'ruta', texto: 'Roadmap de producto de una app de hábitos para el año' },
-  { icono: 'comunidad', texto: 'Presentación del equipo de una consultora a un cliente' },
-  { icono: 'dinero', texto: 'Presentación de ventas de un software para gimnasios' },
-  { icono: 'objetivo', texto: 'Reporte de resultados del semestre para la dirección' },
-];
-const EJEMPLOS_DE: Record<TipoCrear, readonly { icono: string; texto: string }[]> = { landing: EJEMPLOS_LANDING, presentacion: EJEMPLOS_PRESENTACION };
-const EJEMPLOS_VISIBLES = 6;
-
-const IDIOMAS: readonly OpcionDesplegable<string>[] = [
-  { valor: 'es-MX', texto: 'Español (México)' },
-  { valor: 'es-ES', texto: 'Español (España)' },
-  { valor: 'en-US', texto: 'English (US)' },
-  { valor: 'pt-BR', texto: 'Português (Brasil)' },
-];
-
-const TEXTOS: readonly { valor: TextoPorSeccion; texto: string }[] = [
-  { valor: 'breve', texto: 'Breve' },
-  { valor: 'medio', texto: 'Medio' },
-  { valor: 'detallado', texto: 'Detallado' },
-  { valor: 'extenso', texto: 'Extenso' },
-];
-
-const MODOS_TEXTO: readonly { valor: ParamsGeneracion['modoTexto']; texto: string; ayuda: string; icono: string }[] = [
-  { valor: 'generar', texto: 'Generar', ayuda: 'Usa tu texto como guía y escribe el copy completo', icono: 'destellos' },
-  { valor: 'condensar', texto: 'Condensar', ayuda: 'Resume tu texto sin agregar ideas', icono: 'flecha-abajo' },
-  { valor: 'conservar', texto: 'Conservar', ayuda: 'Usa tu texto palabra por palabra', icono: 'candado' },
-];
-
-const FUENTES: readonly OpcionDesplegable<FuenteImagenes>[] = [
-  { valor: 'stock', texto: 'Fotos de archivo', sub: 'Buscar fotos gratuitas de alta resolución', icono: 'camara' },
-  { valor: 'marcadores', texto: 'Marcadores de posición de imagen', sub: 'Genera marcadores de posición vacíos para tus propias imágenes', icono: 'imagen' },
-  { valor: 'ninguna', texto: 'No agregues imágenes', icono: 'ojo-tachado' },
-];
-
-const OBJETIVOS: readonly OpcionDesplegable<ObjetivoLanding>[] = OBJETIVOS_LANDING.map((o) => ({ valor: o.value, texto: o.label, sub: o.hint }));
-
-/**
- * «Tus indicaciones recientes»: comodidad de ESTE navegador (localStorage), nunca un dato. Por dónde
- * entró el pedido: una instrucción (Generar) o un texto (Pegar, también el de un archivo importado).
- * Tanda 6: las de «Importar desde URL» que hayan quedado guardadas se ignoran (esa entrada se fue).
- */
-type Origen = 'generar' | 'pegar';
-type Indicacion = { modo: Origen; texto: string; t: number };
-const CLAVE_INDICACIONES = 'gp.crear.indicaciones';
-const TOPE_INDICACIONES = 6;
-
-function leerIndicaciones(): Indicacion[] {
-  const l = leerLocal<unknown>(CLAVE_INDICACIONES, []);
-  return Array.isArray(l)
-    ? (l as Indicacion[]).filter((x) => x && typeof x.texto === 'string' && x.texto.trim() && (x.modo === 'generar' || x.modo === 'pegar') && typeof x.t === 'number')
-    : [];
-}
-
-function recordarIndicacion(modo: Origen, texto: string): void {
-  const t = texto.trim().slice(0, 20_000);
-  if (!t) return;
-  const otras = leerIndicaciones().filter((x) => !(x.modo === modo && x.texto === t));
-  guardarLocal(CLAVE_INDICACIONES, [{ modo, texto: t, t: Date.now() }, ...otras].slice(0, TOPE_INDICACIONES));
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // La pantalla
 // ─────────────────────────────────────────────────────────────────────────────
 
-type Paso = PasoIA | 'esquema' | 'generando';
+/** Por dónde entró el pedido: una instrucción (Generar) o un texto (un texto largo o el de un archivo). */
+type Origen = OrigenIndicacion;
+type Paso = 'pidiendo' | 'esquema' | 'generando';
 type Falla = { texto: string; reintentar?: () => void };
 
 export type PropsCrear = {
@@ -351,48 +247,33 @@ export type PropsCrear = {
   /** Si la lista de analizadas no se pudo leer (el «Sobre cuál» lo dice en vez de quedar vacío). */
   errorAnalizadas: string | null;
   propios: TemaPropio[];
-  /** El paso por el que se entra (la tarjeta de la caja, o `?paso=` de la URL). */
-  paso: PasoIA;
   /** Lo crudo del tipo (T4): 'presentacion' crea una presentación; lo demás, una landing. */
   tipo: string | null;
-  /** Lo que trae al abrirse, UNA vez: el pedido de la caja, su archivo, el link viejo o el deep link del Analyst. */
+  /** Lo que trae al abrirse, UNA vez: el pedido del cuadro (con sus ajustes), su archivo o el link viejo de la caja. */
   arranque: ArranqueIA | null;
-  /** «Inicio»: vuelve a la caja del Panel. */
-  onSalir: () => void;
-  /** «Analizar una página»: el Diagnóstico del Panel, para pegar una dirección. */
+  /** «Volver»: al cuadro del Panel, con lo que se había mandado (la semilla). Sin semilla, el cuadro vacío. */
+  onSalir: (semilla?: SemillaCaja) => void;
+  /** «Analizar una página»: el cuadro del Panel en Analizar, para pegar una dirección. */
   onAnalizar: () => void;
-  /** El paso de entrada o el tipo cambiaron: el Panel lo escribe en la URL. */
-  onPaso?: (paso: PasoIA, tipo: TipoCrear) => void;
 };
 
 export function CrearConIA(props: PropsCrear) {
-  const { analizadas, errorAnalizadas, propios } = props;
+  const { analizadas, errorAnalizadas, propios, onSalir } = props;
   const ws = useWs();
 
   const arranque = props.arranque;
-  const baseInicial = baseDelDeepLink(arranque?.base, analizadas);
-  const [paso, setPaso] = useState<Paso>(() => {
-    if (arranque?.archivo) return 'pegar';
-    if (arranque?.prompt || arranque?.sesion || baseInicial) return 'generar';
-    return props.paso;
-  });
-  const [origen, setOrigen] = useState<Origen>('generar');
+  /** Un archivo o un texto largo van como texto («pegar»); un pedido, como instrucción («generar»). */
+  const [origen] = useState<Origen>(() => (arranque?.archivo || arranque?.texto ? 'pegar' : 'generar'));
+  const [paso, setPaso] = useState<Paso>('pidiendo');
   const [tipo, setTipo] = useState<TipoCrear>(() => tipoValido(props.tipo));
   const [prompt, setPrompt] = useState('');
   const [texto, setTexto] = useState('');
-  const [params, setParams] = useState<ParamsGeneracion>(() => ({
-    ...PARAMS_DEFAULT,
-    objetivo: objetivoValido(arranque?.objetivo) ?? PARAMS_DEFAULT.objetivo,
-    basadoEnUrl: baseInicial,
-  }));
+  const [params, setParams] = useState<ParamsGeneracion>(() => paramsIniciales(arranque, analizadas));
   const [esquema, setEsquema] = useState<Esquema | null>(null);
   const [temaElegido, setTemaElegido] = useState<string | null>(null);
-  const [cargando, setCargando] = useState<null | 'esquema' | 'archivo'>(null);
+  // Arranca escribiendo: el pedido ya está en camino (si no hay pedido, vuelve al cuadro).
+  const [cargando, setCargando] = useState<null | 'esquema'>(arranque ? 'esquema' : null);
   const [falla, setFalla] = useState<Falla | null>(null);
-  const [personalizar, setPersonalizar] = useState(false);
-  const [ejemplo0, setEjemplo0] = useState(0);
-  const [recientes, setRecientes] = useState<Indicacion[]>([]);
-  const [ahora, setAhora] = useState<number | null>(null);
   const [gen, setGen] = useState<EstadoGen | null>(null);
   const [crear, setCrear] = useState<'no' | 'creando' | 'lista' | 'error'>('no');
   const [errorCrear, setErrorCrear] = useState<string | null>(null);
@@ -419,12 +300,6 @@ export function CrearConIA(props: PropsCrear) {
    */
   const montada = useRef(true);
   useEffect(() => { montada.current = true; return () => { montada.current = false; }; }, []);
-
-  // Comodidades de este navegador: se leen después de montar (el server no las tiene).
-  useEffect(() => {
-    setRecientes(leerIndicaciones());
-    setAhora(Date.now());
-  }, []);
 
   const set = <K extends keyof ParamsGeneracion>(k: K, v: ParamsGeneracion[K]) => setParams((p) => ({ ...p, [k]: v }));
 
@@ -504,44 +379,38 @@ export function CrearConIA(props: PropsCrear) {
     setCargando(null);
     if (!r.ok) { setFalla({ texto: r.error, reintentar: () => void pedirEsquema(de, express) }); return; }
     if (!('esquema' in r)) { setFalla({ texto: 'Respuesta inesperada.', reintentar: () => void pedirEsquema(de, express) }); return; }
-    setOrigen(de);
     setEsquema(r.esquema);
     if (express) void generar(r.esquema, de);
     else setPaso('esquema');
   }, [generar]);
 
-  // Lo que trae la caja del Panel (`arranque`), UNA vez: el ref sobrevive al doble montaje del modo estricto
-  // (un esquema se paga). Un archivo adjunto va a «Pegar texto» con lo escrito como instrucciones; un pedido,
-  // a «Generar». El link viejo de la caja (`sesion`) lo busca en sessionStorage y, si no está, en la URL.
+  // Lo que trae el cuadro del Panel (`arranque`), UNA vez: el ref sobrevive al doble montaje del modo estricto
+  // (un esquema se paga). Un archivo o un texto largo van como texto («pegar»; el archivo, con lo escrito como
+  // instrucciones); un pedido, a «generar». El link viejo de la caja (`sesion`) lo busca en sessionStorage y, si no
+  // está, en la URL. Sin nada que pedir, de vuelta al cuadro (con la landing de base, si vino una).
   const arrancado = useRef(false);
   useEffect(() => {
     if (arrancado.current) return;
     arrancado.current = true;
-    if (!arranque) return;
+    if (!arranque) { onSalir(); return; }
     const express = arranque.modo === 'express';
-    if (arranque.archivo) {
-      const instrucciones = (arranque.prompt ?? '').trim().slice(0, MAX_INSTRUCCIONES);
-      const p = { ...vivo.current.params, instrucciones };
-      setTexto(arranque.archivo.texto);
+    const deTexto = arranque.archivo ? arranque.archivo.texto : arranque.texto;
+    if (deTexto) {
+      const p = arranque.archivo ? { ...vivo.current.params, instrucciones: instruccionesConArchivo(arranque.prompt, vivo.current.params.instrucciones) } : vivo.current.params;
+      setTexto(deTexto);
       setParams(p);
-      vivo.current = { ...vivo.current, texto: arranque.archivo.texto, params: p };
+      vivo.current = { ...vivo.current, texto: deTexto, params: p };
       void pedirEsquema('pegar', express);
       return;
     }
     const caja = arranque.sesion
       ? tomarCaja() ?? (arranque.prompt ? { prompt: arranque.prompt, modo: arranque.modo ?? 'plan' } : null)
       : arranque.prompt ? { prompt: arranque.prompt, modo: arranque.modo ?? 'plan' } : null;
-    if (!caja) return;
+    if (!caja) { onSalir({ base: arranque.base, objetivo: arranque.objetivo, params: arranque.params }); return; }
     setPrompt(caja.prompt);
     vivo.current = { ...vivo.current, prompt: caja.prompt };
     void pedirEsquema('generar', caja.modo === 'express');
-  }, [arranque, pedirEsquema]);
-
-  // El paso de entrada y el tipo viajan en la URL (el Panel los escribe): un F5 vuelve acá.
-  const onPaso = props.onPaso;
-  useEffect(() => {
-    if (paso === 'generar' || paso === 'pegar' || paso === 'importar') onPaso?.(paso, tipo);
-  }, [paso, tipo, onPaso]);
+  }, [arranque, pedirEsquema, onSalir]);
 
   // Mientras se genera y no se guardó, cerrar la pestaña pierde lo generado: se avisa.
   const enCurso = paso === 'generando' && gen?.guardado !== 'listo';
@@ -552,19 +421,16 @@ export function CrearConIA(props: PropsCrear) {
     return () => window.removeEventListener('beforeunload', aviso);
   }, [enCurso]);
 
-  // ── Importar un archivo ──────────────────────────────────────────────────
-
-  const subirArchivo = useCallback(async (f: File) => {
-    if (!puedeLeerse(f.name, f.type)) { setFalla({ texto: porQueNoPuedo(f.name) }); return; }
-    setCargando('archivo');
-    setFalla(null);
-    // El lector compartido con el «+» de la caja (../cliente.ts): multipart, con su plazo, nunca tira.
-    const r = await leerArchivo(f);
-    setCargando(null);
-    if (!r.ok) { setFalla({ texto: r.error }); return; }
-    setTexto(r.texto);
-    setPaso('pegar');
-  }, []);
+  /**
+   * Lo que se había mandado, para volver al cuadro con eso (tanda 7: «Volver» y «Editar»). Con un archivo, el archivo
+   * y lo escrito al lado (sus instrucciones de «Más ajustes», sin lo que se les sumó al mandar).
+   */
+  const semilla = (): SemillaCaja => {
+    const de = { tipo, modoGen: arranque?.modo ?? 'plan', params: { ...params, instrucciones: arranque?.archivo ? arranque.params?.instrucciones ?? '' : params.instrucciones } };
+    if (arranque?.archivo) return { ...de, archivo: arranque.archivo, texto: arranque.prompt ?? '' };
+    return { ...de, texto: origen === 'generar' ? prompt : texto };
+  };
+  const volver = () => onSalir(semilla());
 
   // ── Generación: reintentos ───────────────────────────────────────────────
 
@@ -581,9 +447,6 @@ export function CrearConIA(props: PropsCrear) {
 
   // ── Render ───────────────────────────────────────────────────────────────
 
-  const ir = (p: Paso) => { setFalla(null); setPaso(p); };
-  // «Atrás» sólo desde el esquema (a donde se escribió); desde un paso de entrada, «Inicio» vuelve a la caja.
-  const atras: Paso | null = paso === 'esquema' ? origen : null;
   const ocupado = cargando !== null;
   const opcionesBase = useMemo<OpcionDesplegable<string>[]>(() => [
     { valor: '', texto: 'Sin landing de base', icono: 'cerrar' },
@@ -656,6 +519,20 @@ export function CrearConIA(props: PropsCrear) {
     </div>
   );
 
+  /** «Tu texto» (ex «Contenido del texto» de Pegar texto): de guía, resumir o tal cual. Con los mismos rótulos del cuadro. */
+  const tuTexto = (
+    <div className="gp-campo-fila">
+      <span className="gp-etiqueta">Tu texto</span>
+      <div className="gp-segmentado" role="radiogroup" aria-label="Tu texto">
+        {MODOS_TEXTO.map((m) => (
+          <button key={m.valor} type="button" role="radio" title={m.ayuda} aria-checked={params.modoTexto === m.valor} disabled={ocupado} onClick={() => set('modoTexto', m.valor)}>
+            <Ico n={m.icono} t={14} /> {m.texto}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
   /** Las pastillas Landing | Presentación (T4). Cambiar de tipo no borra lo escrito. */
   const selectorTipo = <SelectorTipo valor={tipo} onCambio={setTipo} deshabilitado={ocupado} />;
 
@@ -673,172 +550,23 @@ export function CrearConIA(props: PropsCrear) {
     </div>
   );
 
+  /** Lo que se mandó desde un texto: el archivo (o «Tu texto») y su largo. */
+  const resumenTexto = `${arranque?.archivo ? arranque.archivo.nombre : 'Tu texto'} · ${texto.length.toLocaleString('es-MX')} caracteres`;
+
   let cuerpo: ReactNode = null;
 
-  /** «Tus indicaciones recientes» de ESE paso (las de Generar en Generar, las de Pegar en Pegar). */
-  const recientesDe = (modo: Origen) => {
-    const lista = recientes.filter((r) => r.modo === modo);
-    if (!lista.length) return null;
-    return (
-      <section className="gp-recientes" aria-labelledby={`gp-recientes-${modo}`}>
-        <h2 id={`gp-recientes-${modo}`} className="gp-separador-texto">Recientes</h2>
-        <ul>
-          {lista.map((r) => (
-            <li key={`${r.modo}-${r.t}`}>
-              <button type="button" className="gp-reciente" disabled={ocupado} onClick={() => (modo === 'generar' ? setPrompt(r.texto) : setTexto(r.texto))}>
-                <span className="gp-reciente-textos">
-                  <span className="gp-reciente-titulo">{r.texto.split('\n')[0].slice(0, 90)}</span>
-                  {ahora ? <span className="gp-reciente-sub">{haceCuanto(r.t, ahora)}</span> : null}
-                </span>
-                <Ico n="chevron-derecha" t={14} />
-              </button>
-            </li>
-          ))}
-        </ul>
-      </section>
-    );
-  };
-
-  if (paso === 'generar') {
-    const lista = EJEMPLOS_DE[tipo];
-    const ejemplos = Array.from({ length: EJEMPLOS_VISIBLES }, (_, k) => lista[(ejemplo0 + k) % lista.length]);
+  if (paso === 'pidiendo') {
+    // Lo que se mandó desde el cuadro, mientras se escribe el esquema (o la falla, con «Reintentar» y «Volver»).
     cuerpo = (
-      <div className="gp-crear-centro">
-        <h1 className="gp-crear-h1">Generar</h1>
-        <p className="gp-crear-sub">¿Qué te gustaría crear hoy?</p>
-        {selectorTipo}
-        {controles(true)}
-        <div className="gp-caja-prompt">
-          <textarea
-            className="gp-caja-texto"
-            value={prompt}
-            rows={3}
-            maxLength={8_000}
-            placeholder="Describe lo que quieres hacer"
-            aria-label="Describe lo que quieres hacer"
-            disabled={ocupado}
-            onChange={(e) => setPrompt(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void pedirEsquema('generar'); } }}
-          />
-          {/* El micrófono de «Nueva automatización» (T4): dictado en vivo y, de respaldo, grabar y transcribir. */}
-          <div className="gp-caja-mic gp-mic">
-            <BotonDictar titulo="Dictar el pedido" valor={prompt} onValor={(v) => setPrompt(v.slice(0, 8_000))} onError={(m) => setFalla({ texto: m })} />
-          </div>
-        </div>
-        <div className="gp-acciones-centro">
-          {escribiendo || (
-            <button type="button" className="gp-btn gp-btn-primario" data-tam="lg" disabled={!prompt.trim() || ocupado} onClick={() => void pedirEsquema('generar')}>
-              <Ico n="destellos" /> Generar esquema
-            </button>
-          )}
-        </div>
-        {lineaFalla}
-        <button type="button" className="gp-enlace-boton" aria-expanded={personalizar} onClick={() => setPersonalizar((v) => !v)}>
-          <Ico n="ajustes" t={14} /> Personalizar
-        </button>
-        {personalizar && camposPersonalizar}
-        {recientesDe('generar')}
-        <div className="gp-ejemplos-cabeza">
-          <span className="gp-separador-texto">Ejemplos de instrucciones</span>
-          <button type="button" className="gp-btn gp-btn-fantasma" onClick={() => setEjemplo0((n) => (n + EJEMPLOS_VISIBLES + Math.floor(Math.random() * 3)) % lista.length)}>
-            <Ico n="refrescar" t={14} /> Aleatorio
-          </button>
-        </div>
-        <div className="gp-ejemplos">
-          {ejemplos.map((e) => (
-            <button key={e.texto} type="button" className="gp-ejemplo" disabled={ocupado} onClick={() => setPrompt(e.texto)}>
-              <Ico n={e.icono} t={18} />
-              <span>{e.texto}</span>
-              <Ico n="mas" t={14} />
-            </button>
-          ))}
-        </div>
-      </div>
-    );
-  } else if (paso === 'pegar') {
-    cuerpo = (
-      <div className="gp-crear-centro">
-        <h1 className="gp-crear-h1">Pegar texto</h1>
-        <p className="gp-crear-sub">Pega la nota, el esquema o el contenido de texto que quieras usar</p>
-        {selectorTipo}
-        <div className="gp-caja-prompt">
-          <textarea
-            className="gp-caja-texto"
-            data-alto="grande"
-            value={texto}
-            maxLength={60_000}
-            placeholder="Escribe o pega aquí el contenido"
-            aria-label="Escribe o pega aquí el contenido"
-            disabled={ocupado}
-            onChange={(e) => setTexto(e.target.value)}
-          />
-          <div className="gp-caja-pie">
-            <span>También puedes escribir --- para añadir saltos</span>
-            <span>{texto.length.toLocaleString('es-MX')}/60.000</span>
-          </div>
-        </div>
-        <div className="gp-campo-fila">
-          <span className="gp-etiqueta">Contenido del texto</span>
-          <div className="gp-segmentado" role="radiogroup" aria-label="Contenido del texto">
-            {MODOS_TEXTO.map((m) => (
-              <button key={m.valor} type="button" role="radio" title={m.ayuda} aria-checked={params.modoTexto === m.valor} onClick={() => set('modoTexto', m.valor)}>
-                <Ico n={m.icono} t={14} /> {m.texto}
-              </button>
-            ))}
-          </div>
-        </div>
-        {controles(params.modoTexto !== 'conservar')}
-        <div className="gp-acciones-centro">
-          {escribiendo || (
-            <button type="button" className="gp-btn gp-btn-primario" data-tam="lg" disabled={!texto.trim() || ocupado} onClick={() => void pedirEsquema('pegar')}>
-              Continuar <Ico n="flecha-derecha" />
-            </button>
-          )}
-        </div>
-        {lineaFalla}
-        {recientesDe('pegar')}
-      </div>
-    );
-  } else if (paso === 'importar') {
-    cuerpo = (
-      <div className="gp-crear-centro">
-        <h1 className="gp-crear-h1">Importar con IA</h1>
-        <p className="gp-crear-sub">Selecciona el archivo que quieras transformar</p>
-        {selectorTipo}
-        {cargando === 'archivo' ? (
-          <div className="gp-cargando-archivo" role="status">
-            <div className="gp-barra"><span /></div>
-            <strong>Cargando archivo...</strong>
-            <span>Esto puede tardar hasta un minuto o dos en el caso de archivos grandes</span>
-          </div>
-        ) : (
-          <div className="gp-importar">
-            <label
-              className="gp-importar-tarjeta"
-              data-color="lila"
-              onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) e.preventDefault(); }}
-              onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files?.[0]; if (f) void subirArchivo(f); }}
-            >
-              <span className="gp-importar-cabeza"><Ico n="carpeta-abierta" t={36} /></span>
-              <span className="gp-importar-titulo">Cargar un archivo</span>
-              <span className="gp-importar-lista">
-                <span><Ico n="check" t={12} /> PowerPoint PPTX</span>
-                <span><Ico n="check" t={12} /> Documentos de Word</span>
-                <span><Ico n="check" t={12} /> PDF</span>
-              </span>
-              <span className="gp-importar-enlace">Examinar archivos <Ico n="subir" t={13} /></span>
-              <input
-                type="file"
-                accept={ACCEPT_IMPORTAR}
-                className="gp-oculto"
-                onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void subirArchivo(f); }}
-              />
-            </label>
-          </div>
-        )}
-        {escribiendo}
-        {lineaFalla}
-        <p className="gp-crear-link">Si tu archivo no es compatible, también puedes <button type="button" className="gp-enlace-boton gp-en-linea" onClick={() => ir('pegar')}>pegar texto</button></p>
+      <div className="gp-crear-centro" data-ancho="pedido">
+        <section className="gp-tarjeta-blanca gp-pedido" aria-label="Tu pedido">
+          <h1 className="gp-bloque-titulo">{origen === 'generar' ? 'Tu pedido' : arranque?.archivo ? 'Tu archivo' : 'Tu texto'}</h1>
+          {origen === 'generar'
+            ? <p className="gp-pedido-texto">{prompt}</p>
+            : <p className="gp-instruccion-resumen"><Ico n={arranque?.archivo ? 'archivo' : 'texto-parrafo'} t={14} /> {resumenTexto}</p>}
+          {escribiendo}
+          {lineaFalla}
+        </section>
       </div>
     );
   } else if (paso === 'esquema' && esquema) {
@@ -857,7 +585,10 @@ export function CrearConIA(props: PropsCrear) {
               <textarea className="gp-campo" rows={2} value={prompt} maxLength={8_000} aria-label="Instrucción" disabled={ocupado} onChange={(e) => setPrompt(e.target.value)} />
             )}
             {origen === 'pegar' && (
-              <p className="gp-instruccion-resumen">Texto pegado · {texto.length.toLocaleString('es-MX')} caracteres · <button type="button" className="gp-enlace-boton gp-en-linea" onClick={() => ir('pegar')}>Editar</button></p>
+              <>
+                <p className="gp-instruccion-resumen">{resumenTexto} · <button type="button" className="gp-enlace-boton gp-en-linea" onClick={volver}>Editar</button></p>
+                {tuTexto}
+              </>
             )}
             {selectorTipo}
             {controles(!(origen !== 'generar' && params.modoTexto === 'conservar'))}
@@ -960,8 +691,8 @@ export function CrearConIA(props: PropsCrear) {
       <style dangerouslySetInnerHTML={{ __html: CSS_ESQUEMA + CSS_TIPO + CSS_CREAR }} />
       {(paso !== 'generando' || crear === 'error') && (
         <div className="gp-crear-barra">
-          <button type="button" className="gp-btn gp-btn-contorno" disabled={ocupado} onClick={props.onSalir}><Ico n="casa" t={14} /> Inicio</button>
-          {atras && <button type="button" className="gp-btn gp-btn-fantasma" disabled={ocupado} onClick={() => ir(atras)}><Ico n="flecha-izquierda" t={14} /> Atrás</button>}
+          {/* Tanda 7: vuelve al CUADRO con lo que se había mandado (era «Inicio», que lo vaciaba). */}
+          <button type="button" className="gp-btn gp-btn-contorno" disabled={ocupado && paso !== 'pidiendo'} onClick={volver}><Ico n="flecha-izquierda" t={14} /> Volver</button>
         </div>
       )}
       {cuerpo}
@@ -993,6 +724,8 @@ function PasoLog({ estado, enCurso, hecho, error, onReintentar }: {
 // ─────────────────────────────────────────────────────────────────────────────
 // La hoja de Crear (medidas de gamma-ui §4.B; tokens de CSS_GP)
 // ─────────────────────────────────────────────────────────────────────────────
+// Tanda 7: se fueron las hojas de las pantallas de entrada (la caja del prompt, «Ejemplos de instrucciones»,
+// «Recientes», «Importar con IA» y su barra de carga): esas cosas viven en el cuadro del Panel (../CajaCrear.tsx).
 
 const CSS_CREAR = `
 .gp.gp-crear { min-height: 100vh; padding: 20px 24px 0; background: var(--gp-cielo); background-attachment: fixed; }
@@ -1000,23 +733,13 @@ const CSS_CREAR = `
 .gp .gp-crear-barra a.gp-btn { text-decoration: none; }
 .gp .gp-crear-centro { display: flex; flex-direction: column; gap: 18px; width: 100%; max-width: 760px; margin: 24px auto 0; padding-bottom: 64px; }
 .gp .gp-crear-centro[data-ancho="esquema"] { max-width: 820px; padding-bottom: 32px; }
-.gp .gp-crear-h1 { margin: 0; text-align: center; font-size: 40px; font-weight: 600; line-height: 1.1; letter-spacing: -0.02em; color: var(--gp-titulo); }
-.gp .gp-crear-sub { margin: -8px 0 4px; text-align: center; font-size: 16px; color: var(--gp-tenue); }
+.gp .gp-crear-centro[data-ancho="pedido"] { max-width: 720px; }
 .gp .gp-crear-h2 { margin: 8px 0 0; font-size: 20px; font-weight: 600; color: var(--gp-titulo); }
-.gp .gp-crear-link { margin: 0; text-align: center; font-size: 14px; color: var(--gp-tenue); }
 .gp .gp-enlace-boton { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; padding: 0; border: 0; background: transparent; color: var(--gp-activo-texto); font-size: 14px; font-weight: 600; cursor: pointer; }
 .gp .gp-en-linea { display: inline; align-self: auto; }
-.gp .gp-oculto { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 
-/* Indicaciones recientes (en Generar y en Pegar texto, tanda 6). */
-.gp .gp-recientes { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
-.gp .gp-recientes .gp-separador-texto { margin: 0; }
-.gp .gp-recientes ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.gp .gp-reciente { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 16px; border: 0; border-radius: 10px; background: var(--gp-superficie); box-shadow: var(--gp-sombra-tarjeta); text-align: left; cursor: pointer; color: var(--gp-tenue); }
-.gp .gp-reciente:hover { box-shadow: 0 4px 6px -1px rgba(0,0,0,.1), 0 2px 4px -1px rgba(0,0,0,.06); }
-.gp .gp-reciente-textos { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
-.gp .gp-reciente-titulo { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--gp-titulo); font-weight: 600; font-size: 14px; }
-.gp .gp-reciente-sub { font-size: 12.5px; }
+/* El pedido mientras se escribe el esquema (tanda 7). */
+.gp .gp-pedido-texto { margin: 0; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; color: var(--gp-texto); font-size: 16px; line-height: 1.5; white-space: pre-wrap; }
 
 /* Controles (píldoras chicas) y el stepper «[– 8 secciones +]». */
 .gp .gp-controles { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px; }
@@ -1026,20 +749,10 @@ const CSS_CREAR = `
 .gp .gp-stepper button:disabled { opacity: .35; cursor: default; }
 .gp .gp-stepper span { min-width: 92px; text-align: center; }
 .gp .gp-nota-error { font-size: 12.5px; color: var(--gp-peligro); }
-
-/* La caja del prompt. */
-.gp .gp-caja-prompt { border-radius: 12px; background: var(--gp-superficie); box-shadow: var(--gp-sombra-tarjeta); border: 1px solid var(--gp-borde-suave); }
-.gp .gp-caja-prompt:focus-within { border-color: var(--gp-azul-300); box-shadow: 0 0 0 3px rgba(44,136,247,.15); }
-.gp .gp-caja-texto { display: block; width: 100%; min-height: 84px; padding: 14px 16px; border: 0; border-radius: 12px; background: transparent; color: var(--gp-texto); font: inherit; font-size: 16px; line-height: 1.5; resize: vertical; outline: none; }
-.gp .gp-caja-texto[data-alto="grande"] { min-height: 280px; font-size: 14.5px; }
-.gp .gp-caja-texto::placeholder { color: var(--gp-debil); }
-.gp .gp-caja-mic { display: flex; justify-content: flex-end; padding: 0 10px 10px; }
-.gp .gp-caja-pie { display: flex; justify-content: space-between; gap: 12px; padding: 8px 16px 10px; border-top: 1px solid var(--gp-borde-suave); color: var(--gp-debil); font-size: 12.5px; }
-.gp .gp-acciones-centro { display: flex; justify-content: center; min-height: 40px; }
 .gp .gp-esperando { display: inline-flex; align-items: center; gap: 10px; color: var(--gp-tenue); font-size: 14px; }
 .gp .gp-esperando strong { color: var(--gp-titulo); font-weight: 600; }
 
-/* Personalizar. */
+/* Personalizar (en el esquema). */
 .gp .gp-personalizar { display: flex; flex-direction: column; gap: 14px; padding: 16px; border-radius: 12px; background: var(--gp-superficie); box-shadow: var(--gp-sombra-tarjeta); }
 .gp .gp-tarjeta-blanca .gp-personalizar { padding: 0; box-shadow: none; background: transparent; }
 .gp .gp-campo-fila { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
@@ -1048,35 +761,9 @@ const CSS_CREAR = `
 .gp .gp-segmentado button { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 14px; border: 0; border-radius: 8px; background: transparent; color: var(--gp-texto); font-size: 13px; font-weight: 500; cursor: pointer; }
 .gp .gp-segmentado button[aria-checked="true"] { background: var(--gp-superficie); color: var(--gp-activo-texto); box-shadow: var(--gp-sombra-tarjeta); }
 
-/* Ejemplos de instrucciones. */
-.gp .gp-ejemplos-cabeza { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; }
-.gp .gp-separador-texto { font-size: 13px; font-weight: 600; color: var(--gp-tenue); text-transform: uppercase; letter-spacing: .04em; }
-.gp .gp-ejemplos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-.gp .gp-ejemplo { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: start; gap: 10px; padding: 12px 14px; border: 0; border-radius: 10px; background: rgba(208,230,254,.65); color: var(--gp-azul-950); font-size: 13.5px; line-height: 1.4; text-align: left; cursor: pointer; }
-[data-tema="oscuro"] .gp .gp-ejemplo { background: rgba(11,46,121,.55); color: #d0e6fe; }
-.gp .gp-ejemplo:hover:not(:disabled) { background: var(--gp-azul-100); }
-.gp .gp-ejemplo .gp-ico:first-child { color: var(--gp-azul-600); }
-
-/* Importar. */
-.gp .gp-importar { display: grid; grid-template-columns: minmax(0, 380px); justify-content: center; gap: 16px; }
-.gp .gp-importar-tarjeta { position: relative; display: flex; flex-direction: column; gap: 10px; padding: 0 0 18px; border-radius: 12px; background: var(--gp-superficie); box-shadow: var(--gp-sombra-tarjeta); overflow: hidden; cursor: default; }
-.gp label.gp-importar-tarjeta { cursor: pointer; }
-.gp .gp-importar-cabeza { display: grid; place-items: center; height: 110px; color: #fff; }
-.gp .gp-importar-tarjeta[data-color="lila"] .gp-importar-cabeza { background: linear-gradient(135deg, #bd97fd, #8131dc); }
-.gp .gp-importar-titulo { padding: 0 18px; font-size: 16px; font-weight: 600; color: var(--gp-titulo); }
-.gp .gp-importar-lista { display: flex; flex-direction: column; gap: 4px; padding: 0 18px; font-size: 13.5px; color: var(--gp-tenue); }
-.gp .gp-importar-lista .gp-ico { color: var(--gp-exito); }
-.gp .gp-importar-lista span { display: inline-flex; align-items: center; gap: 6px; }
-.gp .gp-importar-enlace { display: inline-flex; align-items: center; gap: 6px; padding: 0 18px; color: #b50084; font-weight: 600; font-size: 14px; }
-.gp .gp-cargando-archivo { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 28px; border-radius: 12px; background: var(--gp-superficie); box-shadow: var(--gp-sombra-tarjeta); text-align: center; color: var(--gp-tenue); font-size: 14px; }
-.gp .gp-cargando-archivo strong { color: var(--gp-titulo); }
-.gp .gp-barra { width: 100%; max-width: 360px; height: 6px; border-radius: 9999px; background: var(--gp-borde-suave); overflow: hidden; }
-.gp .gp-barra span { display: block; width: 40%; height: 100%; border-radius: inherit; background: var(--gp-azul-500); animation: gp-va 1.4s ease-in-out infinite; }
-@keyframes gp-va { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
-
 /* Esquema: la tarjeta de la instrucción y la barra de abajo. */
 .gp .gp-tarjeta-blanca { display: flex; flex-direction: column; gap: 12px; padding: 18px; border-radius: 12px; background: var(--gp-superficie); box-shadow: var(--gp-sombra-tarjeta); }
-.gp .gp-instruccion-resumen { margin: 0; color: var(--gp-tenue); font-size: 14px; }
+.gp .gp-instruccion-resumen { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; color: var(--gp-tenue); font-size: 14px; }
 .gp .gp-barra-abajo { position: sticky; bottom: 0; z-index: 5; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; margin: 0 -24px; padding: 10px 24px; background: var(--gp-superficie); border-top: 1px solid var(--gp-borde-suave); box-shadow: 0 -4px 12px rgba(0,0,0,.04); font-size: 13.5px; color: var(--gp-tenue); }
 
 /* Generando: registro a la izquierda, la página apareciendo a la derecha. */
@@ -1105,8 +792,6 @@ const CSS_CREAR = `
 
 @media (max-width: 760px) {
   .gp.gp-crear { padding: 16px 16px 0; }
-  .gp .gp-crear-h1 { font-size: 30px; }
-  .gp .gp-ejemplos, .gp .gp-importar { grid-template-columns: minmax(0, 1fr); }
   .gp .gp-generando { grid-template-columns: minmax(0, 1fr); }
   .gp .gp-gen-log { position: static; }
   .gp .gp-barra-abajo { margin: 0 -16px; padding: 10px 16px; grid-template-columns: 1fr auto; }

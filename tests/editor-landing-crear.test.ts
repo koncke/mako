@@ -96,6 +96,8 @@ import {
   EJEMPLOS_CAJA, configDeCreacion, cuantas, paramsDeTipo, pedidoDePlantilla, plantillasDe, termino, tipoValido,
 } from '../app/web-generator/crear/tipo';
 import { derechaDeQuery, queryDeDerecha } from '../app/web-generator/panel-reglas';
+import { paramsIniciales } from '../app/web-generator/crear/ajustes';
+import { alEnviar, cajaVacia } from '../app/web-generator/crear/caja-modos';
 import { PARAMS_DEFAULT } from '../lib/editor-landing/ia-reglas';
 import { sanearConfig } from '../lib/editor-landing/validar';
 import { mezclarConfig } from '../lib/editor-landing/server-reglas';
@@ -289,10 +291,14 @@ test('el objetivo de la query sólo vale si es de la lista cerrada', () => {
 
 test('la pantalla siembra «Sobre cuál» con la URL VALIDADA, y la página le pasa las analizadas', () => {
   const src = fuente('app/web-generator/crear/CrearConIA.tsx');
-  // Tanda 6: el deep link llega como `arranque.base` (la derecha del Panel, `derechaDeQuery`).
-  assert.match(src, /const baseInicial = baseDelDeepLink\(arranque\?\.base, analizadas\);/);
-  assert.match(src, /basadoEnUrl: baseInicial,/);
+  // Tanda 7: la base (del deep link o de los ajustes del cuadro) se valida en `paramsIniciales` (crear/ajustes.ts),
+  // que también usa el cuadro; se EJECUTA acá y la pantalla la llama tal cual.
+  assert.match(src, /useState<ParamsGeneracion>\(\(\) => paramsIniciales\(arranque, analizadas\)\)/);
   assert.doesNotMatch(src, /basadoEnUrl: (props\.url|arranque\?\.base)/);
+  const analizadas = [{ url: 'https://ejemplo.com/landing' }];
+  assert.equal(paramsIniciales({ base: 'https://ejemplo.com/landing' }, analizadas).basadoEnUrl, 'https://ejemplo.com/landing');
+  assert.equal(paramsIniciales({ base: 'https://ajena.com' }, analizadas).basadoEnUrl, null);
+  assert.equal(paramsIniciales({ params: { basadoEnUrl: 'https://ajena.com' } }, analizadas).basadoEnUrl, null);
   // Las analizadas las lee el Panel (después del guard) y se las pasa a Crear, que se monta a su derecha.
   const panel = fuente('app/web-generator/page.tsx');
   assert.match(panel, /listarAnalizadas\(\)/);
@@ -300,7 +306,7 @@ test('la pantalla siembra «Sobre cuál» con la URL VALIDADA, y la página le p
   assert.doesNotMatch(panel, /web-generator\/crear/, 'el Panel ya no reenvía a otra ruta');
   const inicio = fuente('app/web-generator/Inicio.tsx');
   assert.match(inicio, /<CrearConIA\s+analizadas=\{analizadas\}/);
-  assert.match(inicio, /arranque=\{derecha\.arranque \?\? null\}/);
+  assert.match(inicio, /arranque=\{derecha\.arranque\}/);
   // /landing-generator/crear REDIRIGE al Panel con su query (y el ?ws= de la pestaña).
   const page = fuente('app/web-generator/crear/page.tsx');
   assert.match(page, /redirect\(await rutaConWs\(destinoCrear\(await searchParams\)\)\);/);
@@ -409,23 +415,26 @@ test('a dónde manda la caja: a la derecha del Panel con el tipo; el pedido EN M
   // Tanda 6: la caja no navega. Le pasa al Panel el paso, el TIPO y el pedido (`onAccion`), y el Panel abre
   // Crear a su derecha (Inicio.tsx, `alAccion`).
   const caja = fuente('app/web-generator/CajaCrear.tsx');
-  assert.match(caja, /onAccion\(\{ que: 'ia', paso: 'generar', tipo, arranque: \{ prompt: p, modo \} \}\);/);
-  assert.match(caja, /onAccion\(\{ que: 'ia', paso: 'pegar', tipo, arranque: \{ modo, prompt: pedido\.trim\(\), archivo: /);
+  // Tanda 7: lo que se manda lo decide `alEnviar` (crear/caja-modos.ts, puro: se EJECUTA acá) con el tipo del cuadro.
+  assert.match(caja, /const r = alEnviar\(estado, \{ tipo, modo: modoGen, params \}, escritoLink\);/);
+  assert.match(caja, /if \(r\.que === 'accion'\) onAccion\(r\.accion\);/);
+  const envio = alEnviar({ ...cajaVacia(), texto: 'mi pitch' }, { tipo: 'presentacion', modo: 'express', params: PARAMS_DEFAULT });
+  assert.deepEqual(envio, { que: 'accion', accion: { que: 'ia', tipo: 'presentacion', arranque: { modo: 'express', params: PARAMS_DEFAULT, prompt: 'mi pitch' } } });
   assert.doesNotMatch(caja, /router\.push|dejarCaja|rutaCaja|rutaPaso/, 'la caja volvió a navegar a otra ruta');
-  // La URL guarda el paso y el tipo (un F5 vuelve ahí), pero NO el pedido: se paga, y un F5 no lo repide.
-  const conPedido = { tipo: 'ia' as const, paso: 'generar' as const, doc: 'presentacion' as const, arranque: { prompt: 'mi pitch', modo: 'express' as const } };
+  // La URL guarda de dónde salió y el tipo (un F5 vuelve al cuadro), pero NO el pedido: se paga, y un F5 no lo repide.
+  const conPedido = { tipo: 'ia' as const, doc: 'presentacion' as const, arranque: { prompt: 'mi pitch', modo: 'express' as const } };
   const q = new URLSearchParams(queryDeDerecha('?ws=3&desde=caja&modo=express&prompt=mi+pitch', conPedido));
   assert.equal(q.get('paso'), 'generar');
   assert.equal(q.get('tipo'), 'presentacion');
   assert.equal(q.get('ws'), '3');
   for (const k of ['prompt', 'desde', 'modo']) assert.equal(q.get(k), null, `«${k}» quedó en la URL`);
-  assert.equal(new URLSearchParams(queryDeDerecha('', { tipo: 'ia', paso: 'importar', doc: 'landing' })).get('tipo'), null);
+  assert.equal(new URLSearchParams(queryDeDerecha('', { tipo: 'crear', modo: 'importar' })).get('tipo'), null);
   // El link VIEJO de la caja (una pestaña con la pantalla de antes, redirigida desde /crear): el tipo y el
   // modo viajan; el pedido, de la sesión (`tomarCaja`) o, si no entró ahí, de la URL.
   assert.deepEqual(derechaDeQuery({ desde: 'caja', modo: 'express', tipo: 'presentacion' }, [], []),
-    { tipo: 'ia', paso: 'generar', doc: 'presentacion', arranque: { sesion: true, modo: 'express' } });
+    { tipo: 'ia', doc: 'presentacion', arranque: { sesion: true, modo: 'express' } });
   assert.deepEqual(derechaDeQuery({ desde: 'caja', prompt: '  algo  ' }, [], []),
-    { tipo: 'ia', paso: 'generar', doc: 'landing', arranque: { sesion: true, modo: 'plan', prompt: 'algo' } });
+    { tipo: 'ia', doc: 'landing', arranque: { sesion: true, modo: 'plan', prompt: 'algo' } });
   const crear = fuente('app/web-generator/crear/CrearConIA.tsx');
   assert.match(crear, /\? tomarCaja\(\) \?\? \(arranque\.prompt \? \{ prompt: arranque\.prompt, modo: arranque\.modo \?\? 'plan' \} : null\)/);
 });
@@ -455,11 +464,13 @@ test('el generador manda el tipo en TODO pedido a la IA y en el alta', () => {
   // El tipo de la query se valida, y el Panel se lo pasa (la derecha `ia` lo trae validado: `derechaDeQuery`).
   assert.match(src, /useState<TipoCrear>\(\(\) => tipoValido\(props\.tipo\)\)/);
   assert.match(fuente('app/web-generator/Inicio.tsx'), /tipo=\{derecha\.doc\}/);
-  assert.equal(derechaDeQuery({ paso: 'pegar', tipo: 'presentacion' }, [], []).tipo, 'ia');
-  // «Sobre cuál» sólo se dibuja en una landing.
+  // Tanda 7: un `?paso=` viejo con el tipo abre el CUADRO con ese tipo (Crear es el resultado).
+  assert.deepEqual(derechaDeQuery({ paso: 'pegar', tipo: 'presentacion' }, [], []), { tipo: 'crear', doc: 'presentacion' });
+  // «Sobre cuál» sólo se dibuja en una landing (en el esquema; en el cuadro, en «Más ajustes»).
   assert.match(src, /\{tipo === 'landing' && \(\s*<>\s*<Desplegable\s+etiqueta="Sobre cuál"/);
-  // Y la caja de «Generar» tiene el micrófono de la casa.
-  assert.match(src, /<BotonDictar titulo="Dictar el pedido" valor=\{prompt\}/);
+  assert.match(fuente('app/web-generator/crear/AjustesCaja.tsx'), /\{tipo === 'landing' && \(\s*<div className="gp-cc-ajuste gp-cc-ajuste-ancho">\s*<span className="gp-cc-ajuste-rotulo">Sobre cuál<\/span>/);
+  // Tanda 7: el micrófono es el del cuadro (CajaPedido), la única puerta; Crear ya no tiene su caja de «Generar».
+  assert.doesNotMatch(src, /BotonDictar/);
 });
 
 test('la caja «¿Qué vas a crear hoy?»: el micrófono y el ejemplo de «Nueva automatización», importados', () => {
@@ -485,9 +496,9 @@ test('la caja «¿Qué vas a crear hoy?»: el micrófono y el ejemplo de «Nueva
   // Decimoquinta tanda de Automations (punto 6): se mueve mientras la caja no tiene el foco y está vacía (`mover`).
   assert.match(caja, /const ejemplo = useEjemploQueSeEscribe\(mover, ejemplos\);/);
   assert.match(caja, /<CampoPedido\s+key=\{p\.reinicio \?\? ''\}/);
-  // Enviar: el pedido al Panel con el tipo (tanda 6, ver «a dónde manda la caja»); una plantilla: su alta y
+  // Enviar: el pedido al Panel con el tipo (ver «a dónde manda la caja»); una plantilla: su alta y
   // abrirla. Un DISEÑO de landing pregunta antes el objetivo («¿De qué quieres crearla?»).
-  assert.match(src, /onAccion\(\{ que: 'ia', paso: 'generar', tipo, arranque: \{ prompt: p, modo \} \}\);/);
+  assert.match(src, /if \(r\.que === 'accion'\) onAccion\(r\.accion\);/);
   assert.match(src, /const lista = plantillasDe\(tipo\);/);
   assert.match(src, /if \(p\.pideObjetivo\) \{ setEligiendo\(p\); return; \}\s*void crear\(p\.id, pedidoDePlantilla\(p\)\);/);
   assert.match(src, /const alta = pedidoDeDiseno\(eligiendo, objetivo\);/);
@@ -509,3 +520,9 @@ test('los ejemplos que se escriben solos: cortos y de los dos tipos', () => {
     for (const e of EJEMPLOS_CAJA[t]) assert.ok(e.length <= 70, `${t}: «${e}» es largo para un placeholder`);
   }
 });
+
+// ── TANDA 7 (15/10/2026): PROBADO ROMPIÉNDOLO ───────────────────────────────────────────────────────
+// Base: 26 / 0 (con el arnés de tests/web-generator-cuadro.test.ts):
+//   R16 la landing de base sin validar (crear/ajustes.ts)           → 25 / 1 «la pantalla siembra «Sobre cuál»…»
+//   R22 Crear sin `paramsIniciales` (los ajustes que llegan, crudos) → 25 / 1 «la pantalla siembra «Sobre cuál»…»
+// Restaurado: 26 / 0.

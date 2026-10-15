@@ -106,19 +106,20 @@ test('linkEscrito: un link TIPEADO y mandado con Enter (sin el espacio que lo ci
   }
 });
 
-test('la caja: el link va EN LUGAR del campo, azul, con «Analiza esta landing» ⇄ «Replica esta landing» (y el formato)', () => {
+// TANDA 7 (15/10/2026): el link ya no va EN LUGAR del campo: es CHIPS del renglón, con el texto después (Martín: «todo
+// eso debería seguir siendo el cuadro de texto, solo que esos son chips del texto»). Qué se manda y cómo se borran se
+// EJECUTA en tests/web-generator-cuadro.test.ts (`alEscribir`, `alEnviar`, `borrarAlInicio`); acá, que la pantalla
+// los dibuja así.
+test('la caja: el link y su pastilla son CHIPS del renglón, azules, con «Analiza esta landing» ⇄ «Replica esta landing» (y el formato)', () => {
   const src = fuente(CAJA);
-  assert.match(src, /const r = sacarLink\(pedido, v\);/);
-  assert.match(src, /enLugarDelCampo=\{conLink\}/);
-  assert.match(src, /<ChipCaja icono="enlace" texto=\{hostDe\(link\)\}/);
+  assert.match(src, /antesDelCampo=\{chips\}/);
+  assert.match(src, /<ChipCaja icono="enlace" texto=\{hostDe\(link\.url\)\} titulo=\{link\.url\} nombre=\{`Enlace: \$\{hostDe\(link\.url\)\}`\}/);
+  assert.match(src, /etiquetaQuitar="Quitar el enlace"/);
   assert.match(src, /\{ valor: 'analizar', texto: 'Analiza esta landing', icono: 'reporte' \}/);
   assert.match(src, /\{ valor: 'replicar', texto: 'Replica esta landing', icono: 'copiar' \}/);
-  assert.match(src, /\{accionLink === 'replicar' && \(\s*<Desplegable etiqueta="Formato" valor=\{formatoLink\}/);
-  // Al mandar, lo mismo que las tarjetas: el Diagnóstico de esa URL o Replicar con su formato.
-  assert.match(src, /onAccion\(accionLink === 'analizar' \? \{ que: 'analizar', url \} : \{ que: 'replicar', url, formato: formatoLink \}\);/);
-  // Verificación de la tanda 6: el chip, o un link tipeado y mandado con Enter; y del chip no queda texto escondido.
-  assert.match(src, /const url = link \?\? \(archivo \? null : linkEscrito\(pedido\)\);\s*if \(url\) \{/);
-  assert.match(src, /setLink\(r\);\s*setPedido\(''\);/);
+  assert.match(src, /\{link\.accion === 'replicar' && \(\s*<Desplegable etiqueta="Formato" valor=\{link\.formato\}/);
+  // Al mandar: la regla pura (el Diagnóstico de esa URL, Replicar con su formato, o primero los chips de un link escrito).
+  assert.match(src, /const r = alEnviar\(estado, \{ tipo, modo: modoGen, params \}, escritoLink\);/);
   assert.match(src, /\.gp \.gp-cc-link-accion \.gp-pildora \{[^}]*background: var\(--gp-azul-50\)/, 'la pastilla no es azul');
   // La caja es la MISMA de /automations: nada de esto vive adentro de ella.
   const caja = fuente(CAJA_PEDIDO);
@@ -140,29 +141,31 @@ test('derechaDeAccion (se EJECUTA): «Analiza esta landing» abre el Diagnóstic
   assert.deepEqual(de({ que: 'analizar', url: 'no es un link' }), { tipo: 'diagnostico' });
   assert.deepEqual(de({ que: 'replicar', url: 'https://su-landing.com/', formato: 'presentacion' }), { tipo: 'replicar', url: 'https://su-landing.com/', formato: 'presentacion', auto: true });
   assert.deepEqual(de({ que: 'replicar' }), { tipo: 'replicar' }, 'la tarjeta «Replicar landing» sin link no arranca nada');
-  assert.deepEqual(de({ que: 'ia', paso: 'pegar', tipo: 'landing', arranque: { modo: 'plan', prompt: '' } }),
-    { tipo: 'ia', paso: 'pegar', doc: 'landing', arranque: { modo: 'plan', prompt: '' } });
+  // Tanda 7: Crear ya no tiene pasos de entrada; lo que se manda es el pedido (con su archivo o su texto largo).
+  assert.deepEqual(de({ que: 'ia', tipo: 'landing', arranque: { modo: 'plan', prompt: '', archivo: { nombre: 'a.pdf', texto: 'x' } } }),
+    { tipo: 'ia', doc: 'landing', arranque: { modo: 'plan', prompt: '', archivo: { nombre: 'a.pdf', texto: 'x' } } });
   // Y el Panel la usa tal cual (con su lista y sus bases).
   assert.match(fuente(INICIO), /const alAccion = \(a: AccionCaja\) => \{\s*setDerecha\(derechaDeAccion\(a, lista, props\.bases\)\);/);
 });
 
 // ── 2 · Todo en la misma ruta ────────────────────────────────────────────────────────────────
 
-test('la derecha del Panel: Crear con IA por su paso (y el tipo), Replicar, y los links viejos de /crear', () => {
+test('la derecha del Panel: los `?paso=` abren el CUADRO en su modo (tanda 7), Replicar, y los links viejos de /crear', () => {
   const d = (q: Parameters<typeof derechaDeQuery>[0]) => derechaDeQuery(q, [], []);
-  assert.deepEqual(d({ paso: 'generar' }), { tipo: 'ia', paso: 'generar', doc: 'landing' });
-  assert.deepEqual(d({ paso: 'importar', tipo: 'presentacion' }), { tipo: 'ia', paso: 'importar', doc: 'presentacion' });
+  assert.deepEqual(d({ paso: 'generar' }), { tipo: 'crear' });
+  assert.deepEqual(d({ paso: 'pegar' }), { tipo: 'crear' }, '«Pegar texto» se fue: es Generar con un texto largo');
+  assert.deepEqual(d({ paso: 'importar', tipo: 'presentacion' }), { tipo: 'crear', modo: 'importar', doc: 'presentacion' });
   assert.deepEqual(d({ paso: 'inicio' }), { tipo: 'crear' }, 'la pantalla «inicio» de Crear se fue a la caja');
   assert.deepEqual(d({ paso: 'esquema' }), { tipo: 'crear' });
   assert.deepEqual(d({ vista: 'replicar' }), { tipo: 'replicar' });
   assert.deepEqual(d({ paso: 'generar', diagnostico: '9' }), { tipo: 'diagnostico', docId: 9 }, 'el Diagnóstico de una landing manda');
-  // El deep link del Landing Analyst: «Generar» con esa landing de base (Crear la valida contra su lista).
+  // El deep link del Landing Analyst: el cuadro en Generar con esa landing de base (el cuadro la valida contra su lista).
   assert.deepEqual(d({ url: 'https://ejemplo.com/landing', objetivo: 'agendar' }),
-    { tipo: 'ia', paso: 'generar', doc: 'landing', arranque: { base: 'https://ejemplo.com/landing', objetivo: 'agendar' } });
+    { tipo: 'crear', semilla: { base: 'https://ejemplo.com/landing', objetivo: 'agendar' } });
   // Ida y vuelta: lo que se escribe es lo que se lee, con el ?ws=.
   const ida: Derecha[] = [
-    { tipo: 'ia', paso: 'generar', doc: 'landing' }, { tipo: 'ia', paso: 'pegar', doc: 'presentacion' },
-    { tipo: 'ia', paso: 'importar', doc: 'landing' }, { tipo: 'replicar' },
+    { tipo: 'crear' }, { tipo: 'crear', doc: 'presentacion' },
+    { tipo: 'crear', modo: 'importar' }, { tipo: 'replicar' }, { tipo: 'diagnostico' },
   ];
   for (const x of ida) {
     const p = new URLSearchParams(queryDeDerecha('?ws=3', x));
@@ -180,8 +183,8 @@ test('/web-generator/crear redirige al Panel con la query entera (y su ?ws=); el
   assert.equal(destinoCrear({ url: ['https://a.com/x', 'https://b.com/'], objetivo: 'agendar' }), '/web-generator?url=https%3A%2F%2Fa.com%2Fx&objetivo=agendar');
   // Lo que promete el redirect es lo que el Panel abre (las dos puntas, una contra la otra).
   for (const [sp, esperado] of [
-    [{ paso: 'pegar' }, { tipo: 'ia', paso: 'pegar', doc: 'landing' }],
-    [{ url: 'https://a.com/x' }, { tipo: 'ia', paso: 'generar', doc: 'landing', arranque: { base: 'https://a.com/x' } }],
+    [{ paso: 'importar' }, { tipo: 'crear', modo: 'importar' }],
+    [{ url: 'https://a.com/x' }, { tipo: 'crear', semilla: { base: 'https://a.com/x' } }],
     [{}, { tipo: 'crear' }],
   ] as const) {
     const q = Object.fromEntries(new URL(destinoCrear(sp), 'https://hola-mako.com').searchParams);
@@ -193,16 +196,19 @@ test('/web-generator/crear redirige al Panel con la query entera (y su ?ws=); el
   assert.match(page, /redirect\(await rutaConWs\(destinoCrear\(await searchParams\)\)\);/);
 });
 
-test('el Panel monta Crear con IA y Replicar a la derecha; adentro de Crear, «Inicio» y «Analizar» son funciones del Panel', () => {
+test('el Panel monta Crear con IA y Replicar a la derecha; adentro de Crear, «Volver» y «Analizar» son funciones del Panel', () => {
   const src = fuente(INICIO);
   assert.match(src, /\} else if \(derecha\.tipo === 'ia'\) \{[\s\S]{0,200}<CrearConIA/);
-  assert.match(src, /onSalir=\{cerrarDiagnostico\}\s+onAnalizar=\{abrirAnalizar\}\s+onPaso=\{recordarPaso\}/);
+  // Tanda 7: «Volver» trae de vuelta al cuadro lo que se había mandado (`derechaDeVuelta`, con la semilla).
+  assert.match(src, /onSalir=\{volverACaja\}\s+onAnalizar=\{abrirAnalizar\}/);
+  assert.match(src, /const volverACaja = useCallback\(\(s\?: SemillaCaja\) => setDerecha\(derechaDeVuelta\(s\)\), \[\]\);/);
   assert.match(src, /\} else if \(derecha\.tipo === 'replicar'\) \{\s*contenido = <ReplicarUnaPagina key=\{derecha\.url \?\? ''\} url=\{derecha\.url\} formato=\{derecha\.formato\} auto=\{derecha\.auto\} \/>;/);
   assert.match(src, /\.gp \.gp-contenido\[data-vista="ia"\] \{ padding: 0; \}/);
   // Con el Panel montado, un <Link> a su propia ruta no le cambia la derecha (es un useState).
   const crear = fuente(CREAR);
   assert.doesNotMatch(crear, /<Link\b|import Link\b|href="\/web-generator/, 'Crear volvió a navegar con un link');
-  assert.match(crear, /onClick=\{props\.onSalir\}><Ico n="casa" t=\{14\} \/> Inicio<\/button>/);
+  assert.match(crear, /const volver = \(\) => onSalir\(semilla\(\)\);/);
+  assert.match(crear, /onClick=\{volver\}><Ico n="flecha-izquierda" t=\{14\} \/> Volver<\/button>/);
   assert.match(crear, /onClick=\{props\.onAnalizar\}>Analizar una página<\/button>/);
   // Salir a la mitad: la generación termina y se guarda, pero no arrastra al editor desde otra pantalla.
   assert.match(crear, /if \(montada\.current\) irDuro\(`\/web-generator\/\$\{d\.id\}`, ws\);/);
@@ -210,23 +216,32 @@ test('el Panel monta Crear con IA y Replicar a la derecha; adentro de Crear, «I
 
 // ── 3 · «Crear con IA» en la tab, e «Importar» sólo archivos ─────────────────────────────────
 
-test('«Crear con IA» en la caja: Pegar texto · Generar · Importar · Analizar landing · Replicar landing', () => {
+// TANDA 7 (15/10/2026) DIO VUELTA ESTE TEST. Martín: «2. Las 5 opciones abajo del título […] 3. Cuando le doy click a una
+// opción, lo que debe cambiar es el recuadro de chat de abajo, no redireccionarme a otro lugar. 4. […] elimina y conserva
+// la de "Generar desde una idea".» Las tarjetas de «Crear con IA» (debajo de la caja, que abrían otra vista) son ahora
+// los MODOS del cuadro, arriba de él, y «Pegar texto» se fue. Lo ejecutado (qué se ve y qué se manda en cada modo), en
+// tests/web-generator-cuadro.test.ts.
+test('«Crear con IA» son los modos del cuadro, ARRIBA de él: Generar · Importar · Analizar landing · Replicar landing', () => {
   const src = fuente(CAJA);
-  const opciones = tramo(src, 'export const OPCIONES_IA', '];');
-  assert.deepEqual([...opciones.matchAll(/titulo: '([^']+)'/g)].map((m) => m[1]), ['Pegar texto', 'Generar', 'Importar', 'Analizar landing', 'Replicar landing']);
+  assert.doesNotMatch(src, /OPCIONES_IA|gp-cc-opcion|className="gp-cc-ia"|Pegar texto/, 'volvieron las tarjetas');
+  const opciones = tramo(fuente('app/web-generator/crear/caja-modos.ts'), 'export const OPCIONES_MODO', '];');
+  assert.deepEqual([...opciones.matchAll(/titulo: '([^']+)'/g)].map((m) => m[1]), ['Generar', 'Importar', 'Analizar landing', 'Replicar landing']);
   assert.doesNotMatch(opciones, /URL|página web/i, '«Importar» es sólo un archivo');
+  // El orden: los modos (entre el título y el cuadro: `bajoTitulo`), el cuadro, el tipo, las plantillas.
   const iCaja = src.indexOf('<CajaPedido');
+  const iModos = src.indexOf('bajoTitulo={(');
   const iTipo = src.indexOf('<SelectorTipo');
-  const iIA = src.indexOf('className="gp-cc-ia"');
   const iPlantillas = src.indexOf('className="gp-cc-plantillas"');
-  assert.ok(iCaja > 0 && iTipo > iCaja && iIA > iTipo && iPlantillas > iIA, 'el orden: la caja, el tipo, Crear con IA, las plantillas');
-  assert.match(src, /if \(o === 'analizar'\) onAccion\(\{ que: 'analizar' \}\);\s*else if \(o === 'replicar'\) onAccion\(\{ que: 'replicar' \}\);\s*else onAccion\(\{ que: 'ia', paso: o, tipo \}\);/);
-  // En el teléfono las cinco tarjetas van de a dos (y no cinco columnas de 70 px).
-  assert.match(src, /@media \(max-width: 760px\) \{[^}]*\.gp \.gp-cc-opciones \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/);
-  // Y Crear ya no tiene la URL: ni la tarjeta, ni el esquema en modo importar.
+  assert.ok(iCaja > 0 && iModos > iCaja && iTipo > iModos && iPlantillas > iTipo, 'el orden: los modos en el cuadro, el tipo, las plantillas');
+  // Elegir un modo cambia el cuadro: nada navega ni abre otra vista.
+  assert.match(src, /const elegir = \(m: ModoCaja\) => \{\s*setError\(null\);\s*setEstado\(\(e\) => elegirModo\(e, m\)\);/);
+  assert.doesNotMatch(tramo(src, 'const elegir = (m: ModoCaja) => {', '\n  };'), /onAccion/);
+  // En el teléfono los cuatro modos van de a dos (cuatro en fila no entran en 390 px).
+  assert.match(src, /@media \(max-width: 560px\) \{[^}]*\.gp \.gp-cc-modos \{ display: grid; grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/);
+  // Y Crear ya no tiene la URL, ni la pantalla de importar (importar es el cuadro).
   const crear = fuente(CREAR);
   assert.doesNotMatch(crear, /Importar desde URL|urlImportar|modo: 'importar'/);
-  assert.match(crear, /<span className="gp-importar-titulo">Cargar un archivo<\/span>/);
+  assert.doesNotMatch(crear, /Cargar un archivo|Importar con IA/);
 });
 
 // ── 4 · El «+» sólo adjunta ──────────────────────────────────────────────────────────────────
@@ -239,14 +254,14 @@ test('el «+»: Importar archivo y Subir imagen; lo de antes sigue alcanzable de
   assert.match(src, /accept=\{ACCEPT_IMAGEN\}/);
   assert.match(src, /export const ACCEPT_IMAGEN = extDe\(\['imagen'\]\);/);
   assert.doesNotMatch(src.match(/export const ACCEPT_ARCHIVO = [^\n]+/)?.[0] ?? '', /imagen/);
-  // Se lee con el lector de la casa y queda como chip; al mandar, su texto va a «Pegar texto».
+  // Se lee con el lector de la casa y queda como MINIATURA adentro del cuadro (tanda 7); al mandar, su texto va como texto.
   assert.match(src, /void leerArchivo\(file, ac\.signal\)\.then\(/);
-  // Verificación de la tanda 6 (rotura C3: `texto: ''` quedaba en verde): lo que viaja es EL TEXTO leído, y
-  // «Pegar texto» lo pone en su campo y en lo que se manda.
-  assert.match(src, /onAccion\(\{ que: 'ia', paso: 'pegar', tipo, arranque: \{ modo, prompt: pedido\.trim\(\), archivo: \{ nombre: archivo\.nombre, texto: archivo\.texto \} \} \}\);/);
+  // Verificación de la tanda 6 (rotura C3: `texto: ''` quedaba en verde): lo que viaja es EL TEXTO leído (el envío,
+  // `alEnviar`, se ejecuta en tests/web-generator-cuadro.test.ts), y Crear lo pone en su texto y en lo que se manda.
+  assert.match(src, /const listo: ArchivoCaja = r\.ok \? \{ \.\.\.base, estado: 'listo', texto: r\.texto \} : \{ \.\.\.base, estado: 'error' \};/);
   const crearIA = fuente(CREAR);
-  assert.match(crearIA, /if \(arranque\.archivo\) \{[\s\S]{0,200}setTexto\(arranque\.archivo\.texto\);[\s\S]{0,200}texto: arranque\.archivo\.texto,/);
-  assert.match(src, /adjunto=\{archivo \? \(\s*<ChipCaja icono=\{archivo\.imagen \? 'imagen' : 'archivo'\}/);
+  assert.match(crearIA, /const deTexto = arranque\.archivo \? arranque\.archivo\.texto : arranque\.texto;\s*if \(deTexto\) \{[\s\S]{0,300}setTexto\(deTexto\);[\s\S]{0,200}texto: deTexto,/);
+  assert.match(src, /\{estado\.archivo && <MiniaturaArchivo archivo=\{estado\.archivo\}/);
   // «Usar plantilla» = la grilla de abajo; «Del generador anterior» = la galería de Plantillas del Panel.
   const inicio = fuente(INICIO);
   assert.match(inicio, /\{tipo === 'landing' && \(\s*<button type="button" className="gp-btn gp-btn-contorno gp-galeria-borradores" onClick=\{onBorradores\}>/);
@@ -351,7 +366,10 @@ test('el editor marca la cifra «[00]%» de un ítem (el NodeView pide `completa
 
 test('ni las pantallas nuevas ni las tocadas tienen voseo (el guard del repo no ve un archivo nuevo sin `git add`)', () => {
   const malas: Record<string, string[]> = {};
-  for (const f of [CAJA, INICIO, CREAR, REPLICAR, LEER, PANEL_DG, 'app/web-generator/panel-reglas.ts', 'app/web-generator/crear/page.tsx']) {
+  for (const f of [
+    CAJA, INICIO, CREAR, REPLICAR, LEER, PANEL_DG, 'app/web-generator/panel-reglas.ts', 'app/web-generator/crear/page.tsx',
+    'app/web-generator/crear/caja-modos.ts', 'app/web-generator/crear/ajustes.ts', 'app/web-generator/crear/AjustesCaja.tsx',
+  ]) {
     const m = marcasDeVoseo(fuente(f));
     if (m.length) malas[f] = m;
   }
@@ -396,4 +414,13 @@ test('ni las pantallas nuevas ni las tocadas tienen voseo (el guard del repo no 
 // Y Replicar con `probar` (la misma verificación). Base: 18 / 0.
 //   H4 Replicar.tsx sin ofrecer el formato que propone el server       → 17 / 1 «Replicar: 3 formatos…»
 //   H5 el Diagnóstico sin ofrecerlo                                    → 17 / 1 «Replicar: 3 formatos…»
+// Restaurado: 18 / 0.
+
+// ── TANDA 7 (15/10/2026): EL CUADRO CON MODOS, PROBADO ROMPIÉNDOLO ──────────────────────────────────
+// Las aserciones que cambiaron (los chips del renglón, los modos arriba del cuadro, «Volver» con lo mandado). Base:
+// 18 / 0, con el arnés de tests/web-generator-cuadro.test.ts:
+//   R18 «Volver» de Crear sin lo mandado (`onSalir()`)              → 17 / 1 «el Panel monta Crear con IA y Replicar…»
+//   R19 los chips no van en el renglón (`antesDelCampo={null}`)      → 17 / 1 «la caja: el link y su pastilla son CHIPS…»
+//   R20 los modos de a cuatro en el teléfono                        → 17 / 1 ««Crear con IA» son los modos del cuadro…»
+//   R21 «Volver» vacía el cuadro (el `onSalir` del Diagnóstico)     → 17 / 1 «el Panel monta Crear con IA y Replicar…»
 // Restaurado: 18 / 0.

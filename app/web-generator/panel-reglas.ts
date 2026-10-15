@@ -28,8 +28,9 @@
 //    derivan la clave con la MISMA función).
 // =============================================================================
 
-import type { LandingResumen } from '../../lib/editor-landing/api-tipos';
+import type { LandingResumen, ParamsGeneracion } from '../../lib/editor-landing/api-tipos';
 import type { FormatoReplicar } from '../../lib/editor-landing/replicar-reglas';
+import type { ModoCaja, SemillaCaja } from './crear/caja-modos';
 import { urlLandingEn } from '../../lib/editor-landing/origen-landings';
 import { urlDeDominio } from '../../lib/editor-landing/dominios-reglas';
 import { normalizarUrl } from '../../lib/landing-url';
@@ -149,9 +150,9 @@ export function enPapelera(docs: readonly LandingResumen[]): LandingResumen[] {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Los pasos de «Crear con IA» por los que se entra (tanda 6). Martín, 14/10/2026: «La sección de
- * "Importar con IA" no debería ser otra ruta, todo siempre en la misma ruta». El generador
- * (crear/CrearConIA.tsx) se abre A LA DERECHA del Panel; /web-generator/crear redirige acá.
+ * Los pasos de entrada de «Crear con IA» que todavía llegan en links viejos (`?paso=`, tanda 6). Desde la tanda 7
+ * no son pantallas: «Generar» y «Pegar texto» abren el cuadro en Generar, «Importar» lo abre en Importar
+ * (`derechaDeQuery`). El generador (crear/CrearConIA.tsx) sólo muestra el RESULTADO de lo que se mandó.
  */
 export const PASOS_IA = ['generar', 'pegar', 'importar'] as const;
 export type PasoIA = (typeof PASOS_IA)[number];
@@ -159,9 +160,12 @@ export type PasoIA = (typeof PASOS_IA)[number];
 /**
  * Lo que trae «Crear con IA» al abrirse, UNA vez. No viaja en la URL (`queryDeDerecha` lo borra):
  * un F5 no vuelve a pedir un esquema que se paga.
- *   · `prompt`/`modo`: el pedido de la caja «¿Qué vas a crear hoy?» (Plan | Express);
- *   · `archivo`: el archivo o la imagen adjuntos en la caja (el «+»), ya leídos: su texto va a
- *     «Pegar texto» y lo escrito, a las instrucciones;
+ *   · `prompt`/`modo`: el pedido del cuadro «¿Qué vas a crear hoy?» (Plan | Express);
+ *   · `archivo`: el archivo o la imagen adjuntos en el cuadro, ya leídos: su texto va como texto («pegar») y
+ *     lo escrito, a las instrucciones;
+ *   · `texto` (tanda 7): un texto LARGO escrito o pegado en el cuadro (ex «Pegar texto»): va como texto, con
+ *     `params.modoTexto` (la opción «Tu texto» del cuadro: de guía, resumir o tal cual);
+ *   · `params` (tanda 7): los ajustes del desplegable «Plan» y de «Más ajustes» (secciones, objetivo, idioma…);
  *   · `sesion`: el link VIEJO de la caja (`/web-generator/crear?desde=caja`, de una pestaña con la
  *     pantalla de antes durante el deploy): el pedido quedó en sessionStorage (`tomarCaja`);
  *   · `base`/`objetivo`: el deep link del Landing Analyst (`?url=`): la landing de base, que Crear
@@ -171,6 +175,8 @@ export type ArranqueIA = {
   prompt?: string;
   modo?: 'plan' | 'express';
   archivo?: { nombre: string; texto: string };
+  texto?: string;
+  params?: Partial<ParamsGeneracion>;
   sesion?: boolean;
   base?: string;
   objetivo?: string;
@@ -187,7 +193,7 @@ export type ArranqueIA = {
  * (puro) y la caja lo re-exporta: `derechaDeAccion` lo usa y el test la EJECUTA.
  */
 export type AccionCaja =
-  | { que: 'ia'; paso: PasoIA; tipo: TipoCrear; arranque?: ArranqueIA }
+  | { que: 'ia'; tipo: TipoCrear; arranque: ArranqueIA }
   | { que: 'analizar'; url?: string }
   | { que: 'replicar'; url?: string; formato?: FormatoReplicar };
 
@@ -201,7 +207,7 @@ export type AccionCaja =
  * abriera el Diagnóstico vacío o que Replicar no arrancara no lo veía ningún test.
  */
 export function derechaDeAccion(a: AccionCaja, docs: readonly LandingResumen[], bases: readonly string[]): Derecha {
-  if (a.que === 'ia') return { tipo: 'ia', paso: a.paso, doc: a.tipo, ...(a.arranque ? { arranque: a.arranque } : {}) };
+  if (a.que === 'ia') return { tipo: 'ia', doc: a.tipo, arranque: a.arranque };
   if (a.que === 'analizar') {
     const url = a.url ? urlParaAnalizar(a.url) : null;
     if (!url) return { tipo: 'diagnostico' };
@@ -211,14 +217,51 @@ export function derechaDeAccion(a: AccionCaja, docs: readonly LandingResumen[], 
   return a.url ? { tipo: 'replicar', url: a.url, ...(a.formato ? { formato: a.formato } : {}), auto: true } : { tipo: 'replicar' };
 }
 
+/**
+ * Tanda 7 (Martín, 15/10/2026: «Cuando le doy click a una opción, lo que debe cambiar es el recuadro de chat de
+ * abajo, no redireccionarme a otro lugar»): el cuadro «¿Qué vas a crear hoy?» tiene MODOS, y cada modo es una
+ * derecha con su lugar de siempre en la URL, así el link que se copia abre el cuadro en ese modo (`modoCajaDe`):
+ *   · `crear` = el cuadro en Generar (o en Importar, con `modo`; con `doc`, una presentación). `semilla`: lo que
+ *     trae UNA vez (lo de vuelta de Crear, el deep link de la landing de base); no viaja en la URL;
+ *   · `diagnostico` SIN landing = el cuadro en Analizar (el contenedor del link; era `AnalizarUnaPagina`);
+ *   · `replicar` SIN link = el cuadro en Replicar.
+ * Con su landing o su link, `diagnostico` y `replicar` son el RESULTADO (el Diagnóstico, Replicar arrancando).
+ * Y `ia` es el resultado de Generar o Importar (el esquema, la generación): ya no tiene pasos de entrada.
+ */
 export type Derecha =
-  | { tipo: 'crear' }
+  | { tipo: 'crear'; modo?: 'importar'; doc?: 'presentacion'; semilla?: SemillaCaja }
   | { tipo: 'plantillas' }
   | { tipo: 'temas' }
   | { tipo: 'papelera' }
   | { tipo: 'diagnostico'; docId?: number; url?: string }
-  | { tipo: 'ia'; paso: PasoIA; doc: TipoCrear; arranque?: ArranqueIA }
+  | { tipo: 'ia'; doc: TipoCrear; arranque: ArranqueIA }
   | { tipo: 'replicar'; url?: string; formato?: FormatoReplicar; auto?: boolean };
+
+/** El modo del cuadro que muestra esa derecha, o null si no es el cuadro (un resultado, una galería). */
+export function modoCajaDe(d: Derecha): ModoCaja | null {
+  if (d.tipo === 'crear') return d.modo ?? 'generar';
+  if (d.tipo === 'diagnostico' && !d.docId && !d.url) return 'analizar';
+  if (d.tipo === 'replicar' && !d.url) return 'replicar';
+  return null;
+}
+
+/** La derecha del cuadro en ese modo (lo que el Panel escribe cuando el cuadro cambia de modo solo). */
+export function derechaDeCaja(modo: ModoCaja, doc: TipoCrear = 'landing', semilla?: SemillaCaja): Derecha {
+  if (modo === 'analizar') return { tipo: 'diagnostico' };
+  if (modo === 'replicar') return { tipo: 'replicar' };
+  return {
+    tipo: 'crear',
+    ...(modo === 'importar' ? { modo: 'importar' as const } : {}),
+    ...(doc === 'presentacion' ? { doc: 'presentacion' as const } : {}),
+    ...(semilla ? { semilla } : {}),
+  };
+}
+
+/** De vuelta de Crear al cuadro, con lo que se había mandado (lo escrito no se pierde por mirar el esquema). */
+export function derechaDeVuelta(s?: SemillaCaja | null): Derecha {
+  if (!s) return { tipo: 'crear' };
+  return derechaDeCaja(s.archivo ? 'importar' : 'generar', s.tipo ?? 'landing', s);
+}
 
 type Query = Record<string, string | string[] | undefined>;
 const primero = (v: string | string[] | undefined): string | null => (typeof v === 'string' ? v : Array.isArray(v) ? v[0] ?? null : null);
@@ -309,15 +352,18 @@ export function derechaDeQuery(q: ConsultaDerecha, docs: readonly LandingResumen
   const doc = tipoValido(q.tipo);
   const objetivo = q.objetivo?.trim() ? { objetivo: q.objetivo.trim() } : {};
   const base = q.url?.trim();
-  if (base) return { tipo: 'ia', paso: 'generar', doc, arranque: { base, ...objetivo } };
+  // Tanda 7: el deep link de la landing de base abre el CUADRO en Generar con esa base (el cuadro la valida contra
+  // las analizadas y la muestra como chip): ya no hay una pantalla «Generar» aparte.
+  if (base) return derechaDeCaja('generar', doc, { base, ...objetivo });
   if (q.desde === 'caja') {
     const prompt = q.prompt?.trim();
-    return { tipo: 'ia', paso: 'generar', doc, arranque: { sesion: true, modo: q.modo === 'express' ? 'express' : 'plan', ...(prompt ? { prompt } : {}), ...objetivo } };
+    return { tipo: 'ia', doc, arranque: { sesion: true, modo: q.modo === 'express' ? 'express' : 'plan', ...(prompt ? { prompt } : {}), ...objetivo } };
   }
+  // Los `?paso=` de la tanda 6: el cuadro en su modo («Pegar texto» se fue: es Generar con un texto largo).
   const paso = pasoValido(q.paso);
-  if (paso) return Object.keys(objetivo).length ? { tipo: 'ia', paso, doc, arranque: objetivo } : { tipo: 'ia', paso, doc };
+  if (paso) return derechaDeCaja(paso === 'importar' ? 'importar' : 'generar', doc, Object.keys(objetivo).length ? objetivo : undefined);
   if (q.vista && (VISTAS as readonly string[]).includes(q.vista)) return { tipo: q.vista as Vista };
-  return { tipo: 'crear' };
+  return derechaDeCaja('generar', doc);
 }
 
 /**
@@ -333,10 +379,15 @@ export function queryDeDerecha(search: string, d: Derecha): string {
   if (d.tipo === 'diagnostico') {
     if (d.docId) p.set('diagnostico', String(d.docId));
     else p.set('analizar', d.url ?? '');
-  } else if (d.tipo === 'ia') {
-    p.set('paso', d.paso);
+  } else if (d.tipo === 'crear') {
+    // Tanda 7: el cuadro en Importar escribe su modo (y una presentación, su tipo); en Generar con una landing, nada.
+    if (d.modo === 'importar') p.set('paso', 'importar');
     if (d.doc === 'presentacion') p.set('tipo', d.doc);
-  } else if (d.tipo !== 'crear') {
+  } else if (d.tipo === 'ia') {
+    // El resultado de Crear: un F5 vuelve al CUADRO en el modo de donde salió (el pedido no se repide: se paga).
+    p.set('paso', d.arranque.archivo ? 'importar' : 'generar');
+    if (d.doc === 'presentacion') p.set('tipo', d.doc);
+  } else {
     p.set('vista', d.tipo);
   }
   const s = p.toString();

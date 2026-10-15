@@ -1,147 +1,200 @@
 'use client';
 
 // =============================================================================
-// CajaCrear — «¿Qué vas a crear hoy?»: la caja de Gamma 5 con Landing | Presentación,
-// el dictado por voz, «Crear con IA» y, debajo, las plantillas del tipo elegido
+// CajaCrear — «¿Qué vas a crear hoy?»: UN cuadro con modos (Generar · Importar · Analizar landing · Replicar landing),
+// Landing | Presentación y, debajo, las plantillas del tipo elegido
 // =============================================================================
-// Pedido de Martín (11/10/2026, tanda 2, punto 6), textual: «Al momento de crear nuevo tengo
-// que elegir si crear landing, presentación... Sería bueno que ahí aparezcan los templates
-// (deberías hacer más templates de presentaciones)... Y también quiero ahí mismo agregar la
-// funcionalidad que tenemos en "nueva automatización", donde le escribo a la IA o le mando un
-// audio, pero me gusta el formato que hiciste de "¿Qué vas a crear hoy?", solo falta agregar
-// la funcionalidad de dictarle con audio, como lo tenemos en donde te mencioné.»
-// Decisión T4 de docs/diseno-editor-landing.md.
+// Pedido de Martín (11/10/2026, tanda 2, punto 6), textual: «Al momento de crear nuevo tengo que elegir si crear landing,
+// presentación... Sería bueno que ahí aparezcan los templates (deberías hacer más templates de presentaciones)... Y también
+// quiero ahí mismo agregar la funcionalidad que tenemos en "nueva automatización", donde le escribo a la IA o le mando un
+// audio, pero me gusta el formato que hiciste de "¿Qué vas a crear hoy?", solo falta agregar la funcionalidad de dictarle
+// con audio, como lo tenemos en donde te mencioné.» Decisión T4 de docs/diseno-editor-landing.md.
 //
-// TANDA 6 (14/10/2026). Martín, textual:
-//   3. «La sección de "Crear con IA", le faltan las opciones de "Analizar Landing" y "Replicar Landing".
-//      Y que el botón de "Importar" que solo sea importar, no que sea con URL, para eso ya las otras
-//      opciones que te dije... Y esta sección de "Crear con IA" debería estar en la tab principal de
-//      landing generator, en la sección de "¿Qué vas a crear hoy?".»
-//   4. «Como vamos a tener esa sección, elimina todas las opciones actuales dentro del "+" en el cuadro
-//      del chat. Y que en ese + solo quede la opción de importar archivo y otras opciones así, para subir
-//      imagen y esas cosas...»
-//   5. «En el chat, si yo pego un link, me debería aparecer pintado de azul y que diga "Analiza esta
-//      landing" y que se pueda cambiar a "Replica esta landing".»
-//   6. «Las miniaturas y el título de abajo en las plantillas, deberían estar englobadas en un contendor,
-//      para que se entienda que ese título corresponde a esa miniatura... Elimina los subtitulos de cada
-//      plantilla. Y me gustaría que esos bloques tengan como una sombra, que se separe del fondo.»
+// TANDA 6 (14/10/2026): «Crear con IA» con Analizar y Replicar en la tab, el «+» sólo para adjuntar, el link pegado en
+// azul con «Analiza esta landing» ⇄ «Replica esta landing», y las plantillas en tarjetas con sombra.
+//
+// TANDA 7 (15/10/2026). Martín, textual:
+//   «2. Las 5 opciones abajo del título "¿Qué vas a crear hoy?".
+//    3. Cuando le doy click a una opción, lo que debe cambiar es el recuadro de chat de abajo, no redireccionarme a otro
+//       lugar.
+//    4. No entiendo la diferencia entre las 2 primeras... Si tu tampoco ves diferencia entre esas 2, elimina y conserva la
+//       de "Generar desde una idea".
+//    5. Cuando vayas reemplazando el bloque de texto que está hoy en día, no quiero que desaparezca el diseño de ese
+//       recuadro, quiero que se mantenga igual... Por ejemplo para las 2 primeras opciones sería lo mismo... Y aprovecha el
+//       diseño que ya tenemos para meter las opciones... Por ejemplo la de "Personalizar", podría ir por defecto en el
+//       botón de + o en el desplegable de "plan", ya decide tú con criterio dónde iría... O por ejemplo las opciones de
+//       "Ejemplos de instrucciones", revisa dónde ponerlas o si directamente eliminarlas... Lo que no quiero es que esos
+//       ejemplos sean otras tarjetas, porque si tenemos las tarjetas de arriba y abajo los templates y agregas tarjetas de
+//       ejemplo es un montón... Tampoco quiero el botón de "aleatorio"... Todas las opciones como "Español México, la
+//       cantidad de secciones, el CTA de Agendar reunión u otros, etc... Deben ir dentro de + o en algún desplegable así...
+//    6. Si elijo "Importar" simplemente el cuadro de texto se transforma en un contenedor de importación típico, pero con
+//       el mismo tamaño y diseño que el cuadro de texto. Y cuando se importe algo, que vuelva al cuadro de texto, pero esta
+//       vez ya se pueden previsualizar la miniatura de lo importado en el cuadro de texto. Y los usuarios podrán importar y
+//       darle instrucciones. Y ya por defecto el cuadro de texto en cualquier estado debe admitir un arrastre de archivo, si
+//       se arrastra se debe poner allí.
+//    7. Y para las opciones de link, lo mismo que lo anterior, el cuadro de texto se transforma en el contenedor del link
+//       con un placeholder de soltar el link... Y cuando lo sueltan se vuelve al texto para poder seguir escribiendo. Y en
+//       el cuadro de texto, cuando pego un link y se pone en azul y al lado aparece la opción de analizar o replicar, todo
+//       eso debería seguir siendo el cuadro de texto, solo que esos son chips del texto... Pero si le doy a borrar, se
+//       deben borrar. O si quiero seguir escribiendo luego de pegar eso.»
 //
 // Qué tiene, de arriba abajo:
-//   · el título grande y la caja blanca (CajaPedido.tsx, la MISMA del modal «Nueva automatización»);
-//   · adentro, el pedido con el ejemplo que se ESCRIBE SOLO, y la fila de abajo: el «+», Plan | Express,
-//     el MICRÓFONO (`BotonDictar`, importado, no copiado) y el ↑ de enviar;
-//   · el «+» sólo ADJUNTA (punto 4): «Importar archivo» (PowerPoint, Word, PDF, una planilla, un audio…) y
-//     «Subir imagen». Se lee con el lector de la casa (`leerArchivo`, ./cliente.ts → /api/landing-generator/
-//     importar) y queda como chip arriba del campo; al enviar, su texto va a «Pegar texto» y lo escrito, a
-//     las instrucciones. Lo que había antes en el «+» sigue alcanzable: «Importar archivo o URL» = la
-//     tarjeta «Importar» (archivos) y «Analizar / Replicar landing» (URLs); «Usar plantilla» = la grilla de
-//     abajo y «Plantillas» de la barra; «Del generador anterior» = la galería de Plantillas (Inicio.tsx);
-//   · UN LINK PEGADO (punto 5, `sacarLink` de ./panel-reglas.ts) sale del texto y queda EN LUGAR del campo
-//     como un chip azul, con la pastilla «Analiza esta landing» ⇄ «Replica esta landing» (y en Replicar, el
-//     formato). El ↑ hace eso con la URL: lo mismo que las tarjetas de abajo. Sólo si el link es TODO lo
-//     escrito (verificación de la tanda 6): pegado en una frase («hazme una como https://x.com pero para
-//     dentistas») el chip escondía el resto y se perdía al enviar; ahora queda todo en el campo y va como
-//     pedido a «Generar». Y un link TIPEADO y mandado con Enter también va como link (`linkEscrito`);
-//   · las pastillas Landing | Presentación;
-//   · «Crear con IA» (punto 3): Pegar texto · Generar · Importar · Analizar landing · Replicar landing, las
-//     tarjetas que tenía /web-generator/crear. Se abren a la DERECHA del Panel, en la misma ruta;
-//   · las plantillas del tipo elegido (punto 6): miniatura y nombre en UNA tarjeta con sombra, sin la
-//     descripción (sigue en los datos). Tocar una CREA y ABRE (navegación dura: cambió QUÉ EXISTE).
+//   · el título y, debajo, los MODOS (un grupo con `aria-pressed`, no tarjetas): elegir uno cambia el cuadro, nada
+//     navega. Las tarjetas de «Crear con IA» se fueron; «Pegar texto» también (pegar un texto largo es pegarlo acá: la
+//     opción «Tu texto» —de guía, resumir, tal cual— aparece sola, ver crear/caja-modos.ts, `esTextoLargo`);
+//   · EL cuadro (CajaPedido.tsx, el MISMO de /automations, con su marco, su alto y su fila de abajo en todos los modos):
+//       Generar  el campo con el ejemplo que se escribe solo (sin tarjetas de ejemplos ni «Aleatorio»);
+//       Importar el contenedor para soltar o elegir un archivo; con uno, vuelve al texto con su MINIATURA adentro;
+//       Analizar / Replicar  el contenedor del link; pegado o soltado, vuelve al texto con el link y su pastilla como
+//                CHIPS del renglón: se sigue escribiendo después, y Backspace al principio los borra (primero la
+//                pastilla, después el link);
+//     y en cualquier modo, un archivo arrastrado se adjunta y un link arrastrado se vuelve chips;
+//   · en la fila de abajo: el «+» (adjuntar un archivo o una imagen, y las indicaciones recientes) y «Plan», que dice
+//     CÓMO se genera (Plan o Express, la cantidad, el objetivo, el idioma y «Más ajustes»: crear/AjustesCaja.tsx);
+//   · Landing | Presentación y las plantillas del tipo (tocar una CREA y ABRE: navegación dura, cambió QUÉ EXISTE).
 //
-// Enviar no genera acá: le pasa el pedido al Panel (`onAccion`), que abre «Crear con IA» a la derecha con
-// el pedido EN MEMORIA (`ArranqueIA`, ./panel-reglas.ts). Plan muestra el esquema para aprobar y Express
-// genera directo. Lo que cambia con el tipo vive en crear/tipo.ts y lo usan las dos puertas.
+// Lo que NO se ve en una captura (qué modo queda, qué se manda) es PURO y tiene test: crear/caja-modos.ts.
+// El modo viaja en la URL: lo escribe el Panel (Inicio.tsx) con `onModo`, y el Panel lo puede cambiar desde afuera
+// («Nueva landing», «Analizar una página» de Crear, un link) con la prop `modo`.
+// Mandar no genera acá: le pasa el pedido al Panel (`onAccion`), que abre a su derecha el resultado (Crear, el
+// Diagnóstico, Replicar). Lo que cambia con el tipo vive en crear/tipo.ts.
 //
-// Dónde va: adentro de `.gma.gp` con CSS_GP (MiniaturaLanding.tsx) y la hoja del contenido
-// (`CSS_CONTENIDO`, la pone la página del Panel). Trae SU hoja (`CSS_CAJA` + las pastillas).
-// ⚠️ LA CAJA LA MONTA TAMBIÉN /automations (CajaPedido.tsx): el «+», el link y las tarjetas son de ESTA
-//    puerta y van por las props de la caja (`antes`, `adjunto`, `enLugarDelCampo`), no adentro de ella.
+// Dónde va: adentro de `.gma.gp` con CSS_GP (MiniaturaLanding.tsx). Trae SU hoja (`CSS_CAJA` + las de sus piezas).
+// ⚠️ LA CAJA LA MONTAN TAMBIÉN /automations y el Dashboard (CajaPedido.tsx): los modos, el «+», el link y el archivo son
+//    de ESTA puerta y van por las props de la caja (`bajoTitulo`, `antes`, `antesDelCampo`, `adjunto`, `bajoElCampo`,
+//    `enLugarDelCampo`, `onSoltar`), nunca adentro de ella.
 // =============================================================================
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { useWs } from '@/app/_ui/Link';
 import { CajaPedido, ChipCaja, CSS_CAJA_PEDIDO, TITULO_CAJA } from './CajaPedido';
 import { tarjetasDe, type JsonNodo } from '@/lib/editor-landing/doc';
-import { formatoDe } from '@/lib/editor-landing/api-tipos';
+import { formatoDe, type ParamsGeneracion } from '@/lib/editor-landing/api-tipos';
 import { temaPorId } from '@/lib/editor-landing/temas';
-import type { FormatoReplicar } from '@/lib/editor-landing/replicar-reglas';
-import { EXT_POR_FAMILIA, porQueNoPuedo, puedeLeerse } from '@/lib/formatos-archivo';
+import { EXT_POR_FAMILIA, familiaDeArchivo, porQueNoPuedo, puedeLeerse } from '@/lib/formatos-archivo';
 import {
-  Desplegable, Ico, ItemMenu, MenuFlotante, MiniaturaLanding, irDuro, marcarReciente, pedirDocs, useAviso, type OpcionDesplegable,
+  Desplegable, Ico, ItemMenu, MenuFlotante, MiniaturaLanding, SeparadorMenu, haceCuanto, irDuro, marcarReciente, pedirDocs, useAviso,
+  type OpcionDesplegable,
 } from './MiniaturaLanding';
 import { leerArchivo } from './cliente';
-import { hostDe, linkEscrito, sacarLink, type AccionCaja } from './panel-reglas';
+import { hostDe, type AccionCaja } from './panel-reglas';
 import {
   EJEMPLOS_CAJA, docDe, pedidoDeDiseno, pedidoDePlantilla, plantillasDe, type PlantillaCrear, type TipoCrear,
 } from './crear/tipo';
 import { CSS_TIPO, SelectorTipo } from './crear/PiezasTipo';
 import { DialogoObjetivo } from './crear/DialogoObjetivo';
-import { FORMATO_INICIAL, OPCIONES_FORMATO } from './crear/Replicar';
+import { OPCIONES_FORMATO } from './crear/Replicar';
+import {
+  OPCIONES_MODO, TOPE_TEXTO, alEnviar, alEscribir, avisoDeTexto, borrarAlInicio, cajaDeSemilla, cambiarFormato, conArchivo, conLink,
+  elegirModo, linkSoltado, listoParaEnviar, muestraTuTexto, placeholderDe, quitarArchivo, quitarLink, tipoDeArchivo, vistaDeCaja,
+  type AccionLink, type ArchivoCaja, type EstadoCaja, type ModoCaja, type SemillaCaja,
+} from './crear/caja-modos';
+import { MODOS_TEXTO, paramsIniciales, type ModoGen } from './crear/ajustes';
+import { BotonComo, CSS_AJUSTES, PanelMasAjustes } from './crear/AjustesCaja';
+import { leerIndicaciones, type Indicacion } from './crear/recientes';
 
 /** Lo que se eligió en la caja. El Panel lo abre a su derecha (Inicio.tsx, con `derechaDeAccion`). Vive en panel-reglas.ts (puro). */
 export type { AccionCaja };
 
 export type PropsCajaCrear = {
+  /** El modo del cuadro: lo decide el Panel (sale de la URL). Generar por default. */
+  modo?: ModoCaja;
+  /** El cuadro cambió de modo solo (un link pegado, un archivo soltado, Backspace) o de tipo: el Panel lo escribe en la URL. */
+  onModo?: (modo: ModoCaja, tipo: TipoCrear) => void;
   /** El tipo con el que abre (por ejemplo, el de `?tipo=` de la query). Sin él, una landing. */
   tipoInicial?: TipoCrear;
+  /** Lo que trae UNA vez: lo de vuelta de Crear (el pedido, sus ajustes) o el deep link de la landing de base. */
+  semilla?: SemillaCaja | null;
+  /** Las landings ya analizadas (la «landing de base» de «Más ajustes» sale de acá, validada). */
+  analizadas?: readonly { url: string; veredicto: string | null; score: number | null }[];
+  errorAnalizadas?: string | null;
   onAccion: (a: AccionCaja) => void;
 };
 
-/** El placeholder cuando el ejemplo ya paró (el de la caja de Gamma). */
-const PLACEHOLDER_QUIETO = '¿Qué quieres crear?';
-/** El placeholder con un archivo adjunto: el pedido ya es el archivo. */
-const PLACEHOLDER_ARCHIVO = 'Qué hacer con el archivo (opcional)';
-
-/** «Crear con IA» (tanda 6, punto 3): las tarjetas de /web-generator/crear, ahora en la tab. Rótulos cortos. */
-type OpcionIA = 'pegar' | 'generar' | 'importar' | 'analizar' | 'replicar';
-export const OPCIONES_IA: readonly { id: OpcionIA; titulo: string; sub: string; icono: string; popular?: boolean }[] = [
-  { id: 'pegar', titulo: 'Pegar texto', sub: 'Tus notas o tu guion', icono: 'texto-aa' },
-  { id: 'generar', titulo: 'Generar', sub: 'Desde una idea', icono: 'destellos', popular: true },
-  { id: 'importar', titulo: 'Importar', sub: 'PowerPoint, Word o PDF', icono: 'subir' },
-  { id: 'analizar', titulo: 'Analizar landing', sub: 'Su diagnóstico', icono: 'reporte' },
-  { id: 'replicar', titulo: 'Replicar landing', sub: 'Cópiala al editor', icono: 'copiar' },
-];
-
-/** Qué hacer con un link pegado (punto 5). */
-type AccionLink = 'analizar' | 'replicar';
+/** Qué hacer con un link (la pastilla, tanda 6, punto 5). */
 const ACCIONES_LINK: readonly OpcionDesplegable<AccionLink>[] = [
   { valor: 'analizar', texto: 'Analiza esta landing', icono: 'reporte' },
   { valor: 'replicar', texto: 'Replica esta landing', icono: 'copiar' },
 ];
 
-/** El «+» (punto 4): un archivo de texto, oficina, audio o video, o una imagen (las familias de lib/formatos-archivo.ts). */
+/** El «+»: un archivo de texto, oficina, audio o video, o una imagen (las familias de lib/formatos-archivo.ts). */
 const extDe = (familias: readonly (keyof typeof EXT_POR_FAMILIA)[]) => familias.flatMap((f) => EXT_POR_FAMILIA[f].map((e) => `.${e}`)).join(',');
 export const ACCEPT_ARCHIVO = extDe(['texto', 'docx', 'pdf', 'xlsx', 'pptx', 'opendocument', 'audio', 'video']);
 export const ACCEPT_IMAGEN = extDe(['imagen']);
 
-/** El archivo de la caja: leyéndose, leído (con su texto) o que no se pudo leer. */
-type ArchivoCaja = { nombre: string; imagen: boolean } & ({ estado: 'leyendo' } | { estado: 'listo'; texto: string } | { estado: 'error' });
+/** Cuántas indicaciones recientes ofrece el «+». */
+const RECIENTES_EN_MAS = 3;
 
-export default function CajaCrear({ tipoInicial = 'landing', onAccion }: PropsCajaCrear) {
+const SIN_ANALIZADAS: readonly { url: string; veredicto: string | null; score: number | null }[] = [];
+
+export default function CajaCrear({
+  modo = 'generar', onModo, tipoInicial = 'landing', semilla = null, analizadas = SIN_ANALIZADAS, errorAnalizadas = null, onAccion,
+}: PropsCajaCrear) {
   const ws = useWs();
   const { avisar, nodo: aviso } = useAviso();
-  const [tipo, setTipo] = useState<TipoCrear>(tipoInicial);
-  const [pedido, setPedido] = useState('');
-  const [modo, setModo] = useState<'plan' | 'express'>('plan');
+  const [tipo, setTipo] = useState<TipoCrear>(semilla?.tipo ?? tipoInicial);
+  /** EL estado del cuadro: el modo, lo escrito, el link y el archivo (crear/caja-modos.ts, puro). */
+  const [estado, setEstado] = useState<EstadoCaja>(() => cajaDeSemilla(modo, semilla));
+  const [modoGen, setModoGen] = useState<ModoGen>(semilla?.modoGen ?? 'plan');
+  const [params, setParams] = useState<ParamsGeneracion>(() => paramsIniciales(semilla, analizadas));
+  /** Lo tipeado en el contenedor del link (Analizar / Replicar sin link todavía). */
+  const [escritoLink, setEscritoLink] = useState('');
+  const [masAjustes, setMasAjustes] = useState(false);
   const [menuMas, setMenuMas] = useState<HTMLElement | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [recientes, setRecientes] = useState<Indicacion[]>([]);
+  const [ahora, setAhora] = useState<number | null>(null);
   /** La plantilla que se está creando (una a la vez: un doble clic no crea dos). */
   const [creando, setCreando] = useState<string | null>(null);
   const [muestras, setMuestras] = useState<Partial<Record<TipoCrear, Record<string, JsonNodo | null>>>>({});
-  const cerrarMas = useCallback(() => setMenuMas(null), []);
   /** El DISEÑO que se tocó y espera su objetivo («¿De qué quieres crearla?»), o null. */
   const [eligiendo, setEligiendo] = useState<PlantillaCrear | null>(null);
+  const cerrarMas = useCallback(() => setMenuMas(null), []);
   const cerrarEleccion = useCallback(() => setEligiendo(null), []);
-  /** El link pegado (punto 5), qué hacer con él y, si se replica, en qué formato. */
-  const [link, setLink] = useState<string | null>(null);
-  const [accionLink, setAccionLink] = useState<AccionLink>('analizar');
-  const [formatoLink, setFormatoLink] = useState<FormatoReplicar>(FORMATO_INICIAL);
-  /** El archivo o la imagen del «+» (punto 4). */
-  const [archivo, setArchivo] = useState<ArchivoCaja | null>(null);
   const subida = useRef<AbortController | null>(null);
+  const vistaImagen = useRef<string | null>(null);
   const elegirArchivo = useRef<HTMLInputElement>(null);
   const elegirImagen = useRef<HTMLInputElement>(null);
-  useEffect(() => () => subida.current?.abort(), []);
+  const campo = useRef<HTMLTextAreaElement | null>(null);
+  const campoLink = useRef<HTMLInputElement>(null);
+  const set = useCallback(<K extends keyof ParamsGeneracion>(k: K, v: ParamsGeneracion[K]) => setParams((p) => ({ ...p, [k]: v })), []);
+
+  // El Panel cambió el modo (la URL, «Nueva landing», «Analizar una página»): el cuadro lo toma. Se ajusta EN EL RENDER
+  // (no en un efecto) para que no se dibuje un cuadro con el modo viejo.
+  const [modoVisto, setModoVisto] = useState(modo);
+  if (modo !== modoVisto) {
+    setModoVisto(modo);
+    if (estado.modo !== modo) setEstado(elegirModo(estado, modo));
+  }
+  // El cuadro cambió de modo solo (o de tipo): el Panel lo escribe en la URL. `onModo` es de identidad fija (Inicio).
+  useEffect(() => { onModo?.(estado.modo, tipo); }, [estado.modo, tipo, onModo]);
+
+  const vista = vistaDeCaja(estado);
+
+  // Sin archivo, lo que se estaba leyendo se corta y la miniatura de la imagen se suelta (un objectURL vive hasta que
+  // se revoca). Mira el ESTADO: el archivo se va por la ✕, por elegir otro modo o desde el Panel.
+  const hayArchivo = !!estado.archivo;
+  useEffect(() => {
+    if (hayArchivo) return;
+    subida.current?.abort();
+    subida.current = null;
+    if (vistaImagen.current) { URL.revokeObjectURL(vistaImagen.current); vistaImagen.current = null; }
+  }, [hayArchivo]);
+  useEffect(() => () => {
+    subida.current?.abort();
+    if (vistaImagen.current) URL.revokeObjectURL(vistaImagen.current);
+  }, []);
+
+  // El contenedor del link toma el foco al aparecer o al pasar de Analizar a Replicar (elegirlos es para pegar uno).
+  const modoActual = estado.modo;
+  useLayoutEffect(() => { if (vista === 'link') campoLink.current?.focus(); }, [vista, modoActual]);
+
+  // Comodidades de este navegador: se leen después de montar (el server no las tiene).
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setRecientes(leerIndicaciones());
+    setAhora(Date.now());
+  }, []);
 
   // `contenido()` arma ids NUEVOS en cada llamada: las muestras se arman después de montar (si
   // no, el HTML del server y el del navegador no coincidirían), y sólo las del tipo que se ve.
@@ -155,61 +208,75 @@ export default function CajaCrear({ tipoInicial = 'landing', onAccion }: PropsCa
     setMuestras((x) => ({ ...x, [tipo]: m }));
   }, [tipo, muestras]);
 
-  const quitarArchivo = () => { subida.current?.abort(); subida.current = null; setArchivo(null); };
+  /** El foco al campo de texto (después de un chip, de un archivo, de una indicación reciente). */
+  const alCampo = () => window.requestAnimationFrame(() => {
+    const t = campo.current;
+    if (!t) return;
+    t.focus();
+    t.setSelectionRange(t.value.length, t.value.length);
+  });
 
-  /** Lo escrito o pegado: un link completo, y SOLO, sale del texto y queda como chip (`sacarLink`). */
-  const alEscribir = (v: string) => {
-    const r = sacarLink(pedido, v);
-    if (!r) { setPedido(v); return; }
-    quitarArchivo();
+  const elegir = (m: ModoCaja) => {
     setError(null);
-    setLink(r);
-    setPedido('');
+    setEstado((e) => elegirModo(e, m));
+    if (m === 'generar') alCampo();
   };
 
-  /** El «+»: se lee el archivo (o la imagen, por visión) y queda como chip arriba del campo. */
+  /** Lee el archivo (o la imagen, por visión) y queda como MINIATURA adentro del cuadro. */
   const subir = (file: File, imagen: boolean) => {
-    quitarArchivo();
-    setLink(null);
+    setMenuMas(null);
     setError(null);
     if (!puedeLeerse(file.name, file.type)) { setError(porQueNoPuedo(file.name) || 'No puedo leer ese archivo.'); return; }
-    const base = { nombre: file.name, imagen };
+    subida.current?.abort();
+    if (vistaImagen.current) URL.revokeObjectURL(vistaImagen.current);
+    vistaImagen.current = imagen ? URL.createObjectURL(file) : null;
+    const base = { nombre: file.name, imagen, ...(vistaImagen.current ? { vista: vistaImagen.current } : {}) };
     const ac = new AbortController();
     subida.current = ac;
-    setArchivo({ ...base, estado: 'leyendo' });
+    setEstado((e) => conArchivo(e, { ...base, estado: 'leyendo' }));
+    alCampo();
     void leerArchivo(file, ac.signal).then((r) => {
       if (ac.signal.aborted) return;
-      if (!r.ok) { setArchivo({ ...base, estado: 'error' }); setError(r.error); return; }
-      setArchivo({ ...base, estado: 'listo', texto: r.texto });
+      const listo: ArchivoCaja = r.ok ? { ...base, estado: 'listo', texto: r.texto } : { ...base, estado: 'error' };
+      setEstado((e) => (e.archivo ? { ...e, archivo: listo } : e));
+      if (!r.ok) setError(r.error);
     });
   };
 
-  /** ¿Se puede mandar? Un link, un archivo leído, o algo escrito. */
-  const listo = link ? true : archivo ? archivo.estado === 'listo' : !!pedido.trim();
-
-  const enviar = () => {
-    // El chip, o un link tipeado y mandado con Enter sin el espacio que lo cierra (`linkEscrito`): «Generar»
-    // con una dirección sola no tiene qué crear.
-    const url = link ?? (archivo ? null : linkEscrito(pedido));
-    if (url) {
-      onAccion(accionLink === 'analizar' ? { que: 'analizar', url } : { que: 'replicar', url, formato: formatoLink });
-      return;
-    }
-    if (archivo) {
-      if (archivo.estado !== 'listo') return;
-      onAccion({ que: 'ia', paso: 'pegar', tipo, arranque: { modo, prompt: pedido.trim(), archivo: { nombre: archivo.nombre, texto: archivo.texto } } });
-      return;
-    }
-    const p = pedido.trim();
-    if (!p) return;
-    onAccion({ que: 'ia', paso: 'generar', tipo, arranque: { prompt: p, modo } });
+  /** Lo que se arrastra al cuadro (o un archivo pegado): un archivo se adjunta; un link, chips. Si no, lo del navegador. */
+  const soltar = (d: DataTransfer): boolean => {
+    const f = d.files?.[0];
+    if (f) { subir(f, familiaDeArchivo(f.name, f.type) === 'imagen'); return true; }
+    const url = linkSoltado(d.getData('text/uri-list'), d.getData('text/plain'));
+    if (!url) return false;
+    setError(null);
+    setEscritoLink('');
+    setEstado((e) => conLink(e, url));
+    alCampo();
+    return true;
   };
 
-  /** Una tarjeta de «Crear con IA». */
-  const elegir = (o: OpcionIA) => {
-    if (o === 'analizar') onAccion({ que: 'analizar' });
-    else if (o === 'replicar') onAccion({ que: 'replicar' });
-    else onAccion({ que: 'ia', paso: o, tipo });
+  /** Lo tipeado en el contenedor del link: pegado (o cerrado por un espacio), un link completo vuelve al texto como chips. */
+  const escribirLink = (v: string) => {
+    const r = alEscribir({ ...estado, texto: escritoLink, link: null, archivo: null }, v);
+    if (r.link) { setEscritoLink(''); setEstado((e) => conLink(e, r.link!.url)); alCampo(); return; }
+    setEscritoLink(v);
+  };
+
+  const enviar = () => {
+    const r = alEnviar(estado, { tipo, modo: modoGen, params }, escritoLink);
+    if (r.que === 'chips') { setEscritoLink(''); setEstado(r.estado); alCampo(); return; }
+    if (r.que === 'accion') onAccion(r.accion);
+  };
+
+  /** Backspace (o Supr) con el foco en la pastilla o el formato: se va la pastilla, como con Backspace al principio. */
+  const teclaEnPastilla = (e: KeyboardEvent<HTMLSpanElement>) => {
+    if ((e.key !== 'Backspace' && e.key !== 'Delete') || !(e.target instanceof HTMLButtonElement)) return;
+    const n = borrarAlInicio(estado);
+    if (!n) return;
+    e.preventDefault();
+    setEstado(n);
+    alCampo();
   };
 
   /** Crear y abrir: lo que cambió es QUÉ EXISTE, así que la navegación es dura. */
@@ -238,45 +305,135 @@ export default function CajaCrear({ tipoInicial = 'landing', onAccion }: PropsCa
 
   const lista = plantillasDe(tipo);
   const m = muestras[tipo];
+  const link = estado.link;
+  const tuTexto = muestraTuTexto(estado);
+  const nota = avisoDeTexto(estado);
+  // La landing de base se VE en el cuadro (lo que viaja a la IA está en la pantalla); en una presentación no viaja.
+  const base = tipo === 'landing' && vista !== 'link' && !link?.accion ? params.basadoEnUrl : null;
+  const recientesMas = vista === 'texto' && !estado.texto.trim() && !link && !estado.archivo ? recientes.slice(0, RECIENTES_EN_MAS) : [];
 
-  // El link pegado, EN LUGAR del campo: el chip azul y qué hacer con él (punto 5).
-  const conLink = link ? (
-    <div className="gp-cc-link">
-      <ChipCaja icono="enlace" texto={hostDe(link)} onQuitar={() => setLink(null)} etiquetaQuitar="Quitar el enlace" />
-      <span className="gp-cc-link-accion">
-        <Desplegable etiqueta="Qué hacer" valor={accionLink} onCambio={setAccionLink} opciones={ACCIONES_LINK} ancho={240} />
-      </span>
-      {accionLink === 'replicar' && (
-        <Desplegable etiqueta="Formato" valor={formatoLink} onCambio={setFormatoLink} opciones={OPCIONES_FORMATO} ancho={220} />
+  // ── Lo que va adentro del cuadro ────────────────────────────────────────────
+
+  // Los chips del renglón (punto 7): el link en azul y su pastilla (y en Replicar, el formato), antes del texto.
+  const chips = link ? (
+    <>
+      <ChipCaja icono="enlace" texto={hostDe(link.url)} titulo={link.url} nombre={`Enlace: ${hostDe(link.url)}`}
+        onQuitar={() => { setEstado(quitarLink); alCampo(); }} etiquetaQuitar="Quitar el enlace" />
+      {link.accion && (
+        <span className="gp-cc-link-accion" onKeyDown={teclaEnPastilla}>
+          <Desplegable etiqueta="Qué hacer" valor={link.accion} onCambio={(a) => setEstado((e) => elegirModo(e, a))} opciones={ACCIONES_LINK} ancho={240} />
+          {link.accion === 'replicar' && (
+            <Desplegable etiqueta="Formato" valor={link.formato} onCambio={(f) => setEstado((e) => cambiarFormato(e, f))} opciones={OPCIONES_FORMATO} ancho={220} />
+          )}
+        </span>
       )}
+    </>
+  ) : null;
+
+  // La miniatura del archivo (punto 6) y la landing de base, ARRIBA del campo.
+  const adjunto = estado.archivo || base ? (
+    <>
+      {estado.archivo && <MiniaturaArchivo archivo={estado.archivo} onQuitar={() => { setEstado(quitarArchivo); setError(null); }} />}
+      {base && (
+        <ChipCaja icono="reporte" texto={`Sobre ${hostDe(base)}`} titulo={base} nombre={`Landing de base: ${hostDe(base)}`}
+          onQuitar={() => set('basadoEnUrl', null)} etiquetaQuitar="Quitar la landing de base" />
+      )}
+    </>
+  ) : null;
+
+  // Importar sin archivo (punto 6): el contenedor de importación, del alto del campo.
+  const contenedorArchivo = (
+    <div className="gp-cc-soltar" onClick={(e) => { if (e.target === e.currentTarget) elegirArchivo.current?.click(); }}>
+      <span className="gp-cc-soltar-icono" aria-hidden="true"><Ico n="subir" t={20} /></span>
+      <span className="gp-cc-soltar-textos">
+        <span className="gp-cc-soltar-titulo">
+          Suelta tu archivo aquí o{' '}
+          <button type="button" className="gp-cc-soltar-elegir" onClick={() => elegirArchivo.current?.click()}>elígelo</button>
+        </span>
+        <span className="gp-cc-soltar-sub">PowerPoint, Word o PDF</span>
+      </span>
     </div>
+  );
+
+  // Analizar o Replicar sin link (punto 7): el contenedor del link.
+  const contenedorLink = (
+    <div className="gp-cc-pegar-link">
+      <span className="gp-cc-pegar-link-icono" aria-hidden="true"><Ico n="enlace" t={18} /></span>
+      <input
+        ref={campoLink}
+        className="gp-cc-link-entrada"
+        type="text"
+        inputMode="url"
+        autoComplete="url"
+        spellCheck={false}
+        value={escritoLink}
+        maxLength={2_000}
+        placeholder="Pega o suelta el link de la landing"
+        aria-label={estado.modo === 'replicar' ? 'Link de la landing a replicar' : 'Link de la landing a analizar'}
+        onChange={(e) => escribirLink(e.target.value)}
+      />
+    </div>
+  );
+
+  // Adentro, debajo del texto: «Tu texto» con un texto largo o un archivo, y el aviso de lo que no se usa.
+  const bajo = tuTexto || nota ? (
+    <>
+      {tuTexto && (
+        <div className="gp-cc-tutexto" role="group" aria-label="Qué hacer con tu texto">
+          <span className="gp-cc-tutexto-rotulo">Tu texto</span>
+          {MODOS_TEXTO.map((t) => (
+            <button key={t.valor} type="button" aria-pressed={params.modoTexto === t.valor} title={t.ayuda} onClick={() => set('modoTexto', t.valor)}>
+              <Ico n={t.icono} t={13} /> {t.texto}
+            </button>
+          ))}
+        </div>
+      )}
+      {nota && <p className="gp-cc-nota" role="status">{nota}</p>}
+    </>
   ) : null;
 
   return (
     <section className="gp-cc" aria-label="Crear">
-      <style dangerouslySetInnerHTML={{ __html: CSS_TIPO + CSS_CAJA_PEDIDO + CSS_CAJA }} />
+      <style dangerouslySetInnerHTML={{ __html: CSS_TIPO + CSS_CAJA_PEDIDO + CSS_AJUSTES + CSS_CAJA }} />
 
-      {/* LA CAJA ES CajaPedido.tsx, la MISMA del modal «Nueva automatización» de /automations (decimocuarta tanda): el
-          campo con el ejemplo que se escribe solo (vuelve a empezar con la lista del tipo nuevo: `reinicio`), el
-          micrófono y el ↑. Lo de esta puerta va por sus props: el «+» y «Plan | Express» (`antes`), el archivo
-          (`adjunto`) y el link pegado (`enLugarDelCampo`, tanda 6). */}
+      {/* LA CAJA ES CajaPedido.tsx, la MISMA del modal «Nueva automatización» y del Dashboard: el campo con el ejemplo
+          que se escribe solo, el micrófono y el ↑. Lo de esta puerta va por sus props (ver la cabecera). */}
       <CajaPedido
         titulo={{ texto: TITULO_CAJA, nivel: 1 }}
+        bajoTitulo={(
+          <div className="gp-cc-modos" role="group" aria-label="Qué quieres hacer">
+            {OPCIONES_MODO.map((o) => (
+              <button key={o.id} type="button" className="gp-cc-modo" aria-pressed={estado.modo === o.id} onClick={() => elegir(o.id)}>
+                <Ico n={o.icono} t={15} /> {o.titulo}
+              </button>
+            ))}
+          </div>
+        )}
+        modo={vista}
         reinicio={tipo}
         ejemplos={EJEMPLOS_CAJA[tipo]}
-        valor={pedido}
-        animar={!archivo}
-        placeholderQuieto={archivo ? PLACEHOLDER_ARCHIVO : PLACEHOLDER_QUIETO}
+        valor={estado.texto}
+        animar={!estado.archivo && !link}
+        placeholderQuieto={placeholderDe(estado)}
         etiqueta="Qué quieres crear"
-        listo={listo}
-        onValor={alEscribir}
+        tope={TOPE_TEXTO}
+        listo={listoParaEnviar(estado, escritoLink)}
+        onValor={(v) => { setError(null); setEstado((e) => alEscribir(e, v)); }}
         onEnviar={enviar}
         onError={setError}
-        adjunto={archivo ? (
-          <ChipCaja icono={archivo.imagen ? 'imagen' : 'archivo'} texto={archivo.nombre} error={archivo.estado === 'error'}
-            detalle={archivo.estado === 'leyendo' ? 'Leyendo…' : null} onQuitar={quitarArchivo} etiquetaQuitar="Quitar el archivo" />
-        ) : null}
-        enLugarDelCampo={conLink}
+        refCampo={campo}
+        antesDelCampo={chips}
+        onBorrarAlInicio={() => {
+          const n = borrarAlInicio(estado);
+          if (!n) return false;
+          setEstado(n);
+          return true;
+        }}
+        adjunto={adjunto}
+        enLugarDelCampo={vista === 'importar' ? contenedorArchivo : vista === 'link' ? contenedorLink : null}
+        bajoElCampo={bajo}
+        onSoltar={soltar}
+        dictado={vista === 'texto'}
         antes={(
           <>
             <button
@@ -289,42 +446,34 @@ export default function CajaCrear({ tipoInicial = 'landing', onAccion }: PropsCa
             >
               <Ico n="mas" t={16} />
             </button>
-            {!link && (
-              <Desplegable
-                etiqueta="Modo"
-                valor={modo}
-                onCambio={setModo}
-                ancho={300}
-                opciones={[
-                  { valor: 'plan', texto: 'Plan', etiqueta: 'Predeterminado', sub: 'Revisa el esquema antes de crear', icono: 'lista' },
-                  { valor: 'express', texto: 'Express', sub: 'Más rápido, sin revisar el esquema', icono: 'rayo' },
-                ]}
+            {vista !== 'link' && !link?.accion && (
+              <BotonComo
+                modo={modoGen}
+                onModo={setModoGen}
+                params={params}
+                set={set}
+                tipo={tipo}
+                cantidadApagada={tuTexto && params.modoTexto === 'conservar'}
+                onMasAjustes={() => setMasAjustes(true)}
               />
             )}
           </>
         )}
       />
+      {masAjustes && (
+        <PanelMasAjustes
+          params={params}
+          set={set}
+          tipo={tipo}
+          analizadas={analizadas}
+          errorAnalizadas={errorAnalizadas}
+          onAnalizarUna={() => { setMasAjustes(false); elegir('analizar'); }}
+          onCerrar={() => setMasAjustes(false)}
+        />
+      )}
       {error && <p className="gp-error gp-cc-error" role="alert">{error}</p>}
 
       <SelectorTipo valor={tipo} onCambio={setTipo} deshabilitado={!!creando} />
-
-      <section className="gp-cc-ia" aria-labelledby="gp-cc-ia-titulo">
-        <h2 id="gp-cc-ia-titulo" className="gp-cc-subtitulo">Crear con IA</h2>
-        <div className="gp-cc-opciones">
-          {OPCIONES_IA.map((o) => (
-            <button key={o.id} type="button" className="gp-cc-opcion" onClick={() => elegir(o.id)}>
-              <span className="gp-cc-ilus" data-tipo={o.id}>
-                {o.id === 'pegar' ? <span className="gp-cc-ilus-aa">Aa</span> : <Ico n={o.icono} t={30} />}
-              </span>
-              <span className="gp-cc-opcion-titulo">
-                {o.titulo}
-                {o.popular && <span className="gp-chip gp-cc-popular"><Ico n="rayo" t={11} /> Popular</span>}
-              </span>
-              <span className="gp-cc-opcion-sub">{o.sub}</span>
-            </button>
-          ))}
-        </div>
-      </section>
 
       <section className="gp-cc-plantillas" aria-labelledby="gp-cc-plantillas-titulo">
         <h2 id="gp-cc-plantillas-titulo" className="gp-cc-subtitulo">{tipo === 'landing' ? 'Diseños' : 'Plantillas'}</h2>
@@ -353,11 +502,22 @@ export default function CajaCrear({ tipoInicial = 'landing', onAccion }: PropsCa
         </div>
       </section>
 
-      {/* El «+» sólo adjunta (tanda 6, punto 4). Los dos `input` viven afuera del menú: tocar una opción lo cierra. */}
+      {/* El «+» adjunta (tanda 6, punto 4) y ofrece las indicaciones recientes (tanda 7: vivían en «Generar»). Los dos
+          `input` viven afuera del menú: tocar una opción lo cierra. */}
       {menuMas && (
-        <MenuFlotante ancla={menuMas} onCerrar={cerrarMas} ancho={250}>
+        <MenuFlotante ancla={menuMas} onCerrar={cerrarMas} ancho={270}>
           <ItemMenu icono="subir" texto="Importar archivo" sub="PowerPoint, Word o PDF" onClick={() => { setMenuMas(null); elegirArchivo.current?.click(); }} />
           <ItemMenu icono="imagen" texto="Subir imagen" onClick={() => { setMenuMas(null); elegirImagen.current?.click(); }} />
+          {recientesMas.length > 0 && <SeparadorMenu />}
+          {recientesMas.map((r) => (
+            <ItemMenu
+              key={`${r.modo}-${r.t}`}
+              icono="historial"
+              texto={r.texto.split('\n')[0].slice(0, 60)}
+              sub={ahora ? haceCuanto(r.t, ahora) : undefined}
+              onClick={() => { setMenuMas(null); setEstado((e) => ({ ...e, texto: r.texto.slice(0, TOPE_TEXTO) })); alCampo(); }}
+            />
+          ))}
         </MenuFlotante>
       )}
       <input ref={elegirArchivo} type="file" accept={ACCEPT_ARCHIVO} hidden tabIndex={-1} aria-hidden
@@ -371,41 +531,94 @@ export default function CajaCrear({ tipoInicial = 'landing', onAccion }: PropsCa
 }
 
 /**
- * Lo de la página alrededor de la caja (tokens de CSS_GP): el error, el link pegado, «Crear con IA» y las
- * plantillas. La caja trae su hoja (CSS_CAJA_PEDIDO).
- * Tanda 6: las tarjetas de «Crear con IA» son las de /web-generator/crear (la ilustración de Gamma con
- * su degradado), y las de las plantillas, UNA tarjeta (miniatura + nombre) con borde y sombra que la
- * separa del fondo; en oscuro la sombra es más honda (sobre un fondo oscuro, una sombra clara no se ve).
+ * La MINIATURA del archivo adentro del cuadro (punto 6): la imagen misma, o el ícono de su tipo con el nombre, y la ✕.
+ * Mientras se lee dice «Leyendo…»; si no se pudo, va en rojo y el ↑ no se prende.
+ */
+function MiniaturaArchivo({ archivo, onQuitar }: { archivo: ArchivoCaja; onQuitar: () => void }) {
+  const t = tipoDeArchivo(archivo.nombre);
+  const sub = archivo.estado === 'leyendo' ? 'Leyendo…' : archivo.estado === 'error' ? 'No se pudo leer' : t.etiqueta;
+  return (
+    <span className="gp-cc-archivo" data-familia={t.familia} data-estado={archivo.estado} role="group" aria-label={`Archivo: ${archivo.nombre}`}>
+      <span className="gp-cc-archivo-icono">
+        {archivo.vista ? <img src={archivo.vista} alt="" /> : <Ico n={t.icono} t={20} />}
+        {archivo.estado === 'leyendo' && <span className="gp-giro" aria-hidden="true" />}
+      </span>
+      <span className="gp-cc-archivo-textos">
+        <span className="gp-cc-archivo-nombre" title={archivo.nombre}>{archivo.nombre}</span>
+        <span className="gp-cc-archivo-sub">{sub}</span>
+      </span>
+      <button type="button" className="gp-cc-archivo-quitar" aria-label="Quitar el archivo" title="Quitar el archivo" onClick={onQuitar}>
+        <Ico n="cerrar" t={12} />
+      </button>
+    </span>
+  );
+}
+
+/**
+ * Lo de la página alrededor de la caja (tokens de CSS_GP): los modos, los contenedores (del alto del campo: el cuadro
+ * mide lo mismo en los cuatro modos), los chips, la miniatura del archivo, «Tu texto», el aviso y las plantillas. La
+ * caja trae su hoja (CSS_CAJA_PEDIDO) y el desplegable de Plan la suya (CSS_AJUSTES).
+ * Las tarjetas de las plantillas: UNA tarjeta (miniatura + nombre) con borde y sombra que la separa del fondo; en
+ * oscuro la sombra es más honda (sobre un fondo oscuro, una sombra clara no se ve).
  */
 const CSS_CAJA = `
 .gp .gp-cc { display: flex; flex-direction: column; align-items: center; gap: 16px; width: 100%; margin: 8px 0 28px; }
 .gp .gp-cc-error { max-width: 720px; margin: -6px 0 0; }
 .gp .gp-cc-subtitulo { margin: 0; font-size: 18px; font-weight: 600; color: var(--gp-titulo); }
 
-/* El link pegado: el chip azul y la pastilla de qué hacer (también azul: son la misma cosa). */
-.gp .gp-cc-link { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
-.gp .gp-cc-link .gp-cc-chip { max-width: min(100%, 320px); }
+/* Los modos (punto 2): un grupo compacto arriba del cuadro, no tarjetas. */
+.gp .gp-cc-modos { display: inline-flex; flex-wrap: wrap; justify-content: center; gap: 4px; margin-top: -4px; padding: 4px; border: 1px solid var(--gp-borde-suave); border-radius: 9999px; background: var(--gp-superficie); box-shadow: var(--gp-sombra-tarjeta); }
+.gp .gp-cc-modo { display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 34px; padding: 0 14px; border: 0; border-radius: 9999px; background: transparent; color: var(--gp-texto); font-size: 14px; font-weight: 600; white-space: nowrap; cursor: pointer; transition: background-color .15s, color .15s; }
+.gp .gp-cc-modo:hover { background: var(--gp-hover); }
+.gp .gp-cc-modo[aria-pressed="true"] { background: var(--gp-activo-fondo); color: var(--gp-activo-texto); }
+
+/* Importar sin archivo: el contenedor típico (punteado, para soltar o elegir), adentro del MISMO cuadro y del alto del campo. */
+.gp .gp-cc-caja .gp-cc-en-lugar { min-height: 70px; padding: 10px 10px 2px; }
+.gp .gp-cc-soltar { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 58px; padding: 6px 14px; border: 1.5px dashed var(--gp-azul-300); border-radius: 10px; background: color-mix(in srgb, var(--gp-azul-50) 60%, transparent); cursor: pointer; }
+.gp .gp-cc-caja[data-arrastre="si"] .gp-cc-soltar { border-color: var(--gp-azul-500); }
+.gp .gp-cc-soltar-icono { display: grid; place-items: center; flex: none; width: 36px; height: 36px; border-radius: 9999px; background: var(--gp-superficie); color: var(--gp-azul-600); box-shadow: var(--gp-sombra-tarjeta); pointer-events: none; }
+.gp .gp-cc-soltar-textos { display: flex; flex-direction: column; gap: 2px; min-width: 0; pointer-events: none; }
+.gp .gp-cc-soltar-titulo { font-size: 15px; font-weight: 500; line-height: 1.4; color: var(--gp-texto); }
+.gp .gp-cc-soltar-elegir { padding: 0; border: 0; background: transparent; color: var(--gp-activo-texto); font-size: inherit; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; pointer-events: auto; }
+.gp .gp-cc-soltar-sub { font-size: 12.5px; line-height: 1.3; color: var(--gp-debil); }
+
+/* Analizar o Replicar sin link: el contenedor del link, del alto del campo. */
+.gp .gp-cc-pegar-link { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 58px; padding: 0 8px; }
+.gp .gp-cc-pegar-link-icono { display: grid; place-items: center; flex: none; width: 32px; height: 32px; border-radius: 9999px; background: var(--gp-azul-50); color: var(--gp-azul-600); }
+.gp .gp-cc-link-entrada { flex: 1; min-width: 0; height: 40px; padding: 0; border: 0; background: transparent; color: var(--gp-azul-600); font: inherit; font-size: 16px; outline: none; }
+.gp .gp-cc-link-entrada::placeholder { color: var(--gp-debil); }
+
+/* La pastilla del link (también azul: son la misma cosa). */
+.gp .gp-cc-link-accion { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
 .gp .gp-cc-link-accion .gp-pildora { border-color: var(--gp-azul-200); background: var(--gp-azul-50); color: var(--gp-azul-600); font-weight: 600; }
 .gp .gp-cc-link-accion .gp-pildora:hover:not(:disabled) { background: var(--gp-azul-100); }
 [data-tema="oscuro"] .gp .gp-cc-link-accion .gp-pildora { border-color: #0540ad; background: #0b2e79; color: #aad5fe; }
+.gp .gp-cc-linea > .gp-cc-chip { max-width: min(100%, 280px); }
 
-/* «Crear con IA»: cinco tarjetas con la ilustración de Gamma. */
-.gp .gp-cc-ia { display: flex; flex-direction: column; gap: 12px; width: 100%; margin-top: 8px; }
-.gp .gp-cc-opciones { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px; }
-.gp .gp-cc-opcion { display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; padding: 10px 10px 14px; border: 1px solid var(--gp-borde-suave); border-radius: 12px; background: var(--gp-superficie); box-shadow: 0 1px 2px rgba(0,0,0,.05), 0 6px 16px -6px rgba(0,0,0,.14); text-align: center; cursor: pointer; transition: transform .18s, box-shadow .18s; }
-.gp .gp-cc-opcion:hover { transform: translateY(-3px); box-shadow: 0 10px 15px -3px rgba(0,0,0,.12), 0 4px 6px -2px rgba(0,0,0,.06); }
-.gp .gp-cc-opcion-titulo { display: inline-flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 6px; font-size: 15px; font-weight: 600; line-height: 1.25; color: var(--gp-titulo); }
-.gp .gp-cc-opcion-sub { font-size: 12.5px; line-height: 1.35; color: var(--gp-tenue); }
-.gp .gp-cc-popular { background: var(--gp-azul-100); color: var(--gp-azul-800); text-transform: uppercase; letter-spacing: .03em; font-size: 10px; }
-.gp .gp-cc-ilus { position: relative; display: grid; place-items: center; width: 100%; aspect-ratio: 5 / 3; border-radius: 8px; overflow: hidden; color: #fff; }
-.gp .gp-cc-ilus::after { content: ""; position: absolute; left: -10%; right: -10%; bottom: -35%; height: 70%; border-radius: 50%; background: rgba(255,255,255,.18); }
-.gp .gp-cc-ilus .gp-ico, .gp .gp-cc-ilus-aa { position: relative; z-index: 1; }
-.gp .gp-cc-ilus-aa { font-size: 30px; font-weight: 700; letter-spacing: -0.02em; }
-.gp .gp-cc-ilus[data-tipo="pegar"] { background: linear-gradient(180deg, #2b1a5c 0%, #6b3fa0 60%, #c58fd8 100%); }
-.gp .gp-cc-ilus[data-tipo="generar"] { background: radial-gradient(circle at 70% 30%, #fff3c6 0 12%, transparent 13%), linear-gradient(180deg, #ffd6e0 0%, #ffb3c7 55%, #f08aa8 100%); }
-.gp .gp-cc-ilus[data-tipo="importar"] { background: linear-gradient(180deg, #d7f5e9 0%, #a8e6cf 50%, #f7b8d0 100%); color: #1c481d; }
-.gp .gp-cc-ilus[data-tipo="analizar"] { background: linear-gradient(180deg, #0b2e79 0%, #2c88f7 60%, #84c1fa 100%); }
-.gp .gp-cc-ilus[data-tipo="replicar"] { background: linear-gradient(180deg, #fff1d6 0%, #ffc98a 55%, #f59e5b 100%); color: #5a2a00; }
+/* La miniatura del archivo (punto 6): una tarjetita adentro del cuadro, con su ✕ en la esquina. */
+.gp .gp-cc-archivo { position: relative; display: inline-flex; align-items: center; gap: 10px; max-width: min(100%, 300px); padding: 6px 30px 6px 6px; border: 1px solid var(--gp-borde-suave); border-radius: 12px; background: var(--gp-superficie-2); }
+.gp .gp-cc-archivo-icono { position: relative; display: grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: 8px; overflow: hidden; background: #6b7280; color: #fff; }
+.gp .gp-cc-archivo[data-familia="pdf"] .gp-cc-archivo-icono { background: #dc2626; }
+.gp .gp-cc-archivo[data-familia="docx"] .gp-cc-archivo-icono { background: #2563eb; }
+.gp .gp-cc-archivo[data-familia="pptx"] .gp-cc-archivo-icono { background: #ea580c; }
+.gp .gp-cc-archivo[data-familia="xlsx"] .gp-cc-archivo-icono { background: #16a34a; }
+.gp .gp-cc-archivo[data-familia="audio"] .gp-cc-archivo-icono, .gp .gp-cc-archivo[data-familia="video"] .gp-cc-archivo-icono { background: #7c3aed; }
+.gp .gp-cc-archivo-icono img { width: 100%; height: 100%; object-fit: cover; }
+.gp .gp-cc-archivo-icono .gp-giro { position: absolute; width: 18px; height: 18px; }
+.gp .gp-cc-archivo-textos { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.gp .gp-cc-archivo-nombre { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13.5px; font-weight: 600; color: var(--gp-texto); }
+.gp .gp-cc-archivo-sub { font-size: 12px; color: var(--gp-tenue); }
+.gp .gp-cc-archivo[data-estado="error"] { border-color: var(--gp-peligro); }
+.gp .gp-cc-archivo[data-estado="error"] .gp-cc-archivo-sub { color: var(--gp-peligro); }
+.gp .gp-cc-archivo-quitar { position: absolute; top: 4px; right: 4px; display: grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 9999px; background: transparent; color: var(--gp-tenue); cursor: pointer; }
+.gp .gp-cc-archivo-quitar:hover { background: var(--gp-hover); color: var(--gp-texto); }
+
+/* «Tu texto» y el aviso, adentro del cuadro debajo del texto. */
+.gp .gp-cc-tutexto { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 3px 3px 3px 10px; border-radius: 10px; background: var(--gp-borde-suave); }
+.gp .gp-cc-tutexto-rotulo { margin-right: 4px; font-size: 12.5px; font-weight: 600; color: var(--gp-tenue); }
+.gp .gp-cc-tutexto button { display: inline-flex; align-items: center; gap: 5px; height: 28px; padding: 0 10px; border: 0; border-radius: 8px; background: transparent; color: var(--gp-texto); font-size: 13px; font-weight: 500; cursor: pointer; }
+.gp .gp-cc-tutexto button[aria-pressed="true"] { background: var(--gp-superficie); color: var(--gp-activo-texto); box-shadow: var(--gp-sombra-tarjeta); }
+.gp .gp-cc-nota { margin: 0; font-size: 13px; color: var(--gp-tenue); }
 
 /* Las plantillas: miniatura y nombre en UNA tarjeta con sombra (tanda 6, punto 6). */
 .gp .gp-cc-plantillas { display: flex; flex-direction: column; gap: 12px; width: 100%; margin-top: 8px; scroll-margin-top: 16px; }
@@ -420,15 +633,16 @@ const CSS_CAJA = `
 .gp .gp-cc-usar .gp-giro { width: 13px; height: 13px; }
 .gp .gp-cc-plantilla:hover:not(:disabled) .gp-cc-usar, .gp .gp-cc-plantilla:focus-visible .gp-cc-usar, .gp .gp-cc-usar[data-visible="si"] { opacity: 1; }
 .gp .gp-cc-nombre { padding: 0 4px; font-size: 14.5px; font-weight: 600; line-height: 1.3; color: var(--gp-titulo); }
-[data-tema="oscuro"] .gp .gp-cc-plantilla, [data-tema="oscuro"] .gp .gp-cc-opcion { box-shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 24px -8px rgba(0,0,0,.6); }
+[data-tema="oscuro"] .gp .gp-cc-plantilla { box-shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 24px -8px rgba(0,0,0,.6); }
 
-@media (max-width: 1100px) {
-  .gp .gp-cc-opciones { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+/* Teléfono: los cuatro modos de a dos (cuatro en fila no entran en 390 px), del ancho del cuadro. */
+@media (max-width: 560px) {
+  .gp .gp-cc-modos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; border-radius: 16px; }
+  .gp .gp-cc-modo { border-radius: 12px; padding: 0 8px; font-size: 13.5px; }
+  /* «Tu texto» en un renglón: sin los íconos, las tres opciones entran en 390 px. */
+  .gp .gp-cc-tutexto button .gp-ico { display: none; }
 }
 @media (max-width: 760px) {
-  .gp .gp-cc-opciones { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-  .gp .gp-cc-ilus { aspect-ratio: 2 / 1; }
-  .gp .gp-cc-opcion-titulo { font-size: 14px; }
   .gp .gp-cc-grilla { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
 }
 `;

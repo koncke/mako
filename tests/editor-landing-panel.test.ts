@@ -38,7 +38,7 @@ process.env.NEXT_PUBLIC_SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || '
 
 import {
   ICONO_FILA, SIN_TITULO, copiaParaAplicar, destinoAnalizar, docDeUrl, derechaDeQuery, enPapelera, esDiagnosticoDe, filasDelPanel,
-  filtrarFilas, hostDe, idValido, queryDeDerecha, urlDeBusqueda, urlParaAnalizar, type Analizada, type Derecha, type FilaPanel,
+  filtrarFilas, hostDe, idValido, modoCajaDe, queryDeDerecha, urlDeBusqueda, urlParaAnalizar, type Analizada, type Derecha, type FilaPanel,
 } from '../app/web-generator/panel-reglas';
 import type { LandingResumen } from '../lib/editor-landing/api-tipos';
 import { TEMAS } from '../lib/editor-landing/temas';
@@ -276,9 +276,11 @@ test('la barra: «Ir a», «Nueva landing» PRIMERO, la lista de documentos, y a
   assert.ok(iBusca > 0 && iNueva > iBusca && iLista > iNueva && iFilas > iLista && iAbajo > iFilas, 'el orden de la barra cambió');
   assert.equal(src.split('Nueva landing').length - 1, 1, '«Nueva landing» es UN renglón, y es el primero');
   assert.match(src, /\{itemNav\('plantillas', 'Plantillas', 'plantillas'\)\}\s*\{itemNav\('temas', 'Temas', 'paleta'\)\}\s*\{itemNav\('papelera', 'Papelera', 'papelera'\)\}/);
-  assert.match(src, /<button type="button" className="gp-doc-nuevo" aria-current=\{derecha\.tipo === 'crear' \? 'page' : undefined\} onClick=\{nuevaLanding\}>/,
+  // Tanda 7: el cuadro tiene modos; «Nueva landing» está marcada con el cuadro en cualquiera, y lleva a Generar
+  // (desde Analizar o Replicar) o deja el cuadro como está (en Generar o en Importar, con lo escrito).
+  assert.match(src, /<button type="button" className="gp-doc-nuevo" aria-current=\{modoCaja \? 'page' : undefined\} onClick=\{nuevaLanding\}>/,
     '«Nueva landing» no abre la caja de crear a la derecha');
-  assert.match(src, /const nuevaLanding = \(\) => \{\s*setDerecha\(\{ tipo: 'crear' \}\);/);
+  assert.match(src, /const nuevaLanding = \(\) => \{\s*setDerecha\(\(d\) => \{\s*const m = modoCajaDe\(d\);\s*return m === 'generar' \|\| m === 'importar' \? d : \{ tipo: 'crear' \};/);
   // Clic en un documento nuestro abre el editor; en una de afuera, su Diagnóstico.
   assert.match(src, /<Link href=\{`\/web-generator\/\$\{f\.doc\.id\}`\} className="gp-doc-abrir"/);
   assert.match(src, /className="gp-doc-abrir" title=\{f\.url\}[^>]*onClick=\{\(\) => abrirDiagnostico\(f\)\}/);
@@ -327,7 +329,12 @@ test('la derecha: la caja de crear por default, el Diagnóstico montado AHÍ (co
   assert.match(src, /^import CajaCrear from '\.\/CajaCrear';$/m);
   assert.match(src, /^import PanelDiagnostico from '\.\/diagnostico\/PanelDiagnostico';$/m);
   // Tanda 6: la caja le pasa al Panel lo que se eligió (Crear con IA, Analizar, Replicar) para abrirlo AHÍ.
-  assert.match(src, /\} else \{\s*contenido = <CajaCrear onAccion=\{alAccion\} \/>;\s*\}/, 'la caja no es lo que se ve por default');
+  // Tanda 7: la caja es lo que se ve por default Y en sus modos (Analizar sin landing, Replicar sin link): el MISMO
+  // CajaCrear, primero de todo.
+  assert.match(src, /if \(modoCaja\) \{\s*contenido = \(\s*<CajaCrear\s+modo=\{modoCaja\}[\s\S]{0,400}onAccion=\{alAccion\}\s*\/>/, 'la caja no es lo que se ve por default');
+  assert.equal(modoCajaDe({ tipo: 'crear' }), 'generar');
+  assert.equal(modoCajaDe({ tipo: 'diagnostico' }), 'analizar', 'el Diagnóstico sin landing es el cuadro en Analizar');
+  assert.equal(modoCajaDe({ tipo: 'diagnostico', docId: 3 }), null);
   // Verificación de la tanda 6: también la copia que ya existe de una página de afuera (`copiaParaAplicar`).
   assert.match(src, /<PanelDiagnostico\s+key=\{`\$\{derecha\.docId \?\? ''\}\|\$\{derecha\.url \?\? ''\}`\}\s+docId=\{derecha\.docId\}\s+url=\{derecha\.url\}\s+copia=\{derecha\.url \? copiaParaAplicar\(derecha\.url, lista\) : null\}\s+onCerrar=\{cerrarDiagnostico\}\s+onAnalizada=\{sumarAnalizada\}\s+\/>/);
   // Integración (12/10/2026, PEDIDO 3 del Panel): una página de afuera recién analizada entra a la
@@ -337,9 +344,9 @@ test('la derecha: la caja de crear por default, el Diagnóstico montado AHÍ (co
   assert.match(src, /const cerrarDiagnostico = useCallback\(\(\) => setDerecha\(\{ tipo: 'crear' \}\), \[\]\);/, 'onCerrar de identidad fija');
   assert.match(src, /const s = queryDeDerecha\(window\.location\.search, derecha\);\s*if \(s !== window\.location\.search\) window\.history\.replaceState\(/);
   assert.match(src, /const \[derecha, setDerecha\] = useState<Derecha>\(props\.derechaInicial\);/);
-  // El Diagnóstico sin landing pide la dirección; el «Ir a» con una dirección ofrece analizarla;
-  // las dos van por `analizarUrl`, que abre NUESTRO documento si la URL es nuestra.
-  assert.match(src, /if \(derecha\.tipo === 'diagnostico' && !derecha\.docId && !derecha\.url\) \{\s*contenido = <AnalizarUnaPagina onAnalizar=\{analizarUrl\} \/>;/);
+  // El Diagnóstico sin landing es el cuadro en Analizar (tanda 7: era `AnalizarUnaPagina`); el «Ir a» con una
+  // dirección ofrece analizarla por `analizarUrl`, que abre NUESTRO documento si la URL es nuestra.
+  assert.doesNotMatch(src, /AnalizarUnaPagina/);
   assert.match(src, /\{urlBuscada && \([\s\S]{0,300}onClick=\{\(\) => analizarUrl\(urlBuscada\)\}/);
   assert.match(src, /const analizarUrl = \(url: string\) => \{\s*const propia = docDeUrl\(url, lista, props\.bases\);/);
   // Una plantilla se crea con el config de crear/tipo.ts (una presentación sin formato nacería página).
@@ -453,4 +460,9 @@ test('ni la pantalla, ni las páginas, ni las reglas tienen voseo (el guard del 
 //   P2 replicaDe sin mirar origen.modo (una creada con IA «basada en» sería «la copia») → 20 / 1 «server: `listar`…»
 //   P3 copiaParaAplicar toma la «Página web» idéntica                                  → 20 / 1 «copiaParaAplicar…»
 //   P4 copiaParaAplicar toma una de la Papelera                                         → 20 / 1 «copiaParaAplicar…»
+// Restaurado: 21 / 0.
+
+// ── TANDA 7 (15/10/2026): PROBADO ROMPIÉNDOLO ───────────────────────────────────────────────────────
+// Base: 21 / 0 (con el arnés de tests/web-generator-cuadro.test.ts):
+//   R23 «Nueva landing» saca al cuadro de Importar                  → 20 / 1 «la barra: «Ir a», «Nueva landing» PRIMERO…»
 // Restaurado: 21 / 0.
