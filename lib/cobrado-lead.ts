@@ -171,7 +171,9 @@ export function cobradoDelLead(e: EntradaCobrado): Cobrado {
     const activaPasarela = susCobros.find((c) => c.estado === 'pagado' && c.suscripcion_estado !== 'cancelada');
     const canceladaPasarela = !activaPasarela && susCobros.some((c) => c.suscripcion_estado === 'cancelada');
     const fuente: 'pasarela' | 'manual' = activaPasarela || canceladaPasarela ? 'pasarela' : 'manual';
-    const estado: EstadoSuscripcion = e.suscripcionCanceladaAt || canceladaPasarela
+    // ⚠️ UNA SUSCRIPCIÓN DE LA PASARELA ACTIVA LE GANA A LA MANUAL CANCELADA (revisión del 14/10/2026): el cliente que
+    // volvió y paga por Stripe se pintaba «Cancelada» en gris, y una renovación que fallara tampoco se veía roja.
+    const estado: EstadoSuscripcion = (e.suscripcionCanceladaAt && !activaPasarela) || canceladaPasarela
       ? 'cancelada'
       : finPlazo && finPlazo <= hoy ? 'terminada' : 'activa';
     const renovacionFallida = estado === 'activa' && activaPasarela && esRenovacionFallida(activaPasarela.motivo) ? (activaPasarela.motivo as string) : null;

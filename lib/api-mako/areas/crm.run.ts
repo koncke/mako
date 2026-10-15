@@ -35,7 +35,7 @@ import { getJuntasProximas } from '@/lib/queries';
 import { getLeadPlan, getPagosByLead, savePlanPagos, saveLeadPlanManual, marcarPago, cobrarCuota, registrarPagoSuelto } from '@/lib/pagos';
 import { avisoDeConservadas } from '@/lib/pagos-campo';
 // Sólo para la lectura cobranza_lead (14/10/2026): lo cobrado con la misma cuenta que la ficha.
-import { cobradoDelLead } from '@/lib/cobrado-lead';
+import { cobradoDelLead, esCuotaDevuelta } from '@/lib/cobrado-lead';
 import { listarCobros } from '@/lib/cobros';
 import { centavos, diferenciaPendiente, type RestoDeCobro } from '@/lib/pagos-diferencia';
 import { getResumenLead, linkResumenLead } from '@/lib/lead-resumen';
@@ -461,7 +461,10 @@ export const RUNNERS: Runners = {
         total_vendido_usd: plan.total_usd,
         ...(sus ? { suscripcion_mensual_usd: lead.suscripcion_monto_usd ?? null, suscripcion_meses: lead.suscripcion_meses ?? null, nota: 'Suscripción: total_vendido_usd queda null a propósito; el importe es el mensual.' } : {}),
         duracion_meses: plan.duracion_meses, fecha_cierre: plan.fecha_cierre, fecha_inicio_servicio: plan.fecha_inicio, tiene_contrato: plan.tiene_contrato,
-        cobrado_usd: suma(cuotas.filter((c) => c.pagada)), por_cobrar_usd: suma(cuotas.filter((c) => !c.pagada)),
+        cobrado_usd: suma(cuotas.filter((c) => c.pagada)),
+        // Sin las DEVUELTAS (un reembolso de la pasarela): no son deuda, y con ellas este número no coincidía con
+        // `cobrado.pendiente_usd` de la misma respuesta (revisión del 14/10/2026; MaKo podía citar cualquiera).
+        por_cobrar_usd: suma(cuotas.filter((c, i) => !c.pagada && !esCuotaDevuelta(plan.pagos[i]))),
         cobrado: {
           texto: cob.texto, estado: cob.semaforo.texto, tono: cob.semaforo.tono,
           cobrado_usd: cob.cobradoUsd, total_usd: cob.totalUsd, pendiente_usd: cob.pendienteUsd, vencido_usd: cob.vencidoUsd, porcentaje: cob.pct,

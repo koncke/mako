@@ -185,7 +185,9 @@ export async function cerrarCorrida(ws: number, id: number, estado: 'hecha' | 'c
  * El `ctx` de la corrida es un jsonb, así que el filtro va sobre su clave: la cuota
  * viaja ahí desde que el cron de cobranza abre la corrida.
  */
-export async function cerrarCorridasDeCuota(ws: number, cuotaId: number): Promise<number> {
+export async function cerrarCorridasDeCuota(ws: number, cuotaId: number, opts: { tirar?: boolean } = {}): Promise<number> {
+  // `tirar`: el corte que pide una PERSONA («Cortarlo», lib/pagos.ts) dice que falló; el de `marcarPago` no tira,
+  // porque que falle el corte no puede tumbar el registro del pago.
   try {
     return await runWithWorkspace(ws, async () => {
       const db = await getTenantDb();
@@ -194,10 +196,14 @@ export async function cerrarCorridasDeCuota(ws: number, cuotaId: number): Promis
         .eq('estado', 'pendiente')
         .eq('ctx->>cuotaId', String(cuotaId))
         .select('id');
-      if (error) { console.error('[corridas] cerrar por cuota:', error.message); return 0; }
+      if (error) {
+        if (opts.tirar) throw new Error(`No pude cortar el recordatorio: ${error.message}`);
+        console.error('[corridas] cerrar por cuota:', error.message); return 0;
+      }
       return (data as unknown[] | null)?.length ?? 0;
     });
   } catch (e) {
+    if (opts.tirar) throw e;
     console.error('[corridas] cerrar por cuota:', e instanceof Error ? e.message : String(e));
     return 0;
   }

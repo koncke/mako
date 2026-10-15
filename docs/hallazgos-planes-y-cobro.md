@@ -579,6 +579,8 @@ implementación en un worktree propio (`C:/dev/wt-pagos`) y una rama aparte para
 | **Pasarela (revisión):** el MRR al cancelar una suscripción redondea por meses (puede contar un mes de más o de menos) | `lib/cobros-reglas.ts` (`mesesTranscurridos`) |
 | **Pasarela (revisión):** la fecha de la cuota es la del procesamiento, no la del pago (un aviso tardío la corre de mes) | `lib/cobros.ts` (`aplicarPagoAprobado`) |
 | **Pasarela (revisión):** `aplicarAEnv` copia al entorno las claves de pasarela del ws1, y `revelar` las lee con `credWs` | `lib/credenciales.ts`, `app/api/integraciones/credencial/route.ts` |
+| **Pasarela (b2):** un lead ganado como pago único que paga un link de SUSCRIPCIÓN sigue como pago único (el MRR no lo cuenta): ¿el cobro cambia el tipo de venta? | decisión de Martín, `lib/cobros.ts` (`ganarLead`, `reabrirSuscripcionDelLead`) |
+| **Pasarela (b2):** el Outstanding del Dashboard cuenta como deuda las cuotas devueltas por un reembolso | `lib/pagos.ts` (`getOutstandingTotal` y su detalle) |
 | **Pasarela (b2):** un link de Mercado Pago anulado se puede pagar igual (MP no cierra una preferencia abierta): el pago entra como cuota nueva cobrada y nadie avisa que la plata entró dos veces | `lib/cobros.ts` (`anularCobro`, `registrarCobroDeProveedor`) |
 
 *Corrida del 04/10/2026, 12 agentes. Las refutaciones dieron vuelta nueve afirmaciones; las

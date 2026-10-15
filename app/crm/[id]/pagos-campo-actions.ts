@@ -40,7 +40,7 @@ import {
 } from '@/lib/pagos-campo';
 import { cobradoDelLead, esCuotaDevuelta, type Cobrado } from '@/lib/cobrado-lead';
 import { listarCobros } from '@/lib/cobros';
-import { mesesTranscurridos } from '@/lib/cobros-reglas';
+import { laCobraLaPasarela, mesesTranscurridos } from '@/lib/cobros-reglas';
 import { hoyEnWorkspace } from '@/lib/timezone';
 import type { VentaTipo } from '@/lib/venta-tipo';
 
@@ -300,7 +300,7 @@ export async function cambiarEstadoSuscripcionAction(
     const lead = await getLead(leadId);
     if (!lead) return { ok: false, error: 'No encontré ese lead en este negocio.' };
     const cobros = await listarCobros(ws, { leadId, limite: 50 });
-    if (cobros.some((c) => c.tipo === 'suscripcion' && c.estado === 'pagado' && c.suscripcion_estado !== 'cancelada')) {
+    if (laCobraLaPasarela(cobros)) {
       return { ok: false, error: 'Esta suscripción la cobra la pasarela: cancélala desde su cobro, en Links de pago.' };
     }
     const hoy = await hoyEnWorkspace();

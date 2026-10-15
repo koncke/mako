@@ -29,7 +29,7 @@ import {
   anularCobro, cancelarSuscripcionCobro, crearCobro, getCobro, linkDelCobro, listarCobros, pasarelasConectadas, reembolsarCobro,
 } from '@/lib/cobros';
 import { ESTADOS_COBRO, NOMBRE_PASARELA, esPasarela, rotuloEstado, type Cobro, type EstadoCobro, type Pasarela } from '@/lib/cobros-tipos';
-import { decidirCobro, mesesTranscurridos } from '@/lib/cobros-reglas';
+import { decidirCobro, laCobraLaPasarela, mesesTranscurridos } from '@/lib/cobros-reglas';
 import { formatoMonto, normalizarMoneda } from '@/lib/pasarela-moneda';
 import { revalidateTag } from 'next/cache';
 import { TAG } from '@/lib/cache';
@@ -556,7 +556,7 @@ export const RUNNERS: Runners = {
       if (!estado) return { error: 'El estado va: cancelada o activa.', faltan: ['estado'] };
       const cobros = await listarCobros(ctx.ws, { leadId: lead.id, limite: 50 }).catch(() => null);
       if (!cobros) return { error: 'No pude leer los cobros del lead. Prueba de nuevo en un rato.' };
-      if (cobros.some((c) => c.tipo === 'suscripcion' && c.estado === 'pagado' && c.suscripcion_estado !== 'cancelada')) {
+      if (laCobraLaPasarela(cobros)) {
         return { error: `La suscripción de ${lead.nombre} la cobra la pasarela: se cancela con cancelar_suscripcion (pide el cobroId con listar_cobros).` };
       }
       const cancelada = !!(lead as unknown as { suscripcion_cancelada_at?: string | null }).suscripcion_cancelada_at;

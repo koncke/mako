@@ -61,4 +61,6 @@ medias (la cuota reprogramada sin recordatorio, el link vivo de una cuota cobrad
 al reactivar), en la rama `pagos-b2-medias` del chat de Pagos, que el CRM mergea en b2. Nada de esto está en `main`
 todavía: entra cuando Estrategia integre la tanda B. Quedan las seis BAJAS de esa revisión (lista en
 docs/hallazgos-crm.md, «Una cuota reprogramada…»). La migración XXXX de b2 ahora suma `leads.suscripcion_meses_antes`.
-Las ramas `pagos-pasarela` y `pagos-automations` no tienen nada que no esté en `main`: se pueden borrar.
+Después se cerraron también las seis BAJAS (docs/hallazgos-crm.md, «Las seis bajas de b2»). Todo vive en UNA rama,
+`crm-bloques-b2`, y espera la decisión de integrar (tablero, ref `crm-bloques-b2-integrar`). Las ramas `pagos-pasarela` y
+`pagos-automations` no tienen nada que no esté en `main`: se pueden borrar (las borra su chat, no éste).

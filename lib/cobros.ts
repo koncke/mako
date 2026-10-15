@@ -462,6 +462,10 @@ export async function aplicarPagoAprobado(c: Cobro, p: {
       }
     }
 
+    // 2b. Una suscripción NUEVA de la pasarela sobre un lead que ya era suscripción: la cancelada o con plazo vuelve a
+    //     activa y sin fin (`reabrirSuscripcionDelLead`). Va antes de ganar, que no la toca si el lead ya ganó.
+    if (actual.lead_id && actual.tipo === 'suscripcion' && nuevo && !renovacion) await reabrirSuscripcionDelLead(actual, autor);
+
     // 3. Ganar el lead (sólo si no está ganado): por setPipelineStage y la etapa de SU embudo,
     //    nunca escribiendo estado_lead a mano (tests/crm-curso-al-ganar.test.ts). Esto es lo que
     //    evita que el CRM automático le escriba «no agendaste» a quien pagó (docs/proyeccion-04oct.md §4.6).
@@ -553,6 +557,33 @@ async function alCron(c: Cobro, subtipo: SubtipoPago): Promise<void> {
     await enrolarPorPago(c.lead_id, subtipo);
   } catch (e) {
     console.error(`[cobros] no pude disparar el CRON «Pagos» (${subtipo}) del cobro ${c.id}:`, e instanceof Error ? e.message : String(e));
+  }
+}
+
+/**
+ * ⚠️ UNA SUSCRIPCIÓN NUEVA POR LA PASARELA REABRE LA DEL LEAD (revisión del 14/10/2026). Una manual cancelada en marzo,
+ * y el cliente vuelve en octubre pagando un link de suscripción: `ganarLead` no corre (el lead ya estaba ganado), así
+ * que `suscripcion_cancelada_at` y el plazo congelado (los meses transcurridos al cancelar, también los de una baja
+ * de la pasarela) quedaban: la ficha decía «Cancelada» y el MRR no la contaba mientras Stripe cobraba todos los meses.
+ * Una de la pasarela es sin fin (`suscripcion_meses` null) y su mensualidad es la del cobro. No tira: la plata ya
+ * entró; si falla queda dicho en los logs (sin la migración XXXX, el select de la columna falla y no se toca nada).
+ */
+async function reabrirSuscripcionDelLead(c: Cobro, autor: string): Promise<void> {
+  if (!c.lead_id) return;
+  try {
+    const db = await getTenantDb();
+    const { data: fila, error: eLeer } = await db.from('leads').select('venta_tipo, suscripcion_meses, suscripcion_cancelada_at').eq('id', c.lead_id).maybeSingle();
+    if (eLeer) { console.error(`[cobros] no pude leer la suscripción del lead ${c.lead_id}: ${eLeer.message}`); return; }
+    const f = fila as { venta_tipo: string | null; suscripcion_meses: number | null; suscripcion_cancelada_at: string | null } | null;
+    if (!f || f.venta_tipo !== 'suscripcion' || (f.suscripcion_meses == null && !f.suscripcion_cancelada_at)) return;
+    const { error } = await db.from('leads').update({
+      suscripcion_cancelada_at: null, suscripcion_meses_antes: null, suscripcion_meses: null,
+      ...(c.monto_usd != null ? { suscripcion_monto_usd: c.monto_usd } : {}),
+    }).eq('id', c.lead_id).eq('venta_tipo', 'suscripcion');
+    if (error) { console.error(`[cobros] no pude reabrir la suscripción del lead ${c.lead_id}: ${error.message}`); return; }
+    await logLeadEvent(c.lead_id, 'Suscripción', `Activa otra vez: la cobra ${NOMBRE_PASARELA[c.proveedor]} (${c.concepto})`, autor);
+  } catch (e) {
+    console.error(`[cobros] reabrir la suscripción del lead ${c.lead_id}:`, e instanceof Error ? e.message : String(e));
   }
 }
 

@@ -28,6 +28,7 @@ import { cambiarSettingSi, getSettingEstricto, getSetting, setSetting } from './
 import { keyEspaciado } from './espaciado';
 import { AVISOS_DE_CUOTA, claveDedupCuota, cuotasReprogramadas } from './cobranza';
 import { plazoAlReactivar } from './suscripcion-manual';
+import { laCobraLaPasarela } from './cobros-reglas';
 
 export type Pago = {
   id: number;
@@ -396,7 +397,9 @@ export async function cortarRecordatoriosDeCuota(leadId: number, pagoId: number)
   const ws = await getWorkspaceActual();
   if (ws == null) throw new Error('Sin negocio.');
   const { cerrarCorridasDeCuota } = await import('./flujo-corridas');
-  return cerrarCorridasDeCuota(ws, pagoId);
+  // `tirar`: este corte lo pide una persona, y «no pude escribir» no es «no había nada que cortar» (revisión del
+  // 14/10/2026: la API contestaba eso ante un 5xx, y después editarCuota rechazaba por «recordatorio en curso»).
+  return cerrarCorridasDeCuota(ws, pagoId, { tirar: true });
 }
 
 /**
@@ -489,10 +492,14 @@ export async function cobrarCuota(
 ): Promise<{ original: number; monto: number | null; pendiente: number | null; descuento: number; moneda: string | null; montoOriginal: number | null }> {
   if (!datos.fecha) throw new Error('La fecha del pago es obligatoria.');
   const db = await getTenantDb();
-  const { data: antes, error: eLeer } = await db.from('pagos').select('monto_usd, fecha_esperada, pagado').eq('id', pagoId).eq('lead_id', leadId).maybeSingle();
+  const { data: antes, error: eLeer } = await db.from('pagos').select('monto_usd, fecha_esperada, pagado, proveedor').eq('id', pagoId).eq('lead_id', leadId).maybeSingle();
   if (eLeer) throw new Error(`Error leyendo el pago ${pagoId}: ${eLeer.message}`);
   if (!antes) throw new Error('Esa cuota no existe en este lead.');
-  const fila = antes as { monto_usd: number; fecha_esperada: string | null; pagado: boolean };
+  const fila = antes as { monto_usd: number; fecha_esperada: string | null; pagado: boolean; proveedor: string | null };
+  // ⚠️ LO ÚLTIMO QUE SE DIJO DEL COBRO MANDA (revisión del 14/10/2026): la moneda, el monto original, el concepto y el
+  // método se escribían sólo si venían, así que una cuota cobrada en MXN, desmarcada y vuelta a cobrar en USD seguía
+  // diciendo «MX$8.600». En una cuota a mano, lo que no vino se limpia; lo de la pasarela no se toca.
+  const aMano = !fila.proveedor;
   const original = Number(fila.monto_usd) || 0;
   const monto = datos.monto != null && Number.isFinite(datos.monto) && datos.monto > 0 ? centavos(datos.monto) : null;
   // La moneda en que se cobró (decisión 7). `monto` sigue siendo DÓLARES; sin `moneda`, todo como siempre.
@@ -506,9 +513,10 @@ export async function cobrarCuota(
   const upd: Record<string, unknown> = { pago_hora: datos.hora?.trim() || null };
   if (monto != null) upd.monto_usd = monto;
   if (enMoneda) { upd.moneda = enMoneda.moneda; upd.monto_original = enMoneda.montoOriginal; }
+  else if (aMano) { upd.moneda = null; upd.monto_original = null; }
   const { error } = await db.from('pagos').update(upd).eq('id', pagoId);
   if (error) throw new Error(`Error actualizando el pago ${pagoId}: ${error.message}`);
-  await etiquetarPago(pagoId, datos);
+  await etiquetarPago(pagoId, datos, { limpiar: aMano });
 
   if (pend > 0) {
     const existentes = await getPagosByLead(leadId);
@@ -585,9 +593,10 @@ export type DatosDeMoneda = {
  * columna no existe y PostgREST rechazaría la fila ENTERA. Perder la etiqueta se ve en el historial; perder el
  * pago, no. Molde: las omisiones del wizard de Ganado (app/crm/actions.ts, «update APARTE»).
  */
-async function etiquetarPago(pagoId: number, datos: DatosDeMoneda): Promise<void> {
+async function etiquetarPago(pagoId: number, datos: DatosDeMoneda, opts: { limpiar?: boolean } = {}): Promise<void> {
   const e = etiquetaDePago(datos);
-  if (!e.concepto && !e.metodo) return;
+  // `limpiar`: volver a cobrar una cuota a mano sin concepto ni método borra los de la vez anterior.
+  if (!e.concepto && !e.metodo && !opts.limpiar) return;
   try {
     const { error } = await (await getTenantDb()).from('pagos').update({ concepto: e.concepto, metodo: e.metodo }).eq('id', pagoId);
     if (error) console.error(`[pagos] el concepto y el método del pago ${pagoId} no se guardaron (¿falta la migración?): ${error.message}`);
@@ -653,6 +662,9 @@ export async function monedaDelNegocio(): Promise<string> {
 export async function guardarMonedaDelNegocio(moneda: string): Promise<string> {
   const m = normalizarMoneda(moneda);
   if (!m) throw new Error('Esa moneda no existe (va el código de 3 letras: USD, MXN, ARS…).');
+  // ⚠️ SIN NEGOCIO NO SE ESCRIBE (revisión del 14/10/2026): `setSetting` cae al ws1 cuando no hay workspace, y el super
+  // admin sin `?ws` ni negocio propio le cambiaba la moneda al CRM de Mauricio, que es un cliente.
+  if ((await getWorkspaceActual()) == null) throw new Error('Sin negocio: la moneda es de cada negocio (entra con ?ws).');
   await setSetting(KEY_MONEDA_NEGOCIO, m);
   return m;
 }
@@ -1269,6 +1281,17 @@ export async function escribirVenta(leadId: number, cambio: CambioVenta, opts: {
   if (!fila) return { ok: false, error: 'No encontré ese lead en este negocio.' };
   const tipo = ventaTipoDe(fila.venta_tipo as string | null);
   if (opts.tipoVisto && opts.tipoVisto !== tipo) return { ok: false, error: 'El tipo de venta cambió en otra pantalla. Recarga la ficha.' };
+  // ⚠️ UNA SUSCRIPCIÓN QUE COBRA LA PASARELA NO SE CAMBIA DESDE EL CRM (revisión del 14/10/2026): pasarla a pago
+  // único, o cambiarle la mensualidad o el plazo, dejaba al MRR contando otra cosa mientras Stripe o Mercado Pago
+  // seguían cobrando lo de siempre (y la renovación siguiente entraba como cuota de un pago único). Es la misma
+  // condición con que se niega cancelarla a mano (`laCobraLaPasarela`). La fecha sí se corrige.
+  if (tipo === 'suscripcion' && cambio.campo !== 'fecha') {
+    const { data: cs, error: eC } = await (await getTenantDb()).from('cobros').select('tipo, estado, suscripcion_estado').eq('lead_id', leadId).eq('tipo', 'suscripcion');
+    if (eC) return { ok: false, error: `No pude revisar si la cobra la pasarela: ${eC.message}` };
+    if (laCobraLaPasarela((cs ?? []) as Array<{ tipo: string; estado: string; suscripcion_estado: string | null }>)) {
+      return { ok: false, error: 'Esta suscripción la cobra la pasarela: se cambia o se cancela desde su cobro, en Links de pago.' };
+    }
+  }
   const cuotas = await getPagosByLead(leadId);
   const cobradas = cuotas.filter((q) => q.pagado).length;
   const impagas = cuotas.filter((q) => !q.pagado && !esCuotaDevuelta(q)).length;

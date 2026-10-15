@@ -124,5 +124,7 @@ test('la ficha corta la moneda y el estado de la suscripción al que no es admin
   }
   // Y una suscripción que cobra la pasarela no se «cancela» en el CRM mientras la tarjeta se sigue cobrando.
   const est = acc.slice(acc.indexOf('export async function cambiarEstadoSuscripcionAction('));
-  assert.match(est, /c\.tipo === 'suscripcion' && c\.estado === 'pagado' && c\.suscripcion_estado !== 'cancelada'/);
+  // La condición vive desde el 14/10/2026 en `laCobraLaPasarela` (lib/cobros-reglas.ts, la misma que niega cambiar la
+  // venta en `escribirVenta`); lo que dice se ejecuta en tests/pagos-bajas-b2.test.ts. Cambiado a propósito.
+  assert.match(est, /if \(laCobraLaPasarela\(cobros\)\) \{/);
 });

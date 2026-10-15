@@ -8879,9 +8879,46 @@ de escribir nada del grupo): se reactiva, y eso devuelve el plazo y borra la fec
 3000 caracteres (para saber que mide sólo esa función). Medía con el fin de línea del checkout: el mismo código daba
 ~60 más en CRLF, y con dos líneas nuevas pasaba el tope en un clon y no en otro. Ahora mide con LF.
 
-**Lo que queda de la revisión de b2:** las seis BAJAS de docs/relevo/crm-tanda-b1.md («Revisión de b2 · Pagos»): la
-suscripción de la pasarela contra `suscripcion_cancelada_at` (lib/cobrado-lead.ts), la moneda que no se limpia al
-desmarcar (lib/pagos.ts, `cobrarCuota`), el corte de recordatorios que se traga el error (`cortarRecordatoriosDeCuota`),
-el tipo de una suscripción que cobra la pasarela (`escribirVenta`), la moneda del negocio sin workspace
-(`guardarMonedaNegocioAction`) y los dos «por cobrar» de `cobranza_lead` (lib/api-mako/areas/crm.run.ts).
+**Las seis BAJAS de esa revisión** quedaron cerradas en la misma rama: ver la entrada siguiente.
 **Vive en:** `lib/cobranza.ts` · `lib/pagos.ts` · `lib/suscripcion-manual.ts` · `app/crm/actions.ts` · `tests/pagos-medias-b2.test.ts`.
+
+## Las seis «bajas» de b2: tres eran medias, y una era más ancha de lo que decía la revisión (14/10/2026)
+
+Cerradas en `crm-bloques-b2` por el chat de Pagos, después de las altas y las medias (las dos entradas de arriba).
+La revisión las había puesto como «no frenan nada», y al mirarlas contra el código tres eran MEDIAS:
+
+- **Una suscripción de la pasarela contra la manual cancelada.** Un cliente cancelado a mano que vuelve pagando por
+  Stripe se pintaba «Cancelado», y si después le fallaba una renovación **no se veía roja**: es plata que se pierde sin
+  que nadie lo note. Ahora la de la pasarela activa le gana en `cobradoDelLead`.
+  ⚠️ **La revisión veía sólo la mitad:** pedía limpiar `suscripcion_cancelada_at` cuando entra una suscripción nueva.
+  Pero una baja de la PASARELA (`aplicarSuscripcionCancelada`) congela `suscripcion_meses` sin dejar esa fecha, y un
+  lead ya ganado no pasa por `ganarLead`: la suscripción nueva quedaba con el plazo congelado y el MRR no la contaba.
+  **Regla:** el primer pago de una suscripción de la pasarela sobre un lead que ya era suscripción la reabre entera
+  (`reabrirSuscripcionDelLead`, lib/cobros.ts): sin fecha de cancelación, sin plazo (la de la pasarela es sin fin) y
+  con la mensualidad del cobro.
+- **Cambiar la venta de una suscripción que cobra la pasarela.** Pasarla a pago único desde el bloque o la API dejaba
+  al MRR sin contarla mientras Stripe le seguía cobrando al cliente todos los meses, y la renovación entraba como una
+  cuota de pago único. **Regla:** la condición «la cobra la pasarela» es UNA (`laCobraLaPasarela`,
+  lib/cobros-reglas.ts) y la usan las tres puertas: cancelar a mano en la ficha, en la API, y `escribirVenta` para el
+  tipo, la mensualidad y el plazo. Estaba copiada a mano en dos lugares, y el tercero no la tenía.
+- **La moneda del negocio sin negocio.** El super admin sin `?ws` ni negocio propio le cambiaba la moneda al CRM del
+  ws1, que es un cliente: `setSetting` cae a `OWNER_WS` cuando no hay workspace. Es la misma familia que las acciones
+  sin sesión de Pagos. **Regla:** una config por negocio que se guarda con `setSetting` corta ANTES si
+  `getWorkspaceActual()` es null, en la función de `lib/`, no en cada acción (así la API queda cubierta igual).
+
+Las otras tres eran bajas de verdad: volver a cobrar a mano una cuota limpia la moneda, el monto original, el
+concepto y el método de la vez anterior (`cobrarCuota`; lo de la pasarela no se toca); «Cortarlo» dice que falló en
+vez de contestar «no había nada que cortar» (`cerrarCorridasDeCuota(…, { tirar: true })`; el corte de `marcarPago`
+sigue sin tirar); y `cobranza_lead` tiene un solo «por cobrar», sin las cuotas devueltas.
+
+**Un guard que fijaba la copia:** `tests/api-mako-pagos-campo.test.ts` buscaba la condición de la pasarela escrita
+letra por letra en la acción. Al juntarla en una función, el guard pasó a exigir la llamada, y lo que la condición
+dice se ejecuta en `tests/pagos-bajas-b2.test.ts`.
+
+**Lo que quedó SIN hacer (lo vi y no era de la revisión):**
+- El Outstanding del Dashboard (`getOutstandingTotal`, lib/pagos.ts) sigue contando como deuda las cuotas devueltas
+  por un reembolso. Para arreglarlo hay que tocar también el detalle por lead (`getOutstanding…`), que se compara con
+  esa suma.
+- Un lead ya ganado como pago único que paga un link de SUSCRIPCIÓN (una venta adicional) sigue como pago único:
+  `ganarLead` no corre y el MRR no lo cuenta. Decidir si el cobro cambia el tipo de venta es una decisión de producto.
+**Vive en:** `lib/cobrado-lead.ts` · `lib/cobros.ts` · `lib/cobros-reglas.ts` · `lib/pagos.ts` · `lib/flujo-corridas.ts` · `lib/api-mako/areas/crm.run.ts` · `tests/pagos-bajas-b2.test.ts`.
