@@ -19,11 +19,16 @@
 // son dos claves» (AGENTS.md). Acá hay UN escritor (el selector) y UN lector (el
 // ruteo).
 //
-// ⚠️ ES UN MAPA, NO UNA LISTA POR EMBUDO. Una campaña cae en UN producto: el lead
-// tiene un solo `funnel_id`. Con una lista por embudo, la misma campaña podría estar
-// en dos y el ruteo tendría que desempatar en silencio. Acá la clave es el id de la
-// campaña, así que asignarla a otro producto la MUEVE — no hay forma de escribir el
-// estado ambiguo.
+// ⚠️ ES UN MAPA, NO UNA LISTA POR EMBUDO. Una campaña cae en UN producto. Con una lista
+// por embudo, la misma campaña podría estar en dos y el ruteo tendría que desempatar en
+// silencio. Acá la clave es el id de la campaña, así que asignarla a otro producto la
+// MUEVE — no hay forma de escribir el estado ambiguo.
+//
+// ⚠️ Y YA NO ES PORQUE EL LEAD TENGA UN SOLO `funnel_id`: desde la migración 0207
+// (06/10/2026) un lead está en VARIOS productos (`lead_funnel`, `agregarAProducto` en
+// lib/lead-funnel.ts). Que una campaña vaya a varios productos es posible en el modelo; lo
+// que falta es que la entrada de leads de Meta, que hoy resuelve UNO (`funnelIdDeCampana`),
+// agregue los demás. Es una decisión de Martín, no un límite del CRM.
 //
 // ⚠️ EL CONJUNTO GANA A LA CAMPAÑA. Si la campaña C va al producto A y uno de sus
 // conjuntos al B, un lead de ese conjunto va a B: lo más específico es lo que alguien

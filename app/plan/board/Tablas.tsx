@@ -51,6 +51,7 @@
 // tapado y el listener nativo deja de tipar.
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type Dispatch, type DragEvent as DragReact, type ReactNode, type SetStateAction } from 'react';
 import { type BoardTask, type Label, PCOLOR, PLABEL, prioFromScore } from './types';
+import { lugarEn, sugerirNumero, type Lugar } from './lugar-al-soltar';
 import type { Board } from './useBoard';
 import { fechaConDia, diasHasta, plazoTexto, IconoTacho, RepiteChip, IconoRepite, NoAplica, LineaDeadline, proyectoTerminado, ANCHO_TABLA_EN_PROYECTO } from './piezas';
 // El predicado de «se repite» sale del modulo de datos, nunca de un `t.recurrente` suelto.
@@ -299,14 +300,16 @@ function scoreEntreFilas(resto: Array<{ score: number }>, pos: number, dir: 'asc
   return clamp(actual);
 }
 
-function useArrastreFilas(
+function useArrastreFilas<T extends { id: string; score: number }>(
   /** las filas EN JUEGO, en el orden en que se dibujan (las terminadas no entran) */
-  filas: Array<{ id: string; score: number }>,
+  filas: T[],
   dir: 'asc' | 'desc',
   /** si la lista está ordenada por score. NO habilita ni deshabilita el gesto: sólo cambia
    *  qué se sugiere al soltar en un borde (ver `scoreEntreFilas`). */
   porPrioridad: boolean,
-  onSoltar?: (id: string, sugerido: number) => void,
+  /** `resto` (las filas sin la que se mueve, en el orden dibujado) y `pos` (dónde cayó adentro
+   *  de `resto`) son para quien necesita el LUGAR y no sólo el número: la tabla de tareas. */
+  onSoltar?: (id: string, sugerido: number, resto: T[], pos: number) => void,
 ) {
   // La ÚNICA condición es que quien monta la tabla haya pasado la capacidad. El orden de la
   // tabla no entra: ver el porqué, medido, en `scoreEntreFilas`.
@@ -478,7 +481,7 @@ function useArrastreFilas(
           // uno cuando venía de más arriba, o soltar hacia abajo cae un lugar antes.
           const resto = filas.filter((f) => f.id !== id);
           const pos = j >= 0 && j < idx ? idx - 1 : idx;
-          onSoltar(id, scoreEntreFilas(resto, pos, dir, filas[j]?.score ?? 50, porPrioridad));
+          onSoltar(id, scoreEntreFilas(resto, pos, dir, filas[j]?.score ?? 50, porPrioridad), resto, pos);
         },
         onDragLeave: (e: DragReact<HTMLTableSectionElement>) => {
           if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setIns(null);
@@ -1052,8 +1055,10 @@ export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask, ocult
    * `score_manual`), así que no pasa la prop y la fila no dibuja el agarre. Un componente
    * compartido que decide solo qué puede escribir es cómo el slider de prioridad salió a
    * producción contestándole «solo admin» a todos los clientes.
+   *
+   * `lugar` viaja sólo con la tabla por prioridad de mayor a menor: ver `soltarFila`.
    */
-  onSoltar?: (id: string, sugerido: number) => void;
+  onSoltar?: (id: string, sugerido: number, lugar?: Lugar) => void;
   /**
    * Cambiar el deadline desde la celda, y tildar la tarea como hecha.
    *
@@ -1167,7 +1172,10 @@ export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask, ocult
     const s = dir === 'asc' ? 1 : -1;
     const cmp = (a: BoardTask, b: BoardTask) => {
       if (orden === 'num') return s * (a.num - b.num);
-      if (orden === 'score') return s * ((a.score || 0) - (b.score || 0));
+      // A igual número, el desempate del Kanban (`vaAntes`, lugar-al-soltar.ts): la más nueva
+      // primero. Con el orden de llegada, una fila soltada entre dos empatadas podía quedar
+      // en la tabla en otro lugar que el que el server le hizo.
+      if (orden === 'score') return s * ((a.score || 0) - (b.score || 0)) || s * (a.num - b.num);
       if (orden === 'proyecto') return s * nombreProy(a).localeCompare(nombreProy(b), 'es') || b.score - a.score;
       const fa = a.deadline || '', fb = b.deadline || '';
       if (!fa && !fb) return b.score - a.score;
@@ -1180,9 +1188,25 @@ export function TablaTareas({ tareas, board, hoy, onOpen, onOpenProj, ask, ocult
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tareas, orden, dir, board.labels]);
 
-  // Arrastrar una fila para cambiarle la prioridad. Sólo lo ABIERTO entra en juego y sólo
-  // con la tabla ordenada por prioridad: ver `useArrastreFilas`.
-  const arr = useArrastreFilas(vivas.map((t) => ({ id: t.id, score: t.score })), dir, orden === 'score', onSoltar);
+  // Arrastrar una fila para cambiarle la prioridad. Sólo lo ABIERTO entra en juego: ver
+  // `useArrastreFilas`.
+  //
+  // ⚠️ POR PRIORIDAD DE MAYOR A MENOR, SOLTAR DICE UN LUGAR, NO SÓLO UN NÚMERO. Es la misma
+  // regla del Kanban (`hacerLugar`, lugar-al-soltar.ts, decidida el 09/10/2026: «Correr las
+  // de abajo»): entre dos filas con el mismo número el punto medio solo no deja a la soltada
+  // en el medio, y las de abajo se corren un punto. Hasta el 14/10 la tabla mandaba el número
+  // solo, así que el mismo gesto daba otro resultado según la vista. Con otro orden el lugar no
+  // dice nada y va el número solo. El universo es el tablero ENTERO, como en el Kanban: el
+  // server no ve los filtros.
+  const soltarFila = onSoltar && ((id: string, base: number, resto: BoardTask[], pos: number) => {
+    const yo = board.tasks.find((t) => t.id === id);
+    if (orden !== 'score' || dir !== 'desc' || !yo) { onSoltar(id, base); return; }
+    const compite = (t: BoardTask) => t.progress < 100 && !esRecurrente(t);
+    const lugar = lugarEn(resto, pos, compite);
+    const col = board.tasks.filter((t) => t.id !== id && compite(t)).map((t) => ({ id: t.id, score: t.score, num: t.num }));
+    onSoltar(id, sugerirNumero(col, { id, num: yo.num }, lugar, prioFromScore(base), base), lugar);
+  });
+  const arr = useArrastreFilas(vivas, dir, orden === 'score', soltarFila);
 
   // Sobre lo VISIBLE, nunca sobre el tablero entero: si hay un filtro puesto, «todas» son
   // las que se ven. Seleccionar lo que no está en pantalla es cómo se borra de más.

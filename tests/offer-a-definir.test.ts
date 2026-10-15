@@ -22,7 +22,7 @@ import {
 } from '../lib/offer-marco';
 import {
   OPCION_ASI_ESTA_BIEN, OPCION_PULIR, TOPES_PROPUESTA, VALOR_TOTAL_SIN_DATO, alertaFoco, alertaMargen, alertasEmbudo,
-  alertasPrecio, avisosAntesDelDiagnostico, calcularDiagnostico, cifrasDelNegocio, claveCifra, conclusionDeVersion,
+  alertasPrecio, avisosAntesDelDiagnostico, calcularDiagnostico, cierreConfiable, cifrasDelNegocio, claveCifra, conclusionDeVersion,
   duracionEnDias, filtrarCifras, mensajePdf, ofertasDeclaradas, parseDiagnostico, parsePropuesta, porcentajeAlFirmar,
   provisionalDe, resultadoMedible, respuestaSinIA, sanearMensajes,
 } from '../lib/offer-reglas';
@@ -183,7 +183,7 @@ test('6 · los avisos: margen bajo 60%, dónde se cortan las ventas, cuándo sub
   assert.equal(alertaMargen({ precio: pieza('2.000 USD'), costo: pieza('400 USD por cliente') }), null);
   assert.equal(alertaMargen({ precio: pieza('2.000 USD'), costo: pieza('15.000 pesos') }), null, 'monedas distintas: no se compara');
   // Embudo: contra los rangos del §6.4, con datos suficientes.
-  const tasas = { show: 0.45, cierreCalificados: 0.18, cierreAsistencias: 0.15, asistieron: 40 };
+  const tasas = { show: 0.45, cierreCalificados: 0.18, cierreAsistencias: 0.15, asistieron: 40, sinMarcar: 0 };
   const emb = alertasEmbudo(tasas);
   assert.equal(emb.length, 2);
   assert.match(emb[0], /^Asiste el 45%/);
@@ -196,7 +196,7 @@ test('6 · los avisos: margen bajo 60%, dónde se cortan las ventas, cuándo sub
   assert.match(alertasPrecio({ cobro: 90 })[0], /90% al firmar: más de 75%/);
   assert.match(alertasPrecio({ cobro: 30 })[0], /30% al firmar: menos de la mitad/);
   assert.deepEqual(alertasPrecio({ cobro: 60 }), []);
-  assert.match(alertasPrecio({ cobro: null, tasas: { show: 0.7, cierreCalificados: 0.4, cierreAsistencias: 0.3, asistieron: 20 } })[0], /40% de las llamadas calificadas/);
+  assert.match(alertasPrecio({ cobro: null, tasas: { show: 0.7, cierreCalificados: 0.4, cierreAsistencias: 0.3, asistieron: 20, sinMarcar: 0 } })[0], /40% de las llamadas calificadas/);
   // Todo junto, en el orden en que lo lee la IA.
   const todo = avisosAntesDelDiagnostico({
     foco: { productosActivos: 1, ofertasActivas: 1, bandaFacturacion: null },
@@ -205,6 +205,34 @@ test('6 · los avisos: margen bajo 60%, dónde se cortan las ventas, cuándo sub
   });
   assert.match(todo.foco ?? '', /^Vendes 4 ofertas/);
   assert.equal(todo.otras.length, 4);
+});
+
+// El PDF de un cliente dijo «Cierras el 170% de las llamadas calificadas» (12/10/2026) y le aconsejó subir el
+// precio: con asistencias sin calificar, «calificados» es un piso. Lo de acá fija que un aviso no afirme nunca un
+// cierre imposible, y que con el dato a medias sólo diga lo que las cotas permiten.
+// ROTURAS (14/10/2026, base 11 de 11 en verde, restaurado de memoria): alertasPrecio con t.cierreCalificados
+// crudo (el código de antes): 1 fallo, 10 pases · cierreConfiable sin mirar sinMarcar: 1 fallo, 10 pases · el
+// piso como techo en alertasEmbudo: 1 fallo, 10 pases.
+test('6b · el cierre: nunca arriba de 100%, y con calificaciones sin marcar sólo lo que el piso o el techo permiten', () => {
+  const caso = { show: 0.7, cierreCalificados: 1.7, cierreAsistencias: 0.45, asistieron: 20, sinMarcar: 12 };
+  const todos = [...alertasPrecio({ cobro: null, tasas: caso }), ...alertasEmbudo(caso)];
+  for (const a of todos) assert.doesNotMatch(a, /\b([1-9]\d{2,})%/, `un porcentaje imposible: ${a}`);
+  // Más de 30% sobre TODAS las llamadas: el de las calificadas es igual o mayor, así que el consejo vale.
+  assert.deepEqual(alertasPrecio({ cobro: null, tasas: caso }), ['Cierras el 45% de todas las llamadas, y de las calificadas más: más de 30% es señal de que hay margen para subir el precio.']);
+  // Los dos escalones contados de menos: no se dice ningún cierre.
+  const roto = { ...caso, cierreAsistencias: 1.2, sinMarcar: 0 };
+  assert.deepEqual(alertasPrecio({ cobro: null, tasas: roto }), []);
+  assert.deepEqual(alertasEmbudo(roto), []);
+  assert.deepEqual(cierreConfiable(roto), { exacto: null, piso: null, techo: null });
+  // Bajo 25% con calificaciones sin marcar: el techo lo permite, con «menos del».
+  const bajo = { ...caso, cierreCalificados: 0.2, cierreAsistencias: 0.1 };
+  assert.deepEqual(alertasEmbudo(bajo).filter((a) => a.startsWith('Cierras')), ['Cierras menos del 20% de las llamadas calificadas (hay asistencias sin calificar): por debajo de 25% (lo sano es de 25% a 40%). Las ventas se cortan en la llamada: antes de cambiar la oferta, revisa el cierre.']);
+  assert.deepEqual(alertasPrecio({ cobro: null, tasas: bajo }), [], 'el piso de 10% no dice nada sobre «más de 30%»');
+  // Sin saber cuántas faltan marcar, no hay número exacto; el piso de 20% y el techo de 40% no disparan nada.
+  const sinDato = { ...caso, cierreCalificados: 0.4, cierreAsistencias: 0.2, sinMarcar: Number.NaN };
+  assert.deepEqual(cierreConfiable(sinDato), { exacto: null, piso: 0.2, techo: 0.4 });
+  assert.deepEqual(alertasPrecio({ cobro: null, tasas: sinDato }), []);
+  assert.deepEqual(alertasEmbudo(sinDato).filter((a) => a.startsWith('Cierras')), []);
 });
 
 // rotura (alertaFoco con el umbral viejo de 6 sin facturación): 2 fallos, 8 pases (cae también el 6, que cuenta las otras ofertas sin facturación). rotura (que salga con 10.000 o más): 1 fallo, 9 pases.

@@ -73,6 +73,11 @@ export const DEFS: Def[] = [
   // (app/integraciones/IntegracionesBoard.tsx).
   { key: 'stripe', nombre: 'Stripe', categoria: 'Pagos', descripcion: 'Cobra con un link de pago y cada pago entra solo a tu CRM.', envs: ['STRIPE_SECRET_KEY', 'STRIPE_ACCOUNT_ID', 'STRIPE_WEBHOOK_SECRET'] },
   { key: 'mercadopago', nombre: 'Mercado Pago', categoria: 'Pagos', descripcion: 'Cobra en tu moneda con un link de Mercado Pago y cada pago entra solo a tu CRM.', envs: ['MERCADOPAGO_ACCESS_TOKEN', 'MERCADOPAGO_USER_ID'] },
+  // Las FUENTES QUE AVISAN del Leads Scraper (14/10/2026, docs/diseno-leads-scraper.md): el propio
+  // público del negocio entra solo al CRM. Opcionales como las pasarelas (`esFuenteQueAvisa`,
+  // lib/fuentes-leads-catalogo.ts): sin configurar no bajan el medidor de nadie.
+  { key: 'hotmart', nombre: 'Hotmart', categoria: 'Pagos', descripcion: 'Cada compra y cada carrito abandonado de Hotmart entran solos a tu CRM.', envs: ['HOTMART_HOTTOK'] },
+  { key: 'skool', nombre: 'Skool', categoria: 'Contenido', descripcion: 'Quien pide entrar a tu comunidad de Skool entra solo a tu CRM, con sus respuestas.', envs: ['SKOOL_WEBHOOK_CLAVE'] },
   // Google Calendar: no se mide por env — GOOGLE_CLIENT_ID/SECRET son la app
   // OAuth de la agencia (siempre puesta), así que chequearlos diría "conectada"
   // para todos sin que nadie haya autorizado su agenda. Se mide por señal REAL

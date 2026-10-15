@@ -134,11 +134,13 @@ export const CSS = `
 .lk-pila { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .lk-pila > * { grid-column: 1 / -1; }
 .lk-pila > .lk-comp--kpi { grid-column: auto; }
+.lk-pila > .lk-comp--titular { grid-column: 1 / -1; }
 
 /* Las tarjetas: las de MaKo, con el tema de la hoja. */
 .lk-comp { display: flex; flex-direction: column; gap: 10px; padding: var(--dash-tarjeta-pad, 20px 22px); box-sizing: border-box; background: var(--dash-tarjeta-fondo, var(--surface)); border: 1px solid var(--dash-tarjeta-borde, var(--border)); border-radius: var(--dash-tarjeta-radio, 16px); box-shadow: var(--dash-tarjeta-sombra, none); overflow: hidden; font-family: var(--dash-letra, 'Geist', system-ui, sans-serif); color: var(--ink); min-width: 0; }
 .lk-comp--filete { border-top: 3px solid var(--lk-filete, var(--border-strong)); }
 .lk-comp--elemento { background: transparent; border-color: transparent; box-shadow: none; padding: 0; }
+.lk-comp--elemento { container-type: inline-size; }
 /* Un bloque de General es una TARJETA DE LA HOJA, como un gráfico (14/10/2026, Martín: «no están interactuando con el
    diseño de la página»): el marco del tema, y adentro el bloque (app/general/bloques/comun.tsx). --gb-fondo es el fondo
    de la tarjeta, para lo que se dibuja ENCIMA de ella (la caja del placeholder, las tarjetas del Plan). Con «Fondo:
@@ -152,7 +154,7 @@ export const CSS = `
 .lk-comp-cab { display: flex; align-items: flex-start; gap: 8px; min-width: 0; }
 .lk-comp-tit { flex: 1 1 auto; display: flex; align-items: center; gap: 6px; min-width: 0; font-size: var(--dash-titulo-tam, 19px); font-weight: var(--dash-titulo-peso, 600); text-transform: var(--dash-titulo-mayus, none); letter-spacing: var(--dash-titulo-espacio, -0.015em); line-height: 1.25; color: var(--ink); }
 .lk-comp-tit > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.lk-comp--kpi .lk-comp-tit { font-size: 14px; color: var(--dim); }
+.lk-comp--kpi .lk-comp-tit { font-size: 15px; color: var(--dim); }
 .lk-comp--mono .lk-comp-tit { font-family: 'Geist Mono', monospace; font-weight: 400; font-size: 13px; text-transform: uppercase; letter-spacing: .1em; color: var(--dim); }
 .lk-comp-sub { margin-top: -6px; font-size: 13px; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lk-comp-acciones { flex: none; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; max-width: 70%; cursor: default; }

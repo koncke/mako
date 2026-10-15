@@ -64,7 +64,7 @@ export const DEFS: readonly OperacionDef[] = [
     // LOS ESCENARIOS DE «PROBAR» (14/10/2026): los mismos contactos de la barra de Probar (`escenariosDePrueba`).
     id: 'escenarios_secuencia', area: 'chatbot', tipo: 'lectura',
     titulo: 'Escenarios de prueba de una secuencia',
-    descripcion: 'Los caminos distintos de UNA automatización por sus condiciones, los mismos que «Probar» muestra como contactos de su barra: qué sale en cada condición, en orden, y cuántos mensajes de WhatsApp le llegan por ese camino. El primero es el de un lead recién llegado por su CRON. Hasta 8; `faltan` dice cuántas ramas quedaron afuera. Úsala para saber qué conviene probar antes de prenderla. Pide antes el secuenciaId con listar_secuencias_nutricion.',
+    descripcion: 'Los caminos distintos de UNA automatización por sus condiciones, los mismos que «Probar» muestra como contactos de su barra: qué sale en cada condición, en orden, y cuántos mensajes de WhatsApp le llegan por ese camino. El primero es el de un lead recién llegado por su CRON. Hasta 8; `faltan` dice cuántas ramas quedaron afuera. Úsala para saber qué conviene probar antes de prenderla; el `numero` de cada uno es el que recibe probar_secuencia. Pide antes el secuenciaId con listar_secuencias_nutricion.',
     parametros: [pSecuenciaId],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: { tab: TAB },
   },
@@ -538,8 +538,8 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'probar_secuencia', area: 'chatbot', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar',
     titulo: 'Probar una secuencia en vivo',
-    descripcion: 'PROPONE mandar TODOS los pasos de una secuencia, marcados [PRUEBA], al teléfono y al email del dueño cargados en Perfil (nunca a un lead), y devuelve un link para confirmarlo. Sirve para ver y escuchar la secuencia como la recibe un lead. No toca inscripciones ni métricas. Los pasos de WhatsApp exigen el número vinculado.',
-    parametros: [pSecuenciaId],
+    descripcion: 'PROPONE mandar los mensajes de UN escenario de una secuencia (el camino que recorre un lead por sus condiciones), en orden y marcados [PRUEBA], al teléfono y al email del dueño cargados en Perfil (nunca a un lead), y devuelve un link para confirmarlo. Si tiene más de un escenario, pasa su número (de escenarios_secuencia); con uno solo, no hace falta. Sirve para ver y escuchar la secuencia como la recibe un lead. No toca inscripciones ni métricas. Los pasos de WhatsApp exigen el número vinculado; los de Instagram y Messenger no se prueban en vivo.',
+    parametros: [pSecuenciaId, { nombre: 'escenario', tipo: 'number', entero: true, minimo: 1, maximo: 8, descripcion: 'el número del escenario (de escenarios_secuencia). Obligatorio si la secuencia tiene más de uno.' }],
     reversible: false, escribe: 'envía mensajes reales por WhatsApp y email al contacto del dueño y marca estrategia.probada_at',
     canales: SIN_HTTP, costo: 'externo', gating: { tab: TAB, rolMinimo: 'admin' },
   },

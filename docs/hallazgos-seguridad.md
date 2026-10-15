@@ -16,6 +16,8 @@ arregladas, y donde el rescate lo sabía, lo dice.
 
 ## Lo que más muerde acá
 
+- **(14/10/2026) Con la clave PÚBLICA de Supabase se ejecutaban dos funciones SECURITY DEFINER** de la cola de Flow: se leían y saboteaban los trabajos de todos los clientes. `revoke ... from public` no saca el EXECUTE DIRECTO que Supabase le da a anon. Cerrado con la 0280 → [Auditoría end-to-end del 14/10](#auditoría-end-to-end-del-14102026).
+- **(14/10/2026) La página esconde por rol; la API no**: el proxy sólo pide sesión, así que toda ruta sin su propio corte de rol se la deja usar a un closer o setter → [Auditoría end-to-end del 14/10](#auditoría-end-to-end-del-14102026).
 - La credencial del repo de la agencia se le servía a los clientes por la API, y `serviciosPara()` —la
   función escrita para evitarlo— no la llamaba nadie → [GitHub en el panel de un cliente](#la-credencial-de-la-plataforma-adentro-del-panel-de-un-cliente-github).
 - Los guards que suenan a «solo la agencia» no lo son: tres de cuatro los pasa cualquier admin-cliente, y el único que cierra de verdad es `getSesionAdmin()` → [Guards, roles y sesión](#guards-roles-y-sesión).
@@ -437,6 +439,81 @@ Dos corolarios del mismo arreglo:
 **Vive en:** lib/auth-session.ts (`WS_PRUEBA`, `exigirClienteDePrueba`) · app/api/datos-mau/route.ts (`wsDePrueba`) · lib/reset-workspace.ts · app/_components/PanelAgencia.tsx · *2026-08-08*
 
 ## Guards, roles y sesión
+
+### ⚠️ El 2FA del login YA está escrito a medias, y tiene tres trampas antes de retomarlo (14/10/2026)
+
+**No se arranca de cero.** La mig `0266_segundo_factor.sql` está en `main` y aplicada en prod (seis tablas
+por USUARIO, sin `workspace_id`, más `usuarios.mfa_activo`). El código (TOTP, passkeys, códigos por
+WhatsApp y por correo, 10 de recuperación, «recordar este dispositivo», freno de 8 fallos contado en la
+base, super admin obligatorio) vive en `refs/wip/2fa-login-2026-10-13` (`edbdf3921`, +2.912 líneas), sin
+typecheck completo ni prueba en el navegador. Qué falta, en `docs/relevo/super-admin.md`.
+
+1. **El código por WhatsApp del WIP le llega a OTRO número en Argentina y México.** `validarTelefono`
+   guarda dígitos y `enviarAPersonaMaKo` los manda pelados (`soloDigitos`), así que Evolution
+   (`createJid`) le saca el tercer dígito a todo número de 13 que empiece con 52 o 54: `549…` sale como
+   `54…`. No da error: el WhatsApp sale, a nadie. Es la regla de AGENTS.md («un número que dio WhatsApp
+   viaja como jid»): se canoniza al ENROLAR con `whatsappNumbers` y se manda el jid (`jidCanonico`).
+   **Vive en:** `lib/mfa.ts` (WIP, `mandarCodigo`) · `lib/mako-grupo.ts:524`.
+2. **El motor de Automations no puede mandarle nada a una PERSONA de `usuarios`.** Sus destinos son el
+   grupo del negocio, un lead o la lista de destinatarios del workspace. Mandar el código por una
+   automatización del SuperAdmin necesita un destino nuevo («a la persona del evento»). Y el camino
+   obvio, `emitirDelCatalogo`, tiene dos filos: sin `ws` cae a `getWorkspaceActual() ?? OWNER_WS`
+   (`lib/avisos.ts:505`), que en un login SIN sesión es el ws1, un cliente; y si pasa por `emitirAviso`
+   el código queda copiado en `notificaciones`, `mako_doer_conv`, un Web Push a los admins y
+   `avisos_cola`. **Regla:** un secreto de un solo uso viaja con el `ws` explícito, fail-closed, por un
+   envío que no deja copia; la base guarda sólo su HMAC.
+3. **Una automatización pausada apaga ese método sin un error.** `emitirPorEvento` sin filas activas
+   contesta `ok` y no manda nada (`lib/aviso-evento.ts:330-335`), y un dato vacío borra su renglón: sacar
+   `{{codigo}}` de la plantilla manda un correo sin código. El segundo paso tiene que mirar cuántas filas
+   corrieron y decir «no pude mandarlo, usa otro método»; Publicar exige `{{codigo}}` y ningún DELAY (un
+   DELAY lo manda al cron de 5 minutos y guarda los datos en `flujo_corridas`).
+
+**El diagnóstico obvio equivocado:** «código por correo» suena a segundo factor y no lo es si va al
+MISMO correo con el que se entra: el login ES esa cuenta de Google, y quien la robó lee el código. La
+0266 ya lo exige distinto (`email_respaldo`). Google tampoco ofrece el correo como segundo paso.
+
+#### Tanda 1 (14/10/2026): terminada y probada en la rama `2fa-tanda1`, sin desplegar
+
+**Vive en:** la rama `2fa-tanda1` (worktree `C:/Users/marti/wt-2fa`): `lib/mfa.ts` · `lib/mfa-reglas.ts` ·
+`app/api/auth/2fa/route.ts` · `app/api/perfil/seguridad/route.ts` · `app/api/auth/callback/google/route.ts` ·
+`tests/mfa.test.ts`. Sale con la app de autenticación, la llave de acceso, los códigos de recuperación y
+«recordar este dispositivo»; WhatsApp y correo quedan apagados (`CANALES_CODIGO` vacío) hasta que salgan
+por una automatización del SuperAdmin. **No se despliega sin Martín presente**: al desplegar, su sesión
+deja de valer y tiene que activar su método en el acto.
+
+Lo que encontró la revisión de seguridad (tres lentes con un refutador por hallazgo), con su regla:
+
+- ⚠️ **Un freno que CUENTA antes de ANOTAR se saltea en paralelo.** `frenado()` leía «cuántos fallos
+  hubo» y el fallo propio se escribía recién después de verificar, tres idas a la base más tarde: 500
+  pedidos simultáneos con el mismo paso intermedio leían todos «0» y probaban 500 códigos. Con la cuenta
+  de Google del super admin eso es ~13% por día de adivinar su app. **La regla: se anota el intento
+  ANTES de contar, y se cuenta incluyéndolo** (`intentar` + `debeFrenar`); el k-ésimo pedido ve al
+  menos k filas. Fail-closed en las dos puntas: la versión anterior tragaba el error del insert y el
+  freno quedaba abierto sin aviso. Medido contra la base: 30 en paralelo, pasó 1.
+- **Un freno por persona que corta TODO se vuelve un arma.** Puesto arriba de todas las acciones,
+  quien tenía la cuenta de Google le bloqueaba al dueño también su llave de acceso y hasta el
+  «olvidar dispositivo», mandando códigos malos. El freno va sólo en lo que se puede ADIVINAR (un
+  código de 6 dígitos o uno de recuperación); una firma de passkey no se adivina.
+- **Un flag desnormalizado no puede ser lo único que decide si se pide el segundo paso.** Activar un
+  factor son dos escrituras (el factor y `usuarios.mfa_activo`); con la segunda caída, el 2FA de esa
+  persona quedaba apagado para siempre. El login cuenta los factores de verdad (`mfaActivoReal`) y
+  arregla el flag si no coincide; el flag sigue sirviendo para lo que corre en cada request.
+- **Refutado**: que un email de `AUTH_ALLOWED_EMAILS` sin fila sea una puerta. Nace admin sin factores
+  y enrola el primero, pero es el mismo bootstrap que el del super admin, no una puerta nueva.
+
+**Cómo se prueba el login sin Google** (lo que funcionó el 14/10): un usuario descartable en
+`usuarios` (local escribe en prod: se borra al terminar y se verifica que las seis tablas vuelvan a
+cero), el paso intermedio firmado a mano con `crearPreauth` y el `AUTH_SECRET` del `.env.local`, y
+Playwright con un autenticador WebAuthn virtual por CDP (`WebAuthn.addVirtualAuthenticator`).
+⚠️ **El autenticador virtual vive en el contexto del navegador**: una llave creada en una corrida no
+existe en la siguiente, y el «entrar con la llave» se cuelga sin error hasta el timeout. Crear y usar
+la llave van en la MISMA corrida. Y un test que firma un token de admin necesita `mfa` (`'totp'` o
+`'dev'`): sin eso ya no es una sesión, y tres tests del proxy se pusieron rojos por eso.
+
+**Quedó SIN hacer (tanda 3):** pedir un código fresco para quitar un método o regenerar los códigos;
+dos «quitar» simultáneos pueden dejar al super admin sin métodos (hace falta ya tener su sesión);
+reset del 2FA por un admin; cerrar sesiones en todos lados al perder el teléfono; método preferido; la
+sección Seguridad en `/m/cuenta`. **Tanda 2:** el destino «a la persona del evento» en Automations.
 
 ### ⚠️ Ningún guard que mire el eje de workspace puede restringir a la agencia: el único que sirve es `getSesionAdmin()`
 
@@ -1529,3 +1606,67 @@ leer la tabla vacía.
 
 _11/10/2026 — chat «Graphics», agente COMPARTIR + integración; verificado en Chrome sobre ws9 (crear,
 abrir sin sesión, detalle 403, revocar, link revocado 404)._
+
+## Auditoría end-to-end del 14/10/2026
+
+Pedido de Martín vía «Estrategia 3 cuentas»: una auditoría de seguridad de punta a punta, «con libertad
+de criterio». Doce barridos independientes (siete por zona de `app/api`, más las acciones de servidor, la
+exposición de Supabase a la clave pública, XSS/SSRF, secretos y dependencias, y abuso de MaKo como
+agente), con un refutador por cada hallazgo crítico, alto o medio: 39 agentes. Todo en sólo lectura; la base,
+con SELECT de catálogo; producción, sólo con GET anónimos. **20 hallazgos únicos confirmados, 5 refutados, 8
+de severidad baja sin refutar.**
+
+| Sev. | Qué | Dónde | Arreglo · estado |
+|---|---|---|---|
+| **Crítica** | Con la clave anon se ejecutaban `flow_tomar_trabajos` y `flow_cerrar_abandonados` (SECURITY DEFINER, dueño postgres): leer los trabajos de Flow de cualquier cliente (prompts, caras en base64) y cerrarlos todos | `supabase/migrations/0154_flow_abandono.sql:122` | **CERRADO**: mig `0280_rpc_sin_anon.sql`, aplicada el 14/10 (`3077044af`). Medido: 405 «25006» → 401 «42501», y 0 funciones de public ejecutables por anon |
+| Alta | Credenciales VIVAS de producción en 49 transcripciones versionadas (Evolution, Meta, Porkbun, Vercel, Telegram, ElevenLabs, y keys de ws1/ws4/ws9/ws10). Se redactaron el 07/09 y NUNCA se rotaron | `docs/chats/` (desde `541184cce`, 08/08) | **rotarlas**: lista con casilla y fecha en `docs/rotacion-credenciales.md`; después, sacar `docs/chats` del repo |
+| Alta | `/api/cron/plan-recurvar` sin el secreto del cron: un anónimo dispara el Perro (IA paga) y reescribe el plan | `app/api/cron/plan-recurvar/route.ts:32` | `checkCronAuth` + guard que lo exija en todo `app/api/cron` |
+| Alta | Los proxies de media de WhatsApp sirven el archivo con el Content-Type del REMITENTE: XSS almacenado en hola-mako.com | `app/api/admin/mako-chats/media/route.ts:28` · `app/api/whatsapp/evolution/mensajes/route.ts:59` | lista blanca de tipos + `Content-Disposition: attachment` + `nosniff` |
+| Alta | Cuotas y pagos sin verificar que el lead sea del workspace: filas ajenas y cruce por el join | `app/crm/[id]/deal-actions.ts:253` · `lib/pagos.ts` | leer el lead con `getTenantDb` antes de escribir |
+| Alta | XSS almacenado en el detalle de las tareas: un closer/setter ejecuta código en la sesión del admin | `app/plan/board/RichText.tsx:108` | sanear al dibujar con `sanearHtml` (lib/html-seguro.ts) y al guardar |
+| Alta | El token clásico (`mkoag_`) sigue valiendo cuando quien lo acuñó pierde el acceso (agencia revocada, admin suspendido) | `lib/api-mako/tokens.ts:105` | atarlo a su creador y revocarlo al sacar el acceso |
+| Media | Corregir el saldo de Claude desde un cliente escribe el saldo del ws1 | `app/api/anthropic-usage/route.ts:101` | no caer a `OWNER_WS` en una escritura |
+| Media | Un closer/setter redirige los reportes del negocio a su teléfono | `app/api/perfil/destinatarios/route.ts:37` y `/api/perfil` | corte de `rol_ws` admin |
+| Media | Un GET desarchiva automatizaciones `activa=true` y vuelve a mandar audios (CSRF por link) | `app/api/chat-agent/onboarding/resumen/route.ts:37` | borrar la ruta (sin llamadores) y desarchivar en pausa |
+| Media | Cualquier admin de cliente hace que la línea de MaKo agregue a grupos o le escriba a números arbitrarios, sin tope | `lib/mako-grupo.ts:384` | tope por workspace + verificar el número antes de sumarlo |
+| Media | `/api/ads-analyst/*` sin corte de rol: un closer/setter lee y escribe la config | `app/api/ads-analyst/**` | corte admin + `tabEnCapa` |
+| Media | `/api/landing-analyst/analyze` y `/sync` sin la guarda que sí tienen sus hermanas | `app/api/landing-analyst/` | la misma guarda |
+| Media | Cualquiera en el grupo oficial de MaKo de un cliente actúa como admin con alcance «ejecutar» (también confirma) | `lib/mako-doer-in.ts:855` | resolver el rol del remitente; confirmar sólo el dueño · decisión de producto |
+| Media | `/api/doc` firma cualquier ruta del bucket privado `contratos` guardada en el lead, y el navegador escribe `doc_path` | `app/api/doc/route.ts:60` | exigir el prefijo `<ws>/<lead>/` y no aceptar `doc_path` del cliente |
+| Media | SSRF en «Sumar una web» del Archivero: mira el texto del host, no la IP, y sigue redirects | `app/api/onboarding/archivero/route.ts:136` | `validarDestino` + la bajada con IP clavada de `lib/landing-fetch.ts` |
+| Media | next 16.2.6: DoS de Server Actions (GHSA-m99w-x7hq-7vfj, se arregla en 16.2.11) | `package.json:55` | subir next · decisión (toca el build de todos) |
+| Media | Un closer/setter lee métricas y análisis reservados al admin por `/api/mako-doer` | `app/api/mako-doer/route.ts:86` | filtrar las herramientas con `entraAlChat` |
+| Baja | Insights de Meta sin corte de rol: un closer ve saldo, gasto y el medio de pago | `app/api/meta-health/route.ts:48` (y 4 hermanas) | `guardAdsWs()` |
+| Baja | `/api/compartido/archivo` autoriza por alcance sin mirar el recurso: el link de Conocimientos baja la galería privada de branding | `app/api/compartido/archivo/route.ts:37` | exigir `recurso === 'branding'` |
+
+**Refutados**, y el porqué también es información: `/api/agencia/entrar` sin admin (lo corta otra guarda); «Revelar»
+una credencial de plataforma al ws1; las APIs de Experimentos/Retro sin rol; el «deshacer» de `deshacerQuitarAction`;
+el texto de un lead entrando a la memoria del doer como turno de MaKo. **Bajas sin refutar**: el secreto del cron
+comparado con `!==` (y 10 copias del chequeo); el path del Archivero acepta `..`; «Completar como Mauricio» con guarda
+en negativo; el webhook de Fathom de un workspace sin secreto propio verifica con el del ws1; identidades fiscales y
+teléfonos del negocio sin chequeo de rol; las funciones nuevas nacían abiertas (lo cerró la 0280); Supabase Auth con
+el registro abierto (la app no lo usa: se apaga en el panel de Supabase).
+
+**Lo que la auditoría NO cubrió**: de los 58 archivos `'use server'`, el barrido leyó a fondo unos 25 y el resto por
+encima. Las 318 rutas de `app/api` se leyeron todas.
+
+### Las reglas que quedan
+
+- ⚠️ **`revoke all on function … from public` NO saca el EXECUTE de anon y authenticated**: Supabase se lo da DIRECTO
+  por default privileges (`pg_default_acl`, postgres/public/f). La 0118 lo cerró para las tablas y nadie lo hizo para
+  las funciones. Una función SECURITY DEFINER con dueño postgres se saltea el RLS, así que con la clave anon, que
+  viaja al navegador, es una puerta a la base que no pasa por `proxy.ts`. **Toda función nueva lleva su
+  `revoke … from public, anon, authenticated` explícito**, y desde la 0280 nacen cerradas. Se mide en el catálogo
+  (`has_function_privilege('anon', …)`), nunca leyendo la migración: el comentario de la 0154 juraba lo contrario.
+- ⚠️ **La página esconde por rol y la API no.** `proxy.ts` sólo exige sesión (el rol, únicamente en `SOLO_ADMIN`), así
+  que un `requireRolWs([])` en la página no protege su API: siete hallazgos de esta auditoría tienen esa forma
+  (ads-analyst, landing-analyst, perfil/destinatarios, mako-doer, meta-health, anthropic-usage, doc). **Una ruta que
+  hace lo que una página le esconde a un rol lleva el mismo corte adentro.**
+- **Un id que llega del navegador se carga con `getTenantDb` ANTES de escribir algo que lo nombre.** `getTenantDb`
+  le pone el `workspace_id` al insert, pero no comprueba que el `lead_id` sea de ese workspace.
+- **Un proxy de archivos no repite el Content-Type de quien mandó el archivo**: eso es servir HTML ajeno desde
+  nuestro origen.
+- **Una transcripción de chat versionada es un volcado del `.env`**, y **redactar no es rotar**: el redactor del
+  07/09 tapó unas líneas y se le escaparon otras, y lo que tapó seguía vivo.
+
+**Vive en:** la tabla de arriba · `supabase/migrations/0280_rpc_sin_anon.sql` · *auditoría del 14/10/2026, chat «Ciberseguridad», workflow `wf_6f480c38-f3f`*

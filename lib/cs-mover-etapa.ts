@@ -117,6 +117,17 @@ export type Movimiento = {
   producto: string;
   /** La clave anterior. `null` = no estaba en esta entrega. */
   desde: string | null;
+  /**
+   * El `etapa_desde` que la fila tenía ANTES de este movimiento (`null` = no tenía fila).
+   * Es lo que un deshacer manda de vuelta como `relojPrevio`, junto con `desde`.
+   *
+   * ⚠️ EL DESHACER REPONE LO QUE LA BASE TENÍA, NO LO QUE LA PANTALLA CREÍA (14/10/2026). Con
+   * la pantalla vieja —MaKo pasó al cliente de etapa por el avance del curso después de que se
+   * dibujó—, deshacer con la etapa de la pantalla lo devolvía a una etapa que ya había dejado,
+   * con un reloj viejo, re-enrolándolo en sus secuencias; y si la pantalla creía que no tenía
+   * fila, se la borraba. Estos dos campos son la única fuente que sabe dónde estaba.
+   */
+  relojPrevio: string | null;
   /** La clave destino, ya validada contra el catálogo. */
   hacia: string;
   /** El rótulo de la etapa destino, para el texto que lee una persona. */
@@ -135,7 +146,7 @@ export type Movimiento = {
 function fallo(p: PedidoMovimiento, motivo: string, producto = ''): Movimiento {
   return {
     ok: false, motivo, leadId: p.leadId, productoId: p.productoId, producto,
-    desde: null, hacia: '', rotulo: '', entro: false, cambio: false, por: p.por ?? POR_PERSONA,
+    desde: null, relojPrevio: null, hacia: '', rotulo: '', entro: false, cambio: false, por: p.por ?? POR_PERSONA,
   };
 }
 
@@ -187,7 +198,7 @@ export async function moverClienteDeEtapa(pedido: PedidoMovimiento): Promise<Mov
 
   // ── 3. Dónde estaba ────────────────────────────────────────────────────────
   const { data: previas, error: errPrev } = await db
-    .from('cliente_entrega').select('id, etapa')
+    .from('cliente_entrega').select('id, etapa, etapa_desde')
     .eq('lead_id', pedido.leadId).eq('producto_id', pedido.productoId)
     .order('id', { ascending: true }).limit(1);
   if (errPrev) {
@@ -196,13 +207,13 @@ export async function moverClienteDeEtapa(pedido: PedidoMovimiento): Promise<Mov
     // línea «— → Hito 2» sobre un cliente que venía de Hito 1 es un dato falso.
     return fallo(pedido, 'No pude leer en qué etapa estaba.', prod.nombre);
   }
-  const previa = ((previas ?? []) as Array<{ id: number; etapa: string }>)[0] ?? null;
+  const previa = ((previas ?? []) as Array<{ id: number; etapa: string; etapa_desde: string | null }>)[0] ?? null;
   const desde = previa?.etapa ?? null;
   const entro = !previa;
 
   const base: Movimiento = {
     ok: true, leadId: pedido.leadId, productoId: pedido.productoId, producto: prod.nombre,
-    desde, hacia, rotulo, entro, cambio: false, por,
+    desde, relojPrevio: previa?.etapa_desde ?? null, hacia, rotulo, entro, cambio: false, por,
   };
 
   if (desde === hacia) return base;   // ya estaba ahí: no se escribe NADA

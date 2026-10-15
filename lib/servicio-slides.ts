@@ -120,6 +120,23 @@ export const SLIDES: Record<string, Slide[]> = {
     // app/api/webhooks/mercadopago: el aviso no se cree, se relee el pago con tu token (§4.5 del contrato)
     { t: 'Un aviso falso no marca nada', d: 'Antes de anotar un pago, MaKo lo vuelve a consultar en tu Mercado Pago. Solo cuenta lo que Mercado Pago confirma.' },
   ],
+  // Las fuentes que avisan del Leads Scraper (14/10/2026, docs/diseno-leads-scraper.md). Cada slide
+  // afirma sólo lo que hace lib/fuentes-leads.ts: no mueve de etapa ni manda mensajes (eso es de
+  // Automations), así que no se promete aquí.
+  hotmart: [
+    // app/api/webhooks/hotmart + lib/hotmart-evento.ts (PURCHASE_APPROVED, PURCHASE_OUT_OF_SHOPPING_CART)
+    { t: 'Cada comprador entra solo', d: 'Cuando alguien compra o abandona el carrito en Hotmart, aparece en tu CRM con su email y su teléfono.' },
+    // lib/fuentes-leads.ts (findLeadByContacto + enriquecerLead + anotarUnaVez)
+    { t: 'Sin fichas repetidas', d: 'Si la persona ya estaba en tu CRM, MaKo le suma la compra a su historial en vez de crear otra ficha.' },
+    // lib/hotmart-evento.ts (EVENTOS_HOTMART: reembolso, contracargo, suscripción cancelada)
+    { t: 'Todo queda en su historial', d: 'Reembolsos, pagos rechazados y suscripciones canceladas quedan anotados en la ficha del lead.' },
+  ],
+  skool: [
+    // app/api/webhooks/skool + lib/skool-evento.ts (Answered Membership Questions por Zapier)
+    { t: 'Tu comunidad, en tu CRM', d: 'Quien pide entrar a tu Skool aparece en tu CRM con su email, sin copiar nada a mano.' },
+    // lib/skool-evento.ts (respuestasDelOptin) + la columna optin_respuestas (mig 0274)
+    { t: 'Con sus respuestas', d: 'Lo que contestó en las preguntas de ingreso queda en su ficha, para calificarlo antes de escribirle.' },
+  ],
   // Claude enchufado a MaKo. Sin API key: se instala una skill del lado del usuario y
   // habla por /api/agente/* con un token.
   //

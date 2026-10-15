@@ -27,6 +27,11 @@
 //   · llegoPor repitiendo «Landing · Landing»                               → 13 / 1
 //   · etapaEnTablero contando una etapa que el funnel ya no tiene           → 13 / 1
 //   · lineaActividad sin traducir la key de la etapa a su nombre            → 13 / 1
+// Y la regla del ORIGEN del tablero v3 (14/10/2026: el Deshacer no repone monto, motivo ni plazo),
+// base 15 / 0, de a una y restaurando:
+//   · seSacaEnElTelefono sin el chequeo del desenlace (terminalEstadoFor)    → 14 / 1
+//   · etapasMovibles sin preguntar si de la actual se sale                    → 14 / 1
+//   · acciones.ts sin «seSacaEnElTelefono(» en el server                      → 14 / 1
 // =============================================================================
 
 import test from 'node:test';
@@ -35,7 +40,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   buscarEnCartera, chipsDeDia, cualAgendar, diaRelativo, etapaEnTablero, etapasMovibles, haceCuanto, lineaActividad, llegoPor,
-  proximaLlamada, rotuloAgendar, seMueveEnElTelefono, siguienteAccion, telHref, waMeHref, MAX_RESULTADOS, type EtapaM,
+  proximaLlamada, rotuloAgendar, seMueveEnElTelefono, seSacaEnElTelefono, siguienteAccion, telHref, waMeHref, MAX_RESULTADOS, type EtapaM,
 } from '../app/m/crm/reglas';
 
 const ETAPAS: EtapaM[] = [
@@ -66,7 +71,22 @@ test('mover: Ganado nunca, aunque el embudo no declare kind', () => {
 
 test('mover: la lista no incluye la etapa actual', () => {
   assert.deepEqual(etapasMovibles(ETAPAS, 'lead').map((e) => e.key), ['contactado', 'perdido']);
-  assert.deepEqual(etapasMovibles(ETAPAS, 'perdido').map((e) => e.key), ['lead', 'contactado']);
+  assert.deepEqual(etapasMovibles(ETAPAS, 'contactado').map((e) => e.key), ['lead', 'perdido']);
+});
+
+test('mover: de un desenlace, de un cobro o de Nutrición manual no se SALE desde el teléfono (el Deshacer no repone monto, motivo ni plazo)', () => {
+  for (const k of ['ganado', 'perdido', 'facturando', 'manual', 'agenda']) {
+    assert.equal(seSacaEnElTelefono(ETAPAS, k), false, k);
+    assert.deepEqual(etapasMovibles(ETAPAS, k), [], `${k}: la ficha no ofrece nada`);
+  }
+  assert.equal(seSacaEnElTelefono(ETAPAS, 'lead'), true);
+  assert.equal(seSacaEnElTelefono(ETAPAS, 'contactado'), true);
+  // Una etapa que el funnel ya no tiene se lee como la columna donde la dibuja el tablero (la primera).
+  assert.equal(seSacaEnElTelefono(ETAPAS, 'noshow_r1'), true, 'dibujado en «Lead»: se mueve desde ahí');
+  assert.equal(seSacaEnElTelefono(ETAPAS, null), true);
+  // Y el server pregunta lo mismo antes de mover (no una copia de la regla).
+  const acciones = readFileSync(join(process.cwd(), 'app/m/crm/acciones.ts'), 'utf8');
+  assert.ok(acciones.includes('seSacaEnElTelefono(stages, antes)'), 'moverEtapaAction chequea el origen');
 });
 
 test('contacto: número canónico, sin inventar el país', () => {

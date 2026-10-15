@@ -13,7 +13,8 @@
 //   · El nombre (dos renglones como mucho) y 1-2 CHIPS: los valores de las dimensiones extra del gráfico
 //     (`g.tabla.columnas`, en `FilaResultado.extra`).
 //   · LA barra de la métrica elegida (`g.barra`, la misma regla que la tabla con barras: nunca una de «menos es
-//     mejor»), con su número, contra la mayor de la galería.
+//     mejor»), con su NOMBRE arriba y su número en grande, contra la mayor de la galería. Sin el nombre, «US$395» al
+//     lado de una barra no decía de qué era (las otras métricas sí lo decían).
 //   · 3-4 números chicos: las otras métricas.
 //   · El clic (o Enter) abre el detalle de esa cosa, como una fila de tabla.
 
@@ -60,8 +61,9 @@ export function Tarjetas({ r, barraEn, chips, color, compacto, alFila }: {
               </div>
             </div>
             {conBarra && (
-              <div className="gr-celda-barra" title={r.columnas[barraEn].nombre}>
-                <span className="gr-num">{textoConMuestra(v, f.muestraChica?.[barraEn], r.columnas[barraEn].formato, (x) => fmtValor(x, r.columnas[barraEn].formato, compacto))}</span>
+              <div className="gr-tarjeta-prin">
+                <span className="gr-tarjeta-rot" title={r.columnas[barraEn].nombre}>{r.columnas[barraEn].nombre}</span>
+                <b className="gr-tarjeta-val">{textoConMuestra(v, f.muestraChica?.[barraEn], r.columnas[barraEn].formato, (x) => fmtValor(x, r.columnas[barraEn].formato, compacto))}</b>
                 <span className="gr-pista">{p > 0 && <span style={{ width: `${Math.max(2, p)}%`, background: color }} />}</span>
               </div>
             )}

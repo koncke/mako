@@ -7,6 +7,161 @@ Corridas del 11/10/2026: la v1 (relevo de 7 agentes + 11 de implementación + 1 
 el diseño v2 a la tarde, y a la noche la implementación v2 (12 agentes + la integración) con el desvío
 de teléfonos PRENDIDO. Lo de la v2 está en su propia sección, más abajo.
 
+## «Tarda muchísimo»: lo que se midió y lo que se arregló (14/10/2026, noche)
+
+Martín: «entrar al CRM toma ~10 segundos, y así con cada cosa». Se midió antes de tocar, con 4 agentes (sólo
+lectura): los request-logs de Vercel, los edge_logs de Supabase, consultas reales a la base y el JS de producción.
+
+- **Los 10 s del CRM eran reales, y la causa no era la obvia.** Mediana de 8,2 s de función (7,3-12,0; n=5), y
+  no por el JS ni por los leads: el «Por responder» de la lista v2 barría el espejo de WhatsApp ENTERO en cada
+  apertura (`getConversacionesNoOficial`): 19 páginas de wa_mensajes EN SERIE más 6 de contactos, 5,5-7,8 s. El
+  tablero ya no lo lee: 1,8-3,3 s (n=3). **Chats heredó la misma lectura**: ahora va acotada (3 páginas, sin la
+  agenda; `opts` en lib/evolution-mensajes.ts) y con el nombre de los 40 leads que se dibujan, no la cartera entera.
+- **El JS NO explica una navegación lenta**: ir al CRM baja ~14 KB gzip y el JS común compila en 25 ms (PC). Sí pesa
+  en la apertura en frío: 1,3 MB crudos / 397 KB gzip en toda página, y se vuelven a bajar en cada deploy (`?dpl=`).
+- **Lo que se siente lento sin ser servidor:**
+  - sólo Plan tenía `loading.tsx`. Al tocar una pestaña, la pantalla anterior quedaba congelada sin señal (Martín
+    tocó el CRM 3 veces en 10 s y triplicó la carga). Ahora hay esqueletos en General, CRM, ficha, chat, Chats, More,
+    Inbox y Clientes (`SkeletonTablero`, `SkeletonTarjetas`);
+  - después de una action que ya revalida, el cliente hacía otro `router.refresh()`: dos renders completos en serie;
+  - el conteo del Inbox corría dos veces por render en General (ahora `cache()` por pedido, con rol y capa SUELTOS:
+    `cache` compara los argumentos por identidad y un objeto nuevo nunca acierta);
+  - el filtro «Sin responder» de Chats iba al servidor (ahora filtra en el cliente).
+- **«Deslizo y no pasa nada»**: el pull-to-refresh escuchaba sólo dentro del div de la página. El título grande (lo
+  dibuja el shell) y el vacío debajo de una lista corta no respondían. Ahora escucha en el documento. Se lo quedan
+  los sheets y cualquier contenedor con overflow que ya bajó (no una marca: se sube por los ancestros).
+- **La Sidebar de escritorio al abrir la app (el diagnóstico obvio era otro).** No era la detección del teléfono
+  (proxy y layout usan la misma `vaAMovil`). Los request-logs mostraron `GET /inicio 200` y recién después
+  `GET /general` (2,5-3,8 s). /inicio, el `start_url` y el destino de cada login, se dibujaba con el layout de
+  escritorio, porque para el desvío es «nada», y su `redirect()` llegaba como redirect de CLIENTE. Arreglado de raíz:
+  - el proxy manda /inicio a /general en un teléfono (307 en el borde, `pedidoMovil`);
+  - en un teléfono `HideOnPublicLanding` no dibuja el cromo NUNCA (`useTelefono`).
+
+**Lo que quedó sin hacer (pide una decisión que no es de esta área; la llevó el orquestador al tablero):**
+- funciones en iad1 y base en us-west-2: 97 ms medidos por consulta en serie (en pdx1, ~5-10 ms);
+- el arranque de cada instancia: instrumentation.ts tarda 1,3-2,7 s, con 51/114 TimeoutError;
+- 28 deploys por día: Martín casi siempre ve el primer toque, el lento;
+- las constantes de lib/auth-session.ts, que meten 450 KB de polyfills de `node:crypto` en toda página;
+- `staleTimes.dynamic`.
+
+Y de esta área, sin hacer:
+- General todavía arma TODOS los bloques y lee el tablero del Plan 3 veces (~8 MB por render en ws9);
+- el CRM baja los leads con 47 columnas.
+
+## La tanda 1 del v3 en código: barra, General, Chats y los tableros (14/10/2026, noche)
+
+Tres pushes: 104a26209 (barra, General de portada, More por familias, Chats), 5e4bed65d (KanbanM, el CRM y Clientes
+como tablero) y c2f6863a0 (el Plan con las cuatro vistas de escritorio).
+
+- **Un worktree con un push esperando NO se toca.** El pre-push corre `tsc` sobre el árbol ENTERO del worktree,
+  archivos sin commitear incluidos. Si se empieza la tanda siguiente en el mismo worktree mientras otro chat pushea
+  desde ahí, el código a medio hacer entra al typecheck del push ajeno. Se sigue en otro worktree. El que quedó
+  pusheado se reusa con `git switch -c <rama> <la última>`.
+- **El push con `MAKO_TYPECHECK_SIN_ESPERA=1` igual lo mata el vigía** cuando la RAM libre baja de ~750 MB a mitad del
+  tsc (pasó dos veces, con 3,1 y 4,3 GB libres al arrancar). El hook lo dice bien: «NO son errores de tipos». Lo
+  destraba quien puede pausar el vigía (el orquestador, `push_<letra>.sh`). No se corre `tsc` a mano para diagnosticar.
+- **Los tests NO son vitest.** `npx vitest run` falla en el worktree con «Cannot find package '@/lib/…'». Parece un
+  alias roto por el junction de node_modules, y no lo es: el repo corre `node --import tsx --test tests/x.test.ts`
+  (`npm test`).
+- **FilaM con `href` IGNORA `onClick`.** Una fila de un sheet que tiene que cerrar el sheet Y navegar (el selector de
+  funnel del CRM) va con `onClick` + `router.push` (el de `@/app/_ui/Link`, que conserva el cliente). Cerrar la hoja
+  por código y navegar en el mismo tick es seguro: SheetM saca su `?sheet=` con `replaceState`, no con `back()`.
+- **El pull-to-refresh se robaba el gesto de las columnas.** PantallaM arranca si `window.scrollY === 0`, y con un
+  tablero eso es casi siempre: tirar hacia abajo dentro de una columna scrolleada subía la lista Y refrescaba la página.
+  Ahora un scroll anidado con `data-m-scroll` que no está arriba de todo se queda con el gesto (app/m/_ui/PantallaM.tsx).
+- **Lo optimista de KanbanM se limpia por la FIRMA de las tarjetas (id:columna), no por la identidad del array.**
+  Con la identidad, una pantalla que arma las tarjetas en cada render (todas) hacía rebotar la tarjeta recién movida.
+- **Las reglas del Plan atrapadas en un `'use client'`**: `projProgress` vive en app/plan/board/piezas.tsx, que es
+  `'use client'`. Importada desde el server llega como referencia de cliente, no como función. Se copió en
+  app/m/plan/tableros.ts (`avanceProyecto`) y el test fija los dos casos (la familia de «las reglas atrapadas en
+  módulos `'use client'`», arriba).
+- **Proyectos en escritorio NO es un kanban**: es una grilla de tarjetas (`ProyectosView`). El teléfono los agrupa por
+  los cuatro escalones de prioridad porque así quedó en el prototipo v3 que aprobó Martín.
+
+**Lo que encontró la verificación de mover y deshacer** (3 agentes, sólo lectura, después del push; arreglado en el
+commit siguiente):
+- **El Deshacer del teléfono BORRABA LA VENTA.** Mover a un lead FUERA de Ganado borra el monto, el motivo y la fecha
+  de cierre (lib/lead-desenlace.ts). El Deshacer vuelve la etapa pero no esos datos: un Ganado de US$4.200 movido y
+  deshecho quedaba Ganado sin monto, y Revenue perdía la venta. Salir de «Nutrición - Manual» borra su plazo igual.
+  La regla del teléfono miraba sólo el DESTINO. Ahora también el ORIGEN: `seSacaEnElTelefono` (app/m/crm/reglas.ts)
+  no deja sacar a un lead de un desenlace, de un cobro ni de manual. La usan el tablero, la ficha y el server.
+- **Deshacer a la etapa CRUDA escribía una que el funnel no tiene.** Un lead dibujado por fallback (su etapa ya no
+  está en el funnel) volvía a `pipeline_stage` con la etapa vieja, y en escritorio pasaba a «fuera del funnel». Y la
+  de un agregado huérfano hacía fallar el Deshacer siempre. Ahora `antes` es la columna DIBUJADA (`etapaEnTablero`),
+  como hace CrmBoard. Y la columna de cada lead se cuenta con las etapas en el orden del FUNNEL, no en el de las
+  columnas, porque la «primera» del fallback es la del funnel.
+- **El timer de 220 ms de KanbanM resucitaba un mover fallido.** Sin red, la action rechaza en el acto: la tarjeta
+  volvía y 220 ms después el timer la ponía en el destino. Un refresh no lo corregía: trae la misma firma y no limpia
+  nada. Ahora el timer se cancela al fallar, y una tarjeta con un mover o un deshacer en vuelo no se vuelve a mover.
+- **El Deshacer de Clientes reponía lo que CREÍA el teléfono.** Si MaKo (el curso) u otra persona había movido al
+  cliente, deshacer borraba ese avance y le ponía un reloj viejo. El server ya devuelve de dónde venía (`r.desde`).
+  Ahora el Deshacer se ofrece sólo si coincide con la pantalla, y nunca desde una etapa borrada. Con
+  `cambio: false` se pide `router.refresh()` en vez de pintar un reloj inventado.
+- **El diagnóstico obvio era el equivocado:** el comentario de CustomerSuccessM decía que la action «revalida
+  /customer-success, no esta ruta». Es falso: `revalidatePath` revalida la respuesta entera (ver hallazgos-infra), así
+  que /m/cs vuelve fresca después de cada movimiento que cambió algo. Sólo `cambio: false` la dejaba vieja.
+
+**Lo que quedó sin hacer** (esta tanda):
+- **More tiene sólo las secciones que ya existían** (Ads, Dashboard, Landing, Automations, Video, Clientes, MaKo).
+  Las otras 9 pantallas del prototipo v3 (Calendario, Second Brain, Experiments, Offer, Copywriting, Curso, Comunidad,
+  Avisos, Perfil nuevo) siguen sin código. Se agregan en `SECCIONES_MAS` (lib/movil-rutas.ts), cada una con su página.
+- **Chats lee sólo WhatsApp** (app/m/chats/datos.ts). Los chats unificados siguen SIN COMMITEAR en `C:/dev/wt-chats`.
+  Cuando lleguen a main, cambia la lectura de `listaChats` y se suman las bandejas del prototipo. Las conversaciones
+  sin lead se cuentan pero no se abren: el hilo del teléfono es el del lead.
+- **En el teléfono no se cambia la prioridad del Plan**: es la audiencia con el Perro, y los tableros de Tareas y
+  Proyectos no mueven tarjetas. Para que muevan, `moverA`/`onMover` en app/m/plan/ListaPlan.tsx contra
+  `prioridadManual`, sólo en el tablero del dueño.
+- **Nada de esto se miró en un teléfono de verdad** (con 7+ chats no había RAM para `next dev`). El CSS de KanbanM sale
+  del prototipo, que sí se miró a 390 px. Pendiente: el alto de la pista (`100dvh − 64px`) con el segmentado de
+  Clientes o del Plan arriba, que hace scrollear un poco el documento.
+
+## El prototipo v3 y el relevamiento de las tiendas (14/10/2026, tarde)
+
+- **El v1 se rechazó por REINVENTAR, no por feo.** Martín: el CRM no lleva «Hoy» (ya está el Plan), el Plan no se
+  cambia (sus vistas son Prioridades · Tareas · Proyectos · Recurrentes), More tiene que seguir las familias de la
+  sidebar, faltaba la tab Chats, General va al medio de la barra y como la que abre, y TODO tenía demasiado texto. La
+  regla quedó en AGENTS.md (sección MaKo Mobile). Lo que la hizo posible en el v3: relevar CADA tab de escritorio con
+  sus rótulos reales antes de dibujar (tres lectores en paralelo, ~10 min) en vez de diseñar desde el v2.
+- **«Hay una rama `chats-1410`» no quería decir que hubiera trabajo en ella.** La rama tiene CERO commits propios (sale
+  de origin/main y `git diff origin/main...chats-1410` es vacío). La bandeja Chats (copia de respond.io) existe SIN
+  COMMITEAR en el worktree `C:/dev/wt-chats`: ~55 archivos (app/chats, app/api/chats, lib/chats*, migración 0275,
+  docs/diseno-chats.md). El relevo general decía «sin trabajo nuevo sobre origin», cierto en commits y ciego al disco.
+  El teléfono sigue ese diseño (bandejas Todos · Míos · Sin asignar · MaKo · Canales, un contacto con todos sus
+  canales). **Vive en:** C:/dev/wt-chats/docs/diseno-chats.md.
+- **Pinterest y Dribbble no se leen sin navegador.** WebFetch devuelve «Instagram»/nada; curl a Dribbble, 0 bytes. Una
+  búsqueda de Pinterest SÍ se ve en Chrome headless (los pins quedan detrás de un cartel de login, pero se leen los
+  patrones). Las referencias de apps (Pipedrive, HubSpot, Kommo, Beeper, Stripe, Shopify) salen de su documentación.
+- **Publicar en las tiendas, lo que frena aunque hoy no dé error** (relevado con fuentes oficiales, sin código):
+  - el proxy manda a `/login` todo lo que no está en `PUBLICOS`, así que `/.well-known/assetlinks.json` (Android) y
+    `apple-app-site-association` (iOS) no se sirven: la TWA abre con la barra del navegador y iOS no verifica el dominio
+    (ver hallazgos-infra.md);
+  - Google bloquea su login dentro de un WKWebView (`disallowed_useragent`) y en MaKo es la ÚNICA forma de entrar: en
+    iOS el login va por el navegador del sistema (ASWebAuthenticationSession) con traspaso de sesión;
+  - el Web Push con VAPID no anda en WKWebView: en iOS hace falta APNs del lado del servidor;
+  - no hay «Eliminar mi cuenta» dentro de la app (lo exigen Google y Apple; /privacidad dice «escríbenos»);
+  - Sign in with Apple (guía 4.8, si no se argumenta la excepción de app de negocio) da un correo de reenvío que no
+    coincide con el email invitado en `usuarios`;
+  - Play con cuenta PERSONAL exige una prueba cerrada de 12 testers durante 14 días antes de producción; Apple exige
+    Xcode 26 / SDK de iOS 26 desde el 28/04/2026 (Mac o compilación en la nube).
+  - Las passkeys del 2FA (rama `2fa-tanda1`, chat Ciberseguridad) usan RP ID `hola-mako.com`: en una TWA andan solas;
+    en un WKWebView de Capacitor necesitan `webcredentials` en el apple-app-site-association del dominio raíz.
+
+## Los tableros en el teléfono: el prototipo y cómo se miró (14/10/2026)
+
+- **Un tablero en 390 px:** una columna por pantalla con la siguiente asomando (scroll-snap nativo, sin JS de gesto),
+  y arriba una barra de UN renglón con un tramo y el conteo por etapa. Una barra de navegación que se scrollea de costado
+  está prohibida en esta casa; con N tramos de ancho fijo entra cualquier cantidad de etapas. Mover es mantener presionada
+  la tarjeta → «Mover a…», o el detalle; nunca arrastrar. **Vive en:** docs/prototipos/mako-mobile-tableros.html.
+- **El ancho de una columna se mide con `offsetWidth`, no con `getBoundingClientRect`.** Dentro de algo escalado con
+  `transform` (la escena del prototipo, y cualquier vista previa de teléfono en un editor), el rect viene escalado y
+  `scrollLeft` no, así que «qué columna estoy viendo» sale mal sin un error.
+- **Chrome headless con `--screenshot` y `--virtual-time-budget` puede no terminar nunca** (una de siete capturas colgó
+  tres minutos con el mismo archivo). Cada captura va con `timeout 45`, `--mute-audio`, un perfil en el scratchpad, y al
+  terminar se paran los `chrome.exe` de ese perfil.
+- **Una publicación de Instagram se lee sin sesión** pidiendo `/p/<id>/embed/captioned/` con el user-agent
+  `facebookexternalhit/1.1`: trae el texto y la portada (las demás láminas de un carrusel, no). WebFetch y la página
+  normal devuelven sólo «Instagram».
+
 ## LAS MISMAS RUTAS (13/10/2026): /m es la carpeta interna, nunca una URL
 
 Martín, 12/10/2026 09:26, mirando /m/hoy en su celular: «lo que esta mal es que funcione por rutas, eso no debe ser
@@ -505,3 +660,21 @@ se ve en el código:
 `lib/mako-analyst-lead-reglas.ts` (`chartKeyDelLead`, `LECTURAS_DEL_LEAD`, `contextoDelLead`) ·
 `app/api/crm/analyst/route.ts` · `app/crm/lead-view/MakoAnalystLead.tsx` · `app/crm/lead-view/AnalystDelLead.tsx` ·
 `lib/chart-chats.ts` · `tests/mako-analyst-lead.test.ts` · *2026-10-12 corrida crm-feedback-12-10 (frente E-analyst)*
+
+## Un gesto horizontal que no arranca: el `touch-action` se corta en el contenedor con scroll (14/10/2026)
+
+**Síntoma:** la Ticketera (el mazo tipo Tinder de `/tickets/decisiones`) «funciona bastante mal» en el teléfono. Medido con toques en Chrome (`Input.dispatchTouchEvent` con emulación móvil): la tarjeta no se movía (`transform: none` a mitad del gesto), y un deslizamiento largo hacía que la página NAVEGARA para atrás. Con el mouse andaba perfecto.
+
+**Causa:** los eventos eran `pointerdown → pointermove → pointercancel`. La tarjeta tenía `touch-action: pan-y`, pero adentro hay un bloque con scroll propio (`.mazo-cuerpo`, `overflow-y: auto`), y el navegador calcula el touch-action de un toque sólo hasta el contenedor con scroll más cercano. Para un dedo sobre la pregunta, el valor efectivo era `auto`: Chrome se quedaba con el gesto horizontal, cancelaba el puntero y lo usaba como «volver».
+
+**El diagnóstico obvio era el equivocado:** «la física escrita a mano anda mal» era cierto y no era todo. Se pasó a `motion` (la librería del gesto, ya en el repo) y SEGUÍA sin moverse con el dedo, porque la librería nunca recibía el movimiento.
+
+**La regla:** en una superficie que se arrastra, el `touch-action` va también en cada contenedor con scroll que tenga adentro. Se prueba con TOQUES, no con el mouse: con el mouse no hay touch-action y todo anda.
+
+**Y al simular toques por CDP, cada `dispatchTouchEvent` espera un cuadro:** un «tirón» de 70 px en 5 pasos salió a ~460 px/s y no cruzó el umbral de 500 px/s. Con 3 pasos midió 70 px en 52 ms (~1.300 px/s) y contó. Antes de culpar al umbral, mirar los `timeStamp` reales de los `pointermove`.
+
+**Se descartó react-tinder-card:** hace `preventDefault` en `touchstart`, lo que mata el scroll de una tarjeta larga y los toques en las opciones.
+
+**Sin medir:** un teléfono de verdad. Lo de arriba es la entrada táctil de Chrome; Safari en iOS no se probó.
+
+**Vive en:** `app/tickets/decisiones/mazo.css` (`.mazo-cuerpo`) · `app/tickets/decisiones/Mazo.tsx` · `tests/tickets-decisiones-mazo.test.ts`

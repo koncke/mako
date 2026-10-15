@@ -23,7 +23,8 @@ export { SegmentadoM, InterruptorM, PieFijoM, type OpcionSegmentado } from './Co
 export { CasillaM } from './CasillaM';
 export { TarjetaDecision, type EstadoDecision } from './TarjetaDecision';
 export { SheetM, type SheetMProps } from './SheetM';
-export { VacioM, SkeletonFilas } from './Estados';
+export { KanbanM, type KanbanMProps, type ColumnaKanban, type TarjetaKanban, type ResultadoMover } from './KanbanM';
+export { VacioM, SkeletonFilas, SkeletonTablero, SkeletonTarjetas } from './Estados';
 export { ErrorM } from './ErrorM';
 export { HoraM } from './HoraM';
 export { SalirDeLaVista } from './SalirDeLaVista';

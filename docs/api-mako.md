@@ -628,7 +628,7 @@ Propone agregar UN bloque de General (el objetivo y la acción del día, los OKR
 | `titulo` | string | no | Un título propio para el bloque (vacío = el de siempre). |
 | `funnel` | string | no | Sólo para el funnel de hoy y a quién cobrarle: el funnel (su id o su nombre, de listar_hojas_general). Sin esto, el principal o todo el negocio. |
 | `opciones` | object | no | Las opciones del bloque, como {opción: valor} (las de cada bloque, con sus valores, en listar_hojas_general). Una que el bloque no tiene es un error; sin esto, las de entrada. |
-| `opciones.detalle` | string | no | cabecera (Qué muestra): completo, simple |
+| `opciones.detalle` | string | no | cabecera (Qué muestra): simple, completo |
 | `opciones.fondo` | string | no | cabecera (Fondo): claro, oscuro · accion (Fondo): claro, oscuro · objetivos (Fondo): claro, oscuro · kpis (Fondo): claro, oscuro · semaforo (Fondo): claro, oscuro · tareas (Fondo): claro, oscuro · prioridades (Fondo): claro, oscuro · deadlines (Fondo): claro, oscuro · proyectos (Fondo): claro, oscuro · agenda (Fondo): claro, oscuro · llamadas (Fondo): claro, oscuro · pendientes (Fondo): claro, oscuro · funnel (Fondo): claro, oscuro · cobranza (Fondo): claro, oscuro · mes (Fondo): claro, oscuro · publicaciones (Fondo): claro, oscuro |
 | `opciones.razon` | string | no | accion (El porqué): si, no |
 | `opciones.estilo` | string | no | objetivos (Cómo se ven): anillos, barras · funnel (Cómo se ve): embudo, barras |
@@ -679,7 +679,7 @@ Propone cambiar las opciones de UN bloque que ya está en una hoja de General (c
 | `hoja` | string | sí | id de la hoja (de listar_hojas_general). |
 | `elemento` | string | sí | id del bloque en esa hoja (de listar_hojas_general). |
 | `opciones` | object | no | Las opciones a cambiar, como {opción: valor}. Las que no pases quedan como están. |
-| `opciones.detalle` | string | no | cabecera (Qué muestra): completo, simple |
+| `opciones.detalle` | string | no | cabecera (Qué muestra): simple, completo |
 | `opciones.fondo` | string | no | cabecera (Fondo): claro, oscuro · accion (Fondo): claro, oscuro · objetivos (Fondo): claro, oscuro · kpis (Fondo): claro, oscuro · semaforo (Fondo): claro, oscuro · tareas (Fondo): claro, oscuro · prioridades (Fondo): claro, oscuro · deadlines (Fondo): claro, oscuro · proyectos (Fondo): claro, oscuro · agenda (Fondo): claro, oscuro · llamadas (Fondo): claro, oscuro · pendientes (Fondo): claro, oscuro · funnel (Fondo): claro, oscuro · cobranza (Fondo): claro, oscuro · mes (Fondo): claro, oscuro · publicaciones (Fondo): claro, oscuro |
 | `opciones.razon` | string | no | accion (El porqué): si, no |
 | `opciones.estilo` | string | no | objetivos (Cómo se ven): anillos, barras · funnel (Cómo se ve): embudo, barras |
@@ -5692,7 +5692,7 @@ curl -L \
 
 ### `GET /api/v1/chatbot/secuencias/{secuenciaId}/escenarios` — Escenarios de prueba de una secuencia
 
-Los caminos distintos de UNA automatización por sus condiciones, los mismos que «Probar» muestra como contactos de su barra: qué sale en cada condición, en orden, y cuántos mensajes de WhatsApp le llegan por ese camino. El primero es el de un lead recién llegado por su CRON. Hasta 8; `faltan` dice cuántas ramas quedaron afuera. Úsala para saber qué conviene probar antes de prenderla. Pide antes el secuenciaId con listar_secuencias_nutricion.
+Los caminos distintos de UNA automatización por sus condiciones, los mismos que «Probar» muestra como contactos de su barra: qué sale en cada condición, en orden, y cuántos mensajes de WhatsApp le llegan por ese camino. El primero es el de un lead recién llegado por su CRON. Hasta 8; `faltan` dice cuántas ramas quedaron afuera. Úsala para saber qué conviene probar antes de prenderla; el `numero` de cada uno es el que recibe probar_secuencia. Pide antes el secuenciaId con listar_secuencias_nutricion.
 
 - **Ruta por operación:** `GET /api/v1/chatbot/escenarios_secuencia`
 - **Token detallado:** permiso `chatbot=read` (Solo lectura en «Chatbot y secuencias»)

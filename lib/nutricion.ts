@@ -118,8 +118,13 @@ import {
 // UNA rama del envío (`enviarPasoSocial`). Lo demás del motor no cambia.
 // Y desde la duodécima tanda, las condiciones de Instagram y Messenger: la conversación que cuenta y
 // «¿te sigue?», leídas por lote en `hechosDelCatalogo` (`conversacionesDeLeads`, `siguenEnInstagram`).
-import { esCanalSocial, canalAGuardar, conversacionDeFila, cuentaDelPaso, cuentaAlGuardar, type CanalSocial, type ConversacionesPorLead } from '@/lib/canal-social';
-import { enviarPasoSocial, conversacionesDeLeads, siguenEnInstagram } from '@/lib/canal-zernio';
+// Y desde TikTok fase 0 (14/10/2026), el AI Step contesta por Instagram y Messenger: la charla de ese canal
+// (`charlaSocialDelLead`) y la respuesta por Zernio (`enviarPasoSocial`), en `asistirRespuesta` con su medio.
+import {
+  esCanalSocial, canalAGuardar, conversacionDeFila, cuentaDelPaso, cuentaAlGuardar, NOMBRE_CANAL, TOPE_TEXTO_SOCIAL,
+  type CanalSocial, type ConversacionesPorLead,
+} from '@/lib/canal-social';
+import { enviarPasoSocial, conversacionesDeLeads, siguenEnInstagram, charlaSocialDelLead } from '@/lib/canal-zernio';
 import { partesDe } from '@/lib/mensaje-partes';
 // El TURNO del motor por negocio (sexta tanda): lo toman las dos rutas del cron y, desde la
 // revisión de esa tanda, también la vía rápida de un lead (`viaRapidaConTurno`).
@@ -3516,15 +3521,19 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
   // abra a las 9— y el aviso de un agendado al equipo salía del webhook a cualquier hora. Lo demás, como siempre:
   // espera a que abra. Con el horario ilegible, igual: «no sé si está abierto» no manda prospección.
   let fueraDeHorario: 'fuera-de-horario' | 'horario-ilegible' | 'zona-ilegible' | null = null;
+  // ¿«MaKo en WhatsApp» corre igual fuera del horario? La casilla del horario (`avisosAlEquipo`, 14/10/2026); sin poder
+  // leerla, lo de fábrica (salen igual), que es lo de antes.
+  let makoFueraDeHorario = true;
   if (!opts?.ignorarVentana) {
     const horario = await horarioDeEnvio();
     if (horario === 'ilegible') fueraDeHorario = 'horario-ilegible';
     else if (horario && (await zonaDeLaVentana()) === ZONA_ILEGIBLE) fueraDeHorario = 'zona-ilegible';
     else if (!(await dentroDeVentana(horario))) fueraDeHorario = 'fuera-de-horario';
+    if (horario && horario !== 'ilegible' && horario.avisosAlEquipo === false) makoFueraDeHorario = false;
   }
   // Sin nada que corra fuera del horario, el corte de siempre, sin leer nada más.
   const secuencias = await getSecuenciasActivas();
-  const corrensFuera = secuencias.filter((s) => tieneCarril(s.pasos) || s.pasos.some(esTarjetaMako)).map((s) => s.id);
+  const corrensFuera = secuencias.filter((s) => tieneCarril(s.pasos) || (makoFueraDeHorario && s.pasos.some(esTarjetaMako))).map((s) => s.id);
   if (fueraDeHorario && !corrensFuera.length) return { ...res, saltado: fueraDeHorario };
   // LOS LÍMITES DEL NEGOCIO (décima tanda, GENERAL 4), una vez por corrida y estrictos: sin leerlos no se
   // manda nada (lo vencido sigue ahí para la próxima), como con el horario.
@@ -3941,7 +3950,10 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       // WhatsApp» (M3 f). Una fila en 'respondio' (el lead contestó) se mueve igual que una activa desde el 14/10/2026:
       // lo que corta es la condición visible «No contestó desde que entró», que lee `contestoEnEsta` (abajo).
       const enRespuesta = insc.estado === 'respondio';
-      const seMueve = (i: number): boolean => !!sec && seMueveEnLaCorrida(sec.pasos, i, { fueraDeHorario: fueraDeHorario != null });
+      // Con la casilla apagada, fuera del horario sólo el carril (`esHiloDelCarril`): «MaKo en WhatsApp» espera a que abra.
+      const seMueve = (i: number): boolean => !!sec && (fueraDeHorario != null && !makoFueraDeHorario
+        ? esHiloDelCarril(sec.pasos, i)
+        : seMueveEnLaCorrida(sec.pasos, i, { fueraDeHorario: fueraDeHorario != null }));
       let hs = sanearHilos(insc.hilos);
       if (sec && !hs && esFilaNueva(insc) && raicesSalida(sec.pasos).length > 1) {
         hs = await repartirAlEntrar(supabase, insc, sec.pasos, (n) => proximoEnvioDePaso(nodoPorId(sec.pasos, n) ?? undefined, lead));
@@ -4961,14 +4973,15 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
 // sigue (#788): por el oficial, el webhook de Chatwoot avisa CADA mensaje por su cuenta, y un
 // segundo aviso sería ruido; por el no oficial, ése es el único aviso que hay.
 //
-// ⚠️ CON `origen` INSTAGRAM O MESSENGER (segunda pasada de la sexta tanda, 09/10/2026: lo llama el
-// webhook de Zernio, lib/zernio-entrante.ts) SÓLO PAUSA: marca 'respondio' lo activo y lo terminado
-// que le escribió, y se va. Lo de abajo —destrabar un paso que esperaba la respuesta, el borrador del
-// modo asistido, «Si responde», la charla— CONTESTA, y contesta por WhatsApp al teléfono del lead: a
-// quien escribió por Instagram le llegaría un WhatsApp. (El `requiere: 'respondio'` del destrabe es
-// del modelo lineal de antes, que no tiene pasos sociales: no se pierde nada.)
-export async function pausarPorRespuesta(leadId: number, opts?: { texto?: string; linea?: string | null; origen?: 'no_oficial' | 'oficial' | CanalSocial }): Promise<number> {
-  const soloPausa = esCanalSocial(opts?.origen);
+// ⚠️ CON `origen` INSTAGRAM O MESSENGER (lo llama el webhook de Zernio, lib/zernio-entrante.ts) CONTESTA
+// POR ESE CANAL, y sólo con el AI Step de ese medio (TikTok fase 0, 14/10/2026; hasta ese día sólo pausaba,
+// porque todo lo de abajo contestaba por WhatsApp al teléfono del lead). El medio viaja a `asistirRespuesta`
+// y de ahí a la charla, el redactor y el envío por Zernio (`enviarPasoSocial`); el modo asistido de antes y
+// el destrabe de `requiere: 'respondio'` son del WhatsApp y no corren. `cuenta`: la cuenta de Zernio a la
+// que escribió la persona (la respuesta sale por esa). Diseño en docs/diseno-ai-step-v2.md §6.
+export async function pausarPorRespuesta(leadId: number, opts?: { texto?: string; linea?: string | null; origen?: 'no_oficial' | 'oficial' | CanalSocial; cuenta?: string | null }): Promise<number> {
+  const social: CanalSocial | null = esCanalSocial(opts?.origen) ? opts!.origen as CanalSocial : null;
+  const medio: MedioAIStep = social ?? 'whatsapp';
   const supabase = (await getTenantDb());
   // ⚠️ LAS SECUENCIAS SE LEEN ANTES DE MARCAR 'respondio' (revisión del 08/10/2026). Con el deploy
   // adelantado a una migración que agrega una columna que esta lectura pide (la 0223,
@@ -5034,15 +5047,13 @@ export async function pausarPorRespuesta(leadId: number, opts?: { texto?: string
     }
   } catch (e) { console.error(`[nutricion] respuesta a secuencia terminada, lead ${leadId}:`, e); }
 
-  // Por Instagram o Messenger, hasta acá: lo que sigue contesta por WhatsApp (ver arriba).
-  if (soloPausa) return pausadas.length + tardias.length;
-
   // PASOS CONDICIONALES (reunión 31/07): un paso con requiere='respondio' está
   // esperando justamente esto — el caso del lead magnet ("¿lo querés? es gratis"
   // y recién si contesta se manda). La respuesta lo DESTRABA: la inscripción
   // vuelve a 'activa' apuntando a ese paso, en vez de quedar pausada para
   // siempre. Los demás pasos condicionales se saltean al llegar el turno.
-  if (pausadas.length) {
+  // (Es del modelo lineal de antes, que no tiene pasos sociales: por Instagram o Messenger no corre.)
+  if (pausadas.length && !social) {
     try {
       const secs = secsActivas ?? await getSecuenciasActivas();
       const { data: detalle } = await supabase
@@ -5074,7 +5085,8 @@ export async function pausarPorRespuesta(leadId: number, opts?: { texto?: string
   // rompa el webhook (el lead ya quedó despausado, que es lo crítico).
   const respondidas = [...pausadas, ...tardias];
   try {
-    const charla = await charlaDelLead(leadId);
+    // Por el MEDIO por el que escribió: una automatización que contesta por WhatsApp no atiende un DM.
+    const charla = await charlaDelLead(leadId, medio);
     // LA PRIMERA RESPUESTA, con las mismas guardas que la charla abierta (#788): una
     // respuesta tardía a una secuencia cuya charla se cerró, o cuya reunión ya pasó, no
     // redacta con el guion de «preparar» para una llamada que no existe.
@@ -5082,10 +5094,10 @@ export async function pausarPorRespuesta(leadId: number, opts?: { texto?: string
     const atendibles = charla.inscs.filter((i) => ids.has(i.id) && atiendeAlResponder(i));
     let atendida = false;
     if (atendibles.length) {
-      atendida = await asistirRespuesta(leadId, atendibles.map((i) => i.secuencia_id), opts?.texto, opts?.linea ?? null);
+      atendida = await asistirRespuesta(leadId, atendibles.map((i) => i.secuencia_id), opts?.texto, opts?.linea ?? null, { medio, cuenta: opts?.cuenta ?? null });
     }
     // DEL SEGUNDO MENSAJE EN ADELANTE no hay inscripción activa: la charla se busca (#788).
-    if (!atendida) await seguirCharla(leadId, charla, opts?.texto, opts?.linea ?? null, opts?.origen === 'no_oficial' ? 'no_oficial' : 'oficial');
+    if (!atendida) await seguirCharla(leadId, charla, opts?.texto, opts?.linea ?? null, social ?? (opts?.origen === 'no_oficial' ? 'no_oficial' : 'oficial'), opts?.cuenta ?? null);
   } catch (e) { console.error(`[nutricion] modo asistido lead ${leadId} falló:`, e); }
   return respondidas.length;
 }
@@ -5096,7 +5108,7 @@ export async function pausarPorRespuesta(leadId: number, opts?: { texto?: string
  * si la reunión que preparan sigue por delante. UNA lectura por cosa, compartida por la
  * primera respuesta y por la charla abierta.
  */
-async function charlaDelLead(leadId: number): Promise<{ inscs: InscCharla[]; nombre: string | null }> {
+async function charlaDelLead(leadId: number, medio: MedioAIStep = 'whatsapp'): Promise<{ inscs: InscCharla[]; nombre: string | null }> {
   const supabase = await getTenantDb();
   const { data, error } = await supabase
     .from('nutricion_inscripciones')
@@ -5132,8 +5144,9 @@ async function charlaDelLead(leadId: number): Promise<{ inscs: InscCharla[]; nom
         // Una archivada no está en `secs`: no es asistida de nadie.
         // CONTESTA cuando el lead escribe: en modo asistido (lo de antes) o porque tiene la
         // tarjeta «Si responde» (el flujo con ramas). Una con 'automatico' y sin la tarjeta sólo pausa.
-        // Por WhatsApp, que es por donde llega lo que esto atiende: un AI Step sólo de Instagram no contesta acá.
-        asistida: !!sec && (parse(sec.estrategia)?.modo === 'asistido' || escuchaPor(sec.pasos, 'whatsapp')),
+        // Por el MEDIO por el que escribió (TikTok fase 0): un AI Step sólo de Instagram no contesta un WhatsApp,
+        // y uno de WhatsApp no contesta un DM. El modo asistido de antes es sólo de WhatsApp.
+        asistida: !!sec && ((medio === 'whatsapp' && parse(sec.estrategia)?.modo === 'asistido') || escuchaPor(sec.pasos, medio)),
         pausada: !sec || !sec.activa,
         reunionFutura: sec && preparaReunion(sec) ? hayReunion : null,
       };
@@ -5153,22 +5166,28 @@ async function charlaDelLead(leadId: number): Promise<{ inscs: InscCharla[]; nom
  */
 async function seguirCharla(
   leadId: number, charla: { inscs: InscCharla[]; nombre: string | null },
-  texto: string | undefined, linea: string | null, origen: 'no_oficial' | 'oficial',
+  texto: string | undefined, linea: string | null, origen: 'no_oficial' | 'oficial' | CanalSocial,
+  cuenta: string | null = null,
 ): Promise<void> {
   if (!charla.inscs.length) return;
+  const social = esCanalSocial(origen) ? origen : null;
   // Los días que la charla sigue abierta son del negocio (Configuraciones › Límites, décima tanda). Sin
   // poder leerlos, los de fábrica: abierta, el setter sólo deja un BORRADOR (que salga solo se decide aparte,
   // y con los límites ilegibles no sale: `asistirRespuesta`).
   const lim = await limitesDeEnvio();
   const v = conversacionAbierta(charla.inscs, Date.now(), lim === 'ilegible' ? undefined : lim.mako.diasCharla);
   if (v.abierta) {
-    await asistirRespuesta(leadId, [v.insc.secuencia_id], texto, linea);
+    await asistirRespuesta(leadId, [v.insc.secuencia_id], texto, linea, { medio: social ?? 'whatsapp', cuenta });
     return;
   }
   if (!v.motivo) return;
-  const { descartarBorradorSetter } = await import('@/lib/evolution-envio');
-  await descartarBorradorSetter(leadId).catch((e) => console.error(`[nutricion] descartar el borrador del lead ${leadId}:`, e));
-  if (origen !== 'no_oficial') return;
+  // El borrador del setter es del WhatsApp: por Instagram o Messenger no hay ninguno que descartar.
+  if (!social) {
+    const { descartarBorradorSetter } = await import('@/lib/evolution-envio');
+    await descartarBorradorSetter(leadId).catch((e) => console.error(`[nutricion] descartar el borrador del lead ${leadId}:`, e));
+  }
+  // Por el oficial, Chatwoot avisaba cada mensaje por su cuenta; por el no oficial y por las redes, éste es el único aviso.
+  if (origen === 'oficial') return;
   const { emitirDelCatalogo } = await import('@/lib/avisos');
   const quien = charla.nombre?.trim() || `lead ${leadId}`;
   await emitirDelCatalogo('wa-mensaje-entrante', {
@@ -5179,7 +5198,7 @@ async function seguirCharla(
     datos: valoresDeLoEscrito(texto),
     dedupKey: `lead:${leadId}:charla-cerrada`,
     dedupTtlMin: 60 * 12,
-    texto: `💬 *${quien} te escribió.*${texto?.trim() ? `\n\n_"${texto.trim().slice(0, 180)}"_` : ''}\n\nNo le preparé respuesta: ${v.motivo}. Contéstale tú.\n\n— MaKo`,
+    texto: `💬 *${quien} te escribió${social ? ` por ${NOMBRE_CANAL[social]}` : ''}.*${texto?.trim() ? `\n\n_"${texto.trim().slice(0, 180)}"_` : ''}\n\nNo le preparé respuesta: ${v.motivo}. Contéstale tú.\n\n— MaKo`,
   });
 }
 
@@ -5201,12 +5220,32 @@ type CtxRespuesta = {
   historial: TurnoSim[];
   /** Cuándo entró el mensaje que se contesta (ms). Si antes de guardar entró otro, éste ya no es lo último. */
   respondeA: number | null;
+  /**
+   * Escribió por Instagram o Messenger (TikTok fase 0): la charla es la de ese canal, la respuesta sale por
+   * Zernio y no hay borrador del setter (el WhatsApp). `cuenta`: la cuenta de Zernio a la que escribió.
+   * `null` = WhatsApp, lo de siempre.
+   */
+  social: { canal: CanalSocial; cuenta: string | null } | null;
 };
 
-async function contextoDeRespuesta(leadId: number, secuencia: SecuenciaConStats, texto: string | undefined, lineaEntrante: string | null): Promise<CtxRespuesta> {
+async function contextoDeRespuesta(
+  leadId: number, secuencia: SecuenciaConStats, texto: string | undefined, lineaEntrante: string | null,
+  social: CtxRespuesta['social'] = null,
+): Promise<CtxRespuesta> {
   const supabase = await getTenantDb();
   const { data: leadRow } = await supabase.from('leads').select('id, nombre, telefono, calificado, empresa').eq('id', leadId).maybeSingle();
   const lead = leadRow as CtxRespuesta['lead'];
+  const { historialDeMensajes, conTurnoActual, ultimoEntranteMs, TURNOS_DE_CONTEXTO } = await import('@/lib/setter-conversacion');
+  if (social) {
+    // LA CHARLA DE ESE CANAL (`charlaSocialDelLead`): lo que escribió y lo que le salió. Sin borrador del
+    // WhatsApp que descartar ni línea: la respuesta sale por la cuenta de Zernio a la que escribió.
+    const filas = await charlaSocialDelLead(leadId, social.canal);
+    const historial = conTurnoActual(historialDeMensajes(filas ?? []), texto);
+    return {
+      leadId, secuencia, texto, lineaEntrante: null, supabase, lead, linea: null,
+      descartarViejo: async () => 0, historial, respondeA: ultimoEntranteMs(filas), social,
+    };
+  }
   const linea = lineaEntrante ?? secuencia.instance_name;
   const { descartarBorradorSetter } = await import('@/lib/evolution-envio');
   const descartarViejo = () => descartarBorradorSetter(leadId).catch((e) => { console.error(`[nutricion] descartar el borrador del lead ${leadId}:`, e); return 0; });
@@ -5215,21 +5254,23 @@ async function contextoDeRespuesta(leadId: number, secuencia: SecuenciaConStats,
   // insistencia no podía dar nunca (exige tres mensajes del lead) y el setter repreguntaba
   // lo que ya le habían contestado. Se lee la charla por la línea a la que escribió; si la
   // lectura falla, se sigue con el mensaje de hoy, como antes.
-  const { historialDeMensajes, conTurnoActual, ultimoEntranteMs, TURNOS_DE_CONTEXTO } = await import('@/lib/setter-conversacion');
   const { mensajesRecientesDelLead } = await import('@/lib/wa-historial');
   const filas = await mensajesRecientesDelLead(leadId, { limite: TURNOS_DE_CONTEXTO + 5, linea: lineaEntrante });
   const historial = conTurnoActual(historialDeMensajes(filas ?? []), texto);
   // Cuándo entró el mensaje que se está contestando: si antes de guardar el borrador entró
   // otro más nuevo, esta redacción ya no contesta lo último (ver `redactarRespuesta`, paso 2).
   const respondeA = ultimoEntranteMs(filas);
-  return { leadId, secuencia, texto, lineaEntrante, supabase, lead, linea, descartarViejo, historial, respondeA };
+  return { leadId, secuencia, texto, lineaEntrante, supabase, lead, linea, descartarViejo, historial, respondeA, social: null };
 }
 
 /** ¿Entró un mensaje del lead MÁS NUEVO que el que se está contestando? Lo atiende su propia corrida. */
 async function hayMensajeMasNuevo(c: CtxRespuesta): Promise<boolean> {
   if (c.respondeA == null) return false;
   const [{ mensajesRecientesDelLead }, { ultimoEntranteMs }] = await Promise.all([import('@/lib/wa-historial'), import('@/lib/setter-conversacion')]);
-  const masNuevo = ultimoEntranteMs(await mensajesRecientesDelLead(c.leadId, { limite: 3, linea: c.lineaEntrante }));
+  // Por Instagram o Messenger se mira la charla de ESE canal: un WhatsApp nuevo no es el mensaje que se contesta.
+  const masNuevo = ultimoEntranteMs(c.social
+    ? await charlaSocialDelLead(c.leadId, c.social.canal, 3)
+    : await mensajesRecientesDelLead(c.leadId, { limite: 3, linea: c.lineaEntrante }));
   return masNuevo != null && masNuevo > c.respondeA;
 }
 
@@ -5242,17 +5283,21 @@ async function hayMensajeMasNuevo(c: CtxRespuesta): Promise<boolean> {
  *     `estrategia.escenarios`, el hand-off si no encaja, y `redactarRespuesta` si encaja.
  * Devuelve false (sin hacer nada) si ninguna de las secuencias contesta.
  */
-async function asistirRespuesta(leadId: number, secuenciaIds: number[], texto?: string, lineaEntrante: string | null = null, op: { medio?: MedioAIStep } = {}): Promise<boolean> {
+async function asistirRespuesta(
+  leadId: number, secuenciaIds: number[], texto?: string, lineaEntrante: string | null = null,
+  op: { medio?: MedioAIStep; cuenta?: string | null } = {},
+): Promise<boolean> {
   const { parseEstrategia } = await import('@/lib/setting-estrategia');
   const secs = await getSecuenciasConStats();
   // AI STEP v2 (décima tanda, docs/diseno-ai-step-v2.md §1): ¿contesta por ESTE medio? Se decide sobre la
   // EXPANSIÓN del medio (`escuchaPor`), no sobre lo guardado: una automatización con AI Step sólo de
-  // Instagram no le contesta un WhatsApp. Ausente = WhatsApp, que es por donde llega todo lo de hoy.
+  // Instagram no le contesta un WhatsApp. Ausente = WhatsApp.
   const medio = op.medio ?? 'whatsapp';
-  // La secuencia que contesta: la que escucha por el medio o, si no, la asistida de antes.
-  const secuencia = secs.find((s) => secuenciaIds.includes(s.id) && (escuchaPor(s.pasos, medio) || parseEstrategia(s.estrategia)?.modo === 'asistido'));
+  const social = esCanalSocial(medio) ? medio : null;
+  // La secuencia que contesta: la que escucha por el medio o, si no, la asistida de antes (sólo WhatsApp).
+  const secuencia = secs.find((s) => secuenciaIds.includes(s.id) && (escuchaPor(s.pasos, medio) || (!social && parseEstrategia(s.estrategia)?.modo === 'asistido')));
   if (!secuencia) return false;
-  const c = await contextoDeRespuesta(leadId, secuencia, texto, lineaEntrante);
+  const c = await contextoDeRespuesta(leadId, secuencia, texto, lineaEntrante, social ? { canal: social, cuenta: op.cuenta?.trim() || null } : null);
   if (escuchaPor(secuencia.pasos, medio)) return responderConGrafo(c, medio);
   const { supabase, lead, descartarViejo } = c;
 
@@ -5292,8 +5337,8 @@ async function asistirRespuesta(leadId: number, secuenciaIds: number[], texto?: 
  * La comparten el modo asistido de antes y «Si responde» del flujo con ramas: el MISMO redactor
  * (`responderSimulador`) y las MISMAS puertas, no una copia que se queda vieja.
  */
-async function redactarRespuesta(c: CtxRespuesta, clas: { escenario: EscenarioSecuencia }): Promise<boolean> {
-  const { leadId, secuencia, texto, supabase, lead, linea, descartarViejo, historial } = c;
+async function redactarRespuesta(c: CtxRespuesta, clas: { escenario: EscenarioSecuencia }, nodoId: string | null = null): Promise<boolean> {
+  const { leadId, secuencia, texto, supabase, lead, linea, descartarViejo, historial, social } = c;
 
   // El intercambio cuenta para la ventana de la charla (#788): siete días desde ACÁ.
   await supabase.from('nutricion_inscripciones')
@@ -5334,7 +5379,8 @@ async function redactarRespuesta(c: CtxRespuesta, clas: { escenario: EscenarioSe
   let audioId: number | null = null;
   let pieAudio = '';
   let sinAudio: string | null = null;
-  if (sugerida && lead?.telefono && clas.escenario.audio) {
+  // Sólo por WhatsApp (§6: «Sin audio» en las redes; Publicar tampoco deja un audio en un AI Step social).
+  if (sugerida && !social && lead?.telefono && clas.escenario.audio) {
     const r = await notaDeVozDeRespuesta(clas.escenario.audio.voz, sugerida)
       .catch((e: unknown) => ({ ok: false as const, error: e instanceof Error ? e.message.slice(0, 160) : 'falló la voz' }));
     if (r.ok) { audioId = r.audioId; pieAudio = r.pie; }
@@ -5345,7 +5391,11 @@ async function redactarRespuesta(c: CtxRespuesta, clas: { escenario: EscenarioSe
   //    había uno pendiente, se reemplaza (#788).
   let borradorOk = false;
   let borradorId: number | null = null;
-  if (sugerida && lead?.telefono) {
+  // Por Instagram o Messenger NO hay borrador: MaKo no tiene bandeja de esos canales (§6). «Para aprobar» es
+  // el texto entero en el aviso al grupo, para que la persona lo mande desde su Instagram.
+  if (social) {
+    /* el texto va en el aviso (abajo) */
+  } else if (sugerida && lead?.telefono) {
     const { guardarBorradorSetter } = await import('@/lib/evolution-envio');
     const g = await guardarBorradorSetter({
       // Con nota de voz, el texto del borrador es sólo lo que va DEBAJO (los links): el audio dice el resto.
@@ -5414,7 +5464,13 @@ async function redactarRespuesta(c: CtxRespuesta, clas: { escenario: EscenarioSe
   let porQueNoSolo: string | null = null;
   // Sin el audio que el caso pedía, no sale sola (§5): una persona mira el texto antes.
   if (sinAudio) porQueNoSolo = `no salió en audio: ${sinAudio}`;
-  if (!sinAudio && borradorOk && borradorId != null && sugerida && lead?.telefono && clas.escenario.contestaSolo === true && !alertaDescalifica) {
+  // POR INSTAGRAM O MESSENGER sale por Zernio, con las MISMAS puertas de «Sola» (`contestarSolaPorRedes`).
+  if (social && sugerida && clas.escenario.contestaSolo === true && !alertaDescalifica) {
+    const r = await contestarSolaPorRedes(c, sugerida, cierre, clas.escenario, nodoId);
+    contestado = r.ok;
+    porQueNoSolo = r.ok ? null : r.motivo;
+  }
+  if (!social && !sinAudio && borradorOk && borradorId != null && sugerida && lead?.telefono && clas.escenario.contestaSolo === true && !alertaDescalifica) {
     try {
       const { puedeContestarSolo } = await import('@/lib/setter-conversacion');
       const desde = new Date(Date.now() - 24 * 3_600_000).toISOString();
@@ -5457,8 +5513,12 @@ async function redactarRespuesta(c: CtxRespuesta, clas: { escenario: EscenarioSe
   }
 
   const enAudio = audioId ? ' con una nota de voz' : '';
+  const por = social ? ` por ${NOMBRE_CANAL[social.canal]}` : '';
   const borrador = contestado && sugerida
-    ? `\n\nLe contesté solo${enAudio} (caso «${clas.escenario.titulo}»):\n${sugerida.slice(0, 300)}`
+    ? `\n\nLe contesté solo${enAudio}${por} (caso «${clas.escenario.titulo}»):\n${sugerida.slice(0, 300)}`
+    // Por las redes, el texto ENTERO: la persona lo copia y lo manda desde su Instagram.
+    : social && sugerida
+      ? `\n\nTe dejé esta respuesta para mandarla tú${por}${porQueNoSolo ? ` (no la mandé sola: ${porQueNoSolo})` : ''}:\n${sugerida.slice(0, TOPE_TEXTO_SOCIAL)}`
     : borradorOk && sugerida
       ? `\n\n${cierre === 'insistencia' || cierre === 'fin_mal' ? 'Te dejé la despedida lista para aprobar' : audioId ? 'Te dejé una nota de voz lista para aprobar' : 'Te dejé un borrador listo para aprobar'}${porQueNoSolo ? ` (no lo mandé solo: ${porQueNoSolo})` : ''}:\n${sugerida.slice(0, 300)}`
       : sinBorrador ? `\n\nNo pude dejarte un borrador: ${sinBorrador}` : '';
@@ -5472,6 +5532,60 @@ async function redactarRespuesta(c: CtxRespuesta, clas: { escenario: EscenarioSe
     texto: `💬 *${quien} respondió* a la automatización «${secuencia.nombre}».${texto?.trim() ? `\n\n_"${texto.trim().slice(0, 180)}"_` : ''}${borrador}${alertaDescalifica}\n\n— MaKo`,
   });
   return true;
+}
+
+/**
+ * «SOLA» POR INSTAGRAM O MESSENGER (TikTok fase 0, 14/10/2026): la respuesta del AI Step sale por Zernio con
+ * las MISMAS puertas que en WhatsApp (`puedeContestarSolo`: la despedida, lo que habla de plata, el dato sin
+ * completar, el tope de «Sola» por 24 h y el horario del negocio). Lo que es del WhatsApp no aplica: no hay
+ * interruptor del envío ni número bloqueado, y el tope se cuenta en `nutricion_envios` (canal social, autor
+ * 'ia'), que es donde queda cada respuesta que salió. La ventana de 24 h de Meta la mira el envío
+ * (`decidirSalida`): es una respuesta a algo que la persona acaba de escribir. Devuelve por qué no salió.
+ */
+async function contestarSolaPorRedes(
+  c: CtxRespuesta, texto: string, cierre: 'fin_bien' | 'fin_mal' | 'insistencia' | null, escenario: EscenarioSecuencia, nodoId: string | null,
+): Promise<{ ok: true } | { ok: false; motivo: string }> {
+  const { leadId, secuencia, supabase } = c;
+  const canal = c.social!.canal;
+  if (texto.length > TOPE_TEXTO_SOCIAL) return { ok: false, motivo: `es más larga de lo que ${NOMBRE_CANAL[canal]} deja mandar` };
+  try {
+    const desde = new Date(Date.now() - 24 * 3_600_000).toISOString();
+    const [automaticas, tz, limites, horario] = await Promise.all([
+      supabase.from('nutricion_envios').select('id', { count: 'exact', head: true })
+        .eq('lead_id', leadId).eq('canal', canal).eq('texto_autor', 'ia').eq('estado', 'enviado').gte('created_at', desde)
+        .then((r) => (r.error ? Number.POSITIVE_INFINITY : (r.count ?? 0))),
+      tzActual().catch(() => TZ_DEFAULT),
+      limitesDeEnvio(),
+      horarioDeEnvio(),
+    ]);
+    if (limites === 'ilegible' || horario === 'ilegible') return { ok: false, motivo: 'no pude leer tus límites' };
+    const { puedeContestarSolo } = await import('@/lib/setter-conversacion');
+    const hora = Number(new Intl.DateTimeFormat('en-US', { hour: 'numeric', hourCycle: 'h23', timeZone: tz }).format(new Date()));
+    const d = puedeContestarSolo({
+      escenario, texto, cierre, envioHabilitado: true, automaticasUltimas24h: automaticas, horaLocal: hora, bloqueado: false,
+      tope: limites.mako.solasPor24h, enHorario: horario ? dentroDelHorario(Date.now(), tz, horario) : undefined,
+    });
+    if (!d.ok) return { ok: false, motivo: d.motivo ?? 'no correspondía mandarla sola' };
+    const ws = await getWorkspaceActual();
+    if (ws == null) return { ok: false, motivo: 'no sé de qué negocio es' };
+    const { data: inscRow } = await supabase.from('nutricion_inscripciones').select('id')
+      .eq('lead_id', leadId).eq('secuencia_id', secuencia.id).maybeSingle();
+    const inscId = (inscRow as { id: number } | null)?.id ?? null;
+    // La clave es la del MENSAJE que se contesta: si el webhook se reentrega, Zernio devuelve la original.
+    const r = await enviarPasoSocial({
+      ws, leadId, canal, partes: [{ tipo: 'texto', cuerpo: texto }], vars: {},
+      idempotencia: `ai-step:${secuencia.id}:${leadId}:${c.respondeA ?? Date.now()}`, cuenta: c.social!.cuenta,
+    });
+    const { error } = await supabase.from('nutricion_envios').insert({
+      inscripcion_id: inscId, lead_id: leadId, secuencia_id: secuencia.id, paso: null, nodo_id: nodoId,
+      canal, estado: r.ok ? 'enviado' : 'fallo', destino: r.destino, asunto: null, error: r.ok ? null : (r.error ?? 'no salió'),
+      texto_enviado: r.ok ? texto : null, texto_autor: 'ia',
+    });
+    if (error) console.error(`[nutricion] rastro de la respuesta por ${canal}, lead ${leadId}: ${error.message}`);
+    return r.ok ? { ok: true } : { ok: false, motivo: `no salió (${(r.error ?? '').slice(0, 120)})` };
+  } catch (e) {
+    return { ok: false, motivo: `no pude decidir si salía sola (${e instanceof Error ? e.message.slice(0, 120) : 'error'})` };
+  }
 }
 
 /**
@@ -5632,7 +5746,7 @@ async function responderConGrafo(c: CtxRespuesta, medio: MedioAIStep = 'whatsapp
           comoResponder: p.cuerpo, ...(p.revisar === false ? { contestaSolo: true } : {}),
           ...extrasDeCaso(ia),
         },
-      });
+      }, idDe(p, i));
     } else {
       const m = await mandarMensajeDeRespuesta(c, p, i, inscId);
       hecho.push(m.texto);
@@ -5718,6 +5832,39 @@ async function mandarMensajeDeRespuesta(c: CtxRespuesta, p: PasoSecuencia, i: nu
     });
     if (error) console.error(`[nutricion] rastro de «Si responde», lead ${leadId}: ${error.message}`);
   };
+  // POR INSTAGRAM O MESSENGER (TikTok fase 0): la rama de un AI Step de ese medio contesta por ESE canal, con
+  // la tarjeta del mismo canal, por Zernio. Sin bandeja: lo que no sale solo va en el aviso para mandarlo a mano.
+  if (c.social) {
+    const canal = c.social.canal;
+    const nombre = NOMBRE_CANAL[canal];
+    if (p.canal !== canal) return no(`Un mensaje de la rama no es de ${nombre}: no salió.`);
+    if (ws == null) return no('No le contesté: no sé de qué negocio es.');
+    const negocioSocial = await getWorkspace(ws).then((w) => w?.nombre ?? '').catch(() => '');
+    const varsSocial = await datosParaElLead(JSON.stringify(p), valoresVariablesLead(lead ?? {}, { negocio: negocioSocial }), { ws, leadId });
+    const partes = partesConDatos(partesDe(p), varsSocial);
+    const textoPartes = partes.map((pt) => (pt.tipo === 'texto' ? pt.cuerpo : pt.tipo === 'media' ? (pt.cuerpo?.trim() || '(un archivo)') : '(una nota de voz)'))
+      .map((t) => t.trim()).filter(Boolean).join('\n\n');
+    if (!textoPartes) return no('Un mensaje de la rama estaba vacío: no salió.');
+    if (!(await reclamar())) return yaSalio;
+    const anotar = async (estado: 'enviado' | 'fallo', destino: string | null, nota: string | null, enviado: string | null): Promise<void> => {
+      const { error } = await supabase.from('nutricion_envios').insert({
+        inscripcion_id: inscId, lead_id: leadId, secuencia_id: secuencia.id, paso: i + 1, nodo_id: idDe(p, i),
+        canal, estado, destino, asunto: null, error: nota, texto_enviado: enviado, texto_autor: enviado ? 'fijo' : null,
+      });
+      if (error) console.error(`[nutricion] rastro de «Si responde» por ${canal}, lead ${leadId}: ${error.message}`);
+    };
+    if (!(saleSolo(p, secuencia.envio_automatico) || await esLeadCliente(leadId))) {
+      return si(`Te dejé esto para mandarlo tú por ${nombre}: «${textoPartes.slice(0, TOPE_TEXTO_SOCIAL)}».`);
+    }
+    const r = await enviarPasoSocial({
+      ws, leadId, canal, partes, vars: {},
+      idempotencia: `si-responde:${inscId ?? `lead${leadId}`}:${idDe(p, i)}:${c.respondeA ?? Date.now()}`,
+      // La cuenta que eligió la tarjeta; si no eligió, la que recibió el mensaje.
+      cuenta: cuentaDelPaso(p) ?? c.social.cuenta,
+    });
+    await anotar(r.ok ? 'enviado' : 'fallo', r.destino, r.ok ? (r.nota ?? null) : (r.error ?? 'no salió'), r.textos.join('\n\n') || null);
+    return r.ok ? si(`Le contesté por ${nombre}: «${textoPartes.slice(0, 120)}».`) : no(`No salió la respuesta por ${nombre} (${(r.error ?? '').slice(0, 120)}).`);
+  }
   // ⚠️ Instagram y Messenger también se frenan acá: su proveedor «es» no_oficial (no tienen plantilla),
   // y sin esta guarda un paso de Instagram de la rama le salía al lead POR WHATSAPP.
   if (p.canal === 'email' || esCanalSocial(p.canal) || proveedorDelPaso(p) !== 'no_oficial') return no('Un mensaje de la rama no es de WhatsApp no oficial: no salió.');

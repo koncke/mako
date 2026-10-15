@@ -505,4 +505,27 @@ export const BITACORA: Hito[] = [
     ],
     archivos: ['app/general/bloques/', 'app/general/KpisCard.tsx', 'app/general/Cobranza.tsx', 'lib/general-plantillas.ts', 'lib/graficos-temas.ts', 'lib/graficos-tablero.ts', 'tests/general-bloques.test.ts'],
   },
+  {
+    fecha: '14 oct', hora: '23:04', chat: 'General', cuenta: 'claude1', actor: 'martin', tipo: 'prompt',
+    titulo: 'General ÉPICO en escritorio, como el teléfono',
+    pedido: "Lo mismo que hicimos en mobile, que sea EPICO la vista General, quiero que le envies a los templates de general en desktop, se ven muy como dashboards y quiero que sean como lo tenemos en mobile, epicos, pocas cosas, textos gigantes, bloques grandes, etc... Hay que rediseñar los bloques y los templates para que cumplan con este criterio.",
+    puntos: ['Llegó por el orquestador, mirando /general en la compu con la galería de plantillas abierta.'],
+  },
+  {
+    fecha: '14 oct', hora: '23:40', chat: 'General', cuenta: 'claude1', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Los bloques y las plantillas con la escala del teléfono',
+    puntos: [
+      'Un número protagonista por bloque, que crece con la tarjeta: 40 px en el teléfono (como lo aprobaste), ~80 en media hoja y 128 a lo ancho.',
+      'El título de cada tarjeta es un rótulo chico en mayúsculas; lo grande es lo de adentro.',
+      'La meta con su anillo (avance y tiempo), la acción del día en una frase y un botón, el mes en baldosas, las llamadas con la hora en grande y la cobranza con el monto en grande.',
+      'Fuera la metadata: el pie de la meta, el porqué de la acción, «mismo período del mes anterior», los chips de más.',
+      'Plantillas con tres números como mucho, los números más altos y las partes pegadas a lo suyo.',
+      'Pendiente en la Ticketera: si la meta va oscura y la acción azul en escritorio, como en el teléfono.',
+    ],
+    commits: [
+      { sha: '8840d548', msg: 'General épico (en curso): la escala del teléfono en los bloques, la meta con su anillo y las plantillas más cortas', lineas: 340, archivos: 8 },
+      { sha: '1c064af7', msg: 'General épico (en curso): listas, OKRs, semáforo, Mi día, proyectos, KPIs y publicaciones con la escala; el funnel ancho lado a lado', lineas: 133, archivos: 7 },
+    ],
+    archivos: ['app/general/bloques/', 'app/general/Cobranza.tsx', 'app/general/KpisCard.tsx', 'lib/general-piezas.ts', 'lib/general-plantillas.ts', 'lib/graficos-temas.ts'],
+  },
 ];

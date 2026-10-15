@@ -700,7 +700,7 @@ Los que hoy son fuente única:
 | Cómo se llama y se ve cada estado de la IA, y el Semáforo | `lib/mako-gramatica.ts` | la primitive `<Mako>`, `meta-health-ui`, `avisos-catalogo` |
 | Qué cliente mira ESTA pestaña (`?ws=`) | `lib/ws-tab.ts` + la validación en `proxy.ts` | `getWorkspaceActual`, el `<Link>` de `app/_ui`, el parche de fetch |
 | Cómo se escribe **MaKo** (`corregirMarca`, `REGLA_MARCA`) | `lib/mako-gramatica.ts` | `transcribirAudio` (STT), `limpiarTarea`, `MAKO_NUCLEO`, `docs/branding-mako.md` (generado) |
-| Los tipos de pregunta del Perro, su saneo y el texto que leen los modelos | `lib/preguntas-contrato.ts` (**sin `server-only`**, a propósito) | desde el 05/10/2026 **nadie las genera al cargar tareas** (el alta no pregunta: `tests/alta-sin-preguntas.test.ts`); quedan `plan-prueba` y `PreguntaCampo`, este último sin call site |
+| Los tipos de pregunta del Perro, su saneo y el texto que leen los modelos | `lib/preguntas-contrato.ts` (**sin `server-only`**, a propósito) | desde el 05/10/2026 **nadie las genera al cargar tareas** (el alta no pregunta: `tests/alta-sin-preguntas.test.ts`); queda `plan-prueba` (`PreguntaCampo`, que ya no tenía call site, se borró el 14/10/2026) |
 | Lo que un agente puede leer o hacer en MaKo | `lib/api-mako/areas/<área>.def.ts` + `.run.ts`, reunidos en `lib/api-mako/registro.ts` | el doer de WhatsApp, el chat de la app, `/api/v1`, `docs/api-mako.md` (generado), la skill del cliente |
 
 ⚠️ **El rótulo de un estado de MaKo no es un prop.** Sale de `GRAMATICA` y no se puede
@@ -6670,6 +6670,11 @@ peor: el número se mueve solo, de a poco, todos los días**, sin una entrada de
 lo explique. Lo fijado entra al reparto con su número tal cual (para que el resto se ordene
 alrededor) y sale sin que se le escriba nada — y el cron **cuenta cuántas respetó**, porque
 un candado que funciona y uno que nadie disparó se ven iguales si no se cuentan.
+⚠️ **Y no escribirle no alcanza: las de alrededor no la pueden CRUZAR por ruido del reparto.** Un
+reparto por ranking le devuelve a cada vecina el número de su puesto, y el 14/10/2026 eso deshacía
+240 de 513 arrastres en la primera corrida. Todo proceso que reescriba números alrededor de algo
+fijado pasa por `respetarFijadas` (app/plan/board/lugar-al-soltar.ts): se cruza sólo con un
+juicio claro (`MARGEN_CRUCE`), nunca por 1 o 2 puntos de redondeo.
 
 ⚠️ **Y el corolario de la priorización: un proyecto se juzga por lo que tiene ADENTRO, no por
 su nombre.** En esa misma corrida «Cliente: Mauricio» quedó primero porque las decisiones
@@ -7969,6 +7974,15 @@ técnicas están en [docs/diseno-mako-mobile.md](docs/diseno-mako-mobile.md), lo
 [docs/diseno-mako-mobile-v2.md](docs/diseno-mako-mobile-v2.md) con su prototipo, y lo que costó en
 [docs/hallazgos-mobile.md](docs/hallazgos-mobile.md).
 
+- **EL TELÉFONO DESTILA EL ESCRITORIO, NO LO REDISEÑA (14/10/2026, Martín, al rechazar el prototipo v1).** Textual:
+  «en el celular todo se ve SIMILAR al escritorio, pero con menos texto y menos cosas». Una pantalla de app/m tiene las
+  MISMAS vistas, en el MISMO orden y con los MISMOS rótulos que su tab de escritorio (el Plan es Prioridades · Tareas ·
+  Proyectos · Recurrentes, no «Hoy · Semana»; el CRM es su tablero, sin un «Hoy» que ya está en el Plan); lo que se
+  recorta es texto y piezas, nunca la estructura. More sigue las FAMILIAS de la sidebar (Operate, Analyze, Sales
+  Machine, Content Machine, Customer Success) en su orden, y no repite lo que ya está en la barra (CRM · Chats ·
+  General · Plan · More, con General AL MEDIO y como la que abre). Antes de dibujar una pantalla nueva: relevar la de
+  escritorio y buscar referencias de apps reales (son parte del pedido). El prototipo vigente:
+  docs/prototipos/mako-mobile-tableros.html.
 - **LAS MISMAS RUTAS (13/10/2026, decisión de Martín): /m es la carpeta INTERNA, nunca una URL.** Un teléfono abre
   /crm, /general, /plan… y el proxy le sirve la página de /m en esa misma URL (`pedidoMovil`, lib/movil-desvio.ts);
   una URL /m vieja se redirige a la de escritorio. Adentro de /m todo sigue hablando en rutas /m: al NAVEGAR, `conWs`

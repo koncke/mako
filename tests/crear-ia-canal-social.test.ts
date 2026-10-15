@@ -25,7 +25,7 @@ import {
 } from '../lib/flujo-ia';
 import { opcionesCronIA } from '../lib/disparadores';
 import { catalogosDe, etapasDeCondicion } from '../lib/condiciones-catalogos';
-import { validarGrafo, claseDe, type PasoGrafo } from '../lib/flujo-grafo';
+import { validarGrafo, claseDe, ID_INICIO, type PasoGrafo } from '../lib/flujo-grafo';
 import { TOPE_TEXTO_SOCIAL } from '../lib/canal-social';
 import { porId } from '../lib/api-mako/registro';
 
@@ -168,7 +168,9 @@ test('un flujo de Instagram no lleva «Si responde» ni AI Step: se sacan con UN
   ] }, ctx, rnd());
   assert.ok(!r.pasos.some((p) => claseDe(p) === 'respuesta'), 'quedó un «Si responde» o un AI Step');
   assert.equal(mensajes(r.pasos).length, 1, 'lo que colgaba SÓLO de «Si responde» se va con ella');
-  assert.ok(r.avisos.includes('Saqué el Si responde: por Instagram todavía no contesta'), r.avisos.join(' | '));
+  // Desde TikTok fase 0 (14/10/2026) el motor SÍ contesta por Instagram con el AI Step de ese medio: el aviso dice dónde
+  // se suma, no que «todavía no contesta» (lo que arma la IA no llega a ser un AI Step de Instagram: lib/flujo-ia.ts).
+  assert.ok(r.avisos.includes('Saqué el Si responde: el AI Step de Instagram se suma desde el ＋'), r.avisos.join(' | '));
   assert.ok(!r.avisos.some((a) => /no colgaba/.test(a)), r.avisos.join(' | '));
   assert.deepEqual(revision(r.pasos, ctx, r.disparador), []);
   // La segunda capa: un «Si responde» que quedara en un flujo social se rechaza.
@@ -178,6 +180,15 @@ test('un flujo de Instagram no lleva «Si responde» ni AI Step: se sacan con UN
     { id: 'r2', tipo: 'mensaje', texto: 'Texto fijo' },
   ] }, ctxWs10('Bienvenida por WhatsApp'), rnd());
   assert.ok(validarIA(ws.pasos, ctx, undefined, 'instagram:dm').some((e) => /por Instagram no lleva "si_responde"/.test(e)));
+  // TikTok fase 0 (14/10/2026): un AI Step de ESE medio sí va (el motor contesta por ahí); uno de WhatsApp, no.
+  // Rotura: la regla sin la excepción del medio → este archivo 7 / 1 (éste).
+  const conIA = (medio?: 'instagram') => [
+    { id: 'm1', canal: 'instagram' as const, cuerpo: 'Hola', siguiente: null },
+    { id: 'a1', nodo: 'respuesta' as const, paso_ia: true as const, objetivo: 'Que agende', ...(medio ? { medio } : {}), casos: [{ id: 'c1', titulo: 'A', cuando: 'B', siguiente: null }], si_no: null },
+    { id: ID_INICIO, nodo: 'inicio' as const, siguiente: 'm1' },
+  ] as PasoGrafo[];
+  assert.ok(!validarIA(conIA('instagram'), ctx, undefined, 'instagram:dm').some((e) => /no lleva "si_responde"/.test(e)), 'el AI Step de Instagram se rechaza en su propio flujo');
+  assert.ok(validarIA(conIA(), ctx, undefined, 'instagram:dm').some((e) => /por Instagram no lleva "si_responde"/.test(e)), 'un AI Step de WhatsApp pasa en un flujo de Instagram');
 });
 
 // rotura s8 «el DM con audio, archivo o IA» (`nodoDe` sin el `social`) → 7 / 1 (éste).

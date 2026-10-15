@@ -31,8 +31,9 @@ const EXCEPCIONES: Record<string, string> = {
   'onnxruntime-web': 'transitiva de @huggingface/transformers, a propósito',
 };
 
-/** Archivos que no entran al build de Next (su entrada era otra página de Vite). */
-const FUERA_DEL_BUILD = new Set(['app/image-editor/_doory/editor/presenter/view/main.tsx']);
+/** Archivos que no entran al build de Next. Vacío desde el 14/10: el único era la entrada de Vite de la vista del
+ * presentador (`presenter/view/main.tsx`), y esa vista pasó a ser la ruta app/image-editor/presentador. */
+const FUERA_DEL_BUILD = new Set<string>();
 
 function archivos(dir: string): string[] {
   const out: string[] = [];

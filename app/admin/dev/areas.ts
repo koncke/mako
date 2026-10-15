@@ -1021,7 +1021,7 @@ export const AREAS: AreaDev[] = [
     // guarda los números. Se amplió al escribir la bitácora — la regla de AGENTS.md
     // «Una ruta que apunta a la nada»: el vive[] cubre dónde cae el trabajo de
     // verdad, no solo los componentes de la pantalla.
-    vive: ['app/admin/estrategia/datos.ts', 'app/admin/estrategia/Estrategia.tsx', 'app/admin/estrategia/page.tsx', 'app/vsl/estrategia/page.tsx', 'app/admin/dev/pricing/modelo.ts', 'app/admin/dev/pricing/Pricing.tsx', 'app/admin/dev/pricing/Piezas.tsx', 'tests/pricing-modelo.test.ts', 'docs/costos-ia-y-planes.md', 'docs/embudo-y-high-ticket.md', 'app/vsl/landing-html.ts'],
+    vive: ['app/admin/estrategia/datos.ts', 'app/admin/estrategia/Estrategia.tsx', 'app/admin/estrategia/page.tsx', 'app/vsl/estrategia/page.tsx', 'app/admin/dev/pricing/modelo.ts', 'app/admin/dev/pricing/Pricing.tsx', 'app/admin/dev/pricing/Piezas.tsx', 'tests/pricing-modelo.test.ts', 'docs/costos-ia-y-planes.md', 'docs/embudo-y-high-ticket.md', 'app/vsl/landing-html.ts', 'app/admin/runway/', 'app/m/decisiones/', 'lib/admin-decisiones.ts', 'scripts/decisiones.ts', 'tests/runway-decisiones.test.ts', 'app/tickets/decisiones/', 'app/m/tickets/', 'tests/tickets-decisiones-mazo.test.ts'],
     proyectos: ['Vender MaKo: Oferta y precios'],
     hallazgos: 'hallazgos-landing',
     nota: 'Está partido en dos mitades que no se hablan, y es lo primero que hay que entender: (1) la oferta y la estrategia viven en /admin/estrategia (antes /vsl/estrategia, que redirige; desde el 10/10/2026 importa sus números de modelo.ts y del runway) —MIX, unit economics, la escalera para que «cualquier lead compre algo»—; (2) los planes de software con cupo de MaKo Tokens viven en app/admin/dev/pricing/modelo.ts, que ya tiene su propio registro en /admin/dev con slug `pricing` (app/admin/dev/areas.ts) — no duplicarlo. Regla del archivo modelo.ts: cada número declara si es `medido` (de anthropic_usage en prod), `publicado` (precio de lista con fecha) o `supuesto`; un número sin origen no se agrega. La única superficie pública de precio es el bloque «Precio de fundador» de app/vsl/landing-html.ts, que no da cifra.',
@@ -1235,7 +1235,7 @@ export const AREAS: AreaDev[] = [
     slug: 'auth-session', titulo: 'Auth & Session', familia: 'Infra', grupo: 'Seguridad',
     estado: 'listo',
     alcance: 'Login con Google, token firmado, roles. El inventario tenía la pantalla, no el mecanismo.',
-    vive: ['lib/auth-session.ts', 'lib/auth.ts', 'app/api/auth/google/route.ts', 'app/api/auth/callback/google/route.ts', 'app/api/auth/logout/route.ts', 'app/api/auth/me/route.ts', 'app/api/auth/dev-login/route.ts'],
+    vive: ['lib/auth-session.ts', 'lib/auth.ts', 'app/api/auth/google/route.ts', 'app/api/auth/callback/google/route.ts', 'app/api/auth/logout/route.ts', 'app/api/auth/me/route.ts', 'app/api/auth/dev-login/route.ts', 'app/api/auth/2fa/route.ts', 'app/login/2fa', 'lib/mfa.ts', 'lib/mfa-reglas.ts', 'lib/sesion-cookies.ts', 'app/api/perfil/seguridad/route.ts', 'app/perfil/seguridad', 'supabase/migrations/0266_segundo_factor.sql', 'tests/mfa.test.ts'],
   },
   {
     slug: 'access-gate', titulo: 'Access Gate', familia: 'Infra', grupo: 'Seguridad',

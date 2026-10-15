@@ -25,6 +25,18 @@
 //   · LO QUE NO LLENA EL ALTO VA CENTRADO (`gb-centro`), no pegado arriba con un hueco abajo.
 //   · LO QUE SE REPITE EN LA FILA LLENA EL ANCHO (`auto-fit`, no `auto-fill`): con `auto-fill` tres OKRs en una hoja
 //     entera dejaban un tercio vacío a la derecha.
+// La séptima vuelta, ÉPICA (14/10/2026, Martín: «Lo mismo que hicimos en mobile, que sea EPICO la vista General...
+// pocas cosas, textos gigantes, bloques grandes»). La escala es la del teléfono que aprobó (docs/prototipos/
+// mako-mobile-tableros.html), escrita para que ESCRITORIO crezca y el teléfono quede igual — el teléfono dibuja ESTOS
+// bloques (app/m/hoy/GeneralM.tsx), así que cada tamaño va contra la tarjeta (cqi, `.gen-pieza` es el contenedor):
+//   · UN PROTAGONISTA por bloque (`gb-p`): 40 px en el teléfono (~326 px de contenido), ~80 en media hoja, 128 a lo
+//     ancho. Es una recta (22cqi − 32px) y no un % fijo: con 12cqi el teléfono daba 40 pero media hoja sólo 61.
+//   · LO SECUNDARIO que también es un número (`gb-s`: las baldosas del mes, un monto): ~2/3 del protagonista.
+//   · UNA FRASE que manda (`gb-frase`: la acción del día) y el TEXTO de una fila (`gb-t`).
+//   · EL RÓTULO de un bloque es el único texto chico: 13 px, en mayúsculas, del tema «General»
+//     (lib/graficos-temas.ts). Nada en el medio: un 17 px al lado de un 80 se lee como un error, no como jerarquía.
+//   · SIN METADATA: lo que el teléfono sacó («Actualizado», la segunda línea de cada fila, el «mismo período del mes
+//     anterior: $1,650», los chips de estado) tampoco va acá. Lo que sigue haciendo falta va en su pantalla.
 // ⚠️ «No pude leer» NO es un placeholder: es un fallo nuestro y se dice (`Fallo`). El placeholder es «todavía no hay».
 // ⚠️ LO QUE DEPENDE DE LA HORA SE DIBUJA DESPUÉS DE MONTAR (`useAhora`, y la muestra de un placeholder): el bloque se
 //    dibuja también en el server, y una hora o una fecha de ejemplo que cambie entre los dos rompe la hidratación.
@@ -67,12 +79,30 @@ a.gb-losa:hover,button.gb-losa:hover,.gb-losa[role=button]:hover{background:var(
 .gb-boton{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 14px;border-radius:10px;border:1px solid var(--primary);
   background:var(--primary);color:var(--on-primary,#fff);font-family:inherit;font-size:13.5px;font-weight:600;cursor:pointer;text-decoration:none;white-space:nowrap}
 .gb-boton:hover{filter:brightness(1.06)}
+.gb-boton--grande{height:clamp(40px,calc(3cqi + 30px),52px);padding:0 clamp(16px,3cqi,24px);border-radius:12px;font-size:clamp(14.5px,calc(1.2cqi + 11px),17px)}
 .gb-boton--sec{background:transparent;color:var(--ink);border-color:var(--border-strong)}
 .gb-boton--sec:hover{background:var(--gb-losa);filter:none}
 .gb-chip{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:999px;font-size:11.5px;font-weight:600;
   white-space:nowrap;background:var(--gb-losa-2);color:var(--dim)}
 .gb-num{font-variant-numeric:tabular-nums}
+.gb-p{font-size:clamp(40px,calc(22cqi - 32px),128px);font-weight:800;letter-spacing:-.04em;line-height:.95;font-variant-numeric:tabular-nums;color:var(--ink)}
+.gb-s{font-size:clamp(26px,calc(13cqi - 16px),64px);font-weight:800;letter-spacing:-.035em;line-height:1;font-variant-numeric:tabular-nums;color:var(--ink)}
+.gb-frase{margin:0;font-size:clamp(23px,calc(11cqi - 12px),60px);font-weight:700;letter-spacing:-.025em;line-height:1.1;text-wrap:balance;color:var(--ink)}
+.gb-t{font-size:clamp(15px,calc(4cqi + 2px),24px);font-weight:600;letter-spacing:-.01em;line-height:1.25;color:var(--ink)}
+.gb-d{font-size:clamp(14px,calc(2.4cqi + 6px),19px);color:var(--dim);line-height:1.35}
+.gb-delta{font-size:clamp(13.5px,calc(2.2cqi + 6px),18px);font-weight:700;font-variant-numeric:tabular-nums}
+/* El par «número + lo que lo explica» (el total del funnel y sus barras): en una tarjeta ancha van LADO A LADO; uno
+   arriba del otro, a 128 px el total se comía el alto y cortaba las etapas (Operación diaria, funnel de 12×7). */
+.gb-par{display:flex;flex-direction:column;flex:1;min-height:0}
+@container (min-width: 720px){.gb-par{flex-direction:row;align-items:center;gap:clamp(28px,5cqi,64px)}.gb-par>:first-child{flex:none;max-width:38%}.gb-par>:last-child{flex:1;min-width:0}}
+.gb-delta[data-sube]{color:var(--good)}.gb-delta[data-baja]{color:var(--bad)}.gb-delta[data-igual]{color:var(--faint)}
 .gb-plan{--surface:color-mix(in srgb,var(--ink) 4.5%,var(--gb-fondo,var(--surface)));--border:transparent}
+/* La escala épica sobre las tarjetas del Plan (TarjetaPrioridad, app/plan/board/BoardShell.tsx: es del chat del Plan y va
+   con estilos en línea, sin clases). Se agranda desde AFUERA y sólo el título de la tarea (el div con su title) y el
+   número del puesto: si el Plan cambia su marcado, esto deja de aplicar y la tarjeta queda como el Plan la dibuja, sin
+   romper nada. Si hace falta más, es un prop de escala en BoardShell, que se le pide al chat del Plan. */
+.gb-plan div[title]{font-size:clamp(17px,calc(2.2cqi + 8px),26px)!important;font-weight:700!important;letter-spacing:-.015em!important}
+.gb-plan span[title^="Prioridad "]{width:clamp(22px,calc(1.6cqi + 16px),32px)!important;height:clamp(22px,calc(1.6cqi + 16px),32px)!important;font-size:clamp(13px,calc(0.8cqi + 10px),16px)!important}
 `;
 
 /** El título de un bloque: el propio (si se escribió en el panel) o el del bloque. */

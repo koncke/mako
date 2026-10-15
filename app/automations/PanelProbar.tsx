@@ -106,7 +106,7 @@ import { useCatalogosCondicion, catalogosDe } from './EditorCondicion';
 import { nombresCatalogoDe } from '@/lib/condiciones-catalogo';
 import type { AudioSetting, PasoSecuenciaDto, ProductoOpcion, SecuenciaDto } from './ChatAgentApp';
 import type { EdicionLocal } from './SecuenciaPerfil';
-import { claseDe, raizRespuesta, textoCasoRespuesta, rotuloSiNoDeRespuesta, nodoPorId } from '@/lib/flujo-grafo';
+import { claseDe, raizRespuesta, textoCasoRespuesta, rotuloSiNoDeRespuesta, nodoPorId, escuchaPor, expandirPasoIA, type MedioAIStep } from '@/lib/flujo-grafo';
 import {
   flujoParaProbar, firmaFlujo, iniciar, siguiente, pausarPorRespuesta, entrarEnRespuesta,
   escenarioParaRedactar, textoDeEjemplo, correoDeEjemplo, debeSalirDeVerdad, burbujaDeArchivo,
@@ -836,6 +836,8 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
    * (`conectado: null`) deja el botón de siempre: probar dirá lo que pase.
    */
   const medioProbar: Medio | null = canal === 'email' ? 'email' : canal === 'whatsapp' ? 'whatsapp' : null;
+  // El AI Step que contesta en ESTA prueba: el del medio que se prueba (TikTok fase 0, 14/10/2026), como en el motor.
+  const medioIA: MedioAIStep | undefined = esCanalSocial(canal) ? canal : undefined;
   const estadoMedio = useEstadoMedios(medioProbar ? [medioProbar] : [], rolAdmin && medioProbar != null);
   const sinConectar = medioProbar != null && estadoDe(estadoMedio ?? null, medioProbar, secuencia.instance_name ?? null)?.conectado === false;
   const vinculados = dom && dom !== 'error' ? remitentesVinculados(dom) : [];
@@ -877,7 +879,7 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
   // Todo lo que leen los timers va por REF: un timer agendado en un render viejo tiene que ver
   // el estado de ahora. Lo que cambia con las props se copia a `ctx` después de cada render.
   const flujoRef = useRef(flujoVivo);
-  const simRef = useRef<EstadoSim>(iniciar(flujoVivo));
+  const simRef = useRef<EstadoSim>(iniciar(flujoVivo, { medio: medioIA }));
   const msgsRef = useRef<HiloMsg[]>([]);
   const correosRef = useRef<CorreoRecibido[]>([]);
   const run = useRef(0);
@@ -921,7 +923,7 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
   // mandan algo a ESTE canal (el camino del email no es un chat de WhatsApp); si ninguno, todos.
   const { escenarios, faltanEscenarios } = useMemo(() => {
     const contacto = contactoParaProbar(flujoVivo, (p) => canalDelPaso(p) === canal, CANALES_PROBAR[canal].contacto, leadDelCron, nombres);
-    const r = escenariosDePrueba(flujoVivo, { hechos: hechosDeLeadNuevo({ ...leadDelCron, ...contacto }), nombres, cuenta: (p) => canalDelPaso(p) === canal });
+    const r = escenariosDePrueba(flujoVivo, { hechos: hechosDeLeadNuevo({ ...leadDelCron, ...contacto }), nombres, cuenta: (p) => canalDelPaso(p) === canal, medio: medioIA });
     const conAlgo = r.escenarios.filter((e) => e.mensajes > 0);
     return { escenarios: conAlgo.length ? conAlgo : r.escenarios, faltanEscenarios: r.faltan };
   }, [flujoVivo, canal, leadDelCron, nombres]);
@@ -1169,7 +1171,7 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
   /** Arranca la prueba desde la primera tarjeta, con el flujo que se ve ahora. */
   const arrancarRefs = () => {
     flujoRef.current = flujoVivo;
-    simRef.current = iniciar(flujoVivo);
+    simRef.current = iniciar(flujoVivo, { medio: medioIA });
     contactoRef.current = contactoDe(flujoVivo);
     msgsRef.current = [];
     correosRef.current = [];
@@ -1291,14 +1293,15 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
     // Que conteste no corta nada (14/10/2026): lo corta, si está, la condición «No contestó desde que entró».
     const p = pausarPorRespuesta(simRef.current);
     simRef.current = p.estado;
-    if (!raizRespuesta(flujoRef.current)) {
+    // ¿Contesta por ESTE medio? (`escuchaPor`, la pregunta del motor): un AI Step de Instagram no contesta un WhatsApp.
+    if (!escuchaPor(flujoRef.current, medioIA)) {
       sistema('MaKo no contesta');
       if (p.siguen) { simRef.current = entrarEnRespuesta(flujoRef.current, simRef.current, null).estado; luego(PILDORA_MS, avanzar); }
       return null;
     }
     const r0 = run.current;
     setTyping({ lado: 'left', autor: firma() });
-    const j = await postar({ action: 'clasificar', pasos: flujoRef.current, ...cuerpo });
+    const j = await postar({ action: 'clasificar', pasos: flujoRef.current, ...(medioIA ? { medio: medioIA } : {}), ...cuerpo });
     if (run.current !== r0) return null;
     setTyping(null);
     if (!j.ok) { sistema(`⚠ ${j.error ?? 'No se pudo clasificar'}`, 'bad'); return null; }
@@ -1309,7 +1312,7 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
     // «…»» por caso y «Si no» al final. Acá seguía diciendo «Si responde · Otra cosa», los nombres de
     // antes. (El título del caso que viaja al redactor sigue siendo «Otra cosa»: es el del motor.) Y sin
     // casos, «Respondió», como la tarjeta: la MISMA función (séptima tanda).
-    sistema(e.caso?.id ? textoCasoRespuesta(e.caso) : rotuloSiNoDeRespuesta(nodoPorId(flujoRef.current, raizRespuesta(flujoRef.current))));
+    sistema(e.caso?.id ? textoCasoRespuesta(e.caso) : rotuloSiNoDeRespuesta(nodoPorId(flujoRef.current, raizRespuesta(expandirPasoIA(flujoRef.current, { medio: medioIA })))));
     luego(PILDORA_MS, avanzar);
     return typeof j.transcript === 'string' ? j.transcript : null;
   };

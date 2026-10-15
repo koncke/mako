@@ -398,4 +398,43 @@ export const BITACORA: Hito[] = [
     pedido: "Dale este mismo feedback al dashboard... Que rediseñe bloque por bloque y que tenga en cuenta mobile. Que vaya viendo con datos ficticios o con algun dato de algun workspace que todo se vea bien en diseño. Tanto bloques como las plantillas.",
     puntos: ['No se arrancó en esta cuenta (95% semanal): queda escrito con el método en docs/hallazgos-objectives.md y en el relevo del Dashboard.'],
   },
+  {
+    fecha: '14 oct', hora: '22:14', chat: 'Dashboard', cuenta: 'claude1', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Cada gráfico mirado en escritorio, angosto y celular, con datos de ejemplo',
+    puntos: [
+      'Se repartió con el chat General: él las tablas, las tarjetas, la dispersión, los paneles, los tramos y el mapa; este chat los números, el tiempo, las barras, la torta, el sankey, los embudos y la tabla dinámica.',
+      'Números: el minigráfico y la tendencia ya no pierden su línea, la bala entra en su tamaño y la aguja no tapa el número.',
+      'Ejes: las etiquetas que entran (en categorías todas, inclinadas si hace falta), la primera fecha separada del «0» y las leyendas en el orden del gráfico.',
+      'Torta y anillo con leyenda propia, sankey con los nombres afuera y colores por origen, embudos con los nombres adentro de la tarjeta.',
+      'En el celular, los números, la barra de proporción y los textos miden lo que dibujan; la tabla dinámica pierde barras y total y la plata va corta.',
+      'Los datos de ejemplo (también los de la galería de plantillas) son creíbles: conteos enteros, el embudo baja, la dinámica suma.',
+    ],
+    commits: [
+      { sha: 'fb44d58d', msg: 'Dashboard, rediseño por tipo (mitad Dashboard): números, tiempo, barras, torta, sankey y embudos mirados con capturas', lineas: 509, archivos: 6 },
+      { sha: '1de9d05b', msg: 'Dashboard: números altos más bajos en el celular, la dinámica con plata corta y ejemplos que se reparten', lineas: 52, archivos: 4 },
+      { sha: 'cdaebefa', msg: 'Dashboard: en el celular los textos miden lo que dibujan, y un mapa sin nivel lo saca de su dimensión', lineas: 15, archivos: 3 },
+      { sha: '6fcdc128', msg: 'Dashboard, rediseño por tipo (mitad General): tramos, paneles, tablas, barras, tarjetas y dispersión mirados con capturas', lineas: 421, archivos: 9 },
+      { sha: '5e47a427', msg: 'Dashboard: la cabecera de las tablas en dos renglones y las barras más compactas en el celular', lineas: 16, archivos: 2 },
+      { sha: '105fc5f4', msg: 'Dashboard: el mapa de ciudades se ubica solo por sus coordenadas, y una ciudad en la punta no se corta', lineas: 43, archivos: 1 },
+    ],
+    archivos: ['app/dashboard/Grafico.tsx', 'app/dashboard/graficos/estilos.tsx', 'app/dashboard/EditorInforme.tsx', 'lib/graficos-gordo.ts', 'lib/graficos-muestra.ts', 'tests/graficos-dibujo-celular.test.ts'],
+  },
+  {
+    fecha: '14 oct', hora: '23:00', chat: 'Dashboard', cuenta: 'claude1', actor: 'martin', tipo: 'prompt',
+    titulo: 'El mismo criterio «épico» del teléfono, en los dashboards',
+    pedido: 'Y lo mismo para Dashboard... Quiero el mismo criterio de EPICIDAD en los dashboards... Solo que ahí hay más graficos... Que se rediseñe todo',
+    puntos: ['Llegó por el chat orquestador, junto con el pedido hermano a General: «como lo tenemos en mobile, epicos, pocas cosas, textos gigantes, bloques grandes».'],
+  },
+  {
+    fecha: '14 oct', hora: '23:25', chat: 'Dashboard', cuenta: 'claude1', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Cada hoja con un titular que domina, y el número que crece con su tarjeta',
+    puntos: [
+      'Cada plantilla arranca con su número principal a media hoja y los demás a su lado, sin subtítulos; en el celular, el titular va a lo ancho.',
+      'El número de una tarjeta crece con ella (hasta 128 px), en la misma escala que usa General.',
+      'Los títulos de los gráficos y de los números, un poco más grandes.',
+      'Qué número es el titular de cada hoja lo eligió el chat (CAC en Marketing, Cash Collected en Comercial…): se cambia en una tabla.',
+    ],
+    commits: [{ sha: '68566ade', msg: 'Dashboard épico: cada plantilla con un titular que domina, y el número que crece con su tarjeta', lineas: 277, archivos: 7 }],
+    archivos: ['lib/graficos-gordo.ts', 'app/dashboard/Grafico.tsx', 'lib/graficos-plantillas.ts', 'app/dashboard/EditorInforme.tsx', 'app/dashboard/editor-css.ts', 'lib/graficos-temas.ts', 'tests/graficos-epico.test.ts'],
+  },
 ];

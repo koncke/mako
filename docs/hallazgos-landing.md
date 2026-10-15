@@ -4239,3 +4239,37 @@ y el mismo botón pasa de «Ver la grabación» a la X, así que el foco no salt
   de entrada.
 
 *14/10/2026, chat «CRM» (`claude2`), tanda A del feedback.*
+
+## Código Inmobiliario corría la v22 y no tenía UNA grabación: su sitio reescribió el Pixel (14/10/2026)
+
+**Síntoma.** ws13 tenía 271 visitas v22 en 7 días y **cero** filas en `replay_sesiones` (ws1: 104, ws11: 39). Para
+el aviso del Pixel estaba «al día», así que ninguna pantalla lo decía.
+
+**El diagnóstico obvio era el equivocado.** El server sí le contesta `rec` a cada visita (`app/api/track/vsl/route.ts`,
+muestreo 100) y `r.js` baja con 200. No era el contrato ni la librería: medido con Chrome automático sobre
+`v0-joandowd.vercel.app?mko_test=…` (visita marcada de prueba), el grabador arranca y emite (144 eventos en 20 s) y
+manda tres lotes, y el receptor contesta a los tres `{"ok":false,"ignorado":"sesion invalida"}`.
+
+**Causa.** El sitio (hecho con v0) no pega nuestro código: sirve una COPIA reescrita, `/mako-tracking.js` (con
+`var SV = 22`), más un `<script id="mako-config">` que arma `window.__MAKO_CONFIG`. La copia cambió
+`RSID = replaySesion();` por `RSID = String(window.__MAKO_RSID || replaySesion());`, y la config pone
+`__MAKO_RSID` en el TEXTO `"replaySesion();"`. Todo lote viaja con esa sesión y `sesionIdValido` lo tira. Visitas y
+clics llegan bien, porque esa parte no la tocó. Además la copia arranca el grabador dos veces por página.
+
+**Dos cosas que quedan:**
+
+- **Un Pixel «al día» por versión puede estar roto por adentro.** `SV` es un número que la copia conserva aunque haya
+  cambiado el código de alrededor. La v23 (una línea, `/m.js`) no le deja nada que reescribir a un generador de
+  sitios: para un cliente con un sitio armado por IA, es la que va.
+- **El receptor rechaza sin dejar rastro.** `app/api/track/replay/route.ts` contesta `ignorado: 'sesion invalida'`
+  ANTES de saber de qué workspace es el lote, no anota nada, y la pantalla del Pixel no puede decir «tu página manda
+  las grabaciones rotas». Es «una política puede RECHAZAR; no puede no dejar rastro» (AGENTS.md).
+
+**Lo que quedó SIN hacer:**
+- Que Código Inmobiliario reemplace su copia por la línea de la v23 (lo decide Martín: escribirle o hacerlo
+  nosotros).
+- Anotar los lotes rechazados por workspace (el token viaja en el lote: se puede rutear antes de validar la sesión)
+  y mostrarlo en el estado del Pixel.
+
+**Vive en:** `app/api/track/replay/route.ts` · `lib/replay-contrato.ts` (`sesionIdValido`) · `lib/landing-token.ts`
+(`replaySesion`). *14/10/2026, chat «Integraciones» (`claude1`).*

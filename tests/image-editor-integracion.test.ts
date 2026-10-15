@@ -68,8 +68,8 @@ test('1c: en la barra del super admin, Content Machine → «Image» lleva al ed
   assert.equal(resolverTab(image, { adminShell: false, rolWs: 'admin', capa: 'completo' }), null, 'mirando un cliente, la barra es la del cliente');
 });
 
-test('1b: las dos pages llaman al guard por persona, y el guard pregunta getSesionAdmin', () => {
-  for (const p of ['app/image-editor/page.tsx', 'app/image-editor/[diseno]/page.tsx']) {
+test('1b: las pages llaman al guard por persona, y el guard pregunta getSesionAdmin', () => {
+  for (const p of ['app/image-editor/page.tsx', 'app/image-editor/[diseno]/page.tsx', 'app/image-editor/presentador/page.tsx']) {
     assert.match(sinLineas(leer(p)), /await requireEditorImagen\(\)/, `${p}: falta el guard requireEditorImagen()`);
   }
   const acceso = sinLineas(leer('app/image-editor/acceso.ts'));
@@ -133,4 +133,16 @@ test('4: ningún módulo del server importa del motor de Doory', () => {
       assert.ok(!src.includes(`@/${sinExt}'`) && !src.includes(`@/${sinExt}"`), `${f} importa ${p}, que carga el motor: sólo desde el editor`);
     }
   }
+});
+
+// «Presentar con notas» abre una SEGUNDA ventana. En Doory era `presenter-view.html` (otra página de su build de Vite);
+// en MaKo no existía y el botón abría un 404 (14/10/2026). Probado rompiéndolo: con la URL vieja en channel.ts, 0/1.
+test('5: la vista del presentador abre una ruta que existe, y sin la cáscara de MaKo', async () => {
+  const canal = sinLineas(leer('app/image-editor/_doory/editor/presenter/channel.ts'));
+  const m = canal.match(/export function presenterViewUrl[\s\S]*?new URL\('([^']+)'/);
+  assert.ok(m, 'presenterViewUrl tiene que armar la URL con una ruta fija');
+  const ruta = m[1];
+  assert.ok(existsSync(join(RAIZ, 'app', ruta, 'page.tsx')), `${ruta} no tiene page.tsx: el botón abriría un 404`);
+  const { esVistaSinChrome } = await import('../app/_components/PublicRouteGate');
+  assert.equal(esVistaSinChrome(ruta), true, `${ruta} tiene que ir sin la barra lateral (es una ventana chica)`);
 });

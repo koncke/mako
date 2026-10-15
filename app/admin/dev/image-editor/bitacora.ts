@@ -16,10 +16,11 @@ const CH = 'Image Editor (Canva)';
 export const PARTES: Parte[] = [
   { titulo: 'Doory adentro de MaKo', detalle: 'El editor de Doory (fabric.js 7) portado, con el crédito que pide su licencia, guardado local por workspace y sólo para el super admin', estado: 'hecha' },
   { titulo: 'El re-vestido de Canva', detalle: 'Barra superior, riel izquierdo con su panel, barra del objeto, barra inferior e inicio de Canva, con la paleta y las proporciones medidas', estado: 'hecha' },
-  { titulo: 'Guardar en Supabase', detalle: 'Diseños e imágenes en la base y el bucket del workspace; Marca, versiones, compartir y comentarios', estado: 'cola' },
+  { titulo: 'Guardar en Supabase', detalle: 'Diseños, «Subidos» y miniaturas en la base y el bucket del workspace; lo que estaba en el navegador sube solo', estado: 'hecha' },
+  { titulo: 'Marca, versiones, compartir y comentarios', detalle: 'Las herramientas de Canva que piden tablas propias; hoy el editor las esconde', estado: 'cola' },
   { titulo: 'El catálogo propio', detalle: 'Fuentes alojadas, íconos y emoji con licencia libre, formas propias, plantillas y fotos de Unsplash', estado: 'cola' },
   { titulo: 'Lo que a Doory le falta de Canva', detalle: 'Texto en formas, tablas, cuadrículas, dibujar, copiar estilo, efectos de texto, quitar fondo de objetos', estado: 'cola' },
-  { titulo: 'API de MaKo y abrirlo a clientes', detalle: 'Declarar el área en la API; resolver el crédito de la licencia antes de abrirlo', estado: 'cola' },
+  { titulo: 'API de MaKo y abrirlo a clientes', detalle: 'Espera a Martín: declarar el área hoy la abre por token a cualquier cliente; y el crédito de la licencia antes de abrirlo', estado: 'cola' },
 ];
 
 export const BITACORA: Hito[] = [
@@ -68,6 +69,38 @@ export const BITACORA: Hito[] = [
       'Barra superior con el degradado de Canva (Inicio, Archivo, Redimensionar, deshacer, guardado, título con medidas, Presentar, Compartir); riel izquierdo Diseño · Elementos · Texto · Marca · Subidos · Herramientas · Proyectos · Apps con su panel flotante; barra del objeto flotante; barra inferior con Notas, zoom, Páginas y pantalla completa; inicio de Canva.',
       'Catálogo: ~60 fuentes de Google Fonts con sus pesos reales, las 10 plantillas de Doory, íconos y emoji de Iconify con licencia libre.',
       'Sin verificar en el navegador: el dev server local no aguanta compilar el editor con la máquina llena.',
+    ],
+  },
+  {
+    fecha: '14 oct', hora: '—', chat: CH, cuenta: 'claude1', actor: 'martin', tipo: 'prompt',
+    titulo: 'Cerrar lo pendiente (por el chat orquestador)',
+    pedido: 'Martín quiere cerrar lo pendiente al 100%. Lo que NO depende de esa decisión, cerralo; y armame en una línea las opciones de lo que sí depende, para que él elija rápido.',
+    puntos: [
+      'Lo que no dependía de él: verlo andar, el presentador roto y la tanda 3 (guardar en la base). Lo que sí: Image mirando un cliente, la licencia de Doory, las fotos con key y la API mientras sea sólo suyo.',
+    ],
+  },
+  {
+    fecha: '14 oct', hora: '16:12', chat: CH, cuenta: 'claude1', actor: 'claude', tipo: 'implementacion',
+    titulo: 'El editor visto andando, y la vista del presentador',
+    puntos: [
+      'Sin dev server (pasa los 5 GB): un banco con esbuild y Chrome sin ventana. Crear, texto, plantilla, imagen soltada, guardar y reabrir, PNG y PDF: todo anduvo, sin errores en la consola.',
+      '«Vista de presentador» abría una página de Vite que no existe en MaKo; ahora abre /image-editor/presentador y se conecta con el editor.',
+    ],
+    commits: [
+      { sha: 'c7a77fcb', msg: 'Image Editor: «Vista de presentador» abre una ventana que existe', lineas: 135, archivos: 9 },
+    ],
+  },
+  {
+    fecha: '14 oct', hora: '16:49', chat: CH, cuenta: 'claude1', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Los diseños pasan a la base',
+    puntos: [
+      'Diseños, «Subidos» y miniaturas en Supabase (mig 0278, aplicada): se ven desde otra máquina y la API y las Estrellas tienen de dónde leer.',
+      'Dos pestañas sobre el mismo diseño no se pisan: la segunda ofrece recargar o guardar una copia.',
+      'Lo que estaba guardado en el navegador sube solo la primera vez que se abre el editor, con su mismo enlace.',
+      'Probado contra la base real en el Cliente de Prueba y en el banco: guardar, subir una imagen, descargarla en PNG con la imagen adentro, eliminar.',
+    ],
+    commits: [
+      { sha: '5136c1ce', msg: 'Image Editor: los diseños y «Subidos» pasan a la base (tanda 3)', lineas: 1485, archivos: 21 },
     ],
   },
 ];

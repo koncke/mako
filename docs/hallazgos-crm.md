@@ -1081,6 +1081,20 @@ duplicación deliberada, no un bug.
 
 ---
 
+## El Deshacer de un movimiento no repone el plazo de «Nutrición - Manual» (también en escritorio) (14/10/2026)
+
+Lo encontró la verificación del tablero del teléfono. Salir de `manual` borra `nutricion_manual_deadline`
+(lib/leads.ts, `setPipelineStage`, cuando el destino no es manual). Al deshacer, `undoStageMoveAction` llama a
+`setPipelineStage(id, 'manual', { monto, motivo })` sin plazo, y escribe `nutricion_manual_deadline = null`. El lead
+queda en manual SIN fecha. El CRM automático (lib/crm-auto-plan.ts) y el «Venció…» del worklist dependen de esa
+fecha, así que queda aparcado para siempre: el estado que el wizard de manual existe para impedir.
+
+- **El teléfono ya no lo produce**: de manual no se sale desde el teléfono (`seSacaEnElTelefono`, hallazgos-mobile).
+- **El escritorio sí** (CrmBoard.tsx, `undoMove` → `undoStageMoveAction`). El monto y el motivo los repone, porque
+  los guarda en `undoInfo`; el plazo no.
+- **Arreglo pendiente:** guardar el plazo en `undoInfo`, que `undoStageMoveAction` acepte `opts.deadline` y lo pase a
+  `setPipelineStage`. Vive en app/crm/actions.ts y app/crm/CrmBoard.tsx.
+
 ## El funnel: de dónde salen las etapas
 
 ### ⚠️ El editor de funnel nunca tuvo botón de Deshacer
@@ -8758,3 +8772,19 @@ Corrida de sólo lectura del chat de Automations (docs/diseno-mako-nada-por-detr
 - Y la reserva de Calendly limpia la etapa puesta a mano y firma el cambio «MaKo» (`AUTOR_SISTEMA`), no «Calendly».
 
 **Vive en:** `lib/leads.ts` (`setPipelineStage`, la reserva) · `lib/crm-auto-plan.ts` · `lib/etapa-historial.ts`
+
+## El cierre sobre calificados puede pasar de 100% (14/10/2026)
+
+**Síntoma:** en Offer, el PDF de un cliente dijo «Cierras el 170% de las llamadas calificadas». **Causa:**
+`tasa_cierre_sobre_calificados` (`lib/analisis-negocio.ts`) divide los cierres por los calificados, y con
+asistencias sin la calificación marcada los calificados son un piso. Además los cierres cuentan por
+`fecha_cierre` en el rango y las asistencias por la fecha de la reunión: son dos cohortes, y una tasa arriba de
+1 es posible aunque estén todos marcados. El informe ya lo advierte arriba («Calificados es un piso»), pero la
+tabla de la cascada sigue mostrando «Sobrevive del anterior 170%» en el escalón de cierres.
+
+Offer ya no lo afirma (`cierreConfiable`, ver `docs/hallazgos-offer.md` → «El 170%, la API y la voz»). **Falta
+acá:** que el escalón de la cascada no muestre una proporción fuera de 0-1 (o la marque como cota).
+
+**Vive en:** `lib/analisis-negocio.ts` (`tasas`, `escalones`) · `lib/analisis-modelo.ts` (`analisisAMarkdown`)
+
+*14/10/2026, cuenta claude1.*

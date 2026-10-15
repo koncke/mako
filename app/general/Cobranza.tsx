@@ -110,10 +110,10 @@ export function Cobranza({ filas, tz, error, alcance = null, limite = Infinity, 
       )}
       {/* Cuántos hay por cobrar, en grande (la quinta vuelta: «textos enormes»), y cuántos ya vencieron. */}
       {!sinCabeza && !error && vivas.length > 0 && (
-        <span style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', marginBottom: 6 }}>
-          <span style={{ fontSize: 'clamp(36px, 10cqi, 64px)', fontWeight: 750, letterSpacing: '-0.035em', lineHeight: 0.95, fontVariantNumeric: 'tabular-nums' }}>{vivas.length}</span>
-          <span style={{ fontSize: 'clamp(14px, 3cqi, 18px)', color: 'var(--dim)' }}>por cobrar</span>
-          {vencidas > 0 && <span style={{ fontSize: 'clamp(14px, 3cqi, 18px)', fontWeight: 600, color: 'var(--bad)' }}>· {vencidas} {vencidas === 1 ? 'vencida' : 'vencidas'}</span>}
+        <span style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', marginBottom: 'clamp(8px, 1.6cqi, 14px)' }}>
+          <span className="gb-p">{vivas.length}</span>
+          <span className="gb-d">por cobrar</span>
+          {vencidas > 0 && <span className="gb-d" style={{ fontWeight: 700, color: 'var(--bad)' }}>· {vencidas} {vencidas === 1 ? 'vencida' : 'vencidas'}</span>}
         </span>
       )}
       {error ? (
@@ -126,19 +126,25 @@ export function Cobranza({ filas, tz, error, alcance = null, limite = Infinity, 
         <ul style={S.lista} className={todas ? undefined : 'gb-cabe'}>
           {vistas.map((f) => {
             const c = COLOR[f.urgencia ?? 'al-dia'];
+            // «US$500 · vence el jue» (lo arma lib/datos-comercial-server.ts): el monto va aparte y en grande, como el
+            // teléfono; si la línea no trae el separador, se muestra entera abajo del nombre.
+            const corte = f.linea.indexOf(' · ');
+            const monto = corte > 0 ? f.linea.slice(0, corte) : null;
+            const cuando = corte > 0 ? f.linea.slice(corte + 3) : f.linea;
             return (
-              <li key={f.pagoId} className="gb-fila">
+              <li key={f.pagoId} className="gb-fila" style={{ gap: 'clamp(10px, 2cqi, 16px)' }}>
                 <span aria-hidden style={{ ...S.avatar, background: `color-mix(in srgb, ${c} 16%, transparent)`, color: f.urgencia ? c : 'var(--dim)', boxShadow: `inset 0 0 0 1.5px ${f.urgencia ? c : 'var(--border)'}` }}>{inicial(f.nombre)}</span>
                 <span style={S.texto}>
                   {muestra
-                    ? <span style={S.nombre}>{f.nombre}</span>
-                    : <Link href={`/crm/${f.leadId}`} style={S.nombre}>{f.nombre}</Link>}
-                  <span style={{ ...S.linea, color: f.urgencia === 'vencida' ? 'var(--bad)' : 'var(--dim)' }}>{f.linea}</span>
+                    ? <span className="gb-t" style={S.nombre}>{f.nombre}</span>
+                    : <Link href={`/crm/${f.leadId}`} className="gb-t" style={S.nombre}>{f.nombre}</Link>}
+                  <span className="gb-d" style={{ color: f.urgencia === 'vencida' ? 'var(--bad)' : 'var(--dim)' }}>{cuando}</span>
                 </span>
+                {monto && <span className="gb-num" style={S.monto}>{monto}</span>}
                 <Button variant="secondary" size="sm" loading={marcando === f.pagoId}
                   disabled={muestra || (marcando != null && marcando !== f.pagoId)}
                   onClick={() => { void marcar(f); }} aria-label={`Marcar cobrada la cuota de ${f.nombre}`}>
-                  Marcar cobrada
+                  Cobrada
                 </Button>
               </li>
             );
@@ -162,8 +168,9 @@ const S: Record<string, CSSProperties> = {
   dim: { fontSize: 14, color: 'var(--dim)' },
   // Filas con su línea (`gb-fila`), no una tarjeta por cliente adentro de la tarjeta del bloque.
   lista: { listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column' },
-  avatar: { flex: 'none', width: 34, height: 34, borderRadius: '50%', display: 'grid', placeItems: 'center', fontSize: 13, fontWeight: 700 },
+  avatar: { flex: 'none', width: 'clamp(34px, calc(4cqi + 18px), 48px)', height: 'clamp(34px, calc(4cqi + 18px), 48px)', borderRadius: '50%', display: 'grid', placeItems: 'center', fontSize: 'clamp(13px, calc(1.2cqi + 9px), 16px)', fontWeight: 700 },
+  // El monto de la cuota: el número de la fila (19 px en el teléfono, como el prototipo).
+  monto: { flex: 'none', fontSize: 'clamp(19px, calc(5cqi + 2px), 34px)', fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--ink)' },
   texto: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 },
-  nombre: { fontSize: 14, fontWeight: 600, color: 'var(--ink)', textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-  linea: { fontSize: 12.5 },
+  nombre: { color: 'var(--ink)', textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
 };

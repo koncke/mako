@@ -63,9 +63,11 @@ test('v2: las secciones de More (y sus subrutas) van a su pantalla de /m, no a �
 });
 
 test('lo que no va al teléfono dice que se usa en la computadora', () => {
-  for (const p of ['/whatsapp', '/configuraciones', '/marketing/salud', '/ads-writer', '/funnel', '/metodo', '/mensajes']) {
+  for (const p of ['/configuraciones', '/marketing/salud', '/ads-writer', '/funnel', '/metodo', '/mensajes']) {
     assert.deepEqual(decidirDesvio(p), { tipo: 'computadora' }, p);
   }
+  // La bandeja de WhatsApp SÍ va (v3, 14/10/2026): es la pestaña Chats del teléfono.
+  assert.deepEqual(decidirDesvio('/whatsapp'), { tipo: 'movil', destino: '/m/chats' });
 });
 
 test('/mako no se confunde con /m (pero tiene su versión móvil)', () => {

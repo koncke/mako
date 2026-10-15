@@ -513,6 +513,35 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
     return { ok: true, detalle: `Conectada a tu cuenta de Mercado Pago${r.modo === 'prueba' ? ' (modo prueba)' : ''}.`, facts };
   },
 
+  // LAS FUENTES QUE AVISAN del Leads Scraper (14/10/2026, docs/diseno-leads-scraper.md). Su único
+  // campo es un SECRETO que no se comprueba contra nadie hasta que llega el primer aviso: el hottok
+  // no abre ninguna API de Hotmart, y la clave de Skool la inventa el negocio. Como el «Secret» de
+  // Cal.com: rechazarlo por no poder comprobarlo sería impedir guardar lo único de lo que depende
+  // todo. El tope de largo es el mismo con el que el webhook lee el header (`secretoDelHeader`).
+  async hotmart(v) {
+    const t = (v.HOTMART_HOTTOK ?? '').trim();
+    if (!t) return { ok: false, error: 'Falta el hottok: sin eso no entra ninguna compra.' };
+    if (t.length > 200) return { ok: false, error: 'Ese hottok es demasiado largo. Cópialo de nuevo desde Hotmart.' };
+    return {
+      ok: true,
+      detalle: 'Tu hottok está guardado. Las compras entran en cuanto registres la dirección en Hotmart.',
+      facts: [{ k: 'Compras en vivo', v: 'Listas, cuando registres la dirección en Hotmart', c: 'var(--good)' }],
+    };
+  },
+
+  async skool(v) {
+    const t = (v.SKOOL_WEBHOOK_CLAVE ?? '').trim();
+    if (!t) return { ok: false, error: 'Falta la clave del aviso: sin eso no entra nadie de tu comunidad.' };
+    // Es lo ÚNICO que separa tu CRM de cualquiera que conozca la dirección: corta, se adivina.
+    if (t.length < 12) return { ok: false, error: 'Usa una clave de 12 caracteres o más: es lo que protege tu CRM.' };
+    if (t.length > 200) return { ok: false, error: 'Esa clave es demasiado larga: usa una de menos de 200 caracteres.' };
+    return {
+      ok: true,
+      detalle: 'Tu clave está guardada. Las solicitudes entran en cuanto publiques el Zap con la misma clave.',
+      facts: [{ k: 'Solicitudes en vivo', v: 'Listas, cuando publiques el Zap', c: 'var(--good)' }],
+    };
+  },
+
   // google: NO tiene ping. Salió del catálogo (es la app OAuth de la agencia,
   // no una credencial que el cliente cargue) → verificarServicio('google') corta
   // antes, en servicioMetodo(). Su estado se mide en lib/integraciones.ts por

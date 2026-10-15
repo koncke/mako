@@ -268,7 +268,21 @@ const TOPE_PAGINAS_ESPEJO = 20;
 // espejo del workspace, como siempre. Se filtra en la BASE y no en memoria: un mismo contacto
 // que le escribió a las dos líneas tiene dos hilos, y fundirlos en uno es exactamente lo que
 // el desplegable viene a evitar.
-export async function getConversacionesNoOficial(limite = 600, incluirOcultos = false, linea?: string | null): Promise<WaConversacion[]> {
+/**
+ * `opts` (MaKo Mobile, 14/10/2026) — para quien sólo dibuja las conversaciones RECIENTES:
+ *  · `paginas`: cuántas páginas de 1000 mensajes leer (por defecto, el tope de 20). Medido en
+ *    producción: barrer el espejo entero del ws1 eran 19 páginas EN SERIE (5,5-7,8 s) para
+ *    mostrar 40 chats. Con 3 páginas salen las conversaciones de los últimos 3000 mensajes, que
+ *    son las más recientes (el orden es del más nuevo al más viejo); las viejas no aparecen.
+ *  · `conAgenda: false`: no leer evolution_contactos (5.593 filas en 6 páginas en el ws1). Sirve
+ *    a quien pone el nombre del CRM y sólo lista conversaciones con lead.
+ * Sin `opts`, todo igual que siempre (la bandeja de escritorio y MaKo leen el espejo entero).
+ */
+export async function getConversacionesNoOficial(
+  limite = 600, incluirOcultos = false, linea?: string | null,
+  opts?: { paginas?: number; conAgenda?: boolean },
+): Promise<WaConversacion[]> {
+  const topePaginas = Math.max(1, Math.min(TOPE_PAGINAS_ESPEJO, Math.trunc(opts?.paginas ?? TOPE_PAGINAS_ESPEJO)));
   const supabase = await getTenantDb();
   // `limite` es cuántas CONVERSACIONES devolver, no cuántos mensajes leer: un
   // `.limit(limite)` sobre wa_mensajes solo ve las últimas `limite` FILAS, y con
@@ -283,7 +297,7 @@ export async function getConversacionesNoOficial(limite = 600, incluirOcultos = 
   await leerPorPaginas<Fila>(
     supabase, 'wa_mensajes',
     'chat_jid, telefono, push_name, texto, tipo, from_me, wa_timestamp, lead_id',
-    (pagina, nro) => { rows.push(...pagina); return nro < TOPE_PAGINAS_ESPEJO; },
+    (pagina, nro) => { rows.push(...pagina); return nro < topePaginas; },
     // reacciones/protocolo no cuentan como "último mensaje"
     { orden: ORDEN_ESPEJO, filtros: (q) => (linea ? q.neq('tipo', 'evento').eq('instance_name', linea) : q.neq('tipo', 'evento')) },
   );
@@ -360,7 +374,9 @@ export async function getConversacionesNoOficial(limite = 600, incluirOcultos = 
   // Con `catch`: la agenda es un ADORNO del inbox (sin ella se ve el número), y
   // desde que la lectura pasó a paginar de verdad puede lanzar. Una agenda que
   // no se pudo leer no puede dejar al dueño sin inbox.
-  const nombresContacto = await getNombresContacto().catch(() => new Map<string, string>());
+  const nombresContacto = opts?.conAgenda === false
+    ? new Map<string, string>()
+    : await getNombresContacto().catch(() => new Map<string, string>());
   if (nombresContacto.size) for (const c of convs) {
     if (c.nombre === c.telefono || c.nombre === c.chatJid.replace(/@.*/, '') || c.nombre === 'Você') {
       const n = nombresContacto.get((c.telefono || '').replace(/\D/g, '').slice(-10));

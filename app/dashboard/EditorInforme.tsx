@@ -217,6 +217,10 @@ function conIdsNuevos(c: Componente): Componente {
   return esGrafico(c) && c.popup ? { ...base, popup: { ...c.popup, componentes: c.popup.componentes.map(conIdsNuevos) } } as Grafico : base;
 }
 const altoDe = (h: number) => h * FILA + (h - 1) * MARGEN;
+/** Los tipos que en la pila del celular miden lo que dibujan (HTML que se mide solo; nada que necesite un alto para dibujar). */
+const ALTO_LIBRE_EN_PILA: ReadonlySet<string> = new Set(['barra_proporcion', 'numero', 'numero_compacto']);
+/** Los elementos que en la pila miden lo que dibujan (un bloque de General también; una forma o un video, no: su caja ES su tamaño). */
+const ELEMENTOS_ALTO_LIBRE_EN_PILA: ReadonlySet<string> = new Set(['texto', 'enlace', 'seccion', 'accion']);
 /** El `title` de un ícono suelto de la barra de inserción: la acción y su objeto («Insertar imagen»). */
 const etiquetaInsertar = (t: TipoElemento) => (t === 'insertado' ? 'Insertar una página o un código' : `Insertar ${(TIPOS_ELEMENTO.find((x) => x.id === t)?.nombre ?? t).toLowerCase()}`);
 function descargar(texto: string, nombre: string, tipo: string) {
@@ -1082,7 +1086,13 @@ export function EditorInforme({
     const elegido = editando && c.id === selId;
     const marcada = conectando?.desde === c.id;
     // La posición en la grilla del PDF (editor-css.ts): el lugar de la tarjeta, en columnas y filas.
-    const base = { '--lk-col': `${c.x + 1} / span ${c.w}`, '--lk-fila': `${c.y + 1} / span ${c.h}`, ...(enPila ? { height: altoDe(c.h) } : {}) } as CSSProperties;
+    // En la pila, una tarjeta mide el alto de la grilla; la barra de proporción, lo que dibuja (con ese piso): a 364 px su
+    // leyenda de dos partes pide dos renglones y con 3 filas el segundo quedaba cortado.
+    const altoLibre = enPila && esGrafico(c) && ALTO_LIBRE_EN_PILA.has(c.tipo);
+    // Un número (los cuadros de resultados) mide en la pila lo que dibuja, con el piso de una tarjeta de 3 filas: un CPM de
+    // 3 × 6 (alto para acompañar al embudo en el escritorio) eran 276 px de celular para un número.
+    const alto: CSSProperties = enPila ? (altoLibre ? { height: 'auto', minHeight: altoDe(Math.min(c.h, 3)) } : { height: altoDe(c.h) }) : {};
+    const base = { '--lk-col': `${c.x + 1} / span ${c.w}`, '--lk-fila': `${c.y + 1} / span ${c.h}`, ...alto } as CSSProperties;
     const alClic = (ev: ReactMouseEvent) => {
       if (!editando) return;
       ev.stopPropagation();
@@ -1094,7 +1104,9 @@ export function EditorInforme({
       // Un bloque de General lleva el marco de una tarjeta de la hoja (el de un gráfico: ./editor-css.ts), y en la pila
       // del celular mide lo que dibuja: el alto de la grilla es del escritorio, y en el teléfono sobraría o cortaría.
       const bloque = c.tipo === 'general';
-      const lugar = bloque && enPila ? { ...base, height: 'auto' } : base;
+      // Lo mismo un texto, un enlace, una sección o una acción: en el teléfono un título envuelve en más renglones que en el
+      // escritorio, y con el alto de la grilla salía con una barra de scroll adentro del título.
+      const lugar = enPila && (bloque || ELEMENTOS_ALTO_LIBRE_EN_PILA.has(c.tipo)) ? { ...base, height: 'auto', minHeight: 0 } : base;
       return (
         <div key={c.id} data-comp={c.id} className={`lk-comp ${bloque ? 'lk-comp--general' : 'lk-comp--elemento'}${elegido || marcada ? ' lk-comp--sel' : ''}`} style={lugar} onClick={alClic}>
           <CuerpoElemento e={c} colores={colores} editando={editando} onCambiar={(p) => cambiar(c.id, p)} ctx={ctxDe(c)} />
@@ -1111,7 +1123,9 @@ export function EditorInforme({
     // pendiente, rojo), no de un color elegido a mano: el estilo es de la hoja.
     const filete = kpi && estilo.filete;
     const tono = filete ? colorDeTono(tonoDe(c.fuente, c.metricas[0]), hoja.tema) : null;
-    const clases = ['lk-comp', kpi && 'lk-comp--kpi', kpi && estilo.kpiEtiqueta === 'mono' && 'lk-comp--mono', filete && 'lk-comp--filete', (elegido || marcada) && 'lk-comp--sel'].filter(Boolean).join(' ');
+    // Un número de media hoja o más es el TITULAR de la hoja (lib/graficos-plantillas.ts, TITULARES): en la pila del celular va a
+    // lo ancho, no de a dos como los otros números.
+    const clases = ['lk-comp', kpi && 'lk-comp--kpi', kpi && c.w >= 6 && c.h >= 5 && 'lk-comp--titular', kpi && estilo.kpiEtiqueta === 'mono' && 'lk-comp--mono', filete && 'lk-comp--filete', (elegido || marcada) && 'lk-comp--sel'].filter(Boolean).join(' ');
     // La barra de búsqueda de una tabla (interfaz I2): lo escrito va a la VISTA, en el control de su barra
     // (`idBusquedaDe`/`conBusqueda`, ./exportar.ts). Sin ese control (sobre el campo ya hay otro filtro), no hay barra.
     const conBarra = !!c.tabla?.buscar && !!idBusquedaDe(c);

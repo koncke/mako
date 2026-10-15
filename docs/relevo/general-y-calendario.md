@@ -3,6 +3,31 @@
 **Al 14/10/2026 (~04:30), claude2.** Lo escribe el chat que hizo el trabajo (primera mano). Lo que costó está en los
 hallazgos de cada área; acá va qué quedó, dónde y qué espera.
 
+## Actualización 14/10/2026 noche (claude1): ayudó a «Dashboard» con el rediseño por tipo
+
+Pedido del orquestador: repartir con el chat «Dashboard» el rediseño bloque por bloque que pidió Martín a las 14:34.
+Repartido por ARCHIVO: este chat hizo los tipos con archivo propio de `app/dashboard/graficos/` (tabla, tarjetas,
+dispersión, barra de proporción, tramos, paneles, barras gordas), el mapa (`MapaGeo.tsx`) y miró las 13 plantillas
+enteras (sin cambiarles el layout). Todo en la rama `dashboard-bloques-general` (`C:/dev/wt-dashboard-general`), que
+«Dashboard» mergea en la suya y pushea UNA vez. Lo aprendido, en `docs/hallazgos-graficos.md` → «Rediseño por tipo
+con capturas (14/10/2026), mitad General». El arnés de capturas de este chat vive en `C:/Users/marti/arnes-dashboard-general/`
+(fuera del repo; `entrada-plantillas.tsx` dibuja cada plantilla entera).
+
+## Verificación 14/10/2026 ~15:55 (claude1, chat «General» nuevo)
+
+Medido, no leído: `c23cb620` (sexta vuelta) y `78fe8132` (Dashboard sin hojas) son ancestros de `origin/main`
+(`ab2641963`), y el árbol del clon está limpio. **No hay nada de General ni del Calendario a medias.**
+
+Lo abierto, con quién lo destraba:
+
+- **Las tareas de Google**: esperan a Google, no a código. No se pudo ver si aprobó la verificación (Claude in Chrome
+  desconectado; el Gmail de las sesiones es el de Mauricio). Y `tasks.readonly` es un permiso nuevo: puede pedir otra
+  ronda (el detalle, en `docs/hallazgos-calendario.md` → «Lo que quedó SIN hacer»).
+- **Sin mirar en un navegador**: /calendario con una agenda real y «Prioridades del Plan» (llega con `next/dynamic`, el
+  arnés no lo dibuja). Hace falta Chrome conectado.
+- **Decisiones de Martín** (siguen igual): la hoja de Mauricio (un clic en «＋ Nueva hoja»), quién ve el Calendario, y si
+  «A quién cobrarle» se saca del Dashboard.
+
 ## Actualización 14/10/2026 14:55 (claude2, el mismo chat; la cuenta al 95% semanal)
 
 **General, sexta vuelta** (`c23cb620`): cada bloque y cada plantilla mirados en captura (escritorio y 364 px) y corregidos:

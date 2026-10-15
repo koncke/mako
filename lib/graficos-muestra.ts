@@ -14,7 +14,7 @@
 // ⚠️ Sin `server-only` y sin valores de módulos con él: lo importa el navegador.
 // =============================================================================
 
-import { dimensionDe, fuenteDe, metricaDe, type Grafico } from './graficos-catalogo';
+import { dimensionDe, fuenteDe, metricaDe, tipoDe, type Grafico } from './graficos-catalogo';
 import { clavesDelRango, etiquetaTiempo, type FilaResultado, type Resultado } from './graficos-agregar';
 import type { Formato } from './graficos-constructores';
 
@@ -51,6 +51,19 @@ const EJEMPLOS: Record<string, readonly string[]> = {
   estado: ['Al día', 'Pendiente', 'Vencida'],
   pagina: ['/inicio', '/oferta', '/gracias'],
   linea: ['Línea principal', 'Ventas', 'Soporte'],
+  edad: ['18-24', '25-34', '35-44', '45-54', '55+'],
+  genero: ['Mujeres', 'Hombres', 'Sin dato'],
+  plataforma: ['Instagram', 'Facebook', 'Messenger', 'Audience Network'],
+  proyecto: ['Lanzamiento de octubre', 'Nueva landing', 'Webinar mensual', 'Automatizaciones'],
+  guion: ['3 errores al vender', 'Lo que nadie te dice del precio', 'Antes y después', 'El caso de un alumno'],
+  region: ['Jalisco', 'Nuevo León', 'Ciudad de México', 'Baja California', 'Puebla'],
+  pais: ['México', 'Colombia', 'Argentina', 'España'],
+  ciudad: ['Guadalajara', 'Monterrey', 'Ciudad de México', 'Tijuana', 'Puebla'],
+};
+/** Dónde queda cada ciudad de ejemplo: el mapa por ciudad dibuja burbujas con la `geo` de cada fila. */
+const GEO_CIUDAD: Record<string, { lat: number; lon: number }> = {
+  Guadalajara: { lat: 20.67, lon: -103.35 }, Monterrey: { lat: 25.69, lon: -100.32 }, 'Ciudad de México': { lat: 19.43, lon: -99.13 },
+  Tijuana: { lat: 32.51, lon: -117.04 }, Puebla: { lat: 19.04, lon: -98.21 },
 };
 
 function etiquetasDe(dimId: string, valores?: readonly string[]): string[] {
@@ -61,10 +74,11 @@ function etiquetasDe(dimId: string, valores?: readonly string[]): string[] {
 /** El resultado de ejemplo de `g`. `hoy` (YYYY-MM-DD) ancla el tiempo: «los últimos días» se leen bien cualquier día. */
 export function resultadoDeMuestra(g: Grafico, hoy: string): Resultado {
   const fuente = fuenteDe(g.fuente);
-  const columnas = g.metricas.map((id) => {
-    const m = fuente ? metricaDe(fuente, id) : undefined;
-    return { id, nombre: m?.nombre ?? id, formato: (m?.formato ?? 'numero') as Formato };
-  });
+  const metricas = g.metricas.map((id) => (fuente ? metricaDe(fuente, id) : undefined));
+  const columnas = g.metricas.map((id, j) => ({ id, nombre: metricas[j]?.nombre ?? id, formato: (metricas[j]?.formato ?? 'numero') as Formato }));
+  /** Una razón (un costo por lead, una tasa) no se suma: su total es el promedio. Un conteo es entero. */
+  const esRazonDe = (j: number) => !!metricas[j]?.razon || ['pct', 'veces', 'segundos'].includes(columnas[j].formato);
+  const redondeo = (v: number, j: number) => (columnas[j].formato === 'numero' && !esRazonDe(j) ? Math.round(v) : Math.round(v * 100) / 100);
   const dim = fuente ? dimensionDe(fuente, g.dimension) : undefined;
   const semilla = g.id;
   const fila = (clave: string, etiqueta: string, i: number, sube = 0): FilaResultado => ({
@@ -85,16 +99,44 @@ export function resultadoDeMuestra(g: Grafico, hoy: string): Resultado {
     clase = 'categoria';
     // De mayor a menor, como sale un ranking real.
     filas = etiquetasDe(dim.id, dim.valores).map((e, i) => fila(e, e, i))
-      .map((f, i, xs) => ({ ...f, valores: f.valores.map((v) => (v == null ? v : Math.round(v * (1 - i / (xs.length + 1)) * 100) / 100)) }));
+      .map((f, i, xs) => ({
+        ...f,
+        valores: f.valores.map((v, j) => (v == null ? v : redondeo(v * (1 - i / (xs.length + 1)), j))),
+        ...(dim.id === 'ciudad' && GEO_CIUDAD[f.etiqueta] ? { geo: GEO_CIUDAD[f.etiqueta] } : {}),
+      }));
   }
 
-  const esRazon = (formato: Formato) => formato === 'pct' || formato === 'veces' || formato === 'segundos';
+  // Una dispersión con ejes fijos (la matriz de Productividad, 0-100): los puntos de ejemplo se reparten adentro de esos
+  // ejes. Con los valores de un conteo (de 1 a 15) quedaban todos amontonados en la esquina del origen.
+  if (g.ejes && filas.length) {
+    const rango = (j: 0 | 1): [number, number] | null => {
+      const [a, b] = j === 0 ? [g.ejes!.xMin, g.ejes!.xMax] : [g.ejes!.yMin, g.ejes!.yMax];
+      return a != null && b != null && b > a ? [a, b] : null;
+    };
+    filas = filas.map((f, i) => ({
+      ...f,
+      valores: f.valores.map((v, j) => {
+        const r = j < 2 ? rango(j as 0 | 1) : null;
+        return r ? Math.round(r[0] + (0.08 + 0.84 * azar(semilla, 500 + i * 3 + j)) * (r[1] - r[0])) : v;
+      }),
+    }));
+  }
+
   const totales = columnas.map((c, j) => {
     if (!filas.length) return valorDe(c.formato, azar(semilla, 90 + j), c.formato === 'usd' ? 4 : 3);
     const vs = filas.map((f) => f.valores[j] ?? 0);
     const suma = vs.reduce((s, v) => s + v, 0);
-    return esRazon(c.formato) ? Math.round((suma / vs.length) * 10) / 10 : Math.round(suma);
+    return esRazonDe(j) ? Math.round((suma / vs.length) * 10) / 10 : Math.round(suma);
   });
+  // Un embudo de ejemplo BAJA de escalón en escalón (con números al azar salían «92 de 58 pasaron», un embudo al revés).
+  if (tipoDe(g.tipo)?.grupo === 'Embudo de conversión' && !filas.length) {
+    let previo = Math.max(1, totales[0] ?? 1) * 6;
+    totales.forEach((_, j) => {
+      if (columnas[j].formato !== 'numero') return;
+      previo = j === 0 ? previo : Math.max(1, Math.round(previo * (0.35 + azar(semilla, 400 + j) * 0.4)));
+      totales[j] = previo;
+    });
+  }
 
   const out: Resultado = { columnas, filas, totales, fuera: 0, clase };
   if (g.comparar) out.anterior = totales.map((t, j) => (t == null ? null : Math.round(t * (0.72 + azar(semilla, 50 + j) * 0.2) * 10) / 10));
@@ -112,6 +154,11 @@ export function resultadoDeMuestra(g: Grafico, hoy: string): Resultado {
     if (d2) {
       const claves = d2.clase === 'tiempo' ? ['Sem 1', 'Sem 2', 'Sem 3'] : etiquetasDe(d2.id, d2.valores).slice(0, 4);
       out.cruce = { claves, celdas: filas.map((_, i) => claves.map((__, j) => valorDe(columnas[0]?.formato ?? 'numero', azar(semilla, 300 + i * 11 + j), 0.3))) };
+      // El total de cada fila es la suma de sus celdas (una tabla dinámica que no suma se lee como un error).
+      if (!esRazonDe(0)) {
+        out.filas = filas.map((f, i) => ({ ...f, valores: [out.cruce!.celdas[i].reduce<number>((s, v) => s + (v ?? 0), 0), ...f.valores.slice(1)] }));
+        out.totales = [out.filas.reduce((s, f) => s + (f.valores[0] ?? 0), 0), ...totales.slice(1)];
+      }
     }
   }
   return out;

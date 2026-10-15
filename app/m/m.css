@@ -472,6 +472,22 @@
 @starting-style { .m-skel-filas { opacity: 0; } }
 .m-skel-fila { display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 11px 14px 11px 16px; }
 .m-skel-fila__lineas { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+/* El tablero (SkeletonTablero) y la portada (SkeletonTarjetas): la misma entrada a los 300 ms. */
+.m-skel-kb, .m-skel-tarjetas { opacity: 1; transition: opacity 150ms var(--ease-out) 300ms; }
+@starting-style { .m-skel-kb, .m-skel-tarjetas { opacity: 0; } }
+.m-skel-kb__arriba { display: block; width: 46%; height: 22px; margin: 6px 0 12px; border-radius: 8px; }
+.m-skel-kb__etapas { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; padding: 19px 0 23px; }
+.m-skel-kb__etapas .mk-skel { height: 5px; border-radius: 3px; }
+.m-skel-kb__pista { display: flex; gap: 10px; margin-right: calc(-1 * var(--m-gutter)); overflow: hidden; }
+.m-skel-kb__col {
+  flex: 0 0 calc(100% - 48px); display: flex; flex-direction: column; gap: 8px;
+  padding: 13px 8px 12px; border-radius: var(--r-xl); background: var(--surface-2);
+}
+.m-skel-kb__cab { display: block; width: 40%; height: 14px; margin: 0 6px 6px; border-radius: 6px; }
+.m-skel-kb__tj { display: block; height: 84px; border-radius: var(--r-lg); }
+.m-skel-tarjetas { display: flex; flex-direction: column; gap: 14px; padding-top: 4px; }
+.m-skel-tarjetas__heroe { display: block; height: 196px; border-radius: 22px; }
+.m-skel-tarjetas__t { display: block; height: 132px; border-radius: 22px; }
 
 /* ── Vacío y error ─────────────────────────────────────────────────────── */
 .m-vacio {
@@ -594,6 +610,121 @@
 .m-casilla:disabled:not([aria-checked="true"]) .m-casilla__c { opacity: .45; }
 .m-casilla:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--primary); }
 
+/* ── KanbanM: una columna por pantalla y la siguiente asoma (CRM, Clientes, Plan) ── */
+/* El tablero llena lo que queda de pantalla debajo del título grande: la pista mide el alto
+   visible menos el encabezado, la barra y la de etapas, y cada columna scrollea sola. Lo
+   único que scrollea el DOCUMENTO es el título y lo de arriba (el selector). */
+.m-kb { display: flex; flex-direction: column; }
+.m-kb__arriba { display: flex; align-items: center; gap: 8px; min-height: 44px; margin: -6px 0 2px; }
+.m-kb__etapas { display: grid; gap: 4px; margin: 0 0 4px; }
+.m-kb__etapa {
+  min-width: 0; min-height: 44px; padding: 0; border: 0; background: none; cursor: pointer;
+  display: flex; flex-direction: column; justify-content: center; gap: 5px;
+}
+.m-kb__etapa i { display: block; height: 5px; border-radius: 3px; background: var(--border-strong); transition: background-color .2s ease; }
+.m-kb__etapa b { font-size: 12px; font-weight: 600; line-height: 1; text-align: center; color: var(--dim); font-variant-numeric: tabular-nums; }
+.m-kb__etapa[data-vacia] i { background: var(--border); }
+.m-kb__etapa[data-vacia] b { color: var(--faint); font-weight: 500; }
+.m-kb__etapa[aria-current="true"] i { background: var(--primary); }
+.m-kb__etapa[aria-current="true"] b { color: var(--primary-strong); }
+.m-kb__etapa b[data-late] { animation: m-kb-late .9s var(--ease-out); }
+@keyframes m-kb-late { 30% { transform: scale(1.6); color: var(--primary-strong); } }
+.m-kb__etapa:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--primary); border-radius: var(--r-sm); }
+
+/* La pista sale del gutter (columnas de borde a borde) y lo devuelve como padding y como
+   scroll-padding: la columna «encaja» a 16 px del borde, como el resto de la pantalla. */
+.m-kb__pista {
+  display: flex; gap: 10px;
+  height: calc(100dvh - var(--m-header) - var(--m-tabbar) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 64px);
+  min-height: 320px;
+  margin: 0 calc(-1 * var(--m-gutter));
+  padding: 2px var(--m-gutter) 0;
+  overflow-x: auto; overflow-y: hidden;
+  scroll-snap-type: x mandatory; scroll-padding-inline: var(--m-gutter);
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+.m-kb__pista::-webkit-scrollbar { display: none; }
+.m-kb__pista:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--primary); }
+.m-kb__col {
+  flex: 0 0 calc(100% - 48px); min-width: 0; scroll-snap-align: start;
+  display: flex; flex-direction: column;
+  background: var(--surface-2); border-radius: var(--r-xl); overflow: hidden;
+}
+.m-kb__col-cab { flex: none; display: flex; align-items: center; gap: 8px; padding: 13px 14px 9px; }
+[data-m] .m-kb__col-cab h3 {
+  min-width: 0; font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.m-kb__cuenta {
+  flex: none; display: inline-grid; place-items: center; min-width: 24px; height: 22px; padding: 0 7px;
+  border-radius: 999px; background: color-mix(in srgb, var(--ink) 8%, var(--surface-2));
+  font-size: var(--fs-meta); font-weight: 600; color: var(--dim); font-variant-numeric: tabular-nums;
+}
+.m-kb__total { margin-left: auto; flex: none; font-size: var(--fs-sm); font-weight: 700; color: var(--dim); font-variant-numeric: tabular-nums; }
+.m-kb__lista {
+  flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain;
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 0 8px 12px;
+  scrollbar-width: none;
+}
+.m-kb__lista::-webkit-scrollbar { display: none; }
+[data-m] .m-kb__vacia { margin: 18px 0; text-align: center; font-size: var(--fs-sm); color: var(--faint); }
+
+/* La tarjeta: lo de adentro lo arma la pantalla con estas piezas (m-kb-tj__*). */
+.m-kb-tj {
+  position: relative; flex: none;
+  display: flex; flex-direction: column; gap: 6px;
+  width: 100%; padding: 12px; box-sizing: border-box;
+  border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--border);
+  color: var(--ink); text-align: left; text-decoration: none; font: inherit; cursor: pointer;
+  overflow: hidden;
+  transition: transform var(--dur-press) var(--ease-out), box-shadow .2s ease;
+}
+.m-kb-tj:active { transform: scale(.985); }
+.m-kb-tj:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--primary); }
+.m-kb-tj[data-agarrada] { transform: scale(1.02); box-shadow: 0 12px 28px color-mix(in srgb, var(--ink) 18%, transparent); z-index: 2; }
+.m-kb-tj[data-se-va] { animation: m-kb-irse .22s var(--ease-out) forwards; }
+.m-kb-tj[data-llego] { animation: m-kb-llego 1.4s ease; }
+@keyframes m-kb-irse { to { opacity: 0; transform: scale(.94); } }
+@keyframes m-kb-llego { 0%, 70% { box-shadow: 0 0 0 3px var(--primary); } 100% { box-shadow: 0 0 0 0 transparent; } }
+.m-kb-tj__l1 { display: flex; align-items: flex-start; gap: 8px; }
+.m-kb-tj__n { flex: 1; min-width: 0; font-size: var(--fs-md); font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
+.m-kb-tj__n[data-dos] { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.m-kb-tj__c { font-size: var(--fs-sm); color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.m-kb-tj__pie {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  font-size: var(--fs-meta); color: var(--dim); font-variant-numeric: tabular-nums;
+}
+.m-kb-tj__pie strong { font-size: var(--fs-sm); color: var(--ink); font-weight: 700; }
+.m-kb-tj__pie [data-mal] { color: var(--bad); font-weight: 600; }
+/* Una etiqueta de color (el proyecto de una tarea): la pantalla pone la variable --c. */
+.m-kb-tj__chip {
+  align-self: flex-start; display: inline-flex; align-items: center; max-width: 100%; height: 22px; padding: 0 8px;
+  border-radius: 6px; font-size: 12px; font-weight: 600;
+  background: color-mix(in srgb, var(--c, var(--primary)) 12%, var(--surface));
+  color: color-mix(in srgb, var(--c, var(--primary)) 80%, var(--ink));
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.m-kb-tj__alerta { flex: none; font-size: 12px; font-weight: 700; color: var(--bad); background: var(--bad-bg); border-radius: 6px; padding: 2px 6px; }
+.m-kb-tj__alerta[data-tono="ambar"] { color: var(--warn); background: var(--warn-bg); }
+/* La franja de color arriba (el producto de una entrega). */
+.m-kb-tj__banda { height: 8px; margin: -12px -12px 2px; background: var(--c, var(--primary)); }
+.m-kb-tj__avance { height: 6px; border-radius: 999px; background: var(--border); overflow: hidden; }
+.m-kb-tj__avance i { display: block; height: 100%; border-radius: 999px; background: var(--good); }
+
+/* «Mover a…»: el nombre de la tarjeta y una fila por destino (la actual dice «Aquí»). */
+.m-sheet .m-kb__sub { margin: -4px 4px 12px; font-size: var(--fs-sm); color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.m-kb__destino {
+  display: flex; align-items: center; gap: 12px; width: 100%; min-height: 52px; padding: 0 16px;
+  border: 0; background: none; font: inherit; color: var(--ink); text-align: left; cursor: pointer;
+}
+.m-kb__destino:active:not([aria-disabled]) { background: var(--surface-2); }
+.m-kb__destino[aria-disabled] { cursor: default; }
+.m-kb__destino-n { flex: 1; min-width: 0; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.m-kb__destino-r { flex: none; color: var(--faint); font-variant-numeric: tabular-nums; }
+.m-kb__aqui { flex: none; display: inline-flex; align-items: center; gap: 6px; color: var(--primary-strong); font-weight: 600; font-size: var(--fs-sm); }
+
 /* ── Reduced motion: lo que se desliza pasa a aparecer ────────────────── */
 @media (prefers-reduced-motion: reduce) {
   .m-casilla__c { transition: none; }
@@ -606,5 +737,9 @@
   .m-toast[data-saliendo] { transform: none; }
   .m-fila__barra--viva i::after, .m-decision__barra i { animation: none; }
   .m-swipe-fondo__ico { transition: none; }
+  .m-skel-kb, .m-skel-tarjetas { transition: none; }
   .m-seg__op { transition: none; }
+  .m-kb__etapa i, .m-kb-tj { transition: none; }
+  .m-kb__etapa b[data-late], .m-kb-tj[data-se-va], .m-kb-tj[data-llego] { animation: none; }
+  .m-kb-tj:active, .m-kb-tj[data-agarrada] { transform: none; }
 }

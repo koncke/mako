@@ -1,5 +1,9 @@
 // =============================================================================
-// /m/plan — el plan en el teléfono: Hoy · Semana · Prioridades (v2)
+// /m/plan — el plan en el teléfono: Prioridades · Tareas · Proyectos · Recurrentes (v3)
+// =============================================================================
+// v3 (14/10/2026): las cuatro vistas del Plan de escritorio; Tareas y Proyectos son tableros
+// por prioridad (./tableros.ts arma los modelos, ./ListaPlan.tsx los dibuja). Lo de abajo es la
+// v2, que sigue valiendo para la lista de Prioridades y para marcar hecha.
 // =============================================================================
 // El prototipo es `#plan` de docs/prototipos/mako-mobile-v2.html: el segmentado, una lista
 // con casilla redonda, el proyecto como punto de su color y el plazo; al final, UNA fila
@@ -18,22 +22,25 @@
 
 import './plan.css';
 import { requireMovil } from '@/lib/movil-guard';
-import { leerPlanHoy, type PlanHoy } from '@/lib/plan-hoy';
+import { leerPlanHoyConTablero, type PlanHoy } from '@/lib/plan-hoy';
+import type { BoardTask, Label } from '@/app/plan/board/types';
+import { proyectosDelTablero, recurrentesDelTablero, tareasDelTablero } from './tableros';
 import { ComputadoraM, ErrorM, PantallaM } from '@/app/m/_ui';
 import { ListaPlan } from './ListaPlan';
-import { listaHoy } from './formato';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-const EN_LA_COMPUTADORA = 'El tablero y los proyectos';
+const EN_LA_COMPUTADORA = 'Editar el plan';
 
 export default async function PlanMovil() {
   await requireMovil({ navKey: 'todo' });
 
   let plan: PlanHoy;
+  let tareas: BoardTask[];
+  let proyectos: Label[];
   try {
-    plan = await leerPlanHoy();
+    ({ plan, tareas, proyectos } = await leerPlanHoyConTablero());
   } catch (e) {
     console.error('[m/plan] leerPlanHoy:', e instanceof Error ? e.message : e);
     return (
@@ -47,7 +54,9 @@ export default async function PlanMovil() {
   return (
     <PantallaM refrescable>
       <ListaPlan
-        listas={{ hoy: listaHoy(plan.prioridades, plan.hoy), semana: plan.semana, prioridades: plan.prioridades }}
+        listas={{ prioridades: plan.prioridades, tareas: tareasDelTablero({ tareas, proyectos, hoy: plan.fecha, conNum: plan.tablero === 'dueno' }) }}
+        proyectos={proyectosDelTablero({ tareas, proyectos })}
+        recurrentes={recurrentesDelTablero({ tareas, proyectos })}
         fecha={plan.fecha}
         abiertas={plan.abiertas}
       />

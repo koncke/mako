@@ -309,8 +309,9 @@ test('crear una hoja no se deshace, y la edición se mira en tablet y en celular
   const { CSS } = await import('../app/dashboard/editor-css');
   assert.match(CSS, /\.lk-pagina\[data-dispositivo="movil"\] \{ width: 390px;/);
   assert.match(CSS, /\.lk-pagina\[data-dispositivo="tableta"\] \{ width: 820px;/);
-  // En la pila del celular un bloque de General mide lo que dibuja.
-  assert.match(editor, /const lugar = bloque && enPila \? \{ \.\.\.base, height: 'auto' \} : base;/);
+  // En la pila del celular un bloque de General mide lo que dibuja (desde el 14/10/2026, también un texto, un enlace, una
+  // sección y una acción: ELEMENTOS_ALTO_LIBRE_EN_PILA).
+  assert.match(editor, /const lugar = enPila && \(bloque \|\| ELEMENTOS_ALTO_LIBRE_EN_PILA\.has\(c\.tipo\)\) \? \{ \.\.\.base, height: 'auto', minHeight: 0 \} : base;/);
 });
 
 // La quinta vuelta, bloque por bloque con capturas (14/10/2026, Martín: «Rediseña bloque por bloque, sacale una captura o

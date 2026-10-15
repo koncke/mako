@@ -39,8 +39,8 @@ import { proveedorDelPaso } from '@/lib/nutricion-canal';
 import { partesExplicitas, pasosUsanAudio, problemaDePartes, sanearPartes } from '@/lib/mensaje-partes';
 import { partesDeMako, esTarjetaTalCual, armarAvisoDeTarjeta, resultadoDelAviso, textoDePreparadas, type PartePreparada } from '@/lib/mako-tarjeta';
 import { prepararPartesGrupo, problemaDePartesGrupo } from '@/lib/mako-tarjeta-envio';
-import { getSettingData, guardarEstrategia, probarSecuencia, muestraParaCriterio, productosConEtapas, TriggerInvalidoError } from '@/lib/setting-secuencias';
-import { flujoParaProbar, escenariosDePrueba, hechosDeLeadNuevo, leadNuevoDelCron } from '@/lib/simulador-grafo';
+import { getSettingData, guardarEstrategia, probarSecuencia, escenarioDePrueba, muestraParaCriterio, productosConEtapas, TriggerInvalidoError } from '@/lib/setting-secuencias';
+import { escenariosDeLaSecuencia } from '@/lib/simulador-grafo';
 import {
   PLANTILLAS, plantillaPorId, canalesDe, eleccionEnPalabras, CANALES_PLANTILLA, OBJETIVOS_PLANTILLA, type PlantillaAutomatizacion,
 } from '@/lib/plantillas-automatizaciones';
@@ -309,12 +309,9 @@ export const RUNNERS: Runners = {
       const { secuencias } = await getSettingData();
       const s = secuencias.find((x) => x.id === id);
       if (!s) return errorLectura(noExiste(id));
-      // El MISMO flujo y el MISMO lead recién llegado que «Probar» (app/automations/PanelProbar.tsx).
-      const pasos = flujoParaProbar(s.pasos as PasoGrafo[], s.estrategia, { idDeClave: (clave) => secuencias.find((x) => x.clave === clave)?.id ?? null }).pasos;
-      const { escenarios, faltan } = escenariosDePrueba(pasos, {
-        hechos: hechosDeLeadNuevo(leadNuevoDelCron(s)),
-        cuenta: (p) => (p.canal ?? 'whatsapp') === 'whatsapp',
-      });
+      // El MISMO flujo y el MISMO lead recién llegado que «Probar» (app/automations/PanelProbar.tsx), y los MISMOS
+      // números que `probar_secuencia` recibe en `escenario` (`escenariosDeLaSecuencia`).
+      const { escenarios, faltan } = escenariosDeLaSecuencia(s, (clave) => secuencias.find((x) => x.clave === clave)?.id ?? null);
       return json({
         id: s.id, nombre: s.nombre,
         escenarios: escenarios.map((e, k) => ({ numero: k + 1, camino: e.pasos, mensajes_whatsapp: e.mensajes })),
@@ -1214,18 +1211,33 @@ export const RUNNERS: Runners = {
   },
 
   probar_secuencia: {
+    // ⚠️ UN ESCENARIO, NO TODOS LOS PASOS (14/10/2026). Mandar cada mensaje del array mandaba juntas las ramas que se
+    // excluyen (el «Sí» y el «No» de una condición): una prueba que ningún lead recibe. Con más de un escenario se elige
+    // por su número (`escenarios_secuencia`); con uno solo, ése. Todo se sabe sin escribir: falla en `preparar()`.
     preparar: async (input) => {
       const id = num(input, 'secuenciaId');
       const s = await secuenciaVigente(id);
       if (!s) return { error: noExiste(id) };
       if (!s.pasos.length) return { error: `La secuencia «${s.nombre}» no tiene pasos para probar.` };
+      const pedido = input.escenario != null ? num(input, 'escenario') : null;
+      const e = await escenarioDePrueba(id, pedido);
+      if (!e.ok) return { error: e.error };
+      if (pedido == null && e.total > 1) {
+        return { error: `«${s.nombre}» tiene ${e.total} escenarios: di cuál con "escenario" (el número de escenarios_secuencia).` };
+      }
+      if (!e.mensajes.length) return { error: `El escenario ${e.numero} de «${s.nombre}» no le manda ningún mensaje al lead: no hay nada que probar.` };
       const c = await getContactoReportes();
       if (!c.telefono && !c.email) return { error: 'El dueño no tiene teléfono ni email en Perfil: cárgalos para recibir la prueba.' };
       const destinos = [c.telefono ? `WhatsApp terminado en ${c.telefono.replace(/\D/g, '').slice(-4)}` : null, c.email ? `email ${c.email}` : null].filter(Boolean).join(' y ');
-      return { payload: { secuenciaId: id }, resumen: `Mandar los ${s.pasos.length} pasos de «${s.nombre}» marcados [PRUEBA] a tu ${destinos}` };
+      const camino = e.camino.length ? ` (${e.camino.join(' → ')})` : '';
+      const cuantos = e.mensajes.length === 1 ? 'el mensaje' : `los ${e.mensajes.length} mensajes`;
+      return {
+        payload: { secuenciaId: id, escenario: e.numero },
+        resumen: `Mandar ${cuantos} del escenario ${e.numero}${camino} de «${s.nombre}», marcados [PRUEBA], a tu ${destinos}`,
+      };
     },
     ejecutar: async (payload) => {
-      const r = await probarSecuencia(Number(payload.secuenciaId));
+      const r = await probarSecuencia(Number(payload.secuenciaId), { escenario: Number(payload.escenario) || 1 });
       if (!r.ok) return { ok: false, resumen: r.error };
       return { ok: true, resumen: `Prueba enviada: ${r.enviadosWa} por WhatsApp y ${r.enviadosEmail} por email.${r.avisos.length ? ` ${[...new Set(r.avisos)].join(' ')}` : ''}` };
     },

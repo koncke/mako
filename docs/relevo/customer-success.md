@@ -87,6 +87,14 @@ Se lee en cinco minutos. Medido el 13/10/2026; lo que no se midió, lo dice.
 - **Ver en la pantalla del ws3** la pestaña «Del embudo», el desplegable de la fuente (que elegir una
   no cierre el menú de la marca) y el interruptor de comentarios en el «…» de una clase. Nadie lo pudo
   mirar todavía (RAM).
+  ⚠️ **Intentado el 14/10 a la noche, y medido por qué no sale en local:** con 2,3 GB libres, el dev
+  server arrancó bien (el boot sólo «hidrató», no migró nada a la base) y **compilar
+  `/customer-success/curso` bajó la RAM libre a 325 MB en ~70 s**. La guarda propia lo apagó antes
+  del vigía. En local hacen falta unos 3,5 GB libres reales, no 2. **El camino barato es producción**: main
+  ya está desplegado, así que con la extensión Claude in Chrome conectada (esa noche estaba
+  desconectada) se mira en hola-mako.com, `/customer-success/curso?producto=43&ws=3`, sin compilar
+  nada. El script del intento (Playwright headless y mudo, dev-login al ws9 → ws3) se puede
+  rehacer en 5 minutos: abrir con `playwright-core` y `channel` Chrome, `--mute-audio`.
 - **Las ventas no son código**: el upsell a Teriyaki y los tres upsells de Mauricio son tareas suyas
   de venta, y las carga el Perro Guardián.
 

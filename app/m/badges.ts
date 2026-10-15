@@ -37,7 +37,8 @@ export type FuenteBadge = (ctx: ContextoBadges) => Promise<number | null>;
 
 const FUENTES: Partial<Record<IdBarra, FuenteBadge>> = {
   // `total: null` (alguna bandeja no se pudo leer) = sin número, nunca un 0 inventado.
-  inbox: async (ctx) => (await contarParaDecidir({ rol: ctx.rol, capa: ctx.capa })).total,
+  // v3: lo que espera una decisión vive en la campana de General, así que el número va en General.
+  hoy: async (ctx) => (await contarParaDecidir({ rol: ctx.rol, capa: ctx.capa })).total,
 };
 
 /** Los números de los lugares VISIBLES (los otros ni se consultan). */

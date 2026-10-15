@@ -3,161 +3,76 @@
 <sub>**Este documento se PISA en cada relevo.** Siempre describe el último traspaso; las
 versiones anteriores viven en el historial (`git log -p -- docs/relevo.md`).</sub>
 
-**Relevo del 2026-10-10 — la ventana del 05/10 12:33 al 10/10 18:59.**
-670 commits, 39 migraciones nuevas (0193 → 0245). De `6785dc16` a `9862c146`.
-Escrito por 9 lectores, uno por área, cada uno midiendo contra el código y la base.
+**Relevo del 2026-10-14, 15:20 hora AR: la cuenta 2 (claude2) cierra al 98% semanal.**
+Lo escribió el chat orquestador («Estrategia 3 cuentas»), que integró y pusheó todo lo del 13 y el
+14/10. Martín pidió: «Pausa todo y guarda contexto para la próxima cuenta… Solo pushea esto último y
+luego pausa todo de todos los chats».
 
-> ⚠️ **Está escrito para una cuenta NUEVA, sin una línea de historial.** Si algo te suena a
-> que falta contexto, no falta: preguntá. Lo que sí es material de **segunda mano** es todo
-> lo que dice de código: sale de leerlo, no de ejecutarlo. **Verificá antes de actuar.**
+> ⚠️ Material de primera mano sobre los pushes; de **segunda mano** sobre el código de cada chat (sale
+> de lo que cada chat reportó). Verificá antes de actuar.
 
 ---
 
 ## Los tres comandos del primer minuto
 
-1. `cat docs/relevo/chats.md` — **en qué chats se estuvo trabajando**, con su última
-   actividad y qué briefing le toca a cada uno. La barra lateral de una cuenta nueva está
-   vacía: los chats están indexados por cuenta. Ese archivo es el índice que la barra no da.
-2. `git log --oneline -20` y `git status` — qué entró después de este relevo, y **si hay otra
-   sesión escribiendo ahora mismo** (pasa seguido: son varias sobre el mismo clon).
-3. `docs/relevo/<tu-área>.md` — el briefing de lo que vayas a tocar. Están todos al día
-   al 10/10.
+1. `cat docs/relevo/estrategia-3-cuentas.md`: **cómo se pushea hoy** (un solo push por vez desde un
+   worktree, merge y nunca rebase, el vigía de RAM, heap de 5120, «no esperes RAM»), y lo pendiente.
+2. `git status` y `git log --oneline origin/main..main`: en el main LOCAL del clon hay commits de
+   docs **sin pushear** (el merge de los docs del CRM, `5fd7efd91`, y este relevo). Salen con el
+   próximo push; no cambian producción.
+3. `docs/relevo/<área>.md` del chat que vayas a continuar (tabla de abajo).
 
-Estado al cerrar: **todo pusheado** (`origin/main` = `9862c146`) y el último deploy de
-producción figura `Ready`.
-
----
-
-## Lo urgente, por fecha
-
-**1. El lunes 12/10/2026 a las 14:20 UTC sale el primer reporte semanal multi-cliente de la
-historia, y nunca corrió ni una vez.** El cron está en `"20 14 * * 1"` (`vercel.json`) y el
-código que itera inquilinos se desplegó el 06/10 — después del lunes anterior, así que su
-primera corrida real es ésa. Sale **por email a todo workspace activo con destinatario**
-(el default de `notification_prefs.semanal` es activo+email, `lib/perfil.ts:233`). El
-`?dry=1` **nunca se pudo correr**. Es lo único de todo el relevo con fecha de vencimiento:
-`app/api/cron/reporte-semanal/route.ts`.
-
-**2. El Change History de `/admin/dev` está congelado desde el 07/09/2026, con 989 commits de
-atraso.** Son las 124 áreas que contestan «¿qué se hizo acá?» — el índice del trabajo. No se
-ve como un hueco: se ve como un área que nadie tocó, que es la forma más cara de equivocarse.
-Se arregla con un comando: `node scripts/gen-dev-historial.mjs` y después `npm test`.
-
-**3. Nada de Automations se vio con clics en producción.** Entraron **ocho tandas** de
-feedback en la ventana y están desplegadas para los 10 clientes; lo único que se miró fue dev
-local sobre el ws9, sin guardar nada. Entrar a `hola-mako.com/automations` y mirar el lienzo.
-
-**4. Customer Success y el curso: dos tandas enteras en `main` que nunca se vieron
-funcionando** (los 20 ajustes del 08/10 y el acceso por producto del 09/10, migs 0223 y 0232).
-1.067 tests en verde no prueban una pantalla.
-
-**5. La rama `wip/api-acciones-0910`** (worktree `C:/dev/mako-api`): 343 operaciones de la API
-aprobadas y sin terminar, incluida el área `comunidad` entera (41 ops) que el producto ya
-tiene y la API no. Lleva 670 commits de atraso contra `main` y envejece sola.
+**Estado al cerrar:** `origin/main` = `ab2641963`, deploy de producción **Ready**. Los chats que
+corrían (CRM y Landing Generator) quedaron **pausados** por el orquestador; ninguno estaba pusheando.
 
 ---
 
-## Qué es cada cosa, para quien nunca la vio
+## Dónde quedó cada chat
 
-MaKo es una app multi-inquilino de marketing: cada cliente es un **workspace** (`ws1` es
-Mauricio Bustos, un cliente, y la constante `OWNER_WS` vale 1 por razones históricas — **no
-es el dueño**; el dueño es Martín). El código vive en `dashboard-marketing/`, es Next.js 16
-con App Router, y la base es Supabase.
+| Chat | En producción | A medias (NO pushear sin su dueño) | Briefing |
+|---|---|---|---|
+| **CRM** | tanda A (reproductor de la grabación, etiquetas con «+N», «A revisar» por lead, clic derecho, MaKo al costado) | tanda B, la ficha por bloques: ramas `crm-bloques-b1..b5` (`C:/Users/marti/wtc-b1..b5`, 9-13 commits cada una). Tiene 2 commits WIP y Pagos 2 fallas altas de la revisión | `docs/relevo/crm.md`, `docs/relevo/crm-tanda-b1.md`, `docs/diseno-ficha-bloques.md` (las 7 decisiones de Martín) |
+| **Landing Generator** | tandas 3-5 (hola-mako.site, botón de pago por la pasarela, VSL en los diseños, API) | tanda 6 en `landing-t6` (`C:/dev/wt-landing-t6`, +5 commits), pausada a mitad de un turno. Rojo en main: `tests/integracion-sin-salir.test.ts` por `DialogoPublicar.tsx` y `CobroBoton.tsx` | `docs/relevo/landing-generator.md` |
+| **General** | sexta vuelta (bloques mirados en captura, tema «General» en las plantillas) y el arreglo del Dashboard sin hojas | nada | `docs/relevo/general-y-calendario.md` |
+| **Image Editor** | tandas 1 y 2 (editor tipo Canva en Content Machine › Image, sólo super admin) | `opcion-image-en-clientes`: espera la decisión de Martín | `docs/relevo/image-editor.md` |
+| **Automations** | «nada por detrás» completo: las 3 migraciones corridas (la 3ª, 8 automatizaciones, verificada) | nada | `docs/relevo/chatbot.md` |
 
-| Área | Qué es | Su briefing |
-|---|---|---|
-| **Automations** (ex `/chatbot`) | Flujos con ramas que le hablan al lead por WhatsApp. Lo más movido del repo | `relevo/chatbot.md` |
-| **CRM** | Leads, embudos, la ficha del lead | `relevo/crm.md` |
-| **Customer Success** | La ENTREGA de un servicio: kanban por producto, el curso y la comunidad | `relevo/customer-success.md` |
-| **API de MaKo** | La API pública con tokens estilo GitHub: 526 operaciones en 19 áreas | `relevo/api-mako.md` |
-| **Super admin** | Strategy, runway, costos, y los registros de dev | `relevo/super-admin.md` |
-| **Ads Manager** | Campañas de Meta, y los canales de Instagram y Messenger | `relevo/ads-manager.md` |
-| **Seguridad** | Aislamiento entre clientes, cifrado, credenciales | `relevo/seguridad-aislamiento.md` |
-| **Avisos y WhatsApp** | Reportes, notificaciones y las líneas de WhatsApp | `relevo/avisos-y-whatsapp.md` |
-| **Infra** | Build, tests, el pre-push, y el oficio de trabajar acá | `relevo/infra-y-build.md` |
+**Pedido de Martín sin chat que lo tome (14/10 14:34, textual):** «Dale este mismo feedback al
+dashboard... Que rediseñe bloque por bloque y que tenga en cuenta mobile. Que vaya viendo con datos
+ficticios o con algun dato de algun workspace que todo se vea bien en diseño. Tanto bloques como las
+plantillas.» El método está en `docs/hallazgos-objectives.md` → «General, sexta vuelta».
 
----
+**Ramas que NUNCA se pushean sin su dueño:** `wip/api-acciones-0910`, `wip/api-acciones-1410`
+(«A MEDIAS»), `api-acciones-1310`, `opcion-image-en-clientes`, `crm-bloques-b1..b5`.
+Sin trabajo nuevo sobre origin: `chats-1410`, `graphics-1310`, `graphics-bloques-1310`,
+`pagos-pasarela`, `video-editor`, `chatbot-v6`, `mobile-mismas-rutas` y **`pagos-automations`**
+(decía «tiene 1 commit del 11/10 sin integrar» y es FALSO: `git cherry origin/main
+pagos-automations` devuelve `-` para `b5843d84f`, o sea que el CRON «Pagos» y el evento «Entra un
+pago» ya entraron a main por otro camino, y `lib/cobros.ts` llama a `enrolarPorPago`. Lo cazó el
+chat de Automations el 14/10 16:00 y lo verifiqué).
 
-## Lo que NACIÓ en estos cinco días
-
-- **Una automatización dejó de ser una lista y pasó a ser un GRAFO** (mig `0223_flujo_grafo`).
-  Cada paso es un nodo con id estable y su `siguiente`: **el orden del array NO es el orden del
-  flujo**, y la entrada se pide con `raizSalida(pasos)`, nunca `pasos[0]`. Con hilos en
-  paralelo (`0228`), varios CRON por automatización (`0241`), borrador vs publicado (`0240`) y
-  las posiciones del lienzo guardadas (`0233`).
-- **Un lead dejó de tener UN solo embudo** (mig `0207`, `lead_funnel`). Antes, ponerlo en un
-  segundo producto obligaba a MOVERLO y eso le reseteaba la etapa y le limpiaba la venta. Hoy
-  la «casa» sigue en `leads.funnel_id` y cada producto extra es una fila aparte.
-- **El curso vive adentro de MaKo** (Whop salió del producto) y nació la **comunidad** tipo
-  Skool por producto.
-- **La API de MaKo**, entera y desplegada: 526 operaciones, 398 rutas REST, tokens con nombre,
-  permisos por área y expiración. Las cuatro decisiones de «copiá GitHub tal cual» (08/10)
-  están hechas.
-- **Ads Manager quedó operable por CADA cliente**: hasta el 07/10 15:47 todo botón de escritura
-  daba 403 fuera del ws1; `db7b7682` lo cerró.
-- **Chatwoot (el WhatsApp oficial) se borró entero** el 09/10. El código vive en la etiqueta
-  `archivo/chatwoot-2026-10-09`; `lib/chatwoot.ts` quedó de cascarón porque lo importa la rama
-  `wip`. **Código nuevo no lo importa.**
-- **La tab Strategy** del super admin (`9862c146`, el último commit de la ventana): la
-  estrategia, el runway, los costos y los referidos en una sola pantalla.
+⚠️ **Lo de arriba no es un detalle: es el modo de falla de este documento.** Una rama dada por
+«sin integrar» manda a alguien a integrar lo que ya está, y un pendiente dado por abierto manda a
+resolver lo resuelto. El 14/10 pasó dos veces el mismo día: esto, y las tres decisiones de
+Strategy (pauta, `/vsl/costos` privada, el 1 a 1 a US$10.000) que figuraban esperando a Martín
+cuando la cuenta 3 las había cerrado el 10/10 a las 21:37 en `a5cf14074`. **Antes de actuar sobre
+cualquier «abierto» o «sin integrar» de acá, medilo**: `git cherry origin/main <rama>` para una
+rama, `git log --since=<la fecha del relevo> -- <archivos>` para un pendiente.
 
 ---
 
-## Lo que espera una DECISIÓN de Martín
+## Lo que decide Martín
 
-Son 71 repartidas entre los nueve briefings. Las que ordenan el resto:
+- Si la tab Image se ve también mirando la cuenta de un cliente (`opcion-image-en-clientes`).
+- Si la barra de selección en lote del Ads Manager va oscura o clara.
+- Que el vigía de RAM se levante solo si se cae (hoy sólo arranca al iniciar sesión).
+- Confirmar el borrador de 50 tareas del Perro: https://hola-mako.com/plan/revisar/propmv7rwo1dkj2i6
 
-1. **La foto de los leads vive en un bucket PÚBLICO** (`avatars/leads/<ws>/<lead>.jpg`, dos
-   enteros chicos de adivinar). Dejarlo · pasar el prefijo a privado con URL firmada, como ya
-   hace el portal del curso · o un nombre no adivinable, que es lo barato y cierra la
-   enumeración.
-2. **Los reportes diario y horario siguen siendo sólo del ws1**, así que las preferencias de
-   notificación de los demás clientes son decorativas para esos dos caminos. Abrirlos ·
-   dejarlos del dueño y sacarlos de la lista que el cliente ve.
-3. **Qué se hace con `wip/api-acciones-0910`** (343 operaciones): retomarla entera · tomar sólo
-   `comunidad` · o darla de baja.
-4. **El delay de minutos entre dos mensajes parte la tarjeta** con una espera, porque el motor
-   no puede dormir minutos adentro de una corrida (tope 10 s). Es un default que eligió Claude,
-   no él.
-5. **Ganar en un producto AGREGADO no marca al lead como ganado** (la v1 manda la casa, a
-   propósito). Si alguien compra el segundo producto, esa venta no entra.
-6. **¿Entra `npm test` al pre-push?** El argumento escrito para dejarlo afuera es que «son ~9
-   segundos»; medido el 10/10, son **134-155 s**. El número que sostenía la decisión es falso.
+## Lo que se aprendió hoy (ya escrito en el repo)
 
----
-
-## Las trampas que más tiempo ahorran
-
-- **Hay varias sesiones sobre el MISMO clon.** `git status` antes de tocar nada; commiteá por
-  **ruta explícita** y nunca `git add -A`. Al cerrar este relevo había otra sesión escribiendo
-  en cinco archivos del CRM sin commitear.
-- **El `.git/hooks/pre-push` es el único control automático que hay.** No hay CI, y
-  `next build` tiene `typescript.ignoreBuildErrors: true`. Si reclonás, el hook **desaparece en
-  silencio**: hay que recrearlo (está en `AGENTS.md`).
-- **El typecheck corre de a UNO por máquina** (hay un lock): con cuatro sesiones se comían la
-  RAM.
-- **La cuenta activa se DECLARA, no se deduce.** `head -1 ~/.claude/cuenta-activa.txt` antes de
-  firmar un commit, y el titular sale de `~/.claude/cuentas.tsv`. Si dice `SIN IDENTIFICAR`,
-  hay que sumarle una línea a esa tabla.
-- **Todo `~/.claude` lo comparten las cuentas, incluidos los números.** Un `98%` de cuota
-  medido por otra cuenta hizo cerrar una sesión que estaba al 18%. Ver `docs/dos-cuentas.md`.
-
----
-
-## Lo que este relevo CORRIGIÓ, y por qué importa
-
-Los nueve lectores encontraron **afirmaciones falsas en los briefings anteriores**, varias de
-ellas escritas pocas horas antes. Algunas muestras:
-
-- «Falta aplicar la migración 0215» — está aplicada; medido contra producción.
-- «Producto múltiple por campaña choca con que un lead tiene un solo `funnel_id`» — dejó de ser
-  cierto el 06/10 con la mig 0207.
-- «La octava tanda no está pusheada ni vista» — las dos mitades están en `origin/main`.
-- «Quedan archivos sin commitear» — se habían commiteado 45 archivos una hora antes.
-- «`npm test` son ~9 segundos» — son 134-155 s, y ese número era el argumento de una decisión.
-
-**La regla que sale de ahí: una medición tiene FECHA.** Acá entran más de 100 commits por día;
-un dato de hace unas horas puede estar vencido. Antes de repetir una afirmación de este
-documento —o de cualquier briefing— mirá cuándo se midió y, si pasó tiempo,
-`git log --since=<esa fecha> -- <los archivos>`. Si devuelve algo, tu dato está vencido hasta
-que lo revises.
+- `docs/hallazgos-infra.md`: mergear en el worktree de un push mientras corre su pre-push da errores
+  falsos; un paquete suelto en `node_modules` y no declarado pasa el typecheck y tira el deploy
+  (`qrcode`).
+- `scripts/typecheck-lock.mjs` y `AGENTS.md`: el heap del typecheck pasó a 5120 MB (con el Image Editor
+  no entraba en 4096).
+- Un hito `tipo: 'prompt'` de `app/admin/dev/*/bitacora.ts` lleva `puntos` igual: frenó tres pushes.

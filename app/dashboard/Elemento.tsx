@@ -118,6 +118,21 @@ export const TAMANOS_TEXTO: Record<Tamano, { px: number; peso: number; alto: num
   xl: { px: 36, peso: 700, alto: 1.12, nombre: 'Muy grande' },
 };
 
+/**
+ * ÉPICO (14/10/2026): el texto crece con su tarjeta, como el número (ESCALA_EPICA). Los px de arriba son el PISO (lo de
+ * siempre, y lo que se ve en el celular); el techo y la pendiente en unidades del contenedor (`.lk-comp--elemento` lleva
+ * `container-type`). Un «Muy grande» de 36 px FIJOS era, en una hoja donde todo lo demás crece, el primer renglón que se
+ * lee y el que dejaba la jerarquía plana. El chico no crece: es el cuerpo.
+ */
+const CRECE_TEXTO: Record<Tamano, { cqi: number; max: number } | null> = {
+  s: null, m: { cqi: 2, max: 22 }, l: { cqi: 3, max: 34 }, xl: { cqi: 4.2, max: 52 },
+};
+export const tamTextoCss = (tamano: Tamano): string => {
+  const t = TAMANOS_TEXTO[tamano] ?? TAMANOS_TEXTO.m;
+  const c = CRECE_TEXTO[tamano];
+  return c ? `clamp(${t.px}px, ${c.cqi}cqi, ${c.max}px)` : `${t.px}px`;
+};
+
 const ALINEAR_CSS: Record<Alinear, CSSProperties['textAlign']> = { izquierda: 'left', centro: 'center', derecha: 'right' };
 
 /** Un salto de línea es un PÁRRAFO (el modelo lo dice así). Los `\r` de un pegado desde Windows no cuentan. */
@@ -128,7 +143,7 @@ function estiloTexto(e: Elemento, colores: readonly string[]): CSSProperties {
   return {
     // La letra de la HOJA (varsDeTema la pinta en el contenedor del lienzo); sin tema, la de la app.
     fontFamily: 'var(--dash-letra, inherit)',
-    fontSize: t.px, fontWeight: t.peso, lineHeight: t.alto,
+    fontSize: tamTextoCss(e.tamano), fontWeight: t.peso, lineHeight: t.alto,
     letterSpacing: t.px >= 26 ? '-0.015em' : undefined,
     textAlign: ALINEAR_CSS[e.alinear] ?? 'left',
     color: colorDeElemento(e, colores),

@@ -1,0 +1,183 @@
+/* =============================================================================
+   El tablero de decisiones — /admin/runway y /m/decisiones
+   =============================================================================
+   Pedido de Martín (14/10/2026): «texto grande, menos texto, tarjetas… quiero leerlo
+   simple», y lo lee desde el teléfono. Una tarjeta por decisión; cada opción es un botón
+   del ancho de la tarjeta y de 52 px de alto (un dedo entero), con su letra al costado.
+
+   Todo bajo `.decisiones-*`: lo cargan dos pantallas (la de /m exige el nombre ENTERO de
+   su carpeta como prefijo, y Next deja la hoja puesta al salir de la ruta). Sólo tokens de
+   la casa, así se ve en claro y en oscuro. 16 px en los campos de texto: con menos, el
+   teléfono hace zoom al tocarlos. */
+
+.decisiones {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  min-width: 0;
+  color: var(--ink);
+}
+.decisiones *,
+.decisiones *::before,
+.decisiones *::after { box-sizing: border-box; }
+
+/* ── los grupos ───────────────────────────────────────────────────────────── */
+.decisiones-grupo { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.decisiones-grupo-t {
+  margin: 0;
+  display: flex; align-items: center; gap: 10px;
+  font-size: 21px; font-weight: 650; letter-spacing: -0.015em;
+}
+.decisiones-grupo-n {
+  min-width: 28px; height: 28px; padding: 0 9px; border-radius: 999px;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums;
+  background: var(--surface-2); color: var(--dim);
+}
+.decisiones-grupo--bloquea .decisiones-grupo-n { background: var(--bad); color: #fff; }
+.decisiones-grupo--cuesta .decisiones-grupo-n { background: var(--warn-fill); color: var(--ink); }
+.decisiones-lista {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 360px), 1fr));
+  align-items: start;
+}
+
+/* ── una decisión ─────────────────────────────────────────────────────────── */
+.decisiones-tarjeta {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 18px;
+  display: flex; flex-direction: column; gap: 10px;
+  min-width: 0;
+  box-shadow: inset 4px 0 0 var(--decisiones-k, var(--border-strong));
+}
+.decisiones-tarjeta--bloquea { --decisiones-k: var(--bad); }
+.decisiones-tarjeta--cuesta { --decisiones-k: var(--warn-fill); }
+.decisiones-tarjeta--criterio { --decisiones-k: var(--primary); }
+.decisiones-tarjeta--aviso { --decisiones-k: var(--faint); }
+.decisiones-chat {
+  margin: 0;
+  font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--dim);
+}
+.decisiones-contexto { margin: 0; font-size: 14.5px; line-height: 1.45; color: var(--dim); }
+.decisiones-pregunta {
+  margin: 0;
+  font-size: clamp(19px, 2.2vw, 22px); line-height: 1.3; font-weight: 650; letter-spacing: -0.015em;
+  overflow-wrap: anywhere;
+}
+.decisiones-destraba {
+  margin: 0;
+  display: flex; gap: 8px; align-items: baseline;
+  font-size: 15px; line-height: 1.45;
+}
+.decisiones-destraba span {
+  flex: none;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--good);
+}
+.decisiones-link { align-self: flex-start; font-size: 15px; font-weight: 600; color: var(--primary); text-decoration: none; }
+.decisiones-link:hover { text-decoration: underline; }
+
+.decisiones-form { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+.decisiones-opciones { display: flex; flex-direction: column; gap: 8px; }
+.decisiones-opcion {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; min-height: 52px; padding: 11px 14px;
+  border-radius: 12px; border: 1.5px solid var(--border);
+  background: var(--bg); color: var(--ink);
+  font: inherit; font-size: 16px; font-weight: 550; line-height: 1.35; text-align: left;
+  cursor: pointer;
+  transition: border-color 0.12s ease, background-color 0.12s ease;
+}
+.decisiones-opcion b {
+  flex: none; width: 28px; height: 28px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; background: var(--surface-2); color: var(--ink);
+}
+.decisiones-opcion span {
+  flex: 1; min-width: 0; overflow-wrap: anywhere;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
+}
+.decisiones-opcion:hover:not(:disabled) { border-color: var(--primary); }
+.decisiones-opcion:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.decisiones-opcion:disabled { opacity: 0.6; cursor: progress; }
+.decisiones-opcion--elegida { border-color: var(--good); background: color-mix(in srgb, var(--good) 10%, var(--surface)); }
+.decisiones-opcion--elegida b { background: var(--good); color: #fff; }
+.decisiones-reco {
+  font-style: normal; font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+  padding: 3px 8px; border-radius: 999px;
+  color: var(--primary); background: color-mix(in srgb, var(--primary) 10%, var(--surface));
+}
+
+.decisiones-otra > summary {
+  list-style: none; cursor: pointer;
+  padding: 6px 0; font-size: 15px; color: var(--dim);
+}
+.decisiones-otra > summary::-webkit-details-marker { display: none; }
+.decisiones-otra > summary::before { content: '+ '; }
+.decisiones-otra[open] > summary::before { content: '− '; }
+.decisiones-libre { display: flex; flex-direction: column; gap: 8px; }
+.decisiones-libre textarea {
+  width: 100%; min-height: 84px; padding: 10px 12px; resize: vertical;
+  border-radius: 12px; border: 1.5px solid var(--border);
+  background: var(--bg); color: var(--ink);
+  font: inherit; font-size: 16px; line-height: 1.4;
+}
+.decisiones-libre textarea:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+.decisiones-mandar {
+  align-self: flex-start; min-height: 46px; padding: 10px 20px;
+  border-radius: 12px; border: 0;
+  background: var(--primary); color: var(--on-primary);
+  font: inherit; font-size: 15px; font-weight: 600; cursor: pointer;
+}
+.decisiones-mandar:disabled { opacity: 0.6; cursor: progress; }
+.decisiones-error { margin: 0; font-size: 14px; color: var(--bad); }
+
+/* ── las contestadas ──────────────────────────────────────────────────────── */
+.decisiones-contestadas > summary { list-style: none; cursor: pointer; }
+.decisiones-contestadas > summary::-webkit-details-marker { display: none; }
+.decisiones-contestadas > summary .decisiones-grupo-t::after { content: '▸'; font-size: 14px; color: var(--faint); }
+.decisiones-contestadas[open] > summary .decisiones-grupo-t::after { content: '▾'; }
+.decisiones-lista--hechas { grid-template-columns: minmax(0, 1fr); gap: 8px; margin-top: 12px; }
+.decisiones-hecha { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; min-width: 0; }
+.decisiones-hecha > summary {
+  list-style: none; cursor: pointer;
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 12px 14px;
+}
+.decisiones-hecha > summary::-webkit-details-marker { display: none; }
+.decisiones-hecha-tilde {
+  flex: none; width: 26px; height: 26px; border-radius: 999px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--good); color: #fff; font-size: 14px; font-weight: 700;
+}
+.decisiones-hecha-txt { flex: 1 1 220px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.decisiones-hecha-preg { font-size: 15.5px; font-weight: 600; overflow-wrap: anywhere; }
+.decisiones-hecha-resp { font-size: 14.5px; color: var(--good); overflow-wrap: anywhere; }
+.decisiones-hecha-estado { flex: none; font-size: 12.5px; color: var(--faint); }
+.decisiones-hecha-estado--nueva { color: var(--primary); font-weight: 600; }
+.decisiones-hecha-cuerpo { padding: 0 8px 8px; }
+.decisiones-hecha-cuerpo .decisiones-tarjeta { border: 0; box-shadow: none; padding: 8px 10px; }
+
+.decisiones-vacio, .decisiones-falla { margin: 0; font-size: 18px; color: var(--dim); }
+.decisiones-falla { color: var(--bad); }
+.decisiones-resuelta {
+  align-self: flex-start;
+  min-height: 40px; padding: 0 14px; border-radius: 10px;
+  border: 1.5px solid var(--border); background: var(--surface); color: var(--dim);
+  font: inherit; font-size: 14.5px; font-weight: 600; cursor: pointer; touch-action: manipulation;
+}
+.decisiones-resuelta:disabled { opacity: 0.6; cursor: progress; }
+
+/* El selector Tarjetas | Lista (app/tickets/decisiones/CambioVista.tsx) no se estira. */
+.decisiones > .ticketera-vistas { align-self: flex-start; }
+
+/* ── teléfono ─────────────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .decisiones { gap: 22px; }
+  .decisiones-tarjeta { padding: 16px; border-radius: 16px; }
+  .decisiones-grupo-t { font-size: 20px; }
+}

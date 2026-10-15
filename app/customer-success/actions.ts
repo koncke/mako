@@ -486,7 +486,7 @@ export async function crearCuentaMakoAction(leadId: number, email: string): Prom
  * el avance del cliente.
  */
 export async function moverEntregaAction(leadId: number, productoId: number, etapa: string | null, relojPrevio?: string | null): Promise<
-  { ok: true; desde: string | null; hacia: string; rotulo: string; producto: string; cambio: boolean } | { ok: false; error: string }
+  { ok: true; desde: string | null; relojPrevio: string | null; hacia: string; rotulo: string; producto: string; cambio: boolean } | { ok: false; error: string }
 > {
   const no = await puedeUsarCs(); if (no) return { ok: false, error: no };
   try {
@@ -499,7 +499,7 @@ export async function moverEntregaAction(leadId: number, productoId: number, eta
     // ⚠️ SÓLO SE REVALIDA SI ALGO CAMBIÓ. Un movimiento idempotente que igual
     // revalida tira las 78 KB del trabajo de la cartera por un gesto que no movió nada.
     if (m.cambio) revalidatePath('/customer-success');
-    return { ok: true, desde: m.desde, hacia: m.hacia, rotulo: m.rotulo, producto: m.producto, cambio: m.cambio };
+    return { ok: true, desde: m.desde, relojPrevio: m.relojPrevio, hacia: m.hacia, rotulo: m.rotulo, producto: m.producto, cambio: m.cambio };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No se pudo mover.' };
   }
@@ -523,7 +523,7 @@ export async function moverEntregaAction(leadId: number, productoId: number, eta
  * tiene que reponer exactamente los que se movieron, no todos.
  */
 export async function moverEntregaLoteAction(productoId: number, movs: Array<{ leadId: number; etapa: string | null; relojPrevio?: string | null }>): Promise<
-  { ok: true; resultados: Array<{ leadId: number; ok: boolean; desde: string | null; hacia: string | null; cambio: boolean; error?: string }> } | { ok: false; error: string }
+  { ok: true; resultados: Array<{ leadId: number; ok: boolean; desde: string | null; relojPrevio?: string | null; hacia: string | null; cambio: boolean; error?: string }> } | { ok: false; error: string }
 > {
   const no = await puedeUsarCs(); if (no) return { ok: false, error: no };
   try {
@@ -535,7 +535,7 @@ export async function moverEntregaLoteAction(productoId: number, movs: Array<{ l
     const { data, error } = await db.from('leads').select('id').in('id', ids).eq('estado_lead', 'ganado');
     if (error) return { ok: false, error: `No pude verificar los clientes: ${error.message}` };
     const mios = new Set(((data ?? []) as Array<{ id: number }>).map((r) => Number(r.id)));
-    const resultados: Array<{ leadId: number; ok: boolean; desde: string | null; hacia: string | null; cambio: boolean; error?: string }> = [];
+    const resultados: Array<{ leadId: number; ok: boolean; desde: string | null; relojPrevio?: string | null; hacia: string | null; cambio: boolean; error?: string }> = [];
     let alguno = false;
     // Quién firma, UNA vez para todo el lote: es la misma persona en los doce movimientos.
     const por = await autorActual();
@@ -552,7 +552,7 @@ export async function moverEntregaLoteAction(productoId: number, movs: Array<{ l
       const r = await moverClienteDeEtapa({ leadId, productoId, etapa: m.etapa, relojPrevio: m.relojPrevio, por });
       if (!r.ok) { resultados.push({ leadId, ok: false, desde: null, hacia: null, cambio: false, error: r.motivo ?? 'No se pudo mover.' }); continue; }
       if (r.cambio) alguno = true;
-      resultados.push({ leadId, ok: true, desde: r.desde, hacia: r.hacia, cambio: r.cambio });
+      resultados.push({ leadId, ok: true, desde: r.desde, relojPrevio: r.relojPrevio, hacia: r.hacia, cambio: r.cambio });
     }
     if (alguno) revalidatePath('/customer-success');
     return { ok: true, resultados };

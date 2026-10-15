@@ -1,33 +1,37 @@
 'use client';
 
 // =============================================================================
-// CustomerSuccessM — la entrega como lista agrupada, y el sheet de un cliente
+// CustomerSuccessM — la entrega como TABLERO (v3), y el sheet de un cliente
 // =============================================================================
-// Prototipo: docs/prototipos/mako-mobile-v2.html, data-ir="cs" y la plantilla «t-cliente».
+// v3 (14/10/2026, prototipo docs/prototipos/mako-mobile-tableros.html, «Clientes»): Martín quiere
+// «TODOS los kanban de MaKo en mobile». La entrega es el kanban de escritorio por producto, una
+// columna por pantalla (KanbanM): arriba el servicio (segmentado o fila), la barra de etapas con
+// su conteo, y en cada columna los clientes con su empresa y hace cuánto se movieron (en rojo si
+// están trabados). La v2 era una lista agrupada por etapa con los mismos datos.
 //
-//   [Servicio A | Servicio B]            sólo con más de un servicio
-//   Onboarding                      3    una sección por etapa, con su conteo
-//     (FR) Fernanda Ríos   hace 2 días
-//          Estudio Luma
-//   Primeras clases                 1
-//     (EN) Emilio Navarro
-//          Navarro Bienes Raíces
-//          (• 21 días sin moverse)       la píldora con el punto rojo
-//
-// Sheet del cliente: las etapas (la actual con ✓; tocar otra lo mueve), «Escribirle por
-// WhatsApp», «Reenviar la invitación al curso» y abajo «Pasar a <la siguiente>».
+//   · Tocar un cliente abre su sheet: las etapas (la actual con ✓; tocar otra lo mueve),
+//     «Escribirle por WhatsApp», «Reenviar la invitación al curso» y «Pasar a <la siguiente>».
+//   · Mantenerlo presionado abre «Mover a…» (KanbanM). Los dos caminos mueven igual.
 //
 // ⚠️ MOVER ES `moverEntregaAction`, LA MISMA DE ESCRITORIO, y el DESHACER vuelve a llamar al
 // server con la etapa anterior Y SU RELOJ (`relojPrevio`); si no tenía fila, la borra
 // (`sacarDeEntregaAction`) y vuelve a la primera por la regla del reparto. Es lo que hace
 // `moverEntrega` en app/customer-success/ClientesApp.tsx: revertir sólo la pantalla mentiría.
 //
-// ⚠️ LO MOVIDO SE PINTA ENCIMA DE LO QUE TRAJO EL SERVER (`MovidosCs`), sin `router.refresh()`:
-// la action revalida /customer-success, no esta ruta. Cuando la página vuelve a pedir datos
-// (tirar para refrescar) los props son nuevos y el overlay se limpia: manda la base.
+// ⚠️ LO MOVIDO SE PINTA ENCIMA DE LO QUE TRAJO EL SERVER (`MovidosCs`). Cuando la página vuelve a
+// pedir datos los props son nuevos y el overlay se limpia: manda la base. Y vuelve a pedirlos sola
+// después de cada movimiento que CAMBIÓ algo: `revalidatePath('/customer-success')` marca la
+// respuesta como revalidada sin mirar la ruta (Next 16, el TODO de revalidate.js), así que /m/cs
+// vuelve re-renderizada. Con `cambio: false` la action NO revalida: ahí se pide `router.refresh()`.
+//
+// ⚠️ EL DESHACER SE OFRECE SÓLO SI LA PANTALLA ESTABA AL DÍA (verificado el 14/10/2026). Repone la
+// `previa` que creía el teléfono; si el server dice que el cliente venía de OTRA etapa (`r.desde`:
+// MaKo lo movió por el curso, otra persona lo movió en la computadora), deshacer borraría ese avance
+// y le pondría un reloj viejo. Tampoco si venía de una etapa que ya no existe: el server la rechaza.
 // =============================================================================
 
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from '@/app/_ui/Link';
 import { Button } from '@/app/_ui/Button';
 import { Icon } from '@/app/_components/icons';
 import { haptico } from '@/lib/haptico';
@@ -35,7 +39,8 @@ import { relojDeVuelta } from '@/lib/servicio-etapas';
 import { moverEntregaAction, sacarDeEntregaAction } from '@/app/customer-success/actions';
 import { invitarAlCursoDelProductoAction } from '@/app/customer-success/curso/invitar-actions';
 import {
-  FilaDatoM, FilaM, ListaM, PieM, PildoraM, SeccionM, SegmentadoM, SheetM, VacioM, useConexion, useToastM,
+  FilaDatoM, FilaM, KanbanM, ListaM, PieM, SegmentadoM, SheetM, VacioM, useConexion, useToastM,
+  type ResultadoMover,
 } from '@/app/m/_ui';
 import {
   asignacionCon, claveMov, etapaDe, gruposDe, siguienteEtapa, tiempoDe,
@@ -47,6 +52,7 @@ const MAX_SEGMENTADO = 3;
 
 export function CustomerSuccessM({ servicios, clientes }: { servicios: ServicioCs[]; clientes: ClienteCs[] }) {
   const toast = useToastM();
+  const router = useRouter();
   const { enLinea } = useConexion();
 
   const [servId, setServId] = useState<number | null>(servicios[0]?.id ?? null);
@@ -109,16 +115,53 @@ export function CustomerSuccessM({ servicios, clientes }: { servicios: ServicioC
       const r = await moverEntregaAction(leadId, productoId, destino.key);
       if (!r.ok) { haptico('error'); setError(r.error); return; }
       setAbierto(false);
-      // Un movimiento que no movió nada no se anuncia ni se pinta.
-      if (!r.cambio) return;
+      // No movió nada: la pantalla estaba vieja. Se pide la base y se dice, sin pintar un reloj inventado.
+      if (!r.cambio) { router.refresh(); toast(`Ya estaba en ${r.rotulo}`); return; }
       haptico('success');
       setMovs((v) => ({ ...v, [claveMov(productoId, leadId)]: { etapa: r.hacia, desde: new Date().toISOString() } }));
-      toast(`En ${r.rotulo}`, { deshacer: () => deshacer(leadId, productoId, previa) });
+      toast(`En ${r.rotulo}`, sePuedeDeshacer(previa, r.desde) ? { deshacer: () => deshacer(leadId, productoId, previa) } : undefined);
     } catch {
       haptico('error');
       setError('No se pudo mover. Vuelve a intentar.');
     } finally {
       setOcupado(null);
+    }
+  };
+
+  /**
+   * ¿El Deshacer repondría lo que había de verdad? Sólo si el server dice que venía de la etapa que
+   * creía la pantalla (`desde` es null si no tenía fila) y esa etapa sigue existiendo.
+   */
+  const sePuedeDeshacer = (previa: FilaCs | null, desde: string | null) =>
+    (previa?.etapa ?? null) === desde && (!previa || s.etapas.some((e) => e.key === previa.etapa));
+
+  /** Mover desde «Mover a…» del tablero: KanbanM ya lo pintó; acá se escribe y se anota. */
+  const moverDesdeTablero = async (id: string, destino: string): Promise<ResultadoMover> => {
+    if (!enLinea) return { ok: false, error: 'Sin conexión' };
+    const leadId = Number(id);
+    const productoId = s.id;
+    const previa = asig[leadId] ?? null;
+    try {
+      const r = await moverEntregaAction(leadId, productoId, destino);
+      if (!r.ok) return { ok: false, error: r.error };
+      // `cambio: false` = ya estaba ahí (la pantalla estaba vieja): se pide la base y no se pinta un
+      // reloj (el `desde` de la previa era de OTRA etapa), y sin Deshacer.
+      if (!r.cambio) { router.refresh(); return { ok: true }; }
+      setMovs((v) => ({ ...v, [claveMov(productoId, leadId)]: { etapa: r.hacia, desde: new Date().toISOString() } }));
+      if (!sePuedeDeshacer(previa, r.desde)) return { ok: true };
+      return {
+        ok: true,
+        deshacer: async () => {
+          const d = await (previa
+            ? moverEntregaAction(leadId, productoId, previa.etapa, previa.desde)
+            : sacarDeEntregaAction(leadId, productoId)).catch(() => ({ ok: false as const }));
+          if (!d.ok) return false;
+          setMovs((v) => ({ ...v, [claveMov(productoId, leadId)]: previa ? { etapa: previa.etapa, desde: relojDeVuelta(previa.desde) ?? new Date().toISOString() } : null }));
+          return true;
+        },
+      };
+    } catch {
+      return { ok: false, error: 'No se pudo mover' };
     }
   };
 
@@ -192,32 +235,37 @@ export function CustomerSuccessM({ servicios, clientes }: { servicios: ServicioC
         <VacioM frase="Este servicio no tiene etapas." />
       ) : !s.miembros.length ? (
         <VacioM frase="Todavía no hay clientes en este servicio." />
-      ) : grupos.map((g) => (
-        <SeccionM key={g.key} id={`m-cs-${g.key}`} titulo={g.label}
-          accion={<span className="m-cs-n" aria-label={`${g.ids.length} ${g.ids.length === 1 ? 'cliente' : 'clientes'}`}>{g.ids.length}</span>}>
-          {/* Una etapa vacía queda con su 0 en el título y sin caja: escritorio sacó el «Sin
-              clientes.» de la columna vacía (05/10/2026) porque repetía el único dato que había. */}
-          {g.ids.length > 0 && (
-            <ListaM etiqueta={g.label}>
-              {g.ids.map((id) => {
-                const cli = porId.get(id);
-                const t = tiempoDe(asig[id]);
-                return (
-                  <FilaM
-                    key={id}
-                    avatar={nombreDe(id)}
-                    titulo={nombreDe(id)}
-                    segunda={cli?.empresa ?? undefined}
-                    riel={t && !t.trabado ? t.texto : undefined}
-                    pill={t?.trabado ? <PildoraM tono="bad">{t.texto}</PildoraM> : undefined}
-                    onClick={() => abrir(id)}
-                  />
-                );
-              })}
-            </ListaM>
-          )}
-        </SeccionM>
-      ))}
+      ) : (
+        <KanbanM
+          key={s.id}
+          etiqueta={`Entrega de ${s.nombre}`}
+          columnas={grupos.map((g) => ({ key: g.key, titulo: g.label }))}
+          tarjetas={grupos.flatMap((g) => g.ids.map((id) => {
+            const cli = porId.get(id);
+            const t = tiempoDe(asig[id]);
+            return {
+              id: String(id),
+              col: g.key,
+              etiqueta: nombreDe(id),
+              contenido: (
+                <>
+                  <span className="m-kb-tj__n">{nombreDe(id)}</span>
+                  {cli?.empresa && <span className="m-kb-tj__c">{cli.empresa}</span>}
+                  {t && <span className="m-kb-tj__pie"><span data-mal={t.trabado || undefined}>{t.texto}</span></span>}
+                </>
+              ),
+            };
+          }))}
+          unidades="clientes"
+          onTocar={(id) => abrir(Number(id))}
+          moverA={(id) => {
+            const donde = etapaDe(s, asig, Number(id));
+            return s.etapas.filter((e) => e.key !== donde).map((e) => e.key);
+          }}
+          onMover={moverDesdeTablero}
+          fraseMovida={(col) => `En ${col}`}
+        />
+      )}
 
       <SheetM id="cliente" abierto={abierto} onCerrar={cerrar} titulo={c?.nombre ?? 'Cliente'} snap="alto"
         ocupado={!!ocupado} pie={pie} rotuloCerrar="Cerrar el cliente">

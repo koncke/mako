@@ -14,8 +14,10 @@
 // URL: el `?ws=` lo valida el proxy, y leerlo a mano para decidir datos es el IDOR
 // que AGENTS.md describe en «Una cosa, un lugar».
 //
-// Es la etapa «plantilla para ir trabajando» (14/10): los diseños pasan a Supabase
-// después (docs/editor-imagen/relevamiento-integracion-mako.md §5.7).
+// ⚠️ DESDE EL 14/10 LOS DISEÑOS VIVEN EN LA BASE (mig 0278, ./mako/nube.ts). Esto queda
+// sólo para LEER lo que la etapa 1 («plantilla para ir trabajando») dejó en el navegador:
+// la mudanza lo sube (./mako/mudanza.ts) y el adaptador resuelve un `idb://` que todavía
+// no subió. Nada nuevo se guarda acá.
 
 import { LocalRepository } from './_doory/lib/local/repository';
 import { createIndexedDbStore, createMemoryStore, openDatabase } from './_doory/lib/local/store';

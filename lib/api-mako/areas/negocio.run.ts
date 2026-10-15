@@ -23,6 +23,9 @@ import { contextoParaAgente, seccionContexto, type SeccionAgente } from '@/lib/a
 import { getFile, urlDescarga, urlPreview } from '@/lib/archivero';
 import { generarPreguntasCerradas, getSchema } from '@/lib/onboarding';
 import { getDiagnosticoFase, setDiagnosticoFase } from '@/lib/fase-store';
+import { leerSesion, listarSesionesOffer } from '@/lib/offer-sesiones';
+import { PUNTOS_CONTROL, avisosAfirmables, dimensionLabel } from '@/lib/offer-marco';
+import { linkApp } from '@/lib/app-url';
 import { faseDef, diagnosticar, PREGUNTAS, CANALES, type CanalId } from '@/lib/fase-diagnostico';
 import { getEstadoOnboarding } from '@/lib/onboarding-state';
 import { getAvatares, getContextoAvatares, siguientePreguntaAvatares } from '@/lib/avatares';
@@ -158,6 +161,68 @@ export const RUNNERS: Runners = {
         prioridades_criticas: f.acciones.filter((a) => a.critica).map((a) => a.titulo),
         no_hacer_todavia: f.noHacer,
         nota: 'La fase va del 1 al 5 (el número que ve el cliente).',
+      });
+    },
+  },
+
+  listar_analisis_oferta: {
+    leer: async (_input, ctx) => {
+      const lista = await listarSesionesOffer();
+      return json({
+        conversaciones: lista.map((s) => ({ id: s.id, titulo: s.titulo, estado: s.estado, nota_total: s.total, fecha: s.updatedAt })),
+        link: linkApp('/offer', ctx.ws),
+        nota: lista.length
+          ? '`nota_total: null` = todavía no hay una oferta armada en esa conversación. El detalle, con ver_analisis_oferta.'
+          : 'Todavía no hay conversaciones en la tab Offer.',
+      });
+    },
+  },
+
+  ver_analisis_oferta: {
+    leer: async (input, ctx) => {
+      const link = linkApp('/offer', ctx.ws);
+      let id = typeof input.id === 'number' && Number.isInteger(input.id) && input.id > 0 ? input.id : null;
+      if (id == null) {
+        id = (await listarSesionesOffer()).find((s) => s.total != null)?.id ?? null;
+        if (id == null) return json({ analisis: null, link, nota: 'Todavía no hay ninguna oferta armada en la tab Offer.' });
+      }
+      const s = await leerSesion(id);
+      if (!s) return errorLectura('No existe una conversación de Offer con ese id en este negocio. Pide la lista con listar_analisis_oferta.');
+      const conversacion = {
+        id: s.id, titulo: s.titulo, estado: s.estado,
+        funnel: s.funnelNombre || null, oferta_analizada: s.ofertaBaseNombre || null,
+        versiones: s.versiones, guardada_como_oferta: s.ofertaId != null,
+      };
+      const c = s.conclusion;
+      if (!c) return json({ conversacion, analisis: null, link, nota: 'Esta conversación todavía no tiene una oferta armada.' });
+      const p = c.propuesta;
+      return json({
+        conversacion,
+        version: c.version, fecha: c.at,
+        diagnostico: {
+          nota_total: c.calculo.total, lista_para_vender: c.calculo.lista, la_mas_baja: dimensionLabel(c.calculo.cuello),
+          tesis: c.diagnostico.tesis, lo_mas_fuerte: c.diagnostico.fuerte,
+          cambios: c.diagnostico.cambios.map((x) => ({ que: x.titulo, porque: x.porque })),
+          notas: c.diagnostico.dimensiones.map((d) => ({ dimension: dimensionLabel(d.id), nota: d.nota })),
+        },
+        // Lo guardado pasa por el mismo filtro que el PDF y la pantalla: ningún aviso con un % imposible.
+        avisos: avisosAfirmables(c.calculo.alertas),
+        control_final: (c.calculo.controlFinal ?? []).map((x) => ({ punto: PUNTOS_CONTROL.find((q) => q.punto === x.punto)?.label ?? x.punto, ok: x.ok, porque: x.porque })),
+        oferta: {
+          nombre: p.nombre, frase: p.frase, para_quien: p.paraQuien.perfil, no_es_para: p.paraQuien.noEs,
+          ruta: p.ruta.map((f) => ({ fase: f.fase, hito: f.hito })),
+          incluye: p.incluye.map((e) => e.nombre),
+          garantia: { nombre: p.garantia.nombre, condiciones: p.garantia.condiciones, plazo: p.garantia.plazo },
+          bonos: p.bonos.map((b) => b.nombre),
+          precio: p.inversion.precio, valor_total: p.inversion.valorTotal,
+          propuesto_por_mako: p.propuestoPorMako ?? [],
+          supuestos: p.supuestos ?? [],
+          falta_completar: p.completar,
+          avisos_del_marco: p.avisos ?? [],
+          provisional: c.provisional ?? null,
+        },
+        link,
+        nota: '«[completar]» es un dato que el negocio no dio y MaKo no inventa. `propuesto_por_mako` es lo que MaKo propuso sin que el negocio lo dijera: se presenta como propuesta. El PDF de cada versión se baja desde la tab.',
       });
     },
   },

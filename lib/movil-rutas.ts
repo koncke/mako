@@ -17,10 +17,13 @@
 // ⚠️ LA HOME ES /m/hoy, NO /m: Next redirige /m/ → /m (trailingSlash false), así que la URL
 // pelada no queda dentro de un scope '/m/'. /m sólo reparte.
 //
-// v2 (docs/diseno-mako-mobile-v2.md, «La barra inferior»): la barra es Today · CRM · Inbox ·
-// Plan · More, y MaKo dejó de ser destino: vive en More con Dashboard, Ads Manager, Customer
-// Success, Automations, Video Generator y Landing Generator. Si a un rol le falta uno de los
-// cuatro primeros, su lugar lo toma la PRIMERA sección de More que sí vea (`barraMovil`).
+// v3 (14/10/2026, prototipo docs/prototipos/mako-mobile-tableros.html aprobado por Martín): la barra
+// es CRM · Chats · General · Plan · More, con General AL MEDIO y como portada (la ruta interna sigue
+// siendo /m/hoy: la URL que se ve es /general). Inbox dejó la barra: es la campana de General. More
+// sigue las FAMILIAS de la sidebar (Operate, Analyze, Sales Machine, Content Machine, Customer
+// Success) en su orden, y MaKo va al final, fuera de las familias (como en escritorio). Si a un rol le
+// falta uno de los cuatro primeros, su lugar lo toma la PRIMERA sección de More que sí vea
+// (`barraMovil`).
 // =============================================================================
 
 import { TODOS_LOS_ITEMS, USER_NAV } from '@/app/_components/nav';
@@ -28,8 +31,8 @@ import { tabEnCapa } from './capas';
 import { capaDeHojaDeRol } from './graficos-roles';
 import { RUTA_AUTOMATIONS, RUTAS_VIEJAS_AUTOMATIONS } from './ruta-automations';
 
-/** Los cinco destinos FIJOS de la barra. */
-export type DestinoMovil = 'hoy' | 'crm' | 'inbox' | 'plan' | 'mas';
+/** Los cinco destinos FIJOS de la barra. `hoy` es General (la portada; su ruta interna es /m/hoy). */
+export type DestinoMovil = 'crm' | 'chats' | 'hoy' | 'plan' | 'mas';
 /** Las secciones que viven en More. */
 export type IdSeccionMas = 'dashboard' | 'ads' | 'cs' | 'automations' | 'video' | 'landing' | 'mako';
 /** Lo que puede ocupar un lugar de la barra: un destino fijo o una sección de More que subió. */
@@ -44,8 +47,8 @@ export type DefDestino = {
   icon: string;
   /**
    * La key de `app/_components/nav.ts` cuya regla de visibilidad hereda (rolesWs + capa).
-   * `null` = lo ve cualquiera con sesión: «Today» e «Inbox» se COMPONEN por rol con lo que
-   * cada uno puede ver, y «More» se arma con lo que el rol ve.
+   * `null` = lo ve cualquiera con sesión: «General» se COMPONE por rol con lo que cada uno puede
+   * ver, y «More» se arma con lo que el rol ve.
    */
   navKey: string | null;
 };
@@ -58,31 +61,53 @@ export type DefSeccionMas = {
   icon: string;
   /** La key de nav.ts que la gatea (la MISMA que pide `requireMovil({ navKey })` en su page). */
   navKey: string;
-  /** El grupo de la lista de More (cada grupo es una caja): 1 operación, 2 contenido, 3 MaKo. */
-  grupo: 1 | 2 | 3;
+  /** La familia de la sidebar (app/_components/nav.ts) bajo la que se lista en More; null = MaKo, al final. */
+  familia: FamiliaMas | null;
 };
+
+/** Las familias de la sidebar, con su nombre de escritorio y en su orden (una caja de More cada una). */
+export const FAMILIAS_MAS = [
+  { id: 'operate', label: 'Operate' },
+  { id: 'analyze', label: 'Analyze' },
+  { id: 'sales', label: 'Sales Machine' },
+  { id: 'content', label: 'Content Machine' },
+  { id: 'customer', label: 'Customer Success' },
+] as const;
+export type FamiliaMas = (typeof FAMILIAS_MAS)[number]['id'];
 
 export const HOME_MOVIL = '/m/hoy';
 export const RUTA_MAS = '/m/mas';
 
+/** La ruta interna de los chats (la URL que se ve es la de escritorio: /whatsapp). */
+export const RUTA_CHATS = '/m/chats';
+
 export const DESTINOS_MOVIL: readonly DefDestino[] = [
-  { id: 'hoy', label: 'Today', href: HOME_MOVIL, icon: 'general', navKey: null },
   { id: 'crm', label: 'CRM', href: '/m/crm', icon: 'crm', navKey: 'crm' },
-  // Inbox al CENTRO: es la cola de lo que espera una decisión, y ahí llega el pulgar.
-  { id: 'inbox', label: 'Inbox', href: '/m/inbox', icon: 'bandeja', navKey: null },
+  // Chats: todas las conversaciones juntas. Hoy lee las de WhatsApp (la tab de escritorio que
+  // gobierna quién las ve es `whatsapp`); cuando la bandeja Chats de escritorio entre a main, pasa
+  // a leer de ahí.
+  { id: 'chats', label: 'Chats', href: RUTA_CHATS, icon: 'chats', navKey: 'whatsapp' },
+  // General AL MEDIO y como portada (Martín, 14/10/2026: «el ícono del medio, abajo, va a ser General»).
+  { id: 'hoy', label: 'General', href: HOME_MOVIL, icon: 'general', navKey: null },
   { id: 'plan', label: 'Plan', href: '/m/plan', icon: 'todo', navKey: 'todo' },
   { id: 'mas', label: 'More', href: RUTA_MAS, icon: 'mas', navKey: null },
 ];
 
-/** En el orden de la lista de More (y en el que suben a la barra si falta un destino). */
+/** La campana de General: lo que espera una decisión y los avisos (antes era un lugar de la barra). */
+export const RUTA_INBOX = '/m/inbox';
+
+/**
+ * En el orden de la sidebar de escritorio (familia por familia) y con su nombre ahí: es el orden de
+ * la lista de More y en el que suben a la barra si falta un destino.
+ */
 export const SECCIONES_MAS: readonly DefSeccionMas[] = [
-  { id: 'dashboard', label: 'Dashboard', href: '/m/dashboard', icon: 'graphics', navKey: 'graphics', grupo: 1 },
-  { id: 'ads', label: 'Ads Manager', href: '/m/ads', icon: 'grid', navKey: 'ads-manager', grupo: 1 },
-  { id: 'cs', label: 'Customer Success', href: '/m/cs', icon: 'cs', navKey: 'customer-success', grupo: 1 },
-  { id: 'automations', label: 'Automations', href: '/m/automations', icon: 'chatbot', navKey: 'setting', grupo: 1 },
-  { id: 'video', label: 'Video Generator', href: '/m/video', icon: 'videogen', navKey: 'video-generator', grupo: 2 },
-  { id: 'landing', label: 'Landing Generator', href: '/m/landing', icon: 'web', navKey: 'landing-writer', grupo: 2 },
-  { id: 'mako', label: 'MaKo', href: '/m/mako', icon: 'mako', navKey: 'mako', grupo: 3 },
+  { id: 'ads', label: 'Ads Manager', href: '/m/ads', icon: 'grid', navKey: 'ads-manager', familia: 'operate' },
+  { id: 'dashboard', label: 'Dashboard', href: '/m/dashboard', icon: 'graphics', navKey: 'graphics', familia: 'analyze' },
+  { id: 'landing', label: 'Landing Generator', href: '/m/landing', icon: 'web', navKey: 'landing-writer', familia: 'sales' },
+  { id: 'automations', label: 'Automations', href: '/m/automations', icon: 'chatbot', navKey: 'setting', familia: 'sales' },
+  { id: 'video', label: 'Video', href: '/m/video', icon: 'videogen', navKey: 'video-generator', familia: 'content' },
+  { id: 'cs', label: 'Clientes', href: '/m/cs', icon: 'users', navKey: 'customer-success', familia: 'customer' },
+  { id: 'mako', label: 'Pregúntale a MaKo', href: '/m/mako', icon: 'mako', navKey: 'mako', familia: null },
 ];
 
 export type RolMovil = 'admin' | 'closer' | 'setter' | null;
@@ -156,18 +181,24 @@ export function barraMovil(rol: RolMovil, capa: string | null | undefined): Item
   return out;
 }
 
+/** Una caja de More: la familia de la sidebar (con su nombre de escritorio) y sus secciones. */
+export type GrupoMas = { familia: FamiliaMas | null; titulo: string | null; secciones: DefSeccionMas[] };
+
 /**
  * Las secciones que /m/mas lista para este rol, SIN las que subieron a la barra (una cosa
- * en un solo lugar, como el «More» de iOS). Agrupadas: cada grupo es una caja de la lista.
+ * en un solo lugar, como el «More» de iOS). Agrupadas por FAMILIA de la sidebar, en su orden;
+ * MaKo al final, sin título (en escritorio también vive fuera de las familias).
  */
-export function gruposMas(rol: RolMovil, capa: string | null | undefined): DefSeccionMas[][] {
+export function gruposMas(rol: RolMovil, capa: string | null | undefined): GrupoMas[] {
   const enBarra = new Set<string>(barraMovil(rol, capa).map((b) => b.id));
   const lista = seccionesMasVisibles(rol, capa).filter((s) => !enBarra.has(s.id));
-  const grupos: DefSeccionMas[][] = [];
-  for (const g of [1, 2, 3] as const) {
-    const xs = lista.filter((s) => s.grupo === g);
-    if (xs.length) grupos.push(xs);
+  const grupos: GrupoMas[] = [];
+  for (const f of FAMILIAS_MAS) {
+    const xs = lista.filter((s) => s.familia === f.id);
+    if (xs.length) grupos.push({ familia: f.id, titulo: f.label, secciones: xs });
   }
+  const sueltas = lista.filter((s) => s.familia === null);
+  if (sueltas.length) grupos.push({ familia: null, titulo: null, secciones: sueltas });
   return grupos;
 }
 
@@ -191,6 +222,8 @@ export function destinoActivo(
   const p = (pathname ?? '').split(/[?#]/)[0].replace(/\/+$/, '');
   if (!esRutaMovil(p)) return null;
   for (const d of barra) if (dentro(p, d.href)) return d.id;
+  // La campana vive en General: sus pantallas marcan General.
+  if (dentro(p, RUTA_INBOX) && barra.some((d) => d.id === 'hoy')) return 'hoy';
   if (seccionDeRuta(p) || dentro(p, '/m/cuenta')) return 'mas';
   return null;
 }
@@ -226,6 +259,10 @@ export function rutaMovil(href: string | null | undefined): string | null {
   if (p === '/general' || p === '/focus' || p === '/inicio') return HOME_MOVIL;
   if (p === '/mako/pendientes' || p.startsWith('/mako/revisar') || p.startsWith('/crm/revisar') || p.startsWith('/plan/revisar')) return '/m/inbox';
   if (p === '/mako' || p === '/mako-doer') return '/m/mako';
+  // La Ticketera del super admin (14/10/2026): el mazo es la vista de entrada y la lista, la
+  // secundaria. /admin/runway era la lista y ahora redirige al mazo: el teléfono va directo.
+  if (p === '/tickets/decisiones' || p === '/admin/runway') return '/m/tickets/decisiones';
+  if (p === '/tickets/decisiones/lista') return '/m/decisiones';
   // Las pantallas que SÓLO existen en el teléfono, con la URL que muestran (`SOLO_TELEFONO`).
   const chat = p.match(/^\/crm\/(\d+)\/chat$/);
   if (chat) return `/m/crm/${chat[1]}/chat`;
@@ -235,6 +272,7 @@ export function rutaMovil(href: string | null | undefined): string | null {
   const lead = p.match(/^\/crm\/(\d+)(?:\/resumen)?$/);
   if (lead) return `/m/crm/${lead[1]}`;
   if (p === '/crm') return '/m/crm';
+  if (p === '/whatsapp') return RUTA_CHATS;
   if (p === '/plan' || p === '/plan/agencia' || p === '/todo') return '/m/plan';
   if (p === '/perfil' || (p === '/configuraciones' && q.get('tab') === 'notif')) return '/m/cuenta';
   // Las secciones de More (v2). Cada una cae en su sección. Donde el id es EL MISMO en los dos
@@ -325,10 +363,13 @@ export function rutaEscritorio(href: string): string {
   else if ((m = p.match(/^\/m\/crm\/(\d+)\/chat$/))) destino = `/crm/${m[1]}/chat`;
   else if ((m = p.match(/^\/m\/crm\/([^/]+)$/))) destino = `/crm/${m[1]}`;
   else if (p === '/m/crm') destino = '/crm';
+  else if (p === RUTA_CHATS) destino = '/whatsapp';
   else if (p === '/m/inbox') destino = '/mako/pendientes';
   else if (p === '/m/plan') destino = '/plan';
   else if (p === RUTA_MAS) destino = '/mas';
   else if (p === '/m/mako') destino = '/mako';
+  else if (p === '/m/decisiones') destino = '/tickets/decisiones/lista';
+  else if (p === '/m/tickets/decisiones') destino = '/tickets/decisiones';
   else if (p === '/m/cuenta/instalar') destino = '/perfil/instalar';
   else if (p === '/m/cuenta') destino = '/perfil';
   else if (p === '/m/configurar') destino = '/configurar';
