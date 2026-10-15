@@ -28,6 +28,17 @@ import { getPromptText } from '@/lib/prompt-render';
 import { CHART_PROMPT_SALUDO_DEFAULT, CHART_TITULO_DEFAULT } from '@/lib/prompt-defaults';
 
 export const dynamic = 'force-dynamic';
+// ⚠️ 300 Y NO MÁS, A PROPÓSITO (tanda 7 del Web Generator, 15/10/2026). El pendiente decía «/api/mako-doer sin
+// maxDuration para los 240 s de replicar por chat», y era el diagnóstico obvio y equivocado: esta ruta es SÓLO
+// LECTURA (`incluirAcciones: false`, sin `confirmar_accion` ni el turno compartido): acá no se confirma ni se
+// ejecuta replicar_landing ni analizar_landing. Y sin maxDuration ya corría 300 s: el proyecto tiene fluid
+// compute y `functionDefaultTimeout: 300` (medido con GET a la API de Vercel ese día; plan Pro, tope 800). Se
+// escribe igual para no depender de esa configuración (sin fluid, el default de Pro es 15 s y el loop de hasta
+// 8 pasos se cortaría). Las rutas donde una confirmación por chat SÍ corre replicar (hasta ~275 s: 265 de
+// imágenes más crear, lib/editor-landing/replicar.ts) más los pasos del modelo son el webhook de Evolution
+// (WhatsApp), /api/m/mako y las páginas /m/mako, /m/inbox y /mako/pendientes (sus server actions), y
+// /api/crm/mako: ésas son las que necesitan ~420 (tests/mako-doer-plazo.test.ts, el `todo`).
+export const maxDuration = 300;
 
 const CHART_KEY = 'mako-doer';
 
