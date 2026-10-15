@@ -861,11 +861,12 @@ export function specInsertado(raw: unknown, ctx?: CtxSpec): NodoArbol {
     // texto (la grilla de Diseños tiene que mostrar que la landing lleva video; pedido de Martín,
     // 14/10/2026). La publicada, la exportación y la vista del visitante en el teléfono no lo
     // dibujan (render.ts no saca un insertado vacío) y el editor tiene su NodeView. Una agenda
-    // vacía no se dibuja en ningún modo.
+    // vacía no se dibuja en ningún modo. El ▶ va RELLENO (`play-relleno`, el peso «fill» de Phosphor),
+    // como el de un reproductor: el `play` de contorno del catálogo es el de «Presentar».
     if (ctx?.marcadores && modo(ctx) === 'miniatura' && clase === 'video') {
       return el('div', { ...attrsDiv, 'data-marcador': 'si', 'data-pista': 'si' },
         el('div', { class: 'gm-marcador', 'data-play': 'si' },
-          el('span', { class: 'gm-marcador-play', 'data-icono': 'play', 'aria-hidden': 'true' })));
+          el('span', { class: 'gm-marcador-play', 'data-icono': 'play-relleno', 'aria-hidden': 'true' })));
     }
     return el('div', { ...attrsDiv, 'data-vacia': 'si' });
   }
@@ -891,25 +892,30 @@ function idDom(id: string): string {
 }
 const NAME_CAMPO: Partial<Record<TipoCampo, string>> = { nombre: 'nombre', email: 'email', telefono: 'telefono', empresa: 'empresa' };
 
-function specCampo(c: CampoFormulario, i: number): NodoArbol {
+/** Un texto que viene de un ATRIBUTO, como hijos: tal cual, o con lo que hay que completar marcado. */
+type Marcar = (texto: string) => Hijo[];
+const tal = (texto: string): Hijo[] => [texto];
+
+function specCampo(c: CampoFormulario, i: number, marcar: Marcar = tal): NodoArbol {
   const dom = idDom(c.id || `i${i}`);
   // `name` de los campos libres: «respuesta-<dígitos>», que no contiene ninguna palabra que el
   // Pixel lea como contacto (email, tel, nombre, name, empresa…: lib/landing-token.ts).
   const name = NAME_CAMPO[c.tipo] ?? `respuesta-${dom.slice(3)}`;
   const req = c.requerido ? '' : undefined;
-  const rotulo = el('label', { class: 'gm-campo-etiqueta', for: dom, 'data-requerido': si(c.requerido) }, c.etiqueta);
+  const rotulo = el('label', { class: 'gm-campo-etiqueta', for: dom, 'data-requerido': si(c.requerido) }, ...marcar(c.etiqueta));
   if (c.tipo === 'opciones') {
     // Radios. El Pixel arma la respuesta con `labels[0].textContent` del input marcado: con el
     // radio adentro de la etiqueta de su opción, la clave sería «Compra: Compra». Un `<label
     // hidden for>` con la PREGUNTA va antes (orden del documento = primero en `labels`): el
     // Pixel lee «¿Compras o rentas?: Compra», y como está oculto no se dibuja ni se anuncia.
+    // Esa etiqueta oculta NUNCA se marca: es lo que lee el Pixel.
     return el('fieldset', { class: 'gm-campo', 'data-tipo': c.tipo },
-      el('legend', { class: 'gm-campo-etiqueta', 'data-requerido': si(c.requerido) }, c.etiqueta),
+      el('legend', { class: 'gm-campo-etiqueta', 'data-requerido': si(c.requerido) }, ...marcar(c.etiqueta)),
       ...c.opciones.flatMap((op, k): Hijo[] => [
         el('label', { for: `${dom}-${k}`, hidden: '' }, c.etiqueta),
         el('label', { class: 'gm-opcion' },
           el('input', { type: 'radio', id: `${dom}-${k}`, name, value: op, required: req }),
-          el('span', {}, op)),
+          el('span', {}, ...marcar(op))),
       ]));
   }
   let control: NodoArbol;
@@ -934,23 +940,52 @@ function specCampo(c: CampoFormulario, i: number): NodoArbol {
  * `method="post"` y sin `action`: si el script de la página no corriera, el envío va por POST a
  * la misma ruta (que no lo acepta) y los datos NUNCA quedan en la URL, como pasaría con un GET.
  * El mensaje de éxito ya viene escrito (oculto): el script sólo lo muestra.
+ *
+ * Con `ctx.completar` (la miniatura de TRABAJO), los «[ ]» de las etiquetas, las preguntas, las opciones
+ * y el botón van marcados como en el texto (pendiente de los huecos resaltados, tanda 6: en la miniatura
+ * el formulario era lo único sin marcar). Lo oculto (la etiqueta que lee el Pixel, el éxito) nunca, y la
+ * publicada tampoco: el Pixel arma cada respuesta con `labels[0].textContent`.
  */
 export function specFormulario(raw: unknown, ctx?: CtxSpec): NodoArbol {
   const a = attrsFormulario(raw);
   const redirigir = a.redirigir ? hrefDe(a.redirigir, ctx) : undefined;
+  const marcar: Marcar = ctx?.completar ? hijosACompletar : tal;
   return el('form', {
     class: 'gm-formulario', method: 'post', 'data-exito': a.exito, 'data-redirigir': redirigir,
     inert: modo(ctx) === 'miniatura' ? '' : undefined,
   },
-  ...a.campos.map(specCampo),
-  el('button', { type: 'submit', class: 'gm-boton', 'data-variante': 'primario' }, a.boton),
+  ...a.campos.map((c, i) => specCampo(c, i, marcar)),
+  el('button', { type: 'submit', class: 'gm-boton', 'data-variante': 'primario' }, ...marcar(a.boton)),
   el('p', { class: 'gm-formulario-exito', hidden: '', 'aria-live': 'polite' }, a.exito));
 }
 
-/** `.gm-grafico > svg` (el mismo árbol que dibuja el NodeView: grafico-svg.ts). */
-export function specGrafico(raw: unknown): NodoArbol {
+/**
+ * La tinta de lo que hay que completar adentro del SVG de un gráfico: la franja de `.gm-completar`
+ * (un `background`) no se dibuja en un `<tspan>`, así que va el relleno del acento, opaco (las
+ * categorías y la leyenda son tenues, `fill-opacity: 0.7`).
+ */
+const TINTA_A_COMPLETAR_SVG = 'fill:var(--gm-acento-texto, #2f6fed);fill-opacity:1';
+
+/** El árbol del gráfico con los «[ ]» de sus `<text>` (título, categorías, leyenda) en un `<tspan>`. El `<title>` y el `aria-label` no se ven: quedan igual. */
+function graficoConACompletar(n: NodoArbol): NodoArbol {
+  const [tag, ...resto] = n;
+  const esTexto = tag === 'text' || tag.endsWith(' text');
+  return [tag, ...resto.flatMap((h): Hijo[] => {
+    if (Array.isArray(h)) return [graficoConACompletar(h as NodoArbol)];
+    if (!esTexto || typeof h !== 'string') return [h];
+    return tramosACompletar(h, rangosACompletar(h)).filter((t) => t.texto)
+      .map((t): Hijo => (t.completar ? ['tspan', { class: CLASE_A_COMPLETAR, style: TINTA_A_COMPLETAR_SVG }, t.texto] : t.texto));
+  })];
+}
+
+/**
+ * `.gm-grafico > svg` (el mismo árbol que dibuja el NodeView: grafico-svg.ts). Con `ctx.completar`
+ * (la miniatura de trabajo), los «[ ]» del título, las categorías y la leyenda van marcados.
+ */
+export function specGrafico(raw: unknown, ctx?: CtxSpec): NodoArbol {
   const g = normalizarGrafico(raw);
-  return el('div', { class: 'gm-grafico', 'data-tipo': g.tipo }, arbolDeGrafico(g));
+  const svg = arbolDeGrafico(g);
+  return el('div', { class: 'gm-grafico', 'data-tipo': g.tipo }, ctx?.completar ? graficoConACompletar(svg) : svg);
 }
 
 export function specEspaciador(raw: unknown): NodoArbol {

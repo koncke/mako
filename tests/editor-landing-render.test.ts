@@ -317,17 +317,18 @@ test('render ESTABLE: el mismo input da el mismo HTML, byte por byte (y no muta 
 // Roturas (14/10/2026, en memoria, restauradas y verificadas por hash; base: 16 pasan, 0 fallan): render.ts
 // sin la excepción de la miniatura → 15 / 1; el vacío de video en todos los modos → 15 / 1; cualquier pista
 // dibuja el ▶ (la agenda también) → 15 / 1. Desde la revisión del mismo día el ▶ sale sólo con
-// `marcadores` (el test de abajo).
+// `marcadores` (el test de abajo). Desde la tanda 6 el ▶ es el `play-relleno` (peso «fill»): con
+// especificacion.ts de vuelta en el `play` de contorno, 16 pasan / 2 fallan (éste y el de abajo).
 test('miniatura: el insertado VACÍO de video se dibuja como ▶ (con el svg del catálogo); la publicada, la exportación y el editor no; una agenda vacía, nunca', () => {
   const vacio = (proveedor?: string): JsonNodo => seccion([p(txt('Hola')), { type: NODO.insertado, attrs: proveedor ? { src: '', proveedor, alto: null } : { src: '' } }]);
   const mini = htmlDeTarjeta(vacio('youtube'), tema, { modo: 'miniatura', marcadores: true });
-  assert.match(mini, /<div class="gm-insertado" data-proveedor="youtube" data-clase="video" data-marcador="si" data-pista="si"><div class="gm-marcador" data-play="si"><span class="gm-marcador-play" data-icono="play" aria-hidden="true"><svg [^>]*viewBox="0 0 256 256"[^>]*><path d="M232\.4/);
+  assert.match(mini, /<div class="gm-insertado" data-proveedor="youtube" data-clase="video" data-marcador="si" data-pista="si"><div class="gm-marcador" data-play="si"><span class="gm-marcador-play" data-icono="play-relleno" aria-hidden="true"><svg [^>]*viewBox="0 0 256 256"[^>]*><path d="M240,128a15\.74/);
   assert.doesNotMatch(mini, /<iframe|YouTube|Pega/, 'sin iframe ni texto');
   for (const modo of ['publico', 'exportar', 'editor'] as const) {
-    assert.doesNotMatch(htmlDeTarjeta(vacio('youtube'), tema, { modo }), /gm-insertado|gm-marcador|data-icono="play"/, `el VSL vacío sale en ${modo}`);
+    assert.doesNotMatch(htmlDeTarjeta(vacio('youtube'), tema, { modo }), /gm-insertado|gm-marcador|data-icono="play-relleno"/, `el VSL vacío sale en ${modo}`);
   }
   for (const modo of ['miniatura', 'publico', 'exportar', 'editor'] as const) {
-    assert.doesNotMatch(htmlDeTarjeta(vacio('calendly'), tema, { modo, marcadores: true }), /gm-insertado|data-icono="play"/, `la agenda vacía sale en ${modo}`);
+    assert.doesNotMatch(htmlDeTarjeta(vacio('calendly'), tema, { modo, marcadores: true }), /gm-insertado|data-icono="play-relleno"/, `la agenda vacía sale en ${modo}`);
   }
   assert.doesNotMatch(htmlDeTarjeta(vacio(), tema, { modo: 'miniatura', marcadores: true }), /gm-insertado/, 'sin pista (el «Insertar» genérico) tampoco');
   assert.doesNotMatch(htmlDeTarjeta(vacio('inventado'), tema, { modo: 'miniatura', marcadores: true }), /gm-insertado/, 'una pista inventada no es un video');
@@ -342,10 +343,10 @@ test('miniatura: el insertado VACÍO de video se dibuja como ▶ (con el svg del
 test('los marcadores (el ▶ y el video angosto) salen sólo si quien dibuja los pide; la vista del visitante en el teléfono no los pide', () => {
   const vsl = seccion([p(txt('Hola')), { type: NODO.insertado, attrs: { src: '', proveedor: 'youtube', alto: null } }]);
   const sin = htmlDeTarjeta(vsl, tema, { modo: 'miniatura' });
-  assert.doesNotMatch(sin, /gm-insertado|data-icono="play"|data-marcadores/, 'sin pedirlos, la miniatura es la publicada');
+  assert.doesNotMatch(sin, /gm-insertado|data-icono="play-relleno"|data-marcadores/, 'sin pedirlos, la miniatura es la publicada');
   const con = htmlDeTarjeta(vsl, tema, { modo: 'miniatura', marcadores: true });
   assert.match(con, /^<div class="gm-doc"[^>]* data-modo="miniatura" data-marcadores="si"/);
-  assert.match(con, /data-icono="play"/);
+  assert.match(con, /data-icono="play-relleno"/);
   assert.doesNotMatch(htmlDeTarjeta(vsl, tema, { modo: 'publico', marcadores: true }), /gm-insertado|data-marcadores/, 'fuera de la miniatura no existen');
   // El video angosto cuelga del atributo, no del modo.
   assert.ok(CSS_CONTENIDO.includes('.gm-doc[data-marcadores="si"] .gm-tarjeta-cuerpo > .gm-insertado[data-clase="video"] { width: 52%;'));

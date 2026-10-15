@@ -12,7 +12,9 @@
 //     ni uno suelto;
 //   · la miniatura de TRABAJO (`marcadores`) los envuelve en `span.gm-completar`; la publicada, la
 //     exportación, el editor y la vista del visitante en el teléfono (miniatura sin marcadores) NO,
-//     en ninguna plantilla;
+//     en ninguna plantilla; también lo que sale de un atributo (las etiquetas, opciones y botón del
+//     formulario; el título, las categorías y la leyenda de un gráfico, con un `tspan`), nunca la
+//     etiqueta oculta que lee el Pixel;
 //   · un corchete que una negrita parte en tres textos se marca igual y con etiquetas bien anidadas;
 //   · la decoración marca los rangos correctos, no cambia el documento ni el JSON, y al editar
 //     (escribir adentro, borrar el «]», negrita, Enter adentro, unir, pegar) queda IGUAL al cálculo
@@ -32,6 +34,16 @@
 //   · esquema.ts: la extensión no está en la lista del documento           -> 7 / 1 (la decoración)
 //   · css.ts: la regla vale en toda .gm-doc (también la publicada)          -> 7 / 1 (la hoja)
 //   · css.ts: vuelve una sombra (pisaba el renglón de al lado)              -> 7 / 1 (la hoja)
+// ── Lo que sale de un ATRIBUTO en la miniatura de trabajo (tanda 6, 14/10/2026; mismo arnés; base: 10 / 0) ──
+//   · especificacion.ts: el formulario no marca                            -> 9 / 1 (atributos)
+//   · especificacion.ts: el formulario marca en todos los modos            -> 7 / 3 (plantillas, atributos, editor)
+//   · especificacion.ts: marca la etiqueta oculta que lee el Pixel         -> 9 / 1 (atributos)
+//   · especificacion.ts: el botón del formulario sin marcar                -> 9 / 1 (atributos)
+//   · especificacion.ts: el gráfico no marca                               -> 9 / 1 (atributos)
+//   · especificacion.ts: el gráfico marca también en la publicada          -> 9 / 1 (atributos)
+//   · especificacion.ts: la tinta del tspan sin `fill-opacity:1`           -> 9 / 1 (atributos)
+//   · especificacion.ts: marca también el <title> del gráfico              -> 9 / 1 (atributos)
+//   · grafico-svg.ts: `tspan` fuera de la lista de etiquetas               -> 9 / 1 (atributos)
 // Y aparte (scratchpad, no es un test del repo): un fuzz de ~21.700 ediciones al azar comparó la
 // decoración incremental con el cálculo entero: 0 diferencias; sin el `remove`, falla en la primera.
 // =============================================================================
@@ -316,6 +328,47 @@ test('al editar, la decoración queda IGUAL al cálculo entero del documento fin
 
 // Rotura (14/10/2026, de memoria, verificada por hash; base 9 / 0): `formularioConACompletar` marca
 // también lo `hidden` → 8 / 1; no baja a los hijos (sólo el primer nivel) → 8 / 1. Los dos, sólo éste.
+// Pendiente de los huecos resaltados (tanda 6, 14/10/2026): lo que se dibuja desde un ATRIBUTO no pasaba
+// por la marca de la miniatura de trabajo (las etiquetas y el botón del formulario, el título y las
+// categorías de un gráfico). El alt de una imagen no se ve: no se marca.
+test('la miniatura de trabajo marca también lo que sale de un ATRIBUTO (formulario y gráfico); la publicada no, ni la etiqueta oculta del Pixel', () => {
+  const formulario: JsonNodo = {
+    type: NODO.formulario,
+    attrs: {
+      campos: [
+        { id: 'a1', tipo: 'texto', etiqueta: '¿Cuál es tu [objetivo]?', requerido: false, opciones: [] },
+        { id: 'a2', tipo: 'opciones', etiqueta: '¿[Pregunta]?', requerido: true, opciones: ['[Opción 1]', 'Otra'] },
+      ],
+      boton: 'Quiero [mi lugar]',
+      exito: 'Gracias [nombre]',
+    },
+  };
+  const grafico: JsonNodo = {
+    type: NODO.grafico,
+    attrs: { tipo: 'columnas', titulo: 'Ventas de [tu producto]', categorias: ['[Mes 1]', 'Febrero'], series: [{ nombre: 'Ventas', valores: [10, 20] }] },
+  };
+  const t = seccion(formulario, grafico);
+  const mini = htmlDeTarjeta(t, tema, { modo: 'miniatura', marcadores: true });
+  // El formulario: las etiquetas, la pregunta, la opción y el botón (que en la miniatura es un span).
+  assert.deepEqual([...mini.matchAll(/<span class="gm-completar">([^<]*)<\/span>/g)].map((m) => m[1]), ['[objetivo]', '[Pregunta]', '[Opción 1]', '[mi lugar]']);
+  assert.match(mini, /<label for="[^"]+" hidden="">¿\[Pregunta\]\?<\/label>/, 'la etiqueta oculta que lee el Pixel, tal cual');
+  assert.match(mini, /<p class="gm-formulario-exito" hidden="" aria-live="polite">Gracias \[nombre\]<\/p>/, 'el éxito, tal cual');
+  // El gráfico: un tspan con la tinta del acento en el título y la categoría; el <title> y el aria-label no se ven.
+  const tspans = [...mini.matchAll(/<tspan class="gm-completar" style="([^"]*)">([^<]*)<\/tspan>/g)];
+  assert.deepEqual(tspans.map((m) => m[2]), ['[tu producto]', '[Mes 1]']);
+  for (const m of tspans) assert.equal(m[1], 'fill:var(--gm-acento-texto, #2f6fed);fill-opacity:1');
+  assert.match(mini, />Ventas de <tspan /, 'el resto del título sigue en su <text>');
+  assert.match(mini, /<title>Ventas de \[tu producto\]<\/title>/);
+  assert.match(mini, /aria-label="Ventas de \[tu producto\]"/);
+  assert.ok(anidadoBien(mini), 'etiquetas mal anidadas');
+  // La publicada, la exportación, el editor y el teléfono (miniatura sin marcadores): nada marcado.
+  for (const op of [{ modo: 'publico' as const }, { modo: 'exportar' as const }, { modo: 'editor' as const }, { modo: 'miniatura' as const }]) {
+    const h = htmlDeTarjeta(t, tema, op);
+    assert.doesNotMatch(h, /gm-completar|<tspan/, JSON.stringify(op) + ' marca');
+    assert.match(h, /¿Cuál es tu \[objetivo\]\?<\/label>/, JSON.stringify(op) + ': la etiqueta no sale tal cual');
+  }
+});
+
 test('el formulario del editor marca los «[ ]» de etiquetas, preguntas, opciones y botón; lo oculto y la publicada, no', () => {
   const attrs = {
     campos: [

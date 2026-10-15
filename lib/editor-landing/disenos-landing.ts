@@ -206,16 +206,42 @@ function antesDeLaAccion(lista: JsonNodo[], video: JsonNodo): JsonNodo[] {
  *     la primera, debajo del texto, y el formulario sigue al lado (centrar el texto junto a un formulario
  *     no se lee).
  * No toca los atributos de la sección: la agenda de `conHerramientasMako` copia los del hero.
+ * Y la página de GRACIAS (la segunda del webinar y del lead magnet) lleva el suyo: `videoEnLaGracias`.
  */
 export function conVideoDelDiseno(c: LandingContenido, d: DisenoLanding): LandingContenido {
   const copia: LandingContenido = JSON.parse(JSON.stringify(c));
+  videoEnElHero(copia, d);
+  if (d.video) videoEnLaGracias(copia);
+  return copia;
+}
+
+const tieneVideo = (n: JsonNodo): boolean => esVideo(n) || (n.content ?? []).some(tieneVideo);
+
+/**
+ * La página de gracias de un diseño con video (la ruta 'gracias' después de la primera: el webinar y el lead
+ * magnet, plantillas.ts) lleva el video del «qué sigue»: en un VSL funnel, después de registrarse se ve un
+ * video corto con lo que viene (cómo prepararse para la clase, cómo aprovechar la guía). Pendiente de los
+ * diseños con video (14/10/2026): sólo el hero de la primera página lo llevaba. Va en su primera sección con la
+ * regla del hero, justo antes del botón o al final si no hay (`antesDeLaAccion`), vacío y con la pista de YouTube
+ * como el del hero; si esa sección ya trae un video, no entra otro.
+ */
+function videoEnLaGracias(c: LandingContenido): void {
+  for (const pagina of c.paginas.slice(1)) {
+    const primera = pagina.ruta === 'gracias' ? pagina.doc.content[0] : null;
+    if (!primera || primera.type !== NODO.tarjeta || tieneVideo(primera)) continue;
+    primera.content = antesDeLaAccion(primera.content ?? [], insertadoVacio('youtube'));
+  }
+}
+
+/** El video del diseño en el hero (lo de arriba): cambia `copia` en el lugar. */
+function videoEnElHero(copia: LandingContenido, d: DisenoLanding): void {
   const hero = copia.paginas[0]?.doc.content[0];
-  if (!hero || hero.type !== NODO.tarjeta) return copia;
+  if (!hero || hero.type !== NODO.tarjeta) return;
   if (!d.video) {
     // Sin video del diseño (Minimal) queda el VSL del objetivo donde el objetivo lo puso, y el titular
     // se achica igual: es un hero con video y el display lo dejaba cortado en la miniatura.
     if ((hero.content ?? []).some(esVideo)) hero.content = (hero.content ?? []).map(sinTituloDisplay);
-    return copia;
+    return;
   }
 
   // El VSL que haya puesto el objetivo (suelto o adentro de una columna) sale de donde está.
@@ -236,7 +262,7 @@ export function conVideoDelDiseno(c: LandingContenido, d: DisenoLanding): Landin
       attrs: { anchos: [5, 7], divisores: false },
       content: [{ type: NODO.columna, content: planos.length ? planos : [parrafo()] }, { type: NODO.columna, content: [video] }],
     }];
-    return copia;
+    return;
   }
 
   const columnas = bloques.find((n) => n.type === NODO.columnas);
@@ -244,14 +270,13 @@ export function conVideoDelDiseno(c: LandingContenido, d: DisenoLanding): Landin
   if (primera) {
     primera.content = antesDeLaAccion(primera.content ?? [], video);
     hero.content = bloques;
-    return copia;
+    return;
   }
   hero.content = antesDeLaAccion(bloques, video).map((n): JsonNodo => {
     if (esTexto(n)) return { ...n, attrs: { ...(n.attrs ?? {}), textAlign: 'center' } };
     if (n.type === NODO.botones) return { ...n, attrs: { ...(n.attrs ?? {}), alinea: 'centro' } };
     return n;
   });
-  return copia;
 }
 
 /** El contenido de una landing nueva: el copy del objetivo, con lo de MaKo, vestido con el diseño. */

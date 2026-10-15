@@ -820,6 +820,22 @@ const A_LISTA: readonly VarianteOptimizado[] = ['tiempo-horizontal', 'etapas-hor
 // los de «dos lados» conservaban la columna de escritorio.
 const N = ':nth-child(n)';
 
+// Diseños con video (pendiente del 14/10/2026): en el hero «al costado» las columnas son texto y botón |
+// video, y apiladas en el teléfono quedaba titular → botón → video. La regla de un VSL es titular → video
+// → botón (docs/hallazgos-editor-landing.md, «Lo que dicen las referencias de VSL»). Con un video en una
+// columna que NO es la primera, las columnas se vuelven UNA lista (la grilla pasa a flex en columna y cada
+// columna a `display: contents`) y `order` las intercala: el texto, después la columna del video y al final
+// la acción (los botones o el formulario) con todo lo que la sigue. Con el video en la primera columna no se
+// toca: ese orden lo eligió la persona. Sin el video pegado, la publicada ni tiene esa columna (render.ts).
+// ⚠️ El ritmo sigue siendo el de los márgenes (`* + *`, sección 4), por eso `gap: 0`; el video, que es el
+//    primero de su columna, toma el 1.5em que dejaba la grilla entre columnas.
+// ⚠️ En el editor el insertado va adentro de su NodeView (no es hijo directo de la columna): el lienzo en
+//    «Teléfono» conserva el orden de las columnas. Vale para la publicada, la exportación y las miniaturas.
+const VIDEO_VSL = ':is(.gm-insertado[data-clase="video"], figure.gm-video)';
+const CON_VIDEO_AL_LADO = ' .gm-columnas:has(> .gm-columna + .gm-columna > ' + VIDEO_VSL + ')';
+const COLUMNA_DEL_VIDEO = CON_VIDEO_AL_LADO + ' > .gm-columna:has(> ' + VIDEO_VSL + ')';
+const ACCION_AL_LADO = CON_VIDEO_AL_LADO + ' > .gm-columna:not(:has(> ' + VIDEO_VSL + ')) > :is(.gm-botones, .gm-formulario)';
+
 function movil(p: string): string[] {
   return [
     r(p + ' .gm-pagina', 'font-size: var(--gm-base-movil, 16px); padding-bottom: 2em;'),
@@ -840,6 +856,14 @@ function movil(p: string): string[] {
     // Columnas apiladas (el --gm-cols inline queda sin efecto: se pisa la propiedad, no la variable).
     r(p + ' .gm-columnas', 'grid-template-columns: minmax(0, 1fr); gap: 1.5em;'),
     r(p + ' .gm-columnas[data-divisores="si"] > .gm-columna + .gm-columna::before', 'top: -0.75em; bottom: auto; left: 0; right: 0; border-left: 0; border-top: 0.0625em solid var(--gm-borde-neutro, rgba(0,0,0,0.15));'),
+    // Con el video al costado: titular → video → botón (ver VIDEO_VSL, arriba).
+    r(p + CON_VIDEO_AL_LADO, 'display: flex; flex-direction: column; align-items: stretch; gap: 0;'),
+    r(p + CON_VIDEO_AL_LADO + ' > .gm-columna', 'display: contents;'),
+    r(p + CON_VIDEO_AL_LADO + ' > .gm-columna::before', 'display: none;'),
+    r(p + COLUMNA_DEL_VIDEO + ' > *', 'order: 1;'),
+    r(p + COLUMNA_DEL_VIDEO + ' > :first-child', 'margin-top: 1.5em;'),
+    r([p + ACCION_AL_LADO, p + ACCION_AL_LADO + ' ~ *'], 'order: 2;'),
+    r(p + ACCION_AL_LADO + ':first-child', 'margin-top: 1.125em;'),
     // Diseños optimizados: de a uno (de a dos los de imágenes y números). Gana a data-cols.
     r(p + ' .gm-optimizado[data-variante]', '--gm-n: 1;'),
     r(opt(p, DE_A_DOS), '--gm-n: var(--gm-n-movil);'),

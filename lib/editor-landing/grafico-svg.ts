@@ -88,8 +88,8 @@ const ETIQUETAS = new Set([
   'table', 'tbody', 'tr', 'th', 'td', 'a', 'img', 'figure', 'figcaption', 'video', 'iframe', 'form',
   'label', 'input', 'textarea', 'button', 'fieldset', 'legend', 'strong', 'em', 'u', 's', 'mark',
   'details', 'summary', 'aside', 'nav', 'footer', 'main', 'header',
-  // SVG de los gráficos
-  'svg', 'g', 'path', 'rect', 'circle', 'line', 'polyline', 'polygon', 'text', 'title',
+  // SVG de los gráficos (el `tspan` marca los «[ ]» de un texto en la miniatura de trabajo: especificacion.ts)
+  'svg', 'g', 'path', 'rect', 'circle', 'line', 'polyline', 'polygon', 'text', 'tspan', 'title',
 ]);
 
 /** Un nombre de atributo sano (y nunca un manejador `on…`). */

@@ -28,7 +28,7 @@
 // =============================================================================
 
 import { NODO, type JsonNodo, type Pagina } from './doc';
-import type { ConfigLanding } from './api-tipos';
+import { esPresentacion, relacionDe, type ConfigLanding, type FormatoDoc, type Proporcion } from './api-tipos';
 import { htmlDePagina } from './render';
 import { CSS_CONTENIDO } from './css';
 import { colorDeRelleno, urlFuentes, type Tema } from './temas';
@@ -149,7 +149,33 @@ export type OpDocumento = {
   tema: Tema;
   /** true = la hoja va a la impresora (PDF): fondo de la página en cada hoja y sin el sello flotante. */
   imprimir?: boolean;
+  /**
+   * El formato y la proporción del documento (`config.formato` y `config.proporcion`). Al imprimir una
+   * PRESENTACIÓN, la hoja toma la forma de la diapositiva (`hojaDeImpresion`).
+   */
+  formato?: FormatoDoc;
+  proporcion?: Proporcion;
 };
+
+/**
+ * La hoja de una presentación impresa, o null en una página web.
+ *
+ * Pendiente de la tanda 2 («el PDF de una presentación sale vertical»): la hoja única traía sólo el
+ * margen (`@page { margin: 10mm; }`, css.ts) y el tamaño lo elegía la impresora, así que cada
+ * diapositiva 16:9 salía arriba de una hoja A4 o Carta VERTICAL, con media hoja en blanco. Con `size`,
+ * el diálogo de impresión propone la hoja de la diapositiva, horizontal:
+ *   · 16:9 y «Fluido» (como el PPTX: exportar-pptx.ts, `tamanoDiapo`): 13,333 × 7,5 in, que son
+ *     1280 × 720 px CSS, el mismo ancho que el iframe que imprime (exportar-pdf.ts);
+ *   · 4:3: 10 × 7,5 in.
+ * Sin margen: la diapositiva va a sangre, como la exporta Gamma. Va DESPUÉS de CSS_CONTENIDO porque en
+ * `@page` gana la última regla y la de la hoja única trae los 10 mm de una página web.
+ */
+export function hojaDeImpresion(c: { formato?: unknown; proporcion?: unknown }): string | null {
+  if (!esPresentacion(c)) return null;
+  const r = relacionDe(c);
+  const tam = r !== null && Math.abs(r - 4 / 3) < 0.01 ? '10in 7.5in' : '13.333in 7.5in';
+  return '@media print{@page{size:' + tam + ';margin:0}}';
+}
 
 /**
  * El documento entero: head con el título, las fuentes de Google del tema y la hoja única
@@ -170,7 +196,8 @@ export function documentoExportable(op: OpDocumento): string {
       '.gm-doc .gm-fondo{min-height:0}.gm-doc .gm-pie{break-before:page}}',
     );
   }
-  const hoja = (base.join('\n') + '\n' + CSS_CONTENIDO).replace(/<\/style/gi, '<\\/style');
+  const diapositiva = op.imprimir ? hojaDeImpresion(op) : null;
+  const hoja = (base.join('\n') + '\n' + CSS_CONTENIDO + (diapositiva ? '\n' + diapositiva : '')).replace(/<\/style/gi, '<\\/style');
   const head: string[] = [
     '<meta charset="utf-8">',
     '<meta name="viewport" content="width=device-width, initial-scale=1">',
