@@ -427,6 +427,18 @@ búsquedas e instaladores sin firmar en Releases. No se bajó ni se corrió nada
   regla con la que el cartero avisa la respuesta, `destinoDeDecision`—; con dos chats del mismo nombre no adivina. El
   muñeco lleva el globito y la conversación, arriba de la caja, «Una tarjeta espera tu respuesta · Contestar».
 
+**Lo que confirmaron las otras referencias** (una corrida de 3 agentes, 28 capturas bajadas y miradas: los Companions de
+Grok en iOS, Sintra, Marblism, Heynet, Wamino, Emotes, Notion AI, Duolingo y Copilot): el estado va en la CARA del
+muñeco y no en un cartel; «te espera» es una insignia naranja con número; lo quieto, el muñeco apagado; la conversación
+vacía muestra al personaje grande y, después, uno chico al lado de cada respuesta. Grok marca la presencia con un punto
+verde sobre el avatar y el humor con un globito de pensamiento.
+
+**Si algún día se cambian los muñecos por una biblioteca**: los estilos de DiceBear `critters`, `moods`, `gaze`,
+`notionists`, `lorelei`, `open-peeps` y `thumbs` son CC0 (uso comercial, se pueden modificar, no piden crédito); `micah`,
+`adventurer`, `personas`, `fun-emoji` y `big-smile` son CC BY 4.0 (piden crédito). Se fija el cuerpo por área y sólo
+varían ojos y boca: con semilla al azar salen caras tristes o con barbijo. Hoy no hace falta: los nuestros no tienen
+dependencia ni licencia que cuidar.
+
 **Vive en:** `app/admin/operaciones/Muneco.tsx` · `lib/centro-chats.ts` (`esperasPorChat`) · `acciones.ts`
 (`fotoCentroAction` trae las tarjetas) · `tests/centro-empleados.test.ts`
 
@@ -453,6 +465,9 @@ búsquedas e instaladores sin firmar en Releases. No se bajó ni se corrió nada
   con chats en la app y en terminal a la vez necesita las dos (scripts/operaciones/cartero.mjs → `carteroDe`). Y no
   está medido si `SendMessage` cruza de un directorio de configuración a otro.
 - ~~Implementar el rediseño de `docs/prototipos/centro-operaciones.html`~~: lo reemplazó el de punta a punta del 16/10.
+- **Dos ideas de Sintra y Grok Bot que no se hicieron** (16/10): una caja de pedido GENERAL arriba del equipo («¿Qué
+  necesitás hoy?», con un «Para:» que elige al empleado, como el de Grok Bot) y chips con contadores («3 te esperan»).
+  Hoy se le escribe a un empleado desde su conversación, y el globito ya cuenta lo que espera.
 - **Progreso con lo que está en la PC**: los chats abiertos y lo escrito sin subir llegan con el cartero
   (sube sus chats en cada vuelta); hoy Pedidos y Áreas sólo ven lo desplegado.
   ⚠️ **Lo «sin subir» se cuenta con `git cherry`, no con «ahead N»:** el 15/10 el coordinador midió un clon
