@@ -22,6 +22,23 @@ ${CSS_HTML}
 .gr-solo-numero { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center; gap: 2px; }
 .gr-solo-numero b { font-size: 28px; font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
 .gr-solo-numero span { font-size: var(--fs-sm); color: var(--dim); }
+
+.gr-leyenda { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; font-size: var(--fs-md); color: var(--ink); min-width: 0; flex: none; }
+.gr-leyenda[data-lado] { flex: 0 1 46%; justify-content: center; }
+.gr-leyenda li { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.gr-leyenda .gr-punto { flex: none; margin-right: 0; vertical-align: 0; }
+.gr-leyenda-nombre { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gr-leyenda b { flex: none; font-weight: 600; color: var(--dim); font-variant-numeric: tabular-nums; }
+.gr-leyenda-mas { color: var(--faint); font-size: var(--fs-sm); padding-left: 20px; }
+
+.gr-dinamica th { white-space: normal; overflow-wrap: break-word; line-height: 1.2; vertical-align: bottom; padding-left: 6px; }
+/* En el celular (la tabla a menos de 460 px): sin barras y sin la columna del total, para que los nombres de las columnas
+   entren enteros. Con todo puesto, «Mentoría» salía partida en dos renglones y las filas decían «Nu…». */
+@container (max-width: 460px) {
+  .gr-dinamica th, .gr-dinamica td { padding-left: 6px; padding-right: 6px; }
+  .gr-dinamica .gr-pista, .gr-dinamica .gr-col-total { display: none; }
+  .gr-dinamica col.gr-col-nombre { width: 27% !important; }
+}
 `;
 
 /** La hoja, una sola vez por página aunque la monten todos los gráficos. */
