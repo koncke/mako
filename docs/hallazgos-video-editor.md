@@ -875,6 +875,45 @@ mide sobre las ventanas que traen algo; sin ninguna, manda el absoluto de −40 
   (relevamiento §3) y en CapCut es «Identificar y eliminar muletillas» (Pro). La regla de Martín
   desde el 14/10: antes de construir, mirar la fuente; si no está, decírselo.
 
+## La API de MaKo y el chat al costado: el proyecto vive en el NAVEGADOR
+
+**Vive en:** `lib/api-mako/areas/video.def.ts` · `app/video-editor/espacio.ts` (decisión 5 del diseño) ·
+el molde del chat: `app/landing-generator/editor/paneles/PanelAgente.tsx` + `lib/editor-landing/ia.ts`
+
+Pedido de Martín (15/10, por «Estrategia 3 cuentas»): que el editor tenga un chat al costado para editar
+con prompt, como el Landing Generator, y que todos sus botones pasen a la API de MaKo.
+
+- **Inventario del 15/10: 0 funciones del editor declaradas en la API.** El área `video` tiene 14
+  operaciones, y son todas lecturas del Video Generator. Lo que tiene la pantalla: 59 acciones (9 internas),
+  22 herramientas de la línea de tiempo, 19 pestañas y 12 sub-pestañas del panel derecho, 27 secciones de
+  la biblioteca y 61 parámetros editables por clip (35 del motor y 26 propios). Son ≈160 contando las
+  repetidas: Dividir, por ejemplo, es atajo y también botón.
+- ⚠️ **El diagnóstico obvio («falta declararlas») es el equivocado: no hay de dónde leerlas.** Un runner de
+  la API corre en el server, y los proyectos y el material viven en IndexedDB/OPFS del navegador de quien
+  editó (decisión 5). Ni MaKo por WhatsApp, ni `/api/v1`, ni la skill pueden ver un proyecto. Antes de la
+  primera operación hay que decidir dónde vive el proyecto: por ejemplo, la línea de tiempo (JSON, sin el
+  video crudo) también en la base, y que la API PROPONGA cambios que el editor aplique al abrirse.
+- **El chat de adentro sí puede hacerse sin eso:** corre en la pestaña y aplica comandos del motor ahí
+  mismo. El molde del Landing: la respuesta es un CAMBIO PROPUESTO («Original | Modificado») que se acepta
+  o se descarta entero, y antes de aplicarlo se guarda una versión. Modelo: `landing-editor-ia`, `GEMINI()`
+  con la key del cliente por la cascada gratis, sin fila en `CLAUDE_PERMITIDO`.
+- **Lo que cuesta plata y el chat podría pedir** (Avatar de IA con créditos de Flow, Texto a voz con la
+  ElevenLabs del cliente) va con confirmación de pantalla y `rolMinimo: 'admin'`, nunca en el acto.
+
+## Lottie en un editor de VIDEO: qué aporta si la pieza termina en mp4
+
+- **El repo que vio Martín es `diffusionstudio/lottie`**: 5,6 k estrellas, MIT en el archivo `LICENSE` y en
+  `package.json`, verificado el 15/10. Su render es `canvaskit-wasm` (Skia, BSD-3). Pero no es una librería:
+  es una skill para un agente de código (Claude Code, Codex) que escribe `lottie.json` y lo revisa en un
+  reproductor local. A MaKo le sirve su conocimiento, no su código.
+- **En un mp4, un Lottie es una CAPA ANIMADA que se rasteriza al exportar**: un título animado, un sticker
+  animado, un lower third, el logo del negocio en movimiento. Vectorial, nítido a cualquier resolución y
+  liviano. En CapCut eso es «Plantillas de texto» (relevamiento de funciones §4.2), que el editor no tiene
+  porque no hay catálogo. Lottie generado con la marca del cliente es la forma de llenarlo.
+- **Lo que falta saber antes de construir:** si el Gemini del cliente escribe un Lottie que sirva (un
+  Lottie es un JSON largo y quisquilloso, sin medir), y qué renderer usar, el `lottie-web` en canvas (MIT)
+  o Skottie (≈7 MB).
+
 ## «Avatar de IA»: un avatar es un escenario del Video Generator
 
 **Vive en:** `app/video-editor/avatar/{avatares,actions}.ts` · `_opencut/avatar/{generar.ts,AvatarIAView.tsx}` ·
