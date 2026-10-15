@@ -1,7 +1,8 @@
 # Relevo · Web Generator, ex Landing Generator (el editor copiado de Gamma)
 
-> **Estado al 15/10/2026 05:20: la TANDA 7 está HECHA y SIN PUSHEAR** (rama `web-t7`, worktree `C:/dev/wt-web-t7`). Lo
-> primero es su push: ver «Tanda 7» al final. La tab se llama Web Generator y vive en `/web-generator`
+> **Estado al 15/10/2026 11:40: la TANDA 7 está EN PRODUCCIÓN** (entró con el push de Estrategia, `70172c164`;
+> deploy `mako-pcg4b6mub` Ready, verificado en vivo por la política nueva de la página de afuera). Falta que Martín la
+> vea con clics y que el clon corra `npx next typegen` cuando se ponga al día (lo hace Estrategia). Ver «Tanda 7» al final. La tab se llama Web Generator y vive en `/web-generator`
 > (`app/web-generator`); este archivo conserva su nombre porque lo citan comentarios del código.
 
 Chat del 11/10/2026 (cuenta claude3). Escrito por la sesión que hizo el trabajo, al cruzar el 85%
@@ -289,7 +290,7 @@ quién decide: `docs/hallazgos-editor-landing.md` → «Tanda 6». Bitácora: `a
 7. **El `window.opener` del camino del Pixel**: es de Martín (aceptar un riesgo de seguridad), con la explicación
    pasada a Estrategia el 15/10. Si no lo acepta: que el lector conteste por el server con la firma de la lectura.
 
-## Tanda 7 (15/10/2026, cuenta claude1, chat «Landing Generator») — HECHA, SIN PUSHEAR
+## Tanda 7 (15/10/2026, cuenta claude1, chat «Landing Generator») — EN PRODUCCIÓN (`70172c164`, deploy `mako-pcg4b6mub`)
 
 Pedidos de Martín, literales en `app/admin/dev/landing-generator/bitacora.ts`: el feedback de la tanda 6 en ocho puntos
 (01:02, por «Estrategia 3 cuentas»: todo se llama «Web Generator», el cuadro de chat se TRANSFORMA en vez de navegar,
