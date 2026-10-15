@@ -38,7 +38,10 @@
 //     abajo y «Plantillas» de la barra; «Del generador anterior» = la galería de Plantillas (Inicio.tsx);
 //   · UN LINK PEGADO (punto 5, `sacarLink` de ./panel-reglas.ts) sale del texto y queda EN LUGAR del campo
 //     como un chip azul, con la pastilla «Analiza esta landing» ⇄ «Replica esta landing» (y en Replicar, el
-//     formato). El ↑ hace eso con la URL: lo mismo que las tarjetas de abajo;
+//     formato). El ↑ hace eso con la URL: lo mismo que las tarjetas de abajo. Sólo si el link es TODO lo
+//     escrito (verificación de la tanda 6): pegado en una frase («hazme una como https://x.com pero para
+//     dentistas») el chip escondía el resto y se perdía al enviar; ahora queda todo en el campo y va como
+//     pedido a «Generar». Y un link TIPEADO y mandado con Enter también va como link (`linkEscrito`);
 //   · las pastillas Landing | Presentación;
 //   · «Crear con IA» (punto 3): Pegar texto · Generar · Importar · Analizar landing · Replicar landing, las
 //     tarjetas que tenía /landing-generator/crear. Se abren a la DERECHA del Panel, en la misma ruta;
@@ -67,7 +70,7 @@ import {
   Desplegable, Ico, ItemMenu, MenuFlotante, MiniaturaLanding, irDuro, marcarReciente, pedirDocs, useAviso, type OpcionDesplegable,
 } from './MiniaturaLanding';
 import { leerArchivo } from './cliente';
-import { hostDe, sacarLink, type AccionCaja } from './panel-reglas';
+import { hostDe, linkEscrito, sacarLink, type AccionCaja } from './panel-reglas';
 import {
   EJEMPLOS_CAJA, docDe, pedidoDeDiseno, pedidoDePlantilla, plantillasDe, type PlantillaCrear, type TipoCrear,
 } from './crear/tipo';
@@ -154,14 +157,14 @@ export default function CajaCrear({ tipoInicial = 'landing', onAccion }: PropsCa
 
   const quitarArchivo = () => { subida.current?.abort(); subida.current = null; setArchivo(null); };
 
-  /** Lo escrito o pegado: un link completo sale del texto y queda como chip (`sacarLink`). */
+  /** Lo escrito o pegado: un link completo, y SOLO, sale del texto y queda como chip (`sacarLink`). */
   const alEscribir = (v: string) => {
     const r = sacarLink(pedido, v);
     if (!r) { setPedido(v); return; }
     quitarArchivo();
     setError(null);
-    setLink(r.link);
-    setPedido(r.texto);
+    setLink(r);
+    setPedido('');
   };
 
   /** El «+»: se lee el archivo (o la imagen, por visión) y queda como chip arriba del campo. */
@@ -185,8 +188,11 @@ export default function CajaCrear({ tipoInicial = 'landing', onAccion }: PropsCa
   const listo = link ? true : archivo ? archivo.estado === 'listo' : !!pedido.trim();
 
   const enviar = () => {
-    if (link) {
-      onAccion(accionLink === 'analizar' ? { que: 'analizar', url: link } : { que: 'replicar', url: link, formato: formatoLink });
+    // El chip, o un link tipeado y mandado con Enter sin el espacio que lo cierra (`linkEscrito`): «Generar»
+    // con una dirección sola no tiene qué crear.
+    const url = link ?? (archivo ? null : linkEscrito(pedido));
+    if (url) {
+      onAccion(accionLink === 'analizar' ? { que: 'analizar', url } : { que: 'replicar', url, formato: formatoLink });
       return;
     }
     if (archivo) {

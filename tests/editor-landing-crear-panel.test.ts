@@ -32,7 +32,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  consultaDerecha, derechaDeAccion, derechaDeQuery, destinoCrear, queryDeDerecha, sacarLink, type AccionCaja, type Derecha,
+  consultaDerecha, derechaDeAccion, derechaDeQuery, destinoCrear, linkEscrito, queryDeDerecha, sacarLink, type AccionCaja, type Derecha,
 } from '../app/landing-generator/panel-reglas';
 import type { LandingResumen } from '../lib/editor-landing/api-tipos';
 import { marcasDeVoseo } from '../lib/puestas-data';
@@ -65,15 +65,45 @@ const PROBAR = 'app/integraciones/ProbarTracking.tsx';
 // ── 5 · El link pegado en la caja ────────────────────────────────────────────────────────────
 
 test('sacarLink: un link pegado (o cerrado por un espacio) sale del texto; mientras se tipea, no', () => {
-  assert.deepEqual(sacarLink('', 'https://mi-landing.com/oferta?utm_source=fb'), { link: 'https://mi-landing.com/oferta?utm_source=fb', texto: '' });
-  assert.deepEqual(sacarLink('mira ', 'mira https://www.otra.com/x.'), { link: 'https://www.otra.com/x', texto: 'mira' }, 'la puntuación que lo cierra no es del link');
-  assert.equal(sacarLink('', 'ver "https://a.com/x" ahora')?.link, 'https://a.com/x', 'las comillas no son del link');
+  assert.equal(sacarLink('', 'https://mi-landing.com/oferta?utm_source=fb'), 'https://mi-landing.com/oferta?utm_source=fb');
+  assert.equal(sacarLink('', 'https://www.otra.com/x.'), 'https://www.otra.com/x', 'la puntuación que lo cierra no es del link');
+  assert.equal(sacarLink('', '"https://a.com/x"'), 'https://a.com/x', 'las comillas no son del link (ni cuentan como texto)');
   // Tipeando de a una letra: recién cuando lo cierra un espacio.
   assert.equal(sacarLink('https://mi-lan', 'https://mi-land'), null);
   assert.equal(sacarLink('https://a.com', 'https://a.com.'), null, 'puede seguir siendo «a.com.ar»');
-  assert.deepEqual(sacarLink('hola https://a.com', 'hola https://a.com '), { link: 'https://a.com', texto: 'hola' });
+  assert.equal(sacarLink('https://a.com', 'https://a.com '), 'https://a.com');
   // Lo que no es la dirección de una página no se toca.
   for (const [a, b] of [['', 'hola'], ['', 'https://localhost:3000/x'], ['', 'ftp://a.com/x'], ['', 'https://']]) assert.equal(sacarLink(a, b), null, b);
+});
+
+// Verificación de la tanda 6 (15/10/2026), tres bordes del punto 5. PROBADO ROMPIÉNDOLO al pie (L1-L4).
+test('sacarLink: con TEXTO al lado el link no sale (el chip escondía el resto y se perdía al enviar)', () => {
+  for (const [a, b] of [
+    ['', 'hazme una como https://x.com pero para dentistas'],
+    ['mira ', 'mira https://www.otra.com/x.'],
+    ['', 'ver "https://a.com/x" ahora'],
+    ['hola https://a.com', 'hola https://a.com '],
+    ['', 'https://a.com y https://b.com'],
+  ]) assert.equal(sacarLink(a, b), null, `«${b}» queda entero en el campo`);
+});
+
+test('sacarLink: el «)» de un link que lo trae balanceado es del link; el que cierra la frase, no', () => {
+  assert.equal(sacarLink('', 'https://otra.com/x(1)'), 'https://otra.com/x(1)');
+  assert.equal(sacarLink('', 'https://otra.com/x(1).'), 'https://otra.com/x(1)');
+  assert.equal(sacarLink('', 'https://es.wikipedia.org/wiki/Mercurio_(planeta)'), 'https://es.wikipedia.org/wiki/Mercurio_(planeta)');
+  assert.equal(sacarLink('', '(https://otra.com/x)'), 'https://otra.com/x', 'el paréntesis de afuera no es del link');
+  assert.equal(sacarLink('', 'https://otra.com/x).'), 'https://otra.com/x');
+});
+
+test('linkEscrito: un link TIPEADO y mandado con Enter (sin el espacio que lo cierra) es un link, no un pedido', () => {
+  assert.equal(sacarLink('https://otra.co', 'https://otra.com'), null, 'mientras se tipea no sale: por eso hace falta');
+  assert.equal(linkEscrito('https://otra.com'), 'https://otra.com/');
+  assert.equal(linkEscrito('  otra.com/oferta?x=1  '), 'https://otra.com/oferta?x=1');
+  assert.equal(linkEscrito('https://otra.com/x(1)'), 'https://otra.com/x(1)');
+  assert.equal(linkEscrito('https://otra.com.'), 'https://otra.com/');
+  for (const p of ['Una landing para dentistas', 'hazme una como https://x.com pero para dentistas', 'hola', '', 'https://localhost:3000']) {
+    assert.equal(linkEscrito(p), null, `«${p}» es un pedido`);
+  }
 });
 
 test('la caja: el link va EN LUGAR del campo, azul, con «Analiza esta landing» ⇄ «Replica esta landing» (y el formato)', () => {
@@ -85,7 +115,10 @@ test('la caja: el link va EN LUGAR del campo, azul, con «Analiza esta landing»
   assert.match(src, /\{ valor: 'replicar', texto: 'Replica esta landing', icono: 'copiar' \}/);
   assert.match(src, /\{accionLink === 'replicar' && \(\s*<Desplegable etiqueta="Formato" valor=\{formatoLink\}/);
   // Al mandar, lo mismo que las tarjetas: el Diagnóstico de esa URL o Replicar con su formato.
-  assert.match(src, /onAccion\(accionLink === 'analizar' \? \{ que: 'analizar', url: link \} : \{ que: 'replicar', url: link, formato: formatoLink \}\);/);
+  assert.match(src, /onAccion\(accionLink === 'analizar' \? \{ que: 'analizar', url \} : \{ que: 'replicar', url, formato: formatoLink \}\);/);
+  // Verificación de la tanda 6: el chip, o un link tipeado y mandado con Enter; y del chip no queda texto escondido.
+  assert.match(src, /const url = link \?\? \(archivo \? null : linkEscrito\(pedido\)\);\s*if \(url\) \{/);
+  assert.match(src, /setLink\(r\);\s*setPedido\(''\);/);
   assert.match(src, /\.gp \.gp-cc-link-accion \.gp-pildora \{[^}]*background: var\(--gp-azul-50\)/, 'la pastilla no es azul');
   // La caja es la MISMA de /automations: nada de esto vive adentro de ella.
   const caja = fuente(CAJA_PEDIDO);
@@ -347,3 +380,11 @@ test('ni las pantallas nuevas ni las tocadas tienen voseo (el guard del repo no 
 //   C3 el archivo del «+» llega vacío a «Pegar texto» (`texto: ''`)  → 14 / 1 «el «+»…»            (antes: 14 / 0)
 //   C4 el Panel con su propia regla para «analizar»                    → 14 / 1 «derechaDeAccion…»
 // Restaurado: 15 / 0.
+
+// ── EL LINK DE LA CAJA, LOS BORDES (verificación de la tanda 6, 15/10/2026): PROBADO ROMPIÉNDOLO ──────────
+// Base: 18 / 0. Arnés que rompe, corre ESTE archivo, restaura de memoria y compara el sha256:
+//   L1 sacarLink saca el link aunque haya texto al lado (lo de antes)   → 17 / 1 «sacarLink: con TEXTO al lado…»
+//   L2 sinCierre le quita siempre el «)» final (la regex de antes)      → 16 / 2 «…el «)» de un link…», «linkEscrito…»
+//   L3 CajaCrear manda sólo el chip (sin `linkEscrito`)                 → 17 / 1 «la caja: el link va EN LUGAR…»
+//   L4 linkEscrito que nunca encuentra un link                          → 17 / 1 «linkEscrito…»
+// Restaurado: 18 / 0.

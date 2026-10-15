@@ -402,23 +402,57 @@ export function destinoCrear(sp: Query): string {
 /** Un enlace http(s) adentro de lo escrito: hasta un espacio o unas comillas. */
 const RE_LINK = /https?:\/\/[^\s<>"'«»]+/i;
 
+/** El cierre de un paréntesis (o corchete, o llave) y su apertura. */
+const APERTURA: Record<string, string> = { ')': '(', ']': '[', '}': '{' };
+const cuantas = (s: string, c: string): number => s.split(c).length - 1;
+
+/**
+ * El link sin la puntuación que lo cierra en la frase: «.», «,», «;», «:», «!», «?», y un «)» (o «]», «}»)
+ * que NO abrió adentro del link. Verificación de la tanda 6: se los quitaba siempre, y
+ * `https://otra.com/x(1)` quedaba `https://otra.com/x(1` (otra página). `(mira https://x.com/a)` sí lo pierde.
+ */
+function sinCierre(link: string): string {
+  let s = link;
+  for (;;) {
+    const ult = s.slice(-1);
+    const abre = APERTURA[ult];
+    if (/[.,;:!?]/.test(ult) || (abre && cuantas(s, abre) < cuantas(s, ult))) s = s.slice(0, -1);
+    else return s;
+  }
+}
+
 /**
  * El LINK que se pegó en la caja «¿Qué vas a crear hoy?». Martín, 14/10/2026: «En el chat, si yo pego
  * un link, me debería aparecer pintado de azul y que diga "Analiza esta landing" y que se pueda cambiar
- * a "Replica esta landing"». Sale del texto y queda como chip (CajaCrear.tsx), con lo demás escrito
- * aparte. Sólo un link COMPLETO: pegado o dictado (entró más de un carácter de una vez) o ya cerrado
- * por un espacio; mientras se tipea «https://mi-lan…» no se lo lleva a la mitad. La puntuación que lo
- * cierra («.», «,», «)») no es del link. null si no hay nada que sacar.
+ * a "Replica esta landing"». Sale del texto y queda como chip (CajaCrear.tsx), EN LUGAR del campo. Sólo
+ * un link COMPLETO: pegado o dictado (entró más de un carácter de una vez) o ya cerrado por un espacio;
+ * mientras se tipea «https://mi-lan…» no se lo lleva a la mitad. La puntuación que lo cierra no es del
+ * link (`sinCierre`). null si no hay nada que sacar.
+ *
+ * ⚠️ SÓLO SI EL LINK ES TODO LO ESCRITO (verificación de la tanda 6, 15/10/2026). Antes salía también de
+ * una frase («hazme una como https://x.com pero para dentistas»): el chip REEMPLAZA el campo, así que lo
+ * demás quedaba escondido y al enviar se descartaba sin aviso (Analizar y Replicar no llevan
+ * instrucciones). Ahora, con texto al lado, todo queda en el campo tal cual y el ↑ lo manda como pedido a
+ * «Generar», como antes de la tanda 6: lo escrito nunca se pierde. Unas comillas o un punto alrededor no
+ * cuentan como texto.
  */
-export function sacarLink(antes: string, ahora: string): { link: string; texto: string } | null {
+export function sacarLink(antes: string, ahora: string): string | null {
   const m = RE_LINK.exec(ahora);
   if (!m) return null;
   const pegado = ahora.length - antes.length > 1;
   const cerrado = m.index + m[0].length < ahora.length;
   if (!pegado && !cerrado) return null;
-  const link = m[0].replace(/[.,;:!?)\]}]+$/, '');
-  if (!urlParaAnalizar(link)) return null;
-  // Lo que queda escrito, sin el link ni la puntuación que lo cerraba («mira https://x.com.» → «mira»).
-  const texto = `${ahora.slice(0, m.index)} ${ahora.slice(m.index + m[0].length)}`.replace(/[ \t]{2,}/g, ' ').trim();
-  return { link, texto };
+  if (/[\p{L}\p{N}]/u.test(`${ahora.slice(0, m.index)} ${ahora.slice(m.index + m[0].length)}`)) return null;
+  const link = sinCierre(m[0]);
+  return urlParaAnalizar(link) ? link : null;
+}
+
+/**
+ * Lo escrito en la caja, si es UNA dirección y nada más (verificación de la tanda 6): un link TIPEADO y
+ * mandado con Enter, sin el espacio que lo cierra, no pasa por `sacarLink` (a medio tipear no se lo
+ * lleva), y el ↑ lo mandaba a «Generar» como un pedido de texto: se perdían Analizar y Replicar. Con o sin
+ * esquema («otra.com»), como el «Ir a» (`urlDeBusqueda`). null si es un pedido.
+ */
+export function linkEscrito(pedido: string): string | null {
+  return urlDeBusqueda(sinCierre(pedido.trim()));
 }
