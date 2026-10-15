@@ -1200,14 +1200,16 @@ editor, y un crítico que midió lo que faltaba). Las salidas y los scripts qued
 - **Parpadeo** en 5 de 6 corridas: el H1 se pinta VISIBLE (FCP 404-1.048 ms), el script lo pasa a opacidad 0 entre
   25 y 456 ms después, queda invisible 269-380 ms y recién ahí entra con el fade. Causa: `SCRIPT_PAGINA` va al final
   del `<body>` (`pagina-publica.ts:533-544`) y pone `html.gm-anim` cuando la página ya se pintó.
-- **Arreglado con la opción A** (rama `landing-parpadeo`; la recomendada, preparada a pedido del orquestador y SIN
-  pushear hasta que Martín conteste A o B): antes de poner `gm-anim`, el script deja `gm-visto` con
-  `animation: none` en línea la primera sección y todo lo que corta la pantalla (ellos, sus bloques y lo marcado con
-  `data-animar` adentro). Va en el SCRIPT, que no queda congelado: llega a todas las publicadas sin republicar.
-  Medido con el mismo arnés (publicada real armada con render.ts + armarDocumento, 390×844, CPU ×4): **el H1 queda en
-  opacidad 1 desde el primer cuadro en 6 de 6 corridas** (antes: 1 → 0 → fade, visible recién a los 1,3-2,7 s). Lo de
-  más abajo sigue animando al entrar. Si Martín elige B (el fade sin parpadeo), es otro arreglo y más frágil: se
-  cambia antes del push.
+- **Arreglado con la opción A** (rama `landing-parpadeo`, en main desde el merge `f9039872`, 15/10/2026): antes de
+  poner `gm-anim`, el script deja `gm-visto` con `animation: none` en línea la primera sección y todo lo que corta la
+  pantalla (ellos, sus bloques y lo marcado con `data-animar` adentro). Va en el SCRIPT, que no queda congelado: llega
+  a todas las publicadas sin republicar. Medido con el mismo arnés (publicada real armada con render.ts +
+  armarDocumento, 390×844, CPU ×4): **el H1 queda en opacidad 1 desde el primer cuadro en 6 de 6 corridas** (antes:
+  1 → 0 → fade, visible recién a los 1,3-2,7 s). Lo de más abajo sigue animando al entrar.
+- ⚠️ **Salió SIN la respuesta de Martín al A/B** (A: el hero quieto; B: el hero con un fade que no parpadea), y fue a
+  propósito: el parpadeo era un bug del código que iba a recibir la PRIMERA landing que publicara alguien (0
+  publicadas el 15/10), y una decisión estética pendiente no lo justifica. El camino a B sale de A igual que de cero
+  (es otro arreglo del mismo script, que tampoco queda congelado). Si contesta B, se cambia; no hay nada que deshacer.
 - **El número que vale: con el arreglo, «Animaciones» prendido CUESTA LO MISMO QUE APAGARLO.** LCP del H1, 3 corridas
   por plantilla, mismas condiciones (ms):
 
@@ -1218,10 +1220,37 @@ editor, y un crítico que midió lo que faltaba). Las salidas y los scripts qued
   | webinar | (idem) | 400 / 452 / 368 | 424 / 332 / 352 |
 
   **Regla:** el LCP de una landing NO se arregla apagando la feature: el costo era el parpadeo, no la animación.
+- **En PRODUCCIÓN (15/10/2026, deploy `mako-hvho33ln9`)**: una landing de prueba en el ws3 («Clásico claro» + «Agenda
+  una llamada», publicada en hola-mako.site, que servía el script nuevo), medida con el mismo teléfono emulado contra la
+  red real. LCP del H1 en ms, y el parpadeo en **0 de 9** corridas:
+
+  | Corrida | Con «Animaciones» | Sin «Animaciones» |
+  |---|---|---|
+  | 1ª tanda | 2.556 / 1.644 / 1.200 | 1.236 / 1.244 / 1.124 |
+  | 2ª tanda (con una visita antes) | 1.256 / 1.124 / 1.156 | — |
+
+  - **Con y sin cuestan lo mismo** (≈1,1-1,3 s). El 2.556 es la PRIMERA visita a la página recién publicada (en frío):
+    repetida con una visita antes, desaparece. No es la animación.
+  - **Es más que en la rama (250-590 ms) por la RED, no por la página**: en las 9 corridas el FCP es igual al LCP, o
+    sea que el H1 es lo primero que se pinta y lo que se espera es el HTML (128 KB) desde Vercel. En la rama la página
+    se servía local, sin red.
+  - Lo que dejó la prueba: la landing #21 del ws3 en su **Papelera, que no se vacía sola** (sólo «Borrar para
+    siempre», a mano; las del curso sí tienen purga), con el slug `prueba-anim-mv92gcgj` reservado mientras exista la
+    fila; y **9 visitas en `landing_visits` del ws3** (el Pixel de la página contó las mediciones).
 - Para volver a medirlo: armar la publicada real con `htmlDePagina(pagina, config, tema, { modo: 'publico' })` +
   `armarDocumento(...)` de las primeras plantillas, servirla con Playwright (`ctx.route`, red externa cortada), CPU ×4
   por CDP, y anotar por `requestAnimationFrame` la opacidad de `h1.gm-titulo` × su `.gm-tarjeta` (el parpadeo) y la
   última entrada `largest-contentful-paint` (el LCP).
+  En producción, la landing se crea y se publica desde un script con las MISMAS funciones del server
+  (`crear` de lib/editor-landing/server.ts, `publicar`/`despublicar` de publicar.ts) adentro de
+  `runWithWorkspace(3, …)`: hay que resolver `server-only` a un módulo vacío **y `next/headers` a uno sin cookies**
+  (`crear` lee el autor con `getUsuarioActual`, y fuera de un request `cookies()` tira «called outside a request
+  scope»). El import dinámico de un `.ts` del repo va con `pathToFileURL(...).href`: una ruta `C:\…` pelada da
+  `ERR_UNSUPPORTED_ESM_URL_SCHEME`. Nunca en el ws1 ni en otro negocio de un cliente.
+  ⚠️ **Con las cookies vacías, todo lo que corra FUERA de `runWithWorkspace` resuelve el workspace al ws1**
+  (`resolverDesdeCookies`, lib/workspace.ts: «no hay cookie de sesión» = cron/webhook = dueño): un `await` que se
+  escapa del callback escribe en el negocio de Mauricio sin un error. Después de correr, se relee la fila filtrando
+  por el ws de la prueba.
 
 ### El video: lo que es y lo que NO conviene copiar
 - La única página del video publicada es Scarlett (`scarlett-recepcionista.vercel.app`, leída en pantalla 29:47-30:30):
