@@ -267,7 +267,7 @@ export function rutaMovil(href: string | null | undefined): string | null {
   if (p === '/tickets/decisiones' || p === '/admin/runway') return '/m/tickets/decisiones';
   if (p === '/tickets/decisiones/lista') return '/m/decisiones';
   // El Centro de Operaciones del super admin (15/10/2026): en el teléfono, sólo para mirar.
-  // Con su pestaña (`?tab=curso|pedidos|pushes|trabajos`): la misma en los dos lados.
+  // Con su pestaña (`?tab=pedidos|pushes|areas|trabajos`): la misma en los dos lados.
   if (p === '/admin/operaciones') return q.get('tab') ? `/m/operaciones?tab=${encodeURIComponent(q.get('tab')!)}` : '/m/operaciones';
   // Las pantallas que SÓLO existen en el teléfono, con la URL que muestran (`SOLO_TELEFONO`).
   const chat = p.match(/^\/crm\/(\d+)\/chat$/);

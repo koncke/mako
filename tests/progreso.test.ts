@@ -14,7 +14,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  cadenas, duracion, frentesEnCurso, hace, instanteHito, pedidosRecientes, pushesDeVercel, type AreaP, type HitoP,
+  cadenas, duracion, frentesEnCurso, grupoPedido, hace, instanteHito, pedidosDeLosPushes, pedidosRecientes, pushDelCommit,
+  pushesDeVercel, type AreaP, type HitoP,
 } from '../lib/progreso-reglas';
 
 const AHORA = Date.parse('2026-10-15T16:00:00Z'); // 13:00 en Argentina
@@ -72,6 +73,54 @@ test('los pedidos anotados en tanda comparten lo que vino después, y una implem
   assert.ok(ps.every((p, i) => i === 3 || p.tomo === 'Chat B'));
 });
 
+test('los cuatro grupos de Martín: trabajando ahora, sin empezar, empezado sin movimiento y terminado', () => {
+  // «los pendientes que estamos trabajando ahora mismo, las cosas que ya están terminadas, empezadas»:
+  // lo empezado que nadie movió en 48 h no es «ahora», y lo que nadie tomó no está empezado.
+  // Probado rompiéndolo: con todo lo empezado como «ahora», 8 pasan y falla éste.
+  const area: AreaP = {
+    slug: 'x', titulo: 'Área X', bitacora: [
+      hito('10 oct', '09:00', 'prompt', { pedido: 'Viejo y quieto' }),
+      hito('10 oct', '10:00', 'investigacion'),
+      hito('15 oct', '08:00', 'prompt', { pedido: 'De hoy y movido' }),
+      hito('15 oct', '11:00', 'investigacion'),
+      hito('15 oct', '12:00', 'prompt', { pedido: 'Nadie lo tomó' }),
+    ],
+  };
+  const ps = cadenas(area, AHORA);
+  assert.deepEqual(ps.map((p) => grupoPedido(p, AHORA)), ['empezado', 'ahora', 'sin_empezar']);
+  assert.equal(ps[1].ultimo, instanteHito('15 oct', '11:00', AHORA), 'lo último que se movió es su último paso, no el pedido');
+  assert.equal(ps[1].cierre, null, 'sin implementación no tiene cierre');
+});
+
+test('un push nombra los pedidos cuyo commit lo ENCABEZA, y un commit su push, nunca por la hora', () => {
+  // Medido el 15/10 contra git: «el primer push después de anotarlo» acertó 110 de 202, y la punta exacta del
+  // ÚLTIMO commit de cada pedido unió 0 de 88. Lo único exacto sin git: el commit que encabeza un push.
+  // Probado rompiéndolo: tomando el push más NUEVO con ese commit (el redeploy), 8 pasan y falla éste.
+  const area: AreaP = {
+    slug: 'x', titulo: 'Área X', bitacora: [
+      hito('15 oct', '08:00', 'prompt', { pedido: 'Con un commit que encabeza un push' }),
+      hito('15 oct', '09:00', 'implementacion', { commits: [{ sha: 'abc1234', msg: 'm' }] }),
+      hito('15 oct', '10:00', 'prompt', { pedido: 'Terminado sin commit anotado' }),
+      hito('15 oct', '10:30', 'implementacion'),
+    ],
+  };
+  const ps = cadenas(area, AHORA);
+  const push = (id: string, sha: string, creado: string, estado: 'listo' | 'error' = 'listo') =>
+    ({ id, sha, mensaje: id, cuerpo: '', estado, creado: Date.parse(creado), duracionMs: null, actual: false, cuenta: null });
+  const pushes = [
+    push('nuevo', 'abc1234ff', '2026-10-15T15:00:00Z'), // lo vuelve a traer un redeploy: no es el que lo subió
+    push('justo-despues', 'fff0000aa', '2026-10-15T13:31:00Z'), // el «primero después» por la hora: NO
+    push('el-suyo', 'abc1234ff', '2026-10-15T12:10:00Z'),
+    push('fallido', 'abc1234ff', '2026-10-15T12:05:00Z', 'error'),
+  ];
+  assert.equal(pushDelCommit('abc1234', pushes)?.id, 'el-suyo', 'el más viejo que quedó listo con ese commit en la punta');
+  assert.equal(pushDelCommit('9999999', pushes), null, 'un commit que no encabeza ninguno no se adivina');
+  const trae = pedidosDeLosPushes(ps, pushes);
+  assert.equal(trae.get('el-suyo')?.[0].texto, 'Con un commit que encabeza un push');
+  assert.equal(trae.has('justo-despues'), false, 'el push siguiente por la hora no trae nada que se sepa');
+  assert.ok(![...trae.values()].flat().some((p) => p.texto === 'Terminado sin commit anotado'));
+});
+
 test('el mismo pedido en dos áreas es uno, con sus áreas juntas y el estado más avanzado', () => {
   const texto = 'Sumá el Centro al teléfono';
   const a: AreaP = { slug: 'a', titulo: 'Centro', bitacora: [hito('15 oct', '07:50', 'prompt', { pedido: texto })] };
@@ -126,4 +175,9 @@ test('las bitácoras reales se leen enteras: ninguna fecha queda sin entender', 
     }
   }
   assert.deepEqual(malas, [], 'una fecha que no se entiende hace desaparecer ese hito de Progreso');
+  // Y cada pedido con su id: dos de webhook-gateway del 7/10 con la hora «—» y el mismo comienzo chocaban
+  // (React: «Encountered two children with the same key»). Probado con el id viejo: 8 pasan y falla éste.
+  const areas = REGISTROS_SLUGS.map((slug) => ({ slug, titulo: slug, bitacora: registroDe(slug).bitacora }));
+  const ids = pedidosRecientes(areas, AHORA, 3650).map((p) => p.id);
+  assert.equal(new Set(ids).size, ids.length, 'dos pedidos con el mismo id');
 });

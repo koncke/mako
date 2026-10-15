@@ -225,3 +225,55 @@
   margin-left: 0;
   white-space: nowrap;
 }
+
+/* El camino de un pedido en su fila (Anotado → Tomado → En producción), como el grafo de un run de
+   GitHub Actions en chico: un punto por etapa, lleno si ya pasó. El texto al lado dice dónde está. */
+.prog-camino {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.prog-camino__etapas {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+}
+
+.prog-camino__punto {
+  width: 9px;
+  height: 9px;
+  border: 1.5px solid var(--border-strong);
+  border-radius: 50%;
+  background: var(--surface);
+}
+
+.prog-camino__punto--si {
+  border-color: var(--primary);
+  background: var(--primary);
+}
+
+.prog-camino__punto--listo {
+  border-color: var(--good);
+  background: var(--good);
+}
+
+.prog-camino__tramo {
+  width: 14px;
+  height: 1.5px;
+  background: var(--border-strong);
+}
+
+.prog-camino__tramo--si {
+  background: var(--primary);
+}
+
+.prog-camino__texto {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-meta);
+  color: var(--text-dim);
+}

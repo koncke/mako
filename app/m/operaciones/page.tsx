@@ -48,7 +48,7 @@ export default async function CentroOperacionesMovil({ searchParams }: { searchP
     return <PantallaM>{cabecera}<VacioM frase="El Centro lo abre el super admin con su segundo factor." /></PantallaM>;
   }
   const { tab, todos } = await searchParams;
-  const inicial: PestanaCentro = (PESTANAS_CENTRO as readonly string[]).includes(tab ?? '') ? (tab as PestanaCentro) : 'curso';
+  const inicial: PestanaCentro = (PESTANAS_CENTRO as readonly string[]).includes(tab ?? '') ? (tab as PestanaCentro) : PESTANAS_CENTRO[0];
   const ahora = Date.now();
   const areas = areasDeProgreso();
   // Cada lectura falla sola: Progreso (bitácoras y Vercel) se ve aunque la cola no se pueda leer.

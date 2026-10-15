@@ -59,8 +59,13 @@ export const ROTULO_TIPO: Record<string, string> = {
   prompt: 'Pedido', implementacion: 'Hecho', correccion: 'Corrección', investigacion: 'Investigando', cosecha: 'Cosecha',
 };
 
-/** Las pestañas del Centro, en su orden: las tres de Progreso y la cola firmada. */
-export const PESTANAS_CENTRO = ['curso', 'pedidos', 'pushes', 'trabajos'] as const;
+/**
+ * Las pestañas del Centro, en su orden. Los PEDIDOS van primero (Martín, 15/10/2026: «Lo que quiero ver allí
+ * es lo que te pedí, los pushes de lo terminado, los pendientes que estamos trabajando ahora mismo, las cosas
+ * que ya están terminadas, empezadas, etc...»): la unidad de la pantalla es lo que él pidió, y lo demás es el
+ * camino que hizo. Áreas (quién se movió) y Trabajos (la cola firmada) quedan atrás.
+ */
+export const PESTANAS_CENTRO = ['pedidos', 'pushes', 'areas', 'trabajos'] as const;
 export type PestanaCentro = (typeof PESTANAS_CENTRO)[number];
 
 // ── En curso ──────────────────────────────────────────────────────────────────────────────────
@@ -98,12 +103,14 @@ export function frentesEnCurso(areas: readonly AreaP[], ahora: number, horas = 4
 
 // ── Pedidos ───────────────────────────────────────────────────────────────────────────────────
 export type EstadoPedidoP = 'pendiente' | 'en_curso' | 'hecho';
-export const ROTULO_PEDIDO: Record<EstadoPedidoP, string> = { pendiente: 'Pendiente', en_curso: 'En curso', hecho: 'Hecho' };
+/** Con sus palabras: «terminadas, empezadas» y lo pendiente. */
+export const ROTULO_PEDIDO: Record<EstadoPedidoP, string> = { pendiente: 'Sin empezar', en_curso: 'Empezado', hecho: 'Terminado' };
 
 export type PasoP = { instante: number | null; chat: string; tipo: string; titulo: string; commits: Array<{ sha: string; msg: string }> };
 
 export type PedidoP = {
-  /** Estable entre cargas: área + fecha + hora + el principio del texto. */
+  /** Estable entre cargas: el área y su lugar en la bitácora (se escribe al final, así que no se corre). Con
+   *  fecha, hora y el principio del texto chocaban dos pedidos del mismo día anotados con la hora «—». */
   id: string;
   texto: string;
   titulo: string;
@@ -117,6 +124,10 @@ export type PedidoP = {
   commits: Array<{ sha: string; msg: string }>;
   /** Cuántos pedidos más se anotaron en la misma tanda: lo que siguió responde a todos juntos. */
   junto: number;
+  /** Lo último que se movió: el pedido o su último paso. */
+  ultimo: number;
+  /** Cuándo se anotó lo que lo cerró (la implementación, la corrección o el commit), si se cerró. */
+  cierre: number | null;
 };
 
 /** Lo que cierra un pedido: un paso que HIZO algo (la bitácora viaja con el build, así que está subido). */
@@ -147,16 +158,19 @@ export function cadenas(a: AreaP, ahora: number): PedidoP[] {
     }
     const commits = pasos.flatMap((p) => p.commits);
     const estado: EstadoPedidoP = commits.length || pasos.some((p) => CIERRA.has(p.tipo)) ? 'hecho' : pasos.length ? 'en_curso' : 'pendiente';
+    const cierre = pasos.find((p) => CIERRA.has(p.tipo) || p.commits.length)?.instante ?? null;
+    const ultimoPaso = Math.max(...pasos.map((p) => p.instante ?? 0), 0);
     for (let i = ini; i <= fin; i++) {
       const h = b[i];
       const instante = instanteHito(h.fecha, h.hora, ahora);
       if (instante == null) continue;
       const texto = (h.pedido ?? '').trim() || h.titulo;
       out.push({
-        id: `${a.slug}:${h.fecha}:${h.hora}:${texto.slice(0, 24)}`,
+        id: `${a.slug}:${i}`,
         texto, titulo: h.titulo, instante, areas: [a.titulo],
         tomo: pasos[0]?.chat ?? null,
         estado, pasos, commits, junto: fin - ini,
+        ultimo: Math.max(instante, ultimoPaso), cierre: estado === 'hecho' ? (cierre ?? ultimoPaso) || null : null,
       });
     }
     ini = fin;
@@ -188,6 +202,8 @@ export function pedidosRecientes(areas: readonly AreaP[], ahora: number, dias = 
       if (orden.indexOf(p.estado) > orden.indexOf(ya.estado)) ya.estado = p.estado;
       ya.tomo = ya.tomo ?? p.tomo;
       ya.junto = Math.max(ya.junto, p.junto);
+      ya.ultimo = Math.max(ya.ultimo, p.ultimo);
+      if (p.cierre != null && (ya.cierre == null || p.cierre < ya.cierre)) ya.cierre = p.cierre;
     }
   }
   return [...por.values()].sort((x, y) => y.instante - x.instante);
@@ -203,6 +219,24 @@ export function recortarPedido(p: PedidoP): PedidoP {
     pasos: p.pasos.slice(0, 12).map((s) => ({ ...s, titulo: s.titulo.slice(0, 200), commits: s.commits.slice(0, 6).map(commit) })),
     commits: p.commits.slice(0, 20).map(commit),
   };
+}
+
+/**
+ * Los cuatro grupos de la pantalla. «Trabajando ahora» es lo empezado que un chat movió en las últimas 48 h;
+ * lo empezado que quedó quieto va aparte, para que no se lea como trabajo vivo. Sin el cartero, «ahora» es
+ * lo ANOTADO: lo que un chat hace en este momento y todavía no escribió en su bitácora no se ve.
+ */
+export type GrupoPedido = 'ahora' | 'sin_empezar' | 'empezado' | 'terminado';
+export const GRUPOS_PEDIDO: readonly GrupoPedido[] = ['ahora', 'sin_empezar', 'empezado', 'terminado'];
+export const ROTULO_GRUPO: Record<GrupoPedido, string> = {
+  ahora: 'Trabajando ahora', sin_empezar: 'Sin empezar', empezado: 'Empezado, sin movimiento', terminado: 'Terminado',
+};
+export const VENTANA_AHORA_MS = 48 * 3_600_000;
+
+export function grupoPedido(p: Pick<PedidoP, 'estado' | 'ultimo'>, ahora: number): GrupoPedido {
+  if (p.estado === 'hecho') return 'terminado';
+  if (p.estado === 'pendiente') return 'sin_empezar';
+  return ahora - p.ultimo <= VENTANA_AHORA_MS ? 'ahora' : 'empezado';
 }
 
 // ── Pushes ────────────────────────────────────────────────────────────────────────────────────
@@ -259,6 +293,38 @@ export function pushesDeVercel(deployments: readonly Record<string, unknown>[]):
   }).sort((a, b) => b.creado - a.creado);
   const vivo = out.find((p) => p.estado === 'listo');
   if (vivo) vivo.actual = true;
+  return out;
+}
+
+// ── Qué trae cada push ────────────────────────────────────────────────────────────────────────
+/** Dos shas abreviados son el mismo commit si uno empieza con el otro (con 7 caracteres como mínimo). */
+const mismoCommit = (a: string | null, b: string | null) =>
+  !!a && !!b && a.length >= 7 && b.length >= 7 && (a.startsWith(b) || b.startsWith(a));
+
+/**
+ * El push que subió UN commit, sólo si ese commit es la PUNTA del deploy (el más viejo que la tiene: los de
+ * después son redeploys). Sin git no se puede saber si un commit va ADENTRO de un push: sólo si lo encabeza.
+ *
+ * ⚠️ POR QUÉ NO HAY «EL PUSH DE ESTE PEDIDO» EN LA FILA (medido el 15/10/2026 contra git):
+ *   · Por la hora («el primer push después de que se anotó»): acertó 110 de 202. El commit sale en el push de
+ *     otro chat, o espera al del coordinador. Nombraba el push equivocado casi la mitad de las veces.
+ *   · Por la punta exacta del ÚLTIMO commit del pedido (el que lo termina): 0 de 88 en tres días. El último
+ *     commit anotado casi nunca encabeza un push (va con la cosecha, o adentro de un merge).
+ * Que un pedido terminado está EN PRODUCCIÓN sí es exacto: la pantalla lee la bitácora de la versión publicada.
+ * Unir cada pedido con su push necesita preguntarle a GitHub si el commit es ancestro del deploy (`compare`),
+ * y el token de la plataforma contesta 404 desde la transferencia del repo.
+ */
+export function pushDelCommit(sha: string, pushes: readonly PushP[]): PushP | null {
+  return [...pushes].reverse().find((x) => x.estado === 'listo' && mismoCommit(sha, x.sha)) ?? null;
+}
+
+/** Desde el push: los pedidos que tienen anotado el commit que lo encabeza. Eso es exacto: ese push los trajo. */
+export function pedidosDeLosPushes(pedidos: readonly PedidoP[], pushes: readonly PushP[]): Map<string, PedidoP[]> {
+  const out = new Map<string, PedidoP[]>();
+  for (const x of pushes) {
+    const trae = pedidos.filter((p) => p.commits.some((c) => mismoCommit(c.sha, x.sha)));
+    if (trae.length) out.set(x.id, trae);
+  }
   return out;
 }
 

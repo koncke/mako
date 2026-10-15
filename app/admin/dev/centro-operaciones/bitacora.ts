@@ -206,4 +206,36 @@ export const BITACORA: Hito[] = [
       'app/m/operaciones/ProgresoMovil.tsx — las listas del teléfono',
     ],
   },
+  // El cartero va ANTES del pedido de las 14:18 a propósito: la respuesta de un pedido es lo que le sigue
+  // (lib/progreso-reglas.ts → cadenas), y la instalación no responde a ese pedido.
+  {
+    fecha: '15 oct', hora: '14:30', chat: CH, cuenta: 'claude1', actor: 'claude', tipo: 'implementacion',
+    titulo: 'El cartero de claude1, instalado',
+    puntos: [
+      'Con el token que acuñó Martín: la primera vuelta vio 53 chats de la cuenta y 2 abiertos, sin nada que entregar.',
+      'Falta el chat «Cartero» con su cron, que lo abre Martín: sin él nada se entrega solo y el cartero se ve inactivo.',
+      'Con el chat de destino cerrado, el aviso espera sin gastar intentos.',
+    ],
+  },
+  {
+    fecha: '15 oct', hora: '14:18', chat: ESTRATEGIA, cuenta: 'claude1', actor: 'martin', tipo: 'prompt',
+    titulo: 'Progreso: lo que pedí, con su estado y sus pushes',
+    pedido: 'Lo que quiero ver allí es lo que te pedí, los pushes de lo terminado, los pendientes que estamos trabajando ahora mismo, las cosas que ya están terminadas, empezadas, etc...',
+    puntos: ['El coordinador lo leyó como «la unidad es el pedido»: los pushes son la prueba de lo terminado, no una lista aparte.'],
+  },
+  {
+    fecha: '15 oct', hora: '14:57', chat: CH, cuenta: 'claude1', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Progreso con el pedido primero: trabajando ahora, sin empezar, empezado y terminado',
+    puntos: [
+      'Pedidos es la pestaña de entrada, en cuatro grupos, y cada fila muestra su camino: anotado, lo tomó un chat, en producción.',
+      'Terminado es «en producción», y eso es exacto: la pantalla lee la bitácora de la versión publicada.',
+      'En qué push llegó cada uno no se puede decir sin git: por la hora acertaba 110 de 202, y por la punta del último commit, 0 de 88. Lo exacto (el commit que encabeza un push) va en el detalle y en Pushes.',
+      '«En curso» por área pasó a llamarse Áreas.',
+    ],
+    archivos: [
+      'lib/progreso-reglas.ts — los grupos y el push exacto de cada pedido',
+      'app/admin/operaciones/Progreso.tsx — el camino en la fila',
+      'app/m/operaciones/ProgresoMovil.tsx — lo mismo en el teléfono',
+    ],
+  },
 ];

@@ -9,7 +9,7 @@ import { PESTANAS_CENTRO, frentesEnCurso, pedidosRecientes, recortarPedido, type
 import { CentroPestanas } from './CentroPestanas';
 
 // =============================================================================
-// /admin/operaciones — el Centro: En curso · Pedidos · Pushes · Trabajos
+// /admin/operaciones — el Centro: Pedidos · Pushes · Áreas · Trabajos
 // =============================================================================
 // Las tres primeras son Progreso (lib/progreso.ts): salen de las bitácoras del build y de Vercel, así
 // que tienen datos sin el cartero ni su token. «Trabajos» es la cola firmada que despacha el cartero.
@@ -24,7 +24,7 @@ export default async function OperacionesPage({ searchParams }: { searchParams: 
     return <Pagina><PermissionState motivo="rol" que="el Centro de Operaciones" /></Pagina>;
   }
   const { tab, todos } = await searchParams;
-  const inicial: PestanaCentro = (PESTANAS_CENTRO as readonly string[]).includes(tab ?? '') ? (tab as PestanaCentro) : 'curso';
+  const inicial: PestanaCentro = (PESTANAS_CENTRO as readonly string[]).includes(tab ?? '') ? (tab as PestanaCentro) : PESTANAS_CENTRO[0];
   const ahora = Date.now();
   const areas = areasDeProgreso();
   // Cada lectura falla sola: si la cola no se puede leer, Progreso se ve igual (y al revés).

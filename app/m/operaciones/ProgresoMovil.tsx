@@ -1,21 +1,22 @@
 'use client';
 
 // =============================================================================
-// El Centro en el teléfono: En curso · Pedidos · Pushes · Trabajos (15/10/2026)
+// El Centro en el teléfono: Pedidos · Pushes · Áreas · Trabajos (15/10/2026)
 // =============================================================================
 // Las mismas pestañas que la computadora (app/admin/operaciones/CentroPestanas.tsx), destiladas: cada
 // fila lleva tres cosas (título, una línea y su estado) y lo demás va en una hoja, como la lista de
 // GitHub Actions en el teléfono. Sirve para MIRAR: no depende del cartero ni de la clave del teléfono.
 // El color va en el punto de la píldora, nunca en el texto (app/m/_ui/LEEME.md).
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter } from '@/app/_ui/Link';
 import {
   ErrorM, FilaM, ListaM, PildoraM, SeccionM, SegmentadoM, SheetM, VacioM, type TonoPildora,
 } from '@/app/m/_ui';
 import {
-  PESTANAS_CENTRO, ROTULO_PEDIDO, ROTULO_PUSH, ROTULO_TIPO, duracion, hace, type EstadoPedidoP, type EstadoPush,
-  type Frente, type PedidoP, type PestanaCentro, type PushP,
+  GRUPOS_PEDIDO, PESTANAS_CENTRO, ROTULO_GRUPO, ROTULO_PEDIDO, ROTULO_PUSH, ROTULO_TIPO, duracion, grupoPedido, hace,
+  pedidosDeLosPushes, pushDelCommit, type EstadoPedidoP, type EstadoPush, type Frente, type PedidoP, type PestanaCentro,
+  type PushP,
 } from '@/lib/progreso-reglas';
 import type { LecturaPushes } from '@/lib/progreso';
 import { CentroMovil, type CarteroM, type PedidoM } from './CentroMovil';
@@ -46,7 +47,7 @@ function EnCursoM({ frentes, ahora }: { frentes: Frente[]; ahora: number }) {
                   key={f.slug}
                   titulo={f.area}
                   segunda={<span className="m-operaciones-texto1">{`${f.chat} · ${ROTULO_TIPO[f.tipo] ?? f.tipo}: ${f.ultimo}`}</span>}
-                  pill={f.pendientes ? <PildoraM tono="warn">{`${f.pendientes} ${f.pendientes === 1 ? 'pendiente' : 'pendientes'}`}</PildoraM> : undefined}
+                  pill={f.pendientes ? <PildoraM tono="warn">{`${f.pendientes} sin empezar`}</PildoraM> : undefined}
                   riel={<span className="m-operaciones-hace">{hace(f.instante, ahora)}</span>}
                 />
               ))}
@@ -58,38 +59,48 @@ function EnCursoM({ frentes, ahora }: { frentes: Frente[]; ahora: number }) {
   );
 }
 
-function PedidosM({ pedidos, todos, ahora }: { pedidos: PedidoP[]; todos: boolean; ahora: number }) {
+/** El camino en una línea: quién lo tomó y dónde está. */
+function caminoM(p: PedidoP, ahora: number): string {
+  if (p.estado === 'hecho') return `En producción · ${p.tomo ?? 'sin chat'}`;
+  const ultimo = p.pasos[p.pasos.length - 1];
+  if (!ultimo) return `Nadie lo tomó · pedido ${hace(p.instante, ahora)}`;
+  return `${p.tomo ?? ultimo.chat} · ${ROTULO_TIPO[ultimo.tipo] ?? ultimo.tipo} ${hace(p.ultimo, ahora)}`;
+}
+
+function PedidosM({ pedidos, pushes, todos, ahora }: { pedidos: PedidoP[]; pushes: LecturaPushes; todos: boolean; ahora: number }) {
   const [abierto, setAbierto] = useState<string | null>(null);
   const [verHechos, setVerHechos] = useState(false);
+  const lista = pushes.ok ? pushes.pushes : [];
   const elegido = pedidos.find((p) => p.id === abierto) ?? null;
   if (!pedidos.length) return <VacioM frase="Ningún pedido anotado en estos días." />;
   return (
     <>
-      {(['pendiente', 'en_curso', 'hecho'] as const).map((e) => {
-        const todas = pedidos.filter((p) => p.estado === e);
+      {GRUPOS_PEDIDO.map((g) => {
+        const todas = pedidos.filter((p) => grupoPedido(p, ahora) === g);
         if (!todas.length) return null;
-        const filas = e === 'hecho' && !verHechos ? todas.slice(0, HECHOS_VISIBLES) : todas;
+        if (g === 'ahora' || g === 'empezado') todas.sort((a, b) => b.ultimo - a.ultimo);
+        const filas = g === 'terminado' && !verHechos ? todas.slice(0, HECHOS_VISIBLES) : todas;
         return (
-          <SeccionM key={e} titulo={`${ROTULO_PEDIDO[e]} · ${todas.length}`}>
-            <ListaM etiqueta={ROTULO_PEDIDO[e]}>
+          <SeccionM key={g} titulo={`${ROTULO_GRUPO[g]} · ${todas.length}`}>
+            <ListaM etiqueta={ROTULO_GRUPO[g]}>
               {filas.map((p) => (
                 <FilaM
                   key={p.id}
                   titulo={<span className="m-operaciones-texto1">{p.texto}</span>}
-                  segunda={`${p.tomo ?? 'Sin tomar'} · ${hace(p.instante, ahora)}`}
+                  segunda={<span className="m-operaciones-texto1">{caminoM(p, ahora)}</span>}
                   pill={<PildoraM tono={TONO_PEDIDO[p.estado]}>{ROTULO_PEDIDO[p.estado]}</PildoraM>}
                   onClick={() => setAbierto(p.id)}
                 />
               ))}
               {filas.length < todas.length && (
-                <FilaM titulo={`Ver los ${todas.length} hechos`} onClick={() => setVerHechos(true)} />
+                <FilaM titulo={`Ver los ${todas.length} terminados`} onClick={() => setVerHechos(true)} />
               )}
             </ListaM>
           </SeccionM>
         );
       })}
       <p className="m-operaciones-nota">
-        {todos ? 'Todos los pedidos anotados.' : 'Últimos 14 días.'} Un pedido aparece cuando un chat lo anota.
+        {todos ? 'Todos tus pedidos anotados.' : 'Últimos 14 días.'} Un pedido aparece cuando un chat lo anota: lo que pediste y nadie anotó todavía no está, tampoco en «Sin empezar».
       </p>
       <SheetM abierto={!!elegido} onCerrar={() => setAbierto(null)} titulo="Pedido">
         {elegido && (
@@ -106,13 +117,22 @@ function PedidosM({ pedidos, todos, ahora }: { pedidos: PedidoP[]; todos: boolea
               ? <p className="m-operaciones-motivo">Ningún chat lo anotó como empezado todavía.</p>
               : (
                 <ol className="m-operaciones-pasos">
-                  {elegido.pasos.map((s, i) => (
+                  {elegido.pasos.map((st, i) => (
                     <li key={i}>
-                      <span className="m-operaciones-paso-quien">{`${s.chat} · ${ROTULO_TIPO[s.tipo] ?? s.tipo} · ${hace(s.instante, ahora)}`}</span>
-                      <span>{s.titulo}</span>
-                      {s.commits.map((c) => <code key={c.sha} className="m-operaciones-commit">{`${c.sha.slice(0, 9)} ${c.msg}`}</code>)}
+                      <span className="m-operaciones-paso-quien">{`${st.chat} · ${ROTULO_TIPO[st.tipo] ?? st.tipo} · ${hace(st.instante, ahora)}`}</span>
+                      <span>{st.titulo}</span>
+                      {st.commits.map((c) => {
+                        const push = pushDelCommit(c.sha, lista);
+                        return <code key={c.sha} className="m-operaciones-commit">{`${c.sha.slice(0, 9)} ${c.msg}${push ? ` · subió ${hace(push.creado, ahora)}` : ''}`}</code>;
+                      })}
                     </li>
                   ))}
+                  {elegido.estado === 'hecho' && (
+                    <li>
+                      <span className="m-operaciones-paso-quien">En producción</span>
+                      <span>Está en la versión publicada.</span>
+                    </li>
+                  )}
                 </ol>
               )}
           </div>
@@ -122,8 +142,9 @@ function PedidosM({ pedidos, todos, ahora }: { pedidos: PedidoP[]; todos: boolea
   );
 }
 
-function PushesM({ lectura, ahora }: { lectura: LecturaPushes; ahora: number }) {
+function PushesM({ lectura, pedidos, ahora }: { lectura: LecturaPushes; pedidos: PedidoP[]; ahora: number }) {
   const [abierto, setAbierto] = useState<string | null>(null);
+  const trae = useMemo(() => pedidosDeLosPushes(pedidos, lectura.ok ? lectura.pushes : []), [pedidos, lectura]);
   if (!lectura.ok) return <ErrorM frase={`No pude leer los pushes: ${lectura.motivo}`} />;
   if (!lectura.pushes.length) return <VacioM frase="Vercel no tiene pushes a producción." />;
   const elegido = lectura.pushes.find((p) => p.id === abierto) ?? null;
@@ -151,6 +172,9 @@ function PushesM({ lectura, ahora }: { lectura: LecturaPushes; ahora: number }) 
             </div>
             <p className="m-operaciones-texto">{elegido.mensaje}</p>
             {elegido.cuerpo && <p className="m-operaciones-texto m-operaciones-cuerpo">{elegido.cuerpo}</p>}
+            {(trae.get(elegido.id) ?? []).map((x) => (
+              <p key={x.id} className="m-operaciones-motivo">{`Trae tu pedido: ${x.texto.length > 160 ? `${x.texto.slice(0, 160)}…` : x.texto}`}</p>
+            ))}
           </div>
         )}
       </SheetM>
@@ -158,7 +182,7 @@ function PushesM({ lectura, ahora }: { lectura: LecturaPushes; ahora: number }) 
   );
 }
 
-const ETIQUETA: Record<PestanaCentro, string> = { curso: 'En curso', pedidos: 'Pedidos', pushes: 'Pushes', trabajos: 'Trabajos' };
+const ETIQUETA: Record<PestanaCentro, string> = { pedidos: 'Pedidos', pushes: 'Pushes', areas: 'Áreas', trabajos: 'Trabajos' };
 
 export function CentroMovilPestanas({ inicial, frentes, pedidos, pushes, todos, ahora, cola, carteros, hayToken }: {
   inicial: PestanaCentro;
@@ -174,10 +198,10 @@ export function CentroMovilPestanas({ inicial, frentes, pedidos, pushes, todos, 
 }) {
   const [tab, setTab] = useState<PestanaCentro>(inicial);
   const router = useRouter();
-  const pendientes = pedidos.filter((p) => p.estado === 'pendiente').length;
+  const abiertos = pedidos.filter((p) => p.estado !== 'hecho').length;
   const cambiar = (t: PestanaCentro) => {
     setTab(t);
-    router.replace(t === 'curso' ? '/m/operaciones' : `/m/operaciones?tab=${t}`, { scroll: false });
+    router.replace(t === 'pedidos' ? '/m/operaciones' : `/m/operaciones?tab=${t}`, { scroll: false });
   };
   return (
     <>
@@ -186,12 +210,12 @@ export function CentroMovilPestanas({ inicial, frentes, pedidos, pushes, todos, 
           etiqueta="Vista del Centro"
           valor={tab}
           onCambio={cambiar}
-          opciones={PESTANAS_CENTRO.map((id) => ({ id, label: ETIQUETA[id], n: id === 'pedidos' && pendientes ? pendientes : undefined }))}
+          opciones={PESTANAS_CENTRO.map((id) => ({ id, label: ETIQUETA[id], n: id === 'pedidos' && abiertos ? abiertos : undefined }))}
         />
       </div>
-      {tab === 'curso' && <EnCursoM frentes={frentes} ahora={ahora} />}
-      {tab === 'pedidos' && <PedidosM pedidos={pedidos} todos={todos} ahora={ahora} />}
-      {tab === 'pushes' && <PushesM lectura={pushes} ahora={ahora} />}
+      {tab === 'pedidos' && <PedidosM pedidos={pedidos} pushes={pushes} todos={todos} ahora={ahora} />}
+      {tab === 'pushes' && <PushesM lectura={pushes} pedidos={pedidos} ahora={ahora} />}
+      {tab === 'areas' && <EnCursoM frentes={frentes} ahora={ahora} />}
       {tab === 'trabajos' && (cola && carteros
         ? <CentroMovil pedidos={cola} carteros={carteros} hayToken={hayToken} ahora={ahora} />
         : <ErrorM frase="No pude leer la cola de trabajos." />)}

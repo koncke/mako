@@ -1,11 +1,12 @@
 'use client';
 
 // =============================================================================
-// El Centro de Operaciones en pestañas: En curso · Pedidos · Pushes · Trabajos (15/10/2026)
+// El Centro de Operaciones en pestañas: Pedidos · Pushes · Áreas · Trabajos (15/10/2026)
 // =============================================================================
 // Las vistas de GitHub Projects son pestañas arriba de la tabla; acá también. La pestaña viaja en
-// `?tab=` (leída en el server, escrita con el router de la casa, que conserva el `?ws=`). «En curso» es
-// la de entrada: es lo que Martín abre el Centro para ver («Sigo sin ver los pendientes»).
+// `?tab=` (leída en el server, escrita con el router de la casa, que conserva el `?ws=`). «Pedidos» es
+// la de entrada: «Lo que quiero ver allí es lo que te pedí, los pushes de lo terminado, los pendientes que
+// estamos trabajando ahora mismo, las cosas que ya están terminadas, empezadas, etc...» (Martín, 15/10).
 
 import { useState, useTransition } from 'react';
 import { useRouter } from '@/app/_ui/Link';
@@ -33,21 +34,22 @@ export function CentroPestanas({ inicial, frentes, pedidos, pushes, todos, hayCa
   const [tab, setTab] = useState<PestanaCentro>(inicial);
   const router = useRouter();
   const cambiar = (id: string) => {
-    const t = (PESTANAS_CENTRO as readonly string[]).includes(id) ? (id as PestanaCentro) : 'curso';
+    const t = (PESTANAS_CENTRO as readonly string[]).includes(id) ? (id as PestanaCentro) : 'pedidos';
     setTab(t);
-    router.replace(t === 'curso' ? '/admin/operaciones' : `/admin/operaciones?tab=${t}`, { scroll: false });
+    router.replace(t === 'pedidos' ? '/admin/operaciones' : `/admin/operaciones?tab=${t}`, { scroll: false });
   };
-  const pendientes = pedidos.filter((p) => p.estado === 'pendiente').length;
+  // El número de la pestaña: lo que todavía no está terminado (sin empezar y empezado).
+  const abiertos = pedidos.filter((p) => p.estado !== 'hecho').length;
   // «Sigo sin ver los pendientes y poder refrescar en el centro» (Martín, 15/10): en el teléfono se tira
   // hacia abajo; acá, el botón. Vuelve a leer bitácoras, Vercel y la cola sin perder la pestaña.
   const [actualizando, empezar] = useTransition();
-  const hora = new Date(ahora).toLocaleTimeString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', hour: '2-digit', minute: '2-digit' });
+  const hora = new Date(ahora).toLocaleTimeString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
 
   return (
     <>
       <PageHeader
         titulo="Centro de Operaciones"
-        proposito="En qué andan los chats, tus pedidos y lo que se subió."
+        proposito="Tus pedidos: qué está sin empezar, qué se está trabajando y qué ya está en producción."
         accion={(
           <div className="prog-actualizar">
             <span className="prog-meta">{`Al día a las ${hora}`}</span>
@@ -57,9 +59,9 @@ export function CentroPestanas({ inicial, frentes, pedidos, pushes, todos, hayCa
       />
       <Tabs
         tabs={[
-          { id: 'curso', label: 'En curso' },
-          { id: 'pedidos', label: 'Pedidos', badge: pendientes || undefined },
+          { id: 'pedidos', label: 'Pedidos', badge: abiertos || undefined },
           { id: 'pushes', label: 'Pushes' },
+          { id: 'areas', label: 'Áreas' },
           { id: 'trabajos', label: 'Trabajos' },
         ]}
         activa={tab}

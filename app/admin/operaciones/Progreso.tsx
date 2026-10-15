@@ -1,7 +1,7 @@
 'use client';
 
 // =============================================================================
-// Progreso — En curso · Pedidos · Pushes, en la computadora (15/10/2026)
+// Progreso — Pedidos · Pushes · Áreas, en la computadora (15/10/2026)
 // =============================================================================
 // Copiado de la vista de TABLA de GitHub Projects (filas agrupadas por estado, con su cuenta y
 // plegables; capturada de su guía oficial el 15/10), la lista de deployments de Vercel para los pushes
@@ -13,17 +13,17 @@
 // las columnas que menos dicen (`.prog-opc`), nunca el estado.
 // ⚠️ El color va en el PUNTO, nunca en el texto.
 
-import { Fragment, useState, type KeyboardEvent } from 'react';
+import { Fragment, useMemo, useState, type KeyboardEvent } from 'react';
 import Link from '@/app/_ui/Link';
 import { ErrorState } from '@/app/_ui';
 import {
-  ROTULO_PEDIDO, ROTULO_PUSH, ROTULO_TIPO, duracion, hace, type EstadoPedidoP, type EstadoPush, type Frente,
-  type PedidoP, type PushP,
+  GRUPOS_PEDIDO, ROTULO_GRUPO, ROTULO_PUSH, ROTULO_TIPO, duracion, grupoPedido, hace, pedidosDeLosPushes, pushDelCommit,
+  type EstadoPedidoP, type EstadoPush, type Frente, type GrupoPedido, type PedidoP, type PushP,
 } from '@/lib/progreso-reglas';
 import type { LecturaPushes } from '@/lib/progreso';
 import './progreso.css';
 
-export type VistaProgreso = 'curso' | 'pedidos' | 'pushes';
+export type VistaProgreso = 'pedidos' | 'pushes' | 'areas';
 
 type Tono = 'good' | 'bad' | 'warn' | 'info' | 'neutro';
 const TONO_PEDIDO: Record<EstadoPedidoP, Tono> = { pendiente: 'warn', en_curso: 'info', hecho: 'good' };
@@ -72,7 +72,7 @@ function EnCurso({ frentes, hayCartero, ahora }: { frentes: Frente[]; hayCartero
       {!frentes.length ? <p className="prog-vacio">Nada se movió en las últimas 48 h.</p> : (
         <div className="prog-caja">
           <table className="prog-tabla">
-            <thead><tr><th style={{ width: '20%' }}>Área</th><th style={{ width: '17%' }}>Chat</th><th>Último movimiento</th><th className="prog-opc" style={{ width: '11%' }}>Pendientes</th><th style={{ width: '11%' }}>Hace</th></tr></thead>
+            <thead><tr><th style={{ width: '20%' }}>Área</th><th style={{ width: '17%' }}>Chat</th><th>Último movimiento</th><th className="prog-opc" style={{ width: '11%' }}>Sin empezar</th><th style={{ width: '11%' }}>Hace</th></tr></thead>
             <tbody>
               {grupos.map(({ g, filas }) => (
                 <Fragment key={g}>
@@ -98,7 +98,30 @@ function EnCurso({ frentes, hayCartero, ahora }: { frentes: Frente[]; hayCartero
 }
 
 // ── Pedidos ───────────────────────────────────────────────────────────────────────────────────
-function DetallePedido({ p, ahora }: { p: PedidoP; ahora: number }) {
+/** El camino de un pedido en la fila, sin abrir nada: anotado → lo tomó un chat → en producción. Como el
+ *  grafo de un run de GitHub Actions, en chico: un punto por etapa, lleno si ya pasó. */
+function Camino({ p, ahora }: { p: PedidoP; ahora: number }) {
+  const tomado = p.pasos.length > 0;
+  const listo = p.estado === 'hecho';
+  const ultimo = p.pasos[p.pasos.length - 1];
+  const texto = listo
+    ? 'En producción'
+    : tomado ? `${ROTULO_TIPO[ultimo.tipo] ?? ultimo.tipo} · ${hace(p.ultimo, ahora)}` : 'Nadie lo tomó';
+  return (
+    <span className="prog-camino" aria-label={`Anotado${tomado ? ', tomado' : ''}${listo ? ', en producción' : ''}`}>
+      <span className="prog-camino__etapas" aria-hidden>
+        <i className="prog-camino__punto prog-camino__punto--si" />
+        <i className={`prog-camino__tramo${tomado ? ' prog-camino__tramo--si' : ''}`} />
+        <i className={`prog-camino__punto${tomado ? ' prog-camino__punto--si' : ''}`} />
+        <i className={`prog-camino__tramo${listo ? ' prog-camino__tramo--si' : ''}`} />
+        <i className={`prog-camino__punto${listo ? ' prog-camino__punto--listo' : ''}`} />
+      </span>
+      <span className="prog-camino__texto">{texto}</span>
+    </span>
+  );
+}
+
+function DetallePedido({ p, pushes, ahora }: { p: PedidoP; pushes: readonly PushP[]; ahora: number }) {
   return (
     <div className="prog-actividad">
       <div className="prog-paso">
@@ -106,54 +129,63 @@ function DetallePedido({ p, ahora }: { p: PedidoP; ahora: number }) {
         <p className="prog-texto">{p.texto}</p>
         {p.junto > 0 && <p className="prog-meta">{`Anotado junto con ${p.junto} ${p.junto === 1 ? 'pedido más' : 'pedidos más'}: lo que sigue responde a todos.`}</p>}
       </div>
-      {p.pasos.length === 0 &&<div className="prog-paso"><Punto tono="neutro" /><span className="prog-meta">Ningún chat lo anotó como empezado todavía.</span></div>}
+      {p.pasos.length === 0 && <div className="prog-paso"><Punto tono="neutro" /><span className="prog-meta">Ningún chat lo anotó como empezado todavía.</span></div>}
       {p.pasos.map((s, i) => (
         <div key={i} className="prog-paso">
           <Punto tono={TONO_TIPO[s.tipo] ?? 'neutro'} /><strong>{s.chat}</strong>
           <span className="prog-meta">{ROTULO_TIPO[s.tipo] ?? s.tipo} · {hace(s.instante, ahora)}</span>
           <p className="prog-texto">{s.titulo}</p>
-          {s.commits.map((c) => (
-            <p key={c.sha} className="prog-commit"><code>{c.sha.slice(0, 9)}</code> {c.msg}</p>
-          ))}
+          {s.commits.map((c) => {
+            const push = pushDelCommit(c.sha, pushes);
+            return (
+              <p key={c.sha} className="prog-commit"><code>{c.sha.slice(0, 9)}</code> {c.msg}{push && <span className="prog-meta">{`subió ${hace(push.creado, ahora)}`}</span>}</p>
+            );
+          })}
         </div>
       ))}
+      {p.estado === 'hecho' && (
+        <div className="prog-paso">
+          <Punto tono="good" /><strong>En producción</strong>
+          <span className="prog-meta">está en la versión publicada</span>
+        </div>
+      )}
     </div>
   );
 }
 
-function Pedidos({ pedidos, todos, ahora }: { pedidos: PedidoP[]; todos: boolean; ahora: number }) {
-  const [cerrados, setCerrados] = useState<Set<EstadoPedidoP>>(new Set(['hecho']));
+function Pedidos({ pedidos, pushes, todos, ahora }: { pedidos: PedidoP[]; pushes: LecturaPushes; todos: boolean; ahora: number }) {
+  const [cerrados, setCerrados] = useState<Set<GrupoPedido>>(new Set(['terminado']));
   const [abierto, setAbierto] = useState<string | null>(null);
-  const orden: EstadoPedidoP[] = ['pendiente', 'en_curso', 'hecho'];
+  const lista = pushes.ok ? pushes.pushes : [];
   return (
     <>
       <p className="prog-nota">
-        {todos ? 'Todos los pedidos anotados.' : 'Últimos 14 días.'} Un pedido aparece cuando un chat lo anota en su bitácora.{' '}
-        <Link href={todos ? '/admin/operaciones?tab=pedidos' : '/admin/operaciones?tab=pedidos&todos=1'} className="prog-link">{todos ? 'Ver 14 días' : 'Ver todos'}</Link>
+        {todos ? 'Todos tus pedidos anotados.' : 'Tus pedidos de los últimos 14 días.'} Aparecen cuando un chat los anota en su bitácora: lo que pediste y nadie anotó todavía no está, tampoco en «Sin empezar».{' '}
+        <Link href={todos ? '/admin/operaciones' : '/admin/operaciones?todos=1'} className="prog-link">{todos ? 'Ver 14 días' : 'Ver todos'}</Link>
       </p>
       {!pedidos.length ? <p className="prog-vacio">Ningún pedido anotado en estos días.</p> : (
         <div className="prog-caja">
           <table className="prog-tabla">
-            <thead><tr><th>Pedido</th><th className="prog-opc" style={{ width: '17%' }}>Área</th><th style={{ width: '17%' }}>Lo tomó</th><th className="prog-opc" style={{ width: '9%' }}>Commits</th><th style={{ width: '11%' }}>Hace</th></tr></thead>
+            <thead><tr><th>Pedido</th><th style={{ width: '30%' }}>Camino</th><th className="prog-opc" style={{ width: '17%' }}>Lo tomó</th><th style={{ width: '11%' }}>Pedido hace</th></tr></thead>
             <tbody>
-              {orden.map((e) => {
-                const filas = pedidos.filter((p) => p.estado === e);
+              {GRUPOS_PEDIDO.map((g) => {
+                const filas = pedidos.filter((p) => grupoPedido(p, ahora) === g);
                 if (!filas.length) return null;
-                const plegado = cerrados.has(e);
+                if (g === 'ahora' || g === 'empezado') filas.sort((a, b) => b.ultimo - a.ultimo);
+                const plegado = cerrados.has(g);
                 return (
-                  <Fragment key={e}>
-                    <Grupo titulo={ROTULO_PEDIDO[e]} n={filas.length} columnas={5} abierto={!plegado}
-                      onToggle={() => setCerrados((s) => { const n = new Set(s); if (n.has(e)) n.delete(e); else n.add(e); return n; })} />
+                  <Fragment key={g}>
+                    <Grupo titulo={ROTULO_GRUPO[g]} n={filas.length} columnas={4} abierto={!plegado}
+                      onToggle={() => setCerrados((s) => { const n = new Set(s); if (n.has(g)) n.delete(g); else n.add(g); return n; })} />
                     {!plegado && filas.map((p) => (
                       <Fragment key={p.id}>
                         <tr className="prog-fila" {...abre(() => setAbierto(abierto === p.id ? null : p.id), abierto === p.id)}>
                           <td title={p.texto}><Punto tono={TONO_PEDIDO[p.estado]} />{p.texto}</td>
-                          <td className="prog-opc" title={p.areas.join(', ')}>{p.areas.join(', ')}</td>
-                          <td title={p.tomo ?? ''}>{p.tomo ?? '—'}</td>
-                          <td className="prog-opc prog-num">{p.commits.length || '—'}</td>
+                          <td><Camino p={p} ahora={ahora} /></td>
+                          <td className="prog-opc" title={p.tomo ?? ''}>{p.tomo ?? '—'}</td>
                           <td className="prog-num">{hace(p.instante, ahora)}</td>
                         </tr>
-                        {abierto === p.id && <tr className="prog-detalle"><td colSpan={5}><DetallePedido p={p} ahora={ahora} /></td></tr>}
+                        {abierto === p.id && <tr className="prog-detalle"><td colSpan={4}><DetallePedido p={p} pushes={lista} ahora={ahora} /></td></tr>}
                       </Fragment>
                     ))}
                   </Fragment>
@@ -168,8 +200,9 @@ function Pedidos({ pedidos, todos, ahora }: { pedidos: PedidoP[]; todos: boolean
 }
 
 // ── Pushes ────────────────────────────────────────────────────────────────────────────────────
-function Pushes({ lectura, ahora }: { lectura: LecturaPushes; ahora: number }) {
+function Pushes({ lectura, pedidos, ahora }: { lectura: LecturaPushes; pedidos: PedidoP[]; ahora: number }) {
   const [abierto, setAbierto] = useState<string | null>(null);
+  const trae = useMemo(() => pedidosDeLosPushes(pedidos, lectura.ok ? lectura.pushes : []), [pedidos, lectura]);
   if (!lectura.ok) return <ErrorState titulo="No pude leer los pushes" detalle={lectura.motivo} />;
   const ps = lectura.pushes;
   return (
@@ -192,6 +225,9 @@ function Pushes({ lectura, ahora }: { lectura: LecturaPushes; ahora: number }) {
                   {abierto === p.id && (
                     <tr className="prog-detalle"><td colSpan={5}>
                       <p className="prog-texto">{p.cuerpo || 'El commit no trae más que el título.'}</p>
+                      {(trae.get(p.id) ?? []).map((x) => (
+                        <p key={x.id} className="prog-commit"><Punto tono="good" />Trae tu pedido: {x.texto.length > 160 ? `${x.texto.slice(0, 160)}…` : x.texto}</p>
+                      ))}
                     </td></tr>
                   )}
                 </Fragment>
@@ -213,7 +249,7 @@ export function Progreso({ vista, frentes, pedidos, pushes, todos, hayCartero, a
   hayCartero: boolean;
   ahora: number;
 }) {
-  if (vista === 'curso') return <EnCurso frentes={frentes} hayCartero={hayCartero} ahora={ahora} />;
-  if (vista === 'pedidos') return <Pedidos pedidos={pedidos} todos={todos} ahora={ahora} />;
-  return <Pushes lectura={pushes} ahora={ahora} />;
+  if (vista === 'areas') return <EnCurso frentes={frentes} hayCartero={hayCartero} ahora={ahora} />;
+  if (vista === 'pedidos') return <Pedidos pedidos={pedidos} pushes={pushes} todos={todos} ahora={ahora} />;
+  return <Pushes lectura={pushes} pedidos={pedidos} ahora={ahora} />;
 }

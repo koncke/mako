@@ -245,9 +245,59 @@ sin la implementación como cierre: 6 y 1).
 **Refrescar:** en el teléfono, tirar hacia abajo (la pantalla está dentro de `PantallaM`); en la
 computadora, «Actualizar» en el encabezado, con la hora del dato, sin perder la pestaña (`router.refresh`).
 
+**La unidad es el PEDIDO (15/10, segunda vuelta).** Martín: «Lo que quiero ver allí es lo que te pedí, los
+pushes de lo terminado, los pendientes que estamos trabajando ahora mismo, las cosas que ya están
+terminadas, empezadas, etc...». Tres listas sueltas (En curso · Pedidos · Pushes) lo obligaban a cruzarlas a
+mano. Ahora Pedidos es la pestaña de entrada, en cuatro grupos (Trabajando ahora = empezado y movido en 48 h ·
+Sin empezar · Empezado, sin movimiento · Terminado), y cada fila muestra su CAMINO (anotado → lo tomó un chat
+→ en producción) sin abrir nada. «En curso» por área quedó como pestaña «Áreas».
+
+**«Terminado» es «en producción», y eso sí es exacto:** la pantalla lee la bitácora de la versión
+PUBLICADA, así que todo lo que ve ya está subido. Lo que NO es exacto es **en qué push** llegó cada uno, y
+los dos diagnósticos obvios están mal, medidos contra git:
+- **Por la hora** («el primer push después de que se anotó»): sobre 202 pedidos con commit, **acertó 110 y
+  erró 92**. El commit sale en el push de otro chat, o espera al del coordinador.
+- **Por la punta exacta del ÚLTIMO commit** (el que lo termina): **0 de 88** en tres días. Una primera versión
+  aceptaba CUALQUIER commit del pedido y unía 7, pero nombraba el push de un commit de 21 horas antes para un
+  pedido terminado hace 3: lo daba por subido un día antes. El último commit anotado casi nunca encabeza un
+  push (va con la cosecha, o adentro de un merge).
+
+Lo único exacto sin git es el commit que ENCABEZA un push: en el detalle de un pedido, ese commit dice «subió
+hace X», y en la pestaña Pushes ese push dice qué pedido trae (`pushDelCommit` y `pedidosDeLosPushes` en
+lib/progreso-reglas.ts). La fila dice «En producción» y no nombra un push. Unir cada pedido con su push
+necesita preguntarle a GitHub si el commit es ancestro del deploy (`compare`), y eso espera al token.
+
+**«Trabajando ahora» es lo ANOTADO.** Sin el cartero corriendo, lo que un chat hace en este minuto y todavía
+no escribió (commits sin subir, una rama viva) no se ve; la pantalla lo dice, igual que dice que un pedido
+que nadie anotó no está en «Sin empezar».
+
 **Vive en:** `lib/progreso-reglas.ts` (las reglas, puras) · `lib/progreso.ts` (las lecturas) ·
 `app/admin/operaciones/{CentroPestanas,Progreso}.tsx` · `app/m/operaciones/ProgresoMovil.tsx` ·
 `tests/progreso.test.ts`
+
+## El cartero instalado: lo que falta para que entregue solo, y una tarjeta que no le llega a nadie (15/10/2026)
+
+Martín acuñó el token y el cartero de claude1 quedó instalado en la PC (`instalar`, `token`, `cartero
+claude1 app ~/.claude`, `carpeta 68eda2ab… claude1`). La primera vuelta, a mano, contra producción: vio 53
+chats de la cuenta, 2 abiertos, y no tenía nada que entregar.
+
+- **Instalado no es entregando.** Las vueltas las corre un chat «Cartero» con su cron, y ese chat no existe:
+  lo abre Martín (un chat no puede crear otra sesión). Sin él, la hora del cartero envejece y el Centro lo
+  muestra inactivo. Y sin ninguna clave de firma cargada en la PC (`clave <SPKI>`), un trabajo firmado se
+  rechaza; los avisos de la Ticketera no la necesitan.
+- **Con el chat cerrado, el aviso espera; no se pierde ni hace loop.** El servidor reclama un aviso sólo si
+  el cartero reportó ESE chat abierto en la misma vuelta (`if (!mio?.vivo) continue` en lib/operaciones.ts),
+  así que no gasta intentos. Si se cierra entre la consulta y la entrega, vuelve como «no entregado» y se
+  reintenta, hasta `AVISO_MAX_INTENTOS`. Leído en el código y confirmado con una vuelta real; una entrega
+  real todavía no se probó (no había ninguna respuesta con su chat abierto).
+- **El diagnóstico obvio era el equivocado, y casi se persigue un error que no existía.** «Martín contestó
+  plan-50-tareas-cargar y no llegó» parecía la Ticketera sin guardar: `respuesta` era null y la última
+  respuesta guardada de cualquier tarjeta era de las 05:37. La tarjeta simplemente no estaba contestada (lo
+  confirmó el coordinador). Antes de culpar al guardado, se mira si hay respuesta y desde cuándo.
+- **Pero esa tarjeta, contestada, no le llegaría a nadie:** se publicó con el chat «Plan» y sin `destino`, y
+  ningún chat se llama «Plan» (son «Plan - Perro Guardián»). `destinoDeDecision` no adivina por parecido.
+  Toda tarjeta se publica con el `destino` de la sesión que pregunta; sin él, el nombre tiene que ser el
+  título EXACTO del chat.
 
 ## Lo que creí medido y no estaba al día
 
@@ -259,21 +309,20 @@ computadora, «Actualizar» en el encabezado, con la hora del dato, sin perder l
 
 ## Lo que quedó sin hacer
 
-- **Que el aviso de la Ticketera ande de verdad necesita instalar el cartero**: el token (lo crea Martín
-  en /admin/operaciones con su 2FA), `cartero claude1 app ~/.claude` y `carpeta 68eda2ab-… claude1`, y un
-  chat «Cartero» con un cron que corra `ciclo`, mande lo de `pendientes` y anote `acuse`. Los avisos no
-  necesitan la clave del dispositivo.
+- **El chat «Cartero» con su cron** (el cartero de claude1 ya está instalado desde el 15/10): lo abre Martín,
+  y corre `ciclo`, manda lo de `pendientes` y anota `acuse`. Hasta entonces nada se entrega solo. Y una
+  clave de firma por dispositivo (`clave <SPKI>`) para que los trabajos firmados salgan.
 - **La Ticketera no muestra si el aviso llegó**: el dato está (`aviso_estado`), la pantalla no lo dibuja.
 - **Fase 2 del aviso**: firmar la respuesta al contestar, para que el aviso la lleve adentro.
 - **Implementar el rediseño** de `docs/prototipos/centro-operaciones.html` en la pestaña Trabajos
   (`app/admin/operaciones/CentroOperaciones.tsx`): APROBADO el 15/10, sin hacer. La lógica de firma, las
   acciones y el cartero no cambian; cambia la pantalla.
 - **Progreso con lo que está en la PC**: los chats abiertos y lo escrito sin subir llegan con el cartero
-  (sube sus chats en cada vuelta); hoy En curso y Pedidos sólo ven lo desplegado.
+  (sube sus chats en cada vuelta); hoy Pedidos y Áreas sólo ven lo desplegado.
+- **El push de cada pedido terminado**: con el token de GitHub, `compare/<commit>...<deploy>` los une a todos;
+  hoy la fila dice «En producción» sin nombrarlo (por la hora acertaba 110 de 202; por la punta, 0 de 88).
 - **El token de GitHub de la plataforma (404 desde la transferencia)**: sin él no hay commits por push, y
   hay que medir si el cierre por commits del Plan (`lib/cerrar-por-commits.ts`) está mudo.
-- **Instalar el cartero de verdad** (`instalar`, el token, las claves, `cartero claude1 app ~/.claude`
-  y las carpetas) y abrir el chat «Cartero» con su cron: va después del deploy, contra producción.
 - **Las cuentas de terminal**: el `/login` de cada una (lo hace Martín), su marcador por directorio y
   sus hooks, y un chat Cartero en cada una. Hasta entonces, sólo entrega el cartero de la app.
 - **La opción C** (un hook con `asyncRewake` en la carpeta del Cartero, que lo despierta sin gastar
