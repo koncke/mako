@@ -330,3 +330,11 @@ completo). Después, `vercel ls` y verlo en producción.
 3. El camino del Pixel conserva `window.opener` (una landing declarada del negocio): ¿se acepta?
 4. Comentar como MaKo por la API: un autor «MaKo» que un admin pueda borrar (sin eso no hay `comentar_landing`).
 5. Los diseños con animaciones esperan `landing-anim-panel` y `landing-anim-default` (Ticketera).
+
+**Decisiones que Martín YA contestó (15/10/2026, textuales vía Estrategia; no se re-preguntan):**
+- `landing-video-fondo` → «B · Sólo generado por MaKo, cuando el puente pueda»: no hay camino de «el cliente sube su
+  video»; la función aparece cuando el puente a Flow la pueda cumplir, y hasta entonces no se ofrece.
+- `landing-video-modelo` → «Eso lo elige el usuario»: el modelo de Flow es un control del cliente.
+- `landing-subdominio` → «A · Seguir como están, ya funcionando»: lo publicado se queda en `hola-mako.site/<slug>`.
+- Y la regla nueva de AGENTS.md (`272b7e038`): ninguna pantalla se diseña de cero; se copia de una app que ya lo
+  resolvió, abriendo la fuente de verdad y nombrándola en el commit.
