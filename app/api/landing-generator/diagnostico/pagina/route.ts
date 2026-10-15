@@ -29,15 +29,25 @@
 // lib/editor-landing/lector-pagina.ts, con test). La misma puerta; en vez de `Sec-Fetch-Dest: iframe`, la
 // guarda es que la navegación la inicie una página de MaKo (`pedidoDeLector`), y la política `sandbox`
 // la pone igual next.config.ts (el bloque de esta ruta no mira el query).
+//
+// LA FIRMA (verificación de la tanda 6, seguridad): esas cabeceras las cumple CUALQUIER link adentro de
+// MaKo, y un href que controle otro (un dato de un lead) mostraba una página cualquiera bajo nuestro
+// dominio. Ahora la pantalla le pide al POST de esta ruta una firma para ESE id y ESA URL (atada al usuario
+// y al negocio, 2 minutos: lib/editor-landing/lector-firma.ts), y el GET no sirve nada sin ella. Y el camino
+// del Pixel (la página real, que conserva el `opener`) sólo para una landing DECLARADA del negocio con SU
+// token (`paginasPropias`): si no, la ventana aislada.
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
-import { getCapaActual, getRolWsEfectivo } from '@/lib/workspace';
+import { getCapaActual, getRolWsEfectivo, getWorkspaceActual } from '@/lib/workspace';
+import { getUsuarioActual } from '@/lib/auth';
 import { tabEnCapa } from '@/lib/capas';
 import { htmlDePagina } from '@/lib/landing-fetch';
 import { CABECERAS_PAGINA_DIAGNOSTICO, responderPaginaDiagnostico } from '@/lib/editor-landing/diagnostico';
-import { PARAM_CAMINO, PARAM_LECTOR, responderPaginaLector } from '@/lib/editor-landing/lector-pagina';
-import { bajarModulo } from '@/lib/editor-landing/lector-server';
+import { PARAM_CAMINO, PARAM_FIRMA, PARAM_LECTOR, responderPaginaLector } from '@/lib/editor-landing/lector-pagina';
+import { bajarModulo, paginasPropias } from '@/lib/editor-landing/lector-server';
+import { firmaLecturaValida, firmarLectura } from '@/lib/editor-landing/lector-firma';
+import { urlParaReplicar } from '@/lib/editor-landing/replicar-reglas';
 import { SNIPPET_VERSION } from '@/lib/landing-token';
 
 export const dynamic = 'force-dynamic';
@@ -47,6 +57,14 @@ export const maxDuration = 60;
 const texto = (status: number, t: string) =>
   new Response(t, { status, headers: { ...CABECERAS_PAGINA_DIAGNOSTICO, 'Content-Type': 'text/plain; charset=utf-8' } });
 
+/** A quién se ata la firma de una lectura: el negocio y el usuario de la sesión (null si falta alguno). */
+async function firmante(): Promise<{ ws: number; usuario: string } | null> {
+  const [ws, u] = await Promise.all([getWorkspaceActual(), getUsuarioActual()]);
+  // El id y el email: una sesión sin fila tiene `sub` 'password' o 'legacy', compartido entre personas.
+  const usuario = u && (u.sub || u.email) ? `${u.sub ?? ''}|${u.email ?? ''}` : '';
+  return ws && usuario ? { ws, usuario } : null;
+}
+
 export async function GET(req: NextRequest) {
   const rol = await getRolWsEfectivo();
   if (rol == null) return texto(401, 'no autenticado');
@@ -54,15 +72,38 @@ export async function GET(req: NextRequest) {
   if (!tabEnCapa('landing-writer', await getCapaActual())) return texto(404, 'No existe');
   const q = req.nextUrl.searchParams;
   if (q.has(PARAM_LECTOR)) {
-    return responderPaginaLector(req, { url: q.get('url'), id: q.get(PARAM_LECTOR), camino: q.get(PARAM_CAMINO) }, {
+    const quien = await firmante();
+    return responderPaginaLector(req, { url: q.get('url'), id: q.get(PARAM_LECTOR), camino: q.get(PARAM_CAMINO), firma: q.get(PARAM_FIRMA) }, {
       // TAL CUAL la pegó la persona (con su www y su query): hay hosts que sólo existen así.
       bajar: (url) => htmlDePagina(url, { talCual: true }),
       bajarModulo,
       actual: SNIPPET_VERSION,
       origen: req.nextUrl.origin,
+      firmaValida: (url, id, firma) => !!quien && firmaLecturaValida(firma, { id, url, ...quien }, Date.now()),
+      propias: paginasPropias,
     });
   }
   // La vista previa también baja la URL TAL CUAL la pegó la persona (tanda 6): normalizada pierde el www y el
   // query, y hay hosts que sólo existen con www. El panel le pasa la pegada (PanelDiagnostico.tsx, `urlPegada`).
   return responderPaginaDiagnostico(req, q.get('url'), { bajar: (url) => htmlDePagina(url, { talCual: true }) });
+}
+
+/**
+ * La FIRMA de una lectura (verificación de la tanda 6): la pide la pantalla con la ventana ya abierta
+ * (lector-navegador.ts), con `{ url, lector }`, y la pone en la dirección a la que navega. La misma puerta
+ * que el GET; sólo desde una página de MaKo (fetch same-origin: un formulario de otro sitio no lee la respuesta).
+ */
+export async function POST(req: NextRequest) {
+  const rol = await getRolWsEfectivo();
+  if (rol == null) return Response.json({ ok: false, error: 'no autenticado' }, { status: 401 });
+  if (rol !== 'admin') return Response.json({ ok: false, error: 'Sólo el admin de la cuenta' }, { status: 403 });
+  if (!tabEnCapa('landing-writer', await getCapaActual())) return Response.json({ ok: false, error: 'No existe' }, { status: 404 });
+  if ((req.headers.get('sec-fetch-site') ?? 'same-origin') !== 'same-origin') return Response.json({ ok: false, error: 'Sólo desde MaKo' }, { status: 403 });
+  const body = (await req.json().catch(() => null)) as { url?: unknown; lector?: unknown } | null;
+  const url = urlParaReplicar(body?.url);
+  const id = typeof body?.lector === 'string' ? body.lector : '';
+  const quien = await firmante();
+  const firma = url && quien ? firmarLectura({ id, url, ...quien }, Date.now()) : null;
+  if (!firma) return Response.json({ ok: false, error: 'No pude preparar la lectura' }, { status: 400 });
+  return Response.json({ ok: true, firma }, { headers: { 'Cache-Control': 'no-store' } });
 }

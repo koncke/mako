@@ -25,14 +25,15 @@
 
 import { CABECERAS_PAGINA_DIAGNOSTICO, sinPixelDeMako } from './diagnostico';
 import { baseDeDocumento, sinRastreadores, urlParaReplicar } from './replicar-reglas';
+import { pideContrasena } from './html-libre';
 import { versionEnHtml } from '../pixel-aviso';
 import {
-  PARAM_CAMINO, PARAM_LECTOR, TIPO_MENSAJE_LECTURA, TOPES_LECTOR, VERSION_PIXEL_LECTOR,
+  PARAM_CAMINO, PARAM_FIRMA, PARAM_LECTOR, TIPO_MENSAJE_LECTURA, TOPES_LECTOR, VERSION_PIXEL_LECTOR,
   caminoPedidoValido, idLecturaValido, urlConLectura, type CaminoPedido,
 } from './lector';
 import { literalJs, origenValido, scriptLector, scriptPreludio } from './lector-script';
 
-export { PARAM_CAMINO, PARAM_LECTOR };
+export { PARAM_CAMINO, PARAM_FIRMA, PARAM_LECTOR };
 
 /** Cuántos módulos se bajan para ir en línea, y cuánto pesan como mucho entre todos. */
 export const TOPES_MODULOS = { cantidad: 3, bytes: 6_000_000 } as const;
@@ -55,6 +56,30 @@ export function pedidoDeLector(req: Request): boolean {
  */
 export function tienePixelConLector(html: string | null | undefined, actual: number): boolean {
   return (versionEnHtml(html, actual) ?? 0) >= VERSION_PIXEL_LECTOR;
+}
+
+/** Lo que el negocio de la sesión tiene como PROPIO: su token del Pixel y las landings que declaró. */
+export type PaginasPropias = { token: string | null; declaradas: readonly string[] };
+
+const hostSinWww = (u: string): string | null => {
+  try { return new URL(u).hostname.toLowerCase().replace(/^www\./, ''); } catch { return null; }
+};
+
+/**
+ * ¿Se puede abrir la página REAL (el camino del Pixel)? Verificación de la tanda 6 (seguridad, reverse
+ * tabnabbing): ese camino abre la página de afuera SIN sandbox en la ventana que abrió MaKo, que conserva
+ * `window.opener` a propósito (el lector le contesta por `postMessage`), y la página puede hacer
+ * `opener.location = '<phishing>'`. Antes bastaba con que el HTML TRAJERA EL TEXTO del snippet (`/api/track/vsl`
+ * + `var SV = 24;`, o la línea de `/m.js`): cualquier página lo podía escribir. Ahora tiene que ser una del
+ * NEGOCIO: su host entre las landings que el admin declaró (Integraciones; las «detectadas» no, las
+ * escribe un endpoint público) y, si se bajó, con el Pixel con lector y el token de ESTE negocio. En
+ * cualquier otro caso, la ventana aislada (sandbox: no puede navegar a su opener).
+ */
+export function vaALaPaginaReal(url: string, crudo: string | null, actual: number, propias: PaginasPropias): boolean {
+  const host = hostSinWww(url);
+  if (!host || !propias.declaradas.some((d) => hostSinWww(d) === host)) return false;
+  if (crudo == null) return true;
+  return !!propias.token && tienePixelConLector(crudo, actual) && crudo.includes(propias.token);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -176,7 +201,7 @@ export function documentoErrorLector(mensaje: string, id: string, origenMako: st
 // La respuesta
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type PedidoLector = { url: string | null; id: string | null; camino: string | null };
+export type PedidoLector = { url: string | null; id: string | null; camino: string | null; firma?: string | null };
 
 export type DepLector = {
   /** El HTML de la página, con las barandas de siempre (`htmlDePagina`). Tira si no se pudo. */
@@ -187,6 +212,10 @@ export type DepLector = {
   actual: number;
   /** El origen de MaKo que contesta (el `targetOrigin` del lector). */
   origen: string;
+  /** ¿La firma es del server, para ESE id y ESA URL, de este usuario y vigente? (lector-firma.ts, la pone la ruta). */
+  firmaValida: (url: string, id: string, firma: string | null) => boolean;
+  /** El token del Pixel y las landings declaradas del negocio (`vaALaPaginaReal`). Se pide sólo si hace falta. */
+  propias: () => Promise<PaginasPropias>;
 };
 
 const texto = (status: number, t: string): Response =>
@@ -206,9 +235,11 @@ function aLaPaginaReal(url: string, id: string): Response {
  * puerta de la ruta: admin + la tab en su capa):
  *   · no es la ventana que abrió MaKo (`pedidoDeLector`) → 403 sin bajar nada;
  *   · id, URL o camino sin forma → 404;
- *   · `camino=pixel` → 303 a la página real (sin bajarla: la pantalla ya sabe que tiene el Pixel);
+ *   · sin la firma del server para ESA lectura (`firmaValida`, lector-firma.ts) → 403 sin bajar nada;
+ *   · `camino=pixel` → 303 a la página real sin bajarla, sólo si es una landing declarada del negocio;
  *   · no se pudo bajar → 200 con el documento de error (le avisa a MaKo);
- *   · la página trae el Pixel con lector y no se pidió `ventana` → 303 a la página real;
+ *   · la página trae el Pixel con lector, es del negocio (`vaALaPaginaReal`) y no se pidió `ventana` → 303;
+ *   · pide una contraseña → 200 con el documento de error (no se sirve un login bajo nuestro dominio);
  *   · si no → 200 con la página aislada y el lector (`documentoLector`).
  */
 export async function responderPaginaLector(req: Request, p: PedidoLector, dep: DepLector): Promise<Response> {
@@ -218,14 +249,25 @@ export async function responderPaginaLector(req: Request, p: PedidoLector, dep: 
   const camino: CaminoPedido | null = p.camino == null || p.camino === '' ? 'auto' : caminoPedidoValido(p.camino) ? p.camino : null;
   const origen = origenValido(dep.origen);
   if (!idLecturaValido(id) || !url || !camino || !origen) return texto(404, 'No existe');
-  if (camino === 'pixel') return aLaPaginaReal(url, id);
+  // Una lectura que el server no firmó (verificación de la tanda 6): nada se baja ni se sirve.
+  if (!dep.firmaValida(url, id, p.firma ?? null)) return texto(403, 'Sólo desde MaKo');
+  // El Pixel sólo en una página del NEGOCIO (`vaALaPaginaReal`): si no, la ventana aislada.
+  if (camino === 'pixel') {
+    if (vaALaPaginaReal(url, null, dep.actual, await dep.propias())) return aLaPaginaReal(url, id);
+    return texto(404, 'No existe');
+  }
   let crudo: string;
   try {
     crudo = await dep.bajar(url);
   } catch (err) {
     return html(documentoErrorLector(err instanceof Error ? err.message : String(err), id, origen));
   }
-  if (camino === 'auto' && tienePixelConLector(crudo, dep.actual)) return aLaPaginaReal(url, id);
+  if (camino === 'auto' && tienePixelConLector(crudo, dep.actual) && vaALaPaginaReal(url, crudo, dep.actual, await dep.propias())) {
+    return aLaPaginaReal(url, id);
+  }
+  // Como la copia fiel (replicar-reglas.ts): una página que pide una contraseña no se sirve bajo nuestro
+  // dominio (con el sandbox mandando formularios, un login falso funcionaría). La pantalla ofrece pegar el texto.
+  if (pideContrasena(crudo)) return html(documentoErrorLector('La página pide una contraseña. Pega su texto.', id, origen));
   const modulos = new Map<string, string>();
   let bytes = 0;
   for (const m of modulosDelDocumento(crudo, baseDeDocumento(crudo, url))) {

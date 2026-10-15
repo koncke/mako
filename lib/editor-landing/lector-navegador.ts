@@ -11,8 +11,10 @@
 // gesto de la persona, y un `await` antes lo pierde). Si vuelve null, o la cierra un bloqueador al
 // instante, NO se abre nada y vuelve `{ ok: false, motivo: 'bloqueadas' }`: la pantalla muestra el aviso
 // con la flecha (app/landing-generator/lector/AvisoVentanasBloqueadas.tsx). Si abrió, recién ahí navega
-// a la ruta que decide el camino (lector-pagina.ts): la página real con el Pixel, o la aislada.
-// Del otro lado corre el lector (lector-script.ts) y el protocolo es el de lector.ts.
+// a la ruta que decide el camino (lector-pagina.ts): la página real con el Pixel, o la aislada. Antes de
+// navegar le pide al server la FIRMA de esa lectura (verificación de la tanda 6, seguridad: lector-firma.ts);
+// sin ella la ruta no sirve nada. Del otro lado corre el lector (lector-script.ts) y el protocolo es el de
+// lector.ts.
 //
 // ⚠️ SE LLAMA DIRECTO EN EL `onClick`, SIN NINGÚN `await` ANTES: si no, el navegador bloquea la ventana
 //    aunque la persona tenga las emergentes habilitadas, y el aviso le diría algo falso.
@@ -22,7 +24,7 @@ import { RUTA_PAGINA_DIAGNOSTICO } from './diagnostico';
 import { urlParaReplicar } from './replicar-reglas';
 import { conWs, wsDeBusqueda } from '../ws-tab';
 import {
-  PARAM_CAMINO, PARAM_LECTOR, TIPO_MENSAJE_LECTURA,
+  PARAM_CAMINO, PARAM_FIRMA, PARAM_LECTOR, TIPO_MENSAJE_LECTURA,
   aLecturaDelServer, idLecturaValido, nuevoIdLectura, origenDeLecturaValido, sanearMensajeLectura,
   type CaminoPedido, type LecturaDelServer, type LecturaDetallada,
 } from './lector';
@@ -42,6 +44,8 @@ export type OpcionesLectura = {
   topeMs?: number;
   /** El workspace de la pestaña (si no, el de `?ws=` de la URL actual). */
   ws?: number | null;
+  /** Cómo se pide la firma del server (por defecto, `pedirFirmaLectura`). Lo cambian los tests. */
+  firmar?: (url: string, id: string, ws: number | null) => Promise<string | null>;
 };
 
 /** Hasta que la página saluda (cargar una app lenta incluido). */
@@ -62,10 +66,31 @@ export const MENSAJE_SIN_LECTURA: Record<MotivoSinLectura, string> = {
 
 const falla = (motivo: MotivoSinLectura, mensaje = MENSAJE_SIN_LECTURA[motivo]): ResultadoLectura => ({ ok: false, motivo, mensaje });
 
-/** La dirección de la ventana: la ruta de la página de afuera con el id (y el camino si no es `auto`). */
-export function rutaLector(url: string, id: string, camino: CaminoPedido = 'auto', ws: number | null = null): string {
+/** La dirección de la ventana: la ruta de la página de afuera con el id, el camino si no es `auto`, y la firma del server. */
+export function rutaLector(url: string, id: string, camino: CaminoPedido = 'auto', ws: number | null = null, firma: string | null = null): string {
   const base = `${RUTA_PAGINA_DIAGNOSTICO}?url=${encodeURIComponent(url)}&${PARAM_LECTOR}=${encodeURIComponent(id)}`;
-  return conWs(camino === 'auto' ? base : `${base}&${PARAM_CAMINO}=${camino}`, ws);
+  const conCamino = camino === 'auto' ? base : `${base}&${PARAM_CAMINO}=${camino}`;
+  return conWs(firma ? `${conCamino}&${PARAM_FIRMA}=${encodeURIComponent(firma)}` : conCamino, ws);
+}
+
+/**
+ * La firma del server para ESTA lectura (verificación de la tanda 6, seguridad: lector-firma.ts). Un POST
+ * a la misma ruta, con la ventana ya abierta: el `await` va DESPUÉS del `window.open`, así que el
+ * navegador no la bloquea. null si no se pudo: la lectura falla y no se navega a nada.
+ */
+export async function pedirFirmaLectura(url: string, id: string, ws: number | null): Promise<string | null> {
+  try {
+    const r = await fetch(conWs(RUTA_PAGINA_DIAGNOSTICO, ws), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url, [PARAM_LECTOR]: id }),
+      cache: 'no-store',
+    });
+    const j = (await r.json().catch(() => null)) as { ok?: boolean; firma?: unknown } | null;
+    return r.ok && j?.ok && typeof j.firma === 'string' ? j.firma : null;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -126,7 +151,10 @@ export function leerEnNavegador(url: string, opciones: OpcionesLectura = {}): Pr
       resolver(r);
     };
 
-    function alMensaje(ev: MessageEvent) {
+    // Arrow y no `function`: una declaración se IZA y TS no le pasa el estrechamiento de `pedida` y
+    // `ventana` (los `if (!…) return` de arriba); con `function` el tsc de la rama daba TS2345/TS18047.
+    // `terminar` la nombra en su cuerpo, pero sólo corre después de esta línea: no hay TDZ.
+    const alMensaje = (ev: MessageEvent): void => {
       // De LA ventana que se abrió, desde un origen esperado y con SU id (lector.ts, el protocolo).
       // ⚠️ `ev.source` LLEGA EN NULL si la página lo mandó mientras se iba (un botón que navega: el
       //    lector manda lo leído en el `pagehide`). Medido en Chromium el 14/10/2026. Se acepta sólo
@@ -144,7 +172,7 @@ export function leerEnNavegador(url: string, opciones: OpcionesLectura = {}): Pr
       }
       if (m.fase === 'error') { terminar(falla('error', m.mensaje)); return; }
       terminar({ ok: true, lectura: aLecturaDelServer(m.detalle), detalle: m.detalle });
-    }
+    };
     window.addEventListener('message', alMensaje);
 
     reloj = setInterval(() => {
@@ -152,16 +180,21 @@ export function leerEnNavegador(url: string, opciones: OpcionesLectura = {}): Pr
       if (Date.now() > limite) terminar(falla('tiempo', saludo ? 'La página tardó demasiado' : MENSAJE_SIN_LECTURA.tiempo));
     }, 300);
 
-    // «Se cierra al instante»: si un bloqueador dejó abrir y la cerró, no se navega a nada.
+    // «Se cierra al instante»: si un bloqueador dejó abrir y la cerró, no se navega a nada. Si sigue
+    // abierta, la firma del server y recién ahí la dirección (sin firma, la ruta no sirve nada).
     arranque = setTimeout(() => {
       arranque = undefined;
       if (ventana.closed) { terminar(falla('bloqueadas')); return; }
       if (!idLecturaValido(id)) { terminar(falla('error')); return; }
-      try {
-        ventana.location.replace(rutaLector(pedida, id, opciones.camino ?? 'auto', ws));
-      } catch {
-        terminar(falla('error'));
-      }
+      void (opciones.firmar ?? pedirFirmaLectura)(pedida, id, ws).catch(() => null).then((firma) => {
+        if (listo) return;
+        if (!firma) { terminar(falla('error')); return; }
+        try {
+          ventana.location.replace(rutaLector(pedida, id, opciones.camino ?? 'auto', ws, firma));
+        } catch {
+          terminar(falla('error'));
+        }
+      });
     }, ESPERA_CIERRE_MS);
   });
 }

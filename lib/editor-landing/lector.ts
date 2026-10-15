@@ -83,6 +83,12 @@ export const caminoPedidoValido = (v: unknown): v is CaminoPedido => v === 'auto
 /** Los parámetros de la ventana de lectura en la ruta de la página de afuera (lector-pagina.ts). */
 export const PARAM_LECTOR = 'lector';
 export const PARAM_CAMINO = 'camino';
+/**
+ * La firma del server para ESA lectura (verificación de la tanda 6, seguridad): la ruta sólo sirve la
+ * ventana con un id que ella firmó para esa URL, ese usuario y por 2 minutos (lector-firma.ts). Sin esto,
+ * cualquier link adentro de MaKo con la forma de la ruta mostraba una página cualquiera bajo nuestro dominio.
+ */
+export const PARAM_FIRMA = 'firma';
 
 export const PROVEEDORES_AGENDA = ['calendly', 'cal', 'ghl', 'otro'] as const;
 export type ProveedorAgenda = (typeof PROVEEDORES_AGENDA)[number];

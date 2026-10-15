@@ -4,7 +4,8 @@
 // Pedido de Martín (14/10/2026): «El mimso error que nos saltaba con Mauricio "No pude leer el texto de
 // esa página.". Soluciona eso...». La landing del caso es una app de Vite: su JavaScript es un
 // `<script type="module" crossorigin>` y su server no manda CORS, así que en la ventana aislada no carga
-// (lector-pagina.ts, la cabecera). La ventana lo recibe EN LÍNEA: este módulo lo baja.
+// (lector-pagina.ts, la cabecera). La ventana lo recibe EN LÍNEA: este módulo lo baja. Y lee lo PROPIO
+// del negocio para el camino del Pixel (`paginasPropias`, verificación de la tanda 6).
 //
 // ⚠️ ES UN PEDIDO A UNA URL QUE SALE DE UNA PÁGINA DE AFUERA: las mismas barandas anti-SSRF que la bajada
 //    del HTML (lib/landing-fetch.ts, que no exporta su pedido): `validarDestino` en CADA salto (sólo
@@ -17,6 +18,11 @@ import { isIP, type LookupFunction } from 'node:net';
 import { request as pedidoHttps } from 'node:https';
 import { request as pedidoHttp } from 'node:http';
 import { validarDestino } from '../landing-fetch';
+import { getSetting } from '../settings';
+import { LANDING_TOKEN_KEY } from '../landing-token';
+import { CONFIG_KEY, parsearConfig, urlsDe } from '../landing-config';
+import { PAGINAS_KEY, parsearPaginas } from '../landing-paginas';
+import type { PaginasPropias } from './lector-pagina';
 
 /** Un módulo de entrada de Vite pesa 0,3-2 MB; 4 MB deja aire sin leer un stream infinito. */
 const MAX_BYTES = 4_000_000;
@@ -98,4 +104,20 @@ export async function bajarModulo(urlInput: string): Promise<{ codigo: string; c
     return { codigo: new TextDecoder('utf-8').decode(r.cuerpo), cors: r.cors };
   }
   throw new Error('El script redirige demasiadas veces.');
+}
+
+/**
+ * Lo PROPIO del negocio de la sesión para decidir el camino del Pixel (`vaALaPaginaReal`, lector-pagina.ts;
+ * verificación de la tanda 6, seguridad): su token del Pixel y las landings que el admin DECLARÓ en
+ * Integraciones (el formato nuevo, o el viejo si no hay). No las detectadas: ésas las escribe un endpoint
+ * público. Si la lectura falla, nada es propio (se lee en la ventana aislada, que es lo seguro).
+ */
+export async function paginasPropias(): Promise<PaginasPropias> {
+  try {
+    const [token, config, viejas] = await Promise.all([getSetting(LANDING_TOKEN_KEY), getSetting(CONFIG_KEY), getSetting(PAGINAS_KEY)]);
+    const declaradas = urlsDe(parsearConfig(config));
+    return { token: token?.trim() || null, declaradas: declaradas.length ? declaradas : parsearPaginas(viejas) };
+  } catch {
+    return { token: null, declaradas: [] };
+  }
 }

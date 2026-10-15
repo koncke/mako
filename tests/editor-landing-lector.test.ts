@@ -41,9 +41,10 @@ import {
   responderLectorDelPixel, scriptLector, scriptPreludio,
 } from '../lib/editor-landing/lector-script';
 import {
-  documentoLector, esModuloSuelto, modulosDelDocumento, pedidoDeLector, responderPaginaLector, tienePixelConLector,
+  documentoLector, esModuloSuelto, modulosDelDocumento, pedidoDeLector, responderPaginaLector, tienePixelConLector, vaALaPaginaReal,
 } from '../lib/editor-landing/lector-pagina';
 import { leerEnNavegador, rutaLector } from '../lib/editor-landing/lector-navegador';
+import { PLAZO_FIRMA_LECTURA_MS, firmaLecturaValida, firmarLectura } from '../lib/editor-landing/lector-firma';
 import { sanearLectura } from '../lib/editor-landing/lectura-reglas';
 import { lineaCargador } from '../lib/pixel-cargador';
 
@@ -226,6 +227,11 @@ test('el documento: la guarda y el camino ANTES que cualquier cosa de la página
   assert.equal(documentoLector(HTML_AFUERA, URL_L, 'malo', MAKO), null);
 });
 
+/** El token del Pixel del negocio de la sesión en los tests (el que trae HTML_AFUERA). */
+const TOKEN = `mko_${'cd'.repeat(16)}`;
+/** Lo PROPIO del negocio: su token y la landing declarada (la del caso). */
+const PROPIAS = { token: TOKEN, declaradas: ['https://www.su-landing.com/'] };
+
 test('la respuesta de la ruta: la puerta, el Pixel por 303 y la página aislada', async () => {
   let bajadas = 0;
   const dep = (html: string, modulo = { codigo: 'window.x=1;', cors: false }) => ({
@@ -233,8 +239,10 @@ test('la respuesta de la ruta: la puerta, el Pixel por 303 y la página aislada'
     bajarModulo: async () => modulo,
     actual: VERSION_PIXEL_LECTOR,
     origen: MAKO,
+    firmaValida: (_u: string, _i: string, f: string | null) => f === 'F',
+    propias: async () => PROPIAS,
   });
-  const p = (camino: string | null = null, id = ID) => ({ url: URL_L, id, camino });
+  const p = (camino: string | null = null, id = ID) => ({ url: URL_L, id, camino, firma: 'F' });
   assert.equal((await responderPaginaLector(pedido({ ...DE_MAKO, 'sec-fetch-site': 'cross-site' }), p(), dep('x'))).status, 403);
   assert.equal((await responderPaginaLector(pedido(DE_MAKO), p(null, 'malo'), dep('x'))).status, 404);
   assert.equal((await responderPaginaLector(pedido(DE_MAKO), p('cualquiera'), dep('x'))).status, 404);
@@ -257,6 +265,72 @@ test('la respuesta de la ruta: la puerta, el Pixel por 303 y la página aislada'
   assert.equal(caida.status, 200);
   const err = await caida.text();
   assert.ok(err.includes("fase:'error'") && err.includes(JSON.stringify(ID)) && err.includes('La página respondió 404.'), 'le avisa a MaKo');
+});
+
+test('SEGURIDAD (verificación de la tanda 6): sin la firma del server no se sirve nada, y el Pixel sólo en una landing del negocio', async () => {
+  let bajadas = 0;
+  const dep = (html: string, propias = PROPIAS) => ({
+    bajar: async () => { bajadas++; return html; },
+    bajarModulo: async () => ({ codigo: 'window.x=1;', cors: false }),
+    actual: VERSION_PIXEL_LECTOR,
+    origen: MAKO,
+    firmaValida: (_u: string, _i: string, f: string | null) => f === 'F',
+    propias: async () => propias,
+  });
+  const p = (camino: string | null = null, firma: string | null = 'F', url = URL_L) => ({ url, id: ID, camino, firma });
+  // Un link adentro de MaKo cumple las cabeceras: sin la firma (o con otra), 403 y nada se baja.
+  for (const f of [null, '', 'otra']) assert.equal((await responderPaginaLector(pedido(DE_MAKO), p(null, f), dep(HTML_AFUERA))).status, 403, String(f));
+  assert.equal((await responderPaginaLector(pedido(DE_MAKO), p('pixel', null), dep(HTML_AFUERA))).status, 403, 'tampoco el camino del Pixel');
+  assert.equal(bajadas, 0);
+  // Reverse tabnabbing: una página que ESCRIBE el texto del snippet (o la línea de /m.js con OTRO token)
+  // va a la ventana aislada, no a la página real con el opener.
+  const falsa = `<html><head><script>fetch('/api/track/vsl');var SV = ${VERSION_PIXEL_LECTOR};</script></head><body>x</body></html>`;
+  assert.equal(tienePixelConLector(falsa, VERSION_PIXEL_LECTOR), true, 'el texto solo «parece» el Pixel');
+  assert.equal((await responderPaginaLector(pedido(DE_MAKO), p(), dep(falsa))).status, 200, 'con el texto del snippet y sin el token del negocio: ventana');
+  const ajeno = HTML_AFUERA.replace(TOKEN, `mko_${'ef'.repeat(16)}`);
+  assert.equal((await responderPaginaLector(pedido(DE_MAKO), p(), dep(ajeno))).status, 200, 'con el token de OTRO negocio: ventana');
+  const noDeclarada = await responderPaginaLector(pedido(DE_MAKO), p(null, 'F', 'https://otra-pagina.com/oferta'), dep(HTML_AFUERA));
+  assert.equal(noDeclarada.status, 200, 'una página que no declaró el negocio: ventana, aunque traiga su token');
+  assert.equal((await responderPaginaLector(pedido(DE_MAKO), p(), dep(HTML_AFUERA))).status, 303, 'la suya, declarada y con su token: el Pixel');
+  // `camino=pixel` (sin bajar): sólo una declarada.
+  assert.equal((await responderPaginaLector(pedido(DE_MAKO), p('pixel', 'F', 'https://otra-pagina.com/x'), dep('x'))).status, 404);
+  assert.equal((await responderPaginaLector(pedido(DE_MAKO), p('pixel'), dep('x'))).status, 303);
+  // La regla pura, por los bordes.
+  assert.equal(vaALaPaginaReal(URL_L, HTML_AFUERA, VERSION_PIXEL_LECTOR, { token: null, declaradas: PROPIAS.declaradas }), false, 'sin token del negocio');
+  assert.equal(vaALaPaginaReal('https://su-landing.com.evil.io/x', null, VERSION_PIXEL_LECTOR, PROPIAS), false, 'un host que empieza igual');
+  assert.equal(vaALaPaginaReal('no es url', null, VERSION_PIXEL_LECTOR, PROPIAS), false);
+  // Una página que pide una contraseña no se sirve bajo nuestro dominio (como la copia fiel).
+  const login = '<html><body><form><input type="password" name="clave"></form></body></html>';
+  const conLogin = await responderPaginaLector(pedido(DE_MAKO), p('ventana'), dep(login));
+  assert.equal(conLogin.status, 200);
+  const t = await conLogin.text();
+  assert.ok(t.includes("fase:'error'") && t.includes('contraseña') && !t.includes('type="password"'), 'el documento de error, sin el formulario');
+});
+
+test('la firma de una lectura: atada al id, la URL, el usuario y el negocio, y vence (lector-firma.ts)', () => {
+  const S = 'secreto-de-prueba';
+  const d = { id: ID, url: URL_L, ws: 3, usuario: 'u1|a@b.com' };
+  const ahora = 1_760_000_000_000;
+  const f = firmarLectura(d, ahora, S);
+  assert.ok(f && /^\d{13}\.[A-Za-z0-9_-]{43}$/.test(f), String(f));
+  assert.equal(firmaLecturaValida(f, d, ahora + 1_000, S), true);
+  assert.equal(firmaLecturaValida(f, d, ahora + PLAZO_FIRMA_LECTURA_MS + 1, S), false, 'vencida');
+  for (const otro of [{ ...d, id: 'otroidotroidotroid12' }, { ...d, url: 'https://otra.com/' }, { ...d, ws: 4 }, { ...d, usuario: 'u2|c@d.com' }]) {
+    assert.equal(firmaLecturaValida(f, otro, ahora + 1_000, S), false, JSON.stringify(otro));
+  }
+  assert.equal(firmaLecturaValida(f, d, ahora + 1_000, 'otro-secreto'), false);
+  const [vence, mac] = f!.split('.');
+  assert.equal(firmaLecturaValida(`${Number(vence) + 1}.${mac}`, d, ahora + 1_000, S), false, 'el vencimiento no se puede estirar');
+  assert.equal(firmaLecturaValida(`${ahora + 10 * PLAZO_FIRMA_LECTURA_MS}.${mac}`, d, ahora, S), false, 'ni uno más lejos que el plazo');
+  assert.equal(firmarLectura(d, ahora, ''), null, 'sin secreto no se firma');
+  assert.equal(firmarLectura({ ...d, id: 'malo' }, ahora, S), null);
+  assert.equal(firmaLecturaValida(null, d, ahora, S), false);
+  // La ruta: el POST firma con el negocio y el usuario de la sesión, el GET verifica con los mismos.
+  const ruta = sinComentarios(leer('app/api/landing-generator/diagnostico/pagina/route.ts'));
+  assert.match(ruta, /firmaValida: \(url, id, firma\) => !!quien && firmaLecturaValida\(firma, \{ id, url, \.\.\.quien \}, Date\.now\(\)\),/);
+  assert.match(ruta, /const firma = url && quien \? firmarLectura\(\{ id, url, \.\.\.quien \}, Date\.now\(\)\) : null;/);
+  const post = ruta.slice(ruta.indexOf('export async function POST('));
+  assert.ok(post.indexOf("if (rol !== 'admin')") > 0 && post.indexOf("if (rol !== 'admin')") < post.indexOf('firmarLectura('), 'el POST tiene la misma puerta');
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -373,7 +447,14 @@ test('el Pixel v24: con ?mako_leer= y la ventana de MaKo detrás no mide nada y 
 
 type Oyente = (ev: { source: unknown; origin: string; data: unknown }) => void;
 
-function navegadorFalso(abrir: 'si' | 'null' | 'cerrada') {
+/** Lo que contesta el POST de la firma en los tests (`firma: null` = el server no firmó). */
+const firmasPedidas: Array<{ url: string; body: unknown }> = [];
+function navegadorFalso(abrir: 'si' | 'null' | 'cerrada', firma: string | null = '1760000000000.F') {
+  firmasPedidas.length = 0;
+  (globalThis as unknown as { fetch: unknown }).fetch = async (url: string, init: { body: string }) => {
+    firmasPedidas.push({ url, body: JSON.parse(init.body) });
+    return { ok: firma !== null, json: async () => (firma ? { ok: true, firma } : { ok: false, error: 'x' }) };
+  };
   const oyentes = new Set<Oyente>();
   const ventana = {
     closed: abrir === 'cerrada',
@@ -413,8 +494,10 @@ test('leerEnNavegador: el saludo, el «dale», y el final aunque llegue sin ev.s
   const f = navegadorFalso('si');
   const p = leerEnNavegador(URL_L, { topeMs: 3_000 });
   await esperar(320);
-  assert.match(f.ventana.navegada, /^\/api\/landing-generator\/diagnostico\/pagina\?url=https%3A%2F%2Fsu-landing\.com%2Foferta&lector=[A-Za-z0-9_-]{24}&ws=9$/);
+  // Verificación de la tanda 6: con la FIRMA del server (pedida con la ventana ya abierta, al mismo negocio).
+  assert.match(f.ventana.navegada, /^\/api\/landing-generator\/diagnostico\/pagina\?url=https%3A%2F%2Fsu-landing\.com%2Foferta&lector=[A-Za-z0-9_-]{24}&firma=1760000000000\.F&ws=9$/);
   const id = new URL(f.ventana.navegada, MAKO).searchParams.get('lector')!;
+  assert.deepEqual(firmasPedidas, [{ url: '/api/landing-generator/diagnostico/pagina?ws=9', body: { url: URL_L, lector: id } }]);
   // Un final SIN source antes del saludo no se acepta (cualquiera podría mandarlo).
   f.mandar({ source: null, origin: 'null', data: { tipo: 'mako-lectura', id, fase: 'fin', camino: 'ventana', piezas: [{ tipo: 'texto', texto: 'trampa' }] } });
   // Otra ventana con el mismo id tampoco.
@@ -428,6 +511,15 @@ test('leerEnNavegador: el saludo, el «dale», y el final aunque llegue sin ev.s
   assert.equal(r.detalle.texto, 'Hola\n[BOTÓN] Ir → sale a otra página');
   assert.equal(r.lectura.fuente, 'navegador');
   assert.equal(f.ventana.closed, true, 'la ventana se cierra');
+  assert.equal(f.oyentes.size, 0);
+});
+
+test('leerEnNavegador: si el server no firma la lectura, no se navega a nada y la ventana se cierra', async () => {
+  const f = navegadorFalso('si', null);
+  const r = await leerEnNavegador(URL_L, { topeMs: 3_000 });
+  assert.equal(!r.ok && r.motivo, 'error');
+  assert.equal(f.ventana.navegada, '', 'sin firma, la ventana no va a ningún lado');
+  assert.equal(f.ventana.closed, true);
   assert.equal(f.oyentes.size, 0);
 });
 
@@ -487,3 +579,16 @@ test('el aviso de las ventanas: un componente, con flecha y en un portal, y el �
 //      chequeo daba 18 / 0: miraba el orden con un indexOf que daba -1; ahora pide la llamada entera)
 //  17. el preludio sin la guarda de aislamiento ................. 17 / 1  «el preludio»
 // =============================================================================
+
+// ── VERIFICACIÓN DE LA TANDA 6 (14/10/2026): PROBADO ROMPIÉNDOLO ──────────────────────────────
+// Base: 21 / 0. La seguridad de la ventana y de la firma:
+//   L1 la ruta sin mirar la firma                                     → 20 / 1 «SEGURIDAD…»
+//   L2 el Pixel sin mirar si la página es del negocio (lo de antes)    → 20 / 1 «SEGURIDAD…»
+//   L3 vaALaPaginaReal sin el token del negocio                        → 20 / 1 «SEGURIDAD…»
+//   L4 vaALaPaginaReal sin las landings declaradas                     → 20 / 1 «SEGURIDAD…»
+//   L5 `camino=pixel` sin mirar nada                                   → 20 / 1 «SEGURIDAD…»
+//   L6 sirve una página que pide una contraseña                        → 20 / 1 «SEGURIDAD…»
+//   L7 la ventana navega aunque el server no firme                     → 20 / 1 «si el server no firma…»
+//   L8 la firma sin el usuario                                         → 20 / 1 «la firma de una lectura…»
+//   L9 la firma sin vencer                                             → 20 / 1 «la firma de una lectura…»
+// Restaurado: 21 / 0.
