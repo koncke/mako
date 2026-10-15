@@ -617,6 +617,20 @@ export function pilaTrasAplicar(pila: readonly Aplicacion[], nueva: Aplicacion, 
 }
 
 /**
+ * La landing que devuelve «Aplicar»: la RELEÍDA después de guardar sólo si sigue en la versión que ESTE
+ * guardado escribió; si no (alguien guardó en el medio), la de este guardado con SU versión.
+ *
+ * ⚠️ Verificación de la tanda 6 (15/10/2026): se devolvía siempre la releída, y la pantalla encadena la
+ * vuelta siguiente de «Aplicar todos» con `doc.version` y la apila para «Deshacer» (`versionDoc`). Con un
+ * guardado ajeno entre el guardado y la relectura, la vuelta siguiente se aplicaba sobre ese cambio sin
+ * conflicto, y «Deshacer» lo pisaba. Con la versión propia, la vuelta siguiente da conflicto (409) y
+ * «Deshacer» ve que la landing cambió y no restaura.
+ */
+export function docAplicado<D extends { version: number }>(releido: D | null, guardado: D): D {
+  return releido && releido.version === guardado.version ? releido : guardado;
+}
+
+/**
  * La pila después de deshacer la de arriba: restaurar deja la landing como estaba al terminar la de
  * abajo, pero con OTRO número de versión (`versionDoc`, el que devolvió la restauración): la de abajo
  * pasa a terminar ahí, así se puede deshacer a su vez.

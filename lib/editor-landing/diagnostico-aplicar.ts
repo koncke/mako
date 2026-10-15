@@ -38,7 +38,7 @@ import { docPagina, tarjetasDe, type JsonNodo } from './doc';
 import { formatoDe } from './api-tipos';
 import { bloquesDeLanding } from './diagnostico-guardado';
 import {
-  MOTIVO_ANTES_DE_APLICAR, claveSugerencia, estadoValido, idsParaAplicar, instruccionDeSugerencias,
+  MOTIVO_ANTES_DE_APLICAR, claveSugerencia, docAplicado, estadoValido, idsParaAplicar, instruccionDeSugerencias,
   normalizarHallazgos, objetivoDe, ubicarCitaEnBloques,
   type EstadoSugerencia, type RespuestaAplicar, type RespuestaPasar, type Sugerencia,
 } from './diagnostico';
@@ -124,8 +124,10 @@ export async function aplicarComentarios(p: { docId?: unknown; ids?: unknown; ve
       const e = await cambiarEstado({ id: s.id, estado: 'resuelta' });
       aplicadas.push(e.ok ? e.sugerencia : s);
     }
+    // La versión que ESTE guardado escribió, no la de la relectura (`docAplicado`): si alguien guardó en el
+    // medio, la pantalla encadena y apila con la nuestra, y la vuelta siguiente o «Deshacer» lo notan.
     const otra = await abrir(docId);
-    const doc = otra.ok ? otra.doc : { ...a.doc, contenido, version: g.version, actualizado: g.actualizado, cambiosSinPublicar: g.cambiosSinPublicar };
+    const doc = docAplicado(otra.ok ? otra.doc : null, { ...a.doc, contenido, version: g.version, actualizado: g.actualizado, cambiosSinPublicar: g.cambiosSinPublicar });
     const nuevas = resultado.filter((t) => propuestas.some((x) => idDe(x) === idDe(t)));
     return { ok: true, doc, aplicadas, original, nuevas, versionAntes, versionAbierta: a.doc.version };
   } catch (e) {

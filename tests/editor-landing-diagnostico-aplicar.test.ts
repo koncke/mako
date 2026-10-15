@@ -21,7 +21,7 @@ import { join } from 'node:path';
 import { runInNewContext } from 'node:vm';
 import {
   JS_ABRIR_PARA_VER, MOTIVO_ANTES_DE_APLICAR, SCRIPT_DIAGNOSTICO, TOPES_DIAGNOSTICO,
-  claveChatDeComentario, contextoDeComentario, gruposParaAplicar, idsParaAplicar, instruccionDeSugerencia,
+  claveChatDeComentario, contextoDeComentario, docAplicado, gruposParaAplicar, idsParaAplicar, instruccionDeSugerencia,
   instruccionDeSugerencias, pilaTrasAplicar, pilaTrasDeshacer, sePuedeDeshacer, type Aplicacion, type Sugerencia,
 } from '../lib/editor-landing/diagnostico';
 import { porId } from '../lib/api-mako/registro';
@@ -103,6 +103,23 @@ test('la pila: se apila sólo si arrancó donde terminó la de arriba; deshacer 
   assert.deepEqual(pilaTrasDeshacer([a, b], 7), [{ ...a, versionDoc: 7 }]);
   assert.ok(sePuedeDeshacer(pilaTrasDeshacer([a, b], 7), 1), 'y ahora se deshace a');
   assert.deepEqual(pilaTrasDeshacer([a], 6), []);
+});
+
+// Verificación de la tanda 6 (15/10/2026): la carrera chica de «Aplicar». La landing devuelta era la de un
+// `abrir` POSTERIOR al guardado: con un guardado ajeno en el medio, «Aplicar todos» encadenaba sobre ese
+// cambio sin conflicto y «Deshacer» lo pisaba. PROBADO ROMPIÉNDOLO al pie (Y1, Y2).
+test('«Aplicar» devuelve la versión que ESTE guardado escribió, no la de una relectura posterior', () => {
+  const guardado = { version: 8, contenido: 'lo nuestro' };
+  assert.equal(docAplicado({ version: 8, contenido: 'lo nuestro, saneado' }, guardado).contenido, 'lo nuestro, saneado', 'releída en NUESTRA versión: ésa');
+  assert.deepEqual(docAplicado({ version: 9, contenido: 'lo de otro' }, guardado), guardado, 'alguien guardó en el medio: la nuestra, con SU versión');
+  assert.deepEqual(docAplicado(null, guardado), guardado, 'sin relectura: lo guardado');
+  // Y con esa versión, la pila no apila la vuelta siguiente sobre un cambio ajeno (encadena con la 8, la landing está en la 9).
+  const a: Aplicacion = { ids: [1], versionAntesId: 100, versionDoc: docAplicado({ version: 9, contenido: '' }, guardado).version };
+  assert.equal(a.versionDoc, 8);
+  // El server la usa con la versión del guardado.
+  const src = sinComentarios(leer(SERVER));
+  assert.match(src, /const doc = docAplicado\(otra\.ok \? otra\.doc : null, \{ \.\.\.a\.doc, contenido, version: g\.version, /);
+  assert.doesNotMatch(src, /const doc = otra\.ok \? otra\.doc :/);
 });
 
 // ── «Preguntar a MaKo» ───────────────────────────────────────────────────────
@@ -409,3 +426,9 @@ test('la lista de la API: con id, los pendientes primero por severidad, y sólo 
 // Base: 21 / 0.
 //   X1 «Aplicar» de afuera replica aunque ya haya una copia → 20 / 1 «de afuera, «Aplicar» replica…»
 // Restaurado: 21 / 0.
+
+// ── LA VERSIÓN DE «APLICAR» (verificación de la tanda 6, 15/10/2026): PROBADO ROMPIÉNDOLO ─────────────
+// Base: 22 / 0. Arnés que rompe, corre ESTE archivo, restaura de memoria y compara el sha256:
+//   Y1 docAplicado devuelve la releída siempre (lo de antes)          → 21 / 1 ««Aplicar» devuelve la versión…»
+//   Y2 diagnostico-aplicar.ts sin docAplicado (la relectura directa)  → 21 / 1 ««Aplicar» devuelve la versión…»
+// Restaurado: 22 / 0.
