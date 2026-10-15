@@ -233,8 +233,10 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo }: { g: G; 
           // Como antes: el número toma el color del filete sólo cuando hay algo (un «US$0» no va en verde).
           color={v == null ? 'var(--faint)' : tono && v > 0 ? tono : 'var(--ink)'} />
       );
+      // El subtítulo («por 1,000 impresiones») en la letra de la hoja y en hasta dos renglones: en mono y cortado a uno se leía
+      // como un dato técnico («por 1,000 impre…»).
       const sub = g.subtitulo ? (
-        <div style={{ fontFamily: MONO, fontSize: LETRA.tick, color: 'var(--faint)', marginTop: 16, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={g.subtitulo}>{g.subtitulo}</div>
+        <div style={{ fontSize: LETRA.tick, lineHeight: 1.3, color: 'var(--faint)', marginTop: 12, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }} title={g.subtitulo}>{g.subtitulo}</div>
       ) : null;
       // La KPI entera abre lo que hay atrás del número (el «Ad Spend · por anuncio» de la tab vieja).
       const alKpi = abrirMetrica(col?.id);
@@ -751,19 +753,24 @@ function propsFila(clave: string, alFila?: (clave: string) => void) {
 }
 
 function Dinamica({ r, rotulo, modo, color, total, compacto, alFila }: { r: Resultado; rotulo: string; modo: 'plana' | 'barras' | 'calor'; color: string; total: boolean; compacto: boolean; alFila?: (clave: string) => void }) {
+  // Medida ANTES del return temprano (un hook detrás de un return es la pantalla en blanco de AGENTS.md). Con columnas de
+  // menos de 112 px la plata va corta («US$1,8 k»): entera salía «US$1.8…».
+  const [ref, medida] = useMedida<HTMLDivElement>();
   if (!r.cruce) return <Mensaje>Elige una dimensión de columna</Mensaje>;
+  const corto = compacto || (!!medida && medida.w / (r.cruce.claves.length + 2) < 112);
   const f0 = r.columnas[0].formato;
   const todos = r.cruce.celdas.flat().map((v) => Math.abs(v ?? 0));
   const max = Math.max(0, ...todos);
   const totCol = r.cruce.claves.map((_, j) => r.cruce!.celdas.reduce((s, fila) => s + (fila[j] ?? 0), 0));
   return (
-    <div className="gr-tabla gr-dinamica">
+    <div ref={ref} className="gr-tabla gr-dinamica">
       <table>
         {/* La columna de los nombres, más ancha que las de números: con columnas iguales, en el celular las filas decían «Nu…». */}
         <colgroup><col className="gr-col-nombre" style={{ width: `${Math.max(26, Math.min(40, 100 / (r.cruce.claves.length + 2) * 1.6)).toFixed(0)}%` }} /></colgroup>
         <thead>
           {/* La esquina nombra lo que son las FILAS (la etapa), no la métrica: «Leads» arriba de «Nuevo, Agendó…» se leía mal. */}
-          <tr><th className="gr-izq">{rotulo}</th>{r.cruce.claves.map((k) => <th key={k} title={k}>{k}</th>)}<th className="gr-col-total">Total</th></tr>
+          {/* `gr-th` (./graficos/estilos-html.ts): la cabecera en hasta dos renglones, como la de la tabla. */}
+          <tr><th className="gr-izq"><span className="gr-th">{rotulo}</span></th>{r.cruce.claves.map((k) => <th key={k} title={k}><span className="gr-th">{k}</span></th>)}<th className="gr-col-total"><span className="gr-th">Total</span></th></tr>
         </thead>
         <tbody>
           {r.filas.map((f, i) => (
@@ -772,18 +779,18 @@ function Dinamica({ r, rotulo, modo, color, total, compacto, alFila }: { r: Resu
               {r.cruce!.celdas[i].map((v, j) => {
                 const p = max ? Math.abs(v ?? 0) / max : 0;
                 if (modo === 'barras') {
-                  return <td key={j}><span className="gr-celda-barra"><span className="gr-num">{v ? fmtValor(v, f0, compacto) : ''}</span><span className="gr-pista">{p > 0 && <span style={{ width: `${Math.min(100, p * 100)}%`, background: color }} />}</span></span></td>;
+                  return <td key={j}><span className="gr-celda-barra"><span className="gr-num">{v ? fmtValor(v, f0, corto) : ''}</span><span className="gr-pista">{p > 0 && <span style={{ width: `${Math.min(100, p * 100)}%`, background: color }} />}</span></span></td>;
                 }
-                return <td key={j} style={modo === 'calor' ? { background: `color-mix(in srgb, ${color} ${Math.round(p * 55)}%, transparent)`, color: 'var(--ink)' } : undefined}>{v ? fmtValor(v, f0, compacto) : ''}</td>;
+                return <td key={j} style={modo === 'calor' ? { background: `color-mix(in srgb, ${color} ${Math.round(p * 55)}%, transparent)`, color: 'var(--ink)' } : undefined}>{v ? fmtValor(v, f0, corto) : ''}</td>;
               })}
-              <td className="gr-fuerte gr-col-total">{fmtValor(f.valores[0], f0, compacto)}</td>
+              <td className="gr-fuerte gr-col-total">{fmtValor(f.valores[0], f0, corto)}</td>
             </tr>
           ))}
           {total && (
             <tr className="gr-total">
               <td className="gr-izq">Total</td>
-              {totCol.map((v, j) => <td key={j}>{fmtValor(v, f0, compacto)}</td>)}
-              <td className="gr-col-total">{fmtValor(r.totales[0], f0, compacto)}</td>
+              {totCol.map((v, j) => <td key={j}>{fmtValor(v, f0, corto)}</td>)}
+              <td className="gr-col-total">{fmtValor(r.totales[0], f0, corto)}</td>
             </tr>
           )}
         </tbody>

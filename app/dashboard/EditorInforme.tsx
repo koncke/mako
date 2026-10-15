@@ -218,7 +218,7 @@ function conIdsNuevos(c: Componente): Componente {
 }
 const altoDe = (h: number) => h * FILA + (h - 1) * MARGEN;
 /** Los tipos que en la pila del celular miden lo que dibujan (HTML que se mide solo; nada que necesite un alto para dibujar). */
-const ALTO_LIBRE_EN_PILA: ReadonlySet<string> = new Set(['barra_proporcion']);
+const ALTO_LIBRE_EN_PILA: ReadonlySet<string> = new Set(['barra_proporcion', 'numero', 'numero_compacto']);
 /** El `title` de un ícono suelto de la barra de inserción: la acción y su objeto («Insertar imagen»). */
 const etiquetaInsertar = (t: TipoElemento) => (t === 'insertado' ? 'Insertar una página o un código' : `Insertar ${(TIPOS_ELEMENTO.find((x) => x.id === t)?.nombre ?? t).toLowerCase()}`);
 function descargar(texto: string, nombre: string, tipo: string) {
@@ -1087,7 +1087,9 @@ export function EditorInforme({
     // En la pila, una tarjeta mide el alto de la grilla; la barra de proporción, lo que dibuja (con ese piso): a 364 px su
     // leyenda de dos partes pide dos renglones y con 3 filas el segundo quedaba cortado.
     const altoLibre = enPila && esGrafico(c) && ALTO_LIBRE_EN_PILA.has(c.tipo);
-    const alto: CSSProperties = enPila ? (altoLibre ? { height: 'auto', minHeight: altoDe(c.h) } : { height: altoDe(c.h) }) : {};
+    // Un número (los cuadros de resultados) mide en la pila lo que dibuja, con el piso de una tarjeta de 3 filas: un CPM de
+    // 3 × 6 (alto para acompañar al embudo en el escritorio) eran 276 px de celular para un número.
+    const alto: CSSProperties = enPila ? (altoLibre ? { height: 'auto', minHeight: altoDe(Math.min(c.h, 3)) } : { height: altoDe(c.h) }) : {};
     const base = { '--lk-col': `${c.x + 1} / span ${c.w}`, '--lk-fila': `${c.y + 1} / span ${c.h}`, ...alto } as CSSProperties;
     const alClic = (ev: ReactMouseEvent) => {
       if (!editando) return;

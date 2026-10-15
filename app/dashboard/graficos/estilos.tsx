@@ -34,8 +34,10 @@ ${CSS_HTML}
 .gr-dinamica th { white-space: normal; overflow-wrap: break-word; line-height: 1.2; vertical-align: bottom; padding-left: 6px; }
 /* En el celular (la tabla a menos de 460 px): sin barras y sin la columna del total, para que los nombres de las columnas
    entren enteros. Con todo puesto, «Mentoría» salía partida en dos renglones y las filas decían «Nu…». */
+@container (max-width: 600px) {
+  .gr-dinamica th, .gr-dinamica td { padding-left: 6px; padding-right: 8px; }
+}
 @container (max-width: 460px) {
-  .gr-dinamica th, .gr-dinamica td { padding-left: 6px; padding-right: 6px; }
   .gr-dinamica .gr-pista, .gr-dinamica .gr-col-total { display: none; }
   .gr-dinamica col.gr-col-nombre { width: 27% !important; }
 }

@@ -51,6 +51,9 @@ const EJEMPLOS: Record<string, readonly string[]> = {
   estado: ['Al día', 'Pendiente', 'Vencida'],
   pagina: ['/inicio', '/oferta', '/gracias'],
   linea: ['Línea principal', 'Ventas', 'Soporte'],
+  edad: ['18-24', '25-34', '35-44', '45-54', '55+'],
+  genero: ['Mujeres', 'Hombres', 'Sin dato'],
+  plataforma: ['Instagram', 'Facebook', 'Messenger', 'Audience Network'],
   proyecto: ['Lanzamiento de octubre', 'Nueva landing', 'Webinar mensual', 'Automatizaciones'],
   guion: ['3 errores al vender', 'Lo que nadie te dice del precio', 'Antes y después', 'El caso de un alumno'],
   region: ['Jalisco', 'Nuevo León', 'Ciudad de México', 'Baja California', 'Puebla'],
@@ -101,6 +104,22 @@ export function resultadoDeMuestra(g: Grafico, hoy: string): Resultado {
         valores: f.valores.map((v, j) => (v == null ? v : redondeo(v * (1 - i / (xs.length + 1)), j))),
         ...(dim.id === 'ciudad' && GEO_CIUDAD[f.etiqueta] ? { geo: GEO_CIUDAD[f.etiqueta] } : {}),
       }));
+  }
+
+  // Una dispersión con ejes fijos (la matriz de Productividad, 0-100): los puntos de ejemplo se reparten adentro de esos
+  // ejes. Con los valores de un conteo (de 1 a 15) quedaban todos amontonados en la esquina del origen.
+  if (g.ejes && filas.length) {
+    const rango = (j: 0 | 1): [number, number] | null => {
+      const [a, b] = j === 0 ? [g.ejes!.xMin, g.ejes!.xMax] : [g.ejes!.yMin, g.ejes!.yMax];
+      return a != null && b != null && b > a ? [a, b] : null;
+    };
+    filas = filas.map((f, i) => ({
+      ...f,
+      valores: f.valores.map((v, j) => {
+        const r = j < 2 ? rango(j as 0 | 1) : null;
+        return r ? Math.round(r[0] + (0.08 + 0.84 * azar(semilla, 500 + i * 3 + j)) * (r[1] - r[0])) : v;
+      }),
+    }));
   }
 
   const totales = columnas.map((c, j) => {
