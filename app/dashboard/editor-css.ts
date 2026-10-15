@@ -140,6 +140,7 @@ export const CSS = `
 .lk-comp { display: flex; flex-direction: column; gap: 10px; padding: var(--dash-tarjeta-pad, 20px 22px); box-sizing: border-box; background: var(--dash-tarjeta-fondo, var(--surface)); border: 1px solid var(--dash-tarjeta-borde, var(--border)); border-radius: var(--dash-tarjeta-radio, 16px); box-shadow: var(--dash-tarjeta-sombra, none); overflow: hidden; font-family: var(--dash-letra, 'Geist', system-ui, sans-serif); color: var(--ink); min-width: 0; }
 .lk-comp--filete { border-top: 3px solid var(--lk-filete, var(--border-strong)); }
 .lk-comp--elemento { background: transparent; border-color: transparent; box-shadow: none; padding: 0; }
+.lk-comp--elemento { container-type: inline-size; }
 /* Un bloque de General es una TARJETA DE LA HOJA, como un gráfico (14/10/2026, Martín: «no están interactuando con el
    diseño de la página»): el marco del tema, y adentro el bloque (app/general/bloques/comun.tsx). --gb-fondo es el fondo
    de la tarjeta, para lo que se dibuja ENCIMA de ella (la caja del placeholder, las tarjetas del Plan). Con «Fondo:
