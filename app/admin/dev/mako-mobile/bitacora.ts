@@ -99,4 +99,36 @@ export const BITACORA: Hito[] = [
     commits: [{ sha: '7b82bcde', msg: 'MaKo Mobile: las mismas rutas que la computadora, el CRM que abría vacío y el script del tema que rompía el minificador', lineas: 1085, archivos: 33 }],
     archivos: ['proxy.ts', 'lib/movil-rutas.ts', 'lib/movil-desvio.ts', 'lib/ws-tab.ts', 'app/_components/VistaMovil.tsx', 'app/m/crm/ListaCrm.tsx', 'app/m/_ui/tema.ts', 'tests/movil-mismas-rutas.test.ts', 'tests/minificador-templates.test.ts'],
   },
+  {
+    fecha: '15 oct', hora: '06:16', chat: CH, cuenta: 'claude1', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Las tarjetas se arrastran con el dedo (como Trello) y el iPad toca a 44 px',
+    puntos: [
+      'Las seis decisiones de MaKo Mobile y del iPad que esperaban en la Ticketera se resolvieron por criterio («Usa criterio hay cosas muy obvias»): cuatro ya estaban hechas (el CRM abre en el Tablero, una columna por pantalla con la siguiente asomando, el iPad con la computadora adaptada).',
+      'Mover una tarjeta se copió de Trello: mantenerla la levanta, arrastrarla la lleva a otra columna (en el borde pasa a la de al lado) y soltarla sin moverla abre «Mover a…». Vale para el CRM, Clientes y el Plan.',
+      'Una pantalla táctil de cualquier ancho (un iPad acostado) sube a 44 px de toque y a campos de 16 px; antes quedaba con la escala del mouse y iOS hacía zoom al enfocar.',
+      'Probado con toques reales en Chrome sobre el componente real. Falta un iPhone y un iPad de verdad.',
+    ],
+    commits: [{ sha: '58b19028', msg: 'MaKo Mobile: las tarjetas se arrastran con el dedo (como Trello) y el iPad toca a 44 px', lineas: 243, archivos: 5 }],
+    archivos: ['app/m/_ui/KanbanM.tsx', 'app/m/_ui/PantallaM.tsx', 'app/m/m.css', 'app/globals.css', 'tests/movil-shell.test.ts'],
+  },
+  {
+    fecha: '15 oct', hora: '13:12', chat: CH, cuenta: 'claude1', actor: 'martin', tipo: 'prompt',
+    titulo: 'Refrescar en todos lados',
+    pedido: 'En el centro y otras tabs no está la funcionalidad de refrescar, eso debe estar presente en tooodos lados en mobile',
+    puntos: [
+      'Llegó por el chat orquestador. Tiró varias veces en el Centro de Operaciones esperando ver algo nuevo, y no pasaba nada.',
+    ],
+  },
+  {
+    fecha: '15 oct', hora: '13:12', chat: CH, cuenta: 'claude1', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Tirar hacia abajo refresca en todas las pantallas',
+    puntos: [
+      'El gesto venía apagado por defecto: lo tenían las pantallas que existían cuando se escribió, y el Centro nació sin él. Ahora viene prendido, y un test recorre las páginas del teléfono y falla si una nueva sale sin él.',
+      'Siete pantallas no lo tenían en absoluto (el Centro, la Ticketera, Video, el detalle de un video y de una landing, Configurar), y cinco que sí lo tenían lo perdían justo en el vacío o en el error.',
+      'En el mazo de la Ticketera refrescar animaba y no traía nada: ahora suma al final lo nuevo, sin rearmar el mazo.',
+      'Falta probarlo en un teléfono de verdad.',
+    ],
+    commits: [{ sha: '97b2e56d', msg: 'MaKo Mobile: tirar hacia abajo refresca en TODAS las pantallas (venía apagado por defecto)', lineas: 380, archivos: 29 }],
+    archivos: ['app/m/_ui/PantallaM.tsx', 'app/tickets/decisiones/Mazo.tsx', 'app/tickets/decisiones/reglas.ts', 'tests/movil-refrescar.test.ts'],
+  },
 ];
