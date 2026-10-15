@@ -455,4 +455,14 @@ export const BITACORA: Hito[] = [
     ],
     archivos: ['lib/graficos-identidad.ts', 'lib/graficos-portadas.ts', 'lib/general-plantillas.ts', 'lib/graficos-plantillas.ts', 'app/dashboard/editor-css.ts', 'app/dashboard/Grafico.tsx', 'app/dashboard/Propiedades.tsx', 'tests/graficos-portadas.test.ts'],
   },
+  {
+    fecha: '15 oct', hora: '08:10', chat: 'Dashboard', cuenta: 'claude1', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Las hojas viejas, archivadas; las de Mauricio, rehechas con las portadas',
+    puntos: [
+      'Las hojas que salieron de una plantilla vieja se archivaron (quedan en «Archivados», se pueden restaurar). La Cobranza de Leila no se tocó: es una hoja que armó ella.',
+      'Mauricio tiene sus 6 hojas de siempre con el diseño nuevo, y su Marketing con el estilo «Contraste» que había elegido.',
+      'Mirado en producción con sus datos: los anuncios ganadores ahora traen la miniatura de Meta, Productividad abre con el avance de cada proyecto y el número de la portada va entero.',
+    ],
+    archivos: ['scripts/rehacer-hojas-dashboard.ts', 'lib/graficos-datos.ts', 'lib/graficos-portadas.ts', 'app/dashboard/Grafico.tsx', 'app/dashboard/editor-css.ts', 'docs/portadas-propuesta.md'],
+  },
 ];

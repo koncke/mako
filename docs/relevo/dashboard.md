@@ -37,7 +37,15 @@ Dashboard». El arnés de capturas vive FUERA del repo, en `C:/Users/marti/arnes
   celular) y `... plantillas` (cada hoja en escritorio y en la pila); arnés de General `C:/Users/marti/arnes-dashboard-general/`
   (`node build-general.mjs C:/dev/wt-dashboard`, con `CHICO=1` o `PILA=1`).
 
-## Pedido en cola (15/10): borrar las hojas viejas y rehacer las de Mauricio, DESPUÉS de las portadas
+## HECHO (15/10 ~07:25): las hojas viejas archivadas y las de Mauricio rehechas
+
+`scripts/rehacer-hojas-dashboard.ts` (el plan escrito hoja por hoja, con su porqué). Respaldos en
+`C:/Users/marti/respaldos-mako/dashboard-hojas-2026-10-15.json` y `…-repaso.json`; para devolver:
+`NODE_OPTIONS="--conditions=react-server" npx tsx scripts/rehacer-hojas-dashboard.ts --env <.env.local> --restaurar <respaldo>`
+(no pisa lo que la persona haya editado después). ⚠️ La Cobranza de Leila (ws11) NO se tocó: no coincide con ninguna versión
+de su plantilla. Los informes de General (ws1, ws10) ya estaban vacíos. Mirado en producción con la sesión de Mauricio.
+
+## (Lo que era la cola, para la historia) borrar las hojas viejas y rehacer las de Mauricio, DESPUÉS de las portadas
 
 Martín: «eliminen las tabs viejas de los workspaces. Sólo en el caso de Mauricio, que vuelva a poner las tabs que estaban
 pero con su nuevo rediseño». Orden: aprobar portadas → implementarlas → recién ahí borrar y rehacer. Censo (sólo leyendo,

@@ -179,7 +179,10 @@ export const CSS = `
 .lk-comp--portada .gr-tarjeta-cab { grid-template-columns: minmax(0, 1fr); }
 .lk-comp--portada .gr-tarjeta-mini { width: 100%; height: auto; aspect-ratio: 4 / 3; border-radius: 11px; }
 .lk-comp--portada .gr-tarjeta-val { font-size: clamp(22px, 2.6cqi, 32px); font-weight: 800; }
-.lk-comp--portada .gr-tarjetas { grid-auto-rows: minmax(0, 1fr); }
+/* Las filas miden lo que su tarjeta (con 1fr, el «+N más» era una segunda fila y le comía la mitad del alto: medido en
+   producción, 15/10); lo que no entra se corta abajo, como en la miniatura. */
+.lk-comp--portada .gr-tarjetas { grid-auto-rows: auto; }
+.lk-comp--portada .gr-mas { display: none; }
 .lk-comp--portada .gr-tabla th { background: var(--portada-fondo); font-size: 14px; }
 .lk-comp--portada .gr-tabla td { color: var(--ink); font-size: clamp(16px, 1.9cqi, 22px); padding-top: 14px; padding-bottom: 14px; }
 .lk-comp--portada .gr-tabla .gr-avatar { width: 2.3em; height: 2.3em; background: var(--portada-tinta); color: var(--portada-fondo); }

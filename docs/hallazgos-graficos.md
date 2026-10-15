@@ -857,6 +857,35 @@ verde es de WhatsApp), Ads Analyst en coral (el magenta es de Instagram), Produc
 - **Las miniaturas de anuncios de la galería son pósters INVENTADOS** (un SVG en base64, `posterDeMuestra`): la de un anuncio
   de verdad sería la de un cliente. `Tarjetas` acepta un SVG en base64 además de https (en un `<img>` un SVG no corre nada).
 
+**Lo que el arnés no podía ver y se vio en PRODUCCIÓN** (15/10, con la sesión de Mauricio, ws1, después del deploy):
+
+- ⚠️ **El conjunto de anuncios de Meta no traía la miniatura.** La tabla (`marketing_metrics_daily.ad_thumbnail_url`) la
+  tiene para casi todos los anuncios, pero sólo la leía el conjunto de GUIONES: las tarjetas de `meta` salían sin foto (la
+  portada de Ads, la de Anuncios de General y los anuncios de Marketing). En el arnés se veían porque los pósters de
+  ejemplo son inventados. Ahora `filasMeta` la lee, y la portada de Ads lee los guiones de su hoja (respeta sus filtros).
+  Las URLs `www.facebook.com/ads/image/…` redirigen a fbcdn con `Cross-Origin-Resource-Policy: cross-origin`: cargan en
+  otra web; las `scontent…fbcdn.net` directas vencen (`oe=`) y dan 403.
+- ⚠️ **La matriz impacto × esfuerzo era una portada VACÍA**: sólo dibuja proyectos EVALUADOS, y los de Mauricio no tienen
+  ninguno («Sin datos en este período», que además miente: no es el período). La portada de Productividad pasó a ser el
+  avance de cada proyecto activo; la matriz sigue abajo. **Una portada se elige con el dato que tiene el cliente, no con
+  el que debería tener.**
+- **El tema puede abreviar la cifra de la portada** («US$1 k» con «Contraste», el que eligió Mauricio): sobre una portada
+  el número va entero.
+- **El «+N más» de las tarjetas era una SEGUNDA FILA de la grilla** (`grid-column: 1 / -1`) y con filas de `1fr` le comía
+  la mitad del alto a las tarjetas (medido en la página: dos filas de 170 px y las tarjetas cortadas). En una portada no
+  va, y las filas miden lo que su tarjeta.
+
+**Las hojas viejas (la cola, 15/10 ~07:25):** «eliminar» se hizo con lo que hace el producto, ARCHIVAR (quedan en
+«Archivados», de donde la persona las restaura), con un respaldo de las filas enteras y compare-and-set por `updated_at`
+(`scripts/rehacer-hojas-dashboard.ts`, con `--restaurar`). Qué hoja se tocaba lo decidió una comparación pieza por pieza
+contra las OCHO versiones que tuvo cada plantilla (git archive de `lib/` en cada commit, saneadas con el saneo de hoy):
+igual a alguna versión = nadie la tocó. Resultado: 10 de 11 iguales (el Comercial de Mauricio, a una v5 con «Tendencia» de
+10 filas); **la Cobranza de Leila (ws11) no coincide con ninguna y se dejó como estaba**. Los informes de GENERAL (ws1 y
+ws10) ya estaban vacíos: alguien había eliminado sus hojas, y no se tocaron. Mauricio tiene sus 6 hojas rehechas con las
+plantillas de hoy (los ids FIJOS de siempre: el closer y la caja de IA los buscan así) y su tema «Contraste» en Marketing.
+⚠️ **Un «eliminar» masivo sin comparar con la HISTORIA de la plantilla habría pisado la hoja que Leila armó**: contra la
+versión de hoy, las 11 «diferían» (todas nacieron de versiones viejas).
+
 **Lo que se sacó:** el titular 6 × 6 + la grilla de 2 × 2 (`conTitular`, `TITULARES`). Con la portada arriba, un segundo
 protagonista abajo le compite; la fila de números vuelve a ser una fila (Comercial también).
 
@@ -869,12 +898,12 @@ plantilla Instagram) · `app/dashboard/editor-css.ts` (`.lk-comp--portada`) · `
 
 ## Lo que quedó sin hacer
 
-- **Las portadas (15/10/2026):** NADA se vio todavía con datos reales ni en producción (el arnés dibuja datos de ejemplo,
-  con el tema de cada hoja). La fila «Portada» del panel está para los GRÁFICOS; un bloque de General todavía no se puede
+- **Las portadas (15/10/2026):** mirado en producción en el ESCRITORIO con las 6 hojas de Mauricio; el celular, sólo en el
+  arnés (la ventana de la extensión no se dejó angostar). Falta decidir con Leila (o con Martín) su Cobranza, que es una
+  hoja propia y quedó como estaba. La fila «Portada» del panel está para los GRÁFICOS; un bloque de General todavía no se puede
   pintar ni despintar desde su panel (sí borrarlo). La plantilla Instagram no tiene los DM: ningún negocio los tiene
   conectados (cuando lo haya, un bloque que ofrezca conectarlo ahí mismo). Un negocio sin el dato de su portada (sin Meta,
-  sin cartera) la pierde al crear la hoja: la ruta de plantillas saca los gráficos vacíos. Y siguen en cola, en este orden:
-  borrar las hojas viejas de los workspaces y rehacer las 6 de Mauricio (ws1) con las plantillas nuevas (docs/relevo/dashboard.md).
+  sin cartera) la pierde al crear la hoja: la ruta de plantillas saca los gráficos vacíos.
 
 - **El Dashboard épico (14/10/2026):** el titular 6 × 6 lo reemplazó la PORTADA el 15/10 (ver arriba). Lo de abajo de la
   portada sigue como estaba: si Martín quiere menos piezas por hoja, es elegir qué se va (decisión suya).

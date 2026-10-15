@@ -227,7 +227,9 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo }: { g: G; 
     // ── Cuadros de resultados: la KPI de las tabs viejas ──
     if (info?.grupo === 'Cuadro de resultados' || g.tipo === 'serie_sparkline') {
       const col = r.columnas[0];
-      const compacto = g.tipo === 'numero_compacto' || e.compacto;
+      // Sobre una portada el número va ENTERO aunque el tema abrevie («US$1 k» en la portada de Marketing con «Contraste»):
+      // es la cifra de la hoja y tiene lugar.
+      const compacto = g.tipo === 'numero_compacto' || (e.compacto && !portada);
       const v = r.totales[0];
       const texto = col ? textoConMuestra(v, r.muestraChica?.[0], col.formato, (x) => fmtValor(x, col.formato, compacto)) : '—';
       const tam = g.tipo === 'numero_compacto' ? 30 : g.tipo === 'serie_sparkline' ? 32 : e.kpiTamValor;

@@ -42,10 +42,10 @@ import { repartirEnEtapas } from './servicio-etapas';
 
 // ── Marketing ────────────────────────────────────────────────────────────────────────────
 
-type FMeta = { id: number; fecha: string; ad_id: string | null; campaign_id: string | null; adset_id: string | null; campaign_name: string | null; adset_name: string | null; ad_name: string | null; spend: number | null; impressions: number | null; link_clicks: number | null; landing_page_views: number | null; leads_count: number | null; agendas_meta: number | null };
+type FMeta = { id: number; fecha: string; ad_id: string | null; campaign_id: string | null; adset_id: string | null; campaign_name: string | null; adset_name: string | null; ad_name: string | null; spend: number | null; impressions: number | null; link_clicks: number | null; landing_page_views: number | null; leads_count: number | null; agendas_meta: number | null; ad_thumbnail_url: string | null };
 async function filasMeta(rg: Rango): Promise<Fila[]> {
   const [rows, conv] = await Promise.all([
-    leer<FMeta>('marketing_metrics_daily', 'id, fecha, ad_id, campaign_id, adset_id, campaign_name, adset_name, ad_name, spend, impressions, link_clicks, landing_page_views, leads_count, agendas_meta', rg, {
+    leer<FMeta>('marketing_metrics_daily', 'id, fecha, ad_id, campaign_id, adset_id, campaign_name, adset_name, ad_name, spend, impressions, link_clicks, landing_page_views, leads_count, agendas_meta, ad_thumbnail_url', rg, {
       col: 'fecha',
       // Una fila por ANUNCIO por día: ni fecha ni ad_id son únicos, el id cierra el orden.
       orden: [{ col: 'fecha' }, { col: 'ad_id' }, { col: 'id' }],
@@ -60,6 +60,9 @@ async function filasMeta(rg: Rango): Promise<Fila[]> {
     u: { anuncios: txt(x.ad_id) },
     // El id de Meta de cada nombre: lo que abre «Ver anuncio» (lib/graficos-acciones.ts).
     r: { campana: txt(x.campaign_id), conjunto: txt(x.adset_id), anuncio: txt(x.ad_id) },
+    // La miniatura del creativo (15/10/2026): la piden las Tarjetas de anuncios (la portada de «Anuncios» de General, los
+    // anuncios de Marketing). La columna estaba y sólo la leía el conjunto de guiones: las tarjetas salían sin foto.
+    img: txt(x.ad_thumbnail_url),
   }));
 }
 

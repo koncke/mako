@@ -132,7 +132,7 @@ type PopupDe = (id: Id, base: string) => Crudo;
  *   · Chat Analyst — ¿respondo rápido? El % respondido en 15 minutos, como un reloj.
  *   · Closing — ¿cuántas llamadas se ganan? R1 → R2 → ganadas, en columnas.
  *   · CS Analyst — ¿a quién atiendo? Las personas que piden atención.
- *   · Productividad — ¿qué hago primero? La matriz impacto × esfuerzo.
+ *   · Productividad — ¿cómo van mis proyectos? El avance de cada proyecto activo (la matriz, abajo: pide proyectos evaluados).
  *   · CRM — ¿dónde se me caen los leads? El embudo del lead al cierre.
  *   · Cobranza — ¿a quién le cobro? La lista con «Marcar cobrada».
  *   · Automatizaciones — ¿me contestan? Enviados → abiertos → respondieron.
@@ -144,7 +144,8 @@ export function portadasDashboard(popupAnuncio: PopupDe): Readonly<Record<string
     comercial: { sube: 'co-revenue-barra', cambios: { titulo: 'Lo que entró y lo que falta cobrar' } },
     'ads-analyst': {
       nueva: (id) => ({
-        id: id('ad-portada'), clase: 'grafico', tipo: 'tarjetas', fuente: 'meta', dimension: 'anuncio', metricas: ['agendas', 'cpa'],
+        // Los GUIONES de la hoja (no el conjunto de Meta): traen su miniatura y respetan los filtros de ángulo y tipo de la hoja.
+        id: id('ad-portada'), clase: 'grafico', tipo: 'tarjetas', fuente: 'guiones', dimension: 'guion', metricas: ['agendas', 'cpa'],
         ordenMetrica: 'agendas', barra: 'agendas', limite: 4, titulo: 'Tus anuncios ganadores',
         alClic: 'popup', popup: popupAnuncio(id, 'ad-portada'),
       }),
@@ -159,7 +160,9 @@ export function portadasDashboard(popupAnuncio: PopupDe): Readonly<Record<string
         ordenMetrica: 'atencion', barra: 'deuda_vencida_usd', limite: 4, tabla: { columnas: ['senal', 'tramo_contacto'] }, titulo: 'Quién te necesita hoy',
       }),
     },
-    productividad: { sube: 'pr-matriz-burbujas', cambios: { titulo: 'Qué hacer primero' } },
+    // El avance de cada proyecto activo, no la matriz: la matriz sólo dibuja los proyectos EVALUADOS (impacto y esfuerzo), y
+    // en producción (ws1, 15/10) no había ninguno: la portada era un bloque vacío. La matriz sigue abajo.
+    productividad: { sube: 'pr-avance-proyecto', cambios: { titulo: 'Cómo van tus proyectos', limite: 8 } },
     crm: { sube: 'embudo', cambios: { titulo: 'Dónde se caen tus leads' } },
     cobranza: { sube: 'a-quien', cambios: { titulo: 'A quién cobrarle', limite: 6 } },
     automatizaciones: {
