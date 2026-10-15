@@ -155,4 +155,24 @@ export const BITACORA: Hito[] = [
       'supabase/migrations/0288_decisiones_aviso.sql — destino y el estado del aviso',
     ],
   },
+  {
+    fecha: '15 oct', hora: '07:50', chat: ESTRATEGIA, cuenta: 'claude1', actor: 'martin', tipo: 'prompt',
+    titulo: 'El Centro en el teléfono',
+    pedido: 'Y quiero que todo se pueda ver en mobile y esta bien diseñado, lo del Centro',
+    puntos: ['Y al rato: «No veo el botón del Centro en mobile». Desde el teléfono, sólo para mirar: firmar ahí es un extra.'],
+  },
+  {
+    fecha: '15 oct', hora: '12:01', chat: CH, cuenta: 'claude1', actor: 'claude', tipo: 'implementacion',
+    titulo: 'El Centro en el teléfono, para mirar',
+    puntos: [
+      'La lista de pedidos con su estado, el detalle de cada uno y los carteros, copiado de la lista de GitHub Actions en el teléfono.',
+      'Su botón en More → «Super admin», al lado de la Ticketera; la sección se apaga mientras se mira a un cliente.',
+      'Faltaba la pantalla, no la puerta: la Ticketera ya tenía su botón desde el 14/10.',
+    ],
+    archivos: [
+      'app/m/operaciones/ — la pantalla del teléfono',
+      'app/m/mas/page.tsx — la sección «Super admin»',
+      'lib/movil-rutas.ts — /admin/operaciones ↔ /m/operaciones',
+    ],
+  },
 ];

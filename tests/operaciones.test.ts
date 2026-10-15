@@ -26,6 +26,11 @@
 //   · el cartero sin verificar la firma → 1 fallo;
 //   · el cartero subiendo la dirección del canal (`pipe`) → 1 fallo.
 //   Restaurado de memoria (no con git checkout): 10 pases.
+// Y el Centro en el teléfono (15/10/2026), contra la base en verde de 12 pases:
+//   · /m/operaciones leyendo la cola antes de `puedeOperar` → 1 fallo;
+//   · su vista importando una acción que escribe → 1 fallo;
+//   · la sección «Super admin» de More sin apagarse mirando a un cliente → 1 fallo;
+//   · /m/operaciones sin su vuelta a /admin/operaciones → 1 fallo. Restaurado de memoria: 12 pases.
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -87,6 +92,28 @@ test('la página también pasa por puedeOperar antes de leer la cola', () => {
   const guarda = src.indexOf('puedeOperar(admin, await wsSuperAdmin())');
   const lectura = src.indexOf('listarPedidos()');
   assert.ok(guarda > 0 && lectura > guarda, 'la guarda va antes de listarPedidos');
+});
+
+test('el Centro en el teléfono: el mismo guard antes de leer, sólo para mirar, y su puerta en More', async () => {
+  const pagina = sinComentarios(leer('app/m/operaciones/page.tsx'));
+  const guarda = pagina.indexOf('puedeOperar(admin, plataforma)');
+  assert.ok(guarda > 0 && pagina.indexOf('listarPedidos()') > guarda, 'la guarda va antes de leer la cola');
+  assert.ok(pagina.indexOf('getSesionAdmin()') < guarda && pagina.includes('requireMovil('), 'pide la sesión de admin y el guard de /m');
+  // Sólo para mirar: ni la pantalla ni su vista llegan a una acción que escriba.
+  const vista = sinComentarios(leer('app/m/operaciones/CentroMovil.tsx'));
+  for (const src of [pagina, vista]) {
+    assert.doesNotMatch(src, /encolarPedido|cancelarPedido|crearTokenCartero|admin\/operaciones\/acciones/, 'el teléfono no escribe en la cola');
+  }
+  // La puerta: en la sección «Super admin» de More, que se apaga mirando a un cliente.
+  const mas = sinComentarios(leer('app/m/mas/page.tsx'));
+  const seccion = mas.slice(mas.indexOf("ctx.sesion.rol === 'admin'"), mas.indexOf('</SeccionM>', mas.indexOf('titulo="Super admin"')));
+  assert.match(seccion, /^ctx\.sesion\.rol === 'admin' && !ctx\.impersonando/, 'mirando a un cliente, la barra es la del cliente');
+  assert.match(seccion, /href=\{RUTA_CENTRO\}/);
+  assert.match(mas, /const RUTA_CENTRO = '\/m\/operaciones'/);
+  // LAS MISMAS RUTAS: el teléfono sirve /m/operaciones en /admin/operaciones, y vuelve.
+  const { rutaMovil, rutaEscritorio } = await import('../lib/movil-rutas');
+  assert.equal(rutaMovil('/admin/operaciones'), '/m/operaciones');
+  assert.equal(rutaEscritorio('/m/operaciones'), '/admin/operaciones');
 });
 
 // ── 2. La guarda de plataforma ──────────────────────────────────────────────────────────────

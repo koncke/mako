@@ -266,6 +266,8 @@ export function rutaMovil(href: string | null | undefined): string | null {
   // secundaria. /admin/runway era la lista y ahora redirige al mazo: el teléfono va directo.
   if (p === '/tickets/decisiones' || p === '/admin/runway') return '/m/tickets/decisiones';
   if (p === '/tickets/decisiones/lista') return '/m/decisiones';
+  // El Centro de Operaciones del super admin (15/10/2026): en el teléfono, sólo para mirar.
+  if (p === '/admin/operaciones') return '/m/operaciones';
   // Las pantallas que SÓLO existen en el teléfono, con la URL que muestran (`SOLO_TELEFONO`).
   const chat = p.match(/^\/crm\/(\d+)\/chat$/);
   if (chat) return `/m/crm/${chat[1]}/chat`;
@@ -385,6 +387,7 @@ export function rutaEscritorio(href: string): string {
   else if (p === '/m/mako') destino = '/mako';
   else if (p === '/m/decisiones') destino = '/tickets/decisiones/lista';
   else if (p === '/m/tickets/decisiones') destino = '/tickets/decisiones';
+  else if (p === '/m/operaciones') destino = '/admin/operaciones';
   else if (p === '/m/cuenta/instalar') destino = '/perfil/instalar';
   else if (p === '/m/cuenta/seguridad') destino = '/perfil/seguridad';
   else if (p === '/m/cuenta') destino = '/perfil';
