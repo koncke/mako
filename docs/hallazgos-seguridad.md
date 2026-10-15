@@ -1795,6 +1795,9 @@ mandaba a aprobar a Meta la plantilla del negocio).
 
 **Abiertos, con dónde viven:**
 - La rotación de las credenciales de `docs/chats/`: la lista, con fecha por credencial, en `docs/rotacion-credenciales.md`.
+  **Decidido el 15/10 (Martín, B): no se rotan; `docs/chats/` salió del árbol, sin reescribir el historial.** Medido
+  ese día: 15 de esos secretos siguen en uso con el MISMO valor (la lista, en ese documento). Sacarlas del árbol no
+  las apaga: siguen en el historial, en cada clon y en cada copia del repo.
 - Quién manda a MaKo en el grupo de WhatsApp de un cliente (`lib/mako-doer-in.ts:855`: todo el grupo corre como admin con
   «ejecutar», y su system prompt lleva los números del trimestre): decisión de producto, en el tablero.
 - next 16.2.11 y el registro abierto de Supabase Auth: decisiones, en el tablero.

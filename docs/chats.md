@@ -1,5 +1,9 @@
 # Índice de chats
 
+> **Las transcripciones salieron del árbol el 15/10/2026**: tenían credenciales de producción
+> (docs/rotacion-credenciales.md). Este índice queda. Un archivo citado acá se lee del historial:
+> `git show 5a02d6023:docs/chats/<archivo>`.
+
 Las **48 sesiones de trabajo** sobre este repo, de junio a agosto de 2026. Existe porque
 el historial de chats **no se comparte entre las dos cuentas** de Claude —está indexado
 por cuenta— y porque nadie va a abrir 699 MB de transcripciones para recordar en qué chat

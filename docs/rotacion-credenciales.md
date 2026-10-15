@@ -1,5 +1,16 @@
 # Rotación de credenciales filtradas (14/10/2026)
 
+> **Decisión de Martín (15/10/2026, `rotar-credenciales-docs-chats`): B, «Sólo sacarlas del repo».** No se
+> rotan. `docs/chats/` salió del árbol ese día y quedó en `.gitignore`; el historial NO se reescribió, así que
+> siguen en `541184cce` y en cada commit hasta el del 15/10. La lista de abajo queda como lo que hay que rotar
+> el día que se decida. **Medido el 15/10** (comparando valores, sin imprimirlos): 27 variables del
+> `.env.local` del clon tienen el MISMO valor que en `docs/chats/`, y 15 de esas son secretos en uso:
+> `EVOLUTION_API_KEY`, `EVOLUTION_WEBHOOK_SECRET`, `META_APP_SECRET`, `PORKBUN_API_KEY`, `PORKBUN_SECRET_KEY`,
+> `TELEGRAM_MB_BOT_TOKEN`, `FATHOM_API_KEY`, `FATHOM_API_KEY_MARTIN`, `FATHOM_WEBHOOK_SECRET`, `GEMINI_API_KEY`,
+> `PANDA_API_KEY`, `ELEVENLABS_API_KEY_MAURICIO_IMPAGA`, `YOUTUBE_OAUTH_REFRESH_TOKEN`, y las dos de la limpieza
+> (`AUTH_COOKIE_VALUE`, `CHATWOOT_WEBHOOK_SECRET`). Las otras 12 son identificadores que no abren nada (ids de
+> Meta, Calendly, Panda, la URL de Supabase…). En Vercel no se pudo mirar desde acá.
+
 > **Por qué existe este documento.** El 07/09/2026 se detectó que las transcripciones de `docs/chats/`
 > tenían credenciales de producción, se **redactaron**, y la parte de **rotarlas** quedó en una
 > conversación. Nunca se hizo. La auditoría del 14/10 las encontró de nuevo, **vivas**: el redactor tapó
