@@ -1205,9 +1205,19 @@ editor, y un crítico que midió lo que faltaba). Las salidas y los scripts qued
   `animation: none` en línea la primera sección y todo lo que corta la pantalla (ellos, sus bloques y lo marcado con
   `data-animar` adentro). Va en el SCRIPT, que no queda congelado: llega a todas las publicadas sin republicar.
   Medido con el mismo arnés (publicada real armada con render.ts + armarDocumento, 390×844, CPU ×4): **el H1 queda en
-  opacidad 1 desde el primer cuadro en 6 de 6 corridas** (antes: 1 → 0 → fade, visible recién a los 1,3-2,7 s) y el
-  **LCP con «Animaciones» prendido da 248-588 ms** (sin animaciones, 256-424; antes, 1.428-3.004). Lo de más abajo sigue
-  animando al entrar. Si Martín elige B (el fade sin parpadeo), es otro arreglo y más frágil: se cambia antes del push.
+  opacidad 1 desde el primer cuadro en 6 de 6 corridas** (antes: 1 → 0 → fade, visible recién a los 1,3-2,7 s). Lo de
+  más abajo sigue animando al entrar. Si Martín elige B (el fade sin parpadeo), es otro arreglo y más frágil: se
+  cambia antes del push.
+- **El número que vale: con el arreglo, «Animaciones» prendido CUESTA LO MISMO QUE APAGARLO.** LCP del H1, 3 corridas
+  por plantilla, mismas condiciones (ms):
+
+  | Plantilla | Antes, con «Animaciones» | Con el arreglo, con «Animaciones» | Sin «Animaciones» |
+  |---|---|---|---|
+  | agenda-llamada | 1.428-3.004 en 6 de 9 corridas de las tres; 352-636 en las otras 3 | 588 / 344 / 348 | 352 / 272 / 264 |
+  | lead-magnet | (idem) | 312 / 248 / 280 | 292 / 256 / 280 |
+  | webinar | (idem) | 400 / 452 / 368 | 424 / 332 / 352 |
+
+  **Regla:** el LCP de una landing NO se arregla apagando la feature: el costo era el parpadeo, no la animación.
 - Para volver a medirlo: armar la publicada real con `htmlDePagina(pagina, config, tema, { modo: 'publico' })` +
   `armarDocumento(...)` de las primeras plantillas, servirla con Playwright (`ctx.route`, red externa cortada), CPU ×4
   por CDP, y anotar por `requestAnimationFrame` la opacidad de `h1.gm-titulo` × su `.gm-tarjeta` (el parpadeo) y la
