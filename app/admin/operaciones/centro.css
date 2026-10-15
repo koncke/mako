@@ -1,0 +1,443 @@
+/* =============================================================================
+   El Centro de Operaciones como app de chat (16/10/2026)
+   =============================================================================
+   La ESTRUCTURA está copiada de apps que ya resolvieron «varias sesiones de un agente, cada una con su
+   estado» (las capturas, en docs/hallazgos-operaciones.md → «El rediseño de punta a punta»):
+   · la barra de Claude Code web y de Claude web: accesos con ícono arriba, secciones con su título chico,
+     filas de UNA línea con un punto de estado a la izquierda, y lo de la cuenta abajo de todo;
+   · la de Codex (escritorio): las sesiones agrupadas por proyecto con su «Mostrar más», y la hora a la
+     derecha en gris; acá el grupo es la CUENTA, que es lo que separa dos «CRM» con el mismo nombre;
+   · la caja de escribir de Claude y ChatGPT: un recuadro redondeado con el texto arriba y una barrita abajo
+     (la opción a la izquierda, enviar a la derecha);
+   · la burbuja de WhatsApp: lo propio a la derecha, con la hora y el tick ADENTRO, abajo a la derecha.
+   Los colores, la tipografía y los íconos son los de la casa. Nada de títulos ni subtítulos de página.
+   ============================================================================= */
+
+.co {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  background: var(--surface);
+  color: var(--ink);
+}
+
+/* ── La barra ─────────────────────────────────────────────────────────────── */
+.co-barra {
+  flex: none;
+  width: 300px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--surface-2);
+  border-right: 1px solid var(--border);
+}
+.co-barra__arriba {
+  flex: none;
+  padding: 12px 10px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.co-buscar {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: 36px;
+  padding: 0 10px;
+  border-radius: var(--r-sm);
+  color: var(--dim);
+}
+.co-buscar:focus-within { background: var(--surface); box-shadow: inset 0 0 0 1px var(--border-strong); }
+.co-buscar input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font: inherit;
+  font-size: var(--fs-md);
+  color: var(--ink);
+}
+.co-buscar input::placeholder { color: var(--dim); }
+.co-acceso {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  height: 36px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  font: inherit;
+  font-size: var(--fs-md);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+.co-acceso:hover { background: var(--velo-hover); }
+.co-acceso:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.co-acceso[aria-current='page'] { background: var(--surface); box-shadow: inset 0 0 0 1px var(--border); font-weight: 600; }
+.co-acceso__n {
+  margin-left: auto;
+  font-size: var(--fs-meta);
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+
+/* La lista scrollea ADENTRO de su columna: con 53 chats la barra no empuja la página. */
+.co-lista {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 4px 10px 12px;
+}
+.co-cuenta + .co-cuenta { margin-top: 10px; }
+.co-cuenta__cab {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  height: 30px;
+  padding: 0 10px;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  color: var(--faint);
+  cursor: pointer;
+  border-radius: var(--r-sm);
+}
+.co-cuenta__cab:hover { color: var(--ink); }
+.co-cuenta__cab:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.co-chev { display: inline-flex; transition: transform .15s var(--ease-out, ease); }
+.co-chev--cerrado { transform: rotate(-90deg); }
+
+/* La fila: dos renglones como WhatsApp y Linear — el título con su edad, y debajo lo último que pasó. */
+.co-fila {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  min-height: 36px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  font: inherit;
+  font-size: var(--fs-md);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+.co-fila:hover { background: var(--velo-hover); }
+.co-fila:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.co-fila[aria-current='true'] { background: var(--surface); box-shadow: inset 0 0 0 1px var(--border), 0 1px 2px rgba(18, 21, 27, .04); }
+.co-fila > .co-punto { margin-top: 6px; }
+.co-fila__cuerpo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.co-fila__l1 { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.co-fila__titulo {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-weight: 500;
+}
+.co-fila--sin-dir .co-fila__titulo { color: var(--faint); font-weight: 400; }
+.co-fila__hace {
+  flex: none;
+  font-size: var(--fs-meta);
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+.co-fila__l2 {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+  font-size: var(--fs-sm);
+  color: var(--faint);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.co-fila__l2-texto { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.co-fila__l2--vivo { color: var(--good); }
+.co-mas {
+  display: block;
+  width: 100%;
+  height: 30px;
+  padding: 0 10px 0 30px;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--faint);
+  text-align: left;
+  cursor: pointer;
+  border-radius: var(--r-sm);
+}
+.co-mas:hover { color: var(--ink); background: var(--velo-hover); }
+.co-mas:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.co-lista__vacio { padding: 10px; font-size: var(--fs-sm); color: var(--faint); }
+
+/* El punto: lleno trabajando, aro abierto, nada cerrado; gris si el dato es viejo (como Claude Code web). */
+.co-punto {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  box-sizing: border-box;
+}
+.co-punto--trabajando { background: var(--good); }
+.co-punto--abierto { border: 1.5px solid var(--good); }
+.co-punto--viejo { border: 1.5px solid var(--faint); }
+.co-punto--nada { background: transparent; }
+
+/* Abajo de todo, como la cuenta en Claude y los ajustes en Codex: el cartero. */
+.co-barra__abajo {
+  flex: none;
+  padding: 8px 10px 12px;
+  border-top: 1px solid var(--border);
+}
+.co-carteros {
+  margin-left: auto;
+  display: inline-flex;
+  gap: 4px;
+}
+.co-carteros .co-punto { width: 7px; height: 7px; }
+
+/* ── El panel de la derecha ───────────────────────────────────────────────── */
+.co-panel {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+}
+.co-cab {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 56px;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--border);
+}
+.co-cab__volver { display: none; }
+.co-cab__texto { min-width: 0; display: flex; flex-direction: column; }
+.co-cab__titulo {
+  margin: 0;
+  font-size: var(--fs-md);
+  font-weight: 600;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.co-cab__meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-meta);
+  color: var(--faint);
+}
+
+.co-hilo {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 24px 24px 12px;
+}
+/* El hilo se lee a la medida de Claude y ChatGPT: una columna centrada, nunca de borde a borde. */
+.co-hilo__col { max-width: 760px; margin-inline: auto; display: flex; flex-direction: column; gap: 14px; }
+.co-dia {
+  align-self: center;
+  margin: 6px 0;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  font-size: var(--fs-meta);
+  color: var(--faint);
+}
+
+/* Lo de Martín: a la derecha, en burbuja, con la hora y el tick adentro (WhatsApp). */
+.co-yo { align-self: flex-end; max-width: 78%; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.co-burbuja {
+  margin: 0;
+  padding: 9px 12px 7px;
+  border-radius: 16px 16px 4px 16px;
+  background: var(--primary-bg);
+  color: var(--ink);
+  font-size: var(--fs-md);
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.co-burbuja__pie {
+  float: right;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin: 6px 0 -2px 12px;
+  font-size: 11px;
+  color: var(--faint);
+}
+.co-tick { display: inline-flex; }
+.co-tick--hecho { color: var(--primary); }
+.co-tick--mal { color: var(--bad); }
+.co-nota { margin: 0; font-size: var(--fs-meta); color: var(--faint); }
+.co-nota--mal { color: var(--bad); }
+
+/* Lo del chat: a la izquierda, sin burbuja, como el asistente en Claude y ChatGPT. */
+.co-el { align-self: stretch; display: flex; gap: 10px; }
+.co-el__marca {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+.co-el__cuerpo { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.co-el__rotulo { margin: 0; font-size: var(--fs-meta); color: var(--faint); }
+.co-el__texto { margin: 0; font-size: var(--fs-md); line-height: 1.5; overflow-wrap: anywhere; white-space: pre-wrap; }
+.co-el__dl { margin: 4px 0 0; display: grid; grid-template-columns: max-content 1fr; gap: 2px 10px; font-size: var(--fs-sm); }
+.co-el__dl dt { color: var(--faint); }
+.co-el__dl dd { margin: 0; overflow-wrap: anywhere; }
+
+.co-vacio {
+  margin: auto;
+  max-width: 420px;
+  text-align: center;
+  font-size: var(--fs-md);
+  color: var(--faint);
+}
+
+/* ── La caja de escribir ──────────────────────────────────────────────────── */
+.co-caja-wrap { flex: none; padding: 8px 24px 18px; }
+.co-caja {
+  max-width: 760px;
+  margin-inline: auto;
+  border-radius: var(--r-xl);
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--border-strong), 0 2px 10px rgba(18, 21, 27, .05);
+  padding: 12px 12px 8px 16px;
+}
+.co-caja:focus-within { box-shadow: 0 0 0 1px var(--primary-weak), 0 2px 10px rgba(18, 21, 27, .06); }
+.co-caja textarea {
+  display: block;
+  width: 100%;
+  min-height: 24px;
+  max-height: 220px;
+  resize: none;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font: inherit;
+  font-size: var(--fs-md);
+  line-height: 1.5;
+  color: var(--ink);
+}
+.co-caja textarea::placeholder { color: var(--faint); }
+.co-caja__barra { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.co-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 11px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: transparent;
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--dim);
+  cursor: pointer;
+}
+.co-chip:hover { background: var(--velo-hover); }
+.co-chip:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.co-chip[aria-pressed='true'] { border-color: var(--primary-weak); background: var(--primary-bg); color: var(--primary-strong); }
+.co-enviar {
+  margin-left: auto;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--ink);
+  color: var(--surface);
+  cursor: pointer;
+}
+.co-enviar:disabled { background: var(--border-strong); color: var(--surface); cursor: default; }
+.co-enviar:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.co-enviar__giro {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: co-giro .7s linear infinite;
+}
+@keyframes co-giro { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .co-enviar__giro { animation-duration: 2s; } }
+.co-caja__estado {
+  max-width: 760px;
+  margin: 8px auto 0;
+  min-height: 16px;
+  font-size: var(--fs-meta);
+  color: var(--faint);
+  text-align: center;
+}
+/* Cuando la caja no puede mandar: una línea y la salida, en el lugar de la caja. */
+.co-caja--quieta { display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 16px; }
+.co-caja--quieta p { margin: 0; flex: 1; min-width: 0; font-size: var(--fs-sm); color: var(--dim); }
+
+/* ── Avance y Pushes: el nombre de la vista, y nada más arriba ─────────────── */
+.co-vista { flex: 1; min-height: 0; overflow-y: auto; padding: 22px 32px 40px; }
+.co-vista__cab { display: flex; align-items: baseline; gap: 12px; margin: 0 0 16px; }
+.co-vista__titulo { margin: 0; font-size: var(--fs-sect); font-weight: 600; }
+.co-vista__accion { font-size: var(--fs-sm); color: var(--faint); }
+
+/* ── El cartero (el modal) ───────────────────────────────────────────────── */
+.co-cartero { display: flex; flex-direction: column; gap: 18px; font-size: var(--fs-md); }
+.co-cartero__fila { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.co-cartero__fila:last-child { border-bottom: 0; }
+.co-cartero__nombre { font-weight: 600; }
+.co-cartero__dato { margin-left: auto; font-size: var(--fs-sm); color: var(--faint); text-align: right; }
+.co-cartero__titulo { margin: 0 0 4px; font-size: var(--fs-meta); font-weight: 600; color: var(--faint); text-transform: uppercase; letter-spacing: .04em; }
+
+/* El esqueleto de loading.tsx: la forma de la pantalla, en gris, con un brillo lento. */
+.co-esq {
+  display: block;
+  border-radius: 6px;
+  background: var(--border);
+  animation: co-brillo 1.4s ease-in-out infinite;
+}
+@keyframes co-brillo { 50% { opacity: .55; } }
+@media (prefers-reduced-motion: reduce) { .co-esq { animation: none; } }
+
+/* ── Ancho: una tablet angosta y una ventana chica ───────────────────────── */
+@media (max-width: 1100px) {
+  .co-barra { width: 268px; }
+  .co-hilo, .co-caja-wrap { padding-inline: 16px; }
+}
+/* Una sola columna, como WhatsApp en el teléfono: la lista, o la conversación con su flecha de volver. */
+@media (max-width: 720px) {
+  .co-barra { width: 100%; border-right: 0; }
+  .co[data-con-chat='true'] .co-barra { display: none; }
+  .co[data-con-chat='false'] .co-panel { display: none; }
+  .co-cab__volver { display: inline-flex; }
+  .co-cab { padding: 0 12px; }
+  .co-yo { max-width: 88%; }
+}
+@media (pointer: coarse) {
+  .co-acceso, .co-buscar { height: 44px; }
+  .co-fila { min-height: 44px; }
+  .co-enviar { width: 40px; height: 40px; }
+}
