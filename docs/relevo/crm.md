@@ -6,6 +6,41 @@ el briefing anterior (`b5f7fb55`, 10/10 17:10) con todo verificado contra el ár
 **Rutas de esta área:** `app/crm/**`, `lib/leads.ts`, `lib/funnel*.ts`, `lib/crm*.ts`,
 `lib/lead-*.ts`, `lib/campana-*.ts`, `lib/etiquetas*.ts`, `lib/pipeline.ts`.
 
+## 0-Ω5. 15/10/2026 (chat «CRM», cuenta `claude3`): la tanda B INTEGRADA en `wt-crm-int`, lista para subir
+
+**Punta: `8ecb233d7`** en `C:/dev/wt-crm-int` (b4, b3, b1 y b2, con main del 15/10 mergeado — merge, nunca rebase).
+La sube el coordinador («Estrategia 3 cuentas»). b5 queda afuera a propósito: toca `lib/flujo-ia.ts`, que es de
+Automations.
+
+**Lo verificado antes de pasarla:**
+- `asegurarLeadDelNegocio` está antes de los CINCO inserts a `pagos` (la reconciliación la tiene en `reconciliarYGuardar`,
+  su único llamador; `saveCuotasAction` la llamaba dos veces seguidas y queda una). La rama de Pagos era anterior a la
+  auditoría del 14/10; sin la guarda, una cuota podía escribirse en el CRM de otro cliente.
+- `tests/seguridad-crm-pagos-doc.test.ts` al día sin aflojarlo (7/0, probado rompiéndolo): el hijo corre con una sesión
+  del negocio A, un caso nuevo mide el corte SIN sesión, y el barrido exige la guarda en cada llamador de una función
+  privada que inserta. Los cuatro rojos no eran agujeros (el detalle, en el commit `4fe929f34`).
+- Los tests del área (pagos, cobros, cobranza, CRM, API de MaKo, seguridad, leads, funnel, ficha): 1064/1064. Los guards
+  que barren el repo: verdes salvo uno que viene de MAIN (abajo). El apidoc: al día. El tsc completo lo corre el
+  pre-push de quien sube (con 12 chats el lock no juntaba la RAM; el acotado lo cortó el vigía).
+
+**Las migraciones, y su ORDEN (cada cabecera lo dice):**
+- `0290_lead_entrada` — ANTES o junto con el deploy (si llega después no se pierde ningún lead: el alta reintenta sin
+  las dos columnas).
+- `0292_pagos_manual_suscripcion_cancelada` — ANTES o junto con el deploy. Era la `XXXX` de b2 y seguía sin número;
+  0290 a 0292 estaban libres en todas las ramas y en los worktrees del disco.
+- `0291_lead_instagram_desde_ig` — DESPUÉS del deploy (completa el @ de Instagram de los que ya entraron; idempotente).
+
+**Lo que cambia para Martín (b2, en palabras de producto):**
+- Guardar «Editar deal» ya no pasa el lead a Ganado. Ganar sigue siendo el wizard de Ganado.
+- Las cuotas conservan su identidad al editarlas: su link de pago y su recordatorio no se pierden. Una cuota con un
+  link sin pagar o un recordatorio corriendo no se borra (la pantalla dice cuál no tocó).
+- Marcar una cuota como cobrada a mano anula sus links sin pagar: nadie la paga dos veces.
+- Una cuota a la que le cambian la fecha vuelve a recibir su recordatorio de cobranza.
+- Cancelar una suscripción manual guarda su plazo y reactivarla lo devuelve.
+- Un pago a mano lleva moneda, concepto y método.
+
+**Rojo que NO es del CRM:** `tests/puente-panel-copy.test.ts` (voseo) por «acá» en
+`app/web-generator/diagnostico/VistaAfuera.tsx:201`, que llegó a main en `1f347b8a2` (el diagnóstico del Web Generator).
 ## 0-Ω4. 15/10/2026 (chat «Pagos», cuenta `claude1`): b2 COMPLETA en `05bc31391`, y lo que choca al integrarla
 
 **`crm-bloques-b2` está en `05bc31391`** (`wtc-b2`), una sola rama, sin pushear ni mergear en `crm-bloques`:
