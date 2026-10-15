@@ -280,6 +280,22 @@ export function enmascarar(destino: string): string {
   return `•••• ${s.slice(-4)}`;
 }
 
+// ── La huella / Face ID: sólo en el teléfono, y nunca como primer método ─────
+
+/**
+ * ¿El pedido viene de un teléfono?
+ *
+ * Decisión de Martín al enrolar (14/10/2026): la llave de acceso «es justamente un método
+ * rápido de entrar con el celu», y se ofrece sólo DESPUÉS de haber pasado el segundo paso con
+ * la app. En la compu no se ofrece ni se pide, y no es un método para elegir el primer día.
+ *
+ * ⚠️ Mira el user-agent, que lo escribe el navegador: es una regla de PRODUCTO, no de
+ * seguridad. Lo que protege la cuenta es la firma de la llave, no esta función.
+ */
+export function esTelefono(userAgent: string | null | undefined): boolean {
+  return /iPhone|iPod|iPad|Android/i.test(String(userAgent ?? ''));
+}
+
 // ── Passkeys: para qué dominio valen ─────────────────────────────────────────
 
 export type RelyingParty = { rpID: string; origenes: string[] };

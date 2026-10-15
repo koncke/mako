@@ -15,7 +15,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getUsuarioActual } from '@/lib/auth';
 import { ponerSesion } from '@/lib/sesion-cookies';
-import { canalDisponible, CANALES_CODIGO, CANAL_NO_DISPONIBLE, type Amr } from '@/lib/mfa-reglas';
+import { canalDisponible, esTelefono, CANALES_CODIGO, CANAL_NO_DISPONIBLE, type Amr } from '@/lib/mfa-reglas';
 import {
   estadoMfa, cantidadFactores, intentar, intentoOk, MENSAJE_FRENADO,
   iniciarTotp, confirmarTotp, enviarCodigo, verificarCodigo,
@@ -40,7 +40,11 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     ok: true,
     obligatorio: s.rol === 'admin',
-    passkeysDisponibles: !!rpDelPedido(req.headers.get('host')),
+    // Para el .txt de los códigos: dice de qué cuenta son.
+    cuenta: s.email,
+    // La llave se activa sólo desde el teléfono (decisión de Martín, 14/10/2026). Las que ya hay se
+    // listan igual en la compu, para poder quitarlas.
+    passkeysDisponibles: !!rpDelPedido(req.headers.get('host')) && esTelefono(req.headers.get('user-agent')),
     canales: CANALES_CODIGO,
     totp: e.totp,
     whatsapp: e.whatsapp,
@@ -76,7 +80,7 @@ export async function POST(req: NextRequest) {
   if ((accion === 'codigo-enviar' || accion === 'codigo-confirmar') && canalPedido && !canalDisponible(canalPedido)) {
     return no(CANAL_NO_DISPONIBLE);
   }
-  const rp = rpDelPedido(req.headers.get('host'));
+  const rp = esTelefono(req.headers.get('user-agent')) ? rpDelPedido(req.headers.get('host')) : null;
 
   switch (accion) {
     case 'totp-iniciar': {
@@ -92,11 +96,11 @@ export async function POST(req: NextRequest) {
       return activado('totp');
     }
     case 'passkey-opciones': {
-      if (!rp) return no('Aquí no se pueden usar llaves de acceso.');
+      if (!rp) return no('La huella se usa desde el celular.');
       return NextResponse.json({ ok: true, opciones: await opcionesRegistroPasskey(uid, s.email, s.nombre, rp) });
     }
     case 'passkey-verificar': {
-      if (!rp) return no('Aquí no se pueden usar llaves de acceso.');
+      if (!rp) return no('La huella se usa desde el celular.');
       const r = await verificarRegistroPasskey(uid, body.respuesta as never, rp, String(body.nombre ?? ''));
       return r.ok ? activado('passkey') : no(r.error);
     }

@@ -24,7 +24,7 @@ export { CasillaM } from './CasillaM';
 export { TarjetaDecision, type EstadoDecision } from './TarjetaDecision';
 export { SheetM, type SheetMProps } from './SheetM';
 export { KanbanM, type KanbanMProps, type ColumnaKanban, type TarjetaKanban, type ResultadoMover } from './KanbanM';
-export { VacioM, SkeletonFilas } from './Estados';
+export { VacioM, SkeletonFilas, SkeletonTablero, SkeletonTarjetas } from './Estados';
 export { ErrorM } from './ErrorM';
 export { HoraM } from './HoraM';
 export { SalirDeLaVista } from './SalirDeLaVista';

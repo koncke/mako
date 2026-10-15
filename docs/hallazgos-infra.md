@@ -60,6 +60,31 @@ TODO), y el cliente vuelve a pedir el árbol de la página actual.
 - Un comentario que dice «la action revalida otra ruta, así que esta pantalla no se entera» está mal desde Next 16.
   Si un día lo arreglan (el TODO), lo que hoy se refresca solo deja de hacerlo.
 
+## Medir producción: dónde están las duraciones reales y qué las explica (14/10/2026)
+
+Medido al investigar «MaKo Mobile tarda 10 s».
+- **Las duraciones por pedido salen de `GET https://api.vercel.com/logs/request-logs`** (projectId, ownerId=teamId,
+  startDate/endDate en ms; filtros `requestPath` exacto o `search` por substring). Trae duración de función, tipo
+  de arranque, instancia, UA, referer y `isPrefetchRequest`, con unas 24 h de retención.
+  - El parámetro `page` se ignora: se pagina moviendo `endDate`.
+  - Devuelve 50 filas por llamada.
+  - `/v1/.../runtime-logs` es un tail en vivo, sin duraciones; los `events` de un deployment sólo traen el build.
+  - Script: `collect3.mjs` de la medición. Desde Git Bash va con `MSYS_NO_PATHCONV=1`, si no `/inicio` llega como
+    `C:/Program Files/Git/inicio`.
+- **Qué consulta hizo cada render: los `edge_logs` de Supabase** (Management API, `analytics/endpoints/logs`,
+  `response.origin_time`). No traen el traceId de la app: se atribuye por ventana de tiempo.
+- **Regiones**: las funciones corren en iad1 (`functionDefaultRegions`, vercel.json no fija región) y la base en
+  us-west-2. Son 97 ms de mediana por ida y vuelta (p90 127) con la base en ≤3 ms: cada ola de consultas EN SERIE
+  cuesta eso. El borde gru1 suma ~155 ms por pedido.
+- **El arranque de cada instancia** (instrumentation.ts → `hidratarCredenciales`, la siembra de webhook_routing, la
+  migración env→base): unas 8 idas en serie, 1,3-2,7 s. 51 de 114 terminaron en TimeoutError: el plazo corre con la
+  instancia congelada. Con 28 deploys por día, el primer toque a cada pantalla después de un push paga +1,5-3,5 s.
+- **Un `redirect()` de página puede llegar como redirect de CLIENTE (200), no como 307**: /inicio respondió 200 y
+  pintó su layout antes de redirigir. Lo que tiene que redirigir sin dibujar nada (un repartidor) va en el proxy.
+- **Un componente de cliente que importa una constante de un módulo con `node:crypto`** (WS_DISENO, de
+  lib/auth-session.ts) mete crypto-browserify, stream y buffer en el bundle: ~450 KB crudos en TODA página. Turbopack
+  no lo recorta, esbuild sí; medir con esbuild engaña en esto.
+
 ## Supabase: leer y escribir sin perder datos
 
 ### ⚠️ `getSetting` devuelve `null` tanto si falló la lectura como si no hay fila, y eso expulsa a un cliente onboardeado al wizard

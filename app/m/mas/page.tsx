@@ -28,6 +28,7 @@ import { getWorkspace } from '@/lib/workspace';
 import { gruposMas } from '@/lib/movil-rutas';
 import { MakoLogo } from '@/app/_components/MakoBrand';
 import { FilaM } from '../_ui/FilaM';
+import { PantallaM } from '../_ui/PantallaM';
 import { AvatarM, ListaM } from '../_ui/Piezas';
 import { SeccionM } from '../_ui/SeccionM';
 import { RUTA_CUENTA } from '../_ui/cabecera';
@@ -53,7 +54,7 @@ export default async function MasPagina() {
   const nombre = (ctx.sesion.nombre ?? '').trim();
 
   return (
-    <>
+    <PantallaM refrescable>
       <ListaM>
         <FilaM
           leading={<AvatarM nombre={nombre} email={ctx.sesion.email} tam="lg" />}
@@ -96,6 +97,6 @@ export default async function MasPagina() {
           <FilaVersionComputadora />
         </ListaM>
       </div>
-    </>
+    </PantallaM>
   );
 }

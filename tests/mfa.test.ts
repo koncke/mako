@@ -42,6 +42,14 @@
 //   · la ruta del segundo paso con el `frenado` de antes, arriba de todo → 1 fallo.
 //   · 'verificar' probando el código antes de `intentar` → 1 fallo.
 //   · el callback decidiendo con `usuario.mfa_activo` en vez de `mfaActivoReal` → 1 fallo.
+//
+// El feedback de Martín al enrolar (14/10/2026): la huella SÓLO en el teléfono y después de la
+// app, y los códigos descargables. Rotos, una rotura por vez (base 23/23):
+//   · `esTelefono` aceptando Windows → 1 fallo (la huella es del teléfono).
+//   · /api/auth/2fa sin el corte de `esTelefono` en `rp` → 1 fallo.
+//   · el alta ofreciendo «Huella o Face ID» → 1 fallo.
+//   · el botón «Descargar» de /perfil/seguridad sin `descargarCodigos` → 1 fallo.
+//   · el .txt sin los códigos → 1 fallo.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -57,9 +65,10 @@ import {
 import {
   codigoTotp, verificarTotp, base32Encode, pasoTotp, decidirTrasGoogle, requiereSegundoFactor,
   validarEmailRespaldo, relyingParty, puedeEnrolarSinSesion, normalizarCodigoRecuperacion,
-  generarCodigosRecuperacion, hmacCodigo, igualSeguro, CANALES_CODIGO, canalDisponible, debeFrenar, MAX_FALLOS,
+  generarCodigosRecuperacion, hmacCodigo, igualSeguro, CANALES_CODIGO, canalDisponible, debeFrenar, MAX_FALLOS, esTelefono,
 } from '../lib/mfa-reglas';
 import { esPublica, esPublicaSoloLeer } from '../lib/rutas-publicas';
+import { textoCodigosRecuperacion, extraerCodigo } from '../lib/mfa-texto';
 import { proxy } from '../proxy';
 
 const raiz = join(__dirname, '..');
@@ -308,4 +317,84 @@ test('el login decide con los factores de verdad, no sólo con el flag', () => {
   const i = cb.indexOf('mfaActivoReal(usuario.id');
   assert.ok(i > 0 && i < cb.indexOf('requiereSegundoFactor(usuario.rol'), 'cuenta los factores antes de decidir');
   assert.doesNotMatch(cb, /requiereSegundoFactor\(usuario\.rol, !!usuario\.mfa_activo\)|mfaActivo: !!usuario\.mfa_activo/);
+});
+
+// ── El feedback de Martín al enrolar (14/10/2026) ────────────────────────────
+
+test('la huella es del teléfono', () => {
+  const IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148';
+  const ANDROID = 'Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 Chrome/141.0 Mobile Safari/537.36';
+  const WINDOWS = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/141.0 Safari/537.36';
+  const MAC = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Version/18.0 Safari/605.1.15';
+  assert.equal(esTelefono(IPHONE), true);
+  assert.equal(esTelefono(ANDROID), true);
+  assert.equal(esTelefono(WINDOWS), false);
+  assert.equal(esTelefono(MAC), false);
+  assert.equal(esTelefono(null), false);
+});
+
+test('la huella no es un primer método, y sólo se usa o se activa desde el teléfono', () => {
+  const dosfa = sinComentarios(leer('app/api/auth/2fa/route.ts'));
+  assert.doesNotMatch(dosfa, /opcionesRegistroPasskey\(|verificarRegistroPasskey\(/, 'el alta sin sesión no crea llaves');
+  assert.match(dosfa, /accion === 'enrolar-passkey-opciones' \|\| accion === 'enrolar-passkey-verificar'\) \{\s*return no\(/);
+  for (const ruta of ['app/api/auth/2fa/route.ts', 'app/api/perfil/seguridad/route.ts']) {
+    const src = sinComentarios(leer(ruta));
+    assert.match(src, /const rp = esTelefono\(req\.headers\.get\('user-agent'\)\) \? rpDelPedido\(/, `${ruta}: la llave sólo con un teléfono`);
+    assert.match(src, /passkeysDisponibles: !!rpDelPedido\([^)]*\)\) && esTelefono\(/, `${ruta}: la pantalla no la ofrece en la compu`);
+  }
+  // La pantalla del alta tampoco la ofrece: la huella se propone DESPUÉS de entrar.
+  const ui = sinComentarios(leer('app/login/2fa/SegundoPaso.tsx'));
+  const alta = ui.slice(ui.indexOf('if (estado.hayQueEnrolar)'), ui.indexOf('const elegido'));
+  assert.ok(alta.length > 50 && alta.length < 1500, `recorte del alta: ${alta.length}`);
+  assert.doesNotMatch(alta, /passkey/);
+  assert.match(ui, /if \(estado\?\.esTelefono && estado\.passkeysDisponibles && !estado\.factores\.passkey/);
+});
+
+test('los códigos de recuperación se descargan en un .txt con la cuenta y todos los códigos', () => {
+  const codigos = ['abcde-fghij', 'klmno-pqrst'];
+  const txt = textoCodigosRecuperacion(codigos, 'martin@x.com', new Date('2026-10-14T22:00:00Z'));
+  for (const c of codigos) assert.ok(txt.includes(c), c);
+  assert.ok(txt.includes('martin@x.com'));
+  assert.ok(txt.includes('2026-10-14'));
+  assert.ok(txt.includes('\r\n'), 'saltos de Windows: lo abre el Bloc de notas');
+  for (const pantalla of ['app/login/2fa/SegundoPaso.tsx', 'app/perfil/seguridad/SeguridadPanel.tsx']) {
+    assert.match(sinComentarios(leer(pantalla)), /descargarCodigos\(/, `${pantalla}: sin el botón de descargar`);
+  }
+  // El módulo que llega al navegador no arrastra node:crypto.
+  assert.doesNotMatch(leer('lib/mfa-texto.ts'), /from ['"]node:|from ['"]\.\/mfa-reglas/);
+});
+
+// ── El campo del código: toma lo copiado y avanza solo (Martín, 14/10/2026) ───
+// Rotos, una rotura por vez (base 25/25): el resultado, en el comentario de cada test.
+
+// Roto: buscando primero el código partido en 3+3 → «123456 10» deja de dar el código. 1 fallo.
+test('extraerCodigo encuentra el código en lo que se pega o se copia', () => {
+  assert.equal(extraerCodigo('123456'), '123456');
+  assert.equal(extraerCodigo(' 123 456 '), '123456');
+  assert.equal(extraerCodigo('123-456'), '123456');
+  assert.equal(extraerCodigo('Tu código de MaKo es 123456. Vence en 10 minutos.'), '123456');
+  assert.equal(extraerCodigo('123456 10'), '123456');
+  assert.equal(extraerCodigo('12345'), null);
+  assert.equal(extraerCodigo('1234567'), null);
+  assert.equal(extraerCodigo('111111 o 222222'), null, 'con dos códigos no elige');
+  assert.equal(extraerCodigo(null), null);
+});
+
+// Roto: sacando `enviado.current === valor` → 1 fallo; mandando con menos de 6 → 1 fallo;
+// leyendo el portapapeles sin mirar el permiso → 1 fallo; un input de código suelto en una pantalla → 1 fallo.
+test('el campo avanza solo una vez por código y no lee el portapapeles sin permiso', () => {
+  const src = sinComentarios(leer('app/login/2fa/CampoCodigo.tsx'));
+  assert.match(src, /if \(!corto \|\| ocupado \|\| valor\.length !== 6 \|\| enviado\.current === valor\) return;/,
+    'sólo con 6 dígitos, sin un pedido en vuelo, y una vez por código distinto');
+  assert.match(src, /if \(permiso\?\.state !== 'granted'\) return;/, 'al volver a la pestaña, sólo con el permiso ya dado');
+  // Un error no borra lo tipeado.
+  const efectoError = src.slice(src.indexOf('if (error)'), src.indexOf('}, [error]'));
+  assert.ok(efectoError.length > 0 && efectoError.length < 200, `recorte: ${efectoError.length}`);
+  assert.doesNotMatch(efectoError, /onCambio/);
+  // Las dos pantallas usan el campo: no queda un input de código suelto.
+  for (const pantalla of ['app/login/2fa/SegundoPaso.tsx', 'app/perfil/seguridad/SeguridadPanel.tsx']) {
+    const p = sinComentarios(leer(pantalla));
+    assert.match(p, /<CampoCodigo/, pantalla);
+    assert.doesNotMatch(p, /autoComplete="one-time-code"/, `${pantalla}: un campo de código por fuera de CampoCodigo`);
+  }
 });

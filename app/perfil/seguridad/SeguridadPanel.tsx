@@ -13,9 +13,12 @@ import { startRegistration } from '@simplewebauthn/browser';
 import Link from '@/app/_ui/Link';
 import { Pagina } from '@/app/_ui';
 import { BotonBorrar } from '@/app/_ui/BotonBorrar';
+import { descargarCodigos } from '@/app/login/2fa/descargar-codigos';
+import { CampoCodigo } from '@/app/login/2fa/CampoCodigo';
 
 type Estado = {
   obligatorio: boolean;
+  cuenta: string;
   passkeysDisponibles: boolean;
   /** Por dónde puede salir un código hoy (vacío en la tanda 1). */
   canales: ('whatsapp' | 'email')[];
@@ -96,7 +99,8 @@ export function SeguridadPanel() {
         </>
       ) : (
         <>
-          <input style={{ ...input, width: 130, letterSpacing: 3 }} value={codigo} autoFocus inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="000000" onChange={(ev) => setCodigo(ev.target.value.replace(/\D/g, ''))} />
+          <CampoCodigo valor={codigo} onCambio={setCodigo} ocupado={ocupado} error={error} estilo={{ ...input, width: 130, letterSpacing: 3 }}
+            onCompleto={() => correr(() => pedir({ accion: 'codigo-confirmar', canal, codigo }).then(listo))} />
           <button type="button" style={btn} disabled={ocupado || codigo.length !== 6} onClick={() => correr(() => pedir({ accion: 'codigo-confirmar', canal, codigo }).then(listo))}>Activar</button>
           <span style={{ ...detalle, alignSelf: 'center' }}>Enviado a {enviadoA}</span>
         </>
@@ -141,6 +145,7 @@ export function SeguridadPanel() {
             {codigos.map((c) => <div key={c}>{c}</div>)}
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
+            <button type="button" style={btnSec} onClick={() => descargarCodigos(codigos, e.cuenta)}>Descargar</button>
             <button type="button" style={btnSec} onClick={() => { void navigator.clipboard?.writeText(codigos.join('\n')); }}>Copiar</button>
             <button type="button" style={btn} onClick={() => setCodigos(null)}>Ya los guardé</button>
           </div>
@@ -160,7 +165,8 @@ export function SeguridadPanel() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0 }}>
                   <div style={{ ...detalle, fontFamily: "'Geist Mono', monospace", fontSize: 11, wordBreak: 'break-all' }}>{qr.secreto}</div>
                   <div style={{ display: 'flex', gap: 8 }}>
-                    <input style={{ ...input, width: 130, letterSpacing: 3 }} value={codigo} autoFocus inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="000000" onChange={(ev) => setCodigo(ev.target.value.replace(/\D/g, ''))} />
+                    <CampoCodigo valor={codigo} onCambio={setCodigo} ocupado={ocupado} error={error} estilo={{ ...input, width: 130, letterSpacing: 3 }}
+                      onCompleto={() => correr(() => pedir({ accion: 'totp-confirmar', codigo }).then(listo))} />
                     <button type="button" style={btn} disabled={ocupado || codigo.length !== 6} onClick={() => correr(() => pedir({ accion: 'totp-confirmar', codigo }).then(listo))}>Activar</button>
                   </div>
                 </div>
@@ -168,7 +174,9 @@ export function SeguridadPanel() {
             )}
           </div>
         ))}
-        {filaMetodo('passkey', 'Huella o Face ID', e.passkeys.length ? `${e.passkeys.length} llave${e.passkeys.length > 1 ? 's' : ''}` : null, (
+        {/* La huella se activa sólo desde el celular (decisión de Martín, 14/10/2026); en la compu se
+            listan las que hay, para poder quitarlas. */}
+        {filaMetodo('passkey', 'Huella o Face ID', e.passkeys.length ? `${e.passkeys.length} llave${e.passkeys.length > 1 ? 's' : ''}` : (e.passkeysDisponibles ? null : 'Se activa desde el celular'), (
           <>
             {e.passkeys.map((p) => (
               <div key={p.id} style={{ ...fila, paddingLeft: 14 }}>

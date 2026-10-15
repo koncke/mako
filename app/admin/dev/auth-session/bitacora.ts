@@ -85,4 +85,23 @@ export const BITACORA: Hito[] = [
       'Queda para la tanda 3, con el «pedir un código fresco»: dos «quitar» simultáneos pueden dejar al super admin sin métodos (hace falta ya tener su sesión).',
     ],
   },
+  {
+    fecha: '14 oct', hora: '19:10', chat: CIBER, cuenta: 'claude1', actor: 'martin', tipo: 'prompt',
+    titulo: 'Al enrolar: la huella es del celular, y los códigos se descargan',
+    pedido: 'La huella / Face ID no se ofrece en escritorio... es justamente un método rápido de entrar con el celu [y sólo después de haber pasado el auth con la app]. Los códigos de recuperación se tienen que poder DESCARGAR. Falta login con correo y contraseña, con su recuperación. Esperaba poder elegir también código por Gmail y por WhatsApp, y tener varias formas activas en la misma cuenta.',
+    puntos: [
+      'Llegó por «Estrategia 3 cuentas» después de que Martín enroló con la app (22:09 UTC), resumido en cuatro puntos: no es su frase entera.',
+      'Lo del correo y la contraseña es estructural: hoy los códigos recuperan el SEGUNDO factor, no la cuenta; sin Google no hay por dónde entrar. Se diseña antes de construir.',
+      'WhatsApp y correo son la tanda 2 (por Automations del SuperAdmin), que sube de prioridad. Varias formas a la vez ya estaba soportado.',
+    ],
+  },
+  {
+    fecha: '14 oct', hora: '19:18', chat: CIBER, cuenta: 'claude1', actor: 'claude', tipo: 'implementacion',
+    titulo: 'La huella sólo en el teléfono, y los códigos en un .txt',
+    puntos: [
+      '**La huella deja de ser un primer método**: el alta ofrece la app (con un solo método, va directo a ella) y el server rechaza crear una llave sin sesión. Después de entrar, en el teléfono, aparece «Entra más rápido» y la llave se crea con la sesión completa; «Ahora no» no se vuelve a ofrecer en ese teléfono.',
+      '**En la compu no se usa ni se activa** (`esTelefono`, regla de PRODUCTO: el user-agent lo escribe el navegador; lo que protege es la firma). /perfil/seguridad lista las llaves que hay para poder quitarlas y dice «Se activa desde el celular».',
+      '**«Descargar»** en el alta y en /perfil/seguridad: un .txt con la cuenta, la fecha y los diez códigos. El texto vive en lib/mfa-texto.ts, aparte de lib/mfa-reglas.ts, porque aquél importa node:crypto y no puede llegar al navegador.',
+    ],
+  },
 ];

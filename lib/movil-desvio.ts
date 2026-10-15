@@ -111,6 +111,14 @@ export function pedidoMovil(p: { pathname: string; search: string; metodo: strin
     const respaldo = lee ? respaldoEscritorio(path) : null;
     return respaldo ? { tipo: 'redirigir', destino: search ? `${respaldo}?${search}` : respaldo } : { tipo: 'seguir' };
   }
+  // ⚠️ EL REPARTIDOR, EN UN TELÉFONO, SE RESUELVE ACÁ EN EL BORDE (14/10/2026). /inicio es el
+  // `start_url` de la app instalada y el destino de cada login. En un teléfono siempre va a /general
+  // (app/inicio/page.tsx: «telefono → /general»; el admin sin cliente después recibe su `?ws=` de
+  // requireMovil). Hecho en la página, el redirect salía DESPUÉS de dibujar: Vercel registró
+  // `GET /inicio 200` y recién después `GET /general` (2,5-3,8 s), y mientras tanto el teléfono
+  // mostraba /inicio con el layout de escritorio, la Sidebar angosta y el resto en blanco. Lo vio
+  // Martín al abrir la app. Desde el borde es un 307 de ~70 ms y no se dibuja nada.
+  if (path === '/inicio') return lee ? { tipo: 'redirigir', destino: search ? `/general?${search}` : '/general' } : { tipo: 'seguir' };
   const d = decidirDesvio(path, search);
   if (d.tipo !== 'movil') return { tipo: 'seguir' };
   return { tipo: 'reescribir', destino: urlReescrita(d.destino, search) };

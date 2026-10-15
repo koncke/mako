@@ -7,6 +7,47 @@ Corridas del 11/10/2026: la v1 (relevo de 7 agentes + 11 de implementación + 1 
 el diseño v2 a la tarde, y a la noche la implementación v2 (12 agentes + la integración) con el desvío
 de teléfonos PRENDIDO. Lo de la v2 está en su propia sección, más abajo.
 
+## «Tarda muchísimo»: lo que se midió y lo que se arregló (14/10/2026, noche)
+
+Martín: «entrar al CRM toma ~10 segundos, y así con cada cosa». Se midió antes de tocar, con 4 agentes (sólo
+lectura): los request-logs de Vercel, los edge_logs de Supabase, consultas reales a la base y el JS de producción.
+
+- **Los 10 s del CRM eran reales, y la causa no era la obvia.** Mediana de 8,2 s de función (7,3-12,0; n=5), y
+  no por el JS ni por los leads: el «Por responder» de la lista v2 barría el espejo de WhatsApp ENTERO en cada
+  apertura (`getConversacionesNoOficial`): 19 páginas de wa_mensajes EN SERIE más 6 de contactos, 5,5-7,8 s. El
+  tablero ya no lo lee: 1,8-3,3 s (n=3). **Chats heredó la misma lectura**: ahora va acotada (3 páginas, sin la
+  agenda; `opts` en lib/evolution-mensajes.ts) y con el nombre de los 40 leads que se dibujan, no la cartera entera.
+- **El JS NO explica una navegación lenta**: ir al CRM baja ~14 KB gzip y el JS común compila en 25 ms (PC). Sí pesa
+  en la apertura en frío: 1,3 MB crudos / 397 KB gzip en toda página, y se vuelven a bajar en cada deploy (`?dpl=`).
+- **Lo que se siente lento sin ser servidor:**
+  - sólo Plan tenía `loading.tsx`. Al tocar una pestaña, la pantalla anterior quedaba congelada sin señal (Martín
+    tocó el CRM 3 veces en 10 s y triplicó la carga). Ahora hay esqueletos en General, CRM, ficha, chat, Chats, More,
+    Inbox y Clientes (`SkeletonTablero`, `SkeletonTarjetas`);
+  - después de una action que ya revalida, el cliente hacía otro `router.refresh()`: dos renders completos en serie;
+  - el conteo del Inbox corría dos veces por render en General (ahora `cache()` por pedido, con rol y capa SUELTOS:
+    `cache` compara los argumentos por identidad y un objeto nuevo nunca acierta);
+  - el filtro «Sin responder» de Chats iba al servidor (ahora filtra en el cliente).
+- **«Deslizo y no pasa nada»**: el pull-to-refresh escuchaba sólo dentro del div de la página. El título grande (lo
+  dibuja el shell) y el vacío debajo de una lista corta no respondían. Ahora escucha en el documento. Se lo quedan
+  los sheets y cualquier contenedor con overflow que ya bajó (no una marca: se sube por los ancestros).
+- **La Sidebar de escritorio al abrir la app (el diagnóstico obvio era otro).** No era la detección del teléfono
+  (proxy y layout usan la misma `vaAMovil`). Los request-logs mostraron `GET /inicio 200` y recién después
+  `GET /general` (2,5-3,8 s). /inicio, el `start_url` y el destino de cada login, se dibujaba con el layout de
+  escritorio, porque para el desvío es «nada», y su `redirect()` llegaba como redirect de CLIENTE. Arreglado de raíz:
+  - el proxy manda /inicio a /general en un teléfono (307 en el borde, `pedidoMovil`);
+  - en un teléfono `HideOnPublicLanding` no dibuja el cromo NUNCA (`useTelefono`).
+
+**Lo que quedó sin hacer (pide una decisión que no es de esta área; la llevó el orquestador al tablero):**
+- funciones en iad1 y base en us-west-2: 97 ms medidos por consulta en serie (en pdx1, ~5-10 ms);
+- el arranque de cada instancia: instrumentation.ts tarda 1,3-2,7 s, con 51/114 TimeoutError;
+- 28 deploys por día: Martín casi siempre ve el primer toque, el lento;
+- las constantes de lib/auth-session.ts, que meten 450 KB de polyfills de `node:crypto` en toda página;
+- `staleTimes.dynamic`.
+
+Y de esta área, sin hacer:
+- General todavía arma TODOS los bloques y lee el tablero del Plan 3 veces (~8 MB por render en ws9);
+- el CRM baja los leads con 47 columnas.
+
 ## La tanda 1 del v3 en código: barra, General, Chats y los tableros (14/10/2026, noche)
 
 Tres pushes: 104a26209 (barra, General de portada, More por familias, Chats), 5e4bed65d (KanbanM, el CRM y Clientes
