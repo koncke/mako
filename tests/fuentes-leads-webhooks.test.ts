@@ -109,7 +109,19 @@ test('la puerta busca por contacto, completa lo vacío y sólo crea si el evento
 });
 
 test('la puerta NO decide nada por detrás: ni etapa, ni automatizaciones, ni mensajes', () => {
-  for (const prohibido of ['setPipelineStage(', 'enrolarPorEvento(', 'enrolarPorPago(', 'dispararEvento(', 'emitirDelCatalogo(', 'agregarAProducto(', 'sendText', 'sendEmail(']) {
+  for (const prohibido of ['setPipelineStage(', 'enrolarPorEvento(', 'enrolarPorPago(', 'dispararEvento(', 'emitirDelCatalogo(', 'sendText', 'sendEmail(']) {
     assert.ok(!PUERTA.includes(prohibido), `lib/fuentes-leads.ts llama a ${prohibido}: eso lo decide el negocio en Automations, a la vista`);
   }
+});
+
+test('el funnel sale de la entrada DECLARADA (decisión 9), y a un lead que ya estaba se lo AGREGA', () => {
+  assert.match(PUERTA, /const funnelId = e\.entrada \? await funnelDeEntrada\(e\.entrada\) : null;/);
+  assert.match(PUERTA, /agregarAProducto\(existente\.id, funnelId,/, 'un lead que ya estaba se agrega al funnel, nunca se mueve (mig 0207)');
+  assert.match(PUERTA, /createLead\(\{[\s\S]*?funnel_id: funnelId,/);
+  // Sólo el funnel que dice la entrada: ningún otro número llega a agregarAProducto.
+  assert.equal((PUERTA.match(/agregarAProducto\(/g) ?? []).length, 1);
+  const elegir = sinComentarios(leer('../lib/funnel-de-entrada.ts'));
+  assert.match(elegir, /return con\.length === 1 \? con\[0\] : null;/, 'con varios funnels que la declaran, elegir el primero es decidir a ciegas');
+  // Hotmart: sólo comprar, dejar un pago pendiente o abandonar el carrito es la entrada «carrito».
+  assert.match(HOTMART, /ev\.tipo === 'compra' \|\| ev\.tipo === 'abandono' \|\| ev\.tipo === 'pendiente' \? \{ entrada: 'carrito' as const \}/);
 });

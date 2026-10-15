@@ -882,9 +882,10 @@ Las primeras fuentes del Leads Scraper (`docs/diseno-leads-scraper.md`). Lo que 
   Hotmart no le serviría, y a uno que tiene las dos le dispararía automatizaciones pensadas para un cobro
   de MaKo (con la condición «Pagó» en falso: Hotmart no escribe `fecha_primer_pago`). Es trabajo con el
   chat de Automations y el de Pagos.
-- **Cada fuente entra al funnel DEL NEGOCIO** (`funnel_id` null), como Calendly. Lo decidido (15/10,
-  `docs/diseno-leads-scraper.md` §7, decisión 9): Hotmart irá al funnel que declara la entrada «carrito»;
-  todavía no está hecho.
+- ~~Cada fuente entra al funnel DEL NEGOCIO~~ **Hecho el 15/10** (decisión 9, `docs/diseno-leads-scraper.md`
+  §7): una compra, un pago pendiente o un carrito de Hotmart entran al funnel que declara la entrada
+  «carrito» (`lib/funnel-de-entrada.ts`); con ninguno o varios, al del negocio. Un lead que ya estaba se
+  AGREGA a ese funnel. Skool, sin entrada que le corresponda, sigue yendo al del negocio.
 - **No hay aviso al equipo** cuando entra un lead por Hotmart o Skool (Meta tiene `lead-formulario-meta`).
   Va como un Evento de MaKo en Automations, no escondido en el webhook.
 

@@ -2,7 +2,7 @@
 // prospectos-reglas — qué se busca, qué vuelve y cuánto vale cada prospecto (puro)
 // =============================================================================
 // El Leads Scraper (docs/diseno-leads-scraper.md §4 y §7): las fuentes que SE BUSCAN corren en
-// Apify con la key del negocio y caen en la lista aparte `prospectos` (mig 0288). Acá vive todo lo
+// Apify con la key del negocio y caen en la lista aparte `prospectos` (mig 0289). Acá vive todo lo
 // que no toca la base, para que un test lo ejecute:
 //   · los parámetros de una búsqueda y su validación (qué, dónde, cuántos);
 //   · el input de cada actor y el techo de plata de la corrida;

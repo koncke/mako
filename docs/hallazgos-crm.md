@@ -8806,7 +8806,7 @@ acá:** que el escalón de la cascada no muestre una proporción fuera de 0-1 (o
 ## Prospectos (Leads Scraper): lo que no se ve de la lista aparte (15/10/2026)
 
 **Vive en:** `lib/prospectos.ts` · `lib/prospectos-reglas.ts` · `lib/apify.ts` · `app/crm/prospectos/` ·
-`app/api/webhooks/apify/route.ts` · `supabase/migrations/0288_prospectos.sql`
+`app/api/webhooks/apify/route.ts` · `supabase/migrations/0289_prospectos.sql`
 
 La prospección en frío (`docs/diseno-leads-scraper.md` §4 y §7): se busca en Google Maps o Instagram con
 Apify y la key del negocio, los resultados caen en `prospectos` con puntaje, y se pasan al CRM los
@@ -8845,6 +8845,6 @@ elegidos. Lo que costó o no se ve:
 - **Buscar y pasar al CRM por la API de MaKo:** hoy sólo están las lecturas (`listar_prospectos`,
   `busquedas_prospeccion`). Buscar cuesta plata y pasar escribe en lote: van con pantalla propia, que
   es otra pieza.
-- **La migración 0288 va ANTES del deploy:** sin ella la pantalla dice «Falta aplicar la migración».
+- **La migración 0289 va ANTES del deploy:** sin ella la pantalla dice «Falta aplicar la migración». Nació 0288 y se renumeró: el Centro de Operaciones tomó la 0288 a las 05:58 del 15/10 y la APLICÓ en prod, minutos después de que se recorrieran los worktrees. El número se elige al commitear, no al escribir.
 
 *15/10/2026, chat «Leads Scraper» (`claude1`).*

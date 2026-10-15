@@ -26,7 +26,6 @@ import { getTenantDb, getWorkspaceActual } from './workspace';
 import { credWs } from './credenciales';
 import { APP_BASE_URL } from './app-url';
 import { leerTodo } from './supabase-paginado';
-import { getFunnelDe, leerFunnels } from './funnels';
 import { logLeadEvent } from './leads';
 import { lanzarActor, leerCorrida, itemsDelDataset } from './apify';
 import { hashDeRuteo } from './ruteo-hash';
@@ -35,13 +34,13 @@ import {
   FUENTES_PROSPECCION, contactable, inputDelActor, leerResultados, parametrosDeBusqueda, puntuar, rotuloDeBusqueda, techoUsd,
   type FuenteProspeccion, type ParametrosBusqueda, type ProspectoNuevo,
 } from './prospectos-reglas';
-import type { EntradaId } from './pipeline';
+import { funnelDeEntrada } from './funnel-de-entrada';
 
 const LOG = '[prospectos]';
 
-/** El código de una tabla que no existe (la 0288 sin aplicar). */
+/** El código de una tabla que no existe (la 0289 sin aplicar). */
 const tablaQueFalta = (code: unknown) => code === '42P01' || code === 'PGRST205';
-const MOTIVO_SIN_TABLA = 'Falta aplicar la migración 0288 (prospectos).';
+const MOTIVO_SIN_TABLA = 'Falta aplicar la migración 0289 (prospectos).';
 
 export type Busqueda = {
   id: number;
@@ -204,23 +203,9 @@ export async function cambiarEstado(ids: number[], estado: 'nuevo' | 'descartado
   return (data ?? []).length;
 }
 
-// ── El funnel (decisión 9) ───────────────────────────────────────────────────
-
-/**
- * El funnel que DECLARA una entrada (`ENTRADAS`, lib/pipeline.ts). Uno solo → ése. Ninguno o
- * varios → null (el del negocio): con varios, elegir el primero sería decidir a ciegas.
- */
-export async function funnelDeEntrada(entrada: EntradaId): Promise<number | null> {
-  const fs = await leerFunnels();
-  if (!fs?.length) return null;
-  const con: number[] = [];
-  for (const f of fs) {
-    try {
-      if ((await getFunnelDe(f.id)).entradas.includes(entrada)) con.push(f.id);
-    } catch { /* un funnel que no se pudo leer no cuenta */ }
-  }
-  return con.length === 1 ? con[0] : null;
-}
+// El funnel por defecto (decisión 9) vive en lib/funnel-de-entrada.ts: lo usan también las fuentes
+// que avisan. Se re-exporta para la acción de la pantalla.
+export { funnelDeEntrada };
 
 // ── Pasar al CRM ─────────────────────────────────────────────────────────────
 

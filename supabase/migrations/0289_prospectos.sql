@@ -1,5 +1,5 @@
 -- =============================================================================
--- 0288_prospectos — la lista aparte de la prospección en frío (Leads Scraper)
+-- 0289_prospectos — la lista aparte de la prospección en frío (Leads Scraper)
 -- =============================================================================
 -- docs/diseno-leads-scraper.md §4 y §7 (decisión 4): los contactos que SE BUSCAN —Google Maps,
 -- perfiles públicos de Instagram— no entran directo al CRM. Caen acá, con un puntaje y su razón, y

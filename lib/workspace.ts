@@ -186,7 +186,7 @@ const TENANT_TABLES = new Set<string>([
   // PASSTHROUGH y la tab Pagos de una ficha listaría los cobros de TODOS los negocios. Las rutas
   // públicas (/pagar/<token>) y los webhooks leen con service role y ws explícito, a propósito.
   'cobros',
-  // El Leads Scraper (mig 0288, 15/10/2026): las búsquedas de prospectos y lo que encontraron. Sin esta
+  // El Leads Scraper (mig 0289, 15/10/2026): las búsquedas de prospectos y lo que encontraron. Sin esta
   // línea getTenantDb() es PASSTHROUGH y la lista de prospectos de un negocio mostraría la de todos.
   'prospeccion_busquedas', 'prospectos',
   // El funnel y la oferta, desde el día uno de su migración (0169-0171). `funnels`

@@ -209,7 +209,7 @@ ninguna de las ocho decisiones.
   No bajan el medidor sin configurar, como las pasarelas.
 - Lo que se aprendió y lo no medido: `docs/hallazgos-integraciones.md` → «Hotmart y Skool».
 
-**Hecho el 15/10/2026: la lista aparte** (`/crm/prospectos`, mig 0288). Se busca en Google Maps o
+**Hecho el 15/10/2026: la lista aparte** (`/crm/prospectos`, mig 0289). Se busca en Google Maps o
 Instagram con la key de Apify del negocio (una tarjeta más en /integraciones), los resultados se
 ordenan por puntaje, «Elegir los 100 mejores» elige entre los que se pueden contactar, y «Pasar al
 CRM» entra por el importador al funnel que declara «Prospección». La API de MaKo lee la lista y las
@@ -217,8 +217,9 @@ búsquedas. Lo que costó y lo no medido: `docs/hallazgos-crm.md` → «Prospect
 
 **Falta, en este orden:**
 1. Mirarlo con una cuenta real: un aviso de prueba desde Hotmart, un Zap de Skool y una búsqueda de
-   Apify contra el ws3. La migración 0288 se aplica ANTES del deploy.
-2. El funnel por entrada para Hotmart (decisión 9, §7).
+   Apify contra el ws3. La migración 0289 se aplica ANTES del deploy.
+2. ~~El funnel por entrada para Hotmart~~ (hecho el 15/10: `lib/funnel-de-entrada.ts`; un lead que ya
+   estaba se AGREGA a ese funnel).
 3. Que un @ de Instagram cuente como contacto en el CRM (es del chat del CRM; sin eso, casi ningún
    prospecto de Instagram puede pasar).
 4. El aviso al equipo («entró un lead por Hotmart») como Evento de MaKo, y que una compra de Hotmart pueda

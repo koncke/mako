@@ -983,7 +983,7 @@ export const BITACORA: Hito[] = [
       'Las búsquedas corren en Apify con la key de cada negocio y un techo de plata por corrida, que la pantalla dice antes de buscar. Apify no firma sus avisos: la búsqueda guarda el hash de una clave que viaja en el cuerpo, y como en local el aviso no llega, la pantalla vuelve a preguntar mientras una corre.',
       '⚠️ **«Pasar al CRM» no completa la ficha de un repetido, y el primer texto de la pantalla decía que sí.** El importador vuelve a buscar duplicados en el server y destilda el que la pantalla no mostró: vuelve como omitido y el prospecto se queda por revisar. Se leyó el importador y se corrigió el texto.',
       '⚠️ **Con los primeros pesos del puntaje, uno sin contacto le ganaba a uno con email.** Ahora el contacto manda por construcción (35 + 35 contra 30 de todo lo demás), y el test lo fija.',
-      '⚠️ **Sin hacer:** que un @ de Instagram cuente como contacto (es regla del CRM, se le pasa a ese chat); la página del celular; buscar y pasar al CRM por la API de MaKo (hoy sólo las lecturas). La migración 0288 va ANTES del deploy.',
+      '⚠️ **Sin hacer:** que un @ de Instagram cuente como contacto (es regla del CRM, se le pasa a ese chat); la página del celular; buscar y pasar al CRM por la API de MaKo (hoy sólo las lecturas). La migración 0289 va ANTES del deploy (era la 0288: el Centro de Operaciones la tomó y la aplicó a las 05:58 del 15/10, y se renumeró).',
     ],
     commits: [
       { sha: '506ba00df', msg: 'Leads Scraper: la lista de prospectos (Google Maps e Instagram por Apify)', lineas: 1622, archivos: 21 },
@@ -992,7 +992,7 @@ export const BITACORA: Hito[] = [
       'app/crm/prospectos/ — la pantalla, sus acciones y la página',
       'lib/prospectos.ts — buscar, traer los resultados, listar y pasar al CRM; lib/prospectos-reglas.ts — lo puro (lectores, puntaje, techo)',
       'lib/apify.ts · app/api/webhooks/apify/route.ts — la corrida y su aviso',
-      'supabase/migrations/0288_prospectos.sql — las dos tablas (antes del deploy)',
+      'supabase/migrations/0289_prospectos.sql — las dos tablas (antes del deploy)',
       'docs/hallazgos-crm.md — «Prospectos (Leads Scraper): lo que no se ve de la lista aparte»',
     ],
   },

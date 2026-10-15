@@ -175,7 +175,7 @@ test('las tablas nuevas son de inquilino en los dos registros', () => {
     assert.match(ws, new RegExp(`'${t}'`), `${t} falta en TENANT_TABLES: getTenantDb sería PASSTHROUGH`);
     assert.match(inquilino, new RegExp(`'${t}'`), `${t} falta en TABLAS_DE_INQUILINO: el reset no la vacía`);
   }
-  const mig = leer('../supabase/migrations/0288_prospectos.sql');
+  const mig = leer('../supabase/migrations/0289_prospectos.sql');
   assert.match(mig, /revoke all on prospeccion_busquedas from anon, authenticated;/);
   assert.match(mig, /revoke all on prospectos from anon, authenticated;/);
   assert.match(mig, /create unique index if not exists prospectos_uk on prospectos \(workspace_id, fuente, id_externo\);/);
