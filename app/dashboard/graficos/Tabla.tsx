@@ -17,6 +17,8 @@
 //     columnas de texto; las arma el agregador en `FilaResultado.extra`.
 //   · En el mapa de calor, una métrica de «menos es mejor» se tiñe de rojo: más alto, peor.
 //   · Letra: nada por debajo de 13 px (las cabeceras, en la letra de la hoja y sin mayúsculas en mono).
+//   · LA CABECERA VA EN DOS RENGLONES como mucho (`.gr-th`): en una línea, las cohortes y «Clientes por cobrar» decían
+//     «Cobrado e…», «Tasa de ci…», «Madurez del m…» (medido con el arnés en las plantillas, 14/10/2026).
 //   · ANGOSTA (< 480 px, el celular): las columnas miden menos (ANCHO_ANGOSTA) y las celdas tienen menos aire. Con las
 //     de escritorio, a 364 px entraban el nombre y UNA métrica, y en la tabla con barras el nombre quedaba en
 //     «Campaña …» al lado de una barra de 200 px.
@@ -97,10 +99,10 @@ export function Tabla({ r, modo, barraEn, color, menosEsMejor, extras, total, co
         <thead>
           <tr>
             <th className="gr-izq" />
-            {conBarra && <th className="gr-izq" title={r.columnas[barraEn].nombre}>{r.columnas[barraEn].nombre}</th>}
+            {conBarra && <th className="gr-izq" title={r.columnas[barraEn].nombre}><span className="gr-th">{r.columnas[barraEn].nombre}</span></th>}
             {visibles.map((c) => (c.tipo === 'extra'
-              ? <th key={c.id} className="gr-izq" title={c.nombre}>{c.nombre}</th>
-              : <th key={c.i} title={r.columnas[c.i].nombre}>{r.columnas[c.i].nombre}</th>))}
+              ? <th key={c.id} className="gr-izq" title={c.nombre}><span className="gr-th">{c.nombre}</span></th>
+              : <th key={c.i} title={r.columnas[c.i].nombre}><span className="gr-th">{r.columnas[c.i].nombre}</span></th>))}
             {acciones && <th aria-label="Acciones" />}
           </tr>
         </thead>

@@ -15,6 +15,9 @@ export const CSS_HTML = `
 .gr-tabla th { text-align: right; font-size: var(--fs-sm); font-weight: 600; color: var(--dim); padding: 8px 14px; border-bottom: 1px solid var(--border); background: var(--dash-tarjeta-fondo, var(--surface)); position: sticky; top: 0; z-index: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .gr-tabla td { text-align: right; padding: 12px 14px; border-bottom: 1px solid var(--border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--dim); }
 .gr-tabla .gr-izq { text-align: left; }
+/* La cabecera en dos renglones como mucho; abajo, pegada a la línea, para que las de un renglón y las de dos lean parejo. */
+.gr-tabla th { vertical-align: bottom; }
+.gr-tabla th .gr-th { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; white-space: normal; overflow: hidden; overflow-wrap: anywhere; line-height: 1.25; }
 .gr-tabla td.gr-nombre { color: var(--ink); font-size: var(--fs-card); font-weight: 500; }
 .gr-tabla td.gr-extra { text-align: left; color: var(--dim); }
 .gr-tabla td.gr-fuerte { color: var(--ink); font-weight: 600; }
@@ -55,8 +58,11 @@ export const CSS_HTML = `
 /* Angosta (el celular): el rótulo ARRIBA de su barra, entero en un renglón; al lado, la barra no tenía lugar y el nombre
    quedaba en «Campaña de …». */
 @container (max-width: 440px) {
-  .gr-barras-fila { grid-template-columns: minmax(0, 1fr); gap: 6px; padding: 6px 2px; }
+  .gr-barras-fila { grid-template-columns: minmax(0, 1fr); gap: 4px; padding: 4px 2px; }
   .gr-barras-rot { -webkit-line-clamp: 1; }
+  .gr-barras-pista { height: 18px; border-radius: 6px; }
+  .gr-barras-pista > span { border-radius: 6px; }
+  .gr-barras-pista--doble { height: 12px; }
 }
 
 /* El container va en el envoltorio: un @container no estila al mismo elemento que lo declara (con el container-type en
