@@ -21,6 +21,35 @@ Lo aprendido, en `docs/hallazgos-graficos.md`: «Rediseño por tipo con capturas
 Dashboard». El arnés de capturas vive FUERA del repo, en `C:/Users/marti/arnes-dashboard/` (`node build.mjs <raíz>` y
 `node capturar.cjs <regex> [tema] [plantillas]`).
 
+## Después: el épico (14/10 noche) y las portadas (15/10, esperando a Martín)
+
+- **En main:** el titular por hoja + ESCALA_EPICA (`68566ade`), el test arreglado (`4297cfa1`/`d636ffdc`) y el texto que
+  crece con su tarjeta (`d5384e97`). Cosecha en `docs/hallazgos-graficos.md` → «El Dashboard épico».
+- **Martín rechazó las plantillas** («todos parecen muy iguales», «muchos gráficos juntos parece dashboard»): la portada de
+  cada hoja tiene que ser UNA cosa con la FORMA de su objetivo. La propuesta de las 13 está en `docs/portadas-propuesta.md`
+  (la escribió el orquestador; no duplicarla). **NO implementar hasta que conteste** la decisión de la Ticketera.
+- Antes de implementar, mirar: (1) si los anuncios de `guiones` traen miniatura (`FilaResultado.imagen`) en todos los
+  workspaces, y (2) qué dibuja el mapa de calor sin puente ni grabaciones: ninguna portada puede quedar vacía (placeholder
+  con datos ficticios). Los ejemplos de personas (CS, Cobranza) son ficticios.
+- Los colores por hoja van en UNA tabla que escribe ESTE chat (`lib/graficos-identidad.ts`, acordado con General), después de
+  que Martín apruebe. Regla: mismo tema, mismo color en las dos galerías, y ninguno repetido adentro de una. Dashboard:
+  Marketing azul Meta · Comercial dorado MaKo · Ads coral · Landing celeste · VSL rojo play · Chat verde WhatsApp (--wa) ·
+  Closing violeta · CS teal · Productividad lima · CRM azul oscuro · Cobranza ámbar · Automatizaciones índigo · Contenido e
+  IA durazno. General: general Noche (si Martín dice A en general-meta-oscura; si no, dorado MaKo) · bienvenida durazno ·
+  foco lima · operacion índigo · ventas dorado MaKo · cobros ámbar · anuncios azul Meta · funnel-llamadas violeta ·
+  funnel-whatsapp verde WhatsApp · lanzamiento rojo play · servicio teal · curso celeste · instagram magenta.
+
+## Pedido en cola (15/10): borrar las hojas viejas y rehacer las de Mauricio, DESPUÉS de las portadas
+
+Martín: «eliminen las tabs viejas de los workspaces. Sólo en el caso de Mauricio, que vuelva a poner las tabs que estaban
+pero con su nuevo rediseño». Orden: aprobar portadas → implementarlas → recién ahí borrar y rehacer. Censo (sólo leyendo,
+15/10): 5 informes, 11 hojas; ws1 6 (Marketing, Comercial, Ads, Landing, Closing, Productividad), ws10 Ads, ws11 Cobranza +
+Marketing, ws13 Marketing, ws15 Marketing; todas de plantilla. Script de censo:
+`scratchpad/censo-hojas.mjs` (rehacerlo en el repo si hace falta). UN script con General para el borrado, con respaldo y
+comando para devolverlo, verificado con lo que lee el producto. Al armar el respaldo se compara cada hoja PIEZA POR PIEZA
+con su plantilla: si aparece UNA editada, se frena y se avisa al orquestador (es trabajo de alguien). La decisión de las
+portadas está publicada como `portadas-galerias`; nada se ejecuta antes de que Martín la apruebe y se implemente.
+
 ## Lo que falta
 - **Verlo en producción (ws3)**: el editor con «Celular» sobre una plantilla (Comercial, Marketing) y la galería de «¿Qué vas a
   crear hoy?». Nada se miró todavía con datos reales.
