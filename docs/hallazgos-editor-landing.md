@@ -1234,9 +1234,22 @@ editor, y un crítico que midió lo que faltaba). Las salidas y los scripts qued
   - **Es más que en la rama (250-590 ms) por la RED, no por la página**: en las 9 corridas el FCP es igual al LCP, o
     sea que el H1 es lo primero que se pinta y lo que se espera es el HTML (128 KB) desde Vercel. En la rama la página
     se servía local, sin red.
-  - Lo que dejó la prueba: la landing #21 del ws3 en su **Papelera, que no se vacía sola** (sólo «Borrar para
-    siempre», a mano; las del curso sí tienen purga), con el slug `prueba-anim-mv92gcgj` reservado mientras exista la
-    fila; y **9 visitas en `landing_visits` del ws3** (el Pixel de la página contó las mediciones).
+  - Lo que dejó la prueba, y se borró después (con el OK de Estrategia): la landing #21 del ws3, que despublicada
+    quedó en la Papelera con el slug `prueba-anim-mv92gcgj` reservado, y **9 visitas en `landing_visits` del ws3**
+    (el Pixel de la página contó las mediciones). Quien repita la prueba, que las borre igual: son datos falsos en
+    las analíticas del Cliente de Prueba.
+
+### ⚠️ La Papelera de landings no se vacía sola, y una landing ahí sigue ocupando su dirección (15/10/2026)
+- Una landing en la Papelera queda para siempre: sale sólo con «Borrar para siempre», a mano (`borrar` en
+  lib/editor-landing/server.ts). La Papelera del curso sí se purga sola a la semana (`purgarPapeleraDelCurso`,
+  app/api/cron/curso-purga). Mientras la fila exista, su `slug` sigue tomado: nadie del negocio puede publicar otra
+  en esa dirección, y la pantalla no dice que está ocupada por algo de la Papelera.
+- Despublicar deja `sitio_activo` en true; no sirve nada porque `publicado` queda null y lo que se sirve exige los
+  dos (`leerPublicado`, publicar.ts:258). Es inofensivo, pero se lee como «el sitio sigue activo».
+- **Propuesta, para decidir (no se hizo):** purga automática a los 30 días, como la del curso. Sólo filas con
+  `papelera_at` y sin `publicado`, por el mismo `borrar` (que se lleva versiones y comentarios), y la dirección se
+  libera sola. No es urgente: el 15/10 hay 0 landings publicadas y nadie chocó con una dirección tomada.
+  **Vive en:** lib/editor-landing/server.ts (`mandarAPapelera`, `borrar`) · lib/editor-landing/publicar.ts (`despublicar`).
 - Para volver a medirlo: armar la publicada real con `htmlDePagina(pagina, config, tema, { modo: 'publico' })` +
   `armarDocumento(...)` de las primeras plantillas, servirla con Playwright (`ctx.route`, red externa cortada), CPU ×4
   por CDP, y anotar por `requestAnimationFrame` la opacidad de `h1.gm-titulo` × su `.gm-tarjeta` (el parpadeo) y la
