@@ -61,7 +61,7 @@ export function SegundoPaso({ cuenta }: { cuenta: string }) {
   const [codigo, setCodigo] = useState('');
   const [destino, setDestino] = useState('');
   const [enviadoA, setEnviadoA] = useState<string | null>(null);
-  const [qr, setQr] = useState<{ qr: string; secreto: string } | null>(null);
+  const [qr, setQr] = useState<{ qr: string; secreto: string; uri?: string } | null>(null);
   const [recordar, setRecordar] = useState(false);
   const [ocupado, setOcupado] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -142,7 +142,7 @@ export function SegundoPaso({ cuenta }: { cuenta: string }) {
   const iniciarTotp = () => correr(async () => {
     const j = await pedir({ accion: 'enrolar-totp-iniciar' });
     if (!j.ok) { setError(j.error ?? 'No se pudo.'); return; }
-    setQr({ qr: String(j.qr), secreto: String(j.secreto) });
+    setQr({ qr: String(j.qr), secreto: String(j.secreto), uri: typeof j.uri === 'string' ? j.uri : undefined });
   });
   const confirmarTotp = () => correr(async () => {
     const j = await pedir({ accion: 'enrolar-totp-confirmar', codigo, recordar });
@@ -266,6 +266,8 @@ export function SegundoPaso({ cuenta }: { cuenta: string }) {
               {/* eslint-disable-next-line @next/next/no-img-element -- data URL generado en el server */}
               <img src={qr.qr} alt="Código QR" width={180} height={180} style={{ display: 'block', margin: '0 auto 8px', borderRadius: '8px' }} />
               <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#5B6472', textAlign: 'center', wordBreak: 'break-all', marginBottom: '12px' }}>{qr.secreto}</div>
+              {/* En el celular no hay QR que escanear: el link otpauth abre la app con la cuenta cargada. */}
+              {estado.esTelefono && qr.uri && <a href={qr.uri} style={{ ...btnSec, display: 'block', textAlign: 'center', textDecoration: 'none', marginBottom: '12px' }}>Abrir en la app</a>}
               {campoCodigo(confirmarTotp)}
               {recordarCasilla}
               <button type="button" style={{ ...btn, marginTop: '10px' }} disabled={ocupado || codigo.length !== 6} onClick={confirmarTotp}>Activar</button>

@@ -141,6 +141,15 @@ export async function sincronizarMfaActivo(usuarioId: number): Promise<boolean> 
  * coincide con el flag, se arregla el flag. Si la base no contesta, vale el flag: es lo
  * único que hay, y el login ya depende de la base para encontrar al usuario.
  */
+/**
+ * ¿Esta persona tiene un segundo factor? La MISMA cuenta que usa el login (`estadoMfa`), para
+ * quien tenga que preguntarlo desde afuera (la condición «no tiene el 2FA» de un aviso). TIRA
+ * si no puede leer: un «no» inventado le mandaría el aviso a quien ya cumplió.
+ */
+export async function tieneSegundoFactor(usuarioId: number): Promise<boolean> {
+  return (await estadoMfa(usuarioId)).activo;
+}
+
 export async function mfaActivoReal(usuarioId: number, flag: boolean): Promise<boolean> {
   try {
     const e = await estadoMfa(usuarioId);
@@ -541,10 +550,11 @@ export async function revocarDispositivo(usuarioId: number, id: number | 'todos'
  * tenga su cuenta de Google se enrola el suyo. Primero se agrega otro, después se saca.
  */
 export async function quitarFactor(
-  usuarioId: number, rol: string, factor: Factor | 'passkey', passkeyId?: number,
+  usuarioId: number, obligado: boolean, factor: Factor | 'passkey', passkeyId?: number,
 ): Promise<Resultado> {
   const e = await estadoMfa(usuarioId);
-  if (rol === 'admin' && cantidadFactores(e) <= 1) {
+  // `obligado` = `politicaLoExige` (lib/mfa-reglas.ts): el super admin, o un negocio que lo exige.
+  if (obligado && cantidadFactores(e) <= 1) {
     return { ok: false, error: 'Es tu único método. Agrega otro antes de sacar éste.' };
   }
   if (factor === 'totp') await upsertMfa(usuarioId, { totp_cifrado: null, totp_activo: false, totp_ultimo_paso: null });

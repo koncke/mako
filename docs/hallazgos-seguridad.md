@@ -515,6 +515,44 @@ dos «quitar» simultáneos pueden dejar al super admin sin métodos (hace falta
 reset del 2FA por un admin; cerrar sesiones en todos lados al perder el teléfono; método preferido; la
 sección Seguridad en `/m/cuenta`. **Tanda 2:** el destino «a la persona del evento» en Automations.
 
+### El 2FA obligatorio con plazo: «desloguear» era la forma equivocada (14/10/2026)
+
+Pedido de Martín (vía «Estrategia 3 cuentas»): el 2FA obligatorio para TODOS, con plazo al 21/10 a las 24:00 en la
+hora de cada negocio, avisos y recordatorios, y «al que no lo configuró se lo desloguea». El circuito de avisos es del
+chat de Automations (`docs/diseno-2fa-obligatorio.md` en su rama); la regla es de acá.
+
+- ⚠️ **«Desloguear» a una hora no se puede hacer bien, y no hace falta.** La sesión es una cookie firmada SIN estado
+  (sin `iat`, sin marca por usuario): no hay forma de cerrarle la sesión a UNA persona. Y una acción masiva a la hora
+  del corte alcanza a quien sí cumplió si su cookie de hoy no trae `mfa`, y se puede disparar dos veces. Lo que se hizo
+  es EXIGIR: el negocio guarda una FECHA (`workspaces.mfa_obligatorio_desde`, mig 0283) y `requiereSegundoFactor` la
+  calcula en cada pedido. Desde esa hora la sesión sin segundo factor deja de valer (`getUsuarioActual`) y el login
+  manda a /login/2fa, que ya permitía activar el primero sin sesión. Es idempotente, se deshace con null, y a quien
+  cumplió no lo toca: activar un método reemite su sesión con `mfa`, y sus cookies viejas caen en ese momento.
+- **La fecha va en el NEGOCIO, no en cada usuario.** Una marca por usuario escrita una vez no alcanza a los que se
+  crean después; hay 3 invitados que nunca entraron. Lo que sigue sin cubrirse es un NEGOCIO creado después de correr
+  la acción: nace sin la fecha, y se vuelve a correr (es idempotente).
+- **Una sesión que `getUsuarioActual` rechaza no cae al ws1**: `resolverDesdeCookies` distingue «no hay cookie»
+  (cron, webhook: dueño) de «hay cookie y no vale» (null, fail-closed). Medido en `lib/workspace.ts:265` antes de
+  apoyar la exigencia ahí y no en el proxy, que no tiene base.
+- **Lo que la plataforma decide SOBRE los negocios es `gating.soloPlataforma`**, resuelto por la capa en `vistaDe`, y
+  el runner lo vuelve a preguntar en preparar y en ejecutar. Sin eso, el admin de un cliente veía «dejar de exigir el
+  2FA» y anulaba en su negocio la exigencia de Martín. Las capas `completo` y `agencia` tienen `navKeys: null`, así
+  que un `gating.tab` no podía esconderla.
+- **Hoy el único primer factor es la app de autenticación**: WhatsApp y correo siguen apagados (tanda 2) y la llave no
+  puede ser el primero (sólo el celular, sólo después del 2FA). Quien entra sólo desde el teléfono no tiene QR que
+  escanear: se suma «Abrir en la app» con el `otpauth://` que ya generaba `iniciarTotp`.
+- **Medido en producción el 14/10**: 12 usuarios (9 activos, 3 invitados), 11 sin 2FA (sólo el super admin lo
+  tiene), cada negocio con UN usuario (su admin). **`usuarios` no tiene teléfono**: el único es
+  `usuario_mfa.whatsapp_tel`, de quien ya activó el código por WhatsApp. O sea que a quien le falta el 2FA, por
+  persona, sólo se le puede escribir por email; por WhatsApp, sólo al grupo del negocio. La ventana del corte va del
+  21/10 22:00 UTC (ws19, Madrid) al 22/10 07:00 UTC (Tijuana); 4 de 13 negocios sin zona guardada.
+
+**Vive en:** `lib/mfa-reglas.ts` (`requiereSegundoFactor`, `exigidoYa`, `politicaLoExige`, `instanteDelPlazo`) ·
+`lib/mfa-obligatorio.ts` · `lib/auth.ts` (getUsuarioActual) · `app/api/auth/callback/google/route.ts` ·
+`app/api/perfil/seguridad/route.ts` · `lib/api-mako/areas/equipo.{def,run}.ts` (`exigir_2fa_desde`,
+`dejar_de_exigir_2fa`, `ver_exigencia_2fa`) · `supabase/migrations/0283_mfa_obligatorio.sql` ·
+`tests/mfa-obligatorio.test.ts` · *14/10/2026, chat «Ciberseguridad» con «Automations»*
+
 ### ⚠️ Ningún guard que mire el eje de workspace puede restringir a la agencia: el único que sirve es `getSesionAdmin()`
 
 Tres guards con nombre de «solo la agencia» y ninguno lo cumple, por la misma razón de
