@@ -489,6 +489,9 @@ export function estaVerificado(c: Comprobacion): boolean {
   return c.enVercel && c.vercel === true && c.apunta === true && c.mako === true;
 }
 
+/** Lo que renueva una reserva vencida, con los dos botones que tiene la pestaña «Dominios» (ver `queFalta`). */
+export const ACCION_RESERVA_VENCIDA = 'elimínalo y añádelo de nuevo';
+
 /**
  * Lo que falta, en una frase corta, o null si anda. `verificado` = lo que dice la fila: una vez
  * verificado no se vuelve atrás por una lectura (un DNS que parpadea apagaría un sitio que anda);
@@ -500,11 +503,18 @@ export function estaVerificado(c: Comprobacion): boolean {
  * pierde sin que la persona haga nada: mientras nadie lo tome, cargar el DNS todavía lo verifica
  * (`comprobar` no mira la fecha). Quitarlo y añadirlo lo vuelve a reservar 72 h (`reclamar` pone la
  * fecha; «Conectar de nuevo» con el mismo dominio NO la renueva). Uno verificado no vence nunca.
+ *
+ * ⚠️ EL TEXTO DICE LO QUE LA PESTAÑA OFRECE (verificación de la tanda 6, 15/10/2026). Decía «conéctalo de
+ * nuevo», y con el dominio en Vercel la pestaña no muestra «Conectar de nuevo» (sólo sin `enVercel`), y
+ * conectar el mismo dominio no renueva la reserva: mandaba a algo que no está y que, hecho como se lee, no
+ * sirve. Lo que sí la renueva son los dos botones que hay: «Eliminar dominio» (el tacho) y «Añadir dominio»
+ * (`ACCION_RESERVA_VENCIDA`; tests/editor-landing-dominios.test.ts mira que la pestaña los tenga). El
+ * TXT de MaKo sale del negocio, la landing y el dominio: lo cargado en el DNS sigue valiendo.
  */
 export function queFalta(c: Comprobacion, verificado: boolean, vencido = false): string | null {
   if (!c.enVercel) return 'Hay que conectarlo de nuevo';
   if (verificado) return c.apunta === false ? 'El DNS ya no apunta a MaKo' : null;
-  if (vencido) return 'Reserva vencida: conéctalo de nuevo';
+  if (vencido) return `Reserva vencida: ${ACCION_RESERVA_VENCIDA}`;
   if (c.vercel === false || c.apunta === false || c.mako === false) return 'Faltan registros DNS';
   if (c.vercel === null || c.apunta === null || c.mako === null) return 'No pude leer el DNS';
   return null;

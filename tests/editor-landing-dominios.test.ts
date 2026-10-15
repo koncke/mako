@@ -70,7 +70,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { NextRequest } from 'next/server';
 import {
-  DOMINIO_RE, HEADER_DOMINIO, PATRON_HOSTS_DE_MAKO, PLAZO_PENDIENTE_MS, RUTA_DOMINIO, SUBRUTA_PAGO, TOPE_PENDIENTES, apexDe,
+  ACCION_RESERVA_VENCIDA, DOMINIO_RE, HEADER_DOMINIO, PATRON_HOSTS_DE_MAKO, PLAZO_PENDIENTE_MS, RUTA_DOMINIO, SUBRUTA_PAGO, TOPE_PENDIENTES, apexDe,
   consultaDelDominio, decidirHost, esHostDeMako, estaVerificado, etiquetaDns, motivoDominioInvalido, motivoParaQuitarReclamo,
   normalizarDominio, pedidoDelDominio, pendienteVencido, pendientesVigentes, puedeSoltarseDeVercel, queFalta, registrosDns,
   textoDominioOcupado,
@@ -425,7 +425,7 @@ test('qué falta: una frase, y un verificado no vuelve atrás (sólo avisa)', ()
 // de un pendiente venció. `comprobar` ahora le pasa la fecha del reclamo a `queFalta`.
 test('qué falta: un pendiente cuya reserva venció lo dice ANTES que los registros; un verificado no vence', () => {
   const ok: Comprobacion = { enVercel: true, vercel: true, apunta: true, mako: true };
-  const VENCIDA = 'Reserva vencida: conéctalo de nuevo';
+  const VENCIDA = 'Reserva vencida: elimínalo y añádelo de nuevo';
   assert.equal(queFalta({ ...ok, mako: false }, false, true), VENCIDA, 'antes que «Faltan registros DNS»');
   assert.equal(queFalta({ ...ok, apunta: null }, false, true), VENCIDA, 'antes que «No pude leer el DNS»');
   assert.equal(queFalta(ok, false, true), VENCIDA, 'aunque el DNS ya esté: otra landing se lo puede quedar');
@@ -436,6 +436,30 @@ test('qué falta: un pendiente cuya reserva venció lo dice ANTES que los regist
   const src = sinComentarios(leer('lib/editor-landing/dominios.ts'));
   assert.match(src, /estadoFinal === 'pendiente' && pendienteVencido\(reclamadoAt, Date\.now\(\)\),/);
   assert.match(src, /comprobar\(ws, id, fila\.dominio, fila\.dominio_estado, fila\.dominio_verificado_at, fila\.dominio_reclamado_at, !!op\.verificar\)/);
+});
+
+// Verificación de la tanda 6 (15/10/2026): decía «conéctalo de nuevo», y con el dominio en Vercel la pestaña no
+// muestra «Conectar de nuevo» (sólo sin `enVercel`), y conectar el mismo dominio NO renueva la reserva (se
+// lee abajo, en dominios.ts). Lo que la renueva son los dos botones que la pestaña sí tiene.
+// PROBADO ROMPIÉNDOLO (15/10/2026, arnés que restaura de memoria, sha256 igual). Base: 31 / 0.
+//   D1 el texto de antes («conéctalo de nuevo»)                              → 29 / 2 (éste y el de arriba)
+//   D2 la pestaña sin el tacho «Eliminar dominio»                             → 30 / 1 (éste)
+// Restaurado: 31 / 0.
+test('qué falta: «Reserva vencida» dice lo que la pestaña Dominios ofrece (eliminar y añadir), no «conéctalo»', () => {
+  const ok: Comprobacion = { enVercel: true, vercel: true, apunta: true, mako: false };
+  const texto = queFalta(ok, false, true) ?? '';
+  assert.doesNotMatch(texto, /conect/i, 'con el dominio en Vercel no hay «Conectar de nuevo»');
+  assert.match(texto, /elimínalo/);
+  assert.match(texto, /añádelo/);
+  assert.equal(texto, `Reserva vencida: ${ACCION_RESERVA_VENCIDA}`);
+  // Los botones que nombra, en la pestaña, para un dominio pendiente que sigue en Vercel.
+  const dialogo = sinComentarios(leer('app/landing-generator/editor/dialogos/DialogoPublicar.tsx'));
+  assert.match(dialogo, /<BotonBorrar talla="md" title="Eliminar dominio" disabled=\{!!ocupado\} onClick=\{\(\) => void quitar\(\)\} \/>/);
+  assert.match(dialogo, /Añadir dominio\s*<\/button>/);
+  assert.match(dialogo, /\{!dato\.enVercel && \(/, '«Conectar de nuevo» sólo fuera de Vercel: por eso el texto no lo nombra');
+  // Y por qué eliminar y añadir sí la renueva: el reclamo nuevo pone la fecha; reintentar el mismo, no.
+  const srv = sinComentarios(leer('lib/editor-landing/dominios.ts'));
+  assert.match(srv, /reclamado \? null : fila\.dominio_reclamado_at/);
 });
 
 // ── El proxy de verdad ───────────────────────────────────────────────────────────
