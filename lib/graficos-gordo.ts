@@ -90,6 +90,45 @@ export function intervaloPorAncho(etiquetas: readonly string[], ancho: number, t
   const largo = Math.max(0, ...etiquetas.map((e) => anchoTexto(e))) + 14;
   return Math.max(0, porTope, Math.ceil((largo * n) / ancho) - 1);
 }
+/**
+ * La escala ÉPICA (Martín, 14/10/2026: «Quiero el mismo criterio de EPICIDAD en los dashboards… Que se rediseñe todo», sobre
+ * el teléfono: «pocas cosas, textos gigantes, bloques grandes»). El número protagonista de una tarjeta se mide contra la
+ * TARJETA, no en px fijos: crece con el bloque y en el celular baja solo. Es UNA escala para el Dashboard y para General
+ * (acordada con ese chat): se importa, no se copia.
+ *   · protagonista: clamp(minimo, cqi × ancho, maximo), y además que entren sus letras y que no pase del alto libre;
+ *   · chip de la comparación y métrica secundaria: una fracción del protagonista, con piso y techo;
+ *   · rótulo (el título de una KPI): 15 px. Nada por debajo de LETRA_MINIMA.
+ */
+export const ESCALA_EPICA = {
+  minimo: 40, cqi: 0.22, maximo: 128,
+  /** Ancho medio de una cifra en la letra de la casa, en em (tabular). */
+  letra: 0.58,
+  /** Qué parte del alto que le QUEDA al número (lo de la tarjeta menos su título, su chip y su métrica chica) puede ocupar. */
+  alto: 0.85,
+  chip: 0.2, chipMax: 22,
+  secundaria: 0.42, secundariaMin: 15, secundariaMax: 40,
+  rotulo: 15,
+  /** El peso y el tracking del protagonista: los del teléfono aprobado (v3: 40/800, −0,04em). Con 600 un número grande se lee flojo. */
+  peso: 800, tracking: '-0.04em',
+  /** Una cifra de 800 es más ancha que una de 600: el tope por letras usa esto en vez de `letra`. */
+  letraGruesa: 0.62,
+} as const;
+
+/**
+ * El tamaño del número protagonista en una tarjeta de `ancho` px (el ancho de su contenido), con `letras` caracteres y
+ * `altoLibre` px para él (0 = sin tope de alto). Nunca más ancho que la tarjeta: el tope por letras gana sobre el mínimo.
+ */
+export function tamProtagonista(ancho: number, letras: number, altoLibre = 0): number {
+  if (!(ancho > 0)) return ESCALA_EPICA.minimo;
+  const e = ESCALA_EPICA;
+  let t = Math.min(e.maximo, Math.max(e.minimo, e.cqi * ancho));
+  t = Math.min(t, ancho / (Math.max(2, letras) * e.letraGruesa));
+  if (altoLibre > 0) t = Math.min(t, altoLibre * e.alto);
+  return Math.max(LETRA_MINIMA, Math.floor(t));
+}
+/** El chip de la comparación y la métrica chica, en proporción al protagonista. */
+export const tamChip = (protagonista: number) => Math.max(LETRA_MINIMA, Math.min(ESCALA_EPICA.chipMax, Math.round(protagonista * ESCALA_EPICA.chip)));
+export const tamSecundaria = (protagonista: number) => Math.max(ESCALA_EPICA.secundariaMin, Math.min(ESCALA_EPICA.secundariaMax, Math.round(protagonista * ESCALA_EPICA.secundaria)));
 /** El ancho aproximado de un texto en la letra del sistema (sin medir el DOM: alcanza para decidir). */
 export function anchoTexto(texto: string, tam: number = LETRA.tick): number {
   return 0.6 * tam * [...texto].length;

@@ -1123,7 +1123,9 @@ export function EditorInforme({
     // pendiente, rojo), no de un color elegido a mano: el estilo es de la hoja.
     const filete = kpi && estilo.filete;
     const tono = filete ? colorDeTono(tonoDe(c.fuente, c.metricas[0]), hoja.tema) : null;
-    const clases = ['lk-comp', kpi && 'lk-comp--kpi', kpi && estilo.kpiEtiqueta === 'mono' && 'lk-comp--mono', filete && 'lk-comp--filete', (elegido || marcada) && 'lk-comp--sel'].filter(Boolean).join(' ');
+    // Un número de media hoja o más es el TITULAR de la hoja (lib/graficos-plantillas.ts, TITULARES): en la pila del celular va a
+    // lo ancho, no de a dos como los otros números.
+    const clases = ['lk-comp', kpi && 'lk-comp--kpi', kpi && c.w >= 6 && c.h >= 5 && 'lk-comp--titular', kpi && estilo.kpiEtiqueta === 'mono' && 'lk-comp--mono', filete && 'lk-comp--filete', (elegido || marcada) && 'lk-comp--sel'].filter(Boolean).join(' ');
     // La barra de búsqueda de una tabla (interfaz I2): lo escrito va a la VISTA, en el control de su barra
     // (`idBusquedaDe`/`conBusqueda`, ./exportar.ts). Sin ese control (sobre el campo ya hay otro filtro), no hay barra.
     const conBarra = !!c.tabla?.buscar && !!idBusquedaDe(c);
