@@ -212,6 +212,11 @@ export const CATALOGO_MODELOS: FeatureModelo[] = [
   // CLAUDE_PERMITIDO a propósito. Sin PII: el brief del negocio y lo que la persona escribe.
   { feature: 'landing-editor', label: 'Generar una landing en el editor (Landing Generator)', grupo: 'Copywriting', def: GEMINI(), recomendado: GEMINI(), nota: 'Arma el esquema (desde un pedido, un texto pegado o una página importada) y escribe las secciones de a tres, con su diseño y la búsqueda de cada foto. Las fotos las pone el código desde un banco de imágenes, nunca la IA. Sin PII.' },
   { feature: 'landing-editor-ia', label: 'Editar con IA en el editor de landings (Landing Generator)', grupo: 'Copywriting', def: GEMINI(), recomendado: GEMINI(), nota: 'Edición con IA de la landing o de una sección (respeta las bloqueadas), las acciones de texto (mejorar, acortar, traducir…), «Probar nuevo diseño» y las notas del orador. Sin PII.' },
+  // El chat del Video Editor (lib/editor-video/ia.ts): el mismo trato que landing-editor-ia
+  // (decisión del 15/10/2026). GRATIS, Claude vetado sin fila en CLAUDE_PERMITIDO, ni de
+  // respaldo: lo que vuelve es una PROPUESTA que la persona mira antes de aplicar, así que un
+  // proveedor más flojo se ve y se descarta.
+  { feature: 'video-editor-ia', label: 'Editar con IA en el Video Editor', grupo: 'Copywriting', def: GEMINI(), recomendado: GEMINI(), nota: 'El chat al costado del editor: lee la línea de tiempo (nombres, tiempos y textos de los clips) y propone cortes, textos, borrados y volúmenes que la persona acepta o descarta. Sin PII.' },
   // Los tres writers de contenido de Instagram (lib/ig-writer.ts). Mismo perfil
   // que landing-writer: copy con voz de marca sobre el brief del negocio, sin PII
   // (el pedido del usuario + funnel + perfil público) → default GRATIS.

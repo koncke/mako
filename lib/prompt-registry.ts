@@ -63,6 +63,7 @@ import {
   DISENOS_SYSTEM_TEMPLATE as LANDING_EDITOR_DISENOS_SYSTEM, DISENOS_USER_TEMPLATE as LANDING_EDITOR_DISENOS_USER,
   NOTAS_SYSTEM_TEMPLATE as LANDING_EDITOR_NOTAS_SYSTEM, NOTAS_USER_TEMPLATE as LANDING_EDITOR_NOTAS_USER,
 } from './editor-landing/ia-reglas';
+import { CHAT_VIDEO_SYSTEM_TEMPLATE, CHAT_VIDEO_USER_TEMPLATE } from './editor-video/chat-prompts';
 import { TEMPLATE_VALIDATOR_SYSTEM_TEMPLATE, TEMPLATE_VALIDATOR_USER_TEMPLATE } from './template-validator';
 import { SETTING_GANCHO_TEMPLATE, SETTING_PREGUNTAS_TEMPLATE, SETTING_CRITERIO_TEMPLATE } from './setting-secuencias';
 import { SETTING_SIMULADOR_SYSTEM_TEMPLATE } from './setting-simulador';
@@ -718,6 +719,29 @@ export const REGISTRY: Group[] = [
         variables: [v('specActual', 'el LandingSpec actual en JSON'), v('instruccion', 'el cambio que pide el usuario'), v('contexto', 'contexto del negocio')], scope: 'full', sensitive: false,
         default: LANDING_ADJUST_USER_TEMPLATE,
         context: 'Le pasa a MaKo el spec actual y el cambio pedido. Mantén los slots y el pedido de devolver el JSON COMPLETO (si devuelve solo el bloque cambiado, se pierde el resto de la página).',
+      },
+    ],
+  },
+  {
+    // El chat del Video Editor (lib/editor-video/ia.ts; los defaults viven en
+    // lib/editor-video/chat-prompts.ts). Las keys y los slots los fija tests/video-editor-chat.test.ts.
+    group: 'Editor de video (Video Editor)',
+    icon: '🎬',
+    blurb: 'MaKo en el chat del Video Editor: lee la línea de tiempo y propone cambios (textos, cortes, borrados, volumen) que la persona acepta o descarta.',
+    entries: [
+      {
+        key: 'video_editor.chat.system', source: 'override',
+        label: 'Editar con IA (system)', kind: 'system', dynamic: true,
+        variables: [v('catalogo', 'las operaciones que el editor sabe aplicar (sale del código)'), v('formato', 'forma del JSON de la respuesta')], scope: 'static-only', sensitive: true,
+        default: CHAT_VIDEO_SYSTEM_TEMPLATE,
+        context: 'Convierte el pedido de la persona en operaciones del catálogo. {{catalogo}} sale del código (lib/editor-video/chat-catalogo.ts): si se borra, la IA no sabe qué puede hacer y nada se aplica. NO borres «PROHIBIDO INVENTAR» ni la regla de no inventar referencias. Lo que no está en el catálogo se descarta en código igual.',
+      },
+      {
+        key: 'video_editor.chat.user', source: 'override',
+        label: 'Instrucción + línea de tiempo (user)', kind: 'user', dynamic: true,
+        variables: [v('instruccion', 'lo que pidió la persona'), v('alcance', 'todo el video o los elementos elegidos'), v('linea', 'la línea de tiempo: pistas y elementos con su referencia, tiempos y textos')], scope: 'full', sensitive: false,
+        default: CHAT_VIDEO_USER_TEMPLATE,
+        context: 'Le pasa a MaKo la instrucción y la línea de tiempo actual. Conserva los slots: {{instruccion}} y {{linea}} llegan delimitados como dato no confiable.',
       },
     ],
   },

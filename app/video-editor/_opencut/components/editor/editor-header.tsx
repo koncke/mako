@@ -19,7 +19,8 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { ArrowDown01Icon, KeyboardIcon, Layout01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
+import { AiMagicIcon, ArrowDown01Icon, KeyboardIcon, Layout01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
+import { useChatAbierto } from "@/app/video-editor/_opencut/chat/estado";
 import { IconoBorrar } from "@/app/_ui/BotonBorrar";
 import { useRouter } from "@/app/_ui/Link";
 import { rutaEditor } from "@/app/video-editor/ruta";
@@ -63,12 +64,34 @@ export function EditorHeader() {
 				>
 					<HugeiconsIcon icon={KeyboardIcon} className="size-[18px]" />
 				</button>
+				<BotonChat />
 				<div className="ml-1.5">
 					<ExportButton />
 				</div>
 			</div>
 			<ShortcutsDialog isOpen={atajos} onOpenChange={setAtajos} />
 		</header>
+	);
+}
+
+// ── Editar con IA ───────────────────────────────────────────────────────────
+// No es de CapCut: es el chat del Landing Generator traído al editor (pedido de Martín del
+// 15/10/2026). Abre y cierra la columna del chat (chat/PanelChat.tsx).
+
+function BotonChat() {
+	const abierto = useChatAbierto((s) => s.abierto);
+	const setAbierto = useChatAbierto((s) => s.setAbierto);
+	return (
+		<button
+			type="button"
+			onClick={() => setAbierto(!abierto)}
+			aria-pressed={abierto}
+			title="Editar con IA"
+			className="flex h-[27px] cursor-pointer items-center gap-1.5 rounded-[4px] px-2 text-[12px] text-(--cc-icon) hover:bg-(--cc-raised) aria-pressed:bg-(--cc-raised) aria-pressed:text-(--cc-accent)"
+		>
+			<HugeiconsIcon icon={AiMagicIcon} className="size-[16px]" />
+			Editar con IA
+		</button>
 	);
 }
 
