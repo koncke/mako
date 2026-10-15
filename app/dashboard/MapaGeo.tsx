@@ -20,6 +20,10 @@
 //   · CIUDADES COMO BURBUJAS (lat/lon, radio ∝ √valor) sobre las regiones del país: no hay polígonos de ciudad
 //     parejos para todos los países, y la burbuja no los necesita. Meta no da ciudades: son datos propios
 //     (las visitas del Pixel, conjunto `ubicacion`).
+//   · EL PAÍS DE UN MAPA DE CIUDADES sale de DÓNDE CAEN (`paisDePuntos`: el país del mundo que contiene más visitas),
+//     cuando no lo dice el gráfico, la cuenta ni la columna «país». Antes se adivinaba por los NOMBRES contra el
+//     índice de regiones, y «Guadalajara» no es una región: todo mapa de ciudades preguntaba «¿De qué país es el
+//     mapa?» con las coordenadas en la mano (medido con el arnés, 14/10/2026).
 //   · LA PROYECCIÓN: Mercator girada al centro del país (Rusia y Fiyi cruzan el antimeridiano: sin el giro, el
 //     país ocupa el mundo entero); Estados Unidos va con Albers (Alaska y Hawái en recuadro); el mundo, Equal
 //     Earth.
@@ -30,7 +34,7 @@
 //     no la encontraría.
 
 import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
-import { geoAlbersUsa, geoBounds, geoEqualEarth, geoMercator, geoPath, type GeoProjection } from 'd3-geo';
+import { geoAlbersUsa, geoBounds, geoContains, geoEqualEarth, geoMercator, geoPath, type GeoProjection } from 'd3-geo';
 import { Spinner } from '@/app/_ui';
 import { Dropdown } from '@/app/components/Dropdown';
 import { adivinarPais, codigoEn, diccionario, indiceConocido, type RegionGeo } from '@/lib/geo-regiones';
@@ -63,14 +67,28 @@ function bajar<T>(ruta: string): Promise<T> {
 const regionesDe = (fc: Coleccion): RegionGeo[] => fc.features.map((f) => ({ codigo: f.properties.c, nombre: f.properties.n, alias: f.properties.a ?? [] }));
 const esIso2 = (v: string | null | undefined): v is string => !!v && /^[A-Z]{2}$/.test(v);
 
+/** El país (ISO-2) que contiene más valor de las ciudades, por sus coordenadas; null si ninguna cae en un país. */
+function paisDePuntos(mundo: Coleccion, ciudades: readonly RegionMapa[]): string | null {
+  const suma = new Map<string, number>();
+  for (const c of ciudades) {
+    if (c.lat == null || c.lon == null || !Number.isFinite(c.lat) || !Number.isFinite(c.lon)) continue;
+    const f = mundo.features.find((x) => geoContains(x as unknown as Parameters<typeof geoContains>[0], [c.lon!, c.lat!]));
+    if (f && esIso2(f.properties.c)) suma.set(f.properties.c, (suma.get(f.properties.c) ?? 0) + Math.max(0, Number.isFinite(c.valor) ? c.valor : 0) + 1e-9);
+  }
+  return [...suma.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+}
+
 /** La proyección del país: Albers para EE. UU., Equal Earth para el mundo, Mercator girada al centro para el resto. */
-function proyeccion(fc: Coleccion, pais: string | null, w: number, h: number): GeoProjection {
+function proyeccion(fc: Coleccion, pais: string | null, w: number, h: number, aire = 0): GeoProjection {
   const objeto = fc as unknown as Parameters<GeoProjection['fitSize']>[1];
-  if (!pais) return geoEqualEarth().fitSize([w, h], objeto);
-  if (pais === 'US') return geoAlbersUsa().fitSize([w, h], objeto) as unknown as GeoProjection;
+  // `aire`: el borde que se deja libre (el radio de la burbuja más grande), así una ciudad en la punta del país no
+  // se corta contra la tarjeta (Tijuana, en la esquina de México).
+  const caja: [[number, number], [number, number]] = [[aire, aire], [Math.max(aire + 1, w - aire), Math.max(aire + 1, h - aire)]];
+  if (!pais) return geoEqualEarth().fitExtent(caja, objeto);
+  if (pais === 'US') return geoAlbersUsa().fitExtent(caja, objeto) as unknown as GeoProjection;
   const [[oeste], [este]] = geoBounds(objeto);
   const centro = oeste <= este ? (oeste + este) / 2 : ((oeste + este + 360) / 2) % 360;
-  return geoMercator().rotate([-centro, 0]).fitSize([w, h], objeto);
+  return geoMercator().rotate([-centro, 0]).fitExtent(caja, objeto);
 }
 
 export default function MapaGeo({ regiones, color, fmt, alto, pais = 'auto', paisDetectado = null, nivel = 'region', alClic }: {
@@ -102,15 +120,16 @@ export default function MapaGeo({ regiones, color, fmt, alto, pais = 'auto', pai
   const paisFinal = nivel === 'pais' ? null : sinAdivinar ?? (adivinado?.para === firma ? adivinado.pais : null);
   const buscando = nivel !== 'pais' && !sinAdivinar && adivinado?.para !== firma;
 
+  // Un mapa de ciudades con coordenadas se ubica por DÓNDE caen; el resto, por los nombres contra el índice.
+  const porPuntos = nivel === 'ciudad' && regiones.some((r) => r.lat != null && r.lon != null);
   useEffect(() => {
     if (!buscando) return;
     let vivo = true;
-    bajar<Record<string, string[]>>('indice.json').then(
-      (indice) => { if (vivo) setAdivinado({ para: firma, pais: adivinarPais(etiquetas, indice) }); },
-      () => { if (vivo) setAdivinado({ para: firma, pais: null }); },
-    );
+    const listo = (pais: string | null) => { if (vivo) setAdivinado({ para: firma, pais }); };
+    if (porPuntos) bajar<Coleccion>('paises.json').then((fc) => listo(paisDePuntos(fc, regiones)), () => listo(null));
+    else bajar<Record<string, string[]>>('indice.json').then((indice) => listo(adivinarPais(etiquetas, indice)), () => listo(null));
     return () => { vivo = false; };
-  }, [buscando, firma, etiquetas]);
+  }, [buscando, firma, etiquetas, porPuntos, regiones]);
 
   // ── La geometría ────────────────────────────────────────────────────────────────────────
   const ruta = nivel === 'pais' ? 'paises.json' : paisFinal ? `admin1/${paisFinal}.json` : null;
@@ -177,11 +196,11 @@ export default function MapaGeo({ regiones, color, fmt, alto, pais = 'auto', pai
   // Los trazos sólo se recalculan con la geometría o el tamaño: pasar el mouse no los rehace.
   const dibujo = useMemo(() => {
     if (!fc || !tam || tam.w < 40 || tam.h < 40) return null;
-    const proy = proyeccion(fc, paisFinal, tam.w, tam.h);
+    const proy = proyeccion(fc, paisFinal, tam.w, tam.h, nivel === 'ciudad' ? radioBurbuja(1, 1) + 2 : 0);
     const path = geoPath(proy);
     const trazos = fc.features.map((f, i) => ({ i, cod: f.properties.c, nombre: f.properties.n, d: path(f as unknown as Parameters<typeof path>[0]) ?? '' }));
     return { trazos, proy };
-  }, [fc, tam, paisFinal]);
+  }, [fc, tam, paisFinal, nivel]);
 
   const burbujas = useMemo(() => {
     if (!dibujo || nivel !== 'ciudad') return [];
