@@ -18,7 +18,7 @@ import { rutaConWs, wsSuperAdmin } from '@/lib/workspace';
 import { conWs } from '@/lib/ws-tab';
 import { leerDecisiones } from '@/lib/admin-decisiones';
 import { CabeceraM } from '@/app/m/_ui';
-import { responderDecision } from '@/app/admin/runway/acciones';
+import { deshacerDecision, responderDecision } from '@/app/admin/runway/acciones';
 import { MazoDecisiones } from '@/app/tickets/decisiones/Mazo';
 import '@/app/tickets/decisiones/mazo.css';
 import '@/app/tickets/decisiones/vistas.css';
@@ -35,7 +35,7 @@ export default async function TicketeraMovil() {
   return (
     <>
       <CabeceraM titulo="Ticketera" trabajo padre={{ href: RUTA_MAS, label: 'More' }} />
-      <MazoDecisiones lectura={lectura} responder={responderDecision} />
+      <MazoDecisiones lectura={lectura} responder={responderDecision} deshacer={deshacerDecision} />
     </>
   );
 }

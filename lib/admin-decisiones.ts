@@ -54,3 +54,22 @@ export async function guardarRespuesta(id: number, clave: string, texto: string)
   if (e2) return { ok: false, error: 'No se pudo guardar. Prueba de nuevo.' };
   return { ok: true };
 }
+
+/**
+ * «Volver» en la Ticketera: la decisión vuelve a estar PENDIENTE (sin respuesta y sin fecha), para
+ * que la vuelva a contestar. Devuelve `yaRecogida` si el chat ya se había llevado esa respuesta: la
+ * pantalla lo dice, porque deshacer acá no desanda lo que el chat ya hizo con ella.
+ */
+export async function deshacerRespuesta(id: number): Promise<{ ok: true; yaRecogida: boolean } | { ok: false; error: string }> {
+  if (!Number.isInteger(id) || id <= 0) return { ok: false, error: 'Decisión inválida' };
+  const db = getSupabaseServer();
+  const { data, error } = await db.from('admin_decisiones').select('id, archivada_at, recogida_at').eq('id', id).maybeSingle();
+  if (error) return { ok: false, error: 'No se pudo leer. Prueba de nuevo.' };
+  if (!data || data.archivada_at) return { ok: false, error: 'Ya no está en el tablero' };
+  const { error: e2 } = await db
+    .from('admin_decisiones')
+    .update({ respuesta: null, respuesta_texto: null, respondida_at: null, recogida_at: null })
+    .eq('id', id);
+  if (e2) return { ok: false, error: 'No se pudo deshacer. Prueba de nuevo.' };
+  return { ok: true, yaRecogida: data.recogida_at != null };
+}

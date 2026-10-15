@@ -80,6 +80,14 @@ export type EstadoRespuesta = { error: string | null; ok: boolean };
  */
 export type AccionResponder = (prev: EstadoRespuesta, formData: FormData) => Promise<EstadoRespuesta>;
 
+/**
+ * Lo que contesta «Volver» (deshacer): la decisión queda otra vez pendiente, y si el chat ya se
+ * había llevado la respuesta lo DICE —deshacer no desanda lo que el chat ya hizo con ella—.
+ */
+export type EstadoDeshacer = { error: string | null; ok: boolean; yaRecogida: boolean };
+/** La acción que deshace una respuesta. La pasa la PÁGINA, igual que `AccionResponder`. */
+export type AccionDeshacer = (formData: FormData) => Promise<EstadoDeshacer>;
+
 /** La clave con la que se contesta en texto libre (y la única cuando no hay opciones). */
 export const OTRA = 'otra';
 
