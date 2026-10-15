@@ -890,7 +890,16 @@ export const SCRIPT_DIAGNOSTICO = String.raw`(function () {
   function cuantoTextoPinto() {
     try {
       var b = document.body;
-      var t = (b && (b.innerText || b.textContent)) || '';
+      if (!b) return -1;
+      // OJO: NI innerText SOLO NI EL respaldo con textContent. Medido en producción el
+      // 15/10/2026: con una pagina que no pinta nada, innerText devuelve vacio (falsy) y
+      // el respaldo caia a textContent, que incluye EL CODIGO DE LOS scripts: 124.000
+      // caracteres en la landing que destapó el caso. O sea que el aviso no salía nunca, con el
+      // chunk nuevo ya servido. Se mide sobre una copia sin lo que no se ve.
+      var c = b.cloneNode(true);
+      var fuera = c.querySelectorAll('script,style,noscript,template,link,meta');
+      for (var i = 0; i < fuera.length; i++) { if (fuera[i].parentNode) fuera[i].parentNode.removeChild(fuera[i]); }
+      var t = c.textContent || '';
       return String(t).replace(/[\s\u00a0]+/g, ' ').trim().length;
     } catch (e) { return -1; }
   }
