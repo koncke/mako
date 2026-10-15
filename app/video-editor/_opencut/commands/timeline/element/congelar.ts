@@ -40,7 +40,7 @@ import {
 	roundMediaTime,
 	type MediaTime,
 } from "@/app/video-editor/_opencut/wasm";
-import { conElementosDePista, correrDesde, videoElegido } from "./clip-elegido";
+import { conElementosDePista, correrDesde, videoElegido, videoEn } from "./clip-elegido";
 
 /** CapCut congela 3 s. */
 export const DURACION_CONGELAR = mediaTime({ ticks: 3 * TICKS_PER_SECOND });
@@ -142,12 +142,19 @@ export function puedeCongelar(editor: EditorCore, seleccion = editor.selection.g
 
 let congelando = false;
 
-export async function congelarCuadro(editor: EditorCore): Promise<void> {
+/**
+ * Congela el video elegido en el cabezal, o el de `objetivo` en su `tiempo` (el chat
+ * «Editar con IA» nombra el clip y el instante).
+ */
+export async function congelarCuadro(
+	editor: EditorCore,
+	objetivo?: { trackId: string; elementId: string; tiempo: MediaTime },
+): Promise<void> {
 	if (congelando) return;
-	const elegido = videoElegido(editor);
+	const elegido = objetivo ? videoEn(editor, objetivo) : videoElegido(editor);
 	if (!elegido) return;
 	const { track, element } = elegido;
-	const tiempo = editor.playback.getCurrentTime();
+	const tiempo = objetivo ? objetivo.tiempo : editor.playback.getCurrentTime();
 	if (tiempo < element.startTime || tiempo >= element.startTime + element.duration) return;
 
 	const proyecto = editor.project.getActiveOrNull();
