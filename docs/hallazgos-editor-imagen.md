@@ -327,8 +327,10 @@ tenía «SALE»); «al atardecer» en Playfair itálica a 190 px = 969 contra 92
 
 ## Lo que quedó SIN hacer (con el archivo donde vive)
 
-- **Mirarlo en producción con la sesión de Martín** (la cáscara: la tab, la barra lateral, el `?ws=`): el banco ve
-  el editor, no MaKo alrededor. El Chrome conectado a Claude in Chrome no estaba disponible para la cuenta claude1.
+- **Mirarlo en producción con la sesión de Martín** (la cáscara: la tab, la barra lateral, el `?ws=`, guardar): el
+  banco ve el editor, no MaKo alrededor. El lado del cliente sí se verificó en producción (14/10, sesión de Mauricio,
+  admin del ws 1): página → `/crm`, API → 404 de la puerta, sin link en la barra. Ojo al leer un 401 de
+  `/api/image-editor/*`: es el proxy (sin sesión), no la puerta; la puerta contesta 404.
 - **Lo de Canva que Doory no trae** (tanda 5): notas adhesivas, dibujo y tablas (`drawers/ToolsPanel.tsx`), copiar
   estilo, líneas en codo/curva, texto alternativo, descargar la selección, bloquear/ocultar página, «Ir a la página».
 - **Del armazón:** la vista rápida al pasar el mouse por el riel y la pestaña «Estilos» de Diseño
