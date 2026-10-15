@@ -21,7 +21,12 @@
 // ⚠️ SÓLO SERVER. El token de Vercel (VERCEL_API_TOKEN) administra el proyecto entero: puede quitar
 // hola-mako.com. Nunca viaja al navegador, y lo único que esta lib le pide a Vercel que SUELTE es el
 // dominio que la fila de la landing guarda Y que MaKo agregó (`puedeSoltarseDeVercel`, en positivo, con
-// la marca `dominio_agregado_por_mako`: lo que ya estaba en el proyecto no se suelta nunca).
+// la marca `dominio_agregado_por_mako`: lo que ya estaba en el proyecto no se suelta nunca), y el `www.`
+// que MaKo le sumó a esa raíz (tanda 7, `soltarWww`: sólo si redirige a ELLA), por el mismo DELETE.
+//
+// EL WWW DE UNA RAÍZ (tanda 7, 15/10/2026): al conectar tunegocio.com, MaKo suma www.tunegocio.com al
+// proyecto redirigiendo (308) a la raíz, con su CNAME en la lista de registros; al quitar la raíz, se
+// quita el www. Un subdominio no suma nada. Lo puro y el porqué, en dominios-reglas.ts («El www…»).
 //
 // ⚠️ EL RECLAMO PENDIENTE VENCE (revisión de la tanda 2): a las 72 h, o antes si quien lo pide prueba
 // el DNS con SU TXT, otra landing se lo puede quedar; y un negocio no tiene más de 5 sin verificar
@@ -40,9 +45,9 @@ import { getTenantDb, getWorkspaceActual } from '../workspace';
 import { getSupabaseServer } from '../supabase';
 import {
   CLAVE_TXT_MAKO, PREFIJO_TXT_MAKO, TOPE_PENDIENTES, estaVerificado, motivoDominioInvalido, motivoParaQuitarReclamo,
-  normalizarDominio, pendienteVencido, pendientesVigentes, puedeSoltarseDeVercel, queFalta, registrosDns, slugServible,
-  textoDominioOcupado,
-  type Comprobacion, type EstadoDominio, type EstadoDominioPublico, type RespuestaDominio,
+  normalizarDominio, pendienteVencido, pendientesVigentes, puedeSoltarseDeVercel, queFalta, redirigeA, registrosDns,
+  slugServible, soltarWww, sumarWww, textoDominioOcupado, textoYaRedirige, wwwDeRaiz,
+  type Comprobacion, type CuerpoWww, type DepsWww, type EstadoDominio, type EstadoDominioPublico, type RespuestaDominio,
 } from './dominios-reglas';
 
 export type FallaDominio = { ok: false; error: string; status: number };
@@ -118,6 +123,8 @@ function fallaDeVercel(r: RespVercel, que: string): ErrorDominio {
 type DominioDeProyecto = {
   name: string;
   apexName: string | null;
+  /** A qué dominio redirige (un www que MaKo sumó a una raíz, tanda 7), o null si sirve el proyecto. */
+  redirect: string | null;
   verified: boolean;
   verification: { tipo: string; dominio: string; valor: string }[];
 };
@@ -128,6 +135,7 @@ function leerDominioDeProyecto(j: Record<string, unknown> | null): DominioDeProy
   return {
     name: j.name,
     apexName: typeof j.apexName === 'string' ? j.apexName : null,
+    redirect: typeof j.redirect === 'string' && j.redirect ? j.redirect : null,
     verified: j.verified === true,
     verification: ver
       .map((v) => v as { type?: unknown; domain?: unknown; value?: unknown })
@@ -155,11 +163,53 @@ async function leerEnVercel(c: ConfigVercel, d: string): Promise<DominioDeProyec
  * proyecto o cuenta, Vercel lo dice y se nombra.
  */
 async function agregarAVercel(c: ConfigVercel, d: string): Promise<boolean> {
-  if (await leerEnVercel(c, d)) return false;
+  const ya = await leerEnVercel(c, d);
+  if (ya) {
+    // Tanda 7: un dominio que en el proyecto REDIRIGE (el www que MaKo sumó a la raíz de otra landing) no se
+    // puede servir: Vercel lo manda a la raíz antes de llegar a MaKo, y la landing quedaría «verificada» sin
+    // verse nunca. Se dice por qué y qué hacer (quien llama deshace el reclamo).
+    if (ya.redirect) throw new ErrorDominio(textoYaRedirige(ya.redirect), 409);
+    return false;
+  }
   const r = await vercel(c, `/v10/projects/${encodeURIComponent(c.proyecto)}/domains`, { method: 'POST', body: { name: d } });
   if ((r.status === 200 || r.status === 201) && leerDominioDeProyecto(r.json)) return true;
   if (r.status === 409 && (await leerEnVercel(c, d))) return false;
   throw fallaDeVercel(r, 'agregar el dominio');
+}
+
+/**
+ * Suma el `www.` de una raíz al proyecto REDIRIGIENDO a ella (tanda 7; el cuerpo, `cuerpoWww`, con la forma
+ * medida de www.hola-mako.site). Si Vercel no contesta 2xx pero el www quedó en el proyecto redirigiendo a
+ * ESA raíz (una carrera con otro pedido), está bien; si no, TIRA con lo que dijo Vercel. La referencia de
+ * Vercel dice que un dominio que ya está en el proyecto contesta 400 (no 409): se miran los dos.
+ */
+async function agregarWwwAVercel(c: ConfigVercel, cuerpo: CuerpoWww): Promise<void> {
+  const r = await vercel(c, `/v10/projects/${encodeURIComponent(c.proyecto)}/domains`, { method: 'POST', body: cuerpo });
+  if ((r.status === 200 || r.status === 201) && leerDominioDeProyecto(r.json)) return;
+  if ((r.status === 400 || r.status === 409) && redirigeA(await leerEnVercel(c, cuerpo.name), cuerpo.redirect)) return;
+  throw fallaDeVercel(r, 'agregar el www');
+}
+
+/** ¿Alguna landing (de cualquier negocio: clave GLOBAL, cliente crudo como `quitarReclamoAjeno`) tiene ese host? */
+async function algunaLandingTiene(d: string): Promise<boolean> {
+  const { data, error } = await getSupabaseServer().from('landing_docs').select('id').eq('dominio', d).limit(1);
+  if (error) throw new Error(error.message);
+  return (data ?? []).length > 0;
+}
+
+/**
+ * Vercel y la base para `sumarWww` / `soltarWww` (lo puro, con test, en dominios-reglas.ts). Soltar pasa por
+ * el ÚNICO DELETE (`quitarDeVercel`): `soltarWww` ya miró en positivo que la raíz se suelta con su marca, que
+ * el www redirige a ESA raíz y que ninguna landing lo tiene; el guard de adentro vuelve a mirar que sea un
+ * dominio de cliente válido.
+ */
+function depsWww(c: ConfigVercel): DepsWww {
+  return {
+    leer: (d) => leerEnVercel(c, d),
+    agregar: (cuerpo) => agregarWwwAVercel(c, cuerpo),
+    quitar: (d) => quitarDeVercel(c, d, true),
+    otraLanding: algunaLandingTiene,
+  };
 }
 
 /** Le pide a Vercel que vuelva a mirar el TXT `_vercel` (sólo si lo pide). null = todavía no. */
@@ -210,7 +260,10 @@ async function quitarDeVercel(c: ConfigVercel, d: string, agregadoPorMako: boole
  */
 export async function soltarDominioDeVercel(dominioGuardado: string | null | undefined, agregadoPorMako: boolean | null | undefined): Promise<void> {
   if (!puedeSoltarseDeVercel(dominioGuardado, agregadoPorMako)) return;
-  await quitarDeVercel(configVercel(), dominioGuardado, agregadoPorMako === true);
+  const c = configVercel();
+  // Tanda 7: el www que MaKo le sumó a esta raíz, ANTES que la raíz (ver `soltarWww`).
+  await soltarWww(depsWww(c), dominioGuardado, agregadoPorMako === true);
+  await quitarDeVercel(c, dominioGuardado, agregadoPorMako === true);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -324,9 +377,10 @@ async function comprobar(ws: number, id: number, d: string, estado: EstadoDomini
   const valorTxt = valorTxtMako(ws, id, d);
   let pd = await leerEnVercel(c, d);
   if (pd && !pd.verified && verificar && pd.verification.length) pd = (await verificarEnVercel(c, d)) ?? pd;
-  const [dns, mako] = await Promise.all([
+  const [dns, mako, www] = await Promise.all([
     pd ? configDns(c, d) : Promise.resolve(null),
     estado === 'verificado' ? Promise.resolve(true) : txtTiene(d, valorTxt),
+    pd ? wwwDeLaRaiz(c, d, pd.apexName) : Promise.resolve(null),
   ]);
   const comp: Comprobacion = { enVercel: !!pd, vercel: pd ? pd.verified : null, apunta: dns ? dns.apunta : null, mako };
 
@@ -356,13 +410,34 @@ async function comprobar(ws: number, id: number, d: string, estado: EstadoDomini
     registros: registrosDns({
       dominio: d, apex: pd?.apexName, ipv4: dns?.ipv4, cname: dns?.cname, verificacionVercel: pd?.verified ? [] : pd?.verification,
       valorTxtMako: valorTxt, apunta: comp.apunta, vercel: comp.vercel, mako: estadoFinal === 'verificado' ? true : comp.mako,
+      www,
     }),
     falta: queFalta(
       { ...comp, mako: estadoFinal === 'verificado' ? true : comp.mako },
       estadoFinal === 'verificado',
       estadoFinal === 'pendiente' && pendienteVencido(reclamadoAt, Date.now()),
+      www ? www.apunta : undefined,
     ),
   };
+}
+
+/**
+ * El www que MaKo sumó a una raíz (tanda 7), para la lista de registros: sólo si está en el proyecto
+ * REDIRIGIENDO a esa raíz (lo demás no es nuestro y no se le pide nada a la persona). Es secundario: si
+ * Vercel no contesta, la pestaña sigue sin él (null) en vez de fallar entera.
+ */
+async function wwwDeLaRaiz(c: ConfigVercel, raiz: string, apex: string | null): Promise<NonNullable<Parameters<typeof registrosDns>[0]['www']> | null> {
+  const w = wwwDeRaiz(raiz, apex);
+  if (!w) return null;
+  try {
+    const pw = await leerEnVercel(c, w);
+    if (!pw || !redirigeA(pw, raiz)) return null;
+    const dns = await configDns(c, w);
+    return { cname: dns?.cname, apunta: dns ? dns.apunta : null, verificacionVercel: pw.verified ? [] : pw.verification, vercel: pw.verified };
+  } catch (e) {
+    console.warn(`[editor-landing:dominio] no pude leer el www de ${raiz}: ${msg(e)}`);
+    return null;
+  }
 }
 
 /**
@@ -417,6 +492,16 @@ export async function conectarDominio(idRaw: unknown, dominioRaw: unknown): Prom
         .eq('workspace_id', ws).eq('id', id).eq('dominio', d);
       // Sin la marca el dominio no se suelta nunca de Vercel: queda colgado, que es la dirección segura.
       if (error) console.error(`[editor-landing:dominio] #${id}: Vercel agregó ${d} y no pude guardar la marca (no se soltará solo): ${error.message}`);
+    }
+    // Tanda 7: una RAÍZ suma su www redirigiendo a ella (`sumarWww`, en positivo: sólo si la raíz es nuestra).
+    // No frena la conexión: la landing anda en la raíz aunque el www falle, y la lista de registros dice la
+    // verdad (el www sólo aparece si quedó en el proyecto).
+    try {
+      const www = await sumarWww(depsWww(c), d, agrego || marca);
+      if (www === 'sumado') console.log(`[editor-landing:dominio] #${id} (ws ${ws}) sumó el www de ${d}`);
+      else if (www === 'ocupado' || www === 'ajeno') console.warn(`[editor-landing:dominio] #${id}: el www de ${d} ya estaba (${www}): no se tocó`);
+    } catch (e) {
+      console.error(`[editor-landing:dominio] #${id}: no pude sumar el www de ${d} (la raíz quedó conectada): ${msg(e)}`);
     }
     console.log(`[editor-landing:dominio] #${id} (ws ${ws}) conectó ${d}${agrego ? '' : ' (ya estaba en el proyecto)'}`);
     const estado = reclamado ? 'pendiente' : (fila.dominio_estado ?? 'pendiente');
@@ -500,8 +585,14 @@ export async function quitarDominio(idRaw: unknown): Promise<ResultadoDominio> {
     const d = fila.dominio;
     if (!d) return { ok: true, dominio: null };
     const marca = fila.dominio_agregado_por_mako === true;
-    if (puedeSoltarseDeVercel(d, marca)) await quitarDeVercel(configVercel(), d, marca);
-    else console.warn(`[editor-landing:dominio] #${id}: «${d}» no lo agregó MaKo al proyecto (o no es un dominio de cliente): no se le pidió nada a Vercel`);
+    if (puedeSoltarseDeVercel(d, marca)) {
+      const c = configVercel();
+      // Tanda 7: primero el www que MaKo le sumó a esta raíz (si redirige a ELLA y ninguna landing lo tiene),
+      // después la raíz. Si algo falla, la fila sigue con el dominio y se reintenta.
+      const www = await soltarWww(depsWww(c), d, marca);
+      if (www === 'soltado') console.log(`[editor-landing:dominio] #${id} (ws ${ws}) soltó el www de ${d}`);
+      await quitarDeVercel(c, d, marca);
+    } else console.warn(`[editor-landing:dominio] #${id}: «${d}» no lo agregó MaKo al proyecto (o no es un dominio de cliente): no se le pidió nada a Vercel`);
     const db = await getTenantDb();
     const { error } = await db.from('landing_docs').update(SIN_DOMINIO)
       .eq('workspace_id', ws).eq('id', id).eq('dominio', d);

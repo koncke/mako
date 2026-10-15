@@ -73,8 +73,8 @@ import {
   ACCION_RESERVA_VENCIDA, DOMINIO_RE, HEADER_DOMINIO, PATRON_HOSTS_DE_MAKO, PLAZO_PENDIENTE_MS, RUTA_DOMINIO, SUBRUTA_PAGO, TOPE_PENDIENTES, apexDe,
   consultaDelDominio, decidirHost, esHostDeMako, estaVerificado, etiquetaDns, motivoDominioInvalido, motivoParaQuitarReclamo,
   normalizarDominio, pedidoDelDominio, pendienteVencido, pendientesVigentes, puedeSoltarseDeVercel, queFalta, registrosDns,
-  textoDominioOcupado,
-  type Comprobacion, type EntradaRegistros, type PedidoDelDominio,
+  textoDominioOcupado, CODIGO_REDIRECCION_WWW, cuerpoWww, redirigeA, soltarWww, sumarWww, textoYaRedirige, wwwDeRaiz,
+  type Comprobacion, type CuerpoWww, type DepsWww, type EntradaRegistros, type PedidoDelDominio,
 } from '../lib/editor-landing/dominios-reglas';
 import { RUTA_PAGAR_LANDING, SUBRUTAS_FIJAS } from '../lib/editor-landing/origen-landings';
 import { WS_HEADER } from '../lib/ws-tab';
@@ -152,16 +152,17 @@ test('el ÚNICO DELETE a Vercel pasa por el guard, con lo que guarda la fila (el
   assert.ok(iGuard > 0 && iGuard < iDelete, 'el guard va ANTES del DELETE');
   // quitarDominio le pasa la columna de la fila y SU marca, nunca algo del body.
   const q = src.slice(src.indexOf('export async function quitarDominio('));
-  assert.match(q.slice(0, 900), /const d = fila\.dominio;/);
-  assert.match(q.slice(0, 900), /const marca = fila\.dominio_agregado_por_mako === true;\s*if \(puedeSoltarseDeVercel\(d, marca\)\) await quitarDeVercel\(configVercel\(\), d, marca\);/);
+  assert.match(q.slice(0, 1400), /const d = fila\.dominio;/);
+  // Tanda 7: dentro del MISMO guard, primero el www que MaKo le sumó a la raíz y después la raíz.
+  assert.match(q.slice(0, 1400), /const marca = fila\.dominio_agregado_por_mako === true;\s*if \(puedeSoltarseDeVercel\(d, marca\)\) \{\s*const c = configVercel\(\);\s*const www = await soltarWww\(depsWww\(c\), d, marca\);[\s\S]{0,200}?await quitarDeVercel\(c, d, marca\);\s*\}/);
 });
 
 test('agregar a Vercel: se LEE antes del POST, y la marca se pone sólo si este pedido lo agregó', () => {
   const src = sinComentarios(leer('lib/editor-landing/dominios.ts'));
   const ini = src.indexOf('async function agregarAVercel(');
   const cuerpo = src.slice(ini, src.indexOf('\n}\n', ini));
-  assert.ok(cuerpo.length > 100 && cuerpo.length < 900, `el recorte mide ${cuerpo.length}`);
-  const iLee = cuerpo.indexOf('if (await leerEnVercel(c, d)) return false;');
+  assert.ok(cuerpo.length > 100 && cuerpo.length < 1100, `el recorte mide ${cuerpo.length}`);
+  const iLee = cuerpo.search(/const ya = await leerEnVercel\(c, d\);\s*if \(ya\) \{\s*if \(ya\.redirect\) throw new ErrorDominio\(textoYaRedirige\(ya\.redirect\), 409\);\s*return false;\s*\}/);
   const iPost = cuerpo.indexOf("method: 'POST'");
   assert.ok(iLee > 0 && iLee < iPost, 'lo que ya estaba en el proyecto no es nuestro: se lee ANTES del POST');
   assert.match(cuerpo, /if \(\(r\.status === 200 \|\| r\.status === 201\) && leerDominioDeProyecto\(r\.json\)\) return true;/);
@@ -541,4 +542,146 @@ test('proxy: los hosts de MaKo siguen como siempre, y la cabecera del dominio no
   // Fuera de producción (preview, local) el proxy no mira el host: como la mudanza.
   const local = pedir('https://promo.tunegocio.com/');
   assert.equal(local.headers.get('x-middleware-rewrite'), null);
+});
+
+// ── El www de una RAÍZ (tanda 7, 15/10/2026) ─────────────────────────────────────
+// Decidido por el orquestador con criterio, por Martín: al conectar un dominio RAÍZ, MaKo agrega también el
+// www redirigiendo (308) al dominio, con su registro en la lista; al quitar la raíz, se quita el www; un
+// subdominio no suma nada. CÓMO SE PIDE, medido el 15/10/2026 con GET contra el proyecto de Vercel: el
+// proyecto ya tiene www.hola-mako.site, www.hola-mako.com y www.makodigital.app como
+// `{ name: 'www.<raíz>', redirect: '<raíz>', redirectStatusCode: 308 }` — la forma de `cuerpoWww`. Vercel y la
+// base van inyectados (dobles que anotan cada llamada): ningún dominio real se crea.
+// PROBADO ROMPIÉNDOLO (arnés que restaura de memoria y compara el sha256). Base: 37 / 0.
+//   W1 wwwDeRaiz también para un subdominio                                 → 34 / 3 «el www de una raíz…», «sumar…», «soltar…»
+//   W2 el cuerpo sin la redirección (el www serviría la landing sin TXT)   → 36 / 1 «sumar el www…»
+//   W3 sumarWww aunque la raíz no sea nuestra (sin la marca)               → 36 / 1 «sumar el www…»
+//   W4 sumarWww pisa un www que ya estaba (sin leerlo antes)               → 36 / 1 «sumar el www…»
+//   W5 soltarWww suelta un www que redirige a OTRA cosa                    → 36 / 1 «soltar el www…»
+//   W6 soltarWww suelta un www que una landing tiene como su dominio       → 36 / 1 «soltar el www…»
+//   W7 quitarDominio suelta la raíz ANTES que el www                       → 36 / 1 «el ÚNICO DELETE…»
+//   W8 conectar sin sumar el www                                           → 36 / 1 «el server: conectar suma el www…»
+//   W9 el www sin su CNAME en la lista de registros                        → 36 / 1 «registros: una raíz con su www…»
+//   W10 queFalta no avisa el www que falta                                 → 36 / 1 «qué falta: el www…»
+//   W11 agregar toma un dominio que ya redirige a otro                     → 36 / 1 «agregar a Vercel…»
+// Restaurado: 37 / 0.
+
+/** Un Vercel y una base de mentira: lo que hay en el proyecto, quién lo tiene, y la cinta de lo que se pidió. */
+function dobles(proyecto: Record<string, { redirect: string | null; apexName?: string | null }>, deLandings: string[] = []) {
+  const cinta: string[] = [];
+  const deps: DepsWww = {
+    leer: async (d) => { cinta.push(`leer ${d}`); return proyecto[d] ?? null; },
+    agregar: async (c: CuerpoWww) => { cinta.push(`agregar ${JSON.stringify(c)}`); proyecto[c.name] = { redirect: c.redirect }; },
+    quitar: async (d) => { cinta.push(`quitar ${d}`); delete proyecto[d]; },
+    otraLanding: async (d) => { cinta.push(`landing? ${d}`); return deLandings.includes(d); },
+  };
+  return { deps, cinta, proyecto };
+}
+const escribe = (cinta: string[]) => cinta.filter((x) => x.startsWith('agregar') || x.startsWith('quitar'));
+
+test('el www de una raíz: sólo para la raíz (con el apex de Vercel o el de segundo nivel), nunca un subdominio', () => {
+  assert.equal(wwwDeRaiz('tunegocio.com'), 'www.tunegocio.com');
+  assert.equal(wwwDeRaiz('tunegocio.com.mx'), 'www.tunegocio.com.mx');
+  assert.equal(wwwDeRaiz('tunegocio.com', 'tunegocio.com'), 'www.tunegocio.com');
+  for (const sub of ['landing.tunegocio.com', 'www.tunegocio.com', 'promo.tunegocio.com.mx']) assert.equal(wwwDeRaiz(sub), null, sub);
+  assert.equal(wwwDeRaiz('promo.tunegocio.com', 'promo.tunegocio.com'), 'www.promo.tunegocio.com', 'si Vercel dice que ES la raíz (un sufijo público), manda Vercel');
+  for (const mako of ['hola-mako.com', 'hola-mako.site', 'makodigital.app']) assert.equal(wwwDeRaiz(mako), null, mako);
+  assert.equal(wwwDeRaiz(`${'a'.repeat(63)}.${'b'.repeat(63)}.${'c'.repeat(63)}.${'d'.repeat(57)}.com`), null, 'un www que no entra en 253');
+});
+
+test('sumar el www: con la redirección 308 a la raíz, sólo si la raíz es nuestra y el www no estaba', async () => {
+  assert.equal(CODIGO_REDIRECCION_WWW, 308);
+  assert.deepEqual(cuerpoWww('tunegocio.com', 'www.tunegocio.com'), { name: 'www.tunegocio.com', redirect: 'tunegocio.com', redirectStatusCode: 308 });
+
+  const a = dobles({ 'tunegocio.com': { redirect: null, apexName: 'tunegocio.com' } });
+  assert.equal(await sumarWww(a.deps, 'tunegocio.com', true), 'sumado');
+  assert.deepEqual(escribe(a.cinta), ['agregar {"name":"www.tunegocio.com","redirect":"tunegocio.com","redirectStatusCode":308}']);
+  assert.ok(a.cinta.indexOf('leer www.tunegocio.com') < a.cinta.indexOf(escribe(a.cinta)[0]), 'se lee ANTES de agregar');
+
+  // Un subdominio, una raíz que no es nuestra (sin la marca) o que no está en el proyecto: nada.
+  for (const [d, nuestra] of [['landing.tunegocio.com', true], ['tunegocio.com', false]] as const) {
+    const b = dobles({ [d]: { redirect: null } });
+    assert.equal(await sumarWww(b.deps, d, nuestra), 'no-corresponde', d);
+    assert.deepEqual(escribe(b.cinta), [], d);
+  }
+  const fuera = dobles({});
+  assert.equal(await sumarWww(fuera.deps, 'tunegocio.com', true), 'no-corresponde');
+  assert.deepEqual(escribe(fuera.cinta), []);
+
+  // Lo que ya estaba no se toca: el www que ya redirige (reintento), un www de otra cosa, o el de otra landing.
+  const ya = dobles({ 'tunegocio.com': { redirect: null }, 'www.tunegocio.com': { redirect: 'tunegocio.com' } });
+  assert.equal(await sumarWww(ya.deps, 'tunegocio.com', true), 'ya-estaba');
+  const ajeno = dobles({ 'tunegocio.com': { redirect: null }, 'www.tunegocio.com': { redirect: null } });
+  assert.equal(await sumarWww(ajeno.deps, 'tunegocio.com', true), 'ajeno');
+  const otra = dobles({ 'tunegocio.com': { redirect: null } }, ['www.tunegocio.com']);
+  assert.equal(await sumarWww(otra.deps, 'tunegocio.com', true), 'ocupado');
+  for (const x of [ya, ajeno, otra]) assert.deepEqual(escribe(x.cinta), []);
+});
+
+test('soltar el www: antes que la raíz, sólo si la raíz se suelta, redirige a ELLA y ninguna landing lo tiene', async () => {
+  const a = dobles({ 'tunegocio.com': { redirect: null, apexName: 'tunegocio.com' }, 'www.tunegocio.com': { redirect: 'tunegocio.com' } });
+  assert.equal(await soltarWww(a.deps, 'tunegocio.com', true), 'soltado');
+  assert.deepEqual(escribe(a.cinta), ['quitar www.tunegocio.com']);
+
+  const casos: Array<[string, Record<string, { redirect: string | null }>, string, boolean, string[]]> = [
+    ['sin la marca de la raíz', { 'tunegocio.com': { redirect: null }, 'www.tunegocio.com': { redirect: 'tunegocio.com' } }, 'tunegocio.com', false, []],
+    ['un subdominio', { 'landing.tunegocio.com': { redirect: null }, 'www.landing.tunegocio.com': { redirect: 'landing.tunegocio.com' } }, 'landing.tunegocio.com', true, []],
+    ['un www que sirve otra cosa', { 'tunegocio.com': { redirect: null }, 'www.tunegocio.com': { redirect: null } }, 'tunegocio.com', true, []],
+    ['un www que redirige a otro lado', { 'tunegocio.com': { redirect: null }, 'www.tunegocio.com': { redirect: 'otro.com' } }, 'tunegocio.com', true, []],
+    ['un www que una landing tiene como su dominio', { 'tunegocio.com': { redirect: null }, 'www.tunegocio.com': { redirect: 'tunegocio.com' } }, 'tunegocio.com', true, ['www.tunegocio.com']],
+    ['un dominio de MaKo', { 'hola-mako.site': { redirect: null }, 'www.hola-mako.site': { redirect: 'hola-mako.site' } }, 'hola-mako.site', true, []],
+  ];
+  for (const [nombre, proyecto, raiz, marca, deLandings] of casos) {
+    const x = dobles(proyecto, deLandings);
+    await soltarWww(x.deps, raiz, marca);
+    assert.deepEqual(escribe(x.cinta), [], nombre);
+  }
+  const sinWww = dobles({ 'tunegocio.com': { redirect: null } });
+  assert.equal(await soltarWww(sinWww.deps, 'tunegocio.com', true), 'no-estaba');
+  assert.equal(redirigeA({ redirect: 'TuNegocio.com.' }, 'tunegocio.com'), true, 'Vercel puede devolverlo con mayúsculas o punto final');
+  assert.equal(textoYaRedirige('tunegocio.com'), 'Ese dominio ya lleva a tunegocio.com. Quita tunegocio.com de su landing primero.');
+});
+
+test('el server: conectar suma el www sin frenar la raíz; soltar la landing suelta el www; todo por el ÚNICO DELETE', () => {
+  const src = sinComentarios(leer('lib/editor-landing/dominios.ts'));
+  const con = src.slice(src.indexOf('export async function conectarDominio('), src.indexOf('async function reclamar('));
+  const iAgrega = con.indexOf('agrego = await agregarAVercel(c, d);');
+  const iWww = con.search(/try \{\s*const www = await sumarWww\(depsWww\(c\), d, agrego \|\| marca\);/);
+  assert.ok(iAgrega > 0 && iWww > iAgrega, 'el www va DESPUÉS de la raíz, y sólo si la raíz es nuestra (agrego || marca)');
+  assert.match(con.slice(iWww), /\} catch \(e\) \{\s*console\.error\(/, 'un error del www no frena la conexión de la raíz');
+  const soltar = src.slice(src.indexOf('export async function soltarDominioDeVercel('), src.indexOf('function valorTxtMako('));
+  assert.match(soltar, /await soltarWww\(depsWww\(c\), dominioGuardado, agregadoPorMako === true\);\s*await quitarDeVercel\(c, dominioGuardado, agregadoPorMako === true\);/);
+  // El www se suelta por el MISMO DELETE con guard, y se agrega con la redirección.
+  assert.equal((src.match(/method: 'DELETE'/g) ?? []).length, 1, 'un solo DELETE');
+  assert.match(src, /quitar: \(d\) => quitarDeVercel\(c, d, true\),/);
+  assert.match(src, /async function agregarWwwAVercel\(c: ConfigVercel, cuerpo: CuerpoWww\)[\s\S]{0,200}?\{ method: 'POST', body: cuerpo \}/);
+  // La lista de registros de la pestaña lleva el www (sólo si redirige a la raíz) y `queFalta` lo avisa.
+  assert.match(src, /if \(!pw \|\| !redirigeA\(pw, raiz\)\) return null;/);
+  assert.match(src, /www \? www\.apunta : undefined,/);
+});
+
+test('registros: una raíz con su www lleva el CNAME www después de los A (y el TXT de Vercel del www sin repetir)', () => {
+  const r = registrosDns(base({
+    dominio: 'tunegocio.com', apex: 'tunegocio.com', ipv4: ['216.150.1.1'], vercel: false,
+    verificacionVercel: [{ tipo: 'TXT', dominio: '_vercel.tunegocio.com', valor: 'vc=1' }],
+    www: { cname: '2db067c06ef29ee8.vercel-dns-016.com.', apunta: false, vercel: false, verificacionVercel: [{ tipo: 'TXT', dominio: '_vercel.tunegocio.com', valor: 'vc=1' }, { tipo: 'TXT', dominio: '_vercel.tunegocio.com', valor: 'vc=2' }] },
+  }));
+  assert.deepEqual(r.map((x) => [x.tipo, x.nombre, x.valor, x.listo, x.para]), [
+    ['A', '@', '216.150.1.1', false, 'apuntar'],
+    ['CNAME', 'www', '2db067c06ef29ee8.vercel-dns-016.com', false, 'apuntar'],
+    ['TXT', '_vercel', 'vc=1', false, 'vercel'],
+    ['TXT', '_vercel', 'vc=2', false, 'vercel'],
+    ['TXT', '_mako', 'mako-verificacion=abc', null, 'mako'],
+  ]);
+  // Un subdominio no lleva www aunque le llegue uno.
+  const sub = registrosDns(base({ apex: 'tunegocio.com', www: { apunta: false } }));
+  assert.ok(!sub.some((x) => x.nombre === 'www'), JSON.stringify(sub));
+});
+
+test('qué falta: el www de una raíz verificada que no apunta se dice; sin www o sin leerlo, no', () => {
+  const ok: Comprobacion = { enVercel: true, vercel: true, apunta: true, mako: true };
+  assert.equal(queFalta(ok, true, false, false), 'Falta el registro de www');
+  assert.equal(queFalta(ok, true, false, true), null);
+  assert.equal(queFalta(ok, true, false, null), null, 'no se pudo leer: no se avisa');
+  assert.equal(queFalta(ok, true, false), null, 'sin www');
+  assert.equal(queFalta({ ...ok, apunta: false }, true, false, false), 'El DNS ya no apunta a MaKo', 'la raíz manda');
 });

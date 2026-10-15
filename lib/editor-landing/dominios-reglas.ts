@@ -14,7 +14,9 @@
 //     veredicto de «verificado» (`estaVerificado`, `queFalta`);
 //   · los tipos del pedido y de la respuesta de /api/landing-generator/dominio, y la query con que el
 //     proxy le pasa a esa ruta QUÉ se pidió en el dominio (`consultaDelDominio` ↔ `pedidoDelDominio`);
-//   · el dominio que SIRVE una landing, leído de su fila (`dominioQueSirve`, `dominioDeLectura`).
+//   · el dominio que SIRVE una landing, leído de su fila (`dominioQueSirve`, `dominioDeLectura`);
+//   · el `www.` de una raíz (tanda 7): cuál es (`wwwDeRaiz`), el cuerpo del POST a Vercel (`cuerpoWww`), y
+//     cuándo se suma y se suelta (`sumarWww`, `soltarWww`, con Vercel y la base inyectados).
 //
 // SIN server-only, sin node:*, sin React: lo importan proxy.ts, la pantalla (DialogoPublicar) y el
 // test. Un `import` de node:crypto acá rompería el bundle del navegador.
@@ -443,26 +445,46 @@ export type EntradaRegistros = {
   apunta: boolean | null;
   vercel: boolean | null;
   mako: boolean | null;
+  /**
+   * El `www.` que MaKo sumó a una RAÍZ (tanda 7, `sumarWww`), si está en el proyecto redirigiendo a ella:
+   * su CNAME (lo que recomienda Vercel para ESE host), si ya apunta, y el TXT de Vercel si lo pide.
+   * Sin esto (un subdominio, o una raíz conectada antes de la tanda 7) no se suma ninguna fila.
+   */
+  www?: { cname?: string | null; apunta: boolean | null; verificacionVercel?: readonly { tipo: string; dominio: string; valor: string }[] | null; vercel?: boolean | null } | null;
 };
 
 /**
  * Los registros a cargar, en el orden en que conviene cargarlos. Para la raíz, un `A` por cada IP;
  * para un subdominio, un `CNAME` (un CNAME en la raíz no lo acepta ningún DNS). Después el TXT de
  * Vercel si lo pide, y siempre el de MaKo.
+ *
+ * Tanda 7: una RAÍZ con su `www.` en el proyecto (`e.www`, lo sumó `sumarWww`) lleva además el CNAME
+ * `www` justo después de los `A` —es la otra mitad de «llevar tu dominio a MaKo»— y el TXT de Vercel de
+ * ese host si lo pide (sin repetir uno que ya está en la lista). El www NO lleva TXT de MaKo: no sirve
+ * una landing, sólo redirige a la raíz, que es la que prueba con su TXT quién la conectó.
  */
 export function registrosDns(e: EntradaRegistros): RegistroDns[] {
   const apex = e.apex && esOSubdominioDe(e.dominio, e.apex) ? e.apex : apexDe(e.dominio);
   const out: RegistroDns[] = [];
+  const sumar = (r: RegistroDns) => {
+    if (!out.some((x) => x.tipo === r.tipo && x.nombre === r.nombre && x.valor === r.valor)) out.push(r);
+  };
+  const txtsDeVercel = (lista: EntradaRegistros['verificacionVercel'], listo: boolean | null) => {
+    for (const v of lista ?? []) {
+      if (String(v.tipo).toUpperCase() !== 'TXT' || !v.valor) continue;
+      sumar({ tipo: 'TXT', nombre: etiquetaDns(sinPuntoFinal(v.dominio), apex), valor: v.valor, listo, para: 'vercel' });
+    }
+  };
+  const www = e.dominio === apex && e.www ? e.www : null;
   if (e.dominio === apex) {
     const ips = (e.ipv4 ?? []).map((v) => v.trim()).filter(Boolean);
     for (const ip of ips.length ? ips : [IPV4_VERCEL]) out.push({ tipo: 'A', nombre: '@', valor: ip, listo: e.apunta, para: 'apuntar' });
+    if (www) sumar({ tipo: 'CNAME', nombre: 'www', valor: sinPuntoFinal(www.cname?.trim() || CNAME_VERCEL), listo: www.apunta, para: 'apuntar' });
   } else {
     out.push({ tipo: 'CNAME', nombre: etiquetaDns(e.dominio, apex), valor: sinPuntoFinal(e.cname?.trim() || CNAME_VERCEL), listo: e.apunta, para: 'apuntar' });
   }
-  for (const v of e.verificacionVercel ?? []) {
-    if (String(v.tipo).toUpperCase() !== 'TXT' || !v.valor) continue;
-    out.push({ tipo: 'TXT', nombre: etiquetaDns(sinPuntoFinal(v.dominio), apex), valor: v.valor, listo: e.vercel, para: 'vercel' });
-  }
+  txtsDeVercel(e.verificacionVercel, e.vercel);
+  if (www) txtsDeVercel(www.verificacionVercel, www.vercel ?? null);
   out.push({ tipo: 'TXT', nombre: etiquetaDns(`${PREFIJO_TXT_MAKO}.${e.dominio}`, apex), valor: e.valorTxtMako, listo: e.mako, para: 'mako' });
   return out;
 }
@@ -511,13 +533,118 @@ export const ACCION_RESERVA_VENCIDA = 'elimínalo y añádelo de nuevo';
  * (`ACCION_RESERVA_VENCIDA`; tests/editor-landing-dominios.test.ts mira que la pestaña los tenga). El
  * TXT de MaKo sale del negocio, la landing y el dominio: lo cargado en el DNS sigue valiendo.
  */
-export function queFalta(c: Comprobacion, verificado: boolean, vencido = false): string | null {
+export function queFalta(c: Comprobacion, verificado: boolean, vencido = false, wwwApunta?: boolean | null): string | null {
   if (!c.enVercel) return 'Hay que conectarlo de nuevo';
-  if (verificado) return c.apunta === false ? 'El DNS ya no apunta a MaKo' : null;
+  // Tanda 7: el `www.` de una raíz verificada que todavía no apunta (`wwwApunta === false`; undefined = no
+  // hay www, null = no se pudo leer y no se avisa). La landing ya anda en la raíz: se dice qué falta para
+  // que también ande con www, y la pestaña muestra la tabla con su fila.
+  if (verificado) return c.apunta === false ? 'El DNS ya no apunta a MaKo' : wwwApunta === false ? 'Falta el registro de www' : null;
   if (vencido) return `Reserva vencida: ${ACCION_RESERVA_VENCIDA}`;
   if (c.vercel === false || c.apunta === false || c.mako === false) return 'Faltan registros DNS';
   if (c.vercel === null || c.apunta === null || c.mako === null) return 'No pude leer el DNS';
   return null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// El `www.` de una RAÍZ (tanda 7)
+// ─────────────────────────────────────────────────────────────────────────────
+// Decidido por el orquestador con criterio, por Martín (15/10/2026), sobre el pendiente de la tanda 4 «el
+// `www.` no se agrega solo»: al conectar un dominio RAÍZ (tunegocio.com), MaKo agrega también
+// www.tunegocio.com al proyecto de Vercel REDIRIGIENDO (308) a la raíz, con su CNAME en la lista que ve la
+// persona; al quitar la raíz, se quita el www. Un subdominio (landing.tunegocio.com) no suma nada.
+//
+// CÓMO SE PIDE (medido el 15/10/2026 contra la API de Vercel, sólo con GET, y su referencia «Add a domain to
+// a project»): `POST /v10/projects/{proyecto}/domains` con `{ name, redirect, redirectStatusCode }`. Es la
+// forma EXACTA con que el proyecto ya tiene www.hola-mako.site, www.hola-mako.com y www.makodigital.app:
+// `redirect: <raíz>`, `redirectStatusCode: 308`. Y `DELETE /v9/…/domains/{d}` tiene un `removeRedirects`
+// que borraría TODO lo que redirige a la raíz, también lo que MaKo no puso: no se usa. El www se suelta
+// solo, ANTES que la raíz, y por el mismo DELETE con guard (`quitarDeVercel`).
+//
+// ⚠️ EN POSITIVO, como todo lo que suelta algo de Vercel: el www se suma sólo si la raíz es NUESTRA (MaKo la
+// agregó: su marca), no está ya en el proyecto y ninguna landing lo tiene como SU dominio; y se suelta sólo
+// si la raíz se suelta (su marca), el www está redirigiendo a ESA raíz y ninguna landing lo tiene. Lo que ya
+// estaba (un www de otra cosa) no se toca nunca.
+
+/** El código de la redirección del www a la raíz: 308, permanente y con el método (el de www.hola-mako.site). */
+export const CODIGO_REDIRECCION_WWW = 308;
+
+/**
+ * El `www.` que acompaña a un dominio, si es una RAÍZ (el que se compró: `apex` de Vercel, o `apexDe`), o
+ * null: un subdominio no suma nada, ni un www que no sería un dominio de cliente válido.
+ */
+export function wwwDeRaiz(dominio: string, apex?: string | null): string | null {
+  const raiz = apex && esOSubdominioDe(dominio, apex) ? apex : apexDe(dominio);
+  if (dominio !== raiz || !dominioValido(dominio)) return null;
+  const w = `www.${dominio}`;
+  return dominioValido(w) ? w : null;
+}
+
+export type CuerpoWww = { name: string; redirect: string; redirectStatusCode: typeof CODIGO_REDIRECCION_WWW };
+
+/** El cuerpo del POST a Vercel que suma el www redirigiendo a la raíz. */
+export const cuerpoWww = (raiz: string, www: string): CuerpoWww => ({ name: www, redirect: raiz, redirectStatusCode: CODIGO_REDIRECCION_WWW });
+
+/** ¿Ese dominio del proyecto es un www que REDIRIGE a esa raíz? (lo que MaKo pone; otra cosa no se toca). */
+export function redirigeA(enVercel: { redirect?: string | null } | null | undefined, raiz: string): boolean {
+  const r = typeof enVercel?.redirect === 'string' ? enVercel.redirect.trim().toLowerCase().replace(/\.+$/, '') : '';
+  return !!r && r === raiz;
+}
+
+/**
+ * Lo que lee quien quiere conectar un dominio que en el proyecto ya REDIRIGE a otro (el www que MaKo sumó a
+ * una raíz de otra landing): servirlo es imposible (Vercel lo redirige antes de llegar a MaKo).
+ */
+export const textoYaRedirige = (raiz: string): string => `Ese dominio ya lleva a ${raiz}. Quita ${raiz} de su landing primero.`;
+
+/** Lo que el server le pasa a `sumarWww` / `soltarWww`: Vercel y la base, inyectados (el test usa dobles). */
+export type DepsWww = {
+  /** El dominio en el proyecto (su redirect y su apex), o null si no está (404). TIRA si Vercel falla. */
+  leer: (d: string) => Promise<{ redirect: string | null; apexName?: string | null } | null>;
+  /** Lo suma al proyecto con la redirección. TIRA si Vercel dice que no. */
+  agregar: (cuerpo: CuerpoWww) => Promise<void>;
+  /** Lo suelta del proyecto (en el server: el ÚNICO DELETE, `quitarDeVercel`, con su guard). */
+  quitar: (d: string) => Promise<void>;
+  /** ¿Alguna landing (de cualquier negocio) lo tiene como SU dominio? TIRA si no se pudo leer. */
+  otraLanding: (d: string) => Promise<boolean>;
+};
+
+export type ResultadoWww = 'sumado' | 'soltado' | 'ya-estaba' | 'no-estaba' | 'no-corresponde' | 'ocupado' | 'ajeno';
+
+/**
+ * Suma el www de una raíz recién conectada. `raizEsNuestra`: MaKo la agregó (o heredó la marca). Sólo LEE
+ * y agrega; nunca suelta nada. Los errores de Vercel o de la base TIRAN: quien llama decide (conectar la
+ * raíz no se frena por el www).
+ */
+export async function sumarWww(deps: DepsWww, raiz: string, raizEsNuestra: boolean): Promise<ResultadoWww> {
+  if (!raizEsNuestra || !dominioValido(raiz)) return 'no-corresponde';
+  const enProyecto = await deps.leer(raiz);
+  if (!enProyecto) return 'no-corresponde';
+  const w = wwwDeRaiz(raiz, enProyecto.apexName);
+  if (!w) return 'no-corresponde';
+  if (await deps.otraLanding(w)) return 'ocupado';
+  const ya = await deps.leer(w);
+  if (ya) return redirigeA(ya, raiz) ? 'ya-estaba' : 'ajeno';
+  await deps.agregar(cuerpoWww(raiz, w));
+  return 'sumado';
+}
+
+/**
+ * Suelta el www de una raíz que se va a soltar, ANTES que la raíz (un www que redirige a un dominio que ya
+ * no está en el proyecto quedaría colgado, y nadie lo soltaría después). Con lo que guarda la FILA (la raíz
+ * y su marca), nunca con lo que manda la pantalla. TIRA si Vercel o la base fallan: quien llama no suelta
+ * la raíz (la fila sigue diciendo la verdad y se puede reintentar).
+ */
+export async function soltarWww(deps: DepsWww, raiz: string | null | undefined, marcaRaiz: boolean | null | undefined): Promise<ResultadoWww> {
+  if (!puedeSoltarseDeVercel(raiz, marcaRaiz)) return 'no-corresponde';
+  const enProyecto = await deps.leer(raiz);
+  const w = wwwDeRaiz(raiz, enProyecto?.apexName);
+  if (!w) return 'no-corresponde';
+  const ya = await deps.leer(w);
+  if (!ya) return 'no-estaba';
+  if (!redirigeA(ya, raiz)) return 'ajeno';
+  if (await deps.otraLanding(w)) return 'ocupado';
+  await deps.quitar(w);
+  return 'soltado';
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
