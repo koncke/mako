@@ -108,7 +108,7 @@ export const PIEZAS_GENERAL = [
     opciones: [
       { id: 'cuantas', nombre: 'Cuántas', def: '5', valores: [{ id: '1', nombre: '1' }, { id: '3', nombre: '3' }, { id: '5', nombre: '5' }, { id: '10', nombre: '10' }] },
       { id: 'vista', nombre: 'Cómo se ven', def: 'lista', valores: [{ id: 'lista', nombre: 'Lista', icono: 'texto' }, { id: 'tarjetas', nombre: 'Tarjetas', icono: 'plan' }] },
-      { id: 'proyecto', nombre: 'El proyecto', def: 'si', valores: [{ id: 'si', nombre: 'Se ve', icono: 'ver' }, { id: 'no', nombre: 'Oculto', icono: 'ocultar' }] },
+      { id: 'proyecto', nombre: 'El proyecto', def: 'no', valores: [{ id: 'si', nombre: 'Se ve', icono: 'ver' }, { id: 'no', nombre: 'Oculto', icono: 'ocultar' }] },
       FONDO,
     ],
   },

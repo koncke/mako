@@ -91,6 +91,10 @@ a.gb-losa:hover,button.gb-losa:hover,.gb-losa[role=button]:hover{background:var(
 .gb-t{font-size:clamp(15px,calc(4cqi + 2px),24px);font-weight:600;letter-spacing:-.01em;line-height:1.25;color:var(--ink)}
 .gb-d{font-size:clamp(14px,calc(2.4cqi + 6px),19px);color:var(--dim);line-height:1.35}
 .gb-delta{font-size:clamp(13.5px,calc(2.2cqi + 6px),18px);font-weight:700;font-variant-numeric:tabular-nums}
+/* El par «número + lo que lo explica» (el total del funnel y sus barras): en una tarjeta ancha van LADO A LADO; uno
+   arriba del otro, a 128 px el total se comía el alto y cortaba las etapas (Operación diaria, funnel de 12×7). */
+.gb-par{display:flex;flex-direction:column;flex:1;min-height:0}
+@container (min-width: 720px){.gb-par{flex-direction:row;align-items:center;gap:clamp(28px,5cqi,64px)}.gb-par>:first-child{flex:none;max-width:38%}.gb-par>:last-child{flex:1;min-width:0}}
 .gb-delta[data-sube]{color:var(--good)}.gb-delta[data-baja]{color:var(--bad)}.gb-delta[data-igual]{color:var(--faint)}
 .gb-plan{--surface:color-mix(in srgb,var(--ink) 4.5%,var(--gb-fondo,var(--surface)));--border:transparent}
 `;

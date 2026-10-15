@@ -46,16 +46,14 @@ function LineaDeTiempo({ c, items }: { c: Cal; items: ItemCalendario[] }) {
     const color = colorDe(it);
     const pasado = !!ahora && (it.fin ?? it.inicio) < ahora;
     return (
-      <Link key={it.id} href={destino(it)} style={{ display: 'grid', gridTemplateColumns: '54px 14px 1fr', alignItems: 'stretch', textDecoration: 'none', opacity: pasado ? 0.55 : 1 }}>
-        <span style={{ fontSize: 12.5, color: 'var(--dim)', textAlign: 'right', paddingRight: 8, paddingTop: 9 }} className="gb-num">{horaDe(it.inicio, c.tz)}</span>
+      <Link key={it.id} href={destino(it)} style={{ display: 'grid', gridTemplateColumns: 'clamp(54px, calc(5cqi + 34px), 84px) 14px 1fr', alignItems: 'stretch', textDecoration: 'none', opacity: pasado ? 0.55 : 1 }}>
+        <span className="gb-d gb-num" style={{ fontWeight: 700, color: 'var(--ink)', textAlign: 'right', paddingRight: 8, paddingTop: 10 }}>{horaDe(it.inicio, c.tz)}</span>
         <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <span style={{ width: 2, flex: 1, background: 'var(--border)' }} />
         </span>
-        <span style={{ margin: '3px 0', padding: '7px 12px', borderRadius: 10, background: `color-mix(in srgb, ${color} 14%, transparent)`, borderLeft: `4px solid ${color}`, minWidth: 0 }}>
-          <span style={{ display: 'block', fontSize: 14, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.titulo}</span>
-          <span style={{ display: 'block', fontSize: 12, color: 'var(--dim)' }} className="gb-num">
-            {horaDe(it.inicio, c.tz)}{it.fin ? ` – ${horaDe(it.fin, c.tz)}` : ''}{it.detalle ? ` · ${it.detalle}` : ''}
-          </span>
+        <span style={{ margin: '4px 0', padding: 'clamp(8px, 1.4cqi, 12px) clamp(12px, 1.8cqi, 16px)', borderRadius: 12, background: `color-mix(in srgb, ${color} 14%, transparent)`, borderLeft: `4px solid ${color}`, minWidth: 0 }}>
+          <span className="gb-t" style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.titulo}</span>
+          {it.detalle && <span className="gb-d" style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.detalle}</span>}
         </span>
       </Link>
     );
@@ -208,19 +206,19 @@ const publicacionesDe = (c: Cal, dias: number) => {
 function TarjetasPublicaciones({ c, items }: { c: Cal; items: ItemCalendario[] }) {
   const manana = sumarDias(c.hoy, 1);
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 12 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'clamp(10px, 1.4cqi, 16px)' }}>
       {items.map((it) => {
         const color = it.formato ? COLOR_FORMATO[it.formato] : colorDe(it);
         return (
           <Link key={it.id} href={destino(it)} className="gb-losa" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', textDecoration: 'none', minWidth: 0 }}>
             <span aria-hidden style={{ height: 6, background: color }} />
-            <span style={{ display: 'flex', flexDirection: 'column', gap: 7, padding: '10px 12px 12px' }}>
+            <span style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 'clamp(12px, 1.4cqi, 16px)' }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'space-between' }}>
                 <span className="gb-chip" style={{ background: `color-mix(in srgb, ${color} 16%, transparent)`, color }}>{it.formato ? ROTULO_FORMATO[it.formato] : 'Publicación'}</span>
-                <span style={{ fontSize: 12, color: 'var(--dim)' }} className="gb-num">{diaCorto(diaDe(it.inicio, c.tz), c.hoy, manana)}</span>
+                <span className="gb-d gb-num" style={{ fontWeight: 700, color: 'var(--ink)' }}>{diaCorto(diaDe(it.inicio, c.tz), c.hoy, manana)}</span>
               </span>
-              <span style={{ fontSize: 15.5, fontWeight: 650, color: 'var(--ink)', lineHeight: 1.3, overflow: 'hidden', display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 3 }}>{it.titulo}</span>
-              {!it.diaCompleto && <span style={{ fontSize: 12, color: 'var(--faint)' }} className="gb-num">{horaDe(it.inicio, c.tz)}</span>}
+              <span style={{ fontSize: 'clamp(16px, calc(1.2cqi + 11px), 22px)', fontWeight: 700, color: 'var(--ink)', lineHeight: 1.25, letterSpacing: '-0.01em', overflow: 'hidden', display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 3 }}>{it.titulo}</span>
+              {!it.diaCompleto && <span className="gb-d gb-num">{horaDe(it.inicio, c.tz)}</span>}
             </span>
           </Link>
         );

@@ -89,17 +89,17 @@ function Embudo({ c }: { c: ConteoFunnel }) {
         const paso = sig && e.n > 0 ? Math.round((sig.n / e.n) * 100) : null;
         return (
           <div key={e.key}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(80px, 150px) 1fr 52px', alignItems: 'center', gap: 12 }}>
-              <span style={{ fontSize: 13, color: 'var(--dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right' }}>{e.label}</span>
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(80px, 24%) 1fr minmax(52px, auto)', alignItems: 'center', gap: 'clamp(10px, 2cqi, 18px)' }}>
+              <span className="gb-d" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right' }}>{e.label}</span>
               <span style={{ display: 'flex', justifyContent: 'center' }}>
-                <span style={{ width: `${Math.min(100, ancho)}%`, height: 26, borderRadius: 7, background: e.dot || 'var(--primary)', opacity: e.n ? 1 : 0.25 }} />
+                <span style={{ width: `${Math.min(100, ancho)}%`, height: 'clamp(22px, calc(3cqi + 12px), 40px)', borderRadius: 8, background: e.dot || 'var(--primary)', opacity: e.n ? 1 : 0.25 }} />
               </span>
-              <span className="gb-num" style={{ fontSize: 15, fontWeight: 700, color: e.n ? 'var(--ink)' : 'var(--faint)' }}>{fmtNum(e.n)}</span>
+              <span className="gb-t gb-num" style={{ fontWeight: 800, color: e.n ? 'var(--ink)' : 'var(--faint)' }}>{fmtNum(e.n)}</span>
             </div>
             {paso != null && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(80px, 150px) 1fr 52px', gap: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(80px, 24%) 1fr minmax(52px, auto)', gap: 'clamp(10px, 2cqi, 18px)' }}>
                 <span />
-                <span className="gb-num" style={{ textAlign: 'center', fontSize: 11.5, color: 'var(--faint)', lineHeight: '16px' }}>↓ {paso}%</span>
+                <span className="gb-num" style={{ textAlign: 'center', fontSize: 'clamp(12px, calc(1cqi + 9px), 14px)', color: 'var(--faint)', lineHeight: '18px' }}>↓ {paso}%</span>
                 <span />
               </div>
             )}
@@ -143,15 +143,17 @@ export function BloqueFunnel({ d, funnel, op }: { d: DatosGeneral['funnels']; fu
     <div className="gb">
       <Cabeza titulo="Tu funnel hoy" extra={c?.nombre ?? null} href="/crm" link="Abrir el CRM" />
       {c && c.total > 0 ? (
-        <>
-          {/* El total, de un vistazo (la quinta vuelta: «textos enormes, cosas grandes»). */}
+        <div className="gb-par">
+          {/* El total, de un vistazo: el protagonista. En una tarjeta ancha, al lado de las etapas (`gb-par`). */}
           <span style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 'clamp(12px, 2.4cqi, 22px)', flexWrap: 'wrap' }}>
             <span className="gb-p">{fmtNum(c.total)}</span>
             <span className="gb-d">{c.total === 1 ? 'lead' : 'leads'} en el funnel</span>
           </span>
-          {conLeads(c).etapas.length ? <CuerpoFunnel c={conLeads(c)} estilo={estilo} /> : null}
-          {c.sinEtapa > 0 && <span style={{ marginTop: 8, fontSize: 12.5, color: 'var(--faint)' }}>{c.sinEtapa === c.total ? 'Todos están' : `${c.sinEtapa} están`} en una etapa que el funnel ya no tiene</span>}
-        </>
+          <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+            {conLeads(c).etapas.length ? <CuerpoFunnel c={conLeads(c)} estilo={estilo} /> : null}
+            {c.sinEtapa > 0 && <span className="gb-d" style={{ marginTop: 8, color: 'var(--faint)' }}>{c.sinEtapa === c.total ? 'Todos están' : `${c.sinEtapa} están`} en una etapa que el funnel ya no tiene</span>}
+          </div>
+        </div>
       ) : (
         <Placeholder muestra={<CuerpoFunnel c={FUNNEL_MUESTRA} estilo={estilo} />}
           texto={c ? 'Todavía no hay leads en este funnel.' : 'Todavía no hay un funnel.'} accion={{ href: '/crm', rotulo: 'Abrir el CRM' }} />
@@ -161,10 +163,17 @@ export function BloqueFunnel({ d, funnel, op }: { d: DatosGeneral['funnels']; fu
 }
 
 export function MuestraFunnel({ op }: { op?: OpcionesElegidas }) {
+  // La misma cabecera que el bloque (el total en grande): la miniatura de una plantilla es la hoja «tal cual».
   return (
     <div className="gb">
-      <Cabeza titulo="Tu funnel hoy" extra="214 leads" />
-      <CuerpoFunnel c={FUNNEL_MUESTRA} estilo={opcionDe('funnel', op, 'estilo')} />
+      <Cabeza titulo="Tu funnel hoy" />
+      <div className="gb-par">
+        <span style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 'clamp(12px, 2.4cqi, 22px)', flexWrap: 'wrap' }}>
+          <span className="gb-p">{fmtNum(FUNNEL_MUESTRA.total)}</span>
+          <span className="gb-d">leads en el funnel</span>
+        </span>
+        <div style={{ minWidth: 0 }}><CuerpoFunnel c={FUNNEL_MUESTRA} estilo={opcionDe('funnel', op, 'estilo')} /></div>
+      </div>
     </div>
   );
 }

@@ -178,9 +178,9 @@ function Barra({ k, onAbrir }: { k: KpiVista; onAbrir: () => void }) {
             color: sinDatos ? 'var(--faint)' : 'var(--ink)', fontVariantNumeric: 'tabular-nums', lineHeight: 1,
           }}
         >
-          <span style={{ fontSize: 'clamp(22px, 3.4cqi, 38px)', fontWeight: 750, letterSpacing: '-0.025em' }}>{sinDatos ? '—' : fmt(k.valor, k.unidad)}</span>
+          <span style={{ fontSize: 'clamp(26px, calc(4cqi + 8px), 56px)', fontWeight: 800, letterSpacing: '-0.035em' }}>{sinDatos ? '—' : fmt(k.valor, k.unidad)}</span>
           {/* El compromiso al lado del número: «14 de 20» se entiende sin mirar el largo de la barra. */}
-          <span style={{ fontSize: 12.5, fontWeight: 500, color: 'var(--dim)' }}>de {fmt(k.compromiso, k.unidad)}</span>
+          <span style={{ fontSize: 'clamp(13px, calc(0.8cqi + 10px), 17px)', fontWeight: 500, color: 'var(--dim)' }}>de {fmt(k.compromiso, k.unidad)}</span>
         </button>
       )}
 

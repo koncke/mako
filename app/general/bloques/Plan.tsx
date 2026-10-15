@@ -162,30 +162,30 @@ function ChipProyecto({ l }: { l: Label }) {
   );
 }
 
-const NUMERO: CSSProperties = { flex: 'none', width: 22, height: 22, borderRadius: '50%', display: 'grid', placeItems: 'center', fontSize: 11.5, fontWeight: 700, background: 'var(--primary)', color: 'var(--on-primary, #fff)' };
+const NUMERO: CSSProperties = { flex: 'none', width: 'clamp(24px, calc(2cqi + 18px), 34px)', height: 'clamp(24px, calc(2cqi + 18px), 34px)', borderRadius: '50%', display: 'grid', placeItems: 'center', fontSize: 'clamp(12px, calc(1.2cqi + 8px), 15px)', fontWeight: 800, background: 'var(--primary)', color: 'var(--on-primary, #fff)' };
 
 /** Una tarea en la lista de la hoja: su puesto, el título, su proyecto y su deadline, y el círculo para completarla. */
 function FilaTarea({ t, puesto, proyecto, hoy, onOpen, onCompletar }: {
   t: BoardTask; puesto: number; proyecto: Label | null; hoy: string; onOpen: () => void; onCompletar: () => void;
 }) {
   return (
-    <div className="gb-fila" role="button" tabIndex={0} style={{ cursor: 'pointer' }} onClick={onOpen}
+    <div className="gb-fila" role="button" tabIndex={0} style={{ cursor: 'pointer', gap: 'clamp(12px, 2.4cqi, 20px)', padding: 'clamp(10px, 2cqi, 16px) 0' }} onClick={onOpen}
       onKeyDown={(e) => { if (e.key === 'Enter') onOpen(); }}>
       <span style={NUMERO} className="gb-num">{puesto}</span>
       <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <span title={t.title} style={{ fontSize: 'clamp(14.5px, 3cqi, 17px)', fontWeight: 600, color: 'var(--ink)', lineHeight: 1.3, overflow: 'hidden', display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2 }}>{t.title}</span>
+        <span title={t.title} className="gb-t" style={{ overflow: 'hidden', display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2 }}>{t.title}</span>
         {(proyecto || t.deadline) && (
           // Envuelve en vez de apretar: en el celular el proyecto y el deadline se partían en «vi…» y «Lanzar la ofert…».
           <span style={{ display: 'flex', alignItems: 'center', gap: '4px 8px', minWidth: 0, flexWrap: 'wrap' }}>
             {proyecto && <ChipProyecto l={proyecto} />}
-            {t.deadline && <LineaDeadline iso={t.deadline} hoy={hoy} tam={12} mono={false} color="var(--dim)" style={{ flex: 'none' }} />}
+            {t.deadline && <LineaDeadline iso={t.deadline} hoy={hoy} tam={14} mono={false} color="var(--dim)" style={{ flex: 'none' }} />}
           </span>
         )}
       </span>
       <button type="button" aria-label={`Marcar «${t.title}» como completada`} title="Completar"
         onClick={(e) => { e.stopPropagation(); onCompletar(); }}
-        style={{ flex: 'none', width: 26, height: 26, borderRadius: '50%', border: '2px solid var(--border-strong)', background: 'transparent', cursor: 'pointer', padding: 0, display: 'grid', placeItems: 'center', color: 'var(--faint)' }}>
-        <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="m5 12 5 5L20 7" /></svg>
+        style={{ flex: 'none', width: 'clamp(28px, calc(2cqi + 22px), 38px)', height: 'clamp(28px, calc(2cqi + 22px), 38px)', borderRadius: '50%', border: '2px solid var(--border-strong)', background: 'transparent', cursor: 'pointer', padding: 0, display: 'grid', placeItems: 'center', color: 'var(--faint)' }}>
+        <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="m5 12 5 5L20 7" /></svg>
       </button>
     </div>
   );
@@ -281,7 +281,7 @@ function TarjetaProyecto({ l, prog, principal, hoy, onOpen }: {
       </span>
       <span style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '20px 12px 12px', minWidth: 0, flex: 1 }}>
         <span style={{ display: 'flex', alignItems: 'flex-start', gap: 6, minWidth: 0 }}>
-          <span style={{ flex: 1, minWidth: 0, fontSize: 15, fontWeight: 650, color: 'var(--ink)', lineHeight: 1.3, overflow: 'hidden', display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2 }}>{l.name}</span>
+          <span style={{ flex: 1, minWidth: 0, fontSize: 'clamp(15px, calc(1.2cqi + 10px), 21px)', fontWeight: 700, color: 'var(--ink)', lineHeight: 1.25, letterSpacing: '-0.01em', overflow: 'hidden', display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2 }}>{l.name}</span>
           {principal && <span className="gb-chip" style={{ flex: 'none', color: 'var(--primary)' }}>Principal</span>}
         </span>
         <span style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -291,10 +291,10 @@ function TarjetaProyecto({ l, prog, principal, hoy, onOpen }: {
           {/* El avance en grande y el deadline en su propio renglón: los dos en una fila se cortaban en «vie …» y
               «faltan 9 dí…» en cuanto la tarjeta medía menos de 300 px. */}
           <span style={{ display: 'flex', alignItems: 'baseline', gap: 6, minWidth: 0 }}>
-            <span className="gb-num" style={{ flex: 'none', fontSize: 17, fontWeight: 750, color: 'var(--ink)', letterSpacing: '-0.01em' }}>{prog.total ? `${prog.pct}%` : '—'}</span>
-            <span className="gb-num" style={{ fontSize: 12.5, color: 'var(--dim)' }}>{prog.total ? `${prog.done} de ${prog.total} tareas` : 'Sin tareas'}</span>
+            <span className="gb-num" style={{ flex: 'none', fontSize: 'clamp(22px, calc(2cqi + 14px), 34px)', fontWeight: 800, color: 'var(--ink)', letterSpacing: '-0.025em', lineHeight: 1 }}>{prog.total ? `${prog.pct}%` : '—'}</span>
+            <span className="gb-num" style={{ fontSize: 'clamp(13px, calc(0.6cqi + 10px), 15px)', color: 'var(--dim)' }}>{prog.total ? `${prog.done} de ${prog.total} tareas` : 'Sin tareas'}</span>
           </span>
-          {l.deadline && <LineaDeadline iso={l.deadline} hoy={hoy} tam={12.5} mono={false} color="var(--dim)" />}
+          {l.deadline && <LineaDeadline iso={l.deadline} hoy={hoy} tam={13.5} mono={false} color="var(--dim)" />}
         </span>
       </span>
     </div>
@@ -370,19 +370,21 @@ function ListaVence({ items, hoy, onOpen }: { items: Vence[]; hoy: string; onOpe
         const p = plazoTexto(diasHasta(v.deadline, hoy));
         const [, m, dd] = v.deadline.split('-').map(Number);
         return (
-          <div key={`${v.tipo}:${v.id}`} className="gb-fila" role="button" tabIndex={0} style={{ cursor: 'pointer' }} onClick={() => onOpen(v)} onKeyDown={(e) => { if (e.key === 'Enter') onOpen(v); }}>
-            <span aria-hidden style={{ flex: 'none', width: 40, height: 42, borderRadius: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', lineHeight: 1, background: `color-mix(in srgb, ${p.color} 14%, transparent)`, color: p.color }}>
-              <span className="gb-num" style={{ fontSize: 17, fontWeight: 700 }}>{dd}</span>
-              <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em' }}>{MES[(m ?? 1) - 1]}</span>
+          // La fila de la escala épica: la FECHA en grande (lo que se lee primero), el título y de qué es; el plazo a la
+          // derecha. Sin el cuadradito: el día en grande y el mes chico arriba, como la hora de las llamadas.
+          <div key={`${v.tipo}:${v.id}`} className="gb-fila" role="button" tabIndex={0} style={{ cursor: 'pointer', gap: 'clamp(12px, 3cqi, 24px)', padding: 'clamp(10px, 2cqi, 16px) 0' }} onClick={() => onOpen(v)} onKeyDown={(e) => { if (e.key === 'Enter') onOpen(v); }}>
+            <span aria-hidden style={{ flex: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '2.6ch', lineHeight: 1, color: p.color }}>
+              <span style={{ fontSize: 'clamp(11px, calc(1cqi + 8px), 13px)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em' }}>{MES[(m ?? 1) - 1]}</span>
+              <span className="gb-num" style={{ fontSize: 'clamp(22px, calc(6cqi + 2px), 40px)', fontWeight: 800, letterSpacing: '-0.03em' }}>{dd}</span>
             </span>
             <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
-              <span title={v.titulo} style={{ fontSize: 'clamp(14.5px, 3cqi, 17px)', fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.titulo}</span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, fontSize: 12, color: 'var(--dim)' }}>
-                <span aria-hidden style={{ flex: 'none', width: 7, height: 7, borderRadius: 2, background: v.color }} />
+              <span title={v.titulo} className="gb-t" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.titulo}</span>
+              <span className="gb-d" style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                <span aria-hidden style={{ flex: 'none', width: 8, height: 8, borderRadius: 2, background: v.color }} />
                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.tipo === 'proyecto' ? 'Proyecto' : v.proyecto?.name ?? 'Tarea'}</span>
               </span>
             </span>
-            <span style={{ flex: 'none', fontSize: 12.5, fontWeight: p.fuerte ? 700 : 500, color: p.color, whiteSpace: 'nowrap' }}>{p.texto}</span>
+            <span className="gb-d" style={{ flex: 'none', fontWeight: p.fuerte ? 700 : 600, color: p.color, whiteSpace: 'nowrap' }}>{p.texto}</span>
           </div>
         );
       })}

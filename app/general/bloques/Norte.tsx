@@ -60,25 +60,23 @@ function Estado({ o }: { o: OkrVista }) {
 const S: Record<string, CSSProperties> = {
   // `auto-fit` y no `auto-fill`: los OKRs que hay LLENAN la fila (con `auto-fill`, tres OKRs en una hoja entera dejaban
   // un tercio vacío a la derecha).
-  grilla: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 },
+  grilla: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 'clamp(10px, 1.4cqi, 16px)' },
   // Una LOSA (./comun.tsx), no una tarjeta dentro de la tarjeta.
-  okr: { display: 'flex', alignItems: 'center', gap: 16, padding: 14, cursor: 'pointer', minWidth: 0, textAlign: 'left', width: '100%', height: '100%', boxSizing: 'border-box' },
-  okrTit: { fontSize: 'clamp(15px, 1.8cqi, 19px)', fontWeight: 650, color: 'var(--ink)', lineHeight: 1.25, letterSpacing: '-0.01em', overflow: 'hidden', display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2 },
-  okrMeta: { fontSize: 13.5, color: 'var(--dim)' },
+  okr: { display: 'flex', alignItems: 'center', gap: 'clamp(14px, 1.6cqi, 22px)', padding: 'clamp(14px, 1.6cqi, 20px)', borderRadius: 16, cursor: 'pointer', minWidth: 0, textAlign: 'left', width: '100%', height: '100%', boxSizing: 'border-box' },
+  okrTit: { fontSize: 'clamp(16px, calc(1.2cqi + 10px), 22px)', fontWeight: 700, color: 'var(--ink)', lineHeight: 1.2, letterSpacing: '-0.015em', overflow: 'hidden', display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2 },
+  okrMeta: { fontSize: 'clamp(14px, calc(0.6cqi + 11px), 17px)', color: 'var(--dim)' },
 };
 
 function TarjetaOkr({ o, anio, quarter }: { o: OkrVista; anio: number; quarter: number }) {
   const cuerpo = (
     <div style={S.okr} className="gb-losa" role="button" title="Editar este OKR">
-      <Anillo pct={o.pct} fraccion={o.fraccion} color={colorOkr(o)} tam={90} />
+      <Anillo pct={o.pct} fraccion={o.fraccion} color={colorOkr(o)} tam={108} />
+      {/* Sin los chips del trimestre y de «Principal» (el trimestre ya está en el título del bloque): el estado, que es la
+          respuesta, y nada más. */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
         <span style={S.okrTit}>{o.titulo}</span>
-        <span style={S.okrMeta} className="gb-num">{fmtOkr(o.actual, o.unidad)} de {fmtOkr(o.metaValor, o.unidad)}</span>
-        <span style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          <Estado o={o} />
-          <span className="gb-chip">{o.quarter == null ? `Año ${anio}` : `Q${o.quarter}`}</span>
-          {o.principal && <span className="gb-chip" style={{ color: 'var(--primary)' }}>Principal</span>}
-        </span>
+        <span style={S.okrMeta} className="gb-num">{fmtOkr(o.actual, o.unidad)} de {fmtOkr(o.metaValor, o.unidad)}{o.quarter == null ? ` · año ${anio}` : ''}</span>
+        <span style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}><Estado o={o} /></span>
       </div>
     </div>
   );
@@ -190,7 +188,7 @@ function Semaforo({ alertas, lampara, conLamparas, limite, objetivoAtrasado }: {
             <Lampara color="var(--good)" encendida={lampara === 'verde'} />
           </span>
         )}
-        <span style={{ fontSize: 'clamp(22px, 6cqi, 34px)', fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.15, color: atender || objetivoAtrasado ? color : 'var(--ink)' }}>{titular}</span>
+        <span className="gb-frase" style={{ color: atender || objetivoAtrasado ? color : 'var(--ink)' }}>{titular}</span>
       </div>
       {/* Sólo las alertas que ENTRAN enteras (`gb-cabe`, ./comun.tsx): una cortada a la mitad se lee como un bloque roto. */}
       <div className="gb-cabe">
@@ -199,11 +197,11 @@ function Semaforo({ alertas, lampara, conLamparas, limite, objetivoAtrasado }: {
         const inner = (
           <>
             <span aria-hidden style={{ flex: 'none', width: 10, height: 10, borderRadius: '50%', background: c }} />
-            <span style={{ flex: 1, minWidth: 0, fontSize: 'clamp(14px, 2.6cqi, 16px)', color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.titulo}</span>
-            <span style={{ flex: 'none', color: 'var(--faint)', fontSize: 12.5 }}>{a.desglose ? 'ver →' : `${a.hrefLabel} →`}</span>
+            <span className="gb-t" style={{ flex: 1, minWidth: 0, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.titulo}</span>
+            <span className="gb-d" style={{ flex: 'none', color: 'var(--faint)' }}>{a.desglose ? 'ver →' : `${a.hrefLabel} →`}</span>
           </>
         );
-        const fila: CSSProperties = { display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '10px 0', textDecoration: 'none', borderTop: '1px solid var(--border)' };
+        const fila: CSSProperties = { display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: 'clamp(10px, 2cqi, 16px) 0', textDecoration: 'none', borderTop: '1px solid var(--border)' };
         return a.desglose
           ? <DesgloseTrigger key={i} data={a.desglose} style={fila}>{inner}</DesgloseTrigger>
           // Una alerta que nombra una integración (un arranque pendiente) abre su modal acá: nunca se sale de la tab.
