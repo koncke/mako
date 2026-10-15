@@ -17,17 +17,18 @@ import { useRouter } from '@/app/_ui/Link';
 import { Button, ErrorState, Modal, PageHeader, Tabs } from '@/app/_ui';
 import type { EstadoCarteros, Pedido } from '@/lib/operaciones';
 import type { ChatCentro, TrabajoP } from '@/lib/centro-chats';
-import { PESTANAS_CENTRO, type Frente, type PedidoP, type PestanaCentro } from '@/lib/progreso-reglas';
+import { PESTANAS_CENTRO, type Frente, type NovedadP, type PedidoP, type PestanaCentro } from '@/lib/progreso-reglas';
 import type { LecturaPushes } from '@/lib/progreso';
 import CentroOperaciones from './CentroOperaciones';
 import { ChatsCentro } from './ChatsCentro';
 import { Progreso } from './Progreso';
 
-export function CentroPestanas({ inicial, frentes, pedidos, pushes, todos, hayCartero, ahora, sub, cola, carteros, chats, cuentas }: {
+export function CentroPestanas({ inicial, frentes, pedidos, pushes, novedades, todos, hayCartero, ahora, sub, cola, carteros, chats, cuentas }: {
   inicial: PestanaCentro;
   frentes: Frente[];
   pedidos: PedidoP[];
   pushes: LecturaPushes;
+  novedades: NovedadP[];
   todos: boolean;
   hayCartero: boolean;
   ahora: number;
@@ -80,7 +81,7 @@ export function CentroPestanas({ inicial, frentes, pedidos, pushes, todos, hayCa
       />
       {tab === 'chats'
         ? <ChatsCentro chats={chats} cuentas={cuentas} pedidos={pedidos} trabajos={trabajos} pushes={pushes.ok ? pushes.pushes : []} ahora={ahora} />
-        : <Progreso vista={tab} frentes={frentes} pedidos={pedidos} pushes={pushes} todos={todos} hayCartero={hayCartero} ahora={ahora} />}
+        : <Progreso vista={tab} frentes={frentes} pedidos={pedidos} pushes={pushes} novedades={novedades} todos={todos} hayCartero={hayCartero} ahora={ahora} />}
       {cartero && (
         <Modal titulo="Cartero y trabajos" onCerrar={() => setCartero(false)} ancho={980}>
           {cola && carteros

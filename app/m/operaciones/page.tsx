@@ -26,7 +26,7 @@ import { conWs } from '@/lib/ws-tab';
 import { motivoDeEspera, puedeOperar } from '@/lib/operaciones-reglas';
 import { leerCarteros, listarPedidos } from '@/lib/operaciones';
 import { areasDeProgreso, leerPushes } from '@/lib/progreso';
-import { PESTANAS_CENTRO, frentesEnCurso, pedidosRecientes, recortarPedido, type PestanaCentro } from '@/lib/progreso-reglas';
+import { PESTANAS_CENTRO, frentesEnCurso, novedades, pedidosRecientes, recortarPedido, type PestanaCentro } from '@/lib/progreso-reglas';
 import { CabeceraM, PantallaM, VacioM } from '@/app/m/_ui';
 import type { CarteroM, PedidoM } from './CentroMovil';
 import { CentroMovilPestanas } from './ProgresoMovil';
@@ -87,6 +87,7 @@ export default async function CentroOperacionesMovil({ searchParams }: { searchP
         inicial={inicial}
         frentes={frentesEnCurso(areas, ahora)}
         pedidos={pedidos}
+        novedades={novedades(areas, ahora)}
         chats={chats}
         cuentas={cuentasConCartero(lista)}
         trabajos={trabajosP}

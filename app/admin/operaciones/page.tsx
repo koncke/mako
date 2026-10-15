@@ -5,7 +5,7 @@ import { Pagina, PermissionState } from '@/app/_ui';
 import { carteroVivo, puedeOperar } from '@/lib/operaciones-reglas';
 import { leerCarteros, listarPedidos } from '@/lib/operaciones';
 import { areasDeProgreso, leerPushes } from '@/lib/progreso';
-import { PESTANAS_CENTRO, frentesEnCurso, pedidosRecientes, recortarPedido, type PestanaCentro } from '@/lib/progreso-reglas';
+import { PESTANAS_CENTRO, frentesEnCurso, novedades, pedidosRecientes, recortarPedido, type PestanaCentro } from '@/lib/progreso-reglas';
 import { chatsDelCentro, cuentasConCartero } from '@/lib/centro-chats';
 import { CentroPestanas } from './CentroPestanas';
 
@@ -47,6 +47,7 @@ export default async function OperacionesPage({ searchParams }: { searchParams: 
         inicial={inicial}
         frentes={frentesEnCurso(areas, ahora)}
         pedidos={pedidos}
+        novedades={novedades(areas, ahora)}
         chats={chats}
         cuentas={cuentasConCartero(lista)}
         pushes={pushes}

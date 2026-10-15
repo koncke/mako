@@ -277,3 +277,113 @@
   font-size: var(--fs-meta);
   color: var(--text-dim);
 }
+
+/* Pushes como notas de versión, copiado del changelog de Linear: la fecha a la izquierda sobre una línea
+   de tiempo, y cada novedad con su título y su texto. */
+.prog-nov-prod {
+  display: flex;
+  align-items: center;
+  margin: 0 0 18px;
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+}
+
+.prog-nov-prod--mal {
+  color: var(--ink);
+}
+
+.prog-nov {
+  display: grid;
+  gap: 8px;
+}
+
+.prog-nov-dia {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr);
+  gap: 24px;
+  padding-bottom: 8px;
+  border-left: 1px solid var(--border);
+  margin-left: 4px;
+}
+
+.prog-nov-fecha {
+  position: sticky;
+  top: 12px;
+  align-self: start;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: -5px;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.prog-nov-punto {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--primary);
+}
+
+.prog-nov-items {
+  display: grid;
+  gap: 28px;
+  min-width: 0;
+  padding-bottom: 24px;
+}
+
+.prog-nov-item {
+  min-width: 0;
+  max-width: 720px;
+}
+
+.prog-nov-area {
+  margin: 0 0 4px;
+  font-size: var(--fs-meta);
+  color: var(--text-dim);
+}
+
+.prog-nov-titulo {
+  margin: 0 0 8px;
+  font-size: 18px;
+  font-weight: 650;
+  line-height: 1.35;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.prog-nov-puntos {
+  margin: 0 0 10px;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+  font-size: var(--fs-md);
+  line-height: 1.55;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.prog-nov-ver {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.prog-nov-ver:hover {
+  text-decoration: underline;
+}
+
+.prog-nov-sin {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+}
+
+@media (max-width: 900px) {
+  .prog-nov-dia {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+}

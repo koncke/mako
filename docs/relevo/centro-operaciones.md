@@ -20,7 +20,8 @@ Escrito por el chat «Centro de Operaciones» (cuenta 1), al pasar el 85% semana
 
 ## Lo que sigue, en orden
 
-1. **Pushes, como Martín lo pidió** (15/10, textual): «El tema de los pushes no lo pongas con lenguaje tecnico... Esa
+1. ~~Pushes, como Martín lo pidió~~ **hecho** (15/10, tarde): ahora son las novedades de las bitácoras, por día, con «Verlo en la app». Falta mirarlo en un navegador.
+   Lo que decía el pedido: (15/10, textual): «El tema de los pushes no lo pongas con lenguaje tecnico... Esa
    tab es para mi, quiero saber exactamente que se pusheo así puedo ir a ver y dar feedback de ese trabajo», y «No
    necesariamente como bullets, pero si texto formateado y bonito, y claro de leer». O sea: qué cambió para él (nada de
    hash, archivo, rama ni `feat:`), dónde mirarlo (link a la pantalla con su `?ws=`), agrupado por TRABAJO y no por
