@@ -327,6 +327,28 @@ catálogo o cualquier cosa que un test mire por su NOMBRE, corré `npm test` ant
 pushear.** No se suma al hook a propósito: son ~9 segundos más en cada push y la mayoría
 de los cambios no los necesita — pero los renombres, sí.
 
+# El build de Vercel tiene un tope de memoria que NO está en el repo
+
+`NODE_OPTIONS=--max-old-space-size=4096`, en el **proyecto de Vercel** (Settings → Environment
+Variables, Production y Preview). Se puso el 15/10/2026: sin tope, `next build` crecía hasta que
+la máquina `standard` (8 GB) lo mataba con `out_of_memory` a los ~7 min, un build colgado de 29 min
+trabó la cola, y tres pushes salieron verdes **sin llegar a producción**. Se comprueba con
+`npx vercel env ls | grep NODE_OPTIONS`, y si falta, `next.config.ts` lo grita en el log del build.
+
+- **No se sube «para tener margen».** 7168 se probó y fue PEOR (murió en 2 min). Medido en el
+  código de Next 16.2.6: el tope es **por heap de JavaScript**, no del build. Lo heredan el
+  hilo principal **y** el worker de Turbopack, que corre como otro hilo con su propio heap
+  (`isolatedMemory: false` en `build/turbopack-build/index.js`): con 7168 podían ser dos heaps de
+  7 GB en una máquina de 8. Los workers de páginas estáticas lo descartan (`isolatedMemory: true`),
+  y la memoria nativa de Turbopack (Rust) no la cubre ningún tope.
+- **Por eso el margen no se deduce: se mide**, y todavía no se midió. La forma es un deploy de
+  preview con `next build --experimental-debug-memory-usage` (Next no lo prende con una variable:
+  es un flag de la línea de comandos), que imprime el pico de heap en el log.
+- **Si vuelve a morir por memoria**, antes de pagar una máquina más grande hay una palanca
+  gratis para probar: `NEXT_TURBOPACK_USE_WORKER=0` corre Turbopack en el hilo principal y deja
+  un solo heap con el tope de 4 GB en vez de dos (no medido: puede ser más lento). **Subir la máquina de build cuesta plata y lo
+  decide Martín.**
+
 # La guardia de RAM puede demorar o negar: no es un error, y no se esquiva
 
 El 11/10/2026 la app de Claude se colgó y murió con 7 chats adentro: RAM agotada, con un `next

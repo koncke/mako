@@ -2318,6 +2318,34 @@ de la conversación se usa), y conviene mirarlo **antes** de que fuerce un upgra
 **⚠️ Pendiente: versionado de la app.** Que al pushear se refresquen solas las tabs y aparezca un
 modal fijo de «nueva versión disponible, actualizá», con numeración de versiones (2026-07-16).
 
+### ⚠️ El tope de heap del build es POR HEAP, no del build: 4096 no garantiza entrar en 8 GB (15/10/2026)
+
+**Síntoma:** pushes verdes que no llegaban a producción; el deploy terminaba en `out_of_memory` a los
+~7 min, y uno colgado 29 min trabó la cola. Se curó con `NODE_OPTIONS=--max-old-space-size=4096` en
+el proyecto de Vercel (Production y Preview); 7168 murió en 2 min.
+
+**Por qué 7168 fue peor, leído en el código de Next 16.2.6** (no medido en Vercel): el tope lo
+heredan el hilo principal y el worker de Turbopack, que corre como hilo con su propio heap
+(`turbopackBuildWithWorker`, `isolatedMemory: false`, `enableWorkerThreads: true`, en
+`node_modules/next/dist/build/turbopack-build/index.js`; se usa salvo `NEXT_TURBOPACK_USE_WORKER=0`).
+Los workers de páginas estáticas lo **sacan** (`isolatedMemory: true` en `build/index.js`, con el
+comentario «remove --max-old-space-size flag as it can cause memory issues»). Y la memoria nativa de
+Turbopack (Rust) no la limita ningún flag de V8. O sea: con 4096 el techo teórico son dos heaps de 4
+GB **más** lo nativo **más** los workers de páginas, en una máquina de 8. Anda porque no se llenan a
+la vez, no porque entre por construcción.
+
+**El margen no está medido.** Vercel no informa la memoria de un build, y Next sólo la reporta con el
+flag `--experimental-debug-memory-usage` de la línea de comandos (no hay variable que lo prenda), así
+que medirlo exige un deploy de preview con ese comando. Lo que sí hay: los builds de la hora siguiente
+salieron Ready en 1-2 min.
+
+**Lo que quedó:** la regla en AGENTS.md («El build de Vercel tiene un tope de memoria que NO está en el
+repo»), y `next.config.ts` avisa en el log si el build corre en Vercel sin el tope
+(`tests/build-tope-memoria.test.ts`, que carga la config en un node aparte con y sin la variable).
+Palanca gratis por probar si vuelve a morir: `NEXT_TURBOPACK_USE_WORKER=0`. Subir la máquina es de Martín.
+
+**Vive en:** el proyecto de Vercel (Environment Variables) · `next.config.ts` · *2026-10-15*
+
 ---
 
 ## Zonas horarias
@@ -4147,6 +4175,27 @@ formas, da 1 fallo cada una.
 
 **Vive en:** `~/.claude/guardia/` · `~/.claude/settings.json` · `scripts/typecheck-lock.mjs` ·
 *2026-10-11*
+
+#### 15/10: «se cayó a las 19:09» fue un CAMBIO DE CUENTA, y el relevo veía caídas que no eran
+
+Lo que se reportó como caída fue el logout para pasar a la cuenta 3: el log dice
+`Navigated to /logout` → `Login-state transition (loggedOut: false → true` a las 19:09:09, y el
+proceso principal de la app (`electron_main:25024` en las líneas `process-memory`) es **el mismo
+antes y después**. Los chats sí se cortaron —11 de 13 procesos de chat arrancaron de nuevo a las
+19:2x—, así que despertarlos estuvo bien; lo que estaba mal era el diagnóstico.
+
+⚠️ **Y la segunda instancia ya no dice `Not main instance`** (app 2.4x). Un «Starting app» de un
+clic en un link `claude://` o de la vuelta de un login se leía como arranque: el de las 13:12, con la
+app viva, le mandó «retomá» a un chat que no se había cortado. Lo que no miente es el PID del proceso
+principal: un arranque de verdad lo cambia. Ese día hubo **una sola caída real** (13:19-13:20, PID
+15484 → 18532) y una actualización (17:13).
+
+El relevo ahora: descarta los arranques con el mismo `electron_main`, trata el logout como corte
+propio (`tipo: 'cuenta'`, y si la app además se reinicia dentro de los 2 min, también es «cuenta»), y
+—desde el 14/10, de otra sesión— no lista chats de otra cuenta, porque desde ésta no se pueden
+despertar. Probado contra los cuatro eventos del 15/10 con `diagnostico --hasta`.
+
+**Vive en:** `~/.claude/guardia/relevo.mjs` (copia en `scripts/claude-hooks/guardia/`) · *2026-10-15*
 
 ## La integración con Claude nunca funcionó desde afuera
 
