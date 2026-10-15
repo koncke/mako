@@ -402,4 +402,42 @@ export const BITACORA: Hito[] = [
       "docs/hallazgos-plan.md — «Una depuración de prioridades dura hasta que alguien cierra una tarjeta»",
     ],
   },
+  {
+    fecha: "14 oct", hora: "—", chat: "Estrategia 3 cuentas", cuenta: "claude1",
+    actor: "martin", tipo: "prompt",
+    titulo: "¿Se puede eliminar la tab de Onboarding?",
+    pedido: "Y revisa si ya podemos eliminar por completo la tab de onboarding porque esos datos ya viven en otros lados. Creo que algunos si, como en la nueva funcionalidad \"offer\", pero otros aún no",
+    puntos: [
+      "Lo trajo el chat orquestador al chat «Offer». La hora del mensaje de Martín no consta.",
+      "El relevamiento dio lo contrario de lo esperado: las diez secciones ya se editaban en Second Brain, con los mismos componentes (docs/hallazgos-onboarding.md).",
+    ],
+  },
+  {
+    fecha: "15 oct", hora: "—", chat: "Estrategia 3 cuentas", cuenta: "claude1",
+    actor: "martin", tipo: "prompt",
+    titulo: "Todo a Second Brain, y varias secciones irán a tabs propias",
+    pedido: "Si, ponlo en second brain, y deja registrado la tarea de perfeccionar la tab de second braind y varias cosas de allí irán a sus propias tabs, como la de Writer y la de Avatar con IA.",
+    puntos: [
+      "Second Brain es el lugar de HOY, no el final: por eso los links piden la sección y una sola tabla dice dónde vive (lib/secciones-negocio.ts). La tarea de perfeccionar Second Brain la cargó el orquestador en el Plan.",
+    ],
+  },
+  {
+    fecha: "15 oct", hora: "08:28", chat: "Offer", cuenta: "claude1",
+    actor: "claude", tipo: "implementacion",
+    titulo: "El hub se retira: /onboarding queda para el wizard, y cada link llega a su sección",
+    puntos: [
+      "Quien ya terminó el wizard y entra a /onboarding va a Second Brain, a la sección que pedía el link (?tab=persona → Persona), con el ?ws=. Second Brain abre la sub-pestaña pedida (?vista=).",
+      "Los 16 links se revisaron de a uno: los que prometían completar el perfil van a Documentos (donde MaKo pregunta los huecos), el de la foto del avatar a Persona, y los que van al wizard se quedan. El ítem del menú y la pestaña de Configuraciones salieron, acordado con Ciberseguridad.",
+      "Ángulos se queda, y es una decisión pendiente de Martín: ningún generador lee sus recomendaciones y cada «regenerar» paga IA.",
+    ],
+    commits: [
+      { sha: "a40182e", msg: "Onboarding: el hub se va y sus diez secciones se editan en Second Brain", lineas: 636, archivos: 25 },
+    ],
+    archivos: [
+      "lib/secciones-negocio.ts — dónde se edita cada sección: la única tabla",
+      "app/onboarding/tabs-catalogo.ts — a dónde lleva cada pestaña vieja",
+      "app/second-brain/AreasHub.tsx — las sub-pestañas con id, y la de entrada",
+      "tests/onboarding-hub-retirado.test.ts — que ningún link vuelva al hub",
+    ],
+  },
 ];
