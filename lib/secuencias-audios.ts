@@ -86,8 +86,8 @@ export async function armarSecuenciasDeAudios(linkVideo?: string | null): Promis
 
   for (const plan of planos) {
     const { data: existente } = await supabase
-      .from('nutricion_secuencias').select('id, estrategia, pasos').eq('clave', plan.clave).maybeSingle();
-    const fila = existente as { id: number; estrategia: unknown; pasos: unknown } | null;
+      .from('nutricion_secuencias').select('id, estrategia, pasos, archivada_at').eq('clave', plan.clave).maybeSingle();
+    const fila = existente as { id: number; estrategia: unknown; pasos: unknown; archivada_at: string | null } | null;
 
     if (fila) {
       // Re-grabar un audio tiene que actualizar la secuencia que lo manda, o el
@@ -100,9 +100,11 @@ export async function armarSecuenciasDeAudios(linkVideo?: string | null): Promis
       // puente a Flow: una siembra pisa lo local únicamente cuando lo local no
       // tiene nada.
       //
-      // ⚠️ Y UN FLUJO DE TARJETAS NO SE REARMA (08/10/2026). Esto corre en CADA carga del paso del
-      // onboarding (GET /api/chat-agent/onboarding/resumen) y escribía `pasos` directo, sin pasar
-      // por setSecuenciaPasos: sobre la Bienvenida y las post-agenda ya convertidas a tarjetas, las
+      // ⚠️ Y UN FLUJO DE TARJETAS NO SE REARMA (08/10/2026). Esto corría en CADA carga del paso del
+      // onboarding (GET /api/chat-agent/onboarding/resumen, borrada el 14/10/2026: no tenía
+      // llamadores y era un GET que escribía; hoy la llama la API de MaKo, con confirmación) y
+      // escribía `pasos` directo, sin pasar por setSecuenciaPasos: sobre la Bienvenida y las
+      // post-agenda ya convertidas a tarjetas, las
       // devolvía a una lista de dos pasos y se perdían «Si responde» con sus casos, las esperas y
       // las condiciones, sin un error. Sobre un flujo sólo se cambia el audio de su tarjeta.
       //
@@ -114,12 +116,22 @@ export async function armarSecuenciasDeAudios(linkVideo?: string | null): Promis
       // de tarjetas sin estrategia se sembraba la de la lista —modo asistido y un fallo por silencio—,
       // y con eso el motor viejo volvía a hacer por su lado lo que ya hacen las tarjetas (cerrar por
       // silencio, avisar «no confirmó» dos veces). Sobre un flujo va la estrategia LIMPIA.
+      //
+      // ⚠️ Y LA QUE SE DESARCHIVA, VUELVE PAUSADA (auditoría 14/10/2026). Archivar sólo pone
+      // `archivada_at` y no apaga `activa` (lib/secuencias-huecos.ts): una archivada que estaba
+      // prendida queda `activa=true`, y el motor la ignora únicamente por el filtro de archivada.
+      // Desarchivarla sin más la devolvía VIVA: volvía a inscribir su cohorte y a mandar el audio a
+      // leads reales, sin que nadie lo decidiera (la #212 del ws1 estaba así). Mismo criterio que
+      // `desarchivarYPausar` (lib/api-mako/areas/chatbot.helpers.ts). La que NO estaba archivada
+      // conserva su `activa`: re-grabar un audio no apaga una automatización que el dueño prendió.
       const actuales = Array.isArray(fila.pasos) ? (fila.pasos as PasoSecuencia[]) : [];
       const pasos = esFlujoExplicito(actuales) ? audiosDeLaListaEnElFlujo(actuales, plan.pasos) : plan.pasos;
       const sembrar = fila.estrategia ? null : (esFlujoExplicito(actuales) ? comoNace(plan).estrategia : plan.estrategia);
+      const estabaArchivada = fila.archivada_at != null;
       await supabase.from('nutricion_secuencias')
         .update({
           pasos, archivada_at: null, updated_at: new Date().toISOString(),
+          ...(estabaArchivada ? { activa: false } : {}),
           ...(sembrar ? { estrategia: sembrar } : {}),
         })
         .eq('id', fila.id);

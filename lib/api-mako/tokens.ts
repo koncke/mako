@@ -22,12 +22,9 @@ import { runWithWorkspace } from '@/lib/workspace';
 import { upsertRouting, wsPorIdentificadorEstricto } from '@/lib/webhook-routing';
 import { conReintentoTransitorio } from '@/lib/webhook-ruteo-huella';
 import { revocarAgenteToken, tokenAgenteVisible, wsPorAgenteToken } from '@/lib/agente-token';
-import { getSupabaseServer } from '@/lib/supabase';
-import { buscarUsuarioPorEmail } from '@/lib/usuarios';
-import type { FilaCartera } from '@/lib/agencia-cartera';
 import { AREAS } from './tipos';
 import type { Permisos } from './permisos';
-import { creadorConAcceso } from './tokens-creador';
+import { creadorVigente } from './tokens-creador-vigente';
 import { marcarUso, olvidarUso } from './tokens-uso';
 import {
   API_TOKENS_KEY, API_TOKENS_USO_KEY, ID_PRINCIPAL, PREFIJO_DETALLADO, SERVICIO_API,
@@ -43,43 +40,17 @@ export type TokenResuelto =
   | { ws: number; clase: 'detallado'; id: string; nombre: string; permisos: Permisos; expira: string | null; vencido: boolean; sinCreador: boolean }
   | { ws: number; clase: 'clasico' };
 
-/**
- * ¿Quien creó un token de `ws` sigue administrándolo? (el juicio, en tokens-creador.ts).
- *
- * Se mira en CADA pedido, como el permiso de agencia: una persona sale del negocio después de
- * acuñar el token. Con un minuto de memoria por (workspace, email) —la clave lleva el ws: esta
- * caché es de todos los inquilinos del proceso— para no sumar dos lecturas a cada llamada; o
- * sea que sacar a alguien apaga sus tokens en menos de un minuto.
- *
- * «No pude leer» TIRA (lo contesta 503, como el resto del resolvedor): un corte de la base no
- * puede decir «tu token dejó de valer» sobre uno bueno.
- */
-const CREADOR_TTL_MS = 60_000;
-const creadoresVistos = new Map<string, { ok: boolean; hasta: number }>();
-async function creadorVigente(ws: number, email: string): Promise<boolean> {
-  const e = email.trim().toLowerCase();
-  if (!e) return true;   // sin creador no hay a quién revisar (ver tokens-creador.ts)
-  const clave = `${ws}|${e}`;
-  const visto = creadoresVistos.get(clave);
-  if (visto && visto.hasta > Date.now()) return visto.ok;
-  const u = await buscarUsuarioPorEmail(e);
-  let cartera: FilaCartera[] = [];
-  if (u && u.rol !== 'admin' && u.workspace_id != null && u.workspace_id !== ws) {
-    const { data, error } = await getSupabaseServer()
-      .from('agencia_clientes').select('agencia_ws, cliente_ws, estado')
-      .eq('agencia_ws', u.workspace_id).eq('cliente_ws', ws).limit(1);
-    if (error) throw new Error(`agencia_clientes: ${error.message}`);
-    cartera = (data ?? []) as FilaCartera[];
-  }
-  const ok = creadorConAcceso(ws, u, cartera);
-  creadoresVistos.set(clave, { ok, hasta: Date.now() + CREADOR_TTL_MS });
-  return ok;
-}
+// `creadorVigente` (¿quien creó un token de `ws` sigue administrándolo?, con su minuto de
+// memoria y su lectura estricta) vive en tokens-creador-vigente.ts desde el 14/10/2026: lo
+// usa también el token clásico (lib/agente-token.ts), que no puede importar este archivo.
 
 /**
  * El token de un bearer para /api/v1: un detallado (con sus permisos y si venció) o el
  * principal (clásico). `null` = no es de nadie o fue revocado. Uno VENCIDO vuelve con
  * `vencido: true` —no como null—, para que el 401 diga «venció el …» en vez de «inválido».
+ *
+ * El clásico revisa a SU creador adentro de `wsPorAgenteToken` (lib/agente-token-nucleo.ts):
+ * si quien lo acuñó perdió el acceso, vuelve null, igual que en /api/agente.
  */
 export async function resolverTokenApi(token: string): Promise<TokenResuelto | null> {
   const t = (token ?? '').trim();

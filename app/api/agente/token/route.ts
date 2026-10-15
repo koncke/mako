@@ -52,7 +52,10 @@ export async function POST(req: Request) {
     }
     // La ÚNICA vez que el token sale de MaKo: en la base queda su hash (lib/agente-token-nucleo.ts).
     // La pantalla lo muestra en este momento y después sólo la pista.
-    const { token, pista } = await rotarAgenteToken(ws, alcance);
+    // Con QUIÉN lo acuñó (14/10/2026): el token vale mientras esa persona siga administrando
+    // este workspace. Sin esto, una agencia a la que le sacaban el cliente (o un admin
+    // suspendido) se iba con un bearer que seguía leyendo y escribiendo.
+    const { token, pista } = await rotarAgenteToken(ws, alcance, sesion.email ?? '');
     return NextResponse.json(
       { ok: true, token, pista, alcance },
       { headers: { 'Cache-Control': 'no-store, max-age=0' } },

@@ -12,6 +12,7 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
+import { checkCronAuth } from '@/lib/cron-auth';
 import {
   fetchMetaInsights,
   parseInsightsToMetrics,
@@ -28,26 +29,8 @@ import { correrPorWorkspace } from '@/lib/cron-workspaces';
 
 export const dynamic = 'force-dynamic';
 
-function checkAuth(request: NextRequest): Response | null {
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret) {
-    return Response.json(
-      { ok: false, error: 'CRON_SECRET no configurado en env' },
-      { status: 500 },
-    );
-  }
-  const authHeader = request.headers.get('authorization');
-  if (authHeader !== `Bearer ${cronSecret}`) {
-    return Response.json(
-      { ok: false, error: 'Unauthorized' },
-      { status: 401 },
-    );
-  }
-  return null;
-}
-
 export async function GET(request: NextRequest) {
-  const authFail = checkAuth(request);
+  const authFail = checkCronAuth(request);
   if (authFail) return authFail;
 
   // Permite forzar una fecha vía ?fecha=YYYY-MM-DD para re-procesar manualmente.

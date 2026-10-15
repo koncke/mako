@@ -23,6 +23,7 @@ import { esWsValido, ESTADOS_CARTERA, type EstadoCartera } from '@/lib/agencia-c
 import { listarUsuarios } from '@/lib/usuarios';
 import { invitarPorEmail } from '@/lib/invitaciones';
 import { getWorkspace } from '@/lib/workspace';
+import { revocarAgenteTokenSiPerdioAcceso } from '@/lib/agente-token';
 
 export const dynamic = 'force-dynamic';
 
@@ -86,6 +87,12 @@ export async function POST(req: NextRequest) {
   // Sin fila, no hay nada que aprobar. Decirlo: un 200 sobre un update que no tocó
   // nada se lee como que se aprobó, y el botón desaparece de la pantalla igual.
   if (!data) return NextResponse.json({ ok: false, error: 'ese pedido ya no está' }, { status: 404 });
+
+  // SACARLE EL CLIENTE A LA AGENCIA APAGA TAMBIÉN SU TOKEN DE LA API (14/10/2026). Revocar la
+  // fila corta la cookie de la vista de agencia, pero un `mkoag_…` que su admin acuñó desde esa
+  // vista seguía valiendo. Sólo se borra si lo acuñó alguien que con esta decisión perdió el
+  // acceso: el token del propio dueño del negocio no se toca. Best-effort (no tira).
+  if (estado !== 'aprobado') await revocarAgenteTokenSiPerdioAcceso(clienteWs);
 
   /**
    * APROBAR ES EL MOMENTO EN QUE EL CLIENTE SE ENTERA.

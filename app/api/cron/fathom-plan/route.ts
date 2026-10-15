@@ -10,6 +10,7 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
+import { checkCronAuth } from '@/lib/cron-auth';
 import { procesarReunionesNuevas } from '@/lib/reunion-auto';
 import { correrRonda } from '@/lib/cron-workspaces';
 
@@ -23,17 +24,8 @@ const TECHO_MS = 300_000;
  *  diferir es gratis, porque sin candado la próxima corrida la agarra igual. */
 const MINIMO_UTIL_MS = 180_000;
 
-function checkAuth(request: NextRequest): Response | null {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) return Response.json({ ok: false, error: 'CRON_SECRET no configurado' }, { status: 500 });
-  if (request.headers.get('authorization') !== `Bearer ${secret}`) {
-    return Response.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
-  }
-  return null;
-}
-
 export async function GET(request: NextRequest) {
-  const authFail = checkAuth(request);
+  const authFail = checkCronAuth(request);
   if (authFail) return authFail;
 
   try {

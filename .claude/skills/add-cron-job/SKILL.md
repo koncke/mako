@@ -4,7 +4,7 @@ description: >
   Crear un cron job de Vercel en este repo (route handler + registro en
   vercel.json), con el auth compartido y la iteración multi-tenant correctos.
   Usar cuando pidan agregar/agendar una tarea programada (ingesta diaria, poll,
-  reporte). Evita reimplementar el checkAuth (ya hay 9 copias duplicadas).
+  reporte). Evita reimplementar el checkAuth (no queda ninguna copia local: lo exige un test).
 ---
 
 # Agregar un cron job
@@ -39,9 +39,10 @@ export async function GET(req: NextRequest) {
 
 ## Reglas
 
-- **Usá `checkCronAuth` de `lib/cron-auth.ts`** — NO copies un `checkAuth` local (hay
-  9 rutas que lo duplican byte a byte; no sumes la 10ª). Fail-closed: sin
-  `CRON_SECRET` en env → 500; Bearer que no matchea → 401.
+- **Usá `checkCronAuth` de `lib/cron-auth.ts`** como PRIMERA línea del handler — NO copies un
+  `checkAuth` local ni compares con `!==` (`tests/seguridad-crons-y-publicas.test.ts` barre
+  app/api/cron y falla). Compara en tiempo constante y es fail-closed: sin `CRON_SECRET` en
+  env → 500; Bearer que no matchea → 401.
 - **Ingesta por-cliente → envolvé en `correrPorWorkspace('<servicio>', fn)`**
   (`lib/cron-workspaces.ts`): itera los workspaces ACTIVOS con la integración
   `<servicio>` conectada, cada uno dentro de `runWithWorkspace(ws)`. El string

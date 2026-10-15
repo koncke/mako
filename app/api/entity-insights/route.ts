@@ -9,6 +9,8 @@
 import type { NextRequest } from 'next/server';
 import { conversorGastoMeta } from '@/lib/moneda-meta';
 import { credWs, integracionConectada } from '@/lib/credenciales';
+// Sólo quien administra el workspace: gasto y entrega de Meta en vivo (ver /api/meta-health).
+import { guardAdsWs } from '@/lib/ads-guard';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,6 +31,8 @@ const agendasDe = (a: Act | undefined) => actionVal(a, 'offsite_conversion.fb_pi
 const leadsDe = (a: Act | undefined) => actionVal(a, 'lead') || actionVal(a, 'onsite_conversion.lead_grouped');
 
 export async function GET(req: NextRequest) {
+  const no = await guardAdsWs();
+  if (no) return no;
   // El `spend` de Meta viene en la moneda de la CUENTA, que no siempre es MXN (ws13, ws14
   // y ws15 cobran en USD): dividirlo por 17,3 les achicaba el gasto 17 veces.
   const { aUsdNum: usd } = await conversorGastoMeta();

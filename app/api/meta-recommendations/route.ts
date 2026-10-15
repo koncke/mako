@@ -26,6 +26,8 @@
 import { credWs, integracionConectada } from '@/lib/credenciales';
 import { accountStatusLabel, disableReasonLabel } from '@/lib/meta-health';
 import { parseRecosCuenta, type RecoCuenta } from '@/lib/meta-recos-cuenta';
+// Sólo quien administra el workspace: el estado y la tarjeta de la cuenta (ver /api/meta-health).
+import { guardAdsWs } from '@/lib/ads-guard';
 
 export const dynamic = 'force-dynamic';
 
@@ -56,6 +58,8 @@ function motivoVacio(acc: Record<string, unknown> | null): string {
 }
 
 export async function GET() {
+  const no = await guardAdsWs();
+  if (no) return no;
   // Fase 1: Meta es la integración global del dueño. Otros workspaces reciben el
   // shape de éxito "sin datos" — pero CON motivo: sin él el modal pintaba el
   // recuadro de advertencia con el párrafo en blanco.
