@@ -1189,7 +1189,7 @@ const AYUDA_CAMPO: Record<string, { pasos: string[]; url?: string; urlLabel?: st
     pasos: [
         'Para qué sirve: de qué repo leer los commits. Casi siempre lo completa MaKo al guardar el token.',
         'Llénalo a mano solo si el token ve varios repos y MaKo te pide elegir.',
-        'Va como usuario/repositorio: de github.com/mbustos-digital/dashboard-marketing, mbustos-digital/dashboard-marketing.',
+        'Va como usuario/repositorio: de github.com/hola-mako/dashboard-marketing, hola-mako/dashboard-marketing.',
         'Si te equivocaste de repo, cámbialo aquí: MaKo pasa a leer los commits del nuevo.',
       ],
     url: 'https://github.com/settings/personal-access-tokens',

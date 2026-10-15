@@ -242,7 +242,7 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
   async github(v) {
     const tk = v.GITHUB_TOKEN;
     if (!tk) return { ok: false, error: 'Falta el token.' };
-    const repo = v.GITHUB_REPO || 'mbustos-digital/dashboard-marketing';
+    const repo = v.GITHUB_REPO || 'hola-mako/dashboard-marketing';
     try {
       const r = await fetch(`https://api.github.com/repos/${repo}/commits?sha=main&per_page=1`, {
         headers: { Authorization: `Bearer ${tk}`, Accept: 'application/vnd.github+json' },

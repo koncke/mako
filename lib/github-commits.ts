@@ -26,7 +26,7 @@ const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 /** El repo del producto si nadie eligió ninguno. No es por-workspace: hay UN repo y es
  *  el de la agencia. */
-export const REPO_DEFAULT = process.env.GITHUB_REPO || 'mbustos-digital/dashboard-marketing';
+export const REPO_DEFAULT = process.env.GITHUB_REPO || 'hola-mako/dashboard-marketing';
 
 /**
  * El repo que se está mirando. Sale de la CREDENCIAL, que es lo que guarda el
