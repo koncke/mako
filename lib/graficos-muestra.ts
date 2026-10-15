@@ -49,7 +49,7 @@ const EJEMPLOS: Record<string, readonly string[]> = {
   // Personas inventadas (15/10/2026): sobre una portada la lista de personas lleva el avatar con sus iniciales, y con
   // «Cliente A» todos eran «CA».
   cliente: ['Ana Gómez', 'Bruno Díaz', 'Carla Ruiz', 'Diego Paz'],
-  lead: ['Lucía Pérez', 'Martina Sosa', 'Tomás Vera', 'Julia Ríos'],
+  lead: ['Lucía Pérez', 'Martina Sosa', 'Ignacio Vera', 'Julia Ríos'],
   motivo: ['Precio', 'No es el momento', 'No respondió', 'Eligió otro'],
   estado: ['Al día', 'Pendiente', 'Vencida'],
   pagina: ['/inicio', '/oferta', '/gracias'],
