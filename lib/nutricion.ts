@@ -3521,15 +3521,19 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
   // abra a las 9— y el aviso de un agendado al equipo salía del webhook a cualquier hora. Lo demás, como siempre:
   // espera a que abra. Con el horario ilegible, igual: «no sé si está abierto» no manda prospección.
   let fueraDeHorario: 'fuera-de-horario' | 'horario-ilegible' | 'zona-ilegible' | null = null;
+  // ¿«MaKo en WhatsApp» corre igual fuera del horario? La casilla del horario (`avisosAlEquipo`, 14/10/2026); sin poder
+  // leerla, lo de fábrica (salen igual), que es lo de antes.
+  let makoFueraDeHorario = true;
   if (!opts?.ignorarVentana) {
     const horario = await horarioDeEnvio();
     if (horario === 'ilegible') fueraDeHorario = 'horario-ilegible';
     else if (horario && (await zonaDeLaVentana()) === ZONA_ILEGIBLE) fueraDeHorario = 'zona-ilegible';
     else if (!(await dentroDeVentana(horario))) fueraDeHorario = 'fuera-de-horario';
+    if (horario && horario !== 'ilegible' && horario.avisosAlEquipo === false) makoFueraDeHorario = false;
   }
   // Sin nada que corra fuera del horario, el corte de siempre, sin leer nada más.
   const secuencias = await getSecuenciasActivas();
-  const corrensFuera = secuencias.filter((s) => tieneCarril(s.pasos) || s.pasos.some(esTarjetaMako)).map((s) => s.id);
+  const corrensFuera = secuencias.filter((s) => tieneCarril(s.pasos) || (makoFueraDeHorario && s.pasos.some(esTarjetaMako))).map((s) => s.id);
   if (fueraDeHorario && !corrensFuera.length) return { ...res, saltado: fueraDeHorario };
   // LOS LÍMITES DEL NEGOCIO (décima tanda, GENERAL 4), una vez por corrida y estrictos: sin leerlos no se
   // manda nada (lo vencido sigue ahí para la próxima), como con el horario.
@@ -3946,7 +3950,10 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       // WhatsApp» (M3 f). Una fila en 'respondio' (el lead contestó) se mueve igual que una activa desde el 14/10/2026:
       // lo que corta es la condición visible «No contestó desde que entró», que lee `contestoEnEsta` (abajo).
       const enRespuesta = insc.estado === 'respondio';
-      const seMueve = (i: number): boolean => !!sec && seMueveEnLaCorrida(sec.pasos, i, { fueraDeHorario: fueraDeHorario != null });
+      // Con la casilla apagada, fuera del horario sólo el carril (`esHiloDelCarril`): «MaKo en WhatsApp» espera a que abra.
+      const seMueve = (i: number): boolean => !!sec && (fueraDeHorario != null && !makoFueraDeHorario
+        ? esHiloDelCarril(sec.pasos, i)
+        : seMueveEnLaCorrida(sec.pasos, i, { fueraDeHorario: fueraDeHorario != null }));
       let hs = sanearHilos(insc.hilos);
       if (sec && !hs && esFilaNueva(insc) && raicesSalida(sec.pasos).length > 1) {
         hs = await repartirAlEntrar(supabase, insc, sec.pasos, (n) => proximoEnvioDePaso(nodoPorId(sec.pasos, n) ?? undefined, lead));
