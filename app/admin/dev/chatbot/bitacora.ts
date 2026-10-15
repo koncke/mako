@@ -1600,7 +1600,7 @@ FEEDBACK PROBAR:
       "Sin guardar, la regla de antes, y el panel la muestra. La migración 0279 quedó aplicada en prod el 15/10: la columna está vacía en las 93, así que nada cambió.",
     ],
     commits: [
-      { sha: "f6bc0c85f", msg: "Automations: la «Reentrada» del CRON (si un lead vuelve a entrar)", lineas: 512, archivos: 14 },
+      { sha: "58f5cabdb", msg: "Automations: la «Reentrada» del CRON (si un lead vuelve a entrar)", lineas: 512, archivos: 14 },
     ],
     archivos: ["docs/hallazgos-chatbot.md — «La Reentrada del CRON»", "docs/diseno-mako-nada-por-detras.md §2.4-a"],
   },

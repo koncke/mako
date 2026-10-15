@@ -4499,7 +4499,7 @@ Lo que quedó sin hacer, con su archivo:
 
 ## La «Reentrada» del CRON (14/10/2026)
 
-Lo hecho está en `f6bc0c85f` (diseño: docs/diseno-mako-nada-por-detras.md §1-B y §2.4-a).
+Lo hecho está en `58f5cabdb` (diseño: docs/diseno-mako-nada-por-detras.md §1-B y §2.4-a).
 
 - **«Cada vez que vuelve a entrar» NO puede correr por el barrido.** El barrido del CRON (la cohorte) mira quién ESTÁ
   en la etapa, no quién acaba de llegar: un lead parado ahí habría vuelto a recibir la automatización entera en cada
