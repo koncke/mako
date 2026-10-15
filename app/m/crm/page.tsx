@@ -24,7 +24,7 @@ export default async function CrmMovil({ searchParams }: { searchParams: Promise
   const pedido = Number((await searchParams).funnel);
   const datos = await tableroCrm(Number.isInteger(pedido) && pedido > 0 ? pedido : null);
   return (
-    <PantallaM refrescable>
+    <PantallaM>
       {datos ? <TableroCrm datos={datos} /> : <ErrorM frase="No pude leer el tablero." />}
     </PantallaM>
   );

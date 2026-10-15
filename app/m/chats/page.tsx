@@ -25,10 +25,10 @@ export default async function ChatsPage({ searchParams }: { searchParams: Promis
   const lista = await listaChats();
 
   if (!lista) {
-    return <PantallaM refrescable><ErrorM frase="No pude leer los chats." /></PantallaM>;
+    return <PantallaM><ErrorM frase="No pude leer los chats." /></PantallaM>;
   }
   return (
-    <PantallaM refrescable>
+    <PantallaM>
       <ListaChats filas={lista.filas} sinResponder={lista.sinResponder} inicial={inicial} />
       {lista.sinLead > 0 && (
         <ComputadoraM que={lista.sinLead === 1 ? 'Un chat sin lead' : `${lista.sinLead} chats sin lead`} />

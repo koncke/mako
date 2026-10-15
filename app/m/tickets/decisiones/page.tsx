@@ -17,7 +17,7 @@ import { HOME_MOVIL, RUTA_MAS } from '@/lib/movil-rutas';
 import { rutaConWs, wsSuperAdmin } from '@/lib/workspace';
 import { conWs } from '@/lib/ws-tab';
 import { leerDecisiones } from '@/lib/admin-decisiones';
-import { CabeceraM } from '@/app/m/_ui';
+import { CabeceraM, PantallaM } from '@/app/m/_ui';
 import { deshacerDecision, responderDecision } from '@/app/admin/runway/acciones';
 import { MazoDecisiones } from '@/app/tickets/decisiones/Mazo';
 import '@/app/tickets/decisiones/mazo.css';
@@ -33,9 +33,9 @@ export default async function TicketeraMovil() {
   await requireMovil({ onboarding: false });
   const lectura = await leerDecisiones();
   return (
-    <>
+    <PantallaM>
       <CabeceraM titulo="Ticketera" trabajo padre={{ href: RUTA_MAS, label: 'More' }} />
       <MazoDecisiones lectura={lectura} responder={responderDecision} deshacer={deshacerDecision} />
-    </>
+    </PantallaM>
   );
 }

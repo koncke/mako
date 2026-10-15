@@ -120,17 +120,17 @@ export default async function CustomerSuccessMovil() {
     ganados = await clientesGanados();
   } catch (e) {
     console.error('[m/cs] clientesGanados:', msg(e));
-    return <PantallaM refrescable><ErrorM frase="No pudimos leer tus clientes. No es nada tuyo." /></PantallaM>;
+    return <PantallaM><ErrorM frase="No pudimos leer tus clientes. No es nada tuyo." /></PantallaM>;
   }
 
   const entrega = await carteraEnEntrega();
   if (!entrega.ok) {
     console.error('[m/cs] carteraEnEntrega:', entrega.error);
-    return <PantallaM refrescable><ErrorM frase="No pudimos leer la entrega de tus clientes. No es nada tuyo." /></PantallaM>;
+    return <PantallaM><ErrorM frase="No pudimos leer la entrega de tus clientes. No es nada tuyo." /></PantallaM>;
   }
   if (!entrega.servicios.length) {
     return (
-      <PantallaM refrescable>
+      <PantallaM>
         <VacioM frase="Todavía no hay servicios para entregar." />
         <ComputadoraM que={COMPU} />
       </PantallaM>
@@ -178,7 +178,7 @@ export default async function CustomerSuccessMovil() {
   const enAlguno = new Set(servicios.flatMap((s) => s.miembros));
 
   return (
-    <PantallaM refrescable>
+    <PantallaM>
       <CustomerSuccessM servicios={servicios} clientes={clientes.filter((c) => enAlguno.has(c.id))} />
       <ComputadoraM que={COMPU} />
     </PantallaM>

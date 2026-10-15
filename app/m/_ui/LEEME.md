@@ -65,7 +65,7 @@ nombre y vuelve a More; una subpantalla vuelve a su sección. Para pisarlo, `<Ca
 | `.pie-fijo` consecuencia + botón grande | `<PieFijoM consecuencia="…"><Button variant="primary" size="lg" full>…</Button></PieFijoM>` |
 | toast 3-4 palabras + Deshacer | `const toast = useToastM(); toast('Activa', { deshacer })` |
 | vacío / error / cargando | `<VacioM frase>` / `<ErrorM frase onReintentar>` / `<SkeletonFilas>` |
-| pull-to-refresh | envolver en `<PantallaM refrescable>` (sin `titulo` ni `actualizado`: se borraron y no compilan) |
+| pull-to-refresh | TODA página de /m va envuelta en `<PantallaM>`, y el refresco viene prendido; `refrescable={false}` sólo con su motivo en tests/movil-refrescar.test.ts (sin `titulo` ni `actualizado`: se borraron y no compilan) |
 
 Botones: `Button`/`ButtonLink` de `@/app/_ui/Button` en `size="lg" full` (nunca `sm`). Azul = la acción,
 dorado (`mako`) = se lo pides a MaKo. Nunca «Sí/No/Aceptar/Cancelar»: acción + objeto.

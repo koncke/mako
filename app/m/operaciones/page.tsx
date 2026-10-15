@@ -25,7 +25,7 @@ import { rutaConWs, wsSuperAdmin } from '@/lib/workspace';
 import { conWs } from '@/lib/ws-tab';
 import { motivoDeEspera, puedeOperar } from '@/lib/operaciones-reglas';
 import { leerCarteros, listarPedidos } from '@/lib/operaciones';
-import { CabeceraM, ErrorM, VacioM } from '@/app/m/_ui';
+import { CabeceraM, ErrorM, PantallaM, VacioM } from '@/app/m/_ui';
 import { CentroMovil, type CarteroM, type PedidoM } from './CentroMovil';
 
 export const dynamic = 'force-dynamic';
@@ -42,7 +42,7 @@ export default async function CentroOperacionesMovil() {
   await requireMovil({ onboarding: false });
   const cabecera = <CabeceraM titulo="Centro de Operaciones" padre={{ href: RUTA_MAS, label: 'More' }} />;
   if (!puedeOperar(admin, plataforma)) {
-    return <>{cabecera}<VacioM frase="El Centro lo abre el super admin con su segundo factor." /></>;
+    return <PantallaM>{cabecera}<VacioM frase="El Centro lo abre el super admin con su segundo factor." /></PantallaM>;
   }
   try {
     const [cola, estado] = await Promise.all([listarPedidos(), leerCarteros()]);
@@ -64,8 +64,8 @@ export default async function CentroOperacionesMovil() {
     const carteros: CarteroM[] = estado.carteros.map((k) => ({
       cuenta: k.cuenta, vistoAt: k.vistoAt, version: k.version, chats: k.chats.length,
     }));
-    return <>{cabecera}<CentroMovil pedidos={pedidos} carteros={carteros} hayToken={estado.tokenPista != null} ahora={ahora} /></>;
+    return <PantallaM>{cabecera}<CentroMovil pedidos={pedidos} carteros={carteros} hayToken={estado.tokenPista != null} ahora={ahora} /></PantallaM>;
   } catch {
-    return <>{cabecera}<ErrorM frase="No pude leer la cola de trabajos." arreglo={{ rotulo: 'Volver a More', href: RUTA_MAS }} /></>;
+    return <PantallaM>{cabecera}<ErrorM frase="No pude leer la cola de trabajos." arreglo={{ rotulo: 'Volver a More', href: RUTA_MAS }} /></PantallaM>;
   }
 }

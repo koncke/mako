@@ -32,7 +32,7 @@
 
 import '../landing.css';
 import { requireMovil } from '@/lib/movil-guard';
-import { ComputadoraM, ErrorM, SeccionM, VacioM } from '@/app/m/_ui';
+import { ComputadoraM, ErrorM, PantallaM, SeccionM, VacioM } from '@/app/m/_ui';
 import { abrir, temasPropiosDe } from '@/lib/editor-landing/server';
 import { paginasParaPublicar } from '@/lib/editor-landing/server-reglas';
 import { htmlDeTarjeta } from '@/lib/editor-landing/render';
@@ -52,13 +52,13 @@ export default async function LandingTrabajoMovil({ params }: { params: Promise<
   const ctx = await requireMovil({ navKey: 'landing-writer' });
   const { id: crudo } = await params;
   const id = idDeLanding(crudo);
-  if (id == null || ctx.ws == null) return <VacioM frase="Esa landing no está en esta cuenta." accion={VOLVER} />;
+  if (id == null || ctx.ws == null) return <PantallaM><VacioM frase="Esa landing no está en esta cuenta." accion={VOLVER} /></PantallaM>;
 
   const r = await abrir(id);
   if (!r.ok) {
-    if (r.status === 404) return <VacioM frase="Esa landing no está en esta cuenta." accion={VOLVER} />;
+    if (r.status === 404) return <PantallaM><VacioM frase="Esa landing no está en esta cuenta." accion={VOLVER} /></PantallaM>;
     console.error(`[m/landing] abrir #${id}:`, r.error);
-    return <ErrorM frase="No pude abrir la landing." />;
+    return <PantallaM><ErrorM frase="No pude abrir la landing." /></PantallaM>;
   }
   const doc = r.doc;
 
@@ -87,7 +87,7 @@ export default async function LandingTrabajoMovil({ params }: { params: Promise<
   const varias = paginas.length > 1;
 
   return (
-    <>
+    <PantallaM>
       <style dangerouslySetInnerHTML={{ __html: CSS_CONTENIDO }} />
       {fuentes && <link rel="stylesheet" href={fuentes} />}
 
@@ -120,6 +120,6 @@ export default async function LandingTrabajoMovil({ params }: { params: Promise<
         cambios={doc.cambiosSinPublicar}
         sitioActivo={doc.sitioActivo}
       />
-    </>
+    </PantallaM>
   );
 }

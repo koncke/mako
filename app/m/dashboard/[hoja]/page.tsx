@@ -53,7 +53,7 @@ export default async function HojaPropiaPagina({ params, searchParams }: {
   const hoja = await hojaPropia(h, periodo, hoyEnTijuana());
 
   return (
-    <PantallaM refrescable>
+    <PantallaM>
       <CabeceraM titulo={h.nombre} />
       <DashboardM hojas={[hoja]} hojaInicial={hoja.id} periodo={periodo} periodos={periodos} fichaLead={false} />
       <ComputadoraM que="La hoja completa" />

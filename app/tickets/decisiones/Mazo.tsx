@@ -46,7 +46,7 @@ import {
   OTRA, RESUELTA, esHrefExterno, esHrefInterno,
   type AccionDeshacer, type AccionResponder, type Decision, type LecturaDecisiones,
 } from '@/app/admin/runway/decisiones';
-import { alFrente, colaInicial, marcadaInicial, porDecidir, puedeMandar, rotuloMandar, sinLa, veredictoGesto, TICKETERA_LISTA } from './reglas';
+import { alFrente, colaInicial, marcadaInicial, nuevasParaElMazo, porDecidir, puedeMandar, rotuloMandar, sinLa, veredictoGesto, TICKETERA_LISTA } from './reglas';
 import { CambioVista } from './CambioVista';
 
 const URGENCIA_CORTA: Record<Decision['urgencia'], string> = {
@@ -84,7 +84,20 @@ function Mazo({ decisiones, responder, deshacer }: PropsMazo & { decisiones: Dec
   // revalida y llegan props nuevas, y rearmar la cola ahí haría volver a una «después».
   const [cola, setCola] = useState<Decision[]>(() => colaInicial(decisiones));
   const [luego, setLuego] = useState<Decision[]>([]);
-  const [total] = useState(() => colaInicial(decisiones).length);
+  const [total, setTotal] = useState(() => colaInicial(decisiones).length);
+  // Lo que pasó alguna vez por este mazo. Con las props nuevas (refrescar tirando hacia abajo en el
+  // teléfono, o la revalidación) sólo se SUMA al final lo que no está aquí (`nuevasParaElMazo`).
+  const vistas = useRef<Set<Decision['id']> | null>(null);
+  if (vistas.current === null) vistas.current = new Set(colaInicial(decisiones).map((d) => d.id));
+  useEffect(() => {
+    const ya = vistas.current;
+    if (!ya) return;
+    const nuevas = nuevasParaElMazo(decisiones, ya);
+    if (!nuevas.length) return;
+    for (const d of nuevas) ya.add(d.id);
+    setCola((c) => [...c, ...nuevas]);
+    setTotal((t) => t + nuevas.length);
+  }, [decisiones]);
   const [hechas, setHechas] = useState(0);
   const [marcadas, setMarcadas] = useState<Record<number, string | null>>({});
   const [textos, setTextos] = useState<Record<number, string>>({});

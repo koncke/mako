@@ -33,22 +33,22 @@ export default async function AutomationsPagina() {
 
   if (lectura.estado === 'error') {
     return (
-      <>
+      <PantallaM>
         <ErrorM frase="No se pudieron leer las automatizaciones." />
         <ComputadoraM que={COMPU} />
-      </>
+      </PantallaM>
     );
   }
   if (!lectura.total) {
     return (
-      <>
+      <PantallaM>
         <VacioM frase="Todavía no hay automatizaciones." />
         <ComputadoraM que={COMPU} />
-      </>
+      </PantallaM>
     );
   }
   return (
-    <PantallaM refrescable>
+    <PantallaM>
       <AutomationsM filas={lectura.filas} puedeEditar={ctx.rol === 'admin'} />
       <ComputadoraM que={COMPU} />
     </PantallaM>

@@ -56,11 +56,11 @@ export default async function ChatLeadMovil({ params }: { params: Promise<{ id: 
       console.error(`[m/crm/chat] ${id}: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
-  if (fallo) return <VacioM frase="No pude leer el chat. Vuelve a intentar en un momento." accion={{ rotulo: 'Volver a la ficha', href: `/m/crm/${id}` }} />;
-  if (!h) return <VacioM frase="Ese lead no está en esta cuenta." accion={{ rotulo: 'Volver al CRM', href: '/m/crm' }} />;
+  if (fallo) return <PantallaM><VacioM frase="No pude leer el chat. Vuelve a intentar en un momento." accion={{ rotulo: 'Volver a la ficha', href: `/m/crm/${id}` }} /></PantallaM>;
+  if (!h) return <PantallaM><VacioM frase="Ese lead no está en esta cuenta." accion={{ rotulo: 'Volver al CRM', href: '/m/crm' }} /></PantallaM>;
 
   return (
-    <PantallaM refrescable>
+    <PantallaM>
       <CabeceraM titulo={h.nombre} trabajo padre={{ href: `/m/crm/${h.leadId}`, label: 'Ficha' }} />
       {h.chat ? (
         <>

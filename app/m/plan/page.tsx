@@ -44,7 +44,7 @@ export default async function PlanMovil() {
   } catch (e) {
     console.error('[m/plan] leerPlanHoy:', e instanceof Error ? e.message : e);
     return (
-      <PantallaM refrescable>
+      <PantallaM>
         <ErrorM frase="No pudimos leer el plan. No es nada tuyo." />
         <ComputadoraM que={EN_LA_COMPUTADORA} />
       </PantallaM>
@@ -52,7 +52,7 @@ export default async function PlanMovil() {
   }
 
   return (
-    <PantallaM refrescable>
+    <PantallaM>
       <ListaPlan
         listas={{ prioridades: plan.prioridades, tareas: tareasDelTablero({ tareas, proyectos, hoy: plan.fecha, conNum: plan.tablero === 'dueno' }) }}
         proyectos={proyectosDelTablero({ tareas, proyectos })}

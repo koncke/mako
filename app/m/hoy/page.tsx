@@ -74,7 +74,7 @@ export default async function HoyPage() {
   const leadsDeMas = leads ? Math.max(0, leads.total - Math.min(leads.items.length, TOPE_LEADS_HOY)) : 0;
 
   return (
-    <PantallaM refrescable>
+    <PantallaM>
       {bloqueo && (
         <TarjetaDecision
           titulo={bloqueo.titulo}
@@ -196,7 +196,7 @@ async function GeneralPagina({ ctx }: { ctx: ContextoMovil }) {
   const titulo = variables.saludo && variables.nombre ? `${variables.saludo}, ${variables.nombre}` : 'General';
   const n = decidir?.total ?? null;
   return (
-    <PantallaM refrescable>
+    <PantallaM>
       <CabeceraM
         titulo={titulo}
         accion={(

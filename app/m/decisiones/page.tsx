@@ -17,7 +17,7 @@ import { HOME_MOVIL, RUTA_MAS } from '@/lib/movil-rutas';
 import { rutaConWs, wsSuperAdmin } from '@/lib/workspace';
 import { conWs } from '@/lib/ws-tab';
 import { leerDecisiones } from '@/lib/admin-decisiones';
-import { CabeceraM } from '@/app/m/_ui';
+import { CabeceraM, PantallaM } from '@/app/m/_ui';
 import { TableroDecisiones } from '@/app/admin/runway/Tablero';
 import { responderDecision } from '@/app/admin/runway/acciones';
 import '@/app/admin/runway/decisiones.css';
@@ -33,9 +33,9 @@ export default async function TicketeraListaMovil() {
   await requireMovil({ onboarding: false });
   const lectura = await leerDecisiones();
   return (
-    <>
+    <PantallaM>
       <CabeceraM titulo="Ticketera" padre={{ href: RUTA_MAS, label: 'More' }} />
       <TableroDecisiones lectura={lectura} responder={responderDecision} />
-    </>
+    </PantallaM>
   );
 }

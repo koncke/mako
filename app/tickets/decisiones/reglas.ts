@@ -31,6 +31,16 @@ export function colaInicial(ds: readonly Decision[]): Decision[] {
   return URGENCIAS.flatMap((u) => pendientes[u.clave]);
 }
 
+/**
+ * Lo que llegó al REFRESCAR (tirar hacia abajo en el teléfono, o la revalidación después de
+ * contestar) y el mazo nunca vio: va al FINAL de la cola, en su orden. Lo que ya pasó por el mazo
+ * —en la cola, en «después», contestado o deshecho— no vuelve por acá: rearmar la cola con las props
+ * nuevas haría volver una «después» (15/10/2026: sin esto, refrescar el mazo no traía nada nuevo).
+ */
+export function nuevasParaElMazo(ds: readonly Decision[], vistas: ReadonlySet<Decision['id']>): Decision[] {
+  return colaInicial(ds).filter((d) => !vistas.has(d.id));
+}
+
 /** Cuántas quedan POR DECIDIR: un aviso («para saber») no es una decisión y no se cuenta. */
 export function porDecidir(cola: readonly Pick<Decision, 'urgencia'>[]): number {
   return cola.filter((d) => d.urgencia !== 'aviso').length;

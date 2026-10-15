@@ -7,6 +7,39 @@ Corridas del 11/10/2026: la v1 (relevo de 7 agentes + 11 de implementación + 1 
 el diseño v2 a la tarde, y a la noche la implementación v2 (12 agentes + la integración) con el desvío
 de teléfonos PRENDIDO. Lo de la v2 está en su propia sección, más abajo.
 
+## Refrescar en TODAS las pantallas: el gesto era opt-in (15/10/2026)
+
+Martín: «En el centro y otras tabs no está la funcionalidad de refrescar, eso debe estar presente en
+tooodos lados en mobile». Tiró varias veces en el Centro de Operaciones esperando ver algo nuevo.
+
+**Causa:** el pull-to-refresh vivía en PantallaM detrás de `refrescable` (apagado por defecto). Lo
+pedían las pantallas que existían el día que se escribió; el Centro se construyó el 15/10 y nació sin él,
+sin que nadie se equivocara. Además, 7 páginas ni siquiera montaban PantallaM: el Centro, la Ticketera
+(mazo y lista), Video, el detalle de un video, el de una landing y Configurar.
+
+**El diagnóstico obvio era incompleto:** «faltaba en el Centro» era cierto. Al recorrer las 26 páginas
+aparecieron 11 returns más sin PantallaM en páginas que SÍ refrescaban, todos en el vacío o el error
+(«No pude leer…», «Meta no contestó»: Ads, Automations, Landing, la ficha del lead y su chat). Es
+justo donde refrescar más sirve, y donde no estaba.
+
+**La otra mitad: refrescar tiene que TRAER lo nuevo.** `router.refresh()` vuelve a correr el server
+component y pasa props nuevas, pero el mazo de la Ticketera copia sus decisiones a un `useState` al
+montarse, a propósito (rearmar la cola con cada revalidación haría volver una «después»). Con eso, el
+gesto animaba y no traía nada. Ahora suma al final lo que nunca pasó por el mazo (`nuevasParaElMazo`,
+app/tickets/decisiones/reglas.ts). Medido con toques reales por CDP sobre la PantallaM y el mazo reales:
+de «2 por decidir» a «3», con la tarjeta de adelante intacta.
+
+**La regla que queda:** el refresco viene PRENDIDO; `refrescable={false}` sólo donde tirar hacia abajo
+es otra cosa, y con su motivo. tests/movil-refrescar.test.ts recorre las páginas de app/m y falla si
+alguna devuelve sin PantallaM (sigue a un componente del mismo archivo, como `GeneralPagina` de Today)
+o la apaga sin anotar. Excepciones: `/m` (sólo redirige) y el chat de MaKo.
+
+**Sin medir:** un teléfono de verdad; ahí el gesto compite con el pull-to-refresh del navegador
+(app/m/m.css lo apaga con `overscroll-behavior`), y eso Chrome emulado no lo reproduce.
+
+**Vive en:** `app/m/_ui/PantallaM.tsx` · las `page.tsx` de app/m · `app/tickets/decisiones/Mazo.tsx` ·
+`app/tickets/decisiones/reglas.ts` · `tests/movil-refrescar.test.ts`
+
 ## Arrastrar una tarjeta con el dedo, y el toque del iPad (15/10/2026)
 
 Las seis decisiones de MaKo Mobile y del iPad que estaban en la Ticketera las retiró el orquestador

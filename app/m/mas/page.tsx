@@ -60,7 +60,7 @@ export default async function MasPagina() {
   const nombre = (ctx.sesion.nombre ?? '').trim();
 
   return (
-    <PantallaM refrescable>
+    <PantallaM>
       <ListaM>
         <FilaM
           leading={<AvatarM nombre={nombre} email={ctx.sesion.email} tam="lg" />}

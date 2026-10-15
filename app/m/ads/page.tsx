@@ -38,32 +38,32 @@ export default async function AdsPagina({ searchParams }: { searchParams: Promis
 
   if (lectura.estado === 'sin_meta') {
     return (
-      <>
+      <PantallaM>
         <VacioM frase="Meta no está conectado en este negocio." />
         <ComputadoraM que="Conectar Meta en Integraciones" />
-      </>
+      </PantallaM>
     );
   }
   if (lectura.estado === 'token') {
     // Reintentar no lo arregla: la conexión se rehace en Integraciones.
     return (
-      <>
+      <PantallaM>
         <VacioM frase="La conexión con Meta venció." />
         <ComputadoraM que="Reconectar Meta en Integraciones" />
-      </>
+      </PantallaM>
     );
   }
   if (lectura.estado === 'error') {
     return (
-      <>
+      <PantallaM>
         <ErrorM frase="Meta no contestó. Vuelve a intentarlo en un momento." />
         <ComputadoraM que="Crear campañas y subir anuncios" />
-      </>
+      </PantallaM>
     );
   }
 
   return (
-    <PantallaM refrescable>
+    <PantallaM>
       <AdsM periodo={periodo.id} lectura={lectura} puedeOperar={puedeOperar} />
       <ComputadoraM que="Crear campañas y subir anuncios" />
     </PantallaM>

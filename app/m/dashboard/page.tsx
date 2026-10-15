@@ -56,7 +56,7 @@ export default async function DashboardPagina({ searchParams }: { searchParams: 
     const periodo = def ? periodoDeParam(uno(p.periodo), periodos, def) : null;
     const hoja = await hojaPropia(h, periodo, hoy);
     return (
-      <PantallaM refrescable>
+      <PantallaM>
         <DashboardM hojas={[hoja]} hojaInicial={hoja.id} periodo={periodo} periodos={periodos} fichaLead={false} />
         <ComputadoraM que={unica.plantilla === 'closing' ? 'Llamadas, embudo y factores' : 'Las conversaciones y sus tablas'} />
       </PantallaM>
@@ -73,7 +73,7 @@ export default async function DashboardPagina({ searchParams }: { searchParams: 
   const otras = (lectura?.tablero.hojas ?? []).filter((h) => !esHojaInicial(h) && entraEnTelefono(h));
 
   return (
-    <PantallaM refrescable>
+    <PantallaM>
       <DashboardM
         hojas={[marketing, comercial]}
         hojaInicial={uno(p.hoja) === 'comercial' ? 'comercial' : 'marketing'}

@@ -32,23 +32,23 @@ const COMPU = 'Diseño, bloques y dominio';
 
 export default async function LandingGeneratorMovil() {
   const ctx = await requireMovil({ navKey: 'landing-writer' });
-  if (ctx.ws == null) return <VacioM frase="No hay un negocio abierto." />;
+  if (ctx.ws == null) return <PantallaM><VacioM frase="No hay un negocio abierto." /></PantallaM>;
 
   const r = await leerLandingsM(ctx.ws);
   if (!r.ok) {
     return (
-      <>
+      <PantallaM>
         <ErrorM frase="No pude leer las landings." />
         <ComputadoraM que={COMPU} />
-      </>
+      </PantallaM>
     );
   }
   if (!r.filas.length) {
     return (
-      <>
+      <PantallaM>
         <VacioM frase="Aún no hay landings." />
         <ComputadoraM que="Crear una landing" />
-      </>
+      </PantallaM>
     );
   }
 
@@ -57,7 +57,7 @@ export default async function LandingGeneratorMovil() {
   let medidas = 0;
 
   return (
-    <PantallaM refrescable>
+    <PantallaM>
       <ListaM>
         {r.filas.map((f) => {
           const pill = PILDORA_LANDING[f.estado];

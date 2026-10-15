@@ -14,7 +14,7 @@
 
 import './video.css';
 import { requireMovil } from '@/lib/movil-guard';
-import { ComputadoraM, VacioM } from '@/app/m/_ui';
+import { ComputadoraM, PantallaM, VacioM } from '@/app/m/_ui';
 import { leerVideos } from './datos';
 import { VideosM } from './VideosM';
 
@@ -28,17 +28,17 @@ export default async function VideoPagina() {
 
   if (!enCurso.length && !terminados.length) {
     return (
-      <>
+      <PantallaM>
         <VacioM frase="Todavía no hay anuncios." />
         <ComputadoraM que={COMPU} />
-      </>
+      </PantallaM>
     );
   }
 
   return (
-    <>
+    <PantallaM>
       <VideosM enCurso={enCurso} terminados={terminados} />
       <ComputadoraM que={COMPU} />
-    </>
+    </PantallaM>
   );
 }

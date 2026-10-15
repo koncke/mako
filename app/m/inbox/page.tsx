@@ -112,7 +112,7 @@ export default async function InboxPagina({ searchParams }: {
   const recortadoCompu = decidir.recortados.some((t) => !DECIDIBLES_EN_TELEFONO.has(t));
 
   return (
-    <PantallaM refrescable>
+    <PantallaM>
       <InboxM
         decisiones={decisiones}
         fallas={fallas}

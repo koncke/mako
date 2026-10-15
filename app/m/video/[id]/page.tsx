@@ -11,7 +11,7 @@
 
 import '../video.css';
 import { requireMovil } from '@/lib/movil-guard';
-import { CabeceraM, ComputadoraM, VacioM } from '@/app/m/_ui';
+import { CabeceraM, ComputadoraM, PantallaM, VacioM } from '@/app/m/_ui';
 import { leerVideo } from '../datos';
 import { EditorVideoM } from './EditorVideoM';
 
@@ -26,13 +26,13 @@ export default async function VideoAnuncioPagina({ params }: { params: Promise<{
 
   if (!video) {
     return (
-      <>
+      <PantallaM>
         <CabeceraM titulo="Video Generator" />
         <VacioM frase="Este anuncio ya no está." />
         <ComputadoraM que="Crear anuncios y filmar tomas" />
-      </>
+      </PantallaM>
     );
   }
 
-  return <EditorVideoM titulo={video.titulo} plan={video.plan} montaje={video.montaje} />;
+  return <PantallaM><EditorVideoM titulo={video.titulo} plan={video.plan} montaje={video.montaje} /></PantallaM>;
 }

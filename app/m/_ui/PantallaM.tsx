@@ -11,6 +11,19 @@
 //
 // Lo que sí hace: tirar hacia abajo desde arriba de todo para refrescar (`router.refresh()`).
 //
+// ⚠️ EL REFRESCO VIENE PRENDIDO, Y SE APAGA CON SU MOTIVO (15/10/2026). Martín: «En el centro y
+// otras tabs no está la funcionalidad de refrescar, eso debe estar presente en tooodos lados en
+// mobile». Era OPT-IN (`refrescable`): lo pedían las pantallas que existían el día que se escribió,
+// y toda pantalla nueva nacía sin él (el Centro de Operaciones se construyó el 15/10 y salió así,
+// sin que nadie se equivocara). Ahora toda página de /m monta PantallaM y lo hereda;
+// `refrescable={false}` sólo donde tirar hacia abajo es OTRA cosa (un chat: ver mensajes viejos),
+// y tests/movil-refrescar.test.ts exige el motivo escrito en su lista.
+// ⚠️ Y REFRESCAR TIENE QUE TRAER LO NUEVO: `router.refresh()` vuelve a correr el server component
+// y le pasa props nuevas, pero un componente que copió sus props a un `useState` al montarse no las
+// ve. El gesto haría la animación y no cambiaría nada, que es peor que no tenerlo: promete. Antes de
+// sumar una pantalla, mirá si su componente guarda lo que llega (el mazo de la Ticketera lo hacía, y
+// ahora suma al final lo que llega nuevo).
+//
 // ⚠️ EL PULL ES CON EVENTOS `touch`, NO `pointer`. Con `touch-action: pan-y` (el
 // default de una página que scrollea), el navegador se queda con el gesto vertical
 // y manda `pointercancel` en cuanto empieza a «scrollear» — también arriba de
@@ -51,8 +64,9 @@ function otroDuenoDelGesto(t: EventTarget | null): boolean {
   return false;
 }
 
-export function PantallaM({ refrescable = false, children }: {
-  /** Tirar hacia abajo para refrescar: Today, Inbox, CRM y Plan. Nunca el chat ni un sheet. */
+export function PantallaM({ refrescable = true, children }: {
+  /** Tirar hacia abajo para refrescar: en TODAS las pantallas. `false` sólo donde tirar es otra cosa
+   *  (un chat), y con su motivo en tests/movil-refrescar.test.ts. Un sheet ya se queda con su gesto. */
   refrescable?: boolean;
   children?: ReactNode;
 }) {

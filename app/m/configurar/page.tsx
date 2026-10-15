@@ -17,6 +17,7 @@
 
 import { redirect } from 'next/navigation';
 import { ButtonLink } from '@/app/_ui/Button';
+import { PantallaM } from '@/app/m/_ui';
 import { requireMovil, salidaDeVista } from '@/lib/movil-guard';
 import { onboardingPendiente } from '@/lib/onboarding-state';
 import { HOME_MOVIL } from '@/lib/movil-rutas';
@@ -35,15 +36,18 @@ export default async function Configurar() {
     ? `Falta configurar la cuenta de ${ctx.clienteNombre}.`
     : 'Termina de configurar tu cuenta para empezar.';
 
+  // Refrescar acá sirve: si ya la configuró en la computadora, la página lo ve y lleva al inicio.
   return (
-    <div className="m-configurar">
-      <p className="m-configurar__frase">{frase}</p>
-      <div className="m-configurar__acciones">
-        <ButtonLink href="/onboarding" variant="primary" size="lg" full>Abrir la configuración</ButtonLink>
-        {salida
-          ? <SalirDeLaVista salida={salida.salida} modoAgencia={salida.modoAgencia} variante="tertiary" />
-          : <CerrarSesion />}
+    <PantallaM>
+      <div className="m-configurar">
+        <p className="m-configurar__frase">{frase}</p>
+        <div className="m-configurar__acciones">
+          <ButtonLink href="/onboarding" variant="primary" size="lg" full>Abrir la configuración</ButtonLink>
+          {salida
+            ? <SalirDeLaVista salida={salida.salida} modoAgencia={salida.modoAgencia} variante="tertiary" />
+            : <CerrarSesion />}
+        </div>
       </div>
-    </div>
+    </PantallaM>
   );
 }

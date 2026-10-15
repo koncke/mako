@@ -6094,6 +6094,14 @@ exist»; medido con `app/conocimientos/Compartir.tsx`, que llega desde el Dashbo
 Y la lista de la rama sale contra el merge-base (`git diff --name-only --diff-filter=d $(git merge-base HEAD origin/main)`):
 contra `origin/main` entran los archivos que otro agregó después y el tsc contesta «File not found».
 
+⚠️ **Y no ve un `declare module` que vive en un archivo fuera de la lista** (15/10/2026). Un aumento de
+módulo (los comandos de TipTap del Web Generator, `app/web-generator/editor/extensiones/marcas.ts`) sólo
+existe si el archivo que lo declara entra al programa; el que USA el comando lo importa por otro lado. El
+acotado dio `TS2339: Property 'toggleEtiqueta' does not exist on type 'ChainedCommands'` en
+`insertar.ts`, al que se llegaba desde `app/m/landing/[id]/page.tsx`. Con `marcas.ts` sumado a `files`, 0
+errores. Un error del acotado en un archivo que la rama no tocó se mira así antes de reportarlo: `grep` del
+nombre que falta, y si aparece en un `declare module`, ese archivo va a la lista.
+
 **Vive en:** el tsconfig temporal de cada chat (scratchpad) · la memoria `pc-techo-ram-chrome`, que
 enseñaba la receta sin el `include` · *2026-10-14 Plan - Perro Guardián*
 

@@ -29,14 +29,14 @@ export default async function FichaLeadMovil({ params }: { params: Promise<{ id:
   const id = Number(crudo);
   const d = Number.isInteger(id) && id > 0 ? await fichaV2(id) : null;
   if (!d) {
-    return <VacioM frase="Ese lead no está en esta cuenta." accion={{ rotulo: 'Volver al CRM', href: '/m/crm' }} />;
+    return <PantallaM><VacioM frase="Ese lead no está en esta cuenta." accion={{ rotulo: 'Volver al CRM', href: '/m/crm' }} /></PantallaM>;
   }
   const { f } = d;
   const casa = f.casa ?? f.productos[0] ?? null;
   const otros = f.productos.length - 1;
 
   return (
-    <PantallaM refrescable>
+    <PantallaM>
       <CabeceraM titulo={f.nombre} grande={false} />
       <header className="m-crm-ficha" data-m-titulo-grande="">
         <AvatarM nombre={f.nombre} email={f.email} tam="xl" />
