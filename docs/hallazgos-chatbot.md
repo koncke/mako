@@ -4612,3 +4612,66 @@ docs/hallazgos-infra.md.)
 **Vive en:** `lib/flujo-ia-consulta.ts` (`esConsulta`, `pideCambio`, `EXPLICAR_IA_SYSTEM_TEMPLATE`) · `lib/flujo-ia.ts`
 (`deIAEdicion`, la salida temprana con `respuesta`) · `app/api/chat-agent/secuencias/ia/route.ts` (`contestar`) ·
 `app/automations/stream-ia.ts` (`TEXTO_FASE.respuesta`) · test: `tests/flujo-ia-consulta.test.ts`
+
+## Las doce de Martín del 15/10: la punta de la flecha trabada, y «Probar» con casos imposibles, sin lead y aplastado (15/10/2026)
+
+La lista literal está en docs/relevo/chatbot.md. Hasta ese día vivía sólo en un mensaje entre chats que nadie leyó.
+
+**1. La punta de la flecha quedaba trabada (ni Esc la soltaba).** La lista de puntas se dibujaba con
+`!arrastreFlecha && …`. Cuando el gesto pasaba a ser un arrastre (`moverCirculo` → `setArrastreFlecha`), React
+**desmontaba la punta que tenía el puntero capturado**: el `pointerup` no le llegaba a nadie, `soltarCirculo` no
+corría y `arrastreFlecha` quedaba puesto para siempre. Esc sólo cancelaba «Conectar a una tarjeta». Ahora:
+- la punta llevada sigue montada (se esconden las demás);
+- si igual se pierde el `pointerup`, lo cierra la ventana;
+- Esc cancela.
+⚠️ **Regla: un elemento con `setPointerCapture` no puede depender de un estado que el mismo gesto cambia.** Si
+desaparece, el gesto queda abierto. Las zonas del medio de cada flecha sí se esconden enteras: ésas no capturan.
+
+**5. «Una cantidad impresionante de chats» en «Un Lead Agendó Llamada».** Medido en #213: 8 escenarios y uno
+afuera, casi todos IMPOSIBLES («No: Su reunión sigue en pie · … · Su reunión sigue en pie»). `escenariosDePrueba`
+abría cada condición por su cuenta, aunque dos preguntaran lo mismo, así que salía el producto de todas. Ahora un
+escenario es una combinación de **hechos**: cada fila sin su «No» (`claveHecho`), que se abre recién cuando una
+condición la pregunta, y primero con el valor del lead recién llegado. El mismo hecho vale lo mismo en todo el flujo,
+y dos combinaciones que se ven igual en el chat son una. #213 quedó en 3.
+⚠️ Un hecho que cambia con el tiempo (la reunión se cancela entre el «1 h antes» y el «15 min antes») se prueba
+como fijo. Es a propósito: la prueba muestra caminos, no carreras.
+
+**6. «En ninguno de esos casos el LEAD responde».** Con un AI Step que escucha por ese medio hay un caso más por
+cada uno de sus casos (hasta 4), o «Lo demás» con su objetivo si no tiene casos. Después del primer mensaje, el lead
+escribe algo de ese caso: lo arma el server con la acción `mensaje-lead` y el prompt `automations.probar.lead`. Lo
+demás es la prueba de siempre: lo clasifica el clasificador del motor y contesta el AI Step. **Si el clasificador lo
+manda a otro caso, se ve**, y eso es un hallazgo de la prueba, no un error.
+⚠️ La API (`escenarios_secuencia`, `probar_secuencia`) NO ofrece esos casos: por WhatsApp no hay quién escriba como el
+lead, y mandaría lo mismo que el primero.
+
+**7 y 8. «La tab muy compacta».** «Probar» medía como mucho 560 px (el 40 % del lugar) y la lista se comía 172: el
+chat quedaba en unos 300 px en una pantalla de 1536. Ahora:
+- con contactos pide hasta 820 px (`muelles`, `probarConContactos`);
+- si el cuerpo mide menos de 640 px, la lista pasa a una fila de fotos arriba del chat (como las historias), así el
+  chat no se achica nunca por la lista. Es la misma pieza para el teléfono.
+
+**9, 10, 11 y 12.**
+- 9: el hilo TERMINADO de cada caso se guarda con la firma del flujo; volver a él lo muestra sin animar (`ChatHilo`
+  se remonta por caso y sólo anima lo que llega después).
+- 10: «Caso N», y la primera píldora del hilo dice cuándo cae.
+- 11: «Hay más caminos» sale.
+- 12: fotos de randomuser.me, con la inicial si no carga.
+
+**SIN HACER:**
+- **2 («en Automations de SuperAdmin no veo las automatizaciones que armamos para los clientes de MaKo»).** Medido el
+  15/10: el ws 9 tiene UNA sola automatización viva, «Restablecer Contraseña» (#251, pausada). Las demás del ws 9
+  están archivadas desde agosto. Los mensajes de sistema a los clientes (caída y vuelta del WhatsApp, Fathom:
+  `AVISOS_SOLO_SUPERADMIN`) siguen en /mensajes como avisos, no como automatizaciones, aunque la regla de Martín es
+  que «un Mensaje de MaKo ES una automatización». Falta que diga qué espera ver: esos avisos pasados a
+  automatizaciones del ws 9, o las automatizaciones de cada cliente vistas desde SuperAdmin.
+- **3, la línea de WhatsApp de SuperAdmin:** en docs/hallazgos-comunicacion.md, espera decisión.
+- **4 («Probar se ve rota») y 7 (la caja de escribir) no se vieron en el navegador.** El Chrome de Martín tenía la
+  sesión de Mauricio, y con la RAM al límite no se levanta `next dev`. Lo arreglado es lo que el código explica (el
+  ancho); falta mirarlo con la sesión de super admin.
+- Las fotos se piden a randomuser.me desde el navegador de quien prueba (un tercero ve esa IP). Si molesta, se
+  bajan a /public.
+
+**Vive en:** `app/_components/Lienzo.tsx` (la red del arrastre, `tarjetaBajo`) · `lib/simulador-grafo.ts`
+(`escenariosDePrueba`, `claveHecho`, `salidaConHechos`) · `app/automations/PanelProbar.tsx` (`BarraEscenarios`,
+`pildoraDelCaso`, `escribirComoLead`, `hilos`) · `lib/probar-lead.ts` · `lib/lienzo-grafo.ts` (`probarAnchoContactos`)
+· tests: `tests/lienzo-punta-flecha.test.ts`, `tests/probar-casos.test.ts`

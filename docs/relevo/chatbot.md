@@ -1,5 +1,17 @@
 # Relevo: Automations (ex /chatbot) y las secuencias
 
+> **ESTADO AL 15/10/2026 ~21:40 AR (`claude3`, worktree `C:/dev/wt-undecima`, rama `undecima`; pushea el coordinador).**
+> De las doce (abajo, literal): **HECHAS en la rama**, sin verlas en producción:
+> - 1, la punta de la flecha (50d4266b3);
+> - 5, 6, 9, 10, 11 y 12, «Probar» (e3da9f2b6);
+> - 7 y 8, el ancho (también e3da9f2b6).
+> Además está el chat del lienzo que editaba al preguntarle (b0430eba4) y el rojo de forma que dejó (ad53737fe).
+> **3, a medias:** el email de MaKo quedó reclamado en el ws 9 (datos; el envío real sigue apagado), y la línea de
+> WhatsApp espera una decisión (a, b o c en docs/hallazgos-comunicacion.md).
+> **2, sin empezar:** falta que Martín diga qué espera ver en SuperAdmin.
+> **4 y 7 sin mirar en el navegador:** su Chrome tenía la sesión de Mauricio. Falta la sesión de super admin para la
+> pasada en ws3 de producción, y el OK para borrar dos mensajes de prueba del chat de MaKo de la #198 (ws1).
+
 > **LAS DOCE COSAS QUE REPORTÓ MARTÍN (15/10/2026; hasta hoy vivían sólo en un mensaje del coordinador de la cuenta 1
 > al chat de Automations de esa cuenta, 17:23 UTC, que nunca se leyó). Ninguna estaba cerrada al escribirlas.** Las tres
 > de antes (Joan, conectar la flecha, esperar a que abra la oficina) SÍ están en main. El texto de Martín, literal:

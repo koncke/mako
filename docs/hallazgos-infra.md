@@ -6308,3 +6308,14 @@ negocios.
   `modoAgencia` y `ws`. Si no es super admin, no se hace la pasada: se le pide a Martín la sesión.
 
 **Vive en:** `proxy.ts` (el header del `?ws=` sólo para admin de agencia) · `lib/ws-tab.ts` · `app/api/auth/me/route.ts`
+
+## Correr «los tests del tema» deja afuera a los que FIJAN LA FORMA del archivo que tocaste (15/10/2026)
+
+Una punta se dio por lista con «918 tests verdes», y tenía uno en rojo: `tests/crear-ia-preguntas.test.ts` fija con
+un regex la línea exacta del `traducir` de editar (`return { r, errores: erroresEdicion(base, r, ctx) };`), y el
+cambio la había tocado. Ese test es de las PREGUNTAS de MaKo, no del chat, así que no entraba en ningún `grep` del
+tema. Lo encontró otro `grep`, por casualidad.
+
+**La regla:** antes de dar una punta por buena, se corren los tests que LEEN cada archivo tocado
+(`grep -l "<ruta del archivo>" tests/*.test.ts`), no sólo los que hablan del tema. Y antes de pasársela a quien
+pushea, la suite entera con `--test-concurrency=2`, que entra en la RAM con muchos chats abiertos.
