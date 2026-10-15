@@ -50,8 +50,9 @@ en el ws 3.
 
 - **¿Le escribimos a Siam (autor de Doory) pidiendo MIT?** Sin eso el cartel se queda y no se abre a clientes.
 - **¿Fotos de Unsplash con una key de MaKo?** ¿Y un modelo para quitar fondo de objetos?
-- **La API del editor:** la pregunta `image-api-gating` era «mientras sea sólo tuyo»; con el editor abierto, se
-  declara con el permiso de siempre (`gating.tab: 'image-editor'`, `rolMinimo: 'admin'`). Falta su sí.
+- **La API del editor: DECLARADA el 15/10** con el permiso de siempre (área `imagen`, 7 operaciones, también por
+  WhatsApp: «creame un flyer…» llega con sus herramientas). La pregunta `image-api-gating` se retiró.
+- **Estrellas `formato_imagen`:** ¿una plantilla del editor o un formato del Image Generator?
 - **Una pestaña de Canva** (`canva.com/design/DAHX-ICTUd4`) en el grupo de los agentes: si se creó en su cuenta, papelera.
 
 ## Lo que sigue (no depende de él)

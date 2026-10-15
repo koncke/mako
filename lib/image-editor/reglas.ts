@@ -145,3 +145,74 @@ export function srcsLocales(doc: unknown): string[] {
 export function versionValida(raw: unknown): number | null {
   return typeof raw === 'number' && Number.isSafeInteger(raw) && raw >= 1 ? raw : null;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Para la API de MaKo (lib/api-mako/areas/imagen.*): armar y leer un documento sin el motor
+// ─────────────────────────────────────────────────────────────────────────────
+// El motor (Doory) es sólo de cliente y ningún módulo del server lo importa (test 4 de
+// tests/image-editor-integracion.test.ts). Lo poco que la API necesita del documento vive acá, y
+// tests/api-mako-imagen.test.ts compara el documento en blanco con el `createBlankDocument` del motor.
+
+/** Un documento con una página en blanco, como el que crea el inicio del editor. */
+export function documentoEnBlanco(ancho: number, alto: number, pageId: string): Record<string, unknown> {
+  const lado = (n: number) => Math.min(20_000, Math.max(1, Math.round(n)));
+  return {
+    schemaVersion: 1,
+    width: lado(ancho),
+    height: lado(alto),
+    unit: 'px',
+    pages: [{ id: pageId, background: { type: 'solid', color: '#ffffff' }, objects: [] }],
+  };
+}
+
+type Obj = Record<string, unknown>;
+const esTexto = (o: Obj) => typeof o.text === 'string' && /text/i.test(String(o.type ?? ''));
+
+/** Recorre los objetos de una página, adentro de los grupos también. */
+function cadaObjeto(objs: unknown, f: (o: Obj) => void, prof = 0): void {
+  if (!Array.isArray(objs) || prof > 20) return;
+  for (const o of objs) {
+    if (!o || typeof o !== 'object') continue;
+    f(o as Obj);
+    cadaObjeto((o as Obj).objects, f, prof + 1);
+  }
+}
+
+/** Los textos de cada página, en orden: lo que la API muestra de un diseño (sin estilos ni posiciones). */
+export function textosDe(doc: unknown): { pagina: number; nombre: string | null; textos: string[] }[] {
+  const pages = (doc as { pages?: unknown[] } | null)?.pages;
+  if (!Array.isArray(pages)) return [];
+  return pages.map((p, i) => {
+    const textos: string[] = [];
+    cadaObjeto((p as Obj)?.objects, (o) => { if (esTexto(o)) textos.push(String(o.text)); });
+    const nombre = typeof (p as Obj)?.name === 'string' ? String((p as Obj).name) : null;
+    return { pagina: i + 1, nombre, textos };
+  });
+}
+
+const comparable = (s: string) => s.replace(/\s+/g, ' ').trim().toLocaleLowerCase('es');
+
+/**
+ * Cambia textos de un diseño: cada `actual` (sin distinguir mayúsculas ni espacios) pasa a ser `nuevo`.
+ * Un texto en mayúsculas (`textCase: 'upper'`) guarda el original en `caseSource`: se cambia ése y el
+ * visible pasa a su versión en mayúsculas, como hace el motor. Devuelve una COPIA y qué no encontró.
+ */
+export function cambiarTextos(doc: unknown, cambios: readonly { actual: string; nuevo: string }[]): { doc: unknown; cambiados: number; noEncontrados: string[] } {
+  const copia = JSON.parse(JSON.stringify(doc)) as { pages?: unknown[] };
+  const usados = new Set<number>();
+  let cambiados = 0;
+  for (const p of copia.pages ?? []) {
+    cadaObjeto((p as Obj)?.objects, (o) => {
+      if (!esTexto(o)) return;
+      const arriba = o.textCase === 'upper' && typeof o.caseSource === 'string';
+      const fuente = comparable(arriba ? String(o.caseSource) : String(o.text));
+      const i = cambios.findIndex((c) => comparable(c.actual) === fuente || comparable(c.actual) === comparable(String(o.text)));
+      if (i < 0) return;
+      const nuevo = cambios[i].nuevo;
+      if (arriba) { o.caseSource = nuevo; o.text = nuevo.toLocaleUpperCase('es'); } else { o.text = nuevo; if (typeof o.caseSource === 'string') o.caseSource = nuevo; }
+      usados.add(i);
+      cambiados++;
+    });
+  }
+  return { doc: copia, cambiados, noEncontrados: cambios.filter((_, i) => !usados.has(i)).map((c) => c.actual) };
+}

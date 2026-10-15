@@ -33,7 +33,7 @@ import type { Permisos } from './permisos';
 export const AREAS = [
   'general', 'plan', 'crm', 'ads', 'whatsapp', 'email', 'chatbot',
   'metricas', 'experimentos', 'landing', 'closing', 'negocio', 'contenido', 'video',
-  'integraciones', 'equipo', 'cs', 'curso', 'calendario', 'creaciones', 'cobros', 'mako',
+  'imagen', 'integraciones', 'equipo', 'cs', 'curso', 'calendario', 'creaciones', 'cobros', 'mako',
 ] as const;
 export type Area = (typeof AREAS)[number];
 
@@ -58,6 +58,9 @@ export const AREA_INFO: Record<Area, { titulo: string; tab: string; ruta: string
   negocio: { titulo: 'El negocio (onboarding, Second Brain, conocimiento)', tab: 'Onboarding', ruta: '/onboarding' },
   contenido: { titulo: 'Content Machine', tab: 'Ads Writer', ruta: '/ads-writer' },
   video: { titulo: 'Video Generator', tab: 'Video Generator', ruta: '/video-generator' },
+  // El Image Editor, la copia de Canva (15/10/2026, el día que se abrió a todos los workspaces). Área propia y no
+  // `contenido`: un token con escritura en Content Machine no crea ni cambia diseños, y los tokens que ya existen no la tienen.
+  imagen: { titulo: 'Image Editor (diseños)', tab: 'Image', ruta: '/image-editor' },
   integraciones: { titulo: 'Integraciones', tab: 'Integraciones', ruta: '/integraciones' },
   equipo: { titulo: 'Cuenta, equipo y notificaciones', tab: 'Configuraciones', ruta: '/configuraciones' },
   cs: { titulo: 'Customer Success', tab: 'Customer Success', ruta: '/customer-success' },

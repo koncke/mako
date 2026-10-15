@@ -140,6 +140,13 @@ export async function guardarDiseno(ws: number, id: string, p: PedidoGuardar): P
   return { ok: false, error: 'Hay una versión más nueva', conflicto: true, versionActual: (actual as { version: number }).version, status: 409 };
 }
 
+/** Una copia del diseño (con «(copia)» en el título), como «Hacer una copia» de Canva. Sin la miniatura: se dibuja al abrirla. */
+export async function duplicarDiseno(ws: number, quien: string, id: string): Promise<RespCrear & { status?: number }> {
+  const r = await leerDiseno(ws, id);
+  if (!r.ok) return { ok: false, error: r.error, status: r.status };
+  return crearDiseno(ws, quien, { titulo: `${r.diseno.titulo} (copia)`.slice(0, 200), doc: r.diseno.doc });
+}
+
 /** Lo saca de la lista (`borrado_at`). La fila queda: cerrar no es borrar. */
 export async function borrarDiseno(ws: number, id: string): Promise<RespOk & { status?: number }> {
   if (!uuidValido(id)) return { ok: false, error: 'No existe', status: 404 };

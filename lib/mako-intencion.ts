@@ -124,6 +124,24 @@ export function esPedidoAutomatizacion(n: string): boolean {
   return PEDIDO_AUTOMATIZACION.test(t);
 }
 
+// ── EL PEDIDO DE CREAR UN DISEÑO (el Image Editor, 15/10/2026) ──────────────────
+// Medido ese día con `clasificarIntencion`: «creame un flyer de la inauguración» salía `capturar` DUDOSA (sin una sola
+// herramienta: se anotaba como tarea) aunque `imagen` ya estaba en AREA_KEYWORDS — es el caso de «sumar el área no
+// alcanzaba» (docs/hallazgos-api-mako.md). Mismo molde que la automatización: verbo de crear y el objeto a tres
+// palabras como mucho, sin OTRO objeto en el medio («creame una tarea para el flyer» sigue siendo del Plan).
+export const RELEVANCIA_DISENO = 'crear diseno imagen flyer banner plantilla editor';
+const VERBO_CREAR_DISENO = new RegExp(`${VERBO_CREAR_AUTOMATIZACION.source}|\\bdisena(?:me|nos|lo|la)?\\b`);
+const SUSTANTIVO_DISENO = /(?:disenos?|flyers?|volantes?|banners?)\b/;
+const OTRO_OBJETO_DISENO = /(?:tareas?|recordatorios?|notas?|reunion(?:es)?|llamadas?|citas?|eventos?|visitas?|automatizacion(?:es)?|flujos?|landing|pagina)\b/;
+const PEDIDO_DISENO = new RegExp(`(?:${VERBO_CREAR_DISENO.source})\\s+(?:(?!${OTRO_OBJETO_DISENO.source})\\S+\\s+){0,3}?${SUSTANTIVO_DISENO.source}`);
+
+/** ¿Le pide a MaKo que CREE un diseño del Image Editor? (sobre el texto normalizado: sin tildes y en minúsculas). */
+export function esPedidoDiseno(n: string): boolean {
+  const t = n.replace(PRELUDIO, '').trim();
+  if (!t || t.length > 1500 || ARRANCA_PREGUNTANDO.test(t)) return false;
+  return PEDIDO_DISENO.test(t);
+}
+
 // ── EL PEDIDO SOBRE UN LEAD DEL CRM ─────────────────────────────────────────────
 // EL CASO (08/10/2026, ws15). Joan, por audio, en el grupo de MaKo de una inmobiliaria: «Macu,
 // anotá en el lead que llegó Nicolás lo que dijo Bright… Anotá en el lead Nicolás como una nota
@@ -780,6 +798,12 @@ export function clasificarIntencion(
     return { intencion: 'actuar', dudosa: false, porque: 'pedido de crear una automatización', areas: ['chatbot'], relevancia: RELEVANCIA_AUTOMATIZACION };
   }
 
+  // 6-bis-bis) Un pedido de CREAR un diseño del Image Editor (ver `esPedidoDiseno`): «creame un flyer…» caía en el
+  //            default dudoso, sin herramientas. Lleva su área y su relevancia, como la automatización.
+  if (esPedidoDiseno(nPersona)) {
+    return { intencion: 'actuar', dudosa: false, porque: 'pedido de crear un diseño', areas: ['imagen'], relevancia: RELEVANCIA_DISENO };
+  }
+
   // 6-ter) Un pedido de agenda: crear, mover, cambiar o cancelar una reunión (ver
   //        `esPedidoAgenda`). Va DESPUÉS del dictado —una lista o un «Idea:» siguen siendo
   //        material— y ANTES de la pregunta y del imperativo: «¿me podés agendar…?» termina
@@ -909,6 +933,9 @@ export const AREA_KEYWORDS: Readonly<Record<Area, RegExp>> = {
   negocio: /\b(avatar(es)?|razon(es)? de compra|ofertas?|offer\b|productos?|precios?|persona de marca|voz de marca|onboarding|conocimiento|metodolog[ií]a|fase del negocio|tutorial)/i,
   contenido: /\b(guion(es)?|reels?|carrusel(es)?|carousels?|stor(y|ies)|historias|contenido|copy|ideas? de contenido|youtube|miniatura)/i,
   video: /\b(videos?|clips?|flow\b|escenas?|montaje)/i,
+  // El Image Editor (15/10/2026): «armame un diseño», «el flyer de la promo», «cambiá el texto del banner». «plantilla»
+  // sola NO (es de WhatsApp y del Dashboard) y «miniatura» tampoco (es de YouTube, área contenido).
+  imagen: /\b(dise[ñn]os?|image editor|editor de im[aá]gen(es)?|canva\b|flyers?|volantes?|banners?)/i,
   integraciones: /\b(integraci[oó]n(es)?|conectad[oa]|calendly|chatwoot|resend|google calendar|salud de meta|keys? de ia)/i,
   equipo: /\b(equipo|usuarios?|roles?\b|setters?|notificaci[oó]n(es)?|reportes? (diario|semanal)|zona horaria)/i,
   cs: /\b(customer success|cartera|programa|alumnos?|clientes? activos?)/i,

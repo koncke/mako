@@ -26,6 +26,7 @@ import { RUNNERS as closing } from './areas/closing.run';
 import { RUNNERS as negocio } from './areas/negocio.run';
 import { RUNNERS as contenido } from './areas/contenido.run';
 import { RUNNERS as video } from './areas/video.run';
+import { RUNNERS as imagen } from './areas/imagen.run';
 import { RUNNERS as integraciones } from './areas/integraciones.run';
 import { RUNNERS as equipo } from './areas/equipo.run';
 import { RUNNERS as cs } from './areas/cs.run';
@@ -37,7 +38,7 @@ import { RUNNERS as mako } from './areas/mako.run';
 
 const TODOS: Runners[] = [
   general, plan, crm, ads, whatsapp, email, chatbot, metricas, dashboard, experimentos,
-  landing, closing, negocio, contenido, video, integraciones, equipo, cs, curso, creaciones, cobros, calendario, mako,
+  landing, closing, negocio, contenido, video, imagen, integraciones, equipo, cs, curso, creaciones, cobros, calendario, mako,
 ];
 
 const POR_ID = new Map<string, Run>();

@@ -265,3 +265,22 @@ export function servicioPlantillas(): EditorServices['templates'] {
     },
   };
 }
+
+// ── Para la API de MaKo (lib/api-mako/areas/imagen.run.ts) ──
+// Sin el motor: este módulo sólo importa TIPOS de `_doory/`, así que el server lo puede leer.
+
+/** El catálogo, con lo que la API muestra de cada plantilla. */
+export function catalogoPlantillas(): { slug: string; titulo: string; categoria: string; ancho: number; alto: number; paginas: number; descripcion: string }[] {
+  return PLANTILLAS.map((p) => ({
+    slug: p.slug, titulo: p.title, categoria: CATEGORIAS.find((c) => c.slug === p.categoria)?.name ?? p.categoria,
+    ancho: p.width, alto: p.height, paginas: p.page_count, descripcion: p.description,
+  }));
+}
+
+/** El documento de una plantilla (el mismo que usa «Usar en esta página»), o null si no existe. */
+export async function documentoDePlantilla(slug: string): Promise<unknown | null> {
+  const p = PLANTILLAS.find((x) => x.slug === slug);
+  if (!p) return null;
+  const m = await p.cargar();
+  return (m as { default?: unknown }).default ?? m;
+}
