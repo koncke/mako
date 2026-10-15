@@ -1788,3 +1788,32 @@ generador consulta. Sacarla también de Second Brain es otra decisión.
 
 *15/10/2026 · chat «Offer» (cuenta claude1) · medido con grep sobre `app/` y `lib/` y una consulta a
 `workspaces` en prod; no se miró en el navegador.*
+
+### Ejecutado el 15/10/2026 (`a40182e`): el hub se fue, y lo que enseñó
+
+Martín aprobó la tabla: «Si, ponlo en second brain… varias cosas de allí irán a sus propias tabs, como la de
+Writer y la de Avatar con IA». Lo que no se deduce del commit:
+
+- **Second Brain es el lugar de HOY, no el final.** Por eso ningún link escribe `/second-brain?area=…`:
+  pide la sección (`rutaSeccion`, `lugarSeccion`, lib/secciones-negocio.ts) y una sola tabla dice dónde vive.
+  Cuando Persona se mude a «Avatar con IA» o la Matriz a «Writer», se cambia su fila. `candidata` anota a qué
+  tab PARECE que va cada una: Martín no dijo cuáles, es una suposición.
+- **Los links viejos nunca llevaban a donde decían.** El hub abría en «Matriz» cuando no había `?tab=`, y
+  los «Complétalo aquí» de Carousels, Reels, Stories, el anuncio del Video Generator y Método prometían
+  completar el PERFIL: aterrizaban en la matriz de guiones. Ahora van a Documentos, que es donde MaKo pregunta
+  los huecos del perfil de a uno.
+- **Una sub-pestaña de Second Brain no se podía pedir por URL**: `?area=` abría el área en su primera vista.
+  Ahora `?vista=` la elige, validada contra `SUBVISTAS`. ⚠️ El reset de la sub-pestaña corre también al montar:
+  sin la guarda de la «área de entrada», pisaba la vista pedida con la primera.
+- **La ruta /onboarding sigue**: es el wizard del primer ingreso. Los que siguen nombrándola van todos al
+  wizard (`AL_WIZARD` en tests/onboarding-hub-retirado.test.ts, cada uno con su motivo); un link nuevo al hub
+  frena ese test.
+
+⚠️ **DECISIÓN PENDIENTE DE MARTÍN: «Ángulos».** Se quedó en Second Brain → Razones → Ángulos porque él no eligió
+sacarla. Ningún generador lee sus recomendaciones (`elegirAngulo` elige de la biblioteca entera) y cada
+«regenerar» paga IA. La nota está también en su fila de `DONDE_SE_EDITA`.
+
+**Vive en:** `lib/secciones-negocio.ts` · `app/onboarding/tabs-catalogo.ts` · `app/onboarding/page.tsx` ·
+`app/second-brain/AreasHub.tsx` · `app/second-brain/VistaCerebro.tsx`
+
+*15/10/2026 · chat «Offer» (cuenta claude1) · no se miró en el navegador.*

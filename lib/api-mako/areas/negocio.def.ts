@@ -36,6 +36,8 @@ import type { OperacionDef } from '../tipos';
 import { CANALES } from '@/lib/fase-diagnostico';
 import { AREAS as AREAS_MODELO_CEREBRO } from '@/lib/cerebro-modelo';
 import { PERSONALIDAD_PREGUNTAS } from '@/lib/personalidad';
+// Dónde se corrige cada sección hoy (el hub de /onboarding se retiró el 15/10/2026): datos puros.
+import { lugarSeccion } from '@/lib/secciones-negocio';
 
 const TODOS = ['whatsapp', 'app', 'http'] as const;
 /** Sin http: links firmados a documentos, fotos de una persona, y los generadores de
@@ -156,7 +158,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'siguiente_pregunta_avatares', area: 'negocio', tipo: 'lectura',
     titulo: 'Siguiente pregunta sobre avatares',
-    descripcion: 'Con lo que el dueño ya contestó, MaKo arma la SIGUIENTE pregunta cerrada y comparativa para precisar a quién le vende (con opciones), o dice que ya alcanza (`terminado: true`, como mucho 4 preguntas). No guarda nada. Úsala para afinar los avatares por chat de a una pregunta; al terminar, propone afinar_avatares con todas las respuestas. Si devuelve tipo «archivo», pide que lo suba en /onboarding.',
+    descripcion: 'Con lo que el dueño ya contestó, MaKo arma la SIGUIENTE pregunta cerrada y comparativa para precisar a quién le vende (con opciones), o dice que ya alcanza (`terminado: true`, como mucho 4 preguntas). No guarda nada. Úsala para afinar los avatares por chat de a una pregunta; al terminar, propone afinar_avatares con todas las respuestas. Si devuelve tipo «archivo», pide que lo suba en ' + lugarSeccion('avatares') + '.',
     parametros: [
       { nombre: 'historial', tipo: 'object[]', max: 10, campos: RESPUESTAS_CAMPOS, descripcion: 'Las preguntas ya contestadas, en orden. Vacío = primera pregunta.' },
     ],
@@ -270,7 +272,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'guardar_campo_perfil', area: 'negocio', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: true,
     titulo: 'Completar un campo del perfil',
-    descripcion: 'PROPONE completar UN campo VACÍO del perfil del negocio (clave de ver_perfil_negocio) con lo que dijo la persona. Solo huecos: si el campo ya tiene valor se rechaza, y corregirlo se hace en /onboarding. Lo guardado a mano gana sobre lo que MaKo saque después de los documentos. Deja un link para revisar el texto exacto y confirmar.',
+    descripcion: 'PROPONE completar UN campo VACÍO del perfil del negocio (clave de ver_perfil_negocio) con lo que dijo la persona. Solo huecos: si el campo ya tiene valor se rechaza, y corregirlo se hace en ' + lugarSeccion('archivero') + '. Lo guardado a mano gana sobre lo que MaKo saque después de los documentos. Deja un link para revisar el texto exacto y confirmar.',
     parametros: [
       { nombre: 'key', tipo: 'string', obligatorio: true, max: 80, descripcion: 'Clave del campo (de ver_perfil_negocio), por ejemplo «oferta_garantia».' },
       { nombre: 'valor', tipo: 'string', obligatorio: true, max: 2000, descripcion: 'El valor, en palabras de la persona.' },

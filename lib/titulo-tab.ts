@@ -33,6 +33,8 @@ const EXTRA: Record<string, string> = {
   '/anuncio': 'Anuncio',
   '/equipo': 'Equipo',
   '/inicio': 'Inicio',
+  // El wizard del primer ingreso: desde el 15/10/2026 no tiene ítem en el menú (el hub se fue a Second Brain).
+  '/onboarding': 'Configuración inicial',
   // La Ticketera del super admin vive bajo /tickets, que en el menú es «Reportar problema».
   '/tickets/decisiones': 'Ticketera',
   // MaKo Mobile: los nombres de SU barra (lib/movil-rutas.ts), no los de escritorio

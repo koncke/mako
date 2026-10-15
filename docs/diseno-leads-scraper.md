@@ -20,11 +20,11 @@
 - **Instagram se puede leer sin entrar con una cuenta.** Un juez de EE.UU. falló en 2024 que scrapear perfiles públicos
   sin login no viola los términos de Meta (Meta v. Bright Data). Sacar los seguidores de una cuenta exige entrar con
   una cuenta, y eso termina en baneo. No se hace.
-- **Tener el dato no da permiso para escribir.** Un WhatsApp en frío desde la línea no oficial arriesga la línea. Por
-  Instagram, la API no deja escribirle primero a nadie. Resend exige opt-in. El primer mensaje a un prospecto frío sale
-  a mano, y MaKo lleva el registro.
-- **Los grupos de WhatsApp sirven sólo si son tuyos.** En los grupos ajenos, WhatsApp oculta muchos números (`@lid`, 2025).
-  Además, escribirle en frío a alguien que sacaste de un grupo es la forma más rápida de perder la línea.
+- **El trabajo del scraper termina cuando el lead entra al CRM.** Qué se le escribe después lo decide Automations, que
+  es donde viven los flujos, las condiciones y los frenos anti-ban (Martín, 15/10/2026: «Leads Scraper NO se tiene que
+  preocupar por el mensaje... Solo por la extracción de leads»).
+- **Los grupos de WhatsApp sirven sólo si son tuyos.** En los grupos ajenos, WhatsApp oculta muchos números (`@lid`, 2025),
+  y quien está ahí no aceptó que lo prospecten.
 
 ---
 
@@ -99,13 +99,13 @@ Hoy no hay forma de separar los 100 mejores de 1.000 adentro del CRM. La propues
    en `prospeccion_busquedas` con su costo estimado. Como cuesta plata, se confirma en pantalla y es sólo admin.
 2. **Los resultados caen en `prospectos`**, una tabla por workspace (`TENANT_TABLES`). Cada fila tiene fuente, id externo
    único por fuente, contacto, datos crudos, **puntaje y razón**, y estado (`nuevo` / `descartado` / `en_crm`).
-3. **El puntaje sale del cliente ideal que MaKo ya tiene cargado** (avatar, oferta). Lo calcula la IA gratis, en lote,
-   con una razón de una frase. La alternativa son reglas fijas: seguidores, reseñas, tiene web (decisión 7).
+3. **El puntaje sale de REGLAS a la vista** (decisión 7): se puede contactar (teléfono, email), tiene web, y el tamaño
+   (reseñas en Google Maps, seguidores en Instagram). Cada fila dice por qué tiene ese número.
 4. **«Pasar al CRM» con los N elegidos** arma `FilaImport[]` y llama a `importarLeadsRevisadosAction(filas, funnelId)`.
-   Es la misma puerta del CSV, con su chequeo de duplicados. Escribe `origen_lead = 'prospeccion:<fuente>'` y deja el
-   `lead_id` en el prospecto.
-5. **Las fuentes que avisan (§2) NO pasan por acá:** van directo con `createLead`, más `agregarAProducto` al funnel que
-   el cliente elija para esa fuente.
+   Es la misma puerta del CSV, con su chequeo de duplicados. Escribe `origen_lead = 'prospeccion'` (un origen nuevo del
+   catálogo), la fuente va en el historial, y deja el `lead_id` en el prospecto.
+5. **Las fuentes que avisan (§2) NO pasan por acá:** van directo por `lib/fuentes-leads.ts`, al funnel que dice la
+   decisión 9.
 
 En la API de MaKo va un área `prospeccion`. Las lecturas son `listar_prospectos` y `busquedas_prospeccion`. Las acciones:
 `buscar_prospectos` (cuesta plata: pantalla + admin), `pasar_prospectos_al_crm` (pantalla) y `descartar_prospectos`
@@ -129,45 +129,51 @@ cada cliente. Si un actor se vuelve caro, ése se pasa a su repo open source.
 
 ---
 
-## 6. La trampa del contacto: el dato no es el permiso
+## 6. Después de que entra: no es del scraper
 
-| Canal | Qué pasa con un prospecto frío |
-|---|---|
-| WhatsApp no oficial (Evolution) | Los términos de WhatsApp prohíben la mensajería masiva automatizada. El riesgo real es el **baneo de la línea** del cliente o la de MaKo. Ya está escrito: `app/admin/dev/gtm-oferta-y-precios/bitacora.ts:164` (Messaging Policy §1(b) para la oficial) |
-| Instagram por Zernio | La API sólo deja escribir dentro de las 24 h del último mensaje de la persona, o como respuesta privada a su comentario. **En frío no sale.** Es AGENTS.md («ahí SÍ manda la ventana de 24 h») |
-| Email por Resend | La política de uso de Resend exige opt-in y puede cerrar la cuenta. Un mail en frío desde el dominio del negocio arriesga su envío transaccional |
-| A mano (teléfono, DM desde la app, Loom) | Es lo que ya decidió la estrategia: prospección personalizada, un Loom por lead (`app/admin/dev/areas.ts:1012`). **MaKo lleva el registro**: etapa, nota y siguiente paso |
-
-O sea: el scraper arma y ordena la lista, y el CRM registra. El primer mensaje sale a mano. Automatizar ese primer
-mensaje es la decisión 8, y tiene un costo de cuenta que hay que aceptar a sabiendas.
+El trabajo del scraper termina cuando el lead está en el CRM. Qué se le escribe, cuándo y por qué canal lo decide
+**Automations**, que es donde viven los flujos, las condiciones y los frenos anti-ban (Martín, 15/10/2026: «Leads
+Scraper NO se tiene que preocupar por el mensaje... Solo por la extracción de leads»). Nada de este diseño redacta ni
+manda un mensaje. Los límites de cada canal ya están escritos donde se usan: AGENTS.md («El WhatsApp del chatbot es el NO
+OFICIAL» y la ventana de 24 h de Instagram).
 
 ---
 
-## 7. Decisiones para Martín (las junta Estrategia)
+## 7. Decisiones TOMADAS (15/10/2026)
 
-1. **LinkedIn:** (a) sin scraping: CSV de conexiones + botón «Guardar en MaKo» de a uno [recomendada] · (b) scraping
-   en lote con la sesión de la cuenta (PhantomBuster o Unipile): baneo y juicio.
-2. **Instagram:** (a) perfiles públicos sin login + tus comentarios y DMs por Zernio [recomendada] · (b) sacar los
-   seguidores de una cuenta: pide login, termina en baneo.
-3. **WhatsApp:** (a) sólo grupos tuyos: el que entra es lead [recomendada] · (b) participantes de cualquier grupo donde
-   esté la línea: números ocultos, y escribirles arriesga la línea.
-4. **Dónde caen los 1.000:** (a) lista aparte «Prospectos» con puntaje, y pasás al CRM los que elegís [recomendada] ·
-   (b) directo al CRM, en una etapa «Prospectos» ordenable por puntaje.
-5. **Dónde corre:** (a) Apify con la key de cada cliente, pago por resultado [recomendada] · (b) repos open source en un
-   servidor nuestro: gratis por resultado, pero hay que mantenerlo.
-6. **Google Maps:** (a) scraper (gosom o Apify), que guarda teléfono y web [recomendada] · (b) la API oficial de Places:
-   ~US$35 cada 1.000 y Google prohíbe guardar teléfono y web.
-7. **El puntaje:** (a) MaKo puntúa contra tu cliente ideal con IA gratis, con una razón [recomendada] · (b) reglas fijas
-   (seguidores, reseñas, tiene web).
-8. **El primer mensaje en frío:** (a) a mano, y MaKo registra [recomendada] · (b) automático desde una línea de WhatsApp
-   aparte y descartable, con tope diario.
+Eran de diseño y no de Martín: se contestaban con lo que ya está escrito o mirando el código (Estrategia, 15/10/2026,
+y la regla de `9f4585931`). La referencia que se copia va al lado de cada una.
 
-**Orden propuesto, si se aprueba lo recomendado:**
-1. Hotmart y Skool (oficiales, entran solas).
+1. **LinkedIn: nada en lote.** El CSV de conexiones por el importador, y un botón «Guardar en MaKo» en la extensión, de
+   a uno, sobre el perfil que la persona ya está mirando. Copia: **folkX** (folk CRM). Por qué: los juicios y la regla
+   de sus términos de §3.
+2. **Instagram: perfiles públicos sin login**, por Apify. Lo propio (comentarios, DMs) ya entra por Zernio. Los
+   seguidores de una cuenta, no: exigen login. Copia: los actores de Apify (`apify/instagram-profile-scraper`).
+3. **WhatsApp: sólo grupos del negocio**: quien entra al grupo es lead. Los ajenos, no (números ocultos y sin permiso).
+4. **Los 1.000 van a una lista aparte, «Prospectos», con puntaje**, y se pasan al CRM los elegidos. Copia: las listas
+   de **Apollo** (buscar → guardar en una lista → elegir). Por qué: en el CRM, 1.000 altas disparan automatizaciones
+   por etapa y no hay cómo ordenarlas.
+5. **Corre en Apify, con la key de cada negocio** (pago por resultado, sin servidor nuestro). Si un actor se vuelve
+   caro, se pasa a su repo open source (`gosom/google-maps-scraper`).
+6. **Google Maps: por Apify** (el actor `compass/crawler-google-places`), no por la API oficial: la de Google prohíbe
+   guardar el teléfono y la web, que es justo lo que va al CRM.
+7. **El puntaje: reglas a la vista**, no IA. Copia: los **Apollo Scores** (atributos con peso). Por qué: se calcula
+   gratis al instante, cada fila dice su porqué, y un número que nadie puede explicar no sirve para elegir a quién
+   llamar.
+8. ~~El primer mensaje~~: **no es del scraper** (§6).
+9. **A qué funnel entra cada fuente: al que DECLARA esa entrada.** El tipo de funnel ya dice cómo entra la gente
+   (`ENTRADAS`, `lib/pipeline.ts`): las compras y los carritos de Hotmart van al funnel de tipo «Anuncios a carrito»
+   (`carrito`), y los prospectos al de tipo «Prospección» (`chat_saliente`). Si no hay uno, o hay varios, va al funnel
+   del negocio (no se elige el primero a ciegas). Skool, sin una entrada que le corresponda, va al del negocio. Al pasar
+   prospectos al CRM, el funnel se puede cambiar en el mismo diálogo.
+
+**Orden:**
+1. ~~Hotmart y Skool~~ (hecho, §9).
 2. `prospectos` + Google Maps e Instagram por Apify + «Pasar al CRM» (los 1.000).
-3. El botón de la extensión (LinkedIn e Instagram, de a uno).
-4. Grupos de WhatsApp propios.
-5. LinkedIn Lead Gen Forms, cuando haya quien pauta en LinkedIn.
+3. El funnel por entrada (decisión 9) para Hotmart.
+4. El botón de la extensión (LinkedIn e Instagram, de a uno).
+5. Grupos de WhatsApp propios.
+6. LinkedIn Lead Gen Forms, cuando haya quien pauta en LinkedIn.
 
 ---
 
@@ -183,7 +189,7 @@ mensaje es la decisión 8, y tiene un costo de cuenta que hay que aceptar a sabi
   de acceso público». Antes de vender esto a un cliente, una consulta con un abogado de datos.
 - El precio vigente de cada actor de Apify (las páginas se contradicen entre US$1,5 y US$5 cada 1.000), y el de Hunter y Apollo.
 - El workspace donde Martín va a prospectar: el 03/10 no tenía línea, ni agenda, ni setter/closer
-  (`app/admin/dev/crm/bitacora.ts:92`). Sin eso, los 1.000 nacen sin vendedor asignado.
+  (`app/admin/dev/crm/bitacora.ts:92`). Martín lo leyó el 15/10 («Entendido»); lo lleva Estrategia.
 
 ---
 
@@ -205,11 +211,10 @@ ninguna de las ocho decisiones.
 
 **Falta, en este orden:**
 1. Mirarlo con una cuenta real: un aviso de prueba desde Hotmart y un Zap de Skool contra el ws3.
-2. **Decisión 9 (nueva): a qué funnel entra cada fuente.** (a) Se elige una vez por fuente, en su tarjeta
-   de /integraciones y por la API de MaKo [recomendada] · (b) siempre el funnel del negocio, como hoy.
-3. El aviso al equipo («entró un lead por Hotmart») como Evento de MaKo en Automations, y que una compra
-   de Hotmart pueda disparar el CRON «Pagos» (con los chats de Automations y de Pagos).
-4. Después: la tabla `prospectos` y Google Maps e Instagram (§4), según lo que conteste Martín.
+2. La tabla `prospectos` y Google Maps e Instagram (§4), con las decisiones de §7.
+3. El funnel por entrada para Hotmart (decisión 9, §7).
+4. El aviso al equipo («entró un lead por Hotmart») como Evento de MaKo, y que una compra de Hotmart pueda
+   disparar el CRON «Pagos». Son de Automations y de Pagos, no del scraper: se les pasa.
 
 ---
 

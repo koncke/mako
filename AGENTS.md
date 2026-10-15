@@ -5028,6 +5028,50 @@ esa fila. El duplicado real no es el doble clic: es la respuesta que se pierde (
   deduplicar), **y se abre DESPUÉS de los chequeos que pueden cortar**: una fila en 'creando'
   dejada por un 409 hace esperar al reintento legítimo.
 
+# A la Ticketera va lo que DECIDE Martín, no lo que a vos te falta decidir
+
+Pedido suyo, textual, el 15/10/2026, mirando el mazo: **«Estoy viendo que en la ticketera me
+dejaste una cantidad de preguntas que podias haberlas resuelto solo... NO hagas eso, me estas
+cargando de trabajo al pedo... Solo las desiciones importantes. Usa criterio hay cosas muy
+obvias»**.
+
+El número que lo justifica: ese día había **56 decisiones pendientes** y al revisarlas una por
+una quedaron **20**. Las otras 36 las contestaba una regla que ya estaba escrita, o eran
+convenciones de diseño, o orden interno de trabajo, o preguntas que el propio chat podía
+resolver investigando. Cada una de ésas le cuesta a Martín leer, entender el contexto y elegir —
+y mientras tanto tapan las que sí importan.
+
+**La prueba, antes de publicar: ¿puedo contestar esto con lo que YA está escrito —en AGENTS.md,
+en un `docs/hallazgos-*`, en una memoria— o mirando el código?** Si la respuesta es sí, no se
+publica: se decide, se hace, y se deja anotado qué se decidió y por qué.
+
+NO se publica:
+
+- Lo que ya contesta una regla de la casa («¿la barra de lote va oscura o clara?» lo contesta
+  el tema; «¿qué se pliega en la sidebar?» lo contesta que la sidebar nunca scrollea).
+- Convenciones de diseño y de copy, salvo que él las haya marcado como suyas.
+- El ORDEN en que hacés tu propio trabajo, y los refactors internos.
+- **«¿Revisaste X?»** y **«¿están bien los que elegí?»**: eso es pedirle que revise, y ya dijo
+  que si es para ver cómo quedó lo mira él cuando quiera.
+- **«¿Qué es X?»** sobre algo que propusiste vos. Eso se investiga.
+- **«¿Arrancamos?»** sobre algo que él ya pidió.
+- Lo mismo preguntado dos veces con otras palabras: antes de publicar, `listar` y buscar si ya
+  está.
+
+SÍ se publica:
+
+- Precio, alcance comercial y qué incluye lo que se vende.
+- Lo que se le MANDA, se le cobra o se le quita a un cliente real, y los accesos de personas.
+- Seguridad cuyo efecto no se deshace (echar sesiones abiertas, exigir algo con fecha).
+- Gasto de IA por unidad, y qué modelo paga.
+- Aprobar un diseño que él va a mirar igual.
+- Fechas y compromisos.
+
+⚠️ **Y una decisión se escribe para que se pueda contestar sin contexto.** Las opciones son
+concretas y excluyentes, y el contexto dice qué se rompe con cada una. Si para contestar hay
+que abrir el código, falta trabajo tuyo, no decisión suya — la prueba está en que una de las 56
+volvió contestada con **«No entiendo esta pregunta»**.
+
 # La cosecha: lo que aprende un subagente no vuelve solo
 
 Cuando se despliegan subagentes, **lo único que llega de vuelta es el texto que

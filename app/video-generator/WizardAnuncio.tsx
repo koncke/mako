@@ -55,6 +55,9 @@ import { promptFinal, urlDeFlowVencida } from '@/lib/flow-imagen';
 import { useExtensionInstalada, AvisoExtensionVieja } from './extension-instalada';
 import { AvisoPuente, estadoDelPuente } from './puente-avisos';
 import type { Puente } from '@/lib/flow-cola';
+// El perfil del negocio se completa donde viva hoy la sección (lib/secciones-negocio.ts): desde el 15/10/2026,
+// Second Brain. Nunca `/onboarding`, que es sólo el wizard del primer ingreso.
+import { rutaSeccion } from '@/lib/secciones-negocio';
 import { Foto, FotoGrande, ModalFotos } from './ElegirFoto';
 import { avisarPuente } from './avisar-puente';
 import { PasoMontaje } from './PasoMontaje';
@@ -1519,7 +1522,7 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, saldo, onCam
                 <Alert tono="warn">
                   <strong>Tu perfil está incompleto.</strong> Falta {contexto.faltanDelPerfil.join(', ')}.
                   MaKo escribe el anuncio con eso, así que sin ello sale genérico.{' '}
-                  <Link href="/onboarding">Completarlo</Link>
+                  <Link href={rutaSeccion('archivero')}>Completarlo</Link>
                 </Alert>
               </div>
             )}

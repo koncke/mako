@@ -35,7 +35,7 @@ import {
   almacenLocal, claveDelLink, filtroRecordado, guardarLocal, leerLinkProfundo, leerLocal, pasoDelLink,
   type LinkProfundo,
 } from './lista-reglas';
-import { inter } from './fuente';
+import { FuenteChats } from './fuente';
 import { ID_PORTAL_RIO } from './portal';
 import { PanelBandejas, type CanalConectable } from './PanelBandejas';
 import { ListaChats, type AccionFila } from './ListaChats';
@@ -348,7 +348,8 @@ export function ChatsApp({ ws, esAdmin, productos }: {
     && !datos.lineas.some((l) => l.estado === 'conectado') && datos.cuentasSociales.length === 0;
   if (sinCanales) {
     return (
-      <main className={`rio ${inter.variable}`}>
+      <main className="rio">
+      <FuenteChats />
         <div className="rio-vacio">
           {/* Conectar es del admin (/api/zernio y las líneas de /whatsapp lo exigen): al resto no se le
               pide algo que no puede hacer. */}
@@ -368,7 +369,8 @@ export function ChatsApp({ ws, esAdmin, productos }: {
   }
 
   return (
-    <main className={`rio ${inter.variable}`}>
+    <main className="rio">
+      <FuenteChats />
       {bandejaAbierta && (
         <PanelBandejas
           ws={ws}
