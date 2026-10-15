@@ -39,6 +39,8 @@ import { getWorkspaceActual } from '@/lib/workspace';
 import { getUltimoInsightGenerado, generarInsightLead } from '@/lib/lead-insights';
 import { buildJourney } from '@/lib/journey';
 import { propuestasPendientes, crearPropuesta } from '@/lib/propuestas';
+import { listarProspectos } from '@/lib/prospectos';
+import { FUENTES_PROSPECCION, contactable, rotuloDeBusqueda } from '@/lib/prospectos-reglas';
 import { getSetting } from '@/lib/settings';
 import { listPendientes, resolverConfirmacion } from '@/lib/mako-confirmaciones';
 import { evaluarAutoWorkspace } from '@/lib/crm-auto';
@@ -509,6 +511,34 @@ export const RUNNERS: Runners = {
           id: p.id, url: linkApp(`/crm/revisar/${p.id}`, wsLink), resumen: p.resumen, origen: p.origen,
           contactos: Array.isArray(p.datos.leads) ? p.datos.leads.length : 1,
           creada: p.createdAt, horas_esperando: Math.max(0, Math.round((ahora - Date.parse(p.createdAt)) / 3_600_000)),
+        })),
+      });
+    },
+  },
+  listar_prospectos: {
+    leer: async (input) => {
+      const r = await listarProspectos();
+      if ('error' in r) return fallo(r.error);
+      const estado = s(input.estado) ?? 'nuevo';
+      const minimo = typeof input.minimo === 'number' ? input.minimo : 0;
+      const limite = typeof input.limite === 'number' ? input.limite : 30;
+      const coinciden = r.prospectos.filter((p) => p.estado === estado && p.puntaje >= minimo);
+      return json({
+        total: coinciden.length, devueltos: Math.min(limite, coinciden.length), pantalla: linkApp('/crm/prospectos', await getWorkspaceActual()),
+        prospectos: coinciden.slice(0, limite).map((p) => ({
+          id: p.id, nombre: p.nombre, rubro: p.rubro, ciudad: p.ciudad, fuente: FUENTES_PROSPECCION[p.fuente].nombre,
+          se_puede_contactar: contactable(p), puntaje: p.puntaje, razon: p.razon, estado: p.estado, lead_id: p.lead_id,
+        })),
+      });
+    },
+  },
+  busquedas_prospeccion: {
+    leer: async () => {
+      const r = await listarProspectos();
+      if ('error' in r) return fallo(r.error);
+      return json({
+        busquedas: r.busquedas.map((b) => ({
+          id: b.id, que: rotuloDeBusqueda(b.parametros), estado: b.estado, nuevos: b.nuevos, encontrados: b.resultados, motivo: b.motivo, creada: b.created_at,
         })),
       });
     },

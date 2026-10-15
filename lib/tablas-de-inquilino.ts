@@ -80,7 +80,7 @@ export const TABLAS_DE_INQUILINO = [
   'pasarela_eventos',
   'pipeline_stages', 'plan_dependencias', 'plan_propuestas', 'plan_proyectos',
   'plan_reprios', 'plan_tareas', 'producto_entrega', 'productos',
-  'propuestas', 'retros', 'review_queue', 'script_analyses',
+  'propuestas', 'prospeccion_busquedas', 'prospectos', 'retros', 'review_queue', 'script_analyses',
   'script_drafts', 'service_incidents', 'setting_adjuntos', 'setting_audios', 'shares', 'tarea_categorias',
   'vsl_events', 'wa_bloqueados', 'wa_borradores', 'wa_mensajes',
   'wa_ocultos', 'webhook_routing', 'whatsapp_template_drafts', 'workspace_telefonos',

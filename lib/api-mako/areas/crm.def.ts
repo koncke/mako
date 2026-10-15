@@ -244,6 +244,27 @@ export const DEFS: readonly OperacionDef[] = [
     parametros: [],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB,
   },
+  // El Leads Scraper (15/10/2026, docs/diseno-leads-scraper.md): la lista aparte de la prospección en
+  // frío. SIN HTTP: son datos de contacto de terceros (decisión de canales de la casa). Buscar y pasar
+  // al CRM son acciones que CUESTAN PLATA o escriben en lote: van por la pantalla /crm/prospectos.
+  {
+    id: 'listar_prospectos', area: 'crm', tipo: 'lectura',
+    titulo: 'Prospectos de la búsqueda en frío',
+    descripcion: 'La lista de prospectos que encontraron las búsquedas en Google Maps o Instagram (la pantalla /crm/prospectos), ordenada por puntaje: nombre, rubro, ciudad, fuente, si se puede contactar (tiene email o teléfono), el puntaje de 0 a 100 con su razón y su estado (por revisar, en el CRM o descartado). Responde «¿cuáles son los mejores prospectos?» o «¿cuántos me quedan por revisar?». No pasa a nadie al CRM: eso se hace en la pantalla.',
+    parametros: [
+      { nombre: 'estado', tipo: 'string', enum: ['nuevo', 'en_crm', 'descartado'], descripcion: 'nuevo (por revisar, el default), en_crm o descartado.' },
+      { nombre: 'minimo', tipo: 'number', entero: true, minimo: 0, maximo: 100, descripcion: 'puntaje mínimo (default 0).' },
+      { nombre: 'limite', tipo: 'number', entero: true, minimo: 1, maximo: 100, descripcion: 'cuántos devolver, de mayor a menor puntaje (default 30, máximo 100).' },
+    ],
+    salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: TAB,
+  },
+  {
+    id: 'busquedas_prospeccion', area: 'crm', tipo: 'lectura',
+    titulo: 'Búsquedas de prospectos',
+    descripcion: 'Las últimas 20 búsquedas de prospectos (Google Maps o Instagram): qué se buscó, dónde, cuántos, si sigue corriendo, terminó o falló (con el motivo) y cuántos prospectos nuevos trajo. Responde «¿ya terminó la búsqueda de inmobiliarias?». No requiere parámetros.',
+    parametros: [],
+    salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: TAB,
+  },
   {
     id: 'confirmaciones_crm_automatico', area: 'crm', tipo: 'lectura',
     titulo: 'Cambios automáticos por confirmar',

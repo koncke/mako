@@ -263,6 +263,10 @@ export function AccionesHeader({ onImportar, onExportar, onNuevo, onEditarEtapas
               onClick={() => { setOpen(false); onImportar(); }} />
             <MenuItem icon={<DownloadIcon size={15} />} label="Exportar leads"
               onClick={() => { setOpen(false); onExportar(); }} />
+            {/* El Leads Scraper (15/10/2026, docs/diseno-leads-scraper.md): la lista aparte de la
+                prospección en frío. Navega: es una pantalla, no un pop-up, porque la lista vive sola. */}
+            <MenuItem icon={<IconoMenu nombre="buscar" size={15} />} label="Buscar prospectos" href="/crm/prospectos"
+              onClick={() => setOpen(false)} />
             <span style={{ height: 1, background: 'var(--border)', margin: '5px 6px' }} />
             {/* ⚠️ ABRE UN POP-UP, NO UNA PANTALLA. «Quiero eliminar la ruta de funnel, que
                 todo se edite como un pop-up dentro del mismo CRM». Editar las etapas

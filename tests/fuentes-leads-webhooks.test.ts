@@ -20,7 +20,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { hashDeRuteo, identificadorDeRuteo, igualesSeguro, secretoDelHeader, RUTEO_POR_HASH } from '../lib/ruteo-hash';
-import { esFuenteQueAvisa } from '../lib/fuentes-leads-catalogo';
+import { esFuenteQueAvisa, esIntegracionDeLeads } from '../lib/fuentes-leads-catalogo';
 
 const leer = (rel: string) => readFileSync(new URL(rel, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 // Las líneas de comentario PRIMERO y los bloques después (ver AGENTS.md).
@@ -68,7 +68,9 @@ test('las fuentes que avisan son opcionales en el tablero, y «toString» no es 
   assert.equal(esFuenteQueAvisa('skool'), true);
   assert.equal(esFuenteQueAvisa('toString'), false);
   assert.equal(esFuenteQueAvisa('stripe'), false);
-  assert.match(leer('../app/integraciones/IntegracionesBoard.tsx'), /esPasarela\(i\.key\) \|\| esFuenteQueAvisa\(i\.key\)/);
+  assert.equal(esIntegracionDeLeads('apify'), true, 'Apify tampoco es un pendiente mientras no se busquen prospectos');
+  assert.equal(esIntegracionDeLeads('toString'), false);
+  assert.match(leer('../app/integraciones/IntegracionesBoard.tsx'), /esPasarela\(i\.key\) \|\| esIntegracionDeLeads\(i\.key\)/);
 });
 
 // ── Las dos rutas ────────────────────────────────────────────────────────────

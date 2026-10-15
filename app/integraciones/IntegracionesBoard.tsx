@@ -19,7 +19,7 @@ import { useRouter, useWs } from '@/app/_ui/Link';
 import { conWs } from '@/lib/ws-tab';
 import { volverDeLaPestana } from '@/lib/integracion-en-tab';
 import { esPasarela } from '@/lib/cobros-tipos';
-import { esFuenteQueAvisa } from '@/lib/fuentes-leads-catalogo';
+import { esIntegracionDeLeads } from '@/lib/fuentes-leads-catalogo';
 import { SelectorLanding } from './SelectorLanding';
 import { AsignarProducto } from './AsignarProducto';
 import type { RechazoGracias } from '@/lib/landing-gracias-reglas';
@@ -336,9 +336,9 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
   // puesta y el aviso sin registrar) tampoco se cuentan acá: eso se ve y se arregla adentro del
   // modal, que es donde está la persona cuando pasa (lib/cobros-conexion.ts lo dice al guardar).
   // La grilla las sigue mostrando «Por configurar», que es la verdad.
-  // Y las fuentes que avisan (Hotmart, Skool; Leads Scraper, 14/10/2026), por lo mismo: la mayoría
-  // de los negocios no vende por Hotmart ni tiene un Skool.
-  const opcionalSinConectar = (i: Integracion) => (esPasarela(i.key) || esFuenteQueAvisa(i.key)) && sevOf(i) !== 'good';
+  // Y las del Leads Scraper (Hotmart, Skool y Apify; 14 y 15/10/2026), por lo mismo: la mayoría de
+  // los negocios no vende por Hotmart, no tiene un Skool ni sale a buscar prospectos.
+  const opcionalSinConectar = (i: Integracion) => (esPasarela(i.key) || esIntegracionDeLeads(i.key)) && sevOf(i) !== 'good';
   const medidas = integraciones.filter((i) => !opcionalSinConectar(i));
   const total = medidas.length;
   const conectadas = medidas.filter((i) => sevOf(i) === 'good').length;
@@ -358,7 +358,7 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
     // pendiente que haya que resolver → no lo empujamos a "Requiere tu atención"
     // (sería ruido para un cliente que ni programa).
     if (i.key === 'agente') continue;
-    // Stripe, Mercado Pago, Hotmart y Skool, por lo mismo (ver `opcionalSinConectar`, más arriba).
+    // Stripe, Mercado Pago y las del Leads Scraper, por lo mismo (ver `opcionalSinConectar`, más arriba).
     if (opcionalSinConectar(i)) continue;
     let motivo = i.estado === 'falta' ? i.detalle : 'Requiere atención';
     let accion: string | undefined;

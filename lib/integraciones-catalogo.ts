@@ -78,6 +78,9 @@ export const DEFS: Def[] = [
   // lib/fuentes-leads-catalogo.ts): sin configurar no bajan el medidor de nadie.
   { key: 'hotmart', nombre: 'Hotmart', categoria: 'Pagos', descripcion: 'Cada compra y cada carrito abandonado de Hotmart entran solos a tu CRM.', envs: ['HOTMART_HOTTOK'] },
   { key: 'skool', nombre: 'Skool', categoria: 'Contenido', descripcion: 'Quien pide entrar a tu comunidad de Skool entra solo a tu CRM, con sus respuestas.', envs: ['SKOOL_WEBHOOK_CLAVE'] },
+  // Donde corren las búsquedas de prospectos del Leads Scraper (15/10/2026, decisión 5): la cuenta de
+  // Apify de cada negocio, que paga lo que encuentra. Opcional como las de arriba.
+  { key: 'apify', nombre: 'Apify', categoria: 'Datos', descripcion: 'Busca prospectos en Google Maps e Instagram con tu cuenta de Apify.', envs: ['APIFY_TOKEN'] },
   // Google Calendar: no se mide por env — GOOGLE_CLIENT_ID/SECRET son la app
   // OAuth de la agencia (siempre puesta), así que chequearlos diría "conectada"
   // para todos sin que nadie haya autorizado su agenda. Se mide por señal REAL
