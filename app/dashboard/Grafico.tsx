@@ -321,7 +321,9 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo }: { g: G; 
     // ── Mapa: cualquier país, por país, región o ciudad (./MapaGeo.tsx) ──
     if (g.tipo === 'mapa') {
       const col = r.columnas[0];
-      const nivel = g.mapa?.nivel ?? 'region';
+      // Sin `g.mapa` (un gráfico armado por la API o una plantilla), el nivel sale de la dimensión: por país o por ciudad
+      // no es «región», y caer ahí lo hacía preguntar «¿De qué país es el mapa?».
+      const nivel = g.mapa?.nivel ?? (g.dimension === 'pais' ? 'pais' : g.dimension === 'ciudad' ? 'ciudad' : 'region');
       // Una ciudad trae dónde queda (`FilaResultado.geo`, el promedio de sus visitas) y, si el gráfico la pide como
       // columna extra, de qué país es.
       const regiones = r.filas.map((f) => ({

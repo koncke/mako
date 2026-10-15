@@ -219,6 +219,8 @@ function conIdsNuevos(c: Componente): Componente {
 const altoDe = (h: number) => h * FILA + (h - 1) * MARGEN;
 /** Los tipos que en la pila del celular miden lo que dibujan (HTML que se mide solo; nada que necesite un alto para dibujar). */
 const ALTO_LIBRE_EN_PILA: ReadonlySet<string> = new Set(['barra_proporcion', 'numero', 'numero_compacto']);
+/** Los elementos que en la pila miden lo que dibujan (un bloque de General también; una forma o un video, no: su caja ES su tamaño). */
+const ELEMENTOS_ALTO_LIBRE_EN_PILA: ReadonlySet<string> = new Set(['texto', 'enlace', 'seccion', 'accion']);
 /** El `title` de un ícono suelto de la barra de inserción: la acción y su objeto («Insertar imagen»). */
 const etiquetaInsertar = (t: TipoElemento) => (t === 'insertado' ? 'Insertar una página o un código' : `Insertar ${(TIPOS_ELEMENTO.find((x) => x.id === t)?.nombre ?? t).toLowerCase()}`);
 function descargar(texto: string, nombre: string, tipo: string) {
@@ -1102,7 +1104,9 @@ export function EditorInforme({
       // Un bloque de General lleva el marco de una tarjeta de la hoja (el de un gráfico: ./editor-css.ts), y en la pila
       // del celular mide lo que dibuja: el alto de la grilla es del escritorio, y en el teléfono sobraría o cortaría.
       const bloque = c.tipo === 'general';
-      const lugar = bloque && enPila ? { ...base, height: 'auto' } : base;
+      // Lo mismo un texto, un enlace, una sección o una acción: en el teléfono un título envuelve en más renglones que en el
+      // escritorio, y con el alto de la grilla salía con una barra de scroll adentro del título.
+      const lugar = enPila && (bloque || ELEMENTOS_ALTO_LIBRE_EN_PILA.has(c.tipo)) ? { ...base, height: 'auto', minHeight: 0 } : base;
       return (
         <div key={c.id} data-comp={c.id} className={`lk-comp ${bloque ? 'lk-comp--general' : 'lk-comp--elemento'}${elegido || marcada ? ' lk-comp--sel' : ''}`} style={lugar} onClick={alClic}>
           <CuerpoElemento e={c} colores={colores} editando={editando} onCambiar={(p) => cambiar(c.id, p)} ctx={ctxDe(c)} />
