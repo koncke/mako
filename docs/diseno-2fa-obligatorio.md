@@ -111,9 +111,10 @@ lo dice así: «hasta el 21/10 a las 24:00 (tu hora)».
 ## 7. Lo que decide Martín
 
 1. **«Exigir el 2FA desde una fecha» en vez de «Desloguear»**: hace lo que pidió (al que no lo tiene no lo deja entrar y le
-   pide configurarlo al volver) y no puede sacar a quien lo tiene. ¿Va?
+   pide configurarlo al volver) y no puede sacar a quien lo tiene. **DECIDIDO (Martín, 15/10): A, Exigir** («saca sólo al
+   que no lo tiene y se lo pide al volver a entrar»).
 2. **El «grupo de todos los usuarios»**: no existe uno. ¿Es el grupo «MaKo <> cliente» de cada negocio? Hoy cada negocio
-   tiene un solo usuario, su admin.
+   tiene un solo usuario, su admin. **DECIDIDO (Martín, 15/10): A, el grupo «MaKo <> cliente» de cada negocio.**
 3. **El aviso en la app**: ¿UNA vez por persona (lo que pidió), o hasta que lo configure?
 4. **Los recordatorios**: ¿sólo al grupo, o también a cada usuario? Por persona hoy sólo puede ser por email (`usuarios` no
    tiene teléfono).

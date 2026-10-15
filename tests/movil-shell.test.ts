@@ -80,6 +80,24 @@ test('la escala de [data-m] es la misma que la del @media del teléfono', () => 
   assert.deepEqual(b, a);
 });
 
+test('en una pantalla táctil de cualquier ancho (iPad horizontal), 44 de toque y campos de 16', () => {
+  // Decisión del 15/10/2026 (la regla de AGENTS.md: lo táctil se decide por capacidad, no por
+  // ancho). Sin el bloque, un iPad horizontal quedaba con 40 px de toque y 14 px en los campos,
+  // y iOS hace zoom al enfocarlos. Probado rompiéndolo (sin el bloque, y con --fs-md en 15px):
+  // 1 fallo cada vez.
+  const css = sinComentariosCss(leer('app/globals.css'));
+  const tactil = css.match(/@media \(pointer: coarse\) \{\s*:root \{([^}]*)\}/);
+  const media = css.match(/@media \(max-width: 820px\) \{\s*:root \{([^}]*)\}/);
+  assert.ok(tactil, 'no encontré el @media (pointer: coarse) de la escala táctil');
+  const t = vars(tactil![1]);
+  assert.equal(t['--touch'], '44px');
+  assert.equal(t['--fs-md'], '16px', 'un campo de menos de 16 px hace zoom en iOS');
+  // Las mismas variables que el teléfono, con los mismos valores; y los títulos NO bajan.
+  const tel = vars(media![1]);
+  for (const [k, v] of Object.entries(t)) assert.equal(v, tel[k], `${k} se separó de la escala del teléfono`);
+  for (const k of ['--fs-page', '--fs-sect', '--fs-kpi']) assert.ok(!(k in t), `${k} no baja en un iPad: es del teléfono angosto`);
+});
+
 test('el título grande de la v2 es un token de [data-m]: 32 px', () => {
   const css = sinComentariosCss(leer('app/globals.css'));
   const dataM = css.match(/\n\[data-m\] \{([^}]*)\}/);

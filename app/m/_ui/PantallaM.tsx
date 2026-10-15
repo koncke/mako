@@ -134,7 +134,8 @@ export function PantallaM({ refrescable = false, children }: {
     };
     const mover = (e: TouchEvent) => {
       if (y0 == null) return;
-      if (e.touches.length !== 1) { y0 = null; if (tirando) { tirando = false; pintar(0, true); } return; }
+      // Un `touchmove` frenado es de otro dueño (la tarjeta que se arrastra en KanbanM): no tira.
+      if (e.touches.length !== 1 || e.defaultPrevented) { y0 = null; if (tirando) { tirando = false; pintar(0, true); } return; }
       const dy = e.touches[0].clientY - y0;
       const dx = e.touches[0].clientX - x0;
       if (!tirando) {

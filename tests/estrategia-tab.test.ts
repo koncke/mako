@@ -57,8 +57,8 @@ import {
   HITO_ANUNCIOS, HITO_PLATA, HITO_FIN, hoyAR, faltan, usd,
   AGENDADAS, EFECTIVAS, VENTAS, PAUTA, FACTURADO, NETO, OBJETIVO_USD, PRECIO_GRUPAL,
   VENTAS_OBJETIVO, AGENDAS_OBJETIVO, PRIMERAS_CUOTAS, DIAS_VENTANA, PAUTA_TOTAL, PRECIO_1A1,
-  CAC_GRUPAL, CAC_PRO, CAC_CAMPANA_GRUPAL, DEJA_GRUPAL, LOOMS_POR_VENTA, CANALES,
-  ANALISIS, FUTURO, DIAG, LOOM_MIRA, LOOM_DICE, JAN_GANA, JAN_GANO,
+  CAC_GRUPAL, CAC_PRO, CAC_CAMPANA_GRUPAL, DEJA_GRUPAL, CONVERSACIONES_POR_VENTA, CANALES,
+  ANALISIS, FUTURO, DIAG, JAN_GANA, JAN_GANO,
 } from '../app/admin/estrategia/datos';
 import { textoPlazo } from '../app/admin/runway/datos';
 import Estrategia from '../app/admin/estrategia/Estrategia';
@@ -176,7 +176,7 @@ test('el costo de conseguir un cliente: el grupal contra lo que deja, el 47 sin 
   assert.ok(Math.abs(CAC_CAMPANA_GRUPAL - 390.625) < 0.01, `campaña: ${CAC_CAMPANA_GRUPAL}`);
   assert.equal(DEJA_GRUPAL, 1190.33);
   for (const f of CAC_GRUPAL) assert.ok(f.usd <= DEJA_GRUPAL, `${f.label}: ${f.usd}`);
-  assert.equal(LOOMS_POR_VENTA, 89);
+  assert.equal(CONVERSACIONES_POR_VENTA, 89);
   // El 47 solo, con sus medios y sin el Free que hoy no existe.
   const pro = Object.fromEntries(CAC_PRO.map((f) => [f.label, f.usd]));
   assert.equal(pro['Mensajes a WhatsApp → registro'], 100);
@@ -253,7 +253,7 @@ test('lo que Martín reclamó vuelve A LA VISTA: la intro, el cliente ideal y lo
   assert.match(VISIBLE, /~US\$20 por día/);
   const faltan = [
     ...ANALISIS.map((a) => a.w), ...FUTURO.map((c) => c.que),
-    ...DIAG, ...LOOM_MIRA, ...LOOM_DICE, ...JAN_GANA.map((f) => f.t), ...JAN_GANO.map((f) => f.t),
+    ...DIAG, ...JAN_GANA.map((f) => f.t), ...JAN_GANO.map((f) => f.t),
   ].filter((t) => !VISIBLE.includes(t));
   assert.deepEqual(faltan, [], 'se dibujan sólo en un title, o no se dibujan');
 });
@@ -272,11 +272,21 @@ test('la propuesta a Jan está escrita con el programa de referidos: no promete 
   assert.match(HTML, /<details class="est-det est-det--hijo">/, 'Jan va en su propio desplegable');
 });
 
-test('el 1 a 1 está en la oferta a US$10.000, con el contenido a definir y fuera de la proyección', () => {
-  // Martín, 10/10: «que salga 10k» y «La defino yo». Rota: sin la tarjeta → 14 pases, 1 fallo.
+test('el 1 a 1 está en la oferta a US$10.000, su contenido se arma con Offer y queda fuera de la proyección', () => {
+  // Martín, 10/10: «que salga 10k» y «La defino yo»; 15/10: «Para esto justamente está la
+  // funcionalidad de offer»: el contenido no se escribe en Strategy. Rota: sin la tarjeta → 14 pases, 1 fallo.
   assert.equal(PRECIO_1A1, 10000);
   assert.match(VISIBLE, /1 a 1<\/span><div class="est-precio"><b class="est-num">US\$10\.000<\/b>/);
-  assert.match(VISIBLE, /Contenido a definir/);
+  assert.match(VISIBLE, /Se arma con Offer/);
   // No hay embudo que lo venda: lo facturado son sólo grupales.
   assert.equal(FACTURADO % PRECIO_GRUPAL, 0);
+});
+
+test('la prospección va sin Loom: lo decidió Martín, y la sección 06 deja de ser una duda', () => {
+  // Martín, 15/10/2026, en la Ticketera: «¿Un Loom personalizado por cada lead en la
+  // prospección?» → «No». Rota: devolver «Un Loom VSL por cada lead» a la prospección → 16 pases, 1 fallo.
+  assert.doesNotMatch(VISIBLE, /Un Loom VSL por cada lead|Grabo un Loom|Qué se mira antes de grabar/);
+  assert.match(VISIBLE, /Sin Loom: un mensaje para todos/);
+  assert.match(VISIBLE, /Decidido: sin Loom/);
+  assert.doesNotMatch(VISIBLE, /Duda abierta/);
 });

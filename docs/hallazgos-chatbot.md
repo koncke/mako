@@ -4480,6 +4480,11 @@ le escribe por email a ese usuario, por el remitente de MaKo, con un link de un 
   Cada uno tiene su tapa: `sinSecretos`, el emisor sin `texto` (`avisarPedidoDeRestablecer`) y `sinValoresSecretos`.
 - ⚠️ **Un freno escrito dos veces esconde una rotura.** El DELAY con secreto se frenaba en el barrido y en el recorrido, y
   sacar el primero no hacía fallar nada: el segundo lo tapaba. Quedó uno, el del barrido, que además ve un DELAY suelto.
+- ⚠️ **«Los tests que tocan lo que cambié» no encuentra a los guardias que BARREN el código.** Se corrieron 127 archivos
+  elegidos por los módulos que importan, y el push dejó main en rojo: `tests/undecima-email-propio.test.ts` lista en
+  positivo cada archivo que llama `sendEmail` con el remitente de MaKo, y lo encuentra por PATRÓN (`sendEmail(`), no por
+  import. Lo cazaron otros dos chats. Antes de pushear un cambio que llama algo sensible (`sendEmail`, el remitente,
+  una credencial), correr también los barridos: `grep -l "ls-files\|readdirSync\|barrido\|sendEmail" tests/*.test.ts`.
 - **Lo de SuperAdmin va APARTE de la galería de los negocios** (`PLANTILLAS_PLATAFORMA`). Metida en `PLANTILLAS`, rompía
   «13, una por categoría, en orden de embudo» y la habría ofrecido a cada negocio. Lo que se ofrece lo dice
   `plantillasPara`; lo que se crea lo frena `crearDesdePlantilla` (`deps.plataforma`, fail-closed). La pantalla sabe si
@@ -4491,3 +4496,34 @@ Lo que quedó sin hacer, con su archivo:
 - El aviso «se cambió tu contraseña» y `ingreso_nuevo` usan la misma tarjeta, sin secreto: después del 21/10.
 
 **Vive en:** `lib/email-persona.ts` · `lib/restablecer-aviso.ts` · `lib/aviso-evento.ts` (`pasosDelEvento`, `datosDeLaPersona`, `secretosDelEvento`) · `lib/variables-aviso.ts` (`secreto`, `sinSecretos`) · `lib/flujo-corridas.ts` · `lib/plantillas-automatizaciones.ts` (`PLANTILLAS_PLATAFORMA`)
+
+## La «Reentrada» del CRON (14/10/2026)
+
+Lo hecho está en `58f5cabdb` (diseño: docs/diseno-mako-nada-por-detras.md §1-B y §2.4-a).
+
+- **«Cada vez que vuelve a entrar» NO puede correr por el barrido.** El barrido del CRON (la cohorte) mira quién ESTÁ
+  en la etapa, no quién acaba de llegar: un lead parado ahí habría vuelto a recibir la automatización entera en cada
+  corrida. «Vuelve a entrar» es un EVENTO (`enrolarPorEvento`) o un «Ir a» / ⚡ inscribir; el barrido sólo reusa con
+  «Otra vez si es otra reunión», donde la reunión dice que es otra (`puedeReentrar`, `solo_por_evento`).
+- **Sin guardar, la regla de antes, y no «Una sola vez».** Leer la columna en null como «Una sola vez» le habría sacado
+  el reuso a toda «Un Lead Agendó Llamada» creada desde la galería mientras sus plantillas no la escriban: un cambio de
+  comportamiento que nadie decidió (lo marcó también el chat del CRM). El respaldo es transitorio y el panel del CRON lo
+  muestra como lo elegido (`reentrada_efectiva`), así que no queda escondido.
+- **«Otra vez si es otra reunión» necesita la reunión ANOTADA.** El reuso compara contra `reunion_at`, y esa columna
+  sólo se escribía en los flujos que preparan una reunión por su forma. Elegida en otro flujo, caía siempre en «no sé
+  qué reunión preparaba». Ahora la anota `anotaReunion` (la forma, o esa opción).
+- **La lectura de un «Ir a» no toleraba una columna que falta.** `inscribirEnSecuencia` pedía su lista a mano: sumarle
+  `reentrada` la habría tirado antes de aplicar la 0279. La lista pasó a una constante y se reintenta sin la columna,
+  como las lecturas del motor.
+
+Lo que quedó sin hacer, con su archivo:
+- **La 0279 quedó aplicada en prod el 15/10**: la columna está vacía en las 93 automatizaciones, así que todas siguen con
+  la regla de antes. Se le había preguntado a Martín y contestó «No entiendo esta pregunta»: una columna nueva que no
+  cambia nada no era una decisión suya (AGENTS.md, «A la Ticketera va lo que DECIDE Martín»).
+- `scripts/reentrada-explicita.mts` (la deja escrita en las que existen) NO se corrió: con la columna vacía el motor
+  hace lo de antes. Hace falta recién para sacar el respaldo de `reentradaDe`, y ese día se corre.
+- Las plantillas (`lib/plantillas-automatizaciones.ts`, `lib/plantilla-crear.ts`) y una operación de la API
+  (`cambiar_reentrada_secuencia`, chatbot.def/run): después de que integre `crm-bloques-b5`, que toca esos archivos.
+  Cuando entren, el respaldo de `reentradaDe` se va.
+
+**Vive en:** `lib/reentrada.ts` · `lib/nutricion.ts` (`reentradaDeSecuencia`, `anotaReunion`, `reusablesDe`, `setSecuenciaReentrada`) · `lib/nutricion-inscripcion-manual.ts` · `app/automations/SecuenciaPerfil.tsx` · `app/api/whatsapp/secuencias/route.ts` · `supabase/migrations/0279_reentrada_cron.sql`

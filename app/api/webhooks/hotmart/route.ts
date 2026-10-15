@@ -87,6 +87,9 @@ export async function POST(req: NextRequest) {
       contacto: ev.contacto,
       linea: lineaDelHistorial(ev),
       creaLead: ev.creaLead,
+      // Comprar, dejar un pago pendiente o abandonar el carrito ES la entrada «carrito» (decisión 9).
+      // Un reembolso o una cancelación no meten a nadie en un funnel: sólo se anotan.
+      ...(ev.tipo === 'compra' || ev.tipo === 'abandono' || ev.tipo === 'pendiente' ? { entrada: 'carrito' as const } : {}),
       utm: { source: ev.origen.src, content: ev.origen.sck },
     }));
     console.log(`[webhook:hotmart] ${ev.evento} ${ev.id} ws=${wsFinal}: ${r.estado}${'motivo' in r ? ` (${r.motivo})` : ''}`);

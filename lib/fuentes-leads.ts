@@ -11,8 +11,9 @@
 //   · si no está y el evento crea, la da de alta con `createLead` —con `permitirDuplicado`, porque
 //     el chequeo por contacto ya se hizo acá, igual que los webhooks de Meta y Calendly—;
 //   · si no está y el evento sólo anota (un módulo terminado en Hotmart), no inventa a nadie.
-// Entra al funnel DEL NEGOCIO (`funnel_id` null), como Calendly. Elegir otro por fuente es la
-// decisión pendiente del diseño (§7).
+// Entra al funnel que DECLARA su entrada (decisión 9, lib/funnel-de-entrada.ts): una compra o un
+// carrito de Hotmart, al de «Anuncios a carrito». Si no hay uno solo, al funnel del negocio. Un lead
+// que ya estaba se AGREGA a ese funnel (mig 0207: se agrega, nunca se mueve).
 //
 // ⚠️ Y NO DECIDE NADA POR DETRÁS (AGENTS.md, «MaKo NADA por detrás»): no mueve de etapa, no marca
 // ganado, no inscribe en automatizaciones ni manda mensajes. El evento queda en el historial, que
@@ -22,6 +23,9 @@
 
 import 'server-only';
 import { createLead, enriquecerLead, findLeadByContacto, logLeadEvent } from './leads';
+import { agregarAProducto } from './lead-funnel';
+import { funnelDeEntrada } from './funnel-de-entrada';
+import type { EntradaId } from './pipeline';
 import { getTenantDb } from './workspace';
 import type { RespuestaOptin } from './optin-respuestas';
 // Cuáles son y cómo se llaman: el catálogo puro, que también lee /integraciones.
@@ -36,6 +40,8 @@ export type EntradaDeFuente = {
   linea: string;
   /** false = sólo anota en un lead que ya existe. */
   creaLead: boolean;
+  /** La entrada que este evento ES (una compra de Hotmart: `carrito`). Decide el funnel. Sin ella, el del negocio. */
+  entrada?: EntradaId;
   respuestas?: RespuestaOptin[];
   /** Una línea más para un lead que ya existía (las respuestas no pisan las que tenga). */
   lineaExtra?: string | null;
@@ -70,9 +76,18 @@ export async function ingresarDeFuente(e: EntradaDeFuente): Promise<ResultadoFue
   if (!email && !telefono) return { estado: 'ignorado', motivo: 'sin email ni teléfono' };
   const campo = NOMBRE_FUENTE[e.fuente];
 
+  const funnelId = e.entrada ? await funnelDeEntrada(e.entrada) : null;
   const existente = await findLeadByContacto(email, telefono);
   if (existente) {
     const completados = await enriquecerLead(existente.id, { nombre, email, telefono }, campo);
+    if (funnelId != null) {
+      try {
+        await agregarAProducto(existente.id, funnelId, { autor: 'MaKo' });
+      } catch (err) {
+        // El evento ya entró a su ficha: no poder sumarlo a ese funnel no lo pierde. Queda en el log.
+        console.error(`[fuentes-leads] ${campo}: no se pudo agregar el lead ${existente.id} al funnel ${funnelId}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
     const anotado = await anotarUnaVez(existente.id, campo, e.linea);
     if (e.lineaExtra) await anotarUnaVez(existente.id, campo, e.lineaExtra);
     return { estado: 'actualizado', leadId: existente.id, completados, anotado };
@@ -83,6 +98,7 @@ export async function ingresarDeFuente(e: EntradaDeFuente): Promise<ResultadoFue
     nombre: nombre?.trim() || (email ? email.split('@')[0] : `Contacto de ${campo}`),
     email, telefono,
     origen_lead: ORIGEN_LEAD[e.fuente].id,
+    funnel_id: funnelId,
     utm_source: e.utm?.source ?? null,
     utm_content: e.utm?.content ?? null,
     optin_respuestas: e.respuestas?.length ? e.respuestas : null,

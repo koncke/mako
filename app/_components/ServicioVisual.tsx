@@ -67,6 +67,8 @@ export const ICON: Record<string, IconDef> = {
   // Hotmart: su naranja. Skool: su logo es la palabra en varios colores sobre blanco → tile blanco con borde.
   hotmart: { letter: 'H', bg: '#F04E23' },
   skool: { letter: 'S', bg: '#FFFFFF', bd: '1px solid var(--border-strong)', fg: '#1F2937' },
+  // Apify (15/10/2026): tampoco está en simple-icons 13.21.0 (404). Letter-mark sobre su verde.
+  apify: { letter: 'A', bg: '#97D700', fg: '#1F2937' },
   // Instagram y Messenger: los glifos oficiales (simple-icons 13.21.0) sobre su degradé de marca. Los
   // usa la cabecera de las tarjetas del lienzo de /automations (`IconoNodo` dibuja `SvcIcon` con la clave).
   instagram: { sym: 'ic-instagram', bg: 'linear-gradient(45deg, #FEDA75 0%, #FA7E1E 25%, #D62976 50%, #962FBF 75%, #4F5BD5 100%)' },

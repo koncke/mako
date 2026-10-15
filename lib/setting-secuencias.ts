@@ -10,7 +10,8 @@
 import 'server-only';
 import { getTenantDb } from './workspace';
 import { leerTodo, type ConsultaPaginada } from './supabase-paginado';
-import { getSecuenciasConStats, type SecuenciaConStats } from './nutricion';
+import { getSecuenciasConStats, reentradaDeSecuencia, type SecuenciaConStats } from './nutricion';
+import type { Reentrada } from './reentrada';
 import { TRIGGER_ETAPA, TRIGGER_ENTREGA, TRIGGER_ETIQUETA, normalizarEtapas } from './nutricion-etapa';
 import { esNodoDeControl, mediaDeAdjunto, esColumnaInexistente } from './nutricion-grafo-motor';
 import { getAdjunto, adjuntoBase64 } from './setting-adjuntos';
@@ -42,6 +43,11 @@ import { pasosDeEsqueleto } from './setting-semillas';
 
 export type SecuenciaConEstrategia = Omit<SecuenciaConStats, 'estrategia'> & {
   estrategia: Estrategia | null; metricas: MetricasSecuencia;
+  /**
+   * La «Reentrada» que el motor USA (`reentradaDeSecuencia`): la guardada (`reentrada`), o sin guardar la regla de antes.
+   * El panel del CRON la muestra como la elegida, así que la regla de antes no queda escondida (lib/reentrada.ts).
+   */
+  reentrada_efectiva: Reentrada;
   /** El emoji del título (mig 0229). null = el del objetivo, que lo pone la pantalla. */
   emoji: string | null;
   /**
@@ -129,6 +135,7 @@ export async function getSettingData(): Promise<{ secuencias: SecuenciaConEstrat
     estrategia: parseEstrategia(s.estrategia),
     metricas: met.get(s.id) ?? { ...METRICAS_CERO },
     emoji: emojis.get(s.id) ?? null,
+    reentrada_efectiva: reentradaDeSecuencia(s),
     posiciones: posiciones ? (posiciones.get(s.id) ?? {}) : null,
     // Sin poder leerlos, la clave NO va: la pantalla distingue «no hay» (null) de «no sé» (ausente) y
     // en el segundo caso no guarda, para no pisar un borrador que no vio.

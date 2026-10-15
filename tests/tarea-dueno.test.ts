@@ -136,3 +136,39 @@ test('el email del dueño se rescata por nombre cuando el modelo no lo dio', () 
   const r = resolverDueño({ dueño: 'Francisco Hugo Di Giorno', esMio: false }, YO, PARTICIPANTES);
   assert.equal(r.dueñoEmail, 'fran@ejemplo.com');
 });
+
+// ── Un rótulo de persona sale de algo dicho o de alguien conocido (15/10/2026) ─────────────
+// Una transcripción rotuló «su socio» a una voz y Martín no tiene socio: el rol inventado viajó a
+// cuatro documentos. Probado rompiéndolo: sin la línea del ROL_INFERIDO → «su socio» pasa porque
+// «socio» se dice en la charla → 18 pases, 1 fallo.
+import { readFileSync } from 'node:fs';
+import { rotuloDePersona, fuenteDicha, OTRA_PERSONA } from '../lib/tarea-dueno';
+
+test('un rol inferido no queda como persona, aunque la palabra se diga en la charla', () => {
+  const conocidos = [{ nombre: 'Martín Koncke', email: 'martin@x.com' }, { nombre: 'Juan Pérez', email: 'juan@x.com' }];
+  const dicho = fuenteDicha('Martín: el cliente me dijo que su socio no quiere. Juanfran: yo lo armo. Leila lo revisa.');
+  assert.equal(rotuloDePersona('su socio', conocidos, dicho), OTRA_PERSONA, 'un rol, aunque «socio» esté en la charla');
+  assert.equal(rotuloDePersona('El cliente', conocidos, dicho), OTRA_PERSONA);
+  assert.equal(rotuloDePersona('el closer', conocidos, dicho), OTRA_PERSONA);
+  assert.equal(rotuloDePersona('Socio', [], undefined), OTRA_PERSONA);
+});
+
+test('un nombre conocido o dicho queda, y lo que no se dijo pasa a «Otra persona»', () => {
+  const conocidos = [{ nombre: 'Martín Koncke', email: 'martin@x.com' }, { nombre: 'Juan Pérez', email: 'juan@x.com' }];
+  const dicho = fuenteDicha('Martín: el cliente me dijo que no. Juanfran: yo lo armo. Leila lo revisa.');
+  assert.equal(rotuloDePersona('Juan', conocidos, dicho), 'Juan', 'el primer nombre de un invitado');
+  assert.equal(rotuloDePersona('Martín (consultor)', conocidos, dicho), 'Martín (consultor)');
+  assert.equal(rotuloDePersona('juan@x.com', conocidos, dicho), 'juan@x.com');
+  assert.equal(rotuloDePersona('Juanfran', conocidos, dicho), 'Juanfran', 'dicho en la reunión, aunque no esté invitado');
+  assert.equal(rotuloDePersona('Leila', conocidos, dicho), 'Leila');
+  assert.equal(rotuloDePersona('Roberto', conocidos, dicho), OTRA_PERSONA, 'nadie lo nombró ni está invitado');
+  assert.equal(rotuloDePersona('', conocidos, dicho), '');
+});
+
+test('la extracción de una reunión sanea los dos rótulos, y el prompt pide «Otra persona»', () => {
+  const src = readFileSync(new URL('../lib/plan-fathom.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+  assert.match(src, /dueño: rotuloDePersona\(d\.dueño, conocidos, dicho\),/);
+  assert.match(src, /dichoPor: rotuloDePersona\(/);
+  assert.match(src, /coerceCandidatas\(obj, proyectos, yo, participantes, dicho\)/);
+  assert.match(src, /QUIÉN ES CADA UNO:[^\n]*"Otra persona"[^\n]*NUNCA un rol que dedujiste/);
+});

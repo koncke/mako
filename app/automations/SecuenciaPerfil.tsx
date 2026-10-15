@@ -33,6 +33,7 @@ import { etapasDeCondicion } from '@/lib/condiciones-catalogos';
 import { usePosicionesLienzo } from './usePosicionesLienzo';
 import { useBorradorSecuencia, ERROR_DESACTUALIZADO } from './useBorradorSecuencia';
 import { Dropdown } from '@/app/components/Dropdown';
+import { REENTRADAS, ROTULO_REENTRADA, type Reentrada } from '@/lib/reentrada';
 import { useEtiquetasTodas, avisarCambioEtiquetas } from '@/app/_components/etiquetas-cliente';
 import type { ListoCrearIA } from './CrearConIA';
 import { ChatMako } from './ChatMako';
@@ -159,6 +160,9 @@ export type FrenoDelFlujo = NonNullable<ReturnType<typeof frenoDelFlujo>>;
  * la cuenta de Publicar). Con `medio`, frenar abre el modal de ese medio en vez de una tarjeta.
  */
 export type FrenoDeProbar = FrenoDelFlujo & { medio?: Medio; linea?: string | null };
+
+/** El ícono de cada opción de la «Reentrada» (del set de la casa). */
+const ICONO_REENTRADA: Readonly<Record<Reentrada, string>> = { una_vez: 'check', otra_reunion: 'calendario', siempre: 'repetir' };
 
 export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, negocio, canalCaido, tz, insetIzq, onAudioNuevo, secuencias, productos, disparadores, onProbar, probarAbierto = false, onCerrarProbar, onCambio, onCambioLocal, insetDer, handoffs, muelles, revelar, onSinPublicar, descartarBorrador, onAccionTodo, makoAlAbrir = false, pedidoAlAbrir = null, onChatMako, onMakoTrabajando }: {
   /**
@@ -840,6 +844,9 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
    */
   const [lineasWa, setLineasWa] = useState<Array<{ linea: string; rotulo: string; estado: string; esDefault: boolean }>>([]);
   const [lineaSec, setLineaSec] = useState<string | null>(secuencia.instance_name ?? null);
+  // LA «REENTRADA» DEL CRON (14/10/2026, lib/reentrada.ts): la que el motor usa —la guardada, o sin guardar la regla de
+  // antes—, así que lo de fábrica se ve como lo elegido. Se guarda al elegirla, como la línea.
+  const [reentrada, setReentrada] = useState<Reentrada>(secuencia.reentrada_efectiva ?? 'una_vez');
   useEffect(() => {
     let vivo = true;
     void (async () => {
@@ -882,6 +889,17 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
       setErr(null);
       onCambio();
     } catch { setLineaSec(antes); setErr('Sin conexión — prueba de nuevo.'); }
+  };
+
+  const guardarReentrada = async (valor: Reentrada) => {
+    const antes = reentrada;
+    setReentrada(valor);
+    try {
+      const r = await (await fetch('/api/whatsapp/secuencias', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: secuencia.id, reentrada: valor }) })).json();
+      if (!r.ok) { setReentrada(antes); setErr(r.error || 'No se pudo cambiar.'); return; }
+      setErr(null);
+      onCambio();
+    } catch { setReentrada(antes); setErr('Sin conexión — prueba de nuevo.'); }
   };
 
   const toggle = async () => {
@@ -1223,6 +1241,20 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
             productos={productos} etiquetas={etiquetas} disparadores={disparadores} etiquetaEtapa={etiquetaEtapa}
             tz={tz} busy={busy != null} rolAdmin={rolAdmin}
             pie={<>
+              <div data-reentrada style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--dim)' }}>Reentrada</div>
+                {rolAdmin ? (
+                  <Dropdown
+                    value={reentrada}
+                    options={REENTRADAS.map((r) => ({ value: r, label: ROTULO_REENTRADA[r], icono: ICONO_REENTRADA[r] }))}
+                    onChange={(v) => void guardarReentrada(v as Reentrada)}
+                    ariaLabel="Si un lead puede volver a entrar a esta automatización"
+                    width="100%"
+                  />
+                ) : (
+                  <div style={{ fontSize: 13.5, color: 'var(--ink)' }}>{ROTULO_REENTRADA[reentrada]}</div>
+                )}
+              </div>
               {lineasWa.length > 1 ? (() => {
               // ⚠️ La línea guardada entra SIEMPRE a las opciones, aunque se haya ido: un
               // `value` que no está entre sus opciones se dibuja como la primera y el primer

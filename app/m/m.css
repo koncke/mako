@@ -686,6 +686,17 @@
 .m-kb-tj[data-agarrada] { transform: scale(1.02); box-shadow: 0 12px 28px color-mix(in srgb, var(--ink) 18%, transparent); z-index: 2; }
 .m-kb-tj[data-se-va] { animation: m-kb-irse .22s var(--ease-out) forwards; }
 .m-kb-tj[data-llego] { animation: m-kb-llego 1.4s ease; }
+/* El arrastre con el dedo (KanbanM): la de origen se queda en su lugar y se apaga (sin tocar su
+   caja: colapsarla deja el gesto sin salida), la copia sigue al dedo por encima de las barras y
+   debajo de los sheets (80) y del toast (90), y la columna a la que puede ir se marca. */
+.m-kb-tj[data-arrastrada] { opacity: .35; transform: none; }
+.m-kb-tj--fantasma {
+  position: fixed; z-index: 70; margin: 0; pointer-events: none;
+  transition: none; animation: none;
+  box-shadow: 0 16px 36px color-mix(in srgb, var(--ink) 22%, transparent);
+  will-change: transform;
+}
+.m-kb__col[data-destino] { box-shadow: inset 0 0 0 2px var(--primary); background: color-mix(in srgb, var(--primary) 8%, var(--surface-2)); }
 @keyframes m-kb-irse { to { opacity: 0; transform: scale(.94); } }
 @keyframes m-kb-llego { 0%, 70% { box-shadow: 0 0 0 3px var(--primary); } 100% { box-shadow: 0 0 0 0 transparent; } }
 .m-kb-tj__l1 { display: flex; align-items: flex-start; gap: 8px; }

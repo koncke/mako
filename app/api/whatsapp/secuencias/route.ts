@@ -14,7 +14,7 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
-import { getSecuenciasConStats, setSecuenciaActiva, setSecuenciaPasos, setSecuenciaLinea, vozDeAIStepQueFalta, PasosInvalidosError, type PasoSecuencia } from '@/lib/nutricion';
+import { getSecuenciasConStats, setSecuenciaActiva, setSecuenciaPasos, setSecuenciaLinea, setSecuenciaReentrada, vozDeAIStepQueFalta, PasosInvalidosError, type PasoSecuencia } from '@/lib/nutricion';
 import { getRolWsEfectivo, getTenantDb, getWorkspaceActual } from '@/lib/workspace';
 import { envioWhatsappHabilitado, envioEmailHabilitado } from '@/lib/envio-flags';
 import { asegurarAvisosSociales, disparadoresDeSecuencia, lineaDeSecuencia, medioSinConectar, SIN_MEDIOS } from '@/lib/disparadores-canales';
@@ -45,7 +45,7 @@ export async function PATCH(req: NextRequest) {
   if ((await getRolWsEfectivo()) !== 'admin') {
     return Response.json({ ok: false, error: 'Solo el admin del workspace puede editar las secuencias.' }, { status: 403 });
   }
-  let body: { id?: unknown; activa?: unknown; pasos?: unknown; linea?: unknown; visto?: unknown };
+  let body: { id?: unknown; activa?: unknown; pasos?: unknown; linea?: unknown; visto?: unknown; reentrada?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -95,6 +95,8 @@ export async function PATCH(req: NextRequest) {
     if ('linea' in body) {
       await setSecuenciaLinea(id, typeof body.linea === 'string' && body.linea.trim() ? body.linea.trim() : null);
     }
+    // La «Reentrada» del CRON (mig 0279). La valida lib/nutricion.ts.
+    if ('reentrada' in body) await setSecuenciaReentrada(id, body.reentrada);
     return Response.json(aviso ? { ok: true, aviso } : { ok: true });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

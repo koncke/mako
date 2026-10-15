@@ -20,7 +20,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { hashDeRuteo, identificadorDeRuteo, igualesSeguro, secretoDelHeader, RUTEO_POR_HASH } from '../lib/ruteo-hash';
-import { esFuenteQueAvisa } from '../lib/fuentes-leads-catalogo';
+import { esFuenteQueAvisa, esIntegracionDeLeads } from '../lib/fuentes-leads-catalogo';
 
 const leer = (rel: string) => readFileSync(new URL(rel, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 // Las líneas de comentario PRIMERO y los bloques después (ver AGENTS.md).
@@ -68,7 +68,9 @@ test('las fuentes que avisan son opcionales en el tablero, y «toString» no es 
   assert.equal(esFuenteQueAvisa('skool'), true);
   assert.equal(esFuenteQueAvisa('toString'), false);
   assert.equal(esFuenteQueAvisa('stripe'), false);
-  assert.match(leer('../app/integraciones/IntegracionesBoard.tsx'), /esPasarela\(i\.key\) \|\| esFuenteQueAvisa\(i\.key\)/);
+  assert.equal(esIntegracionDeLeads('apify'), true, 'Apify tampoco es un pendiente mientras no se busquen prospectos');
+  assert.equal(esIntegracionDeLeads('toString'), false);
+  assert.match(leer('../app/integraciones/IntegracionesBoard.tsx'), /esPasarela\(i\.key\) \|\| esIntegracionDeLeads\(i\.key\)/);
 });
 
 // ── Las dos rutas ────────────────────────────────────────────────────────────
@@ -107,7 +109,19 @@ test('la puerta busca por contacto, completa lo vacío y sólo crea si el evento
 });
 
 test('la puerta NO decide nada por detrás: ni etapa, ni automatizaciones, ni mensajes', () => {
-  for (const prohibido of ['setPipelineStage(', 'enrolarPorEvento(', 'enrolarPorPago(', 'dispararEvento(', 'emitirDelCatalogo(', 'agregarAProducto(', 'sendText', 'sendEmail(']) {
+  for (const prohibido of ['setPipelineStage(', 'enrolarPorEvento(', 'enrolarPorPago(', 'dispararEvento(', 'emitirDelCatalogo(', 'sendText', 'sendEmail(']) {
     assert.ok(!PUERTA.includes(prohibido), `lib/fuentes-leads.ts llama a ${prohibido}: eso lo decide el negocio en Automations, a la vista`);
   }
+});
+
+test('el funnel sale de la entrada DECLARADA (decisión 9), y a un lead que ya estaba se lo AGREGA', () => {
+  assert.match(PUERTA, /const funnelId = e\.entrada \? await funnelDeEntrada\(e\.entrada\) : null;/);
+  assert.match(PUERTA, /agregarAProducto\(existente\.id, funnelId,/, 'un lead que ya estaba se agrega al funnel, nunca se mueve (mig 0207)');
+  assert.match(PUERTA, /createLead\(\{[\s\S]*?funnel_id: funnelId,/);
+  // Sólo el funnel que dice la entrada: ningún otro número llega a agregarAProducto.
+  assert.equal((PUERTA.match(/agregarAProducto\(/g) ?? []).length, 1);
+  const elegir = sinComentarios(leer('../lib/funnel-de-entrada.ts'));
+  assert.match(elegir, /return con\.length === 1 \? con\[0\] : null;/, 'con varios funnels que la declaran, elegir el primero es decidir a ciegas');
+  // Hotmart: sólo comprar, dejar un pago pendiente o abandonar el carrito es la entrada «carrito».
+  assert.match(HOTMART, /ev\.tipo === 'compra' \|\| ev\.tipo === 'abandono' \|\| ev\.tipo === 'pendiente' \? \{ entrada: 'carrito' as const \}/);
 });

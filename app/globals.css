@@ -366,9 +366,27 @@
   --focus-ring: 0 0 0 2px var(--bg), 0 0 0 4px var(--primary);
 }
 
+/* Pantalla TÁCTIL de cualquier ancho (un iPad horizontal, 1024-1366 px): 44 px de
+   toque y la letra chica de la escala del teléfono. Martín, 14/10/2026, desde un
+   iPad: «La app de MaKo se debe adaptar al tamaño de la pantalla siempre»; y la
+   regla (AGENTS.md): lo táctil se decide por CAPACIDAD, no por ancho. Sin esto, un
+   iPad horizontal quedaba con los 40 px y los 14 px del mouse, y iOS hace zoom (y no
+   lo deshace) al enfocar un campo de menos de 16 px. Los títulos NO bajan: eso es
+   del teléfono angosto (el @media de abajo). Los valores son LOS MISMOS que los de
+   ese @media para las mismas variables (tests/movil-shell.test.ts). */
+@media (pointer: coarse) {
+  :root {
+    --fs-meta: 13px;
+    --fs-sm: 14.5px;
+    --fs-md: 16px;
+    --fs-card: 16.5px;
+    --touch: 44px;
+  }
+}
+
 /* Mobile: sube la escala entera y agranda el área táctil a los 44 px del
-   documento. Es la ÚNICA media query que necesita el sistema — los primitives
-   leen las variables, no las redeclaran. */
+   documento. Es la ÚNICA media query de ANCHO que necesita el sistema — los
+   primitives leen las variables, no las redeclaran. */
 @media (max-width: 820px) {
   :root {
     --fs-meta: 13px;

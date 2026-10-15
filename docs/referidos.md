@@ -4,8 +4,9 @@
 > decidido», justo abajo, manda sobre el resto). Nada está prometido a nadie. El proyecto «Vender MaKo: Referidos» (P68) sigue
 > **tachado** en el Plan desde el 20/09: reabrirlo es parte de esa decisión.
 
-**De dónde sale.** Del audio del 10/10/2026 (28 min, Martín y su socio discutiendo
-recomendar vs. plan agencia), transcrito en
+**De dónde sale.** Del audio del 10/10/2026 (28 min, Martín y una segunda voz discutiendo
+recomendar vs. plan agencia; ⚠️ esa voz NO es un socio: Martín no tiene ni va a tener socios,
+ver docs/hallazgos-planes-y-cobro.md → «El socio que no existe»), transcrito en
 `dashboard-marketing-main/audio-referidos-10oct-transcripcion.md` (fuera del repo, ver
 [fuentes-fuera-del-repo.md](fuentes-fuera-del-repo.md)), cruzado contra
 `app/admin/dev/pricing/modelo.ts` (`UNIT_V2`), `/admin/runway` y el Plan. Corrida
@@ -204,7 +205,7 @@ los dos números que ve, y un premio que necesita una cuenta para entenderse no 
 **Quién entra:** por invitación, con el acuerdo de una página aceptado por WhatsApp.
 - Juanfran y Joan (Código Inmobiliario), P2P, Leila, Teo, Brigitte, Jan y tu hermana.
 - Mauricio, si quiere meter a sus 14 clientes.
-- Leandro es socio, no referidor.
+- Leandro no entra como partner. (Decía «es socio»: lo escribió un agente, y es falso.)
 
 **Por cada cliente, el partner elige un modo al registrarlo.** Después no se cambia.
 
@@ -253,7 +254,7 @@ los dos números que ve, y un premio que necesita una cuenta para entenderse no 
 
 **3. ¿100% del primer mes o % recurrente?**
 **SÍ al 100% del primer mes (US$47 de una vez). NO al % recurrente en plata.**
-- 10% de 47 son US$4,70 por mes: ~US$40,77 en la vida del cliente. Cuesta lo mismo que 47 de una vez sin regalo al referido (41,58), pero son unas 9 transferencias y, como dijo tu socio, nadie se mueve por eso.
+- 10% de 47 son US$4,70 por mes: ~US$40,77 en la vida del cliente. Cuesta lo mismo que 47 de una vez sin regalo al referido (41,58), pero son unas 9 transferencias y, como se dijo en el audio, nadie se mueve por eso.
 - 40% (HighLevel, Skool) son ~US$163 por cliente: el doble del techo.
 - Lo único recurrente es el descuento sobre su propio plan, que no implica mandar plata a nadie.
 

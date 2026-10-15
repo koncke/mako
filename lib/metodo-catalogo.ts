@@ -803,6 +803,28 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
       ],
     },
   },
+  // APIFY (15/10/2026, docs/diseno-leads-scraper.md §5): donde corren las búsquedas de prospectos.
+  // BYOK: cada búsqueda se cobra en la cuenta de Apify del negocio, con un techo que MaKo le pasa a
+  // la corrida (`maxTotalChargeUsd`, lib/apify.ts). No recibe webhooks por credencial: el aviso de
+  // vuelta se rutea por la búsqueda (app/api/webhooks/apify), así que no hay fila de ruteo.
+  {
+    key: 'apify',
+    nombre: 'Apify',
+    categoria: 'Datos',
+    paraQue: 'Buscar prospectos en Google Maps e Instagram desde MaKo, con tu cuenta de Apify: pagas sólo lo que encuentras.',
+    campos: [
+      { env: 'APIFY_TOKEN', label: 'Token de Apify', secreto: true, placeholder: 'apify_api_…', nota: 'Está en Apify → Settings → API & Integrations. Cada búsqueda se cobra en tu cuenta, con un techo.' },
+    ],
+    tutorial: {
+      url: 'https://console.apify.com/settings/integrations',
+      urlLabel: 'Apify → Settings → API & Integrations',
+      pasos: [
+        'Crea tu cuenta en apify.com: el plan gratis alcanza para empezar.',
+        'En console.apify.com entra a «Settings» → «API & Integrations».',
+        'Copia tu «Personal API token» y pégalo en «Token de Apify».',
+      ],
+    },
+  },
   // Google NO va acá, por lo mismo que Supabase: GOOGLE_CLIENT_ID/SECRET son la
   // app OAuth de la AGENCIA (login + Google Calendar), infra compartida de la
   // plataforma. Un cliente jamás crea su propia app OAuth ni pisa estas
