@@ -41,14 +41,13 @@ misma clave volvió a contestar bien en menos de 24 h.
 - **No dice QUIÉN llama.** `anotarRebote429` escribe `feature = 'cuota'` fija, así que las 2.147 filas pierden la
   función que llamó. Sólo queda el motivo: «chatCheap(gemini): HTTP 429». Es el camino de `chatCheap` en
   lib/ai-cheap.ts, no el tool-use del doer ni el STT (medido por el Web Generator).
-  - El ritmo del 14/10, por hora UTC: de 0 a 2 h, entre 21 y 31; de 6 a 13 h, cero; de 14 a 19 h, ~28; de 20 a 23 h,
-    exactamente 60. Uno por minuto, y callado de noche en Tijuana.
-  - Los únicos crons de cada minuto son `doer-flush` y `nutricion-tick` (+ `nutricion` en la hora en punto).
-  - El motor de Automations NO mandó nada al ws1 ese día (0 filas en `nutricion_envios`): no es un paso de IA que
-    escribe un envío, que si falla sale igual con el texto base.
-  - Antes del 08/10, lo que usaba esa clave era sobre todo `plan-fathom` (102 de 137 respuestas buenas desde el 01/10).
-  - **Sin confirmar.** Por eso el registro guarda la función que llamó: sin ella, el aviso no puede decir qué dejó de
-    andar.
+  - ⚠️ **Contado por hora, engaña.** El 14/10 de 20 a 23 UTC fueron exactamente 60 por hora, y parecía un cron de cada
+    minuto (`nutricion-tick`, `doer-flush`). Mirando los SEGUNDOS (Web Generator, 15/10) eran dos ráfagas por hora:
+    - a las :40, de 14 a 02 UTC: `fathom-plan` → `procesarReunionesNuevas` (lib/reunion-auto.ts) → `plan-fathom`;
+    - a las :52: `cs-sesiones-entrega` → `drenarSesionesEntrega` (lib/closing-entrega.ts).
+  - **Lo que costó:** el ws1 no sacó ni un borrador de sus reuniones desde el 08/10 (antes, de 1 a 3 por día). La reunión
+    que falla se reintenta en cada corrida y a las 26 h sale de la ventana sin aviso (docs/hallazgos-plan.md).
+  - Por eso el registro guarda la función que llamó: sin ella, el aviso no puede decir qué dejó de andar.
 
 ## 2. La forma
 
@@ -80,6 +79,13 @@ misma clave volvió a contestar bien en menos de 24 h.
 - No se corta al proveedor entero: el ws9 tiene tres de Gemini con 429 sueltos, y las tres contestan.
 - Si un negocio se queda sin ninguna clave viva, la cascada lo dice con su causa en lib/fallo-ia-texto.ts («tu clave de
   Gemini no contesta desde el 08/10: cargá otra»), no «sin cuota».
+- ⚠️ **Frenar no arregla lo que quien llama hace con el fallo.** `procesarReunionesNuevas` trata hoy un 429 como
+  `parcial`: no marca la reunión, la reintenta, y a las 26 h la pierde. Con el freno va a ver «no hay a quién
+  preguntarle»: si sigue en esa rama, la reunión se pierde igual, ahora en silencio y sin gastar cuota.
+  - Por eso el aviso dice QUÉ dejó de andar: las funciones que la llamaban desde la última respuesta buena («la lectura
+    de tus reuniones»).
+  - Que cada función distinga «clave frenada» de un bache, y deje algo que el dueño lea («N reuniones sin leer»), es de
+    su dueño: en `plan-fathom`, el chat del Plan. La cascada le da la causa (`clave_frenada`) para poder hacerlo.
 
 **Suelta sola, por dos puertas:**
 - **Se sube otra clave** en ese lugar: es otra huella y arranca limpia. Es el «hasta que se vuelva a subir».
@@ -89,8 +95,8 @@ misma clave volvió a contestar bien en menos de 24 h.
 
 **El aviso: dos filas del catálogo, en `AVISOS_SOLO_SUPERADMIN`**, como la caída y la vuelta del WhatsApp:
 `ia-clave-caida` e `ia-clave-volvio`.
-- **Qué dice:** qué clave (proveedor, cuenta y los últimos 4 caracteres), de qué negocio, desde cuándo (la última buena)
-  y cuántos intentos lleva.
+- **Qué dice:** qué clave (proveedor, cuenta y los últimos 4 caracteres), de qué negocio, desde cuándo (la última buena),
+  cuántos intentos lleva y qué dejó de andar (las funciones que la llamaban).
 - **Cuándo sale:** la caída repite cada 24 h mientras siga frenada. La vuelta sale sólo si la caída se avisó: un aviso de
   caída sin el de recuperación entrena a ignorarlo.
 - **Por dónde:** `emitirDelCatalogo`, que lo deja en la campana de la app (la notificación que pidió) y en el grupo.

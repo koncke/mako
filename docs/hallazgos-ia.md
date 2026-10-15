@@ -3925,10 +3925,11 @@ era leer la salud de cada clave de `anthropic_usage`. No alcanza, por dos razone
 - **La fila lleva el ws del PEDIDO, no el del dueño de la clave** (`wsDeProveedor`). Cuando contesta la red de la
   plataforma, su respuesta buena queda en el ws del cliente, con el mismo proveedor y quizá el mismo número de cuenta: una
   clave muerta puede verse viva por la respuesta de otra.
-- **Y el rebote no dice QUIÉN llamó**: `anotarRebote429` escribe `feature = 'cuota'` fija. Las 2.147 filas del ws1 llegan
-  una por minuto (60 por hora de 20 a 23 UTC el 14/10, y callado de noche en Tijuana), y no hay forma de saber de qué
-  función. El motor de Automations no mandó nada al ws1 ese día (0 filas en `nutricion_envios`): no es un paso de IA que
-  escribe un envío, que si falla sale igual con el texto base. Sin confirmar quién es.
+- **Y el rebote no dice QUIÉN llamó**: `anotarRebote429` escribe `feature = 'cuota'` fija. ⚠️ **Contado por hora,
+  engaña**: 60 por hora de 20 a 23 UTC parecía un cron de cada minuto, y se fue a buscar a `nutricion-tick` y `doer-flush`.
+  Mirando los SEGUNDOS eran dos ráfagas por hora: a las :40 (`fathom-plan` → `plan-fathom`) y a las :52
+  (`cs-sesiones-entrega`). Detalle en la entrada del Web Generator de este mismo día. Para saber quién llama hubo que
+  deducirlo; el registro de la salud de cada clave guarda la `feature`.
 
 **La regla que queda.** La salud de una clave se registra por su HUELLA (el sha-256 recortado, nunca la clave), con lo
 que el PROVEEDOR contestó, y en su propio registro. `anthropic_usage` es el libro del gasto, no el de la salud.
