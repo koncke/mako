@@ -7682,6 +7682,14 @@ Tres reglas, y la tercera es la que gobierna código nuevo:
    que el otro le dicta. Lo que decide es el CONTENIDO (quién puede saber eso, quién habla en
    primera persona del producto), y cuando la etiqueta y el contenido se contradicen hay que
    **decir que es una inferencia**, no marcarla como verificada.
+2 bis. ⚠️ **Una voz que no se presenta se rotula «otra persona», NUNCA con un rol inferido** («su
+   socio», «el cliente», «el closer»). Vale para quien transcribe un audio y para todo prompt
+   que extraiga de una reunión. Medido el 15/10/2026: la cabecera de una transcripción decía
+   «Martín y su socio», nadie lo dijo en el audio, y el rol viajó a cuatro documentos y a una
+   pregunta de permisos (Martín no tiene socio). Una inferencia copiada parece cuatro
+   confirmaciones. La extracción de reuniones ya lo frena en código (`rotuloDePersona`,
+   lib/tarea-dueno.ts); a mano, la prueba antes de escribir una persona es **«¿esto sale de
+   algo que él dijo, o de algo que escribimos nosotros?»**.
 3. ⚠️ **Y el ejemplo que una pantalla dibuja con datos de un cliente REAL se lee como un
    dato.** El `ejemplo:` de cada aviso del catálogo salía del workspace de un cliente, con su
    nombre y sus montos — así que cualquiera que abra esa pantalla ve la cuenta de otro, y

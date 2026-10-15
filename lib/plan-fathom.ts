@@ -36,7 +36,7 @@ import {
 import { getLeadsByEmail } from './closing';
 import { listarUsuarios } from './usuarios';
 import { clasificarReunion, type TipoReunion } from './reunion-clasificar';
-import { resolverDueño, normNombre } from './tarea-dueno';
+import { resolverDueño, normNombre, rotuloDePersona, fuenteDicha, type FuenteDicha } from './tarea-dueno';
 import { decidirRecurrente } from './plan-criterio-reglas';
 import { invitadosDeReunionPorFecha } from './google-calendar';
 
@@ -341,6 +341,8 @@ Ejemplos de la vida real (los dos salieron MAL por creerle a la etiqueta):
 
 OJO CON EL NOMBRE: el nombre con el que la transcripción etiqueta a alguien puede no ser idéntico al que te paso (apellido distinto, apodo, nombre de la cuenta de la grabación). Si el EMAIL coincide, o es evidentemente la misma persona, es la misma persona → "esMio": true. Si la tarea es de otra persona de la reunión, "esMio": false. Ejemplo: si el que mira el tablero es Martín y en la reunión Mauricio se comprometió a arreglar su Fathom, esa tarea es de Mauricio → esMio:false. NO descartes las tareas de otros: márcalas, que después se reparten.
 
+QUIÉN ES CADA UNO: en "dichoPor" y en "dueño" va el NOMBRE de una persona, como figura en PARTICIPANTES o como se dijo en la reunión. Si una voz no se presenta y no sabes quién es, escribe "Otra persona". NUNCA un rol que dedujiste («su socio», «el cliente», «el closer», «su pareja»): un rol inventado se lee después como un dato y viaja. Pasó: una transcripción rotuló «su socio» a alguien, y el dueño no tiene socio.
+
 DUEÑO EMAIL (clave para repartirlas): te paso la lista de PARTICIPANTES con nombre y email. Cuando el dueño de una tarea es uno de ellos, copia su email TAL CUAL en "dueñoEmail" — con eso la app le manda sus tareas por WhatsApp/mail o se las carga en su propio plan. Si no puedes atribuirla con seguridad a un participante de la lista, deja "dueñoEmail": "" (NUNCA inventes un email ni lo deduzcas del nombre).
 
 NO inventes nada que no se haya dicho, pero NO descartes un compromiso REAL solo porque está redactado informal. Devuelve vacío SOLO si de verdad no se habló de ningún próximo paso.
@@ -384,8 +386,10 @@ Saca los action items concretos, atribuye cada uno a su dueño, y devuelve el JS
 const PRIOS: PlanPrioridad[] = ['alta', 'media', 'baja', 'futuro'];
 const prioridadOk = (p: unknown): PlanPrioridad => (PRIOS.includes(p as PlanPrioridad) ? (p as PlanPrioridad) : 'media');
 
-function coerceCandidatas(obj: Record<string, unknown>, proyectos: ProyectoRef[], yo: Yo, participantes: Participante[] = []): TareaCandidata[] {
+function coerceCandidatas(obj: Record<string, unknown>, proyectos: ProyectoRef[], yo: Yo, participantes: Participante[] = [], dicho?: FuenteDicha): TareaCandidata[] {
   const ids = new Set(proyectos.map((p) => p.id));
+  // Quiénes son conocidos, para que un rótulo de persona no sea un rol inventado («su socio»).
+  const conocidos = [yo, ...participantes];
   const arr = Array.isArray(obj.tareas) ? obj.tareas : [];
   return arr
     .filter((x): x is Record<string, unknown> => !!x && typeof x === 'object')
@@ -403,7 +407,9 @@ function coerceCandidatas(obj: Record<string, unknown>, proyectos: ProyectoRef[]
         prioridad: prioridadOk(o.prioridad),
         proyectoId: igual ? igual.id : pid,
         proyectoNombre: igual ? '' : nuevoCrudo,
-        dueño: d.dueño,
+        // El rótulo se sanea DESPUÉS de resolver: el email y «es mío» salen del texto crudo, y lo
+        // que se guarda para leer no puede ser un rol que nadie dijo (lib/tarea-dueno.ts).
+        dueño: rotuloDePersona(d.dueño, conocidos, dicho),
         dueñoEmail: d.dueñoEmail,
         esDeOtro: d.esDeOtro,
         atribucionDudosa: d.atribucionDudosa,
@@ -412,7 +418,7 @@ function coerceCandidatas(obj: Record<string, unknown>, proyectos: ProyectoRef[]
         // campo que existe para OBLIGARLO a separar «quién habló» de «quién ejecuta», y
         // no obligaba a nada porque no tenía consecuencia. Ahora viaja: si viene igual al
         // dueño en toda la reunión, eso es la firma de que atribuyó por la etiqueta.
-        dichoPor: String(o.dichoPor ?? '').trim().slice(0, 80) || undefined,
+        dichoPor: rotuloDePersona(String(o.dichoPor ?? '').trim().slice(0, 80), conocidos, dicho) || undefined,
         // La cuarta pregunta del criterio. `decidirRecurrente` y no `!!o.recurrente`: el
         // valor sale del JSON de un modelo y `"false"` es truthy. El desempate contra una
         // fecha no va acá porque el extractor no propone fechas — vive en `limpiarTarea`
@@ -723,6 +729,10 @@ export async function extraerTareasDeTexto(texto: string, proyectos: ProyectoRef
   const partes = trocear(texto);
   const glosario = opts.glosario?.trim() || '(sin glosario cargado todavía)';
   const yoTxt = `${yo.nombre || 'el usuario'}${yo.email ? ` (${yo.email})` : ''}`;
+  // Lo que se dijo (la reunión entera y su resumen), UNA vez: contra esto se mira que un
+  // nombre de persona salga de la charla y no de una inferencia del modelo.
+  const dicho = fuenteDicha(`${opts.cabecera ?? ''}
+${texto}`);
 
   // `fallo` = este tramo NO se pudo leer (excepción o JSON inválido). Distinto de
   // "se leyó y no había tareas": eso viene sin fallo y con la lista vacía.
@@ -762,7 +772,7 @@ export async function extraerTareasDeTexto(texto: string, proyectos: ProyectoRef
       console.error(`[plan-fathom] parte ${i + 1}/${partes.length}: la IA no devolvió JSON válido (${raw.length} chars): ${e instanceof Error ? e.message : String(e)} · arranca con: ${raw.slice(0, 120)}`);
       return { tareas: [], dudas: [], usage, fallo: true };
     }
-    return { tareas: coerceCandidatas(obj, proyectos, yo, participantes), dudas: coerceDudas(obj), usage };
+    return { tareas: coerceCandidatas(obj, proyectos, yo, participantes, dicho), dudas: coerceDudas(obj), usage };
   };
 
   // En paralelo: son llamadas independientes y así una reunión de 2h no tarda 2 minutos.

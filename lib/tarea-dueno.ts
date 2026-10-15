@@ -119,3 +119,66 @@ export function resolverDueño(o: DueñoCrudo, yo: Yo, participantes: Participan
     atribucionDudosa: otroPorEmail && o.esMio === true ? true : undefined,
   };
 }
+
+// =============================================================================
+// Un rótulo de persona sale de algo DICHO o de alguien CONOCIDO, nunca de un rol inferido
+// =============================================================================
+// 15/10/2026: una transcripción rotuló a la segunda voz de un audio «su socio». Nadie lo dijo
+// en el audio, y ese rol viajó a cuatro documentos y a una pregunta de permisos para Martín, que
+// no tiene socio (docs/hallazgos-planes-y-cobro.md → «El socio que no existe»). Una sola
+// inferencia, copiada, parecía cuatro confirmaciones.
+//
+// Las dos capas: el prompt de la extracción lo pide (lib/plan-fathom.ts, «QUIÉN ES CADA UNO») y
+// esto lo FRENA. Un rótulo queda si es el nombre o el email de alguien conocido (los invitados y
+// quien mira el tablero) o si aparece tal cual en lo que se dijo; un ROL («su socio», «el
+// cliente», «el closer») no queda nunca, aunque la palabra aparezca en la charla: que alguien
+// diga «el cliente» no dice QUIÉN habla. Todo lo demás pasa a «Otra persona».
+
+export const OTRA_PERSONA = 'Otra persona';
+
+const ROL_INFERIDO = new RegExp(
+  '^(?:(?:el|la|los|las|su|sus|tu|tus|mi|mis|un|una|nuestro|nuestra)\\s+)?'
+  + '(?:socios?|socias?|clientes?|clientas?|closers?|setters?|pareja|jefe|jefa|due(?:n|ñ)os?|due(?:n|ñ)as?'
+  + '|asistente|consultor|consultora|proveedor|proveedora|mentor|mentora|coach|equipo|contador|contadora'
+  + '|esposo|esposa|marido|novio|novia|hermano|hermana|amigo|amiga|colega|empleado|empleada|vendedor|vendedora'
+  + '|interlocutor|interlocutora|otra voz|segunda voz|hablante|participante)(?![a-z])',
+);
+
+/** Lo que se dijo, preparado UNA vez por reunión (el texto entero puede tener 400k caracteres). */
+export type FuenteDicha = { junto: string; palabras: ReadonlySet<string> };
+
+const junto = (s: string) => normNombre(s).replace(/[^a-z0-9@.]+/g, '');
+
+export function fuenteDicha(texto: string): FuenteDicha {
+  const n = normNombre(texto);
+  return { junto: junto(n), palabras: new Set(n.split(/[^a-z0-9@.ñ]+/).filter(Boolean)) };
+}
+
+/**
+ * El rótulo de una persona tal como queda guardado (`dichoPor`, `dueño`): el que dio el modelo si
+ * nombra a alguien conocido o algo que se dijo; si no, «Otra persona». '' queda ''.
+ */
+export function rotuloDePersona(
+  rotulo: string,
+  conocidos: ReadonlyArray<{ nombre?: string; email?: string }>,
+  fuente?: FuenteDicha,
+): string {
+  const r = rotulo.trim();
+  if (!r) return '';
+  const n = normNombre(r);
+  const esConocido = conocidos.some((p) => {
+    const nom = normNombre(p.nombre ?? '');
+    const em = (p.email ?? '').trim().toLowerCase();
+    if (em && n.includes(em)) return true;
+    if (!nom) return false;
+    return n === nom || n.startsWith(`${nom} `) || nom.startsWith(`${n} `) || junto(nom) === junto(n)
+      || (n.split(' ')[0].length >= 3 && nom.split(' ')[0] === n.split(' ')[0]);
+  });
+  if (esConocido) return r;
+  if (ROL_INFERIDO.test(n)) return OTRA_PERSONA;
+  // Un nombre propio que se dijo en la reunión («Juan», «Juanfran»), aunque no esté invitado.
+  const primero = n.split(' ')[0];
+  if (fuente && ((junto(n).length >= 3 && fuente.junto.includes(junto(n)))
+    || (primero.length >= 3 && fuente.palabras.has(primero)))) return r;
+  return OTRA_PERSONA;
+}

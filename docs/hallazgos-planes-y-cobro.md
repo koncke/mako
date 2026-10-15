@@ -580,6 +580,10 @@ tamaño del cartel de upgrade).*
 
 **La regla:** al transcribir, una voz que no se presenta se rotula «otra persona» (o por su nombre si lo DICE el audio), nunca por un rol inferido (socio, cliente, closer). Y una pregunta que da por hecha una persona («tu socio», «tu equipo», «tu contador») se verifica contra lo que Martín dijo, no contra un documento nuestro.
 
+**Por qué esa tarjeta no pasaba la regla de la Ticketera (AGENTS.md, 9f4585931):** cualquier cosa escrita por Martín la habría frenado, y yo la armé desde un documento nuestro. La vara no es sólo «¿puedo contestarla con lo escrito?», es también **«¿esto sale de algo que él dijo, o de algo que escribimos nosotros?»**.
+
+**Las dos capas, porque una regla en prosa se cumple «casi siempre»:** el prompt que extrae tareas de una reunión lo pide («QUIÉN ES CADA UNO», lib/plan-fathom.ts), y `rotuloDePersona` (lib/tarea-dueno.ts) lo frena en el saneo: un `dueño` o un `dichoPor` queda si es un invitado, quien mira el tablero o un nombre que se dijo en la reunión; un rol no queda nunca, aunque la palabra se diga en la charla. Todo lo demás pasa a «Otra persona». La regla para quien transcribe a mano está en AGENTS.md (punto 2 bis de «Lo que alguien LEE de la pantalla compartida»). Lo que NO está cubierto: una transcripción escrita a mano por un agente, fuera del producto, no pasa por ningún saneo; ahí manda la regla escrita.
+
 **Corregido en:** `docs/referidos.md`, `docs/fuentes-fuera-del-repo.md`, `docs/propuesta-tabs-strategy.md` (la pregunta 6, contestada), la cabecera de `audio-referidos-10oct-transcripcion.md` (fuera del repo) y la memoria `referidos-propuesta`. Nada construido colgaba del supuesto: no hay rol, capa ni pantalla «para el socio»; Strategy y la Ticketera siguen siendo sólo del super admin.
 
 **Vive en:** `docs/referidos.md` · `docs/propuesta-tabs-strategy.md` · `docs/fuentes-fuera-del-repo.md`

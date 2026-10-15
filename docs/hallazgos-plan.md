@@ -6501,3 +6501,13 @@ docs/diseno-ia-claves-caidas.md); y recuperar las reuniones del ws1 del 08 al 15
 ventana (se pueden extraer a mano desde /plan cuando haya una key que conteste).
 **Vive en:** lib/reunion-auto.ts (`procesarReunionesNuevas`: la ventana, `KEY_VISTA`, la rama `parcial`) ·
 app/api/cron/fathom-plan/route.ts · *2026-10-15*
+
+## La extracción no escribe un ROL donde va una persona (15/10/2026)
+
+**Síntoma:** un rol que nadie dijo («su socio») se escribió como si fuera una persona y viajó a cuatro documentos; Martín no tiene socio. El caso entero está en docs/hallazgos-planes-y-cobro.md → «El socio que no existe».
+
+**La regla, en las dos capas:** el prompt de la extracción («QUIÉN ES CADA UNO», `PLAN_FATHOM_SYSTEM_TEMPLATE`) pide el NOMBRE o «Otra persona», y `rotuloDePersona` lo frena en `coerceCandidatas`: `dueño` y `dichoPor` quedan sólo si son un invitado, quien mira el tablero o un nombre dicho en la reunión (`fuenteDicha`, armada UNA vez con el resumen y la transcripción entera). Un rol no queda nunca, aunque la palabra se diga.
+
+**Ojo al tocarlo:** el rótulo se sanea DESPUÉS de `resolverDueño`, que decide el email y «es mío» con el texto crudo; sanear antes cambiaría a quién se le reparten las tareas.
+
+**Vive en:** `lib/tarea-dueno.ts` (`rotuloDePersona`, `fuenteDicha`, `OTRA_PERSONA`) · `lib/plan-fathom.ts` (`coerceCandidatas`, el prompt) · `tests/tarea-dueno.test.ts`

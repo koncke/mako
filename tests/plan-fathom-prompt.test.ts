@@ -98,7 +98,8 @@ test('el rol se declara con los TRES valores, y el default es «no lo sé»', ()
 test('«dichoPor» deja de ser una regla sin consecuencia: el parser lo lee', () => {
   // El prompt lo pedía desde siempre y `coerceCandidatas` lo tiraba, así que el campo que
   // existe para OBLIGAR a separar «quién habló» de «quién ejecuta» no obligaba a nada.
-  assert.match(SRC, /dichoPor: String\(o\.dichoPor/, 'el parser sigue descartando dichoPor');
+  // Desde el 15/10/2026 pasa por `rotuloDePersona` (un rol inventado no queda): sigue LEÍDO.
+  assert.match(SRC, /dichoPor: rotuloDePersona\(String\(o\.dichoPor/, 'el parser sigue descartando dichoPor');
   assert.match(SRC, /dichoPor\?: string;/, 'dichoPor no está en el tipo');
 });
 
