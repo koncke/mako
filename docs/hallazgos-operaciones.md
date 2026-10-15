@@ -396,6 +396,40 @@ agente, cada una con su estado). Las capturas se bajaron y se miraron el 15/10 (
 `lib/centro-chats.ts` (`completarChats`, `comoSale`, `vistaPrevia`, `seccionesDeChats`) · `app/m/operaciones/` ·
 `tests/centro-chats.test.ts` · `tests/operaciones.test.ts`
 
+## Grok Bot: cada chat es un empleado con su muñeco, y el que espera algo lo muestra (16/10/2026)
+
+**El pedido.** Martín, la misma noche, al coordinador: «Quiero que copie a Grok, que tiene un mejor diseño, y sobre
+todo me gusta el concepto de los muñequitos de IA o "empleados"». La referencia resultó ser **Grok Bot** (xAI,
+lanzado el 11/08/2026): «AI teammates with names, jobs, and context that compounds over time», con habilidades,
+rutinas y aprobaciones (docs.x.ai/grok-bot/overview).
+
+**Cómo se miró, porque la doc oficial no trae una sola captura.** La nota de lanzamiento (x.ai/news/introducing-grok-bot)
+tiene su video en `media.x.ai`; bajado con un user-agent de navegador y `Referer: https://x.ai/` (sin eso contesta un
+HTML de 5 KB), 106 s, y mirado en hojas de contacto de 3×3 (`ffmpeg fps=1/4,tile=3x3`) y cuadros a resolución completa
+recortados. Ahí está la pantalla real: la lista de Bots, cada uno con un muñeco de forma simple y color propio (gota,
+hexágono, triángulo, cuadrado redondeado, con dos trazos blancos de ojos), su nombre, lo último que dijo y la hora; el
+«Para:» con la lista de Bots, y la conversación con el muñeco y el nombre del Bot sobre cada mensaje.
+
+⚠️ **El repo que circuló como referencia (`github.com/grok-bot-app/grok-bot`) NO es de xAI**: dice «Official product by
+xAI» en el encabezado y «unofficial community guide» en la licencia, tiene 0 estrellas, etiquetas de relleno para
+búsquedas e instaladores sin firmar en Releases. No se bajó ni se corrió nada de ahí (lo midió el coordinador).
+
+**Lo que quedó (`Muneco.tsx`):**
+- **Muñecos PROPIOS**: formas de la casa en la paleta categórica (`--grafo-*`, pasteles), ojos oscuros redondos con
+  brillo y una sonrisa (los de xAI son colores fuertes con dos trazos blancos y sin boca). SVG sin dependencias ni ids.
+- **El aspecto sale del título normalizado**, no de la sesión: el CRM es el mismo empleado en las tres cuentas. Las
+  áreas principales tienen su aspecto FIJO (`EQUIPO`): con el hash, dos de ellas salían iguales; lo demás va por hash.
+  `--grafo-funnel` quedó afuera: al lado de `--grafo-panorama` son dos verdes que no se distinguen a 38 px.
+- **Los ojos dicen el estado**: despierto (abierto), parpadeando (trabaja), cansado (foto vieja), dormido (cerrado).
+  Con movimiento reducido, quieto.
+- **El que espera algo lo muestra** (el «vuelve a pedir aprobación» de Grok Bot): las tarjetas de la Ticketera sin
+  contestar van a su empleado con `esperasPorChat`, por la sesión (`destino`) o por un título exacto y único —la MISMA
+  regla con la que el cartero avisa la respuesta, `destinoDeDecision`—; con dos chats del mismo nombre no adivina. El
+  muñeco lleva el globito y la conversación, arriba de la caja, «Una tarjeta espera tu respuesta · Contestar».
+
+**Vive en:** `app/admin/operaciones/Muneco.tsx` · `lib/centro-chats.ts` (`esperasPorChat`) · `acciones.ts`
+(`fotoCentroAction` trae las tarjetas) · `tests/centro-empleados.test.ts`
+
 ## Lo que creí medido y no estaba al día
 
 - **`soloPlataforma` ya existía en el registro de la API** (lo sumó el 2FA obligatorio el 14/10, por

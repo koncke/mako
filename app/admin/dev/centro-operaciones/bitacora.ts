@@ -319,4 +319,21 @@ export const BITACORA: Hito[] = [
       'app/m/operaciones/ChatsMovil.tsx — la lista y la conversación en el teléfono',
     ],
   },
+  {
+    fecha: '15 oct', hora: '23:20', chat: ESTRATEGIA, sesion: SESION_ESTRATEGIA_3, cuenta: 'claude3', actor: 'martin', tipo: 'prompt',
+    titulo: 'Copiar Grok: los muñequitos de IA, los «empleados»',
+    pedido: 'Quiero que copie a Grok, que tiene un mejor diseño, y sobre todo me gusta el concepto de los muñequitos de IA o "empleados"',
+    puntos: ['Era Grok Bot (xAI, 11/08/2026): cada Bot es un compañero con nombre, trabajo y contexto, que vuelve a pedir aprobación.'],
+  },
+  {
+    fecha: '15 oct', hora: '23:43', chat: CH, sesion: SESION_CH_3, cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Cada chat es un empleado con su muñequito, y el que espera tu respuesta lo muestra',
+    puntos: [
+      'Un muñequito propio por área (forma y color fijos), con los ojos según cómo está: despierto, trabajando, cansado o dormido.',
+      'El que tiene una tarjeta sin contestar en la Ticketera lleva un globito, y su conversación ofrece contestarla.',
+      'Copiado de la lista de Bots de Grok Bot, mirada en su video de lanzamiento; los muñecos no son los de xAI.',
+    ],
+    commits: [{ sha: '2755def4e', msg: 'feat(operaciones): cada chat es un empleado de IA con su muñequito, como en Grok Bot', lineas: 459, archivos: 13 }],
+    archivos: ['app/admin/operaciones/Muneco.tsx — el muñequito y su ánimo', 'lib/centro-chats.ts — esperasPorChat'],
+  },
 ];
