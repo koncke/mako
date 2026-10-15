@@ -31,7 +31,13 @@ Dashboard». El arnés de capturas vive FUERA del repo, en `C:/Users/marti/arnes
 - Antes de implementar, mirar: (1) si los anuncios de `guiones` traen miniatura (`FilaResultado.imagen`) en todos los
   workspaces, y (2) qué dibuja el mapa de calor sin puente ni grabaciones: ninguna portada puede quedar vacía (placeholder
   con datos ficticios). Los ejemplos de personas (CS, Cobranza) son ficticios.
-- Los colores por hoja van en UNA tabla compartida con General (propuesta: `lib/graficos-identidad.ts`).
+- Los colores por hoja van en UNA tabla que escribe ESTE chat (`lib/graficos-identidad.ts`, acordado con General), después de
+  que Martín apruebe. Regla: mismo tema, mismo color en las dos galerías, y ninguno repetido adentro de una. Dashboard:
+  Marketing azul Meta · Comercial dorado MaKo · Ads coral · Landing celeste · VSL rojo play · Chat verde WhatsApp (--wa) ·
+  Closing violeta · CS teal · Productividad lima · CRM azul oscuro · Cobranza ámbar · Automatizaciones índigo · Contenido e
+  IA durazno. General: general Noche (si Martín dice A en general-meta-oscura; si no, dorado MaKo) · bienvenida durazno ·
+  foco lima · operacion índigo · ventas dorado MaKo · cobros ámbar · anuncios azul Meta · funnel-llamadas violeta ·
+  funnel-whatsapp verde WhatsApp · lanzamiento rojo play · servicio teal · curso celeste · instagram magenta.
 
 ## Lo que falta
 - **Verlo en producción (ws3)**: el editor con «Celular» sobre una plantilla (Comercial, Marketing) y la galería de «¿Qué vas a
