@@ -118,10 +118,10 @@ export const ESCALA_EPICA = {
  * El tamaño del número protagonista en una tarjeta de `ancho` px (el ancho de su contenido), con `letras` caracteres y
  * `altoLibre` px para él (0 = sin tope de alto). Nunca más ancho que la tarjeta: el tope por letras gana sobre el mínimo.
  */
-export function tamProtagonista(ancho: number, letras: number, altoLibre = 0): number {
+export function tamProtagonista(ancho: number, letras: number, altoLibre = 0, maximo: number = ESCALA_EPICA.maximo): number {
   if (!(ancho > 0)) return ESCALA_EPICA.minimo;
   const e = ESCALA_EPICA;
-  let t = Math.min(e.maximo, Math.max(e.minimo, e.cqi * ancho));
+  let t = Math.min(maximo, Math.max(e.minimo, e.cqi * ancho));
   t = Math.min(t, ancho / (Math.max(2, letras) * e.letraGruesa));
   if (altoLibre > 0) t = Math.min(t, altoLibre * e.alto);
   return Math.max(LETRA_MINIMA, Math.floor(t));

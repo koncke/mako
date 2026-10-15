@@ -437,4 +437,22 @@ export const BITACORA: Hito[] = [
     commits: [{ sha: '68566ade', msg: 'Dashboard épico: cada plantilla con un titular que domina, y el número que crece con su tarjeta', lineas: 277, archivos: 7 }],
     archivos: ['lib/graficos-gordo.ts', 'app/dashboard/Grafico.tsx', 'lib/graficos-plantillas.ts', 'app/dashboard/EditorInforme.tsx', 'app/dashboard/editor-css.ts', 'lib/graficos-temas.ts', 'tests/graficos-epico.test.ts'],
   },
+  {
+    fecha: '15 oct', hora: '—', chat: 'Dashboard', cuenta: 'claude1', actor: 'martin', tipo: 'prompt',
+    titulo: 'Las plantillas parecen todas iguales: portadas épicas y con color',
+    pedido: 'No me gustan los templates... A simple vista se tienen que diferenciar MUY bien de que es cada template... Y nuevamente muchos gráficos juntos parece dashboard... No se utilizó el recurso de los textos gigantes... el cuadrado que se llega a ver, sea muy épico... el bloque de anuncios, podría justamente traer la preview de algunos ads ganadores... puedes jugar con los COLORES... faltaría uno para Instagram.',
+    puntos: ['Llegó por el chat orquestador, para las dos galerías (Dashboard y General). El 15/10, al ver la galería sin cambios: «No está en producción lo último si pedí que se rediseñaran...».'],
+  },
+  {
+    fecha: '15 oct', hora: '06:40', chat: 'Dashboard', cuenta: 'claude1', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Cada plantilla abre con su portada: un color propio y la forma de lo que contesta',
+    puntos: [
+      'Las 26 plantillas (13 del Dashboard y 13 de General) abren con UNA pieza a lo ancho, pintada con su color: el CAC gigante en Marketing, los anuncios ganadores con su miniatura, el mapa de calor en Landing, la curva del video, el reloj de las respuestas en Chat, las personas en CS y en Agencia, la matriz en Productividad, los embudos…',
+      'Copiado de las portadas de informe de Canva: el color ocupa casi todo el cuadro, un titular gigante y una sola imagen.',
+      'Un color por plantilla, el mismo tema con el mismo color en las dos galerías (WhatsApp verde, Meta azul, cobranza ámbar); el panel de un gráfico deja cambiarlo o sacarlo.',
+      'Nueva plantilla Instagram: lo que te trae Instagram contra Facebook. Medido antes: no hay leads marcados «Instagram» ni DM conectados; sí la audiencia de Meta por plataforma.',
+      'Se miró en escritorio y en celular, con datos de ejemplo. Falta verlo con datos reales.',
+    ],
+    archivos: ['lib/graficos-identidad.ts', 'lib/graficos-portadas.ts', 'lib/general-plantillas.ts', 'lib/graficos-plantillas.ts', 'app/dashboard/editor-css.ts', 'app/dashboard/Grafico.tsx', 'app/dashboard/Propiedades.tsx', 'tests/graficos-portadas.test.ts'],
+  },
 ];

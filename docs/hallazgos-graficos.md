@@ -802,11 +802,82 @@ respuesta; Contenido e IA → Costo de la IA.
 (`.lk-comp--titular`) · `lib/graficos-temas.ts` · `tests/graficos-epico.test.ts`.
 *14/10/2026, claude1 (chat Dashboard).*
 
+## Las portadas: cada plantilla abre con UNA pieza de su color y con la forma de su objetivo (15/10/2026)
+
+**El pedido** (Martín, 14/10, mirando las dos galerías): «todos parecen muy iguales porque tienen el mismo diseño de color»,
+«A simple vista se tienen que diferenciar MUY bien de qué es cada template… evita que al principio tenga muchos textos,
+muchos números… También puedes jugar con los COLORES», y «muchos gráficos juntos parece dashboard». El 15/10, al ver la
+galería sin cambios: «No está en producción lo último si pedí que se rediseñaran...». El titular 6 × 6 del 14/10 no
+alcanzaba: arriba seguían compitiendo cuatro piezas y las trece miniaturas eran la misma imagen con otro título.
+
+**Copiado de la galería de plantillas de Canva** (búsquedas «dashboard» y «report cover», abiertas el 15/10; capturas en
+`C:/Users/marti/arnes-dashboard/referencias/`). Lo que separa una plantilla de otra en Canva no es el título: es la
+PORTADA —el color a sangre que ocupa casi todo el cuadro, UN titular gigante y UNA imagen—. Las de Canva que se confunden
+entre sí son justo las de muchos gráficos chicos sobre blanco. Se copió la estructura; los colores son de una tabla nuestra.
+
+**Lo que es:** la primera pieza de cada hoja, 12 × 11, con `portada: <identidad>` (un campo opcional de `Grafico` y
+`Elemento`; el saneo lo guarda sólo si la identidad existe y nunca en un pop-up). Es un gráfico o un bloque que YA existe,
+con sus datos de siempre: la tarjeta se pinta y adentro se redefinen los tokens (`--ink`, `--dim`, `--border`…) con la tinta
+del color, como el fondo «Oscuro» de un bloque de General, así lo de adentro se da vuelta solo. Detrás va UNA forma grande
+(círculo, diagonal, arco, el ▶ del video, la burbuja del chat). Cada portada tiene OTRA forma (un número, una barra partida,
+pósters de anuncios, la página con el calor, una curva, un reloj, columnas, personas, una matriz, trapecios, un anillo):
+el color nunca es lo único que distingue, y el test no deja que más de dos de una galería compartan forma.
+
+**Los colores viven en UNA tabla para las dos galerías** (`lib/graficos-identidad.ts`): el mismo tema, el mismo color en las
+dos (WhatsApp verde, Meta azul, cobranza ámbar…), ninguno repetido adentro de una galería, y la tinta medida contra su
+fondo (4,5 la letra, 3 los grises). Se apartó de `docs/portadas-propuesta.md` en cuatro: Comercial va en dorado MaKo (el
+verde es de WhatsApp), Ads Analyst en coral (el magenta es de Instagram), Productividad en lima y Contenido e IA en durazno
+(la tabla acordada con General el 15/10). «General» va en Noche: es el único color libre que no nombra otro tema.
+
+**Lo que costó, y lo que el diagnóstico obvio dejaba mal:**
+
+- ⚠️ **No hay leads «de Instagram».** La propuesta prometía abrir la plantilla Instagram con «los leads que llegaron por
+  Instagram (1.062 en un negocio, 277 en otro)». Medido en la base (sólo lectura): el origen de un lead es
+  `origen_lead ?? utm_source`, y `origen_lead` no tiene ningún «instagram»; el 1.062 era `instant_form`, los formularios de
+  Meta, que son de Facebook O de Instagram. Sólo 53 leads dicen `utm_source = ig`, y quedan tapados por `origen_lead`. La
+  portada de Instagram salió de lo que SÍ hay: la audiencia de Meta por plataforma (`publisher_platform`), que trae agendas,
+  clics e impresiones de Instagram contra Facebook. **Una portada se promete después de leer el dato con el MISMO lector
+  que la va a dibujar**, no contando filas con un `ilike`.
+- ⚠️ **Una plantilla puede traer dos piezas con el mismo id local antes del saneo** («Funnel de llamadas»: la sección «cierre»
+  y el número «cierre»). La compactación que cierra el hueco de la portada las indexaba por id y les daba el mismo lugar: lo
+  cazó el test de «ninguna se pisa». Todo lo que recorre piezas crudas de una plantilla va por POSICIÓN.
+- ⚠️ **El mapa de calor de la galería pedía los datos DEL NEGOCIO.** La miniatura dibuja la hoja con datos de ejemplo, pero
+  `MapaCalor` ignoraba el resultado y pedía los toques reales: con el mapa arriba, la galería habría mostrado la landing de
+  un cliente (o un «cargando» eterno). Ahora un resultado de ejemplo lleva `muestra: true` y el mapa dibuja una landing
+  inventada con el calor en el botón y el título.
+- **El hueco que deja la pieza que sube** tiene dos formas: en una fila pareja (los números) los que quedan se reparten el
+  ancho; al lado de un gráfico de media hoja, el vecino se estira. La compactación vertical (la de react-grid-layout) NO
+  llena un hueco horizontal: sin estirar al vecino quedaba media hoja vacía.
+- **Los bloques de General tienen dibujo de tamaño fijo** (los anillos de los OKRs, la tarjeta del Plan): en una portada de
+  11 filas quedaban chicos arriba y el resto vacío. Se agrandan con `zoom` SÓLO en el escritorio (en la pila del celular se
+  cortaban), como «Prioridades del Plan» se escala desde afuera.
+- **Sobre un color, todo lo que tenía un color fijo se pierde**: el número blanco adentro de una barra de embudo (sobre una
+  barra blanca), el aclarado del embudo vertical, los colores fijos de los cuadrantes de la matriz. Sobre una portada las
+  series van en tonos de la tinta (`paletaDePortada`), los trapecios en papel blanco y los cuadrantes sin sus colores.
+- **Las miniaturas de anuncios de la galería son pósters INVENTADOS** (un SVG en base64, `posterDeMuestra`): la de un anuncio
+  de verdad sería la de un cliente. `Tarjetas` acepta un SVG en base64 además de https (en un `<img>` un SVG no corre nada).
+
+**Lo que se sacó:** el titular 6 × 6 + la grilla de 2 × 2 (`conTitular`, `TITULARES`). Con la portada arriba, un segundo
+protagonista abajo le compite; la fila de números vuelve a ser una fila (Comercial también).
+
+**Vive en:** `lib/graficos-identidad.ts` (la tabla, `marcoDePortada`, `paletaDePortada`) · `lib/graficos-portadas.ts`
+(`conPortada`, `cerrarHueco`, `compactar`, las 13 del Dashboard) · `lib/general-plantillas.ts` (`PORTADAS_GENERAL` y la
+plantilla Instagram) · `app/dashboard/editor-css.ts` (`.lk-comp--portada`) · `app/dashboard/Grafico.tsx`,
+`graficos/Tarjetas.tsx`, `Tabla.tsx`, `Dispersion.tsx`, `MapaCalor.tsx` (dibujar sobre el color) · `Propiedades.tsx` (la fila
+«Portada» del panel) · `tests/graficos-portadas.test.ts` (probado rompiéndolo: ver su cabecera).
+*15/10/2026, claude1 (chat Dashboard).*
+
 ## Lo que quedó sin hacer
 
-- **El Dashboard épico (14/10/2026):** sólo la CABECERA de cada hoja tiene jerarquía; lo de abajo (gráficos de 6 y de 12)
-  sigue como estaba. Si Martín lo quiere más «de un vistazo», el siguiente paso es menos piezas por hoja, y eso es elegir qué se
-  va (decisión suya). Los titulares de `TITULARES` los eligió el chat, no Martín. Sin ver en producción.
+- **Las portadas (15/10/2026):** NADA se vio todavía con datos reales ni en producción (el arnés dibuja datos de ejemplo,
+  con el tema de cada hoja). La fila «Portada» del panel está para los GRÁFICOS; un bloque de General todavía no se puede
+  pintar ni despintar desde su panel (sí borrarlo). La plantilla Instagram no tiene los DM: ningún negocio los tiene
+  conectados (cuando lo haya, un bloque que ofrezca conectarlo ahí mismo). Un negocio sin el dato de su portada (sin Meta,
+  sin cartera) la pierde al crear la hoja: la ruta de plantillas saca los gráficos vacíos. Y siguen en cola, en este orden:
+  borrar las hojas viejas de los workspaces y rehacer las 6 de Mauricio (ws1) con las plantillas nuevas (docs/relevo/dashboard.md).
+
+- **El Dashboard épico (14/10/2026):** el titular 6 × 6 lo reemplazó la PORTADA el 15/10 (ver arriba). Lo de abajo de la
+  portada sigue como estaba: si Martín quiere menos piezas por hoja, es elegir qué se va (decisión suya).
 - **Rediseño por tipo, mitad Dashboard (14/10/2026):** NADA de esto se vio todavía en producción ni con datos reales: el
   arnés dibuja datos de ejemplo y sólo con el tema MaKo (los otros seis temas, sin mirar). Después del deploy, ws3 en el
   editor con «Celular». Sin mirar en el arnés: «Conclusiones de MaKo», la Ficha y el mapa de calor de página (piden datos

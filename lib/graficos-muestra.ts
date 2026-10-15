@@ -46,7 +46,10 @@ const EJEMPLOS: Record<string, readonly string[]> = {
   anuncio: ['Video testimonio', 'Carrusel', 'Imagen oferta', 'Reel'],
   closer: ['Ana', 'Bruno', 'Carla', 'Diego'],
   setter: ['Ana', 'Bruno', 'Carla'],
-  cliente: ['Cliente A', 'Cliente B', 'Cliente C', 'Cliente D'],
+  // Personas inventadas (15/10/2026): sobre una portada la lista de personas lleva el avatar con sus iniciales, y con
+  // «Cliente A» todos eran «CA».
+  cliente: ['Ana Gómez', 'Bruno Díaz', 'Carla Ruiz', 'Diego Paz'],
+  lead: ['Lucía Pérez', 'Martina Sosa', 'Tomás Vera', 'Julia Ríos'],
   motivo: ['Precio', 'No es el momento', 'No respondió', 'Eligió otro'],
   estado: ['Al día', 'Pendiente', 'Vencida'],
   pagina: ['/inicio', '/oferta', '/gracias'],
@@ -69,6 +72,20 @@ const GEO_CIUDAD: Record<string, { lat: number; lon: number }> = {
 function etiquetasDe(dimId: string, valores?: readonly string[]): string[] {
   if (valores?.length) return [...valores];
   return [...(EJEMPLOS[dimId] ?? ['Opción A', 'Opción B', 'Opción C', 'Opción D'])];
+}
+
+/**
+ * La miniatura de un anuncio de ejemplo: un póster inventado (un degradé, el ▶ y dos renglones de texto), en un data URI
+ * de SVG. Nunca la de un anuncio de verdad: la galería es igual para todos los negocios.
+ */
+export function posterDeMuestra(i: number): string {
+  const tonos = [['#FF8A5B', '#B8336A'], ['#4FACFE', '#2E3FB0'], ['#43E97B', '#0F7A5A'], ['#F9D423', '#E8590C']][i % 4];
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 120"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">`
+    + `<stop offset="0" stop-color="${tonos[0]}"/><stop offset="1" stop-color="${tonos[1]}"/></linearGradient></defs>`
+    + `<rect width="160" height="120" fill="url(#g)"/><circle cx="80" cy="52" r="22" fill="#fff" fill-opacity=".9"/>`
+    + `<path d="M74 41v22l18-11z" fill="${tonos[1]}"/><rect x="22" y="88" width="116" height="8" rx="4" fill="#fff" fill-opacity=".9"/>`
+    + `<rect x="40" y="101" width="80" height="6" rx="3" fill="#fff" fill-opacity=".6"/></svg>`;
+  return `data:image/svg+xml;base64,${btoa(svg)}`;
 }
 
 /** El resultado de ejemplo de `g`. `hoy` (YYYY-MM-DD) ancla el tiempo: «los últimos días» se leen bien cualquier día. */
@@ -138,7 +155,14 @@ export function resultadoDeMuestra(g: Grafico, hoy: string): Resultado {
     });
   }
 
-  const out: Resultado = { columnas, filas, totales, fuera: 0, clase };
+  // Las columnas extra (la urgencia de una cuota, la señal de un cliente): sus valores de ejemplo, uno por fila. Sin esto
+  // la columna salía vacía en la galería.
+  const extras = (g.tabla?.columnas ?? []).map((id) => ({ id, valores: fuente ? etiquetasDe(id, dimensionDe(fuente, id)?.valores) : [] })).filter((x) => x.valores.length);
+  if (extras.length) filas = filas.map((f, i) => ({ ...f, extra: Object.fromEntries(extras.map((x) => [x.id, x.valores[(i + 1) % x.valores.length]])) }));
+  // Los anuncios de ejemplo traen su MINIATURA (inventada): la portada de Ads Analyst y de Anuncios son pósters.
+  if (dim?.id === 'anuncio' || dim?.id === 'guion') filas = filas.map((f, i) => ({ ...f, imagen: posterDeMuestra(i) }));
+  const out: Resultado = { columnas, filas, totales, fuera: 0, clase, muestra: true };
+  if (extras.length) out.columnasExtra = extras.map((x) => ({ id: x.id, nombre: (fuente && dimensionDe(fuente, x.id)?.nombre) || x.id }));
   if (g.comparar) out.anterior = totales.map((t, j) => (t == null ? null : Math.round(t * (0.72 + azar(semilla, 50 + j) * 0.2) * 10) / 10));
   // La tendencia de un cuadro de resultados: los últimos 14 días, subiendo con ruido.
   if (!dim) {

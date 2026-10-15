@@ -48,6 +48,7 @@ import { esTarjetaNumero } from './Grafico';
 import { popupInicial } from './Popup';
 import { useEnGeneral } from './ElementoGeneral';
 import { FUENTES_GENERAL } from '@/lib/general-piezas';
+import { IDENTIDADES } from '@/lib/graficos-identidad';
 
 const ICONO_AREA: Record<Area, NombreIconoMenu> = {
   Negocio: 'dinero', Marketing: 'anuncio', 'CRM y ventas': 'persona', 'Comunicación': 'whatsapp', Automations: 'repetir',
@@ -247,6 +248,17 @@ export function PropsGrafico({ g, hoja, hoy, enPopup = false, onCambiar, onCambi
             <Switch checked={!!g.ocultarSiCero} onChange={(v) => onCambiar({ ocultarSiCero: v ? true : undefined })} label="Ocultar si da cero" />
           </Seccion>
         )}
+
+        {/* La PORTADA (15/10/2026, lib/graficos-identidad.ts): pintar la tarjeta con un color de la tabla, o sacárselo. */}
+        <Seccion titulo="Portada">
+          <div className="lk-portadas" role="radiogroup" aria-label="Color de portada">
+            <button type="button" role="radio" className="lk-portada-op lk-portada-op--no" aria-checked={!g.portada} title="Sin portada" onClick={() => onCambiar({ portada: undefined })}>✕</button>
+            {IDENTIDADES.map((x) => (
+              <button key={x.id} type="button" role="radio" className="lk-portada-op" aria-checked={g.portada === x.id} title={x.nombre} aria-label={x.nombre}
+                style={{ background: x.fondo }} onClick={() => onCambiar({ portada: x.id })} />
+            ))}
+          </div>
+        </Seccion>
 
         {conObjetivo && (
           <Seccion titulo="Objetivo">

@@ -38,6 +38,7 @@ import {
 } from './graficos-catalogo';
 import { ARMADO, PLANTILLAS_ANALYSTS, PLANTILLAS_POPUP, POPUP_ANUNCIO } from './graficos-plantillas-analysts';
 import { PLANTILLAS_GENERALES } from './graficos-plantillas-generales';
+import { colorDashboard, conPortada, portadasDashboard } from './graficos-portadas';
 import { PLANTILLAS_GENERAL } from './general-plantillas';
 import type { RolWorkspace } from './auth-session';
 import { CAPA_DE_HOJA_DE_ROL } from './graficos-roles';
@@ -127,17 +128,16 @@ const COMERCIAL: PlantillaHoja = {
       id: id('comercial'), nombre: 'Comercial', emoji: '💼', subtitulo: 'Revenue, cobranza, funnel y cohortes.',
       controles: [{ id: id('co-periodo'), tipo: 'periodo', preset: 'ult30' }],
       componentes: [
-        // 1 · Revenue: la barra cobrado/pendiente, Sold, Cash y Outstanding, y el MRR (una lectura: `revenue`).
-        //     El Outstanding mira hacia ADELANTE con su período a la vista (este mes completo, como el bloque de
-        //     antes, que llegaba al fin de mes).
-        { id: id('co-revenue-barra'), clase: 'grafico', tipo: 'barra_proporcion', fuente: 'revenue', metricas: ['cobrado', 'pendiente'], titulo: 'Revenue', x: 0, y: 6, w: 12, h: 3 },
-        kpi(id('co-revenue-vendido'), 'revenue', 'vendido', 'Sold Revenue', '', 6, 0, { w: 6, h: 3, secundaria: 'cierres' }),
-        // El TITULAR de Comercial (ver TITULARES): lo que entró, a media hoja.
-        kpi(id('co-revenue-cobrado'), 'revenue', 'cobrado', 'Cash Collected', '', 0, 0, { w: 6, h: 6, comparar: true }),
-        kpi(id('co-revenue-pendiente'), 'revenue', 'pendiente', 'Outstanding', '', 6, 3, {
+        // 1 · Revenue: la barra cobrado/pendiente (la PORTADA de la hoja, lib/graficos-portadas.ts), Sold, Cash y
+        //     Outstanding, y el MRR (una lectura: `revenue`). El Outstanding mira hacia ADELANTE con su período a la vista
+        //     (este mes completo, como el bloque de antes, que llegaba al fin de mes).
+        { id: id('co-revenue-barra'), clase: 'grafico', tipo: 'barra_proporcion', fuente: 'revenue', metricas: ['cobrado', 'pendiente'], titulo: 'Revenue', x: 0, y: 3, w: 12, h: 3 },
+        kpi(id('co-revenue-vendido'), 'revenue', 'vendido', 'Sold Revenue', '', 0, 0, { h: 3, secundaria: 'cierres' }),
+        kpi(id('co-revenue-cobrado'), 'revenue', 'cobrado', 'Cash Collected', '', 3, 0, { h: 3, comparar: true }),
+        kpi(id('co-revenue-pendiente'), 'revenue', 'pendiente', 'Outstanding', '', 6, 0, {
           h: 3, controles: [periodoVisible(id('co-revenue-pendiente-fecha'), 'este_mes_completo')],
         }),
-        kpi(id('co-revenue-mrr'), 'suscripciones', 'mrr', 'MRR', '', 9, 3, { h: 3, ocultarSiCero: true }),
+        kpi(id('co-revenue-mrr'), 'suscripciones', 'mrr', 'MRR', '', 9, 0, { h: 3, ocultarSiCero: true }),
         // 2 · A quién cobrarle: el desplegable (una sección plegada) con «Marcar cobrada» en cada fila. La
         //     sección sin título de abajo CIERRA el grupo: sin ella, plegarla escondería el resto de la hoja.
         { id: id('co-cobranza-seccion'), clase: 'elemento', tipo: 'seccion', texto: 'A quién cobrarle', seccion: { fondo: null, plegable: true, abierto: false }, x: 0, y: 9, w: 12, h: 1 },
@@ -177,71 +177,18 @@ const COMERCIAL: PlantillaHoja = {
   },
 };
 
-// ── El TITULAR (14/10/2026) ───────────────────────────────────────────────────────────────────────────────────────────
-// Martín: «Quiero el mismo criterio de EPICIDAD en los dashboards… Solo que ahí hay más gráficos… Que se rediseñe todo».
-// Lo que eso no es: sacar gráficos. Lo que es: que la hoja tenga UN número que domina —el titular— y el resto alrededor,
-// en vez de una fila de cuatro cajas del mismo peso. La primera fila de números de cada plantilla se vuelve: el titular a
-// media hoja (6 × 6, el número crece con su tarjeta: ESCALA_EPICA en lib/graficos-gordo.ts) y los demás a su lado, en una
-// grilla de 2 × 2 (de 3 × 2 si son cinco). El resto de la hoja baja lo que creció esa fila. Y los números del titular y de
-// su grilla van sin subtítulo: en el teléfono aprobado (v3) lo primero que se sacó fueron las descripciones.
-//
-// Qué número es el titular de cada hoja es una decisión de producto, tomada acá y reportada para la Ticketera (si Martín
-// elige otro, se cambia en esta tabla y nada más).
-const TITULARES: Readonly<Record<string, string>> = {
-  marketing: 'mk-cac', comercial: 'co-revenue-cobrado', 'ads-analyst': 'ad-cpa', landing: 'la-visitas', 'vsl-analyst': 'vs-final',
-  'chat-analyst': 'ch-rapidos', closing: 'cl-tasa', 'cs-analyst': 'cs-atencion', productividad: 'pr-avance', crm: 'leads',
-  cobranza: 'cobrado', automatizaciones: 'respuesta', 'ia-contenido': 'costo',
-};
-const ALTO_TITULAR = 6;
-
-/** ¿Este id (con el prefijo que le pone `armar`) es el local `local`? */
-const esLocal = (id: unknown, local: string) => typeof id === 'string' && (id === local || id.endsWith(`-${local}`) || id.endsWith(local));
-
-/**
- * Reacomoda la fila de arriba de una hoja armada: el titular y su grilla. Pura sobre los componentes CRUDOS (antes del
- * saneo), así vale para las plantillas escritas a mano y para las que arma `acomodar`. Sin una fila de 2 números o más
- * (Comercial empieza con su barra de proporción), no toca nada.
- */
-export function conTitular(hoja: Record<string, unknown>, titular: string | undefined): Record<string, unknown> {
-  const comps = Array.isArray(hoja.componentes) ? (hoja.componentes as Array<Record<string, unknown>>) : [];
-  const esNumero = (c: Record<string, unknown>) => c.clase === 'grafico' && (c.tipo === 'numero' || c.tipo === 'numero_compacto');
-  const y0 = Math.min(...comps.map((c) => Number(c.y) || 0));
-  const fila = comps.filter((c) => (Number(c.y) || 0) === y0 && esNumero(c)).sort((a, b) => (Number(a.x) || 0) - (Number(b.x) || 0));
-  if (fila.length < 2 || fila.length !== comps.filter((c) => (Number(c.y) || 0) === y0).length) return hoja;
-  // Una hoja que ya trae su titular armado a mano (Comercial) no se vuelve a acomodar.
-  if (fila.some((c) => (Number(c.w) || 0) >= 6 && (Number(c.h) || 0) >= 5)) return hoja;
-  const altoFila = Math.max(...fila.map((c) => Number(c.h) || 0));
-  const t = (titular && fila.find((c) => esLocal(c.id, titular))) || fila[0];
-  const otros = fila.filter((c) => c !== t);
-  const cols = otros.length > 4 ? 3 : 2;
-  const filas = Math.max(1, Math.ceil(otros.length / cols));
-  const alto = Math.floor(ALTO_TITULAR / filas);
-  const lugar = new Map<Record<string, unknown>, { x: number; y: number; w: number; h: number }>();
-  lugar.set(t, { x: 0, y: y0, w: 6, h: ALTO_TITULAR });
-  otros.forEach((c, i) => {
-    const r = Math.floor(i / cols);
-    const enFila = Math.min(cols, otros.length - r * cols);
-    const w = Math.floor(6 / enFila);
-    const k = i - r * cols;
-    lugar.set(c, { x: 6 + k * w, y: y0 + r * alto, w: k === enFila - 1 ? 6 - k * w : w, h: r === filas - 1 ? ALTO_TITULAR - r * alto : alto });
-  });
-  const baja = ALTO_TITULAR - altoFila;
-  return {
-    ...hoja,
-    componentes: comps.map((c) => {
-      const l = lugar.get(c);
-      if (l) return { ...c, ...l, subtitulo: '' };
-      return (Number(c.y) || 0) > y0 ? { ...c, y: (Number(c.y) || 0) + baja } : c;
-    }),
-  };
-}
-const conTitularDe = (p: PlantillaHoja): PlantillaHoja => ({ ...p, armar: (id) => conTitular(p.armar(id), TITULARES[p.id]) });
+// ── La PORTADA (15/10/2026) ───────────────────────────────────────────────────────────────────────────────────────────
+// Martín rechazó las galerías («todos parecen muy iguales», «muchos gráficos juntos parece dashboard»): cada plantilla
+// abre con UNA pieza a lo ancho, con la forma de su objetivo y su color (lib/graficos-portadas.ts y
+// lib/graficos-identidad.ts). Reemplaza al titular 6 × 6 del 14/10, que dejaba cuatro piezas compitiendo arriba.
+const PORTADAS = portadasDashboard((id, base) => popupDe(POPUP_ANUNCIO, id, base));
+const conPortadaDe = (p: PlantillaHoja): PlantillaHoja => ({ ...p, armar: (id) => conPortada(p.armar(id), PORTADAS[p.id], colorDashboard(p.id), id) });
 
 /**
  * La galería de «Nueva hoja», en orden. Marketing y Comercial son las del informe inicial; el resto
  * se arma con los conjuntos del catálogo.
  */
-export const PLANTILLAS_HOJA: readonly PlantillaHoja[] = [MARKETING, COMERCIAL, ...PLANTILLAS_ANALYSTS, ...PLANTILLAS_GENERALES].map(conTitularDe);
+export const PLANTILLAS_HOJA: readonly PlantillaHoja[] = [MARKETING, COMERCIAL, ...PLANTILLAS_ANALYSTS, ...PLANTILLAS_GENERALES].map(conPortadaDe);
 
 /**
  * Las plantillas que se fueron, y la que las reemplaza (v5): la general «WhatsApp y MaKo» es Chat Analyst y
@@ -273,7 +220,7 @@ function fija(p: PlantillaHoja): Hoja {
  * rearmadas como hojas en el mismo orden y lugar, y con el filtro de fecha arriba.
  */
 export function tableroInicial(): Tablero {
-  return { v: 3, nombre: NOMBRE_INICIAL, hojas: [fija(conTitularDe(MARKETING)), fija(conTitularDe(COMERCIAL))] };
+  return { v: 3, nombre: NOMBRE_INICIAL, hojas: [fija(conPortadaDe(MARKETING)), fija(conPortadaDe(COMERCIAL))] };
 }
 
 /** Los componentes de una plantilla (para los tests y el modal). */

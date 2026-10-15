@@ -32,6 +32,7 @@ import { fmtValor, OTROS, type FilaResultado, type Resultado } from '@/lib/grafi
 import { columnasQueEntran, textoConMuestra } from '@/lib/graficos-gordo';
 import { useMedida } from './medida';
 import { useColumnaAcciones } from '../entidades/acciones-fila';
+import { iniciales } from '@/lib/graficos-identidad';
 
 export type ColumnaExtra = { id: string; nombre: string };
 /** Las dimensiones extra de una fila (`FilaResultado.extra`, las arma el agregador): su texto, o vacío. */
@@ -53,7 +54,7 @@ const ANCHO_ANGOSTA = { nombre: 112, barra: 140, numero: 84, extra: 104, accione
 /** Por debajo de este ancho la tabla va angosta (el mismo corte que el @container de estilos-html.ts). */
 const CORTE_ANGOSTA = 480;
 
-export function Tabla({ r, modo, barraEn, color, menosEsMejor, extras, total, compacto, alFila }: {
+export function Tabla({ r, modo, barraEn, color, menosEsMejor, extras, total, compacto, alFila, personas = false }: {
   r: Resultado; modo: 'plana' | 'barras' | 'calor';
   /** El índice de la métrica con barra (modo 'barras'), o -1 = sin barra. */
   barraEn: number;
@@ -61,6 +62,8 @@ export function Tabla({ r, modo, barraEn, color, menosEsMejor, extras, total, co
   menosEsMejor: (i: number) => boolean;
   extras: readonly ColumnaExtra[];
   total: boolean; compacto: boolean; alFila?: (clave: string) => void;
+  /** Sobre una portada, una lista de personas: el nombre lleva el avatar con sus iniciales. */
+  personas?: boolean;
 }) {
   const [ref, tam] = useMedida<HTMLDivElement>();
   const acciones = useColumnaAcciones();
@@ -112,7 +115,7 @@ export function Tabla({ r, modo, barraEn, color, menosEsMejor, extras, total, co
             const p = conBarra && max[barraEn] ? Math.min(100, (Math.max(0, v ?? 0) / max[barraEn]) * 100) : 0;
             return (
               <tr key={f.clave} {...propsFila(f.clave, alFila)}>
-                <td className="gr-izq gr-nombre" title={f.etiqueta}>{f.etiqueta}</td>
+                <td className="gr-izq gr-nombre" title={f.etiqueta}>{personas && f.clave !== OTROS && <span className="gr-avatar" aria-hidden>{iniciales(f.etiqueta)}</span>}{f.etiqueta}</td>
                 {conBarra && (
                   <td className="gr-izq">
                     <span className="gr-celda-barra">

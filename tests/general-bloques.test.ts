@@ -52,7 +52,7 @@ import { FUENTES, TIPOS, sanearElemento } from '../lib/graficos-catalogo';
 import {
   ELEMENTOS_FUERA_DE_GENERAL, FUENTES_GENERAL, PIEZAS_GENERAL, TIPOS_GENERAL, opcionDe, opcionesDePieza, sanearOpciones,
 } from '../lib/general-piezas';
-import { DEFINICIONES_GENERAL, PLANTILLAS_GENERAL } from '../lib/general-plantillas';
+import { DEFINICIONES_GENERAL, PLANTILLAS_GENERAL, PORTADAS_GENERAL } from '../lib/general-plantillas';
 import { BARRA_INSERTAR, lugaresInsertar } from '../app/dashboard/Galeria';
 
 const RAIZ = join(import.meta.dirname, '..');
@@ -121,6 +121,12 @@ test('las plantillas de General usan sólo lo que General ofrece', () => {
     }
   }
   assert.ok(graficos >= 20, `revisé ${graficos} gráficos: el recorrido no está mirando`);
+  // Y las PORTADAS (15/10/2026): la que es nueva y la que cambia el tipo de lo que sube.
+  for (const [id, def] of Object.entries(PORTADAS_GENERAL)) {
+    const g = ('nueva' in def ? def.nueva((l) => l) : def.cambios ?? {}) as { tipo?: string; fuente?: string };
+    if (g.tipo) assert.ok((TIPOS_GENERAL as readonly string[]).includes(g.tipo), `la portada de ${id}: «${g.tipo}» no está en la galería de General`);
+    if (g.fuente) assert.ok((FUENTES_GENERAL as readonly string[]).includes(g.fuente), `la portada de ${id}: «${g.fuente}» no está en «Añadir datos»`);
+  }
 });
 
 test('cada bloque se dibuja, tiene vista previa, y vacío muestra su placeholder', () => {
@@ -263,8 +269,9 @@ test('las plantillas: simples, cada dato una vez, de a dos sin estirar, y con t�
       if (el?.tipo === 'general') {
         piezas.push(el.general!.pieza);
         // Un bloque que la fila estira más que lo que pide es el espacio en blanco del reporte.
-        const c = hoja.componentes.find((x) => x.id === p.local)!;
-        assert.equal(c.h, el.h, `${d.id}/${p.local}: la fila lo estira de ${el.h} a ${c.h}`);
+        const c = hoja.componentes.find((x) => x.id === p.local)! as { h: number; portada?: string };
+        // La PORTADA (15/10/2026) mide lo que mide a propósito: es la pieza a lo ancho de arriba, no una fila estirada.
+        if (!c.portada) assert.equal(c.h, el.h, `${d.id}/${p.local}: la fila lo estira de ${el.h} a ${c.h}`);
       }
       // El mismo dato es la misma métrica VISTA IGUAL (el mismo conjunto, las mismas métricas y la misma dimensión): un
       // número y su serie por día son dos lecturas; «Leads por etapa» al lado del funnel, la misma.

@@ -8186,6 +8186,12 @@ costó, en [docs/hallazgos-objectives.md](docs/hallazgos-objectives.md) → «Ge
   una se decide si lo puede dibujar; si no, se excluye con un error que diga dónde va.
 - **Tocar `EditorInforme` es tocar sus guards de fuente**: `tests/graficos*` y `tests/dashboard-*` leen el editor por
   regex, y una variante nueva los pone rojos. Se corren antes de dar el editor por terminado.
+- **Toda plantilla (del Dashboard o de General) abre con su PORTADA y tiene su COLOR** (15/10/2026, Martín: «A simple
+  vista se tienen que diferenciar MUY bien de qué es cada template»): una pieza a lo ancho con la forma de lo que esa hoja
+  contesta (`lib/graficos-portadas.ts`, `PORTADAS_GENERAL`) y su color en LA tabla compartida (`lib/graficos-identidad.ts`:
+  el mismo tema con el mismo color en las dos galerías, ninguno repetido adentro de una). Una plantilla nueva sin las dos
+  no pasa `tests/graficos-portadas.test.ts`. Lo que una portada promete se mide ANTES con el lector que la va a dibujar (la
+  de Instagram prometía leads que no existen): docs/hallazgos-graficos.md → «Las portadas».
 
 # MaKo Mobile (/m): lo que gobierna una pantalla nueva del teléfono
 

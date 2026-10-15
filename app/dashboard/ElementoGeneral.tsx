@@ -23,7 +23,7 @@
 
 import { createContext, useContext, type ReactNode } from 'react';
 import type { Elemento } from '@/lib/graficos-catalogo';
-import { opcionDe, piezaGeneral, type OpcionesElegidas, type PiezaGeneral, type ValoresVariables } from '@/lib/general-piezas';
+import { conVariables, opcionDe, piezaGeneral, type OpcionesElegidas, type PiezaGeneral, type ValoresVariables } from '@/lib/general-piezas';
 
 export type FunnelElegible = { id: number; nombre: string };
 
@@ -74,7 +74,8 @@ export function ElementoGeneral({ e }: { e: Elemento }) {
   if (!pieza) return null;
   const info = piezaGeneral(pieza);
   const nodo = g?.dibujar(e) ?? null;
-  const titulo = e.texto.trim();
+  // El título propio puede llevar variables («{{saludo}}, {{nombre}}»: el de la portada de la Bienvenida, 15/10/2026).
+  const titulo = g ? conVariables(e.texto.trim(), g.variables) : e.texto.trim();
   const oscuro = opcionDe(pieza, e.general?.opciones, 'fondo') === 'oscuro';
   return (
     <div className="gen-pieza" data-pieza={pieza} data-oscuro={oscuro ? '' : undefined}>
@@ -98,7 +99,7 @@ export function PiezaGeneralDeMuestra({ e }: { e: Elemento }) {
   const g = useContext(Contexto);
   const pieza = e.general?.pieza;
   if (!g || !pieza) return null;
-  const titulo = e.texto.trim();
+  const titulo = conVariables(e.texto.trim(), g.variables);
   const oscuro = opcionDe(pieza, e.general?.opciones, 'fondo') === 'oscuro';
   return (
     <div className="gen-pieza" data-pieza={pieza} data-oscuro={oscuro ? '' : undefined}>

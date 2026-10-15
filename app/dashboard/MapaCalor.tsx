@@ -23,7 +23,7 @@
 // los filtros dejan varias, se elige acá adentro; la elección es de la VISTA y no se guarda en el informe.
 // =============================================================================
 
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { Select, Spinner } from '@/app/_ui';
 import { AreaMedida } from './graficos/medida';
 import type { PropsDibujo } from './graficos/registro';
@@ -77,7 +77,43 @@ async function leer<T>(clave: string, campo: 'paginas' | 'data'): Promise<Leido<
   }
 }
 
-export default function MapaCalor({ g, efectivo }: PropsDibujo & { efectivo?: Efectivo }) {
+/**
+ * La MUESTRA (15/10/2026): la miniatura de la galería y el arnés dibujan con datos de ejemplo (`Resultado.muestra`,
+ * lib/graficos-muestra.ts), y el mapa de calor no los usa: pedía los toques DEL NEGOCIO, así que la galería mostraba la
+ * página de un cliente (o un «cargando» eterno en la portada de Landing). Con la muestra, una landing inventada —el
+ * título, el botón, la foto, los testimonios— con el calor donde se toca de verdad: el botón y el título.
+ */
+function MapaCalorMuestra() {
+  const bloque = (estilo: CSSProperties) => <div style={{ position: 'absolute', borderRadius: 6, background: 'var(--border)', ...estilo }} />;
+  const calor = (x: string, y: string, r: string, fuerza: number) => (
+    <div style={{ position: 'absolute', left: x, top: y, width: r, aspectRatio: '1', transform: 'translate(-50%, -50%)', borderRadius: '50%',
+      background: `radial-gradient(circle, rgba(255,40,0,${0.85 * fuerza}) 0%, rgba(255,170,0,${0.6 * fuerza}) 35%, rgba(255,235,0,${0.3 * fuerza}) 60%, transparent 72%)` }} />
+  );
+  return (
+    <div aria-label="Mapa de calor de ejemplo" style={{ flex: 1, minHeight: 0, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', overflow: 'hidden' }}>
+      <div style={{ position: 'relative', width: 'min(100%, 560px)', height: '100%', minHeight: 200, borderRadius: '14px 14px 0 0', background: 'var(--surface)', border: '1px solid var(--border)', borderBottom: 'none', overflow: 'hidden' }}>
+        {bloque({ left: '8%', top: '6%', width: '22%', height: '5%' })}
+        {bloque({ left: '62%', top: '6%', width: '30%', height: '5%' })}
+        {bloque({ left: '14%', top: '20%', width: '72%', height: '9%', background: 'var(--border-strong)' })}
+        {bloque({ left: '22%', top: '33%', width: '56%', height: '4%' })}
+        {bloque({ left: '34%', top: '44%', width: '32%', height: '10%', borderRadius: 999, background: 'var(--ink)' })}
+        {bloque({ left: '8%', top: '62%', width: '40%', height: '30%' })}
+        {bloque({ left: '52%', top: '62%', width: '40%', height: '13%' })}
+        {bloque({ left: '52%', top: '79%', width: '40%', height: '13%' })}
+        {calor('50%', '49%', '46%', 1)}
+        {calor('50%', '24%', '40%', 0.7)}
+        {calor('28%', '74%', '26%', 0.45)}
+        {calor('72%', '68%', '18%', 0.35)}
+      </div>
+    </div>
+  );
+}
+
+export default function MapaCalor(props: PropsDibujo & { efectivo?: Efectivo }) {
+  return props.estado.resultado?.muestra ? <MapaCalorMuestra /> : <MapaCalorDatos {...props} />;
+}
+
+function MapaCalorDatos({ g, efectivo }: PropsDibujo & { efectivo?: Efectivo }) {
   const hoy = useMemo(() => hoyEnTijuana(), []);
   const ef = useMemo(() => efectivo ?? efectivoDe(g, hojaSinControles(), {}, hoy), [efectivo, g, hoy]);
   const consulta = useMemo(

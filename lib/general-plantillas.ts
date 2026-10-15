@@ -19,6 +19,8 @@ import { sanearHoja, type Hoja, type Tablero } from './graficos-catalogo';
 import { plantilla, type DefinicionGeneral, type PiezaPlantilla } from './graficos-plantillas-generales';
 import type { PlantillaHoja } from './graficos-plantillas';
 import { piezaGeneral, type PiezaGeneral } from './general-piezas';
+import { conPortada, type DefinicionPortada } from './graficos-portadas';
+import { COLOR_GENERAL } from './graficos-identidad';
 
 /** Un bloque de General como pieza de plantilla, con su tamaño de siempre (o el que se le pida) y sus opciones. */
 const bloque = (pieza: PiezaGeneral, extra: { w?: number; h?: number; titulo?: string; opciones?: Record<string, string> } = {}): PiezaPlantilla => {
@@ -26,9 +28,6 @@ const bloque = (pieza: PiezaGeneral, extra: { w?: number; h?: number; titulo?: s
   const general = extra.opciones ? { pieza, opciones: extra.opciones } : { pieza };
   return { local: pieza, elemento: { tipo: 'general', texto: extra.titulo ?? '', general, w: extra.w ?? info.w, h: extra.h ?? info.h } };
 };
-/** Un texto (un título grande, una línea) con variables. */
-const texto = (local: string, t: string, tamano: 's' | 'm' | 'l' | 'xl' = 'l'): PiezaPlantilla =>
-  ({ local, elemento: { tipo: 'texto', texto: t, tamano } });
 /**
  * El título de una parte de la hoja: una SECCIÓN (lib/graficos-catalogo.ts) sin fondo ni pliegue, que es un título con
  * su línea debajo. Martín, 14/10/2026: «No tienen títulos, no tienen separaciones claras, no se entienden».
@@ -71,6 +70,8 @@ const numero = (local: string, fuente: string, metrica: string, titulo: string, 
  *   · LA BIENVENIDA ES EL SALUDO solo: la línea de la fecha era la segunda línea que el teléfono saca.
  */
 const TEMA = 'general';
+/** Lo que define a los números de la plantilla Instagram: la audiencia de Meta sólo de Instagram (un filtro FIJO). */
+const SOLO_INSTAGRAM = { tipo: 'lista', campo: 'audiencia.plataforma', valores: ['Instagram'], fijo: true };
 
 export const DEFINICIONES_GENERAL: readonly DefinicionGeneral[] = [
   {
@@ -90,10 +91,10 @@ export const DEFINICIONES_GENERAL: readonly DefinicionGeneral[] = [
     id: 'bienvenida', nombre: 'Bienvenida', emoji: '👋',
     linea: 'Te saluda por tu nombre y te deja lo de hoy: qué hacer, tu día y tus compromisos.',
     subtitulo: '', tema: TEMA, periodo: 'este_mes',
+    // Desde el 15/10/2026 el saludo es el TITULAR de la portada (la acción del día, `PORTADAS_GENERAL`), no un texto aparte.
     piezas: [
-      texto('hola', '{{saludo}}, {{nombre}}', 'xl'),
-      bloque('accion', { h: 8 }), bloque('agenda'),
-      bloque('kpis'),
+      bloque('accion', { w: 12, h: 8, titulo: '{{saludo}}, {{nombre}}' }),
+      bloque('agenda', { h: 8 }), bloque('kpis', { w: 6, h: 8 }),
     ],
   },
   {
@@ -211,6 +212,21 @@ export const DEFINICIONES_GENERAL: readonly DefinicionGeneral[] = [
       bloque('publicaciones'),
     ],
   },
+  {
+    // 15/10/2026 (Martín: «faltaría uno para Instagram»). Medido en la base ANTES de armarla: ningún lead dice «Instagram»
+    // en su origen (el 1.062 que se había contado era `instant_form`, los formularios de Meta, que son de Facebook O de
+    // Instagram), y ningún negocio tiene los DM conectados. Lo que sí hay, para cada negocio con Meta, es la AUDIENCIA por
+    // plataforma (lib/graficos-audiencia.ts): cuánto te ven, cuántos tocan y cuántos agendan desde Instagram.
+    id: 'instagram', nombre: 'Instagram', emoji: '📸',
+    linea: 'Lo que te trae Instagram contra Facebook: cuántos te ven, cuántos tocan y cuántos agendan.',
+    subtitulo: '', tema: TEMA, periodo: 'ult30',
+    piezas: [
+      { local: 'plataformas', tipo: 'anillo', fuente: 'audiencia', dimension: 'plataforma', metricas: ['agendas'], titulo: 'Lo que te trae Instagram' },
+      numero('vistas', 'audiencia', 'impresiones', 'Te vieron en Instagram', { comparar: false, controles: [SOLO_INSTAGRAM] }),
+      numero('clics', 'audiencia', 'clics', 'Tocaron tu anuncio', { comparar: false, controles: [SOLO_INSTAGRAM] }),
+      numero('agendas', 'audiencia', 'agendas', 'Agendaron desde Instagram', { comparar: false, controles: [SOLO_INSTAGRAM] }),
+    ],
+  },
 ];
 
 /** Cuántas filas mide un número del catálogo en una plantilla de General (el del catálogo mide 3). */
@@ -241,9 +257,54 @@ export function conNumerosAltos<T extends { componentes?: unknown }>(hoja: T): T
   return { ...hoja, componentes };
 }
 
+/**
+ * LAS PORTADAS de General (15/10/2026, lib/graficos-portadas.ts y lib/graficos-identidad.ts). General es lo que se HACE
+ * hoy: arriba va UNA cosa para hacer o UNA cosa que mirar, no un análisis. Lo que contesta cada una:
+ *   · General — ¿llego a la meta? La meta con su anillo.
+ *   · Bienvenida — ¿qué hago hoy? «Buenos días, Ana» y la acción del día.
+ *   · Foco de la semana — ¿avanzo en mis OKRs? Un anillo por OKR.
+ *   · Operación diaria — ¿qué hago primero? La tarea #1 del Plan, sola.
+ *   · Ventas del mes — ¿cuánto vendí? Lo vendido, gigante, contra el mes anterior.
+ *   · Cobros — ¿a quién le cobro? La lista con «Marcar cobrada».
+ *   · Anuncios — ¿qué anuncio funciona? Los ganadores como pósters, con su miniatura.
+ *   · Funnel de llamadas — ¿con quién hablo? Las próximas llamadas.
+ *   · Ventas por WhatsApp — ¿quién me espera? Los chats sin responder, en la burbuja.
+ *   · Contenido y lanzamiento — ¿me miran? Cuántos le dan play, con el ▶.
+ *   · Agencia o servicio — ¿a quién atiendo? Las personas que piden atención.
+ *   · Curso o comunidad — ¿avanzan? El avance de los alumnos, como una barra hacia el 100 %.
+ *   · Instagram — ¿qué me trae? Instagram contra Facebook, en agendas.
+ */
+export const PORTADAS_GENERAL: Readonly<Record<string, DefinicionPortada>> = {
+  general: { sube: 'cabecera' },
+  bienvenida: { sube: 'accion' },
+  foco: { sube: 'objetivos' },
+  operacion: { sube: 'prioridades', cambios: { general: { pieza: 'prioridades', opciones: { cuantas: '1', objetivo: 'no' } }, texto: 'Lo primero de hoy' } },
+  ventas: {
+    nueva: (id) => ({ id: id('ventas-portada'), clase: 'grafico', tipo: 'numero', fuente: 'leads', fecha: 'cierre', metricas: ['vendido'], dimension: null, comparar: true, titulo: 'Lo que vendiste este mes' }),
+  },
+  cobros: { sube: 'cobranza', cambios: { texto: 'A quién cobrarle hoy' } },
+  anuncios: {
+    nueva: (id) => ({
+      id: id('anuncios-portada'), clase: 'grafico', tipo: 'tarjetas', fuente: 'meta', dimension: 'anuncio', metricas: ['leads', 'cpl'],
+      ordenMetrica: 'leads', barra: 'leads', limite: 3, titulo: 'Los anuncios que más te traen',
+    }),
+  },
+  'funnel-llamadas': { sube: 'llamadas', cambios: { texto: 'Con quién hablas' } },
+  'funnel-whatsapp': { sube: 'sin-responder', cambios: { titulo: 'Te están esperando en WhatsApp' } },
+  lanzamiento: { sube: 'play', cambios: { tipo: 'indicador', maximo: 100, titulo: 'Le dan play a tu video' } },
+  servicio: {
+    nueva: (id) => ({
+      id: id('servicio-portada'), clase: 'grafico', tipo: 'tarjetas', fuente: 'cartera', dimension: 'cliente', metricas: ['atencion', 'deuda_vencida_usd', 'sesiones'],
+      ordenMetrica: 'atencion', barra: 'deuda_vencida_usd', limite: 3, tabla: { columnas: ['senal', 'tramo_contacto'] }, titulo: 'Quién te necesita hoy',
+    }),
+  },
+  curso: { sube: 'avance', cambios: { tipo: 'bala', metricas: ['avance'], maximo: 100, titulo: 'Cuánto avanzan tus alumnos' } },
+  instagram: { sube: 'plataformas' },
+};
+
 /** La galería de General, en orden. «Hoja en blanco» va primera siempre (la pone el modal). */
 export const PLANTILLAS_GENERAL: readonly PlantillaHoja[] = DEFINICIONES_GENERAL.map(plantilla)
-  .map((p) => ({ ...p, armar: (id: (local: string) => string) => conNumerosAltos(p.armar(id)) }));
+  .map((p) => ({ ...p, armar: (id: (local: string) => string) => conPortada(conNumerosAltos(p.armar(id)), PORTADAS_GENERAL[p.id], COLOR_GENERAL[p.id], id) }));
 
 /** Lo que /general tiene de propio en la galería (la de su «Nueva hoja»): éstas, nunca las del Dashboard. */
 export const esPlantillaGeneral = (id: string): boolean => PLANTILLAS_GENERAL.some((p) => p.id === id);

@@ -35,6 +35,7 @@ import {
 import { FUENTES_EXTRA } from './graficos-fuentes-extra';
 import { esPiezaGeneral, piezaPorFunnel, sanearOpciones, type OpcionesElegidas, type PiezaGeneral } from './general-piezas';
 import { idDeParte, idLibre, migrarBloquesV5 } from './graficos-migrar-v5';
+import { identidadDe } from './graficos-identidad';
 
 export { AREAS };
 export type { Area, ClaseDim, Dimension, Formato, Fuente, Metrica };
@@ -1018,6 +1019,11 @@ export type Grafico = {
   tabla?: { sinVacios?: boolean; descendente?: boolean; columnas?: string[]; acciones?: boolean; buscar?: boolean };
   /** El mapa: el país (ISO-2, o 'auto' = el de la cuenta) y a qué nivel se dibuja. */
   mapa?: { pais: 'auto' | string; nivel: 'pais' | 'region' | 'ciudad' };
+  /**
+   * La PORTADA de la hoja (15/10/2026): el id de una identidad de lib/graficos-identidad.ts. La tarjeta se pinta con ese
+   * color y su título va gigante; lo de adentro se dibuja sobre el color. Ausente = una tarjeta como las demás.
+   */
+  portada?: string;
   x: number; y: number; w: number; h: number;
 };
 
@@ -1160,6 +1166,8 @@ export type Elemento = {
    * distinto de su default.
    */
   general?: { pieza: PiezaGeneral; funnel?: number; opciones?: OpcionesElegidas };
+  /** La portada (15/10/2026), como la de un gráfico: un bloque de General o un texto pintados con su color. */
+  portada?: string;
   x: number; y: number; w: number; h: number;
 };
 
@@ -1468,7 +1476,7 @@ export function sanearGrafico(raw: unknown, ctx: ContextoSaneo = {}): Grafico | 
   }
 
   // ── Lo opcional de v5: sólo lo que no vale lo de siempre (un gráfico de antes guarda lo mismo que antes).
-  const extra: Pick<Grafico, 'mako' | 'makoIA' | 'alClic' | 'popup' | 'barra' | 'secundaria' | 'ocultarSiCero' | 'ejes' | 'referencias' | 'colorPor' | 'tabla' | 'mapa'> = {};
+  const extra: Pick<Grafico, 'mako' | 'makoIA' | 'alClic' | 'popup' | 'barra' | 'secundaria' | 'ocultarSiCero' | 'ejes' | 'referencias' | 'colorPor' | 'tabla' | 'mapa' | 'portada'> = {};
   // 13/10/2026: se guardan los DOS valores (ausente = lo que dice `makoPorDefecto` según el tipo, ver `conMako`).
   if (typeof o.mako === 'boolean') extra.mako = o.mako;
   const makoIA = sanearMakoIA(o.makoIA);
@@ -1490,6 +1498,8 @@ export function sanearGrafico(raw: unknown, ctx: ContextoSaneo = {}): Grafico | 
   if (tabla) extra.tabla = tabla;
   const mapa = sanearMapa(o.mapa);
   if (mapa) extra.mapa = mapa;
+  // La portada, sólo con una identidad que existe y nunca adentro de un pop-up (no es la hoja).
+  if (!ctx.enPopup && identidadDe(o.portada)) extra.portada = o.portada as string;
 
   return {
     id,
@@ -1676,6 +1686,8 @@ export function sanearElemento(raw: unknown, ctx: ContextoSaneo = {}): Elemento 
     direccion: unoDe(o.direccion, ['derecha', 'izquierda', 'arriba', 'abajo'] as const, 'derecha'),
     grosor,
     ...tipoEspecial,
+    // La portada: un bloque de General o un texto (lo que abre una hoja de General), nunca en un pop-up.
+    ...(!ctx.enPopup && (info.id === 'general' || info.id === 'texto') && identidadDe(o.portada) ? { portada: o.portada as string } : {}),
     x: ancho ? 0 : entero(o.x, 0, COLS - 1, 0), y: entero(o.y, 0, 999, 0),
     w: ancho ? COLS : entero(o.w, info.minW, COLS, info.w), h: entero(o.h, info.minH, 30, info.h),
   };

@@ -39,6 +39,7 @@ import { Spinner } from '@/app/_ui';
 import { destinoDetalle, dimensionDe, fuenteDe, metricaDe, tipoDe, tonoDe, type Efectivo, type Formato, type Grafico as G } from '@/lib/graficos-catalogo';
 import { alternarSerie, serieOculta, type SelDetalle } from '@/lib/graficos-acciones';
 import { colorDeTono, estiloEfectivo, fondoDeTarjeta, type TemaHoja } from '@/lib/graficos-temas';
+import { identidadDe, paletaDePortada, PAPEL, DIMENSIONES_PERSONA, MAXIMO_PORTADA } from '@/lib/graficos-identidad';
 import {
   anchoEjeY, anchoTexto, BARRA, colorDeCategoria, columnaConBarra, EJES, ESCALA_EPICA, intervaloPorAncho, LETRA, LETRA_MINIMA, MARGEN, tamChip, tamProtagonista, tamSecundaria, modoPorAlto, ocultoPorCero,
   ordenarPorValores, textoConMuestra, usaPaneles,
@@ -167,8 +168,12 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo }: { g: G; 
     const r0 = estado.resultado;
     if (!r0) return <Mensaje>{estado.error ?? <Spinner size={20} />}</Mensaje>;
     if (estado.error) return <Mensaje>{estado.error}</Mensaje>;
-    const e = estiloEfectivo(tema);
-    const halo = fondoDeTarjeta(tema);
+    // La PORTADA (lib/graficos-identidad.ts): las series en tonos de su tinta, sin cuadrícula, y el halo de las etiquetas
+    // y los puntos es su color (no el de la tarjeta del tema).
+    const portada = identidadDe(g.portada);
+    const e0 = estiloEfectivo(tema);
+    const e = portada ? { ...e0, colores: paletaDePortada(portada.id) ?? e0.colores, cuadricula: false } : e0;
+    const halo = portada ? portada.fondo : fondoDeTarjeta(tema);
     const fuente = fuenteDe(g.fuente);
     const dim = fuente ? dimensionDe(fuente, g.dimension) : undefined;
     const met = (id: string | undefined) => (fuente && id ? metricaDe(fuente, id) : undefined);
@@ -214,7 +219,7 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo }: { g: G; 
 
     // ── Los tipos nuevos de la v5 sin dimensión: la barra de proporción y la línea de tiempo ──
     if (g.tipo === 'barra_proporcion') {
-      const colorDe = (i: number) => colorDeTono(tonoDe(g.fuente, r.columnas[i]?.id), tema) ?? c(i);
+      const colorDe = (i: number) => (portada ? c(i) : colorDeTono(tonoDe(g.fuente, r.columnas[i]?.id), tema) ?? c(i));
       return <BarraProporcion r={r} colorDe={colorDe} compacto={e.compacto} alMetrica={(i) => abrirMetrica(r.columnas[i]?.id)} />;
     }
     if (g.tipo === 'tramos') return <Tramos r={r} color={c(0)} compacto={e.compacto} alMetrica={(i) => abrirMetrica(r.columnas[i]?.id)} />;
@@ -230,13 +235,16 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo }: { g: G; 
       // La métrica chica de abajo («14 cierres»): el agregador la trae aparte (`Resultado.secundaria`).
       // Lo que la tarjeta le deja al número: su alto en la grilla (filas de 30 con 16 entre filas, como el editor) menos el
       // aire y el título; la tendencia guarda la mitad para su línea, y un subtítulo se lleva su renglón.
-      const cuerpoKpi = g.h * PAGINA_MINIATURA.fila + (g.h - 1) * PAGINA_MINIATURA.margen - 68 - (g.subtitulo ? 36 : 0);
+      // En una portada el titular le saca dos renglones grandes y el aire de la tarjeta es mayor.
+      const cuerpoKpi = g.h * PAGINA_MINIATURA.fila + (g.h - 1) * PAGINA_MINIATURA.margen - (portada ? 150 : 68) - (g.subtitulo ? 36 : 0);
       const altoLibreKpi = g.tipo === 'numero_tendencia' || g.tipo === 'serie_sparkline' ? cuerpoKpi * 0.5 : cuerpoKpi;
       const secundaria = r.secundaria ? `${fmtValor(r.secundaria.valor, r.secundaria.formato, compacto)} ${enMinuscula(r.secundaria.nombre)}` : null;
       const grande = (
         <NumeroGrande texto={texto} tam={tam} chip={chip} monoChip={e.kpiEtiqueta === 'mono'} secundaria={secundaria} altoLibre={altoLibreKpi}
-          // Como antes: el número toma el color del filete sólo cuando hay algo (un «US$0» no va en verde).
-          color={v == null ? 'var(--faint)' : tono && v > 0 ? tono : 'var(--ink)'} />
+          maximo={portada ? MAXIMO_PORTADA : undefined}
+          // Como antes: el número toma el color del filete sólo cuando hay algo (un «US$0» no va en verde). Sobre una portada,
+          // la tinta: el color ya lo pone la tarjeta.
+          color={v == null ? 'var(--faint)' : portada ? 'var(--ink)' : tono && v > 0 ? tono : 'var(--ink)'} />
       );
       // El subtítulo («por 1,000 impresiones») en la letra de la hoja y en hasta dos renglones: en mono y cortado a uno se leía
       // como un dato técnico («por 1,000 impre…»).
@@ -279,7 +287,7 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo }: { g: G; 
       const objetivo = g.objetivo;
       const max = g.maximo ?? (objetivo ? Math.max(objetivo, v) * 1.2 : v ? v * 1.5 : 1);
       const estiloCaja: CSSProperties = { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' };
-      if (g.tipo === 'bala') return <Clic al={abrirMetrica(col?.id)} etiqueta="Ver detalle" estilo={estiloCaja}><Bala v={v} objetivo={objetivo} max={max} color={c(0)} texto={col ? fmtValor(v, col.formato, e.compacto) : '—'} textoObj={objetivo != null && col ? fmtValor(objetivo, col.formato, true) : null} /></Clic>;
+      if (g.tipo === 'bala') return <Clic al={abrirMetrica(col?.id)} etiqueta="Ver detalle" estilo={estiloCaja}><Bala v={v} objetivo={objetivo} max={max} color={c(0)} texto={col ? fmtValor(v, col.formato, e.compacto) : '—'} textoObj={objetivo != null && col ? fmtValor(objetivo, col.formato, true) : null} grande={!!portada} /></Clic>;
       return <Clic al={abrirMetrica(col?.id)} etiqueta="Ver detalle" estilo={estiloCaja}><Indicador v={v} max={max} objetivo={objetivo} color={c(0)} rangos={g.tipo === 'indicador_rangos'} texto={col ? fmtValor(v, col.formato, e.compacto) : '—'} /></Clic>;
     }
 
@@ -290,7 +298,8 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo }: { g: G; 
       // Cada escalón es una métrica: su clic abre lo que hay atrás de ESA métrica (las impresiones, los clics…).
       const alPaso = (i: number) => abrirMetrica(r.columnas[i]?.id);
       // El relleno de los trapecios es el primer color del tema ACLARADO (el azul claro de la tab vieja).
-      if (g.tipo === 'embudo_vertical') return <EmbudoVertical pasos={pasos} base={aclarar(c(0), 0.5)} compacto={e.compacto} alPaso={alPaso} />;
+      // Sobre una portada, los trapecios son de papel (blancos) y más grandes: el aclarado del primer color se perdía en el fondo.
+      if (g.tipo === 'embudo_vertical') return <EmbudoVertical pasos={pasos} base={portada ? PAPEL : aclarar(c(0), 0.5)} compacto={e.compacto} alPaso={alPaso} grande={!!portada} />;
       if (g.tipo === 'embudo') {
         const abreAlguno = r.columnas.some((col) => metricaAbre(col.id));
         const maxPaso = Math.max(1, ...pasos.map((p) => p.valor));
@@ -318,7 +327,7 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo }: { g: G; 
           </AreaMedida>
         );
       }
-      return <EmbudoBarras pasos={pasos} vertical={g.tipo === 'embudo_columnas'} color={c} compacto={e.compacto} alPaso={alPaso} />;
+      return <EmbudoBarras pasos={pasos} vertical={g.tipo === 'embudo_columnas'} color={c} compacto={e.compacto} alPaso={alPaso} sobre={portada?.fondo} />;
     }
 
     if (vacio(r)) return <Mensaje>Sin datos en este período</Mensaje>;
@@ -351,10 +360,12 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo }: { g: G; 
     const extras = (g.tabla?.columnas ?? []).map((id) => ({ id, nombre: r.columnasExtra?.find((x) => x.id === id)?.nombre ?? (fuente && dimensionDe(fuente, id)?.nombre) ?? id }));
     const conBarra = columnaConBarra(g, menosEsMejor);
     const barraEn = conBarra ? r.columnas.findIndex((x) => x.id === conBarra) : -1;
-    if (g.tipo === 'tarjetas') return <Tarjetas r={r} barraEn={barraEn} chips={g.tabla?.columnas ?? []} color={c(0)} compacto={e.compacto} alFila={alFila} />;
+    // Sobre una portada, una lista de PERSONAS (un cliente, un lead, un alumno) lleva el avatar con sus iniciales.
+    const personas = !!portada && !!g.dimension && DIMENSIONES_PERSONA.has(g.dimension);
+    if (g.tipo === 'tarjetas') return <Tarjetas r={r} barraEn={barraEn} chips={g.tabla?.columnas ?? []} color={c(0)} compacto={e.compacto} alFila={alFila} personas={personas} />;
     if (info?.grupo === 'Tabla') {
       const modo = g.tipo === 'tabla_barras' ? 'barras' : g.tipo === 'tabla_calor' ? 'calor' : 'plana';
-      return <Tabla r={r} modo={modo} barraEn={barraEn} color={c(0)} menosEsMejor={(i) => menosEsMejor(r.columnas[i]?.id ?? '')} extras={extras} total={g.total} compacto={e.compacto} alFila={alFila} />;
+      return <Tabla r={r} modo={modo} barraEn={barraEn} color={c(0)} menosEsMejor={(i) => menosEsMejor(r.columnas[i]?.id ?? '')} extras={extras} total={g.total} compacto={e.compacto} alFila={alFila} personas={personas} />;
     }
     if (info?.grupo === 'Tabla dinámica') return <Dinamica r={r} rotulo={dim?.nombre ?? r.columnas[0].nombre} modo={g.tipo === 'dinamica_barras' ? 'barras' : g.tipo === 'dinamica_calor' ? 'calor' : 'plana'} color={c(0)} total={g.total} compacto={e.compacto} alFila={alFila} />;
 
@@ -419,8 +430,9 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo }: { g: G; 
       const dimColor = fuente && g.colorPor ? dimensionDe(fuente, g.colorPor) : undefined;
       return (
         <Dispersion r={r} idGrafico={g.id} burbujas={g.tipo === 'burbujas'} ejes={g.ejes} referencias={g.referencias} colorPor={g.colorPor ?? null}
-          ordenCategorias={dimColor?.valores} colorDeCategoria={(cat, i) => colorDeCategoria(cat, dimColor?.colores, i, e.colores)}
-          color={c(0)} compacto={e.compacto} halo={halo} alGrupo={grupoAbre ? (clave) => abrirGrupo(clave) : undefined} />
+          // Sobre una portada, los colores fijos de la dimensión (el verde de «Quick wins») pelean con el fondo: los tonos de su tinta.
+          ordenCategorias={dimColor?.valores} colorDeCategoria={(cat, i) => colorDeCategoria(cat, portada ? undefined : dimColor?.colores, i, e.colores)}
+          color={c(0)} compacto={e.compacto} halo={halo} alGrupo={grupoAbre ? (clave) => abrirGrupo(clave) : undefined} grande={!!portada} />
       );
     }
 
@@ -711,7 +723,7 @@ const ENTRE_NUMERO_Y_CHIP = 10;
  * (sale de sus filas en la grilla, no de medir: medir el alto en la pila del celular, donde la tarjeta mide lo que dibuja,
  * sería un bucle). `tam` (el del tema) queda como piso en las tarjetas chicas.
  */
-function NumeroGrande({ texto, tam, color, chip, monoChip, secundaria, altoLibre }: { texto: string; tam: number; color: string; chip: string | null; monoChip: boolean; secundaria: string | null; altoLibre: number }) {
+function NumeroGrande({ texto, tam, color, chip, monoChip, secundaria, altoLibre, maximo }: { texto: string; tam: number; color: string; chip: string | null; monoChip: boolean; secundaria: string | null; altoLibre: number; maximo?: number }) {
   const [ref, medida] = useMedida<HTMLDivElement>();
   const w = medida?.w ?? 0;
   const letras = [...texto].length;
@@ -721,9 +733,9 @@ function NumeroGrande({ texto, tam, color, chip, monoChip, secundaria, altoLibre
   // El piso es el tamaño del tema si entra a lo ancho: en una tarjeta chica (3 filas) el tope de alto no puede dejar el
   // número más chico que hoy; lo épico es que CREZCA en las grandes.
   const piso = (ancho: number) => Math.min(tam, ancho > 0 ? ancho / (Math.max(2, letras) * ESCALA_EPICA.letraGruesa) : tam);
-  const debajo = Math.max(piso(w), tamProtagonista(w, letras, chip ? libre - (tamChip(tam) + 20) : libre));
+  const debajo = Math.max(piso(w), tamProtagonista(w, letras, chip ? libre - (tamChip(tam) + 20) : libre, maximo));
   const anchoChip = chip ? anchoTexto(chip, tamChip(debajo)) + 24 + ENTRE_NUMERO_Y_CHIP : 0;
-  const alLado = Math.max(piso(w - anchoChip), tamProtagonista(w - anchoChip, letras, libre));
+  const alLado = Math.max(piso(w - anchoChip), tamProtagonista(w - anchoChip, letras, libre, maximo));
   const enLinea = !chip || (w > 0 && alLado >= debajo * 0.8);
   const prota = chip && enLinea ? alLado : debajo;
   // Hasta la primera medida, el tamaño sale de las unidades del contenedor.
@@ -826,18 +838,19 @@ function Dinamica({ r, rotulo, modo, color, total, compacto, alFila }: { r: Resu
  * el número a la izquierda y la barra a la derecha; si no, apilados y más chicos. Antes iban siempre apilados con 28 px +
  * 12 + 24, y a su tamaño de nacimiento (6 × 3) la barra quedaba cortada por la mitad.
  */
-function Bala({ v, objetivo, max, color, texto, textoObj }: { v: number; objetivo: number | null; max: number; color: string; texto: string; textoObj: string | null }) {
+function Bala({ v, objetivo, max, color, texto, textoObj, grande = false }: { v: number; objetivo: number | null; max: number; color: string; texto: string; textoObj: string | null; grande?: boolean }) {
   const [ref, medida] = useMedida<HTMLDivElement>();
-  const enFila = (medida?.w ?? 0) >= 420;
+  // Sobre una portada (`grande`): el número gigante arriba y la barra gruesa a lo ancho, abajo (la portada del Curso).
+  const enFila = !grande && (medida?.w ?? 0) >= 420;
   const p = (x: number) => `${Math.min(100, Math.max(0, (x / max) * 100))}%`;
   return (
-    <div ref={ref} style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: enFila ? 'row' : 'column', alignItems: enFila ? 'center' : 'stretch', justifyContent: 'center', gap: enFila ? 20 : 8 }}>
-      <div style={{ flex: 'none', fontSize: enFila ? 28 : 24, lineHeight: 1.05, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--ink)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+    <div ref={ref} style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: enFila ? 'row' : 'column', alignItems: enFila ? 'center' : 'stretch', justifyContent: grande ? 'flex-end' : 'center', gap: enFila ? 20 : grande ? 22 : 8 }}>
+      <div style={{ flex: 'none', fontSize: grande ? 'clamp(48px, 13cqi, 200px)' : enFila ? 28 : 24, lineHeight: grande ? 0.95 : 1.05, fontWeight: grande ? 800 : 600, letterSpacing: grande ? '-0.045em' : '-0.02em', color: 'var(--ink)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
         {texto}{textoObj && <span style={{ fontSize: LETRA.leyenda, fontWeight: 500, color: 'var(--dim)', letterSpacing: 0 }}> de {textoObj}</span>}
       </div>
-      <div style={{ position: 'relative', flex: enFila ? 1 : 'none', minWidth: 0, height: enFila ? 22 : 16, background: 'var(--surface-2)', borderRadius: 8, overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', inset: '0 auto 0 0', width: p(max * 0.66), background: 'var(--border)' }} />
-        <div style={{ position: 'absolute', left: 0, top: '22%', bottom: '22%', width: p(v), background: color, borderRadius: 7 }} />
+      <div style={{ position: 'relative', flex: enFila ? 1 : 'none', minWidth: 0, height: grande ? 'clamp(26px, 5cqi, 56px)' : enFila ? 22 : 16, background: 'var(--surface-2)', borderRadius: grande ? 16 : 8, overflow: 'hidden' }}>
+        {!grande && <div style={{ position: 'absolute', inset: '0 auto 0 0', width: p(max * 0.66), background: 'var(--border)' }} />}
+        <div style={{ position: 'absolute', left: 0, top: grande ? 0 : '22%', bottom: grande ? 0 : '22%', width: p(v), background: color, borderRadius: grande ? 16 : 7 }} />
         {objetivo != null && <div style={{ position: 'absolute', top: 1, bottom: 1, width: 4, left: p(objetivo), background: 'var(--ink)', borderRadius: 2 }} />}
       </div>
     </div>
@@ -884,7 +897,7 @@ const corte = (k: number, n: number) => (n === 4 ? CORTES_4[k] : 42 * (1 - Math.
 /** Un escalón del embudo es una métrica: `alPaso(i)` es su clic, o null si esa métrica no tiene filas atrás. */
 type AlPaso = (i: number) => (() => void) | null;
 
-function EmbudoVertical({ pasos, base, compacto, alPaso }: { pasos: Array<{ nombre: string; valor: number; formato: Formato }>; base: string; compacto: boolean; alPaso?: AlPaso }) {
+function EmbudoVertical({ pasos, base, compacto, alPaso, grande = false }: { pasos: Array<{ nombre: string; valor: number; formato: Formato }>; base: string; compacto: boolean; alPaso?: AlPaso; grande?: boolean }) {
   const n = pasos.length;
   const clip = (i: number) => { const a = corte(i, n); const b = corte(i + 1, n); return `polygon(${a}% 0, ${100 - a}% 0, ${100 - b}% 100%, ${b}% 100%)`; };
   const tono = (i: number) => aclarar(base, n === 1 ? 1 : 0.21 + 0.79 * Math.pow(i / (n - 1), 1.3));
@@ -901,13 +914,13 @@ function EmbudoVertical({ pasos, base, compacto, alPaso }: { pasos: Array<{ nomb
                 </span>
               </div>
             )}
-            <Clic al={alPaso?.(i) ?? null} etiqueta={`Ver detalle: ${p.nombre}`} estilo={{ flex: '1 1 0', minHeight: 44, maxHeight: 92, background: base, clipPath: clip(i), padding: 2 }}>
+            <Clic al={alPaso?.(i) ?? null} etiqueta={`Ver detalle: ${p.nombre}`} estilo={{ flex: '1 1 0', minHeight: 44, maxHeight: grande ? 132 : 92, background: base, clipPath: clip(i), padding: 2 }}>
               <div style={{ height: '100%', background: tono(i), clipPath: clip(i), display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', lineHeight: 1, minWidth: 0 }}>
                 {/* Tinta fija: el relleno es claro también en el tema oscuro. */}
                 {/* El nombre entra en la parte ANGOSTA del escalón (su borde de abajo), con «…»: centrado y sin tope, el trapecio
                     lo cortaba por los dos lados en el celular («lificadas que asistier»). */}
                 <span title={p.nombre} style={{ fontSize: LETRA.leyenda, fontWeight: 500, color: '#454C57', marginBottom: 5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: `${Math.max(20, 100 - 2 * corte(i + 1, n) - 6)}%` }}>{p.nombre}</span>
-                <span style={{ fontWeight: 600, fontSize: 27, letterSpacing: '-0.02em', color: '#12151B', fontVariantNumeric: 'tabular-nums' }}>{fmtValor(p.valor, p.formato, compacto)}</span>
+                <span style={{ fontWeight: grande ? 800 : 600, fontSize: grande ? 'clamp(27px, 4cqi, 44px)' : 27, letterSpacing: '-0.02em', color: '#12151B', fontVariantNumeric: 'tabular-nums' }}>{fmtValor(p.valor, p.formato, compacto)}</span>
               </div>
             </Clic>
           </div>
@@ -917,7 +930,10 @@ function EmbudoVertical({ pasos, base, compacto, alPaso }: { pasos: Array<{ nomb
   );
 }
 
-function EmbudoBarras({ pasos, vertical, color, compacto, alPaso }: { pasos: Array<{ nombre: string; valor: number; formato: Formato }>; vertical: boolean; color: (i: number) => string; compacto: boolean; alPaso?: AlPaso }) {
+function EmbudoBarras({ pasos, vertical, color, compacto, alPaso, sobre }: { pasos: Array<{ nombre: string; valor: number; formato: Formato }>; vertical: boolean; color: (i: number) => string; compacto: boolean; alPaso?: AlPaso; sobre?: string }) {
+  // `sobre`: el color de la portada. Las barras van en su tinta y el número adentro en su color (el blanco fijo se perdía
+  // sobre una barra blanca); y todo más grande, que es la imagen de la portada.
+  const grande = !!sobre;
   const max = Math.max(1, ...pasos.map((p) => p.valor));
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: vertical ? 'row' : 'column', gap: 8, justifyContent: 'center', alignItems: vertical ? 'flex-end' : 'stretch', overflow: 'hidden' }}>
@@ -927,18 +943,18 @@ function EmbudoBarras({ pasos, vertical, color, compacto, alPaso }: { pasos: Arr
         const al = alPaso?.(i) ?? null;
         return vertical ? (
           <Clic key={p.nombre} al={al} etiqueta={`Ver detalle: ${p.nombre}`} estilo={{ flex: 1, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', gap: 6, minWidth: 0 }}>
-            <span style={{ fontSize: LETRA.etiqueta, fontWeight: 600, color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>{fmtValor(p.valor, p.formato, compacto)}</span>
-            <div style={{ width: '70%', height: tam, background: color(i), borderRadius: '8px 8px 0 0' }} />
-            <span style={{ fontSize: LETRA.tick, color: 'var(--dim)', textAlign: 'center' }}>{p.nombre}</span>
+            <span style={{ fontSize: grande ? 'clamp(22px, 3.4cqi, 40px)' : LETRA.etiqueta, fontWeight: grande ? 800 : 600, color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>{fmtValor(p.valor, p.formato, compacto)}</span>
+            <div style={{ width: '70%', height: tam, background: color(i), borderRadius: grande ? '14px 14px 0 0' : '8px 8px 0 0' }} />
+            <span style={{ fontSize: grande ? LETRA.leyenda : LETRA.tick, fontWeight: grande ? 600 : undefined, color: 'var(--dim)', textAlign: 'center' }}>{p.nombre}</span>
             {/* El primer escalón no tiene de dónde pasar: lleva el chip invisible, así su nombre queda a la altura de los otros. */}
             <span style={{ fontFamily: MONO, fontSize: LETRA.tick, fontWeight: 600, color: 'var(--dim)', background: 'var(--surface-2)', padding: '1px 7px', borderRadius: 6, visibility: conv == null ? 'hidden' : undefined }}>↓ {conv ?? 0}%</span>
           </Clic>
         ) : (
-          <Clic key={p.nombre} al={al} etiqueta={`Ver detalle: ${p.nombre}`} estilo={{ display: 'grid', gridTemplateColumns: 'minmax(80px, 30%) 1fr', alignItems: 'center', gap: 12 }}>
-            <span style={{ fontSize: LETRA.leyenda, color: 'var(--dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.nombre}</span>
-            <div style={{ display: 'flex', justifyContent: 'center' }}>
+          <Clic key={p.nombre} al={al} etiqueta={`Ver detalle: ${p.nombre}`} estilo={{ display: 'grid', gridTemplateColumns: 'minmax(80px, 30%) 1fr', alignItems: 'center', gap: 12, ...(grande ? { flex: '1 1 0', maxHeight: 84 } : {}) }}>
+            <span style={{ fontSize: grande ? 'clamp(15px, 2cqi, 22px)' : LETRA.leyenda, fontWeight: grande ? 700 : undefined, color: 'var(--dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.nombre}</span>
+            <div style={{ display: 'flex', justifyContent: 'center', ...(grande ? { height: '100%' } : {}) }}>
               {/* minWidth: el número entra siempre; un escalón chico se estira lo justo en vez de cortar «42 · 45%» por la mitad. */}
-              <div style={{ width: tam, minWidth: 'max-content', background: color(i), color: '#fff', fontSize: LETRA.leyenda, fontWeight: 600, padding: '7px 10px', textAlign: 'center', borderRadius: 8, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+              <div style={{ width: tam, minWidth: 'max-content', background: color(i), color: sobre ?? '#fff', fontSize: grande ? 'clamp(18px, 2.6cqi, 30px)' : LETRA.leyenda, fontWeight: grande ? 800 : 600, padding: grande ? '0 16px' : '7px 10px', display: grande ? 'flex' : undefined, alignItems: 'center', justifyContent: 'center', textAlign: 'center', borderRadius: grande ? 14 : 8, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
                 {fmtValor(p.valor, p.formato, compacto)}{conv != null ? ` · ${conv}%` : ''}
               </div>
             </div>

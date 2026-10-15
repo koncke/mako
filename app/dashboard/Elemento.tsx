@@ -145,6 +145,8 @@ function estiloTexto(e: Elemento, colores: readonly string[]): CSSProperties {
     fontFamily: 'var(--dash-letra, inherit)',
     fontSize: tamTextoCss(e.tamano), fontWeight: t.peso, lineHeight: t.alto,
     letterSpacing: t.px >= 26 ? '-0.015em' : undefined,
+    // Un texto de PORTADA (lib/graficos-identidad.ts) es el titular de la hoja: gigante, sobre su color.
+    ...(e.portada ? { fontSize: 'clamp(34px, 7cqi, 88px)', fontWeight: 800, lineHeight: 1, letterSpacing: '-0.04em' } : {}),
     textAlign: ALINEAR_CSS[e.alinear] ?? 'left',
     color: colorDeElemento(e, colores),
   };

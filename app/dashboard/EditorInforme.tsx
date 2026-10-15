@@ -103,6 +103,7 @@ import {
   type Componente, type Conector, type ControlVista, type Efectivo, type Elemento, type Grafico, type Hoja, type Tablero, type TipoElemento, type ValorControl, type VistaValores,
 } from '@/lib/graficos-catalogo';
 import { colorDeTono, estiloEfectivo, letrasDe, paletaDe, sanearTema, varsDeTema, type TemaHoja } from '@/lib/graficos-temas';
+import { FILAS_PORTADA_EN_PILA, marcoDePortada } from '@/lib/graficos-identidad';
 import { conHojaAgregada } from '@/lib/graficos-plantillas';
 import { FUENTES_GENERAL, PIEZAS_GENERAL, TIPOS_GENERAL, piezaGeneral, type PiezaGeneral } from '@/lib/general-piezas';
 import { useGeneral } from './ElementoGeneral';
@@ -1091,8 +1092,10 @@ export function EditorInforme({
     const altoLibre = enPila && esGrafico(c) && ALTO_LIBRE_EN_PILA.has(c.tipo);
     // Un número (los cuadros de resultados) mide en la pila lo que dibuja, con el piso de una tarjeta de 3 filas: un CPM de
     // 3 × 6 (alto para acompañar al embudo en el escritorio) eran 276 px de celular para un número.
-    const alto: CSSProperties = enPila ? (altoLibre ? { height: 'auto', minHeight: altoDe(Math.min(c.h, 3)) } : { height: altoDe(c.h) }) : {};
-    const base = { '--lk-col': `${c.x + 1} / span ${c.w}`, '--lk-fila': `${c.y + 1} / span ${c.h}`, ...alto } as CSSProperties;
+    // La PORTADA (lib/graficos-identidad.ts): la tarjeta se pinta con su color; en la pila mide menos que en el escritorio.
+    const portada = marcoDePortada(c);
+    const alto: CSSProperties = enPila ? (altoLibre ? { height: 'auto', minHeight: altoDe(Math.min(c.h, 3)) } : { height: altoDe(portada ? Math.min(c.h, FILAS_PORTADA_EN_PILA) : c.h) }) : {};
+    const base = { '--lk-col': `${c.x + 1} / span ${c.w}`, '--lk-fila': `${c.y + 1} / span ${c.h}`, ...alto, ...(portada?.estilo ?? {}) } as CSSProperties;
     const alClic = (ev: ReactMouseEvent) => {
       if (!editando) return;
       ev.stopPropagation();
@@ -1108,7 +1111,7 @@ export function EditorInforme({
       // escritorio, y con el alto de la grilla salía con una barra de scroll adentro del título.
       const lugar = enPila && (bloque || ELEMENTOS_ALTO_LIBRE_EN_PILA.has(c.tipo)) ? { ...base, height: 'auto', minHeight: 0 } : base;
       return (
-        <div key={c.id} data-comp={c.id} className={`lk-comp ${bloque ? 'lk-comp--general' : 'lk-comp--elemento'}${elegido || marcada ? ' lk-comp--sel' : ''}`} style={lugar} onClick={alClic}>
+        <div key={c.id} data-comp={c.id} className={`lk-comp ${bloque ? 'lk-comp--general' : 'lk-comp--elemento'}${portada ? ` ${portada.clase}` : ''}${elegido || marcada ? ' lk-comp--sel' : ''}`} style={lugar} onClick={alClic} data-forma={portada?.forma}>
           <CuerpoElemento e={c} colores={colores} editando={editando} onCambiar={(p) => cambiar(c.id, p)} ctx={ctxDe(c)} />
         </div>
       );
@@ -1125,7 +1128,7 @@ export function EditorInforme({
     const tono = filete ? colorDeTono(tonoDe(c.fuente, c.metricas[0]), hoja.tema) : null;
     // Un número de media hoja o más es el TITULAR de la hoja (lib/graficos-plantillas.ts, TITULARES): en la pila del celular va a
     // lo ancho, no de a dos como los otros números.
-    const clases = ['lk-comp', kpi && 'lk-comp--kpi', kpi && c.w >= 6 && c.h >= 5 && 'lk-comp--titular', kpi && estilo.kpiEtiqueta === 'mono' && 'lk-comp--mono', filete && 'lk-comp--filete', (elegido || marcada) && 'lk-comp--sel'].filter(Boolean).join(' ');
+    const clases = ['lk-comp', kpi && 'lk-comp--kpi', kpi && c.w >= 6 && c.h >= 5 && 'lk-comp--titular', kpi && !portada && estilo.kpiEtiqueta === 'mono' && 'lk-comp--mono', filete && !portada && 'lk-comp--filete', portada?.clase, (elegido || marcada) && 'lk-comp--sel'].filter(Boolean).join(' ');
     // La barra de búsqueda de una tabla (interfaz I2): lo escrito va a la VISTA, en el control de su barra
     // (`idBusquedaDe`/`conBusqueda`, ./exportar.ts). Sin ese control (sobre el campo ya hay otro filtro), no hay barra.
     const conBarra = !!c.tabla?.buscar && !!idBusquedaDe(c);
@@ -1133,7 +1136,7 @@ export function EditorInforme({
     // número, no (son listas de personas: /api/graficos le contesta 403).
     const popupDelCloser = soloLectura && !compartido && !editando && c.alClic === 'popup' && c.popup ? (s: SelDetalle) => abrirPopup(c, s) : undefined;
     return (
-      <div key={c.id} data-comp={c.id} className={clases} style={{ ...base, ...(tono ? { '--lk-filete': tono } : {}) } as CSSProperties} onClick={alClic}
+      <div key={c.id} data-comp={c.id} className={clases} style={{ ...base, ...(tono ? { '--lk-filete': tono } : {}) } as CSSProperties} onClick={alClic} data-forma={portada?.forma}
         data-recorrido={c.id === primerGrafico ? (editando ? 'dash-componente' : 'dash-grafico') : undefined}>
         <div className="lk-comp-cab">
           <div className="lk-comp-tit">

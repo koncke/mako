@@ -98,6 +98,11 @@ export type Resultado = {
   columnasExtra?: Array<{ id: string; nombre: string }>;
   /** La métrica chica de un cuadro de resultados (`Grafico.secundaria`, «14 cierres»): su total. */
   secundaria?: { id: string; nombre: string; formato: Formato; valor: number | null };
+  /**
+   * Es de EJEMPLO (lib/graficos-muestra.ts: la miniatura de la galería y el arnés): lo que se dibuja con datos propios
+   * (el mapa de calor) dibuja su muestra ficticia en vez de pedir los del negocio.
+   */
+  muestra?: true;
 };
 
 /**

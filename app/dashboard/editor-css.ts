@@ -148,6 +148,75 @@ export const CSS = `
 .lk-comp--general { gap: 0; --gb-fondo: var(--dash-tarjeta-fondo, var(--surface)); }
 .lk-comp--general:has(> .gen-pieza[data-oscuro]) { background: var(--sidebar); border-color: var(--sidebar-line); }
 .lk-comp--kpi { justify-content: center; }
+
+/* LA PORTADA de una hoja (15/10/2026, lib/graficos-identidad.ts): copiada de las portadas de informe de la galería de
+   Canva. La tarjeta entera es del color de su plantilla, el título es un TITULAR gigante y atrás hay UNA forma grande
+   (el círculo, la diagonal, el arco, el play del video, la burbuja del chat). Adentro se REDEFINEN los tokens (la tinta,
+   los grises, las líneas, la superficie) con el color y su tinta, como la isla oscura de un bloque de General: lo que se
+   dibuja con los tokens se da vuelta solo. El color y la tinta llegan por el style de la tarjeta (varsDePortada). */
+.lk-comp--portada { --ink: var(--portada-tinta); --dim: color-mix(in srgb, var(--portada-tinta) 86%, var(--portada-fondo)); --faint: color-mix(in srgb, var(--portada-tinta) 74%, var(--portada-fondo));
+  --border: color-mix(in srgb, var(--portada-tinta) 20%, transparent); --border-strong: color-mix(in srgb, var(--portada-tinta) 34%, transparent);
+  --surface: color-mix(in srgb, var(--portada-tinta) 10%, var(--portada-fondo)); --surface-2: color-mix(in srgb, var(--portada-tinta) 15%, var(--portada-fondo)); --bg: var(--portada-fondo);
+  --dash-tarjeta-fondo: var(--portada-fondo); --gb-fondo: var(--portada-fondo); --primary: var(--portada-tinta); --on-primary: var(--portada-fondo); --primary-bg: var(--surface-2);
+  --good: var(--portada-tinta); --good-bg: var(--surface-2); --bad: var(--portada-tinta); --bad-bg: var(--surface-2); --warn: var(--portada-tinta); --warn-bg: var(--surface-2); --mako: var(--portada-tinta);
+  position: relative; isolation: isolate; background: var(--portada-fondo); color: var(--portada-tinta); border-color: transparent; border-radius: 24px; padding: 30px 34px 28px; gap: 16px;
+  box-shadow: 0 18px 40px -22px color-mix(in srgb, var(--portada-fondo) 80%, transparent); container-type: inline-size; }
+.lk-comp--portada::before { content: ''; position: absolute; z-index: -1; pointer-events: none; background: color-mix(in srgb, var(--portada-tinta) 10%, transparent); }
+.lk-comp--portada[data-forma="circulo"]::before { width: 58cqi; aspect-ratio: 1; right: -14cqi; top: -26cqi; border-radius: 50%; }
+.lk-comp--portada[data-forma="diagonal"]::before { inset: 0; clip-path: polygon(64% 0, 100% 0, 100% 100%, 40% 100%); }
+.lk-comp--portada[data-forma="arco"]::before { width: 74cqi; aspect-ratio: 1; right: -30cqi; bottom: -44cqi; border-radius: 50%; background: none; border: 7cqi solid color-mix(in srgb, var(--portada-tinta) 11%, transparent); }
+.lk-comp--portada[data-forma="play"]::before { width: 44cqi; aspect-ratio: 1; right: -5cqi; top: 50%; transform: translateY(-50%); clip-path: polygon(16% 4%, 16% 96%, 96% 50%); background: color-mix(in srgb, var(--portada-tinta) 12%, transparent); }
+.lk-comp--portada[data-forma="burbuja"]::before { width: 50cqi; aspect-ratio: 1.2; right: -9cqi; top: -16cqi; border-radius: 48% 48% 48% 8%; }
+.lk-comp--portada .lk-comp-tit { font-size: clamp(26px, 4.4cqi, 56px); font-weight: 800; letter-spacing: -0.035em; line-height: 1.02; text-transform: none; color: var(--portada-tinta); }
+.lk-comp--portada .lk-comp-tit > span:first-child { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; max-width: 15em; text-wrap: balance; }
+.lk-comp--portada.lk-comp--kpi { justify-content: space-between; }
+.lk-comp--portada.lk-comp--kpi .lk-comp-tit { font-size: clamp(22px, 3.2cqi, 40px); font-weight: 700; letter-spacing: -0.025em; }
+.lk-comp--portada .lk-comp-sub { margin-top: -10px; font-size: clamp(14px, 1.6cqi, 18px); color: var(--dim); }
+/* Lo que se dibuja sobre el color: las tarjetas (los anuncios ganadores, las personas) van como pósters en fila, y una
+   tabla de personas lleva su avatar. En la pila del celular las tarjetas se deslizan de costado. */
+.lk-comp--portada .gr-tarjetas { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); overflow: hidden; gap: 16px; }
+.lk-comp--portada .gr-tarjeta { background: color-mix(in srgb, var(--portada-tinta) 12%, var(--portada-fondo)); border-color: transparent; border-radius: 16px; padding: 12px; }
+.lk-comp--portada .gr-tarjeta-cab { grid-template-columns: minmax(0, 1fr); }
+.lk-comp--portada .gr-tarjeta-mini { width: 100%; height: auto; aspect-ratio: 4 / 3; border-radius: 11px; }
+.lk-comp--portada .gr-tarjeta-val { font-size: clamp(22px, 2.6cqi, 32px); font-weight: 800; }
+.lk-comp--portada .gr-tarjetas { grid-auto-rows: minmax(0, 1fr); }
+.lk-comp--portada .gr-tabla th { background: var(--portada-fondo); font-size: 14px; }
+.lk-comp--portada .gr-tabla td { color: var(--ink); font-size: clamp(16px, 1.9cqi, 22px); padding-top: 14px; padding-bottom: 14px; }
+.lk-comp--portada .gr-tabla .gr-avatar { width: 2.3em; height: 2.3em; background: var(--portada-tinta); color: var(--portada-fondo); }
+/* La barra partida de una portada (Comercial): los montos gigantes y la barra gruesa, juntos abajo del titular. */
+.lk-comp--portada .gr-prop { flex-direction: column-reverse; gap: 22px; }
+.lk-comp--portada .gr-prop > :first-child { margin-top: 0; }
+.lk-comp--portada .gr-prop > :last-child { margin-bottom: 0; margin-top: auto; }
+.lk-comp--portada .gr-prop-barra { height: clamp(28px, 5cqi, 64px); border-radius: 16px; gap: 4px; background: var(--surface); }
+.lk-comp--portada .gr-prop-ley { gap: 14px 7cqi; }
+.lk-comp--portada .gr-prop-nom { font-size: clamp(15px, 1.8cqi, 22px); font-weight: 700; color: var(--ink); }
+.lk-comp--portada .gr-prop-val { font-size: clamp(34px, 6.4cqi, 92px); font-weight: 800; letter-spacing: -0.04em; line-height: 1; }
+.lk-comp--portada .gr-prop-val small { font-size: clamp(14px, 1.8cqi, 22px); font-weight: 700; color: var(--dim); }
+.lk-comp--portada .gr-prop--compacta .gr-prop-item { flex-direction: column; align-items: flex-start; }
+.lk-comp--portada .gr-nombre { font-weight: 700; }
+.gr-avatar { display: inline-grid; place-items: center; width: 2.1em; height: 2.1em; margin-right: .6em; vertical-align: middle; border-radius: 50%; font-size: .82em; font-weight: 800; letter-spacing: .02em; background: var(--surface-2); color: var(--ink); }
+.gr-avatar--tarjeta { width: 64px; height: 64px; margin: 0; font-size: 24px; background: var(--portada-tinta, var(--ink)); color: var(--portada-fondo, var(--surface)); }
+/* Un bloque de General de portada (la meta, la acción del día, los OKRs…): su título es el titular. */
+.lk-comp--portada .gb-tit { font-size: clamp(26px, 4.6cqi, 56px); font-weight: 800; letter-spacing: -0.035em; line-height: 1.02; white-space: normal; text-transform: none; }
+.lk-comp--portada .gb-cab { margin-bottom: 18px; align-items: flex-end; }
+.lk-comp--portada .gb-cab-extra, .lk-comp--portada .gb-cab-link { font-size: clamp(13px, 1.5cqi, 16px); color: var(--ink); }
+.lk-comp--portada .gen-pieza { overflow: hidden; }
+/* Los bloques que nacieron para media hoja (los OKRs, la tarea #1 del Plan) se AGRANDAN adentro de la portada, como
+   «Prioridades del Plan» se escala desde afuera (docs/hallazgos-objectives.md): su dibujo es de tamaño fijo y en una
+   portada de 11 filas quedaba arriba, chico, con el resto vacío. El saludo de la Bienvenida es el titular más grande. */
+.lk-comp--portada .gen-pieza[data-pieza="objetivos"] > * { zoom: 1.2; }
+.lk-comp--portada .gen-pieza[data-pieza="prioridades"] > * { zoom: 1.45; }
+.lk-pila .lk-comp--portada .gen-pieza > * { zoom: 1; }
+.lk-comp--portada .gen-pieza[data-pieza="accion"] .gb-tit { font-size: clamp(30px, 6cqi, 76px); }
+/* La fila «Portada» del panel de un gráfico (./Propiedades.tsx): un círculo por color de la tabla y «sin portada». */
+.lk-portadas { display: flex; flex-wrap: wrap; gap: 7px; }
+.lk-portada-op { width: 26px; height: 26px; padding: 0; border-radius: 50%; border: 2px solid var(--surface); box-shadow: 0 0 0 1px var(--border-strong); cursor: pointer; }
+.lk-portada-op--no { background: var(--surface-2); color: var(--dim); font-size: 11px; line-height: 1; }
+.lk-portada-op[aria-checked="true"] { box-shadow: 0 0 0 2px var(--primary); }
+.lk-pila > .lk-comp--portada { grid-column: 1 / -1; padding: 22px 20px 20px; border-radius: 20px; }
+.lk-pila > .lk-comp--portada .lk-comp-tit { font-size: clamp(24px, 8cqi, 34px); }
+.lk-pila > .lk-comp--portada .gr-tarjetas { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 64%; overflow-x: auto; scroll-snap-type: x mandatory; }
+.lk-pila > .lk-comp--portada .gr-tarjeta { scroll-snap-align: start; }
 .lk--editando .lk-comp { cursor: move; }
 .lk--editando .lk-comp:hover { outline: 1px dashed var(--border-strong); outline-offset: -1px; }
 .lk-comp--sel, .lk--editando .lk-comp--sel:hover { outline: 2px solid var(--primary) !important; outline-offset: -1px; }

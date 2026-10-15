@@ -1,6 +1,6 @@
 # Relevo — chat «Dashboard» (la tab Dashboard)
 
-<sub>Escrito el 14/10/2026 ~22:40 (hora de Argentina) por la cuenta 1 (claude1), desde el chat que hizo el trabajo. Se pisa en cada
+<sub>Escrito el 15/10/2026 ~06:40 (hora de Argentina) por la cuenta 1 (claude1), desde el chat que hizo el trabajo. Se pisa en cada
 relevo. El anterior (chat «Graphics», cuenta 2) está en el historial: `git log -p -- docs/relevo/dashboard.md`.</sub>
 
 ## Dónde está
@@ -21,23 +21,21 @@ Lo aprendido, en `docs/hallazgos-graficos.md`: «Rediseño por tipo con capturas
 Dashboard». El arnés de capturas vive FUERA del repo, en `C:/Users/marti/arnes-dashboard/` (`node build.mjs <raíz>` y
 `node capturar.cjs <regex> [tema] [plantillas]`).
 
-## Después: el épico (14/10 noche) y las portadas (15/10, esperando a Martín)
+## Después: el épico (14/10 noche) y las PORTADAS (15/10, hechas)
 
-- **En main:** el titular por hoja + ESCALA_EPICA (`68566ade`), el test arreglado (`4297cfa1`/`d636ffdc`) y el texto que
-  crece con su tarjeta (`d5384e97`). Cosecha en `docs/hallazgos-graficos.md` → «El Dashboard épico».
-- **Martín rechazó las plantillas** («todos parecen muy iguales», «muchos gráficos juntos parece dashboard»): la portada de
-  cada hoja tiene que ser UNA cosa con la FORMA de su objetivo. La propuesta de las 13 está en `docs/portadas-propuesta.md`
-  (la escribió el orquestador; no duplicarla). **NO implementar hasta que conteste** la decisión de la Ticketera.
-- Antes de implementar, mirar: (1) si los anuncios de `guiones` traen miniatura (`FilaResultado.imagen`) en todos los
-  workspaces, y (2) qué dibuja el mapa de calor sin puente ni grabaciones: ninguna portada puede quedar vacía (placeholder
-  con datos ficticios). Los ejemplos de personas (CS, Cobranza) son ficticios.
-- Los colores por hoja van en UNA tabla que escribe ESTE chat (`lib/graficos-identidad.ts`, acordado con General), después de
-  que Martín apruebe. Regla: mismo tema, mismo color en las dos galerías, y ninguno repetido adentro de una. Dashboard:
-  Marketing azul Meta · Comercial dorado MaKo · Ads coral · Landing celeste · VSL rojo play · Chat verde WhatsApp (--wa) ·
-  Closing violeta · CS teal · Productividad lima · CRM azul oscuro · Cobranza ámbar · Automatizaciones índigo · Contenido e
-  IA durazno. General: general Noche (si Martín dice A en general-meta-oscura; si no, dorado MaKo) · bienvenida durazno ·
-  foco lima · operacion índigo · ventas dorado MaKo · cobros ámbar · anuncios azul Meta · funnel-llamadas violeta ·
-  funnel-whatsapp verde WhatsApp · lanzamiento rojo play · servicio teal · curso celeste · instagram magenta.
+- **En main:** el titular por hoja + ESCALA_EPICA (`68566ade`) y el texto que crece con su tarjeta (`d5384e97`).
+- **Las portadas, hechas el 15/10** (el orquestador retiró la decisión de la Ticketera: Martín quería verlo hecho, no una
+  tabla). Las 26 plantillas abren con UNA pieza a lo ancho, con su color y la forma de lo que contestan. **Copiado de las
+  portadas de informe de Canva** (capturas en `C:/Users/marti/arnes-dashboard/referencias/`). El titular 6 × 6 se fue.
+  Dónde vive y lo que costó: `docs/hallazgos-graficos.md` → «Las portadas». La regla para una plantilla nueva, en AGENTS.md
+  (sección de General como editor del Dashboard).
+- **La tabla de colores** (`lib/graficos-identidad.ts`) es la acordada con General, con Ads en coral (el magenta es de
+  Instagram) y General en Noche. Las dos galerías las hace ESTE chat (General no las toca: lo avisó el orquestador).
+- **Lo que se midió y cambió la propuesta:** no hay leads «de Instagram» (el 1.062 era `instant_form`); la plantilla
+  Instagram abre con la audiencia de Meta por plataforma. Sin DM de Instagram conectados.
+- **Capturas:** arnés del Dashboard `node build.mjs` + `node capturar.cjs "" mako galeria` (la galería real, escritorio y
+  celular) y `... plantillas` (cada hoja en escritorio y en la pila); arnés de General `C:/Users/marti/arnes-dashboard-general/`
+  (`node build-general.mjs C:/dev/wt-dashboard`, con `CHICO=1` o `PILA=1`).
 
 ## Pedido en cola (15/10): borrar las hojas viejas y rehacer las de Mauricio, DESPUÉS de las portadas
 
@@ -47,8 +45,8 @@ pero con su nuevo rediseño». Orden: aprobar portadas → implementarlas → re
 Marketing, ws13 Marketing, ws15 Marketing; todas de plantilla. Script de censo:
 `scratchpad/censo-hojas.mjs` (rehacerlo en el repo si hace falta). UN script con General para el borrado, con respaldo y
 comando para devolverlo, verificado con lo que lee el producto. Al armar el respaldo se compara cada hoja PIEZA POR PIEZA
-con su plantilla: si aparece UNA editada, se frena y se avisa al orquestador (es trabajo de alguien). La decisión de las
-portadas está publicada como `portadas-galerias`; nada se ejecuta antes de que Martín la apruebe y se implemente.
+con su plantilla: si aparece UNA editada, se frena y se avisa al orquestador (es trabajo de alguien). Las portadas ya están
+hechas (15/10): lo que sigue es este borrado y rehacer las de Mauricio con `instanciarPlantilla` sobre las plantillas nuevas.
 
 ## Lo que falta
 - **Verlo en producción (ws3)**: el editor con «Celular» sobre una plantilla (Comercial, Marketing) y la galería de «¿Qué vas a

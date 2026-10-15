@@ -200,14 +200,16 @@ test('ningún componente del informe inicial se queda sin fuente conocida', () =
 test('el informe inicial es la réplica de las tabs viejas, SIN bloques: las piezas en su lugar y sin perder una métrica', () => {
   const [mk, co] = tableroInicial().hojas;
   const graf = (h: Hoja) => h.componentes.filter(esGrafico);
-  // Marketing, la cabecera: las cuatro KPI estrella. Desde el 14/10/2026 («el mismo criterio de EPICIDAD en los
-  // dashboards») una es el TITULAR a media hoja (TITULARES en lib/graficos-plantillas.ts: CAC real) y las otras tres van
-  // a su lado, en el orden de antes. Probado rompiéndolo (14/10/2026, base 22 / 0): otro titular en TITULARES -> 21 / 1.
-  // (Apagar el titular en PLANTILLAS_HOJA no lo cambia: esto lee el informe INICIAL; la galería la mira graficos-epico.)
-  const cabecera = graf(mk).filter((c) => c.y < 6 && c.tipo === 'numero');
-  const titular = cabecera.find((c) => c.w >= 6 && c.h >= 6);
-  assert.equal(titular?.titulo, 'CAC real');
+  // Marketing, la cabecera: las cuatro KPI estrella. Desde el 15/10/2026 el CAC es la PORTADA de la hoja (a lo ancho,
+  // pintada, con su frase: lib/graficos-portadas.ts) y las otras tres van debajo, en el orden de antes, repartiéndose el
+  // ancho. (Era el TITULAR a media hoja desde el 14/10.)
+  const cabecera = graf(mk).filter((c) => c.y < 15 && c.tipo === 'numero');
+  const titular = cabecera.find((c) => c.portada);
+  assert.equal(titular?.metricas[0], 'cac');
+  assert.equal(titular?.titulo, 'Cada cliente te cuesta');
+  assert.deepEqual([titular?.x, titular?.y, titular?.w], [0, 0, 12]);
   const resto = cabecera.filter((c) => c !== titular).sort((a, b) => a.y - b.y || a.x - b.x);
+  assert.deepEqual(resto.map((c) => c.w), [4, 4, 4]);
   assert.deepEqual(resto.map((c) => c.titulo), ['Ad Spend', 'ROAS cash', 'ROAS sold']);
   assert.deepEqual(cabecera.map((c) => c.metricas[0]).sort(), ['cac', 'gasto', 'roas_cobrado', 'roas_vendido']);
   assert.ok(resto[0].comparar, 'el Ad Spend trae el chip contra el período anterior');

@@ -237,7 +237,9 @@ export const numeroDe = (v: string): number => (v === 'todas' ? Infinity : Math.
  * un avance contra una meta, una serie, columnas, barras, un anillo y la tabla) y los que usan las plantillas de General
  * (tests/general-editor.test.ts lo fija). La tabla está porque «Añadir datos» arranca con una.
  */
-export const TIPOS_GENERAL = ['numero', 'numero_tendencia', 'bala', 'serie', 'columnas', 'barras', 'anillo', 'tabla', 'tabla_barras'] as const;
+// 15/10/2026: + las tarjetas (los anuncios ganadores, las personas) y el indicador, que son las PORTADAS de Anuncios, Agencia
+// y Contenido (lib/general-plantillas.ts, `PORTADAS_GENERAL`): una hoja de General no puede traer lo que su galería no ofrece.
+export const TIPOS_GENERAL = ['numero', 'numero_tendencia', 'bala', 'indicador', 'serie', 'columnas', 'barras', 'anillo', 'tabla', 'tabla_barras', 'tarjetas'] as const;
 
 /**
  * Los conjuntos de datos de General («Añadir datos» y el panel de un gráfico). El mismo pedido: «si vamos a quitar la
@@ -249,6 +251,8 @@ export const TIPOS_GENERAL = ['numero', 'numero_tendencia', 'bala', 'serie', 'co
 export const FUENTES_GENERAL = [
   'negocio', 'meta', 'leads', 'llamadas_venta', 'revenue', 'pagos', 'cobranza', 'conversaciones', 'whatsapp',
   'visitas', 'vsl', 'cartera', 'entrega', 'avance_cursos', 'tareas', 'proyectos',
+  // 15/10/2026: la audiencia de Meta por plataforma, la de la plantilla Instagram (lo que te trae Instagram contra Facebook).
+  'audiencia',
 ] as const;
 
 /**

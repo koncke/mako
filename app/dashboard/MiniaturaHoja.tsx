@@ -40,6 +40,7 @@ import { CuerpoGrafico, esTarjetaNumero } from './Grafico';
 import { TAMANOS_TEXTO } from './Elemento';
 import { CuerpoSeccion } from './Seccion';
 import { PiezaGeneralDeMuestra, useVariablesInforme } from './ElementoGeneral';
+import { marcoDePortada } from '@/lib/graficos-identidad';
 
 /** El ancho de la página que se dibuja (px): la grilla y el lugar de cada componente salen de `lugarEnMiniatura`. */
 const ANCHO_REF = PAGINA_MINIATURA.ancho;
@@ -59,10 +60,14 @@ const hoyLocal = (): string => {
 /** Un componente, como lo dibuja la hoja. `vivo`: ya montado y a la vista (los cuerpos entran recién ahí). */
 function Pieza({ c, hoja, vivo, hoy }: { c: Componente; hoja: Hoja; vivo: boolean; hoy: string }): ReactNode {
   const variables = useVariablesInforme();
+  // La portada (lib/graficos-identidad.ts): la misma tarjeta pintada que en la hoja.
+  const portada = marcoDePortada(c);
+  const conPortada = (clase: string): string => (portada ? `${clase} ${portada.clase}` : clase);
+  const estilo = { flex: 1, ...(portada?.estilo ?? {}) } as CSSProperties;
   if (esGrafico(c)) {
     const kpi = esTarjetaNumero(c.tipo);
     return (
-      <div className={`lk-comp${kpi ? ' lk-comp--kpi' : ''}`} style={{ flex: 1 }}>
+      <div className={conPortada(`lk-comp${kpi ? ' lk-comp--kpi' : ''}`)} style={estilo} data-forma={portada?.forma}>
         <div className="lk-comp-cab"><div className="lk-comp-tit"><span>{tituloDe(c)}</span></div></div>
         {!kpi && c.subtitulo && <div className="lk-comp-sub">{c.subtitulo}</div>}
         {vivo && <CuerpoGrafico g={c} estado={{ cargando: false, resultado: resultadoDeMuestra(c, hoy) }} tema={hoja.tema} />}
@@ -74,9 +79,18 @@ function Pieza({ c, hoja, vivo, hoy }: { c: Componente; hoja: Hoja; vivo: boolea
   switch (e.tipo) {
     case 'texto': {
       const t = TAMANOS_TEXTO[e.tamano] ?? TAMANOS_TEXTO.l;
+      const texto = conVariables(e.texto, variables ?? EJEMPLOS);
+      // Un texto de portada (el saludo de la Bienvenida) es la tarjeta pintada con el texto como titular.
+      if (portada) {
+        return (
+          <div className={conPortada('lk-comp lk-comp--texto-portada')} style={estilo} data-forma={portada.forma}>
+            <div className="lk-comp-cab"><div className="lk-comp-tit"><span>{texto}</span></div></div>
+          </div>
+        );
+      }
       return (
         <div className="mh-texto" style={{ fontSize: t.px, fontWeight: t.peso, lineHeight: t.alto }}>
-          {conVariables(e.texto, variables ?? EJEMPLOS)}
+          {texto}
         </div>
       );
     }
@@ -87,7 +101,7 @@ function Pieza({ c, hoja, vivo, hoy }: { c: Componente; hoja: Hoja; vivo: boolea
       if (!esPiezaGeneral(p)) return null;
       const titulo = e.texto.trim() || piezaGeneral(p).nombre;
       return (
-        <div className="lk-comp lk-comp--general" style={{ flex: 1 }}>
+        <div className={conPortada('lk-comp lk-comp--general')} style={estilo} data-forma={portada?.forma}>
           {vivo ? <PiezaGeneralDeMuestra e={e} /> : <div className="gb"><div className="gb-cab"><h2 className="gb-tit">{titulo}</h2></div></div>}
         </div>
       );

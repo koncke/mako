@@ -23,7 +23,7 @@
 //     el mínimo o el máximo tapaba la marca del eje y se cortaba contra el borde, y con el dominio corrido a mano
 //     recharts dejaba de redondear («14%, 19%, 24%, 29%, 32%»). Un eje fijo (`g.ejes`) manda igual que antes.
 
-import { ReferenceLine, Scatter, ScatterChart, Tooltip, XAxis, YAxis, ZAxis, usePlotArea } from 'recharts';
+import { LabelList, ReferenceLine, Scatter, ScatterChart, Tooltip, XAxis, YAxis, ZAxis, usePlotArea } from 'recharts';
 import { fmtValor, type Resultado } from '@/lib/graficos-agregar';
 import { anchoEjeY, LETRA, MARGEN, ORDEN_ROTULOS } from '@/lib/graficos-gordo';
 import { AreaMedida } from './medida';
@@ -37,10 +37,10 @@ type Referencias = { x?: number; y?: number; rotulos?: readonly string[] } | nul
 const fin = (v: number | null | undefined): v is number => v != null && Number.isFinite(v);
 
 /** Los 4 rótulos de los cuadrantes, en las esquinas del área de dibujo (sólo con las dos referencias). */
-function Rotulos({ rotulos }: { rotulos: readonly string[] }) {
+function Rotulos({ rotulos, grande = false }: { rotulos: readonly string[]; grande?: boolean }) {
   const area = usePlotArea();
   if (!area) return null;
-  const x0 = area.x + 8, x1 = area.x + area.width - 8, y0 = area.y + 16, y1 = area.y + area.height - 8;
+  const x0 = area.x + 8, x1 = area.x + area.width - 8, y0 = area.y + (grande ? 24 : 16), y1 = area.y + area.height - 8;
   const lugar: Record<(typeof ORDEN_ROTULOS)[number], [number, number, 'start' | 'end']> = {
     'arriba-izquierda': [x0, y0, 'start'], 'arriba-derecha': [x1, y0, 'end'], 'abajo-izquierda': [x0, y1, 'start'], 'abajo-derecha': [x1, y1, 'end'],
   };
@@ -51,7 +51,7 @@ function Rotulos({ rotulos }: { rotulos: readonly string[] }) {
         if (!t) return null;
         const [x, y, ancla] = lugar[k];
         return (
-          <text key={k} x={x} y={y} textAnchor={ancla} fontSize={LETRA.cuadrante} fontWeight={600}
+          <text key={k} x={x} y={y} textAnchor={ancla} fontSize={grande ? 22 : LETRA.cuadrante} fontWeight={grande ? 800 : 600}
             style={{ fill: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '.04em' }}>{t}</text>
         );
       })}
@@ -59,7 +59,7 @@ function Rotulos({ rotulos }: { rotulos: readonly string[] }) {
   );
 }
 
-export function Dispersion({ r, idGrafico, burbujas, ejes, referencias, colorPor, ordenCategorias, colorDeCategoria, color, compacto, halo, alGrupo }: {
+export function Dispersion({ r, idGrafico, burbujas, ejes, referencias, colorPor, ordenCategorias, colorDeCategoria, color, compacto, halo, alGrupo, grande = false }: {
   r: Resultado; idGrafico: string; burbujas: boolean;
   ejes: Ejes; referencias: Referencias;
   colorPor: string | null;
@@ -68,6 +68,8 @@ export function Dispersion({ r, idGrafico, burbujas, ejes, referencias, colorPor
   colorDeCategoria: (cat: string, i: number) => string;
   color: string; compacto: boolean; halo: string;
   alGrupo?: (clave: string) => void;
+  /** Sobre una portada: burbujas y rótulos grandes, y el nombre de cada punto al lado. */
+  grande?: boolean;
 }) {
   const [cx, cy, cz] = r.columnas;
   const puntos: Punto[] = r.filas
@@ -128,14 +130,17 @@ export function Dispersion({ r, idGrafico, burbujas, ejes, referencias, colorPor
                 tick={{ fontSize: LETRA.tick, style: { fill: 'var(--dim)' } }} tickFormatter={(v: number) => fmtValor(v, cy.formato, true)}
                 {...(fijoY ? { tickCount: 3 } : { ticks: autoY.marcas })}
                 width={anchoEjeY(textosY)} axisLine={false} tickLine={false} hide={!conEjes} />
-              <ZAxis type="number" dataKey="z" range={burbujas ? [80, 1400] : [140, 140]} name={cz?.nombre} />
+              {/* Sobre una portada (`grande`), las burbujas y los rótulos son la imagen: más grandes, y cada punto con su nombre. */}
+              <ZAxis type="number" dataKey="z" range={burbujas ? (grande ? [500, 5200] : [80, 1400]) : grande ? [420, 420] : [140, 140]} name={cz?.nombre} />
               {fin(referencias?.x) && <ReferenceLine x={referencias!.x} stroke="var(--border-strong)" strokeWidth={1.5} strokeDasharray="6 5" ifOverflow="extendDomain" />}
               {fin(referencias?.y) && <ReferenceLine y={referencias!.y} stroke="var(--border-strong)" strokeWidth={1.5} strokeDasharray="6 5" ifOverflow="extendDomain" />}
-              {conRotulos && <Rotulos rotulos={referencias!.rotulos!} />}
+              {conRotulos && <Rotulos rotulos={referencias!.rotulos!} grande={grande} />}
               <Tooltip content={<Tip />} cursor={{ strokeDasharray: '3 3' }} />
               {grupos.map((gq) => (
                 <Scatter key={`${idGrafico}-${gq.cat}`} name={gq.cat || cy.nombre} data={gq.puntos} fill={gq.color} fillOpacity={0.82}
-                  stroke={halo} strokeWidth={1.5} isAnimationActive={false} onClick={clic} cursor={alGrupo ? 'pointer' : undefined} />
+                  stroke={halo} strokeWidth={1.5} isAnimationActive={false} onClick={clic} cursor={alGrupo ? 'pointer' : undefined}>
+                  {grande && puntos.length <= 12 && <LabelList dataKey="etiqueta" position="right" offset={14} fontSize={16} fontWeight={700} style={{ fill: 'var(--ink)' }} />}
+                </Scatter>
               ))}
             </ScatterChart>
           );

@@ -38,7 +38,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { sanearElemento, sanearGrafico, type Componente } from '../lib/graficos-catalogo';
 import {
-  DEFINICIONES_GENERAL, PLANTILLAS_GENERAL, elegirPersona, esPlantillaGeneral, informeGeneralInicial, type PersonaGeneral,
+  DEFINICIONES_GENERAL, PLANTILLAS_GENERAL, PORTADAS_GENERAL, elegirPersona, esPlantillaGeneral, informeGeneralInicial, type PersonaGeneral,
 } from '../lib/general-plantillas';
 import { PIEZAS_GENERAL, conVariables, esPiezaGeneral, piezaPorFunnel, saludoDeHora } from '../lib/general-piezas';
 
@@ -46,7 +46,10 @@ test('cada pieza de cada plantilla de General sobrevive al saneo con lo que se e
   let bloques = 0, graficos = 0;
   for (const d of DEFINICIONES_GENERAL) {
     const hoja = PLANTILLAS_GENERAL.find((p) => p.id === d.id)!.armar((l) => l) as { componentes: Componente[] };
-    assert.equal(hoja.componentes.length, d.piezas.length, `${d.id}: el saneo se comió una pieza`);
+    // Una portada NUEVA (15/10/2026, `PORTADAS_GENERAL`) es una pieza más que las escritas.
+    const portada = PORTADAS_GENERAL[d.id];
+    const nuevas = portada && 'nueva' in portada ? 1 : 0;
+    assert.equal(hoja.componentes.length, d.piezas.length + nuevas, `${d.id}: el saneo se comió una pieza`);
     for (const p of d.piezas) {
       const c = hoja.componentes.find((x) => x.id === p.local);
       assert.ok(c, `${d.id}/${p.local}: no está en la hoja (¿un id que no pasa el saneo?)`);

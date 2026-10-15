@@ -22,14 +22,19 @@ import { type KeyboardEvent } from 'react';
 import { fmtValor, OTROS, type FilaResultado, type Resultado } from '@/lib/graficos-agregar';
 import { textoConMuestra } from '@/lib/graficos-gordo';
 import { extraDe } from './Tabla';
+import { iniciales } from '@/lib/graficos-identidad';
 
-/** La miniatura de una fila, si es una URL https (lo demás no se dibuja). */
+/**
+ * La miniatura de una fila, si es una URL https (lo demás no se dibuja), o el póster inventado de una muestra (un SVG en
+ * base64, lib/graficos-muestra.ts: en un <img> un SVG no corre nada).
+ */
 const imagenDe = (f: FilaResultado): string | null => {
   const v = f.imagen;
-  return typeof v === 'string' && /^https:\/\/[^\s"'<>]{4,2000}$/i.test(v) ? v : null;
+  if (typeof v !== 'string') return null;
+  return /^https:\/\/[^\s"'<>]{4,2000}$/i.test(v) || /^data:image\/svg\+xml;base64,[A-Za-z0-9+/=]{20,20000}$/.test(v) ? v : null;
 };
 
-export function Tarjetas({ r, barraEn, chips, color, compacto, alFila }: {
+export function Tarjetas({ r, barraEn, chips, color, compacto, alFila, personas = false }: {
   r: Resultado;
   /** El índice de la métrica con barra, o -1. */
   barraEn: number;
@@ -37,6 +42,8 @@ export function Tarjetas({ r, barraEn, chips, color, compacto, alFila }: {
   chips: readonly string[];
   color: string; compacto: boolean;
   alFila?: (clave: string) => void;
+  /** Sobre una portada, tarjetas de personas: sin miniatura, el avatar con sus iniciales en su lugar. */
+  personas?: boolean;
 }) {
   const conBarra = barraEn >= 0 && barraEn < r.columnas.length;
   const max = conBarra ? Math.max(0, ...r.filas.map((f) => Math.max(0, f.valores[barraEn] ?? 0))) : 0;
@@ -52,9 +59,10 @@ export function Tarjetas({ r, barraEn, chips, color, compacto, alFila }: {
         const p = conBarra && max > 0 ? Math.min(100, (Math.max(0, v ?? 0) / max) * 100) : 0;
         return (
           <div key={f.clave} className="gr-tarjeta" {...(abre ? { role: 'button', tabIndex: 0, onClick: abre, onKeyDown: teclas, 'aria-label': `Ver detalle: ${f.etiqueta}` } : {})}>
-            <div className={`gr-tarjeta-cab${img ? '' : ' gr-tarjeta-cab--sin'}`}>
+            <div className={`gr-tarjeta-cab${img || personas ? '' : ' gr-tarjeta-cab--sin'}`}>
               {/* eslint-disable-next-line @next/next/no-img-element -- miniatura de un tercero (Meta), sin optimizar */}
               {img && <img className="gr-tarjeta-mini" src={img} alt="" loading="lazy" draggable={false} referrerPolicy="no-referrer" />}
+              {!img && personas && <span className="gr-avatar gr-avatar--tarjeta" aria-hidden>{iniciales(f.etiqueta)}</span>}
               <div style={{ minWidth: 0 }}>
                 <div className="gr-tarjeta-nom" title={f.etiqueta}>{f.etiqueta}</div>
                 {susChips.length > 0 && <div className="gr-tarjeta-chips">{susChips.map((c) => <span key={c} title={c}>{c}</span>)}</div>}
