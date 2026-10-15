@@ -40,11 +40,12 @@ import { destinoDetalle, dimensionDe, fuenteDe, metricaDe, tipoDe, tonoDe, type 
 import { alternarSerie, serieOculta, type SelDetalle } from '@/lib/graficos-acciones';
 import { colorDeTono, estiloEfectivo, fondoDeTarjeta, type TemaHoja } from '@/lib/graficos-temas';
 import {
-  anchoEjeY, anchoTexto, BARRA, colorDeCategoria, columnaConBarra, EJES, intervaloPorAncho, LETRA, LETRA_MINIMA, MARGEN, modoPorAlto, ocultoPorCero,
+  anchoEjeY, anchoTexto, BARRA, colorDeCategoria, columnaConBarra, EJES, ESCALA_EPICA, intervaloPorAncho, LETRA, LETRA_MINIMA, MARGEN, tamChip, tamProtagonista, tamSecundaria, modoPorAlto, ocultoPorCero,
   ordenarPorValores, textoConMuestra, usaPaneles,
 } from '@/lib/graficos-gordo';
 import dynamic from 'next/dynamic';
 import { chipComparar, fmtValor, histograma, OTROS, sinDatos, type FilaResultado, type Resultado } from '@/lib/graficos-agregar';
+import { PAGINA_MINIATURA } from '@/lib/graficos-muestra';
 import { EstilosGraficos } from './graficos/estilos';
 import { AreaMedida, useMedida, type Tam } from './graficos/medida';
 import { CapaEtiquetas, type SerieEtiqueta } from './graficos/Etiquetas';
@@ -227,9 +228,13 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo }: { g: G; 
       const tam = g.tipo === 'numero_compacto' ? 30 : g.tipo === 'serie_sparkline' ? 32 : e.kpiTamValor;
       const chip = g.comparar ? chipComparar(v, r.anterior?.[0] ?? null) : null;
       // La métrica chica de abajo («14 cierres»): el agregador la trae aparte (`Resultado.secundaria`).
+      // Lo que la tarjeta le deja al número: su alto en la grilla (filas de 30 con 16 entre filas, como el editor) menos el
+      // aire y el título; la tendencia guarda la mitad para su línea, y un subtítulo se lleva su renglón.
+      const cuerpoKpi = g.h * PAGINA_MINIATURA.fila + (g.h - 1) * PAGINA_MINIATURA.margen - 68 - (g.subtitulo ? 36 : 0);
+      const altoLibreKpi = g.tipo === 'numero_tendencia' || g.tipo === 'serie_sparkline' ? cuerpoKpi * 0.5 : cuerpoKpi;
       const secundaria = r.secundaria ? `${fmtValor(r.secundaria.valor, r.secundaria.formato, compacto)} ${enMinuscula(r.secundaria.nombre)}` : null;
       const grande = (
-        <NumeroGrande texto={texto} tam={tam} chip={chip} monoChip={e.kpiEtiqueta === 'mono'} secundaria={secundaria}
+        <NumeroGrande texto={texto} tam={tam} chip={chip} monoChip={e.kpiEtiqueta === 'mono'} secundaria={secundaria} altoLibre={altoLibreKpi}
           // Como antes: el número toma el color del filete sólo cuando hay algo (un «US$0» no va en verde).
           color={v == null ? 'var(--faint)' : tono && v > 0 ? tono : 'var(--ink)'} />
       );
@@ -699,27 +704,42 @@ const ENTRE_NUMERO_Y_CHIP = 10;
  * con `flex-wrap`, y en la tarjeta del celular (176 px) el chip bajaba siempre, aun al lado de un «22» que dejaba aire, y
  * se comía el alto de la línea de la tendencia, que desaparecía.
  */
-function NumeroGrande({ texto, tam, color, chip, monoChip, secundaria }: { texto: string; tam: number; color: string; chip: string | null; monoChip: boolean; secundaria: string | null }) {
+/**
+ * ÉPICO (Martín, 14/10/2026: «el mismo criterio de EPICIDAD en los dashboards»): el número ya no topea en el tamaño del
+ * tema (44 px) sino que crece con su tarjeta, con la escala compartida con General (`ESCALA_EPICA`, lib/graficos-gordo.ts):
+ * una KPI de 3 columnas sigue en ~48 px y una de 6 × 6 llega a ~120. `altoLibre` es lo que la tarjeta le deja al número
+ * (sale de sus filas en la grilla, no de medir: medir el alto en la pila del celular, donde la tarjeta mide lo que dibuja,
+ * sería un bucle). `tam` (el del tema) queda como piso en las tarjetas chicas.
+ */
+function NumeroGrande({ texto, tam, color, chip, monoChip, secundaria, altoLibre }: { texto: string; tam: number; color: string; chip: string | null; monoChip: boolean; secundaria: string | null; altoLibre: number }) {
   const [ref, medida] = useMedida<HTMLDivElement>();
   const w = medida?.w ?? 0;
-  const k = Math.max(2, [...texto].length) * 0.6;
-  const anchoChip = chip ? anchoTexto(chip, LETRA.tick) + 20 + ENTRE_NUMERO_Y_CHIP : 0;
-  const solo = w ? Math.min(tam, w / k) : 0;
-  const alLado = w ? Math.min(tam, (w - anchoChip) / k) : 0;
-  const enLinea = !chip || (w > 0 && alLado >= solo * 0.8);
-  // Hasta la primera medida, el tamaño sale de las unidades del contenedor (lo mismo, sin el chip al lado).
-  const tamano = !w ? `min(${tam}px, calc(100cqw / ${k.toFixed(2)}))` : `${Math.floor(chip && enLinea ? alLado : solo)}px`;
+  const letras = [...texto].length;
+  const libre = Math.max(0, altoLibre - (secundaria ? 40 : 0));
+  // Dos candidatos: con el chip al lado (le saca su ancho) o abajo (le saca su alto). Gana el lado si no achica el
+  // número más de un 20 %.
+  // El piso es el tamaño del tema si entra a lo ancho: en una tarjeta chica (3 filas) el tope de alto no puede dejar el
+  // número más chico que hoy; lo épico es que CREZCA en las grandes.
+  const piso = (ancho: number) => Math.min(tam, ancho > 0 ? ancho / (Math.max(2, letras) * ESCALA_EPICA.letraGruesa) : tam);
+  const debajo = Math.max(piso(w), tamProtagonista(w, letras, chip ? libre - (tamChip(tam) + 20) : libre));
+  const anchoChip = chip ? anchoTexto(chip, tamChip(debajo)) + 24 + ENTRE_NUMERO_Y_CHIP : 0;
+  const alLado = Math.max(piso(w - anchoChip), tamProtagonista(w - anchoChip, letras, libre));
+  const enLinea = !chip || (w > 0 && alLado >= debajo * 0.8);
+  const prota = chip && enLinea ? alLado : debajo;
+  // Hasta la primera medida, el tamaño sale de las unidades del contenedor.
+  const tamano = !w ? `min(${tam}px, calc(100cqw / ${(Math.max(2, letras) * ESCALA_EPICA.letraGruesa).toFixed(2)}))` : `${Math.floor(prota)}px`;
+  const chipTam = tamChip(w ? prota : tam);
   return (
     <div ref={ref} style={{ containerType: 'inline-size', width: '100%', minWidth: 0 }}>
       <div style={{ display: 'flex', flexDirection: enLinea ? 'row' : 'column', alignItems: enLinea ? 'center' : 'flex-start', gap: enLinea ? ENTRE_NUMERO_Y_CHIP : 8 }}>
-        <span style={{ fontWeight: 600, fontSize: tamano, lineHeight: 0.95, letterSpacing: '-0.03em', color, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{texto}</span>
+        <span style={{ fontWeight: ESCALA_EPICA.peso, fontSize: tamano, lineHeight: 0.95, letterSpacing: ESCALA_EPICA.tracking, color, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{texto}</span>
         {chip && (
           // La comparación habla en la letra de la etiqueta del tema: en mono sólo si la etiqueta va en mono (en el tema
           // «General», que es para leer de una pasada, «↑ 1,3×» en mono se leía como un dato técnico).
-          <span title="Contra el período anterior" style={{ flex: 'none', display: 'inline-flex', alignItems: 'center', fontFamily: monoChip ? MONO : 'inherit', fontSize: LETRA.tick, fontWeight: 600, padding: '4px 10px', borderRadius: 8, background: 'var(--surface-2)', color: 'var(--dim)', whiteSpace: 'nowrap' }}>{chip}</span>
+          <span title="Contra el período anterior" style={{ flex: 'none', display: 'inline-flex', alignItems: 'center', fontFamily: monoChip ? MONO : 'inherit', fontSize: chipTam, fontWeight: 600, padding: `${Math.round(chipTam * 0.3)}px ${Math.round(chipTam * 0.75)}px`, borderRadius: 8, background: 'var(--surface-2)', color: 'var(--dim)', whiteSpace: 'nowrap' }}>{chip}</span>
         )}
       </div>
-      {secundaria && <div className="gr-numero-sec" title={secundaria}>{secundaria}</div>}
+      {secundaria && <div className="gr-numero-sec" title={secundaria} style={w ? { fontSize: tamSecundaria(prota) } : undefined}>{secundaria}</div>}
     </div>
   );
 }
@@ -731,7 +751,7 @@ function NumeroGrande({ texto, tam, color, chip, monoChip, secundaria }: { texto
  */
 function KpiConLinea({ arriba, linea, enFila }: { arriba: ReactNode; linea: (t: Tam) => ReactNode; enFila: boolean }) {
   const [ref, medida] = useMedida<HTMLDivElement>();
-  const lado = enFila && (medida?.w ?? 0) >= 240;
+  const lado = enFila && (medida?.w ?? 0) >= 200;
   return (
     <div ref={ref} style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: lado ? 'row' : 'column', alignItems: lado ? 'center' : 'stretch', gap: lado ? 18 : 10 }}>
       <div style={lado ? { flex: '0 0 44%', minWidth: 0 } : { flex: 'none' }}>{arriba}</div>
