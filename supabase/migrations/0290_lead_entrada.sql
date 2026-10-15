@@ -1,5 +1,5 @@
 -- =============================================================================
--- XXXX_lead_entrada — cómo entró el lead: la página donde se registró y su primera entrada social
+-- 0290_lead_entrada — cómo entró el lead: la página donde se registró y su primera entrada social
 -- =============================================================================
 -- Tanda B del CRM (14/10/2026), la ficha por bloques (docs/diseno-ficha-bloques.md §5, «Datos que
 -- hacen falta»). Martín: «piensa en todos los bloques que un usuario, con los diferentes funnels que
@@ -25,7 +25,7 @@
 -- ⚠️ ORDEN DE DESPLIEGUE: ANTES O JUNTO CON EL DEPLOY. El alta las nombra en su insert, y un insert
 -- con una columna que no existe se rechaza entero. Si igual llega DESPUÉS, no se pierde ningún lead:
 -- `createLead` reintenta una vez sin estas dos columnas (lib/lead-alta-columnas.ts) y el lead entra
--- sin la página ni la entrada, con un log «falta la migración XXXX_lead_entrada». Lo que se pierde es
+-- sin la página ni la entrada, con un log «falta la migración 0290_lead_entrada». Lo que se pierde es
 -- ese dato de los leads que entren en el medio. Las lecturas no las nombran (la ficha lee con `*` y
 -- el tablero no las pide), así que ninguna pantalla depende de esta migración para abrir.
 -- Aplicarla antes no le molesta a la versión desplegada: son dos columnas nullable que nadie lee.

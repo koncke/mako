@@ -16,7 +16,7 @@
 // Sin `server-only`, para que tenga test (tests/crm-entrada-social.test.ts).
 // =============================================================================
 
-/** Las columnas del alta que puede no tener una base sin la migración XXXX_lead_entrada. */
+/** Las columnas del alta que puede no tener una base sin la migración 0290_lead_entrada. */
 export const COLUMNAS_NUEVAS_DEL_ALTA = ['pagina_registro', 'entrada_social'] as const;
 
 export type ErrorDeBase = { code?: string | null; message?: string | null } | null | undefined;

@@ -1,5 +1,5 @@
 -- =============================================================================
--- XXXX_lead_instagram_desde_ig — el @ de Instagram de los leads que entraron por Instagram sin él
+-- 0291_lead_instagram_desde_ig — el @ de Instagram de los leads que entraron por Instagram sin él
 -- =============================================================================
 -- Tanda B del CRM (14/10/2026, docs/diseno-ficha-bloques.md §5): «El @ de Instagram en el lead que
 -- entra por Instagram». Hasta esta tanda, el alta de Zernio (`crearLeadDe`, lib/zernio-entrante.ts)

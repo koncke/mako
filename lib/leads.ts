@@ -129,13 +129,13 @@ export type Lead = {
   /** Lo que contestó en el formulario de la landing ([{ pregunta, respuesta }], lib/optin-respuestas.ts). */
   optin_respuestas?: unknown;
   /**
-   * La página donde dejó sus datos (mig XXXX_lead_entrada, tanda B del CRM): la URL normalizada del
+   * La página donde dejó sus datos (mig 0290_lead_entrada, tanda B del CRM): la URL normalizada del
    * opt-in (`normalizarUrl`, sin UTM ni click-ids). Cuándo, es `created_at`. Lo escribe SÓLO el alta;
    * null = no entró por una landing, o entró antes de la migración.
    */
   pagina_registro?: string | null;
   /**
-   * Cómo entró por Instagram o Messenger (mig XXXX_lead_entrada): el evento que lo creó, guardado UNA
+   * Cómo entró por Instagram o Messenger (mig 0290_lead_entrada): el evento que lo creó, guardado UNA
    * vez. Se lee con `entradaSocialGuardada` (lib/canal-social.ts), nunca crudo.
    */
   entrada_social?: unknown;
@@ -337,9 +337,9 @@ export type LeadCreateInput = {
   instagram?: string | null;
   /** Lo que contestó en el formulario de la landing (mig 0274), ya saneado por `respuestasDelOptin`. */
   optin_respuestas?: Array<{ pregunta: string; respuesta: string }> | null;
-  /** La página donde dejó sus datos, ya normalizada (mig XXXX_lead_entrada). */
+  /** La página donde dejó sus datos, ya normalizada (mig 0290_lead_entrada). */
   pagina_registro?: string | null;
-  /** Cómo entró por Instagram o Messenger (`entradaSocialDe`, mig XXXX_lead_entrada). */
+  /** Cómo entró por Instagram o Messenger (`entradaSocialDe`, mig 0290_lead_entrada). */
   entrada_social?: EntradaSocial | null;
 };
 
@@ -931,7 +931,7 @@ export async function createLead(input: LeadCreateInput & { permitirDuplicado?: 
       // pagado nacía sin anuncio y la atribución por anuncio no lo contaba. Lo pasa el alta de Zernio
       // (lib/zernio-entrante.ts); ningún otro alta lo manda. Sólo si vino: un alta sin anuncio no lo nombra.
       ...(input.meta_ad_id?.trim() ? { meta_ad_id: input.meta_ad_id.trim() } : {}),
-      // Lo nuevo de la tanda B (mig XXXX_lead_entrada): la página del opt-in y cómo entró por
+      // Lo nuevo de la tanda B (mig 0290_lead_entrada): la página del opt-in y cómo entró por
       // Instagram o Messenger. Sólo si vino, y con el reintento de abajo si la migración no llegó.
       ...(input.pagina_registro?.trim() ? { pagina_registro: input.pagina_registro.trim() } : {}),
       ...(input.entrada_social ? { entrada_social: input.entrada_social } : {}),
@@ -940,10 +940,10 @@ export async function createLead(input: LeadCreateInput & { permitirDuplicado?: 
   const insertar = (f: Record<string, unknown>) => supabase.from('leads').insert(f).select('*').single();
   let { data, error } = await insertar(fila);
   // ⚠️ SIN LA MIGRACIÓN, EL LEAD ENTRA IGUAL (lib/lead-alta-columnas.ts): un deploy que llega antes que
-  // la XXXX_lead_entrada no puede mandar cada opt-in a propuesta ni perder el lead de un DM. Una sola
+  // la 0290_lead_entrada no puede mandar cada opt-in a propuesta ni perder el lead de un DM. Una sola
   // vez, y sólo si lo que falta es una de ESAS columnas.
   if (error && traeColumnasNuevas(fila) && faltaColumnaNuevaDelAlta(error)) {
-    console.warn(`[leads] falta la migración XXXX_lead_entrada: el lead entra sin la página de registro ni la entrada social (${error.message})`);
+    console.warn(`[leads] falta la migración 0290_lead_entrada: el lead entra sin la página de registro ni la entrada social (${error.message})`);
     ({ data, error } = await insertar(sinColumnasNuevas(fila)));
   }
   if (error) throw new Error(`Error creando lead: ${error.message}`);

@@ -205,11 +205,11 @@ test('el opt-in guarda la página donde se registró, por los DOS caminos', () =
 // Rotura: el backfill sin `plataforma = 'instagram'` → 10 / 1 (éste).
 // Rotura: el insert a `lead_audit` sin `workspace_id` → 10 / 1 (éste).
 test('las migraciones: las dos columnas, y el @ de los viejos sólo de Instagram, sólo donde está vacío y con su línea en el ws del lead', () => {
-  const cols = leer('../supabase/migrations/XXXX_lead_entrada.sql');
+  const cols = leer('../supabase/migrations/0290_lead_entrada.sql');
   assert.match(cols, /ORDEN DE DESPLIEGUE: ANTES O JUNTO CON EL DEPLOY/);
   assert.match(cols, /alter table leads add column if not exists pagina_registro text;/);
   assert.match(cols, /alter table leads add column if not exists entrada_social jsonb;/);
-  const bf = leer('../supabase/migrations/XXXX_lead_instagram_desde_ig.sql');
+  const bf = leer('../supabase/migrations/0291_lead_instagram_desde_ig.sql');
   assert.match(bf, /ORDEN DE DESPLIEGUE: DESPUÉS DEL DEPLOY/);
   const sql = bf.replace(/^\s*--.*$/gm, '');
   assert.match(sql, /ic\.plataforma = 'instagram'/, 'en Messenger el usuario es el de Facebook');
