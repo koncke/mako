@@ -22,7 +22,7 @@ import {
 import type { LecturaPushes } from '@/lib/progreso';
 import type { EstadoCarteros, Pedido } from '@/lib/operaciones';
 import { carteroVivo } from '@/lib/operaciones-reglas';
-import { completarChats, type ChatCentro, type TrabajoP } from '@/lib/centro-chats';
+import { completarChats, esperasPorChat, type ChatCentro, type DecisionEspera, type TrabajoP } from '@/lib/centro-chats';
 import { fotoCentroAction, pushesCentroAction } from '@/app/admin/operaciones/acciones';
 import { copiar, useFirma } from '@/app/admin/operaciones/mandar';
 import { CarteroMovil } from './CentroMovil';
@@ -162,12 +162,13 @@ const trabajoDe = (p: Pedido): TrabajoP => ({
   texto: p.texto, estado: p.estado, motivo: p.motivo, entregado_at: p.entregado_at, cerrado_at: p.cerrado_at, cierre: p.cierre,
 });
 
-export function CentroMovilPestanas({ inicial, base, colaInicial, carterosIniciales, pedidos, novedades, ahora: ahoraServer, sub }: {
+export function CentroMovilPestanas({ inicial, base, colaInicial, carterosIniciales, decisionesIniciales, pedidos, novedades, ahora: ahoraServer, sub }: {
   inicial: PestanaCentro;
   /** La mitad de la lista que sale de las bitácoras (lib/centro-chats.ts → chatsDeBitacoras). */
   base: ChatCentro[];
   colaInicial: Pedido[] | null;
   carterosIniciales: EstadoCarteros | null;
+  decisionesIniciales: DecisionEspera[] | null;
   pedidos: PedidoP[];
   novedades: NovedadP[];
   ahora: number;
@@ -177,6 +178,7 @@ export function CentroMovilPestanas({ inicial, base, colaInicial, carterosInicia
   const [cola, setCola] = useState<Pedido[]>(colaInicial ?? []);
   const [locales, setLocales] = useState<TrabajoP[]>([]);
   const [estado, setEstado] = useState<EstadoCarteros | null>(carterosIniciales);
+  const [decisiones, setDecisiones] = useState<DecisionEspera[]>(decisionesIniciales ?? []);
   const [ahora, setAhora] = useState(ahoraServer);
   const [pushes, setPushes] = useState<LecturaPushes | null>(null);
   const [cartero, setCartero] = useState(false);
@@ -189,12 +191,13 @@ export function CentroMovilPestanas({ inicial, base, colaInicial, carterosInicia
     return [...locales.filter((l) => !deCola.some((w) => w.id === l.id)), ...deCola];
   }, [cola, locales]);
   const carteros = useMemo(() => estado?.carteros ?? [], [estado]);
+  const esperas = useMemo(() => esperasPorChat(decisiones, carteros), [decisiones, carteros]);
   const chats = useMemo(() => completarChats(base, { carteros, trabajos, ahora }), [base, carteros, trabajos, ahora]);
   const abiertos = pedidos.filter((p) => p.estado !== 'hecho').length;
 
   const refrescar = useCallback(async () => {
     const f = await fotoCentroAction();
-    if (f.ok) { setCola(f.pedidos); setEstado(f.carteros); }
+    if (f.ok) { setCola(f.pedidos); setEstado(f.carteros); if (f.decisiones) setDecisiones(f.decisiones); }
     setAhora(Date.now());
   }, []);
   useEffect(() => {
@@ -229,7 +232,7 @@ export function CentroMovilPestanas({ inicial, base, colaInicial, carterosInicia
         <>
           <ChatsM
             chats={chats} carteros={carteros} pedidos={pedidos} trabajos={trabajos} pushes={pushes?.ok ? pushes.pushes : []} ahora={ahora}
-            firma={firma} onEnviado={(t) => { setLocales((l) => [t, ...l]); refrescar(); }}
+            esperas={esperas} firma={firma} onEnviado={(t) => { setLocales((l) => [t, ...l]); refrescar(); }}
           />
           <ListaM etiqueta="Cartero">
             <FilaM icono="config" titulo="Cartero" segunda={`${andando} de ${carteros.length} dando vueltas`} onClick={() => setCartero(true)} navegacion />

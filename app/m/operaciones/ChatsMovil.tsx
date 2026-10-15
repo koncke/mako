@@ -21,7 +21,12 @@ import {
   comoSale, historialDelChat, nombreCuenta, seccionesDeChats, textoDeEnvio, vistaPrevia, type CarteroP, type ChatCentro, type TrabajoP,
 } from '@/lib/centro-chats';
 import type { PedidoP, PushP } from '@/lib/progreso-reglas';
-import { Hilo, PuntoChat, Tick } from '@/app/admin/operaciones/Hilo';
+import Link from '@/app/_ui/Link';
+import { Hilo, Tick } from '@/app/admin/operaciones/Hilo';
+import { Muneco, animoDe } from '@/app/admin/operaciones/Muneco';
+
+const ESTADO: Record<ChatCentro['estado'], string> = { trabajando: 'Trabajando', abierto: 'Abierto', cerrado: 'Cerrado', sin_dato: 'Sin dato' };
+const metaDe = (c: ChatCentro) => [nombreCuenta(c.cuenta), ESTADO[c.estado]].filter(Boolean).join(' · ');
 import { copiar, type useFirma } from '@/app/admin/operaciones/mandar';
 
 /** Cuántos chats se ven por cuenta antes de «Ver todos». */
@@ -36,13 +41,15 @@ const edad = (t: number | null, ahora: number): string => {
   return `${Math.round(s / 86_400)} d`;
 };
 
-export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, firma, onEnviado }: {
+export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, esperas, firma, onEnviado }: {
   chats: ChatCentro[];
   carteros: CarteroP[];
   pedidos: PedidoP[];
   trabajos: TrabajoP[];
   pushes: PushP[];
   ahora: number;
+  /** Cuántas tarjetas de la Ticketera espera cada chat (lib/centro-chats.ts → esperasPorChat). */
+  esperas: Record<string, number>;
   firma: ReturnType<typeof useFirma>;
   /** Lo que se acaba de mandar, para que se vea enseguida mientras llega el refresco. */
   onEnviado: (t: TrabajoP) => void;
@@ -134,10 +141,11 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, firm
                 return (
                   <FilaM
                     key={c.clave}
-                    leading={<span className="m-operaciones-punto"><PuntoChat c={c} /></span>}
+                    leading={<Muneco titulo={c.titulo} animo={animoDe(c)} size={40} espera={esperas[c.clave] ?? 0} />}
                     titulo={<span className="m-operaciones-texto1">{c.titulo}</span>}
                     segunda={vivo
                       ? <span className="m-operaciones-vivo">trabajando…</span>
+                      : (esperas[c.clave] ?? 0) > 0 ? <span className="m-operaciones-espera">Espera tu respuesta</span>
                       : p ? <span className="m-operaciones-previa">{p.tick ? <Tick estado={p.tick} /> : p.propio ? 'Tú: ' : ''}{p.texto}</span>
                         : undefined}
                     riel={<span className="m-operaciones-hace">{edad(c.actividad, ahora)}</span>}
@@ -155,10 +163,16 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, firm
         {elegido && (
           <div className="m-operaciones-hilo" ref={hilo}>
             <p className="m-operaciones-hilo__meta">
-              <PuntoChat c={elegido} />
-              {[nombreCuenta(elegido.cuenta), { trabajando: 'Trabajando', abierto: 'Abierto', cerrado: 'Cerrado', sin_dato: 'Sin dato' }[elegido.estado]].filter(Boolean).join(' · ')}
+              <Muneco titulo={elegido.titulo} animo={animoDe(elegido)} size={24} />
+              {metaDe(elegido)}
             </p>
-            <Hilo lineas={lineas} pushes={pushes} ahora={ahora} vacio="Todavía no hay nada con este chat." />
+            {(esperas[elegido.clave] ?? 0) > 0 && (
+              <Link href="/m/tickets/decisiones" className="co-espera" style={{ margin: 0 }}>
+                {(esperas[elegido.clave] ?? 0) === 1 ? 'Una tarjeta espera tu respuesta' : `${esperas[elegido.clave]} tarjetas esperan tu respuesta`}
+                <span className="co-espera__ir">Contestar</span>
+              </Link>
+            )}
+            <Hilo lineas={lineas} pushes={pushes} ahora={ahora} vacio="Todavía no hay nada con este chat." quien={{ titulo: elegido.titulo, animo: animoDe(elegido), dato: metaDe(elegido) }} />
           </div>
         )}
       </SheetM>

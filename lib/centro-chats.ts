@@ -22,6 +22,7 @@
 
 import { CARTERO_VIVO_MS, DESTINO_RE, carteroVivo, type ChatCartero, type Cierre, type EstadoPedido } from './operaciones-reglas';
 import { instanteHito, type AreaP, type PasoP, type PedidoP } from './progreso-reglas';
+import { destinoDeDecision } from './decisiones-aviso';
 
 export type EstadoChat = 'trabajando' | 'abierto' | 'cerrado' | 'sin_dato';
 
@@ -343,6 +344,28 @@ export function seccionesDeChats(chats: readonly ChatCentro[]): SeccionChats[] {
     .sort(([ka, la], [kb, lb]) => Number(vivas(lb)) - Number(vivas(la)) || (ka ? 0 : 1) - (kb ? 0 : 1) || ka.localeCompare(kb, 'es', { numeric: true }))
     .map(([k, l]) => ({ clave: k || 'sin-cuenta', titulo: nombreCuenta(k) ?? 'Sin cuenta', chats: l }));
   if (antes.length) out.push({ clave: SECCION_ANTES, titulo: 'Antes del 16/10', chats: antes });
+  return out;
+}
+
+/**
+ * Las tarjetas de la Ticketera que esperan una respuesta de Martín, por chat (la clave de la lista). Es lo que
+ * Grok Bot llama «volver a pedir aprobación»: el empleado no avanza hasta que se le contesta.
+ * ⚠️ A qué chat va una tarjeta lo decide `destinoDeDecision` (lib/decisiones-aviso.ts), la MISMA regla con la que
+ * el cartero avisa la respuesta: por su `destino` (la sesión) o, sin él, por un título EXACTO y único. Con dos
+ * chats del mismo nombre no adivina, y la tarjeta no se le pega a ninguno.
+ */
+export type DecisionEspera = { chat: string; destino?: string | null; respuesta: string | null };
+
+export function esperasPorChat(decisiones: readonly DecisionEspera[], carteros: readonly Pick<CarteroP, 'cuenta' | 'chats'>[]): Record<string, number> {
+  const chats = carteros.flatMap((k) => k.chats.map((c) => ({ ...c, cuenta: c.cuenta ?? k.cuenta })));
+  const out: Record<string, number> = {};
+  for (const d of decisiones) {
+    if (d.respuesta != null) continue;
+    // Con su sesión es exacto, aunque ningún cartero vea ese chat ahora: la clave de la lista ES la sesión.
+    if (d.destino && DESTINO_RE.test(d.destino)) { out[d.destino] = (out[d.destino] ?? 0) + 1; continue; }
+    const r = destinoDeDecision({ chat: d.chat, destino: d.destino ?? null }, chats);
+    if (r.ok) out[r.chat.local] = (out[r.chat.local] ?? 0) + 1;
+  }
   return out;
 }
 

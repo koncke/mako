@@ -10,6 +10,10 @@ Escrito por el chat «Centro de Operaciones» de la cuenta 3 (`local_428051c1…
   sube el coordinador). A la izquierda los chats agrupados por cuenta, a la derecha la conversación con su **caja de
   escribir abajo**. Avance y Pushes son accesos de la barra; «Áreas» y las pestañas se fueron. En el teléfono, lo mismo
   (la conversación en una hoja con la caja fija abajo).
+- **Y cada chat es un EMPLEADO, como en Grok Bot** (commit `2755def4e`; Martín: «me gusta el concepto de los
+  muñequitos de IA o "empleados"»): un muñequito propio por área cuyos ojos dicen el estado, y el que espera una
+  respuesta en la Ticketera lo muestra con un globito y ofrece contestarla. Lo de Grok Bot, mirado en su video de
+  lanzamiento: docs/hallazgos-operaciones.md → «Grok Bot».
 - **Lo que se escribe en la caja se firma en el dispositivo y queda en la cola** (`mandar.ts` → `encolarPedidoAction`).
   Para que LLEGUE al chat faltan tres cosas de la PC, que no son de código (abajo).
 - **No se miró en producción.** Hay capturas con datos ficticios (escritorio, tablet, teléfono, la caja sin clave y el

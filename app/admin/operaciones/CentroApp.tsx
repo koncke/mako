@@ -8,7 +8,13 @@
 // Eliminando las tabs innecesarias, los textos innecesarios, títulos, subtitulos, avisos, etc... No solamente
 // eso, NO es funcional, no puedo mandar un prompt por allí a mis otras cuentas.»
 //
-// Copiado de (capturas miradas el 15/10; la lista, en docs/hallazgos-operaciones.md):
+// LA REFERENCIA PRINCIPAL ES GROK BOT (xAI, 11/08/2026; Martín: «Quiero que copie a Grok... sobre todo me gusta el
+// concepto de los muñequitos de IA o "empleados"»). De su video de lanzamiento, mirado cuadro por cuadro: cada
+// Bot es una fila con su muñeco de forma y color propios, su nombre, lo último que dijo y la hora; y un Bot
+// vuelve a pedir lo que necesita (acá, las tarjetas de la Ticketera, con su globito). Los muñecos son nuestros
+// (Muneco.tsx). Lo que Grok Bot no resuelve —tres cuentas, la entrega firmada— viene de las de abajo.
+//
+// Copiado también de (capturas miradas el 15/10; la lista, en docs/hallazgos-operaciones.md):
 //   · Claude Code web y Claude web — la barra: accesos con ícono arriba, filas de una línea con su punto de
 //     estado, y abajo de todo lo de la cuenta;
 //   · Codex (escritorio) — las sesiones agrupadas con «Mostrar más» y la hora a la derecha. El grupo acá es la
@@ -33,13 +39,14 @@ import { Modal, Toast, useToast } from '@/app/_ui';
 import { Icon } from '@/app/_components/icons';
 import { carteroVivo, type Alcance } from '@/lib/operaciones-reglas';
 import {
-  SECCION_ANTES, comoSale, completarChats, historialDelChat, seccionesDeChats, vistaPrevia, type ChatCentro, type TrabajoP, type VistaPrevia,
+  SECCION_ANTES, comoSale, completarChats, esperasPorChat, historialDelChat, seccionesDeChats, vistaPrevia, type DecisionEspera, type ChatCentro, type TrabajoP, type VistaPrevia,
 } from '@/lib/centro-chats';
 import type { NovedadP, PedidoP } from '@/lib/progreso-reglas';
 import type { LecturaPushes } from '@/lib/progreso';
 import type { EstadoCarteros, Pedido } from '@/lib/operaciones';
 import { Conversacion } from './Conversacion';
-import { PuntoChat, Tick } from './Hilo';
+import { Tick } from './Hilo';
+import { Muneco, animoDe } from './Muneco';
 import { PanelCartero } from './PanelCartero';
 import { Progreso } from './Progreso';
 import { fotoCentroAction, pushesCentroAction } from './acciones';
@@ -79,8 +86,10 @@ const trabajoDe = (p: Pedido): TrabajoP => ({
 
 /** El segundo renglón de la fila: «trabajando…» mientras trabaja (el «escribiendo…» de WhatsApp), si no lo
  *  último que pasó, con el tick si es un trabajo propio. */
-function Previa({ c, p }: { c: ChatCentro; p: VistaPrevia | null }) {
+function Previa({ c, p, espera }: { c: ChatCentro; p: VistaPrevia | null; espera: number }) {
   if (c.estado === 'trabajando' && !c.viejo) return <span className="co-fila__l2 co-fila__l2--vivo">trabajando…</span>;
+  // Lo que espera una respuesta de Martín le gana a lo último que pasó: es lo que lo frena.
+  if (espera > 0) return <span className="co-fila__l2 co-fila__l2--espera">Espera tu respuesta</span>;
   // Sin nada que contar, la fila es de un renglón: «Sin nada anotado» repetido en 40 filas no distingue a ninguna.
   if (!p) return null;
   return (
@@ -91,10 +100,12 @@ function Previa({ c, p }: { c: ChatCentro; p: VistaPrevia | null }) {
   );
 }
 
-export function CentroApp({ base, colaInicial, carterosIniciales, pedidos, novedades, todos, ahora: ahoraServer, sub, vistaInicial, chatInicial }: {
+export function CentroApp({ base, colaInicial, carterosIniciales, decisionesIniciales, pedidos, novedades, todos, ahora: ahoraServer, sub, vistaInicial, chatInicial }: {
   base: ChatCentro[];
   colaInicial: Pedido[] | null;
   carterosIniciales: EstadoCarteros | null;
+  /** Las tarjetas de la Ticketera (lo mínimo); null si no se pudieron leer. */
+  decisionesIniciales: DecisionEspera[] | null;
   pedidos: PedidoP[];
   novedades: NovedadP[];
   todos: boolean;
@@ -106,6 +117,7 @@ export function CentroApp({ base, colaInicial, carterosIniciales, pedidos, noved
   const router = useRouter();
   const [cola, setCola] = useState<Pedido[]>(colaInicial ?? []);
   const [estado, setEstado] = useState<EstadoCarteros | null>(carterosIniciales);
+  const [decisiones, setDecisiones] = useState<DecisionEspera[]>(decisionesIniciales ?? []);
   const [ahora, setAhora] = useState(ahoraServer);
   const [pushes, setPushes] = useState<LecturaPushes | null>(null);
   const [vista, setVista] = useState<VistaCentro>(vistaInicial);
@@ -121,6 +133,7 @@ export function CentroApp({ base, colaInicial, carterosIniciales, pedidos, noved
 
   const trabajos = useMemo(() => cola.map(trabajoDe), [cola]);
   const carteros = useMemo(() => estado?.carteros ?? [], [estado]);
+  const esperas = useMemo(() => esperasPorChat(decisiones, carteros), [decisiones, carteros]);
   const chats = useMemo(() => completarChats(base, { carteros, trabajos, ahora }), [base, carteros, trabajos, ahora]);
   const porId = useMemo(() => new Map(pedidos.map((p) => [p.id, p])), [pedidos]);
 
@@ -135,7 +148,7 @@ export function CentroApp({ base, colaInicial, carterosIniciales, pedidos, noved
 
   const refrescar = useCallback(async () => {
     const f = await fotoCentroAction();
-    if (f.ok) { setCola(f.pedidos); setEstado(f.carteros); }
+    if (f.ok) { setCola(f.pedidos); setEstado(f.carteros); if (f.decisiones) setDecisiones(f.decisiones); }
     setAhora(Date.now());
   }, []);
   useEffect(() => {
@@ -230,13 +243,13 @@ export function CentroApp({ base, colaInicial, carterosIniciales, pedidos, noved
                     aria-current={vista === 'chats' && actual?.clave === c.clave ? 'true' : undefined}
                     onClick={() => elegir(c.clave)}
                   >
-                    <PuntoChat c={c} />
+                    <Muneco titulo={c.titulo} animo={animoDe(c)} size={38} espera={esperas[c.clave] ?? 0} />
                     <span className="co-fila__cuerpo">
                       <span className="co-fila__l1">
                         <span className="co-fila__titulo">{c.titulo}</span>
                         <span className="co-fila__hace">{edad(c.actividad, ahora)}</span>
                       </span>
-                      <Previa c={c} p={previas.get(c.clave) ?? null} />
+                      <Previa c={c} p={previas.get(c.clave) ?? null} espera={esperas[c.clave] ?? 0} />
                     </span>
                   </button>
                 ))}
@@ -265,6 +278,7 @@ export function CentroApp({ base, colaInicial, carterosIniciales, pedidos, noved
         actual && envio ? (
           <Conversacion
             chat={actual} pedidos={porId} trabajos={trabajos} pushes={pushes?.ok ? pushes.pushes : []} ahora={ahora}
+            espera={esperas[actual.clave] ?? 0}
             envio={envio} texto={texto} onTexto={setTexto} alcance={alcance} onAlcance={setAlcance} enviando={enviando}
             onMandar={mandar} onCrearClave={crearClave}
             onCopiarClave={() => firma.clave && copiarConAviso(firma.clave.spki, 'Clave copiada: pégala en el chat Cartero')}
