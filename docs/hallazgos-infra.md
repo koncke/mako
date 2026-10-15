@@ -6241,3 +6241,54 @@ que ya estaban en `origin/main`. **Causa:** el orquestador sube rebaseando sobre
 hashes; el `main` local quedó con las versiones viejas, y el commit nuevo se hizo arriba de ellas. **Regla:** antes de
 apoyar una rama en el commit de otro chat, `git log --oneline origin/main..<ese commit>`. Si trae algo más que ese
 commit, NO se apoya: se rebasea ese commit solo sobre `origin/main`, o se deja que suba primero. · *15/10/2026, chat «Ciberseguridad»*
+## Un Workflow con `isolation: 'worktree'` muere ENTERO si el cwd de la sesión quedó fuera del repo (15/10/2026)
+
+**Síntoma:** una corrida de 6 agentes devolvió un informe que empezaba diciendo que la medición
+había llegado **vacía**. Los cinco medidores no corrieron; el único que arrancó fue el de síntesis,
+que midió todo él mismo. En `<failures>` los cinco decían lo mismo: *«Cannot create agent worktree:
+not in a git repository and no WorktreeCreate hooks are configured»*.
+
+**El diagnóstico obvio era el equivocado.** El repo estaba perfecto y los worktrees también (hay
+~25 vivos). Lo que había cambiado era el **cwd de la sesión**: un comando de Bash había hecho `cd`
+a `C:/dev/wt-push-e`, y al terminar el harness lo dejó en
+`…/dashboard-marketing-main` — la carpeta PADRE del clon, que no es un repo git. El Workflow crea
+los worktrees relativos al cwd, así que los cinco fallaron antes de ejecutar una línea.
+
+**Lo que lo vuelve caro:** el resultado del Workflow **no dice por qué**. El campo `veredicto` llega
+con el informe del agente que sí corrió, el `<result>` se ve normal, y sólo mirando `<failures>` —o
+`journal.jsonl`, que tenía cinco `{"type":"failed"}` con `agentId` vacío— aparece la causa. Un
+workflow que devuelve un informe plausible armado por UN agente sobre el trabajo de cinco se lee
+igual que uno que salió bien.
+
+**Las reglas:**
+
+- **Antes de lanzar un Workflow con `isolation: 'worktree'`, verificá el cwd** (`git rev-parse
+  --is-inside-work-tree`). Un `cd` a otro worktree dentro de un comando compuesto puede dejar la
+  sesión afuera del repo cuando termina, y eso no se anuncia.
+- **Si un workflow devuelve algo que no cuadra, `journal.jsonl` ANTES de diagnosticar.** Vive en
+  `~/.claude/projects/<proyecto>/<sesión>/subagents/workflows/<runId>/` — con `subagents/` en el
+  medio: la carpeta `<sesión>/workflows/` también existe, se llama igual, y contesta cero sin un
+  error.
+- **Y un agente que mide «por las dudas» lo que otros no pudieron medir salva la corrida, pero su
+  informe tiene que DECIRLO.** El de esta corrida lo dijo en la primera línea, y por eso se pudo
+  confiar en lo que sí midió y desconfiar de lo que no (ningún test corrido).
+
+**Vive en:** (proceso: Workflow + isolation worktree)
+
+## De 17 commits locales sin subir, 16 eran copias de rebase: se cuenta con `git cherry` (15/10/2026)
+
+**Síntoma:** `git status` decía `[ahead 17, behind 93]` sobre el clon principal. Leído como «hay 17
+cosas sin desplegar», manda a revisar y pushear trabajo que ya está en producción.
+
+**La causa:** con ~25 worktrees sobre un mismo `.git` y rebases frecuentes, un commit que ya viajó a
+main vuelve a aparecer como local con otro sha. `git cherry origin/main main` los distingue: marca
+con `-` los que ya están en main por contenido y con `+` los que faltan de verdad. Acá: **16 con
+`-`, uno con `+`** (`333294146`, el que apunta el repo de GitHub a `hola-mako` tras la
+transferencia).
+
+**La regla:** «cuánto falta subir» se contesta con `git cherry origin/main main`, nunca con el
+`ahead N` de `git status`. Y vale para cualquier pantalla o reporte que cuente commits pendientes:
+contando `ahead` muestra como trabajo pendiente lo que ya está hecho.
+
+**Vive en:** (proceso: git en el clon compartido)
+\n

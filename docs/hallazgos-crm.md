@@ -8848,3 +8848,65 @@ elegidos. Lo que costó o no se ve:
 - **La migración 0289 va ANTES del deploy:** sin ella la pantalla dice «Falta aplicar la migración». Nació 0288 y se renumeró: el Centro de Operaciones tomó la 0288 a las 05:58 del 15/10 y la APLICÓ en prod, minutos después de que se recorrieran los worktrees. El número se elige al commitear, no al escribir.
 
 *15/10/2026, chat «Leads Scraper» (`claude1`).*
+## Las migraciones de la tanda del CRM se llaman `XXXX`, y el número libre es 0290, no 0287 (15/10/2026)
+
+**Síntoma:** las cinco ramas `crm-bloques-b1..b5` (14/10) traen tres migraciones sin numerar:
+`XXXX_pagos_manual_suscripcion_cancelada.sql` (b2), `XXXX_lead_entrada.sql` y
+`XXXX_lead_instagram_desde_ig.sql` (b4). Al integrarlas, el reflejo es numerarlas con lo que siga
+a lo último que uno ve.
+
+**La causa de que el número obvio sea el equivocado:** `main` termina en `0289_prospectos.sql`,
+pero el número no se elige mirando main. Medido el 15/10/2026 barriendo TODAS las ramas locales
+(`git for-each-ref` + `git ls-tree` por rama): del 0290 en adelante no hay nadie, y 0287/0288 ya
+están tomados en main. Numerar la tanda del CRM con un número tomado deja **dos archivos distintos
+con el mismo número**: el que pierde no corre NUNCA, porque el día que alguien aplique las
+migraciones en orden ese número ya figura como aplicado. No da error: da una columna que falta en
+producción y una pantalla que contesta 500 sobre un insert perfectamente escrito.
+
+**Y renumerar NO es renombrar el archivo.** `tests/crm-entrada-social.test.ts` lee los dos `.sql`
+de b4 **por su nombre**, así que el rename lo pone rojo; y el número aparece además en
+`lib/leads.ts` (comentario y `console.warn` de `createLead`), en `lib/lead-alta-columnas.ts` y en
+el comentario del tipo `Lead`.
+
+**El orden de despliegue de cada una, que no es el mismo:**
+
+- `0290_lead_entrada.sql` — **ANTES o junto** con el deploy. El alta nombra las columnas en su
+  insert; tiene reintento de una sola vez (`lib/lead-alta-columnas.ts`), pero el update de
+  `app/crm/revisar/[id]/acciones.ts` NO, así que sin la migración confirmar una propuesta falla.
+- `0291_lead_instagram_desde_ig.sql` — **DESPUÉS**: es un backfill idempotente del @.
+- `0292_pagos_manual_suscripcion_cancelada.sql` — **ANTES o junto**. Sin ella, el concepto y el
+  método de un pago a mano se pierden sin avisar (el update va aparte y no tira) y «Cancelar
+  suscripción» contesta error.
+
+**La regla:** el número de una migración se elige después de barrer **todas las ramas y todos los
+worktrees**, nunca mirando `main` ni `ls supabase/migrations | tail`. Y al renumerar se grepea el
+nombre viejo del archivo: si un test lo lee por su nombre, el rename lo rompe.
+
+**Vive en:** supabase/migrations/ · tests/crm-entrada-social.test.ts · lib/lead-alta-columnas.ts
+
+## Lo que quedó medido de las cinco ramas del CRM del 14/10 (15/10/2026)
+
+Medido con merges en seco (`git merge-tree`) contra `main` en `333294146`. **Ningún test se
+corrió**: los números del 14/10 son sobre la base vieja `2c19b2d69` y main se movió mucho.
+
+| Rama | Entra | Qué choca |
+|---|---|---|
+| **b4** · captura de la entrada del lead | sí, primera | sólo `docs/relevo/crm.md` |
+| **b3** · «Nuevo CRM» de 13 tipos | sí | el relevo y el snapshot HTTP; toca `lib/api-mako/areas/crm.def.ts` |
+| **b1** · motor de la ficha, **sin** el WIP `3eb46606a` | sí, tercera | con b3 en `crm.def.ts` y con b2 en `tests/acciones-sin-sesion.test.ts` |
+| **b2** · Pagos campo por campo | sí, última | **choca de verdad** en `lib/pagos.ts` y `app/crm/[id]/deal-actions.ts` (entró trabajo de pasarela el 15/10) |
+| **b5** · piezas de Automations, **sólo** `5129d8dde` | después de Automations | `lib/flujo-ia.ts`, con tres ramas de Automations sin mergear |
+
+**Lo que NO entra, con el archivo:** el armador de la ficha (b1, `3eb46606a`) se lleva puestos
+`app/crm/lead-view/ResumenModal.tsx` y `app/crm/resumen-actions.ts` sin que el reemplazo esté
+cableado; mientras no entre, `app/crm/lead-view/AvisosDatosModal.tsx:32` y `:44` llaman sin
+`funnelId`, así que prender ahí un aviso que la plantilla del funnel apaga **no hace nada**. Y las
+plantillas T1/T2/T3/T6 de b5 (`87889880f`) no existen, así que el motor del CRM automático
+**no se puede apagar** (`KEY_CRM_AUTO`).
+
+**Dos reglas del merge:** `docs/api-mako.md` y `tests/api-mako-http.snapshot.txt` los tocan b1, b2,
+b3 y b5 — **no se resuelven a mano, se regeneran** (`scripts/generar-api-doc.mjs`) una sola vez al
+final. Y los merges van **sin rebase**: `crm-bloques` ya mergeó main así.
+
+**Vive en:** lib/pagos.ts · app/crm/[id]/deal-actions.ts · lib/api-mako/areas/crm.def.ts
+\n
