@@ -1036,6 +1036,10 @@ una página que todavía no se publicó. Vive en `lib/landing-token.ts` (`landin
 
 ### ⚠️ Hay dos `normalizarUrl` con contratos opuestos, y la del panel conserva el nombre y el email del lead
 
+> **15/10/2026:** la de `lib/landing-url.ts` (re-exportada por `landing-fetch`) pasó a llamarse **`claveDeLanding`**: es la
+> LLAVE de `landing_analyses`, no una dirección. `normalizarUrl` es sólo la de `lib/landing-paginas.ts`, y
+> `tests/landing-url-unica.test.ts` frena una segunda. Detalle: `docs/hallazgos-editor-landing.md` → «Tanda 8».
+
 *2026-09-16 api-mako-areas*
 
 **Síntoma:** la lista de páginas del probador puede ofrecer
@@ -1065,7 +1069,7 @@ normalizador pasó. Con el de `landing-paginas`, el query del visitante viaja en
 compartida — y ojo: cambiar el query cambia la clave con la que se guardan `landing.config` y
 `landing.snapshot` (las dos derivan con esta función), así que no es un cambio de una línea.
 
-**Vive en:** `lib/landing-paginas.ts` y `lib/landing-fetch.ts` (`normalizarUrl`) ·
+**Vive en:** `lib/landing-paginas.ts` (`normalizarUrl`) y `lib/landing-url.ts` (`claveDeLanding`, antes `normalizarUrl`) ·
 `lib/landing-token.ts` (`landingDiagnostico`) · *2026-09-16 api-mako-areas*
 
 ### Una colección que se ELIGE también hay que MANTENERLA

@@ -327,7 +327,7 @@ guardar no es que se hicieron: es por qué el diagnóstico de cada uno estaba a 
 
 `linkParaLeer` RECHAZABA el link si traía un parámetro propio, con un mensaje que mandaba a copiar el
 texto a mano. El motivo real era que `extraerLanding` sólo sabía bajar la URL **normalizada de Landing
-Analyst** —`normalizarUrl` tira el querystring ENTERO y el `www.`, a propósito, porque esa es la
+Analyst** —`normalizarUrl` (desde el 15/10/2026, `claveDeLanding`) tira el querystring ENTERO y el `www.`, a propósito, porque esa es la
 IDENTIDAD de una landing y sin eso un cliente tenía 24 «landings» que eran 2 páginas—. Con esa URL, un
 `?page_id=245` de un WordPress sin permalinks bajaba la HOME: otra oferta, y la IA anotando piezas de
 ahí sin que nada avisara. Rechazar era correcto mientras no hubiera alternativa.
