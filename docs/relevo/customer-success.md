@@ -74,8 +74,7 @@ Se lee en cinco minutos. Medido el 13/10/2026; lo que no se midió, lo dice.
 
 ### Lo que FALTA
 
-- **Decisiones de Martín**: las de §6 (Leandro, Brigitte, el PAS, Teresa, las correctas del quiz,
-  «+ Nuevo campo», reabrir el tutorial, fuente en Conocimientos, autoplay de Panda, ideas).
+- **Decisiones de Martín**: ninguna. Las de §6 se resolvieron por criterio el 15/10 (ver §6).
 - **Que alguien lo vea en la pantalla**: todo se verificó con las funciones reales o en bancos de
   prueba, nunca clickeando la app andando. Desde el 13/10 hay con qué: el fixture del ws3 (abajo).
 - **De otros chats**: la invitación al ganar en un producto agregado, y la sugerencia de crear la
@@ -367,46 +366,37 @@ de Mauricio Bustos — un CLIENTE real**.
 
 ---
 
-## 6. Qué espera una decisión de Martín
+## 6. Lo que era «decisión de Martín» y se resolvió por criterio (15/10/2026)
 
-1. **La fila de acceso de Leandro** (ws10, lead 2625) abre los dos cursos y no se achica
-   sola. Dos opciones: (a) la línea SQL —
-   `update curso_accesos set productos = '{39}' where id = 5 and workspace_id = 10 and
-   lead_id = 2625 and area is null;` — o (b) «Quitar de este producto» en Service Delivery
-   (producto 10). En los dos casos conviene que **pruebe con un alumno NUEVO**, porque un
-   `NULL` ya usado no se acota. Y el «Entró N veces» de esa fila subió por las mediciones:
-   corregirlo es otra escritura, también suya.
-2. **El acceso de Brigitte Eberlin (ws15)**. Hace falta **su email**, que no está en la
-   base. Con él hay dos caminos: Joan (la agencia, ws13) desde la tarjeta → «Acciones» →
-   «Pedir sumar a alguien», y Martín aprueba; o Martín directo desde la ficha → Equipo →
-   «Sumar y mandarle el acceso». Después se verifica `invitacion_enviada_at` en su fila.
-3. **El PAS fuera de orden.** El kanban pone la etapa PAS tercera y la planilla de Mauricio
-   la pone después de Tablero y Ritmo. Se arregla moviendo la etapa en el editor (las clases
-   viajan solas). **Lo decide él.**
-4. **Dónde va Teresa** (ws1, lead 21), hoy en una etapa que su producto no tiene. Se mueve
-   con un clic desde su ficha.
-5. **Las respuestas correctas de un quiz**: hoy se muestran sólo con el quiz cerrado y
-   **nunca por área** (default puesto por la sesión anterior, sin confirmar). Lo mismo para
-   un quiz reabierto (`darOtroIntento`, `lib/curso-entregas.ts`): las de un reabierto ya se
-   ven. **Confirmar o cambiar.**
-6. **La ficha mira la invitación desde el curso elegido** (otro default sin confirmar).
-7. **«+ Nuevo campo»**: Martín lo pidió ARRIBA a la mañana del 08/10 y la prueba de la tarde quiere
-   los campos nuevos ABAJO. Hoy nace abajo. **Confirmar.**
-8. **El recorrido del curso conserva la clave `cs-curso`**: quien ya lo vio no ve los pasos nuevos
-   solo (sí con el «?»). Cambiar la clave (`recorridos-curso.ts`) se lo reabre a todos. **¿Se reabre?**
-9. **La fuente en Conocimientos** (el selector que ya tiene la tab Curso) necesita una migración (el
-   CHECK de `conocimiento_ajustes.campo`). **¿Se hace?**
-10. **Un Panda insertado en la descripción arranca solo** si la cuenta de Panda del negocio tiene el
-    autoplay prendido. Es de Panda, no nuestro. **¿Se fuerza apagado?**
-11. **Ideas sin pedido, para decidir si se hacen**: el diseño del mail de invitación; el
-   Curso como pestaña de la comunidad (a Leandro le gusta separado, no hay pedido); los
-   niveles del ranking, que hoy salen sin configurar; crear el grupo de WhatsApp del curso
-   desde MaKo.
-12. **Del audio del 08/10 a la noche quedan los puntos 13, 14 y 15** (el correo con
-   Google/Gmail entre ellos): **son de Integraciones**, no de acá.
-13. **La oferta que nace junto con un CRM se llama como el CRM** (`crearProductoConFunnel` crea los
-    tres con el mismo nombre), así que un curso nuevo hereda el nombre del CRM por ahí. ¿Esa oferta
-    puede nombrar el curso, o el curso queda «sin nombre» hasta que alguien la renombre en Offer?
+El 15/10 Martín pidió no cargarle lo que se puede resolver mirando la base, el código o una regla ya
+escrita (AGENTS.md, «A la Ticketera va lo que DECIDE Martín», 9f4585931), y la sesión «Estrategia 3
+cuentas» retiró las once tarjetas de CS del mazo. Re-medido en la base ese día (sólo lecturas):
+
+1. **Brigitte (ws15)**: ya no hace falta nada. Tiene usuario desde el **10/10** (id 14, activo). La
+   tarjeta estaba vieja: nadie la re-midió en cinco días.
+2. **El acceso de la prueba de Leandro (ws10, curso_accesos 5)**: el lead se llama «Leandro prueba» y
+   lo creó él mismo 10 minutos después del producto 39. Es SU prueba de SU curso, no un alumno. No se
+   toca desde acá: no está claro cuál de los dos cursos quiso abrir (su lead vive en el embudo por
+   defecto), y él mismo lo acota desde la ficha con «Quitar de este producto».
+3. **El PAS fuera de orden**: es el contenido del curso de Mauricio. Lo ordena él en su editor.
+4. **Teresa (ws1)**: no está fuera de catálogo. Su fila es del producto 13 «Prueba», que no tiene
+   etapas declaradas, así que corre con las de fábrica, y «onboarding» es la primera. No hay nada que
+   mover.
+5. a 8. **Las correctas del quiz (sólo con el quiz cerrado), la invitación vista desde el curso
+   elegido, «+ Nuevo campo» naciendo abajo y no reabrir el recorrido** quedan como están: son
+   convenciones de interfaz, y la regla nueva es copiarlas de una app que ya lo resolvió (AGENTS.md,
+   272b7e038). Si alguna se toca, se abre la referencia primero.
+9. **La fuente en Conocimientos** necesita una migración: es trabajo, no pregunta. No lo pidió nadie
+   con fecha: queda en la cola, no se hace ahora (la PODA).
+10. **El autoplay de Panda** queda como lo configura la cuenta de Panda del negocio: es de Panda.
+11. **Las ideas sin pedido**: no (la PODA: si la respuesta es «puede ser», no se hace).
+12. **Los puntos 13-15 del audio del 08/10** son de Integraciones.
+13. **El curso toma el nombre de su oferta**, aunque la oferta haya nacido con el nombre del CRM. Se
+    renombra en Offer.
+
+⚠️ **La lección:** una lista de «decisiones pendientes» envejece igual que cualquier medición. Antes de
+volver a publicar algo, se re-mide (Brigitte llevaba cinco días resuelta). Y una tarjeta que nombra a
+una persona real lo hace sólo si la decisión es SOBRE esa persona.
 
 ---
 
