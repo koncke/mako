@@ -89,6 +89,41 @@ Martín decidió que las tres cuentas corran juntas, la de la app y dos en termi
 - **La sesión de prueba se firmó a mano** con el `AUTH_SECRET` del `.env.local`, por 30 minutos y sin
   salir de la PC: la de `/api/auth/dev-login` es `sub: 'dev'`, y el Centro la rechaza a propósito.
 
+## La primera pantalla se rechazó por diseñada de memoria; la segunda copia GitHub Actions (15/10/2026)
+
+**Síntoma.** Martín vio `/admin/operaciones` y la rechazó («horrible»). Lo que se veía: un cartel ámbar a
+lo ancho de la página, un desplegable muerto («Ningún cartero subió chats todavía»), «Sólo esto» en azul
+lleno al lado de «Y de ahora en más» en texto, un «Firmar y mandar» dorado, gigante y apagado, y tres
+secciones apiladas del mismo peso con un hueco en el medio.
+
+**Causa.** No era un detalle de estilo: la pantalla se dibujó sin abrir ninguna referencia. De ahí salió
+la regla de AGENTS.md «NINGUNA pantalla se diseña de cero: se COPIA de una app que ya resolvió eso».
+
+**Lo que se copió, y de dónde.** La pestaña Actions de github.com/vercel/next.js (la lista, un workflow
+y una corrida, abiertas el 15/10 con Chrome sin sesión) y, para el panel de «Run workflow» —que sólo se
+ve con sesión—, la guía oficial «Manually running a workflow». El mapa:
+
+| GitHub Actions | Centro |
+|---|---|
+| «All workflows» + la lista de workflows a la izquierda | «Todos los pedidos» + los chats, agrupados por cuenta |
+| Caches / Deployments, abajo de la columna | Carteros (con la clave del dispositivo y el token) |
+| Caja «N workflow runs» con filtros Event · Status · Branch · Actor | Caja «N pedidos» con filtros Cuenta · Estado |
+| Fila: ícono de estado, título, «workflow #N: …», rama, fecha y duración, «…» | Fila: ícono de estado, texto del pedido, «chat #N: firmado por Martín», alcance, fecha y «llegó en», «…» |
+| Franja «This workflow has a workflow_dispatch trigger» + «Run workflow ▾» | Franja del chat («Lo entrega el cartero de la cuenta 3») + «Nuevo pedido ▾» |
+| El panel: «Use workflow from Branch», los inputs, «Run workflow» | El panel: «Alcance: Sólo esto», el pedido, «Firmar y mandar» |
+| La corrida: volver, título #N, Triggered · Status · Duration, el grafo de jobs | El pedido: volver, título #N, Firmado · Estado · Tardó · Destino, el recorrido Firmado → Tomado → Entregado → Hecho |
+
+Dos decisiones que salen de copiar y no de gusto: «Nuevo pedido» sólo aparece con un chat elegido (en
+GitHub, «Run workflow» sólo está en un workflow), y por eso no hay desplegable de chats que pueda quedar
+muerto; y lo que falta (un cartero sin señal, un chat cerrado) se dice en la franja de ese chat, no en
+un cartel de página.
+
+**La propuesta, viva:** `docs/prototipos/centro-operaciones.html` (también publicada como página para que
+Martín la valide). Computadora y celular, con tokens de la casa.
+
+**Vive en:** `app/admin/operaciones/CentroOperaciones.tsx` (lo que se reemplaza) ·
+`docs/prototipos/centro-operaciones.html` (lo propuesto)
+
 ## Lo que creí medido y no estaba al día
 
 - **`soloPlataforma` ya existía en el registro de la API** (lo sumó el 2FA obligatorio el 14/10, por
@@ -99,6 +134,9 @@ Martín decidió que las tres cuentas corran juntas, la de la app y dos en termi
 
 ## Lo que quedó sin hacer
 
+- **Implementar el rediseño** de `docs/prototipos/centro-operaciones.html` en
+  `app/admin/operaciones/CentroOperaciones.tsx`: espera la validación de Martín (15/10). La lógica de
+  firma, las acciones y el cartero no cambian; cambia la pantalla.
 - **Instalar el cartero de verdad** (`instalar`, el token, las claves, `cartero claude1 app ~/.claude`
   y las carpetas) y abrir el chat «Cartero» con su cron: va después del deploy, contra producción.
 - **Las cuentas de terminal**: el `/login` de cada una (lo hace Martín), su marcador por directorio y
