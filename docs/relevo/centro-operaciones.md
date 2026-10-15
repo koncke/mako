@@ -73,3 +73,45 @@ una referencia pide un dato que no tenemos, gana el dato.
 Y lo de siempre: que se VEA la lista de chats con su estado. El modelo ya esta medido y en main
 (lib/centro-chats.ts); lo que falta es la cascara.
 
+## LO QUE MARTIN VIO Y RECHAZO (15/10/2026, 21:45) — el rediseño de punta a punta
+
+La pestaña Chats esta en produccion y **el la miro y la rechazo**. Textual:
+
+> «Toda la vista de chat está horrible la verdad... Quiero que la rediseñe completamente, de punta a
+> punta siguiendo los ejemplos e inspiraciones. Eliminando las tabs innecesarias, los textos
+> innecesarios, títulos, subtitulos, avisos, etc... No solamente eso, NO es funcional, no puedo mandar
+> un prompt por allí a mis otras cuentas.»
+
+**Lo que eso significa, punto por punto:**
+
+1. **No es un ajuste: es un rediseño.** Se rehace con referencias de verdad (Pinterest, Dribbble,
+   Mobbin, capturas de apps de chat), que es lo que el mismo pidio antes: «que se guie de imagenes de
+   pinterest o cosas así... Que busque referencias». La regla de AGENTS.md aplica entera: se copia la
+   ESTRUCTURA, los colores son los de la casa, y la fuente va nombrada en el commit.
+2. **Lo que sobra, se va.** Hoy la pantalla tiene: titulo grande, subtitulo, una frase explicando de
+   donde sale el estado, cuatro pestañas, un buscador y la fecha de actualizacion. El mira una lista
+   de chats: casi todo eso es ruido. **Las pestañas tambien entran en la poda** — el dijo «tabs
+   innecesarias», asi que Avance, Pushes y Areas se revisan de nuevo, no se dan por buenas.
+3. ⚠️ **Y LO QUE DE VERDAD FALTA, QUE NO ES ESTETICA: NO SE PUEDE ESCRIBIRLE A UN CHAT DESDE AHI.**
+   La pantalla MUESTRA las conversaciones y no deja mandar un prompt. Eso convierte al Centro en un
+   espejo de lectura, cuando lo que el quiere es **hablarles a sus chats desde un solo lugar**. Es la
+   diferencia entre una app de chat y una captura de pantalla de una app de chat.
+
+**Sobre mandar el prompt, lo que ya esta medido y hay que respetar:**
+
+- La pieza para entregar existe y funciona: el **cartero** (instalado, ve 53 chats) y los **trabajos
+  firmados** — que es el camino por el que un pedido llega a un chat de Claude Code de esta PC. Lo que
+  falta no es el motor: es que se pueda ESCRIBIR desde la conversacion, en vez de desde un formulario
+  aparte (hoy vive en el boton «Cartero y trabajos» del encabezado).
+- **La firma es del dispositivo y eso no se toca** (docs/diseno-centro-de-operaciones.md): la verdad de
+  un pedido es el texto firmado en la maquina, el servidor nunca lo arma. Un «mandar» desde el chat
+  tiene que pasar por ahi igual.
+- **Sin el chat Cartero corriendo no se entrega sola**: un pedido escrito queda esperando. Eso se le
+  dice en la pantalla, no se esconde.
+
+**Y lo que NO hay que volver a hacer**, porque ya se pago hoy: subir la pantalla sin que nadie la
+abra. Fueron tres veces seguidas (Progreso, Chats, Pushes) con tipos y tests en verde y sin recorrer
+nada, y las tres volvieron rechazadas. El guard de /admin/operaciones no deja entrar a otra sesion de
+Claude —rebota a /general—, asi que **la prueba la tiene que hacer Martin**: se le pide el vistazo
+ANTES de darla por terminada.
+
