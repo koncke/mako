@@ -47,7 +47,7 @@
 - **Curso (módulos y clases)** (`curso`): `listar_cursos` · `ver_curso` · `ver_clase_curso` · `crear_modulo_curso` · `renombrar_modulo_curso` · `ordenar_modulos_curso` · `crear_clase_curso` · `editar_clase_curso` · `mover_clase_curso` · `borrar_clase_curso` · `restaurar_clase_curso`
 - **Calendario** (`calendario`): `listar_eventos_calendario` · `crear_evento_calendario` · `link_agenda_llamada` · `ver_proximas_recurrentes`
 - **Creaciones de la comunidad (estrellas)** (`creaciones`): `listar_creaciones` · `ver_creacion` · `mis_creaciones` · `dar_estrella` · `quitar_estrella` · `publicar_creacion` · `retirar_creacion` · `usar_creacion`
-- **Cobros (Stripe y Mercado Pago)** (`cobros`): `listar_cobros` · `ver_cobro` · `crear_link_pago` · `anular_link_pago` · `reembolsar_cobro` · `cancelar_suscripcion`
+- **Cobros (Stripe y Mercado Pago)** (`cobros`): `listar_cobros` · `ver_cobro` · `crear_link_pago` · `anular_link_pago` · `reembolsar_cobro` · `cancelar_suscripcion` · `ver_moneda_negocio` · `cambiar_moneda_negocio` · `editar_dato_deal` · `editar_obligacion_deal` · `editar_venta_lead` · `editar_cuota` · `crear_link_cuota` · `cortar_recordatorio_cuota` · `estado_suscripcion_manual`
 - **MaKo (pendientes, propuestas, chats)** (`mako`): `listar_pendientes` · `confirmar_accion` · `cancelar_accion` · `ver_pendiente` · `listar_propuestas_revisar` · `ver_propuesta_accion` · `resumen_bandejas_confirmacion` · `listar_capacidades_mako`
 
 ## General — `general`
@@ -13610,7 +13610,7 @@ curl -L \
 
 ## Cobros (Stripe y Mercado Pago) — `cobros`
 
-Tab **CRM** (`/crm`). 2 lecturas · 4 acciones.
+Tab **CRM** (`/crm`). 3 lecturas · 12 acciones.
 
 ### `GET /api/v1/cobros/cobros` — Cobros de Stripe y Mercado Pago
 
@@ -13773,6 +13773,277 @@ curl -L \
   -H "Authorization: Bearer <TU-TOKEN>" \
   -H "X-MaKo-Api-Version: 2026-10-08" \
   "https://hola-mako.com/api/v1/cobros/cobros/COBRO_ID/cancelacion-suscripcion"
+```
+
+### `GET /api/v1/cobros/moneda` — Moneda del negocio
+
+La moneda en que el negocio carga lo que cobra a mano (pagos registrados en la ficha o por registrar_pago_suelto): código ISO de 3 letras. Sin configurar es USD. No es la moneda de Stripe ni la de Mercado Pago, que la define cada cuenta. Los totales del CRM siguen en dólares.
+
+- **Ruta por operación:** `GET /api/v1/cobros/ver_moneda_negocio`
+- **Token detallado:** permiso `cobros=read` (Solo lectura en «Cobros (Stripe y Mercado Pago)»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Requiere la tab:** crm
+
+_Sin parámetros._
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/cobros/moneda"
+```
+
+### `PUT /api/v1/cobros/moneda` — Cambiar la moneda del negocio
+
+PROPONE cambiar la moneda en que el negocio carga lo que cobra a mano (el valor inicial al registrar un pago). Sólo el administrador. No cambia nada de lo ya cobrado ni la moneda de Stripe o Mercado Pago.
+
+- **Ruta por operación:** `POST /api/v1/cobros/cambiar_moneda_negocio`
+- **Token detallado:** permiso `cobros=write` (Lectura y escritura en «Cobros (Stripe y Mercado Pago)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** guarda la moneda del negocio en su configuración (app_settings)
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `moneda` | string | sí | código ISO de 3 letras: USD, MXN, ARS, COP, CLP, EUR… |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/cobros/moneda" \
+  -d '{"moneda":"MONEDA"}'
+```
+
+### `PATCH /api/v1/cobros/deals/{leadId}` — Editar un dato del deal
+
+PROPONE cambiar UN dato del trato de un lead: los datos fiscales (razón social, identificación fiscal, domicilio, correo de facturación), el servicio vendido (qué es, inicio, término, duración, frecuencia, modalidad, sesiones), la promesa (resultado y garantía), el inicio del servicio cargado a mano o quién factura (facturado_por_id, una identidad fiscal del negocio). Sólo cambia ese dato: los demás y el documento fiscal subido quedan. valor vacío lo borra. Para las obligaciones usa editar_obligacion_deal; para el monto, el tipo o la fecha de cierre, editar_venta_lead.
+
+- **Ruta por operación:** `POST /api/v1/cobros/editar_dato_deal`
+- **Token detallado:** permiso `cobros=write` (Lectura y escritura en «Cobros (Stripe y Mercado Pago)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** cambia ese campo del deal en el lead (merge del jsonb, o la columna) y deja el antes y el después en el historial
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `leadId` | number | sí | id del lead (de buscar_leads). |
+| `seccion` | string (fiscal \\| servicio \\| promesa \\| lead) | sí | fiscal, servicio, promesa, o lead para fecha_inicio_servicio y facturado_por_id. |
+| `campo` | string (razon \\| id_fiscal \\| domicilio \\| correo \\| que_es \\| fecha_inicio \\| fecha_termino \\| duracion \\| frecuencia \\| modalidad \\| sesiones \\| resultado \\| garantia \\| fecha_inicio_servicio \\| facturado_por_id) | sí | el dato de esa sección: fiscal → razon, id_fiscal, domicilio, correo; servicio → que_es, fecha_inicio, fecha_termino, duracion, frecuencia, modalidad, sesiones; promesa → resultado, garantia; lead → fecha_inicio_servicio, facturado_por_id. |
+| `valor` | string | no | el valor nuevo. Las fechas en AAAA-MM-DD; facturado_por_id es el id de la identidad fiscal. Vacío lo borra. |
+
+```bash
+curl -L \
+  -X PATCH \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/cobros/deals/LEAD_ID" \
+  -d '{"seccion":"fiscal","campo":"razon"}'
+```
+
+### `PATCH /api/v1/cobros/deals/{leadId}/obligaciones` — Editar una obligación del deal
+
+PROPONE agregar, editar o quitar UN renglón de las obligaciones del trato de un lead: lo que tiene que hacer el cliente o lo que tiene que hacer el prestador. Los demás renglones quedan. Pide renglon (empezando en 1) para editar o quitar; si la lista cambió antes del «sí», no se escribe.
+
+- **Ruta por operación:** `POST /api/v1/cobros/editar_obligacion_deal`
+- **Token detallado:** permiso `cobros=write` (Lectura y escritura en «Cobros (Stripe y Mercado Pago)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** cambia ese renglón de deal_obligaciones del lead y deja el antes y el después en el historial
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `leadId` | number | sí | id del lead (de buscar_leads). |
+| `parte` | string (cliente \\| prestador) | sí | cliente (lo que tiene que hacer el cliente) o prestador (lo que tiene que hacer el negocio). |
+| `accion` | string (agregar \\| editar \\| quitar) | sí | agregar un renglón al final, editar uno o quitar uno. |
+| `renglon` | number | no | el número del renglón a editar o quitar, empezando en 1. |
+| `texto` | string | no | el texto del renglón (para agregar o editar). |
+
+```bash
+curl -L \
+  -X PATCH \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/cobros/deals/LEAD_ID/obligaciones" \
+  -d '{"parte":"cliente","accion":"agregar"}'
+```
+
+### `PATCH /api/v1/cobros/ventas/{leadId}` — Editar la venta de un lead
+
+PROPONE cambiar la venta de un lead: el tipo (unico = pago único, suscripcion, sin_cobro = becado), el monto en USD (en una suscripción es la mensualidad), el plazo de una suscripción en meses (vacío = mes a mes) o la fecha de cierre. Pasar a suscripción deja la mensualidad por cargar; pasar a becado no se puede si ya hay cuotas cobradas; tipo=unico sobre un becado lo saca de «Sin cobro». No gana ni mueve el lead de etapa. Si el tipo cambió antes del «sí», no se escribe.
+
+- **Ruta por operación:** `POST /api/v1/cobros/editar_venta_lead`
+- **Token detallado:** permiso `cobros=write` (Lectura y escritura en «Cobros (Stripe y Mercado Pago)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** cambia venta_tipo, monto_cierre_usd o suscripcion_monto_usd, suscripcion_meses o fecha_cierre del lead (compare-and-set sobre el tipo) y deja el antes y el después en el historial
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `leadId` | number | sí | id del lead (de buscar_leads). |
+| `tipo` | string (unico \\| suscripcion \\| sin_cobro) | no | unico (pago único), suscripcion o sin_cobro (becado o bonificado). |
+| `montoUsd` | number | no | el monto de cierre en USD; en una suscripción, la mensualidad. |
+| `plazoMeses` | number | no | sólo una suscripción: cuántos meses dura. Sin valor queda como estaba. |
+| `fechaCierre` | string | no | AAAA-MM-DD de la fecha de cierre. |
+
+```bash
+curl -L \
+  -X PATCH \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/cobros/ventas/LEAD_ID"
+```
+
+### `PATCH /api/v1/cobros/cuotas/{cuotaId}` — Editar una cuota del plan
+
+PROPONE cambiar el monto en USD o el vencimiento de UNA cuota sin cobrar de un lead, por su id (el pago_id de cobranza_lead). No borra ni recrea la cuota: su link de pago y sus recordatorios siguen apuntando a ella. No se puede: una cuota cobrada (se corrige desmarcándola con marcar_pago_cobrado); el monto de una cuota con un link sin pagar (anula el link primero); nada de una cuota con un recordatorio de cobro en curso (córtalo con cortar_recordatorio_cuota).
+
+- **Ruta por operación:** `POST /api/v1/cobros/editar_cuota`
+- **Token detallado:** permiso `cobros=write` (Lectura y escritura en «Cobros (Stripe y Mercado Pago)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** cambia monto_usd o fecha_esperada de esa fila de pagos y deja el antes y el después en el historial
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `leadId` | number | sí | id del lead dueño de la cuota. |
+| `cuotaId` | number | sí | id de la cuota del CRM: el pago_id de cobranza_lead. No es un cobroId. |
+| `montoUsd` | number | no | el monto nuevo de la cuota, en USD. |
+| `vence` | string | no | AAAA-MM-DD del vencimiento nuevo. |
+
+```bash
+curl -L \
+  -X PATCH \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/cobros/cuotas/CUOTA_ID" \
+  -d '{"leadId":1}'
+```
+
+### `POST /api/v1/cobros/cuotas/{cuotaId}/links-pago` — Cobrar una cuota con un link
+
+PROPONE crear un link de pago de Stripe, con la cuenta del negocio, que cobra UNA cuota sin cobrar de un lead por su monto exacto en USD (el pago_id de cobranza_lead). Al pagarse, la cuota queda cobrada y se cortan sus recordatorios. Si la cuota ya tiene un link sin pagar, devuelve ése. Mercado Pago cobra en la moneda de su cuenta: ese link se crea desde la ficha del lead. El link le llega a la persona por aparte: NO lo escribas ni lo copies.
+
+- **Ruta por operación:** `POST /api/v1/cobros/crear_link_cuota`
+- **Token detallado:** permiso `cobros=write` (Lectura y escritura en «Cobros (Stripe y Mercado Pago)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** crea el cobro en `cobros` atado a la cuota y su checkout de Stripe con la cuenta del negocio, y deja historial en el lead
+- **Reversible:** sí
+- **Costo:** externo
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `leadId` | number | sí | id del lead dueño de la cuota. |
+| `cuotaId` | number | sí | id de la cuota del CRM: el pago_id de cobranza_lead. No es un cobroId. |
+| `pasarela` | string (stripe \\| mercadopago) | no | stripe (la cuota está en dólares). Sin valor, Stripe. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/cobros/cuotas/CUOTA_ID/links-pago" \
+  -d '{"leadId":1}'
+```
+
+### `DELETE /api/v1/cobros/cuotas/{cuotaId}/recordatorios` — Cortar el recordatorio de una cuota
+
+PROPONE cortar los recordatorios de cobro que están corriendo para UNA cuota de un lead (el pago_id de cobranza_lead): MaKo deja de recordársela. Es lo mismo que pasa solo al marcarla cobrada. No se deshace: un recordatorio cortado no se reabre. Úsala cuando digan «no le recuerdes más la cuota 3» o antes de editar una cuota con un recordatorio en curso.
+
+- **Ruta por operación:** `POST /api/v1/cobros/cortar_recordatorio_cuota`
+- **Token detallado:** permiso `cobros=write` (Lectura y escritura en «Cobros (Stripe y Mercado Pago)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** cierra como cortadas las corridas de cobranza pendientes de esa cuota (flujo_corridas) y deja historial en el lead
+- **Reversible:** no
+- **Costo:** gratis
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `leadId` | number | sí | id del lead dueño de la cuota. |
+| `cuotaId` | number | sí | id de la cuota del CRM: el pago_id de cobranza_lead. No es un cobroId. |
+
+```bash
+curl -L \
+  -X DELETE \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/cobros/cuotas/CUOTA_ID/recordatorios" \
+  -d '{"leadId":1}'
+```
+
+### `PUT /api/v1/cobros/ventas/{leadId}/suscripcion` — Cancelar o reactivar una suscripción manual
+
+PROPONE cancelar o reactivar la suscripción de un lead que se registra a mano (la que NO cobra Stripe ni Mercado Pago). Cancelarla la cuenta hasta hoy: deja de sumar al MRR y la ficha la dice cancelada. Sólo el administrador. Una suscripción que cobra la pasarela se cancela con cancelar_suscripcion (deja de cobrarle la tarjeta).
+
+- **Ruta por operación:** `POST /api/v1/cobros/estado_suscripcion_manual`
+- **Token detallado:** permiso `cobros=write` (Lectura y escritura en «Cobros (Stripe y Mercado Pago)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** marca suscripcion_cancelada_at y ajusta suscripcion_meses del lead (o los devuelve al reactivar) y deja historial
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `leadId` | number | sí | id del lead de la suscripción. |
+| `estado` | string (cancelada \\| activa) | sí | cancelada o activa (reactivar). |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/cobros/ventas/LEAD_ID/suscripcion" \
+  -d '{"estado":"cancelada"}'
 ```
 
 ## MaKo (pendientes, propuestas, chats) — `mako`

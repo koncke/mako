@@ -8910,3 +8910,166 @@ final. Y los merges van **sin rebase**: `crm-bloques` ya mergeó main así.
 
 **Vive en:** lib/pagos.ts · app/crm/[id]/deal-actions.ts · lib/api-mako/areas/crm.def.ts
 \n
+---
+
+## Las cuotas que no se pueden tocar duplicaban la deuda, y un ajuste parcial borraba el plan (14/10/2026)
+
+Las dos fallas ALTAS de la revisión de la rama `crm-bloques-b2` (Pagos campo por campo), arregladas antes de
+integrar. Las dos de plata, las dos invisibles: ningún error, el total cambia y nadie lo dice.
+
+**1. Una cuota protegida (link sin pagar o recordatorio corriendo) contaba la deuda dos veces.** En el modo
+'lista' de `reconciliarCuotas` —la lista viene sin ids: el wizard de Ganado y la API `guardar_cuotas`— la
+segunda pasada casaba por orden SÓLO con las cuotas libres. La deseada que le tocaba a la protegida terminaba en
+`insertar`, y la protegida, que no se puede borrar, en `conservar`: la misma deuda dos veces, y al cliente le
+llegaban recordatorios de plata que no debía. Era una regresión: el borrar-e-insertar de antes no duplicaba.
+
+⚠️ **El arreglo obvio también duplica** (lo vio el chat de Pagos): casar primero las libres y después las
+protegidas. Con A protegida, B y C libres de 1000 y [1500, 1500], las libres se llevan las dos deseadas, A queda
+sin deseada, se conserva igual y el total da 4000. **Las protegidas se casan PRIMERO**: cada una se lleva una
+deseada (la de su mismo vencimiento si la hay, si no la que sigue), porque es la única que no puede desaparecer.
+`casar` ya decidía qué se le puede cambiar (sólo la fecha si lo único que tiene es un link; nada si tiene un
+recordatorio) y lo deja en `conservar` con el porqué. Resultado del caso: A en 1000, B en 1500, C borrada: 2500.
+
+⚠️ **Y la segunda vuelta también duplicaba** (otra vez lo cazó Pagos, con el primer arreglo puesto): la pasada de
+«iguales» corría ANTES que las protegidas. Al ACORTAR el plan —A el 01/11 con link, B el 01/12 y C el 01/01,
+pedidas sólo las dos últimas— B y C se llevaban las deseadas por ser idénticas y A quedaba conservada al lado:
+1500 en vez de 1000. Ahora las protegidas van antes que todo: (a) con una deseada igual, (b) con una de su mismo
+vencimiento, (c) con la que sigue, prefiriendo una que no sea idéntica a una libre (si no, a dos cuotas les cambia
+la identidad sin que cambie la deuda). Recién después las libres: iguales y por orden.
+
+La regla que queda: **en una reconciliación, lo que no se puede borrar tiene prioridad para casarse.** Si se
+deja para el final, sobra, y lo que sobra de una lista de deuda es deuda duplicada. Invariante del test: cada
+deseada termina en UNO de igual / actualizar / conservar / insertar, y nunca hay un insertar mientras quede una
+protegida sin casar.
+
+**Y lo que no se tocó se dice.** La API contestaba «Listo: N cuotas guardadas» ignorando el `PlanDeCuotas` que
+devuelve `saveLeadPlanManual`: 2500 contra 3000 pedidos pasaba callado. Ahora la API lo dice en su respuesta y el
+wizard de Ganado lo deja en el historial del lead (y lo devuelve en `sinTocar`; mostrarlo en pantalla es de los
+bloques de Pagos de la tanda B2: el diálogo no tiene toast).
+
+**2. `ajustarPlanAction` escribía un plan PARCIAL como plan entero.** Se entrega con `Partial<PlanUniforme>`
+—un bloque manda sólo el campo que cambió—, pero `validarPlan` llenaba con null lo que no vino y
+`ajustarPlanPagos` reconcilia por número: cambiar sólo el inicial borraba las cuotas 1 a N y corría los
+vencimientos al día 1 (`dia_de_pago ?? 1`). Ahora `ajustarSobre` escribe lo que vino ENCIMA del plan de la
+base: una clave ausente se conserva, un `null` explícito vacía. Y si después de mezclar hay cuotas sin día de
+pago (un lead cuyas cuotas se cargaron a mano no tiene plan en la base), lo pide con `faltan` en vez de
+inventar el día 1.
+
+⚠️ **Mezclar con la base no alcanzaba: el ajuste reimponía el plan ENTERO.** `ajustarPlanPagos` reconcilia en
+'slots' con todas las cuotas del plan, así que cambiar sólo el inicial devolvía al día del plan una cuota que
+alguien movió a mano y borraba una cuota que no es del plan (el resto de un pago parcial): con 1000 + 3×1000, la 2
+movida al 20/12 y una 4 de 200, daba 3500 en vez de 3700. Ahora un AJUSTE aplica la DIFERENCIA
+(`diferenciaDePlan`): sólo los números del plan anterior que cambian o desaparecen entran en juego
+(`soloNumeros`), y una cuota nueva del plan no pisa ni el número de una cuota que no es del plan, aunque esté
+cobrada. El wizard de Ganado y la API `guardar_plan_pagos` siguen reimponiendo: ahí se ESTABLECE el plan.
+**Y sin plan en la base no hay contra qué diferenciar:** si el lead tiene cuotas impagas cargadas a mano, el
+ajuste se rechaza («cámbialas en las cuotas») en vez de duplicarlas o borrarlas.
+
+En el mismo pase, el Deshacer del ajuste: devolvía el plan anterior por `validarPlan`, que con un plan todo en
+null falla y lo descartaba en silencio — las cuotas volvían y quedaba escrito el plan que se quería deshacer.
+`planComoEstaba` lo escribe tal cual, cada campo limpio por separado.
+
+**El test que fijaba el bug:** `tests/pagos-campo.test.ts` tenía un caso (`r3`) que exigía que la libre se
+llevara la deseada y la protegida quedara aparte — o sea, la duplicación. Lo había escrito la misma tanda con
+su porqué («reusar la protegida perdería la cuota pedida»). Un test verde sobre la propiedad equivocada es la
+forma más cara de estar seguro: la pregunta que lo desarma es **¿cuánto debe el cliente después?**, y el test
+nuevo la hace (`deudaDespues`).
+
+**Tres de las seis medias de la misma revisión, también arregladas** (las del CRM; las otras tres —el dedup de la
+cobranza con un id que ya no cambia, el link vivo de una cuota cobrada a mano y el plazo de una suscripción al
+cancelarla y reactivarla— las toma el chat de Pagos en su rama, que sale de ésta):
+- **«Sin cobro» con cuotas impagas:** se niega con «quítalas antes» en las dos puertas (el bloque y la API
+  `editar_venta_lead`). Quedaban vivas: la cobranza le recordaba la deuda a un becado y el Outstanding la contaba.
+- **Una cuota que la pantalla no vio no se borra.** El modo porId daba por quitada toda impaga que no venía en la
+  lista, y una que nació DESPUÉS de abrir la pantalla (el resto de un pago parcial, una de MaKo) desaparecía. Las
+  pantallas mandan los ids que tenían cargados (`vistos`); la que no está ahí se conserva con el motivo «apareció
+  después de abrir la pantalla». El Deshacer de un ajuste lleva los ids de DESPUÉS del ajuste, por lo mismo.
+- **Editar deal ya no dice «Cambios guardados» sobre lo que no tocó:** `saveCuotasAction` devuelve `sinTocar` y la
+  barra lo muestra en rojo, sin cerrar.
+
+Dos guards que fijaban el texto EXACTO de una llamada se pusieron rojos por un argumento nuevo legítimo
+(`tests/guardar-sin-bloquear` y `tests/pagos-escritura`): se aflojaron para fijar lo que importa —que pase por la
+reconciliación, que devuelva los pendientes— y no la forma de la línea.
+
+**Vive en:** `lib/pagos-campo.ts` (`reconciliarCuotas` modo 'lista' y `soloNumeros`, `ajustarSobre`, `diferenciaDePlan`, `planVacio`, `planComoEstaba`) · `lib/pagos.ts` (`ajustarPlanPagos` con `antes`) · `app/crm/[id]/pagos-campo-actions.ts` (`ajustarPlanAction`, `guardarCuotasAction`) · `lib/api-mako/areas/crm.run.ts` (`guardar_cuotas`) · `lib/api-mako/areas/cobros.run.ts` (`editar_venta_lead`) · `app/crm/actions.ts` (`completeStageMoveAction`) · `app/crm/[id]/deal-actions.ts` (`saveCuotasAction`) · `app/crm/[id]/DealDetailsCard.tsx` · `app/crm/[id]/EditarDeal.tsx` · `tests/pagos-campo.test.ts` · *2026-10-14 rama crm-bloques-b2*
+
+## Una cuota reprogramada se quedaba sin recordatorio, y una suscripción reactivada perdía su plazo (14/10/2026)
+
+Dos de las fallas MEDIAS de la revisión de `crm-bloques-b2`, arregladas por el chat de Pagos en
+`pagos-b2-medias` (la tercera, el link vivo de una cuota cobrada, está en
+[hallazgos-planes-y-cobro.md](hallazgos-planes-y-cobro.md) → «La pasarela»).
+
+**1. Una cuota renegociada no volvía a avisar.** La cuota 3 vencía el 01/10, avisó el 02/10 y su cadencia
+terminó; el 05/10 se le pasó el vencimiento al 01/11, y ni el 31/10 ni el 02/11 salió nada. **Causa:** el dedup de
+la cobranza es por cuota (`cuota:<id>`, 120 días), y desde que ningún escritor borra e inserta, el id sobrevive a
+cualquier edición: el cron la daba por «ya entró». Antes, el borrar-e-insertar le daba un id nuevo y entraba sola.
+
+⚠️ **El arreglo obvio era el equivocado:** meter el vencimiento en la clave (`cuota:<id>:<vence>`, lo que proponía
+la revisión). Funciona para la cuota reprogramada, pero el día del deploy TODAS las cuotas que ya avisaron dentro
+de la ventana cambian de clave y vuelven a avisar: un segundo recordatorio a clientes reales por plata que ya se
+les pidió. **Regla:** la clave no lleva la fecha (`claveDedupCuota`, una sola para el cron y para el olvido), y
+toda escritura que cambia el vencimiento de una cuota la OLVIDA (`olvidarAvisosDeCuotas`: el dedup pasa a «salió
+hace mucho», con compare-and-set contra lo leído, que es como reclama el cron). Sólo cuenta la fecha: un monto
+nuevo con el mismo vencimiento no es un hecho nuevo para el cliente. Las escrituras que mueven una fecha son
+`escribirReconciliacion` y `editarCuota`; una nueva que cambie `fecha_esperada` por fuera de esas dos tiene que
+llamar al olvido.
+
+**2. Cancelar una suscripción manual perdía el plazo.** Para que el MRR deje de contarla, cancelar pisa
+`suscripcion_meses` con los meses transcurridos, y el plazo de antes no quedaba en ningún lado. Reactivar escribía
+`mesesAlReactivar ?? null`, y la API pasa siempre null: una de 12 meses cancelada en el mes 3 y reactivada por MaKo
+quedaba mes a mes y el MRR la contaba para siempre. **Regla:** cancelar guarda el plazo en
+`suscripcion_meses_antes` (la misma migración XXXX de b2) y reactivar devuelve lo que vino o, si no vino, el
+guardado (`plazoAlReactivar`, lib/suscripcion-manual.ts). «No vino» no es «mes a mes».
+
+⚠️ **Y el historial la dejaba a medias:** «Plazo de la suscripción» es REVERTIBLE, y revertir el «12 → 3» que
+escribe cancelar volvía a 12 con `suscripcion_cancelada_at` puesta: la ficha decía «Cancelada» y el MRR la volvía a
+contar. Mientras esté cancelada, el plazo no se revierte por ninguna de las dos puertas (`plazoSeRevierte`, antes
+de escribir nada del grupo): se reactiva, y eso devuelve el plazo y borra la fecha juntos.
+
+**Un guard que medía el fin de línea:** `tests/cobranza.test.ts` exige que el recorte de `marcarPago` mida menos de
+3000 caracteres (para saber que mide sólo esa función). Medía con el fin de línea del checkout: el mismo código daba
+~60 más en CRLF, y con dos líneas nuevas pasaba el tope en un clon y no en otro. Ahora mide con LF.
+
+**Las seis BAJAS de esa revisión** quedaron cerradas en la misma rama: ver la entrada siguiente.
+**Vive en:** `lib/cobranza.ts` · `lib/pagos.ts` · `lib/suscripcion-manual.ts` · `app/crm/actions.ts` · `tests/pagos-medias-b2.test.ts`.
+
+## Las seis «bajas» de b2: tres eran medias, y una era más ancha de lo que decía la revisión (14/10/2026)
+
+Cerradas en `crm-bloques-b2` por el chat de Pagos, después de las altas y las medias (las dos entradas de arriba).
+La revisión las había puesto como «no frenan nada», y al mirarlas contra el código tres eran MEDIAS:
+
+- **Una suscripción de la pasarela contra la manual cancelada.** Un cliente cancelado a mano que vuelve pagando por
+  Stripe se pintaba «Cancelado», y si después le fallaba una renovación **no se veía roja**: es plata que se pierde sin
+  que nadie lo note. Ahora la de la pasarela activa le gana en `cobradoDelLead`.
+  ⚠️ **La revisión veía sólo la mitad:** pedía limpiar `suscripcion_cancelada_at` cuando entra una suscripción nueva.
+  Pero una baja de la PASARELA (`aplicarSuscripcionCancelada`) congela `suscripcion_meses` sin dejar esa fecha, y un
+  lead ya ganado no pasa por `ganarLead`: la suscripción nueva quedaba con el plazo congelado y el MRR no la contaba.
+  **Regla:** el primer pago de una suscripción de la pasarela sobre un lead que ya era suscripción la reabre entera
+  (`reabrirSuscripcionDelLead`, lib/cobros.ts): sin fecha de cancelación, sin plazo (la de la pasarela es sin fin) y
+  con la mensualidad del cobro.
+- **Cambiar la venta de una suscripción que cobra la pasarela.** Pasarla a pago único desde el bloque o la API dejaba
+  al MRR sin contarla mientras Stripe le seguía cobrando al cliente todos los meses, y la renovación entraba como una
+  cuota de pago único. **Regla:** la condición «la cobra la pasarela» es UNA (`laCobraLaPasarela`,
+  lib/cobros-reglas.ts) y la usan las tres puertas: cancelar a mano en la ficha, en la API, y `escribirVenta` para el
+  tipo, la mensualidad y el plazo. Estaba copiada a mano en dos lugares, y el tercero no la tenía.
+- **La moneda del negocio sin negocio.** El super admin sin `?ws` ni negocio propio le cambiaba la moneda al CRM del
+  ws1, que es un cliente: `setSetting` cae a `OWNER_WS` cuando no hay workspace. Es la misma familia que las acciones
+  sin sesión de Pagos. **Regla:** una config por negocio que se guarda con `setSetting` corta ANTES si
+  `getWorkspaceActual()` es null, en la función de `lib/`, no en cada acción (así la API queda cubierta igual).
+
+Las otras tres eran bajas de verdad: volver a cobrar a mano una cuota limpia la moneda, el monto original, el
+concepto y el método de la vez anterior (`cobrarCuota`; lo de la pasarela no se toca); «Cortarlo» dice que falló en
+vez de contestar «no había nada que cortar» (`cerrarCorridasDeCuota(…, { tirar: true })`; el corte de `marcarPago`
+sigue sin tirar); y `cobranza_lead` tiene un solo «por cobrar», sin las cuotas devueltas.
+
+**Un guard que fijaba la copia:** `tests/api-mako-pagos-campo.test.ts` buscaba la condición de la pasarela escrita
+letra por letra en la acción. Al juntarla en una función, el guard pasó a exigir la llamada, y lo que la condición
+dice se ejecuta en `tests/pagos-bajas-b2.test.ts`.
+
+**Lo que quedó SIN hacer (lo vi y no era de la revisión):**
+- El Outstanding del Dashboard (`getOutstandingTotal`, lib/pagos.ts) sigue contando como deuda las cuotas devueltas
+  por un reembolso. Para arreglarlo hay que tocar también el detalle por lead (`getOutstanding…`), que se compara con
+  esa suma.
+- Un lead ya ganado como pago único que paga un link de SUSCRIPCIÓN (una venta adicional) sigue como pago único:
+  `ganarLead` no corre y el MRR no lo cuenta. Decidir si el cobro cambia el tipo de venta es una decisión de producto.
+**Vive en:** `lib/cobrado-lead.ts` · `lib/cobros.ts` · `lib/cobros-reglas.ts` · `lib/pagos.ts` · `lib/flujo-corridas.ts` · `lib/api-mako/areas/crm.run.ts` · `tests/pagos-bajas-b2.test.ts`.

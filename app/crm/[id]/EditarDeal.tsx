@@ -10,8 +10,13 @@
 // `app/crm/campo-inline.ts`); el deal se quedó acá, y por una razón medible:
 // el deal no son campos sueltos, son ~20 campos más el PLAN DE CUOTAS, y su
 // guardado es transaccional (`saveDealSectionsAction` y, sólo si las cuotas
-// cambiaron, `saveCuotasAction` — que hard-setea `estado_lead='ganado'`). Campo
-// por campo, cada tecla cerraría el lead.
+// cambiaron, `saveCuotasAction`).
+//
+// ⚠️ DESDE EL 14/10/2026 ESTA PANTALLA ESTÁ DE SALIDA (docs/diseno-ficha-bloques.md §3 Pagos): cada bloque de
+// Pagos escribe su campo (app/crm/[id]/pagos-campo-actions.ts) y «Editar deal →» se saca al cierre de la tanda.
+// Mientras tanto sigue andando igual, con dos cambios del server que no se ven acá: las secciones se MERGEAN con
+// la base (antes el reemplazo podía borrar el documento fiscal) y `saveCuotasAction` reconcilia las cuotas POR
+// ID y ya NO gana el lead (antes hard-seteaba `estado_lead='ganado'` y borraba e insertaba las impagas).
 //
 // Por eso NO hay botón de editar en la ficha: a esta pantalla se llega desde donde
 // el deal se LEE —el «Editar deal →» de la tab Pagos y el «Completar con IA» del
@@ -52,9 +57,12 @@ export function EditarDeal({ lead, stages, pagos, onDone, onCancel }: {
     setFeedback(null);
     startTransition(async () => {
       try {
-        await dealRef.current?.save();
+        const r = await dealRef.current?.save();
         router.refresh();
-        if (onDone) onDone(); else setFeedback({ kind: 'ok', msg: 'Cambios guardados' });
+        // Lo que no se pudo cambiar se dice y la pantalla queda abierta: «Cambios guardados» sobre una cuota que sigue
+        // cobrando el monto de antes era mentir (revisión del 14/10/2026).
+        if (r && r.sinTocar) setFeedback({ kind: 'err', msg: `No se cambió: ${r.sinTocar}` });
+        else if (onDone) onDone(); else setFeedback({ kind: 'ok', msg: 'Cambios guardados' });
       } catch (err) {
         setFeedback({ kind: 'err', msg: err instanceof Error ? err.message : String(err) });
       }

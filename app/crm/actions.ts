@@ -59,6 +59,8 @@ import {
 import { LeadDuplicadoError, estaEnProducto } from '@/lib/leads-duplicados';
 import { casaReal, destinoDelAlta, nombreVisible, type ProductoParaAlta } from '@/lib/lead-funnel-reglas';
 import { agregarAProducto } from '@/lib/lead-funnel';
+// El plazo de una suscripción cancelada no se revierte desde el historial (revisión del 14/10/2026).
+import { PLAZO_DE_CANCELADA, plazoSeRevierte } from '@/lib/suscripcion-manual';
 import { conLoteDeEtiquetas } from '@/lib/etiquetas';
 import { respuestasPropias } from '@/lib/meta-leads-campos';
 import { respuestasGuardadas } from '@/lib/optin-respuestas';
@@ -154,6 +156,7 @@ async function autorActual(): Promise<string> {
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { getCampaignNameMap, resolverNombreCampana, getAdNameMap, resolverNombreAd, adIdDeLead } from '@/lib/queries';
 import { savePlanPagos, saveLeadPlanManual, marcarPago, getPagosByLead, type PlanPagos, type Pago } from '@/lib/pagos';
+import { avisoDeConservadas } from '@/lib/pagos-campo';
 import { faltaComprobante } from '@/lib/pago-comprobante';
 import { senalesDeCobroAction } from './[id]/cobros-actions';
 import { verTrackingDeLead } from '@/lib/tracking-ficha-server';
@@ -491,7 +494,8 @@ export async function requisitosDeEtapaAction(id: number, to: string, d: StageMo
  * cómo salir. Ahora vuelve tipado y el modal lo pinta en español, con los campos.
  */
 export type StageMoveResultado =
-  | { ok: true; pendientes?: Step[] }
+  /** `sinTocar`: las cuotas que el plan no pudo cambiar (link sin pagar o recordatorio corriendo), dichas. */
+  | { ok: true; pendientes?: Step[]; sinTocar?: string }
   | { ok: false; faltan: Step[]; mensaje: string };
 
 /**
@@ -606,14 +610,19 @@ export async function completeStageMoveAction(id: number, to: string, d: StageMo
 
   // 3) Plan de pagos (genera las cuotas; el cash del dashboard lee de acá).
   //    Modelo simple: cuotas explícitas (monto + fecha). `plan` queda por compat.
+  let sinTocar: string | null = null;
   if (d.cuotas?.length) {
-    await saveLeadPlanManual(id, {
+    const cambios = await saveLeadPlanManual(id, {
       total_usd: d.monto ?? before?.monto_cierre_usd ?? null,
       duracion_meses: null,
       fecha_cierre: null,
       fecha_inicio: null,
       cuotas: d.cuotas.map((c) => ({ monto_usd: c.monto, fecha_esperada: c.fecha })),
     });
+    // Lo que el plan no pudo cambiar queda en el historial y vuelve a la pantalla: si no, el total pedido y el
+    // que quedó escrito difieren sin que nadie lo diga.
+    sinTocar = avisoDeConservadas(cambios);
+    if (sinTocar) await logLeadEvent(id, 'Plan de pagos', `No se tocó: ${sinTocar}`, autor);
   } else if (d.plan) {
     await savePlanPagos(id, d.plan);
   }
@@ -715,7 +724,7 @@ export async function completeStageMoveAction(id: number, to: string, d: StageMo
   revalidatePath('/crm');
   revalidatePath(`/crm/${id}`);
   revalidatePath('/general');
-  return { ok: true, pendientes };
+  return { ok: true, pendientes, ...(sinTocar ? { sinTocar } : {}) };
 }
 
 /**
@@ -2420,6 +2429,11 @@ function ingresoDelHistorial(v: string | null): number | null {
   return Number.isFinite(n) && n >= 0 ? n : null;
 }
 
+/** `suscripcion_cancelada_at` del lead (mig XXXX; sin la migración no viene y cuenta como no cancelada). */
+function canceladaDe(lead: unknown): unknown {
+  return (lead as { suscripcion_cancelada_at?: unknown } | null)?.suscripcion_cancelada_at ?? null;
+}
+
 /** El valor del historial (texto de `auditVal`) de vuelta a la columna de la suscripción. */
 function columnaSuscripcion(campo: string, v: string | null): Record<string, number | null> {
   const n = v == null ? NaN : campo === CAMPO_SUS_MESES ? parseInt(v, 10) : parseFloat(v);
@@ -2578,6 +2592,7 @@ export async function revertAuditChangeAction(auditId: number, leadId: number): 
     }
     case CAMPO_SUS_MONTO:
     case CAMPO_SUS_MESES: {
+      if (row.campo === CAMPO_SUS_MESES && !plazoSeRevierte(canceladaDe(before))) throw new Error(PLAZO_DE_CANCELADA);
       const { error } = await (await getTenantDb()).from('leads').update(columnaSuscripcion(row.campo, v)).eq('id', leadId);
       if (error) throw new Error(error.message);
       break;
@@ -2617,6 +2632,11 @@ export async function revertMoveAction(leadId: number, createdAt: string): Promi
   }
 
   const bool = (s: string | null): boolean | null => (s === 'Sí' ? true : s === 'No' ? false : null);
+
+  // El plazo de una suscripción CANCELADA no se revierte (`plazoSeRevierte`): se corta ANTES de escribir nada del grupo.
+  if (grupo.some((r) => r.campo === CAMPO_SUS_MESES) && !plazoSeRevierte(canceladaDe(await getLead(leadId).catch(() => null)))) {
+    throw new Error(PLAZO_DE_CANCELADA);
+  }
 
   const upd: Parameters<typeof updateLead>[1] = {};
   const meta: LeadMetaInput = {};

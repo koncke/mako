@@ -79,6 +79,24 @@ test('las acciones de la ficha por bloques exigen sesión adentro', () => {
   }
   // Cambiar es del admin: es la ficha y los avisos de todos los leads del funnel.
   assert.match(src.slice(src.indexOf('export async function cambiarFichaFunnelAction')), /getRolWsEfectivo\(\)\) !== 'admin'\) return/);
+// Desde el 14/10/2026 la tab Pagos escribe campo por campo (docs/diseno-ficha-bloques.md §3): plata de clientes.
+// Ninguna de deal-actions.ts lo miraba: sin cookie, `getWorkspaceActual()` cae al ws1 y un POST con el id de la
+// acción escribía cuotas y pagos en su CRM. EL BARRIDO, no la lista: toda `export async function` de los dos
+// archivos tiene que cortar, y una nueva que se olvide falla acá con su nombre.
+// Probado rompiéndolo (14/10/2026): sin el `haySesion()` de registrarPagoSueltoAction → 1 fallo (5 pases); sin el
+// de ajustarPlanAction → 1 fallo (5 pases).
+test('las acciones de la tab Pagos (deal y campo por campo) exigen sesión adentro, TODAS', () => {
+  for (const archivo of ['app/crm/[id]/deal-actions.ts', 'app/crm/[id]/pagos-campo-actions.ts']) {
+    const src = sinComentarios(leer(archivo));
+    const fns = [...src.matchAll(/^export async function (\w+)\(/gm)].map((m) => m[1]);
+    assert.ok(fns.length >= 7, `${archivo}: vi ${fns.length} acciones, el barrido no está mirando`);
+    for (const fn of fns) {
+      const ini = src.indexOf(`export async function ${fn}(`);
+      const fin = src.indexOf('\nexport ', ini + 10);
+      const cuerpo = src.slice(ini, fin < 0 ? undefined : fin);
+      assert.match(cuerpo, /haySesion\(\)/, `${archivo} · ${fn} tiene que cortar sin sesión`);
+    }
+  }
 });
 
 test('las acciones del layout (confirmaciones de MaKo) exigen sesión adentro', () => {

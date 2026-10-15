@@ -144,12 +144,16 @@ test('el cobro se inserta ANTES de reemplazar las cuotas sin pagar', () => {
   // Dos razones y las dos importan: `pagos` tiene índice único (lead_id, numero)
   // y hay que numerar sobre TODAS las filas de ahora; y si el reemplazo fallara,
   // el cobro ya quedó asentado, que es el dato que no se puede volver a averiguar.
+  // ⚠️ Cambiado A PROPÓSITO el 14/10/2026: saveCuotasAction ya no pasa por saveLeadPlanManual (que ganaba el lead
+  // y borraba e insertaba todas las impagas, docs/diseno-ficha-bloques.md §3) sino por guardarCuotasPorId, que
+  // reconcilia por id. La regla del orden es la misma: el cobro se asienta ANTES de tocar las impagas.
   const cuerpo = cuerpoFuncion(ACTIONS, 'export async function saveCuotasAction(');
   const insert = cuerpo.indexOf('.insert(rows)');
-  const plan = cuerpo.indexOf('saveLeadPlanManual(');
+  const plan = cuerpo.indexOf('guardarCuotasPorId(');
   assert.ok(insert >= 0, 'no se encontró el insert del cobro');
-  assert.ok(plan >= 0, 'no se encontró la llamada a saveLeadPlanManual');
-  assert.ok(insert < plan, 'el insert del cobro va antes de saveLeadPlanManual');
+  assert.ok(plan >= 0, 'no se encontró la llamada a guardarCuotasPorId');
+  assert.ok(insert < plan, 'el insert del cobro va antes de guardarCuotasPorId');
+  assert.doesNotMatch(cuerpo, /saveLeadPlanManual\(/, 'guardar cuotas desde Editar deal no puede ganar el lead ni borrar e insertar');
 });
 
 // ── 4 · Una cuota cobrada SIN guardar se puede corregir y quitar ─────────────
