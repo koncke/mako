@@ -8788,3 +8788,15 @@ acá:** que el escalón de la cascada no muestre una proporción fuera de 0-1 (o
 **Vive en:** `lib/analisis-negocio.ts` (`tasas`, `escalones`) · `lib/analisis-modelo.ts` (`analisisAMarkdown`)
 
 *14/10/2026, cuenta claude1.*
+
+## La atribución de un lead que nace por el botón de pago de una landing (14/10/2026)
+
+- **`utm_term` NO es el término del anuncio en esta casa**: es el canal por donde Calendly devuelve el `visitor_id`
+  (`lib/leads.ts:226`, mig 0008), y `leads` no tiene columna para el término. Pasarlo ataría la ficha a una visita
+  que no existe. La atribución del pago es utm_source, utm_medium, utm_campaign, utm_content y fbclid.
+- **Un `fbclid` no se recorta**: la mig 0177 lo guarda entero porque la API de Conversiones de Meta lo pide así, y uno
+  cortado no identifica ningún clic. Uno de más de 300 caracteres codificado (o con espacios) se descarta; un utm sí se
+  recorta. Ojo: `atribucionDePropuesta` (`app/crm/revisar/[id]/propuesta-lead.ts:99`) corta en 300 sin avisar.
+
+**Vive en:** `lib/editor-landing/pago-pedido.ts` (`CAMPOS_ATRIBUCION_PAGO`, `valorDeAtribucion`).
+*15/10/2026, chat «Landing Generator» (`claude1`).*

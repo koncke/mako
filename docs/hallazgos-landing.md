@@ -4273,3 +4273,15 @@ clics llegan bien, porque esa parte no la tocó. Además la copia arranca el gra
 
 **Vive en:** `app/api/track/replay/route.ts` · `lib/replay-contrato.ts` (`sesionIdValido`) · `lib/landing-token.ts`
 (`replaySesion`). *14/10/2026, chat «Integraciones» (`claude1`).*
+
+## Landing Analyst: lo que vio la tanda 6 del Landing Generator (14/10/2026)
+
+- Las rutas `analyze`, `sync` y `pulso` ya exigen admin, como `view` y `mapa` (`c55565d32`); el test
+  (`tests/landing-analyst-rol.test.ts`) revisa también `export function`, `export const` y `export { … as GET }`.
+- **`PulsoPaginas` no está montado**: `git grep PulsoPaginas` no encuentra a nadie que lo importe (sólo un
+  comentario en `app/landing-analyst/page.tsx`), así que hoy `/api/landing-analyst/pulso` no tiene quien la llame.
+- `landing_analyses.bloqueada` queda en `null` cuando el análisis sale de una lectura del navegador (no se sabe si
+  el server la lee). La leen también `lib/api-mako/areas/landing.run.ts:501` y `LandingAnalystApp.tsx:441`: un
+  cambio de tipo en esa columna barre la API.
+
+*15/10/2026, chat «Landing Generator» (`claude1`).*

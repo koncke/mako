@@ -938,6 +938,161 @@ VSL Funnel... Puedes inspirarte en otras plantillas de VSL Funnel e incluso en l
 - Con `scrollHeight` 0 (escondida en un modal que todavía no entró en la pila) la caja no fija el alto. Cierra el «sin
   hacer» de la decimotercera de Automations sobre CajaCrear.
 
+## Tanda 6 (14-15/10/2026): leer una landing armada en el navegador, Crear con IA en la tab, «Aplicar» y el backlog
+
+Pedido de Martín (14/10) mirando «No pude leer el texto de esa página.» sobre la landing SPA de un cliente: que se
+lea, que todo viva en /landing-generator, Analizar y Replicar en «Crear con IA», el «+» sólo para adjuntar, el link
+pegado en azul («Analiza / Replica esta landing»), las plantillas en tarjetas con sombra y los [ ] resaltados. Más
+sus decisiones (b) leer en el navegador con el Pixel o una ventana, (c) «Aplicar» de un clic con Deshacer y (d)
+Replicar en 3 formatos copiando el estilo. Workflows `wf_8f7c15cf-56d` (piezas) y `wf_2247d576-3c7` (pantalla,
+triage del backlog, paquetes, verificación y corrección). Lo construido está en los commits; acá, lo aprendido.
+
+### Leer una página de afuera
+- **El diagnóstico obvio era el equivocado:** «No pude leer el texto» sonaba a «no se pudo bajar», y la página bajaba
+  bien (200, 137 KB). Eran dos causas: el extractor sólo leía h1-h3/p/li/button/a (el texto en div/span de todo
+  constructor moderno no contaba) y la landing del caso es una app de Vite (`<div id="root">` + scripts): 0 palabras
+  en el HTML. Eso sólo se lee en el navegador. **Regla:** si la página llega sin texto, el server contesta
+  `enNavegador` y no un callejón (`lib/landing-extraer.ts`, `lib/editor-landing/lectura-reglas.ts`).
+- Node corta las cabeceras en 16 KB y lo reporta como «No se pudo conectar» (HPE_HEADER_OVERFLOW): webflow.com/pricing
+  manda ~17,5 KB. `maxHeaderSize` 64 KB (`lib/landing-fetch.ts`, MAX_CABECERAS).
+- Un acordeón de Radix sirve la pregunta en `<h3><button aria-expanded>` (el extractor viejo la leía como TÍTULO y
+  «Conservar» cortaba una sección por pregunta) y la respuesta cerrada NO está en el HTML. Emparejar pregunta y
+  respuesta por CONTENCIÓN en el DOM, no por orden: con el orden, «¿Tienes otra duda? Escríbenos» se pegaba como
+  respuesta de la última pregunta. Lo de adentro de un `<nav>` no es copy (el megamenú metía ~1.800 palabras).
+- `normalizarUrl` le saca el www y el query: es la LLAVE de `landing_analyses`, no una dirección para bajar. Los hosts
+  que sólo existen con www fallaban. **Regla:** se baja con la URL tal cual; la normalizada sólo como clave.
+- 401/403/406/429 se leen en el navegador de la persona; 404 y 5xx no (`ErrorDeLectura`, `bloqueaLaLectura`).
+- La ventana aislada (origen opaco): un `<script type="module" crossorigin>` sin CORS no carga (se mete en línea como
+  blob si es UN módulo sin imports; una app partida en módulos no corre); localStorage/cookie tiran SecurityError
+  (se reemplazan con `defineProperty`); el router de la SPA dibuja su 404 si no se le cambia el camino con
+  `history.replaceState` ANTES del `<base>`; la Navigation API no avisa nada en un origen opaco (no se puede atajar
+  `location.href`; con el Pixel sí); el mensaje de `pagehide` llega con `ev.source === null`.
+- El player de Panda baja el Pixel de Meta por su cuenta: leer la página (o abrir el Diagnóstico) lo carga y desde la
+  página no se apaga. `sinRastreadores` saca un `<script>` ENTERO si nombra `fbq(`: si la lógica vive en el mismo
+  script que el rastreador, la vista aislada la pierde.
+- **SEGURIDAD (lo encontró la verificación y se cerró):** `Sec-Fetch-Site: same-origin` NO prueba que la navegación la
+  inició el código de MaKo (cualquier link adentro de MaKo cuyo href controle otro la cumple), y un id que acuña el
+  navegador no autentica nada: la ruta de la ventana servía el HTML de cualquier URL bajo hola-mako.com (phishing con
+  nuestra barra de direcciones). Y «la página tiene el Pixel» se decidía por el TEXTO del HTML, que cualquiera
+  escribe, para abrir la página real CON `opener` (reverse tabnabbing). **Regla:** lo que sirve contenido de afuera
+  bajo nuestro dominio exige una firma del server (HMAC atada a id, URL, usuario y negocio, que vence:
+  `lib/editor-landing/lector-firma.ts`), y abrir una página de afuera sin sandbox exige que el host esté entre las
+  landings DECLARADAS del negocio y traiga su token (`vaALaPaginaReal`).
+- **Chrome deja abrir UNA ventana por clic** sin permiso de emergentes: la segunda `window.open(…, 'noopener')` queda
+  bloqueada callada (con noopener siempre da null). Todas las ventanas de un clic se abren `about:blank` EN el clic y
+  se navegan al final con `w.opener = null` (`ProbarTracking.tsx`, `arrancar`). Y una ventana `about:blank` del
+  mismo origen navegada con lo que tipeó la persona tiene que validar http/https (un `javascript:` correría con el
+  origen de MaKo).
+
+### Copiar el estilo al replicar
+- **El obvio era el equivocado:** con Tailwind 4 o shadcn nuevo, `getComputedStyle` devuelve `oklch(…)`, no `rgb()`.
+  Un parser de rgb/hex pierde todos los colores sin error. **Regla:** todo color computado pasa por un parser que
+  entienda oklch y oklab (`estilo-original.ts`, `colorCss`).
+- En shadcn, `--accent` es un gris de fondo; la marca es `--primary` (se reconoce por `--primary-foreground`).
+- El tema de la réplica vive en el negocio (`app_settings` `landing.temas`, tope 30) con id = hash de su contenido:
+  replicar dos veces no lo duplica, y si existe se reusa sin pisarlo. Una imagen se asigna por la parte donde está
+  (el primer título del contenedor más chico con títulos), no por el orden del documento.
+- La API css2 de Google Fonts no siempre da 400 a un peso que no existe (PT Sans 300 dio 200): se validan los
+  `font-weight` que devuelve la hoja.
+
+### La pantalla y el Diagnóstico
+- **Una derecha que es `useState` no se mueve con un `<Link>` a la misma ruta:** dentro del Panel, un link a
+  /landing-generator?otra-query es navegación suave al MISMO componente, que no se remonta: la URL cambia y la
+  pantalla no. Lo que cambia la derecha desde adentro es una función del Panel (`onAccion`, `onSalir`), nunca un link.
+- **Lo que se paga se usa una vez y no vive en la URL:** si el pedido de la caja o el link de Replicar quedaran en la
+  query, un F5 volvería a generar (IA paga). `queryDeDerecha` borra todas las claves que lee.
+- Lo que se usa una vez desde `sessionStorage` se consume en un efecto con un ref, nunca en el inicializador de
+  `useState`/`useRef` (corre dos veces en el modo estricto y la segunda lo encuentra vacío).
+- El Diagnóstico de una landing con varias páginas las dibuja en UN lienzo; el rótulo de cada página va con
+  `::before { content: attr(...) }` para que nunca sea un nodo de texto donde se ubique una cita.
+- Un backtick en un comentario CSS adentro de un template literal da un error de tipos que no apunta al CSS
+  («Property 'gp' does not exist…»), y los tests no lo ven (esbuild compila distinto): en comentarios de CSS, «».
+- `'error' in x` no estrecha una unión inferida de objetos literales (TS le agrega `error?: undefined` a la rama de
+  éxito): una función que devuelve error o resultado declara un discriminante (`listo: true | false`).
+- Las columnas nuevas (`landing_docs.diagnostico`, mig 0281): al ESCRIBIR una columna que no existe PostgREST contesta
+  `PGRST204`, no `42703` (regla ya escrita en AGENTS.md y en docs/hallazgos-infra.md): la primera rotura «sin
+  PGRST204» dio verde porque el respaldo por mensaje la atajaba; se probó el código aparte del mensaje.
+
+### Dominio propio y pago
+- El plan de la tanda 4 para servir el paso de pago en el dominio era imposible tal cual: el proxy es síncrono y no
+  sabe el slug (pasar del host al slug necesita la base). Va a la ruta del dominio con una query que arma SÓLO el
+  proxy (pisa `u.search`: la del visitante no viaja). Y un POST en un host que no es la app se decide en el proxy Y en
+  la ruta (`origenDelPago` daba «mako» a un Origin de hola-mako.com).
+- Una reserva vencida no deja de verificarse; sólo se pierde la exclusividad. Lo que se dice antes de confirmar se
+  arma con lecturas de la fila, nunca con `estadoDominio` (sale a Vercel y puede ESCRIBIR).
+- **La poda con `en_curso = false` dejaba basura para siempre** (una fila en curso de una función muerta sólo la suelta
+  el mismo email): el candado vence a los 90 s, así que se borra todo lo de más de 7 días.
+- Los rechazos del POST se cuentan DESPUÉS de leer la landing y en un contador (upsert que suma, mig 0282): antes no
+  se sabe de qué negocio es, y una fila por evento le regala a un bot una escritura por pedido.
+- Un formulario con tope de bytes se mide con `URLSearchParams` (el peor caso: 3.484 de 4.000), no con
+  `encodeURIComponent`, que no codifica `!'()~`.
+- El Referer, detrás del proxy, se compara con el host de la URL Y con la cabecera Host (el paso nunca se sirve en la
+  ruta que pidió el navegador).
+
+### Hoja, exportar y miniaturas
+- El bloque de la copia de una app crece con lo que su contenedor ESCONDE (`scrollHeight − clientHeight`), no con
+  dónde termina; y con un hero de 100vh lo escondido crece con la vista y no hay punto fijo (20.000 px): se deja de
+  medir la caja si no baja la mitad de lo que creció la vista (`html-libre.ts`, SCRIPT_ALTO). Un test de alto prueba
+  contenido que depende de la vista.
+- En `@page` gana la ÚLTIMA regla: la hoja de la diapositiva va después de CSS_CONTENIDO o vuelve el margen. 13,333 in
+  son los 1280 px del iframe que imprime. Playwright: reusar una página después de `emulateMedia('print')` ignora el
+  `@page`; una página nueva por PDF.
+- Reordenar columnas apiladas en el teléfono: `display: contents` + `order`, con `gap: 0` (en flex los márgenes no
+  colapsan) y el `::before` de los divisores apagado.
+- Los [ ] resaltados: el tope de 120 caracteres sale de medir los 526 corchetes de los catálogos (el más largo, 88);
+  `Plantilla.contenido` y `DisenoSeccion.crear` son FUNCIONES y un recorrido que sólo baja por objetos mide la mitad.
+  El tinte sale de `--gm-acento-texto` como franja del 80 % del alto (un fondo entero se pisaba entre renglones). La
+  marca cuelga de `marcadores`, no del modo 'miniatura', porque `app/m/landing` usa ese modo como la vista del visitante.
+
+### Trampas de los tests y del entorno (para la próxima corrida)
+- El `sinComentarios` de los tests corta `/*…*/`: un `*/*` adentro de un string (`'text/css,*/*;q=0.1'`) se come el
+  resto del archivo; y su `.replace(/\{\s*\}/g, '')` borra los `: {}` del código. Un regex que busca una condición
+  puede encontrar la MISMA repetida más abajo: cuando el orden importa, se ancla la posición.
+- Un tipo fijado con `deepEqual` en un test compartido no se toca: el dato nuevo va por otro canal.
+- **El typecheck acotado (`C:/dev/tsc-landing.mjs`) sólo ve los archivos cambiados y lo que ELLOS importan**, no a
+  quien los importa: un export quitado lo caza el completo del pre-push. Y un «no pude chequear» (99) queda pendiente
+  hasta que se corra: los 3 errores de `lector-navegador.ts` viajaron así por cuatro agentes (una `function` izada no
+  hereda el estrechamiento de los `const` de afuera; una flecha sí).
+- Un commit que importa un módulo de otro agente espera a que ese módulo esté en git.
+- Las herramientas Write/Edit decodifican `\uXXXX` a caracteres crudos e invisibles (un U+2028 adentro de un regex da
+  «Unterminated regular expression»); en Python sin raw, `\\b` termina como BACKSPACE (0x08) adentro de un regex de
+  TS. Después de escribir escapes, barrer con node los code points 0x08, 0x300-0x36f, 0x2028 y 0x2029.
+- Con `core.autocrlf=true`, varios archivos están en CRLF en el disco y uno reescrito con Python o `sed -i` queda en
+  LF (git normaliza); un arnés de roturas con anclas en `\n` contesta «0 veces» en un archivo CRLF y no rompe NADA, en
+  silencio. Los fines de línea se cuentan con node: el grep de Git Bash informa mal los CR.
+- El Panel REAL se puede ver sin next dev: esbuild del repo + stubs de next/navigation, next/link y server-only, y
+  Playwright con `page.route` (o fingiendo `window.fetch` dentro del bundle). Desde el Bash, el `chrome.exe` de
+  ms-playwright da «Permission denied»; el `chrome-headless-shell.exe` sí corre.
+- El scratchpad de la sesión es COMPARTIDO por los subagentes de un workflow: los archivos de commit y de medición
+  llevan un nombre propio de la tarea.
+
+### Lo que quedó sin hacer (tanda 6)
+- **Migraciones 0281 (`landing_docs.diagnostico`) y 0282 (`landing_pago_rechazos`)**: el código tolera que falten;
+  aplicarlas con el deploy (o después: hasta entonces no se guarda el puntaje y no se cuentan los rechazos).
+- **Decide Martín** (el triage, en la Ticketera): `allow-popups-to-escape-sandbox` en el HTML personalizado; bloquear
+  o no los estáticos de MaKo en hola-mako.site; HSTS propio; subdominios por landing; el www automático al conectar un
+  dominio raíz; el proveedor de IA del Diagnóstico en el ws1; si despublicar sigue reversible; el `form-action` con un
+  checkout de Stripe en dominio propio; avisar al dueño cuando falla la pasarela en un pago de landing. Y de esta
+  tanda: «Preguntar a MaKo» usa el chat de la casa (`/api/chart-insights`, Claude PAGO); y si los comentarios de una
+  página de afuera se marcan resueltos al pasar a la copia (`aplicarAfuera`, PanelDiagnostico.tsx).
+- **De otra área:** `esPedidoDeLanding` en `lib/mako-intencion.ts` (MaKo Doer: por WhatsApp no llegan «publicá la
+  landing…»; el `todo` de `tests/api-mako-landing-editor.test.ts`); la cadena de pago que termina en hola-mako.com y
+  `cobroReusable` sin el modo (Integraciones, `lib/cobros.ts`); la atribución del Pixel en los enlaces `/pagar/` y
+  `pixel-servido.ts` sin la URL tal cual (VSL Tracking); `/api/mako-doer` sin `maxDuration` para los 240 s de
+  replicar por chat (MaKo Doer); lo que cuenta `lib/mako-capacidades.ts` de la tab (MaKo UX/UI).
+- **MaKo Mobile**: con el teléfono, /landing-generator se reescribe a /m/landing, que no tiene Crear con IA, Analizar,
+  Replicar ni el «+» (`lib/movil-rutas.ts`).
+- El detector de voseo (`VOSEO`, `lib/puestas-data.ts:490`) no conoce pegá, elegí, subí, probá ni escribí: un guard
+  de todo el repo, fuera de esta área.
+- `copiaParaAplicar` reconoce la «Página web» idéntica por su primera sección (heurística; exacto si Replicar guardara
+  el formato en `config.origen`); `restaurar_version_landing` no frena si la landing cambió después; los rechazos sólo
+  se leen en la rama publicada de `analitica`; `paginaDeSeccion` quedó sin llamador; una app de Vite en varios
+  módulos sólo se lee con el Pixel o pegando el texto; los videos no se anotan como [VIDEO] en el lector; las imágenes
+  por Flow siguen afuera por Martín.
+- **Verlo con clics** (lo hace Martín): la tab con Crear con IA, el «+», el link pegado, Replicar con sus 3 formatos,
+  el Diagnóstico de varias páginas con «Aplicar» y Deshacer, la línea ámbar de pagos rechazados en «Análisis», y todo
+  a 390 px. Las capturas del arnés quedaron en el scratchpad de la sesión 4eb065fe (`t6p-vista/capturas`).
+
 ## Animaciones: el video de fondo del hero (relevamiento del 14/10/2026, sin código)
 
 Pedido de Martín: animaciones de punta a punta, partiendo del video «Páginas Web ANIMADAS de $10,000 con Claude Design»
