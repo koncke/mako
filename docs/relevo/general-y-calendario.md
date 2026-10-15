@@ -3,6 +3,16 @@
 **Al 14/10/2026 (~04:30), claude2.** Lo escribe el chat que hizo el trabajo (primera mano). Lo que costó está en los
 hallazgos de cada área; acá va qué quedó, dónde y qué espera.
 
+## Actualización 14/10/2026 noche (claude1): ayudó a «Dashboard» con el rediseño por tipo
+
+Pedido del orquestador: repartir con el chat «Dashboard» el rediseño bloque por bloque que pidió Martín a las 14:34.
+Repartido por ARCHIVO: este chat hizo los tipos con archivo propio de `app/dashboard/graficos/` (tabla, tarjetas,
+dispersión, barra de proporción, tramos, paneles, barras gordas), el mapa (`MapaGeo.tsx`) y miró las 13 plantillas
+enteras (sin cambiarles el layout). Todo en la rama `dashboard-bloques-general` (`C:/dev/wt-dashboard-general`), que
+«Dashboard» mergea en la suya y pushea UNA vez. Lo aprendido, en `docs/hallazgos-graficos.md` → «Rediseño por tipo
+con capturas (14/10/2026), mitad General». El arnés de capturas de este chat vive en `C:/Users/marti/arnes-dashboard-general/`
+(fuera del repo; `entrada-plantillas.tsx` dibuja cada plantilla entera).
+
 ## Verificación 14/10/2026 ~15:55 (claude1, chat «General» nuevo)
 
 Medido, no leído: `c23cb620` (sexta vuelta) y `78fe8132` (Dashboard sin hojas) son ancestros de `origin/main`
