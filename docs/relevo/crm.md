@@ -6,6 +6,25 @@ el briefing anterior (`b5f7fb55`, 10/10 17:10) con todo verificado contra el ár
 **Rutas de esta área:** `app/crm/**`, `lib/leads.ts`, `lib/funnel*.ts`, `lib/crm*.ts`,
 `lib/lead-*.ts`, `lib/campana-*.ts`, `lib/etiquetas*.ts`, `lib/pipeline.ts`.
 
+## 0-Ω4. 15/10/2026 (chat «Pagos», cuenta `claude1`): b2 COMPLETA en `05bc31391`, y lo que choca al integrarla
+
+**`crm-bloques-b2` está en `05bc31391`** (`wtc-b2`), una sola rama, sin pushear ni mergear en `crm-bloques`:
+las dos ALTAS, las seis MEDIAS y las seis BAJAS de la revisión de Pagos, cerradas (`c27eb4323` → `906c36467` →
+`fca716101` del CRM; `9df9e6817` y `05bc31391` de Pagos). Integrarla lo decide Martín: tablero, ref
+`crm-bloques-b2-integrar`. La migración `XXXX_pagos_manual_suscripcion_cancelada.sql` sigue SIN número y ahora
+suma `leads.suscripcion_meses_antes`; se numera al integrar, ANTES o junto con el deploy.
+
+**Lo que choca al mezclar b2 con main** (medido con `git merge-tree` contra main del 15/10, no supuesto). Nada de
+código choca; son tres archivos, cada uno con su cura:
+- `docs/hallazgos-crm.md`: los dos lados agregaron entradas al final. Se queda con las DOS.
+- `docs/relevo/crm.md` (este archivo): se editó en main y en b2. Se queda con las dos, ordenadas por fecha.
+- `tests/api-mako-http.snapshot.txt`: las dos ramas sumaron ops a la API. **NO se resuelve a mano: se regenera
+  después del merge** con `node --import tsx scripts/generar-api-doc.mjs` (escribe también `docs/api-mako.md`) y se
+  commitea. Resuelto a mano, la lista diría que sale por HTTP algo que no sale (o al revés), y esa guarda existe
+  para que exponer una operación sea una decisión y no un descuido.
+`tests/cobranza.test.ts` NO choca aunque b2 y main lo cambiaron: es el mismo cambio línea por línea (el recorte de
+`marcarPago` hasta el próximo export, `af2b73fa1` en main) y git lo junta solo.
+
 ## 0-Ω3. 14/10/2026 ~16:30 (chat «CRM», cuenta `claude1`): las dos ALTAS de b2, ARREGLADAS
 
 **Al ~17:30, b2 está en `fca716101`** (`c27eb4323` → `906c36467` → `fca716101`), sin pushear ni mergear:
