@@ -101,3 +101,31 @@ test('5: por WhatsApp, un pedido de crear un diseño llega con las herramientas 
     assert.ok(!(clasificarIntencion(t, {}).areas ?? []).includes('imagen'), `«${t}» no es un diseño`);
   }
 });
+
+// ── 6. El turno que CORRE por WhatsApp (clasificador + herramientasDelTurno, el molde de tests/api-mako-cobros.test.ts) ──
+// «El área está bien y la herramienta no viaja» es la trampa: se mide con la función que usa lib/mako-doer-in.ts.
+// Medido el 15/10/2026: las cuatro frases llegan con su herramienta. PROBADO ROMPIÉNDOLO: sin `imagen` en AREA_KEYWORDS y
+// sin la regla 6-bis-bis, ninguna trae una herramienta del editor (0/1).
+test('6: por WhatsApp, cada pedido del editor llega al turno con su herramienta', async () => {
+  const { execFileSync } = await import('node:child_process');
+  const { pathToFileURL } = await import('node:url');
+  const { clasificarIntencion } = await import('../lib/mako-intencion');
+  const { herramientasDelTurno } = await import('../lib/doer-herramientas');
+  const url = (rel: string) => JSON.stringify(pathToFileURL(join(RAIZ, rel)).href);
+  // Las de siempre son `server-only`: se las pide a un node aparte, como el test de cobros.
+  const codigo = `import { MAKO_TOOLS } from ${url('lib/mako-tools.ts')}; import { MAKO_ACCION_TOOLS } from ${url('lib/mako-doer-acciones.ts')}; process.stdout.write(JSON.stringify([...MAKO_TOOLS, ...MAKO_ACCION_TOOLS].map((t) => t.name)));`;
+  const deSiempre = (JSON.parse(execFileSync(process.execPath, ['--conditions=react-server', '--import', 'tsx', '--input-type=module', '-e', codigo], { cwd: RAIZ, encoding: 'utf8', maxBuffer: 4 << 20 })) as string[]).map((name) => ({ name }));
+  const vista = { canal: 'whatsapp' as const, alcance: 'ejecutar' as const, ws: 3, rol: 'admin' as const, tabs: null };
+  const FRASES: Array<{ mensaje: string; espera: string[] }> = [
+    { mensaje: 'creame un flyer de la inauguración', espera: ['crear_diseno_imagen', 'listar_plantillas_imagen'] },
+    { mensaje: 'armame un diseño para la promo del viernes', espera: ['crear_diseno_imagen'] },
+    { mensaje: 'cambiá el texto del flyer de la promo por 2x1', espera: ['cambiar_textos_diseno_imagen', 'ver_diseno_imagen', 'listar_disenos_imagen'] },
+    { mensaje: 'qué diseños tengo', espera: ['listar_disenos_imagen'] },
+  ];
+  for (const f of FRASES) {
+    const v = clasificarIntencion(f.mensaje, {});
+    const t = herramientasDelTurno({ veredicto: v, texto: f.mensaje, agendaAbierta: false, deSiempre, vista, hayPendientes: false });
+    const nombres = t.tools.map((x) => x.name);
+    for (const e of f.espera) assert.ok(nombres.includes(e), `«${f.mensaje}» llega sin ${e} (viajan: ${nombres.filter((n) => /imagen/.test(n)).join(', ') || 'ninguna del editor'})`);
+  }
+});
