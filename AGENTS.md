@@ -1081,6 +1081,22 @@ prefijo propio, atada a id, URL, usuario y negocio, que vence; `lib/editor-landi
 página de afuera SIN sandbox y con `opener` exige que el host esté entre lo que el negocio DECLARÓ, no que su HTML
 «diga» algo (reverse tabnabbing). Medido y cerrado el 14/10/2026: docs/hallazgos-editor-landing.md → «Tanda 6».
 
+# El Centro de Operaciones es una puerta a la PC de Martín: una fila es un prompt
+
+`/admin/operaciones` deja pedidos que un cartero entrega a los chats de Claude Code de su PC
+(docs/diseno-centro-de-operaciones.md; lo que costó, docs/hallazgos-operaciones.md). Lo que gobierna
+código nuevo:
+
+- **Toda acción o lectura del Centro pasa por `puedeOperar`** (`lib/operaciones-reglas.ts`): admin
+  global + workspace de la plataforma + sesión con fila + segundo factor de verdad. `getSesionAdmin()`
+  solo no alcanza, y `rolMinimo: 'admin'` del registro es el admin de CUALQUIER workspace (va con
+  `soloPlataforma`). Lo fija `tests/operaciones.test.ts`.
+- **La verdad de un pedido es el texto FIRMADO en el dispositivo** (WebCrypto, clave no exportable).
+  El servidor lo guarda y lo devuelve tal cual, nunca lo arma; el cartero entrega lo que dice ese
+  texto. Ningún camino encola sin firma: por eso «mandar un pedido» no está en el registro de la API.
+- **La confianza vive en la PC**: el cartero verifica la firma contra las claves cargadas A MANO y
+  lleva su registro de entregados. Nada de lo que diga MaKo puede agregar una clave ni reentregar.
+
 # Un guard sobre algo destructivo se escribe en POSITIVO
 
 «Solo ESTE workspace», nunca «cualquiera menos aquél». La condición negativa protege una

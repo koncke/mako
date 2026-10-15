@@ -11,11 +11,17 @@ Pedido de Martín (15/10/2026), después de preguntar si se podía armar adentro
 > como si estuviera con F12… Fíjate que todo el tiempo te estoy pasando capturas, esto lo evitaría…
 > Tal vez incluso que organice los chats para cada cuenta… Así les cuesta menos contexto.»
 
-**Qué promete, en una frase (corregida el 15/10, ver §1):** desde MaKo —también desde el
-teléfono— se dejan pedidos para los chats de las tres cuentas, **pero sólo los recibe la cuenta
-que está abierta en la app de Claude: los de las otras dos esperan a que Martín se pase a esa
-cuenta**. Se ve la cuota de las tres, cada una con la fecha en que se midió. Y se señala un
-elemento de la pantalla en vez de mandar una captura.
+**Qué promete, en una frase (corregida el 15/10, ver §1 y §7):** desde MaKo se dejan pedidos
+firmados para los chats de las tres cuentas, **que corren a la vez: una en la app de Claude y las
+otras dos en terminal**. Cada cuenta tiene su cartero, y un pedido sale apenas el cartero de su
+cuenta pasa y el chat está abierto; si no, espera y la pantalla dice qué espera. Se ve la cuota de
+las tres, cada una con la fecha en que se midió. Y se señala un elemento de la pantalla en vez de
+mandar una captura.
+
+**Estado (15/10/2026): la etapa 1 está construida y verificada de punta a punta** contra un servidor
+local (§9). Falta instalarla contra producción, las cuentas de terminal y la versión del teléfono:
+`/admin/operaciones` en un celular hoy cae en la cubierta «se usa en la computadora». Lo que costó, en
+[hallazgos-operaciones.md](hallazgos-operaciones.md).
 
 ---
 
@@ -184,17 +190,17 @@ construye.** Lo que lo distingue:
 
 ### 3.2 En la API de MaKo
 
-Toda feature se declara en `lib/api-mako/areas/<área>.def.ts`, y ésta también: **las lecturas**
-(estado de la cola, cuota de las tres cuentas). Pero el registro hoy **no tiene una guarda de
-plataforma**: `Gating` (`lib/api-mako/tipos.ts:166`) ofrece `soloWs1`, `integracion`, `tab` y
-`rolMinimo: 'admin'`, y ese `admin` es el admin de CUALQUIER workspace. Declarar «encolar» ahí, tal
-cual, deja que el doer de WhatsApp o el token de un cliente le manden prompts a la PC de Martín.
+Toda feature se declara en `lib/api-mako/areas/<área>.def.ts`, y ésta también. `rolMinimo: 'admin'`
+solo es el admin de CUALQUIER workspace, así que no alcanza; **la guarda de plataforma ya existe**
+(`soloPlataforma`, la sumó el 2FA obligatorio el 14/10 y se resuelve por CAPA en `vistaDe`). El
+relevamiento de este documento leyó un árbol anterior y decía que faltaba.
 
-- Hace falta una guarda nueva de plataforma (sólo el workspace de `wsSuperAdmin()` y sólo
-  Martín), con su test.
-- **Encolar no sale por `http` ni por WhatsApp.** Si se declara, es con `confirmacion: 'pantalla'`:
-  MaKo propone el pedido y Martín lo firma en `/admin/operaciones`. La firma vive en la pantalla,
-  así que ningún canal puede saltearla.
+- **Hecho (15/10):** el área `operaciones` con dos lecturas, `ver_pedidos_operaciones` y
+  `ver_carteros_operaciones`, con `soloPlataforma` + `rolMinimo: 'admin'` y sin HTTP (los textos
+  son prompts y el estado es de la PC).
+- **Encolar NO está en el registro, a propósito**: exige la firma del dispositivo y ningún canal
+  puede firmar. Si se declara, es con `confirmacion: 'pantalla'`: MaKo propone el pedido y Martín lo
+  firma en `/admin/operaciones`. Pendiente.
 
 ---
 
@@ -330,12 +336,17 @@ agota, Martín pasa a la 2 y sigue en el «CRM» de la 2, que retoma por `docs/r
 relevo de [dos-cuentas.md](dos-cuentas.md), el que se usa por defecto, y con la app corriendo una
 cuenta por vez es lo único que funciona.
 
-**El reparto «un área, una cuenta» de la versión anterior choca con eso:** si los editores viven
-sólo en la cuenta 1, cuando la 1 se agota no hay editores hasta el reset. Sirve sólo si las cuentas
-corren en paralelo, y en paralelo hacen falta sesiones de la CLI con su propio directorio de
-configuración, que no aparecen en la app (ni con sus conectores), y con los chats de una sola
-cuenta la PC ya anda al límite de RAM (ver [hallazgos-infra.md](hallazgos-infra.md)). Es la
-decisión 2 de §10.
+**Desde el 15/10 corren las tres a la vez** (decisión 2 de §10), y con eso el reparto «un área, una
+cuenta» deja de chocar con el modo relevo: cada cuenta puede tener sus áreas fijas. Dos límites
+medidos, que deciden cuántos chats entran:
+
+- **Cada chat pesa ~520 MB comprometidos, venga de la app o de la terminal** (es el mismo proceso de
+  Claude Code). Repartir los chats entre cuentas reparte la CUOTA, no agrega RAM: el total de chats
+  de las tres tiene que seguir rondando los de hoy (17 con 4,3 GB libres de 15,7).
+- **Las sesiones de terminal no aparecen en la app** ni tienen sus conectores, y cada directorio de
+  configuración tiene su propio registro: por eso hay un cartero por cuenta.
+
+El reparto en sí sigue siendo la decisión 5.
 
 Lo que el Centro sí aporta: **mostrar qué chat de cada cuenta tocó cada área**, con el índice que
 ya existe (`docs/relevo/chats.md`), y elegir a quién mandarle un pedido por ÁREA, resuelto al chat
@@ -348,12 +359,31 @@ vivo de la cuenta activa.
 
 ## 8. Qué tiene que hacer Martín
 
-1. **Nada para la cuenta 3**: ya entró el 10/10 (está en `cuentas.tsv` y tiene sus chats).
-2. **Dejar abierto el chat «Cartero»** de la cuenta activa, y abiertos los chats que tienen que
-   recibir. Un chat cerrado no recibe.
-3. **Generar la clave de firma una vez** desde `/admin/operaciones` y pegar la pública donde lo
-   indique la instalación del cartero.
-4. **Instalar el cartero una vez**, como el vigía: un script, sin admin y sin abrir puertos.
+1. **Loguearse una vez en cada cuenta de terminal** (`claude2` y `claude3` en PowerShell, y `/login`
+   en cada una): es OAuth en el navegador y no lo puede hacer nadie más.
+2. **Dejar abierto un chat «Cartero» por cuenta** (el nombre importa: el cartero no se ofrece a sí
+   mismo como destino), y abiertos los chats que tienen que recibir.
+3. **Crear la clave de este dispositivo** en `/admin/operaciones` (una por dispositivo).
+
+Lo demás lo hace un chat, con el script (`scripts/operaciones/cartero.mjs`):
+
+```bash
+node scripts/operaciones/cartero.mjs instalar
+node ~/.claude/operaciones/cartero.mjs token <el token que se acuña en /admin/operaciones>
+node ~/.claude/operaciones/cartero.mjs clave <la clave pública que se copia en /admin/operaciones>
+node ~/.claude/operaciones/cartero.mjs cartero claude1 app ~/.claude
+node ~/.claude/operaciones/cartero.mjs carpeta 68eda2ab-d55d-41a3-be37-7780d56c55ce claude1
+node ~/.claude/operaciones/cartero.mjs cartero claude2 cli ~/.claude-martin
+```
+
+Y el chat «Cartero» de cada cuenta corre `ciclo --cuenta claudeN` cada uno o dos minutos (un cron de
+la sesión), manda cada entrega con `SendMessage` a la dirección `to` que imprime, y anota el resultado
+con `acuse --cuenta claudeN <id> ok` (o `error <motivo>`).
+
+⚠️ **Lo que cambió al construir:** la «tarea programada» de §2 no hizo falta para la etapa 1. El
+cartero es UN script sin dependencias, y el chat Cartero lo corre en cada vuelta: consulta MaKo,
+verifica la firma en código, reclama, deja el buzón y sube los acuses. La tarea programada sólo
+agregaría un latido con el chat Cartero cerrado, cuando igual no se puede entregar nada.
 
 ---
 
@@ -378,13 +408,18 @@ abre.
 
 ## 10. Lo que hay que decidir (va a la Ticketera)
 
-1. **¿Por dónde arranca?** (`centro-operaciones-arranca`): la cola + la cuota, o el señalador
-   primero. Con §0 a la vista: si lo nuevo que le sirve es sólo el señalador, va solo.
-2. **¿Las cuentas corren de a una (como hoy) o en paralelo?** Decide §7. Recomendado: de a una.
-3. **La firma de cada pedido** (§3.1): no es opcional; lo que se decide es con qué firma la v1.
+1. ✅ **¿Por dónde arranca?** (`centro-operaciones-arranca`) → **la cola y la cuota primero**, el
+   señalador después (15/10, la recomendada).
+2. ✅ **¿Las cuentas corren de a una o en paralelo?** → **las tres activas** (Martín, 15/10: «Quiero
+   que estén las 3 activas… Tal vez no en la app de Claude Desktop, pero con PowerShell o algo así»).
+   Una en la app y dos en terminal; un cartero por cuenta (§7 y hallazgos-operaciones.md).
+3. ✅ **La firma de cada pedido** (§3.1) → **firmado desde el día uno**, la v1 con una clave del
+   navegador que no se puede exportar; la passkey, después.
 4. **El relevo al 85%**: ¿el Centro lo manda solo, o sólo muestra la cuota y deja la orden al hook
    que ya la da? Recomendado: que la muestre; mandarla duplica la orden.
-5. **El reparto de chats por cuenta**: depende de la 2; con «de a una», no hay reparto que hacer.
+5. **El reparto de chats por cuenta**: con las tres activas, ahora sí se decide. Recomendado: el de
+   §6 de la versión anterior (editores en una, tablero y dinero en otra, motor y plataforma en la
+   tercera), con el total de chats acotado por la RAM (§7).
 6. **Achicar AGENTS.md** (§5 y principio 9 de §11): una limpieza cada dos semanas que deje en
    AGENTS.md sólo la regla y mude el detalle de cada caso a su `docs/hallazgos-<área>.md`. Mudar no
    borra ninguna regla; lo que sí se decide es cuál ya no vale. Recomendado: arrancar por ahí, porque
