@@ -17,6 +17,15 @@
 // monta decide qué hacer con la lectura o el texto (`onLectura`, `onTexto`): el mismo pedido de antes con
 // el campo `lectura` o `texto`.
 //
+// TANDA 7 (15/10/2026). Martín: «Si no pudo leer la landing, no me debe saltar el botón de "MaKo no pudo leerla
+// sola" y las opciones de leer en tu navegador... Por defecto si no pudo de una manera que vaya directo a abrir la
+// ventana emergente y a analizar la landing». En el camino normal esto YA NO SE VE: la ventana se abre en el clic
+// de Analizar o Replicar y la lectura vuelve sola (`pedirConVentana`, lib/editor-landing/lector-navegador.ts).
+// Queda como la SALIDA de un fallo de ese camino, y `salida` dice cuál: `bloqueadas` (el aviso con la flecha ya a
+// la vista), `vacia` (se leyó y no había texto: recién ahí se pega), o la ventana que se cerró o no contestó (la
+// línea de por qué, y el botón para reintentar). Sin `salida`: la ventana nunca se abrió (un arranque sin clic,
+// o la cerró la persona antes de que contestara el server) y es la pantalla de antes.
+//
 // ⚠️ `leer(url)` SE LLAMA DIRECTO EN EL `onClick`, SIN NINGÚN `await` ANTES: la ventana se abre en el clic
 //    (lib/editor-landing/lector-navegador.ts). Con un `await` antes, Chrome la bloquea aunque la persona
 //    tenga las emergentes habilitadas, y el aviso le diría algo falso.
@@ -25,6 +34,7 @@
 
 import { useState } from 'react';
 import type { Lectura } from '@/lib/editor-landing/lectura-tipos';
+import type { SalidaSinLectura } from '@/lib/editor-landing/lector-navegador';
 import { Ico } from '../Ico';
 import { useLectorEnNavegador } from './useLectorEnNavegador';
 
@@ -34,7 +44,7 @@ export const BOTON_LEER = 'Leer en tu navegador';
 export const BOTON_PEGAR = 'Pega el texto';
 export const SIN_TEXTO_EN_NAVEGADOR = 'Tampoco mostró texto. Pégalo aquí.';
 
-export function LeerOPegar({ url, error, enNavegador, ocupado, accionTexto, texto, onLectura, onTexto }: {
+export function LeerOPegar({ url, error, enNavegador, ocupado, accionTexto, texto, salida = null, onLectura, onTexto }: {
   /** La página TAL CUAL la pegó la persona (con su www y su query). */
   url: string;
   /** El error del server (se muestra cuando no hay lector que ofrecer). */
@@ -47,13 +57,18 @@ export function LeerOPegar({ url, error, enNavegador, ocupado, accionTexto, text
   accionTexto: string;
   /** La línea de arriba cuando se ofrece el lector, si hace falta decir para qué (dos cajas en una pantalla). */
   texto?: string;
+  /** Tanda 7: por qué no se leyó SIN clic en la ventana del clic (ver la cabecera), o null. */
+  salida?: SalidaSinLectura | null;
   onLectura: (l: Lectura) => void;
   onTexto: (texto: string) => void;
 }) {
-  const { leer, leyendo, aviso } = useLectorEnNavegador();
-  const [pegar, setPegar] = useState(!enNavegador);
+  const { leer, leyendo, aviso } = useLectorEnNavegador({ bloqueadas: salida?.motivo === 'bloqueadas' });
+  const [pegar, setPegar] = useState(!enNavegador || salida?.motivo === 'vacia');
   const [pegado, setPegado] = useState('');
-  const [nota, setNota] = useState<string | null>(null);
+  // 'bloqueadas' ya lo dice el aviso con la flecha; sin texto, la misma línea que con el botón; lo demás, su línea.
+  const [nota, setNota] = useState<string | null>(
+    !salida || salida.motivo === 'bloqueadas' ? null : salida.motivo === 'vacia' ? SIN_TEXTO_EN_NAVEGADOR : salida.mensaje,
+  );
 
   const leerAhora = () => {
     setNota(null);

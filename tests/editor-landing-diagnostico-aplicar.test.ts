@@ -313,11 +313,15 @@ test('«Deshacer» restaura la versión de antes sólo si la landing no cambió,
 
 test('de afuera, «Aplicar» replica como Landing y lo que se aplica en la copia NO viaja en la URL', () => {
   const panel = sinComentarios(leer(PANEL));
-  assert.match(panel, /void pedirReplica\(urlPegada, 'landing', lectura \? \{ lectura \} : \{\}, pasarYAbrir\)/);
+  // Tanda 7: sin la lectura, con la ventana abierta en el clic (tests/web-generator-ventana-en-el-clic.test.ts).
+  assert.match(panel, /void pedirReplica\(urlPegada, 'landing', lectura \? \{ lectura \} : \{ ventana \}, pasarYAbrir\)/);
   // Verificación de la tanda 6: con una copia que YA existe (`copia`, del Panel) se usa ésa ANTES de replicar
   // (cada «Aplicar» armaba otra copia, con IA paga). Lo que es «la copia» lo fija copiaParaAplicar (panel).
   const afuera = panel.slice(panel.indexOf('const aplicarAfuera = useCallback('), panel.indexOf('const aplicar = useCallback('));
-  assert.match(afuera, /if \(copia != null\) \{ setAbriendoCopia\(true\); void pasarYAbrir\(\{ id: copia, titulo: '' \}\); return; \}\s*const lectura = ultimaLectura\.current;\s*void pedirReplica\(/);
+  assert.match(afuera, /if \(copia != null\) \{ setAbriendoCopia\(true\); void pasarYAbrir\(\{ id: copia, titulo: '' \}\); return; \}\s*void pedirReplica\(/);
+  // Y con la copia que ya existe no se abre ninguna ventana (no hay nada que leer). PROBADO ROMPIÉNDOLO (15/10/2026,
+  // tanda 7; base 43 / 0 con crear-panel): sin el `copia == null &&` → 42 / 1.
+  assert.match(afuera, /const ventana = copia == null && pideVentana\('landing', \{ lectura \}\) && !leidaEnServer\.current \? abrirEnElClic\(\) : null;/);
   assert.match(panel, /function PanelInterno\(\{ docId, url, copia = null, onCerrar, onAnalizada \}: Props\)/);
   assert.match(panel, /pedirAplicar\(\{ accion: 'pasar', url: urlPegada, docId: id, \.\.\.\(que \? \{ resolver: que \} : \{\}\) \}\)/);
   assert.match(panel, /irDuro\(`\/web-generator\?diagnostico=\$\{id\}`, ws\)/);

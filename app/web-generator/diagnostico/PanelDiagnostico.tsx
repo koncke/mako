@@ -72,6 +72,17 @@
 //     MaKo». Ahora la vista dibuja todas, una debajo de la otra con su rótulo (`htmlDeVistaDiagnostico`),
 //     y el orden de «Aplicar todos» y el contexto del chat salen de todas (diagnostico-guardado.ts);
 //   · de AFUERA, «Aplicar» usa la copia que ya existe (`copia`, del Panel) en vez de replicar otra vez.
+//
+// TANDA 7 (15/10/2026). Martín: «Si no pudo leer la landing, no me debe saltar el botón de "MaKo no pudo leerla
+// sola" y las opciones de leer en tu navegador... Por defecto si no pudo de una manera que vaya directo a abrir la
+// ventana emergente y a analizar la landing...». La ventana de lectura se abre EN EL CLIC que pide analizar o
+// replicar una página de afuera (`abrirEnElClic`, lib/editor-landing/lector-navegador.ts: Chrome sólo la deja
+// abrir dentro del gesto) y `pedirConVentana` la cierra si el server sí puede leer, o lee en ella y repite el
+// pedido con la lectura si el server contesta `enNavegador`, sin un segundo clic. El análisis que arranca SOLO al
+// abrir no tiene clic: toma la ventana que reservó el ↑ de la caja o el «Ir a» (`tomarVentanaReservada`; Inicio.tsx,
+// `abrirDerechaEnElClic`). LeerOPegar queda como la salida de un fallo (`salida`). No se abre ventana cuando no
+// puede hacer falta: una landing NUESTRA, Replicar con la página ya leída en el navegador o que el server ya leyó
+// en esta visita (`leidaEnServer`), «Página web», o «Aplicar» con la copia que ya existe.
 // =============================================================================
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -91,11 +102,15 @@ import {
 } from '@/lib/editor-landing/diagnostico';
 import { bloquesDeLanding, htmlDeVistaDiagnostico, paginasEnOrden } from '@/lib/editor-landing/diagnostico-guardado';
 import type { Lectura } from '@/lib/editor-landing/lectura-tipos';
+import {
+  abrirEnElClic, cerrarVentana, pedirConVentana, tomarVentanaReservada,
+  type SalidaSinLectura, type VentanaDelClic,
+} from '@/lib/editor-landing/lector-navegador';
 import { FORMATOS_REPLICAR, NOMBRE_FORMATO_REPLICAR, type FormatoReplicar } from '@/lib/editor-landing/replicar-reglas';
 import { idDe } from '../editor/diff-tarjetas';
 import { PLAZO_IA_MS, pedirDocs, postJson, type FallaPedido } from '../cliente';
 import { Filtros, Ico, ItemMenu, MenuFlotante, irDuro, useAviso } from '../MiniaturaLanding';
-import { FallaReplicar, ICONO_FORMATO, useReplicar, type AlReplicar } from '../crear/Replicar';
+import { FallaReplicar, ICONO_FORMATO, pideVentana, useReplicar, type AlReplicar } from '../crear/Replicar';
 import { LeerOPegar } from '../lector/LeerOPegar';
 import { RecorridoDiagnostico, type PasoDiagnostico } from './RecorridoDiagnostico';
 import { VistaNuestra } from './VistaNuestra';
@@ -171,6 +186,12 @@ export default function PanelDiagnostico(props: Props) {
 function PanelInterno({ docId, url, copia = null, onCerrar, onAnalizada }: Props) {
   const deNuestra = docId != null;
   const objetivo = useMemo(() => (deNuestra ? { docId } : { url: url ?? '' }), [deNuestra, docId, url]);
+  // La URL normalizada como la del server (sin query, sin www): la LLAVE de los comentarios y de
+  // landing_analyses, y el nombre que se muestra. La que se BAJA (la vista, el lector, Replicar) es la
+  // pegada (`urlPegada`), tal cual: hay hosts que sólo existen con www (tanda 6). Van arriba de `analizar`
+  // (tanda 7): la ventana del clic lee ESTA dirección.
+  const urlVista = useMemo(() => { const o = url ? objetivoDe({ url }) : null; return o && 'url' in o ? o.url : null; }, [url]);
+  const urlPegada = urlVista && url ? url.trim() : null;
 
   const [sugerencias, setSugerencias] = useState<Sugerencia[]>([]);
   const [resumen, setResumen] = useState<RespuestaListaDiagnostico['resumen']>(null);
@@ -182,6 +203,16 @@ function PanelInterno({ docId, url, copia = null, onCerrar, onAnalizada }: Props
   const [enNavegador, setEnNavegador] = useState(false);
   /** La última lectura del navegador de ESTA página: Replicar la reusa (no abre otra ventana). */
   const ultimaLectura = useRef<Lectura | null>(null);
+  /**
+   * Tanda 7: el server ya leyó ESTA página en esta visita (un análisis que salió sin lectura ni texto): Replicar
+   * y «Aplicar» no abren la ventana del clic (sería un parpadeo por nada; si igual pide el navegador, la salida
+   * de siempre).
+   */
+  const leidaEnServer = useRef(false);
+  /** Tanda 7: la página se está leyendo en la ventana del clic, antes de la segunda vuelta del análisis. */
+  const [leyendoPagina, setLeyendoPagina] = useState(false);
+  /** Tanda 7: por qué el análisis no se pudo leer SIN clic (LeerOPegar lo muestra), o null. */
+  const [salida, setSalida] = useState<SalidaSinLectura | null>(null);
   const [doc, setDoc] = useState<LandingCompleta | null>(null);
   const [temas, setTemas] = useState<TemaPropio[]>([]);
   const [filtro, setFiltro] = useState<EstadoSugerencia>('pendiente');
@@ -221,28 +252,55 @@ function PanelInterno({ docId, url, copia = null, onCerrar, onAnalizada }: Props
     if (r.resumen) setResumen(r.resumen);
   }, []);
 
-  /** Analiza. `texto`: el copy pegado; `lectura`: la página leída en el navegador (tanda 6). */
-  const analizar = useCallback(async (extra: { texto?: string; lectura?: Lectura } = {}) => {
+  /**
+   * Analiza. `texto`: el copy pegado; `lectura`: la página leída en el navegador (tanda 6). `ventana` (tanda 7):
+   * la que se abrió EN EL CLIC (o la reservada, en el arranque solo): si el server contesta `enNavegador`, la
+   * página se lee ahí y el análisis se repite con la lectura, sin otro clic (`pedirConVentana`).
+   */
+  const analizar = useCallback(async (extra: { texto?: string; lectura?: Lectura; ventana?: VentanaDelClic | null } = {}) => {
     setAnalizando(true);
     setError(null);
     setPegable(false);
     setEnNavegador(false);
+    setSalida(null);
     if (extra.lectura) ultimaLectura.current = extra.lectura;
-    const r = await pedirDiagnostico({ accion: 'analizar', ...objetivo, ...(extra.texto ? { texto: extra.texto } : {}), ...(extra.lectura ? { lectura: extra.lectura } : {}) }, PLAZO_ANALISIS_MS);
+    const base = { accion: 'analizar' as const, ...objetivo, ...(extra.texto ? { texto: extra.texto } : {}) };
+    // Una NUESTRA se lee de su contenido, y con la lectura o el texto a mano no hay nada que leer: ninguna usa la
+    // ventana (no debería llegar ninguna; si llega, no queda abierta).
+    const usaVentana = !deNuestra && !!urlPegada && !extra.lectura && !extra.texto;
+    if (!usaVentana && extra.ventana && extra.ventana !== 'bloqueada') cerrarVentana(extra.ventana);
+    const { r, lectura, sinLectura } = await pedirConVentana({
+      url: urlPegada ?? '',
+      ventana: usaVentana ? extra.ventana ?? null : null,
+      pedir: (leida) => {
+        // La segunda vuelta (ya leída en la ventana): de «Leyendo la página…» a «Analizando…».
+        if (leida) setLeyendoPagina(false);
+        const l = leida ?? extra.lectura;
+        return pedirDiagnostico({ ...base, ...(l ? { lectura: l } : {}) }, PLAZO_ANALISIS_MS);
+      },
+      pideNavegador: (x) => !esLista(x) && (x as { enNavegador?: boolean }).enNavegador === true,
+      alLeer: () => setLeyendoPagina(true),
+      sigue: () => montado.current,
+    });
+    if (!montado.current) return;
+    setLeyendoPagina(false);
     setAnalizando(false);
+    if (lectura) ultimaLectura.current = lectura;
     if (!esLista(r)) {
       const f = r as { error?: string; pegable?: boolean; enNavegador?: boolean };
       setError(f.error ?? 'No se pudo analizar.');
       setPegable(f.pegable === true);
       setEnNavegador(f.enNavegador === true);
+      setSalida(sinLectura);
       return;
     }
+    if (!deNuestra && !lectura && !extra.lectura && !extra.texto) leidaEnServer.current = true;
     aplicarLista(r);
     if (!deNuestra && r.url) onAnalizada?.(r.url);
     setFiltro('pendiente');
     avisar(r.nuevas ? (r.nuevas === 1 ? '1 comentario nuevo' : `${r.nuevas} comentarios nuevos`) : 'Sin comentarios nuevos');
     if (r.sugerencias.some((s) => s.estado === 'pendiente')) setQuiereRecorrido(true);
-  }, [objetivo, aplicarLista, avisar, deNuestra, onAnalizada]);
+  }, [objetivo, aplicarLista, avisar, deNuestra, onAnalizada, urlPegada]);
 
   useEffect(() => { montado.current = true; return () => { montado.current = false; }; }, []);
 
@@ -259,13 +317,19 @@ function PanelInterno({ docId, url, copia = null, onCerrar, onAnalizada }: Props
         deNuestra ? pedirDocs({ accion: 'temas' }) : Promise.resolve(null),
       ]);
       if (!vivo) return;
+      // Tanda 7: la ventana que reservó el clic que abrió esto (el ↑ de la caja, el «Ir a»; Inicio.tsx). Se toma
+      // ACÁ, en la corrida que sigue viva (el doble montaje del modo estricto corta la primera en el `vivo`), y se
+      // usa sólo si se analiza: abrir lo guardado no la necesita y se cierra. Una NUESTRA nunca reserva.
+      const reservada = !deNuestra && url ? tomarVentanaReservada(url) : null;
+      const sinUsar = () => { if (reservada && reservada !== 'bloqueada') cerrarVentana(reservada); };
       if (abierta && abierta.ok) setDoc(abierta.doc);
       if (propios && propios.ok) setTemas(propios.temas);
       setCargando(false);
-      if (!esLista(lista)) { setError((lista as { error?: string }).error ?? 'No se pudo abrir.'); return; }
-      if (abierta && !abierta.ok) { setError(abierta.error); return; }
+      if (!esLista(lista)) { sinUsar(); setError((lista as { error?: string }).error ?? 'No se pudo abrir.'); return; }
+      if (abierta && !abierta.ok) { sinUsar(); setError(abierta.error); return; }
       aplicarLista(lista);
-      if (!lista.sugerencias.length && !lista.resumen) void analizar();
+      if (!lista.sugerencias.length && !lista.resumen) void analizar({ ventana: reservada });
+      else sinUsar();
     })();
     return () => { vivo = false; };
     // Una vez por landing: el panel se remonta al cambiar (`key` en PanelDiagnostico).
@@ -284,11 +348,6 @@ function PanelInterno({ docId, url, copia = null, onCerrar, onAnalizada }: Props
   );
   const bloques = useMemo(() => (doc ? bloquesDeLanding(doc.contenido) : []), [doc]);
   const objetivos = useMemo<ObjetivoVista[]>(() => sugerencias.map((s) => ({ id: s.id, cita: s.cita, seccionId: s.seccionId })), [sugerencias]);
-  // La URL normalizada como la del server (sin query, sin www): la LLAVE de los comentarios y de
-  // landing_analyses, y el nombre que se muestra. La que se BAJA (la vista, el lector, Replicar) es la
-  // pegada (`urlPegada`), tal cual: hay hosts que sólo existen con www (tanda 6).
-  const urlVista = useMemo(() => { const o = url ? objetivoDe({ url }) : null; return o && 'url' in o ? o.url : null; }, [url]);
-  const urlPegada = urlVista && url ? url.trim() : null;
   const onUbicar = useCallback(() => setUbicadas((t) => t + 1), []);
 
   // ── El recorrido ───────────────────────────────────────────────────────────
@@ -461,13 +520,16 @@ function PanelInterno({ docId, url, copia = null, onCerrar, onAnalizada }: Props
   // ── Replicar (una de afuera) ────────────────────────────────────────────────
   // Los 3 formatos (decisión d de Martín). Con la página ya leída en el navegador, la lectura viaja y el
   // server no la baja de nuevo (la «Página web» necesita el HTML: ésa no la usa).
+  // Tanda 7: es un CLIC (el menú, o «Replicar como…» de la falla): la ventana se abre primero, sin nada antes, y
+  // sólo si puede hacer falta (`pideVentana`, y no si el server ya la leyó en esta visita).
   const replicar = useCallback((formato: FormatoReplicar) => {
+    const lectura = ultimaLectura.current;
+    const ventana = urlPegada && pideVentana(formato, { lectura }) && !leidaEnServer.current ? abrirEnElClic() : null;
     setMenuReplicar(null);
     if (!urlPegada) return;
     afuera.current = null;
     setParaAplicar(false);
-    const lectura = ultimaLectura.current;
-    void pedirReplica(urlPegada, formato, lectura && formato !== 'web' ? { lectura } : {});
+    void pedirReplica(urlPegada, formato, lectura && formato !== 'web' ? { lectura } : { ventana });
   }, [urlPegada, pedirReplica]);
 
   /**
@@ -499,12 +561,14 @@ function PanelInterno({ docId, url, copia = null, onCerrar, onAnalizada }: Props
   const [abriendoCopia, setAbriendoCopia] = useState(false);
   const aplicarAfuera = useCallback((que: number[] | 'todos') => {
     if (!urlPegada) return;
+    // Tanda 7: un CLIC («Aplicar», «Aplicar todos»): si va a replicar, la ventana se abre primero, sin nada antes.
+    const lectura = ultimaLectura.current;
+    const ventana = copia == null && pideVentana('landing', { lectura }) && !leidaEnServer.current ? abrirEnElClic() : null;
     afuera.current = que;
     setParaAplicar(true);
     setRecorrido((r) => ({ ...r, abierto: false }));
     if (copia != null) { setAbriendoCopia(true); void pasarYAbrir({ id: copia, titulo: '' }); return; }
-    const lectura = ultimaLectura.current;
-    void pedirReplica(urlPegada, 'landing', lectura ? { lectura } : {}, pasarYAbrir);
+    void pedirReplica(urlPegada, 'landing', lectura ? { lectura } : { ventana }, pasarYAbrir);
   }, [urlPegada, copia, pedirReplica, pasarYAbrir]);
 
   /** «Aplicar» de un comentario: en una nuestra, a la cola; en una de afuera, replicar primero. */
@@ -576,7 +640,8 @@ function PanelInterno({ docId, url, copia = null, onCerrar, onAnalizada }: Props
           <button type="button" className="gp-btn gp-btn-primario" disabled={!pendientes.length || analizando} onClick={() => abrirRecorrido()}>
             <Ico n="play" t={14} /> Ver recorrido
           </button>
-          <button type="button" className="gp-btn gp-btn-contorno" disabled={analizando || cargando} onClick={() => void analizar()}>
+          {/* Tanda 7: la ventana se abre EN ESTE clic (de afuera), primera cosa y sin nada antes. */}
+          <button type="button" className="gp-btn gp-btn-contorno" disabled={analizando || cargando} onClick={() => void analizar({ ventana: !deNuestra && urlPegada ? abrirEnElClic() : null })}>
             <Ico n="refrescar" t={14} /> {sugerencias.length || resumen ? 'Volver a analizar' : 'Analizar'}
           </button>
           {deNuestra && docId != null && (
@@ -590,17 +655,22 @@ function PanelInterno({ docId, url, copia = null, onCerrar, onAnalizada }: Props
           <button type="button" className="gdg-cerrar" aria-label="Cerrar diagnóstico" title="Cerrar" onClick={onCerrar}><Ico n="cerrar" t={16} /></button>
         </div>
       </header>
-      {replicando && <p className="gdg-cab-nota">{paraAplicar ? 'Copiando al editor para aplicar… unos minutos.' : 'Replicando… puede tardar unos minutos.'}</p>}
+      {replicando && (
+        <p className="gdg-cab-nota">
+          <span className="gp-giro" aria-hidden /> {estadoReplicar.fase === 'replicando' && estadoReplicar.leyendo ? 'Leyendo la página…' : paraAplicar ? 'Copiando al editor para aplicar… unos minutos.' : 'Replicando… puede tardar unos minutos.'}
+        </p>
+      )}
       {abriendoCopia && <p className="gdg-cab-nota">Abriendo tu copia…</p>}
       {estadoReplicar.fase === 'falla' && urlPegada && (estadoReplicar.enNavegador || estadoReplicar.pegable) ? (
         <LeerOPegar
-          key={`replicar|${estadoReplicar.formato}`}
+          key={`replicar|${estadoReplicar.formato}|${estadoReplicar.salida?.motivo ?? ''}`}
           url={urlPegada}
           error={estadoReplicar.error}
           enNavegador={estadoReplicar.enNavegador}
           ocupado={replicando}
           accionTexto="Replicar este texto"
           texto="MaKo no pudo leerla para replicarla."
+          salida={estadoReplicar.salida}
           onLectura={(lectura) => { ultimaLectura.current = lectura; void pedirReplica(urlPegada, estadoReplicar.formato, { lectura }, afuera.current ? pasarYAbrir : undefined); }}
           onTexto={(texto) => void pedirReplica(urlPegada, estadoReplicar.formato, { texto }, afuera.current ? pasarYAbrir : undefined)}
         />
@@ -667,18 +737,21 @@ function PanelInterno({ docId, url, copia = null, onCerrar, onAnalizada }: Props
                 </div>
               )}
               {analizando && (
-                <p className="gdg-trabajando"><span className="gp-giro" aria-hidden /> Analizando… puede tardar 1-2 minutos.</p>
+                <p className="gdg-trabajando"><span className="gp-giro" aria-hidden /> {leyendoPagina ? 'Leyendo la página…' : 'Analizando… puede tardar 1-2 minutos.'}</p>
               )}
               {/* Tanda 6: el «No pude leer…» ya no es un callejón. Si el server no pudo, leerla en el navegador de la
-                  persona o pegar su texto (LeerOPegar). Una landing NUESTRA se lee de su contenido: nunca llega acá. */}
+                  persona o pegar su texto (LeerOPegar). Una landing NUESTRA se lee de su contenido: nunca llega acá.
+                  Tanda 7: en el camino normal la lectura ya volvió sola por la ventana del clic; esto es la salida
+                  de un fallo de ese camino (`salida`: bloqueada, sin texto, cerrada o sin respuesta). */}
               {error && (pegable || enNavegador) && urlPegada ? (
                 <LeerOPegar
-                  key={`analizar|${enNavegador ? 'n' : 'p'}`}
+                  key={`analizar|${enNavegador ? 'n' : 'p'}|${salida?.motivo ?? ''}`}
                   url={urlPegada}
                   error={error}
                   enNavegador={enNavegador}
                   ocupado={analizando}
                   accionTexto="Analizar este texto"
+                  salida={salida}
                   onLectura={(lectura) => void analizar({ lectura })}
                   onTexto={(texto) => void analizar({ texto })}
                 />
@@ -753,7 +826,7 @@ const CSS_PANEL_DIAGNOSTICO = `
 .gdg-cab-veredicto { display: flex; align-items: center; gap: 8px; margin: 4px 0 0; font-size: 13.5px; color: var(--gp-tenue, #6b6b72); }
 .gdg-score { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 9999px; background: var(--gp-azul-100, #e0edff); color: var(--gp-azul-800, #1e3a8a); font-weight: 650; font-variant-numeric: tabular-nums; }
 .gdg-cab-acciones { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.gdg-cab-nota { margin: -6px 0 0; font-size: 13px; color: var(--gp-tenue, #6b6b72); }
+.gdg-cab-nota { display: flex; align-items: center; gap: 8px; margin: -6px 0 0; font-size: 13px; color: var(--gp-tenue, #6b6b72); }
 .gdg-cerrar { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: 0; border-radius: 9999px; background: transparent; color: var(--gp-texto, #27272a); cursor: pointer; }
 .gdg-cerrar:hover { background: var(--gp-hover, rgba(0,0,0,.06)); }
 .gdg-cuerpo { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 380px); gap: 16px; }

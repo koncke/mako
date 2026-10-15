@@ -109,9 +109,10 @@ import {
 } from './MiniaturaLanding';
 import {
   ICONO_FILA, SIN_TITULO, copiaParaAplicar, derechaDeAccion, derechaDeCaja, derechaDeVuelta, docDeUrl, enPapelera, esDiagnosticoDe,
-  filasDelPanel, filtrarFilas, hostDe, modoCajaDe, normalizarTexto, queryDeDerecha, urlDeBusqueda, type AccionCaja, type Analizada,
-  type Derecha, type FilaPanel, type TipoFila,
+  filasDelPanel, filtrarFilas, hostDe, modoCajaDe, normalizarTexto, queryDeDerecha, urlConVentanaAlAbrir, urlDeBusqueda, type AccionCaja,
+  type Analizada, type Derecha, type FilaPanel, type TipoFila,
 } from './panel-reglas';
+import { reservarVentanaLectura } from '@/lib/editor-landing/lector-navegador';
 import type { ModoCaja, SemillaCaja } from './crear/caja-modos';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -261,10 +262,23 @@ export function Inicio(props: PropsInicio) {
   const abrirDiagnostico = (f: FilaPanel) =>
     setDerecha(f.tipo === 'analizada' ? { tipo: 'diagnostico', url: f.url } : { tipo: 'diagnostico', docId: f.doc.id });
 
+  /**
+   * Tanda 7 (Martín, 15/10/2026: «Por defecto si no pudo de una manera que vaya directo a abrir la ventana
+   * emergente y a analizar la landing»): la derecha que se abre en un CLIC y arranca sola (el Diagnóstico de una
+   * página de afuera, Replicar con link) deja la ventana de lectura abierta y RESERVADA en ese mismo clic — al
+   * montarse ya no hay gesto que la deje abrir (lib/editor-landing/lector-navegador.ts). Va PRIMERO, sincrónica:
+   * ningún `await` ni `setState` antes. Cuál se reserva lo dice `urlConVentanaAlAbrir` (panel-reglas.ts, con test).
+   */
+  const abrirDerechaEnElClic = (d: Derecha) => {
+    const leer = urlConVentanaAlAbrir(d, analizadas, derecha);
+    if (leer) reservarVentanaLectura(leer);
+    setDerecha(d);
+  };
+
   /** Analizar una página por su dirección (el «Ir a» o la caja del Diagnóstico vacío): si es nuestra, su documento. */
   const analizarUrl = (url: string) => {
     const propia = docDeUrl(url, lista, props.bases);
-    setDerecha(propia ? { tipo: 'diagnostico', docId: propia } : { tipo: 'diagnostico', url });
+    abrirDerechaEnElClic(propia ? { tipo: 'diagnostico', docId: propia } : { tipo: 'diagnostico', url });
     setQ('');
   };
 
@@ -275,7 +289,7 @@ export function Inicio(props: PropsInicio) {
    * con test que la ejecuta).
    */
   const alAccion = (a: AccionCaja) => {
-    setDerecha(derechaDeAccion(a, lista, props.bases));
+    abrirDerechaEnElClic(derechaDeAccion(a, lista, props.bases));
     if (a.que === 'analizar') setQ('');
   };
 

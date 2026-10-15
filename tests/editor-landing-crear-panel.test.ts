@@ -144,8 +144,11 @@ test('derechaDeAccion (se EJECUTA): «Analiza esta landing» abre el Diagnóstic
   // Tanda 7: Crear ya no tiene pasos de entrada; lo que se manda es el pedido (con su archivo o su texto largo).
   assert.deepEqual(de({ que: 'ia', tipo: 'landing', arranque: { modo: 'plan', prompt: '', archivo: { nombre: 'a.pdf', texto: 'x' } } }),
     { tipo: 'ia', doc: 'landing', arranque: { modo: 'plan', prompt: '', archivo: { nombre: 'a.pdf', texto: 'x' } } });
-  // Y el Panel la usa tal cual (con su lista y sus bases).
-  assert.match(fuente(INICIO), /const alAccion = \(a: AccionCaja\) => \{\s*setDerecha\(derechaDeAccion\(a, lista, props\.bases\)\);/);
+  // Y el Panel la usa tal cual (con su lista y sus bases). Tanda 7: por `abrirDerechaEnElClic`, que reserva la ventana
+  // de lectura en el clic y recién después pone la derecha (tests/web-generator-ventana-en-el-clic.test.ts).
+  assert.match(fuente(INICIO), /const alAccion = \(a: AccionCaja\) => \{\s*abrirDerechaEnElClic\(derechaDeAccion\(a, lista, props\.bases\)\);/);
+  assert.match(fuente(INICIO), /const abrirDerechaEnElClic = \(d: Derecha\) => \{[^}]*setDerecha\(d\);\s*\};/);
+  // PROBADO ROMPIÉNDOLO (15/10/2026, tanda 7; base 43 / 0 con diagnostico-aplicar): sin el `setDerecha(d)` → 42 / 1.
 });
 
 // ── 2 · Todo en la misma ruta ────────────────────────────────────────────────────────────────
@@ -307,12 +310,15 @@ test('LeerOPegar: el lector se abre EN EL CLIC (sin await antes), con el aviso; 
 test('Replicar: 3 formatos con su ícono, `{ url, formato, lectura?, texto? }`, y el lector cuando el server no puede', () => {
   const src = fuente(REPLICAR);
   assert.match(src, /export const ICONO_FORMATO: Record<FormatoReplicar, string> = \{ presentacion: 'presentar', landing: 'paginas', web: 'globo' \};/);
-  assert.match(src, /const cuerpo: PedidoReplicar = formato === 'web' \? \{ url, formato \} : \{ url, formato, \.\.\.extra \};/);
+  // Tanda 7: lo que viaja es lo de `extra` SIN la ventana (`dato`) y, en la segunda vuelta, la lectura de la ventana del clic.
+  // PROBADO ROMPIÉNDOLO (15/10/2026; base 43 / 0 con diagnostico-aplicar): el cuerpo sin la lectura → 42 / 1; la falla
+  // con `salida: null` → 42 / 1.
+  assert.match(src, /const cuerpo: PedidoReplicar = formato === 'web' \? \{ url, formato \} : \{ url, formato, \.\.\.dato, \.\.\.\(lectura \? \{ lectura \} : \{\}\) \};/);
   assert.match(src, /postJson<RespuestaReplicar>\('\/api\/landing-generator\/replicar', cuerpo, PLAZO_IA_MS\)/);
-  assert.match(src, /setEstado\(\{ fase: 'falla', formato, error: f\.error, enNavegador: f\.enNavegador === true, pegable: f\.pegable === true, probar: probar && probar !== formato \? probar : null \}\);/);
+  assert.match(src, /setEstado\(\{\s*fase: 'falla', formato, error: f\.error, enNavegador: f\.enNavegador === true, pegable: f\.pegable === true,\s*probar: probar && probar !== formato \? probar : null, salida: sinLectura,\s*\}\);/);
   // Verificación de la tanda 6: si el server propone otro formato (`probar`, una app de Vite en «Página web»),
-  // la falla lo ofrece como botón, acá y en el Diagnóstico (L5 al pie).
-  assert.match(src, /<FallaReplicar\s+error=\{estado\.error\}\s+probar=\{pedida \? estado\.probar : null\}\s+onProbar=\{\(f\) => \{ if \(!pedida\) return; setFormato\(f\); empezar\(pedida, f\); \}\}/);
+  // la falla lo ofrece como botón, acá y en el Diagnóstico (L5 al pie). Tanda 7: con la ventana abierta en ESE clic.
+  assert.match(src, /<FallaReplicar\s+error=\{estado\.error\}\s+probar=\{pedida \? estado\.probar : null\}\s+onProbar=\{\(f\) => \{ if \(!pedida\) return; const v = pideVentana\(f\) \? abrirEnElClic\(\) : null; setFormato\(f\); empezar\(pedida, f, v\); \}\}/);
   assert.match(src, /\{probar && \(\s*<button type="button" className="gp-btn gp-btn-contorno"[^>]*onClick=\{\(\) => onProbar\(probar\)\}>/);
   assert.match(src, /onLectura=\{\(lectura\) => void replicar\(pedida, estado\.formato, \{ lectura \}\)\}/);
   // Desde el link de la caja arranca solo, UNA vez (el ref sobrevive al doble montaje: replicar se paga).
@@ -320,14 +326,16 @@ test('Replicar: 3 formatos con su ícono, `{ url, formato, lectura?, texto? }`, 
   const dg = fuente(PANEL_DG);
   assert.match(dg, /\{FORMATOS_REPLICAR\.map\(\(f\) => \(\s*<ItemMenu key=\{f\} icono=\{ICONO_FORMATO\[f\]\} texto=\{NOMBRE_FORMATO_REPLICAR\[f\]\} onClick=\{\(\) => replicar\(f\)\} \/>/);
   assert.doesNotMatch(dg, /'bloques'|'fiel'|Como bloques editables|Copia fiel/, 'volvió el pedido viejo de Replicar');
-  assert.match(dg, /void pedirReplica\(urlPegada, formato, lectura && formato !== 'web' \? \{ lectura \} : \{\}\);/);
+  assert.match(dg, /void pedirReplica\(urlPegada, formato, lectura && formato !== 'web' \? \{ lectura \} : \{ ventana \}\);/);
   assert.match(dg, /<FallaReplicar clase="gdg-error" error=\{estadoReplicar\.error\} probar=\{urlPegada \? estadoReplicar\.probar : null\} deshabilitado=\{replicando\} onProbar=\{replicar\} \/>/);
 });
 
 test('el Diagnóstico: el lector cuando el server contesta enNavegador, y la página TAL CUAL a la vista y a Replicar', () => {
   const dg = fuente(PANEL_DG);
   assert.match(dg, /setEnNavegador\(f\.enNavegador === true\);/);
-  assert.match(dg, /\.\.\.\(extra\.lectura \? \{ lectura: extra\.lectura \} : \{\}\)/);
+  // Tanda 7: la lectura es la del lector manual (`extra.lectura`) o la de la ventana del clic (`leida`, la segunda vuelta).
+  // PROBADO ROMPIÉNDOLO (15/10/2026; base 43 / 0): `const l = extra.lectura;` → 42 / 1.
+  assert.match(dg, /const l = leida \?\? extra\.lectura;\s*return pedirDiagnostico\(\{ \.\.\.base, \.\.\.\(l \? \{ lectura: l \} : \{\}\) \}, PLAZO_ANALISIS_MS\);/);
   assert.match(dg, /\{error && \(pegable \|\| enNavegador\) && urlPegada \? \(\s*<LeerOPegar/);
   assert.match(dg, /onLectura=\{\(lectura\) => void analizar\(\{ lectura \}\)\}/);
   assert.match(dg, /<VistaAfuera url=\{urlPegada\}/);

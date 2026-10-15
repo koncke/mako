@@ -257,6 +257,34 @@ export function derechaDeCaja(modo: ModoCaja, doc: TipoCrear = 'landing', semill
   };
 }
 
+/**
+ * La página que hay que tener lista para leer EN EL NAVEGADOR al abrir esta derecha, o null (tanda 7). Martín,
+ * 15/10/2026: «Si no pudo leer la landing, no me debe saltar el botón de "MaKo no pudo leerla sola"... Por
+ * defecto si no pudo de una manera que vaya directo a abrir la ventana emergente y a analizar la landing».
+ * El Diagnóstico y Replicar que se abren desde un clic arrancan SOLOS al montarse, y a esa altura el clic ya
+ * no deja abrir ninguna ventana: el clic la reserva (`reservarVentanaLectura`, lib/editor-landing/
+ * lector-navegador.ts) si ESTA regla dice que el arranque la puede necesitar:
+ *   · el Diagnóstico de una página de AFUERA que todavía no se analizó (una ya analizada abre lo guardado y
+ *     no analiza: abrir una ventana ahí sería un parpadeo por nada). Una NUESTRA se lee de su contenido;
+ *   · Replicar con link, arrancando solo, salvo la «Página web»: la copia fiel necesita el HTML del server y
+ *     no lee en el navegador.
+ * Y nunca si la derecha `actual` es la MISMA pantalla (el mismo `key` en Inicio.tsx: no se remonta, así que no
+ * arranca de nuevo y la ventana quedaría abierta hasta vencer).
+ */
+export function urlConVentanaAlAbrir(d: Derecha, analizadas: readonly Analizada[], actual?: Derecha): string | null {
+  if (actual && actual.tipo === d.tipo) {
+    if (d.tipo === 'diagnostico' && actual.tipo === 'diagnostico' && actual.docId === d.docId && actual.url === d.url) return null;
+    if (d.tipo === 'replicar' && actual.tipo === 'replicar' && (actual.url ?? '') === (d.url ?? '')) return null;
+  }
+  if (d.tipo === 'diagnostico') {
+    if (d.docId != null || !d.url) return null;
+    const k = claveUrl(d.url);
+    return k && analizadas.some((a) => claveUrl(a.url) === k) ? null : d.url;
+  }
+  if (d.tipo === 'replicar') return d.url && d.auto && d.formato !== 'web' ? d.url : null;
+  return null;
+}
+
 /** De vuelta de Crear al cuadro, con lo que se había mandado (lo escrito no se pierde por mirar el esquema). */
 export function derechaDeVuelta(s?: SemillaCaja | null): Derecha {
   if (!s) return { tipo: 'crear' };

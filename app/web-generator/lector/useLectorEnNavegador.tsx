@@ -20,14 +20,18 @@ import { useCallback, useState, type ReactNode } from 'react';
 import { leerEnNavegador, type OpcionesLectura, type ResultadoLectura } from '@/lib/editor-landing/lector-navegador';
 import { AvisoVentanasBloqueadas } from './AvisoVentanasBloqueadas';
 
-export function useLectorEnNavegador(): {
+/**
+ * `inicial.bloqueadas` (tanda 7): la ventana que se abrió en el clic de Analizar o Replicar ya vino bloqueada
+ * (`pedirConVentana`, lector-navegador.ts): el aviso con la flecha arranca a la vista, sin un clic más.
+ */
+export function useLectorEnNavegador(inicial: { bloqueadas?: boolean } = {}): {
   leer: (url: string, opciones?: OpcionesLectura) => Promise<ResultadoLectura>;
   leyendo: boolean;
   bloqueadas: boolean;
   aviso: ReactNode;
 } {
   const [leyendo, setLeyendo] = useState(false);
-  const [bloqueadas, setBloqueadas] = useState(false);
+  const [bloqueadas, setBloqueadas] = useState(inicial.bloqueadas === true);
   const leer = useCallback((url: string, opciones?: OpcionesLectura) => {
     // Primero la ventana (sincrónico, adentro de `leerEnNavegador`), después el estado.
     const p = leerEnNavegador(url, opciones);
