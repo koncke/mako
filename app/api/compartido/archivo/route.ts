@@ -10,12 +10,19 @@
 // 2. La descarga del original sí redirige a una URL firmada de 120 s, porque
 //    son archivos de hasta 17 MB y no tiene sentido pasarlos por la función.
 //
-// El id SIEMPRE se valida contra el alcance del share con puedeVer() antes de
-// firmar o leer nada: si no, un link acotado a una pieza bajaría las 179.
+// El id SIEMPRE se valida contra el share con puedeVerAsset() antes de firmar o
+// leer nada: si no, un link acotado a una pieza bajaría las 179.
+//
+// ⚠️ Y EL RECURSO ANTES QUE EL ALCANCE (auditoría 14/10/2026). Hasta esa fecha
+// se preguntaba sólo `puedeVer`, que con alcance 'todo' dice que sí sin mirar de
+// qué es el share: el link público de Conocimientos —'todo', y se reparte a
+// cualquiera— bajaba por id las piezas de la galería de marca. Sólo un share de
+// marca sirve piezas de marca (`puedeVerAsset`, lib/shares.ts).
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { getAssetDeWorkspace, leerBinario, urlDescarga } from '@/lib/branding';
-import { resolverToken, puedeVer } from '@/lib/shares';
+import { resolverToken, esShareDeMarca, puedeVerAsset } from '@/lib/shares';
+import { clientIp, rateLimit } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -23,6 +30,13 @@ export const revalidate = 0;
 const NO = () => NextResponse.json({ ok: false }, { status: 404, headers: { 'Cache-Control': 'private, no-store' } });
 
 export async function GET(req: NextRequest) {
+  // Los ids se arman con el nombre del archivo (`${seccion}-${grupo}-${archivo}`), así que se pueden
+  // adivinar: el tope corta una ráfaga de enumeración. Es alto a propósito: la galería pide una
+  // miniatura por pieza (perezosas; hoy son 74) y un video por pieza animada, y no puede cortarle la
+  // carga a quien la recorre entera. Es por instancia (lib/rate-limit.ts), igual que en el curso.
+  if (!rateLimit(`compartido-archivo:ip:${clientIp(req)}`, 300, 60_000)) {
+    return NextResponse.json({ ok: false }, { status: 429, headers: { 'Cache-Control': 'private, no-store' } });
+  }
   const t = req.nextUrl.searchParams.get('t') || '';
   const id = req.nextUrl.searchParams.get('id') || '';
   const vista = req.nextUrl.searchParams.get('v') === 'thumb' ? 'thumb' : 'full';
@@ -31,10 +45,11 @@ export async function GET(req: NextRequest) {
   try {
     const acceso = await resolverToken(t);
     if (!acceso) return NO();                                   // no existe / revocado / vencido
+    if (!esShareDeMarca(acceso.share)) return NO();             // otro recurso: ni se busca la pieza
 
     const asset = await getAssetDeWorkspace(acceso.share.workspace_id, id);
     if (!asset) return NO();
-    if (!puedeVer(acceso.share, asset)) return NO();            // fuera del alcance: 404, igual que si no existiera
+    if (!puedeVerAsset(acceso.share, asset)) return NO();       // fuera del alcance: 404, igual que si no existiera
 
     if (vista === 'thumb') {
       const path = asset.thumb_path || asset.storage_path;

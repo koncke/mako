@@ -15,6 +15,8 @@ import { conversorGastoMeta } from '@/lib/moneda-meta';
 import { integracionConectada } from '@/lib/credenciales';
 import { desglosesCuenta, FalloMeta, type FilaInsights } from '@/lib/meta-desgloses';
 import { conversionesEnLectura, leerFilaMeta, type FilaMeta } from '@/lib/graficos-audiencia';
+// Sólo quien administra el workspace: gasto y entrega de Meta en vivo (ver /api/meta-health).
+import { guardAdsWs } from '@/lib/ads-guard';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,6 +25,8 @@ const isISO = (s: string | null): s is string => !!s && /^\d{4}-\d{2}-\d{2}$/.te
 const leer = (rows: FilaInsights[]): FilaMeta[] => { const con = conversionesEnLectura(rows); return rows.map((r) => leerFilaMeta(r, con)); };
 
 export async function GET(req: NextRequest) {
+  const no = await guardAdsWs();
+  if (no) return no;
   // El `spend` de Meta viene en la moneda de la CUENTA, que no siempre es MXN (ws13, ws14
   // y ws15 cobran en USD): dividirlo por 17,3 les achicaba el gasto 17 veces.
   const { aUsdNum: usd } = await conversorGastoMeta();

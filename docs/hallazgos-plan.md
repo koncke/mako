@@ -6472,3 +6472,32 @@ AGENTS.md) y dejó el veredicto en `score_razon` y en el historial de cada tarje
 una depuración (hoy recibe `scoreActual` y nada del porqué).
 
 *Corrida del 10/10/2026 · chat «Onboarding» · leído en el código y en el historial de la base.*
+
+## Una reunión que la IA no puede leer se reintenta 26 horas y después se pierde, sin aviso (15/10/2026)
+
+**Síntoma:** el ws1 (Mauricio) no sacó **ni un borrador** de sus reuniones desde el 08/10 (`plan_propuestas` con
+`ref` `fathom:*`: 3, 3, 1, 1, 1 y 1 entre el 01 y el 08/10; cero del 09 al 15/10). Nadie lo reportó.
+
+**Causa:** su única key de Gemini no contesta desde el 08/10 a las 20:45 UTC y el resto de su cascada tampoco
+(docs/hallazgos-ia.md, entrada del 15/10). `procesarReunionesNuevas` (lib/reunion-auto.ts) hace lo correcto con
+una lectura fallida: NO marca la reunión (`KEY_VISTA`), así que la próxima corrida la reintenta, porque
+marcarla la quemaba para siempre. Lo que no tiene es un FINAL para el fallo que no se arregla solo:
+
+- **La ventana es de 26 h** (`horas ?? 26`, por `created_after` de Fathom). Una reunión que falla en todas las
+  corridas de ese día sale de la ventana y no la vuelve a mirar nadie. No se marca, no deja borrador y no
+  avisa: queda igual que una reunión que nunca existió.
+- **El fallo sólo va a `console.error`** (`la lectura FALLÓ … queda para reintentar`) y al JSON de
+  respuesta del cron (`err=`), que no lee nadie. El aviso al dueño sale sólo cuando hay borrador.
+- **Y cada reintento cuesta**: de 20 a 56 llamadas por corrida a las :40 (los tramos de hasta 3 reuniones),
+  13 corridas por día, contra una key que va a contestar lo mismo.
+
+**Regla:** «no lo marco para reintentarlo» necesita su final: cuando el reintento se acaba (la reunión sale de
+la ventana, o falla N veces seguidas por la misma causa), lo que se perdió queda ESCRITO donde el dueño lo lea,
+con la reunión nombrada. Un reintento sin final es una pérdida silenciosa con un paso más.
+
+**Sin hacer:** el aviso de «esta reunión no se pudo leer» al salir de la ventana; no reintentar mientras las
+keys del negocio estén todas caídas (lo toma Automations con el freno de claves caídas,
+docs/diseno-ia-claves-caidas.md); y recuperar las reuniones del ws1 del 08 al 15/10, que ya salieron de la
+ventana (se pueden extraer a mano desde /plan cuando haya una key que conteste).
+**Vive en:** lib/reunion-auto.ts (`procesarReunionesNuevas`: la ventana, `KEY_VISTA`, la rama `parcial`) ·
+app/api/cron/fathom-plan/route.ts · *2026-10-15*

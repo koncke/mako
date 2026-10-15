@@ -150,6 +150,49 @@ export function gateConfigurado(): boolean {
   return secret() !== null;
 }
 
+// ── El servidor de desarrollo: un admin SIN login sólo en la máquina ──────────
+//
+// ⚠️ EL CASO (15/10/2026, lo encontró el chat del Centro de Operaciones y se amplió acá). `next
+// dev` escucha en TODA la red (0.0.0.0) y el `.env.local` trae la service_role de PRODUCCIÓN. Dos
+// puertas daban un admin global sin login a cualquiera que llegara al puerto: `/api/auth/dev-login`
+// (activa en todo checkout con AUTH_SECRET, o sea en todos) y la sesión «dev» de `getUsuarioActual`
+// cuando falta AUTH_SECRET (latente: hoy ningún checkout está así). Alguien en la misma WiFi —o una
+// página web cualquiera, por DNS rebinding— salía con escritura en la base de producción.
+//
+// Las tres capas, y lo que cubre cada una:
+//   1. `next dev -H 127.0.0.1` (package.json): desde la red ya no se llega al puerto. Es la que
+//      importa; las otras dos son para cuando alguien levanta `next dev` a mano, sin el script.
+//   2. `esHostLocal`: el pedido tiene que nombrar a la máquina. Frena el DNS rebinding (el Host
+//      es el dominio del atacante) y el navegador de otro en la red. NO frena un `curl` con el
+//      Host falseado a mano: eso lo frena la capa 1.
+//   3. La sesión sin AUTH_SECRET exige además un permiso explícito, `MAKO_DEV_SIN_LOGIN=1`: un
+//      `.env.local` armado a mano, o un `vercel env pull` de un entorno sin el secreto, ya no la
+//      abre solo.
+
+/** ¿Está corriendo en un deploy (Vercel, o un build de producción)? Ahí nada de esto existe. */
+export function esEntornoDesplegado(): boolean {
+  return !!process.env.VERCEL || process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production';
+}
+
+/** ¿El pedido nombra a ESTA máquina? Mira el Host, sin el puerto. En positivo: sólo loopback. */
+export function esHostLocal(host: string | null | undefined): boolean {
+  const h = String(host ?? '').trim().toLowerCase();
+  if (!h) return false;
+  const sinPuerto = h.startsWith('[') ? h.slice(0, h.indexOf(']') + 1) : h.split(':')[0];
+  return sinPuerto === 'localhost' || sinPuerto === '127.0.0.1' || sinPuerto === '[::1]';
+}
+
+/** `/api/auth/dev-login`: fuera de un deploy y sólo desde la máquina. */
+export function devLoginPermitido(host: string | null | undefined): boolean {
+  return !esEntornoDesplegado() && esHostLocal(host);
+}
+
+/** La sesión «dev» sin login (sin AUTH_SECRET): con el permiso explícito, fuera de un deploy y
+ *  desde la máquina. Sin el permiso, sin secreto no hay sesión: el proxy lo dice y no deja pasar. */
+export function sinLoginPermitido(host: string | null | undefined): boolean {
+  return !gateConfigurado() && !esEntornoDesplegado() && process.env.MAKO_DEV_SIN_LOGIN === '1' && esHostLocal(host);
+}
+
 /**
  * Destino interno seguro para redirigir post-login. Rechaza URLs absolutas y
  * protocol-relative (//evil.com, /\evil.com) que de otro modo `new URL(next,

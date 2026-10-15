@@ -18,6 +18,10 @@ import { CampoCodigo } from '@/app/login/2fa/CampoCodigo';
 
 type Estado = {
   obligatorio: boolean;
+  /** Desde cuándo lo exige el negocio (el 2FA obligatorio del 14/10/2026); null si no, o si es el super admin. */
+  obligatorioDesde: string | null;
+  /** En el celular no hay QR que escanear: se ofrece abrir la app con el link `otpauth://`. */
+  esTelefono: boolean;
   cuenta: string;
   passkeysDisponibles: boolean;
   /** Por dónde puede salir un código hoy (vacío en la tanda 1). */
@@ -29,6 +33,8 @@ type Estado = {
   codigosRestantes: number;
   dispositivos: { id: number; nombre: string | null; created_at: string; usado_at: string | null; expira_at: string }[];
 };
+/** «22/10, 00:00» en la hora de quien mira: el plazo de su negocio. */
+const fechaPlazo = (iso: string) => new Date(iso).toLocaleString('es', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' });
 type Abierto = 'totp' | 'whatsapp' | 'email' | 'passkey' | null;
 
 const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '6px 20px' };
@@ -55,7 +61,7 @@ export function SeguridadPanel() {
   const [destino, setDestino] = useState('');
   const [codigo, setCodigo] = useState('');
   const [enviadoA, setEnviadoA] = useState<string | null>(null);
-  const [qr, setQr] = useState<{ qr: string; secreto: string } | null>(null);
+  const [qr, setQr] = useState<{ qr: string; secreto: string; uri?: string } | null>(null);
   const [codigos, setCodigos] = useState<string[] | null>(null);
 
   const cargar = useCallback(() => {
@@ -133,7 +139,9 @@ export function SeguridadPanel() {
       <Link href="/perfil" style={{ fontSize: 13, color: 'var(--dim)', textDecoration: 'none' }}>← Perfil</Link>
       <h1 style={{ fontWeight: 600, fontSize: 34, letterSpacing: '-0.02em', margin: '10px 0 6px', color: 'var(--ink)' }}>Segundo paso</h1>
       <p style={{ ...detalle, margin: '0 0 6px', fontSize: 14 }}>
-        {e.obligatorio ? 'Obligatorio para tu cuenta.' : activos ? 'Activo.' : 'Recomendado: protege tu cuenta si te roban el correo.'}
+        {e.obligatorio
+          ? (e.obligatorioDesde && Date.parse(e.obligatorioDesde) > Date.now() ? `Obligatorio desde el ${fechaPlazo(e.obligatorioDesde)}.` : 'Obligatorio para tu cuenta.')
+          : activos ? 'Activo.' : 'Recomendado: protege tu cuenta si te roban el correo.'}
       </p>
       {error && <div style={{ margin: '12px 0', fontSize: 13, color: 'var(--bad)', background: 'var(--bad-soft, #fdecec)', borderRadius: 10, padding: '10px 12px' }}>{error}</div>}
 
@@ -157,13 +165,14 @@ export function SeguridadPanel() {
         {filaMetodo('totp', 'App de autenticación', e.totp ? 'Activa' : null, abierto === 'totp' && (
           <div style={{ padding: '0 0 14px' }}>
             {!qr ? (
-              <button type="button" style={btn} disabled={ocupado} onClick={() => correr(() => pedir({ accion: 'totp-iniciar' }).then((j) => { if (j.ok) setQr({ qr: String(j.qr), secreto: String(j.secreto) }); return j; }))}>Mostrar el código QR</button>
+              <button type="button" style={btn} disabled={ocupado} onClick={() => correr(() => pedir({ accion: 'totp-iniciar' }).then((j) => { if (j.ok) setQr({ qr: String(j.qr), secreto: String(j.secreto), uri: typeof j.uri === 'string' ? j.uri : undefined }); return j; }))}>Mostrar el código QR</button>
             ) : (
               <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
                 {/* eslint-disable-next-line @next/next/no-img-element -- data URL generado en el server */}
                 <img src={qr.qr} alt="Código QR" width={150} height={150} style={{ borderRadius: 8, background: '#fff' }} />
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0 }}>
                   <div style={{ ...detalle, fontFamily: "'Geist Mono', monospace", fontSize: 11, wordBreak: 'break-all' }}>{qr.secreto}</div>
+                  {e.esTelefono && qr.uri && <a href={qr.uri} style={{ ...btnSec, textDecoration: 'none', textAlign: 'center' }}>Abrir en la app</a>}
                   <div style={{ display: 'flex', gap: 8 }}>
                     <CampoCodigo valor={codigo} onCambio={setCodigo} ocupado={ocupado} error={error} estilo={{ ...input, width: 130, letterSpacing: 3 }}
                       onCompleto={() => correr(() => pedir({ accion: 'totp-confirmar', codigo }).then(listo))} />

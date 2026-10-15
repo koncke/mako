@@ -40,12 +40,19 @@ de toda tab (admin del workspace y la tab en su capa; `pm` no la tiene, como el 
 Generator y Thumbnails también en la barra de secciones. Cada negocio ve ahora el crédito de Doory al pie del editor.
 La rama `opcion-image-en-clientes` y la decisión `image-ws-cliente` quedaron sin objeto.
 
+**Verificado en producción el 15/10 a la 01:40** con la sesión de un admin de cliente (Mauricio, ws 1, capa completo):
+`/image-editor` abre el inicio dentro de MaKo, la barra lateral muestra «Image» en Content Machine, la de secciones
+«Editor · Crear con IA PRONTO · Thumbnails PRONTO · Carousels», y `/api/image-editor/disenos` le contesta su lista.
+No se creó nada en el ws 1 (cliente real): crear, guardar y descargar están verificados en el banco y contra la base
+en el ws 3.
+
 ## Lo que decide Martín (en una línea cada una)
 
 - **¿Le escribimos a Siam (autor de Doory) pidiendo MIT?** Sin eso el cartel se queda y no se abre a clientes.
 - **¿Fotos de Unsplash con una key de MaKo?** ¿Y un modelo para quitar fondo de objetos?
-- **La API del editor:** la pregunta `image-api-gating` era «mientras sea sólo tuyo»; con el editor abierto, se
-  declara con el permiso de siempre (`gating.tab: 'image-editor'`, `rolMinimo: 'admin'`). Falta su sí.
+- **La API del editor: DECLARADA el 15/10** con el permiso de siempre (área `imagen`, 7 operaciones, también por
+  WhatsApp: «creame un flyer…» llega con sus herramientas). La pregunta `image-api-gating` se retiró.
+- **Estrellas `formato_imagen`:** ¿una plantilla del editor o un formato del Image Generator?
 - **Una pestaña de Canva** (`canva.com/design/DAHX-ICTUd4`) en el grupo de los agentes: si se creó en su cuenta, papelera.
 
 ## Lo que sigue (no depende de él)

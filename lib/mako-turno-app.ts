@@ -289,7 +289,7 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     const permitidas = new Set(tools.map((t) => t.name));
 
     // El system se arma DESPUÉS de las tools: depende de ellas.
-    const base = await buildSystemPrompt({ chartKey: 'mako-doer', titulo: titulo ?? 'MaKo', contexto: '', query: textoPersona || textoMemoria });
+    const base = await buildSystemPrompt({ chartKey: 'mako-doer', titulo: titulo ?? 'MaKo', contexto: '', query: textoPersona || textoMemoria, sinNumerosDelNegocio: persona.rol !== 'admin' });
     const tz = tools.length ? await tzDeWorkspace(ws).catch(() => TZ_DEFAULT) : null;
     const puedeCancelar = permitidas.has('cancelar_accion');
     const ctxPend = vigentes.length

@@ -16,9 +16,11 @@ import 'server-only';
 import { esSesionCaida } from './evolution';
 import sharp from 'sharp';
 import { getSetting, getSettingEstricto, setSetting } from './settings';
-import { runWithWorkspace, OWNER_WS } from './workspace';
+import { runWithWorkspace, OWNER_WS, getWorkspace } from './workspace';
 import { leerResultadoParticipante, jidCanonico } from './participantes-grupo';
 import { detalleEvolution, enviarPartesPorEv, type EnvioPartes, type EvFn, type PartePreparada } from './mako-tarjeta';
+import { reclamarEspaciado, salioReciente } from './espaciado';
+import { reclamarContactoLinea, SIN_CUPO_LINEA, VENTANA_LINEA_MIN, type AlmacenTope } from './mako-linea-tope';
 
 const BASE = (process.env.EVOLUTION_BASE_URL || '').replace(/\/$/, '');
 const KEY = process.env.EVOLUTION_API_KEY || '';
@@ -268,6 +270,60 @@ export async function numeroTieneWhatsApp(
   return { consultado: true, existe: Boolean(fila?.exists), canonico: canonico || null };
 }
 
+// ── El TOPE de la línea de MaKo (auditoría de seguridad del 14/10/2026) ──────────
+// La línea es UNA para toda la plataforma y cualquier admin la hacía escribirle a cualquier
+// número, sin tope. Todo lo que TOCA un número nuevo —código por DM, alta en el grupo, invitación—
+// pasa por acá: el número tiene que existir en WhatsApp y el workspace tiene que tener cupo
+// (lib/mako-linea-tope.ts, con el porqué de los números). Sin poder contar, no sale.
+
+const almacenTope = (ws: number): AlmacenTope => ({
+  tocadoReciente: (num) => salioReciente(ws, 'linea-mako-numero', VENTANA_LINEA_MIN, num),
+  reclamarCasillero: (i) => reclamarEspaciado(ws, `linea-mako:${i}`, VENTANA_LINEA_MIN),
+  marcar: async (num) => { await reclamarEspaciado(ws, 'linea-mako-numero', VENTANA_LINEA_MIN, num); },
+});
+
+async function cupoLinea(ws: number, num: string, siempre = false): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    return (await reclamarContactoLinea(almacenTope(ws), soloDigitos(num), { siempre })) ? { ok: true } : { ok: false, error: SIN_CUPO_LINEA };
+  } catch (e) {
+    console.error(`[mako-grupo] no pude contar el tope de la línea (ws ${ws}): ${e instanceof Error ? e.message : String(e)}`);
+    return { ok: false, error: 'No pude comprobar el tope de mensajes. Prueba de nuevo en un momento.' };
+  }
+}
+
+type ContactoListo = { ok: true; num: string; destino: string } | { ok: false; error: string };
+
+/**
+ * Antes de que la línea de MaKo toque un número: que no sea uno que WhatsApp dice que NO existe
+ * —y con la forma que WhatsApp reconoce— y que el workspace tenga cupo. `siempre`: gasta cupo
+ * aunque el número ya se haya tocado en la ventana (el código: reenviarlo es otro mensaje a esa
+ * persona).
+ *
+ * Si la consulta no se pudo hacer, se intenta igual: «no pude averiguarlo» no es «no existe», y
+ * una caída nuestra no deja afuera a gente real (lo fija tests/destinatarios-telefono.test.ts).
+ * Pero el intento CUENTA en el tope igual: el cupo es lo que frena el bucle, no la consulta.
+ */
+async function prepararContacto(ws: number, numero: string, opts: { siempre?: boolean } = {}): Promise<ContactoListo> {
+  const crudo = soloDigitos(numero);
+  if (!crudo) return { ok: false, error: 'número inválido' };
+  if (!grupoConfigurado()) return { ok: false, error: 'Evolution no configurado' };
+  const chequeo = await numeroTieneWhatsApp(crudo);
+  if (chequeo.consultado && !chequeo.existe) {
+    return { ok: false, error: 'Ese número no tiene WhatsApp. Revisa que esté con el código de país.' };
+  }
+  // Se ACTÚA con la forma que WhatsApp reconoce, no con la que se tipeó (ver numeroTieneWhatsApp).
+  const num = chequeo.canonico ?? crudo;
+  const cupo = await cupoLinea(ws, num, opts.siempre);
+  if (!cupo.ok) return cupo;
+  // Como jid COMPLETO cuando lo dio WhatsApp: crudo, Evolution le borra el 9 de Argentina y el 1
+  // de México y el pedido va a otro número (`jidCanonico`, lib/participantes-grupo.ts).
+  const destino = chequeo.canonico ? jidCanonico(chequeo.canonico) : num;
+  return { ok: true, num, destino };
+}
+
+/** Lo que contesta `enviarInvitacionGrupo` cuando a ese número ya se le mandó dentro de la ventana. */
+const YA_INVITADO = 'ya se le mandó la invitación hace un rato';
+
 /** El link `chat.whatsapp.com/…` del grupo de un workspace. null si no se pudo. */
 export async function linkInvitacionGrupo(ws: number): Promise<string | null> {
   const jid = await getGrupoJidMaKo(ws);
@@ -294,6 +350,15 @@ export async function enviarInvitacionGrupo(ws: number, numero: string): Promise
   const num = numero.includes('@') ? numero.trim() : soloDigitos(numero);
   const jid = await getGrupoJidMaKo(ws);
   if (!num || !jid) return { ok: false, error: 'sin número o sin grupo' };
+  // Es un DM desde la línea de MaKo: cuenta en el tope del workspace (gratis si a ese número ya se
+  // lo tocó en la ventana, que es el caso de `agregarParticipanteGrupo`) y sale UNA vez por número
+  // y ventana — reintentar el alta no puede ser una invitación por intento al mismo desconocido.
+  const cupo = await cupoLinea(ws, num);
+  if (!cupo.ok) return cupo;
+  let primera: boolean;
+  try { primera = await reclamarEspaciado(ws, 'linea-mako-invitacion', VENTANA_LINEA_MIN, soloDigitos(num)); }
+  catch { return { ok: false, error: 'No pude comprobar el tope de mensajes. Prueba de nuevo en un momento.' }; }
+  if (!primera) return { ok: false, error: YA_INVITADO };
   const r = await ev(`/group/sendInvite/${await instanciaVoz()}`, {
     method: 'POST',
     body: JSON.stringify({
@@ -326,19 +391,17 @@ export async function agregarParticipanteGrupo(ws: number, numero: string): Prom
   if (!jid) return { ok: false, error: 'este negocio todavía no tiene grupo de MaKo' };
 
   // Preguntar ANTES sale más barato que un intento que contesta 200 y no hace
-  // nada, y sobre todo permite decir POR QUÉ. Si la consulta no se pudo hacer,
-  // se intenta igual: no saber no es motivo para rechazar a nadie.
-  const chequeo = await numeroTieneWhatsApp(crudo);
-  if (chequeo.consultado && !chequeo.existe) {
-    return { ok: false, error: 'Ese número no tiene WhatsApp. Revisa que esté con el código de país.' };
-  }
-  // Se ACTÚA con la forma que WhatsApp reconoce, no con la que se tipeó.
-  const num = chequeo.canonico ?? crudo;
-  const destino = chequeo.canonico ? jidCanonico(chequeo.canonico) : num;
+  // nada, y sobre todo permite decir POR QUÉ. Y cuenta en el tope de la línea
+  // (`prepararContacto`): sin cupo, no se toca a nadie.
+  const c = await prepararContacto(ws, crudo);
+  if (!c.ok) return { ok: false, error: c.error };
+  return sumarAlGrupo(ws, jid, c.destino);
+}
 
+/** El alta en sí, con el número YA validado y contado (`prepararContacto`). */
+async function sumarAlGrupo(ws: number, jid: string, destino: string): Promise<AltaParticipante> {
   const r = await ev(`/group/updateParticipant/${await instanciaVoz()}?groupJid=${encodeURIComponent(jid)}`, {
-    // Como jid COMPLETO cuando lo dio WhatsApp: crudo, Evolution le borra el 9 de Argentina y el 1
-    // de México y el pedido va a otro número (`jidCanonico`, lib/participantes-grupo.ts).
+    // `destino` llega como jid COMPLETO cuando lo dio WhatsApp (ver `prepararContacto`).
     method: 'POST', body: JSON.stringify({ action: 'add', participants: [destino] }),
   });
   if (!r.ok) return { ok: false, error: `No se pudo hablar con WhatsApp (Evolution ${r.status}).` };
@@ -357,7 +420,9 @@ export async function agregarParticipanteGrupo(ws: number, numero: string): Prom
     link,
     error: envio.ok
       ? `${res.error} Le mandé el link de invitación por WhatsApp.`
-      : `${res.error} Tampoco pude mandarle la invitación, así que pásale el link tú.`,
+      : envio.error === YA_INVITADO
+        ? `${res.error} Ya le mandé la invitación hace un rato; si no le llegó, pásale el link tú.`
+        : `${res.error} Tampoco pude mandarle la invitación, así que pásale el link tú.`,
   };
 }
 
@@ -374,34 +439,66 @@ async function guardarNumeroDueno(ws: number, numero: string): Promise<void> {
  *   · sin grupo aún  → crea el grupo "MaKo <> {cliente}" con ese número + bienvenida.
  *   · grupo ya hecho → agrega el nuevo número al grupo (no recrea).
  * Guarda el número en app_settings. Devuelve qué hizo.
+ *
+ * ⚠️ SE VALIDA Y SE CUENTA ANTES DE GUARDAR NADA (auditoría del 14/10/2026). Antes el número se
+ * guardaba como dueño en la primera línea, sin mirar nada, y se lo sumaba al grupo: con un bucle
+ * de números distintos, cada uno era un desconocido agregado (o invitado por DM) por la línea de
+ * MaKo. Ahora el número tiene que existir en WhatsApp y el workspace tener cupo
+ * (`prepararContacto`); recién ahí se guarda, en la forma que WhatsApp reconoce.
  */
 export async function setNumeroDuenoYSync(
   ws: number, numero: string, nombreCliente: string,
 ): Promise<{ ok: true; accion: 'grupo_creado' | 'numero_agregado' | 'sin_cambios'; jid?: string } | { ok: false; error: string }> {
-  const num = soloDigitos(numero);
-  if (!num) return { ok: false, error: 'número inválido' };
+  const crudo = soloDigitos(numero);
+  if (!crudo) return { ok: false, error: 'número inválido' };
   const anterior = soloDigitos((await getNumeroDueno(ws)) ?? '');
-  await guardarNumeroDueno(ws, num);
-
   const jid = await getGrupoJidMaKo(ws);
+  // El mismo número con el grupo ya hecho: no hay a quién tocar.
+  if (jid && crudo === anterior) return { ok: true, accion: 'sin_cambios', jid };
+
+  const c = await prepararContacto(ws, crudo);
+  if (!c.ok) return { ok: false, error: c.error };
+  await guardarNumeroDueno(ws, c.num);
+
   if (!jid) {
-    const r = await asegurarGrupoMaKo(ws, { nombre: nombreCliente, participantes: [num] });
+    const r = await asegurarGrupoMaKo(ws, { nombre: nombreCliente, participantes: [c.num] });
     return r.ok ? { ok: true, accion: 'grupo_creado', jid: r.jid } : { ok: false, error: r.error };
   }
-  if (num !== anterior) {
-    const a = await agregarParticipanteGrupo(ws, num);
-    return a.ok ? { ok: true, accion: 'numero_agregado', jid } : { ok: false, error: a.error ?? 'no se pudo agregar' };
-  }
-  return { ok: true, accion: 'sin_cambios', jid };
+  // Tipeado distinto, pero WhatsApp dice que es el mismo de antes.
+  if (c.num === anterior) return { ok: true, accion: 'sin_cambios', jid };
+  const a = await sumarAlGrupo(ws, jid, c.destino);
+  return a.ok ? { ok: true, accion: 'numero_agregado', jid } : { ok: false, error: a.error ?? 'no se pudo agregar' };
 }
 
 // ── Verificación del teléfono de reportes (código por WhatsApp) ──────────────
 // El onboarding no deja pasar a conectar Meta sin que el dueño confirme que ESE
 // número recibe de verdad los mensajes de MaKo: se le manda un código de 6
-// dígitos al grupo recién creado/sincronizado y tiene que cargarlo de vuelta.
+// dígitos y tiene que cargarlo de vuelta.
+//
+// ⚠️ EL CÓDIGO VA POR DM, Y AL GRUPO SE ENTRA DESPUÉS (14/10/2026). Antes se creaba o
+// sincronizaba el grupo con el número tipeado y el código se escribía ADENTRO del grupo: o sea
+// que la línea de MaKo sumaba a su grupo —o invitaba por DM— a un número que nadie había
+// probado que fuera de quien lo escribió (auditoría de seguridad). Ahora el código le llega por
+// DM a ese número, y recién cuando vuelve bien `verificarCodigoContacto` lo suma al grupo.
+// La pantalla ya decía «Te escribimos por WhatsApp a <número>»: sigue siendo cierto.
 const KEY_VERIFICACION = 'mako.contacto.verificacion';
 const MINUTOS_EXPIRA_CODIGO = 15;
-type EstadoVerificacion = { telefono: string; codigo: string; expira: number; verificado: boolean };
+/** `destino`: el número en la forma de WhatsApp (o su jid). `nombre`: el del negocio, para armar
+ *  el grupo al verificar. Los dos faltan en un estado anterior al 14/10/2026. */
+type EstadoVerificacion = { telefono: string; codigo: string; expira: number; verificado: boolean; destino?: string; nombre?: string };
+
+const MAKO_SIN_LINEA = 'MaKo no puede escribir por WhatsApp en este momento, y es de nuestro lado. Tu número sigue sin verificar por ahora — te queda pendiente y lo resuelves después.';
+
+/** Un DM por la voz de MaKo, con el motivo si no sale (para distinguir la sesión caída). */
+async function enviarDmVozMaKo(destino: string, texto: string): Promise<EnvioGrupo> {
+  const delay = Math.round(Math.min(1500 + texto.length * 45, 9000) * (0.8 + Math.random() * 0.4));
+  const instancia = await instanciaVoz();
+  const r = await ev(`/message/sendText/${instancia}`, {
+    method: 'POST', body: JSON.stringify({ number: destino, text: texto, delay }),
+  });
+  if (!r.ok) return { ok: false, error: `Evolution ${r.status} en ${instancia}: ${detalleEv(r.body)}` };
+  return { ok: true, id: (r.body as { key?: { id?: string } })?.key?.id ?? '' };
+}
 
 async function getVerificacion(ws: number): Promise<EstadoVerificacion | null> {
   const raw = await runWithWorkspace(ws, () => getSetting(KEY_VERIFICACION));
@@ -419,9 +516,12 @@ export async function getEstadoVerificacionContacto(ws: number): Promise<{ telef
 }
 
 /**
- * Sincroniza el grupo de MaKo con este número (crea/agrega, vía setNumeroDuenoYSync)
- * y le manda un código de 6 dígitos para verificarlo. Si el número YA está
- * verificado (revisita de la pantalla con el mismo teléfono), no reenvía nada.
+ * Le manda POR DM un código de 6 dígitos al número para verificarlo. NO toca el grupo: eso lo
+ * hace `verificarCodigoContacto` cuando el código vuelve bien. Si el número YA está verificado
+ * (revisita de la pantalla con el mismo teléfono), no reenvía nada.
+ *
+ * Cada envío GASTA cupo de la línea (`siempre`), aunque sea al mismo número: reenviar el código es
+ * otro mensaje a esa persona.
  */
 export async function enviarCodigoVerificacion(
   ws: number, telefono: string, nombreCliente: string,
@@ -432,37 +532,45 @@ export async function enviarCodigoVerificacion(
   const actual = await getVerificacion(ws);
   if (actual?.verificado && soloDigitos(actual.telefono) === num) return { ok: true, yaVerificado: true };
 
-  const sync = await setNumeroDuenoYSync(ws, telefono, nombreCliente);
-  if (!sync.ok) {
-    // ⚠️ DE QUIÉN ES EL PROBLEMA CAMBIA EL MENSAJE ENTERO. Con la sesión de WhatsApp de MaKo
-    // caída, el número del cliente está perfecto y no hay NADA que él pueda hacer. Lo que le
-    // llegaba era un volcado de JSON — «Evolution 500: {"status":500,"error":"Internal Server
-    // Error"…}» — en el paso donde acaba de escribir su teléfono, o sea que se lee como que
-    // lo escribió mal.
-    if (esSesionCaida(sync.error)) {
-      return {
-        ok: false,
-        error: 'MaKo no puede escribir por WhatsApp en este momento, y es de nuestro lado: tu número está bien. Sigue sin verificar por ahora — te queda pendiente y lo resuelves después.',
-      };
-    }
-    return { ok: false, error: `No se pudo preparar tu grupo de WhatsApp: ${sync.error}` };
-  }
+  const c = await prepararContacto(ws, num, { siempre: true });
+  if (!c.ok) return { ok: false, error: c.error };
 
   const codigo = String(Math.floor(100000 + Math.random() * 900000));
-  await guardarVerificacion(ws, { telefono: num, codigo, expira: Date.now() + MINUTOS_EXPIRA_CODIGO * 60_000, verificado: false });
+  await guardarVerificacion(ws, {
+    telefono: num, destino: c.destino, nombre: nombreCliente,
+    codigo, expira: Date.now() + MINUTOS_EXPIRA_CODIGO * 60_000, verificado: false,
+  });
 
   const mensaje = `Tu código de verificación de MaKo es *${codigo}*. Vence en ${MINUTOS_EXPIRA_CODIGO} minutos — introdúcelo en la configuración para confirmar este número.`;
-  const envio = await enviarAlGrupoMaKo(ws, mensaje);
-  if (!envio.ok) return { ok: false, error: `No se pudo enviar el código por WhatsApp: ${envio.error}` };
+  const envio = await enviarDmVozMaKo(c.destino, mensaje);
+  // ⚠️ DE QUIÉN ES EL PROBLEMA CAMBIA EL MENSAJE ENTERO. Con la sesión de WhatsApp de MaKo caída,
+  // el cliente no tiene NADA que hacer, y un volcado de JSON —«Evolution 500: {"status":500…}»—
+  // en el paso donde acaba de escribir su teléfono se lee como que lo escribió mal.
+  if (!envio.ok) return { ok: false, error: esSesionCaida(envio.error) ? MAKO_SIN_LINEA : `No se pudo enviar el código por WhatsApp: ${envio.error}` };
   return { ok: true, yaVerificado: false };
 }
 
-/** Compara el código cargado contra el vigente; marca verificado si coincide y no venció. */
+/**
+ * Compara el código cargado contra el vigente. Si coincide y no venció, RECIÉN AHÍ —con el
+ * número probado— lo suma al grupo de MaKo (o arma el grupo con él) y lo marca verificado.
+ * Si el grupo no sale, no queda verificado: el mismo código sirve para reintentar mientras no
+ * venza (y si WhatsApp no lo dejó agregar, ya le llegó la invitación).
+ */
 export async function verificarCodigoContacto(ws: number, codigo: string): Promise<{ ok: true } | { ok: false; error: string }> {
   const v = await getVerificacion(ws);
   if (!v) return { ok: false, error: 'Todavía no se envió ningún código.' };
   if (Date.now() > v.expira) return { ok: false, error: 'El código expiró. Solicita uno nuevo.' };
   if (codigo.trim() !== v.codigo) return { ok: false, error: 'El código no coincide.' };
+  if (!v.verificado) {
+    const nombre = v.nombre?.trim() || (await getWorkspace(ws).catch(() => null))?.nombre || 'tu negocio';
+    const sync = await setNumeroDuenoYSync(ws, v.destino || v.telefono, nombre);
+    if (!sync.ok) {
+      return {
+        ok: false,
+        error: esSesionCaida(sync.error) ? MAKO_SIN_LINEA : `El código es correcto, pero no pude sumarte al grupo de WhatsApp de MaKo: ${sync.error}`,
+      };
+    }
+  }
   await guardarVerificacion(ws, { ...v, verificado: true });
   return { ok: true };
 }

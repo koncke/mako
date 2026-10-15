@@ -1310,7 +1310,7 @@ export const RUNNERS: Runners = {
       const detalle = cubiertas.map((k) => {
         const s = porClaveSec.get(AUDIO_A_SECUENCIA[k]);
         if (!s) return `${k}: secuencia nueva, nace pausada`;
-        if (s.archivada_at) return `${k}: «${s.nombre}» está archivada y se DESARCHIVA${s.activa ? ' prendida: vuelve a enviar' : ' (pausada)'}`;
+        if (s.archivada_at) return `${k}: «${s.nombre}» está archivada y se DESARCHIVA pausada`;
         return `${k}: se reescribe «${s.nombre}»${s.activa ? ', que está ACTIVA: manda los pasos nuevos en el acto' : ' (pausada)'}`;
       });
       const vieja = cubiertas.some((k) => k.startsWith('agenda_')) && porClaveSec.get('chat-agent-post-agenda') && !porClaveSec.get('chat-agent-post-agenda')!.archivada_at

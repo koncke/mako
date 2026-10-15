@@ -9,25 +9,24 @@
 // estamos en Vercel y NO estamos en producción; en cualquier otro caso devuelve
 // 404 (como si la ruta no existiera). Nunca abre una puerta en prod.
 //
+// ⚠️ Y SÓLO DESDE LA MÁQUINA (15/10/2026). `next dev` escucha en toda la red y detrás está la base
+// de producción: esta ruta le daba un admin global a cualquiera de la misma WiFi, o a una página web
+// por DNS rebinding. Ahora el Host tiene que ser localhost, 127.0.0.1 o [::1] (`devLoginPermitido`),
+// y el script `dev` levanta el servidor sólo en 127.0.0.1. Las tres capas, en lib/auth-session.ts.
+//
 // GET /api/auth/dev-login[?next=/ruta][?ws=9]  → setea la cookie de sesión admin y
 // redirige. `ws` elige el workspace del admin (sin impersonar): sin él, un admin sin
 // workspace propio cae al del dueño, y probar el tablero del super-admin —que vive en
 // otro workspace— era imposible desde acá.
 
 import { NextResponse, type NextRequest } from 'next/server';
-import { SESSION_COOKIE, SESSION_DIAS, crearToken, destinoSeguro } from '@/lib/auth-session';
+import { SESSION_COOKIE, SESSION_DIAS, crearToken, destinoSeguro, devLoginPermitido } from '@/lib/auth-session';
 
 export const dynamic = 'force-dynamic';
 
-/** Solo dev local: muerto en Vercel y en producción. */
-function habilitado(): boolean {
-  if (process.env.VERCEL) return false; // cualquier deploy en Vercel
-  if (process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production') return false;
-  return true;
-}
-
 export async function GET(req: NextRequest) {
-  if (!habilitado()) {
+  // Muerto en Vercel, en producción y para todo pedido que no nombre a esta máquina.
+  if (!devLoginPermitido(req.headers.get('host'))) {
     return NextResponse.json({ ok: false, error: 'not found' }, { status: 404 });
   }
   const wsQ = Number(req.nextUrl.searchParams.get('ws'));

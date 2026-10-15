@@ -21,7 +21,8 @@
 // determinista — su prioridad es un juicio y sale del Perro. Ver app/plan/board/types.ts.
 // =============================================================================
 
-import { NextResponse } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
+import { checkCronAuth } from '@/lib/cron-auth';
 import { runWithWorkspace, wsSuperAdmin } from '@/lib/workspace';
 import { recurvarPlanOwner, limpiarDependenciasColgadas, priorizarProyectosOwner } from '@/lib/plan-board';
 import { avisarVencimientosDelPlan } from '@/lib/plan-avisos';
@@ -29,7 +30,14 @@ import { avisarVencimientosDelPlan } from '@/lib/plan-avisos';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  // ⚠️ LA GUARDA QUE NO TUVO NUNCA (auditoría 14/10/2026). /api/cron es público por prefijo y el
+  // proxy lo deja pasar sin sesión: el secreto del cron es la ÚNICA puerta. Sin ella, cualquiera con
+  // la URL —un GET, o un HEAD, que Next arma con este GET— reescribía el tablero de la plataforma,
+  // gastaba al Perro, empujaba fuera del `historial` (recortado a 40) lo que escribieron personas y
+  // se llevaba el norte y las fallas en la respuesta.
+  const denied = checkCronAuth(req);
+  if (denied) return denied;
   try {
     // El board del dueño vive en el workspace del SUPER-ADMIN, resuelto por CAPA. No es
     // OWNER_WS: OWNER_WS vale 1 y el 1 es Mauricio, un cliente, cuyo tablero es otro.

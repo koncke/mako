@@ -136,7 +136,7 @@ test('El WhatsApp NO cuenta la reunión: solo avisa y linkea', async () => {
   assert.ok(mensajes.includes('linkResumenLead('), 'el mensaje dejó de llevar el link, que es su única razón de ser');
 });
 
-test('Nada de «te dejé algo listo» sin su link: el borrador se muestra en la pantalla', () => {
+test('Nada de «te dejé algo listo» sin su link: el borrador se muestra en la pantalla', async () => {
   // «No me puede decir que me dejó un mensaje listo y no mandarme un link.»
   const src = leer('../lib/lead-resumen.ts');
   const mensajes = sinComentarios(src.slice(src.indexOf('export async function textoAvisoPostLlamada')));
@@ -144,7 +144,12 @@ test('Nada de «te dejé algo listo» sin su link: el borrador se muestra en la 
 
   const pagina = leer('../app/crm/[id]/resumen/page.tsx');
   assert.ok(pagina.includes('borradorSeguimiento'), 'la pantalla dejó de mostrar el borrador de seguimiento');
-  assert.ok(/\/whatsapp\?lead=/.test(pagina), 'el borrador se muestra pero sin el link para ir a mandarlo');
+  // Desde el 14/10/2026 el link va a CHATS (docs/diseno-chats.md §4), armado por `rutaChatsDeLead`
+  // (lib/chats-links.ts): la bandeja abre el hilo de ese lead con el borrador a mano. Probado rompiéndolo
+  // (la página con `rutaChatsDeLead(0)`): 1 fallo, 0 pases.
+  assert.ok(pagina.includes('rutaChatsDeLead(lead.id)'), 'el borrador se muestra pero sin el link para ir a mandarlo');
+  const { rutaChatsDeLead } = await import('../lib/chats-links');
+  assert.equal(rutaChatsDeLead(42), '/chats?lead=42', 'el link tiene que abrir el chat de ESE lead');
 });
 
 test('Todo aviso arranca con su rótulo, y se pega en el choke point', () => {

@@ -340,6 +340,10 @@ además del turno. Lo que gobierna a cualquier agente:
   son los otros chats, que se caen todos juntos.
 - **Un `next dev` que lanzás en segundo plano lo APAGÁS al terminar.** Sobrevive a tu sesión y
   nadie más sabe que es tuyo; hoy lo para un vigía recién a los 5 GB.
+- ⚠️ **Y se levanta con `npm run dev`, que escucha sólo en 127.0.0.1.** Un `npx next dev` pelado escucha en
+  TODA la red con la base de producción detrás: hasta el 15/10/2026, `/api/auth/dev-login` le daba un admin global a
+  cualquiera de la misma WiFi. La ruta ya exige que el pedido nombre a la máquina (`devLoginPermitido`), pero un
+  `curl` con el Host falseado sólo lo frena el `-H 127.0.0.1`. Se abre con `localhost`, como siempre.
 - **Hasta 3 workflows a la vez en la máquina** (eran 2; Martín pidió trabajar más al límite el 12/10/2026). Antes de lanzar uno de muchos agentes, preguntá
   si el trabajo lo necesita — con 7 chats abiertos, el tuyo no es el único.
 
@@ -788,6 +792,9 @@ Lo que una definición tiene que declarar, y por qué no tiene default:
   confirma una PERSONA (un «sí» en WhatsApp o la bandeja `/mako/pendientes`); `pantalla`
   deja una propuesta con link a una pantalla editable. **Lo que cuesta plata es `pantalla`
   y `rolMinimo: 'admin'`, sin excepción** (el test lo exige).
+- **`gating.soloPlataforma`** en lo que la PLATAFORMA decide sobre los negocios y un negocio no puede deshacer en el
+  suyo (exigir el 2FA): se resuelve por la capa en `vistaDe`, y el runner lo vuelve a preguntar. Un `gating.tab` no
+  sirve para esto: las capas `completo` y `agencia` ven todas las tabs.
 - **`gating.rolMinimo: 'admin'`** en cada operación de un área cuya página hace
   `requireRolWs([])`. `gating.tab` mira la CAPA del workspace, no a la persona: sin
   `rolMinimo`, un closer lee o hace por MaKo lo que su pantalla le esconde.
@@ -4044,6 +4051,32 @@ Y el segundo corte, para no depender de la ruta: **una server action que monta e
 exige sesión adentro** — su id viaja en todas las páginas. Lo fija
 `tests/acciones-sin-sesion.test.ts`. El detalle, en
 [docs/hallazgos-seguridad.md](docs/hallazgos-seguridad.md).
+
+# La página esconde por rol y la API no: el corte va ADENTRO de la ruta
+
+Auditoría del 14/10/2026: siete hallazgos tenían esta forma. `proxy.ts` sólo exige SESIÓN (el rol, únicamente en
+`SOLO_ADMIN`), así que el `requireRolWs([])` de una página no protege su API: un closer o setter con su cookie hacía por
+la ruta lo que su pantalla le esconde. El detalle, en [docs/hallazgos-seguridad.md](docs/hallazgos-seguridad.md) →
+«Auditoría end-to-end del 14/10/2026».
+
+- **Una ruta que hace lo que una página le esconde a un rol lleva el mismo corte como PRIMERA sentencia de cada
+  handler**: `if ((await getSesionAdmin()) == null && (await getRolWsEfectivo()) !== 'admin') return 403`. Antes de
+  leer, de pagar IA o de escribir. `tests/seguridad-cortes-de-rol.test.ts` fija las de hoy.
+- **Y el filtro de lo que el modelo puede pedir no alcanza si el dato ya está en lo que LEE**: un chat compartido por
+  workspace o un system prompt con números. El chat del doer de un closer o setter es suyo (`mako-doer:u<id>`) y su
+  prompt va con `sinNumerosDelNegocio`.
+- **Un id que llega del navegador se carga con `getTenantDb` ANTES de escribir algo que lo nombre**: `getTenantDb` le
+  pone el `workspace_id` al insert y no comprueba que el `lead_id` sea de ese workspace. Molde:
+  `asegurarLeadDelNegocio` (lib/pagos.ts), antes de toda escritura de `pagos`.
+- **Una ruta de Storage guardada en una fila se valida por SEGMENTOS, nunca por prefijo** (sin `.`, `..`, `%2e` ni
+  vacíos): el `fetch` resuelve el `..` y la firma sale para otra carpeta u otro bucket. Molde: `rutaDeEsteLead`
+  (app/api/doc). Y antes de endurecer un formato, se cuenta en la base qué formatos hay: hay contratos viejos sin el ws.
+- **Un proxy de archivos no repite el Content-Type de quien los mandó**: lista de tipos, `attachment` y `nosniff`.
+- **Todo handler de `app/api/cron` empieza con `checkCronAuth(req)`** (tiempo constante, fail-closed), y ninguna ruta
+  lee `CRON_SECRET` por su cuenta.
+- **Un GET no escribe** (el de `chat-agent/onboarding/resumen` desarchivaba automatizaciones con un link).
+- **Toda función SQL nueva lleva su `revoke … from public, anon, authenticated`**: Supabase le daba EXECUTE directo a la
+  clave pública. La 0280 cambió el default; se mide con `has_function_privilege('anon', …)`, no leyendo la migración.
 
 # Un canal PROPONE; una persona confirma. Nada escribe directo
 

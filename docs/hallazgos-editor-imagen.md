@@ -352,8 +352,9 @@ tenía «SALE»); «al atardecer» en Playfair itálica a 190 px = 969 contra 92
 - **El relevamiento de FUNCIONES de Canva** quedó escrito el 14/10 a la noche
   (`docs/editor-imagen/relevamiento-canva-funciones.md`) contra el código, SIN navegar Canva (no había Chrome para
   claude1): si alguna fila de Canva resulta distinta al mirarla, se corrige ahí.
-- **API de MaKo y Estrellas `formato_imagen`**: esperan a Martín (con el editor sólo suyo, declararla con
-  `gating.tab` la abre por token a todo cliente completo/agencia; relevamiento-integracion-mako.md §6.2 y §13.7).
+- **Estrellas `formato_imagen`**: espera a Martín (relevamiento-integracion-mako.md §13.6). La API de MaKo se declaró
+  el 15/10 (área `imagen`; lo que costó, en docs/hallazgos-api-mako.md). Exportar por la API no existe: el render es del
+  navegador.
 - **Una pestaña de Canva** («Diseño sin título - Presentación», `canva.com/design/DAHX-ICTUd4`) quedó
   abierta en el grupo de pestañas de los agentes: la abrió el relevamiento de funciones antes de cortarse.
   Si lo creó en la cuenta de Martín, hay que mandarlo a la papelera a mano.

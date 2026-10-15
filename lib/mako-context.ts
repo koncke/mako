@@ -70,7 +70,7 @@ export async function resumenFunnel(): Promise<string> {
   return bloques.join('\n');
 }
 
-export async function buildSystemPrompt(opts: { chartKey: string; titulo: string; contexto: string; query: string; lean?: boolean }): Promise<string> {
+export async function buildSystemPrompt(opts: { chartKey: string; titulo: string; contexto: string; query: string; lean?: boolean; sinNumerosDelNegocio?: boolean }): Promise<string> {
   const { chartKey, titulo, contexto, query } = opts;
 
   // MODO LEAN (feedback jul-19, costo): para turnos que NO razonan (cargar tareas,
@@ -106,7 +106,9 @@ export async function buildSystemPrompt(opts: { chartKey: string; titulo: string
   // dice en qué ETAPA está el negocio; esto dice a qué se COMPROMETIÓ estos 90 días.
   // Son dos cosas distintas y las dos hacen falta: sin el objetivo, MaKo aconseja lo
   // correcto en general y no lo correcto AHORA.
-  const objetivosTxt = await objetivosContextoTexto().catch(() => '');
+  // ⚠️ `sinNumerosDelNegocio` (auditoría del 14/10/2026): el avance del trimestre trae plata (USD vendidos,
+  // cobrados, invertidos) y un closer o setter no la ve en ninguna pantalla. Sin esto, se la contaba MaKo.
+  const objetivosTxt = opts.sinNumerosDelNegocio ? '' : await objetivosContextoTexto().catch(() => '');
   if (objetivosTxt) base += `\n\nA QUÉ SE COMPROMETIÓ ESTE TRIMESTRE (úsalo para decidir qué es urgente):\n${objetivosTxt}`;
   if (fase) base += `\n\nQUÉ TIENES QUE MIRAR Y HACER EN ESTA SECCIÓN:\n${fase}`;
   const know = formatKnowledge(knowledge);

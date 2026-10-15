@@ -15,7 +15,7 @@ import { TAG } from '@/lib/cache';
 import { getTenantDb } from '@/lib/workspace';
 import { getUsuarioActual } from '@/lib/auth';
 import { getLead, logLeadChanges, logLeadEvent, type Lead } from '@/lib/leads';
-import { saveLeadPlanManual, marcarPago, getPagosByLead, cobrarCuota, registrarPagoSuelto } from '@/lib/pagos';
+import { saveLeadPlanManual, marcarPago, getPagosByLead, cobrarCuota, registrarPagoSuelto, asegurarLeadDelNegocio } from '@/lib/pagos';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { VENTA_SIN_COBRO, ventaTipoDe, type VentaTipo } from '@/lib/venta-tipo';
 
@@ -133,6 +133,29 @@ export type DealSectionsInput = {
 };
 
 /**
+ * ⚠️ EL DOCUMENTO FISCAL (doc_path / doc_nombre) LO ESCRIBE SÓLO SU SUBIDA, /api/extract-deal-fiscal, con una ruta
+ * que arma el server (`<ws>/<lead>/fiscal/<ms>_<nombre>`). Hasta el 14/10/2026 esta acción guardaba deal_fiscal
+ * ENTERO como lo mandaba el navegador: con un doc_path armado a mano en un lead propio, /api/doc firmaba con la
+ * service role el archivo de otro negocio (auditoría de seguridad). Y de yapa: la pantalla manda el doc_path de
+ * SU foto del lead (`{ ...(lead.deal_fiscal ?? {}), … }`), así que con una foto vieja guardar los datos fiscales
+ * borraba el documento recién subido. El del patch se descarta y gana SIEMPRE el de la base. Lo demás de la
+ * sección se guarda como llega (reemplazo, igual que antes).
+ * No es una server action (no se exporta): la usa saveDealSectionsAction. tests/seguridad-crm-pagos-doc.test.ts la
+ * prueba por la acción (con una base de mentira) y recortada de este archivo.
+ */
+function fiscalConDocDeLaBase(nuevo: Lead['deal_fiscal'], enBase: Lead['deal_fiscal']): Lead['deal_fiscal'] {
+  if (nuevo != null && (typeof nuevo !== 'object' || Array.isArray(nuevo))) throw new Error('Datos fiscales inválidos.');
+  const doc = enBase?.doc_path || enBase?.doc_nombre
+    ? { doc_path: enBase.doc_path ?? null, doc_nombre: enBase.doc_nombre ?? null }
+    : null;
+  // Vaciar la sección no borra el documento: se reemplaza subiendo otro, no desde acá.
+  if (nuevo == null) return doc ?? nuevo;
+  const { doc_path: _p, doc_nombre: _n, ...resto } = nuevo;
+  void _p; void _n;
+  return doc ? { ...resto, ...doc } : resto;
+}
+
+/**
  * Guarda las secciones del deal que vengan en el patch (las ausentes no se
  * tocan). Deja el evento en lead_audit y revalida las vistas del lead.
  *
@@ -147,13 +170,21 @@ export async function saveDealSectionsAction(leadId: number, patch: DealSections
   const upd: Record<string, unknown> = {};
   const tocadas: string[] = [];
   const db = await getTenantDb();
+  // ⚠️ EL LEAD SE LEE PRIMERO (auditoría de seguridad del 14/10/2026), por dos cosas:
+  // 1) Que sea de ESTE negocio: el update de abajo, con un lead ajeno, da 0 filas sin error, y el historial igual
+  //    anotaba «Guardó: …» sobre el id de otro.
+  // 2) El documento fiscal lo pone la base, no el navegador (ver `fiscalConDocDeLaBase`).
+  const { data: enBase, error: eBase } = await db.from('leads').select('deal_fiscal').eq('id', leadId).maybeSingle();
+  if (eBase) throw new Error(`No pude leer el lead ${leadId}: ${eBase.message}`);
+  if (!enBase) throw new Error('No encontré este lead.');
+  const fiscalEnBase = (enBase as { deal_fiscal: Lead['deal_fiscal'] }).deal_fiscal;
   const sus: Record<string, number | null> = {};
   if (patch.suscripcion_monto_usd !== undefined) sus.suscripcion_monto_usd = patch.suscripcion_monto_usd;
   if (patch.suscripcion_meses !== undefined) sus.suscripcion_meses = patch.suscripcion_meses;
   const tocaPlata = patch.monto_cierre_usd !== undefined || Object.keys(sus).length > 0;
   // El «antes» del diff: sin poder leerlo se guarda igual y queda sólo el evento de abajo.
   const before = tocaPlata ? await getLead(leadId).catch(() => null) : null;
-  if (patch.deal_fiscal !== undefined) { upd.deal_fiscal = patch.deal_fiscal; tocadas.push('datos fiscales'); }
+  if (patch.deal_fiscal !== undefined) { upd.deal_fiscal = fiscalConDocDeLaBase(patch.deal_fiscal, fiscalEnBase); tocadas.push('datos fiscales'); }
   if (patch.deal_servicio !== undefined) { upd.deal_servicio = patch.deal_servicio; tocadas.push('servicio'); }
   if (patch.deal_promesa !== undefined) { upd.deal_promesa = patch.deal_promesa; tocadas.push('promesa'); }
   if (patch.deal_obligaciones !== undefined) { upd.deal_obligaciones = patch.deal_obligaciones; tocadas.push('obligaciones'); }
@@ -251,6 +282,10 @@ export type CuotaInput = {
  * sin error, sin fila y con el botón diciendo que se había guardado.
  */
 export async function saveCuotasAction(leadId: number, cuotas: CuotaInput[]): Promise<void> {
+  // ⚠️ ANTES del insert de las cobradas (auditoría del 14/10/2026): ese insert vive acá y no en lib/pagos.ts, así
+  // que la guarda de saveLeadPlanManual llega tarde. El leadId lo manda el navegador: con el de un lead de otro
+  // negocio, la cuota cobrada entraba en este cash apuntando a una persona ajena.
+  await asegurarLeadDelNegocio(leadId);
   const nuevas = cuotas.filter((c) => !c.pagado && Number(c.monto) > 0);
   const cobradas = cuotas.filter((c) => c.pagado && c.id == null && Number(c.monto) > 0);
   const autor = await autorActual();

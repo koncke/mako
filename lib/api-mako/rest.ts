@@ -26,6 +26,14 @@ export type RutaRest = readonly [MetodoRest, string, string];
 
 /** [método, ruta (sin /api/v1), id de la operación] */
 export const RUTAS_REST: readonly RutaRest[] = [
+  // ── imagen (15/10/2026): el Image Editor ────────────────────────────────────
+  ['GET', '/imagen/disenos', 'listar_disenos_imagen'],
+  ['POST', '/imagen/disenos', 'crear_diseno_imagen'],
+  ['GET', '/imagen/disenos/{disenoId}', 'ver_diseno_imagen'],
+  ['DELETE', '/imagen/disenos/{disenoId}', 'borrar_diseno_imagen'],
+  ['PATCH', '/imagen/disenos/{disenoId}/textos', 'cambiar_textos_diseno_imagen'],
+  ['POST', '/imagen/disenos/{disenoId}/copias', 'duplicar_diseno_imagen'],
+  ['GET', '/imagen/plantillas', 'listar_plantillas_imagen'],
   // ── calendario (13/10/2026) ─────────────────────────────────────────────────
   ['GET', '/calendario/eventos', 'listar_eventos_calendario'],
   ['POST', '/calendario/eventos', 'crear_evento_calendario'],

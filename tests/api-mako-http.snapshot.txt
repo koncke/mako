@@ -29,6 +29,7 @@ borrar_avatar_negocio
 borrar_borrador_landing
 borrar_borrador_plantilla
 borrar_clase_curso
+borrar_diseno_imagen
 borrar_documento_archivero
 borrar_guion_anuncio
 borrar_hoja_dashboard
@@ -45,6 +46,7 @@ buscar_tareas_plan
 buscar_tutorial
 cambiar_espera_paso
 cambiar_estado_comentario_landing
+cambiar_textos_diseno_imagen
 cancelar_accion
 cancelar_analisis_dashboard
 cancelar_programacion_broadcast
@@ -77,6 +79,7 @@ crear_borrador_whatsapp_empresa
 crear_broadcast
 crear_clase_curso
 crear_contacto_chatwoot_lead
+crear_diseno_imagen
 crear_etiqueta
 crear_evento_calendario
 crear_experimento
@@ -102,6 +105,7 @@ detectar_fatiga_adsets
 detectar_piezas_landing
 diagnosticar_funnel
 duplicados_lead
+duplicar_diseno_imagen
 duplicar_hoja_dashboard
 duplicar_landing
 editar_avatar_negocio
@@ -216,6 +220,7 @@ listar_conversiones_meta
 listar_creaciones
 listar_cursos
 listar_dependencias_plan
+listar_disenos_imagen
 listar_disenos_landing
 listar_etapas_email
 listar_etiquetas
@@ -249,6 +254,7 @@ listar_pendientes
 listar_pendientes_arranque
 listar_pixeles_meta
 listar_plantillas_aprobadas
+listar_plantillas_imagen
 listar_preguntas_diagnostico_fase
 listar_productos
 listar_propuestas_revisar
@@ -406,6 +412,7 @@ ver_datos_campana_meta
 ver_datos_conjunto_meta
 ver_diagnostico_fase
 ver_diagnostico_landing
+ver_diseno_imagen
 ver_distribucion_pipeline
 ver_embudo_comercial_maduro
 ver_estado_agente_claude
