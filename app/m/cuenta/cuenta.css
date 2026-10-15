@@ -46,3 +46,10 @@
 [data-m] .m-cuenta-paso__n { font-size: var(--fs-meta); color: var(--dim); font-variant-numeric: tabular-nums; }
 [data-m] .m-cuenta-paso__frase { margin: 0; font-size: var(--fs-sect); font-weight: 600; line-height: 1.3; color: var(--ink); max-width: 22ch; }
 [data-m] .m-cuenta-paso__acciones { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+
+/* «Tu cuenta» › Seguridad en el teléfono (15/10/2026): la pantalla de la computadora (app/_ui/ajustes.css),
+   sin el índice. Las tarjetas ocupan el ancho con el margen del shell; los botones, el alto de un dedo. */
+[data-m] .m-cuenta-seguridad { padding: 4px 0 24px; }
+[data-m] .m-cuenta-seguridad .aj-titulo { font-size: 24px; }
+[data-m] .m-cuenta-seguridad .aj-boton { min-height: 44px; }
+[data-m] .m-cuenta-seguridad .aj-fila { min-height: 60px; }

@@ -39,6 +39,9 @@ import { PUSH_SOLO_ADMINS, PUSH_TIPOS, type AvisoWaDef, type NotifPush } from '@
 import {
   AvatarM, CerrarSesion, FilaM, InterruptorM, ListaM, SalirDeLaVista, SegmentadoM, SheetM, useConexion, useToastM,
 } from '../_ui';
+import type { Perfil, VistaPerfil } from '@/lib/perfil';
+import { SECCIONES_CUENTA } from '@/lib/ajustes-secciones';
+import { InformacionPersonal } from '@/app/perfil/InformacionPersonal';
 import {
   comoDesbloquear, ofertaInstalar, resumenAvisos, segundaAvisos, tiposParaRol, toastDeActivar, toastDePrueba, vistaAvisos,
 } from './cuenta-ui';
@@ -52,9 +55,15 @@ export type DatosCuenta = {
   /** false = la sesión no tiene fila propia (no se pueden guardar preferencias). */
   guardable: boolean;
   esAdmin: boolean;
+  /** «Información personal» (la misma de la computadora, en una hoja). null = no se pudo leer. */
+  perfil: { perfil: Perfil; vista: VistaPerfil } | null;
 };
 
+/** Los rótulos de «Tu cuenta», los MISMOS de la computadora (lib/ajustes-secciones.ts). */
+const ROTULO = Object.fromEntries(SECCIONES_CUENTA.map((s) => [s.key, s.label])) as Record<'info' | 'seguridad' | 'notificaciones' | 'instalar', string>;
+
 export function CuentaM({ datos }: { datos: DatosCuenta }) {
+  const [hojaInfo, setHojaInfo] = useState(false);
   return (
     <div className="m-cuenta">
       <ListaM>
@@ -75,6 +84,23 @@ export function CuentaM({ datos }: { datos: DatosCuenta }) {
         </ListaM>
       )}
 
+      {/* «Tu cuenta» (15/10/2026): las secciones de la computadora, en el mismo orden y con los mismos
+          rótulos. Información personal abre en una hoja; Seguridad es su pantalla (/perfil/seguridad);
+          Notificaciones son los avisos de este teléfono; Instalar la app vive adentro de los avisos,
+          porque en el teléfono sólo hace falta para prenderlos. */}
+      <ListaM>
+        <FilaM navegacion titulo={ROTULO.info} onClick={() => setHojaInfo(true)} />
+        <FilaM navegacion titulo={ROTULO.seguridad} href="/m/cuenta/seguridad" />
+      </ListaM>
+      {datos.perfil && (
+        <SheetM abierto={hojaInfo} onCerrar={() => setHojaInfo(false)} titulo={ROTULO.info} id="info" snap="alto">
+          <div className="m-cuenta-seguridad">
+            <InformacionPersonal inicial={datos.perfil.perfil} vista={datos.perfil.vista} sinTitulo />
+          </div>
+        </SheetM>
+      )}
+
+      <h2 className="m-cuenta-subt">{ROTULO.notificaciones}</h2>
       <AvisosTelefono push={datos.push} guardable={datos.guardable} esAdmin={datos.esAdmin} />
 
       <h2 className="m-cuenta-subt">Apariencia</h2>
@@ -189,10 +215,10 @@ function AvisosTelefono({ push, guardable, esAdmin }: { push: NotifPush; guardab
           )}
         />
         {instalar === 'pasos-ios' && (
-          <FilaM navegacion titulo="Instalar MaKo" href="/m/cuenta/instalar" />
+          <FilaM navegacion titulo={ROTULO.instalar} href="/m/cuenta/instalar" />
         )}
         {instalar === 'boton' && (
-          <FilaM navegacion titulo="Instalar MaKo" chevron={false} riel={spinner('instalar')}
+          <FilaM navegacion titulo={ROTULO.instalar} chevron={false} riel={spinner('instalar')}
             deshabilitada={ocupado != null} onClick={() => void instalarAndroid()} />
         )}
         {vista === 'activo' && (guardable ? (

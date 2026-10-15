@@ -23,6 +23,7 @@
 import {
   DESTINOS_MOVIL, HOME_MOVIL, RUTA_INBOX, RUTA_MAS, SECCIONES_MAS, esRutaMovil, seccionDeRuta,
 } from '@/lib/movil-rutas';
+import { TITULO_CUENTA as TITULO_TU_CUENTA } from '@/lib/ajustes-secciones';
 
 export type PadreM = { href: string; label: string };
 export type CabeceraPorDefecto = {
@@ -37,9 +38,9 @@ export type CabeceraPorDefecto = {
 
 type LugarBarra = { href: string; label: string };
 
-/** La cuenta de /m: avisos, apariencia y la salida. Mismo nombre que en escritorio. */
+/** La cuenta de /m: avisos, apariencia y la salida. Mismo nombre que en escritorio: sale del MISMO lugar. */
 export const RUTA_CUENTA = '/m/cuenta';
-export const TITULO_CUENTA = 'Perfil';
+export const TITULO_CUENTA = TITULO_TU_CUENTA;
 /** La pantalla de onboarding pendiente: sin barra y sin «volver». */
 export const RUTA_CONFIGURAR = '/m/configurar';
 

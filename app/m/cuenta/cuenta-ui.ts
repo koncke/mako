@@ -11,10 +11,10 @@
 //   · apagado → «Activar avisos», que pide el permiso DENTRO del toque.
 //   · activo → qué avisos llegan + «Probar aviso».
 // La instalación en Android es OTRA fila, independiente: Chrome deja recibir push
-// sin instalar, así que «Instalar MaKo» no bloquea los avisos.
+// sin instalar, así que «Instalar la app» no bloquea los avisos.
 //
 // v2: todo eso es UNA fila con interruptor («Avisos en este teléfono», como en el prototipo) y,
-// según el estado, una segunda línea corta, la fila «Instalar MaKo», «Qué te avisa» (un sheet con
+// según el estado, una segunda línea corta, la fila «Instalar la app», «Qué te avisa» (un sheet con
 // los tipos) y «Probar aviso». Cómo se destraba un permiso negado va debajo de la lista.
 // =============================================================================
 

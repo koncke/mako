@@ -193,7 +193,8 @@ test('MaKo en WhatsApp manda el link nuevo de una llamada, y el texto de Equipo 
   const doer = leer('lib/mako-doer-in.ts');
   assert.match(doer, /\$\{APP_URL\}\/dashboard\?hoja=closing&llamada=\{recording_id\}/);
   assert.doesNotMatch(doer, /\/closing\?call=/);
-  for (const f of ['app/configuraciones/page.tsx', 'app/equipo/page.tsx']) {
+  // Desde el 15/10/2026 el texto vive UNA vez: Equipo es su propia sección de «Configuración del negocio».
+  for (const f of ['app/equipo/page.tsx']) {
     const src = leer(f);
     assert.doesNotMatch(src, /Closing Analyst/, `${f} promete una tab que ya no está`);
     assert.match(src, /El <b>Closer<\/b> ve CRM, WhatsApp y la hoja Closing del Dashboard/, f);

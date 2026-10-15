@@ -272,6 +272,10 @@ export function rutaMovil(href: string | null | undefined): string | null {
   if (p === '/mas') return RUTA_MAS;
   if (p === '/configurar') return '/m/configurar';
   if (p === '/perfil/instalar') return '/m/cuenta/instalar';
+  // «Tu cuenta» (15/10/2026): la Seguridad tiene su pantalla en el teléfono (la misma, con su `?ver=`);
+  // las Notificaciones de la persona son, en el teléfono, los avisos de /m/cuenta.
+  if (p === '/perfil/seguridad') return '/m/cuenta/seguridad';
+  if (p === '/perfil/notificaciones') return '/m/cuenta';
   const lead = p.match(/^\/crm\/(\d+)(?:\/resumen)?$/);
   if (lead) return `/m/crm/${lead[1]}`;
   if (p === '/crm') return '/m/crm';
@@ -339,7 +343,8 @@ export function rutaMovilOHome(href: string | null | undefined): string {
 export const SOLO_TELEFONO: ReadonlyArray<{ url: RegExp; computadora: (m: RegExpMatchArray) => string }> = [
   { url: /^\/mas$/, computadora: () => '/general' },
   { url: /^\/configurar$/, computadora: () => '/onboarding' },
-  { url: /^\/perfil\/instalar$/, computadora: () => '/perfil' },
+  // (/perfil/instalar era de esta lista hasta el 15/10/2026: con «Tu cuenta», la computadora tiene su
+  // propia sección «Instalar la app», con el QR para abrirla en el celular.)
   { url: /^\/crm\/(\d+)\/chat$/, computadora: (m) => `/crm/${m[1]}` },
 ];
 
@@ -381,6 +386,7 @@ export function rutaEscritorio(href: string): string {
   else if (p === '/m/decisiones') destino = '/tickets/decisiones/lista';
   else if (p === '/m/tickets/decisiones') destino = '/tickets/decisiones';
   else if (p === '/m/cuenta/instalar') destino = '/perfil/instalar';
+  else if (p === '/m/cuenta/seguridad') destino = '/perfil/seguridad';
   else if (p === '/m/cuenta') destino = '/perfil';
   else if (p === '/m/configurar') destino = '/configurar';
   else if ((m = p.match(/^\/m\/dashboard\/([^/]+)$/))) {

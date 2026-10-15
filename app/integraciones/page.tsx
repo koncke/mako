@@ -3,6 +3,10 @@
 // =============================================================================
 // Overview de conexión de cada servicio + el detalle en vivo de Meta + el
 // historial de estados negativos + el Saldo de IA.
+//
+// Desde el 15/10/2026 es una sección de «Configuración del negocio» (lib/ajustes-secciones.ts): conectar
+// WhatsApp o Meta es del negocio, no una preferencia de la persona. La ruta es la misma de siempre (los
+// links ya mandados y el `maxDuration` de abajo dependen de ella); cambia el marco, con el índice.
 
 import { getMetaHealth, type MetaHealth } from '@/lib/meta-health';
 import { FALTAN_PERMISOS_META } from '@/lib/meta-permisos';
@@ -21,6 +25,9 @@ import { rechazosDeGracias } from '@/lib/landing-gracias';
 import { IntegracionesBoard } from './IntegracionesBoard';
 import { requireRolWs } from '@/lib/tab-access';
 import { APP_BASE_URL as APP_URL } from '@/lib/app-url';
+import { TITULO_NEGOCIO } from '@/lib/ajustes-secciones';
+import { seccionesNegocioActuales } from '@/lib/ajustes-negocio';
+import { AjustesPagina, TituloAjustes } from '../_ui/Ajustes';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -117,7 +124,10 @@ export default async function IntegracionesPage() {
   ]);
 
   return (
+    <AjustesPagina lugar={TITULO_NEGOCIO} secciones={await seccionesNegocioActuales()} activa="integraciones" amplio>
+    <TituloAjustes titulo="Integraciones" bajada="WhatsApp, Meta, tu web y todo lo que se conecta a tu negocio." />
     <IntegracionesBoard
+      embebido
       integraciones={integraciones}
       health={health}
       metaError={metaError}
@@ -130,5 +140,6 @@ export default async function IntegracionesPage() {
       appUrl={APP_URL}
       pixel={{ landings: landingsPixel, productos: productosPixel, gracias: graciasPixel }}
     />
+    </AjustesPagina>
   );
 }

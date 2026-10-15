@@ -238,7 +238,7 @@ test('cada lugar que carga un teléfono monta TelefonoConPais, y ninguno vuelve 
   const conBanderas = [
     'app/crm/new/NewLeadForm.tsx', 'app/crm/StageMoveDialog.tsx', 'app/agencia/GrupoDetalleModal.tsx',
     'app/configuraciones/TelefonosPanel.tsx', 'app/customer-success/curso/InvitarAlumnos.tsx',
-    'app/customer-success/NuevoCliente.tsx', 'app/perfil/PerfilTabs.tsx', 'app/automations/OnboardingChatAgent.tsx',
+    'app/customer-success/NuevoCliente.tsx', 'app/perfil/InformacionPersonal.tsx', 'app/automations/OnboardingChatAgent.tsx',
     'app/plan/board/ReunionTareas.tsx', 'app/onboarding/OnboardingWizard.tsx', 'app/perfil/DestinatariosLista.tsx',
     'app/automations/PanelProbar.tsx',
   ];
@@ -262,7 +262,7 @@ test('lo que viaja al server tiene la MISMA forma que antes en cada lugar', () =
   // muestra tal cual: siguen saliendo así (la lada, un espacio y lo escrito).
   assert.match(codigo('app/configuraciones/TelefonosPanel.tsx'), /`\$\{d\.lada\} \$\{d\.numero\.trim\(\)\}`/);
   // El del perfil se escribía «+5216861234567»: sigue con el «+» adelante.
-  assert.match(codigo('app/perfil/PerfilTabs.tsx'), /`\+\$\{unirTelefono\(t\.lada, t\.numero\)\}`/);
+  assert.match(codigo('app/perfil/InformacionPersonal.tsx'), /`\+\$\{unirTelefono\(tel\.lada, tel\.numero\)\}`/);
 });
 
 // ⚠️ UN TELÉFONO DEL WORKSPACE QUE NO SE TOCÓ SE GUARDA COMO ESTABA (revisión del 12/10/2026). Partirlo

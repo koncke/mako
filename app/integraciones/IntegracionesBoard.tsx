@@ -165,7 +165,7 @@ function fmtDuracion(desde: string, hasta: string): string {
 }
 
 // ── Board ─────────────────────────────────────────────────────────────────────
-export function IntegracionesBoard({ integraciones, health, metaError, incidentes, snippetLanding, cargadorLanding, landingVieja = false, cuotas = [], agenteActual, appUrl, pixel }: {
+export function IntegracionesBoard({ integraciones, health, metaError, incidentes, snippetLanding, cargadorLanding, landingVieja = false, cuotas = [], agenteActual, appUrl, pixel, embebido = false }: {
   integraciones: Integracion[];
   health: MetaHealth | null;
   metaError: string | null;
@@ -189,6 +189,11 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
    * actions, en serie. `null` en cualquiera de los dos = no se pudo leer.
    */
   pixel?: DatosPixel;
+  /**
+   * Adentro de «Configuración del negocio» (15/10/2026): el título y el `<main>` los pone el molde de
+   * ajustes (app/_ui/Ajustes.tsx). Queda el contador de conectados, que es un dato y no un título.
+   */
+  embebido?: boolean;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -391,14 +396,16 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
   // Medidor: una barra por servicio, verde las conectadas, roja/ámbar el resto (sin las pasarelas
   // sin conectar: son opcionales).
   const bars = medidas.map((i) => dotColor(sevOf(i)));
+  // Embebido no puede ser otro `<main>`: la página ya tiene uno (el del molde de ajustes).
+  const Raiz = embebido ? 'div' : 'main';
 
   return (
-    <main style={{ flex: 1, minWidth: 0, padding: '30px 42px 90px' }}>
+    <Raiz style={embebido ? { minWidth: 0 } : { flex: 1, minWidth: 0, padding: '30px 42px 90px' }}>
       <BrandDefs />
 
       {/* ═══ HEADER ═══ */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24, flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 15 }}>
+        {!embebido && <div style={{ display: 'flex', alignItems: 'center', gap: 15 }}>
           <div style={{ width: 44, height: 44, flex: 'none', borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--border-strong)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink)' }}>
             <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M9 2v4M15 2v4" /><path d="M6.5 6h11v4a5.5 5.5 0 0 1-11 0z" /><path d="M12 15.5V22" /></svg>
           </div>
@@ -406,7 +413,7 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
             <div style={{ ...capMono, fontSize: 10.5, letterSpacing: '.14em', marginBottom: 6 }}>Configuración</div>
             <h1 style={{ fontWeight: 700, fontSize: 38, letterSpacing: '-0.03em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Integraciones</h1>
           </div>
-        </div>
+        </div>}
         <div style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: 14, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 13, padding: '12px 18px' }}>
           <div style={{ display: 'flex', gap: 5 }}>
             {bars.map((c, idx) => <span key={idx} style={{ width: 6, height: 16, borderRadius: 3, background: c }} />)}
@@ -534,7 +541,7 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
       {modal?.t === 'hist' && usage && (
         <OperacionesModal usage={usage} onClose={() => setModal(null)} />
       )}
-    </main>
+    </Raiz>
   );
 }
 

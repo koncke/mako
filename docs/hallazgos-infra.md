@@ -6174,3 +6174,12 @@ ni con `--extendedDiagnostics`. Se leía como un tsconfig mal armado y se fue a 
 `vigia.ps1` por zona roja (`[vigia] MATO pid … tsc` en `~/.claude/guardia/guardia.log`). Un proceso matado no imprime
 nada. **Regla:** ante un `tsc` mudo, mirar primero el log de la guardia. Acotado a menos archivos, o con más RAM libre,
 pasa. · *2026-10-15 Automations*
+
+### Un commit hecho sobre el `main` LOCAL después de que el orquestador rebaseó y subió arrastra copias (15/10/2026)
+
+**Síntoma.** Para probar cómo choca el rediseño con el commit de otro chat que estaba sin subir (`a40182e7d`, sobre el
+`main` local del clon), se rebaseó encima. La rama salió con SIETE commits de más: copias, con otro hash, de commits
+que ya estaban en `origin/main`. **Causa:** el orquestador sube rebaseando sobre `origin/main`, y eso cambia los
+hashes; el `main` local quedó con las versiones viejas, y el commit nuevo se hizo arriba de ellas. **Regla:** antes de
+apoyar una rama en el commit de otro chat, `git log --oneline origin/main..<ese commit>`. Si trae algo más que ese
+commit, NO se apoya: se rebasea ese commit solo sobre `origin/main`, o se deja que suba primero. · *15/10/2026, chat «Ciberseguridad»*

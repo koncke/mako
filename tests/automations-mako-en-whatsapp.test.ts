@@ -329,8 +329,10 @@ test('5. MaKo no prende ni apaga los tres eventos (`configurar_aviso_whatsapp`),
 test('5. Configuraciones › Notificaciones ya no monta la lista de mensajes (ni el link a /automations)', () => {
   const panel = fuente('app/perfil/NotificacionesPanel.tsx');
   assert.doesNotMatch(panel, /PlantillasView|enlaceAMensajeMako|editarEnChatbot|\/api\/perfil\/plantillas/);
-  assert.match(panel, /export function NotificacionesPanel\(\) \{/);
-  assert.doesNotMatch(fuente('app/configuraciones/ConfigInnerTabs.tsx'), /mensajesEnChatbot/);
+  // Sin la prop de los mensajes: la única que tiene es qué mitad dibuja (15/10/2026, «Tu cuenta» y
+  // «Configuración del negocio»).
+  assert.match(panel, /export function NotificacionesPanel\(\{ parte \}: \{ parte: 'persona' \| 'negocio' \}\) \{/);
+  assert.doesNotMatch(fuente('app/configuraciones/notificaciones/page.tsx'), /mensajesEnChatbot/);
   assert.doesNotMatch(fuente('app/configuraciones/page.tsx'), /mensajesEnChatbot/);
 });
 

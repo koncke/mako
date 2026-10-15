@@ -2317,6 +2317,10 @@ ningún caller en la UI, y `ConfigInnerTabs` arranca fijo en 'notif' **sin leer 
 el link `?tab=notif` que usan todos los avisos funciona por coincidencia con el default, y el
 día que cambie el default se rompen los 49 avisos a la vez.
 
+> **Resuelto el 15/10/2026** con «Configuración del negocio» (la entrada «Tu cuenta y Configuración del negocio», al
+> final): `ConfigInnerTabs` se fue, cada sección es su ruta y `rutaDeTabVieja` (lib/ajustes-secciones.ts) manda el
+> `?tab=notif` de los avisos a /configuraciones/notificaciones. El panel de Teléfonos sigue sin montar.
+
 **Vive en:** app/configuraciones/TelefonosPanel.tsx · app/configuraciones/ConfigInnerTabs.tsx:18 y :24 · lib/avisos.ts:81 · *2026-08-06 rediseno-notificaciones*
 
 ### ⚠️ Entregable y Persona funcionan en el hub de onboarding pero son huérfanos del wizard
@@ -3869,3 +3873,44 @@ dice cuándo se tocó el código. El uso está en la base, y se mide.
 **Vive en:** `app/_components/nav.ts` (`ADMIN_FAMILIAS`) · `app/mensajes/page.tsx` ·
 `app/contexto/ContextoTabs.tsx` · `app/admin/copywriting/` · `lib/copywriting-metodo.ts` ·
 `app/admin/agente/` · `app/api/admin/graph/`
+
+## «Tu cuenta» y «Configuración del negocio»: lo que no se ve en el código (15/10/2026)
+
+Pedido de Martín: rediseñar Perfil, Integraciones y Configuraciones «como lo hace google», con la Seguridad
+«copia tal cual» de la de Google. Aprobó dos lugares (lo de la persona, lo del negocio). La lista de secciones vive
+en `lib/ajustes-secciones.ts` (la usan la computadora y el celular) y el molde en `app/_ui/Ajustes.tsx`.
+
+- ⚠️ **El menú le ofrecía «Perfil» a closers y setters y la página los echaba.** El ítem tenía `rolesWs: ['closer',
+  'setter']` y `/perfil` llamaba `requireRolWs([])`, que quiere decir «sólo admin»: el closer tocaba su perfil y
+  aterrizaba en su casa, sin un error. No lo vio nadie porque quien prueba es admin. **Regla:** el `rolesWs` del ítem
+  y el guard de su página dicen lo mismo; el test de las páginas lo fija.
+- ⚠️ **La pantalla y su acción no preguntaban por el mismo «admin».** Horario y Criterio de reuniones se mostraban si
+  `/api/auth/me` decía `rol === 'admin'` (el de la PLATAFORMA), y sus acciones aceptan `rol_ws === 'admin'` (el del
+  negocio). Al cliente se le escondía algo que sí podía cambiar. Se conservó lo que se VE hasta que Martín decida.
+  **Regla:** un control que se esconde por rol usa el MISMO rol que su acción.
+- **Integraciones no se mudó a `?tab=`, y era lo correcto.** El plan decía secciones por `?tab=`. Mudar Integraciones
+  arrastraba 1.800 líneas y su `maxDuration = 300` (el `after()` de una action vive en el techo de la PÁGINA que la
+  llama, hallazgos-infra.md). Cada sección es su ruta, como en Google: un link copiado abre lo mismo y ninguna ruta
+  vieja necesita redirigir.
+- **El `?tab=notif` de los 49 avisos se decide ANTES que la entrada por defecto.** Sin General (todo cliente), la
+  entrada es la primera sección que se ve: Equipo. Si el redirect por defecto va primero, «apagar este reporte» cae
+  en Equipo.
+- **Embeber una pantalla entera en otra da dos `<main>` y dos títulos.** `IntegracionesBoard` y `MetodoWizard`
+  traen los suyos; con `embebido` la raíz pasa a `div` y el título lo pone el molde.
+- **Una rotura mal armada da verde y parece un test flojo.** La del orden de esos dos redirects movía el viejo justo
+  ANTES del otro, que es el orden correcto: dio 8/0. El test estaba bien. Antes de concluir que una guarda no ve,
+  mirar que la rotura cambie lo que la guarda mide.
+- **Se miró sin el dev server**, con el banco de esbuild y Chrome sin ventana de hallazgos-editor-imagen.md (stubs de
+  `next/link` y `next/navigation`, `fetch` simulado). Desde Git Bash, un hash que empieza con `/` llega convertido en
+  ruta de Windows y el banco dibuja OTRA pantalla sin un error: `MSYS_NO_PATHCONV=1`.
+- **Quedó SIN hacer:**
+  · `app/integraciones/IntegracionesBoard.tsx` tiene 6 errores de lint (`react-hooks/set-state-in-effect`) que ya
+    estaban en main. El pre-push no corre el lint.
+  · «Sesión anterior» en Tus dispositivos: espera el registro de sesiones (docs/diseno-dispositivos-vinculados.md,
+    decisiones 1, 2, 4 y 5).
+  · Horario y Criterio para el admin de cada negocio: espera la respuesta de Martín.
+  · Entrar con huella sin Google, y resetear el 2FA de alguien del equipo: tandas aparte (decisiones del 15/10).
+  · En el celular, los detalles de Seguridad son páginas (`?ver=`), no hojas. La Información personal sí es una hoja.
+
+**Vive en:** `lib/ajustes-secciones.ts` · `lib/ajustes-negocio.ts` · `app/_ui/Ajustes.tsx` · `app/_ui/ajustes.css` ·
+`app/perfil/` · `app/configuraciones/` · `app/m/cuenta/` · `tests/ajustes-cuenta-negocio.test.ts` · *15/10/2026, chat «Ciberseguridad»*

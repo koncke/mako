@@ -92,9 +92,9 @@ test('la URL de escritorio de cada pantalla es la que ya usa la computadora', ()
 test('una pantalla SÓLO del teléfono, abierta en la computadora, lleva a lo suyo', () => {
   assert.equal(respaldoEscritorio('/mas'), '/general');
   assert.equal(respaldoEscritorio('/configurar'), '/onboarding');
-  assert.equal(respaldoEscritorio('/perfil/instalar'), '/perfil');
   assert.equal(respaldoEscritorio('/crm/12/chat'), '/crm/12');
-  for (const p of ['/crm', '/crm/12', '/perfil', '/general', '/mako']) assert.equal(respaldoEscritorio(p), null, p);
+  // /perfil/instalar dejó de ser sólo del teléfono el 15/10/2026: «Tu cuenta» › Instalar la app.
+  for (const p of ['/crm', '/crm/12', '/perfil', '/perfil/instalar', '/general', '/mako']) assert.equal(respaldoEscritorio(p), null, p);
   // Y en el teléfono esas URLs son las páginas de /m.
   assert.equal(rutaMovil('/mas'), '/m/mas');
   assert.equal(rutaMovil('/crm/12/chat'), '/m/crm/12/chat');

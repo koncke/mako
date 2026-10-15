@@ -50,7 +50,11 @@ function Chip({ texto, tono }: { texto: string; tono: 'good' | 'warn' }) {
  * la página puede pasarlo YA FILTRADO con `serviciosPara()`. Importado acá, el
  * cliente se llevaba el catálogo completo aunque la pantalla no lo pintara.
  */
-export function MetodoWizard({ servicios: SERVICIOS_METODO }: { servicios: ServicioMetodo[] }) {
+export function MetodoWizard({ servicios: SERVICIOS_METODO, embebido = false }: {
+  servicios: ServicioMetodo[];
+  /** Adentro de «Configuración del negocio» (15/10/2026): el título y el `<main>` los pone el molde. */
+  embebido?: boolean;
+}) {
   const [estado, setEstado] = useState<Record<string, ServicioEstado>>({});
   const [cargando, setCargando] = useState(true);
   const [step, setStep] = useState(0);
@@ -161,11 +165,13 @@ export function MetodoWizard({ servicios: SERVICIOS_METODO }: { servicios: Servi
     finally { setQuitando(null); }
   };
 
+  // Embebido no puede ser otro `<main>`: la página ya tiene uno (el del molde de ajustes).
+  const Raiz = embebido ? 'div' : 'main';
   return (
-    <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px', minHeight: '100vh', position: 'relative' }}>
+    <Raiz style={embebido ? { minWidth: 0, position: 'relative' } : { flex: 1, minWidth: 0, padding: '34px 44px 60px', minHeight: '100vh', position: 'relative' }}>
       <header style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
-        <MakoLogo size={36} />
-        <h1 style={{ fontWeight: 600, fontSize: 42, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Método</h1>
+        {!embebido && <MakoLogo size={36} />}
+        {!embebido && <h1 style={{ fontWeight: 600, fontSize: 42, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Método</h1>}
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
           {saved && <span style={{ fontSize: 13, color: 'var(--good)', fontWeight: 600 }}>Guardado ✓</span>}
           <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)' }}>{conectadas} de {total} conectadas</span>
@@ -307,6 +313,6 @@ export function MetodoWizard({ servicios: SERVICIOS_METODO }: { servicios: Servi
           </div>
         </div>
       )}
-    </main>
+    </Raiz>
   );
 }

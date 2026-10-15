@@ -1,0 +1,85 @@
+/* =============================================================================
+   Ajustes — el molde de «Tu cuenta» y «Configuración del negocio» (15/10/2026)
+   =============================================================================
+   Copiado de myaccount.google.com (relevado el 15/10/2026, sólo el diseño): un índice a la izquierda con la
+   sección activa en una pastilla, una columna de lectura, tarjetas con borde y sin sombra, y adentro
+   LISTAS AGRUPADAS donde la fila entera es el botón. Sólo tokens de la casa: claro y oscuro salen solos.
+   Abajo de 820 px el índice pasa arriba, en una fila que se desliza (como Google en una ventana angosta). */
+
+.aj { display: flex; gap: 40px; align-items: flex-start; padding: 32px 44px 80px; flex: 1; min-width: 0; }
+.aj-indice { position: sticky; top: 24px; flex: none; width: 236px; display: flex; flex-direction: column; gap: 2px; }
+.aj-indice-titulo { font-size: 13px; font-weight: 600; color: var(--dim); padding: 0 16px 10px; letter-spacing: .01em; }
+.aj-indice a { display: flex; align-items: center; gap: 14px; height: 44px; padding: 0 16px; border-radius: 0 999px 999px 0; margin-left: -16px; padding-left: 32px;
+  color: var(--ink); text-decoration: none; font-size: 14.5px; font-weight: 500; white-space: nowrap; }
+.aj-indice a:hover { background: var(--velo-hover); }
+.aj-indice a[data-activa="true"] { background: var(--primary-bg); color: var(--primary); font-weight: 600; }
+.aj-indice a svg { color: var(--dim); }
+.aj-indice a[data-activa="true"] svg { color: var(--primary); }
+
+.aj-cuerpo { flex: 1; min-width: 0; max-width: 720px; }
+.aj-cuerpo[data-amplio="true"] { max-width: none; }
+.aj-titulo { font-size: 28px; font-weight: 500; letter-spacing: -0.01em; color: var(--ink); margin: 6px 0 6px; line-height: 1.2; }
+.aj-bajada { font-size: 15px; color: var(--dim); margin: 0 0 26px; line-height: 1.5; }
+.aj-volver { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--dim); text-decoration: none; margin-bottom: 6px; background: none; border: none; padding: 0; cursor: pointer; font-family: inherit; }
+.aj-volver:hover { color: var(--ink); }
+
+.aj-grupo { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg, 16px); margin-bottom: 20px; overflow: hidden; }
+.aj-grupo-cab { padding: 22px 24px 14px; }
+.aj-grupo-cab h2 { font-size: 20px; font-weight: 500; color: var(--ink); margin: 0 0 4px; letter-spacing: -0.005em; }
+.aj-grupo-cab p { font-size: 14px; color: var(--dim); margin: 0; line-height: 1.5; }
+.aj-grupo-cuerpo { padding: 4px 24px 20px; }
+.aj-grupo-pie { border-top: 1px solid var(--border); padding: 14px 24px; }
+
+.aj-fila { display: flex; align-items: center; gap: 18px; width: 100%; min-height: 64px; padding: 12px 24px; border: none; border-top: 1px solid var(--border);
+  background: none; text-align: left; font-family: inherit; color: var(--ink); text-decoration: none; cursor: pointer; box-sizing: border-box; }
+.aj-grupo-cab + .aj-fila, .aj-grupo > .aj-fila:first-child { border-top-color: var(--border); }
+.aj-fila:hover { background: var(--velo-hover); }
+.aj-fila[data-quieta="true"] { cursor: default; }
+.aj-fila[data-quieta="true"]:hover { background: none; }
+.aj-fila-icono { flex: none; width: 24px; display: flex; justify-content: center; color: var(--dim); }
+.aj-fila-texto { flex: 1; min-width: 0; display: flex; gap: 4px 24px; align-items: baseline; flex-wrap: wrap; }
+.aj-fila-titulo { font-size: 15px; font-weight: 500; color: var(--ink); min-width: 190px; flex: 0 0 190px; }
+.aj-fila-detalle { font-size: 14px; color: var(--dim); min-width: 0; flex: 1 1 220px; overflow-wrap: anywhere; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.aj-fila[data-apilada="true"] .aj-fila-texto { flex-direction: column; gap: 2px; align-items: flex-start; }
+.aj-fila[data-apilada="true"] .aj-fila-titulo { flex: none; min-width: 0; }
+.aj-fila[data-apilada="true"] .aj-fila-detalle { flex: none; }
+.aj-fila-fin { flex: none; display: flex; align-items: center; gap: 10px; color: var(--faint); }
+
+.aj-pastilla { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
+.aj-pastilla[data-tono="good"] { background: var(--good-bg); color: var(--good); }
+.aj-pastilla[data-tono="warn"] { background: var(--warn-bg); color: var(--warn); }
+
+.aj-estado { display: flex; gap: 20px; align-items: center; padding: 24px; }
+.aj-estado-escudo { flex: none; width: 56px; height: 56px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+.aj-estado[data-protegida="true"] .aj-estado-escudo { background: var(--good-bg); color: var(--good); }
+.aj-estado[data-protegida="false"] .aj-estado-escudo { background: var(--warn-bg); color: var(--warn); }
+.aj-estado h2 { font-size: 20px; font-weight: 500; margin: 0 0 4px; color: var(--ink); }
+.aj-estado p { font-size: 14px; color: var(--dim); margin: 0; }
+
+/* Botones del detalle: los de Google son de texto (azul) o rellenos; nada de tachos sueltos. */
+.aj-boton { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 40px; padding: 0 22px; border-radius: 999px; border: none;
+  background: var(--primary); color: var(--on-primary, #fff); font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer; text-decoration: none; }
+.aj-boton:disabled { opacity: .5; cursor: default; }
+.aj-boton[data-variante="borde"] { background: none; color: var(--primary); border: 1px solid var(--border-strong); }
+.aj-boton[data-variante="texto"] { background: none; color: var(--primary); padding: 0 12px; }
+.aj-boton[data-variante="peligro"] { background: none; color: var(--bad); border: 1px solid var(--border-strong); }
+.aj-acciones { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 18px; }
+.aj-campo { width: 100%; height: 44px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--ink);
+  font-family: inherit; font-size: 15px; outline: none; box-sizing: border-box; }
+.aj-campo:focus { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+.aj-rotulo { display: block; font-size: 13px; font-weight: 500; color: var(--dim); margin: 0 0 6px; }
+.aj-texto { font-size: 14px; color: var(--dim); line-height: 1.55; margin: 0 0 14px; }
+.aj-error { font-size: 13.5px; color: var(--bad); background: var(--bad-bg); border-radius: 10px; padding: 10px 14px; margin: 0 0 16px; }
+
+@media (max-width: 820px) {
+  .aj { flex-direction: column; gap: 18px; padding: 20px 16px 60px; }
+  .aj-indice { position: static; width: auto; flex-direction: row; overflow-x: auto; gap: 6px; margin: 0 -16px; padding: 0 16px 4px; }
+  .aj-indice-titulo { display: none; }
+  .aj-indice a { margin-left: 0; padding: 0 14px; height: 36px; border-radius: 999px; border: 1px solid var(--border); font-size: 13.5px; }
+  .aj-indice a[data-activa="true"] { border-color: transparent; }
+  .aj-cuerpo { max-width: none; }
+  .aj-fila { padding: 12px 16px; gap: 14px; }
+  .aj-fila-titulo { flex: none; min-width: 0; }
+  .aj-fila-texto { flex-direction: column; gap: 2px; align-items: flex-start; }
+  .aj-grupo-cab, .aj-grupo-cuerpo, .aj-grupo-pie, .aj-estado { padding-left: 16px; padding-right: 16px; }
+}

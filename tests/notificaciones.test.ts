@@ -97,7 +97,9 @@ test('sin destinatarios no explota', () => {
 test('el título lleva la sección donde estás parado', () => {
   assert.equal(tituloDe('/crm'), 'MaKo - CRM');
   assert.equal(tituloDe('/whatsapp'), 'MaKo - WhatsApp');
-  assert.equal(tituloDe('/configuraciones'), 'MaKo - Configuraciones');
+  // «Configuración del negocio» desde el 15/10/2026 (lib/ajustes-secciones.ts); Seguridad es de «Tu cuenta».
+  assert.equal(tituloDe('/configuraciones'), 'MaKo - Configuración del negocio');
+  assert.equal(tituloDe('/perfil/seguridad'), 'MaKo - Tu cuenta');
 });
 
 test('una subruta hereda el nombre de su sección', () => {

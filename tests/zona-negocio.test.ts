@@ -292,7 +292,7 @@ const LISTAS: Record<string, number> = {
   'lib/disparadores.ts': 1, // ZONAS_POR_PAIS (la lista de México)
   'lib/meta-pais.ts': 1, // zona → país de Meta
   'lib/acento-workspace.ts': 1, // POR_ZONA: el acento de CDMX
-  'app/perfil/PerfilTabs.tsx': 1, // el selector de zona del perfil
+  'app/perfil/InformacionPersonal.tsx': 1, // el selector de zona del perfil
 };
 /**
  * PENDIENTE (no es de este paquete): un default propio que contradice «un solo default». Se pidió el cambio al cierre de

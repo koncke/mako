@@ -131,10 +131,11 @@ test('apagado se guarda SIEMPRE, aunque los días o las horas no cierren; un ped
   }
 });
 
-test('la pantalla: Configuraciones › Horario, la monta la fila de tabs y guarda un admin', () => {
-  const tabs = sinComentarios(leer('app/configuraciones/ConfigInnerTabs.tsx'));
-  assert.match(tabs, /import \{ HorarioEnvioPanel \} from '\.\/HorarioEnvioPanel';/);
-  assert.match(tabs, /\.\.\.\(esAdmin \? \[\{ key: 'horario' as TabKey, label: 'Horario', panel: <HorarioEnvioPanel \/> \}\] : \[\]\)/, 'el panel existe y nadie lo monta');
+test('la pantalla: Configuración del negocio › General la monta, y guarda un admin', () => {
+  // Desde el 15/10/2026 cada sección es su ruta (lib/ajustes-secciones.ts): el Horario vive en General.
+  const general = sinComentarios(leer('app/configuraciones/page.tsx'));
+  assert.match(general, /import \{ HorarioEnvioPanel \} from '\.\/HorarioEnvioPanel';/);
+  assert.match(general, /<HorarioEnvioPanel \/>/, 'el panel existe y nadie lo monta');
   const acc = sinComentarios(leer('app/configuraciones/horario-actions.ts'));
   assert.match(acc, /^'use server';/m);
   // En un 'use server' sólo funciones async (AGENTS.md): los tipos y constantes viven en lib/.
@@ -163,6 +164,7 @@ test('la pantalla: Configuraciones › Horario, la monta la fila de tabs y guard
 // Restaurado: 7 / 0.
 //   H4. `acabaDeAbrir` sin el tope de minutos (abre todo el horario)          → 6 / 1
 //   H5. ConfigInnerTabs sin la tab «Horario»                                  → 6 / 1
+//       (15/10/2026: la pantalla es app/configuraciones/page.tsx, la sección General; sin el panel, 8 / 1.)
 
 // LA CASILLA «Los avisos al equipo salen igual» (14/10/2026, «nada por detrás» §2.4-h). Rotura: `avisosAlEquipo: true` fijo
 // en el saneo → este test cae (y el del motor, tests/automations-avisos-fuera.test.ts).
