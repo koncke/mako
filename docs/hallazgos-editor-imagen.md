@@ -333,6 +333,23 @@ tenía «SALE»); «al atardecer» en Playfair itálica a 190 px = 969 contra 92
 - Regla: traducir una plantilla = mirar la hoja de contactos; un texto que no entra se arregla en `AJUSTES` con la
   medida escrita, no a ojo.
 
+## `next/font/google` rompió el build de producción con el mismo código que antes compilaba
+
+**Vive en:** `app/image-editor/fuenteUi.tsx` (desde el 15/10, sin `next/font`)
+
+El 15/10 el build de Vercel de `ea8cfdec1` (y su redeploy) murió con «next/font/google queries have exactly one entry»
+· «Can't resolve '@vercel/turbopack-next/internal/font/google/font'», con la traza en
+`presentador/PresentadorCliente.tsx` → `noto_sans_….module.css`. Frenó los deploys de todos los chats.
+
+- ⚠️ **Diagnóstico obvio equivocado: «es el código» o «es que un `'use client'` importa la fuente y la página es
+  server».** Entre el último verde (`5d0e97e9b`) y el rojo había UN solo commit, sin fuentes ni dependencias, y el
+  presentador se montaba así desde el día anterior con varios deploys verdes. Lo que cambió fue el build:
+  `next/font/google` baja la fuente de Google AL COMPILAR. El typecheck y los tests no lo ven nunca.
+- **Arreglo:** Noto Sans entra como hoja de Google desde el navegador (`<FuenteUi />`, un `<link precedence>` que React
+  19 sube al head y deduplica), como las demás fuentes del repo (`app/layout.tsx`). `tokens.css` ya caía a 'Noto Sans'.
+- Regla: nada de `next/font/google` en el editor. Si alguna vez hace falta alojar la fuente, `next/font/local` con el
+  woff2 en el repo, nunca algo que pida una red ajena para compilar. `app/chats/fuente.ts` (Inter) tiene el mismo riesgo.
+
 ## Lo que quedó SIN hacer (con el archivo donde vive)
 
 - **Mirarlo en producción con la sesión de Martín** (la cáscara: la tab, la barra lateral, el `?ws=`, guardar): el
