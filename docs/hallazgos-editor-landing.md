@@ -1188,6 +1188,40 @@ video; las animaciones de página y qué se puede replicar de una web ajena van 
   fallo cobra); si las URL del bucket contestan 206 a un pedido por rango (Safari lo exige:
   `curl -sI -H "Range: bytes=0-1" <url.mp4>`); WebCodecs en un teléfono; un LCP en una traza real.
 
+## Animaciones: Lottie y «Text-to-Lottie» (relevamiento del 15/10/2026, sin código)
+
+Pedido de Martín (14/10, por «Estrategia 3 cuentas»), con un post de Instagram: «Es para crear animaciones... Y en ese
+caso son tipo Lottie, muy utilizado en landing. Pero puede investigar otras skills o investigar otras animaciones».
+Workflow `wf_b629deb0-0b1`; las mediciones y los scripts quedaron en el scratchpad de la sesión 4eb065fe (`lottie/`).
+
+- **«Text-to-Lottie» es `github.com/diffusionstudio/lottie`, MIT estándar** (LICENSE leído completo, 5.580 estrellas):
+  ninguna cláusula como la que dejó fuera a GSAP. **No es un modelo ni una API paga**: es un SKILL.md con recetas que le
+  enseñan al agente (Claude Code) a escribir el JSON de Lottie a mano, más un reproductor local con Skottie. Corrió en
+  esta máquina (npm 406 s, Vite de ~680 MB de RAM): va en una carpeta FUERA del repo y nunca a la vez que el dev server.
+  Verifica sólo en Skottie («Do not verify through lottie-web»), que no es el reproductor de la web, y no menciona
+  reduced-motion.
+- **Los Lottie gratis de LottieFiles** (Lottie Simple License): uso comercial sí, pero «does not include the right to
+  collect or compile Files… to replicate or develop a similar or competing service». Unas pocas piezas dentro de una
+  plantilla, sí; una galería de animaciones de MaKo armada con archivos de LottieFiles, NO.
+- **El reproductor, medido** (gzip): lottie-web 5.13.0 light SVG **46 KB** y anda con la CSP de la publicada SIN tocarla,
+  si el JSON va embebido o sale de `'self'`; **desde el bucket lo bloquea `connect-src`**. dotlottie-web (~529 KB con su
+  wasm), ThorVG (~130 KB), Rive (~424 KB) y Skottie (8 MB) **no arrancan sin `'wasm-unsafe-eval'`**. lottie-web no se
+  actualiza desde mayo de 2025.
+- **CSS le gana en lo chico**: 0,35-0,44 KB contra 46 KB + el JSON, y en bucle con CPU ×4, **0,3-0,5 % de CPU con
+  transform/opacity contra 18-26 % de un Lottie**. Trampa: un trazo con `stroke-dashoffset` cuesta en CSS lo mismo que en
+  Lottie (~16 %).
+- **Ningún reproductor respeta solo `prefers-reduced-motion`**, y lottie-web no se pausa fuera de pantalla. Apagar sólo
+  el autoplay deja el primer cuadro, y en un check ese cuadro está VACÍO: con reduce va `goToAndStop` a un marcador
+  «poster» que muestra el estado final.
+- **Recomendación** (no cambia ninguna de las 7 decisiones de la Ticketera): la etapa 4 (cinta, pasos, carrusel, máquina
+  de escribir, contador) va TODA en CSS + nuestro script. Lottie entra sólo como un recurso acotado, la «Ilustración
+  animada» propia de las plantillas de la etapa 6: lottie-web light SVG desde `'self'`, cargado por `SCRIPT_PAGINA` sólo
+  si la página tiene una y la sección se acerca; JSON propio (generado con la skill o a mano) sin expresiones ni imágenes,
+  el color del acento en slots, ~1-5 KB gzip, con su marcador «poster», pausa fuera de pantalla, bucle finito de hasta 5 s
+  o botón de pausa (WCAG 2.2.2), y nunca en el primer pantallazo.
+- **Sin medir:** hardware real (iPhone iOS 18/26, Android de gama baja, los navegadores de Instagram y Facebook), el peso
+  en 4G real, el LCP con un Lottie en el hero, y la skill instalada con `npx skills add` en una sesión de verdad.
+
 ## Animaciones: las de la página y replicarlas de una web ajena (relevamiento del 14/10/2026, sin código)
 
 Workflow `wf_930dd090-77a` (el video y Motion Sites, otras fuentes, medir qué se replica en webs reales, el mapa del
